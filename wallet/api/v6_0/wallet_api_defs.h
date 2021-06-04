@@ -261,6 +261,17 @@ namespace beam::wallet
         };
     };
 
+#define BEAM_GET_UTXO_RESPONSE_FIELDS(macro) \
+    macro(id,              std::string) \
+    macro(asset_id,        Asset::ID) \
+    macro(amount,          Amount) \
+    macro(type,            std::string) \
+    macro(maturity,        Height) \
+    macro(createTxId,      std::string) \
+    macro(spentTxId,       std::string) \
+    macro(status,          uint32_t) \
+    macro(status_string,   std::string)
+
     struct GetUtxo
     {
         uint32_t count = 0;
@@ -280,8 +291,29 @@ namespace beam::wallet
 
         struct Response
         {
-            std::vector<Coin> utxos;
+            struct Coin
+            {
+#define MACRO(name, type) type name = {};
+                BEAM_GET_UTXO_RESPONSE_FIELDS(MACRO)
+#undef MACRO
+            };
+            std::vector<Coin> coins;
             uint32_t confirmations_count = 0;
+
+            template<typename T>
+            void EmplaceCoin(const T& c)
+            {
+                auto& t = coins.emplace_back();
+                t.id = c.toStringID();
+                t.asset_id = c.getAssetID();
+                t.amount = c.getAmount();
+                t.type = c.getType();
+                t.maturity = c.get_Maturity(confirmations_count);
+                t.createTxId = GetCoinCreateTxID(c);
+                t.spentTxId = GetCoinSpentTxID(c);
+                t.status = GetCoinStatus(c);
+                t.status_string = c.getStatusString();
+            };
         };
     };
 
@@ -345,7 +377,8 @@ namespace beam::wallet
         ByteBuffer paymentProof;
         struct Response
         {
-            storage::PaymentInfo paymentInfo;
+            boost::optional<storage::PaymentInfo> paymentInfo;
+            boost::optional<storage::ShieldedPaymentInfo> shieldedPaymentInfo;
         };
     };
 

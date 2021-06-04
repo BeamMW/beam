@@ -104,7 +104,7 @@ namespace beam::wallet {
         m_pidAsset.FromSk(m_skAsset);
     }
 
-    void AssetTransaction::Builder::FinalyzeTxInternal()
+    void AssetTransaction::Builder::FinalizeTxInternal()
     {
         assert(m_pKrn);
         TxKernelAssetControl& krn = Cast::Up<TxKernelAssetControl>(*m_pKrn);
@@ -128,7 +128,6 @@ namespace beam::wallet {
         m_pTransaction->m_Offset = sk;
         SetParameter(TxParameterID::Offset, m_pTransaction->m_Offset);
 
-        BaseTxBuilder::FinalyzeTxInternal();
+        BaseTxBuilder::FinalizeTxInternal();
     }
-
 }

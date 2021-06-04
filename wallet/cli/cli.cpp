@@ -970,7 +970,7 @@ namespace
             rfHeight = std::to_string(info->m_RefreshHeight);
 
             std::stringstream ss;
-            ss << PrintableAmount(info->m_Value, true, unitName, nthName);
+            ss << PrintableAmount(info->m_Value, true, totals.AssetId, unitName, nthName);
             emission = ss.str();
         }
 
@@ -991,11 +991,11 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletAssetRefreshHeightFormat) % rfHeight
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletAssetEmissionFormat) % emission
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletAssetOwnerFormat) % ownerStr
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(available, false, unitName, nthName))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldMaturing) % to_string(PrintableAmount(maturing, false, unitName, nthName))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming, false, unitName, nthName))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(totals.Unavail, false, unitName, nthName))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(unspent, false, unitName, nthName));
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(available, false, totals.AssetId, unitName, nthName))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldMaturing) % to_string(PrintableAmount(maturing, false, totals.AssetId, unitName, nthName))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming, false, totals.AssetId, unitName, nthName))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(totals.Unavail, false, totals.AssetId,unitName, nthName))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(unspent, false, totals.AssetId, unitName, nthName));
              // % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldShielded) % to_string(PrintableAmount(totals.Shielded, false, unitName, nthName));
 
         auto minHeight = std::min(totals.MinCoinHeightMW, totals.MinCoinHeightShielded);
@@ -1741,15 +1741,15 @@ namespace
 
     int ExportMinerKey(const po::variables_map& vm)
     {
-        auto pass = GetPassword(vm);
-        auto walletDB = OpenDataBase(vm, pass);
-
-        uint32_t subKey = vm[cli::KEY_SUBKEY].as<Nonnegative<uint32_t>>().value;
-        if (subKey < 1)
+        if (vm.count(cli::KEY_SUBKEY) == 0)
         {
             cout << kErrorSubkeyNotSpecified << endl;
             return -1;
         }
+        auto pass = GetPassword(vm);
+        auto walletDB = OpenDataBase(vm, pass);
+
+        uint32_t subKey = vm[cli::KEY_SUBKEY].as<Positive<uint32_t>>().value;
 
         Key::IKdf::Ptr pMaster = walletDB->get_MasterKdf();
         if (!pMaster)
@@ -2756,12 +2756,12 @@ int main_impl(int argc, char* argv[])
 
     try
     {
-        auto [options, visibleOptions] = createOptionsDescription(GENERAL_OPTIONS | WALLET_OPTIONS);
+        auto [options, visibleOptions] = createOptionsDescription(GENERAL_OPTIONS | WALLET_OPTIONS, kDefaultConfigFile);
 
         po::variables_map vm;
         try
         {
-            vm = getOptions(argc, argv, kDefaultConfigFile, options, true);
+            vm = getOptions(argc, argv, options, true);
         }
         catch (const po::invalid_option_value& e)
         {

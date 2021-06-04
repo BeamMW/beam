@@ -343,6 +343,16 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getMaxPrivacyLockTimeLimitHours, std::move(callback));
     }
 
+    void setCoinConfirmationsOffset(uint32_t limit) override
+    {
+        call_async(&IWalletModelAsync::setCoinConfirmationsOffset, limit);
+    }
+
+    void getCoinConfirmationsOffset(AsyncCallback<uint32_t>&& callback) override
+    {
+        call_async(&IWalletModelAsync::getCoinConfirmationsOffset, std::move(callback));
+    }
+
 
     void enableBodyRequests(bool value) override
     {
@@ -384,7 +394,9 @@ namespace beam::wallet
         , m_CoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onNormalCoinsChanged(action, items); })
         , m_ShieldedCoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onShieldedCoinChanged(action, items); })
         , m_AddressChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAddressesChanged(action, items); })
-        , m_TransactionChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onTxStatus(action, items); })
+        , m_TransactionChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) {
+             onTxStatus(action, items);
+              })
         , m_shieldedPer24hFilter(std::make_unique<Filter>(kShieldedPer24hFilterSize))
     {
         m_ainfoDelayed = io::Timer::create(*m_reactor);
@@ -788,16 +800,6 @@ namespace beam::wallet
         return toByteBuffer(vouchers);
     }
 
-    void WalletClient::setCoinConfirmationsOffset(uint32_t offset)
-    {
-        m_walletDB->setCoinConfirmationsOffset(offset);
-    }
-
-    uint32_t WalletClient::getCoinConfirmationsOffset() const
-    {
-        return m_walletDB->getCoinConfirmationsOffset();
-    }
-
     void WalletClient::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
     {
         m_CoinChangesCollector.CollectItems(action, items);
@@ -1093,7 +1095,14 @@ namespace beam::wallet
         {
             if (auto order = dex->getOrder(orderId))
             {
-                auto params = CreateDexTransactionParams(order->sbbsID, orderId);
+                auto params = CreateDexTransactionParams(
+                                orderId,
+                                order->getSBBSID(),
+                                order->getISendCoin(),
+                                order->getISendAmount(),
+                                order->getIReceiveCoin(),
+                                order->getIReceiveAmount());
+
                 startTransaction(std::move(params));
             }
         }
@@ -1579,6 +1588,20 @@ namespace beam::wallet
     {
         auto limit = m_walletDB->get_MaxPrivacyLockTimeLimitHours();
         postFunctionToClientContext([res = std::move(limit), cb = std::move(callback)]() 
+        {
+            cb(res);
+        });
+    }
+
+    void WalletClient::setCoinConfirmationsOffset(uint32_t val)
+    {
+        m_walletDB->setCoinConfirmationsOffset(val);
+    }
+
+    void WalletClient::getCoinConfirmationsOffset(AsyncCallback<uint32_t>&& callback)
+    {
+        auto confirmationOffset = m_walletDB->getCoinConfirmationsOffset();
+        postFunctionToClientContext([res = std::move(confirmationOffset), cb = std::move(callback)]() 
         {
             cb(res);
         });

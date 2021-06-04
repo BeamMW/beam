@@ -21,17 +21,18 @@
 #include "../bvm2.h"
 #include "../bvm2_impl.h"
 
+#include "../ethash_service/ethash_utils.h"
+
 #include <sstream>
+#include <algorithm>
+#include <iterator>
+#include <math.h>
 
 #if defined(__ANDROID__) || !defined(BEAM_USE_AVX)
 #include "crypto/blake/ref/blake2.h"
 #else
 #include "crypto/blake/sse/blake2.h"
 #endif
-
-#include "../../core/mapped_file.h"
-#include "ethash/include/ethash/ethash.h"
-#include "ethash/lib/ethash/ethash-internal.hpp"
 
 namespace Shaders {
 
@@ -70,6 +71,7 @@ namespace Shaders {
 #include "../Shaders/Math.h"
 #include "../Shaders/Sort.h"
 #include "../Shaders/BeamHeader.h"
+#include "../Shaders/Eth.h"
 
 #include "../Shaders/vault/contract.h"
 #include "../Shaders/oracle/contract.h"
@@ -116,16 +118,6 @@ namespace Shaders {
 	}
 	template <bool bToShader> void Convert(Dummy::TestRingSig& x) {
 	}
-	template <bool bToShader> void Convert(Dummy::TestEthash& x) {
-		ConvertOrd<bToShader>(x.m_BlockNumber);
-		ConvertOrd<bToShader>(x.m_Difficulty);
-		ConvertOrd<bToShader>(x.m_Nonce);
-	}
-	template <bool bToShader> void Convert(Dummy::TestEthash2& x) {
-		ConvertOrd<bToShader>(x.m_EpochDatasetSize);
-		ConvertOrd<bToShader>(x.m_Difficulty);
-		ConvertOrd<bToShader>(x.m_Nonce);
-	}
 	template <bool bToShader> void Convert(Dummy::TestEthHeader& x) {
 		ConvertOrd<bToShader>(x.m_Header.m_Difficulty);
 		ConvertOrd<bToShader>(x.m_Header.m_Number);
@@ -133,6 +125,7 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Header.m_GasUsed);
 		ConvertOrd<bToShader>(x.m_Header.m_Time);
 		ConvertOrd<bToShader>(x.m_Header.m_Nonce);
+		ConvertOrd<bToShader>(x.m_EpochDatasetSize);
 	}
 
 	template <bool bToShader> void Convert(Roulette::Params& x) {
@@ -259,6 +252,11 @@ namespace Shaders {
 	}
 	template <bool bToShader> void Convert(Voting::Withdraw& x) {
 		ConvertOrd<bToShader>(x.m_Amount);
+	}
+
+	template <bool bToShader> void Convert(DemoXdao::UpdPosFarming& x) {
+		ConvertOrd<bToShader>(x.m_Beam);
+		ConvertOrd<bToShader>(x.m_WithdrawBeamX);
 	}
 
 	namespace Env {
@@ -732,7 +730,7 @@ namespace bvm2 {
 
 			os << "BVM Method: " << cid << ":" << iMethod << std::endl;
 
-			InitStack(0xcd);
+			InitStackPlus(0);
 
 			HeapReserveStrict(get_HeapLimit()); // this is necessary as long as we run shaders natively (not via wasm). Heap mem should not be reallocated
 
@@ -851,8 +849,13 @@ namespace bvm2 {
 		ContractID m_cidVoting;
 		ContractID m_cidDemoXdao;
 
-		ByteBuffer m_etHashProof;
-		uintBig_t<20> m_hvEpochRoot;
+		struct {
+
+			Shaders::Eth::Header m_Header;
+			uint32_t m_DatasetCount;
+			ByteBuffer m_Proof;
+
+		} m_Eth;
 
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
@@ -969,8 +972,7 @@ namespace bvm2 {
 				//{
 				//case 9: Shaders::Dummy::Method_9(CastArg<Shaders::Dummy::VerifyBeamHeader>(pArgs)); return;
 				//case 11: Shaders::Dummy::Method_11(CastArg<Shaders::Dummy::TestRingSig>(pArgs)); return;
-				//case 13: Shaders::Dummy::Method_13(CastArg<Shaders::Dummy::TestEthash2>(pArgs)); return;
-				//case 14: Shaders::Dummy::Method_14(CastArg<Shaders::Dummy::TestEthHeader>(pArgs)); return;
+				//case 12: Shaders::Dummy::Method_12(CastArg<Shaders::Dummy::TestEthHeader>(pArgs)); return;
 				//}
 			}
 
@@ -1040,6 +1042,7 @@ namespace bvm2 {
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
 				//{
+				//case 4: Shaders::DemoXdao::Method_4(CastArg<Shaders::DemoXdao::UpdPosFarming>(pArgs)); return;
 				//}
 			}
 
@@ -1127,15 +1130,30 @@ namespace bvm2 {
 		}
 	};
 
+	static void VerifyId(const ContractID& cidExp, const ContractID& cid, const char* szName)
+	{
+		if (cidExp != cid)
+		{
+			CidTxt ct;
+			ct.Set(cid);
+
+			printf("Incorrect %s. Actual value: %s\n", szName, ct.m_szBuf);
+			g_TestsFailed++;
+			fflush(stdout);
+		}
+	}
+
+#define VERIFY_ID(exp, actual) VerifyId(exp, actual, #exp)
+
 	void MyProcessor::TestVault()
 	{
 		Zero_ zero;
 		verify_test(ContractCreate_T(m_cidVault, m_Code.m_Vault, zero));
-		verify_test(m_cidVault == Shaders::Vault::s_CID);
+		VERIFY_ID(Shaders::Vault::s_CID, m_cidVault);
 
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_Vault);
-		verify_test(sid == Shaders::Vault::s_SID);
+		VERIFY_ID(Shaders::Vault::s_SID, sid);
 
 		m_lstUndo.Clear();
 
@@ -1621,56 +1639,20 @@ namespace bvm2 {
 		//	verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
 		//}
 
-		if (!m_etHashProof.empty())
+		if (!m_Eth.m_Proof.empty())
 		{
 			ByteBuffer buf;
-			buf.resize(sizeof(Shaders::Dummy::TestEthash2) + m_etHashProof.size());
+			buf.resize(sizeof(Shaders::Dummy::TestEthHeader) + m_Eth.m_Proof.size());
 
-			auto& args = *reinterpret_cast<Shaders::Dummy::TestEthash2*>(&buf.front());
-			memcpy(&args + 1, &m_etHashProof.front(), m_etHashProof.size());
+			auto& args = *reinterpret_cast<Shaders::Dummy::TestEthHeader*>(&buf.front());
+			memcpy(&args + 1, &m_Eth.m_Proof.front(), m_Eth.m_Proof.size());
 
 			ZeroObject(args);
-			args.m_HeaderHash.Scan("53a005f209a4dc013f022a5078c6b38ced76e767a30367ff64725f23ec652a9f");
-			args.m_Nonce = 0xd337f82001e992c5ULL;
-			args.m_Difficulty = 3250907161412814ULL;
-
-			args.m_EpochDatasetSize = 19922923;
-			args.m_EpochRoot = m_hvEpochRoot;
+			args.m_Header = m_Eth.m_Header;
+			args.m_EpochDatasetSize = m_Eth.m_DatasetCount;
 
 			verify_test(RunGuarded(cid, args.s_iMethod, buf, nullptr));
 		}
-
-		{
-			Shaders::Dummy::TestEthHeader args;
-			ZeroObject(args);
-
-			args.m_Header.m_ParentHash.Scan("1e77d8f1267348b516ebc4f4da1e2aa59f85f0cbd853949500ffac8bfc38ba14");
-			args.m_Header.m_UncleHash.Scan("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");
-			args.m_Header.m_Coinbase.Scan("2a65aca4d5fc5b5c859090a6c34d164135398226");
-			args.m_Header.m_Root.Scan("0b5e4386680f43c224c5c037efc0b645c8e1c3f6b30da0eec07272b4e6f8cd89");
-			args.m_Header.m_TxHash.Scan("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421");
-			args.m_Header.m_ReceiptHash.Scan("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421");
-			args.m_Header.m_Bloom = Zero;
-			args.m_Header.m_Extra.Scan("d583010202844765746885676f312e35856c696e7578");
-			args.m_Header.m_Difficulty = 6022643743806;
-			args.m_Header.m_Number = 400000; // height
-			args.m_Header.m_GasLimit = 3141592;
-			args.m_Header.m_GasUsed = 0;
-			args.m_Header.m_Time = 1445130204;
-
-			args.m_Header.m_Nonce = 0x6af23caae95692ef;
-			args.m_MixHash.Scan("3fbea7af642a4e20cd93a945a1f5e23bd72fc5261153e09102cf718980aeff38");
-
-			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
-
-			ECC::Hash::Value hvExp;
-			hvExp.Scan("5d15649e25d8f3e2c0374946078539d200710afc977cdfc6a977bd23f20fa8e8");
-			verify_test(hvExp == args.m_HeaderHash);
-
-
-
-		}
-
 
 		verify_test(ContractDestroy_T(cid, zero));
 	}
@@ -1704,7 +1686,7 @@ namespace bvm2 {
 
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_Sidechain);
-		verify_test(sid == Shaders::Sidechain::s_SID);
+		VERIFY_ID(Shaders::Sidechain::s_SID, sid);
 
 		{
 			const uint32_t nSeq = 10;
@@ -1969,7 +1951,7 @@ namespace bvm2 {
 	{
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_Perpetual);
-		verify_test(sid == Shaders::Perpetual::s_SID);
+		VERIFY_ID(Shaders::Perpetual::s_SID, sid);
 
 		{
 			Shaders::Perpetual::Create arg;
@@ -1995,7 +1977,7 @@ namespace bvm2 {
 	{
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_Pipe);
-		verify_test(sid == Shaders::Pipe::s_SID);
+		VERIFY_ID(Shaders::Pipe::s_SID, sid);
 
 		{
 			Shaders::Pipe::Create arg;
@@ -2121,7 +2103,7 @@ namespace bvm2 {
 	{
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_MirrorCoin);
-		verify_test(sid == Shaders::MirrorCoin::s_SID);
+		VERIFY_ID(Shaders::MirrorCoin::s_SID, sid);
 
 		{
 			Shaders::MirrorCoin::Create0 arg;
@@ -2207,7 +2189,7 @@ namespace bvm2 {
 
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_Faucet);
-		verify_test(sid == Shaders::Faucet::s_SID);
+		VERIFY_ID(Shaders::Faucet::s_SID, sid);
 
 		m_lstUndo.Clear();
 
@@ -2251,7 +2233,7 @@ namespace bvm2 {
 
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_Roulette);
-		verify_test(sid == Shaders::Roulette::s_SID);
+		VERIFY_ID(Shaders::Roulette::s_SID, sid);
 
 		Shaders::Roulette::Spin spin;
 		verify_test(RunGuarded_T(m_cidRoulette, spin.s_iMethod, spin));
@@ -2303,11 +2285,11 @@ namespace bvm2 {
 	{
 		Zero_ zero;
 		verify_test(ContractCreate_T(m_cidVoting, m_Code.m_Voting, zero));
-		verify_test(m_cidVoting == Shaders::Voting::s_CID);
+		VERIFY_ID(Shaders::Voting::s_CID, m_cidVoting);
 
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_Voting);
-		verify_test(sid == Shaders::Voting::s_SID);
+		VERIFY_ID(Shaders::Voting::s_SID, sid);
 
 		m_lstUndo.Clear();
 		m_Height = 10;
@@ -2370,14 +2352,144 @@ namespace bvm2 {
 		}
 	}
 
+	struct LutGenerator
+	{
+		typedef uint64_t TX;
+		typedef double TY;
+		virtual double Evaluate(TX) = 0;
+
+		std::vector<TX> m_vX;
+		std::vector<TY> m_vY;
+		std::vector<uint32_t> m_vYNorm;
+
+		bool IsGoodEnough(TX x, TX x1, double y1, double yPrecise, double tolerance)
+		{
+			const TX& xPrev = m_vX.back();
+			const TY& yPrev = m_vY.back();
+
+			double yInterp = yPrev + (y1 - yPrev) * (x - xPrev) / (x1 - xPrev);
+
+			double yErr = yInterp - yPrecise;
+			return (fabs(yErr / yPrecise) <= tolerance);
+		}
+
+		bool IsGoodEnough(TX x, TX x1, double y1, double tolerance)
+		{
+			double yPrecise = Evaluate(x);
+			return IsGoodEnough(x, x1, y1, yPrecise, tolerance);
+		}
+
+		void Generate(TX x0, TX x1, double tolerance)
+		{
+			assert(x0 < x1);
+
+			m_vX.push_back(x0);
+			m_vY.push_back(Evaluate(x0));
+
+			double y1 = Evaluate(x1);
+
+			while (true)
+			{
+				TX xNext = x1;
+				TY yNext = y1;
+
+				uint32_t nCycles = 0;
+				for (; ; nCycles++)
+				{
+					// probe 3 points: begin, end, mid
+					const TX& xPrev = m_vX.back();
+					TX dx = xNext - xPrev;
+					TX xMid = xPrev + dx / 2;
+					double yMid = Evaluate(xMid);
+
+					bool bOk = true;
+					double tolerance_der = tolerance / (double) (dx - 2);
+					if (bOk && !IsGoodEnough(xPrev + 1, xNext, yNext, tolerance_der))
+						bOk = false;
+
+					if (bOk && !IsGoodEnough(xNext - 1, xNext, yNext, tolerance_der))
+						bOk = false;
+
+					if (bOk && !IsGoodEnough(xMid, xNext, yNext, yMid, tolerance))
+						bOk = false;
+
+					if (bOk)
+						break;
+
+					xNext = xMid;
+					yNext = yMid;
+				}
+
+				m_vX.push_back(xNext);
+				m_vY.push_back(yNext);
+
+				if (!nCycles)
+					break;
+			}
+
+		}
+
+		void Normalize(uint32_t nMax)
+		{
+			double maxVal = 0;
+			for (size_t i = 0; i < m_vY.size(); i++)
+				std::setmax(maxVal, m_vY[i]);
+
+			m_vYNorm.resize(m_vY.size());
+			for (size_t i = 0; i < m_vY.size(); i++)
+				m_vYNorm[i] = static_cast<uint32_t>(nMax * m_vY[i] / maxVal);
+		}
+	};
+
 	void MyProcessor::TestDemoXdao()
 	{
+		//struct MyLutGenerator
+		//	:public LutGenerator
+		//{
+		//	virtual double Evaluate(TX x)
+		//	{
+		//		double k = ((double) x) / (double) (Shaders::g_Beam2Groth * 100);
+		//		return pow(k, 0.7);
+		//	}
+		//};
+
+		//MyLutGenerator lg;
+		//lg.Generate(Shaders::g_Beam2Groth * 16, Shaders::g_Beam2Groth * 1000000, 0.1);
+		//lg.Normalize(1000000);
+
 		Zero_ zero;
 		verify_test(ContractCreate_T(m_cidDemoXdao, m_Code.m_DemoXdao, zero));
 
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_DemoXdao);
-		verify_test(sid == Shaders::DemoXdao::s_SID);
+		VERIFY_ID(Shaders::DemoXdao::s_SID, sid);
+
+		for (uint32_t i = 0; i < 10; i++)
+		{
+			Shaders::DemoXdao::UpdPosFarming args;
+			ZeroObject(args);
+
+			args.m_Beam = Shaders::g_Beam2Groth * 20000 * (i + 3);
+			args.m_BeamLock = 1;
+			args.m_Pk.m_X = i;
+			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args));
+
+			if (i & 1)
+				m_Height += 1000;
+		}
+
+		for (uint32_t i = 0; i < 10; i++)
+		{
+			Shaders::DemoXdao::UpdPosFarming args;
+			ZeroObject(args);
+
+			args.m_Beam = Shaders::g_Beam2Groth * 20000 * (i + 3);
+			args.m_Pk.m_X = i;
+			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args));
+
+			if (i & 1)
+				m_Height += 1000;
+		}
 	}
 
 
@@ -2395,39 +2507,37 @@ namespace bvm2 {
 		}
 
 		struct VarEnumCtx
+			:public IReadVars
 		{
-			ByteBuffer m_kMax;
 			BlobMap::Set::iterator m_it;
+			BlobMap::Set::iterator m_itEnd;
+
+			virtual bool MoveNext() override
+			{
+				if (m_it == m_itEnd)
+					return false;
+
+				const auto& x = *m_it;
+
+				m_LastKey = x.ToBlob();
+				m_LastVal = x.m_Data;
+
+				m_it++;
+				return true;
+			}
 		};
 
-		std::unique_ptr<VarEnumCtx> m_pVarEnum;
-
-		virtual void VarsEnum(const Blob& kMin, const Blob& kMax) override
+		virtual void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr& pRes) override
 		{
-			if (!m_pVarEnum)
-				m_pVarEnum = std::make_unique<VarEnumCtx>();
+			auto p = std::make_unique<VarEnumCtx>();
 
-			m_pVarEnum->m_it = m_Vars.lower_bound(kMin, BlobMap::Set::Comparator());
-			kMax.Export(m_pVarEnum->m_kMax);
-		}
+			ZeroObject(p->m_LastKey);
+			ZeroObject(p->m_LastVal);
 
-		virtual bool VarsMoveNext(Blob& key, Blob& val) override
-		{
-			assert(m_pVarEnum);
-			auto& ctx = *m_pVarEnum;
-			const auto& x = *ctx.m_it;
+			p->m_it = m_Vars.lower_bound(kMin, BlobMap::Set::Comparator());
+			p->m_itEnd = m_Vars.upper_bound(kMax, BlobMap::Set::Comparator());
 
-			key = x.ToBlob();
-			if (key > ctx.m_kMax)
-			{
-				m_pVarEnum.reset();
-				return false;
-			}
-
-			val = x.m_Data;
-
-			ctx.m_it++;
-			return true;
+			pRes = std::move(p);
 		}
 
 		void TestHeap()
@@ -2496,221 +2606,219 @@ namespace bvm2 {
 
 } // namespace bvm2
 
-namespace EthashUtils
-{
-	typedef Shaders::Dummy::Ethash::ProofBase ProofBase;
-
-	void EvaluateElement(ProofBase::THash& hv, ProofBase::TCount n, const ethash_epoch_context& ctx)
-	{
-		auto item = ethash::calculate_dataset_item_1024(ctx, n);
-
-		ECC::Hash::Processor()
-			<< Blob(item.bytes, sizeof(item.bytes))
-			>> hv;
-	}
-
-
-	struct Hdr
-	{
-		uint32_t m_FullItems;
-		uint32_t m_CacheItems;
-		uint32_t m_h0; // height from which the hashes are stored
-
-		// followed by the cache
-		// followed by the tree hashes
-	};
-
-	struct MyMultiProofBase
-		:public Shaders::Dummy::Ethash::ProofBase
-	{
-		std::vector<THash> m_vRes;
-
-		void ProofPushZero()
-		{
-			m_vRes.emplace_back() = Zero;
-		}
-
-		void ProofMerge()
-		{
-			assert(m_vRes.size() >= 2);
-			auto& hv = m_vRes[m_vRes.size() - 2];
-
-			ECC::Hash::Processor() << hv << m_vRes.back() >> hv;
-			m_vRes.pop_back();
-		}
-	};
-
-	struct MyMultiProof
-		:public MyMultiProofBase
-	{
-		const THash* m_pHashes;
-		const Hdr* m_pHdr;
-		const ethash_epoch_context* m_pCtx;
-
-		bool ProofPush(TCount n, TCount nHalf)
-		{
-			Merkle::Position pos;
-
-			for (pos.H = 0; nHalf; pos.H++)
-			{
-				nHalf >>= 1;
-				assert(!(1 & n));
-				n >>= 1;
-			}
-
-			pos.X = n;
-
-			uint8_t h0 = static_cast<uint8_t>(ByteOrder::from_le(m_pHdr->m_h0));
-			if (pos.H < h0)
-			{
-				if (pos.H)
-					return false;
-
-				EvaluateElement(m_vRes.emplace_back(), n, *m_pCtx);
-			}
-			else
-			{
-				auto iHash = Merkle::FlatMmr::Pos2Idx(pos, h0);
-				m_vRes.push_back(m_pHashes[iHash]);
-			}
-
-			return true;
-		}
-
-	};
-
-
-	void GenerateLocalData(uint32_t iEpoch, const char* szPath, uint32_t h0)
-	{
-		ethash_epoch_context* pCtx = ethash_create_epoch_context(iEpoch);
-
-		uint32_t nFullItems = pCtx->full_dataset_num_items;
-
-		Hdr hdr;
-		hdr.m_FullItems = ByteOrder::to_le(nFullItems);
-		hdr.m_CacheItems = ByteOrder::to_le((uint32_t) pCtx->light_cache_num_items);
-		hdr.m_h0 = ByteOrder::to_le(h0);
-
-		std::FStream fs;
-		fs.Open(szPath, false, true);
-		fs.write(&hdr, sizeof(hdr));
-
-		fs.write(pCtx->light_cache, sizeof(*pCtx->light_cache) * pCtx->light_cache_num_items);
-
-		MyMultiProofBase wrk;
-
-		for (uint32_t i = 0; i < nFullItems; )
-		{
-			EvaluateElement(wrk.m_vRes.emplace_back(), i, *pCtx);
-
-			uint32_t nPos = ++i;
-			for (uint32_t h = 0; ; h++, nPos >>= 1)
-			{
-				if (h >= h0)
-					fs.write(&wrk.m_vRes.back(), sizeof(ProofBase::THash));
-
-				if (1 & nPos)
-					break;
-
-				wrk.ProofMerge();
-			}
-		}
-
-		ethash_destroy_epoch_context(pCtx);
-	}
-
-	void CropLocalData(const char* szDst, const char* szSrc, uint32_t dh)
-	{
-		MappedFileRaw fmp;
-		fmp.Open(szSrc);
-
-		auto& hdrSrc = fmp.get_At<Hdr>(0);
-		uint32_t nSizeCache = sizeof(ethash_hash512) * ByteOrder::from_le(hdrSrc.m_CacheItems);
-		uint32_t nFullItems = ByteOrder::from_le(hdrSrc.m_FullItems);
-		uint32_t h0 = ByteOrder::from_le(hdrSrc.m_h0);
-
-		auto pCache = &fmp.get_At<ProofBase::THash>(sizeof(Hdr));
-		auto pHashes = &fmp.get_At<ProofBase::THash>(sizeof(Hdr) + nSizeCache);
-
-		Hdr hdrDst = hdrSrc;
-		hdrDst.m_h0 = ByteOrder::to_le(h0 + dh);
-
-		std::FStream fs;
-		fs.Open(szDst, false, true);
-		fs.write(&hdrDst, sizeof(hdrDst));
-		fs.write(pCache, nSizeCache);
-
-		uint32_t nHashes0 = static_cast<uint32_t>(Merkle::FlatMmr::get_TotalHashes(nFullItems, static_cast<uint8_t>(h0)));
-		Merkle::Position pos;
-		ZeroObject(pos);
-
-		for (uint32_t i = 0; i < nHashes0; i++)
-		{
-			if (pos.H >= dh)
-				fs.write(pHashes + i, sizeof(ProofBase::THash));
-
-			const uint32_t nMsk = (2U << pos.H) - 1;
-
-			if (nMsk == (pos.X & nMsk))
-				pos.H++;
-			else
-			{
-				pos.H = 0;
-				pos.X++;
-			}
-		}
-	}
-
-
-	uint32_t GenerateProof(const char* szPath, const uintBig_t<64>& hvSeed, ByteBuffer& res, ProofBase::THash& hvRoot)
-	{
-		MappedFileRaw fmp;
-		fmp.Open(szPath);
-
-		auto& hdr = fmp.get_At<Hdr>(0);
-
-		ethash_epoch_context ctx = ethash_epoch_context{
-			0,
-			static_cast<int>(ByteOrder::from_le(hdr.m_CacheItems)),
-			&fmp.get_At<ethash_hash512>(sizeof(Hdr)),
-			nullptr,
-			static_cast<int>(ByteOrder::from_le(hdr.m_FullItems)) };
-
-		ECC::Hash::Value hvMix;
-		uint32_t pSolIndices[64];
-		ethash_hash1024 pSolItems[64];
-
-		ethash_get_MixHash2((ethash_hash256*)hvMix.m_pData, pSolIndices, pSolItems, &ctx, (ethash_hash512*)hvSeed.m_pData);
-
-		typedef Shaders::Dummy::MultiProof::Builder<MyMultiProof> MyBuilder;
-		Shaders::Dummy::MultiProof::Builder<MyMultiProof> mpb;
-
-		mpb.m_pHdr = &hdr;
-		mpb.m_pCtx = &ctx;
-		mpb.m_pHashes = &fmp.get_At<MyBuilder::THash>(sizeof(Hdr) + sizeof(ethash_hash512) * ctx.light_cache_num_items);
-
-		mpb.Build(nullptr, 0, ctx.full_dataset_num_items); // root
-
-		hvRoot = mpb.m_vRes.front();
-		mpb.m_vRes.clear();
-
-		mpb.Build(pSolIndices, _countof(pSolIndices), ctx.full_dataset_num_items); // proof for this set of indices
-
-		res.resize(sizeof(pSolItems) + sizeof(ProofBase::THash) * mpb.m_vRes.size());
-		memcpy(&res.front(), pSolItems, sizeof(pSolItems));
-		memcpy(&res.front() + sizeof(pSolItems), &mpb.m_vRes.front(), sizeof(ProofBase::THash) * mpb.m_vRes.size());
-
-		return ctx.full_dataset_num_items;
-	}
-
-} // namespace EthashUtils
-
 
 } // namespace beam
 
 void Shaders::Env::CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint8_t bInheritContext)
 {
 	Cast::Up<beam::bvm2::MyProcessor>(g_pEnv)->CallFarN(cid, iMethod, pArgs, nArgs, bInheritContext);
+}
+
+namespace 
+{
+	void TestRLP()
+	{
+		using namespace Shaders;
+		using namespace beam;
+		using namespace Eth;
+
+		struct ByteStream
+		{
+			ByteBuffer m_Buffer;
+
+			void Write(uint8_t b)
+			{
+				m_Buffer.emplace_back(b);
+			}
+
+			void Write(const uint8_t* p, uint32_t n)
+			{
+				::std::copy(p, p + n, ::std::back_inserter(m_Buffer));
+			}
+		};
+
+		struct RlpVisitor
+		{
+			struct Node
+			{
+				Rlp::Node::Type m_Type;
+				ByteBuffer m_Buffer;
+			};
+
+			bool OnNode(const Rlp::Node& node)
+			{
+				auto& item = m_Items.emplace_back();
+				item.m_Type = node.m_Type;
+				item.m_Buffer.assign(node.m_pBuf, node.m_pBuf + node.m_nLen);
+				return false;
+			}
+
+	
+			std::vector<Node> m_Items;
+		};
+
+		auto dog = to_opaque("dog");
+		// The string 'dog' = [0x83, 'd', 'o', 'g']
+		{
+			Rlp::Node n(dog);
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x83, 'd', 'o', 'g' }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 'd', 'o', 'g' }));
+		}
+		// The list['cat', 'dog'] = [0xc8, 0x83, 'c', 'a', 't', 0x83, 'd', 'o', 'g']
+		{
+			auto cat = to_opaque("cat");
+			Rlp::Node nodes[] = {Rlp::Node(cat), Rlp::Node(dog)};
+			Rlp::Node list(nodes);
+
+			ByteStream bs;
+			list.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0xc8, 0x83, 'c', 'a', 't', 0x83, 'd', 'o', 'g' }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			RlpVisitor vt;
+			verify_test(!Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size()-1, vt));
+			
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::List);
+			RlpVisitor v2;
+			verify_test(Rlp::Decode(v.m_Items[0].m_Buffer.data(), (uint32_t)v.m_Items[0].m_Buffer.size(), v2));
+
+			verify_test(v2.m_Items[0].m_Buffer == ByteBuffer({ 'c', 'a', 't' }));
+			verify_test(v2.m_Items[1].m_Buffer == ByteBuffer({ 'd', 'o', 'g' }));
+			
+		}
+
+		// The empty string('null') = [0x80]
+		{
+			Rlp::Node n(to_opaque(""));
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x80 }));
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer.empty());
+		}
+		
+		auto createEmptyList = []()
+		{
+			Rlp::Node list;
+			list.m_Type = Rlp::Node::Type::List;
+			list.m_nLen = 0;
+			return list;
+		};
+
+		//The empty list = [0xc0]
+		{
+			Rlp::Node list = createEmptyList();
+
+			ByteStream bs;
+			list.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0xc0 }));
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::List && v.m_Items[0].m_Buffer.empty());
+		}
+
+			
+		//The integer 0 = [0x80]
+		{
+			Rlp::Node n(0);
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x80 }));
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer.empty());// == ByteBuffer({ '\0' }));
+		}
+
+		//The encoded integer 0 ('\x00') = [0x00]
+		{
+			auto op = to_opaque("\0");
+			Rlp::Node n(op);
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x00 }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 0x00 }));
+		}
+
+		//The encoded integer 15 ('\x0f') = [0x0f]
+		{
+			auto op = to_opaque("\x0f");
+			Rlp::Node n(op);
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x0f }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 0x0f }));
+		}
+
+		//The encoded integer 1024 ('\x04\x00') = [0x82, 0x04, 0x00]
+		{
+			auto op = to_opaque("\x04\x0");
+			Rlp::Node n(op);
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x82, 0x04, 0x00 }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 0x04, 0x00 }));
+		}
+
+		//The set theoretical representation of three, [[], [[]], [[], [[]] ] ] = [0xc7, 0xc0, 0xc1, 0xc0, 0xc3, 0xc0, 0xc1, 0xc0]
+		{
+			Rlp::Node n1[1] = { createEmptyList() };
+			Rlp::Node n2[2] = { createEmptyList(), Rlp::Node(n1) };
+			Rlp::Node n3[3] = { createEmptyList(), Rlp::Node(n1), Rlp::Node(n2)};
+			Rlp::Node root(n3);
+			ByteStream bs;
+			root.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0xc7, 0xc0, 0xc1, 0xc0, 0xc3, 0xc0, 0xc1, 0xc0 }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::List && v.m_Items[0].m_Buffer.size() == 7);
+			RlpVisitor v2;
+			verify_test(Rlp::Decode(v.m_Items[0].m_Buffer.data(), (uint32_t)v.m_Items[0].m_Buffer.size(), v2));
+
+			verify_test(v2.m_Items.size() == 3);
+			verify_test(v2.m_Items[0].m_Type == Rlp::Node::Type::List);
+			verify_test(v2.m_Items[1].m_Type == Rlp::Node::Type::List);
+			verify_test(v2.m_Items[2].m_Type == Rlp::Node::Type::List);
+
+			RlpVisitor v3;
+			verify_test(Rlp::Decode(v2.m_Items[1].m_Buffer.data(), (uint32_t)v2.m_Items[1].m_Buffer.size(), v3));
+			verify_test(v3.m_Items.size() == 1 && v3.m_Items[0].m_Type == Rlp::Node::Type::List);
+
+			RlpVisitor v4;
+			verify_test(Rlp::Decode(v2.m_Items[2].m_Buffer.data(), (uint32_t)v2.m_Items[2].m_Buffer.size(), v4));
+			verify_test(v4.m_Items.size() == 2 && v4.m_Items[0].m_Type == Rlp::Node::Type::List && v4.m_Items[1].m_Type == Rlp::Node::Type::List);
+		}
+
+		//The string 'Lorem ipsum dolor sit amet, consectetur adipisicing elit' = [0xb8, 0x38, 'L', 'o', 'r', 'e', 'm', ' ', ..., 'e', 'l', 'i', 't']
+		{
+			auto op = to_opaque("Lorem ipsum dolor sit amet, consectetur adipisicing elit");
+			Rlp::Node n(op);
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0xb8, 0x38, 'L', 'o', 'r', 'e', 'm', ' ', 'i', 'p', 's', 'u', 'm', ' ', 'd', 'o', 'l', 'o', 'r', ' ', 's', 'i', 't', ' ', 'a', 'm', 'e', 't', ',', ' ', 'c', 'o', 'n', 's', 'e', 'c', 't', 'e', 't', 'u', 'r', ' ', 'a', 'd', 'i', 'p', 'i', 's', 'i', 'c', 'i', 'n', 'g', ' ',  'e', 'l', 'i', 't' }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 'L', 'o', 'r', 'e', 'm', ' ', 'i', 'p', 's', 'u', 'm', ' ', 'd', 'o', 'l', 'o', 'r', ' ', 's', 'i', 't', ' ', 'a', 'm', 'e', 't', ',', ' ', 'c', 'o', 'n', 's', 'e', 'c', 't', 'e', 't', 'u', 'r', ' ', 'a', 'd', 'i', 'p', 'i', 's', 'i', 'c', 'i', 'n', 'g', ' ',  'e', 'l', 'i', 't' }));
+
+		}
+	}
 }
 
 int main()
@@ -2724,19 +2832,82 @@ int main()
 		using namespace beam::bvm2;
 
 		TestMergeSort();
+		TestRLP();
 
 		MyProcessor proc;
-/*
+
 		{
-			//beam::EthashUtils::GenerateLocalData(176, "S:\\my_epoch-176-3.bin", 3); // skip 1st 3 levels, size reduction of 2^3 == 8
-			//beam::EthashUtils::CropLocalData("S:\\my_epoch-176-5.bin", "S:\\my_epoch-176-3.bin", 2); // skip 2 more levels
 
-			uintBig_t<64> hvSeed;
-			hvSeed.Scan("46cac938dbb96820c759754a01ee2a4586be377fb82baac75c2586a3d868537a9aa4e7a18324f01739dd31ab327b8b0e10b7bb1f8ddcd814bc24f870039c4c54");
+			// const char szPathData[] = "S:\\Beam\\Data\\EthEpoch\\";
 
-			beam::EthashUtils::GenerateProof("S:\\my_epoch-176-5.bin", hvSeed, proc.m_etHashProof, proc.m_hvEpochRoot);
-		}
+			// 1. Create local data for all the epochs (VERY long)
+
+/*
+			ExecutorMT_R exec;
+
+			for (uint32_t iEpoch = 0; iEpoch < 1024; iEpoch++)
+			{
+				struct MyTask :public Executor::TaskAsync
+				{
+					uint32_t m_iEpoch;
+
+					void Exec(Executor::Context&) override
+					{
+						std::string sPath = szPathData + std::to_string(m_iEpoch);
+
+						//+"-3.bin"
+
+						beam::EthashUtils::GenerateLocalData(m_iEpoch, (sPath + ".cache").c_str(), (sPath + ".tre3").c_str(), 3); // skip 1st 3 levels, size reduction of 2^3 == 8
+
+						beam::EthashUtils::CropLocalData((sPath + ".tre5").c_str(), (sPath + ".tre3").c_str(), 2); // skip 2 more levels
+					}
+				};
+
+				auto pTask = std::make_unique<MyTask>();
+				pTask->m_iEpoch = iEpoch;
+				exec.Push(std::move(pTask));
+			}
+			exec.Flush(0);
 */
+
+			// 2. Generate the 'SuperTree'
+			//beam::EthashUtils::GenerateSuperTree((std::string(szPathData) + "Super.tre").c_str(), szPathData, szPathData, 3);
+
+
+			// eth block number 12496979
+			auto& hdr = proc.m_Eth.m_Header;
+			hdr.m_ParentHash.Scan("7a4bf8dc58922f2f8814399542abb379d0b0cc295687f3d5c32e0ce0b9005e3d");
+			hdr.m_UncleHash.Scan("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");
+			hdr.m_Coinbase.Scan("ea674fdde714fd979de3edf0f56aa9716b898ec8");
+			hdr.m_Root.Scan("416e7a6de2f67bdb1321c8a9fda385f91e5cd13ddaf1d7b943321110c38be679");
+			hdr.m_TxHash.Scan("127d45c910e002965ca732674236310e0bc2880f05df3d85492550a605867891");
+			hdr.m_ReceiptHash.Scan("de44f15c086f97cbc6255359280916a75c7a23785941ebacf98be5ae5554b0e9");
+			hdr.m_Bloom.Scan("55a861f3f6165d14d38f269a8823d263888cd00d94984854c7a50081198a2b2f922c356c07949a35d040535a1e400dd11e18838449433926924593ad55e6682b605c64922b02a33efcebf28d14aa5cf30522133c9b48380eee4616fcc2475715dcad428cbf818c8601d6d3002100f9c8566dd46488380603c2c94ff7048c9be4c954cb7fc616ef71b4d147ec40973e4611359fa9af6f5068097a2b67891115a1e7dfa91137b721e25785df8cfd41f7e18bc03ea50a035021c166864a8c00cd255dd004762b87a4f16bc6d2b406db3a1d0358ee036e65797bc55872ce0cea246582fd68118d1a6008e04c9c6c90b27694cc33764c5b4b834884bb7306a073faa1");
+			hdr.m_nExtra = hdr.m_Extra.Scan("65746865726d696e652d6575726f70652d6e6f72746831") / 2;
+			hdr.m_Difficulty = 0x1ac0292081bbf2;
+			hdr.m_Number = 0xbeb053; // height
+			hdr.m_GasLimit = 0xe4e157;
+			hdr.m_GasUsed = 0xe4c170;
+			hdr.m_Time = 0x60ab9baf;
+			hdr.m_Nonce = 0x9e2b2184779e0239;
+
+			Shaders::Dummy::Ethash::Hash512 hvSeed;
+			hdr.get_SeedForPoW(hvSeed);
+
+			// 3. Generate proof
+			/*
+			auto iEpoch = hdr.get_Epoch();
+			std::string sEpoch = std::to_string(iEpoch);
+
+			proc.m_Eth.m_DatasetCount = beam::EthashUtils::GenerateProof(
+				iEpoch,
+				(std::string(szPathData) + sEpoch + ".cache").c_str(),
+				(std::string(szPathData) + sEpoch + ".tre5").c_str(),
+				(std::string(szPathData) + "Super.tre").c_str(),
+				hvSeed, proc.m_Eth.m_Proof);
+			*/
+		}
+
 		proc.TestAll();
 
 		MyManager man(proc.m_Vars);

@@ -163,6 +163,7 @@ namespace beam::wallet
         void RequestShieldedOutputsAt(Height h, std::function<void(Height, TxoID)>&& onRequestComplete);
         bool IsConnectedToOwnNode() const;
         void EnableBodyRequests(bool value);
+        void assertThread() const; // throws if not in wallet thread
 
     protected:
         void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
@@ -257,6 +258,7 @@ namespace beam::wallet
         bool IsMobileNodeEnabled() const;
 
     private:
+        std::thread::id _myThread;
 
 // The following macros define
 // Wallet to Node messages (requests) to get update on blockchain state
@@ -286,34 +288,34 @@ namespace beam::wallet
         struct ExtraData :public AllTasks {
             struct Transaction
             {
-                TxID m_TxID;
+                TxID m_TxID = {0};
                 SubTxID m_SubTxID = kDefaultSubTxID;
             };
             struct Utxo { Coin::ID m_CoinID; };
             struct Kernel
             {
-                TxID m_TxID;
+                TxID m_TxID = {0};
                 SubTxID m_SubTxID = kDefaultSubTxID;
             };
             struct Kernel2
             {
-                TxID m_TxID;
+                TxID m_TxID = { 0 };
                 SubTxID m_SubTxID = kDefaultSubTxID;
             };
             struct Asset
             {
-                TxID m_TxID;
+                TxID m_TxID = { 0 };
                 SubTxID m_SubTxID = kDefaultSubTxID;
             };
             struct ProofShieldedOutp
             {
-                TxID m_TxID;
+                TxID m_TxID = { 0 };
                 SubTxID m_SubTxID = kDefaultSubTxID;
                 ProofShildedOutputCallback m_callback;
             };
             struct ShieldedList
             {
-                TxID m_TxID;
+                TxID m_TxID = { 0 };
                 ShieldedListCallback m_callback;
             };
             struct ShieldedOutputsAt
@@ -322,11 +324,11 @@ namespace beam::wallet
             };
             struct BodyPack
             {
-                Height m_StartHeight;
+                Height m_StartHeight = MaxHeight;
             };
             struct Body
             {
-                Height m_Height;
+                Height m_Height = MaxHeight;
             };
         };
 

@@ -23,7 +23,6 @@ namespace beam::wallet
 {
     class WalletApi
         : public ApiBase
-        , private proto::FlyClient::Request::IHandler
     {
     public:
         // MUST BE SAFE TO CALL FROM ANY THREAD
@@ -36,56 +35,19 @@ namespace beam::wallet
                   ISwapsProvider::Ptr swaps,
                   IShadersManager::Ptr contracts);
 
-        virtual IWalletDB::Ptr getWalletDB() const
-        {
-            if (_wdb == nullptr)
-            {
-                throw jsonrpc_exception(ApiError::NotOpenedError, "WalletDB is nullptr");
-            }
-            return _wdb;
-        }
+        virtual IWalletDB::Ptr       getWalletDB() const;
+        virtual Wallet::Ptr          getWallet() const;
+        virtual ISwapsProvider::Ptr  getSwaps() const;
+        virtual IShadersManager::Ptr getContracts() const;
+        virtual Height               get_CurrentHeight() const;
 
-        virtual Wallet::Ptr getWallet() const
-        {
-            if (_wallet == nullptr)
-            {
-                throw jsonrpc_exception(ApiError::NotOpenedError, "Wallet is nullptr");
-            }
-            return _wallet;
-        }
+        void assertWalletThread() const;
+        void checkCAEnabled() const;
+        bool getCAEnabled() const;
 
-        virtual ISwapsProvider::Ptr getSwaps() const
-        {
-            if (_swaps == nullptr)
-            {
-                throw jsonrpc_exception(ApiError::NoSwapsError);
-            }
-            return _swaps;
-        }
+        WALLET_API_METHODS(BEAM_API_RESPONSE_FUNC)
+        WALLET_API_METHODS(BEAM_API_HANDLE_FUNC)
 
-        virtual IShadersManager::Ptr getContracts() const
-        {
-            if (_contracts == nullptr)
-            {
-                throw jsonrpc_exception(ApiError::NotSupported);
-            }
-            return _contracts;
-        }
-
-        virtual Height get_CurrentHeight() const
-        {
-            return getWallet()->get_CurrentHeight();
-        }
-
-        #define RESPONSE_FUNC(api, name, ...) \
-        void getResponse(const JsonRpcId& id, const api::Response& data, json& msg);
-        WALLET_API_METHODS(RESPONSE_FUNC)
-        #undef RESPONSE_FUNC
-
-        #define HANDLE_FUNC(api, name, ...) \
-        virtual void onHandle##api(const JsonRpcId& id, const api& data);
-        WALLET_API_METHODS(HANDLE_FUNC)
-        #undef HANDLE_FUNC
 
         template<typename T>
         void doResponse(const JsonRpcId& id, const T& response)
@@ -131,10 +93,7 @@ namespace beam::wallet
         bool checkTxAccessRights(const TxParameters&);
         void checkTxAccessRights(const TxParameters&, ApiError code, const std::string& errmsg);
 
-        #define PARSE_FUNC(api, name, ...) \
-        [[nodiscard]] std::pair<api, MethodInfo> onParse##api(const JsonRpcId& id, const json& msg);
-        WALLET_API_METHODS(PARSE_FUNC)
-        #undef PARSE_FUNC
+        WALLET_API_METHODS(BEAM_API_PARSE_FUNC)
 
         template<typename T>
         std::pair<T, IWalletApi::MethodInfo> onParseIssueConsume(bool issue, const JsonRpcId& id, const json& params);
@@ -142,8 +101,6 @@ namespace beam::wallet
         // If no fee read and no min fee provided this function calculates minimum fee itself
         Amount getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const;
         Amount getBeamFeeParam(const json& params, const std::string& name) const;
-
-        virtual void OnComplete(proto::FlyClient::Request&) override;
 
         std::string getTokenType(TokenType type) const;
 
@@ -156,11 +113,25 @@ namespace beam::wallet
         std::shared_ptr<bool> _contractsGuard = std::make_shared<bool>(true);
         IShadersManager::Ptr  _contracts;
 
-        struct RequestHeaderMsg : public proto::FlyClient::RequestEnumHdrs
+        struct RequestHeaderMsg
+            : public proto::FlyClient::RequestEnumHdrs
+            , public proto::FlyClient::Request::IHandler
         {
             typedef boost::intrusive_ptr<RequestHeaderMsg> Ptr;
             ~RequestHeaderMsg() override = default;
+
+            RequestHeaderMsg(const JsonRpcId id, std::weak_ptr<bool> guard, WalletApi& wapi)
+                : _id(id)
+                , _guard(guard)
+                , _wapi(wapi)
+            {}
+
+            void OnComplete(proto::FlyClient::Request&) override;
+
+        private:
             JsonRpcId _id;
+            std::weak_ptr<bool> _guard;
+            WalletApi& _wapi;
         };
 
         std::map<TokenType, std::string> _ttypesMap;

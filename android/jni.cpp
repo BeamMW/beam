@@ -65,6 +65,7 @@ namespace
     static beam::wallet::TxParameters _txParameters;
 
     static uint8_t m_mpLockTimeLimit = 64;
+    static uint32_t m_confirmationOffset = 0;
     static ShieldedVoucherList lastVouchers;
     static std::string lastWalledId("");
 
@@ -1092,13 +1093,21 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(setCoinConfirmationsOffset)(JN
 {
     if (offset <= std::numeric_limits<uint32_t>::max())
     {
-        walletModel->setCoinConfirmationsOffset(static_cast<uint32_t>(offset));
+        walletModel->getAsync()->setCoinConfirmationsOffset(static_cast<uint32_t>(offset));
     }
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getCoinConfirmationsOffsetAsync)(JNIEnv *env, jobject thiz)
+{
+    return walletModel->getAsync()->getCoinConfirmationsOffset([&] (uint32_t offset)
+    {
+        m_confirmationOffset = offset;
+    });
 }
 
 JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getCoinConfirmationsOffset)(JNIEnv *env, jobject thiz)
 {
-    return walletModel->getCoinConfirmationsOffset();
+    return m_confirmationOffset;
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(setMaxPrivacyLockTimeLimitHours)(JNIEnv *env, jobject thiz, jlong hours)

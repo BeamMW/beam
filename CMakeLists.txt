@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 cmake_policy(SET CMP0074 NEW)
 
 set(VERSION_MAJOR 6)
-set(VERSION_MINOR 0 )
+set(VERSION_MINOR 1 )
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
@@ -161,7 +161,7 @@ option(BEAM_WALLET_CLIENT_LIBRARY "Build only binaries required for client app" 
     add_definitions(-DDEBUG_MESSAGES_IN_RELEASE_MODE)
 #endif()
 #it's enabled by default for testnet
-#add_definitions(-DLOG_VERBOSE_ENABLED=1)
+add_definitions(-DLOG_VERBOSE_ENABLED=1)
 
 if(SHOW_CODE_LOCATION)
     target_compile_definitions(beam INTERFACE -DSHOW_CODE_LOCATION=1)
@@ -278,6 +278,7 @@ else()
 
     if (EMSCRIPTEN)
         set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s USE_PTHREADS=1 -s DISABLE_EXCEPTION_CATCHING=0 -s USE_BOOST_HEADERS=1")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-command-line-argument") # mostly in 3rd-party libs
     endif()
 
     # disable some warnings

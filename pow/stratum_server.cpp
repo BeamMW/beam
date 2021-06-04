@@ -19,7 +19,9 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <fstream>
 
+#ifndef LOG_VERBOSE_ENABLED
 #define LOG_VERBOSE_ENABLED 1
+#endif
 #include "utility/logger.h"
 
 #include <assert.h>

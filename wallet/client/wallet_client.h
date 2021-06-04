@@ -121,8 +121,6 @@ namespace beam::wallet
         uint16_t getMaturityHoursLeft(const ShieldedCoin& coin) const;
 
         ByteBuffer generateVouchers(uint64_t ownID, size_t count) const;
-        void setCoinConfirmationsOffset(uint32_t offset);
-        uint32_t getCoinConfirmationsOffset() const;
 
         /// INodeConnectionObserver implementation
         void onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason&) override;
@@ -254,6 +252,10 @@ namespace beam::wallet
 
         void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override;
         void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) override;
+
+        void setCoinConfirmationsOffset(uint32_t val) override;
+        void getCoinConfirmationsOffset(AsyncCallback<uint32_t>&& callback) override;
+
         void enableBodyRequests(bool value) override;
 
         // implement IWalletDB::IRecoveryProgress

@@ -27,6 +27,16 @@ namespace beam::wallet
     #define API_WRITE_ACCESS true
     #define API_READ_ACCESS false
 
+    #define BEAM_API_RESPONSE_FUNC(api, name, ...) \
+        void getResponse(const JsonRpcId& id, const api::Response& data, json& msg);
+
+    #define BEAM_API_HANDLE_FUNC(api, name, ...) \
+        virtual void onHandle##api(const JsonRpcId& id, const api& data);
+
+    #define BEAM_API_PARSE_FUNC(api, name, ...) \
+        [[nodiscard]] std::pair<api, MethodInfo> onParse##api(const JsonRpcId& id, const json& msg);
+
+
     class ApiBase
         : public IWalletApi
     {
@@ -71,7 +81,7 @@ namespace beam::wallet
         }
 
         static bool hasParam(const json &params, const std::string &name);
-        static void checkCAEnabled();
+
     protected:
         struct Method
         {
@@ -99,6 +109,11 @@ namespace beam::wallet
             try
             {
                 return func();
+            }
+            catch (const nlohmann::detail::type_error& e)
+            {
+                auto error = formError(rpcid, ApiError::InvalidParamsJsonRpc, e.what());
+                _handler.onParseError(error);
             }
             catch (const nlohmann::detail::exception& e)
             {

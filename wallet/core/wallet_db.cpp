@@ -1116,6 +1116,16 @@ namespace beam::wallet
         return m_ID.m_Value;
     }
 
+    Asset::ID Coin::getAssetID() const
+    {
+        return m_ID.m_AssetID;
+    }
+
+    std::string Coin::getType() const
+    {
+        return (const char*)FourCC::Text(m_ID.m_Type);
+    }
+
     std::string Coin::getStatusString() const
     {
         static std::map<Status, std::string> Strings 
@@ -2829,10 +2839,6 @@ namespace beam::wallet
         return std::make_shared<TxStatusInterpreter>(txParams);
     }
 
-    vector<Coin> WalletDB::selectCoins(Amount amount, Asset::ID assetId)
-    {
-        return selectCoinsEx(amount, assetId, false);
-    }
 
     void WalletDB::selectCoins2(Height h, Amount nTrg, Asset::ID aid, std::vector<Coin>& vSelStd, std::vector<ShieldedCoin>& vSelShielded, uint32_t nMaxShielded, bool bCanReturnLess)
     {
@@ -3756,7 +3762,7 @@ namespace beam::wallet
         }
 
         sw.stop();
-        LOG_DEBUG() << "visitTx  elapsed time: " << sw.milliseconds() << " ms\n";
+        LOG_DEBUG() << "visitTx elapsed time: " << sw.milliseconds() << " ms";
     }
 
     vector<TxDescription> WalletDB::getTxHistory(wallet::TxType txType, uint64_t start, int count) const
@@ -5652,7 +5658,7 @@ namespace beam::wallet
         {
             if (c.m_spentHeight != MaxHeight)
             {
-                if (c.IsAsset() && IsConsumeTx(walletDB, c.m_spentTxId))
+                if (c.isAsset() && IsConsumeTx(walletDB, c.m_spentTxId))
                 {
                     c.m_Status = ShieldedCoin::Status::Consumed;
                 }
@@ -5834,11 +5840,11 @@ namespace beam::wallet
             {
                 addressType = TxAddressType::PublicOffline;
             }
+            storage::setTxParameter(db, txID, TxParameterID::AddressType, addressType, true);
 
             auto tx = db.getTx(txID);
             if (tx)
             {
-                storage::setTxParameter(db, txID, TxParameterID::AddressType, addressType, true);
                 storage::setTxParameter(db, txID, TxParameterID::KernelProofHeight, coin.m_confirmHeight, true);
                 return;
             }
@@ -5866,8 +5872,7 @@ namespace beam::wallet
                     .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
                     .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
                     .SetParameter(TxParameterID::MyWalletIdentity, receiverAddress.m_Identity)
-                    .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero))
-                    .SetParameter(TxParameterID::AddressType, addressType);
+                    .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero));
 
                 const auto assetId = coin.m_CoinID.m_AssetID;
                 if (assetId != Asset::s_BeamID)
@@ -6021,6 +6026,8 @@ namespace beam::wallet
                     }
                     importedTransactionsMap[txParameter.m_txID].emplace(static_cast<TxParameterID>(txParameter.m_paramID), txParameter);
                 }
+
+                uint32_t errorsCount = 0;
                 for (const auto& txPair : importedTransactionsMap)
                 {
                     const auto& paramsMap = txPair.second;
@@ -6029,21 +6036,24 @@ namespace beam::wallet
                     if(itype == paramsMap.end())
                     {
                         LOG_ERROR() << "Transaction " << txPair.first << " was not imported. No txtype parameter";
-                        return false;
+                        ++errorsCount;
+                        continue;
                     }
 
                     TxType txtype = TxType::Simple;
                     if (!fromByteBuffer(itype->second.m_value, txtype))
                     {
                         LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Failed to read txtype parameter";
-                        return false;
+                        ++errorsCount;
+                        continue;
                     }
 
                     WalletID wid;
                     if (auto idIt = paramsMap.find(TxParameterID::MyID); idIt == paramsMap.end() || !wid.FromBuf(idIt->second.m_value))
                     {
                         LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid myID parameter";
-                        return false;
+                        ++errorsCount;
+                        continue;
                     }
 
                     if(txtype == TxType::AssetConsume ||
@@ -6056,21 +6066,24 @@ namespace beam::wallet
                         if (wid != Zero)
                         {
                             LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Nonzero MyID for asset issue/consume";
-                            return false;
+                            ++errorsCount;
+                            continue;
                         }
                     } else
                     {
                         if (!wid.IsValid())
                         {
                             LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid myID parameter";
-                            return false;
+                            ++errorsCount;
+                            continue;
                         }
 
                         auto waddr = db.getAddress(wid);
                         if (waddr && (!waddr->isOwn() || !db.ValidateSbbsWalletID(wid, waddr->m_OwnID)))
                         {
                             LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid address parameter";
-                            return false;
+                            ++errorsCount;
+                            continue;
                         }
 
                         uint64_t myAddrId = 0;
@@ -6079,7 +6092,8 @@ namespace beam::wallet
                             !db.ValidateSbbsWalletID(wid, myAddrId)))
                         {
                             LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid MyAddressID parameter";
-                            return false;
+                            ++errorsCount;
+                            continue;
                         }
 
                         if (!waddr && addressIt == paramsMap.end())
@@ -6095,11 +6109,11 @@ namespace beam::wallet
                             static_cast<SubTxID>(p.m_subTxID),
                             paramPair.first,
                             p.m_value,
-                            true);
+                            false);
                     }
                     LOG_INFO() << "Transaction " << txPair.first << " was imported.";
                 }
-                return true;
+                return errorsCount == 0;
             }
 
             json ExportAddressesToJson(const IWalletDB& db, bool own)
@@ -6264,7 +6278,7 @@ namespace beam::wallet
             s
                 << "Sender:            " << std::to_string(m_Sender) << "\n"
                 << "Receiver:          " << std::to_string(m_Receiver) << "\n"
-                << "Amount:            " << PrintableAmount(m_Amount, false, names.first, names.second) << "\n"
+                << "Amount:            " << PrintableAmount(m_Amount, false, m_AssetID, names.first, names.second) << "\n"
                 << "KernelID:          " << std::to_string(m_KernelID) << "\n";
             return s.str();
         }
@@ -6313,7 +6327,7 @@ namespace beam::wallet
             s
                 << "Sender:            " << std::to_string(m_Sender) << "\n"
                 << "Receiver:          " << std::to_string(m_Receiver) << "\n"
-                << "Amount:            " << PrintableAmount(m_Amount, false, names.first, names.second) << "\n"
+                << "Amount:            " << PrintableAmount(m_Amount, false, m_AssetID, names.first, names.second) << "\n"
                 << "KernelID:          " << std::to_string(m_KernelID) << "\n";
             return s.str();
         }
@@ -6669,6 +6683,31 @@ namespace beam::wallet
         }
     }
 
+    bool ShieldedCoin::isAsset(Asset::ID assetId) const
+    {
+        return isAsset() && (m_CoinID.m_AssetID == assetId);
+    }
+
+    std::string ShieldedCoin::toStringID() const
+    {
+        return std::to_string(m_TxoID);
+    }
+
+    Amount ShieldedCoin::getAmount() const
+    {
+        return m_CoinID.m_Value;
+    }
+
+    Asset::ID ShieldedCoin::getAssetID() const
+    {
+        return m_CoinID.m_AssetID;
+    }
+
+    std::string ShieldedCoin::getType() const
+    {
+        return "shld";
+    }
+
     uint32_t ShieldedCoin::get_WndIndex(uint32_t N) const
     {
         assert(N);
@@ -6682,6 +6721,22 @@ namespace beam::wallet
             nIdx = static_cast<uint32_t>(m_TxoID);
 
         return nIdx;
+    }
+
+    std::string ShieldedCoin::getStatusString() const
+    {
+        static std::map<Status, std::string> Strings
+        {
+            {Unavailable,   "unavailable"},
+            {Available,     "available"},
+            {Maturing,      "maturing"},
+            {Outgoing,      "outgoing"},
+            {Incoming,      "incoming"},
+            {Spent,         "spent"},
+            {Consumed,      "consumed"},
+        };
+
+        return Strings[m_Status];
     }
 
     void ShieldedCoin::UnlinkStatus::Init(const ShieldedCoin& sc, TxoID nShieldedOuts)
@@ -6952,5 +7007,15 @@ namespace beam::wallet
             }
             default: return TokenType::Unknown;
         }
+    }
+
+    uint32_t GetCoinStatus(const Coin& c)
+    {
+        return c.m_status;
+    }
+
+    uint32_t GetCoinStatus(const ShieldedCoin& c)
+    {
+        return c.m_Status;
     }
 }

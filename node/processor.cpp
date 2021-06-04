@@ -174,6 +174,8 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 		m_DB.ParamIntSet(NodeDB::ParamID::Flags1, nFlags1 & ~NodeDB::Flags1::PendingRebuildNonStd);
 	}
 
+	TestDefinitionStrict();
+
 	CommitDB();
 
 	m_Horizon.Normalize();
@@ -287,8 +289,6 @@ void NodeProcessor::InitializeMapped(const char* sz)
 	NodeDB::WalkerContractData wlk;
 	for (m_DB.ContractDataEnum(wlk); wlk.MoveNext(); )
 		m_Mapped.m_Contract.Toggle(wlk.m_Key, wlk.m_Val, true);
-
-	TestDefinitionStrict();
 }
 
 void NodeProcessor::TestDefinitionStrict()
@@ -786,9 +786,14 @@ Height NodeProcessor::get_MaxAutoRollback()
 	return Rules::get().MaxRollback;
 }
 
+Height NodeProcessor::get_LowestManualReturnHeight()
+{
+	return std::max(m_Extra.m_TxoHi, m_Extra.m_Fossil);
+}
+
 Height NodeProcessor::get_LowestReturnHeight()
 {
-	Height hRet = std::max(m_Extra.m_TxoHi, m_Extra.m_Fossil);
+	Height hRet = get_LowestManualReturnHeight();
 
 	Height h0 = IsFastSync() ? m_SyncData.m_h0 : m_Cursor.m_ID.m_Height;
 	Height hMaxRollback = get_MaxAutoRollback();
@@ -805,7 +810,7 @@ Height NodeProcessor::get_LowestReturnHeight()
 void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64_t row, bool bBlock, const NodeDB::StateID& sidTrg)
 {
 	if (id.m_Height < get_LowestReturnHeight()) {
-		LOG_WARNING() << id << " State unreachable"; // probably will pollute the log, but it's a critical situation anyway
+		m_UnreachableLog.Log(id);
 		return;
 	}
 
@@ -814,6 +819,22 @@ void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64
 	}
 
 	RequestData(id, bBlock, sidTrg);
+}
+
+void NodeProcessor::UnreachableLog::Log(const Block::SystemState::ID& id)
+{
+	uint32_t nTime_ms = GetTimeNnz_ms();
+	if (m_hvLast == id.m_Hash) {
+		// suppress spam logging for 10 sec.
+		if (m_Time_ms && (nTime_ms - m_Time_ms < 10000))
+			return;
+	}
+	else {
+		m_hvLast = id.m_Hash;
+	}
+
+	m_Time_ms = nTime_ms;
+	LOG_WARNING() << id << " State unreachable"; // probably will pollute the log, but it's a critical situation anyway
 }
 
 struct NodeProcessor::MultiSigmaContext
@@ -2308,6 +2329,7 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_Temporary = false; // Interpretation will be followed by 'undo', try to avoid heavy state changes (use mem vars whenever applicable)
 	bool m_SkipDefinition = false; // no need to calculate the full definition (i.e. not generating/interpreting a block), MMR updates and etc. can be omitted
 	bool m_LimitExceeded = false;
+	bool m_TxValidation = false; // tx or block
 	uint8_t m_TxStatus = proto::TxStatus::Unspecified;
 	std::ostream* m_pTxErrorInfo = nullptr;
 
@@ -2362,6 +2384,7 @@ struct NodeProcessor::BlockInterpretCtx
 			static const Type AssetEmit = 5;
 			static const Type AssetDestroy = 6;
 			static const Type Log = 7;
+			static const Type Recharge = 8;
 		};
 
 		BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& db);
@@ -4421,8 +4444,12 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 		if (m_Bic.m_pTxErrorInfo)
 			m_DbgCallstack.m_Enable = true;
 
-		InitStack();
+		InitStackPlus(m_Stack.AlignUp(static_cast<uint32_t>(krn.m_Args.size())));
 		m_Stack.PushAlias(krn.m_Args);
+
+		m_Instruction.m_Mode = m_Bic.m_TxValidation ?
+			Wasm::Reader::Mode::Restrict :
+			Wasm::Reader::Mode::Emulate_x86;
 
 		CallFar(cid, iMethod, m_Stack.get_AlasSp());
 
@@ -4445,11 +4472,15 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 
 		bRes = true;
 
-		//nUnits0 -= m_Charge.m_Units; // units burned by this invocation
-		//uint32_t nUnitsPerBlockLeft = m_Bic.m_ChargePerBlock.m_Units - nUnits0;
+		if (m_Bic.m_Temporary)
+		{
+			BlockInterpretCtx::Ser ser(m_Bic);
+			RecoveryTag::Type nTag = RecoveryTag::Recharge;
+			ser & nTag;
+			ser & m_Bic.m_ChargePerBlock;
+		}
 
 		m_Bic.m_ChargePerBlock = m_Charge;
-		//m_Bic.m_ChargePerBlock.m_Units = nUnitsPerBlockLeft;
 	}
 	catch (const Wasm::Exc& e)
 	{
@@ -4818,6 +4849,13 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 		}
 		break;
 
+		case RecoveryTag::Recharge:
+		{
+			assert(m_Bic.m_Temporary);
+			der & m_Bic.m_ChargePerBlock;
+		}
+		break;
+
 		default:
 			{
 				der & key;
@@ -5108,10 +5146,11 @@ void NodeProcessor::RollbackTo(Height h)
 
 void NodeProcessor::AdjustManualRollbackHeight(Height& h)
 {
-	if (h < m_Extra.m_TxoHi)
+	Height hMin = get_LowestManualReturnHeight();
+	if (h < hMin)
 	{
-		LOG_INFO() << "Can't go below Height " << m_Extra.m_TxoHi;
-		h = m_Extra.m_TxoHi;
+		LOG_INFO() << "Can't go below Height " << hMin;
+		h = hMin;
 	}
 }
 
@@ -5202,7 +5241,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 
 	if (!(bAlreadyChecked || s.IsValid()))
 	{
-		LOG_VERBOSE() << id << " header invalid!";
+		LOG_WARNING() << id << " header invalid!";
 		return DataStatus::Invalid;
 	}
 
@@ -5218,7 +5257,10 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 	}
 
 	if (s.m_Height < get_LowestReturnHeight())
+	{
+		m_UnreachableLog.Log(id);
 		return DataStatus::Unreachable;
+	}
 
 	if (m_DB.StateFindSafe(id))
 		return DataStatus::Rejected;
@@ -5517,6 +5559,7 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 	bic.SetAssetHi(*this);
 
 	bic.m_Temporary = true;
+	bic.m_TxValidation = true;
 	bic.m_SkipDefinition = true;
 	bic.m_pTxErrorInfo = pExtraInfo;
 
@@ -6481,8 +6524,6 @@ void NodeProcessor::RebuildNonStd()
 	} wlk(*this);
 
 	EnumKernels(wlk, HeightRange(Rules::get().pForks[2].m_Height, m_Cursor.m_ID.m_Height));
-
-	TestDefinitionStrict();
 }
 
 int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)

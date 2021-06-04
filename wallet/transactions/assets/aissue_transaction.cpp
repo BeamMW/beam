@@ -98,12 +98,16 @@ namespace beam::wallet
     void AssetIssueTransaction::UpdateImpl()
     {
         if (!AssetTransaction::BaseUpdate())
+        {
             return;
+        }
 
         if (!_builder)
+        {
             _builder = std::make_shared<MyBuilder>(*this);
-        auto& builder = *_builder;
+        }
 
+        auto& builder = *_builder;
         if (GetState<State>() == State::Initial)
         {
             LOG_INFO()
@@ -111,7 +115,7 @@ namespace beam::wallet
                 << " "
                 << (_issue ? "Generating" : "Consuming")
                 << " asset with owner id " << builder.m_pidAsset
-                << ". Amount: " << PrintableAmount(builder.m_Value, false, kASSET, kAGROTH);
+                << ". Amount: " << PrintableAmount(builder.m_Value, false, 0, kAmountASSET, kAmountAGROTH);
 
             UpdateTxDescription(TxStatus::InProgress);
         }
@@ -124,7 +128,9 @@ namespace beam::wallet
                 Height h = 0;
                 GetParameter(TxParameterID::AssetUnconfirmedHeight, h);
                 if (h)
+                {
                     OnFailed(TxFailureReason::AssetConfirmFailed);
+                }
                 else
                 {
                     GetParameter(TxParameterID::AssetConfirmedHeight, h);
@@ -134,7 +140,6 @@ namespace beam::wallet
                         GetGateway().confirm_asset(GetTxID(), _builder->m_pidAsset, kDefaultSubTxID);
                     }
                 }
-
                 return;
             }
 

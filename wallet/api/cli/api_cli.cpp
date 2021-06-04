@@ -17,7 +17,9 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <map>
 
+#ifndef LOG_VERBOSE_ENABLED
 #define LOG_VERBOSE_ENABLED 1
+#endif
 #include "core/block_crypt.h"
 #include "utility/logger.h"
 #include "wallet/api/i_wallet_api.h"
@@ -491,6 +493,7 @@ int main(int argc, char* argv[])
                 (cli::WITH_ASSETS,    po::bool_switch()->default_value(false), "enable confidential assets transactions")
                 (cli::ENABLE_LELANTUS, po::bool_switch()->default_value(false), "enable Lelantus MW transactions")
                 (cli::API_VERSION, po::value<std::string>(&options.apiVersion)->default_value("current"), "API version")
+                (cli::CONFIG_FILE_PATH, po::value<std::string>()->default_value("wallet-api.cfg"), "path to the config file");
             ;
 
             po::options_description authDesc("User authorization options");
@@ -532,7 +535,7 @@ int main(int argc, char* argv[])
             }
 
             ReadCfgFromFileCommon(vm, desc);
-            ReadCfgFromFile(vm, desc, "wallet-api.cfg");
+            ReadCfgFromFile(vm, desc);
             vm.notify();
 
             if (!IWalletApi::ValidateAPIVersion(options.apiVersion))
@@ -616,7 +619,7 @@ int main(int argc, char* argv[])
             }
 
             walletDB = WalletDB::open(options.walletPath, pass);
-            LOG_INFO() << "wallet sucessfully opened...";
+            LOG_INFO() << "wallet successfully opened...";
 
             // this should be exactly CLI flag value to print correct error messages
             // Rules::CA.Enabled would be checked as well but later

@@ -21,7 +21,9 @@
 
 #include <boost/program_options.hpp>
 
+#ifndef LOG_VERBOSE_ENABLED
 #define LOG_VERBOSE_ENABLED 0
+#endif
 #include "utility/logger.h"
 
 namespace po = boost::program_options;
