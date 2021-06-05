@@ -12,6 +12,15 @@
     macro(ContractID, cid) \
     macro(Amount, amount)
 
+#define DemoXdao_manager_farm_view(macro) \
+    macro(ContractID, cid)
+
+#define DemoXdao_manager_farm_update(macro) \
+    macro(ContractID, cid) \
+    macro(Amount, amountBeamX) \
+    macro(Amount, amountBeam) \
+    macro(uint32_t, bLockOrUnlock) \
+
 #define DemoXdao_manager_deploy_contract(macro) \
     macro(ContractID, cidVersion) \
     macro(Height, hUpgradeDelay)
@@ -30,7 +39,9 @@
     macro(manager, schedule_upgrade) \
     macro(manager, view_params) \
     macro(manager, view_stake) \
-    macro(manager, lock)
+    macro(manager, lock) \
+    macro(manager, farm_view) \
+    macro(manager, farm_update)
 
 #define DemoXdaoRoles_All(macro) \
     macro(manager)
@@ -214,7 +225,84 @@ ON_METHOD(manager, lock)
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), &sig, 1, "Lock-and-get demoX tokens", 0);
 }
 
+ON_METHOD(manager, farm_view)
+{
+    auto aid = get_TrgAid(cid);
+    if (!aid)
+        return;
 
+    Height h = Env::get_Height();
+
+    DemoXdao::Farming::State fs;
+    {
+        Env::Key_T<uint8_t> fsk;
+        _POD_(fsk.m_Prefix.m_Cid) = cid;
+        fsk.m_KeyInContract = DemoXdao::Farming::s_Key;
+
+        if (!Env::VarReader::Read_T(fsk, fs))
+            _POD_(fs).SetZero();
+        else
+            fs.Update(h);
+
+        fs.m_hLast = h;
+
+        Env::DocGroup gr("farming");
+        Env::DocAddNum("duation", fs.m_hTotal);
+        Env::DocAddNum("emission", fs.get_EmissionSoFar());
+    }
+
+    DemoXdao::Farming::UserPos fup;
+    {
+        Env::Key_T<DemoXdao::Farming::UserPos::Key> fupk;
+        _POD_(fupk.m_Prefix.m_Cid) = cid;
+        Env::DerivePk(fupk.m_KeyInContract.m_Pk, &cid, sizeof(cid));
+
+        if (!Env::VarReader::Read_T(fupk, fup))
+        {
+            _POD_(fup).SetZero();
+            fup.m_SigmaLast = fs.m_Sigma;
+        }
+    }
+
+    {
+        Env::DocGroup gr("user");
+        Env::DocAddNum("beams_locked", fup.m_Beam);
+        Env::DocAddNum("beamX_old", fup.m_BeamX);
+
+        Amount val = fs.RemoveFraction(fup);
+        Env::DocAddNum("beamX_recent", val);
+        Env::DocAddNum("beamX", fup.m_BeamX + val);
+    }
+}
+
+ON_METHOD(manager, farm_update)
+{
+    auto aid = get_TrgAid(cid);
+    if (!aid)
+        return;
+
+    DemoXdao::UpdPosFarming arg;
+    arg.m_BeamLock = bLockOrUnlock;
+    arg.m_Beam = amountBeam;
+    arg.m_WithdrawBeamX = amountBeamX;
+
+    Env::DerivePk(arg.m_Pk, &cid, sizeof(cid));
+
+    SigRequest sig;
+    sig.m_pID = &cid;
+    sig.m_nID = sizeof(cid);
+
+    FundsChange pFc[2];
+    pFc[0].m_Aid = aid;
+    pFc[0].m_Amount = amountBeamX;
+    pFc[0].m_Consume = 0;
+    pFc[1].m_Aid = 0;
+    pFc[1].m_Amount = amountBeam;
+    pFc[1].m_Consume = bLockOrUnlock;
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), &sig, 1, "Lock/Unlock and get farmed demoX tokens", 0);
+
+}
 
 #undef ON_METHOD
 #undef THE_FIELD

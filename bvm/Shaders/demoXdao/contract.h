@@ -161,8 +161,6 @@ namespace DemoXdao
     {
         static const uint32_t s_iMethod = 4;
 
-        static const Amount s_MinLockAmount = g_Beam2Groth * 2;
-
         PubKey m_Pk;
         Amount m_WithdrawBeamX;
         Amount m_Beam; // deposit or withdraw
