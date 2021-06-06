@@ -4507,6 +4507,11 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 
 		UndoVars();
 	}
+
+	if (m_Instruction.m_ModeTriggered) {
+		LOG_WARNING() << " Potential wasm conflict";
+	}
+
 	return bRes;
 }
 

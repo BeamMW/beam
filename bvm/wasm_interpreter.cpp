@@ -126,6 +126,8 @@ namespace Wasm {
 
 						if (nShift >= nBitsMax)
 						{
+							m_ModeTriggered = true;
+
 							constexpr uint32_t nBitsJustFed = ((nBitsMax - 1) % 7) + 1; // how many bits were just fed into result
 							static_assert(nBitsJustFed < 6); // the 0x40 bit was not fed. It's unnecessary
 
