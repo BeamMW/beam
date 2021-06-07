@@ -101,6 +101,8 @@ namespace Wasm {
 		static_assert(!std::numeric_limits<T>::is_signed); // the sign flag must be specified separately
 
 		T ret = 0;
+		constexpr unsigned int nBitsMax = sizeof(ret) * 8;
+
 		for (unsigned int nShift = 0; ; )
 		{
 			uint8_t n = Read1();
@@ -116,12 +118,49 @@ namespace Wasm {
 				if constexpr (bSigned)
 				{
 					if (0x40 & n)
-						ret |= (~static_cast<T>(0) << nShift);
+					{
+						// Attention: Bug workaround.
+						// According to the standard we must pad the remaining bits of the result with 1's.
+						// However this should only be done if there are bits left. That is, only if nShift is lesser than the number of result bits.
+						// Original code didn't take care of this.
+
+						if (nShift >= nBitsMax)
+						{
+							constexpr uint32_t nBitsJustFed = ((nBitsMax - 1) % 7) + 1; // how many bits were just fed into result
+							static_assert(nBitsJustFed < 6); // the 0x40 bit was not fed. It's unnecessary
+
+							switch (m_Mode)
+							{
+							case Mode::AutoWorkAround:
+								n &= ~0x40; // safe to remove this flag, it's redundant and didn't have to appear at all
+								Cast::NotConst(m_p0[-1]) = n; // replace it back!
+								break;
+
+							case Mode::Emulate_x86:
+								// emulate the unfixed behavior. On x86 bitshift is effective modulo size of operand
+								ret |= (~static_cast<T>(0) << (nShift % nBitsMax));
+								break;
+
+							case Mode::Standard:
+								// Standard behavior, ignore padding
+								break;
+
+							default:
+								assert(false);
+								// no break;
+							case Mode::Restrict:
+								Fail("Conflicting flags");
+							}
+						}
+						else
+							// standard padding
+							ret |= (~static_cast<T>(0) << nShift);
+					}
 				}
 				break;
 			}
 
-			Test(nShift < sizeof(ret) * 8);
+			Test(nShift < nBitsMax);
 		}
 
 		return ret;
