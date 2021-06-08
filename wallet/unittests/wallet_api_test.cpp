@@ -413,7 +413,7 @@ namespace
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.type == TokenType::RegularOldStyle);
-                WALLET_CHECK(data.offlinePayments == 10);
+                WALLET_CHECK(data.offlinePayments == 1);
             }
         };
 
