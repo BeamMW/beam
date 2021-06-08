@@ -110,7 +110,7 @@ namespace beam::wallet
     struct CreateAddress : AddressData
     {
         TokenType type = TokenType::RegularOldStyle;
-        uint32_t offlinePayments = 10;
+        uint32_t offlinePayments = 1;
 
         struct Response
         {
