@@ -88,6 +88,43 @@ namespace beam::wallet {
         return GetMandatoryParameter<bool>(TxParameterID::IsSender) && IsInitiator();
     }
 
+    Asset::ID AssetTransaction::GetAssetID() const
+    {
+        Asset::ID assetId = Asset::s_InvalidID;
+        GetParameter(TxParameterID::AssetID, assetId, kDefaultSubTxID);
+        return assetId;
+    }
+
+    PeerID AssetTransaction::GetAssetOwnerID() const
+    {
+        std::string strMeta;
+        if (GetParameter(TxParameterID::AssetMetadata, strMeta, kDefaultSubTxID) || strMeta.empty())
+        {
+            const auto masterKdf = get_MasterKdfStrict(); // can throw
+            return beam::wallet::GetAssetOwnerID(masterKdf, strMeta);
+        }
+        return Asset::s_InvalidOwnerID;
+    }
+
+    void AssetTransaction::ConfirmAsset()
+    {
+        const auto assetId = GetAssetID();
+        if (assetId != Asset::s_InvalidID)
+        {
+            GetGateway().confirm_asset(GetTxID(), assetId, kDefaultSubTxID);
+            return;
+        }
+
+        const auto aseetOwnerId = GetAssetOwnerID();
+        if (aseetOwnerId != Asset::s_InvalidOwnerID)
+        {
+            GetGateway().confirm_asset(GetTxID(), aseetOwnerId, kDefaultSubTxID);
+            return;
+        }
+
+        throw TransactionFailedException(true, TxFailureReason::NoAssetMeta);
+    }
+
     AssetTransaction::Builder::Builder(BaseTransaction& tx, SubTxID subTxID)
         :BaseTxBuilder(tx, subTxID)
     {
@@ -107,7 +144,7 @@ namespace beam::wallet {
     void AssetTransaction::Builder::FinalizeTxInternal()
     {
         assert(m_pKrn);
-        TxKernelAssetControl& krn = Cast::Up<TxKernelAssetControl>(*m_pKrn);
+        auto& krn = Cast::Up<TxKernelAssetControl>(*m_pKrn);
 
         krn.m_Fee = m_Fee;
         krn.m_Height = m_Height;

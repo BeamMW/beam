@@ -136,8 +136,8 @@ namespace beam::wallet
                     GetParameter(TxParameterID::AssetConfirmedHeight, h);
                     if (!h)
                     {
-                        SetState(State::AssetCheck);
-                        GetGateway().confirm_asset(GetTxID(), _builder->m_pidAsset, kDefaultSubTxID);
+                        SetState(State::AssetConfirmation);
+                        ConfirmAsset();
                     }
                 }
                 return;

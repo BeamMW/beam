@@ -116,7 +116,7 @@ namespace beam::wallet
             if (!h)
             {
                 SetState(State::AssetCheck);
-                GetGateway().confirm_asset(GetTxID(), _builder->m_pidAsset, kDefaultSubTxID);
+                ConfirmAsset();
                 return;
             }
 

@@ -35,11 +35,9 @@ namespace beam::wallet
         };
 
     private:
-        AssetInfoTransaction(const TxContext& context);
+        explicit AssetInfoTransaction(const TxContext& context);
         bool IsInSafety() const override;
-
         void UpdateImpl() override;
-        void ConfirmAsset();
 
         enum State : uint8_t
         {
@@ -48,8 +46,5 @@ namespace beam::wallet
             AssetCheck,
             Finalzing
         };
-
-        Asset::ID GetAssetID() const;
-        PeerID GetAssetOwnerID() const;
     };
 }

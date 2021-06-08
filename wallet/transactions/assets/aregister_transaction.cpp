@@ -203,11 +203,6 @@ namespace beam::wallet
         CompleteTx();
     }
 
-    void AssetRegisterTransaction::ConfirmAsset()
-    {
-        GetGateway().confirm_asset(GetTxID(), _builder->m_pKrn->CastTo_AssetCreate().m_Owner, kDefaultSubTxID);
-    }
-
     bool AssetRegisterTransaction::IsInSafety() const
     {
         auto state = GetState<State>();
