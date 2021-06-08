@@ -102,7 +102,9 @@ namespace beam::wallet
 
         if (builder.m_Coins.IsEmpty())
         {
+            //
             // ALWAYS refresh asset state before destroying
+            //
             Height ucHeight = 0;
             if(GetParameter(TxParameterID::AssetUnconfirmedHeight, ucHeight) && ucHeight != 0)
             {
@@ -140,8 +142,6 @@ namespace beam::wallet
                 OnFailed(TxFailureReason::AssetLocked);
                 return;
             }
-
-            SetParameter(TxParameterID::AssetConfirmedHeight, wa.m_RefreshHeight);
 
             BaseTxBuilder::Balance bb(builder);
             bb.m_Map[0].m_Value += Rules::get().CA.DepositForList - builder.m_Fee;

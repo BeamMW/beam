@@ -125,22 +125,20 @@ namespace beam::wallet
             auto pInfo = GetWalletDB()->findAsset(builder.m_pidAsset);
             if (!pInfo)
             {
-                Height h = 0;
-                GetParameter(TxParameterID::AssetUnconfirmedHeight, h);
-                if (h)
+                Height ucHeight = 0;
+                if(GetParameter(TxParameterID::AssetUnconfirmedHeight, ucHeight) && ucHeight != 0)
                 {
                     OnFailed(TxFailureReason::AssetConfirmFailed);
+                    return;
                 }
-                else
+
+                Height acHeight = 0;
+                if(GetParameter(TxParameterID::AssetConfirmedHeight, acHeight) && acHeight == 0)
                 {
-                    GetParameter(TxParameterID::AssetConfirmedHeight, h);
-                    if (!h)
-                    {
-                        SetState(State::AssetConfirmation);
-                        ConfirmAsset();
-                    }
+                    SetState(State::AssetConfirmation);
+                    ConfirmAsset();
+                    return;
                 }
-                return;
             }
 
             WalletAsset& wa = *pInfo;

@@ -34,7 +34,7 @@ namespace beam::wallet
         };
 
     private:
-        AssetUnregisterTransaction(const TxContext& context);
+        explicit AssetUnregisterTransaction(const TxContext& context);
         bool IsInSafety() const override;
 
         void UpdateImpl() override;

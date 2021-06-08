@@ -25,7 +25,7 @@ namespace beam::wallet
         class Creator : public BaseTransaction::Creator
         {
         public:
-            explicit Creator() = default;
+            Creator() = default;
 
         private:
             BaseTransaction::Ptr Create(const TxContext& context) override;
