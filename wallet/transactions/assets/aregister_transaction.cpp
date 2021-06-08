@@ -189,7 +189,7 @@ namespace beam::wallet
                 return;
             }
 
-            if(builder.m_pKrn->CastTo_AssetCreate().m_Owner != info.m_Owner)
+            if(GetAssetOwnerID() != info.m_Owner)
             {
                 OnFailed(TxFailureReason::InvalidAssetOwnerId);
                 return;

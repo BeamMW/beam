@@ -103,26 +103,27 @@ namespace beam::wallet
         if (builder.m_Coins.IsEmpty())
         {
             // ALWAYS refresh asset state before destroying
-            Height h = 0;
-            GetParameter(TxParameterID::AssetUnconfirmedHeight, h);
-            if (h)
+            Height ucHeight = 0;
+            if(GetParameter(TxParameterID::AssetUnconfirmedHeight, ucHeight) && ucHeight != 0)
             {
                 OnFailed(TxFailureReason::AssetConfirmFailed);
                 return;
             }
 
-            h = 0;
-            GetParameter(TxParameterID::AssetConfirmedHeight, h);
-            if (!h)
+            Height acHeight = 0;
+            if(GetParameter(TxParameterID::AssetConfirmedHeight, acHeight) && acHeight == 0)
             {
-                SetState(State::AssetCheck);
+                SetState(State::AssetConfirmation);
                 ConfirmAsset();
                 return;
             }
 
             auto pInfo = GetWalletDB()->findAsset(builder.m_pidAsset);
             if (!pInfo)
+            {
+                OnFailed(TxFailureReason::NoAssetInfo);
                 return;
+            }
 
             WalletAsset& wa = *pInfo;
             SetParameter(TxParameterID::AssetID, wa.m_ID);
