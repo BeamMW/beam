@@ -2628,7 +2628,7 @@ namespace beam::wallet
 
             virtual bool OnUtxoRecognized(Height h, const Output& outp, CoinID& cid, const Output::User& user) override
             {
-                if (m_This.IsRecoveredMatch(cid, outp.m_Commitment))
+                if (!cid.IsDummy() && m_This.IsRecoveredMatch(cid, outp.m_Commitment))
                 {
                     Coin c;
                     c.m_ID = cid;
