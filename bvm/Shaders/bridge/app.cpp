@@ -43,17 +43,23 @@ namespace manager
 
     void ImportMsg(const ContractID& cid, uint32_t amount, const PubKey& pk, const Bridge::Header& header)
     {
-        Bridge::ImportMessage arg;
+        uint32_t size = Env::DocGetBlob("proof", nullptr, 0);
+
+        auto* arg = (Bridge::ImportMessage*)Env::StackAlloc(sizeof(Bridge::ImportMessage) + size);
+
+        Env::DocGetBlob("proof", (void*)(arg + 1), size);
+
         Bridge::InMsg msg;
 
         msg.m_Amount = amount;
         msg.m_Pk = pk;
         msg.m_Finalized = 0;
-        arg.m_Msg = msg;
+        arg->m_Msg = msg;
+        arg->m_ProofSize = size;
 
-        _POD_(arg.m_Header) = header;
+        _POD_(arg->m_Header) = header;
 
-        Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Import message", 0);
+        Env::GenerateKernel(&cid, arg->s_iMethod, arg, sizeof(*arg) + size, nullptr, 0, nullptr, 0, "Import message", 0);
     }
 
     void ExportMsg(const ContractID& cid)
@@ -67,7 +73,7 @@ namespace manager
         Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Finalize message", 0);
     }
 
-    void Unlock(const ContractID& cid/*, uint32_t aid, uint32_t amount*/)
+    void Unlock(const ContractID& cid)
     {
         Bridge::InMsg msg;
 
@@ -80,15 +86,12 @@ namespace manager
         
 
         Bridge::Unlock arg;
-        /*arg.m_Amount = amount;
-        Env::DerivePk(arg.m_Pk, &cid, sizeof(cid));*/
 
         SigRequest sig;
         sig.m_pID = &cid;
         sig.m_nID = sizeof(cid);
 
         Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "Mint", 100000000);
-        //Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Mint", 0);
     }
 
     void Lock(const ContractID& cid, uint32_t aid, uint32_t amount)
@@ -223,6 +226,7 @@ export void Method_1()
             Env::DocGetNum64("gasUsed", &header.m_GasUsed);
             Env::DocGetNum64("time", &header.m_Time);
             Env::DocGetNum64("nonce", &header.m_Nonce);
+
             manager::ImportMsg(cid, amount, pk, header);
             return;
         }
