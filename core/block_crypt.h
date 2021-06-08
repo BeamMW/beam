@@ -410,6 +410,14 @@ namespace beam
 		bool get_ChildKdfIndex(Key::Index&) const; // returns false if chils is not needed
 		Key::IKdf::Ptr get_ChildKdf(const Key::IKdf::Ptr& pMasterKdf) const;
 
+		bool IsDummy() const
+		{
+			return
+				!m_Value &&
+				!m_AssetID &&
+				(Key::Type::Decoy == m_Type);
+		}
+
 		struct Generator
 		{
 			ECC::Point::Native m_hGen;
