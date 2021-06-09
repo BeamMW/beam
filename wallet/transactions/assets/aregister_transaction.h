@@ -37,7 +37,6 @@ namespace beam::wallet
         bool IsInSafety() const override;
 
         void UpdateImpl() override;
-        void ConfirmAsset();
 
         enum State : uint8_t
         {
