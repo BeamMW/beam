@@ -4281,6 +4281,7 @@ namespace beam::wallet
         }
 
         stm.step();
+        notifyAssetChanged(info.m_ID);
     }
 
     void WalletDB::markAssetOwned(const Asset::ID assetId)
@@ -4290,6 +4291,7 @@ namespace beam::wallet
         stmUpdate.bind(1, assetId);
         stmUpdate.bind(2, 1);
         stmUpdate.step();
+        notifyAssetChanged(assetId);
     }
 
     void WalletDB::dropAsset(const PeerID& ownerId)
@@ -4307,6 +4309,7 @@ namespace beam::wallet
         sqlite::Statement stm(this, deleteReq);
         stm.bind(1, assetId);
         stm.step();
+        notifyAssetChanged(assetId);
     }
 
     void WalletDB::visitAssets(std::function<bool(const WalletAsset& info)> visitor) const
@@ -4381,6 +4384,21 @@ namespace beam::wallet
 
     void WalletDB::rollbackAssets(Height minHeight)
     {
+        std::set<Asset::ID> changed;
+
+        {
+            const char* find = "SELECT ID FROM " ASSETS_NAME " WHERE LockHeight>?1 OR RefreshHeight>?1;";
+            sqlite::Statement stmFind(this, find);
+            stmFind.bind(1, minHeight);
+
+            while (stmFind.step())
+            {
+                Asset::ID assetID = Asset::s_InvalidID;
+                stmFind.get(0, assetID);
+                changed.insert(assetID);
+            }
+        }
+
         const char* drop = "DELETE FROM " ASSETS_NAME " WHERE LockHeight>?1;";
         sqlite::Statement stmDrop(this, drop);
         stmDrop.bind(1, minHeight);
@@ -4390,6 +4408,11 @@ namespace beam::wallet
         sqlite::Statement stmUpdate(this, update);
         stmUpdate.bind(1, minHeight);
         stmUpdate.step();
+
+        for(auto assetId: changed)
+        {
+            notifyAssetChanged(assetId);
+        }
     }
 
     void WalletDB::saveLaserChannel(const ILaserChannelEntity& ch)
@@ -5174,6 +5197,11 @@ namespace beam::wallet
     void WalletDB::notifySystemStateChanged(const Block::SystemState::ID& stateID)
     {
         for (const auto sub : m_subscribers) sub->onSystemStateChanged(stateID);
+    }
+
+    void WalletDB::notifyAssetChanged(Asset::ID assetID)
+    {
+        for (const auto sub : m_subscribers) sub->onAssetChanged(assetID);
     }
 
     void WalletDB::notifyAddressChanged(ChangeAction action, const vector<WalletAddress>& items)
