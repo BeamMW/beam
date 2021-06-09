@@ -1874,7 +1874,7 @@ namespace beam::wallet
 
     void Wallet::CheckSyncDone()
     {
-        report_sync_progress();
+        ReportSyncProgress();
 
         if (SyncRemains())
             return;
@@ -1945,13 +1945,15 @@ namespace beam::wallet
     void Wallet::NotifySyncProgress()
     {
         uint32_t n = SyncRemains();
+        int total = m_LastSyncTotal;
+        int done = m_LastSyncTotal - n;
         for (const auto sub : m_subscribers)
         {
-            sub->onSyncProgress(m_LastSyncTotal - n, m_LastSyncTotal);
+            sub->onSyncProgress(done, total);
         }
     }
 
-    void Wallet::report_sync_progress()
+    void Wallet::ReportSyncProgress()
     {
         if (!m_LastSyncTotal)
             return;
@@ -2163,9 +2165,7 @@ namespace beam::wallet
     {
         if (m_NodeEndpoint)
         {
-            Block::SystemState::Full sTip;
-            get_tip(sTip);
-            return IsValidTimeStamp(sTip.m_TimeStamp);
+            return IsWalletInSync();
         }
         return true; // to allow made air-gapped transactions
     }
