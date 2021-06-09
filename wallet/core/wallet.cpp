@@ -957,6 +957,11 @@ namespace beam::wallet
         }
     }
 
+    void Wallet::ConfirmAsset(Asset::ID assetId)
+    {
+        confirm_asset(assetId);
+    }
+
     void Wallet::UpdateTransaction(BaseTransaction::Ptr tx)
     {
         bool bSynced = !SyncRemains() && IsNodeInSync();

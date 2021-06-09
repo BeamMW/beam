@@ -145,6 +145,7 @@ namespace beam::wallet
         bool CanCancelTransaction(const TxID& txId) const;
         void CancelTransaction(const TxID& txId);
         void DeleteTransaction(const TxID& txId);
+        void ConfirmAsset(Asset::ID);
         
         void Subscribe(IWalletObserver* observer);
         void Unsubscribe(IWalletObserver* observer);
