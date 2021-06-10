@@ -1051,7 +1051,7 @@ namespace beam::wallet
 
     bool Coin::isAsset(Asset::ID assetId) const
     {
-        return isAsset() && (m_ID.m_AssetID == assetId);
+        return m_ID.m_AssetID == assetId;
     }
 
     bool Coin::IsMaturityValid() const
@@ -6713,7 +6713,7 @@ namespace beam::wallet
 
     bool ShieldedCoin::isAsset(Asset::ID assetId) const
     {
-        return isAsset() && (m_CoinID.m_AssetID == assetId);
+        return m_CoinID.m_AssetID == assetId;
     }
 
     std::string ShieldedCoin::toStringID() const

@@ -188,7 +188,7 @@ namespace beam::wallet
     MACRO(AssetsDisabledReceiver,        48, "Asset transactions are disabled in the receiver wallet") \
     MACRO(AssetsDisabledInRules,         49, "Asset transactions are disabled in blockchain configuration") \
     MACRO(NoPeerIdentity,                50, "Peer Identity required") \
-    MACRO(CannotGetVouchers,             51, "The sender cannot get vouchers for max privacy transaction") \
+    MACRO(CannotGetVouchers,             51, "The sender cannot get vouchers for offline transaction") \
     MACRO(Count,                         52, "PLEASE KEEP THIS ALWAYS LAST")
 
     enum TxFailureReason : int32_t

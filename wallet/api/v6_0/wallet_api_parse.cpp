@@ -549,7 +549,15 @@ namespace beam::wallet
         }
 
         auto& fs = Transaction::FeeSettings::get(get_CurrentHeight());
-        Amount minimumFee = std::max(fs.m_Kernel + fs.m_Output * (split.coins.size() + 1), fs.get_DefaultStd());
+
+        auto outsCnt = split.coins.size() + 1; // for split result cons + beam change coin (if any)
+        if (split.assetId.is_initialized() && *split.assetId != beam::Asset::s_BeamID)
+        {
+            // asset change coin (if any);
+            outsCnt++;
+        }
+
+        Amount minimumFee = std::max(fs.m_Kernel + fs.m_Output * outsCnt, fs.get_DefaultStd());
 
         split.fee = getBeamFeeParam(params, "fee", minimumFee);
         split.txId = getOptionalParam<ValidTxID>(params, "txId");

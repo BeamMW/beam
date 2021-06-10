@@ -674,7 +674,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
         params.SetParameter(TxParameterID::OriginalToken, address);
     }
     params.SetParameter(TxParameterID::OriginalToken, JString(env, receiverAddr).value());
-    params.SetParameter(TxParameterID::SavePeerAddress, false);
+   // params.SetParameter(TxParameterID::SavePeerAddress, false);
 
     walletModel->getAsync()->startTransaction(std::move(params));
 }
