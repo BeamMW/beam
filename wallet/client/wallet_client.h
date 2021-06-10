@@ -116,6 +116,7 @@ namespace beam::wallet
         size_t getUnsafeActiveTransactionsCount() const;
         size_t getUnreadNotificationsCount() const;
         bool isConnectionTrusted() const;   
+        bool isSynced() const;
         uint8_t getMPLockTimeLimit() const;
         uint32_t getMarurityProgress(const ShieldedCoin& coin) const;
         uint16_t getMaturityHoursLeft(const ShieldedCoin& coin) const;
@@ -353,6 +354,7 @@ namespace beam::wallet
         size_t m_unreadNotificationsCount = 0;
         beam::Height m_currentHeight = 0;
         bool m_isConnectionTrusted = false;
+        bool m_isSynced = false;
         CoinsSelectionInfo m_CoinsSelectionResult;
         std::unique_ptr<Filter> m_shieldedPer24hFilter;
         beam::wallet::WalletStatus m_status;

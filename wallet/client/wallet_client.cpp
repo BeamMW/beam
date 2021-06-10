@@ -736,6 +736,11 @@ namespace beam::wallet
         return m_isConnectionTrusted;
     }
 
+    bool WalletClient::isSynced() const
+    {
+        return m_isSynced;
+    }
+
     beam::TxoID WalletClient::getTotalShieldedCount() const
     {
         return m_status.shieldedTotalCount;
@@ -860,6 +865,15 @@ namespace beam::wallet
 
     void WalletClient::onSyncProgress(int done, int total)
     {
+        auto w = m_wallet.lock();
+        if (w)
+        {
+            postFunctionToClientContext([this, isSynced = ((done == total) && w->IsWalletInSync())]()
+            {
+                m_isSynced = isSynced;
+            });
+        }
+        
         onSyncProgressUpdated(done, total);
     }
 
@@ -1680,6 +1694,7 @@ namespace beam::wallet
         if (isNodeConnected)
         {
             ++m_connectedNodesCount;
+            m_isSynced = false;
         }
         else if (m_connectedNodesCount)
         {
