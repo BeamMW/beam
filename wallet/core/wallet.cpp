@@ -788,7 +788,7 @@ namespace beam::wallet
                 auto address = m_WalletDB->getAddress(msg.m_From);
                 if (!address.is_initialized())
                 {
-                    LOG_WARNING() << "Received vouchers for unknown address";
+                    LOG_WARNING() << "Received vouchers for unknown address: " << std::to_string(msg.m_From);
                     FailTxWaitingForVouchers(msg.m_From);
                     return;
                 }
@@ -955,6 +955,11 @@ namespace beam::wallet
         {
             LOG_DEBUG() << txID << " Unexpected event";
         }
+    }
+
+    void Wallet::ConfirmAsset(Asset::ID assetId)
+    {
+        confirm_asset(assetId);
     }
 
     void Wallet::UpdateTransaction(BaseTransaction::Ptr tx)

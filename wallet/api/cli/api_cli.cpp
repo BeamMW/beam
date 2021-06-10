@@ -366,7 +366,7 @@ namespace
                     auto data = msg.msg->get_body(size);
 
                     const auto asyncResult = _walletApi->executeAPIRequest(reinterpret_cast<const char*>(data), size);
-                    _keepalive = asyncResult == ApiSyncMode::RunningAsync;
+                    _keepalive = _keepalive || asyncResult == ApiSyncMode::RunningAsync;
                 }
 
                 if (!_keepalive)
