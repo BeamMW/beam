@@ -182,7 +182,7 @@ namespace beam::wallet
 
     bool BaseTransaction::CanCancel() const
     {
-        TxStatus status = TxStatus::Failed;
+        TxStatus status = TxStatus::Pending;
         GetParameter(TxParameterID::Status, status);
 
         return status == TxStatus::InProgress || status == TxStatus::Pending;
@@ -190,7 +190,7 @@ namespace beam::wallet
 
     void BaseTransaction::Cancel()
     {
-        TxStatus s = TxStatus::Failed;
+        TxStatus s = TxStatus::Pending;
         GetParameter(TxParameterID::Status, s);
         // TODO: add CanCancel() method
         if (s == TxStatus::Pending || s == TxStatus::InProgress)
