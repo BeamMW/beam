@@ -133,7 +133,7 @@ namespace beam::wallet
                 }
 
                 Height acHeight = 0;
-                if(GetParameter(TxParameterID::AssetConfirmedHeight, acHeight) && acHeight == 0)
+                if(!GetParameter(TxParameterID::AssetConfirmedHeight, acHeight) || acHeight == 0)
                 {
                     SetState(State::AssetConfirmation);
                     ConfirmAsset();

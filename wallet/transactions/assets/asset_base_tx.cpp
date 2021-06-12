@@ -98,7 +98,7 @@ namespace beam::wallet {
     PeerID AssetTransaction::GetAssetOwnerID() const
     {
         std::string strMeta;
-        if (GetParameter(TxParameterID::AssetMetadata, strMeta, kDefaultSubTxID) || strMeta.empty())
+        if (GetParameter(TxParameterID::AssetMetadata, strMeta, kDefaultSubTxID) && !strMeta.empty())
         {
             const auto masterKdf = get_MasterKdfStrict(); // can throw
             return beam::wallet::GetAssetOwnerID(masterKdf, strMeta);
