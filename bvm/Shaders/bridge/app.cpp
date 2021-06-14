@@ -41,7 +41,7 @@ namespace manager
         EnumAndDumpContracts(Bridge::s_SID);
     }
 
-    void ImportMsg(const ContractID& cid, uint32_t amount, const PubKey& pk, const Bridge::Header& header)
+    void ImportMsg(const ContractID& cid, uint32_t amount, const PubKey& pk, const Eth::Header& header, uint32_t datasetCount)
     {
         uint32_t size = Env::DocGetBlob("proof", nullptr, 0);
 
@@ -55,6 +55,7 @@ namespace manager
         msg.m_Pk = pk;
         msg.m_Finalized = 0;
         arg->m_Msg = msg;
+        arg->m_DatasetCount = datasetCount;
         arg->m_ProofSize = size;
 
         _POD_(arg->m_Header) = header;
@@ -210,7 +211,7 @@ export void Method_1()
             PubKey pk;
             Env::DocGet("pubkey", pk);
             
-            Bridge::Header header;
+            Eth::Header header;
             Env::DocGet("parentHash", header.m_ParentHash);
             Env::DocGet("uncleHash", header.m_UncleHash);
             Env::DocGetBlob("coinbase", &header.m_Coinbase, sizeof(header.m_Coinbase)); //??
@@ -227,7 +228,10 @@ export void Method_1()
             Env::DocGetNum64("time", &header.m_Time);
             Env::DocGetNum64("nonce", &header.m_Nonce);
 
-            manager::ImportMsg(cid, amount, pk, header);
+            uint32_t datasetCount = 0;
+            Env::DocGetNum32("nonce", &datasetCount);
+
+            manager::ImportMsg(cid, amount, pk, header, datasetCount);
             return;
         }
         if (!Env::Strcmp(szAction, "exportMsg"))

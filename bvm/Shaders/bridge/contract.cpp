@@ -1,12 +1,13 @@
 #include "../common.h"
 #include "../Math.h"
 #include "contract.h"
+#include "../Ethash.h"
 #include "../Eth.h"
 
 // Method_0 - constructor, called once when the contract is deployed
 export void Ctor(void*)
 {
-    const char meta[] = "testcoin11";
+    const char meta[] = "testcoin14";
     AssetID aid = Env::AssetCreate(meta, sizeof(meta) - 1);
 
     uint32_t key = 0;
@@ -46,8 +47,15 @@ export void Method_3(const Bridge::Lock& value)
     Env::FundsLock(aid, value.m_Amount);
 }
 
-export void Method_4(const Bridge::ImportMessage& value)
+export void Method_4(Bridge::ImportMessage& value)
 {
+    const auto& hdr = value.m_Header;
+
+    Ethash::Hash512 hvSeed;
+    hdr.get_SeedForPoW(hvSeed);
+
+    Ethash::VerifyHdr(hdr.get_Epoch(), value.m_DatasetCount, hvSeed, hdr.m_Nonce, hdr.m_Difficulty, &value + 1, value.m_ProofSize); //?????
+
     uint32_t key = 1;
     Bridge::InMsg tmp = value.m_Msg;
     tmp.m_Finalized = 0;
