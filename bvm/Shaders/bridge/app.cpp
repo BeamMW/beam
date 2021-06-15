@@ -1,6 +1,7 @@
 #include "../common.h"
 #include "../app_common_impl.h"
 #include "contract.h"
+#include "../Ethash.h"
 
 namespace
 {
@@ -48,6 +49,9 @@ namespace manager
         auto* arg = (Bridge::ImportMessage*)Env::StackAlloc(sizeof(Bridge::ImportMessage) + size);
 
         Env::DocGetBlob("proof", (void*)(arg + 1), size);
+
+        Env::DocAddNum32("proof_size", size);
+        Env::DocAddBlob("proof", (void*)(arg + 1), size);
 
         Bridge::InMsg msg;
 
@@ -220,6 +224,8 @@ export void Method_1()
             Env::DocGet("receiptHash", header.m_ReceiptHash);
             Env::DocGetBlob("bloom", &header.m_Bloom, sizeof(header.m_Bloom)); // ??
             header.m_nExtra = Env::DocGetBlob("extra", &header.m_Extra, sizeof(header.m_Extra)); // ??
+
+            Env::DocAddNum32("extra_size", header.m_nExtra);
             
             Env::DocGetNum64("difficulty", &header.m_Difficulty);
             Env::DocGetNum64("number", &header.m_Number);
@@ -232,6 +238,49 @@ export void Method_1()
             Env::DocGetNum32("datasetCount", &datasetCount);
 
             manager::ImportMsg(cid, amount, pk, header, datasetCount);
+            return;
+        }
+        if (!Env::Strcmp(szAction, "generateSeed"))
+        {
+            Eth::Header header;
+            Env::DocGet("parentHash", header.m_ParentHash);
+            Env::DocGet("uncleHash", header.m_UncleHash);
+            Env::DocGetBlob("coinbase", &header.m_Coinbase, sizeof(header.m_Coinbase)); //??
+            Env::DocGet("root", header.m_Root);
+            Env::DocGet("txHash", header.m_TxHash);
+            Env::DocGet("receiptHash", header.m_ReceiptHash);
+            Env::DocGetBlob("bloom", &header.m_Bloom, sizeof(header.m_Bloom)); // ??
+            header.m_nExtra = Env::DocGetBlob("extra", &header.m_Extra, sizeof(header.m_Extra)); // ??
+
+            Env::DocAddNum32("extra_size", header.m_nExtra);
+
+            Env::DocGetNum64("difficulty", &header.m_Difficulty);
+            Env::DocGetNum64("number", &header.m_Number);
+            Env::DocGetNum64("gasLimit", &header.m_GasLimit);
+            Env::DocGetNum64("gasUsed", &header.m_GasUsed);
+            Env::DocGetNum64("time", &header.m_Time);
+            Env::DocGetNum64("nonce", &header.m_Nonce);
+
+            Ethash::Hash512 hvSeed;
+            header.get_SeedForPoW(hvSeed);
+
+            Env::DocAddBlob_T("seed", hvSeed);
+            Env::DocAddBlob_T("parentHash", header.m_ParentHash);
+            Env::DocAddBlob_T("uncleHash", header.m_UncleHash);
+            Env::DocAddBlob_T("coinbase", header.m_Coinbase);
+            Env::DocAddBlob_T("root", header.m_Root);
+            Env::DocAddBlob_T("txHash", header.m_TxHash);
+            Env::DocAddBlob_T("receiptHash", header.m_ReceiptHash);
+            Env::DocAddBlob_T("bloom", header.m_Bloom);
+            Env::DocAddBlob_T("extra", header.m_Extra);
+
+            Env::DocAddNum64("difficulty", header.m_Difficulty);
+            Env::DocAddNum64("number", header.m_Number);
+            Env::DocAddNum64("gasLimit", header.m_GasLimit);
+            Env::DocAddNum64("gasUsed", header.m_GasUsed);
+            Env::DocAddNum64("time", header.m_Time);
+            Env::DocAddNum64("nonce", header.m_Nonce);
+
             return;
         }
         if (!Env::Strcmp(szAction, "exportMsg"))

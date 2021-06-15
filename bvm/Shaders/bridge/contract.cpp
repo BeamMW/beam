@@ -7,7 +7,7 @@
 // Method_0 - constructor, called once when the contract is deployed
 export void Ctor(void*)
 {
-    const char meta[] = "testcoin14";
+    const char meta[] = "testcoin15";
     AssetID aid = Env::AssetCreate(meta, sizeof(meta) - 1);
 
     uint32_t key = 0;
