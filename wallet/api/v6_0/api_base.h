@@ -163,20 +163,4 @@ namespace beam::wallet
 
     template<>
     boost::optional<const json&> ApiBase::getOptionalParam<const json&>(const json &params, const std::string &name);
-
-    BOOST_STRONG_TYPEDEF(json, JsonArray)
-    inline void to_json(json& j, const JsonArray& p) {
-        j = p.t;
-    }
-
-    template<>
-    boost::optional<JsonArray> ApiBase::getOptionalParam<JsonArray>(const json &params, const std::string &name);
-
-    BOOST_STRONG_TYPEDEF(json, NonEmptyJsonArray)
-    inline void to_json(json& j, const NonEmptyJsonArray& p) {
-        j = p.t;
-    }
-
-    template<>
-    boost::optional<NonEmptyJsonArray> ApiBase::getOptionalParam<NonEmptyJsonArray>(const json &params, const std::string &name);
 }

@@ -193,36 +193,6 @@ namespace beam::wallet {
         return boost::none;
     }
 
-    template<>
-    boost::optional<JsonArray> ApiBase::getOptionalParam<JsonArray>(const json &params, const std::string &name)
-    {
-        if(auto raw = getOptionalParam<const json&>(params, name))
-        {
-            const json& arr = *raw;
-            if (!arr.is_array())
-            {
-                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter '" + name + "' must be an array.");
-            }
-            return JsonArray(arr);
-        }
-        return boost::none;
-    }
-
-    template<>
-    boost::optional<NonEmptyJsonArray> ApiBase::getOptionalParam<NonEmptyJsonArray>(const json &params, const std::string &name)
-    {
-        if (auto raw = getOptionalParam<JsonArray>(params, name))
-        {
-            const json& arr = *raw;
-            if (arr.empty())
-            {
-                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter '" + name + "' must be a non-empty array.");
-            }
-            return NonEmptyJsonArray(arr);
-        }
-        return boost::none;
-    }
-
     bool ApiBase::hasParam(const json& params, const std::string& name)
     {
         return params.find(name) != params.end();

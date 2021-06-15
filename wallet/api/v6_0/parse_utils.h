@@ -234,4 +234,44 @@ namespace beam::wallet
 
         return ValidTxID(result);
     }
+
+    BOOST_STRONG_TYPEDEF(json, JsonArray)
+
+    template<>
+    inline const char* type_name<JsonArray>()
+    {
+        return "array";
+    }
+
+    template<>
+    inline bool type_check<JsonArray>(const json& j)
+    {
+        return j.is_array();
+    }
+
+    template<>
+    inline JsonArray type_get<JsonArray>(const json& j)
+    {
+        return JsonArray(j);
+    }
+
+    BOOST_STRONG_TYPEDEF(json, NonEmptyJsonArray)
+
+    template<>
+    inline const char* type_name<NonEmptyJsonArray>()
+    {
+        return "non-empty array";
+    }
+
+    template<>
+    inline bool type_check<NonEmptyJsonArray>(const json& j)
+    {
+        return type_check<JsonArray>(j) && !j.empty();
+    }
+
+    template<>
+    inline NonEmptyJsonArray type_get<NonEmptyJsonArray>(const json& j)
+    {
+        return NonEmptyJsonArray(j);
+    }
 }
