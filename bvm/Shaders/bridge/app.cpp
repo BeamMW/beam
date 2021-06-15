@@ -229,7 +229,7 @@ export void Method_1()
             Env::DocGetNum64("nonce", &header.m_Nonce);
 
             uint32_t datasetCount = 0;
-            Env::DocGetNum32("nonce", &datasetCount);
+            Env::DocGetNum32("datasetCount", &datasetCount);
 
             manager::ImportMsg(cid, amount, pk, header, datasetCount);
             return;
