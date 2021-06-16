@@ -106,6 +106,8 @@ namespace fs = std::filesystem;
 #define COIN_CONFIRMATIONS_COUNT "confirmations_count"
 #define EVENTS_NAME "events"
 #define TX_SUMMARY_NAME "tx_summary"
+#define CONTACTS_META_NAME "contacts_meta"
+#define CONTACTS_NAME "contacts"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(name,  name,  TEXT UNIQUE, obj) sep \
@@ -121,9 +123,23 @@ namespace fs = std::filesystem;
     each(duration,       duration,       INTEGER, obj) sep \
     each(OwnID,          OwnID,          INTEGER NOT NULL, obj) sep \
     each(Identity,       Identity,       BLOB, obj) sep \
-    each(Address,        Address,        TEXT NOT NULL PRIMARY KEY, obj) 
+    each(Address,        Address,        TEXT NOT NULL, obj)
 
 #define ADDRESS_FIELDS ENUM_ADDRESS_FIELDS(LIST, COMMA, )
+
+#define ENUM_CONTACT_META_FIELDS(each, sep, obj) \
+    each(contactId,     contactId, INTEGER, obj) sep \
+    each(addrId,        addrId,    INTEGER NOT NULL, obj) sep \
+    each(isDefault,     isDefault, INTEGER DEFAULT 0, obj) sep \
+    each(addrType,      addrType,  INTEGER DEFAULT 0, obj)
+
+#define CONTACT_META_FIELDS ENUM_CONTACT_META_FIELDS(LIST, COMMA, )
+
+#define ENUM_CONTACT_FIELDS(each, sep, obj) \
+    each(name,      name,      TEXT, obj) sep \
+    each(contactId, contactId, INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, obj)
+
+#define CONTACT_FIELDS ENUM_CONTACT_FIELDS(LIST, COMMA, )
 
 #define ENUM_TX_PARAMS_FIELDS(each, sep, obj) \
     each(txID,           txID,           BLOB NOT NULL , obj) sep \
@@ -991,7 +1007,8 @@ namespace beam::wallet
         constexpr char s_szNextEvt[] = "NextUtxoEvent"; // any event, not just UTXO. The name is for historical reasons
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
-        const int DbVersion   =30;
+        const int DbVersion   = 31;
+        const int DbVersion30 = 30;
         const int DbVersion29 = 29;
         const int DbVersion28 = 28;
         const int DbVersion27 = 27;
@@ -1214,10 +1231,32 @@ namespace beam::wallet
     
         void CreateAddressesTable(sqlite3* db, const std::string& tableName)
         {
-            const std::string req = "CREATE TABLE " + tableName + " (" ENUM_ADDRESS_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;"
-                              "CREATE INDEX " + tableName + "WalletIDIndex ON " + tableName + "(WalletID);";
+            const std::string req =
+                "CREATE TABLE " + tableName + " (" ENUM_ADDRESS_FIELDS(LIST_WITH_TYPES, COMMA, )
+                ", id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT);"
+                "CREATE INDEX " + tableName + "WalletIDIndex ON " + tableName + "(WalletID);"
+                "CREATE INDEX " + tableName + "AddressIndex ON " + tableName + "(Address);";
             int ret = sqlite3_exec(db, req.c_str(), nullptr, nullptr, nullptr);
             throwIfError(ret, db);
+        }
+
+        void CreateContactsTables(sqlite3* db)
+        {
+            {
+                const char* req = "CREATE TABLE " CONTACTS_NAME " (" ENUM_CONTACT_FIELDS(LIST_WITH_TYPES, COMMA, ) ");";
+                int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+                throwIfError(ret, db);
+            }
+
+            {
+                const char* req =
+                    "CREATE TABLE " CONTACTS_META_NAME " (" ENUM_CONTACT_META_FIELDS(LIST_WITH_TYPES, COMMA, ) ", "
+                    "FOREIGN KEY (addrId) REFERENCES " ADDRESSES_NAME " (id)"
+                    "FOREIGN KEY (contactId) REFERENCES " CONTACTS_NAME " (contactId)"
+                    ");";
+                int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+                throwIfError(ret, db);
+            }
         }
 
         void CreateVariablesTable(sqlite3* db)
@@ -1473,6 +1512,13 @@ namespace beam::wallet
         {
             MigrateAddressesFrom24(walletDB, db, ADDRESSES_NAME);
             MigrateAddressesFrom24(walletDB, db, LASER_ADDRESSES_NAME);
+        }
+
+        void MigrateAddressesFrom30(WalletDB* walletDB, sqlite3* db)
+        {
+            MigrateAddressesFrom24(walletDB, db, ADDRESSES_NAME);
+            MigrateAddressesFrom24(walletDB, db, LASER_ADDRESSES_NAME);
+            CreateContactsTables(db);
         }
 
         void MigrateTransactionsFrom25(WalletDB* walletDB)
@@ -1766,6 +1812,7 @@ namespace beam::wallet
         CreatePrivateVariablesTable(privateDb);
         CreateVariablesTable(db);
         CreateAddressesTable(db, ADDRESSES_NAME);
+        CreateContactsTables(db);
         CreateTxParamsTable(db);
         CreateStatesTable(db);
         CreateLaserTables(db);
@@ -2287,6 +2334,10 @@ namespace beam::wallet
                     MigrateRatesFrom29(walletDB.get(), walletDB->_db);
                     MigrateRatesHistoryFrom29(walletDB.get(), walletDB->_db);
                     MigrateTxRatesFrom29to30(walletDB.get(), walletDB->_db);
+
+                case DbVersion30:
+                    LOG_INFO() << "Converting DB from format 30...";
+                    MigrateAddressesFrom30(walletDB.get(), walletDB->_db);
 
                     // no break
                     storage::setVar(*walletDB, Version, DbVersion);
