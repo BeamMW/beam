@@ -236,6 +236,9 @@ namespace beam::wallet
     }
 
     BOOST_STRONG_TYPEDEF(json, JsonArray)
+    inline void to_json(json& j, const JsonArray& p) {
+        j = p.t;
+    }
 
     template<>
     inline const char* type_name<JsonArray>()
@@ -256,6 +259,9 @@ namespace beam::wallet
     }
 
     BOOST_STRONG_TYPEDEF(json, NonEmptyJsonArray)
+    inline void to_json(json& j, const NonEmptyJsonArray& p) {
+        j = p.t;
+    }
 
     template<>
     inline const char* type_name<NonEmptyJsonArray>()
