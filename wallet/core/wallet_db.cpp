@@ -991,7 +991,9 @@ namespace beam::wallet
         constexpr char s_szNextEvt[] = "NextUtxoEvent"; // any event, not just UTXO. The name is for historical reasons
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
-        const int DbVersion   =30;
+
+        const int DbVersion   = 31;
+        const int DbVersion30 = 30;
         const int DbVersion29 = 29;
         const int DbVersion28 = 28;
         const int DbVersion27 = 27;
@@ -1475,7 +1477,7 @@ namespace beam::wallet
             MigrateAddressesFrom24(walletDB, db, LASER_ADDRESSES_NAME);
         }
 
-        void MigrateTransactionsFrom25(WalletDB* walletDB)
+        void MigrateTransactionsFrom26(WalletDB* walletDB)
         {
             sqlite::Statement stm((const WalletDB*)walletDB, "SELECT txID, value FROM " TX_PARAMS_NAME " WHERE subTxID=?1 AND paramID=?2;");
             stm.bind(1, kDefaultSubTxID);
@@ -1506,7 +1508,6 @@ namespace beam::wallet
             Timestamp   m_updateTime = 0;
             SERIALIZE(m_from, m_to, m_rate, m_updateTime);
         };
-
 
         Currency exchangeCurr29to30(ExchangeRate29::CurrType curr29)
         {
@@ -1659,6 +1660,28 @@ namespace beam::wallet
                 storage::setTxParameter(*walletDB, updateInfo.txID, static_cast<SubTxID>(updateInfo.subTxID), TxParameterID::ExchangeRates, updateInfo.rates, false);
                 LOG_INFO() << "Rates convert for " << updateInfo.txID << ", rcnt: " << updateInfo.rates.size();
             }
+        }
+
+        void MigrateTransactionsFrom30(WalletDB* walletDB, sqlite3* db)
+        {
+            walletDB->visitTx([&](const TxDescription& tx) -> bool {
+                if(tx.GetTxID().is_initialized())
+                {
+                    TxAddressType addressType = TxAddressType::Unknown;
+                    tx.GetParameter(TxParameterID::AddressType, addressType);
+                    if (addressType == TxAddressType::Unknown)
+                    {
+                        addressType = GetAddressType(tx);
+                        storage::setTxParameter(*walletDB, *tx.GetTxID(), TxParameterID::AddressType, addressType, false);
+                    }
+                }
+                else
+                {
+                    LOG_WARNING() << "MigrateTransactionsFrom30: Unexpected tx without TxID";
+                    assert(false);
+                }
+                return true;
+            }, TxListFilter());
         }
 
         void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password)
@@ -2268,7 +2291,7 @@ namespace beam::wallet
 
                 case DbVersion26:
                     LOG_INFO() << "Converting DB from format 26...";
-                    MigrateTransactionsFrom25(walletDB.get());
+                    MigrateTransactionsFrom26(walletDB.get());
                     // no break
 
                 case DbVersion27:
@@ -2287,7 +2310,11 @@ namespace beam::wallet
                     MigrateRatesFrom29(walletDB.get(), walletDB->_db);
                     MigrateRatesHistoryFrom29(walletDB.get(), walletDB->_db);
                     MigrateTxRatesFrom29to30(walletDB.get(), walletDB->_db);
+                    // no break
 
+                case DbVersion30:
+                    LOG_INFO() << "Converting DB from format 30...";
+                    MigrateTransactionsFrom30(walletDB.get(), walletDB->_db);
                     // no break
                     storage::setVar(*walletDB, Version, DbVersion);
 
