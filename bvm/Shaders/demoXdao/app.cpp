@@ -21,6 +21,8 @@
     macro(Amount, amountBeam) \
     macro(uint32_t, bLockOrUnlock) \
 
+#define DemoXdao_manager_my_xid(macro)
+
 #define DemoXdao_manager_deploy_contract(macro) \
     macro(ContractID, cidVersion) \
     macro(Height, hUpgradeDelay)
@@ -40,6 +42,7 @@
     macro(manager, view_params) \
     macro(manager, view_stake) \
     macro(manager, lock) \
+    macro(manager, my_xid) \
     macro(manager, farm_view) \
     macro(manager, farm_update)
 
@@ -223,6 +226,15 @@ ON_METHOD(manager, lock)
     pFc[1].m_Consume = 1;
 
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), &sig, 1, "Lock-and-get demoX tokens", 0);
+}
+
+static const char g_szXid[] = "xid-seed";
+
+ON_METHOD(manager, my_xid)
+{
+    PubKey pk;
+    Env::DerivePk(pk, g_szXid, sizeof(g_szXid));
+    Env::DocAddBlob_T("xid", pk);
 }
 
 ON_METHOD(manager, farm_view)
