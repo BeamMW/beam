@@ -15,6 +15,7 @@
 #include "utility/io/asyncevent.h"
 #include <future>
 #include <iostream>
+#include <thread>
 
 using namespace beam::io;
 using namespace std;

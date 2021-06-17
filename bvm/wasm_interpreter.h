@@ -17,6 +17,8 @@
 #include "../utility/containers.h"
 #include "../utility/byteorder.h"
 
+#include <limits>
+
 namespace beam {
 namespace Wasm {
 
