@@ -44,14 +44,21 @@ namespace manager
 
     void ImportMsg(const ContractID& cid, uint32_t amount, const PubKey& pk, const Eth::Header& header, uint32_t datasetCount)
     {
-        uint32_t size = Env::DocGetBlob("proof", nullptr, 0);
+        uint32_t proofSize = Env::DocGetBlob("proof", nullptr, 0);
+        uint32_t receiptProofSize = Env::DocGetBlob("receiptProof", nullptr, 0);
+        auto* arg = (Bridge::ImportMessage*)Env::StackAlloc(sizeof(Bridge::ImportMessage) + proofSize );
+        uint8_t* tmp = (uint8_t*)(arg + 1);
 
-        auto* arg = (Bridge::ImportMessage*)Env::StackAlloc(sizeof(Bridge::ImportMessage) + size);
+        Env::DocGetBlob("proof", tmp, proofSize);
+        tmp += proofSize;
+        Env::DocGetBlob("receiptProof", tmp, receiptProofSize);
 
-        Env::DocGetBlob("proof", (void*)(arg + 1), size);
-
-        Env::DocAddNum32("proof_size", size);
-        Env::DocAddBlob("proof", (void*)(arg + 1), size);
+        /*Env::DocAddNum32("proof_size", proofSize);
+        tmp = (uint8_t*)(arg + 1);
+        Env::DocAddBlob("proof", tmp, proofSize);
+        Env::DocAddNum32("receipt_proof_size", receiptProofSize);
+        tmp += proofSize;
+        Env::DocAddBlob("receipt_proof", tmp, receiptProofSize);*/
 
         Bridge::InMsg msg;
 
@@ -60,11 +67,12 @@ namespace manager
         msg.m_Finalized = 0;
         arg->m_Msg = msg;
         arg->m_DatasetCount = datasetCount;
-        arg->m_ProofSize = size;
+        arg->m_ProofSize = proofSize;
+        arg->m_ReceiptProofSize = receiptProofSize;
 
         _POD_(arg->m_Header) = header;
 
-        Env::GenerateKernel(&cid, arg->s_iMethod, arg, sizeof(*arg) + size, nullptr, 0, nullptr, 0, "Import message", 0);
+        Env::GenerateKernel(&cid, arg->s_iMethod, arg, sizeof(*arg) + proofSize + receiptProofSize, nullptr, 0, nullptr, 0, "Import message", 0);
     }
 
     void ExportMsg(const ContractID& cid)
