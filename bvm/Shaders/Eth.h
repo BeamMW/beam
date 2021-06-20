@@ -503,7 +503,7 @@ namespace Eth
 		uint8_t offset = (nibbles[0] == 0 || nibbles[0] == 2) ? 2 : 1;
 
 		// checking that key contains nibbles
-		if (!memcmp(nibbles + offset, key + keyPos, nibblesLength - offset))
+		if (!Env::Memcmp(nibbles + offset, key + keyPos, nibblesLength - offset))
 		{
 			return nibblesLength - offset;
 		}
@@ -515,7 +515,7 @@ namespace Eth
 	bool VerifyEthProof(const uint8_t* trieKey, uint32_t trieKeySize,
 						const uint8_t* proof, uint32_t proofSize,
 						const HashValue& rootHash,
-						uint8_t** out, size_t& outSize)
+						uint8_t** out, unsigned long long& outSize)
 	{
 		struct RlpVisitor
 		{
@@ -557,7 +557,8 @@ namespace Eth
 
 		RlpVisitor rootVisitor;
 		Rlp::Decode(proof, proofSize, rootVisitor);
-		const uint8_t* newExpectedRoot = rootHash.m_pData;
+		// TODO need to check this change
+		const uint8_t* newExpectedRoot = reinterpret_cast<const uint8_t*>(&rootHash);//rootHash.m_pData;
 		uint8_t keyPos = 0;
 		HashValue nodeHash;
 
@@ -581,7 +582,8 @@ namespace Eth
 			hp.Write(rootVisitor.GetItem(i).m_pBuf - prefixOffset, rootVisitor.GetItem(i).m_nLen + prefixOffset);
 			hp >> nodeHash;
 
-			if (memcmp(newExpectedRoot, nodeHash.m_pData, nodeHash.nBytes))
+			// TODO need to check this change
+			if (Env::Memcmp(newExpectedRoot, reinterpret_cast<const uint8_t*>(&nodeHash), 32))
 			{
 				return false;
 			}
