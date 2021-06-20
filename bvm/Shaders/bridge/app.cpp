@@ -46,7 +46,7 @@ namespace manager
     {
         uint32_t proofSize = Env::DocGetBlob("proof", nullptr, 0);
         uint32_t receiptProofSize = Env::DocGetBlob("receiptProof", nullptr, 0);
-        auto* arg = (Bridge::ImportMessage*)Env::StackAlloc(sizeof(Bridge::ImportMessage) + proofSize );
+        auto* arg = (Bridge::ImportMessage*)Env::StackAlloc(sizeof(Bridge::ImportMessage) + proofSize + receiptProofSize);
         uint8_t* tmp = (uint8_t*)(arg + 1);
 
         Env::DocGetBlob("proof", tmp, proofSize);
