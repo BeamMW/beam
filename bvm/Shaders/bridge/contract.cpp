@@ -56,6 +56,12 @@ export void Method_4(Bridge::ImportMessage& value)
 
     Ethash::VerifyHdr(hdr.get_Epoch(), value.m_DatasetCount, hvSeed, hdr.m_Nonce, hdr.m_Difficulty, &value + 1, value.m_ProofSize); //?????
 
+    unsigned long long size = 0;
+    uint8_t* out = nullptr;
+    const uint8_t* receiptProof = (uint8_t*)(&value + 1) + value.m_ProofSize;
+    const uint8_t* trieKey = receiptProof + value.m_ReceiptProofSize;
+    Env::Halt_if(!Eth::VerifyEthProof(trieKey, value.m_TrieKeySize, receiptProof, value.m_ReceiptProofSize, value.m_Header.m_Root, &out, size));
+
     uint32_t key = 1;
     Bridge::InMsg tmp = value.m_Msg;
     tmp.m_Finalized = 0;
