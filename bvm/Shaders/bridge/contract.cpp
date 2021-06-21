@@ -56,7 +56,7 @@ export void Method_4(Bridge::ImportMessage& value)
 
     Ethash::VerifyHdr(hdr.get_Epoch(), value.m_DatasetCount, hvSeed, hdr.m_Nonce, hdr.m_Difficulty, &value + 1, value.m_ProofSize); //?????
 
-    unsigned long long size = 0;
+    uint32_t size = 0;
     uint8_t* out = nullptr;
     const uint8_t* receiptProof = (uint8_t*)(&value + 1) + value.m_ProofSize;
     const uint8_t* trieKey = receiptProof + value.m_ReceiptProofSize;

@@ -28,6 +28,14 @@ namespace Eth
 #endif // HOST_BUILD
 	}
 
+	int MemCmp(const void* dest, const void* src, uint32_t n)
+	{
+#ifdef HOST_BUILD
+		return memcmp(dest, src, n);
+#else // HOST_BUILD
+		return Env::Memcmp(dest, src, n);
+#endif // HOST_BUILD
+	}
 
 	template <uint32_t N>
 	constexpr uint32_t strlen(char const (&s)[N])
@@ -462,6 +470,14 @@ namespace Eth
 		}
 	};
 
+	uint8_t GetRLPPrefixSize(const Rlp::Node& node)
+	{
+		if (node.m_nLen > 55)
+			return 1 + Rlp::Node::get_BytesFor(node.m_nLen);
+
+		return (node.m_nLen == 1 && node.m_pBuf[0] <= 0x7f) ? 0 : 1;
+	}
+
 	void TriePathToNibbles(const uint8_t* path, uint32_t pathLength,
 		uint8_t* nibbles, uint32_t nibblesLength)
 	{
@@ -503,7 +519,7 @@ namespace Eth
 		uint8_t offset = (nibbles[0] == 0 || nibbles[0] == 2) ? 2 : 1;
 
 		// checking that key contains nibbles
-		if (!Env::Memcmp(nibbles + offset, key + keyPos, nibblesLength - offset))
+		if (!MemCmp(nibbles + offset, key + keyPos, nibblesLength - offset))
 		{
 			return nibblesLength - offset;
 		}
@@ -515,7 +531,7 @@ namespace Eth
 	bool VerifyEthProof(const uint8_t* trieKey, uint32_t trieKeySize,
 						const uint8_t* proof, uint32_t proofSize,
 						const HashValue& rootHash,
-						uint8_t** out, unsigned long long& outSize)
+						uint8_t** out, uint32_t& outSize)
 	{
 		struct RlpVisitor
 		{
@@ -557,8 +573,7 @@ namespace Eth
 
 		RlpVisitor rootVisitor;
 		Rlp::Decode(proof, proofSize, rootVisitor);
-		// TODO need to check this change
-		const uint8_t* newExpectedRoot = reinterpret_cast<const uint8_t*>(&rootHash);//rootHash.m_pData;
+		const uint8_t* newExpectedRoot = reinterpret_cast<const uint8_t*>(&rootHash);
 		uint8_t keyPos = 0;
 		HashValue nodeHash;
 
@@ -576,14 +591,12 @@ namespace Eth
 #endif // HOST_BUILD
 			
 			// For hash calculation used full data: prefix(type + length) + body
-			// TODO: separate function
-			uint32_t prefixOffset = 1 + Rlp::Node::get_BytesFor(rootVisitor.GetItem(i).m_nLen);
+			uint32_t prefixOffset = GetRLPPrefixSize(rootVisitor.GetItem(i));
 
 			hp.Write(rootVisitor.GetItem(i).m_pBuf - prefixOffset, rootVisitor.GetItem(i).m_nLen + prefixOffset);
 			hp >> nodeHash;
 
-			// TODO need to check this change
-			if (Env::Memcmp(newExpectedRoot, reinterpret_cast<const uint8_t*>(&nodeHash), 32))
+			if (MemCmp(newExpectedRoot, reinterpret_cast<const uint8_t*>(&nodeHash), 32))
 			{
 				return false;
 			}
