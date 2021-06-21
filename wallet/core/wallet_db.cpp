@@ -5727,10 +5727,10 @@ namespace beam::wallet
             if (c.m_confirmHeight != MaxHeight)
             {
                 const auto* packedMessage = ShieldedTxo::User::ToPackedMessage(c.m_CoinID.m_User);
-                auto mpAnonymitySet = packedMessage->m_MaxPrivacyMinAnonymitySet;
+                uint32_t mpAnonymitySet = packedMessage->m_MaxPrivacyMinAnonymitySet;
                 if (mpAnonymitySet)
                 {
-                    auto timeLimit = walletDB.get_MaxPrivacyLockTimeLimitHours();
+                    uint32_t timeLimit = walletDB.get_MaxPrivacyLockTimeLimitHours();
                     Block::SystemState::ID stateID = {};
                     walletDB.getSystemStateID(stateID);
 
