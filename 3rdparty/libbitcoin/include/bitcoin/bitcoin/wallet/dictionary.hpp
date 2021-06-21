@@ -20,6 +20,7 @@
 #define LIBBITCOIN_WALLET_DICTIONARY_HPP
 
 #include <array>
+#include <cstddef>
 #include <vector>
 #include <bitcoin/bitcoin/compat.hpp>
 
