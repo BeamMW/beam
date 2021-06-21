@@ -117,8 +117,10 @@ void Mediator::OnRolledBack()
             m_pWalletDB->saveLaserChannel(*channel);
             channel->Subscribe();
 
-            m_channels[channel->get_chID()] =
-                std::unique_ptr<Channel>(channel.release());
+            auto chID = channel->get_chID();
+            if (chID != nullptr)
+                m_channels[chID] =
+                    std::unique_ptr<Channel>(channel.release());
         }
     }
 
