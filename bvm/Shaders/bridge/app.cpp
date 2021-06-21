@@ -53,7 +53,7 @@ namespace manager
         Env::DocGetBlob("proof", tmp, proofSize);
         tmp += proofSize;
         Env::DocGetBlob("receiptProof", tmp, receiptProofSize);
-        tmp += trieKeySize;
+        tmp += receiptProofSize;
         Env::DocGetBlob("txIndex", tmp, trieKeySize);
 
         /*Env::DocAddNum32("proof_size", proofSize);
