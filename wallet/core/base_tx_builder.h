@@ -49,7 +49,7 @@ namespace beam::wallet
             std::vector<Coin::ID> m_Output;
             std::vector<IPrivateKeyKeeper2::ShieldedInput> m_InputShielded;
 
-            bool IsEmpty() const {
+            [[nodiscard]] bool IsEmpty() const {
                 return m_Input.empty() && m_Output.empty() && m_InputShielded.empty();
             }
 
@@ -61,7 +61,7 @@ namespace beam::wallet
         struct Balance
         {
             BaseTxBuilder& m_Builder;
-            Balance(BaseTxBuilder&);
+            explicit Balance(BaseTxBuilder&);
 
             struct Entry
             {
@@ -147,7 +147,7 @@ namespace beam::wallet
     protected:
 
         virtual bool IsConventional() { return true; }
-        virtual void FinalyzeTxInternal();
+        virtual void FinalizeTxInternal();
 
         struct KeyKeeperHandler
             :public IPrivateKeyKeeper2::Handler
@@ -156,9 +156,9 @@ namespace beam::wallet
             Stage* m_pStage;
 
             KeyKeeperHandler(BaseTxBuilder&, Stage& s);
-            ~KeyKeeperHandler();
+            ~KeyKeeperHandler() override;
 
-            virtual void OnDone(IPrivateKeyKeeper2::Status::Type) override;
+            void OnDone(IPrivateKeyKeeper2::Status::Type) override;
 
             virtual void OnSuccess(BaseTxBuilder&) = 0;
             virtual void OnFailed(BaseTxBuilder&, IPrivateKeyKeeper2::Status::Type);
@@ -195,13 +195,12 @@ namespace beam::wallet
     };
 
 
-
     class SimpleTxBuilder
         :public BaseTxBuilder
     {
     public:
         SimpleTxBuilder(BaseTransaction& tx, SubTxID subTxID);
-        virtual ~SimpleTxBuilder() = default;
+        ~SimpleTxBuilder() override = default;
 
         Amount m_Amount = 0;
         Asset::ID m_AssetID = 0;
@@ -214,7 +213,7 @@ namespace beam::wallet
             static const Type SelfSigned = 1; // kernel fully signed, in/outs ready
         };
 
-        virtual bool SignTx() override;
+        bool SignTx() override;
 
     protected:
         void SignSplit();
@@ -227,7 +226,7 @@ namespace beam::wallet
     {
     public:
         MutualTxBuilder(BaseTransaction& tx, SubTxID subTxID);
-        virtual ~MutualTxBuilder() = default;
+        ~MutualTxBuilder() override = default;
 
         bool m_IsSender = false;
 
@@ -245,7 +244,7 @@ namespace beam::wallet
 
         };
 
-        virtual bool SignTx() override;
+        bool SignTx() override;
 
     protected:
         void FinalyzeMaxHeight();
@@ -258,8 +257,8 @@ namespace beam::wallet
         virtual bool SignTxReceiver();
 
         virtual void SendToPeer(SetTxParameter&&) = 0;
-        virtual void FinalyzeTxInternal() override; // Adds peer's in/outs/offset (if provided), and calls base
         virtual void AddPeerSignature(const ECC::Point::Native& ptNonce, const ECC::Point::Native& ptExc);
         void FillUserData(Output::User::Packed* user) override;
+        void FinalizeTxInternal() override; // Adds peer's in/outs/offset (if provided), and calls base
     };
 }

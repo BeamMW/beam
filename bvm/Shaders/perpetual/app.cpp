@@ -58,24 +58,24 @@ void OnError(const char* sz)
 typedef Env::Key_T<PubKey> KeyOffer;
 
 
-void PrintOffers()
+void PrintOffers(Env::VarReader& r)
 {
     Env::DocArray gr("accounts");
 
     while (true)
     {
-        const KeyOffer* pKey;
-        const Perpetual::OfferState* pState;
+        KeyOffer key;
+        Perpetual::OfferState os;
         
-        if (!Env::VarsMoveNext_T(pKey, pState))
+        if (!r.MoveNext_T(key, os))
             break;
 
         Env::DocGroup gr("");
 
-        Env::DocAddBlob_T("User1", pKey->m_KeyInContract);
-        Env::DocAddBlob_T("User2", pState->m_User2);
-        Env::DocAddNum("Amount1", pState->m_Amount1);
-        Env::DocAddNum("Amount2", pState->m_Amount2);
+        Env::DocAddBlob_T("User1", key.m_KeyInContract);
+        Env::DocAddBlob_T("User2", os.m_User2);
+        Env::DocAddNum("Amount1", os.m_Amount1);
+        Env::DocAddNum("Amount2", os.m_Amount2);
     }
 }
 
@@ -85,8 +85,8 @@ void PrintOffer(const PubKey& pubKey, const ContractID& cid)
     k.m_Prefix.m_Cid = cid;
     k.m_KeyInContract = pubKey;
 
-    Env::VarsEnum_T(k, k);
-    PrintOffers();
+    Env::VarReader r(k, k);
+    PrintOffers(r);
 }
 
 ON_METHOD(manager, view)
@@ -110,8 +110,8 @@ ON_METHOD(manager, view_offers)
     _POD_(k1.m_Cid) = cid;
     k1.m_Tag = KeyTag::Internal + 1;
 
-    Env::VarsEnum_T(k0, k1); // enum all internal contract vars
-    PrintOffers();
+    Env::VarReader r(k0, k1); // enum all internal contract vars
+    PrintOffers(r);
 }
 
 void DeriveMyPk(PubKey& pubKey, const ContractID& cid)

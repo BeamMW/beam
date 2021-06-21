@@ -96,7 +96,7 @@ public:
 };
 
 template <typename T, typename TPivot>
-static uint32_t PivotSplit(T* p, uint32_t n, TPivot pivot)
+inline uint32_t PivotSplit(T* p, uint32_t n, TPivot pivot)
 {
 	for (uint32_t i = 0; i < n; )
 	{
@@ -117,4 +117,48 @@ static uint32_t PivotSplit(T* p, uint32_t n, TPivot pivot)
 	}
 
 	return n;
+}
+
+// assuming provided elements are not descending (a[i] <= a[i+1])
+// returns the lowest index s.t. p[ret] >= x, or n if no such an element
+template <typename T, typename TPivot>
+inline uint32_t MedianSearch(const T* p, uint32_t n, const TPivot& x)
+{
+	uint32_t i0 = 0;
+	while (n)
+	{
+		uint32_t nHalf = n / 2;
+		if (p[i0 + nHalf] < x)
+		{
+			nHalf++;
+			i0 += nHalf;
+			n -= nHalf;
+		}
+		else
+			n = nHalf;
+	}
+
+	return i0;
+}
+
+template <typename TX, typename TY>
+inline TY LutCalculate(const TX* pX, const TY* pY, uint32_t nLut, const TX& x)
+{
+	assert(nLut);
+	uint32_t n = MedianSearch(pX, nLut, x);
+
+	if (n == nLut)
+		return pY[nLut - 1];
+	if (!n)
+		return pY[0];
+
+	const TY& y0 = pY[n - 1];
+
+	// y0,y1 are not necessarily in ascending order. Use signed arithmetics
+	int64_t val =
+		((int64_t) (pY[n] - y0)) *
+		((int64_t) (x - pX[n - 1])) /
+		((int64_t) (pX[n] - pX[n - 1]));
+
+	return static_cast<TY>(y0 + val);
 }

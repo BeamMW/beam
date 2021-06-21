@@ -34,14 +34,14 @@ namespace beam::wallet
 
         if (!params["coins"].is_array() || params["coins"].empty())
         {
-            throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Coins parameter must be an array of strings (coin IDs).");
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Coins parameter must be an array of strings (coin IDs).");
         }
 
         for (const auto& cid : params["coins"])
         {
             if (!cid.is_string())
             {
-                throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Coin ID in the coins array must be a string.");
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Coin ID in the coins array must be a string.");
             }
 
             std::string sCid = cid;
@@ -58,29 +58,20 @@ namespace beam::wallet
         return coins;
     }
 
-    bool readAssetsParameter(const json& params)
-    {
-        if (auto oassets = WalletApi::getOptionalParam<bool>(params, "assets"))
-        {
-            return *oassets;
-        }
-        return false;
-    }
-
-    boost::optional<Asset::ID> readOptionalAssetID(const json& params)
+    boost::optional<Asset::ID> readOptionalAssetID(WalletApi& api, const json& params)
     {
         auto aid = WalletApi::getOptionalParam<uint32_t>(params, "asset_id");
         if (aid && *aid != Asset::s_InvalidID)
         {
-            WalletApi::checkCAEnabled();
+            api.checkCAEnabled();
         }
         return aid;
     }
 
-    Asset::ID readMandatoryNonBeamAssetID(const json& params)
+    Asset::ID readMandatoryNonBeamAssetID(WalletApi& api, const json& params)
     {
         Asset::ID aid = WalletApi::getMandatoryParam<PositiveUint32>(params, "asset_id");
-        WalletApi::checkCAEnabled();
+        api.checkCAEnabled();
         return aid;
     }
 
@@ -164,23 +155,25 @@ namespace beam::wallet
         {
             struct ApiTxStatusInterpreter : public TxStatusInterpreter
             {
-                ApiTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
-                virtual ~ApiTxStatusInterpreter() {}
-                std::string getStatus() const override
+                explicit ApiTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
+                ~ApiTxStatusInterpreter() override = default;
+
+                [[nodiscard]] std::string getStatus() const override
                 {
                     if (m_status == TxStatus::Registering)
                         return m_selfTx ? "self sending" : (m_sender ? "sending" : "receiving");
                     return TxStatusInterpreter::getStatus();
                 }
             };
+
             statusInterpreter = std::make_unique<ApiTxStatusInterpreter>(tx);
         }
         else if (tx.m_txType >= TxType::AssetIssue && tx.m_txType <= TxType::AssetInfo)
         {
             struct ApiAssetTxStatusInterpreter : public AssetTxStatusInterpreter
             {
-                ApiAssetTxStatusInterpreter(const TxParameters& txParams) : AssetTxStatusInterpreter(txParams) {};
-                std::string getStatus() const override
+                explicit ApiAssetTxStatusInterpreter(const TxParameters& txParams) : AssetTxStatusInterpreter(txParams) {};
+                [[nodiscard]] std::string getStatus() const override
                 {
                     if (m_status == TxStatus::Registering)
                         return m_selfTx ? "self sending" : (m_sender ? "sending" : "receiving");
@@ -267,12 +260,6 @@ namespace beam::wallet
             }
         }
 
-        auto token = tx.GetParameter<std::string>(TxParameterID::OriginalToken);
-        if (token)
-        {
-            msg["token"] = *token;
-        }
-
         if (showIdentities)
         {
             auto senderIdentity = tx.getSenderIdentity();
@@ -294,13 +281,13 @@ namespace beam::wallet
 
     Amount WalletApi::getBeamFeeParam(const json& params, const std::string& name) const
     {
-        auto& fs = Transaction::FeeSettings::get(get_CurrentHeight());
+        auto &fs = Transaction::FeeSettings::get(get_CurrentHeight());
         return getBeamFeeParam(params, name, fs.get_DefaultStd());
     }
 
     Amount WalletApi::getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const
     {
-        auto ofee = getOptionalParam<PositiveUnit64>(params, name);
+        auto ofee = getOptionalParam<PositiveUint64>(params, name);
         if (!ofee)
             return feeMin;
 
@@ -344,9 +331,9 @@ namespace beam::wallet
     std::pair<CalcChange, IWalletApi::MethodInfo> WalletApi::onParseCalcChange(const JsonRpcId& id, const nlohmann::json& params)
     {
         CalcChange message{ getMandatoryParam<PositiveAmount>(params, "amount") };
-        message.assetId = readOptionalAssetID(params);
+        message.assetId = readOptionalAssetID(*this, params);
 
-        if (auto f = getOptionalParam<PositiveUnit64>(params, "fee"))
+        if (auto f = getOptionalParam<PositiveUint64>(params, "fee"))
         {
             message.explicitFee = *f;
         }
@@ -496,7 +483,7 @@ namespace beam::wallet
         }
 
         send.value = getMandatoryParam<PositiveAmount>(params, "value");
-        send.assetId = readOptionalAssetID(params);
+        send.assetId = readOptionalAssetID(*this, params);
         info.spend[send.assetId ? *send.assetId : beam::Asset::s_BeamID] = send.value;
 
         if (hasParam(params, "coins"))
@@ -539,7 +526,7 @@ namespace beam::wallet
         MethodInfo info;
 
         Split split;
-        split.assetId = readOptionalAssetID(params);
+        split.assetId = readOptionalAssetID(*this, params);
 
         const json coins = getMandatoryParam<NonEmptyJsonArray>(params, "coins");
         beam::AmountBig::Type splitAmount = 0UL;
@@ -562,7 +549,15 @@ namespace beam::wallet
         }
 
         auto& fs = Transaction::FeeSettings::get(get_CurrentHeight());
-        Amount minimumFee = std::max(fs.m_Kernel + fs.m_Output * (split.coins.size() + 1), fs.get_DefaultStd());
+
+        auto outsCnt = split.coins.size() + 1; // for split result cons + beam change coin (if any)
+        if (split.assetId.is_initialized() && *split.assetId != beam::Asset::s_BeamID)
+        {
+            // asset change coin (if any);
+            outsCnt++;
+        }
+
+        Amount minimumFee = std::max(fs.m_Kernel + fs.m_Output * outsCnt, fs.get_DefaultStd());
 
         split.fee = getBeamFeeParam(params, "fee", minimumFee);
         split.txId = getOptionalParam<ValidTxID>(params, "txId");
@@ -603,8 +598,8 @@ namespace beam::wallet
     std::pair<T, IWalletApi::MethodInfo> WalletApi::onParseIssueConsume(bool issue, const JsonRpcId& id, const json& params)
     {
         T data;
-        data.value = getMandatoryParam<PositiveUnit64>(params, "value");
-        data.assetId = readMandatoryNonBeamAssetID(params);
+        data.value = getMandatoryParam<PositiveUint64>(params, "value");
+        data.assetId = readMandatoryNonBeamAssetID(*this, params);
 
         if (hasParam(params, "coins"))
         {
@@ -635,7 +630,7 @@ namespace beam::wallet
     std::pair<GetAssetInfo, IWalletApi::MethodInfo> WalletApi::onParseGetAssetInfo(const JsonRpcId& id, const json& params)
     {
         GetAssetInfo data = {0};
-        data.assetId = readMandatoryNonBeamAssetID(params);
+        data.assetId = readMandatoryNonBeamAssetID(*this, params);
         return std::make_pair(data, MethodInfo());
     }
 
@@ -656,7 +651,7 @@ namespace beam::wallet
     {
         TxAssetInfo data = {0};
 
-        data.assetId = readMandatoryNonBeamAssetID(params);
+        data.assetId = readMandatoryNonBeamAssetID(*this, params);
         data.txId = getOptionalParam<ValidTxID>(params, "txId");
 
         return std::make_pair(data, MethodInfo());
@@ -665,7 +660,7 @@ namespace beam::wallet
     std::pair<GetUtxo, IWalletApi::MethodInfo> WalletApi::onParseGetUtxo(const JsonRpcId& id, const json& params)
     {
         GetUtxo getUtxo;
-        getUtxo.withAssets = readAssetsParameter(params);
+        getUtxo.withAssets = getCAEnabled();
 
         if (auto count = getOptionalParam<PositiveUint32>(params, "count"))
         {
@@ -674,7 +669,7 @@ namespace beam::wallet
 
         if (hasParam(params, "filter"))
         {
-            getUtxo.filter.assetId = readOptionalAssetID(params["filter"]);
+            getUtxo.filter.assetId = readOptionalAssetID(*this, params["filter"]);
         }
 
         if (auto skip = getOptionalParam<uint32_t>(params, "skip"))
@@ -706,7 +701,7 @@ namespace beam::wallet
     std::pair<TxList, IWalletApi::MethodInfo> WalletApi::onParseTxList(const JsonRpcId& id, const json& params)
     {
         TxList txList;
-        txList.withAssets = readAssetsParameter(params);
+        txList.withAssets = getCAEnabled();
 
         if (hasParam(params, "filter"))
         {
@@ -720,7 +715,7 @@ namespace beam::wallet
                 txList.filter.height = (Height)params["filter"]["height"];
             }
 
-            txList.filter.assetId = readOptionalAssetID(params["filter"]);
+            txList.filter.assetId = readOptionalAssetID(*this, params["filter"]);
         }
 
         if (auto count = getOptionalParam<PositiveUint32>(params, "count"))
@@ -739,7 +734,7 @@ namespace beam::wallet
     std::pair<WalletStatusApi, IWalletApi::MethodInfo> WalletApi::onParseWalletStatusApi(const JsonRpcId& id, const json& params)
     {
         WalletStatusApi walletStatus;
-        walletStatus.withAssets = readAssetsParameter(params);
+        walletStatus.withAssets = getCAEnabled();
         return std::make_pair(walletStatus, MethodInfo());
     }
 
@@ -817,6 +812,20 @@ namespace beam::wallet
         catch(std::runtime_error&)
         {
             throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Failed to parse invoke data");
+        }
+
+        LOG_INFO() << "onParseProcessInvokeData";
+        for (const auto& entry: realData)
+        {
+            LOG_INFO() << "\tCid: "     << entry.m_Cid;
+            LOG_INFO() << "\tMethod: "  << entry.m_iMethod;
+            LOG_INFO() << "\tCharge: " << entry.m_Charge;
+            LOG_INFO() << "\tComment: " << entry.m_sComment;
+
+            for (const auto& spend: entry.m_Spend)
+            {
+                LOG_INFO() << "\t (aid, amount): (" << spend.first << ", " << spend.second << ")";
+            }
         }
 
         MethodInfo info;
@@ -1040,23 +1049,14 @@ namespace beam::wallet
             {"result", json::array()}
         };
 
-        for (auto& utxo : res.utxos)
+        for (auto& c : res.coins)
         {
-            std::string createTxId = utxo.m_createTxId.is_initialized() ? std::to_string(*utxo.m_createTxId) : "";
-            std::string spentTxId = utxo.m_spentTxId.is_initialized() ? std::to_string(*utxo.m_spentTxId) : "";
-
             msg["result"].push_back(
-            {
-                {"id", utxo.toStringID()},
-                {"asset_id", utxo.m_ID.m_AssetID},
-                {"amount", utxo.m_ID.m_Value},
-                {"type", (const char*)FourCC::Text(utxo.m_ID.m_Type)},
-                {"maturity", utxo.get_Maturity(res.confirmations_count)},
-                {"createTxId", createTxId},
-                {"spentTxId", spentTxId},
-                {"status", utxo.m_status},
-                {"status_string", utxo.getStatusString()}
-            });
+                {
+#define MACRO(name, type) {#name, c.name},
+                    BEAM_GET_UTXO_RESPONSE_FIELDS(MACRO)
+                });
+#undef MACRO
         }
     }
 
@@ -1244,23 +1244,26 @@ namespace beam::wallet
 
     void WalletApi::getResponse(const JsonRpcId& id, const WalletStatusApi::Response& res, json& msg)
     {
+        msg = json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result",
+                {
+                    {"current_height", res.currentHeight},
+                    {"current_state_hash", to_hex(res.currentStateHash.m_pData, res.currentStateHash.nBytes)},
+                    {"prev_state_hash", to_hex(res.prevStateHash.m_pData, res.prevStateHash.nBytes)},
+                    {"available",  res.available},
+                    {"receiving",  res.receiving},
+                    {"sending",    res.sending},
+                    {"maturing",   res.maturing},
+                    {"difficulty", res.difficulty}
+                }
+            }
+        };
+
         if (res.totals)
         {
-            msg = json
-            {
-                {JsonRpcHeader, JsonRpcVersion},
-                {"id", id},
-                {"result",
-                    {
-                        {"current_height", res.currentHeight},
-                        {"current_state_hash", to_hex(res.currentStateHash.m_pData, res.currentStateHash.nBytes)},
-                        {"prev_state_hash", to_hex(res.prevStateHash.m_pData, res.prevStateHash.nBytes)},
-                        {"difficulty", res.difficulty},
-                        {"totals", json::array()}
-                    }
-                }
-            };
-
             for(const auto& it: res.totals->allTotals)
             {
                 const auto& totals = it.second;
@@ -1268,48 +1271,40 @@ namespace beam::wallet
 
                 jtotals["asset_id"] = totals.AssetId;
 
-                if (totals.Avail <= kMaxAllowedInt) {
-                    jtotals["available"] = AmountBig::get_Lo(totals.Avail);
-                }
-                jtotals["available_str"] = std::to_string(totals.Avail);
+                auto avail = totals.Avail; avail += totals.AvailShielded;
+                jtotals["available_str"] = std::to_string(avail);
 
-                if (totals.Incoming <= kMaxAllowedInt) {
-                    jtotals["receiving"] = AmountBig::get_Lo(totals.Incoming);
+                if (avail <= kMaxAllowedInt)
+                {
+                    jtotals["available"] = AmountBig::get_Lo(avail);
                 }
-                jtotals["receiving_str"] = std::to_string(totals.Incoming);
 
-                if (totals.Outgoing <= kMaxAllowedInt) {
-                    jtotals["sending"] = AmountBig::get_Lo(totals.Outgoing);
-                }
-                jtotals["sending_str"] = std::to_string(totals.Outgoing);
+                auto incoming = totals.Incoming; incoming += totals.IncomingShielded;
+                jtotals["receiving_str"] = std::to_string(incoming);
 
-                if (totals.Maturing <= kMaxAllowedInt) {
-                    jtotals["maturing"] = AmountBig::get_Lo(totals.Maturing);
+                if (totals.Incoming <= kMaxAllowedInt)
+                {
+                    jtotals["receiving"] = AmountBig::get_Lo(incoming);
                 }
-                jtotals["maturing_str"] = std::to_string(totals.Maturing);
+
+                auto outgoing = totals.Outgoing; outgoing += totals.OutgoingShielded;
+                jtotals["sending_str"] = std::to_string(outgoing);
+
+                if (totals.Outgoing <= kMaxAllowedInt)
+                {
+                    jtotals["sending"] = AmountBig::get_Lo(outgoing);
+                }
+
+                auto maturing = totals.Maturing; maturing += totals.MaturingShielded;
+                jtotals["maturing_str"] = std::to_string(maturing);
+
+                if (totals.Maturing <= kMaxAllowedInt)
+                {
+                    jtotals["maturing"] = AmountBig::get_Lo(maturing);
+                }
 
                 msg["result"]["totals"].push_back(jtotals);
             }
-        }
-        else
-        {
-            msg = json
-            {
-                {JsonRpcHeader, JsonRpcVersion},
-                {"id", id},
-                {"result",
-                    {
-                        {"current_height", res.currentHeight},
-                        {"current_state_hash", to_hex(res.currentStateHash.m_pData, res.currentStateHash.nBytes)},
-                        {"prev_state_hash", to_hex(res.prevStateHash.m_pData, res.prevStateHash.nBytes)},
-                        {"available",  res.available},
-                        {"receiving",  res.receiving},
-                        {"sending",    res.sending},
-                        {"maturing",   res.maturing},
-                        {"difficulty", res.difficulty}
-                    }
-                }
-            };
         }
     }
 
@@ -1339,22 +1334,33 @@ namespace beam::wallet
 
     void WalletApi::getResponse(const JsonRpcId& id, const VerifyPaymentProof::Response& res, json& msg)
     {
-        msg = json
+        auto f = [&id](auto& pi)
         {
-            {JsonRpcHeader, JsonRpcVersion},
-            {"id", id},
-            {"result",
-                {
-                    {"is_valid", res.paymentInfo.IsValid()},
+            return json
+            {
+                {JsonRpcHeader, JsonRpcVersion},
+                {"id", id},
+                {"result",
+                    {
+                        {"is_valid", pi.IsValid()},
 
-                    {"sender", std::to_string(res.paymentInfo.m_Sender)},
-                    {"receiver", std::to_string(res.paymentInfo.m_Receiver)},
-                    {"amount", res.paymentInfo.m_Amount},
-                    {"kernel", std::to_string(res.paymentInfo.m_KernelID)},
-                    {"asset_id", res.paymentInfo.m_AssetID}
-                    //{"signature", std::to_string(res.paymentInfo.m_Signature)}
+                        {"sender", std::to_string(pi.m_Sender)},
+                        {"receiver", std::to_string(pi.m_Receiver)},
+                        {"amount", pi.m_Amount},
+                        {"kernel", std::to_string(pi.m_KernelID)},
+                        {"asset_id", pi.m_AssetID}
+                        //{"signature", std::to_string(res.paymentInfo.m_Signature)}
+                    }
                 }
-            }
+            };
         };
+        if (res.paymentInfo)
+        {
+            msg = f(*res.paymentInfo);
+        }
+        else if (res.shieldedPaymentInfo)
+        {
+            msg = f(*res.shieldedPaymentInfo);
+        }
     }
 }

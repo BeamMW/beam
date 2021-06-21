@@ -73,6 +73,8 @@ namespace beam::wallet
         bool isAsset(Asset::ID) const;
         std::string toStringID() const;
         Amount getAmount() const;
+        Asset::ID getAssetID() const;
+        std::string getType() const;
 
         typedef CoinID ID; // unique identifier for the coin
         ID m_ID;
@@ -253,13 +255,19 @@ namespace beam::wallet
     {
         static const TxoID kTxoInvalidID = std::numeric_limits<TxoID>::max();
 
-        bool IsAsset() const {
+        bool isAsset() const {
             return m_CoinID.m_AssetID != 0;
         }
+        bool isAsset(Asset::ID) const;
 
         bool IsMaturityValid() const {
             return m_Status != Status::Unavailable && m_Status != Status::Incoming;
         }
+
+        std::string toStringID() const;
+        Amount getAmount() const;
+        Asset::ID getAssetID() const;
+        std::string getType() const;
 
         Height get_Maturity(Height offset) const {
             return IsMaturityValid() ? m_confirmHeight + offset : MaxHeight;
@@ -309,12 +317,25 @@ namespace beam::wallet
             // 2: Spend urgently, or the window will close
         };
 
+        std::string getStatusString() const;
         typedef std::pair<ShieldedCoin, UnlinkStatus> WithStatus;
         static void Sort(std::vector<WithStatus>&);
 
     private:
         static int32_t get_Reserve(uint32_t nEndRel, TxoID nShieldedOutsRel);
     };
+
+    template<typename T>
+    std::string GetCoinCreateTxID(const T& c)
+    {
+        return c.m_createTxId.is_initialized() ? std::to_string(*c.m_createTxId) : "";
+    }
+
+    template<typename T>
+    std::string GetCoinSpentTxID(const T& c)
+    {
+        return c.m_createTxId.is_initialized() ? std::to_string(*c.m_createTxId) : "";
+    }
 
     // Notifications for all collection changes
     enum class ChangeAction
@@ -387,6 +408,7 @@ namespace beam::wallet
         virtual void onSystemStateChanged(const Block::SystemState::ID& stateID) {};
         virtual void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) {};
         virtual void onShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& items) {};
+        virtual void onAssetChanged(Asset::ID assetID) {}
     };
 
     struct IWalletDB : IVariablesDB
@@ -442,7 +464,6 @@ namespace beam::wallet
         // Selects a list of coins matching certain specified amount
         // Selection logic will optimize for number of UTXOs and minimize change
         // Uses greedy algorithm up to a point and follows by some heuristics
-        virtual std::vector<Coin> selectCoins(Amount amount, Asset::ID) = 0;
         virtual void selectCoins2(Height, Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) = 0;
 
         // Some getters to get lists of coins by some input parameters
@@ -618,7 +639,6 @@ namespace beam::wallet
         virtual void SlotFree(uint32_t) override;
 
         uint64_t AllocateKidRange(uint64_t nCount) override;
-        std::vector<Coin> selectCoins(Amount amount, Asset::ID) override;
         void selectCoins2(Height, Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) override;
         std::vector<Coin> selectCoinsEx(Amount amount, Asset::ID, bool bCanReturnLess);
 
@@ -756,6 +776,7 @@ namespace beam::wallet
         void notifySystemStateChanged(const Block::SystemState::ID& stateID);
         void notifyAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items);
         void notifyShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& items);
+        void notifyAssetChanged(Asset::ID);
 
         bool updateCoinRaw(const Coin&);
         void insertCoinRaw(const Coin&);
@@ -1080,7 +1101,7 @@ namespace beam::wallet
             // internal non std kernel
             // ShieldedTxo
             ShieldedTxo::Ticket     m_TxoTicket;
-            Amount                  m_Amount;
+            Amount                  m_Amount = 0;
             Asset::ID               m_AssetID = Asset::s_InvalidID;
             bool                    m_HideAssetAlways = false;
 
@@ -1189,4 +1210,8 @@ namespace beam::wallet
     std::string  GenerateToken           (TokenType type, const WalletAddress& address, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount = 10);
 
     TokenType GetTokenType(const std::string& token);
+
+    // used in API 
+    uint32_t GetCoinStatus(const Coin& c);
+    uint32_t GetCoinStatus(const ShieldedCoin& c);
 }  // namespace beam::wallet

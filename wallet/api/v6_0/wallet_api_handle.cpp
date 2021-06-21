@@ -26,27 +26,11 @@ namespace
 {
     using namespace beam::wallet;
 
-    std::map<std::string, std::function<bool(const Coin& a, const Coin& b)>> utxoSortMap = 
+    std::map<std::string, std::function<bool(const GetUtxo::Response::Coin& a, const GetUtxo::Response::Coin& b)>> utxoSortMap = 
     {
-        {"id", [] (const Coin& a, const Coin& b) { return a.toStringID() < b.toStringID();} },
-        {"asset_id", [] (const Coin& a, const Coin& b) { return a.m_ID.m_AssetID < b.m_ID.m_AssetID;}},
-        {"amount", [] (const Coin& a, const Coin& b) { return a.m_ID.m_Value < b.m_ID.m_Value;}},
-        {"type", [] (const Coin& a, const Coin& b) { return a.m_ID.m_Type < b.m_ID.m_Type;}},
-        {"maturity", [] (const Coin& a, const Coin& b) { return a.get_Maturity() < b.get_Maturity();}},
-        {"createTxId", [] (const Coin& a, const Coin& b)
-            {
-                std::string createTxIdA = a.m_createTxId.is_initialized() ? std::to_string(*a.m_createTxId) : "";
-                std::string createTxIdB = b.m_createTxId.is_initialized() ? std::to_string(*b.m_createTxId) : "";
-                return createTxIdA < createTxIdB;
-            }},
-        {"spentTxId", [] (const Coin& a, const Coin& b)
-            {
-                std::string spentTxIdA = a.m_spentTxId.is_initialized() ? std::to_string(*a.m_spentTxId) : "";
-                std::string spentTxIdB = b.m_spentTxId.is_initialized() ? std::to_string(*b.m_spentTxId) : "";
-                return spentTxIdA < spentTxIdB;
-            }},
-        {"status", [] (const Coin& a, const Coin& b) { return a.m_status < b.m_status;}},
-        {"status_string", [] (const Coin& a, const Coin& b) { return a.getStatusString() < b.getStatusString();}}
+#define MACRO(name, type) {#name, [](const auto& a, const auto& b) {return a.name < b.name;}},
+        BEAM_GET_UTXO_RESPONSE_FIELDS(MACRO)
+#undef MACRO
     };
 
     const char* kAddrDoesntExistError = "Provided address doesn't exist.";
@@ -230,14 +214,15 @@ namespace beam::wallet
                     {
                         isValid = isValid && !addr->isExpired();
                     }
-                    if (tokenType == TokenType::Offline)
+                }
+
+                if (tokenType == TokenType::Offline)
+                {
+                    if (auto vouchers = p->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
                     {
-                        if (auto vouchers = p->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
-                        {
-                            storage::SaveVouchers(*walletDB, *vouchers, *v);
-                        }
-                        offlinePayments = walletDB->getVoucherCount(*v);
+                        storage::SaveVouchers(*walletDB, *vouchers, *v);
                     }
+                    offlinePayments = walletDB->getVoucherCount(*v);
                 }
             }
         }
@@ -626,8 +611,10 @@ namespace beam::wallet
 
         GetUtxo::Response response;
         response.confirmations_count = walletDB->getCoinConfirmationsOffset();
-        walletDB->visitCoins([&response, &data](const Coin& c)->bool {
-            if(!data.withAssets && c.isAsset())
+
+        auto processCoin = [&](const auto& c)->bool 
+        {
+            if (!data.withAssets && c.isAsset())
             {
                 return true;
             }
@@ -635,15 +622,19 @@ namespace beam::wallet
             {
                 return true;
             }
-            response.utxos.push_back(c);
+            response.EmplaceCoin(c);
             return true;
-        });
+        };
+
+        walletDB->visitCoins(processCoin);
+
+        walletDB->visitShieldedCoins(processCoin);
 
         if (data.sort.field != "default")
         {
             if (const auto& it = utxoSortMap.find(data.sort.field); it != utxoSortMap.end())
             {
-                std::sort(response.utxos.begin(), response.utxos.end(),
+                std::sort(response.coins.begin(), response.coins.end(),
                         data.sort.desc ? std::bind(it->second, _2, _1) : it->second);
             }
             else
@@ -653,10 +644,10 @@ namespace beam::wallet
         }
         else if (data.sort.desc)
         {
-            std::reverse(response.utxos.begin(), response.utxos.end());
+            std::reverse(response.coins.begin(), response.coins.end());
         }
 
-        doPagination(data.skip, data.count, response.utxos);
+        doPagination(data.skip, data.count, response.coins);
         doResponse(id, response);
     }
 
@@ -810,7 +801,17 @@ namespace beam::wallet
         LOG_DEBUG() << "VerifyPaymentProof(id = " << id << ")";
         try
         {
-            doResponse(id, VerifyPaymentProof::Response{ storage::PaymentInfo::FromByteBuffer(data.paymentProof) });
+            VerifyPaymentProof::Response response;
+            try
+            {
+                response.paymentInfo = storage::PaymentInfo::FromByteBuffer(data.paymentProof);
+            }
+            catch(...)
+            {
+                response.shieldedPaymentInfo = storage::ShieldedPaymentInfo::FromByteBuffer(data.paymentProof);
+            }
+            
+            doResponse(id, response);
         }
         catch (...)
         {
@@ -950,22 +951,27 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "BlockDetails(id = " << id << ")";
 
-        RequestHeaderMsg::Ptr request(new RequestHeaderMsg);
-
+        RequestHeaderMsg::Ptr request(new RequestHeaderMsg(id, _contractsGuard, *this));
         request->m_Msg.m_Height = data.blockHeight;
-        request->_id = id;
 
-        getWallet()->GetNodeEndpoint()->PostRequest(*request, *this);
+        getWallet()->GetNodeEndpoint()->PostRequest(*request, *request);
     }
 
-    void WalletApi::OnComplete(proto::FlyClient::Request& request)
+    void WalletApi::RequestHeaderMsg::OnComplete(proto::FlyClient::Request& request)
     {
+        auto guard = _guard.lock();
+        if (!guard)
+        {
+            LOG_WARNING() << "API destroyed before fly client response received.";
+            return;
+        }
+
         auto headerRequest = dynamic_cast<RequestHeaderMsg&>(request);
         headerRequest.m_pTrg = nullptr;
 
         if (headerRequest.m_vStates.size() != 1)
         {
-            sendError(headerRequest._id, ApiError::InternalErrorJsonRpc, "Cannot get block header.");
+            _wapi.sendError(headerRequest._id, ApiError::InternalErrorJsonRpc, "Cannot get block header.");
             return;
         }
 
@@ -997,6 +1003,6 @@ namespace beam::wallet
         response.packedDifficulty = state.m_PoW.m_Difficulty.m_Packed;
         response.rulesHash = rulesHash;
 
-        doResponse(headerRequest._id, response);
+        _wapi.doResponse(headerRequest._id, response);
     }
 }

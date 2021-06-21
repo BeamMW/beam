@@ -343,6 +343,16 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getMaxPrivacyLockTimeLimitHours, std::move(callback));
     }
 
+    void setCoinConfirmationsOffset(uint32_t limit) override
+    {
+        call_async(&IWalletModelAsync::setCoinConfirmationsOffset, limit);
+    }
+
+    void getCoinConfirmationsOffset(AsyncCallback<uint32_t>&& callback) override
+    {
+        call_async(&IWalletModelAsync::getCoinConfirmationsOffset, std::move(callback));
+    }
+
 
     void enableBodyRequests(bool value) override
     {
@@ -384,7 +394,9 @@ namespace beam::wallet
         , m_CoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onNormalCoinsChanged(action, items); })
         , m_ShieldedCoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onShieldedCoinChanged(action, items); })
         , m_AddressChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAddressesChanged(action, items); })
-        , m_TransactionChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onTxStatus(action, items); })
+        , m_TransactionChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) {
+             onTxStatus(action, items);
+              })
         , m_shieldedPer24hFilter(std::make_unique<Filter>(kShieldedPer24hFilterSize))
     {
         m_ainfoDelayed = io::Timer::create(*m_reactor);
@@ -574,6 +586,7 @@ namespace beam::wallet
                 //
                 // DEX
                 //
+                /*
                 auto dexBoard = make_shared<DexBoard>(*broadcastRouter, this->getAsync(), *m_walletDB);
                 auto dexWDBSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(dexBoard.get()), m_walletDB);
 
@@ -581,6 +594,7 @@ namespace beam::wallet
                 auto dexBoardSubscriber = make_unique<DexBoardSubscriber>(static_cast<DexBoard::IObserver*>(this), dexBoard);
 
                 _dex = dexBoard;
+                */
 
                 //
                 // Shaders
@@ -722,6 +736,11 @@ namespace beam::wallet
         return m_isConnectionTrusted;
     }
 
+    bool WalletClient::isSynced() const
+    {
+        return m_isSynced;
+    }
+
     beam::TxoID WalletClient::getTotalShieldedCount() const
     {
         return m_status.shieldedTotalCount;
@@ -788,16 +807,6 @@ namespace beam::wallet
         return toByteBuffer(vouchers);
     }
 
-    void WalletClient::setCoinConfirmationsOffset(uint32_t offset)
-    {
-        m_walletDB->setCoinConfirmationsOffset(offset);
-    }
-
-    uint32_t WalletClient::getCoinConfirmationsOffset() const
-    {
-        return m_walletDB->getCoinConfirmationsOffset();
-    }
-
     void WalletClient::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
     {
         m_CoinChangesCollector.CollectItems(action, items);
@@ -856,6 +865,15 @@ namespace beam::wallet
 
     void WalletClient::onSyncProgress(int done, int total)
     {
+        auto w = m_wallet.lock();
+        if (w)
+        {
+            postFunctionToClientContext([this, isSynced = ((done == total) && w->IsWalletInSync())]()
+            {
+                m_isSynced = isSynced;
+            });
+        }
+        
         onSyncProgressUpdated(done, total);
     }
 
@@ -1093,7 +1111,14 @@ namespace beam::wallet
         {
             if (auto order = dex->getOrder(orderId))
             {
-                auto params = CreateDexTransactionParams(order->sbbsID, orderId);
+                auto params = CreateDexTransactionParams(
+                                orderId,
+                                order->getSBBSID(),
+                                order->getISendCoin(),
+                                order->getISendAmount(),
+                                order->getIReceiveCoin(),
+                                order->getIReceiveAmount());
+
                 startTransaction(std::move(params));
             }
         }
@@ -1584,6 +1609,20 @@ namespace beam::wallet
         });
     }
 
+    void WalletClient::setCoinConfirmationsOffset(uint32_t val)
+    {
+        m_walletDB->setCoinConfirmationsOffset(val);
+    }
+
+    void WalletClient::getCoinConfirmationsOffset(AsyncCallback<uint32_t>&& callback)
+    {
+        auto confirmationOffset = m_walletDB->getCoinConfirmationsOffset();
+        postFunctionToClientContext([res = std::move(confirmationOffset), cb = std::move(callback)]() 
+        {
+            cb(res);
+        });
+    }
+
     void WalletClient::enableBodyRequests(bool value)
     {
         auto s = m_wallet.lock();
@@ -1655,6 +1694,7 @@ namespace beam::wallet
         if (isNodeConnected)
         {
             ++m_connectedNodesCount;
+            m_isSynced = false;
         }
         else if (m_connectedNodesCount)
         {
@@ -1822,6 +1862,20 @@ namespace beam::wallet
         });
     }
 
+    void WalletClient::onAssetChanged(Asset::ID assetId)
+    {
+        m_ainfoRequests.erase(assetId);
+        if(const auto oasset = m_walletDB->findAsset(assetId))
+        {
+            onAssetInfo(assetId, *oasset);
+        }
+        else
+        {
+            WalletAsset invalid;
+            onAssetInfo(assetId, invalid);
+        }
+    }
+
     void WalletClient::processAInfo ()
     {
         if (m_ainfoRequests.empty()) {
@@ -1829,18 +1883,25 @@ namespace beam::wallet
         }
 
         auto reqs = m_ainfoRequests;
-        m_ainfoRequests.clear();
-
         for(auto assetId: reqs)
         {
             if(const auto oasset = m_walletDB->findAsset(assetId))
             {
+                m_ainfoRequests.erase(assetId);
                 onAssetInfo(assetId, *oasset);
             }
             else
             {
-                WalletAsset invalid;
-                onAssetInfo(assetId, invalid);
+                if(auto wallet = m_wallet.lock())
+                {
+                    wallet->ConfirmAsset(assetId);
+                }
+                else
+                {
+                    m_ainfoRequests.erase(assetId);
+                    WalletAsset invalid;
+                    onAssetInfo(assetId, invalid);
+                }
             }
         }
     }

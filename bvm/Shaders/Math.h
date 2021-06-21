@@ -132,6 +132,19 @@ namespace MultiPrecision
 			set_Ord<0>(x);
 		}
 
+		template <uint32_t wa>
+		void operator = (const UInt<wa>& a)
+		{
+			Assign<0>(a);
+		}
+
+		template <uint32_t nShiftWords, uint32_t wa>
+		void Assign(const UInt<wa>& a)
+		{
+			m_Val = a.template get_Val<nWords - nShiftWords>();
+			Base::template Assign<nShiftWords>(a);
+		}
+
 		template <uint32_t nShiftWords, typename T>
 		void Set(T val)
 		{
@@ -239,6 +252,59 @@ namespace MultiPrecision
 			return carry >> nWordBits;
 		}
 
+
+		template <uint32_t wa, uint32_t wb>
+		void SetDiv(const UInt<wa>& a, const UInt<wa>& b)
+		{
+			UInt<wa> resid = a;
+			SetDivResid(resid, b);
+		}
+
+		template <uint32_t wa, uint32_t wb>
+		void SetDivResid(UInt<wa>& resid, const UInt<wb>& b)
+		{
+			UInt<nWords + wb> div;
+			div.template Assign<nWords>(b);
+
+			constexpr Word nMsk0 = ((Word) 1) << (nWordBits - 1);
+
+			Word nMsk = nMsk0;
+			Word res = 0;
+
+			for (uint32_t iWord = nWords; ; )
+			{
+				div.template RShift<1>();
+
+				if (resid >= div)
+				{
+					resid -= div;
+					res |= nMsk;
+				}
+
+				nMsk >>= 1;
+
+				if (!nMsk)
+				{
+					get_AsArr()[--iWord] = res;
+
+					if (!iWord)
+						break;
+
+					nMsk = nMsk0;
+					res = 0;
+				}
+			}
+		}
+
+		template <uint32_t wb>
+		UInt<nWords> operator / (const UInt<wb>& b) const
+		{
+			UInt<nWords> ret;
+			ret.SetDiv(*this, b);
+			return ret;
+		}
+
+
 	protected:
 		template <uint32_t wx>
 		friend struct UInt;
@@ -296,6 +362,16 @@ namespace MultiPrecision
 
 			return Base::_Cmp(a);
 		}
+
+		template <uint32_t nBits>
+		void RShift(Word carry = 0)
+		{
+			static_assert(nBits && nBits < nWordBits);
+
+			Base::template RShift<nBits>(m_Val);
+			m_Val = (m_Val >> nBits) | (carry << (nWordBits - nBits));
+		}
+
 	};
 
 	template <> struct UInt<0>
@@ -355,6 +431,16 @@ namespace MultiPrecision
 		{
 			return 0;
 		}
+
+		template <uint32_t nShiftWords, uint32_t wa>
+		void Assign(const UInt<wa>&)
+		{
+		}
+
+		template <uint32_t nBits>
+		void RShift(Word carry)
+		{
+		}
 	};
 
 	template <uint32_t nShiftWords, typename T>
@@ -406,6 +492,48 @@ namespace Utils {
 			a |= ((T)1) << (sizeof(T) * 8 - 1);
 
 		return a;
+	}
+
+	namespace details {
+
+		template <uint32_t nBits> struct Order
+		{
+			template <typename T>
+			static uint32_t Get(T n)
+			{
+				constexpr uint32_t nHalf = nBits / 2;
+				uint32_t n2 = static_cast<uint32_t>(n >> nHalf);
+
+				if (n2)
+					return nHalf + Order<nHalf>::Get(n2);
+
+				if constexpr (nHalf < 32)
+				{
+					constexpr uint32_t nMask = (1U << nHalf) - 1;
+					n2 = static_cast<uint32_t>(n) & nMask;
+				}
+				else
+					n2 = static_cast<uint32_t>(n);
+
+				return Order<nHalf>::Get(n2);
+			}
+		};
+
+		template <> struct Order<1>
+		{
+			template <typename T>
+			static uint32_t Get(T n)
+			{
+				return !!n;
+			}
+		};
+
+	} // namespace details
+
+	template <typename T>
+	inline uint32_t GetOrder(T n)
+	{
+		return details::Order<sizeof(T) * 8>::Get(n);
 	}
 
 } // namespace Utils

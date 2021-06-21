@@ -116,13 +116,12 @@ namespace beam::wallet
         size_t getUnsafeActiveTransactionsCount() const;
         size_t getUnreadNotificationsCount() const;
         bool isConnectionTrusted() const;   
+        bool isSynced() const;
         uint8_t getMPLockTimeLimit() const;
         uint32_t getMarurityProgress(const ShieldedCoin& coin) const;
         uint16_t getMaturityHoursLeft(const ShieldedCoin& coin) const;
 
         ByteBuffer generateVouchers(uint64_t ownID, size_t count) const;
-        void setCoinConfirmationsOffset(uint32_t offset);
-        uint32_t getCoinConfirmationsOffset() const;
 
         /// INodeConnectionObserver implementation
         void onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason&) override;
@@ -183,6 +182,7 @@ namespace beam::wallet
 
     private:
 
+        void onAssetChanged(Asset::ID assetID) override;
         void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items) override;
         void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
         void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
@@ -254,6 +254,10 @@ namespace beam::wallet
 
         void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override;
         void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) override;
+
+        void setCoinConfirmationsOffset(uint32_t val) override;
+        void getCoinConfirmationsOffset(AsyncCallback<uint32_t>&& callback) override;
+
         void enableBodyRequests(bool value) override;
 
         // implement IWalletDB::IRecoveryProgress
@@ -350,6 +354,7 @@ namespace beam::wallet
         size_t m_unreadNotificationsCount = 0;
         beam::Height m_currentHeight = 0;
         bool m_isConnectionTrusted = false;
+        bool m_isSynced = false;
         CoinsSelectionInfo m_CoinsSelectionResult;
         std::unique_ptr<Filter> m_shieldedPer24hFilter;
         beam::wallet::WalletStatus m_status;

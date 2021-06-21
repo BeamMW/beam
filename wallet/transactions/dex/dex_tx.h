@@ -18,10 +18,19 @@
 #include "wallet/core/base_transaction.h"
 #include "wallet/core/base_tx_builder.h"
 
-namespace beam::wallet {
-    TxParameters CreateDexTransactionParams(const WalletID& peerID, const DexOrderID& dexOrderID, const boost::optional<TxID>& txId = boost::none);
+namespace beam::wallet
+{
+    TxParameters CreateDexTransactionParams(
+            const DexOrderID& dexOrderID,
+            const WalletID& peerID,
+            Asset::ID coinMy,
+            Amount amountMy,
+            Asset::ID coinPeer,
+            Amount amountPeer,
+            const boost::optional<TxID>& txId = boost::none
+    );
 
-    class DexTxBuilder;
+    class DexSimpleSwapBuilder;
     class DexTransaction
         : public BaseTransaction
     {
@@ -42,12 +51,10 @@ namespace beam::wallet {
 
     private:
         explicit DexTransaction(const TxContext& context);
+
         enum class State : uint8_t
         {
             Initial,
-            Invitation,
-            PeerConfirmation,
-            InvitationConfirmation,
             Registration,
             KernelConfirmation,
         };
@@ -57,6 +64,6 @@ namespace beam::wallet {
         void UpdateImpl() override;
 
     private:
-        std::shared_ptr<DexTxBuilder> _builder;
+        std::shared_ptr<DexSimpleSwapBuilder> _builder;
     };
 }

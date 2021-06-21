@@ -240,12 +240,12 @@ int main_impl(int argc, char* argv[])
 
 	try
 	{
-		auto [options, visibleOptions] = createOptionsDescription(GENERAL_OPTIONS | NODE_OPTIONS);
+		auto [options, visibleOptions] = createOptionsDescription(GENERAL_OPTIONS | NODE_OPTIONS, "beam-node.cfg");
 
 		po::variables_map vm;
 		try
 		{
-			vm = getOptions(argc, argv, "beam-node.cfg", options);
+			vm = getOptions(argc, argv, options);
 		}
 		catch (const po::error& e)
 		{
@@ -406,6 +406,7 @@ int main_impl(int argc, char* argv[])
                         {
 						    if (!addr.port())
 						    {
+								LOG_WARNING() << "No port is specified for \"" << vPeers[i] << "\", the default value is " << port;
 							    addr.port(port);
 						    }
 

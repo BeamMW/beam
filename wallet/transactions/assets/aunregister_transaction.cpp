@@ -102,27 +102,30 @@ namespace beam::wallet
 
         if (builder.m_Coins.IsEmpty())
         {
+            //
             // ALWAYS refresh asset state before destroying
-            Height h = 0;
-            GetParameter(TxParameterID::AssetUnconfirmedHeight, h);
-            if (h)
+            //
+            Height ucHeight = 0;
+            if(GetParameter(TxParameterID::AssetUnconfirmedHeight, ucHeight) && ucHeight != 0)
             {
                 OnFailed(TxFailureReason::AssetConfirmFailed);
                 return;
             }
 
-            h = 0;
-            GetParameter(TxParameterID::AssetConfirmedHeight, h);
-            if (!h)
+            Height acHeight = 0;
+            if(!GetParameter(TxParameterID::AssetConfirmedHeight, acHeight) || acHeight == 0)
             {
-                SetState(State::AssetCheck);
-                GetGateway().confirm_asset(GetTxID(), _builder->m_pidAsset, kDefaultSubTxID);
+                SetState(State::AssetConfirmation);
+                ConfirmAsset();
                 return;
             }
 
             auto pInfo = GetWalletDB()->findAsset(builder.m_pidAsset);
             if (!pInfo)
+            {
+                OnFailed(TxFailureReason::NoAssetInfo);
                 return;
+            }
 
             WalletAsset& wa = *pInfo;
             SetParameter(TxParameterID::AssetID, wa.m_ID);
@@ -139,8 +142,6 @@ namespace beam::wallet
                 OnFailed(TxFailureReason::AssetLocked);
                 return;
             }
-
-            SetParameter(TxParameterID::AssetConfirmedHeight, wa.m_RefreshHeight);
 
             BaseTxBuilder::Balance bb(builder);
             bb.m_Map[0].m_Value += Rules::get().CA.DepositForList - builder.m_Fee;

@@ -76,7 +76,7 @@ void Node::UpdateSyncStatus()
 		{
 			m_PostStartSynced = true;
 
-			LOG_VERBOSE() << "Tx replication is ON";
+			LOG_INFO() << "Tx replication is ON";
 
 			for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
 			{
@@ -1437,7 +1437,7 @@ void Node::Peer::OnMsg(proto::Bye&& msg)
 
 void Node::Peer::OnDisconnect(const DisconnectReason& dr)
 {
-    LOG_VERBOSE() << m_RemoteAddr << ": " << dr;
+    int nLogLevel = LOG_LEVEL_VERBOSE;
 
     bool bIsErr = true;
     uint8_t nByeReason = 0;
@@ -1455,15 +1455,30 @@ void Node::Peer::OnDisconnect(const DisconnectReason& dr)
         break;
 
     case DisconnectReason::ProcessingExc:
-        if (dr.m_ExceptionDetails.m_ExceptionType == proto::NodeProcessingException::Type::TimeOutOfSync && m_This.m_Cfg.m_Observer)
+        switch (dr.m_ExceptionDetails.m_ExceptionType)
         {
-            m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge);
+        case proto::NodeProcessingException::Type::TimeOutOfSync:
+            if (dr.m_ExceptionDetails.m_ExceptionType == proto::NodeProcessingException::Type::TimeOutOfSync && m_This.m_Cfg.m_Observer)
+                m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge);
+            break;
+
+        case proto::NodeProcessingException::Type::Incompatible:
+            break;
+
+        default:
+            nLogLevel = LOG_LEVEL_WARNING;
         }
-        // no break;
+
+        nByeReason = ByeReason::Ban;
+        break;
+
     case DisconnectReason::Protocol:
+        nLogLevel = LOG_LEVEL_WARNING;
         nByeReason = ByeReason::Ban;
         break;
     }
+
+    LOG_MESSAGE(nLogLevel) << m_RemoteAddr << ": " << dr;
 
     DeleteSelf(bIsErr, nByeReason);
 }
@@ -1620,14 +1635,15 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
     Block::SystemState::ID id;
     m_Tip.get_ID(id);
 
-    LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Tip: " << id;
+    Processor& p = m_This.m_Processor;
+    bool bTipNeeded = NodeProcessor::IsRemoteTipNeeded(m_Tip, p.m_Cursor.m_Full);
+
+    LOG_MESSAGE(bTipNeeded ? LOG_LEVEL_INFO: LOG_LEVEL_VERBOSE) << "Peer " << m_RemoteAddr << " Tip: " << id; 
 
     if (!m_pInfo)
         return;
 
-    Processor& p = m_This.m_Processor;
-
-    if (NodeProcessor::IsRemoteTipNeeded(m_Tip, p.m_Cursor.m_Full))
+    if (bTipNeeded)
     {
         switch (p.OnState(m_Tip, m_pInfo->m_ID.m_Key))
         {
@@ -1641,10 +1657,6 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 			// don't give explicit reward for this header. Instead - most likely we'll request this block from that peer, and it'll have a chance to boost its rating
             m_This.RefreshCongestions();
             break; // since we made OnPeerInsane handling asynchronous - no need to return rapidly
-
-        case NodeProcessor::DataStatus::Unreachable:
-            LOG_WARNING() << id << " Tip unreachable!";
-            break;
 
         default:
             break; // suppress warning

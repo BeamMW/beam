@@ -11,17 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-
 #include "shared_tx_builder.h"
 
 using namespace ECC;
 
 namespace beam::wallet
 {
-
     SharedTxBuilder::SharedTxBuilder(BaseTransaction& tx, SubTxID subTxID)
-        :MutualTxBuilder(tx, subTxID)
+        : MutualTxBuilder(tx, subTxID)
     {
         m_Lifetime = 0; // disable auto max height adjustment
     }
@@ -162,13 +159,12 @@ namespace beam::wallet
         return (m_Status >= Status::RcvSig2Received);
     }
 
-    void SharedTxBuilder::FinalyzeTxInternal()
+    void SharedTxBuilder::FinalizeTxInternal()
     {
         assert(m_IsSender);
 
         // don't call parent method, it will add peer's ins/outs, this must be prevented
         AddPeerOffset();
-        SimpleTxBuilder::FinalyzeTxInternal();
+        SimpleTxBuilder::FinalizeTxInternal();
     }
-
 }

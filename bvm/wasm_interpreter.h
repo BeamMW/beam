@@ -96,6 +96,18 @@ namespace Wasm {
 		const uint8_t* m_p0;
 		const uint8_t* m_p1;
 
+		enum struct Mode {
+			AutoWorkAround, // automatically remove conflicting flags. Default during compilation
+			Restrict,       // fail if conflicting flags are detected. Default for tx verification
+			Emulate_x86,    // emulate unfixed x86/amd64 behavior
+			Standard,       // Comply to wasm standard. Will be activated on the HF4
+
+		} m_Mode;
+
+		bool m_ModeTriggered = false;
+
+		Reader(Mode eMode = Mode::AutoWorkAround) :m_Mode(eMode) {}
+
 		void Ensure(uint32_t n);
 		const uint8_t* Consume(uint32_t n);
 
@@ -345,6 +357,10 @@ namespace Wasm {
 			std::function<void(const Processor&)> m_Hook;
 		} m_Dbg;
 
+		Processor()
+			:m_Instruction(Reader::Mode::Emulate_x86)
+		{
+		}
 
 		Word get_Ip() const;
 		void Jmp(uint32_t ip);

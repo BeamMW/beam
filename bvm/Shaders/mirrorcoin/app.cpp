@@ -81,18 +81,22 @@ void OnError(const char* sz)
     Env::DocAddText("error", sz);
 }
 
-const MirrorCoin::Global* get_Global(const ContractID& cid)
+struct GlobalPlus
+    :public MirrorCoin::Global
 {
-    Env::Key_T<uint8_t> gk;
-    _POD_(gk.m_Prefix.m_Cid) = cid;
-    gk.m_KeyInContract = 0;
+    bool get(const ContractID& cid)
+    {
+        Env::Key_T<uint8_t> gk;
+        _POD_(gk.m_Prefix.m_Cid) = cid;
+        gk.m_KeyInContract = 0;
 
-    auto* pG = Env::VarRead_T<MirrorCoin::Global>(gk);
-    if (!pG)
+        if (Env::VarReader::Read_T(gk, *this))
+            return true;
+
         OnError("no global state");
-
-    return pG;
-}
+        return false;
+    }
+};
 
 struct IncomingWalker
 {
@@ -100,6 +104,7 @@ struct IncomingWalker
     IncomingWalker(const ContractID& cid) :m_Cid(cid) {}
 
     ContractID m_cidRemote;
+    Env::VarReaderEx<true> m_Reader;
 
 #pragma pack (push, 1)
     struct MyMsg
@@ -109,27 +114,27 @@ struct IncomingWalker
     };
 #pragma pack (pop)
 
-    const Env::Key_T<Pipe::MsgHdr::KeyIn>* m_pKey;
-    const MyMsg* m_pMsg;
+    Env::Key_T<Pipe::MsgHdr::KeyIn> m_Key;
+    MyMsg m_Msg;
 
 
     bool Restart(uint32_t iStartFrom)
     {
-        auto* pG = get_Global(m_Cid);
-        if (!pG)
+        GlobalPlus g;
+        if (!g.get(m_Cid))
             return false;
 
-        m_cidRemote = pG->m_Remote;
+        m_cidRemote = g.m_Remote;
 
         Env::Key_T<Pipe::MsgHdr::KeyIn> k1;
-        k1.m_Prefix.m_Cid = pG->m_PipeID;
+        k1.m_Prefix.m_Cid = g.m_PipeID;
         k1.m_KeyInContract.m_iCheckpoint_BE = Utils::FromBE(iStartFrom);
         k1.m_KeyInContract.m_iMsg_BE = 0;
 
         auto k2 = k1;
         k2.m_KeyInContract.m_iCheckpoint_BE = -1;
 
-        Env::VarsEnum_T(k1, k2);
+        m_Reader.Enum_T(k1, k2);
         return true;
     }
 
@@ -137,13 +142,13 @@ struct IncomingWalker
     {
         while (true)
         {
-            if (!Env::VarsMoveNext_T(m_pKey, m_pMsg))
+            if (!m_Reader.MoveNext_T(m_Key, m_Msg))
                 return false;
 
-            if ((_POD_(m_pMsg->m_Sender) != m_cidRemote) || (_POD_(m_pMsg->m_Receiver) != m_Cid))
+            if ((_POD_(m_Msg.m_Sender) != m_cidRemote) || (_POD_(m_Msg.m_Receiver) != m_Cid))
                 continue;
 
-            if (pPk && (_POD_(*pPk) !=m_pMsg->m_User))
+            if (pPk && (_POD_(*pPk) !=m_Msg.m_User))
                 continue;
 
             return true;
@@ -162,12 +167,12 @@ void ViewIncoming(const ContractID& cid, const PubKey* pPk, uint32_t iStartFrom)
     while (wlk.MoveNext(pPk))
     {
         Env::DocGroup gr("");
-        Env::DocAddNum("iCheckpoint", Utils::FromBE(wlk.m_pKey->m_KeyInContract.m_iCheckpoint_BE));
-        Env::DocAddNum("iMsg", Utils::FromBE(wlk.m_pKey->m_KeyInContract.m_iMsg_BE));
-        Env::DocAddNum("amount", wlk.m_pMsg->m_Amount);
+        Env::DocAddNum("iCheckpoint", Utils::FromBE(wlk.m_Key.m_KeyInContract.m_iCheckpoint_BE));
+        Env::DocAddNum("iMsg", Utils::FromBE(wlk.m_Key.m_KeyInContract.m_iMsg_BE));
+        Env::DocAddNum("amount", wlk.m_Msg.m_Amount);
 
         if (!pPk)
-            Env::DocAddBlob_T("User", wlk.m_pMsg->m_User);
+            Env::DocAddBlob_T("User", wlk.m_Msg.m_User);
     }
 }
 
@@ -228,16 +233,16 @@ ON_METHOD(manager, destroy)
 
 ON_METHOD(manager, view_params)
 {
-    auto* pG = get_Global(cid);
-    if (!pG)
+    GlobalPlus g;
+    if (!g.get(cid))
         return;
 
     Env::DocGroup gr("params");
 
-    Env::DocAddNum("aid", pG->m_Aid);
-    Env::DocAddNum("isMirror", (uint32_t) pG->m_IsMirror);
-    Env::DocAddBlob_T("RemoteID", pG->m_Remote);
-    Env::DocAddBlob_T("PipeID", pG->m_PipeID);
+    Env::DocAddNum("aid", g.m_Aid);
+    Env::DocAddNum("isMirror", (uint32_t) g.m_IsMirror);
+    Env::DocAddBlob_T("RemoteID", g.m_Remote);
+    Env::DocAddBlob_T("PipeID", g.m_PipeID);
 
     // TODO: make sure the Pipe is indeed operated by the conventional Pipe shader with adequate params
 }
@@ -268,8 +273,8 @@ ON_METHOD(user, view_incoming)
 
 ON_METHOD(user, send)
 {
-    auto* pG = get_Global(cid);
-    if (!pG)
+    GlobalPlus g;
+    if (!g.get(cid))
         return;
 
     MirrorCoin::Send pars;
@@ -280,7 +285,7 @@ ON_METHOD(user, send)
         _POD_(pars.m_User) = pkDst;
 
     FundsChange fc;
-    fc.m_Aid = pG->m_Aid;
+    fc.m_Aid = g.m_Aid;
     fc.m_Amount = amount;
     fc.m_Consume = 1;
 
@@ -289,26 +294,26 @@ ON_METHOD(user, send)
 
 ON_METHOD(user, receive_all)
 {
-    auto* pG = get_Global(cid);
-    if (!pG)
+    GlobalPlus g;
+    if (!g.get(cid))
         return;
 
     FundsChange pFc[2];
     pFc[0].m_Aid = 0;
     pFc[0].m_Consume = 1;
-    pFc[1].m_Aid = pG->m_Aid;
+    pFc[1].m_Aid = g.m_Aid;
     pFc[1].m_Consume = 0;
 
     {
         // get pipe comission
         Env::Key_T<Pipe::StateIn::Key> ksi;
-        ksi.m_Prefix.m_Cid = pG->m_PipeID;
+        ksi.m_Prefix.m_Cid = g.m_PipeID;
 
-        auto* pPipe = Env::VarRead_T<Pipe::StateIn>(ksi);
-        if (!pPipe)
+        Pipe::StateIn pipe;
+        if (!Env::VarReader::Read_T(ksi, pipe))
             OnError("no pipe state");
 
-        pFc[0].m_Amount = pPipe->m_Cfg.m_ComissionPerMsg;
+        pFc[0].m_Amount = pipe.m_Cfg.m_ComissionPerMsg;
     }
 
 
@@ -323,10 +328,10 @@ ON_METHOD(user, receive_all)
     for (; wlk.MoveNext(&pk); nCount++)
     {
         MirrorCoin::Receive pars;
-        pars.m_iCheckpoint = Utils::FromBE(wlk.m_pKey->m_KeyInContract.m_iCheckpoint_BE);
-        pars.m_iMsg = Utils::FromBE(wlk.m_pKey->m_KeyInContract.m_iMsg_BE);
+        pars.m_iCheckpoint = Utils::FromBE(wlk.m_Key.m_KeyInContract.m_iCheckpoint_BE);
+        pars.m_iMsg = Utils::FromBE(wlk.m_Key.m_KeyInContract.m_iMsg_BE);
 
-        pFc[1].m_Amount = wlk.m_pMsg->m_Amount;
+        pFc[1].m_Amount = wlk.m_Msg.m_Amount;
 
         SigRequest sig;
         sig.m_pID = &cid;

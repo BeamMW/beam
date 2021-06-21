@@ -78,16 +78,14 @@ namespace beam::wallet
         if (GetState<State>() == State::AssetConfirmation)
         {
             Height auHeight = 0;
-            GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
-            if (auHeight)
+            if(GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight) && auHeight != 0)
             {
                 OnFailed(TxFailureReason::AssetConfirmFailed);
                 return;
             }
 
             Height acHeight = 0;
-            GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
-            if (!acHeight)
+            if(!GetParameter(TxParameterID::AssetConfirmedHeight, acHeight) || acHeight == 0)
             {
                 ConfirmAsset();
                 return;
@@ -133,44 +131,9 @@ namespace beam::wallet
         CompleteTx();
     }
 
-    void AssetInfoTransaction::ConfirmAsset()
-    {
-        if (GetAssetID() != Asset::s_InvalidID)
-        {
-            GetGateway().confirm_asset(GetTxID(), GetAssetID(), kDefaultSubTxID);
-            return;
-        }
-
-        if (GetAssetOwnerID() != Asset::s_InvalidOwnerID)
-        {
-            GetGateway().confirm_asset(GetTxID(), GetAssetOwnerID(), kDefaultSubTxID);
-            return;
-        }
-
-        throw TransactionFailedException(true, TxFailureReason::NoAssetId);
-    }
-
     bool AssetInfoTransaction::IsInSafety() const
     {
         auto state = GetState<State>();
         return state >= State::AssetCheck;
-    }
-
-    Asset::ID AssetInfoTransaction::GetAssetID() const
-    {
-        Asset::ID assetId = Asset::s_InvalidID;
-        GetParameter(TxParameterID::AssetID, assetId, kDefaultSubTxID);
-        return assetId;
-    }
-
-    PeerID AssetInfoTransaction::GetAssetOwnerID() const
-    {
-        std::string strMeta;
-        if (GetParameter(TxParameterID::AssetMetadata, strMeta, kDefaultSubTxID))
-        {
-            const auto masterKdf = get_MasterKdfStrict(); // can throw
-            return beam::wallet::GetAssetOwnerID(masterKdf, strMeta);
-        }
-        return Asset::s_InvalidOwnerID;
     }
 }

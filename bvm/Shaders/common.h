@@ -16,6 +16,8 @@
 
 #ifndef HOST_BUILD
 
+#pragma clang section bss = "disable_bss_for_global_zeroinitialized_vars_use_standard_data_section"
+
 // Common ord types
 typedef unsigned char uint8_t;
 typedef unsigned int uint32_t;
@@ -212,62 +214,141 @@ namespace Env {
 
 #pragma pack (pop)
 
-    template <typename TKey, typename TValue>
-    inline bool VarsMoveNext_T(const TKey*& pKey, const TValue*& pValue)
+    template <bool bFlexible = false>
+    class VarReaderEx
     {
-        while (true)
-        {
-            uint32_t nKey, nVal;
-            if (!VarsMoveNext((const void**) &pKey, &nKey, (const void**) &pValue, &nVal))
-                return false;
+        uint32_t m_Handle;
 
-            if ((sizeof(TKey) == nKey) && (sizeof(TValue) == nVal))
-                break;
+        void EnumInternal(const void* pKey0, uint32_t nKey0, const void* pKey1, uint32_t nKey1)
+        {
+            m_Handle = Vars_Enum(pKey0, nKey0, pKey1, nKey1);
         }
 
-        return true;
-    }
-
-    template <typename TKey0, typename TKey1>
-    inline void VarsEnum_T(const TKey0& key0, const TKey1& key1)
-    {
-        VarsEnum(&key0, sizeof(key0), &key1, sizeof(key1));
-    }
-
-    template <typename TKey, typename TValue>
-    inline bool VarRead_T(const TKey& key, const TValue*& pValue)
-    {
-        VarsEnum_T(key, key);
-
-        const TKey* pKey;
-        return VarsMoveNext_T(pKey, pValue);
-    }
-
-    template <typename TValue, typename TKey>
-    inline const TValue* VarRead_T(const TKey& key)
-    {
-        const TValue* pValue;
-        return VarRead_T(key, pValue) ? pValue : nullptr;
-
-    }
-
-    template <typename TKey, typename TValue>
-    inline bool LogsMoveNext_T(const TKey*& pKey, const TValue*& pValue, HeightPos& pos)
-    {
-        while (true)
+        void CloseInternal()
         {
-            uint32_t nKey, nVal;
-            if (!LogsMoveNext((const void**) &pKey, &nKey, (const void**) &pValue, &nVal, &pos))
-                return false;
-
-            if ((sizeof(TKey) == nKey) && (sizeof(TValue) == nVal))
-                break;
+            if constexpr (bFlexible)
+            {
+                if (!m_Handle)
+                    return;
+            }
+            Vars_Close(m_Handle);
         }
 
-        return true;
-    }
+    public:
+
+        VarReaderEx(const void* pKey0, uint32_t nKey0, const void* pKey1, uint32_t nKey1) {
+            EnumInternal(pKey0, nKey0, pKey1, nKey1);
+        }
+
+        template <typename TKey1, typename TKey2>
+        VarReaderEx(const TKey1& key1, const TKey2& key2)
+        {
+            EnumInternal(&key1, sizeof(key1), &key2, sizeof(key2));
+        }
+
+        VarReaderEx()
+        {
+            static_assert(bFlexible);
+            m_Handle = 0;
+        }
+
+        ~VarReaderEx()
+        {
+            CloseInternal();
+        }
+
+        void Enum(const void* pKey0, uint32_t nKey0, const void* pKey1, uint32_t nKey1)
+        {
+            CloseInternal();
+            EnumInternal(pKey0, nKey0, pKey1, nKey1);
+        }
+
+        template <typename TKey1, typename TKey2>
+        void Enum_T(const TKey1& key1, const TKey2& key2)
+        {
+            Enum(&key1, sizeof(key1), &key2, sizeof(key2));
+        }
+
+        bool MoveNext(void* pKey, uint32_t& nKey, void* pVal, uint32_t& nVal, uint8_t nRepeat)
+        {
+            return Vars_MoveNext(m_Handle, pKey, nKey, pVal, nVal, nRepeat);
+        }
+
+        template <typename TKey, typename TValue>
+        bool MoveNext_T(TKey& key, TValue& val)
+        {
+            while (true)
+            {
+                uint32_t nKey = sizeof(key), nVal = sizeof(val);
+                if (!MoveNext(&key, nKey, &val, nVal, 0))
+                    return false;
+
+                if ((sizeof(key) == nKey) && (sizeof(val) == nVal))
+                    break;
+            }
+            return true;
+        }
+
+        template <typename TKey, typename TValue>
+        static bool Read_T(const TKey& key, TValue& val)
+        {
+            VarReaderEx<false> r(key, key);
+
+            uint32_t nKey = 0, nVal = sizeof(val);
+            return
+                r.MoveNext(nullptr, nKey, &val, nVal, 0) &&
+                (sizeof(val) == nVal);
+        }
+
+    };
+
+    typedef VarReaderEx<false> VarReader;
+
+    class LogReader
+    {
+        uint32_t m_Handle = 0;
+    public:
+
+        HeightPos m_Pos;
+
+        LogReader(const void* pKey0, uint32_t nKey0, const void* pKey1, uint32_t nKey1, const HeightPos* pPosMin, const HeightPos* pPosMax) {
+            m_Handle = Logs_Enum(pKey0, nKey0, pKey1, nKey1, pPosMin, pPosMax);
+        }
+
+        template <typename TKey1, typename TKey2>
+        LogReader(const TKey1& key1, const TKey2& key2, const HeightPos* pPosMin = nullptr, const HeightPos* pPosMax = nullptr)
+            :LogReader(&key1, sizeof(key1), &key2, sizeof(key2), pPosMin, pPosMax)
+        {
+        }
+
+        ~LogReader() {
+            Logs_Close(m_Handle);
+        }
+
+        bool MoveNext(void* pKey, uint32_t& nKey, void* pVal, uint32_t& nVal, uint8_t nRepeat)
+        {
+            return Logs_MoveNext(m_Handle, pKey, nKey, pVal, nVal, m_Pos, nRepeat);
+        }
+
+        template <typename TKey, typename TValue>
+        bool MoveNext_T(TKey& key, TValue& val)
+        {
+            while (true)
+            {
+                uint32_t nKey = sizeof(key), nVal = sizeof(val);
+                if (!MoveNext(&key, nKey, &val, nVal, 0))
+                    return false;
+
+                if ((sizeof(key) == nKey) && (sizeof(val) == nVal))
+                    break;
+            }
+            return true;
+        }
+    };
 
 } // namespace Env
+
+#ifndef HOST_BUILD
 
 namespace std {
     
@@ -291,6 +372,7 @@ namespace std {
     }
 }
 
+#endif // HOST_BUILD
 
 namespace Utils {
 

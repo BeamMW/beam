@@ -102,15 +102,23 @@ namespace beam::wallet
 
     struct PrintableAmount
     {
-        explicit PrintableAmount(const AmountBig::Type amount, bool showPoint = false, const std::string& coinName = "", const std::string& grothName ="")
-            : m_value{amount}
-            , m_showPoint{showPoint}
-            , m_coinName{coinName}
-            , m_grothName{grothName}
+        explicit PrintableAmount(
+            const AmountBig::Type amount,
+            bool showPoint = false,
+            Asset::ID assetID = Asset::s_BeamID,
+            std::string coinName = std::string(),
+            std::string grothName = std::string()
+        )
+            : m_value(amount)
+            , m_showPoint(showPoint)
+            , m_assetID(assetID)
+            , m_coinName(std::move(coinName))
+            , m_grothName(std::move(grothName))
         {}
 
         const AmountBig::Type m_value;
         bool m_showPoint;
+        Asset::ID m_assetID;
         std::string m_coinName;
         std::string m_grothName;
     };
@@ -124,7 +132,8 @@ namespace beam::wallet
         Canceled,
         Completed,
         Failed,
-        Registering
+        Registering,
+        Confirming
     };
 
 #define BEAM_TX_FAILURE_REASON_MAP(MACRO) \
@@ -179,7 +188,7 @@ namespace beam::wallet
     MACRO(AssetsDisabledReceiver,        48, "Asset transactions are disabled in the receiver wallet") \
     MACRO(AssetsDisabledInRules,         49, "Asset transactions are disabled in blockchain configuration") \
     MACRO(NoPeerIdentity,                50, "Peer Identity required") \
-    MACRO(CannotGetVouchers,             51, "The sender cannot get vouchers for max privacy transaction") \
+    MACRO(CannotGetVouchers,             51, "The sender cannot get vouchers for offline transaction") \
     MACRO(Count,                         52, "PLEASE KEEP THIS ALWAYS LAST")
 
     enum TxFailureReason : int32_t
@@ -383,6 +392,8 @@ namespace beam::wallet
         Outputs = 190,
         AppID = 191,
         AppName = 192,
+        DexReceiveAsset = 193,
+        DexReceiveAmount = 194,
 
         Kernel = 200,
         PreImage = 201,

@@ -133,7 +133,7 @@ namespace beam::wallet {
     {
         const auto prefix = pref.empty() ? pref : pref + " ";
         const auto isPrintable = [](const std::string& str) -> bool {
-            std::locale loc("");
+            std::locale loc("C");
             return std::all_of(str.begin(), str.end(), [&loc](const char ch) -> bool {
                 return std::isprint(ch, loc);
             });
@@ -286,7 +286,7 @@ namespace beam::wallet {
 
         LOG_INFO() << prefix << "Asset ID: "       << m_ID;
         LOG_INFO() << prefix << "Owner ID: "       << m_Owner;
-        LOG_INFO() << prefix << "Issued amount: "  << PrintableAmount(m_Value, false, kAmountASSET, kAmountAGROTH);
+        LOG_INFO() << prefix << "Issued amount: "  << PrintableAmount(m_Value, false, m_ID);
         LOG_INFO() << prefix << "Lock Height: "    << m_LockHeight;
         LOG_INFO() << prefix << "Refresh height: " << m_RefreshHeight;
         LOG_INFO() << prefix << "Metadata size: "  << m_Metadata.m_Value.size() << " bytes";
@@ -311,7 +311,7 @@ namespace beam::wallet {
     PeerID GetAssetOwnerID(const Key::IKdf::Ptr& masterKdf, const std::string& strMeta)
     {
         Asset::Metadata meta;
-        meta.m_Value = toByteBuffer(strMeta);
+        meta.set_String(strMeta, true);
         meta.UpdateHash();
 
         PeerID ownerID = 0UL;

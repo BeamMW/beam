@@ -211,8 +211,8 @@ export void Method_11(Dummy::TestRingSig& r)
     Env::Halt_if(!TestRingSignature(r.m_Msg, r.s_Ring, r.m_pPks, r.m_e, r.m_pK));
 }
 
-export void Method_12(Dummy::TestEthash& r)
-{
+//export void Method_12(Dummy::TestEthash& r)
+//{
     //// 1. derive pow seed
     //HashValue512 hvSeed;
     //{
@@ -251,18 +251,15 @@ export void Method_12(Dummy::TestEthash& r)
     //
     //// check that 2 most significant words are 0
     //Env::Halt_if(val3.get_Val<val3.nWords>() || val3.get_Val<val3.nWords - 1>());
-}
+//}
 
-export void Method_13(Dummy::TestEthash2& r)
+export void Method_12(Dummy::TestEthHeader& r)
 {
-    Ethash::EpochParams ep;
-    ep.m_DatasetCount = r.m_EpochDatasetSize;
-    _POD_(ep.m_hvRoot) = r.m_EpochRoot;
+    const auto& hdr = r.m_Header;
 
-    Ethash::VerifyHdr(ep, r.m_HeaderHash, r.m_Nonce, r.m_Difficulty, &r + 1, static_cast<uint32_t>(-1));
+    Ethash::Hash512 hvSeed;
+    hdr.get_SeedForPoW(hvSeed);
+
+    Ethash::VerifyHdr(hdr.get_Epoch(), r.m_EpochDatasetSize, hvSeed, hdr.m_Nonce, hdr.m_Difficulty, &r + 1, static_cast<uint32_t>(-1));
 }
 
-export void Method_14(Dummy::TestEthHeader& r)
-{
-    r.m_Header.get_HashFinal(r.m_HeaderHash, r.m_MixHash);
-}

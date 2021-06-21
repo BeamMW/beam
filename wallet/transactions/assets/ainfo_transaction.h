@@ -25,7 +25,7 @@ namespace beam::wallet
         class Creator : public BaseTransaction::Creator
         {
         public:
-            explicit Creator() = default;
+            Creator() = default;
 
         private:
             BaseTransaction::Ptr Create(const TxContext& context) override;
@@ -35,11 +35,9 @@ namespace beam::wallet
         };
 
     private:
-        AssetInfoTransaction(const TxContext& context);
+        explicit AssetInfoTransaction(const TxContext& context);
         bool IsInSafety() const override;
-
         void UpdateImpl() override;
-        void ConfirmAsset();
 
         enum State : uint8_t
         {
@@ -48,8 +46,5 @@ namespace beam::wallet
             AssetCheck,
             Finalzing
         };
-
-        Asset::ID GetAssetID() const;
-        PeerID GetAssetOwnerID() const;
     };
 }

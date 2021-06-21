@@ -354,6 +354,10 @@ namespace beam
 		}
 	};
 
+	template <>
+	struct uintBig_t<0>
+	{};
+
 	template <typename T>
 	struct uintBigFor {
 		typedef uintBig_t<sizeof(T)> Type;

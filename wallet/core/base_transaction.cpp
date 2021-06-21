@@ -111,13 +111,6 @@ namespace beam::wallet
         return *m_IsInitiator;
     }
 
-    uint32_t BaseTransaction::get_PeerVersion() const
-    {
-        uint32_t nVer = 0;
-        GetParameter(TxParameterID::PeerProtoVersion, nVer);
-        return nVer;
-    }
-
     bool BaseTransaction::GetTip(Block::SystemState::Full& state) const
     {
         return GetGateway().get_tip(state);
@@ -182,7 +175,7 @@ namespace beam::wallet
 
     bool BaseTransaction::CanCancel() const
     {
-        TxStatus status = TxStatus::Failed;
+        TxStatus status = TxStatus::Pending;
         GetParameter(TxParameterID::Status, status);
 
         return status == TxStatus::InProgress || status == TxStatus::Pending;
@@ -190,7 +183,7 @@ namespace beam::wallet
 
     void BaseTransaction::Cancel()
     {
-        TxStatus s = TxStatus::Failed;
+        TxStatus s = TxStatus::Pending;
         GetParameter(TxParameterID::Status, s);
         // TODO: add CanCancel() method
         if (s == TxStatus::Pending || s == TxStatus::InProgress)
@@ -344,6 +337,22 @@ namespace beam::wallet
 
     void BaseTransaction::CompleteTx()
     {
+        auto minConfirmations = GetWalletDB()->getCoinConfirmationsOffset();
+        if (minConfirmations)
+        {
+            Height hProof = 0;
+            if (GetParameter<Height>(TxParameterID::KernelProofHeight, hProof) && hProof)
+            {
+                auto currHeight = GetWalletDB()->getCurrentHeight();
+                if (currHeight - hProof < minConfirmations)
+                {
+                    UpdateTxDescription(TxStatus::Confirming);
+                    GetGateway().UpdateOnNextTip(GetTxID());
+                    return;
+                }
+            }
+        }
+
         LOG_INFO() << m_Context << " Transaction completed";
         UpdateTxDescription(TxStatus::Completed);
         GetGateway().on_tx_completed(GetTxID());
@@ -541,12 +550,26 @@ namespace beam::wallet
     {
         if (assetId == Asset::s_InvalidID)
         {
-            // No asset - no error
             return AssetCheckResult::OK;
         }
 
+        //
+        // Do not do anything if we've already failed
+        //
+        Height ucHeight = 0;
+        if (GetParameter(TxParameterID::AssetUnconfirmedHeight, ucHeight) && ucHeight != 0)
+        {
+            OnFailed(TxFailureReason::AssetConfirmFailed);
+            return AssetCheckResult::Fail;
+        }
+
+        if (m_assetCheckState.find(assetId) == m_assetCheckState.end())
+        {
+            m_assetCheckState[assetId] = AssetCheckState::ACInitial;
+        }
+
         const auto confirmAsset = [&]() {
-            m_assetCheckState = ACConfirmation;
+            m_assetCheckState[assetId] = ACConfirmation;
             SetParameter(TxParameterID::AssetInfoFull, Asset::Full());
             SetParameter(TxParameterID::AssetUnconfirmedHeight, Height(0));
             SetParameter(TxParameterID::AssetConfirmedHeight, Height(0));
@@ -554,44 +577,33 @@ namespace beam::wallet
         };
 
         bool printInfo = true;
-        if (m_assetCheckState == ACInitial)
+        if (m_assetCheckState[assetId] == ACInitial)
         {
-            if (const auto oinfo = GetWalletDB()->findAsset(assetId))
-            {
-                SetParameter(TxParameterID::AssetInfoFull, static_cast<Asset::Full>(*oinfo));
-                SetParameter(TxParameterID::AssetConfirmedHeight, oinfo->m_RefreshHeight);
-                m_assetCheckState = ACCheck;
-            }
-            else
+            const auto pInfo = GetWalletDB()->findAsset(assetId);
+            if (!pInfo)
             {
                 confirmAsset();
                 return AssetCheckResult::Async;
             }
+
+            SetParameter(TxParameterID::AssetInfoFull, Cast::Down<Asset::Full>(*pInfo));
+            SetParameter(TxParameterID::AssetConfirmedHeight, pInfo->m_RefreshHeight);
+            m_assetCheckState[assetId] = ACCheck;
         }
 
-        if (m_assetCheckState == ACConfirmation)
+        if (m_assetCheckState[assetId] == ACConfirmation)
         {
-            Height auHeight = 0;
-            GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
-            if (auHeight)
-            {
-                OnFailed(TxFailureReason::AssetConfirmFailed, true);
-                return AssetCheckResult::Fail;
-            }
-
             Height acHeight = 0;
-            GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
-            if (!acHeight)
+            if (!GetParameter(TxParameterID::AssetConfirmedHeight, acHeight) || acHeight == 0)
             {
-                GetGateway().confirm_asset(GetTxID(), assetId, kDefaultSubTxID);
                 return AssetCheckResult::Async;
             }
 
-            m_assetCheckState = ACCheck;
+            m_assetCheckState[assetId] = ACCheck;
             printInfo = false;
         }
 
-        if (m_assetCheckState == ACCheck)
+        if (m_assetCheckState[assetId] == ACCheck)
         {
             Asset::Full infoFull;
             if (!GetParameter(TxParameterID::AssetInfoFull, infoFull) || !infoFull.IsValid())
@@ -601,7 +613,7 @@ namespace beam::wallet
             }
 
             Height acHeight = 0;
-            if(!GetParameter(TxParameterID::AssetConfirmedHeight, acHeight) || !acHeight)
+            if(!GetParameter(TxParameterID::AssetConfirmedHeight, acHeight) || acHeight == 0)
             {
                 OnFailed(TxFailureReason::NoAssetInfo, true);
                 return AssetCheckResult::Fail;
