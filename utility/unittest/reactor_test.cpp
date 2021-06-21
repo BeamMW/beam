@@ -19,6 +19,7 @@
 #include "utility/logger.h"
 #include <future>
 #include <iostream>
+#include <thread>
 
 using namespace beam;
 using namespace beam::io;
