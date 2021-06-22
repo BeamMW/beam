@@ -29,6 +29,8 @@
 
 #include <queue>
 #include <exception>
+#include <filesystem>
+namespace fs = std::filesystem;
 
 using namespace beam;
 using namespace beam::io;
@@ -196,7 +198,7 @@ class WasmWalletClient
 {
 public:
     WasmWalletClient(const std::string& dbName, const std::string& pass, const std::string& node)
-        : m_Logger(beam::Logger::create(LOG_LEVEL_VERBOSE, LOG_LEVEL_VERBOSE))
+        : m_Logger(beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG))
         , m_Reactor(io::Reactor::create())
         , m_DbPath(dbName)
         , m_Pass(pass)
@@ -259,6 +261,11 @@ public:
 
     void ExecuteAPIRequest(const std::string& request)
     {
+        if (!m_Client)
+        { 
+            LOG_ERROR() << "Client is not running";
+            return;
+        }
         m_Client->getAsync()->makeIWTCall([this, request]()
         {
             if (!m_WalletApi)
@@ -280,10 +287,14 @@ public:
         });
     }
 
-    void StartWallet()
+    bool StartWallet()
     {
         if (m_Client)
-            return;
+        {
+            LOG_WARNING() << "The client is already running";
+            return false;
+        }
+
         try
         {
             auto db = OpenWallet(m_DbPath, m_Pass);
@@ -293,11 +304,13 @@ public:
             additionalTxCreators->emplace(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(db));
             m_Client->getAsync()->enableBodyRequests(true);
             m_Client->start({}, true, additionalTxCreators);
+            return true;
         }
         catch (const std::exception& ex)
         {
             LOG_UNHANDLED_EXCEPTION() << "what = " << ex.what();
         }
+        return false;
     }
 
     void StopWallet(val handler = val::null())
@@ -387,6 +400,18 @@ public:
         CreateDatabase(seed, dbName, pass);
     }
 
+    static void DeleteWallet(const std::string& dbName)
+    {
+        fs::remove(dbName);
+        //EM_ASM
+        //(
+        //    FS.syncfs(false, function()
+        //    {
+        //        console.log("wallet deleted!");
+        //    });
+        //);
+    }
+
     static IWalletDB::Ptr OpenWallet(const std::string& dbName, const std::string& pass)
     {
         Rules::get().UpdateChecksum();
@@ -397,7 +422,7 @@ public:
     static void MountFS(val cb)
     {
         m_MountCB = cb;
-        EM_ASM_
+        EM_ASM
         (
             {
                 FS.mkdir("/beam_wallet");
@@ -452,5 +477,6 @@ EMSCRIPTEN_BINDINGS()
         .class_function("ConvertJsonToToken",        &WasmWalletClient::ConvertJsonToToken)
         .class_function("CreateWallet",              &WasmWalletClient::CreateWallet)
         .class_function("MountFS",                   &WasmWalletClient::MountFS)
+        .class_function("DeleteWallet",              &WasmWalletClient::DeleteWallet)
     ;
 }
