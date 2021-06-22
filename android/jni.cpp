@@ -1136,6 +1136,11 @@ JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getMaxPrivacyLockTimeLimitHou
     return m_mpLockTimeLimit;
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getAssetInfo)(JNIEnv *env, jobject thiz, jint id)
+{
+    walletModel->getAsync()->getAssetInfo(id);
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv *env;

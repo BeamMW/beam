@@ -46,6 +46,7 @@ extern jclass NotificationClass;
 extern jclass ExchangeRateClass;
 extern jclass VersionInfoClass;
 extern jclass TransactionParametersClass;
+extern jclass AssetInfoClass;
 
 JNIEnv* Android_JNI_getEnv(void);
 
