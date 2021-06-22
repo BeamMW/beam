@@ -60,16 +60,15 @@ export void Method_4(Bridge::ImportMessage& value)
     uint8_t* out = nullptr;
     const uint8_t* receiptProof = (uint8_t*)(&value + 1) + value.m_ProofSize;
     const uint8_t* trieKey = receiptProof + value.m_ReceiptProofSize;
-    Env::Halt_if(!Eth::VerifyEthProof(trieKey, value.m_TrieKeySize, receiptProof, value.m_ReceiptProofSize, value.m_Header.m_ReceiptHash, &out, size));
-    
+    uint32_t nibblesLength = 2 * value.m_TrieKeySize;
+    uint8_t* pathInNibbles = (uint8_t*)Env::StackAlloc(nibblesLength);
+    Eth::TriePathToNibbles(trieKey, value.m_TrieKeySize, pathInNibbles, nibblesLength);
+    Env::Halt_if(!Eth::VerifyEthProof(pathInNibbles, nibblesLength, receiptProof, value.m_ReceiptProofSize, value.m_Header.m_ReceiptHash, &out, size));
+
     uint32_t key = 1;
     Bridge::InMsg tmp = value.m_Msg;
     tmp.m_Finalized = 0;
     Env::SaveVar_T(key, tmp);
-    key = 16;
-    Env::SaveVar(&key, sizeof(key), trieKey, value.m_TrieKeySize, KeyTag::Internal);
-    key = 32;
-    Env::SaveVar(&key, sizeof(key), receiptProof, value.m_ReceiptProofSize, KeyTag::Internal);
 }
 
 export void Method_5(const Bridge::Finalized& /*value*/)
