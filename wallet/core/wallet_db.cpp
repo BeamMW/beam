@@ -5730,11 +5730,9 @@ namespace beam::wallet
                 uint32_t mpAnonymitySet = packedMessage->m_MaxPrivacyMinAnonymitySet;
                 if (mpAnonymitySet)
                 {
-                    uint32_t timeLimit = walletDB.get_MaxPrivacyLockTimeLimitHours();
-                    Block::SystemState::ID stateID = {};
-                    walletDB.getSystemStateID(stateID);
+                    Height timeLimit = walletDB.get_MaxPrivacyLockTimeLimitHours();
 
-                    if (!timeLimit || c.m_confirmHeight + timeLimit * 60 > stateID.m_Height)
+                    if (!timeLimit || c.m_confirmHeight + timeLimit * 60 > hTop)
                     {
                         ShieldedCoin::UnlinkStatus unlinkStatus;
                         unlinkStatus.Init(c, walletDB.get_ShieldedOuts());
