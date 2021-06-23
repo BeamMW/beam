@@ -361,7 +361,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 29;
+	const uint64_t nVersionTop = 30;
 
 
 	Transaction t(*this);
@@ -416,7 +416,6 @@ void NodeDB::Open(const char* szPath)
 			// no break;
 
 		case 26: // ShieldedState stream added
-			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
 			// no break;
 
 		case 27:
@@ -425,6 +424,10 @@ void NodeDB::Open(const char* szPath)
 
 		case 28:
 			CreateTables28();
+			// no break;
+
+		case 29: // Block interpretation nKrnIdx fixed to match KrnWalker's
+			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
 			// no break;
 
 			ParamIntSet(ParamID::DbVer, nVersionTop);
@@ -2936,7 +2939,7 @@ void NodeDB::AssetEvtsEnumBwd(WalkerAssetEvt& wlk, Asset::ID id, Height h)
 	wlk.m_Rs.put(1, h);
 }
 
-void NodeDB::AssetEvtsGetStrict(WalkerAssetEvt& wlk, Height h, uint32_t nIdx)
+void NodeDB::AssetEvtsGetStrict(WalkerAssetEvt& wlk, Height h, uint64_t nIdx)
 {
 	wlk.m_Rs.Reset(*this, Query::AssetEvtsGet, "SELECT * FROM " TblAssetEvts " WHERE " TblAssetEvts_Height "=? AND " TblAssetEvts_Index "=?");
 	wlk.m_Rs.put(0, h);
