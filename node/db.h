@@ -771,6 +771,7 @@ private:
 	void CreateTables23();
 	void CreateTables27();
 	void CreateTables28();
+	void CreateTables29();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);

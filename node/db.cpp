@@ -126,6 +126,10 @@ namespace beam {
 #define TblCache_Data			"Data"
 #define TblCache_LastHit		"Hit"
 
+#define TblKrnInfo				"KrnInfo"
+#define TblKrnInfo_Key			"Key"
+#define TblKrnInfo_Data			"Data"
+
 NodeDB::NodeDB()
 	:m_pDb(nullptr)
 {
@@ -428,6 +432,8 @@ void NodeDB::Open(const char* szPath)
 
 		case 29: // Block interpretation nKrnIdx fixed to match KrnWalker's
 			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
+			CreateTables29();
+
 			// no break;
 
 			ParamIntSet(ParamID::DbVer, nVersionTop);
@@ -554,6 +560,7 @@ void NodeDB::Create()
 	CreateTables23();
 	CreateTables27();
 	CreateTables28();
+	CreateTables29();
 }
 
 void NodeDB::CreateTables20()
@@ -622,6 +629,13 @@ void NodeDB::CreateTables28()
 
 	ExecQuick("CREATE INDEX [Idx" TblCache "_Key" "] ON [" TblCache "] ([" TblCache_Key "]);");
 	ExecQuick("CREATE INDEX [Idx" TblCache "_Hit" "] ON [" TblCache "] ([" TblCache_LastHit "]);");
+}
+
+void NodeDB::CreateTables29()
+{
+	ExecQuick("CREATE TABLE [" TblKrnInfo "] ("
+		"[" TblKrnInfo_Key		"] INTEGER NOT NULL PRIMARY KEY,"
+		"[" TblKrnInfo_Data		"] BLOB NOT NULL)");
 }
 
 void NodeDB::Vacuum()
