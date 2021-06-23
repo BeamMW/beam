@@ -269,29 +269,21 @@ namespace
 
              for (size_t i = 0; i < rates.size(); ++i)
              {
-                auto m_to = rates[i].m_to;
-                auto m_from = rates[i].m_from;
+                auto rate = rates[i];
+                auto m_from_name = rate.m_from.m_value;
+                auto m_to_name = rate.m_to.m_value;
+                auto m_rate = rate.m_rate;
+                                
+                jobject rateObject = env->AllocObject(ExchangeRateClass);
+                    {
+                        setStringField(env, ExchangeRateClass, rateObject, "fromName", m_from_name);
+                        setStringField(env, ExchangeRateClass, rateObject, "toName", m_to_name);
+                        setLongField(env, ExchangeRateClass, rateObject, "rate", m_rate);
+                    }
 
-                int currency = -1;
-                
-                if (m_to == Currency::USD() && m_from == Currency::BEAM()) {
-                    currency = 1;
-                }
-                else if (m_to == Currency::BTC() && m_from == Currency::BEAM()) {
-                    currency = 2;
-                }
-                if(currency != -1) {
-                    jobject rate = env->AllocObject(ExchangeRateClass);
-                        {
-                            setIntField(env, ExchangeRateClass, rate, "currency", currency);
-                            setLongField(env, ExchangeRateClass, rate, "amount", rates[i].m_rate);
-                            setLongField(env, ExchangeRateClass, rate, "updateTime", rates[i].m_updateTime);
-                        }
+                env->SetObjectArrayElement(ratesArray, static_cast<jsize>(i), rateObject);
 
-                    env->SetObjectArrayElement(ratesArray, static_cast<jsize>(i), rate);
-
-                    env->DeleteLocalRef(rate);
-                }
+                env->DeleteLocalRef(rateObject);
              }
          }
          return ratesArray;
