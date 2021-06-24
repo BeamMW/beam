@@ -126,7 +126,7 @@ void Connection::MineBbsRequest(FlyClient::RequestBbsMsg& r)
         m_Miner.m_vThreads.resize(nThreads);
 
         for (uint32_t i = 0; i < nThreads; i++)
-            m_Miner.m_vThreads[i] = std::thread(&BbsMiner::Thread, &m_Miner, i, Rules::get());
+            m_Miner.m_vThreads[i] = MyThread(&BbsMiner::Thread, &m_Miner, i, Rules::get());
     }
 
     std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);

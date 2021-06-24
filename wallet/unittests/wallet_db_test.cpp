@@ -1657,7 +1657,7 @@ int main()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    /*TestEvents();
+    TestEvents();
     TestWalletDataBase();
     TestStoreCoins();
     TestStoreTxRecord();
@@ -1676,7 +1676,7 @@ int main()
     TestWalletMessages();
     TestNotifications();
     TestExchangeRates();
-    TestVouchers();*/
+    TestVouchers();
     TestShieldedStatus();
 
     return WALLET_CHECK_RESULT;

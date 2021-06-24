@@ -342,7 +342,7 @@ namespace beam
 	class ExecutorMT_R
 		:public ExecutorMT
 	{
-		virtual void StartThread(std::thread&, uint32_t iThread) override;
+		virtual void StartThread(MyThread&, uint32_t iThread) override;
 		void RunThreadInternal(uint32_t iThread, const Rules&);
 		virtual void RunThread(uint32_t iThread);
 

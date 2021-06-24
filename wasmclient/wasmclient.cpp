@@ -403,13 +403,6 @@ public:
     static void DeleteWallet(const std::string& dbName)
     {
         fs::remove(dbName);
-        //EM_ASM
-        //(
-        //    FS.syncfs(false, function()
-        //    {
-        //        console.log("wallet deleted!");
-        //    });
-        //);
     }
 
     static IWalletDB::Ptr OpenWallet(const std::string& dbName, const std::string& pass)

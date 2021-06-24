@@ -2122,9 +2122,9 @@ namespace beam
 		return 0;
 	}
 
-	void ExecutorMT_R::StartThread(std::thread& t, uint32_t iThread)
+	void ExecutorMT_R::StartThread(MyThread& t, uint32_t iThread)
 	{
-		t = std::thread(&ExecutorMT_R::RunThreadInternal, this, iThread, Rules::get());
+		t = MyThread(&ExecutorMT_R::RunThreadInternal, this, iThread, Rules::get());
 	}
 
 	void ExecutorMT_R::RunThreadInternal(uint32_t iThread, const Rules& r)
