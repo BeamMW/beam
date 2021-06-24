@@ -90,6 +90,8 @@ namespace
 
         setStringField(env, TxDescriptionClass, tx, "token", txDescription.getToken());
 
+        setIntField(env, TxDescriptionClass, tx, "assetId", txDescription.m_assetId);
+
         if(txDescription.m_txType == wallet::TxType::PushTransaction) {
             auto token = txDescription.getToken();
             if (token.size() > 0) { //send

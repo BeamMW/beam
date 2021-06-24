@@ -71,6 +71,8 @@ namespace
 
     void initLogger(const string& appData, const string& appVersion)
     {
+        wallet::g_AssetsEnabled = true;
+
         static auto logger = Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "wallet_", (fs::path(appData) / fs::path("logs")).string());
 
         Rules::get().UpdateChecksum();
