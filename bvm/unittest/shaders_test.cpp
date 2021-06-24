@@ -2825,6 +2825,71 @@ namespace
 			verify_test(!memcmp(expected.data(), out, std::min((size_t)outSize, expected.size())));
 		}
 
+		{
+			// verify result of proof
+			auto buff = beam::from_hex("f9033f01829297b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000200000000000000000000010004008000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000100000000000000000000010000000002020000000000000000000000000000000000000000000000000000000000000000000002000000000000000000010000000000000000000000000000001000000010000020000020000000000100000000000000000000000001008800000000f90235f89b94d8672a4a1bf37d36bef74e36edb4f17845e76f4ef863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa0000000000000000000000000627306090abab3a6e1400e9345bc60c78a8bef57a0000000000000000000000000fa21e79ca2dfb3ab15469796069622903919159ca000000000000000000000000000000000000000000000000000000000006acfc0f89b94d8672a4a1bf37d36bef74e36edb4f17845e76f4ef863a08c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925a0000000000000000000000000627306090abab3a6e1400e9345bc60c78a8bef57a0000000000000000000000000fa21e79ca2dfb3ab15469796069622903919159ca00000000000000000000000000000000000000000000000000000000000000000f8f994fa21e79ca2dfb3ab15469796069622903919159ce1a02ee2b75bef6a1e98db7f58994a8997fc42664e7d47f2116cec5cd82dc67233cab8c0000000000000000000000000627306090abab3a6e1400e9345bc60c78a8bef5700000000000000000000000000000000000000000000000000000000006acfc0000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000214209059b49805c3317c69edb7acd181271ad8d13fbfc528224775310cf03a9620100000000000000000000000000000000000000000000000000000000000000");
+			RlpVisitor v;
+
+			verify_test(Rlp::Decode(buff.data(), (uint32_t)buff.size(), v));
+			RlpVisitor v1;
+			verify_test(Rlp::Decode(v.m_Items.front().m_Buffer.data(), (uint32_t)v.m_Items.front().m_Buffer.size(), v1));
+			RlpVisitor v2;
+			verify_test(Rlp::Decode(v1.m_Items.back().m_Buffer.data(), (uint32_t)v1.m_Items.back().m_Buffer.size(), v2));
+			RlpVisitor v3;
+			verify_test(Rlp::Decode(v2.m_Items.back().m_Buffer.data(), (uint32_t)v2.m_Items.back().m_Buffer.size(), v3));
+			verify_test(v3.m_Items.back().m_Buffer.size() == 192);
+
+			// check receiver address
+			verify_test(v3.m_Items.front().m_Buffer.size() == 20);
+			uint8_t* address = v3.m_Items.front().m_Buffer.data();
+			ByteBuffer expectedAddress = beam::from_hex("fa21e79ca2dfb3ab15469796069622903919159c");
+			verify_test(!memcmp(address, expectedAddress.data(), 20));
+
+			// check topic (hash of event name)
+			RlpVisitor v4;
+			verify_test(Rlp::Decode(v3.m_Items[1].m_Buffer.data(), (uint32_t)v3.m_Items[1].m_Buffer.size(), v4));
+			verify_test(v4.m_Items.size() == 1);
+			ByteBuffer expectedTopic = beam::from_hex("2ee2b75bef6a1e98db7f58994a8997fc42664e7d47f2116cec5cd82dc67233ca");
+			verify_test(v4.m_Items.front().m_Buffer.size() == expectedTopic.size());
+			uint8_t* firstTopic = v4.m_Items.front().m_Buffer.data();
+			verify_test(!memcmp(firstTopic, expectedTopic.data(), expectedTopic.size()));
+
+			// check data item
+			uint8_t* tmp = v3.m_Items.back().m_Buffer.data();
+			tmp += 32;
+			Opaque<32> rawNumber;
+			memcpy(&rawNumber, tmp, 32);
+			MultiPrecision::UInt<8> amount;
+			amount.FromBE_T(rawNumber);
+			MultiPrecision::UInt<8> amount1;
+			amount1 = 7000000u;
+			verify_test(!amount.cmp(amount1));
+
+			// check offset
+			tmp += 32;
+			memcpy(&rawNumber, tmp, 32);
+			amount.FromBE_T(rawNumber);
+			amount1 = 96u;
+			verify_test(!amount.cmp(amount1));
+
+			// check size
+			tmp += 32;
+			memcpy(&rawNumber, tmp, 32);
+			amount.FromBE_T(rawNumber);
+			amount1 = 33u;
+			verify_test(!amount.cmp(amount1));
+
+			// check public key
+			tmp += 32;
+			PubKey pubKey;
+			memcpy(&pubKey, tmp, 33);
+			PubKey expectPubKey;
+			memcpy(&expectPubKey, beam::from_hex("4209059b49805c3317c69edb7acd181271ad8d13fbfc528224775310cf03a96201").data(), 33);
+
+			verify_test(pubKey == expectPubKey);
+			std::cout << "end" << std::endl;
+		}
+
 		//The string 'Lorem ipsum dolor sit amet, consectetur adipisicing elit' = [0xb8, 0x38, 'L', 'o', 'r', 'e', 'm', ' ', ..., 'e', 'l', 'i', 't']
 		{
 			auto op = to_opaque("Lorem ipsum dolor sit amet, consectetur adipisicing elit");
