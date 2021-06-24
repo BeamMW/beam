@@ -1615,6 +1615,34 @@ void TestEvents()
     }
 }
 
+void TestShieldedStatus()
+{
+    cout << "\nWallet database shielded coin status test\n";
+    auto db = createSqliteWalletDB();
+
+    db->set_MaxPrivacyLockTimeLimitHours(72);
+    db->set_ShieldedOuts(65);
+
+
+    ShieldedTxo::DataParams params;
+
+    params.m_Output.m_Value = 340;
+    params.m_Output.m_AssetID = 0;
+
+    auto* packedMessage = ShieldedTxo::User::ToPackedMessage(params.m_Output.m_User);
+    packedMessage->m_MaxPrivacyMinAnonymitySet = 72;
+
+    ShieldedCoin c;
+    c.m_TxoID = 2;
+    c.m_CoinID.m_Key.m_nIdx = 0;
+    c.m_confirmHeight = 2;
+    params.ToID(c.m_CoinID);
+    storage::DeduceStatus(*db, c, static_cast<Height>(72*60));
+    WALLET_CHECK(c.m_Status == ShieldedCoin::Status::Maturing);
+    storage::DeduceStatus(*db, c, static_cast<Height>(72*60+2));
+    WALLET_CHECK(c.m_Status == ShieldedCoin::Status::Available);
+}
+
 }
 
 int main() 
@@ -1649,6 +1677,7 @@ int main()
     TestNotifications();
     TestExchangeRates();
     TestVouchers();
+    TestShieldedStatus();
 
     return WALLET_CHECK_RESULT;
 }

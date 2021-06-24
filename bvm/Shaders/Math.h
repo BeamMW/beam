@@ -254,7 +254,7 @@ namespace MultiPrecision
 
 
 		template <uint32_t wa, uint32_t wb>
-		void SetDiv(const UInt<wa>& a, const UInt<wa>& b)
+		void SetDiv(const UInt<wa>& a, const UInt<wb>& b)
 		{
 			UInt<wa> resid = a;
 			SetDivResid(resid, b);

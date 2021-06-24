@@ -67,4 +67,5 @@ private:
     void onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>&) override;
     void onExchangeRates(const std::vector<beam::wallet::ExchangeRate>&) override;
     void onPublicAddress(const std::string& publicAddr) override;
+    void onAssetInfo(beam::Asset::ID assetId, const beam::wallet::WalletAsset&) override;
 };

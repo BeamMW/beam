@@ -153,7 +153,7 @@ bool LoadLaserParams(const po::variables_map& vm, laser::Mediator& mediator,
         *fee = vm[cli::LASER_FEE].as<Nonnegative<Amount>>().value;
         if (*fee < feeMin)
         {
-            LOG_ERROR() << "Failed to initiate the operation. The minimum fee is 100 groth.";
+            LOG_ERROR() << "Failed to initiate the operation. The minimum fee is " << feeMin << " groth.";
             return false;
         }
     }

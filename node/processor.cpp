@@ -2374,6 +2374,8 @@ struct NodeProcessor::BlockInterpretCtx
 		BlockInterpretCtx& m_Bic;
 		NodeProcessor& m_Proc;
 
+		uint32_t m_AssetEvtSubIdx = 0;
+
 		struct RecoveryTag {
 			typedef uint8_t Type;
 			static const Type Terminator = 0;
@@ -2463,6 +2465,12 @@ struct NodeProcessor::BlockInterpretCtx
 	}
 
 	void EnsureAssetsUsed(NodeDB&);
+
+	static uint64_t get_AssetEvtIdx(uint32_t nKrnIdx, uint32_t nSubIdx) {
+		return (static_cast<uint64_t>(nKrnIdx) << 32) | nSubIdx;
+	}
+
+	void AssetEvtInsert(NodeDB&, NodeDB::AssetEvt&, uint32_t nSubIdx);
 
 	struct ChangesFlushGlobal
 	{
@@ -2644,8 +2652,8 @@ struct NodeProcessor::MyRecognizer
 		void AssetEvtsGetStrict(NodeDB::AssetEvt& event, Height h, uint32_t nKrnIdx) override
 		{
 			NodeDB::WalkerAssetEvt wlk;
-			m_Proc.m_DB.AssetEvtsGetStrict(wlk, h, nKrnIdx);
-			event = static_cast<NodeDB::AssetEvt>(wlk);
+			m_Proc.m_DB.AssetEvtsGetStrict(wlk, h, BlockInterpretCtx::get_AssetEvtIdx(nKrnIdx, 0));
+			event = Cast::Down<NodeDB::AssetEvt>(wlk);
 		}
 
 		void InsertEvent(Height h, const Blob& b, const Blob& key) override
@@ -3547,7 +3555,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetCreate& krn, BlockInterp
 	return HandleAssetCreate(krn.m_Owner, krn.m_MetaData, bic, aid);
 }
 
-bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metadata& md, BlockInterpretCtx& bic, Asset::ID& aid)
+bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metadata& md, BlockInterpretCtx& bic, Asset::ID& aid, uint32_t nSubIdx)
 {
 	if (!bic.m_AlreadyValidated)
 	{
@@ -3591,8 +3599,6 @@ bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metad
 		{
 			NodeDB::AssetEvt evt;
 			evt.m_ID = ai.m_ID + Asset::s_MaxCount;
-			evt.m_Height = bic.m_Height;
-			evt.m_Index = bic.m_nKrnIdx;
 
 			ByteBuffer bufBlob;
 			bufBlob.resize(sizeof(AssetCreateInfoPacked) + md.m_Value.size());
@@ -3604,7 +3610,7 @@ bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metad
 
 			evt.m_Body = bufBlob;
 
-			m_DB.AssetEvtsInsert(evt);
+			bic.AssetEvtInsert(m_DB, evt, nSubIdx);
 		}
 
 		aid = ai.m_ID;
@@ -3626,7 +3632,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInter
 	return HandleAssetDestroy(krn.m_Owner, bic, krn.m_AssetID);
 }
 
-bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid)
+bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, uint32_t nSubIdx)
 {
 	if (!bic.m_AlreadyValidated)
 		bic.EnsureAssetsUsed(m_DB);
@@ -3665,10 +3671,8 @@ bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, BlockInterpretCtx
 		{
 			NodeDB::AssetEvt evt;
 			evt.m_ID = aid + Asset::s_MaxCount;
-			evt.m_Height = bic.m_Height;
-			evt.m_Index = bic.m_nKrnIdx;
 			ZeroObject(evt.m_Body);
-			m_DB.AssetEvtsInsert(evt);
+			bic.AssetEvtInsert(m_DB, evt, nSubIdx);
 		}
 	}
 	else
@@ -3702,7 +3706,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpre
 	return HandleAssetEmit(krn.m_Owner, bic, krn.m_AssetID, krn.m_Value);
 }
 
-bool NodeProcessor::HandleAssetEmit(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, AmountSigned val)
+bool NodeProcessor::HandleAssetEmit(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, AmountSigned val, uint32_t nSubIdx)
 {
 	Asset::Full ai;
 	ai.m_ID = aid;
@@ -3779,12 +3783,10 @@ bool NodeProcessor::HandleAssetEmit(const PeerID& pidOwner, BlockInterpretCtx& b
 
 		NodeDB::AssetEvt evt;
 		evt.m_ID = aid;
-		evt.m_Height = bic.m_Height;
-		evt.m_Index = bic.m_nKrnIdx;
 		evt.m_Body.p = &adp;
 		evt.m_Body.n = sizeof(adp);
 
-		m_DB.AssetEvtsInsert(evt);
+		bic.AssetEvtInsert(m_DB, evt, nSubIdx);
 	}
 
 	return true;
@@ -4327,6 +4329,13 @@ void NodeProcessor::BlockInterpretCtx::EnsureAssetsUsed(NodeDB& db)
 		m_AssetsUsed = static_cast<Asset::ID>(db.ParamIntGetDef(NodeDB::ParamID::AssetsCountUsed));
 }
 
+void NodeProcessor::BlockInterpretCtx::AssetEvtInsert(NodeDB& db, NodeDB::AssetEvt& evt, uint32_t nSubIdx)
+{
+	evt.m_Height = m_Height;
+	evt.m_Index = get_AssetEvtIdx(m_nKrnIdx, nSubIdx);
+	db.AssetEvtsInsert(evt);
+}
+
 NodeProcessor::BlockInterpretCtx::Ser::Ser(BlockInterpretCtx& bic)
 	:m_This(bic)
 {
@@ -4709,14 +4718,14 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::get_HdrAt(Block::SystemStat
 Asset::ID NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetCreate(const Asset::Metadata& md, const PeerID& pidOwner)
 {
 	Asset::ID aid = 0;
-	if (!m_Proc.HandleAssetCreate(pidOwner, md, m_Bic, aid))
+	if (!m_Proc.HandleAssetCreate(pidOwner, md, m_Bic, aid, m_AssetEvtSubIdx))
 		return 0;
 
 	BlockInterpretCtx::Ser ser(m_Bic);
 	RecoveryTag::Type nTag = RecoveryTag::AssetCreate;
 	ser & nTag;
 
-	m_Bic.m_nKrnIdx++;
+	m_AssetEvtSubIdx++;
 
 	assert(aid);
 	return aid;
@@ -4724,7 +4733,7 @@ Asset::ID NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetCreate(const Asse
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetEmit(Asset::ID aid, const PeerID& pidOwner, AmountSigned val)
 {
-	if (!m_Proc.HandleAssetEmit(pidOwner, m_Bic, aid, val))
+	if (!m_Proc.HandleAssetEmit(pidOwner, m_Bic, aid, val, m_AssetEvtSubIdx))
 		return false;
 
 	BlockInterpretCtx::Ser ser(m_Bic);
@@ -4733,13 +4742,13 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetEmit(Asset::ID aid, co
 	ser & aid;
 	ser & val;
 
-	m_Bic.m_nKrnIdx++;
+	m_AssetEvtSubIdx++;
 	return true;
 }
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDestroy(Asset::ID aid, const PeerID& pidOwner)
 {
-	if (!m_Proc.HandleAssetDestroy(pidOwner, m_Bic, aid))
+	if (!m_Proc.HandleAssetDestroy(pidOwner, m_Bic, aid, m_AssetEvtSubIdx))
 		return false;
 
 	BlockInterpretCtx::Ser ser(m_Bic);
@@ -4748,7 +4757,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDestroy(Asset::ID aid,
 	ser & aid;
 	ser & pidOwner;
 
-	m_Bic.m_nKrnIdx++;
+	m_AssetEvtSubIdx++;
 	return true;
 }
 
@@ -4770,15 +4779,12 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 				bool bFwd = false;
 				TemporarySwap swp(bFwd, m_Bic.m_Fwd);
 
-				m_Bic.m_nKrnIdx--;
-
 				Asset::ID aid = 0;
 				PeerID pidOwner;
 				Asset::Metadata md;
 
 				if (!m_Proc.HandleAssetCreate(pidOwner, md, m_Bic, aid))
 					return OnCorrupted();
-
 			}
 			break;
 
@@ -4786,8 +4792,6 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 		{
 			bool bFwd = false;
 			TemporarySwap swp(bFwd, m_Bic.m_Fwd);
-
-			m_Bic.m_nKrnIdx--;
 
 			Asset::ID aid = 0;
 			PeerID pidOwner;
@@ -4804,8 +4808,6 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 		{
 			bool bFwd = false;
 			TemporarySwap swp(bFwd, m_Bic.m_Fwd);
-
-			m_Bic.m_nKrnIdx--;
 
 			Asset::ID aid = 0;
 			PeerID pidOwner;
@@ -6508,7 +6510,6 @@ void NodeProcessor::RebuildNonStd()
 			if (!m_This.HandleKernelTypeAny(krn, *m_pBic))
 				OnCorrupted();
 
-			m_nKrnIdx = m_pBic->m_nKrnIdx;
 			return true;
 		}
 
@@ -6540,7 +6541,7 @@ int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)
 		memcpy(&ai.m_Metadata.m_Value.front(), pAcip + 1, ai.m_Metadata.m_Value.size());
 	ai.m_Metadata.UpdateHash();
 
-	typedef std::pair<Height, uint32_t> HeightAndIndex;
+	typedef std::pair<Height, uint64_t> HeightAndIndex;
 	HeightAndIndex hiCreate(wlk.m_Height, wlk.m_Index);
 
 	m_DB.AssetEvtsEnumBwd(wlk, ai.m_ID, h);

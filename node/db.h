@@ -670,7 +670,7 @@ public:
 	{
 		Asset::ID m_ID;
 		Height m_Height;
-		uint32_t m_Index;
+		uint64_t m_Index;
 		Blob m_Body;
 	};
 
@@ -684,7 +684,7 @@ public:
 
 	void AssetEvtsInsert(const AssetEvt&);
 	void AssetEvtsEnumBwd(WalkerAssetEvt&, Asset::ID, Height);
-	void AssetEvtsGetStrict(WalkerAssetEvt&, Height, uint32_t);
+	void AssetEvtsGetStrict(WalkerAssetEvt&, Height, uint64_t);
 	void AssetEvtsDeleteFrom(Height);
 
 	bool ContractDataFind(const Blob& key, Blob&, Recordset&);
@@ -771,6 +771,7 @@ private:
 	void CreateTables23();
 	void CreateTables27();
 	void CreateTables28();
+	void CreateTables29();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);

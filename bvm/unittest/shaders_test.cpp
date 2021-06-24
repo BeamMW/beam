@@ -258,6 +258,9 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Beam);
 		ConvertOrd<bToShader>(x.m_WithdrawBeamX);
 	}
+	template <bool bToShader> void Convert(DemoXdao::GetPreallocated& x) {
+		ConvertOrd<bToShader>(x.m_Amount);
+	}
 
 	namespace Env {
 
@@ -1042,6 +1045,8 @@ namespace bvm2 {
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
 				//{
+				//case 0: Shaders::DemoXdao::Ctor(nullptr); return;
+				//case 3: Shaders::DemoXdao::Method_3(CastArg<Shaders::DemoXdao::GetPreallocated>(pArgs)); return;
 				//case 4: Shaders::DemoXdao::Method_4(CastArg<Shaders::DemoXdao::UpdPosFarming>(pArgs)); return;
 				//}
 			}
@@ -2490,6 +2495,23 @@ namespace bvm2 {
 			if (i & 1)
 				m_Height += 1000;
 		}
+
+		// the following is disabled, since the contract in this test is standalone, not under Upgradable, hence it doesn' allocate anything in c'tor
+/*
+		{
+			Shaders::DemoXdao::GetPreallocated args;
+			ZeroObject(args);
+			args.m_Amount = 50;
+			Cast::Reinterpret<beam::uintBig_t<33> >(args.m_Pk).Scan("8bb3375b455d9c577134b00e8b0b108a29ce2bc0fce929049306cf4fed723b7d00");
+			verify_test(!RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args)); // wrong pk
+
+			Cast::Reinterpret<beam::uintBig_t<33> >(args.m_Pk).Scan("8bb3375b455d9c577134b00e8b0b108a29ce2bc0fce929049306cf4fed723b7d01");
+			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args)); // ok
+
+			args.m_Amount = 31000 / 2 * Shaders::g_Beam2Groth;
+			verify_test(!RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args)); // too much
+		}
+*/
 	}
 
 

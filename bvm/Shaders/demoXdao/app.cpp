@@ -21,6 +21,13 @@
     macro(Amount, amountBeam) \
     macro(uint32_t, bLockOrUnlock) \
 
+#define DemoXdao_manager_prealloc_view(macro) \
+    macro(ContractID, cid)
+
+#define DemoXdao_manager_prealloc_withdraw(macro) \
+    macro(ContractID, cid) \
+    macro(Amount, amount)
+
 #define DemoXdao_manager_my_xid(macro)
 
 #define DemoXdao_manager_deploy_contract(macro) \
@@ -41,8 +48,9 @@
     macro(manager, schedule_upgrade) \
     macro(manager, view_params) \
     macro(manager, view_stake) \
-    macro(manager, lock) \
     macro(manager, my_xid) \
+    macro(manager, prealloc_view) \
+    macro(manager, prealloc_withdraw) \
     macro(manager, farm_view) \
     macro(manager, farm_update)
 
@@ -81,6 +89,7 @@ ON_METHOD(manager, view)
         DemoXdao::s_SID_0,
         DemoXdao::s_SID_1,
         DemoXdao::s_SID_2,
+        DemoXdao::s_SID_3,
         DemoXdao::s_SID // latest version
     };
 
@@ -202,32 +211,6 @@ ON_METHOD(manager, view_stake)
     Env::DocAddNum("stake", Env::VarReader::Read_T(key, amount) ? amount : 0);
 }
 
-ON_METHOD(manager, lock)
-{
-    auto aid = get_TrgAid(cid);
-    if (!aid)
-        return;
-
-    DemoXdao::LockAndGet arg;
-    arg.m_Amount = amount;
-
-    Env::DerivePk(arg.m_Pk, &cid, sizeof(cid));
-
-    SigRequest sig;
-    sig.m_pID = &cid;
-    sig.m_nID = sizeof(cid);
-
-    FundsChange pFc[2];
-    pFc[0].m_Aid = aid;
-    pFc[0].m_Amount = DemoXdao::State::s_ReleasePerLock;
-    pFc[0].m_Consume = 0;
-    pFc[1].m_Aid = 0;
-    pFc[1].m_Amount = amount;
-    pFc[1].m_Consume = 1;
-
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), &sig, 1, "Lock-and-get demoX tokens", 0);
-}
-
 static const char g_szXid[] = "xid-seed";
 
 ON_METHOD(manager, my_xid)
@@ -235,6 +218,67 @@ ON_METHOD(manager, my_xid)
     PubKey pk;
     Env::DerivePk(pk, g_szXid, sizeof(g_szXid));
     Env::DocAddBlob_T("xid", pk);
+}
+
+ON_METHOD(manager, prealloc_view)
+{
+    auto aid = get_TrgAid(cid);
+    if (!aid)
+        return;
+
+    Env::Key_T<DemoXdao::Preallocated::User::Key> puk;
+    _POD_(puk.m_Prefix.m_Cid) = cid;
+    Env::DerivePk(puk.m_KeyInContract.m_Pk, g_szXid, sizeof(g_szXid));
+
+    DemoXdao::Preallocated::User pu;
+    if (Env::VarReader::Read_T(puk, pu))
+    {
+        Env::DocAddNum("total", pu.m_Total);
+        Env::DocAddNum("received", pu.m_Received);
+
+        // calculate the maximum available
+        Amount nMaxAvail = 0;
+
+        Env::Key_T<uint8_t> prk;
+        _POD_(prk.m_Prefix.m_Cid) = cid;
+        prk.m_KeyInContract = DemoXdao::Preallocated::s_Key;
+
+        DemoXdao::Preallocated pr;
+        if (Env::VarReader::Read_T(prk, pr))
+        {
+            Height dh = std::min(Env::get_Height() - pr.m_h0, pr.s_Duration);
+
+            MultiPrecision::UInt<2> maxVal;
+            maxVal.SetDiv(MultiPrecision::From(dh) * MultiPrecision::From(pu.m_Total), MultiPrecision::From(pr.s_Duration));
+
+            nMaxAvail = (((uint64_t) maxVal.get_Val<2>()) << 32) | maxVal.get_Val<1>();
+        }
+
+        Env::DocAddNum("avail_total", nMaxAvail);
+        Env::DocAddNum("avail_remaining", (nMaxAvail> pu.m_Received) ? (nMaxAvail - pu.m_Received) : 0);
+    }
+}
+
+ON_METHOD(manager, prealloc_withdraw)
+{
+    auto aid = get_TrgAid(cid);
+    if (!aid)
+        return;
+
+    DemoXdao::GetPreallocated arg;
+    Env::DerivePk(arg.m_Pk, g_szXid, sizeof(g_szXid));
+    arg.m_Amount = amount;
+    
+    SigRequest sig;
+    sig.m_pID = g_szXid;
+    sig.m_nID = sizeof(g_szXid);
+
+    FundsChange fc;
+    fc.m_Aid = aid;
+    fc.m_Amount = amount;
+    fc.m_Consume = 0;
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "Get preallocated demoX tokens", 0);
 }
 
 ON_METHOD(manager, farm_view)

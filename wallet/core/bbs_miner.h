@@ -29,7 +29,7 @@ namespace beam::wallet
 struct BbsMiner
 {
     // message mining
-    std::vector<std::thread> m_vThreads;
+    std::vector<MyThread> m_vThreads;
     std::mutex m_Mutex;
     std::condition_variable m_NewTask;
 

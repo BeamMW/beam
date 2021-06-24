@@ -44,6 +44,7 @@
 #include <mutex>
 #include <atomic>
 #include <condition_variable>
+#include "utility/thread.h"
 
 #include "core/proto.h"
 #include <boost/intrusive/list.hpp>
@@ -3432,6 +3433,68 @@ void GenerateTreasury(size_t walletCount, size_t utxoCount, Amount value)
     FSave(data, "treasury.bin");
 }
 
+void TestThreadPool()
+{
+    std::cout << "Testing simple thread pool\n";
+
+    struct Counter
+    {
+        void Increment()
+        {
+            std::unique_lock lock(m_Mutex);
+            ++value;
+        }
+
+        int value = 0;
+        std::mutex m_Mutex;
+    }counter;
+
+
+    PoolThread t1([&counter](int id)
+    {
+        std::cout << "thread " << id << "\n";
+        std::this_thread::sleep_for(std::chrono::milliseconds(410));
+        counter.Increment();
+    }, 1);
+
+    PoolThread t2([&counter](int id)
+    {
+        std::cout << "thread " << id << "\n";
+        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        counter.Increment();
+    }, 2);
+    t1.join();
+    t2.join();
+
+    WALLET_CHECK(counter.value == 2);
+
+    struct Test
+    {
+        Test()
+        {
+            m_Thread = PoolThread(&Test::Thread, this, std::cref(Rules::get()));
+        }
+
+        ~Test()
+        {
+            WALLET_CHECK(m_Thread.joinable());
+            if (m_Thread.joinable())
+                m_Thread.join();
+        }
+
+        void Thread(const Rules& r)
+        {
+            std::cout << "thread 3\n";
+            std::this_thread::sleep_for(std::chrono::milliseconds(150));
+            std::cout << "thread 3 Done\n";
+        }
+
+        PoolThread m_Thread;
+    };
+    Test t;
+    
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_WARNING; 
@@ -3455,7 +3518,7 @@ int main()
     wallet::g_AssetsEnabled = true;
 
     storage::HookErrors();
-
+    TestThreadPool();
     //GenerateTreasury(100, 100, 100000000);
     TestTxList();
     TestKeyKeeper();

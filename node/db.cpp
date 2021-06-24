@@ -126,6 +126,10 @@ namespace beam {
 #define TblCache_Data			"Data"
 #define TblCache_LastHit		"Hit"
 
+#define TblKrnInfo				"KrnInfo"
+#define TblKrnInfo_Key			"Key"
+#define TblKrnInfo_Data			"Data"
+
 NodeDB::NodeDB()
 	:m_pDb(nullptr)
 {
@@ -361,7 +365,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 29;
+	const uint64_t nVersionTop = 30;
 
 
 	Transaction t(*this);
@@ -416,7 +420,6 @@ void NodeDB::Open(const char* szPath)
 			// no break;
 
 		case 26: // ShieldedState stream added
-			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
 			// no break;
 
 		case 27:
@@ -425,6 +428,12 @@ void NodeDB::Open(const char* szPath)
 
 		case 28:
 			CreateTables28();
+			// no break;
+
+		case 29: // Block interpretation nKrnIdx fixed to match KrnWalker's
+			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
+			CreateTables29();
+
 			// no break;
 
 			ParamIntSet(ParamID::DbVer, nVersionTop);
@@ -551,6 +560,7 @@ void NodeDB::Create()
 	CreateTables23();
 	CreateTables27();
 	CreateTables28();
+	CreateTables29();
 }
 
 void NodeDB::CreateTables20()
@@ -619,6 +629,13 @@ void NodeDB::CreateTables28()
 
 	ExecQuick("CREATE INDEX [Idx" TblCache "_Key" "] ON [" TblCache "] ([" TblCache_Key "]);");
 	ExecQuick("CREATE INDEX [Idx" TblCache "_Hit" "] ON [" TblCache "] ([" TblCache_LastHit "]);");
+}
+
+void NodeDB::CreateTables29()
+{
+	ExecQuick("CREATE TABLE [" TblKrnInfo "] ("
+		"[" TblKrnInfo_Key		"] INTEGER NOT NULL PRIMARY KEY,"
+		"[" TblKrnInfo_Data		"] BLOB NOT NULL)");
 }
 
 void NodeDB::Vacuum()
@@ -2936,7 +2953,7 @@ void NodeDB::AssetEvtsEnumBwd(WalkerAssetEvt& wlk, Asset::ID id, Height h)
 	wlk.m_Rs.put(1, h);
 }
 
-void NodeDB::AssetEvtsGetStrict(WalkerAssetEvt& wlk, Height h, uint32_t nIdx)
+void NodeDB::AssetEvtsGetStrict(WalkerAssetEvt& wlk, Height h, uint64_t nIdx)
 {
 	wlk.m_Rs.Reset(*this, Query::AssetEvtsGet, "SELECT * FROM " TblAssetEvts " WHERE " TblAssetEvts_Height "=? AND " TblAssetEvts_Index "=?");
 	wlk.m_Rs.put(0, h);

@@ -299,7 +299,7 @@ namespace beam::wallet
         beam::io::Timer::Ptr m_balanceDelayed;
         void scheduleBalance();
 
-        std::shared_ptr<std::thread> m_thread;
+        std::shared_ptr<MyThread> m_thread;
         const Rules& m_rules;
         IWalletDB::Ptr m_walletDB;
         io::Reactor::Ptr m_reactor;

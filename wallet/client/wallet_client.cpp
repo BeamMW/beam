@@ -474,7 +474,7 @@ namespace beam::wallet
         {
             return;
         }
-        m_thread = std::make_shared<std::thread>([this, withExchangeRates, txCreators, activeNotifications]()
+        m_thread = std::make_shared<MyThread>([this, withExchangeRates, txCreators, activeNotifications]()
         {
             try
             {

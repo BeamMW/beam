@@ -20,6 +20,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include "reactor.h"
 #include "utility/io/timer.h"
+#include "utility/thread.h"
 
 namespace beam::wallet {
     class WebSocketServer
@@ -43,7 +44,7 @@ namespace beam::wallet {
 
     private:
         boost::asio::io_context       _ioc;
-        std::shared_ptr<std::thread>  _iocThread;
+        std::shared_ptr<MyThread>  _iocThread;
         std::string                   _allowedOrigin;
     };
 }

@@ -11,24 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#pragma once
 
-#include <cstddef>
-#include <vector>
+package com.mw.beam.beamwallet.core.entities.dto;
 
-namespace beam::wallet
+public class AssetInfoDTO
 {
-
-class Filter
-{
-public:
-    Filter(size_t size = 12);
-    void addSample(double value);
-    double getAverage() const;
-    double getMedian() const;
-private:
-    std::vector<double> _samples;
-    size_t _index;
-    bool _is_poor;
-};
-}  // namespace beamui
+    public int id;
+    public String unitName;
+	public String nthUnitName;
+	public String shortName;
+	public String shortDesc;
+	public String longDesc;
+	public String name;
+	public String site;
+	public String paper;
+}
