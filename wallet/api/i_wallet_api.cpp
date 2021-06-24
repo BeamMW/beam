@@ -38,7 +38,7 @@ namespace beam::wallet
         try
         {
             const auto version = SApiVer2NApiVer(sver);
-            return ApiVerMin >= version && ApiVerMax <= version;
+            return version >= ApiVerMin && version <= ApiVerMax;
         }
         catch(std::exception& ex)
         {
