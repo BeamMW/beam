@@ -423,17 +423,19 @@ void WalletModel::onStatus(const WalletStatus& status)
         setLongField(env, WalletStatusClass, walletStatus, "maxPrivacy", AmountBig::get_Lo(value.maturingMP));
         setIntField(env, WalletStatusClass, walletStatus, "assetId", static_cast<jint>(assetId));
 
-        jobject systemState = env->AllocObject(SystemStateClass);
+        if (assetId == 0) {
+            jobject systemState = env->AllocObject(SystemStateClass);
 
-        setLongField(env, SystemStateClass, systemState, "height", status.stateID.m_Height);
-        setStringField(env, SystemStateClass, systemState, "hash", to_hex(status.stateID.m_Hash.m_pData, status.stateID.m_Hash.nBytes));
+            setLongField(env, SystemStateClass, systemState, "height", status.stateID.m_Height);
+            setStringField(env, SystemStateClass, systemState, "hash", to_hex(status.stateID.m_Hash.m_pData, status.stateID.m_Hash.nBytes));
 
-        jfieldID systemStateID = env->GetFieldID(WalletStatusClass, "system", "L" BEAM_JAVA_PATH "/entities/dto/SystemStateDTO;");
-        env->SetObjectField(walletStatus, systemStateID, systemState);
+            jfieldID systemStateID = env->GetFieldID(WalletStatusClass, "system", "L" BEAM_JAVA_PATH "/entities/dto/SystemStateDTO;");
+            env->SetObjectField(walletStatus, systemStateID, systemState);
+        }
+
 
         env->SetObjectArrayElement(assetsArray, static_cast<jsize>(i), walletStatus);
         env->DeleteLocalRef(walletStatus);
-        env->DeleteLocalRef(systemState);
 
         i = i + 1;
     }
