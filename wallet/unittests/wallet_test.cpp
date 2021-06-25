@@ -79,8 +79,8 @@ namespace
         : public IWalletApiHandler
         , public beam::wallet::V6Api
     {
-        ApiTest(IWalletDB::Ptr wdb, Wallet::Ptr wallet, ISwapsProvider::Ptr swaps, IShadersManager::Ptr contracts)
-            : V6Api(*this, boost::none, std::string(), std::string(), std::move(wdb), std::move(wallet), std::move(swaps), std::move(contracts))
+        ApiTest(const ApiInitData& data)
+            : V6Api(*this, data)
         {
         }
 
@@ -189,7 +189,13 @@ namespace
         WALLET_CHECK(rh.size() == Count);
 
         auto asp = std::make_shared<AtomicSwapProvider>();
-        ApiTest api(sender.m_WalletDB, sender.m_Wallet, asp, nullptr);
+
+        ApiInitData data;
+        data.walletDB = sender.m_WalletDB;
+        data.wallet = sender.m_Wallet;
+        data.swaps = asp;
+
+        ApiTest api(data);
         TxList message;
         message.count = 10;
         message.skip = 30;
