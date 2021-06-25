@@ -15,8 +15,8 @@
 
 #include <boost/optional.hpp>
 #include "wallet/core/wallet.h"
-#include "api_base.h"
-#include "api_errors_imp.h"
+#include "wallet/api/base/api_base.h"
+#include "wallet/api/base/api_errors_imp.h"
 #include "wallet/client/extensions/offers_board/swap_offer.h"
 #include "bvm/invoke_data.h"
 

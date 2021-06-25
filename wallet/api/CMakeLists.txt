@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.13)
 
 add_library(wallet_api STATIC
-    v6_0/api_base.cpp
-    v6_0/api_errors_imp.cpp
+    base/api_base.cpp
+    base/api_errors_imp.cpp
     v6_0/wallet_api.cpp
     v6_0/wallet_api_handle.cpp
     v6_0/wallet_api_parse.cpp

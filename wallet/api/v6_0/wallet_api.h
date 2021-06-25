@@ -13,7 +13,7 @@
 // limitations under the License.
 #pragma once
 
-#include "api_base.h"
+#include "wallet/api/base/api_base.h"
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet_api_defs.h"
@@ -120,9 +120,9 @@ namespace beam::wallet
             typedef boost::intrusive_ptr<RequestHeaderMsg> Ptr;
             ~RequestHeaderMsg() override = default;
 
-            RequestHeaderMsg(const JsonRpcId id, std::weak_ptr<bool> guard, WalletApi& wapi)
-                : _id(id)
-                , _guard(guard)
+            RequestHeaderMsg(JsonRpcId id, std::weak_ptr<bool> guard, WalletApi& wapi)
+                : _id(std::move(id))
+                , _guard(std::move(guard))
                 , _wapi(wapi)
             {}
 

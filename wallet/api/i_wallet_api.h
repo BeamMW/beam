@@ -20,9 +20,9 @@
 #include <nlohmann/json.hpp>
 #include "utility/logger.h"
 #include "wallet/core/contracts/i_shaders_manager.h"
+#include "base/api_errors.h"
 #include "i_swaps_provider.h"
 #include "sync_mode.h"
-#include "api_errors.h"
 
 namespace beam::wallet
 {
@@ -122,9 +122,9 @@ namespace beam::wallet
             ApiCallInfo acinfo;
             MethodInfo  minfo;
 
-            ParseResult(const ApiCallInfo& aci, const MethodInfo& mi)
-                : acinfo(aci)
-                , minfo(mi)
+            ParseResult(ApiCallInfo aci, MethodInfo mi)
+                : acinfo(std::move(aci))
+                , minfo(std::move(mi))
             {}
         };
 
