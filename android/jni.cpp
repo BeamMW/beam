@@ -1224,6 +1224,12 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
         env->DeleteLocalRef(cls);
     }
 
+    {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/AssetInfoDTO");
+        AssetInfoClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
+    }
+
     return JNI_VERSION_1_6;
 }
 
