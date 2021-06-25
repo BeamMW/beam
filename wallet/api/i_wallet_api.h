@@ -29,9 +29,10 @@ namespace beam::wallet
     using json = nlohmann::json;
 
     const uint32_t ApiVer6_0     = 60;
-    const uint32_t ApiVerCurrent = ApiVer6_0;
+    const uint32_t ApiVer6_1     = 61;
+    const uint32_t ApiVerCurrent = ApiVer6_1;
     const uint32_t ApiVerMin     = ApiVer6_0;
-    const uint32_t ApiVerMax     = ApiVer6_0;
+    const uint32_t ApiVerMax     = ApiVer6_1;
 
     class IWalletApiHandler
     {
@@ -46,31 +47,31 @@ namespace beam::wallet
         }
     };
 
+    typedef boost::optional<std::map<std::string, bool>> ApiACL;
+    struct ApiInitData
+    {
+        ApiACL acl;
+        std::string appId;
+        std::string appName;
+        IShadersManager::Ptr contracts;
+        ISwapsProvider::Ptr swaps;
+        IWalletDB::Ptr walletDB;
+        Wallet::Ptr wallet;
+    };
+
     class IWalletApi
     {
     public:
         typedef std::shared_ptr<IWalletApi> Ptr;
         typedef std::weak_ptr<IWalletApi> WeakPtr;
-        typedef boost::optional<std::map<std::string, bool>> ACL;
-
-        struct InitData
-        {
-            ACL acl;
-            std::string appId;
-            std::string appName;
-            IShadersManager::Ptr contracts;
-            ISwapsProvider::Ptr swaps;
-            IWalletDB::Ptr walletDB;
-            Wallet::Ptr wallet;
-        };
 
         static bool ValidateAPIVersion(const std::string& version);
 
         // returns nullptr if wrong API version requested, should be safe to call from any thread
-        static Ptr CreateInstance(const std::string& version, IWalletApiHandler& handler, const InitData& data);
+        static Ptr CreateInstance(const std::string& version, IWalletApiHandler& handler, const ApiInitData& data);
 
         // returns nullptr if wrong API version requested, should be safe to call from any thread
-        static Ptr CreateInstance(uint32_t version, IWalletApiHandler& handler, const InitData& data);
+        static Ptr CreateInstance(uint32_t version, IWalletApiHandler& handler, const ApiInitData& data);
 
         struct MethodInfo
         {

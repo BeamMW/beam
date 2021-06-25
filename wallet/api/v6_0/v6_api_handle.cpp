@@ -16,7 +16,7 @@
 #include "wallet/core/strings_resources.h"
 #include "wallet/core/assets_utils.h"
 #include "utility/logger.h"
-#include "wallet_api.h"
+#include "v6_api.h"
 #include "utility/test_helpers.h"
 
 using namespace beam;
@@ -39,7 +39,7 @@ namespace
 
 namespace beam::wallet
 {
-    void WalletApi::FillAddressData(const AddressData& data, WalletAddress& address)
+    void V6Api::FillAddressData(const AddressData& data, WalletAddress& address)
     {
         if (data.comment)
         {
@@ -52,7 +52,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::onHandleCalcChange(const JsonRpcId& id, const CalcChange& data)
+    void V6Api::onHandleCalcChange(const JsonRpcId& id, const CalcChange& data)
     {
         LOG_DEBUG() << "CalcChange(id = " << id << " amount = " << data.amount << " asset_id = " << (data.assetId ? *data.assetId : 0) << ")";
 
@@ -70,7 +70,7 @@ namespace beam::wallet
         doResponse(id, CalcChange::Response{ csi.m_changeBeam, csi.m_changeAsset, csi.m_explicitFee });
     }
 
-    void WalletApi::onHandleChangePassword(const JsonRpcId& id, const ChangePassword& data)
+    void V6Api::onHandleChangePassword(const JsonRpcId& id, const ChangePassword& data)
     {
         LOG_DEBUG() << "ChangePassword(id = " << id << ")";
 
@@ -78,7 +78,7 @@ namespace beam::wallet
         doResponse(id, ChangePassword::Response{ });
     }
 
-    void WalletApi::onHandleAddrList(const JsonRpcId& id, const AddrList& data)
+    void V6Api::onHandleAddrList(const JsonRpcId& id, const AddrList& data)
     {
         LOG_DEBUG() << "AddrList(id = " << id << ")";
 
@@ -102,7 +102,7 @@ namespace beam::wallet
         doResponse(id, AddrList::Response{filtered});
     }
 
-    void WalletApi::onHandleCreateAddress(const JsonRpcId& id, const CreateAddress& data)
+    void V6Api::onHandleCreateAddress(const JsonRpcId& id, const CreateAddress& data)
     {
         LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
@@ -129,7 +129,7 @@ namespace beam::wallet
         doResponse(id, CreateAddress::Response{address.m_Address});
     }
 
-    void WalletApi::onHandleDeleteAddress(const JsonRpcId& id, const DeleteAddress& data)
+    void V6Api::onHandleDeleteAddress(const JsonRpcId& id, const DeleteAddress& data)
     {
         LOG_DEBUG() << "DeleteAddress(id = " << id << " address = " << data.token << ")";
 
@@ -153,7 +153,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::onHandleEditAddress(const JsonRpcId& id, const EditAddress& data)
+    void V6Api::onHandleEditAddress(const JsonRpcId& id, const EditAddress& data)
     {
         LOG_DEBUG() << "EditAddress(id = " << id << " address = " << data.token << ")";
 
@@ -185,13 +185,11 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::onHandleValidateAddress(const JsonRpcId& id, const ValidateAddress& data)
+    void V6Api::onHandleValidateAddress(const JsonRpcId& id, const ValidateAddress& data)
     {
         LOG_DEBUG() << "ValidateAddress( address = " << data.token << ")";
 
-
         auto tokenType = GetTokenType(data.token);
-
         auto p = ParseParameters(data.token);
 
         bool isValid = !!p;
@@ -230,12 +228,12 @@ namespace beam::wallet
         doResponse(id, ValidateAddress::Response{ isValid, isMine, tokenType, offlinePayments });
     }
 
-    void WalletApi::doTxAlreadyExistsError(const JsonRpcId& id)
+    void V6Api::doTxAlreadyExistsError(const JsonRpcId& id)
     {
         throw jsonrpc_exception(ApiError::InvalidTxId, "Provided transaction ID already exists in the wallet.");
     }
 
-    void WalletApi::onHandleSend(const JsonRpcId& id, const Send& data)
+    void V6Api::onHandleSend(const JsonRpcId& id, const Send& data)
     {
         LOG_DEBUG() << "Send(id = "   << id
                     << " asset_id = " << (data.assetId ? *data.assetId : 0)
@@ -337,7 +335,7 @@ namespace beam::wallet
     }
 
     template<typename T>
-    void WalletApi::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const T& data)
+    void V6Api::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const T& data)
     {
         auto walletDB = getWalletDB();
 
@@ -353,21 +351,21 @@ namespace beam::wallet
         }
     }
 
-    template void WalletApi::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const Issue& data);
-    template void WalletApi::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const Consume& data);
+    template void V6Api::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const Issue& data);
+    template void V6Api::setTxAssetParams(const JsonRpcId& id, TxParameters& params, const Consume& data);
 
-    void WalletApi::onHandleIssue(const JsonRpcId& id, const Issue& data)
+    void V6Api::onHandleIssue(const JsonRpcId& id, const Issue& data)
     {
         onHandleIssueConsume(true, id, data);
     }
 
-    void WalletApi::onHandleConsume(const JsonRpcId& id, const Consume& data)
+    void V6Api::onHandleConsume(const JsonRpcId& id, const Consume& data)
     {
         onHandleIssueConsume(false, id, data);
     }
 
     template<typename T>
-    void WalletApi::onHandleIssueConsume(bool issue, const JsonRpcId& id, const T& data)
+    void V6Api::onHandleIssueConsume(bool issue, const JsonRpcId& id, const T& data)
     {
         LOG_DEBUG() << (issue ? " Issue" : " Consume") << "(id = " << id << " asset_id = " << data.assetId
                     << " amount = " << data.value << " fee = " << data.fee
@@ -403,10 +401,10 @@ namespace beam::wallet
         }
     }
 
-    template void WalletApi::onHandleIssueConsume<Issue>(bool issue, const JsonRpcId& id, const Issue& data);
-    template void WalletApi::onHandleIssueConsume<Consume>(bool issue, const JsonRpcId& id, const Consume& data);
+    template void V6Api::onHandleIssueConsume<Issue>(bool issue, const JsonRpcId& id, const Issue& data);
+    template void V6Api::onHandleIssueConsume<Consume>(bool issue, const JsonRpcId& id, const Consume& data);
 
-    void WalletApi::onHandleGetAssetInfo(const JsonRpcId &id, const GetAssetInfo &data)
+    void V6Api::onHandleGetAssetInfo(const JsonRpcId &id, const GetAssetInfo &data)
     {
         LOG_DEBUG() << " GetAssetInfo" << "(id = " << id << " asset_id = " << data.assetId << ")";
 
@@ -424,20 +422,20 @@ namespace beam::wallet
         doResponse(id, resp);
     }
 
-    void WalletApi::onHandleSetConfirmationsCount(const JsonRpcId& id, const SetConfirmationsCount& data)
+    void V6Api::onHandleSetConfirmationsCount(const JsonRpcId& id, const SetConfirmationsCount& data)
     {
         auto walletDB = getWalletDB();
         walletDB->setCoinConfirmationsOffset(data.count);
         doResponse(id, GetConfirmationsCount::Response{ walletDB->getCoinConfirmationsOffset() });
     }
 
-    void WalletApi::onHandleGetConfirmationsCount(const JsonRpcId& id, const GetConfirmationsCount& data)
+    void V6Api::onHandleGetConfirmationsCount(const JsonRpcId& id, const GetConfirmationsCount& data)
     {
         auto walletDB = getWalletDB();
         doResponse(id, GetConfirmationsCount::Response{ walletDB->getCoinConfirmationsOffset() });
     }
 
-    void WalletApi::onHandleTxAssetInfo(const JsonRpcId& id, const TxAssetInfo& data)
+    void V6Api::onHandleTxAssetInfo(const JsonRpcId& id, const TxAssetInfo& data)
     {
         LOG_DEBUG() << " AssetInfo" << "(id = " << id << " asset_id = " << data.assetId << ")";
         try
@@ -467,7 +465,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::onHandleStatus(const JsonRpcId& id, const Status& data)
+    void V6Api::onHandleStatus(const JsonRpcId& id, const Status& data)
     {
         LOG_DEBUG() << "Status(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
@@ -495,7 +493,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::onHandleSplit(const JsonRpcId& id, const Split& data)
+    void V6Api::onHandleSplit(const JsonRpcId& id, const Split& data)
     {
         LOG_DEBUG() << "Split(id = " << id << " asset_id " << (data.assetId ? *data.assetId : 0) << " coins = [";
         for (auto& coin : data.coins) LOG_DEBUG() << coin << ",";
@@ -537,7 +535,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::onHandleTxCancel(const JsonRpcId& id, const TxCancel& data)
+    void V6Api::onHandleTxCancel(const JsonRpcId& id, const TxCancel& data)
     {
         LOG_DEBUG() << "TxCancel(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
@@ -566,7 +564,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::onHandleTxDelete(const JsonRpcId& id, const TxDelete& data)
+    void V6Api::onHandleTxDelete(const JsonRpcId& id, const TxDelete& data)
     {
         LOG_DEBUG() << "TxDelete(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
@@ -601,7 +599,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::onHandleGetUtxo(const JsonRpcId& id, const GetUtxo& data)
+    void V6Api::onHandleGetUtxo(const JsonRpcId& id, const GetUtxo& data)
     {
         LOG_DEBUG() << "GetUtxo(id = " << id << " assets = " << data.withAssets
                     << " asset_id = " << (data.filter.assetId ? *data.filter.assetId : 0)
@@ -651,7 +649,7 @@ namespace beam::wallet
         doResponse(id, response);
     }
 
-    void WalletApi::onHandleWalletStatusApi(const JsonRpcId& id, const WalletStatusApi& data)
+    void V6Api::onHandleWalletStatusApi(const JsonRpcId& id, const WalletStatusApi& data)
     {
         LOG_DEBUG() << "WalletStatus(id = " << id << ")";
 
@@ -689,13 +687,13 @@ namespace beam::wallet
         doResponse(id, response);
     }
 
-    void WalletApi::onHandleGenerateTxId(const JsonRpcId& id, const GenerateTxId& data)
+    void V6Api::onHandleGenerateTxId(const JsonRpcId& id, const GenerateTxId& data)
     {
         LOG_DEBUG() << "GenerateTxId(id = " << id << ")";
         doResponse(id, GenerateTxId::Response{ wallet::GenerateTxID() });
     }
 
-    void WalletApi::onHandleTxList(const JsonRpcId& id, const TxList& data)
+    void V6Api::onHandleTxList(const JsonRpcId& id, const TxList& data)
     {
         LOG_DEBUG() << "List(filter.status = " << (data.filter.status ? std::to_string((uint32_t)*data.filter.status) : "nul") << ")";
         helpers::StopWatch sw;
@@ -768,7 +766,7 @@ namespace beam::wallet
         LOG_DEBUG() << "TxList  elapsed time: " << sw.milliseconds() << " ms\n";
     }
 
-    void WalletApi::onHandleExportPaymentProof(const JsonRpcId& id, const ExportPaymentProof& data)
+    void V6Api::onHandleExportPaymentProof(const JsonRpcId& id, const ExportPaymentProof& data)
     {
         LOG_DEBUG() << "ExportPaymentProof(id = " << id << ")";
 
@@ -796,7 +794,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::onHandleVerifyPaymentProof(const JsonRpcId &id, const VerifyPaymentProof &data)
+    void V6Api::onHandleVerifyPaymentProof(const JsonRpcId &id, const VerifyPaymentProof &data)
     {
         LOG_DEBUG() << "VerifyPaymentProof(id = " << id << ")";
         try
@@ -819,7 +817,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::onHandleInvokeContract(const JsonRpcId &id, const InvokeContract &data)
+    void V6Api::onHandleInvokeContract(const JsonRpcId &id, const InvokeContract &data)
     {
         LOG_DEBUG() << "InvokeContract(id = " << id << ")";
         auto contracts = getContracts();
@@ -851,7 +849,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::onHandleInvokeContractWithTX(const JsonRpcId &id, const InvokeContract& data)
+    void V6Api::onHandleInvokeContractWithTX(const JsonRpcId &id, const InvokeContract& data)
     {
         std::weak_ptr<bool> wguard = _contractsGuard;
         auto contracts = getContracts();
@@ -883,7 +881,7 @@ namespace beam::wallet
         });
     }
 
-    void WalletApi::onHandleInvokeContractNoTX(const JsonRpcId &id, const InvokeContract& data)
+    void V6Api::onHandleInvokeContractNoTX(const JsonRpcId &id, const InvokeContract& data)
     {
         std::weak_ptr<bool> wguard = _contractsGuard;
         auto contracts = getContracts();
@@ -915,7 +913,7 @@ namespace beam::wallet
         });
     }
 
-    void WalletApi::onHandleProcessInvokeData(const JsonRpcId &id, const ProcessInvokeData &data)
+    void V6Api::onHandleProcessInvokeData(const JsonRpcId &id, const ProcessInvokeData &data)
     {
         LOG_DEBUG() << "ProcessInvokeData(id = " << id << ")";
 
@@ -947,7 +945,7 @@ namespace beam::wallet
         });
     }
 
-    void WalletApi::onHandleBlockDetails(const JsonRpcId& id, const BlockDetails& data)
+    void V6Api::onHandleBlockDetails(const JsonRpcId& id, const BlockDetails& data)
     {
         LOG_DEBUG() << "BlockDetails(id = " << id << ")";
 
@@ -957,7 +955,7 @@ namespace beam::wallet
         getWallet()->GetNodeEndpoint()->PostRequest(*request, *request);
     }
 
-    void WalletApi::RequestHeaderMsg::OnComplete(proto::FlyClient::Request& request)
+    void V6Api::RequestHeaderMsg::OnComplete(proto::FlyClient::Request& request)
     {
         auto guard = _guard.lock();
         if (!guard)

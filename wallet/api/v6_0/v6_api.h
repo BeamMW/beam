@@ -16,24 +16,16 @@
 #include "wallet/api/base/api_base.h"
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
-#include "wallet_api_defs.h"
+#include "v6_api_defs.h"
 #include "wallet/core/contracts/i_shaders_manager.h"
 
 namespace beam::wallet
 {
-    class WalletApi
-        : public ApiBase
+    class V6Api: public ApiBase
     {
     public:
         // MUST BE SAFE TO CALL FROM ANY THREAD
-        WalletApi(IWalletApiHandler& handler,
-                  ACL acl,
-                  std::string appid,
-                  std::string appname,
-                  IWalletDB::Ptr wdb,
-                  Wallet::Ptr wallet,
-                  ISwapsProvider::Ptr swaps,
-                  IShadersManager::Ptr contracts);
+        V6Api(IWalletApiHandler& handler, const ApiInitData& init);
 
         virtual IWalletDB::Ptr       getWalletDB() const;
         virtual Wallet::Ptr          getWallet() const;
@@ -45,9 +37,8 @@ namespace beam::wallet
         void checkCAEnabled() const;
         bool getCAEnabled() const;
 
-        WALLET_API_METHODS(BEAM_API_RESPONSE_FUNC)
-        WALLET_API_METHODS(BEAM_API_HANDLE_FUNC)
-
+        V6_API_METHODS(BEAM_API_RESPONSE_FUNC)
+        V6_API_METHODS(BEAM_API_HANDLE_FUNC)
 
         template<typename T>
         void doResponse(const JsonRpcId& id, const T& response)
@@ -93,7 +84,7 @@ namespace beam::wallet
         bool checkTxAccessRights(const TxParameters&);
         void checkTxAccessRights(const TxParameters&, ApiError code, const std::string& errmsg);
 
-        WALLET_API_METHODS(BEAM_API_PARSE_FUNC)
+        V6_API_METHODS(BEAM_API_PARSE_FUNC)
 
         template<typename T>
         std::pair<T, IWalletApi::MethodInfo> onParseIssueConsume(bool issue, const JsonRpcId& id, const json& params);
@@ -120,7 +111,7 @@ namespace beam::wallet
             typedef boost::intrusive_ptr<RequestHeaderMsg> Ptr;
             ~RequestHeaderMsg() override = default;
 
-            RequestHeaderMsg(JsonRpcId id, std::weak_ptr<bool> guard, WalletApi& wapi)
+            RequestHeaderMsg(JsonRpcId id, std::weak_ptr<bool> guard, V6Api& wapi)
                 : _id(std::move(id))
                 , _guard(std::move(guard))
                 , _wapi(wapi)
@@ -131,7 +122,7 @@ namespace beam::wallet
         private:
             JsonRpcId _id;
             std::weak_ptr<bool> _guard;
-            WalletApi& _wapi;
+            V6Api& _wapi;
         };
 
         std::map<TokenType, std::string> _ttypesMap;

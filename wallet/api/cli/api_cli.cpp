@@ -64,11 +64,11 @@ namespace
         bool rejectUnauthorized;
     };
 
-    IWalletApi::ACL loadACL(const std::string& path)
+    ApiACL loadACL(const std::string& path)
     {
         std::ifstream file(path);
         std::string line;
-        IWalletApi::ACL::value_type keys;
+        ApiACL::value_type keys;
         int curLine = 1;
 
         while (std::getline(file, line))
@@ -108,7 +108,7 @@ namespace
             LOG_INFO() << "ACL file successfully loaded";
         }
 
-        return IWalletApi::ACL(keys);
+        return ApiACL(keys);
     }
 
     class IWalletApiServer
@@ -134,7 +134,7 @@ namespace
                         io::Reactor& reactor,
                         io::Address listenTo,
                         bool useHttp,
-                        IWalletApi::ACL acl,
+                        ApiACL acl,
                         const TlsOptions& tlsOptions,
                         const std::vector<uint32_t>& whitelist)
 
@@ -211,7 +211,7 @@ namespace
         {
             if (!_walletData)
             {
-                _walletData = std::make_unique<IWalletApi::InitData>();
+                _walletData = std::make_unique<ApiInitData>();
                 _walletData->walletDB  = _walletDB;
                 _walletData->wallet    = _wallet;
                 _walletData->swaps     = _swapsProvider;
@@ -255,7 +255,7 @@ namespace
             , public IWalletApiHandler
         {
         public:
-            TcpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, IWalletApi::InitData& walletData)
+            TcpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, ApiInitData& walletData)
                 : _server(server)
                 , _stream(std::move(newStream))
                 , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
@@ -312,7 +312,7 @@ namespace
             , public IWalletApiHandler
         {
         public:
-            HttpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, IWalletApi::InitData& walletData)
+            HttpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, ApiInitData& walletData)
                 : _server(server)
                 , _sendResponseCalled(false)
                 , _msgCreator(2000)
@@ -467,9 +467,9 @@ namespace
         proto::FlyClient::NetworkStd::Ptr _network;
 
         std::shared_ptr<ApiCliSwap> _swapsProvider;
-        std::unique_ptr<IWalletApi::InitData> _walletData;
+        std::unique_ptr<ApiInitData> _walletData;
         std::vector<uint64_t> _pendingToClose;
-        IWalletApi::ACL _acl;
+        ApiACL _acl;
         std::vector<uint32_t> _whitelist;
     };
 }
@@ -505,7 +505,7 @@ int main(int argc, char* argv[])
 
         io::Address node_addr;
         IWalletDB::Ptr walletDB;
-        IWalletApi::ACL acl;
+        ApiACL acl;
         std::vector<uint32_t> whitelist;
 
         {

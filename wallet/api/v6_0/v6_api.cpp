@@ -11,25 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "wallet_api.h"
+#include "v6_api.h"
 
 namespace beam::wallet
 {
-    WalletApi::WalletApi(
-            IWalletApiHandler& handler,
-            ACL acl,
-            std::string appid,
-            std::string appname,
-            IWalletDB::Ptr wdb,
-            Wallet::Ptr wallet,
-            ISwapsProvider::Ptr swaps,
-            IShadersManager::Ptr contracts
-        )
-        : ApiBase(handler, std::move(acl), std::move(appid), std::move(appname))
-        , _wdb(std::move(wdb))
-        , _wallet(std::move(wallet))
-        , _swaps(std::move(swaps))
-        , _contracts(std::move(contracts))
+    V6Api::V6Api(IWalletApiHandler& handler, const ApiInitData& init)
+        : ApiBase(handler, init)
+        , _wdb(init.walletDB)
+        , _wallet(init.wallet)
+        , _swaps(init.swaps)
+        , _contracts(init.contracts)
     {
         _ttypesMap[TokenType::RegularOldStyle] = "regular";
         _ttypesMap[TokenType::Offline]         = "offline";
@@ -51,11 +42,11 @@ namespace beam::wallet
             },                                                            \
             writeAccess, isAsync, appsAllowed                             \
         };
-        WALLET_API_METHODS(REG_FUNC)
+        V6_API_METHODS(REG_FUNC)
         #undef REG_FUNC
     }
 
-    bool WalletApi::checkTxAccessRights(const TxParameters& params)
+    bool V6Api::checkTxAccessRights(const TxParameters& params)
     {
         // If this API instance is not for apps, all txs are available
         if (_appId.empty())
@@ -74,7 +65,7 @@ namespace beam::wallet
         return _appId == *appid;
     }
 
-    void WalletApi::checkTxAccessRights(const TxParameters& params, ApiError code, const std::string& errmsg)
+    void V6Api::checkTxAccessRights(const TxParameters& params, ApiError code, const std::string& errmsg)
     {
         if (!checkTxAccessRights(params))
         {
@@ -84,13 +75,13 @@ namespace beam::wallet
         }
     }
 
-    std::string WalletApi::getTokenType(TokenType type) const
+    std::string V6Api::getTokenType(TokenType type) const
     {
         auto it = _ttypesMap.find(type);
         return it != _ttypesMap.end() ? it->second : "unknown";
     }
 
-    IWalletDB::Ptr WalletApi::getWalletDB() const
+    IWalletDB::Ptr V6Api::getWalletDB() const
     {
         if (_wdb == nullptr)
         {
@@ -101,7 +92,7 @@ namespace beam::wallet
         return _wdb;
     }
 
-    Wallet::Ptr WalletApi::getWallet() const
+    Wallet::Ptr V6Api::getWallet() const
     {
         if (_wallet == nullptr)
         {
@@ -112,7 +103,7 @@ namespace beam::wallet
         return _wallet;
     }
 
-    ISwapsProvider::Ptr WalletApi::getSwaps() const
+    ISwapsProvider::Ptr V6Api::getSwaps() const
     {
         if (_swaps == nullptr)
         {
@@ -123,7 +114,7 @@ namespace beam::wallet
         return _swaps;
     }
 
-    IShadersManager::Ptr WalletApi::getContracts() const
+    IShadersManager::Ptr V6Api::getContracts() const
     {
         if (_contracts == nullptr)
         {
@@ -134,7 +125,7 @@ namespace beam::wallet
         return _contracts;
     }
 
-    void WalletApi::assertWalletThread() const
+    void V6Api::assertWalletThread() const
     {
         if (_wallet == nullptr)
         {
@@ -143,12 +134,12 @@ namespace beam::wallet
         _wallet->assertThread();
     }
 
-    Height WalletApi::get_CurrentHeight() const
+    Height V6Api::get_CurrentHeight() const
     {
        return getWallet()->get_CurrentHeight();
     }
 
-    void WalletApi::checkCAEnabled() const
+    void V6Api::checkCAEnabled() const
     {
         TxFailureReason res = wallet::CheckAssetsEnabled(get_CurrentHeight());
         if (TxFailureReason::Count != res)
@@ -157,7 +148,7 @@ namespace beam::wallet
         }
     }
 
-    bool WalletApi::getCAEnabled() const
+    bool V6Api::getCAEnabled() const
     {
         TxFailureReason res = wallet::CheckAssetsEnabled(get_CurrentHeight());
         return res == TxFailureReason::Count;

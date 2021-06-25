@@ -23,6 +23,10 @@ namespace beam::wallet
 {
     #define API_WRITE_ACCESS true
     #define API_READ_ACCESS false
+    #define API_ASYNC true
+    #define API_SYNC false
+    #define APPS_ALLOWED true
+    #define APPS_BLOCKED false
 
     #define BEAM_API_RESPONSE_FUNC(api, name, ...) \
         void getResponse(const JsonRpcId& id, const api::Response& data, json& msg);
@@ -33,7 +37,6 @@ namespace beam::wallet
     #define BEAM_API_PARSE_FUNC(api, name, ...) \
         [[nodiscard]] std::pair<api, MethodInfo> onParse##api(const JsonRpcId& id, const json& msg);
 
-
     class ApiBase
         : public IWalletApi
     {
@@ -42,7 +45,7 @@ namespace beam::wallet
         static inline const char JsonRpcVersion[] = "2.0";
 
         // user api key and read/write access
-        ApiBase(IWalletApiHandler& handler, ACL acl, std::string appid, std::string appname);
+        ApiBase(IWalletApiHandler& handler, const ApiInitData& initData);
 
         void sendError(const JsonRpcId& id, ApiError code, const std::string& data = "");
 
@@ -98,7 +101,7 @@ namespace beam::wallet
         };
 
         std::unordered_map <std::string, Method> _methods;
-        ACL _acl;
+        ApiACL _acl;
         std::string _appId;
         std::string _appName;
         IWalletApiHandler& _handler;

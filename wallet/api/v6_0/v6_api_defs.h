@@ -22,15 +22,8 @@
 
 namespace beam::wallet
 {
-    #define API_WRITE_ACCESS true
-    #define API_READ_ACCESS false
-    #define API_ASYNC true
-    #define API_SYNC false
-    #define APPS_ALLOWED true
-    #define APPS_BLOCKED false
-
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-#define SWAP_OFFER_API_METHODS(macro) \
+#define V6_SWAP_METHODS(macro) \
     macro(OffersList,         "swap_offers_list",          API_READ_ACCESS,  API_SYNC, APPS_BLOCKED)  \
     macro(OffersBoard,        "swap_offers_board",         API_READ_ACCESS,  API_SYNC, APPS_BLOCKED)  \
     macro(CreateOffer,        "swap_create_offer",         API_WRITE_ACCESS, API_SYNC, APPS_BLOCKED)  \
@@ -46,10 +39,9 @@ namespace beam::wallet
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #define WEB_WALLET_API_METHODS(macro) \
-    macro(CalcChange,           "calc_change",              API_READ_ACCESS,  API_SYNC, APPS_ALLOWED)  \
-    macro(ChangePassword,       "change_password",          API_WRITE_ACCESS, API_SYNC, APPS_BLOCKED)
 
-#define WALLET_API_METHODS(macro) \
+
+#define V6_API_METHODS(macro) \
     macro(CreateAddress,         "create_address",          API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
     macro(DeleteAddress,         "delete_address",          API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
     macro(EditAddress,           "edit_address",            API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
@@ -75,8 +67,9 @@ namespace beam::wallet
     macro(InvokeContract,        "invoke_contract",         API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)   \
     macro(ProcessInvokeData,     "process_invoke_data",     API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)   \
     macro(BlockDetails,          "block_details",           API_READ_ACCESS,  API_ASYNC, APPS_ALLOWED)   \
-    SWAP_OFFER_API_METHODS(macro) \
-    WEB_WALLET_API_METHODS(macro)
+    macro(CalcChange,            "calc_change",             API_READ_ACCESS,  API_SYNC, APPS_ALLOWED)    \
+    macro(ChangePassword,        "change_password",         API_WRITE_ACCESS, API_SYNC, APPS_BLOCKED)    \
+    V6_SWAP_METHODS(macro)
 
     struct CalcChange
     {

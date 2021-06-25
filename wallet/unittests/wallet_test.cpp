@@ -60,7 +60,7 @@ using namespace ECC;
 WALLET_TEST_INIT
 
 #include "wallet_test_environment.cpp"
-#include "wallet/api/v6_0/wallet_api.h"
+#include "wallet/api/v6_0/v6_api.h"
 
 namespace
 {
@@ -77,10 +77,10 @@ namespace
 
     struct ApiTest
         : public IWalletApiHandler
-        , public beam::wallet::WalletApi
+        , public beam::wallet::V6Api
     {
         ApiTest(IWalletDB::Ptr wdb, Wallet::Ptr wallet, ISwapsProvider::Ptr swaps, IShadersManager::Ptr contracts)
-            : WalletApi(*this, boost::none, std::string(), std::string(), std::move(wdb), std::move(wallet), std::move(swaps), std::move(contracts))
+            : V6Api(*this, boost::none, std::string(), std::string(), std::move(wdb), std::move(wallet), std::move(swaps), std::move(contracts))
         {
         }
 
@@ -109,32 +109,32 @@ namespace
 
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(0, 0, v); // for count 0 we return all
+            V6Api::doPagination(0, 0, v); // for count 0 we return all
             WALLET_CHECK(v.size() == 4); 
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(0, 3, v);
+            V6Api::doPagination(0, 3, v);
             WALLET_CHECK(v == std::vector<int>({1,2,3}));
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(1, 3, v);
+            V6Api::doPagination(1, 3, v);
             WALLET_CHECK(v == std::vector<int>({ 2,3,4 }));
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(2, 3, v);
+            V6Api::doPagination(2, 3, v);
             WALLET_CHECK(v == std::vector<int>({ 3,4 }));
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(1, 2, v);
+            V6Api::doPagination(1, 2, v);
             WALLET_CHECK(v == std::vector<int>({ 2,3 }));
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(4, 3, v);
+            V6Api::doPagination(4, 3, v);
             WALLET_CHECK(v.empty());
         }
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };

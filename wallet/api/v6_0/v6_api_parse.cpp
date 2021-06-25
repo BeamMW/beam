@@ -13,7 +13,7 @@
 // limitations under the License.
 #include <string_view>
 #include <locale>
-#include "wallet_api.h"
+#include "v6_api.h"
 #include "wallet/core/common_utils.h"
 #include "utility/fsutils.h"
 #include "bvm/ManagerStd.h"
@@ -58,9 +58,9 @@ namespace beam::wallet
         return coins;
     }
 
-    boost::optional<Asset::ID> readOptionalAssetID(WalletApi& api, const json& params)
+    boost::optional<Asset::ID> readOptionalAssetID(V6Api& api, const json& params)
     {
-        auto aid = WalletApi::getOptionalParam<uint32_t>(params, "asset_id");
+        auto aid = V6Api::getOptionalParam<uint32_t>(params, "asset_id");
         if (aid && *aid != Asset::s_InvalidID)
         {
             api.checkCAEnabled();
@@ -68,9 +68,9 @@ namespace beam::wallet
         return aid;
     }
 
-    Asset::ID readMandatoryNonBeamAssetID(WalletApi& api, const json& params)
+    Asset::ID readMandatoryNonBeamAssetID(V6Api& api, const json& params)
     {
-        Asset::ID aid = WalletApi::getMandatoryParam<PositiveUint32>(params, "asset_id");
+        Asset::ID aid = V6Api::getMandatoryParam<PositiveUint32>(params, "asset_id");
         api.checkCAEnabled();
         return aid;
     }
@@ -279,13 +279,13 @@ namespace beam::wallet
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
     }
 
-    Amount WalletApi::getBeamFeeParam(const json& params, const std::string& name) const
+    Amount V6Api::getBeamFeeParam(const json& params, const std::string& name) const
     {
         auto &fs = Transaction::FeeSettings::get(get_CurrentHeight());
         return getBeamFeeParam(params, name, fs.get_DefaultStd());
     }
 
-    Amount WalletApi::getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const
+    Amount V6Api::getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const
     {
         auto ofee = getOptionalParam<PositiveUint64>(params, name);
         if (!ofee)
@@ -304,12 +304,12 @@ namespace beam::wallet
     {
         using namespace beam::wallet;
 
-        if (auto comment = WalletApi::getOptionalParam<std::string>(params, "comment"))
+        if (auto comment = V6Api::getOptionalParam<std::string>(params, "comment"))
         {
             data.comment = *comment;
         }
 
-        if (auto expiration = WalletApi::getOptionalParam<NonEmptyString>(params, "expiration"))
+        if (auto expiration = V6Api::getOptionalParam<NonEmptyString>(params, "expiration"))
         {
             static std::map<std::string, WalletAddress::ExpirationStatus> Items =
             {
@@ -328,7 +328,7 @@ namespace beam::wallet
         }
     }
 
-    std::pair<CalcChange, IWalletApi::MethodInfo> WalletApi::onParseCalcChange(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<CalcChange, IWalletApi::MethodInfo> V6Api::onParseCalcChange(const JsonRpcId& id, const nlohmann::json& params)
     {
         CalcChange message{ getMandatoryParam<PositiveAmount>(params, "amount") };
         message.assetId = readOptionalAssetID(*this, params);
@@ -346,7 +346,7 @@ namespace beam::wallet
         return std::make_pair(message, MethodInfo());
     }
 
-    std::pair<ChangePassword, IWalletApi::MethodInfo> WalletApi::onParseChangePassword(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<ChangePassword, IWalletApi::MethodInfo> V6Api::onParseChangePassword(const JsonRpcId& id, const nlohmann::json& params)
     {
         if (!hasParam(params, "new_pass"))
         {
@@ -359,7 +359,7 @@ namespace beam::wallet
         return std::make_pair(message, MethodInfo());
     }
 
-    std::pair<CreateAddress, IWalletApi::MethodInfo> WalletApi::onParseCreateAddress(const JsonRpcId& id, const json& params)
+    std::pair<CreateAddress, IWalletApi::MethodInfo> V6Api::onParseCreateAddress(const JsonRpcId& id, const json& params)
     {
         CreateAddress createAddress;
         MethodInfo info;
@@ -397,7 +397,7 @@ namespace beam::wallet
         return std::make_pair(createAddress, info);
     }
 
-    std::pair<DeleteAddress, IWalletApi::MethodInfo> WalletApi::onParseDeleteAddress(const JsonRpcId& id, const json& params)
+    std::pair<DeleteAddress, IWalletApi::MethodInfo> V6Api::onParseDeleteAddress(const JsonRpcId& id, const json& params)
     {
         DeleteAddress deleteAddress;
         deleteAddress.token = getMandatoryParam<NonEmptyString>(params, "address");
@@ -408,7 +408,7 @@ namespace beam::wallet
         return std::make_pair(deleteAddress, info);
     }
 
-    std::pair<EditAddress, IWalletApi::MethodInfo> WalletApi::onParseEditAddress(const JsonRpcId& id, const json& params)
+    std::pair<EditAddress, IWalletApi::MethodInfo> V6Api::onParseEditAddress(const JsonRpcId& id, const json& params)
     {
         EditAddress editAddress;
         editAddress.token = getMandatoryParam<NonEmptyString>(params, "address");
@@ -425,7 +425,7 @@ namespace beam::wallet
         return std::make_pair(editAddress, info);
     }
 
-    std::pair<AddrList, IWalletApi::MethodInfo> WalletApi::onParseAddrList(const JsonRpcId& id, const json& params)
+    std::pair<AddrList, IWalletApi::MethodInfo> V6Api::onParseAddrList(const JsonRpcId& id, const json& params)
     {
         const auto own = getOptionalParam<bool>(params, "own");
 
@@ -435,7 +435,7 @@ namespace beam::wallet
         return std::pair(addrList, MethodInfo());
     }
 
-    std::pair<ValidateAddress, IWalletApi::MethodInfo> WalletApi::onParseValidateAddress(const JsonRpcId& id, const json& params)
+    std::pair<ValidateAddress, IWalletApi::MethodInfo> V6Api::onParseValidateAddress(const JsonRpcId& id, const json& params)
     {
         const auto address = getMandatoryParam<NonEmptyString>(params, "address");
 
@@ -445,7 +445,7 @@ namespace beam::wallet
         return std::make_pair(validateAddress, MethodInfo());
     }
 
-    std::pair<Send, IWalletApi::MethodInfo> WalletApi::onParseSend(const JsonRpcId& id, const json& params)
+    std::pair<Send, IWalletApi::MethodInfo> V6Api::onParseSend(const JsonRpcId& id, const json& params)
     {
         MethodInfo info;
         Send send;
@@ -514,14 +514,14 @@ namespace beam::wallet
         return std::make_pair(send, info);
     }
 
-    std::pair<Status, IWalletApi::MethodInfo> WalletApi::onParseStatus(const JsonRpcId& id, const json& params)
+    std::pair<Status, IWalletApi::MethodInfo> V6Api::onParseStatus(const JsonRpcId& id, const json& params)
     {
         Status status = {};
         status.txId = getMandatoryParam<ValidTxID>(params, "txId");
         return std::make_pair(status, MethodInfo());
     }
 
-    std::pair<Split, IWalletApi::MethodInfo> WalletApi::onParseSplit(const JsonRpcId& id, const json& params)
+    std::pair<Split, IWalletApi::MethodInfo> V6Api::onParseSplit(const JsonRpcId& id, const json& params)
     {
         MethodInfo info;
 
@@ -570,32 +570,32 @@ namespace beam::wallet
         return std::make_pair(split, info);
     }
 
-    std::pair<TxCancel, IWalletApi::MethodInfo> WalletApi::onParseTxCancel(const JsonRpcId& id, const json& params)
+    std::pair<TxCancel, IWalletApi::MethodInfo> V6Api::onParseTxCancel(const JsonRpcId& id, const json& params)
     {
         TxCancel txCancel = {};
         txCancel.txId = getMandatoryParam<ValidTxID>(params, "txId");
         return std::make_pair(txCancel, MethodInfo());
     }
 
-    std::pair<TxDelete, IWalletApi::MethodInfo> WalletApi::onParseTxDelete(const JsonRpcId& id, const json& params)
+    std::pair<TxDelete, IWalletApi::MethodInfo> V6Api::onParseTxDelete(const JsonRpcId& id, const json& params)
     {
         TxDelete txDelete = {};
         txDelete.txId = getMandatoryParam<ValidTxID>(params, "txId");
         return std::make_pair(txDelete, MethodInfo());
     }
 
-    std::pair<Issue, IWalletApi::MethodInfo> WalletApi::onParseIssue(const JsonRpcId& id, const json& params)
+    std::pair<Issue, IWalletApi::MethodInfo> V6Api::onParseIssue(const JsonRpcId& id, const json& params)
     {
         return onParseIssueConsume<Issue>(true, id, params);
     }
 
-    std::pair<Consume, IWalletApi::MethodInfo> WalletApi::onParseConsume(const JsonRpcId& id, const json& params)
+    std::pair<Consume, IWalletApi::MethodInfo> V6Api::onParseConsume(const JsonRpcId& id, const json& params)
     {
         return onParseIssueConsume<Consume>(true, id, params);
     }
 
     template<typename T>
-    std::pair<T, IWalletApi::MethodInfo> WalletApi::onParseIssueConsume(bool issue, const JsonRpcId& id, const json& params)
+    std::pair<T, IWalletApi::MethodInfo> V6Api::onParseIssueConsume(bool issue, const JsonRpcId& id, const json& params)
     {
         T data;
         data.value = getMandatoryParam<PositiveUint64>(params, "value");
@@ -624,30 +624,30 @@ namespace beam::wallet
         return std::make_pair(data, info);
     }
 
-    template std::pair<Issue, IWalletApi::MethodInfo> WalletApi::onParseIssueConsume<Issue>(bool issue, const JsonRpcId& id, const json& params);
-    template std::pair<Consume, IWalletApi::MethodInfo> WalletApi::onParseIssueConsume<Consume>(bool issue, const JsonRpcId& id, const json& params);
+    template std::pair<Issue, IWalletApi::MethodInfo> V6Api::onParseIssueConsume<Issue>(bool issue, const JsonRpcId& id, const json& params);
+    template std::pair<Consume, IWalletApi::MethodInfo> V6Api::onParseIssueConsume<Consume>(bool issue, const JsonRpcId& id, const json& params);
 
-    std::pair<GetAssetInfo, IWalletApi::MethodInfo> WalletApi::onParseGetAssetInfo(const JsonRpcId& id, const json& params)
+    std::pair<GetAssetInfo, IWalletApi::MethodInfo> V6Api::onParseGetAssetInfo(const JsonRpcId& id, const json& params)
     {
         GetAssetInfo data = {0};
         data.assetId = readMandatoryNonBeamAssetID(*this, params);
         return std::make_pair(data, MethodInfo());
     }
 
-    std::pair<SetConfirmationsCount, IWalletApi::MethodInfo> WalletApi::onParseSetConfirmationsCount(const JsonRpcId& id, const json& params)
+    std::pair<SetConfirmationsCount, IWalletApi::MethodInfo> V6Api::onParseSetConfirmationsCount(const JsonRpcId& id, const json& params)
     {
         SetConfirmationsCount data;
         data.count = getMandatoryParam<uint32_t>(params, "count");
         return std::make_pair(data, MethodInfo());
     }
 
-    std::pair<GetConfirmationsCount, IWalletApi::MethodInfo> WalletApi::onParseGetConfirmationsCount(const JsonRpcId& id, const json& params)
+    std::pair<GetConfirmationsCount, IWalletApi::MethodInfo> V6Api::onParseGetConfirmationsCount(const JsonRpcId& id, const json& params)
     {
         GetConfirmationsCount data;
         return std::make_pair(data, MethodInfo());
     }
 
-    std::pair<TxAssetInfo, IWalletApi::MethodInfo> WalletApi::onParseTxAssetInfo(const JsonRpcId& id, const json& params)
+    std::pair<TxAssetInfo, IWalletApi::MethodInfo> V6Api::onParseTxAssetInfo(const JsonRpcId& id, const json& params)
     {
         TxAssetInfo data = {0};
 
@@ -657,7 +657,7 @@ namespace beam::wallet
         return std::make_pair(data, MethodInfo());
     }
 
-    std::pair<GetUtxo, IWalletApi::MethodInfo> WalletApi::onParseGetUtxo(const JsonRpcId& id, const json& params)
+    std::pair<GetUtxo, IWalletApi::MethodInfo> V6Api::onParseGetUtxo(const JsonRpcId& id, const json& params)
     {
         GetUtxo getUtxo;
         getUtxo.withAssets = getCAEnabled();
@@ -698,7 +698,7 @@ namespace beam::wallet
         return std::make_pair(getUtxo, MethodInfo());
     }
 
-    std::pair<TxList, IWalletApi::MethodInfo> WalletApi::onParseTxList(const JsonRpcId& id, const json& params)
+    std::pair<TxList, IWalletApi::MethodInfo> V6Api::onParseTxList(const JsonRpcId& id, const json& params)
     {
         TxList txList;
         txList.withAssets = getCAEnabled();
@@ -731,27 +731,27 @@ namespace beam::wallet
         return std::make_pair(txList, MethodInfo());
     }
 
-    std::pair<WalletStatusApi, IWalletApi::MethodInfo> WalletApi::onParseWalletStatusApi(const JsonRpcId& id, const json& params)
+    std::pair<WalletStatusApi, IWalletApi::MethodInfo> V6Api::onParseWalletStatusApi(const JsonRpcId& id, const json& params)
     {
         WalletStatusApi walletStatus;
         walletStatus.withAssets = getCAEnabled();
         return std::make_pair(walletStatus, MethodInfo());
     }
 
-    std::pair<GenerateTxId, IWalletApi::MethodInfo> WalletApi::onParseGenerateTxId(const JsonRpcId& id, const json& params)
+    std::pair<GenerateTxId, IWalletApi::MethodInfo> V6Api::onParseGenerateTxId(const JsonRpcId& id, const json& params)
     {
         GenerateTxId generateTxId;
         return std::make_pair(generateTxId, MethodInfo());
     }
 
-    std::pair<ExportPaymentProof, IWalletApi::MethodInfo> WalletApi::onParseExportPaymentProof(const JsonRpcId& id, const json& params)
+    std::pair<ExportPaymentProof, IWalletApi::MethodInfo> V6Api::onParseExportPaymentProof(const JsonRpcId& id, const json& params)
     {
         ExportPaymentProof data = {};
         data.txId = getMandatoryParam<ValidTxID>(params, "txId");
         return std::make_pair(data, MethodInfo());
     }
 
-    std::pair<VerifyPaymentProof, IWalletApi::MethodInfo> WalletApi::onParseVerifyPaymentProof(const JsonRpcId& id, const json& params)
+    std::pair<VerifyPaymentProof, IWalletApi::MethodInfo> V6Api::onParseVerifyPaymentProof(const JsonRpcId& id, const json& params)
     {
         VerifyPaymentProof data;
 
@@ -761,7 +761,7 @@ namespace beam::wallet
         return std::make_pair(data, MethodInfo());
     }
 
-    std::pair<InvokeContract, IWalletApi::MethodInfo> WalletApi::onParseInvokeContract(const JsonRpcId &id, const json &params)
+    std::pair<InvokeContract, IWalletApi::MethodInfo> V6Api::onParseInvokeContract(const JsonRpcId &id, const json &params)
     {
         InvokeContract message;
 
@@ -793,7 +793,7 @@ namespace beam::wallet
         return std::make_pair(message, MethodInfo());
     }
 
-    std::pair<ProcessInvokeData, IWalletApi::MethodInfo> WalletApi::onParseProcessInvokeData(const JsonRpcId &id, const json& params)
+    std::pair<ProcessInvokeData, IWalletApi::MethodInfo> V6Api::onParseProcessInvokeData(const JsonRpcId &id, const json& params)
     {
         ProcessInvokeData message;
 
@@ -855,7 +855,7 @@ namespace beam::wallet
         return std::make_pair(message, info);
     }
 
-    std::pair<BlockDetails, IWalletApi::MethodInfo> WalletApi::onParseBlockDetails(const JsonRpcId& id, const json& params)
+    std::pair<BlockDetails, IWalletApi::MethodInfo> V6Api::onParseBlockDetails(const JsonRpcId& id, const json& params)
     {
         BlockDetails message = {0};
 
@@ -865,7 +865,7 @@ namespace beam::wallet
         return std::make_pair(message, MethodInfo());
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const CalcChange::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const CalcChange::Response& res, json& msg)
     {
         msg = json
         {
@@ -884,7 +884,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const ChangePassword::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const ChangePassword::Response& res, json& msg)
     {
         msg = json
         {
@@ -894,7 +894,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const CreateAddress::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const CreateAddress::Response& res, json& msg)
     {
         msg = json
         {
@@ -904,7 +904,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const DeleteAddress::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const DeleteAddress::Response& res, json& msg)
     {
         msg = json
         {
@@ -914,7 +914,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const ProcessInvokeData::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const ProcessInvokeData::Response& res, json& msg)
     {
         msg = nlohmann::json
         {
@@ -928,7 +928,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const InvokeContract::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const InvokeContract::Response& res, json& msg)
     {
         msg = nlohmann::json
         {
@@ -952,7 +952,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const BlockDetails::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const BlockDetails::Response& res, json& msg)
     {
         msg = nlohmann::json
         {
@@ -976,7 +976,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const EditAddress::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const EditAddress::Response& res, json& msg)
     {
         msg = json
         {
@@ -986,7 +986,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const AddrList::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const AddrList::Response& res, json& msg)
     {
         msg = json
         {
@@ -1020,7 +1020,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const ValidateAddress::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const ValidateAddress::Response& res, json& msg)
     {
         msg = json
         {
@@ -1040,7 +1040,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const GetUtxo::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const GetUtxo::Response& res, json& msg)
     {
         msg = json
         {
@@ -1060,7 +1060,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const Send::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const Send::Response& res, json& msg)
     {
         msg = json
         {
@@ -1074,7 +1074,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const Issue::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const Issue::Response& res, json& msg)
     {
         msg = json
         {
@@ -1088,7 +1088,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const TxAssetInfo::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const TxAssetInfo::Response& res, json& msg)
     {
         msg = json
         {
@@ -1102,7 +1102,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId &id, const GetAssetInfo::Response &res, json &msg)
+    void V6Api::getResponse(const JsonRpcId &id, const GetAssetInfo::Response &res, json &msg)
     {
         std::string strMeta;
         res.AssetInfo.m_Metadata.get_String(strMeta);
@@ -1132,7 +1132,7 @@ namespace beam::wallet
         jsres["emission_str"] = std::to_string(res.AssetInfo.m_Value);
     }
 
-    void WalletApi::getResponse(const JsonRpcId &id, const SetConfirmationsCount::Response &res, json &msg)
+    void V6Api::getResponse(const JsonRpcId &id, const SetConfirmationsCount::Response &res, json &msg)
     {
         msg = json
         {
@@ -1146,7 +1146,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId &id, const GetConfirmationsCount::Response &res, json &msg)
+    void V6Api::getResponse(const JsonRpcId &id, const GetConfirmationsCount::Response &res, json &msg)
     {
         msg = json
         {
@@ -1160,7 +1160,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const Consume::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const Consume::Response& res, json& msg)
     {
         msg = json
         {
@@ -1174,7 +1174,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const Status::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const Status::Response& res, json& msg)
     {
         msg = json
         {
@@ -1186,7 +1186,7 @@ namespace beam::wallet
         GetStatusResponseJson(res.tx, msg["result"], res.txHeight, res.systemHeight, true);
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const Split::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const Split::Response& res, json& msg)
     {
         msg = json
         {
@@ -1200,7 +1200,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const TxCancel::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const TxCancel::Response& res, json& msg)
     {
         msg = json
         {
@@ -1210,7 +1210,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const TxDelete::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const TxDelete::Response& res, json& msg)
     {
         msg = json
         {
@@ -1220,7 +1220,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const TxList::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const TxList::Response& res, json& msg)
     {
         msg = json
         {
@@ -1242,7 +1242,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const WalletStatusApi::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const WalletStatusApi::Response& res, json& msg)
     {
         msg = json
         {
@@ -1308,7 +1308,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const GenerateTxId::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const GenerateTxId::Response& res, json& msg)
     {
         msg = json
         {
@@ -1318,7 +1318,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const ExportPaymentProof::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const ExportPaymentProof::Response& res, json& msg)
     {
         msg = json
         {
@@ -1332,7 +1332,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const VerifyPaymentProof::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const VerifyPaymentProof::Response& res, json& msg)
     {
         auto f = [&id](auto& pi)
         {
