@@ -60,10 +60,11 @@ namespace beam::wallet
         // MUST BE SAFE TO CALL FROM ANY THREAD
         switch (version)
         {
+        case ApiVer6_1:
         case ApiVer6_0:
             return std::make_shared<V6Api>(handler, data);
-        case ApiVer6_1:
-            return std::make_shared<V61Api>(handler, data);
+        //case ApiVer6_1:
+        //    return std::make_shared<V61Api>(handler, data);
         default:
             return nullptr;
         }
