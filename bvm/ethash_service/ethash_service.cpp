@@ -27,7 +27,7 @@
 #include <boost/filesystem.hpp>
 
 #include "wallet/api/cli/api_server.h"
-#include "wallet/api/v6_0/api_base.h"
+#include "wallet/api/base/api_base.h"
 
 #include "shaders_ethash.h"
 
