@@ -35,7 +35,7 @@ namespace beam::wallet
     macro(RecommendedFeeRate, "swap_recommended_fee_rate", API_READ_ACCESS,  API_SYNC, APPS_BLOCKED)  \
     macro(CancelOffer,        "swap_cancel_offer",         API_WRITE_ACCESS, API_SYNC, APPS_BLOCKED)
 #else  // !BEAM_ATOMIC_SWAP_SUPPORT
-#define SWAP_OFFER_API_METHODS(macro)
+#define V6_SWAP_METHODS(macro)
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 #define WEB_WALLET_API_METHODS(macro) \
