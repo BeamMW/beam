@@ -18,10 +18,23 @@
 
 namespace beam::wallet
 {
-    class V61Api: public V6Api
+    class V61Api
+        : public V6Api
+        , public IWalletObserver
     {
     public:
-        // MUST BE SAFE TO CALL FROM ANY THREAD
-        V61Api(IWalletApiHandler& handler, const ApiInitData& init);
+        // CTOR MUST BE SAFE TO CALL FROM ANY THREAD
+        V61Api(IWalletApiHandler& handler, unsigned long avMajor, unsigned long avMinor, const ApiInitData& init);
+        ~V61Api() override = default;
+
+        V6_1_API_METHODS(BEAM_API_PARSE_FUNC)
+        V6_1_API_METHODS(BEAM_API_RESPONSE_FUNC)
+        V6_1_API_METHODS(BEAM_API_HANDLE_FUNC)
+
+    private:
+        bool _evSubscribed = false;
+        std::string _apiVersion;
+        unsigned _apiVersionMajor;
+        unsigned _apiVersionMinor;
     };
 }

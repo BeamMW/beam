@@ -74,6 +74,26 @@ namespace beam::wallet
         ApiSyncMode executeAPIRequest(const char *data, size_t size) override;
         std::string fromError(const std::string& request, ApiError code, const std::string& errorText) override;
 
+        template<typename T>
+        static void doPagination(size_t skip, size_t count, std::vector<T>& res)
+        {
+            if (count > 0)
+            {
+                size_t start = skip;
+                size_t size = res.size();
+
+                if (start < size)
+                {
+                    res.erase(res.begin(), res.begin() + start);
+                    if (count < res.size())
+                    {
+                        res.erase(res.begin() + count, res.end());
+                    }
+                }
+                else res = {};
+            }
+        }
+
         //
         // getMandatory....
         // return param if it exists and is of the requested type & constraints or throw otherwise

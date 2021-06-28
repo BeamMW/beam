@@ -1,4 +1,4 @@
-// Copyright 2020 The Beam Team
+// Copyright 2018 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,15 +15,5 @@
 
 namespace beam::wallet
 {
-    V61Api::V61Api(IWalletApiHandler& handler, unsigned long avMajor, unsigned long avMinor, const ApiInitData& init)
-        : V6Api(handler, init)
-        , _apiVersionMajor(avMajor)
-        , _apiVersionMinor(avMinor)
-    {
-        std::stringstream ss;
-        ss << avMajor << "." << avMinor;
-        _apiVersion = ss.str();
 
-        V6_1_API_METHODS(BEAM_API_REG_METHOD)
-    }
 }

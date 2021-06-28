@@ -37,46 +37,23 @@ namespace beam::wallet
         void checkCAEnabled() const;
         bool getCAEnabled() const;
 
+        V6_API_METHODS(BEAM_API_PARSE_FUNC)
         V6_API_METHODS(BEAM_API_RESPONSE_FUNC)
         V6_API_METHODS(BEAM_API_HANDLE_FUNC)
 
+    private:
         void FillAddressData(const AddressData& data, WalletAddress& address);
         void doTxAlreadyExistsError(const JsonRpcId& id);
 
-         template<typename T>
-        static void doPagination(size_t skip, size_t count, std::vector<T>& res)
-        {
-            if (count > 0)
-            {
-                size_t start = skip;
-                size_t size = res.size();
-
-                if (start < size)
-                {
-                    res.erase(res.begin(), res.begin() + start);
-                    if (count < res.size())
-                    {
-                        res.erase(res.begin() + count, res.end());
-                    }
-                }
-                else res = {};
-            }
-        }
-
         template<typename T>
         void onHandleIssueConsume(bool issue, const JsonRpcId& id, const T& data);
-
         template<typename T>
         void setTxAssetParams(const JsonRpcId& id, TxParameters& tx, const T& data);
 
-    private:
         void onHandleInvokeContractWithTX(const JsonRpcId &id, const InvokeContract& data);
         void onHandleInvokeContractNoTX(const JsonRpcId &id, const InvokeContract& data);
-
         bool checkTxAccessRights(const TxParameters&);
         void checkTxAccessRights(const TxParameters&, ApiError code, const std::string& errmsg);
-
-        V6_API_METHODS(BEAM_API_PARSE_FUNC)
 
         template<typename T>
         std::pair<T, IWalletApi::MethodInfo> onParseIssueConsume(bool issue, const JsonRpcId& id, const json& params);
@@ -87,7 +64,7 @@ namespace beam::wallet
 
         std::string getTokenType(TokenType type) const;
 
-    protected:
+    private:
         // Do not access these directly, use getters
         IWalletDB::Ptr       _wdb;
         Wallet::Ptr          _wallet;

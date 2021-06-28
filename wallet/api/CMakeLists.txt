@@ -8,6 +8,9 @@ add_library(wallet_api STATIC
     v6_0/v6_api_handle.cpp
     v6_0/v6_api_parse.cpp
     v6_1/v6_1_api.cpp
+    v6_1/v6_1_api_handle.cpp
+    v6_1/v6_1_api_parse.cpp
+    v6_1/v6_1_api_notify.cpp
 )
 
 if(BEAM_ATOMIC_SWAP_SUPPORT)
