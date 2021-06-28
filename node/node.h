@@ -270,8 +270,6 @@ private:
 		io::AsyncEvent::Ptr m_pAsyncPeerInsane;
 		void FlushInsanePeers();
 
-		void DeleteOutdated();
-
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
 
@@ -399,6 +397,7 @@ private:
 	bool AddDummyInputEx(Transaction& tx, const CoinID&);
 	void AddDummyOutputs(Transaction&, Amount feeReserve);
 	Height SampleDummySpentHeight();
+	void DeleteOutdated();
 
 	uint8_t ValidateTx(Transaction::Context&, const Transaction&, uint32_t& nSizeCorrection, Amount& feeReserve, std::ostream* pExtraInfo); // complete validation
 	static bool CalculateFeeReserve(const TxStats&, const HeightRange&, const AmountBig::Type&, uint32_t nBvmCharge, Amount& feeReserve);

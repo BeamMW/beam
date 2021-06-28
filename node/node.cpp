@@ -552,60 +552,57 @@ void Node::Processor::FlushInsanePeers()
     }
 }
 
-void Node::Processor::DeleteOutdated()
+void Node::DeleteOutdated()
 {
-	TxPool::Fluff& txp = get_ParentObj().m_TxPool;
-
-    Height h = get_ParentObj().m_Cfg.m_RollbackLimit.m_Max;
+    Height h = m_Cfg.m_RollbackLimit.m_Max;
     std::setmin(h, Rules::get().MaxRollback);
 
-    if (m_Cursor.m_ID.m_Height > h)
+    if (m_Processor.m_Cursor.m_ID.m_Height > h)
     {
-        h = m_Cursor.m_ID.m_Height - h;
+        h = m_Processor.m_Cursor.m_ID.m_Height - h;
 
-        while (!txp.m_setOutdated.empty())
+        while (!m_TxPool.m_setOutdated.empty())
         {
-            TxPool::Fluff::Element& x = txp.m_setOutdated.begin()->get_ParentObj();
+            TxPool::Fluff::Element& x = m_TxPool.m_setOutdated.begin()->get_ParentObj();
             if (x.m_Outdated.m_Height > h)
                 break;
 
-            txp.Delete(x);
+            m_TxPool.Delete(x);
         }
     }
 
-	for (TxPool::Fluff::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
+	for (TxPool::Fluff::ProfitSet::iterator it = m_TxPool.m_setProfit.begin(); m_TxPool.m_setProfit.end() != it; )
 	{
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
 		Transaction& tx = *x.m_pValue;
 
         uint32_t nBvmCharge = 0;
-		if (proto::TxStatus::Ok != ValidateTxContextEx(tx, x.m_Height, true, nBvmCharge, nullptr))
-			txp.SetOutdated(x, m_Cursor.m_ID.m_Height);
+		if (proto::TxStatus::Ok != m_Processor.ValidateTxContextEx(tx, x.m_Height, true, nBvmCharge, nullptr))
+            m_TxPool.SetOutdated(x, m_Processor.m_Cursor.m_ID.m_Height);
 	}
 
-    if (m_Cursor.m_ID.m_Height >= get_ParentObj().m_Cfg.m_Dandelion.m_dhStemConfirm)
+    if (m_Processor.m_Cursor.m_ID.m_Height >= m_Cfg.m_Dandelion.m_dhStemConfirm)
     {
-        h = m_Cursor.m_ID.m_Height - get_ParentObj().m_Cfg.m_Dandelion.m_dhStemConfirm;
+        h = m_Processor.m_Cursor.m_ID.m_Height - m_Cfg.m_Dandelion.m_dhStemConfirm;
 
-        auto& txs = get_ParentObj().m_Dandelion; // alias
-        while (!txs.m_lstConfirm.empty())
+        while (!m_Dandelion.m_lstConfirm.empty())
         {
-            auto& c = txs.m_lstConfirm.front();
+            auto& c = m_Dandelion.m_lstConfirm.front();
             if (c.m_Height >= h)
                 break;
 
             auto& x = c.get_ParentObj();
 
             uint32_t nBvmCharge = 0;
-            if (proto::TxStatus::Ok == ValidateTxContextEx(*x.m_pValue, x.m_Height, true, nBvmCharge, nullptr))
+            if (proto::TxStatus::Ok == m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Height, true, nBvmCharge, nullptr))
             {
-                get_ParentObj().LogTxStem(*x.m_pValue, "Not confirmed, fluffing");
-                get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), nullptr, nullptr, &x);
+                LogTxStem(*x.m_pValue, "Not confirmed, fluffing");
+                OnTransactionFluff(std::move(x.m_pValue), nullptr, nullptr, &x);
             }
             else
             {
-                get_ParentObj().LogTxStem(*x.m_pValue, "confirm done");
-                get_ParentObj().m_Dandelion.Delete(x);
+                LogTxStem(*x.m_pValue, "confirm done");
+                m_Dandelion.Delete(x);
             }
         }
     }
@@ -624,7 +621,7 @@ void Node::Processor::OnNewState()
 	if (IsFastSync())
 		return;
 
-    DeleteOutdated(); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
+    get_ParentObj().DeleteOutdated(); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
     // because in practice mining could be OFF (for instance, if miner key isn't defined, and owner wallet is offline).
 
     if (get_ParentObj().m_Miner.IsEnabled())
