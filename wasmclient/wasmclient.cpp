@@ -270,7 +270,7 @@ public:
         {
             if (!m_WalletApi)
             {
-                IWalletApi::InitData initData;
+                ApiInitData initData;
                 initData.walletDB = m_Client->GetWalletDB();
                 initData.wallet = m_Client->getWallet();
                 // initData.appID = set value
