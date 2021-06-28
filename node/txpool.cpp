@@ -205,6 +205,7 @@ void TxPool::Stem::DeleteRaw(Element& x)
 	DeleteTimer(x);
 	DeleteAggr(x);
 	DeleteKrn(x);
+	DeleteConfirm(x);
 
 	delete &x;
 }
@@ -231,6 +232,25 @@ void TxPool::Stem::DeleteAggr(Element& x)
 	{
 		m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
 		x.m_bAggregating = false;
+	}
+}
+
+void TxPool::Stem::InsertConfirm(Element& x, Height h)
+{
+	DeleteConfirm(x);
+	if (MaxHeight != h)
+	{
+		x.m_Confirm.m_Height = h;
+		m_lstConfirm.push_back(x.m_Confirm);
+	}
+}
+
+void TxPool::Stem::DeleteConfirm(Element& x)
+{
+	if (MaxHeight != x.m_Confirm.m_Height)
+	{
+		m_lstConfirm.erase(ConfirmList::s_iterator_to(x.m_Confirm));
+		x.m_Confirm.m_Height = MaxHeight;
 	}
 }
 
