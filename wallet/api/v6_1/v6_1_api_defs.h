@@ -15,5 +15,7 @@
 
 namespace beam::wallet
 {
-
+    #define V6_1_API_METHODS(macro) \
+        macro(EvSubscribe,     "ev_subscribe",   API_READ_ACCESS, API_SYNC,  APPS_ALLOWED) \
+        macro(EvUnsubscribe,  "ev_unsubscribe",  API_READ_ACCESS, API_SYNC,  APPS_ALLOWED)
 }

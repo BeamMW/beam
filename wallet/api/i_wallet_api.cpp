@@ -61,10 +61,11 @@ namespace beam::wallet
         switch (version)
         {
         case ApiVer6_1:
+            return IWalletApi::Ptr(new V61Api(handler, data));
+
         case ApiVer6_0:
-            return std::make_shared<V6Api>(handler, data);
-        //case ApiVer6_1:
-        //    return std::make_shared<V61Api>(handler, data);
+            return IWalletApi::Ptr(new V6Api(handler, data));
+
         default:
             return nullptr;
         }

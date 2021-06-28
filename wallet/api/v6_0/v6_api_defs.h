@@ -38,9 +38,6 @@ namespace beam::wallet
 #define V6_SWAP_METHODS(macro)
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
-#define WEB_WALLET_API_METHODS(macro) \
-
-
 #define V6_API_METHODS(macro) \
     macro(CreateAddress,         "create_address",          API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
     macro(DeleteAddress,         "delete_address",          API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
@@ -286,9 +283,9 @@ namespace beam::wallet
         {
             struct Coin
             {
-#define MACRO(name, type) type name = {};
+                #define MACRO(name, type) type name = {};
                 BEAM_GET_UTXO_RESPONSE_FIELDS(MACRO)
-#undef MACRO
+                #undef MACRO
             };
             std::vector<Coin> coins;
             uint32_t confirmations_count = 0;

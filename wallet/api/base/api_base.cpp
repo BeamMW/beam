@@ -19,10 +19,10 @@
 namespace beam::wallet
 {
     ApiBase::ApiBase(IWalletApiHandler& handler, const ApiInitData& initData)
-        : _acl(initData.acl)
+        : _handler(handler)
+        , _acl(initData.acl)
         , _appId(initData.appId)
         , _appName(initData.appName)
-        , _handler(handler)
     {
         // MUST BE SAFE TO CALL FROM ANY THREAD
     }

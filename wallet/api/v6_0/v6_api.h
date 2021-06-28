@@ -40,14 +40,6 @@ namespace beam::wallet
         V6_API_METHODS(BEAM_API_RESPONSE_FUNC)
         V6_API_METHODS(BEAM_API_HANDLE_FUNC)
 
-        template<typename T>
-        void doResponse(const JsonRpcId& id, const T& response)
-        {
-            json msg;
-            getResponse(id, response, msg);
-            _handler.sendAPIResponse(msg);
-        }
-
         void FillAddressData(const AddressData& data, WalletAddress& address);
         void doTxAlreadyExistsError(const JsonRpcId& id);
 

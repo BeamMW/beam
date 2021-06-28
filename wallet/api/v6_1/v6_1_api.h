@@ -14,6 +14,7 @@
 #pragma once
 
 #include "wallet/api/v6_0/v6_api.h"
+#include "v6_1_api_defs.h"
 
 namespace beam::wallet
 {

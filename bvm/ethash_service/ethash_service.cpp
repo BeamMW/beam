@@ -107,7 +107,7 @@ namespace
     using wallet::JsonRpcId;
 
 #define BEAM_ETHASH_SERVICE_API_METHODS(macro) \
-    macro(GetProof,           "get_proof",                 API_READ_ACCESS)  
+    macro(GetProof, "get_proof", API_READ_ACCESS,  API_ASYNC,  APPS_ALLOWED)
     
     struct GetProof 
     {
@@ -131,33 +131,13 @@ namespace
             {
                 m_DataPath.push_back('\\');
             }
-#define REG_FUNC(api, name, writeAccess)    \
-        _methods[name] = {                                                \
-            [this] (const JsonRpcId &id, const json &msg) {               \
-                auto parseRes = onParse##api(id, msg);                    \
-                onHandle##api(id, parseRes.first);                        \
-            },                                                            \
-            [this] (const JsonRpcId &id, const json &msg) -> MethodInfo { \
-                auto parseRes = onParse##api(id, msg);                    \
-                return parseRes.second;                                   \
-            },                                                            \
-            writeAccess, false, false                                     \
-        };
-        BEAM_ETHASH_SERVICE_API_METHODS(REG_FUNC)
-#undef REG_FUNC
+            BEAM_ETHASH_SERVICE_API_METHODS(BEAM_API_REG_METHOD)
         }
 
         BEAM_ETHASH_SERVICE_API_METHODS(BEAM_API_RESPONSE_FUNC)
         BEAM_ETHASH_SERVICE_API_METHODS(BEAM_API_HANDLE_FUNC)
         BEAM_ETHASH_SERVICE_API_METHODS(BEAM_API_PARSE_FUNC)
 
-        template<typename T>
-        void doResponse(const JsonRpcId& id, const T& response)
-        {
-            json msg;
-            getResponse(id, response, msg);
-            _handler.sendAPIResponse(msg);
-        }
     private:
         std::string m_DataPath;
     };

@@ -27,29 +27,13 @@ namespace beam::wallet
         _ttypesMap[TokenType::MaxPrivacy]      = "max_privacy";
         _ttypesMap[TokenType::Public]          = "public_offline";
         _ttypesMap[TokenType::RegularNewStyle] = "regular_new";
-
-        // MUST BE SAFE TO CALL FROM ANY THREAD
-        // Don't do anything with walletdb, providers &c.
-        #define REG_FUNC(api, name, writeAccess, isAsync, appsAllowed)    \
-        _methods[name] = {                                                \
-            [this] (const JsonRpcId &id, const json &msg) {               \
-                auto parseRes = onParse##api(id, msg);                    \
-                onHandle##api(id, parseRes.first);                        \
-            },                                                            \
-            [this] (const JsonRpcId &id, const json &msg) -> MethodInfo { \
-                auto parseRes = onParse##api(id, msg);                    \
-                return parseRes.second;                                   \
-            },                                                            \
-            writeAccess, isAsync, appsAllowed                             \
-        };
-        V6_API_METHODS(REG_FUNC)
-        #undef REG_FUNC
+        V6_API_METHODS(BEAM_API_REG_METHOD)
     }
 
     bool V6Api::checkTxAccessRights(const TxParameters& params)
     {
         // If this API instance is not for apps, all txs are available
-        if (_appId.empty())
+        if (!isApp())
         {
             return true;
         }
@@ -62,7 +46,7 @@ namespace beam::wallet
         }
 
         // Only if this tx has appid of the current App it can be accessed
-        return _appId == *appid;
+        return getAppId() == *appid;
     }
 
     void V6Api::checkTxAccessRights(const TxParameters& params, ApiError code, const std::string& errmsg)
