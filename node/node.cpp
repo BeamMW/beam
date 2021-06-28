@@ -582,6 +582,33 @@ void Node::Processor::DeleteOutdated()
 		if (proto::TxStatus::Ok != ValidateTxContextEx(tx, x.m_Height, true, nBvmCharge, nullptr))
 			txp.SetOutdated(x, m_Cursor.m_ID.m_Height);
 	}
+
+    if (m_Cursor.m_ID.m_Height >= get_ParentObj().m_Cfg.m_Dandelion.m_dhStemConfirm)
+    {
+        h = m_Cursor.m_ID.m_Height - get_ParentObj().m_Cfg.m_Dandelion.m_dhStemConfirm;
+
+        auto& txs = get_ParentObj().m_Dandelion; // alias
+        while (!txs.m_lstConfirm.empty())
+        {
+            auto& c = txs.m_lstConfirm.front();
+            if (c.m_Height >= h)
+                break;
+
+            auto& x = c.get_ParentObj();
+
+            uint32_t nBvmCharge = 0;
+            if (proto::TxStatus::Ok == ValidateTxContextEx(*x.m_pValue, x.m_Height, true, nBvmCharge, nullptr))
+            {
+                get_ParentObj().LogTxStem(*x.m_pValue, "Not confirmed, fluffing");
+                get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), nullptr, nullptr, &x);
+            }
+            else
+            {
+                get_ParentObj().LogTxStem(*x.m_pValue, "confirm done");
+                get_ParentObj().m_Dandelion.Delete(x);
+            }
+        }
+    }
 }
 
 
@@ -2393,8 +2420,8 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, std::ostream* pExtraInfo
 			bTested = true;
 		}
 
-		LogTxStem(*pElem->m_pValue, "obscured by newer tx. Deleting");
-        m_Dandelion.Delete(*pElem);
+		LogTxStem(*pElem->m_pValue, "obscured by newer tx");
+        OnTransactionWaitingConfirm(*pElem);
     }
 
     if (!pDup)
@@ -2691,6 +2718,18 @@ Height Node::SampleDummySpentHeight()
 	return h;
 }
 
+void Node::OnTransactionWaitingConfirm(TxPool::Stem::Element& x)
+{
+    m_Dandelion.DeleteAggr(x);
+    m_Dandelion.DeleteTimer(x);
+
+    if (MaxHeight == x.m_Confirm.m_Height)
+    {
+        m_Dandelion.InsertConfirm(x, m_Processor.m_Cursor.m_Full.m_Height);
+        LogTxStem(*x.m_pValue, "Waiting confirmation");
+    }
+}
+
 uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtraInfo, const PeerID* pSender, TxPool::Stem::Element* pElem)
 {
     Transaction::Ptr ptx;
@@ -2704,7 +2743,20 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
 
         ctx.m_Stats.m_Fee = pElem->m_Profit.m_Fee;
 		ctx.m_Height = pElem->m_Height;
-        m_Dandelion.Delete(*pElem);
+
+        if (MaxHeight == pElem->m_Confirm.m_Height)
+        {
+            assert(!pElem->m_pValue);
+            // clone it
+            pElem->m_pValue = std::make_shared<Transaction>();
+            pElem->m_pValue->m_Offset = ptx->m_Offset;
+            TxVectors::Writer(*pElem->m_pValue, *pElem->m_pValue).Dump(ptx->get_Reader());
+
+            OnTransactionWaitingConfirm(*pElem);
+        }
+        else
+            // fluff from 
+            m_Dandelion.Delete(*pElem);
 
 		if (!bValid)
 			return proto::TxStatus::InvalidContext;
@@ -2740,7 +2792,7 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
 
             TxPool::Stem::KrnSet::iterator itKrn = m_Dandelion.m_setKrns.find(keyKrn);
             if (m_Dandelion.m_setKrns.end() != itKrn)
-                m_Dandelion.Delete(*itKrn->m_pThis);
+                OnTransactionWaitingConfirm(*itKrn->m_pThis);
         }
 
     }
