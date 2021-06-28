@@ -123,8 +123,8 @@ namespace
     class ProverApi : public wallet::ApiBase
     {
     public:
-        ProverApi(wallet::IWalletApiHandler& handler, ACL acl, std::string appid, std::string appname, const std::string& dataPath)
-            : wallet::ApiBase(handler, std::move(acl), std::move(appid), std::move(appname))
+        ProverApi(wallet::IWalletApiHandler& handler, const wallet::ApiInitData& initData, const std::string& dataPath)
+            : wallet::ApiBase(handler, initData)
             , m_DataPath(dataPath)
         {
             if (!m_DataPath.empty() && m_DataPath.back() != '\\' && m_DataPath.back() != '/')
@@ -168,7 +168,9 @@ namespace
 
         std::unique_ptr<wallet::IWalletApi> createApiInstance(const std::string& version, wallet::IWalletApiHandler& handler) override
         {
-            return std::make_unique<ProverApi>(handler, _acl, "", "", m_DataPath);
+            wallet::ApiInitData init;
+            init.acl = _acl;
+            return std::make_unique<ProverApi>(handler, init, m_DataPath);
         }
 
         std::string m_DataPath;
