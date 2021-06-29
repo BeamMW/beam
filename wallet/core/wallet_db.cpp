@@ -5736,7 +5736,7 @@ namespace beam::wallet
                     {
                         ShieldedCoin::UnlinkStatus unlinkStatus;
                         unlinkStatus.Init(c, walletDB.get_ShieldedOuts());
-                        if (unlinkStatus.m_Progress < 100 * mpAnonymitySet / 64U)
+                        if (unlinkStatus.m_Progress < 100 * mpAnonymitySet / beam::MaxPrivacyAnonimitySetFractionsCount)
                         {
                             c.m_Status = ShieldedCoin::Status::Maturing;
                             return;
@@ -6804,6 +6804,7 @@ namespace beam::wallet
         {
             const Rules& r = Rules::get();
             const uint32_t N = std::max(r.Shielded.m_ProofMax.get_N(), 1U);
+
 
             uint32_t nRemaining = N - sc.get_WndIndex(N) - 1;
 

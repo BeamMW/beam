@@ -25,6 +25,7 @@ namespace beam
 	class IExternalPOW;
 
 	const Height MaxHeight = std::numeric_limits<Height>::max();
+	const uint8_t MaxPrivacyAnonimitySetFractionsCount = 64;
 
 	struct PeerID :public ECC::uintBig
 	{
@@ -727,6 +728,8 @@ namespace beam
 			{
 				typedef uintBig_t<16> TxID;
 				TxID m_TxID;
+				// value from 1 to 64 to set privacy level for transaction.
+				// if value less than 64 - allow extract coin from pool before anonymity set was reached
 				uint8_t m_MaxPrivacyMinAnonymitySet;
 				uint64_t m_ReceiverOwnID;
 				uint8_t m_Padding[sizeof(m_pMessage) - sizeof(TxID) - sizeof(uint8_t) - sizeof(uint64_t)];
