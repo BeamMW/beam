@@ -2744,10 +2744,7 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
         if (MaxHeight == pElem->m_Confirm.m_Height)
         {
             assert(!pElem->m_pValue);
-            // clone it
-            pElem->m_pValue = std::make_shared<Transaction>();
-            pElem->m_pValue->m_Offset = ptx->m_Offset;
-            TxVectors::Writer(*pElem->m_pValue, *pElem->m_pValue).Dump(ptx->get_Reader());
+            pElem->m_pValue = ptx; // save ptr only, no need to clone, assuming it won't be changing
 
             OnTransactionWaitingConfirm(*pElem);
         }
