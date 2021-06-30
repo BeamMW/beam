@@ -395,13 +395,15 @@ public:
 	{
 		FundsChangeMap m_FundsIO;
 		std::vector<ECC::Point> m_vSigs;
+		std::string m_sParsed;
 
 		template <typename Archive>
 		void serialize(Archive& ar)
 		{
 			ar
 				& m_FundsIO.m_Map
-				& m_vSigs;
+				& m_vSigs
+				& m_sParsed;
 		}
 	};
 

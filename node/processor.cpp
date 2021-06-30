@@ -2418,6 +2418,8 @@ struct NodeProcessor::BlockInterpretCtx
 
 		void ContractDataToggleTree(const Blob& key, const Blob&, bool bAdd);
 
+		void ParseExtraInfo(std::string&, uint32_t iMethod, const Blob& args);
+
 		struct DbgCallstack
 		{
 			struct Entry {
@@ -2441,6 +2443,11 @@ struct NodeProcessor::BlockInterpretCtx
 
 		virtual void OnCall(Wasm::Word nAddr) override;
 		virtual void OnRet(Wasm::Word nRetAddr) override;
+	};
+
+	struct ParserExtraInfo
+		:public bvm2::ProcessorManager
+	{
 	};
 
 	uint32_t m_ChargePerBlock = bvm2::Limits::BlockCharge;
@@ -4449,8 +4456,10 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 	bool bRes = false;
 	try
 	{
-		if (m_Bic.m_pvC)
-			m_pvSigs = &m_Bic.m_pvC->emplace_back().m_vSigs;
+		ContractInvokeExtraInfo* pInfo = m_Bic.m_pvC ? &m_Bic.m_pvC->emplace_back() : nullptr;
+
+		if (pInfo)
+			m_pvSigs = &pInfo->m_vSigs;
 
 		m_Charge = m_Bic.m_ChargePerBlock;
 
@@ -4466,10 +4475,8 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 
 		CallFar(cid, iMethod, m_Stack.get_AlasSp());
 
-
-		if (m_pvSigs) {
-			// TODO: parse the contract invocation. Good place to do it here, since callee shader is already loaded
-		}
+		if (pInfo)
+			ParseExtraInfo(pInfo->m_sParsed, iMethod, krn.m_Args);
 
 		ECC::Hash::Processor hp;
 
@@ -4500,9 +4507,9 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 
 		m_Bic.m_ChargePerBlock = m_Charge;
 
-		if (m_pvSigs) {
+		if (pInfo) {
 			// Save funds i/o
-			m_Bic.m_pvC->back().m_FundsIO.m_Map.swap(m_FundsIO.m_Map);
+			pInfo->m_FundsIO.m_Map.swap(m_FundsIO.m_Map);
 		}
 
 	}
@@ -4538,6 +4545,63 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 	}
 
 	return bRes;
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::ParseExtraInfo(std::string& s, uint32_t iMethod, const Blob& args)
+{
+	ByteBuffer bufParser;
+	m_Proc.m_DB.ParamGet(NodeDB::ParamID::RichContractParser, nullptr, nullptr, &bufParser);
+
+	if (bufParser.empty())
+		return;
+
+	try
+	{
+		struct ProcessorInfoParser
+			:public ParserExtraInfo
+		{
+			BvmProcessor& m_This;
+
+			Height get_Height() override {
+				return m_This.get_Height();
+			}
+			bool get_HdrAt(Block::SystemState::Full& s) override {
+				return m_This.get_HdrAt(s);
+			}
+
+			ProcessorInfoParser(BvmProcessor& x) :m_This(x) {}
+
+		} proc(*this);
+
+		proc.InitMem();
+		proc.m_Code = bufParser;
+
+		proc.m_Stack.AliasAlloc(sizeof(bvm2::ShaderID));
+		bvm2::get_ShaderID(*(bvm2::ShaderID*)proc.m_Stack.get_AliasPtr(), m_Code);
+		Wasm::Word pSid_ = proc.m_Stack.get_AlasSp();
+
+		proc.m_Stack.PushAlias(args);
+		Wasm::Word pArgs_ = proc.m_Stack.get_AlasSp();
+
+		proc.m_Stack.Push(pSid_);
+		proc.m_Stack.Push(iMethod);
+		proc.m_Stack.Push(pArgs_);
+		proc.m_Stack.Push(args.n);
+
+		std::ostringstream os;
+		proc.m_pOut = &os;
+
+		proc.CallMethod(0);
+
+		while (!proc.IsDone())
+			proc.RunOnce();
+
+		s = os.str();
+	}
+	catch (const std::exception& e)
+	{
+		LOG_WARNING() << "contract parser error: " << e.what();
+	}
 }
 
 BlobMap::Entry& NodeProcessor::BlockInterpretCtx::get_ContractVar(const Blob& key, NodeDB& db)

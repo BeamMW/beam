@@ -47,7 +47,7 @@ public:
 			CfgChecksum,
 			MyID,
 			RichContractInfo,
-			Deprecated_2,
+			RichContractParser,
 			Treasury,
 			EventsOwnerID, // hash of keys used to scan and record events
 			HeightTxoLo, // Height starting from which and below Txo info is totally erased.

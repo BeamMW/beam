@@ -415,7 +415,7 @@ void NodeDB::Open(const char* szPath)
 		case 24:
 		case 25:
 			ParamDelSafe(ParamID::RichContractInfo); // former SyncTarget
-			ParamDelSafe(ParamID::Deprecated_2);
+			ParamDelSafe(ParamID::RichContractParser); // former Deprecated_2
 			ParamDelSafe(ParamID::Deprecated_3);
 			// no break;
 
