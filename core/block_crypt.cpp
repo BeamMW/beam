@@ -3195,7 +3195,7 @@ namespace beam
 				ECC::Scalar s;
 
 				auto& valBig = it->second;
-				bool bNegative = !!(0x80 & valBig.m_pData[0]);
+				auto bNegative = valBig.get_Msb();
 				if (bNegative)
 				{
 					AmountBig::Type dup(valBig);
