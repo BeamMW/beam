@@ -167,8 +167,26 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	InitializeMapped(szPath);
 	m_Extra.m_Txos = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
 
+	bool bRebuildNonStd = false;
+	if (sp.m_pRichInfo)
+	{
+		bool bOn = *sp.m_pRichInfo;
+		m_DB.ParamIntSet(NodeDB::ParamID::RichContractInfo, !!bOn);
+
+		if (bOn)
+			bRebuildNonStd = true;
+	}
+
+	if (sp.m_pRichParser)
+	{
+		m_DB.ParamSet(NodeDB::ParamID::RichContractParser, nullptr, sp.m_pRichParser);
+		
+		if (sp.m_pRichParser->n)
+			bRebuildNonStd = true;
+	}
+
 	uint64_t nFlags1 = m_DB.ParamIntGetDef(NodeDB::ParamID::Flags1);
-	if (NodeDB::Flags1::PendingRebuildNonStd & nFlags1)
+	if (bRebuildNonStd || (NodeDB::Flags1::PendingRebuildNonStd & nFlags1))
 	{
 		RebuildNonStd();
 		m_DB.ParamIntSet(NodeDB::ParamID::Flags1, nFlags1 & ~NodeDB::Flags1::PendingRebuildNonStd);

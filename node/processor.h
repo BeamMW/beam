@@ -265,6 +265,8 @@ public:
 		bool m_Vacuum = false;
 		bool m_ResetSelfID = false;
 		bool m_EraseSelfID = false;
+		const bool* m_pRichInfo = nullptr;
+		const Blob* m_pRichParser = nullptr;
 	};
 
 	void Initialize(const char* szPath);
