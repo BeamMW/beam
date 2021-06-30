@@ -83,9 +83,11 @@ namespace
                 case Fork::Fork3: _currentHeight = Rules::get().pForks[3].m_Height; break;
                 default: _currentHeight = Rules::get().pForks[1].m_Height - 1; break;
             }
+
+            V6_API_METHODS(BEAM_API_REG_METHOD)
         }
 
-        #define MESSAGE_FUNC(strct, name, ...) virtual void onHandle##strct(const JsonRpcId& id, const strct& data) override { \
+        #define MESSAGE_FUNC(strct, name, ...) virtual void onHandle##strct(const JsonRpcId& id, const strct& data) { \
                 WALLET_CHECK(!"error, onHandle should be never called"); };
 
         V6_API_METHODS(MESSAGE_FUNC)
