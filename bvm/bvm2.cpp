@@ -2554,9 +2554,11 @@ namespace bvm2 {
 
 	void ProcessorManager::DocQuotedText(const char* sz)
 	{
-		*m_pOut << '"';
+		if (!m_RawText)
+			*m_pOut << '"';
 		DocEncodedText(sz);
-		*m_pOut << '"';
+		if (!m_RawText)
+			*m_pOut << '"';
 	}
 
 	void ProcessorManager::DocEncodedText(const char* sz)
@@ -2586,7 +2588,10 @@ namespace bvm2 {
 	void ProcessorManager::DocOnNext()
 	{
 		if (m_NeedComma)
-			*m_pOut << ',';
+		{
+			if (!m_RawText)
+				*m_pOut << ',';
+		}
 		else
 			m_NeedComma = true;
 	}

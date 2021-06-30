@@ -4610,6 +4610,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ParseExtraInfo(std::string&
 
 		std::ostringstream os;
 		proc.m_pOut = &os;
+		proc.m_RawText = true;
 
 		proc.CallMethod(0);
 

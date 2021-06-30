@@ -5,12 +5,12 @@
 
 void SetType(const char* sz)
 {
-	Env::DocAddText("type", sz);
+	Env::DocAddText("", sz);
 }
 
 void SetMethod(const char* sz)
 {
-	Env::DocAddText("method", sz);
+	Env::DocAddText("", sz);
 }
 
 void OnType_Upgradable(uint32_t iMethod, const void* pArg, uint32_t nArg)
@@ -38,8 +38,8 @@ void OnType_Faucet(uint32_t iMethod, const void* pArg, uint32_t nArg)
 		if (nArg >= sizeof(Faucet::Params))
 		{
 			auto& pars = *(Faucet::Params*) pArg;
-			Env::DocAddNum("Backlog period", pars.m_BacklogPeriod);
-			Env::DocAddNum("Max withdraw", pars.m_MaxWithdraw);
+			Env::DocAddNum(", Backlog period: ", pars.m_BacklogPeriod);
+			Env::DocAddNum(", Max withdraw: ", pars.m_MaxWithdraw);
 		}
 
 		break;
@@ -53,7 +53,7 @@ export void Method_0(const ShaderID& sid, uint32_t iMethod, const void* pArg, ui
 {
 #define HandleContract(name) \
 	if (_POD_(sid) == name::s_SID) { \
-		SetType(#name); \
+		SetType(#name "/"); \
 		OnType_##name(iMethod, pArg, nArg); \
 	} else
 	
