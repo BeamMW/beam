@@ -459,14 +459,15 @@ int main_impl(int argc, char* argv[])
 							node.m_Cfg.m_Horizon.SetInfinite();
 					}
 
-					bool bRichInfo = false;
 					ByteBuffer bufRichParser;
-					Blob blobRichParser;
 
 					if (vm.count(cli::CONTRACT_RICH_INFO))
 					{
-						bRichInfo = !!vm[cli::CONTRACT_RICH_INFO].as<bool>();
-						node.m_Cfg.m_ProcessorParams.m_pRichInfo = &bRichInfo;
+						uint8_t nFlag = vm[cli::CONTRACT_RICH_INFO].as<bool>() ?
+							NodeProcessor::StartParams::RichInfo::On :
+							NodeProcessor::StartParams::RichInfo::Off;
+
+						node.m_Cfg.m_ProcessorParams.m_RichInfoFlags |= nFlag;
 					}
 
 					if (vm.count(cli::CONTRACT_RICH_PARSER))
@@ -482,10 +483,11 @@ int main_impl(int argc, char* argv[])
 								fs.read(&bufRichParser.front(), bufRichParser.size());
 
 							bvm2::Processor::Compile(bufRichParser, bufRichParser, bvm2::Processor::Kind::Manager);
+
+							node.m_Cfg.m_ProcessorParams.m_RichParser = bufRichParser;
 						}
 
-						blobRichParser = bufRichParser;
-						node.m_Cfg.m_ProcessorParams.m_pRichParser = &blobRichParser;
+						node.m_Cfg.m_ProcessorParams.m_RichInfoFlags |= NodeProcessor::StartParams::RichInfo::UpdShader;
 					}
 
 					node.Initialize(stratumServer.get());

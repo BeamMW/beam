@@ -265,8 +265,14 @@ public:
 		bool m_Vacuum = false;
 		bool m_ResetSelfID = false;
 		bool m_EraseSelfID = false;
-		const bool* m_pRichInfo = nullptr;
-		const Blob* m_pRichParser = nullptr;
+
+		struct RichInfo {
+			static const uint8_t Off = 1;
+			static const uint8_t On = 2;
+			static const uint8_t UpdShader = 4;
+		};
+		uint8_t m_RichInfoFlags = 0;
+		Blob m_RichParser = Blob(nullptr, 0);
 	};
 
 	void Initialize(const char* szPath);

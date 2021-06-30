@@ -168,20 +168,22 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	m_Extra.m_Txos = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
 
 	bool bRebuildNonStd = false;
-	if (sp.m_pRichInfo)
+	if ((StartParams::RichInfo::Off | StartParams::RichInfo::On) & sp.m_RichInfoFlags)
 	{
-		bool bOn = *sp.m_pRichInfo;
-		m_DB.ParamIntSet(NodeDB::ParamID::RichContractInfo, !!bOn);
-
-		if (bOn)
-			bRebuildNonStd = true;
+		uint32_t bOn = !!(StartParams::RichInfo::On & sp.m_RichInfoFlags);
+		if (m_DB.ParamIntGetDef(NodeDB::ParamID::RichContractInfo) != bOn)
+		{
+			m_DB.ParamIntSet(NodeDB::ParamID::RichContractInfo, bOn);
+			if (bOn)
+				bRebuildNonStd = true;
+		}
 	}
 
-	if (sp.m_pRichParser)
+	if (StartParams::RichInfo::UpdShader & sp.m_RichInfoFlags)
 	{
-		m_DB.ParamSet(NodeDB::ParamID::RichContractParser, nullptr, sp.m_pRichParser);
+		m_DB.ParamSet(NodeDB::ParamID::RichContractParser, nullptr, &sp.m_RichParser);
 		
-		if (sp.m_pRichParser->n)
+		if (!bRebuildNonStd && m_DB.ParamIntGetDef(NodeDB::ParamID::RichContractInfo))
 			bRebuildNonStd = true;
 	}
 
