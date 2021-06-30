@@ -2969,6 +2969,8 @@ namespace beam
 		node.m_Cfg.m_Treasury = g_Treasury;
 		node.Initialize();
 
+		node.get_Processor().get_DB().ParamIntSet(NodeDB::ParamID::RichContractInfo, 1);
+
 		cl.Connect(addr);
 
 

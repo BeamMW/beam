@@ -2448,6 +2448,8 @@ struct NodeProcessor::BlockInterpretCtx
 	BlobMap::Set m_ContractVars;
 	BlobMap::Entry& get_ContractVar(const Blob& key, NodeDB& db);
 
+	std::vector<ContractInvokeExtraInfo>* m_pvC = nullptr;
+
 	BlockInterpretCtx(Height h, bool bFwd)
 		:m_Height(h)
 		,m_Fwd(bFwd)
@@ -2760,6 +2762,10 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	bic.m_Rollback.swap((bbP.size() > bbE.size()) ? bbP : bbE); // optimization
 	bic.m_Rollback.clear();
 
+	std::vector<ContractInvokeExtraInfo> vC;
+	if (m_DB.ParamIntGetDef(NodeDB::ParamID::RichContractInfo))
+		bic.m_pvC = &vC;
+
 	bool bOk = HandleValidatedBlock(block, bic);
 	if (!bOk)
 	{
@@ -2908,6 +2914,15 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		m_RecentStates.Push(sid.m_Row, s);
 
 		cf.Do(*this, sid.m_Height);
+
+		if (!vC.empty())
+		{
+			ser.reset();
+			ser & vC;
+
+			SerializeBuffer sb = ser.buffer();
+			m_DB.KrnInfoInsert(sid.m_Height, Blob(sb.first, static_cast<uint32_t>(sb.second)));
+		}
 	}
 	else
 	{
@@ -4434,6 +4449,9 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 	bool bRes = false;
 	try
 	{
+		if (m_Bic.m_pvC)
+			m_pvSigs = &m_Bic.m_pvC->emplace_back().m_vSigs;
+
 		m_Charge = m_Bic.m_ChargePerBlock;
 
 		if (m_Bic.m_pTxErrorInfo)
@@ -4447,6 +4465,11 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 			Wasm::Reader::Mode::Emulate_x86;
 
 		CallFar(cid, iMethod, m_Stack.get_AlasSp());
+
+
+		if (m_pvSigs) {
+			// TODO: parse the contract invocation. Good place to do it here, since callee shader is already loaded
+		}
 
 		ECC::Hash::Processor hp;
 
@@ -4476,6 +4499,12 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 		}
 
 		m_Bic.m_ChargePerBlock = m_Charge;
+
+		if (m_pvSigs) {
+			// Save funds i/o
+			m_Bic.m_pvC->back().m_FundsIO.m_Map.swap(m_FundsIO.m_Map);
+		}
+
 	}
 	catch (const Wasm::Exc& e)
 	{

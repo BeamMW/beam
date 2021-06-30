@@ -1286,6 +1286,9 @@ namespace bvm2 {
 	{
 		if (m_pSigValidate)
 			AddSigInternal(pubKey);
+
+		if (m_pvSigs)
+			m_pvSigs->push_back(pubKey);
 	}
 
 	BVM_METHOD(FundsLock)
@@ -2722,7 +2725,7 @@ namespace bvm2 {
 
 	void ProcessorContract::HandleAmountOuter(Amount amount, Asset::ID aid, bool bLock)
 	{
-		if (m_pSigValidate)
+		if (m_pSigValidate || m_pvSigs)
 			m_FundsIO.Add(amount, aid, bLock);
 	}
 
