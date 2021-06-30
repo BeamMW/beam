@@ -46,7 +46,7 @@ public:
 			FossilHeight, // Height starting from which and below original blocks are erased
 			CfgChecksum,
 			MyID,
-			Deprecated_1, // SyncTarget
+			RichContractInfo,
 			Deprecated_2,
 			Treasury,
 			EventsOwnerID, // hash of keys used to scan and record events
@@ -205,6 +205,10 @@ public:
 			ShieldedStatisticSel,
 			ShieldedStatisticIns,
 			ShieldedStatisticDel,
+
+			KrnInfoInsert,
+			KrnInfoGet,
+			KrnInfoDel,
 
 			Dbg0,
 			Dbg1,
@@ -739,6 +743,10 @@ public:
 	void ContractLogDel(const HeightPos& posMin, const HeightPos& posMax);
 	void ContractLogEnum(ContractLog::Walker&, const HeightPos& posMin, const HeightPos& posMax);
 	void ContractLogEnum(ContractLog::Walker&, const Blob& keyMin, const Blob& keyMax, const HeightPos& posMin, const HeightPos& posMax);
+
+	void KrnInfoInsert(Height, const Blob&);
+	bool KrnInfoGet(Height, ByteBuffer&);
+	void KrnInfoDel(const HeightRange&);
 
 	void TestChanged1Row();
 

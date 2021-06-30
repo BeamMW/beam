@@ -414,7 +414,7 @@ void NodeDB::Open(const char* szPath)
 
 		case 24:
 		case 25:
-			ParamDelSafe(ParamID::Deprecated_1);
+			ParamDelSafe(ParamID::RichContractInfo); // former SyncTarget
 			ParamDelSafe(ParamID::Deprecated_2);
 			ParamDelSafe(ParamID::Deprecated_3);
 			// no break;
@@ -3112,6 +3112,39 @@ bool NodeDB::ContractLog::Walker::MoveNext()
 	m_Rs.get(1, m_Entry.m_Key);
 	m_Rs.get(2, m_Entry.m_Val);
 	return true;
+}
+
+void NodeDB::KrnInfoInsert(Height h, const Blob& b)
+{
+	Recordset rs(*this, Query::KrnInfoInsert, "INSERT INTO " TblKrnInfo " (" TblKrnInfo_Key "," TblKrnInfo_Data ") VALUES(?,?)");
+	rs.put(0, h);
+	rs.put(1, b);
+	rs.Step();
+}
+
+bool NodeDB::KrnInfoGet(Height h, ByteBuffer& buf)
+{
+	Recordset rs(*this, Query::KrnInfoGet, "SELECT " TblKrnInfo_Data " FROM " TblKrnInfo " WHERE " TblKrnInfo_Key "=?");
+	rs.put(0, h);
+	if (!rs.Step())
+	{
+		buf.clear();
+		return false;
+	}
+
+	rs.get(0, buf);
+	return true;
+}
+
+void NodeDB::KrnInfoDel(const HeightRange& hr)
+{
+	if (!hr.IsEmpty())
+	{
+		Recordset rs(*this, Query::KrnInfoDel, "DELETE FROM " TblKrnInfo " WHERE " TblKrnInfo_Key ">=? AND " TblKrnInfo_Key "<=?");
+		rs.put(0, hr.m_Min);
+		rs.put(1, hr.m_Max);
+		rs.Step();
+	}
 }
 
 } // namespace beam
