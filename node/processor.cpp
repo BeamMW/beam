@@ -167,8 +167,26 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	InitializeMapped(szPath);
 	m_Extra.m_Txos = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
 
+	bool bRebuildNonStd = false;
+	if (sp.m_pRichInfo)
+	{
+		bool bOn = *sp.m_pRichInfo;
+		m_DB.ParamIntSet(NodeDB::ParamID::RichContractInfo, !!bOn);
+
+		if (bOn)
+			bRebuildNonStd = true;
+	}
+
+	if (sp.m_pRichParser)
+	{
+		m_DB.ParamSet(NodeDB::ParamID::RichContractParser, nullptr, sp.m_pRichParser);
+		
+		if (sp.m_pRichParser->n)
+			bRebuildNonStd = true;
+	}
+
 	uint64_t nFlags1 = m_DB.ParamIntGetDef(NodeDB::ParamID::Flags1);
-	if (NodeDB::Flags1::PendingRebuildNonStd & nFlags1)
+	if (bRebuildNonStd || (NodeDB::Flags1::PendingRebuildNonStd & nFlags1))
 	{
 		RebuildNonStd();
 		m_DB.ParamIntSet(NodeDB::ParamID::Flags1, nFlags1 & ~NodeDB::Flags1::PendingRebuildNonStd);
@@ -2418,6 +2436,8 @@ struct NodeProcessor::BlockInterpretCtx
 
 		void ContractDataToggleTree(const Blob& key, const Blob&, bool bAdd);
 
+		void ParseExtraInfo(std::string&, uint32_t iMethod, const Blob& args);
+
 		struct DbgCallstack
 		{
 			struct Entry {
@@ -2443,10 +2463,17 @@ struct NodeProcessor::BlockInterpretCtx
 		virtual void OnRet(Wasm::Word nRetAddr) override;
 	};
 
+	struct ParserExtraInfo
+		:public bvm2::ProcessorManager
+	{
+	};
+
 	uint32_t m_ChargePerBlock = bvm2::Limits::BlockCharge;
 
 	BlobMap::Set m_ContractVars;
 	BlobMap::Entry& get_ContractVar(const Blob& key, NodeDB& db);
+
+	std::vector<ContractInvokeExtraInfo>* m_pvC = nullptr;
 
 	BlockInterpretCtx(Height h, bool bFwd)
 		:m_Height(h)
@@ -2760,6 +2787,10 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	bic.m_Rollback.swap((bbP.size() > bbE.size()) ? bbP : bbE); // optimization
 	bic.m_Rollback.clear();
 
+	std::vector<ContractInvokeExtraInfo> vC;
+	if (m_DB.ParamIntGetDef(NodeDB::ParamID::RichContractInfo))
+		bic.m_pvC = &vC;
+
 	bool bOk = HandleValidatedBlock(block, bic);
 	if (!bOk)
 	{
@@ -2908,6 +2939,15 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		m_RecentStates.Push(sid.m_Row, s);
 
 		cf.Do(*this, sid.m_Height);
+
+		if (!vC.empty())
+		{
+			ser.reset();
+			ser & vC;
+
+			SerializeBuffer sb = ser.buffer();
+			m_DB.KrnInfoInsert(sid.m_Height, Blob(sb.first, static_cast<uint32_t>(sb.second)));
+		}
 	}
 	else
 	{
@@ -4434,6 +4474,11 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 	bool bRes = false;
 	try
 	{
+		ContractInvokeExtraInfo* pInfo = m_Bic.m_pvC ? &m_Bic.m_pvC->emplace_back() : nullptr;
+
+		if (pInfo)
+			m_pvSigs = &pInfo->m_vSigs;
+
 		m_Charge = m_Bic.m_ChargePerBlock;
 
 		if (m_Bic.m_pTxErrorInfo)
@@ -4447,6 +4492,9 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 			Wasm::Reader::Mode::Emulate_x86;
 
 		CallFar(cid, iMethod, m_Stack.get_AlasSp());
+
+		if (pInfo)
+			ParseExtraInfo(pInfo->m_sParsed, iMethod, krn.m_Args);
 
 		ECC::Hash::Processor hp;
 
@@ -4476,6 +4524,12 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 		}
 
 		m_Bic.m_ChargePerBlock = m_Charge;
+
+		if (pInfo) {
+			// Save funds i/o
+			pInfo->m_FundsIO.m_Map.swap(m_FundsIO.m_Map);
+		}
+
 	}
 	catch (const Wasm::Exc& e)
 	{
@@ -4509,6 +4563,63 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 	}
 
 	return bRes;
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::ParseExtraInfo(std::string& s, uint32_t iMethod, const Blob& args)
+{
+	ByteBuffer bufParser;
+	m_Proc.m_DB.ParamGet(NodeDB::ParamID::RichContractParser, nullptr, nullptr, &bufParser);
+
+	if (bufParser.empty())
+		return;
+
+	try
+	{
+		struct ProcessorInfoParser
+			:public ParserExtraInfo
+		{
+			BvmProcessor& m_This;
+
+			Height get_Height() override {
+				return m_This.get_Height();
+			}
+			bool get_HdrAt(Block::SystemState::Full& s) override {
+				return m_This.get_HdrAt(s);
+			}
+
+			ProcessorInfoParser(BvmProcessor& x) :m_This(x) {}
+
+		} proc(*this);
+
+		proc.InitMem();
+		proc.m_Code = bufParser;
+
+		proc.m_Stack.AliasAlloc(sizeof(bvm2::ShaderID));
+		bvm2::get_ShaderID(*(bvm2::ShaderID*)proc.m_Stack.get_AliasPtr(), m_Code);
+		Wasm::Word pSid_ = proc.m_Stack.get_AlasSp();
+
+		proc.m_Stack.PushAlias(args);
+		Wasm::Word pArgs_ = proc.m_Stack.get_AlasSp();
+
+		proc.m_Stack.Push(pSid_);
+		proc.m_Stack.Push(iMethod);
+		proc.m_Stack.Push(pArgs_);
+		proc.m_Stack.Push(args.n);
+
+		std::ostringstream os;
+		proc.m_pOut = &os;
+
+		proc.CallMethod(0);
+
+		while (!proc.IsDone())
+			proc.RunOnce();
+
+		s = os.str();
+	}
+	catch (const std::exception& e)
+	{
+		LOG_WARNING() << "contract parser error: " << e.what();
+	}
 }
 
 BlobMap::Entry& NodeProcessor::BlockInterpretCtx::get_ContractVar(const Blob& key, NodeDB& db)
@@ -5092,6 +5203,7 @@ void NodeProcessor::RollbackTo(Height h)
 	m_DB.DeleteEventsFrom(h + 1);
 	m_DB.AssetEvtsDeleteFrom(h + 1);
 	m_DB.ShieldedOutpDelFrom(h + 1);
+	m_DB.KrnInfoDel(HeightRange(h + 1, m_Cursor.m_Sid.m_Height));
 
 	// Kernels, shielded elements, and cursor
 	ByteBuffer bbE, bbR;
@@ -6013,7 +6125,7 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 	return mbc.Flush();
 }
 
-bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID& sid)
+bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID& sid, std::vector<ContractInvokeExtraInfo>& vC)
 {
 	ByteBuffer bbE;
 	if (!GetBlockInternal(sid, &bbE, nullptr, 0, 0, 0, false, &block))
@@ -6032,6 +6144,13 @@ bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, std::vector<Output
 		pOutp = std::make_unique<Output>();
 
 		ToInputWithMaturity(inp, *pOutp, false);
+	}
+
+	bbE.clear();
+	if (m_DB.KrnInfoGet(sid.m_Height, bbE))
+	{
+		der.reset(bbE);
+		der & vC;
 	}
 
 	return true;
@@ -6465,6 +6584,7 @@ void NodeProcessor::RebuildNonStd()
 	m_DB.ParamDelSafe(NodeDB::ParamID::ShieldedInputs);
 	m_DB.AssetsDelAll();
 	m_DB.UniqueDeleteAll();
+	m_DB.KrnInfoDel(HeightRange(0, m_Cursor.m_Full.m_Height));
 
 	m_Mmr.m_Assets.ResizeTo(0);
 	m_Mmr.m_Shielded.ResizeTo(0);

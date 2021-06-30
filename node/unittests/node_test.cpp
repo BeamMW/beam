@@ -1103,7 +1103,8 @@ namespace beam
 
 			Block::Body block;
 			std::vector<Output::Ptr> vOutsIn;
-			np.ExtractBlockWithExtra(block, vOutsIn, sid);
+			std::vector<NodeProcessor::ContractInvokeExtraInfo> vC;
+			np.ExtractBlockWithExtra(block, vOutsIn, sid, vC);
 
 			verify_test(vOutsIn.size() == block.m_vInputs.size());
 
@@ -2966,6 +2967,15 @@ namespace beam
 		addr.port(g_Port);
 
 		node.m_Cfg.m_Treasury = g_Treasury;
+
+		ByteBuffer bufParser;
+		bvm2::Compile(bufParser, "Explorer/Parser.wasm", bvm2::Processor::Kind::Manager);
+		Blob blobParser(bufParser);
+		bool bParserOn = true;
+
+		node.m_Cfg.m_ProcessorParams.m_pRichInfo = &bParserOn;
+		node.m_Cfg.m_ProcessorParams.m_pRichParser = &blobParser;
+
 		node.Initialize();
 
 		cl.Connect(addr);

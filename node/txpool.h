@@ -134,6 +134,13 @@ struct TxPool
 				bool operator < (const Kernel& t) const { return m_pKrn->m_Internal.m_ID < t.m_pKrn->m_Internal.m_ID; }
 			};
 
+			struct Confirm
+				:public boost::intrusive::list_base_hook<>
+			{
+				Height m_Height = MaxHeight;
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Confirm)
+			} m_Confirm;
+
 			HeightRange m_Height;
 			Amount m_FeeReserve;
 
@@ -143,10 +150,12 @@ struct TxPool
 		typedef boost::intrusive::multiset<Element::Kernel> KrnSet;
 		typedef boost::intrusive::multiset<Element::Time> TimeSet;
 		typedef boost::intrusive::multiset<Element::Profit> ProfitSet;
+		typedef boost::intrusive::list<Element::Confirm> ConfirmList;
 
 		KrnSet m_setKrns;
 		TimeSet m_setTime;
 		ProfitSet m_setProfit;
+		ConfirmList m_lstConfirm;
 
 		void Delete(Element&);
 		void Clear();
@@ -155,6 +164,8 @@ struct TxPool
 		void InsertAggr(Element&);
 		void DeleteAggr(Element&);
 		void DeleteTimer(Element&);
+		void InsertConfirm(Element&, Height);
+		void DeleteConfirm(Element&);
 
 		bool TryMerge(Element& trg, Element& src);
 

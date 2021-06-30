@@ -316,17 +316,6 @@ namespace bvm2 {
 		static int32_t get_PublicMethodIdx(const Wasm::Compiler::Vec<char>& sName);
 	};
 
-	class FundsChangeMap
-	{
-		static void Set(ECC::Scalar::Native&, Amount, bool bLock);
-
-	public:
-		std::map<Asset::ID, ECC::Scalar::Native> m_Map;
-
-		void Process(Amount val, Asset::ID, bool bLock);
-		void ToCommitment(ECC::Point::Native&) const;
-	};
-
 	struct ProcessorPlus;
 	struct ProcessorPlusEnv;
 
@@ -402,16 +391,18 @@ namespace bvm2 {
 		std::vector<ECC::Point::Native> m_vPks;
 		ECC::Point::Native& AddSigInternal(const ECC::Point&);
 
-		FundsChangeMap m_FundsIO;
-
 	public:
 
 		Kind get_Kind() override { return Kind::Contract; }
 
 		void InitStackPlus(uint32_t nStackBytesExtra);
 
+		FundsChangeMap m_FundsIO;
+
 		ECC::Hash::Processor* m_pSigValidate = nullptr; // assign it to allow sig validation
 		void CheckSigs(const ECC::Point& comm, const ECC::Signature&);
+
+		std::vector<ECC::Point>* m_pvSigs = nullptr;
 
 		bool IsDone() const { return m_FarCalls.m_Stack.empty(); }
 

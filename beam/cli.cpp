@@ -19,6 +19,7 @@
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "core/block_rw.h"
+#include "bvm/bvm2.h"
 #include "utility/cli/options.h"
 #include "utility/log_rotation.h"
 #include "utility/helpers.h"
@@ -456,6 +457,35 @@ int main_impl(int argc, char* argv[])
 							node.m_Cfg.m_Horizon.SetStdFastSync();
 						else
 							node.m_Cfg.m_Horizon.SetInfinite();
+					}
+
+					bool bRichInfo = false;
+					ByteBuffer bufRichParser;
+					Blob blobRichParser;
+
+					if (vm.count(cli::CONTRACT_RICH_INFO))
+					{
+						bRichInfo = !!vm[cli::CONTRACT_RICH_INFO].as<bool>();
+						node.m_Cfg.m_ProcessorParams.m_pRichInfo = &bRichInfo;
+					}
+
+					if (vm.count(cli::CONTRACT_RICH_PARSER))
+					{
+						auto sPath = vm[cli::CONTRACT_RICH_PARSER].as<std::string>();
+						if (!sPath.empty())
+						{
+							std::FStream fs;
+							fs.Open(sPath.c_str(), true, true);
+
+							bufRichParser.resize(static_cast<size_t>(fs.get_Remaining()));
+							if (!bufRichParser.empty())
+								fs.read(&bufRichParser.front(), bufRichParser.size());
+
+							bvm2::Processor::Compile(bufRichParser, bufRichParser, bvm2::Processor::Kind::Manager);
+						}
+
+						blobRichParser = bufRichParser;
+						node.m_Cfg.m_ProcessorParams.m_pRichParser = &blobRichParser;
 					}
 
 					node.Initialize(stratumServer.get());

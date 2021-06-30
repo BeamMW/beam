@@ -755,8 +755,8 @@ namespace beam::wallet
     {
         ShieldedCoin::UnlinkStatus us(coin, getTotalShieldedCount());
         const auto* packedMessage = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
-        auto mpAnonymitySet = packedMessage->m_MaxPrivacyMinAnonymitySet;
-        return mpAnonymitySet ? us.m_Progress * 64 / mpAnonymitySet : us.m_Progress;
+        uint32_t mpAnonymitySet = packedMessage->m_MaxPrivacyMinAnonymitySet;
+        return mpAnonymitySet ? us.m_Progress * mpAnonymitySet / beam::MaxPrivacyAnonimitySetFractionsCount : us.m_Progress;
     }
 
     uint16_t WalletClient::getMaturityHoursLeft(const ShieldedCoin& coin) const
@@ -775,6 +775,7 @@ namespace beam::wallet
         {
             auto outputsAddedAfterMyCoin = getTotalShieldedCount() - coin.m_TxoID;
             const auto* packedMessage = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
+            
             auto mpAnonymitySet = packedMessage->m_MaxPrivacyMinAnonymitySet;
             auto maxWindowBacklog = mpAnonymitySet ? getRules().Shielded.MaxWindowBacklog * mpAnonymitySet / 64 : getRules().Shielded.MaxWindowBacklog;
             auto outputsLeftForMP = maxWindowBacklog - outputsAddedAfterMyCoin;

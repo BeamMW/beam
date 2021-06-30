@@ -67,7 +67,7 @@ namespace beam::bvm2 {
 			const auto& val = it->second;
 			bool bSpend = (val >= 0);
 
-			fcm.Process(bSpend ? val : -val, aid, !bSpend);
+			fcm.Add(bSpend ? val : -val, aid, !bSpend);
 			hp
 				<< aid
 				<< static_cast<Amount>(val);

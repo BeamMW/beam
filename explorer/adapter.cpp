@@ -615,6 +615,7 @@ private:
 		Block::Body block;
 		bool ok = true;
         std::vector<Output::Ptr> vOutsIn;
+        std::vector<NodeProcessor::ContractInvokeExtraInfo> vC;
 
         try {
             db.get_State(row, blockState);
@@ -623,7 +624,7 @@ private:
 			NodeDB::StateID sid;
 			sid.m_Row = row;
 			sid.m_Height = id.m_Height;
-			_nodeBackend.ExtractBlockWithExtra(block, vOutsIn, sid);
+			_nodeBackend.ExtractBlockWithExtra(block, vOutsIn, sid, vC);
 
 		} catch (...) {
             ok = false;

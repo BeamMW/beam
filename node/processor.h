@@ -265,6 +265,8 @@ public:
 		bool m_Vacuum = false;
 		bool m_ResetSelfID = false;
 		bool m_EraseSelfID = false;
+		const bool* m_pRichInfo = nullptr;
+		const Blob* m_pRichParser = nullptr;
 	};
 
 	void Initialize(const char* szPath);
@@ -391,7 +393,23 @@ public:
 	void SaveSyncData();
 	void LogSyncData();
 
-	bool ExtractBlockWithExtra(Block::Body&, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID&);
+	struct ContractInvokeExtraInfo
+	{
+		FundsChangeMap m_FundsIO;
+		std::vector<ECC::Point> m_vSigs;
+		std::string m_sParsed;
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar
+				& m_FundsIO.m_Map
+				& m_vSigs
+				& m_sParsed;
+		}
+	};
+
+	bool ExtractBlockWithExtra(Block::Body&, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID&, std::vector<ContractInvokeExtraInfo>&);
 
 	int get_AssetAt(Asset::Full&, Height); // Must set ID. Returns -1 if asset is destroyed, 0 if never existed.
 
