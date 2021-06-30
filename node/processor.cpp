@@ -5092,6 +5092,7 @@ void NodeProcessor::RollbackTo(Height h)
 	m_DB.DeleteEventsFrom(h + 1);
 	m_DB.AssetEvtsDeleteFrom(h + 1);
 	m_DB.ShieldedOutpDelFrom(h + 1);
+	m_DB.KrnInfoDel(HeightRange(h + 1, m_Cursor.m_Sid.m_Height));
 
 	// Kernels, shielded elements, and cursor
 	ByteBuffer bbE, bbR;
@@ -6013,7 +6014,7 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 	return mbc.Flush();
 }
 
-bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID& sid)
+bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID& sid, std::vector<ContractInvokeExtraInfo>& vC)
 {
 	ByteBuffer bbE;
 	if (!GetBlockInternal(sid, &bbE, nullptr, 0, 0, 0, false, &block))
@@ -6032,6 +6033,13 @@ bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, std::vector<Output
 		pOutp = std::make_unique<Output>();
 
 		ToInputWithMaturity(inp, *pOutp, false);
+	}
+
+	bbE.clear();
+	if (m_DB.KrnInfoGet(sid.m_Height, bbE))
+	{
+		der.reset(bbE);
+		der & vC;
 	}
 
 	return true;
@@ -6465,6 +6473,7 @@ void NodeProcessor::RebuildNonStd()
 	m_DB.ParamDelSafe(NodeDB::ParamID::ShieldedInputs);
 	m_DB.AssetsDelAll();
 	m_DB.UniqueDeleteAll();
+	m_DB.KrnInfoDel(HeightRange(0, m_Cursor.m_Full.m_Height));
 
 	m_Mmr.m_Assets.ResizeTo(0);
 	m_Mmr.m_Shielded.ResizeTo(0);

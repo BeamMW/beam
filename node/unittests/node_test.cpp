@@ -1103,7 +1103,8 @@ namespace beam
 
 			Block::Body block;
 			std::vector<Output::Ptr> vOutsIn;
-			np.ExtractBlockWithExtra(block, vOutsIn, sid);
+			std::vector<NodeProcessor::ContractInvokeExtraInfo> vC;
+			np.ExtractBlockWithExtra(block, vOutsIn, sid, vC);
 
 			verify_test(vOutsIn.size() == block.m_vInputs.size());
 

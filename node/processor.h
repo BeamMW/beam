@@ -391,7 +391,21 @@ public:
 	void SaveSyncData();
 	void LogSyncData();
 
-	bool ExtractBlockWithExtra(Block::Body&, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID&);
+	struct ContractInvokeExtraInfo
+	{
+		FundsChangeMap m_FundsIO;
+		std::vector<ECC::Point> m_vSigs;
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar
+				& m_FundsIO.m_Map
+				& m_vSigs;
+		}
+	};
+
+	bool ExtractBlockWithExtra(Block::Body&, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID&, std::vector<ContractInvokeExtraInfo>&);
 
 	int get_AssetAt(Asset::Full&, Height); // Must set ID. Returns -1 if asset is destroyed, 0 if never existed.
 
