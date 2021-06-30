@@ -25,16 +25,20 @@ namespace beam::wallet
     public:
         // CTOR MUST BE SAFE TO CALL FROM ANY THREAD
         V61Api(IWalletApiHandler& handler, unsigned long avMajor, unsigned long avMinor, const ApiInitData& init);
-        ~V61Api() override = default;
+        ~V61Api() override;
 
         V6_1_API_METHODS(BEAM_API_PARSE_FUNC)
         V6_1_API_METHODS(BEAM_API_RESPONSE_FUNC)
         V6_1_API_METHODS(BEAM_API_HANDLE_FUNC)
+
+    protected:
+        void onSyncProgress(int done, int total) override;
 
     private:
         bool _evSubscribed = false;
         std::string _apiVersion;
         unsigned _apiVersionMajor;
         unsigned _apiVersionMinor;
+        Wallet::Ptr _wallet;
     };
 }

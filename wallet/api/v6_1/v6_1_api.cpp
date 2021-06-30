@@ -24,6 +24,20 @@ namespace beam::wallet
         ss << avMajor << "." << avMinor;
         _apiVersion = ss.str();
 
+        _wallet = init.wallet;
+        if(_wallet)
+        {
+            _wallet->Subscribe(this);
+        }
+
         V6_1_API_METHODS(BEAM_API_REG_METHOD)
+    }
+
+    V61Api::~V61Api()
+    {
+        if (_wallet)
+        {
+            _wallet->Unsubscribe(this);
+        }
     }
 }

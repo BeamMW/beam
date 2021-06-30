@@ -18,28 +18,14 @@ namespace beam::wallet
 {
     void V61Api::onHandleEvSubscribe(const JsonRpcId &id, const EvSubscribe &data)
     {
-        if(_evSubscribed)
-        {
-            EvSubscribe::Response resp{true};
-            return doResponse(id, resp);
-        }
-
-        getWallet()->Subscribe(this);
         _evSubscribed = true;
 
         EvSubscribe::Response resp{true};
-        doResponse(id, resp);
+        return doResponse(id, resp);
     }
 
     void V61Api::onHandleEvUnsubscribe(const JsonRpcId& id, const EvUnsubscribe& params)
     {
-        if (!_evSubscribed)
-        {
-            EvUnsubscribe::Response resp{true};
-            return doResponse(id, resp);
-        }
-
-        getWallet()->Unsubscribe(this);
         _evSubscribed = false;
 
         EvUnsubscribe::Response resp{true};
