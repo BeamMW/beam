@@ -316,17 +316,6 @@ namespace bvm2 {
 		static int32_t get_PublicMethodIdx(const Wasm::Compiler::Vec<char>& sName);
 	};
 
-	class FundsChangeMap
-	{
-		static void Set(ECC::Scalar::Native&, Amount, bool bLock);
-
-	public:
-		std::map<Asset::ID, ECC::Scalar::Native> m_Map;
-
-		void Process(Amount val, Asset::ID, bool bLock);
-		void ToCommitment(ECC::Point::Native&) const;
-	};
-
 	struct ProcessorPlus;
 	struct ProcessorPlusEnv;
 

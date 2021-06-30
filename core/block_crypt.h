@@ -1619,6 +1619,14 @@ namespace beam
 		void ZeroInit();
 		bool EnumStatesHeadingOnly(IStateWalker&) const; // skip arbitrary
 	};
+
+	struct FundsChangeMap
+	{
+		std::map<Asset::ID, AmountBig::Type> m_Map;
+
+		void Add(Amount val, Asset::ID, bool bSpend);
+		void ToCommitment(ECC::Point::Native&) const;
+	};
 }
 
 inline ECC::Hash::Processor& operator << (ECC::Hash::Processor& hp, const beam::PeerID& pid) {
