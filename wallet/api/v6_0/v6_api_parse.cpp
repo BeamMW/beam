@@ -21,13 +21,6 @@
 
 namespace beam::wallet
 {
-    namespace
-    {
-        // This is for jscript compatibility
-        // Number.MAX_SAFE_INTEGER
-        const auto kMaxAllowedInt = AmountBig::Type(9'007'199'254'740'991U);
-    }
-
     CoinIDList readCoinsParameter(const JsonRpcId& id, const json& params)
     {
         CoinIDList coins;

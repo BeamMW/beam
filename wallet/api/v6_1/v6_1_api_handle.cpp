@@ -62,4 +62,40 @@ namespace beam::wallet
 
         doResponse(id, resp);
     }
+
+    void V61Api::onHandleWalletStatusV61(const JsonRpcId &id, const WalletStatusV61 &data)
+    {
+        LOG_DEBUG() << "WalletStatusV61(id = " << id << ")";
+
+        WalletStatusV61::Response response;
+        auto walletDB = getWalletDB();
+
+        {
+            Block::SystemState::Full tip;
+            walletDB->get_History().get_Tip(tip);
+
+            response.prevStateHash = tip.m_Prev;
+            response.difficulty = tip.m_PoW.m_Difficulty.ToFloat();
+            response.currentStateTimestamp = tip.m_TimeStamp;
+            tip.get_Hash(response.currentStateHash);
+            response.currentHeight = tip.m_Height;
+            response.currentStateTimestamp = tip.m_TimeStamp;
+            response.isInSync = IsValidTimeStamp(tip.m_TimeStamp);
+        }
+
+        storage::Totals allTotals(*walletDB);
+        const auto& totals = allTotals.GetBeamTotals();
+
+        response.available = AmountBig::get_Lo(totals.Avail);    response.available += AmountBig::get_Lo(totals.AvailShielded);
+        response.receiving = AmountBig::get_Lo(totals.Incoming); response.receiving += AmountBig::get_Lo(totals.IncomingShielded);
+        response.sending   = AmountBig::get_Lo(totals.Outgoing); response.sending   += AmountBig::get_Lo(totals.OutgoingShielded);
+        response.maturing  = AmountBig::get_Lo(totals.Maturing); response.maturing  += AmountBig::get_Lo(totals.MaturingShielded);
+
+        if (data.withAssets)
+        {
+            response.totals = allTotals;
+        }
+
+        doResponse(id, response);
+    }
 }

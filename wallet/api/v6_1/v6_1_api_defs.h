@@ -16,9 +16,10 @@
 namespace beam::wallet
 {
     #define V6_1_API_METHODS(macro) \
-        macro(EvSubscribe,    "ev_subscribe",    API_READ_ACCESS, API_SYNC,  APPS_ALLOWED) \
-        macro(EvUnsubscribe,  "ev_unsubscribe",  API_READ_ACCESS, API_SYNC,  APPS_ALLOWED) \
-        macro(GetVersion,     "get_version",     API_READ_ACCESS, API_SYNC,  APPS_ALLOWED)
+        macro(EvSubscribe,     "ev_subscribe",    API_READ_ACCESS, API_SYNC,  APPS_ALLOWED) \
+        macro(EvUnsubscribe,   "ev_unsubscribe",  API_READ_ACCESS, API_SYNC,  APPS_ALLOWED) \
+        macro(GetVersion,      "get_version",     API_READ_ACCESS, API_SYNC,  APPS_ALLOWED) \
+        macro(WalletStatusV61, "wallet_status",   API_READ_ACCESS, API_SYNC,  APPS_ALLOWED)
 
     struct EvSubscribe
     {
@@ -51,6 +52,25 @@ namespace beam::wallet
 
             std::string beamCommitHash;
             std::string beamBranchName;
+        };
+    };
+
+    struct WalletStatusV61
+    {
+        bool withAssets = false;
+        struct Response
+        {
+            beam::Height currentHeight = 0;
+            Merkle::Hash currentStateHash = Zero;
+            Timestamp currentStateTimestamp = 0;
+            Merkle::Hash prevStateHash = Zero;
+            double difficulty = 0;
+            bool isInSync = false;
+            Amount available = 0;
+            Amount receiving = 0;
+            Amount sending = 0;
+            Amount maturing = 0;
+            boost::optional<storage::Totals> totals = boost::none;
         };
     };
 }

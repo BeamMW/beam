@@ -74,4 +74,79 @@ namespace beam::wallet
             }
         };
     }
+
+    std::pair<WalletStatusV61, IWalletApi::MethodInfo> V61Api::onParseWalletStatusV61(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        WalletStatusV61 message{};
+        message.withAssets = getCAEnabled();
+        return std::make_pair(message, MethodInfo());
+    }
+
+    void V61Api::getResponse(const JsonRpcId& id, const WalletStatusV61::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result",
+                {
+                    {"current_height", res.currentHeight},
+                    {"current_state_hash", to_hex(res.currentStateHash.m_pData, res.currentStateHash.nBytes)},
+                    {"current_state_timestamp", res.currentStateTimestamp},
+                    {"prev_state_hash", to_hex(res.prevStateHash.m_pData, res.prevStateHash.nBytes)},
+                    {"is_in_sync", res.isInSync},
+                    {"available",  res.available},
+                    {"receiving",  res.receiving},
+                    {"sending",    res.sending},
+                    {"maturing",   res.maturing},
+                    {"difficulty", res.difficulty}
+                }
+            }
+        };
+
+        if (res.totals)
+        {
+            for(const auto& it: res.totals->allTotals)
+            {
+                const auto& totals = it.second;
+                json jtotals;
+
+                jtotals["asset_id"] = totals.AssetId;
+
+                auto avail = totals.Avail; avail += totals.AvailShielded;
+                jtotals["available_str"] = std::to_string(avail);
+
+                if (avail <= kMaxAllowedInt)
+                {
+                    jtotals["available"] = AmountBig::get_Lo(avail);
+                }
+
+                auto incoming = totals.Incoming; incoming += totals.IncomingShielded;
+                jtotals["receiving_str"] = std::to_string(incoming);
+
+                if (totals.Incoming <= kMaxAllowedInt)
+                {
+                    jtotals["receiving"] = AmountBig::get_Lo(incoming);
+                }
+
+                auto outgoing = totals.Outgoing; outgoing += totals.OutgoingShielded;
+                jtotals["sending_str"] = std::to_string(outgoing);
+
+                if (totals.Outgoing <= kMaxAllowedInt)
+                {
+                    jtotals["sending"] = AmountBig::get_Lo(outgoing);
+                }
+
+                auto maturing = totals.Maturing; maturing += totals.MaturingShielded;
+                jtotals["maturing_str"] = std::to_string(maturing);
+
+                if (totals.Maturing <= kMaxAllowedInt)
+                {
+                    jtotals["maturing"] = AmountBig::get_Lo(maturing);
+                }
+
+                msg["result"]["totals"].push_back(jtotals);
+            }
+        }
+    }
 }

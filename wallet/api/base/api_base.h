@@ -38,7 +38,7 @@ namespace beam::wallet
         }
 
     #define BEAM_API_HANDLE_FUNC(api, name, ...) \
-        virtual void onHandle##api(const JsonRpcId& id, const api& data);
+        void onHandle##api(const JsonRpcId& id, const api& data);
 
     #define BEAM_API_PARSE_FUNC(api, name, ...) \
         [[nodiscard]] std::pair<api, MethodInfo> onParse##api(const JsonRpcId& id, const json& msg);
@@ -64,6 +64,10 @@ namespace beam::wallet
     public:
         static inline const char JsonRpcHeader[] = "jsonrpc";
         static inline const char JsonRpcVersion[] = "2.0";
+
+        // This is for jscript compatibility
+        // Number.MAX_SAFE_INTEGER
+        static inline const auto kMaxAllowedInt = AmountBig::Type(9'007'199'254'740'991U);
 
         // user api key and read/write access
         ApiBase(IWalletApiHandler& handler, const ApiInitData& initData);
@@ -158,7 +162,6 @@ namespace beam::wallet
 
         void regMethod(const std::string& name, Method method)
         {
-            assert(_methods.find(name) == _methods.end());
             _methods[name] = std::move(method);
         }
 
