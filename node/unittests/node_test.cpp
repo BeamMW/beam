@@ -2967,9 +2967,16 @@ namespace beam
 		addr.port(g_Port);
 
 		node.m_Cfg.m_Treasury = g_Treasury;
-		node.Initialize();
 
-		node.get_Processor().get_DB().ParamIntSet(NodeDB::ParamID::RichContractInfo, 1);
+		ByteBuffer bufParser;
+		bvm2::Compile(bufParser, "Explorer/Parser.wasm", bvm2::Processor::Kind::Manager);
+		Blob blobParser(bufParser);
+		bool bParserOn = true;
+
+		node.m_Cfg.m_ProcessorParams.m_pRichInfo = &bParserOn;
+		node.m_Cfg.m_ProcessorParams.m_pRichParser = &blobParser;
+
+		node.Initialize();
 
 		cl.Connect(addr);
 
