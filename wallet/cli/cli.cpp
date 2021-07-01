@@ -2338,7 +2338,7 @@ namespace
                 if (man.m_Err || man.m_vInvokeData.empty())
                     return 1;
 
-                const auto height  = wallet->get_CurrentHeight();
+                const auto height  = wallet->get_TipHeight();
                 const auto fee     = bvm2::getFullFee(man.m_vInvokeData, height);
                 const auto comment = bvm2::getFullComment(man.m_vInvokeData);
                 const auto spend   = bvm2::getFullSpend(man.m_vInvokeData);

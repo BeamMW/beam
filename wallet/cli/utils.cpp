@@ -78,7 +78,7 @@ namespace beam::wallet
 
     Amount get_MinFee(const Wallet& wallet, bool hasShieldedOutputs)
     {
-        auto& fs = Transaction::FeeSettings::get(wallet.get_CurrentHeight());
+        auto& fs = Transaction::FeeSettings::get(wallet.get_TipHeight());
         return hasShieldedOutputs ? fs.get_DefaultShieldedOut() : fs.get_DefaultStd();
     }
 

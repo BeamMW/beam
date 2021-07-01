@@ -274,7 +274,7 @@ namespace beam::wallet
 
     Amount V6Api::getBeamFeeParam(const json& params, const std::string& name) const
     {
-        auto &fs = Transaction::FeeSettings::get(get_CurrentHeight());
+        auto &fs = Transaction::FeeSettings::get(get_TipHeight());
         return getBeamFeeParam(params, name, fs.get_DefaultStd());
     }
 
@@ -541,7 +541,7 @@ namespace beam::wallet
             splitAmount += beam::AmountBig::Type(uamount);
         }
 
-        auto& fs = Transaction::FeeSettings::get(get_CurrentHeight());
+        auto& fs = Transaction::FeeSettings::get(get_TipHeight());
 
         auto outsCnt = split.coins.size() + 1; // for split result cons + beam change coin (if any)
         if (split.assetId.is_initialized() && *split.assetId != beam::Asset::s_BeamID)

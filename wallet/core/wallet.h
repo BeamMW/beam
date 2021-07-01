@@ -153,7 +153,7 @@ namespace beam::wallet
         void VisitActiveTransaction(const TxVisitor& visitor);
 
         bool IsWalletInSync() const;
-        Height get_CurrentHeight() const;
+        Height get_TipHeight() const;
 
         // Count of active transactions which are not in safe state, negotiation are not finished or data is not sent to node
         size_t GetUnsafeActiveTransactionsCount() const;

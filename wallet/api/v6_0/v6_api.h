@@ -31,7 +31,7 @@ namespace beam::wallet
         virtual Wallet::Ptr          getWallet() const;
         virtual ISwapsProvider::Ptr  getSwaps() const;
         virtual IShadersManager::Ptr getContracts() const;
-        virtual Height               get_CurrentHeight() const;
+        virtual Height               get_TipHeight() const;
 
         void assertWalletThread() const;
         void checkCAEnabled() const;

@@ -65,7 +65,7 @@ namespace beam::wallet
         }
 
         csi.m_explicitFee = data.explicitFee;
-        csi.Calculate(get_CurrentHeight(), getWalletDB(), data.isPushTransaction);
+        csi.Calculate(get_TipHeight(), getWalletDB(), data.isPushTransaction);
 
         doResponse(id, CalcChange::Response{ csi.m_changeBeam, csi.m_changeAsset, csi.m_explicitFee });
     }

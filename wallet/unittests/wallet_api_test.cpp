@@ -120,7 +120,7 @@ namespace
             WALLET_CHECK(!"invalid api test - error");
         }
 
-        Height get_CurrentHeight() const override
+        Height get_TipHeight() const override
         {
             return _currentHeight;
         }

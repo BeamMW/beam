@@ -119,14 +119,14 @@ namespace beam::wallet
         _wallet->assertThread();
     }
 
-    Height V6Api::get_CurrentHeight() const
+    Height V6Api::get_TipHeight() const
     {
-       return getWallet()->get_CurrentHeight();
+       return getWallet()->get_TipHeight();
     }
 
     void V6Api::checkCAEnabled() const
     {
-        TxFailureReason res = wallet::CheckAssetsEnabled(get_CurrentHeight());
+        TxFailureReason res = wallet::CheckAssetsEnabled(get_TipHeight());
         if (TxFailureReason::Count != res)
         {
             throw jsonrpc_exception(ApiError::NotSupported, GetFailureMessage(res));
@@ -135,7 +135,7 @@ namespace beam::wallet
 
     bool V6Api::getCAEnabled() const
     {
-        TxFailureReason res = wallet::CheckAssetsEnabled(get_CurrentHeight());
+        TxFailureReason res = wallet::CheckAssetsEnabled(get_TipHeight());
         return res == TxFailureReason::Count;
     }
 }
