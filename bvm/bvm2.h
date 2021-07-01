@@ -484,6 +484,7 @@ namespace bvm2 {
 
 		std::ostream* m_pOut;
 		bool m_NeedComma = false;
+		bool m_RawText = false; // don't perform json-style decoration
 
 		std::map<std::string, std::string> m_Args;
 		void set_ArgBlob(const char* sz, const Blob&);

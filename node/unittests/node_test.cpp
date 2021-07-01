@@ -2970,11 +2970,11 @@ namespace beam
 
 		ByteBuffer bufParser;
 		bvm2::Compile(bufParser, "Explorer/Parser.wasm", bvm2::Processor::Kind::Manager);
-		Blob blobParser(bufParser);
-		bool bParserOn = true;
 
-		node.m_Cfg.m_ProcessorParams.m_pRichInfo = &bParserOn;
-		node.m_Cfg.m_ProcessorParams.m_pRichParser = &blobParser;
+		node.m_Cfg.m_ProcessorParams.m_RichInfoFlags =
+			NodeProcessor::StartParams::RichInfo::On |
+			NodeProcessor::StartParams::RichInfo::UpdShader;
+		node.m_Cfg.m_ProcessorParams.m_RichParser = bufParser;
 
 		node.Initialize();
 
