@@ -38,7 +38,7 @@ namespace beam::wallet
         }
 
     #define BEAM_API_HANDLE_FUNC(api, name, ...) \
-        void onHandle##api(const JsonRpcId& id, const api& data);
+         virtual void onHandle##api(const JsonRpcId& id, const api& data);
 
     #define BEAM_API_PARSE_FUNC(api, name, ...) \
         [[nodiscard]] std::pair<api, MethodInfo> onParse##api(const JsonRpcId& id, const json& msg);
