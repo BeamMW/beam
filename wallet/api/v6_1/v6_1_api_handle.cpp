@@ -18,7 +18,11 @@ namespace beam::wallet
 {
     void V61Api::onHandleEvSubscribe(const JsonRpcId &id, const EvSubscribe &data)
     {
-        _evSubscribed = true;
+        if (!_evSubscribed)
+        {
+            _evSubscribed = true;
+            getWallet()->Subscribe(this);
+        }
 
         EvSubscribe::Response resp{true};
         return doResponse(id, resp);
@@ -26,7 +30,11 @@ namespace beam::wallet
 
     void V61Api::onHandleEvUnsubscribe(const JsonRpcId& id, const EvUnsubscribe& params)
     {
-        _evSubscribed = false;
+        if (_evSubscribed)
+        {
+            getWallet()->Unsubscribe(this);
+            _evSubscribed = false;
+        }
 
         EvUnsubscribe::Response resp{true};
         doResponse(id, resp);
@@ -57,16 +65,22 @@ namespace beam::wallet
         auto walletDB = getWalletDB();
 
         {
-            Block::SystemState::Full tip;
-            walletDB->get_History().get_Tip(tip);
+            Block::SystemState::ID stateID = {};
+            walletDB->getSystemStateID(stateID);
+            response.currentHeight = stateID.m_Height;
+            response.currentStateHash = stateID.m_Hash;
 
-            response.prevStateHash = tip.m_Prev;
-            response.difficulty = tip.m_PoW.m_Difficulty.ToFloat();
-            response.currentStateTimestamp = tip.m_TimeStamp;
-            tip.get_Hash(response.currentStateHash);
-            response.currentHeight = tip.m_Height;
-            response.currentStateTimestamp = tip.m_TimeStamp;
-            response.isInSync = IsValidTimeStamp(tip.m_TimeStamp);
+            Block::SystemState::Full state;
+            walletDB->get_History().get_At(state, stateID.m_Height);
+
+            Merkle::Hash stateHash;
+            state.get_Hash(stateHash);
+            assert(stateID.m_Hash == stateHash);
+
+            response.prevStateHash = state.m_Prev;
+            response.difficulty = state.m_PoW.m_Difficulty.ToFloat();
+            response.currentStateTimestamp = state.m_TimeStamp;
+            response.isInSync = IsValidTimeStamp(state.m_TimeStamp);
         }
 
         storage::Totals allTotals(*walletDB);

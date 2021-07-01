@@ -22,6 +22,7 @@ namespace beam::wallet
         , _swaps(init.swaps)
         , _contracts(init.contracts)
     {
+        // MUST BE SAFE TO CALL FROM ANY THREAD
         _ttypesMap[TokenType::RegularOldStyle] = "regular";
         _ttypesMap[TokenType::Offline]         = "offline";
         _ttypesMap[TokenType::MaxPrivacy]      = "max_privacy";

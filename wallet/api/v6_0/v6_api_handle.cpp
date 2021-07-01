@@ -652,17 +652,19 @@ namespace beam::wallet
         WalletStatusApi::Response response;
         auto walletDB = getWalletDB();
 
-        {
-            Block::SystemState::ID stateID = {};
-            walletDB->getSystemStateID(stateID);
-
-            response.currentHeight = stateID.m_Height;
-            response.currentStateHash = stateID.m_Hash;
-        }
+        Block::SystemState::ID stateID = {};
+        walletDB->getSystemStateID(stateID);
+        response.currentHeight = stateID.m_Height;
+        response.currentStateHash = stateID.m_Hash;
 
         {
             Block::SystemState::Full state;
-            walletDB->get_History().get_Tip(state);
+            walletDB->get_History().get_At(state, stateID.m_Height);
+
+            Merkle::Hash stateHash;
+            state.get_Hash(stateHash);
+            assert(stateID.m_Hash == stateHash);
+
             response.prevStateHash = state.m_Prev;
             response.difficulty = state.m_PoW.m_Difficulty.ToFloat();
         }

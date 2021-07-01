@@ -20,24 +20,20 @@ namespace beam::wallet
         , _apiVersionMajor(avMajor)
         , _apiVersionMinor(avMinor)
     {
+        // MUST BE SAFE TO CALL FROM ANY THREAD
         std::stringstream ss;
         ss << avMajor << "." << avMinor;
         _apiVersion = ss.str();
-
         _wallet = init.wallet;
-        if(_wallet)
-        {
-            _wallet->Subscribe(this);
-        }
-
         V6_1_API_METHODS(BEAM_API_REG_METHOD)
     }
 
     V61Api::~V61Api()
     {
-        if (_wallet)
+        if (_evSubscribed && _wallet)
         {
             _wallet->Unsubscribe(this);
+            _evSubscribed = false;
         }
     }
 }
