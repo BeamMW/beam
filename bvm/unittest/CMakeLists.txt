@@ -16,3 +16,4 @@ configure_file("../Shaders/voting/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/vo
 configure_file("../Shaders/voting/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/voting/app.wasm" COPYONLY)
 configure_file("../Shaders/demoXdao/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/demoXdao/contract.wasm" COPYONLY)
 configure_file("../Shaders/bridge/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/bridge/contract.wasm" COPYONLY)
+configure_file("../Shaders/mirrortoken/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/mirrortoken/contract.wasm" COPYONLY)

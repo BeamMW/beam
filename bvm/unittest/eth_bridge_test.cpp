@@ -48,6 +48,7 @@ namespace Shaders
 #include "../Shaders/Eth.h"
 
 #include "../Shaders/bridge/contract.h"
+#include "../Shaders/mirrortoken/contract.h"
 
 	/*template <bool bToShader> void Convert(Pipe::Create& x) {
 		ConvertOrd<bToShader>(x.m_Cfg.m_In.m_ComissionPerMsg);
@@ -429,9 +430,11 @@ namespace beam::bvm2
 		struct Code
 		{
 			ByteBuffer m_Bridge;
+			ByteBuffer m_MirrorToken;
 		} m_Code;
 
 		ContractID m_cidBridge;
+		ContractID m_cidMirrorToken;
 
         static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
         {
@@ -534,11 +537,27 @@ namespace beam::bvm2
 			std::cout << "TestBridge" << std::endl;
 		}
 
+		void TestMirrorToken()
+		{
+			Zero_ zero;
+			verify_test(ContractCreate_T(m_cidMirrorToken, m_Code.m_MirrorToken, zero));
+
+			bvm2::ShaderID sid;
+			bvm2::get_ShaderID(sid, m_Code.m_MirrorToken);
+
+			CidTxt ct;
+			ct.Set(sid);
+
+			std::cout << "TestMirrorToken" << std::endl;
+		}
+
         void TestAll()
         {
             AddCode(m_Code.m_Bridge, "bridge/contract.wasm");
+			AddCode(m_Code.m_MirrorToken, "mirrortoken/contract.wasm");
 
             TestBridge();
+			TestMirrorToken();
         }
     };
 

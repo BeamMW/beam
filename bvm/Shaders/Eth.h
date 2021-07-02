@@ -18,6 +18,7 @@
 
 namespace Eth
 {
+	using Address = Opaque<20>;
 
 	void MemCopy(void* dest, const void* src, uint32_t n)
 	{
