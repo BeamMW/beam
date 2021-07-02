@@ -4589,6 +4589,74 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ParseExtraInfo(std::string&
 				return m_This.get_HdrAt(s);
 			}
 
+			void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr& pOut) override
+			{
+				struct Context
+					:public IReadVars
+				{
+					NodeDB::WalkerContractData m_Wlk;
+
+					bool MoveNext() override
+					{
+						if (!m_Wlk.MoveNext())
+							return false;
+
+						m_LastKey = m_Wlk.m_Key;
+						m_LastVal = m_Wlk.m_Val;
+						return true;
+					}
+				};
+
+				pOut = std::make_unique<Context>();
+				auto& x = Cast::Up<Context>(*pOut);
+
+				assert(!m_This.m_Bic.m_Temporary);
+				m_This.m_Proc.get_DB().ContractDataEnum(x.m_Wlk, kMin, kMax);
+			}
+
+			void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax, IReadLogs::Ptr& pOut) override
+			{
+				struct Context
+					:public IReadLogs
+				{
+					NodeDB::ContractLog::Walker m_Wlk;
+
+					bool MoveNext() override
+					{
+						if (!m_Wlk.MoveNext())
+							return false;
+
+						m_LastKey = m_Wlk.m_Entry.m_Key;
+						m_LastVal = m_Wlk.m_Entry.m_Val;
+						m_LastPos = m_Wlk.m_Entry.m_Pos;
+						return true;
+					}
+				};
+
+				pOut = std::make_unique<Context>();
+				auto& x = Cast::Up<Context>(*pOut);
+
+				assert(!m_This.m_Bic.m_Temporary);
+
+				HeightPos hpMin, hpMax;
+				if (!pPosMin)
+				{
+					pPosMin = &hpMin;
+					hpMin = HeightPos(0);
+				}
+
+				if (!pPosMax)
+				{
+					pPosMax = &hpMax;
+					hpMax = HeightPos(MaxHeight);
+				}
+
+				if (kMin.n && kMax.n)
+					m_This.m_Proc.get_DB().ContractLogEnum(x.m_Wlk, kMin, kMax, *pPosMin, *pPosMax);
+				else
+					m_This.m_Proc.get_DB().ContractLogEnum(x.m_Wlk, *pPosMin, *pPosMax);
+			}
+
 			ProcessorInfoParser(BvmProcessor& x) :m_This(x) {}
 
 		} proc(*this);
