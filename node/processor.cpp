@@ -4664,14 +4664,22 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ParseExtraInfo(std::string&
 		proc.InitMem();
 		proc.m_Code = bufParser;
 
+		assert(m_FarCalls.m_Stack.size() == 1);
+		const auto& cid = m_FarCalls.m_Stack.back().m_Cid;
+
 		proc.m_Stack.AliasAlloc(sizeof(bvm2::ShaderID));
-		bvm2::get_ShaderID(*(bvm2::ShaderID*)proc.m_Stack.get_AliasPtr(), m_Code);
+		bvm2::get_ShaderID(*(bvm2::ShaderID*) proc.m_Stack.get_AliasPtr(), m_Code);
 		Wasm::Word pSid_ = proc.m_Stack.get_AlasSp();
+
+		proc.m_Stack.AliasAlloc(sizeof(cid));
+		*(bvm2::ContractID*) proc.m_Stack.get_AliasPtr() = cid;
+		Wasm::Word pCid_ = proc.m_Stack.get_AlasSp();
 
 		proc.m_Stack.PushAlias(args);
 		Wasm::Word pArgs_ = proc.m_Stack.get_AlasSp();
 
 		proc.m_Stack.Push(pSid_);
+		proc.m_Stack.Push(pCid_);
 		proc.m_Stack.Push(iMethod);
 		proc.m_Stack.Push(pArgs_);
 		proc.m_Stack.Push(args.n);
