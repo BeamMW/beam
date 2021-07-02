@@ -137,6 +137,37 @@ namespace manager
     {
         Env::DocAddNum32("aid", ReadAid(cid));
     }
+
+    void PushRemote(const ContractID& cid, uint32_t pckgId, uint32_t msgId, const Bridge::RemoteMsgHdr& msgHdr, const Eth::Header& header, uint32_t datasetCount)
+    {
+        uint32_t proofSize = Env::DocGetBlob("proof", nullptr, 0);
+        uint32_t receiptProofSize = Env::DocGetBlob("receiptProof", nullptr, 0);
+        uint32_t trieKeySize = Env::DocGetBlob("txIndex", nullptr, 0);
+        uint32_t msgDataSize = Env::DocGetBlob("msgData", nullptr, 0);
+        uint32_t fullArgsSize = sizeof(Bridge::PushRemote) + proofSize + receiptProofSize + trieKeySize + msgDataSize;
+        auto* arg = (Bridge::PushRemote*)Env::StackAlloc(fullArgsSize);
+        uint8_t* tmp = (uint8_t*)(arg + 1);
+
+        Env::DocGetBlob("powProof", tmp, proofSize);
+        tmp += proofSize;
+        Env::DocGetBlob("receiptProof", tmp, receiptProofSize);
+        tmp += receiptProofSize;
+        Env::DocGetBlob("txIndex", tmp, trieKeySize);
+        tmp += msgDataSize;
+        Env::DocGetBlob("msgData", tmp, msgDataSize);
+
+        arg->m_DatasetCount = datasetCount;
+        _POD_(arg->m_Header) = header;
+        _POD_(arg->m_MsgHdr) = msgHdr;
+        arg->m_MsgId = msgId;
+        arg->m_MsgSize = msgDataSize;
+        arg->m_PckgId = pckgId;
+        arg->m_ProofSize = proofSize;
+        arg->m_ReceiptProofSize = receiptProofSize;
+        arg->m_TrieKeySize = trieKeySize;
+
+        Env::GenerateKernel(&cid, arg->s_iMethod, arg, fullArgsSize, nullptr, 0, nullptr, 0, "Bridge::PushRemote", 0);
+    }
 } // namespace manager
 
 void OnError(const char* sz)
@@ -189,6 +220,12 @@ export void Method_0()
             {
                 Env::DocGroup grMethod("getAid");
                 Env::DocAddText("cid", "ContractID");
+            }
+            {
+                Env::DocGroup grMethod("pushRemote");
+                Env::DocAddText("cid", "ContractID");
+                Env::DocAddText("pckgId", "uint32");
+                Env::DocAddText("msgId", "uint32");
             }
         }
     }
@@ -250,6 +287,44 @@ export void Method_1()
             Env::DocGetNum32("datasetCount", &datasetCount);
 
             manager::ImportMsg(cid, amount, pk, header, datasetCount);
+            return;
+        }
+        if (!Env::Strcmp(szAction, "pushRemote"))
+        {
+            ContractID cid;
+            Env::DocGet("cid", cid);
+
+            Bridge::RemoteMsgHdr msgHdr;
+            Env::DocGet("contractReceiver", msgHdr.m_ContractReceiver);
+            Env::DocGetBlobEx("contractSender", &msgHdr.m_ContractSender, sizeof(msgHdr.m_ContractSender));
+            uint32_t pckgId = 0;
+            Env::DocGetNum32("pckgId", &pckgId);
+            uint32_t msgId = 0;
+            Env::DocGetNum32("msgId", &msgId);
+
+            // fill ETH header
+            Eth::Header header;
+            Env::DocGet("parentHash", header.m_ParentHash);
+            Env::DocGet("uncleHash", header.m_UncleHash);
+            Env::DocGetBlob("coinbase", &header.m_Coinbase, sizeof(header.m_Coinbase));
+            Env::DocGet("root", header.m_Root);
+            Env::DocGet("txHash", header.m_TxHash);
+            Env::DocGet("receiptHash", header.m_ReceiptHash);
+            Env::DocGetBlob("bloom", &header.m_Bloom, sizeof(header.m_Bloom));
+            header.m_nExtra = Env::DocGetBlob("extra", &header.m_Extra, sizeof(header.m_Extra));
+
+            Env::DocAddNum32("extra_size", header.m_nExtra);
+            Env::DocGetNum64("difficulty", &header.m_Difficulty);
+            Env::DocGetNum64("number", &header.m_Number);
+            Env::DocGetNum64("gasLimit", &header.m_GasLimit);
+            Env::DocGetNum64("gasUsed", &header.m_GasUsed);
+            Env::DocGetNum64("time", &header.m_Time);
+            Env::DocGetNum64("nonce", &header.m_Nonce);
+
+            uint32_t datasetCount = 0;
+            Env::DocGetNum32("datasetCount", &datasetCount);
+
+            manager::PushRemote(cid, pckgId, msgId, msgHdr, header, datasetCount);
             return;
         }
         if (!Env::Strcmp(szAction, "generateSeed"))
