@@ -36,7 +36,7 @@ namespace beam::wallet
         virtual void startTransaction(TxParameters&& parameters) = 0;
         virtual void syncWithNode() = 0;
         virtual void calcChange(Amount amount, Amount fee, Asset::ID assetId) = 0;
-        virtual void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded = false) = 0;
+        virtual void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded = false) = 0;
         virtual void getWalletStatus() = 0;
         virtual void getTransactions() = 0;
         virtual void getTransactions(AsyncCallback<const std::vector<TxDescription>&>&&) = 0;
