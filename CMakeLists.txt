@@ -103,6 +103,8 @@ set(BEAM_BRANCH_NAME ${BRANCH_NAME} CACHE INTERNAL "")
 
 message("BEAM_VERSION: ${PROJECT_VERSION}")
 
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+
 # imported target to setup dependency of beam
 add_library(beam INTERFACE IMPORTED GLOBAL)
 target_include_directories(beam INTERFACE 
@@ -119,16 +121,7 @@ if(UNIX AND NOT APPLE AND NOT ANDROID)
     set(LINUX TRUE CACHE INTERNAL "")
 endif()
 
-option(BEAM_TESTS_ENABLED "Enable unit tests" TRUE)
-if (BEAM_TESTS_ENABLED)
-    enable_testing()
-
-    function(add_test_snippet EXE_NAME LIB_NAME)
-        add_executable(${EXE_NAME} ${EXE_NAME}.cpp)
-        target_link_libraries(${EXE_NAME} ${LIB_NAME} ${ARGN})
-        add_test(NAME ${EXE_NAME} COMMAND $<TARGET_FILE:${EXE_NAME}>)
-    endfunction()
-endif()
+include(AddTest)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

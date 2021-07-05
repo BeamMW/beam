@@ -834,7 +834,7 @@ Amount GetBalance(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
     return result;
 }
 
-boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, Wallet& wallet, bool checkFee)
+boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, Wallet& wallet)
 {
     wallet::AtomicSwapCoin swapCoin = wallet::AtomicSwapCoin::Bitcoin;
 
@@ -938,7 +938,7 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
     Amount fee = 0;
     WalletID receiverWalletID(Zero);
 
-    if (!LoadBaseParamsForTX(vm, wallet, assetId, amount, fee, receiverWalletID, checkFee, true))
+    if (!LoadBaseParamsForTX(vm, wallet, assetId, amount, fee, receiverWalletID, true))
     {
         return boost::none;
     }
@@ -985,7 +985,7 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
     return currentTxID;
 }
 
-boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, Wallet& wallet, bool checkFee)
+boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, Wallet& wallet)
 {
     if (vm.count(cli::SWAP_TOKEN) == 0)
     {
@@ -1086,7 +1086,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
     }
 
     Amount fee = 0;
-    ReadFee(vm, fee, wallet, checkFee);
+    ReadFee(vm, fee, wallet);
 
     ProcessLibraryVersion(*swapTxParameters);
 

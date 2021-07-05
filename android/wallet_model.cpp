@@ -223,6 +223,7 @@ namespace
                 setLongField(env, UtxoClass, utxo, "maturity", coin.m_maturity);
                 setIntField(env, UtxoClass, utxo, "keyType", static_cast<jint>(coin.m_ID.m_Type));
                 setLongField(env, UtxoClass, utxo, "confirmHeight", coin.m_confirmHeight);
+                setIntField(env, UtxoClass, utxo, "assetId", coin.getAssetID());
 
                 if (coin.m_createTxId)
                     setStringField(env, UtxoClass, utxo, "createTxId", to_hex(coin.m_createTxId->data(), coin.m_createTxId->size()));

@@ -13,12 +13,12 @@ void SetMethod(const char* sz)
 	Env::DocAddText("", sz);
 }
 
-void OnType_Upgradable(uint32_t iMethod, const void* pArg, uint32_t nArg)
+void OnType_Upgradable(const ContractID& cid, uint32_t iMethod, const void* pArg, uint32_t nArg)
 {
 	// TODO
 }
 
-void OnType_Vault(uint32_t iMethod, const void* pArg, uint32_t nArg)
+void OnType_Vault(const ContractID& cid, uint32_t iMethod, const void* pArg, uint32_t nArg)
 {
 	switch (iMethod)
 	{
@@ -29,7 +29,7 @@ void OnType_Vault(uint32_t iMethod, const void* pArg, uint32_t nArg)
 	}
 }
 
-void OnType_Faucet(uint32_t iMethod, const void* pArg, uint32_t nArg)
+void OnType_Faucet(const ContractID& cid, uint32_t iMethod, const void* pArg, uint32_t nArg)
 {
 	switch (iMethod)
 	{
@@ -49,12 +49,12 @@ void OnType_Faucet(uint32_t iMethod, const void* pArg, uint32_t nArg)
 	}
 }
 
-export void Method_0(const ShaderID& sid, uint32_t iMethod, const void* pArg, uint32_t nArg)
+export void Method_0(const ShaderID& sid, const ContractID& cid, uint32_t iMethod, const void* pArg, uint32_t nArg)
 {
 #define HandleContract(name) \
 	if (_POD_(sid) == name::s_SID) { \
 		SetType(#name "/"); \
-		OnType_##name(iMethod, pArg, nArg); \
+		OnType_##name(cid, iMethod, pArg, nArg); \
 	} else
 	
 	HandleContract(Upgradable)

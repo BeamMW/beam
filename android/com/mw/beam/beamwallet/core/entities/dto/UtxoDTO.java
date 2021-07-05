@@ -25,4 +25,5 @@ public class UtxoDTO
 	public long confirmHeight;
 	public String createTxId;
 	public String spentTxId;
+	public int assetId;
 }
