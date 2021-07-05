@@ -28,7 +28,7 @@ export void Ctor(void*)
     uint32_t key = 0;
     Env::SaveVar_T(key, aid);
 
-    Env::SaveVar_T(Bridge::kLocalPckgCounterKey, uint32_t(0));
+    Env::SaveVar_T(Bridge::kLocalMsgCounterKey, uint32_t(0));
 }
 
 // Method_1 - destructor, called once when the contract is destroyed
@@ -145,15 +145,14 @@ export void Method_6(const Bridge::PushLocal& value)
     _POD_(pMsg->m_ContractReceiver) = value.m_ContractReceiver;
     Env::Memcpy(pMsg + 1, &value + 1, value.m_MsgSize);
 
-    uint32_t localPckgCounter = 0;
-    Env::LoadVar_T(Bridge::kLocalPckgCounterKey, localPckgCounter);
+    uint32_t localMsgCounter = 0;
+    Env::LoadVar_T(Bridge::kLocalMsgCounterKey, localMsgCounter);
 
     Bridge::LocalMsgHdr::Key msgKey;
-    msgKey.m_PckgId_BE = ++localPckgCounter;
-    msgKey.m_MsgId_BE = Utils::FromBE(uint32_t(0));
+    msgKey.m_MsgId_BE = Utils::FromBE(++localMsgCounter);
     Env::SaveVar(&msgKey, sizeof(msgKey), pMsg, size, KeyTag::Internal);
 
-    Env::SaveVar_T(Bridge::kLocalPckgCounterKey, localPckgCounter);
+    Env::SaveVar_T(Bridge::kLocalMsgCounterKey, localMsgCounter);
 }
 
 export void Method_7(const Bridge::PushRemote& value)
@@ -186,7 +185,6 @@ export void Method_7(const Bridge::PushRemote& value)
     Env::Memcpy(pMsg + 1, msgBody, value.m_MsgSize);
 
     Bridge::RemoteMsgHdr::Key keyMsg;
-    keyMsg.m_PckgId_BE = Utils::FromBE(value.m_PckgId);
     keyMsg.m_MsgId_BE = Utils::FromBE(value.m_MsgId);
 
     Env::SaveVar(&keyMsg, sizeof(keyMsg), pMsg, fullMsgSize, KeyTag::Internal);
@@ -195,7 +193,6 @@ export void Method_7(const Bridge::PushRemote& value)
 export void Method_8(Bridge::ReadRemote& value)
 {
     Bridge::RemoteMsgHdr::Key keyMsg;
-    keyMsg.m_PckgId_BE = Utils::FromBE(value.m_PckgId);
     keyMsg.m_MsgId_BE = Utils::FromBE(value.m_MsgId);
 
     uint32_t size = Env::LoadVar(&keyMsg, sizeof(keyMsg), nullptr, 0, KeyTag::Internal);

@@ -78,7 +78,6 @@ export void Method_4(const MirrorToken::Receive& r)
 #pragma pack (pop)
 
     Arg arg;
-    arg.m_PckgId = r.m_PckgId;
     arg.m_MsgId = r.m_MsgId;
     arg.m_MsgSize = sizeof(arg.m_Msg);
     Env::CallFar_T(params.m_BridgeID, arg);

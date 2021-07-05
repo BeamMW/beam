@@ -138,13 +138,13 @@ namespace manager
         Env::DocAddNum32("aid", ReadAid(cid));
     }
 
-    void PushRemote(const ContractID& cid, uint32_t pckgId, uint32_t msgId, const Bridge::RemoteMsgHdr& msgHdr, const Eth::Header& header, uint32_t datasetCount)
+    void PushRemote(const ContractID& cid, uint32_t msgId, const Bridge::RemoteMsgHdr& msgHdr, const Eth::Header& header, uint32_t datasetCount)
     {
         uint32_t proofSize = Env::DocGetBlob("proof", nullptr, 0);
         uint32_t receiptProofSize = Env::DocGetBlob("receiptProof", nullptr, 0);
         uint32_t trieKeySize = Env::DocGetBlob("txIndex", nullptr, 0);
-        uint32_t msgDataSize = Env::DocGetBlob("msgData", nullptr, 0);
-        uint32_t fullArgsSize = sizeof(Bridge::PushRemote) + proofSize + receiptProofSize + trieKeySize + msgDataSize;
+        uint32_t msgBodySize = Env::DocGetBlob("msgBody", nullptr, 0);
+        uint32_t fullArgsSize = sizeof(Bridge::PushRemote) + proofSize + receiptProofSize + trieKeySize + msgBodySize;
         auto* arg = (Bridge::PushRemote*)Env::StackAlloc(fullArgsSize);
         uint8_t* tmp = (uint8_t*)(arg + 1);
 
@@ -153,15 +153,14 @@ namespace manager
         Env::DocGetBlob("receiptProof", tmp, receiptProofSize);
         tmp += receiptProofSize;
         Env::DocGetBlob("txIndex", tmp, trieKeySize);
-        tmp += msgDataSize;
-        Env::DocGetBlob("msgData", tmp, msgDataSize);
+        tmp += msgBodySize;
+        Env::DocGetBlob("msgData", tmp, msgBodySize);
 
         arg->m_DatasetCount = datasetCount;
         _POD_(arg->m_Header) = header;
         _POD_(arg->m_MsgHdr) = msgHdr;
         arg->m_MsgId = msgId;
-        arg->m_MsgSize = msgDataSize;
-        arg->m_PckgId = pckgId;
+        arg->m_MsgSize = msgBodySize;
         arg->m_ProofSize = proofSize;
         arg->m_ReceiptProofSize = receiptProofSize;
         arg->m_TrieKeySize = trieKeySize;
@@ -224,7 +223,6 @@ export void Method_0()
             {
                 Env::DocGroup grMethod("pushRemote");
                 Env::DocAddText("cid", "ContractID");
-                Env::DocAddText("pckgId", "uint32");
                 Env::DocAddText("msgId", "uint32");
             }
         }
@@ -297,8 +295,6 @@ export void Method_1()
             Bridge::RemoteMsgHdr msgHdr;
             Env::DocGet("contractReceiver", msgHdr.m_ContractReceiver);
             Env::DocGetBlobEx("contractSender", &msgHdr.m_ContractSender, sizeof(msgHdr.m_ContractSender));
-            uint32_t pckgId = 0;
-            Env::DocGetNum32("pckgId", &pckgId);
             uint32_t msgId = 0;
             Env::DocGetNum32("msgId", &msgId);
 
@@ -324,7 +320,7 @@ export void Method_1()
             uint32_t datasetCount = 0;
             Env::DocGetNum32("datasetCount", &datasetCount);
 
-            manager::PushRemote(cid, pckgId, msgId, msgHdr, header, datasetCount);
+            manager::PushRemote(cid, msgId, msgHdr, header, datasetCount);
             return;
         }
         if (!Env::Strcmp(szAction, "generateSeed"))

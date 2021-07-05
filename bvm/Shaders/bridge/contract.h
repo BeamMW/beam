@@ -4,9 +4,9 @@
 namespace Bridge
 {
     // Hash of the compiled shader bytecode
-    static const ShaderID s_SID = { 0x2f,0xf7,0x22,0xc0,0x53,0x30,0xf4,0x5e,0xaf,0x8d,0xb1,0x4f,0xcf,0x9c,0x4e,0x52,0xf7,0xf2,0xd9,0xa2,0x85,0x54,0xfa,0x79,0x0a,0x89,0x04,0xf7,0x19,0xb5,0x71,0x5e };
+    static const ShaderID s_SID = { 0x23,0xb2,0x92,0x41,0x65,0x2d,0x75,0xe4,0x81,0xf1,0x06,0x67,0xb1,0x92,0x93,0x91,0xe3,0xad,0x41,0x5c,0xb5,0x6a,0xd5,0x9e,0xf0,0x5e,0x17,0x03,0xd3,0x09,0xf0,0x41 };
 
-    static const uint8_t kLocalPckgCounterKey = 5;
+    static const uint8_t kLocalMsgCounterKey = 5;
 
 #pragma pack (push, 1) // the following structures will be stored in the node in binary form
     struct Unlock
@@ -53,7 +53,6 @@ namespace Bridge
     {
         uint8_t m_Type;
         // big-endian, for simpler enumeration by app shader
-        uint32_t m_PckgId_BE;
         uint32_t m_MsgId_BE;
     };
 
@@ -92,7 +91,6 @@ namespace Bridge
     {
         static const uint32_t s_iMethod = 7;
 
-        uint32_t m_PckgId;
         uint32_t m_MsgId;
         RemoteMsgHdr m_MsgHdr;
         Eth::Header m_Header;
@@ -108,7 +106,6 @@ namespace Bridge
     {
         static const uint32_t s_iMethod = 8;
 
-        uint32_t m_PckgId;
         uint32_t m_MsgId;
         uint32_t m_MsgSize;
         // out

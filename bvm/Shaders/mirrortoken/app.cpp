@@ -134,11 +134,10 @@ struct IncomingWalker
 
         Env::Key_T<Bridge::RemoteMsgHdr::Key> k1;
         k1.m_Prefix.m_Cid = params.m_BridgeID;
-        k1.m_KeyInContract.m_PckgId_BE = Utils::FromBE(iStartFrom);
-        k1.m_KeyInContract.m_MsgId_BE = 0;
+        k1.m_KeyInContract.m_MsgId_BE = Utils::FromBE(iStartFrom);
 
         auto k2 = k1;
-        k2.m_KeyInContract.m_PckgId_BE = -1;
+        k2.m_KeyInContract.m_MsgId_BE = -1;
 
         m_Reader.Enum_T(k1, k2);
         return true;
@@ -173,7 +172,6 @@ void ViewIncoming(const ContractID& cid, const PubKey* pPk, uint32_t iStartFrom)
     while (wlk.MoveNext(pPk))
     {
         Env::DocGroup gr("");
-        Env::DocAddNum("PckgId", Utils::FromBE(wlk.m_Key.m_KeyInContract.m_PckgId_BE));
         Env::DocAddNum("MsgId", Utils::FromBE(wlk.m_Key.m_KeyInContract.m_MsgId_BE));
         Env::DocAddNum("amount", wlk.m_Msg.m_Amount);
 
@@ -305,7 +303,6 @@ ON_METHOD(user, receive_all)
     for (; wlk.MoveNext(&pk); nCount++)
     {
         MirrorToken::Receive pars;
-        pars.m_PckgId = Utils::FromBE(wlk.m_Key.m_KeyInContract.m_PckgId_BE);
         pars.m_MsgId = Utils::FromBE(wlk.m_Key.m_KeyInContract.m_MsgId_BE);
 
         fc.m_Amount = wlk.m_Msg.m_Amount;
