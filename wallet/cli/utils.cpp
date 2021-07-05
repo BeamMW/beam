@@ -82,13 +82,13 @@ namespace beam::wallet
         return hasShieldedOutputs ? fs.get_DefaultShieldedOut() : fs.get_DefaultStd();
     }
 
-    bool ReadFee(const po::variables_map& vm, Amount& fee, const Wallet& wallet, bool checkFee, bool hasShieldedOutputs /*= false*/)
+    bool ReadFee(const po::variables_map& vm, Amount& fee, const Wallet& wallet, bool hasShieldedOutputs /*= false*/)
     {
         if (auto it = vm.find(cli::FEE); it != vm.end())
         {
             fee = it->second.as<Positive<Amount>>().value;
             auto minFee = get_MinFee(wallet, hasShieldedOutputs);
-            if (checkFee && (fee < minFee))
+            if (fee < minFee)
             {
                 LOG_ERROR() << (boost::format(kErrorFeeToLow) % minFee).str();
                 return false;
@@ -153,7 +153,7 @@ namespace beam::wallet
         return true;
     }
 
-    bool LoadBaseParamsForTX(const po::variables_map& vm, const Wallet& wallet, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID)
+    bool LoadBaseParamsForTX(const po::variables_map& vm, const Wallet& wallet, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool skipReceiverWalletID)
     {
         bool hasShieldedOutputs = false;
         if (!skipReceiverWalletID)
@@ -178,7 +178,7 @@ namespace beam::wallet
             return false;
         }
 
-        if (!ReadFee(vm, fee, wallet, checkFee, hasShieldedOutputs))
+        if (!ReadFee(vm, fee, wallet, hasShieldedOutputs))
         {
             return false;
         }

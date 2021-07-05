@@ -2017,7 +2017,7 @@ namespace
         }
 
         Amount fee = 0;
-        if(!ReadFee(vm, fee, wallet, true))
+        if(!ReadFee(vm, fee, wallet))
         {
             return boost::none;
         }
@@ -2038,7 +2038,7 @@ namespace
         const auto strMeta = ReadAssetMeta(vm, false);
 
         Amount fee = 0;
-        if (!ReadFee(vm, fee, wallet, true))
+        if (!ReadFee(vm, fee, wallet))
         {
             return boost::none;
         }
@@ -2071,7 +2071,7 @@ namespace
         }
 
         Amount fee = 0;
-        if (!ReadFee(vm, fee, wallet, true))
+        if (!ReadFee(vm, fee, wallet))
         {
             return boost::none;
         }
@@ -2153,14 +2153,10 @@ namespace
 
 #endif  // BEAM_LASER_SUPPORT
 
-    int DoWalletFunc(const po::variables_map& vm, std::function<int (const po::variables_map&, Wallet::Ptr, IWalletDB::Ptr, boost::optional<TxID>&, bool)> func)
+    int DoWalletFunc(const po::variables_map& vm, std::function<int (const po::variables_map&, Wallet::Ptr, IWalletDB::Ptr, boost::optional<TxID>&)> func)
     {
         LOG_INFO() << kStartMessage;
         auto walletDB = OpenDataBase(vm);
-
-        const auto& currHeight = walletDB->getCurrentHeight();
-        const auto& fork1Height = Rules::get().pForks[1].m_Height;
-        const bool isFork1 = currHeight >= fork1Height;
 
         bool isServer = vm[cli::COMMAND].as<string>() == cli::LISTEN || vm.count(cli::LISTEN);
 
@@ -2206,7 +2202,7 @@ namespace
             wallet->AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(*wallet, nnet, walletDB));
             wallet->SetNodeEndpoint(nnet);
 
-            int res = func(vm, wallet, walletDB, currentTxID, isFork1);
+            int res = func(vm, wallet, walletDB, currentTxID);
             if (res != 0)
             {
                 return res;
@@ -2218,7 +2214,7 @@ namespace
 
     int Send(const po::variables_map& vm)
     {
-        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
             {
                 io::Address receiverAddr;
                 Asset::ID assetId = Asset::s_BeamID;
@@ -2226,7 +2222,7 @@ namespace
                 Amount fee = 0;
                 WalletID receiverWalletID(Zero);
 
-                if (!LoadBaseParamsForTX(vm, *wallet, assetId, amount, fee, receiverWalletID, isFork1))
+                if (!LoadBaseParamsForTX(vm, *wallet, assetId, amount, fee, receiverWalletID))
                 {
                     return -1;
                 }
@@ -2262,7 +2258,7 @@ namespace
 
     int ShaderInvoke(const po::variables_map& vm)
     {
-        return DoWalletFunc(vm, [](const po::variables_map& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+        return DoWalletFunc(vm, [](const po::variables_map& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
             {
 
 			    struct MyManager
@@ -2380,7 +2376,7 @@ namespace
 
     int Listen(const po::variables_map& vm)
     {
-        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
             {
                 return 0;
             });
@@ -2388,7 +2384,7 @@ namespace
     
     int Rescan(const po::variables_map& vm)
     {
-        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
             {
                 wallet->Rescan();
                 return 0;
@@ -2445,7 +2441,7 @@ namespace
             return -1;
         }
 
-        return DoWalletFunc(vm, [&txId](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+        return DoWalletFunc(vm, [&txId](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
             {
                 auto tx = walletDB->getTx(*txId);
                 if (tx)
@@ -2468,14 +2464,14 @@ namespace
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     int InitSwap(const po::variables_map& vm)
     {
-        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
             {
                 if (!wallet->IsWalletInSync())
                 {
                     return -1;
                 }
 
-                currentTxID = InitSwap(vm, walletDB, *wallet, isFork1);
+                currentTxID = InitSwap(vm, walletDB, *wallet);
                 if (!currentTxID)
                 {
                     return -1;
@@ -2487,9 +2483,9 @@ namespace
 
     int AcceptSwap(const po::variables_map& vm)
     {
-        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
             {
-                currentTxID = AcceptSwap(vm, walletDB, *wallet, isFork1);
+                currentTxID = AcceptSwap(vm, walletDB, *wallet);
                 if (!currentTxID)
                 {
                     return -1;
@@ -2567,7 +2563,7 @@ namespace
 
     int IssueAsset(const po::variables_map& vm)
     {
-        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
             {
                 currentTxID = IssueConsumeAsset(true, vm, *wallet, walletDB);
                 return currentTxID ? 0 : -1;
@@ -2576,7 +2572,7 @@ namespace
 
     int ConsumeAsset(const po::variables_map& vm)
     {
-        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
             {
                 currentTxID = IssueConsumeAsset(false, vm, *wallet, walletDB);
                 return currentTxID ? 0 : -1;
@@ -2585,7 +2581,7 @@ namespace
 
     int RegisterAsset(const po::variables_map& vm)
     {
-        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
             {
                 currentTxID = RegisterAsset(vm, *wallet);
                 return currentTxID ? 0 : -1;
@@ -2594,7 +2590,7 @@ namespace
 
     int UnregisterAsset(const po::variables_map& vm)
     {
-        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
             {
                 currentTxID = UnregisterAsset(vm, *wallet, walletDB);
                 return currentTxID ? 0 : -1;
@@ -2603,7 +2599,7 @@ namespace
 
     int GetAssetInfo(const po::variables_map& vm)
     {
-        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID, bool isFork1)
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
             {
                 currentTxID = GetAssetInfo(vm, *wallet);
                 return currentTxID ? 0: -1;
