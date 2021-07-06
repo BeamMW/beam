@@ -30,6 +30,7 @@ target_link_libraries(core
     PUBLIC
         Boost::boost
         p2p
+        utility
     PRIVATE
         pow
         pbkdf
