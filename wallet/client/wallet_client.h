@@ -197,6 +197,7 @@ namespace beam::wallet
         void syncWithNode() override;
         void calcChange(Amount amount, Amount fee, Asset::ID assetId) override;
         void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded = false) override;
+        void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded, AsyncCallback<const CoinsSelectionInfo&>&& callback);
         void getWalletStatus() override;
         void getTransactions() override;
         void getTransactions(AsyncCallback<const std::vector<TxDescription>&>&& callback) override;
@@ -355,7 +356,6 @@ namespace beam::wallet
         beam::Height m_currentHeight = 0;
         bool m_isConnectionTrusted = false;
         bool m_isSynced = false;
-        CoinsSelectionInfo m_CoinsSelectionResult;
         std::unique_ptr<Filter> m_shieldedPer24hFilter;
         beam::wallet::WalletStatus m_status;
         std::vector<std::pair<beam::Height, beam::TxoID>> m_shieldedCountHistoryPart;
