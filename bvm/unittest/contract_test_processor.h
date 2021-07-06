@@ -14,6 +14,58 @@
 
 #pragma once
 
+#include "../bvm2_impl.h"
+#include "utility/blobmap.h"
+
+namespace Shaders {
+
+	namespace Merkle {
+		using namespace beam::Merkle;
+	}
+
+	namespace Env {
+
+		extern "C" {
+
+#define PAR_DECL(type, name) type name
+#define MACRO_COMMA ,
+
+#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA));
+			BVMOpsAll_Common(THE_MACRO)
+			BVMOpsAll_Contract(THE_MACRO)
+			BVMOpsAll_Manager(THE_MACRO)
+#undef THE_MACRO
+
+#undef MACRO_COMMA
+#undef PAR_DECL
+
+		} // extern "C"
+
+		beam::bvm2::Processor* g_pEnv = nullptr;
+
+#define PAR_DECL(type, name) type name
+#define PAR_PASS(type, name) name
+#define MACRO_COMMA ,
+
+#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA)) { return Cast::Up<beam::bvm2::ProcessorPlusEnv>(g_pEnv)->OnHost_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); }
+		BVMOpsAll_Common(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA)) { return Cast::Up<beam::bvm2::ProcessorPlusEnv_Contract>(g_pEnv)->OnHost_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); }
+		BVMOpsAll_Contract(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA)) { return Cast::Up<beam::bvm2::ProcessorPlusEnv_Manager>(g_pEnv)->OnHost_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); }
+		BVMOpsAll_Manager(THE_MACRO)
+#undef THE_MACRO
+
+#undef MACRO_COMMA
+#undef PAR_PASS
+#undef PAR_DECL
+
+	} // namespace Env
+} // namespace Shaders
+
 namespace beam::bvm2
 {
 
@@ -417,45 +469,6 @@ namespace beam::bvm2
 			return RunGuarded(cid, 1, cvt, nullptr);
 		}
 
-		//struct Code
-		//{
-		//	ByteBuffer m_Vault;
-		//	ByteBuffer m_Oracle;
-		//	ByteBuffer m_Dummy;
-		//	ByteBuffer m_Sidechain;
-		//	ByteBuffer m_StableCoin;
-		//	ByteBuffer m_Faucet;
-		//	ByteBuffer m_Roulette;
-		//	ByteBuffer m_Perpetual;
-		//	ByteBuffer m_Pipe;
-		//	ByteBuffer m_MirrorCoin;
-		//	ByteBuffer m_Voting;
-		//	ByteBuffer m_DemoXdao;
-
-		//} m_Code;
-
-		//ContractID m_cidVault;
-		//ContractID m_cidOracle;
-		//ContractID m_cidStableCoin;
-		//ContractID m_cidFaucet;
-		//ContractID m_cidRoulette;
-		//ContractID m_cidDummy;
-		//ContractID m_cidSidechain;
-		//ContractID m_cidPerpetual;
-		//ContractID m_cidPipe;
-		//ContractID m_cidMirrorCoin1;
-		//ContractID m_cidMirrorCoin2;
-		//ContractID m_cidVoting;
-		//ContractID m_cidDemoXdao;
-
-		struct {
-
-			Shaders::Eth::Header m_Header;
-			uint32_t m_DatasetCount;
-			ByteBuffer m_Proof;
-
-		} m_Eth;
-
 		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
 		{
 			std::FStream fs;
@@ -498,157 +511,5 @@ namespace beam::bvm2
 				m_This.m_FarCalls.m_Stack.erase(intrusive::list<FarCalls::Frame>::s_iterator_to(m_Frame));
 			}
 		};
-
-		//virtual void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs) override
-		//{
-		//	if (cid == m_cidVault)
-		//	{
-		//		//TempFrame f(*this, cid);
-		//		//switch (iMethod)
-		//		//{
-		//		//case 0: Shaders::Vault::Ctor(nullptr); return;
-		//		//case 1: Shaders::Vault::Dtor(nullptr); return;
-		//		//case 2: Shaders::Vault::Method_2(CastArg<Shaders::Vault::Deposit>(pArgs)); return;
-		//		//case 3: Shaders::Vault::Method_3(CastArg<Shaders::Vault::Withdraw>(pArgs)); return;
-		//		//}
-		//	}
-
-		//	if (cid == m_cidOracle)
-		//	{
-		//		//TempFrame f(*this, cid);
-		//		//switch (iMethod)
-		//		//{
-		//		//case 0: Shaders::Oracle::Ctor(CastArg<Shaders::Oracle::Create<0> >(pArgs)); return;
-		//		//case 1: Shaders::Oracle::Dtor(nullptr); return;
-		//		//case 2: Shaders::Oracle::Method_2(CastArg<Shaders::Oracle::Set>(pArgs)); return;
-		//		//case 3: Shaders::Oracle::Method_3(CastArg<Shaders::Oracle::Get>(pArgs)); return;
-		//		//}
-		//	}
-
-		//	if (cid == m_cidStableCoin)
-		//	{
-		//		//TempFrame f(*this, cid);
-		//		//switch (iMethod)
-		//		//{
-		//		//case 0: Shaders::StableCoin::Ctor(CastArg<Shaders::StableCoin::Create<0> >(pArgs)); return;
-		//		//case 1: Shaders::StableCoin::Dtor(nullptr); return;
-		//		//case 2: Shaders::StableCoin::Method_2(CastArg<Shaders::StableCoin::UpdatePosition>(pArgs)); return;
-		//		//case 3: Shaders::StableCoin::Method_3(CastArg<Shaders::StableCoin::PlaceBid>(pArgs)); return;
-		//		//case 4: Shaders::StableCoin::Method_4(CastArg<Shaders::StableCoin::Grab>(pArgs)); return;
-		//		//}
-		//	}
-
-		//	if (cid == m_cidFaucet)
-		//	{
-		//		//TempFrame f(*this, cid);
-		//		//switch (iMethod)
-		//		//{
-		//		//case 0: Shaders::Faucet::Ctor(CastArg<Shaders::Faucet::Params>(pArgs)); return;
-		//		//case 1: Shaders::Faucet::Dtor(nullptr); return;
-		//		//case 2: Shaders::Faucet::Method_2(CastArg<Shaders::Faucet::Deposit>(pArgs)); return;
-		//		//case 3: Shaders::Faucet::Method_3(CastArg<Shaders::Faucet::Withdraw>(pArgs)); return;
-		//		//}
-		//	}
-
-		//	if (cid == m_cidRoulette)
-		//	{
-		//		//TempFrame f(*this, cid);
-		//		//switch (iMethod)
-		//		//{
-		//		//case 0: Shaders::Roulette::Ctor(CastArg<Shaders::Roulette::Params>(pArgs)); return;
-		//		//case 1: Shaders::Roulette::Dtor(nullptr); return;
-		//		//case 2: Shaders::Roulette::Method_2(CastArg<Shaders::Roulette::Spin>(pArgs)); return;
-		//		//case 3: Shaders::Roulette::Method_3(nullptr); return;
-		//		//case 4: Shaders::Roulette::Method_4(CastArg<Shaders::Roulette::Bid>(pArgs)); return;
-		//		//case 5: Shaders::Roulette::Method_5(CastArg<Shaders::Roulette::Take>(pArgs)); return;
-		//		//}
-		//	}
-
-		//	if (cid == m_cidDummy)
-		//	{
-		//		//TempFrame f(*this, cid);
-		//		//switch (iMethod)
-		//		//{
-		//		//case 9: Shaders::Dummy::Method_9(CastArg<Shaders::Dummy::VerifyBeamHeader>(pArgs)); return;
-		//		//case 11: Shaders::Dummy::Method_11(CastArg<Shaders::Dummy::TestRingSig>(pArgs)); return;
-		//		//case 12: Shaders::Dummy::Method_12(CastArg<Shaders::Dummy::TestEthHeader>(pArgs)); return;
-		//		//}
-		//	}
-
-		//	if (cid == m_cidSidechain)
-		//	{
-		//		//TempFrame f(*this, cid);
-		//		//switch (iMethod)
-		//		//{
-		//		//case 0: Shaders::Sidechain::Ctor(CastArg<Shaders::Sidechain::Init>(pArgs)); return;
-		//		//case 2: Shaders::Sidechain::Method_2(CastArg<Shaders::Sidechain::Grow<0> >(pArgs)); return;
-		//		//case 3: Shaders::Sidechain::Method_3(CastArg<Shaders::Sidechain::VerifyProof<0> >(pArgs)); return;
-		//		//case 4: Shaders::Sidechain::Method_4(CastArg<Shaders::Sidechain::WithdrawComission>(pArgs)); return;
-		//		//}
-		//	}
-
-		//	if (cid == m_cidPerpetual)
-		//	{
-		//		//TempFrame f(*this, cid);
-		//		//switch (iMethod)
-		//		//{
-		//		//case 0: Shaders::Perpetual::Ctor(CastArg<Shaders::Perpetual::Create>(pArgs)); return;
-		//		//case 2: Shaders::Perpetual::Method_2(CastArg<Shaders::Perpetual::CreateOffer>(pArgs)); return;
-		//		//case 3: Shaders::Perpetual::Method_3(CastArg<Shaders::Perpetual::CancelOffer>(pArgs)); return;
-		//		//}
-		//	}
-
-		//	if (cid == m_cidPipe)
-		//	{
-		//		//TempFrame f(*this, cid);
-		//		//switch (iMethod)
-		//		//{
-		//		//case 0: Shaders::Pipe::Ctor(CastArg<Shaders::Pipe::Create>(pArgs)); return;
-		//		//case 2: Shaders::Pipe::Method_2(CastArg<Shaders::Pipe::SetRemote>(pArgs)); return;
-		//		//case 3: Shaders::Pipe::Method_3(CastArg<Shaders::Pipe::PushLocal0>(pArgs)); return;
-		//		//case 4: Shaders::Pipe::Method_4(CastArg<Shaders::Pipe::PushRemote0>(pArgs)); return;
-		//		//case 5: Shaders::Pipe::Method_5(CastArg<Shaders::Pipe::FinalyzeRemote>(pArgs)); return;
-		//		//case 6: Shaders::Pipe::Method_6(CastArg<Shaders::Pipe::ReadRemote0>(pArgs)); return;
-		//		//case 7: Shaders::Pipe::Method_7(CastArg<Shaders::Pipe::Withdraw>(pArgs)); return;
-		//		//}
-		//	}
-
-		//	if ((cid == m_cidMirrorCoin1) || (cid == m_cidMirrorCoin2))
-		//	{
-		//		//TempFrame f(*this, cid);
-		//		//switch (iMethod)
-		//		//{
-		//		//case 0: Shaders::MirrorCoin::Ctor(CastArg<Shaders::MirrorCoin::Create0>(pArgs)); return;
-		//		//case 2: Shaders::MirrorCoin::Method_2(CastArg<Shaders::MirrorCoin::SetRemote>(pArgs)); return;
-		//		//case 3: Shaders::MirrorCoin::Method_3(CastArg<Shaders::MirrorCoin::Send>(pArgs)); return;
-		//		//case 4: Shaders::MirrorCoin::Method_4(CastArg<Shaders::MirrorCoin::Receive>(pArgs)); return;
-		//		//}
-		//	}
-
-		//	if (cid == m_cidVoting)
-		//	{
-		//		//TempFrame f(*this, cid);
-		//		//switch (iMethod)
-		//		//{
-		//		//case 2: Shaders::Voting::Method_2(CastArg<Shaders::Voting::OpenProposal>(pArgs)); return;
-		//		//case 3: Shaders::Voting::Method_3(CastArg<Shaders::Voting::Vote>(pArgs)); return;
-		//		//case 4: Shaders::Voting::Method_4(CastArg<Shaders::Voting::Withdraw>(pArgs)); return;
-		//		//}
-		//	}
-
-		//	if (cid == m_cidDemoXdao)
-		//	{
-		//		//TempFrame f(*this, cid);
-		//		//switch (iMethod)
-		//		//{
-		//		//case 0: Shaders::DemoXdao::Ctor(nullptr); return;
-		//		//case 3: Shaders::DemoXdao::Method_3(CastArg<Shaders::DemoXdao::GetPreallocated>(pArgs)); return;
-		//		//case 4: Shaders::DemoXdao::Method_4(CastArg<Shaders::DemoXdao::UpdPosFarming>(pArgs)); return;
-		//		//}
-		//	}
-
-		//	ProcessorContract::CallFar(cid, iMethod, pArgs);
-		//}
-
 	};
 }
