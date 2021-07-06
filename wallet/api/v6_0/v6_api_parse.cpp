@@ -824,11 +824,7 @@ namespace beam::wallet
         MethodInfo info;
         info.spendOffline = false;
         info.comment = beam::bvm2::getFullComment(realData);
-
-        // Fork3 height would work for now (anyway contract are available only after Fork3).
-        // Consider changing to real value. At the moment we cannot access height via wallet,
-        // since this can be not a wallet thread (parseAPIRequest can be called from any thread)
-        info.fee = beam::bvm2::getFullFee(realData, Rules::get().pForks[3].m_Height);
+        info.fee = beam::bvm2::getFullFee(realData, getWallet()->get_TipHeight());
 
         const auto fullSpend = beam::bvm2::getFullSpend(realData);
         for (const auto& spend: fullSpend)
