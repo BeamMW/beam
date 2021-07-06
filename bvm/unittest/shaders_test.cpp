@@ -36,30 +36,6 @@
 
 namespace Shaders {
 
-	namespace Merkle {
-		using namespace beam::Merkle;
-	}
-
-	namespace Env {
-
-		extern "C" {
-
-#define PAR_DECL(type, name) type name
-#define MACRO_COMMA ,
-
-#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA));
-			BVMOpsAll_Common(THE_MACRO)
-			BVMOpsAll_Contract(THE_MACRO)
-			BVMOpsAll_Manager(THE_MACRO)
-#undef THE_MACRO
-
-#undef MACRO_COMMA
-#undef PAR_DECL
-
-		} // extern "C"
-
-	} // namespace Env
-
 
 #ifdef _MSC_VER
 #	pragma warning (disable : 4200 4702) // unreachable code
@@ -264,28 +240,6 @@ namespace Shaders {
 
 	namespace Env {
 
-
-		beam::bvm2::Processor* g_pEnv = nullptr;
-
-#define PAR_DECL(type, name) type name
-#define PAR_PASS(type, name) name
-#define MACRO_COMMA ,
-
-#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA)) { return Cast::Up<beam::bvm2::ProcessorPlusEnv>(g_pEnv)->OnHost_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); }
-		BVMOpsAll_Common(THE_MACRO)
-#undef THE_MACRO
-
-#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA)) { return Cast::Up<beam::bvm2::ProcessorPlusEnv_Contract>(g_pEnv)->OnHost_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); }
-		BVMOpsAll_Contract(THE_MACRO)
-#undef THE_MACRO
-
-#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA)) { return Cast::Up<beam::bvm2::ProcessorPlusEnv_Manager>(g_pEnv)->OnHost_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); }
-		BVMOpsAll_Manager(THE_MACRO)
-#undef THE_MACRO
-
-#undef MACRO_COMMA
-#undef PAR_PASS
-#undef PAR_DECL
 
 		void CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint8_t bInheritContext);
 
