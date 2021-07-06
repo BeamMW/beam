@@ -52,6 +52,10 @@ namespace Env
     macro(ContractID, cid) \
     macro(uint32_t, iStartFrom)
 
+#define MirrorToken_user_receive(macro) \
+    macro(ContractID, cid) \
+    macro(uint32_t, msgId)
+
 #define MirrorToken_user_mint(macro) \
     macro(ContractID, cid) \
     macro(Amount, amount)
@@ -61,6 +65,7 @@ namespace Env
     macro(user, view_incoming) \
     macro(user, send) \
     macro(user, receive_all) \
+    macro(user, receive) \
     macro(user, mint)
 
 #define MirrorTokenRoles_All(macro) \
@@ -321,6 +326,39 @@ ON_METHOD(user, receive_all)
 
     if (!nCount)
         OnError("no unspent funds");
+}
+
+ON_METHOD(user, receive)
+{
+    ParamsPlus params;
+    if (!params.get(cid))
+        return;
+
+    Env::Key_T<Bridge::RemoteMsgHdr::Key> key;
+    key.m_Prefix.m_Cid = params.m_BridgeID;
+    key.m_KeyInContract.m_MsgId_BE = Utils::FromBE(msgId);
+
+    IncomingWalker::MyMsg msg;
+    if (Env::VarReader::Read_T(key, msg))
+    {
+
+        FundsChange fc;
+        fc.m_Aid = params.m_Aid;
+        fc.m_Amount = msg.m_Amount;
+        fc.m_Consume = 0;
+
+        MirrorToken::Receive pars;
+        pars.m_MsgId = msgId;
+
+        SigRequest sig;
+        sig.m_pID = &cid;
+        sig.m_nID = sizeof(cid);
+
+        Env::GenerateKernel(&cid, pars.s_iMethod, &pars, sizeof(pars), &fc, 1, &sig, 1, "Receive funds from MirrorToken", 0);
+        return;
+    }
+
+    OnError("absent message");
 }
 
 ON_METHOD(user, mint)
