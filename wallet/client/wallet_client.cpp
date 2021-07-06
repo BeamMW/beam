@@ -82,7 +82,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async((MethodType)&IWalletModelAsync::selectCoins, amount, beforehandMinFee, assetId, isShielded);
     }
 
-    void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded, AsyncCallback<const CoinsSelectionInfo&>&& callback)
+    void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded, AsyncCallback<const CoinsSelectionInfo&>&& callback) override
     {
         typedef void(IWalletModelAsync::* MethodType)(Amount, Amount, Asset::ID, bool, AsyncCallback<const CoinsSelectionInfo&>&&);
         call_async((MethodType)&IWalletModelAsync::selectCoins, amount, beforehandMinFee, assetId, isShielded, callback);
