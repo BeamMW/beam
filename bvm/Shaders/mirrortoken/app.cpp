@@ -40,7 +40,7 @@ namespace Env
     macro(ContractID, cid) \
     macro(uint32_t, iStartFrom)
 
-#define MirrorToken_user_view_addr(macro) \
+#define MirrorToken_user_get_pk(macro) \
     macro(ContractID, cid)
 
 #define MirrorToken_user_send(macro) \
@@ -53,7 +53,7 @@ namespace Env
     macro(uint32_t, iStartFrom)
 
 #define MirrorTokenRole_user(macro) \
-    macro(user, view_addr) \
+    macro(user, get_pk) \
     macro(user, view_incoming) \
     macro(user, send) \
     macro(user, receive_all)
@@ -250,7 +250,7 @@ void DerivePk(PubKey& pk, const ContractID& cid)
     Env::DerivePk(pk, &cid, sizeof(cid));
 }
 
-ON_METHOD(user, view_addr)
+ON_METHOD(user, get_pk)
 {
     PubKey pk;
     DerivePk(pk, cid);
