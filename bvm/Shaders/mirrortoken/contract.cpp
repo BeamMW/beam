@@ -93,3 +93,12 @@ export void Method_4(const MirrorToken::Receive& r)
     Env::AddSig(arg.m_Msg.m_User);
 }
 
+export void Method_5(const MirrorToken::Mint& mint)
+{
+    MirrorToken::Params params;
+    Env::LoadVar_T(MirrorToken::kParamsKey, params);
+
+    Env::AssetEmit(params.m_Aid, mint.m_Amount, 1);
+    Env::FundsUnlock(params.m_Aid, mint.m_Amount);
+}
+

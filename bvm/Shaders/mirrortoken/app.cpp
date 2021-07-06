@@ -52,11 +52,16 @@ namespace Env
     macro(ContractID, cid) \
     macro(uint32_t, iStartFrom)
 
+#define MirrorToken_user_mint(macro) \
+    macro(ContractID, cid) \
+    macro(Amount, amount)
+
 #define MirrorTokenRole_user(macro) \
     macro(user, get_pk) \
     macro(user, view_incoming) \
     macro(user, send) \
-    macro(user, receive_all)
+    macro(user, receive_all) \
+    macro(user, mint)
 
 #define MirrorTokenRoles_All(macro) \
     macro(manager) \
@@ -316,6 +321,23 @@ ON_METHOD(user, receive_all)
 
     if (!nCount)
         OnError("no unspent funds");
+}
+
+ON_METHOD(user, mint)
+{
+    ParamsPlus params;
+    if (!params.get(cid))
+        return;
+
+    FundsChange fc;
+    fc.m_Aid = params.m_Aid;
+    fc.m_Amount = amount;
+    fc.m_Consume = 0;
+
+    MirrorToken::Mint arg;
+    arg.m_Amount = amount;
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Mint MirrorToken", 0);
 }
 
 #undef ON_METHOD
