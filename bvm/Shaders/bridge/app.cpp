@@ -196,9 +196,9 @@ namespace manager
         uint32_t size = 0;
         uint32_t keySize = sizeof(msgKey);
         Bridge::LocalMsgHdr* pMsg;
-        reader.MoveNext(nullptr, keySize, pMsg, size, 1); // check result
-        pMsg = (Bridge::LocalMsgHdr*)Env::StackAlloc(size);
         reader.MoveNext(nullptr, keySize, pMsg, size, 0); // check result
+        pMsg = (Bridge::LocalMsgHdr*)Env::StackAlloc(size);
+        reader.MoveNext(nullptr, keySize, pMsg, size, 1); // check result
 
         Env::DocAddBlob_T("sender", pMsg->m_ContractSender);
         Env::DocAddBlob_T("receiver", pMsg->m_ContractReceiver);
