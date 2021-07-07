@@ -168,5 +168,19 @@ namespace beam::wallet
         {
             return;
         }
+
+        try
+        {
+            // TODO:
+        }
+        catch(std::exception& e)
+        {
+            LOG_ERROR() << "V61Api::onCoinsChanged failed: " << e.what();
+        }
+    }
+
+    void V61Api::onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)
+    {
+
     }
 }

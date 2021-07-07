@@ -621,7 +621,6 @@ namespace beam::wallet
         };
 
         walletDB->visitCoins(processCoin);
-
         walletDB->visitShieldedCoins(processCoin);
 
         if (data.sort.field != "default")

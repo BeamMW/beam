@@ -35,7 +35,8 @@ namespace beam::wallet
         void onSyncProgress(int done, int total) override;
         void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
         void onAssetChanged(beam::Asset::ID) override;
-        void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items);
+        void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items) override;
+        void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
         void fillAssetInfo(json& parent, const WalletAsset& info) override;
 
     private:

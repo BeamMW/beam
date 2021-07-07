@@ -35,6 +35,11 @@ namespace beam::wallet
             _evSubs = *data.assetChanged ? _evSubs | SubFlags::AssetChanged : _evSubs & ~SubFlags::AssetChanged;
         }
 
+        if (data.coinsChanged.is_initialized())
+        {
+            _evSubs = *data.coinsChanged ? _evSubs | SubFlags::CoinsChanged : _evSubs & ~SubFlags::CoinsChanged;
+        }
+
         if (_evSubs && !_subscribedToListener)
         {
             getWallet()->Subscribe(this);
@@ -66,6 +71,21 @@ namespace beam::wallet
                 onAssetChanged(info.m_ID);
                 return true;
             });
+        }
+
+        if ((_evSubs & SubFlags::CoinsChanged) != 0 && (oldSubs & SubFlags::CoinsChanged) == 0)
+        {
+            // TODO: add shielded
+            std::vector<Coin> coins;
+            getWalletDB()->visitCoins([&coins](const Coin& c) -> bool {
+                coins.push_back(c);
+                return true;
+            });
+
+            if (!coins.empty())
+            {
+                onCoinsChanged(ChangeAction::Reset, coins);
+            }
         }
     }
 
