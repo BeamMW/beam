@@ -15,9 +15,34 @@
 
 namespace beam::wallet
 {
+    namespace
+    {
+        void fillSystemState(json& parent, const Block::SystemState::ID& stateID, IWalletDB::Ptr walletDB)
+        {
+            Block::SystemState::Full state, tip;
+            walletDB->get_History().get_At(state, stateID.m_Height);
+            walletDB->get_History().get_Tip(tip);
+
+            Merkle::Hash stateHash, tipHash;
+            state.get_Hash(stateHash);
+            tip.get_Hash(tipHash);
+            assert(stateID.m_Hash == stateHash);
+
+            parent["current_height"] = stateID.m_Height;
+            parent["current_state_hash"] = to_hex(stateHash.m_pData, stateHash.nBytes);
+            parent["current_state_timestamp"] = state.m_TimeStamp;
+            parent["prev_state_hash"] = to_hex(state.m_Prev.m_pData, state.m_Prev.nBytes);
+            parent["is_in_sync"] = IsValidTimeStamp(state.m_TimeStamp);
+            parent["tip_height"] = tip.m_Height;
+            parent["tip_state_hash"] = to_hex(tipHash.m_pData, tipHash.nBytes);
+            parent["tip_state_timestamp"] = tip.m_TimeStamp;
+            parent["tip_prev_state_hash"] = to_hex(tip.m_Prev.m_pData, tip.m_Prev.nBytes);
+        }
+    }
+
     void V61Api::onSyncProgress(int done, int total)
     {
-        if (!_evSubscribed)
+        if ((_evSubs & SubFlags::SyncProgress) == 0)
         {
             return;
         }
@@ -30,41 +55,105 @@ namespace beam::wallet
             Block::SystemState::ID stateID = {};
             walletDB->getSystemStateID(stateID);
 
-            Block::SystemState::Full state, tip;
-            walletDB->get_History().get_At(state, stateID.m_Height);
-            walletDB->get_History().get_Tip(tip);
-
-            Merkle::Hash stateHash, tipHash;
-            state.get_Hash(stateHash);
-            tip.get_Hash(tipHash);
-            assert(stateID.m_Hash == stateHash);
-
             json msg = json
             {
                 {JsonRpcHeader, JsonRpcVersion},
                 {"id", "ev_sync_progress"},
                 {"result",
                     {
-                        {"current_height", stateID.m_Height},
-                        {"current_state_hash", to_hex(stateHash.m_pData, stateHash.nBytes)},
-                        {"current_state_timestamp", state.m_TimeStamp},
-                        {"prev_state_hash", to_hex(state.m_Prev.m_pData, state.m_Prev.nBytes)},
-                        {"is_in_sync", IsValidTimeStamp(state.m_TimeStamp)},
-                        {"tip_height", tip.m_Height},
-                        {"tip_state_hash", to_hex(tipHash.m_pData, tipHash.nBytes)},
-                        {"tip_state_timestamp", tip.m_TimeStamp},
-                        {"tip_prev_state_hash", to_hex(tip.m_Prev.m_pData, tip.m_Prev.nBytes)},
                         {"done", done},
                         {"total", total}
                     }
                 }
             };
 
+            fillSystemState(msg["result"], stateID, getWalletDB());
             _handler.sendAPIResponse(msg);
         }
         catch(std::exception& e)
         {
             LOG_ERROR() << "V61Api::onSyncProgress failed: " << e.what();
+        }
+    }
+
+    void V61Api::onSystemStateChanged(const Block::SystemState::ID& stateID)
+    {
+         if ((_evSubs & SubFlags::SystemState) == 0)
+        {
+            return;
+        }
+
+        // THIS METHOD IS NOT GUARDED
+        try
+        {
+            json msg = json
+            {
+                {JsonRpcHeader, JsonRpcVersion},
+                {"id", "ev_system_state"},
+                {"result", {}}
+            };
+
+            fillSystemState(msg["result"], stateID, getWalletDB());
+            _handler.sendAPIResponse(msg);
+        }
+        catch(std::exception& e)
+        {
+            LOG_ERROR() << "V61Api::onSystemStateChanged failed: " << e.what();
+        }
+    }
+
+    void V61Api::fillAssetInfo(json& res, const WalletAsset& info)
+    {
+        // V6 behavior
+        V6Api::fillAssetInfo(res, info);
+
+        // V6.1 additions
+        WalletAssetMeta meta(info);
+        auto pairs = meta.GetMetaMap();
+
+        res["metadata_kv"]  = pairs.size() != 0;
+        res["metadata_std_min"] = meta.isStd_v5_0();
+        res["metadata_std"] = meta.isStd();
+
+        if (!pairs.empty())
+        {
+            res["metadata_pairs"] = json::object();
+            for (auto& pair: pairs)
+            {
+                res["metadata_pairs"][pair.first] = pair.second;
+            }
+        }
+    }
+
+    void V61Api::onAssetChanged(beam::Asset::ID assetId)
+    {
+        try
+        {
+            json msg = json
+            {
+                {JsonRpcHeader, JsonRpcVersion},
+                {"id", "ev_asset_changed"},
+                {"result", json::object()}
+            };
+
+            json& res = msg["result"];
+            auto walletDB = getWalletDB();
+
+            if (const auto oasset = walletDB->findAsset(assetId))
+            {
+                fillAssetInfo(res, *oasset);
+            }
+            else
+            {
+                res["asset_id"] = assetId;
+                res["dropped"]  = true;
+            }
+
+            _handler.sendAPIResponse(msg);
+        }
+        catch(std::exception& e)
+        {
+            LOG_ERROR() << "V61Api::onAssetChanged failed: " << e.what();
         }
     }
 }

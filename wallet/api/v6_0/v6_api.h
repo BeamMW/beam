@@ -41,6 +41,9 @@ namespace beam::wallet
         V6_API_METHODS(BEAM_API_RESPONSE_FUNC)
         V6_API_METHODS(BEAM_API_HANDLE_FUNC)
 
+    protected:
+        virtual void fillAssetInfo(json& parent, const WalletAsset& info);
+
     private:
         void FillAddressData(const AddressData& data, WalletAddress& address);
         void doTxAlreadyExistsError(const JsonRpcId& id);

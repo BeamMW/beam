@@ -1,14 +1,26 @@
 const net = require('net');
 const client = new net.Socket();
 
+client.setEncoding('utf8')
 client.connect(10000, '127.0.0.1', function() {
 	console.log('Connected')
+	/*client.write(JSON.stringify(
+		{
+			jsonrpc: '2.0',
+			id: 'ev_subscribe',
+			method: 'get_asset_info',
+			params: {
+				"asset_id": 1
+			}
+		}) + '\n')*/
 	client.write(JSON.stringify(
 		{
 			jsonrpc: '2.0',
 			id: 'ev_subscribe',
-			method: 'ev_subscribe',
-			params: {}
+			method: 'ev_subunsub',
+			params: {
+				"ev_asset_changed": true
+			}
 		}) + '\n')
 })
 
@@ -25,14 +37,23 @@ client.on('close', function() {
 })
 
 let acc = ''
-client.on('data', function(data) {
-	acc += data;
-
-	// searching for \n symbol to find end of response
-	if(data.indexOf('\n') !== -1)
+function onData (data) {
+	data = data.toString()
+	let br = data.indexOf('\n')
+	if (br === -1)
 	{
-		let res = JSON.parse(acc)
-		acc = ""
-		console.log('Received:', res)
+		acc += data
 	}
-})
+	else
+	{
+		acc += data.substring(0, br)
+
+		let res = JSON.parse(acc);
+		console.log('Received:', res)
+		acc = ""
+
+		onData(data.substring(br + 1))
+	}
+}
+
+client.on('data', onData);

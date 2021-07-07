@@ -16,21 +16,16 @@
 namespace beam::wallet
 {
     #define V6_1_API_METHODS(macro) \
-        macro(EvSubscribe,     "ev_subscribe",    API_READ_ACCESS, API_SYNC,  APPS_ALLOWED) \
-        macro(EvUnsubscribe,   "ev_unsubscribe",  API_READ_ACCESS, API_SYNC,  APPS_ALLOWED) \
-        macro(GetVersion,      "get_version",     API_READ_ACCESS, API_SYNC,  APPS_ALLOWED) \
-        macro(WalletStatusV61, "wallet_status",   API_READ_ACCESS, API_SYNC,  APPS_ALLOWED)
+        macro(EvSubUnsub,      "ev_subunsub",    API_READ_ACCESS, API_SYNC,  APPS_ALLOWED) \
+        macro(GetVersion,      "get_version",    API_READ_ACCESS, API_SYNC,  APPS_ALLOWED) \
+        macro(WalletStatusV61, "wallet_status",  API_READ_ACCESS, API_SYNC,  APPS_ALLOWED)
 
-    struct EvSubscribe
+    struct EvSubUnsub
     {
-        struct Response
-        {
-            bool result;
-        };
-    };
+        boost::optional<bool> syncProgress = boost::none;
+        boost::optional<bool> systemState  = boost::none;
+        boost::optional<bool> assetChanged = boost::none;
 
-    struct EvUnsubscribe
-    {
         struct Response
         {
             bool result;

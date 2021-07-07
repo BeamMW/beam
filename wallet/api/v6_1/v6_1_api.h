@@ -33,9 +33,20 @@ namespace beam::wallet
 
     protected:
         void onSyncProgress(int done, int total) override;
+        void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
+        void onAssetChanged(beam::Asset::ID) override;
+        void fillAssetInfo(json& parent, const WalletAsset& info) override;
 
     private:
-        bool _evSubscribed = false;
+        struct SubFlags {
+            typedef uint32_t Type;
+            static const uint32_t SyncProgress = 1 << 0;
+            static const uint32_t SystemState  = 1 << 1;
+            static const uint32_t AssetChanged = 1 << 2;
+        };
+
+        bool _subscribedToListener = false;
+        SubFlags::Type _evSubs = 0;
         std::string _apiVersion;
         unsigned _apiVersionMajor;
         unsigned _apiVersionMinor;

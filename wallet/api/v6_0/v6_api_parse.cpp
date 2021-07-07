@@ -1091,6 +1091,25 @@ namespace beam::wallet
         };
     }
 
+    void V6Api::fillAssetInfo(json& res, const WalletAsset& info)
+    {
+        std::string strMeta;
+        info.m_Metadata.get_String(strMeta);
+
+        res["asset_id"]      = info.m_ID;
+        res["lockHeight"]    = info.m_LockHeight;
+        res["refreshHeight"] = info.m_RefreshHeight;
+        res["ownerId"]       = info.m_Owner.str();
+        res["isOwned"]       = info.m_IsOwned;
+        res["metadata"]      = strMeta;
+        res["emission_str"]  = std::to_string(info.m_Value);
+
+        if(info.m_Value <= kMaxAllowedInt)
+        {
+            res["emission"] = AmountBig::get_Lo(info.m_Value);
+        }
+    }
+
     void V6Api::getResponse(const JsonRpcId &id, const GetAssetInfo::Response &res, json &msg)
     {
         std::string strMeta;
@@ -1100,25 +1119,10 @@ namespace beam::wallet
         {
             {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
-            {"result",
-                {
-                    {"asset_id",      res.AssetInfo.m_ID},
-                    {"lockHeight",    res.AssetInfo.m_LockHeight},
-                    {"refreshHeight", res.AssetInfo.m_RefreshHeight},
-                    {"ownerId",       res.AssetInfo.m_Owner.str()},
-                    {"isOwned",       res.AssetInfo.m_IsOwned},
-                    {"metadata",      strMeta}
-                }
-            }
+            {"result", json::object()}
         };
 
-        auto& jsres = msg["result"];
-        if(res.AssetInfo.m_Value <= kMaxAllowedInt)
-        {
-            jsres["emission"] = AmountBig::get_Lo(res.AssetInfo.m_Value);
-        }
-
-        jsres["emission_str"] = std::to_string(res.AssetInfo.m_Value);
+        fillAssetInfo(msg["result"], res.AssetInfo);
     }
 
     void V6Api::getResponse(const JsonRpcId &id, const SetConfirmationsCount::Response &res, json &msg)

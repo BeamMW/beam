@@ -15,29 +15,16 @@
 
 namespace beam::wallet
 {
-    std::pair<EvSubscribe, IWalletApi::MethodInfo> V61Api::onParseEvSubscribe(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<EvSubUnsub, IWalletApi::MethodInfo> V61Api::onParseEvSubUnsub(const JsonRpcId& id, const nlohmann::json& params)
     {
-        EvSubscribe message{};
+        EvSubUnsub message;
+        message.syncProgress = getOptionalParam<bool>(params, "ev_sync_progress");
+        message.systemState  = getOptionalParam<bool>(params, "ev_system_state");
+        message.assetChanged = getOptionalParam<bool>(params, "ev_asset_changed");
         return std::make_pair(message, MethodInfo());
     }
 
-    void V61Api::getResponse(const JsonRpcId& id, const EvSubscribe::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHeader, JsonRpcVersion},
-            {"id", id},
-            {"result", res.result}
-        };
-    }
-
-    std::pair<EvUnsubscribe, IWalletApi::MethodInfo> V61Api::onParseEvUnsubscribe(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        EvUnsubscribe message{};
-        return std::make_pair(message, MethodInfo());
-    }
-
-    void V61Api::getResponse(const JsonRpcId& id, const EvUnsubscribe::Response& res, json& msg)
+    void V61Api::getResponse(const JsonRpcId& id, const EvSubUnsub::Response& res, json& msg)
     {
         msg = json
         {

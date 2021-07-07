@@ -6296,7 +6296,7 @@ namespace beam::wallet
                 if (auto asset = wdb.findAsset(assetID))
                 {
                     WalletAssetMeta meta(*asset);
-                    if (meta.isStd())
+                    if (meta.isStd_v5_0())
                     {
                         uname = meta.GetUnitName();
                         nthname = meta.GetNthUnitName();

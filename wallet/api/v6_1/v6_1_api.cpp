@@ -30,10 +30,10 @@ namespace beam::wallet
 
     V61Api::~V61Api()
     {
-        if (_evSubscribed && _wallet)
+        if (_subscribedToListener && _wallet)
         {
             _wallet->Unsubscribe(this);
-            _evSubscribed = false;
+            _subscribedToListener = false;
         }
     }
 }

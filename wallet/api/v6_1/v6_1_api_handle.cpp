@@ -16,28 +16,57 @@
 
 namespace beam::wallet
 {
-    void V61Api::onHandleEvSubscribe(const JsonRpcId &id, const EvSubscribe &data)
+    void V61Api::onHandleEvSubUnsub(const JsonRpcId &id, const EvSubUnsub &data)
     {
-        if (!_evSubscribed)
+        auto oldSubs = _evSubs;
+
+        if (data.systemState.is_initialized())
         {
-            _evSubscribed = true;
+            _evSubs = *data.systemState ? _evSubs | SubFlags::SystemState : _evSubs & ~SubFlags::SystemState;
+        }
+
+        if (data.syncProgress.is_initialized())
+        {
+            _evSubs = *data.syncProgress ? _evSubs | SubFlags::SyncProgress : _evSubs & ~SubFlags::SyncProgress;
+        }
+
+        if (data.assetChanged.is_initialized())
+        {
+            _evSubs = *data.assetChanged ? _evSubs | SubFlags::AssetChanged : _evSubs & ~SubFlags::AssetChanged;
+        }
+
+        if (_evSubs && !_subscribedToListener)
+        {
             getWallet()->Subscribe(this);
+            _subscribedToListener = true;
         }
 
-        EvSubscribe::Response resp{true};
-        return doResponse(id, resp);
-    }
-
-    void V61Api::onHandleEvUnsubscribe(const JsonRpcId& id, const EvUnsubscribe& params)
-    {
-        if (_evSubscribed)
-        {
-            getWallet()->Unsubscribe(this);
-            _evSubscribed = false;
-        }
-
-        EvUnsubscribe::Response resp{true};
+        EvSubUnsub::Response resp{true};
         doResponse(id, resp);
+
+        //
+        // Generate all newly subscribed events immediately
+        // This is convenient for subscribers to get initial system state
+        //
+        if ((_evSubs & SubFlags::SystemState) != 0 && (oldSubs & SubFlags::SystemState) == 0)
+        {
+            Block::SystemState::ID stateID = {};
+            getWalletDB()->getSystemStateID(stateID);
+            onSystemStateChanged(stateID);
+        }
+
+        if ((_evSubs & SubFlags::SyncProgress) != 0 && (oldSubs & SubFlags::SyncProgress) == 0)
+        {
+            onSyncProgress(0, 0);
+        }
+
+        if ((_evSubs & SubFlags::AssetChanged) != 0 && (oldSubs & SubFlags::AssetChanged) == 0)
+        {
+            getWalletDB()->visitAssets([this](const WalletAsset& info) -> bool {
+                onAssetChanged(info.m_ID);
+                return true;
+            });
+        }
     }
 
     void V61Api::onHandleGetVersion(const JsonRpcId& id, const GetVersion& params)
