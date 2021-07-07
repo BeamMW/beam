@@ -145,7 +145,7 @@ namespace manager
 
     void PushRemote(const ContractID& cid, uint32_t msgId, const Bridge::RemoteMsgHdr& msgHdr, const Eth::Header& header, uint32_t datasetCount)
     {
-        uint32_t proofSize = Env::DocGetBlob("proof", nullptr, 0);
+        uint32_t proofSize = Env::DocGetBlob("powProof", nullptr, 0);
         uint32_t receiptProofSize = Env::DocGetBlob("receiptProof", nullptr, 0);
         uint32_t trieKeySize = Env::DocGetBlob("txIndex", nullptr, 0);
         uint32_t msgBodySize = Env::DocGetBlob("msgBody", nullptr, 0);
@@ -158,8 +158,8 @@ namespace manager
         Env::DocGetBlob("receiptProof", tmp, receiptProofSize);
         tmp += receiptProofSize;
         Env::DocGetBlob("txIndex", tmp, trieKeySize);
-        tmp += msgBodySize;
-        Env::DocGetBlob("msgData", tmp, msgBodySize);
+        tmp += trieKeySize;
+        Env::DocGetBlob("msgBody", tmp, msgBodySize);
 
         arg->m_DatasetCount = datasetCount;
         _POD_(arg->m_Header) = header;
