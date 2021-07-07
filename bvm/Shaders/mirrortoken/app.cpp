@@ -264,7 +264,7 @@ ON_METHOD(user, get_pk)
 {
     PubKey pk;
     DerivePk(pk, cid);
-    Env::DocAddBlob_T("addr", pk);
+    Env::DocAddBlob_T("pk", pk);
 }
 
 ON_METHOD(user, view_incoming)
