@@ -108,14 +108,15 @@ extern "C" {
     return beam::wallet::CheckReceiverAddress(JString(env, address).value());
  }
 
- JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(selectCoins)(JNIEnv *env, jobject thiz, jlong amount, jlong fee, jboolean isShielded)
+ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(selectCoins)(JNIEnv *env, jobject thiz, jlong amount, jlong fee, jboolean isShielded, jint assetId)
  {
     LOG_DEBUG() << "selectCoins()";
 
     Amount bAmount = Amount(amount);
     Amount bFee = Amount(fee);
+    uint32_t asset = assetId;
 
-    walletModel->getAsync()->selectCoins(bAmount, bFee, beam::Asset::s_BeamID, isShielded);
+    walletModel->getAsync()->selectCoins(bAmount, bFee, beam::Asset::ID(asset), isShielded);
  }
 
 JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(isToken)(JNIEnv *env, jobject thiz, jstring token)
@@ -682,34 +683,6 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
     walletModel->getAsync()->startTransaction(std::move(params));
 }
 
-JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendMoney)(JNIEnv *env, jobject thiz,
-    jstring senderAddr, jstring receiverAddr, jstring comment, jlong amount, jlong fee)
-{
-    LOG_DEBUG() << "sendMoney(" << JString(env, senderAddr).value() << ", " << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
-
-    WalletID receiverID(Zero);
-    receiverID.FromHex(JString(env, receiverAddr).value());
-
-    auto sender = JString(env, senderAddr).value();
-
-    if (sender.empty())
-    {
-        walletModel->getAsync()->sendMoney(receiverID
-            , JString(env, comment).value()
-            , Amount(amount)
-            , Amount(fee));
-    }
-    else
-    {
-        WalletID senderID(Zero);
-        senderID.FromHex(sender);
-
-        walletModel->getAsync()->sendMoney(senderID, receiverID
-            , JString(env, comment).value()
-            , Amount(amount)
-            , Amount(fee));
-    }
-}
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(calcChange)(JNIEnv *env, jobject thiz,
     jlong amount)
