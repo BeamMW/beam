@@ -24,6 +24,11 @@ namespace
 
         Env::VarReader::Read_T(key, msg);
     }
+
+    void OnError(const char* sz)
+    {
+        Env::DocAddText("error", sz);
+    }
 } // namespace
 
 namespace manager
@@ -167,12 +172,33 @@ namespace manager
 
         Env::GenerateKernel(&cid, arg->s_iMethod, arg, fullArgsSize, nullptr, 0, nullptr, 0, "Bridge::PushRemote", 0);
     }
-} // namespace manager
 
-void OnError(const char* sz)
-{
-    Env::DocAddText("error", sz);
-}
+    void GetLocalMsgProof(const ContractID& cid, uint32_t msgId)
+    {
+        {
+            Env::Key_T<Bridge::LocalMsgHdr::Key> key;
+            key.m_Prefix.m_Cid = cid;
+            key.m_KeyInContract.m_MsgId_BE = Utils::FromBE(msgId);
+
+            const uint8_t* msg;
+            uint32_t msgTotalSize;
+            const Merkle::Node* proof;
+
+            uint32_t proofCount = Env::VarGetProof(&key, sizeof(key), (const void**)&msg, &msgTotalSize, &proof);
+
+            if (!proofCount)
+            {
+                OnError("no such a checkpoint");
+                return;
+            }
+
+            Env::DocAddBlob("Msg", msg, msgTotalSize);
+            Env::DocGroup root("Proof");
+            Env::DocAddNum("count", proofCount);
+            Env::DocAddBlob("nodes", proof, sizeof(*proof) * proofCount);
+        }
+    }
+} // namespace manager
 
 export void Method_0()
 {
@@ -225,6 +251,11 @@ export void Method_0()
                 Env::DocAddText("cid", "ContractID");
                 Env::DocAddText("msgId", "uint32");
             }
+            {
+                Env::DocGroup grMethod("getLocalMsgProof");
+                Env::DocAddText("cid", "ContractID");
+                Env::DocAddText("msgId", "uint32");
+            }
         }
     }
 }
@@ -233,7 +264,7 @@ export void Method_1()
 {
     Env::DocGroup root("");
 
-    char szRole[0x10], szAction[0x10];
+    char szRole[0x10], szAction[0x12];
 
     if (!Env::DocGetText("role", szRole, sizeof(szRole)))
         return OnError("Role not specified");
@@ -411,6 +442,19 @@ export void Method_1()
             Env::DocGet("cid", cid);
             manager::GetAid(cid);
             return;
+        }
+        if (!Env::Strcmp(szAction, "getLocalMsgProof"))
+        {
+            ContractID cid;
+            Env::DocGet("cid", cid);
+            uint32_t msgId = 0;
+            Env::DocGetNum32("msgId", &msgId);
+            manager::GetLocalMsgProof(cid, msgId);
+            return;
+        }
+        else
+        {
+            return OnError("invalid Action.");
         }
     }
 }
