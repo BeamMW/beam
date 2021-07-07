@@ -173,6 +173,39 @@ namespace manager
         Env::GenerateKernel(&cid, arg->s_iMethod, arg, fullArgsSize, nullptr, 0, nullptr, 0, "Bridge::PushRemote", 0);
     }
 
+    void GetLocalMsgAmount(const ContractID& cid)
+    {
+        Env::Key_T<uint8_t> key;
+        key.m_KeyInContract = Bridge::kLocalMsgCounterKey;
+        key.m_Prefix.m_Cid = cid;
+        
+        uint32_t localMsgCounter = 0;
+        Env::VarReader::Read_T(key, localMsgCounter);
+
+        Env::DocAddNum32("amount", localMsgCounter);
+    }
+
+    void GetLocalMsg(const ContractID& cid, uint32_t msgId)
+    {
+        Env::Key_T<Bridge::LocalMsgHdr::Key> msgKey;
+        msgKey.m_Prefix.m_Cid = cid;
+        msgKey.m_KeyInContract.m_MsgId_BE = Utils::FromBE(msgId);
+
+        Env::VarReader reader(msgKey, msgKey);
+
+        uint32_t size = 0;
+        uint32_t keySize = sizeof(msgKey);
+        Bridge::LocalMsgHdr* pMsg;
+        reader.MoveNext(nullptr, keySize, pMsg, size, 1); // check result
+        pMsg = (Bridge::LocalMsgHdr*)Env::StackAlloc(size);
+        reader.MoveNext(nullptr, keySize, pMsg, size, 0); // check result
+
+        Env::DocAddBlob_T("sender", pMsg->m_ContractSender);
+        Env::DocAddBlob_T("receiver", pMsg->m_ContractReceiver);
+        Env::DocAddBlob("body", pMsg + 1, size - sizeof(*pMsg));
+        Env::DocAddBlob("msg", pMsg, size);
+    }
+
     void GetLocalMsgProof(const ContractID& cid, uint32_t msgId)
     {
         {
@@ -248,6 +281,15 @@ export void Method_0()
             }
             {
                 Env::DocGroup grMethod("pushRemote");
+                Env::DocAddText("cid", "ContractID");
+                Env::DocAddText("msgId", "uint32");
+            }
+            {
+                Env::DocGroup grMethod("getLocalMsgAmount");
+                Env::DocAddText("cid", "ContractID");
+            }
+            {
+                Env::DocGroup grMethod("getLocalMsg");
                 Env::DocAddText("cid", "ContractID");
                 Env::DocAddText("msgId", "uint32");
             }
@@ -441,6 +483,22 @@ export void Method_1()
             ContractID cid;
             Env::DocGet("cid", cid);
             manager::GetAid(cid);
+            return;
+        }
+        if (!Env::Strcmp(szAction, "getLocalMsgAmount"))
+        {
+            ContractID cid;
+            Env::DocGet("cid", cid);
+            manager::GetLocalMsgAmount(cid);
+            return;
+        }
+        if (!Env::Strcmp(szAction, "getLocalMsg"))
+        {
+            ContractID cid;
+            Env::DocGet("cid", cid);
+            uint32_t msgId = 0;
+            Env::DocGetNum32("msgId", &msgId);
+            manager::GetLocalMsg(cid, msgId);
             return;
         }
         if (!Env::Strcmp(szAction, "getLocalMsgProof"))
