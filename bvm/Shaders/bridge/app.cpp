@@ -196,14 +196,21 @@ namespace manager
         uint32_t size = 0;
         uint32_t keySize = sizeof(msgKey);
         Bridge::LocalMsgHdr* pMsg;
-        reader.MoveNext(nullptr, keySize, pMsg, size, 0); // check result
+        if (!reader.MoveNext(nullptr, keySize, pMsg, size, 0))
+        {
+            OnError("msg with current id is absent");
+            return;
+        }
         pMsg = (Bridge::LocalMsgHdr*)Env::StackAlloc(size);
-        reader.MoveNext(nullptr, keySize, pMsg, size, 1); // check result
+        if (!reader.MoveNext(nullptr, keySize, pMsg, size, 1))
+        {
+            OnError("msg with current id is absent");
+            return;
+        }
 
         Env::DocAddBlob_T("sender", pMsg->m_ContractSender);
         Env::DocAddBlob_T("receiver", pMsg->m_ContractReceiver);
         Env::DocAddBlob("body", pMsg + 1, size - sizeof(*pMsg));
-        Env::DocAddBlob("msg", pMsg, size);
     }
 
     void GetLocalMsgProof(const ContractID& cid, uint32_t msgId)
