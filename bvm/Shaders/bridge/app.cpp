@@ -173,7 +173,7 @@ namespace manager
         Env::GenerateKernel(&cid, arg->s_iMethod, arg, fullArgsSize, nullptr, 0, nullptr, 0, "Bridge::PushRemote", 0);
     }
 
-    void GetLocalMsgAmount(const ContractID& cid)
+    void GetLocalMsgCount(const ContractID& cid)
     {
         Env::Key_T<uint8_t> key;
         key.m_KeyInContract = Bridge::kLocalMsgCounterKey;
@@ -182,7 +182,7 @@ namespace manager
         uint32_t localMsgCounter = 0;
         Env::VarReader::Read_T(key, localMsgCounter);
 
-        Env::DocAddNum32("amount", localMsgCounter);
+        Env::DocAddNum32("count", localMsgCounter);
     }
 
     void GetLocalMsg(const ContractID& cid, uint32_t msgId)
@@ -285,7 +285,7 @@ export void Method_0()
                 Env::DocAddText("msgId", "uint32");
             }
             {
-                Env::DocGroup grMethod("getLocalMsgAmount");
+                Env::DocGroup grMethod("getLocalMsgCount");
                 Env::DocAddText("cid", "ContractID");
             }
             {
@@ -485,11 +485,11 @@ export void Method_1()
             manager::GetAid(cid);
             return;
         }
-        if (!Env::Strcmp(szAction, "getLocalMsgAmount"))
+        if (!Env::Strcmp(szAction, "getLocalMsgCount"))
         {
             ContractID cid;
             Env::DocGet("cid", cid);
-            manager::GetLocalMsgAmount(cid);
+            manager::GetLocalMsgCount(cid);
             return;
         }
         if (!Env::Strcmp(szAction, "getLocalMsg"))
