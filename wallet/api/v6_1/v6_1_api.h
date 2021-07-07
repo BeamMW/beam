@@ -35,6 +35,7 @@ namespace beam::wallet
         void onSyncProgress(int done, int total) override;
         void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
         void onAssetChanged(beam::Asset::ID) override;
+        void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items);
         void fillAssetInfo(json& parent, const WalletAsset& info) override;
 
     private:
@@ -43,6 +44,7 @@ namespace beam::wallet
             static const uint32_t SyncProgress = 1 << 0;
             static const uint32_t SystemState  = 1 << 1;
             static const uint32_t AssetChanged = 1 << 2;
+            static const uint32_t CoinsChanged = 1 << 3;
         };
 
         bool _subscribedToListener = false;

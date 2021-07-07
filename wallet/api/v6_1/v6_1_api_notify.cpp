@@ -78,7 +78,7 @@ namespace beam::wallet
 
     void V61Api::onSystemStateChanged(const Block::SystemState::ID& stateID)
     {
-         if ((_evSubs & SubFlags::SystemState) == 0)
+        if ((_evSubs & SubFlags::SystemState) == 0)
         {
             return;
         }
@@ -127,6 +127,11 @@ namespace beam::wallet
 
     void V61Api::onAssetChanged(beam::Asset::ID assetId)
     {
+        if ((_evSubs & SubFlags::AssetChanged) == 0)
+        {
+            return;
+        }
+
         try
         {
             json msg = json
@@ -154,6 +159,14 @@ namespace beam::wallet
         catch(std::exception& e)
         {
             LOG_ERROR() << "V61Api::onAssetChanged failed: " << e.what();
+        }
+    }
+
+    void V61Api::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
+    {
+        if ((_evSubs & SubFlags::CoinsChanged) == 0)
+        {
+            return;
         }
     }
 }
