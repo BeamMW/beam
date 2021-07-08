@@ -236,6 +236,7 @@ namespace manager
             Env::DocGroup root("Proof");
             Env::DocAddNum("count", proofCount);
             Env::DocAddBlob("nodes", proof, sizeof(*proof) * proofCount);
+            Env::DocAddNum64("height", Env::get_Height());
         }
     }
 } // namespace manager
