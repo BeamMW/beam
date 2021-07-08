@@ -43,6 +43,7 @@ namespace beam::wallet
 
     protected:
         virtual void fillAssetInfo(json& parent, const WalletAsset& info);
+        virtual void fillAddresses(json& parent, const std::vector<WalletAddress>& items);
 
     private:
         void FillAddressData(const AddressData& data, WalletAddress& address);

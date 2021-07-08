@@ -1883,7 +1883,7 @@ namespace beam::wallet
         });
     }
 
-    void WalletClient::onAssetChanged(Asset::ID assetId)
+    void WalletClient::onAssetChanged(ChangeAction action, Asset::ID assetId)
     {
         m_ainfoRequests.erase(assetId);
         if(const auto oasset = m_walletDB->findAsset(assetId))

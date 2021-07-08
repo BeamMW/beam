@@ -182,7 +182,7 @@ namespace beam::wallet
 
     private:
 
-        void onAssetChanged(Asset::ID assetID) override;
+        void onAssetChanged(ChangeAction action, Asset::ID assetID) override;
         void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items) override;
         void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
         void onSystemStateChanged(const Block::SystemState::ID& stateID) override;

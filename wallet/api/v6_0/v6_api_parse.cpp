@@ -975,19 +975,12 @@ namespace beam::wallet
         };
     }
 
-    void V6Api::getResponse(const JsonRpcId& id, const AddrList::Response& res, json& msg)
+    void V6Api::fillAddresses(json& parent, const std::vector<WalletAddress>& items)
     {
-        msg = json
-        {
-            {JsonRpcHeader, JsonRpcVersion},
-            {"id", id},
-            {"result", json::array()}
-        };
-
-        for (auto& addr : res.list)
+        for (auto& addr : items)
         {
             auto type = GetTokenType(addr.m_Address);
-            msg["result"].push_back(
+            parent.push_back(
             {
                 {"address",     addr.m_Address},
                 {"comment",     addr.m_label},
@@ -1004,9 +997,21 @@ namespace beam::wallet
 
             if (addr.m_Identity != Zero)
             {
-                msg["result"].back().push_back({ "identity", std::to_string(addr.m_Identity) });
+                parent.back().push_back({ "identity", std::to_string(addr.m_Identity) });
             }
         }
+    }
+
+    void V6Api::getResponse(const JsonRpcId& id, const AddrList::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result", json::array()}
+        };
+
+        fillAddresses(msg["result"], res.list);
     }
 
     void V6Api::getResponse(const JsonRpcId& id, const ValidateAddress::Response& res, json& msg)

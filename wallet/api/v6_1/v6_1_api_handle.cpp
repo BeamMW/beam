@@ -40,6 +40,11 @@ namespace beam::wallet
             _evSubs = *data.coinsChanged ? _evSubs | SubFlags::CoinsChanged : _evSubs & ~SubFlags::CoinsChanged;
         }
 
+        if (data.addrsChanged.is_initialized())
+        {
+            _evSubs = *data.addrsChanged ? _evSubs | SubFlags::AddrsChanged : _evSubs & ~SubFlags::AddrsChanged;
+        }
+
         if (_evSubs && !_subscribedToListener)
         {
             getWallet()->Subscribe(this);
@@ -67,10 +72,12 @@ namespace beam::wallet
 
         if ((_evSubs & SubFlags::AssetChanged) != 0 && (oldSubs & SubFlags::AssetChanged) == 0)
         {
-            getWalletDB()->visitAssets([this](const WalletAsset& info) -> bool {
-                onAssetChanged(info.m_ID);
+            std::vector<Asset::ID> ids;
+            getWalletDB()->visitAssets([this, &ids](const WalletAsset& info) -> bool {
+                ids.push_back(info.m_ID);
                 return true;
             });
+            onAssetsChanged(ChangeAction::Reset, ids);
         }
 
         if ((_evSubs & SubFlags::CoinsChanged) != 0 && (oldSubs & SubFlags::CoinsChanged) == 0)
@@ -82,10 +89,17 @@ namespace beam::wallet
                 return true;
             });
 
-            if (!coins.empty())
-            {
-                onCoinsChanged(ChangeAction::Reset, coins);
-            }
+            onCoinsChanged(ChangeAction::Reset, coins);
+        }
+
+        if ((_evSubs & SubFlags::AddrsChanged) != 0 && (oldSubs & SubFlags::AddrsChanged) == 0)
+        {
+            auto addrs = getWalletDB()->getAddresses(true);
+            auto addrs2 = getWalletDB()->getAddresses(false);
+            addrs.reserve(addrs.size() + addrs2.size());
+            addrs.insert(addrs.end(), addrs2.begin(), addrs2.end());
+
+            onAddressChanged(ChangeAction::Reset, addrs);
         }
     }
 

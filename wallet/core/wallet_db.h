@@ -353,7 +353,6 @@ namespace beam::wallet
             : std::runtime_error("CannotGenerateSecretException")
         {
         }
-
     };
 
     class DatabaseException : public std::runtime_error
@@ -408,7 +407,7 @@ namespace beam::wallet
         virtual void onSystemStateChanged(const Block::SystemState::ID& stateID) {};
         virtual void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) {};
         virtual void onShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& items) {};
-        virtual void onAssetChanged(Asset::ID assetID) {}
+        virtual void onAssetChanged(ChangeAction action, Asset::ID assetID) {}
     };
 
     struct IWalletDB : IVariablesDB
@@ -776,7 +775,7 @@ namespace beam::wallet
         void notifySystemStateChanged(const Block::SystemState::ID& stateID);
         void notifyAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items);
         void notifyShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& items);
-        void notifyAssetChanged(Asset::ID);
+        void notifyAssetChanged(ChangeAction action, Asset::ID);
 
         bool updateCoinRaw(const Coin&);
         void insertCoinRaw(const Coin&);
@@ -1215,3 +1214,18 @@ namespace beam::wallet
     uint32_t GetCoinStatus(const Coin& c);
     uint32_t GetCoinStatus(const ShieldedCoin& c);
 }  // namespace beam::wallet
+
+namespace std
+{
+    inline std::string to_string(beam::wallet::ChangeAction ac)
+    {
+        switch(ac)
+        {
+            case beam::wallet::ChangeAction::Added: return "added";
+            case beam::wallet::ChangeAction::Removed: return "removed";
+            case beam::wallet::ChangeAction::Updated: return "updated";
+            case beam::wallet::ChangeAction::Reset: return "reset";
+            default: return "unknown";
+        }
+    }
+}

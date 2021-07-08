@@ -20,7 +20,8 @@ namespace beam::wallet
         EvSubUnsub message;
         message.syncProgress = getOptionalParam<bool>(params, "ev_sync_progress");
         message.systemState  = getOptionalParam<bool>(params, "ev_system_state");
-        message.assetChanged = getOptionalParam<bool>(params, "ev_asset_changed");
+        message.assetChanged = getOptionalParam<bool>(params, "ev_assets_changed");
+        message.addrsChanged = getOptionalParam<bool>(params, "ev_addrs_changed");
         return std::make_pair(message, MethodInfo());
     }
 

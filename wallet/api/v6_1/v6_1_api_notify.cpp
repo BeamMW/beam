@@ -125,7 +125,59 @@ namespace beam::wallet
         }
     }
 
-    void V61Api::onAssetChanged(beam::Asset::ID assetId)
+    void V61Api::onAssetsChanged(ChangeAction action, const std::vector<Asset::ID>& ids)
+    {
+        try
+        {
+            json msg = json
+            {
+                {JsonRpcHeader, JsonRpcVersion},
+                {"id", "ev_assets_changed"},
+                {"result",
+                    {
+                        {"change", action},
+                        {"change_str", std::to_string(action)},
+                        {"assets", json::array()}
+                    }
+                }
+            };
+
+            auto& arr = msg["result"]["assets"];
+            if (action == ChangeAction::Removed)
+            {
+                for (auto aid: ids)
+                {
+                    arr.push_back({
+                        {"asset_id", aid}
+                    });
+                }
+            }
+            else
+            {
+                for (auto aid: ids)
+                {
+                    if (const auto oasset = getWalletDB()->findAsset(aid))
+                    {
+                        auto obj = json::object();
+                        fillAssetInfo(obj, *oasset);
+                        arr.push_back(obj);
+                    }
+                    else
+                    {
+                        LOG_WARNING() << "onAssetsChanged: failed to find asset " << aid << ", action" << std::to_string(action);
+                    }
+                }
+            }
+
+            _handler.sendAPIResponse(msg);
+        }
+        catch(std::exception& e)
+        {
+            LOG_ERROR() << "V61Api::onAssetsChanged failed: " << e.what();
+        }
+    }
+
+    void V61Api::onAssetChanged(ChangeAction action, beam::Asset::ID assetId)
     {
         if ((_evSubs & SubFlags::AssetChanged) == 0)
         {
@@ -134,27 +186,9 @@ namespace beam::wallet
 
         try
         {
-            json msg = json
-            {
-                {JsonRpcHeader, JsonRpcVersion},
-                {"id", "ev_asset_changed"},
-                {"result", json::object()}
-            };
-
-            json& res = msg["result"];
-            auto walletDB = getWalletDB();
-
-            if (const auto oasset = walletDB->findAsset(assetId))
-            {
-                fillAssetInfo(res, *oasset);
-            }
-            else
-            {
-                res["asset_id"] = assetId;
-                res["dropped"]  = true;
-            }
-
-            _handler.sendAPIResponse(msg);
+            std::vector<Asset::ID> ids;
+            ids.push_back(assetId);
+            onAssetsChanged(action, ids);
         }
         catch(std::exception& e)
         {
@@ -181,6 +215,32 @@ namespace beam::wallet
 
     void V61Api::onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)
     {
+        if ((_evSubs & SubFlags::AddrsChanged) == 0)
+        {
+            return;
+        }
 
+        try
+        {
+            json msg = json
+            {
+                {JsonRpcHeader, JsonRpcVersion},
+                {"id", "ev_addrs_changed"},
+                {"result",
+                    {
+                        {"change", action},
+                        {"change_str", std::to_string(action)},
+                        {"addrs", json::array()}
+                    }
+                }
+            };
+
+            fillAddresses(msg["result"]["addrs"], items);
+            _handler.sendAPIResponse(msg);
+        }
+        catch(std::exception& e)
+        {
+            LOG_ERROR() << "V61Api::onAddressChanged failed: " << e.what();
+        }
     }
 }

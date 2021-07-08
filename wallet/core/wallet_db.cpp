@@ -4308,7 +4308,7 @@ namespace beam::wallet
         }
 
         stm.step();
-        notifyAssetChanged(info.m_ID);
+        notifyAssetChanged(found ? ChangeAction::Updated : ChangeAction::Added, info.m_ID);
     }
 
     void WalletDB::markAssetOwned(const Asset::ID assetId)
@@ -4318,7 +4318,7 @@ namespace beam::wallet
         stmUpdate.bind(1, assetId);
         stmUpdate.bind(2, 1);
         stmUpdate.step();
-        notifyAssetChanged(assetId);
+        notifyAssetChanged(ChangeAction::Updated, assetId);
     }
 
     void WalletDB::dropAsset(const PeerID& ownerId)
@@ -4336,7 +4336,7 @@ namespace beam::wallet
         sqlite::Statement stm(this, deleteReq);
         stm.bind(1, assetId);
         stm.step();
-        notifyAssetChanged(assetId);
+        notifyAssetChanged(ChangeAction::Removed, assetId);
     }
 
     void WalletDB::visitAssets(std::function<bool(const WalletAsset& info)> visitor) const
@@ -4412,10 +4412,24 @@ namespace beam::wallet
     void WalletDB::rollbackAssets(Height minHeight)
     {
         std::set<Asset::ID> changed;
+        std::set<Asset::ID> dropped;
 
         {
-            const char* find = "SELECT ID FROM " ASSETS_NAME " WHERE LockHeight>?1 OR RefreshHeight>?1;";
-            sqlite::Statement stmFind(this, find);
+            const char* findDrop = "SELECT ID FROM " ASSETS_NAME " WHERE LockHeight>?1;";
+            sqlite::Statement stmFind(this, findDrop);
+            stmFind.bind(1, minHeight);
+
+            while (stmFind.step())
+            {
+                Asset::ID assetID = Asset::s_InvalidID;
+                stmFind.get(0, assetID);
+                dropped.insert(assetID);
+            }
+        }
+
+        {
+            const char* findUpdate = "SELECT ID FROM " ASSETS_NAME " WHERE RefreshHeight > ?1;";
+            sqlite::Statement stmFind(this, findUpdate);
             stmFind.bind(1, minHeight);
 
             while (stmFind.step())
@@ -4436,9 +4450,14 @@ namespace beam::wallet
         stmUpdate.bind(1, minHeight);
         stmUpdate.step();
 
+        for(auto assetId: dropped)
+        {
+            notifyAssetChanged(ChangeAction::Removed, assetId);
+        }
+
         for(auto assetId: changed)
         {
-            notifyAssetChanged(assetId);
+            notifyAssetChanged(ChangeAction::Updated, assetId);
         }
     }
 
@@ -5226,9 +5245,9 @@ namespace beam::wallet
         for (const auto sub : m_subscribers) sub->onSystemStateChanged(stateID);
     }
 
-    void WalletDB::notifyAssetChanged(Asset::ID assetID)
+    void WalletDB::notifyAssetChanged(ChangeAction action, Asset::ID assetID)
     {
-        for (const auto sub : m_subscribers) sub->onAssetChanged(assetID);
+        for (const auto sub : m_subscribers) sub->onAssetChanged(action, assetID);
     }
 
     void WalletDB::notifyAddressChanged(ChangeAction action, const vector<WalletAddress>& items)

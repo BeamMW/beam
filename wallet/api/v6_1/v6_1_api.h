@@ -34,7 +34,8 @@ namespace beam::wallet
     protected:
         void onSyncProgress(int done, int total) override;
         void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
-        void onAssetChanged(beam::Asset::ID) override;
+        void onAssetsChanged(ChangeAction action, const std::vector<Asset::ID>&);
+        void onAssetChanged(ChangeAction action, beam::Asset::ID) override;
         void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items) override;
         void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
         void fillAssetInfo(json& parent, const WalletAsset& info) override;
@@ -46,6 +47,8 @@ namespace beam::wallet
             static const uint32_t SystemState  = 1 << 1;
             static const uint32_t AssetChanged = 1 << 2;
             static const uint32_t CoinsChanged = 1 << 3;
+            static const uint32_t AddrsChanged = 1 << 4;
+            static const uint32_t TXsChanged   = 1 << 5;
         };
 
         bool _subscribedToListener = false;
