@@ -259,8 +259,8 @@ namespace beam::wallet
             auto receiverIdentity = tx.getReceiverIdentity();
             if (!senderIdentity.empty() && !receiverIdentity.empty())
             {
-                msg["sender_wallet_signature"] = senderIdentity;
-                msg["receiver_wallet_signature"] = receiverIdentity;
+                msg["sender_identity"] = senderIdentity;
+                msg["receiver_identity"] = receiverIdentity;
             }
         }
 
@@ -980,8 +980,7 @@ namespace beam::wallet
         for (auto& addr : items)
         {
             auto type = GetTokenType(addr.m_Address);
-            parent.push_back(
-            {
+            json obj = {
                 {"address",     addr.m_Address},
                 {"comment",     addr.m_label},
                 {"category",    addr.m_category},
@@ -993,12 +992,14 @@ namespace beam::wallet
                 {"own_id_str",  std::to_string(addr.m_OwnID)},
                 {"wallet_id",   std::to_string(addr.m_walletID)},
                 {"type",        getTokenType(type)}
-            });
+            };
 
             if (addr.m_Identity != Zero)
             {
-                parent.back().push_back({ "identity", std::to_string(addr.m_Identity) });
+                obj["identity"] = std::to_string(addr.m_Identity);
             }
+
+            parent.push_back(obj);
         }
     }
 
