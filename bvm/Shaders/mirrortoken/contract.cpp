@@ -32,7 +32,8 @@ export void Method_2(const MirrorToken::SetRemote& r)
     MirrorToken::Params params;
     Env::LoadVar_T(MirrorToken::kParamsKey, params);
 
-    Env::Halt_if(!_POD_(params.m_Remote).IsZero() || _POD_(r.m_Remote).IsZero());
+    // TODO: uncomment after testing
+    // Env::Halt_if(!_POD_(params.m_Remote).IsZero() || _POD_(r.m_Remote).IsZero());
     _POD_(params.m_Remote) = r.m_Remote;
 
     Env::SaveVar_T(MirrorToken::kParamsKey, params);
@@ -86,6 +87,8 @@ export void Method_4(const MirrorToken::Receive& r)
         (_POD_(arg.m_ContractSender) != params.m_Remote) ||
         (sizeof(arg.m_Msg) != arg.m_MsgSize)
     );
+
+    arg.m_Msg.m_Amount = Utils::FromBE(arg.m_Msg.m_Amount);
 
     Env::AssetEmit(params.m_Aid, arg.m_Msg.m_Amount, 1);
 

@@ -344,7 +344,7 @@ ON_METHOD(user, receive)
 
         FundsChange fc;
         fc.m_Aid = params.m_Aid;
-        fc.m_Amount = msg.m_Amount;
+        fc.m_Amount = Utils::FromBE(msg.m_Amount);
         fc.m_Consume = 0;
 
         MirrorToken::Receive pars;
