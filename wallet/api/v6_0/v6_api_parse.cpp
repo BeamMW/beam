@@ -259,8 +259,8 @@ namespace beam::wallet
             auto receiverIdentity = tx.getReceiverIdentity();
             if (!senderIdentity.empty() && !receiverIdentity.empty())
             {
-                msg["sender_identity"] = senderIdentity;
-                msg["receiver_identity"] = receiverIdentity;
+                msg["sender_wallet_signature"] = senderIdentity;
+                msg["receiver_wallet_signature"] = receiverIdentity;
             }
         }
 

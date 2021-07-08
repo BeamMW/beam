@@ -26,4 +26,5 @@ public class UtxoDTO
 	public String createTxId;
 	public String spentTxId;
 	public int assetId;
+	public boolean isShielded;
 }

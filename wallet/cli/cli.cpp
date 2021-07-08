@@ -176,13 +176,13 @@ namespace
         s << "Sender:            " << sender << std::endl;
         if (showIdentity)
         {
-            s << "Sender identity:   " << senderIdentity << std::endl;
+            s << "Sender wallet's signature:   " << senderIdentity << std::endl;
         }
 
         s << "Receiver:          " << (hasNoPeerId ? desc.getToken() : receiver) << std::endl;
         if (showIdentity)
         {
-            s << "Receiver identity: " << receiverIdentity << std::endl;
+            s << "Receiver wallet's signature: " << receiverIdentity << std::endl;
         }
 
         s << "Amount:            " << PrintableAmount(desc.m_amount) << std::endl;
@@ -2737,7 +2737,7 @@ int main_impl(int argc, char* argv[])
         {cli::ESTIMATE_SWAP_FEERATE, EstimateSwapFeerate,           "estimate BTC/LTC/QTUM/DASH/DOGE/ETH-specific fee rate"},
         {cli::GET_BALANCE,          GetBalance,                     "get BTC/LTC/QTUM/DASH/DOGE/ETH balance"},
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
-        {cli::GET_ADDRESS,            GetAddress,                   "generate transaction address for a specific receiver (identifiable by SBBS address or wallet identity)"},
+        {cli::GET_ADDRESS,            GetAddress,                   "generate transaction address for a specific receiver (identifiable by SBBS address or wallet's signature)"},
         {cli::SET_CONFIRMATIONS_COUNT, SetConfirmationsCount,       "set count of confirmations before you can't spend coin"},
         {cli::GET_CONFIRMATIONS_COUNT, GetConfirmationsCount,       "get count of confirmations before you can't spend coin"},
 #ifdef BEAM_LASER_SUPPORT   

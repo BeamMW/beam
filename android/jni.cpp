@@ -685,11 +685,12 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
 
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(calcChange)(JNIEnv *env, jobject thiz,
-    jlong amount)
+    jlong amount, jint assetId)
 {
     LOG_DEBUG() << "calcChange(" << amount << ")";
+    uint32_t asset = assetId;
 
-    walletModel->getAsync()->calcChange(Amount(amount), 0, beam::Asset::s_BeamID);
+    walletModel->getAsync()->calcChange(Amount(amount), 0, beam::Asset::ID(asset));
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getAddresses)(JNIEnv *env, jobject thiz,
