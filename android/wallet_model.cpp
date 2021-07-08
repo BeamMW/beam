@@ -155,6 +155,8 @@ namespace
             setStringField(env, UtxoClass, utxo, "stringId", idString);
             setLongField(env, UtxoClass, utxo, "amount", coin.m_CoinID.m_Value);
             setLongField(env, UtxoClass, utxo, "txoID", coin.m_TxoID);
+            setBooleanField(env, UtxoClass, utxo, "isShielded", true);
+            setIntField(env, UtxoClass, utxo, "assetId", coin.getAssetID());
 
             switch (coin.m_Status)
             {
@@ -224,6 +226,7 @@ namespace
                 setIntField(env, UtxoClass, utxo, "keyType", static_cast<jint>(coin.m_ID.m_Type));
                 setLongField(env, UtxoClass, utxo, "confirmHeight", coin.m_confirmHeight);
                 setIntField(env, UtxoClass, utxo, "assetId", coin.getAssetID());
+                setBooleanField(env, UtxoClass, utxo, "isShielded", false);
 
                 if (coin.m_createTxId)
                     setStringField(env, UtxoClass, utxo, "createTxId", to_hex(coin.m_createTxId->data(), coin.m_createTxId->size()));
@@ -832,19 +835,14 @@ void WalletModel::onShieldedCoinChanged(beam::wallet::ChangeAction action, const
 {
     LOG_DEBUG() << "onShieldedCoinChanged()";
 
-    //     for (const auto& coin : items)
-    //     {
-    //         shieldedCoins[coin.m_TxoID] = coin;
-    //     }
+    JNIEnv* env = Android_JNI_getEnv();
 
-    // JNIEnv* env = Android_JNI_getEnv();
+    jobjectArray utxos = convertShieldedToJObject(env, items);
 
-    // jobjectArray utxos = convertShieldedToJObject(env, items);
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAllShieldedUtxoChanged", "(I[L" BEAM_JAVA_PATH "/entities/dto/UtxoDTO;)V");
+    env->CallStaticVoidMethod(WalletListenerClass, callback, action, utxos);
 
-    // jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAllShieldedUtxoChanged", "(I[L" BEAM_JAVA_PATH "/entities/dto/UtxoDTO;)V");
-    // env->CallStaticVoidMethod(WalletListenerClass, callback, action, utxos);
-
-    // env->DeleteLocalRef(utxos);
+    env->DeleteLocalRef(utxos);
 }
 
 void WalletModel::onPostFunctionToClientContext(MessageFunction&& func) {
