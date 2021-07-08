@@ -26,11 +26,11 @@ namespace
 {
     using namespace beam::wallet;
 
-    std::map<std::string, std::function<bool(const GetUtxo::Response::Coin& a, const GetUtxo::Response::Coin& b)>> utxoSortMap = 
+    std::map<std::string, std::function<bool(const ApiCoin& a, const ApiCoin& b)>> utxoSortMap =
     {
-#define MACRO(name, type) {#name, [](const auto& a, const auto& b) {return a.name < b.name;}},
+        #define MACRO(name, type) {#name, [](const auto& a, const auto& b) {return a.name < b.name;}},
         BEAM_GET_UTXO_RESPONSE_FIELDS(MACRO)
-#undef MACRO
+        #undef MACRO
     };
 
     const char* kAddrDoesntExistError = "Provided address doesn't exist.";
@@ -606,7 +606,7 @@ namespace beam::wallet
         GetUtxo::Response response;
         response.confirmations_count = walletDB->getCoinConfirmationsOffset();
 
-        auto processCoin = [&](const auto& c)->bool 
+        auto processCoin = [&](const auto& c)->bool
         {
             if (!data.withAssets && c.isAsset())
             {
@@ -616,7 +616,8 @@ namespace beam::wallet
             {
                 return true;
             }
-            response.EmplaceCoin(c);
+
+            ApiCoin::EmplaceCoin(response.coins, c, response.confirmations_count);
             return true;
         };
 
@@ -627,8 +628,7 @@ namespace beam::wallet
         {
             if (const auto& it = utxoSortMap.find(data.sort.field); it != utxoSortMap.end())
             {
-                std::sort(response.coins.begin(), response.coins.end(),
-                        data.sort.desc ? std::bind(it->second, _2, _1) : it->second);
+                std::sort(response.coins.begin(), response.coins.end(),data.sort.desc ? std::bind(it->second, _2, _1) : it->second);
             }
             else
             {

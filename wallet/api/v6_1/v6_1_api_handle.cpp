@@ -35,9 +35,9 @@ namespace beam::wallet
             _evSubs = *data.assetChanged ? _evSubs | SubFlags::AssetChanged : _evSubs & ~SubFlags::AssetChanged;
         }
 
-        if (data.coinsChanged.is_initialized())
+        if (data.utxosChanged.is_initialized())
         {
-            _evSubs = *data.coinsChanged ? _evSubs | SubFlags::CoinsChanged : _evSubs & ~SubFlags::CoinsChanged;
+            _evSubs = *data.utxosChanged ? _evSubs | SubFlags::CoinsChanged : _evSubs & ~SubFlags::CoinsChanged;
         }
 
         if (data.addrsChanged.is_initialized())
@@ -82,15 +82,18 @@ namespace beam::wallet
 
         if ((_evSubs & SubFlags::CoinsChanged) != 0 && (oldSubs & SubFlags::CoinsChanged) == 0)
         {
-            // TODO: add shielded
-            std::vector<Coin> coins;
-            getWalletDB()->visitCoins([&coins](const Coin& c) -> bool {
-                coins.push_back(c);
-                return true;
-            });
+            std::vector<ApiCoin> coins;
+            const auto cCnt = getWalletDB()->getCoinConfirmationsOffset();
 
-            onCoinsChanged(ChangeAction::Reset, coins);
-        }
+            auto processCoin = [&](const auto& c) -> bool {
+                ApiCoin::EmplaceCoin(coins, c, cCnt);
+                return true;
+            };
+
+            getWalletDB()->visitCoins(processCoin);
+            getWalletDB()->visitShieldedCoins(processCoin);
+            onCoinsChangedImp(ChangeAction::Reset, coins);
+        };
 
         if ((_evSubs & SubFlags::AddrsChanged) != 0 && (oldSubs & SubFlags::AddrsChanged) == 0)
         {

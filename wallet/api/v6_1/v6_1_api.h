@@ -32,12 +32,23 @@ namespace beam::wallet
         V6_1_API_METHODS(BEAM_API_HANDLE_FUNC)
 
     protected:
+        //
+        // IWalletObserver
+        //
         void onSyncProgress(int done, int total) override;
         void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
         void onAssetsChanged(ChangeAction action, const std::vector<Asset::ID>&);
         void onAssetChanged(ChangeAction action, beam::Asset::ID) override;
         void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items) override;
+        void onShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& items) override;
         void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
+
+        template<typename T>
+        void onCoinsChangedImp(ChangeAction action, const std::vector<T>& items);
+
+        //
+        // V6 behavior changes
+        //
         void fillAssetInfo(json& parent, const WalletAsset& info) override;
 
     private:

@@ -1035,6 +1035,18 @@ namespace beam::wallet
         }
     }
 
+    void V6Api::fillCoins(json& arr, const std::vector<ApiCoin>& coins)
+    {
+        for (auto& c : coins)
+        {
+            #define MACRO(name, type) {#name, c.name},
+            arr.push_back({
+                BEAM_GET_UTXO_RESPONSE_FIELDS(MACRO)
+            });
+            #undef MACRO
+        }
+    }
+
     void V6Api::getResponse(const JsonRpcId& id, const GetUtxo::Response& res, json& msg)
     {
         msg = json
@@ -1044,15 +1056,7 @@ namespace beam::wallet
             {"result", json::array()}
         };
 
-        for (auto& c : res.coins)
-        {
-            msg["result"].push_back(
-                {
-#define MACRO(name, type) {#name, c.name},
-                    BEAM_GET_UTXO_RESPONSE_FIELDS(MACRO)
-                });
-#undef MACRO
-        }
+        fillCoins(msg["result"], res.coins);
     }
 
     void V6Api::getResponse(const JsonRpcId& id, const Send::Response& res, json& msg)
