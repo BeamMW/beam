@@ -8,18 +8,18 @@ client.connect(10000, '127.0.0.1', function() {
 		{
 			jsonrpc: '2.0',
 			id: 'ev_subscribe',
-			method: 'get_asset_info',
+			method: 'addr_list',
 			params: {
-				"asset_id": 1
+				//"asset_id": 1
 			}
 		}) + '\n')*/
 	client.write(JSON.stringify(
 		{
 			jsonrpc: '2.0',
-			id: 'ev_subscribe',
+			id: 'get_utxo',
 			method: 'ev_subunsub',
 			params: {
-				"ev_asset_changed": true
+				'ev_utxos_changed': true
 			}
 		}) + '\n')
 })

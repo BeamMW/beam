@@ -25,7 +25,7 @@ namespace beam::wallet
         boost::optional<bool> syncProgress = boost::none;
         boost::optional<bool> systemState  = boost::none;
         boost::optional<bool> assetChanged = boost::none;
-        boost::optional<bool> coinsChanged = boost::none;
+        boost::optional<bool> utxosChanged = boost::none;
         boost::optional<bool> addrsChanged = boost::none;
 
         struct Response

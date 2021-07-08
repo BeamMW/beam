@@ -17,7 +17,7 @@ namespace beam::wallet
 {
     namespace
     {
-        void fillSystemState(json& parent, const Block::SystemState::ID& stateID, IWalletDB::Ptr walletDB)
+        void fillSystemState(json &parent, const Block::SystemState::ID &stateID, IWalletDB::Ptr walletDB)
         {
             Block::SystemState::Full state, tip;
             walletDB->get_History().get_At(state, stateID.m_Height);
@@ -111,7 +111,7 @@ namespace beam::wallet
         WalletAssetMeta meta(info);
         auto pairs = meta.GetMetaMap();
 
-        res["metadata_kv"]  = pairs.size() != 0;
+        res["metadata_kv"]  = !pairs.empty();
         res["metadata_std_min"] = meta.isStd_v5_0();
         res["metadata_std"] = meta.isStd();
 
@@ -196,21 +196,60 @@ namespace beam::wallet
         }
     }
 
-    void V61Api::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
+    template<>
+    void V61Api::onCoinsChangedImp(ChangeAction action, const std::vector<ApiCoin>& coins)
     {
-        if ((_evSubs & SubFlags::CoinsChanged) == 0)
+        json msg = json
         {
-            return;
-        }
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", "ev_utxos_changed"},
+            {"result",
+                {
+                    {"change", action},
+                    {"change_str", std::to_string(action)},
+                    {"utxos", json::array()}
+                }
+            }
+        };
 
+        fillCoins(msg["result"]["utxos"], coins);
+        _handler.sendAPIResponse(msg);
+    }
+
+    template<typename T>
+    void V61Api::onCoinsChangedImp(ChangeAction action, const std::vector<T>& changed)
+    {
         try
         {
-            // TODO:
+            if ((_evSubs & SubFlags::CoinsChanged) == 0)
+            {
+                return;
+            }
+
+            const auto cCnt = getWalletDB()->getCoinConfirmationsOffset();
+            std::vector<ApiCoin> coins;
+
+            for (const auto &c: changed)
+            {
+                ApiCoin::EmplaceCoin(coins, c, cCnt);
+            }
+
+            onCoinsChangedImp(action, coins);
         }
         catch(std::exception& e)
         {
-            LOG_ERROR() << "V61Api::onCoinsChanged failed: " << e.what();
+            LOG_ERROR() << "V61Api::onCoinsChangedImp failed: " << e.what();
         }
+    }
+
+    void V61Api::onCoinsChanged(ChangeAction action, const std::vector<Coin>& changed)
+    {
+        onCoinsChangedImp<Coin>(action, changed);
+    }
+
+    void V61Api::onShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& changed)
+    {
+        onCoinsChangedImp<ShieldedCoin>(action, changed);
     }
 
     void V61Api::onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)
