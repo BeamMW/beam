@@ -67,7 +67,7 @@ namespace beam::wallet
                 }
             };
 
-            fillSystemState(msg["result"], stateID, getWalletDB());
+            fillSystemState(msg["result"], stateID, walletDB);
             _handler.sendAPIResponse(msg);
         }
         catch(std::exception& e)
@@ -169,7 +169,12 @@ namespace beam::wallet
                 }
             }
 
-            _handler.sendAPIResponse(msg);
+            // allow reset even if empty
+            // do not notify for other actions if empty
+            if (action == ChangeAction::Reset || !arr.empty())
+            {
+                _handler.sendAPIResponse(msg);
+            }
         }
         catch(std::exception& e)
         {
@@ -212,8 +217,13 @@ namespace beam::wallet
             }
         };
 
-        fillCoins(msg["result"]["utxos"], coins);
-        _handler.sendAPIResponse(msg);
+        // allow reset even if empty
+        // do not notify for other actions if empty
+        if (action == ChangeAction::Reset || !coins.empty())
+        {
+            fillCoins(msg["result"]["utxos"], coins);
+            _handler.sendAPIResponse(msg);
+        }
     }
 
     template<typename T>
@@ -274,8 +284,13 @@ namespace beam::wallet
                 }
             };
 
-            fillAddresses(msg["result"]["addrs"], items);
-            _handler.sendAPIResponse(msg);
+            // allow reset even if empty
+            // do not notify for other actions if empty
+            if (action == ChangeAction::Reset || !items.empty())
+            {
+                fillAddresses(msg["result"]["addrs"], items);
+                _handler.sendAPIResponse(msg);
+            }
         }
         catch(std::exception& e)
         {
@@ -321,12 +336,11 @@ namespace beam::wallet
                 }
             }
 
-            fillTransactions(msg["result"]["txs"], items);
-
-            // allow reset even if empty, do not notify
-            // for other actions if empty (we might filter out all changed)
+            // allow reset even if empty
+            // do not notify for other actions if empty
             if (action == ChangeAction::Reset || !items.empty())
             {
+                fillTransactions(msg["result"]["txs"], items);
                 _handler.sendAPIResponse(msg);
             }
         }

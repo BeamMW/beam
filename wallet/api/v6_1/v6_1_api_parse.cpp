@@ -37,6 +37,15 @@ namespace beam::wallet
             {
                 found = true;
             }
+
+            if (!getAppId().empty())
+            {
+                // Some events are not allowed for applications
+                if (it.key() == "ev_utxos_changed")
+                {
+                    throw jsonrpc_exception(ApiError::NotAllowedError);
+                }
+            }
         }
 
         if (found == false)
