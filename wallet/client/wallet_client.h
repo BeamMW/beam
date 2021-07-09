@@ -143,7 +143,7 @@ namespace beam::wallet
         virtual void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) {}
         virtual void onSyncProgressUpdated(int done, int total) {}
         virtual void onChangeCalculated(beam::Amount changeAsset, beam::Amount changeBeam, beam::Asset::ID assetId) {}
-        virtual void onCoinsSeleced(const CoinsSelectionInfo&) {}
+        virtual void onCoinsSelected(const CoinsSelectionInfo&) {}
         virtual void onNormalCoinsChanged(ChangeAction, const std::vector<Coin>& utxos) {}
         virtual void onShieldedCoinChanged(ChangeAction, const std::vector<ShieldedCoin>& items) {}
         virtual void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) {}
