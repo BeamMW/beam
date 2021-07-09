@@ -27,6 +27,7 @@ namespace beam::wallet
         boost::optional<bool> assetChanged = boost::none;
         boost::optional<bool> utxosChanged = boost::none;
         boost::optional<bool> addrsChanged = boost::none;
+        boost::optional<bool> txsChanged   = boost::none;
 
         struct Response
         {

@@ -282,4 +282,57 @@ namespace beam::wallet
             LOG_ERROR() << "V61Api::onAddressChanged failed: " << e.what();
         }
     }
+
+    void V61Api::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& changed)
+    {
+        if ((_evSubs & SubFlags::TXsChanged) == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            json msg = json
+            {
+                {JsonRpcHeader, JsonRpcVersion},
+                {"id", "ev_txs_changed"},
+                {"result",
+                    {
+                        {"change", action},
+                        {"change_str", std::to_string(action)},
+                        {"txs", json::array()}
+                    }
+                }
+            };
+
+            auto walletDB = getWalletDB();
+            Block::SystemState::ID stateID = {};
+            walletDB->getSystemStateID(stateID);
+
+            std::vector<Status::Response> items;
+            for(const auto& tx: changed)
+            {
+                if (allowedTx(tx))
+                {
+                    Status::Response &item = items.emplace_back();
+                    item.tx = tx;
+                    item.txHeight = storage::DeduceTxProofHeight(*walletDB, tx);
+                    item.systemHeight = stateID.m_Height;
+                }
+            }
+
+            fillTransactions(msg["result"]["txs"], items);
+
+            // allow reset even if empty, do not notify
+            // for other actions if empty (we might filter out all changed)
+            if (action == ChangeAction::Reset || !items.empty())
+            {
+                _handler.sendAPIResponse(msg);
+            }
+        }
+        catch(std::exception& e)
+        {
+            LOG_ERROR() << "V61Api::onTransactionChanged failed: " << e.what();
+        }
+    }
 }

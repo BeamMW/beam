@@ -45,6 +45,11 @@ namespace beam::wallet
             _evSubs = *data.addrsChanged ? _evSubs | SubFlags::AddrsChanged : _evSubs & ~SubFlags::AddrsChanged;
         }
 
+        if (data.txsChanged.is_initialized())
+        {
+            _evSubs = *data.txsChanged ? _evSubs | SubFlags::TXsChanged : _evSubs & ~SubFlags::TXsChanged;
+        }
+
         if (_evSubs && !_subscribedToListener)
         {
             getWallet()->Subscribe(this);
@@ -103,6 +108,17 @@ namespace beam::wallet
             addrs.insert(addrs.end(), addrs2.begin(), addrs2.end());
 
             onAddressChanged(ChangeAction::Reset, addrs);
+        }
+
+        if ((_evSubs & SubFlags::TXsChanged) != 0 && (oldSubs & SubFlags::TXsChanged) == 0)
+        {
+            std::vector<TxDescription> txs;
+            getWalletDB()->visitTx([&](const TxDescription& tx) -> bool {
+                txs.push_back(tx);
+                return true;
+            }, TxListFilter());
+
+            onTransactionChanged(ChangeAction::Reset, txs);
         }
     }
 

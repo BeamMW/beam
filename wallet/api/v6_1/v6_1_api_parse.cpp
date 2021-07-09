@@ -17,12 +17,43 @@ namespace beam::wallet
 {
     std::pair<EvSubUnsub, IWalletApi::MethodInfo> V61Api::onParseEvSubUnsub(const JsonRpcId& id, const nlohmann::json& params)
     {
+        std::set<std::string> allowed;
+        allowed.insert("ev_sync_progress");
+        allowed.insert("ev_system_state");
+        allowed.insert("ev_assets_changed");
+        allowed.insert("ev_addrs_changed");
+        allowed.insert("ev_utxos_changed");
+        allowed.insert("ev_txs_changed");
+
+        bool found = false;
+        for (auto it : params.items())
+        {
+            if(allowed.find(it.key()) == allowed.end())
+            {
+                std::string error = "The event '" + it.key() + "' is unknown.";
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, error);
+            }
+            else
+            {
+                found = true;
+            }
+        }
+
+        if (found == false)
+        {
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Must subunsub at least one supported event");
+        }
+
+        // So here we are sure that at least one known event is present
+        // Typecheck & get value
         EvSubUnsub message;
         message.syncProgress = getOptionalParam<bool>(params, "ev_sync_progress");
         message.systemState  = getOptionalParam<bool>(params, "ev_system_state");
         message.assetChanged = getOptionalParam<bool>(params, "ev_assets_changed");
         message.addrsChanged = getOptionalParam<bool>(params, "ev_addrs_changed");
         message.utxosChanged = getOptionalParam<bool>(params, "ev_utxos_changed");
+        message.txsChanged   = getOptionalParam<bool>(params, "ev_txs_changed");
+
         return std::make_pair(message, MethodInfo());
     }
 

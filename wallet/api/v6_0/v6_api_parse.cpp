@@ -1223,6 +1223,21 @@ namespace beam::wallet
         };
     }
 
+    void V6Api::fillTransactions(json& arr, const std::vector<Status::Response> txs)
+    {
+        for (const auto& resItem : txs)
+        {
+            json item = {};
+            GetStatusResponseJson(
+                resItem.tx,
+                item,
+                resItem.txHeight,
+                resItem.systemHeight,
+                true);
+            arr.push_back(item);
+        }
+    }
+
     void V6Api::getResponse(const JsonRpcId& id, const TxList::Response& res, json& msg)
     {
         msg = json
@@ -1232,17 +1247,7 @@ namespace beam::wallet
             {"result", json::array()}
         };
 
-        for (const auto& resItem : res.resultList)
-        {
-            json item = {};
-            GetStatusResponseJson(
-                resItem.tx,
-                item,
-                resItem.txHeight,
-                resItem.systemHeight,
-                true);
-            msg["result"].push_back(item);
-        }
+        fillTransactions(msg["result"], res.resultList);
     }
 
     void V6Api::getResponse(const JsonRpcId& id, const WalletStatusApi::Response& res, json& msg)

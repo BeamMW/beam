@@ -478,7 +478,6 @@ namespace beam::wallet
             Status::Response result;
             result.tx            = *tx;
             result.systemHeight  = stateID.m_Height;
-            result.confirmations = 0;
             result.txHeight      = storage::DeduceTxProofHeight(*walletDB, *tx);
 
             doResponse(id, result);
@@ -690,6 +689,24 @@ namespace beam::wallet
         doResponse(id, GenerateTxId::Response{ wallet::GenerateTxID() });
     }
 
+    bool V6Api::allowedTx(const TxDescription& tx)
+    {
+        switch(tx.m_txType)
+        {
+        case TxType::Simple:
+        case TxType::PushTransaction:
+        case TxType::AssetIssue:
+        case TxType::AssetConsume:
+        case TxType::AssetInfo:
+        case TxType::AssetReg:
+        case TxType::AssetUnreg:
+        case TxType::Contract:
+            return true;
+        default:
+            return false;
+        }
+    }
+
     void V6Api::onHandleTxList(const JsonRpcId& id, const TxList& data)
     {
         LOG_DEBUG() << "List(filter.status = " << (data.filter.status ? std::to_string((uint32_t)*data.filter.status) : "nul") << ")";
@@ -716,16 +733,8 @@ namespace beam::wallet
             filter.m_KernelProofHeight = data.filter.height;
             walletDB->visitTx([&](const TxDescription& tx)
             {
-                // filter supported tx types
-                // TODO: remove this in future, this condition was added to preserve existing behavior
-                if (tx.m_txType    != TxType::Simple
-                    && tx.m_txType != TxType::PushTransaction
-                    && tx.m_txType != TxType::AssetIssue
-                    && tx.m_txType != TxType::AssetConsume
-                    && tx.m_txType != TxType::AssetInfo
-                    && tx.m_txType != TxType::AssetReg
-                    && tx.m_txType != TxType::AssetUnreg
-                    && tx.m_txType != TxType::Contract)
+                // filter out unsupported tx types
+                if (!allowedTx(tx))
                 {
                     return true;
                 }
@@ -750,7 +759,6 @@ namespace beam::wallet
                 item.tx = tx;
                 item.txHeight = height;
                 item.systemHeight = stateID.m_Height;
-                item.confirmations = 0;
 
                 ++counter;
                 return data.count == 0 || counter < data.count;

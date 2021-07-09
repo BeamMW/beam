@@ -42,6 +42,7 @@ namespace beam::wallet
         void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items) override;
         void onShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& items) override;
         void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
+        void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items);
 
         template<typename T>
         void onCoinsChangedImp(ChangeAction action, const std::vector<T>& items);

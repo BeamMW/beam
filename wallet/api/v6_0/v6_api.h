@@ -42,10 +42,11 @@ namespace beam::wallet
         V6_API_METHODS(BEAM_API_HANDLE_FUNC)
 
     protected:
+        virtual bool allowedTx(const TxDescription& tx);
         virtual void fillAssetInfo(json& arr, const WalletAsset& info);
         virtual void fillAddresses(json& arr, const std::vector<WalletAddress>& items);
         virtual void fillCoins(json& arr, const std::vector<ApiCoin>& coins);
-        void collectAllCoins(std::vector<ApiCoin>& coins);
+        virtual void fillTransactions(json& arr, const std::vector<Status::Response> txs);
 
     private:
         void FillAddressData(const AddressData& data, WalletAddress& address);

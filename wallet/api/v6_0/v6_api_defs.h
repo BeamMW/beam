@@ -213,7 +213,6 @@ namespace beam::wallet
             TxDescription tx;
             Height txHeight;
             Height systemHeight;
-            uint64_t confirmations;
         };
     };
 
