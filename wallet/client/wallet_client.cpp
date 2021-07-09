@@ -1042,7 +1042,7 @@ namespace beam::wallet
         csi.m_assetID = assetId;
         csi.m_explicitFee = beforehandMinFee;
         csi.Calculate(m_currentHeight, m_walletDB, isShielded);
-        onCoinsSeleced(csi);
+        onCoinsSelected(csi);
     }
 
      void WalletClient::selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded, AsyncCallback<const CoinsSelectionInfo&>&& callback)
