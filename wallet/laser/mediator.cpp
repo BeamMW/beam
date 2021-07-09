@@ -476,7 +476,7 @@ bool Mediator::Delete(const std::string& channelID)
         return false;
     }
     auto channel = LoadChannelInternal(p_channelID);
-    if (!p_channelID) return false;
+    if (!channel) return false;
 
     auto state = channel->get_State();
     if (!CanBeDeleted(state))
