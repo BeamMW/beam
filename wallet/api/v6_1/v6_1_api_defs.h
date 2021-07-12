@@ -55,7 +55,6 @@ namespace beam::wallet
 
     struct WalletStatusV61
     {
-        bool withAssets = false;
         struct Response
         {
             beam::Height currentHeight = 0;

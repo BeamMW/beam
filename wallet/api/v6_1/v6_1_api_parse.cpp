@@ -107,7 +107,6 @@ namespace beam::wallet
     std::pair<WalletStatusV61, IWalletApi::MethodInfo> V61Api::onParseWalletStatusV61(const JsonRpcId& id, const nlohmann::json& params)
     {
         WalletStatusV61 message{};
-        message.withAssets = getCAEnabled();
         return std::make_pair(message, MethodInfo());
     }
 

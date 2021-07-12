@@ -287,7 +287,6 @@ namespace beam::wallet
     {
         uint32_t count = 0;
         uint32_t skip = 0;
-        bool withAssets = false;
 
         struct
         {
@@ -311,7 +310,6 @@ namespace beam::wallet
 
     struct TxList
     {
-        bool withAssets = false;
         struct
         {
             boost::optional<TxStatus>  status;
@@ -331,7 +329,6 @@ namespace beam::wallet
 
     struct WalletStatusApi
     {
-        bool withAssets = false;
         struct Response
         {
             beam::Height currentHeight = 0;

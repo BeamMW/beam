@@ -596,7 +596,7 @@ namespace beam::wallet
 
     void V6Api::onHandleGetUtxo(const JsonRpcId& id, const GetUtxo& data)
     {
-        LOG_DEBUG() << "GetUtxo(id = " << id << " assets = " << data.withAssets
+        LOG_DEBUG() << "GetUtxo(id = " << id << " assets = " << getCAEnabled()
                     << " asset_id = " << (data.filter.assetId ? *data.filter.assetId : 0)
                     << ")";
 
@@ -607,10 +607,11 @@ namespace beam::wallet
 
         auto processCoin = [&](const auto& c)->bool
         {
-            if (!data.withAssets && c.isAsset())
+            if (c.isAsset() && !getCAEnabled())
             {
                 return true;
             }
+
             if (data.filter.assetId && !c.isAsset(*data.filter.assetId))
             {
                 return true;
@@ -675,7 +676,7 @@ namespace beam::wallet
         response.sending   = AmountBig::get_Lo(totals.Outgoing); response.sending   += AmountBig::get_Lo(totals.OutgoingShielded);
         response.maturing  = AmountBig::get_Lo(totals.Maturing); response.maturing  += AmountBig::get_Lo(totals.MaturingShielded);
 
-        if (data.withAssets)
+        if (getCAEnabled())
         {
             response.totals = allTotals;
         }
@@ -691,6 +692,16 @@ namespace beam::wallet
 
     bool V6Api::allowedTx(const TxDescription& tx)
     {
+        if (!checkTxAccessRights(tx))
+        {
+           return false;
+        }
+
+        if (tx.m_assetId > 0 && !getCAEnabled())
+        {
+            return false;
+        }
+
         switch(tx.m_txType)
         {
         case TxType::Simple:
@@ -726,25 +737,14 @@ namespace beam::wallet
             TxListFilter filter;
             filter.m_AssetID = data.filter.assetId;
             filter.m_Status = data.filter.status;
-            if (data.withAssets)
+            if (getCAEnabled())
             {
                 filter.m_AssetConfirmedHeight = data.filter.height;
             }
             filter.m_KernelProofHeight = data.filter.height;
             walletDB->visitTx([&](const TxDescription& tx)
             {
-                // filter out unsupported tx types
                 if (!allowedTx(tx))
-                {
-                    return true;
-                }
-
-                if (!checkTxAccessRights(tx))
-                {
-                    return true;
-                }
-
-                if (tx.m_assetId > 0 && !data.withAssets)
                 {
                     return true;
                 }

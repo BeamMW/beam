@@ -237,10 +237,15 @@ namespace beam::wallet
             }
 
             const auto cCnt = getWalletDB()->getCoinConfirmationsOffset();
+            const auto caEnabled = getCAEnabled();
             std::vector<ApiCoin> coins;
 
             for (const auto &c: changed)
             {
+                if (c.isAsset() && !caEnabled)
+                {
+                    continue;
+                }
                 ApiCoin::EmplaceCoin(coins, c, cCnt);
             }
 
@@ -347,13 +352,15 @@ namespace beam::wallet
             std::vector<Status::Response> items;
             for(const auto& tx: changed)
             {
-                if (allowedTx(tx))
+                if (!allowedTx(tx))
                 {
-                    Status::Response &item = items.emplace_back();
-                    item.tx = tx;
-                    item.txHeight = storage::DeduceTxProofHeight(*walletDB, tx);
-                    item.systemHeight = stateID.m_Height;
+                    continue;
                 }
+
+                Status::Response &item = items.emplace_back();
+                item.tx = tx;
+                item.txHeight = storage::DeduceTxProofHeight(*walletDB, tx);
+                item.systemHeight = stateID.m_Height;
             }
 
             // allow reset even if empty

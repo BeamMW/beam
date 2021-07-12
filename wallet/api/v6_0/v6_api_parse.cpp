@@ -653,7 +653,6 @@ namespace beam::wallet
     std::pair<GetUtxo, IWalletApi::MethodInfo> V6Api::onParseGetUtxo(const JsonRpcId& id, const json& params)
     {
         GetUtxo getUtxo;
-        getUtxo.withAssets = getCAEnabled();
 
         if (auto count = getOptionalParam<PositiveUint32>(params, "count"))
         {
@@ -694,7 +693,6 @@ namespace beam::wallet
     std::pair<TxList, IWalletApi::MethodInfo> V6Api::onParseTxList(const JsonRpcId& id, const json& params)
     {
         TxList txList;
-        txList.withAssets = getCAEnabled();
 
         if (hasParam(params, "filter"))
         {
@@ -727,7 +725,6 @@ namespace beam::wallet
     std::pair<WalletStatusApi, IWalletApi::MethodInfo> V6Api::onParseWalletStatusApi(const JsonRpcId& id, const json& params)
     {
         WalletStatusApi walletStatus;
-        walletStatus.withAssets = getCAEnabled();
         return std::make_pair(walletStatus, MethodInfo());
     }
 

@@ -200,7 +200,6 @@ namespace
         message.count = 10;
         message.skip = 30;
         message.filter.status = wallet::TxStatus::Completed;
-        message.withAssets = false;
         sw.start();
         for (int i = 0; i < 100; ++i)
         {
@@ -276,7 +275,6 @@ namespace
             message2.count = 0;
             message2.skip = 0;
             message2.filter.status = wallet::TxStatus::Completed;
-            message2.withAssets = false;
             message2.filter.height = p.second;
 
             api.onHandleTxList(1, message2);

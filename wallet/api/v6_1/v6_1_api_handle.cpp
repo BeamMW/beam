@@ -173,7 +173,7 @@ namespace beam::wallet
         response.sending   = AmountBig::get_Lo(totals.Outgoing); response.sending   += AmountBig::get_Lo(totals.OutgoingShielded);
         response.maturing  = AmountBig::get_Lo(totals.Maturing); response.maturing  += AmountBig::get_Lo(totals.MaturingShielded);
 
-        if (data.withAssets)
+        if (getCAEnabled())
         {
             response.totals = allTotals;
         }
