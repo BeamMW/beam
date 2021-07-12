@@ -78,7 +78,7 @@ namespace beam::wallet
         if ((_evSubs & SubFlags::AssetChanged) != 0 && (oldSubs & SubFlags::AssetChanged) == 0)
         {
             std::vector<Asset::ID> ids;
-            getWalletDB()->visitAssets([this, &ids](const WalletAsset& info) -> bool {
+            getWalletDB()->visitAssets([&ids](const WalletAsset& info) -> bool {
                 ids.push_back(info.m_ID);
                 return true;
             });
