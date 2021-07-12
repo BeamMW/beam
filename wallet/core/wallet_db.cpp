@@ -533,16 +533,6 @@ namespace beam::wallet
             fromByteBuffer(blob, value);
         }
 
-        vector<Coin> converIDsToCoins(const vector<Coin::ID>& coinIDs)
-        {
-            vector<Coin> coins(coinIDs.size());
-            for (size_t i = 0; i < coins.size(); ++i)
-            {
-                coins[i].m_ID = coinIDs[i];
-            }
-            return coins;
-        }
-
         Height DeduceTxProofHeightImpl(const IWalletDB& walletDB, const TxID& txID, TxType type)
         {
             Height height = 0;
@@ -3280,15 +3270,25 @@ namespace beam::wallet
         return nLast;
     }
 
-    void WalletDB::removeCoins(const vector<Coin::ID>& coins)
+    void WalletDB::removeCoins(const vector<Coin::ID>& cids)
     {
-        if (coins.size())
+        if (cids.empty())
         {
-            for (const auto& cid : coins)
-                removeCoinImpl(cid);
-
-            notifyCoinsChanged(ChangeAction::Removed, converIDsToCoins(coins));
+            return;
         }
+
+        std::vector<Coin> removed;
+        for (const auto& cid: cids)
+        {
+            Coin coin; coin.m_ID = cid;
+            if (findCoin(coin))
+            {
+                removed.push_back(coin);
+                removeCoinImpl(cid);
+            }
+        }
+
+        notifyCoinsChanged(ChangeAction::Removed, removed);
     }
 
     void WalletDB::removeCoinImpl(const Coin::ID& cid)
