@@ -284,13 +284,33 @@ namespace beam::wallet
                 }
             };
 
-            // allow reset even if empty
-            // do not notify for other actions if empty
-            if (action == ChangeAction::Reset || !items.empty())
+            auto notify = [&](const std::vector<WalletAddress>& list) {
+                // allow reset even if empty
+                // do not notify for other actions if empty
+                if (action == ChangeAction::Reset || !list.empty())
+                {
+                    fillAddresses(msg["result"]["addrs"], list);
+                    _handler.sendAPIResponse(msg);
+                }
+            };
+
+            const auto& appid = getAppId();
+            if (appid.empty())
             {
-                fillAddresses(msg["result"]["addrs"], items);
-                _handler.sendAPIResponse(msg);
+                return notify(items);
             }
+
+            std::vector<WalletAddress> filtered;
+            std::copy_if(
+                items.begin(),
+                items.end(),
+                std::back_inserter(filtered),
+                [appid](const auto& addr) -> bool
+                {
+                    return addr.m_category == appid;
+                }
+            );
+            notify(filtered);
         }
         catch(std::exception& e)
         {
