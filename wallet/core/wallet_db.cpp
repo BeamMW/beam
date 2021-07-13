@@ -5645,8 +5645,8 @@ namespace beam::wallet
                  // We ALWAYS count beam as NZ-asset
                  if (iter->first == Asset::s_BeamID || iter->second.IsNZ())
                  {
-                     ++iter;
                      assetsNZ.insert(iter->first);
+                     ++iter;
                  }
                  else
                  {
