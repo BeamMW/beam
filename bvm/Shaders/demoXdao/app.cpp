@@ -21,6 +21,9 @@
     macro(Amount, amountBeam) \
     macro(uint32_t, bLockOrUnlock) \
 
+#define DemoXdao_manager_prealloc_totals(macro) \
+    macro(ContractID, cid)
+
 #define DemoXdao_manager_prealloc_view(macro) \
     macro(ContractID, cid)
 
@@ -49,6 +52,7 @@
     macro(manager, view_params) \
     macro(manager, view_stake) \
     macro(manager, my_xid) \
+    macro(manager, prealloc_totals) \
     macro(manager, prealloc_view) \
     macro(manager, prealloc_withdraw) \
     macro(manager, farm_view) \
@@ -244,6 +248,36 @@ Amount CalculatePreallocAvail(const ContractID& cid, Amount val)
         return val;
 
     return CalculateFraction(val, dh, pr.s_Duration);
+}
+
+ON_METHOD(manager, prealloc_totals)
+{
+    Amount valTotal = 0, valReceived = 0;
+
+    Env::Key_T<DemoXdao::Preallocated::User::Key> k0, k1;
+    _POD_(k0.m_Prefix.m_Cid) = cid;
+    _POD_(k0.m_KeyInContract.m_Pk).SetZero();
+    _POD_(k1.m_Prefix.m_Cid) = cid;
+    _POD_(k1.m_KeyInContract.m_Pk).SetObject(0xff);
+
+    for (Env::VarReader r(k0, k1); ; )
+    {
+        DemoXdao::Preallocated::User pu;
+        if (!r.MoveNext_T(k0, pu))
+            break;
+
+        valReceived += pu.m_Received;
+        valTotal += pu.m_Total;
+    }
+
+    // TODO: after the vesting period is over and the user withdraws all the preallocated - its record is erased completely.
+    // Account for this. valTotal should be raised to the expected, valReceived raise by the same value as well
+
+    Amount valAvail = CalculatePreallocAvail(cid, valTotal);
+
+    Env::DocAddNum("total", valTotal);
+    Env::DocAddNum("avail", valAvail);
+    Env::DocAddNum("received", valReceived);
 }
 
 ON_METHOD(manager, prealloc_view)
