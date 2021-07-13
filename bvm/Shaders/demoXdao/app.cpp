@@ -323,40 +323,47 @@ ON_METHOD(manager, prealloc_withdraw)
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "Get preallocated demoX tokens", 0);
 }
 
-ON_METHOD(manager, farm_view)
+void GetFarmingState(const ContractID& cid, DemoXdao::Farming::State& fs)
 {
-
     Height h = Env::get_Height();
 
-    DemoXdao::Farming::State fs;
+    Env::Key_T<uint8_t> fsk;
+    _POD_(fsk.m_Prefix.m_Cid) = cid;
+    fsk.m_KeyInContract = DemoXdao::Farming::s_Key;
+
+    if (!Env::VarReader::Read_T(fsk, fs))
+        _POD_(fs).SetZero();
+    else
+        fs.Update(h);
+
+    fs.m_hLast = h;
+}
+
+void GetFarmingState(const ContractID& cid, DemoXdao::Farming::State& fs, DemoXdao::Farming::UserPos& fup)
+{
+    GetFarmingState(cid, fs);
+
+    Env::Key_T<DemoXdao::Farming::UserPos::Key> fupk;
+    _POD_(fupk.m_Prefix.m_Cid) = cid;
+    Env::DerivePk(fupk.m_KeyInContract.m_Pk, &cid, sizeof(cid));
+
+    if (!Env::VarReader::Read_T(fupk, fup))
     {
-        Env::Key_T<uint8_t> fsk;
-        _POD_(fsk.m_Prefix.m_Cid) = cid;
-        fsk.m_KeyInContract = DemoXdao::Farming::s_Key;
+        _POD_(fup).SetZero();
+        fup.m_SigmaLast = fs.m_Sigma;
+    }
+}
 
-        if (!Env::VarReader::Read_T(fsk, fs))
-            _POD_(fs).SetZero();
-        else
-            fs.Update(h);
+ON_METHOD(manager, farm_view)
+{
+    DemoXdao::Farming::State fs;
+    DemoXdao::Farming::UserPos fup;
+    GetFarmingState(cid, fs, fup);
 
-        fs.m_hLast = h;
-
+    {
         Env::DocGroup gr("farming");
         Env::DocAddNum("duation", fs.m_hTotal);
         Env::DocAddNum("emission", fs.get_EmissionSoFar());
-    }
-
-    DemoXdao::Farming::UserPos fup;
-    {
-        Env::Key_T<DemoXdao::Farming::UserPos::Key> fupk;
-        _POD_(fupk.m_Prefix.m_Cid) = cid;
-        Env::DerivePk(fupk.m_KeyInContract.m_Pk, &cid, sizeof(cid));
-
-        if (!Env::VarReader::Read_T(fupk, fup))
-        {
-            _POD_(fup).SetZero();
-            fup.m_SigmaLast = fs.m_Sigma;
-        }
     }
 
     {
