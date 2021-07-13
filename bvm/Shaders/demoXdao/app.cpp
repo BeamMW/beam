@@ -20,6 +20,9 @@
     macro(Amount, amount) \
     macro(Height, hPeriod)
 
+#define DemoXdao_manager_farm_totals(macro) \
+    macro(ContractID, cid)
+
 #define DemoXdao_manager_farm_update(macro) \
     macro(ContractID, cid) \
     macro(Amount, amountBeamX) \
@@ -62,6 +65,7 @@
     macro(manager, prealloc_withdraw) \
     macro(manager, farm_view) \
     macro(manager, farm_get_yield) \
+    macro(manager, farm_totals) \
     macro(manager, farm_update)
 
 #define DemoXdaoRoles_All(macro) \
@@ -402,6 +406,37 @@ ON_METHOD(manager, farm_get_yield)
     Amount res = fs.RemoveFraction(fup);
 
     Env::DocAddNum("yield", res);
+}
+
+ON_METHOD(manager, farm_totals)
+{
+    DemoXdao::Farming::State fs;
+    GetFarmingState(cid, fs);
+    Amount beamLocked = 0, beamXinternal = 0;
+
+    Env::Key_T<DemoXdao::Farming::UserPos::Key> k0, k1;
+    _POD_(k0.m_Prefix.m_Cid) = cid;
+    _POD_(k0.m_KeyInContract.m_Pk).SetZero();
+    _POD_(k1.m_Prefix.m_Cid) = cid;
+    _POD_(k1.m_KeyInContract.m_Pk).SetObject(0xff);
+
+    for (Env::VarReader r(k0, k1); ; )
+    {
+        DemoXdao::Farming::UserPos fup;
+        if (!r.MoveNext_T(k0, fup))
+            break;
+
+        beamXinternal += fup.m_BeamX; // already assigned to the user, but not claimed yet
+        beamLocked += fup.m_Beam;
+    }
+
+
+
+    Env::DocAddNum("duation", fs.m_hTotal);
+    Env::DocAddNum("total", fs.s_Emission);
+    Env::DocAddNum("avail", fs.get_EmissionSoFar());
+    Env::DocAddNum("received", fs.m_TotalDistributed - beamXinternal);
+    Env::DocAddNum("beam_locked", beamLocked);
 }
 
 ON_METHOD(manager, farm_update)
