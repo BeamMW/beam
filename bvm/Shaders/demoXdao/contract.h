@@ -134,9 +134,7 @@ namespace DemoXdao
 
                     // ignore the 3 least-significant words, those are normalization factor
                     // The result is the next 2 words.
-
-                    Amount val = (((Amount) resVal.get_Val<5>()) << 32) | resVal.get_Val<4>();
-
+                    auto val = resVal.Get<3, Amount>();
                     res = std::min(res, val);
                 }
 
