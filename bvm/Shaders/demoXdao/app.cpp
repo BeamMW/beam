@@ -325,9 +325,6 @@ ON_METHOD(manager, prealloc_withdraw)
 
 ON_METHOD(manager, farm_view)
 {
-    auto aid = get_TrgAid(cid);
-    if (!aid)
-        return;
 
     Height h = Env::get_Height();
 
