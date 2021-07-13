@@ -668,7 +668,7 @@ namespace beam::wallet
             response.difficulty = state.m_PoW.m_Difficulty.ToFloat();
         }
 
-        storage::Totals allTotals(*walletDB);
+        storage::Totals allTotals(*walletDB, false);
         const auto& totals = allTotals.GetBeamTotals();
 
         response.available = AmountBig::get_Lo(totals.Avail);    response.available += AmountBig::get_Lo(totals.AvailShielded);

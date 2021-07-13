@@ -5498,18 +5498,25 @@ namespace beam::wallet
             return true;
         }
 
+        bool Totals::AssetTotals::IsNZ() const
+        {
+            return Avail != Zero || Maturing != Zero || MaturingShielded != Zero || Incoming != Zero ||
+                   ReceivingChange != Zero || ReceivingIncoming != Zero || Outgoing != Zero ||
+                   OutgoingShielded != Zero || AvailShielded != Zero || IncomingShielded != Zero;
+        }
+
         Totals::Totals()
         {
             allTotals[Zero] = AssetTotals();
         }
 
-        Totals::Totals(IWalletDB& db)
+        Totals::Totals(IWalletDB& db, bool nzOnly)
         {
             allTotals[Zero] = AssetTotals();
-            Init(db);
+            Init(db, nzOnly);
         }
 
-        void Totals::Init(IWalletDB& walletDB)
+        void Totals::Init(IWalletDB& walletDB, bool nzOnly)
         {
             auto getTotalsRef = [this](Asset::ID assetId) -> AssetTotals& {
                 if (allTotals.find(assetId) == allTotals.end()) {
@@ -5632,6 +5639,27 @@ namespace beam::wallet
                 }
                 return true;
              });
+
+             for (auto iter = allTotals.begin(); iter != allTotals.end();)
+             {
+                 // We ALWAYS count beam as NZ-asset
+                 if (iter->first == Asset::s_BeamID || iter->second.IsNZ())
+                 {
+                     ++iter;
+                     assetsNZ.insert(iter->first);
+                 }
+                 else
+                 {
+                    if (nzOnly)
+                    {
+                        iter = allTotals.erase(iter);
+                    }
+                    else
+                    {
+                        ++iter;
+                    }
+                 }
+             }
         }
 
         Totals::AssetTotals Totals::GetTotals(Asset::ID assetId) const
@@ -5643,6 +5671,16 @@ namespace beam::wallet
                 return result;
             }
             return allTotals[assetId];
+        }
+
+        const std::set<Asset::ID>& Totals::GetAssetsNZ() const
+        {
+            return assetsNZ;
+        }
+
+        const std::map<Asset::ID, Totals::AssetTotals>& Totals::GetAllTotals() const
+        {
+            return allTotals;
         }
 
         bool Totals::HasTotals(Asset::ID assetId) const

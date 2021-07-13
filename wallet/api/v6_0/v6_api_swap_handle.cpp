@@ -33,7 +33,7 @@ namespace beam::wallet
 
     void ensureBEAMAmount(const IWalletDB::Ptr walletDB, Amount beamAmount, Amount beamFee)
     {
-        storage::Totals allTotals(*walletDB);
+        storage::Totals allTotals(*walletDB, false);
 
         const auto& totals = allTotals.GetBeamTotals();
         const auto available = AmountBig::get_Lo(totals.Avail) + AmountBig::get_Lo(totals.AvailShielded);

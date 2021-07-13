@@ -107,6 +107,7 @@ namespace beam::wallet
     std::pair<WalletStatusV61, IWalletApi::MethodInfo> V61Api::onParseWalletStatusV61(const JsonRpcId& id, const nlohmann::json& params)
     {
         WalletStatusV61 message{};
+        message.nzOnly = getOptionalParam<bool>(params, "nz_totals");
         return std::make_pair(message, MethodInfo());
     }
 
@@ -134,7 +135,7 @@ namespace beam::wallet
 
         if (res.totals)
         {
-            for(const auto& it: res.totals->allTotals)
+            for(const auto& it: res.totals->GetAllTotals())
             {
                 const auto& totals = it.second;
                 json jtotals;

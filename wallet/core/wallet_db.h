@@ -980,20 +980,27 @@ namespace beam::wallet
                 AmountBig::Type IncomingShielded = 0U;
                 Height MinCoinHeightMW = 0;
                 Height MinCoinHeightShielded = 0;
+                bool IsNZ() const;
             };
 
             Totals();
-            explicit Totals(IWalletDB& db);
-            void Init(IWalletDB&);
+            Totals(IWalletDB& db, bool nzOnly);
+            void Init(IWalletDB&, bool nzOnly);
 
             bool HasTotals(Asset::ID) const;
             AssetTotals GetTotals(Asset::ID) const;
 
-            inline AssetTotals GetBeamTotals() const {
+            const std::set<Asset::ID>& GetAssetsNZ() const;
+            const std::map<Asset::ID, AssetTotals>& GetAllTotals() const;
+
+            inline AssetTotals GetBeamTotals() const
+            {
                 return GetTotals(Zero);
             }
 
+        private:
             mutable std::map<Asset::ID, AssetTotals> allTotals;
+            std::set<Asset::ID> assetsNZ;
         };
 
         // Used for Payment Proof feature

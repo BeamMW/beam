@@ -974,7 +974,7 @@ bool Mediator::ValidateTip()
 
 bool Mediator::IsEnoughCoinsAvailable(Amount required)
 {
-    storage::Totals totalsCalc(*m_pWalletDB);
+    storage::Totals totalsCalc(*m_pWalletDB, false);
     const auto& totals = totalsCalc.GetBeamTotals();
     return AmountBig::get_Lo(totals.Avail) >= required;
 }

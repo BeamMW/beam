@@ -165,7 +165,7 @@ namespace beam::wallet
             response.isInSync = IsValidTimeStamp(state.m_TimeStamp);
         }
 
-        storage::Totals allTotals(*walletDB);
+        storage::Totals allTotals(*walletDB, data.nzOnly.is_initialized() ? *data.nzOnly : false);
         const auto& totals = allTotals.GetBeamTotals();
 
         response.available = AmountBig::get_Lo(totals.Avail);    response.available += AmountBig::get_Lo(totals.AvailShielded);

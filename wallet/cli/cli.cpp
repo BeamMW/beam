@@ -1340,7 +1340,7 @@ namespace
 
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
-        storage::Totals totals(*walletDB);
+        storage::Totals totals(*walletDB, false);
 
         const auto displayAsset = [&vm, &walletDB](const storage::Totals::AssetTotals &totals) {
             cout << endl;
@@ -1361,7 +1361,7 @@ namespace
         else
         {
             bool assetDisplayed = false;
-            for (auto it : totals.allTotals)
+            for (auto it : totals.GetAllTotals())
             {
                 const auto assetId = it.second.AssetId;
                 if (assetId != Asset::s_InvalidID)
@@ -1438,7 +1438,7 @@ namespace
 
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
-        storage::Totals totalsCalc(*walletDB);
+        storage::Totals totalsCalc(*walletDB, false);
 
         // Show info about BEAM
         const auto& totals = totalsCalc.GetBeamTotals();

@@ -1269,7 +1269,7 @@ namespace beam::wallet
 
         if (res.totals)
         {
-            for(const auto& it: res.totals->allTotals)
+            for(const auto& it: res.totals->GetAllTotals())
             {
                 const auto& totals = it.second;
                 json jtotals;

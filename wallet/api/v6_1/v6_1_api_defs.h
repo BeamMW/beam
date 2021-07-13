@@ -55,6 +55,7 @@ namespace beam::wallet
 
     struct WalletStatusV61
     {
+        boost::optional<bool> nzOnly = boost::none;
         struct Response
         {
             beam::Height currentHeight = 0;

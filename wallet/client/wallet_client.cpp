@@ -1662,9 +1662,9 @@ namespace beam::wallet
     WalletStatus WalletClient::getStatus() const
     {
         WalletStatus status;
-        storage::Totals allTotals(*m_walletDB);
+        storage::Totals allTotals(*m_walletDB, false);
 
-        for(const auto& totalsPair: allTotals.allTotals) {
+        for(const auto& totalsPair: allTotals.GetAllTotals()) {
             const auto& info = totalsPair.second;
             WalletStatus::AssetStatus assetStatus;
 
@@ -1686,6 +1686,7 @@ namespace beam::wallet
         m_walletDB->getSystemStateID(status.stateID);
         status.shieldedTotalCount = m_walletDB->get_ShieldedOuts();
         status.update.lastTime = m_walletDB->getLastUpdateTime();
+        status.nzAssets = allTotals.GetAssetsNZ();
 
         return status;
     }

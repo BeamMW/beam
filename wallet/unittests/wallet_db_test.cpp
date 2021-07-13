@@ -1296,7 +1296,7 @@ void TestSelect7()
     coins.push_back(CreateAvailCoin(Amount(6'456'001'778'569)));
     db->storeCoins(coins);
 
-    storage::Totals totals(*db);
+    storage::Totals totals(*db, false);
     auto t = totals.GetBeamTotals();
     WALLET_CHECK(AmountBig::get_Lo(t.Avail) == 6'518'975'908'344);
 

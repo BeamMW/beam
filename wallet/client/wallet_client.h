@@ -78,6 +78,7 @@ namespace beam::wallet
         Block::SystemState::ID stateID = {};
         TxoID shieldedTotalCount = std::numeric_limits<beam::TxoID>::max();
         mutable std::map<Asset::ID, AssetStatus> all;
+        std::set<Asset::ID> nzAssets;
     };
 
     class SwapOffersBoard;
