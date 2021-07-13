@@ -15,6 +15,11 @@
 #define DemoXdao_manager_farm_view(macro) \
     macro(ContractID, cid)
 
+#define DemoXdao_manager_farm_get_yield(macro) \
+    macro(ContractID, cid) \
+    macro(Amount, amount) \
+    macro(Height, hPeriod)
+
 #define DemoXdao_manager_farm_update(macro) \
     macro(ContractID, cid) \
     macro(Amount, amountBeamX) \
@@ -56,6 +61,7 @@
     macro(manager, prealloc_view) \
     macro(manager, prealloc_withdraw) \
     macro(manager, farm_view) \
+    macro(manager, farm_get_yield) \
     macro(manager, farm_update)
 
 #define DemoXdaoRoles_All(macro) \
@@ -375,6 +381,27 @@ ON_METHOD(manager, farm_view)
         Env::DocAddNum("beamX_recent", val);
         Env::DocAddNum("beamX", fup.m_BeamX + val);
     }
+}
+
+ON_METHOD(manager, farm_get_yield)
+{
+    DemoXdao::Farming::State fs;
+    DemoXdao::Farming::UserPos fup;
+    GetFarmingState(cid, fs, fup);
+
+    fs.RemoveFraction(fup);
+
+    DemoXdao::Farming::Weight::Type w = DemoXdao::Farming::Weight::Calculate(amount);
+    fs.m_WeightTotal += w;
+
+    _POD_(fup.m_SigmaLast) = fs.m_Sigma;
+    fup.m_Beam = amount;
+
+    fs.Update(fs.m_hLast + hPeriod);
+
+    Amount res = fs.RemoveFraction(fup);
+
+    Env::DocAddNum("yield", res);
 }
 
 ON_METHOD(manager, farm_update)
