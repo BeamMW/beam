@@ -15,7 +15,7 @@
 #include <iostream>
 #include <iomanip>
 
-#include "bvm2_impl.h"
+#include "../bvm2_impl.h"
 using namespace beam;
 using namespace beam::bvm2;
 
