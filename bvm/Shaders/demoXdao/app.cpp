@@ -220,12 +220,34 @@ ON_METHOD(manager, my_xid)
     Env::DocAddBlob_T("xid", pk);
 }
 
+template <typename TX, typename TY>
+TY CalculateFraction(TY val, TX x, TX xTotal)
+{
+    MultiPrecision::UInt<sizeof(TY) / sizeof(MultiPrecision::Word)> res;
+    res.SetDiv(MultiPrecision::From(x) * MultiPrecision::From(val), MultiPrecision::From(xTotal));
+
+    return res.template Get<0, TY>();
+}
+
+Amount CalculatePreallocAvail(const ContractID& cid, Amount val)
+{
+    Env::Key_T<uint8_t> prk;
+    _POD_(prk.m_Prefix.m_Cid) = cid;
+    prk.m_KeyInContract = DemoXdao::Preallocated::s_Key;
+
+    DemoXdao::Preallocated pr;
+    if (!Env::VarReader::Read_T(prk, pr))
+        return 0;
+
+    Height dh = Env::get_Height() - pr.m_h0;
+    if (dh >= pr.s_Duration)
+        return val;
+
+    return CalculateFraction(val, dh, pr.s_Duration);
+}
+
 ON_METHOD(manager, prealloc_view)
 {
-    auto aid = get_TrgAid(cid);
-    if (!aid)
-        return;
-
     Env::Key_T<DemoXdao::Preallocated::User::Key> puk;
     _POD_(puk.m_Prefix.m_Cid) = cid;
     Env::DerivePk(puk.m_KeyInContract.m_Pk, g_szXid, sizeof(g_szXid));
@@ -237,22 +259,8 @@ ON_METHOD(manager, prealloc_view)
         Env::DocAddNum("received", pu.m_Received);
 
         // calculate the maximum available
-        Amount nMaxAvail = 0;
+        Amount nMaxAvail = CalculatePreallocAvail(cid, pu.m_Total);
 
-        Env::Key_T<uint8_t> prk;
-        _POD_(prk.m_Prefix.m_Cid) = cid;
-        prk.m_KeyInContract = DemoXdao::Preallocated::s_Key;
-
-        DemoXdao::Preallocated pr;
-        if (Env::VarReader::Read_T(prk, pr))
-        {
-            Height dh = std::min(Env::get_Height() - pr.m_h0, pr.s_Duration);
-
-            MultiPrecision::UInt<2> maxVal;
-            maxVal.SetDiv(MultiPrecision::From(dh) * MultiPrecision::From(pu.m_Total), MultiPrecision::From(pr.s_Duration));
-
-            nMaxAvail = (((uint64_t) maxVal.get_Val<2>()) << 32) | maxVal.get_Val<1>();
-        }
 
         Env::DocAddNum("avail_total", nMaxAvail);
         Env::DocAddNum("avail_remaining", (nMaxAvail> pu.m_Received) ? (nMaxAvail - pu.m_Received) : 0);
