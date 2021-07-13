@@ -44,11 +44,7 @@ int main(int argc, char* argv[])
     get_ShaderID(sid, Blob(buffer));
     //std::cout << "#pragma once\n";
     std::cout << "// SID: " << sid.str() << '\n';
-    std::cout <<
-       // "namespace DemoXdao " \
-       // "{"\
-
-        "static const ShaderID s_SID = {";
+    std::cout <<"static const ShaderID s_SID = {";
     auto c = sizeof(ShaderID);
     unsigned int i = 0;
     for (; i < c - 1; ++i)
@@ -56,6 +52,5 @@ int main(int argc, char* argv[])
         std::cout << std::hex << "0x" << static_cast<int>(sid.m_pData[i]) << ", ";
     }
     std::cout << "0x" << static_cast<int>(sid.m_pData[i]) << "};";
-   // std::cout << "}";
     return 0;
 }
