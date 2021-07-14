@@ -6974,10 +6974,12 @@ namespace beam::wallet
                 params.SetParameter(TxParameterID::AssetID, assetId);
             }
 
-            if (!clientVersion.empty())
-            {
-                params.SetParameter(TxParameterID::ClientVersion, clientVersion);
-            }
+            // Commented it because, these versions bloat the address size (anatolse)
+            // TODO: Replace it with something shorter if we 
+            //if (!clientVersion.empty())
+            //{
+            //    params.SetParameter(TxParameterID::ClientVersion, clientVersion);
+            //}
 
             AppendLibraryVersion(params);
             return params;

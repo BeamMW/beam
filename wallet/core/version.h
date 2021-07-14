@@ -36,11 +36,29 @@ namespace beam
 
         SERIALIZE(m_major, m_minor, m_revision);
 
-        std::string to_string() const;
         bool from_string(const std::string&);
         bool operator==(const Version& other) const;
         bool operator!=(const Version& other) const;
         bool operator<(const Version& other) const;
         bool operator<=(const Version& other) const;
     };
+
+    struct ClientVersion
+    {
+        uint32_t m_revision;
+        uint8_t m_type; // reserved
+
+        ClientVersion(uint32_t revision = 0, uint8_t type = 0)
+            : m_revision(revision)
+            , m_type(type)
+        {}
+        SERIALIZE(m_revision, m_type);
+
+        bool operator<(const ClientVersion& other) const;
+    };
+}
+
+namespace std
+{
+    string to_string(const beam::Version&);
 }
