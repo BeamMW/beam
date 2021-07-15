@@ -16,9 +16,8 @@ function(add_shader kind shaders_dir)
     if(kind STREQUAL "contract")
         set(SHADER_ADDITIONAL_DEP ${shaders_dir}/${kind}.h)
     endif()
-
-    if(ARGN GREATER 3)
-        set(target_name ${ARGV3})
+    if(ARGC GREATER 2)
+        set(target_name ${ARGV2})
     else()
         set(target_name ${kind}_target)
     endif()
@@ -41,11 +40,5 @@ function(add_shader kind shaders_dir)
         ALL
         DEPENDS ${WASM_FILE_PATH}
     )
-    if(ARGN GREATER 2)
-        add_dependencies(
-            ARGV2
-            ${target_name}
-        )
-    endif()
 
 endfunction()
