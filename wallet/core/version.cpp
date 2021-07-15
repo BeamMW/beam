@@ -40,7 +40,7 @@ namespace beam
     {
         try
         {
-            std::regex libVersionRegex("\\d{1,}\\.\\d{1,}\\.\\d{4,}");
+            std::regex libVersionRegex("\\d{1,}\\.\\d{1,}\\.\\d{1,}");
             if (std::regex_match(verString, libVersionRegex))
             {
                 auto stringList = string_helpers::split(verString, '.');
