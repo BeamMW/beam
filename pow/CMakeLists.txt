@@ -28,13 +28,15 @@ target_link_libraries(pow
         core
 )
 
-add_library(external_pow STATIC
-    external_pow_stub.cpp
-    stratum.cpp
-    stratum_server.cpp
-)
+if(NOT BEAM_BVM_ONLY)
+    add_library(external_pow STATIC
+        external_pow_stub.cpp
+        stratum.cpp
+        stratum_server.cpp
+    )
 
-target_link_libraries(external_pow p2p pow core)
+    target_link_libraries(external_pow p2p pow core)
+endif()
 
 if (NOT BEAM_WALLET_CLIENT_LIBRARY)
     add_executable(miner_client miner_client.cpp ../core/block_crypt.cpp) # ???????????????????????????

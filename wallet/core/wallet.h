@@ -81,12 +81,12 @@ namespace beam::wallet
         // Callback for wallet sync progress. 
         // @param done - number of done tasks
         // @param total - number of total tasks
-        virtual void onSyncProgress(int done, int total) = 0;
+        virtual void onSyncProgress(int done, int total) {}
 
         // Callback for wallet own(trusted) node connection
         // @param id - connected node peer id
         // @param connected - true if node has connected otherwise false
-        virtual void onOwnedNode(const PeerID& id, bool connected) = 0;
+        virtual void onOwnedNode(const PeerID& id, bool connected) {}
     };
     
     // Interface for wallet message consumer
@@ -145,6 +145,7 @@ namespace beam::wallet
         bool CanCancelTransaction(const TxID& txId) const;
         void CancelTransaction(const TxID& txId);
         void DeleteTransaction(const TxID& txId);
+        void ConfirmAsset(Asset::ID);
         
         void Subscribe(IWalletObserver* observer);
         void Unsubscribe(IWalletObserver* observer);
@@ -152,7 +153,7 @@ namespace beam::wallet
         void VisitActiveTransaction(const TxVisitor& visitor);
 
         bool IsWalletInSync() const;
-        Height get_CurrentHeight() const;
+        Height get_TipHeight() const;
 
         // Count of active transactions which are not in safe state, negotiation are not finished or data is not sent to node
         size_t GetUnsafeActiveTransactionsCount() const;
@@ -214,7 +215,7 @@ namespace beam::wallet
         uint32_t SyncRemains() const;
         void CheckSyncDone();
         void getUtxoProof(const Coin&);
-        void report_sync_progress();
+        void ReportSyncProgress();
         void NotifySyncProgress();
         void UpdateTransaction(const TxID& txID);
         void UpdateTransaction(BaseTransaction::Ptr tx);

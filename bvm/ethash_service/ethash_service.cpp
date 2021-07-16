@@ -27,7 +27,7 @@
 #include <boost/filesystem.hpp>
 
 #include "wallet/api/cli/api_server.h"
-#include "wallet/api/v6_0/api_base.h"
+#include "wallet/api/base/api_base.h"
 
 #include "shaders_ethash.h"
 
@@ -39,6 +39,7 @@ namespace
     const char* PROVER = "prover";
     const char* DATA_PATH = "path";
     const char* GENERATE = "generate";
+    const char* EPOCH = "epoch";
 
     struct Options
     {
@@ -52,6 +53,7 @@ namespace
     struct MyOptions : Options
     {
         std::string dataPath;
+        int32_t epoch = -1;
     };
 
 
@@ -68,7 +70,10 @@ namespace
 
         ExecutorMT_R exec;
 
-        for (uint32_t iEpoch = 0; iEpoch < Shaders::Ethash::ProofBase::nEpochsTotal ; iEpoch++)
+        bool specificEpoch = options.epoch >= 0;
+        uint32_t start = specificEpoch ? (uint32_t)options.epoch : 0;
+        uint32_t end = specificEpoch ? start + 1 : Shaders::Ethash::ProofBase::nEpochsTotal;
+        for (uint32_t iEpoch = start; iEpoch < end; iEpoch++)
         {
             struct MyTask :public Executor::TaskAsync
             {
@@ -89,9 +94,12 @@ namespace
         }
         exec.Flush(0);
 
-        // 2. Generate the 'SuperTree'
-        path.append("/");
-        EthashUtils::GenerateSuperTree((path / + "Super.tre").string().c_str(), path.string().c_str(), path.string().c_str(), 3);
+        if (!specificEpoch)
+        {
+            // 2. Generate the 'SuperTree'
+            path.append("/");
+            EthashUtils::GenerateSuperTree((path / + "Super.tre").string().c_str(), path.string().c_str(), path.string().c_str(), 3);
+        }
 
         return 0;
     }
@@ -99,7 +107,7 @@ namespace
     using wallet::JsonRpcId;
 
 #define BEAM_ETHASH_SERVICE_API_METHODS(macro) \
-    macro(GetProof,           "get_proof",                 API_READ_ACCESS)  
+    macro(GetProof, "get_proof", API_READ_ACCESS,  API_ASYNC,  APPS_ALLOWED)
     
     struct GetProof 
     {
@@ -115,41 +123,21 @@ namespace
     class ProverApi : public wallet::ApiBase
     {
     public:
-        ProverApi(wallet::IWalletApiHandler& handler, ACL acl, std::string appid, std::string appname, const std::string& dataPath)
-            : wallet::ApiBase(handler, std::move(acl), std::move(appid), std::move(appname))
+        ProverApi(wallet::IWalletApiHandler& handler, const wallet::ApiInitData& initData, const std::string& dataPath)
+            : wallet::ApiBase(handler, initData)
             , m_DataPath(dataPath)
         {
             if (!m_DataPath.empty() && m_DataPath.back() != '\\' && m_DataPath.back() != '/')
             {
-                m_DataPath.push_back('/');
+                m_DataPath.push_back('\\');
             }
-#define REG_FUNC(api, name, writeAccess)    \
-        _methods[name] = {                                                \
-            [this] (const JsonRpcId &id, const json &msg) {               \
-                auto parseRes = onParse##api(id, msg);                    \
-                onHandle##api(id, parseRes.first);                        \
-            },                                                            \
-            [this] (const JsonRpcId &id, const json &msg) -> MethodInfo { \
-                auto parseRes = onParse##api(id, msg);                    \
-                return parseRes.second;                                   \
-            },                                                            \
-            writeAccess, false, false                                     \
-        };
-        BEAM_ETHASH_SERVICE_API_METHODS(REG_FUNC)
-#undef REG_FUNC
+            BEAM_ETHASH_SERVICE_API_METHODS(BEAM_API_REG_METHOD)
         }
 
         BEAM_ETHASH_SERVICE_API_METHODS(BEAM_API_RESPONSE_FUNC)
         BEAM_ETHASH_SERVICE_API_METHODS(BEAM_API_HANDLE_FUNC)
         BEAM_ETHASH_SERVICE_API_METHODS(BEAM_API_PARSE_FUNC)
 
-        template<typename T>
-        void doResponse(const JsonRpcId& id, const T& response)
-        {
-            json msg;
-            getResponse(id, response, msg);
-            _handler.sendAPIResponse(msg);
-        }
     private:
         std::string m_DataPath;
     };
@@ -160,7 +148,9 @@ namespace
 
         std::unique_ptr<wallet::IWalletApi> createApiInstance(const std::string& version, wallet::IWalletApiHandler& handler) override
         {
-            return std::make_unique<ProverApi>(handler, _acl, "", "", m_DataPath);
+            wallet::ApiInitData init;
+            init.acl = _acl;
+            return std::make_unique<ProverApi>(handler, init, m_DataPath);
         }
 
         std::string m_DataPath;
@@ -217,7 +207,7 @@ namespace
         io::Address listenTo = io::Address().port(options.port);
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
-        ProverApiServer server(std::string("0.0.1"), *reactor, listenTo, options.useHttp, (options.useAcl ? loadACL(options.aclPath) : wallet::IWalletApi::ACL()), options.tlsOptions, {});
+        ProverApiServer server(std::string("0.0.1"), *reactor, listenTo, options.useHttp, (options.useAcl ? loadACL(options.aclPath) : wallet::ApiACL()), options.tlsOptions, {});
         server.m_DataPath = options.dataPath;
         reactor->run();
         return 0;
@@ -226,59 +216,68 @@ namespace
 
 int main(int argc, char* argv[])
 {
-    const auto path = boost::filesystem::system_complete("./logs");
-    auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "", path.string());
-    MyOptions options;
-    po::options_description desc("Ethash service options");
-    desc.add_options()
-        (cli::HELP_FULL, "list of all options")
-        (PROVER, "run prover server")
-        (GENERATE, "create local data for all the epochs (VERY long)")
-        (DATA_PATH, po::value<std::string>(&options.dataPath)->default_value("EthEpoch"), "directory for generated data")
-        (cli::PORT_FULL, po::value<uint16_t>(&options.port)->default_value(10000), "port to start prover server on")
-        (cli::API_USE_HTTP, po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
-    ;
-
-    po::options_description authDesc("User authorization options");
-    authDesc.add_options()
-        (cli::API_USE_ACL, po::value<bool>(&options.useAcl)->default_value(false), "use Access Control List (ACL)")
-        (cli::API_ACL_PATH, po::value<std::string>(&options.aclPath)->default_value("prover-api.acl"), "path to ACL file")
-        ;
-
-    po::options_description tlsDesc("TLS protocol options");
-    tlsDesc.add_options()
-        (cli::API_USE_TLS, po::value<bool>(&options.tlsOptions.use)->default_value(false), "use TLS protocol")
-        (cli::API_TLS_CERT, po::value<std::string>(&options.tlsOptions.certPath)->default_value("wallet_api.crt"), "path to TLS certificate")
-        (cli::API_TLS_KEY, po::value<std::string>(&options.tlsOptions.keyPath)->default_value("wallet_api.key"), "path to TLS private key")
-        (cli::API_TLS_REQUEST_CERTIFICATE, po::value<bool>(&options.tlsOptions.requestCertificate)->default_value("false"), "request client's certificate for verification")
-        (cli::API_TLS_REJECT_UNAUTHORIZED, po::value<bool>(&options.tlsOptions.rejectUnauthorized)->default_value("true"), "server will reject any connection which is not authorized with the list of supplied CAs.")
-        ;
-
-    desc.add(authDesc);
-    desc.add(tlsDesc);
-
-    po::variables_map vm;
-
-    po::store(po::command_line_parser(argc, argv)
-        .options(desc)
-        .style(po::command_line_style::default_style ^ po::command_line_style::allow_guessing)
-        .run(), vm);
-
-    vm.notify();
-
-    if (vm.count(cli::HELP))
+    try
     {
-        std::cout << desc << std::endl;
+        const auto path = boost::filesystem::system_complete("./logs");
+        auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "", path.string());
+        MyOptions options;
+        po::options_description desc("Ethash service options");
+        desc.add_options()
+            (cli::HELP_FULL, "list of all options")
+            (PROVER, "run prover server")
+            (EPOCH, po::value<int32_t>(&options.epoch), "epoch to generate, all epochs if not set")
+            (GENERATE, "create local data for all the epochs (VERY long)")
+            (DATA_PATH, po::value<std::string>(&options.dataPath)->default_value("EthEpoch"), "directory for generated data")
+            (cli::PORT_FULL, po::value<uint16_t>(&options.port)->default_value(10000), "port to start prover server on")
+            (cli::API_USE_HTTP, po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
+            ;
+
+        po::options_description authDesc("User authorization options");
+        authDesc.add_options()
+            (cli::API_USE_ACL, po::value<bool>(&options.useAcl)->default_value(false), "use Access Control List (ACL)")
+            (cli::API_ACL_PATH, po::value<std::string>(&options.aclPath)->default_value("prover-api.acl"), "path to ACL file")
+            ;
+
+        po::options_description tlsDesc("TLS protocol options");
+        tlsDesc.add_options()
+            (cli::API_USE_TLS, po::value<bool>(&options.tlsOptions.use)->default_value(false), "use TLS protocol")
+            (cli::API_TLS_CERT, po::value<std::string>(&options.tlsOptions.certPath)->default_value("wallet_api.crt"), "path to TLS certificate")
+            (cli::API_TLS_KEY, po::value<std::string>(&options.tlsOptions.keyPath)->default_value("wallet_api.key"), "path to TLS private key")
+            (cli::API_TLS_REQUEST_CERTIFICATE, po::value<bool>(&options.tlsOptions.requestCertificate)->default_value("false"), "request client's certificate for verification")
+            (cli::API_TLS_REJECT_UNAUTHORIZED, po::value<bool>(&options.tlsOptions.rejectUnauthorized)->default_value("true"), "server will reject any connection which is not authorized with the list of supplied CAs.")
+            ;
+
+        desc.add(authDesc);
+        desc.add(tlsDesc);
+
+        po::variables_map vm;
+
+        po::store(po::command_line_parser(argc, argv)
+            .options(desc)
+            .style(po::command_line_style::default_style ^ po::command_line_style::allow_guessing)
+            .run(), vm);
+
+        vm.notify();
+
+        if (vm.count(cli::HELP))
+        {
+            std::cout << desc << std::endl;
+            return 0;
+        }
+        if (vm.count(GENERATE))
+        {
+            return GenerateLocalData(options);
+        }
+        if (vm.count(PROVER))
+        {
+            return RunProver(options);
+        }
+
         return 0;
-    }
-    if (vm.count(GENERATE))
-    {
-        return GenerateLocalData(options);
-    }
-    if (vm.count(PROVER))
-    {
-        return RunProver(options);
-    }
 
-    return 0;
+    }
+    catch (const std::exception& ex)
+    {
+        LOG_ERROR() << ex.what();
+    }
 }

@@ -367,7 +367,7 @@ namespace beam::wallet
         return IsValidTimeStamp(state.m_TimeStamp);
     }
 
-    Height Wallet::get_CurrentHeight() const
+    Height Wallet::get_TipHeight() const
     {
         Block::SystemState::Full s;
         get_tip(s);
@@ -788,7 +788,7 @@ namespace beam::wallet
                 auto address = m_WalletDB->getAddress(msg.m_From);
                 if (!address.is_initialized())
                 {
-                    LOG_WARNING() << "Received vouchers for unknown address";
+                    LOG_WARNING() << "Received vouchers for unknown address: " << std::to_string(msg.m_From);
                     FailTxWaitingForVouchers(msg.m_From);
                     return;
                 }
@@ -955,6 +955,11 @@ namespace beam::wallet
         {
             LOG_DEBUG() << txID << " Unexpected event";
         }
+    }
+
+    void Wallet::ConfirmAsset(Asset::ID assetId)
+    {
+        confirm_asset(assetId);
     }
 
     void Wallet::UpdateTransaction(BaseTransaction::Ptr tx)
@@ -1874,7 +1879,7 @@ namespace beam::wallet
 
     void Wallet::CheckSyncDone()
     {
-        report_sync_progress();
+        ReportSyncProgress();
 
         if (SyncRemains())
             return;
@@ -1945,13 +1950,15 @@ namespace beam::wallet
     void Wallet::NotifySyncProgress()
     {
         uint32_t n = SyncRemains();
+        int total = m_LastSyncTotal;
+        int done = m_LastSyncTotal - n;
         for (const auto sub : m_subscribers)
         {
-            sub->onSyncProgress(m_LastSyncTotal - n, m_LastSyncTotal);
+            sub->onSyncProgress(done, total);
         }
     }
 
-    void Wallet::report_sync_progress()
+    void Wallet::ReportSyncProgress()
     {
         if (!m_LastSyncTotal)
             return;
@@ -2163,9 +2170,7 @@ namespace beam::wallet
     {
         if (m_NodeEndpoint)
         {
-            Block::SystemState::Full sTip;
-            get_tip(sTip);
-            return IsValidTimeStamp(sTip.m_TimeStamp);
+            return IsWalletInSync();
         }
         return true; // to allow made air-gapped transactions
     }

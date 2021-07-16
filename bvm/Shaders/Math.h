@@ -157,6 +157,18 @@ namespace MultiPrecision
 			SetShifted(get_AsArr(), nWords, a.get_AsArr(), wa, nLShift);
 		}
 
+		template <uint32_t nShiftWords, typename T>
+		void Get(T& val) const
+		{
+			val = get_Ord<nShiftWords, T>();
+		}
+
+		template <uint32_t nShiftWords, typename T>
+		T Get() const
+		{
+			return get_Ord<nShiftWords, T>();
+		}
+
 		const Word* get_AsArr() const
 		{
 			return reinterpret_cast<const Word*>(this);
@@ -254,7 +266,7 @@ namespace MultiPrecision
 
 
 		template <uint32_t wa, uint32_t wb>
-		void SetDiv(const UInt<wa>& a, const UInt<wa>& b)
+		void SetDiv(const UInt<wa>& a, const UInt<wb>& b)
 		{
 			UInt<wa> resid = a;
 			SetDivResid(resid, b);
@@ -322,6 +334,19 @@ namespace MultiPrecision
 			val = Base::template set_Ord<nShiftWords>(val);
 			m_Val = (Word)val;
 			return val >> nWordBits;
+		}
+
+		template <uint32_t nShiftWords, typename T>
+		T get_Ord() const
+		{
+			T res = Base::template get_Ord<nShiftWords, T>();
+
+			constexpr uint32_t nLShift = (uint32_t) (nWords - nShiftWords - 1); // may overflow, it's ok
+
+			if constexpr (nLShift < sizeof(T) / sizeof(Word))
+				res |= ((T) m_Val) << (nLShift * nWordBits);
+
+			return res;
 		}
 
 		template <uint32_t wDst>
@@ -424,6 +449,12 @@ namespace MultiPrecision
 		T set_Ord(T val)
 		{
 			return val;
+		}
+
+		template <uint32_t nShiftWords, typename T>
+		T get_Ord() const
+		{
+			return 0;
 		}
 
 		template <uint32_t wa>

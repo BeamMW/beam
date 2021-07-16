@@ -121,13 +121,9 @@ namespace beam::wallet
                         processRates(receivedRates);
                     }
                 }
-
-                return true;
             }
-            else
-            {
-                throw std::runtime_error("failed to get system state");
-            }
+            // we simply ignore messages is wallet doesn't have synced
+            return true;
         }
         catch(const std::exception& ex)
         {

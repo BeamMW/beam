@@ -46,8 +46,8 @@ public:
 			FossilHeight, // Height starting from which and below original blocks are erased
 			CfgChecksum,
 			MyID,
-			Deprecated_1, // SyncTarget
-			Deprecated_2,
+			RichContractInfo,
+			RichContractParser,
 			Treasury,
 			EventsOwnerID, // hash of keys used to scan and record events
 			HeightTxoLo, // Height starting from which and below Txo info is totally erased.
@@ -205,6 +205,10 @@ public:
 			ShieldedStatisticSel,
 			ShieldedStatisticIns,
 			ShieldedStatisticDel,
+
+			KrnInfoInsert,
+			KrnInfoGet,
+			KrnInfoDel,
 
 			Dbg0,
 			Dbg1,
@@ -670,7 +674,7 @@ public:
 	{
 		Asset::ID m_ID;
 		Height m_Height;
-		uint32_t m_Index;
+		uint64_t m_Index;
 		Blob m_Body;
 	};
 
@@ -684,7 +688,7 @@ public:
 
 	void AssetEvtsInsert(const AssetEvt&);
 	void AssetEvtsEnumBwd(WalkerAssetEvt&, Asset::ID, Height);
-	void AssetEvtsGetStrict(WalkerAssetEvt&, Height, uint32_t);
+	void AssetEvtsGetStrict(WalkerAssetEvt&, Height, uint64_t);
 	void AssetEvtsDeleteFrom(Height);
 
 	bool ContractDataFind(const Blob& key, Blob&, Recordset&);
@@ -740,6 +744,10 @@ public:
 	void ContractLogEnum(ContractLog::Walker&, const HeightPos& posMin, const HeightPos& posMax);
 	void ContractLogEnum(ContractLog::Walker&, const Blob& keyMin, const Blob& keyMax, const HeightPos& posMin, const HeightPos& posMax);
 
+	void KrnInfoInsert(Height, const Blob&);
+	bool KrnInfoGet(Height, ByteBuffer&);
+	void KrnInfoDel(const HeightRange&);
+
 	void TestChanged1Row();
 
 private:
@@ -771,6 +779,7 @@ private:
 	void CreateTables23();
 	void CreateTables27();
 	void CreateTables28();
+	void CreateTables29();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);

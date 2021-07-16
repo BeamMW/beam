@@ -188,7 +188,7 @@ namespace beam::wallet
     MACRO(AssetsDisabledReceiver,        48, "Asset transactions are disabled in the receiver wallet") \
     MACRO(AssetsDisabledInRules,         49, "Asset transactions are disabled in blockchain configuration") \
     MACRO(NoPeerIdentity,                50, "Peer Identity required") \
-    MACRO(CannotGetVouchers,             51, "The sender cannot get vouchers for max privacy transaction") \
+    MACRO(CannotGetVouchers,             51, "The sender cannot get vouchers for offline transaction") \
     MACRO(Count,                         52, "PLEASE KEEP THIS ALWAYS LAST")
 
     enum TxFailureReason : int32_t
@@ -833,7 +833,7 @@ namespace beam::wallet
 
     using VersionFunc = std::function<void(const std::string&, const std::string&)>;
     void ProcessLibraryVersion(const TxParameters& params, VersionFunc&& func = {});
-    void ProcessClientVersion(const TxParameters& params, const std::string& appName, const std::string& myClientVersion, VersionFunc&& func);
+    void ProcessClientVersion(const TxParameters& params, const std::string& appName, const std::string& myClientVersion, const std::string& libVersion, VersionFunc&& func);
     uint32_t GetShieldedInputsNum(const std::vector<TxKernel::Ptr>&);
     TxAddressType GetAddressType(const TxDescription& tx);
     TxAddressType GetAddressType(const std::string& address);
@@ -863,7 +863,6 @@ namespace std
     string to_string(const beam::Merkle::Hash& hash);
     string to_string(const beam::wallet::PrintableAmount& amount);
     string to_string(const beam::wallet::TxParameters&);
-    string to_string(const beam::Version&);
     string to_string(const beam::wallet::TxID&);
     string to_string(const beam::PeerID&);
     string to_string(const beam::AmountBig::Type&);

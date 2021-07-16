@@ -162,16 +162,14 @@ namespace beam::wallet
         if (GetState<State>() == State::AssetConfirmation)
         {
             Height auHeight = 0;
-            GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight);
-            if (auHeight)
+            if(GetParameter(TxParameterID::AssetUnconfirmedHeight, auHeight) && auHeight != 0)
             {
                 OnFailed(TxFailureReason::AssetConfirmFailed);
                 return;
             }
 
             Height acHeight = 0;
-            GetParameter(TxParameterID::AssetConfirmedHeight, acHeight);
-            if (!acHeight)
+            if(!GetParameter(TxParameterID::AssetConfirmedHeight, acHeight) || acHeight == 0)
             {
                 ConfirmAsset();
                 return;
@@ -189,7 +187,7 @@ namespace beam::wallet
                 return;
             }
 
-            if(builder.m_pKrn->CastTo_AssetCreate().m_Owner != info.m_Owner)
+            if(GetAssetOwnerID() != info.m_Owner)
             {
                 OnFailed(TxFailureReason::InvalidAssetOwnerId);
                 return;
@@ -201,11 +199,6 @@ namespace beam::wallet
         SetState(State::Finalizing);
         SetCompletedTxCoinStatuses(kpHeight);
         CompleteTx();
-    }
-
-    void AssetRegisterTransaction::ConfirmAsset()
-    {
-        GetGateway().confirm_asset(GetTxID(), _builder->m_pKrn->CastTo_AssetCreate().m_Owner, kDefaultSubTxID);
     }
 
     bool AssetRegisterTransaction::IsInSafety() const

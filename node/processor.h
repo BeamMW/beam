@@ -168,9 +168,9 @@ class NodeProcessor
 	void InternalAssetAdd(Asset::Full&, bool bMmr);
 	void InternalAssetDel(Asset::ID, bool bMmr);
 
-	bool HandleAssetCreate(const PeerID&, const Asset::Metadata&, BlockInterpretCtx&, Asset::ID&);
-	bool HandleAssetEmit(const PeerID&, BlockInterpretCtx&, Asset::ID, AmountSigned);
-	bool HandleAssetDestroy(const PeerID&, BlockInterpretCtx&, Asset::ID);
+	bool HandleAssetCreate(const PeerID&, const Asset::Metadata&, BlockInterpretCtx&, Asset::ID&, uint32_t nSubIdx = 0);
+	bool HandleAssetEmit(const PeerID&, BlockInterpretCtx&, Asset::ID, AmountSigned, uint32_t nSubIdx = 0);
+	bool HandleAssetDestroy(const PeerID&, BlockInterpretCtx&, Asset::ID, uint32_t nSubIdx = 0);
 
 	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
 	bool HandleKernelTypeAny(const TxKernel&, BlockInterpretCtx&);
@@ -265,6 +265,14 @@ public:
 		bool m_Vacuum = false;
 		bool m_ResetSelfID = false;
 		bool m_EraseSelfID = false;
+
+		struct RichInfo {
+			static const uint8_t Off = 1;
+			static const uint8_t On = 2;
+			static const uint8_t UpdShader = 4;
+		};
+		uint8_t m_RichInfoFlags = 0;
+		Blob m_RichParser = Blob(nullptr, 0);
 	};
 
 	void Initialize(const char* szPath);
@@ -391,7 +399,23 @@ public:
 	void SaveSyncData();
 	void LogSyncData();
 
-	bool ExtractBlockWithExtra(Block::Body&, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID&);
+	struct ContractInvokeExtraInfo
+	{
+		FundsChangeMap m_FundsIO;
+		std::vector<ECC::Point> m_vSigs;
+		std::string m_sParsed;
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar
+				& m_FundsIO.m_Map
+				& m_vSigs
+				& m_sParsed;
+		}
+	};
+
+	bool ExtractBlockWithExtra(Block::Body&, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID&, std::vector<ContractInvokeExtraInfo>&);
 
 	int get_AssetAt(Asset::Full&, Height); // Must set ID. Returns -1 if asset is destroyed, 0 if never existed.
 
@@ -706,13 +730,6 @@ public:
 		struct IHandler
 		{
 			virtual void get_ViewerKeys(NodeProcessor::ViewerKeys& vk) {}
-			virtual bool IsDummy(const CoinID& cid) const 
-			{
-				return
-					!cid.m_Value &&
-					!cid.m_AssetID &&
-					(Key::Type::Decoy == cid.m_Type);
-			}
 			virtual void OnDummy(const CoinID&, Height) {}
 			virtual void OnEvent(Height, const proto::Event::Base&) {}
 			virtual void AssetEvtsGetStrict(NodeDB::AssetEvt& event, Height h, uint32_t nKrnIdx) {}
@@ -750,8 +767,6 @@ public:
 
 	virtual void OnEvent(Height, const proto::Event::Base&) {}
 	virtual void OnDummy(const CoinID&, Height) {}
-
-	static bool IsDummy(const CoinID&);
 
 	static bool IsContractVarStoredInMmr(const Blob& key) {
 		return Mapped::Contract::IsStored(key);

@@ -403,6 +403,11 @@ private:
 
     struct ExtraInfo
     {
+        struct ContractRichInfo {
+            std::vector<NodeProcessor::ContractInvokeExtraInfo> m_vInfo;
+            size_t m_iPos = 0;
+        };
+
         struct Writer
         {
             std::ostringstream m_os;
@@ -426,24 +431,72 @@ private:
                 }
             }
 
-            void OnContract(const bvm2::ContractID& cid, const bvm2::ShaderID* pSid, uint32_t iMethod, const TxKernelContractControl& krn)
+            void OnContract(const bvm2::ContractID& cid, const bvm2::ShaderID* pSid, uint32_t iMethod, const TxKernelContractControl& krn, ContractRichInfo& cri)
             {
                 m_os << "Contract " << cid << ", ";
 
-                if (pSid)
-                    m_os << "Create sid=" << *pSid;
-                else
+                const NodeProcessor::ContractInvokeExtraInfo* pExInfo = nullptr;
+
+                if (cri.m_iPos < cri.m_vInfo.size())
                 {
-                    if (iMethod)
-                        m_os << "Method_" << iMethod;
-                    else
-                        m_os << "Destroy";
+                    pExInfo = &cri.m_vInfo.front() + cri.m_iPos;
+                    cri.m_iPos++;
                 }
 
-                if (!krn.m_Args.empty())
+                if (pExInfo && !pExInfo->m_sParsed.empty())
+                    m_os << pExInfo->m_sParsed;
+                else
                 {
-                    m_os << ", Args=";
-                    uintBigImpl::_PrintFull(&krn.m_Args.front(), static_cast<uint32_t>(krn.m_Args.size()), m_os);
+                    if (pSid)
+                        m_os << "Create sid=" << *pSid;
+                    else
+                    {
+                        if (iMethod)
+                            m_os << "Method_" << iMethod;
+                        else
+                            m_os << "Destroy";
+                    }
+
+                    if (!krn.m_Args.empty())
+                    {
+                        m_os << ", Args=";
+                        uintBigImpl::_PrintFull(&krn.m_Args.front(), static_cast<uint32_t>(krn.m_Args.size()), m_os);
+                    }
+                }
+
+                if (pExInfo)
+                {
+                    for (auto it = pExInfo->m_FundsIO.m_Map.begin(); pExInfo->m_FundsIO.m_Map.end() != it; it++)
+                    {
+                        m_os << ", ";
+
+                        auto valBig = it->second;
+                        if (valBig.get_Msb())
+                        {
+                            valBig.Negate();
+                            m_os << "Spend";
+                        } else
+                            m_os << "Receive";
+
+                        auto aid = it->first;
+                        if (aid)
+                            m_os << " Asset-" << aid;
+
+                        // currently ignore val-big part
+                        m_os << " " << AmountBig::get_Lo(valBig);
+                    }
+
+                    for (uint32_t iSig = 0; iSig < pExInfo->m_vSigs.size(); iSig++)
+                    {
+                        typedef uintBig_t<ECC::nBytes + 1> MyPoint;
+                        const auto& val = Cast::Reinterpret<MyPoint>(pExInfo->m_vSigs[iSig]);
+
+                        char sz[MyPoint::nTxtLen + 1];
+                        val.Print(sz);
+
+                        m_os << ", Sign " << sz;
+                    }
+
                 }
             }
         };
@@ -497,13 +550,14 @@ private:
             return w.m_os.str();
         }
 
-        static std::string get(const TxKernel& krn, Amount& fee)
+        static std::string get(const TxKernel& krn, Amount& fee, ContractRichInfo& cri)
         {
             struct MyWalker
                 :public TxKernel::IWalker
             {
                 Writer m_Wr;
                 Amount m_Fee = 0;
+                ContractRichInfo* m_pCri;
 
                 virtual bool OnKrn(const TxKernel& krn) override
                 {
@@ -582,16 +636,17 @@ private:
                     bvm2::get_CidViaSid(cid, sid, krn.m_Args);
 
                     m_Wr.Next();
-                    m_Wr.OnContract(cid, &sid, 0, krn);
+                    m_Wr.OnContract(cid, &sid, 0, krn, *m_pCri);
                 }
 
                 void OnKrnEx(const TxKernelContractInvoke& krn)
                 {
                     m_Wr.Next();
-                    m_Wr.OnContract(krn.m_Cid, nullptr, krn.m_iMethod, krn);
+                    m_Wr.OnContract(krn.m_Cid, nullptr, krn.m_iMethod, krn, *m_pCri);
                 }
 
             } wlk;
+            wlk.m_pCri = &cri;
 
             if (!krn.m_vNested.empty())
             {
@@ -616,6 +671,8 @@ private:
 		bool ok = true;
         std::vector<Output::Ptr> vOutsIn;
 
+        ExtraInfo::ContractRichInfo cri;
+
         try {
             db.get_State(row, blockState);
 			blockState.get_ID(id);
@@ -623,7 +680,7 @@ private:
 			NodeDB::StateID sid;
 			sid.m_Row = row;
 			sid.m_Height = id.m_Height;
-			_nodeBackend.ExtractBlockWithExtra(block, vOutsIn, sid);
+			_nodeBackend.ExtractBlockWithExtra(block, vOutsIn, sid, cri.m_vInfo);
 
 		} catch (...) {
             ok = false;
@@ -667,7 +724,7 @@ private:
             for (const auto &v : block.m_vKernels) {
 
                 Amount fee = 0;
-                std::string sExtra = ExtraInfo::get(*v, fee);
+                std::string sExtra = ExtraInfo::get(*v, fee, cri);
 
                 kernels.push_back(
                     json{

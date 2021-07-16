@@ -125,22 +125,20 @@ namespace beam::wallet
             auto pInfo = GetWalletDB()->findAsset(builder.m_pidAsset);
             if (!pInfo)
             {
-                Height h = 0;
-                GetParameter(TxParameterID::AssetUnconfirmedHeight, h);
-                if (h)
+                Height ucHeight = 0;
+                if(GetParameter(TxParameterID::AssetUnconfirmedHeight, ucHeight) && ucHeight != 0)
                 {
                     OnFailed(TxFailureReason::AssetConfirmFailed);
+                    return;
                 }
-                else
+
+                Height acHeight = 0;
+                if(!GetParameter(TxParameterID::AssetConfirmedHeight, acHeight) || acHeight == 0)
                 {
-                    GetParameter(TxParameterID::AssetConfirmedHeight, h);
-                    if (!h)
-                    {
-                        SetState(State::AssetCheck);
-                        GetGateway().confirm_asset(GetTxID(), _builder->m_pidAsset, kDefaultSubTxID);
-                    }
+                    SetState(State::AssetConfirmation);
+                    ConfirmAsset();
+                    return;
                 }
-                return;
             }
 
             WalletAsset& wa = *pInfo;
@@ -152,13 +150,17 @@ namespace beam::wallet
 
             BaseTxBuilder::Balance bb(builder);
             bb.m_Map[0].m_Value -= builder.m_Fee;
+
             if (_issue)
+            {
                 bb.m_Map[wa.m_ID].m_Value += builder.m_Value;
+            }
             else
+            {
                 bb.m_Map[wa.m_ID].m_Value -= builder.m_Value;
+            }
 
             bb.CompleteBalance();
-
             builder.SaveCoins();
         }
 

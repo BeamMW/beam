@@ -71,6 +71,8 @@ namespace
 
     void initLogger(const string& appData, const string& appVersion)
     {
+        wallet::g_AssetsEnabled = true;
+
         static auto logger = Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "wallet_", (fs::path(appData) / fs::path("logs")).string());
 
         Rules::get().UpdateChecksum();
@@ -106,14 +108,15 @@ extern "C" {
     return beam::wallet::CheckReceiverAddress(JString(env, address).value());
  }
 
- JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(calcShieldedCoinSelectionInfo)(JNIEnv *env, jobject thiz, jlong amount, jlong fee, jboolean isShielded)
+ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(selectCoins)(JNIEnv *env, jobject thiz, jlong amount, jlong fee, jboolean isShielded, jint assetId)
  {
-    LOG_DEBUG() << "calcShieldedCoinSelectionInfo()";
+    LOG_DEBUG() << "selectCoins()";
 
     Amount bAmount = Amount(amount);
     Amount bFee = Amount(fee);
+    uint32_t asset = assetId;
 
-    walletModel->getAsync()->calcShieldedCoinSelectionInfo(bAmount, bFee, beam::Asset::s_BeamID, isShielded);
+    walletModel->getAsync()->selectCoins(bAmount, bFee, beam::Asset::ID(asset), isShielded);
  }
 
 JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(isToken)(JNIEnv *env, jobject thiz, jstring token)
@@ -617,7 +620,7 @@ void CopyParameter(beam::wallet::TxParameterID paramID, const beam::wallet::TxPa
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, jobject thiz,
-    jstring senderAddr, jstring receiverAddr, jstring comment, jlong amount, jlong fee)
+    jstring senderAddr, jstring receiverAddr, jstring comment, jlong amount, jlong fee, jint assetId)
 {
     LOG_DEBUG() << "sendTransaction(" << JString(env, senderAddr).value() << ", " << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
 
@@ -639,6 +642,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
     auto messageString = JString(env, comment).value();
     uint64_t bAmount = amount;
     uint64_t bfee = fee;
+    uint32_t asset = assetId;
 
     _txParameters = *txParameters;
 
@@ -662,7 +666,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
     params.SetParameter(TxParameterID::Amount, bAmount)
         .SetParameter(TxParameterID::Fee, bfee)
         .SetParameter(beam::wallet::TxParameterID::MyID, m_walletID)
-        .SetParameter(TxParameterID::AssetID, beam::Asset::s_BeamID)
+        .SetParameter(TxParameterID::AssetID, beam::Asset::ID(asset))
         .SetParameter(TxParameterID::Message, beam::ByteBuffer(messageString.begin(), messageString.end()));
 
     if (type == TxAddressType::MaxPrivacy) {
@@ -674,46 +678,19 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
         params.SetParameter(TxParameterID::OriginalToken, address);
     }
     params.SetParameter(TxParameterID::OriginalToken, JString(env, receiverAddr).value());
-    params.SetParameter(TxParameterID::SavePeerAddress, false);
+   // params.SetParameter(TxParameterID::SavePeerAddress, false);
 
     walletModel->getAsync()->startTransaction(std::move(params));
 }
 
-JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendMoney)(JNIEnv *env, jobject thiz,
-    jstring senderAddr, jstring receiverAddr, jstring comment, jlong amount, jlong fee)
-{
-    LOG_DEBUG() << "sendMoney(" << JString(env, senderAddr).value() << ", " << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
-
-    WalletID receiverID(Zero);
-    receiverID.FromHex(JString(env, receiverAddr).value());
-
-    auto sender = JString(env, senderAddr).value();
-
-    if (sender.empty())
-    {
-        walletModel->getAsync()->sendMoney(receiverID
-            , JString(env, comment).value()
-            , Amount(amount)
-            , Amount(fee));
-    }
-    else
-    {
-        WalletID senderID(Zero);
-        senderID.FromHex(sender);
-
-        walletModel->getAsync()->sendMoney(senderID, receiverID
-            , JString(env, comment).value()
-            , Amount(amount)
-            , Amount(fee));
-    }
-}
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(calcChange)(JNIEnv *env, jobject thiz,
-    jlong amount)
+    jlong amount, jint assetId)
 {
     LOG_DEBUG() << "calcChange(" << amount << ")";
+    uint32_t asset = assetId;
 
-    walletModel->getAsync()->calcChange(Amount(amount), 0, beam::Asset::s_BeamID);
+    walletModel->getAsync()->calcChange(Amount(amount), 0, beam::Asset::ID(asset));
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getAddresses)(JNIEnv *env, jobject thiz,
@@ -1136,6 +1113,11 @@ JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getMaxPrivacyLockTimeLimitHou
     return m_mpLockTimeLimit;
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getAssetInfo)(JNIEnv *env, jobject thiz, jint id)
+{
+    walletModel->getAsync()->getAssetInfo(id);
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv *env;
@@ -1214,6 +1196,12 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
     {
         jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/VersionInfoDTO");
         VersionInfoClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
+    }
+
+    {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/AssetInfoDTO");
+        AssetInfoClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
         env->DeleteLocalRef(cls);
     }
 

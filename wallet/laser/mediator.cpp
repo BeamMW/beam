@@ -117,8 +117,10 @@ void Mediator::OnRolledBack()
             m_pWalletDB->saveLaserChannel(*channel);
             channel->Subscribe();
 
-            m_channels[channel->get_chID()] =
-                std::unique_ptr<Channel>(channel.release());
+            auto chID = channel->get_chID();
+            if (chID != nullptr)
+                m_channels[chID] =
+                    std::unique_ptr<Channel>(channel.release());
         }
     }
 
@@ -474,7 +476,7 @@ bool Mediator::Delete(const std::string& channelID)
         return false;
     }
     auto channel = LoadChannelInternal(p_channelID);
-    if (!p_channelID) return false;
+    if (!channel) return false;
 
     auto state = channel->get_State();
     if (!CanBeDeleted(state))
@@ -972,7 +974,7 @@ bool Mediator::ValidateTip()
 
 bool Mediator::IsEnoughCoinsAvailable(Amount required)
 {
-    storage::Totals totalsCalc(*m_pWalletDB);
+    storage::Totals totalsCalc(*m_pWalletDB, false);
     const auto& totals = totalsCalc.GetBeamTotals();
     return AmountBig::get_Lo(totals.Avail) >= required;
 }

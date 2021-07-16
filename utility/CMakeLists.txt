@@ -85,6 +85,7 @@ if (NOT EMSCRIPTEN)
     target_link_libraries(utility Boost::system Boost::filesystem)
     target_link_libraries(cli Boost::program_options)
 endif()
+target_link_libraries(utility Boost::boost)
 
 target_link_libraries(utility OpenSSL::SSL OpenSSL::Crypto)
 if (LINUX)
