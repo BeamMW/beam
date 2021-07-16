@@ -17,7 +17,9 @@
 #include "wallet/core/common_utils.h"
 #include "utility/fsutils.h"
 #include "bvm/ManagerStd.h"
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/transactions/swaps/swap_tx_description.h"
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
 
 namespace beam::wallet
 {
@@ -68,6 +70,7 @@ namespace beam::wallet
         return aid;
     }
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
     void AddSwapTxDetailsToJson(const TxDescription& tx, json& msg)
     {
         SwapTxDescription swapTx(tx);
@@ -136,6 +139,7 @@ namespace beam::wallet
             msg["failure_reason"] = GetFailureMessage(*failureReason);
         }
     }
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
 
     void GetStatusResponseJson(const TxDescription& tx,
         json& msg,
@@ -181,7 +185,9 @@ namespace beam::wallet
         }
         else if (tx.m_txType == TxType::AtomicSwap)
         {
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
             statusInterpreter = std::make_unique<SwapTxStatusInterpreter>(tx);
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
         }
         else if (tx.m_txType == TxType::Contract)
         {
