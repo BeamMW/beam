@@ -2465,11 +2465,6 @@ struct NodeProcessor::BlockInterpretCtx
 		virtual void OnRet(Wasm::Word nRetAddr) override;
 	};
 
-	struct ParserExtraInfo
-		:public bvm2::ProcessorManager
-	{
-	};
-
 	uint32_t m_ChargePerBlock = bvm2::Limits::BlockCharge;
 
 	BlobMap::Set m_ContractVars;
@@ -4567,133 +4562,195 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 	return bRes;
 }
 
+struct NodeProcessor::ProcessorInfoParser
+	:public bvm2::ProcessorManager
+{
+	NodeProcessor& m_Proc;
+
+	Height m_Height;
+	ByteBuffer m_bufParser;
+	std::ostringstream m_os;
+
+	Height get_Height() override {
+		return m_Height;
+	}
+	bool get_HdrAt(Block::SystemState::Full& s) override
+	{
+		if (s.m_Height > m_Height)
+			return false;
+		return m_Proc.get_HdrAt(s);
+	}
+
+	void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr& pOut) override
+	{
+		struct Context
+			:public IReadVars
+		{
+			NodeDB::WalkerContractData m_Wlk;
+
+			bool MoveNext() override
+			{
+				if (!m_Wlk.MoveNext())
+					return false;
+
+				m_LastKey = m_Wlk.m_Key;
+				m_LastVal = m_Wlk.m_Val;
+				return true;
+			}
+		};
+
+		pOut = std::make_unique<Context>();
+		auto& x = Cast::Up<Context>(*pOut);
+
+		m_Proc.m_DB.ContractDataEnum(x.m_Wlk, kMin, kMax);
+	}
+
+	void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax, IReadLogs::Ptr& pOut) override
+	{
+		struct Context
+			:public IReadLogs
+		{
+			NodeDB::ContractLog::Walker m_Wlk;
+
+			bool MoveNext() override
+			{
+				if (!m_Wlk.MoveNext())
+					return false;
+
+				m_LastKey = m_Wlk.m_Entry.m_Key;
+				m_LastVal = m_Wlk.m_Entry.m_Val;
+				m_LastPos = m_Wlk.m_Entry.m_Pos;
+				return true;
+			}
+		};
+
+		pOut = std::make_unique<Context>();
+		auto& x = Cast::Up<Context>(*pOut);
+
+		HeightPos hpMin, hpMax;
+		if (!pPosMin)
+		{
+			pPosMin = &hpMin;
+			hpMin = HeightPos(0);
+		}
+
+		if (!pPosMax)
+		{
+			pPosMax = &hpMax;
+			hpMax = HeightPos(MaxHeight);
+		}
+
+		if (kMin.n && kMax.n)
+			m_Proc.m_DB.ContractLogEnum(x.m_Wlk, kMin, kMax, *pPosMin, *pPosMax);
+		else
+			m_Proc.m_DB.ContractLogEnum(x.m_Wlk, *pPosMin, *pPosMax);
+	}
+
+	bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) {
+		return false;
+	}
+
+	bool LogGetProof(const HeightPos&, beam::Merkle::Proof&) {
+		return false;
+	}
+
+	bool get_SpecialParam(const char*, Blob&) override {
+		return false;
+	}
+
+	ProcessorInfoParser(NodeProcessor& p)
+		:m_Proc(p)
+	{
+		m_Height = p.m_Cursor.m_Full.m_Height;
+	}
+
+	bool Init()
+	{
+		m_Proc.m_DB.ParamGet(NodeDB::ParamID::RichContractParser, nullptr, nullptr, &m_bufParser);
+		if (m_bufParser.empty())
+			return false;
+
+		InitMem();
+		m_Code = m_bufParser;
+
+		m_pOut = &m_os;
+		m_RawText = true;
+		return true;
+	}
+
+	std::string Execute()
+	{
+		while (!IsDone())
+			RunOnce();
+
+		return m_os.str();
+	}
+
+	template <typename T>
+	Wasm::Word PushArgAlias(const T& arg)
+	{
+		m_Stack.AliasAlloc(sizeof(T));
+		*(T*) m_Stack.get_AliasPtr() = arg;
+		return m_Stack.get_AlasSp();
+	}
+
+	template <typename T>
+	void PushArgBoth(const T& arg)
+	{
+		Wasm::Word val = PushArgAlias(arg);
+		m_Stack.Push(val);
+	}
+};
+
+
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::ParseExtraInfo(std::string& s, uint32_t iMethod, const Blob& args)
 {
-	ByteBuffer bufParser;
-	m_Proc.m_DB.ParamGet(NodeDB::ParamID::RichContractParser, nullptr, nullptr, &bufParser);
-
-	if (bufParser.empty())
-		return;
-
 	try
 	{
-		struct ProcessorInfoParser
-			:public ParserExtraInfo
-		{
-			BvmProcessor& m_This;
+		ProcessorInfoParser proc(m_Proc);
+		proc.m_Height = m_Bic.m_Height - 1;
 
-			Height get_Height() override {
-				return m_This.get_Height();
-			}
-			bool get_HdrAt(Block::SystemState::Full& s) override {
-				return m_This.get_HdrAt(s);
-			}
-
-			void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr& pOut) override
-			{
-				struct Context
-					:public IReadVars
-				{
-					NodeDB::WalkerContractData m_Wlk;
-
-					bool MoveNext() override
-					{
-						if (!m_Wlk.MoveNext())
-							return false;
-
-						m_LastKey = m_Wlk.m_Key;
-						m_LastVal = m_Wlk.m_Val;
-						return true;
-					}
-				};
-
-				pOut = std::make_unique<Context>();
-				auto& x = Cast::Up<Context>(*pOut);
-
-				assert(!m_This.m_Bic.m_Temporary);
-				m_This.m_Proc.get_DB().ContractDataEnum(x.m_Wlk, kMin, kMax);
-			}
-
-			void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax, IReadLogs::Ptr& pOut) override
-			{
-				struct Context
-					:public IReadLogs
-				{
-					NodeDB::ContractLog::Walker m_Wlk;
-
-					bool MoveNext() override
-					{
-						if (!m_Wlk.MoveNext())
-							return false;
-
-						m_LastKey = m_Wlk.m_Entry.m_Key;
-						m_LastVal = m_Wlk.m_Entry.m_Val;
-						m_LastPos = m_Wlk.m_Entry.m_Pos;
-						return true;
-					}
-				};
-
-				pOut = std::make_unique<Context>();
-				auto& x = Cast::Up<Context>(*pOut);
-
-				assert(!m_This.m_Bic.m_Temporary);
-
-				HeightPos hpMin, hpMax;
-				if (!pPosMin)
-				{
-					pPosMin = &hpMin;
-					hpMin = HeightPos(0);
-				}
-
-				if (!pPosMax)
-				{
-					pPosMax = &hpMax;
-					hpMax = HeightPos(MaxHeight);
-				}
-
-				if (kMin.n && kMax.n)
-					m_This.m_Proc.get_DB().ContractLogEnum(x.m_Wlk, kMin, kMax, *pPosMin, *pPosMax);
-				else
-					m_This.m_Proc.get_DB().ContractLogEnum(x.m_Wlk, *pPosMin, *pPosMax);
-			}
-
-			ProcessorInfoParser(BvmProcessor& x) :m_This(x) {}
-
-		} proc(*this);
-
-		proc.InitMem();
-		proc.m_Code = bufParser;
+		if (!proc.Init())
+			return;
 
 		assert(m_FarCalls.m_Stack.size() == 1);
-		const auto& cid = m_FarCalls.m_Stack.back().m_Cid;
 
-		proc.m_Stack.AliasAlloc(sizeof(bvm2::ShaderID));
-		bvm2::get_ShaderID(*(bvm2::ShaderID*) proc.m_Stack.get_AliasPtr(), m_Code);
-		Wasm::Word pSid_ = proc.m_Stack.get_AlasSp();
-
-		proc.m_Stack.AliasAlloc(sizeof(cid));
-		*(bvm2::ContractID*) proc.m_Stack.get_AliasPtr() = cid;
-		Wasm::Word pCid_ = proc.m_Stack.get_AlasSp();
+		bvm2::ShaderID sid;
+		bvm2::get_ShaderID(sid, m_Code);
 
 		proc.m_Stack.PushAlias(args);
 		Wasm::Word pArgs_ = proc.m_Stack.get_AlasSp();
 
-		proc.m_Stack.Push(pSid_);
-		proc.m_Stack.Push(pCid_);
+		proc.PushArgBoth(sid);
+		proc.PushArgBoth(m_FarCalls.m_Stack.back().m_Cid);
 		proc.m_Stack.Push(iMethod);
 		proc.m_Stack.Push(pArgs_);
 		proc.m_Stack.Push(args.n);
 
-		std::ostringstream os;
-		proc.m_pOut = &os;
-		proc.m_RawText = true;
-
 		proc.CallMethod(0);
 
-		while (!proc.IsDone())
-			proc.RunOnce();
+		s = proc.Execute();
+	}
+	catch (const std::exception& e)
+	{
+		LOG_WARNING() << "contract parser error: " << e.what();
+	}
+}
 
-		s = os.str();
+void NodeProcessor::get_ContractDescr(const ECC::uintBig& sid, const ECC::uintBig& cid, std::string& res)
+{
+	try
+	{
+		ProcessorInfoParser proc(*this);
+		if (!proc.Init())
+			return;
+
+		proc.PushArgBoth(sid);
+		proc.PushArgBoth(cid);
+
+		proc.CallMethod(1);
+
+		res = proc.Execute();
 	}
 	catch (const std::exception& e)
 	{
@@ -4892,14 +4949,21 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::get_HdrAt(Block::SystemStat
 	if (s.m_Height > m_Bic.m_Height - 1)
 		return false;
 
-	if (s.m_Height == m_Proc.m_Cursor.m_Full.m_Height)
-		s = m_Proc.m_Cursor.m_Full;
+	return m_Proc.get_HdrAt(s);
+}
+
+bool NodeProcessor::get_HdrAt(Block::SystemState::Full& s)
+{
+	assert(s.m_Height <= m_Cursor.m_Full.m_Height); // must be checked earlier
+
+	if (s.m_Height == m_Cursor.m_Full.m_Height)
+		s = m_Cursor.m_Full;
 	else
 	{
 		if (s.m_Height < Rules::HeightGenesis)
 			return false;
 
-		m_Proc.get_DB().get_State(m_Proc.FindActiveAtStrict(s.m_Height), s);
+		m_DB.get_State(FindActiveAtStrict(s.m_Height), s);
 	}
 
 	return true;

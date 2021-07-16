@@ -152,6 +152,9 @@ class NodeProcessor
 	bool HandleTreasury(const Blob&);
 
 	struct BlockInterpretCtx;
+	struct ProcessorInfoParser;
+
+	bool get_HdrAt(Block::SystemState::Full&);
 
 	template <typename T>
 	bool HandleElementVecFwd(const T& vec, BlockInterpretCtx&, size_t& n);
@@ -416,6 +419,7 @@ public:
 	};
 
 	bool ExtractBlockWithExtra(Block::Body&, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID&, std::vector<ContractInvokeExtraInfo>&);
+	void get_ContractDescr(const ECC::uintBig& sid, const ECC::uintBig& cid, std::string&);
 
 	int get_AssetAt(Asset::Full&, Height); // Must set ID. Returns -1 if asset is destroyed, 0 if never existed.
 
