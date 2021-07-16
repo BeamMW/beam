@@ -73,14 +73,10 @@ bool CheckBridgeLog(const uint8_t* data, uint32_t dataSize, const Bridge::PushRe
 
     // check sender address
     idx += 32;
-    //Opaque<20> senderAddress;
-    //Env::Memcpy(&senderAddress, idx + 12, 20);
     if (Env::Memcmp(idx + 12, &pushRemote.m_MsgHdr.m_ContractSender, 20)) return false;
 
     // check receiver address
     idx += 32;
-    /*Opaque<32> receiverAddress;
-    Env::Memcpy(&receiverAddress, idx, 32);*/
     if (Env::Memcmp(idx, &pushRemote.m_MsgHdr.m_ContractReceiver, 32)) return false;
 
     // check offset
@@ -88,9 +84,7 @@ bool CheckBridgeLog(const uint8_t* data, uint32_t dataSize, const Bridge::PushRe
     Env::Memcpy(&rawNumber, idx, 32);
     MultiPrecision::UInt<8> offset;
     offset.FromBE_T(rawNumber);
-    MultiPrecision::UInt<8> expectedOffset;
-    expectedOffset = 128u;
-    if (offset.cmp(expectedOffset)) return false;
+    if (offset.get_Val<1>() != 128u) return false;
 
     // check msg size
     idx += 32;
@@ -101,60 +95,10 @@ bool CheckBridgeLog(const uint8_t* data, uint32_t dataSize, const Bridge::PushRe
 
     // check msg
     idx += 32;
-    /*uint8_t* tmp = (uint8_t*)Env::StackAlloc(msgBodySize);
-    Env::Memcpy(tmp, idx, msgBodySize);*/
     if (Env::Memcmp(idx, msgBody, msgBodySize)) return false;
 
     return true;
 }
-
-/*void CheckBridgeLog(const uint8_t* data, uint32_t dataSize, const Bridge::PushRemote& pushRemote, const uint8_t* msgBody, uint32_t msgBodySize)
-{
-    Env::Halt_if(dataSize <= 160);
-
-    const uint8_t* idx = data;
-
-    // check msgId
-    Opaque<32> rawNumber;
-    Env::Memcpy(&rawNumber, idx, 32);
-    MultiPrecision::UInt<8> msgId;
-    msgId.FromBE_T(rawNumber);
-    Env::Halt_if(msgId.get_Val<1>() != pushRemote.m_MsgId);
-
-    // check sender address
-    idx += 32;
-    Opaque<20> senderAddress;
-    Env::Memcpy(&senderAddress, idx + 12, 20);
-    Env::Halt_if(Env::Memcmp(&senderAddress, &pushRemote.m_MsgHdr.m_ContractSender, 20));
-
-    // check receiver address
-    idx += 32;
-    Opaque<32> receiverAddress;
-    Env::Memcpy(&receiverAddress, idx, 32);
-    Env::Halt_if(Env::Memcmp(&receiverAddress, &pushRemote.m_MsgHdr.m_ContractReceiver, 32));
-
-    // check offset
-    idx += 32;
-    Env::Memcpy(&rawNumber, idx, 32);
-    MultiPrecision::UInt<8> offset;
-    offset.FromBE_T(rawNumber);
-    MultiPrecision::UInt<8> expectedOffset;
-    expectedOffset = 128u;
-    Env::Halt_if(offset.cmp(expectedOffset));
-
-    //// check msg size
-    //idx += 32;
-    //Env::Memcpy(&rawNumber, idx, 32);
-    //MultiPrecision::UInt<8> size;
-    //size.FromBE_T(rawNumber);
-    //Env::Halt_if(size.get_Val<1>() != msgBodySize);
-
-    //// check msg
-    //idx += 32;
-    //uint8_t* tmp = (uint8_t*)Env::StackAlloc(msgBodySize);
-    //Env::Memcpy(tmp, idx, msgBodySize);
-    //Env::Halt_if(Env::Memcmp(tmp, msgBody, msgBodySize));
-}*/
 } // namespace
 
 // Method_0 - constructor, called once when the contract is deployed
