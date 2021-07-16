@@ -49,7 +49,7 @@ void OnType_Faucet(const ContractID& cid, uint32_t iMethod, const void* pArg, ui
 	}
 }
 
-export void Method_0(const ShaderID& sid, const ContractID& cid, uint32_t iMethod, const void* pArg, uint32_t nArg)
+BEAM_EXPORT void Method_0(const ShaderID& sid, const ContractID& cid, uint32_t iMethod, const void* pArg, uint32_t nArg)
 {
 #define HandleContract(name) \
 	if (_POD_(sid) == name::s_SID) { \
@@ -66,7 +66,7 @@ export void Method_0(const ShaderID& sid, const ContractID& cid, uint32_t iMetho
 	}
 }
 
-export void Method_1(const ShaderID& sid, const ContractID& cid)
+BEAM_EXPORT void Method_1(const ShaderID& sid, const ContractID& cid)
 {
 	// TODO
 }

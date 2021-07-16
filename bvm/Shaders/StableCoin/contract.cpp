@@ -58,7 +58,7 @@ struct Position
 
 #pragma pack (pop)
 
-export void Ctor(const StableCoin::Create<0>& arg)
+BEAM_EXPORT void Ctor(const StableCoin::Create<0>& arg)
 {
 	Env::Halt_if(!Env::RefAdd(arg.m_RateOracle)); // Lock oracle contract
 	Env::Halt_if(!Env::RefAdd(Vault::s_CID)); // Lock vault contract
@@ -75,7 +75,7 @@ export void Ctor(const StableCoin::Create<0>& arg)
 	Env::SaveVar_T(key, s);
 }
 
-export void Dtor(void*)
+BEAM_EXPORT void Dtor(void*)
 {
 	State s;
 	uint8_t key = 0;
@@ -104,7 +104,7 @@ void UpdatePosInternal(Worker& wrk, const StableCoin::UpdatePosition& arg)
 	pos.Save(arg.m_Pk);
 }
 
-export void Method_2(const StableCoin::UpdatePosition& arg)
+BEAM_EXPORT void Method_2(const StableCoin::UpdatePosition& arg)
 {
 	Worker wrk;
 	wrk.Load();
@@ -114,7 +114,7 @@ export void Method_2(const StableCoin::UpdatePosition& arg)
 	wrk.m_State.MoveFunds(arg.m_Change, arg.m_Direction); // move funds in/out the tx
 }
 
-export void Method_3(const StableCoin::PlaceBid& arg)
+BEAM_EXPORT void Method_3(const StableCoin::PlaceBid& arg)
 {
 	Worker wrk;
 	wrk.Load();
@@ -164,7 +164,7 @@ export void Method_3(const StableCoin::PlaceBid& arg)
 	Env::AddSig(arg.m_PkBidder);
 }
 
-export void Method_4(const StableCoin::Grab& arg)
+BEAM_EXPORT void Method_4(const StableCoin::Grab& arg)
 {
 	Worker wrk;
 	wrk.Load();

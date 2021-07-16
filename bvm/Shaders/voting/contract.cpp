@@ -3,15 +3,15 @@
 #include "../Math.h"
 #include "contract.h"
 
-export void Ctor(void*)
+BEAM_EXPORT void Ctor(void*)
 {
 }
 
-export void Dtor(void*)
+BEAM_EXPORT void Dtor(void*)
 {
 }
 
-export void Method_2(const Voting::OpenProposal& r)
+BEAM_EXPORT void Method_2(const Voting::OpenProposal& r)
 {
     Env::Halt_if(
         (r.m_Params.m_hMin > r.m_Params.m_hMax) ||
@@ -48,7 +48,7 @@ void HandleUserAccount(const Voting::UserRequest& r, bool bAdd)
         Env::DelVar_T(key);
 }
 
-export void Method_3(const Voting::Vote& r)
+BEAM_EXPORT void Method_3(const Voting::Vote& r)
 {
     Voting::Proposal_MaxVars p;
     uint32_t n = Env::LoadVar(&r.m_ID, sizeof(r.m_ID), &p, sizeof(p), KeyTag::Internal);
@@ -67,7 +67,7 @@ export void Method_3(const Voting::Vote& r)
     Env::FundsLock(p.m_Params.m_Aid, r.m_Amount);
 }
 
-export void Method_4(const Voting::Withdraw& r)
+BEAM_EXPORT void Method_4(const Voting::Withdraw& r)
 {
     Voting::Proposal p;
     uint32_t n = Env::LoadVar(&r.m_ID, sizeof(r.m_ID), &p, sizeof(p), KeyTag::Internal);
@@ -80,7 +80,7 @@ export void Method_4(const Voting::Withdraw& r)
     Env::AddSig(r.m_Pk);
 }
 
-export void Method_5(Voting::Read& r)
+BEAM_EXPORT void Method_5(Voting::Read& r)
 {
     uint32_t n = Env::LoadVar(&r.m_ID, sizeof(r.m_ID), &r.m_Res, sizeof(Voting::Proposal) + sizeof(Amount) * r.m_Variants, KeyTag::Internal);
     r.m_Variants = (n <= sizeof(Voting::Proposal)) ? 0 : (n - sizeof(Voting::Proposal)) / sizeof(Amount);

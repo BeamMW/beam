@@ -68,7 +68,7 @@ inline void ConvertOrd(T&) {}
 #   define _countof(x) (sizeof(x) / sizeof((x)[0]))
 #endif // _countof
 
-#   define export __attribute__( ( visibility( "default" ) ) ) extern "C"
+#   define BEAM_EXPORT __attribute__( ( visibility( "default" ) ) ) extern "C"
 
 #ifndef assert
 #   define assert(expr) do {} while (false)

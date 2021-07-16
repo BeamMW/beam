@@ -41,7 +41,7 @@ namespace Shaders {
 #	pragma warning (disable : 4200 4702) // unreachable code
 #endif // _MSC_VER
 
-#define export
+#define BEAM_EXPORT
 
 #include "../Shaders/common.h"
 #include "../Shaders/Math.h"

@@ -69,7 +69,7 @@ void AllocateAll(const DemoXdao::State& s)
     Env::SaveVar_T((uint8_t) pr.s_Key, pr);
 }
 
-export void Ctor(const void*)
+BEAM_EXPORT void Ctor(const void*)
 {
     if (Env::get_CallDepth() > 1)
     {
@@ -85,11 +85,11 @@ export void Ctor(const void*)
     }
 }
 
-export void Dtor(void*)
+BEAM_EXPORT void Dtor(void*)
 {
 }
 
-export void Method_2(void*)
+BEAM_EXPORT void Method_2(void*)
 {
     // called on upgrade
     // very first version didn't allocate properly. Fix this
@@ -99,7 +99,7 @@ export void Method_2(void*)
     AllocateAll(s);
 }
 
-export void Method_3(const DemoXdao::GetPreallocated& r)
+BEAM_EXPORT void Method_3(const DemoXdao::GetPreallocated& r)
 {
     DemoXdao::Preallocated::User::Key puk;
     _POD_(puk.m_Pk) = r.m_Pk;
@@ -132,7 +132,7 @@ export void Method_3(const DemoXdao::GetPreallocated& r)
     Env::AddSig(r.m_Pk);
 }
 
-export void Method_4(const DemoXdao::UpdPosFarming& r)
+BEAM_EXPORT void Method_4(const DemoXdao::UpdPosFarming& r)
 {
     Height h = Env::get_Height();
 

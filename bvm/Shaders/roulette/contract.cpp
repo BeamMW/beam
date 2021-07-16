@@ -2,7 +2,7 @@
 #include "../Math.h"
 #include "contract.h"
 
-export void Ctor(const Roulette::Params& r)
+BEAM_EXPORT void Ctor(const Roulette::Params& r)
 {
     // Initialize global roulette state
     Roulette::State s;
@@ -26,7 +26,7 @@ export void Ctor(const Roulette::Params& r)
 // The contract does not support burning emitted assets (and no one else has control over this asset type) 
 // It is possible to add this ability and make the contract destroyable (in principle)
 // Otherwise, the contract will exist forever
-export void Dtor(void*)
+BEAM_EXPORT void Dtor(void*)
 {
     Roulette::State s;
     Env::LoadVar_T((uint8_t) 0, s); // load global state
@@ -41,7 +41,7 @@ export void Dtor(void*)
     // When the contract is destoyed the dealer gets back the deposit that was locked during asset creation
 }
 
-export void Method_2(const Roulette::Spin& r)
+BEAM_EXPORT void Method_2(const Roulette::Spin& r)
 {
     Roulette::State s;
     Env::LoadVar_T((uint8_t) 0, s);
@@ -64,7 +64,7 @@ export void Method_2(const Roulette::Spin& r)
     Env::AddSig(s.m_Dealer); // Only the dealer can spin the roulette
 }
 
-export void Method_3(void*) // Bets_off
+BEAM_EXPORT void Method_3(void*) // Bets_off
 {
     Roulette::State s;
     Env::LoadVar_T((uint8_t) 0, s);
@@ -90,7 +90,7 @@ export void Method_3(void*) // Bets_off
     Env::AddSig(s.m_Dealer); // Make sure only the dealer can call betts off
 }
 
-export void Method_4(const Roulette::Bid& r) // Allow player to make bet
+BEAM_EXPORT void Method_4(const Roulette::Bid& r) // Allow player to make bet
 {
     Roulette::State s;
     Env::LoadVar_T((uint8_t) 0, s);
@@ -110,7 +110,7 @@ export void Method_4(const Roulette::Bid& r) // Allow player to make bet
     Env::AddSig(r.m_Player); // Only the player himself can place the bet, others can not bet for other players
 }
 
-export void Method_5(const Roulette::Take& r) // take player winnings
+BEAM_EXPORT void Method_5(const Roulette::Take& r) // take player winnings
 {
     Roulette::State s;
     Env::LoadVar_T((uint8_t) 0, s);

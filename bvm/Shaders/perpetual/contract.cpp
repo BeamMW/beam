@@ -5,7 +5,7 @@
 const uint32_t g_nPerc_mp = 100000;
 const uint32_t nMargin_mp_max = 10 * g_nPerc_mp;
 
-export void Ctor(const Perpetual::Create& r)
+BEAM_EXPORT void Ctor(const Perpetual::Create& r)
 {
 	Env::Halt_if(r.m_MarginRequirement_mp > nMargin_mp_max);
 
@@ -14,7 +14,7 @@ export void Ctor(const Perpetual::Create& r)
 	Env::Halt_if(!Env::RefAdd(r.m_Oracle));
 }
 
-export void Dtor(void*)
+BEAM_EXPORT void Dtor(void*)
 {
 	uint8_t key = 0;
 	Perpetual::Global g;
@@ -32,7 +32,7 @@ bool LoadAccount(const PubKey& pk, Perpetual::OfferState& s)
 	return false;
 }
 
-export void Method_2(const Perpetual::CreateOffer& r)
+BEAM_EXPORT void Method_2(const Perpetual::CreateOffer& r)
 {
 	uint8_t key = 0;
 	Perpetual::Global g;
@@ -59,6 +59,6 @@ export void Method_2(const Perpetual::CreateOffer& r)
 	Env::SaveVar_T(r.m_Account, s);
 }
 
-export void Method_3(const Perpetual::CancelOffer& r)
+BEAM_EXPORT void Method_3(const Perpetual::CancelOffer& r)
 {
 }
