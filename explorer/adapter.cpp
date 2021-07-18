@@ -825,6 +825,8 @@ private:
             {"assets", jAssets},
             {"extra", sExtra }
         };
+
+        return true;
     }
 
     bool extract_block_from_row(json& out, uint64_t row, Height height) {
