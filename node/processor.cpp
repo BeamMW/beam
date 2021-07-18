@@ -4737,7 +4737,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ParseExtraInfo(std::string&
 	}
 }
 
-void NodeProcessor::get_ContractDescr(const ECC::uintBig& sid, const ECC::uintBig& cid, std::string& res)
+void NodeProcessor::get_ContractDescr(const ECC::uintBig& sid, const ECC::uintBig& cid, std::string& res, bool bFullState)
 {
 	try
 	{
@@ -4748,7 +4748,7 @@ void NodeProcessor::get_ContractDescr(const ECC::uintBig& sid, const ECC::uintBi
 		proc.PushArgBoth(sid);
 		proc.PushArgBoth(cid);
 
-		proc.CallMethod(1);
+		proc.CallMethod(bFullState ? 2 : 1);
 
 		res = proc.Execute();
 	}

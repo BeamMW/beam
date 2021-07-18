@@ -661,6 +661,171 @@ private:
         }
     };
 
+    void get_ContractList(json& out)
+    {
+#pragma pack (push, 1)
+        struct KeyEntry
+        {
+            bvm2::ContractID m_Zero;
+            uint8_t m_Tag;
+
+            struct SidCid
+            {
+                bvm2::ShaderID m_Sid;
+                bvm2::ContractID m_Cid;
+            } m_SidCid;
+        };
+#pragma pack (pop)
+
+        KeyEntry k0, k1;
+        ZeroObject(k0);
+        k0.m_Tag = Shaders::KeyTag::SidCid;
+
+        k1.m_Zero = Zero;
+        k1.m_Tag = Shaders::KeyTag::SidCid;
+        memset(&k1.m_SidCid, 0xff, sizeof(k1.m_SidCid));
+
+        std::vector<std::pair<KeyEntry::SidCid, Height> > vIDs;
+
+        NodeDB::WalkerContractData wlk;
+        for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
+        {
+            if ((sizeof(KeyEntry) != wlk.m_Key.n) || (sizeof(Height) != wlk.m_Val.n))
+                continue;
+
+            auto& x = vIDs.emplace_back();
+            x.first = reinterpret_cast<const KeyEntry*>(wlk.m_Key.p)->m_SidCid;
+            (reinterpret_cast<const uintBigFor<Height>::Type*>(wlk.m_Val.p))->Export(x.second);
+        }
+
+        out = json::array();
+        char buf[80];
+
+        for (size_t i = 0; i < vIDs.size(); i++)
+        {
+            const auto& x = vIDs[i];
+
+            std::string sExtra;
+            _nodeBackend.get_ContractDescr(x.first.m_Sid, x.first.m_Cid, sExtra, false);
+
+            out.push_back(
+                json{
+                    {"sid", uint256_to_hex(buf, x.first.m_Sid)},
+                    {"cid", uint256_to_hex(buf, x.first.m_Cid)},
+                    {"extra", sExtra },
+                    {"height",   x.second}
+                }
+            );
+
+        }
+
+    }
+
+    bool get_ContractState(json& out, const bvm2::ContractID& cid)
+    {
+        bvm2::ShaderID sid;
+
+        {
+            Blob blob;
+            NodeDB::Recordset rs;
+            if (!_nodeBackend.get_DB().ContractDataFind(cid, blob, rs))
+                return false;
+
+            bvm2::get_ShaderID(sid, blob);
+        }
+
+        json jFunds, jAssets;
+
+        {
+
+#pragma pack (push, 1)
+            struct KeyFund
+            {
+                bvm2::ContractID m_Cid;
+                uint8_t m_Tag = Shaders::KeyTag::LockedAmount;
+                uintBigFor<Asset::ID>::Type m_Aid;
+            };
+#pragma pack (pop)
+
+            KeyFund k0, k1;
+            k0.m_Cid = cid;
+            k0.m_Aid = Zero;
+            k1.m_Cid = cid;
+            k1.m_Aid = static_cast<Asset::ID>(-1);
+
+            NodeDB::WalkerContractData wlk;
+            for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
+            {
+                if ((sizeof(KeyFund) != wlk.m_Key.n) || (sizeof(AmountBig::Type) != wlk.m_Val.n))
+                    continue;
+
+                Asset::ID aid;
+                reinterpret_cast<const KeyFund*>(wlk.m_Key.p)->m_Aid.Export(aid);
+
+                const auto& val = *reinterpret_cast<const AmountBig::Type*>(wlk.m_Val.p);
+
+
+                jFunds.push_back(
+                    json{
+                        {"aid", aid},
+                        {"value", AmountBig::get_Lo(val)}
+                    }
+                );
+            }
+        }
+
+
+        {
+
+#pragma pack (push, 1)
+            struct KeyAsset
+            {
+                bvm2::ContractID m_Cid;
+                uint8_t m_Tag = Shaders::KeyTag::OwnedAsset;
+                uintBigFor<Asset::ID>::Type m_Aid;
+            };
+#pragma pack (pop)
+
+            KeyAsset k0, k1;
+            k0.m_Cid = cid;
+            k0.m_Aid = Zero;
+            k1.m_Cid = cid;
+            k1.m_Aid = static_cast<Asset::ID>(-1);
+
+            NodeDB::WalkerContractData wlk;
+            for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
+            {
+                if (sizeof(KeyAsset) != wlk.m_Key.n)
+                    continue;
+
+                Asset::Full ai;
+                reinterpret_cast<const KeyAsset*>(wlk.m_Key.p)->m_Aid.Export(ai.m_ID);
+
+                if (!_nodeBackend.get_DB().AssetGetSafe(ai))
+                    ai.m_Value = Zero;
+
+                std::string sMeta;
+                ai.m_Metadata.get_String(sMeta);
+
+                jAssets.push_back(
+                    json{
+                        {"aid", ai.m_ID },
+                        {"value", AmountBig::get_Lo(ai.m_Value)},
+                        {"metadata", sMeta }
+                    }
+                );
+            }
+        }
+
+        std::string sExtra;
+        _nodeBackend.get_ContractDescr(sid, cid, sExtra, true);
+
+        out = json{
+            {"funds", jFunds},
+            {"assets", jAssets},
+            {"extra", sExtra }
+        };
+    }
 
     bool extract_block_from_row(json& out, uint64_t row, Height height) {
         NodeDB& db = _nodeBackend.get_DB();
