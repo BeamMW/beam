@@ -4645,19 +4645,19 @@ struct NodeProcessor::ProcessorInfoParser
 		else
 			m_Proc.m_DB.ContractLogEnum(x.m_Wlk, *pPosMin, *pPosMax);
 	}
-
-	bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) {
+/*
+	bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) override {
 		return false;
 	}
 
-	bool LogGetProof(const HeightPos&, beam::Merkle::Proof&) {
+	bool LogGetProof(const HeightPos&, beam::Merkle::Proof&) override {
 		return false;
 	}
 
 	bool get_SpecialParam(const char*, Blob&) override {
 		return false;
 	}
-
+*/
 	ProcessorInfoParser(NodeProcessor& p)
 		:m_Proc(p)
 	{
