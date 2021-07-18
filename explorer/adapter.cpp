@@ -683,7 +683,7 @@ private:
 
         k1.m_Zero = Zero;
         k1.m_Tag = Shaders::KeyTag::SidCid;
-        memset(&k1.m_SidCid, 0xff, sizeof(k1.m_SidCid));
+        memset(reinterpret_cast<void*>(&k1.m_SidCid), 0xff, sizeof(k1.m_SidCid));
 
         std::vector<std::pair<KeyEntry::SidCid, Height> > vIDs;
 
