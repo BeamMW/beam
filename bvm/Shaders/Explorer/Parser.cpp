@@ -274,7 +274,7 @@ BEAM_EXPORT void Method_1(const ShaderID& sid, const ContractID& cid)
 	pc.Parse();
 }
 
-export void Method_2(const ShaderID& sid, const ContractID& cid)
+BEAM_EXPORT void Method_2(const ShaderID& sid, const ContractID& cid)
 {
 	ParserContext pc(sid, cid);
 	pc.m_Name = false;
