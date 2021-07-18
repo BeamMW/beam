@@ -273,39 +273,12 @@ namespace MultiPrecision
 		}
 
 		template <uint32_t wa, uint32_t wb>
-		void SetDivResid(UInt<wa>& resid, const UInt<wb>& b)
+		void SetDivResid(UInt<wa>& __restrict__ resid, const UInt<wb>& b)
 		{
 			UInt<nWords + wb> div;
 			div.template Assign<nWords>(b);
 
-			constexpr Word nMsk0 = ((Word) 1) << (nWordBits - 1);
-
-			Word nMsk = nMsk0;
-			Word res = 0;
-
-			for (uint32_t iWord = nWords; ; )
-			{
-				div.template RShift<1>();
-
-				if (resid >= div)
-				{
-					resid -= div;
-					res |= nMsk;
-				}
-
-				nMsk >>= 1;
-
-				if (!nMsk)
-				{
-					get_AsArr()[--iWord] = res;
-
-					if (!iWord)
-						break;
-
-					nMsk = nMsk0;
-					res = 0;
-				}
-			}
+			SetDivResidInternal(resid, div);
 		}
 
 		template <uint32_t wb>
@@ -397,6 +370,40 @@ namespace MultiPrecision
 			m_Val = (m_Val >> nBits) | (carry << (nWordBits - nBits));
 		}
 
+		template <uint32_t wa, uint32_t wbPlus>
+		inline void SetDivResidInternal(UInt<wa>& __restrict__ resid, UInt<wbPlus>& __restrict__ div)
+		{
+			m_Val = resid.DivOnceInternal(div);
+			Base::template SetDivResidInternal<wa, wbPlus - 1>(resid, div);
+		}
+
+		template <uint32_t wbPlus>
+		inline Word DivOnceInternal(UInt<wbPlus>& __restrict__ div)
+		{
+			if constexpr (nWords > wbPlus)
+				return Base::template DivOnceInternal<wbPlus>(div);
+
+			Word nMsk = ((Word) 1) << (nWordBits - 1);
+			Word res = 0;
+
+			while (true)
+			{
+				div.template RShift<1>();
+
+				if (*this >= div)
+				{
+					*this -= div;
+					res |= nMsk;
+				}
+
+				nMsk >>= 1;
+				if (!nMsk)
+					break;
+			}
+
+			return res;
+		}
+
 	};
 
 	template <> struct UInt<0>
@@ -461,6 +468,11 @@ namespace MultiPrecision
 		int _Cmp(const UInt<wa>& a) const
 		{
 			return 0;
+		}
+
+		template <uint32_t wa, uint32_t wbPlus>
+		void SetDivResidInternal(const UInt<wa>& resid, const UInt<wbPlus>& b)
+		{
 		}
 
 		template <uint32_t nShiftWords, uint32_t wa>

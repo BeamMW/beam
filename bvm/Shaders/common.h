@@ -81,6 +81,10 @@ using Opaque = beam::uintBig_t<nBytes>;
 
 #endif // HOST_BUILD
 
+#ifdef _MSC_VER
+#   define __restrict__ __restrict
+#endif // 
+
 // environment functions
 #include "../bvm2_shared.h"
 #include "../bvm2_opcodes.h"
