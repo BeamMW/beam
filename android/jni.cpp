@@ -623,7 +623,8 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
     jstring senderAddr, jstring receiverAddr, jstring comment, jlong amount, jlong fee, jint assetId)
 {
     LOG_DEBUG() << "sendTransaction(" << JString(env, senderAddr).value() << ", " << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
-
+    LOG_DEBUG() << "asset id" << assetId;
+    
     auto address = JString(env, receiverAddr).value();
     auto txParameters = beam::wallet::ParseParameters(address);
     if (!txParameters)
@@ -892,6 +893,7 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(checkWalletPassword)(JNIEn
     return passwordHash.V == hash.V;
 }
 
+
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(changeWalletPassword)(JNIEnv *env, jobject thiz,
     jstring password)
 {
@@ -1116,6 +1118,16 @@ JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getMaxPrivacyLockTimeLimitHou
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getAssetInfo)(JNIEnv *env, jobject thiz, jint id)
 {
     walletModel->getAsync()->getAssetInfo(id);
+}
+
+JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(isSynced)(JNIEnv *env, jobject thiz,
+    jstring password)
+{
+    auto isSynced = walletModel->isSynced();
+    
+    LOG_DEBUG() << "isSynced() " << trusted;
+
+    return isSynced;
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
