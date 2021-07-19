@@ -1125,7 +1125,7 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(isSynced)(JNIEnv *env, job
 {
     auto isSynced = walletModel->isSynced();
     
-    LOG_DEBUG() << "isSynced() " << trusted;
+    LOG_DEBUG() << "isSynced() " << isSynced;
 
     return isSynced;
 }
