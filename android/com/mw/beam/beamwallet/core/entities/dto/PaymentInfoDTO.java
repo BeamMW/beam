@@ -22,4 +22,5 @@ public class PaymentInfoDTO
 	public String kernelId;
     public boolean isValid;
     public String rawProof;
+	public int assetId;
 }
