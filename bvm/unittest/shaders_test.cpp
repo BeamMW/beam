@@ -61,6 +61,7 @@ namespace Shaders {
 #include "../Shaders/mirrorcoin/contract.h"
 #include "../Shaders/voting/contract.h"
 #include "../Shaders/demoXdao/contract.h"
+#include "../Shaders/aphorize/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
@@ -238,6 +239,14 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Amount);
 	}
 
+	template <bool bToShader> void Convert(Aphorize::Create& x) {
+		ConvertOrd<bToShader>(x.m_Cfg.m_hPeriod);
+		ConvertOrd<bToShader>(x.m_Cfg.m_PriceSubmit);
+	}
+	template <bool bToShader> void Convert(Aphorize::Submit& x) {
+		ConvertOrd<bToShader>(x.m_Len);
+	}
+
 	namespace Env {
 
 
@@ -288,6 +297,9 @@ namespace Shaders {
 	}
 	namespace DemoXdao {
 #include "../Shaders/demoXdao/contract.cpp"
+	}
+	namespace Aphorize {
+#include "../Shaders/aphorize/contract.cpp"
 	}
 
 #ifdef _MSC_VER
@@ -395,6 +407,7 @@ namespace bvm2 {
 			ByteBuffer m_MirrorCoin;
 			ByteBuffer m_Voting;
 			ByteBuffer m_DemoXdao;
+			ByteBuffer m_Aphorize;
 
 		} m_Code;
 
@@ -411,6 +424,7 @@ namespace bvm2 {
 		ContractID m_cidMirrorCoin2;
 		ContractID m_cidVoting;
 		ContractID m_cidDemoXdao;
+		ContractID m_cidAphorize;
 
 		struct {
 
@@ -569,6 +583,17 @@ namespace bvm2 {
 				//}
 			}
 
+			if (cid == m_cidAphorize)
+			{
+				//TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//case 0: Shaders::Aphorize::Ctor(CastArg<Shaders::Aphorize::Create>(pArgs)); return;
+				//case 2: Shaders::Aphorize::Method_2(CastArg<Shaders::Aphorize::Submit>(pArgs)); return;
+				//}
+			}
+
+
 			ProcessorContract::CallFar(cid, iMethod, pArgs);
 		}
 
@@ -584,6 +609,7 @@ namespace bvm2 {
 		void TestMirrorCoin();
 		void TestVoting();
 		void TestDemoXdao();
+		void TestAphorize();
 
 		void TestAll();
 	};
@@ -614,8 +640,10 @@ namespace bvm2 {
 		AddCode(m_Code.m_MirrorCoin, "mirrorcoin/contract.wasm");
 		AddCode(m_Code.m_Voting, "voting/contract.wasm");
 		AddCode(m_Code.m_DemoXdao, "demoXdao/contract.wasm");
+		AddCode(m_Code.m_Aphorize, "aphorize/contract.wasm");
 
 		TestVault();
+		TestAphorize();
 		TestFaucet();
 		TestRoulette();
 		TestVoting();
@@ -733,6 +761,32 @@ namespace bvm2 {
 		verify_test(RunGuarded_T(m_cidVault, Shaders::Vault::Deposit::s_iMethod, args));
 
 		m_lstUndo.Clear();
+	}
+
+	void MyProcessor::TestAphorize()
+	{
+		{
+			Shaders::Aphorize::Create args;
+			args.m_Cfg.m_hPeriod = 10;
+			args.m_Cfg.m_PriceSubmit = Shaders::g_Beam2Groth * 2;
+			ZeroObject(args.m_Cfg.m_Moderator);
+			verify_test(ContractCreate_T(m_cidAphorize, m_Code.m_Aphorize, args));
+		}
+
+		for (uint32_t i = 0; i < 20; i++)
+		{
+			struct MySubmit :public Shaders::Aphorize::Submit {
+				char m_szText[20];
+			};
+
+			MySubmit args;
+			ZeroObject(args.m_Pk);
+			args.m_Len = _countof(args.m_szText);
+
+			memset(args.m_szText, 'a' + i, sizeof(args.m_szText));
+
+			verify_test(RunGuarded_T(m_cidAphorize, args.s_iMethod, args));
+		}
 	}
 
 	namespace IndexDecoder

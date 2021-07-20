@@ -3,7 +3,7 @@
 #include "contract.h"
 
 
-BEAM_EXPORT void Ctor(const Aphorize::Ctor& r)
+BEAM_EXPORT void Ctor(const Aphorize::Create& r)
 {
     Aphorize::State s;
     _POD_(s.m_Cfg) = r.m_Cfg;
@@ -159,7 +159,7 @@ BEAM_EXPORT void Method_4(const Aphorize::Ban& r)
 BEAM_EXPORT void Method_5(const Aphorize::Withdraw& r)
 {
     Aphorize::StatePlus s;
-    auto nVariants = LoadState(s);
+    LoadState(s);
 
     Aphorize::Account acc;
     LoadAccount(acc, r.m_Pk, s);

@@ -60,7 +60,7 @@ namespace Aphorize
         Amount m_pArr[s_MaxVariants];
     };
 
-    struct Ctor {
+    struct Create {
         static const uint32_t s_iMethod = 0;
         Cfg m_Cfg;
     };
