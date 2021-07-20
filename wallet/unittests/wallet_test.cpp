@@ -3140,6 +3140,20 @@ void TestAddressVersions()
             failed = false;
         });
         WALLET_CHECK(!failed);
+        params.SetParameter(TxParameterID::ClientVersion, std::string("Beam UI " BEAM_LIB_VERSION));
+        params.SetParameter(TxParameterID::LibraryVersion, std::string(BEAM_LIB_VERSION));
+        failed = false;
+        ProcessLibraryVersion(params, [&](const auto& version, const auto& myVersion)
+        {
+            failed = true;
+        });
+        WALLET_CHECK(!failed);
+        failed = false;
+        ProcessClientVersion(params, "Beam UI", BEAM_LIB_VERSION, BEAM_LIB_VERSION, [&](const auto& version, const auto& myVersion)
+        {
+            failed = true;
+        });
+        WALLET_CHECK(!failed);
     };
 
     testFunc();
