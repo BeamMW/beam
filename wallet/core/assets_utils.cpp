@@ -311,7 +311,7 @@ namespace beam::wallet {
     PeerID GetAssetOwnerID(const Key::IKdf::Ptr& masterKdf, const std::string& strMeta)
     {
         Asset::Metadata meta;
-        meta.m_Value = toByteBuffer(strMeta);
+        meta.set_String(strMeta, true);
         meta.UpdateHash();
 
         PeerID ownerID = 0UL;

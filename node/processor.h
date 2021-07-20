@@ -707,13 +707,6 @@ public:
 		struct IHandler
 		{
 			virtual void get_ViewerKeys(NodeProcessor::ViewerKeys& vk) {}
-			virtual bool IsDummy(const CoinID& cid) const 
-			{
-				return
-					!cid.m_Value &&
-					!cid.m_AssetID &&
-					(Key::Type::Decoy == cid.m_Type);
-			}
 			virtual void OnDummy(const CoinID&, Height) {}
 			virtual void OnEvent(Height, const proto::Event::Base&) {}
 			virtual void AssetEvtsGetStrict(NodeDB::AssetEvt& event, Height h, uint32_t nKrnIdx) {}
@@ -751,8 +744,6 @@ public:
 
 	virtual void OnEvent(Height, const proto::Event::Base&) {}
 	virtual void OnDummy(const CoinID&, Height) {}
-
-	static bool IsDummy(const CoinID&);
 
 	static bool IsContractVarStoredInMmr(const Blob& key) {
 		return Mapped::Contract::IsStored(key);

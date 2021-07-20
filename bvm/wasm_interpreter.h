@@ -104,6 +104,8 @@ namespace Wasm {
 
 		} m_Mode;
 
+		bool m_ModeTriggered = false;
+
 		Reader(Mode eMode = Mode::AutoWorkAround) :m_Mode(eMode) {}
 
 		void Ensure(uint32_t n);

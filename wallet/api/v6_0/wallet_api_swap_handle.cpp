@@ -503,7 +503,7 @@ namespace beam::wallet
         }
         else
         {
-            throw jsonrpc_exception(ApiError::InvalidJsonRpc, "It is not my offer.");
+            throw jsonrpc_exception(ApiError::InternalErrorJsonRpc, "It is not my offer.");
         }
 
         doResponse(id, OfferStatus::Response{ walletDB->getCurrentHeight(), offer });

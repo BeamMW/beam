@@ -145,6 +145,7 @@ namespace beam::wallet
         bool CanCancelTransaction(const TxID& txId) const;
         void CancelTransaction(const TxID& txId);
         void DeleteTransaction(const TxID& txId);
+        void ConfirmAsset(Asset::ID);
         
         void Subscribe(IWalletObserver* observer);
         void Unsubscribe(IWalletObserver* observer);
@@ -214,7 +215,7 @@ namespace beam::wallet
         uint32_t SyncRemains() const;
         void CheckSyncDone();
         void getUtxoProof(const Coin&);
-        void report_sync_progress();
+        void ReportSyncProgress();
         void NotifySyncProgress();
         void UpdateTransaction(const TxID& txID);
         void UpdateTransaction(BaseTransaction::Ptr tx);

@@ -33,11 +33,9 @@ namespace beam::wallet
         };
 
     private:
-        AssetRegisterTransaction(const TxContext& context);
+        explicit AssetRegisterTransaction(const TxContext& context);
         bool IsInSafety() const override;
-
         void UpdateImpl() override;
-        void ConfirmAsset();
 
         enum State : uint8_t
         {

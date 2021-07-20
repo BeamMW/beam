@@ -413,7 +413,7 @@ namespace
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.type == TokenType::RegularOldStyle);
-                WALLET_CHECK(data.offlinePayments == 10);
+                WALLET_CHECK(data.offlinePayments == 1);
             }
         };
 
@@ -1280,7 +1280,7 @@ void TestICTx(const char* method)
     })));
 
     // Bad txId string
-    testInvalidJsonRpc(Fork2, ApiError::InvalidTxId, exp(JSON_CODE(
+    testInvalidJsonRpc(Fork2, ApiError::InvalidParamsJsonRpc, exp(JSON_CODE(
     {
         "jsonrpc": "2.0",
         "id" : 12345,
@@ -1511,7 +1511,7 @@ void TestAITx()
     }));
 
     // Bad txId string
-    testInvalidJsonRpc(Fork2, ApiError::InvalidTxId, JSON_CODE(
+    testInvalidJsonRpc(Fork2, ApiError::InvalidParamsJsonRpc, JSON_CODE(
     {
         "jsonrpc": "2.0",
         "id" : 12345,

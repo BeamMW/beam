@@ -991,7 +991,9 @@ namespace beam::wallet
         constexpr char s_szNextEvt[] = "NextUtxoEvent"; // any event, not just UTXO. The name is for historical reasons
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
-        const int DbVersion   =30;
+
+        const int DbVersion   = 31;
+        const int DbVersion30 = 30;
         const int DbVersion29 = 29;
         const int DbVersion28 = 28;
         const int DbVersion27 = 27;
@@ -1051,7 +1053,7 @@ namespace beam::wallet
 
     bool Coin::isAsset(Asset::ID assetId) const
     {
-        return isAsset() && (m_ID.m_AssetID == assetId);
+        return m_ID.m_AssetID == assetId;
     }
 
     bool Coin::IsMaturityValid() const
@@ -1475,7 +1477,7 @@ namespace beam::wallet
             MigrateAddressesFrom24(walletDB, db, LASER_ADDRESSES_NAME);
         }
 
-        void MigrateTransactionsFrom25(WalletDB* walletDB)
+        void MigrateTransactionsFrom26(WalletDB* walletDB)
         {
             sqlite::Statement stm((const WalletDB*)walletDB, "SELECT txID, value FROM " TX_PARAMS_NAME " WHERE subTxID=?1 AND paramID=?2;");
             stm.bind(1, kDefaultSubTxID);
@@ -1506,7 +1508,6 @@ namespace beam::wallet
             Timestamp   m_updateTime = 0;
             SERIALIZE(m_from, m_to, m_rate, m_updateTime);
         };
-
 
         Currency exchangeCurr29to30(ExchangeRate29::CurrType curr29)
         {
@@ -1659,6 +1660,28 @@ namespace beam::wallet
                 storage::setTxParameter(*walletDB, updateInfo.txID, static_cast<SubTxID>(updateInfo.subTxID), TxParameterID::ExchangeRates, updateInfo.rates, false);
                 LOG_INFO() << "Rates convert for " << updateInfo.txID << ", rcnt: " << updateInfo.rates.size();
             }
+        }
+
+        void MigrateTransactionsFrom30(WalletDB* walletDB, sqlite3* db)
+        {
+            walletDB->visitTx([&](const TxDescription& tx) -> bool {
+                if(tx.GetTxID().is_initialized())
+                {
+                    TxAddressType addressType = TxAddressType::Unknown;
+                    tx.GetParameter(TxParameterID::AddressType, addressType);
+                    if (addressType == TxAddressType::Unknown)
+                    {
+                        addressType = GetAddressType(tx);
+                        storage::setTxParameter(*walletDB, *tx.GetTxID(), TxParameterID::AddressType, addressType, false);
+                    }
+                }
+                else
+                {
+                    LOG_WARNING() << "MigrateTransactionsFrom30: Unexpected tx without TxID";
+                    assert(false);
+                }
+                return true;
+            }, TxListFilter());
         }
 
         void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password)
@@ -2268,7 +2291,7 @@ namespace beam::wallet
 
                 case DbVersion26:
                     LOG_INFO() << "Converting DB from format 26...";
-                    MigrateTransactionsFrom25(walletDB.get());
+                    MigrateTransactionsFrom26(walletDB.get());
                     // no break
 
                 case DbVersion27:
@@ -2287,7 +2310,11 @@ namespace beam::wallet
                     MigrateRatesFrom29(walletDB.get(), walletDB->_db);
                     MigrateRatesHistoryFrom29(walletDB.get(), walletDB->_db);
                     MigrateTxRatesFrom29to30(walletDB.get(), walletDB->_db);
+                    // no break
 
+                case DbVersion30:
+                    LOG_INFO() << "Converting DB from format 30...";
+                    MigrateTransactionsFrom30(walletDB.get(), walletDB->_db);
                     // no break
                     storage::setVar(*walletDB, Version, DbVersion);
 
@@ -2628,7 +2655,7 @@ namespace beam::wallet
 
             virtual bool OnUtxoRecognized(Height h, const Output& outp, CoinID& cid, const Output::User& user) override
             {
-                if (m_This.IsRecoveredMatch(cid, outp.m_Commitment))
+                if (!cid.IsDummy() && m_This.IsRecoveredMatch(cid, outp.m_Commitment))
                 {
                     Coin c;
                     c.m_ID = cid;
@@ -4281,6 +4308,7 @@ namespace beam::wallet
         }
 
         stm.step();
+        notifyAssetChanged(info.m_ID);
     }
 
     void WalletDB::markAssetOwned(const Asset::ID assetId)
@@ -4290,6 +4318,7 @@ namespace beam::wallet
         stmUpdate.bind(1, assetId);
         stmUpdate.bind(2, 1);
         stmUpdate.step();
+        notifyAssetChanged(assetId);
     }
 
     void WalletDB::dropAsset(const PeerID& ownerId)
@@ -4307,6 +4336,7 @@ namespace beam::wallet
         sqlite::Statement stm(this, deleteReq);
         stm.bind(1, assetId);
         stm.step();
+        notifyAssetChanged(assetId);
     }
 
     void WalletDB::visitAssets(std::function<bool(const WalletAsset& info)> visitor) const
@@ -4381,6 +4411,21 @@ namespace beam::wallet
 
     void WalletDB::rollbackAssets(Height minHeight)
     {
+        std::set<Asset::ID> changed;
+
+        {
+            const char* find = "SELECT ID FROM " ASSETS_NAME " WHERE LockHeight>?1 OR RefreshHeight>?1;";
+            sqlite::Statement stmFind(this, find);
+            stmFind.bind(1, minHeight);
+
+            while (stmFind.step())
+            {
+                Asset::ID assetID = Asset::s_InvalidID;
+                stmFind.get(0, assetID);
+                changed.insert(assetID);
+            }
+        }
+
         const char* drop = "DELETE FROM " ASSETS_NAME " WHERE LockHeight>?1;";
         sqlite::Statement stmDrop(this, drop);
         stmDrop.bind(1, minHeight);
@@ -4390,6 +4435,11 @@ namespace beam::wallet
         sqlite::Statement stmUpdate(this, update);
         stmUpdate.bind(1, minHeight);
         stmUpdate.step();
+
+        for(auto assetId: changed)
+        {
+            notifyAssetChanged(assetId);
+        }
     }
 
     void WalletDB::saveLaserChannel(const ILaserChannelEntity& ch)
@@ -5174,6 +5224,11 @@ namespace beam::wallet
     void WalletDB::notifySystemStateChanged(const Block::SystemState::ID& stateID)
     {
         for (const auto sub : m_subscribers) sub->onSystemStateChanged(stateID);
+    }
+
+    void WalletDB::notifyAssetChanged(Asset::ID assetID)
+    {
+        for (const auto sub : m_subscribers) sub->onAssetChanged(assetID);
     }
 
     void WalletDB::notifyAddressChanged(ChangeAction action, const vector<WalletAddress>& items)
@@ -6685,7 +6740,7 @@ namespace beam::wallet
 
     bool ShieldedCoin::isAsset(Asset::ID assetId) const
     {
-        return isAsset() && (m_CoinID.m_AssetID == assetId);
+        return m_CoinID.m_AssetID == assetId;
     }
 
     std::string ShieldedCoin::toStringID() const

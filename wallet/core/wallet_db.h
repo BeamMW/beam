@@ -408,6 +408,7 @@ namespace beam::wallet
         virtual void onSystemStateChanged(const Block::SystemState::ID& stateID) {};
         virtual void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) {};
         virtual void onShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& items) {};
+        virtual void onAssetChanged(Asset::ID assetID) {}
     };
 
     struct IWalletDB : IVariablesDB
@@ -775,6 +776,7 @@ namespace beam::wallet
         void notifySystemStateChanged(const Block::SystemState::ID& stateID);
         void notifyAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items);
         void notifyShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& items);
+        void notifyAssetChanged(Asset::ID);
 
         bool updateCoinRaw(const Coin&);
         void insertCoinRaw(const Coin&);

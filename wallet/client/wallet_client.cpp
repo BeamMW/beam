@@ -586,6 +586,7 @@ namespace beam::wallet
                 //
                 // DEX
                 //
+                /*
                 auto dexBoard = make_shared<DexBoard>(*broadcastRouter, this->getAsync(), *m_walletDB);
                 auto dexWDBSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(dexBoard.get()), m_walletDB);
 
@@ -593,6 +594,7 @@ namespace beam::wallet
                 auto dexBoardSubscriber = make_unique<DexBoardSubscriber>(static_cast<DexBoard::IObserver*>(this), dexBoard);
 
                 _dex = dexBoard;
+                */
 
                 //
                 // Shaders
@@ -734,6 +736,11 @@ namespace beam::wallet
         return m_isConnectionTrusted;
     }
 
+    bool WalletClient::isSynced() const
+    {
+        return m_isSynced;
+    }
+
     beam::TxoID WalletClient::getTotalShieldedCount() const
     {
         return m_status.shieldedTotalCount;
@@ -858,6 +865,15 @@ namespace beam::wallet
 
     void WalletClient::onSyncProgress(int done, int total)
     {
+        auto w = m_wallet.lock();
+        if (w)
+        {
+            postFunctionToClientContext([this, isSynced = ((done == total) && w->IsWalletInSync())]()
+            {
+                m_isSynced = isSynced;
+            });
+        }
+        
         onSyncProgressUpdated(done, total);
     }
 
@@ -1678,6 +1694,7 @@ namespace beam::wallet
         if (isNodeConnected)
         {
             ++m_connectedNodesCount;
+            m_isSynced = false;
         }
         else if (m_connectedNodesCount)
         {
@@ -1845,6 +1862,20 @@ namespace beam::wallet
         });
     }
 
+    void WalletClient::onAssetChanged(Asset::ID assetId)
+    {
+        m_ainfoRequests.erase(assetId);
+        if(const auto oasset = m_walletDB->findAsset(assetId))
+        {
+            onAssetInfo(assetId, *oasset);
+        }
+        else
+        {
+            WalletAsset invalid;
+            onAssetInfo(assetId, invalid);
+        }
+    }
+
     void WalletClient::processAInfo ()
     {
         if (m_ainfoRequests.empty()) {
@@ -1852,18 +1883,25 @@ namespace beam::wallet
         }
 
         auto reqs = m_ainfoRequests;
-        m_ainfoRequests.clear();
-
         for(auto assetId: reqs)
         {
             if(const auto oasset = m_walletDB->findAsset(assetId))
             {
+                m_ainfoRequests.erase(assetId);
                 onAssetInfo(assetId, *oasset);
             }
             else
             {
-                WalletAsset invalid;
-                onAssetInfo(assetId, invalid);
+                if(auto wallet = m_wallet.lock())
+                {
+                    wallet->ConfirmAsset(assetId);
+                }
+                else
+                {
+                    m_ainfoRequests.erase(assetId);
+                    WalletAsset invalid;
+                    onAssetInfo(assetId, invalid);
+                }
             }
         }
     }

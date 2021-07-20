@@ -214,14 +214,15 @@ namespace beam::wallet
                     {
                         isValid = isValid && !addr->isExpired();
                     }
-                    if (tokenType == TokenType::Offline)
+                }
+
+                if (tokenType == TokenType::Offline)
+                {
+                    if (auto vouchers = p->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
                     {
-                        if (auto vouchers = p->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
-                        {
-                            storage::SaveVouchers(*walletDB, *vouchers, *v);
-                        }
-                        offlinePayments = walletDB->getVoucherCount(*v);
+                        storage::SaveVouchers(*walletDB, *vouchers, *v);
                     }
+                    offlinePayments = walletDB->getVoucherCount(*v);
                 }
             }
         }

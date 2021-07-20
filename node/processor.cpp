@@ -2631,11 +2631,6 @@ struct NodeProcessor::MyRecognizer
 			m_Proc.get_ViewerKeys(vk);
 		}
 
-		bool IsDummy(const CoinID& cid) const override
-		{
-			return m_Proc.IsDummy(cid);
-		}
-
 		void OnDummy(const CoinID& cid, Height h) override
 		{
 			m_Proc.OnDummy(cid, h);
@@ -3142,7 +3137,7 @@ void NodeProcessor::Recognizer::Recognize(const Output& x, Height h, Key::IPKdf&
 		return;
 
 	// filter-out dummies
-	if (m_Handler.IsDummy(cid))
+	if (cid.IsDummy())
 	{
 		m_Handler.OnDummy(cid, h);
 		return;
@@ -3400,7 +3395,7 @@ void NodeProcessor::RescanOwnedTxos()
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp, const CoinID& cid, const Output::User& user) override
 		{
-			if (IsDummy(cid))
+			if (cid.IsDummy())
 			{
 				m_Rec.m_Handler.m_Proc.OnDummy(cid, hCreate);
 				return true;
@@ -3467,14 +3462,6 @@ void NodeProcessor::RescanOwnedTxos()
 
 		LOG_INFO() << "Shielded scan complete";
 	}
-}
-
-bool NodeProcessor::IsDummy(const CoinID&  cid)
-{
-	return
-		!cid.m_Value &&
-		!cid.m_AssetID &&
-		(Key::Type::Decoy == cid.m_Type);
 }
 
 Height NodeProcessor::FindVisibleKernel(const Merkle::Hash& id, const BlockInterpretCtx& bic)
@@ -4508,6 +4495,11 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 
 		UndoVars();
 	}
+
+	if (m_Instruction.m_ModeTriggered) {
+		LOG_WARNING() << " Potential wasm conflict";
+	}
+
 	return bRes;
 }
 

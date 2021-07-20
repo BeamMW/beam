@@ -40,6 +40,10 @@ public:
         _stream->shutdown();
     }
 
+    bool is_connected() const {
+        return _stream->is_connected();
+    }
+
     /// Returns socket address (non-null if connected)
     io::Address address() const {
         return _stream->address();

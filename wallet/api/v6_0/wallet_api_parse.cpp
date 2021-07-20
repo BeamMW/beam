@@ -287,7 +287,7 @@ namespace beam::wallet
 
     Amount WalletApi::getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const
     {
-        auto ofee = getOptionalParam<PositiveUnit64>(params, name);
+        auto ofee = getOptionalParam<PositiveUint64>(params, name);
         if (!ofee)
             return feeMin;
 
@@ -333,7 +333,7 @@ namespace beam::wallet
         CalcChange message{ getMandatoryParam<PositiveAmount>(params, "amount") };
         message.assetId = readOptionalAssetID(*this, params);
 
-        if (auto f = getOptionalParam<PositiveUnit64>(params, "fee"))
+        if (auto f = getOptionalParam<PositiveUint64>(params, "fee"))
         {
             message.explicitFee = *f;
         }
@@ -549,7 +549,15 @@ namespace beam::wallet
         }
 
         auto& fs = Transaction::FeeSettings::get(get_CurrentHeight());
-        Amount minimumFee = std::max(fs.m_Kernel + fs.m_Output * (split.coins.size() + 1), fs.get_DefaultStd());
+
+        auto outsCnt = split.coins.size() + 1; // for split result cons + beam change coin (if any)
+        if (split.assetId.is_initialized() && *split.assetId != beam::Asset::s_BeamID)
+        {
+            // asset change coin (if any);
+            outsCnt++;
+        }
+
+        Amount minimumFee = std::max(fs.m_Kernel + fs.m_Output * outsCnt, fs.get_DefaultStd());
 
         split.fee = getBeamFeeParam(params, "fee", minimumFee);
         split.txId = getOptionalParam<ValidTxID>(params, "txId");
@@ -590,7 +598,7 @@ namespace beam::wallet
     std::pair<T, IWalletApi::MethodInfo> WalletApi::onParseIssueConsume(bool issue, const JsonRpcId& id, const json& params)
     {
         T data;
-        data.value = getMandatoryParam<PositiveUnit64>(params, "value");
+        data.value = getMandatoryParam<PositiveUint64>(params, "value");
         data.assetId = readMandatoryNonBeamAssetID(*this, params);
 
         if (hasParam(params, "coins"))

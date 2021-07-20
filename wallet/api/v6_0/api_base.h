@@ -13,17 +13,14 @@
 // limitations under the License.
 #pragma once
 
-#include <boost/serialization/strong_typedef.hpp>
 #include "api_errors_imp.h"
 #include "wallet/core/common.h"
 #include "utility/common.h"
 #include "../i_wallet_api.h"
+#include "parse_utils.h"
 
 namespace beam::wallet
 {
-    using json = nlohmann::json;
-    using JsonRpcId = json;
-
     #define API_WRITE_ACCESS true
     #define API_READ_ACCESS false
 
@@ -75,8 +72,15 @@ namespace beam::wallet
         {
             if(auto raw = getOptionalParam<const json&>(params, name))
             {
-                return (*raw).get<T>();
+                if (type_check<T>(*raw))
+                {
+                    return type_get<T>(*raw);
+                }
+
+                auto tname = type_name<T>();
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter '" + name + "' must be a " + tname + ".");
             }
+
             return boost::none;
         }
 
@@ -159,56 +163,4 @@ namespace beam::wallet
 
     template<>
     boost::optional<const json&> ApiBase::getOptionalParam<const json&>(const json &params, const std::string &name);
-
-    template<> // can be empty but must be a string
-    boost::optional<std::string> ApiBase::getOptionalParam<std::string>(const json &params, const std::string &name);
-
-    BOOST_STRONG_TYPEDEF(std::string, NonEmptyString)
-    template<>
-    boost::optional<NonEmptyString> ApiBase::getOptionalParam<NonEmptyString>(const json &params, const std::string &name);
-
-    template<>
-    boost::optional<bool> ApiBase::getOptionalParam<bool>(const json &params, const std::string &name);
-
-    template<>
-    boost::optional<uint32_t> ApiBase::getOptionalParam<uint32_t>(const json &params, const std::string &name);
-
-    template<>
-    boost::optional<uint64_t> ApiBase::getOptionalParam<uint64_t>(const json &params, const std::string &name);
-
-    BOOST_STRONG_TYPEDEF(json, JsonArray)
-    inline void to_json(json& j, const JsonArray& p) {
-        j = p.t;
-    }
-
-    template<>
-    boost::optional<JsonArray> ApiBase::getOptionalParam<JsonArray>(const json &params, const std::string &name);
-
-    BOOST_STRONG_TYPEDEF(json, NonEmptyJsonArray)
-    inline void to_json(json& j, const NonEmptyJsonArray& p) {
-        j = p.t;
-    }
-
-    template<>
-    boost::optional<NonEmptyJsonArray> ApiBase::getOptionalParam<NonEmptyJsonArray>(const json &params, const std::string &name);
-
-    BOOST_STRONG_TYPEDEF(uint32_t, PositiveUint32)
-    template<>
-    boost::optional<PositiveUint32> ApiBase::getOptionalParam<PositiveUint32>(const json &params, const std::string &name);
-
-    BOOST_STRONG_TYPEDEF(uint64_t, PositiveUnit64)
-    template<>
-    boost::optional<PositiveUnit64> ApiBase::getOptionalParam<PositiveUnit64>(const json &params, const std::string &name);
-
-    BOOST_STRONG_TYPEDEF(Amount, PositiveAmount)
-    template<>
-    boost::optional<PositiveAmount> ApiBase::getOptionalParam<PositiveAmount>(const json &params, const std::string &name);
-
-    BOOST_STRONG_TYPEDEF(Height, PositiveHeight)
-    template<>
-    boost::optional<PositiveHeight> ApiBase::getOptionalParam<PositiveHeight>(const json &params, const std::string &name);
-
-    BOOST_STRONG_TYPEDEF(TxID, ValidTxID)
-    template<>
-    boost::optional<ValidTxID> ApiBase::getOptionalParam<ValidTxID>(const json &params, const std::string &name);
 }

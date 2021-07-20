@@ -18,18 +18,18 @@
 #include "wallet/core/base_transaction.h"
 #include "wallet/core/base_tx_builder.h"
 
-namespace beam::wallet {
+namespace beam::wallet
+{
     class AssetTransaction : public BaseTransaction
     {
     protected:
-        AssetTransaction(const TxType txType, const TxContext& context);
+        AssetTransaction(TxType txType, const TxContext& context);
 
         bool Rollback(Height height) override;
         bool BaseUpdate();
         bool IsLoopbackTransaction() const;
 
-        struct Builder
-            :public BaseTxBuilder
+        struct Builder: public BaseTxBuilder
         {
             Builder(BaseTransaction& tx, SubTxID subTxID);
 
@@ -39,5 +39,9 @@ namespace beam::wallet {
 
             void FinalizeTxInternal() override; // also signs the kernel
         };
+
+        [[nodiscard]] Asset::ID GetAssetID() const;
+        [[nodiscard]] PeerID GetAssetOwnerID() const;
+        void ConfirmAsset();
     };
 }
