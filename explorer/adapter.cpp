@@ -403,6 +403,11 @@ private:
 
     struct ExtraInfo
     {
+        struct ContractRichInfo {
+            std::vector<NodeProcessor::ContractInvokeExtraInfo> m_vInfo;
+            size_t m_iPos = 0;
+        };
+
         struct Writer
         {
             std::ostringstream m_os;
@@ -426,24 +431,72 @@ private:
                 }
             }
 
-            void OnContract(const bvm2::ContractID& cid, const bvm2::ShaderID* pSid, uint32_t iMethod, const TxKernelContractControl& krn)
+            void OnContract(const bvm2::ContractID& cid, const bvm2::ShaderID* pSid, uint32_t iMethod, const TxKernelContractControl& krn, ContractRichInfo& cri)
             {
                 m_os << "Contract " << cid << ", ";
 
-                if (pSid)
-                    m_os << "Create sid=" << *pSid;
-                else
+                const NodeProcessor::ContractInvokeExtraInfo* pExInfo = nullptr;
+
+                if (cri.m_iPos < cri.m_vInfo.size())
                 {
-                    if (iMethod)
-                        m_os << "Method_" << iMethod;
-                    else
-                        m_os << "Destroy";
+                    pExInfo = &cri.m_vInfo.front() + cri.m_iPos;
+                    cri.m_iPos++;
                 }
 
-                if (!krn.m_Args.empty())
+                if (pExInfo && !pExInfo->m_sParsed.empty())
+                    m_os << pExInfo->m_sParsed;
+                else
                 {
-                    m_os << ", Args=";
-                    uintBigImpl::_PrintFull(&krn.m_Args.front(), static_cast<uint32_t>(krn.m_Args.size()), m_os);
+                    if (pSid)
+                        m_os << "Create sid=" << *pSid;
+                    else
+                    {
+                        if (iMethod)
+                            m_os << "Method_" << iMethod;
+                        else
+                            m_os << "Destroy";
+                    }
+
+                    if (!krn.m_Args.empty())
+                    {
+                        m_os << ", Args=";
+                        uintBigImpl::_PrintFull(&krn.m_Args.front(), static_cast<uint32_t>(krn.m_Args.size()), m_os);
+                    }
+                }
+
+                if (pExInfo)
+                {
+                    for (auto it = pExInfo->m_FundsIO.m_Map.begin(); pExInfo->m_FundsIO.m_Map.end() != it; it++)
+                    {
+                        m_os << ", ";
+
+                        auto valBig = it->second;
+                        if (valBig.get_Msb())
+                        {
+                            valBig.Negate();
+                            m_os << "Spend";
+                        } else
+                            m_os << "Receive";
+
+                        auto aid = it->first;
+                        if (aid)
+                            m_os << " Asset-" << aid;
+
+                        // currently ignore val-big part
+                        m_os << " " << AmountBig::get_Lo(valBig);
+                    }
+
+                    for (uint32_t iSig = 0; iSig < pExInfo->m_vSigs.size(); iSig++)
+                    {
+                        typedef uintBig_t<ECC::nBytes + 1> MyPoint;
+                        const auto& val = Cast::Reinterpret<MyPoint>(pExInfo->m_vSigs[iSig]);
+
+                        char sz[MyPoint::nTxtLen + 1];
+                        val.Print(sz);
+
+                        m_os << ", Sign " << sz;
+                    }
+
                 }
             }
         };
@@ -497,13 +550,14 @@ private:
             return w.m_os.str();
         }
 
-        static std::string get(const TxKernel& krn, Amount& fee)
+        static std::string get(const TxKernel& krn, Amount& fee, ContractRichInfo& cri)
         {
             struct MyWalker
                 :public TxKernel::IWalker
             {
                 Writer m_Wr;
                 Amount m_Fee = 0;
+                ContractRichInfo* m_pCri;
 
                 virtual bool OnKrn(const TxKernel& krn) override
                 {
@@ -582,16 +636,17 @@ private:
                     bvm2::get_CidViaSid(cid, sid, krn.m_Args);
 
                     m_Wr.Next();
-                    m_Wr.OnContract(cid, &sid, 0, krn);
+                    m_Wr.OnContract(cid, &sid, 0, krn, *m_pCri);
                 }
 
                 void OnKrnEx(const TxKernelContractInvoke& krn)
                 {
                     m_Wr.Next();
-                    m_Wr.OnContract(krn.m_Cid, nullptr, krn.m_iMethod, krn);
+                    m_Wr.OnContract(krn.m_Cid, nullptr, krn.m_iMethod, krn, *m_pCri);
                 }
 
             } wlk;
+            wlk.m_pCri = &cri;
 
             if (!krn.m_vNested.empty())
             {
@@ -606,6 +661,173 @@ private:
         }
     };
 
+    void get_ContractList(json& out)
+    {
+#pragma pack (push, 1)
+        struct KeyEntry
+        {
+            bvm2::ContractID m_Zero;
+            uint8_t m_Tag;
+
+            struct SidCid
+            {
+                bvm2::ShaderID m_Sid;
+                bvm2::ContractID m_Cid;
+            } m_SidCid;
+        };
+#pragma pack (pop)
+
+        KeyEntry k0, k1;
+        ZeroObject(k0);
+        k0.m_Tag = Shaders::KeyTag::SidCid;
+
+        k1.m_Zero = Zero;
+        k1.m_Tag = Shaders::KeyTag::SidCid;
+        memset(reinterpret_cast<void*>(&k1.m_SidCid), 0xff, sizeof(k1.m_SidCid));
+
+        std::vector<std::pair<KeyEntry::SidCid, Height> > vIDs;
+
+        NodeDB::WalkerContractData wlk;
+        for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
+        {
+            if ((sizeof(KeyEntry) != wlk.m_Key.n) || (sizeof(Height) != wlk.m_Val.n))
+                continue;
+
+            auto& x = vIDs.emplace_back();
+            x.first = reinterpret_cast<const KeyEntry*>(wlk.m_Key.p)->m_SidCid;
+            (reinterpret_cast<const uintBigFor<Height>::Type*>(wlk.m_Val.p))->Export(x.second);
+        }
+
+        out = json::array();
+        char buf[80];
+
+        for (size_t i = 0; i < vIDs.size(); i++)
+        {
+            const auto& x = vIDs[i];
+
+            std::string sExtra;
+            _nodeBackend.get_ContractDescr(x.first.m_Sid, x.first.m_Cid, sExtra, false);
+
+            out.push_back(
+                json{
+                    {"sid", uint256_to_hex(buf, x.first.m_Sid)},
+                    {"cid", uint256_to_hex(buf, x.first.m_Cid)},
+                    {"extra", sExtra },
+                    {"height",   x.second}
+                }
+            );
+
+        }
+
+    }
+
+    bool get_ContractState(json& out, const bvm2::ContractID& cid)
+    {
+        bvm2::ShaderID sid;
+
+        {
+            Blob blob;
+            NodeDB::Recordset rs;
+            if (!_nodeBackend.get_DB().ContractDataFind(cid, blob, rs))
+                return false;
+
+            bvm2::get_ShaderID(sid, blob);
+        }
+
+        json jFunds, jAssets;
+
+        {
+
+#pragma pack (push, 1)
+            struct KeyFund
+            {
+                bvm2::ContractID m_Cid;
+                uint8_t m_Tag = Shaders::KeyTag::LockedAmount;
+                uintBigFor<Asset::ID>::Type m_Aid;
+            };
+#pragma pack (pop)
+
+            KeyFund k0, k1;
+            k0.m_Cid = cid;
+            k0.m_Aid = Zero;
+            k1.m_Cid = cid;
+            k1.m_Aid = static_cast<Asset::ID>(-1);
+
+            NodeDB::WalkerContractData wlk;
+            for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
+            {
+                if ((sizeof(KeyFund) != wlk.m_Key.n) || (sizeof(AmountBig::Type) != wlk.m_Val.n))
+                    continue;
+
+                Asset::ID aid;
+                reinterpret_cast<const KeyFund*>(wlk.m_Key.p)->m_Aid.Export(aid);
+
+                const auto& val = *reinterpret_cast<const AmountBig::Type*>(wlk.m_Val.p);
+
+
+                jFunds.push_back(
+                    json{
+                        {"aid", aid},
+                        {"value", AmountBig::get_Lo(val)}
+                    }
+                );
+            }
+        }
+
+
+        {
+
+#pragma pack (push, 1)
+            struct KeyAsset
+            {
+                bvm2::ContractID m_Cid;
+                uint8_t m_Tag = Shaders::KeyTag::OwnedAsset;
+                uintBigFor<Asset::ID>::Type m_Aid;
+            };
+#pragma pack (pop)
+
+            KeyAsset k0, k1;
+            k0.m_Cid = cid;
+            k0.m_Aid = Zero;
+            k1.m_Cid = cid;
+            k1.m_Aid = static_cast<Asset::ID>(-1);
+
+            NodeDB::WalkerContractData wlk;
+            for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
+            {
+                if (sizeof(KeyAsset) != wlk.m_Key.n)
+                    continue;
+
+                Asset::Full ai;
+                reinterpret_cast<const KeyAsset*>(wlk.m_Key.p)->m_Aid.Export(ai.m_ID);
+
+                if (!_nodeBackend.get_DB().AssetGetSafe(ai))
+                    ai.m_Value = Zero;
+
+                std::string sMeta;
+                ai.m_Metadata.get_String(sMeta);
+
+                jAssets.push_back(
+                    json{
+                        {"aid", ai.m_ID },
+                        {"value", AmountBig::get_Lo(ai.m_Value)},
+                        {"metadata", sMeta }
+                    }
+                );
+            }
+        }
+
+        std::string sExtra;
+        _nodeBackend.get_ContractDescr(sid, cid, sExtra, true);
+
+        out = json{
+            {"funds", jFunds},
+            {"assets", jAssets},
+            {"extra", sExtra }
+        };
+
+        return true;
+    }
 
     bool extract_block_from_row(json& out, uint64_t row, Height height) {
         NodeDB& db = _nodeBackend.get_DB();
@@ -616,6 +838,8 @@ private:
 		bool ok = true;
         std::vector<Output::Ptr> vOutsIn;
 
+        ExtraInfo::ContractRichInfo cri;
+
         try {
             db.get_State(row, blockState);
 			blockState.get_ID(id);
@@ -623,7 +847,7 @@ private:
 			NodeDB::StateID sid;
 			sid.m_Row = row;
 			sid.m_Height = id.m_Height;
-			_nodeBackend.ExtractBlockWithExtra(block, vOutsIn, sid);
+			_nodeBackend.ExtractBlockWithExtra(block, vOutsIn, sid, cri.m_vInfo);
 
 		} catch (...) {
             ok = false;
@@ -667,7 +891,7 @@ private:
             for (const auto &v : block.m_vKernels) {
 
                 Amount fee = 0;
-                std::string sExtra = ExtraInfo::get(*v, fee);
+                std::string sExtra = ExtraInfo::get(*v, fee, cri);
 
                 kernels.push_back(
                     json{

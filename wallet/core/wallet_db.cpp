@@ -533,16 +533,6 @@ namespace beam::wallet
             fromByteBuffer(blob, value);
         }
 
-        vector<Coin> converIDsToCoins(const vector<Coin::ID>& coinIDs)
-        {
-            vector<Coin> coins(coinIDs.size());
-            for (size_t i = 0; i < coins.size(); ++i)
-            {
-                coins[i].m_ID = coinIDs[i];
-            }
-            return coins;
-        }
-
         Height DeduceTxProofHeightImpl(const IWalletDB& walletDB, const TxID& txID, TxType type)
         {
             Height height = 0;
@@ -3280,15 +3270,25 @@ namespace beam::wallet
         return nLast;
     }
 
-    void WalletDB::removeCoins(const vector<Coin::ID>& coins)
+    void WalletDB::removeCoins(const vector<Coin::ID>& cids)
     {
-        if (coins.size())
+        if (cids.empty())
         {
-            for (const auto& cid : coins)
-                removeCoinImpl(cid);
-
-            notifyCoinsChanged(ChangeAction::Removed, converIDsToCoins(coins));
+            return;
         }
+
+        std::vector<Coin> removed;
+        for (const auto& cid: cids)
+        {
+            Coin coin; coin.m_ID = cid;
+            if (findCoin(coin))
+            {
+                removed.push_back(coin);
+                removeCoinImpl(cid);
+            }
+        }
+
+        notifyCoinsChanged(ChangeAction::Removed, removed);
     }
 
     void WalletDB::removeCoinImpl(const Coin::ID& cid)
@@ -4308,7 +4308,7 @@ namespace beam::wallet
         }
 
         stm.step();
-        notifyAssetChanged(info.m_ID);
+        notifyAssetChanged(found ? ChangeAction::Updated : ChangeAction::Added, info.m_ID);
     }
 
     void WalletDB::markAssetOwned(const Asset::ID assetId)
@@ -4318,7 +4318,7 @@ namespace beam::wallet
         stmUpdate.bind(1, assetId);
         stmUpdate.bind(2, 1);
         stmUpdate.step();
-        notifyAssetChanged(assetId);
+        notifyAssetChanged(ChangeAction::Updated, assetId);
     }
 
     void WalletDB::dropAsset(const PeerID& ownerId)
@@ -4336,7 +4336,7 @@ namespace beam::wallet
         sqlite::Statement stm(this, deleteReq);
         stm.bind(1, assetId);
         stm.step();
-        notifyAssetChanged(assetId);
+        notifyAssetChanged(ChangeAction::Removed, assetId);
     }
 
     void WalletDB::visitAssets(std::function<bool(const WalletAsset& info)> visitor) const
@@ -4412,10 +4412,24 @@ namespace beam::wallet
     void WalletDB::rollbackAssets(Height minHeight)
     {
         std::set<Asset::ID> changed;
+        std::set<Asset::ID> dropped;
 
         {
-            const char* find = "SELECT ID FROM " ASSETS_NAME " WHERE LockHeight>?1 OR RefreshHeight>?1;";
-            sqlite::Statement stmFind(this, find);
+            const char* findDrop = "SELECT ID FROM " ASSETS_NAME " WHERE LockHeight>?1;";
+            sqlite::Statement stmFind(this, findDrop);
+            stmFind.bind(1, minHeight);
+
+            while (stmFind.step())
+            {
+                Asset::ID assetID = Asset::s_InvalidID;
+                stmFind.get(0, assetID);
+                dropped.insert(assetID);
+            }
+        }
+
+        {
+            const char* findUpdate = "SELECT ID FROM " ASSETS_NAME " WHERE RefreshHeight > ?1;";
+            sqlite::Statement stmFind(this, findUpdate);
             stmFind.bind(1, minHeight);
 
             while (stmFind.step())
@@ -4436,9 +4450,14 @@ namespace beam::wallet
         stmUpdate.bind(1, minHeight);
         stmUpdate.step();
 
+        for(auto assetId: dropped)
+        {
+            notifyAssetChanged(ChangeAction::Removed, assetId);
+        }
+
         for(auto assetId: changed)
         {
-            notifyAssetChanged(assetId);
+            notifyAssetChanged(ChangeAction::Updated, assetId);
         }
     }
 
@@ -5226,9 +5245,9 @@ namespace beam::wallet
         for (const auto sub : m_subscribers) sub->onSystemStateChanged(stateID);
     }
 
-    void WalletDB::notifyAssetChanged(Asset::ID assetID)
+    void WalletDB::notifyAssetChanged(ChangeAction action, Asset::ID assetID)
     {
-        for (const auto sub : m_subscribers) sub->onAssetChanged(assetID);
+        for (const auto sub : m_subscribers) sub->onAssetChanged(action, assetID);
     }
 
     void WalletDB::notifyAddressChanged(ChangeAction action, const vector<WalletAddress>& items)
@@ -5479,18 +5498,25 @@ namespace beam::wallet
             return true;
         }
 
+        bool Totals::AssetTotals::IsNZ() const
+        {
+            return Avail != Zero || Maturing != Zero || MaturingShielded != Zero || Incoming != Zero ||
+                   ReceivingChange != Zero || ReceivingIncoming != Zero || Outgoing != Zero ||
+                   OutgoingShielded != Zero || AvailShielded != Zero || IncomingShielded != Zero;
+        }
+
         Totals::Totals()
         {
             allTotals[Zero] = AssetTotals();
         }
 
-        Totals::Totals(IWalletDB& db)
+        Totals::Totals(IWalletDB& db, bool nzOnly)
         {
             allTotals[Zero] = AssetTotals();
-            Init(db);
+            Init(db, nzOnly);
         }
 
-        void Totals::Init(IWalletDB& walletDB)
+        void Totals::Init(IWalletDB& walletDB, bool nzOnly)
         {
             auto getTotalsRef = [this](Asset::ID assetId) -> AssetTotals& {
                 if (allTotals.find(assetId) == allTotals.end()) {
@@ -5613,6 +5639,27 @@ namespace beam::wallet
                 }
                 return true;
              });
+
+             for (auto iter = allTotals.begin(); iter != allTotals.end();)
+             {
+                 // We ALWAYS count beam as NZ-asset
+                 if (iter->first == Asset::s_BeamID || iter->second.IsNZ())
+                 {
+                     assetsNZ.insert(iter->first);
+                     ++iter;
+                 }
+                 else
+                 {
+                    if (nzOnly)
+                    {
+                        iter = allTotals.erase(iter);
+                    }
+                    else
+                    {
+                        ++iter;
+                    }
+                 }
+             }
         }
 
         Totals::AssetTotals Totals::GetTotals(Asset::ID assetId) const
@@ -5624,6 +5671,16 @@ namespace beam::wallet
                 return result;
             }
             return allTotals[assetId];
+        }
+
+        const std::set<Asset::ID>& Totals::GetAssetsNZ() const
+        {
+            return assetsNZ;
+        }
+
+        const std::map<Asset::ID, Totals::AssetTotals>& Totals::GetAllTotals() const
+        {
+            return allTotals;
         }
 
         bool Totals::HasTotals(Asset::ID assetId) const
@@ -5727,18 +5784,16 @@ namespace beam::wallet
             if (c.m_confirmHeight != MaxHeight)
             {
                 const auto* packedMessage = ShieldedTxo::User::ToPackedMessage(c.m_CoinID.m_User);
-                auto mpAnonymitySet = packedMessage->m_MaxPrivacyMinAnonymitySet;
+                uint32_t mpAnonymitySet = packedMessage->m_MaxPrivacyMinAnonymitySet;
                 if (mpAnonymitySet)
                 {
-                    auto timeLimit = walletDB.get_MaxPrivacyLockTimeLimitHours();
-                    Block::SystemState::ID stateID = {};
-                    walletDB.getSystemStateID(stateID);
+                    Height timeLimit = walletDB.get_MaxPrivacyLockTimeLimitHours();
 
-                    if (!timeLimit || c.m_confirmHeight + timeLimit * 60 > stateID.m_Height)
+                    if (!timeLimit || c.m_confirmHeight + timeLimit * 60 > hTop)
                     {
                         ShieldedCoin::UnlinkStatus unlinkStatus;
                         unlinkStatus.Init(c, walletDB.get_ShieldedOuts());
-                        if (unlinkStatus.m_Progress < 100 * mpAnonymitySet / 64U)
+                        if (unlinkStatus.m_Progress < 100 * mpAnonymitySet / beam::MaxPrivacyAnonimitySetFractionsCount)
                         {
                             c.m_Status = ShieldedCoin::Status::Maturing;
                             return;
@@ -6298,7 +6353,7 @@ namespace beam::wallet
                 if (auto asset = wdb.findAsset(assetID))
                 {
                     WalletAssetMeta meta(*asset);
-                    if (meta.isStd())
+                    if (meta.isStd_v5_0())
                     {
                         uname = meta.GetUnitName();
                         nthname = meta.GetNthUnitName();
@@ -6807,6 +6862,7 @@ namespace beam::wallet
             const Rules& r = Rules::get();
             const uint32_t N = std::max(r.Shielded.m_ProofMax.get_N(), 1U);
 
+
             uint32_t nRemaining = N - sc.get_WndIndex(N) - 1;
 
             std::setmax(nShieldedOuts, sc.m_TxoID + 1);
@@ -6918,10 +6974,12 @@ namespace beam::wallet
                 params.SetParameter(TxParameterID::AssetID, assetId);
             }
 
-            if (!clientVersion.empty())
-            {
-                params.SetParameter(TxParameterID::ClientVersion, clientVersion);
-            }
+            // Commented it because, these versions bloat the address size (anatolse)
+            // TODO: Replace it with something shorter if we 
+            //if (!clientVersion.empty())
+            //{
+            //    params.SetParameter(TxParameterID::ClientVersion, clientVersion);
+            //}
 
             AppendLibraryVersion(params);
             return params;

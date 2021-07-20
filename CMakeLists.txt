@@ -103,6 +103,8 @@ set(BEAM_BRANCH_NAME ${BRANCH_NAME} CACHE INTERNAL "")
 
 message("BEAM_VERSION: ${PROJECT_VERSION}")
 
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+
 # imported target to setup dependency of beam
 add_library(beam INTERFACE IMPORTED GLOBAL)
 target_include_directories(beam INTERFACE 
@@ -119,16 +121,7 @@ if(UNIX AND NOT APPLE AND NOT ANDROID)
     set(LINUX TRUE CACHE INTERNAL "")
 endif()
 
-option(BEAM_TESTS_ENABLED "Enable unit tests" TRUE)
-if (BEAM_TESTS_ENABLED)
-    enable_testing()
-
-    function(add_test_snippet EXE_NAME LIB_NAME)
-        add_executable(${EXE_NAME} ${EXE_NAME}.cpp)
-        target_link_libraries(${EXE_NAME} ${LIB_NAME} ${ARGN})
-        add_test(NAME ${EXE_NAME} COMMAND $<TARGET_FILE:${EXE_NAME}>)
-    endfunction()
-endif()
+include(AddTest)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -154,6 +147,7 @@ if(BEAM_USE_STATIC)
 endif()
 
 option(BEAM_WALLET_CLIENT_LIBRARY "Build only binaries required for client app" FALSE)
+option(BEAM_BVM_ONLY "Build only binaries required for BVM" FALSE)
 
 #it's enabled by default for testnet
 #if(DEBUG_MESSAGES_IN_RELEASE_MODE)
@@ -436,15 +430,18 @@ add_subdirectory(3rdparty)
 add_subdirectory(utility)
 add_subdirectory(core)
 add_subdirectory(pow)
-add_subdirectory(p2p)
-add_subdirectory(http)
-add_subdirectory(keykeeper)
-add_subdirectory(wallet)
-add_subdirectory(hw_crypto)
 add_subdirectory(bvm)
-add_subdirectory(node)
-add_subdirectory(mnemonic)
-add_subdirectory(websocket)
+
+if(NOT BEAM_BVM_ONLY)
+    add_subdirectory(p2p)
+    add_subdirectory(http)
+    add_subdirectory(keykeeper)
+    add_subdirectory(wallet)
+    add_subdirectory(hw_crypto)
+    add_subdirectory(node)
+    add_subdirectory(mnemonic)
+    add_subdirectory(websocket)
+endif()
 
 if (EMSCRIPTEN)
     add_subdirectory(wasmclient)

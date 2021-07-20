@@ -16,7 +16,7 @@
 #include <core/block_crypt.h>
 #include "test_helpers.h"
 #include "wallet/api/i_wallet_api.h"
-#include "wallet/api/v6_0/wallet_api.h"
+#include "wallet/api/v6_0/v6_api.h"
 #include "utility/logger.h"
 #include "nlohmann/json.hpp"
 #include "wallet/api/i_swaps_provider.h"
@@ -70,19 +70,12 @@ namespace
     };
 
     class WalletApiTest
-        : public wallet::WalletApi
+        : public wallet::V6Api
         , IWalletApiHandler
     {
     public:
-        explicit WalletApiTest(Fork fork, std::string appid = std::string(), std::string appname = std::string()):
-            WalletApi(*this,
-                      boost::none,
-                      std::move(appid),
-                      std::move(appname),
-                      nullptr,
-                      nullptr,
-                      nullptr,
-                      nullptr)
+        WalletApiTest(Fork fork, const ApiInitData& initData)
+            : V6Api(*this, initData)
         {
             switch(fork) {
                 case Fork::Fork1: _currentHeight = Rules::get().pForks[1].m_Height; break;
@@ -95,7 +88,7 @@ namespace
         #define MESSAGE_FUNC(strct, name, ...) virtual void onHandle##strct(const JsonRpcId& id, const strct& data) override { \
                 WALLET_CHECK(!"error, onHandle should be never called"); };
 
-        WALLET_API_METHODS(MESSAGE_FUNC)
+        V6_API_METHODS(MESSAGE_FUNC)
         #undef MESSAGE_FUNC
 
         void sendAPIResponse(const json& resp) override
@@ -127,7 +120,7 @@ namespace
             WALLET_CHECK(!"invalid api test - error");
         }
 
-        Height get_CurrentHeight() const override
+        Height get_TipHeight() const override
         {
             return _currentHeight;
         }
@@ -148,7 +141,7 @@ namespace
             }
 
             explicit ApiTest(Fork fork, jsonFunc func)
-                : WalletApiTest(fork)
+                : WalletApiTest(fork, ApiInitData())
                 , _func(std::move(func))
             {}
 
@@ -175,7 +168,7 @@ namespace
             }
 
             explicit ApiTest(Fork fork, ApiError code)
-                : WalletApiTest(fork)
+                : WalletApiTest(fork, ApiInitData())
                 , _code(code)
             {}
 
@@ -192,13 +185,17 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            explicit ApiTest()
-                : WalletApiTest(Fork3, "appid", "appname")
+            explicit ApiTest(const ApiInitData& data)
+                : WalletApiTest(Fork3, data)
             {}
         };
 
         auto testNotAllowed = [] (const std::string& json) {
-            ApiTest parse;
+            ApiInitData appApiData;
+            appApiData.appName = "appname";
+            appApiData.appId   = "appid";
+            ApiTest parse(appApiData);
+
             auto pres =  parse.parseAPIRequest(json.data(), json.size());
             WALLET_CHECK(pres.is_initialized());
             WALLET_CHECK(!pres->acinfo.appsAllowed);
@@ -375,7 +372,7 @@ namespace
             {
                 WALLET_CHECK(id > 0);
             }
-            ApiTest(): WalletApiTest(Fork::NoFork) {}
+            ApiTest(): WalletApiTest(Fork::NoFork, ApiInitData()) {}
         };
 
         ApiTest api;
@@ -408,7 +405,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            ApiTest(): WalletApiTest(Fork::NoFork) {}
+            ApiTest(): WalletApiTest(Fork::NoFork, ApiInitData()) {}
             void onHandleCreateAddress(const JsonRpcId& id, const CreateAddress& data) override
             {
                 WALLET_CHECK(id > 0);
@@ -438,7 +435,7 @@ namespace
                 WALLET_CHECK(data.filter.assetId && *data.filter.assetId == 1);
             }
 
-            explicit ApiTest(Fork fork): WalletApiTest(fork) {}
+            explicit ApiTest(Fork fork): WalletApiTest(fork, ApiInitData()) {}
         };
 
         ApiTest api(fork);
@@ -457,7 +454,7 @@ namespace
                 coin.m_maturity = 60;
 				coin.m_confirmHeight = 60;
 				coin.m_status = Coin::Status::Available; // maturity is returned only for confirmed coins
-                getUtxo.EmplaceCoin(coin);
+				ApiCoin::EmplaceCoin(getUtxo.coins, coin, 0);
             }
 
             api.getResponse(123, getUtxo, res);
@@ -483,7 +480,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            explicit ApiTest(Fork fork): WalletApiTest(fork) {}
+            explicit ApiTest(Fork fork): WalletApiTest(fork, ApiInitData()) {}
 
             void onAPIError(const json& msg) override
             {
@@ -526,7 +523,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            ApiTest(): WalletApiTest(Fork2) {}
+            ApiTest(): WalletApiTest(Fork2, ApiInitData()) {}
 
             void onAPIError(const json& msg) override
             {
@@ -579,7 +576,7 @@ namespace
                 WALLET_CHECK(data.assetId);
             }
 
-            ApiTest(): WalletApiTest(Fork2) {}
+            ApiTest(): WalletApiTest(Fork2, ApiInitData()) {}
         };
 
         ApiTest api;
@@ -613,7 +610,7 @@ namespace
                 WALLET_CHECK(data.assetId > 0);
             }
 
-            ApiTest(): WalletApiTest(Fork2) {}
+            ApiTest(): WalletApiTest(Fork2, ApiInitData()) {}
         };
 
         ApiTest api;
@@ -647,7 +644,7 @@ namespace
                 WALLET_CHECK(to_hex(data.txId.data(), data.txId.size()) == "10c4b760c842433cb58339a0fafef3db");
             }
 
-            ApiTest(): WalletApiTest(NoFork) {}
+            ApiTest(): WalletApiTest(NoFork, ApiInitData()) {}
         };
 
         ApiTest api;
@@ -687,7 +684,7 @@ namespace
                 WALLET_CHECK(data.assetId && *data.assetId == 1);
             }
 
-            explicit ApiTest(Fork fork): WalletApiTest(fork) {}
+            explicit ApiTest(Fork fork): WalletApiTest(fork, ApiInitData()) {}
         };
 
         ApiTest api(fork);
@@ -723,7 +720,7 @@ namespace
                 WALLET_CHECK(data.filter.assetId && *data.filter.assetId == 1);
             }
 
-            explicit ApiTest(Fork fork): WalletApiTest(fork) {}
+            explicit ApiTest(Fork fork): WalletApiTest(fork, ApiInitData()) {}
         };
 
         ApiTest api(fork);
@@ -759,7 +756,7 @@ namespace
                 WALLET_CHECK(data.count == 10);
             }
 
-            ApiTest(): WalletApiTest(NoFork) {}
+            ApiTest(): WalletApiTest(NoFork, ApiInitData()) {}
         };
 
         ApiTest api;
@@ -772,7 +769,7 @@ namespace
         {
         public:
             explicit ApiTest(bool valid_)
-                : WalletApiTest(NoFork)
+                : WalletApiTest(NoFork, ApiInitData())
                 , _valid(valid_)
             {}
 
@@ -831,7 +828,7 @@ namespace
                 WALLET_CHECK(id > 0);
             }
 
-            ApiTest(): WalletApiTest(NoFork) {}
+            ApiTest(): WalletApiTest(NoFork, ApiInitData()) {}
         };
 
         ApiTest api;
@@ -868,7 +865,7 @@ namespace
                 WALLET_CHECK(id > 0);
             }
 
-            ApiTest(): WalletApiTest(NoFork) {}
+            ApiTest(): WalletApiTest(NoFork, ApiInitData()) {}
         };
 
         ApiTest api;
@@ -906,7 +903,7 @@ namespace
                 WALLET_CHECK(id > 0);
             }
 
-            ApiTest(): WalletApiTest(NoFork) {}
+            ApiTest(): WalletApiTest(NoFork, ApiInitData()) {}
         };
 
         ApiTest api;
@@ -939,7 +936,7 @@ namespace
         {
         public:
             explicit ApiTest(const T& value)
-                : WalletApiTest(NoFork), _value(value) {}
+                : WalletApiTest(NoFork, ApiInitData()), _value(value) {}
 
             void onAPIError(const json& msg) override
             {
@@ -977,7 +974,7 @@ namespace
                 WALLET_CHECK(data.coin == AtomicSwapCoin::Litecoin);
             }
 
-            ApiTest(): WalletApiTest(NoFork) {}
+            ApiTest(): WalletApiTest(NoFork, ApiInitData()) {}
         };
 
         ApiTest api;
@@ -1006,7 +1003,8 @@ namespace
         {
         public:
             explicit ApiTest(std::string value)
-                : WalletApiTest(NoFork), _value(std::move(value))
+                : WalletApiTest(NoFork, ApiInitData())
+                , _value(std::move(value))
             {}
 
             void onAPIError(const json& msg) override
@@ -1065,7 +1063,8 @@ namespace
         {
         public:
             ApiTest(std::string value)
-                : WalletApiTest(NoFork), _value(std::move(value))
+                : WalletApiTest(NoFork, ApiInitData())
+                , _value(std::move(value))
             {}
 
             void onAPIError(const json& msg) override
@@ -1628,7 +1627,7 @@ void testCalcChange()
             WALLET_CHECK(data.isPushTransaction == true);
         }
 
-        explicit ApiTest(Fork fork) : WalletApiTest(fork) {}
+        explicit ApiTest(Fork fork) : WalletApiTest(fork, ApiInitData()) {}
         bool m_Failed = false;
     };
 

@@ -44,6 +44,7 @@
 #include <mutex>
 #include <atomic>
 #include <condition_variable>
+#include "utility/thread.h"
 
 #include "core/proto.h"
 #include <boost/intrusive/list.hpp>
@@ -59,7 +60,7 @@ using namespace ECC;
 WALLET_TEST_INIT
 
 #include "wallet_test_environment.cpp"
-#include "wallet/api/v6_0/wallet_api.h"
+#include "wallet/api/v6_0/v6_api.h"
 
 namespace
 {
@@ -76,10 +77,10 @@ namespace
 
     struct ApiTest
         : public IWalletApiHandler
-        , public beam::wallet::WalletApi
+        , public beam::wallet::V6Api
     {
-        ApiTest(IWalletDB::Ptr wdb, Wallet::Ptr wallet, ISwapsProvider::Ptr swaps, IShadersManager::Ptr contracts)
-            : WalletApi(*this, boost::none, std::string(), std::string(), std::move(wdb), std::move(wallet), std::move(swaps), std::move(contracts))
+        ApiTest(const ApiInitData& data)
+            : V6Api(*this, data)
         {
         }
 
@@ -108,32 +109,32 @@ namespace
 
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(0, 0, v); // for count 0 we return all
+            V6Api::doPagination(0, 0, v); // for count 0 we return all
             WALLET_CHECK(v.size() == 4); 
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(0, 3, v);
+            V6Api::doPagination(0, 3, v);
             WALLET_CHECK(v == std::vector<int>({1,2,3}));
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(1, 3, v);
+            V6Api::doPagination(1, 3, v);
             WALLET_CHECK(v == std::vector<int>({ 2,3,4 }));
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(2, 3, v);
+            V6Api::doPagination(2, 3, v);
             WALLET_CHECK(v == std::vector<int>({ 3,4 }));
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(1, 2, v);
+            V6Api::doPagination(1, 2, v);
             WALLET_CHECK(v == std::vector<int>({ 2,3 }));
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(4, 3, v);
+            V6Api::doPagination(4, 3, v);
             WALLET_CHECK(v.empty());
         }
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
@@ -188,12 +189,17 @@ namespace
         WALLET_CHECK(rh.size() == Count);
 
         auto asp = std::make_shared<AtomicSwapProvider>();
-        ApiTest api(sender.m_WalletDB, sender.m_Wallet, asp, nullptr);
+
+        ApiInitData data;
+        data.walletDB = sender.m_WalletDB;
+        data.wallet = sender.m_Wallet;
+        data.swaps = asp;
+
+        ApiTest api(data);
         TxList message;
         message.count = 10;
         message.skip = 30;
         message.filter.status = wallet::TxStatus::Completed;
-        message.withAssets = false;
         sw.start();
         for (int i = 0; i < 100; ++i)
         {
@@ -269,7 +275,6 @@ namespace
             message2.count = 0;
             message2.skip = 0;
             message2.filter.status = wallet::TxStatus::Completed;
-            message2.withAssets = false;
             message2.filter.height = p.second;
 
             api.onHandleTxList(1, message2);
@@ -3108,6 +3113,60 @@ void TestAddressGeneration()
     WALLET_CHECK(read->m_Address == abra);
 }
 
+void TestAddressVersions()
+{
+    cout << "\nTesting tokens versions...\n";
+
+    std::string clientVersion = "Beam UI 7.0.1313.2362";
+    std::string libraryVersion = "7.0.1316";
+
+    auto testFunc = [&]()
+    {
+        TxParameters params;
+        params.SetParameter(TxParameterID::ClientVersion, clientVersion);
+        params.SetParameter(TxParameterID::LibraryVersion, libraryVersion);
+
+        bool failed = true;
+        ProcessLibraryVersion(params, [&](const auto& version, const auto& myVersion)
+        {
+            WALLET_CHECK(version == "7.0.1316");
+            failed = false;
+        });
+        WALLET_CHECK(!failed);
+        failed = true;
+        ProcessClientVersion(params, "Beam UI", "6.0.13163.2372", "7.0.1313", [&](const auto& version, const auto& myVersion)
+        {
+            WALLET_CHECK(version == "7.0.1313.2362");
+            failed = false;
+        });
+        WALLET_CHECK(!failed);
+        params.SetParameter(TxParameterID::ClientVersion, std::string("Beam UI " BEAM_LIB_VERSION));
+        params.SetParameter(TxParameterID::LibraryVersion, std::string(BEAM_LIB_VERSION));
+        failed = false;
+        ProcessLibraryVersion(params, [&](const auto& version, const auto& myVersion)
+        {
+            failed = true;
+        });
+        WALLET_CHECK(!failed);
+        failed = false;
+        ProcessClientVersion(params, "Beam UI", BEAM_LIB_VERSION, BEAM_LIB_VERSION, [&](const auto& version, const auto& myVersion)
+        {
+            failed = true;
+        });
+        WALLET_CHECK(!failed);
+    };
+
+    testFunc();
+
+    ByteBuffer buf = toByteBuffer(Version{ 7, 0, 1316 });
+    std::string{ buf.begin(), buf.end() }.swap(libraryVersion);
+
+    buf = toByteBuffer(ClientVersion{ 2362U });
+    std::string{ buf.begin(), buf.end() }.swap(clientVersion);
+    testFunc();
+    
+}
+
 #if defined(BEAM_HW_WALLET)
 
 //IWalletDB::Ptr createSqliteWalletDB()
@@ -3432,6 +3491,68 @@ void GenerateTreasury(size_t walletCount, size_t utxoCount, Amount value)
     FSave(data, "treasury.bin");
 }
 
+void TestThreadPool()
+{
+    std::cout << "Testing simple thread pool\n";
+
+    struct Counter
+    {
+        void Increment()
+        {
+            std::unique_lock lock(m_Mutex);
+            ++value;
+        }
+
+        int value = 0;
+        std::mutex m_Mutex;
+    }counter;
+
+
+    PoolThread t1([&counter](int id)
+    {
+        std::cout << "thread " << id << "\n";
+        std::this_thread::sleep_for(std::chrono::milliseconds(410));
+        counter.Increment();
+    }, 1);
+
+    PoolThread t2([&counter](int id)
+    {
+        std::cout << "thread " << id << "\n";
+        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        counter.Increment();
+    }, 2);
+    t1.join();
+    t2.join();
+
+    WALLET_CHECK(counter.value == 2);
+
+    struct Test
+    {
+        Test()
+        {
+            m_Thread = PoolThread(&Test::Thread, this, std::cref(Rules::get()));
+        }
+
+        ~Test()
+        {
+            WALLET_CHECK(m_Thread.joinable());
+            if (m_Thread.joinable())
+                m_Thread.join();
+        }
+
+        void Thread(const Rules& r)
+        {
+            std::cout << "thread 3\n";
+            std::this_thread::sleep_for(std::chrono::milliseconds(150));
+            std::cout << "thread 3 Done\n";
+        }
+
+        PoolThread m_Thread;
+    };
+    Test t;
+    
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_WARNING; 
@@ -3455,7 +3576,7 @@ int main()
     wallet::g_AssetsEnabled = true;
 
     storage::HookErrors();
-
+    TestThreadPool();
     //GenerateTreasury(100, 100, 100000000);
     TestTxList();
     TestKeyKeeper();
@@ -3463,6 +3584,7 @@ int main()
     TestVouchers();
 
     TestAddressGeneration();
+    TestAddressVersions();
 
     //TestBbsDecrypt();
 

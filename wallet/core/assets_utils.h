@@ -38,11 +38,16 @@ namespace beam::wallet {
         std::string GetColor() const;
         unsigned GetSchemaVersion() const;
 
+        typedef std::map<std::string, std::string> MetaMap;
+        inline const MetaMap& GetMetaMap() const
+        {
+            return _values;
+        }
+
     private:
         void Parse();
 
-        typedef std::map<std::string, std::string> SMap;
-        SMap _values;
+        MetaMap _values;
         bool _std;
         bool _std_v5_0;
         std::string _meta;

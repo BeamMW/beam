@@ -69,7 +69,7 @@ static void Func3(int& a)
 
 
 
-export void Ctor(Upgradable::Create& r)
+BEAM_EXPORT void Ctor(Upgradable::Create& r)
 {
     //Func();
     //Upgradable::State s;
@@ -94,7 +94,7 @@ export void Ctor(Upgradable::Create& r)
 
 }
 
-export void Dtor(void* pArg)
+BEAM_EXPORT void Dtor(void* pArg)
 {
     Upgradable::State s;
     const uint8_t key = Upgradable::State::s_Key;
@@ -106,7 +106,7 @@ export void Dtor(void* pArg)
         Env::CallFar(s.m_Cid, 1, pArg, 0, 1);
 }
 
-export void Method_2(const Upgradable::ScheduleUpgrade& r)
+BEAM_EXPORT void Method_2(const Upgradable::ScheduleUpgrade& r)
 {
     Upgradable::State s;
     const uint8_t key = Upgradable::State::s_Key;

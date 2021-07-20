@@ -18,6 +18,7 @@
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
+#include "wallet/core/common_utils.h"
 #include "boost/any.hpp"
 
 namespace beam::wallet
@@ -36,7 +37,8 @@ namespace beam::wallet
         virtual void startTransaction(TxParameters&& parameters) = 0;
         virtual void syncWithNode() = 0;
         virtual void calcChange(Amount amount, Amount fee, Asset::ID assetId) = 0;
-        virtual void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded = false) = 0;
+        virtual void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded = false) = 0;
+        virtual void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded, AsyncCallback<const CoinsSelectionInfo&>&&) = 0;
         virtual void getWalletStatus() = 0;
         virtual void getTransactions() = 0;
         virtual void getTransactions(AsyncCallback<const std::vector<TxDescription>&>&&) = 0;
@@ -109,6 +111,6 @@ namespace beam::wallet
         virtual void getCoinConfirmationsOffset(AsyncCallback<uint32_t>&& callback) = 0;
 
         virtual void enableBodyRequests(bool value) = 0;
-        virtual ~IWalletModelAsync() {}
+        virtual ~IWalletModelAsync() = default;
     };
 }

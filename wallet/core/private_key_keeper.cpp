@@ -230,7 +230,7 @@ namespace beam::wallet
 		:m_pKeyKeeper(p)
 	{
 		EnsureEvtOut();
-		m_Thread = std::thread(&ThreadedPrivateKeyKeeper::Thread, this, Rules::get());
+		m_Thread = MyThread(&ThreadedPrivateKeyKeeper::Thread, this, Rules::get());
 	}
 
 	ThreadedPrivateKeyKeeper::~ThreadedPrivateKeyKeeper()

@@ -42,7 +42,7 @@ void InvokeNext(uint32_t iMethod, void* pArg)
     Env::CallFar(s.m_Cid, iMethod, pArg, 0, 1);
 }
 
-export void Ctor(Upgradable::Create& r)
+BEAM_EXPORT void Ctor(Upgradable::Create& r)
 {
     Upgradable::State s;
     _POD_(Cast::Down<Upgradable::Current>(s)) = Cast::Down<Upgradable::Current>(r);
@@ -55,7 +55,7 @@ export void Ctor(Upgradable::Create& r)
         Env::CallFar(s.m_Cid, 0, &r + 1, 0, 1);
 }
 
-export void Dtor(void* pArg)
+BEAM_EXPORT void Dtor(void* pArg)
 {
     Upgradable::State s;
     const uint8_t key = Upgradable::State::s_Key;
@@ -67,7 +67,7 @@ export void Dtor(void* pArg)
         Env::CallFar(s.m_Cid, 1, pArg, 0, 1);
 }
 
-export void Method_2(const Upgradable::ScheduleUpgrade& r)
+BEAM_EXPORT void Method_2(const Upgradable::ScheduleUpgrade& r)
 {
     Upgradable::State s;
     const uint8_t key = Upgradable::State::s_Key;
@@ -81,7 +81,7 @@ export void Method_2(const Upgradable::ScheduleUpgrade& r)
     Env::AddSig(s.m_Pk);
 }
 
-#define UPGR_REDIRECT(iMethod) export void Method_##iMethod(void* pArg) { InvokeNext(iMethod, pArg); }
+#define UPGR_REDIRECT(iMethod) BEAM_EXPORT void Method_##iMethod(void* pArg) { InvokeNext(iMethod, pArg); }
 
 UPGR_REDIRECT(3)
 UPGR_REDIRECT(4)

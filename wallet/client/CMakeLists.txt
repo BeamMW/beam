@@ -20,6 +20,7 @@ target_sources(wallet_client
         extensions/offers_board/offers_protocol_handler.cpp
         extensions/offers_board/swap_offers_board.cpp
         extensions/notifications/notification_center.cpp
+        extensions/notifications/notification.cpp
         extensions/dex_board/dex_order.cpp
         extensions/dex_board/dex_board.cpp
         extensions/export/tx_history_to_csv.cpp

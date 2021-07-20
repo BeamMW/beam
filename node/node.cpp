@@ -552,36 +552,60 @@ void Node::Processor::FlushInsanePeers()
     }
 }
 
-void Node::Processor::DeleteOutdated()
+void Node::DeleteOutdated()
 {
-	TxPool::Fluff& txp = get_ParentObj().m_TxPool;
-
-    Height h = get_ParentObj().m_Cfg.m_RollbackLimit.m_Max;
+    Height h = m_Cfg.m_RollbackLimit.m_Max;
     std::setmin(h, Rules::get().MaxRollback);
 
-    if (m_Cursor.m_ID.m_Height > h)
+    if (m_Processor.m_Cursor.m_ID.m_Height > h)
     {
-        h = m_Cursor.m_ID.m_Height - h;
+        h = m_Processor.m_Cursor.m_ID.m_Height - h;
 
-        while (!txp.m_setOutdated.empty())
+        while (!m_TxPool.m_setOutdated.empty())
         {
-            TxPool::Fluff::Element& x = txp.m_setOutdated.begin()->get_ParentObj();
+            TxPool::Fluff::Element& x = m_TxPool.m_setOutdated.begin()->get_ParentObj();
             if (x.m_Outdated.m_Height > h)
                 break;
 
-            txp.Delete(x);
+            m_TxPool.Delete(x);
         }
     }
 
-	for (TxPool::Fluff::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
+	for (TxPool::Fluff::ProfitSet::iterator it = m_TxPool.m_setProfit.begin(); m_TxPool.m_setProfit.end() != it; )
 	{
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
 		Transaction& tx = *x.m_pValue;
 
         uint32_t nBvmCharge = 0;
-		if (proto::TxStatus::Ok != ValidateTxContextEx(tx, x.m_Height, true, nBvmCharge, nullptr))
-			txp.SetOutdated(x, m_Cursor.m_ID.m_Height);
+		if (proto::TxStatus::Ok != m_Processor.ValidateTxContextEx(tx, x.m_Height, true, nBvmCharge, nullptr))
+            m_TxPool.SetOutdated(x, m_Processor.m_Cursor.m_ID.m_Height);
 	}
+
+    if (m_Processor.m_Cursor.m_ID.m_Height >= m_Cfg.m_Dandelion.m_dhStemConfirm)
+    {
+        h = m_Processor.m_Cursor.m_ID.m_Height - m_Cfg.m_Dandelion.m_dhStemConfirm;
+
+        while (!m_Dandelion.m_lstConfirm.empty())
+        {
+            auto& c = m_Dandelion.m_lstConfirm.front();
+            if (c.m_Height >= h)
+                break;
+
+            auto& x = c.get_ParentObj();
+
+            uint32_t nBvmCharge = 0;
+            if (proto::TxStatus::Ok == m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Height, true, nBvmCharge, nullptr))
+            {
+                LogTxStem(*x.m_pValue, "Not confirmed, fluffing");
+                OnTransactionFluff(std::move(x.m_pValue), nullptr, nullptr, &x);
+            }
+            else
+            {
+                LogTxStem(*x.m_pValue, "confirm done");
+                m_Dandelion.Delete(x);
+            }
+        }
+    }
 }
 
 
@@ -597,7 +621,7 @@ void Node::Processor::OnNewState()
 	if (IsFastSync())
 		return;
 
-    DeleteOutdated(); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
+    get_ParentObj().DeleteOutdated(); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
     // because in practice mining could be OFF (for instance, if miner key isn't defined, and owner wallet is offline).
 
     if (get_ParentObj().m_Miner.IsEnabled())
@@ -2401,8 +2425,8 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, std::ostream* pExtraInfo
 			bTested = true;
 		}
 
-		LogTxStem(*pElem->m_pValue, "obscured by newer tx. Deleting");
-        m_Dandelion.Delete(*pElem);
+		LogTxStem(*pElem->m_pValue, "obscured by newer tx");
+        OnTransactionWaitingConfirm(*pElem);
     }
 
     if (!pDup)
@@ -2699,6 +2723,18 @@ Height Node::SampleDummySpentHeight()
 	return h;
 }
 
+void Node::OnTransactionWaitingConfirm(TxPool::Stem::Element& x)
+{
+    m_Dandelion.DeleteAggr(x);
+    m_Dandelion.DeleteTimer(x);
+
+    if (MaxHeight == x.m_Confirm.m_Height)
+    {
+        m_Dandelion.InsertConfirm(x, m_Processor.m_Cursor.m_Full.m_Height);
+        LogTxStem(*x.m_pValue, "Waiting confirmation");
+    }
+}
+
 uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtraInfo, const PeerID* pSender, TxPool::Stem::Element* pElem)
 {
     Transaction::Ptr ptx;
@@ -2712,7 +2748,17 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
 
         ctx.m_Stats.m_Fee = pElem->m_Profit.m_Fee;
 		ctx.m_Height = pElem->m_Height;
-        m_Dandelion.Delete(*pElem);
+
+        if (MaxHeight == pElem->m_Confirm.m_Height)
+        {
+            assert(!pElem->m_pValue);
+            pElem->m_pValue = ptx; // save ptr only, no need to clone, assuming it won't be changing
+
+            OnTransactionWaitingConfirm(*pElem);
+        }
+        else
+            // fluff from 
+            m_Dandelion.Delete(*pElem);
 
 		if (!bValid)
 			return proto::TxStatus::InvalidContext;
@@ -2748,7 +2794,7 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
 
             TxPool::Stem::KrnSet::iterator itKrn = m_Dandelion.m_setKrns.find(keyKrn);
             if (m_Dandelion.m_setKrns.end() != itKrn)
-                m_Dandelion.Delete(*itKrn->m_pThis);
+                OnTransactionWaitingConfirm(*itKrn->m_pThis);
         }
 
     }

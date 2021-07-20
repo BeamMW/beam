@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #pragma once
+#include <limits>
 #include <string>
 #include <stdint.h>
 #include <unordered_map>

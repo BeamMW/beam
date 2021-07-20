@@ -23,16 +23,40 @@ namespace beam::wallet
 {
     #define API_WRITE_ACCESS true
     #define API_READ_ACCESS false
+    #define API_ASYNC true
+    #define API_SYNC false
+    #define APPS_ALLOWED true
+    #define APPS_BLOCKED false
 
     #define BEAM_API_RESPONSE_FUNC(api, name, ...) \
-        void getResponse(const JsonRpcId& id, const api::Response& data, json& msg);
+        void getResponse(const JsonRpcId& id, const api::Response& data, json& msg); \
+        void doResponse(const JsonRpcId& id, const api::Response& response)          \
+        {                                          \
+            json msg; \
+            getResponse(id, response, msg); \
+            _handler.sendAPIResponse(msg); \
+        }
 
     #define BEAM_API_HANDLE_FUNC(api, name, ...) \
-        virtual void onHandle##api(const JsonRpcId& id, const api& data);
+         virtual void onHandle##api(const JsonRpcId& id, const api& data);
 
     #define BEAM_API_PARSE_FUNC(api, name, ...) \
         [[nodiscard]] std::pair<api, MethodInfo> onParse##api(const JsonRpcId& id, const json& msg);
 
+    // BEAM_API_REG MUST BE SAFE TO CALL FROM ANY THREAD
+    // Don't do anything with walletdb, providers &c.
+    #define BEAM_API_REG_METHOD(api, name, writeAccess, isAsync, appsAllowed) \
+        regMethod(name, {                                                     \
+            [this] (const JsonRpcId &id, const json &msg) {                   \
+                auto parseRes = onParse##api(id, msg);                        \
+                onHandle##api(id, parseRes.first);                            \
+            },                                                                \
+            [this] (const JsonRpcId &id, const json &msg) -> MethodInfo {     \
+                auto parseRes = onParse##api(id, msg);                        \
+                return parseRes.second;                                       \
+            },                                                                \
+            writeAccess, isAsync, appsAllowed                                 \
+        });
 
     class ApiBase
         : public IWalletApi
@@ -41,14 +65,38 @@ namespace beam::wallet
         static inline const char JsonRpcHeader[] = "jsonrpc";
         static inline const char JsonRpcVersion[] = "2.0";
 
+        // This is for jscript compatibility
+        // Number.MAX_SAFE_INTEGER
+        static inline const auto kMaxAllowedInt = AmountBig::Type(9'007'199'254'740'991U);
+
         // user api key and read/write access
-        ApiBase(IWalletApiHandler& handler, ACL acl, std::string appid, std::string appname);
+        ApiBase(IWalletApiHandler& handler, const ApiInitData& initData);
 
         void sendError(const JsonRpcId& id, ApiError code, const std::string& data = "");
 
         boost::optional<ParseResult> parseAPIRequest(const char* data, size_t size) override;
         ApiSyncMode executeAPIRequest(const char *data, size_t size) override;
         std::string fromError(const std::string& request, ApiError code, const std::string& errorText) override;
+
+        template<typename T>
+        static void doPagination(size_t skip, size_t count, std::vector<T>& res)
+        {
+            if (count > 0)
+            {
+                size_t start = skip;
+                size_t size = res.size();
+
+                if (start < size)
+                {
+                    res.erase(res.begin(), res.begin() + start);
+                    if (count < res.size())
+                    {
+                        res.erase(res.begin() + count, res.end());
+                    }
+                }
+                else res = {};
+            }
+        }
 
         //
         // getMandatory....
@@ -86,21 +134,37 @@ namespace beam::wallet
 
         static bool hasParam(const json &params, const std::string &name);
 
+        bool isApp() const
+        {
+            return !_appId.empty();
+        }
+
+        const std::string& getAppId() const
+        {
+            return _appId;
+        }
+
+        const std::string& getAppName() const
+        {
+            return _appName;
+        }
+
     protected:
         struct Method
         {
             std::function<void(const JsonRpcId &id, const json &msg)> execFunc;
             std::function<IWalletApi::MethodInfo (const JsonRpcId &id, const json &msg)> parseFunc;
 
-            bool writeAccess;
-            bool isAsync;
-            bool appsAllowed;
+            bool writeAccess = true;
+            bool isAsync     = true;
+            bool appsAllowed = false;
         };
 
-        std::unordered_map <std::string, Method> _methods;
-        ACL _acl;
-        std::string _appId;
-        std::string _appName;
+        void regMethod(const std::string& name, Method method)
+        {
+            _methods[name] = std::move(method);
+        }
+
         IWalletApiHandler& _handler;
 
     private:
@@ -155,6 +219,12 @@ namespace beam::wallet
 
             return boost::none;
         }
+
+    private:
+        ApiACL _acl;
+        std::string _appId;
+        std::string _appName;
+        std::unordered_map <std::string, Method> _methods;
     };
 
     // boost::optional<json> is not defined intentionally, use const json& instead

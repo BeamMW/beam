@@ -120,7 +120,7 @@ namespace beam::wallet
         : _ioc(1)
         , _allowedOrigin(std::move(allowedOrigin))
     {
-        _iocThread = std::make_shared<std::thread>([this, port, reactor]() {
+        _iocThread = std::make_shared<MyThread>([this, port, reactor]() {
 
             HandlerCreator creator = [this, reactor] (WebSocketServer::SendFunc func, WebSocketServer::CloseFunc closeFunc) -> auto {
                 reactor->assert_thread();

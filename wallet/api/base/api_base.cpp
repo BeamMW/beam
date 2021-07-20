@@ -16,20 +16,13 @@
 #include "utility/logger.h"
 #include <regex>
 
-// TODO: check ranges for is_number_unsigned
-namespace {
-    std::string getJsonString(const char* data, size_t size)
-    {
-        return std::string(data, data + (size > 1024 ? 1024 : size));
-    }
-}
-
-namespace beam::wallet {
-    ApiBase::ApiBase(IWalletApiHandler& handler, ACL acl, std::string appid, std::string appname)
-        : _acl(std::move(acl))
-        , _appId(std::move(appid))
-        , _appName(std::move(appname))
-        , _handler(handler)
+namespace beam::wallet
+{
+    ApiBase::ApiBase(IWalletApiHandler& handler, const ApiInitData& initData)
+        : _handler(handler)
+        , _acl(initData.acl)
+        , _appId(initData.appId)
+        , _appName(initData.appName)
     {
         // MUST BE SAFE TO CALL FROM ANY THREAD
     }

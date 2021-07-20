@@ -76,9 +76,16 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::calcChange, amount, fee, assetId);
     }
 
-    void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded /* = false */) override
+    void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded /* = false */) override
     {
-        call_async(&IWalletModelAsync::calcShieldedCoinSelectionInfo, amount, beforehandMinFee, assetId, isShielded);
+        typedef void(IWalletModelAsync::* MethodType)(Amount, Amount, Asset::ID, bool);
+        call_async((MethodType)&IWalletModelAsync::selectCoins, amount, beforehandMinFee, assetId, isShielded);
+    }
+
+    void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded, AsyncCallback<const CoinsSelectionInfo&>&& callback) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(Amount, Amount, Asset::ID, bool, AsyncCallback<const CoinsSelectionInfo&>&&);
+        call_async((MethodType)&IWalletModelAsync::selectCoins, amount, beforehandMinFee, assetId, isShielded, callback);
     }
 
     void getWalletStatus() override
@@ -474,7 +481,7 @@ namespace beam::wallet
         {
             return;
         }
-        m_thread = std::make_shared<std::thread>([this, withExchangeRates, txCreators, activeNotifications]()
+        m_thread = std::make_shared<MyThread>([this, withExchangeRates, txCreators, activeNotifications]()
         {
             try
             {
@@ -755,8 +762,8 @@ namespace beam::wallet
     {
         ShieldedCoin::UnlinkStatus us(coin, getTotalShieldedCount());
         const auto* packedMessage = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
-        auto mpAnonymitySet = packedMessage->m_MaxPrivacyMinAnonymitySet;
-        return mpAnonymitySet ? us.m_Progress * 64 / mpAnonymitySet : us.m_Progress;
+        uint32_t mpAnonymitySet = packedMessage->m_MaxPrivacyMinAnonymitySet;
+        return mpAnonymitySet ? us.m_Progress * mpAnonymitySet / beam::MaxPrivacyAnonimitySetFractionsCount : us.m_Progress;
     }
 
     uint16_t WalletClient::getMaturityHoursLeft(const ShieldedCoin& coin) const
@@ -775,6 +782,7 @@ namespace beam::wallet
         {
             auto outputsAddedAfterMyCoin = getTotalShieldedCount() - coin.m_TxoID;
             const auto* packedMessage = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
+            
             auto mpAnonymitySet = packedMessage->m_MaxPrivacyMinAnonymitySet;
             auto maxWindowBacklog = mpAnonymitySet ? getRules().Shielded.MaxWindowBacklog * mpAnonymitySet / 64 : getRules().Shielded.MaxWindowBacklog;
             auto outputsLeftForMP = maxWindowBacklog - outputsAddedAfterMyCoin;
@@ -1019,23 +1027,36 @@ namespace beam::wallet
 
     void WalletClient::calcChange(Amount amount, Amount fee, Asset::ID assetId)
     {
-        m_CoinsSelectionResult.m_requestedSum = amount;
-        m_CoinsSelectionResult.m_assetID = assetId;
-        m_CoinsSelectionResult.m_explicitFee = fee;
-
-        m_CoinsSelectionResult.Calculate(m_currentHeight, m_walletDB, false);
-        onChangeCalculated(m_CoinsSelectionResult.m_changeAsset, m_CoinsSelectionResult.m_changeBeam, assetId);
+        CoinsSelectionInfo csi;
+        csi.m_requestedSum = amount;
+        csi.m_assetID = assetId;
+        csi.m_explicitFee = fee;
+        csi.Calculate(m_currentHeight, m_walletDB, false);
+        onChangeCalculated(csi.m_changeAsset, csi.m_changeBeam, assetId);
     }
 
-    void WalletClient::calcShieldedCoinSelectionInfo(Amount requested, Amount beforehandMinFee, Asset::ID assetId, bool isShielded /* = false */)
+    void WalletClient::selectCoins(Amount requested, Amount beforehandMinFee, Asset::ID assetId, bool isShielded /* = false */)
     {
-        m_CoinsSelectionResult.m_requestedSum = requested;
-        m_CoinsSelectionResult.m_assetID = assetId;
-        m_CoinsSelectionResult.m_explicitFee = beforehandMinFee;
-
-        m_CoinsSelectionResult.Calculate(m_currentHeight, m_walletDB, isShielded);
-        onCoinsSelectionCalculated(m_CoinsSelectionResult);
+        CoinsSelectionInfo csi;
+        csi.m_requestedSum = requested;
+        csi.m_assetID = assetId;
+        csi.m_explicitFee = beforehandMinFee;
+        csi.Calculate(m_currentHeight, m_walletDB, isShielded);
+        onCoinsSelected(csi);
     }
+
+     void WalletClient::selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded, AsyncCallback<const CoinsSelectionInfo&>&& callback)
+     {
+        CoinsSelectionInfo csi;
+        csi.m_requestedSum = amount;
+        csi.m_assetID = assetId;
+        csi.m_explicitFee = beforehandMinFee;
+        csi.Calculate(m_currentHeight, m_walletDB, isShielded);
+        postFunctionToClientContext([csi, cback = std::move(callback)]()
+        {
+            cback(csi);
+        });
+     }
 
     void WalletClient::getWalletStatus()
     {
@@ -1641,9 +1662,9 @@ namespace beam::wallet
     WalletStatus WalletClient::getStatus() const
     {
         WalletStatus status;
-        storage::Totals allTotals(*m_walletDB);
+        storage::Totals allTotals(*m_walletDB, false);
 
-        for(const auto& totalsPair: allTotals.allTotals) {
+        for(const auto& totalsPair: allTotals.GetAllTotals()) {
             const auto& info = totalsPair.second;
             WalletStatus::AssetStatus assetStatus;
 
@@ -1665,6 +1686,7 @@ namespace beam::wallet
         m_walletDB->getSystemStateID(status.stateID);
         status.shieldedTotalCount = m_walletDB->get_ShieldedOuts();
         status.update.lastTime = m_walletDB->getLastUpdateTime();
+        status.nzAssets = allTotals.GetAssetsNZ();
 
         return status;
     }
@@ -1862,7 +1884,7 @@ namespace beam::wallet
         });
     }
 
-    void WalletClient::onAssetChanged(Asset::ID assetId)
+    void WalletClient::onAssetChanged(ChangeAction action, Asset::ID assetId)
     {
         m_ainfoRequests.erase(assetId);
         if(const auto oasset = m_walletDB->findAsset(assetId))

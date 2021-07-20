@@ -2,21 +2,21 @@
 #include "../Math.h"
 #include "contract.h"
 
-export void Ctor(const Faucet::Params& r)
+BEAM_EXPORT void Ctor(const Faucet::Params& r)
 {
     Env::SaveVar_T((uint8_t) 0, r);
 }
-export void Dtor(void*)
+BEAM_EXPORT void Dtor(void*)
 {
     Env::DelVar_T((uint8_t) 0);
 }
 
-export void Method_2(const Faucet::Deposit& r)
+BEAM_EXPORT void Method_2(const Faucet::Deposit& r)
 {
     Env::FundsLock(r.m_Aid, r.m_Amount);
 }
 
-export void Method_3(const Faucet::Withdraw& r)
+BEAM_EXPORT void Method_3(const Faucet::Withdraw& r)
 {
     Height h = Env::get_Height();
 

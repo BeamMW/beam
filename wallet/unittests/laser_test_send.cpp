@@ -141,10 +141,10 @@ int main()
 
             if (height == kTestStartBlock)
             {
-                storage::Totals totalsCalc_1(*(laserFirst->getWalletDB()));
+                storage::Totals totalsCalc_1(*(laserFirst->getWalletDB()), false);
                 totals_1 = totalsCalc_1.GetBeamTotals();
 
-                storage::Totals totalsCalc_2(*(laserSecond->getWalletDB()));
+                storage::Totals totalsCalc_2(*(laserSecond->getWalletDB()), false);
                 totals_2 = totalsCalc_2.GetBeamTotals();
 
                 laserFirst->WaitIncoming(100000000, 100000000, fee);
@@ -172,10 +172,10 @@ int main()
 
             if (laser1Closed && laser2Closed)
             {
-                storage::Totals totalsCalc_1(*(laserFirst->getWalletDB()));
+                storage::Totals totalsCalc_1(*(laserFirst->getWalletDB()), false);
                 totals_1_a = totalsCalc_1.GetBeamTotals();
 
-                storage::Totals totalsCalc_2(*(laserSecond->getWalletDB()));
+                storage::Totals totalsCalc_2(*(laserSecond->getWalletDB()), false);
                 totals_2_a = totalsCalc_2.GetBeamTotals();
 
                 AmountBig::Type val1{ totals_1_a.Unspent };

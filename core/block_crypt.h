@@ -25,6 +25,7 @@ namespace beam
 	class IExternalPOW;
 
 	const Height MaxHeight = std::numeric_limits<Height>::max();
+	const uint8_t MaxPrivacyAnonimitySetFractionsCount = 64;
 
 	struct PeerID :public ECC::uintBig
 	{
@@ -342,7 +343,7 @@ namespace beam
 	class ExecutorMT_R
 		:public ExecutorMT
 	{
-		virtual void StartThread(std::thread&, uint32_t iThread) override;
+		virtual void StartThread(MyThread&, uint32_t iThread) override;
 		void RunThreadInternal(uint32_t iThread, const Rules&);
 		virtual void RunThread(uint32_t iThread);
 
@@ -727,6 +728,8 @@ namespace beam
 			{
 				typedef uintBig_t<16> TxID;
 				TxID m_TxID;
+				// value from 1 to 64 to set privacy level for transaction.
+				// if value less than 64 - allow extract coin from pool before anonymity set was reached
 				uint8_t m_MaxPrivacyMinAnonymitySet;
 				uint64_t m_ReceiverOwnID;
 				uint8_t m_Padding[sizeof(m_pMessage) - sizeof(TxID) - sizeof(uint8_t) - sizeof(uint64_t)];
@@ -1615,6 +1618,14 @@ namespace beam
 		bool IsValidInternal(size_t& iState, size_t& iHash, const Difficulty::Raw& lowerBound, SystemState::Full* pTip) const;
 		void ZeroInit();
 		bool EnumStatesHeadingOnly(IStateWalker&) const; // skip arbitrary
+	};
+
+	struct FundsChangeMap
+	{
+		std::map<Asset::ID, AmountBig::Type> m_Map;
+
+		void Add(Amount val, Asset::ID, bool bSpend);
+		void ToCommitment(ECC::Point::Native&) const;
 	};
 }
 

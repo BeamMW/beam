@@ -219,8 +219,7 @@ namespace
             WALLET_CHECK(v == Version());
 
             WALLET_CHECK_NO_THROW(res = v.from_string("12345.6789"));
-            WALLET_CHECK(res == true);
-            WALLET_CHECK(v == Version(12345,6789,0));
+            WALLET_CHECK(res == false);
 
             WALLET_CHECK_NO_THROW(res = v.from_string("12,345.6789"));
             WALLET_CHECK(res == false);

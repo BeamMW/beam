@@ -142,7 +142,7 @@ namespace beam
 
     const char kAddrListComment[]  = "Comment: ";
     const char kAddrListAddress[]  = "Address: ";
-    const char kAddrListIdentity[] = "Identity: ";
+    const char kAddrListIdentity[] = "Wallet's signature: ";
     const char kAddrListActive[]   = "Active: ";
     const char kAddrListExprDate[] = "Expires: ";
     const char kAddrListCreated[]  = "Created: ";

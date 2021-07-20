@@ -40,7 +40,10 @@
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/transactions/assets/assets_reg_creators.h"
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "api_cli_swap.h"
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
+
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
 #include "wallet/core/contracts/i_shaders_manager.h"
 #include "nlohmann/json.hpp"
@@ -64,11 +67,11 @@ namespace
         bool rejectUnauthorized;
     };
 
-    IWalletApi::ACL loadACL(const std::string& path)
+    ApiACL loadACL(const std::string& path)
     {
         std::ifstream file(path);
         std::string line;
-        IWalletApi::ACL::value_type keys;
+        ApiACL::value_type keys;
         int curLine = 1;
 
         while (std::getline(file, line))
@@ -108,7 +111,7 @@ namespace
             LOG_INFO() << "ACL file successfully loaded";
         }
 
-        return IWalletApi::ACL(keys);
+        return ApiACL(keys);
     }
 
     class IWalletApiServer
@@ -134,7 +137,7 @@ namespace
                         io::Reactor& reactor,
                         io::Address listenTo,
                         bool useHttp,
-                        IWalletApi::ACL acl,
+                        ApiACL acl,
                         const TlsOptions& tlsOptions,
                         const std::vector<uint32_t>& whitelist)
 
@@ -157,12 +160,14 @@ namespace
             stop();
         }
 
+
         void initSwapFeature(proto::FlyClient::INetwork& nnet, IWalletMessageEndpoint& wnet)
         {
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
             _swapsProvider = std::make_shared<ApiCliSwap>(_walletDB);
             _swapsProvider->initSwapFeature(nnet, wnet);
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
         }
-
     protected:
         void start()
         {
@@ -211,10 +216,12 @@ namespace
         {
             if (!_walletData)
             {
-                _walletData = std::make_unique<IWalletApi::InitData>();
+                _walletData = std::make_unique<ApiInitData>();
                 _walletData->walletDB  = _walletDB;
                 _walletData->wallet    = _wallet;
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
                 _walletData->swaps     = _swapsProvider;
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
                 _walletData->acl       = _acl;
                 _walletData->contracts = IShadersManager::CreateInstance(_wallet, _walletDB, _network);
             }
@@ -255,7 +262,7 @@ namespace
             , public IWalletApiHandler
         {
         public:
-            TcpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, IWalletApi::InitData& walletData)
+            TcpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, ApiInitData& walletData)
                 : _server(server)
                 , _stream(std::move(newStream))
                 , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
@@ -312,7 +319,7 @@ namespace
             , public IWalletApiHandler
         {
         public:
-            HttpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, IWalletApi::InitData& walletData)
+            HttpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, ApiInitData& walletData)
                 : _server(server)
                 , _sendResponseCalled(false)
                 , _msgCreator(2000)
@@ -466,10 +473,13 @@ namespace
         Wallet::Ptr _wallet;
         proto::FlyClient::NetworkStd::Ptr _network;
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::shared_ptr<ApiCliSwap> _swapsProvider;
-        std::unique_ptr<IWalletApi::InitData> _walletData;
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
+
+        std::unique_ptr<ApiInitData> _walletData;
         std::vector<uint64_t> _pendingToClose;
-        IWalletApi::ACL _acl;
+        ApiACL _acl;
         std::vector<uint32_t> _whitelist;
     };
 }
@@ -505,7 +515,7 @@ int main(int argc, char* argv[])
 
         io::Address node_addr;
         IWalletDB::Ptr walletDB;
-        IWalletApi::ACL acl;
+        ApiACL acl;
         std::vector<uint32_t> whitelist;
 
         {
@@ -696,7 +706,9 @@ int main(int argc, char* argv[])
         wallet->SetNodeEndpoint(nnet);
 
         WalletApiServer server(options.apiVersion, walletDB, wallet, nnet, *reactor, listenTo, options.useHttp, acl, tlsOptions, whitelist);
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
         RegisterSwapTxCreators(wallet, walletDB);
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
         server.initSwapFeature(*nnet, *wnet);
 
         if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)

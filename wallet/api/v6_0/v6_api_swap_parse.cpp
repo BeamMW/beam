@@ -14,7 +14,7 @@
 #include "wallet/transactions/swaps/common.h"
 #include "wallet/transactions/swaps/swap_transaction.h"
 #include "wallet/core/common_utils.h"
-#include "wallet_api.h"
+#include "v6_api.h"
 
 namespace beam::wallet
 {
@@ -151,11 +151,11 @@ namespace beam::wallet
 
         Amount readSwapFeeRateParameter(const JsonRpcId& id, const json& params)
         {
-            return WalletApi::getMandatoryParam<PositiveAmount>(params, "fee_rate");
+            return V6Api::getMandatoryParam<PositiveAmount>(params, "fee_rate");
         }
     }
 
-    std::pair<OffersList, IWalletApi::MethodInfo> WalletApi::onParseOffersList(const JsonRpcId& id, const json& params)
+    std::pair<OffersList, IWalletApi::MethodInfo> V6Api::onParseOffersList(const JsonRpcId& id, const json& params)
     {
         OffersList offersList;
 
@@ -181,7 +181,7 @@ namespace beam::wallet
         return std::make_pair(offersList, MethodInfo());
     }
 
-    std::pair<OffersBoard, IWalletApi::MethodInfo> WalletApi::onParseOffersBoard(const JsonRpcId& id, const json& params)
+    std::pair<OffersBoard, IWalletApi::MethodInfo> V6Api::onParseOffersBoard(const JsonRpcId& id, const json& params)
     {
         OffersBoard offersBoard;
 
@@ -199,13 +199,13 @@ namespace beam::wallet
         return std::make_pair(offersBoard, MethodInfo());
     }
 
-    std::pair<CreateOffer, IWalletApi::MethodInfo> WalletApi::onParseCreateOffer(const JsonRpcId& id, const json& params)
+    std::pair<CreateOffer, IWalletApi::MethodInfo> V6Api::onParseCreateOffer(const JsonRpcId& id, const json& params)
     {
         CreateOffer data;
 
-        Amount sendAmount = WalletApi::getMandatoryParam<PositiveAmount>(params, "send_amount");
+        Amount sendAmount = V6Api::getMandatoryParam<PositiveAmount>(params, "send_amount");
 
-        const std::string send_currency = WalletApi::getMandatoryParam<NonEmptyString>(params, "send_currency");
+        const std::string send_currency = V6Api::getMandatoryParam<NonEmptyString>(params, "send_currency");
         const AtomicSwapCoin sendCoin = from_string(send_currency);
 
         if (sendCoin == AtomicSwapCoin::Unknown && send_currency != "beam")
@@ -213,9 +213,9 @@ namespace beam::wallet
             throwIncorrectCurrencyError("send_currency", id);
         }
 
-        Amount receiveAmount = WalletApi::getMandatoryParam<PositiveAmount>(params, "receive_amount");
+        Amount receiveAmount = V6Api::getMandatoryParam<PositiveAmount>(params, "receive_amount");
 
-        const std::string receive_currency = WalletApi::getMandatoryParam<NonEmptyString>(params, "receive_currency");
+        const std::string receive_currency = V6Api::getMandatoryParam<NonEmptyString>(params, "receive_currency");
         AtomicSwapCoin receiveCoin = from_string(receive_currency);
 
         if (receiveCoin == AtomicSwapCoin::Unknown && receive_currency != "beam")
@@ -237,7 +237,7 @@ namespace beam::wallet
         data.swapCoin = data.isBeamSide ? receiveCoin : sendCoin;
         data.beamAmount = data.isBeamSide ? sendAmount : receiveAmount;
         data.swapAmount = data.isBeamSide ? receiveAmount : sendAmount;
-        data.beamFee = WalletApi::getBeamFeeParam(params, "beam_fee");
+        data.beamFee = V6Api::getBeamFeeParam(params, "beam_fee");
 
         if (data.isBeamSide && data.beamAmount < data.beamFee)
         {
@@ -249,12 +249,12 @@ namespace beam::wallet
             data.swapFeeRate = feeRate;
         }
 
-        if (auto expires = WalletApi::getOptionalParam<PositiveHeight>(params, "offer_expires"))
+        if (auto expires = V6Api::getOptionalParam<PositiveHeight>(params, "offer_expires"))
         {
             data.offerLifetime = *expires;
         }
 
-        if (auto comment = WalletApi::getOptionalParam<std::string>(params, "comment"))
+        if (auto comment = V6Api::getOptionalParam<std::string>(params, "comment"))
         {
             data.comment = *comment;
         }
@@ -262,7 +262,7 @@ namespace beam::wallet
         return std::make_pair(data, MethodInfo());
     }
 
-    std::pair<PublishOffer, IWalletApi::MethodInfo> WalletApi::onParsePublishOffer(const JsonRpcId& id, const json& params)
+    std::pair<PublishOffer, IWalletApi::MethodInfo> V6Api::onParsePublishOffer(const JsonRpcId& id, const json& params)
     {
         const auto token = getMandatoryParam<NonEmptyString>(params, "token");
         if (!SwapOfferToken::isValid(token))
@@ -274,7 +274,7 @@ namespace beam::wallet
         return std::make_pair(data, MethodInfo());
     }
 
-    std::pair<AcceptOffer, IWalletApi::MethodInfo> WalletApi::onParseAcceptOffer(const JsonRpcId& id, const json& params)
+    std::pair<AcceptOffer, IWalletApi::MethodInfo> V6Api::onParseAcceptOffer(const JsonRpcId& id, const json& params)
     {
         AcceptOffer data;
         const auto token = getMandatoryParam<NonEmptyString>(params, "token");
@@ -292,7 +292,7 @@ namespace beam::wallet
             data.swapFeeRate = feeRate;
         }
 
-        if (auto comment = WalletApi::getOptionalParam<std::string>(params, "comment"))
+        if (auto comment = V6Api::getOptionalParam<std::string>(params, "comment"))
         {
             data.comment = *comment;
         }
@@ -300,14 +300,14 @@ namespace beam::wallet
         return std::make_pair(data, MethodInfo());
     }
 
-    std::pair<OfferStatus, IWalletApi::MethodInfo> WalletApi::onParseOfferStatus(const JsonRpcId& id, const json& params)
+    std::pair<OfferStatus, IWalletApi::MethodInfo> V6Api::onParseOfferStatus(const JsonRpcId& id, const json& params)
     {
         OfferStatus offerStatus = {};
         offerStatus.txId = getMandatoryParam<ValidTxID>(params, "tx_id");
         return std::make_pair(offerStatus, MethodInfo());
     }
 
-    std::pair<DecodeToken, IWalletApi::MethodInfo> WalletApi::onParseDecodeToken(const JsonRpcId& id, const json& params)
+    std::pair<DecodeToken, IWalletApi::MethodInfo> V6Api::onParseDecodeToken(const JsonRpcId& id, const json& params)
     {
         const auto token = getMandatoryParam<NonEmptyString>(params, "token");
 
@@ -320,7 +320,7 @@ namespace beam::wallet
         return std::make_pair(decodeToken, MethodInfo());
     }
 
-    std::pair<GetBalance, IWalletApi::MethodInfo> WalletApi::onParseGetBalance(const JsonRpcId& id, const json& params)
+    std::pair<GetBalance, IWalletApi::MethodInfo> V6Api::onParseGetBalance(const JsonRpcId& id, const json& params)
     {
         const auto coinName = getMandatoryParam<NonEmptyString>(params, "coin");
         const auto coin = from_string(coinName);
@@ -334,7 +334,7 @@ namespace beam::wallet
         return std::make_pair(data, MethodInfo());
     }
 
-    std::pair<RecommendedFeeRate, IWalletApi::MethodInfo> WalletApi::onParseRecommendedFeeRate(const JsonRpcId& id, const json& params)
+    std::pair<RecommendedFeeRate, IWalletApi::MethodInfo> V6Api::onParseRecommendedFeeRate(const JsonRpcId& id, const json& params)
     {
         const auto coinName = getMandatoryParam<NonEmptyString>(params, "coin");
         AtomicSwapCoin coin = from_string(coinName);
@@ -348,13 +348,13 @@ namespace beam::wallet
         return std::make_pair(data, MethodInfo());
     }
 
-    std::pair<CancelOffer, IWalletApi::MethodInfo> WalletApi::onParseCancelOffer(const JsonRpcId& id, const json& params)
+    std::pair<CancelOffer, IWalletApi::MethodInfo> V6Api::onParseCancelOffer(const JsonRpcId& id, const json& params)
     {
         auto txcRes = onParseTxCancel(id, params);
         return std::make_pair(CancelOffer{txcRes.first}, txcRes.second);
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const OffersList::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const OffersList::Response& res, json& msg)
     {
         msg =
         {
@@ -370,7 +370,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const OffersBoard::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const OffersBoard::Response& res, json& msg)
     {
         msg =
         {
@@ -385,7 +385,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const CreateOffer::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const CreateOffer::Response& res, json& msg)
     {
         msg = json
         {
@@ -399,7 +399,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const PublishOffer::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const PublishOffer::Response& res, json& msg)
     {
         msg =
         {
@@ -409,7 +409,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const AcceptOffer::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const AcceptOffer::Response& res, json& msg)
     {
         msg =
         {
@@ -419,7 +419,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const OfferStatus::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const OfferStatus::Response& res, json& msg)
     {
         msg =
         {
@@ -429,7 +429,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const DecodeToken::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const DecodeToken::Response& res, json& msg)
     {
         msg =
         {
@@ -439,7 +439,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const GetBalance::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const GetBalance::Response& res, json& msg)
     {
         msg =
         {
@@ -452,7 +452,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const RecommendedFeeRate::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const RecommendedFeeRate::Response& res, json& msg)
     {
         msg =
         {
@@ -465,7 +465,7 @@ namespace beam::wallet
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const CancelOffer::Response& res, json& msg)
+    void V6Api::getResponse(const JsonRpcId& id, const CancelOffer::Response& res, json& msg)
     {
         TxCancel::Response cancelRes{res.result};
         getResponse(id, cancelRes, msg);

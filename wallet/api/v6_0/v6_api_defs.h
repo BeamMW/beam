@@ -15,22 +15,15 @@
 
 #include <boost/optional.hpp>
 #include "wallet/core/wallet.h"
-#include "api_base.h"
-#include "api_errors_imp.h"
+#include "wallet/api/base/api_base.h"
+#include "wallet/api/base/api_errors_imp.h"
 #include "wallet/client/extensions/offers_board/swap_offer.h"
 #include "bvm/invoke_data.h"
 
 namespace beam::wallet
 {
-    #define API_WRITE_ACCESS true
-    #define API_READ_ACCESS false
-    #define API_ASYNC true
-    #define API_SYNC false
-    #define APPS_ALLOWED true
-    #define APPS_BLOCKED false
-
 #if defined(BEAM_ATOMIC_SWAP_SUPPORT)
-#define SWAP_OFFER_API_METHODS(macro) \
+#define V6_SWAP_METHODS(macro) \
     macro(OffersList,         "swap_offers_list",          API_READ_ACCESS,  API_SYNC, APPS_BLOCKED)  \
     macro(OffersBoard,        "swap_offers_board",         API_READ_ACCESS,  API_SYNC, APPS_BLOCKED)  \
     macro(CreateOffer,        "swap_create_offer",         API_WRITE_ACCESS, API_SYNC, APPS_BLOCKED)  \
@@ -42,14 +35,10 @@ namespace beam::wallet
     macro(RecommendedFeeRate, "swap_recommended_fee_rate", API_READ_ACCESS,  API_SYNC, APPS_BLOCKED)  \
     macro(CancelOffer,        "swap_cancel_offer",         API_WRITE_ACCESS, API_SYNC, APPS_BLOCKED)
 #else  // !BEAM_ATOMIC_SWAP_SUPPORT
-#define SWAP_OFFER_API_METHODS(macro)
+#define V6_SWAP_METHODS(macro)
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
-#define WEB_WALLET_API_METHODS(macro) \
-    macro(CalcChange,           "calc_change",              API_READ_ACCESS,  API_SYNC, APPS_ALLOWED)  \
-    macro(ChangePassword,       "change_password",          API_WRITE_ACCESS, API_SYNC, APPS_BLOCKED)
-
-#define WALLET_API_METHODS(macro) \
+#define V6_API_METHODS(macro) \
     macro(CreateAddress,         "create_address",          API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
     macro(DeleteAddress,         "delete_address",          API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
     macro(EditAddress,           "edit_address",            API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED)   \
@@ -75,8 +64,9 @@ namespace beam::wallet
     macro(InvokeContract,        "invoke_contract",         API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)   \
     macro(ProcessInvokeData,     "process_invoke_data",     API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)   \
     macro(BlockDetails,          "block_details",           API_READ_ACCESS,  API_ASYNC, APPS_ALLOWED)   \
-    SWAP_OFFER_API_METHODS(macro) \
-    WEB_WALLET_API_METHODS(macro)
+    macro(CalcChange,            "calc_change",             API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)   \
+    macro(ChangePassword,        "change_password",         API_WRITE_ACCESS, API_SYNC,  APPS_BLOCKED)   \
+    V6_SWAP_METHODS(macro)
 
     struct CalcChange
     {
@@ -223,7 +213,6 @@ namespace beam::wallet
             TxDescription tx;
             Height txHeight;
             Height systemHeight;
-            uint64_t confirmations;
         };
     };
 
@@ -272,61 +261,62 @@ namespace beam::wallet
     macro(status,          uint32_t) \
     macro(status_string,   std::string)
 
+    struct ApiCoin
+    {
+        #define MACRO(name, type) type name = {};
+        BEAM_GET_UTXO_RESPONSE_FIELDS(MACRO)
+        #undef MACRO
+
+        template<typename T>
+        static void EmplaceCoin(std::vector<ApiCoin>& to, const T& c, uint32_t cCnt)
+        {
+            auto& t = to.emplace_back();
+            t.id = c.toStringID();
+            t.asset_id = c.getAssetID();
+            t.amount = c.getAmount();
+            t.type = c.getType();
+            t.maturity = c.get_Maturity(cCnt);
+            t.createTxId = GetCoinCreateTxID(c);
+            t.spentTxId = GetCoinSpentTxID(c);
+            t.status = GetCoinStatus(c);
+            t.status_string = c.getStatusString();
+        };
+    };
+
     struct GetUtxo
     {
         uint32_t count = 0;
         uint32_t skip = 0;
-        bool withAssets = false;
 
         struct
         {
             boost::optional<Asset::ID> assetId;
-        } filter;
+        }
+        filter;
 
         struct
         {
             std::string field = "default";
             bool desc = false;
-        } sort;
+        }
+        sort;
 
         struct Response
         {
-            struct Coin
-            {
-#define MACRO(name, type) type name = {};
-                BEAM_GET_UTXO_RESPONSE_FIELDS(MACRO)
-#undef MACRO
-            };
-            std::vector<Coin> coins;
+            std::vector<ApiCoin> coins;
             uint32_t confirmations_count = 0;
-
-            template<typename T>
-            void EmplaceCoin(const T& c)
-            {
-                auto& t = coins.emplace_back();
-                t.id = c.toStringID();
-                t.asset_id = c.getAssetID();
-                t.amount = c.getAmount();
-                t.type = c.getType();
-                t.maturity = c.get_Maturity(confirmations_count);
-                t.createTxId = GetCoinCreateTxID(c);
-                t.spentTxId = GetCoinSpentTxID(c);
-                t.status = GetCoinStatus(c);
-                t.status_string = c.getStatusString();
-            };
         };
     };
 
     struct TxList
     {
-        bool withAssets = false;
-
         struct
         {
             boost::optional<TxStatus>  status;
             boost::optional<Height>    height;
             boost::optional<Asset::ID> assetId;
-        } filter;
+        }
+        filter;
 
         uint32_t count = 0;
         uint32_t skip = 0;
@@ -339,7 +329,6 @@ namespace beam::wallet
 
     struct WalletStatusApi
     {
-        bool withAssets = false;
         struct Response
         {
             beam::Height currentHeight = 0;

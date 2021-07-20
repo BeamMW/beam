@@ -78,6 +78,7 @@ namespace beam::wallet
         Block::SystemState::ID stateID = {};
         TxoID shieldedTotalCount = std::numeric_limits<beam::TxoID>::max();
         mutable std::map<Asset::ID, AssetStatus> all;
+        std::set<Asset::ID> nzAssets;
     };
 
     class SwapOffersBoard;
@@ -143,7 +144,7 @@ namespace beam::wallet
         virtual void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) {}
         virtual void onSyncProgressUpdated(int done, int total) {}
         virtual void onChangeCalculated(beam::Amount changeAsset, beam::Amount changeBeam, beam::Asset::ID assetId) {}
-        virtual void onCoinsSelectionCalculated(const CoinsSelectionInfo&) {}
+        virtual void onCoinsSelected(const CoinsSelectionInfo&) {}
         virtual void onNormalCoinsChanged(ChangeAction, const std::vector<Coin>& utxos) {}
         virtual void onShieldedCoinChanged(ChangeAction, const std::vector<ShieldedCoin>& items) {}
         virtual void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) {}
@@ -182,7 +183,7 @@ namespace beam::wallet
 
     private:
 
-        void onAssetChanged(Asset::ID assetID) override;
+        void onAssetChanged(ChangeAction action, Asset::ID assetID) override;
         void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items) override;
         void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
         void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
@@ -196,7 +197,8 @@ namespace beam::wallet
         void startTransaction(TxParameters&& parameters) override;
         void syncWithNode() override;
         void calcChange(Amount amount, Amount fee, Asset::ID assetId) override;
-        void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded = false) override;
+        void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded = false) override;
+        void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded, AsyncCallback<const CoinsSelectionInfo&>&& callback) override;
         void getWalletStatus() override;
         void getTransactions() override;
         void getTransactions(AsyncCallback<const std::vector<TxDescription>&>&& callback) override;
@@ -299,7 +301,7 @@ namespace beam::wallet
         beam::io::Timer::Ptr m_balanceDelayed;
         void scheduleBalance();
 
-        std::shared_ptr<std::thread> m_thread;
+        std::shared_ptr<MyThread> m_thread;
         const Rules& m_rules;
         IWalletDB::Ptr m_walletDB;
         io::Reactor::Ptr m_reactor;
@@ -355,7 +357,6 @@ namespace beam::wallet
         beam::Height m_currentHeight = 0;
         bool m_isConnectionTrusted = false;
         bool m_isSynced = false;
-        CoinsSelectionInfo m_CoinsSelectionResult;
         std::unique_ptr<Filter> m_shieldedPer24hFilter;
         beam::wallet::WalletStatus m_status;
         std::vector<std::pair<beam::Height, beam::TxoID>> m_shieldedCountHistoryPart;

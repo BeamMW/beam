@@ -27,7 +27,7 @@
 #include <boost/filesystem.hpp>
 
 #include "wallet/api/cli/api_server.h"
-#include "wallet/api/v6_0/api_base.h"
+#include "wallet/api/base/api_base.h"
 
 #include "shaders_ethash.h"
 
@@ -107,7 +107,7 @@ namespace
     using wallet::JsonRpcId;
 
 #define BEAM_ETHASH_SERVICE_API_METHODS(macro) \
-    macro(GetProof,           "get_proof",                 API_READ_ACCESS)  
+    macro(GetProof, "get_proof", API_READ_ACCESS,  API_ASYNC,  APPS_ALLOWED)
     
     struct GetProof 
     {
@@ -123,41 +123,21 @@ namespace
     class ProverApi : public wallet::ApiBase
     {
     public:
-        ProverApi(wallet::IWalletApiHandler& handler, ACL acl, std::string appid, std::string appname, const std::string& dataPath)
-            : wallet::ApiBase(handler, std::move(acl), std::move(appid), std::move(appname))
+        ProverApi(wallet::IWalletApiHandler& handler, const wallet::ApiInitData& initData, const std::string& dataPath)
+            : wallet::ApiBase(handler, initData)
             , m_DataPath(dataPath)
         {
             if (!m_DataPath.empty() && m_DataPath.back() != '\\' && m_DataPath.back() != '/')
             {
                 m_DataPath.push_back('\\');
             }
-#define REG_FUNC(api, name, writeAccess)    \
-        _methods[name] = {                                                \
-            [this] (const JsonRpcId &id, const json &msg) {               \
-                auto parseRes = onParse##api(id, msg);                    \
-                onHandle##api(id, parseRes.first);                        \
-            },                                                            \
-            [this] (const JsonRpcId &id, const json &msg) -> MethodInfo { \
-                auto parseRes = onParse##api(id, msg);                    \
-                return parseRes.second;                                   \
-            },                                                            \
-            writeAccess, false, false                                     \
-        };
-        BEAM_ETHASH_SERVICE_API_METHODS(REG_FUNC)
-#undef REG_FUNC
+            BEAM_ETHASH_SERVICE_API_METHODS(BEAM_API_REG_METHOD)
         }
 
         BEAM_ETHASH_SERVICE_API_METHODS(BEAM_API_RESPONSE_FUNC)
         BEAM_ETHASH_SERVICE_API_METHODS(BEAM_API_HANDLE_FUNC)
         BEAM_ETHASH_SERVICE_API_METHODS(BEAM_API_PARSE_FUNC)
 
-        template<typename T>
-        void doResponse(const JsonRpcId& id, const T& response)
-        {
-            json msg;
-            getResponse(id, response, msg);
-            _handler.sendAPIResponse(msg);
-        }
     private:
         std::string m_DataPath;
     };
@@ -168,7 +148,9 @@ namespace
 
         std::unique_ptr<wallet::IWalletApi> createApiInstance(const std::string& version, wallet::IWalletApiHandler& handler) override
         {
-            return std::make_unique<ProverApi>(handler, _acl, "", "", m_DataPath);
+            wallet::ApiInitData init;
+            init.acl = _acl;
+            return std::make_unique<ProverApi>(handler, init, m_DataPath);
         }
 
         std::string m_DataPath;
@@ -225,7 +207,7 @@ namespace
         io::Address listenTo = io::Address().port(options.port);
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
-        ProverApiServer server(std::string("0.0.1"), *reactor, listenTo, options.useHttp, (options.useAcl ? loadACL(options.aclPath) : wallet::IWalletApi::ACL()), options.tlsOptions, {});
+        ProverApiServer server(std::string("0.0.1"), *reactor, listenTo, options.useHttp, (options.useAcl ? loadACL(options.aclPath) : wallet::ApiACL()), options.tlsOptions, {});
         server.m_DataPath = options.dataPath;
         reactor->run();
         return 0;

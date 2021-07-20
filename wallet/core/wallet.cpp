@@ -367,7 +367,7 @@ namespace beam::wallet
         return IsValidTimeStamp(state.m_TimeStamp);
     }
 
-    Height Wallet::get_CurrentHeight() const
+    Height Wallet::get_TipHeight() const
     {
         Block::SystemState::Full s;
         get_tip(s);

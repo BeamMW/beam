@@ -31,11 +31,11 @@ namespace beam
     using json = nlohmann::json;
     //wallet::IWalletApi::ACL loadACL(const std::string& path);
 
-    wallet::IWalletApi::ACL loadACL(const std::string& path)
+    wallet::ApiACL loadACL(const std::string& path)
     {
         std::ifstream file(path);
         std::string line;
-        wallet::IWalletApi::ACL::value_type keys;
+        wallet::ApiACL::value_type keys;
         int curLine = 1;
 
         while (std::getline(file, line))
@@ -75,7 +75,7 @@ namespace beam
             LOG_INFO() << "ACL file successfully loaded";
         }
 
-        return wallet::IWalletApi::ACL(keys);
+        return wallet::ApiACL(keys);
     }
 
     class IApiServer
@@ -112,7 +112,7 @@ namespace beam
             io::Reactor& reactor,
             io::Address listenTo,
             bool useHttp,
-            wallet::IWalletApi::ACL acl,
+            wallet::ApiACL acl,
             const TlsOptions& tlsOptions,
             const std::vector<uint32_t>& whitelist)
 
@@ -391,7 +391,7 @@ namespace beam
         std::unordered_map<uint64_t, IServerConnection::Ptr> _connections;
         std::vector<uint64_t> _pendingToClose;
     protected:
-        wallet::IWalletApi::ACL _acl;
+        wallet::ApiACL _acl;
     private:
         std::vector<uint32_t> _whitelist;
     };
