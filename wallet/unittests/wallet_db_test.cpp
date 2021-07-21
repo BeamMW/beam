@@ -735,7 +735,7 @@ void TestExportImportTx()
     tr.m_createTime = 45613;
     tr.m_minHeight = 185;
     tr.m_sender = false;
-    tr.m_status = TxStatus::Registering;
+    tr.m_status = TxStatus::Pending;
     tr.m_myId = wa.m_walletID;
     walletDB->saveTx(tr);
     storage::setTxParameter(
