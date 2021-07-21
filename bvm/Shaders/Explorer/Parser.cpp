@@ -19,7 +19,7 @@ void get_ShaderID(ShaderID& sid, void* pBuf, uint32_t nBuf)
 
 bool get_ShaderID(ShaderID& sid, const ContractID& cid)
 {
-	Env::VarReader r(sid, sid);
+	Env::VarReader r(cid, cid);
 
 	uint32_t nKey = 0, nVal = 0;
 	if (!r.MoveNext(nullptr, nKey, nullptr, nVal, 0))
