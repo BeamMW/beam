@@ -270,14 +270,13 @@ bool Server::send_contracts(const HttpConnection::Ptr& conn) {
 
 bool Server::send_contract_details(const HttpConnection::Ptr& conn) {
 
-    if (_currentUrl.has_arg("id"))
-    {
-        ByteBuffer id;
+    if (!_currentUrl.has_arg("id"))
+        return send(conn, 404, "not found");
 
-        if (!_currentUrl.get_hex_arg("hash", id) || !_backend.get_contract_details(_body, id)) {
-            return send(conn, 500, "Internal error #2");
-        }
-    }
+    ByteBuffer id;
+
+    if (!_currentUrl.get_hex_arg("id", id) || !_backend.get_contract_details(_body, id))
+        return send(conn, 500, "Internal error #2");
 
     return send(conn, 200, "OK");
 }
