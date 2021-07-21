@@ -120,7 +120,7 @@ BEAM_EXPORT void Method_2(const Upgradable::ScheduleUpgrade& r)
     Env::AddSig(s.m_Pk);
 }
 
-#define UPGR_REDIRECT(iMethod) export void Method_##iMethod(void* pArg) { InvokeNext(iMethod, pArg); }
+#define UPGR_REDIRECT(iMethod) BEAM_EXPORT void Method_##iMethod(void* pArg) { InvokeNext(iMethod, pArg); }
 
 UPGR_REDIRECT(3)
 UPGR_REDIRECT(4)

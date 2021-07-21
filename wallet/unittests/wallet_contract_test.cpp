@@ -36,6 +36,7 @@
 #include <mutex>
 #include <unordered_set>
 #include <filesystem>
+#include <boost/functional/hash.hpp>
 
 #ifdef _MSC_VER
 #define OS_WINDOWS 1
@@ -641,7 +642,7 @@ namespace
 		void clearBreakpoints();
 
 		// addBreakpoint() sets a new breakpoint on the given line.
-		void addBreakpoint(const std::string& filePath, int64_t line);
+		size_t addBreakpoint(const std::string& filePath, int64_t line);
 
 		std::string GetTypeName(const dwarf::die& d)
 		{
@@ -792,21 +793,38 @@ namespace
 		this->breakpoints.clear();
 	}
 
-	void Debugger::addBreakpoint(const std::string& filePath,  int64_t l)
+	size_t Debugger::addBreakpoint(const std::string& filePath,  int64_t l)
 	{
 		std::unique_lock<std::mutex> lock(mutex);
-		this->breakpoints[std::filesystem::canonical(filePath).string()].emplace(l);
+		std::string filePathC = std::filesystem::canonical(filePath).string();
+		this->breakpoints[filePathC].emplace(l);
+		size_t id = std::hash<std::string>{}(filePathC);
+		boost::hash_combine(id, l);
+		return id;
 	}
 
 }  // anonymous namespace
 
-void TestDebugger()
+void TestDebugger(int argc, char* argv[])
 {
+	if (argc < 3)
+		return;
+
+	std::string contractPath = argv[1];
+	std::string appPath = argv[2];
+
+	std::string args;
+	if (argc > 3)
+	{
+		args = argv[3];
+	}
 #ifdef OS_WINDOWS
 	// Change stdin & stdout from text mode to binary mode.
 	// This ensures sequences of \r\n are not changed to \n.
 	_setmode(_fileno(stdin), _O_BINARY);
 	_setmode(_fileno(stdout), _O_BINARY);
+
+	::MessageBoxA(NULL, "Waiting", "Waiting caption", MB_OK);
 #endif  // OS_WINDOWS
 
 	std::shared_ptr<dap::Writer> log;
@@ -859,9 +877,6 @@ void TestDebugger()
 		}
 		}
 	};
-
-	//std::string contractPath = "c:\\Data\\Projects\\Beam\\beam-ee5.2RC\\out\\build\\x64-Debug\\wallet\\unittests\\test_contract.wasm";
-	std::string contractPath = "c:\\Data\\Projects\\Beam\\beam-ee5.2RC\\out\\build\\x64-Debug\\wallet\\unittests\\shader.wasm";
 
 	// Construct the debugger.
 	Debugger debugger(onDebuggerEvent, contractPath);
@@ -1040,7 +1055,10 @@ void TestDebugger()
 			debugger.clearBreakpoints();
 			response.breakpoints.resize(breakpoints.size());
 			for (size_t i = 0; i < breakpoints.size(); i++) {
-				debugger.addBreakpoint(*request.source.path, breakpoints[i].line);
+				auto id = debugger.addBreakpoint(*request.source.path, breakpoints[i].line);
+				response.breakpoints[i].id = id;
+				response.breakpoints[i].line = breakpoints[i].line;
+				response.breakpoints[i].column = breakpoints[i].column;
 				response.breakpoints[i].verified = breakpoints[i].line < 100;// numSourceLines;
 			}
 		}
@@ -1079,7 +1097,11 @@ void TestDebugger()
 	// This example debugger does nothing with this request.
 	// https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Launch
 	session->registerHandler(
-		[&](const dap::LaunchRequest&) { return dap::LaunchResponse(); });
+		[&](const dap::LaunchRequest& req) 
+	{
+		req;
+		return dap::LaunchResponse(); 
+	});
 
 	// Handler for disconnect requests
 	session->registerHandler([&](const dap::DisconnectRequest& request) {
@@ -1121,7 +1143,7 @@ void TestDebugger()
 	session->send(threadStartedEvent);
 
 	auto walletDB = createWalletDB("c:\\Data\\Projects\\Beam\\beam-ee5.2RC\\wallet\\unittests\\wallet.db", true);
-	auto binaryTreasury = createTreasury(walletDB, {});
+	auto binaryTreasury = createTreasury(walletDB, {300'000'000'000UL, 300'000'000'000UL });
 
 
 	TestLocalNode nodeA{ binaryTreasury, walletDB->get_MasterKdf() };
@@ -1142,7 +1164,7 @@ void TestDebugger()
 
 
 
-	WALLET_CHECK(InvokeShader(w, walletDB, "c:\\Data\\Projects\\Beam\\beam-ee5.2RC\\out\\build\\x64-Debug\\wallet\\unittests\\test_app.wasm", contractPath, "role=manager,action=create"));
+	WALLET_CHECK(InvokeShader(w, walletDB, appPath, contractPath, args));
 
 	nodeA.GenerateBlocks(1, false);
 	nodeA.GenerateBlocks(1, false);
@@ -1163,7 +1185,7 @@ void TestDebugger()
 
 }
 
-int main()
+int main(int argc, char* argv[])
 {
 	const auto logLevel = LOG_LEVEL_DEBUG;
 	const auto logger = beam::Logger::create(logLevel, logLevel);
@@ -1177,9 +1199,9 @@ int main()
 	Rules::get().pForks[3].m_Height = 1;
 	Rules::get().UpdateChecksum();
 
-	//TestDebugger();
+	TestDebugger(argc, argv);
 
-	TestContract();
+	//TestContract();
 	//TestNode();
 
 
