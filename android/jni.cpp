@@ -271,12 +271,13 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
  }
 
  
- JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(generateOfflineAddress)(JNIEnv *env, jobject thiz, jlong amount, jstring walletId)
+ JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(generateOfflineAddress)(JNIEnv *env, jobject thiz, jlong amount, jstring walletId, jint assetId)
  {
     LOG_DEBUG() << "generateOfflineAddress()";
             
     uint64_t bAmount = amount;
     auto id = JString(env, walletId).value();
+    uint32_t asset = assetId;
 
     WalletID walletID(Zero);
     if (!walletID.FromHex(id))
@@ -304,20 +305,20 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     offlineParameters.SetParameter(TxParameterID::PeerWalletIdentity, address->m_Identity);
     offlineParameters.SetParameter(TxParameterID::PeerOwnID, address->m_OwnID);
     offlineParameters.SetParameter(TxParameterID::IsPermanentPeerID, true);
-    
+    offlineParameters.SetParameter(TxParameterID::AssetID, beam::Asset::ID(asset));
+
+
     if (bAmount > 0) {
         offlineParameters.SetParameter(TxParameterID::Amount, bAmount);
     }
     
     auto token = to_string(offlineParameters);
-
-    //auto offlineAddress =  GenerateOfflineToken(*address, bAmount, 0, lastVouchers, "");
    
     jstring tokenString = env->NewStringUTF(token.c_str());
     return tokenString;
  }
 
- JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(generateRegularAddress)(JNIEnv *env, jobject thiz, jboolean isPermanentAddress, jlong amount, jstring walletId)
+ JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(generateRegularAddress)(JNIEnv *env, jobject thiz, jboolean isPermanentAddress, jlong amount, jstring walletId, jint assetId)
  {
     LOG_DEBUG() << "generateRegularAddress()";
 
@@ -331,14 +332,14 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     }
 
     auto address = walletDB->getAddress(walletID);
-    auto regularAddress = GenerateRegularNewToken(*address, bAmount, 0, std::string(BEAM_LIB_VERSION));
+    auto regularAddress = GenerateRegularNewToken(*address, bAmount, assetId, std::string(BEAM_LIB_VERSION));
     
     jstring tokenString = env->NewStringUTF(regularAddress.c_str());
     return tokenString;
  }
 
   
- JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(generateMaxPrivacyAddress)(JNIEnv *env, jobject thiz, jlong amount, jstring walletId)
+ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(generateMaxPrivacyAddress)(JNIEnv *env, jobject thiz, jlong amount, jstring walletId, jint assetId)
  {
     LOG_DEBUG() << "generateMaxPrivacyAddress()";
 
@@ -356,7 +357,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
 
      if (!vouchers.empty())
       {
-          auto maxPrivacyAddress = GenerateMaxPrivacyToken(*address, bAmount, 0, vouchers[0], std::string(BEAM_LIB_VERSION));
+          auto maxPrivacyAddress = GenerateMaxPrivacyToken(*address, bAmount, assetId, vouchers[0], std::string(BEAM_LIB_VERSION));
           jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onMaxPrivacyAddress", "(Ljava/lang/String;)V");
           jstring jdata = env->NewStringUTF(maxPrivacyAddress.c_str());
           env->CallStaticVoidMethod(WalletListenerClass, callback, jdata);

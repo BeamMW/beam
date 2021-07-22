@@ -687,15 +687,17 @@ private:
 
         std::vector<std::pair<KeyEntry::SidCid, Height> > vIDs;
 
-        NodeDB::WalkerContractData wlk;
-        for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
         {
-            if ((sizeof(KeyEntry) != wlk.m_Key.n) || (sizeof(Height) != wlk.m_Val.n))
-                continue;
+            NodeDB::WalkerContractData wlk;
+            for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
+            {
+                if ((sizeof(KeyEntry) != wlk.m_Key.n) || (sizeof(Height) != wlk.m_Val.n))
+                    continue;
 
-            auto& x = vIDs.emplace_back();
-            x.first = reinterpret_cast<const KeyEntry*>(wlk.m_Key.p)->m_SidCid;
-            (reinterpret_cast<const uintBigFor<Height>::Type*>(wlk.m_Val.p))->Export(x.second);
+                auto& x = vIDs.emplace_back();
+                x.first = reinterpret_cast<const KeyEntry*>(wlk.m_Key.p)->m_SidCid;
+                (reinterpret_cast<const uintBigFor<Height>::Type*>(wlk.m_Val.p))->Export(x.second);
+            }
         }
 
         out = json::array();
@@ -827,6 +829,26 @@ private:
         };
 
         return true;
+    }
+
+    bool get_contracts(io::SerializedMsg& out) override
+    {
+        json j;
+        get_ContractList(j);
+
+        return json2Msg(j, out);
+    }
+    
+    bool get_contract_details(io::SerializedMsg& out, const ByteBuffer& id) override
+    {
+        if (id.size() != bvm2::ContractID::nBytes)
+            return false;
+
+        json j;
+        if (!get_ContractState(j, reinterpret_cast<const bvm2::ContractID&>(id.front())))
+            return false;
+
+        return json2Msg(j, out);
     }
 
     bool extract_block_from_row(json& out, uint64_t row, Height height) {

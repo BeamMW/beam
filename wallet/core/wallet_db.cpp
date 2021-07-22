@@ -6258,18 +6258,8 @@ namespace beam::wallet
                 json txParams = json::array();
                 map<TxID, map<SubTxID, map<TxParameterID, ByteBuffer>>> exportedParams;
                 set<TxID> txIDs;
-                set<TxID> skippedTxIDs;
                 for (const auto& p : db.getAllTxParameters())
                 {
-                    if ((TxParameterID)p.m_paramID == TxParameterID::Status)
-                    {
-                        TxStatus value;
-                        if (fromByteBuffer(p.m_value, value) &&
-                            (value == TxStatus::Pending || value == TxStatus::InProgress))
-                        {
-                            skippedTxIDs.insert(p.m_txID);
-                        }
-                    }
                     exportedParams[p.m_txID][(SubTxID)p.m_subTxID].emplace((TxParameterID)p.m_paramID, p.m_value);
                     txIDs.insert(p.m_txID);
                 }
@@ -6278,11 +6268,6 @@ namespace beam::wallet
                         TxParameterID::TransactionType,
                         TxParameterID::CreateTime
                 };
-
-                for (const auto& skipedTxID: skippedTxIDs)
-                {
-                    txIDs.erase(skipedTxID);
-                }
 
                 for (const auto& tx : txIDs)
                 {

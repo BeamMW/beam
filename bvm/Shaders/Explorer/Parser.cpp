@@ -19,7 +19,7 @@ void get_ShaderID(ShaderID& sid, void* pBuf, uint32_t nBuf)
 
 bool get_ShaderID(ShaderID& sid, const ContractID& cid)
 {
-	Env::VarReader r(sid, sid);
+	Env::VarReader r(cid, cid);
 
 	uint32_t nKey = 0, nVal = 0;
 	if (!r.MoveNext(nullptr, nKey, nullptr, nVal, 0))
@@ -38,9 +38,15 @@ bool get_ShaderID(ShaderID& sid, const ContractID& cid)
 
 
 #define HandleContractsAll(macro) \
-	macro(Upgradable) \
-	macro(Vault) \
-	macro(Faucet)
+	macro(Upgradable, Upgradable::s_SID) \
+	macro(Vault, Vault::s_SID) \
+	macro(Faucet, Faucet::s_SID) \
+	macro(demoXdao_0, DemoXdao::s_SID_0) \
+	macro(demoXdao_1, DemoXdao::s_SID_1) \
+	macro(demoXdao_2, DemoXdao::s_SID_2) \
+	macro(demoXdao_3, DemoXdao::s_SID_3) \
+	macro(demoXdao_4, DemoXdao::s_SID_4) \
+	macro(demoXdao_5, DemoXdao::s_SID)
 
 
 struct ParserContext
@@ -61,7 +67,9 @@ struct ParserContext
 	{
 	}
 
-#define THE_MACRO(name) void On_##name();
+	void OnName(const char* sz);
+
+#define THE_MACRO(name, sid) void On_##name();
 	HandleContractsAll(THE_MACRO)
 #undef THE_MACRO
 
@@ -72,15 +80,20 @@ struct ParserContext
 	void WriteUpgradeParams(const Upgradable::Next&);
 };
 
+void ParserContext::OnName(const char* sz)
+{
+	if (m_Name)
+		Env::DocAddText("", sz);
+	if (m_Method)
+		Env::DocAddText("", "/");
+}
+
 bool ParserContext::Parse()
 {
-#define THE_MACRO(name) \
-	if (_POD_(m_Sid) == name::s_SID) \
+#define THE_MACRO(name, sid) \
+	if (_POD_(m_Sid) == sid) \
 	{ \
-		if (m_Name) \
-			Env::DocAddText("", #name); \
-		if (m_Method) \
-			Env::DocAddText("", "/"); \
+		OnName(#name); \
 		On_##name(); \
 		return true; \
 	}
@@ -169,8 +182,12 @@ void ParserContext::On_Upgradable()
 	if (bIsUpgrade)
 		pc2.m_Method = false;
 
-	if (!pc2.Parse())
-		pc2.WriteUnk();
+	if (m_Name)
+	{
+		Env::DocAddText("", "/");
+		if (!pc2.Parse())
+			pc2.WriteUnk();
+	}
 
 	if (bIsUpgrade)
 	{
@@ -179,7 +196,7 @@ void ParserContext::On_Upgradable()
 
 		const auto& arg = *(const Upgradable::ScheduleUpgrade*) m_pArg;
 
-		Env::DocAddText("", "Schedule upgrade, ");
+		Env::DocAddText("", "Schedule upgrade");
 		WriteUpgradeParams(arg);
 	}
 
@@ -187,17 +204,27 @@ void ParserContext::On_Upgradable()
 	{
 		Env::DocAddText("", "Upgrade Owner=");
 		Env::DocAddBlob_T("", us.m_Pk);
-		Env::DocAddText("", ", ");
 		WriteUpgradeParams(us);
 	}
 }
 
 void ParserContext::WriteUpgradeParams(const Upgradable::Next& us)
 {
-	Env::DocAddText("", "cidNext=");
-	Env::DocAddBlob_T("", us.m_cidNext);
-	Env::DocAddText("", ", hNext=");
-	Env::DocAddNum("", us.m_hNextActivate);
+	if (!_POD_(us.m_cidNext).IsZero())
+	{
+		ShaderID sid;
+		if (!get_ShaderID(sid, us.m_cidNext))
+			return;
+
+		Env::DocAddText("", ", Next upgrade ");
+
+		ParserContext pc2(sid, us.m_cidNext);
+		if (!pc2.Parse())
+			pc2.WriteUnk();
+
+		Env::DocAddText("", ", hNext=");
+		Env::DocAddNum("", us.m_hNextActivate);
+	}
 }
 
 void ParserContext::On_Vault()
@@ -254,6 +281,51 @@ void ParserContext::On_Faucet()
 	if (m_State)
 	{
 		// TODO: write all accounts
+	}
+}
+
+void ParserContext::On_demoXdao_0()
+{
+	On_demoXdao_1();
+}
+
+void ParserContext::On_demoXdao_1()
+{
+	On_demoXdao_2();
+}
+
+void ParserContext::On_demoXdao_2()
+{
+	On_demoXdao_3();
+}
+
+void ParserContext::On_demoXdao_3()
+{
+	On_demoXdao_4();
+}
+
+void ParserContext::On_demoXdao_4()
+{
+	On_demoXdao_5();
+}
+
+void ParserContext::On_demoXdao_5()
+{
+	if (m_Method && !WriteStdMethod())
+	{
+		switch (m_iMethod)
+		{
+		case DemoXdao::GetPreallocated::s_iMethod: Env::DocAddText("", "GetPreallocated"); break;
+		case DemoXdao::UpdPosFarming::s_iMethod: Env::DocAddText("", "Farming Upd"); break;
+		}
+	}
+
+	if (Env::get_Height() == 117)
+		On_demoXdao_5();
+
+	if (m_State)
+	{
+		// TODO:
 	}
 }
 

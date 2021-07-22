@@ -6751,6 +6751,9 @@ void NodeProcessor::RebuildNonStd()
 			m_pBic = &bic;
 			BlockInterpretCtx::ChangesFlush cf(m_This);
 
+			std::vector<ContractInvokeExtraInfo> vC;
+			m_pBic->m_pvC = &vC;
+
 			bic.m_AlreadyValidated = true;
 			bic.EnsureAssetsUsed(m_This.get_DB());
 			bic.SetAssetHi(m_This);
@@ -6762,6 +6765,18 @@ void NodeProcessor::RebuildNonStd()
 			m_Rollback.clear();
 
 			cf.Do(m_This, m_Height);
+
+			if (!vC.empty())
+			{
+				Serializer ser;
+				ser.swap_buf(m_Rollback);
+				ser & vC;
+				ser.swap_buf(m_Rollback);
+
+				m_This.m_DB.KrnInfoInsert(m_Height, m_Rollback);
+
+				m_Rollback.clear();
+			}
 
 			return true;
 		}
