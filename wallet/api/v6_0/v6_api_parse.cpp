@@ -483,7 +483,7 @@ namespace beam::wallet
 
         send.value = getMandatoryParam<PositiveAmount>(params, "value");
         send.assetId = readOptionalAssetID(*this, params);
-        info.spend[send.assetId ? *send.assetId : beam::Asset::s_BeamID] = send.value;
+        info.appendSpend(send.assetId ? *send.assetId : beam::Asset::s_BeamID, send.value);
 
         if (hasParam(params, "coins"))
         {
@@ -509,7 +509,10 @@ namespace beam::wallet
             info.comment = *comment;
         }
 
-        send.txId = getOptionalParam<ValidTxID>(params, "txId");
+        info.confirm_title = getOptionalParam<NonEmptyString>(params, "confirm_title");
+        info.confirm_comment = getOptionalParam<std::string>(params, "confirm_comment");
+        send.txId  = getOptionalParam<ValidTxID>(params, "txId");
+
         return std::make_pair(send, info);
     }
 
@@ -562,8 +565,8 @@ namespace beam::wallet
         split.txId = getOptionalParam<ValidTxID>(params, "txId");
 
         auto assetId = split.assetId ? *split.assetId : beam::Asset::s_BeamID;
-        info.spend[assetId] = splitAmount;
-        info.receive[assetId] = splitAmount;
+        info.appendSpend(assetId, splitAmount);
+        info.appendSpend(assetId, splitAmount);
         info.fee = split.fee;
 
         return std::make_pair(split, info);
@@ -613,11 +616,11 @@ namespace beam::wallet
 
         if (issue)
         {
-            info.receive[data.assetId] = data.value;
+            info.appendReceive(data.assetId, data.value);
         }
         else
         {
-            info.spend[data.assetId] = data.value;
+            info.appendSpend(data.assetId, data.value);
         }
 
         return std::make_pair(data, info);
@@ -828,6 +831,8 @@ namespace beam::wallet
         info.spendOffline = false;
         info.comment = beam::bvm2::getFullComment(realData);
         info.fee = beam::bvm2::getFullFee(realData, getWallet()->get_TipHeight());
+        info.confirm_title = getOptionalParam<NonEmptyString>(params, "confirm_title");
+        info.confirm_comment = getOptionalParam<std::string>(params, "confirm_comment");
 
         const auto fullSpend = beam::bvm2::getFullSpend(realData);
         for (const auto& spend: fullSpend)

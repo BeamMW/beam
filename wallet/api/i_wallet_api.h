@@ -84,9 +84,13 @@ namespace beam::wallet
             Funds spend;
             Funds receive;
             beam::Amount fee = 0UL;
-            std::string comment;
-            std::string token;
-            bool spendOffline = true;
+            bool spendOffline = false;
+
+            boost::optional<std::string> title;
+            boost::optional<std::string> comment;
+            boost::optional<std::string> confirm_comment;
+            boost::optional<std::string> confirm_title;
+            boost::optional<std::string> token;
 
             inline void appendReceive(beam::Asset::ID id, const beam::AmountBig::Type& val)
             {
