@@ -169,7 +169,7 @@ namespace beam::wallet
     {
         Amount value = 0;
         Amount fee = 0;
-        Asset::ID assetId;
+        Asset::ID assetId = 0;
         boost::optional<CoinIDList> coins;
         boost::optional<TxID> txId;
 
@@ -183,7 +183,7 @@ namespace beam::wallet
     {
         Amount value = 0;
         Amount fee = 0;
-        Asset::ID assetId;
+        Asset::ID assetId = 0;
         boost::optional<CoinIDList> coins;
         boost::optional<TxID> txId;
 
