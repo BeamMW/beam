@@ -372,13 +372,19 @@ namespace bvm2 {
 	}
 	void Processor::Compile(ByteBuffer& res, const Blob& src, Kind kind)
 	{
+		Wasm::Compiler c;
+		Processor::Compile(c, res, src, kind);
+	}
+
+	void Processor::Compile(Wasm::Compiler& c, ByteBuffer& res, const Blob& src, Kind kind)
+	{
 		Wasm::CheckpointTxt cp("Wasm/compile");
 
 		Wasm::Reader inp;
 		inp.m_p0 = reinterpret_cast<const uint8_t*>(src.p);
 		inp.m_p1 = inp.m_p0 + src.n;
 
-		Wasm::Compiler c;
+		//Wasm::Compiler c;
 		c.Parse(inp);
 
 		ResolveBindings(c, kind);
@@ -443,7 +449,6 @@ namespace bvm2 {
 
 		res = std::move(c.m_Result);
 	}
-
 
 	/////////////////////////////////////////////
 	// Redirection of calls

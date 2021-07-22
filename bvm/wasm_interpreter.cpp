@@ -1289,6 +1289,11 @@ namespace Wasm {
 		auto& func = m_This.m_Functions[m_iFunc];
 		m_Code = func.m_Expression;
 
+		if (m_iFunc == 0)
+		{
+			m_This.m_CodeStart = m_Code.m_p0;
+		}
+
 		const auto& tp = m_This.m_Types[func.m_TypeIdx];
 		BlockOpen(tp);
 
@@ -1307,6 +1312,10 @@ namespace Wasm {
 		for ( ; !m_Blocks.empty(); cp.m_Line++)
 		{
 			m_p0 = m_Code.m_p0;
+
+			size_t originalIp = m_Code.m_p0 - m_This.m_CodeStart;
+			size_t newIp = m_This.m_Result.size();
+			m_This.m_IpMap.emplace(newIp, originalIp);
 
 			I nInstruction = (I) m_Code.Read1();
 
@@ -1640,15 +1649,15 @@ namespace Wasm {
 			} cp;
 			cp.m_Ip = get_Ip();
 
+			if (m_Dbg.m_Hook)
+				m_Dbg.m_Hook(*this);
+
 			typedef Instruction I;
 			I nInstruction = (I) m_Instruction.Read1();
 
 			if (m_Dbg.m_Instructions)
 				*m_Dbg.m_pOut << "ip=" << uintBigFrom(cp.m_Ip) << ", sp=" << uintBigFrom(m_Stack.m_Pos) << ' ';
 
-			if (m_Dbg.m_Hook)
-				m_Dbg.m_Hook(*this);
-			
 			switch (nInstruction)
 			{
 #define THE_CASE(name) case I::name: if (m_Dbg.m_Instructions) (*m_Dbg.m_pOut) << #name << std::endl;
@@ -1703,6 +1712,11 @@ namespace Wasm {
 	Word Processor::get_Ip() const
 	{
 		return static_cast<Word>(m_Instruction.m_p0 - (const uint8_t*)m_Code.p);
+	}
+
+	Word Processor::get_MyIp() const
+	{
+		return static_cast<Word>(m_Instruction.m_p0 - (const uint8_t*)m_Data.p);
 	}
 
 	uint8_t* Processor::get_AddrExVar(uint32_t nOffset, uint32_t& nSizeOut, bool bW) const

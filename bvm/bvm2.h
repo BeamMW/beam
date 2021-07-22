@@ -309,6 +309,7 @@ namespace bvm2 {
 		virtual Kind get_Kind() = 0;
 
 		static void Compile(ByteBuffer&, const Blob&, Kind);
+		static void Compile(Wasm::Compiler& compiler, ByteBuffer&, const Blob&, Kind);
 
 	private:
 		static void ResolveBinding(Wasm::Compiler& c, uint32_t iFunction, Kind);

@@ -210,11 +210,12 @@ namespace
 		{
 			// load symbols
 			m_Buffer = MyManager::Load(contractPath.c_str());
-			Wasm::Reader inp;
+			/*Wasm::Reader inp;
 			inp.m_p0 = &*m_Buffer.begin();
-			inp.m_p1 = inp.m_p0 + m_Buffer.size();
-
-			m_Compiler.Parse(inp);
+			inp.m_p1 = inp.m_p0 + m_Buffer.size();*/
+			ByteBuffer res;
+			bvm2::Processor::Compile(m_Compiler, res, m_Buffer, bvm2::Processor::Kind::Contract);
+			//m_Compiler.Parse(inp);
 			m_DebugInfo = std::make_unique<dwarf::dwarf>(std::make_shared<WasmLoader>(m_Compiler));
 		}
 
@@ -601,6 +602,7 @@ namespace
 			Continue,
 			Pause,
 			StepIn,
+			Next,
 			StepOver
 		};
 
@@ -637,6 +639,8 @@ namespace
 
 		// stepForward() instructs the debugger to step forward one line.
 		void stepForward();
+
+		void stepIn();
 
 		// clearBreakpoints() clears all set breakpoints.
 		void clearBreakpoints();
@@ -688,14 +692,24 @@ namespace
 		void DoDebug(const Wasm::Processor& proc)
 		{
 			std::vector<dwarf::die> stack;
-
-			if (PrintPC(proc.get_Ip(), stack))
+			auto ip = proc.get_Ip();
+			auto it = m_Compiler.m_IpMap.find(ip);
+			if (it == m_Compiler.m_IpMap.end())
 			{
+				return;
+			}
+			auto myIp = it->second;
+			if (PrintPC(myIp, stack))
+			{
+				bool isStatement = (*m_CurrentLine)->is_stmt;
+				bool prologEnd = (*m_CurrentLine)->prologue_end;
+				prologEnd;
 				auto l = (*m_CurrentLine)->line;
 				{
 					std::unique_lock<std::mutex> lock(mutex);
 					m_BvmIsReady = true;
 					m_DapEvent.wait(lock, [this] {return m_BvmAction != BvmAction::NoAction; });
+					auto prevLine = this->line;
 					this->line = l;
 					m_Column = (*m_CurrentLine)->column;
 					m_FilePath = std::filesystem::canonical((*m_CurrentLine)->file->path).string();
@@ -707,7 +721,7 @@ namespace
 
 					if (m_BvmAction == BvmAction::Continue)
 					{
-						if (breakpoints[m_FilePath].count(l))
+						if (isStatement && breakpoints[m_FilePath].count(l))
 						{
 							m_BvmAction = BvmAction::NoAction;
 							onEvent(Event::BreakpointHit);
@@ -719,6 +733,15 @@ namespace
 						m_BvmAction = BvmAction::NoAction;
 						onEvent(Event::Paused);
 						m_DapEvent.wait(lock, [this] {return m_BvmAction != BvmAction::NoAction; });
+					}
+					else if (m_BvmAction == BvmAction::Next)
+					{
+						if (isStatement && (prevLine != this->line))
+						{
+							m_BvmAction = BvmAction::NoAction;
+							onEvent(Event::Stepped);
+							return;
+						}
 					}
 					else if (m_BvmAction == BvmAction::StepIn)
 					{
@@ -781,6 +804,13 @@ namespace
 	}
 
 	void Debugger::stepForward()
+	{
+		std::unique_lock<std::mutex> lock(mutex);
+		m_BvmAction = BvmAction::Next;
+		m_DapEvent.notify_one();
+	}
+
+	void Debugger::stepIn()
 	{
 		std::unique_lock<std::mutex> lock(mutex);
 		m_BvmAction = BvmAction::StepIn;
@@ -934,7 +964,7 @@ void TestDebugger(int argc, char* argv[])
 		}
 
 		dap::Source source;
-		source.sourceReference = sourceReferenceId;
+		//source.sourceReference = sourceReferenceId;
 		source.name = "BeamDebuggerSource";
 		const auto& p = debugger.filePath();
 		source.path = p.empty() ? "c:\\Data\\Projects\\Beam\\beam-ee5.2RC\\wallet\\unittests\\shaders\\test_contract.cpp" : p;
@@ -1030,7 +1060,7 @@ void TestDebugger(int argc, char* argv[])
 	// https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StepIn
 	session->registerHandler([&](const dap::StepInRequest&) {
 		// Step-in treated as step-over as there's only one stack frame.
-		debugger.stepForward();
+		debugger.stepIn();
 		return dap::StepInResponse();
 	});
 
@@ -1135,7 +1165,7 @@ void TestDebugger(int argc, char* argv[])
 
 	// Wait for the ConfigurationDone request to be made.
 	configured.wait();
-	MessageBox(NULL, "Test", "TEst", MB_OK);
+	//MessageBox(NULL, "Test", "TEst", MB_OK);
 		// Broadcast the existance of the single thread to the client.
 	dap::ThreadEvent threadStartedEvent;
 	threadStartedEvent.reason = "started";

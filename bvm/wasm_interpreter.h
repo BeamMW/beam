@@ -250,6 +250,9 @@ namespace Wasm {
 		// Time to set the external bindings, create a header, etc.
 
 		void Build();
+
+		const uint8_t* m_CodeStart = nullptr;
+		std::map<size_t, size_t> m_IpMap;
 	};
 
 	struct MemoryType {
@@ -365,6 +368,7 @@ namespace Wasm {
 		}
 
 		Word get_Ip() const;
+		Word get_MyIp() const;
 		void Jmp(uint32_t ip);
 
 		Word ReadTable(Word iItem) const;
