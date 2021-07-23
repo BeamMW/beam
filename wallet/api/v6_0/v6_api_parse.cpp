@@ -601,7 +601,6 @@ namespace beam::wallet
     {
         static_assert(std::is_same<Issue, T>::value || std::is_same<Consume, T>::value);
 
-        T data = {0, 0, 0, {}, {}};
         T data{};
         data.value = getMandatoryParam<PositiveUint64>(params, "value");
         data.assetId = readMandatoryNonBeamAssetID(*this, params);
