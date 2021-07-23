@@ -599,7 +599,9 @@ namespace beam::wallet
     template<typename T>
     std::pair<T, IWalletApi::MethodInfo> V6Api::onParseIssueConsume(bool issue, const JsonRpcId& id, const json& params)
     {
-        T data = {};
+        static_assert(std::is_same<Issue, T>::value || std::is_same<Consume, T>::value);
+
+        T data = {0, 0, 0, {}, {}};
         data.value = getMandatoryParam<PositiveUint64>(params, "value");
         data.assetId = readMandatoryNonBeamAssetID(*this, params);
 
