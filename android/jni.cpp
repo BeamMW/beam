@@ -213,6 +213,13 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
                 setBooleanField(env, TransactionParametersClass, jParameters, "isPublicOffline", false);
             }
 
+            if (auto assetId = params->GetParameter<uint32_t>(TxParameterID::AssetID); assetId) {
+                setIntField(env, TransactionParametersClass, jParameters, "assetId", static_cast<int>(*assetId));
+            }
+            else {
+                setIntField(env, TransactionParametersClass, jParameters, "assetId", 0);
+            }
+
             if(libVersion) 
             {
                 std::string myLibVersionStr = PROJECT_VERSION;
