@@ -80,7 +80,7 @@ namespace Wasm {
 	/////////////////////////////////////////////
 	// Reader
 
-	void Reader::Ensure(uint32_t n)
+	void Reader::Ensure(uint32_t n) const
 	{
 		Test(static_cast<size_t>(m_p1 - m_p0) >= n);
 	}
@@ -324,7 +324,7 @@ namespace Wasm {
 	macro(0x03, loop) \
 	macro(0x0B, end_block) \
 
-	enum Instruction
+	enum Instruction : uint8_t
 	{
 #define THE_MACRO(id, name) name = id,
 		WasmInstructions_CustomPorted(THE_MACRO) \
@@ -1712,6 +1712,20 @@ namespace Wasm {
 	Word Processor::get_Ip() const
 	{
 		return static_cast<Word>(m_Instruction.m_p0 - (const uint8_t*)m_Code.p);
+	}
+
+	bool Processor::IsBeforeCall() const
+	{
+		auto i = *reinterpret_cast<const Instruction*>(m_Instruction.m_p0);
+		return i == Instruction::call
+			//|| i == Instruction::call_ext
+			|| i == Instruction::call_indirect;
+	}
+
+	bool Processor::IsBeforeRet() const
+	{
+		auto i = *reinterpret_cast<const Instruction*>(m_Instruction.m_p0);
+		return i == Instruction::ret;
 	}
 
 	Word Processor::get_MyIp() const

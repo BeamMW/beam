@@ -110,7 +110,7 @@ namespace Wasm {
 
 		Reader(Mode eMode = Mode::AutoWorkAround) :m_Mode(eMode) {}
 
-		void Ensure(uint32_t n);
+		void Ensure(uint32_t n) const;
 		const uint8_t* Consume(uint32_t n);
 
 		uint8_t Read1() { return *Consume(1); }
@@ -368,6 +368,8 @@ namespace Wasm {
 		}
 
 		Word get_Ip() const;
+		bool IsBeforeCall() const;
+		bool IsBeforeRet() const;
 		Word get_MyIp() const;
 		void Jmp(uint32_t ip);
 

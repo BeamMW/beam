@@ -37,6 +37,7 @@
 #include <unordered_set>
 #include <filesystem>
 #include <boost/functional/hash.hpp>
+#include <stack>
 
 #ifdef _MSC_VER
 #define OS_WINDOWS 1
@@ -591,9 +592,10 @@ namespace
 
 		struct Call
 		{
-			std::string functionName;
-			std::string filePath;
-			int64_t line;
+			std::string m_Name;
+			int64_t m_Line = 1;
+			int64_t m_Column = 1;
+			std::string m_FilePath;
 		};
 
 		enum class BvmAction
@@ -602,8 +604,10 @@ namespace
 			Continue,
 			Pause,
 			StepIn,
-			Next,
-			StepOver
+			StepOut,
+			SteppingOut,
+			StepOver,
+			SteppingOver
 		};
 
 		using EventHandler = std::function<void(Event)>;
@@ -622,7 +626,14 @@ namespace
 		int64_t currentColumn()
 		{
 			std::unique_lock<std::mutex> lock(mutex);
-			return m_Column;
+			assert(m_CallStack.empty());
+			return m_CallStack.back().m_Column;
+		}
+
+		std::vector<Debugger::Call> getCallStack() const
+		{
+			std::unique_lock<std::mutex> lock(mutex);
+			return m_CallStack;
 		}
 
 		std::vector<Variable> getVariables()
@@ -634,13 +645,21 @@ namespace
 		const std::string& filePath() const
 		{
 			std::unique_lock<std::mutex> lock(mutex);
-			return m_FilePath;
+			assert(m_CallStack.empty());
+			return m_CallStack.back().m_FilePath;
 		}
 
 		// stepForward() instructs the debugger to step forward one line.
 		void stepForward();
 
 		void stepIn();
+
+		void stepOut()
+		{
+			std::unique_lock<std::mutex> lock(mutex);
+			m_BvmAction = BvmAction::StepOut;
+			m_DapEvent.notify_one();
+		}
 
 		// clearBreakpoints() clears all set breakpoints.
 		void clearBreakpoints();
@@ -699,57 +718,106 @@ namespace
 				return;
 			}
 			auto myIp = it->second;
+			
+			std::unique_lock<std::mutex> lock(mutex);
+			
+			size_t prevStackHeight = m_CallStack.size();
+			if (proc.IsBeforeCall())
+			{
+				m_CallStack.emplace_back();
+			}
+			else if (proc.IsBeforeRet())
+			{
+				assert(!m_CallStack.empty());
+				m_CallStack.pop_back();
+			}
+
 			if (PrintPC(myIp, stack))
 			{
 				bool isStatement = (*m_CurrentLine)->is_stmt;
-				bool prologEnd = (*m_CurrentLine)->prologue_end;
-				prologEnd;
-				auto l = (*m_CurrentLine)->line;
-				{
-					std::unique_lock<std::mutex> lock(mutex);
-					m_BvmIsReady = true;
-					m_DapEvent.wait(lock, [this] {return m_BvmAction != BvmAction::NoAction; });
-					auto prevLine = this->line;
-					this->line = l;
-					m_Column = (*m_CurrentLine)->column;
-					m_FilePath = std::filesystem::canonical((*m_CurrentLine)->file->path).string();
-					m_Variables.clear();
-					for (auto& d : stack)
-					{
-						DumpVariables(d);
-					}
+				if (!isStatement)
+					return;
+				m_BvmIsReady = true;
 
-					if (m_BvmAction == BvmAction::Continue)
-					{
-						if (isStatement && breakpoints[m_FilePath].count(l))
-						{
-							m_BvmAction = BvmAction::NoAction;
-							onEvent(Event::BreakpointHit);
-							return;
-						}
-					}
-					else if (m_BvmAction == BvmAction::Pause)
+				assert(!m_CallStack.empty());
+				auto& call = m_CallStack.back();
+				auto prevLine = call.m_Line;
+
+				call.m_Name = (*m_CurrentLine)->get_description();
+				if (!stack.empty())
+				{
+					auto& d = stack.back();
+					auto name = at_name(d);
+					call.m_Name = name + " " + call.m_Name;
+				}
+
+				call.m_FilePath = std::filesystem::canonical((*m_CurrentLine)->file->path).string();
+				call.m_Line = (*m_CurrentLine)->line;
+				call.m_Column = (*m_CurrentLine)->column;
+
+				m_Variables.clear();
+				for (auto& d : stack)
+				{
+					DumpVariables(d);
+				}
+
+				m_DapEvent.wait(lock, [this] {return m_BvmAction != BvmAction::NoAction; });
+				call.m_Line = (*m_CurrentLine)->line;
+				call.m_Column = (*m_CurrentLine)->column;
+				if (m_BvmAction == BvmAction::Continue)
+				{
+					if (isStatement && breakpoints[call.m_FilePath].count(call.m_Line))
 					{
 						m_BvmAction = BvmAction::NoAction;
-						onEvent(Event::Paused);
-						m_DapEvent.wait(lock, [this] {return m_BvmAction != BvmAction::NoAction; });
+						onEvent(Event::BreakpointHit);
+						return;
 					}
-					else if (m_BvmAction == BvmAction::Next)
-					{
-						if (isStatement && (prevLine != this->line))
-						{
-							m_BvmAction = BvmAction::NoAction;
-							onEvent(Event::Stepped);
-							return;
-						}
-					}
-					else if (m_BvmAction == BvmAction::StepIn)
+				}
+				else if (m_BvmAction == BvmAction::Pause)
+				{
+					m_BvmAction = BvmAction::NoAction;
+					onEvent(Event::Paused);
+					m_DapEvent.wait(lock, [this] {return m_BvmAction != BvmAction::NoAction; });
+				}
+				else if (m_BvmAction == BvmAction::StepOver)
+				{
+					m_StackHeight = prevStackHeight;
+					m_BvmAction = BvmAction::SteppingOver;
+					
+				}
+				else if (m_BvmAction == BvmAction::SteppingOver)
+				{
+					if (isStatement && ((prevLine != call.m_Line && m_StackHeight == m_CallStack.size()) || m_StackHeight > m_CallStack.size()))
 					{
 						m_BvmAction = BvmAction::NoAction;
 						onEvent(Event::Stepped);
 						return;
 					}
 				}
+				else if (m_BvmAction == BvmAction::StepIn)
+				{
+					m_BvmAction = BvmAction::NoAction;
+					onEvent(Event::Stepped);
+					return;
+				}
+				else if (m_BvmAction == BvmAction::StepOut)
+				{
+					if (prevStackHeight > 1)
+					{
+						m_StackHeight = prevStackHeight - 1;
+						m_BvmAction = BvmAction::SteppingOut;
+					}
+				}
+				else if (m_BvmAction == BvmAction::SteppingOut)
+				{
+					if (m_StackHeight == m_CallStack.size())
+					{
+						m_BvmAction = BvmAction::NoAction;
+						onEvent(Event::Stepped);
+						return;
+					}
+				}
+
 			}
 		}
 
@@ -759,12 +827,14 @@ namespace
 		}
 
 
+
 	private:
 		EventHandler onEvent;
 		mutable  std::mutex mutex;
-		int64_t line = 1;
+		/*int64_t line = 1;
 		int64_t m_Column = 1;
-		std::string m_FilePath;
+		std::string m_FilePath;*/
+
 
 		BvmAction m_BvmAction = BvmAction::Pause;
 		bool m_BvmIsReady = false;
@@ -773,7 +843,8 @@ namespace
 		std::condition_variable m_DapEvent;
 
 		std::vector<Variable> m_Variables;
-		std::stack<Call> m_CallStack;
+		std::vector<Call> m_CallStack;
+		size_t m_StackHeight = 0;
 
 		std::unordered_map<std::string,  std::unordered_set<int64_t>> breakpoints;
 	};
@@ -781,7 +852,13 @@ namespace
 	Debugger::Debugger(const EventHandler& onEvent, const std::string& contractPath)
 		: MyDebugger(contractPath)
 		, onEvent(onEvent) 
-	{}
+	{
+		auto& c = m_CallStack.emplace_back();
+		//c.m_FilePath = contractPath;
+		c.m_Line = 0;
+		c.m_Column = 0;
+		c.m_Name = "CallFar";
+	}
 
 	void Debugger::run() 
 	{
@@ -800,13 +877,14 @@ namespace
 	int64_t Debugger::currentLine()
 	{
 		std::unique_lock<std::mutex> lock(mutex);
-		return line;
+		assert(m_CallStack.empty());
+		return m_CallStack.back().m_Line;
 	}
 
 	void Debugger::stepForward()
 	{
 		std::unique_lock<std::mutex> lock(mutex);
-		m_BvmAction = BvmAction::Next;
+		m_BvmAction = BvmAction::StepOver;
 		m_DapEvent.notify_one();
 	}
 
@@ -963,21 +1041,26 @@ void TestDebugger(int argc, char* argv[])
 			return dap::Error("Unknown threadId '%d'", int(request.threadId));
 		}
 
-		dap::Source source;
-		//source.sourceReference = sourceReferenceId;
-		source.name = "BeamDebuggerSource";
-		const auto& p = debugger.filePath();
-		source.path = p.empty() ? "c:\\Data\\Projects\\Beam\\beam-ee5.2RC\\wallet\\unittests\\shaders\\test_contract.cpp" : p;
-
-		dap::StackFrame frame;
-		frame.line = debugger.currentLine();
-		frame.column = debugger.currentColumn();
-		frame.name = "BeamDebugger";
-		frame.id = frameId;
-		frame.source = source;
-
+		auto callStack = debugger.getCallStack();
+		std::reverse(callStack.begin(), callStack.end());
 		dap::StackTraceResponse response;
-		response.stackFrames.push_back(frame);
+		for (const auto& entry : callStack)
+		{
+			dap::Source source;
+			//source.sourceReference = sourceReferenceId;
+			source.name = entry.m_Name;
+			source.path = entry.m_FilePath;
+
+			dap::StackFrame frame;
+			frame.line = entry.m_Line;
+			frame.column = entry.m_Column;
+			frame.name = entry.m_Name;
+			frame.id = frameId;
+			frame.source = source;
+
+			
+			response.stackFrames.push_back(frame);
+		}
 		return response;
 	});
 
@@ -1069,6 +1152,7 @@ void TestDebugger(int argc, char* argv[])
 	// https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StepOut
 	session->registerHandler([&](const dap::StepOutRequest&) {
 		// Step-out is not supported as there's only one stack frame.
+		debugger.stepOut();
 		return dap::StepOutResponse();
 	});
 
