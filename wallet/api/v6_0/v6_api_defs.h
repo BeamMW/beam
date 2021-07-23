@@ -170,8 +170,8 @@ namespace beam::wallet
         Amount value = 0;
         Amount fee = 0;
         Asset::ID assetId = 0;
-        boost::optional<CoinIDList> coins = boost::none;
-        boost::optional<TxID> txId = boost::none;
+        boost::optional<CoinIDList> coins;
+        boost::optional<TxID> txId;
 
         struct Response
         {
@@ -184,8 +184,8 @@ namespace beam::wallet
         Amount value = 0;
         Amount fee = 0;
         Asset::ID assetId = 0;
-        boost::optional<CoinIDList> coins = boost::none;
-        boost::optional<TxID> txId = boost::none;
+        boost::optional<CoinIDList> coins;
+        boost::optional<TxID> txId;
 
         struct Response
         {

@@ -588,20 +588,8 @@ namespace beam::wallet
 
     std::pair<Issue, IWalletApi::MethodInfo> V6Api::onParseIssue(const JsonRpcId& id, const json& params)
     {
-        return onParseIssueConsume<Issue>(true, id, params);
-    }
+        Issue data;
 
-    std::pair<Consume, IWalletApi::MethodInfo> V6Api::onParseConsume(const JsonRpcId& id, const json& params)
-    {
-        return onParseIssueConsume<Consume>(true, id, params);
-    }
-
-    template<typename T>
-    std::pair<T, IWalletApi::MethodInfo> V6Api::onParseIssueConsume(bool issue, const JsonRpcId& id, const json& params)
-    {
-        static_assert(std::is_same<Issue, T>::value || std::is_same<Consume, T>::value);
-
-        T data{};
         data.value = getMandatoryParam<PositiveUint64>(params, "value");
         data.assetId = readMandatoryNonBeamAssetID(*this, params);
 
@@ -615,21 +603,32 @@ namespace beam::wallet
 
         MethodInfo info;
         info.fee = data.fee;
-
-        if (issue)
-        {
-            info.appendReceive(data.assetId, data.value);
-        }
-        else
-        {
-            info.appendSpend(data.assetId, data.value);
-        }
+        info.appendReceive(data.assetId, data.value);
 
         return std::make_pair(data, info);
     }
 
-    template std::pair<Issue, IWalletApi::MethodInfo> V6Api::onParseIssueConsume<Issue>(bool issue, const JsonRpcId& id, const json& params);
-    template std::pair<Consume, IWalletApi::MethodInfo> V6Api::onParseIssueConsume<Consume>(bool issue, const JsonRpcId& id, const json& params);
+    std::pair<Consume, IWalletApi::MethodInfo> V6Api::onParseConsume(const JsonRpcId& id, const json& params)
+    {
+        Consume data;
+
+        data.value = getMandatoryParam<PositiveUint64>(params, "value");
+        data.assetId = readMandatoryNonBeamAssetID(*this, params);
+
+        if (hasParam(params, "coins"))
+        {
+            data.coins = readCoinsParameter(id, params);
+        }
+
+        data.fee = getBeamFeeParam(params, "fee");
+        data.txId = getOptionalParam<ValidTxID>(params, "txId");
+
+        MethodInfo info;
+        info.fee = data.fee;
+        info.appendSpend(data.assetId, data.value);
+
+        return std::make_pair(data, info);
+    }
 
     std::pair<GetAssetInfo, IWalletApi::MethodInfo> V6Api::onParseGetAssetInfo(const JsonRpcId& id, const json& params)
     {
