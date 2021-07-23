@@ -208,9 +208,16 @@ namespace Eth
 
 				case Type::Integer:
 					{
-						uint8_t nLen = get_BytesFor(m_Integer);
-						WriteSize(s, 0x80, nLen);
-						WriteVarLen(s, m_Integer, nLen);
+						if (m_Integer && m_Integer < 0x80)
+						{
+							s.Write(static_cast<uint8_t>(m_Integer));
+						}
+						else
+						{
+							uint8_t nLen = get_BytesFor(m_Integer);
+							WriteSize(s, 0x80, nLen);
+							WriteVarLen(s, m_Integer, nLen);
+						}
 					}
 				}
 			}
@@ -396,6 +403,7 @@ namespace Eth
 		uint64_t m_GasUsed;
 		uint64_t m_Time;
 		uint64_t m_Nonce;
+		uint64_t m_BaseFeePerGas = 0;
 
 		void get_HashForPow(Opaque<32>& hv) const
 		{
@@ -436,7 +444,7 @@ namespace Eth
 
 		void get_HashInternal(Opaque<32>& hv, const Opaque<32>* phvMix) const
 		{
-			Rlp::Node pN[15];
+			Rlp::Node pN[16];
 			pN[0].Set(m_ParentHash);
 			pN[1].Set(m_UncleHash);
 			pN[2].Set(m_Coinbase);
@@ -464,6 +472,11 @@ namespace Eth
 			else
 				nRoot.m_nLen = 13;
 
+			if (m_BaseFeePerGas)
+			{
+				pN[nRoot.m_nLen].Set(m_BaseFeePerGas);
+				nRoot.m_nLen += 1;
+			}
 
 			Rlp::HashStream hs;
 			nRoot.Write(hs);

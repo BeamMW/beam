@@ -2274,6 +2274,28 @@ namespace
 			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer.empty());// == ByteBuffer({ '\0' }));
 		}
 
+		//The integer 15 = [0x0F]
+		{
+			Rlp::Node n(15);
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x0F }));
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 0x0f }));
+		}
+
+		//The integer 156 = [0x819C]
+		{
+			Rlp::Node n(15);
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x81, 0x9C }));
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 0x9C }));
+		}
+
 		//The encoded integer 0 ('\x00') = [0x00]
 		{
 			auto op = to_opaque("\0");
@@ -2532,6 +2554,60 @@ namespace
 
 		}
 	}
+	void TestEthSeedForPoW()
+	{
+		{
+			Shaders::Eth::Header hdr;
+			hdr.m_ParentHash.Scan("7a4bf8dc58922f2f8814399542abb379d0b0cc295687f3d5c32e0ce0b9005e3d");
+			hdr.m_UncleHash.Scan("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");
+			hdr.m_Coinbase.Scan("ea674fdde714fd979de3edf0f56aa9716b898ec8");
+			hdr.m_Root.Scan("416e7a6de2f67bdb1321c8a9fda385f91e5cd13ddaf1d7b943321110c38be679");
+			hdr.m_TxHash.Scan("127d45c910e002965ca732674236310e0bc2880f05df3d85492550a605867891");
+			hdr.m_ReceiptHash.Scan("de44f15c086f97cbc6255359280916a75c7a23785941ebacf98be5ae5554b0e9");
+			hdr.m_Bloom.Scan("55a861f3f6165d14d38f269a8823d263888cd00d94984854c7a50081198a2b2f922c356c07949a35d040535a1e400dd11e18838449433926924593ad55e6682b605c64922b02a33efcebf28d14aa5cf30522133c9b48380eee4616fcc2475715dcad428cbf818c8601d6d3002100f9c8566dd46488380603c2c94ff7048c9be4c954cb7fc616ef71b4d147ec40973e4611359fa9af6f5068097a2b67891115a1e7dfa91137b721e25785df8cfd41f7e18bc03ea50a035021c166864a8c00cd255dd004762b87a4f16bc6d2b406db3a1d0358ee036e65797bc55872ce0cea246582fd68118d1a6008e04c9c6c90b27694cc33764c5b4b834884bb7306a073faa1");
+			hdr.m_nExtra = hdr.m_Extra.Scan("65746865726d696e652d6575726f70652d6e6f72746831") / 2;
+			hdr.m_Difficulty = 0x1ac0292081bbf2;
+			hdr.m_Number = 0xbeb053; // height
+			hdr.m_GasLimit = 0xe4e157;
+			hdr.m_GasUsed = 0xe4c170;
+			hdr.m_Time = 0x60ab9baf;
+			hdr.m_Nonce = 0x9e2b2184779e0239;
+
+			Shaders::Dummy::Ethash::Hash512 hvSeed;
+			hdr.get_SeedForPoW(hvSeed);
+
+			Shaders::Dummy::Ethash::Hash512 hvExpected;
+			hvExpected.Scan("fcbb65e35afc98de2ea3729c18d8fa3872e5088c82538e99e0cb58a5482cb17602a0c19b9dd0cb0b01f1db3769c9c0e48976240233855c5a11315aa9f2a1bb28");
+			verify_test(!hvSeed.cmp(hvExpected));
+		}
+		{
+			// London HF: block with additional field BaseFeePerGas
+			// Block from ETH testnet Ropsten
+			Shaders::Eth::Header hdr;
+			hdr.m_ParentHash.Scan("b3d1cd15530aa9bd06d774ee203696ddcc52a831fb7dfc48ac890a25d53e4ca1");
+			hdr.m_UncleHash.Scan("d95f5aa2ee654ed2177faf2002f16e670098d1642701d8855bf8cd7ebad021f8");
+			hdr.m_Coinbase.Scan("9ffed2297c7b81293413550db675073ab46980b2");
+			hdr.m_Root.Scan("5fa10298d75a783f80e25f9fd5f1a2ef0f1288ec511900c648695a933a9cec21");
+			hdr.m_TxHash.Scan("e0da8cdae41fa8188600590da87866fd2782b15478914d02b0123e6870e25a1a");
+			hdr.m_ReceiptHash.Scan("88be83e41f8fb35ecae55c1c2debb7d11c915c242a83db6e857eb11bfffdf3be");
+			hdr.m_Bloom.Scan("0020000800000002000000000000000800008000000000000080000000000000010000000000002000080000008000000000000000100000000000000020000000001000002000080000000840000081000180000200000800000000000000080000000002000800000080000010080000000000000000000000101000000040000080000000004020000000000000000020000000000000000000010000008002000000a800000000000000000004000000001000001000000005000080020100000002000040000000000000000041001010000000000000000000000020000010100000000000080000000001000000000200000000000000000200000200");
+			hdr.m_nExtra = hdr.m_Extra.Scan("d883010a05846765746888676f312e31362e35856c696e7578") / 2;
+			hdr.m_Difficulty = 0x2d4c89a1;
+			hdr.m_Number = 0xa2df0c; // height
+			hdr.m_GasLimit = 0x7a1200;
+			hdr.m_GasUsed = 0x5b7a79;
+			hdr.m_Time = 0x60f6f41e;
+			hdr.m_Nonce = 0xdc889a9752ae31e2;
+			hdr.m_BaseFeePerGas = 0x9;
+
+			Shaders::Dummy::Ethash::Hash512 hvSeed;
+			hdr.get_SeedForPoW(hvSeed);
+
+			Shaders::Dummy::Ethash::Hash512 hvExpected;
+			hvExpected.Scan("813c4a1bc1fa0ea152eb8202f15b175a5288c62626a93efb0c285f314960091f4702f01a5c0d9a4a2cea6d7ba3ad74fba16e76352dd57a209b25e7467c59f181");
+			verify_test(!hvSeed.cmp(hvExpected));
+		}
+	}
 }
 
 int main()
@@ -2546,6 +2622,7 @@ int main()
 
 		TestMergeSort();
 		TestRLP();
+		TestEthSeedForPoW();
 
 		MyProcessor proc;
 
