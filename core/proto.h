@@ -130,10 +130,6 @@ namespace proto {
     macro(Asset::Full, Info) \
     macro(Merkle::Proof, Proof)
 
-#define BeamNodeMsg_ShieldedList0(macro) \
-    macro(TxoID, ShieldedOuts) \
-    macro(std::vector<ECC::Point::Storage>, Items)
-
 #define BeamNodeMsg_ShieldedList(macro) \
     macro(std::vector<ECC::Point::Storage>, Items) \
     macro(ECC::Hash::Value, State1)
@@ -328,7 +324,6 @@ namespace proto {
     macro(0x21, ProofShieldedInp) \
     macro(0x36, ProofAsset) \
     macro(0x2a, GetShieldedList) \
-    macro(0x2b, ShieldedList0) \
     macro(0x3d, ShieldedList) \
     macro(0x1f, ContractVarsEnum) \
     macro(0x2d, ContractVars) \
@@ -771,7 +766,6 @@ namespace proto {
 		virtual void OnMsg(GetTime&&) override;
 		virtual void OnMsg(Time&&) override;
 		virtual void OnMsg(Login&&) override;
-        virtual void OnMsg(ShieldedList0&&) override;
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 

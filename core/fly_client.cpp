@@ -962,7 +962,7 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractLogProof& r
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestShieldedOutputsAt& req)
 {
-    return (Flags::Node & m_Flags) && IsAtTip() && (LoginFlags::Extension::get(m_LoginFlags) >= 7);
+    return (Flags::Node & m_Flags) && IsAtTip();
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestShieldedOutputsAt& req)

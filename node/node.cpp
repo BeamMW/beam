@@ -3331,15 +3331,7 @@ void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
         p.get_DB().ShieldedStateRead(msg.m_Id0 + msg.m_Count - 1, &msgOut.m_State1, 1);
     }
 
-    if (proto::LoginFlags::Extension::get(m_LoginFlags) >= 8) {
-        Send(msgOut);
-    } else
-    {
-        proto::ShieldedList0 msgOut0;
-        msgOut0.m_Items = std::move(msgOut.m_Items);
-        msgOut0.m_ShieldedOuts = p.m_Extra.m_ShieldedOutputs;
-        Send(msgOut0);
-    }
+    Send(msgOut);
 }
 
 bool Node::Processor::BuildCwp()
