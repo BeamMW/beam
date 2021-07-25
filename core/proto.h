@@ -408,7 +408,6 @@ namespace proto {
 
     struct Event
     {
-        static const uint32_t s_Max0 = 64;
         static const uint32_t s_Max = 1024; // will send more, if the remaining events are on the same height
 
 #define BeamEventsAll(macro) \

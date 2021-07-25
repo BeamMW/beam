@@ -755,10 +755,6 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestEvents& req)
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestEvents& req)
 {
-    req.m_Max = (LoginFlags::Extension::get(m_LoginFlags) >= 5) ?
-        proto::Event::s_Max :
-        proto::Event::s_Max0;
-
 }
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestTransaction& req)
