@@ -2132,22 +2132,12 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
     if (bReply)
     {
         std::ostringstream errInfo;
-        bool bRichErrInfo = (proto::LoginFlags::Extension::get(m_LoginFlags) >= 8);
 
         proto::Status msgOut;
-        msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), pSender, msg.m_Fluff, bRichErrInfo ? &errInfo : nullptr);
+        msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), pSender, msg.m_Fluff, &errInfo);
 
-        if (bRichErrInfo)
-        {
-            msgOut.m_ExtraInfo = errInfo.str();
-            Send(msgOut);
-        }
-        else
-        {
-            proto::Status0 msg0;
-            msg0.m_Value = msgOut.m_Value;
-            Send(msg0);
-        }
+        msgOut.m_ExtraInfo = errInfo.str();
+        Send(msgOut);
     }
     else
     {

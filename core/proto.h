@@ -49,9 +49,6 @@ namespace proto {
 
 #define BeamNodeMsg_DataMissing(macro)
 
-#define BeamNodeMsg_Status0(macro) \
-    macro(uint8_t, Value)
-
 #define BeamNodeMsg_Status(macro) \
     macro(uint8_t, Value) \
     macro(std::string, ExtraInfo)
@@ -300,7 +297,6 @@ namespace proto {
     macro(0x0b, GetTime) \
     macro(0x0c, Time) \
     macro(0x0d, DataMissing) \
-    macro(0x0e, Status0) \
     macro(0x44, Status) \
     macro(0x0f, Login) \
     /* blockchain status */ \
@@ -776,7 +772,6 @@ namespace proto {
 		virtual void OnMsg(Time&&) override;
 		virtual void OnMsg(Login&&) override;
         virtual void OnMsg(ShieldedList0&&) override;
-        virtual void OnMsg(Status0&&) override;
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 
