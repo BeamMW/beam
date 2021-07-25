@@ -3011,9 +3011,6 @@ void Node::Peer::MaybeSendSerif()
     if (!(Flags::Viewer & m_Flags) || (Flags::SerifSent & m_Flags))
         return;
 
-    if (proto::LoginFlags::Extension::get(m_LoginFlags) < 5)
-        return;
-
     proto::EventsSerif msg;
 
     Blob blob(msg.m_Value);
