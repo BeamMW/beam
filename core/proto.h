@@ -411,19 +411,15 @@ namespace proto {
         static const uint32_t s_Max = 1024; // will send more, if the remaining events are on the same height
 
 #define BeamEventsAll(macro) \
-        macro(1, Utxo0) \
         macro(2, Shielded) \
         macro(3, AssetCtl) \
         macro(4, Utxo)
 
-#define BeamEvent_Utxo0(macro) \
+#define BeamEvent_Utxo(macro) \
         macro(uint8_t, Flags) \
         macro(CoinID, Cid) \
         macro(ECC::Point, Commitment) \
-        macro(Height, Maturity)
-
-#define BeamEvent_Utxo(macro) \
-        BeamEvent_Utxo0(macro) \
+        macro(Height, Maturity) \
         macro(Output::User, User)
 
 #define BeamEvent_Shielded(macro) \
@@ -501,7 +497,6 @@ namespace proto {
         struct IParser
             :public IParserBase
         {
-            virtual void OnEventType(Utxo0&) override;
         };
 
         struct IGroupParser

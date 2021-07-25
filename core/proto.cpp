@@ -1016,18 +1016,6 @@ Event::Type::Enum Event::Type::Load(Deserializer& der)
     return eType;
 }
 
-void Event::IParser::OnEventType(Utxo0& evt0)
-{
-    Utxo evt;
-
-#define THE_MACRO(type, name) evt.m_##name = std::move(evt0.m_##name);
-    BeamEvent_Utxo0(THE_MACRO)
-#undef THE_MACRO
-
-    ZeroObject(evt.m_User);
-    Cast::Down<IParserBase>(*this).OnEventType(evt);
-}
-
 void Event::IParserBase::ProceedOnce(const Blob& blob)
 {
     Deserializer der;
@@ -1050,12 +1038,6 @@ uint32_t Event::IGroupParser::Proceed(const Blob& blob)
 }
 
 void Event::Utxo::Dump(std::ostringstream& os) const
-{
-    char ch = (Flags::Add & m_Flags) ? '+' : '-';
-    os << ch << "Utxo " << m_Cid << ", Maturity=" << m_Maturity;
-}
-
-void Event::Utxo0::Dump(std::ostringstream& os) const
 {
     char ch = (Flags::Add & m_Flags) ? '+' : '-';
     os << ch << "Utxo " << m_Cid << ", Maturity=" << m_Maturity;
