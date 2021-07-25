@@ -380,7 +380,7 @@ namespace proto {
             // 7 - GetShieldedOutputsAt
             // 8 - Contract vars and logs, flexible hdr request, newer ShieldedList, Status
 
-            static const uint32_t Minimum = 4;
+            static const uint32_t Minimum = 8;
             static const uint32_t Maximum = 8;
 
             static void set(uint32_t& nFlags, uint32_t nExt);
