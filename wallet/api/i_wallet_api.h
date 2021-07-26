@@ -89,7 +89,6 @@ namespace beam::wallet
             boost::optional<std::string> title;
             boost::optional<std::string> comment;
             boost::optional<std::string> confirm_comment;
-            boost::optional<std::string> confirm_title;
             boost::optional<std::string> token;
 
             inline void appendReceive(beam::Asset::ID id, const beam::AmountBig::Type& val)

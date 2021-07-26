@@ -509,7 +509,6 @@ namespace beam::wallet
             info.comment = *comment;
         }
 
-        info.confirm_title = getOptionalParam<NonEmptyString>(params, "confirm_title");
         info.confirm_comment = getOptionalParam<std::string>(params, "confirm_comment");
         send.txId  = getOptionalParam<ValidTxID>(params, "txId");
 
@@ -833,7 +832,6 @@ namespace beam::wallet
         info.spendOffline = false;
         info.comment = beam::bvm2::getFullComment(realData);
         info.fee = beam::bvm2::getFullFee(realData, getWallet()->get_TipHeight());
-        info.confirm_title = getOptionalParam<NonEmptyString>(params, "confirm_title");
         info.confirm_comment = getOptionalParam<std::string>(params, "confirm_comment");
 
         const auto fullSpend = beam::bvm2::getFullSpend(realData);
