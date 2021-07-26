@@ -59,6 +59,11 @@ void DoDebug(const Wasm::Processor& proc);
 
 namespace
 {
+    std::string GetCanonicalPath(const std::string& p)
+    {
+        return std::filesystem::canonical(p).string();
+    }
+
     class WasmLoader : public dwarf::loader
     {
     public:
@@ -292,9 +297,11 @@ namespace
                     {
                         if (!m_CurrentLine || *m_CurrentLine != it)
                         {
-                            /*printf("%s\n",
-                                it->get_description().c_str());*/
-                            m_CurrentLine = std::make_unique<dwarf::line_table::iterator>(it);
+                            if (m_CurrentLine && (*m_CurrentLine)->is_stmt)
+                            {
+                                m_PrevLine = m_CurrentLine;
+                            }
+                            m_CurrentLine = std::make_shared<dwarf::line_table::iterator>(it);
                         }
                         else
                         {
@@ -328,7 +335,8 @@ namespace
         ByteBuffer m_Buffer;
         Wasm::Compiler m_Compiler;
         std::unique_ptr<dwarf::dwarf> m_DebugInfo;
-        std::unique_ptr<dwarf::line_table::iterator> m_CurrentLine;
+        std::shared_ptr<dwarf::line_table::iterator> m_CurrentLine;
+        std::shared_ptr<dwarf::line_table::iterator> m_PrevLine;
     };
 
     class TestLocalNode : private Node::IObserver
@@ -566,7 +574,8 @@ namespace
         {
             BreakpointHit,
             Stepped,
-            Paused
+            Paused,
+            Output
         };
 
         struct Variable
@@ -595,7 +604,7 @@ namespace
             SteppingOver
         };
 
-        using EventHandler = std::function<void(Event)>;
+        using EventHandler = std::function<void(Event, const std::string&)>;
 
         Debugger::Debugger(const EventHandler& onEvent, const std::string& contractPath)
             : MyDebugger(contractPath)
@@ -644,22 +653,45 @@ namespace
         // Breakpoints
         //
 
-        // ClearBreakpoints() clears all set breakpoints.
-        void ClearBreakpoints()
+        // Clears all set breakpoints for given source file.
+        void ClearBreakpoints(const std::string& path)
         {
             std::unique_lock lock(m_Mutex);
-            m_Breakpoints.clear();
+            auto it = m_Breakpoints.find(path);
+            if (it != m_Breakpoints.end())
+            {
+                it->second.clear();
+            }
         }
 
-        // AddBreakpoint() sets a new breakpoint on the given line.
-        size_t AddBreakpoint(const std::string& GetFilePath, int64_t line)
+        // Sets a new breakpoint on the given line.
+        std::pair<size_t, bool> AddBreakpoint(const std::string& filePath, int64_t line)
         {
             std::unique_lock lock(m_Mutex);
-            std::string filePathC = std::filesystem::canonical(GetFilePath).string();
+            std::string filePathC = GetCanonicalPath(filePath);
             m_Breakpoints[filePathC].emplace(line);
             size_t id = std::hash<std::string>{}(filePathC);
             boost::hash_combine(id, line);
-            return id;
+            return { id, CanSetBreakpoint(filePath, line) };
+        }
+
+        bool CanSetBreakpoint(const std::string& filePath, int64_t line)
+        {
+            // TODO: avoid linear search
+            for (const auto& cu : m_DebugInfo->compilation_units())
+            {
+                const auto& lineTable = cu.get_line_table();
+                auto it = std::find_if(lineTable.begin(), lineTable.end(), 
+                    [&](const auto& entry)
+                {
+                    return GetCanonicalPath(entry.file->path) == filePath && entry.line == line && entry.is_stmt;
+                });
+                if (it != lineTable.end())
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         //
@@ -753,21 +785,31 @@ namespace
             std::unique_lock lock(m_Mutex);
 
             size_t prevStackHeight = m_CallStack.size();
-            if (proc.IsBeforeCall())
-            {
-                m_CallStack.emplace_back();
-            }
-            else if (proc.IsBeforeRet())
-            {
-                assert(!m_CallStack.empty());
-                m_CallStack.pop_back();
-            }
 
             if (PrintPC(myIp, stack))
             {
                 bool isStatement = (*m_CurrentLine)->is_stmt;
-                //if (!isStatement)
-                //	return;
+                auto r = die_pc_range(stack.front());
+                if (r.begin()->low == myIp)
+                {
+                    if (m_PrevLine)
+                    {
+                        m_ReturnLines.push(m_PrevLine);
+                    }
+                    m_CallStack.emplace_back();
+                }
+                else if (!m_ReturnLines.empty())
+                {
+                    // TODO: this is a hack, i'm not sure if it is correct
+                    const auto& t = *m_ReturnLines.top();
+                    const auto& c = *m_CurrentLine;
+                    if (t->file_index == c->file_index && t->line == c->line)
+                    {
+                        m_ReturnLines.pop();
+                        m_CallStack.pop_back();
+                    }
+                }
+
                 m_BvmIsReady = true;
 
                 assert(!m_CallStack.empty());
@@ -783,7 +825,7 @@ namespace
                     call.m_Name = name + " " + call.m_Name;
                 }
 
-                call.m_FilePath = std::filesystem::canonical((*m_CurrentLine)->file->path).string();
+                call.m_FilePath = GetCanonicalPath((*m_CurrentLine)->file->path);
                 call.m_Line = (*m_CurrentLine)->line;
                 call.m_Column = (*m_CurrentLine)->column;
 
@@ -807,14 +849,14 @@ namespace
                     if (isStatement && m_Breakpoints[call.m_FilePath].count(call.m_Line))
                     {
                         m_NextAction = Action::NoAction;
-                        m_OnEvent(Event::BreakpointHit);
+                        m_OnEvent(Event::BreakpointHit, "");
                         return;
                     }
                 }
                 else if (m_NextAction == Action::Pause)
                 {
                     m_NextAction = Action::NoAction;
-                    m_OnEvent(Event::Paused);
+                    m_OnEvent(Event::Paused, "");
                     m_DapEvent.wait(lock, [this] {return m_NextAction != Action::NoAction; });
                 }
                 else if (m_NextAction == Action::StepOver)
@@ -828,14 +870,14 @@ namespace
                     if ((prevLine != call.m_Line && m_StackHeight == m_CallStack.size()) || m_StackHeight > m_CallStack.size())
                     {
                         m_NextAction = Action::NoAction;
-                        m_OnEvent(Event::Stepped);
+                        m_OnEvent(Event::Stepped, "");
                         return;
                     }
                 }
                 else if (m_NextAction == Action::StepIn)
                 {
                     m_NextAction = Action::NoAction;
-                    m_OnEvent(Event::Stepped);
+                    m_OnEvent(Event::Stepped, "");
                     return;
                 }
                 else if (m_NextAction == Action::StepOut)
@@ -851,7 +893,7 @@ namespace
                     if (m_StackHeight == m_CallStack.size())
                     {
                         m_NextAction = Action::NoAction;
-                        m_OnEvent(Event::Stepped);
+                        m_OnEvent(Event::Stepped, "");
                         return;
                     }
                 }
@@ -879,6 +921,7 @@ namespace
 
         std::vector<Variable> m_Variables;
         std::vector<Call> m_CallStack;
+        std::stack<std::shared_ptr<dwarf::line_table::iterator>> m_ReturnLines;
         size_t m_StackHeight = 0;
 
         std::unordered_map<std::string, std::unordered_set<int64_t>> m_Breakpoints;
@@ -929,37 +972,44 @@ void TestDebugger(int argc, char* argv[])
     Event terminate;
 
     // Event handlers from the Debugger.
-    auto onDebuggerEvent = [&](Debugger::Event onEvent)
+    auto onDebuggerEvent = [&](Debugger::Event onEvent, const std::string& s)
     {
         switch (onEvent)
         {
-        case Debugger::Event::Stepped:
-        {
-            // The debugger has single-line stepped. Inform the client.
-            dap::StoppedEvent event;
-            event.reason = "step";
-            event.threadId = threadId;
-            session->send(event);
-            break;
-        }
-        case Debugger::Event::BreakpointHit:
-        {
-            // The debugger has hit a breakpoint. Inform the client.
-            dap::StoppedEvent event;
-            event.reason = "breakpoint";
-            event.threadId = threadId;
-            session->send(event);
-            break;
-        }
-        case Debugger::Event::Paused:
-        {
-            // The debugger has been suspended. Inform the client.
-            dap::StoppedEvent event;
-            event.reason = "Pause";
-            event.threadId = threadId;
-            session->send(event);
-            break;
-        }
+            case Debugger::Event::Stepped:
+            {
+                // The debugger has single-line stepped. Inform the client.
+                dap::StoppedEvent event;
+                event.reason = "step";
+                event.threadId = threadId;
+                session->send(event);
+                break;
+            }
+            case Debugger::Event::BreakpointHit:
+            {
+                // The debugger has hit a breakpoint. Inform the client.
+                dap::StoppedEvent event;
+                event.reason = "breakpoint";
+                event.threadId = threadId;
+                session->send(event);
+                break;
+            }
+            case Debugger::Event::Paused:
+            {
+                // The debugger has been suspended. Inform the client.
+                dap::StoppedEvent event;
+                event.reason = "Pause";
+                event.threadId = threadId;
+                session->send(event);
+                break;
+            }
+            case Debugger::Event::Output:
+            {
+                dap::OutputEvent event;
+                event.output = s;
+                session->send(event);
+                break;
+            }
         }
     };
 
@@ -1148,21 +1198,22 @@ void TestDebugger(int argc, char* argv[])
     session->registerHandler([&](const dap::SetBreakpointsRequest& request)
     {
         dap::SetBreakpointsResponse response;
-        //MessageBox(NULL, "Test", "TEst", MB_OK);
         auto breakpoints = request.breakpoints.value({});
-        if (request.source.path)//request.source.sourceReference.value(0) == sourceReferenceId) {
+        if (request.source.path)
         {
-            debugger.ClearBreakpoints();
+            auto path = GetCanonicalPath(*request.source.path);
+            debugger.ClearBreakpoints(path);
             response.breakpoints.resize(breakpoints.size());
             for (size_t i = 0; i < breakpoints.size(); i++) {
-                auto id = debugger.AddBreakpoint(*request.source.path, breakpoints[i].line);
+                auto [id, verified] = debugger.AddBreakpoint(path, breakpoints[i].line);
                 response.breakpoints[i].id = id;
                 response.breakpoints[i].line = breakpoints[i].line;
                 response.breakpoints[i].column = breakpoints[i].column;
-                response.breakpoints[i].verified = breakpoints[i].line < 100;// numSourceLines;
+                response.breakpoints[i].verified = verified;
             }
         }
-        else {
+        else
+        {
             response.breakpoints.resize(breakpoints.size());
         }
 
