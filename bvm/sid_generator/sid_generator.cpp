@@ -47,10 +47,11 @@ int main(int argc, char* argv[])
     std::cout <<"static const ShaderID s_SID = {";
     auto c = sizeof(ShaderID);
     unsigned int i = 0;
+    std::cout << std::hex << std::setfill('0') << std::setw(2);
     for (; i < c - 1; ++i)
     {
-        std::cout << std::hex << "0x" << static_cast<int>(sid.m_pData[i]) << ", ";
+        std::cout << "0x" << std::setw(2) << static_cast<int>(sid.m_pData[i]) << ",";
     }
-    std::cout << "0x" << static_cast<int>(sid.m_pData[i]) << "};";
+    std::cout << "0x" << std::setw(2) << static_cast<int>(sid.m_pData[i]) << "};";
     return 0;
 }

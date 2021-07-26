@@ -320,9 +320,6 @@ namespace
             }
 
             der.reset(buf2.data(), buf2.size());
-            proto::Event::Type::Enum event2 = proto::Event::Type::Utxo0;
-            WALLET_CHECK_NO_THROW(event2 = proto::Event::Type::Load(der));
-            WALLET_CHECK(event2 == proto::Event::Type::Shielded);
         };
 
         // legacy case
