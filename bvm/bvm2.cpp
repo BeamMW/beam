@@ -2532,7 +2532,7 @@ namespace bvm2 {
 		if (!pVal)
 			return 0;
 
-		*pOut = atoll(pVal->c_str());
+		*pOut = strtoull(pVal->c_str(), nullptr, 0);
 		return sizeof(*pOut); // ignore errors
 	}
 
