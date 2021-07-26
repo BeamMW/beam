@@ -784,10 +784,13 @@ namespace
 
             std::unique_lock lock(m_Mutex);
 
-            size_t prevStackHeight = m_CallStack.size();
-
             if (PrintPC(myIp, stack))
             {
+                // Wait for the next user's action
+                m_DapEvent.wait(lock, [this] {return m_NextAction != Action::NoAction; });
+
+                // Update current state
+                auto stackHeight = m_CallStack.size();
                 bool isStatement = (*m_CurrentLine)->is_stmt;
                 auto r = die_pc_range(stack.front());
                 if (r.begin()->low == myIp)
@@ -810,13 +813,9 @@ namespace
                     }
                 }
 
-                m_BvmIsReady = true;
-
                 assert(!m_CallStack.empty());
                 auto& call = m_CallStack.back();
-                auto prevLine = call.m_Line;
 
-                // Update current state
                 call.m_Name = (*m_CurrentLine)->get_description();
                 if (!stack.empty())
                 {
@@ -840,9 +839,6 @@ namespace
                     return;
                 }
 
-                // Wait for the next user's action
-                m_DapEvent.wait(lock, [this] {return m_NextAction != Action::NoAction; });
-
                 // Process user's action
                 if (m_NextAction == Action::Continue)
                 {
@@ -850,28 +846,24 @@ namespace
                     {
                         m_NextAction = Action::NoAction;
                         m_OnEvent(Event::BreakpointHit, "");
-                        return;
                     }
                 }
                 else if (m_NextAction == Action::Pause)
                 {
                     m_NextAction = Action::NoAction;
                     m_OnEvent(Event::Paused, "");
-                    m_DapEvent.wait(lock, [this] {return m_NextAction != Action::NoAction; });
                 }
                 else if (m_NextAction == Action::StepOver)
                 {
-                    m_StackHeight = prevStackHeight;
+                    m_StackHeight = stackHeight;
                     m_NextAction = Action::SteppingOver;
-
                 }
                 else if (m_NextAction == Action::SteppingOver)
                 {
-                    if ((prevLine != call.m_Line && m_StackHeight == m_CallStack.size()) || m_StackHeight > m_CallStack.size())
+                    if (isStatement && m_CallStack.size() <= m_StackHeight)
                     {
                         m_NextAction = Action::NoAction;
                         m_OnEvent(Event::Stepped, "");
-                        return;
                     }
                 }
                 else if (m_NextAction == Action::StepIn)
@@ -882,9 +874,9 @@ namespace
                 }
                 else if (m_NextAction == Action::StepOut)
                 {
-                    if (prevStackHeight > 1)
+                    if (!m_CallStack.empty())
                     {
-                        m_StackHeight = prevStackHeight - 1;
+                        m_StackHeight = stackHeight - 1;
                         m_NextAction = Action::SteppingOut;
                     }
                 }
@@ -894,7 +886,6 @@ namespace
                     {
                         m_NextAction = Action::NoAction;
                         m_OnEvent(Event::Stepped, "");
-                        return;
                     }
                 }
             }
@@ -914,8 +905,6 @@ namespace
         mutable  std::mutex m_Mutex;
 
         Action m_NextAction = Action::Pause;
-        bool m_BvmIsReady = false;
-        bool m_WaitForDap = false;
         std::condition_variable m_BvmEvent;
         std::condition_variable m_DapEvent;
 
