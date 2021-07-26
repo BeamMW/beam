@@ -208,6 +208,7 @@ export void Method_1()
             Env::DocGetNum64("gasUsed", &header.m_GasUsed);
             Env::DocGetNum64("time", &header.m_Time);
             Env::DocGetNum64("nonce", &header.m_Nonce);
+            Env::DocGetNum64("baseFeePerGas", &header.m_BaseFeePerGas);
 
             uint32_t datasetCount = 0;
             Env::DocGetNum32("datasetCount", &datasetCount);
