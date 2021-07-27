@@ -850,9 +850,12 @@ namespace Wasm {
 		{
 			auto& b = get_B();
 
-			if (m_Unreachable && (m_Operands.size() > b.m_OperandsAtExit))
+			if (m_Unreachable)
+			{
 				// sometimes the compiler won't bother to restore stack operands past unconditional return. Ignore this.
-				m_Operands.resize(b.m_OperandsAtExit);
+				while (m_Operands.size() > b.m_OperandsAtExit)
+					Pop();
+			}
 
 			TestBlockCanClose(b);
 

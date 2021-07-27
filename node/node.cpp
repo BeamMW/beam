@@ -2140,22 +2140,12 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
     if (bReply)
     {
         std::ostringstream errInfo;
-        bool bRichErrInfo = (proto::LoginFlags::Extension::get(m_LoginFlags) >= 8);
 
         proto::Status msgOut;
-        msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), pSender, msg.m_Fluff, bRichErrInfo ? &errInfo : nullptr);
+        msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), pSender, msg.m_Fluff, &errInfo);
 
-        if (bRichErrInfo)
-        {
-            msgOut.m_ExtraInfo = errInfo.str();
-            Send(msgOut);
-        }
-        else
-        {
-            proto::Status0 msg0;
-            msg0.m_Value = msgOut.m_Value;
-            Send(msg0);
-        }
+        msgOut.m_ExtraInfo = errInfo.str();
+        Send(msgOut);
     }
     else
     {
@@ -3019,9 +3009,6 @@ void Node::Peer::MaybeSendSerif()
     if (!(Flags::Viewer & m_Flags) || (Flags::SerifSent & m_Flags))
         return;
 
-    if (proto::LoginFlags::Extension::get(m_LoginFlags) < 5)
-        return;
-
     proto::EventsSerif msg;
 
     Blob blob(msg.m_Value);
@@ -3352,15 +3339,7 @@ void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
         p.get_DB().ShieldedStateRead(msg.m_Id0 + msg.m_Count - 1, &msgOut.m_State1, 1);
     }
 
-    if (proto::LoginFlags::Extension::get(m_LoginFlags) >= 8) {
-        Send(msgOut);
-    } else
-    {
-        proto::ShieldedList0 msgOut0;
-        msgOut0.m_Items = std::move(msgOut.m_Items);
-        msgOut0.m_ShieldedOuts = p.m_Extra.m_ShieldedOutputs;
-        Send(msgOut0);
-    }
+    Send(msgOut);
 }
 
 bool Node::Processor::BuildCwp()
@@ -3642,14 +3621,6 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
         Height hLast = 0;
         uint32_t nCount = 0;
 
-        bool bSkipAssets = (proto::LoginFlags::Extension::get(m_LoginFlags) < 6);
-        static_assert(proto::LoginFlags::Extension::Minimum < 6); // remove this logic when older protocol won't be supported
-
-        bool bUtxo0 = bSkipAssets;
-
-        // we'll send up to s_Max num of events, even to older clients, they won't complain
-        static_assert(proto::Event::s_Max > proto::Event::s_Max0);
-
         Serializer ser, serCvt;
 
         for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
@@ -3659,37 +3630,6 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
 
 			if (p.IsFastSync() && (wlk.m_Height > p.m_SyncData.m_h0))
 				break;
-
-            if (bSkipAssets || bUtxo0)
-            {
-                Deserializer der;
-                der.reset(wlk.m_Body.p, wlk.m_Body.n);
-
-                proto::Event::Type::Enum eType = proto::Event::Type::Load(der);
-                if (bSkipAssets && (proto::Event::Type::AssetCtl == eType))
-                    continue; // skip
-
-                if (bUtxo0 && (proto::Event::Type::Utxo == eType))
-                {
-                    proto::Event::Utxo evt;
-                    der & evt;
-
-                    // convert to Utxo0.
-                    proto::Event::Utxo0 evt0;
-#define THE_MACRO(type, name) evt0.m_##name = std::move(evt.m_##name);
-                    BeamEvent_Utxo0(THE_MACRO)
-#undef THE_MACRO
-
-                    serCvt.reset();
-
-                    eType = proto::Event::Type::Utxo0;
-                    serCvt & eType;
-                    serCvt & evt0;
-
-                    wlk.m_Body.p = serCvt.buffer().first;
-                    wlk.m_Body.n = static_cast<uint32_t>(serCvt.buffer().second);
-                }
-            }
 
             ser & wlk.m_Height;
             ser.WriteRaw(wlk.m_Body.p, wlk.m_Body.n);

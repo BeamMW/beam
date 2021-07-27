@@ -1,11 +1,11 @@
 
 set(BEAM_SHADER_CLANG_OPTIONS
         -O3 
-        -Os
+        #-Os
         -std=c++17 
-        -flto
+        #-flto
         -fno-rtti 
-        -fno-exceptions
+        #-fno-exceptions
         -nostdlib 
         -Wl,--export-dynamic,--no-entry,--allow-undefined)
 
