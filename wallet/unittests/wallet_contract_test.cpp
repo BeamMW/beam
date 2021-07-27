@@ -598,6 +598,7 @@ namespace
             Continue,
             Pause,
             StepIn,
+            SteppingIn,
             StepOut,
             SteppingOut,
             StepOver,
@@ -681,7 +682,7 @@ namespace
             for (const auto& cu : m_DebugInfo->compilation_units())
             {
                 const auto& lineTable = cu.get_line_table();
-                auto it = std::find_if(lineTable.begin(), lineTable.end(), 
+                auto it = std::find_if(lineTable.begin(), lineTable.end(),
                     [&](const auto& entry)
                 {
                     return GetCanonicalPath(entry.file->path) == filePath && entry.line == line && entry.is_stmt;
@@ -786,12 +787,12 @@ namespace
 
             if (PrintPC(myIp, stack))
             {
-                // Wait for the next user's action
-                m_DapEvent.wait(lock, [this] {return m_NextAction != Action::NoAction; });
-
+                if ((*m_CurrentLine)->line == 0) // ignore
+                {
+                    return;
+                }
                 // Update current state
                 auto stackHeight = m_CallStack.size();
-                bool isStatement = (*m_CurrentLine)->is_stmt;
                 auto r = die_pc_range(stack.front());
                 if (r.begin()->low == myIp)
                 {
@@ -834,61 +835,73 @@ namespace
                 {
                     DumpVariables(d);
                 }
-                if (call.m_Line == 0) // ignore
-                {
-                    return;
-                }
 
                 // Process user's action
-                if (m_NextAction == Action::Continue)
-                {
-                    if (isStatement && m_Breakpoints[call.m_FilePath].count(call.m_Line))
-                    {
-                        m_NextAction = Action::NoAction;
-                        m_OnEvent(Event::BreakpointHit, "");
-                    }
-                }
-                else if (m_NextAction == Action::Pause)
-                {
-                    m_NextAction = Action::NoAction;
-                    m_OnEvent(Event::Paused, "");
-                }
-                else if (m_NextAction == Action::StepOver)
-                {
-                    m_StackHeight = stackHeight;
-                    m_NextAction = Action::SteppingOver;
-                }
-                else if (m_NextAction == Action::SteppingOver)
-                {
-                    if (isStatement && m_CallStack.size() <= m_StackHeight)
-                    {
-                        m_NextAction = Action::NoAction;
-                        m_OnEvent(Event::Stepped, "");
-                    }
-                }
-                else if (m_NextAction == Action::StepIn)
-                {
-                    m_NextAction = Action::NoAction;
-                    m_OnEvent(Event::Stepped, "");
-                    return;
-                }
-                else if (m_NextAction == Action::StepOut)
-                {
-                    if (!m_CallStack.empty())
-                    {
-                        m_StackHeight = stackHeight - 1;
-                        m_NextAction = Action::SteppingOut;
-                    }
-                }
-                else if (m_NextAction == Action::SteppingOut)
-                {
-                    if (m_StackHeight == m_CallStack.size())
-                    {
-                        m_NextAction = Action::NoAction;
-                        m_OnEvent(Event::Stepped, "");
-                    }
-                }
+                ProcessAction(stackHeight);
+                // Wait for the next user's action
+                m_DapEvent.wait(lock, [this] {return m_NextAction != Action::NoAction; });
+                // Continue execution
             }
+        }
+
+        void ProcessAction(size_t stackHeight)
+        {
+            switch (m_NextAction)
+            {
+            case Action::Continue:
+
+                if (const auto& call = m_CallStack.back(); 
+                    (*m_CurrentLine)->is_stmt && m_Breakpoints[call.m_FilePath].count(call.m_Line))
+                {
+                    EmitEvent(Event::BreakpointHit);
+                }
+                break;
+            case Action::Pause:
+
+                EmitEvent(Event::Paused);
+                break;
+            case Action::StepOver:
+
+                m_StackHeight = stackHeight;
+                m_NextAction = Action::SteppingOver;
+                break;
+            case Action::SteppingOver:
+
+                if ((*m_CurrentLine)->is_stmt && m_CallStack.size() <= m_StackHeight)
+                {
+                    EmitEvent(Event::Stepped);
+                }
+                break;
+            case Action::StepIn:
+
+                m_NextAction = Action::SteppingIn;
+                break;
+            case Action::SteppingIn:
+
+                EmitEvent(Event::Stepped);
+                break;
+            case Action::StepOut:
+
+                if (!m_CallStack.empty())
+                {
+                    m_StackHeight = stackHeight - 1;
+                    m_NextAction = Action::SteppingOut;
+                }
+                break;
+            case Action::SteppingOut:
+
+                if (m_StackHeight == m_CallStack.size())
+                {
+                    EmitEvent(Event::Stepped);
+                }
+                break;
+            }
+        }
+
+        void EmitEvent(Debugger::Event event = Event::Stepped)
+        {
+            m_NextAction = Action::NoAction;
+            m_OnEvent(event, "");
         }
 
     private:
@@ -965,40 +978,40 @@ void TestDebugger(int argc, char* argv[])
     {
         switch (onEvent)
         {
-            case Debugger::Event::Stepped:
-            {
-                // The debugger has single-line stepped. Inform the client.
-                dap::StoppedEvent event;
-                event.reason = "step";
-                event.threadId = threadId;
-                session->send(event);
-                break;
-            }
-            case Debugger::Event::BreakpointHit:
-            {
-                // The debugger has hit a breakpoint. Inform the client.
-                dap::StoppedEvent event;
-                event.reason = "breakpoint";
-                event.threadId = threadId;
-                session->send(event);
-                break;
-            }
-            case Debugger::Event::Paused:
-            {
-                // The debugger has been suspended. Inform the client.
-                dap::StoppedEvent event;
-                event.reason = "Pause";
-                event.threadId = threadId;
-                session->send(event);
-                break;
-            }
-            case Debugger::Event::Output:
-            {
-                dap::OutputEvent event;
-                event.output = s;
-                session->send(event);
-                break;
-            }
+        case Debugger::Event::Stepped:
+        {
+            // The debugger has single-line stepped. Inform the client.
+            dap::StoppedEvent event;
+            event.reason = "step";
+            event.threadId = threadId;
+            session->send(event);
+            break;
+        }
+        case Debugger::Event::BreakpointHit:
+        {
+            // The debugger has hit a breakpoint. Inform the client.
+            dap::StoppedEvent event;
+            event.reason = "breakpoint";
+            event.threadId = threadId;
+            session->send(event);
+            break;
+        }
+        case Debugger::Event::Paused:
+        {
+            // The debugger has been suspended. Inform the client.
+            dap::StoppedEvent event;
+            event.reason = "Pause";
+            event.threadId = threadId;
+            session->send(event);
+            break;
+        }
+        case Debugger::Event::Output:
+        {
+            dap::OutputEvent event;
+            event.output = s;
+            session->send(event);
+            break;
+        }
         }
     };
 
