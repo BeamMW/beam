@@ -2076,12 +2076,6 @@ namespace beam::wallet
         if (!pTx)
             return;
 
-        if (type == TxType::Simple)
-        {
-            auto minConfirmations =  m_WalletDB->getCoinConfirmationsOffset();
-            pTx->SetParameter(TxParameterID::MinConfirmations, minConfirmations);
-        }
-
         pTx->SetParameter(TxParameterID::TransactionType, msg.m_Type, true);
         pTx->SetParameter(TxParameterID::CreateTime, getTimestamp(), true); // true in order to get ChangeAction::Added
         pTx->SetParameter(TxParameterID::MyID, myID, false);
@@ -2142,12 +2136,6 @@ namespace beam::wallet
                     completedParameters.SetParameter(TxParameterID::MyWalletIdentity, address->m_Identity);
                 }
             }
-        }
-
-        if (type == TxType::Simple)
-        {
-            auto minConfirmations =  m_WalletDB->getCoinConfirmationsOffset();
-            completedParameters.SetParameter(TxParameterID::MinConfirmations, minConfirmations);
         }
 
         auto newTx = it->second->Create(BaseTransaction::TxContext(*this, m_WalletDB, *parameters.GetTxID()));

@@ -90,7 +90,7 @@ namespace beam::wallet
             std::vector<ApiCoin> coins;
 
             auto processCoin = [&](const auto& c) -> bool {
-                ApiCoin::EmplaceCoin(coins, c, c.m_offset);
+                ApiCoin::EmplaceCoin(coins, c);
                 return true;
             };
 

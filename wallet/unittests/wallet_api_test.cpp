@@ -454,7 +454,7 @@ namespace
                 coin.m_maturity = 60;
 				coin.m_confirmHeight = 60;
 				coin.m_status = Coin::Status::Available; // maturity is returned only for confirmed coins
-				ApiCoin::EmplaceCoin(getUtxo.coins, coin, 0);
+				ApiCoin::EmplaceCoin(getUtxo.coins, coin);
             }
 
             api.getResponse(123, getUtxo, res);

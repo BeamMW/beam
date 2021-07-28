@@ -268,7 +268,7 @@ namespace beam::wallet
         #undef MACRO
 
         template<typename T>
-        static void EmplaceCoin(std::vector<ApiCoin>& to, const T& c, uint32_t cCnt)
+        static void EmplaceCoin(std::vector<ApiCoin>& to, const T& c)
         {
             static_assert(std::is_same<Coin, T>::value || std::is_same<ShieldedCoin, T>::value);
 
@@ -277,7 +277,7 @@ namespace beam::wallet
             t.asset_id = c.getAssetID();
             t.amount = c.getAmount();
             t.type = c.getType();
-            t.maturity = c.get_Maturity(cCnt);
+            t.maturity = c.get_Maturity();
             t.createTxId = GetCoinCreateTxID(c);
             t.spentTxId = GetCoinSpentTxID(c);
             t.status = GetCoinStatus(c);

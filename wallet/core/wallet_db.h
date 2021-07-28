@@ -92,13 +92,15 @@ namespace beam::wallet
         // DO NOT USE, obsolette, to be removed
         uint64_t m_OBSOLETTEsessionId;   // Used in the API to lock coins for specific session (see https://github.com/BeamMW/beam/wiki/Beam-wallet-protocol-API#tx_split)
 
-        uint32_t m_offset = 0;  // confirmations count to wait before can spend coin, not stored in db, copied from tx on DeduceStatus
-
         bool IsMaturityValid() const; // is/was the UTXO confirmed?
-        Height get_Maturity(Height offset = 0) const; // would return MaxHeight unless the UTXO was confirmed
+        Height get_Maturity() const; // would return MaxHeight unless the UTXO was confirmed
         
         std::string getStatusString() const;
+        void setOffset(uint32_t offset);
         static boost::optional<Coin::ID> FromString(const std::string& str);
+
+    private:
+        uint32_t m_offset = 0;  // confirmations count to wait before can spend coin, not stored in db, copied from tx on DeduceStatus
     };
 
     using CoinIDList = std::vector<Coin::ID>;
@@ -271,8 +273,8 @@ namespace beam::wallet
         Asset::ID getAssetID() const;
         std::string getType() const;
 
-        Height get_Maturity(Height offset = 0) const {
-            return IsMaturityValid() ? m_confirmHeight + offset : MaxHeight;
+        Height get_Maturity() const {
+            return IsMaturityValid() ? m_confirmHeight + m_offset : MaxHeight;
         }
 
         ShieldedTxo::ID m_CoinID;
@@ -283,8 +285,6 @@ namespace beam::wallet
 
         boost::optional<TxID> m_createTxId;  // id of the transaction which created the UTXO
         boost::optional<TxID> m_spentTxId;   // id of the transaction which spent the UTXO
-
-        uint32_t m_offset = 0;               // confirmations count to wait before can spend coin, not stored in db, copied from tx on DeduceStatus. 0 for Shielded coins
 
         // All the following is not stored in DB, it's deduced from the current blockchain state
         enum Status
@@ -322,10 +322,12 @@ namespace beam::wallet
         };
 
         std::string getStatusString() const;
+        void setOffset(uint32_t offset);
         typedef std::pair<ShieldedCoin, UnlinkStatus> WithStatus;
         static void Sort(std::vector<WithStatus>&);
 
     private:
+    uint32_t m_offset = 0; // confirmations count to wait before can spend coin, not stored in db, copied from tx on DeduceStatus. 0 for Shielded coins
         static int32_t get_Reserve(uint32_t nEndRel, TxoID nShieldedOutsRel);
     };
 

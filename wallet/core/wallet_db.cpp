@@ -1059,9 +1059,9 @@ namespace beam::wallet
         }
     }
 
-    Height Coin::get_Maturity(Height offset/* = 0*/) const
+    Height Coin::get_Maturity() const
     {
-        return IsMaturityValid() ? m_maturity + offset : MaxHeight;
+        return IsMaturityValid() ? m_maturity + m_offset : MaxHeight;
     }
 
     bool Coin::operator==(const Coin& other) const
@@ -1151,6 +1151,11 @@ namespace beam::wallet
             return id;
         }
         return boost::optional<Coin::ID>();
+    }
+
+    void Coin::setOffset(uint32_t offset)
+    {
+        m_offset = offset;
     }
 
     bool WalletDB::isInitialized(const string& path)
@@ -5745,10 +5750,10 @@ namespace beam::wallet
                 if (c.m_createTxId &&
                     getTxParameter(walletDB, c.m_createTxId.get(), TxParameterID::MinConfirmations, minConfirmations))
                 {
-                    c.m_offset = minConfirmations;
+                    c.setOffset(minConfirmations);
                 }
                 
-                if (hTop < c.m_maturity + c.m_offset)
+                if (hTop < c.m_maturity + minConfirmations)
                 {
                     c.m_status = Coin::Status::Maturing;
                     return;
@@ -6854,6 +6859,11 @@ namespace beam::wallet
         };
 
         return Strings[m_Status];
+    }
+
+    void ShieldedCoin::setOffset(uint32_t offset)
+    {
+        m_offset = offset;
     }
 
     void ShieldedCoin::UnlinkStatus::Init(const ShieldedCoin& sc, TxoID nShieldedOuts)

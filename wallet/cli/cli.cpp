@@ -1145,7 +1145,7 @@ namespace
                     coinId       = c.toStringID();
                     coinStatus   = getCoinStatus(c.m_status);
                     coinType     = FourCC::Text(c.m_ID.m_Type);
-                    coinMaturity = c.IsMaturityValid() ? std::to_string(c.get_Maturity(c.m_offset)) : "-";
+                    coinMaturity = c.IsMaturityValid() ? std::to_string(c.get_Maturity()) : "-";
                 }
                 else if(ca.type() == typeid(ShieldedCoin))
                 {

@@ -247,7 +247,7 @@ namespace beam::wallet
                     continue;
                 }
 
-                ApiCoin::EmplaceCoin(coins, c, c.m_offset);
+                ApiCoin::EmplaceCoin(coins, c);
             }
 
             onCoinsChangedImp(action, coins);

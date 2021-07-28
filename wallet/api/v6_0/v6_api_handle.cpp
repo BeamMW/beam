@@ -617,7 +617,7 @@ namespace beam::wallet
                 return true;
             }
 
-            ApiCoin::EmplaceCoin(response.coins, c, c.m_offset);
+            ApiCoin::EmplaceCoin(response.coins, c);
             return true;
         };
 
