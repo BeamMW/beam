@@ -117,6 +117,34 @@ namespace manager
         Env::DocAddBlob("nodes", proof, sizeof(*proof) * proofCount);
         Env::DocAddNum64("height", Env::get_Height());
     }
+
+    void GetRemoteMsg(const ContractID& cid, uint32_t msgId)
+    {
+        Env::Key_T<Bridge::RemoteMsgHdr::Key> msgKey;
+        msgKey.m_Prefix.m_Cid = cid;
+        msgKey.m_KeyInContract.m_MsgId_BE = Utils::FromBE(msgId);
+
+        Env::VarReader reader(msgKey, msgKey);
+
+        uint32_t size = 0;
+        uint32_t keySize = sizeof(msgKey);
+        Bridge::RemoteMsgHdr* pMsg;
+        if (!reader.MoveNext(nullptr, keySize, pMsg, size, 0))
+        {
+            OnError("msg with current id is absent");
+            return;
+        }
+        pMsg = (Bridge::RemoteMsgHdr*)Env::StackAlloc(size);
+        if (!reader.MoveNext(nullptr, keySize, pMsg, size, 1))
+        {
+            OnError("msg with current id is absent");
+            return;
+        }
+
+        Env::DocAddBlob_T("sender", pMsg->m_ContractSender);
+        Env::DocAddBlob_T("receiver", pMsg->m_ContractReceiver);
+        Env::DocAddBlob("body", pMsg + 1, size - sizeof(*pMsg));
+    }
 } // namespace manager
 
 export void Method_0()
@@ -149,6 +177,11 @@ export void Method_0()
             }
             {
                 Env::DocGroup grMethod("getLocalMsgProof");
+                Env::DocAddText("cid", "ContractID");
+                Env::DocAddText("msgId", "uint32");
+            }
+            {
+                Env::DocGroup grMethod("getRemoteMsg");
                 Env::DocAddText("cid", "ContractID");
                 Env::DocAddText("msgId", "uint32");
             }
@@ -238,6 +271,15 @@ export void Method_1()
             uint32_t msgId = 0;
             Env::DocGetNum32("msgId", &msgId);
             manager::GetLocalMsgProof(cid, msgId);
+            return;
+        }
+        if (!Env::Strcmp(szAction, "getRemoteMsg"))
+        {
+            ContractID cid;
+            Env::DocGet("cid", cid);
+            uint32_t msgId = 0;
+            Env::DocGetNum32("msgId", &msgId);
+            manager::GetRemoteMsg(cid, msgId);
             return;
         }
         else
