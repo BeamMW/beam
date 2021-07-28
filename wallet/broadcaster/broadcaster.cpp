@@ -180,12 +180,24 @@ namespace
         Block::SystemState::HistoryMap m_Headers;
     };
 
+    struct MyTimestampHolder : ITimestampHolder
+    {
+        Timestamp GetTimestamp(BbsChannel channel) override
+        {
+            return 0;
+        }
+        void UpdateTimestamp(const proto::BbsMsg& msg) override
+        {
+
+        }
+    };
+
     class MyBbsSender
         : public IWalletMessageEndpoint
-        , private wallet::BbsSender
+        , private wallet::BbsProcessor
     {
     public:
-        using BbsSender::BbsSender;
+        using BbsProcessor::BbsProcessor;
 
         void Send(const WalletID& peerID, const SetTxParameter& msg) override
         {
@@ -194,7 +206,7 @@ namespace
         
         void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override
         {
-            BbsSender::Send(peerID, msg, 0);
+            BbsProcessor::Send(peerID, msg, 0);
         }
 
         void OnMessageSent(uint64_t id) override
@@ -309,9 +321,10 @@ namespace
         nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
         nnet->Connect();
 
-        MyBbsSender wnet(nnet);
+        auto tsHolder = std::make_shared<MyTimestampHolder>();
+        MyBbsSender wnet(nnet, tsHolder);
 
-        BroadcastRouter broadcastRouter(*nnet, wnet);
+        BroadcastRouter broadcastRouter(nnet, wnet, tsHolder);
 
         ECC::Scalar::Native key;
         if (!BroadcastMsgCreator::stringToPrivateKey(options.privateKey, key))

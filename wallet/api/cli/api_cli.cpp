@@ -161,7 +161,7 @@ namespace
         }
 
 
-        void initSwapFeature(proto::FlyClient::INetwork& nnet, IWalletMessageEndpoint& wnet)
+        void initSwapFeature(proto::FlyClient::INetwork::Ptr nnet, IWalletMessageEndpoint& wnet)
         {
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
             _swapsProvider = std::make_shared<ApiCliSwap>(_walletDB);
@@ -709,7 +709,7 @@ int main(int argc, char* argv[])
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         RegisterSwapTxCreators(wallet, walletDB);
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
-        server.initSwapFeature(*nnet, *wnet);
+        server.initSwapFeature(nnet, *wnet);
 
         if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
         {

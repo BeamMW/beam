@@ -245,8 +245,8 @@ namespace
         cout << endl << "Test news channels observers" << endl;
 
         auto storage = createSqliteWalletDB();
-        MockBbsNetwork network;
-        BroadcastRouter broadcastRouter(network, network);
+        auto network = MockBbsNetwork::CreateInstance();
+        BroadcastRouter broadcastRouter(network, *network, MockTimestampHolder::CreateInstance());
         BroadcastMsgValidator validator;
         AppUpdateInfoProvider updatesProvider(broadcastRouter, validator);
         WalletUpdatesProvider walletUpdatesProvider(broadcastRouter, validator);
@@ -407,8 +407,8 @@ namespace
     {
         cout << endl << "Test ExchangeRateProvider" << endl;
 
-        MockBbsNetwork network;
-        BroadcastRouter broadcastRouter(network, network);
+        auto network = MockBbsNetwork::CreateInstance();
+        BroadcastRouter broadcastRouter(network, *network, MockTimestampHolder::CreateInstance());
         BroadcastMsgValidator validator;
 
         auto storage = createSqliteWalletDB();

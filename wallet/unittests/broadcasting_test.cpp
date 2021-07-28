@@ -126,8 +126,8 @@ namespace
     {
         cout << endl << "Test protocol parser stress" << endl;
 
-        MockBbsNetwork mockNetwork;
-        BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
+        auto mockNetwork = MockBbsNetwork::CreateInstance();
+        BroadcastRouter broadcastRouter(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
         
         BroadcastMsg testContent = { {'t','e','s','t'}, {'t','e','s','t'} };
 
@@ -150,7 +150,7 @@ namespace
             ByteBuffer emptyBuf;
 
             WALLET_CHECK_NO_THROW(
-                mockNetwork.SendRawMessage(dummyWid, emptyBuf)
+                mockNetwork->SendRawMessage(dummyWid, emptyBuf)
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -159,7 +159,7 @@ namespace
             ByteBuffer data(beam::MsgHeader::SIZE - 2, 't');
 
             WALLET_CHECK_NO_THROW(
-                mockNetwork.SendRawMessage(dummyWid, data)
+                mockNetwork->SendRawMessage(dummyWid, data)
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -170,7 +170,7 @@ namespace
             header.write(data.data());
                         
             WALLET_CHECK_NO_THROW(
-                mockNetwork.SendRawMessage(dummyWid, data)
+                mockNetwork->SendRawMessage(dummyWid, data)
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -180,7 +180,7 @@ namespace
             header.write(data.data());
                         
             WALLET_CHECK_NO_THROW(
-                mockNetwork.SendRawMessage(dummyWid, data)
+                mockNetwork->SendRawMessage(dummyWid, data)
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -191,7 +191,7 @@ namespace
             header.write(data.data());
             
             WALLET_CHECK_NO_THROW(
-                mockNetwork.SendRawMessage(dummyWid, data)
+                mockNetwork->SendRawMessage(dummyWid, data)
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -202,7 +202,7 @@ namespace
             header.write(data.data());
             
             WALLET_CHECK_NO_THROW(
-                mockNetwork.SendRawMessage(dummyWid, data)
+                mockNetwork->SendRawMessage(dummyWid, data)
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -214,7 +214,7 @@ namespace
             header.write(data.data());
             
             WALLET_CHECK_NO_THROW(
-                mockNetwork.SendRawMessage(dummyWid, data)
+                mockNetwork->SendRawMessage(dummyWid, data)
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -223,7 +223,7 @@ namespace
 
             auto msg = testMsgCreate(toByteBuffer(testContent), testContentType);
             WALLET_CHECK_NO_THROW(
-                mockNetwork.SendRawMessage(dummyWid, msg)
+                mockNetwork->SendRawMessage(dummyWid, msg)
             );
             WALLET_CHECK(correctMessagesCount == 1);
         }
@@ -239,8 +239,8 @@ namespace
         {
             std::cout << "Case: listening to network messages" << endl;
 
-            MockBbsNetwork mockNetwork;
-            BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
+            auto mockNetwork = MockBbsNetwork::CreateInstance();
+            BroadcastRouter broadcastRouter(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
             uint32_t executed = 0;
 
             const BroadcastMsg testSample = { {'s','w','a','p'}, {'s','w','a','p'} };
@@ -257,16 +257,16 @@ namespace
             WalletID dummyWid;
             dummyWid.m_Channel = proto::Bbs::s_BtcSwapOffersChannel;
             auto msgA = testMsgCreate(toByteBuffer(testSample), BroadcastContentType::SwapOffers);
-            mockNetwork.SendRawMessage(dummyWid, msgA);
+            mockNetwork->SendRawMessage(dummyWid, msgA);
 
             WALLET_CHECK(executed == 1);
         }
         {
             std::cout << "Case: broadcasting messages to network" << endl;
 
-            MockBbsNetwork mockNetwork;
-            BroadcastRouter broadcastRouterA(mockNetwork, mockNetwork);
-            BroadcastRouter broadcastRouterB(mockNetwork, mockNetwork);
+            auto mockNetwork = MockBbsNetwork::CreateInstance();
+            BroadcastRouter broadcastRouterA(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
+            BroadcastRouter broadcastRouterB(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
             uint32_t executed = 0;
             BroadcastMsg msgA = { {'m','s','g','A'}, {'s','i','g','n','A'} };
             BroadcastMsg msgB = { {'m','s','g','B'}, {'s','i','g','n','B'} };

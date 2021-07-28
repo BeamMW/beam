@@ -20,6 +20,7 @@
 #include "core/block_crypt.h"   // BbsChannel
 #include "core/fly_client.h"    // INetwork
 #include "wallet/core/wallet.h" // IWalletMessageEndpoint
+#include "wallet/core/wallet_network.h"
 
 #include "interface.h"
 
@@ -33,10 +34,17 @@ namespace beam
     class BroadcastRouter
         : public IBroadcastMsgGateway
         , IErrorHandler  // Error handling for Protocol
-        , proto::FlyClient::IBbsReceiver
+        , wallet::BbsProcessor
     {
     public:
-        BroadcastRouter(proto::FlyClient::INetwork&, wallet::IWalletMessageEndpoint&);
+
+        struct BbsTsHolder : public wallet::TimestampHolder
+        {
+            BbsTsHolder(wallet::IWalletDB::Ptr db);
+        };
+
+        BroadcastRouter(proto::FlyClient::INetwork::Ptr, wallet::IWalletMessageEndpoint&, wallet::ITimestampHolder::Ptr);
+        virtual ~BroadcastRouter();
 
         // IBroadcastMsgGateway
         void registerListener(BroadcastContentType, IBroadcastListener*) override;
@@ -44,8 +52,8 @@ namespace beam
         void sendRawMessage(BroadcastContentType type, const ByteBuffer&) override; // Used in SwapOffersBoard. Deprecated. TODO: after 2 fork should be made private.
         void sendMessage(BroadcastContentType type, const BroadcastMsg&) override;
 
-        // IBbsReceiver
-        void OnMsg(proto::BbsMsg&&) override;
+        // BbsProcessor
+        void OnMsg(const proto::BbsMsg&) override;
 
         // IErrorHandler
         void on_protocol_error(uint64_t fromStream, ProtocolError error) override;
@@ -67,15 +75,12 @@ namespace beam
         MsgType getMsgType(BroadcastContentType);
         BbsChannel getBbsChannel(BroadcastContentType);
 
-        proto::FlyClient::INetwork& m_bbsNetwork;
         wallet::IWalletMessageEndpoint& m_bbsMessageEndpoint;
 
         Protocol m_protocol_old;    // TODO: dh remove after 2 fork. Used only with SwapOffersBoard
         Protocol m_protocol;
         MsgReader m_msgReader_old;  // TODO: dh remove after 2 fork.
         MsgReader m_msgReader;
-        Timestamp m_lastTimestamp;
         std::map<BroadcastContentType, IBroadcastListener*> m_listeners;
     };
-
 } // namespace beam

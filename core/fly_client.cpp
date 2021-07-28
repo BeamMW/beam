@@ -1056,7 +1056,7 @@ void FlyClient::NetworkStd::BbsSubscribe(BbsChannel ch, Timestamp ts, IBbsReceiv
     proto::BbsSubscribe msg;
     msg.m_TimeFrom = ts;
     msg.m_Channel = ch;
-    msg.m_On = (NULL != p);
+    msg.m_On = (nullptr != p);
 
     for (ConnectionList::iterator it2 = m_Connections.begin(); m_Connections.end() != it2; ++it2)
         if (it2->IsLive() && it2->IsSecureOut())

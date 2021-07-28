@@ -547,7 +547,7 @@ namespace beam::wallet
                     make_unique<NotificationsSubscriber>(&notificationObserver, m_notificationCenter);
                 updateNotifications();
                 // Broadcast router and broadcast message consumers initialization
-                auto broadcastRouter = make_shared<BroadcastRouter>(*nodeNetwork, *walletNetwork);
+                auto broadcastRouter = make_shared<BroadcastRouter>(nodeNetwork, *walletNetwork, std::make_shared<BroadcastRouter::BbsTsHolder>(m_walletDB));
                 m_broadcastRouter = broadcastRouter;
 
 
@@ -627,6 +627,7 @@ namespace beam::wallet
                 walletNetwork.reset();
 
                 nodeNetworkSubscriber.reset();
+                broadcastRouter.reset();
                 assert(nodeNetwork.use_count() == 1);
                 nodeNetwork.reset();
 

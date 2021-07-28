@@ -284,8 +284,8 @@ namespace
 
         auto storage = createSqliteWalletDB();
         OfferBoardProtocolHandler protocolHandler(storage->get_SbbsKdf());
-        MockBbsNetwork mockNetwork;
-        BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
+        auto mockNetwork = MockBbsNetwork::CreateInstance();
+        BroadcastRouter broadcastRouter(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
 
         {
             std::cout << "Case: create, dispatch and parse offer" << endl;
@@ -327,8 +327,8 @@ namespace
         std::tie(correctOffer, std::ignore) = generateTestOffer(storage);
         TxID txID = correctOffer.m_txId;    // used to iterate and create unique ID's
 
-        MockBbsNetwork mockNetwork;
-        BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
+        auto mockNetwork = MockBbsNetwork::CreateInstance();
+        BroadcastRouter broadcastRouter(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
         OfferBoardProtocolHandler protocolHandler(storage->get_SbbsKdf());
         SwapOffersBoard Alice(broadcastRouter, protocolHandler, storage);
 
@@ -401,10 +401,10 @@ namespace
         TxID txID = correctOffer.m_txId;    // used to iterate and create unique ID's
         
         OfferBoardProtocolHandler protocolHandler(storage->get_SbbsKdf());
-        MockBbsNetwork mockNetwork;
-        BroadcastRouter broadcastRouterA(mockNetwork, mockNetwork);
-        BroadcastRouter broadcastRouterB(mockNetwork, mockNetwork);
-        BroadcastRouter broadcastRouterC(mockNetwork, mockNetwork);
+        auto mockNetwork = MockBbsNetwork::CreateInstance();
+        BroadcastRouter broadcastRouterA(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
+        BroadcastRouter broadcastRouterB(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
+        BroadcastRouter broadcastRouterC(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
 
         SwapOffersBoard Alice(broadcastRouterA, protocolHandler, storage);
         SwapOffersBoard Bob(broadcastRouterB, protocolHandler, storage);
@@ -574,9 +574,9 @@ namespace
         TxID txID = correctOffer.m_txId;    // used to iterate and create unique ID's
 
         OfferBoardProtocolHandler protocolHandler(storage->get_SbbsKdf());
-        MockBbsNetwork mockNetwork;
-        BroadcastRouter broadcastRouterA(mockNetwork, mockNetwork);
-        BroadcastRouter broadcastRouterB(mockNetwork, mockNetwork);
+        auto mockNetwork = MockBbsNetwork::CreateInstance();
+        BroadcastRouter broadcastRouterA(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
+        BroadcastRouter broadcastRouterB(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
 
         SwapOffersBoard Alice(broadcastRouterA, protocolHandler, storage);
         SwapOffersBoard Bob(broadcastRouterB, protocolHandler, storage);
@@ -717,9 +717,9 @@ namespace
         std::tie(correctOffer, std::ignore) = generateTestOffer(storage);
 
         OfferBoardProtocolHandler protocolHandler(storage->get_SbbsKdf());
-        MockBbsNetwork mockNetwork;
-        BroadcastRouter broadcastRouterA(mockNetwork, mockNetwork);
-        BroadcastRouter broadcastRouterB(mockNetwork, mockNetwork);
+        auto mockNetwork = MockBbsNetwork::CreateInstance();
+        BroadcastRouter broadcastRouterA(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
+        BroadcastRouter broadcastRouterB(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
 
         SwapOffersBoard Alice(broadcastRouterA, protocolHandler, storage);
         SwapOffersBoard Bob(broadcastRouterB, protocolHandler, storage);
@@ -777,8 +777,8 @@ namespace
         std::tie(correctOffer, std::ignore) = generateTestOffer(storage);
 
         OfferBoardProtocolHandler protocolHandler(storage->get_SbbsKdf());
-        MockBbsNetwork mockNetwork;
-        BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
+        auto mockNetwork = MockBbsNetwork::CreateInstance();
+        BroadcastRouter broadcastRouter(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
         SwapOffersBoard Alice(broadcastRouter, protocolHandler, storage);
 
         HeightHash startState;
@@ -813,8 +813,8 @@ namespace
         auto storage = createSqliteWalletDB();
 
         OfferBoardProtocolHandler protocolHandler(storage->get_SbbsKdf());
-        MockBbsNetwork mockNetwork;
-        BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
+        auto mockNetwork = MockBbsNetwork::CreateInstance();
+        BroadcastRouter broadcastRouter(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
         SwapOffersBoard Alice(broadcastRouter, protocolHandler, storage);
 
         HeightHash startState;

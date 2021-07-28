@@ -267,7 +267,7 @@ public:
         _wallet->AddMessageEndpoint(wnet);
         _wallet->SetNodeEndpoint(nnet);
 
-        _broadcastRouter = std::make_shared<BroadcastRouter>(*nnet, *wnet);
+        _broadcastRouter = std::make_shared<BroadcastRouter>(nnet, *wnet, std::make_shared<BroadcastRouter::BbsTsHolder>(_walletDB));
         _exchangeRateProvider = std::make_shared<ExchangeRateProvider>(*_broadcastRouter, _walletDB);
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
