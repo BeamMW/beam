@@ -183,7 +183,7 @@ void ViewIncoming(const ContractID& cid, const PubKey* pPk, uint32_t iStartFrom)
     {
         Env::DocGroup gr("");
         Env::DocAddNum("MsgId", Utils::FromBE(wlk.m_Key.m_KeyInContract.m_MsgId_BE));
-        Env::DocAddNum("amount", wlk.m_Msg.m_Amount);
+        Env::DocAddNum("amount", Utils::FromBE(wlk.m_Msg.m_Amount));
 
         if (!pPk)
             Env::DocAddBlob_T("User", wlk.m_Msg.m_User);
