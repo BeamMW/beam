@@ -337,18 +337,22 @@ namespace beam::wallet
 
     void BaseTransaction::CompleteTx()
     {
-        auto minConfirmations = GetWalletDB()->getCoinConfirmationsOffset();
-        if (minConfirmations)
+        bool isSender = GetMandatoryParameter<bool>(TxParameterID::IsSender);
+        if (!isSender)
         {
-            Height hProof = 0;
-            if (GetParameter<Height>(TxParameterID::KernelProofHeight, hProof) && hProof)
+            uint32_t minConfirmations = 0;
+            if (GetParameter<uint32_t>(TxParameterID::MinConfirmations, minConfirmations) && minConfirmations)
             {
-                auto currHeight = GetWalletDB()->getCurrentHeight();
-                if (currHeight - hProof < minConfirmations)
+                Height hProof = 0;
+                if (GetParameter<Height>(TxParameterID::KernelProofHeight, hProof) && hProof)
                 {
-                    UpdateTxDescription(TxStatus::Confirming);
-                    GetGateway().UpdateOnNextTip(GetTxID());
-                    return;
+                    auto currHeight = GetWalletDB()->getCurrentHeight();
+                    if (currHeight - hProof < minConfirmations)
+                    {
+                        UpdateTxDescription(TxStatus::Confirming);
+                        GetGateway().UpdateOnNextTip(GetTxID());
+                        return;
+                    }
                 }
             }
         }

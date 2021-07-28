@@ -5741,7 +5741,14 @@ namespace beam::wallet
 
             if (c.m_confirmHeight != MaxHeight)
             {
-                if (hTop - walletDB.getCoinConfirmationsOffset() < c.m_maturity)
+                uint32_t minConfirmations = 0;
+                if (c.m_createTxId &&
+                    getTxParameter(walletDB, c.m_createTxId.get(), TxParameterID::MinConfirmations, minConfirmations))
+                {
+                    c.m_offset = minConfirmations;
+                }
+                
+                if (hTop < c.m_maturity + c.m_offset)
                 {
                     c.m_status = Coin::Status::Maturing;
                     return;
@@ -5801,7 +5808,7 @@ namespace beam::wallet
                     }
                 }
 
-                if (hTop - c.m_confirmHeight < walletDB.getCoinConfirmationsOffset())
+                if (hTop < c.m_confirmHeight)
                 {
                     c.m_Status = ShieldedCoin::Status::Maturing;
                     return;

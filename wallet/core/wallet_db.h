@@ -92,6 +92,8 @@ namespace beam::wallet
         // DO NOT USE, obsolette, to be removed
         uint64_t m_OBSOLETTEsessionId;   // Used in the API to lock coins for specific session (see https://github.com/BeamMW/beam/wiki/Beam-wallet-protocol-API#tx_split)
 
+        uint32_t m_offset = 0;  // confirmations count to wait before can spend coin, not stored in db, copied from tx on DeduceStatus
+
         bool IsMaturityValid() const; // is/was the UTXO confirmed?
         Height get_Maturity(Height offset = 0) const; // would return MaxHeight unless the UTXO was confirmed
         
@@ -269,7 +271,7 @@ namespace beam::wallet
         Asset::ID getAssetID() const;
         std::string getType() const;
 
-        Height get_Maturity(Height offset) const {
+        Height get_Maturity(Height offset = 0) const {
             return IsMaturityValid() ? m_confirmHeight + offset : MaxHeight;
         }
 
@@ -281,6 +283,8 @@ namespace beam::wallet
 
         boost::optional<TxID> m_createTxId;  // id of the transaction which created the UTXO
         boost::optional<TxID> m_spentTxId;   // id of the transaction which spent the UTXO
+
+        uint32_t m_offset = 0;               // confirmations count to wait before can spend coin, not stored in db, copied from tx on DeduceStatus. 0 for Shielded coins
 
         // All the following is not stored in DB, it's deduced from the current blockchain state
         enum Status

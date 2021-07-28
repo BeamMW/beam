@@ -270,6 +270,8 @@ namespace beam::wallet
         template<typename T>
         static void EmplaceCoin(std::vector<ApiCoin>& to, const T& c, uint32_t cCnt)
         {
+            static_assert(std::is_same<Coin, T>::value || std::is_same<ShieldedCoin, T>::value);
+
             auto& t = to.emplace_back();
             t.id = c.toStringID();
             t.asset_id = c.getAssetID();
