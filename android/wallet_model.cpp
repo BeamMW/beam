@@ -523,7 +523,7 @@ void WalletModel::onCoinsSelected(const CoinsSelectionInfo& selectionRes)
 
     env->CallStaticVoidMethod(WalletListenerClass, callback, 
                                                     selectionRes.m_explicitFee, 
-                                                    selectionRes.m_changeBeam, 
+                                                    selectionRes.m_changeAsset, 
                                                     selectionRes.m_minimalExplicitFee);
 }
 
