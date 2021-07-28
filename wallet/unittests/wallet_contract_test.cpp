@@ -293,22 +293,12 @@ namespace
                     auto it = lt.find_address(pc);
                     if (it == lt.end())
                         return false;
-                    else
+                    
+                    if (m_CurrentLine)
                     {
-                        if (!m_CurrentLine || *m_CurrentLine != it)
-                        {
-                            if (m_CurrentLine && (*m_CurrentLine)->is_stmt)
-                            {
-                                m_PrevLine = m_CurrentLine;
-                            }
-                            m_CurrentLine = std::make_shared<dwarf::line_table::iterator>(it);
-                        }
-                        else
-                        {
-                            return false;
-                        }
+                        m_PrevLine = m_CurrentLine;
                     }
-
+                    m_CurrentLine = std::make_shared<dwarf::line_table::iterator>(it);
 
                     // Map PC to an object
                     // XXX Index/helper/something for looking up PCs
@@ -785,9 +775,10 @@ namespace
 
             std::unique_lock lock(m_Mutex);
 
-            if (PrintPC(myIp, stack))
+            if (PrintPC(myIp+1, stack))
             {
-                if ((*m_CurrentLine)->line == 0) // ignore
+                const auto& c = *m_CurrentLine;
+                if (c->line == 0) // ignore
                 {
                     return;
                 }
@@ -806,7 +797,7 @@ namespace
                 {
                     // TODO: this is a hack, i'm not sure if it is correct
                     const auto& t = *m_ReturnLines.top();
-                    const auto& c = *m_CurrentLine;
+
                     if (t->file_index == c->file_index && t->line == c->line)
                     {
                         m_ReturnLines.pop();
@@ -817,7 +808,7 @@ namespace
                 assert(!m_CallStack.empty());
                 auto& call = m_CallStack.back();
 
-                call.m_Name = (*m_CurrentLine)->get_description();
+                call.m_Name = c->get_description();
                 if (!stack.empty())
                 {
                     auto& d = stack.back();
@@ -825,9 +816,9 @@ namespace
                     call.m_Name = name + " " + call.m_Name;
                 }
 
-                call.m_FilePath = GetCanonicalPath((*m_CurrentLine)->file->path);
-                call.m_Line = (*m_CurrentLine)->line;
-                call.m_Column = (*m_CurrentLine)->column;
+                call.m_FilePath = GetCanonicalPath(c->file->path);
+                call.m_Line = c->line;
+                call.m_Column = c->column;
 
                 // Update variables
                 m_Variables.clear();
@@ -846,12 +837,13 @@ namespace
 
         void ProcessAction(size_t stackHeight)
         {
+            auto& c = *m_CurrentLine;
             switch (m_NextAction)
             {
             case Action::Continue:
 
                 if (const auto& call = m_CallStack.back(); 
-                    (*m_CurrentLine)->is_stmt && m_Breakpoints[call.m_FilePath].count(call.m_Line))
+                    c->is_stmt && m_Breakpoints[call.m_FilePath].count(call.m_Line))
                 {
                     EmitEvent(Event::BreakpointHit);
                 }
@@ -867,7 +859,7 @@ namespace
                 break;
             case Action::SteppingOver:
 
-                if ((*m_CurrentLine)->is_stmt && m_CallStack.size() <= m_StackHeight)
+                if (c->is_stmt && m_CallStack.size() <= m_StackHeight)
                 {
                     EmitEvent(Event::Stepped);
                 }
@@ -877,7 +869,7 @@ namespace
                 m_NextAction = Action::SteppingIn;
                 break;
             case Action::SteppingIn:
-
+                
                 EmitEvent(Event::Stepped);
                 break;
             case Action::StepOut:
