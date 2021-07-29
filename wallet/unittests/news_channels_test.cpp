@@ -240,6 +240,13 @@ namespace
         }
     }
 
+    template<typename F>
+    void CheckAfter(unsigned interval, F&& func)
+    {
+        auto timer = io::Timer::create(io::Reactor::get_Current());
+        timer->start(interval, false, std::move(func));
+    }
+
     void TestNewsChannelsObservers()
     {
         cout << endl << "Test news channels observers" << endl;
@@ -321,14 +328,15 @@ namespace
             // only one below should succeed
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF2);
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF3);
-            WALLET_CHECK(execCountRate == 1);
+
+            CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 1); });
 
             setAfterFork3(storage);
             // only one below should succeed
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF2);
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF3);
             setBeforeFork3(storage);
-            WALLET_CHECK(execCountRate == 2);
+            CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 2); });
         }
 
         {
@@ -341,7 +349,7 @@ namespace
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF2);
             WALLET_CHECK(execCountVers == 1);
             WALLET_CHECK(execCountWalletVers == 1);
-            WALLET_CHECK(execCountRate == 2);
+            CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 2); });
         }
         {
             cout << "Case: subscribed back" << endl;
@@ -359,7 +367,7 @@ namespace
             setAfterFork3(storage);
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF3);
             setBeforeFork3(storage);
-            WALLET_CHECK(execCountRate == 2);   // the rate was the same so no need in the notification
+            CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 2); });    // the rate was the same so no need in the notification
         }
 
         {
@@ -392,12 +400,12 @@ namespace
             WALLET_CHECK(execCountWalletVers == 2);     // BroadcastContentType::WalletUpdates are not implemented for protocol 0.0.1
 
             broadcastRouter.sendRawMessage(BroadcastContentType::ExchangeRates, createMessage(BroadcastContentType::ExchangeRates, msgRF2));
-            WALLET_CHECK(execCountRate == 3);
+            CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 3); });
 
             setAfterFork3(storage);
             broadcastRouter.sendRawMessage(BroadcastContentType::ExchangeRates, createMessage(BroadcastContentType::ExchangeRates, msgRF3));
             setBeforeFork3(storage);
-            WALLET_CHECK(execCountRate == 4);
+            CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 4); });
         }
 
         cout << "Test end" << endl;
