@@ -1088,7 +1088,7 @@ namespace beam::wallet
         try
         {
             const auto address = m_walletDB->getAddress(addr);
-            onGetAddress(addr, address, m_walletDB->getVoucherCount(address->m_walletID));
+            onGetAddress(addr, address, m_walletDB->getVoucherCount(addr));
         }
         catch (const std::exception& e)
         {
