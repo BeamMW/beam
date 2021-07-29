@@ -4488,7 +4488,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 			Wasm::Reader::Mode::Restrict :
 			Wasm::Reader::Mode::Emulate_x86;
 
-		CallFar(cid, iMethod, m_Stack.get_AlasSp());
+		CallFar(cid, iMethod, m_Stack.get_AlasSp(), 0);
 
 		if (pInfo)
 			ParseExtraInfo(pInfo->m_sParsed, iMethod, krn.m_Args);

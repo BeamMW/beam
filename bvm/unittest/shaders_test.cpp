@@ -435,7 +435,7 @@ namespace bvm2 {
 		} m_Eth;
 
 
-		virtual void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs) override
+		virtual void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext) override
 		{
 			if (cid == m_cidVault)
 			{
@@ -594,7 +594,7 @@ namespace bvm2 {
 			}
 
 
-			ProcessorContract::CallFar(cid, iMethod, pArgs);
+			ProcessorContract::CallFar(cid, iMethod, pArgs, bInheritContext);
 		}
 
 		void TestVault();
