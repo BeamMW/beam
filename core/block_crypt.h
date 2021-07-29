@@ -1625,6 +1625,7 @@ namespace beam
 		std::map<Asset::ID, AmountBig::Type> m_Map;
 
 		void Add(Amount val, Asset::ID, bool bSpend);
+		void Add(const AmountBig::Type&, Asset::ID);
 		void ToCommitment(ECC::Point::Native&) const;
 	};
 }
