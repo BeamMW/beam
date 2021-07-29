@@ -2438,7 +2438,7 @@ struct NodeProcessor::BlockInterpretCtx
 
 		void ContractDataToggleTree(const Blob& key, const Blob&, bool bAdd);
 
-		void ParseExtraInfo(std::string&, uint32_t iMethod, const Blob& args);
+		void ParseExtraInfo(ContractInvokeExtraInfo&, const bvm2::ShaderID&, uint32_t iMethod, const Blob& args);
 
 		struct DbgCallstack
 		{
@@ -2461,6 +2461,7 @@ struct NodeProcessor::BlockInterpretCtx
 		void DumpCallstack(std::ostream&);
 		void DumpFarFrames(std::ostream&, intrusive::list_autoclear<FarCalls::Frame>::reverse_iterator&, uint32_t& nFrames, uint32_t nTrg);
 
+		virtual void CallFar(const bvm2::ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext) override;
 		virtual void OnCall(Wasm::Word nAddr) override;
 		virtual void OnRet(Wasm::Word nRetAddr) override;
 	};
@@ -4471,11 +4472,6 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 	bool bRes = false;
 	try
 	{
-		ContractInvokeExtraInfo* pInfo = m_Bic.m_pvC ? &m_Bic.m_pvC->emplace_back() : nullptr;
-
-		if (pInfo)
-			m_pvSigs = &pInfo->m_vSigs;
-
 		m_Charge = m_Bic.m_ChargePerBlock;
 
 		if (m_Bic.m_pTxErrorInfo)
@@ -4489,9 +4485,6 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 			Wasm::Reader::Mode::Emulate_x86;
 
 		CallFar(cid, iMethod, m_Stack.get_AlasSp(), 0);
-
-		if (pInfo)
-			ParseExtraInfo(pInfo->m_sParsed, iMethod, krn.m_Args);
 
 		ECC::Hash::Processor hp;
 
@@ -4521,11 +4514,6 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 		}
 
 		m_Bic.m_ChargePerBlock = m_Charge;
-
-		if (pInfo) {
-			// Save funds i/o
-			pInfo->m_FundsIO.m_Map.swap(m_FundsIO.m_Map);
-		}
 
 	}
 	catch (const Wasm::Exc& e)
@@ -4703,7 +4691,7 @@ struct NodeProcessor::ProcessorInfoParser
 };
 
 
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::ParseExtraInfo(std::string& s, uint32_t iMethod, const Blob& args)
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::ParseExtraInfo(ContractInvokeExtraInfo& x, const bvm2::ShaderID& sid, uint32_t iMethod, const Blob& args)
 {
 	try
 	{
@@ -4713,23 +4701,18 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ParseExtraInfo(std::string&
 		if (!proc.Init())
 			return;
 
-		assert(m_FarCalls.m_Stack.size() == 1);
-
-		bvm2::ShaderID sid;
-		bvm2::get_ShaderID(sid, m_Code);
-
 		proc.m_Stack.PushAlias(args);
 		Wasm::Word pArgs_ = proc.m_Stack.get_AlasSp();
 
 		proc.PushArgBoth(sid);
-		proc.PushArgBoth(m_FarCalls.m_Stack.back().m_Cid);
+		proc.PushArgBoth(x.m_Cid);
 		proc.m_Stack.Push(iMethod);
 		proc.m_Stack.Push(pArgs_);
 		proc.m_Stack.Push(args.n);
 
 		proc.CallMethod(0);
 
-		s = proc.Execute();
+		x.m_sParsed = proc.Execute();
 	}
 	catch (const std::exception& e)
 	{
@@ -5239,6 +5222,82 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::OnCall(Wasm::Word nAddr)
 	bvm2::ProcessorContract::OnCall(nAddr);
 }
 
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::CallFar(const bvm2::ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext)
+{
+	bvm2::ProcessorContract::CallFar(cid, iMethod, pArgs, bInheritContext);
+
+	if (m_Bic.m_pvC)
+	{
+		auto* pVec = m_Bic.m_pvC;
+
+		for (uint32_t i = 1; i < m_FarCalls.m_Stack.size(); i++)
+		{
+			assert(!pVec->empty());
+			pVec = &pVec->back().m_vNested;
+		}
+
+		ContractInvokeExtraInfo& x = pVec->emplace_back();
+
+		m_pvSigs = &x.m_vSigs;
+		m_FundsIO.m_Map.swap(x.m_FundsIO.m_Map);
+
+		x.m_Cid = m_FarCalls.m_Stack.back().m_Cid; // may be different from passed cid, if inheriting context
+
+		// estimate the args size (roughly). Currently support only stack memory type (for in-context calls theoretically this may be any memory type)
+		Wasm::Word nArgsOffs = pArgs ^ Wasm::MemoryType::Stack;
+		
+		Blob args;
+		if (nArgsOffs < m_Stack.m_BytesMax)
+		{
+			args.n = m_Stack.m_BytesMax - nArgsOffs;
+			args.p = reinterpret_cast<uint8_t*>(m_Stack.m_pPtr) + nArgsOffs;
+		}
+		else
+			ZeroObject(args);
+	
+		bvm2::ShaderID sid;
+		bvm2::get_ShaderID(sid, m_Code);
+
+		ParseExtraInfo(x, sid, iMethod, args);
+
+		if (x.m_sParsed.empty())
+		{
+			if (m_FarCalls.m_Stack.size() > 1)
+				args.n = 0; // skip args, we don't know the size, only the high bound. No need to print all this.
+			x.SetUnk(iMethod, args, &sid);
+		}
+	}
+}
+
+void NodeProcessor::ContractInvokeExtraInfo::SetUnk(uint32_t iMethod, const Blob& args, const ECC::uintBig* pSid)
+{
+	std::ostringstream os;
+
+	switch (iMethod)
+	{
+	case 0:
+		os << "Create";
+		if (pSid)
+			os << ", Sid=" << *pSid;
+		break;
+
+	case 1:
+		os << "Destroy";
+		break;
+
+	default:
+		os << "Method_" << iMethod;
+	}
+
+	if (args.n)
+	{
+		os << ", Args=";
+		uintBigImpl::_PrintFull(reinterpret_cast<const uint8_t*>(args.p), args.n, os);
+	}
+
+	m_sParsed = os.str();
+}
+
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::OnRet(Wasm::Word nRetAddr)
 {
 	bvm2::ProcessorContract::OnRet(nRetAddr);
@@ -5253,6 +5312,37 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::OnRet(Wasm::Word nRetAddr)
 		DbgCallstackTrim();
 	}
 
+	if (m_Bic.m_pvC && !nRetAddr)
+	{
+		std::vector<ContractInvokeExtraInfo>* pVcPrev = nullptr;
+
+		auto* pVec = m_Bic.m_pvC;
+		assert(pVec);
+
+		for (uint32_t i = 0; i < m_FarCalls.m_Stack.size(); i++)
+		{
+			pVcPrev = pVec;
+
+			assert(!pVec->empty());
+			pVec = &pVec->back().m_vNested;
+		}
+
+		assert(!pVec->empty());
+		ContractInvokeExtraInfo& x = pVec->back();
+
+		if (x.m_FundsIO.m_Map.empty())
+			x.m_FundsIO = m_FundsIO; // save it
+		else
+		{
+			m_FundsIO.m_Map.swap(x.m_FundsIO.m_Map); // our + nested
+
+			// merge
+			for (auto it = x.m_FundsIO.m_Map.begin(); x.m_FundsIO.m_Map.end() != it; it++)
+				m_FundsIO.Add(it->second, it->first);
+		}
+
+		m_pvSigs = pVcPrev ? &pVcPrev->back().m_vSigs : nullptr;
+	}
 }
 
 void NodeProcessor::ToInputWithMaturity(Input& inp, Output& outp, bool bNake)

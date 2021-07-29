@@ -404,16 +404,23 @@ public:
 
 	struct ContractInvokeExtraInfo
 	{
-		FundsChangeMap m_FundsIO;
-		std::vector<ECC::Point> m_vSigs;
+		ECC::uintBig m_Cid;
+
+		FundsChangeMap m_FundsIO; // including nested
+		std::vector<ECC::Point> m_vSigs; // excluding nested
+		std::vector<ContractInvokeExtraInfo> m_vNested;
 		std::string m_sParsed;
+
+		void SetUnk(uint32_t iMethod, const Blob& args, const ECC::uintBig* pSid);
 
 		template <typename Archive>
 		void serialize(Archive& ar)
 		{
 			ar
+				& m_Cid
 				& m_FundsIO.m_Map
 				& m_vSigs
+				& m_vNested
 				& m_sParsed;
 		}
 	};
