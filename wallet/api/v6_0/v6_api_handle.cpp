@@ -195,25 +195,15 @@ namespace beam::wallet
         bool isValid = !!p;
         bool isMine = false;
         boost::optional<size_t> offlinePayments;
+        boost::optional<WalletAddress> addr;
 
         if (p)
         {
+            auto walletDB = getWalletDB();
             if (auto v = p->GetParameter<WalletID>(TxParameterID::PeerID); v)
             {
                 isValid &= v->IsValid();
-
-                auto walletDB = getWalletDB();
-                auto addr = walletDB->getAddress(*v);
-
-                if (addr)
-                {
-                    isMine = addr->isOwn();
-                    if (isMine)
-                    {
-                        isValid = isValid && !addr->isExpired();
-                    }
-                }
-
+                addr = walletDB->getAddress(*v);
                 if (tokenType == TokenType::Offline)
                 {
                     if (auto vouchers = p->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
@@ -221,6 +211,18 @@ namespace beam::wallet
                         storage::SaveVouchers(*walletDB, *vouchers, *v);
                     }
                     offlinePayments = walletDB->getVoucherCount(*v);
+                }
+            }
+            else
+            {
+                addr = walletDB->getAddressByToken(data.token);
+            }
+            if (addr)
+            {
+                isMine = addr->isOwn();
+                if (isMine)
+                {
+                    isValid = isValid && !addr->isExpired();
                 }
             }
         }
