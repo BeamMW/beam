@@ -283,7 +283,7 @@ namespace
 
         }
 
-        bool PrintPC(dwarf::taddr pc, std::vector<dwarf::die>& stack)
+        bool LookupSourceLine(dwarf::taddr pc, std::vector<dwarf::die>& stack)
         {
             for (auto& cu : m_DebugInfo->compilation_units())
             {
@@ -296,6 +296,9 @@ namespace
                     
                     if (m_CurrentLine)
                     {
+                        if (*m_CurrentLine == it)
+                            return false;
+
                         m_PrevLine = m_CurrentLine;
                     }
                     m_CurrentLine = std::make_shared<dwarf::line_table::iterator>(it);
@@ -775,7 +778,7 @@ namespace
 
             std::unique_lock lock(m_Mutex);
 
-            if (PrintPC(myIp+1, stack))
+            if (LookupSourceLine(myIp, stack))
             {
                 const auto& c = *m_CurrentLine;
                 if (c->line == 0) // ignore
@@ -849,8 +852,10 @@ namespace
                 }
                 break;
             case Action::Pause:
-
-                EmitEvent(Event::Paused);
+                if (c->is_stmt)
+                {
+                    EmitEvent(Event::Paused);
+                }
                 break;
             case Action::StepOver:
 
