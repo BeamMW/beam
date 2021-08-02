@@ -106,12 +106,12 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
-        if (!getWallet()->IsConnectedToOwnNode()
+        if (!getWallet()->CanDetectCoins()
            && (data.type == TokenType::MaxPrivacy
             || data.type == TokenType::Public
             || data.type == TokenType::Offline))
         {
-            throw jsonrpc_exception(ApiError::NotSupported, "Must be connected to own node to generate this address type.");
+            throw jsonrpc_exception(ApiError::NotSupported, "Wallet must be connected to own node or mobile node protocol should be turned on to generate this address type.");
         }
 
         auto walletDB = getWalletDB();

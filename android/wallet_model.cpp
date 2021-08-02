@@ -835,6 +835,11 @@ void WalletModel::onShieldedCoinChanged(beam::wallet::ChangeAction action, const
 {
     LOG_DEBUG() << "onShieldedCoinChanged()";
 
+    for (const auto& coin : items)
+    {
+        shieldedCoins[coin.m_TxoID] = coin;
+    }
+
     JNIEnv* env = Android_JNI_getEnv();
 
     jobjectArray utxos = convertShieldedToJObject(env, items);
