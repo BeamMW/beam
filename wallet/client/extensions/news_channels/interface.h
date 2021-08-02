@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "verification_info.h"
 #include "wallet/core/exchange_rate.h"
 #include "version_info.h"
 

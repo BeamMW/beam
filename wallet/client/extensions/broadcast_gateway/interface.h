@@ -29,6 +29,7 @@ namespace beam
         ExchangeRates,
         WalletUpdates,  // used for Wallet Core library based implementations
         DexOffers,
+        AssetVerification,
     };
 
     /**
