@@ -68,7 +68,7 @@ inline void ConvertOrd(T&) {}
 #   define _countof(x) (sizeof(x) / sizeof((x)[0]))
 #endif // _countof
 
-#   define export __attribute__( ( visibility( "default" ) ) ) extern "C"
+#   define BEAM_EXPORT __attribute__( ( visibility( "default" ) ) ) extern "C"
 
 #ifndef assert
 #   define assert(expr) do {} while (false)
@@ -80,6 +80,10 @@ template <uint32_t nBytes>
 using Opaque = beam::uintBig_t<nBytes>;
 
 #endif // HOST_BUILD
+
+#ifdef _MSC_VER
+#   define __restrict__ __restrict
+#endif // 
 
 // environment functions
 #include "../bvm2_shared.h"

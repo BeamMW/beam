@@ -1561,7 +1561,7 @@ namespace beam::wallet
 
         uint32_t nCount = p.Proceed(r.m_Res.m_Events);
 
-        if (nCount < r.m_Max)
+        if (nCount < proto::Event::s_Max)
         {
             Block::SystemState::Full sTip;
             m_WalletDB->get_History().get_Tip(sTip);

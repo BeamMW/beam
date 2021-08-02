@@ -15,4 +15,6 @@ public class TransactionParametersDTO
     public String version;
 
     public int addressType;
+
+    public int assetId;
 }

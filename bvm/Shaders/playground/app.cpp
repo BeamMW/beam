@@ -178,7 +178,7 @@ bool get_Sid(ShaderID& sid)
     return true;
 }
 
-export void Method_0()
+BEAM_EXPORT void Method_0()
 {
     ShaderID sid;
     if (!get_Sid(sid))
@@ -243,7 +243,7 @@ export void Method_0()
     Env::GenerateKernel(&cid, 2, nullptr, 0, nullptr, 0, nullptr, 0, "play in playground", 100000000);
 }
 
-export void Method_1()
+BEAM_EXPORT void Method_1()
 {
     Method_0(); // make no difference
 }

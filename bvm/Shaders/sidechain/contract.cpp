@@ -13,7 +13,7 @@ void SetPerHeight(Sidechain::PerHeight& ph, const BlockHeader::Full& s, const Si
     ph.m_Difficulty = s.m_PoW.m_Difficulty;
 }
 
-export void Ctor(const Sidechain::Init& r)
+BEAM_EXPORT void Ctor(const Sidechain::Init& r)
 {
     Sidechain::Global g;
     _POD_(Cast::Down<Sidechain::Immutable>(g)) = Cast::Down<Sidechain::Immutable>(r);
@@ -27,12 +27,12 @@ export void Ctor(const Sidechain::Init& r)
     Env::SaveVar_T(r.m_Hdr0.m_Height, ph);
 }
 
-export void Dtor(void*)
+BEAM_EXPORT void Dtor(void*)
 {
     // n/a
 }
 
-export void Method_2(const Sidechain::Grow<0>& r)
+BEAM_EXPORT void Method_2(const Sidechain::Grow<0>& r)
 {
     Sidechain::Global g;
     Env::LoadVar_T((uint8_t) 0, g);
@@ -125,7 +125,7 @@ void ContributorSave(const PubKey& key, Amount val)
         Env::DelVar_T(key);
 }
 
-export void Method_3(const Sidechain::VerifyProof<0>& r)
+BEAM_EXPORT void Method_3(const Sidechain::VerifyProof<0>& r)
 {
     Sidechain::PerHeight ph;
     Env::Halt_if(!Env::LoadVar_T(r.m_Height, ph));
@@ -149,7 +149,7 @@ export void Method_3(const Sidechain::VerifyProof<0>& r)
     }
 }
 
-export void Method_4(const Sidechain::WithdrawComission& r)
+BEAM_EXPORT void Method_4(const Sidechain::WithdrawComission& r)
 {
     Env::Halt_if(!r.m_Amount);
 

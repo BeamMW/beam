@@ -943,20 +943,6 @@ void NodeConnection::OnMsg(Time&& msg)
 	}
 }
 
-void NodeConnection::OnMsg(ShieldedList0&& msg)
-{
-    proto::ShieldedList msg2;
-    msg2.m_Items = std::move(msg.m_Items);
-    Cast::Down<INodeMsgHandler>(*this).OnMsg(std::move(msg2));
-}
-
-void NodeConnection::OnMsg(Status0&& msg)
-{
-    proto::Status msg2;
-    msg2.m_Value = msg.m_Value;
-    Cast::Down<INodeMsgHandler>(*this).OnMsg(std::move(msg2));
-}
-
 /////////////////////////
 // NodeConnection::Server
 void NodeConnection::Server::Listen(const io::Address& addr)
@@ -1016,18 +1002,6 @@ Event::Type::Enum Event::Type::Load(Deserializer& der)
     return eType;
 }
 
-void Event::IParser::OnEventType(Utxo0& evt0)
-{
-    Utxo evt;
-
-#define THE_MACRO(type, name) evt.m_##name = std::move(evt0.m_##name);
-    BeamEvent_Utxo0(THE_MACRO)
-#undef THE_MACRO
-
-    ZeroObject(evt.m_User);
-    Cast::Down<IParserBase>(*this).OnEventType(evt);
-}
-
 void Event::IParserBase::ProceedOnce(const Blob& blob)
 {
     Deserializer der;
@@ -1050,12 +1024,6 @@ uint32_t Event::IGroupParser::Proceed(const Blob& blob)
 }
 
 void Event::Utxo::Dump(std::ostringstream& os) const
-{
-    char ch = (Flags::Add & m_Flags) ? '+' : '-';
-    os << ch << "Utxo " << m_Cid << ", Maturity=" << m_Maturity;
-}
-
-void Event::Utxo0::Dump(std::ostringstream& os) const
 {
     char ch = (Flags::Add & m_Flags) ? '+' : '-';
     os << ch << "Utxo " << m_Cid << ", Maturity=" << m_Maturity;

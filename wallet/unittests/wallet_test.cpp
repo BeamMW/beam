@@ -320,9 +320,6 @@ namespace
             }
 
             der.reset(buf2.data(), buf2.size());
-            proto::Event::Type::Enum event2 = proto::Event::Type::Utxo0;
-            WALLET_CHECK_NO_THROW(event2 = proto::Event::Type::Load(der));
-            WALLET_CHECK(event2 == proto::Event::Type::Shielded);
         };
 
         // legacy case
@@ -3138,6 +3135,20 @@ void TestAddressVersions()
         {
             WALLET_CHECK(version == "7.0.1313.2362");
             failed = false;
+        });
+        WALLET_CHECK(!failed);
+        params.SetParameter(TxParameterID::ClientVersion, std::string("Beam UI " BEAM_LIB_VERSION));
+        params.SetParameter(TxParameterID::LibraryVersion, std::string(BEAM_LIB_VERSION));
+        failed = false;
+        ProcessLibraryVersion(params, [&](const auto& version, const auto& myVersion)
+        {
+            failed = true;
+        });
+        WALLET_CHECK(!failed);
+        failed = false;
+        ProcessClientVersion(params, "Beam UI", BEAM_LIB_VERSION, BEAM_LIB_VERSION, [&](const auto& version, const auto& myVersion)
+        {
+            failed = true;
         });
         WALLET_CHECK(!failed);
     };

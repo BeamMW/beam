@@ -14,16 +14,16 @@
 
 #include "test_contract.h"
 
-export void Ctor(void*)
+BEAM_EXPORT void Ctor(void*)
 {
 
 }
 
-export void Dtor(void*)
+BEAM_EXPORT void Dtor(void*)
 {
 }
 
-export void Method_2()
+BEAM_EXPORT void Method_2()
 {
 
 }

@@ -2,7 +2,7 @@
 #include "contract.h"
 #include "../BeamHeader.h"
 
-export void Ctor(const Pipe::Create& r)
+BEAM_EXPORT void Ctor(const Pipe::Create& r)
 {
 	Pipe::StateOut so;
 	_POD_(so).SetZero();
@@ -19,12 +19,12 @@ export void Ctor(const Pipe::Create& r)
 	Env::SaveVar_T(ki, si);
 }
 
-export void Dtor(void*)
+BEAM_EXPORT void Dtor(void*)
 {
 	Env::Halt(); // not supported
 }
 
-export void Method_2(const Pipe::SetRemote& r)
+BEAM_EXPORT void Method_2(const Pipe::SetRemote& r)
 {
 	Pipe::StateIn si;
 	Pipe::StateIn::Key ki;
@@ -37,7 +37,7 @@ export void Method_2(const Pipe::SetRemote& r)
 
 }
 
-export void Method_3(const Pipe::PushLocal0& r)
+BEAM_EXPORT void Method_3(const Pipe::PushLocal0& r)
 {
 	Height h = Env::get_Height();
 
@@ -294,7 +294,7 @@ struct VariantWrap
 	}
 };
 
-export void Method_4(const Pipe::PushRemote0& r)
+BEAM_EXPORT void Method_4(const Pipe::PushRemote0& r)
 {
 	Pipe::StateIn si;
 	Pipe::StateIn::Key ki;
@@ -509,7 +509,7 @@ void HandleUserAccount(const PubKey& pk, Amount val, bool bAdd)
 		Env::DelVar_T(kui);
 }
 
-export void Method_5(const Pipe::FinalyzeRemote& r)
+BEAM_EXPORT void Method_5(const Pipe::FinalyzeRemote& r)
 {
 	Pipe::StateIn si;
 	Pipe::StateIn::Key ki;
@@ -553,7 +553,7 @@ export void Method_5(const Pipe::FinalyzeRemote& r)
 	Env::SaveVar_T(ki, si);
 }
 
-export void Method_6(Pipe::ReadRemote0& r)
+BEAM_EXPORT void Method_6(Pipe::ReadRemote0& r)
 {
 	Pipe::MsgHdr::KeyIn mki;
 	mki.m_iCheckpoint_BE = Utils::FromBE(r.m_iCheckpoint);
@@ -601,7 +601,7 @@ export void Method_6(Pipe::ReadRemote0& r)
 	HandleUserAccount(cp.m_User, si.m_Cfg.m_ComissionPerMsg, true);
 }
 
-export void Method_7(const Pipe::Withdraw& r)
+BEAM_EXPORT void Method_7(const Pipe::Withdraw& r)
 {
 	HandleUserAccount(r.m_User, r.m_Amount, false);
 	Env::FundsUnlock(0, r.m_Amount);

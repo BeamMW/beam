@@ -71,7 +71,7 @@
 #define DemoXdaoRoles_All(macro) \
     macro(manager)
 
-export void Method_0()
+BEAM_EXPORT void Method_0()
 {
     // scheme
     Env::DocGroup root("");
@@ -471,7 +471,7 @@ ON_METHOD(manager, farm_update)
 #undef ON_METHOD
 #undef THE_FIELD
 
-export void Method_1() 
+BEAM_EXPORT void Method_1() 
 {
     Env::DocGroup root("");
 

@@ -2,7 +2,7 @@
 #include "../pipe/contract.h"
 #include "contract.h"
 
-export void Ctor(const MirrorCoin::Create0& r)
+BEAM_EXPORT void Ctor(const MirrorCoin::Create0& r)
 {
     MirrorCoin::Global g;
     _POD_(g.m_PipeID) = r.m_PipeID;
@@ -24,7 +24,7 @@ export void Ctor(const MirrorCoin::Create0& r)
     Env::SaveVar_T(gk, g);
 }
 
-export void Dtor(void*)
+BEAM_EXPORT void Dtor(void*)
 {
     MirrorCoin::Global g;
     uint8_t gk = 0;
@@ -38,7 +38,7 @@ export void Dtor(void*)
     Env::DelVar_T(gk);
 }
 
-export void Method_2(const MirrorCoin::SetRemote& r)
+BEAM_EXPORT void Method_2(const MirrorCoin::SetRemote& r)
 {
     MirrorCoin::Global g;
     uint8_t gk = 0;
@@ -50,7 +50,7 @@ export void Method_2(const MirrorCoin::SetRemote& r)
     Env::SaveVar_T(gk, g);
 }
 
-export void Method_3(const MirrorCoin::Send& r)
+BEAM_EXPORT void Method_3(const MirrorCoin::Send& r)
 {
     MirrorCoin::Global g;
     uint8_t gk = 0;
@@ -78,7 +78,7 @@ export void Method_3(const MirrorCoin::Send& r)
         Env::AssetEmit(g.m_Aid, r.m_Amount, 0);
 }
 
-export void Method_4(const MirrorCoin::Receive& r)
+BEAM_EXPORT void Method_4(const MirrorCoin::Receive& r)
 {
     MirrorCoin::Global g;
     uint8_t gk = 0;

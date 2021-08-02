@@ -71,7 +71,6 @@ namespace beam::wallet
 
     void ExchangeRateProvider::processRates(const std::vector<ExchangeRate>& rates)
     {
-        std::vector<ExchangeRate> changedRates;
         for (const auto& rate : rates)
         {
             const auto uniqID = std::make_pair(rate.m_from, rate.m_to);
@@ -81,12 +80,13 @@ namespace beam::wallet
             {
                 m_cache[uniqID] = rate;
                 m_storage.saveExchangeRate(rate);
-                changedRates.emplace_back(rate);
+                m_changedPairs.emplace(uniqID);
+                if (!m_updateTimer)
+                {
+                    m_updateTimer = io::Timer::create(io::Reactor::get_Current());
+                    m_updateTimer->start(60, false, [this]() { onUpdateTimer(); });
+                }
             }
-        }
-        if (!changedRates.empty())
-        {
-            notifySubscribers(changedRates);
         }
     }
 
@@ -192,5 +192,19 @@ namespace beam::wallet
         {
             sub->onExchangeRates(rates);
         }
+    }
+
+    void ExchangeRateProvider::onUpdateTimer()
+    {
+        std::vector<ExchangeRate> changedRates;
+        m_updateTimer.reset();
+        changedRates.reserve(m_changedPairs.size());
+        for (const auto& p : m_changedPairs)
+        {
+            changedRates.push_back(m_cache[p]);
+        }
+        m_changedPairs.clear();
+        notifySubscribers(changedRates);
+          
     }
 } // namespace beam::wallet

@@ -362,6 +362,7 @@ namespace beam::wallet
         AssetConfirmedHeight = 135, // This is NOT the same as ProofHeight for kernel!
         AssetUnconfirmedHeight = 136,
         AssetInfoFull = 137,
+        MinConfirmations = 138, // Minimum confirmations count for simple transactions from settings
 
         Offset = 140,
 
