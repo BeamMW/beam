@@ -147,7 +147,7 @@ namespace manager
     }
 } // namespace manager
 
-export void Method_0()
+BEAM_EXPORT void Method_0()
 {
     // scheme
     Env::DocGroup root("");
@@ -189,7 +189,7 @@ export void Method_0()
     }
 }
 
-export void Method_1()
+BEAM_EXPORT void Method_1()
 {
     Env::DocGroup root("");
 

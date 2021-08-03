@@ -72,7 +72,7 @@ namespace Env
     macro(manager) \
     macro(user)
 
-export void Method_0()
+BEAM_EXPORT void Method_0()
 {
     // scheme
     Env::DocGroup root("");
@@ -381,7 +381,7 @@ ON_METHOD(user, mint)
 #undef ON_METHOD
 #undef THE_FIELD
 
-export void Method_1() 
+BEAM_EXPORT void Method_1()
 {
     Env::DocGroup root("");
 

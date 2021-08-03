@@ -3,7 +3,7 @@
 #include "contract.h"
 #include "../Eth.h"
 
-export void Ctor(const MirrorToken::Create& r)
+BEAM_EXPORT void Ctor(const MirrorToken::Create& r)
 {
     MirrorToken::Params params;
     _POD_(params.m_BridgeID) = r.m_BridgeID;
@@ -17,7 +17,7 @@ export void Ctor(const MirrorToken::Create& r)
     Env::SaveVar_T(MirrorToken::kParamsKey, params);
 }
 
-export void Dtor(void*)
+BEAM_EXPORT void Dtor(void*)
 {
     MirrorToken::Params params;
     Env::LoadVar_T(MirrorToken::kParamsKey, params);
@@ -27,7 +27,7 @@ export void Dtor(void*)
     Env::DelVar_T(MirrorToken::kParamsKey);
 }
 
-export void Method_2(const MirrorToken::SetRemote& r)
+BEAM_EXPORT void Method_2(const MirrorToken::SetRemote& r)
 {
     MirrorToken::Params params;
     Env::LoadVar_T(MirrorToken::kParamsKey, params);
@@ -39,7 +39,7 @@ export void Method_2(const MirrorToken::SetRemote& r)
     Env::SaveVar_T(MirrorToken::kParamsKey, params);
 }
 
-export void Method_3(const MirrorToken::Send& r)
+BEAM_EXPORT void Method_3(const MirrorToken::Send& r)
 {
     MirrorToken::Params params;
     Env::LoadVar_T(MirrorToken::kParamsKey, params);
@@ -64,7 +64,7 @@ export void Method_3(const MirrorToken::Send& r)
     Env::AssetEmit(params.m_Aid, r.m_Amount, 0);
 }
 
-export void Method_4(const MirrorToken::Receive& r)
+BEAM_EXPORT void Method_4(const MirrorToken::Receive& r)
 {
     MirrorToken::Params params;
     Env::LoadVar_T(MirrorToken::kParamsKey, params);
@@ -96,7 +96,7 @@ export void Method_4(const MirrorToken::Receive& r)
     Env::AddSig(arg.m_Msg.m_User);
 }
 
-export void Method_5(const MirrorToken::Mint& mint)
+BEAM_EXPORT void Method_5(const MirrorToken::Mint& mint)
 {
     MirrorToken::Params params;
     Env::LoadVar_T(MirrorToken::kParamsKey, params);

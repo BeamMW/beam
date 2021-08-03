@@ -102,16 +102,16 @@ bool CheckBridgeLog(const uint8_t* data, uint32_t dataSize, const Bridge::PushRe
 } // namespace
 
 // Method_0 - constructor, called once when the contract is deployed
-export void Ctor(void*)
+BEAM_EXPORT void Ctor(void*)
 {
 }
 
 // Method_1 - destructor, called once when the contract is destroyed
-export void Dtor(void*)
+BEAM_EXPORT void Dtor(void*)
 {
 }
 
-export void Method_2(const Bridge::PushLocal& value)
+BEAM_EXPORT void Method_2(const Bridge::PushLocal& value)
 {
     uint32_t size = value.m_MsgSize + sizeof(Bridge::LocalMsgHdr);
     auto* pMsg = (Bridge::LocalMsgHdr*)Env::StackAlloc(size);
@@ -134,7 +134,7 @@ export void Method_2(const Bridge::PushLocal& value)
     Env::SaveVar_T(Bridge::kLocalMsgCounterKey, localMsgCounter);
 }
 
-export void Method_3(const Bridge::PushRemote& value)
+BEAM_EXPORT void Method_3(const Bridge::PushRemote& value)
 {
     // validate
     const auto& hdr = value.m_Header;
@@ -175,7 +175,7 @@ export void Method_3(const Bridge::PushRemote& value)
     Env::SaveVar(&keyMsg, sizeof(keyMsg), pMsg, fullMsgSize, KeyTag::Internal);
 }
 
-export void Method_4(Bridge::ReadRemote& value)
+BEAM_EXPORT void Method_4(Bridge::ReadRemote& value)
 {
     Bridge::RemoteMsgHdr::Key keyMsg;
     keyMsg.m_MsgId_BE = Utils::FromBE(value.m_MsgId);
