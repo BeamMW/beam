@@ -20,7 +20,7 @@ add_custom_command(
 function(generate_sid_header shader_target)
     add_custom_target(${shader_target}_header
         ALL
-        COMMAND ${PROJECT_BINARY_DIR}/beam/bvm/sid_generator/${BEAM_SIDGEN_BUILD_TYPE}/generate-sid $<TARGET_FILE:${shader_target}> > $<TARGET_PROPERTY:${shader_target},SOURCE_DIR>/contract_sid.i
+        COMMAND ${PROJECT_BINARY_DIR}/beam/bvm/sid_generator/${BEAM_SIDGEN_BUILD_TYPE}/generate-sid $<TARGET_FILE:${shader_target}> > $<TARGET_PROPERTY:${shader_target},SOURCE_DIR>/${shader_target}_sid.i
         #COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${shader_target}> $<TARGET_PROPERTY:${shader_target},SOURCE_DIR>/$<TARGET_FILE_NAME:${shader_target}>
         COMMENT "Generating SID..."
         DEPENDS ${PROJECT_BINARY_DIR}/sid_gen_built
