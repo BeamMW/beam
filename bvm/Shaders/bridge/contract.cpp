@@ -191,8 +191,7 @@ BEAM_EXPORT void Method_4(Bridge::ReadRemote& value)
     Env::get_CallerCid(1, cid);
     Env::Halt_if(_POD_(cid) != pMsg->m_ContractReceiver);
 
-    // TODO: check
-    // Env::DelVar_T(keyMsg);
+    Env::DelVar_T(keyMsg);
 
     size -= sizeof(Bridge::RemoteMsgHdr);
 
