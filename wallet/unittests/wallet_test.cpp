@@ -3505,29 +3505,36 @@ void TestThreadPool()
     }counter;
 
 
-    PoolThread t1([&counter](int id)
+    auto f = [&counter](int id, unsigned interval)
     {
-        std::cout << "thread " << id << "\n";
-        std::this_thread::sleep_for(std::chrono::milliseconds(410));
+        std::stringstream ss;
+        ss << "thread " << id;
+        std::cout << ss.str() << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(interval));
         counter.Increment();
-    }, 1);
+        ss << " done";
+        std::cout << ss.str() << std::endl;
+    };
 
-    PoolThread t2([&counter](int id)
-    {
-        std::cout << "thread " << id << "\n";
-        std::this_thread::sleep_for(std::chrono::milliseconds(150));
-        counter.Increment();
-    }, 2);
+    PoolThread t1(f, 1, 410);
+
+    PoolThread t2(f, 2, 150);
     t1.join();
     t2.join();
-
     WALLET_CHECK(counter.value == 2);
+    {
+        PoolThread t3(f, 3, 150);
+        t3.detach();
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    WALLET_CHECK(counter.value == 3);
 
     struct Test
     {
         Test()
+            : m_Thread(PoolThread(&Test::Thread, this, std::cref(Rules::get())))
         {
-            m_Thread = PoolThread(&Test::Thread, this, std::cref(Rules::get()));
+            
         }
 
         ~Test()
@@ -3539,9 +3546,9 @@ void TestThreadPool()
 
         void Thread(const Rules& r)
         {
-            std::cout << "thread 3\n";
+            std::cout << "thread 4" << std::endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(150));
-            std::cout << "thread 3 Done\n";
+            std::cout << "thread 4 Done" << std::endl;
         }
 
         PoolThread m_Thread;

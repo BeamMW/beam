@@ -48,7 +48,15 @@
                             }) + '\n');
                     }
 
+/*                    var api = walletClient.createAppAPI("appid", "appname");
+                    api.callWalletApi(JSON.stringify({
+                              jsonrpc: '2.0',
+                              id: 5,
+                              method: 'wallet_status'
+                            }));
+*/
                     setTimeout((wc)=>{
+                        console.log("Stopoping...")
                         console.log("is running: " + wc.isRunning())
                         wc.stopWallet(()=> {
                             console.log("is running: " + wc.isRunning())
