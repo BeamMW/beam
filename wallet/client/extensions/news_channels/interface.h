@@ -18,8 +18,7 @@
 #include "wallet/core/exchange_rate.h"
 #include "version_info.h"
 
-namespace beam::wallet
-{
+namespace beam::wallet {
     /**
      *  Interface for news channels observers. 
      */
@@ -29,8 +28,9 @@ namespace beam::wallet
          *  @content    content of notification (new release information)
          *  @id         unique ID of notification (possibly HASH of content)
          */
-        virtual void onNewWalletVersion(const VersionInfo& content, const ECC::uintBig& id) = 0;
-        virtual void onNewWalletVersion(const WalletImplVerInfo& content, const ECC::uintBig& id) = 0;
+        virtual void onNewWalletVersion(const VersionInfo &content, const ECC::uintBig &id) = 0;
+
+        virtual void onNewWalletVersion(const WalletImplVerInfo &content, const ECC::uintBig &id) = 0;
         // virtual void onBeamNews() = 0;
     };
 
@@ -39,7 +39,11 @@ namespace beam::wallet
      */
     struct IExchangeRatesObserver
     {
-        virtual void onExchangeRates(const ExchangeRates&) = 0;
+        virtual void onExchangeRates(const ExchangeRates &) = 0;
     };
 
+    struct IVerificationObserver
+    {
+        virtual void onVerificationInfo(const std::vector<VerificationInfo>&) = 0;
+    };
 } // namespace beam::wallet

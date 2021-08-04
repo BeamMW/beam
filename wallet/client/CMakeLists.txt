@@ -11,6 +11,7 @@ target_sources(wallet_client
         extensions/broadcast_gateway/broadcast_router.cpp
         extensions/broadcast_gateway/broadcast_msg_creator.cpp
         extensions/broadcast_gateway/broadcast_msg_validator.cpp
+        extensions/news_channels/verification_provider.cpp
         extensions/news_channels/updates_provider.cpp
         extensions/news_channels/wallet_updates_provider.cpp
         extensions/news_channels/version_info.cpp
