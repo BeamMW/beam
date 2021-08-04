@@ -40,8 +40,16 @@ using namespace emscripten;
 using namespace ECC;
 using namespace beam::wallet;
 
+#define Assert(x) ((void)((x) || (__assert_fail(#x, __FILE__, __LINE__, __func__),0)))
+
 namespace
 {
+    void AssertMainThread()
+    {
+        if (emscripten_is_main_browser_thread() != 1)
+            throw std::runtime_error("Invalid thread");
+    }
+
     void GetWalletSeed(NoLeak<uintBig>& walletSeed, const std::string& s)
     {
         SecString seed;
@@ -144,7 +152,7 @@ private:
     void onPostFunctionToClientContext(MessageFunction&& func) override
     {
         {
-            std::unique_lock<std::mutex> lock(m_Mutex);
+            std::unique_lock lock(m_Mutex);
             m_Messages.push(std::move(func));
         }
         auto thisWeakPtr = std::make_unique<WeakPtr>(shared_from_this());
@@ -156,31 +164,46 @@ private:
 
     void onStopped() override
     {
-        postFunctionToClientContext([this]()
+        std::weak_ptr<WalletClient2> wp = shared_from_this();
+        Assert(wp.use_count() == 1);
+        postFunctionToClientContext([sp = shared_from_this(), wp]() mutable
         {
-            if (m_StoppedHandler)
+            Assert(wp.use_count() == 2);
+            if (sp->m_StoppedHandler)
             {
-                m_StoppedHandler();
+                auto h = std::move(sp->m_StoppedHandler);
+                sp.reset(); // handler may hold WalletClient too, but can destroy it, we don't want to prevent this
+                Assert(wp.use_count() == 1);
+                h(); 
             }
         });
     }
 
     static void ProsessMessageOnMainThread(int pThis)
     {
-        std::unique_ptr<WeakPtr> p(reinterpret_cast<WeakPtr*>(pThis));
-        if (auto sp = p->lock())
+        std::unique_ptr<WeakPtr> wp(reinterpret_cast<WeakPtr*>(pThis));
+        assert(wp->use_count() == 1);
+        while (true)
         {
-            sp->ProsessMessageOnMainThread2();
-        }
-    }
-
-    void ProsessMessageOnMainThread2()
-    {
-        while (!m_Messages.empty())
-        {
-            auto& func = m_Messages.front();
+            MessageFunction func;
+            if (auto sp = wp->lock())
+            {
+                assert(wp->use_count() == 2);
+                {
+                    std::unique_lock lock(sp->m_Mutex);
+                    if (sp->m_Messages.empty())
+                    {
+                        return;
+                    }
+                    func = std::move(sp->m_Messages.front());
+                    sp->m_Messages.pop();
+                }
+            }
+            else
+            {
+                return;
+            }
             func();
-            m_Messages.pop();
         }
     }
 
@@ -190,6 +213,130 @@ private:
     ICallbackHandler* m_CbHandler = nullptr;
     Callback m_StoppedHandler;
     IWalletApi::Ptr m_WalletApi;
+};
+
+class AppAPI
+    : public IWalletApiHandler
+    , public std::enable_shared_from_this<AppAPI>
+{
+public:
+    AppAPI(std::shared_ptr<WalletClient2> walletClient, const std::string& version, const std::string& appid, const std::string& appname)
+        : m_Client(walletClient)
+        , _appId(appid)
+        , _appName(appname)
+    {
+        //
+        // THIS IS UI THREAD
+        //
+        ApiInitData data;
+
+        data.contracts = walletClient->getAppsShaders(appid, appname);
+        data.swaps = nullptr;
+        data.wallet = walletClient->getWallet();
+        data.walletDB = walletClient->GetWalletDB();
+        data.appId = _appId;
+        data.appName = _appName;
+
+        //_walletAPIProxy = std::make_shared<ApiHandlerProxy>();
+        //_walletAPI = IWalletApi::CreateInstance(version, *_walletAPIProxy, data);
+        _walletAPI = IWalletApi::CreateInstance(version, *this, data);
+        LOG_INFO() << "WebAPI_Beam created for " << data.appName << ", " << data.appId;
+    }
+    virtual ~AppAPI()
+    {
+        LOG_INFO() << "WebAPI_Beam Destroyed";
+
+        //
+        // THIS IS UI THREAD
+        //
+        m_Client->releaseAppsShaders(_appId);
+        m_Client->getAsync()->makeIWTCall(
+            [/*proxy = std::move(_walletAPIProxy), */api = std::move(_walletAPI)]() mutable->boost::any {
+            // api should be destroyed in context of the wallet thread
+            // it is ASSUMED to be the last call in api calls chain
+            api.reset();
+           // proxy.reset();
+            return boost::none;
+        },
+            [](const boost::any&) {
+        });
+    }
+
+    void callWalletApi(const std::string& request)
+    {
+        //
+        // THIS IS UI THREAD
+        //
+        LOG_INFO() << "WebAPP API call for " << _appName << ", " << _appId << "): " << request;
+
+        std::weak_ptr<AppAPI> wp = shared_from_this();
+        m_Client->getAsync()->makeIWTCall(
+            [wp, this, request]() -> boost::any {
+            auto locked = wp.lock();
+            if (!locked)
+            {
+                // this means that api is disconnected and destroyed already, this is normal
+                return boost::none;
+            }
+
+            if (auto pres = _walletAPI->parseAPIRequest(request.c_str(), request.size()); pres)
+            {
+                const auto& acinfo = pres->acinfo;
+                if (acinfo.appsAllowed)
+                {
+                    if (acinfo.method == "tx_send")
+                    {
+                        //AnyThread_getSendConsent(stdreq, *pres);
+                        return boost::none;
+                    }
+
+                    if (acinfo.method == "process_invoke_data")
+                    {
+                        //AnyThread_getContractInfoConsent(stdreq, *pres);
+                        return boost::none;
+                    }
+
+                    if (pres->minfo.fee > 0 || !pres->minfo.spend.empty())
+                    {
+                        LOG_INFO() << "Application called method " << acinfo.method << " that spends funds, but user consent is not handled";
+                        Assert(false);
+
+                        //const auto error = _walletAPI->fromError(stdreq, ApiError::NotAllowedError, std::string());
+                        //emit callWalletApiResult(QString::fromStdString(error));
+
+                        return boost::none;
+                    }
+
+                    _walletAPI->executeAPIRequest(request.c_str(), request.size());
+                    return boost::none;
+                }
+
+                LOG_INFO() << "Application requested call of the not allowed method: " << pres->acinfo.method;
+                //AnyThread_sendError(stdreq, ApiError::NotAllowedError, std::string());
+                return boost::none;
+            }
+            else
+            {
+                // parse failed, just log error and return. Error response is already sent back
+                LOG_ERROR() << "WebAPP API parse failed: " << request;
+                return boost::none;
+            }
+        },
+            [](const boost::any&) {
+        }
+        );
+    }
+
+private:
+    void sendAPIResponse(const json& result) override
+    {
+        m_Client->SendResult(result);
+    }
+private:
+    std::shared_ptr<WalletClient2> m_Client;
+    std::string _appId;
+    std::string _appName;
+    wallet::IWalletApi::Ptr _walletAPI;
 };
 
 class WasmWalletClient 
@@ -256,11 +403,13 @@ public:
 
     void SetSyncHandler(val handler)
     {
-        m_SyncHandler = std::make_unique<val>(handler);
+        AssertMainThread();
+        m_SyncHandler = std::make_unique<val>(std::move(handler));
     }
 
     void ExecuteAPIRequest(const std::string& request)
     {
+        AssertMainThread();
         if (!m_Client)
         { 
             LOG_ERROR() << "Client is not running";
@@ -273,10 +422,6 @@ public:
                 ApiInitData initData;
                 initData.walletDB = m_Client->GetWalletDB();
                 initData.wallet = m_Client->getWallet();
-                // initData.appID = set value
-                // initData.swaps = _swapsProvider;
-                // initData.acl = _acl;
-                // initData.contracts = m_Client->getAppsShaders(); // for now blocked
                 m_WalletApi = IWalletApi::CreateInstance(ApiVerCurrent, *this, initData);
             }
 
@@ -289,6 +434,7 @@ public:
 
     bool StartWallet()
     {
+        AssertMainThread();
         if (m_Client)
         {
             LOG_WARNING() << "The client is already running";
@@ -315,15 +461,29 @@ public:
 
     void StopWallet(val handler = val::null())
     {
-        m_Client->Stop([this, handler]() 
+        AssertMainThread();
+        if (!m_Client)
         {
-            val handlerCopy = handler;
-            m_Client.reset();
-            m_WalletApi.reset();
-            if (!handlerCopy.isNull())
+            LOG_WARNING() << "The client is stopped";
+            return;
+        }
+        m_Client->getAsync()->makeIWTCall([this]()
             {
-                
-                auto handlerPtr = std::make_unique<val>(std::move(handlerCopy));
+                m_WalletApi.reset();
+                return boost::none;
+            },
+            [](const boost::any&) {
+        });
+        std::weak_ptr<WalletClient2> wp = m_Client;
+        Assert(wp.use_count() == 1);
+        m_Client->Stop([wp, sp = std::move(m_Client), handler=std::move(handler)]() mutable
+        {
+            AssertMainThread();
+            Assert(wp.use_count() == 1);
+            sp.reset(); // release client, at this point destructor should be called and handler code can rely on that client is really stopped and destroyed
+            if (!handler.isNull())
+            {
+                auto handlerPtr = std::make_unique<val>(std::move(handler));
                 emscripten_dispatch_to_thread_async(
                     get_thread_id(),
                     EM_FUNC_SIG_VI,
@@ -331,12 +491,12 @@ public:
                     nullptr,
                     handlerPtr.release());
             }
-
         });
     }
 
     void OnSyncProgress(int done, int total) override
     {
+        AssertMainThread();
         if (m_SyncHandler && !m_SyncHandler->isNull())
         {
             (*m_SyncHandler)(done, total);
@@ -345,6 +505,7 @@ public:
 
     void OnResult(const json& result) override
     {
+        AssertMainThread();
         auto r = result.dump();
         for (auto& cb : m_Callbacks)
         {
@@ -353,6 +514,12 @@ public:
                 cb(r);
             }
         }
+    }
+
+    std::unique_ptr<AppAPI> CreateAppAPI(const std::string& appid, const std::string& appName)
+    {
+        AssertMainThread();
+        return std::make_unique<AppAPI>(m_Client, "current", appid, appName);
     }
 
     static void DoCallbackOnMainThread(val* h)
@@ -367,7 +534,8 @@ public:
 
     bool IsRunning() const
     {
-        return m_Client->isRunning();
+        AssertMainThread();
+        return m_Client && m_Client->isRunning();
     }
 
     static std::string GeneratePhrase()
@@ -397,16 +565,19 @@ public:
 
     static void CreateWallet(const std::string& seed, const std::string& dbName, const std::string& pass)
     {
+        AssertMainThread();
         CreateDatabase(seed, dbName, pass);
     }
 
     static void DeleteWallet(const std::string& dbName)
     {
+        AssertMainThread();
         fs::remove(dbName);
     }
 
     static IWalletDB::Ptr OpenWallet(const std::string& dbName, const std::string& pass)
     {
+        AssertMainThread();
         Rules::get().UpdateChecksum();
         LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
         return WalletDB::open(dbName, SecString(pass));
@@ -414,6 +585,7 @@ public:
 
     static void MountFS(val cb)
     {
+        AssertMainThread();
         m_MountCB = cb;
         EM_ASM
         (
@@ -463,6 +635,7 @@ EMSCRIPTEN_BINDINGS()
         .function("subscribe",                       &WasmWalletClient::Subscribe)
         .function("unsubscribe",                     &WasmWalletClient::Unsubscribe)
         .function("setSyncHandler",                  &WasmWalletClient::SetSyncHandler)
+        .function("createAppAPI",                    &WasmWalletClient::CreateAppAPI)
         .class_function("GeneratePhrase",            &WasmWalletClient::GeneratePhrase)
         .class_function("IsAllowedWord",             &WasmWalletClient::IsAllowedWord)
         .class_function("IsValidPhrase",             &WasmWalletClient::IsValidPhrase)
@@ -472,4 +645,8 @@ EMSCRIPTEN_BINDINGS()
         .class_function("MountFS",                   &WasmWalletClient::MountFS)
         .class_function("DeleteWallet",              &WasmWalletClient::DeleteWallet)
     ;
+    class_<AppAPI>("AppAPI")
+        .function("callWalletApi",                   &AppAPI::callWalletApi)
+
+        ;
 }

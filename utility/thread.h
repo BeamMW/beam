@@ -75,7 +75,18 @@ namespace beam
 					t = std::move(m_Tasks.front());
 					m_Tasks.pop();
 				}
-				t();
+				try
+				{
+					t();
+				}
+				catch (const std::exception& ex)
+				{
+					std::cout << "Exception: " << ex.what() << std::endl;
+				}
+				catch (...)
+				{
+					std::cout << "Exception"<< std::endl;
+				}
 			}
 		}
 
@@ -95,21 +106,35 @@ namespace beam
 			std::thread::id m_ID = {};
 			mutable std::mutex m_Mutex;
 			std::condition_variable m_cv;
-			bool m_RunToCompletion = false;
+			enum struct State
+			{
+				Unassigned,
+				Attached,
+				Completed,
+				Detached,
+				Joined
+			};
+			State m_State = State::Unassigned;
 
 			void StoreID(std::thread::id id)
 			{
 				std::unique_lock lock(m_Mutex);
-				m_ID = id;
-				m_cv.notify_one();
+				if (m_State == State::Unassigned)
+				{
+					m_ID = id;
+					m_State = State::Attached;
+					m_cv.notify_one();
+				}
 			}
 
 			void Complete()
 			{
 				std::unique_lock lock(m_Mutex);
-				assert(!m_RunToCompletion);
-				m_RunToCompletion = true;
-				m_cv.notify_one();
+				if (m_State == State::Attached)
+				{
+					m_State = State::Completed;
+					m_cv.notify_one();
+				}
 			}
 
 			std::thread::id GetID() const
@@ -121,12 +146,21 @@ namespace beam
 			void Join()
 			{
 				std::unique_lock lock(m_Mutex);
-				m_cv.wait(lock, [&]() {return m_RunToCompletion == true; });
+				m_cv.wait(lock, [&]() {return m_State == State::Completed; });
+				m_State = State::Joined;
 				m_ID = {};
+			}
+
+			bool IsJoinable() const
+			{
+				std::unique_lock lock(m_Mutex);
+				return m_State != State::Detached && m_State != State::Joined;
 			}
 
 			void Detach()
 			{
+				std::unique_lock lock(m_Mutex);
+				m_State = State::Detached;
 				m_ID = {};
 			}
 		};
@@ -134,7 +168,7 @@ namespace beam
 	public:
 
 		PoolThread() noexcept
-			: m_ID(std::make_unique<IdControl>())
+			: m_ID(std::make_shared<IdControl>())
 		{
 
 		}
@@ -146,12 +180,11 @@ namespace beam
 			using Params = std::tuple<std::decay_t<Func>, std::decay_t<Args>...>;
 			using Indecies = std::make_index_sequence<1 + sizeof...(Args)>;
 			auto params = std::make_shared<Params>(std::forward<Func>(f), std::forward<Args>(args)...);
-
-			s_threadPool.Push([id = m_ID.get(), params]()
+			s_threadPool.Push([sp = m_ID, params]()
 			{
-				id->StoreID(std::this_thread::get_id());
+				sp->StoreID(std::this_thread::get_id());
 				MyInvoke(*params, Indecies{});
-				id->Complete();
+				sp->Complete();
 			});
 		}
 
@@ -168,6 +201,14 @@ namespace beam
 			return *this;
 		}
 
+		~PoolThread() noexcept
+		{
+			if (joinable()) 
+			{
+				std::terminate();
+			}
+		}
+
 		PoolThread(const PoolThread&) = delete;
 		PoolThread& operator=(const PoolThread&) = delete;
 
@@ -179,7 +220,8 @@ namespace beam
 
 		bool joinable() const noexcept
 		{
-			return true;
+			assert(m_ID);
+			return m_ID->IsJoinable();
 		}
 
 		void join()
@@ -190,6 +232,7 @@ namespace beam
 
 		void detach()
 		{
+			assert(m_ID);
 			m_ID->Detach();
 		}
 
@@ -203,7 +246,7 @@ namespace beam
 
 	private:
 		inline static SimpleThreadPool s_threadPool{ std::thread::hardware_concurrency() };
-		std::unique_ptr<IdControl> m_ID;
+		std::shared_ptr<IdControl> m_ID;
 	};
 #if defined __EMSCRIPTEN__
 	using MyThread = PoolThread;
