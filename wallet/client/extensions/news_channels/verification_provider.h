@@ -34,7 +34,7 @@ namespace beam::wallet
         void Unsubscribe(IVerificationObserver* observer);
 
     private:
-        void notifySubscribers(const VersionInfo&, const ECC::uintBig&) const;
+        void notifySubscribers(const std::vector<VerificationInfo>&) const;
 
 		IBroadcastMsgGateway& m_broadcastGateway;
         BroadcastMsgValidator& m_validator;

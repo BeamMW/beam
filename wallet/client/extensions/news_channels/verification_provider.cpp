@@ -23,4 +23,47 @@ namespace beam::wallet
     {
         m_broadcastGateway.registerListener(BroadcastContentType::AssetVerification, this);
     }
+
+    bool VerificationProvider::onMessage(uint64_t unused, BroadcastMsg&& msg)
+    {
+        if (m_validator.isSignatureValid(msg))
+        {
+            try
+            {
+                std::vector<VerificationInfo> info;
+                if (fromByteBuffer(msg.m_content, info))
+                {
+                    notifySubscribers(info);
+                }
+            }
+            catch(...)
+            {
+                LOG_WARNING() << "VerificationProvider: broadcast message processing exception";
+                return false;
+            }
+        }
+        return true;
+    }
+
+    void VerificationProvider::Subscribe(IVerificationObserver* observer)
+    {
+        auto it = std::find(m_subscribers.begin(), m_subscribers.end(), observer);
+        assert(it == m_subscribers.end());
+        if (it == m_subscribers.end()) m_subscribers.push_back(observer);
+    }
+
+    void VerificationProvider::Unsubscribe(IVerificationObserver* observer)
+    {
+        auto it = std::find(m_subscribers.begin(), m_subscribers.end(), observer);
+        assert(it != m_subscribers.end());
+        m_subscribers.erase(it);
+    }
+
+    void VerificationProvider::notifySubscribers(const std::vector<VerificationInfo>& info) const
+    {
+        for (const auto sub : m_subscribers)
+        {
+            sub->onVerificationInfo(info);
+        }
+    }
 }
