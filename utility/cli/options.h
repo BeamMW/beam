@@ -232,6 +232,7 @@ namespace beam
         extern const char* EXCHANGE_UNIT;
         extern const char* VERIFIED;
         extern const char* PREDEFINED_ICON;
+        extern const char* PREDEFINED_COLOR;
 
         // lelantus
         extern const char* MAX_PRIVACY_ADDRESS;

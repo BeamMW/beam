@@ -24,8 +24,8 @@ namespace beam::wallet
         beam::Asset::ID m_assetID;
         bool m_verified;
         std::string m_icon;
-        Timestamp m_updateTime = 0;
         std::string m_color;
+        Timestamp m_updateTime = 0;
         SERIALIZE(m_assetID, m_verified, m_icon, m_color, m_updateTime);
     };
 }

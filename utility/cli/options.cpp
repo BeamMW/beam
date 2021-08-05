@@ -331,6 +331,7 @@ namespace beam
         const char* EXCHANGE_UNIT     = "exch_unit";
         const char* VERIFIED          = "verified";
         const char* PREDEFINED_ICON   = "predefined_icon";
+        const char* PREDEFINED_COLOR  = "predefined_color";
 
         // lelantus
         const char* MAX_PRIVACY_ADDRESS = "max_privacy";
