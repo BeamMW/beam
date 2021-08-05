@@ -205,7 +205,8 @@ namespace fs = std::filesystem;
 #define ENUM_VERIFICATION_FIELDS(each, sep, obj) \
     each(assetID,       assetID,        INTEGER,  obj) sep \
     each(verified,      verified,       INTEGER,  obj) sep \
-    each(icon,          icon,           TEXT,     obj) sep  \
+    each(icon,          icon,           TEXT,     obj) sep \
+    each(color,         color,          TEXT,     obj) sep \
     each(updateTime,    updateTime,     INTEGER,  obj)
 
 #define VERIFICATION_FIELDS ENUM_VERIFICATION_FIELDS(LIST, COMMA, )
@@ -4706,13 +4707,14 @@ namespace beam::wallet
 
         if (selectStm.step())
         {
-            const char* updateReq = "UPDATE " VERIFICATION_NAME " SET verified=?2, icon=?3, updateTime=?4 WHERE assetID=?1;";
+            const char* updateReq = "UPDATE " VERIFICATION_NAME " SET verified=?2, icon=?3, color=?4, updateTime=?5 WHERE assetID=?1;";
             sqlite::Statement updateStm(this, updateReq);
 
             updateStm.bind(1, vi.m_assetID);
             updateStm.bind(2, vi.m_verified);
             updateStm.bind(3, vi.m_icon);
-            updateStm.bind(4, vi.m_updateTime);
+            updateStm.bind(4, vi.m_color);
+            updateStm.bind(5, vi.m_updateTime);
             updateStm.step();
         }
         else
