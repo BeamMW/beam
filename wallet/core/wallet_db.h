@@ -595,6 +595,8 @@ namespace beam::wallet
         virtual void saveExchangeRate(const ExchangeRateAtPoint&) = 0;
         virtual boost::optional<ExchangeRateAtPoint> getExchangeRateNearPoint(const Currency& from, const Currency& to, uint64_t maxHeight) const = 0;
         virtual ExchangeRatesHistory getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const = 0;
+        virtual void saveVerification(const VerificationInfo&) = 0;
+        virtual std::vector<VerificationInfo> getVerification() const = 0;
 
         // Vouchers management
         virtual boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) = 0; // deletes voucher from DB
@@ -753,6 +755,8 @@ namespace beam::wallet
         virtual ExchangeRates getLatestExchangeRates() const override;
         virtual void saveExchangeRate(const ExchangeRate&) override;
         virtual void saveExchangeRate(const ExchangeRateAtPoint&) override;
+        void saveVerification(const VerificationInfo&) override;
+        std::vector<VerificationInfo> getVerification() const override;
 
         virtual boost::optional<ExchangeRateAtPoint> getExchangeRateNearPoint(const Currency& from, const Currency& to, uint64_t maxHeight) const override;
         virtual ExchangeRatesHistory getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const override;

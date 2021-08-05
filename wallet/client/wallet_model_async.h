@@ -95,6 +95,7 @@ namespace beam::wallet
 
         virtual void getExchangeRates() = 0;
         virtual void getPublicAddress() = 0;
+        virtual void getVerificationInfo() = 0;
 
         virtual void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback) = 0;
         virtual void getAssetInfo(Asset::ID) = 0;

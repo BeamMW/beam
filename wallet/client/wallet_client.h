@@ -30,6 +30,7 @@
 #include "extensions/broadcast_gateway/interface.h"
 #include "extensions/broadcast_gateway/broadcast_msg_validator.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
+#include "extensions/news_channels/verification_provider.h"
 
 #include "extensions/dex_board/dex_board.h"
 #include "extensions/dex_board/dex_order.h"
@@ -95,6 +96,7 @@ namespace beam::wallet
         , private IExchangeRatesObserver
         , private INotificationsObserver
         , private DexBoard::IObserver
+        , private IVerificationObserver
     {
     public:
         WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor);
@@ -175,6 +177,7 @@ namespace beam::wallet
         virtual uint32_t getClientRevision() const;
         void onExchangeRates(const ExchangeRates&) override {}
         void onNotificationsChanged(ChangeAction, const std::vector<Notification>&) override {}
+        void onVerificationInfo(const std::vector<VerificationInfo>&) override {}
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) override {}
@@ -251,6 +254,7 @@ namespace beam::wallet
 
         void getExchangeRates() override;
         void getPublicAddress() override;
+        void getVerificationInfo() override;
 
         void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback) override;
 
@@ -314,6 +318,7 @@ namespace beam::wallet
         std::weak_ptr<IBroadcastListener> m_updatesProvider;
         std::weak_ptr<IBroadcastListener> m_walletUpdatesProvider;
         std::weak_ptr<ExchangeRateProvider> m_exchangeRateProvider;
+        std::weak_ptr<VerificationProvider> m_verificationProvider;
         std::shared_ptr<NotificationCenter> m_notificationCenter;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;

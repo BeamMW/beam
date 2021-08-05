@@ -16,6 +16,7 @@
 #include "wallet/client/extensions/broadcast_gateway/interface.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_msg_validator.h"
 #include "wallet/client/extensions/news_channels/interface.h"
+#include "wallet/core/wallet_db.h"
 
 namespace beam::wallet
 {
@@ -23,21 +24,26 @@ namespace beam::wallet
         : public IBroadcastListener
     {
     public:
-        VerificationProvider(IBroadcastMsgGateway&, BroadcastMsgValidator&);
+        VerificationProvider(IBroadcastMsgGateway&, BroadcastMsgValidator&, IWalletDB&);
         virtual ~VerificationProvider() = default;
 
-        // IBroadcastListener implementation
         bool onMessage(uint64_t unused, BroadcastMsg&&) override;
-
-        // INewsObserver interface
         void Subscribe(IVerificationObserver* observer);
         void Unsubscribe(IVerificationObserver* observer);
+        std::vector<VerificationInfo> getInfo() const;
 
     private:
+        void loadCache();
+        void onUpdateTimer();
         void notifySubscribers(const std::vector<VerificationInfo>&) const;
+        void processInfo(const std::vector<VerificationInfo>& info);
 
 		IBroadcastMsgGateway& m_broadcastGateway;
         BroadcastMsgValidator& m_validator;
+        IWalletDB& m_storage;
         std::vector<IVerificationObserver*> m_subscribers;
+        std::map<Asset::ID, VerificationInfo> m_cache;
+        std::set<Asset::ID> m_changed;
+        io::Timer::Ptr m_updateTimer;
     };
 } // namespace beam::wallet

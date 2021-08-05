@@ -21,9 +21,10 @@ namespace beam::wallet
 {
     struct VerificationInfo
     {
-        beam::Asset::ID assetID;
-        bool verified;
-        std::string predefinedIcon;
-        SERIALIZE(assetID, verified, predefinedIcon);
+        beam::Asset::ID m_assetID;
+        bool m_verified;
+        std::string m_icon;
+        Timestamp m_updateTime = 0;
+        SERIALIZE(m_assetID, m_verified, m_icon, m_updateTime);
     };
 }

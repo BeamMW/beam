@@ -17,10 +17,12 @@
 
 namespace beam::wallet
 {
-    VerificationProvider::VerificationProvider(IBroadcastMsgGateway& broadcastGateway, BroadcastMsgValidator& validator)
+    VerificationProvider::VerificationProvider(IBroadcastMsgGateway& broadcastGateway, BroadcastMsgValidator& validator,  IWalletDB& wdb)
         : m_broadcastGateway(broadcastGateway)
         , m_validator(validator)
+        , m_storage(wdb)
     {
+        loadCache();
         m_broadcastGateway.registerListener(BroadcastContentType::AssetVerification, this);
     }
 
@@ -33,16 +35,16 @@ namespace beam::wallet
                 std::vector<VerificationInfo> info;
                 if (fromByteBuffer(msg.m_content, info))
                 {
-                    notifySubscribers(info);
+                    processInfo(info);
+                    return true;
                 }
             }
             catch(...)
             {
                 LOG_WARNING() << "VerificationProvider: broadcast message processing exception";
-                return false;
             }
         }
-        return true;
+        return false;
     }
 
     void VerificationProvider::Subscribe(IVerificationObserver* observer)
@@ -65,5 +67,61 @@ namespace beam::wallet
         {
             sub->onVerificationInfo(info);
         }
+    }
+
+    std::vector<VerificationInfo> VerificationProvider::getInfo() const
+    {
+        std::vector<VerificationInfo> result;
+        for (const auto& pair: m_cache)
+        {
+            result.push_back(pair.second);
+        }
+        return result;
+    }
+
+    void VerificationProvider::loadCache()
+    {
+        const auto& info = m_storage.getVerification();
+        for (const auto& vi: info)
+        {
+            m_cache[vi.m_assetID] = vi;
+        }
+    }
+
+    void VerificationProvider::processInfo(const std::vector<VerificationInfo>& info)
+    {
+        for (const auto& vi: info)
+        {
+            const auto cached = m_cache.find(vi.m_assetID);
+            if (cached == m_cache.end() || cached->second.m_updateTime < vi.m_updateTime)
+            {
+                m_storage.saveVerification(vi);
+                m_cache[vi.m_assetID] = vi;
+                m_changed.insert(vi.m_assetID);
+
+                if (!m_updateTimer)
+                {
+                    m_updateTimer = io::Timer::create(io::Reactor::get_Current());
+                    m_updateTimer->start(60, false, [this]() {
+                        onUpdateTimer();
+                    });
+                }
+            }
+        }
+    }
+
+    void VerificationProvider::onUpdateTimer()
+    {
+        m_updateTimer.reset();
+        std::vector<VerificationInfo> changed;
+        changed.reserve(m_changed.size());
+
+        for (const auto& aid : m_changed)
+        {
+            changed.push_back(m_cache[aid]);
+        }
+
+        m_changed.clear();
+        notifySubscribers(changed);
     }
 }

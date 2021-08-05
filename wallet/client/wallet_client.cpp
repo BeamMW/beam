@@ -315,6 +315,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getExchangeRates);
     }
 
+    void getVerificationInfo() override
+    {
+        call_async(&IWalletModelAsync::getVerificationInfo);
+    }
+
     void getPublicAddress() override
     {
         call_async(&IWalletModelAsync::getPublicAddress);
@@ -550,7 +555,6 @@ namespace beam::wallet
                 auto broadcastRouter = make_shared<BroadcastRouter>(nodeNetwork, *walletNetwork, std::make_shared<BroadcastRouter::BbsTsHolder>(m_walletDB));
                 m_broadcastRouter = broadcastRouter;
 
-
                 using WalletDbSubscriber = ScopedSubscriber<IWalletDbObserver, IWalletDB>;
                 // Swap offer board uses broadcasting messages
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -583,12 +587,15 @@ namespace beam::wallet
                 m_walletUpdatesProvider = walletUpdatesProvider;
                 using WalletUpdatesSubscriber = ScopedSubscriber<INewsObserver, WalletUpdatesProvider>;
                 using ExchangeRatesSubscriber = ScopedSubscriber<IExchangeRatesObserver, ExchangeRateProvider>;
-                auto walletUpdatesSubscriber = make_unique<WalletUpdatesSubscriber>(static_cast<INewsObserver*>(
-                    m_notificationCenter.get()), walletUpdatesProvider);
-                auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(
-                    static_cast<IExchangeRatesObserver*>(this), exchangeRateProvider);
-                auto notificationsDbSubscriber = make_unique<WalletDbSubscriber>(
-                    static_cast<IWalletDbObserver*>(m_notificationCenter.get()), m_walletDB);
+                auto walletUpdatesSubscriber = make_unique<WalletUpdatesSubscriber>(static_cast<INewsObserver*>(m_notificationCenter.get()), walletUpdatesProvider);
+                auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(static_cast<IExchangeRatesObserver*>(this), exchangeRateProvider);
+                auto notificationsDbSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(m_notificationCenter.get()), m_walletDB);
+
+                //
+                // Assets verification
+                //
+                auto verificationProvider = make_shared<VerificationProvider>(*broadcastRouter, *broadcastValidator, *m_walletDB);
+                m_verificationProvider = verificationProvider;
 
                 //
                 // DEX
@@ -1595,6 +1602,19 @@ namespace beam::wallet
         else
         {
             onExchangeRates({});
+        }
+    }
+
+    void WalletClient::getVerificationInfo()
+    {
+        assert(!m_verificationProvider.expired());
+        if (auto s = m_verificationProvider.lock())
+        {
+            onVerificationInfo(s->getInfo());
+        }
+        else
+        {
+            onVerificationInfo({});
         }
     }
 

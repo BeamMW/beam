@@ -137,7 +137,7 @@ bool parseVerificationInfo(Asset::ID aid, bool verified, const std::string& pred
         return false;
     }
 
-    result = {{aid, verified, predefinedIcon}};
+    result = {{aid, verified, predefinedIcon, getTimestamp()}};
     return true;
 }
 
