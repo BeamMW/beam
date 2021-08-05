@@ -203,9 +203,10 @@ namespace fs = std::filesystem;
 #define NOTIFICATION_FIELDS ENUM_NOTIFICATION_FIELDS(LIST, COMMA, )
 
 #define ENUM_VERIFICATION_FIELDS(each, sep, obj) \
-    each(assetID,       assetID,        INTEGER NULL PRIMARY KEY, obj) sep \
-    each(verified,      verified,       INTEGER,            obj) sep \
-    each(icon,          icon,           TEXT,               obj) sep
+    each(assetID,       assetID,        INTEGER,  obj) sep \
+    each(verified,      verified,       INTEGER,  obj) sep \
+    each(icon,          icon,           TEXT,     obj) sep  \
+    each(updateTime,    updateTime,     INTEGER,  obj)
 
 #define VERIFICATION_FIELDS ENUM_VERIFICATION_FIELDS(LIST, COMMA, )
 
