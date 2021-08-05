@@ -3488,10 +3488,9 @@ void GenerateTreasury(size_t walletCount, size_t utxoCount, Amount value)
     FSave(data, "treasury.bin");
 }
 
-void TestThreadPool()
+template<typename T>
+void TestThread()
 {
-    std::cout << "Testing simple thread pool\n";
-
     struct Counter
     {
         void Increment()
@@ -3502,8 +3501,7 @@ void TestThreadPool()
 
         int value = 0;
         std::mutex m_Mutex;
-    }counter;
-
+    } counter;
 
     auto f = [&counter](int id, unsigned interval)
     {
@@ -3516,14 +3514,19 @@ void TestThreadPool()
         std::cout << ss.str() << std::endl;
     };
 
-    PoolThread t1(f, 1, 410);
+    T t1(f, 1, 410);
 
-    PoolThread t2(f, 2, 150);
+    T t2(f, 2, 150);
+    WALLET_CHECK(t2.joinable());
+    T tt = std::move(t2);
+    WALLET_CHECK(!t2.joinable());
+    WALLET_CHECK(tt.joinable());
     t1.join();
-    t2.join();
+    tt.join();
+
     WALLET_CHECK(counter.value == 2);
     {
-        PoolThread t3(f, 3, 150);
+        T t3(f, 3, 150);
         t3.detach();
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -3532,9 +3535,9 @@ void TestThreadPool()
     struct Test
     {
         Test()
-            : m_Thread(PoolThread(&Test::Thread, this, std::cref(Rules::get())))
+            : m_Thread(T(&Test::Thread, this, std::cref(Rules::get())))
         {
-            
+
         }
 
         ~Test()
@@ -3551,10 +3554,18 @@ void TestThreadPool()
             std::cout << "thread 4 Done" << std::endl;
         }
 
-        PoolThread m_Thread;
+        T m_Thread;
     };
     Test t;
-    
+
+}
+
+void TestThreadPool()
+{
+    std::cout << "Testing simple thread pool\n";
+    // Pool thread should be similar to std::thread and should pass the same test
+    TestThread<PoolThread>();
+    TestThread<std::thread>();
 }
 
 int main()

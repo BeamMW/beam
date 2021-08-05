@@ -18,7 +18,7 @@
 #include <condition_variable>
 #include <thread>
 #include <boost/intrusive/list.hpp>
-#include "utility/thread.h"
+#include "thread.h"
 
 namespace beam
 {
