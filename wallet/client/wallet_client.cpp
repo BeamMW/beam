@@ -596,6 +596,8 @@ namespace beam::wallet
                 //
                 auto verificationProvider = make_shared<VerificationProvider>(*broadcastRouter, *broadcastValidator, *m_walletDB);
                 m_verificationProvider = verificationProvider;
+                using VerificationSubscriber = ScopedSubscriber<IVerificationObserver, VerificationProvider>;
+                auto verificationSubscriber = make_unique<VerificationSubscriber>(static_cast<IVerificationObserver*>(this), verificationProvider);
 
                 //
                 // DEX
@@ -1610,7 +1612,8 @@ namespace beam::wallet
         assert(!m_verificationProvider.expired());
         if (auto s = m_verificationProvider.lock())
         {
-            onVerificationInfo(s->getInfo());
+            const auto info = s->getInfo();
+            onVerificationInfo(info);
         }
         else
         {
