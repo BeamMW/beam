@@ -16,6 +16,7 @@
 #include <queue>
 #include <mutex>
 #include <condition_variable>
+#include "helpers.h"
 
 namespace beam
 {
@@ -26,10 +27,10 @@ namespace beam
 
 		SimpleThreadPool(size_t threads)
 		{
-			m_Threads.resize(threads);
-			for (auto& t : m_Threads)
+			m_Threads.reserve(threads);
+			for (size_t i = 0; i < threads; ++i)
 			{
-				t = std::thread(&SimpleThreadPool::DoWork, this);
+				m_Threads.push_back(std::thread(&SimpleThreadPool::DoWork, this));
 			}
 		}
 
@@ -57,6 +58,11 @@ namespace beam
 			std::unique_lock lock(m_Mutex);
 			m_Shutdown = true;
 			m_NewTask.notify_all();
+		}
+
+		size_t GetPoolSize() const
+		{
+			return m_Threads.size();
 		}
 
 	private:
@@ -220,8 +226,7 @@ namespace beam
 
 		bool joinable() const noexcept
 		{
-			assert(m_ID);
-			return m_ID->IsJoinable();
+			return m_ID && m_ID->IsJoinable();
 		}
 
 		void join()
@@ -236,6 +241,11 @@ namespace beam
 			m_ID->Detach();
 		}
 
+		[[nodiscard]] static unsigned int hardware_concurrency() noexcept 
+		{
+			return static_cast<unsigned int>(s_threadPool.GetPoolSize());
+		}
+
 	private:
 
 		template<typename Params, size_t... I>
@@ -244,8 +254,19 @@ namespace beam
 			std::invoke(std::get<I>(p)...);
 		}
 
+		static size_t GetCoresNum()
+		{
+#ifdef BEAM_WEB_WALLET_THREADS_NUM
+			auto s = static_cast<size_t>(BEAM_WEB_WALLET_THREADS_NUM);
+			if (std::thread::hardware_concurrency() >= s)
+				return s;
+#endif // BEAM_WEB_WALLET_THREADS_NUM
+
+			return  std::thread::hardware_concurrency();
+		}
+
 	private:
-		inline static SimpleThreadPool s_threadPool{ std::thread::hardware_concurrency() };
+		inline static SimpleThreadPool s_threadPool{ GetCoresNum() };
 		std::shared_ptr<IdControl> m_ID;
 	};
 #if defined __EMSCRIPTEN__

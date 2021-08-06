@@ -272,6 +272,8 @@ else()
 
     if (EMSCRIPTEN)
         set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s USE_PTHREADS=1 -s DISABLE_EXCEPTION_CATCHING=0 -s USE_BOOST_HEADERS=1")
+        set(BEAM_WEB_WALLET_THREADS_NUM 5)
+        add_definitions(-DBEAM_WEB_WALLET_THREADS_NUM=${BEAM_WEB_WALLET_THREADS_NUM})
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-command-line-argument") # mostly in 3rd-party libs
     endif()
 

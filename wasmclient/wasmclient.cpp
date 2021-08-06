@@ -267,8 +267,7 @@ public:
         //
         // THIS IS UI THREAD
         //
-        LOG_INFO() << "WebAPP API call for " << _appName << ", " << _appId << "): " << request;
-
+        LOG_INFO() << "WebAPP API call for " << "(" << _appName << ", " << _appId << "): " << request;
         std::weak_ptr<AppAPI> wp = shared_from_this();
         m_Client->getAsync()->makeIWTCall(
             [wp, this, request]() -> boost::any {
@@ -516,10 +515,10 @@ public:
         }
     }
 
-    std::unique_ptr<AppAPI> CreateAppAPI(const std::string& appid, const std::string& appName)
+    std::shared_ptr<AppAPI> CreateAppAPI(const std::string& appid, const std::string& appName)
     {
         AssertMainThread();
-        return std::make_unique<AppAPI>(m_Client, "current", appid, appName);
+        return std::make_shared<AppAPI>(m_Client, "current", appid, appName);
     }
 
     static void DoCallbackOnMainThread(val* h)
@@ -646,6 +645,7 @@ EMSCRIPTEN_BINDINGS()
         .class_function("DeleteWallet",              &WasmWalletClient::DeleteWallet)
     ;
     class_<AppAPI>("AppAPI")
+        .smart_ptr<std::shared_ptr<AppAPI>>("AppAPI")
         .function("callWalletApi",                   &AppAPI::callWalletApi)
 
         ;
