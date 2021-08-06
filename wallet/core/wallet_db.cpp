@@ -1822,6 +1822,7 @@ namespace beam::wallet
         CreateExchangeRatesHistoryTable(db);
         CreateEventsTable(db);
         CreateTxSummaryTable(db);
+        CreateVerificationTable(db);
     }
 
     std::shared_ptr<WalletDB> WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
