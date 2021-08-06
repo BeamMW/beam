@@ -361,9 +361,14 @@ namespace beam::wallet
 
     bool Wallet::IsWalletInSync() const
     {
-        Block::SystemState::Full state;
-        get_tip(state);
+        Block::SystemState::ID stateID;
+        ZeroObject(stateID);
+        m_WalletDB->getSystemStateID(stateID);
+        if (stateID.m_Height < Rules::HeightGenesis)
+            return false;
 
+        Block::SystemState::Full state;
+        m_WalletDB->get_History().get_At(state, stateID.m_Height);
         return IsValidTimeStamp(state.m_TimeStamp);
     }
 
