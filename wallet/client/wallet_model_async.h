@@ -14,11 +14,8 @@
 
 #pragma once
 
-#include <ctime>
-#include "wallet/core/wallet.h"
-#include "wallet/core/wallet_db.h"
-#include "wallet/core/wallet_network.h"
 #include "wallet/core/common_utils.h"
+#include "wallet/core/common.h"
 #include "boost/any.hpp"
 
 namespace beam::wallet

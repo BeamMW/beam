@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+// Copyright 2018-2021 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,17 +13,28 @@
 // limitations under the License.
 #pragma once
 
-#include "model/app_model.h"
-#include "webapi_shaders.h"
+//#include "model/app_model.h"
+//#include "webapi_shaders.h"
 #include "wallet/api/i_wallet_api.h"
+#include "wallet/core/wallet_db.h"
+#include "wallet/client/wallet_model_async.h"
 
-namespace beamui::applications
+namespace beam::wallet
 {
+    class WalletClient;
+}
+
+namespace beam::applications
+{
+    using namespace beam::wallet;
+    using WalletClientPtr = std::shared_ptr<beam::wallet::WalletClient>;
+    using WalletClientWeakPtr = std::weak_ptr<beam::wallet::WalletClient>;
+
     class WebAPI_Beam
-        : public QObject
-        , public beam::wallet::IWalletApiHandler
+        : public beam::wallet::IWalletApiHandler
         , public std::enable_shared_from_this<WebAPI_Beam>
     {
+    protected:
         struct ApiHandlerProxy: beam::wallet::IWalletApiHandler
         {
             void sendAPIResponse(const beam::wallet::json& result) override
@@ -36,31 +47,26 @@ namespace beamui::applications
             std::weak_ptr<beam::wallet::IWalletApiHandler> _handler;
         };
 
-        Q_OBJECT
-        Q_PROPERTY(QMap<QString, QVariant> assets READ getAssets NOTIFY assetsChanged)
-
     public:
         // Do not call directly, use ::Create instead
-        WebAPI_Beam(const std::string& version, const std::string& appid, const std::string& appname);
+        WebAPI_Beam(WalletClientPtr wc, IWalletDB::Ptr db, const std::string& version, const std::string& appid, const std::string& appname);
         ~WebAPI_Beam() override;
 
-        static std::shared_ptr<WebAPI_Beam> Create(const std::string& version, const std::string& appid, const std::string& appname);
+        //static std::shared_ptr<WebAPI_Beam> Create(const std::string& version, const std::string& appid, const std::string& appname);
 
-        [[nodiscard]] QMap<QString, QVariant> getAssets();
-        Q_INVOKABLE void sendApproved(const QString& request);
-        Q_INVOKABLE void sendRejected(const QString& request);
-        Q_INVOKABLE void contractInfoApproved(const QString& request);
-        Q_INVOKABLE void contractInfoRejected(const QString& request);
+        //[[nodiscard]] QMap<QString, QVariant> getAssets();
+        void sendApproved(const std::string& request);
+        void sendRejected(const std::string& request);
+        void contractInfoApproved(const std::string& request);
+        void contractInfoRejected(const std::string& request);
 
-    public slots:
-       int test();
-       void callWalletApi(const QString& request);
+       void callWalletApi(const std::string& request);
 
-    signals:
-       void callWalletApiResult(const QString& result);
-       void assetsChanged();
-       void approveSend(const QString& request, const QMap<QString, QVariant>& info);
-       void approveContractInfo(const QString& request, const QMap<QString, QVariant>& info, QList<QMap<QString, QVariant>> amounts);
+    //signals:
+       virtual void onCallWalletApiResult(const std::string& result) {}
+    //   void assetsChanged();
+    //   void approveSend(const QString& request, const QMap<QString, QVariant>& info);
+    //   void approveContractInfo(const QString& request, const QMap<QString, QVariant>& info, QList<QMap<QString, QVariant>> amounts);
 
     public:
         [[nodiscard]] std::string getAppId() const
@@ -89,15 +95,19 @@ namespace beamui::applications
         // This is called from API (REACTOR) thread
         void sendAPIResponse(const beam::wallet::json& result) override;
 
+        IWalletModelAsync& getAsyncWallet();
+
         // API should be accessed only in context of the reactor thread
         using ApiPtr = beam::wallet::IWalletApi::Ptr;
         ApiPtr _walletAPI;
+    protected:
         std::shared_ptr<ApiHandlerProxy> _walletAPIProxy;
-
+    private:
         std::string _appId;
         std::string _appName;
 
-        AssetsManager::Ptr _amgr;
+        //AssetsManager::Ptr _amgr;
         std::set<beam::Asset::ID> _mappedAssets;
+        WalletClientPtr _client;
     };
 }

@@ -7,7 +7,10 @@ if(EMSCRIPTEN)
     set(CMAKE_CXX_STANDARD 17)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-value -pthread -Wno-pthreads-mem-growth -Wno-deprecated-declarations -Wcast-align")
-    add_executable(${TARGET_NAME} wasmclient.cpp)
+    add_executable(${TARGET_NAME} 
+        wasmclient.cpp
+        webapi_beam.h
+        webapi_beam.cpp)
     target_link_libraries(${TARGET_NAME} PRIVATE 
         wallet_client
         mnemonic
