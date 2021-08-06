@@ -2336,7 +2336,7 @@ namespace beam::wallet
                 case DbVersion30:
                     LOG_INFO() << "Converting DB from format 30...";
                     MigrateTransactionsFrom30(walletDB.get(), walletDB->_db);
-                    break;
+                    // no break
 
                 case DbVersion31:
                     LOG_INFO() << "Converting DB from format 31...";
