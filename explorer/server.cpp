@@ -39,6 +39,8 @@ enum Dirs {
     , DIR_SWAP_OFFERS
     , DIR_SWAPS_STATUS
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+    , DIR_CONTRACTS
+    , DIR_CONTRACT_DETAILS
     // etc
 };
 
@@ -127,6 +129,8 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg) {
         , { "swap_offers", DIR_SWAP_OFFERS }
         , { "swap_totals", DIR_SWAPS_STATUS }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+        , { "contracts", DIR_CONTRACTS }
+        , { "contract", DIR_CONTRACT_DETAILS }
     };
 
     const HttpConnection::Ptr& conn = it->second;
@@ -155,6 +159,12 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg) {
                 func = &Server::send_swap_totals;
                 break;
 #endif
+            case DIR_CONTRACTS:
+                func = &Server::send_contracts;
+                break;
+            case DIR_CONTRACT_DETAILS:
+                func = &Server::send_contract_details;
+                break;
             default:
                 break;
         }
@@ -252,6 +262,24 @@ bool Server::send_swap_totals(const HttpConnection::Ptr& conn) {
     return send(conn, 200, "OK");
 }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+bool Server::send_contracts(const HttpConnection::Ptr& conn) {
+    _backend.get_contracts(_body);
+    return send(conn, 200, "OK");
+}
+
+bool Server::send_contract_details(const HttpConnection::Ptr& conn) {
+
+    if (!_currentUrl.has_arg("id"))
+        return send(conn, 404, "not found");
+
+    ByteBuffer id;
+
+    if (!_currentUrl.get_hex_arg("id", id) || !_backend.get_contract_details(_body, id))
+        return send(conn, 500, "Internal error #2");
+
+    return send(conn, 200, "OK");
+}
 
 bool Server::send(const HttpConnection::Ptr& conn, int code, const char* message) {
     assert(conn);

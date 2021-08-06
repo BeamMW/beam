@@ -53,4 +53,7 @@ namespace beam::wallet
                 && m_content == other.m_content;
         };
     };
+
+    class TxParameters;
+    TxParameters getTxParameters(const Notification &notification);
 } // namespace beam::wallet

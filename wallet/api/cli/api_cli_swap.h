@@ -43,9 +43,9 @@ public:
     {
     }
 
-    void initSwapFeature(proto::FlyClient::INetwork& nnet, IWalletMessageEndpoint& wnet)
+    void initSwapFeature(proto::FlyClient::INetwork::Ptr nnet, IWalletMessageEndpoint& wnet)
     {
-        _broadcastRouter = std::make_shared<BroadcastRouter>(nnet, wnet);
+        _broadcastRouter = std::make_shared<BroadcastRouter>(nnet, wnet, std::make_shared<BroadcastRouter::BbsTsHolder>(_walletDB));
         _offerBoardProtocolHandler = std::make_shared<OfferBoardProtocolHandler>(_walletDB->get_SbbsKdf());
         _offersBulletinBoard = std::make_shared<SwapOffersBoard>(*_broadcastRouter, *_offerBoardProtocolHandler, _walletDB);
         _walletDbSubscriber = std::make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(_offersBulletinBoard.get()), _walletDB);

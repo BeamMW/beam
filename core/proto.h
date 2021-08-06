@@ -49,9 +49,6 @@ namespace proto {
 
 #define BeamNodeMsg_DataMissing(macro)
 
-#define BeamNodeMsg_Status0(macro) \
-    macro(uint8_t, Value)
-
 #define BeamNodeMsg_Status(macro) \
     macro(uint8_t, Value) \
     macro(std::string, ExtraInfo)
@@ -132,10 +129,6 @@ namespace proto {
 #define BeamNodeMsg_ProofAsset(macro) \
     macro(Asset::Full, Info) \
     macro(Merkle::Proof, Proof)
-
-#define BeamNodeMsg_ShieldedList0(macro) \
-    macro(TxoID, ShieldedOuts) \
-    macro(std::vector<ECC::Point::Storage>, Items)
 
 #define BeamNodeMsg_ShieldedList(macro) \
     macro(std::vector<ECC::Point::Storage>, Items) \
@@ -300,7 +293,6 @@ namespace proto {
     macro(0x0b, GetTime) \
     macro(0x0c, Time) \
     macro(0x0d, DataMissing) \
-    macro(0x0e, Status0) \
     macro(0x44, Status) \
     macro(0x0f, Login) \
     /* blockchain status */ \
@@ -332,7 +324,6 @@ namespace proto {
     macro(0x21, ProofShieldedInp) \
     macro(0x36, ProofAsset) \
     macro(0x2a, GetShieldedList) \
-    macro(0x2b, ShieldedList0) \
     macro(0x3d, ShieldedList) \
     macro(0x1f, ContractVarsEnum) \
     macro(0x2d, ContractVars) \
@@ -389,7 +380,7 @@ namespace proto {
             // 7 - GetShieldedOutputsAt
             // 8 - Contract vars and logs, flexible hdr request, newer ShieldedList, Status
 
-            static const uint32_t Minimum = 4;
+            static const uint32_t Minimum = 8;
             static const uint32_t Maximum = 8;
 
             static void set(uint32_t& nFlags, uint32_t nExt);
@@ -408,23 +399,18 @@ namespace proto {
 
     struct Event
     {
-        static const uint32_t s_Max0 = 64;
         static const uint32_t s_Max = 1024; // will send more, if the remaining events are on the same height
 
 #define BeamEventsAll(macro) \
-        macro(1, Utxo0) \
         macro(2, Shielded) \
         macro(3, AssetCtl) \
         macro(4, Utxo)
 
-#define BeamEvent_Utxo0(macro) \
+#define BeamEvent_Utxo(macro) \
         macro(uint8_t, Flags) \
         macro(CoinID, Cid) \
         macro(ECC::Point, Commitment) \
-        macro(Height, Maturity)
-
-#define BeamEvent_Utxo(macro) \
-        BeamEvent_Utxo0(macro) \
+        macro(Height, Maturity) \
         macro(Output::User, User)
 
 #define BeamEvent_Shielded(macro) \
@@ -502,7 +488,6 @@ namespace proto {
         struct IParser
             :public IParserBase
         {
-            virtual void OnEventType(Utxo0&) override;
         };
 
         struct IGroupParser
@@ -781,8 +766,6 @@ namespace proto {
 		virtual void OnMsg(GetTime&&) override;
 		virtual void OnMsg(Time&&) override;
 		virtual void OnMsg(Login&&) override;
-        virtual void OnMsg(ShieldedList0&&) override;
-        virtual void OnMsg(Status0&&) override;
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 

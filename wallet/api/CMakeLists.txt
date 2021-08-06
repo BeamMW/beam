@@ -33,7 +33,11 @@ target_link_libraries(wallet_api
 if (NOT BEAM_WALLET_CLIENT_LIBRARY)
     set(WALLET_API_NAME wallet-api${BEAM_TARGET_SUFFIX})
 
-    add_executable(${WALLET_API_NAME} cli/api_cli.cpp cli/api_cli_swap.cpp)
+    add_executable(${WALLET_API_NAME} cli/api_cli.cpp)
+    
+    if (BEAM_ATOMIC_SWAP_SUPPORT)
+        target_sources(${WALLET_API_NAME} PRIVATE cli/api_cli_swap.cpp)
+    endif()
 
     target_link_libraries(${WALLET_API_NAME}
         PRIVATE

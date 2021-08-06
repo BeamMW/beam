@@ -547,7 +547,7 @@ namespace beam::wallet
                     make_unique<NotificationsSubscriber>(&notificationObserver, m_notificationCenter);
                 updateNotifications();
                 // Broadcast router and broadcast message consumers initialization
-                auto broadcastRouter = make_shared<BroadcastRouter>(*nodeNetwork, *walletNetwork);
+                auto broadcastRouter = make_shared<BroadcastRouter>(nodeNetwork, *walletNetwork, std::make_shared<BroadcastRouter::BbsTsHolder>(m_walletDB));
                 m_broadcastRouter = broadcastRouter;
 
 
@@ -627,6 +627,7 @@ namespace beam::wallet
                 walletNetwork.reset();
 
                 nodeNetworkSubscriber.reset();
+                broadcastRouter.reset();
                 assert(nodeNetwork.use_count() == 1);
                 nodeNetwork.reset();
 
@@ -1087,7 +1088,7 @@ namespace beam::wallet
         try
         {
             const auto address = m_walletDB->getAddress(addr);
-            onGetAddress(addr, address, m_walletDB->getVoucherCount(address->m_walletID));
+            onGetAddress(addr, address, m_walletDB->getVoucherCount(addr));
         }
         catch (const std::exception& e)
         {
@@ -1403,11 +1404,7 @@ namespace beam::wallet
         try
         {
             auto addr = m_walletDB->getAddress(wid);
-            size_t vouchersCount = 0;
-            if (addr && addr->m_walletID != Zero)
-            {
-                vouchersCount = m_walletDB->getVoucherCount(addr->m_walletID);
-            }
+            size_t vouchersCount = m_walletDB->getVoucherCount(wid);
 
             postFunctionToClientContext([addr, vouchersCount, cb = std::move(callback)]()
             {

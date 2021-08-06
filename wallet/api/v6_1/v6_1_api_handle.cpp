@@ -88,10 +88,9 @@ namespace beam::wallet
         if ((_evSubs & SubFlags::CoinsChanged) != 0 && (oldSubs & SubFlags::CoinsChanged) == 0)
         {
             std::vector<ApiCoin> coins;
-            const auto cCnt = getWalletDB()->getCoinConfirmationsOffset();
 
             auto processCoin = [&](const auto& c) -> bool {
-                ApiCoin::EmplaceCoin(coins, c, cCnt);
+                ApiCoin::EmplaceCoin(coins, c);
                 return true;
             };
 

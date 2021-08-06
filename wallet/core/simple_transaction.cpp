@@ -49,7 +49,12 @@ namespace beam::wallet
 
     BaseTransaction::Ptr SimpleTransaction::Creator::Create(const TxContext& context)
     {
-        return BaseTransaction::Ptr(new SimpleTransaction(context));
+        const auto& walletDb = context.GetWalletDB();
+        auto minConfirmations =  walletDb->getCoinConfirmationsOffset();
+
+        auto pTx = BaseTransaction::Ptr(new SimpleTransaction(context));
+        pTx->SetParameter(TxParameterID::MinConfirmations, minConfirmations);
+        return pTx;
     }
 
     TxParameters SimpleTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)

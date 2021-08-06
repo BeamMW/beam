@@ -18,6 +18,7 @@
 
 namespace beam
 {
+    using namespace wallet;
 
 const std::vector<BbsChannel> BroadcastRouter::m_incomingBbsChannels =
 {
@@ -68,12 +69,18 @@ BbsChannel BroadcastRouter::getBbsChannel(BroadcastContentType type)
     return it->second;
 }
 
+BroadcastRouter::BbsTsHolder::BbsTsHolder(wallet::IWalletDB::Ptr db)
+    : wallet::TimestampHolder(db, "BroadcastBbsTimestamps")
+{
+
+}
+
 /**
  *  @bbsNetwork         used as incoming broadcast messages source
  *  @bbsEndpoint        transport for outgoing broadcast messages
  */
-BroadcastRouter::BroadcastRouter(proto::FlyClient::INetwork& bbsNetwork, wallet::IWalletMessageEndpoint& bbsEndpoint)
-    : m_bbsNetwork(bbsNetwork)
+BroadcastRouter::BroadcastRouter(proto::FlyClient::INetwork::Ptr bbsNetwork, IWalletMessageEndpoint& bbsEndpoint, ITimestampHolder::Ptr timestampHolder)
+    : BbsProcessor(bbsNetwork, timestampHolder)
     , m_bbsMessageEndpoint(bbsEndpoint)
     , m_protocol_old(m_ver_1[0],
                      m_ver_1[1],
@@ -93,14 +100,21 @@ BroadcastRouter::BroadcastRouter(proto::FlyClient::INetwork& bbsNetwork, wallet:
     , m_msgReader(m_protocol,
                   0,                    // uint64_t streamId is not used here
                   m_defaultMessageSize)
-    , m_lastTimestamp(getTimestamp() - m_bbsTimeWindow)
 {
     m_msgReader_old.disable_all_msg_types();
     m_msgReader.disable_all_msg_types();
 
     for (const auto& ch : m_incomingBbsChannels)
     {
-        m_bbsNetwork.BbsSubscribe(ch, m_lastTimestamp, this);
+        SubscribeChannel(ch);
+    }
+}
+
+BroadcastRouter::~BroadcastRouter()
+{
+    for (const auto& ch : m_incomingBbsChannels)
+    {
+        UnsubscribeChannel(ch);
     }
 }
 
@@ -182,7 +196,7 @@ void BroadcastRouter::sendMessage(BroadcastContentType type, const BroadcastMsg&
  *  Dispatches BBS message data to MsgReader.
  *  MsgReader use Protocol to process data and finally passes to the message handler.
  */
-void BroadcastRouter::OnMsg(proto::BbsMsg&& bbsMsg)
+void BroadcastRouter::OnMsg(const proto::BbsMsg& bbsMsg)
 {
     const void * data = bbsMsg.m_Message.data();
     size_t size = bbsMsg.m_Message.size();

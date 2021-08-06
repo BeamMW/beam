@@ -22,7 +22,7 @@ struct Status
 #pragma pack (pop)
 
 
-export void Ctor(const Oracle::Create<0>& r)
+BEAM_EXPORT void Ctor(const Oracle::Create<0>& r)
 {
     Env::Halt_if(!r.m_Providers);
 
@@ -45,7 +45,7 @@ export void Ctor(const Oracle::Create<0>& r)
     }
 }
 
-export void Dtor(void*)
+BEAM_EXPORT void Dtor(void*)
 {
     Status s;
     uint8_t sKey = 0;
@@ -62,7 +62,7 @@ export void Dtor(void*)
     }
 }
 
-export void Method_2(const Oracle::Set& r)
+BEAM_EXPORT void Method_2(const Oracle::Set& r)
 {
     Status s;
     uint8_t sKey = 0;
@@ -107,7 +107,7 @@ export void Method_2(const Oracle::Set& r)
     Env::SaveVar_T(sKey, s);
 }
 
-export void Method_3(Oracle::Get& r)
+BEAM_EXPORT void Method_3(Oracle::Get& r)
 {
     Status s;
     uint8_t sKey = 0;

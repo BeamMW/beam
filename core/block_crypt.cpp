@@ -3154,6 +3154,13 @@ namespace beam
 		if (bSpend)
 			valBig.Negate();
 
+		Add(valBig, aid);
+	}
+
+	void FundsChangeMap::Add(const AmountBig::Type& valBig, Asset::ID aid)
+	{
+		assert(valBig != Zero);
+
 		auto it = m_Map.find(aid);
 		if (m_Map.end() == it)
 			m_Map[aid] = valBig;

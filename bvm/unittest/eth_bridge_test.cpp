@@ -22,7 +22,7 @@ namespace Shaders
 #	pragma warning (disable : 4200 4702) // unreachable code
 #endif // _MSC_VER
 
-#define export
+#define BEAM_EXPORT
 
 #include "../Shaders/common.h"
 #include "../Shaders/BeamHeader.h"
@@ -149,7 +149,7 @@ namespace beam::bvm2
 		ContractID m_cidBridge;
 		ContractID m_cidMirrorToken;
 
-		virtual void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs) override
+		virtual void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext) override
 		{
 			if (cid == m_cidBridge)
 			{
@@ -161,7 +161,7 @@ namespace beam::bvm2
 				}*/
 			}
 
-			ProcessorContract::CallFar(cid, iMethod, pArgs);
+			ProcessorContract::CallFar(cid, iMethod, pArgs, bInheritContext);
 		}
 
 		struct CidTxt

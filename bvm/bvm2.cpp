@@ -211,7 +211,7 @@ namespace bvm2 {
 		return hdr;
 	}
 
-	void ProcessorContract::CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs)
+	void ProcessorContract::CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext)
 	{
 		struct MyCheckpoint :public Wasm::Checkpoint
 		{
@@ -234,6 +234,10 @@ namespace bvm2 {
 		auto nRetAddr = get_Ip();
 
 		Wasm::Test(m_FarCalls.m_Stack.size() < Limits::FarCallDepth);
+
+		assert(!(bInheritContext && m_FarCalls.m_Stack.empty()));
+		FarCalls::Frame* pPrev = bInheritContext ? &m_FarCalls.m_Stack.back() : nullptr;
+
 		auto& x = *m_FarCalls.m_Stack.Create_back();
 
 		x.m_Cid = cid;
@@ -251,6 +255,9 @@ namespace bvm2 {
 		m_Code = x.m_Body;
 		const Header& hdr = ParseMod();
 		Wasm::Test(iMethod < ByteOrder::from_le(hdr.m_NumMethods));
+
+		if (bInheritContext)
+			x.m_Cid = pPrev->m_Cid;
 
 		m_Stack.Push(pArgs);
 		m_Stack.Push(0); // retaddr, set dummy for far call
@@ -1214,16 +1221,9 @@ namespace bvm2 {
 			}
 		}
 
-		CallFar(get_AddrAsR<ContractID>(cid), iMethod, pArgs);
+		CallFar(get_AddrAsR<ContractID>(cid), iMethod, pArgs, bInheritContext);
 
-		if (bInheritContext)
-		{
-			auto it = m_FarCalls.m_Stack.rbegin();
-			auto& fr0 = *it;
-			auto& fr1 = *(++it);
-			fr0.m_Cid = fr1.m_Cid;
-		}
-		else
+		if (!bInheritContext)
 			m_Stack.m_BytesMax = nCalleeStackMax;
 	}
 	BVM_METHOD_HOST(CallFar)

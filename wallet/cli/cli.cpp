@@ -1126,7 +1126,6 @@ namespace
             return getSortHeight(a) < getSortHeight(b);
         });
 
-        auto offset = walletDB->getCoinConfirmationsOffset();
         const auto displayCoins = [&](const std::vector<boost::any>& coins) {
             if (coins.empty())
             {
@@ -1146,7 +1145,7 @@ namespace
                     coinId       = c.toStringID();
                     coinStatus   = getCoinStatus(c.m_status);
                     coinType     = FourCC::Text(c.m_ID.m_Type);
-                    coinMaturity = c.IsMaturityValid() ? std::to_string(c.get_Maturity(offset)) : "-";
+                    coinMaturity = c.IsMaturityValid() ? std::to_string(c.get_Maturity()) : "-";
                 }
                 else if(ca.type() == typeid(ShieldedCoin))
                 {
@@ -1155,7 +1154,7 @@ namespace
                     coinId        = c.m_TxoID == ShieldedCoin::kTxoInvalidID ? "--" : std::to_string(c.m_TxoID);
                     coinStatus    = getCoinStatus(c.m_Status);
                     coinType      = "shld";
-                    coinMaturity  = c.IsMaturityValid() ? std::to_string(c.get_Maturity(offset)) : "-";
+                    coinMaturity  = c.IsMaturityValid() ? std::to_string(c.get_Maturity()) : "-";
                 }
                 else
                 {

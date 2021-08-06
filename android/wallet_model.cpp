@@ -523,7 +523,7 @@ void WalletModel::onCoinsSelected(const CoinsSelectionInfo& selectionRes)
 
     env->CallStaticVoidMethod(WalletListenerClass, callback, 
                                                     selectionRes.m_explicitFee, 
-                                                    selectionRes.m_changeBeam, 
+                                                    selectionRes.m_changeAsset, 
                                                     selectionRes.m_minimalExplicitFee);
 }
 
@@ -834,6 +834,11 @@ void WalletModel::onGetAddress(const beam::wallet::WalletID& addr, const boost::
 void WalletModel::onShieldedCoinChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::ShieldedCoin>& items) 
 {
     LOG_DEBUG() << "onShieldedCoinChanged()";
+
+    for (const auto& coin : items)
+    {
+        shieldedCoins[coin.m_TxoID] = coin;
+    }
 
     JNIEnv* env = Android_JNI_getEnv();
 

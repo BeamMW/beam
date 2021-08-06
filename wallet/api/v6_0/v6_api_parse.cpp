@@ -17,7 +17,9 @@
 #include "wallet/core/common_utils.h"
 #include "utility/fsutils.h"
 #include "bvm/ManagerStd.h"
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/transactions/swaps/swap_tx_description.h"
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
 
 namespace beam::wallet
 {
@@ -68,6 +70,7 @@ namespace beam::wallet
         return aid;
     }
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
     void AddSwapTxDetailsToJson(const TxDescription& tx, json& msg)
     {
         SwapTxDescription swapTx(tx);
@@ -136,6 +139,7 @@ namespace beam::wallet
             msg["failure_reason"] = GetFailureMessage(*failureReason);
         }
     }
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
 
     void GetStatusResponseJson(const TxDescription& tx,
         json& msg,
@@ -181,7 +185,9 @@ namespace beam::wallet
         }
         else if (tx.m_txType == TxType::AtomicSwap)
         {
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
             statusInterpreter = std::make_unique<SwapTxStatusInterpreter>(tx);
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
         }
         else if (tx.m_txType == TxType::Contract)
         {
@@ -477,7 +483,7 @@ namespace beam::wallet
 
         send.value = getMandatoryParam<PositiveAmount>(params, "value");
         send.assetId = readOptionalAssetID(*this, params);
-        info.spend[send.assetId ? *send.assetId : beam::Asset::s_BeamID] = send.value;
+        info.appendSpend(send.assetId ? *send.assetId : beam::Asset::s_BeamID, send.value);
 
         if (hasParam(params, "coins"))
         {
@@ -503,7 +509,9 @@ namespace beam::wallet
             info.comment = *comment;
         }
 
-        send.txId = getOptionalParam<ValidTxID>(params, "txId");
+        info.confirm_comment = getOptionalParam<std::string>(params, "confirm_comment");
+        send.txId  = getOptionalParam<ValidTxID>(params, "txId");
+
         return std::make_pair(send, info);
     }
 
@@ -556,8 +564,8 @@ namespace beam::wallet
         split.txId = getOptionalParam<ValidTxID>(params, "txId");
 
         auto assetId = split.assetId ? *split.assetId : beam::Asset::s_BeamID;
-        info.spend[assetId] = splitAmount;
-        info.receive[assetId] = splitAmount;
+        info.appendSpend(assetId, splitAmount);
+        info.appendSpend(assetId, splitAmount);
         info.fee = split.fee;
 
         return std::make_pair(split, info);
@@ -590,6 +598,8 @@ namespace beam::wallet
     template<typename T>
     std::pair<T, IWalletApi::MethodInfo> V6Api::onParseIssueConsume(bool issue, const JsonRpcId& id, const json& params)
     {
+        static_assert(std::is_same<Issue, T>::value || std::is_same<Consume, T>::value);
+
         T data;
         data.value = getMandatoryParam<PositiveUint64>(params, "value");
         data.assetId = readMandatoryNonBeamAssetID(*this, params);
@@ -822,6 +832,7 @@ namespace beam::wallet
         info.spendOffline = false;
         info.comment = beam::bvm2::getFullComment(realData);
         info.fee = beam::bvm2::getFullFee(realData, getWallet()->get_TipHeight());
+        info.confirm_comment = getOptionalParam<std::string>(params, "confirm_comment");
 
         const auto fullSpend = beam::bvm2::getFullSpend(realData);
         for (const auto& spend: fullSpend)

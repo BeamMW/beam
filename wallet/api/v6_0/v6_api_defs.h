@@ -169,7 +169,7 @@ namespace beam::wallet
     {
         Amount value = 0;
         Amount fee = 0;
-        Asset::ID assetId;
+        Asset::ID assetId = 0;
         boost::optional<CoinIDList> coins;
         boost::optional<TxID> txId;
 
@@ -183,7 +183,7 @@ namespace beam::wallet
     {
         Amount value = 0;
         Amount fee = 0;
-        Asset::ID assetId;
+        Asset::ID assetId = 0;
         boost::optional<CoinIDList> coins;
         boost::optional<TxID> txId;
 
@@ -268,14 +268,16 @@ namespace beam::wallet
         #undef MACRO
 
         template<typename T>
-        static void EmplaceCoin(std::vector<ApiCoin>& to, const T& c, uint32_t cCnt)
+        static void EmplaceCoin(std::vector<ApiCoin>& to, const T& c)
         {
+            static_assert(std::is_same<Coin, T>::value || std::is_same<ShieldedCoin, T>::value);
+
             auto& t = to.emplace_back();
             t.id = c.toStringID();
             t.asset_id = c.getAssetID();
             t.amount = c.getAmount();
             t.type = c.getType();
-            t.maturity = c.get_Maturity(cCnt);
+            t.maturity = c.get_Maturity();
             t.createTxId = GetCoinCreateTxID(c);
             t.spentTxId = GetCoinSpentTxID(c);
             t.status = GetCoinStatus(c);

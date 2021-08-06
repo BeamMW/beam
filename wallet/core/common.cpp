@@ -1620,6 +1620,7 @@ namespace beam::wallet
                     func(*clientVersion, myClientVersion);
                     return;
                 }
+                return;
             }
             // attempt to read packed version
             auto pos =  myClientVersion.rfind('.');

@@ -229,6 +229,7 @@ namespace beam::wallet
     template<typename T>
     void V61Api::onCoinsChangedImp(ChangeAction action, const std::vector<T>& changed)
     {
+        static_assert(std::is_same<Coin, T>::value || std::is_same<ShieldedCoin, T>::value);
         try
         {
             if ((_evSubs & SubFlags::CoinsChanged) == 0)
@@ -236,7 +237,6 @@ namespace beam::wallet
                 return;
             }
 
-            const auto cCnt = getWalletDB()->getCoinConfirmationsOffset();
             const auto caEnabled = getCAEnabled();
             std::vector<ApiCoin> coins;
 
@@ -246,7 +246,8 @@ namespace beam::wallet
                 {
                     continue;
                 }
-                ApiCoin::EmplaceCoin(coins, c, cCnt);
+
+                ApiCoin::EmplaceCoin(coins, c);
             }
 
             onCoinsChangedImp(action, coins);
