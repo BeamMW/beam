@@ -2428,7 +2428,6 @@ struct NodeProcessor::BlockInterpretCtx
 		bool Invoke(const bvm2::ContractID&, uint32_t iMethod, const TxKernelContractControl&);
 
 		void UndoVars();
-		void ToggleSidEntry(const bvm2::ShaderID&, const bvm2::ContractID&, bool bSet);
 
 		void ContractDataInsert(const Blob& key, const Blob&);
 		void ContractDataUpdate(const Blob& key, const Blob& val, const Blob& valOld);
@@ -3295,8 +3294,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInt
 		}
 
 		BlockInterpretCtx::BvmProcessor proc(bic, *this);
-		proc.SaveVar(cid, krn.m_Data);
-		proc.ToggleSidEntry(sid, cid, true);
+		proc.AddRemoveShader(cid, krn.m_Data, true);
 
 		if (!proc.Invoke(cid, 0, krn))
 			return false;
@@ -3332,11 +3330,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 		if (1 == krn.m_iMethod)
 		{
 			// d'tor called. Make sure no variables are left except for the contract data
-			bvm2::ShaderID sid;
-			bvm2::get_ShaderID(sid, bic.get_ContractVar(krn.m_Cid, proc.m_Proc.m_DB).m_Data);
-			proc.ToggleSidEntry(sid, krn.m_Cid, false);
-
-			proc.SaveVar(krn.m_Cid, Blob(nullptr, 0));
+			proc.AddRemoveShader(krn.m_Cid, Blob(nullptr, 0), false);
 
 			if (!proc.EnsureNoVars(krn.m_Cid))
 			{
@@ -5098,25 +5092,6 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 			}
 		}
 	}
-}
-
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::ToggleSidEntry(const bvm2::ShaderID& sid, const bvm2::ContractID& cid, bool bSet)
-{
-	uint8_t pKey[bvm2::ContractID::nBytes * 2 + bvm2::ShaderID::nBytes + 1];
-	memset0(pKey, bvm2::ContractID::nBytes);
-	pKey[bvm2::ContractID::nBytes] = VarKey::Tag::SidCid;
-	memcpy(pKey + bvm2::ContractID::nBytes + 1, sid.m_pData, sid.nBytes);
-	memcpy(pKey + bvm2::ContractID::nBytes + 1 + bvm2::ShaderID::nBytes, cid.m_pData, cid.nBytes);
-
-	Blob blob(pKey, bvm2::ContractID::nBytes * 2 + bvm2::ShaderID::nBytes + 1);
-
-	if (bSet)
-	{
-		auto h = uintBigFrom(m_Bic.m_Height);
-		SaveVar(blob, h);
-	}
-	else
-		SaveVar(blob, Blob(nullptr, 0));
 }
 
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::DbgCallstackTrim()

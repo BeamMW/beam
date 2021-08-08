@@ -2840,6 +2840,49 @@ namespace bvm2 {
 	}
 
 	/////////////////////////////////////////////
+	// Shader aux
+	void ProcessorContract::AddRemoveShader(const ContractID& cid, const Blob& blob, bool bAdd)
+	{
+		ShaderID sid;
+
+		if (bAdd)
+		{
+			SaveVar(cid, blob);
+			get_ShaderID(sid, blob);
+		}
+		else
+		{
+			Blob res;
+			LoadVar(cid, res);
+
+			get_ShaderID(sid, res);
+			SaveVar(cid, Blob(nullptr, 0));
+		}
+
+		ToggleSidEntry(sid, cid, bAdd);
+	}
+
+
+	void ProcessorContract::ToggleSidEntry(const ShaderID& sid, const ContractID& cid, bool bSet)
+	{
+		uint8_t pKey[ContractID::nBytes * 2 + ShaderID::nBytes + 1];
+		memset0(pKey, ContractID::nBytes);
+		pKey[ContractID::nBytes] = VarKey::Tag::SidCid;
+		memcpy(pKey + ContractID::nBytes + 1, sid.m_pData, sid.nBytes);
+		memcpy(pKey + ContractID::nBytes + 1 + ShaderID::nBytes, cid.m_pData, cid.nBytes);
+
+		Blob blob(pKey, ContractID::nBytes * 2 + bvm2::ShaderID::nBytes + 1);
+
+		if (bSet)
+		{
+			auto h = uintBigFrom(get_Height() + 1);
+			SaveVar(blob, h);
+		}
+		else
+			SaveVar(blob, Blob(nullptr, 0));
+	}
+
+	/////////////////////////////////////////////
 	// Manager
 	void ProcessorManager::CallMethod(uint32_t iMethod)
 	{
