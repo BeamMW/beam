@@ -1166,7 +1166,7 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(SaveVar)
 	{
-		Wasm::Test(nVal <= Limits::VarSize);
+		TestVarSize(nVal);
 
 		VarKey vk;
 		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), true);
@@ -1181,7 +1181,7 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(EmitLog)
 	{
-		Wasm::Test(nVal <= Limits::VarSize);
+		TestVarSize(nVal);
 
 		VarKey vk;
 		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), true);

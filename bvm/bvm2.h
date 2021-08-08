@@ -80,7 +80,8 @@ namespace bvm2 {
 	{
 		static const uint32_t FarCallDepth = 32;
 		static const uint32_t VarKeySize = 256;
-		static const uint32_t VarSize = 0x2000; // 8K
+		static const uint32_t VarSize_0 = 0x2000; // 8K
+		static const uint32_t VarSize_4 = 0x100000; // 1MB, past HF4
 
 		static const uint32_t StackSize = 0x10000; // 64K
 		static const uint32_t HeapSize = 0x100000; // 1MB
@@ -394,6 +395,12 @@ namespace bvm2 {
 		bool IsPastHF4() {
 			// current heught does not include the current being-interpreted block
 			return get_Height() + 1 >= Rules::get().pForks[4].m_Height;
+		}
+
+		void TestVarSize(uint32_t n)
+		{
+			uint32_t nMax = IsPastHF4() ? Limits::VarSize_4 : Limits::VarSize_0;
+			Wasm::Test(n <= nMax);
 		}
 
 	public:
