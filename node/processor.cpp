@@ -4480,9 +4480,12 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 		InitStackPlus(m_Stack.AlignUp(static_cast<uint32_t>(krn.m_Args.size())));
 		m_Stack.PushAlias(krn.m_Args);
 
-		m_Instruction.m_Mode = m_Bic.m_TxValidation ?
-			Wasm::Reader::Mode::Restrict :
-			Wasm::Reader::Mode::Emulate_x86;
+		m_Instruction.m_Mode = 
+			IsPastHF4() ?
+			Wasm::Reader::Mode::Standard :
+			m_Bic.m_TxValidation ?
+				Wasm::Reader::Mode::Restrict :
+				Wasm::Reader::Mode::Emulate_x86;
 
 		CallFar(cid, iMethod, m_Stack.get_AlasSp(), 0);
 

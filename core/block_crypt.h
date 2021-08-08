@@ -327,7 +327,7 @@ namespace beam
 		static void get_Emission(AmountBig::Type&, const HeightRange&);
 		static void get_Emission(AmountBig::Type&, const HeightRange&, Amount base);
 
-		HeightHash pForks[4];
+		HeightHash pForks[5];
 
 		const HeightHash& get_LastFork() const;
 		const HeightHash* FindFork(const Merkle::Hash&) const;

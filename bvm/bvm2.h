@@ -391,6 +391,11 @@ namespace bvm2 {
 		std::vector<ECC::Point::Native> m_vPks;
 		ECC::Point::Native& AddSigInternal(const ECC::Point&);
 
+		bool IsPastHF4() {
+			// current heught does not include the current being-interpreted block
+			return get_Height() + 1 >= Rules::get().pForks[4].m_Height;
+		}
+
 	public:
 
 		Kind get_Kind() override { return Kind::Contract; }
