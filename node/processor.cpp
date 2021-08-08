@@ -5134,7 +5134,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::DumpFarFrames(std::ostream&
 		auto& fr = *it++;
 
 		bvm2::ShaderID sid;
-		bvm2::get_ShaderID(sid, fr.m_Body);
+		bvm2::get_ShaderID(sid, fr.m_Body); // theoretically m_Body may be different, the contract code may modify itself. Never mind.
 
 		os << std::endl << "Cid=" << fr.m_Cid << ", Sid=" << sid;
 
@@ -5215,7 +5215,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::CallFar(const bvm2::Contrac
 			ZeroObject(args);
 	
 		bvm2::ShaderID sid;
-		bvm2::get_ShaderID(sid, m_Code);
+		bvm2::get_ShaderID(sid, m_Code); // code should be intact, contract didn't get control yet
 
 		ParseExtraInfo(x, sid, iMethod, args);
 

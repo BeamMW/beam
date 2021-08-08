@@ -1260,6 +1260,25 @@ namespace bvm2 {
 		}
 	}
 
+	BVM_METHOD(UpdateShader)
+	{
+		OnHost_UpdateShader(get_AddrR(pVal, nVal), nVal);
+	}
+
+	BVM_METHOD_HOST(UpdateShader)
+	{
+		Wasm::Test(IsPastHF4());
+
+		TestVarSize(nVal);
+		DischargeUnits(Limits::Cost::UpdateShader + Limits::Cost::SaveVarPerByte * nVal);
+
+		const auto& cid = m_FarCalls.m_Stack.back().m_Cid;
+		AddRemoveShader(cid, nullptr);
+
+		Blob blob(pVal, nVal);
+		AddRemoveShader(cid, &blob);
+	}
+
 	BVM_METHOD(Halt)
 	{
 		struct MyCheckpoint :public Wasm::Checkpoint

@@ -110,6 +110,7 @@ namespace bvm2 {
 			static const uint32_t SaveVarPerByte	= ChargeFor<1000*1000>::V;
 			static const uint32_t Log				= ChargeFor<20*1000>::V;
 			static const uint32_t LogPerByte		= ChargeFor<1000*1000>::V;
+			static const uint32_t UpdateShader		= ChargeFor<1*1000>::V;
 			static const uint32_t CallFar			= ChargeFor<10*1000>::V;
 			static const uint32_t AddSig			= ChargeFor<10*1000>::V;
 			static const uint32_t AssetManage		= ChargeFor<1000>::V;
