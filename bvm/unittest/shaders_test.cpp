@@ -1744,7 +1744,7 @@ namespace bvm2 {
 			msg.m_User = argS.m_User;
 			msg.m_Amount = argS.m_Amount;
 
-			SaveVar(Blob(&key, sizeof(key)), (uint8_t*) &msg, sizeof(msg));
+			SaveVar(Blob(&key, sizeof(key)), Blob(&msg, sizeof(msg)));
 
 			Shaders::MirrorCoin::Receive argR;
 			argR.m_iCheckpoint = 0;

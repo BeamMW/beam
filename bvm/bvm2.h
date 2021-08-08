@@ -205,6 +205,8 @@ namespace bvm2 {
 
 			void Set(const ContractID&);
 			void Append(uint8_t nTag, const Blob&);
+
+			Blob ToBlob() const { return Blob(m_p, m_Size); }
 		};
 
 
@@ -365,10 +367,9 @@ namespace bvm2 {
 		virtual uint32_t get_HeapLimit() override;
 		virtual void DischargeUnits(uint32_t size) override;
 
-		virtual void LoadVar(const VarKey&, uint8_t* pVal, uint32_t& nValInOut) {}
-		virtual void LoadVar(const VarKey&, ByteBuffer&) {}
-		virtual uint32_t SaveVar(const VarKey&, const uint8_t* pVal, uint32_t nVal) { return 0; }
-		virtual uint32_t OnLog(const VarKey&, const Blob& val) { return 0; }
+		virtual void LoadVar(const Blob&, Blob& res) { res.n = 0; } // res is temporary
+		virtual uint32_t SaveVar(const Blob&, const Blob& val) { return 0; }
+		virtual uint32_t OnLog(const Blob&, const Blob& val) { return 0; }
 
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) { return 0; }
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }

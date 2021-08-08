@@ -248,11 +248,9 @@ namespace bvm2 {
 		x.m_StackPosMin = m_Stack.m_PosMin;
 		m_Stack.m_PosMin = m_Stack.m_Pos;
 
-		VarKey vk;
-		SetVarKey(vk);
-		LoadVar(vk, x.m_Body);
+		LoadVar(cid, m_Code);
+		m_Code.Export(x.m_Body);
 
-		m_Code = x.m_Body;
 		const Header& hdr = ParseMod();
 		Wasm::Test(iMethod < ByteOrder::from_le(hdr.m_NumMethods));
 
@@ -1155,8 +1153,11 @@ namespace bvm2 {
 		VarKey vk;
 		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), false);
 
-		LoadVar(vk, static_cast<uint8_t*>(pVal), nVal);
-		return nVal;
+		Blob res;
+		LoadVar(vk.ToBlob(), res);
+
+		memcpy(pVal, res.p, std::min(nVal, res.n));
+		return res.n;
 	}
 
 	BVM_METHOD(SaveVar)
@@ -1171,7 +1172,7 @@ namespace bvm2 {
 		VarKey vk;
 		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), true);
 
-		return SaveVar(vk, static_cast<const uint8_t*>(pVal), nVal);
+		return SaveVar(vk.ToBlob(), Blob(pVal, nVal));
 	}
 
 	BVM_METHOD(EmitLog)
@@ -1186,7 +1187,7 @@ namespace bvm2 {
 		VarKey vk;
 		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), true);
 
-		return OnLog(vk, Blob(pVal, nVal));
+		return OnLog(vk.ToBlob(), Blob(pVal, nVal));
 	}
 
 	BVM_METHOD(CallFar)
@@ -1345,7 +1346,7 @@ namespace bvm2 {
 			ProcessorPlus_Contract::From(*this).HandleAmountOuter(Rules::get().CA.DepositForList, Zero, true);
 
 			SetAssetKey(av, ret);
-			SaveVar(av.m_vk, av.m_Owner.m_pData, av.m_Owner.nBytes);
+			SaveVar(av.m_vk.ToBlob(), av.m_Owner);
 		}
 
 		return ret;
@@ -1361,9 +1362,11 @@ namespace bvm2 {
 	{
 		SetAssetKey(av, aid);
 
-		uint32_t n = av.m_Owner.nBytes;
-		LoadVar(av.m_vk, av.m_Owner.m_pData, n);
-		Wasm::Test(av.m_Owner.nBytes == n);
+		Blob res;
+		LoadVar(av.m_vk.ToBlob(), res);
+
+		Wasm::Test(av.m_Owner.nBytes == res.n);
+		memcpy(av.m_Owner.m_pData, res.p, res.n);
 	}
 
 	BVM_METHOD(AssetEmit)
@@ -1401,7 +1404,7 @@ namespace bvm2 {
 		if (b)
 		{
 			HandleAmountOuter(Rules::get().CA.DepositForList, Zero, false);
-			SaveVar(av.m_vk, nullptr, 0);
+			SaveVar(av.m_vk.ToBlob(), Blob(nullptr, 0));
 		}
 
 		return !!b;
@@ -2666,19 +2669,22 @@ namespace bvm2 {
 
 	bool ProcessorContract::LoadFixedOrZero(const VarKey& vk, uint8_t* pVal, uint32_t n)
 	{
-		uint32_t n0 = n;
-		LoadVar(vk, pVal, n);
+		Blob res;
+		LoadVar(vk.ToBlob(), res);
 
-		if (n == n0)
+		if (n == res.n)
+		{
+			memcpy(pVal, res.p, n);
 			return true;
+		}
 
-		memset0(pVal, n0);
+		memset0(pVal, n);
 		return false;
 	}
 
 	uint32_t ProcessorContract::SaveNnz(const VarKey& vk, const uint8_t* pVal, uint32_t n)
 	{
-		return SaveVar(vk, pVal, memis0(pVal, n) ? 0 : n);
+		return SaveVar(vk.ToBlob(), Blob(pVal, memis0(pVal, n) ? 0 : n));
 	}
 
 	void ProcessorContract::HandleAmount(Amount amount, Asset::ID aid, bool bLock)
@@ -2773,10 +2779,10 @@ namespace bvm2 {
 			if (bAdd)
 			{
 				// make sure the target contract exists
-				uint32_t nData = 0;
-				LoadVar(vk2, nullptr, nData);
+				Blob res;
+				LoadVar(vk2.ToBlob(), res);
 
-				if (!nData)
+				if (!res.n)
 				{
 					HandleRefRaw(vk, false); // undo
 					return 0;

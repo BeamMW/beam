@@ -2411,10 +2411,9 @@ struct NodeProcessor::BlockInterpretCtx
 
 		BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& db);
 
-		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, uint32_t& nValInOut) override;
-		virtual void LoadVar(const VarKey& vk, ByteBuffer& res) override;
-		virtual uint32_t SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal) override;
-		virtual uint32_t OnLog(const VarKey& key, const Blob& val) override;
+		virtual void LoadVar(const Blob& key, Blob& res) override;
+		virtual uint32_t SaveVar(const Blob& key, const Blob&) override;
+		virtual uint32_t OnLog(const Blob& key, const Blob& val) override;
 
 		virtual Height get_Height() override;
 		virtual bool get_HdrAt(Block::SystemState::Full&) override;
@@ -2428,7 +2427,6 @@ struct NodeProcessor::BlockInterpretCtx
 
 		bool Invoke(const bvm2::ContractID&, uint32_t iMethod, const TxKernelContractControl&);
 
-		uint32_t SaveVar(const Blob& key, const Blob& data);
 		void UndoVars();
 		void ToggleSidEntry(const bvm2::ShaderID&, const bvm2::ContractID&, bool bSet);
 
@@ -4759,28 +4757,10 @@ BlobMap::Entry& NodeProcessor::BlockInterpretCtx::get_ContractVar(const Blob& ke
 	return *pE;
 }
 
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const VarKey& vk, uint8_t* pVal, uint32_t& nValInOut)
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const Blob& key, Blob& res)
 {
-	auto& e = m_Bic.get_ContractVar(Blob(vk.m_p, vk.m_Size), m_Proc.m_DB);
-
-	if (!e.m_Data.empty())
-	{
-		auto n0 = static_cast<uint32_t>(e.m_Data.size());
-		memcpy(pVal, &e.m_Data.front(), std::min(n0, nValInOut));
-		nValInOut = n0;
-	}
-	else
-		nValInOut = 0;
-}
-
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const VarKey& vk, ByteBuffer& res)
-{
-	res = m_Bic.get_ContractVar(Blob(vk.m_p, vk.m_Size), m_Proc.m_DB).m_Data;
-}
-
-uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal)
-{
-	return SaveVar(Blob(vk.m_p, vk.m_Size), Blob(pVal, nVal));
+	auto& e = m_Bic.get_ContractVar(key, m_Proc.m_DB);
+	res = e.m_Data;
 }
 
 uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, const Blob& data)
@@ -4893,7 +4873,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataToggleTree(cons
 		m_Proc.m_Mapped.m_Contract.Toggle(key, data, bAdd);
 }
 
-uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const VarKey& vk, const Blob& val)
+uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const Blob& key, const Blob& val)
 {
 	assert(m_Bic.m_Fwd);
 	if (!m_Bic.m_Temporary)
@@ -4902,7 +4882,7 @@ uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const VarKey& vk,
 		NodeDB::ContractLog::Entry x;
 		x.m_Pos.m_Height = m_Bic.m_Height;
 		x.m_Pos.m_Pos = m_Bic.m_ContractLogs;
-		x.m_Key = Blob(vk.m_p, vk.m_Size);
+		x.m_Key = key;
 		x.m_Val = val;
 		m_Proc.m_DB.ContractLogInsert(x);
 	}
@@ -4914,7 +4894,6 @@ uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const VarKey& vk,
 
 	if (!m_Bic.m_SkipDefinition)
 	{
-		Blob key(vk.m_p, vk.m_Size);
 		bool bMmr = IsContractVarStoredInMmr(key);
 		ser & bMmr;
 
