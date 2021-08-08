@@ -2841,14 +2841,14 @@ namespace bvm2 {
 
 	/////////////////////////////////////////////
 	// Shader aux
-	void ProcessorContract::AddRemoveShader(const ContractID& cid, const Blob& blob, bool bAdd)
+	void ProcessorContract::AddRemoveShader(const ContractID& cid, const Blob* pCode)
 	{
 		ShaderID sid;
 
-		if (bAdd)
+		if (pCode)
 		{
-			SaveVar(cid, blob);
-			get_ShaderID(sid, blob);
+			SaveVar(cid, *pCode);
+			get_ShaderID(sid, *pCode);
 		}
 		else
 		{
@@ -2859,9 +2859,8 @@ namespace bvm2 {
 			SaveVar(cid, Blob(nullptr, 0));
 		}
 
-		ToggleSidEntry(sid, cid, bAdd);
+		ToggleSidEntry(sid, cid, !!pCode);
 	}
-
 
 	void ProcessorContract::ToggleSidEntry(const ShaderID& sid, const ContractID& cid, bool bSet)
 	{

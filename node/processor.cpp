@@ -3294,7 +3294,9 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInt
 		}
 
 		BlockInterpretCtx::BvmProcessor proc(bic, *this);
-		proc.AddRemoveShader(cid, krn.m_Data, true);
+
+		Blob blob = krn.m_Data;
+		proc.AddRemoveShader(cid, &blob);
 
 		if (!proc.Invoke(cid, 0, krn))
 			return false;
@@ -3330,7 +3332,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 		if (1 == krn.m_iMethod)
 		{
 			// d'tor called. Make sure no variables are left except for the contract data
-			proc.AddRemoveShader(krn.m_Cid, Blob(nullptr, 0), false);
+			proc.AddRemoveShader(krn.m_Cid, nullptr);
 
 			if (!proc.EnsureNoVars(krn.m_Cid))
 			{
