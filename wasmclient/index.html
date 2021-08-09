@@ -48,13 +48,18 @@
                             }) + '\n');
                     }
 
-/*                    var api = walletClient.createAppAPI("appid", "appname");
-                    api.callWalletApi(JSON.stringify({
+                    setTimeout((wc)=>{
+                        console.log("calling API...");
+                        var api = walletClient.createAppAPI("appid", "appname");
+                        api.setHandler((r)=> {
+                            console.log("API response: " + r)
+                        })
+                        api.callWalletApi(JSON.stringify({
                               jsonrpc: '2.0',
                               id: 5,
                               method: 'wallet_status'
                             }));
-*/
+
                     setTimeout((wc)=>{
                         console.log("Stopoping...")
                         console.log("is running: " + wc.isRunning())
@@ -90,7 +95,7 @@
 
                         });
 
-                    }, 2000, walletClient)
+                    }, 40000, walletClient)
 
                 });
            
