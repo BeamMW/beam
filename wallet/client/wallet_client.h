@@ -51,6 +51,8 @@ namespace beam::wallet
 #else
     constexpr char kBroadcastValidatorPublicKey[] = "db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec";
 #endif
+
+    constexpr char SEED_PARAM_NAME[] = "SavedSeed";
     struct WalletStatus
     {
         struct AssetStatus
@@ -263,6 +265,9 @@ namespace beam::wallet
 
         void setCoinConfirmationsOffset(uint32_t val) override;
         void getCoinConfirmationsOffset(AsyncCallback<uint32_t>&& callback) override;
+
+        void removeRawSeedPhrase() override;
+        void readRawSeedPhrase(AsyncCallback<const std::string&>&& callback) override;
 
         void enableBodyRequests(bool value) override;
 
