@@ -124,7 +124,22 @@ namespace beam::wallet
         uint32_t getMarurityProgress(const ShieldedCoin& coin) const;
         uint16_t getMaturityHoursLeft(const ShieldedCoin& coin) const;
 
-        ByteBuffer generateVouchers(uint64_t ownID, size_t count) const;
+        std::set<beam::Asset::ID> getAssetsNZ() const;
+        beam::AmountBig::Type getAvailable(beam::Asset::ID) const;
+        beam::AmountBig::Type getAvailableRegular(beam::Asset::ID) const;
+        beam::AmountBig::Type getAvailableShielded(beam::Asset::ID) const;
+        beam::AmountBig::Type getReceiving(beam::Asset::ID) const;
+        beam::AmountBig::Type getReceivingIncoming(beam::Asset::ID) const;
+        beam::AmountBig::Type getReceivingChange(beam::Asset::ID) const;
+        beam::AmountBig::Type getSending(beam::Asset::ID) const;
+        beam::AmountBig::Type getMaturing(beam::Asset::ID) const;
+        beam::AmountBig::Type getMatutingMP(beam::Asset::ID) const;
+        beam::AmountBig::Type getShielded(beam::Asset::ID) const;
+        bool hasShielded(beam::Asset::ID) const;
+
+        beam::Height getCurrentHeight() const;
+        beam::Timestamp getCurrentHeightTimestamp() const;
+        beam::Block::SystemState::ID getCurrentStateID() const;
 
         /// INodeConnectionObserver implementation
         void onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason&) override;
@@ -271,7 +286,7 @@ namespace beam::wallet
 
         WalletStatus getStatus() const;
         void updateStatus();
-        void updateClientState(WalletStatus&&);
+        void updateClientState(const WalletStatus&);
         void updateMaxPrivacyStats(const WalletStatus& status);
         void updateMaxPrivacyStatsImpl(const WalletStatus& status);
         void updateClientTxState();

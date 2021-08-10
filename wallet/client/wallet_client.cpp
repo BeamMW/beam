@@ -460,8 +460,9 @@ namespace beam::wallet
     {
         onPostFunctionToClientContext(move(func));
     }
-
-    /// Methods below should be called from main thread
+    //
+    // UI thread. Methods below should be called from main thread
+    //
     Version WalletClient::getLibVersion() const
     {
         // TODO: replace with current wallet library version
@@ -813,17 +814,115 @@ namespace beam::wallet
         return m_rules;
     }
 
+    std::set<beam::Asset::ID> WalletClient::getAssetsNZ() const
+    {
+        std::set<beam::Asset::ID> assets;
+
+        // always have BEAM, even if zero
+        assets.insert(Asset::s_BeamID);
+
+        for (const auto& status : m_status.all)
+        {
+            const auto& totals = status.second;
+            if (totals.available != Zero || totals.maturing != Zero || totals.maturingMP != Zero ||
+                totals.receiving != Zero || totals.receivingChange != Zero || totals.receivingIncoming != Zero ||
+                totals.sending != Zero || totals.shielded != Zero)
+            {
+                assets.insert(status.first);
+            }
+        }
+
+        return assets;
+    }
+
+    beam::AmountBig::Type WalletClient::getAvailable(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+
+        auto result = status.available;
+        result += status.shielded;
+
+        return result;
+    }
+
+
+    beam::AmountBig::Type WalletClient::getAvailableRegular(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.available;
+    }
+
+    beam::AmountBig::Type WalletClient::getAvailableShielded(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.shielded;
+    }
+
+    beam::AmountBig::Type WalletClient::getReceiving(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.receiving;
+    }
+
+    beam::AmountBig::Type WalletClient::getReceivingIncoming(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.receivingIncoming;
+    }
+
+    beam::AmountBig::Type WalletClient::getMatutingMP(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.maturingMP;
+    }
+
+    beam::AmountBig::Type WalletClient::getShielded(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.shielded;
+    }
+
+    bool WalletClient::hasShielded(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.shielded != Zero;
+    }
+
+    beam::AmountBig::Type WalletClient::getReceivingChange(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.receivingChange;
+    }
+
+    beam::AmountBig::Type WalletClient::getSending(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.sending;
+    }
+
+    beam::AmountBig::Type WalletClient::getMaturing(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.maturing;
+    }
+
+    beam::Height WalletClient::getCurrentHeight() const
+    {
+        return m_status.stateID.m_Height;
+    }
+
+    beam::Height WalletClient::getCurrentHeightTimestamp() const
+    {
+        return m_status.update.lastTime;
+    }
+
+    beam::Block::SystemState::ID WalletClient::getCurrentStateID() const
+    {
+        return m_status.stateID;
+    }
+
     /////////////////////////////////////////////
     /// IWalletClientAsync implementation, these method are called in background thread and could safelly access wallet DB
-
-    ByteBuffer WalletClient::generateVouchers(uint64_t ownID, size_t count) const
-    {
-        auto vouchers = GenerateVoucherList(m_walletDB->get_KeyKeeper(), ownID, count);
-        if (vouchers.empty())
-            return {};
-
-        return toByteBuffer(vouchers);
-    }
 
     void WalletClient::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
     {
@@ -834,7 +933,7 @@ namespace beam::wallet
     void WalletClient::scheduleBalance()
     {
         m_balanceDelayed->start(0, false, [this] () {
-            onStatus(getStatus());
+            updateStatus();
         });
     }
 
@@ -1749,18 +1848,18 @@ namespace beam::wallet
     void WalletClient::updateStatus()
     {
         auto status = getStatus();
-        onStatus(status);
         updateMaxPrivacyStats(status);
-        updateClientState(std::move(status));
+        updateClientState(status);
+        onStatus(status);
     }
 
-    void WalletClient::updateClientState(WalletStatus&& status)
+    void WalletClient::updateClientState(const WalletStatus& status)
     {
         if (auto w = m_wallet.lock(); w)
         {
             postFunctionToClientContext([this, currentHeight = m_walletDB->getCurrentHeight()
                 , count = w->GetUnsafeActiveTransactionsCount()
-                , status = std::move(status)
+                , status
                 , limit = m_walletDB->get_MaxPrivacyLockTimeLimitHours()]()
             {
                 m_status = status;
