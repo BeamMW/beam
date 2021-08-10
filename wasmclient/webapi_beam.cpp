@@ -11,10 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include <sstream>
+
 #include "webapi_beam.h"
 #include "utility/logger.h"
 #include "wallet/client/wallet_client.h"
+
+#include <sstream>
+#include <boost/any.hpp>
 
 namespace beam::applications {
     using namespace beam::wallet;
@@ -25,49 +28,39 @@ namespace beam::applications {
         //    return *AppModel::getInstance().getWalletModel();
         //}
 
-        //IWalletModelAsync& getAsyncWallet() {
-        //    return *getWallet().getAsync();
-        //}
+        namespace
+        {
+            void printMap(const std::string& prefix, const ApproveMap& info)
+            {
+                for(const auto& p : info)
+                {
+                    if (p.second.type() == typeid(std::string))
+                    {
+                        LOG_INFO () << prefix << p.first << "=" << boost::any_cast<std::string>(p.second);
+                    }
+                    else
+                    {
+                        assert(false); // for now should not happen, add special case above to print correct logs
+                        LOG_INFO () << prefix << p.first << "=" << "unexpected no-str convertible";
+                    }
+                }
+            }
 
-        //namespace
-        //{
-        //    typedef QList<QMap<QString, QVariant>> ApproveAmounts;
-        //    typedef QMap<QString, QVariant> ApproveMap;
+            void printApproveLog(const std::string& preamble, const std::string& appid, const std::string& appname, const ApproveMap& info, const ApproveAmounts& amounts)
+            {
+                LOG_INFO() << preamble << " (" << appname << ", " << appid << "):";
+                printMap("\t", info);
 
-        //    void printMap(const std::string& prefix, const ApproveMap& info)
-        //    {
-        //        QMapIterator<QString, QVariant> iter(info);
-
-        //        while (iter.hasNext())
-        //        {
-        //            iter.next();
-        //            if (iter.value().canConvert<QString>())
-        //            {
-        //                LOG_INFO () << prefix << iter.key().toStdString() << "=" << iter.value().toString().toStdString();
-        //            }
-        //            else
-        //            {
-        //                assert(false); // for now should not happen, add special case above to print correct logs
-        //                LOG_INFO () << prefix << iter.key().toStdString() << "=" << "unexpected no-str convertible";
-        //            }
-        //        }
-        //    }
-
-        //    void printApproveLog(const std::string& preamble, const std::string& appid, const std::string& appname, const ApproveMap& info, const ApproveAmounts& amounts)
-        //    {
-        //        LOG_INFO() << preamble << " (" << appname << ", " << appid << "):";
-        //        printMap("\t", info);
-
-        //        if (!amounts.isEmpty())
-        //        {
-        //            for (const auto &amountMap : amounts)
-        //            {
-        //                LOG_INFO() << "\tamount entry:";
-        //                printMap("\t\t", amountMap);
-        //            }
-        //        }
-        //    }
-        //}
+                if (!amounts.empty())
+                {
+                    for (const auto &amountMap : amounts)
+                    {
+                        LOG_INFO() << "\tamount entry:";
+                        printMap("\t\t", amountMap);
+                    }
+                }
+            }
+        }
     }
 
     WebAPI_Beam::WebAPI_Beam(WalletClientPtr wc, IWalletDB::Ptr db, const std::string& version, const std::string& appid, const std::string& appname)
@@ -274,7 +267,6 @@ namespace beam::applications {
                 // Should be safe to call from any thread
                 //
                 const auto &spend = pinfo.minfo.spend;
-                //const auto fee = pinfo.minfo.fee;
 
                 if (spend.size() != 1)
                 {
@@ -282,35 +274,37 @@ namespace beam::applications {
                     return AnyThread_sendError(request, ApiError::NotAllowedError, "tx_send must spend strictly 1 asset");
                 }
 
-               // const auto assetId = spend.begin()->first;
-                //const auto amount = spend.begin()->second;
-               // _mappedAssets.insert(assetId);
+                const auto assetId = spend.begin()->first;
+                const auto amount = spend.begin()->second;
+                const auto fee = pinfo.minfo.fee;
+                _mappedAssets.insert(assetId);
 
-                //ApproveMap info;
-                //info.insert("amount",     AmountBigToUIString(amount));
-                //info.insert("fee",        AmountToUIString(fee));
-                //info.insert("feeRate",    AmountToUIString(_amgr->getRate(beam::Asset::s_BeamID)));
-                //info.insert("assetID",    assetId);
+                ApproveMap info;
+                info.emplace("amount",     amount);
+                info.emplace("fee",        fee);
+                //info.insert("feeRate",    _amgr->getRate(beam::Asset::s_BeamID));
+                info.emplace("assetID",    assetId);
                 //info.insert("rateUnit",   _amgr->getRateUnit());
-                //info.insert("token",      QString::fromStdString(pinfo.minfo.token ? *pinfo.minfo.token : std::string()));
-                //info.insert("isOnline",   !pinfo.minfo.spendOffline);
+                info.emplace("token",      pinfo.minfo.token ? *pinfo.minfo.token : std::string());
+                info.emplace("isOnline",   !pinfo.minfo.spendOffline);
 
-                //std::string comment = pinfo.minfo.confirm_comment ? *pinfo.minfo.confirm_comment : (pinfo.minfo.comment ? *pinfo.minfo.comment : std::string());
-                //info.insert("comment", QString::fromStdString(comment));
+                std::string comment = pinfo.minfo.confirm_comment ? *pinfo.minfo.confirm_comment : (pinfo.minfo.comment ? *pinfo.minfo.comment : std::string());
+                info.emplace("comment", comment);
 
-                //std::weak_ptr<WebAPI_Beam> wpsel = shared_from_this();
-                //getAsyncWallet().selectCoins(beam::AmountBig::get_Lo(amount), fee, assetId, false, [this, wpsel, request, info](const CoinsSelectionInfo& csi) mutable {
-                //    auto locked = wpsel.lock();
-                //    if (!locked)
-                //    {
-                //        // Can happen if user leaves the application
-                //        LOG_WARNING() << "UIT send CSI arrived but creator is already destroyed";
-                //    }
+                std::weak_ptr<WebAPI_Beam> wpsel = shared_from_this();
+                getAsyncWallet().selectCoins(beam::AmountBig::get_Lo(amount), fee, assetId, false, [this, wpsel, request, info](const CoinsSelectionInfo& csi) mutable
+                {
+                    auto locked = wpsel.lock();
+                    if (!locked)
+                    {
+                        // Can happen if user leaves the application
+                        LOG_WARNING() << "UIT send CSI arrived but creator is already destroyed";
+                    }
 
-                //    info.insert("isEnough", csi.m_isEnought);
-                //    printApproveLog("Get user consent for send", getAppId(), getAppName(), info,ApproveAmounts());
-                //    emit approveSend(QString::fromStdString(request), info);
-                //});
+                    info.emplace("isEnough", csi.m_isEnought);
+                    printApproveLog("Get user consent for send", getAppId(), getAppName(), info, ApproveAmounts());
+                    onApproveSend(request, info);
+                });
             }
         );
     }
@@ -334,28 +328,28 @@ namespace beam::applications {
                 decltype(_mappedAssets)().swap(_mappedAssets);
                 _mappedAssets.insert(beam::Asset::s_BeamID);
 
-                /*ApproveMap info;
-                info.insert("comment",   QString::fromStdString(pinfo.minfo.comment ? *pinfo.minfo.comment : std::string()));
-                info.insert("fee",       AmountToUIString(pinfo.minfo.fee));
-                info.insert("feeRate",         AmountToUIString(_amgr->getRate(beam::Asset::s_BeamID)));
-                info.insert("rateUnit",        _amgr->getRateUnit());
-                info.insert("isSpend",   !pinfo.minfo.spend.empty());
+                ApproveMap info;
+                info.emplace("comment",   pinfo.minfo.comment ? *pinfo.minfo.comment : std::string());
+                info.emplace("fee",       pinfo.minfo.fee);
+                //info.emplace("feeRate",         AmountToUIString(_amgr->getRate(beam::Asset::s_BeamID)));
+                //info.emplace("rateUnit",        _amgr->getRateUnit());
+                info.emplace("isSpend",   !pinfo.minfo.spend.empty());
 
                 std::string comment = pinfo.minfo.confirm_comment ? *pinfo.minfo.confirm_comment : (pinfo.minfo.comment ? *pinfo.minfo.comment : std::string());
-                info.insert("comment", QString::fromStdString(comment));
+                info.emplace("comment", comment);
 
                 bool isEnough = true;
                 ApproveAmounts amounts;
                 for(const auto& sinfo: pinfo.minfo.spend)
                 {
-                    QMap<QString, QVariant> entry;
+                    ApproveAmounts::value_type entry;
                     const auto assetId = sinfo.first;
                     const auto amount  = sinfo.second;
 
                     _mappedAssets.insert(assetId);
-                    entry.insert("amount",   AmountBigToUIString(amount));
-                    entry.insert("assetID",  assetId);
-                    entry.insert("spend",    true);
+                    entry.emplace("amount",   amount);
+                    entry.emplace("assetID",  assetId);
+                    entry.emplace("spend",    true);
                     amounts.push_back(entry);
 
                     auto totalAmount = amount;
@@ -364,26 +358,26 @@ namespace beam::applications {
                         totalAmount += beam::AmountBig::Type(pinfo.minfo.fee);
                     }
 
-                    isEnough = isEnough && (totalAmount <= getWallet().getAvailable(assetId));
+                    //isEnough = isEnough;// && (totalAmount <= clientgetWallet().getAvailable(assetId));
                 }
 
                 for(const auto& sinfo: pinfo.minfo.receive)
                 {
-                    QMap<QString, QVariant> entry;
+                    ApproveAmounts::value_type entry;
                     const auto assetId = sinfo.first;
                     const auto amount  = sinfo.second;
 
                     _mappedAssets.insert(assetId);
-                    entry.insert("amount",   AmountBigToUIString(amount));
-                    entry.insert("assetID",  assetId);
-                    entry.insert("spend",    false);
+                    entry.emplace("amount",   amount);
+                    entry.emplace("assetID",  assetId);
+                    entry.emplace("spend",    false);
 
                     amounts.push_back(entry);
                 }
 
-                info.insert("isEnough", isEnough);
+                info.emplace("isEnough", isEnough);
                 printApproveLog("Get user consent for contract tx", getAppId(), getAppName(), info, amounts);
-                emit approveContractInfo(QString::fromStdString(request), info, amounts);*/
+                onApproveContractInfo(request, info, amounts);
             }
         );
     }
