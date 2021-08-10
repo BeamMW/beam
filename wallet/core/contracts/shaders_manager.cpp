@@ -30,7 +30,7 @@ namespace beam::wallet {
         m_pHist = &_wdb->get_History();
     }
 
-    void ShadersManager::CompileAppShader(const std::vector<uint8_t> &shader)
+    void ShadersManager::compileAppShader(const std::vector<uint8_t> &shader)
     {
         if (!IsDone())
         {
@@ -51,11 +51,23 @@ namespace beam::wallet {
         beam::bvm2::Processor::Compile(resBuffer, shaderBlob, ManagerStd::Kind::Manager);
     }
 
-    void ShadersManager::CallShaderAndStartTx(const std::string &args, unsigned method, DoneAllHandler doneHandler)
+    void ShadersManager::CallShaderAndStartTx(const std::vector<uint8_t>& shader, const std::string &args, unsigned method, DoneAllHandler doneHandler)
     {
         if (!IsDone())
         {
             return doneHandler(boost::none, boost::none, std::string("still in shader call"));
+        }
+
+        if (!shader.empty())
+        {
+            try
+            {
+                compileAppShader(shader);
+            }
+            catch(std::exception& ex)
+            {
+                return doneHandler(boost::none, boost::none, std::string(ex.what()));
+            }
         }
 
         if (m_BodyManager.empty())
@@ -78,11 +90,23 @@ namespace beam::wallet {
         _async = !_done;
     }
 
-    void ShadersManager::CallShader(const std::string& args, unsigned method, DoneCallHandler doneHandler)
+    void ShadersManager::CallShader(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, DoneCallHandler doneHandler)
     {
         if (!IsDone())
         {
             return doneHandler(boost::none, boost::none, std::string("still in shader call"));
+        }
+
+        if (!shader.empty())
+        {
+            try
+            {
+                compileAppShader(shader);
+            }
+            catch(std::exception& ex)
+            {
+                return doneHandler(boost::none, boost::none, std::string(ex.what()));
+            }
         }
 
         if (m_BodyManager.empty())

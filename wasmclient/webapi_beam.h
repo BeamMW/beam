@@ -19,6 +19,8 @@
 #include "wallet/core/wallet_db.h"
 #include "wallet/client/wallet_model_async.h"
 
+#include <boost/any.hpp>
+
 namespace beam::wallet
 {
     class WalletClient;
@@ -29,6 +31,8 @@ namespace beam::applications
     using namespace beam::wallet;
     using WalletClientPtr = std::shared_ptr<beam::wallet::WalletClient>;
     using WalletClientWeakPtr = std::weak_ptr<beam::wallet::WalletClient>;
+    using ApproveMap = std::map<std::string, boost::any>;
+    using ApproveAmounts = std::vector<std::map<std::string, boost::any>>;
 
     class WebAPI_Beam
         : public beam::wallet::IWalletApiHandler
@@ -65,8 +69,8 @@ namespace beam::applications
     //signals:
        virtual void onCallWalletApiResult(const std::string& result) {}
     //   void assetsChanged();
-    //   void approveSend(const QString& request, const QMap<QString, QVariant>& info);
-    //   void approveContractInfo(const QString& request, const QMap<QString, QVariant>& info, QList<QMap<QString, QVariant>> amounts);
+       virtual void onApproveSend(const std::string& request, const ApproveMap& info) {}
+       virtual void onApproveContractInfo(const std::string& request, const ApproveMap& info, const ApproveAmounts& amounts) {}
 
     public:
         [[nodiscard]] std::string getAppId() const

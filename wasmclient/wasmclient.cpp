@@ -248,7 +248,7 @@ public:
         m_Handler = std::make_unique<val>(std::move(handler));
     }
 private:
-    void onCallWalletApiResult(const std::string& result)
+    void onCallWalletApiResult(const std::string& result) override
     {
         m_Client2->postFunctionToClientContext([this, sp = shared_from_this(), result]()
         {
@@ -257,6 +257,16 @@ private:
                 (*m_Handler)(result);
             }
         });
+    }
+
+    void onApproveSend(const std::string& request, const ApproveMap& info) override
+    {
+        sendApproved(request);
+    }
+    
+    void onApproveContractInfo(const std::string& request, const ApproveMap& info, const ApproveAmounts& amounts) override
+    {
+        contractInfoApproved(request);
     }
 
 private:
