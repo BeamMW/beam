@@ -834,18 +834,6 @@ namespace beam::wallet
             throw jsonrpc_exception(ApiError::UnexpectedError, "Previous shader call is still in progress");
         }
 
-        try
-        {
-            if (!data.contract.empty())
-            {
-                contracts->CompileAppShader(data.contract);
-            }
-        }
-        catch(std::runtime_error& err)
-        {
-            throw jsonrpc_exception(ApiError::ContractCompileError, err.what());
-        }
-
         if (data.createTx)
         {
             onHandleInvokeContractWithTX(id, data);
@@ -861,7 +849,7 @@ namespace beam::wallet
         std::weak_ptr<bool> wguard = _contractsGuard;
         auto contracts = getContracts();
 
-        contracts->CallShaderAndStartTx(data.args, data.args.empty() ? 0 : 1, [this, id, wguard](boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
+        contracts->CallShaderAndStartTx(data.contract, data.args, data.args.empty() ? 0 : 1, [this, id, wguard](boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
             auto guard = wguard.lock();
             if (!guard)
             {
@@ -893,7 +881,7 @@ namespace beam::wallet
         std::weak_ptr<bool> wguard = _contractsGuard;
         auto contracts = getContracts();
 
-        contracts->CallShader(data.args, data.args.empty() ? 0 : 1, [this, id, wguard](boost::optional<ByteBuffer> data, boost::optional<std::string> output, boost::optional<std::string> error) {
+        contracts->CallShader(data.contract, data.args, data.args.empty() ? 0 : 1, [this, id, wguard](boost::optional<ByteBuffer> data, boost::optional<std::string> output, boost::optional<std::string> error) {
             auto guard = wguard.lock();
             if (!guard)
             {

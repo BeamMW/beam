@@ -36,15 +36,12 @@ namespace beam::wallet
 
         virtual ~IShadersManager() = default;
 
-        // Compile throws on error!
-        virtual void CompileAppShader(const std::vector<uint8_t>& shader) = 0;
-
         // One active call only. You cannot start another function call while previous one is not done (while !IsDone())
         // CallShaderAndStartTx - call shader & automatically create transaction if necessary
         // CallShader - only make call and return tx data, doesn't create any transactions
         // ProcessTxData - process data returned by CallShader
-        virtual void CallShaderAndStartTx(const std::string& args, unsigned method, DoneAllHandler doneHandler) = 0;
-        virtual void CallShader(const std::string& args, unsigned method, DoneCallHandler) = 0;
+        virtual void CallShaderAndStartTx(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, DoneAllHandler doneHandler) = 0;
+        virtual void CallShader(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, DoneCallHandler) = 0;
         virtual void ProcessTxData(const ByteBuffer& data, DoneTxHandler doneHandler) = 0;
         [[nodiscard]] virtual  bool IsDone() const = 0;
 

@@ -2075,24 +2075,8 @@ namespace beam::wallet
             return;
         }
 
-        try
-        {
-            if (!shader.empty())
-            {
-                smgr->CompileAppShader(shader);
-            }
-        }
-        catch(std::runtime_error& err)
-        {
-            postFunctionToClientContext([cb = std::move(cback), msg = err.what()]() {
-                cb(msg, "", TxID());
-            });
-            return;
-        }
-
         _clientShadersCback = std::move(cback);
-
-        smgr->CallShaderAndStartTx(args, args.empty() ? 0 : 1, [this, shaders = _clientShaders] (boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
+        smgr->CallShaderAndStartTx(shader, args, args.empty() ? 0 : 1, [this, shaders = _clientShaders] (boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
             auto smgr = _clientShaders.lock();
             if (!smgr)
             {
