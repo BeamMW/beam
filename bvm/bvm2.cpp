@@ -2493,8 +2493,17 @@ namespace bvm2 {
 		}
 
 		uint32_t nSrcLen = static_cast<uint32_t>(pVal->size());
+		const char* str = pVal->c_str();
+		// ignore hex prefix "0x"
+		if (nSrcLen > 2 && str[0] == '0' && tolower(str[1]) == 'x')
+		{
+			const uint32_t nPrefixLen = 2;
+			nSrcLen -= nPrefixLen;
+			str += nPrefixLen;
+		}
+		
 		uint32_t nMax = nLen * 2;
-		uint32_t nRes = uintBigImpl::_Scan(reinterpret_cast<uint8_t*>(pOut), pVal->c_str(), std::min(nSrcLen, nMax));
+		uint32_t nRes = uintBigImpl::_Scan(reinterpret_cast<uint8_t*>(pOut), str, std::min(nSrcLen, nMax));
 
 		// if src len is bigger than the requested size - return the src size
 		// if parsed less than requested - return size parsed.
