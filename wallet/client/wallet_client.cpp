@@ -616,9 +616,7 @@ namespace beam::wallet
                 //
                 // Shaders
                 //
-                auto appsShaders = IShadersManager::CreateInstance(wallet, m_walletDB, nodeNetwork);
-                auto clientShaders = IShadersManager::CreateInstance(wallet, m_walletDB, nodeNetwork);
-                _appsShaders = appsShaders;
+                auto clientShaders = IShadersManager::CreateInstance(wallet, m_walletDB, nodeNetwork, "", "");
                 _clientShaders = clientShaders;
 
                 nodeNetwork->tryToConnect();
@@ -626,9 +624,6 @@ namespace beam::wallet
                     wallet->CleanupNetwork();
                     nodeNetwork->Disconnect();
                 });
-
-                assert(appsShaders.use_count() == 1);
-                appsShaders.reset();
 
                 assert(clientShaders.use_count() == 1);
                 clientShaders.reset();
@@ -671,36 +666,12 @@ namespace beam::wallet
         return sp;
     }
 
-    IShadersManager::Ptr WalletClient::getAppsShaders(const std::string& appid, const std::string& appname)
+    IShadersManager::Ptr WalletClient::IWThread_createAppShaders(const std::string& appid, const std::string& appname)
     {
-        auto sp = _appsShaders.lock();
-        assert(sp != nullptr);
-
-        // strictly speaking it is not necessary to proxy to reactor thread
-        // in current implementation and calls sequence, but it is safer and
-        // can help to avoid bugs in the future if calls sequence changes
-        makeIWTCall([appid, appname, sp] ()-> boost::any {
-            sp->SetCurrentApp(appid, appname);
-            return boost::none;
-        }, [](const boost::any&){
-        });
-
-        return sp;
-    }
-
-    void WalletClient::releaseAppsShaders(const std::string& appid)
-    {
-        auto sp = _appsShaders.lock();
-        assert(sp != nullptr);
-
-        // strictly speaking it is not necessary to proxy to reactor thread
-        // in current implementation and calls sequence, but it is safer and
-        // can help to avoid bugs in the future if calls sequence changes
-        makeIWTCall([appid, sp] ()-> boost::any {
-            sp->ReleaseCurrentApp(appid);
-            return boost::none;
-        }, [](const boost::any&){
-        });
+        auto wallet = m_wallet.lock();
+        auto network = m_nodeNetwork.lock();
+        assert(wallet && network);
+        return IShadersManager::CreateInstance(wallet, m_walletDB, network, appid, appname);
     }
 
     std::string WalletClient::getNodeAddress() const

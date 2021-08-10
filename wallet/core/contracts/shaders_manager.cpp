@@ -18,12 +18,17 @@
 namespace beam::wallet {
     ShadersManager::ShadersManager(beam::wallet::Wallet::Ptr wallet,
                                    beam::wallet::IWalletDB::Ptr walletDB,
-                                   beam::proto::FlyClient::INetwork::Ptr nodeNetwork)
-            : _wdb(walletDB)
-            , _wallet(wallet)
+                                   beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
+                                   std::string appid,
+                                   std::string appname)
+        : _currentAppId(std::move(appid))
+        , _currentAppName(std::move(appname))
+        , _wdb(std::move(walletDB))
+        , _wallet(std::move(wallet))
     {
-        assert(walletDB);
-        assert(wallet);
+        assert(_wdb);
+        assert(_wallet);
+        assert(nodeNetwork);
 
         m_pPKdf = _wdb->get_OwnerKdf();
         m_pNetwork = std::move(nodeNetwork);
@@ -250,33 +255,19 @@ namespace beam::wallet {
         }
     }
 
-    void ShadersManager::SetCurrentApp(const std::string& appid, const std::string& appname)
-    {
-        if (!_currentAppId.empty())
-        {
-            throw std::runtime_error("SetCurrentApp while another app is active");
-        }
-
-        _currentAppId = appid;
-        _currentAppName = appname;
-    }
-
-    void ShadersManager::ReleaseCurrentApp(const std::string& appid)
-    {
-        if (_currentAppId != appid)
-        {
-            throw std::runtime_error("Unexpected AppID in releaseAPP");
-        }
-
-        _currentAppId.clear();
-        _currentAppName.clear();
-    }
-
     IShadersManager::Ptr IShadersManager::CreateInstance(
                 beam::wallet::Wallet::Ptr wallet,
                 beam::wallet::IWalletDB::Ptr wdb,
-                beam::proto::FlyClient::INetwork::Ptr nodeNetwork)
+                beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
+                std::string appid,
+                std::string appname)
     {
-        return std::make_shared<ShadersManager>(std::move(wallet), std::move(wdb), std::move(nodeNetwork));
+        return std::make_shared<ShadersManager>(
+                std::move(wallet),
+                std::move(wdb),
+                std::move(nodeNetwork),
+                std::move(appid),
+                std::move(appname)
+                );
     }
 }

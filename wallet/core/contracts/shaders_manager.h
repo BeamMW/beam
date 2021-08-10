@@ -25,15 +25,14 @@ namespace beam::wallet {
     public:
         ShadersManager(beam::wallet::Wallet::Ptr wallet,
                        beam::wallet::IWalletDB::Ptr walletDB,
-                       beam::proto::FlyClient::INetwork::Ptr nodeNetwork);
+                       beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
+                       std::string appid,
+                       std::string appname);
 
         bool IsDone() const override
         {
             return _done;
         }
-
-        void SetCurrentApp(const std::string& appid, const std::string& appname) override; // throws
-        void ReleaseCurrentApp(const std::string& appid) override; // throws
 
         void CallShaderAndStartTx(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, DoneAllHandler doneHandler) override;
         void CallShader(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, DoneCallHandler) override;
