@@ -58,11 +58,14 @@ namespace beam::wallet {
 
     void ShadersManager::pushRequest(Request newReq)
     {
-        for(const auto& req: _queue)
+        if (newReq.unique)
         {
-            if (req.unique == newReq.unique)
+            for (const auto &req: _queue)
             {
-                return;
+                if (req.unique == newReq.unique)
+                {
+                    return;
+                }
             }
         }
         _queue.push(std::move(newReq));
