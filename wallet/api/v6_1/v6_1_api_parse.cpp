@@ -125,14 +125,21 @@ namespace beam::wallet
                     {"current_state_timestamp", res.currentStateTimestamp},
                     {"prev_state_hash", to_hex(res.prevStateHash.m_pData, res.prevStateHash.nBytes)},
                     {"is_in_sync", res.isInSync},
-                    {"available",  res.available},
-                    {"receiving",  res.receiving},
-                    {"sending",    res.sending},
-                    {"maturing",   res.maturing},
-                    {"difficulty", res.difficulty}
                 }
             }
         };
+
+        if (!getAppId().empty())
+        {
+            return;
+        }
+
+        auto& result = msg["result"];
+        result["available"]  = res.available;
+        result["receiving"]  = res.receiving;
+        result["sending"]    =  res.sending;
+        result["maturing"]   =  res.maturing;
+        result["difficulty"] =  res.difficulty;
 
         if (res.totals)
         {
@@ -175,7 +182,7 @@ namespace beam::wallet
                     jtotals["maturing"] = AmountBig::get_Lo(maturing);
                 }
 
-                msg["result"]["totals"].push_back(jtotals);
+                result["totals"].push_back(jtotals);
             }
         }
     }
