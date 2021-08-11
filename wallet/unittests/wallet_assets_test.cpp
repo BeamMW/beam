@@ -157,8 +157,8 @@ void TestAssets() {
     };
 
     checkOwnerTotals(0, 0, 0);
-    beam::wallet::RegisterAssetCreators(*receiver.m_Wallet);
-    beam::wallet::RegisterAssetCreators(*owner.m_Wallet);
+    beam::wallet::RegisterAllAssetCreators(*receiver.m_Wallet);
+    beam::wallet::RegisterAllAssetCreators(*owner.m_Wallet);
 
     const auto getTx = [&](const IWalletDB::Ptr& db, TxID txid) -> auto {
       const auto otx = db->getTx(txid);

@@ -16,9 +16,9 @@
 namespace beam::wallet
 {
     #define V6_1_API_METHODS(macro) \
-        macro(EvSubUnsub,        "ev_subunsub",     API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) \
+        macro(EvSubUnsub,        "ev_subunsub",     API_READ_ACCESS,  API_SYNC,  APPS_BLOCKED) \
         macro(GetVersion,        "get_version",     API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) \
-        macro(WalletStatusV61,   "wallet_status",   API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) \
+        macro(WalletStatusV61,   "wallet_status",   API_READ_ACCESS,  API_SYNC,  APPS_BLOCKED) \
         macro(InvokeContractV61, "invoke_contract", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)
 
     struct EvSubUnsub
@@ -79,6 +79,7 @@ namespace beam::wallet
         std::string args;
         bool createTx = true;
         uint32_t priority = 0;
+        uint32_t unique = 0;
 
         struct Response
         {

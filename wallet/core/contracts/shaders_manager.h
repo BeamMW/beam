@@ -34,27 +34,47 @@ namespace beam::wallet {
             return _done;
         }
 
-        void CallShaderAndStartTx(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, uint32_t priority, DoneAllHandler doneHandler) override;
-        void CallShader(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, uint32_t priority, DoneCallHandler) override;
+        void CallShaderAndStartTx(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, uint32_t priority, uint32_t unique, DoneAllHandler doneHandler) override;
+        void CallShader(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, uint32_t priority, uint32_t unique, DoneCallHandler) override;
         void ProcessTxData(const ByteBuffer& data, DoneTxHandler doneHandler) override;
 
     protected:
         void OnDone(const std::exception *pExc) override;
 
     private:
+        void nextRequest();
+
         // this one throws
         void compileAppShader(const std::vector<uint8_t> &shader);
 
         bool _done = true;
-        bool _async = false;
-
         std::string _currentAppId;
         std::string _currentAppName;
 
         beam::wallet::IWalletDB::Ptr _wdb;
         beam::wallet::Wallet::Ptr _wallet;
 
-        DoneAllHandler  _doneAll;
-        DoneCallHandler _doneCall;
+        struct Request {
+            uint32_t unique = 0;
+            uint32_t priority = 0;
+            uint32_t method = 0;
+            std::vector<uint8_t> shader;
+            std::string args;
+
+            DoneAllHandler doneAll;
+            DoneCallHandler doneCall;
+
+            bool operator< (const Request& rhs) const
+            {
+                return priority < rhs.priority;
+            }
+        };
+
+        void pushRequest(Request req);
+
+        struct RequestsQueue: std::priority_queue<Request> {
+            [[nodiscard]] auto begin() const { return c.begin(); }
+            [[nodiscard]] auto end() const { return c.end(); }
+        } _queue;
     };
 }

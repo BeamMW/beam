@@ -209,9 +209,14 @@ namespace beam::wallet
             throw jsonrpc_exception(ApiError::NotAllowedError, "Applications must set create_tx to false and use process_contract_data");
         }
 
-        if (const auto priority = getOptionalParam<PositiveUint32>(params, "priority"))
+        if (const auto priority = getOptionalParam<uint32_t>(params, "priority"))
         {
             message.priority = *priority;
+        }
+
+        if (const auto unique = getOptionalParam<uint32_t>(params, "unique"))
+        {
+            message.unique = *unique;
         }
 
         return std::make_pair(message, MethodInfo());

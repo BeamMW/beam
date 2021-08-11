@@ -2188,7 +2188,7 @@ namespace
 #ifdef BEAM_CONFIDENTIAL_ASSETS_SUPPORT
            if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
             {
-                RegisterAssetCreators(*wallet);
+                RegisterAllAssetCreators(*wallet);
             }
 #endif  // BEAM_CONFIDENTIAL_ASSETS_SUPPORT
             wallet->ResumeAllTransactions();

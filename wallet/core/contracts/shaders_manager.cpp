@@ -37,7 +37,7 @@ namespace beam::wallet {
 
     void ShadersManager::compileAppShader(const std::vector<uint8_t> &shader)
     {
-        if (!IsDone())
+        if (!_done)
         {
             assert(false);
             throw std::runtime_error("still in shader call");
@@ -56,82 +56,90 @@ namespace beam::wallet {
         beam::bvm2::Processor::Compile(resBuffer, shaderBlob, ManagerStd::Kind::Manager);
     }
 
-    void ShadersManager::CallShaderAndStartTx(const std::vector<uint8_t>& shader, const std::string &args, unsigned method, uint32_t priority, DoneAllHandler doneHandler)
+    void ShadersManager::pushRequest(Request newReq)
     {
-        if (!IsDone())
+        for(const auto& req: _queue)
         {
-            return doneHandler(boost::none, boost::none, std::string("still in shader call"));
-        }
-
-        if (!shader.empty())
-        {
-            try
+            if (req.unique == newReq.unique)
             {
-                compileAppShader(shader);
-            }
-            catch(std::exception& ex)
-            {
-                return doneHandler(boost::none, boost::none, std::string(ex.what()));
+                return;
             }
         }
-
-        if (m_BodyManager.empty())
-        {
-            return doneHandler(boost::none, boost::none, std::string("missing shader code"));
-        }
-
-        m_Args.clear();
-        if (!args.empty())
-        {
-            std::string temp = args;
-            AddArgs(&temp.front());
-        }
-
-        _done = false;
-        _async = false;
-        _doneAll = std::move(doneHandler);
-
-        StartRun(method);
-        _async = !_done;
+        _queue.push(std::move(newReq));
     }
 
-    void ShadersManager::CallShader(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, uint32_t priority, DoneCallHandler doneHandler)
+    void ShadersManager::CallShaderAndStartTx(const std::vector<uint8_t>& shader, const std::string &args, unsigned method, uint32_t priority, uint32_t unique, DoneAllHandler doneHandler)
     {
-        if (!IsDone())
+        Request req;
+        req.shader   = shader;
+        req.args     = args;
+        req.method   = method;
+        req.doneAll  = doneHandler;
+        req.priority = priority;
+        req.unique   = unique;
+        pushRequest(std::move(req));
+
+        if (_done)
         {
-            return doneHandler(boost::none, boost::none, std::string("still in shader call"));
+            return nextRequest();
         }
 
-        if (!shader.empty())
+        LOG_INFO () << "shader call is still in progress, request " << args << " queued";
+    }
+
+    void ShadersManager::CallShader(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, uint32_t priority, uint32_t unique, DoneCallHandler doneHandler)
+    {
+        Request req;
+        req.shader   = shader;
+        req.args     = args;
+        req.method   = method;
+        req.doneCall = doneHandler;
+        req.priority = priority;
+        req.unique   = unique;
+        pushRequest(std::move(req));
+
+        if (_done)
+        {
+            return nextRequest();
+        }
+
+        LOG_INFO () << "shader call is still in progress, request " << args << " queued";
+    }
+
+    void ShadersManager::nextRequest()
+    {
+        if (_queue.empty())
+        {
+            return;
+        }
+
+        const auto& req = _queue.top();
+        if (!req.shader.empty())
         {
             try
             {
-                compileAppShader(shader);
+                compileAppShader(req.shader);
             }
             catch(std::exception& ex)
             {
-                return doneHandler(boost::none, boost::none, std::string(ex.what()));
+                return req.doneCall(boost::none, boost::none, std::string(ex.what()));
             }
         }
 
         if (m_BodyManager.empty())
         {
-            return doneHandler(boost::none, boost::none, std::string("missing shader code"));
+            return req.doneCall(boost::none, boost::none, std::string("missing shader code"));
         }
 
         m_Args.clear();
-        if (!args.empty())
+        if (!req.args.empty())
         {
-            std::string temp = args;
+            std::string temp = req.args;
             AddArgs(&temp.front());
         }
 
         _done = false;
-        _async = false;
-        _doneCall = std::move(doneHandler);
-
-        StartRun(method);
-        _async = !_done;
+        StartRun(req.method);
     }
 
     void ShadersManager::ProcessTxData(const ByteBuffer& buffer, DoneTxHandler doneHandler)
@@ -182,12 +190,19 @@ namespace beam::wallet {
 
     void ShadersManager::OnDone(const std::exception *pExc)
     {
-        auto allHandler = _doneAll;
-        auto callHandler = _doneCall;
+        if (_queue.empty())
+        {
+            LOG_WARNING() << "Queue has been cleared before request completed";
+            return;
+        }
+
+        BOOST_SCOPE_EXIT_ALL(&, this) {
+            this->nextRequest();
+        };
 
         _done = true;
-        decltype(_doneAll)().swap(_doneAll);
-        decltype(_doneCall)().swap(_doneCall);
+        const auto req = _queue.top();
+        _queue.pop();
 
         if (pExc != nullptr)
         {
@@ -202,13 +217,13 @@ namespace beam::wallet {
             }
 
             LOG_INFO() << "Shader Error: " << *error;
-            if (allHandler)
+            if (req.doneAll)
             {
-                return allHandler(boost::none, boost::none, error);
+                return req.doneAll(boost::none, boost::none, error);
             }
             else
             {
-                return callHandler(boost::none, boost::none, error);
+                return req.doneCall(boost::none, boost::none, error);
             }
         }
 
@@ -217,13 +232,13 @@ namespace beam::wallet {
 
         if (m_vInvokeData.empty())
         {
-            if (allHandler)
+            if (req.doneAll)
             {
-                return allHandler(boost::none, result, boost::none);
+                return req.doneAll(boost::none, result, boost::none);
             }
             else
             {
-                return callHandler(boost::none, result, boost::none);
+                return req.doneCall(boost::none, result, boost::none);
             }
         }
 
@@ -231,12 +246,12 @@ namespace beam::wallet {
         {
             auto buffer = toByteBuffer(m_vInvokeData);
 
-            if (callHandler)
+            if (req.doneCall)
             {
-                return callHandler(buffer, result, boost::none);
+                return req.doneCall(buffer, result, boost::none);
             }
 
-            return ProcessTxData(buffer, [result, allHandler] (boost::optional<TxID> txid, boost::optional<std::string> error)
+            return ProcessTxData(buffer, [result, allHandler = req.doneAll] (boost::optional<TxID> txid, boost::optional<std::string> error)
             {
                 return allHandler(std::move(txid), result, std::move(error));
             });
@@ -244,13 +259,13 @@ namespace beam::wallet {
         catch (std::runtime_error &err)
         {
             std::string error = err.what();
-            if (allHandler)
+            if (req.doneAll)
             {
-                return allHandler(boost::none, result, error);
+                return req.doneAll(boost::none, result, error);
             }
             else
             {
-                return callHandler(boost::none, result, error);
+                return req.doneCall(boost::none, result, error);
             }
         }
     }
