@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "v6_1_api.h"
+#include "utility/fsutils.h"
 
 namespace beam::wallet
 {
@@ -176,6 +177,67 @@ namespace beam::wallet
 
                 msg["result"]["totals"].push_back(jtotals);
             }
+        }
+    }
+
+    std::pair<InvokeContractV61, IWalletApi::MethodInfo> V61Api::onParseInvokeContractV61(const JsonRpcId &id, const json &params)
+    {
+        InvokeContractV61 message;
+
+        if(const auto contract = getOptionalParam<NonEmptyJsonArray>(params, "contract"))
+        {
+            const json& bytes = *contract;
+            message.contract = bytes.get<std::vector<uint8_t>>();
+        }
+        else if(const auto fname = getOptionalParam<NonEmptyString>(params, "contract_file"))
+        {
+            fsutils::fread(*fname).swap(message.contract);
+        }
+
+        if (const auto args = getOptionalParam<NonEmptyString>(params, "args"))
+        {
+            message.args = *args;
+        }
+
+        if (const auto createTx = getOptionalParam<bool>(params, "create_tx"))
+        {
+            message.createTx = *createTx;
+        }
+
+        if (isApp() && message.createTx)
+        {
+            throw jsonrpc_exception(ApiError::NotAllowedError, "Applications must set create_tx to false and use process_contract_data");
+        }
+
+        if (const auto priority = getOptionalParam<PositiveUint32>(params, "priority"))
+        {
+            message.priority = *priority;
+        }
+
+        return std::make_pair(message, MethodInfo());
+    }
+
+    void V61Api::getResponse(const JsonRpcId& id, const InvokeContractV61::Response& res, json& msg)
+    {
+        msg = nlohmann::json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result",
+                {
+                    {"output", res.output ? *res.output : std::string("")}
+                }
+            }
+        };
+
+        if (res.txid)
+        {
+            msg["result"]["txid"] = std::to_string(*res.txid);
+        }
+
+        if (res.invokeData)
+        {
+            msg["result"]["raw_data"] = *res.invokeData;
         }
     }
 }

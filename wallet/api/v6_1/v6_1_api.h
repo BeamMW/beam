@@ -53,6 +53,9 @@ namespace beam::wallet
         void fillAssetInfo(json& parent, const WalletAsset& info) override;
 
     private:
+        void onHandleInvokeContractWithTX(const JsonRpcId &id, const InvokeContractV61& data);
+        void onHandleInvokeContractNoTX(const JsonRpcId &id, const InvokeContractV61& data);
+
         struct SubFlags {
             typedef uint32_t Type;
             static const uint32_t SyncProgress = 1 << 0;

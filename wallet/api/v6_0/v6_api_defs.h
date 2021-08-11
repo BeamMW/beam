@@ -404,6 +404,7 @@ namespace beam::wallet
         std::vector<uint8_t> contract;
         std::string args;
         bool createTx = true;
+        bool checkDone = true;
 
         struct Response
         {

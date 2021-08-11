@@ -179,4 +179,79 @@ namespace beam::wallet
 
         doResponse(id, response);
     }
+
+    void V61Api::onHandleInvokeContractV61(const JsonRpcId &id, const InvokeContractV61 &data)
+    {
+        LOG_DEBUG() << "InvokeContract(id = " << id << ")";
+        auto contracts = getContracts();
+
+        if (data.createTx)
+        {
+            onHandleInvokeContractWithTX(id, data);
+        }
+        else
+        {
+            onHandleInvokeContractNoTX(id, data);
+        }
+    }
+
+    void V61Api::onHandleInvokeContractWithTX(const JsonRpcId &id, const InvokeContractV61& data)
+    {
+        getContracts()->CallShaderAndStartTx(data.contract, data.args, data.args.empty() ? 0 : 1,
+        [this, id, wguard = _weakSelf](boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
+            auto guard = wguard.lock();
+            if (!guard)
+            {
+                LOG_WARNING() << "API destroyed before shader response received.";
+                return;
+            }
+
+            //
+            // N.B
+            //  - you cannot freely throw here, this function is not guarded by the parseJSON checks,
+            //    exceptions are not automatically processed and errors are not automatically pushed to the invoker
+            //  - this function is called in the reactor context
+            //
+            if (error)
+            {
+                return sendError(id, ApiError::ContractError, *error);
+            }
+
+            InvokeContractV61::Response response;
+            response.output = result ? *result : "";
+            response.txid   = txid ? *txid : TxID();
+
+            doResponse(id, response);
+        });
+    }
+
+    void V61Api::onHandleInvokeContractNoTX(const JsonRpcId &id, const InvokeContractV61& data)
+    {
+        getContracts()->CallShader(data.contract, data.args, data.args.empty() ? 0 : 1,
+        [this, id, wguard = _weakSelf](boost::optional<ByteBuffer> data, boost::optional<std::string> output, boost::optional<std::string> error) {
+            auto guard = wguard.lock();
+            if (!guard)
+            {
+                LOG_WARNING() << "API destroyed before shader response received.";
+                return;
+            }
+
+            //
+            // N.B
+            //  - you cannot freely throw here, this function is not guarded by the parseJSON checks,
+            //    exceptions are not automatically processed and errors are not automatically pushed to the invoker
+            //  - this function is called in the reactor context
+            //
+            if (error)
+            {
+                return sendError(id, ApiError::ContractError, *error);
+            }
+
+            InvokeContractV61::Response response;
+            response.output = std::move(output);
+            response.invokeData = std::move(data);
+
+            doResponse(id, response);
+        });
+    }
 }

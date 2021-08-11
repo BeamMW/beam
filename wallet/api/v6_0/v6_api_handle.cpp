@@ -846,10 +846,8 @@ namespace beam::wallet
 
     void V6Api::onHandleInvokeContractWithTX(const JsonRpcId &id, const InvokeContract& data)
     {
-        std::weak_ptr<bool> wguard = _contractsGuard;
-        auto contracts = getContracts();
-
-        contracts->CallShaderAndStartTx(data.contract, data.args, data.args.empty() ? 0 : 1, [this, id, wguard](boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
+        getContracts()->CallShaderAndStartTx(data.contract, data.args, data.args.empty() ? 0 : 1,
+        [this, id, wguard = _weakSelf](boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
             auto guard = wguard.lock();
             if (!guard)
             {
@@ -878,10 +876,8 @@ namespace beam::wallet
 
     void V6Api::onHandleInvokeContractNoTX(const JsonRpcId &id, const InvokeContract& data)
     {
-        std::weak_ptr<bool> wguard = _contractsGuard;
-        auto contracts = getContracts();
-
-        contracts->CallShader(data.contract, data.args, data.args.empty() ? 0 : 1, [this, id, wguard](boost::optional<ByteBuffer> data, boost::optional<std::string> output, boost::optional<std::string> error) {
+        getContracts()->CallShader(data.contract, data.args, data.args.empty() ? 0 : 1,
+        [this, id, wguard = _weakSelf](boost::optional<ByteBuffer> data, boost::optional<std::string> output, boost::optional<std::string> error) {
             auto guard = wguard.lock();
             if (!guard)
             {
@@ -911,11 +907,8 @@ namespace beam::wallet
     void V6Api::onHandleProcessInvokeData(const JsonRpcId &id, const ProcessInvokeData &data)
     {
         LOG_DEBUG() << "ProcessInvokeData(id = " << id << ")";
-
-        auto contracts = getContracts();
-        std::weak_ptr<bool> wguard = _contractsGuard;
-
-        contracts->ProcessTxData(data.invokeData, [this, id, wguard](boost::optional<TxID> txid, boost::optional<std::string> error) {
+        getContracts()->ProcessTxData(data.invokeData,
+        [this, id, wguard = _weakSelf](boost::optional<TxID> txid, boost::optional<std::string> error) {
             auto guard = wguard.lock();
             if (!guard)
             {
@@ -944,7 +937,7 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "BlockDetails(id = " << id << ")";
 
-        RequestHeaderMsg::Ptr request(new RequestHeaderMsg(id, _contractsGuard, *this));
+        RequestHeaderMsg::Ptr request(new RequestHeaderMsg(id, _weakSelf, *this));
         request->m_Msg.m_Height = data.blockHeight;
 
         getWallet()->GetNodeEndpoint()->PostRequest(*request, *request);

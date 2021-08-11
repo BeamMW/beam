@@ -59,6 +59,7 @@ namespace beam::wallet
 
         void onHandleInvokeContractWithTX(const JsonRpcId &id, const InvokeContract& data);
         void onHandleInvokeContractNoTX(const JsonRpcId &id, const InvokeContract& data);
+
         bool checkTxAccessRights(const TxParameters&);
         void checkTxAccessRights(const TxParameters&, ApiError code, const std::string& errmsg);
 
@@ -76,9 +77,7 @@ namespace beam::wallet
         IWalletDB::Ptr       _wdb;
         Wallet::Ptr          _wallet;
         ISwapsProvider::Ptr  _swaps;
-
-        std::shared_ptr<bool> _contractsGuard = std::make_shared<bool>(true);
-        IShadersManager::Ptr  _contracts;
+        IShadersManager::Ptr _contracts;
 
         struct RequestHeaderMsg
             : public proto::FlyClient::RequestEnumHdrs
@@ -87,7 +86,7 @@ namespace beam::wallet
             typedef boost::intrusive_ptr<RequestHeaderMsg> Ptr;
             ~RequestHeaderMsg() override = default;
 
-            RequestHeaderMsg(JsonRpcId id, std::weak_ptr<bool> guard, V6Api& wapi)
+            RequestHeaderMsg(JsonRpcId id, IWalletApi::WeakPtr guard, V6Api& wapi)
                 : _id(std::move(id))
                 , _guard(std::move(guard))
                 , _wapi(wapi)
@@ -97,7 +96,7 @@ namespace beam::wallet
 
         private:
             JsonRpcId _id;
-            std::weak_ptr<bool> _guard;
+            IWalletApi::WeakPtr _guard;
             V6Api& _wapi;
         };
 

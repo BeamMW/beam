@@ -149,6 +149,11 @@ namespace beam::wallet
             return _appName;
         }
 
+        void takeGuardPtr(WeakPtr ptr)
+        {
+            _weakSelf = ptr;
+        }
+
     protected:
         struct Method
         {
@@ -165,6 +170,7 @@ namespace beam::wallet
             _methods[name] = std::move(method);
         }
 
+        IWalletApi::WeakPtr _weakSelf;
         IWalletApiHandler& _handler;
 
     private:

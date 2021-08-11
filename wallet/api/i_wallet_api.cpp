@@ -61,10 +61,20 @@ namespace beam::wallet
         switch (version)
         {
         case ApiVer6_1:
-            return IWalletApi::Ptr(new V61Api(handler, 6, 1, data));
+            {
+                auto api = new V61Api(handler, 6, 1, data);
+                auto ptr = IWalletApi::Ptr(api);
+                api->takeGuardPtr(ptr);
+                return ptr;
+            }
 
         case ApiVer6_0:
-            return IWalletApi::Ptr(new V6Api(handler, data));
+            {
+                auto api = new V6Api(handler, data);
+                auto ptr = IWalletApi::Ptr(api);
+                api->takeGuardPtr(ptr);
+                return ptr;
+            }
 
         default:
             return nullptr;
