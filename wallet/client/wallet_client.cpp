@@ -365,12 +365,12 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getCoinConfirmationsOffset, std::move(callback));
     }
 
-    void removeRawSeedPhrase()
+    void removeRawSeedPhrase() override
     {
         call_async(&IWalletModelAsync::removeRawSeedPhrase);
     }
 
-    void readRawSeedPhrase(AsyncCallback<const std::string&>&& callback)
+    void readRawSeedPhrase(AsyncCallback<const std::string&>&& callback) override
     {
         call_async(&IWalletModelAsync::readRawSeedPhrase, std::move(callback));
     }
