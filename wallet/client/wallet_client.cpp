@@ -365,6 +365,15 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getCoinConfirmationsOffset, std::move(callback));
     }
 
+    void removeRawSeedPhrase() override
+    {
+        call_async(&IWalletModelAsync::removeRawSeedPhrase);
+    }
+
+    void readRawSeedPhrase(AsyncCallback<const std::string&>&& callback) override
+    {
+        call_async(&IWalletModelAsync::readRawSeedPhrase, std::move(callback));
+    }
 
     void enableBodyRequests(bool value) override
     {
@@ -1723,6 +1732,24 @@ namespace beam::wallet
     void WalletClient::setCoinConfirmationsOffset(uint32_t val)
     {
         m_walletDB->setCoinConfirmationsOffset(val);
+    }
+
+    void WalletClient::removeRawSeedPhrase()
+    {
+        m_walletDB->removeVarRaw(SEED_PARAM_NAME);
+    }
+
+    void WalletClient::readRawSeedPhrase(AsyncCallback<const std::string&>&& callback)
+    {
+        ByteBuffer b;
+        if (m_walletDB->getBlob(SEED_PARAM_NAME, b))
+        {
+            std::string phrase((char*)b.data());
+            postFunctionToClientContext([res = std::move(phrase), cb = std::move(callback)]() 
+            {
+                cb(res);
+            });
+        }
     }
 
     void WalletClient::getCoinConfirmationsOffset(AsyncCallback<uint32_t>&& callback)

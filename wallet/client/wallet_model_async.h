@@ -108,6 +108,9 @@ namespace beam::wallet
         virtual void setCoinConfirmationsOffset(uint32_t val) = 0;
         virtual void getCoinConfirmationsOffset(AsyncCallback<uint32_t>&& callback) = 0;
 
+        virtual void removeRawSeedPhrase() = 0;
+        virtual void readRawSeedPhrase(AsyncCallback<const std::string&>&& callback) = 0;
+
         virtual void enableBodyRequests(bool value) = 0;
         virtual ~IWalletModelAsync() = default;
     };
