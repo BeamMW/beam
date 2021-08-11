@@ -713,7 +713,7 @@ int main(int argc, char* argv[])
 
         if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
         {
-            RegisterAssetCreators(*wallet);
+            RegisterAllAssetCreators(*wallet);
         }
 
         if (options.enableLelentus)
