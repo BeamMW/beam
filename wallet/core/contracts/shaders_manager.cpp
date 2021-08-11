@@ -56,7 +56,7 @@ namespace beam::wallet {
         beam::bvm2::Processor::Compile(resBuffer, shaderBlob, ManagerStd::Kind::Manager);
     }
 
-    void ShadersManager::CallShaderAndStartTx(const std::vector<uint8_t>& shader, const std::string &args, unsigned method, DoneAllHandler doneHandler)
+    void ShadersManager::CallShaderAndStartTx(const std::vector<uint8_t>& shader, const std::string &args, unsigned method, uint32_t priority, DoneAllHandler doneHandler)
     {
         if (!IsDone())
         {
@@ -95,7 +95,7 @@ namespace beam::wallet {
         _async = !_done;
     }
 
-    void ShadersManager::CallShader(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, DoneCallHandler doneHandler)
+    void ShadersManager::CallShader(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, uint32_t priority, DoneCallHandler doneHandler)
     {
         if (!IsDone())
         {

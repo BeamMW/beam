@@ -34,8 +34,8 @@ namespace beam::wallet {
             return _done;
         }
 
-        void CallShaderAndStartTx(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, DoneAllHandler doneHandler) override;
-        void CallShader(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, DoneCallHandler) override;
+        void CallShaderAndStartTx(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, uint32_t priority, DoneAllHandler doneHandler) override;
+        void CallShader(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, uint32_t priority, DoneCallHandler) override;
         void ProcessTxData(const ByteBuffer& data, DoneTxHandler doneHandler) override;
 
     protected:

@@ -2074,7 +2074,8 @@ namespace beam::wallet
         }
 
         _clientShadersCback = std::move(cback);
-        smgr->CallShaderAndStartTx(shader, args, args.empty() ? 0 : 1, [this, shaders = _clientShaders] (boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
+        smgr->CallShaderAndStartTx(shader, args, args.empty() ? 0 : 1, 0,
+        [this, shaders = _clientShaders] (boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
             auto smgr = _clientShaders.lock();
             if (!smgr)
             {
