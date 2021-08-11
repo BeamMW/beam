@@ -76,7 +76,7 @@ namespace beam::applications {
         //
         ApiInitData data;
 
-        data.contracts = _client->getAppsShaders(appid, appname);//std::make_shared<WebAPI_Shaders>(appid, appname);
+        // data.contracts = _client->getAppsShaders(appid, appname);//std::make_shared<WebAPI_Shaders>(appid, appname);
         data.swaps     = nullptr;
         data.wallet    = _client->getWallet();//AppModel::getInstance().getWalletModel()->getWallet();
         data.walletDB = db; // AppModel::getInstance().getWalletDB();
@@ -102,7 +102,7 @@ namespace beam::applications {
         //
         // THIS IS UI THREAD
         //
-        _client->releaseAppsShaders(_appId);
+        // _client->releaseAppsShaders(_appId);
         getAsyncWallet().makeIWTCall(
             [proxy = std::move(_walletAPIProxy), api = std::move(_walletAPI)] () mutable -> boost::any {
                 // api should be destroyed in context of the wallet thread

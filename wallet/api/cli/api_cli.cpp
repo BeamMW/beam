@@ -223,7 +223,7 @@ namespace
                 _walletData->swaps     = _swapsProvider;
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
                 _walletData->acl       = _acl;
-                _walletData->contracts = IShadersManager::CreateInstance(_wallet, _walletDB, _network);
+                _walletData->contracts = IShadersManager::CreateInstance(_wallet, _walletDB, _network, "", "");
             }
 
             return std::make_shared<T>(_apiVersion, *this, std::move(newStream), *_walletData);
