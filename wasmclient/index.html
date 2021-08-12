@@ -19,8 +19,7 @@
                         walletClient.setSyncHandler((done, total) => {
                             console.log("sync [" + done + "/" + total + "]");
                         });
-                        walletClient.setApproveSendHandler((request, info, cb) {
-
+                        walletClient.setApproveSendHandler((request, info, cb)=>{
                             console.log("Request: " + request);
                             console.log("Info: " + info);
                             cb.setApproved(request);                            
@@ -56,15 +55,17 @@
 
                     setTimeout((wc)=>{
                         console.log("calling API...");
-                        var api = walletClient.createAppAPI("appid", "appname");
-                        api.setHandler((r)=> {
-                            console.log("API response: " + r)
-                        })
-                        api.callWalletApi(JSON.stringify({
+                        wc.createAppAPI("appid", "appname", (api)=>{
+                            api.setHandler((r)=> {
+                                console.log("API response: " + r)
+                            })
+                            api.callWalletApi(JSON.stringify({
                               jsonrpc: '2.0',
                               id: 5,
                               method: 'wallet_status'
-                            }));
+                            }));        
+                        });
+                    }, 10, walletClient);    
 
                     setTimeout((wc)=>{
                         console.log("Stopoping...")

@@ -13,8 +13,6 @@
 // limitations under the License.
 #pragma once
 
-//#include "model/app_model.h"
-//#include "webapi_shaders.h"
 #include "wallet/api/i_wallet_api.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/client/wallet_model_async.h"
@@ -57,7 +55,7 @@ namespace beam::applications
         using WeakPtr   = std::weak_ptr<WebAPI_Beam>;
 
         // Do not call directly, use ::Create instead
-        WebAPI_Beam(WalletClientPtr wc, IWalletDB::Ptr db, const std::string& version, const std::string& appid, const std::string& appname);
+        WebAPI_Beam(WalletClientPtr wc, IWalletDB::Ptr db, beam::wallet::IShadersManager::Ptr shaders, const std::string& version, const std::string& appid, const std::string& appname);
         ~WebAPI_Beam() override;
 
         //static std::shared_ptr<WebAPI_Beam> Create(const std::string& version, const std::string& appid, const std::string& appname);

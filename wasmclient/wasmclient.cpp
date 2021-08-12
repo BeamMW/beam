@@ -235,19 +235,37 @@ private:
 class AppAPI : public WebAPI_Beam
 {
 public:
-    AppAPI(WalletClient2::Ptr client, const std::string& version, const std::string& appid, const std::string& appname)
-        : WebAPI_Beam(client, client->GetWalletDB(), version, appid, appname)
+    AppAPI(WalletClient2::Ptr client, IShadersManager::Ptr shaders, const std::string& version, const std::string& appid, const std::string& appname)
+        : WebAPI_Beam(client, client->GetWalletDB(), shaders, version, appid, appname)
         , m_Client2(client)
     {
 
     }
 
-    static std::shared_ptr<AppAPI> Create(WalletClient2::Ptr client, const std::string& version, const std::string& appid, const std::string& appname)
+    static void Create(WalletClient2::Ptr client, const std::string& version, const std::string& appid, const std::string& appname, val cb)
     {
         AssertMainThread();
-        auto result = std::make_shared<AppAPI>(client, version, appid, appname);
-        result->_walletAPIProxy->_handler = result;
-        return result;
+        client->getAsync()->makeIWTCall(
+            [appid, appname, client]() -> boost::any 
+            {
+                //
+                // THIS IS REACTOR THREAD
+                //
+                auto result = client->IWThread_createAppShaders(appid, appname);
+                return result;
+            },
+            [cb = std::move(cb), version, appid, appname, client](boost::any aptr) 
+            {
+                //
+                // THIS IS UI THREAD
+                //
+                AssertMainThread();
+                auto shaders = boost::any_cast<IShadersManager::Ptr>(aptr);
+                auto wapi = std::make_shared<AppAPI>(client, shaders, version, appid, appname);
+                wapi->_walletAPIProxy->_handler = wapi;
+                cb(wapi);
+            }
+        );
     }
 
     void CallWalletAPI(const std::string& request)
@@ -521,10 +539,10 @@ public:
         }
     }
 
-    std::shared_ptr<AppAPI> CreateAppAPI(const std::string& appid, const std::string& appName)
+    void CreateAppAPI(const std::string& appid, const std::string& appName, val cb)
     {
         AssertMainThread();
-        return AppAPI::Create(m_Client, "current", appid, appName);
+        AppAPI::Create(m_Client, "current", appid, appName, std::move(cb));
     }
 
     static void DoCallbackOnMainThread(val* h)
