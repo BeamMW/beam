@@ -52,6 +52,10 @@ namespace beam::applications
         };
 
     public:
+
+        using Ptr       = std::shared_ptr<WebAPI_Beam>;
+        using WeakPtr   = std::weak_ptr<WebAPI_Beam>;
+
         // Do not call directly, use ::Create instead
         WebAPI_Beam(WalletClientPtr wc, IWalletDB::Ptr db, const std::string& version, const std::string& appid, const std::string& appname);
         ~WebAPI_Beam() override;
