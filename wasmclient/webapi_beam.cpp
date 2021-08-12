@@ -24,10 +24,6 @@ namespace beam::applications {
 
     namespace
     {
-        //WalletModel& getWallet() {
-        //    return *AppModel::getInstance().getWalletModel();
-        //}
-
         namespace
         {
             void printMap(const std::string& prefix, const ApproveMap& info)
@@ -358,7 +354,7 @@ namespace beam::applications {
                         totalAmount += beam::AmountBig::Type(pinfo.minfo.fee);
                     }
 
-                    //isEnough = isEnough;// && (totalAmount <= clientgetWallet().getAvailable(assetId));
+                    isEnough = isEnough && (totalAmount <= _client->getAvailable(assetId));
                 }
 
                 for(const auto& sinfo: pinfo.minfo.receive)

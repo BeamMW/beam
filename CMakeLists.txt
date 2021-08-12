@@ -155,7 +155,11 @@ option(BEAM_BVM_ONLY "Build only binaries required for BVM" FALSE)
     add_definitions(-DDEBUG_MESSAGES_IN_RELEASE_MODE)
 #endif()
 #it's enabled by default for testnet
-add_definitions(-DLOG_VERBOSE_ENABLED=1)
+if(NOT EMSCRIPTEN)
+    add_definitions(-DLOG_VERBOSE_ENABLED=1)
+else()
+    add_definitions(-DLOG_VERBOSE_ENABLED=0)
+endif()
 
 if(SHOW_CODE_LOCATION)
     target_compile_definitions(beam INTERFACE -DSHOW_CODE_LOCATION=1)
