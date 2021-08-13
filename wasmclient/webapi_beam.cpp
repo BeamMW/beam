@@ -24,10 +24,6 @@ namespace beam::applications {
 
     namespace
     {
-        //WalletModel& getWallet() {
-        //    return *AppModel::getInstance().getWalletModel();
-        //}
-
         namespace
         {
             void printMap(const std::string& prefix, const ApproveMap& info)
@@ -63,7 +59,7 @@ namespace beam::applications {
         }
     }
 
-    WebAPI_Beam::WebAPI_Beam(WalletClientPtr wc, IWalletDB::Ptr db, const std::string& version, const std::string& appid, const std::string& appname)
+    WebAPI_Beam::WebAPI_Beam(WalletClientPtr wc, IWalletDB::Ptr db, beam::wallet::IShadersManager::Ptr shaders, const std::string& version, const std::string& appid, const std::string& appname)
         : _appId(appid)
         , _appName(appname)
         , _client(wc)
@@ -76,7 +72,7 @@ namespace beam::applications {
         //
         ApiInitData data;
 
-        // data.contracts = _client->getAppsShaders(appid, appname);//std::make_shared<WebAPI_Shaders>(appid, appname);
+        data.contracts = std::move(shaders);
         data.swaps     = nullptr;
         data.wallet    = _client->getWallet();//AppModel::getInstance().getWalletModel()->getWallet();
         data.walletDB = db; // AppModel::getInstance().getWalletDB();
@@ -102,7 +98,6 @@ namespace beam::applications {
         //
         // THIS IS UI THREAD
         //
-        // _client->releaseAppsShaders(_appId);
         getAsyncWallet().makeIWTCall(
             [proxy = std::move(_walletAPIProxy), api = std::move(_walletAPI)] () mutable -> boost::any {
                 // api should be destroyed in context of the wallet thread
@@ -358,7 +353,7 @@ namespace beam::applications {
                         totalAmount += beam::AmountBig::Type(pinfo.minfo.fee);
                     }
 
-                    //isEnough = isEnough;// && (totalAmount <= clientgetWallet().getAvailable(assetId));
+                    isEnough = isEnough && (totalAmount <= _client->getAvailable(assetId));
                 }
 
                 for(const auto& sinfo: pinfo.minfo.receive)
