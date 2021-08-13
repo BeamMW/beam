@@ -1942,7 +1942,7 @@ namespace
             throw std::runtime_error(GetFailureMessage(res));
     }
 
-    std::string ReadAssetMeta(const po::variables_map& vm, bool allow_v5_0)
+    std::string ReadAssetMeta(const po::variables_map& vm, bool allowOld)
     {
         if(!vm.count(cli::ASSET_METADATA))
         {
@@ -1956,8 +1956,7 @@ namespace
         }
 
         WalletAssetMeta meta(strMeta);
-
-        if (!(allow_v5_0 ? meta.isStd_v5_0() : meta.isStd()))
+        if (!(allowOld ? (meta.isStd_v5_0() || meta.isStd_v6_0()) : meta.isStd()))
         {
             throw std::runtime_error(kErrorAssetNonSTDMeta);
         }
