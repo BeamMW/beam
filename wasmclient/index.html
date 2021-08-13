@@ -22,7 +22,14 @@
                         walletClient.setApproveSendHandler((request, info, cb)=>{
                             console.log("Request: " + request);
                             console.log("Info: " + info);
-                            cb.setApproved(request);                            
+                            cb.setApproved(request);
+                            //cb.setRejected(request);
+                        }) 
+                        walletClient.setApproveContractInfoHandler((request, info, amounts, cb)=>{
+                            console.log("Request: " + request);
+                            console.log("Info: " + info);
+                            cb.contractInfoApproved(request);
+                            //cb.contractInfoRejected(request);
                         }) 
                         console.log("starting wallet...");
                         walletClient.startWallet();

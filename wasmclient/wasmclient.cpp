@@ -105,6 +105,7 @@ public:
         virtual void OnSyncProgress(int done, int total) {}
         virtual void OnResult(const json&) {}
         virtual void OnApproveSend(const std::string&, const ApproveMap&, WebAPI_Beam::WeakPtr api) {}
+        virtual void OnApproveContractInfo(const std::string& request, const ApproveMap& info, ApproveAmounts amounts, WebAPI_Beam::WeakPtr api) {}
     };
 
     using WalletClient::WalletClient;
@@ -139,6 +140,19 @@ public:
             if (m_CbHandler)
             {
                 m_CbHandler->OnApproveSend(request, info, wpApi);
+            }
+        });
+    }
+
+    void ApproveContractInfo(const std::string& request, const ApproveMap& info, ApproveAmounts amounts, WebAPI_Beam::Ptr api)
+    {
+        WebAPI_Beam::WeakPtr wpApi = api;
+
+        postFunctionToClientContext([this, sp = shared_from_this(), request, info, amounts, wpApi]()
+        {
+            if (m_CbHandler)
+            {
+                m_CbHandler->OnApproveContractInfo(request, info, amounts, wpApi);
             }
         });
     }
@@ -294,13 +308,11 @@ private:
     void onApproveSend(const std::string& request, const ApproveMap& info) override
     {
         m_Client2->ApproveSend(request, info, shared_from_this());
-        // sendApproved(request);
     }
 
     void onApproveContractInfo(const std::string& request, const ApproveMap& info, const ApproveAmounts& amounts) override
     {
-        //m_Client2->ApproveContractInfo(request, info, amounts, shared_from_this());
-        //contractInfoApproved(request);
+        m_Client2->ApproveContractInfo(request, info, amounts, shared_from_this());
     }
 
 private:
@@ -419,6 +431,12 @@ public:
     {
         AssertMainThread();
         m_ApproveSendHandler = std::make_unique<val>(std::move(handler));
+    }
+
+    void SetApproveContractInfoHandler(val handler)
+    {
+        AssertMainThread();
+        m_ApproveContractInfoHandler = std::make_unique<val>(std::move(handler));
     }
 
     void ExecuteAPIRequest(const std::string& request)
@@ -640,6 +658,7 @@ private:
     std::vector<val> m_Callbacks;
     std::unique_ptr<val> m_SyncHandler;
     std::unique_ptr<val> m_ApproveSendHandler;
+    std::unique_ptr<val> m_ApproveContractInfoHandler;
     WalletClient2::Ptr m_Client;
     IWalletApi::Ptr m_WalletApi;
 };
@@ -659,6 +678,7 @@ EMSCRIPTEN_BINDINGS()
         .function("unsubscribe", &WasmWalletClient::Unsubscribe)
         .function("setSyncHandler", &WasmWalletClient::SetSyncHandler)
         .function("setApproveSendHandler", &WasmWalletClient::SetApproveSendHandler)
+        .function("setApproveContractInfoHandler", &WasmWalletClient::SetApproveContractInfoHandler)
         .function("createAppAPI", &WasmWalletClient::CreateAppAPI)
         .class_function("GeneratePhrase", &WasmWalletClient::GeneratePhrase)
         .class_function("IsAllowedWord", &WasmWalletClient::IsAllowedWord)
