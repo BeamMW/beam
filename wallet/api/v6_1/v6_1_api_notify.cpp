@@ -61,8 +61,8 @@ namespace beam::wallet
                 {"id", "ev_sync_progress"},
                 {"result",
                     {
-                        {"done", done},
-                        {"total", total}
+                        {"sync_requests_done", done},
+                        {"sync_requests_total", total}
                     }
                 }
             };
