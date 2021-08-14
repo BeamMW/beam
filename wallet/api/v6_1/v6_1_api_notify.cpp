@@ -111,10 +111,11 @@ namespace beam::wallet
         WalletAssetMeta meta(info);
         auto pairs = meta.GetMetaMap();
 
-        res["metadata_kv"]  = !pairs.empty();
-        res["metadata_v50"] = meta.isStd_v5_0();
-        res["metadata_v60"] = meta.isStd_v6_0();
-        res["metadata_std"] = meta.isStd();
+        res["metadata_kv"]      = !pairs.empty();
+        res["metadata_std_min"] = meta.isStd_v5_0();
+        res["metadata_v50"]     = meta.isStd_v5_0();
+        res["metadata_v60"]     = meta.isStd_v6_0();
+        res["metadata_std"]     = meta.isStd();
 
         if (!pairs.empty())
         {
