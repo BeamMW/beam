@@ -42,7 +42,8 @@ namespace beam::wallet
             if (!getAppId().empty())
             {
                 // Some events are not allowed for applications
-                if (it.key() == "ev_utxos_changed")
+                if (it.key() == "ev_utxos_changed" ||
+                    it.key() == "ev_assets_changed")
                 {
                     throw jsonrpc_exception(ApiError::NotAllowedError);
                 }
