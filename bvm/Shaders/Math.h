@@ -127,6 +127,23 @@ namespace MultiPrecision
 			FromBE(reinterpret_cast<const Word*>(&arg));
 		}
 
+		template <uint32_t w0, uint32_t w1>
+		bool IsZeroRange() const
+		{
+			if constexpr ((nWords > w0) && (nWords <= w1))
+			{
+				if (m_Val)
+					return false;
+			}
+
+			return Base::template IsZeroRange<w0, w1>();
+		}
+
+		bool IsZero() const
+		{
+			return IsZeroRange<0, nWords>();
+		}
+
 		void operator = (uint64_t x)
 		{
 			set_Ord<0>(x);
@@ -314,8 +331,13 @@ namespace MultiPrecision
 			}
 
 			val = Base::template set_Ord<nShiftWords>(val);
-			m_Val = (Word)val;
-			return val >> nWordBits;
+			m_Val = (Word) val;
+
+			if constexpr (sizeof(val) <= sizeof(Word))
+				return val;
+
+			const uint32_t nShift = (sizeof(val) <= sizeof(Word)) ? 0 : nWordBits; // it's always nWordBits, just a workaround for compiler error
+			return val >> nShift;
 		}
 
 		template <uint32_t nShiftWords, typename T>
@@ -522,6 +544,12 @@ namespace MultiPrecision
 		template <uint32_t nBits>
 		void RShift(Word carry)
 		{
+		}
+
+		template <uint32_t w0, uint32_t w1>
+		bool IsZeroRange() const
+		{
+			return true;
 		}
 	};
 
