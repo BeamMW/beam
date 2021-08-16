@@ -2587,12 +2587,11 @@ namespace
 			// check public key
 			tmp += 32;
 			PubKey pubKey;
-			memcpy(&pubKey, tmp, 33);
+			memcpy(reinterpret_cast<uint8_t*>(&pubKey), tmp, 33);
 			PubKey expectPubKey;
-			memcpy(&expectPubKey, beam::from_hex("4209059b49805c3317c69edb7acd181271ad8d13fbfc528224775310cf03a96201").data(), 33);
+			memcpy(reinterpret_cast<uint8_t*>(&expectPubKey), beam::from_hex("4209059b49805c3317c69edb7acd181271ad8d13fbfc528224775310cf03a96201").data(), 33);
 
 			verify_test(pubKey == expectPubKey);
-			std::cout << "end" << std::endl;
 		}
 
 		//The string 'Lorem ipsum dolor sit amet, consectetur adipisicing elit' = [0xb8, 0x38, 'L', 'o', 'r', 'e', 'm', ' ', ..., 'e', 'l', 'i', 't']
