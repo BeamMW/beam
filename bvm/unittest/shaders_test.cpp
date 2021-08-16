@@ -2342,7 +2342,7 @@ namespace
 
 		//The integer 156 = [0x819C]
 		{
-			Rlp::Node n(15);
+			Rlp::Node n(156);
 			ByteStream bs;
 			n.Write(bs);
 			verify_test(bs.m_Buffer == ByteBuffer({ 0x81, 0x9C }));
