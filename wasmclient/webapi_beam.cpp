@@ -17,7 +17,11 @@
 #include "wallet/client/wallet_client.h"
 
 #include <sstream>
-#include <boost/any.hpp>
+#include <boost/algorithm/string.hpp>
+
+#include "3rdparty/nlohmann/json.hpp"
+
+using json = nlohmann::json;
 
 namespace beam::applications {
     using namespace beam::wallet;
@@ -26,23 +30,15 @@ namespace beam::applications {
     {
         namespace
         {
-            void printMap(const std::string& prefix, const ApproveMap& info)
+            void printMap(const std::string& prefix, const json& info)
             {
-                for(const auto& p : info)
+                for(const auto& item : info.items())
                 {
-                    if (p.second.type() == typeid(std::string))
-                    {
-                        LOG_INFO () << prefix << p.first << "=" << boost::any_cast<std::string>(p.second);
-                    }
-                    else
-                    {
-                        assert(false); // for now should not happen, add special case above to print correct logs
-                        LOG_INFO () << prefix << p.first << "=" << "unexpected no-str convertible";
-                    }
+                    LOG_INFO () << prefix << item.key() << "=" << item.value();
                 }
             }
 
-            void printApproveLog(const std::string& preamble, const std::string& appid, const std::string& appname, const ApproveMap& info, const ApproveAmounts& amounts)
+            void printApproveLog(const std::string& preamble, const std::string& appid, const std::string& appname, const json& info, const json& amounts)
             {
                 LOG_INFO() << preamble << " (" << appname << ", " << appid << "):";
                 printMap("\t", info);
@@ -55,6 +51,30 @@ namespace beam::applications {
                         printMap("\t\t", amountMap);
                     }
                 }
+            }
+
+            template <char C>
+            bool char_is(const char c)
+            {
+                return c == C;
+            }
+
+            std::string encodeBase10(uint64_t amount, uint8_t decimalPlaces)
+            {
+                std::ostringstream stream;
+                stream << std::setfill('0') << std::setw(1 + decimalPlaces) << amount;
+
+                auto string = stream.str();
+                string.insert(string.size() - decimalPlaces, 1, '.');
+                boost::algorithm::trim_right_if(string, char_is<'0'>);
+                boost::algorithm::trim_right_if(string, char_is<'.'>);
+                return string;
+            }
+
+            std::string beamAmountToUIString(Amount value)
+            {
+                static auto beamDecimals = static_cast<uint8_t>(std::log10(Rules::Coin));
+                return encodeBase10(value, beamDecimals);
             }
         }
     }
@@ -274,17 +294,20 @@ namespace beam::applications {
                 const auto fee = pinfo.minfo.fee;
                 _mappedAssets.insert(assetId);
 
-                ApproveMap info;
-                info.emplace("amount",     amount);
-                info.emplace("fee",        fee);
-                //info.insert("feeRate",    _amgr->getRate(beam::Asset::s_BeamID));
-                info.emplace("assetID",    assetId);
-                //info.insert("rateUnit",   _amgr->getRateUnit());
-                info.emplace("token",      pinfo.minfo.token ? *pinfo.minfo.token : std::string());
-                info.emplace("isOnline",   !pinfo.minfo.spendOffline);
+                json info =
+                {
+                    {"amount",     std::to_string(PrintableAmount(amount))},
+                    {"fee",        beamAmountToUIString(fee)},
+                    //info.insert("feeRate",    _amgr->getRate(beam::Asset::s_BeamID));
+                    {"assetID",    assetId},
+                    //info.insert("rateUnit",   _amgr->getRateUnit());
+                    {"token",      pinfo.minfo.token ? *pinfo.minfo.token : std::string()},
+                    {"isOnline",   !pinfo.minfo.spendOffline }
+                };
 
                 std::string comment = pinfo.minfo.confirm_comment ? *pinfo.minfo.confirm_comment : (pinfo.minfo.comment ? *pinfo.minfo.comment : std::string());
-                info.emplace("comment", comment);
+                info.push_back({ "comment", comment });
+
 
                 std::weak_ptr<WebAPI_Beam> wpsel = shared_from_this();
                 getAsyncWallet().selectCoins(beam::AmountBig::get_Lo(amount), fee, assetId, false, [this, wpsel, request, info](const CoinsSelectionInfo& csi) mutable
@@ -296,9 +319,9 @@ namespace beam::applications {
                         LOG_WARNING() << "UIT send CSI arrived but creator is already destroyed";
                     }
 
-                    info.emplace("isEnough", csi.m_isEnought);
-                    printApproveLog("Get user consent for send", getAppId(), getAppName(), info, ApproveAmounts());
-                    onApproveSend(request, info);
+                    info.push_back({ "isEnough", csi.m_isEnought });
+                    printApproveLog("Get user consent for send", getAppId(), getAppName(), info, {});
+                    onApproveSend(request, info.dump());
                 });
             }
         );
@@ -323,28 +346,33 @@ namespace beam::applications {
                 decltype(_mappedAssets)().swap(_mappedAssets);
                 _mappedAssets.insert(beam::Asset::s_BeamID);
 
-                ApproveMap info;
-                info.emplace("comment",   pinfo.minfo.comment ? *pinfo.minfo.comment : std::string());
-                info.emplace("fee",       pinfo.minfo.fee);
-                //info.emplace("feeRate",         AmountToUIString(_amgr->getRate(beam::Asset::s_BeamID)));
-                //info.emplace("rateUnit",        _amgr->getRateUnit());
-                info.emplace("isSpend",   !pinfo.minfo.spend.empty());
-
-                std::string comment = pinfo.minfo.confirm_comment ? *pinfo.minfo.confirm_comment : (pinfo.minfo.comment ? *pinfo.minfo.comment : std::string());
-                info.emplace("comment", comment);
+                json info =
+                {
+                    {"comment",   pinfo.minfo.confirm_comment ? *pinfo.minfo.confirm_comment : (pinfo.minfo.comment ? *pinfo.minfo.comment : std::string())},
+                    {"fee",       beamAmountToUIString(pinfo.minfo.fee)},
+                    //info.emplace("feeRate",         AmountToUIString(_amgr->getRate(beam::Asset::s_BeamID)));
+                    //info.emplace("rateUnit",        _amgr->getRateUnit());
+                    {"isSpend",   !pinfo.minfo.spend.empty()}
+                };
+                
+                
 
                 bool isEnough = true;
-                ApproveAmounts amounts;
+
+                json amounts = json::array();
                 for(const auto& sinfo: pinfo.minfo.spend)
                 {
-                    ApproveAmounts::value_type entry;
                     const auto assetId = sinfo.first;
                     const auto amount  = sinfo.second;
 
                     _mappedAssets.insert(assetId);
-                    entry.emplace("amount",   amount);
-                    entry.emplace("assetID",  assetId);
-                    entry.emplace("spend",    true);
+                    json entry =
+                    {
+                        {"amount",   std::to_string(PrintableAmount(amount))},
+                        {"assetID",  assetId},
+                        {"spend",    true}
+                    };
+                    
                     amounts.push_back(entry);
 
                     auto totalAmount = amount;
@@ -358,21 +386,23 @@ namespace beam::applications {
 
                 for(const auto& sinfo: pinfo.minfo.receive)
                 {
-                    ApproveAmounts::value_type entry;
                     const auto assetId = sinfo.first;
                     const auto amount  = sinfo.second;
 
                     _mappedAssets.insert(assetId);
-                    entry.emplace("amount",   amount);
-                    entry.emplace("assetID",  assetId);
-                    entry.emplace("spend",    false);
+                    json entry =
+                    {
+                        {"amount",  std::to_string(PrintableAmount(amount))},
+                        {"assetID", assetId},
+                        {"spend", false}
+                    };
 
                     amounts.push_back(entry);
                 }
 
-                info.emplace("isEnough", isEnough);
+                info["isEnough"] = isEnough;
                 printApproveLog("Get user consent for contract tx", getAppId(), getAppName(), info, amounts);
-                onApproveContractInfo(request, info, amounts);
+                onApproveContractInfo(request, info.dump(), amounts.dump());
             }
         );
     }
@@ -382,7 +412,7 @@ namespace beam::applications {
         //
         // This is UI thread
         //
-        LOG_INFO() << "Contract tx rejected: " << getAppName() << ", " << getAppId() << ", " << request;
+        LOG_INFO() << "Contract tx approved: " << getAppName() << ", " << getAppId() << ", " << request;
         UIThread_callWalletApiImp(request);
     }
 
@@ -400,7 +430,7 @@ namespace beam::applications {
         //
         // This is UI thread
         //
-        LOG_INFO() << "Contract tx rejected: " << getAppName() << ", " << getAppId() << ", " << request;
+        LOG_INFO() << "Contract tx approved: " << getAppName() << ", " << getAppId() << ", " << request;
         UIThread_callWalletApiImp(request);
     }
 

@@ -104,8 +104,8 @@ public:
     {
         virtual void OnSyncProgress(int done, int total) {}
         virtual void OnResult(const json&) {}
-        virtual void OnApproveSend(const std::string&, const ApproveMap&, WebAPI_Beam::WeakPtr api) {}
-        virtual void OnApproveContractInfo(const std::string& request, const ApproveMap& info, ApproveAmounts amounts, WebAPI_Beam::WeakPtr api) {}
+        virtual void OnApproveSend(const std::string&, const string&, WebAPI_Beam::WeakPtr api) {}
+        virtual void OnApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WebAPI_Beam::WeakPtr api) {}
     };
 
     using WalletClient::WalletClient;
@@ -131,7 +131,7 @@ public:
         });
     }
 
-    void ApproveSend(const std::string& request, const ApproveMap& info, WebAPI_Beam::Ptr api)
+    void ApproveSend(const std::string& request, const std::string& info, WebAPI_Beam::Ptr api)
     {
         WebAPI_Beam::WeakPtr wpApi = api;
 
@@ -144,10 +144,9 @@ public:
         });
     }
 
-    void ApproveContractInfo(const std::string& request, const ApproveMap& info, ApproveAmounts amounts, WebAPI_Beam::Ptr api)
+    void ApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WebAPI_Beam::Ptr api)
     {
         WebAPI_Beam::WeakPtr wpApi = api;
-
         postFunctionToClientContext([this, sp = shared_from_this(), request, info, amounts, wpApi]()
         {
             if (m_CbHandler)
@@ -305,12 +304,12 @@ private:
         });
     }
 
-    void onApproveSend(const std::string& request, const ApproveMap& info) override
+    void onApproveSend(const std::string& request, const std::string& info) override
     {
         m_Client2->ApproveSend(request, info, shared_from_this());
     }
 
-    void onApproveContractInfo(const std::string& request, const ApproveMap& info, const ApproveAmounts& amounts) override
+    void onApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts) override
     {
         m_Client2->ApproveContractInfo(request, info, amounts, shared_from_this());
     }
@@ -548,12 +547,21 @@ public:
         }
     }
 
-    void OnApproveSend(const std::string& request, const ApproveMap& info, WebAPI_Beam::WeakPtr api) override
+    void OnApproveSend(const std::string& request, const std::string& info, WebAPI_Beam::WeakPtr api) override
     {
         AssertMainThread();
         if (m_ApproveSendHandler && !m_ApproveSendHandler->isNull())
         {
             (*m_ApproveSendHandler)(request, info, AppAPICallback(api));
+        }
+    }
+
+    void OnApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WebAPI_Beam::WeakPtr api) override
+    {
+        AssertMainThread();
+        if (m_ApproveContractInfoHandler && !m_ApproveContractInfoHandler->isNull())
+        {
+            (*m_ApproveContractInfoHandler)(request, info, amounts, AppAPICallback(api));
         }
     }
 
