@@ -66,6 +66,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/algorithm/string/trim.hpp>
+#include <boost/algorithm/string/erase.hpp>
 
 #include <iomanip>
 #include <iterator>
@@ -83,6 +84,16 @@ using namespace ECC;
 namespace beam
 {
     const char kElectrumSeparateSymbol = ' ';
+
+    void trimAssetName(std::string& name, int maxLen = 12)
+    {
+        auto len = static_cast<int>(name.length());
+        if (len > maxLen)
+        {
+            boost::algorithm::erase_tail(name, len - maxLen);
+            name.append("...");
+        }
+    }
 
     template<typename TStatusEnum>
     string getCoinStatus(TStatusEnum s)
@@ -963,9 +974,12 @@ namespace
             const WalletAssetMeta &meta = info.is_initialized() ? WalletAssetMeta(*info) : WalletAssetMeta(Asset::Full());
             isOwned  = info->m_IsOwned;
             unitName = meta.GetUnitName();
+            trimAssetName(unitName, 28);
             nthName  = meta.GetNthUnitName();
+            trimAssetName(nthName, 28);
             ownerStr = (isOwned ? info->m_Owner.str() + "\nYou own this asset": info->m_Owner.str());
             coinName = meta.GetName() + " (" + meta.GetShortName() + ")";
+            trimAssetName(coinName, 88);
             lkHeight = std::to_string(info->m_LockHeight);
             rfHeight = std::to_string(info->m_RefreshHeight);
 
