@@ -128,7 +128,11 @@ namespace beam::wallet {
         };
 
         _std_v6_0 = _std_v5_0 && versionValid() && optSDescValid() && optLDescValid() && optColorValid();
-        _std = _std_v6_0 && GetShortName().length() <= MAX_SHORT_NAME_LEN;
+        _std = _std_v6_0 &&
+                !GetName().empty() &&
+                !GetShortName().empty() && GetShortName().length() <= MAX_SHORT_NAME_LEN &&
+                !GetUnitName().empty() &&
+                !GetNthUnitName().empty();
     }
 
     void WalletAssetMeta::LogInfo(const std::string& pref) const
