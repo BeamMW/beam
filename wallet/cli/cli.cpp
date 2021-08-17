@@ -1267,17 +1267,16 @@ namespace
             }
 
             boost::ignore_unused(nthName);
-            const auto amountHeader = boost::format(kAssetTxHistoryColumnAmount) % unitName;
+            trimAssetName(unitName, 7);
+            const auto amountHeader = boost::format(kAssetTxHistoryColumnAmount) %  unitName;
 
-            const array<uint8_t, 7> columnWidths{{20, 10, 17, 18, 20, 33, 65}};
+            const array<uint8_t, 7> columnWidths{{20, 10, 17, 18, 25/*, 33, 65*/}};
                 cout << boost::format(kTxHistoryTableHead)
                         % boost::io::group(left,  setw(columnWidths[0]),  kTxHistoryColumnDatetTime)
                         % boost::io::group(left,  setw(columnWidths[1]),  kTxHistoryColumnHeight)
                         % boost::io::group(left,  setw(columnWidths[2]),  kTxHistoryColumnDirection)
                         % boost::io::group(right, setw(columnWidths[3]),  amountHeader)
                         % boost::io::group(left,  setw(columnWidths[4]),  kTxHistoryColumnStatus)
-                        % boost::io::group(left,  setw(columnWidths[5]),  kTxHistoryColumnId)
-                        % boost::io::group(left,  setw(columnWidths[6]),  kTxHistoryColumnKernelId)
                      << std::endl;
 
             bool unreliableDisplayed = false;
@@ -1331,9 +1330,10 @@ namespace
                         % boost::io::group(left,  setw(columnWidths[2]),  direction)
                         % boost::io::group(right, setw(columnWidths[3]),  amount)
                         % boost::io::group(left,  setw(columnWidths[4]),  status)
-                        % boost::io::group(left,  setw(columnWidths[5]),  txid)
-                        % boost::io::group(left,  setw(columnWidths[6]),  kernelId)
                      << std::endl;
+                cout << std::string(4, ' ') << kTxHistoryColumnId << ": " << txid << std::endl;
+                cout << std::string(4, ' ') <<  kTxHistoryColumnKernelId << ": " << kernelId << std::endl;
+                cout << std::string(120, '-') << std::endl;
             }
         }
     }
@@ -1509,15 +1509,13 @@ namespace
                     return a.m_createTime > b.m_createTime;
                 });
 
-                const array<uint8_t, 7> columnWidths{ {20, 17, 26, 21, 33, 65, 100} };
+                const array<uint8_t, 7> columnWidths{ {20, 17, 26, 21, 0/*, 65, 100*/} };
                 cout << boost::format(kTxHistoryTableHead)
                     % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
                     % boost::io::group(left, setw(columnWidths[1]), kTxHistoryColumnDirection)
                     % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnAmount)
                     % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnStatus)
-                    % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnId)
-                    % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnKernelId)
-                    % boost::io::group(left, setw(columnWidths[6]), kTxAddress)
+                    % boost::io::group(left, setw(columnWidths[4]), "")
                     << std::endl;
 
                 for (auto& tx : txHistory) {
@@ -1534,10 +1532,12 @@ namespace
                         % boost::io::group(left,  setw(columnWidths[1]), direction)
                         % boost::io::group(right, setw(columnWidths[2]), amount)
                         % boost::io::group(left, setw(columnWidths[3]),  status)
-                        % boost::io::group(left, setw(columnWidths[4]),  txid)
-                        % boost::io::group(left, setw(columnWidths[5]),  krnid)
-                        % boost::io::group(left, setw(columnWidths[6]),  token)
+                        % boost::io::group(left, setw(columnWidths[4]),  "")
                         << std::endl;
+                    cout << std::string(4, ' ') << kTxHistoryColumnId << ": " << txid << std::endl;
+                    cout << std::string(4, ' ') << kTxHistoryColumnKernelId << ": " << krnid << std::endl;
+                    cout << std::string(4, ' ') << kTxAddress << ": " << token << std::endl;
+                    cout << std::string(120, '-') << std::endl;
                 }
             }
         }
