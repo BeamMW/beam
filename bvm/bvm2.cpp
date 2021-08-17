@@ -1220,6 +1220,8 @@ namespace bvm2 {
 
 				nCalleeStackMax = (pArgs & ~Wasm::MemoryType::Stack) + std::min(nArgs, nSize); // restrict callee from accessing anything beyond
 			}
+			else
+				pArgs = m_Stack.get_AlasSp();
 		}
 
 		CallFar(get_AddrAsR<ContractID>(cid), iMethod, pArgs, bInheritContext);
