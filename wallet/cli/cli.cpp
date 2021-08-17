@@ -1970,12 +1970,22 @@ namespace
         }
 
         WalletAssetMeta meta(strMeta);
-        if (!(allowOld ? (meta.isStd_v5_0() || meta.isStd_v6_0()) : meta.isStd()))
+        if (allowOld)
         {
-            throw std::runtime_error(kErrorAssetNonSTDMeta);
+            if (meta.isStd_v5_0() || meta.isStd_v6_0())
+            {
+                return strMeta;
+            }
+        }
+        else
+        {
+            if (meta.isStd())
+            {
+                return strMeta;
+            }
         }
 
-        return strMeta;
+        throw std::runtime_error(kErrorAssetNonSTDMeta);
     }
 
     std::string AssetID2Meta(const po::variables_map& vm, IWalletDB::Ptr walletDB)
