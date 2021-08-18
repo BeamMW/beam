@@ -1056,7 +1056,7 @@ namespace
 
     void ShowAssetCoins(const IWalletDB::Ptr& walletDB, Asset::ID assetId, boost::optional<TxID> txID = {})
     {
-        const auto [unitName, nthName] = GetAssetNames(walletDB, assetId);
+        auto [unitName, nthName] = GetAssetNames(walletDB, assetId);
         const uint8_t idWidth = assetId == Asset::s_InvalidID ? 49 : 57;
         const array<uint8_t, 6> columnWidths{{idWidth, 14, 14, 18, 20, 8}};
 
@@ -1190,6 +1190,8 @@ namespace
         const bool hasCoins = !(reliable.empty() && unreliable.empty());
         if (hasCoins)
         {
+            trimAssetName(unitName, 12);
+            trimAssetName(nthName, 12);
             cout << boost::format(kCoinsTableHeadFormat)
                      % boost::io::group(right,setw(columnWidths[0]), kCoinColumnId)
                      % boost::io::group(right,setw(columnWidths[1]), unitName)
