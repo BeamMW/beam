@@ -112,3 +112,4 @@ beam_version.gen
 keykeeper/wasm-key-keeper.*
 
 out/
+wmake.sh

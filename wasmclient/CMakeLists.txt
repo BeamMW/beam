@@ -9,8 +9,8 @@ if(EMSCRIPTEN)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-value -pthread -Wno-pthreads-mem-growth -Wno-deprecated-declarations -Wcast-align")
     add_executable(${TARGET_NAME} 
         wasmclient.cpp
-        webapi_beam.h
-        webapi_beam.cpp)
+        wasm_beamapi.h
+        wasm_beamapi.cpp)
     target_link_libraries(${TARGET_NAME} PRIVATE 
         wallet_client
         mnemonic

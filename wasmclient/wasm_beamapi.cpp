@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "webapi_beam.h"
+#include "wasm_beamapi.h"
 #include "utility/logger.h"
 #include "wallet/client/wallet_client.h"
 
@@ -79,13 +79,12 @@ namespace beam::applications {
         }
     }
 
-    WebAPI_Beam::WebAPI_Beam(WalletClientPtr wc, IWalletDB::Ptr db, beam::wallet::IShadersManager::Ptr shaders, const std::string& version, const std::string& appid, const std::string& appname)
-        : _appId(appid)
-        , _appName(appname)
+    WasmBeamApi::WasmBeamApi(WalletClientPtr wc, IWalletDB::Ptr db, beam::wallet::IShadersManager::Ptr shaders, const std::string& version, const std::string& appid, const std::string& appname)
+        : AppsApi(appid, appname)
         , _client(wc)
        // , _amgr(AppModel::getInstance().getAssets())
     {
-       // connect(_amgr.get(), &AssetsManager::assetsListChanged, this, &WebAPI_Beam::assetsChanged);
+       // connect(_amgr.get(), &AssetsManager::assetsListChanged, this, &WasmBeamApi::assetsChanged);
 
         //
         // THIS IS UI THREAD
@@ -96,24 +95,24 @@ namespace beam::applications {
         data.swaps     = nullptr;
         data.wallet    = _client->getWallet();//AppModel::getInstance().getWalletModel()->getWallet();
         data.walletDB = db; // AppModel::getInstance().getWalletDB();
-        data.appId     = _appId;
-        data.appName   = _appName;
+        data.appId     = appid;
+        data.appName   = appname;
 
         _walletAPIProxy = std::make_shared<ApiHandlerProxy>();
         _walletAPI = IWalletApi::CreateInstance(version, *_walletAPIProxy, data);
-        LOG_INFO () << "WebAPI_Beam created for " << data.appName << ", " << data.appId;
+        LOG_INFO () << "WasmBeamApi created for " << data.appName << ", " << data.appId;
     }
 
-    //std::shared_ptr<WebAPI_Beam> WebAPI_Beam::Create(const std::string& version, const std::string& appid, const std::string& appname)
+    //std::shared_ptr<WasmBeamApi> WasmBeamApi::Create(const std::string& version, const std::string& appid, const std::string& appname)
     //{
-    //    auto result = std::make_shared<WebAPI_Beam>(version, appid, appname);
+    //    auto result = std::make_shared<WasmBeamApi>(version, appid, appname);
     //    result->_walletAPIProxy->_handler = result;
     //    return result;
     //}
 
-    WebAPI_Beam::~WebAPI_Beam()
+    WasmBeamApi::~WasmBeamApi()
     {
-        LOG_INFO () << "WebAPI_Beam Destroyed";
+        LOG_INFO () << "WasmBeamApi Destroyed";
 
         //
         // THIS IS UI THREAD
@@ -130,19 +129,19 @@ namespace beam::applications {
         });
     }
 
-    //QMap<QString, QVariant> WebAPI_Beam::getAssets()
+    //QMap<QString, QVariant> WasmBeamApi::getAssets()
     //{
     //    return _amgr->getAssetsMap(_mappedAssets);
     //}
 
-    void WebAPI_Beam::callWalletApi(const std::string& request)
+    void WasmBeamApi::callWalletApi(const std::string& request)
     {
         //
         // THIS IS UI THREAD
         //
-        LOG_INFO () << "WebAPP API call for " << _appName << ", " << _appId << "): " << request;
+        LOG_INFO () << "WebAPP API call for " << getAppName() << ", " << getAppId() << "): " << request;
 
-        std::weak_ptr<WebAPI_Beam> wp = shared_from_this();
+        std::weak_ptr<WasmBeamApi> wp = shared_from_this();
         getAsyncWallet().makeIWTCall(
             [wp, this, request]() -> boost::any {
                 auto locked = wp.lock();
@@ -200,13 +199,13 @@ namespace beam::applications {
         );
     }
 
-    void WebAPI_Beam::UIThread_callWalletApiImp(const std::string& request)
+    void WasmBeamApi::UIThread_callWalletApiImp(const std::string& request)
     {
         //
         // Do not assume thread here
         // Should be safe to call from any thread
         //
-        std::weak_ptr<WebAPI_Beam> wp = shared_from_this();
+        std::weak_ptr<WasmBeamApi> wp = shared_from_this();
         getAsyncWallet().makeIWTCall(
             [wp, this, request]() -> boost::any {
                 auto locked = wp.lock();
@@ -225,7 +224,7 @@ namespace beam::applications {
         );
     }
 
-    void WebAPI_Beam::sendAPIResponse(const json& result)
+    void WasmBeamApi::sendAPIResponse(const json& result)
     {
         //
         // This is reactor thread
@@ -234,7 +233,7 @@ namespace beam::applications {
         LOG_INFO() << "sendAPIResponse: " << result.dump();
     }
 
-    void WebAPI_Beam::AnyThread_sendAPIResponse(const beam::wallet::json& result)
+    void WasmBeamApi::AnyThread_sendAPIResponse(const beam::wallet::json& result)
     {
         //
         // Do not assume thread here
@@ -248,7 +247,7 @@ namespace beam::applications {
         }
     }
 
-    void WebAPI_Beam::AnyThread_sendError(const std::string& request, beam::wallet::ApiError err, const std::string& message)
+    void WasmBeamApi::AnyThread_sendError(const std::string& request, beam::wallet::ApiError err, const std::string& message)
     {
         //
         // Do not assume thread here
@@ -258,9 +257,9 @@ namespace beam::applications {
         onCallWalletApiResult(error);
     }
 
-    void WebAPI_Beam::AnyThread_getSendConsent(const std::string& request, const beam::wallet::IWalletApi::ParseResult& pinfo)
+    void WasmBeamApi::AnyThread_getSendConsent(const std::string& request, const beam::wallet::IWalletApi::ParseResult& pinfo)
     {
-        std::weak_ptr<WebAPI_Beam> wp = shared_from_this();
+        std::weak_ptr<WasmBeamApi> wp = shared_from_this();
         getAsyncWallet().makeIWTCall([] () -> boost::any {return boost::none;},
             [this, wp, request, pinfo](const boost::any&)
             {
@@ -309,7 +308,7 @@ namespace beam::applications {
                 info.push_back({ "comment", comment });
 
 
-                std::weak_ptr<WebAPI_Beam> wpsel = shared_from_this();
+                std::weak_ptr<WasmBeamApi> wpsel = shared_from_this();
                 getAsyncWallet().selectCoins(beam::AmountBig::get_Lo(amount), fee, assetId, false, [this, wpsel, request, info](const CoinsSelectionInfo& csi) mutable
                 {
                     auto locked = wpsel.lock();
@@ -327,9 +326,9 @@ namespace beam::applications {
         );
     }
 
-    void WebAPI_Beam::AnyThread_getContractInfoConsent(const std::string &request, const beam::wallet::IWalletApi::ParseResult& pinfo)
+    void WasmBeamApi::AnyThread_getContractInfoConsent(const std::string &request, const beam::wallet::IWalletApi::ParseResult& pinfo)
     {
-        std::weak_ptr<WebAPI_Beam> wp = shared_from_this();
+        std::weak_ptr<WasmBeamApi> wp = shared_from_this();
         getAsyncWallet().makeIWTCall([] () -> boost::any {return boost::none;},
             [this, wp, request, pinfo](const boost::any&)
             {
@@ -407,7 +406,7 @@ namespace beam::applications {
         );
     }
 
-    void WebAPI_Beam::sendApproved(const std::string& request)
+    void WasmBeamApi::sendApproved(const std::string& request)
     {
         //
         // This is UI thread
@@ -416,7 +415,7 @@ namespace beam::applications {
         UIThread_callWalletApiImp(request);
     }
 
-    void WebAPI_Beam::sendRejected(const std::string& request)
+    void WasmBeamApi::sendRejected(const std::string& request)
     {
         //
         // This is UI thread
@@ -425,7 +424,7 @@ namespace beam::applications {
         AnyThread_sendError(request, beam::wallet::ApiError::UserRejected, std::string());
     }
 
-    void WebAPI_Beam::contractInfoApproved(const std::string& request)
+    void WasmBeamApi::contractInfoApproved(const std::string& request)
     {
         //
         // This is UI thread
@@ -434,7 +433,7 @@ namespace beam::applications {
         UIThread_callWalletApiImp(request);
     }
 
-    void WebAPI_Beam::contractInfoRejected(const std::string& request)
+    void WasmBeamApi::contractInfoRejected(const std::string& request)
     {
         //
         // This is UI thread
@@ -443,7 +442,7 @@ namespace beam::applications {
         AnyThread_sendError(request, beam::wallet::ApiError::UserRejected, std::string());
     }
 
-    IWalletModelAsync& WebAPI_Beam::getAsyncWallet()
+    IWalletModelAsync& WasmBeamApi::getAsyncWallet()
     {
         assert(_client);
         return *_client->getAsync();

@@ -24,7 +24,7 @@
 #include "wallet/transactions/lelantus/push_transaction.h"
 #include "mnemonic/mnemonic.h"
 #include "utility/string_helpers.h"
-#include "webapi_beam.h"
+#include "wasm_beamapi.h"
 
 #include <boost/algorithm/string.hpp>
 
@@ -104,8 +104,8 @@ public:
     {
         virtual void OnSyncProgress(int done, int total) {}
         virtual void OnResult(const json&) {}
-        virtual void OnApproveSend(const std::string&, const string&, WebAPI_Beam::WeakPtr api) {}
-        virtual void OnApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WebAPI_Beam::WeakPtr api) {}
+        virtual void OnApproveSend(const std::string&, const string&, WasmBeamApi::WeakPtr api) {}
+        virtual void OnApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WasmBeamApi::WeakPtr api) {}
     };
 
     using WalletClient::WalletClient;
@@ -131,9 +131,9 @@ public:
         });
     }
 
-    void ApproveSend(const std::string& request, const std::string& info, WebAPI_Beam::Ptr api)
+    void ApproveSend(const std::string& request, const std::string& info, WasmBeamApi::Ptr api)
     {
-        WebAPI_Beam::WeakPtr wpApi = api;
+        WasmBeamApi::WeakPtr wpApi = api;
 
         postFunctionToClientContext([this, sp = shared_from_this(), request, info, wpApi]()
         {
@@ -144,9 +144,9 @@ public:
         });
     }
 
-    void ApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WebAPI_Beam::Ptr api)
+    void ApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WasmBeamApi::Ptr api)
     {
-        WebAPI_Beam::WeakPtr wpApi = api;
+        WasmBeamApi::WeakPtr wpApi = api;
         postFunctionToClientContext([this, sp = shared_from_this(), request, info, amounts, wpApi]()
         {
             if (m_CbHandler)
@@ -245,11 +245,11 @@ private:
     IWalletApi::Ptr m_WalletApi;
 };
 
-class AppAPI : public WebAPI_Beam
+class AppAPI : public WasmBeamApi
 {
 public:
     AppAPI(WalletClient2::Ptr client, IShadersManager::Ptr shaders, const std::string& version, const std::string& appid, const std::string& appname)
-        : WebAPI_Beam(client, client->GetWalletDB(), shaders, version, appid, appname)
+        : WasmBeamApi(client, client->GetWalletDB(), shaders, version, appid, appname)
         , m_Client2(client)
     {
 
@@ -322,7 +322,7 @@ private:
 class AppAPICallback
 {
 public:
-    AppAPICallback(WebAPI_Beam::WeakPtr sp)
+    AppAPICallback(WasmBeamApi::WeakPtr sp)
         : m_Api(sp)
     {}
 
@@ -355,7 +355,7 @@ public:
     }
 
 private:
-    WebAPI_Beam::WeakPtr m_Api;
+    WasmBeamApi::WeakPtr m_Api;
 };
 
 class WasmWalletClient
@@ -547,7 +547,7 @@ public:
         }
     }
 
-    void OnApproveSend(const std::string& request, const std::string& info, WebAPI_Beam::WeakPtr api) override
+    void OnApproveSend(const std::string& request, const std::string& info, WasmBeamApi::WeakPtr api) override
     {
         AssertMainThread();
         if (m_ApproveSendHandler && !m_ApproveSendHandler->isNull())
@@ -556,7 +556,7 @@ public:
         }
     }
 
-    void OnApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WebAPI_Beam::WeakPtr api) override
+    void OnApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WasmBeamApi::WeakPtr api) override
     {
         AssertMainThread();
         if (m_ApproveContractInfoHandler && !m_ApproveContractInfoHandler->isNull())
@@ -703,7 +703,7 @@ EMSCRIPTEN_BINDINGS()
         .function("setHandler", &AppAPI::SetResultHandler)
         ;
     class_<AppAPICallback>("AppAPICallback")
-        .constructor<WebAPI_Beam::Ptr>()
+        .constructor<WasmBeamApi::Ptr>()
         .function("sendApproved", &AppAPICallback::SendApproved)
         .function("sendRejected", &AppAPICallback::SendRejected)
         .function("contractInfoApproved", &AppAPICallback::ContractInfoApproved)
