@@ -24,6 +24,7 @@ namespace beam::wallet {
         explicit WalletAssetMeta(const Asset::Full& info);
 
         bool isStd() const;
+        bool isStd_v6_0() const;
         bool isStd_v5_0() const;
         void LogInfo(const std::string& prefix = "\t") const;
 
@@ -38,13 +39,24 @@ namespace beam::wallet {
         std::string GetColor() const;
         unsigned GetSchemaVersion() const;
 
+        typedef std::map<std::string, std::string> MetaMap;
+        inline const MetaMap& GetMetaMap() const
+        {
+            return _values;
+        }
+
+        inline const std::string& str() const
+        {
+            return _meta;
+        }
+
     private:
         void Parse();
 
-        typedef std::map<std::string, std::string> SMap;
-        SMap _values;
-        bool _std;
-        bool _std_v5_0;
+        MetaMap _values;
+        bool _std = false;
+        bool _std_v5_0 = false;
+        bool _std_v6_0 = false;
         std::string _meta;
     };
 

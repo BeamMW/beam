@@ -126,6 +126,8 @@ namespace Wasm {
 
 						if (nShift >= nBitsMax)
 						{
+							m_ModeTriggered = true;
+
 							constexpr uint32_t nBitsJustFed = ((nBitsMax - 1) % 7) + 1; // how many bits were just fed into result
 							static_assert(nBitsJustFed < 6); // the 0x40 bit was not fed. It's unnecessary
 
@@ -836,9 +838,12 @@ namespace Wasm {
 		{
 			auto& b = get_B();
 
-			if (m_Unreachable && (m_Operands.size() > b.m_OperandsAtExit))
+			if (m_Unreachable)
+			{
 				// sometimes the compiler won't bother to restore stack operands past unconditional return. Ignore this.
-				m_Operands.resize(b.m_OperandsAtExit);
+				while (m_Operands.size() > b.m_OperandsAtExit)
+					Pop();
+			}
 
 			TestBlockCanClose(b);
 

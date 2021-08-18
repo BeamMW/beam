@@ -110,7 +110,9 @@ void TestWalletDataBase()
     walletDB->storeCoin(coin2);
 
     {
-        auto coins = walletDB->selectCoins(7, Zero);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        walletDB->selectCoins2(0, 7, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 2);
 
         // simulate locking
@@ -129,7 +131,10 @@ void TestWalletDataBase()
         }
     }
 
-    WALLET_CHECK(walletDB->selectCoins(5, Zero).size() == 0);
+    vector<Coin> coins;
+    vector<ShieldedCoin> shieldedCoins;
+    walletDB->selectCoins2(0, 5, Zero, coins, shieldedCoins, 0, false);
+    WALLET_CHECK(coins.size() == 0);
 
     {
         Block::SystemState::ID a;
@@ -828,25 +833,35 @@ void TestSelect()
     }
     for (Amount i = 1; i <= c; ++i)
     {
-        auto coins = db->selectCoins(i, Zero);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        db->selectCoins2(0, i, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Value == i);
     }
     {
-        auto coins = db->selectCoins(56, Zero);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        db->selectCoins2(0, 56, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.empty());
     }
     {
-        auto coins = db->selectCoins(55, Zero);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        db->selectCoins2(0, 55, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 10);
     }
     {
-        auto coins = db->selectCoins(15, Zero);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        db->selectCoins2(0, 15, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 2);
     }
     for (Amount i = c + 1; i <= 55; ++i)
     {
-        auto coins = db->selectCoins(i, Zero);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        db->selectCoins2(0, i, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(!coins.empty());
     }
     // double coins
@@ -857,109 +872,139 @@ void TestSelect()
     }
     for (Amount i = 1; i <= c; ++i)
     {
-        auto coins = db->selectCoins(i, Zero);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        db->selectCoins2(0, i, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Value == i);
     }
     {
-        auto coins = db->selectCoins(111, Zero);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        db->selectCoins2(0, 111, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.empty());
     }
     {
-        auto coins = db->selectCoins(110, Zero);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        db->selectCoins2(0, 110, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 20);
     }
     for (Amount i = c + 1; i <= 110; ++i)
     {
-        auto coins = db->selectCoins(i, Zero);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        db->selectCoins2(0, i, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(!coins.empty());
         auto sum = accumulate(coins.begin(), coins.end(), Amount(0), [](const auto& left, const auto& right) {return left + right.m_ID.m_Value; });
         WALLET_CHECK(sum == i);
     }
 
     {
-    db->removeCoins(ExtractIDs(db->selectCoins(110, Zero)));
-    vector<Coin> coins = {
-        CreateAvailCoin(2),
-        CreateAvailCoin(1),
-        CreateAvailCoin(9) };
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        db->selectCoins2(0, 110, Zero, coins, shieldedCoins, 0, false);
+        db->removeCoins(ExtractIDs(coins));
 
-    db->storeCoins(coins);
-    coins = db->selectCoins(6, Zero);
-    WALLET_CHECK(coins.size() == 1);
-    WALLET_CHECK(coins[0].m_ID.m_Value == 9);
+        coins = {
+            CreateAvailCoin(2),
+            CreateAvailCoin(1),
+            CreateAvailCoin(9) };
+
+        db->storeCoins(coins);
+        db->selectCoins2(0, 6, Zero, coins, shieldedCoins, 0, false);
+        WALLET_CHECK(coins.size() == 1);
+        WALLET_CHECK(coins[0].m_ID.m_Value == 9);
     }
     {
-        db->removeCoins(ExtractIDs(db->selectCoins(12, Zero)));
-        vector<Coin> coins = {
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        db->selectCoins2(0, 12, Zero, coins, shieldedCoins, 0, false);
+        db->removeCoins(ExtractIDs(coins));
+        coins = {
             CreateAvailCoin(2),
             CreateAvailCoin(4),
             CreateAvailCoin(4),
             CreateAvailCoin(4),
             CreateAvailCoin(4) };
         db->storeCoins(coins);
-        coins = db->selectCoins(5, Zero);
+        db->selectCoins2(0, 5, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 2);
         WALLET_CHECK(coins.back().m_ID.m_Value == 2);
     }
     {
-        db->removeCoins(ExtractIDs(db->selectCoins(18, Zero)));
-        vector<Coin> coins = {
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        db->selectCoins2(0, 18, Zero, coins, shieldedCoins, 0, false);
+        db->removeCoins(ExtractIDs(coins));
+        coins = {
             CreateAvailCoin(4),
             CreateAvailCoin(4),
             CreateAvailCoin(4),
             CreateAvailCoin(4) };
         db->storeCoins(coins);
-        coins = db->selectCoins(1, Zero);
+        db->selectCoins2(0, 1, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Value == 4);
     }
     {
-        db->removeCoins(ExtractIDs(db->selectCoins(16, Zero)));
-        vector<Coin> coins = {
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        db->selectCoins2(0, 16, Zero, coins, shieldedCoins, 0, false);
+        db->removeCoins(ExtractIDs(coins));
+        coins = {
             CreateAvailCoin(3),
             CreateAvailCoin(4),
             CreateAvailCoin(5),
             CreateAvailCoin(7) };
 
         db->storeCoins(coins);
-        coins = db->selectCoins(6, Zero);
+        db->selectCoins2(0, 6, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Value == 7);
     }
     {
-        db->removeCoins(ExtractIDs(db->selectCoins(19, Zero)));
-        vector<Coin> coins = {
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        db->selectCoins2(0, 19, Zero, coins, shieldedCoins, 0, false);
+        db->removeCoins(ExtractIDs(coins));
+        coins = {
             CreateAvailCoin(1),
             CreateAvailCoin(2),
             CreateAvailCoin(3),
             CreateAvailCoin(4) };
 
         db->storeCoins(coins);
-        coins = db->selectCoins(4, Zero);
+        db->selectCoins2(0, 4, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Value == 4);
 
-        coins = db->selectCoins(7, Zero);
+        db->selectCoins2(0, 7, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 2);
         WALLET_CHECK(coins[0].m_ID.m_Value == 4);
         WALLET_CHECK(coins[1].m_ID.m_Value == 3);
     }
     {
-        db->removeCoins(ExtractIDs(db->selectCoins(10, Zero)));
-        vector<Coin> coins = {
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        db->selectCoins2(0, 10, Zero, coins, shieldedCoins, 0, false);
+        db->removeCoins(ExtractIDs(coins));
+        coins = {
             CreateAvailCoin(2),
             CreateAvailCoin(5),
             CreateAvailCoin(7) };
 
         db->storeCoins(coins);
-        coins = db->selectCoins(6, Zero);
+        db->selectCoins2(0, 6, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Value == 7);
     }
     {
-        db->removeCoins(ExtractIDs(db->selectCoins(14, Zero)));
-        vector<Coin> coins = {
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        db->selectCoins2(0, 14, Zero, coins, shieldedCoins, 0, false);
+        db->removeCoins(ExtractIDs(coins));
+        coins = {
             CreateAvailCoin(235689),
             CreateAvailCoin(2999057),
             CreateAvailCoin(500000),
@@ -970,11 +1015,11 @@ void TestSelect()
         };
 
         db->storeCoins(coins);
-        coins = db->selectCoins(41000000, Zero);
+        db->selectCoins2(0, 41000000, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 2);
         WALLET_CHECK(coins[1].m_ID.m_Value == 2999057);
         WALLET_CHECK(coins[0].m_ID.m_Value == 40000000);
-        coins = db->selectCoins(4000000, Zero);
+        db->selectCoins2(0, 4000000, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Value == 5000000);
     }
@@ -985,7 +1030,9 @@ vector<Coin> SelectCoins(IWalletDB::Ptr db, Amount amount, bool printCoins = tru
     helpers::StopWatch sw;
     cout << "Selecting " << amount << " Groths\n";
     sw.start();
-    auto selectedCoins = db->selectCoins(amount, Zero);
+    vector<Coin> selectedCoins;
+    vector<ShieldedCoin> shieldedCoins;
+    db->selectCoins2(0, amount, Zero, selectedCoins, shieldedCoins, 0, false);
     sw.stop();
     cout << "Elapsed time: " << sw.milliseconds() << " ms\n";
 
@@ -1249,7 +1296,7 @@ void TestSelect7()
     coins.push_back(CreateAvailCoin(Amount(6'456'001'778'569)));
     db->storeCoins(coins);
 
-    storage::Totals totals(*db);
+    storage::Totals totals(*db, false);
     auto t = totals.GetBeamTotals();
     WALLET_CHECK(AmountBig::get_Lo(t.Avail) == 6'518'975'908'344);
 
@@ -1568,6 +1615,73 @@ void TestEvents()
     }
 }
 
+void TestShieldedStatus()
+{
+    cout << "\nWallet database shielded coin status test\n";
+    auto db = createSqliteWalletDB();
+
+    db->set_MaxPrivacyLockTimeLimitHours(72);
+    db->set_ShieldedOuts(65);
+
+
+    ShieldedTxo::DataParams params;
+
+    params.m_Output.m_Value = 340;
+    params.m_Output.m_AssetID = 0;
+
+    auto* packedMessage = ShieldedTxo::User::ToPackedMessage(params.m_Output.m_User);
+    packedMessage->m_MaxPrivacyMinAnonymitySet = 64;
+
+    ShieldedCoin c;
+    c.m_TxoID = 2;
+    c.m_CoinID.m_Key.m_nIdx = 0;
+    c.m_confirmHeight = 2;
+    params.ToID(c.m_CoinID);
+    storage::DeduceStatus(*db, c, static_cast<Height>(72*60));
+    WALLET_CHECK(c.m_Status == ShieldedCoin::Status::Maturing);
+    storage::DeduceStatus(*db, c, static_cast<Height>(72*60+2));
+    WALLET_CHECK(c.m_Status == ShieldedCoin::Status::Available);
+}
+
+void TestShieldedStatus2()
+{
+    cout << "\nWallet database shielded coin status test 2\n";
+    auto db = createSqliteWalletDB();
+
+    db->set_MaxPrivacyLockTimeLimitHours(72);
+
+
+    ShieldedTxo::DataParams params;
+
+    params.m_Output.m_Value = 340;
+    params.m_Output.m_AssetID = 0;
+
+    auto* packedMessage = ShieldedTxo::User::ToPackedMessage(params.m_Output.m_User);
+    packedMessage->m_MaxPrivacyMinAnonymitySet = 32;
+    db->set_ShieldedOuts(1ULL << 14);
+
+    ShieldedCoin c;
+    c.m_TxoID = 2;
+    c.m_CoinID.m_Key.m_nIdx = 0;
+    c.m_confirmHeight = 2;
+    params.ToID(c.m_CoinID);
+    storage::DeduceStatus(*db, c, static_cast<Height>(24 * 60));
+    WALLET_CHECK(c.m_Status == ShieldedCoin::Status::Maturing);
+    db->set_ShieldedOuts(1ULL << 15);
+    storage::DeduceStatus(*db, c, static_cast<Height>(24 * 60));
+    WALLET_CHECK(c.m_Status == ShieldedCoin::Status::Available);
+
+    packedMessage->m_MaxPrivacyMinAnonymitySet = 64;
+    params.ToID(c.m_CoinID);
+    db->set_ShieldedOuts(1ULL << 15);
+    storage::DeduceStatus(*db, c, static_cast<Height>(24 * 60));
+    WALLET_CHECK(c.m_Status == ShieldedCoin::Status::Maturing);
+
+    db->set_ShieldedOuts((1ULL << 16) + 2);
+    storage::DeduceStatus(*db, c, static_cast<Height>(24 * 60));
+    WALLET_CHECK(c.m_Status == ShieldedCoin::Status::Available);
+}
+
 }
 
 int main() 
@@ -1602,6 +1716,8 @@ int main()
     TestNotifications();
     TestExchangeRates();
     TestVouchers();
+    TestShieldedStatus();
+    TestShieldedStatus2();
 
     return WALLET_CHECK_RESULT;
 }

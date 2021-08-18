@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
 
 #include <boost/program_options.hpp>
@@ -24,8 +23,8 @@ namespace beam::wallet
 {
 	class Wallet;
 
-bool ReadAmount(const po::variables_map& vm, Amount& amount, const Amount& limit = std::numeric_limits<Amount>::max(), bool asset = false);
-bool ReadFee(const po::variables_map& vm, Amount& fee, const Wallet&, bool checkFee, bool hasShieldedOutputs = false);
-bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params);
-bool LoadBaseParamsForTX(const po::variables_map& vm, const Wallet&, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID = false);
-} // namespace beam::wallet
+    bool ReadAmount(const po::variables_map& vm, Amount& amount, const Amount& limit = std::numeric_limits<Amount>::max(), Asset::ID assetId = Asset::s_BeamID);
+    bool ReadFee(const po::variables_map& vm, Amount& fee, const Wallet&, bool hasShieldedOutputs = false);
+    bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params);
+    bool LoadBaseParamsForTX(const po::variables_map& vm, const Wallet&, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool skipReceiverWalletID = false);
+}

@@ -14,46 +14,60 @@
 
 #include "version.h"
 #include "utility/string_helpers.h"
+#include "common.h"
+#include <regex>
 
-namespace beam
+
+namespace std
 {
-    std::string Version::to_string() const
+    string to_string(const beam::Version& v)
     {
-        std::string maj(std::to_string(m_major));
-        std::string min(std::to_string(m_minor));
-        std::string rev(std::to_string(m_revision));
-        std::string res;
+        string maj(to_string(v.m_major));
+        string min(to_string(v.m_minor));
+        string rev(to_string(v.m_revision));
+        string res;
         res.reserve(maj.size() + min.size() + rev.size());
         res.append(maj).push_back('.');
         res.append(min).push_back('.');
         res.append(rev);
         return res;
     }
+}
 
+namespace beam
+{
     bool Version::from_string(const std::string& verString)
     {
         try
         {
-            auto stringList = string_helpers::split(verString, '.');
-            if (stringList.size() > 3) return false;
-
-            std::vector<uint32_t> verList(3, 0);
-            auto it = std::begin(verList);
-
-            for (const auto& str : stringList)
+            std::regex libVersionRegex("\\d{1,}\\.\\d{1,}\\.\\d{1,}");
+            if (std::regex_match(verString, libVersionRegex))
             {
-                size_t strEnd = 0;
-                uint32_t integer = std::stoul(str, &strEnd);
-                if (strEnd != str.size())
+                auto stringList = string_helpers::split(verString, '.');
+                if (stringList.size() > 3) return false;
+
+                std::vector<uint32_t> verList(3, 0);
+                auto it = std::begin(verList);
+
+                for (const auto& str : stringList)
                 {
-                    return false;
+                    size_t strEnd = 0;
+                    uint32_t integer = std::stoul(str, &strEnd);
+                    if (strEnd != str.size())
+                    {
+                        return false;
+                    }
+                    *it = integer;
+                    it++;
                 }
-                *it = integer;
-                it++;
+                m_major = verList[0];
+                m_minor = verList[1];
+                m_revision = verList[2];
             }
-            m_major = verList[0];
-            m_minor = verList[1];
-            m_revision = verList[2];
+            else
+            {
+                return wallet::fromByteBuffer(ByteBuffer{ verString.begin(), verString.end() }, *this);
+            }
         }
         catch(...)
         {
@@ -85,5 +99,10 @@ namespace beam
     bool Version::operator<=(const Version& other) const
     {
         return *this == other || *this < other;
+    }
+
+    bool ClientVersion::operator<(const ClientVersion& other) const
+    {
+        return m_revision < other.m_revision;
     }
 } // namespace beam

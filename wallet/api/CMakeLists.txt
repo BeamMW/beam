@@ -1,19 +1,23 @@
 cmake_minimum_required(VERSION 3.13)
 
 add_library(wallet_api STATIC
-    v6_0/api_base.cpp
-    v6_0/api_errors_imp.cpp
-    v6_0/wallet_api.cpp
-    v6_0/wallet_api_handle.cpp
-    v6_0/wallet_api_parse.cpp
+    base/api_base.cpp
+    base/api_errors_imp.cpp
     i_wallet_api.cpp
+    v6_0/v6_api.cpp
+    v6_0/v6_api_handle.cpp
+    v6_0/v6_api_parse.cpp
+    v6_1/v6_1_api.cpp
+    v6_1/v6_1_api_handle.cpp
+    v6_1/v6_1_api_parse.cpp
+    v6_1/v6_1_api_notify.cpp
 )
 
 if(BEAM_ATOMIC_SWAP_SUPPORT)
     target_sources(wallet_api
         PRIVATE
-            v6_0/wallet_api_swap_handle.cpp
-            v6_0/wallet_api_swap_parse.cpp
+            v6_0/v6_api_swap_handle.cpp
+            v6_0/v6_api_swap_parse.cpp
             cli/swap_client.cpp
             cli/swap_eth_client.cpp
     )
@@ -29,7 +33,11 @@ target_link_libraries(wallet_api
 if (NOT BEAM_WALLET_CLIENT_LIBRARY)
     set(WALLET_API_NAME wallet-api${BEAM_TARGET_SUFFIX})
 
-    add_executable(${WALLET_API_NAME} cli/api_cli.cpp cli/api_cli_swap.cpp)
+    add_executable(${WALLET_API_NAME} cli/api_cli.cpp)
+    
+    if (BEAM_ATOMIC_SWAP_SUPPORT)
+        target_sources(${WALLET_API_NAME} PRIVATE cli/api_cli_swap.cpp)
+    endif()
 
     target_link_libraries(${WALLET_API_NAME}
         PRIVATE

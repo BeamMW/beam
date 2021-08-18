@@ -17,5 +17,6 @@
 
 namespace beam::wallet
 {
-    void RegisterAssetCreators(Wallet& wallet);
+    void RegisterAllAssetCreators(Wallet& wallet);
+    void RegusterDappsAssetCreators(Wallet& wallet);
 }

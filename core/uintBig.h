@@ -180,6 +180,11 @@ namespace beam
 			return !(*this == Zero);
 		}
 
+		uint8_t get_Msb() const
+		{
+			return m_pData[0] >> 7;
+		}
+
 		template <typename T>
 		void AssignOrdinal(T x)
 		{
@@ -353,6 +358,10 @@ namespace beam
 			return s;
 		}
 	};
+
+	template <>
+	struct uintBig_t<0>
+	{};
 
 	template <typename T>
 	struct uintBigFor {

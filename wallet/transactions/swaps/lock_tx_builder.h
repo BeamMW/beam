@@ -30,7 +30,7 @@ namespace beam::wallet
 
         bool IsConventional() override { return false; }
         void SendToPeer(SetTxParameter&&) override;
-        void FinalyzeTxInternal() override;
+        void FinalizeTxInternal() override;
 
         ECC::Scalar::Native m_Sk; // blinding factor
         ECC::Point::Native m_PubKeyN;

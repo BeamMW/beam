@@ -149,6 +149,7 @@ jobs:
         codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/api/wallet-api${{env.BEAM_TARGET_SUFFIX}}
         codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp explorer/explorer-node${{env.BEAM_TARGET_SUFFIX}}
         codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}}
+        codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp bvm/ethash_service/ethash-service
 
     - name: Checksum [ubuntu]
       if: matrix.os == 'ubuntu-16.04' || matrix.os =='ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
@@ -158,6 +159,7 @@ jobs:
         sha256sum wallet/api/wallet-api${{env.BEAM_TARGET_SUFFIX}} > wallet/api/wallet-api${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
         sha256sum explorer/explorer-node${{env.BEAM_TARGET_SUFFIX}} > explorer/explorer-node${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
         sha256sum wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}} > wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
+        sha256sum bvm/ethash_service/ethash-service > bvm/ethash_service/ethash-service-checksum.txt
 
     - name: Checksum [macos-10.15]
       if: matrix.os == 'macos-10.15'
@@ -167,6 +169,7 @@ jobs:
         shasum -a 256 wallet/api/wallet-api${{env.BEAM_TARGET_SUFFIX}} > wallet/api/wallet-api${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
         shasum -a 256 explorer/explorer-node${{env.BEAM_TARGET_SUFFIX}} > explorer/explorer-node${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
         shasum -a 256 wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}} > wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
+        shasum -a 256 bvm/ethash_service/ethash-service > bvm/ethash_service/ethash-service-checksum.txt
 
     - name: Collect [macos-10.15 && ununtu all]
       shell: bash
@@ -178,6 +181,7 @@ jobs:
         tar -cvf artifacts/wallet-api${{env.BEAM_TARGET_SUFFIX}}.tar -C wallet/api wallet-api${{env.BEAM_TARGET_SUFFIX}} wallet-api${{env.BEAM_TARGET_SUFFIX}}-checksum.txt wallet-api.cfg
         tar -cvf artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}}.tar -C explorer explorer-node${{env.BEAM_TARGET_SUFFIX}} explorer-node${{env.BEAM_TARGET_SUFFIX}}-checksum.txt explorer-node.cfg
         tar -cvf artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}.tar -C wallet/broadcaster broadcaster${{env.BEAM_TARGET_SUFFIX}} broadcaster${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
+        tar -cvf artifacts/ethash-service.tar -C bvm/ethash_service ethash-service ethash-service-checksum.txt
 
 
     - name: Collect [windows]
@@ -194,6 +198,7 @@ jobs:
         cp explorer/${{env.BUILD_CONFIG}}/explorer-node${{env.BEAM_TARGET_SUFFIX}}.exe artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}}.exe
         cp explorer/explorer-node.cfg artifacts/explorer-node.cfg
         cp wallet/broadcaster/${{env.BUILD_CONFIG}}/broadcaster${{env.BEAM_TARGET_SUFFIX}}.exe artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}.exe
+        cp bvm/ethash_service/${{env.BUILD_CONFIG}}/ethash-service.exe artifacts/ethash-service.exe
 
     - name: Collect pdb [windows]
       shell: bash
@@ -205,6 +210,7 @@ jobs:
         cp wallet/api/${{env.BUILD_CONFIG}}/wallet-api${{env.BEAM_TARGET_SUFFIX}}.pdb pdb/wallet-api${{env.BEAM_TARGET_SUFFIX}}.pdb
         cp explorer/${{env.BUILD_CONFIG}}/explorer-node${{env.BEAM_TARGET_SUFFIX}}.pdb pdb/explorer-node${{env.BEAM_TARGET_SUFFIX}}.pdb
         cp wallet/broadcaster/${{env.BUILD_CONFIG}}/broadcaster${{env.BEAM_TARGET_SUFFIX}}.pdb pdb/broadcaster${{env.BEAM_TARGET_SUFFIX}}.pdb
+        cp bvm/ethash_service/${{env.BUILD_CONFIG}}/ethash-service.pdb pdb/ethash-service.pdb
 
     - name: Checksum [windows]
       if: matrix.os == 'windows-2019'
@@ -214,6 +220,7 @@ jobs:
         certUtil -hashfile artifacts/wallet-api${{env.BEAM_TARGET_SUFFIX}}.exe SHA256 > artifacts/wallet-api${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
         certUtil -hashfile artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}}.exe SHA256 > artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
         certUtil -hashfile artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}.exe SHA256 > artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
+        certUtil -hashfile artifacts/ethash-service.exe SHA256 > artifacts/ethash-service-checksum.txt
 
     - name: OS name [macos-10.15]
       if: matrix.os == 'macos-10.15'
@@ -260,6 +267,12 @@ jobs:
       with:
         name: ${{env.PLATFORM_NAME}}-broadcaster${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
         path: artifacts/broadcaster*
+        if-no-files-found: error
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: ${{env.PLATFORM_NAME}}-ethash-service${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+        path: artifacts/ethash-service*
         if-no-files-found: error
 
 ###############################################################################

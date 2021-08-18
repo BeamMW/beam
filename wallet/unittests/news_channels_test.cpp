@@ -169,6 +169,9 @@ namespace
         case BroadcastContentType::DexOffers:
             header.type = 4;
             break;
+        case BroadcastContentType::AssetVerification:
+            header.type = 5;
+            break;
         }
         header.size = static_cast<uint32_t>(content.size());
         header.write(packet.data());
@@ -219,8 +222,7 @@ namespace
             WALLET_CHECK(v == Version());
 
             WALLET_CHECK_NO_THROW(res = v.from_string("12345.6789"));
-            WALLET_CHECK(res == true);
-            WALLET_CHECK(v == Version(12345,6789,0));
+            WALLET_CHECK(res == false);
 
             WALLET_CHECK_NO_THROW(res = v.from_string("12,345.6789"));
             WALLET_CHECK(res == false);
@@ -241,13 +243,20 @@ namespace
         }
     }
 
+    template<typename F>
+    void CheckAfter(unsigned interval, F&& func)
+    {
+        auto timer = io::Timer::create(io::Reactor::get_Current());
+        timer->start(interval, false, std::move(func));
+    }
+
     void TestNewsChannelsObservers()
     {
         cout << endl << "Test news channels observers" << endl;
 
         auto storage = createSqliteWalletDB();
-        MockBbsNetwork network;
-        BroadcastRouter broadcastRouter(network, network);
+        auto network = MockBbsNetwork::CreateInstance();
+        BroadcastRouter broadcastRouter(network, *network, MockTimestampHolder::CreateInstance());
         BroadcastMsgValidator validator;
         AppUpdateInfoProvider updatesProvider(broadcastRouter, validator);
         WalletUpdatesProvider walletUpdatesProvider(broadcastRouter, validator);
@@ -322,14 +331,15 @@ namespace
             // only one below should succeed
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF2);
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF3);
-            WALLET_CHECK(execCountRate == 1);
+
+            CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 1); });
 
             setAfterFork3(storage);
             // only one below should succeed
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF2);
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF3);
             setBeforeFork3(storage);
-            WALLET_CHECK(execCountRate == 2);
+            CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 2); });
         }
 
         {
@@ -342,7 +352,7 @@ namespace
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF2);
             WALLET_CHECK(execCountVers == 1);
             WALLET_CHECK(execCountWalletVers == 1);
-            WALLET_CHECK(execCountRate == 2);
+            CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 2); });
         }
         {
             cout << "Case: subscribed back" << endl;
@@ -360,7 +370,7 @@ namespace
             setAfterFork3(storage);
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF3);
             setBeforeFork3(storage);
-            WALLET_CHECK(execCountRate == 2);   // the rate was the same so no need in the notification
+            CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 2); });    // the rate was the same so no need in the notification
         }
 
         {
@@ -393,12 +403,12 @@ namespace
             WALLET_CHECK(execCountWalletVers == 2);     // BroadcastContentType::WalletUpdates are not implemented for protocol 0.0.1
 
             broadcastRouter.sendRawMessage(BroadcastContentType::ExchangeRates, createMessage(BroadcastContentType::ExchangeRates, msgRF2));
-            WALLET_CHECK(execCountRate == 3);
+            CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 3); });
 
             setAfterFork3(storage);
             broadcastRouter.sendRawMessage(BroadcastContentType::ExchangeRates, createMessage(BroadcastContentType::ExchangeRates, msgRF3));
             setBeforeFork3(storage);
-            WALLET_CHECK(execCountRate == 4);
+            CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 4); });
         }
 
         cout << "Test end" << endl;
@@ -408,8 +418,8 @@ namespace
     {
         cout << endl << "Test ExchangeRateProvider" << endl;
 
-        MockBbsNetwork network;
-        BroadcastRouter broadcastRouter(network, network);
+        auto network = MockBbsNetwork::CreateInstance();
+        BroadcastRouter broadcastRouter(network, *network, MockTimestampHolder::CreateInstance());
         BroadcastMsgValidator validator;
 
         auto storage = createSqliteWalletDB();

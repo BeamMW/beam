@@ -81,12 +81,12 @@ namespace beam::wallet
         // Callback for wallet sync progress. 
         // @param done - number of done tasks
         // @param total - number of total tasks
-        virtual void onSyncProgress(int done, int total) = 0;
+        virtual void onSyncProgress(int done, int total) {}
 
         // Callback for wallet own(trusted) node connection
         // @param id - connected node peer id
         // @param connected - true if node has connected otherwise false
-        virtual void onOwnedNode(const PeerID& id, bool connected) = 0;
+        virtual void onOwnedNode(const PeerID& id, bool connected) {}
     };
     
     // Interface for wallet message consumer
@@ -145,6 +145,7 @@ namespace beam::wallet
         bool CanCancelTransaction(const TxID& txId) const;
         void CancelTransaction(const TxID& txId);
         void DeleteTransaction(const TxID& txId);
+        void ConfirmAsset(Asset::ID);
         
         void Subscribe(IWalletObserver* observer);
         void Unsubscribe(IWalletObserver* observer);
@@ -152,7 +153,7 @@ namespace beam::wallet
         void VisitActiveTransaction(const TxVisitor& visitor);
 
         bool IsWalletInSync() const;
-        Height get_CurrentHeight() const;
+        Height get_TipHeight() const;
 
         // Count of active transactions which are not in safe state, negotiation are not finished or data is not sent to node
         size_t GetUnsafeActiveTransactionsCount() const;
@@ -162,6 +163,7 @@ namespace beam::wallet
         virtual void OnVouchersFrom(const WalletAddress&, const WalletID& myID, std::vector<ShieldedTxo::Voucher>&&);
         void RequestShieldedOutputsAt(Height h, std::function<void(Height, TxoID)>&& onRequestComplete);
         bool IsConnectedToOwnNode() const;
+        bool CanDetectCoins() const;
         void EnableBodyRequests(bool value);
         void assertThread() const; // throws if not in wallet thread
 
@@ -214,7 +216,7 @@ namespace beam::wallet
         uint32_t SyncRemains() const;
         void CheckSyncDone();
         void getUtxoProof(const Coin&);
-        void report_sync_progress();
+        void ReportSyncProgress();
         void NotifySyncProgress();
         void UpdateTransaction(const TxID& txID);
         void UpdateTransaction(BaseTransaction::Ptr tx);
@@ -256,7 +258,6 @@ namespace beam::wallet
         void CacheCommitment(const ECC::Point& comm, Height maturity, bool add);
         void ResetCommitmentsCache();
         bool IsMobileNodeEnabled() const;
-
     private:
         std::thread::id _myThread;
 
@@ -288,34 +289,34 @@ namespace beam::wallet
         struct ExtraData :public AllTasks {
             struct Transaction
             {
-                TxID m_TxID;
+                TxID m_TxID = {0};
                 SubTxID m_SubTxID = kDefaultSubTxID;
             };
             struct Utxo { Coin::ID m_CoinID; };
             struct Kernel
             {
-                TxID m_TxID;
+                TxID m_TxID = {0};
                 SubTxID m_SubTxID = kDefaultSubTxID;
             };
             struct Kernel2
             {
-                TxID m_TxID;
+                TxID m_TxID = { 0 };
                 SubTxID m_SubTxID = kDefaultSubTxID;
             };
             struct Asset
             {
-                TxID m_TxID;
+                TxID m_TxID = { 0 };
                 SubTxID m_SubTxID = kDefaultSubTxID;
             };
             struct ProofShieldedOutp
             {
-                TxID m_TxID;
+                TxID m_TxID = { 0 };
                 SubTxID m_SubTxID = kDefaultSubTxID;
                 ProofShildedOutputCallback m_callback;
             };
             struct ShieldedList
             {
-                TxID m_TxID;
+                TxID m_TxID = { 0 };
                 ShieldedListCallback m_callback;
             };
             struct ShieldedOutputsAt
@@ -324,11 +325,11 @@ namespace beam::wallet
             };
             struct BodyPack
             {
-                Height m_StartHeight;
+                Height m_StartHeight = MaxHeight;
             };
             struct Body
             {
-                Height m_Height;
+                Height m_Height = MaxHeight;
             };
         };
 

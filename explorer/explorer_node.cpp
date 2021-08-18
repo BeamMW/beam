@@ -3,6 +3,7 @@
 #include "wallet/core/secstring.h"
 #include "core/ecc_native.h"
 #include "core/block_rw.h"
+#include "bvm/bvm2.h"
 
 #include "node/node.h"
 #include "utility/cli/options.h"
@@ -34,6 +35,8 @@ struct Options {
     static const unsigned logRotationPeriod = 3*60*60*1000; // 3 hours
     std::vector<uint32_t> whitelist;
     uint32_t logCleanupPeriod;
+    ByteBuffer m_RichParser;
+    bool m_RichParserChanged = false;
 };
 
 static bool parse_cmdline(int argc, char* argv[], Options& o);
@@ -93,6 +96,8 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
         (cli::PASS, po::value<string>()->default_value(""), "password for owner key")
         (cli::IP_WHITELIST, po::value<std::string>()->default_value(""), "IP whitelist")
         (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
+        (cli::CONFIG_FILE_PATH, po::value<std::string>()->default_value("explorer-node.cfg"), "path to the config file")
+        (cli::CONTRACT_RICH_PARSER, po::value<std::string>(), "Optional shader to parse contract invocation info")
     ;
 
     cliOptions.add(createRulesOptionsDescription());
@@ -119,7 +124,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
         }
 
         ReadCfgFromFileCommon(vm, cliOptions);
-        ReadCfgFromFile(vm, cliOptions, "explorer-node.cfg");
+        ReadCfgFromFile(vm, cliOptions);
 
         vm.notify();
 
@@ -150,6 +155,26 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
 
                 o.ownerKey = kdf;
             }
+        }
+
+        auto& vArg = vm[cli::CONTRACT_RICH_PARSER];
+        if (!vArg.empty())
+        {
+            o.m_RichParserChanged = true;
+
+            auto sPath = vArg.as<std::string>();
+            if (!sPath.empty())
+            {
+                std::FStream fs;
+                fs.Open(sPath.c_str(), true, true);
+
+                o.m_RichParser.resize(static_cast<size_t>(fs.get_Remaining()));
+                if (!o.m_RichParser.empty())
+                    fs.read(&o.m_RichParser.front(), o.m_RichParser.size());
+
+                bvm2::Processor::Compile(o.m_RichParser, o.m_RichParser, bvm2::Processor::Kind::Manager);
+            }
+
         }
 
 #ifdef WIN32
@@ -207,4 +232,11 @@ void setup_node(Node& node, const Options& o) {
 
     auto& address = node.m_Cfg.m_Connect.emplace_back();
     address.resolve(o.nodeConnectTo.c_str());
+
+    node.m_Cfg.m_ProcessorParams.m_RichInfoFlags = NodeProcessor::StartParams::RichInfo::On;
+    if (o.m_RichParserChanged)
+    {
+        node.m_Cfg.m_ProcessorParams.m_RichInfoFlags |= NodeProcessor::StartParams::RichInfo::UpdShader;
+        node.m_Cfg.m_ProcessorParams.m_RichParser = o.m_RichParser;
+    }
 }

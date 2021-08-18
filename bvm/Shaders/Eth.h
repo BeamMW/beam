@@ -14,8 +14,42 @@
 
 #pragma once
 
+#include "common.h"
+
 namespace Eth
 {
+
+	void MemCopy(void* dest, const void* src, uint32_t n)
+	{
+#ifdef HOST_BUILD
+		memcpy(dest, src, n);
+#else // HOST_BUILD
+		Env::Memcpy(dest, src, n);
+#endif // HOST_BUILD
+	}
+
+
+	template <uint32_t N>
+	constexpr uint32_t strlen(char const (&s)[N])
+	{
+		return N - 1;
+	}
+
+	Opaque<1> to_opaque(char s)
+	{
+		Opaque<1> r;
+		MemCopy(&r, &s, 1);
+		return r;
+	}
+
+	template<uint32_t N>
+	auto to_opaque(char const (&s)[N])
+	{
+		constexpr auto size = sizeof(char) * (N - 1);
+		Opaque<size> r;
+		MemCopy(&r, &s, size);
+		return r;
+	}
 
 	struct Rlp
 	{
@@ -32,10 +66,35 @@ namespace Eth
 			uint32_t m_nLen; // for strings and lists
 
 			union {
-				Node* m_pC;
+				const Node* m_pC;
 				const uint8_t* m_pBuf;
 				uint64_t m_Integer;
-			};
+			} ;
+
+			template <uint32_t nBytes>
+			explicit Node(const Opaque<nBytes>& hv)
+				: m_Type(Type::String)
+				, m_nLen(nBytes)
+				, m_pBuf(reinterpret_cast<const uint8_t*>(&hv))
+			{
+			}
+
+			Node() = default;
+
+			explicit Node(uint64_t n)
+				: m_Type(Type::Integer)
+				, m_nLen(0)
+				, m_Integer(n)
+			{
+			}
+
+			template <uint32_t N>
+			Node(const Node(&nodes)[N])
+				: m_Type(Type::List)
+				, m_nLen(N)
+				, m_pC(nodes)
+			{
+			}
 
 			template <uint32_t nBytes>
 			void Set(const Opaque<nBytes>& hv)
@@ -51,7 +110,7 @@ namespace Eth
 				m_Integer = n;
 			}
 
-			static uint8_t get_BytesFor(uint64_t n)
+			static constexpr uint8_t get_BytesFor(uint64_t n)
 			{
 				uint8_t nLen = 0;
 				while (n)
@@ -126,7 +185,10 @@ namespace Eth
 
 				case Type::String:
 					{
-						WriteSize(s, 0x80, m_nLen);
+						if (m_nLen != 1 || m_pBuf[0] >= 0x80)
+						{
+							WriteSize(s, 0x80, m_nLen);
+						}
 						s.Write(m_pBuf, m_nLen);
 					}
 					break;
@@ -145,6 +207,93 @@ namespace Eth
 			}
 		};
 
+		template<typename Visitor>
+		static bool Decode(const uint8_t* input, uint32_t size, Visitor& visitor)
+		{
+			uint32_t position = 0;
+			auto decodeInteger = [&](uint8_t nBytes, uint32_t& length)
+			{
+				if (nBytes > size - position)
+					return false; 
+				length = 0;
+				while (nBytes--)
+				{
+					length = input[position++] + length * 256;
+				}
+				return true;
+			};
+
+			while (position < size)
+			{
+				auto b = input[position++];
+				if (b <= 0x7f)  // single byte
+				{
+					visitor.OnNode(Rlp::Node(to_opaque(b)));
+				}
+				else
+				{
+					uint32_t length = 0;
+					if (b <= 0xb7) // short string
+					{
+						length = b - 0x80;
+						if (length > size - position)
+							return false;
+						DecodeString(input + position, length, visitor);
+					}
+					else if (b <= 0xbf) // long string
+					{
+						if (!decodeInteger(b - 0xb7, length) || length > size - position)
+							return false;
+						DecodeString(input + position, length, visitor);
+					}
+					else if (b <= 0xf7) // short list
+					{
+						length = b - 0xc0;
+						if (length > size - position)
+							return false;
+						if (!DecodeList(input + position, length, visitor))
+							return false;
+					}
+					else if (b <= 0xff) // long list
+					{
+						if (!decodeInteger(b - 0xf7, length) || length > size - position)
+							return false;
+						if (!DecodeList(input + position, length, visitor))
+							return false;
+					}
+					else
+					{
+						return false;
+					}
+					position += length;
+				}
+			}
+			return true;
+		}
+
+		template <typename Visitor>
+		static void DecodeString(const uint8_t* input, uint32_t size, Visitor& visitor)
+		{
+			Rlp::Node n;
+			n.m_Type = Rlp::Node::Type::String;
+			n.m_nLen = size;
+			n.m_pBuf = input;
+			visitor.OnNode(n);
+		}
+
+		template <typename Visitor>
+		static bool DecodeList(const uint8_t* input, uint32_t size, Visitor& visitor)
+		{
+			Rlp::Node n;
+			n.m_Type = Rlp::Node::Type::List;
+			n.m_nLen = size;
+			n.m_pBuf = input;
+			if (visitor.OnNode(n))
+			{
+				return Decode(input, size, visitor);
+			}
+			return true;
+		}
 
 		struct HashStream
 		{
@@ -220,9 +369,6 @@ namespace Eth
 		};
 	};
 
-
-
-
 	struct Header
 	{
 		Opaque<32> m_ParentHash;
@@ -232,7 +378,8 @@ namespace Eth
 		Opaque<32> m_TxHash;
 		Opaque<32> m_ReceiptHash;
 		Opaque<256> m_Bloom;
-		Opaque<22> m_Extra;
+		Opaque<32> m_Extra;
+		uint32_t m_nExtra; // can be less than maximum size
 
 		uint64_t m_Difficulty;
 		uint64_t m_Number; // height
@@ -249,6 +396,31 @@ namespace Eth
 		void get_HashFinal(Opaque<32>& hv, const Opaque<32>& hvMixHash) const
 		{
 			get_HashInternal(hv, &hvMixHash);
+		}
+
+		void get_SeedForPoW(Opaque<64>& hv) const
+		{
+			Opaque<32> x;
+			get_HashForPow(x);
+
+#ifdef HOST_BUILD
+			beam::KeccakProcessor<512> hp;
+#else // HOST_BUILD
+			HashProcessor::Base hp;
+			hp.m_p = Env::HashCreateKeccak(512);
+#endif // HOST_BUILD
+
+			hp << x;
+
+			auto nonce = Utils::FromLE(m_Nonce);
+			hp.Write(&nonce, sizeof(nonce));
+
+			hp >> hv;
+		}
+
+		uint32_t get_Epoch() const
+		{
+			return static_cast<uint32_t>(m_Number / 30000);
 		}
 
 	private:
@@ -269,6 +441,7 @@ namespace Eth
 			pN[10].Set(m_GasUsed);
 			pN[11].Set(m_Time);
 			pN[12].Set(m_Extra);
+			pN[12].m_nLen = m_nExtra;
 
 			Rlp::Node nRoot;
 			nRoot.m_Type = Rlp::Node::Type::List;

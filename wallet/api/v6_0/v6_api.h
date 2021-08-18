@@ -13,96 +13,55 @@
 // limitations under the License.
 #pragma once
 
-#include "api_base.h"
+#include "wallet/api/base/api_base.h"
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_db.h"
-#include "wallet_api_defs.h"
+#include "v6_api_defs.h"
 #include "wallet/core/contracts/i_shaders_manager.h"
 
 namespace beam::wallet
 {
-    class WalletApi
-        : public ApiBase
+    class V6Api: public ApiBase
     {
     public:
         // MUST BE SAFE TO CALL FROM ANY THREAD
-        WalletApi(IWalletApiHandler& handler,
-                  ACL acl,
-                  std::string appid,
-                  std::string appname,
-                  IWalletDB::Ptr wdb,
-                  Wallet::Ptr wallet,
-                  ISwapsProvider::Ptr swaps,
-                  IShadersManager::Ptr contracts);
+        V6Api(IWalletApiHandler& handler, const ApiInitData& init);
 
         virtual IWalletDB::Ptr       getWalletDB() const;
         virtual Wallet::Ptr          getWallet() const;
         virtual ISwapsProvider::Ptr  getSwaps() const;
         virtual IShadersManager::Ptr getContracts() const;
-        virtual Height               get_CurrentHeight() const;
+        virtual Height               get_TipHeight() const;
 
         void assertWalletThread() const;
         void checkCAEnabled() const;
         bool getCAEnabled() const;
 
-        #define RESPONSE_FUNC(api, name, ...) \
-        void getResponse(const JsonRpcId& id, const api::Response& data, json& msg);
-        WALLET_API_METHODS(RESPONSE_FUNC)
-        #undef RESPONSE_FUNC
+        V6_API_METHODS(BEAM_API_PARSE_FUNC)
+        V6_API_METHODS(BEAM_API_RESPONSE_FUNC)
+        V6_API_METHODS(BEAM_API_HANDLE_FUNC)
 
-        #define HANDLE_FUNC(api, name, ...) \
-        virtual void onHandle##api(const JsonRpcId& id, const api& data);
-        WALLET_API_METHODS(HANDLE_FUNC)
-        #undef HANDLE_FUNC
+    protected:
+        virtual bool allowedTx(const TxDescription& tx);
+        virtual void fillAssetInfo(json& arr, const WalletAsset& info);
+        virtual void fillAddresses(json& arr, const std::vector<WalletAddress>& items);
+        virtual void fillCoins(json& arr, const std::vector<ApiCoin>& coins);
+        virtual void fillTransactions(json& arr, const std::vector<Status::Response> txs);
 
-        template<typename T>
-        void doResponse(const JsonRpcId& id, const T& response)
-        {
-            json msg;
-            getResponse(id, response, msg);
-            _handler.sendAPIResponse(msg);
-        }
-
+    private:
         void FillAddressData(const AddressData& data, WalletAddress& address);
         void doTxAlreadyExistsError(const JsonRpcId& id);
 
-         template<typename T>
-        static void doPagination(size_t skip, size_t count, std::vector<T>& res)
-        {
-            if (count > 0)
-            {
-                size_t start = skip;
-                size_t size = res.size();
-
-                if (start < size)
-                {
-                    res.erase(res.begin(), res.begin() + start);
-                    if (count < res.size())
-                    {
-                        res.erase(res.begin() + count, res.end());
-                    }
-                }
-                else res = {};
-            }
-        }
-
         template<typename T>
         void onHandleIssueConsume(bool issue, const JsonRpcId& id, const T& data);
-
         template<typename T>
         void setTxAssetParams(const JsonRpcId& id, TxParameters& tx, const T& data);
 
-    private:
         void onHandleInvokeContractWithTX(const JsonRpcId &id, const InvokeContract& data);
         void onHandleInvokeContractNoTX(const JsonRpcId &id, const InvokeContract& data);
 
         bool checkTxAccessRights(const TxParameters&);
         void checkTxAccessRights(const TxParameters&, ApiError code, const std::string& errmsg);
-
-        #define PARSE_FUNC(api, name, ...) \
-        [[nodiscard]] std::pair<api, MethodInfo> onParse##api(const JsonRpcId& id, const json& msg);
-        WALLET_API_METHODS(PARSE_FUNC)
-        #undef PARSE_FUNC
 
         template<typename T>
         std::pair<T, IWalletApi::MethodInfo> onParseIssueConsume(bool issue, const JsonRpcId& id, const json& params);
@@ -113,14 +72,12 @@ namespace beam::wallet
 
         std::string getTokenType(TokenType type) const;
 
-    protected:
+    private:
         // Do not access these directly, use getters
         IWalletDB::Ptr       _wdb;
         Wallet::Ptr          _wallet;
         ISwapsProvider::Ptr  _swaps;
-
-        std::shared_ptr<bool> _contractsGuard = std::make_shared<bool>(true);
-        IShadersManager::Ptr  _contracts;
+        IShadersManager::Ptr _contracts;
 
         struct RequestHeaderMsg
             : public proto::FlyClient::RequestEnumHdrs
@@ -129,9 +86,9 @@ namespace beam::wallet
             typedef boost::intrusive_ptr<RequestHeaderMsg> Ptr;
             ~RequestHeaderMsg() override = default;
 
-            RequestHeaderMsg(const JsonRpcId id, std::weak_ptr<bool> guard, WalletApi& wapi)
-                : _id(id)
-                , _guard(guard)
+            RequestHeaderMsg(JsonRpcId id, IWalletApi::WeakPtr guard, V6Api& wapi)
+                : _id(std::move(id))
+                , _guard(std::move(guard))
                 , _wapi(wapi)
             {}
 
@@ -139,8 +96,8 @@ namespace beam::wallet
 
         private:
             JsonRpcId _id;
-            std::weak_ptr<bool> _guard;
-            WalletApi& _wapi;
+            IWalletApi::WeakPtr _guard;
+            V6Api& _wapi;
         };
 
         std::map<TokenType, std::string> _ttypesMap;

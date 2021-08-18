@@ -93,10 +93,14 @@ namespace beam::wallet
         uint64_t m_OBSOLETTEsessionId;   // Used in the API to lock coins for specific session (see https://github.com/BeamMW/beam/wiki/Beam-wallet-protocol-API#tx_split)
 
         bool IsMaturityValid() const; // is/was the UTXO confirmed?
-        Height get_Maturity(Height offset = 0) const; // would return MaxHeight unless the UTXO was confirmed
+        Height get_Maturity() const; // would return MaxHeight unless the UTXO was confirmed
         
         std::string getStatusString() const;
+        void setOffset(uint32_t offset);
         static boost::optional<Coin::ID> FromString(const std::string& str);
+
+    private:
+        uint32_t m_offset = 0;  // confirmations count to wait before can spend coin, not stored in db, copied from tx on DeduceStatus
     };
 
     using CoinIDList = std::vector<Coin::ID>;
@@ -269,8 +273,8 @@ namespace beam::wallet
         Asset::ID getAssetID() const;
         std::string getType() const;
 
-        Height get_Maturity(Height offset) const {
-            return IsMaturityValid() ? m_confirmHeight + offset : MaxHeight;
+        Height get_Maturity() const {
+            return IsMaturityValid() ? m_confirmHeight + m_offset : MaxHeight;
         }
 
         ShieldedTxo::ID m_CoinID;
@@ -318,10 +322,12 @@ namespace beam::wallet
         };
 
         std::string getStatusString() const;
+        void setOffset(uint32_t offset);
         typedef std::pair<ShieldedCoin, UnlinkStatus> WithStatus;
         static void Sort(std::vector<WithStatus>&);
 
     private:
+    uint32_t m_offset = 0; // confirmations count to wait before can spend coin, not stored in db, copied from tx on DeduceStatus. 0 for Shielded coins
         static int32_t get_Reserve(uint32_t nEndRel, TxoID nShieldedOutsRel);
     };
 
@@ -353,7 +359,6 @@ namespace beam::wallet
             : std::runtime_error("CannotGenerateSecretException")
         {
         }
-
     };
 
     class DatabaseException : public std::runtime_error
@@ -408,6 +413,7 @@ namespace beam::wallet
         virtual void onSystemStateChanged(const Block::SystemState::ID& stateID) {};
         virtual void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) {};
         virtual void onShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& items) {};
+        virtual void onAssetChanged(ChangeAction action, Asset::ID assetID) {}
     };
 
     struct IWalletDB : IVariablesDB
@@ -463,7 +469,6 @@ namespace beam::wallet
         // Selects a list of coins matching certain specified amount
         // Selection logic will optimize for number of UTXOs and minimize change
         // Uses greedy algorithm up to a point and follows by some heuristics
-        virtual std::vector<Coin> selectCoins(Amount amount, Asset::ID) = 0;
         virtual void selectCoins2(Height, Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) = 0;
 
         // Some getters to get lists of coins by some input parameters
@@ -590,6 +595,8 @@ namespace beam::wallet
         virtual void saveExchangeRate(const ExchangeRateAtPoint&) = 0;
         virtual boost::optional<ExchangeRateAtPoint> getExchangeRateNearPoint(const Currency& from, const Currency& to, uint64_t maxHeight) const = 0;
         virtual ExchangeRatesHistory getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const = 0;
+        virtual void saveVerification(const VerificationInfo&) = 0;
+        virtual std::vector<VerificationInfo> getVerification() const = 0;
 
         // Vouchers management
         virtual boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) = 0; // deletes voucher from DB
@@ -639,7 +646,6 @@ namespace beam::wallet
         virtual void SlotFree(uint32_t) override;
 
         uint64_t AllocateKidRange(uint64_t nCount) override;
-        std::vector<Coin> selectCoins(Amount amount, Asset::ID) override;
         void selectCoins2(Height, Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) override;
         std::vector<Coin> selectCoinsEx(Amount amount, Asset::ID, bool bCanReturnLess);
 
@@ -749,6 +755,8 @@ namespace beam::wallet
         virtual ExchangeRates getLatestExchangeRates() const override;
         virtual void saveExchangeRate(const ExchangeRate&) override;
         virtual void saveExchangeRate(const ExchangeRateAtPoint&) override;
+        void saveVerification(const VerificationInfo&) override;
+        std::vector<VerificationInfo> getVerification() const override;
 
         virtual boost::optional<ExchangeRateAtPoint> getExchangeRateNearPoint(const Currency& from, const Currency& to, uint64_t maxHeight) const override;
         virtual ExchangeRatesHistory getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const override;
@@ -777,6 +785,7 @@ namespace beam::wallet
         void notifySystemStateChanged(const Block::SystemState::ID& stateID);
         void notifyAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items);
         void notifyShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& items);
+        void notifyAssetChanged(ChangeAction action, Asset::ID);
 
         bool updateCoinRaw(const Coin&);
         void insertCoinRaw(const Coin&);
@@ -981,20 +990,27 @@ namespace beam::wallet
                 AmountBig::Type IncomingShielded = 0U;
                 Height MinCoinHeightMW = 0;
                 Height MinCoinHeightShielded = 0;
+                bool IsNZ() const;
             };
 
             Totals();
-            explicit Totals(IWalletDB& db);
-            void Init(IWalletDB&);
+            Totals(IWalletDB& db, bool nzOnly);
+            void Init(IWalletDB&, bool nzOnly);
 
             bool HasTotals(Asset::ID) const;
             AssetTotals GetTotals(Asset::ID) const;
 
-            inline AssetTotals GetBeamTotals() const {
+            const std::set<Asset::ID>& GetAssetsNZ() const;
+            const std::map<Asset::ID, AssetTotals>& GetAllTotals() const;
+
+            inline AssetTotals GetBeamTotals() const
+            {
                 return GetTotals(Zero);
             }
 
+        private:
             mutable std::map<Asset::ID, AssetTotals> allTotals;
+            std::set<Asset::ID> assetsNZ;
         };
 
         // Used for Payment Proof feature
@@ -1101,7 +1117,7 @@ namespace beam::wallet
             // internal non std kernel
             // ShieldedTxo
             ShieldedTxo::Ticket     m_TxoTicket;
-            Amount                  m_Amount;
+            Amount                  m_Amount = 0;
             Asset::ID               m_AssetID = Asset::s_InvalidID;
             bool                    m_HideAssetAlways = false;
 
@@ -1215,3 +1231,18 @@ namespace beam::wallet
     uint32_t GetCoinStatus(const Coin& c);
     uint32_t GetCoinStatus(const ShieldedCoin& c);
 }  // namespace beam::wallet
+
+namespace std
+{
+    inline std::string to_string(beam::wallet::ChangeAction ac)
+    {
+        switch(ac)
+        {
+            case beam::wallet::ChangeAction::Added: return "added";
+            case beam::wallet::ChangeAction::Removed: return "removed";
+            case beam::wallet::ChangeAction::Updated: return "updated";
+            case beam::wallet::ChangeAction::Reset: return "reset";
+            default: return "unknown";
+        }
+    }
+}

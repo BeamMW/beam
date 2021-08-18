@@ -18,7 +18,19 @@
                     {
                         walletClient.setSyncHandler((done, total) => {
                             console.log("sync [" + done + "/" + total + "]");
-                        })
+                        });
+                        walletClient.setApproveSendHandler((request, info, cb)=>{
+                            console.log("Request: " + request);
+                            console.log("Info: " + info);
+                            cb.setApproved(request);
+                            //cb.setRejected(request);
+                        }) 
+                        walletClient.setApproveContractInfoHandler((request, info, amounts, cb)=>{
+                            console.log("Request: " + request);
+                            console.log("Info: " + info);
+                            cb.contractInfoApproved(request);
+                            //cb.contractInfoRejected(request);
+                        }) 
                         console.log("starting wallet...");
                         walletClient.startWallet();
                         var i = walletClient.subscribe((r)=> {
@@ -49,6 +61,21 @@
                     }
 
                     setTimeout((wc)=>{
+                        console.log("calling API...");
+                        wc.createAppAPI("appid", "appname", (api)=>{
+                            api.setHandler((r)=> {
+                                console.log("API response: " + r)
+                            })
+                            api.callWalletApi(JSON.stringify({
+                              jsonrpc: '2.0',
+                              id: 5,
+                              method: 'wallet_status'
+                            }));        
+                        });
+                    }, 10, walletClient);    
+
+                    setTimeout((wc)=>{
+                        console.log("Stopoping...")
                         console.log("is running: " + wc.isRunning())
                         wc.stopWallet(()=> {
                             console.log("is running: " + wc.isRunning())
@@ -82,7 +109,7 @@
 
                         });
 
-                    }, 2000, walletClient)
+                    }, 40000, walletClient)
 
                 });
            

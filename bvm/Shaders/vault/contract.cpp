@@ -22,18 +22,18 @@ void SaveAccount(const Vault::Key& key, Amount amount)
 }
 
 // Method_0 - constructor, called once when the contract is deployed
-export void Ctor(void*)
+BEAM_EXPORT void Ctor(void*)
 {
 }
 
 // Method_1 - destructor, called once when the contract is destroyed
-export void Dtor(void*)
+BEAM_EXPORT void Dtor(void*)
 {
 }
 
 // Public method 2 mapped to Deposit call
 // NOTE: Anyone can deposit funds to any account
-export void Method_2(const Vault::Deposit& r)
+BEAM_EXPORT void Method_2(const Vault::Deposit& r)
 {
     // Load current account (public key + asset id_
     // Ammount will always be non negative
@@ -51,7 +51,7 @@ export void Method_2(const Vault::Deposit& r)
 
 // Public method 3 mapped to the Withdraw call
 // NOTE: Only the owner of the account may withdraw funds from it
-export void Method_3(const Vault::Withdraw& r)
+BEAM_EXPORT void Method_3(const Vault::Withdraw& r)
 {
     Amount total = LoadAccount(r);
 

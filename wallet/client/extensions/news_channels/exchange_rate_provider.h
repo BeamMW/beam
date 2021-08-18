@@ -47,6 +47,7 @@ namespace beam::wallet
         bool processRatesMessage(const ByteBuffer&);
         void processRates(const ExchangeRates& rates);
         void notifySubscribers(const ExchangeRates&) const;
+        void onUpdateTimer();
 
         bool m_isEnabled;
 		IBroadcastMsgGateway& m_broadcastGateway;
@@ -54,5 +55,7 @@ namespace beam::wallet
         IWalletDB& m_storage;
         std::vector<IExchangeRatesObserver*> m_subscribers;
         std::map<std::pair<Currency, Currency>, ExchangeRate> m_cache;
+        std::set<std::pair<Currency, Currency>> m_changedPairs;
+        io::Timer::Ptr m_updateTimer;
     };
 } // namespace beam::wallet

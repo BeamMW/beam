@@ -98,12 +98,16 @@ namespace beam::wallet
     void AssetIssueTransaction::UpdateImpl()
     {
         if (!AssetTransaction::BaseUpdate())
+        {
             return;
+        }
 
         if (!_builder)
+        {
             _builder = std::make_shared<MyBuilder>(*this);
-        auto& builder = *_builder;
+        }
 
+        auto& builder = *_builder;
         if (GetState<State>() == State::Initial)
         {
             LOG_INFO()
@@ -111,7 +115,7 @@ namespace beam::wallet
                 << " "
                 << (_issue ? "Generating" : "Consuming")
                 << " asset with owner id " << builder.m_pidAsset
-                << ". Amount: " << PrintableAmount(builder.m_Value, false, kASSET, kAGROTH);
+                << ". Amount: " << PrintableAmount(builder.m_Value, false, 0, kAmountASSET, kAmountAGROTH);
 
             UpdateTxDescription(TxStatus::InProgress);
         }
@@ -121,21 +125,20 @@ namespace beam::wallet
             auto pInfo = GetWalletDB()->findAsset(builder.m_pidAsset);
             if (!pInfo)
             {
-                Height h = 0;
-                GetParameter(TxParameterID::AssetUnconfirmedHeight, h);
-                if (h)
-                    OnFailed(TxFailureReason::AssetConfirmFailed);
-                else
+                Height ucHeight = 0;
+                if(GetParameter(TxParameterID::AssetUnconfirmedHeight, ucHeight) && ucHeight != 0)
                 {
-                    GetParameter(TxParameterID::AssetConfirmedHeight, h);
-                    if (!h)
-                    {
-                        SetState(State::AssetCheck);
-                        GetGateway().confirm_asset(GetTxID(), _builder->m_pidAsset, kDefaultSubTxID);
-                    }
+                    OnFailed(TxFailureReason::AssetConfirmFailed);
+                    return;
                 }
 
-                return;
+                Height acHeight = 0;
+                if(!GetParameter(TxParameterID::AssetConfirmedHeight, acHeight) || acHeight == 0)
+                {
+                    SetState(State::AssetConfirmation);
+                    ConfirmAsset();
+                    return;
+                }
             }
 
             WalletAsset& wa = *pInfo;
@@ -147,13 +150,17 @@ namespace beam::wallet
 
             BaseTxBuilder::Balance bb(builder);
             bb.m_Map[0].m_Value -= builder.m_Fee;
+
             if (_issue)
+            {
                 bb.m_Map[wa.m_ID].m_Value += builder.m_Value;
+            }
             else
+            {
                 bb.m_Map[wa.m_ID].m_Value -= builder.m_Value;
+            }
 
             bb.CompleteBalance();
-
             builder.SaveCoins();
         }
 

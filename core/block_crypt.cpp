@@ -2122,9 +2122,9 @@ namespace beam
 		return 0;
 	}
 
-	void ExecutorMT_R::StartThread(std::thread& t, uint32_t iThread)
+	void ExecutorMT_R::StartThread(MyThread& t, uint32_t iThread)
 	{
-		t = std::thread(&ExecutorMT_R::RunThreadInternal, this, iThread, Rules::get());
+		t = MyThread(&ExecutorMT_R::RunThreadInternal, this, iThread, Rules::get());
 	}
 
 	void ExecutorMT_R::RunThreadInternal(uint32_t iThread, const Rules& r)
@@ -3142,5 +3142,83 @@ namespace beam
 	}
 
 	thread_local Asset::Proof::BatchContext* Asset::Proof::BatchContext::s_pInstance = nullptr;
+
+	/////////////////////////////////////////////
+	// FundsChangeMap
+	void FundsChangeMap::Add(Amount val, Asset::ID aid, bool bSpend)
+	{
+		if (!val)
+			return;
+
+		AmountBig::Type valBig(val);
+		if (bSpend)
+			valBig.Negate();
+
+		Add(valBig, aid);
+	}
+
+	void FundsChangeMap::Add(const AmountBig::Type& valBig, Asset::ID aid)
+	{
+		assert(valBig != Zero);
+
+		auto it = m_Map.find(aid);
+		if (m_Map.end() == it)
+			m_Map[aid] = valBig;
+		else
+		{
+			auto& dst = it->second;
+			dst += valBig;
+
+			if (dst == Zero)
+				m_Map.erase(it);
+		}
+	}
+
+	void FundsChangeMap::ToCommitment(ECC::Point::Native& res) const
+	{
+		if (m_Map.empty())
+			res = Zero;
+		else
+		{
+			ECC::MultiMac_Dyn mm;
+			mm.Prepare(static_cast<uint32_t>(m_Map.size()), 1);
+
+			for (auto it = m_Map.begin(); m_Map.end() != it; it++)
+			{
+				ECC::Scalar::Native* pK;
+				if (it->first)
+				{
+					CoinID::Generator gen(it->first);
+
+					pK = mm.m_pKCasual + mm.m_Casual;
+					mm.m_pCasual[mm.m_Casual++].Init(gen.m_hGen);
+				}
+				else
+				{
+					pK = mm.m_pKPrep + mm.m_Prepared;
+					mm.m_ppPrepared[mm.m_Prepared++] = &ECC::Context::get().m_Ipp.H_;
+				}
+
+				ECC::Scalar s;
+
+				auto& valBig = it->second;
+				auto bNegative = valBig.get_Msb();
+				if (bNegative)
+				{
+					AmountBig::Type dup(valBig);
+					dup.Negate();
+					s.m_Value = dup;
+				}
+				else
+					s.m_Value = valBig;
+
+				pK->Import(s);
+				if (bNegative)
+					*pK = -*pK;
+			}
+
+			mm.Calculate(res);
+		}
+	}
 
 } // namespace beam

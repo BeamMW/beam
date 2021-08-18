@@ -11,24 +11,22 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
 
 #include "wallet/core/base_tx_builder.h"
 #include "wallet/core/base_transaction.h"
-
 #include "common.h"
 
 namespace beam::wallet
 {
-
     class SharedTxBuilder
-        :public MutualTxBuilder
+        : public MutualTxBuilder
     {
     public:
         SharedTxBuilder(BaseTransaction& tx, SubTxID subTxID);
 
-        bool IsRedeem() const {
+        bool IsRedeem() const
+        {
             return SubTxIndex::BEAM_REDEEM_TX == m_SubTxID;
         }
 
@@ -36,21 +34,17 @@ namespace beam::wallet
         bool AddSharedInput();
 
         struct Status
-            :public MutualTxBuilder::Status
+            : public MutualTxBuilder::Status
         {
             static const Type SndSig2Sent = 10;
             static const Type RcvSig2Received = 10;
         };
 
     protected:
-
         bool IsConventional() override { return false; }
         void SendToPeer(SetTxParameter&& msgSub) override;
         bool SignTxSender() override;
         bool SignTxReceiver() override;
-        void FinalyzeTxInternal() override;
+        void FinalizeTxInternal() override;
     };
-
-
-
 }

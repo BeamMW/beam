@@ -16,6 +16,12 @@ target_link_libraries(bvm
         ethash
 )
 
+if (NOT BEAM_WALLET_CLIENT_LIBRARY)
+    add_subdirectory(ethash_service)
+endif()
+
+add_subdirectory(sid_generator)
+
 if(BEAM_TESTS_ENABLED)
     add_subdirectory(unittest)
 endif()

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 cmake_policy(SET CMP0074 NEW)
 
 set(VERSION_MAJOR 6)
-set(VERSION_MINOR 0 )
+set(VERSION_MINOR 1 )
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
@@ -103,6 +103,8 @@ set(BEAM_BRANCH_NAME ${BRANCH_NAME} CACHE INTERNAL "")
 
 message("BEAM_VERSION: ${PROJECT_VERSION}")
 
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+
 # imported target to setup dependency of beam
 add_library(beam INTERFACE IMPORTED GLOBAL)
 target_include_directories(beam INTERFACE 
@@ -119,16 +121,7 @@ if(UNIX AND NOT APPLE AND NOT ANDROID)
     set(LINUX TRUE CACHE INTERNAL "")
 endif()
 
-option(BEAM_TESTS_ENABLED "Enable unit tests" TRUE)
-if (BEAM_TESTS_ENABLED)
-    enable_testing()
-
-    function(add_test_snippet EXE_NAME LIB_NAME)
-        add_executable(${EXE_NAME} ${EXE_NAME}.cpp)
-        target_link_libraries(${EXE_NAME} ${LIB_NAME} ${ARGN})
-        add_test(NAME ${EXE_NAME} COMMAND $<TARGET_FILE:${EXE_NAME}>)
-    endfunction()
-endif()
+include(AddTest)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -154,6 +147,7 @@ if(BEAM_USE_STATIC)
 endif()
 
 option(BEAM_WALLET_CLIENT_LIBRARY "Build only binaries required for client app" FALSE)
+option(BEAM_BVM_ONLY "Build only binaries required for BVM" FALSE)
 
 #it's enabled by default for testnet
 #if(DEBUG_MESSAGES_IN_RELEASE_MODE)
@@ -161,7 +155,11 @@ option(BEAM_WALLET_CLIENT_LIBRARY "Build only binaries required for client app" 
     add_definitions(-DDEBUG_MESSAGES_IN_RELEASE_MODE)
 #endif()
 #it's enabled by default for testnet
-add_definitions(-DLOG_VERBOSE_ENABLED=1)
+if(NOT EMSCRIPTEN)
+    add_definitions(-DLOG_VERBOSE_ENABLED=1)
+else()
+    add_definitions(-DLOG_VERBOSE_ENABLED=0)
+endif()
 
 if(SHOW_CODE_LOCATION)
     target_compile_definitions(beam INTERFACE -DSHOW_CODE_LOCATION=1)
@@ -278,6 +276,8 @@ else()
 
     if (EMSCRIPTEN)
         set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s USE_PTHREADS=1 -s DISABLE_EXCEPTION_CATCHING=0 -s USE_BOOST_HEADERS=1")
+        set(BEAM_WEB_WALLET_THREADS_NUM 5)
+        add_definitions(-DBEAM_WEB_WALLET_THREADS_NUM=${BEAM_WEB_WALLET_THREADS_NUM})
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-command-line-argument") # mostly in 3rd-party libs
     endif()
 
@@ -285,7 +285,7 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-overloaded-virtual") # appears alot in our macro expansions
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-const-variable") # so what?
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function") # mostly in 3rd-party libs
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-value") # proto.h
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-value") # proto.h
 endif()
 
 if(BEAM_HW_WALLET)
@@ -436,15 +436,18 @@ add_subdirectory(3rdparty)
 add_subdirectory(utility)
 add_subdirectory(core)
 add_subdirectory(pow)
-add_subdirectory(p2p)
-add_subdirectory(http)
-add_subdirectory(keykeeper)
-add_subdirectory(wallet)
-add_subdirectory(hw_crypto)
 add_subdirectory(bvm)
-add_subdirectory(node)
-add_subdirectory(mnemonic)
-add_subdirectory(websocket)
+add_subdirectory(p2p)
+
+if(NOT BEAM_BVM_ONLY)
+    add_subdirectory(http)
+    add_subdirectory(keykeeper)
+    add_subdirectory(wallet)
+    add_subdirectory(hw_crypto)
+    add_subdirectory(node)
+    add_subdirectory(mnemonic)
+    add_subdirectory(websocket)
+endif()
 
 if (EMSCRIPTEN)
     add_subdirectory(wasmclient)

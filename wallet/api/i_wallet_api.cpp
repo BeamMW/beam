@@ -11,9 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "i_wallet_api.h"
-#include "v6_0/wallet_api.h"
 #include <stdexcept>
+#include "i_wallet_api.h"
+#include "v6_0/v6_api.h"
+#include "v6_1/v6_1_api.h"
 
 namespace beam::wallet
 {
@@ -38,7 +39,7 @@ namespace beam::wallet
         try
         {
             const auto version = SApiVer2NApiVer(sver);
-            return ApiVerMin >= version && ApiVerMax <= version;
+            return version >= ApiVerMin && version <= ApiVerMax;
         }
         catch(std::exception& ex)
         {
@@ -47,20 +48,34 @@ namespace beam::wallet
         }
     }
 
-    IWalletApi::Ptr IWalletApi::CreateInstance(const std::string& sversion, IWalletApiHandler& handler, const InitData& data)
+    IWalletApi::Ptr IWalletApi::CreateInstance(const std::string& sversion, IWalletApiHandler& handler, const ApiInitData& data)
     {
         // MUST BE SAFE TO CALL FROM ANY THREAD
         const auto version = SApiVer2NApiVer(sversion);
         return IWalletApi::CreateInstance(version, handler, data);
     }
 
-    IWalletApi::Ptr IWalletApi::CreateInstance(uint32_t version, IWalletApiHandler& handler, const InitData& data)
+    IWalletApi::Ptr IWalletApi::CreateInstance(uint32_t version, IWalletApiHandler& handler, const ApiInitData& data)
     {
         // MUST BE SAFE TO CALL FROM ANY THREAD
         switch (version)
         {
+        case ApiVer6_1:
+            {
+                auto api = new V61Api(handler, 6, 1, data);
+                auto ptr = IWalletApi::Ptr(api);
+                api->takeGuardPtr(ptr);
+                return ptr;
+            }
+
         case ApiVer6_0:
-            return std::make_shared<WalletApi>(handler, data.acl, data.appId, data.appName, data.walletDB, data.wallet, data.swaps, data.contracts);
+            {
+                auto api = new V6Api(handler, data);
+                auto ptr = IWalletApi::Ptr(api);
+                api->takeGuardPtr(ptr);
+                return ptr;
+            }
+
         default:
             return nullptr;
         }

@@ -16,6 +16,8 @@ package com.mw.beam.beamwallet.core.entities.dto;
 
 public class WalletStatusDTO
 {
+	public int assetId;
+
 	public long available;
 	public long receiving;
     public long sending;

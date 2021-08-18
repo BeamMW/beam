@@ -172,6 +172,8 @@ namespace beam
         const char* PRINT_ROLLBACK_STATS = "print_rollback_stats";
         const char* MANUAL_ROLLBACK = "manual_rollback";
         const char* MANUAL_SELECT = "manual_select";
+        const char* CONTRACT_RICH_INFO = "contract_rich_info";
+        const char* CONTRACT_RICH_PARSER = "contract_rich_parser";
         const char* CHECKDB = "check_db";
         const char* VACUUM = "vacuum";
         const char* CRASH = "crash";
@@ -250,6 +252,7 @@ namespace beam
         const char* ALLOWED_ORIGIN = "allowed_origin";
         const char* BLOCK_DETAILS = "block_details";
         const char* BLOCK_HEIGHT = "block_height";
+        const char* CONFIG_FILE_PATH = "config_file";
 
         // ethereum
         const char* ETHEREUM_SEED = "ethereum_seed";
@@ -326,6 +329,9 @@ namespace beam
         const char* EXCHANGE_CURR     = "exch_curr";
         const char* EXCHANGE_RATE     = "exch_rate";
         const char* EXCHANGE_UNIT     = "exch_unit";
+        const char* VERIFIED          = "verified";
+        const char* PREDEFINED_ICON   = "predefined_icon";
+        const char* PREDEFINED_COLOR  = "predefined_color";
 
         // lelantus
         const char* MAX_PRIVACY_ADDRESS = "max_privacy";
@@ -367,7 +373,7 @@ namespace beam
         }
     };
 
-    pair<po::options_description, po::options_description> createOptionsDescription(int flags)
+    pair<po::options_description, po::options_description> createOptionsDescription(int flags, const std::string& configFile)
     {
         po::options_description general_options("General");
         general_options.add_options()
@@ -376,7 +382,8 @@ namespace beam
             (cli::LOG_LEVEL, po::value<string>(), "set log level [error|warning|info(default)|debug|verbose]")
             (cli::FILE_LOG_LEVEL, po::value<string>(), "set file log level [error|warning|info(default)|debug|verbose]")
             (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
-            (cli::GIT_COMMIT_HASH, "print git commit hash value");
+            (cli::GIT_COMMIT_HASH, "print git commit hash value")
+            (cli::CONFIG_FILE_PATH, po::value<string>()->default_value(configFile), "path to the config file");
 
         po::options_description node_options("Node options");
         node_options.add_options()
@@ -413,6 +420,8 @@ namespace beam
             (cli::GENERATE_RECOVERY_PATH, po::value<string>(), "Recovery file to generate immediately after start")
             (cli::RECOVERY_AUTO_PATH, po::value<string>(), "path and file prefix for recovery auto-generation")
             (cli::RECOVERY_AUTO_PERIOD, po::value<uint32_t>()->default_value(30), "period (in blocks) for recovery auto-generation")
+            (cli::CONTRACT_RICH_INFO, po::value<bool>(), "Set to save rich contract invocation info")
+            (cli::CONTRACT_RICH_PARSER, po::value<std::string>(), "Optional shader to parse contract invocation info")
             ;
 
         po::options_description node_treasury_options("Node treasury options");
@@ -425,7 +434,7 @@ namespace beam
             (cli::PASS, po::value<string>(), "wallet password")
             (cli::SEED_PHRASE, po::value<string>(), "seed phrase to generate the secret key from according to BIP-39.")
             (cli::AMOUNT_FULL, po::value<string>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
-            (cli::FEE_FULL, po::value<Nonnegative<Amount>>(), "transaction fee (in Groth, 100,000,000 groth = 1 Beam)")
+            (cli::FEE_FULL, po::value<Positive<Amount>>(), "transaction fee (in Groth, 100,000,000 groth = 1 Beam)")
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "receiver address or token")
             (cli::NODE_ADDR_FULL, po::value<string>(), "beam node address")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to the wallet database file")
@@ -437,7 +446,7 @@ namespace beam
             (cli::NEW_ADDRESS_COMMENT, po::value<string>()->default_value(""), "comment for the newly created token or address")
             (cli::EXPIRATION_TIME, po::value<string>()->default_value(cli::EXPIRATION_TIME_AUTO), "expiration time for own address [auto|never|now]")
             (cli::GENERATE_PHRASE, "generate seed phrase which will be used to create a secret according to BIP-39")
-            (cli::KEY_SUBKEY, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "miner key index (use with export_miner_key)")
+            (cli::KEY_SUBKEY, po::value<Positive<uint32_t>>(), "miner key index (use with export_miner_key)")
             (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
             (cli::PAYMENT_PROOF_DATA, po::value<string>(), "payment proof data to verify")
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "set IDs of specific UTXO to send")
@@ -635,6 +644,11 @@ namespace beam
         return rules_options;
     }
 
+    bool ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc)
+    {
+        return ReadCfgFromFile(vm, desc, vm[cli::CONFIG_FILE_PATH].as<std::string>().c_str());
+    }
+
     bool ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc, const char* szFile)
     {
         const auto fullPath = boost::filesystem::system_complete(szFile).string();
@@ -652,7 +666,7 @@ namespace beam
         return ReadCfgFromFile(vm, desc, "beam-common.cfg");
     }
 
-    po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options, bool walletOptions)
+    po::variables_map getOptions(int argc, char* argv[], const po::options_description& options, bool walletOptions)
     {
         po::variables_map vm;
         po::positional_options_description positional;
@@ -667,7 +681,7 @@ namespace beam
         po::store(parser.run(), vm); // value stored first is preferred
 
         ReadCfgFromFileCommon(vm, options);
-        ReadCfgFromFile(vm, options, configFile);
+        ReadCfgFromFile(vm, options);
 
         getRulesOptions(vm);
 

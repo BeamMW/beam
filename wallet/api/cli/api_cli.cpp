@@ -40,7 +40,10 @@
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/transactions/assets/assets_reg_creators.h"
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "api_cli_swap.h"
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
+
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
 #include "wallet/core/contracts/i_shaders_manager.h"
 #include "nlohmann/json.hpp"
@@ -64,11 +67,11 @@ namespace
         bool rejectUnauthorized;
     };
 
-    IWalletApi::ACL loadACL(const std::string& path)
+    ApiACL loadACL(const std::string& path)
     {
         std::ifstream file(path);
         std::string line;
-        IWalletApi::ACL::value_type keys;
+        ApiACL::value_type keys;
         int curLine = 1;
 
         while (std::getline(file, line))
@@ -108,7 +111,7 @@ namespace
             LOG_INFO() << "ACL file successfully loaded";
         }
 
-        return IWalletApi::ACL(keys);
+        return ApiACL(keys);
     }
 
     class IWalletApiServer
@@ -121,7 +124,7 @@ namespace
     {
     public:
         typedef std::shared_ptr<IServerConnection> Ptr;
-        virtual ~IServerConnection() {}
+        virtual ~IServerConnection() = default;
     };
 
     class WalletApiServer
@@ -134,7 +137,7 @@ namespace
                         io::Reactor& reactor,
                         io::Address listenTo,
                         bool useHttp,
-                        IWalletApi::ACL acl,
+                        ApiACL acl,
                         const TlsOptions& tlsOptions,
                         const std::vector<uint32_t>& whitelist)
 
@@ -157,12 +160,14 @@ namespace
             stop();
         }
 
-        void initSwapFeature(proto::FlyClient::INetwork& nnet, IWalletMessageEndpoint& wnet)
+
+        void initSwapFeature(proto::FlyClient::INetwork::Ptr nnet, IWalletMessageEndpoint& wnet)
         {
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
             _swapsProvider = std::make_shared<ApiCliSwap>(_walletDB);
             _swapsProvider->initSwapFeature(nnet, wnet);
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
         }
-
     protected:
         void start()
         {
@@ -211,12 +216,14 @@ namespace
         {
             if (!_walletData)
             {
-                _walletData = std::make_unique<IWalletApi::InitData>();
+                _walletData = std::make_unique<ApiInitData>();
                 _walletData->walletDB  = _walletDB;
                 _walletData->wallet    = _wallet;
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
                 _walletData->swaps     = _swapsProvider;
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
                 _walletData->acl       = _acl;
-                _walletData->contracts = IShadersManager::CreateInstance(_wallet, _walletDB, _network);
+                _walletData->contracts = IShadersManager::CreateInstance(_wallet, _walletDB, _network, "", "");
             }
 
             return std::make_shared<T>(_apiVersion, *this, std::move(newStream), *_walletData);
@@ -255,7 +262,7 @@ namespace
             , public IWalletApiHandler
         {
         public:
-            TcpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, IWalletApi::InitData& walletData)
+            TcpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, ApiInitData& walletData)
                 : _server(server)
                 , _stream(std::move(newStream))
                 , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
@@ -312,19 +319,19 @@ namespace
             , public IWalletApiHandler
         {
         public:
-            HttpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, IWalletApi::InitData& walletData)
+            HttpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, ApiInitData& walletData)
                 : _server(server)
-                , _keepalive(false)
+                , _sendResponseCalled(false)
                 , _msgCreator(2000)
                 , _packer(PACKER_FRAGMENTS_SIZE)
             {
                 _walletApi = IWalletApi::CreateInstance(apiVersion, *this, walletData);
 
                 newStream->enable_keepalive(1);
-                auto peer = newStream->peer_address();
+                auto peerId = newStream->peer_address().u64();
 
                 _connection = std::make_unique<HttpConnection>(
-                    peer.u64(),
+                    peerId,
                     BaseConnection::inbound,
                     BIND_THIS_MEMFN(on_request),
                     1024 * 1024,
@@ -335,47 +342,65 @@ namespace
 
             void sendAPIResponse(const json& result) override
             {
+                _sendResponseCalled = true;
                 serialize_json_msg(_body, _packer, result);
-                _keepalive = send(_connection, 200, "OK");
+                send(_connection, 200, "OK");
             }
 
         private:
             bool on_request(uint64_t id, const HttpMsgReader::Message& msg)
             {
+                assert(_connection->id() == id);
+                if (!_connection->is_connected())
+                {
+                    return false;
+                }
+
                 if ((msg.what != HttpMsgReader::http_message || !msg.msg) && msg.what != HttpMsgReader::message_too_long)
                 {
                     LOG_DEBUG() << "-peer " << io::Address::from_u64(id) << " : " << msg.error_str();
-                    _connection->shutdown();
-                    _server.closeConnection(id);
+                    closeConnection();
                     return false;
                 }
 
                 if (msg.what == HttpMsgReader::message_too_long)
                 {
-                    _keepalive = send(_connection, 413, "Payload Too Large");
+                    return send(_connection, 413, "Payload Too Large");
                 }
-                else if (msg.msg->get_path() != "/api/wallet")
+
+                if (msg.msg->get_path() != "/api/wallet")
                 {
-                    _keepalive = send(_connection, 404, "Not Found");
+                    return send(_connection, 404, "Not Found");
                 }
-                else
+
+                _body.clear();
+
+                size_t size = 0;
+                auto data = msg.msg->get_body(size);
+
+                _sendResponseCalled = false;
+                const auto asyncResult = _walletApi->executeAPIRequest(reinterpret_cast<const char*>(data), size);
+
+                if (asyncResult == ApiSyncMode::DoneSync)
                 {
-                    _body.clear();
+                    if(_sendResponseCalled)
+                    {
+                        return _connection->is_connected();
+                    }
 
-                    size_t size = 0;
-                    auto data = msg.msg->get_body(size);
+                    // all sync functions should already have sent response
+                    std::stringstream ss;
+                    ss << "API sync method has not called SendAPIResponse, request: " << data;
+                    LOG_ERROR() << ss.str();
 
-                    const auto asyncResult = _walletApi->executeAPIRequest(reinterpret_cast<const char*>(data), size);
-                    _keepalive = _keepalive || asyncResult == ApiSyncMode::RunningAsync;
+                    closeConnection();
+                    throw std::runtime_error(ss.str());
                 }
 
-                if (!_keepalive)
-                {
-                    _connection->shutdown();
-                    _server.closeConnection(id);
-                }
-
-                return _keepalive;
+                // async function may or may have not sent response if sent
+                // and failed to send, we will be disconnected otherwise keep
+                // alive and let an opportunity to send response later
+                return _connection->is_connected();
             }
 
             bool send(const HttpConnection::Ptr& conn, int code, const char* message)
@@ -409,12 +434,25 @@ namespace
 
                 _headers.clear();
                 _body.clear();
-                return (ok && code == 200);
+
+                if (ok && code == 200)
+                {
+                    return true;
+                }
+
+                closeConnection();
+                return false;
+            }
+
+            void closeConnection ()
+            {
+                _connection->shutdown();
+                _server.closeConnection(_connection->id());
             }
 
             HttpConnection::Ptr _connection;
             IWalletApiServer&   _server;
-            bool                _keepalive;
+            bool                _sendResponseCalled;
             HttpMsgCreator      _msgCreator;
             HttpMsgCreator      _packer;
             io::SerializedMsg   _headers;
@@ -435,10 +473,13 @@ namespace
         Wallet::Ptr _wallet;
         proto::FlyClient::NetworkStd::Ptr _network;
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::shared_ptr<ApiCliSwap> _swapsProvider;
-        std::unique_ptr<IWalletApi::InitData> _walletData;
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
+
+        std::unique_ptr<ApiInitData> _walletData;
         std::vector<uint64_t> _pendingToClose;
-        IWalletApi::ACL _acl;
+        ApiACL _acl;
         std::vector<uint32_t> _whitelist;
     };
 }
@@ -474,7 +515,7 @@ int main(int argc, char* argv[])
 
         io::Address node_addr;
         IWalletDB::Ptr walletDB;
-        IWalletApi::ACL acl;
+        ApiACL acl;
         std::vector<uint32_t> whitelist;
 
         {
@@ -493,6 +534,7 @@ int main(int argc, char* argv[])
                 (cli::WITH_ASSETS,    po::bool_switch()->default_value(false), "enable confidential assets transactions")
                 (cli::ENABLE_LELANTUS, po::bool_switch()->default_value(false), "enable Lelantus MW transactions")
                 (cli::API_VERSION, po::value<std::string>(&options.apiVersion)->default_value("current"), "API version")
+                (cli::CONFIG_FILE_PATH, po::value<std::string>()->default_value("wallet-api.cfg"), "path to the config file");
             ;
 
             po::options_description authDesc("User authorization options");
@@ -534,7 +576,7 @@ int main(int argc, char* argv[])
             }
 
             ReadCfgFromFileCommon(vm, desc);
-            ReadCfgFromFile(vm, desc, "wallet-api.cfg");
+            ReadCfgFromFile(vm, desc);
             vm.notify();
 
             if (!IWalletApi::ValidateAPIVersion(options.apiVersion))
@@ -618,7 +660,7 @@ int main(int argc, char* argv[])
             }
 
             walletDB = WalletDB::open(options.walletPath, pass);
-            LOG_INFO() << "wallet sucessfully opened...";
+            LOG_INFO() << "wallet successfully opened...";
 
             // this should be exactly CLI flag value to print correct error messages
             // Rules::CA.Enabled would be checked as well but later
@@ -664,12 +706,14 @@ int main(int argc, char* argv[])
         wallet->SetNodeEndpoint(nnet);
 
         WalletApiServer server(options.apiVersion, walletDB, wallet, nnet, *reactor, listenTo, options.useHttp, acl, tlsOptions, whitelist);
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
         RegisterSwapTxCreators(wallet, walletDB);
-        server.initSwapFeature(*nnet, *wnet);
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
+        server.initSwapFeature(nnet, *wnet);
 
         if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
         {
-            RegisterAssetCreators(*wallet);
+            RegisterAllAssetCreators(*wallet);
         }
 
         if (options.enableLelentus)
