@@ -15,7 +15,7 @@
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
 #endif
-
+#define BEAM_BUILD_THREAD_POOL
 #include "wallet/core/common.h"
 #include "wallet/core/common_utils.h"
 #include "wallet/core/wallet_network.h"
