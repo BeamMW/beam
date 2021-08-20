@@ -60,14 +60,15 @@ namespace beam::wallet
         AppsApi(std::string appid, std::string appname)
             : _appId(std::move(appid))
             , _appName(std::move(appname))
+            , _client(nullptr)
         {
             _walletAPIProxy = std::make_shared<ApiHandlerProxy>();
             LOG_INFO () << "AppsApi created for " << _appName << ", " << _appId;
         }
 
-        virtual ~AppsApi()
+        ~AppsApi() override
         {
-            _client->getAsync()->makeIWTCall(
+            getAsync()->makeIWTCall(
                 [proxy = std::move(_walletAPIProxy), api = std::move(_walletAPI)] () mutable -> boost::any {
                     // api should be destroyed in context of the wallet thread
                     // it is ASSUMED to be the last call in api calls chain
@@ -91,6 +92,12 @@ namespace beam::wallet
                        std::string appname,
                        std::function<void (Ptr)> cback)
         {
+            if (client == nullptr)
+            {
+                assert(false);
+                throw std::runtime_error("no client provided");
+            }
+
             client->getAsync()->makeIWTCall(
                 [client, appid, appname]() -> boost::any {
                     //
@@ -140,7 +147,7 @@ namespace beam::wallet
             // Do not assume thread here
             // Should be safe to call from any thread
             //
-            _client->getAsync()->makeIWTCall(
+            getAsync()->makeIWTCall(
                 [wp = _weakSelf, this, request]() -> boost::any {
                     auto locked = wp.lock();
                     if (!locked)
@@ -161,18 +168,18 @@ namespace beam::wallet
         void AnyThread_callWalletApiChecked(const std::string& request)
         {
             struct CheckInfo {
-                bool send;
+                bool send = true;
                 IWalletApi::ParseResult data;
             };
 
             LOG_INFO () << "AppsApi checked call for " << getAppName() << ", " << getAppId() << "): " << request;
-            _client->getAsync()->makeIWTCall(
+            getAsync()->makeIWTCall(
                 [wp = _weakSelf, this, request]() -> boost::any {
                     auto locked = wp.lock();
                     if (!locked)
                     {
                         // this means that api is disconnected and destroyed already, this is normal
-                        return boost::any();
+                        return {};
                     }
 
                     if (auto pres = _walletAPI->parseAPIRequest(request.c_str(), request.size()); pres)
@@ -198,22 +205,22 @@ namespace beam::wallet
                                 assert(false);
 
                                 AnyThread_sendApiError(request, ApiError::NotAllowedError, std::string());
-                                return boost::any();
+                                return {};
                             }
 
                             _walletAPI->executeAPIRequest(request.c_str(), request.size());
-                            return boost::any();
+                            return {};
                         }
 
                         LOG_INFO() << "Application requested call of the not allowed method: " << pres->acinfo.method;
                         AnyThread_sendApiError(request, ApiError::NotAllowedError, std::string());
-                        return boost::any();
+                        return {};
                     }
                     else
                     {
                         // parse failed, just log error and return. Error response is already sent back
                         LOG_ERROR() << "WebAPP API parse failed: " << request;
-                        return boost::any();
+                        return {};
                     }
                 },
                 [wp = _weakSelf, this, request] (const boost::any& any) {
@@ -267,6 +274,21 @@ namespace beam::wallet
         virtual void ClientThread_getContractConsent(const std::string& request, const nlohmann::json& info, const nlohmann::json& amounts) = 0;
 
     private:
+        WalletClient* getClinet ()
+        {
+            if (_client != nullptr)
+            {
+                return _client;
+            }
+            assert (false);
+            throw std::runtime_error("get on null _clinet");
+        }
+
+        IWalletModelAsync::Ptr getAsync()
+        {
+            return getClinet()->getAsync();
+        }
+
         std::string extractComment(IWalletApi::ParseResult& parse)
         {
             if(parse.minfo.confirm_comment)
@@ -279,7 +301,7 @@ namespace beam::wallet
                 return *parse.minfo.comment;
             }
 
-            return std::string();
+            return {};
         }
 
         void ClientThread_prepareContractConsent(const std::string& request, IWalletApi::ParseResult& parse)
@@ -315,7 +337,7 @@ namespace beam::wallet
                 {
                     totalAmount += beam::AmountBig::Type(parse.minfo.fee);
                 }
-                isEnough = isEnough && (totalAmount <= _client->getAvailable(assetId));
+                isEnough = isEnough && (totalAmount <= getClinet()->getAvailable(assetId));
             }
 
             for(const auto& sinfo: parse.minfo.receive)
@@ -372,7 +394,7 @@ namespace beam::wallet
                 {"spend",   true}
             });
 
-            _client->getAsync()->selectCoins(beam::AmountBig::get_Lo(amount), parse.minfo.fee, assetId, false,
+            getAsync()->selectCoins(beam::AmountBig::get_Lo(amount), parse.minfo.fee, assetId, false,
                 [this, wpsel = _weakSelf, request, info, amounts](const CoinsSelectionInfo& csi) mutable {
                     auto locked = wpsel.lock();
                     if (!locked)
