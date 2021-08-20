@@ -163,6 +163,7 @@ namespace beam::wallet
         virtual void OnVouchersFrom(const WalletAddress&, const WalletID& myID, std::vector<ShieldedTxo::Voucher>&&);
         void RequestShieldedOutputsAt(Height h, std::function<void(Height, TxoID)>&& onRequestComplete);
         bool IsConnectedToOwnNode() const;
+        bool CanDetectCoins() const;
         void EnableBodyRequests(bool value);
         void assertThread() const; // throws if not in wallet thread
 
@@ -257,7 +258,6 @@ namespace beam::wallet
         void CacheCommitment(const ECC::Point& comm, Height maturity, bool add);
         void ResetCommitmentsCache();
         bool IsMobileNodeEnabled() const;
-
     private:
         std::thread::id _myThread;
 

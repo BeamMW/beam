@@ -102,6 +102,7 @@ namespace fs = std::filesystem;
 #define NOTIFICATIONS_NAME "notifications"
 #define EXCHANGE_RATES_NAME "exchangeRates"
 #define EXCHANGE_RATES_HISTORY_NAME "exchangeRatesHistory"
+#define VERIFICATION_NAME "assetsVerification"
 #define VOUCHERS_NAME "vouchers"
 #define COIN_CONFIRMATIONS_COUNT "confirmations_count"
 #define EVENTS_NAME "events"
@@ -200,6 +201,15 @@ namespace fs = std::filesystem;
     each(content,       content,        BLOB NOT NULL,      obj)
 
 #define NOTIFICATION_FIELDS ENUM_NOTIFICATION_FIELDS(LIST, COMMA, )
+
+#define ENUM_VERIFICATION_FIELDS(each, sep, obj) \
+    each(assetID,       assetID,        INTEGER,  obj) sep \
+    each(verified,      verified,       INTEGER,  obj) sep \
+    each(icon,          icon,           TEXT,     obj) sep \
+    each(color,         color,          TEXT,     obj) sep \
+    each(updateTime,    updateTime,     INTEGER,  obj)
+
+#define VERIFICATION_FIELDS ENUM_VERIFICATION_FIELDS(LIST, COMMA, )
 
 #define ENUM_EXCHANGE_RATES_FIELDS29(each, sep, obj) \
     each(currency,      currency,       INTEGER,            obj) sep \
@@ -982,7 +992,8 @@ namespace beam::wallet
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
 
-        const int DbVersion   = 31;
+        const int DbVersion   = 32;
+        const int DbVersion31 = 31;
         const int DbVersion30 = 30;
         const int DbVersion29 = 29;
         const int DbVersion28 = 28;
@@ -1349,6 +1360,13 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
+        void CreateVerificationTable(sqlite3* db)
+        {
+            const char* req = "CREATE TABLE " VERIFICATION_NAME " (" ENUM_VERIFICATION_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (assetID, updateTime)) WITHOUT ROWID;";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
+
         void CreateExchangeRatesHistoryTable29(sqlite3* db)
         {
             const char* req = "CREATE TABLE " EXCHANGE_RATES_HISTORY_NAME " (" ENUM_EXCHANGE_RATES_HISTORY_FIELDS29(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (currency, unit, updateTime)) WITHOUT ROWID;";
@@ -1679,6 +1697,14 @@ namespace beam::wallet
             }, TxListFilter());
         }
 
+        void MigrateFrom31(WalletDB* walletDB, sqlite3* db)
+        {
+            if (!IsTableCreated(walletDB, VERIFICATION_NAME))
+            {
+                CreateVerificationTable(db);
+            }
+        }
+
         void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password)
         {
             int ret = sqlite3_open_v2(path.c_str(), db, SQLITE_OPEN_READWRITE, nullptr);
@@ -1796,6 +1822,7 @@ namespace beam::wallet
         CreateExchangeRatesHistoryTable(db);
         CreateEventsTable(db);
         CreateTxSummaryTable(db);
+        CreateVerificationTable(db);
     }
 
     std::shared_ptr<WalletDB> WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
@@ -2310,6 +2337,11 @@ namespace beam::wallet
                 case DbVersion30:
                     LOG_INFO() << "Converting DB from format 30...";
                     MigrateTransactionsFrom30(walletDB.get(), walletDB->_db);
+                    // no break
+
+                case DbVersion31:
+                    LOG_INFO() << "Converting DB from format 31...";
+                    MigrateFrom31(walletDB.get(), walletDB->_db);
                     // no break
                     storage::setVar(*walletDB, Version, DbVersion);
 
@@ -4666,6 +4698,51 @@ namespace beam::wallet
             ENUM_NOTIFICATION_FIELDS(STM_BIND_LIST, NOSEP, notification);
             stm.step();
         }
+    }
+
+    void WalletDB::saveVerification(const VerificationInfo& vi)
+    {
+        const char* selectReq = "SELECT * FROM " VERIFICATION_NAME " WHERE assetID=?1";
+        sqlite::Statement selectStm(this, selectReq);
+        selectStm.bind(1, vi.m_assetID);
+
+        if (selectStm.step())
+        {
+            const char* updateReq = "UPDATE " VERIFICATION_NAME " SET verified=?2, icon=?3, color=?4, updateTime=?5 WHERE assetID=?1;";
+            sqlite::Statement updateStm(this, updateReq);
+
+            updateStm.bind(1, vi.m_assetID);
+            updateStm.bind(2, vi.m_verified);
+            updateStm.bind(3, vi.m_icon);
+            updateStm.bind(4, vi.m_color);
+            updateStm.bind(5, vi.m_updateTime);
+            updateStm.step();
+        }
+        else
+        {
+            const char* insertReq = "INSERT INTO " VERIFICATION_NAME " (" ENUM_VERIFICATION_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_VERIFICATION_FIELDS(BIND_LIST, COMMA, ) ");";
+            sqlite::Statement stm(this, insertReq);
+            int colIdx = 0;
+            ENUM_VERIFICATION_FIELDS(STM_BIND_LIST, NOSEP, vi);
+            stm.step();
+        }
+    }
+
+    std::vector<VerificationInfo> WalletDB::getVerification() const
+    {
+        std::vector<VerificationInfo> res;
+
+        const char* req = "SELECT * FROM " VERIFICATION_NAME " ORDER BY assetID ASC;";
+        sqlite::Statement stm(this, req);
+
+        while (stm.step())
+        {
+            auto& vi = res.emplace_back();
+            int colIdx = 0;
+            ENUM_VERIFICATION_FIELDS(STM_GET_LIST, NOSEP, vi);
+        }
+
+        return res;
     }
 
     std::vector<ExchangeRate> WalletDB::getLatestExchangeRates() const

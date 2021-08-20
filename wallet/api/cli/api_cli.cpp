@@ -223,7 +223,7 @@ namespace
                 _walletData->swaps     = _swapsProvider;
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
                 _walletData->acl       = _acl;
-                _walletData->contracts = IShadersManager::CreateInstance(_wallet, _walletDB, _network);
+                _walletData->contracts = IShadersManager::CreateInstance(_wallet, _walletDB, _network, "", "");
             }
 
             return std::make_shared<T>(_apiVersion, *this, std::move(newStream), *_walletData);
@@ -713,7 +713,7 @@ int main(int argc, char* argv[])
 
         if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
         {
-            RegisterAssetCreators(*wallet);
+            RegisterAllAssetCreators(*wallet);
         }
 
         if (options.enableLelentus)

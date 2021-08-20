@@ -30,6 +30,7 @@
 #include "extensions/broadcast_gateway/interface.h"
 #include "extensions/broadcast_gateway/broadcast_msg_validator.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
+#include "extensions/news_channels/verification_provider.h"
 
 #include "extensions/dex_board/dex_board.h"
 #include "extensions/dex_board/dex_order.h"
@@ -50,6 +51,8 @@ namespace beam::wallet
 #else
     constexpr char kBroadcastValidatorPublicKey[] = "db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec";
 #endif
+
+    constexpr char SEED_PARAM_NAME[] = "SavedSeed";
     struct WalletStatus
     {
         struct AssetStatus
@@ -95,6 +98,7 @@ namespace beam::wallet
         , private IExchangeRatesObserver
         , private INotificationsObserver
         , private DexBoard::IObserver
+        , private IVerificationObserver
     {
     public:
         WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor);
@@ -107,8 +111,7 @@ namespace beam::wallet
         IWalletModelAsync::Ptr getAsync();
         Wallet::Ptr getWallet(); // can return null
 
-        IShadersManager::Ptr getAppsShaders(const std::string& appid, const std::string& appname);
-        void releaseAppsShaders(const std::string& appid);
+        IShadersManager::Ptr IWThread_createAppShaders(const std::string& appid, const std::string& appname);
 
         std::string getNodeAddress() const;
         std::string exportOwnerKey(const beam::SecString& pass) const;
@@ -122,7 +125,22 @@ namespace beam::wallet
         uint32_t getMarurityProgress(const ShieldedCoin& coin) const;
         uint16_t getMaturityHoursLeft(const ShieldedCoin& coin) const;
 
-        ByteBuffer generateVouchers(uint64_t ownID, size_t count) const;
+        std::set<beam::Asset::ID> getAssetsNZ() const;
+        beam::AmountBig::Type getAvailable(beam::Asset::ID) const;
+        beam::AmountBig::Type getAvailableRegular(beam::Asset::ID) const;
+        beam::AmountBig::Type getAvailableShielded(beam::Asset::ID) const;
+        beam::AmountBig::Type getReceiving(beam::Asset::ID) const;
+        beam::AmountBig::Type getReceivingIncoming(beam::Asset::ID) const;
+        beam::AmountBig::Type getReceivingChange(beam::Asset::ID) const;
+        beam::AmountBig::Type getSending(beam::Asset::ID) const;
+        beam::AmountBig::Type getMaturing(beam::Asset::ID) const;
+        beam::AmountBig::Type getMatutingMP(beam::Asset::ID) const;
+        beam::AmountBig::Type getShielded(beam::Asset::ID) const;
+        bool hasShielded(beam::Asset::ID) const;
+
+        beam::Height getCurrentHeight() const;
+        beam::Timestamp getCurrentHeightTimestamp() const;
+        beam::Block::SystemState::ID getCurrentStateID() const;
 
         /// INodeConnectionObserver implementation
         void onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason&) override;
@@ -175,6 +193,7 @@ namespace beam::wallet
         virtual uint32_t getClientRevision() const;
         void onExchangeRates(const ExchangeRates&) override {}
         void onNotificationsChanged(ChangeAction, const std::vector<Notification>&) override {}
+        void onVerificationInfo(const std::vector<VerificationInfo>&) override {}
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) override {}
@@ -251,6 +270,7 @@ namespace beam::wallet
 
         void getExchangeRates() override;
         void getPublicAddress() override;
+        void getVerificationInfo() override;
 
         void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback) override;
 
@@ -260,6 +280,9 @@ namespace beam::wallet
         void setCoinConfirmationsOffset(uint32_t val) override;
         void getCoinConfirmationsOffset(AsyncCallback<uint32_t>&& callback) override;
 
+        void removeRawSeedPhrase() override;
+        void readRawSeedPhrase(AsyncCallback<const std::string&>&& callback) override;
+
         void enableBodyRequests(bool value) override;
 
         // implement IWalletDB::IRecoveryProgress
@@ -267,7 +290,7 @@ namespace beam::wallet
 
         WalletStatus getStatus() const;
         void updateStatus();
-        void updateClientState(WalletStatus&&);
+        void updateClientState(const WalletStatus&);
         void updateMaxPrivacyStats(const WalletStatus& status);
         void updateMaxPrivacyStatsImpl(const WalletStatus& status);
         void updateClientTxState();
@@ -314,6 +337,7 @@ namespace beam::wallet
         std::weak_ptr<IBroadcastListener> m_updatesProvider;
         std::weak_ptr<IBroadcastListener> m_walletUpdatesProvider;
         std::weak_ptr<ExchangeRateProvider> m_exchangeRateProvider;
+        std::weak_ptr<VerificationProvider> m_verificationProvider;
         std::shared_ptr<NotificationCenter> m_notificationCenter;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 cmake_policy(SET CMP0074 NEW)
 
 set(VERSION_MAJOR 6)
-set(VERSION_MINOR 1 )
+set(VERSION_MINOR 2 )
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
@@ -155,7 +155,11 @@ option(BEAM_BVM_ONLY "Build only binaries required for BVM" FALSE)
     add_definitions(-DDEBUG_MESSAGES_IN_RELEASE_MODE)
 #endif()
 #it's enabled by default for testnet
-add_definitions(-DLOG_VERBOSE_ENABLED=1)
+if(NOT EMSCRIPTEN)
+    add_definitions(-DLOG_VERBOSE_ENABLED=1)
+else()
+    add_definitions(-DLOG_VERBOSE_ENABLED=0)
+endif()
 
 if(SHOW_CODE_LOCATION)
     target_compile_definitions(beam INTERFACE -DSHOW_CODE_LOCATION=1)
@@ -271,7 +275,9 @@ else()
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
     if (EMSCRIPTEN)
-        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s USE_PTHREADS=1 -s DISABLE_EXCEPTION_CATCHING=0 -s USE_BOOST_HEADERS=1")
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s USE_PTHREADS=1 -s DISABLE_EXCEPTION_CATCHING=0 -s USE_BOOST_HEADERS=1 ")
+        set(BEAM_WEB_WALLET_THREADS_NUM 5)
+        add_definitions(-DBEAM_WEB_WALLET_THREADS_NUM=${BEAM_WEB_WALLET_THREADS_NUM})
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-command-line-argument") # mostly in 3rd-party libs
     endif()
 

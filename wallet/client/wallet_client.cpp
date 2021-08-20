@@ -315,6 +315,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getExchangeRates);
     }
 
+    void getVerificationInfo() override
+    {
+        call_async(&IWalletModelAsync::getVerificationInfo);
+    }
+
     void getPublicAddress() override
     {
         call_async(&IWalletModelAsync::getPublicAddress);
@@ -360,6 +365,15 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getCoinConfirmationsOffset, std::move(callback));
     }
 
+    void removeRawSeedPhrase() override
+    {
+        call_async(&IWalletModelAsync::removeRawSeedPhrase);
+    }
+
+    void readRawSeedPhrase(AsyncCallback<const std::string&>&& callback) override
+    {
+        call_async(&IWalletModelAsync::readRawSeedPhrase, std::move(callback));
+    }
 
     void enableBodyRequests(bool value) override
     {
@@ -455,8 +469,9 @@ namespace beam::wallet
     {
         onPostFunctionToClientContext(move(func));
     }
-
-    /// Methods below should be called from main thread
+    //
+    // UI thread. Methods below should be called from main thread
+    //
     Version WalletClient::getLibVersion() const
     {
         // TODO: replace with current wallet library version
@@ -550,7 +565,6 @@ namespace beam::wallet
                 auto broadcastRouter = make_shared<BroadcastRouter>(nodeNetwork, *walletNetwork, std::make_shared<BroadcastRouter::BbsTsHolder>(m_walletDB));
                 m_broadcastRouter = broadcastRouter;
 
-
                 using WalletDbSubscriber = ScopedSubscriber<IWalletDbObserver, IWalletDB>;
                 // Swap offer board uses broadcasting messages
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -583,12 +597,17 @@ namespace beam::wallet
                 m_walletUpdatesProvider = walletUpdatesProvider;
                 using WalletUpdatesSubscriber = ScopedSubscriber<INewsObserver, WalletUpdatesProvider>;
                 using ExchangeRatesSubscriber = ScopedSubscriber<IExchangeRatesObserver, ExchangeRateProvider>;
-                auto walletUpdatesSubscriber = make_unique<WalletUpdatesSubscriber>(static_cast<INewsObserver*>(
-                    m_notificationCenter.get()), walletUpdatesProvider);
-                auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(
-                    static_cast<IExchangeRatesObserver*>(this), exchangeRateProvider);
-                auto notificationsDbSubscriber = make_unique<WalletDbSubscriber>(
-                    static_cast<IWalletDbObserver*>(m_notificationCenter.get()), m_walletDB);
+                auto walletUpdatesSubscriber = make_unique<WalletUpdatesSubscriber>(static_cast<INewsObserver*>(m_notificationCenter.get()), walletUpdatesProvider);
+                auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(static_cast<IExchangeRatesObserver*>(this), exchangeRateProvider);
+                auto notificationsDbSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(m_notificationCenter.get()), m_walletDB);
+
+                //
+                // Assets verification
+                //
+                auto verificationProvider = make_shared<VerificationProvider>(*broadcastRouter, *broadcastValidator, *m_walletDB);
+                m_verificationProvider = verificationProvider;
+                using VerificationSubscriber = ScopedSubscriber<IVerificationObserver, VerificationProvider>;
+                auto verificationSubscriber = make_unique<VerificationSubscriber>(static_cast<IVerificationObserver*>(this), verificationProvider);
 
                 //
                 // DEX
@@ -606,9 +625,7 @@ namespace beam::wallet
                 //
                 // Shaders
                 //
-                auto appsShaders = IShadersManager::CreateInstance(wallet, m_walletDB, nodeNetwork);
-                auto clientShaders = IShadersManager::CreateInstance(wallet, m_walletDB, nodeNetwork);
-                _appsShaders = appsShaders;
+                auto clientShaders = IShadersManager::CreateInstance(wallet, m_walletDB, nodeNetwork, "", "");
                 _clientShaders = clientShaders;
 
                 nodeNetwork->tryToConnect();
@@ -616,9 +633,6 @@ namespace beam::wallet
                     wallet->CleanupNetwork();
                     nodeNetwork->Disconnect();
                 });
-
-                assert(appsShaders.use_count() == 1);
-                appsShaders.reset();
 
                 assert(clientShaders.use_count() == 1);
                 clientShaders.reset();
@@ -661,36 +675,12 @@ namespace beam::wallet
         return sp;
     }
 
-    IShadersManager::Ptr WalletClient::getAppsShaders(const std::string& appid, const std::string& appname)
+    IShadersManager::Ptr WalletClient::IWThread_createAppShaders(const std::string& appid, const std::string& appname)
     {
-        auto sp = _appsShaders.lock();
-        assert(sp != nullptr);
-
-        // strictly speaking it is not necessary to proxy to reactor thread
-        // in current implementation and calls sequence, but it is safer and
-        // can help to avoid bugs in the future if calls sequence changes
-        makeIWTCall([appid, appname, sp] ()-> boost::any {
-            sp->SetCurrentApp(appid, appname);
-            return boost::none;
-        }, [](const boost::any&){
-        });
-
-        return sp;
-    }
-
-    void WalletClient::releaseAppsShaders(const std::string& appid)
-    {
-        auto sp = _appsShaders.lock();
-        assert(sp != nullptr);
-
-        // strictly speaking it is not necessary to proxy to reactor thread
-        // in current implementation and calls sequence, but it is safer and
-        // can help to avoid bugs in the future if calls sequence changes
-        makeIWTCall([appid, sp] ()-> boost::any {
-            sp->ReleaseCurrentApp(appid);
-            return boost::none;
-        }, [](const boost::any&){
-        });
+        auto wallet = m_wallet.lock();
+        auto network = m_nodeNetwork.lock();
+        assert(wallet && network);
+        return IShadersManager::CreateInstance(wallet, m_walletDB, network, appid, appname);
     }
 
     std::string WalletClient::getNodeAddress() const
@@ -804,17 +794,115 @@ namespace beam::wallet
         return m_rules;
     }
 
+    std::set<beam::Asset::ID> WalletClient::getAssetsNZ() const
+    {
+        std::set<beam::Asset::ID> assets;
+
+        // always have BEAM, even if zero
+        assets.insert(Asset::s_BeamID);
+
+        for (const auto& status : m_status.all)
+        {
+            const auto& totals = status.second;
+            if (totals.available != Zero || totals.maturing != Zero || totals.maturingMP != Zero ||
+                totals.receiving != Zero || totals.receivingChange != Zero || totals.receivingIncoming != Zero ||
+                totals.sending != Zero || totals.shielded != Zero)
+            {
+                assets.insert(status.first);
+            }
+        }
+
+        return assets;
+    }
+
+    beam::AmountBig::Type WalletClient::getAvailable(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+
+        auto result = status.available;
+        result += status.shielded;
+
+        return result;
+    }
+
+
+    beam::AmountBig::Type WalletClient::getAvailableRegular(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.available;
+    }
+
+    beam::AmountBig::Type WalletClient::getAvailableShielded(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.shielded;
+    }
+
+    beam::AmountBig::Type WalletClient::getReceiving(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.receiving;
+    }
+
+    beam::AmountBig::Type WalletClient::getReceivingIncoming(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.receivingIncoming;
+    }
+
+    beam::AmountBig::Type WalletClient::getMatutingMP(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.maturingMP;
+    }
+
+    beam::AmountBig::Type WalletClient::getShielded(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.shielded;
+    }
+
+    bool WalletClient::hasShielded(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.shielded != Zero;
+    }
+
+    beam::AmountBig::Type WalletClient::getReceivingChange(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.receivingChange;
+    }
+
+    beam::AmountBig::Type WalletClient::getSending(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.sending;
+    }
+
+    beam::AmountBig::Type WalletClient::getMaturing(beam::Asset::ID id) const
+    {
+        const auto& status = m_status.GetStatus(id);
+        return status.maturing;
+    }
+
+    beam::Height WalletClient::getCurrentHeight() const
+    {
+        return m_status.stateID.m_Height;
+    }
+
+    beam::Height WalletClient::getCurrentHeightTimestamp() const
+    {
+        return m_status.update.lastTime;
+    }
+
+    beam::Block::SystemState::ID WalletClient::getCurrentStateID() const
+    {
+        return m_status.stateID;
+    }
+
     /////////////////////////////////////////////
     /// IWalletClientAsync implementation, these method are called in background thread and could safelly access wallet DB
-
-    ByteBuffer WalletClient::generateVouchers(uint64_t ownID, size_t count) const
-    {
-        auto vouchers = GenerateVoucherList(m_walletDB->get_KeyKeeper(), ownID, count);
-        if (vouchers.empty())
-            return {};
-
-        return toByteBuffer(vouchers);
-    }
 
     void WalletClient::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
     {
@@ -825,7 +913,7 @@ namespace beam::wallet
     void WalletClient::scheduleBalance()
     {
         m_balanceDelayed->start(0, false, [this] () {
-            onStatus(getStatus());
+            updateStatus();
         });
     }
 
@@ -1598,6 +1686,20 @@ namespace beam::wallet
         }
     }
 
+    void WalletClient::getVerificationInfo()
+    {
+        assert(!m_verificationProvider.expired());
+        if (auto s = m_verificationProvider.lock())
+        {
+            const auto info = s->getInfo();
+            onVerificationInfo(info);
+        }
+        else
+        {
+            onVerificationInfo({});
+        }
+    }
+
     void WalletClient::getPublicAddress()
     {
         onPublicAddress(GeneratePublicToken(*m_walletDB, std::string()));
@@ -1630,6 +1732,24 @@ namespace beam::wallet
     void WalletClient::setCoinConfirmationsOffset(uint32_t val)
     {
         m_walletDB->setCoinConfirmationsOffset(val);
+    }
+
+    void WalletClient::removeRawSeedPhrase()
+    {
+        m_walletDB->removeVarRaw(SEED_PARAM_NAME);
+    }
+
+    void WalletClient::readRawSeedPhrase(AsyncCallback<const std::string&>&& callback)
+    {
+        ByteBuffer b;
+        if (m_walletDB->getBlob(SEED_PARAM_NAME, b))
+        {
+            std::string phrase((char*)b.data());
+            postFunctionToClientContext([res = std::move(phrase), cb = std::move(callback)]() 
+            {
+                cb(res);
+            });
+        }
     }
 
     void WalletClient::getCoinConfirmationsOffset(AsyncCallback<uint32_t>&& callback)
@@ -1726,18 +1846,18 @@ namespace beam::wallet
     void WalletClient::updateStatus()
     {
         auto status = getStatus();
-        onStatus(status);
         updateMaxPrivacyStats(status);
-        updateClientState(std::move(status));
+        updateClientState(status);
+        onStatus(status);
     }
 
-    void WalletClient::updateClientState(WalletStatus&& status)
+    void WalletClient::updateClientState(const WalletStatus& status)
     {
         if (auto w = m_wallet.lock(); w)
         {
             postFunctionToClientContext([this, currentHeight = m_walletDB->getCurrentHeight()
                 , count = w->GetUnsafeActiveTransactionsCount()
-                , status = std::move(status)
+                , status
                 , limit = m_walletDB->get_MaxPrivacyLockTimeLimitHours()]()
             {
                 m_status = status;
@@ -1953,24 +2073,9 @@ namespace beam::wallet
             return;
         }
 
-        try
-        {
-            if (!shader.empty())
-            {
-                smgr->CompileAppShader(shader);
-            }
-        }
-        catch(std::runtime_error& err)
-        {
-            postFunctionToClientContext([cb = std::move(cback), msg = err.what()]() {
-                cb(msg, "", TxID());
-            });
-            return;
-        }
-
         _clientShadersCback = std::move(cback);
-
-        smgr->CallShaderAndStartTx(args, args.empty() ? 0 : 1, [this, shaders = _clientShaders] (boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
+        smgr->CallShaderAndStartTx(shader, args, args.empty() ? 0 : 1, 0, 0,
+        [this, shaders = _clientShaders] (boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
             auto smgr = _clientShaders.lock();
             if (!smgr)
             {

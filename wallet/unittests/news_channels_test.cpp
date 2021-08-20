@@ -169,6 +169,9 @@ namespace
         case BroadcastContentType::DexOffers:
             header.type = 4;
             break;
+        case BroadcastContentType::AssetVerification:
+            header.type = 5;
+            break;
         }
         header.size = static_cast<uint32_t>(content.size());
         header.write(packet.data());

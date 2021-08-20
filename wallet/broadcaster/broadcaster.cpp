@@ -130,10 +130,31 @@ bool parseExchangeRateInfo(const std::string& from, const std::string& to, const
     return true;
 }
 
+bool parseVerificationInfo(Asset::ID aid, bool verified, const std::string& icon, const std::string& color, std::vector<VerificationInfo>& result)
+{
+    if (aid == beam::Asset::s_BeamID)
+    {
+        return false;
+    }
+
+    result = {{aid, verified, icon, color, getTimestamp()}};
+    return true;
+}
+
 ByteBuffer generateExchangeRates(const std::string& from, const std::string& to, const Amount& rate)
 {
     std::vector<ExchangeRate> result;
     if (parseExchangeRateInfo(from, to, rate, result))
+    {
+        return toByteBuffer(result);
+    }
+    return ByteBuffer();
+}
+
+ByteBuffer generateAssetVerification(Asset::ID aid, bool verified, const std::string& icon, const std::string& color)
+{
+    std::vector<VerificationInfo> result;
+    if (parseVerificationInfo(aid, verified, icon, color, result))
     {
         return toByteBuffer(result);
     }
@@ -162,6 +183,13 @@ namespace
             std::string  to;
             beam::Amount rate;
         } exchangeRate;
+
+        struct AssetVerification {
+            Nonnegative<Asset::ID> aid;
+            bool verified;
+            std::string predefinedIcon;
+            std::string predefinedColor;
+        } averify;
     };
 
     class MyFlyClient 
@@ -338,16 +366,24 @@ namespace
         WalletImplVerInfo walletVersionInfo;
         if (options.messageType == "update")
         {
-            bool res =
-                parseWalletUpdateInfo(options.walletUpdateInfo.version, options.walletUpdateInfo.walletType, walletVersionInfo);
-            if (res)
-                rawMessage = toByteBuffer(walletVersionInfo);
             contentType = BroadcastContentType::WalletUpdates;
+            if(parseWalletUpdateInfo(options.walletUpdateInfo.version, options.walletUpdateInfo.walletType, walletVersionInfo))
+            {
+                rawMessage = toByteBuffer(walletVersionInfo);
+            }
         }
         else if (options.messageType == "exchange")
         {
-            rawMessage = generateExchangeRates(options.exchangeRate.from, options.exchangeRate.to, options.exchangeRate.rate);
             contentType = BroadcastContentType::ExchangeRates;
+            rawMessage = generateExchangeRates(options.exchangeRate.from, options.exchangeRate.to, options.exchangeRate.rate);
+        }
+        else if (options.messageType == "averify")
+        {
+            contentType = BroadcastContentType::AssetVerification;
+            rawMessage  = generateAssetVerification(options.averify.aid.value,
+                                                    options.averify.verified,
+                                                    options.averify.predefinedIcon,
+                                                    options.averify.predefinedColor);
         }
         else
         {
@@ -421,6 +457,10 @@ int main_impl(int argc, char* argv[])
 #endif // BITCOIN_CASH_SUPPORT)
                 (cli::EXCHANGE_RATE, po::value<Amount>(&options.exchangeRate.rate), "exchange rate in decimal format: 100,000,000 = 1 usd")
                 (cli::EXCHANGE_UNIT, po::value<std::string>(&options.exchangeRate.to)->default_value("usd"), "unit currency: 'btc', 'usd'")
+                (cli::ASSET_ID, po::value<Nonnegative<uint32_t>>(&options.averify.aid), "asset id")
+                (cli::VERIFIED, po::value<bool>(&options.averify.verified), "asset verification status")
+                (cli::PREDEFINED_ICON, po::value<std::string>(&options.averify.predefinedIcon), "predefined asset icon")
+                (cli::PREDEFINED_COLOR, po::value<std::string>(&options.averify.predefinedColor), "predefined asset color")
             ;
             
             desc.add(messageDesc);

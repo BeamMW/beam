@@ -14,11 +14,8 @@
 
 #pragma once
 
-#include <ctime>
-#include "wallet/core/wallet.h"
-#include "wallet/core/wallet_db.h"
-#include "wallet/core/wallet_network.h"
 #include "wallet/core/common_utils.h"
+#include "wallet/core/common.h"
 #include "boost/any.hpp"
 
 namespace beam::wallet
@@ -95,6 +92,7 @@ namespace beam::wallet
 
         virtual void getExchangeRates() = 0;
         virtual void getPublicAddress() = 0;
+        virtual void getVerificationInfo() = 0;
 
         virtual void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback) = 0;
         virtual void getAssetInfo(Asset::ID) = 0;
@@ -109,6 +107,9 @@ namespace beam::wallet
 
         virtual void setCoinConfirmationsOffset(uint32_t val) = 0;
         virtual void getCoinConfirmationsOffset(AsyncCallback<uint32_t>&& callback) = 0;
+
+        virtual void removeRawSeedPhrase() = 0;
+        virtual void readRawSeedPhrase(AsyncCallback<const std::string&>&& callback) = 0;
 
         virtual void enableBodyRequests(bool value) = 0;
         virtual ~IWalletModelAsync() = default;

@@ -106,12 +106,12 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
-        if (!getWallet()->IsConnectedToOwnNode()
+        if (!getWallet()->CanDetectCoins()
            && (data.type == TokenType::MaxPrivacy
             || data.type == TokenType::Public
             || data.type == TokenType::Offline))
         {
-            throw jsonrpc_exception(ApiError::NotSupported, "Must be connected to own node to generate this address type.");
+            throw jsonrpc_exception(ApiError::NotSupported, "Wallet must be connected to own node or mobile node protocol should be turned on to generate this address type.");
         }
 
         auto walletDB = getWalletDB();
@@ -834,18 +834,6 @@ namespace beam::wallet
             throw jsonrpc_exception(ApiError::UnexpectedError, "Previous shader call is still in progress");
         }
 
-        try
-        {
-            if (!data.contract.empty())
-            {
-                contracts->CompileAppShader(data.contract);
-            }
-        }
-        catch(std::runtime_error& err)
-        {
-            throw jsonrpc_exception(ApiError::ContractCompileError, err.what());
-        }
-
         if (data.createTx)
         {
             onHandleInvokeContractWithTX(id, data);
@@ -858,10 +846,8 @@ namespace beam::wallet
 
     void V6Api::onHandleInvokeContractWithTX(const JsonRpcId &id, const InvokeContract& data)
     {
-        std::weak_ptr<bool> wguard = _contractsGuard;
-        auto contracts = getContracts();
-
-        contracts->CallShaderAndStartTx(data.args, data.args.empty() ? 0 : 1, [this, id, wguard](boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
+        getContracts()->CallShaderAndStartTx(data.contract, data.args, data.args.empty() ? 0 : 1, 0, 0,
+        [this, id, wguard = _weakSelf](boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
             auto guard = wguard.lock();
             if (!guard)
             {
@@ -890,10 +876,8 @@ namespace beam::wallet
 
     void V6Api::onHandleInvokeContractNoTX(const JsonRpcId &id, const InvokeContract& data)
     {
-        std::weak_ptr<bool> wguard = _contractsGuard;
-        auto contracts = getContracts();
-
-        contracts->CallShader(data.args, data.args.empty() ? 0 : 1, [this, id, wguard](boost::optional<ByteBuffer> data, boost::optional<std::string> output, boost::optional<std::string> error) {
+        getContracts()->CallShader(data.contract, data.args, data.args.empty() ? 0 : 1, 0, 0,
+        [this, id, wguard = _weakSelf](boost::optional<ByteBuffer> data, boost::optional<std::string> output, boost::optional<std::string> error) {
             auto guard = wguard.lock();
             if (!guard)
             {
@@ -923,11 +907,8 @@ namespace beam::wallet
     void V6Api::onHandleProcessInvokeData(const JsonRpcId &id, const ProcessInvokeData &data)
     {
         LOG_DEBUG() << "ProcessInvokeData(id = " << id << ")";
-
-        auto contracts = getContracts();
-        std::weak_ptr<bool> wguard = _contractsGuard;
-
-        contracts->ProcessTxData(data.invokeData, [this, id, wguard](boost::optional<TxID> txid, boost::optional<std::string> error) {
+        getContracts()->ProcessTxData(data.invokeData,
+        [this, id, wguard = _weakSelf](boost::optional<TxID> txid, boost::optional<std::string> error) {
             auto guard = wguard.lock();
             if (!guard)
             {
@@ -956,7 +937,7 @@ namespace beam::wallet
     {
         LOG_DEBUG() << "BlockDetails(id = " << id << ")";
 
-        RequestHeaderMsg::Ptr request(new RequestHeaderMsg(id, _contractsGuard, *this));
+        RequestHeaderMsg::Ptr request(new RequestHeaderMsg(id, _weakSelf, *this));
         request->m_Msg.m_Height = data.blockHeight;
 
         getWallet()->GetNodeEndpoint()->PostRequest(*request, *request);

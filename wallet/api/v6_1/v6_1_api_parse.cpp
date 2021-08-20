@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "v6_1_api.h"
+#include "utility/fsutils.h"
 
 namespace beam::wallet
 {
@@ -41,7 +42,8 @@ namespace beam::wallet
             if (!getAppId().empty())
             {
                 // Some events are not allowed for applications
-                if (it.key() == "ev_utxos_changed")
+                if (it.key() == "ev_utxos_changed" ||
+                    it.key() == "ev_assets_changed")
                 {
                     throw jsonrpc_exception(ApiError::NotAllowedError);
                 }
@@ -124,14 +126,21 @@ namespace beam::wallet
                     {"current_state_timestamp", res.currentStateTimestamp},
                     {"prev_state_hash", to_hex(res.prevStateHash.m_pData, res.prevStateHash.nBytes)},
                     {"is_in_sync", res.isInSync},
-                    {"available",  res.available},
-                    {"receiving",  res.receiving},
-                    {"sending",    res.sending},
-                    {"maturing",   res.maturing},
-                    {"difficulty", res.difficulty}
                 }
             }
         };
+
+        if (!getAppId().empty())
+        {
+            return;
+        }
+
+        auto& result = msg["result"];
+        result["available"]  = res.available;
+        result["receiving"]  = res.receiving;
+        result["sending"]    =  res.sending;
+        result["maturing"]   =  res.maturing;
+        result["difficulty"] =  res.difficulty;
 
         if (res.totals)
         {
@@ -174,8 +183,74 @@ namespace beam::wallet
                     jtotals["maturing"] = AmountBig::get_Lo(maturing);
                 }
 
-                msg["result"]["totals"].push_back(jtotals);
+                result["totals"].push_back(jtotals);
             }
+        }
+    }
+
+    std::pair<InvokeContractV61, IWalletApi::MethodInfo> V61Api::onParseInvokeContractV61(const JsonRpcId &id, const json &params)
+    {
+        InvokeContractV61 message;
+
+        if(const auto contract = getOptionalParam<NonEmptyJsonArray>(params, "contract"))
+        {
+            const json& bytes = *contract;
+            message.contract = bytes.get<std::vector<uint8_t>>();
+        }
+        else if(const auto fname = getOptionalParam<NonEmptyString>(params, "contract_file"))
+        {
+            fsutils::fread(*fname).swap(message.contract);
+        }
+
+        if (const auto args = getOptionalParam<NonEmptyString>(params, "args"))
+        {
+            message.args = *args;
+        }
+
+        if (const auto createTx = getOptionalParam<bool>(params, "create_tx"))
+        {
+            message.createTx = *createTx;
+        }
+
+        if (isApp() && message.createTx)
+        {
+            throw jsonrpc_exception(ApiError::NotAllowedError, "Applications must set create_tx to false and use process_contract_data");
+        }
+
+        if (const auto priority = getOptionalParam<uint32_t>(params, "priority"))
+        {
+            message.priority = *priority;
+        }
+
+        if (const auto unique = getOptionalParam<uint32_t>(params, "unique"))
+        {
+            message.unique = *unique;
+        }
+
+        return std::make_pair(message, MethodInfo());
+    }
+
+    void V61Api::getResponse(const JsonRpcId& id, const InvokeContractV61::Response& res, json& msg)
+    {
+        msg = nlohmann::json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result",
+                {
+                    {"output", res.output ? *res.output : std::string("")}
+                }
+            }
+        };
+
+        if (res.txid)
+        {
+            msg["result"]["txid"] = std::to_string(*res.txid);
+        }
+
+        if (res.invokeData)
+        {
+            msg["result"]["raw_data"] = *res.invokeData;
         }
     }
 }

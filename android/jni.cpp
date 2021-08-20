@@ -809,7 +809,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(updateAddress)(JNIEnv *env, jo
         expirationStatus = WalletAddress::ExpirationStatus::Expired;
         break;
     case 1:
-        expirationStatus = WalletAddress::ExpirationStatus::OneDay;
+        expirationStatus = WalletAddress::ExpirationStatus::Auto;
         break;
     case 2:
         expirationStatus = WalletAddress::ExpirationStatus::Never;

@@ -201,6 +201,10 @@
 #define BVMOp_AddSig(macro, sep) \
 	macro(const PubKey&, pubKey)
 
+#define BVMOp_UpdateShader(macro, sep) \
+	macro(const void*, pVal) sep \
+	macro(uint32_t, nVal)
+
 #define BVMOp_FundsLock(macro, sep) \
 	macro(AssetID, aid) sep \
 	macro(Amount, amount)
@@ -400,6 +404,7 @@
 	macro(0x23, void     , CallFar) \
 	macro(0x24, uint32_t , get_CallDepth) \
 	macro(0x25, void     , get_CallerCid) \
+	macro(0x26, void     , UpdateShader) \
 	macro(0x29, void     , AddSig) \
 	macro(0x30, void     , FundsLock) \
 	macro(0x31, void     , FundsUnlock) \

@@ -96,31 +96,13 @@ namespace beam::bvm2
 		}
 
 
-		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, uint32_t& nValInOut) override
+		virtual void LoadVar(const Blob& key, Blob& res) override
 		{
-			auto* pE = m_Vars.Find(Blob(vk.m_p, vk.m_Size));
-			if (pE && !pE->m_Data.empty())
-			{
-				auto n0 = static_cast<uint32_t>(pE->m_Data.size());
-				memcpy(pVal, &pE->m_Data.front(), std::min(n0, nValInOut));
-				nValInOut = n0;
-			}
-			else
-				nValInOut = 0;
-		}
-
-		virtual void LoadVar(const VarKey& vk, ByteBuffer& res) override
-		{
-			auto* pE = m_Vars.Find(Blob(vk.m_p, vk.m_Size));
+			auto* pE = m_Vars.Find(key);
 			if (pE)
 				res = pE->m_Data;
 			else
-				res.clear();
-		}
-
-		virtual uint32_t SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal) override
-		{
-			return SaveVar(Blob(vk.m_p, vk.m_Size), pVal, nVal);
+				res.n = 0;
 		}
 
 		struct Action_Var
@@ -131,20 +113,20 @@ namespace beam::bvm2
 
 			virtual void Undo(ContractTestProcessor& p) override
 			{
-				p.SaveVar2(m_Key, m_Value.empty() ? nullptr : &m_Value.front(), static_cast<uint32_t>(m_Value.size()), nullptr);
+				p.SaveVar2(m_Key, m_Value, nullptr);
 			}
 		};
 
-		uint32_t SaveVar(const Blob& key, const uint8_t* pVal, uint32_t nVal)
+		virtual uint32_t SaveVar(const Blob& key, const Blob& val) override
 		{
 			auto pUndo = std::make_unique<Action_Var>();
-			uint32_t nRet = SaveVar2(key, pVal, nVal, pUndo.get());
+			uint32_t nRet = SaveVar2(key, val, pUndo.get());
 
 			m_lstUndo.push_back(*pUndo.release());
 			return nRet;
 		}
 
-		uint32_t SaveVar2(const Blob& key, const uint8_t* pVal, uint32_t nVal, Action_Var* pAction)
+		uint32_t SaveVar2(const Blob& key, const Blob& val, Action_Var* pAction)
 		{
 			auto* pE = m_Vars.Find(key);
 			auto nOldSize = pE ? static_cast<uint32_t>(pE->m_Data.size()) : 0;
@@ -156,12 +138,12 @@ namespace beam::bvm2
 					pAction->m_Value.swap(pE->m_Data);
 			}
 
-			if (nVal)
+			if (val.n)
 			{
 				if (!pE)
 					pE = m_Vars.Create(key);
 
-				Blob(pVal, nVal).Export(pE->m_Data);
+				val.Export(pE->m_Data);
 			}
 			else
 			{
@@ -399,7 +381,7 @@ namespace beam::bvm2
 				// c'tor
 				assert(pCode);
 				get_Cid(Cast::NotConst(cid), *pCode, args); // c'tor is empty
-				SaveVar(cid, reinterpret_cast<const uint8_t*>(pCode->p), pCode->n);
+				SaveVar(cid, *pCode);
 			}
 
 			try
@@ -407,7 +389,7 @@ namespace beam::bvm2
 				RunMany(cid, iMethod, args);
 
 				if (1 == iMethod) // d'tor
-					SaveVar(cid, nullptr, 0);
+					SaveVar(cid, Blob(nullptr, 0));
 
 			}
 			catch (const std::exception& e) {

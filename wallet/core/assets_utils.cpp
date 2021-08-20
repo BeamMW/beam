@@ -35,6 +35,7 @@ namespace beam::wallet {
         const char OPT_COLOR[]         = "OPT_COLOR";
         const char ALLOWED_SYMBOLS[]   = " .,-_";
         const unsigned CURRENT_META_VERSION = 1;
+        const size_t MAX_SHORT_NAME_LEN = 6;
     }
 
     WalletAssetMeta::WalletAssetMeta(std::string meta)
@@ -126,7 +127,12 @@ namespace beam::wallet {
             return std::regex_match(it->second, rg);
         };
 
-        _std = _std_v5_0 && versionValid() && optSDescValid() && optLDescValid() && optColorValid();
+        _std_v6_0 = _std_v5_0 && versionValid() && optSDescValid() && optLDescValid() && optColorValid();
+        _std = _std_v6_0 &&
+                !GetName().empty() &&
+                !GetShortName().empty() && GetShortName().length() <= MAX_SHORT_NAME_LEN &&
+                !GetUnitName().empty() &&
+                !GetNthUnitName().empty();
     }
 
     void WalletAssetMeta::LogInfo(const std::string& pref) const
@@ -160,6 +166,11 @@ namespace beam::wallet {
     bool WalletAssetMeta::isStd_v5_0() const
     {
         return _std_v5_0;
+    }
+
+    bool WalletAssetMeta::isStd_v6_0() const
+    {
+        return _std_v6_0;
     }
 
     std::string WalletAssetMeta::GetUnitName() const

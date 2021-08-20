@@ -117,7 +117,7 @@ namespace beam
 
 		ThreadPool(Context& ctx, size_t nTasks)
 		{
-			size_t numCores = std::thread::hardware_concurrency();
+			size_t numCores = MyThread::hardware_concurrency();
 			if (!numCores)
 				numCores = 1; //?
 			if (numCores > nTasks)

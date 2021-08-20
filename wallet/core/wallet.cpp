@@ -361,9 +361,14 @@ namespace beam::wallet
 
     bool Wallet::IsWalletInSync() const
     {
-        Block::SystemState::Full state;
-        get_tip(state);
+        Block::SystemState::ID stateID;
+        ZeroObject(stateID);
+        m_WalletDB->getSystemStateID(stateID);
+        if (stateID.m_Height < Rules::HeightGenesis)
+            return false;
 
+        Block::SystemState::Full state;
+        m_WalletDB->get_History().get_At(state, stateID.m_Height);
         return IsValidTimeStamp(state.m_TimeStamp);
     }
 
@@ -742,8 +747,8 @@ namespace beam::wallet
         case TxType::VoucherRequest:
             {
                 auto pKeyKeeper = m_WalletDB->get_KeyKeeper();
-                if (!pKeyKeeper             // We can generate the ticket with OwnerKey, but can't sign it.
-                 || (!m_OwnedNodesOnline && !IsMobileNodeEnabled()))    // The wallet has no ability to recognoize received shielded coin
+                if (!pKeyKeeper                                         // We can generate the ticket with OwnerKey, but can't sign it.
+                 || !CanDetectCoins())                                  // The wallet has no ability to recognoize received shielded coin
                 {
                     FailVoucherRequest(msg.m_From, myID);
                     return; 
@@ -2192,6 +2197,11 @@ namespace beam::wallet
     bool Wallet::IsConnectedToOwnNode() const
     {
         return m_OwnedNodesOnline > 0;
+    }
+
+    bool Wallet::CanDetectCoins() const
+    {
+        return m_OwnedNodesOnline || m_IsBodyRequestsEnabled;
     }
 
     void Wallet::EnableBodyRequests(bool value)

@@ -16,6 +16,7 @@
 #include <queue>
 #include <mutex>
 #include <condition_variable>
+#include "helpers.h"
 
 namespace beam
 {
@@ -26,10 +27,10 @@ namespace beam
 
 		SimpleThreadPool(size_t threads)
 		{
-			m_Threads.resize(threads);
-			for (auto& t : m_Threads)
+			m_Threads.reserve(threads);
+			for (size_t i = 0; i < threads; ++i)
 			{
-				t = std::thread(&SimpleThreadPool::DoWork, this);
+				m_Threads.push_back(std::thread(&SimpleThreadPool::DoWork, this));
 			}
 		}
 
@@ -59,6 +60,11 @@ namespace beam
 			m_NewTask.notify_all();
 		}
 
+		size_t GetPoolSize() const
+		{
+			return m_Threads.size();
+		}
+
 	private:
 
 		void DoWork()
@@ -75,7 +81,18 @@ namespace beam
 					t = std::move(m_Tasks.front());
 					m_Tasks.pop();
 				}
-				t();
+				try
+				{
+					t();
+				}
+				catch (const std::exception& ex)
+				{
+					std::cout << "Exception: " << ex.what() << std::endl;
+				}
+				catch (...)
+				{
+					std::cout << "Exception"<< std::endl;
+				}
 			}
 		}
 
@@ -95,21 +112,35 @@ namespace beam
 			std::thread::id m_ID = {};
 			mutable std::mutex m_Mutex;
 			std::condition_variable m_cv;
-			bool m_RunToCompletion = false;
+			enum struct State
+			{
+				Unassigned,
+				Attached,
+				Completed,
+				Detached,
+				Joined
+			};
+			State m_State = State::Unassigned;
 
 			void StoreID(std::thread::id id)
 			{
 				std::unique_lock lock(m_Mutex);
-				m_ID = id;
-				m_cv.notify_one();
+				if (m_State == State::Unassigned)
+				{
+					m_ID = id;
+					m_State = State::Attached;
+					m_cv.notify_one();
+				}
 			}
 
 			void Complete()
 			{
 				std::unique_lock lock(m_Mutex);
-				assert(!m_RunToCompletion);
-				m_RunToCompletion = true;
-				m_cv.notify_one();
+				if (m_State == State::Attached)
+				{
+					m_State = State::Completed;
+					m_cv.notify_one();
+				}
 			}
 
 			std::thread::id GetID() const
@@ -121,12 +152,21 @@ namespace beam
 			void Join()
 			{
 				std::unique_lock lock(m_Mutex);
-				m_cv.wait(lock, [&]() {return m_RunToCompletion == true; });
+				m_cv.wait(lock, [&]() {return m_State == State::Completed; });
+				m_State = State::Joined;
 				m_ID = {};
+			}
+
+			bool IsJoinable() const
+			{
+				std::unique_lock lock(m_Mutex);
+				return m_State != State::Detached && m_State != State::Joined;
 			}
 
 			void Detach()
 			{
+				std::unique_lock lock(m_Mutex);
+				m_State = State::Detached;
 				m_ID = {};
 			}
 		};
@@ -134,7 +174,7 @@ namespace beam
 	public:
 
 		PoolThread() noexcept
-			: m_ID(std::make_unique<IdControl>())
+			: m_ID(std::make_shared<IdControl>())
 		{
 
 		}
@@ -146,12 +186,11 @@ namespace beam
 			using Params = std::tuple<std::decay_t<Func>, std::decay_t<Args>...>;
 			using Indecies = std::make_index_sequence<1 + sizeof...(Args)>;
 			auto params = std::make_shared<Params>(std::forward<Func>(f), std::forward<Args>(args)...);
-
-			s_threadPool.Push([id = m_ID.get(), params]()
+			s_threadPool.Push([sp = m_ID, params]()
 			{
-				id->StoreID(std::this_thread::get_id());
+				sp->StoreID(std::this_thread::get_id());
 				MyInvoke(*params, Indecies{});
-				id->Complete();
+				sp->Complete();
 			});
 		}
 
@@ -168,6 +207,14 @@ namespace beam
 			return *this;
 		}
 
+		~PoolThread() noexcept
+		{
+			if (joinable()) 
+			{
+				std::terminate();
+			}
+		}
+
 		PoolThread(const PoolThread&) = delete;
 		PoolThread& operator=(const PoolThread&) = delete;
 
@@ -179,7 +226,7 @@ namespace beam
 
 		bool joinable() const noexcept
 		{
-			return true;
+			return m_ID && m_ID->IsJoinable();
 		}
 
 		void join()
@@ -190,7 +237,13 @@ namespace beam
 
 		void detach()
 		{
+			assert(m_ID);
 			m_ID->Detach();
+		}
+
+		[[nodiscard]] static unsigned int hardware_concurrency() noexcept 
+		{
+			return static_cast<unsigned int>(s_threadPool.GetPoolSize());
 		}
 
 	private:
@@ -201,9 +254,20 @@ namespace beam
 			std::invoke(std::get<I>(p)...);
 		}
 
+		static size_t GetCoresNum()
+		{
+#ifdef BEAM_WEB_WALLET_THREADS_NUM
+			auto s = static_cast<size_t>(BEAM_WEB_WALLET_THREADS_NUM);
+			if (std::thread::hardware_concurrency() >= s)
+				return s;
+#endif // BEAM_WEB_WALLET_THREADS_NUM
+
+			return  std::thread::hardware_concurrency();
+		}
+
 	private:
-		inline static SimpleThreadPool s_threadPool{ std::thread::hardware_concurrency() };
-		std::unique_ptr<IdControl> m_ID;
+		inline static SimpleThreadPool s_threadPool{ GetCoresNum() };
+		std::shared_ptr<IdControl> m_ID;
 	};
 #if defined __EMSCRIPTEN__
 	using MyThread = PoolThread;

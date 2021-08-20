@@ -2411,10 +2411,9 @@ struct NodeProcessor::BlockInterpretCtx
 
 		BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& db);
 
-		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, uint32_t& nValInOut) override;
-		virtual void LoadVar(const VarKey& vk, ByteBuffer& res) override;
-		virtual uint32_t SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal) override;
-		virtual uint32_t OnLog(const VarKey& key, const Blob& val) override;
+		virtual void LoadVar(const Blob& key, Blob& res) override;
+		virtual uint32_t SaveVar(const Blob& key, const Blob&) override;
+		virtual uint32_t OnLog(const Blob& key, const Blob& val) override;
 
 		virtual Height get_Height() override;
 		virtual bool get_HdrAt(Block::SystemState::Full&) override;
@@ -2428,9 +2427,7 @@ struct NodeProcessor::BlockInterpretCtx
 
 		bool Invoke(const bvm2::ContractID&, uint32_t iMethod, const TxKernelContractControl&);
 
-		uint32_t SaveVar(const Blob& key, const Blob& data);
 		void UndoVars();
-		void ToggleSidEntry(const bvm2::ShaderID&, const bvm2::ContractID&, bool bSet);
 
 		void ContractDataInsert(const Blob& key, const Blob&);
 		void ContractDataUpdate(const Blob& key, const Blob& val, const Blob& valOld);
@@ -3297,8 +3294,9 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInt
 		}
 
 		BlockInterpretCtx::BvmProcessor proc(bic, *this);
-		proc.SaveVar(cid, krn.m_Data);
-		proc.ToggleSidEntry(sid, cid, true);
+
+		Blob blob = krn.m_Data;
+		proc.AddRemoveShader(cid, &blob);
 
 		if (!proc.Invoke(cid, 0, krn))
 			return false;
@@ -3334,11 +3332,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 		if (1 == krn.m_iMethod)
 		{
 			// d'tor called. Make sure no variables are left except for the contract data
-			bvm2::ShaderID sid;
-			bvm2::get_ShaderID(sid, bic.get_ContractVar(krn.m_Cid, proc.m_Proc.m_DB).m_Data);
-			proc.ToggleSidEntry(sid, krn.m_Cid, false);
-
-			proc.SaveVar(krn.m_Cid, Blob(nullptr, 0));
+			proc.AddRemoveShader(krn.m_Cid, nullptr);
 
 			if (!proc.EnsureNoVars(krn.m_Cid))
 			{
@@ -4480,9 +4474,12 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 		InitStackPlus(m_Stack.AlignUp(static_cast<uint32_t>(krn.m_Args.size())));
 		m_Stack.PushAlias(krn.m_Args);
 
-		m_Instruction.m_Mode = m_Bic.m_TxValidation ?
-			Wasm::Reader::Mode::Restrict :
-			Wasm::Reader::Mode::Emulate_x86;
+		m_Instruction.m_Mode = 
+			IsPastHF4() ?
+			Wasm::Reader::Mode::Standard :
+			m_Bic.m_TxValidation ?
+				Wasm::Reader::Mode::Restrict :
+				Wasm::Reader::Mode::Emulate_x86;
 
 		CallFar(cid, iMethod, m_Stack.get_AlasSp(), 0);
 
@@ -4756,28 +4753,10 @@ BlobMap::Entry& NodeProcessor::BlockInterpretCtx::get_ContractVar(const Blob& ke
 	return *pE;
 }
 
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const VarKey& vk, uint8_t* pVal, uint32_t& nValInOut)
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const Blob& key, Blob& res)
 {
-	auto& e = m_Bic.get_ContractVar(Blob(vk.m_p, vk.m_Size), m_Proc.m_DB);
-
-	if (!e.m_Data.empty())
-	{
-		auto n0 = static_cast<uint32_t>(e.m_Data.size());
-		memcpy(pVal, &e.m_Data.front(), std::min(n0, nValInOut));
-		nValInOut = n0;
-	}
-	else
-		nValInOut = 0;
-}
-
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const VarKey& vk, ByteBuffer& res)
-{
-	res = m_Bic.get_ContractVar(Blob(vk.m_p, vk.m_Size), m_Proc.m_DB).m_Data;
-}
-
-uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal)
-{
-	return SaveVar(Blob(vk.m_p, vk.m_Size), Blob(pVal, nVal));
+	auto& e = m_Bic.get_ContractVar(key, m_Proc.m_DB);
+	res = e.m_Data;
 }
 
 uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, const Blob& data)
@@ -4890,7 +4869,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataToggleTree(cons
 		m_Proc.m_Mapped.m_Contract.Toggle(key, data, bAdd);
 }
 
-uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const VarKey& vk, const Blob& val)
+uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const Blob& key, const Blob& val)
 {
 	assert(m_Bic.m_Fwd);
 	if (!m_Bic.m_Temporary)
@@ -4899,7 +4878,7 @@ uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const VarKey& vk,
 		NodeDB::ContractLog::Entry x;
 		x.m_Pos.m_Height = m_Bic.m_Height;
 		x.m_Pos.m_Pos = m_Bic.m_ContractLogs;
-		x.m_Key = Blob(vk.m_p, vk.m_Size);
+		x.m_Key = key;
 		x.m_Val = val;
 		m_Proc.m_DB.ContractLogInsert(x);
 	}
@@ -4911,7 +4890,6 @@ uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const VarKey& vk,
 
 	if (!m_Bic.m_SkipDefinition)
 	{
-		Blob key(vk.m_p, vk.m_Size);
 		bool bMmr = IsContractVarStoredInMmr(key);
 		ser & bMmr;
 
@@ -5118,25 +5096,6 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 	}
 }
 
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::ToggleSidEntry(const bvm2::ShaderID& sid, const bvm2::ContractID& cid, bool bSet)
-{
-	uint8_t pKey[bvm2::ContractID::nBytes * 2 + bvm2::ShaderID::nBytes + 1];
-	memset0(pKey, bvm2::ContractID::nBytes);
-	pKey[bvm2::ContractID::nBytes] = VarKey::Tag::SidCid;
-	memcpy(pKey + bvm2::ContractID::nBytes + 1, sid.m_pData, sid.nBytes);
-	memcpy(pKey + bvm2::ContractID::nBytes + 1 + bvm2::ShaderID::nBytes, cid.m_pData, cid.nBytes);
-
-	Blob blob(pKey, bvm2::ContractID::nBytes * 2 + bvm2::ShaderID::nBytes + 1);
-
-	if (bSet)
-	{
-		auto h = uintBigFrom(m_Bic.m_Height);
-		SaveVar(blob, h);
-	}
-	else
-		SaveVar(blob, Blob(nullptr, 0));
-}
-
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::DbgCallstackTrim()
 {
 	uint32_t nFarFrames = static_cast<uint32_t>(m_FarCalls.m_Stack.size());
@@ -5175,7 +5134,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::DumpFarFrames(std::ostream&
 		auto& fr = *it++;
 
 		bvm2::ShaderID sid;
-		bvm2::get_ShaderID(sid, fr.m_Body);
+		bvm2::get_ShaderID(sid, fr.m_Body); // theoretically m_Body may be different, the contract code may modify itself. Never mind.
 
 		os << std::endl << "Cid=" << fr.m_Cid << ", Sid=" << sid;
 
@@ -5256,7 +5215,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::CallFar(const bvm2::Contrac
 			ZeroObject(args);
 	
 		bvm2::ShaderID sid;
-		bvm2::get_ShaderID(sid, m_Code);
+		bvm2::get_ShaderID(sid, m_Code); // code should be intact, contract didn't get control yet
 
 		ParseExtraInfo(x, sid, iMethod, args);
 

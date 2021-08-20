@@ -139,7 +139,7 @@ namespace beam
 
 	ExecutorMT::ExecutorMT()
 	{
-		m_Threads = std::thread::hardware_concurrency();
+		m_Threads = MyThread::hardware_concurrency();
 	}
 
 	void ExecutorMT::set_Threads(uint32_t nThreads)

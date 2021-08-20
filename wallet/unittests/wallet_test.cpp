@@ -3488,10 +3488,9 @@ void GenerateTreasury(size_t walletCount, size_t utxoCount, Amount value)
     FSave(data, "treasury.bin");
 }
 
-void TestThreadPool()
+template<typename T>
+void TestThread()
 {
-    std::cout << "Testing simple thread pool\n";
-
     struct Counter
     {
         void Increment()
@@ -3502,32 +3501,43 @@ void TestThreadPool()
 
         int value = 0;
         std::mutex m_Mutex;
-    }counter;
+    } counter;
 
-
-    PoolThread t1([&counter](int id)
+    auto f = [&counter](int id, unsigned interval)
     {
-        std::cout << "thread " << id << "\n";
-        std::this_thread::sleep_for(std::chrono::milliseconds(410));
+        std::stringstream ss;
+        ss << "thread " << id;
+        std::cout << ss.str() << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(interval));
         counter.Increment();
-    }, 1);
+        ss << " done";
+        std::cout << ss.str() << std::endl;
+    };
 
-    PoolThread t2([&counter](int id)
-    {
-        std::cout << "thread " << id << "\n";
-        std::this_thread::sleep_for(std::chrono::milliseconds(150));
-        counter.Increment();
-    }, 2);
+    T t1(f, 1, 410);
+
+    T t2(f, 2, 150);
+    WALLET_CHECK(t2.joinable());
+    T tt = std::move(t2);
+    WALLET_CHECK(!t2.joinable());
+    WALLET_CHECK(tt.joinable());
     t1.join();
-    t2.join();
+    tt.join();
 
     WALLET_CHECK(counter.value == 2);
+    {
+        T t3(f, 3, 150);
+        t3.detach();
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    WALLET_CHECK(counter.value == 3);
 
     struct Test
     {
         Test()
+            : m_Thread(T(&Test::Thread, this, std::cref(Rules::get())))
         {
-            m_Thread = PoolThread(&Test::Thread, this, std::cref(Rules::get()));
+
         }
 
         ~Test()
@@ -3539,15 +3549,23 @@ void TestThreadPool()
 
         void Thread(const Rules& r)
         {
-            std::cout << "thread 3\n";
+            std::cout << "thread 4" << std::endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(150));
-            std::cout << "thread 3 Done\n";
+            std::cout << "thread 4 Done" << std::endl;
         }
 
-        PoolThread m_Thread;
+        T m_Thread;
     };
     Test t;
-    
+
+}
+
+void TestThreadPool()
+{
+    std::cout << "Testing simple thread pool\n";
+    // Pool thread should be similar to std::thread and should pass the same test
+    TestThread<PoolThread>();
+    TestThread<std::thread>();
 }
 
 int main()
