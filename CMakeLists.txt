@@ -446,7 +446,7 @@ if(NOT BEAM_BVM_ONLY)
     add_subdirectory(hw_crypto)
     add_subdirectory(node)
     add_subdirectory(mnemonic)
-    add_subdirectory(websocket)
+    #add_subdirectory(websocket)
 endif()
 
 if (EMSCRIPTEN)
