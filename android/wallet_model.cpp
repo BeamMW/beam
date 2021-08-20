@@ -519,12 +519,13 @@ void WalletModel::onCoinsSelected(const CoinsSelectionInfo& selectionRes)
 
     JNIEnv* env = Android_JNI_getEnv();
 
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onCoinsSelected", "(JJJ)V");
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onCoinsSelected", "(JJJJ)V");
 
     env->CallStaticVoidMethod(WalletListenerClass, callback, 
                                                     selectionRes.m_explicitFee, 
                                                     selectionRes.m_changeAsset, 
-                                                    selectionRes.m_minimalExplicitFee);
+                                                    selectionRes.m_minimalExplicitFee,
+                                                    selectionRes.m_selectedSumAsset);
 }
 
 void WalletModel::onNormalCoinsChanged(ChangeAction action, const std::vector<Coin>& utxosVec)

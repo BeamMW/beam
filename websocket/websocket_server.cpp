@@ -16,7 +16,7 @@
 #include "utility/logger.h"
 #include "reactor.h"
 
-namespace beam::wallet
+namespace beam
 {
     namespace
     {
@@ -122,14 +122,14 @@ namespace beam::wallet
     {
         _iocThread = std::make_shared<MyThread>([this, port, reactor]() {
 
-            HandlerCreator creator = [this, reactor] (WebSocketServer::SendFunc func, WebSocketServer::CloseFunc closeFunc) -> auto {
+            HandlerCreator creator = [this, reactor](WebSocketServer::SendFunc func, WebSocketServer::CloseFunc closeFunc) -> auto {
                 reactor->assert_thread();
                 return ReactorThread_onNewWSClient(std::move(func), std::move(closeFunc));
             };
 
             std::make_shared<Listener>(_ioc,
-                    tcp::endpoint{ boost::asio::ip::make_address("0.0.0.0"), port },
-                    reactor, creator, _allowedOrigin)->run();
+                tcp::endpoint{ boost::asio::ip::make_address("0.0.0.0"), port },
+                reactor, creator, _allowedOrigin)->run();
 
             _ioc.run();
         });

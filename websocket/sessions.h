@@ -25,7 +25,8 @@
 #include "utility/io/reactor.h"
 #include "utility/io/asyncevent.h"
 
-namespace beam::wallet {
+namespace beam
+{
     namespace beast     = boost::beast;
     namespace http      = boost::beast::http;
     namespace websocket = boost::beast::websocket;

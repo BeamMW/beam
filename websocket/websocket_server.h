@@ -22,7 +22,8 @@
 #include "utility/io/timer.h"
 #include "utility/thread.h"
 
-namespace beam::wallet {
+namespace beam
+{
     class WebSocketServer
     {
     public:
@@ -43,8 +44,8 @@ namespace beam::wallet {
         virtual ClientHandler::Ptr ReactorThread_onNewWSClient(SendFunc, CloseFunc) = 0;
 
     private:
-        boost::asio::io_context       _ioc;
+        boost::asio::io_context    _ioc;
         std::shared_ptr<MyThread>  _iocThread;
-        std::string                   _allowedOrigin;
+        std::string                _allowedOrigin;
     };
 }

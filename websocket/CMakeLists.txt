@@ -28,5 +28,9 @@ if(MSVC)
     target_compile_options(websocket PRIVATE "/wd4702")
 endif()
 
+if(BEAM_TESTS_ENABLED)
+    add_subdirectory(unittests)
+endif()
+
 
 
