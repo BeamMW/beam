@@ -45,7 +45,7 @@ namespace
 	using namespace beam::wallet;
 
 	class WebClient
-		: public  WebSocketServer::ClientHandler  // We handle web socket client
+		: public WebSocketServer::ClientHandler  // We handle web socket client
 		, public std::enable_shared_from_this<WebClient>
 	{
 	public:
