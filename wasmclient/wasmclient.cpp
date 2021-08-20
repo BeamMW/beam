@@ -11,12 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #include <emscripten.h>
 #include <emscripten/bind.h>
 #include <emscripten/threading.h>
 #include <emscripten/val.h>
+#include <boost/algorithm/string.hpp>
+#include <queue>
+#include <exception>
+#include <filesystem>
 
+#include "common.h"
 #include "wallet/client/wallet_client.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/api/i_wallet_api.h"
@@ -24,33 +28,20 @@
 #include "wallet/transactions/lelantus/push_transaction.h"
 #include "mnemonic/mnemonic.h"
 #include "utility/string_helpers.h"
-#include "webapi_beam.h"
+#include "wasm_beamapi.h"
 
-#include <boost/algorithm/string.hpp>
-
-#include <queue>
-#include <exception>
-#include <filesystem>
 namespace fs = std::filesystem;
-
 using namespace beam;
 using namespace beam::io;
 using namespace std;
 using namespace emscripten;
 using namespace ECC;
 using namespace beam::wallet;
-using namespace beam::applications;
 
 #define Assert(x) ((void)((x) || (__assert_fail(#x, __FILE__, __LINE__, __func__),0)))
 
 namespace
 {
-    void AssertMainThread()
-    {
-        if (emscripten_is_main_browser_thread() != 1)
-            throw std::runtime_error("Invalid thread");
-    }
-
     void GetWalletSeed(NoLeak<uintBig>& walletSeed, const std::string& s)
     {
         SecString seed;
@@ -104,8 +95,8 @@ public:
     {
         virtual void OnSyncProgress(int done, int total) {}
         virtual void OnResult(const json&) {}
-        virtual void OnApproveSend(const std::string&, const string&, WebAPI_Beam::WeakPtr api) {}
-        virtual void OnApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WebAPI_Beam::WeakPtr api) {}
+        virtual void OnApproveSend(const std::string&, const string&, WasmAppApi::WeakPtr api) {}
+        virtual void OnApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WasmAppApi::WeakPtr api) {}
     };
 
     using WalletClient::WalletClient;
@@ -131,29 +122,22 @@ public:
         });
     }
 
-    void ApproveSend(const std::string& request, const std::string& info, WebAPI_Beam::Ptr api)
+    void ClientThread_ApproveSend(const std::string& request, const std::string& info, WasmAppApi::Ptr api)
     {
-        WebAPI_Beam::WeakPtr wpApi = api;
-
-        postFunctionToClientContext([this, sp = shared_from_this(), request, info, wpApi]()
+        AssertMainThread();
+        if (m_CbHandler)
         {
-            if (m_CbHandler)
-            {
-                m_CbHandler->OnApproveSend(request, info, wpApi);
-            }
-        });
+            m_CbHandler->OnApproveSend(request, info, api);
+        }
     }
 
-    void ApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WebAPI_Beam::Ptr api)
+    void ClientThread_ApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WasmAppApi::Ptr api)
     {
-        WebAPI_Beam::WeakPtr wpApi = api;
-        postFunctionToClientContext([this, sp = shared_from_this(), request, info, amounts, wpApi]()
+        AssertMainThread();
+        if (m_CbHandler)
         {
-            if (m_CbHandler)
-            {
-                m_CbHandler->OnApproveContractInfo(request, info, amounts, wpApi);
-            }
-        });
+            m_CbHandler->OnApproveContractInfo(request, info, amounts, api);
+        }
     }
 
     void Stop(Callback&& handler)
@@ -245,84 +229,10 @@ private:
     IWalletApi::Ptr m_WalletApi;
 };
 
-class AppAPI : public WebAPI_Beam
-{
-public:
-    AppAPI(WalletClient2::Ptr client, IShadersManager::Ptr shaders, const std::string& version, const std::string& appid, const std::string& appname)
-        : WebAPI_Beam(client, client->GetWalletDB(), shaders, version, appid, appname)
-        , m_Client2(client)
-    {
-
-    }
-
-    static void Create(WalletClient2::Ptr client, const std::string& version, const std::string& appid, const std::string& appname, val cb)
-    {
-        AssertMainThread();
-        client->getAsync()->makeIWTCall(
-            [appid, appname, client]() -> boost::any 
-            {
-                //
-                // THIS IS REACTOR THREAD
-                //
-                auto result = client->IWThread_createAppShaders(appid, appname);
-                return result;
-            },
-            [cb = std::move(cb), version, appid, appname, client](boost::any aptr) 
-            {
-                //
-                // THIS IS UI THREAD
-                //
-                AssertMainThread();
-                auto shaders = boost::any_cast<IShadersManager::Ptr>(aptr);
-                auto wapi = std::make_shared<AppAPI>(client, shaders, version, appid, appname);
-                wapi->_walletAPIProxy->_handler = wapi;
-                cb(wapi);
-            }
-        );
-    }
-
-    void CallWalletAPI(const std::string& request)
-    {
-        AssertMainThread();
-        callWalletApi(request);
-    }
-
-    void SetResultHandler(val handler)
-    {
-        AssertMainThread();
-        m_ResultHandler = std::make_unique<val>(std::move(handler));
-    }
-private:
-    void onCallWalletApiResult(const std::string& result) override
-    {
-        m_Client2->postFunctionToClientContext([this, sp = shared_from_this(), result]()
-        {
-            if (m_ResultHandler && !m_ResultHandler->isNull())
-            {
-                (*m_ResultHandler)(result);
-            }
-        });
-    }
-
-    void onApproveSend(const std::string& request, const std::string& info) override
-    {
-        m_Client2->ApproveSend(request, info, shared_from_this());
-    }
-
-    void onApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts) override
-    {
-        m_Client2->ApproveContractInfo(request, info, amounts, shared_from_this());
-    }
-
-private:
-    WalletClient2::Ptr m_Client2;
-    std::unique_ptr<val> m_ResultHandler;
-};
-
 class AppAPICallback
 {
 public:
-    AppAPICallback(WebAPI_Beam::WeakPtr sp)
+    AppAPICallback(WasmAppApi::WeakPtr sp)
         : m_Api(sp)
     {}
 
@@ -330,32 +240,32 @@ public:
     {
         AssertMainThread();
         if (auto sp = m_Api.lock())
-            sp->sendApproved(request);
+            sp->AnyThread_callWalletApiDirectly(request);
     }
 
     void SendRejected(const std::string& request)
     {
         AssertMainThread();
         if (auto sp = m_Api.lock())
-            sp->sendRejected(request);
+            sp-> AnyThread_sendApiError(request, beam::wallet::ApiError::UserRejected, std::string());
     }
 
     void ContractInfoApproved(const std::string& request)
     {
         AssertMainThread();
         if (auto sp = m_Api.lock())
-            sp->contractInfoApproved(request);
+            sp->AnyThread_callWalletApiDirectly(request);
     }
 
     void ContractInfoRejected(const std::string& request)
     {
         AssertMainThread();
         if (auto sp = m_Api.lock())
-            sp->contractInfoRejected(request);
+            sp->AnyThread_sendApiError(request, beam::wallet::ApiError::UserRejected, std::string());
     }
 
 private:
-    WebAPI_Beam::WeakPtr m_Api;
+    WasmAppApi::WeakPtr m_Api;
 };
 
 class WasmWalletClient
@@ -547,7 +457,7 @@ public:
         }
     }
 
-    void OnApproveSend(const std::string& request, const std::string& info, WebAPI_Beam::WeakPtr api) override
+    void OnApproveSend(const std::string& request, const std::string& info, WasmAppApi::WeakPtr api) override
     {
         AssertMainThread();
         if (m_ApproveSendHandler && !m_ApproveSendHandler->isNull())
@@ -556,7 +466,7 @@ public:
         }
     }
 
-    void OnApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WebAPI_Beam::WeakPtr api) override
+    void OnApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WasmAppApi::WeakPtr api) override
     {
         AssertMainThread();
         if (m_ApproveContractInfoHandler && !m_ApproveContractInfoHandler->isNull())
@@ -565,10 +475,56 @@ public:
         }
     }
 
-    void CreateAppAPI(const std::string& appid, const std::string& appName, val cb)
+    void CreateAppAPI(const std::string& appid, const std::string& appname, val cb)
     {
         AssertMainThread();
-        AppAPI::Create(m_Client, "current", appid, appName, std::move(cb));
+
+        std::weak_ptr<WalletClient2> weak2 = m_Client;
+        WasmAppApi::UIThread_Create(m_Client.get(), "current", appid, appname,
+            [cb, weak2](WasmAppApi::Ptr wapi)
+            {
+                WasmAppApi::WeakPtr weakApi = wapi;
+                wapi->SetPostToClientHandler(
+                    [weak2](std::function<void (void)> func)
+                    {
+                        if (auto client2 = weak2.lock())
+                        {
+                            client2->postFunctionToClientContext([func]() {
+                                func();
+                            });
+                        }
+                    }
+                );
+
+                wapi->SetContractConsentHandler(
+                    [weak2, weakApi](const std::string& req, const std::string& info, const std::string& amoutns)
+                    {
+                        auto client2 = weak2.lock();
+                        auto wapi = weakApi.lock();
+
+                        if(client2 && wapi)
+                        {
+                            client2->ClientThread_ApproveContractInfo(req, info, amoutns, wapi);
+                        }
+                    }
+                );
+
+                wapi->SetSendConsentHandler(
+                    [weak2, weakApi](const std::string& req, const std::string& info)
+                    {
+                        auto client2 = weak2.lock();
+                        auto wapi = weakApi.lock();
+
+                        if(client2 && wapi)
+                        {
+                            client2->ClientThread_ApproveSend(req, info, wapi);
+                        }
+                    }
+                );
+
+                cb(wapi);
+            }
+        );
     }
 
     static void DoCallbackOnMainThread(val* h)
@@ -697,13 +653,13 @@ EMSCRIPTEN_BINDINGS()
         .class_function("MountFS", &WasmWalletClient::MountFS)
         .class_function("DeleteWallet", &WasmWalletClient::DeleteWallet)
         ;
-    class_<AppAPI>("AppAPI")
-        .smart_ptr<std::shared_ptr<AppAPI>>("AppAPI")
-        .function("callWalletApi", &AppAPI::CallWalletAPI)
-        .function("setHandler", &AppAPI::SetResultHandler)
+    class_<WasmAppApi>("AppAPI")
+        .smart_ptr<std::shared_ptr<WasmAppApi>>("AppAPI")
+        .function("callWalletApi", &WasmAppApi::CallWalletAPI)
+        .function("setHandler", &WasmAppApi::SetResultHandler)
         ;
     class_<AppAPICallback>("AppAPICallback")
-        .constructor<WebAPI_Beam::Ptr>()
+        .constructor<WasmAppApi::Ptr>()
         .function("sendApproved", &AppAPICallback::SendApproved)
         .function("sendRejected", &AppAPICallback::SendRejected)
         .function("contractInfoApproved", &AppAPICallback::ContractInfoApproved)
