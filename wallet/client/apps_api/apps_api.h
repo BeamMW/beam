@@ -165,7 +165,7 @@ namespace beam::wallet
                 IWalletApi::ParseResult data;
             };
 
-            LOG_INFO () << "AppsApi checkekd call for " << getAppName() << ", " << getAppId() << "): " << request;
+            LOG_INFO () << "AppsApi checked call for " << getAppName() << ", " << getAppId() << "): " << request;
             _client->getAsync()->makeIWTCall(
                 [wp = _weakSelf, this, request]() -> boost::any {
                     auto locked = wp.lock();
