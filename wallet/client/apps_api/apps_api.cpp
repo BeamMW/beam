@@ -15,13 +15,26 @@
 
 namespace beam::wallet
 {
-    AppsApi::AppsApi(std::string appid, std::string appname)
-        : _appId(std::move(appid))
-        , _appName(std::move(appname))
+    void printMap(const std::string& prefix, const json& info)
     {
+        for (const auto& pair: info.items())
+        {
+            LOG_INFO () << prefix << pair.key() << " = " << pair.value();
+        }
     }
 
-    AppsApi::~AppsApi()
+    void printApproveLog(const std::string& preamble, const std::string& appid, const std::string& appname, const json& info, const json& amounts)
     {
+        LOG_INFO() << preamble << " (" << appname << ", " << appid << "):";
+        printMap("\t", info);
+
+        if (!amounts.empty())
+        {
+            for (const auto &amountMap : amounts)
+            {
+                LOG_INFO() << "\tamount entry:";
+                printMap("\t\t", amountMap);
+            }
+        }
     }
 }

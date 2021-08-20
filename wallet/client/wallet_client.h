@@ -110,6 +110,7 @@ namespace beam::wallet
 
         IWalletModelAsync::Ptr getAsync();
         Wallet::Ptr getWallet(); // can return null
+        IWalletDB::Ptr getWalletDB();
 
         IShadersManager::Ptr IWThread_createAppShaders(const std::string& appid, const std::string& appname);
 
@@ -150,8 +151,6 @@ namespace beam::wallet
         // Call this before derived class is destructed to ensure
         // that no virtual function calls below will result in purecall
         void stopReactor(bool detachThread = false);
-
-        IWalletDB::Ptr getWalletDB();
 
         // use this function to post function call to client's main loop
         using MessageFunction = std::function<void()>;

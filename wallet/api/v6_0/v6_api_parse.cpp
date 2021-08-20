@@ -565,7 +565,7 @@ namespace beam::wallet
 
         auto assetId = split.assetId ? *split.assetId : beam::Asset::s_BeamID;
         info.appendSpend(assetId, splitAmount);
-        info.appendSpend(assetId, splitAmount);
+        info.appendReceive(assetId, splitAmount);
         info.fee = split.fee;
 
         return std::make_pair(split, info);
