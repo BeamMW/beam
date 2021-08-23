@@ -20,8 +20,11 @@ class WasmAppApi
     : public beam::wallet::AppsApi<WasmAppApi>
     , public std::enable_shared_from_this<WasmAppApi>
 {
-public:
+private:
     WasmAppApi(const std::string appid, const std::string appname);
+
+public:
+    ~WasmAppApi() override = default;
 
     // This is visible to jscript
     void CallWalletAPI(const std::string& request);
