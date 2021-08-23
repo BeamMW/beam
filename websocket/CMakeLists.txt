@@ -14,6 +14,7 @@ add_library(websocket STATIC
 target_link_libraries(websocket
     PUBLIC
         Boost::boost
+    PRIVATE
         utility
         beam
 )
