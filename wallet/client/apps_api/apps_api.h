@@ -28,22 +28,6 @@ namespace beam::wallet
     class AppsApi
         : public beam::wallet::IWalletApiHandler
     {
-        // this is to access private constructor in Target
-        struct Allocator: std::allocator<Target>
-        {
-            void construct(void* p,
-                           std::string appid,
-                           std::string appname)
-            {
-                ::new(p) Target(std::move(appid), std::move(appname));
-            }
-
-            void destroy(Target* p)
-            {
-                p->~Target();
-            }
-        };
-
         struct ApiHandlerProxy: beam::wallet::IWalletApiHandler
         {
             void sendAPIResponse(const beam::wallet::json& result) override
@@ -86,7 +70,7 @@ namespace beam::wallet
         typedef std::shared_ptr<Target> Ptr;
         typedef std::weak_ptr<Target> WeakPtr;
 
-        static void UIThread_Create(WalletClient* client,
+        static void ClientThread_Create(WalletClient* client,
                        std::string version,
                        std::string appid,
                        std::string appname,
@@ -109,7 +93,7 @@ namespace beam::wallet
                     //
                     // THIS IS UI THREAD
                     //
-                    auto wapi = std::allocate_shared<Target>(Allocator(), appid, appname);
+                    auto wapi = std::shared_ptr<Target>(new Target(appid, appname));
                     wapi->_walletAPIProxy->_handler = wapi;
                     wapi->_client = client;
                     wapi->_weakSelf = wapi;

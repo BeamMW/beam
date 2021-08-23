@@ -480,7 +480,7 @@ public:
         AssertMainThread();
 
         std::weak_ptr<WalletClient2> weak2 = m_Client;
-        WasmAppApi::UIThread_Create(m_Client.get(), "current", appid, appname,
+        WasmAppApi::ClientThread_Create(m_Client.get(), "current", appid, appname,
             [cb, weak2](WasmAppApi::Ptr wapi)
             {
                 WasmAppApi::WeakPtr weakApi = wapi;
