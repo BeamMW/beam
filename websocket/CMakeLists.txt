@@ -14,9 +14,8 @@ add_library(websocket STATIC
 target_link_libraries(websocket
     PUBLIC
         Boost::boost
-    PRIVATE
-        beam
         utility
+        beam
 )
 
 target_compile_definitions(websocket PUBLIC _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
