@@ -93,7 +93,7 @@ namespace beam::wallet
                     //
                     // THIS IS UI THREAD
                     //
-                    auto wapi = std::shared_ptr<Target>(new Target(appid, appname));
+                    auto wapi = std::make_shared<Target>(appid, appname);
                     wapi->_walletAPIProxy->_handler = wapi;
                     wapi->_client = client;
                     wapi->_weakSelf = wapi;
