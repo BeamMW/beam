@@ -18,7 +18,7 @@
 
 class WasmAppApi
     : public beam::wallet::AppsApi<WasmAppApi>
-    , std::enable_shared_from_this<WasmAppApi>
+    , public std::enable_shared_from_this<WasmAppApi>
 {
 public:
     WasmAppApi(const std::string appid, const std::string appname);
