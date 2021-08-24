@@ -20,6 +20,7 @@
 
 namespace beam
 {
+#if  defined(__EMSCRIPTEN__) || defined(BEAM_BUILD_THREAD_POOL)
 	class SimpleThreadPool
 	{
 	public:
@@ -269,6 +270,9 @@ namespace beam
 		inline static SimpleThreadPool s_threadPool{ GetCoresNum() };
 		std::shared_ptr<IdControl> m_ID;
 	};
+
+#endif // BEAM_BUILD_THREAD_POOL
+
 #if defined __EMSCRIPTEN__
 	using MyThread = PoolThread;
 #else
