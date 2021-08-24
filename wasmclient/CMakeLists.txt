@@ -17,6 +17,9 @@ if(EMSCRIPTEN)
         mnemonic
         wallet_api
     )
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/package.json.in" "${CMAKE_CURRENT_BINARY_DIR}/package.json")
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/../License" "${CMAKE_CURRENT_BINARY_DIR}/License" COPYONLY)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/../README.md" "${CMAKE_CURRENT_BINARY_DIR}/README.md" COPYONLY)
 
     set_target_properties(${TARGET_NAME} PROPERTIES COMPILE_FLAGS "-s USE_PTHREADS=1 -s DISABLE_EXCEPTION_CATCHING=0 -s STRICT=0" 
         LINK_FLAGS "--bind --no-entry -s WASM_BIGINT=0 -s STRICT=0 -s DEMANGLE_SUPPORT=0 -s PTHREADS_DEBUG=0 -s SAFE_HEAP=0  -v -s SOCKET_DEBUG=0 -s DISABLE_EXCEPTION_CATCHING=0 -s VERBOSE=1 -s USE_PTHREADS=1 -s WASM=1 -s ERROR_ON_UNDEFINED_SYMBOLS=1 -s MODULARIZE=1 -s ALLOW_BLOCKING_ON_MAIN_THREAD=0 -s ALLOW_MEMORY_GROWTH=1 -s USE_BOOST_HEADERS=1 -s ASSERTIONS=1 -s PTHREAD_POOL_SIZE='window.navigator.hardwareConcurrency < ${BEAM_WEB_WALLET_THREADS_NUM} ? window.navigator.hardwareConcurrency : ${BEAM_WEB_WALLET_THREADS_NUM}' -s EXPORT_NAME='BeamModule' -s WEBSOCKET_SUBPROTOCOL='null' -lidbfs.js -lworkerfs.js")

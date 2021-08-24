@@ -553,3 +553,10 @@ jobs:
         path: |
           ${{runner.workspace}}/build_wasm/wasmclient/wasm-client.*
         if-no-files-found: error
+
+    - uses: actions/setup-node@v2
+      with:
+        registry-url: 'https://registry.npmjs.org'
+    - run: npm publish ${{runner.workspace}}/build_wasm/wasmclient/
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
