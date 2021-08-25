@@ -123,7 +123,7 @@ void TestAssets() {
     //
     // And enough BEAM mined
     //
-    storage::Totals totals(*receiverDB);
+    storage::Totals totals(*receiverDB, false);
     const auto mined = AmountBig::get_Lo(totals.GetBeamTotals().Avail);
     LOG_INFO() << "Beam mined " << PrintableAmount(mined);
 
@@ -145,7 +145,7 @@ void TestAssets() {
     Asset::ID NOASSET_ID = 3;
 
     const auto checkOwnerTotals = [&] (Amount beam, Amount asset1, Amount asset2) {
-        storage::Totals allTotals(*ownerDB);
+        storage::Totals allTotals(*ownerDB, false);
 
         auto availBM = AmountBig::get_Lo(allTotals.GetBeamTotals().Avail);
         auto availA1 = AmountBig::get_Lo(allTotals.GetTotals(ASSET1_ID).Avail);
@@ -157,8 +157,8 @@ void TestAssets() {
     };
 
     checkOwnerTotals(0, 0, 0);
-    beam::wallet::RegisterAssetCreators(*receiver.m_Wallet);
-    beam::wallet::RegisterAssetCreators(*owner.m_Wallet);
+    beam::wallet::RegisterAllAssetCreators(*receiver.m_Wallet);
+    beam::wallet::RegisterAllAssetCreators(*owner.m_Wallet);
 
     const auto getTx = [&](const IWalletDB::Ptr& db, TxID txid) -> auto {
       const auto otx = db->getTx(txid);
@@ -218,7 +218,7 @@ void TestAssets() {
             .SetParameter(TxParameterID::MyID, receiver.m_WalletID)
             .SetParameter(TxParameterID::PeerID, owner.m_WalletID));
     }, 2, false);
-    LOG_INFO() << "Now owner has " << PrintableAmount(storage::Totals(*ownerDB).GetBeamTotals().Avail);
+    LOG_INFO() << "Now owner has " << PrintableAmount(storage::Totals(*ownerDB, false).GetBeamTotals().Avail);
 
     // amount too small
     runTest("register, amount is too small", [&] {

@@ -21,7 +21,12 @@
 #include "../bvm2.h"
 #include "../bvm2_impl.h"
 
+#include "../ethash_service/ethash_utils.h"
+
 #include <sstream>
+#include <algorithm>
+#include <iterator>
+#include <math.h>
 
 #if defined(__ANDROID__) || !defined(BEAM_USE_AVX)
 #include "crypto/blake/ref/blake2.h"
@@ -29,47 +34,20 @@
 #include "crypto/blake/sse/blake2.h"
 #endif
 
-#include "../../core/mapped_file.h"
-#include "ethash/include/ethash/ethash.h"
-#include "ethash/lib/ethash/ethash-internal.hpp"
-
 namespace Shaders {
-
-	namespace Merkle {
-		using namespace beam::Merkle;
-	}
-
-	namespace Env {
-
-		extern "C" {
-
-#define PAR_DECL(type, name) type name
-#define MACRO_COMMA ,
-
-#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA));
-			BVMOpsAll_Common(THE_MACRO)
-			BVMOpsAll_Contract(THE_MACRO)
-			BVMOpsAll_Manager(THE_MACRO)
-#undef THE_MACRO
-
-#undef MACRO_COMMA
-#undef PAR_DECL
-
-		} // extern "C"
-
-	} // namespace Env
 
 
 #ifdef _MSC_VER
 #	pragma warning (disable : 4200 4702) // unreachable code
 #endif // _MSC_VER
 
-#define export
+#define BEAM_EXPORT
 
 #include "../Shaders/common.h"
 #include "../Shaders/Math.h"
 #include "../Shaders/Sort.h"
 #include "../Shaders/BeamHeader.h"
+#include "../Shaders/Eth.h"
 
 #include "../Shaders/vault/contract.h"
 #include "../Shaders/oracle/contract.h"
@@ -83,6 +61,7 @@ namespace Shaders {
 #include "../Shaders/mirrorcoin/contract.h"
 #include "../Shaders/voting/contract.h"
 #include "../Shaders/demoXdao/contract.h"
+#include "../Shaders/aphorize/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
@@ -116,16 +95,6 @@ namespace Shaders {
 	}
 	template <bool bToShader> void Convert(Dummy::TestRingSig& x) {
 	}
-	template <bool bToShader> void Convert(Dummy::TestEthash& x) {
-		ConvertOrd<bToShader>(x.m_BlockNumber);
-		ConvertOrd<bToShader>(x.m_Difficulty);
-		ConvertOrd<bToShader>(x.m_Nonce);
-	}
-	template <bool bToShader> void Convert(Dummy::TestEthash2& x) {
-		ConvertOrd<bToShader>(x.m_EpochDatasetSize);
-		ConvertOrd<bToShader>(x.m_Difficulty);
-		ConvertOrd<bToShader>(x.m_Nonce);
-	}
 	template <bool bToShader> void Convert(Dummy::TestEthHeader& x) {
 		ConvertOrd<bToShader>(x.m_Header.m_Difficulty);
 		ConvertOrd<bToShader>(x.m_Header.m_Number);
@@ -133,6 +102,7 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Header.m_GasUsed);
 		ConvertOrd<bToShader>(x.m_Header.m_Time);
 		ConvertOrd<bToShader>(x.m_Header.m_Nonce);
+		ConvertOrd<bToShader>(x.m_EpochDatasetSize);
 	}
 
 	template <bool bToShader> void Convert(Roulette::Params& x) {
@@ -261,30 +231,24 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Amount);
 	}
 
+	template <bool bToShader> void Convert(DemoXdao::UpdPosFarming& x) {
+		ConvertOrd<bToShader>(x.m_Beam);
+		ConvertOrd<bToShader>(x.m_WithdrawBeamX);
+	}
+	template <bool bToShader> void Convert(DemoXdao::GetPreallocated& x) {
+		ConvertOrd<bToShader>(x.m_Amount);
+	}
+
+	template <bool bToShader> void Convert(Aphorize::Create& x) {
+		ConvertOrd<bToShader>(x.m_Cfg.m_hPeriod);
+		ConvertOrd<bToShader>(x.m_Cfg.m_PriceSubmit);
+	}
+	template <bool bToShader> void Convert(Aphorize::Submit& x) {
+		ConvertOrd<bToShader>(x.m_Len);
+	}
+
 	namespace Env {
 
-
-		beam::bvm2::Processor* g_pEnv = nullptr;
-
-#define PAR_DECL(type, name) type name
-#define PAR_PASS(type, name) name
-#define MACRO_COMMA ,
-
-#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA)) { return Cast::Up<beam::bvm2::ProcessorPlusEnv>(g_pEnv)->OnHost_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); }
-		BVMOpsAll_Common(THE_MACRO)
-#undef THE_MACRO
-
-#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA)) { return Cast::Up<beam::bvm2::ProcessorPlusEnv_Contract>(g_pEnv)->OnHost_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); }
-		BVMOpsAll_Contract(THE_MACRO)
-#undef THE_MACRO
-
-#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA)) { return Cast::Up<beam::bvm2::ProcessorPlusEnv_Manager>(g_pEnv)->OnHost_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); }
-		BVMOpsAll_Manager(THE_MACRO)
-#undef THE_MACRO
-
-#undef MACRO_COMMA
-#undef PAR_PASS
-#undef PAR_DECL
 
 		void CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint8_t bInheritContext);
 
@@ -333,6 +297,9 @@ namespace Shaders {
 	}
 	namespace DemoXdao {
 #include "../Shaders/demoXdao/contract.cpp"
+	}
+	namespace Aphorize {
+#include "../Shaders/aphorize/contract.cpp"
 	}
 
 #ifdef _MSC_VER
@@ -384,6 +351,8 @@ void TestFailed(const char* szExpr, uint32_t nLine)
 
 #define fail_test(msg) TestFailed(msg, __LINE__)
 
+#include "contract_test_processor.h"
+
 namespace beam {
 namespace bvm2 {
 
@@ -421,404 +390,8 @@ namespace bvm2 {
 	}
 
 	struct MyProcessor
-		:public ProcessorContract
+		:public ContractTestProcessor
 	{
-		BlobMap::Set m_Vars;
-
-		struct Action
-			:public boost::intrusive::list_base_hook<>
-		{
-			virtual ~Action() = default;
-			virtual void Undo(MyProcessor&) = 0;
-
-			typedef intrusive::list_autoclear<Action> List;
-		};
-
-		Action::List m_lstUndo;
-
-		void UndoChanges(size_t nTrg = 0)
-		{
-			while (m_lstUndo.size() > nTrg)
-			{
-				auto& x = m_lstUndo.back();
-				x.Undo(*this);
-				m_lstUndo.Delete(x);
-			}
-		}
-
-
-		virtual void LoadVar(const VarKey& vk, uint8_t* pVal, uint32_t& nValInOut) override
-		{
-			auto* pE = m_Vars.Find(Blob(vk.m_p, vk.m_Size));
-			if (pE && !pE->m_Data.empty())
-			{
-				auto n0 = static_cast<uint32_t>(pE->m_Data.size());
-				memcpy(pVal, &pE->m_Data.front(), std::min(n0, nValInOut));
-				nValInOut = n0;
-			}
-			else
-				nValInOut = 0;
-		}
-
-		virtual void LoadVar(const VarKey& vk, ByteBuffer& res) override
-		{
-			auto* pE = m_Vars.Find(Blob(vk.m_p, vk.m_Size));
-			if (pE)
-				res = pE->m_Data;
-			else
-				res.clear();
-		}
-
-		virtual uint32_t SaveVar(const VarKey& vk, const uint8_t* pVal, uint32_t nVal) override
-		{
-			return SaveVar(Blob(vk.m_p, vk.m_Size), pVal, nVal);
-		}
-
-		struct Action_Var
-			:public Action
-		{
-			ByteBuffer m_Key;
-			ByteBuffer m_Value;
-
-			virtual void Undo(MyProcessor& p) override
-			{
-				p.SaveVar2(m_Key, m_Value.empty() ? nullptr : &m_Value.front(), static_cast<uint32_t>(m_Value.size()), nullptr);
-			}
-		};
-
-		uint32_t SaveVar(const Blob& key, const uint8_t* pVal, uint32_t nVal)
-		{
-			auto pUndo = std::make_unique<Action_Var>();
-			uint32_t nRet = SaveVar2(key, pVal, nVal, pUndo.get());
-
-			m_lstUndo.push_back(*pUndo.release());
-			return nRet;
-		}
-
-		uint32_t SaveVar2(const Blob& key, const uint8_t* pVal, uint32_t nVal, Action_Var* pAction)
-		{
-			auto* pE = m_Vars.Find(key);
-			auto nOldSize = pE ? static_cast<uint32_t>(pE->m_Data.size()) : 0;
-
-			if (pAction)
-			{
-				key.Export(pAction->m_Key);
-				if (pE)
-					pAction->m_Value.swap(pE->m_Data);
-			}
-
-			if (nVal)
-			{
-				if (!pE)
-					pE = m_Vars.Create(key);
-
-				Blob(pVal, nVal).Export(pE->m_Data);
-			}
-			else
-			{
-				if (pE)
-					m_Vars.Delete(*pE);
-			}
-
-			return nOldSize;
-		}
-
-		Height m_Height = 0;
-		Height get_Height() override { return m_Height; }
-
-		bool get_HdrAt(Block::SystemState::Full& s) override
-		{
-			Height h = s.m_Height;
-			if (h > m_Height)
-				return false;
-
-			ZeroObject(s);
-			s.m_Height = h;
-			return true;
-		}
-
-		struct AssetData {
-			Amount m_Amount;
-			PeerID m_Pid;
-		};
-		typedef std::map<Asset::ID, AssetData> AssetMap;
-		AssetMap m_Assets;
-
-		virtual Asset::ID AssetCreate(const Asset::Metadata& md, const PeerID& pid) override
-		{
-			Asset::ID aid = AssetCreate2(md, pid);
-			if (aid)
-			{
-				struct MyAction
-					:public Action
-				{
-					Asset::ID m_Aid;
-
-					virtual void Undo(MyProcessor& p) override {
-						auto it = p.m_Assets.find(m_Aid);
-						verify_test(p.m_Assets.end() != it);
-						p.m_Assets.erase(it);
-					}
-				};
-
-				auto pUndo = std::make_unique<MyAction>();
-				pUndo->m_Aid = aid;
-				m_lstUndo.push_back(*pUndo.release());
-			}
-
-			return aid;
-		}
-
-		Asset::ID AssetCreate2(const Asset::Metadata&, const PeerID& pid)
-		{
-			Asset::ID ret = 1;
-			while (m_Assets.find(ret) != m_Assets.end())
-				ret++;
-
-			auto& val = m_Assets[ret];
-			val.m_Amount = 0;
-			val.m_Pid = pid;
-			
-			return ret;
-		}
-
-		virtual bool AssetEmit(Asset::ID aid, const PeerID& pid, AmountSigned val) override
-		{
-			bool bRet = AssetEmit2(aid, pid, val);
-			if (bRet)
-			{
-				struct MyAction
-					:public Action
-				{
-					Asset::ID m_Aid;
-					AmountSigned m_Val;
-
-					virtual void Undo(MyProcessor& p) override {
-						auto it = p.m_Assets.find(m_Aid);
-						verify_test(p.m_Assets.end() != it);
-						it->second.m_Amount -= m_Val;;
-					}
-				};
-
-				auto pUndo = std::make_unique<MyAction>();
-				pUndo->m_Aid = aid;
-				pUndo->m_Val = val;
-				m_lstUndo.push_back(*pUndo.release());
-			}
-
-			return bRet;
-		}
-
-		bool AssetEmit2(Asset::ID aid, const PeerID& pid, AmountSigned val)
-		{
-			auto it = m_Assets.find(aid);
-			if (m_Assets.end() == it)
-				return false;
-
-			auto& x = it->second;
-			if (x.m_Pid != pid)
-				return false;
-
-			x.m_Amount += val; // don't care about overflow
-			return true;
-		}
-
-		virtual bool AssetDestroy(Asset::ID aid, const PeerID& pid) override
-		{
-			bool bRet = AssetDestroy2(aid, pid);
-			if (bRet)
-			{
-				struct MyAction
-					:public Action
-				{
-					Asset::ID m_Aid;
-					PeerID m_Pid;
-
-					virtual void Undo(MyProcessor& p) override {
-						auto& x = p.m_Assets[m_Aid];
-						x.m_Amount = 0;
-						x.m_Pid = m_Pid;
-					}
-				};
-
-				auto pUndo = std::make_unique<MyAction>();
-				pUndo->m_Aid = aid;
-				pUndo->m_Pid = pid;
-				m_lstUndo.push_back(*pUndo.release());
-			}
-
-			return bRet;
-		}
-
-		bool AssetDestroy2(Asset::ID aid, const PeerID& pid)
-		{
-			auto it = m_Assets.find(aid);
-			if (m_Assets.end() == it)
-				return false;
-
-			auto& x = it->second;
-			if (x.m_Pid != pid)
-				return false;
-
-			if (x.m_Amount)
-				return false;
-
-			m_Assets.erase(it);
-			return true;
-		}
-
-		MyProcessor()
-		{
-			//m_Dbg.m_Stack = true;
-			//m_Dbg.m_Instructions = true;
-			//m_Dbg.m_ExtCall = true;
-		}
-
-		uint32_t m_Cycles;
-
-		void CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint8_t bInheritContext)
-		{
-			m_Stack.AliasAlloc(nArgs);
-			memcpy(m_Stack.get_AliasPtr(), pArgs, nArgs);
-
-			size_t nFrames = m_FarCalls.m_Stack.size();
-
-			Wasm::Word nSp = m_Stack.get_AlasSp();
-			CallFar(cid, iMethod, nSp);
-
-			if (bInheritContext)
-			{
-				auto it = m_FarCalls.m_Stack.rbegin();
-				auto& fr0 = *it;
-				auto& fr1 = *(++it);
-				fr0.m_Cid = fr1.m_Cid;
-			}
-
-			bool bWasm = false;
-			for (; m_FarCalls.m_Stack.size() > nFrames; m_Cycles++)
-			{
-				bWasm = true;
-
-				DischargeUnits(Limits::Cost::Cycle);
-				RunOnce();
-
-				if (m_Dbg.m_pOut)
-				{
-					std::cout << m_Dbg.m_pOut->str();
-					m_Dbg.m_pOut->str("");
-
-					if (m_Cycles >= 100000)
-						m_Dbg.m_pOut = nullptr; // in debug max num of cycles takes too long because if this
-				}
-			}
-
-			if (bWasm) {
-				verify_test(nSp == m_Stack.get_AlasSp()); // stack must be restored
-			}
-			else {
-				// in 'host' mode the stack will not be restored automatically, if ther was a call to StackAlloc
-				verify_test(nSp >= m_Stack.get_AlasSp());
-				m_Stack.set_AlasSp(nSp);
-			}
-
-			memcpy(pArgs, m_Stack.get_AliasPtr(), nArgs);
-			m_Stack.AliasFree(nArgs);
-		}
-
-		void RunMany(const ContractID& cid, uint32_t iMethod, const Blob& args)
-		{
-			std::ostringstream os;
-			//m_Dbg.m_pOut = &os;
-
-			os << "BVM Method: " << cid << ":" << iMethod << std::endl;
-
-			InitStackPlus(0);
-
-			HeapReserveStrict(get_HeapLimit()); // this is necessary as long as we run shaders natively (not via wasm). Heap mem should not be reallocated
-
-			m_Charge = Limits::BlockCharge; // default
-			uint32_t nUnitsMax = m_Charge;
-
-			Shaders::Env::g_pEnv = this;
-			m_Cycles = 0;
-
-			CallFarN(cid, iMethod, Cast::NotConst(args.p), args.n, 0);
-
-			os << "Done in " << m_Cycles << " cycles, Discharge=" << (nUnitsMax - m_Charge) << std::endl << std::endl;
-			std::cout << os.str();
-		}
-
-		bool RunGuarded(const ContractID& cid, uint32_t iMethod, const Blob& args, const Blob* pCode)
-		{
-			bool ret = true;
-			size_t nChanges = m_lstUndo.size();
-
-			if (!iMethod)
-			{
-				// c'tor
-				assert(pCode);
-				get_Cid(Cast::NotConst(cid), *pCode, args); // c'tor is empty
-				SaveVar(cid, reinterpret_cast<const uint8_t*>(pCode->p), pCode->n);
-			}
-
-			try
-			{
-				RunMany(cid, iMethod, args);
-
-				if (1 == iMethod) // d'tor
-					SaveVar(cid, nullptr, 0);
-
-			}
-			catch (const std::exception& e) {
-				std::cout << "*** Shader Execution failed. Undoing changes" << std::endl;
-				std::cout << e.what() << std::endl;
-
-				UndoChanges(nChanges);
-				m_FarCalls.m_Stack.Clear();
-
-				ret = false;
-			}
-
-			return ret;
-		}
-
-		template <typename T>
-		struct Converter
-			:public Blob
-		{
-			Converter(T& arg)
-			{
-				Shaders::Convert<true>(arg);
-				p = &arg;
-				n = static_cast<uint32_t>(sizeof(arg));
-			}
-
-			~Converter()
-			{
-				T& arg = Cast::NotConst(*reinterpret_cast<const T*>(p));
-				Shaders::Convert<false>(arg);
-			}
-		};
-
-		template <typename TArg>
-		bool RunGuarded_T(const ContractID& cid, uint32_t iMethod, TArg& args)
-		{
-			Converter<TArg> cvt(args);
-			return RunGuarded(cid, iMethod, cvt, nullptr);
-		}
-
-		template <typename T>
-		bool ContractCreate_T(ContractID& cid, const Blob& code, T& args) {
-			Converter<T> cvt(args);
-			return RunGuarded(cid, 0, cvt, &code);
-		}
-
-		template <typename T>
-		bool ContractDestroy_T(const ContractID& cid, T& args)
-		{
-			Converter<T> cvt(args);
-			return RunGuarded(cid, 1, cvt, nullptr);
-		}
 
 		struct Code
 		{
@@ -834,6 +407,7 @@ namespace bvm2 {
 			ByteBuffer m_MirrorCoin;
 			ByteBuffer m_Voting;
 			ByteBuffer m_DemoXdao;
+			ByteBuffer m_Aphorize;
 
 		} m_Code;
 
@@ -850,54 +424,18 @@ namespace bvm2 {
 		ContractID m_cidMirrorCoin2;
 		ContractID m_cidVoting;
 		ContractID m_cidDemoXdao;
+		ContractID m_cidAphorize;
 
-		ByteBuffer m_etHashProof;
-		uintBig_t<20> m_hvEpochRoot;
+		struct {
 
-		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
-		{
-			std::FStream fs;
-			fs.Open(sz, true, true);
+			Shaders::Eth::Header m_Header;
+			uint32_t m_DatasetCount;
+			ByteBuffer m_Proof;
 
-			res.resize(static_cast<size_t>(fs.get_Remaining()));
-			if (!res.empty())
-				fs.read(&res.front(), res.size());
+		} m_Eth;
 
-			Processor::Compile(res, res, kind);
-		}
 
-		void AddCode(ByteBuffer& res, const char* sz)
-		{
-			AddCodeEx(res, sz, Kind::Contract);
-		}
-
-		template <typename T>
-		T& CastArg(Wasm::Word nArg)
-		{
-			return Cast::NotConst(get_AddrAsR<T>(nArg));
-		}
-
-		struct TempFrame
-		{
-			MyProcessor& m_This;
-			FarCalls::Frame m_Frame;
-
-			TempFrame(MyProcessor& x, const ContractID& cid)
-				:m_This(x)
-			{
-				m_Frame.m_Cid = cid;
-				m_Frame.m_FarRetAddr = 0;
-				m_This.m_FarCalls.m_Stack.push_back(m_Frame);
-			}
-
-			~TempFrame()
-			{
-				// don't call pop_back, in case of exc following interpreter frames won't be popped
-				m_This.m_FarCalls.m_Stack.erase(intrusive::list<FarCalls::Frame>::s_iterator_to(m_Frame));
-			}
-		};
-
-		virtual void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs) override
+		virtual void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext) override
 		{
 			if (cid == m_cidVault)
 			{
@@ -969,8 +507,7 @@ namespace bvm2 {
 				//{
 				//case 9: Shaders::Dummy::Method_9(CastArg<Shaders::Dummy::VerifyBeamHeader>(pArgs)); return;
 				//case 11: Shaders::Dummy::Method_11(CastArg<Shaders::Dummy::TestRingSig>(pArgs)); return;
-				//case 13: Shaders::Dummy::Method_13(CastArg<Shaders::Dummy::TestEthash2>(pArgs)); return;
-				//case 14: Shaders::Dummy::Method_14(CastArg<Shaders::Dummy::TestEthHeader>(pArgs)); return;
+				//case 12: Shaders::Dummy::Method_12(CastArg<Shaders::Dummy::TestEthHeader>(pArgs)); return;
 				//}
 			}
 
@@ -1040,10 +577,24 @@ namespace bvm2 {
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
 				//{
+				//case 0: Shaders::DemoXdao::Ctor(nullptr); return;
+				//case 3: Shaders::DemoXdao::Method_3(CastArg<Shaders::DemoXdao::GetPreallocated>(pArgs)); return;
+				//case 4: Shaders::DemoXdao::Method_4(CastArg<Shaders::DemoXdao::UpdPosFarming>(pArgs)); return;
 				//}
 			}
 
-			ProcessorContract::CallFar(cid, iMethod, pArgs);
+			if (cid == m_cidAphorize)
+			{
+				//TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//case 0: Shaders::Aphorize::Ctor(CastArg<Shaders::Aphorize::Create>(pArgs)); return;
+				//case 2: Shaders::Aphorize::Method_2(CastArg<Shaders::Aphorize::Submit>(pArgs)); return;
+				//}
+			}
+
+
+			ProcessorContract::CallFar(cid, iMethod, pArgs, bInheritContext);
 		}
 
 		void TestVault();
@@ -1058,6 +609,7 @@ namespace bvm2 {
 		void TestMirrorCoin();
 		void TestVoting();
 		void TestDemoXdao();
+		void TestAphorize();
 
 		void TestAll();
 	};
@@ -1088,8 +640,10 @@ namespace bvm2 {
 		AddCode(m_Code.m_MirrorCoin, "mirrorcoin/contract.wasm");
 		AddCode(m_Code.m_Voting, "voting/contract.wasm");
 		AddCode(m_Code.m_DemoXdao, "demoXdao/contract.wasm");
+		AddCode(m_Code.m_Aphorize, "aphorize/contract.wasm");
 
 		TestVault();
+		TestAphorize();
 		TestFaucet();
 		TestRoulette();
 		TestVoting();
@@ -1207,6 +761,32 @@ namespace bvm2 {
 		verify_test(RunGuarded_T(m_cidVault, Shaders::Vault::Deposit::s_iMethod, args));
 
 		m_lstUndo.Clear();
+	}
+
+	void MyProcessor::TestAphorize()
+	{
+		{
+			Shaders::Aphorize::Create args;
+			args.m_Cfg.m_hPeriod = 10;
+			args.m_Cfg.m_PriceSubmit = Shaders::g_Beam2Groth * 2;
+			ZeroObject(args.m_Cfg.m_Moderator);
+			verify_test(ContractCreate_T(m_cidAphorize, m_Code.m_Aphorize, args));
+		}
+
+		for (uint32_t i = 0; i < 20; i++)
+		{
+			struct MySubmit :public Shaders::Aphorize::Submit {
+				char m_szText[20];
+			};
+
+			MySubmit args;
+			ZeroObject(args.m_Pk);
+			args.m_Len = _countof(args.m_szText);
+
+			memset(args.m_szText, 'a' + i, sizeof(args.m_szText));
+
+			verify_test(RunGuarded_T(m_cidAphorize, args.s_iMethod, args));
+		}
 	}
 
 	namespace IndexDecoder
@@ -1636,56 +1216,20 @@ namespace bvm2 {
 		//	verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
 		//}
 
-		if (!m_etHashProof.empty())
+		if (!m_Eth.m_Proof.empty())
 		{
 			ByteBuffer buf;
-			buf.resize(sizeof(Shaders::Dummy::TestEthash2) + m_etHashProof.size());
+			buf.resize(sizeof(Shaders::Dummy::TestEthHeader) + m_Eth.m_Proof.size());
 
-			auto& args = *reinterpret_cast<Shaders::Dummy::TestEthash2*>(&buf.front());
-			memcpy(&args + 1, &m_etHashProof.front(), m_etHashProof.size());
+			auto& args = *reinterpret_cast<Shaders::Dummy::TestEthHeader*>(&buf.front());
+			memcpy(&args + 1, &m_Eth.m_Proof.front(), m_Eth.m_Proof.size());
 
 			ZeroObject(args);
-			args.m_HeaderHash.Scan("53a005f209a4dc013f022a5078c6b38ced76e767a30367ff64725f23ec652a9f");
-			args.m_Nonce = 0xd337f82001e992c5ULL;
-			args.m_Difficulty = 3250907161412814ULL;
-
-			args.m_EpochDatasetSize = 19922923;
-			args.m_EpochRoot = m_hvEpochRoot;
+			args.m_Header = m_Eth.m_Header;
+			args.m_EpochDatasetSize = m_Eth.m_DatasetCount;
 
 			verify_test(RunGuarded(cid, args.s_iMethod, buf, nullptr));
 		}
-
-		{
-			Shaders::Dummy::TestEthHeader args;
-			ZeroObject(args);
-
-			args.m_Header.m_ParentHash.Scan("1e77d8f1267348b516ebc4f4da1e2aa59f85f0cbd853949500ffac8bfc38ba14");
-			args.m_Header.m_UncleHash.Scan("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");
-			args.m_Header.m_Coinbase.Scan("2a65aca4d5fc5b5c859090a6c34d164135398226");
-			args.m_Header.m_Root.Scan("0b5e4386680f43c224c5c037efc0b645c8e1c3f6b30da0eec07272b4e6f8cd89");
-			args.m_Header.m_TxHash.Scan("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421");
-			args.m_Header.m_ReceiptHash.Scan("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421");
-			args.m_Header.m_Bloom = Zero;
-			args.m_Header.m_Extra.Scan("d583010202844765746885676f312e35856c696e7578");
-			args.m_Header.m_Difficulty = 6022643743806;
-			args.m_Header.m_Number = 400000; // height
-			args.m_Header.m_GasLimit = 3141592;
-			args.m_Header.m_GasUsed = 0;
-			args.m_Header.m_Time = 1445130204;
-
-			args.m_Header.m_Nonce = 0x6af23caae95692ef;
-			args.m_MixHash.Scan("3fbea7af642a4e20cd93a945a1f5e23bd72fc5261153e09102cf718980aeff38");
-
-			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
-
-			ECC::Hash::Value hvExp;
-			hvExp.Scan("5d15649e25d8f3e2c0374946078539d200710afc977cdfc6a977bd23f20fa8e8");
-			verify_test(hvExp == args.m_HeaderHash);
-
-
-
-		}
-
 
 		verify_test(ContractDestroy_T(cid, zero));
 	}
@@ -2200,7 +1744,7 @@ namespace bvm2 {
 			msg.m_User = argS.m_User;
 			msg.m_Amount = argS.m_Amount;
 
-			SaveVar(Blob(&key, sizeof(key)), (uint8_t*) &msg, sizeof(msg));
+			SaveVar(Blob(&key, sizeof(key)), Blob(&msg, sizeof(msg)));
 
 			Shaders::MirrorCoin::Receive argR;
 			argR.m_iCheckpoint = 0;
@@ -2385,14 +1929,161 @@ namespace bvm2 {
 		}
 	}
 
+	struct LutGenerator
+	{
+		typedef uint64_t TX;
+		typedef double TY;
+		virtual double Evaluate(TX) = 0;
+
+		std::vector<TX> m_vX;
+		std::vector<TY> m_vY;
+		std::vector<uint32_t> m_vYNorm;
+
+		bool IsGoodEnough(TX x, TX x1, double y1, double yPrecise, double tolerance)
+		{
+			const TX& xPrev = m_vX.back();
+			const TY& yPrev = m_vY.back();
+
+			double yInterp = yPrev + (y1 - yPrev) * (x - xPrev) / (x1 - xPrev);
+
+			double yErr = yInterp - yPrecise;
+			return (fabs(yErr / yPrecise) <= tolerance);
+		}
+
+		bool IsGoodEnough(TX x, TX x1, double y1, double tolerance)
+		{
+			double yPrecise = Evaluate(x);
+			return IsGoodEnough(x, x1, y1, yPrecise, tolerance);
+		}
+
+		void Generate(TX x0, TX x1, double tolerance)
+		{
+			assert(x0 < x1);
+
+			m_vX.push_back(x0);
+			m_vY.push_back(Evaluate(x0));
+
+			double y1 = Evaluate(x1);
+
+			while (true)
+			{
+				TX xNext = x1;
+				TY yNext = y1;
+
+				uint32_t nCycles = 0;
+				for (; ; nCycles++)
+				{
+					// probe 3 points: begin, end, mid
+					const TX& xPrev = m_vX.back();
+					TX dx = xNext - xPrev;
+					TX xMid = xPrev + dx / 2;
+					double yMid = Evaluate(xMid);
+
+					bool bOk = true;
+					double tolerance_der = tolerance / (double) (dx - 2);
+					if (bOk && !IsGoodEnough(xPrev + 1, xNext, yNext, tolerance_der))
+						bOk = false;
+
+					if (bOk && !IsGoodEnough(xNext - 1, xNext, yNext, tolerance_der))
+						bOk = false;
+
+					if (bOk && !IsGoodEnough(xMid, xNext, yNext, yMid, tolerance))
+						bOk = false;
+
+					if (bOk)
+						break;
+
+					xNext = xMid;
+					yNext = yMid;
+				}
+
+				m_vX.push_back(xNext);
+				m_vY.push_back(yNext);
+
+				if (!nCycles)
+					break;
+			}
+
+		}
+
+		void Normalize(uint32_t nMax)
+		{
+			double maxVal = 0;
+			for (size_t i = 0; i < m_vY.size(); i++)
+				std::setmax(maxVal, m_vY[i]);
+
+			m_vYNorm.resize(m_vY.size());
+			for (size_t i = 0; i < m_vY.size(); i++)
+				m_vYNorm[i] = static_cast<uint32_t>(nMax * m_vY[i] / maxVal);
+		}
+	};
+
 	void MyProcessor::TestDemoXdao()
 	{
+		//struct MyLutGenerator
+		//	:public LutGenerator
+		//{
+		//	virtual double Evaluate(TX x)
+		//	{
+		//		double k = ((double) x) / (double) (Shaders::g_Beam2Groth * 100);
+		//		return pow(k, 0.7);
+		//	}
+		//};
+
+		//MyLutGenerator lg;
+		//lg.Generate(Shaders::g_Beam2Groth * 16, Shaders::g_Beam2Groth * 1000000, 0.1);
+		//lg.Normalize(1000000);
+
 		Zero_ zero;
 		verify_test(ContractCreate_T(m_cidDemoXdao, m_Code.m_DemoXdao, zero));
 
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, m_Code.m_DemoXdao);
 		VERIFY_ID(Shaders::DemoXdao::s_SID, sid);
+
+		for (uint32_t i = 0; i < 10; i++)
+		{
+			Shaders::DemoXdao::UpdPosFarming args;
+			ZeroObject(args);
+
+			args.m_Beam = Shaders::g_Beam2Groth * 20000 * (i + 3);
+			args.m_BeamLock = 1;
+			args.m_Pk.m_X = i;
+			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args));
+
+			if (i & 1)
+				m_Height += 1000;
+		}
+
+		for (uint32_t i = 0; i < 10; i++)
+		{
+			Shaders::DemoXdao::UpdPosFarming args;
+			ZeroObject(args);
+
+			args.m_Beam = Shaders::g_Beam2Groth * 20000 * (i + 3);
+			args.m_Pk.m_X = i;
+			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args));
+
+			if (i & 1)
+				m_Height += 1000;
+		}
+
+		// the following is disabled, since the contract in this test is standalone, not under Upgradable, hence it doesn' allocate anything in c'tor
+/*
+		{
+			Shaders::DemoXdao::GetPreallocated args;
+			ZeroObject(args);
+			args.m_Amount = 50;
+			Cast::Reinterpret<beam::uintBig_t<33> >(args.m_Pk).Scan("8bb3375b455d9c577134b00e8b0b108a29ce2bc0fce929049306cf4fed723b7d00");
+			verify_test(!RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args)); // wrong pk
+
+			Cast::Reinterpret<beam::uintBig_t<33> >(args.m_Pk).Scan("8bb3375b455d9c577134b00e8b0b108a29ce2bc0fce929049306cf4fed723b7d01");
+			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args)); // ok
+
+			args.m_Amount = 31000 / 2 * Shaders::g_Beam2Groth;
+			verify_test(!RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args)); // too much
+		}
+*/
 	}
 
 
@@ -2509,221 +2200,219 @@ namespace bvm2 {
 
 } // namespace bvm2
 
-namespace EthashUtils
-{
-	typedef Shaders::Dummy::Ethash::ProofBase ProofBase;
-
-	void EvaluateElement(ProofBase::THash& hv, ProofBase::TCount n, const ethash_epoch_context& ctx)
-	{
-		auto item = ethash::calculate_dataset_item_1024(ctx, n);
-
-		ECC::Hash::Processor()
-			<< Blob(item.bytes, sizeof(item.bytes))
-			>> hv;
-	}
-
-
-	struct Hdr
-	{
-		uint32_t m_FullItems;
-		uint32_t m_CacheItems;
-		uint32_t m_h0; // height from which the hashes are stored
-
-		// followed by the cache
-		// followed by the tree hashes
-	};
-
-	struct MyMultiProofBase
-		:public Shaders::Dummy::Ethash::ProofBase
-	{
-		std::vector<THash> m_vRes;
-
-		void ProofPushZero()
-		{
-			m_vRes.emplace_back() = Zero;
-		}
-
-		void ProofMerge()
-		{
-			assert(m_vRes.size() >= 2);
-			auto& hv = m_vRes[m_vRes.size() - 2];
-
-			ECC::Hash::Processor() << hv << m_vRes.back() >> hv;
-			m_vRes.pop_back();
-		}
-	};
-
-	struct MyMultiProof
-		:public MyMultiProofBase
-	{
-		const THash* m_pHashes;
-		const Hdr* m_pHdr;
-		const ethash_epoch_context* m_pCtx;
-
-		bool ProofPush(TCount n, TCount nHalf)
-		{
-			Merkle::Position pos;
-
-			for (pos.H = 0; nHalf; pos.H++)
-			{
-				nHalf >>= 1;
-				assert(!(1 & n));
-				n >>= 1;
-			}
-
-			pos.X = n;
-
-			uint8_t h0 = static_cast<uint8_t>(ByteOrder::from_le(m_pHdr->m_h0));
-			if (pos.H < h0)
-			{
-				if (pos.H)
-					return false;
-
-				EvaluateElement(m_vRes.emplace_back(), n, *m_pCtx);
-			}
-			else
-			{
-				auto iHash = Merkle::FlatMmr::Pos2Idx(pos, h0);
-				m_vRes.push_back(m_pHashes[iHash]);
-			}
-
-			return true;
-		}
-
-	};
-
-
-	void GenerateLocalData(uint32_t iEpoch, const char* szPath, uint32_t h0)
-	{
-		ethash_epoch_context* pCtx = ethash_create_epoch_context(iEpoch);
-
-		uint32_t nFullItems = pCtx->full_dataset_num_items;
-
-		Hdr hdr;
-		hdr.m_FullItems = ByteOrder::to_le(nFullItems);
-		hdr.m_CacheItems = ByteOrder::to_le((uint32_t) pCtx->light_cache_num_items);
-		hdr.m_h0 = ByteOrder::to_le(h0);
-
-		std::FStream fs;
-		fs.Open(szPath, false, true);
-		fs.write(&hdr, sizeof(hdr));
-
-		fs.write(pCtx->light_cache, sizeof(*pCtx->light_cache) * pCtx->light_cache_num_items);
-
-		MyMultiProofBase wrk;
-
-		for (uint32_t i = 0; i < nFullItems; )
-		{
-			EvaluateElement(wrk.m_vRes.emplace_back(), i, *pCtx);
-
-			uint32_t nPos = ++i;
-			for (uint32_t h = 0; ; h++, nPos >>= 1)
-			{
-				if (h >= h0)
-					fs.write(&wrk.m_vRes.back(), sizeof(ProofBase::THash));
-
-				if (1 & nPos)
-					break;
-
-				wrk.ProofMerge();
-			}
-		}
-
-		ethash_destroy_epoch_context(pCtx);
-	}
-
-	void CropLocalData(const char* szDst, const char* szSrc, uint32_t dh)
-	{
-		MappedFileRaw fmp;
-		fmp.Open(szSrc);
-
-		auto& hdrSrc = fmp.get_At<Hdr>(0);
-		uint32_t nSizeCache = sizeof(ethash_hash512) * ByteOrder::from_le(hdrSrc.m_CacheItems);
-		uint32_t nFullItems = ByteOrder::from_le(hdrSrc.m_FullItems);
-		uint32_t h0 = ByteOrder::from_le(hdrSrc.m_h0);
-
-		auto pCache = &fmp.get_At<ProofBase::THash>(sizeof(Hdr));
-		auto pHashes = &fmp.get_At<ProofBase::THash>(sizeof(Hdr) + nSizeCache);
-
-		Hdr hdrDst = hdrSrc;
-		hdrDst.m_h0 = ByteOrder::to_le(h0 + dh);
-
-		std::FStream fs;
-		fs.Open(szDst, false, true);
-		fs.write(&hdrDst, sizeof(hdrDst));
-		fs.write(pCache, nSizeCache);
-
-		uint32_t nHashes0 = static_cast<uint32_t>(Merkle::FlatMmr::get_TotalHashes(nFullItems, static_cast<uint8_t>(h0)));
-		Merkle::Position pos;
-		ZeroObject(pos);
-
-		for (uint32_t i = 0; i < nHashes0; i++)
-		{
-			if (pos.H >= dh)
-				fs.write(pHashes + i, sizeof(ProofBase::THash));
-
-			const uint32_t nMsk = (2U << pos.H) - 1;
-
-			if (nMsk == (pos.X & nMsk))
-				pos.H++;
-			else
-			{
-				pos.H = 0;
-				pos.X++;
-			}
-		}
-	}
-
-
-	uint32_t GenerateProof(const char* szPath, const uintBig_t<64>& hvSeed, ByteBuffer& res, ProofBase::THash& hvRoot)
-	{
-		MappedFileRaw fmp;
-		fmp.Open(szPath);
-
-		auto& hdr = fmp.get_At<Hdr>(0);
-
-		ethash_epoch_context ctx = ethash_epoch_context{
-			0,
-			static_cast<int>(ByteOrder::from_le(hdr.m_CacheItems)),
-			&fmp.get_At<ethash_hash512>(sizeof(Hdr)),
-			nullptr,
-			static_cast<int>(ByteOrder::from_le(hdr.m_FullItems)) };
-
-		ECC::Hash::Value hvMix;
-		uint32_t pSolIndices[64];
-		ethash_hash1024 pSolItems[64];
-
-		ethash_get_MixHash2((ethash_hash256*)hvMix.m_pData, pSolIndices, pSolItems, &ctx, (ethash_hash512*)hvSeed.m_pData);
-
-		typedef Shaders::Dummy::MultiProof::Builder<MyMultiProof> MyBuilder;
-		Shaders::Dummy::MultiProof::Builder<MyMultiProof> mpb;
-
-		mpb.m_pHdr = &hdr;
-		mpb.m_pCtx = &ctx;
-		mpb.m_pHashes = &fmp.get_At<MyBuilder::THash>(sizeof(Hdr) + sizeof(ethash_hash512) * ctx.light_cache_num_items);
-
-		mpb.Build(nullptr, 0, ctx.full_dataset_num_items); // root
-
-		hvRoot = mpb.m_vRes.front();
-		mpb.m_vRes.clear();
-
-		mpb.Build(pSolIndices, _countof(pSolIndices), ctx.full_dataset_num_items); // proof for this set of indices
-
-		res.resize(sizeof(pSolItems) + sizeof(ProofBase::THash) * mpb.m_vRes.size());
-		memcpy(&res.front(), pSolItems, sizeof(pSolItems));
-		memcpy(&res.front() + sizeof(pSolItems), &mpb.m_vRes.front(), sizeof(ProofBase::THash) * mpb.m_vRes.size());
-
-		return ctx.full_dataset_num_items;
-	}
-
-} // namespace EthashUtils
-
 
 } // namespace beam
 
 void Shaders::Env::CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint8_t bInheritContext)
 {
 	Cast::Up<beam::bvm2::MyProcessor>(g_pEnv)->CallFarN(cid, iMethod, pArgs, nArgs, bInheritContext);
+}
+
+namespace 
+{
+	void TestRLP()
+	{
+		using namespace Shaders;
+		using namespace beam;
+		using namespace Eth;
+
+		struct ByteStream
+		{
+			ByteBuffer m_Buffer;
+
+			void Write(uint8_t b)
+			{
+				m_Buffer.emplace_back(b);
+			}
+
+			void Write(const uint8_t* p, uint32_t n)
+			{
+				::std::copy(p, p + n, ::std::back_inserter(m_Buffer));
+			}
+		};
+
+		struct RlpVisitor
+		{
+			struct Node
+			{
+				Rlp::Node::Type m_Type;
+				ByteBuffer m_Buffer;
+			};
+
+			bool OnNode(const Rlp::Node& node)
+			{
+				auto& item = m_Items.emplace_back();
+				item.m_Type = node.m_Type;
+				item.m_Buffer.assign(node.m_pBuf, node.m_pBuf + node.m_nLen);
+				return false;
+			}
+
+	
+			std::vector<Node> m_Items;
+		};
+
+		auto dog = to_opaque("dog");
+		// The string 'dog' = [0x83, 'd', 'o', 'g']
+		{
+			Rlp::Node n(dog);
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x83, 'd', 'o', 'g' }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 'd', 'o', 'g' }));
+		}
+		// The list['cat', 'dog'] = [0xc8, 0x83, 'c', 'a', 't', 0x83, 'd', 'o', 'g']
+		{
+			auto cat = to_opaque("cat");
+			Rlp::Node nodes[] = {Rlp::Node(cat), Rlp::Node(dog)};
+			Rlp::Node list(nodes);
+
+			ByteStream bs;
+			list.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0xc8, 0x83, 'c', 'a', 't', 0x83, 'd', 'o', 'g' }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			RlpVisitor vt;
+			verify_test(!Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size()-1, vt));
+			
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::List);
+			RlpVisitor v2;
+			verify_test(Rlp::Decode(v.m_Items[0].m_Buffer.data(), (uint32_t)v.m_Items[0].m_Buffer.size(), v2));
+
+			verify_test(v2.m_Items[0].m_Buffer == ByteBuffer({ 'c', 'a', 't' }));
+			verify_test(v2.m_Items[1].m_Buffer == ByteBuffer({ 'd', 'o', 'g' }));
+			
+		}
+
+		// The empty string('null') = [0x80]
+		{
+			Rlp::Node n(to_opaque(""));
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x80 }));
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer.empty());
+		}
+		
+		auto createEmptyList = []()
+		{
+			Rlp::Node list;
+			list.m_Type = Rlp::Node::Type::List;
+			list.m_nLen = 0;
+			return list;
+		};
+
+		//The empty list = [0xc0]
+		{
+			Rlp::Node list = createEmptyList();
+
+			ByteStream bs;
+			list.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0xc0 }));
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::List && v.m_Items[0].m_Buffer.empty());
+		}
+
+			
+		//The integer 0 = [0x80]
+		{
+			Rlp::Node n(0);
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x80 }));
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer.empty());// == ByteBuffer({ '\0' }));
+		}
+
+		//The encoded integer 0 ('\x00') = [0x00]
+		{
+			auto op = to_opaque("\0");
+			Rlp::Node n(op);
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x00 }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 0x00 }));
+		}
+
+		//The encoded integer 15 ('\x0f') = [0x0f]
+		{
+			auto op = to_opaque("\x0f");
+			Rlp::Node n(op);
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x0f }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 0x0f }));
+		}
+
+		//The encoded integer 1024 ('\x04\x00') = [0x82, 0x04, 0x00]
+		{
+			auto op = to_opaque("\x04\x0");
+			Rlp::Node n(op);
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x82, 0x04, 0x00 }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 0x04, 0x00 }));
+		}
+
+		//The set theoretical representation of three, [[], [[]], [[], [[]] ] ] = [0xc7, 0xc0, 0xc1, 0xc0, 0xc3, 0xc0, 0xc1, 0xc0]
+		{
+			Rlp::Node n1[1] = { createEmptyList() };
+			Rlp::Node n2[2] = { createEmptyList(), Rlp::Node(n1) };
+			Rlp::Node n3[3] = { createEmptyList(), Rlp::Node(n1), Rlp::Node(n2)};
+			Rlp::Node root(n3);
+			ByteStream bs;
+			root.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0xc7, 0xc0, 0xc1, 0xc0, 0xc3, 0xc0, 0xc1, 0xc0 }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::List && v.m_Items[0].m_Buffer.size() == 7);
+			RlpVisitor v2;
+			verify_test(Rlp::Decode(v.m_Items[0].m_Buffer.data(), (uint32_t)v.m_Items[0].m_Buffer.size(), v2));
+
+			verify_test(v2.m_Items.size() == 3);
+			verify_test(v2.m_Items[0].m_Type == Rlp::Node::Type::List);
+			verify_test(v2.m_Items[1].m_Type == Rlp::Node::Type::List);
+			verify_test(v2.m_Items[2].m_Type == Rlp::Node::Type::List);
+
+			RlpVisitor v3;
+			verify_test(Rlp::Decode(v2.m_Items[1].m_Buffer.data(), (uint32_t)v2.m_Items[1].m_Buffer.size(), v3));
+			verify_test(v3.m_Items.size() == 1 && v3.m_Items[0].m_Type == Rlp::Node::Type::List);
+
+			RlpVisitor v4;
+			verify_test(Rlp::Decode(v2.m_Items[2].m_Buffer.data(), (uint32_t)v2.m_Items[2].m_Buffer.size(), v4));
+			verify_test(v4.m_Items.size() == 2 && v4.m_Items[0].m_Type == Rlp::Node::Type::List && v4.m_Items[1].m_Type == Rlp::Node::Type::List);
+		}
+
+		//The string 'Lorem ipsum dolor sit amet, consectetur adipisicing elit' = [0xb8, 0x38, 'L', 'o', 'r', 'e', 'm', ' ', ..., 'e', 'l', 'i', 't']
+		{
+			auto op = to_opaque("Lorem ipsum dolor sit amet, consectetur adipisicing elit");
+			Rlp::Node n(op);
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0xb8, 0x38, 'L', 'o', 'r', 'e', 'm', ' ', 'i', 'p', 's', 'u', 'm', ' ', 'd', 'o', 'l', 'o', 'r', ' ', 's', 'i', 't', ' ', 'a', 'm', 'e', 't', ',', ' ', 'c', 'o', 'n', 's', 'e', 'c', 't', 'e', 't', 'u', 'r', ' ', 'a', 'd', 'i', 'p', 'i', 's', 'i', 'c', 'i', 'n', 'g', ' ',  'e', 'l', 'i', 't' }));
+
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 'L', 'o', 'r', 'e', 'm', ' ', 'i', 'p', 's', 'u', 'm', ' ', 'd', 'o', 'l', 'o', 'r', ' ', 's', 'i', 't', ' ', 'a', 'm', 'e', 't', ',', ' ', 'c', 'o', 'n', 's', 'e', 'c', 't', 'e', 't', 'u', 'r', ' ', 'a', 'd', 'i', 'p', 'i', 's', 'i', 'c', 'i', 'n', 'g', ' ',  'e', 'l', 'i', 't' }));
+
+		}
+	}
 }
 
 int main()
@@ -2737,19 +2426,82 @@ int main()
 		using namespace beam::bvm2;
 
 		TestMergeSort();
+		TestRLP();
 
 		MyProcessor proc;
-/*
+
 		{
-			//beam::EthashUtils::GenerateLocalData(176, "S:\\my_epoch-176-3.bin", 3); // skip 1st 3 levels, size reduction of 2^3 == 8
-			//beam::EthashUtils::CropLocalData("S:\\my_epoch-176-5.bin", "S:\\my_epoch-176-3.bin", 2); // skip 2 more levels
 
-			uintBig_t<64> hvSeed;
-			hvSeed.Scan("46cac938dbb96820c759754a01ee2a4586be377fb82baac75c2586a3d868537a9aa4e7a18324f01739dd31ab327b8b0e10b7bb1f8ddcd814bc24f870039c4c54");
+			// const char szPathData[] = "S:\\Beam\\Data\\EthEpoch\\";
 
-			beam::EthashUtils::GenerateProof("S:\\my_epoch-176-5.bin", hvSeed, proc.m_etHashProof, proc.m_hvEpochRoot);
-		}
+			// 1. Create local data for all the epochs (VERY long)
+
+/*
+			ExecutorMT_R exec;
+
+			for (uint32_t iEpoch = 0; iEpoch < 1024; iEpoch++)
+			{
+				struct MyTask :public Executor::TaskAsync
+				{
+					uint32_t m_iEpoch;
+
+					void Exec(Executor::Context&) override
+					{
+						std::string sPath = szPathData + std::to_string(m_iEpoch);
+
+						//+"-3.bin"
+
+						beam::EthashUtils::GenerateLocalData(m_iEpoch, (sPath + ".cache").c_str(), (sPath + ".tre3").c_str(), 3); // skip 1st 3 levels, size reduction of 2^3 == 8
+
+						beam::EthashUtils::CropLocalData((sPath + ".tre5").c_str(), (sPath + ".tre3").c_str(), 2); // skip 2 more levels
+					}
+				};
+
+				auto pTask = std::make_unique<MyTask>();
+				pTask->m_iEpoch = iEpoch;
+				exec.Push(std::move(pTask));
+			}
+			exec.Flush(0);
 */
+
+			// 2. Generate the 'SuperTree'
+			//beam::EthashUtils::GenerateSuperTree((std::string(szPathData) + "Super.tre").c_str(), szPathData, szPathData, 3);
+
+
+			// eth block number 12496979
+			auto& hdr = proc.m_Eth.m_Header;
+			hdr.m_ParentHash.Scan("7a4bf8dc58922f2f8814399542abb379d0b0cc295687f3d5c32e0ce0b9005e3d");
+			hdr.m_UncleHash.Scan("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");
+			hdr.m_Coinbase.Scan("ea674fdde714fd979de3edf0f56aa9716b898ec8");
+			hdr.m_Root.Scan("416e7a6de2f67bdb1321c8a9fda385f91e5cd13ddaf1d7b943321110c38be679");
+			hdr.m_TxHash.Scan("127d45c910e002965ca732674236310e0bc2880f05df3d85492550a605867891");
+			hdr.m_ReceiptHash.Scan("de44f15c086f97cbc6255359280916a75c7a23785941ebacf98be5ae5554b0e9");
+			hdr.m_Bloom.Scan("55a861f3f6165d14d38f269a8823d263888cd00d94984854c7a50081198a2b2f922c356c07949a35d040535a1e400dd11e18838449433926924593ad55e6682b605c64922b02a33efcebf28d14aa5cf30522133c9b48380eee4616fcc2475715dcad428cbf818c8601d6d3002100f9c8566dd46488380603c2c94ff7048c9be4c954cb7fc616ef71b4d147ec40973e4611359fa9af6f5068097a2b67891115a1e7dfa91137b721e25785df8cfd41f7e18bc03ea50a035021c166864a8c00cd255dd004762b87a4f16bc6d2b406db3a1d0358ee036e65797bc55872ce0cea246582fd68118d1a6008e04c9c6c90b27694cc33764c5b4b834884bb7306a073faa1");
+			hdr.m_nExtra = hdr.m_Extra.Scan("65746865726d696e652d6575726f70652d6e6f72746831") / 2;
+			hdr.m_Difficulty = 0x1ac0292081bbf2;
+			hdr.m_Number = 0xbeb053; // height
+			hdr.m_GasLimit = 0xe4e157;
+			hdr.m_GasUsed = 0xe4c170;
+			hdr.m_Time = 0x60ab9baf;
+			hdr.m_Nonce = 0x9e2b2184779e0239;
+
+			Shaders::Dummy::Ethash::Hash512 hvSeed;
+			hdr.get_SeedForPoW(hvSeed);
+
+			// 3. Generate proof
+			/*
+			auto iEpoch = hdr.get_Epoch();
+			std::string sEpoch = std::to_string(iEpoch);
+
+			proc.m_Eth.m_DatasetCount = beam::EthashUtils::GenerateProof(
+				iEpoch,
+				(std::string(szPathData) + sEpoch + ".cache").c_str(),
+				(std::string(szPathData) + sEpoch + ".tre5").c_str(),
+				(std::string(szPathData) + "Super.tre").c_str(),
+				hvSeed, proc.m_Eth.m_Proof);
+			*/
+		}
+
 		proc.TestAll();
 
 		MyManager man(proc.m_Vars);

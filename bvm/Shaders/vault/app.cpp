@@ -46,7 +46,7 @@
     macro(manager) \
     macro(my_account)
 
-export void Method_0()
+BEAM_EXPORT void Method_0()
 {
     // scheme
     Env::DocGroup root("");
@@ -256,7 +256,7 @@ ON_METHOD(my_account, get_proof)
 #undef ON_METHOD
 #undef THE_FIELD
 
-export void Method_1()
+BEAM_EXPORT void Method_1()
 {
     Env::DocGroup root("");
 

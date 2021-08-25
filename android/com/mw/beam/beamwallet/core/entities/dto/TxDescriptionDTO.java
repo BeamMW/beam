@@ -35,4 +35,5 @@ public class TxDescriptionDTO
 	public boolean isPublicOffline;
     public boolean isMaxPrivacy;
     public boolean isShielded;
+	public int assetId;
 }

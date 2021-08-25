@@ -26,10 +26,6 @@ namespace proto {
 		template <typename T> struct ExtraData {
 		};
 
-		template <> struct ExtraData<proto::Events> {
-			uint32_t m_Max = proto::Event::s_Max;
-		};
-
 		template <> struct ExtraData<proto::HdrPack>
 		{
 			std::vector<Block::SystemState::Full> m_vStates;

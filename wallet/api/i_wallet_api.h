@@ -20,18 +20,19 @@
 #include <nlohmann/json.hpp>
 #include "utility/logger.h"
 #include "wallet/core/contracts/i_shaders_manager.h"
+#include "base/api_errors.h"
 #include "i_swaps_provider.h"
 #include "sync_mode.h"
-#include "api_errors.h"
 
 namespace beam::wallet
 {
     using json = nlohmann::json;
 
     const uint32_t ApiVer6_0     = 60;
-    const uint32_t ApiVerCurrent = ApiVer6_0;
+    const uint32_t ApiVer6_1     = 61;
+    const uint32_t ApiVerCurrent = ApiVer6_1;
     const uint32_t ApiVerMin     = ApiVer6_0;
-    const uint32_t ApiVerMax     = ApiVer6_0;
+    const uint32_t ApiVerMax     = ApiVer6_1;
 
     class IWalletApiHandler
     {
@@ -46,31 +47,35 @@ namespace beam::wallet
         }
     };
 
+    typedef boost::optional<std::map<std::string, bool>> ApiACL;
+    struct ApiInitData
+    {
+        ApiACL acl;
+        std::string appId;
+        std::string appName;
+        IShadersManager::Ptr contracts;
+        ISwapsProvider::Ptr swaps;
+        IWalletDB::Ptr walletDB;
+        Wallet::Ptr wallet;
+    };
+
     class IWalletApi
     {
     public:
         typedef std::shared_ptr<IWalletApi> Ptr;
         typedef std::weak_ptr<IWalletApi> WeakPtr;
-        typedef boost::optional<std::map<std::string, bool>> ACL;
-
-        struct InitData
-        {
-            ACL acl;
-            std::string appId;
-            std::string appName;
-            IShadersManager::Ptr contracts;
-            ISwapsProvider::Ptr swaps;
-            IWalletDB::Ptr walletDB;
-            Wallet::Ptr wallet;
-        };
 
         static bool ValidateAPIVersion(const std::string& version);
 
-        // returns nullptr if wrong API version requested, should be safe to call from any thread
-        static Ptr CreateInstance(const std::string& version, IWalletApiHandler& handler, const InitData& data);
+        // SAFE TO CALL FROM ANY THREAD
+        // API SHOULD BE DESTROYED IN CONTEXT OF InitData/Wallet thread
+        // returns nullptr if wrong API version requested
+        static Ptr CreateInstance(const std::string& version, IWalletApiHandler& handler, const ApiInitData& data);
 
-        // returns nullptr if wrong API version requested, should be safe to call from any thread
-        static Ptr CreateInstance(uint32_t version, IWalletApiHandler& handler, const InitData& data);
+        // SAFE TO CALL FROM ANY THREAD
+        // API SHOULD BE DESTROYED IN CONTEXT OF InitData/Wallet thread
+        // returns nullptr if wrong API version requested
+        static Ptr CreateInstance(uint32_t version, IWalletApiHandler& handler, const ApiInitData& data);
 
         struct MethodInfo
         {
@@ -79,9 +84,12 @@ namespace beam::wallet
             Funds spend;
             Funds receive;
             beam::Amount fee = 0UL;
-            std::string comment;
-            std::string token;
-            bool spendOffline = true;
+            bool spendOffline = false;
+
+            boost::optional<std::string> title;
+            boost::optional<std::string> comment;
+            boost::optional<std::string> confirm_comment;
+            boost::optional<std::string> token;
 
             inline void appendReceive(beam::Asset::ID id, const beam::AmountBig::Type& val)
             {
@@ -122,9 +130,9 @@ namespace beam::wallet
             ApiCallInfo acinfo;
             MethodInfo  minfo;
 
-            ParseResult(const ApiCallInfo& aci, const MethodInfo& mi)
-                : acinfo(aci)
-                , minfo(mi)
+            ParseResult(ApiCallInfo aci, MethodInfo mi)
+                : acinfo(std::move(aci))
+                , minfo(std::move(mi))
             {}
         };
 

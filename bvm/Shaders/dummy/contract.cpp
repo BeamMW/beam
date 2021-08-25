@@ -8,17 +8,17 @@
 
 // Demonstration of the inter-shader interaction.
 
-export void Ctor(void*)
+BEAM_EXPORT void Ctor(void*)
 {
     uint8_t ok = Env::RefAdd(Vault::s_CID);
     Env::Halt_if(!ok); // if the target shader doesn't exist the VM still gives a chance to run, but we don't need it.
 }
-export void Dtor(void*)
+BEAM_EXPORT void Dtor(void*)
 {
     Env::RefRelease(Vault::s_CID);
 }
 
-export void Method_2(Dummy::TestFarCall& r)
+BEAM_EXPORT void Method_2(Dummy::TestFarCall& r)
 {
     Vault::Deposit r_Stack;
     _POD_(r_Stack).SetZero();
@@ -69,7 +69,7 @@ export void Method_2(Dummy::TestFarCall& r)
     Env::CallFar_T(Vault::s_CID, *reinterpret_cast<Vault::Deposit*>(pR), r.m_InheritCtx);
 }
 
-export void Method_3(Dummy::MathTest1& r)
+BEAM_EXPORT void Method_3(Dummy::MathTest1& r)
 {
     auto res =
         MultiPrecision::From(r.m_Value) *
@@ -85,18 +85,18 @@ export void Method_3(Dummy::MathTest1& r)
     r.m_IsOk = (trg <= res);
 }
 
-export void Method_4(Dummy::DivTest1& r)
+BEAM_EXPORT void Method_4(Dummy::DivTest1& r)
 {
     r.m_Denom = r.m_Nom / r.m_Denom;
 }
 
-export void Method_5(Dummy::InfCycle&)
+BEAM_EXPORT void Method_5(Dummy::InfCycle&)
 {
     for (uint32_t i = 0; i < 20000000; i++)
         Env::get_Height();
 }
 
-export void Method_6(Dummy::Hash1& r)
+BEAM_EXPORT void Method_6(Dummy::Hash1& r)
 {
     HashObj* pHash = Env::HashCreateSha256();
     Env::Halt_if(!pHash);
@@ -107,7 +107,7 @@ export void Method_6(Dummy::Hash1& r)
     Env::HashFree(pHash);
 }
 
-export void Method_7(Dummy::Hash2& r)
+BEAM_EXPORT void Method_7(Dummy::Hash2& r)
 {
     static const char szPers[] = "abcd";
 
@@ -120,7 +120,7 @@ export void Method_7(Dummy::Hash2& r)
     Env::HashFree(pHash);
 }
 
-export void Method_8(Dummy::Hash3& r)
+BEAM_EXPORT void Method_8(Dummy::Hash3& r)
 {
     HashObj* pHash = Env::HashCreateKeccak(r.m_Bits);
     Env::Halt_if(!pHash);
@@ -137,7 +137,7 @@ export void Method_8(Dummy::Hash3& r)
     Env::HashFree(pHash);
 }
 
-export void Method_9(Dummy::VerifyBeamHeader& r)
+BEAM_EXPORT void Method_9(Dummy::VerifyBeamHeader& r)
 {
     r.m_Hdr.get_Hash(r.m_Hash, &r.m_RulesCfg);
     Env::Halt_if(!r.m_Hdr.IsValid<true>(&r.m_RulesCfg));
@@ -150,7 +150,7 @@ export void Method_9(Dummy::VerifyBeamHeader& r)
     w0.ToBE_T(r.m_ChainWork0);
 }
 
-export void Method_10(Dummy::TestFarCallStack& r)
+BEAM_EXPORT void Method_10(Dummy::TestFarCallStack& r)
 {
     Env::get_CallerCid(r.m_iCaller, r.m_Cid);
 }
@@ -206,13 +206,13 @@ bool TestRingSignature(const HashValue& msg, uint32_t nRing, const PubKey* pPk, 
     return _POD_(ed) == e0;
 }
 
-export void Method_11(Dummy::TestRingSig& r)
+BEAM_EXPORT void Method_11(Dummy::TestRingSig& r)
 {
     Env::Halt_if(!TestRingSignature(r.m_Msg, r.s_Ring, r.m_pPks, r.m_e, r.m_pK));
 }
 
-export void Method_12(Dummy::TestEthash& r)
-{
+//BEAM_EXPORT void Method_12(Dummy::TestEthash& r)
+//{
     //// 1. derive pow seed
     //HashValue512 hvSeed;
     //{
@@ -251,18 +251,15 @@ export void Method_12(Dummy::TestEthash& r)
     //
     //// check that 2 most significant words are 0
     //Env::Halt_if(val3.get_Val<val3.nWords>() || val3.get_Val<val3.nWords - 1>());
-}
+//}
 
-export void Method_13(Dummy::TestEthash2& r)
+BEAM_EXPORT void Method_12(Dummy::TestEthHeader& r)
 {
-    Ethash::EpochParams ep;
-    ep.m_DatasetCount = r.m_EpochDatasetSize;
-    _POD_(ep.m_hvRoot) = r.m_EpochRoot;
+    const auto& hdr = r.m_Header;
 
-    Ethash::VerifyHdr(ep, r.m_HeaderHash, r.m_Nonce, r.m_Difficulty, &r + 1, static_cast<uint32_t>(-1));
+    Ethash::Hash512 hvSeed;
+    hdr.get_SeedForPoW(hvSeed);
+
+    Ethash::VerifyHdr(hdr.get_Epoch(), r.m_EpochDatasetSize, hvSeed, hdr.m_Nonce, hdr.m_Difficulty, &r + 1, static_cast<uint32_t>(-1));
 }
 
-export void Method_14(Dummy::TestEthHeader& r)
-{
-    r.m_Header.get_HashFinal(r.m_HeaderHash, r.m_MixHash);
-}

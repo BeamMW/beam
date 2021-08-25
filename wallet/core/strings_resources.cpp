@@ -142,7 +142,7 @@ namespace beam
 
     const char kAddrListComment[]  = "Comment: ";
     const char kAddrListAddress[]  = "Address: ";
-    const char kAddrListIdentity[] = "Identity: ";
+    const char kAddrListIdentity[] = "Wallet's signature: ";
     const char kAddrListActive[]   = "Active: ";
     const char kAddrListExprDate[] = "Expires: ";
     const char kAddrListCreated[]  = "Created: ";
@@ -187,8 +187,6 @@ namespace beam
     const char kCoinConfirmationsCount[] = "Count of confirmations before you can't spend coin is: %1%";
 
     // Tx history
-    const char kTxHistoryTableHead[] = "TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
-    const char kTxHistoryTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%   %7%  ";
     const char kTxHistoryColumnDatetTime[] = "datetime";
     const char kTxHistoryColumnHeight[] = "height";
     const char kTxHistoryColumnDirection[] = "direction";

@@ -61,6 +61,14 @@ namespace beam
 			}
 		}
 
+		void Write(const void* pSrc, uint32_t nSrc)
+		{
+			Write(reinterpret_cast<const uint8_t*>(pSrc), nSrc);
+		}
+
+		template <uint32_t nBytes_>
+		void Write(const beam::uintBig_t<nBytes_>& x) { Write(x.m_pData, x.nBytes); }
+
 		void Read(uint8_t* pRes)
 		{
 			// pad and transform
@@ -81,6 +89,10 @@ namespace beam
 		{
 			Read(hv.m_pData);
 		}
+
+		template <typename T>
+		KeccakProcessor& operator << (const T& t) { Write(t); return *this; }
+
 
 	private:
 

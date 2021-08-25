@@ -38,7 +38,7 @@ private:
     void onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>& items) override;
     void onSyncProgressUpdated(int done, int total) override;
     void onChangeCalculated(beam::Amount changeAsset, beam::Amount changeBeam, beam::Asset::ID assetId) override;
-    void onCoinsSelectionCalculated(const beam::wallet::CoinsSelectionInfo&) override;
+    void onCoinsSelected(const beam::wallet::CoinsSelectionInfo&) override;
     void onNormalCoinsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::Coin>&) override;
     void onShieldedCoinChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::ShieldedCoin>&) override;
     void onAddressesChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::WalletAddress>& addresses) override;
@@ -67,4 +67,5 @@ private:
     void onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>&) override;
     void onExchangeRates(const std::vector<beam::wallet::ExchangeRate>&) override;
     void onPublicAddress(const std::string& publicAddr) override;
+    void onAssetInfo(beam::Asset::ID assetId, const beam::wallet::WalletAsset&) override;
 };

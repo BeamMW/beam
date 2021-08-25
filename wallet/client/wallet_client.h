@@ -30,6 +30,7 @@
 #include "extensions/broadcast_gateway/interface.h"
 #include "extensions/broadcast_gateway/broadcast_msg_validator.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
+#include "extensions/news_channels/verification_provider.h"
 
 #include "extensions/dex_board/dex_board.h"
 #include "extensions/dex_board/dex_order.h"
@@ -50,6 +51,8 @@ namespace beam::wallet
 #else
     constexpr char kBroadcastValidatorPublicKey[] = "db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec";
 #endif
+
+    constexpr char SEED_PARAM_NAME[] = "SavedSeed";
     struct WalletStatus
     {
         struct AssetStatus
@@ -78,6 +81,7 @@ namespace beam::wallet
         Block::SystemState::ID stateID = {};
         TxoID shieldedTotalCount = std::numeric_limits<beam::TxoID>::max();
         mutable std::map<Asset::ID, AssetStatus> all;
+        std::set<Asset::ID> nzAssets;
     };
 
     class SwapOffersBoard;
@@ -94,6 +98,7 @@ namespace beam::wallet
         , private IExchangeRatesObserver
         , private INotificationsObserver
         , private DexBoard::IObserver
+        , private IVerificationObserver
     {
     public:
         WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor);
@@ -106,8 +111,7 @@ namespace beam::wallet
         IWalletModelAsync::Ptr getAsync();
         Wallet::Ptr getWallet(); // can return null
 
-        IShadersManager::Ptr getAppsShaders(const std::string& appid, const std::string& appname);
-        void releaseAppsShaders(const std::string& appid);
+        IShadersManager::Ptr IWThread_createAppShaders(const std::string& appid, const std::string& appname);
 
         std::string getNodeAddress() const;
         std::string exportOwnerKey(const beam::SecString& pass) const;
@@ -116,13 +120,27 @@ namespace beam::wallet
         size_t getUnsafeActiveTransactionsCount() const;
         size_t getUnreadNotificationsCount() const;
         bool isConnectionTrusted() const;   
+        bool isSynced() const;
         uint8_t getMPLockTimeLimit() const;
         uint32_t getMarurityProgress(const ShieldedCoin& coin) const;
         uint16_t getMaturityHoursLeft(const ShieldedCoin& coin) const;
 
-        ByteBuffer generateVouchers(uint64_t ownID, size_t count) const;
-        void setCoinConfirmationsOffset(uint32_t offset);
-        uint32_t getCoinConfirmationsOffset() const;
+        std::set<beam::Asset::ID> getAssetsNZ() const;
+        beam::AmountBig::Type getAvailable(beam::Asset::ID) const;
+        beam::AmountBig::Type getAvailableRegular(beam::Asset::ID) const;
+        beam::AmountBig::Type getAvailableShielded(beam::Asset::ID) const;
+        beam::AmountBig::Type getReceiving(beam::Asset::ID) const;
+        beam::AmountBig::Type getReceivingIncoming(beam::Asset::ID) const;
+        beam::AmountBig::Type getReceivingChange(beam::Asset::ID) const;
+        beam::AmountBig::Type getSending(beam::Asset::ID) const;
+        beam::AmountBig::Type getMaturing(beam::Asset::ID) const;
+        beam::AmountBig::Type getMatutingMP(beam::Asset::ID) const;
+        beam::AmountBig::Type getShielded(beam::Asset::ID) const;
+        bool hasShielded(beam::Asset::ID) const;
+
+        beam::Height getCurrentHeight() const;
+        beam::Timestamp getCurrentHeightTimestamp() const;
+        beam::Block::SystemState::ID getCurrentStateID() const;
 
         /// INodeConnectionObserver implementation
         void onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason&) override;
@@ -144,7 +162,7 @@ namespace beam::wallet
         virtual void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) {}
         virtual void onSyncProgressUpdated(int done, int total) {}
         virtual void onChangeCalculated(beam::Amount changeAsset, beam::Amount changeBeam, beam::Asset::ID assetId) {}
-        virtual void onCoinsSelectionCalculated(const CoinsSelectionInfo&) {}
+        virtual void onCoinsSelected(const CoinsSelectionInfo&) {}
         virtual void onNormalCoinsChanged(ChangeAction, const std::vector<Coin>& utxos) {}
         virtual void onShieldedCoinChanged(ChangeAction, const std::vector<ShieldedCoin>& items) {}
         virtual void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) {}
@@ -175,6 +193,7 @@ namespace beam::wallet
         virtual uint32_t getClientRevision() const;
         void onExchangeRates(const ExchangeRates&) override {}
         void onNotificationsChanged(ChangeAction, const std::vector<Notification>&) override {}
+        void onVerificationInfo(const std::vector<VerificationInfo>&) override {}
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) override {}
@@ -183,6 +202,7 @@ namespace beam::wallet
 
     private:
 
+        void onAssetChanged(ChangeAction action, Asset::ID assetID) override;
         void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items) override;
         void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
         void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
@@ -196,7 +216,8 @@ namespace beam::wallet
         void startTransaction(TxParameters&& parameters) override;
         void syncWithNode() override;
         void calcChange(Amount amount, Amount fee, Asset::ID assetId) override;
-        void calcShieldedCoinSelectionInfo(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded = false) override;
+        void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded = false) override;
+        void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded, AsyncCallback<const CoinsSelectionInfo&>&& callback) override;
         void getWalletStatus() override;
         void getTransactions() override;
         void getTransactions(AsyncCallback<const std::vector<TxDescription>&>&& callback) override;
@@ -249,11 +270,19 @@ namespace beam::wallet
 
         void getExchangeRates() override;
         void getPublicAddress() override;
+        void getVerificationInfo() override;
 
         void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback) override;
 
         void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override;
         void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) override;
+
+        void setCoinConfirmationsOffset(uint32_t val) override;
+        void getCoinConfirmationsOffset(AsyncCallback<uint32_t>&& callback) override;
+
+        void removeRawSeedPhrase() override;
+        void readRawSeedPhrase(AsyncCallback<const std::string&>&& callback) override;
+
         void enableBodyRequests(bool value) override;
 
         // implement IWalletDB::IRecoveryProgress
@@ -261,7 +290,7 @@ namespace beam::wallet
 
         WalletStatus getStatus() const;
         void updateStatus();
-        void updateClientState(WalletStatus&&);
+        void updateClientState(const WalletStatus&);
         void updateMaxPrivacyStats(const WalletStatus& status);
         void updateMaxPrivacyStatsImpl(const WalletStatus& status);
         void updateClientTxState();
@@ -295,7 +324,7 @@ namespace beam::wallet
         beam::io::Timer::Ptr m_balanceDelayed;
         void scheduleBalance();
 
-        std::shared_ptr<std::thread> m_thread;
+        std::shared_ptr<MyThread> m_thread;
         const Rules& m_rules;
         IWalletDB::Ptr m_walletDB;
         io::Reactor::Ptr m_reactor;
@@ -308,6 +337,7 @@ namespace beam::wallet
         std::weak_ptr<IBroadcastListener> m_updatesProvider;
         std::weak_ptr<IBroadcastListener> m_walletUpdatesProvider;
         std::weak_ptr<ExchangeRateProvider> m_exchangeRateProvider;
+        std::weak_ptr<VerificationProvider> m_verificationProvider;
         std::shared_ptr<NotificationCenter> m_notificationCenter;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;
@@ -350,7 +380,7 @@ namespace beam::wallet
         size_t m_unreadNotificationsCount = 0;
         beam::Height m_currentHeight = 0;
         bool m_isConnectionTrusted = false;
-        CoinsSelectionInfo m_CoinsSelectionResult;
+        bool m_isSynced = false;
         std::unique_ptr<Filter> m_shieldedPer24hFilter;
         beam::wallet::WalletStatus m_status;
         std::vector<std::pair<beam::Height, beam::TxoID>> m_shieldedCountHistoryPart;

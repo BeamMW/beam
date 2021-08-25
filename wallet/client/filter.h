@@ -13,6 +13,7 @@
 // limitations under the License.
 #pragma once
 
+#include <cstddef>
 #include <vector>
 
 namespace beam::wallet

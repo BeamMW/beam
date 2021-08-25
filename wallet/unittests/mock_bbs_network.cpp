@@ -24,14 +24,18 @@ using namespace beam;
 
 namespace
 {
-
 /**
  *  Implementation of test BBS network.
  */
 class MockBbsNetwork : public IWalletMessageEndpoint, public FlyClient::INetwork
 {
 public:
-    MockBbsNetwork() {};
+    MockBbsNetwork() = default;
+
+    static std::shared_ptr<MockBbsNetwork> CreateInstance()
+    {
+        return std::make_shared<MockBbsNetwork>();
+    }
 
     // INetwork
     virtual void Connect() override {};
@@ -69,4 +73,20 @@ private:
     std::map<BbsChannel, std::vector<std::pair<FlyClient::IBbsReceiver*, Timestamp>>> m_subscriptions;
 };
 
+struct MockTimestampHolder : ITimestampHolder
+{
+    Timestamp GetTimestamp(BbsChannel channel) override
+    {
+        return 0;
+    }
+    void UpdateTimestamp(const proto::BbsMsg& msg) override
+    {
+
+    }
+
+    static ITimestampHolder::Ptr CreateInstance()
+    {
+        return std::make_shared<MockTimestampHolder>();
+    }
+};
 } // namespace

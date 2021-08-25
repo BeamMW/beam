@@ -80,7 +80,8 @@ namespace bvm2 {
 	{
 		static const uint32_t FarCallDepth = 32;
 		static const uint32_t VarKeySize = 256;
-		static const uint32_t VarSize = 0x2000; // 8K
+		static const uint32_t VarSize_0 = 0x2000; // 8K
+		static const uint32_t VarSize_4 = 0x100000; // 1MB, past HF4
 
 		static const uint32_t StackSize = 0x10000; // 64K
 		static const uint32_t HeapSize = 0x100000; // 1MB
@@ -109,6 +110,7 @@ namespace bvm2 {
 			static const uint32_t SaveVarPerByte	= ChargeFor<1000*1000>::V;
 			static const uint32_t Log				= ChargeFor<20*1000>::V;
 			static const uint32_t LogPerByte		= ChargeFor<1000*1000>::V;
+			static const uint32_t UpdateShader		= ChargeFor<1*1000>::V;
 			static const uint32_t CallFar			= ChargeFor<10*1000>::V;
 			static const uint32_t AddSig			= ChargeFor<10*1000>::V;
 			static const uint32_t AssetManage		= ChargeFor<1000>::V;
@@ -204,6 +206,8 @@ namespace bvm2 {
 
 			void Set(const ContractID&);
 			void Append(uint8_t nTag, const Blob&);
+
+			Blob ToBlob() const { return Blob(m_p, m_Size); }
 		};
 
 
@@ -316,17 +320,6 @@ namespace bvm2 {
 		static int32_t get_PublicMethodIdx(const Wasm::Compiler::Vec<char>& sName);
 	};
 
-	class FundsChangeMap
-	{
-		static void Set(ECC::Scalar::Native&, Amount, bool bLock);
-
-	public:
-		std::map<Asset::ID, ECC::Scalar::Native> m_Map;
-
-		void Process(Amount val, Asset::ID, bool bLock);
-		void ToCommitment(ECC::Point::Native&) const;
-	};
-
 	struct ProcessorPlus;
 	struct ProcessorPlusEnv;
 
@@ -375,10 +368,9 @@ namespace bvm2 {
 		virtual uint32_t get_HeapLimit() override;
 		virtual void DischargeUnits(uint32_t size) override;
 
-		virtual void LoadVar(const VarKey&, uint8_t* pVal, uint32_t& nValInOut) {}
-		virtual void LoadVar(const VarKey&, ByteBuffer&) {}
-		virtual uint32_t SaveVar(const VarKey&, const uint8_t* pVal, uint32_t nVal) { return 0; }
-		virtual uint32_t OnLog(const VarKey&, const Blob& val) { return 0; }
+		virtual void LoadVar(const Blob&, Blob& res) { res.n = 0; } // res is temporary
+		virtual uint32_t SaveVar(const Blob&, const Blob& val) { return 0; }
+		virtual uint32_t OnLog(const Blob&, const Blob& val) { return 0; }
 
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) { return 0; }
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }
@@ -402,7 +394,18 @@ namespace bvm2 {
 		std::vector<ECC::Point::Native> m_vPks;
 		ECC::Point::Native& AddSigInternal(const ECC::Point&);
 
-		FundsChangeMap m_FundsIO;
+		bool IsPastHF4() {
+			// current heught does not include the current being-interpreted block
+			return get_Height() + 1 >= Rules::get().pForks[4].m_Height;
+		}
+
+		void TestVarSize(uint32_t n)
+		{
+			uint32_t nMax = IsPastHF4() ? Limits::VarSize_4 : Limits::VarSize_0;
+			Wasm::Test(n <= nMax);
+		}
+
+		void ToggleSidEntry(const ShaderID& sid, const ContractID& cid, bool bSet);
 
 	public:
 
@@ -410,14 +413,20 @@ namespace bvm2 {
 
 		void InitStackPlus(uint32_t nStackBytesExtra);
 
+		FundsChangeMap m_FundsIO;
+
 		ECC::Hash::Processor* m_pSigValidate = nullptr; // assign it to allow sig validation
 		void CheckSigs(const ECC::Point& comm, const ECC::Signature&);
+
+		void AddRemoveShader(const ContractID&, const Blob*);
+
+		std::vector<ECC::Point>* m_pvSigs = nullptr;
 
 		bool IsDone() const { return m_FarCalls.m_Stack.empty(); }
 
 		uint32_t m_Charge = Limits::BlockCharge;
 
-		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs); // can override to invoke host code instead of interpretator (for debugging)
+		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext); // can override to invoke host code instead of interpretator (for debugging)
 	};
 
 
@@ -493,6 +502,7 @@ namespace bvm2 {
 
 		std::ostream* m_pOut;
 		bool m_NeedComma = false;
+		bool m_RawText = false; // don't perform json-style decoration
 
 		std::map<std::string, std::string> m_Args;
 		void set_ArgBlob(const char* sz, const Blob&);

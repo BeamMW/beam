@@ -15,7 +15,7 @@
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
 #endif
-
+#define BEAM_BUILD_THREAD_POOL
 #include "wallet/core/common.h"
 #include "wallet/core/common_utils.h"
 #include "wallet/core/wallet_network.h"
@@ -44,6 +44,7 @@
 #include <mutex>
 #include <atomic>
 #include <condition_variable>
+#include "utility/thread.h"
 
 #include "core/proto.h"
 #include <boost/intrusive/list.hpp>
@@ -59,7 +60,7 @@ using namespace ECC;
 WALLET_TEST_INIT
 
 #include "wallet_test_environment.cpp"
-#include "wallet/api/v6_0/wallet_api.h"
+#include "wallet/api/v6_0/v6_api.h"
 
 namespace
 {
@@ -76,10 +77,10 @@ namespace
 
     struct ApiTest
         : public IWalletApiHandler
-        , public beam::wallet::WalletApi
+        , public beam::wallet::V6Api
     {
-        ApiTest(IWalletDB::Ptr wdb, Wallet::Ptr wallet, ISwapsProvider::Ptr swaps, IShadersManager::Ptr contracts)
-            : WalletApi(*this, boost::none, std::string(), std::string(), std::move(wdb), std::move(wallet), std::move(swaps), std::move(contracts))
+        ApiTest(const ApiInitData& data)
+            : V6Api(*this, data)
         {
         }
 
@@ -108,32 +109,32 @@ namespace
 
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(0, 0, v); // for count 0 we return all
+            V6Api::doPagination(0, 0, v); // for count 0 we return all
             WALLET_CHECK(v.size() == 4); 
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(0, 3, v);
+            V6Api::doPagination(0, 3, v);
             WALLET_CHECK(v == std::vector<int>({1,2,3}));
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(1, 3, v);
+            V6Api::doPagination(1, 3, v);
             WALLET_CHECK(v == std::vector<int>({ 2,3,4 }));
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(2, 3, v);
+            V6Api::doPagination(2, 3, v);
             WALLET_CHECK(v == std::vector<int>({ 3,4 }));
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(1, 2, v);
+            V6Api::doPagination(1, 2, v);
             WALLET_CHECK(v == std::vector<int>({ 2,3 }));
         }
         {
             std::vector<int> v = { 1, 2, 3, 4 };
-            WalletApi::doPagination(4, 3, v);
+            V6Api::doPagination(4, 3, v);
             WALLET_CHECK(v.empty());
         }
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
@@ -188,12 +189,17 @@ namespace
         WALLET_CHECK(rh.size() == Count);
 
         auto asp = std::make_shared<AtomicSwapProvider>();
-        ApiTest api(sender.m_WalletDB, sender.m_Wallet, asp, nullptr);
+
+        ApiInitData data;
+        data.walletDB = sender.m_WalletDB;
+        data.wallet = sender.m_Wallet;
+        data.swaps = asp;
+
+        ApiTest api(data);
         TxList message;
         message.count = 10;
         message.skip = 30;
         message.filter.status = wallet::TxStatus::Completed;
-        message.withAssets = false;
         sw.start();
         for (int i = 0; i < 100; ++i)
         {
@@ -269,7 +275,6 @@ namespace
             message2.count = 0;
             message2.skip = 0;
             message2.filter.status = wallet::TxStatus::Completed;
-            message2.withAssets = false;
             message2.filter.height = p.second;
 
             api.onHandleTxList(1, message2);
@@ -315,9 +320,6 @@ namespace
             }
 
             der.reset(buf2.data(), buf2.size());
-            proto::Event::Type::Enum event2 = proto::Event::Type::Utxo0;
-            WALLET_CHECK_NO_THROW(event2 = proto::Event::Type::Load(der));
-            WALLET_CHECK(event2 == proto::Event::Type::Shielded);
         };
 
         // legacy case
@@ -395,7 +397,9 @@ namespace
         coin.m_ID.m_Type = Key::Type::Coinbase;
         senderWalletDB->storeCoin(coin);
 
-        auto coins = senderWalletDB->selectCoins(24, Zero);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        senderWalletDB->selectCoins2(0, 24, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
         WALLET_CHECK(coins[0].m_status == Coin::Available);
@@ -474,7 +478,10 @@ namespace
         TestWalletRig sender(createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
         TestWalletRig receiver(createReceiverWalletDB(), f);
 
-        WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        sender.m_WalletDB->selectCoins2(0, 6, Zero, coins, shieldedCoins, 0, false);
+        WALLET_CHECK(coins.size() == 2);
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
         WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
@@ -572,7 +579,8 @@ namespace
         }
 
         // second transfer
-        auto preselectedCoins = sender.m_WalletDB->selectCoins(6, Zero);
+        vector<Coin> preselectedCoins;
+        sender.m_WalletDB->selectCoins2(0, 6, Zero, preselectedCoins, shieldedCoins, 0, false);
         CoinIDList preselectedIDs;
         for (const auto& c : preselectedCoins)
         {
@@ -920,7 +928,9 @@ namespace
         coin.m_ID.m_Type = Key::Type::Coinbase;
         senderWalletDB->storeCoin(coin);
 
-        auto coins = senderWalletDB->selectCoins(24, Zero);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        senderWalletDB->selectCoins2(0, 24, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
         WALLET_CHECK(coins[0].m_status == Coin::Available);
@@ -1015,7 +1025,9 @@ namespace
         coin.m_ID.m_Type = Key::Type::Coinbase;
         senderWalletDB->storeCoin(coin);
 
-        auto coins = senderWalletDB->selectCoins(24, Zero);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        senderWalletDB->selectCoins2(0, 24, Zero, coins, shieldedCoins, 0, false);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
         WALLET_CHECK(coins[0].m_status == Coin::Available);
@@ -1136,7 +1148,10 @@ namespace
         io::Timer::Ptr timer = io::Timer::create(*mainReactor);
         timer->start(1000, true, [&node]() {node.AddBlock(); });
 
-        WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        sender.m_WalletDB->selectCoins2(0, 6, Zero, coins, shieldedCoins, 0, false);
+        WALLET_CHECK(coins.size() == 2);
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
         WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
@@ -1232,7 +1247,10 @@ namespace
         timer->start(1000, true, [&node]() {node.AddBlock(); });
         {
             TestWalletRig sender(senderDB, f);
-            WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
+            vector<Coin> coins;
+            vector<ShieldedCoin> shieldedCoins;
+            sender.m_WalletDB->selectCoins2(0, 6, Zero, coins, shieldedCoins, 0, false);
+            WALLET_CHECK(coins.size() == 2);
             WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
 
             sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
@@ -2029,7 +2047,10 @@ namespace
         TestWalletRig sender(createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
         TestWalletRig receiver(createReceiverWalletDB(), f);
 
-        WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
+        vector<Coin> coins;
+        vector<ShieldedCoin> shieldedCoins;
+        sender.m_WalletDB->selectCoins2(0, 6, Zero, coins, shieldedCoins, 0, false);
+        WALLET_CHECK(coins.size() == 2);
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
         WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
@@ -3089,6 +3110,60 @@ void TestAddressGeneration()
     WALLET_CHECK(read->m_Address == abra);
 }
 
+void TestAddressVersions()
+{
+    cout << "\nTesting tokens versions...\n";
+
+    std::string clientVersion = "Beam UI 7.0.1313.2362";
+    std::string libraryVersion = "7.0.1316";
+
+    auto testFunc = [&]()
+    {
+        TxParameters params;
+        params.SetParameter(TxParameterID::ClientVersion, clientVersion);
+        params.SetParameter(TxParameterID::LibraryVersion, libraryVersion);
+
+        bool failed = true;
+        ProcessLibraryVersion(params, [&](const auto& version, const auto& myVersion)
+        {
+            WALLET_CHECK(version == "7.0.1316");
+            failed = false;
+        });
+        WALLET_CHECK(!failed);
+        failed = true;
+        ProcessClientVersion(params, "Beam UI", "6.0.13163.2372", "7.0.1313", [&](const auto& version, const auto& myVersion)
+        {
+            WALLET_CHECK(version == "7.0.1313.2362");
+            failed = false;
+        });
+        WALLET_CHECK(!failed);
+        params.SetParameter(TxParameterID::ClientVersion, std::string("Beam UI " BEAM_LIB_VERSION));
+        params.SetParameter(TxParameterID::LibraryVersion, std::string(BEAM_LIB_VERSION));
+        failed = false;
+        ProcessLibraryVersion(params, [&](const auto& version, const auto& myVersion)
+        {
+            failed = true;
+        });
+        WALLET_CHECK(!failed);
+        failed = false;
+        ProcessClientVersion(params, "Beam UI", BEAM_LIB_VERSION, BEAM_LIB_VERSION, [&](const auto& version, const auto& myVersion)
+        {
+            failed = true;
+        });
+        WALLET_CHECK(!failed);
+    };
+
+    testFunc();
+
+    ByteBuffer buf = toByteBuffer(Version{ 7, 0, 1316 });
+    std::string{ buf.begin(), buf.end() }.swap(libraryVersion);
+
+    buf = toByteBuffer(ClientVersion{ 2362U });
+    std::string{ buf.begin(), buf.end() }.swap(clientVersion);
+    testFunc();
+    
+}
+
 #if defined(BEAM_HW_WALLET)
 
 //IWalletDB::Ptr createSqliteWalletDB()
@@ -3413,6 +3488,86 @@ void GenerateTreasury(size_t walletCount, size_t utxoCount, Amount value)
     FSave(data, "treasury.bin");
 }
 
+template<typename T>
+void TestThread()
+{
+    struct Counter
+    {
+        void Increment()
+        {
+            std::unique_lock lock(m_Mutex);
+            ++value;
+        }
+
+        int value = 0;
+        std::mutex m_Mutex;
+    } counter;
+
+    auto f = [&counter](int id, unsigned interval)
+    {
+        std::stringstream ss;
+        ss << "thread " << id;
+        std::cout << ss.str() << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(interval));
+        counter.Increment();
+        ss << " done";
+        std::cout << ss.str() << std::endl;
+    };
+
+    T t1(f, 1, 410);
+
+    T t2(f, 2, 150);
+    WALLET_CHECK(t2.joinable());
+    T tt = std::move(t2);
+    WALLET_CHECK(!t2.joinable());
+    WALLET_CHECK(tt.joinable());
+    t1.join();
+    tt.join();
+
+    WALLET_CHECK(counter.value == 2);
+    {
+        T t3(f, 3, 150);
+        t3.detach();
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    WALLET_CHECK(counter.value == 3);
+
+    struct Test
+    {
+        Test()
+            : m_Thread(T(&Test::Thread, this, std::cref(Rules::get())))
+        {
+
+        }
+
+        ~Test()
+        {
+            WALLET_CHECK(m_Thread.joinable());
+            if (m_Thread.joinable())
+                m_Thread.join();
+        }
+
+        void Thread(const Rules& r)
+        {
+            std::cout << "thread 4" << std::endl;
+            std::this_thread::sleep_for(std::chrono::milliseconds(150));
+            std::cout << "thread 4 Done" << std::endl;
+        }
+
+        T m_Thread;
+    };
+    Test t;
+
+}
+
+void TestThreadPool()
+{
+    std::cout << "Testing simple thread pool\n";
+    // Pool thread should be similar to std::thread and should pass the same test
+    TestThread<PoolThread>();
+    TestThread<std::thread>();
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_WARNING; 
@@ -3436,7 +3591,7 @@ int main()
     wallet::g_AssetsEnabled = true;
 
     storage::HookErrors();
-
+    TestThreadPool();
     //GenerateTreasury(100, 100, 100000000);
     TestTxList();
     TestKeyKeeper();
@@ -3444,6 +3599,7 @@ int main()
     TestVouchers();
 
     TestAddressGeneration();
+    TestAddressVersions();
 
     //TestBbsDecrypt();
 

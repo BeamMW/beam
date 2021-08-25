@@ -130,10 +130,31 @@ bool parseExchangeRateInfo(const std::string& from, const std::string& to, const
     return true;
 }
 
+bool parseVerificationInfo(Asset::ID aid, bool verified, const std::string& icon, const std::string& color, std::vector<VerificationInfo>& result)
+{
+    if (aid == beam::Asset::s_BeamID)
+    {
+        return false;
+    }
+
+    result = {{aid, verified, icon, color, getTimestamp()}};
+    return true;
+}
+
 ByteBuffer generateExchangeRates(const std::string& from, const std::string& to, const Amount& rate)
 {
     std::vector<ExchangeRate> result;
     if (parseExchangeRateInfo(from, to, rate, result))
+    {
+        return toByteBuffer(result);
+    }
+    return ByteBuffer();
+}
+
+ByteBuffer generateAssetVerification(Asset::ID aid, bool verified, const std::string& icon, const std::string& color)
+{
+    std::vector<VerificationInfo> result;
+    if (parseVerificationInfo(aid, verified, icon, color, result))
     {
         return toByteBuffer(result);
     }
@@ -162,6 +183,13 @@ namespace
             std::string  to;
             beam::Amount rate;
         } exchangeRate;
+
+        struct AssetVerification {
+            Nonnegative<Asset::ID> aid;
+            bool verified;
+            std::string predefinedIcon;
+            std::string predefinedColor;
+        } averify;
     };
 
     class MyFlyClient 
@@ -180,12 +208,24 @@ namespace
         Block::SystemState::HistoryMap m_Headers;
     };
 
+    struct MyTimestampHolder : ITimestampHolder
+    {
+        Timestamp GetTimestamp(BbsChannel channel) override
+        {
+            return 0;
+        }
+        void UpdateTimestamp(const proto::BbsMsg& msg) override
+        {
+
+        }
+    };
+
     class MyBbsSender
         : public IWalletMessageEndpoint
-        , private wallet::BbsSender
+        , private wallet::BbsProcessor
     {
     public:
-        using BbsSender::BbsSender;
+        using BbsProcessor::BbsProcessor;
 
         void Send(const WalletID& peerID, const SetTxParameter& msg) override
         {
@@ -194,7 +234,7 @@ namespace
         
         void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override
         {
-            BbsSender::Send(peerID, msg, 0);
+            BbsProcessor::Send(peerID, msg, 0);
         }
 
         void OnMessageSent(uint64_t id) override
@@ -309,9 +349,10 @@ namespace
         nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
         nnet->Connect();
 
-        MyBbsSender wnet(nnet);
+        auto tsHolder = std::make_shared<MyTimestampHolder>();
+        MyBbsSender wnet(nnet, tsHolder);
 
-        BroadcastRouter broadcastRouter(*nnet, wnet);
+        BroadcastRouter broadcastRouter(nnet, wnet, tsHolder);
 
         ECC::Scalar::Native key;
         if (!BroadcastMsgCreator::stringToPrivateKey(options.privateKey, key))
@@ -325,16 +366,24 @@ namespace
         WalletImplVerInfo walletVersionInfo;
         if (options.messageType == "update")
         {
-            bool res =
-                parseWalletUpdateInfo(options.walletUpdateInfo.version, options.walletUpdateInfo.walletType, walletVersionInfo);
-            if (res)
-                rawMessage = toByteBuffer(walletVersionInfo);
             contentType = BroadcastContentType::WalletUpdates;
+            if(parseWalletUpdateInfo(options.walletUpdateInfo.version, options.walletUpdateInfo.walletType, walletVersionInfo))
+            {
+                rawMessage = toByteBuffer(walletVersionInfo);
+            }
         }
         else if (options.messageType == "exchange")
         {
-            rawMessage = generateExchangeRates(options.exchangeRate.from, options.exchangeRate.to, options.exchangeRate.rate);
             contentType = BroadcastContentType::ExchangeRates;
+            rawMessage = generateExchangeRates(options.exchangeRate.from, options.exchangeRate.to, options.exchangeRate.rate);
+        }
+        else if (options.messageType == "averify")
+        {
+            contentType = BroadcastContentType::AssetVerification;
+            rawMessage  = generateAssetVerification(options.averify.aid.value,
+                                                    options.averify.verified,
+                                                    options.averify.predefinedIcon,
+                                                    options.averify.predefinedColor);
         }
         else
         {
@@ -392,6 +441,7 @@ int main_impl(int argc, char* argv[])
                 (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
                 (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
                 (cli::COMMAND, po::value<std::string>(), "command to execute [generate_keys|transmit]")
+                (cli::CONFIG_FILE_PATH, po::value<std::string>()->default_value("bbs.cfg"), "path to the config file")
             ;
 
             po::options_description messageDesc("Broadcast message options");
@@ -407,6 +457,10 @@ int main_impl(int argc, char* argv[])
 #endif // BITCOIN_CASH_SUPPORT)
                 (cli::EXCHANGE_RATE, po::value<Amount>(&options.exchangeRate.rate), "exchange rate in decimal format: 100,000,000 = 1 usd")
                 (cli::EXCHANGE_UNIT, po::value<std::string>(&options.exchangeRate.to)->default_value("usd"), "unit currency: 'btc', 'usd'")
+                (cli::ASSET_ID, po::value<Nonnegative<uint32_t>>(&options.averify.aid), "asset id")
+                (cli::VERIFIED, po::value<bool>(&options.averify.verified), "asset verification status")
+                (cli::PREDEFINED_ICON, po::value<std::string>(&options.averify.predefinedIcon), "predefined asset icon")
+                (cli::PREDEFINED_COLOR, po::value<std::string>(&options.averify.predefinedColor), "predefined asset color")
             ;
             
             desc.add(messageDesc);
@@ -424,7 +478,7 @@ int main_impl(int argc, char* argv[])
             }
 
             ReadCfgFromFileCommon(vm, desc);
-            ReadCfgFromFile(vm, desc, "bbs.cfg");
+            ReadCfgFromFile(vm, desc);
         }
 
         vm.notify();

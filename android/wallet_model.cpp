@@ -90,6 +90,8 @@ namespace
 
         setStringField(env, TxDescriptionClass, tx, "token", txDescription.getToken());
 
+        setIntField(env, TxDescriptionClass, tx, "assetId", txDescription.m_assetId);
+
         if(txDescription.m_txType == wallet::TxType::PushTransaction) {
             auto token = txDescription.getToken();
             if (token.size() > 0) { //send
@@ -153,6 +155,8 @@ namespace
             setStringField(env, UtxoClass, utxo, "stringId", idString);
             setLongField(env, UtxoClass, utxo, "amount", coin.m_CoinID.m_Value);
             setLongField(env, UtxoClass, utxo, "txoID", coin.m_TxoID);
+            setBooleanField(env, UtxoClass, utxo, "isShielded", true);
+            setIntField(env, UtxoClass, utxo, "assetId", coin.getAssetID());
 
             switch (coin.m_Status)
             {
@@ -221,6 +225,8 @@ namespace
                 setLongField(env, UtxoClass, utxo, "maturity", coin.m_maturity);
                 setIntField(env, UtxoClass, utxo, "keyType", static_cast<jint>(coin.m_ID.m_Type));
                 setLongField(env, UtxoClass, utxo, "confirmHeight", coin.m_confirmHeight);
+                setIntField(env, UtxoClass, utxo, "assetId", coin.getAssetID());
+                setBooleanField(env, UtxoClass, utxo, "isShielded", false);
 
                 if (coin.m_createTxId)
                     setStringField(env, UtxoClass, utxo, "createTxId", to_hex(coin.m_createTxId->data(), coin.m_createTxId->size()));
@@ -269,29 +275,21 @@ namespace
 
              for (size_t i = 0; i < rates.size(); ++i)
              {
-                auto m_to = rates[i].m_to;
-                auto m_from = rates[i].m_from;
+                auto rate = rates[i];
+                auto m_from_name = rate.m_from.m_value;
+                auto m_to_name = rate.m_to.m_value;
+                auto m_rate = rate.m_rate;
+                                
+                jobject rateObject = env->AllocObject(ExchangeRateClass);
+                    {
+                        setStringField(env, ExchangeRateClass, rateObject, "fromName", m_from_name);
+                        setStringField(env, ExchangeRateClass, rateObject, "toName", m_to_name);
+                        setLongField(env, ExchangeRateClass, rateObject, "rate", m_rate);
+                    }
 
-                int currency = -1;
-                
-                if (m_to == Currency::USD() && m_from == Currency::BEAM()) {
-                    currency = 1;
-                }
-                else if (m_to == Currency::BTC() && m_from == Currency::BEAM()) {
-                    currency = 2;
-                }
-                if(currency != -1) {
-                    jobject rate = env->AllocObject(ExchangeRateClass);
-                        {
-                            setIntField(env, ExchangeRateClass, rate, "currency", currency);
-                            setLongField(env, ExchangeRateClass, rate, "amount", rates[i].m_rate);
-                            setLongField(env, ExchangeRateClass, rate, "updateTime", rates[i].m_updateTime);
-                        }
+                env->SetObjectArrayElement(ratesArray, static_cast<jsize>(i), rateObject);
 
-                    env->SetObjectArrayElement(ratesArray, static_cast<jsize>(i), rate);
-
-                    env->DeleteLocalRef(rate);
-                }
+                env->DeleteLocalRef(rateObject);
              }
          }
          return ratesArray;
@@ -395,6 +393,47 @@ namespace
 
         env->CallStaticVoidMethod(WalletListenerClass, callback, action);
     }
+
+    jobjectArray convertWalletStatusToJObject(JNIEnv* env, const WalletStatus& status)
+    {
+        auto assets = status.all;
+
+        jobjectArray assetsArray = 0;
+        assetsArray = env->NewObjectArray(static_cast<jsize>(assets.size()), WalletStatusClass, NULL);
+
+        int i = 0;
+        for (const auto& [key, value] : assets) {
+            auto assetId = key;
+            
+            LOG_DEBUG() << "convertWalletStatusToJObject(" << assetId << ")";
+
+            jobject walletStatus = env->AllocObject(WalletStatusClass);
+            setLongField(env, WalletStatusClass, walletStatus, "available", AmountBig::get_Lo(value.available));
+            setLongField(env, WalletStatusClass, walletStatus, "receiving", AmountBig::get_Lo(value.receiving));
+            setLongField(env, WalletStatusClass, walletStatus, "sending",   AmountBig::get_Lo(value.sending));
+            setLongField(env, WalletStatusClass, walletStatus, "maturing",  AmountBig::get_Lo(value.maturing));
+            setLongField(env, WalletStatusClass, walletStatus, "shielded",  AmountBig::get_Lo(value.shielded));
+            setLongField(env, WalletStatusClass, walletStatus, "maxPrivacy", AmountBig::get_Lo(value.maturingMP));
+            setIntField(env, WalletStatusClass, walletStatus, "assetId", static_cast<jint>(assetId));
+
+            jobject systemState = env->AllocObject(SystemStateClass);
+
+            setLongField(env, SystemStateClass, systemState, "height", status.stateID.m_Height);
+            setStringField(env, SystemStateClass, systemState, "hash", to_hex(status.stateID.m_Hash.m_pData, status.stateID.m_Hash.nBytes));
+
+            jfieldID systemStateID = env->GetFieldID(WalletStatusClass, "system", "L" BEAM_JAVA_PATH "/entities/dto/SystemStateDTO;");
+            env->SetObjectField(walletStatus, systemStateID, systemState);
+
+
+            env->SetObjectArrayElement(assetsArray, static_cast<jsize>(i), walletStatus);
+            env->DeleteLocalRef(walletStatus);
+            env->DeleteLocalRef(systemState);
+
+            i = i + 1;
+        }
+
+        return assetsArray;
+     }
 }
 
 WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, Reactor::Ptr reactor)
@@ -409,36 +448,16 @@ WalletModel::~WalletModel()
 
 void WalletModel::onStatus(const WalletStatus& status)
 {
+    LOG_DEBUG() << "onStatus()";
+
     JNIEnv* env = Android_JNI_getEnv();
+    jobjectArray jStatus = convertWalletStatusToJObject(env, status);
 
-    jobject walletStatus = env->AllocObject(WalletStatusClass);
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onStatus", "([L" BEAM_JAVA_PATH "/entities/dto/WalletStatusDTO;)V");
 
-    const auto& beamStatus = status.GetStatus(beam::Asset::s_BeamID);
-    setLongField(env, WalletStatusClass, walletStatus, "available", AmountBig::get_Lo(beamStatus.available));
-    setLongField(env, WalletStatusClass, walletStatus, "receiving", AmountBig::get_Lo(beamStatus.receiving));
-    setLongField(env, WalletStatusClass, walletStatus, "sending",   AmountBig::get_Lo(beamStatus.sending));
-    setLongField(env, WalletStatusClass, walletStatus, "maturing",  AmountBig::get_Lo(beamStatus.maturing));
-    setLongField(env, WalletStatusClass, walletStatus, "shielded",  AmountBig::get_Lo(beamStatus.shielded));
-    setLongField(env, WalletStatusClass, walletStatus, "maxPrivacy", AmountBig::get_Lo(beamStatus.maturingMP));
+    env->CallStaticVoidMethod(WalletListenerClass, callback, jStatus);
 
-    {
-        jobject systemState = env->AllocObject(SystemStateClass);
-
-        setLongField(env, SystemStateClass, systemState, "height", status.stateID.m_Height);
-        setStringField(env, SystemStateClass, systemState, "hash", to_hex(status.stateID.m_Hash.m_pData, status.stateID.m_Hash.nBytes));
-
-        jfieldID systemStateID = env->GetFieldID(WalletStatusClass, "system", "L" BEAM_JAVA_PATH "/entities/dto/SystemStateDTO;");
-        env->SetObjectField(walletStatus, systemStateID, systemState);
-
-        env->DeleteLocalRef(systemState);
-    }
-
-    ////////////////
-
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onStatus", "(L" BEAM_JAVA_PATH "/entities/dto/WalletStatusDTO;)V");
-    env->CallStaticVoidMethod(WalletListenerClass, callback, walletStatus);
-
-    env->DeleteLocalRef(walletStatus);
+    env->DeleteLocalRef(jStatus);
 }
 
 void WalletModel::onTxStatus(ChangeAction action, const std::vector<TxDescription>& items)
@@ -494,18 +513,19 @@ void WalletModel::onChangeCalculated(beam::Amount changeAsset, beam::Amount chan
     env->CallStaticVoidMethod(WalletListenerClass, callback, changeAsset, changeBeam, assetId);
 }
 
-void WalletModel::onCoinsSelectionCalculated(const CoinsSelectionInfo& selectionRes)
+void WalletModel::onCoinsSelected(const CoinsSelectionInfo& selectionRes)
 {
-    LOG_DEBUG() << "onCoinsSelectionCalculated(" << selectionRes.m_explicitFee << ")";
+    LOG_DEBUG() << "onCoinsSelected(" << selectionRes.m_explicitFee << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onCoinsSelectionCalculated", "(JJJ)V");
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onCoinsSelected", "(JJJJ)V");
 
     env->CallStaticVoidMethod(WalletListenerClass, callback, 
                                                     selectionRes.m_explicitFee, 
-                                                    selectionRes.m_changeBeam, 
-                                                    selectionRes.m_minimalExplicitFee);
+                                                    selectionRes.m_changeAsset, 
+                                                    selectionRes.m_minimalExplicitFee,
+                                                    selectionRes.m_selectedSumAsset);
 }
 
 void WalletModel::onNormalCoinsChanged(ChangeAction action, const std::vector<Coin>& utxosVec)
@@ -570,7 +590,6 @@ void WalletModel::onGeneratedNewAddress(const WalletAddress& address)
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onGeneratedNewAddress", "(L" BEAM_JAVA_PATH "/entities/dto/WalletAddressDTO;)V");
     env->CallStaticVoidMethod(WalletListenerClass, callback, addr);
-
     env->DeleteLocalRef(addr);
 }
 
@@ -817,10 +836,10 @@ void WalletModel::onShieldedCoinChanged(beam::wallet::ChangeAction action, const
 {
     LOG_DEBUG() << "onShieldedCoinChanged()";
 
-        for (const auto& coin : items)
-        {
-            shieldedCoins[coin.m_TxoID] = coin;
-        }
+    for (const auto& coin : items)
+    {
+        shieldedCoins[coin.m_TxoID] = coin;
+    }
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -874,6 +893,30 @@ void WalletModel::onPublicAddress(const std::string& publicAddr)
 
     env->CallStaticVoidMethod(WalletListenerClass, callback, jdata);
     env->DeleteLocalRef(jdata);
+}
+
+void WalletModel::onAssetInfo(Asset::ID assetId, const WalletAsset& asset) 
+{
+    auto info = WalletAssetMeta(asset);
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jobject jAssetInfo = env->AllocObject(AssetInfoClass);
+    {   
+        setStringField(env, AssetInfoClass, jAssetInfo, "unitName", info.GetUnitName());
+        setStringField(env, AssetInfoClass, jAssetInfo, "nthUnitName", info.GetNthUnitName());
+        setStringField(env, AssetInfoClass, jAssetInfo, "shortName", info.GetShortName());
+        setStringField(env, AssetInfoClass, jAssetInfo, "shortDesc", info.GetShortDesc());
+        setStringField(env, AssetInfoClass, jAssetInfo, "longDesc", info.GetLongDesc());
+        setStringField(env, AssetInfoClass, jAssetInfo, "name", info.GetName());
+        setStringField(env, AssetInfoClass, jAssetInfo, "site", info.GetSiteUrl());
+        setStringField(env, AssetInfoClass, jAssetInfo, "paper", info.GetPaperUrl());
+        setIntField(env, AssetInfoClass, jAssetInfo, "id", static_cast<jint>(assetId));
+    }
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAssetInfo", "(L" BEAM_JAVA_PATH "/entities/dto/AssetInfoDTO;)V");
+    env->CallStaticVoidMethod(WalletListenerClass, callback, jAssetInfo);
+    env->DeleteLocalRef(jAssetInfo);
 }
 
 

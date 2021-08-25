@@ -121,12 +121,12 @@ void Connection::MineBbsRequest(FlyClient::RequestBbsMsg& r)
             [this] () { OnMined(); });
         m_Miner.m_Shutdown = false;
 
-        uint32_t nThreads = std::thread::hardware_concurrency();
+        uint32_t nThreads = MyThread::hardware_concurrency();
         nThreads = (nThreads > 1) ? (nThreads - 1) : 1; // leave at least 1 vacant core for other things
         m_Miner.m_vThreads.resize(nThreads);
 
         for (uint32_t i = 0; i < nThreads; i++)
-            m_Miner.m_vThreads[i] = std::thread(&BbsMiner::Thread, &m_Miner, i, Rules::get());
+            m_Miner.m_vThreads[i] = MyThread(&BbsMiner::Thread, &m_Miner, i, Rules::get());
     }
 
     std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);

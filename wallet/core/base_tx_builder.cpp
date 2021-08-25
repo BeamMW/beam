@@ -248,11 +248,11 @@ namespace beam::wallet
 
                 if (val < 0)
                 {
-                    const bool isAsset = aid != Asset::s_InvalidID;
-                    LOG_ERROR() << m_Builder.m_Tx.GetTxID()
-                                << "[" << m_Builder.m_SubTxID << "]"
-                                << " Missing "
-                                << PrintableAmount(Amount(-val), false, isAsset ? kAmountASSET : "",  isAsset ? kAmountAGROTH : "");
+                    LOG_ERROR()
+                        << m_Builder.m_Tx.GetTxID()
+                        << "[" << m_Builder.m_SubTxID << "]"
+                        << " Missing "
+                        << PrintableAmount(Amount(-val), false, aid);
 
                     throw TransactionFailedException(!m_Builder.m_Tx.IsInitiator(), TxFailureReason::NoInputs);
                 }
@@ -847,10 +847,10 @@ namespace beam::wallet
 
         assert(!IsGeneratingInOuts());
 
-        FinalyzeTxInternal();
+        FinalizeTxInternal();
     }
 
-    void BaseTxBuilder::FinalyzeTxInternal()
+    void BaseTxBuilder::FinalizeTxInternal()
     {
         m_pTransaction->Normalize();
         VerifyTx();
@@ -924,7 +924,6 @@ namespace beam::wallet
         , m_Lifetime(kDefaultTxLifetime)
     {
         GetParameter(TxParameterID::Amount, m_Amount);
-
         GetParameter(TxParameterID::AssetID, m_AssetID);
         GetParameter(TxParameterID::Lifetime, m_Lifetime);
     }
@@ -1047,7 +1046,7 @@ namespace beam::wallet
             AddOffset(k);
     }
 
-    void MutualTxBuilder::FinalyzeTxInternal()
+    void MutualTxBuilder::FinalizeTxInternal()
     {
         // add peer in/out/offs
         AddPeerOffset();
@@ -1060,7 +1059,7 @@ namespace beam::wallet
         if (GetParameter(TxParameterID::PeerOutputs, vOuts))
             MoveIntoVec(m_pTransaction->m_vOutputs, vOuts);
 
-        SimpleTxBuilder::FinalyzeTxInternal();
+        SimpleTxBuilder::FinalizeTxInternal();
     }
 
     void MutualTxBuilder::SignSender(bool initial)

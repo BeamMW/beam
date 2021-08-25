@@ -65,11 +65,14 @@ namespace
     static beam::wallet::TxParameters _txParameters;
 
     static uint8_t m_mpLockTimeLimit = 64;
+    static uint32_t m_confirmationOffset = 0;
     static ShieldedVoucherList lastVouchers;
     static std::string lastWalledId("");
 
     void initLogger(const string& appData, const string& appVersion)
     {
+        wallet::g_AssetsEnabled = true;
+
         static auto logger = Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "wallet_", (fs::path(appData) / fs::path("logs")).string());
 
         Rules::get().UpdateChecksum();
@@ -105,14 +108,15 @@ extern "C" {
     return beam::wallet::CheckReceiverAddress(JString(env, address).value());
  }
 
- JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(calcShieldedCoinSelectionInfo)(JNIEnv *env, jobject thiz, jlong amount, jlong fee, jboolean isShielded)
+ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(selectCoins)(JNIEnv *env, jobject thiz, jlong amount, jlong fee, jboolean isShielded, jint assetId)
  {
-    LOG_DEBUG() << "calcShieldedCoinSelectionInfo()";
+    LOG_DEBUG() << "selectCoins()";
 
     Amount bAmount = Amount(amount);
     Amount bFee = Amount(fee);
+    uint32_t asset = assetId;
 
-    walletModel->getAsync()->calcShieldedCoinSelectionInfo(bAmount, bFee, beam::Asset::s_BeamID, isShielded);
+    walletModel->getAsync()->selectCoins(bAmount, bFee, beam::Asset::ID(asset), isShielded);
  }
 
 JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(isToken)(JNIEnv *env, jobject thiz, jstring token)
@@ -209,6 +213,13 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
                 setBooleanField(env, TransactionParametersClass, jParameters, "isPublicOffline", false);
             }
 
+            if (auto assetId = params->GetParameter<uint32_t>(TxParameterID::AssetID); assetId) {
+                setIntField(env, TransactionParametersClass, jParameters, "assetId", static_cast<int>(*assetId));
+            }
+            else {
+                setIntField(env, TransactionParametersClass, jParameters, "assetId", 0);
+            }
+
             if(libVersion) 
             {
                 std::string myLibVersionStr = PROJECT_VERSION;
@@ -267,12 +278,13 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
  }
 
  
- JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(generateOfflineAddress)(JNIEnv *env, jobject thiz, jlong amount, jstring walletId)
+ JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(generateOfflineAddress)(JNIEnv *env, jobject thiz, jlong amount, jstring walletId, jint assetId)
  {
     LOG_DEBUG() << "generateOfflineAddress()";
             
     uint64_t bAmount = amount;
     auto id = JString(env, walletId).value();
+    uint32_t asset = assetId;
 
     WalletID walletID(Zero);
     if (!walletID.FromHex(id))
@@ -300,20 +312,20 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     offlineParameters.SetParameter(TxParameterID::PeerWalletIdentity, address->m_Identity);
     offlineParameters.SetParameter(TxParameterID::PeerOwnID, address->m_OwnID);
     offlineParameters.SetParameter(TxParameterID::IsPermanentPeerID, true);
-    
+    offlineParameters.SetParameter(TxParameterID::AssetID, beam::Asset::ID(asset));
+
+
     if (bAmount > 0) {
         offlineParameters.SetParameter(TxParameterID::Amount, bAmount);
     }
     
     auto token = to_string(offlineParameters);
-
-    //auto offlineAddress =  GenerateOfflineToken(*address, bAmount, 0, lastVouchers, "");
    
     jstring tokenString = env->NewStringUTF(token.c_str());
     return tokenString;
  }
 
- JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(generateRegularAddress)(JNIEnv *env, jobject thiz, jboolean isPermanentAddress, jlong amount, jstring walletId)
+ JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(generateRegularAddress)(JNIEnv *env, jobject thiz, jboolean isPermanentAddress, jlong amount, jstring walletId, jint assetId)
  {
     LOG_DEBUG() << "generateRegularAddress()";
 
@@ -327,14 +339,14 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     }
 
     auto address = walletDB->getAddress(walletID);
-    auto regularAddress = GenerateRegularNewToken(*address, bAmount, 0, std::string(BEAM_LIB_VERSION));
+    auto regularAddress = GenerateRegularNewToken(*address, bAmount, assetId, std::string(BEAM_LIB_VERSION));
     
     jstring tokenString = env->NewStringUTF(regularAddress.c_str());
     return tokenString;
  }
 
   
- JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(generateMaxPrivacyAddress)(JNIEnv *env, jobject thiz, jlong amount, jstring walletId)
+ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(generateMaxPrivacyAddress)(JNIEnv *env, jobject thiz, jlong amount, jstring walletId, jint assetId)
  {
     LOG_DEBUG() << "generateMaxPrivacyAddress()";
 
@@ -352,7 +364,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
 
      if (!vouchers.empty())
       {
-          auto maxPrivacyAddress = GenerateMaxPrivacyToken(*address, bAmount, 0, vouchers[0], std::string(BEAM_LIB_VERSION));
+          auto maxPrivacyAddress = GenerateMaxPrivacyToken(*address, bAmount, assetId, vouchers[0], std::string(BEAM_LIB_VERSION));
           jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onMaxPrivacyAddress", "(Ljava/lang/String;)V");
           jstring jdata = env->NewStringUTF(maxPrivacyAddress.c_str());
           env->CallStaticVoidMethod(WalletListenerClass, callback, jdata);
@@ -616,10 +628,11 @@ void CopyParameter(beam::wallet::TxParameterID paramID, const beam::wallet::TxPa
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, jobject thiz,
-    jstring senderAddr, jstring receiverAddr, jstring comment, jlong amount, jlong fee)
+    jstring senderAddr, jstring receiverAddr, jstring comment, jlong amount, jlong fee, jint assetId)
 {
     LOG_DEBUG() << "sendTransaction(" << JString(env, senderAddr).value() << ", " << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
-
+    LOG_DEBUG() << "asset id" << assetId;
+    
     auto address = JString(env, receiverAddr).value();
     auto txParameters = beam::wallet::ParseParameters(address);
     if (!txParameters)
@@ -638,6 +651,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
     auto messageString = JString(env, comment).value();
     uint64_t bAmount = amount;
     uint64_t bfee = fee;
+    uint32_t asset = assetId;
 
     _txParameters = *txParameters;
 
@@ -661,7 +675,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
     params.SetParameter(TxParameterID::Amount, bAmount)
         .SetParameter(TxParameterID::Fee, bfee)
         .SetParameter(beam::wallet::TxParameterID::MyID, m_walletID)
-        .SetParameter(TxParameterID::AssetID, beam::Asset::s_BeamID)
+        .SetParameter(TxParameterID::AssetID, beam::Asset::ID(asset))
         .SetParameter(TxParameterID::Message, beam::ByteBuffer(messageString.begin(), messageString.end()));
 
     if (type == TxAddressType::MaxPrivacy) {
@@ -678,41 +692,14 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
     walletModel->getAsync()->startTransaction(std::move(params));
 }
 
-JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendMoney)(JNIEnv *env, jobject thiz,
-    jstring senderAddr, jstring receiverAddr, jstring comment, jlong amount, jlong fee)
-{
-    LOG_DEBUG() << "sendMoney(" << JString(env, senderAddr).value() << ", " << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
-
-    WalletID receiverID(Zero);
-    receiverID.FromHex(JString(env, receiverAddr).value());
-
-    auto sender = JString(env, senderAddr).value();
-
-    if (sender.empty())
-    {
-        walletModel->getAsync()->sendMoney(receiverID
-            , JString(env, comment).value()
-            , Amount(amount)
-            , Amount(fee));
-    }
-    else
-    {
-        WalletID senderID(Zero);
-        senderID.FromHex(sender);
-
-        walletModel->getAsync()->sendMoney(senderID, receiverID
-            , JString(env, comment).value()
-            , Amount(amount)
-            , Amount(fee));
-    }
-}
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(calcChange)(JNIEnv *env, jobject thiz,
-    jlong amount)
+    jlong amount, jint assetId)
 {
     LOG_DEBUG() << "calcChange(" << amount << ")";
+    uint32_t asset = assetId;
 
-    walletModel->getAsync()->calcChange(Amount(amount), 0, beam::Asset::s_BeamID);
+    walletModel->getAsync()->calcChange(Amount(amount), 0, beam::Asset::ID(asset));
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getAddresses)(JNIEnv *env, jobject thiz,
@@ -822,7 +809,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(updateAddress)(JNIEnv *env, jo
         expirationStatus = WalletAddress::ExpirationStatus::Expired;
         break;
     case 1:
-        expirationStatus = WalletAddress::ExpirationStatus::OneDay;
+        expirationStatus = WalletAddress::ExpirationStatus::Auto;
         break;
     case 2:
         expirationStatus = WalletAddress::ExpirationStatus::Never;
@@ -914,6 +901,7 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(checkWalletPassword)(JNIEn
     return passwordHash.V == hash.V;
 }
 
+
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(changeWalletPassword)(JNIEnv *env, jobject thiz,
     jstring password)
 {
@@ -946,12 +934,13 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(verifyPaymentInfo)(JNIEnv *
 
         jobject jPaymentInfo = env->AllocObject(PaymentInfoClass);
         {   
-        setStringField(env, PaymentInfoClass, jPaymentInfo, "senderId", to_string(paymentInfo.m_Sender));
-        setStringField(env, PaymentInfoClass, jPaymentInfo, "receiverId", to_string(paymentInfo.m_Receiver));
-        setLongField(env, PaymentInfoClass, jPaymentInfo, "amount", paymentInfo.m_Amount);
-        setStringField(env, PaymentInfoClass, jPaymentInfo, "kernelId", to_string(paymentInfo.m_KernelID));
-        setBooleanField(env, PaymentInfoClass, jPaymentInfo, "isValid", paymentInfo.IsValid());
-        setStringField(env, PaymentInfoClass, jPaymentInfo, "rawProof", str);
+            setStringField(env, PaymentInfoClass, jPaymentInfo, "senderId", to_string(paymentInfo.m_Sender));
+            setStringField(env, PaymentInfoClass, jPaymentInfo, "receiverId", to_string(paymentInfo.m_Receiver));
+            setLongField(env, PaymentInfoClass, jPaymentInfo, "amount", paymentInfo.m_Amount);
+            setStringField(env, PaymentInfoClass, jPaymentInfo, "kernelId", to_string(paymentInfo.m_KernelID));
+            setBooleanField(env, PaymentInfoClass, jPaymentInfo, "isValid", paymentInfo.IsValid());
+            setStringField(env, PaymentInfoClass, jPaymentInfo, "rawProof", str);
+            setIntField(env, PaymentInfoClass, jPaymentInfo, "assetId", paymentInfo.m_AssetID);
         }
 
         return jPaymentInfo;
@@ -967,12 +956,13 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(verifyPaymentInfo)(JNIEnv *
        
         jobject jPaymentInfo = env->AllocObject(PaymentInfoClass);
         {   
-        setStringField(env, PaymentInfoClass, jPaymentInfo, "senderId", to_string(shieldedPaymentInfo.m_Sender));
-        setStringField(env, PaymentInfoClass, jPaymentInfo, "receiverId", to_string(shieldedPaymentInfo.m_Receiver));
-        setLongField(env, PaymentInfoClass, jPaymentInfo, "amount", shieldedPaymentInfo.m_Amount);
-        setStringField(env, PaymentInfoClass, jPaymentInfo, "kernelId", to_string(shieldedPaymentInfo.m_KernelID));
-        setBooleanField(env, PaymentInfoClass, jPaymentInfo, "isValid", shieldedPaymentInfo.IsValid());
-        setStringField(env, PaymentInfoClass, jPaymentInfo, "rawProof", str);
+            setStringField(env, PaymentInfoClass, jPaymentInfo, "senderId", to_string(shieldedPaymentInfo.m_Sender));
+            setStringField(env, PaymentInfoClass, jPaymentInfo, "receiverId", to_string(shieldedPaymentInfo.m_Receiver));
+            setLongField(env, PaymentInfoClass, jPaymentInfo, "amount", shieldedPaymentInfo.m_Amount);
+            setStringField(env, PaymentInfoClass, jPaymentInfo, "kernelId", to_string(shieldedPaymentInfo.m_KernelID));
+            setBooleanField(env, PaymentInfoClass, jPaymentInfo, "isValid", shieldedPaymentInfo.IsValid());
+            setStringField(env, PaymentInfoClass, jPaymentInfo, "rawProof", str);
+            setIntField(env, PaymentInfoClass, jPaymentInfo, "assetId", shieldedPaymentInfo.m_AssetID);
         }
 
         return jPaymentInfo;
@@ -1092,13 +1082,21 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(setCoinConfirmationsOffset)(JN
 {
     if (offset <= std::numeric_limits<uint32_t>::max())
     {
-        walletModel->setCoinConfirmationsOffset(static_cast<uint32_t>(offset));
+        walletModel->getAsync()->setCoinConfirmationsOffset(static_cast<uint32_t>(offset));
     }
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getCoinConfirmationsOffsetAsync)(JNIEnv *env, jobject thiz)
+{
+    return walletModel->getAsync()->getCoinConfirmationsOffset([&] (uint32_t offset)
+    {
+        m_confirmationOffset = offset;
+    });
 }
 
 JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getCoinConfirmationsOffset)(JNIEnv *env, jobject thiz)
 {
-    return walletModel->getCoinConfirmationsOffset();
+    return m_confirmationOffset;
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(setMaxPrivacyLockTimeLimitHours)(JNIEnv *env, jobject thiz, jlong hours)
@@ -1125,6 +1123,20 @@ JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getMaturityHours)(JNIEnv *env
 JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getMaxPrivacyLockTimeLimitHours)(JNIEnv *env, jobject thiz)
 {
     return m_mpLockTimeLimit;
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getAssetInfo)(JNIEnv *env, jobject thiz, jint id)
+{
+    walletModel->getAsync()->getAssetInfo(id);
+}
+
+JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(isSynced)(JNIEnv *env, jobject thiz)
+{
+    auto isSynced = walletModel->isSynced();
+    
+    LOG_DEBUG() << "isSynced() " << isSynced;
+
+    return isSynced;
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
@@ -1205,6 +1217,12 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
     {
         jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/VersionInfoDTO");
         VersionInfoClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
+    }
+
+    {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/AssetInfoDTO");
+        AssetInfoClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
         env->DeleteLocalRef(cls);
     }
 

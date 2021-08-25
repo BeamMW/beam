@@ -72,6 +72,8 @@ namespace beam
         extern const char* PRINT_ROLLBACK_STATS;
         extern const char* MANUAL_ROLLBACK;
         extern const char* MANUAL_SELECT;
+        extern const char* CONTRACT_RICH_INFO;
+        extern const char* CONTRACT_RICH_PARSER;
         extern const char* CHECKDB;
         extern const char* VACUUM;
         extern const char* CRASH;
@@ -152,6 +154,7 @@ namespace beam
         extern const char* ALLOWED_ORIGIN;
         extern const char* BLOCK_DETAILS;
         extern const char* BLOCK_HEIGHT;
+        extern const char* CONFIG_FILE_PATH;
         // ethereum
         extern const char* ETHEREUM_SEED;
         extern const char* INFURA_PROJECT_ID;
@@ -227,6 +230,9 @@ namespace beam
         extern const char* EXCHANGE_CURR;
         extern const char* EXCHANGE_RATE;
         extern const char* EXCHANGE_UNIT;
+        extern const char* VERIFIED;
+        extern const char* PREDEFINED_ICON;
+        extern const char* PREDEFINED_COLOR;
 
         // lelantus
         extern const char* MAX_PRIVACY_ADDRESS;
@@ -252,14 +258,15 @@ namespace beam
         ALL_OPTIONS     = GENERAL_OPTIONS | NODE_OPTIONS | WALLET_OPTIONS | UI_OPTIONS
     };
 
-    std::pair<po::options_description, po::options_description> createOptionsDescription(int flags = ALL_OPTIONS);
+    std::pair<po::options_description, po::options_description> createOptionsDescription(int flags = ALL_OPTIONS, const std::string& configFile = {});
 
     po::options_description createRulesOptionsDescription();
 
-    po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options, bool walletOptions = false);
+    po::variables_map getOptions(int argc, char* argv[], const po::options_description& options, bool walletOptions = false);
 
     void getRulesOptions(po::variables_map& vm);
 
+    bool ReadCfgFromFile(po::variables_map&, const po::options_description&);
     bool ReadCfgFromFile(po::variables_map&, const po::options_description&, const char* szFile);
     bool ReadCfgFromFileCommon(po::variables_map&, const po::options_description&);
 

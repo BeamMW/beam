@@ -144,7 +144,7 @@ namespace beam::wallet
         }
     }
 
-    void LockTxBuilder::FinalyzeTxInternal()
+    void LockTxBuilder::FinalizeTxInternal()
     {
         assert(m_IsSender);
 
@@ -160,7 +160,6 @@ namespace beam::wallet
 
         m_pTransaction->m_vOutputs.push_back(std::move(pOutp));
 
-        MutualTxBuilder::FinalyzeTxInternal();
+        MutualTxBuilder::FinalizeTxInternal();
     }
-
 }

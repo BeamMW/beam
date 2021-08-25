@@ -18,6 +18,7 @@
 #include <condition_variable>
 #include <thread>
 #include <boost/intrusive/list.hpp>
+#include "thread.h"
 
 namespace beam
 {
@@ -88,7 +89,7 @@ namespace beam
 
 		uint32_t m_Threads; // set at c'tor to num of cores.
 
-		virtual void StartThread(std::thread&, uint32_t iThread) = 0;
+		virtual void StartThread(MyThread&, uint32_t iThread) = 0;
 
 		void RunThreadCtx(Context&);
 
@@ -104,7 +105,7 @@ namespace beam
 		std::condition_variable m_NewTask;
 		std::condition_variable m_Flushed;
 
-		std::vector<std::thread> m_vThreads;
+		std::vector<MyThread> m_vThreads;
 
 		void InitSafe();
 		void FlushLocked(std::unique_lock<std::mutex>&, uint32_t nMaxTasks);

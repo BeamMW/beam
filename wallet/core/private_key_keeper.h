@@ -260,7 +260,7 @@ namespace beam::wallet
 	{
         IPrivateKeyKeeper2::Ptr m_pKeyKeeper;
 
-		std::thread m_Thread;
+		MyThread m_Thread;
 		bool m_Run = true;
 
 		std::mutex m_MutexIn;

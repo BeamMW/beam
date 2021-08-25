@@ -11,6 +11,7 @@ target_sources(wallet_client
         extensions/broadcast_gateway/broadcast_router.cpp
         extensions/broadcast_gateway/broadcast_msg_creator.cpp
         extensions/broadcast_gateway/broadcast_msg_validator.cpp
+        extensions/news_channels/verification_provider.cpp
         extensions/news_channels/updates_provider.cpp
         extensions/news_channels/wallet_updates_provider.cpp
         extensions/news_channels/version_info.cpp
@@ -20,6 +21,7 @@ target_sources(wallet_client
         extensions/offers_board/offers_protocol_handler.cpp
         extensions/offers_board/swap_offers_board.cpp
         extensions/notifications/notification_center.cpp
+        extensions/notifications/notification.cpp
         extensions/dex_board/dex_order.cpp
         extensions/dex_board/dex_board.cpp
         extensions/export/tx_history_to_csv.cpp

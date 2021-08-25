@@ -138,15 +138,29 @@ namespace beam::wallet
 
         std::vector<Notification> notifications;
 
-        for (const auto& pair : m_cache)
+        for (auto& pair : m_cache)
         {
-            if (!isNotificationTypeActive(pair.second.m_type))
+            auto& notification = pair.second;
+
+            if (!isNotificationTypeActive(notification.m_type))
                 continue;
-            if (pair.second.m_type != Notification::Type::SoftwareUpdateAvailable // we do not filter out deleted software update notifications
-                && pair.second.m_type != Notification::Type::WalletImplUpdateAvailable
-                && pair.second.m_state == Notification::State::Deleted)
+
+            if (notification.m_type != Notification::Type::SoftwareUpdateAvailable // we do not filter out deleted software update notifications
+                && notification.m_type != Notification::Type::WalletImplUpdateAvailable
+                && notification.m_state == Notification::State::Deleted)
                 continue;
-            notifications.push_back(pair.second);
+
+            if (notification.m_type == Notification::Type::TransactionCompleted ||
+                notification.m_type == Notification::Type::TransactionFailed)
+            {
+                auto p = getTxParameters(notification);
+                if (!m_storage.getTx(*p.GetTxID())) {
+                    notification.m_state = Notification::State::Deleted;
+                    m_storage.saveNotification(notification);
+                    continue;
+                }
+            }
+            notifications.push_back(notification);
         }
 
         return notifications;

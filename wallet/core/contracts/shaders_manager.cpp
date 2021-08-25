@@ -18,21 +18,26 @@
 namespace beam::wallet {
     ShadersManager::ShadersManager(beam::wallet::Wallet::Ptr wallet,
                                    beam::wallet::IWalletDB::Ptr walletDB,
-                                   beam::proto::FlyClient::INetwork::Ptr nodeNetwork)
-            : _wdb(walletDB)
-            , _wallet(wallet)
+                                   beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
+                                   std::string appid,
+                                   std::string appname)
+        : _currentAppId(std::move(appid))
+        , _currentAppName(std::move(appname))
+        , _wdb(std::move(walletDB))
+        , _wallet(std::move(wallet))
     {
-        assert(walletDB);
-        assert(wallet);
+        assert(_wdb);
+        assert(_wallet);
+        assert(nodeNetwork);
 
         m_pPKdf = _wdb->get_OwnerKdf();
         m_pNetwork = std::move(nodeNetwork);
         m_pHist = &_wdb->get_History();
     }
 
-    void ShadersManager::CompileAppShader(const std::vector<uint8_t> &shader)
+    void ShadersManager::compileAppShader(const std::vector<uint8_t> &shader)
     {
-        if (!IsDone())
+        if (!_done)
         {
             assert(false);
             throw std::runtime_error("still in shader call");
@@ -51,58 +56,93 @@ namespace beam::wallet {
         beam::bvm2::Processor::Compile(resBuffer, shaderBlob, ManagerStd::Kind::Manager);
     }
 
-    void ShadersManager::CallShaderAndStartTx(const std::string &args, unsigned method, DoneAllHandler doneHandler)
+    void ShadersManager::pushRequest(Request newReq)
     {
-        if (!IsDone())
+        if (newReq.unique)
         {
-            return doneHandler(boost::none, boost::none, std::string("still in shader call"));
+            for (const auto &req: _queue)
+            {
+                if (req.unique == newReq.unique)
+                {
+                    return;
+                }
+            }
         }
-
-        if (m_BodyManager.empty())
-        {
-            return doneHandler(boost::none, boost::none, std::string("missing shader code"));
-        }
-
-        m_Args.clear();
-        if (!args.empty())
-        {
-            std::string temp = args;
-            AddArgs(&temp.front());
-        }
-
-        _done = false;
-        _async = false;
-        _doneAll = std::move(doneHandler);
-
-        StartRun(method);
-        _async = !_done;
+        _queue.push(std::move(newReq));
     }
 
-    void ShadersManager::CallShader(const std::string& args, unsigned method, DoneCallHandler doneHandler)
+    void ShadersManager::CallShaderAndStartTx(const std::vector<uint8_t>& shader, const std::string &args, unsigned method, uint32_t priority, uint32_t unique, DoneAllHandler doneHandler)
     {
-        if (!IsDone())
+        Request req;
+        req.shader   = shader;
+        req.args     = args;
+        req.method   = method;
+        req.doneAll  = doneHandler;
+        req.priority = priority;
+        req.unique   = unique;
+        pushRequest(std::move(req));
+
+        if (_done)
         {
-            return doneHandler(boost::none, boost::none, std::string("still in shader call"));
+            return nextRequest();
+        }
+
+        LOG_INFO () << "shader call is still in progress, request " << args << " queued";
+    }
+
+    void ShadersManager::CallShader(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, uint32_t priority, uint32_t unique, DoneCallHandler doneHandler)
+    {
+        Request req;
+        req.shader   = shader;
+        req.args     = args;
+        req.method   = method;
+        req.doneCall = doneHandler;
+        req.priority = priority;
+        req.unique   = unique;
+        pushRequest(std::move(req));
+
+        if (_done)
+        {
+            return nextRequest();
+        }
+
+        LOG_INFO () << "shader call is still in progress, request " << args << " queued";
+    }
+
+    void ShadersManager::nextRequest()
+    {
+        if (_queue.empty())
+        {
+            return;
+        }
+
+        const auto& req = _queue.top();
+        if (!req.shader.empty())
+        {
+            try
+            {
+                compileAppShader(req.shader);
+            }
+            catch(std::exception& ex)
+            {
+                return req.doneCall(boost::none, boost::none, std::string(ex.what()));
+            }
         }
 
         if (m_BodyManager.empty())
         {
-            return doneHandler(boost::none, boost::none, std::string("missing shader code"));
+            return req.doneCall(boost::none, boost::none, std::string("missing shader code"));
         }
 
         m_Args.clear();
-        if (!args.empty())
+        if (!req.args.empty())
         {
-            std::string temp = args;
+            std::string temp = req.args;
             AddArgs(&temp.front());
         }
 
         _done = false;
-        _async = false;
-        _doneCall = std::move(doneHandler);
-
-        StartRun(method);
-        _async = !_done;
+        StartRun(req.method);
     }
 
     void ShadersManager::ProcessTxData(const ByteBuffer& buffer, DoneTxHandler doneHandler)
@@ -153,17 +193,24 @@ namespace beam::wallet {
 
     void ShadersManager::OnDone(const std::exception *pExc)
     {
-        auto allHandler = _doneAll;
-        auto callHandler = _doneCall;
+        if (_queue.empty())
+        {
+            LOG_WARNING() << "Queue has been cleared before request completed";
+            return;
+        }
+
+        BOOST_SCOPE_EXIT_ALL(&, this) {
+            this->nextRequest();
+        };
 
         _done = true;
-        decltype(_doneAll)().swap(_doneAll);
-        decltype(_doneCall)().swap(_doneCall);
+        const auto req = _queue.top();
+        _queue.pop();
 
         if (pExc != nullptr)
         {
             boost::optional<std::string> error = boost::none;
-            if (strlen(pExc->what()) > 0)
+            if (pExc->what() && pExc->what()[0] != 0)
             {
                 error = std::string(pExc->what());
             }
@@ -173,13 +220,13 @@ namespace beam::wallet {
             }
 
             LOG_INFO() << "Shader Error: " << *error;
-            if (allHandler)
+            if (req.doneAll)
             {
-                return allHandler(boost::none, boost::none, error);
+                return req.doneAll(boost::none, boost::none, error);
             }
             else
             {
-                return callHandler(boost::none, boost::none, error);
+                return req.doneCall(boost::none, boost::none, error);
             }
         }
 
@@ -188,13 +235,13 @@ namespace beam::wallet {
 
         if (m_vInvokeData.empty())
         {
-            if (allHandler)
+            if (req.doneAll)
             {
-                return allHandler(boost::none, result, boost::none);
+                return req.doneAll(boost::none, result, boost::none);
             }
             else
             {
-                return callHandler(boost::none, result, boost::none);
+                return req.doneCall(boost::none, result, boost::none);
             }
         }
 
@@ -202,12 +249,12 @@ namespace beam::wallet {
         {
             auto buffer = toByteBuffer(m_vInvokeData);
 
-            if (callHandler)
+            if (req.doneCall)
             {
-                return callHandler(buffer, result, boost::none);
+                return req.doneCall(buffer, result, boost::none);
             }
 
-            return ProcessTxData(buffer, [result, allHandler] (boost::optional<TxID> txid, boost::optional<std::string> error)
+            return ProcessTxData(buffer, [result, allHandler = req.doneAll] (boost::optional<TxID> txid, boost::optional<std::string> error)
             {
                 return allHandler(std::move(txid), result, std::move(error));
             });
@@ -215,44 +262,30 @@ namespace beam::wallet {
         catch (std::runtime_error &err)
         {
             std::string error = err.what();
-            if (allHandler)
+            if (req.doneAll)
             {
-                return allHandler(boost::none, result, error);
+                return req.doneAll(boost::none, result, error);
             }
             else
             {
-                return callHandler(boost::none, result, error);
+                return req.doneCall(boost::none, result, error);
             }
         }
-    }
-
-    void ShadersManager::SetCurrentApp(const std::string& appid, const std::string& appname)
-    {
-        if (!_currentAppId.empty())
-        {
-            throw std::runtime_error("SetCurrentApp while another app is active");
-        }
-
-        _currentAppId = appid;
-        _currentAppName = appname;
-    }
-
-    void ShadersManager::ReleaseCurrentApp(const std::string& appid)
-    {
-        if (_currentAppId != appid)
-        {
-            throw std::runtime_error("Unexpected AppID in releaseAPP");
-        }
-
-        _currentAppId = std::string();
-        _currentAppName = std::string();
     }
 
     IShadersManager::Ptr IShadersManager::CreateInstance(
                 beam::wallet::Wallet::Ptr wallet,
                 beam::wallet::IWalletDB::Ptr wdb,
-                beam::proto::FlyClient::INetwork::Ptr nodeNetwork)
+                beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
+                std::string appid,
+                std::string appname)
     {
-        return std::make_shared<ShadersManager>(std::move(wallet), std::move(wdb), std::move(nodeNetwork));
+        return std::make_shared<ShadersManager>(
+                std::move(wallet),
+                std::move(wdb),
+                std::move(nodeNetwork),
+                std::move(appid),
+                std::move(appname)
+                );
     }
 }

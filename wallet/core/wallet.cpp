@@ -361,13 +361,18 @@ namespace beam::wallet
 
     bool Wallet::IsWalletInSync() const
     {
-        Block::SystemState::Full state;
-        get_tip(state);
+        Block::SystemState::ID stateID;
+        ZeroObject(stateID);
+        m_WalletDB->getSystemStateID(stateID);
+        if (stateID.m_Height < Rules::HeightGenesis)
+            return false;
 
+        Block::SystemState::Full state;
+        m_WalletDB->get_History().get_At(state, stateID.m_Height);
         return IsValidTimeStamp(state.m_TimeStamp);
     }
 
-    Height Wallet::get_CurrentHeight() const
+    Height Wallet::get_TipHeight() const
     {
         Block::SystemState::Full s;
         get_tip(s);
@@ -742,8 +747,8 @@ namespace beam::wallet
         case TxType::VoucherRequest:
             {
                 auto pKeyKeeper = m_WalletDB->get_KeyKeeper();
-                if (!pKeyKeeper             // We can generate the ticket with OwnerKey, but can't sign it.
-                 || (!m_OwnedNodesOnline && !IsMobileNodeEnabled()))    // The wallet has no ability to recognoize received shielded coin
+                if (!pKeyKeeper                                         // We can generate the ticket with OwnerKey, but can't sign it.
+                 || !CanDetectCoins())                                  // The wallet has no ability to recognize received shielded coin
                 {
                     FailVoucherRequest(msg.m_From, myID);
                     return; 
@@ -955,6 +960,11 @@ namespace beam::wallet
         {
             LOG_DEBUG() << txID << " Unexpected event";
         }
+    }
+
+    void Wallet::ConfirmAsset(Asset::ID assetId)
+    {
+        confirm_asset(assetId);
     }
 
     void Wallet::UpdateTransaction(BaseTransaction::Ptr tx)
@@ -1556,7 +1566,7 @@ namespace beam::wallet
 
         uint32_t nCount = p.Proceed(r.m_Res.m_Events);
 
-        if (nCount < r.m_Max)
+        if (nCount < proto::Event::s_Max)
         {
             Block::SystemState::Full sTip;
             m_WalletDB->get_History().get_Tip(sTip);
@@ -1874,7 +1884,7 @@ namespace beam::wallet
 
     void Wallet::CheckSyncDone()
     {
-        report_sync_progress();
+        ReportSyncProgress();
 
         if (SyncRemains())
             return;
@@ -1945,13 +1955,15 @@ namespace beam::wallet
     void Wallet::NotifySyncProgress()
     {
         uint32_t n = SyncRemains();
+        int total = m_LastSyncTotal;
+        int done = m_LastSyncTotal - n;
         for (const auto sub : m_subscribers)
         {
-            sub->onSyncProgress(m_LastSyncTotal - n, m_LastSyncTotal);
+            sub->onSyncProgress(done, total);
         }
     }
 
-    void Wallet::report_sync_progress()
+    void Wallet::ReportSyncProgress()
     {
         if (!m_LastSyncTotal)
             return;
@@ -2163,9 +2175,7 @@ namespace beam::wallet
     {
         if (m_NodeEndpoint)
         {
-            Block::SystemState::Full sTip;
-            get_tip(sTip);
-            return IsValidTimeStamp(sTip.m_TimeStamp);
+            return IsWalletInSync();
         }
         return true; // to allow made air-gapped transactions
     }
@@ -2187,6 +2197,11 @@ namespace beam::wallet
     bool Wallet::IsConnectedToOwnNode() const
     {
         return m_OwnedNodesOnline > 0;
+    }
+
+    bool Wallet::CanDetectCoins() const
+    {
+        return m_OwnedNodesOnline || m_IsBodyRequestsEnabled;
     }
 
     void Wallet::EnableBodyRequests(bool value)

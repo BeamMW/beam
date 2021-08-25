@@ -67,7 +67,7 @@ namespace beam::wallet::lelantus
 
             LOG_INFO()
                  << m_Context << " Sending to shielded pool "
-                 << PrintableAmount(builder.m_Value, false, builder.m_AssetID ? kAmountASSET : "", builder.m_AssetID ? kAmountAGROTH : "")
+                 << PrintableAmount(builder.m_Value, false, builder.m_AssetID)
                  << " (fee: " << PrintableAmount(builder.m_Fee) << ")";
 
             builder.SaveCoins();

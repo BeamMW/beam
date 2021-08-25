@@ -49,7 +49,12 @@ namespace beam::wallet
 
     BaseTransaction::Ptr SimpleTransaction::Creator::Create(const TxContext& context)
     {
-        return BaseTransaction::Ptr(new SimpleTransaction(context));
+        const auto& walletDb = context.GetWalletDB();
+        auto minConfirmations =  walletDb->getCoinConfirmationsOffset();
+
+        auto pTx = BaseTransaction::Ptr(new SimpleTransaction(context));
+        pTx->SetParameter(TxParameterID::MinConfirmations, minConfirmations);
+        return pTx;
     }
 
     TxParameters SimpleTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
@@ -202,8 +207,13 @@ namespace beam::wallet
                 if (GetParameter(TxParameterID::MyID, wid))
                 {
                     auto waddr = GetWalletDB()->getAddress(wid);
-                    if (waddr && waddr->isOwn())
+                    if (waddr)
                     {
+                        if (!waddr->isOwn())
+                        {
+                            assert(false);
+                            throw std::runtime_error("Not own address in MyID");
+                        }
                         SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
                         SetParameter(TxParameterID::MyWalletIdentity, waddr->m_Identity);
                     }
@@ -273,8 +283,8 @@ namespace beam::wallet
 
             stringstream ss;
             ss << GetTxID() << (pMutualBuilder ? pMutualBuilder->m_IsSender ? " Sending " : " Receiving " : " Splitting ")
-                << PrintableAmount(builder.m_Amount, false, builder.m_AssetID ? kAmountASSET : "", builder.m_AssetID ? kAmountAGROTH : "")
-                << " (fee: " << PrintableAmount(builder.m_Fee) << ")";
+               << PrintableAmount(builder.m_Amount, false, builder.m_AssetID)
+               << " (fee: " << PrintableAmount(builder.m_Fee) << ")";
 
             if (builder.m_AssetID)
                 ss << ", asset ID: " << builder.m_AssetID;
@@ -283,7 +293,6 @@ namespace beam::wallet
                 ss << ", my ID: " << myWalletID << ", peer ID: " << peerWalletID;
 
             LOG_INFO() << ss.str();
-
             builder.SaveCoins();
         }
 

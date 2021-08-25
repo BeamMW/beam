@@ -136,6 +136,7 @@ struct Node
 			uint16_t m_FluffProbability = 0x1999; // normalized wrt 16 bit. Equals to 0.1
 			uint32_t m_TimeoutMin_ms = 20000;
 			uint32_t m_TimeoutMax_ms = 50000;
+			uint32_t m_dhStemConfirm = 5; // if stem tx is not mined within this number of blocks - it's auto-fluffed
 
 			uint32_t m_AggregationTime_ms = 10000;
 			uint32_t m_OutputsMin = 5; // must be aggregated.
@@ -269,8 +270,6 @@ private:
 		io::AsyncEvent::Ptr m_pAsyncPeerInsane;
 		void FlushInsanePeers();
 
-		void DeleteOutdated();
-
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
 
@@ -391,12 +390,14 @@ private:
 	uint8_t OnTransactionStem(Transaction::Ptr&&, std::ostream* pExtraInfo);
 	uint8_t OnTransactionFluff(Transaction::Ptr&&, std::ostream* pExtraInfo, const PeerID*, Dandelion::Element*);
 	void OnTransactionAggregated(Dandelion::Element&);
+	void OnTransactionWaitingConfirm(TxPool::Stem::Element&);
 	void PerformAggregation(Dandelion::Element&);
 	void AddDummyInputs(Transaction&);
 	bool AddDummyInputRaw(Transaction& tx, const CoinID&);
 	bool AddDummyInputEx(Transaction& tx, const CoinID&);
 	void AddDummyOutputs(Transaction&, Amount feeReserve);
 	Height SampleDummySpentHeight();
+	void DeleteOutdated();
 
 	uint8_t ValidateTx(Transaction::Context&, const Transaction&, uint32_t& nSizeCorrection, Amount& feeReserve, std::ostream* pExtraInfo); // complete validation
 	static bool CalculateFeeReserve(const TxStats&, const HeightRange&, const AmountBig::Type&, uint32_t nBvmCharge, Amount& feeReserve);

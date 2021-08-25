@@ -953,14 +953,14 @@ int main_Guarded(int argc, char* argv[])
 
         Rules::Scope scopeRules(c.m_Rules);
 
-        auto [options, visibleOptions] = createOptionsDescription(OptionsFlag::NODE_OPTIONS);
+        std::string sCfgPath = std::string("pipe_") + std::to_string(i) + ".cfg";
+        auto [options, visibleOptions] = createOptionsDescription(OptionsFlag::NODE_OPTIONS, sCfgPath);
         boost::ignore_unused(visibleOptions);
         options.add_options()
             (cli::SEED_PHRASE, po::value<std::string>()->default_value(""), "seed phrase")
             ;
 
-        std::string sCfgPath = std::string("pipe_") + std::to_string(i) + ".cfg";
-        po::variables_map vm = getOptions(argc, argv, sCfgPath.c_str(), options);
+        po::variables_map vm = getOptions(argc, argv, options);
 
         if (c.m_Rules.FakePoW)
         {

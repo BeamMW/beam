@@ -102,15 +102,23 @@ namespace beam::wallet
 
     struct PrintableAmount
     {
-        explicit PrintableAmount(const AmountBig::Type amount, bool showPoint = false, const std::string& coinName = "", const std::string& grothName ="")
-            : m_value{amount}
-            , m_showPoint{showPoint}
-            , m_coinName{coinName}
-            , m_grothName{grothName}
+        explicit PrintableAmount(
+            const AmountBig::Type amount,
+            bool showPoint = false,
+            Asset::ID assetID = Asset::s_BeamID,
+            std::string coinName = std::string(),
+            std::string grothName = std::string()
+        )
+            : m_value(amount)
+            , m_showPoint(showPoint)
+            , m_assetID(assetID)
+            , m_coinName(std::move(coinName))
+            , m_grothName(std::move(grothName))
         {}
 
         const AmountBig::Type m_value;
         bool m_showPoint;
+        Asset::ID m_assetID;
         std::string m_coinName;
         std::string m_grothName;
     };
@@ -124,7 +132,8 @@ namespace beam::wallet
         Canceled,
         Completed,
         Failed,
-        Registering
+        Registering,
+        Confirming
     };
 
 #define BEAM_TX_FAILURE_REASON_MAP(MACRO) \
@@ -353,6 +362,7 @@ namespace beam::wallet
         AssetConfirmedHeight = 135, // This is NOT the same as ProofHeight for kernel!
         AssetUnconfirmedHeight = 136,
         AssetInfoFull = 137,
+        MinConfirmations = 138, // Minimum confirmations count for simple transactions from settings
 
         Offset = 140,
 
@@ -383,6 +393,8 @@ namespace beam::wallet
         Outputs = 190,
         AppID = 191,
         AppName = 192,
+        DexReceiveAsset = 193,
+        DexReceiveAmount = 194,
 
         Kernel = 200,
         PreImage = 201,
@@ -822,7 +834,7 @@ namespace beam::wallet
 
     using VersionFunc = std::function<void(const std::string&, const std::string&)>;
     void ProcessLibraryVersion(const TxParameters& params, VersionFunc&& func = {});
-    void ProcessClientVersion(const TxParameters& params, const std::string& appName, const std::string& myClientVersion, VersionFunc&& func);
+    void ProcessClientVersion(const TxParameters& params, const std::string& appName, const std::string& myClientVersion, const std::string& libVersion, VersionFunc&& func);
     uint32_t GetShieldedInputsNum(const std::vector<TxKernel::Ptr>&);
     TxAddressType GetAddressType(const TxDescription& tx);
     TxAddressType GetAddressType(const std::string& address);
@@ -852,7 +864,6 @@ namespace std
     string to_string(const beam::Merkle::Hash& hash);
     string to_string(const beam::wallet::PrintableAmount& amount);
     string to_string(const beam::wallet::TxParameters&);
-    string to_string(const beam::Version&);
     string to_string(const beam::wallet::TxID&);
     string to_string(const beam::PeerID&);
     string to_string(const beam::AmountBig::Type&);

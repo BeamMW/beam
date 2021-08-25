@@ -73,7 +73,7 @@ namespace beam
 
 	class Treasury::ThreadPool
 	{
-		std::vector<std::thread> m_vThreads;
+		std::vector<MyThread> m_vThreads;
 	public:
 
 		struct Context
@@ -117,7 +117,7 @@ namespace beam
 
 		ThreadPool(Context& ctx, size_t nTasks)
 		{
-			size_t numCores = std::thread::hardware_concurrency();
+			size_t numCores = MyThread::hardware_concurrency();
 			if (!numCores)
 				numCores = 1; //?
 			if (numCores > nTasks)
@@ -131,7 +131,7 @@ namespace beam
 				size_t iTask1 = nTasks * (i + 1) / numCores;
 				assert(iTask1 > iTask0); // otherwise it means that redundant threads were created
 
-				m_vThreads[i] = std::thread(&Context::DoRange, &ctx, Rules::get(), iTask0, iTask1);
+				m_vThreads[i] = MyThread(&Context::DoRange, &ctx, Rules::get(), iTask0, iTask1);
 
 				iTask0 = iTask1;
 			}

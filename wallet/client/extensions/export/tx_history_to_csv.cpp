@@ -72,9 +72,9 @@ std::string ExportTxHistoryToCsv(const IWalletDB& db)
        << "Transaction ID" << ","
        << "Kernel ID" << "," 
        << "Sending address" << ","
-       << "Sending identity" << ","
+       << "Sending wallet's signature" << ","
        << "Receiving address" << ","
-       << "Receiving identity" << ","
+       << "Receiving wallet's signature" << ","
        << "Token" << ","
        << "Payment proof" << std::endl;
 
@@ -127,9 +127,9 @@ std::string ExportTxHistoryToCsv(const IWalletDB& db)
             << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                             // Transaction ID
             << std::to_string(tx.m_kernelID) << ","                                          // Kernel ID
             << std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId) << ","                  // Sending address
-            << getIdentity(tx, tx.m_sender) << ","                                           // Sending identity
+            << getIdentity(tx, tx.m_sender) << ","                                           // Sending wallet's signature
             << std::to_string(!tx.m_sender ? tx.m_myId : tx.m_peerId) << ","                 // Receiving address
-            << getIdentity(tx, !tx.m_sender) << ","                                          // Receiving identity
+            << getIdentity(tx, !tx.m_sender) << ","                                          // Receiving wallet's signature
             << getToken(tx) << ","                                                           // Token
             << strProof << std::endl;                                                        // Payment proof
     }

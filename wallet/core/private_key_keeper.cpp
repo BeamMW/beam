@@ -48,7 +48,7 @@ namespace beam::wallet
 			virtual ~MyHandler() {}
 		};
 
- 		std::shared_ptr<MyHandler> p(new MyHandler);
+ 		auto p = std::make_shared<MyHandler>();
 		p->m_M = std::move(m);
 
 		InvokeAsync(p->m_M, p);
@@ -144,7 +144,7 @@ namespace beam::wallet
 
 	void PrivateKeyKeeper_WithMarshaller::PushOut(Status::Type n, const Handler::Ptr& pHandler)
 	{
-		Task::Ptr pTask(new TaskFin);
+		Task::Ptr pTask = std::make_unique<TaskFin>();
 		Cast::Up<TaskFin>(*pTask).m_Status = n;
 		pTask->m_pHandler = pHandler;
 		PushOut(pTask);
@@ -230,7 +230,7 @@ namespace beam::wallet
 		:m_pKeyKeeper(p)
 	{
 		EnsureEvtOut();
-		m_Thread = std::thread(&ThreadedPrivateKeyKeeper::Thread, this, Rules::get());
+		m_Thread = MyThread(&ThreadedPrivateKeyKeeper::Thread, this, Rules::get());
 	}
 
 	ThreadedPrivateKeyKeeper::~ThreadedPrivateKeyKeeper()
@@ -254,7 +254,7 @@ namespace beam::wallet
 			virtual void Exec(IPrivateKeyKeeper2& k) override { m_Status = k.InvokeSync(*m_pM); }
 		};
 
-		Task::Ptr pTask(new MyTask);
+		Task::Ptr pTask = std::make_unique<MyTask>();
 		pTask->m_pHandler = pHandler;
 		Cast::Up<MyTask>(*pTask).m_pM = &m;
 

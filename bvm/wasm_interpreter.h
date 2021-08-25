@@ -17,6 +17,8 @@
 #include "../utility/containers.h"
 #include "../utility/byteorder.h"
 
+#include <limits>
+
 namespace beam {
 namespace Wasm {
 
@@ -103,6 +105,8 @@ namespace Wasm {
 			Standard,       // Comply to wasm standard. Will be activated on the HF4
 
 		} m_Mode;
+
+		bool m_ModeTriggered = false;
 
 		Reader(Mode eMode = Mode::AutoWorkAround) :m_Mode(eMode) {}
 
