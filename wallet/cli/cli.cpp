@@ -1056,7 +1056,7 @@ namespace
 
     void ShowAssetCoins(const IWalletDB::Ptr& walletDB, Asset::ID assetId, boost::optional<TxID> txID = {})
     {
-        const auto [unitName, nthName] = GetAssetNames(walletDB, assetId);
+        auto [unitName, nthName] = GetAssetNames(walletDB, assetId);
         const uint8_t idWidth = assetId == Asset::s_InvalidID ? 49 : 57;
         const array<uint8_t, 6> columnWidths{{idWidth, 14, 14, 18, 20, 8}};
 
@@ -1190,6 +1190,8 @@ namespace
         const bool hasCoins = !(reliable.empty() && unreliable.empty());
         if (hasCoins)
         {
+            trimAssetName(unitName, 12);
+            trimAssetName(nthName, 12);
             cout << boost::format(kCoinsTableHeadFormat)
                      % boost::io::group(right,setw(columnWidths[0]), kCoinColumnId)
                      % boost::io::group(right,setw(columnWidths[1]), unitName)
@@ -1270,14 +1272,7 @@ namespace
             trimAssetName(unitName, 7);
             const auto amountHeader = boost::format(kAssetTxHistoryColumnAmount) %  unitName;
 
-            const array<uint8_t, 7> columnWidths{{20, 10, 17, 18, 25/*, 33, 65*/}};
-                cout << boost::format(kTxHistoryTableHead)
-                        % boost::io::group(left,  setw(columnWidths[0]),  kTxHistoryColumnDatetTime)
-                        % boost::io::group(left,  setw(columnWidths[1]),  kTxHistoryColumnHeight)
-                        % boost::io::group(left,  setw(columnWidths[2]),  kTxHistoryColumnDirection)
-                        % boost::io::group(right, setw(columnWidths[3]),  amountHeader)
-                        % boost::io::group(left,  setw(columnWidths[4]),  kTxHistoryColumnStatus)
-                     << std::endl;
+            cout << "TRANSACTIONS" << std::endl << std::endl << std::string(120, '-') << std::endl;
 
             bool unreliableDisplayed = false;
             for (auto& tx : txHistory) {
@@ -1323,16 +1318,18 @@ namespace
                 const auto status = statusInterpreter->getStatus();
                 const auto tstamp = format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false);
                 const auto txid   = to_hex(tx.m_txId.data(), tx.m_txId.size());
+                const auto token     = tx.getToken();
 
-                cout << boost::format(kTxHistoryTableFormat)
-                        % boost::io::group(left,  setw(columnWidths[0]),  tstamp)
-                        % boost::io::group(left,  setw(columnWidths[1]),  static_cast<int64_t>(height))
-                        % boost::io::group(left,  setw(columnWidths[2]),  direction)
-                        % boost::io::group(right, setw(columnWidths[3]),  amount)
-                        % boost::io::group(left,  setw(columnWidths[4]),  status)
-                     << std::endl;
+                cout << std::string(4, ' ') << kTxHistoryColumnDatetTime << ": " << tstamp << std::endl;
+                cout << std::string(4, ' ') <<  kTxHistoryColumnHeight << ": " << static_cast<int64_t>(height) << std::endl;
+                cout << std::string(4, ' ') << kTxHistoryColumnDirection << ": " << direction << std::endl;
+                cout << std::string(4, ' ') << amountHeader << ": " << amount << std::endl;
+                cout << std::string(4, ' ') <<  kTxHistoryColumnStatus << ": " << status << std::endl;
                 cout << std::string(4, ' ') << kTxHistoryColumnId << ": " << txid << std::endl;
-                cout << std::string(4, ' ') <<  kTxHistoryColumnKernelId << ": " << kernelId << std::endl;
+                if (!kernelId.empty())
+                    cout << std::string(4, ' ') <<  kTxHistoryColumnKernelId << ": " << kernelId << std::endl;
+                if (!token.empty())
+                    cout << std::string(4, ' ') << kTxAddress << ": " << token << std::endl;
                 cout << std::string(120, '-') << std::endl;
             }
         }
@@ -1509,14 +1506,7 @@ namespace
                     return a.m_createTime > b.m_createTime;
                 });
 
-                const array<uint8_t, 7> columnWidths{ {20, 17, 26, 21, 0/*, 65, 100*/} };
-                cout << boost::format(kTxHistoryTableHead)
-                    % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
-                    % boost::io::group(left, setw(columnWidths[1]), kTxHistoryColumnDirection)
-                    % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnAmount)
-                    % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnStatus)
-                    % boost::io::group(left, setw(columnWidths[4]), "")
-                    << std::endl;
+                cout << "TRANSACTIONS" << std::endl << std::endl << std::string(120, '-') << std::endl;
 
                 for (auto& tx : txHistory) {
                     const auto statusInterpreter = walletDB->getStatusInterpreter(tx);
@@ -1527,16 +1517,16 @@ namespace
                     const auto txid      = to_hex(tx.m_txId.data(), tx.m_txId.size());
                     const auto krnid     = to_string(tx.m_kernelID);
                     const auto token     = tx.getToken();
-                    cout << boost::format(kTxHistoryTableFormat)
-                        % boost::io::group(left,  setw(columnWidths[0]), tstamp)
-                        % boost::io::group(left,  setw(columnWidths[1]), direction)
-                        % boost::io::group(right, setw(columnWidths[2]), amount)
-                        % boost::io::group(left, setw(columnWidths[3]),  status)
-                        % boost::io::group(left, setw(columnWidths[4]),  "")
-                        << std::endl;
+
+                    cout << std::string(4, ' ') << kTxHistoryColumnDatetTime << ": " << tstamp << std::endl;
+                    cout << std::string(4, ' ') << kTxHistoryColumnDirection << ": " << direction << std::endl;
+                    cout << std::string(4, ' ') << kTxHistoryColumnAmount << ": " << amount << std::endl;
+                    cout << std::string(4, ' ') <<  kTxHistoryColumnStatus << ": " << status << std::endl;
                     cout << std::string(4, ' ') << kTxHistoryColumnId << ": " << txid << std::endl;
-                    cout << std::string(4, ' ') << kTxHistoryColumnKernelId << ": " << krnid << std::endl;
-                    cout << std::string(4, ' ') << kTxAddress << ": " << token << std::endl;
+                    if (!krnid.empty())
+                        cout << std::string(4, ' ') << kTxHistoryColumnKernelId << ": " << krnid << std::endl;
+                    if (!token.empty())
+                        cout << std::string(4, ' ') << kTxAddress << ": " << token << std::endl;
                     cout << std::string(120, '-') << std::endl;
                 }
             }
