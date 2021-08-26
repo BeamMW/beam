@@ -79,6 +79,16 @@ namespace
         );
         return db;
     }
+
+    void HandleException(const std::exception& ex)
+    {
+        EM_ASM
+        (
+            {
+                throw new Error("Exception: " + Module.UTF8ToString($0));
+            }, ex.what()
+        );
+    }
 }
 
 class WalletClient2
@@ -567,21 +577,49 @@ public:
         return wallet::ConvertJsonToToken(jsonParams);
     }
 
+    static void EnsureFSMounted()
+    {
+        if (!s_Mounted)
+        {
+            EM_ASM
+            (
+                throw new Error("File system should be mounted!");
+            );
+        }
+    }
+
     static void CreateWallet(const std::string& seed, const std::string& dbName, const std::string& pass)
     {
         AssertMainThread();
-        CreateDatabase(seed, dbName, pass);
+        EnsureFSMounted();
+        try
+        {
+            CreateDatabase(seed, dbName, pass);
+        }
+        catch (const std::exception& ex)
+        {
+            HandleException(ex);
+        }
     }
 
     static void DeleteWallet(const std::string& dbName)
     {
         AssertMainThread();
-        fs::remove(dbName);
+        EnsureFSMounted();
+        try
+        {
+            fs::remove(dbName);
+        }
+        catch (const std::exception& ex)
+        {
+            HandleException(ex);
+        }
     }
 
     static IWalletDB::Ptr OpenWallet(const std::string& dbName, const std::string& pass)
     {
         AssertMainThread();
+        EnsureFSMounted();
         Rules::get().UpdateChecksum();
         LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
         return WalletDB::open(dbName, SecString(pass));
@@ -590,7 +628,12 @@ public:
     static void MountFS(val cb)
     {
         AssertMainThread();
-        m_MountCB = cb;
+        s_MountCB = cb;
+        if (s_Mounted)
+        {
+            LOG_WARNING() << "File systen is already mounted.";
+            return;
+        }
         EM_ASM
         (
             {
@@ -609,11 +652,20 @@ public:
 private:
     static void OnMountFS()
     {
-        m_MountCB();
+        s_Mounted = true;
+        if (!s_MountCB.isNull())
+        {
+            s_MountCB();
+        }
+        else
+        {
+            LOG_WARNING() << "Callback for mount is not set";
+        }
     }
 
 private:
-    static val m_MountCB;
+    static val s_MountCB;
+    static bool s_Mounted;
     std::shared_ptr<Logger> m_Logger;
     io::Reactor::Ptr m_Reactor;
     std::string m_DbPath;
@@ -627,7 +679,8 @@ private:
     IWalletApi::Ptr m_WalletApi;
 };
 
-val WasmWalletClient::m_MountCB = val::null();
+val WasmWalletClient::s_MountCB = val::null();
+bool WasmWalletClient::s_Mounted = false;
 
 // Binding code
 EMSCRIPTEN_BINDINGS()
