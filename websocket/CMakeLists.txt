@@ -26,6 +26,7 @@ if(MSVC)
     # const_buffer(const mutable_buffer& b) BOOST_ASIO_NOEXCEPT
     #    : data_(b.data()),
     target_compile_options(websocket PRIVATE "/wd4702")
+    target_compile_options(websocket PRIVATE "/bigobj")
 endif()
 
 if(BEAM_TESTS_ENABLED)

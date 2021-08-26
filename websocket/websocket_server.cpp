@@ -15,6 +15,12 @@
 #include "sessions.h"
 #include "utility/logger.h"
 #include "reactor.h"
+#include <boost/beast/ssl.hpp>
+#include <boost/beast/websocket/ssl.hpp>
+#include <boost/asio/strand.hpp>
+
+namespace net = boost::asio;            // from <boost/asio.hpp>
+namespace ssl = boost::asio::ssl;       // from <boost/asio/ssl.hpp>
 
 namespace beam
 {
@@ -24,12 +30,13 @@ namespace beam
         class Listener : public std::enable_shared_from_this<Listener>
         {
         public:
-            Listener(boost::asio::io_context& ioc, tcp::endpoint endpoint, SafeReactor::Ptr reactor, HandlerCreator creator, const std::string& allowedOrigin)
-                : m_acceptor(ioc)
+            Listener(boost::asio::io_context& ioc, tcp::endpoint endpoint, SafeReactor::Ptr reactor, HandlerCreator creator, const std::string& allowedOrigin, ssl::context* tlsContext)
+                : m_acceptor(net::make_strand(ioc))
                 , m_socket(ioc)
                 , m_reactor(std::move(reactor))
                 , m_handlerCreator(std::move(creator))
                 , m_allowedOrigin(allowedOrigin)
+                , m_tlsContext(tlsContext)
             {
                 boost::system::error_code ec;
 
@@ -94,7 +101,14 @@ namespace beam
                     if (m_allowedOrigin.empty())
                     {
                         // Create the Session and run it
-                        std::make_shared<WebsocketSession>(std::move(m_socket), m_reactor, m_handlerCreator)->run();
+                        if (m_tlsContext)
+                        {
+                            std::make_shared<WebsocketSecureSession>(std::move(m_socket), m_reactor, m_handlerCreator, *m_tlsContext)->run();
+                        }
+                        else
+                        {
+                            std::make_shared<WebsocketSession>(std::move(m_socket), m_reactor, m_handlerCreator)->run();
+                        }
                     }
                     else
                     {
@@ -113,12 +127,14 @@ namespace beam
             SafeReactor::Ptr m_reactor;
             HandlerCreator m_handlerCreator;
             std::string m_allowedOrigin;
+            ssl::context* m_tlsContext;
         };
     }
 
-    WebSocketServer::WebSocketServer(SafeReactor::Ptr reactor, uint16_t port, std::string allowedOrigin)
+    WebSocketServer::WebSocketServer(SafeReactor::Ptr reactor, uint16_t port, std::string allowedOrigin, ssl::context* tlsContext)
         : _ioc(1)
         , _allowedOrigin(std::move(allowedOrigin))
+        , _tlsContext(tlsContext)
     {
         _iocThread = std::make_shared<MyThread>([this, port, reactor]() {
 
@@ -129,7 +145,7 @@ namespace beam
 
             std::make_shared<Listener>(_ioc,
                 tcp::endpoint{ boost::asio::ip::make_address("0.0.0.0"), port },
-                reactor, creator, _allowedOrigin)->run();
+                reactor, creator, _allowedOrigin, _tlsContext)->run();
 
             _ioc.run();
         });

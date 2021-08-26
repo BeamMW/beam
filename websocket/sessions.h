@@ -19,8 +19,10 @@
 #include <mutex>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/core.hpp>
+#include <boost/beast/ssl.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/websocket.hpp>
+#include <boost/beast/websocket/ssl.hpp>
 #include "websocket_server.h"
 #include "utility/io/reactor.h"
 #include "utility/io/asyncevent.h"
@@ -30,6 +32,7 @@ namespace beam
     namespace beast     = boost::beast;
     namespace http      = boost::beast::http;
     namespace websocket = boost::beast::websocket;
+    namespace ssl       = boost::asio::ssl;
 
     void fail(boost::system::error_code ec, char const* what);
     void failEx(boost::system::error_code ec, char const* what);
@@ -71,6 +74,46 @@ namespace beam
         WebSocketServer::ClientHandler::Ptr _handler;
         SafeReactor::Ptr _reactor;
         HandlerCreator _creator;
+
+        std::queue<std::string> _writeQueue;
+    };
+
+    class WebsocketSecureSession
+        : public std::enable_shared_from_this<WebsocketSecureSession>
+    {
+    public:
+        // Take ownership of the socket
+        explicit WebsocketSecureSession(tcp::socket socket, SafeReactor::Ptr reactor, HandlerCreator creator, ssl::context& tlsContext);
+        ~WebsocketSecureSession();
+
+        void run();
+        void on_handshake(boost::system::error_code ec);
+        void on_accept(boost::system::error_code ec);
+        void do_read();
+        void on_read(boost::system::error_code ec, std::size_t bytes_transferred);
+        void process_data_async(std::string&& data);
+        void do_write(const std::string& msg);
+        void on_write(boost::system::error_code ec, std::size_t bytes_transferred);
+
+        template<class Body, class Allocator>
+        void do_accept(http::request<Body, http::basic_fields<Allocator>> req)
+        {
+            _wsocket.async_accept(
+                req,
+                [sp = shared_from_this()](boost::system::error_code ec)
+            {
+                sp->on_accept(ec);
+            });
+        }
+
+    private:
+        websocket::stream<beast::ssl_stream<beast::tcp_stream>> _wsocket;
+        boost::beast::multi_buffer _buffer;
+
+        WebSocketServer::ClientHandler::Ptr _handler;
+        SafeReactor::Ptr _reactor;
+        HandlerCreator _creator;
+        ssl::context& _tlsContext;
 
         std::queue<std::string> _writeQueue;
     };

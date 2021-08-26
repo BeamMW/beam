@@ -13,22 +13,25 @@
 // limitations under the License.
 #pragma once
 
+#include "reactor.h"
+#include "utility/io/timer.h"
+#include "utility/thread.h"
+
 #include <functional>
 #include <string>
 #include <memory>
 #include <thread>
 #include <boost/asio/ip/tcp.hpp>
-#include "reactor.h"
-#include "utility/io/timer.h"
-#include "utility/thread.h"
+#include <boost/optional.hpp>
+#include <boost/asio/ssl.hpp>
 
 namespace beam
 {
     class WebSocketServer
     {
     public:
-        using SendFunc = std::function<void (const std::string&)>;
-        using CloseFunc = std::function<void (std::string&&)>;
+        using SendFunc = std::function<void(const std::string&)>;
+        using CloseFunc = std::function<void(std::string&&)>;
 
         struct ClientHandler
         {
@@ -37,7 +40,7 @@ namespace beam
             virtual ~ClientHandler() = default;
         };
 
-        WebSocketServer(SafeReactor::Ptr reactor, uint16_t port, std::string allowedOrigin);
+        WebSocketServer(SafeReactor::Ptr reactor, uint16_t port, std::string allowedOrigin, boost::asio::ssl::context* tlsContext = nullptr);
         ~WebSocketServer();
 
     protected:
@@ -47,5 +50,6 @@ namespace beam
         boost::asio::io_context    _ioc;
         std::shared_ptr<MyThread>  _iocThread;
         std::string                _allowedOrigin;
+        boost::asio::ssl::context* _tlsContext;
     };
 }
