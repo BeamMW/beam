@@ -218,7 +218,7 @@ namespace beam
         : _wsocket(std::move(socket), tlsContext)
         , _reactor(std::move(reactor))
         , _creator(std::move(creator))
-        , _tlsContext(tlsContext)
+        //, _tlsContext(tlsContext)
     {
         LOG_DEBUG() << "WebsocketSession created";
         _wsocket.binary(true);

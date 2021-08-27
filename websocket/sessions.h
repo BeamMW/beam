@@ -113,7 +113,7 @@ namespace beam
         WebSocketServer::ClientHandler::Ptr _handler;
         SafeReactor::Ptr _reactor;
         HandlerCreator _creator;
-        // ssl::context& _tlsContext;
+        //ssl::context& _tlsContext;
 
         std::queue<std::string> _writeQueue;
     };
