@@ -84,7 +84,7 @@ namespace
             return;
     }
 
-    void LoadServerCertificate(boost::asio::ssl::context& ctx)
+    void LoadServerCertificate(WebSocketServer::Options& options)
     {
         /*
             The certificate was generated from CMD.EXE on Windows 10 using:
@@ -95,88 +95,68 @@ namespace
 
         std::string const cert =
             "-----BEGIN CERTIFICATE-----\n"
-            "MIIDaDCCAlCgAwIBAgIJAO8vBu8i8exWMA0GCSqGSIb3DQEBCwUAMEkxCzAJBgNV\n"
-            "BAYTAlVTMQswCQYDVQQIDAJDQTEtMCsGA1UEBwwkTG9zIEFuZ2VsZXNPPUJlYXN0\n"
-            "Q049d3d3LmV4YW1wbGUuY29tMB4XDTE3MDUwMzE4MzkxMloXDTQ0MDkxODE4Mzkx\n"
-            "MlowSTELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAkNBMS0wKwYDVQQHDCRMb3MgQW5n\n"
-            "ZWxlc089QmVhc3RDTj13d3cuZXhhbXBsZS5jb20wggEiMA0GCSqGSIb3DQEBAQUA\n"
-            "A4IBDwAwggEKAoIBAQDJ7BRKFO8fqmsEXw8v9YOVXyrQVsVbjSSGEs4Vzs4cJgcF\n"
-            "xqGitbnLIrOgiJpRAPLy5MNcAXE1strVGfdEf7xMYSZ/4wOrxUyVw/Ltgsft8m7b\n"
-            "Fu8TsCzO6XrxpnVtWk506YZ7ToTa5UjHfBi2+pWTxbpN12UhiZNUcrRsqTFW+6fO\n"
-            "9d7xm5wlaZG8cMdg0cO1bhkz45JSl3wWKIES7t3EfKePZbNlQ5hPy7Pd5JTmdGBp\n"
-            "yY8anC8u4LPbmgW0/U31PH0rRVfGcBbZsAoQw5Tc5dnb6N2GEIbq3ehSfdDHGnrv\n"
-            "enu2tOK9Qx6GEzXh3sekZkxcgh+NlIxCNxu//Dk9AgMBAAGjUzBRMB0GA1UdDgQW\n"
-            "BBTZh0N9Ne1OD7GBGJYz4PNESHuXezAfBgNVHSMEGDAWgBTZh0N9Ne1OD7GBGJYz\n"
-            "4PNESHuXezAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQCmTJVT\n"
-            "LH5Cru1vXtzb3N9dyolcVH82xFVwPewArchgq+CEkajOU9bnzCqvhM4CryBb4cUs\n"
-            "gqXWp85hAh55uBOqXb2yyESEleMCJEiVTwm/m26FdONvEGptsiCmF5Gxi0YRtn8N\n"
-            "V+KhrQaAyLrLdPYI7TrwAOisq2I1cD0mt+xgwuv/654Rl3IhOMx+fKWKJ9qLAiaE\n"
-            "fQyshjlPP9mYVxWOxqctUdQ8UnsUKKGEUcVrA08i1OAnVKlPFjKBvk+r7jpsTPcr\n"
-            "9pWXTO9JrYMML7d+XRSZA1n3856OqZDX4403+9FnXCvfcLZLLKTBvwwFgEFGpzjK\n"
-            "UEVbkhd5qstF6qWK\n"
+            "MIIC4TCCAcmgAwIBAgIUZI8OTxIJc4I3qP93o3+7kkauMwkwDQYJKoZIhvcNAQEL\n"
+            "BQAwADAeFw0yMTA4MzAxMjUyMzdaFw00OTAxMTUxMjUyMzdaMAAwggEiMA0GCSqG\n"
+            "SIb3DQEBAQUAA4IBDwAwggEKAoIBAQCuuDs1tuf8otgGWO9fKW2RNeIfi9aH7u0r\n"
+            "5VtFh8PLZiJjItzzNykxJWKGMlEyjS+R8czNSWylxgxvEQLyoUOKnDIO+zrS84T/\n"
+            "XxRPPqukB/UuruuWMPmjumXPLp0MePSPAzY4IAMsS89ve0zoNh4R2Zzj33Y47L8R\n"
+            "wWxW6Q5mRprT2o1UCJcledACWF4drqWDHOLNk2VOobdsfSLAKT+z2xq69wm3qBzQ\n"
+            "2HZROsCsqQOUVG0pYlLevH65a/rlJ1kbYg4Tnf5ldcQdEJuaZFm6o9rn4xioQjRg\n"
+            "4suG6/aFEyBTEgRlxRRmnSkqg7/UDVxKcaBkHsZoBEnJsWlExLC1AgMBAAGjUzBR\n"
+            "MB0GA1UdDgQWBBRESesuAscp2fHe/v9xUMMbIipiqzAfBgNVHSMEGDAWgBRESesu\n"
+            "Ascp2fHe/v9xUMMbIipiqzAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUA\n"
+            "A4IBAQB4L2wS5w+MGEvZYsPk9f7ryN2c029ZJ5shmxOX4xYa9ig1ZloNox+v/05A\n"
+            "CUVHnTaxAsFhZunbkXLQ5KAVzVuXQk2ljlWWhZjp5ImqQSTbkY2wzBNHIPbnSNEV\n"
+            "CuprV51JDZrB1Q0zKulCq2ia1Og29FGclUHrL2QdMR30UZyV8HaCez0tEp4QSKNk\n"
+            "tCd2tIZo8+n9UYCKAgp5FMhxpyL5DL94TCTTG1Lf4tEICeZdKV89a0d3eAN79kC7\n"
+            "Tm2A/1SNQouuLdv+tQ/gMAfMCzqOMTqZ85oJOyqXnxAA9cvje5nm4pBn5Q/6H4ry\n"
+            "oJXOdnELFSfHV5wdsQeq5IyO5A5X\n"
             "-----END CERTIFICATE-----\n";
 
         std::string const key =
             "-----BEGIN PRIVATE KEY-----\n"
-            "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDJ7BRKFO8fqmsE\n"
-            "Xw8v9YOVXyrQVsVbjSSGEs4Vzs4cJgcFxqGitbnLIrOgiJpRAPLy5MNcAXE1strV\n"
-            "GfdEf7xMYSZ/4wOrxUyVw/Ltgsft8m7bFu8TsCzO6XrxpnVtWk506YZ7ToTa5UjH\n"
-            "fBi2+pWTxbpN12UhiZNUcrRsqTFW+6fO9d7xm5wlaZG8cMdg0cO1bhkz45JSl3wW\n"
-            "KIES7t3EfKePZbNlQ5hPy7Pd5JTmdGBpyY8anC8u4LPbmgW0/U31PH0rRVfGcBbZ\n"
-            "sAoQw5Tc5dnb6N2GEIbq3ehSfdDHGnrvenu2tOK9Qx6GEzXh3sekZkxcgh+NlIxC\n"
-            "Nxu//Dk9AgMBAAECggEBAK1gV8uETg4SdfE67f9v/5uyK0DYQH1ro4C7hNiUycTB\n"
-            "oiYDd6YOA4m4MiQVJuuGtRR5+IR3eI1zFRMFSJs4UqYChNwqQGys7CVsKpplQOW+\n"
-            "1BCqkH2HN/Ix5662Dv3mHJemLCKUON77IJKoq0/xuZ04mc9csykox6grFWB3pjXY\n"
-            "OEn9U8pt5KNldWfpfAZ7xu9WfyvthGXlhfwKEetOuHfAQv7FF6s25UIEU6Hmnwp9\n"
-            "VmYp2twfMGdztz/gfFjKOGxf92RG+FMSkyAPq/vhyB7oQWxa+vdBn6BSdsfn27Qs\n"
-            "bTvXrGe4FYcbuw4WkAKTljZX7TUegkXiwFoSps0jegECgYEA7o5AcRTZVUmmSs8W\n"
-            "PUHn89UEuDAMFVk7grG1bg8exLQSpugCykcqXt1WNrqB7x6nB+dbVANWNhSmhgCg\n"
-            "VrV941vbx8ketqZ9YInSbGPWIU/tss3r8Yx2Ct3mQpvpGC6iGHzEc/NHJP8Efvh/\n"
-            "CcUWmLjLGJYYeP5oNu5cncC3fXUCgYEA2LANATm0A6sFVGe3sSLO9un1brA4zlZE\n"
-            "Hjd3KOZnMPt73B426qUOcw5B2wIS8GJsUES0P94pKg83oyzmoUV9vJpJLjHA4qmL\n"
-            "CDAd6CjAmE5ea4dFdZwDDS8F9FntJMdPQJA9vq+JaeS+k7ds3+7oiNe+RUIHR1Sz\n"
-            "VEAKh3Xw66kCgYB7KO/2Mchesu5qku2tZJhHF4QfP5cNcos511uO3bmJ3ln+16uR\n"
-            "GRqz7Vu0V6f7dvzPJM/O2QYqV5D9f9dHzN2YgvU9+QSlUeFK9PyxPv3vJt/WP1//\n"
-            "zf+nbpaRbwLxnCnNsKSQJFpnrE166/pSZfFbmZQpNlyeIuJU8czZGQTifQKBgHXe\n"
-            "/pQGEZhVNab+bHwdFTxXdDzr+1qyrodJYLaM7uFES9InVXQ6qSuJO+WosSi2QXlA\n"
-            "hlSfwwCwGnHXAPYFWSp5Owm34tbpp0mi8wHQ+UNgjhgsE2qwnTBUvgZ3zHpPORtD\n"
-            "23KZBkTmO40bIEyIJ1IZGdWO32q79nkEBTY+v/lRAoGBAI1rbouFYPBrTYQ9kcjt\n"
-            "1yfu4JF5MvO9JrHQ9tOwkqDmNCWx9xWXbgydsn/eFtuUMULWsG3lNjfst/Esb8ch\n"
-            "k5cZd6pdJZa4/vhEwrYYSuEjMCnRb0lUsm7TsHxQrUd6Fi/mUuFU/haC0o0chLq7\n"
-            "pVOUFq5mW8p0zbtfHbjkgxyF\n"
+            "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCuuDs1tuf8otgG\n"
+            "WO9fKW2RNeIfi9aH7u0r5VtFh8PLZiJjItzzNykxJWKGMlEyjS+R8czNSWylxgxv\n"
+            "EQLyoUOKnDIO+zrS84T/XxRPPqukB/UuruuWMPmjumXPLp0MePSPAzY4IAMsS89v\n"
+            "e0zoNh4R2Zzj33Y47L8RwWxW6Q5mRprT2o1UCJcledACWF4drqWDHOLNk2VOobds\n"
+            "fSLAKT+z2xq69wm3qBzQ2HZROsCsqQOUVG0pYlLevH65a/rlJ1kbYg4Tnf5ldcQd\n"
+            "EJuaZFm6o9rn4xioQjRg4suG6/aFEyBTEgRlxRRmnSkqg7/UDVxKcaBkHsZoBEnJ\n"
+            "sWlExLC1AgMBAAECggEAHnmF4lWX2ynwMhM7FUcdlFFosoXqkmUrOxfTNqp6jTSw\n"
+            "VMhU75s0dR0HNU77eKzFmlgpl7jx2WxU6N53vChCpp+d350UYo0VKpHD8hqFR6QX\n"
+            "sN/TuaurL1KoxV1lCTLjvTobL+jthMFoWhKQlIQz9HsXcWudrEom/YrWQcZ+u3nV\n"
+            "KDGia5XVQxvD7+vHJ5ppZTM5wB5cUM6VNqwvkXO3Ts3zXJQ+fwbce1I4yg7xzm/m\n"
+            "aBq1+z0BtkfxAa+W/D/rx89gPGVapi8r0vved+5ei9B7KMyHCKgwrlxpJyOJ87S5\n"
+            "A+g8HzFatQPoleqUfGZluXxtoFQSK6B4FtNwPKy8AQKBgQDl99uLONrPSnat4b+v\n"
+            "5i/VcvvA9Ot4ryOnIul6KaNbp3Gr/DyVchrHEkvu7+HVV75kYhObReG9AsMn7a/B\n"
+            "1rxbria5SbgJm0r+HW4oJzkO5DO1L5gOdbQiYxw5Jff+vuD/fBIyXNKKNFrzO5Cj\n"
+            "mtbmYDzZ9gP4s3wQE5XATy69AQKBgQDCf1oH+AM7r10BH69A1HNvnYqdamEZ0Bem\n"
+            "VG32Q0YGZCDS0UfJ8ybo/Sw0VRplEE3WFkGrQg4lleJ3kYRDuFUtInNXNmPWvuJH\n"
+            "pCJt/WsnIrF5j7hPWY/9G0pg8KuP4I/yvIAIVXYXesh06akhN9OsIuhQtCnueejS\n"
+            "jWG1/aYPtQKBgA8rWVUGrBBOZiO0J3PP6EnZKtggj8PHMb/doq8HPhpWoj3pBooJ\n"
+            "G9ET2ORq+GedQRbYDVkJtAlGvF7O4/ASXRxjEXTZcwVXNAwtHs4RQEdGME78U7ho\n"
+            "dThrdzoh0gkAyFCx+3VNACpTp8gxnqncFd7ebEUoYDywgjeBQziLQJcBAoGAfB+J\n"
+            "9UvxxEVFtVHjJhxvDuwbahpZnX+PmDaJdn+4UJvV1rR4fAkQ69+mNj+ZeKXPBrFt\n"
+            "dz3QiWv9+xCCuDULJqK1uRKc5I8tGUtGLatslq0tVcbCeOFPYtfnv7XXxxoow2BI\n"
+            "1Qi1NIbHJtV3ehuGmnQsjlRr7iUe0EAp+1rEf4ECgYEAlG0xduNOFoIDcwkvVPE9\n"
+            "K131PQZG2gPdj++sxtn+HArwkLfCehWF0rzTgwkTGAetnWIozkIGUMZyARGCNkf/\n"
+            "KLah5NgArdQ5hPu8hR8E5VoZ7NqMgHmYchsEm9aHX6YdKZKFMHVAjii0OxFNI44G\n"
+            "CnK97hhaayZ2X4FP2y75Ve0=\n"
             "-----END PRIVATE KEY-----\n";
 
         std::string const dh =
             "-----BEGIN DH PARAMETERS-----\n"
-            "MIIBCAKCAQEArzQc5mpm0Fs8yahDeySj31JZlwEphUdZ9StM2D8+Fo7TMduGtSi+\n"
-            "/HRWVwHcTFAgrxVdm+dl474mOUqqaz4MpzIb6+6OVfWHbQJmXPepZKyu4LgUPvY/\n"
-            "4q3/iDMjIS0fLOu/bLuObwU5ccZmDgfhmz1GanRlTQOiYRty3FiOATWZBRh6uv4u\n"
-            "tff4A9Bm3V9tLx9S6djq31w31Gl7OQhryodW28kc16t9TvO1BzcV3HjRPwpe701X\n"
-            "oEEZdnZWANkkpR/m/pfgdmGPU66S2sXMHgsliViQWpDCYeehrvFRHEdR9NV+XJfC\n"
-            "QMUk26jPTIVTLfXmmwU0u8vUkpR7LQKkwwIBAg==\n"
+            "MIIBCAKCAQEAnu2ndoqGLBD+d/Sb7YCHTRYX+Eka4ps/M5j9WRjXsfZT4zsOaKDp\n"
+            "8S0b6lyf09908RPyNnA9DrQC4kvlwYJ5xVoPTGG31w6B89BfiiUsykWczzXYWJNO\n"
+            "wdOm0L2gpNDJgSlYhThG5ajNFwPVxCIkkmV82ysRoQyJbWhCtlIwRfuPWBVtuF2y\n"
+            "/NpxMCD77hZD+VoqXdu3TfaCaA/bsGBQQtk5cJ2Xdaz/ZLLiNIpw2wGSe5p4Q4Uu\n"
+            "GkIcZYhMsDM8sqQ0FE7J0Exx15vwTeGGtkRqdDne7IMdNsAbOO/QCX8dzm+qraI5\n"
+            "XzKu+eTfSns9AeJTbxNDRy2M0OF/GbeIUwIBAg==\n"
             "-----END DH PARAMETERS-----\n";
 
-        ctx.set_password_callback(
-            [](std::size_t,
-                boost::asio::ssl::context_base::password_purpose)
-        {
-            return "test";
-        });
+        options.certificate = cert;
+        options.key = key;
+        options.dhParams = dh;
 
-        ctx.set_options(
-            boost::asio::ssl::context::default_workarounds |
-            boost::asio::ssl::context::no_sslv2 |
-            boost::asio::ssl::context::single_dh_use);
-
-        ctx.use_certificate_chain(
-            boost::asio::buffer(cert.data(), cert.size()));
-
-        ctx.use_private_key(
-            boost::asio::buffer(key.data(), key.size()),
-            boost::asio::ssl::context::file_format::pem);
-
-        ctx.use_tmp_dh(
-            boost::asio::buffer(dh.data(), dh.size()));
     }
 
 
@@ -239,9 +219,15 @@ namespace
         {
             WALLET_CHECK(false);
             std::cerr << "Error: " << e.what() << std::endl;
-            return EXIT_FAILURE;
+            return WALLET_CHECK_RESULT;
         }
-        return EXIT_SUCCESS;
+        catch (...)
+        {
+            WALLET_CHECK(false);
+            // std::cerr << "Error: " << e. << std::endl;
+            return WALLET_CHECK_RESULT;
+        }
+        return WALLET_CHECK_RESULT;
     }
 
     void RunClient(std::string host, const std::string& port, const std::string& text)
@@ -314,17 +300,23 @@ namespace
         {
             WALLET_CHECK(false);
             std::cerr << "Error: " << e.what() << std::endl;
-            return EXIT_FAILURE;
+            return WALLET_CHECK_RESULT;
         }
-        return EXIT_SUCCESS;
+        catch (...)
+        {
+            WALLET_CHECK(false);
+           // std::cerr << "Error: " << e. << std::endl;
+            return WALLET_CHECK_RESULT;
+        }
+        return WALLET_CHECK_RESULT;
     }
 
     template<typename H>
     class MyWebSocketServer : public WebSocketServer
     {
     public:
-        MyWebSocketServer(SafeReactor::Ptr reactor, uint16_t port, ssl::context* tlsContext = nullptr)
-            : WebSocketServer(std::move(reactor), port, "", tlsContext)
+        MyWebSocketServer(SafeReactor::Ptr reactor, const Options& options)
+            : WebSocketServer(std::move(reactor), options)
         {
         }
 
@@ -357,6 +349,7 @@ namespace
                 }
                 void ReactorThread_onWSDataReceived(const std::string& message) override
                 {
+                    std::cout << "Message: " << message << std::endl;
                     WALLET_CHECK(message == "test message");
                     m_wsSend(message + message);
                     
@@ -365,9 +358,12 @@ namespace
             SafeReactor::Ptr safeReactor = SafeReactor::create();
             io::Reactor::Ptr reactor = safeReactor->ptr();
             io::Reactor::Scope scope(*reactor);
-            MyWebSocketServer<MyClientHandler> server(safeReactor, 8200);
-            std::thread(SendMessage, "127.0.0.1", "8200", "test message").detach();
+            WebSocketServer::Options options;
+            options.port = 8200;
+            MyWebSocketServer<MyClientHandler> server(safeReactor, options);
+            std::thread t1(SendMessage, "127.0.0.1", "8200", "test message");
             reactor->run();
+            t1.join();
         }
         catch (...)
         {
@@ -394,6 +390,7 @@ namespace
                 }
                 void ReactorThread_onWSDataReceived(const std::string& message) override
                 {
+                    std::cout << "Secure Message: " << message << std::endl;
                     WALLET_CHECK(message == "test message");
                     m_wsSend(message + message);
 
@@ -402,11 +399,16 @@ namespace
             SafeReactor::Ptr safeReactor = SafeReactor::create();
             io::Reactor::Ptr reactor = safeReactor->ptr();
             io::Reactor::Scope scope(*reactor);
-            ssl::context tlsContext{ ssl::context::tlsv12 };
-            LoadServerCertificate(tlsContext);
-            MyWebSocketServer<MyClientHandler> server(safeReactor, 8200, &tlsContext);
-            std::thread(SendSecureMessage, "127.0.0.1", "8200", "test message").detach();
+            WebSocketServer::Options options;
+            options.port = 8200;
+            options.useTls = true;
+            LoadServerCertificate(options);
+            MyWebSocketServer<MyClientHandler> server(safeReactor, options);
+            std::thread t1(SendSecureMessage, "127.0.0.1", "8200", "test message");
+            //std::thread t2(SendMessage, "127.0.0.1", "8200", "test message");
             reactor->run();
+            t1.join();
+            //t2.join();
         }
         catch (...)
         {

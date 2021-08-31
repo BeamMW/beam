@@ -28,395 +28,50 @@ namespace beam
     }
 
     //
-    //
-    // WebSocket Session
-    //
-    //
-    WebsocketSession::WebsocketSession(tcp::socket socket, SafeReactor::Ptr reactor,  HandlerCreator creator)
-        : _wsocket(std::move(socket))
-        , _reactor(std::move(reactor))
-        , _creator(std::move(creator))
-    {
-        LOG_DEBUG() << "WebsocketSession created";
-        _wsocket.binary(true);
-    }
-
-    WebsocketSession::~WebsocketSession()
-    {
-        LOG_DEBUG() << "WebsocketSession destroyed";
-
-        // Client handler must be destroyed in the Loop thread
-        // Transfer ownership and register destroy request
-        _reactor->callAsync([handler = std::move(_handler)] () mutable {
-            handler.reset();
-        });
-    }
-
-    void WebsocketSession::process_data_async(std::string&& data)
-    {
-        //
-        // We do not use shared_ptr here cause
-        // 1) there will be deadlock, session would be never destroyed and kept by reactor forever
-        // 2) session is destroyed in case of error/socket close. There will be no chance to send
-        //    any response in this case anyway
-        //
-        std::weak_ptr<WebsocketSession> wp = shared_from_this();
-        _reactor->callAsync([data, creator = _creator, wp]() {
-            if(auto sp = wp.lock())
-            {
-                if (!sp->_handler)
-                {
-                    // Client handler must be created in the Loop thread
-                    // It is safe to do without any locks cause
-                    // all these callbacks would be executed sequentially
-                    // in the context of the same thread. So if one creates handler
-                    // the next would discover it and skip.
-                    // There would be no race conditions as well
-                    sp->_handler = creator([wp](const std::string &data) { // SendFunc
-                        if (auto sp = wp.lock())
-                        {
-                            boost::asio::post(
-                                sp->_wsocket.get_executor(),
-                                [sp, data]() {
-                                    sp->do_write(data);
-                                }
-                           );
-                        }
-                    },
-                    [wp](std::string&& reason) { // CloseFunc
-                        if (auto sp = wp.lock())
-                        {
-                            boost::asio::post(
-                                sp->_wsocket.get_executor(),
-                                [sp, reason = std::move(reason)]()
-                                {
-                                    websocket::close_reason cr;
-                                    cr.reason = std::move(reason);
-                                    sp->_wsocket.async_close(cr, [sp](boost::system::error_code ec)
-                                    {
-                                        if (ec)
-                                            return fail(ec, "close");
-                                    });
-                                }
-                            );
-                        }
-                    });
-                }
-                sp->_handler->ReactorThread_onWSDataReceived(data);
-            }
-        });
-    }
-
-    // Start the asynchronous operation
-    void WebsocketSession::run()
-    {
-        // Set suggested timeout settings for the websocket
-        _wsocket.set_option(
-            websocket::stream_base::timeout::suggested(
-                beast::role_type::server));
-
-        // Accept the websocket handshake
-        _wsocket.async_accept([sp = shared_from_this()](boost::system::error_code ec) {
-            sp->on_accept(ec);
-        });
-    }
-
-    void WebsocketSession::on_accept(boost::system::error_code ec)
-    {
-        if (ec)
-            return fail(ec, "accept");
-
-        // Read a message
-        do_read();
-    }
-
-    void WebsocketSession::do_read()
-    {
-        // Read a message into our buffer
-        _wsocket.async_read(_buffer, [sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes) {
-            sp->on_read(ec, bytes);
-        });
-    }
-
-    void WebsocketSession::on_read(boost::system::error_code ec, std::size_t bytes_transferred)
-    {
-        boost::ignore_unused(bytes_transferred);
-
-        // This indicates that the Session was closed
-        if (ec == websocket::error::closed)
-            return;
-
-        if (ec)
-            return fail(ec, "read");
-
-        {
-            std::string data = boost::beast::buffers_to_string(_buffer.data());
-            _buffer.consume(_buffer.size());
-
-            if (!data.empty())
-            {
-                process_data_async(std::move(data));
-            }
-        }
-
-        do_read();
-    }
-
-    void WebsocketSession::do_write(const std::string &msg)
-    {
-        std::string* contents = nullptr;
-
-        {
-            _writeQueue.push(msg);
-
-            if (_writeQueue.size() > 1)
-                return;
-
-            contents = &_writeQueue.front();
-        }
-
-        _wsocket.async_write(boost::asio::buffer(*contents), [sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
-        {
-            sp->on_write(ec, bytes);
-        });
-    }
-
-    void WebsocketSession::on_write(boost::system::error_code ec, std::size_t bytes_transferred)
-    {
-        boost::ignore_unused(bytes_transferred);
-
-        if (ec)
-            return fail(ec, "write");
-
-        std::string* contents = nullptr;
-        {
-            _writeQueue.pop();
-
-            if (!_writeQueue.empty())
-            {
-                contents = &_writeQueue.front();
-            }
-        }
-
-        if (contents)
-        {
-            _wsocket.async_write(
-                boost::asio::buffer(*contents),
-                [sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
-            {
-                sp->on_write(ec, bytes);
-            });
-        }
-    }
-
-    //
-    //
     // WebSocket Secure Session
     //
-    //
-    WebsocketSecureSession::WebsocketSecureSession(tcp::socket socket, SafeReactor::Ptr reactor, HandlerCreator creator, ssl::context& tlsContext)
-        : _wsocket(std::move(socket), tlsContext)
-        , _reactor(std::move(reactor))
-        , _creator(std::move(creator))
-        //, _tlsContext(tlsContext)
+    void SecureWebsocketSession::run()
     {
-        LOG_DEBUG() << "WebsocketSession created";
-        _wsocket.binary(true);
-    }
-
-    WebsocketSecureSession::~WebsocketSecureSession()
-    {
-        LOG_DEBUG() << "WebsocketSession destroyed";
-
-        // Client handler must be destroyed in the Loop thread
-        // Transfer ownership and register destroy request
-        _reactor->callAsync([handler = std::move(_handler)]() mutable {
-            handler.reset();
-        });
-    }
-
-    void WebsocketSecureSession::process_data_async(std::string&& data)
-    {
-        //
-        // We do not use shared_ptr here cause
-        // 1) there will be deadlock, session would be never destroyed and kept by reactor forever
-        // 2) session is destroyed in case of error/socket close. There will be no chance to send
-        //    any response in this case anyway
-        //
-        std::weak_ptr<WebsocketSecureSession> wp = shared_from_this();
-        _reactor->callAsync([data, creator = _creator, wp]() {
-            if (auto sp = wp.lock())
-            {
-                if (!sp->_handler)
-                {
-                    // Client handler must be created in the Loop thread
-                    // It is safe to do without any locks cause
-                    // all these callbacks would be executed sequentially
-                    // in the context of the same thread. So if one creates handler
-                    // the next would discover it and skip.
-                    // There would be no race conditions as well
-                    sp->_handler = creator([wp](const std::string& data) { // SendFunc
-                        if (auto sp = wp.lock())
-                        {
-                            boost::asio::post(
-                                sp->_wsocket.get_executor(),
-                                [sp, data]() {
-                                sp->do_write(data);
-                            }
-                            );
-                        }
-                    },
-                        [wp](std::string&& reason) { // CloseFunc
-                        if (auto sp = wp.lock())
-                        {
-                            boost::asio::post(
-                                sp->_wsocket.get_executor(),
-                                [sp, reason = std::move(reason)]()
-                            {
-                                websocket::close_reason cr;
-                                cr.reason = std::move(reason);
-                                sp->_wsocket.async_close(cr, [sp](boost::system::error_code ec)
-                                {
-                                    if (ec)
-                                        return fail(ec, "close");
-                                });
-                            }
-                            );
-                        }
-                    });
-                }
-                sp->_handler->ReactorThread_onWSDataReceived(data);
-            }
-        });
-    }
-
-    // Start the asynchronous operation
-    void WebsocketSecureSession::run()
-    {
+        auto& ws = GetStream();
+        ws.binary(true);
         // Set the timeout.
-        beast::get_lowest_layer(_wsocket).expires_after(std::chrono::seconds(30));
+        beast::get_lowest_layer(ws).expires_after(std::chrono::seconds(30));
 
         // Perform the SSL handshake
-        _wsocket.next_layer().async_handshake(
-            ssl::stream_base::server, [sp = shared_from_this()](boost::system::error_code ec)
+        ws.next_layer().async_handshake(
+            ssl::stream_base::server,
+            GetBuffer().data(),
+            [sp = shared_from_this()](boost::system::error_code ec, std::size_t bytesTransferred)
         {
-            sp->on_handshake(ec);
+            sp->on_handshake(ec, bytesTransferred);
         });
     }
 
-    void WebsocketSecureSession::on_handshake(beast::error_code ec)
+    void SecureWebsocketSession::on_handshake(beast::error_code ec, std::size_t bytesTransferred)
     {
         if (ec)
             return fail(ec, "handshake");
 
+        GetBuffer().consume(bytesTransferred);
+        auto& ws = GetStream();
         // Turn off the timeout on the tcp_stream, because
         // the websocket stream has its own timeout system.
-        beast::get_lowest_layer(_wsocket).expires_never();
+        beast::get_lowest_layer(ws).expires_never();
 
         // Set suggested timeout settings for the websocket
-        _wsocket.set_option(
+        ws.set_option(
             websocket::stream_base::timeout::suggested(
                 beast::role_type::server));
 
         // Accept the websocket handshake
-        _wsocket.async_accept([sp = shared_from_this()](boost::system::error_code ec)
+        ws.async_accept([sp = shared_from_this()](boost::system::error_code ec)
         {
             sp->on_accept(ec);
         });
     }
 
-    void WebsocketSecureSession::on_accept(boost::system::error_code ec)
-    {
-        if (ec)
-            return fail(ec, "accept");
-
-        // Read a message
-        do_read();
-    }
-
-    void WebsocketSecureSession::do_read()
-    {
-        // Read a message into our buffer
-        _wsocket.async_read(_buffer, [sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes) {
-            sp->on_read(ec, bytes);
-        });
-    }
-
-    void WebsocketSecureSession::on_read(boost::system::error_code ec, std::size_t bytes_transferred)
-    {
-        boost::ignore_unused(bytes_transferred);
-
-        // This indicates that the Session was closed
-        if (ec == websocket::error::closed)
-            return;
-
-        if (ec)
-            return fail(ec, "read");
-
-        {
-            std::string data = boost::beast::buffers_to_string(_buffer.data());
-            _buffer.consume(_buffer.size());
-
-            if (!data.empty())
-            {
-                process_data_async(std::move(data));
-            }
-        }
-
-        do_read();
-    }
-
-    void WebsocketSecureSession::do_write(const std::string& msg)
-    {
-        std::string* contents = nullptr;
-
-        {
-            _writeQueue.push(msg);
-
-            if (_writeQueue.size() > 1)
-                return;
-
-            contents = &_writeQueue.front();
-        }
-
-        _wsocket.async_write(boost::asio::buffer(*contents), [sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
-        {
-            sp->on_write(ec, bytes);
-        });
-    }
-
-    void WebsocketSecureSession::on_write(boost::system::error_code ec, std::size_t bytes_transferred)
-    {
-        boost::ignore_unused(bytes_transferred);
-
-        if (ec)
-            return fail(ec, "write");
-
-        std::string* contents = nullptr;
-        {
-            _writeQueue.pop();
-
-            if (!_writeQueue.empty())
-            {
-                contents = &_writeQueue.front();
-            }
-        }
-
-        if (contents)
-        {
-            _wsocket.async_write(
-                boost::asio::buffer(*contents),
-                [sp = shared_from_this()](boost::system::error_code ec, std::size_t bytes)
-            {
-                sp->on_write(ec, bytes);
-            });
-        }
-    }
-
-    //
     //
     //  HTTP Session
-    //
     //
     HttpSession::HttpSession(boost::asio::ip::tcp::socket&& socket, SafeReactor::Ptr reactor, HandlerCreator creator, std::string allowedOrigin)
         : _socket(std::move(socket))
@@ -478,7 +133,7 @@ namespace beam
 
         // Create a websocket session, transferring ownership
         // of both the socket and the HTTP request.
-        std::make_shared<WebsocketSession>(std::move(_socket), _reactor, _handlerCreator)->do_accept(std::move(_request));
+        //std::make_shared<WebsocketSession>(std::move(_socket), std::move(_buffer), _reactor, _handlerCreator)->do_accept(std::move(_request));
     }
 
     void HttpSession::on_write(bool close, beast::error_code ec, std::size_t bytes_transferred)

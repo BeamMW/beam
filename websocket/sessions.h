@@ -26,6 +26,7 @@
 #include "websocket_server.h"
 #include "utility/io/reactor.h"
 #include "utility/io/asyncevent.h"
+#include "utility/logger.h"
 
 namespace beam
 {
@@ -40,35 +41,221 @@ namespace beam
     using tcp = boost::asio::ip::tcp;
     using HandlerCreator = std::function<WebSocketServer::ClientHandler::Ptr (WebSocketServer::SendFunc, WebSocketServer::CloseFunc)>;
 
+    template<typename Derived>
     class WebsocketSession
-            : public std::enable_shared_from_this<WebsocketSession>
     {
     public:
         // Take ownership of the socket
-        explicit WebsocketSession(tcp::socket socket, SafeReactor::Ptr reactor, HandlerCreator creator);
-        ~WebsocketSession();
+        explicit WebsocketSession(boost::beast::multi_buffer&& buffer, SafeReactor::Ptr reactor, HandlerCreator creator)
+            : _buffer(buffer)
+            , _reactor(std::move(reactor))
+            , _creator(std::move(creator))
+        {
+            LOG_DEBUG() << "WebsocketSession created";
+        }
 
-        void run();
-        void on_accept(boost::system::error_code ec);
-        void do_read();
-        void on_read(boost::system::error_code ec, std::size_t bytes_transferred);
-        void process_data_async(std::string&& data);
-        void do_write(const std::string& msg);
-        void on_write(boost::system::error_code ec, std::size_t bytes_transferred);
+        ~WebsocketSession()
+        {
+            LOG_DEBUG() << "WebsocketSession destroyed";
+
+            // Client handler must be destroyed in the Loop thread
+            // Transfer ownership and register destroy request
+            _reactor->callAsync([handler = std::move(_handler)]() mutable
+            {
+                handler.reset();
+            });
+        }
+
+        auto& GetBuffer()
+        {
+            return _buffer;
+        }
+
+        // Start the asynchronous operation
+        void run()
+        {
+            GetDerived().GetStream().binary(true);
+            // Set suggested timeout settings for the websocket
+            GetDerived().GetStream().set_option(
+                websocket::stream_base::timeout::suggested(
+                    beast::role_type::server));
+
+            // Accept the websocket handshake
+            GetDerived().GetStream().async_accept(
+                GetBuffer().data(),
+                [sp = GetDerived().shared_from_this()](boost::system::error_code ec)
+            {
+                sp->GetBuffer().clear();
+                sp->on_accept(ec);
+            });
+        }
+
+        void on_accept(boost::system::error_code ec)
+        {
+            if (ec)
+                return fail(ec, "accept");
+
+            // Read a message
+            do_read();
+        }
+
+    private:
+
+        Derived& GetDerived()
+        {
+            return static_cast<Derived&>(*this);
+        }
+
+        void process_data_async(std::string&& data)
+        {
+            //
+            // We do not use shared_ptr here cause
+            // 1) there will be deadlock, session would be never destroyed and kept by reactor forever
+            // 2) session is destroyed in case of error/socket close. There will be no chance to send
+            //    any response in this case anyway
+            //
+            std::weak_ptr<WebsocketSession> wp = GetDerived().shared_from_this();
+            _reactor->callAsync([data, creator = _creator, wp]()
+            {
+                if (auto sp = wp.lock())
+                {
+                    if (!sp->_handler)
+                    {
+                        // Client handler must be created in the Loop thread
+                        // It is safe to do without any locks cause
+                        // all these callbacks would be executed sequentially
+                        // in the context of the same thread. So if one creates handler
+                        // the next would discover it and skip.
+                        // There would be no race conditions as well
+                        sp->_handler = creator([wp](const std::string& data) { // SendFunc
+                            if (auto sp = wp.lock())
+                            {
+                                boost::asio::post(
+                                    sp->GetDerived().GetStream().get_executor(),
+                                    [sp, data]() {
+                                    sp->do_write(data);
+                                }
+                                );
+                            }
+                        },
+                            [wp](std::string&& reason) { // CloseFunc
+                            if (auto sp = wp.lock())
+                            {
+                                boost::asio::post(
+                                    sp->GetDerived().GetStream().get_executor(),
+                                    [sp, reason = std::move(reason)]()
+                                {
+                                    websocket::close_reason cr;
+                                    cr.reason = std::move(reason);
+                                    sp->GetDerived().GetStream().async_close(cr, [sp](boost::system::error_code ec)
+                                    {
+                                        if (ec)
+                                            return fail(ec, "close");
+                                    });
+                                }
+                                );
+                            }
+                        });
+                    }
+                    sp->_handler->ReactorThread_onWSDataReceived(data);
+                }
+            });
+        }
+
+        void do_read()
+        {
+            // Read a message into our buffer
+            GetDerived().GetStream().async_read(_buffer, 
+                [sp = GetDerived().shared_from_this()](boost::system::error_code ec, std::size_t bytes)
+            {
+                sp->on_read(ec, bytes);
+            });
+        }
+
+        void on_read(boost::system::error_code ec, std::size_t bytes_transferred)
+        {
+            boost::ignore_unused(bytes_transferred);
+
+            // This indicates that the Session was closed
+            if (ec == websocket::error::closed)
+                return;
+
+            if (ec)
+                return fail(ec, "read");
+
+            {
+                std::string data = boost::beast::buffers_to_string(_buffer.data());
+                _buffer.consume(_buffer.size());
+
+                if (!data.empty())
+                {
+                    process_data_async(std::move(data));
+                }
+            }
+
+            do_read();
+        }
+
+        void do_write(const std::string& msg)
+        {
+            std::string* contents = nullptr;
+
+            {
+                _writeQueue.push(msg);
+
+                if (_writeQueue.size() > 1)
+                    return;
+
+                contents = &_writeQueue.front();
+            }
+
+            GetDerived().GetStream().async_write(boost::asio::buffer(*contents),
+                [sp = GetDerived().shared_from_this()](boost::system::error_code ec, std::size_t bytes)
+            {
+                sp->on_write(ec, bytes);
+            });
+        }
+
+        void on_write(boost::system::error_code ec, std::size_t bytes_transferred)
+        {
+            boost::ignore_unused(bytes_transferred);
+
+            if (ec)
+                return fail(ec, "write");
+
+            std::string* contents = nullptr;
+            {
+                _writeQueue.pop();
+
+                if (!_writeQueue.empty())
+                {
+                    contents = &_writeQueue.front();
+                }
+            }
+
+            if (contents)
+            {
+                GetDerived().GetStream().async_write(
+                    boost::asio::buffer(*contents),
+                    [sp = GetDerived().shared_from_this()](boost::system::error_code ec, std::size_t bytes)
+                {
+                    sp->on_write(ec, bytes);
+                });
+            }
+        }
 
         template<class Body, class Allocator>
         void do_accept(http::request<Body, http::basic_fields<Allocator>> req)
         {
-            _wsocket.async_accept(
+            GetDerived().GetStream().async_accept(
                 req,
-                [sp = shared_from_this()](boost::system::error_code ec)
+                [sp = GetDerived().shared_from_this()](boost::system::error_code ec)
             {
                 sp->on_accept(ec);
             });
         }
 
     private:
-        websocket::stream<tcp::socket> _wsocket;
         boost::beast::multi_buffer _buffer;
 
         WebSocketServer::ClientHandler::Ptr _handler;
@@ -78,44 +265,51 @@ namespace beam
         std::queue<std::string> _writeQueue;
     };
 
-    class WebsocketSecureSession
-        : public std::enable_shared_from_this<WebsocketSecureSession>
+    class PlainWebsocketSession 
+        : public WebsocketSession<PlainWebsocketSession>
+        , public std::enable_shared_from_this<PlainWebsocketSession>
     {
     public:
         // Take ownership of the socket
-        explicit WebsocketSecureSession(tcp::socket socket, SafeReactor::Ptr reactor, HandlerCreator creator, ssl::context& tlsContext);
-        ~WebsocketSecureSession();
-
-        void run();
-        void on_handshake(boost::system::error_code ec);
-        void on_accept(boost::system::error_code ec);
-        void do_read();
-        void on_read(boost::system::error_code ec, std::size_t bytes_transferred);
-        void process_data_async(std::string&& data);
-        void do_write(const std::string& msg);
-        void on_write(boost::system::error_code ec, std::size_t bytes_transferred);
-
-        template<class Body, class Allocator>
-        void do_accept(http::request<Body, http::basic_fields<Allocator>> req)
+        explicit PlainWebsocketSession(beast::tcp_stream&& tcpStream, boost::beast::multi_buffer&& buffer, SafeReactor::Ptr reactor, HandlerCreator creator)
+            : WebsocketSession<PlainWebsocketSession>(std::move(buffer), reactor, creator)
+            , _wstream(std::move(tcpStream))
         {
-            _wsocket.async_accept(
-                req,
-                [sp = shared_from_this()](boost::system::error_code ec)
-            {
-                sp->on_accept(ec);
-            });
+
+        }
+
+        auto& GetStream()
+        {
+            return _wstream;
         }
 
     private:
-        websocket::stream<beast::ssl_stream<beast::tcp_stream>> _wsocket;
-        boost::beast::multi_buffer _buffer;
+        websocket::stream<beast::tcp_stream> _wstream;
+    };
 
-        WebSocketServer::ClientHandler::Ptr _handler;
-        SafeReactor::Ptr _reactor;
-        HandlerCreator _creator;
-        //ssl::context& _tlsContext;
+    class SecureWebsocketSession
+        : public WebsocketSession<SecureWebsocketSession>
+        , public std::enable_shared_from_this<SecureWebsocketSession>
+    {
+    public:
+        // Take ownership of the socket
+        explicit SecureWebsocketSession(beast::tcp_stream&& tcpStream, boost::beast::multi_buffer&& buffer, ssl::context& tlsContext, SafeReactor::Ptr reactor, HandlerCreator creator)
+            : WebsocketSession<SecureWebsocketSession>(std::move(buffer), reactor, std::move(creator))
+            , _wstream(std::move(tcpStream), tlsContext)
+        {
 
-        std::queue<std::string> _writeQueue;
+        }
+
+        void run();
+        void on_handshake(beast::error_code ec, std::size_t bytesTransferred);
+
+        auto& GetStream()
+        {
+            return _wstream;
+        }
+
+    private:
+        websocket::stream<beast::ssl_stream<beast::tcp_stream>> _wstream;
     };
 
     // Handles an HTTP server connection, we use it to filter origin
@@ -225,5 +419,68 @@ namespace beam
         HandlerCreator     _handlerCreator;
         std::string        _allowedOrigin;
         http::request<http::string_body> _request;
+    };
+
+    //
+    // Detects SSL handshakes
+    //
+    class DetectSession
+        : public std::enable_shared_from_this<DetectSession>
+    {
+    public:
+        explicit
+            DetectSession(tcp::socket&& socket, ssl::context& ctx, SafeReactor::Ptr reactor, HandlerCreator creator)
+            : _stream(std::move(socket))
+            , _ctx(ctx)
+            , _reactor(reactor)
+            , _creator(creator)
+        {
+        }
+
+        // Launch the detector
+        void run()
+        {
+            // Set the timeout.
+            _stream.expires_after(std::chrono::seconds(30));
+
+            beast::async_detect_ssl(
+                _stream,
+                _buffer,
+                [sp = shared_from_this()](beast::error_code ec, bool result)
+            {
+                sp->on_detect(ec, result);
+            });
+        }
+
+        void on_detect(beast::error_code ec, bool result)
+        {
+            if (ec)
+                return fail(ec, "detect");
+
+            if (result)
+            {
+                // Launch SSL session
+                std::make_shared<SecureWebsocketSession>(
+                    std::move(_stream),
+                    std::move(_buffer),
+                    _ctx,
+                    _reactor,
+                    _creator)->run();
+                return;
+            }
+
+            // Launch plain session
+            std::make_shared<PlainWebsocketSession>(
+                std::move(_stream),
+                std::move(_buffer),
+                _reactor,
+                _creator)->run();
+        }
+    private:
+        beast::tcp_stream _stream;
+        ssl::context& _ctx;
+        boost::beast::multi_buffer _buffer;
+        SafeReactor::Ptr _reactor;
+        HandlerCreator _creator;
     };
 }

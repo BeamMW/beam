@@ -100,15 +100,8 @@ namespace beam
                 {
                     if (m_allowedOrigin.empty())
                     {
-                        // Create the Session and run it
-                        if (m_tlsContext)
-                        {
-                            std::make_shared<WebsocketSecureSession>(std::move(m_socket), m_reactor, m_handlerCreator, *m_tlsContext)->run();
-                        }
-                        else
-                        {
-                            std::make_shared<WebsocketSession>(std::move(m_socket), m_reactor, m_handlerCreator)->run();
-                        }
+                        // Create the Detect Session and run it
+                        std::make_shared<DetectSession>(std::move(m_socket), *m_tlsContext, m_reactor, m_handlerCreator)->run();
                     }
                     else
                     {
@@ -131,21 +124,60 @@ namespace beam
         };
     }
 
-    WebSocketServer::WebSocketServer(SafeReactor::Ptr reactor, uint16_t port, std::string allowedOrigin, ssl::context* tlsContext)
+    WebSocketServer::WebSocketServer(SafeReactor::Ptr reactor, const Options& options)
         : _ioc(1)
-        , _allowedOrigin(std::move(allowedOrigin))
-        , _tlsContext(tlsContext)
+        , _allowedOrigin(std::move(options.allowedOrigin))
+       
     {
-        _iocThread = std::make_shared<MyThread>([this, port, reactor]() {
-
-            HandlerCreator creator = [this, reactor](WebSocketServer::SendFunc func, WebSocketServer::CloseFunc closeFunc) -> auto {
+        if (options.useTls)
+        {
+            _tlsContext = std::make_unique<ssl::context>(ssl::context::tlsv12_server);
+            auto& ctx = *_tlsContext;
+            ctx.set_options(
+                ssl::context::default_workarounds |
+                ssl::context::no_sslv2 |
+                ssl::context::no_sslv3 |
+                ssl::context::single_dh_use);
+            ctx.set_verify_mode(ssl::verify_none);
+            if (!options.certificate.empty())
+            {
+                ctx.use_certificate_chain(
+                    boost::asio::buffer(options.certificate.data(), options.certificate.size()));
+            }
+            else if (!options.certificatePath.empty())
+            {
+                ctx.use_certificate_chain_file(options.certificatePath);
+            }
+            if (!options.key.empty())
+            {
+                ctx.use_private_key(
+                    boost::asio::buffer(options.key.data(), options.key.size()),
+                    boost::asio::ssl::context::file_format::pem);
+            }
+            else if (!options.keyPath.empty())
+            {
+                ctx.use_private_key_file(options.keyPath, ssl::context::file_format::pem);
+            }
+            if (!options.dhParams.empty())
+            {
+                ctx.use_tmp_dh(boost::asio::buffer(options.dhParams.data(), options.dhParams.size()));
+            }
+            else if (!options.dhParamsPath.empty())
+            {
+                ctx.use_tmp_dh_file(options.dhParamsPath);
+            }
+        }
+        _iocThread = std::make_shared<MyThread>([this, port = options.port, reactor]()
+        {
+            HandlerCreator creator = [this, reactor](WebSocketServer::SendFunc func, WebSocketServer::CloseFunc closeFunc) -> auto
+            {
                 reactor->assert_thread();
                 return ReactorThread_onNewWSClient(std::move(func), std::move(closeFunc));
             };
 
             std::make_shared<Listener>(_ioc,
                 tcp::endpoint{ boost::asio::ip::make_address("0.0.0.0"), port },
-                reactor, creator, _allowedOrigin, _tlsContext)->run();
+                reactor, creator, _allowedOrigin, _tlsContext.get())->run();
 
             _ioc.run();
         });

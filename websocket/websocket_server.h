@@ -25,6 +25,11 @@
 #include <boost/optional.hpp>
 #include <boost/asio/ssl.hpp>
 
+namespace boost::asio::ssl
+{
+    class context;
+}
+
 namespace beam
 {
     class WebSocketServer
@@ -33,6 +38,19 @@ namespace beam
         using SendFunc = std::function<void(const std::string&)>;
         using CloseFunc = std::function<void(std::string&&)>;
 
+        struct Options
+        {
+            uint16_t port = 0;
+            bool useTls = false;
+            std::string allowedOrigin;
+            std::string certificate;
+            std::string certificatePath;
+            std::string key;
+            std::string keyPath;
+            std::string dhParams;
+            std::string dhParamsPath;
+        };
+
         struct ClientHandler
         {
             using Ptr = std::shared_ptr<ClientHandler>;
@@ -40,7 +58,7 @@ namespace beam
             virtual ~ClientHandler() = default;
         };
 
-        WebSocketServer(SafeReactor::Ptr reactor, uint16_t port, std::string allowedOrigin, boost::asio::ssl::context* tlsContext = nullptr);
+        WebSocketServer(SafeReactor::Ptr reactor, const Options& options);
         ~WebSocketServer();
 
     protected:
@@ -50,6 +68,6 @@ namespace beam
         boost::asio::io_context    _ioc;
         std::shared_ptr<MyThread>  _iocThread;
         std::string                _allowedOrigin;
-        boost::asio::ssl::context* _tlsContext;
+        std::unique_ptr<boost::asio::ssl::context> _tlsContext;
     };
 }

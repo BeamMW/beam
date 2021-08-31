@@ -32,6 +32,8 @@ namespace beam
         extern const char* STRATUM_SECRETS_PATH;
         extern const char* STRATUM_USE_TLS;
         extern const char* WEBSOCKET_PORT;
+        extern const char* WEBSOCKET_SECRETS_PATH;
+        extern const char* WEBSOCKET_USE_TLS;
         extern const char* STORAGE;
         extern const char* WALLET_STORAGE;
         extern const char* MINING_THREADS;
