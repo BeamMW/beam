@@ -348,7 +348,7 @@ int main_impl(int argc, char* argv[])
 						wsOptions.useTls = vm[cli::WEBSOCKET_USE_TLS].as<bool>();
 						if (wsOptions.useTls)
 						{
-							FindWSCertificates(wsOptions, vm[cli::STRATUM_SECRETS_PATH].as<string>());
+							FindWSCertificates(wsOptions, vm[cli::WEBSOCKET_SECRETS_PATH].as<string>());
 						}
 						webSocketProxy = std::make_unique<WebSocketProxy>(safeReactor, wsOptions, port);
 					}
