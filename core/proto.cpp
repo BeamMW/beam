@@ -441,7 +441,7 @@ std::ostream& operator << (std::ostream& s, const NodeConnection::DisconnectReas
         break;
 
     case NodeConnection::DisconnectReason::Protocol:
-        s << "Protocol " << static_cast<uint32_t>(r.m_eProtoCode);
+        s << "Protocol " << static_cast<int32_t>(r.m_eProtoCode);
         break;
 
     case NodeConnection::DisconnectReason::ProcessingExc:

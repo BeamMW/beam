@@ -3746,15 +3746,12 @@ bool NodeProcessor::HandleAssetEmit(const PeerID& pidOwner, BlockInterpretCtx& b
 		return false;
 
 	bool bAdd = (val >= 0);
-	if (!bAdd)
-	{
-		val = -val;
-		if (val < 0)
-			// can happen if val is 0x800....0, such a number can't be negated on its own. Ban this case
-			return false;
-	}
+	Amount valUns = val; // treat as unsigned.
 
-	AmountBig::Type valBig = (Amount) val;
+	if (!bAdd)
+		valUns = 0 - valUns;
+
+	AmountBig::Type valBig = valUns;
 	if (bic.m_Fwd)
 	{
 		if (!bic.m_AlreadyValidated && (ai.m_Owner != pidOwner))
