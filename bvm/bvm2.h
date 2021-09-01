@@ -455,6 +455,8 @@ namespace bvm2 {
 		void DerivePkInternal(ECC::Point::Native&, const Blob&);
 
 		void get_SlotPreimageInternal(ECC::Hash::Value&, uint32_t);
+		void get_Sk(ECC::Scalar::Native&, const ECC::Hash::Value&);
+		void get_BlindSkInternal(uint32_t iRes, uint32_t iMul, uint32_t iSlot, const Blob&);
 
 		uint32_t VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof);
 		uint32_t LogGetProofInternal(const HeightPos&, Wasm::Word& pProof);
@@ -513,6 +515,8 @@ namespace bvm2 {
 		bool m_RawText = false; // don't perform json-style decoration
 
 		Key::IPKdf::Ptr m_pPKdf; // required for user-related info (account-specific pubkeys, etc.)
+
+		Key::IKdf::Ptr m_pKdf; // gives more access to the keys. Set only when app runs in a privileged mode
 
 		std::map<std::string, std::string> m_Args;
 		void set_ArgBlob(const char* sz, const Blob&);

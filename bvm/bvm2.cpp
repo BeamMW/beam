@@ -2418,6 +2418,27 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST_AUTO(get_SlotImage)
 
+	BVM_METHOD(get_SlotImageEx)
+	{
+		ECC::Hash::Value hv;
+		get_SlotPreimageInternal(hv, iSlot);
+
+		ECC::Scalar::Native sk;
+		get_Sk(sk, hv);
+
+		m_Secp.m_Point.FindStrict(res).m_Val = m_Secp.m_Point.FindStrict(gen).m_Val * sk;
+	}
+	BVM_METHOD_HOST_AUTO(get_SlotImageEx)
+
+	BVM_METHOD(get_BlindSk)
+	{
+		get_BlindSkInternal(res, mul, iSlot, Blob(get_AddrR(pID, nID), nID));
+	}
+	BVM_METHOD_HOST(get_BlindSk)
+	{
+		get_BlindSkInternal(Secp::Scalar::From(res), Secp::Scalar::From(mul), iSlot, Blob(pID, nID));
+	}
+
 	void ProcessorManager::get_SlotPreimageInternal(ECC::Hash::Value& hv, uint32_t iSlot)
 	{
 		Wasm::Test(iSlot < s_Slots);
@@ -2427,6 +2448,32 @@ namespace bvm2 {
 			ECC::GenRandom(hv);
 			SlotSave(hv, iSlot);
 		}
+	}
+
+	void ProcessorManager::get_Sk(ECC::Scalar::Native& sk, const ECC::Hash::Value& hv)
+	{
+		Wasm::Test(m_pKdf != nullptr);
+		m_pKdf->DeriveKey(sk, hv);
+	}
+
+	void ProcessorManager::get_BlindSkInternal(uint32_t iRes, uint32_t iMul, uint32_t iSlot, const Blob& b)
+	{
+		ECC::Hash::Value hv;
+		DeriveKeyPreimage(hv, b);
+
+		// careful, iRes, iMul don't have to be distinct
+		ECC::Scalar::Native sk;
+		get_Sk(sk, hv);
+
+		sk *= m_Secp.m_Scalar.FindStrict(iMul).m_Val;
+
+		get_SlotPreimageInternal(hv, iSlot);
+		SlotErase(iSlot); // important!
+
+		auto& res = m_Secp.m_Scalar.FindStrict(iRes).m_Val;
+
+		get_Sk(res, hv);
+		res += sk;
 	}
 
 	uint8_t* ProcessorManager::ResizeAux(uint32_t nSize)
