@@ -42,7 +42,7 @@ namespace beam::bvm2 {
 		bool get_HdrAt(Block::SystemState::Full&) override;
 		void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr&) override;
 		void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax, IReadLogs::Ptr&) override;
-		void GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) override;
+		void get_ContractShader(ByteBuffer&) override;
 		bool get_SpecialParam(const char*, Blob&) override;
 		bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) override;
 		bool LogGetProof(const HeightPos&, beam::Merkle::Proof&) override;
@@ -62,7 +62,6 @@ namespace beam::bvm2 {
 
 		// results
 		std::ostringstream m_Out;
-		ContractInvokeData m_vInvokeData;
 
 		void StartRun(uint32_t iMethod);
 	};

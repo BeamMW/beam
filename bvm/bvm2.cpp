@@ -2766,6 +2766,38 @@ namespace bvm2 {
 		GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig, szComment, nCharge);
 	}
 
+	void ProcessorManager::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge)
+	{
+		auto& v = m_vInvokeData.emplace_back();
+
+		if (iMethod)
+		{
+			assert(pCid);
+			v.m_Cid = *pCid;
+		}
+		else
+		{
+			v.m_Cid = Zero;
+			get_ContractShader(v.m_Data);
+		}
+
+		v.m_iMethod = iMethod;
+		args.Export(v.m_Args);
+		v.m_vSig.assign(pSig, pSig + nSig);
+		v.m_sComment = szComment;
+		v.m_Charge = nCharge;
+
+		for (uint32_t i = 0; i < nFunds; i++)
+		{
+			const auto& x = pFunds[i];
+			AmountSigned val = x.m_Amount;
+			if (!x.m_Consume)
+				val = -val;
+
+			v.m_Spend.AddSpend(x.m_Aid, val);
+		}
+	}
+
 	BVM_METHOD(GenerateRandom)
 	{
 		OnHost_GenerateRandom(get_AddrW(pBuf, nSize), nSize);

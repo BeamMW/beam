@@ -16,6 +16,7 @@
 #include "wasm_interpreter.h"
 #include "../utility/containers.h"
 #include "../core/block_crypt.h"
+#include "invoke_data.h"
 
 namespace Shaders {
 
@@ -458,6 +459,8 @@ namespace bvm2 {
 		void get_Sk(ECC::Scalar::Native&, const ECC::Hash::Value&);
 		void get_BlindSkInternal(uint32_t iRes, uint32_t iMul, uint32_t iSlot, const Blob&);
 
+		void GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge);
+
 		uint32_t VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof);
 		uint32_t LogGetProofInternal(const HeightPos&, Wasm::Word& pProof);
 
@@ -499,7 +502,7 @@ namespace bvm2 {
 
 		virtual bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) { return false; }
 		virtual bool LogGetProof(const HeightPos&, beam::Merkle::Proof&) { return false; }
-		virtual void GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) {}
+		virtual void get_ContractShader(ByteBuffer&) {} // needed when app asks to deploy a contract
 		virtual bool get_SpecialParam(const char*, Blob&) { return false; }
 
 		virtual bool SlotLoad(ECC::Hash::Value&, uint32_t iSlot) { return false; }
@@ -517,6 +520,8 @@ namespace bvm2 {
 		Key::IPKdf::Ptr m_pPKdf; // required for user-related info (account-specific pubkeys, etc.)
 
 		Key::IKdf::Ptr m_pKdf; // gives more access to the keys. Set only when app runs in a privileged mode
+
+		ContractInvokeData m_vInvokeData;
 
 		std::map<std::string, std::string> m_Args;
 		void set_ArgBlob(const char* sz, const Blob&);

@@ -380,36 +380,9 @@ namespace bvm2 {
 		OnDone(nullptr);
 	}
 
-	void ManagerStd::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge)
+	void ManagerStd::get_ContractShader(ByteBuffer& res)
 	{
-		auto& v = m_vInvokeData.emplace_back();
-
-		if (iMethod)
-		{
-			assert(pCid);
-			v.m_Cid = *pCid;
-		}
-		else
-		{
-			v.m_Cid = Zero;
-			v.m_Data = m_BodyContract;
-		}
-
-		v.m_iMethod = iMethod;
-		args.Export(v.m_Args);
-		v.m_vSig.assign(pSig, pSig + nSig);
-		v.m_sComment = szComment;
-		v.m_Charge = nCharge;
-
-		for (uint32_t i = 0; i < nFunds; i++)
-		{
-			const auto& x = pFunds[i];
-			AmountSigned val = x.m_Amount;
-			if (!x.m_Consume)
-				val = -val;
-
-			v.m_Spend.AddSpend(x.m_Aid, val);
-		}
+		res = m_BodyContract;
 	}
 
 	bool ManagerStd::get_SpecialParam(const char* sz, Blob& b)
