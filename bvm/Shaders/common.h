@@ -144,9 +144,9 @@ namespace Env {
     }
 
     template <typename T>
-    inline T* StackFree_T(uint32_t n) {
+    inline void StackFree_T(uint32_t n) {
         // not mandatory to call, but sometimes usefull before calling other heavy functions
-        return StackFree(sizeof(T) * n);
+        StackFree(sizeof(T) * n);
     }
 
 #ifndef HOST_BUILD
