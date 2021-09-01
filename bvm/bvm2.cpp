@@ -2727,10 +2727,11 @@ namespace bvm2 {
 		};
 #pragma pack (pop)
 
-		auto* pSig_ = get_ArrayAddrAsR<SigRequest>(pSig, nSig);
+		const FundsChange* pFunds_ = get_ArrayAddrAsR<FundsChange>(pFunds, nFunds);
+		auto& v = GenerateKernel(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, iMethod, Blob(get_AddrR(pArg, nArg), nArg), pFunds_, nFunds, true, RealizeStr(szComment), nCharge);
 
-		std::vector<ECC::Hash::Value> vPreimages;
-		vPreimages.reserve(nSig);
+		auto* pSig_ = get_ArrayAddrAsR<SigRequest>(pSig, nSig);
+		v.m_vSig.reserve(nSig);
 
 		for (uint32_t i = 0; i < nSig; i++)
 		{
@@ -2738,41 +2739,30 @@ namespace bvm2 {
 			SigRequest x;
 			x.m_pID = Wasm::from_wasm(x_.m_pID);
 			x.m_nID = Wasm::from_wasm(x_.m_nID);
-			DeriveKeyPreimage(vPreimages.emplace_back(), Blob(get_AddrR(x.m_pID, x.m_nID), x.m_nID));
+			DeriveKeyPreimage(v.m_vSig.emplace_back(), Blob(get_AddrR(x.m_pID, x.m_nID), x.m_nID));
 		}
 
-		FundsChange* pFunds_ = Cast::NotConst(get_ArrayAddrAsR<FundsChange>(pFunds, nFunds));
-		for (uint32_t i = 0; i < nFunds; i++)
-			pFunds_[i].Convert<true>();
-
-		Wasm::Test(pCid || !iMethod); // only c'tor can be invoked without cid
-
-		GenerateKernel(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, iMethod, Blob(get_AddrR(pArg, nArg), nArg), pFunds_, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig, RealizeStr(szComment), nCharge);
-
-		for (uint32_t i = 0; i < nFunds; i++)
-			pFunds_[i].Convert<false>();
 	}
 	BVM_METHOD_HOST(GenerateKernel)
 	{
-		std::vector<ECC::Hash::Value> vPreimages;
-		vPreimages.reserve(nSig);
+		auto& v = GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, false, szComment, nCharge);
+
+		v.m_vSig.reserve(nSig);
 
 		for (uint32_t i = 0; i < nSig; i++)
 		{
 			const auto& x = pSig[i];
-			DeriveKeyPreimage(vPreimages.emplace_back(), Blob(x.m_pID, x.m_nID));
+			DeriveKeyPreimage(v.m_vSig.emplace_back(), Blob(x.m_pID, x.m_nID));
 		}
-
-		GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig, szComment, nCharge);
 	}
 
-	void ProcessorManager::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge)
+	ContractInvokeEntry& ProcessorManager::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, bool bCvtFunds, const char* szComment, uint32_t nCharge)
 	{
 		auto& v = m_vInvokeData.emplace_back();
 
 		if (iMethod)
 		{
-			assert(pCid);
+			Wasm::Test(pCid != nullptr); // only c'tor can be invoked without cid
 			v.m_Cid = *pCid;
 		}
 		else
@@ -2783,19 +2773,23 @@ namespace bvm2 {
 
 		v.m_iMethod = iMethod;
 		args.Export(v.m_Args);
-		v.m_vSig.assign(pSig, pSig + nSig);
 		v.m_sComment = szComment;
 		v.m_Charge = nCharge;
 
 		for (uint32_t i = 0; i < nFunds; i++)
 		{
-			const auto& x = pFunds[i];
+			auto x = pFunds[i];
+			if (bCvtFunds)
+				x.Convert<false>();
+
 			AmountSigned val = x.m_Amount;
 			if (!x.m_Consume)
 				val = -val;
 
 			v.m_Spend.AddSpend(x.m_Aid, val);
 		}
+
+		return v;
 	}
 
 	BVM_METHOD(GenerateRandom)
