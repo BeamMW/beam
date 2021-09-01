@@ -57,6 +57,10 @@ namespace beam::bvm2 {
 
 		void Generate(Transaction&, Key::IKdf&, const HeightRange& hr, Amount fee) const;
 		[[nodiscard]] Amount get_FeeMin(Height) const;
+
+	private:
+
+		void get_SigPreimage(ECC::Hash::Value&, const ECC::Hash::Value& krnMsg) const;
 	};
 
 	typedef std::vector<ContractInvokeEntry> ContractInvokeData;

@@ -40,25 +40,11 @@ namespace beam::bvm2 {
 		pKrn->m_Commitment = Zero;
 		pKrn->UpdateMsg();
 
-		// seed everything to derive the blinding factor, add external random as well
-		ECC::Hash::Value hv;
-		ECC::GenRandom(hv);
-		ECC::Hash::Processor hp;
-		hp
-			<< hv
-			<< pKrn->m_Msg
-			<< m_Spend.size()
-			<< m_vSig.size();
-
 		std::vector<ECC::Scalar::Native> vSk;
 		vSk.resize(m_vSig.size() + 1);
 
 		for (uint32_t i = 0; i < m_vSig.size(); i++)
-		{
-			const auto& hvSig = m_vSig[i];
-			kdf.DeriveKey(vSk[i], hvSig);
-			hp << hvSig;
-		}
+			kdf.DeriveKey(vSk[i], m_vSig[i]);
 
 		FundsChangeMap fcm;
 		for (auto it = m_Spend.begin(); m_Spend.end() != it; it++)
@@ -68,9 +54,6 @@ namespace beam::bvm2 {
 			bool bSpend = (val >= 0);
 
 			fcm.Add(bSpend ? val : -val, aid, !bSpend);
-			hp
-				<< aid
-				<< static_cast<Amount>(val);
 		}
 
 		ECC::Point::Native ptFunds;
@@ -78,7 +61,8 @@ namespace beam::bvm2 {
 
 		ECC::Scalar::Native& skKrn = vSk.back();
 
-		hp >> hv;
+		ECC::Hash::Value hv;
+		get_SigPreimage(hv, pKrn->m_Msg);
 		kdf.DeriveKey(skKrn, hv);
 
 		pKrn->Sign(&vSk.front(), static_cast<uint32_t>(vSk.size()), ptFunds);
@@ -88,6 +72,30 @@ namespace beam::bvm2 {
 		ECC::Scalar::Native kOffs(tx.m_Offset);
 		kOffs += -skKrn;
 		tx.m_Offset = kOffs;
+	}
+
+	void ContractInvokeEntry::get_SigPreimage(ECC::Hash::Value& hv, const ECC::Hash::Value& krnMsg) const
+	{
+		// seed everything to derive the blinding factor, add external random as well
+		ECC::GenRandom(hv);
+		ECC::Hash::Processor hp;
+		hp
+			<< hv
+			<< krnMsg
+			<< m_Spend.size()
+			<< m_vSig.size();
+
+		for (uint32_t i = 0; i < m_vSig.size(); i++)
+			hp << m_vSig[i];
+
+		for (auto it = m_Spend.begin(); m_Spend.end() != it; it++)
+		{
+			hp
+				<< it->first
+				<< static_cast<Amount>(it->second);
+		}
+
+		hp >> hv;
 	}
 
 	Amount ContractInvokeEntry::get_FeeMin(Height h) const
