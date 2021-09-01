@@ -2370,15 +2370,24 @@ namespace bvm2 {
 		return nRet;
 	}
 
+	void ProcessorManager::DerivePkInternal(ECC::Point::Native& res, const Blob& b)
+	{
+		ECC::Hash::Value hv;
+		DeriveKeyPreimage(hv, b);
+
+		Wasm::Test(m_pPKdf != nullptr);
+		m_pPKdf->DerivePKeyG(res, hv);
+	}
+
 	BVM_METHOD(DerivePk)
 	{
 		return OnHost_DerivePk(get_AddrAsW<PubKey>(pubKey), get_AddrR(pID, nID), nID);
 	}
 	BVM_METHOD_HOST(DerivePk)
 	{
-		ECC::Hash::Value hv;
-		DeriveKeyPreimage(hv, Blob(pID, nID));
-		DerivePk(pubKey, hv);
+		ECC::Point::Native pt;
+		DerivePkInternal(pt, Blob(pID, nID));
+		pt.Export(pubKey);
 	}
 
 	void ProcessorManager::DeriveKeyPreimage(ECC::Hash::Value& hv, const Blob& b)

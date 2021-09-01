@@ -380,15 +380,6 @@ namespace bvm2 {
 		OnDone(nullptr);
 	}
 
-	void ManagerStd::DerivePk(ECC::Point& pubKey, const ECC::Hash::Value& hv)
-	{
-		Wasm::Test(m_pPKdf != nullptr);
-
-		ECC::Point::Native pt;
-		m_pPKdf->DerivePKeyG(pt, hv);
-		pubKey = pt;
-	}
-
 	void ManagerStd::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge)
 	{
 		auto& v = m_vInvokeData.emplace_back();

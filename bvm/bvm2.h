@@ -451,7 +451,8 @@ namespace bvm2 {
 		void DocID(const char*);
 		const std::string* FindArg(const char*);
 
-		void DeriveKeyPreimage(ECC::Hash::Value&, const Blob&);
+		static void DeriveKeyPreimage(ECC::Hash::Value&, const Blob&);
+		void DerivePkInternal(ECC::Point::Native&, const Blob&);
 
 		uint32_t VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof);
 		uint32_t LogGetProofInternal(const HeightPos&, Wasm::Word& pProof);
@@ -494,7 +495,6 @@ namespace bvm2 {
 
 		virtual bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) { return false; }
 		virtual bool LogGetProof(const HeightPos&, beam::Merkle::Proof&) { return false; }
-		virtual void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value&) { ZeroObject(pubKey);  }
 		virtual void GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) {}
 		virtual bool get_SpecialParam(const char*, Blob&) { return false; }
 
@@ -503,6 +503,8 @@ namespace bvm2 {
 		std::ostream* m_pOut;
 		bool m_NeedComma = false;
 		bool m_RawText = false; // don't perform json-style decoration
+
+		Key::IPKdf::Ptr m_pPKdf; // required for user-related info (account-specific pubkeys, etc.)
 
 		std::map<std::string, std::string> m_Args;
 		void set_ArgBlob(const char* sz, const Blob&);
