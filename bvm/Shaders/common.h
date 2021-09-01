@@ -478,6 +478,8 @@ namespace Utils {
                 Env::Memcpy(m_p, pOld, sizeof(T) * m_Count);
                 Env::Heap_Free(pOld);
             }
+
+            m_Alloc = n;
         }
 
         T& emplace_back()
