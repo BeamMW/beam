@@ -136,6 +136,9 @@ namespace beam
         const char* WEBSOCKET_PORT = "websocket_port";
         const char* WEBSOCKET_SECRETS_PATH = "websocket_secrets_path";
         const char* WEBSOCKET_USE_TLS = "websocket_use_tls";
+        const char* WEBSOCKET_KEY = "websocket_key";
+        const char* WEBSOCKET_CERT = "websocket_cert";
+        const char* WEBSOCKET_DH = "websocket_dh";
         const char* STORAGE = "storage";
         const char* WALLET_STORAGE = "wallet_path";
         const char* MINING_THREADS = "mining_threads";
@@ -404,6 +407,9 @@ namespace beam
             (cli::WEBSOCKET_PORT, po::value<uint16_t>()->default_value(0), "port to start websocket server on, it allows to communicate with node from web browser")
             (cli::WEBSOCKET_SECRETS_PATH, po::value<string>()->default_value("."), "path to websocket server api keys file, and tls certificate and private key")
             (cli::WEBSOCKET_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on websocket server")
+            (cli::WEBSOCKET_KEY, po::value<string>()->default_value("wskey.pem"), "name of the private key file for websocket server")
+            (cli::WEBSOCKET_CERT, po::value<string>()->default_value("wscert.pem"), "name of the certificate file for websocket server")
+            (cli::WEBSOCKET_DH, po::value<string>()->default_value("wsdhparams.pem"), "name of the DH params file for websocket server")
             (cli::RESET_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication). Must do if the node is cloned")
             (cli::ERASE_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication) and stop before re-creating the new one.")
             (cli::PRINT_TXO, po::value<bool>()->default_value(false), "Print TXO movements (create/spend) recognized by the owner key.")

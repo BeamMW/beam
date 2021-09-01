@@ -177,14 +177,14 @@ namespace
 			o.apiKeysFile = (p / apiKeysFileName).string();
 	}
 
-	void FindWSCertificates(WebSocketServer::Options& o, const std::string& dir)
+	void FindWSCertificates(WebSocketServer::Options& o, const po::variables_map& vm)
 	{
-		boost::filesystem::path p(dir);
+		boost::filesystem::path p(vm[cli::WEBSOCKET_SECRETS_PATH].as<string>());
 		p = boost::filesystem::canonical(p);
 
-		static const std::string certFileName("wscert.pem");
-		static const std::string keyFileName("wskey.pem");
-		static const std::string dhParamsName("wsdhparams.pem");
+		std::string certFileName(vm[cli::WEBSOCKET_CERT].as<string>());
+		std::string keyFileName(vm[cli::WEBSOCKET_KEY].as<string>());
+		std::string dhParamsName(vm[cli::WEBSOCKET_DH].as<string>());
 		o.keyPath = (p / keyFileName).string();
 		o.certificatePath = (p / certFileName).string();
 		o.dhParamsPath = (p / dhParamsName).string();
@@ -348,7 +348,7 @@ int main_impl(int argc, char* argv[])
 						wsOptions.useTls = vm[cli::WEBSOCKET_USE_TLS].as<bool>();
 						if (wsOptions.useTls)
 						{
-							FindWSCertificates(wsOptions, vm[cli::WEBSOCKET_SECRETS_PATH].as<string>());
+							FindWSCertificates(wsOptions, vm);
 						}
 						webSocketProxy = std::make_unique<WebSocketProxy>(safeReactor, wsOptions, port);
 					}

@@ -34,6 +34,9 @@ namespace beam
         extern const char* WEBSOCKET_PORT;
         extern const char* WEBSOCKET_SECRETS_PATH;
         extern const char* WEBSOCKET_USE_TLS;
+        extern const char* WEBSOCKET_KEY;
+        extern const char* WEBSOCKET_CERT;
+        extern const char* WEBSOCKET_DH;
         extern const char* STORAGE;
         extern const char* WALLET_STORAGE;
         extern const char* MINING_THREADS;
