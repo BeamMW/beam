@@ -19,7 +19,7 @@
 #include <mutex>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/core.hpp>
-#include <boost/beast/ssl.hpp>
+#include <boost/beast/ssl/ssl_stream.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/beast/websocket/ssl.hpp>
