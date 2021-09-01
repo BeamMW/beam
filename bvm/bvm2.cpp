@@ -2390,6 +2390,15 @@ namespace bvm2 {
 		pt.Export(pubKey);
 	}
 
+	BVM_METHOD(get_Pk)
+	{
+		DerivePkInternal(m_Secp.m_Point.FindStrict(res).m_Val, Blob(get_AddrR(pID, nID), nID));
+	}
+	BVM_METHOD_HOST(get_Pk)
+	{
+		DerivePkInternal(m_Secp.m_Point.FindStrict(Secp::Point::From(res)).m_Val, Blob(pID, nID));
+	}
+
 	void ProcessorManager::DeriveKeyPreimage(ECC::Hash::Value& hv, const Blob& b)
 	{
 		ECC::Hash::Processor()
@@ -2686,6 +2695,15 @@ namespace bvm2 {
 		}
 
 		GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig, szComment, nCharge);
+	}
+
+	BVM_METHOD(GenerateRandom)
+	{
+		OnHost_GenerateRandom(get_AddrW(pBuf, nSize), nSize);
+	}
+	BVM_METHOD_HOST(GenerateRandom)
+	{
+		ECC::GenRandom(pBuf, nSize);
 	}
 
 #undef BVM_METHOD_BinaryVar

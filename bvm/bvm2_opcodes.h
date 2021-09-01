@@ -353,6 +353,15 @@
 	macro(const char*, szComment) sep \
 	macro(uint32_t, nCharge)
 
+#define BVMOp_GenerateRandom(macro, sep) \
+	macro(void*, pBuf) sep \
+	macro(uint32_t, nSize)
+
+#define BVMOp_get_Pk(macro, sep) \
+	macro(Secp_point&, res) sep \
+	macro(const void*, pID) sep \
+	macro(uint32_t, nID)
+
 #define BVMOpsAll_Common(macro) \
 	macro(0x10, void*    , Memcpy) \
 	macro(0x11, void*    , Memset) \
@@ -436,6 +445,8 @@
 	macro(0x6A, uint8_t  , DocGetNum32) \
 	macro(0x6B, uint8_t  , DocGetNum64) \
 	macro(0x6C, uint32_t , DocGetBlob) \
-	macro(0x70, void     , GenerateKernel)
+	macro(0x70, void     , GenerateKernel) \
+	macro(0xA0, void     , GenerateRandom) \
+	macro(0xA3, void     , get_Pk) \
 
 #define EXTRA_LINE_BEFORE_EOF_SO_THAT_THE_STUPID_COMPILER_WONT_COMPLAIN_ABOUT_BACKSLASH_ON_PREVIOUS_LINE
