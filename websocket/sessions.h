@@ -30,16 +30,16 @@
 
 namespace beam
 {
-    namespace beast     = boost::beast;
-    namespace http      = boost::beast::http;
+    namespace beast = boost::beast;
+    namespace http = boost::beast::http;
     namespace websocket = boost::beast::websocket;
-    namespace ssl       = boost::asio::ssl;
+    namespace ssl = boost::asio::ssl;
 
     void fail(boost::system::error_code ec, char const* what);
     void failEx(boost::system::error_code ec, char const* what);
 
     using tcp = boost::asio::ip::tcp;
-    using HandlerCreator = std::function<WebSocketServer::ClientHandler::Ptr (WebSocketServer::SendFunc, WebSocketServer::CloseFunc)>;
+    using HandlerCreator = std::function<WebSocketServer::ClientHandler::Ptr(WebSocketServer::SendFunc, WebSocketServer::CloseFunc)>;
 
     template<typename Derived>
     class WebsocketSession
@@ -127,35 +127,37 @@ namespace beam
                         // in the context of the same thread. So if one creates handler
                         // the next would discover it and skip.
                         // There would be no race conditions as well
-                        sp->_handler = creator([wp](const std::string& data) { // SendFunc
-                            if (auto sp = wp.lock())
-                            {
-                                boost::asio::post(
-                                    sp->GetDerived().GetStream().get_executor(),
-                                    [sp, data]() {
-                                    sp->do_write(data);
-                                }
-                                );
-                            }
-                        },
-                            [wp](std::string&& reason) { // CloseFunc
-                            if (auto sp = wp.lock())
-                            {
-                                boost::asio::post(
-                                    sp->GetDerived().GetStream().get_executor(),
-                                    [sp, reason = std::move(reason)]()
+                        sp->_handler = creator(
+                            [wp](const std::string& data)
+                            { // SendFunc
+                                if (auto sp = wp.lock())
                                 {
-                                    websocket::close_reason cr;
-                                    cr.reason = std::move(reason);
-                                    sp->GetDerived().GetStream().async_close(cr, [sp](boost::system::error_code ec)
-                                    {
-                                        if (ec)
-                                            return fail(ec, "close");
-                                    });
+                                    boost::asio::post(
+                                        sp->GetDerived().GetStream().get_executor(),
+                                        [sp, data]()
+                                        {
+                                            sp->do_write(data);
+                                        });
                                 }
-                                );
-                            }
-                        });
+                            },
+                            [wp](std::string&& reason)
+                            { // CloseFunc
+                                if (auto sp = wp.lock())
+                                {
+                                    boost::asio::post(
+                                        sp->GetDerived().GetStream().get_executor(),
+                                        [sp, reason = std::move(reason)]()
+                                        {
+                                            websocket::close_reason cr;
+                                            cr.reason = reason;
+                                            sp->GetDerived().GetStream().async_close(cr, [sp](boost::system::error_code ec)
+                                            {
+                                                if (ec)
+                                                    return fail(ec, "close");
+                                            });
+                                        });
+                                }
+                            });
                     }
                     sp->_handler->ReactorThread_onWSDataReceived(data);
                 }
@@ -165,7 +167,7 @@ namespace beam
         void do_read()
         {
             // Read a message into our buffer
-            GetDerived().GetStream().async_read(_buffer, 
+            GetDerived().GetStream().async_read(_buffer,
                 [sp = GetDerived().shared_from_this()](boost::system::error_code ec, std::size_t bytes)
             {
                 sp->on_read(ec, bytes);
@@ -265,7 +267,7 @@ namespace beam
         std::queue<std::string> _writeQueue;
     };
 
-    class PlainWebsocketSession 
+    class PlainWebsocketSession
         : public WebsocketSession<PlainWebsocketSession>
         , public std::enable_shared_from_this<PlainWebsocketSession>
     {
@@ -354,7 +356,7 @@ namespace beam
                 auto const was_full = is_full();
                 _items.erase(_items.begin());
 
-                if (!_items.empty()){
+                if (!_items.empty()) {
                     (*_items.front())();
                 }
 
@@ -366,7 +368,7 @@ namespace beam
             void operator()(http::message<isRequest, Body, Fields>&& msg)
             {
                 // This holds a work item
-                struct WorkImpl: Work
+                struct WorkImpl : Work
                 {
                     HttpSession& m_self;
                     http::message<isRequest, Body, Fields> m_msg;
@@ -395,7 +397,8 @@ namespace beam
                 _items.push_back(boost::make_unique<WorkImpl>(_session, std::move(msg)));
 
                 // If there was no previous work, start this one
-                if (_items.size() == 1) {
+                if (_items.size() == 1) 
+                {
                     (*_items.front())();
                 }
             }

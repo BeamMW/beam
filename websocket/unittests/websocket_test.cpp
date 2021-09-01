@@ -160,7 +160,7 @@ namespace
     }
 
 
-    int SendMessage(std::string host, const std::string& port, const std::string& text)
+    int SendMessage(std::string host, const std::string& port, const std::string& text, std::function<void()> cb)
     {
         try
         {
@@ -210,32 +210,22 @@ namespace
             ss << beast::make_printable(buffer.data());
             WALLET_CHECK(ss.str() == "test messagetest message");
 
-            // If we get here then the connection is closed gracefully
-
-            // The make_printable() function helps print a ConstBufferSequence
-            //std::cout << beast::make_printable(buffer.data()) << std::endl;
         }
         catch (std::exception const& e)
         {
             WALLET_CHECK(false);
             std::cerr << "Error: " << e.what() << std::endl;
-            return WALLET_CHECK_RESULT;
         }
         catch (...)
         {
             WALLET_CHECK(false);
             // std::cerr << "Error: " << e. << std::endl;
-            return WALLET_CHECK_RESULT;
         }
+        cb();
         return WALLET_CHECK_RESULT;
     }
 
-    void RunClient(std::string host, const std::string& port, const std::string& text)
-    {
-        std::thread(SendMessage, host, port, text).detach();
-    }
-
-    int SendSecureMessage(std::string host, const std::string& port, const std::string& text)
+    int SendSecureMessage(std::string host, const std::string& port, const std::string& text, std::function<void()> cb)
     {
         try
         {
@@ -290,24 +280,20 @@ namespace
             std::stringstream ss;
             ss << beast::make_printable(buffer.data());
             WALLET_CHECK(ss.str() == "test messagetest message");
+            
 
-            // If we get here then the connection is closed gracefully
-
-            // The make_printable() function helps print a ConstBufferSequence
-            //std::cout << beast::make_printable(buffer.data()) << std::endl;
         }
         catch (std::exception const& e)
         {
             WALLET_CHECK(false);
             std::cerr << "Error: " << e.what() << std::endl;
-            return WALLET_CHECK_RESULT;
         }
         catch (...)
         {
             WALLET_CHECK(false);
            // std::cerr << "Error: " << e. << std::endl;
-            return WALLET_CHECK_RESULT;
         }
+        cb();
         return WALLET_CHECK_RESULT;
     }
 
@@ -343,10 +329,6 @@ namespace
                 MyClientHandler(WebSocketServer::SendFunc wsSend, WebSocketServer::CloseFunc wsClose)
                     : m_wsSend(wsSend)
                 {}
-                virtual ~MyClientHandler()
-                {
-                    io::Reactor::get_Current().stop();
-                }
                 void ReactorThread_onWSDataReceived(const std::string& message) override
                 {
                     std::cout << "Message: " << message << std::endl;
@@ -361,7 +343,7 @@ namespace
             WebSocketServer::Options options;
             options.port = 8200;
             MyWebSocketServer<MyClientHandler> server(safeReactor, options);
-            std::thread t1(SendMessage, "127.0.0.1", "8200", "test message");
+            std::thread t1(SendMessage, "127.0.0.1", "8200", "test message", [reactor]() {reactor->stop(); });
             reactor->run();
             t1.join();
         }
@@ -384,31 +366,37 @@ namespace
                 MyClientHandler(WebSocketServer::SendFunc wsSend, WebSocketServer::CloseFunc wsClose)
                     : m_wsSend(wsSend)
                 {}
-                virtual ~MyClientHandler()
-                {
-                    io::Reactor::get_Current().stop();
-                }
                 void ReactorThread_onWSDataReceived(const std::string& message) override
                 {
                     std::cout << "Secure Message: " << message << std::endl;
                     WALLET_CHECK(message == "test message");
                     m_wsSend(message + message);
-
                 }
             };
+
             SafeReactor::Ptr safeReactor = SafeReactor::create();
             io::Reactor::Ptr reactor = safeReactor->ptr();
             io::Reactor::Scope scope(*reactor);
+
+            size_t count = 2;
+            auto cb = [&count, reactor]()
+            {
+                if (--count == 0)
+                {
+                    reactor->stop();
+                }
+            };
+
             WebSocketServer::Options options;
             options.port = 8200;
             options.useTls = true;
             LoadServerCertificate(options);
             MyWebSocketServer<MyClientHandler> server(safeReactor, options);
-            std::thread t1(SendSecureMessage, "127.0.0.1", "8200", "test message");
-            //std::thread t2(SendMessage, "127.0.0.1", "8200", "test message");
+            std::thread t1(SendSecureMessage, "127.0.0.1", "8200", "test message", cb);
+            std::thread t2(SendMessage, "127.0.0.1", "8200", "test message", cb);
             reactor->run();
             t1.join();
-            //t2.join();
+            t2.join();
         }
         catch (...)
         {
