@@ -460,6 +460,7 @@ namespace bvm2 {
 		void get_BlindSkInternal(uint32_t iRes, uint32_t iMul, uint32_t iSlot, const Blob&);
 
 		ContractInvokeEntry& GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, bool bCvtFunds, const char* szComment, uint32_t nCharge);
+		void SetKernelAdv(Amount fee, Height hMin, Height hMax, uint32_t ptExtraNonce, uint32_t skExtraSig, uint32_t skBlindChallenge, uint32_t iSlotBlind, uint32_t iSlotNonce);
 
 		uint32_t VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof);
 		uint32_t LogGetProofInternal(const HeightPos&, Wasm::Word& pProof);

@@ -35,8 +35,19 @@ namespace beam::bvm2 {
 		}
 
 		pKrn->m_Args = m_Args;
-		pKrn->m_Fee = fee;
-		pKrn->m_Height = hr;
+
+		if (IsAdvanced())
+		{
+			// ignore args, use our params
+			pKrn->m_Fee = m_Adv.m_Fee;
+			pKrn->m_Height = m_Adv.m_Height;
+		}
+		else
+		{
+			pKrn->m_Fee = fee;
+			pKrn->m_Height = hr;
+		}
+
 		pKrn->m_Commitment = Zero;
 		pKrn->UpdateMsg();
 
@@ -61,11 +72,41 @@ namespace beam::bvm2 {
 
 		ECC::Scalar::Native& skKrn = vSk.back();
 
-		ECC::Hash::Value hv;
-		get_SigPreimage(hv, pKrn->m_Msg);
-		kdf.DeriveKey(skKrn, hv);
+		if (IsAdvanced())
+		{
+			ECC::Scalar::Native skNonce, skSig;
+			kdf.DeriveKey(skNonce, m_Adv.m_hvNonce);
+			kdf.DeriveKey(skKrn, m_Adv.m_hvBlind);
 
-		pKrn->Sign(&vSk.front(), static_cast<uint32_t>(vSk.size()), ptFunds);
+			ECC::Point::Native pt1, pt2;
+			pt1 = ECC::Context::get().G * skNonce;
+			pt2.Import(m_Adv.m_ptExtraNonce); // don't care
+			pt1 += pt2;
+
+			pKrn->m_Signature.m_NoncePub = pt1;
+
+			pt1 = ECC::Context::get().G * skKrn;
+			pt1 += ptFunds;
+			pKrn->m_Commitment = pt1;
+
+			skSig = m_Adv.m_kBlindChallenge;
+			skSig *= skKrn;
+			skSig += skNonce;
+
+			skNonce = m_Adv.m_kExtraSig;
+			skSig += skNonce;
+
+			skSig = -skSig; // our formula is sig.ptNonce + Pk[i]*e[i] + G*sig.k == 0
+			pKrn->m_Signature.m_k = skSig;
+		}
+		else
+		{
+			ECC::Hash::Value hv;
+			get_SigPreimage(hv, pKrn->m_Msg);
+			kdf.DeriveKey(skKrn, hv);
+
+			pKrn->Sign(&vSk.front(), static_cast<uint32_t>(vSk.size()), ptFunds);
+		}
 
 		tx.m_vKernels.push_back(std::move(pKrn));
 

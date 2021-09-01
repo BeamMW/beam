@@ -378,6 +378,24 @@
 	macro(const Secp_scalar&, mul) sep \
 	macro(uint32_t, iSlot)
 
+#define BVMOp_GenerateKernelAdvanced(macro, sep) \
+	macro(const ContractID*, pCid) sep \
+	macro(uint32_t, iMethod) sep \
+	macro(const void*, pArg) sep \
+	macro(uint32_t, nArg) sep \
+	macro(const FundsChange*, pFunds) sep \
+	macro(uint32_t, nFunds) sep \
+	macro(const char*, szComment) sep \
+	macro(Amount, fee) sep \
+	macro(Height, hMin) sep \
+	macro(Height, hMax) sep \
+	macro(const Secp_point&, ptExtraNonce) sep \
+	macro(const Secp_scalar&, skExtraSig) sep \
+	macro(const Secp_scalar&, skBlindChallenge) sep \
+	macro(uint32_t, iSlotBlind) sep \
+	macro(uint32_t, iSlotNonce)
+
+
 #define BVMOpsAll_Common(macro) \
 	macro(0x10, void*    , Memcpy) \
 	macro(0x11, void*    , Memset) \
@@ -467,5 +485,6 @@
 	macro(0xA2, void     , get_SlotImageEx) \
 	macro(0xA3, void     , get_Pk) \
 	macro(0xA4, void     , get_BlindSk) \
+	macro(0xA5, void     , GenerateKernelAdvanced) \
 
 #define EXTRA_LINE_BEFORE_EOF_SO_THAT_THE_STUPID_COMPILER_WONT_COMPLAIN_ABOUT_BACKSLASH_ON_PREVIOUS_LINE

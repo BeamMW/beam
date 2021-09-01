@@ -2758,6 +2758,8 @@ namespace bvm2 {
 
 	ContractInvokeEntry& ProcessorManager::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, bool bCvtFunds, const char* szComment, uint32_t nCharge)
 	{
+		Wasm::Test(nCharge != ContractInvokeEntry::s_ChargeAdv);
+
 		auto& v = m_vInvokeData.emplace_back();
 
 		if (iMethod)
@@ -2790,6 +2792,42 @@ namespace bvm2 {
 		}
 
 		return v;
+	}
+
+	void ProcessorManager::SetKernelAdv(Amount fee, Height hMin, Height hMax, uint32_t ptExtraNonce, uint32_t skExtraSig, uint32_t skBlindChallenge, uint32_t iSlotBlind, uint32_t iSlotNonce)
+	{
+		assert(!m_vInvokeData.empty());
+		auto& v = m_vInvokeData.back();
+
+		v.m_Charge = v.s_ChargeAdv;
+		v.m_Adv.m_Height.m_Min = hMin;
+		v.m_Adv.m_Height.m_Max = hMax;
+		v.m_Adv.m_Fee = fee;
+
+		m_Secp.m_Point.FindStrict(ptExtraNonce).m_Val.Export(v.m_Adv.m_ptExtraNonce);
+		m_Secp.m_Scalar.FindStrict(skExtraSig).m_Val.Export(v.m_Adv.m_kExtraSig);
+		m_Secp.m_Scalar.FindStrict(skBlindChallenge).m_Val.Export(v.m_Adv.m_kBlindChallenge);
+
+		get_SlotPreimageInternal(v.m_Adv.m_hvBlind, iSlotBlind);
+		SlotErase(iSlotBlind);
+
+		get_SlotPreimageInternal(v.m_Adv.m_hvNonce, iSlotNonce);
+		SlotErase(iSlotNonce);
+	}
+
+	BVM_METHOD(GenerateKernelAdvanced)
+	{
+		const FundsChange* pFunds_ = get_ArrayAddrAsR<FundsChange>(pFunds, nFunds);
+		GenerateKernel(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, iMethod, Blob(get_AddrR(pArg, nArg), nArg), pFunds_, nFunds, true, RealizeStr(szComment), 0);
+
+		SetKernelAdv(fee, hMin, hMax, ptExtraNonce, skExtraSig, skBlindChallenge, iSlotBlind, iSlotNonce);
+	}
+
+	BVM_METHOD_HOST(GenerateKernelAdvanced)
+	{
+		GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, false, szComment, 0);
+
+		SetKernelAdv(fee, hMin, hMax, Secp::Point::From(ptExtraNonce), Secp::Scalar::From(skExtraSig), Secp::Scalar::From(skBlindChallenge), iSlotBlind, iSlotNonce);
 	}
 
 	BVM_METHOD(GenerateRandom)
