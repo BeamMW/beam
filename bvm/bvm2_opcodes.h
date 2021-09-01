@@ -357,6 +357,10 @@
 	macro(void*, pBuf) sep \
 	macro(uint32_t, nSize)
 
+#define BVMOp_get_SlotImage(macro, sep) \
+	macro(Secp_point&, res) sep \
+	macro(uint32_t, iSlot)
+
 #define BVMOp_get_Pk(macro, sep) \
 	macro(Secp_point&, res) sep \
 	macro(const void*, pID) sep \
@@ -447,6 +451,7 @@
 	macro(0x6C, uint32_t , DocGetBlob) \
 	macro(0x70, void     , GenerateKernel) \
 	macro(0xA0, void     , GenerateRandom) \
+	macro(0xA1, void     , get_SlotImage) \
 	macro(0xA3, void     , get_Pk) \
 
 #define EXTRA_LINE_BEFORE_EOF_SO_THAT_THE_STUPID_COMPILER_WONT_COMPLAIN_ABOUT_BACKSLASH_ON_PREVIOUS_LINE

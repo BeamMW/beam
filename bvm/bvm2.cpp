@@ -2407,6 +2407,28 @@ namespace bvm2 {
 			>> hv;
 	}
 
+	BVM_METHOD(get_SlotImage)
+	{
+		ECC::Hash::Value hv;
+		get_SlotPreimageInternal(hv, iSlot);
+
+		Wasm::Test(m_pPKdf != nullptr);
+		m_pPKdf->DerivePKeyG(m_Secp.m_Point.FindStrict(res).m_Val, hv);
+
+	}
+	BVM_METHOD_HOST_AUTO(get_SlotImage)
+
+	void ProcessorManager::get_SlotPreimageInternal(ECC::Hash::Value& hv, uint32_t iSlot)
+	{
+		Wasm::Test(iSlot < s_Slots);
+
+		if (!SlotLoad(hv, iSlot))
+		{
+			ECC::GenRandom(hv);
+			SlotSave(hv, iSlot);
+		}
+	}
+
 	uint8_t* ProcessorManager::ResizeAux(uint32_t nSize)
 	{
 		if (m_AuxAlloc.m_Size < nSize)
