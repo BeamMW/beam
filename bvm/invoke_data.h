@@ -45,9 +45,11 @@ namespace beam::bvm2 {
 			Amount m_Fee;
 			ECC::Point m_ptExtraNonce;
 			ECC::Scalar m_kExtraSig;
-			ECC::Scalar m_kBlindChallenge;
 			ECC::Hash::Value m_hvBlind;
 			ECC::Hash::Value m_hvNonce;
+
+			std::vector<ECC::Point> m_vPks;
+
 		} m_Adv;
 
 		FundsMap m_Spend; // ins - outs, not including fee
@@ -79,13 +81,16 @@ namespace beam::bvm2 {
 					& m_Adv.m_Fee
 					& m_Adv.m_ptExtraNonce
 					& m_Adv.m_kExtraSig
-					& m_Adv.m_kBlindChallenge
 					& m_Adv.m_hvBlind
-					& m_Adv.m_hvNonce;
+					& m_Adv.m_hvNonce
+					& m_Adv.m_vPks;
 			}
 		}
 
 		void Generate(Transaction&, Key::IKdf&, const HeightRange& hr, Amount fee) const;
+
+		void Generate(std::unique_ptr<TxKernelContractControl>&, ECC::Scalar::Native& sk, Key::IKdf&, const HeightRange& hr, Amount fee, ECC::Scalar::Native* pE) const;
+
 		[[nodiscard]] Amount get_FeeMin(Height) const;
 
 	private:

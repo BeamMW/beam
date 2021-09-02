@@ -2806,7 +2806,6 @@ namespace bvm2 {
 
 		m_Secp.m_Point.FindStrict(ptExtraNonce).m_Val.Export(v.m_Adv.m_ptExtraNonce);
 		m_Secp.m_Scalar.FindStrict(skExtraSig).m_Val.Export(v.m_Adv.m_kExtraSig);
-		m_Secp.m_Scalar.FindStrict(skBlindChallenge).m_Val.Export(v.m_Adv.m_kBlindChallenge);
 
 		get_SlotPreimageInternal(v.m_Adv.m_hvBlind, iSlotBlind);
 		SlotErase(iSlotBlind);

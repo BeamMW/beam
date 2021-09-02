@@ -16,10 +16,8 @@
 
 namespace beam::bvm2 {
 
-    void ContractInvokeEntry::Generate(Transaction& tx, Key::IKdf& kdf, const HeightRange& hr, Amount fee) const
+    void ContractInvokeEntry::Generate(std::unique_ptr<TxKernelContractControl>& pKrn, ECC::Scalar::Native& sk, Key::IKdf& kdf, const HeightRange& hr, Amount fee, ECC::Scalar::Native* pE) const
 	{
-		std::unique_ptr<TxKernelContractControl> pKrn;
-
 		if (m_iMethod)
 		{
 			pKrn = std::make_unique<TxKernelContractInvoke>();
@@ -48,15 +46,6 @@ namespace beam::bvm2 {
 			pKrn->m_Height = hr;
 		}
 
-		pKrn->m_Commitment = Zero;
-		pKrn->UpdateMsg();
-
-		std::vector<ECC::Scalar::Native> vSk;
-		vSk.resize(m_vSig.size() + 1);
-
-		for (uint32_t i = 0; i < m_vSig.size(); i++)
-			kdf.DeriveKey(vSk[i], m_vSig[i]);
-
 		FundsChangeMap fcm;
 		for (auto it = m_Spend.begin(); m_Spend.end() != it; it++)
 		{
@@ -70,13 +59,12 @@ namespace beam::bvm2 {
 		ECC::Point::Native ptFunds;
 		fcm.ToCommitment(ptFunds);
 
-		ECC::Scalar::Native& skKrn = vSk.back();
 
 		if (IsAdvanced())
 		{
 			ECC::Scalar::Native skNonce, skSig;
 			kdf.DeriveKey(skNonce, m_Adv.m_hvNonce);
-			kdf.DeriveKey(skKrn, m_Adv.m_hvBlind);
+			kdf.DeriveKey(sk, m_Adv.m_hvBlind);
 
 			ECC::Point::Native pt1, pt2;
 			pt1 = ECC::Context::get().G * skNonce;
@@ -85,12 +73,34 @@ namespace beam::bvm2 {
 
 			pKrn->m_Signature.m_NoncePub = pt1;
 
-			pt1 = ECC::Context::get().G * skKrn;
+			pt1 = ECC::Context::get().G * sk;
 			pt1 += ptFunds;
 			pKrn->m_Commitment = pt1;
 
-			skSig = m_Adv.m_kBlindChallenge;
-			skSig *= skKrn;
+			pKrn->UpdateMsg();
+
+			ECC::Hash::Processor hp;
+			hp << pKrn->m_Msg;
+
+			for (uint32_t i = 0; i < m_Adv.m_vPks.size(); i++)
+				hp << m_Adv.m_vPks[i];
+
+			ECC::Hash::Value hv;
+			hp
+				<< pKrn->m_Commitment
+				>> hv;
+
+			ECC::Oracle oracle;
+			pKrn->m_Signature.Expose(oracle, hv);
+
+			for (uint32_t i = 0; i < m_Adv.m_vPks.size() + 1; i++)
+			{
+				oracle >> skSig;
+				if (pE)
+					pE[i] = skSig;
+			}
+
+			skSig *= sk;
 			skSig += skNonce;
 
 			skNonce = m_Adv.m_kExtraSig;
@@ -98,20 +108,43 @@ namespace beam::bvm2 {
 
 			skSig = -skSig; // our formula is sig.ptNonce + Pk[i]*e[i] + G*sig.k == 0
 			pKrn->m_Signature.m_k = skSig;
+
+			pKrn->MsgToID();
 		}
 		else
 		{
+			std::vector<ECC::Scalar::Native> vSk;
+			vSk.resize(m_vSig.size() + 1);
+
+			for (uint32_t i = 0; i < m_vSig.size(); i++)
+				kdf.DeriveKey(vSk[i], m_vSig[i]);
+
+			ECC::Scalar::Native& skKrn = vSk.back();
+
+			pKrn->m_Commitment = Zero;
+			pKrn->UpdateMsg();
+
 			ECC::Hash::Value hv;
 			get_SigPreimage(hv, pKrn->m_Msg);
+
 			kdf.DeriveKey(skKrn, hv);
+			sk = skKrn;
 
 			pKrn->Sign(&vSk.front(), static_cast<uint32_t>(vSk.size()), ptFunds);
 		}
 
+	}
+
+	void ContractInvokeEntry::Generate(Transaction& tx, Key::IKdf& kdf, const HeightRange& hr, Amount fee) const
+	{
+		std::unique_ptr<TxKernelContractControl> pKrn;
+		ECC::Scalar::Native sk;
+		Generate(pKrn, sk, kdf, hr, fee, nullptr);
+
 		tx.m_vKernels.push_back(std::move(pKrn));
 
 		ECC::Scalar::Native kOffs(tx.m_Offset);
-		kOffs += -skKrn;
+		kOffs += -sk;
 		tx.m_Offset = kOffs;
 	}
 
