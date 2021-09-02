@@ -222,7 +222,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
 
             if(libVersion) 
             {
-                std::string myLibVersionStr = PROJECT_VERSION;
+                std::string myLibVersionStr(PROJECT_VERSION);
                 std::regex libVersionRegex("\\d{1,}\\.\\d{1,}\\.\\d{4,}");
                 if (std::regex_match(*libVersion, libVersionRegex) &&
                         std::lexicographical_compare(
@@ -528,7 +528,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(getLibVersion)(JNIEnv *env, jobject thiz)
 {
-    jstring str = env->NewStringUTF(PROJECT_VERSION.c_str());
+    jstring str = env->NewStringUTF(PROJECT_VERSION.data());
 
     return str;
 }
