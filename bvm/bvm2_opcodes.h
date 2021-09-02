@@ -385,15 +385,17 @@
 	macro(uint32_t, nArg) sep \
 	macro(const FundsChange*, pFunds) sep \
 	macro(uint32_t, nFunds) sep \
+	macro(const PubKey*, pSig) sep \
+	macro(uint32_t, nSig) sep \
 	macro(const char*, szComment) sep \
-	macro(Amount, fee) sep \
+	macro(uint32_t, nCharge) sep \
 	macro(Height, hMin) sep \
 	macro(Height, hMax) sep \
 	macro(const Secp_point&, ptExtraNonce) sep \
 	macro(const Secp_scalar&, skExtraSig) sep \
-	macro(const Secp_scalar&, skBlindChallenge) sep \
 	macro(uint32_t, iSlotBlind) sep \
-	macro(uint32_t, iSlotNonce)
+	macro(uint32_t, iSlotNonce) sep \
+	macro(Secp_scalar_data*, pChallenges)
 
 
 #define BVMOpsAll_Common(macro) \
