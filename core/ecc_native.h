@@ -630,7 +630,7 @@ namespace ECC
 	{
 		void Finalize(Value&);
 	public:
-		Mac() {}
+		Mac() = default;
 		Mac(const void* pSecret, uint32_t nSecret) { Reset(pSecret, nSecret); }
 		~Mac() { SecureErase(*this); }
 
@@ -831,7 +831,7 @@ namespace ECC
 		Hash::Value m_hvChecksum; // all the generators and signature version. In case we change seed strings or formula
 
 	private:
-		Context() {}
+		Context() = default;
 	};
 
 	// simple pseudo-random generator. For tests only
@@ -977,7 +977,7 @@ namespace ECC
 		Scalar::Native m_tau1;
 		Scalar::Native m_tau2;
 
-		Nonces() {}
+		Nonces() = default;
 		Nonces(const uintBig& seedSk) { Init(seedSk); }
 
 		void Init(const uintBig& seedSk);

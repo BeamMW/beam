@@ -510,7 +510,7 @@ NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::CongestionCache::F
 {
 	TipCongestion* pRet = nullptr;
 
-	for (TipList::iterator it = m_lstTips.begin(); m_lstTips.end() != it; it++)
+	for (TipList::iterator it = m_lstTips.begin(); m_lstTips.end() != it; ++it)
 	{
 		TipCongestion& x = *it;
 		if (!x.IsContained(sid))
@@ -745,7 +745,7 @@ void NodeProcessor::EnumCongestions()
 	}
 
 	// request missing data
-	for (CongestionCache::TipList::iterator it = m_CongestionCache.m_lstTips.begin(); m_CongestionCache.m_lstTips.end() != it; it++)
+	for (CongestionCache::TipList::iterator it = m_CongestionCache.m_lstTips.begin(); m_CongestionCache.m_lstTips.end() != it; ++it)
 	{
 		CongestionCache::TipCongestion& x = *it;
 
@@ -1499,7 +1499,7 @@ struct NodeProcessor::MultiblockContext
 
 		for (uint32_t i = 0; i < pars.m_nVerifiers; i++)
 		{
-			std::unique_ptr<MyTask> pTask(new MyTask);
+			auto pTask = std::make_unique<MyTask>();
 			pTask->m_pShared = pShared;
 			pTask->m_iVerifier = i;
 			ex.Push(std::move(pTask));
@@ -3383,7 +3383,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::EnsureNoVars(const bvm2::Co
 	if (m_Bic.m_Temporary)
 	{
 		// pass 2. make sure no unsaved variables too
-		for (auto it = m_Bic.m_ContractVars.lower_bound(Blob(cid), BlobMap::Set::Comparator()); m_Bic.m_ContractVars.end() != it; it++)
+		for (auto it = m_Bic.m_ContractVars.lower_bound(Blob(cid), BlobMap::Set::Comparator()); m_Bic.m_ContractVars.end() != it; ++it)
 		{
 			const auto& e = *it;
 			if (!IsOwnedVar(cid, e.ToBlob()))
@@ -4975,7 +4975,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDestroy(Asset::ID aid,
 
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 {
-	ByteBuffer key, dummy;
+	ByteBuffer key;
 	for (RecoveryTag::Type nTag = 0; ; )
 	{
 		BlockInterpretCtx::Der der(m_Bic);
@@ -6494,7 +6494,7 @@ void NodeProcessor::InitializeUtxos()
 	struct Walker
 		:public ITxoWalker_UnspentNaked
 	{
-		TxoID m_TxosTotal;
+		TxoID m_TxosTotal = 0;
 		NodeProcessor& m_This;
 		Walker(NodeProcessor& x) :m_This(x) {}
 
@@ -6786,7 +6786,7 @@ void NodeProcessor::RebuildNonStd()
 		:public IKrnWalker
 	{
 		NodeProcessor& m_This;
-		BlockInterpretCtx* m_pBic;
+		BlockInterpretCtx* m_pBic = nullptr;
 		KrnWalkerRebuild(NodeProcessor& p) :m_This(p) {}
 
 		ByteBuffer m_Rollback;

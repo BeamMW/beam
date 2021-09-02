@@ -1225,7 +1225,6 @@ namespace
 
         if (vm.count(cli::TX_HISTORY))
         {
-            auto txSimple  = walletDB->getTxHistory(TxType::Simple);
             auto txReg     = walletDB->getTxHistory(TxType::AssetReg);
             auto txIssue   = walletDB->getTxHistory(TxType::AssetIssue);
             auto txConsume = walletDB->getTxHistory(TxType::AssetConsume);
@@ -1235,6 +1234,7 @@ namespace
 
             if (assetId != Asset::s_InvalidID)
             {
+                auto txSimple = walletDB->getTxHistory(TxType::Simple);
                 txHistory.insert(txHistory.end(), txSimple.begin(), txSimple.end());
             }
 
@@ -2022,7 +2022,7 @@ namespace
         }
 
         Amount amountGroth = 0;
-        Amount limit = static_cast<Amount>(std::numeric_limits<AmountSigned>::max());
+        constexpr Amount limit = static_cast<Amount>(std::numeric_limits<AmountSigned>::max());
         if(!ReadAmount(vm, amountGroth, limit, true))
         {
             return boost::none;

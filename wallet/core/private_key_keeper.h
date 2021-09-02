@@ -109,7 +109,7 @@ namespace beam::wallet
 
             struct CreateVoucherShielded
             {
-                WalletIDKey m_MyIDKey;
+                WalletIDKey m_MyIDKey = 0;
                 ECC::Hash::Value m_Nonce;
                 uint32_t m_Count = 1; // the result amount of vouchers may be less (i.e. there's an internal limit)
                 std::vector<ShieldedTxo::Voucher> m_Res;

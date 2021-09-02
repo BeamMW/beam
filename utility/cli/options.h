@@ -285,7 +285,7 @@ namespace beam
     struct Nonnegative {
         static_assert(std::is_unsigned<T>::value, "Nonnegative<T> requires unsigned type.");
 
-        Nonnegative() {}
+        Nonnegative() = default;
         explicit Nonnegative(const T& v) : value(v) {}
 
         T value = 0;
@@ -295,7 +295,7 @@ namespace beam
     struct NonnegativeFloatingPoint {
         static_assert(std::is_floating_point<T>::value, "NonnegativeFloatingPoint<T> requires floating_point type.");
 
-        NonnegativeFloatingPoint() {}
+        NonnegativeFloatingPoint() = default;
         explicit NonnegativeFloatingPoint(const T& v) : value(v) {}
 
         T value = 0;
@@ -305,7 +305,7 @@ namespace beam
     struct Positive {
         static_assert(std::is_arithmetic<T>::value, "Positive<T> requires numerical type.");
 
-        Positive() {}
+        Positive() = default;
         explicit Positive(const T& v) : value(v) {}
 
         T value = 0;

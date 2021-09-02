@@ -661,7 +661,7 @@ namespace beam::wallet
         WalletID m_From = Zero;
         TxID m_TxID;
 
-        TxType m_Type;
+        TxType m_Type = TxType::Simple;
 
         PackedTxParameters m_Parameters = {};
         
@@ -763,7 +763,7 @@ namespace beam::wallet
     struct PaymentConfirmation : public ConfirmationBase
     {
         // I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
-        Amount m_Value;
+        Amount m_Value = 0;
         Asset::ID m_AssetID = Asset::s_InvalidID;
         ECC::Hash::Value m_KernelID;
         PeerID m_Sender;

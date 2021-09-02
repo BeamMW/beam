@@ -60,7 +60,7 @@ namespace beam
 		return m_RangeProof.IsValid(comm, oracle, &hGen);
 	}
 
-	void ShieldedTxo::operator = (const ShieldedTxo& v)
+	ShieldedTxo& ShieldedTxo::operator = (const ShieldedTxo& v)
 	{
 		m_Ticket = v.m_Ticket;
 		m_Commitment = v.m_Commitment;
@@ -70,6 +70,7 @@ namespace beam
 			v.m_pAsset->Clone(m_pAsset);
 		else
 			m_pAsset.reset();
+		return *this;
 	}
 
 	void ShieldedTxo::UpdateState(ECC::Hash::Value& hv, const ECC::Point::Storage& pt_s)
