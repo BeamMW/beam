@@ -788,13 +788,13 @@ namespace beam::wallet
                 switch (m_status)
                 {
                 case TxStatus::Registering:
-                    return "in progress max privacy";
+                    return m_selfTx ? "sending max privacy to own address" : "in progress max privacy";
                 case TxStatus::Failed:
                     return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed max privacy";
                 case TxStatus::Canceled:
                     return "canceled max privacy";
                 case TxStatus::Completed:
-                    return m_sender ? "sent max privacy" : "received max privacy";
+                    return m_selfTx ? "sent max privacy to own address" : (m_sender ? "sent max privacy" : "received max privacy");
                 default:
                     break;
                 }
@@ -803,13 +803,13 @@ namespace beam::wallet
                 switch (m_status)
                 {
                 case TxStatus::Registering:
-                    return "in progress offline";
+                    return m_selfTx ? "sending offline to own address" : "in progress offline";
                 case TxStatus::Failed:
                     return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed offline";
                 case TxStatus::Canceled:
                     return "canceled offline";
                 case TxStatus::Completed:
-                    return m_sender ? "sent offline" : "received offline";
+                    return m_selfTx ? "sent offline to own address" : (m_sender ? "sent offline" : "received offline");
                 default:
                     break;
                 }
@@ -818,13 +818,13 @@ namespace beam::wallet
                 switch (m_status)
                 {
                 case TxStatus::Registering:
-                    return "in progress public offline";
+                    return m_selfTx ? "sending offline to own address" : "in progress public offline";
                 case TxStatus::Failed:
                     return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed public offline";
                 case TxStatus::Canceled:
                     return "canceled public offline";
                 case TxStatus::Completed:
-                    return m_sender ? "sent public offline" : "received public offline";
+                    return m_selfTx ? "sent offline to own address" : (m_sender ? "sent public offline" : "received public offline");
                 default:
                     break;
                 }

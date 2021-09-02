@@ -26,6 +26,7 @@ namespace beam
 
 	const Height MaxHeight = std::numeric_limits<Height>::max();
 	const uint8_t MaxPrivacyAnonimitySetFractionsCount = 64;
+	const uint8_t kIsSelfTxBit = 0b00000001;
 
 	struct PeerID :public ECC::uintBig
 	{
@@ -732,7 +733,12 @@ namespace beam
 				// if value less than 64 - allow extract coin from pool before anonymity set was reached
 				uint8_t m_MaxPrivacyMinAnonymitySet;
 				uint64_t m_ReceiverOwnID;
-				uint8_t m_Padding[sizeof(m_pMessage) - sizeof(TxID) - sizeof(uint8_t) - sizeof(uint64_t)];
+				uint8_t m_Flags;
+				uint8_t m_Padding[sizeof(m_pMessage)
+									- sizeof(TxID)
+									- sizeof(uint8_t)
+									- sizeof(uint64_t)
+									- sizeof(uint8_t)];
 			};
 #pragma pack (pop)
 			static PackedMessage* ToPackedMessage(User& user)

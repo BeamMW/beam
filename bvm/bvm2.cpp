@@ -2370,15 +2370,33 @@ namespace bvm2 {
 		return nRet;
 	}
 
+	void ProcessorManager::DerivePkInternal(ECC::Point::Native& res, const Blob& b)
+	{
+		ECC::Hash::Value hv;
+		DeriveKeyPreimage(hv, b);
+
+		Wasm::Test(m_pPKdf != nullptr);
+		m_pPKdf->DerivePKeyG(res, hv);
+	}
+
 	BVM_METHOD(DerivePk)
 	{
 		return OnHost_DerivePk(get_AddrAsW<PubKey>(pubKey), get_AddrR(pID, nID), nID);
 	}
 	BVM_METHOD_HOST(DerivePk)
 	{
-		ECC::Hash::Value hv;
-		DeriveKeyPreimage(hv, Blob(pID, nID));
-		DerivePk(pubKey, hv);
+		ECC::Point::Native pt;
+		DerivePkInternal(pt, Blob(pID, nID));
+		pt.Export(pubKey);
+	}
+
+	BVM_METHOD(get_Pk)
+	{
+		DerivePkInternal(m_Secp.m_Point.FindStrict(res).m_Val, Blob(get_AddrR(pID, nID), nID));
+	}
+	BVM_METHOD_HOST(get_Pk)
+	{
+		DerivePkInternal(m_Secp.m_Point.FindStrict(Secp::Point::From(res)).m_Val, Blob(pID, nID));
 	}
 
 	void ProcessorManager::DeriveKeyPreimage(ECC::Hash::Value& hv, const Blob& b)
@@ -2387,6 +2405,75 @@ namespace bvm2 {
 			<< "bvm.m.key"
 			<< b
 			>> hv;
+	}
+
+	BVM_METHOD(get_SlotImage)
+	{
+		ECC::Hash::Value hv;
+		get_SlotPreimageInternal(hv, iSlot);
+
+		Wasm::Test(m_pPKdf != nullptr);
+		m_pPKdf->DerivePKeyG(m_Secp.m_Point.FindStrict(res).m_Val, hv);
+
+	}
+	BVM_METHOD_HOST_AUTO(get_SlotImage)
+
+	BVM_METHOD(get_SlotImageEx)
+	{
+		ECC::Hash::Value hv;
+		get_SlotPreimageInternal(hv, iSlot);
+
+		ECC::Scalar::Native sk;
+		get_Sk(sk, hv);
+
+		m_Secp.m_Point.FindStrict(res).m_Val = m_Secp.m_Point.FindStrict(gen).m_Val * sk;
+	}
+	BVM_METHOD_HOST_AUTO(get_SlotImageEx)
+
+	BVM_METHOD(get_BlindSk)
+	{
+		get_BlindSkInternal(res, mul, iSlot, Blob(get_AddrR(pID, nID), nID));
+	}
+	BVM_METHOD_HOST(get_BlindSk)
+	{
+		get_BlindSkInternal(Secp::Scalar::From(res), Secp::Scalar::From(mul), iSlot, Blob(pID, nID));
+	}
+
+	void ProcessorManager::get_SlotPreimageInternal(ECC::Hash::Value& hv, uint32_t iSlot)
+	{
+		Wasm::Test(iSlot < s_Slots);
+
+		if (!SlotLoad(hv, iSlot))
+		{
+			ECC::GenRandom(hv);
+			SlotSave(hv, iSlot);
+		}
+	}
+
+	void ProcessorManager::get_Sk(ECC::Scalar::Native& sk, const ECC::Hash::Value& hv)
+	{
+		Wasm::Test(m_pKdf != nullptr);
+		m_pKdf->DeriveKey(sk, hv);
+	}
+
+	void ProcessorManager::get_BlindSkInternal(uint32_t iRes, uint32_t iMul, uint32_t iSlot, const Blob& b)
+	{
+		ECC::Hash::Value hv;
+		DeriveKeyPreimage(hv, b);
+
+		// careful, iRes, iMul don't have to be distinct
+		ECC::Scalar::Native sk;
+		get_Sk(sk, hv);
+
+		sk *= m_Secp.m_Scalar.FindStrict(iMul).m_Val;
+
+		get_SlotPreimageInternal(hv, iSlot);
+		SlotErase(iSlot); // important!
+
+		auto& res = m_Secp.m_Scalar.FindStrict(iRes).m_Val;
+
+		get_Sk(res, hv);
+		res += sk;
 	}
 
 	uint8_t* ProcessorManager::ResizeAux(uint32_t nSize)
@@ -2640,10 +2727,11 @@ namespace bvm2 {
 		};
 #pragma pack (pop)
 
-		auto* pSig_ = get_ArrayAddrAsR<SigRequest>(pSig, nSig);
+		const FundsChange* pFunds_ = get_ArrayAddrAsR<FundsChange>(pFunds, nFunds);
+		auto& v = GenerateKernel(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, iMethod, Blob(get_AddrR(pArg, nArg), nArg), pFunds_, nFunds, true, RealizeStr(szComment), nCharge);
 
-		std::vector<ECC::Hash::Value> vPreimages;
-		vPreimages.reserve(nSig);
+		auto* pSig_ = get_ArrayAddrAsR<SigRequest>(pSig, nSig);
+		v.m_vSig.reserve(nSig);
 
 		for (uint32_t i = 0; i < nSig; i++)
 		{
@@ -2651,32 +2739,132 @@ namespace bvm2 {
 			SigRequest x;
 			x.m_pID = Wasm::from_wasm(x_.m_pID);
 			x.m_nID = Wasm::from_wasm(x_.m_nID);
-			DeriveKeyPreimage(vPreimages.emplace_back(), Blob(get_AddrR(x.m_pID, x.m_nID), x.m_nID));
+			DeriveKeyPreimage(v.m_vSig.emplace_back(), Blob(get_AddrR(x.m_pID, x.m_nID), x.m_nID));
 		}
 
-		FundsChange* pFunds_ = Cast::NotConst(get_ArrayAddrAsR<FundsChange>(pFunds, nFunds));
-		for (uint32_t i = 0; i < nFunds; i++)
-			pFunds_[i].Convert<true>();
-
-		Wasm::Test(pCid || !iMethod); // only c'tor can be invoked without cid
-
-		GenerateKernel(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, iMethod, Blob(get_AddrR(pArg, nArg), nArg), pFunds_, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig, RealizeStr(szComment), nCharge);
-
-		for (uint32_t i = 0; i < nFunds; i++)
-			pFunds_[i].Convert<false>();
 	}
 	BVM_METHOD_HOST(GenerateKernel)
 	{
-		std::vector<ECC::Hash::Value> vPreimages;
-		vPreimages.reserve(nSig);
+		auto& v = GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, false, szComment, nCharge);
+
+		v.m_vSig.reserve(nSig);
 
 		for (uint32_t i = 0; i < nSig; i++)
 		{
 			const auto& x = pSig[i];
-			DeriveKeyPreimage(vPreimages.emplace_back(), Blob(x.m_pID, x.m_nID));
+			DeriveKeyPreimage(v.m_vSig.emplace_back(), Blob(x.m_pID, x.m_nID));
+		}
+	}
+
+	ContractInvokeEntry& ProcessorManager::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, bool bCvtFunds, const char* szComment, uint32_t nCharge)
+	{
+		Wasm::Test(nCharge != ContractInvokeEntry::s_ChargeAdv);
+
+		auto& v = m_vInvokeData.emplace_back();
+
+		if (iMethod)
+		{
+			Wasm::Test(pCid != nullptr); // only c'tor can be invoked without cid
+			v.m_Cid = *pCid;
+		}
+		else
+		{
+			v.m_Cid = Zero;
+			get_ContractShader(v.m_Data);
 		}
 
-		GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig, szComment, nCharge);
+		v.m_iMethod = iMethod;
+		args.Export(v.m_Args);
+		v.m_sComment = szComment;
+		v.m_Charge = nCharge;
+
+		for (uint32_t i = 0; i < nFunds; i++)
+		{
+			auto x = pFunds[i];
+			if (bCvtFunds)
+				x.Convert<false>();
+
+			AmountSigned val = x.m_Amount;
+			if (!x.m_Consume)
+				val = -val;
+
+			v.m_Spend.AddSpend(x.m_Aid, val);
+		}
+
+		return v;
+	}
+
+	void ProcessorManager::SetKernelAdv(Height hMin, Height hMax, uint32_t ptExtraNonce, uint32_t skExtraSig, uint32_t iSlotBlind, uint32_t iSlotNonce, const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE)
+	{
+		assert(!m_vInvokeData.empty());
+		auto& v = m_vInvokeData.back();
+
+		v.m_Adv.m_Height.m_Min = hMin;
+		v.m_Adv.m_Height.m_Max = hMax;
+
+		v.m_Adv.m_Fee = v.get_FeeMin(hMin);
+		v.m_Charge = v.s_ChargeAdv;
+
+		// add fees for possible tx outputs
+		{
+			uint32_t nPossibleOutputs = static_cast<uint32_t>(v.m_Spend.size());
+			if (v.m_Spend.find(0) == v.m_Spend.end())
+				nPossibleOutputs++; // assume always Beam output, even though not directly tx in/out
+
+			const auto& fs = Transaction::FeeSettings::get(hMin);
+			v.m_Adv.m_Fee += std::max(fs.get_DefaultStd(), fs.m_Output * nPossibleOutputs);
+		}
+
+		v.m_Adv.m_vPks.assign(pSig, pSig + nSig);
+
+		m_Secp.m_Point.FindStrict(ptExtraNonce).m_Val.Export(v.m_Adv.m_ptExtraNonce);
+
+		get_SlotPreimageInternal(v.m_Adv.m_hvBlind, iSlotBlind);
+		get_SlotPreimageInternal(v.m_Adv.m_hvNonce, iSlotNonce);
+
+		if (pE)
+		{
+			Wasm::Test(m_pKdf != nullptr);
+
+			std::unique_ptr<TxKernelContractControl> pKrn;
+			ECC::Scalar::Native sk;
+
+			v.Generate(pKrn, sk, *m_pKdf, v.m_Adv.m_Height, v.m_Adv.m_Fee, pE);
+
+			m_vInvokeData.pop_back(); // no more needed
+		}
+		else
+		{
+			m_Secp.m_Scalar.FindStrict(skExtraSig).m_Val.Export(v.m_Adv.m_kExtraSig);
+			SlotErase(iSlotBlind);
+			SlotErase(iSlotNonce);
+		}
+	}
+
+	BVM_METHOD(GenerateKernelAdvanced)
+	{
+		const FundsChange* pFunds_ = get_ArrayAddrAsR<FundsChange>(pFunds, nFunds);
+		GenerateKernel(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, iMethod, Blob(get_AddrR(pArg, nArg), nArg), pFunds_, nFunds, true, RealizeStr(szComment), nCharge);
+
+		const PubKey* pSig_ = get_ArrayAddrAsR<PubKey>(pSig, nSig);
+		ECC::Scalar* pE = pChallenges ? get_ArrayAddrAsW<ECC::Scalar>(pChallenges, nSig) : nullptr;
+
+		SetKernelAdv(hMin, hMax, ptExtraNonce, skExtraSig, iSlotBlind, iSlotNonce, pSig_, nSig, pE);
+	}
+
+	BVM_METHOD_HOST(GenerateKernelAdvanced)
+	{
+		GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, false, szComment, nCharge);
+		SetKernelAdv(hMin, hMax, Secp::Point::From(ptExtraNonce), Secp::Scalar::From(skExtraSig), iSlotBlind, iSlotNonce, pSig, nSig, pChallenges);
+	}
+
+	BVM_METHOD(GenerateRandom)
+	{
+		OnHost_GenerateRandom(get_AddrW(pBuf, nSize), nSize);
+	}
+	BVM_METHOD_HOST(GenerateRandom)
+	{
+		ECC::GenRandom(pBuf, nSize);
 	}
 
 #undef BVM_METHOD_BinaryVar

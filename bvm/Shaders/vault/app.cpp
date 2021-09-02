@@ -209,11 +209,47 @@ ON_METHOD(my_account, move)
         MyAccountID myid;
         myid.m_Cid = cid;
 
+#if 0
+
+        PubKey pkMy;
+        Env::DerivePk(pkMy, &myid, sizeof(myid));
+
+        Height hMin = Env::get_Height() + 1;
+        Height hMax = hMin + 10;
+
+        const uint32_t iSlotMy = 0;
+        const uint32_t iSlotKrn = 1;
+        const uint32_t iSlotBlind = 2;
+
+        Secp_scalar* s0 = Env::Secp_Scalar_alloc();
+        Secp_point* p0 = Env::Secp_Point_alloc();
+        Env::get_SlotImage(*p0, iSlotMy);
+
+        Secp_scalar_data pE[1]; // my challenge
+
+        // 1st call. Show our pk and nonce image (denoted by slot). Get the challenge
+        Env::GenerateKernelAdvanced(&cid, Vault::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &pkMy, 1, "", 0, hMin, hMax, *p0, *s0, iSlotBlind, iSlotKrn, pE);
+
+        Env::Secp_Scalar_import(*s0, pE[0]);
+
+        // get the blinded sk.
+        Env::get_BlindSk(*s0, &myid, sizeof(myid), *s0, iSlotMy);
+
+        // 2nd call. Same args, this time we put real sk (blinded, answering the correct challenge)
+        Env::GenerateKernelAdvanced(&cid, Vault::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &pkMy, 1, "withdraw from Vault", 0, hMin, hMax, *p0, *s0, iSlotBlind, iSlotKrn, nullptr);
+
+        Env::Secp_Scalar_free(*s0);
+        Env::Secp_Point_free(*p0);
+
+#else
+
         SigRequest sig;
         sig.m_pID = &myid;
         sig.m_nID = sizeof(myid);
 
         Env::GenerateKernel(&cid, Vault::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "withdraw from Vault", 0);
+
+#endif
     }
 }
 

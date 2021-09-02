@@ -16,10 +16,8 @@
 
 namespace beam::bvm2 {
 
-    void ContractInvokeEntry::Generate(Transaction& tx, Key::IKdf& kdf, const HeightRange& hr, Amount fee) const
+    void ContractInvokeEntry::Generate(std::unique_ptr<TxKernelContractControl>& pKrn, ECC::Scalar::Native& sk, Key::IKdf& kdf, const HeightRange& hr, Amount fee, ECC::Scalar* pE) const
 	{
-		std::unique_ptr<TxKernelContractControl> pKrn;
-
 		if (m_iMethod)
 		{
 			pKrn = std::make_unique<TxKernelContractInvoke>();
@@ -34,30 +32,19 @@ namespace beam::bvm2 {
 			krn.m_Data = m_Data;
 		}
 
-		pKrn->m_Args = m_Args;
-		pKrn->m_Fee = fee;
-		pKrn->m_Height = hr;
-		pKrn->m_Commitment = Zero;
-		pKrn->UpdateMsg();
+		auto& krn = *pKrn;
+		krn.m_Args = m_Args;
 
-		// seed everything to derive the blinding factor, add external random as well
-		ECC::Hash::Value hv;
-		ECC::GenRandom(hv);
-		ECC::Hash::Processor hp;
-		hp
-			<< hv
-			<< pKrn->m_Msg
-			<< m_Spend.size()
-			<< m_vSig.size();
-
-		std::vector<ECC::Scalar::Native> vSk;
-		vSk.resize(m_vSig.size() + 1);
-
-		for (uint32_t i = 0; i < m_vSig.size(); i++)
+		if (IsAdvanced())
 		{
-			const auto& hvSig = m_vSig[i];
-			kdf.DeriveKey(vSk[i], hvSig);
-			hp << hvSig;
+			// ignore args, use our params
+			krn.m_Fee = m_Adv.m_Fee;
+			krn.m_Height = m_Adv.m_Height;
+		}
+		else
+		{
+			krn.m_Fee = fee;
+			krn.m_Height = hr;
 		}
 
 		FundsChangeMap fcm;
@@ -65,33 +52,137 @@ namespace beam::bvm2 {
 		{
 			const auto& aid = it->first;
 			const auto& val = it->second;
-			bool bSpend = (val >= 0);
 
-			fcm.Add(bSpend ? val : -val, aid, !bSpend);
-			hp
-				<< aid
-				<< static_cast<Amount>(val);
+			bool bSpend = (val >= 0);
+			Amount valUns(val);
+
+			fcm.Add(bSpend ? valUns : (0 - valUns), aid, !bSpend);
 		}
 
 		ECC::Point::Native ptFunds;
 		fcm.ToCommitment(ptFunds);
 
-		ECC::Scalar::Native& skKrn = vSk.back();
 
-		hp >> hv;
-		kdf.DeriveKey(skKrn, hv);
+		if (IsAdvanced())
+		{
+			ECC::Scalar::Native skNonce, skSig;
+			kdf.DeriveKey(skNonce, m_Adv.m_hvNonce);
+			kdf.DeriveKey(sk, m_Adv.m_hvBlind);
 
-		pKrn->Sign(&vSk.front(), static_cast<uint32_t>(vSk.size()), ptFunds);
+			ECC::Point::Native pt1, pt2;
+			pt1 = ECC::Context::get().G * skNonce;
+			pt2.Import(m_Adv.m_ptExtraNonce); // don't care
+			pt1 += pt2;
+
+			krn.m_Signature.m_NoncePub = pt1;
+
+			pt1 = ECC::Context::get().G * sk;
+			pt1 += ptFunds;
+			krn.m_Commitment = pt1;
+
+			krn.UpdateMsg();
+
+			ECC::Hash::Processor hp;
+			hp << krn.m_Msg;
+
+			for (uint32_t i = 0; i < m_Adv.m_vPks.size(); i++)
+				hp << m_Adv.m_vPks[i];
+
+			ECC::Hash::Value hv;
+			hp
+				<< krn.m_Commitment
+				>> hv;
+
+			ECC::Oracle oracle;
+			krn.m_Signature.Expose(oracle, hv);
+
+			for (uint32_t i = 0; ; i++)
+			{
+				oracle >> skSig;
+				if (m_Adv.m_vPks.size() == i)
+					break;
+
+				if (pE)
+					pE[i] = skSig;
+			}
+
+			skSig *= sk;
+			skSig += skNonce;
+
+			skNonce = m_Adv.m_kExtraSig;
+			skSig += skNonce;
+
+			skSig = -skSig; // our formula is sig.ptNonce + Pk[i]*e[i] + G*sig.k == 0
+			krn.m_Signature.m_k = skSig;
+
+			krn.MsgToID();
+		}
+		else
+		{
+			std::vector<ECC::Scalar::Native> vSk;
+			vSk.resize(m_vSig.size() + 1);
+
+			for (uint32_t i = 0; i < m_vSig.size(); i++)
+				kdf.DeriveKey(vSk[i], m_vSig[i]);
+
+			ECC::Scalar::Native& skKrn = vSk.back();
+
+			krn.m_Commitment = Zero;
+			krn.UpdateMsg();
+
+			ECC::Hash::Value hv;
+			get_SigPreimage(hv, krn.m_Msg);
+
+			kdf.DeriveKey(skKrn, hv);
+			sk = skKrn;
+
+			krn.Sign(&vSk.front(), static_cast<uint32_t>(vSk.size()), ptFunds);
+		}
+
+	}
+
+	void ContractInvokeEntry::Generate(Transaction& tx, Key::IKdf& kdf, const HeightRange& hr, Amount fee) const
+	{
+		std::unique_ptr<TxKernelContractControl> pKrn;
+		ECC::Scalar::Native sk;
+		Generate(pKrn, sk, kdf, hr, fee, nullptr);
 
 		tx.m_vKernels.push_back(std::move(pKrn));
 
 		ECC::Scalar::Native kOffs(tx.m_Offset);
-		kOffs += -skKrn;
+		kOffs += -sk;
 		tx.m_Offset = kOffs;
+	}
+
+	void ContractInvokeEntry::get_SigPreimage(ECC::Hash::Value& hv, const ECC::Hash::Value& krnMsg) const
+	{
+		// seed everything to derive the blinding factor, add external random as well
+		ECC::GenRandom(hv);
+		ECC::Hash::Processor hp;
+		hp
+			<< hv
+			<< krnMsg
+			<< m_Spend.size()
+			<< m_vSig.size();
+
+		for (uint32_t i = 0; i < m_vSig.size(); i++)
+			hp << m_vSig[i];
+
+		for (auto it = m_Spend.begin(); m_Spend.end() != it; it++)
+		{
+			hp
+				<< it->first
+				<< static_cast<Amount>(it->second);
+		}
+
+		hp >> hv;
 	}
 
 	Amount ContractInvokeEntry::get_FeeMin(Height h) const
 	{
+		if (IsAdvanced())
+			return m_Adv.m_Fee;
+
 		const auto& fs = Transaction::FeeSettings::get(h);
 
 		Amount ret = std::max(fs.m_Bvm.m_ChargeUnitPrice * m_Charge, fs.m_Bvm.m_Minimum);

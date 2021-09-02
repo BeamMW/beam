@@ -2399,19 +2399,6 @@ namespace beam
 				{
 				}
 
-				void GenerateKernel(const bvm2::ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) override
-				{
-					bvm2::ManagerStd::GenerateKernel(pCid, iMethod, args, pFunds, nFunds, pSig, nSig, szComment, nCharge);
-
-					if (!iMethod)
-					{
-						assert(!m_vInvokeData.empty());
-						const auto& item = m_vInvokeData.back();
-
-						bvm2::get_Cid(m_This.m_Contract.m_Cid, item.m_Data, item.m_Args);
-					}
-				}
-
 				void OnDone(const std::exception* pExc) override
 				{
 					m_Done = true;
@@ -2440,6 +2427,36 @@ namespace beam
 					IMPLEMENT_GET_PARENT_OBJ(MyManager, m_DelayedStart)
 
 				} m_DelayedStart;
+
+				std::map<uint32_t, ECC::Hash::Value> m_Slots;
+
+				bool SlotLoad(ECC::Hash::Value& hv, uint32_t iSlot) override
+				{
+					auto it = m_Slots.find(iSlot);
+					if (m_Slots.end() == it)
+						return false;
+
+					hv = it->second;
+					return true;
+				}
+
+				void SlotSave(const ECC::Hash::Value& hv, uint32_t iSlot) override
+				{
+					m_Slots[iSlot] = hv;
+				}
+
+				void SlotErase(uint32_t iSlot) override
+				{
+					auto it = m_Slots.find(iSlot);
+					if (m_Slots.end() != it)
+						m_Slots.erase(it);
+				}
+
+				Height get_Height() override
+				{
+					return m_This.m_vStates.empty() ? 0 : m_This.m_vStates.back().m_Height;
+				}
+
 			};
 
 			std::unique_ptr<MyManager> m_pMan;
@@ -2542,6 +2559,9 @@ namespace beam
 							const auto& cdata = proc.m_vInvokeData[i];
 							fm += cdata.m_Spend;
 							fm.AddSpend(0, cdata.get_FeeMin(hr.m_Min));
+
+							if (!cdata.m_iMethod)
+								bvm2::get_Cid(m_Contract.m_Cid, cdata.m_Data, cdata.m_Args);
 						}
 
 						AmountSigned valSpend = fm[0]; // including fees. Would be negative if we're receiving funds
@@ -2572,6 +2592,7 @@ namespace beam
 				MyManager& proc = *m_pMan;
 
 				proc.m_pPKdf = m_Wallet.m_pKdf;
+				proc.m_pKdf = m_Wallet.m_pKdf; // enable privileged mode!
 
 				bvm2::Compile(proc.m_BodyManager, "vault/app.wasm", bvm2::Processor::Kind::Manager);
 				bvm2::Compile(proc.m_BodyContract, "vault/contract.wasm", bvm2::Processor::Kind::Contract);

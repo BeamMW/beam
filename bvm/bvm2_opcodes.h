@@ -353,6 +353,51 @@
 	macro(const char*, szComment) sep \
 	macro(uint32_t, nCharge)
 
+#define BVMOp_GenerateRandom(macro, sep) \
+	macro(void*, pBuf) sep \
+	macro(uint32_t, nSize)
+
+#define BVMOp_get_SlotImage(macro, sep) \
+	macro(Secp_point&, res) sep \
+	macro(uint32_t, iSlot)
+
+#define BVMOp_get_SlotImageEx(macro, sep) \
+	macro(Secp_point&, res) sep \
+	macro(const Secp_point&, gen) sep \
+	macro(uint32_t, iSlot)
+
+#define BVMOp_get_Pk(macro, sep) \
+	macro(Secp_point&, res) sep \
+	macro(const void*, pID) sep \
+	macro(uint32_t, nID)
+
+#define BVMOp_get_BlindSk(macro, sep) \
+	macro(Secp_scalar&, res) sep \
+	macro(const void*, pID) sep \
+	macro(uint32_t, nID) sep \
+	macro(const Secp_scalar&, mul) sep \
+	macro(uint32_t, iSlot)
+
+#define BVMOp_GenerateKernelAdvanced(macro, sep) \
+	macro(const ContractID*, pCid) sep \
+	macro(uint32_t, iMethod) sep \
+	macro(const void*, pArg) sep \
+	macro(uint32_t, nArg) sep \
+	macro(const FundsChange*, pFunds) sep \
+	macro(uint32_t, nFunds) sep \
+	macro(const PubKey*, pSig) sep \
+	macro(uint32_t, nSig) sep \
+	macro(const char*, szComment) sep \
+	macro(uint32_t, nCharge) sep \
+	macro(Height, hMin) sep \
+	macro(Height, hMax) sep \
+	macro(const Secp_point&, ptExtraNonce) sep \
+	macro(const Secp_scalar&, skExtraSig) sep \
+	macro(uint32_t, iSlotBlind) sep \
+	macro(uint32_t, iSlotNonce) sep \
+	macro(Secp_scalar_data*, pChallenges)
+
+
 #define BVMOpsAll_Common(macro) \
 	macro(0x10, void*    , Memcpy) \
 	macro(0x11, void*    , Memset) \
@@ -436,6 +481,12 @@
 	macro(0x6A, uint8_t  , DocGetNum32) \
 	macro(0x6B, uint8_t  , DocGetNum64) \
 	macro(0x6C, uint32_t , DocGetBlob) \
-	macro(0x70, void     , GenerateKernel)
+	macro(0x70, void     , GenerateKernel) \
+	macro(0xA0, void     , GenerateRandom) \
+	macro(0xA1, void     , get_SlotImage) \
+	macro(0xA2, void     , get_SlotImageEx) \
+	macro(0xA3, void     , get_Pk) \
+	macro(0xA4, void     , get_BlindSk) \
+	macro(0xA5, void     , GenerateKernelAdvanced) \
 
 #define EXTRA_LINE_BEFORE_EOF_SO_THAT_THE_STUPID_COMPILER_WONT_COMPLAIN_ABOUT_BACKSLASH_ON_PREVIOUS_LINE

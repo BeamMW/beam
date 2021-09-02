@@ -16,6 +16,7 @@
 #include "wasm_interpreter.h"
 #include "../utility/containers.h"
 #include "../core/block_crypt.h"
+#include "invoke_data.h"
 
 namespace Shaders {
 
@@ -224,10 +225,20 @@ namespace bvm2 {
 			return *reinterpret_cast<T*>(get_AddrW(nOffset, sizeof(T)));
 		}
 
-		template <typename T> const T* get_ArrayAddrAsR(uint32_t nOffset, uint32_t nCount) {
+		template <typename T>
+		static uint32_t ToArrSize(uint32_t nCount)
+		{
 			uint32_t nSize = sizeof(T) * nCount;
 			Wasm::Test(nSize / sizeof(T) == nCount); // overflow test
-			return reinterpret_cast<const T*>(get_AddrR(nOffset, nSize));
+			return nSize;
+		}
+
+		template <typename T> const T* get_ArrayAddrAsR(uint32_t nOffset, uint32_t nCount) {
+			return reinterpret_cast<const T*>(get_AddrR(nOffset, ToArrSize<T>(nCount)));
+		}
+
+		template <typename T> T* get_ArrayAddrAsW(uint32_t nOffset, uint32_t nCount) {
+			return reinterpret_cast<T*>(get_AddrW(nOffset, ToArrSize<T>(nCount)));
 		}
 
 		struct Header;
@@ -451,7 +462,15 @@ namespace bvm2 {
 		void DocID(const char*);
 		const std::string* FindArg(const char*);
 
-		void DeriveKeyPreimage(ECC::Hash::Value&, const Blob&);
+		static void DeriveKeyPreimage(ECC::Hash::Value&, const Blob&);
+		void DerivePkInternal(ECC::Point::Native&, const Blob&);
+
+		void get_SlotPreimageInternal(ECC::Hash::Value&, uint32_t);
+		void get_Sk(ECC::Scalar::Native&, const ECC::Hash::Value&);
+		void get_BlindSkInternal(uint32_t iRes, uint32_t iMul, uint32_t iSlot, const Blob&);
+
+		ContractInvokeEntry& GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, bool bCvtFunds, const char* szComment, uint32_t nCharge);
+		void SetKernelAdv(Height hMin, Height hMax, uint32_t ptExtraNonce, uint32_t skExtraSig, uint32_t iSlotBlind, uint32_t iSlotNonce, const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE);
 
 		uint32_t VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof);
 		uint32_t LogGetProofInternal(const HeightPos&, Wasm::Word& pProof);
@@ -494,15 +513,26 @@ namespace bvm2 {
 
 		virtual bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) { return false; }
 		virtual bool LogGetProof(const HeightPos&, beam::Merkle::Proof&) { return false; }
-		virtual void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value&) { ZeroObject(pubKey);  }
-		virtual void GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) {}
+		virtual void get_ContractShader(ByteBuffer&) {} // needed when app asks to deploy a contract
 		virtual bool get_SpecialParam(const char*, Blob&) { return false; }
 
+		virtual bool SlotLoad(ECC::Hash::Value&, uint32_t iSlot) { return false; }
+		virtual void SlotSave(const ECC::Hash::Value&, uint32_t iSlot) { }
+		virtual void SlotErase(uint32_t iSlot) { }
+
 	public:
+
+		static const uint32_t s_Slots = 10;
 
 		std::ostream* m_pOut;
 		bool m_NeedComma = false;
 		bool m_RawText = false; // don't perform json-style decoration
+
+		Key::IPKdf::Ptr m_pPKdf; // required for user-related info (account-specific pubkeys, etc.)
+
+		Key::IKdf::Ptr m_pKdf; // gives more access to the keys. Set only when app runs in a privileged mode
+
+		ContractInvokeData m_vInvokeData;
 
 		std::map<std::string, std::string> m_Args;
 		void set_ArgBlob(const char* sz, const Blob&);

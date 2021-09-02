@@ -32,6 +32,26 @@ namespace beam::bvm2 {
 		ByteBuffer m_Args;
 		std::vector<ECC::Hash::Value> m_vSig;
 		uint32_t m_Charge;
+
+		static const uint32_t s_ChargeAdv = static_cast<uint32_t>(-1);
+
+		bool IsAdvanced() const {
+			return s_ChargeAdv == m_Charge;
+		}
+
+		struct Advanced
+		{
+			HeightRange m_Height;
+			Amount m_Fee;
+			ECC::Point m_ptExtraNonce;
+			ECC::Scalar m_kExtraSig;
+			ECC::Hash::Value m_hvBlind;
+			ECC::Hash::Value m_hvNonce;
+
+			std::vector<ECC::Point> m_vPks;
+
+		} m_Adv;
+
 		FundsMap m_Spend; // ins - outs, not including fee
 		std::string m_sComment;
 
@@ -53,10 +73,29 @@ namespace beam::bvm2 {
 				m_Cid = Zero;
 				ar & m_Data;
 			}
+
+			if (IsAdvanced())
+			{
+				ar
+					& m_Adv.m_Height
+					& m_Adv.m_Fee
+					& m_Adv.m_ptExtraNonce
+					& m_Adv.m_kExtraSig
+					& m_Adv.m_hvBlind
+					& m_Adv.m_hvNonce
+					& m_Adv.m_vPks;
+			}
 		}
 
 		void Generate(Transaction&, Key::IKdf&, const HeightRange& hr, Amount fee) const;
+
+		void Generate(std::unique_ptr<TxKernelContractControl>&, ECC::Scalar::Native& sk, Key::IKdf&, const HeightRange& hr, Amount fee, ECC::Scalar* pE) const;
+
 		[[nodiscard]] Amount get_FeeMin(Height) const;
+
+	private:
+
+		void get_SigPreimage(ECC::Hash::Value&, const ECC::Hash::Value& krnMsg) const;
 	};
 
 	typedef std::vector<ContractInvokeEntry> ContractInvokeData;
