@@ -6041,6 +6041,10 @@ namespace beam::wallet
             }
             storage::setTxParameter(db, txID, TxParameterID::AddressType, addressType, true);
 
+            bool isSelfTx = message->m_Flags & kIsSelfTxBit;
+            storage::setTxParameter(db, txID, TxParameterID::IsSelfTx, isSelfTx, true);
+            storage::setTxParameter(db, txID, TxParameterID::IsSender, isSelfTx, true);
+
             auto tx = db.getTx(txID);
             if (tx)
             {
