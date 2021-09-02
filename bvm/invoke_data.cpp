@@ -32,18 +32,19 @@ namespace beam::bvm2 {
 			krn.m_Data = m_Data;
 		}
 
-		pKrn->m_Args = m_Args;
+		auto& krn = *pKrn;
+		krn.m_Args = m_Args;
 
 		if (IsAdvanced())
 		{
 			// ignore args, use our params
-			pKrn->m_Fee = m_Adv.m_Fee;
-			pKrn->m_Height = m_Adv.m_Height;
+			krn.m_Fee = m_Adv.m_Fee;
+			krn.m_Height = m_Adv.m_Height;
 		}
 		else
 		{
-			pKrn->m_Fee = fee;
-			pKrn->m_Height = hr;
+			krn.m_Fee = fee;
+			krn.m_Height = hr;
 		}
 
 		FundsChangeMap fcm;
@@ -51,9 +52,11 @@ namespace beam::bvm2 {
 		{
 			const auto& aid = it->first;
 			const auto& val = it->second;
-			bool bSpend = (val >= 0);
 
-			fcm.Add(bSpend ? val : -val, aid, !bSpend);
+			bool bSpend = (val >= 0);
+			Amount valUns(val);
+
+			fcm.Add(bSpend ? valUns : (0 - valUns), aid, !bSpend);
 		}
 
 		ECC::Point::Native ptFunds;
@@ -71,27 +74,27 @@ namespace beam::bvm2 {
 			pt2.Import(m_Adv.m_ptExtraNonce); // don't care
 			pt1 += pt2;
 
-			pKrn->m_Signature.m_NoncePub = pt1;
+			krn.m_Signature.m_NoncePub = pt1;
 
 			pt1 = ECC::Context::get().G * sk;
 			pt1 += ptFunds;
-			pKrn->m_Commitment = pt1;
+			krn.m_Commitment = pt1;
 
-			pKrn->UpdateMsg();
+			krn.UpdateMsg();
 
 			ECC::Hash::Processor hp;
-			hp << pKrn->m_Msg;
+			hp << krn.m_Msg;
 
 			for (uint32_t i = 0; i < m_Adv.m_vPks.size(); i++)
 				hp << m_Adv.m_vPks[i];
 
 			ECC::Hash::Value hv;
 			hp
-				<< pKrn->m_Commitment
+				<< krn.m_Commitment
 				>> hv;
 
 			ECC::Oracle oracle;
-			pKrn->m_Signature.Expose(oracle, hv);
+			krn.m_Signature.Expose(oracle, hv);
 
 			for (uint32_t i = 0; i < m_Adv.m_vPks.size() + 1; i++)
 			{
@@ -107,9 +110,9 @@ namespace beam::bvm2 {
 			skSig += skNonce;
 
 			skSig = -skSig; // our formula is sig.ptNonce + Pk[i]*e[i] + G*sig.k == 0
-			pKrn->m_Signature.m_k = skSig;
+			krn.m_Signature.m_k = skSig;
 
-			pKrn->MsgToID();
+			krn.MsgToID();
 		}
 		else
 		{
@@ -121,16 +124,16 @@ namespace beam::bvm2 {
 
 			ECC::Scalar::Native& skKrn = vSk.back();
 
-			pKrn->m_Commitment = Zero;
-			pKrn->UpdateMsg();
+			krn.m_Commitment = Zero;
+			krn.UpdateMsg();
 
 			ECC::Hash::Value hv;
-			get_SigPreimage(hv, pKrn->m_Msg);
+			get_SigPreimage(hv, krn.m_Msg);
 
 			kdf.DeriveKey(skKrn, hv);
 			sk = skKrn;
 
-			pKrn->Sign(&vSk.front(), static_cast<uint32_t>(vSk.size()), ptFunds);
+			krn.Sign(&vSk.front(), static_cast<uint32_t>(vSk.size()), ptFunds);
 		}
 
 	}
