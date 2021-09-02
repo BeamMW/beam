@@ -211,7 +211,7 @@ ON_METHOD(my_account, move)
 
 #if 0
 
-        PubKey pkMy;
+        PubKey pkFullBlind, pkFullNonce, pkMy;
         Env::DerivePk(pkMy, &myid, sizeof(myid));
 
         Height hMin = Env::get_Height() + 1;
@@ -223,23 +223,34 @@ ON_METHOD(my_account, move)
 
         Secp_scalar* s0 = Env::Secp_Scalar_alloc();
         Secp_point* p0 = Env::Secp_Point_alloc();
-        Env::get_SlotImage(*p0, iSlotMy);
+        Secp_point* p1 = Env::Secp_Point_alloc();
+
+        Env::get_SlotImage(*p0, iSlotBlind); // kernel blinding factor
+        Env::Secp_Point_Export(*p0, pkFullBlind);
+
+        Env::get_SlotImage(*p0, iSlotMy); // my nonce
+        Env::get_SlotImage(*p1, iSlotKrn); // kernel nonce
+        Env::Secp_Point_add(*p0, *p0, *p1); // total nonce
+        Env::Secp_Point_Export(*p0, pkFullNonce);
 
         Secp_scalar_data pE[1]; // my challenge
 
         // 1st call. Show our pk and nonce image (denoted by slot). Get the challenge
-        Env::GenerateKernelAdvanced(&cid, Vault::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &pkMy, 1, "", 0, hMin, hMax, *p0, *s0, iSlotBlind, iSlotKrn, pE);
+        Env::GenerateKernelAdvanced(&cid, Vault::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &pkMy, 1, "", 0, hMin, hMax, pkFullBlind, pkFullNonce, pE[0], iSlotBlind, iSlotKrn, pE);
 
         Env::Secp_Scalar_import(*s0, pE[0]);
 
         // get the blinded sk.
         Env::get_BlindSk(*s0, &myid, sizeof(myid), *s0, iSlotMy);
 
+        Env::Secp_Scalar_export(*s0, pE[0]);
+
         // 2nd call. Same args, this time we put real sk (blinded, answering the correct challenge)
-        Env::GenerateKernelAdvanced(&cid, Vault::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &pkMy, 1, "withdraw from Vault", 0, hMin, hMax, *p0, *s0, iSlotBlind, iSlotKrn, nullptr);
+        Env::GenerateKernelAdvanced(&cid, Vault::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &pkMy, 1, "withdraw from Vault", 0, hMin, hMax, pkFullBlind, pkFullNonce, pE[0], iSlotBlind, iSlotKrn, nullptr);
 
         Env::Secp_Scalar_free(*s0);
         Env::Secp_Point_free(*p0);
+        Env::Secp_Point_free(*p1);
 
 #else
 

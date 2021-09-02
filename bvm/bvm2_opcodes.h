@@ -391,8 +391,9 @@
 	macro(uint32_t, nCharge) sep \
 	macro(Height, hMin) sep \
 	macro(Height, hMax) sep \
-	macro(const Secp_point&, ptExtraNonce) sep \
-	macro(const Secp_scalar&, skExtraSig) sep \
+	macro(const PubKey&, ptFullBlind) sep \
+	macro(const PubKey&, ptFullNonce) sep \
+	macro(const Secp_scalar_data&, skForeignSig) sep \
 	macro(uint32_t, iSlotBlind) sep \
 	macro(uint32_t, iSlotNonce) sep \
 	macro(Secp_scalar_data*, pChallenges)

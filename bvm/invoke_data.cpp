@@ -16,7 +16,7 @@
 
 namespace beam::bvm2 {
 
-    void ContractInvokeEntry::Generate(std::unique_ptr<TxKernelContractControl>& pKrn, ECC::Scalar::Native& sk, Key::IKdf& kdf, const HeightRange& hr, Amount fee, ECC::Scalar* pE) const
+    void ContractInvokeEntry::Generate(std::unique_ptr<TxKernelContractControl>& pKrn, ECC::Scalar::Native& sk, Key::IKdf& kdf, const HeightRange& hr, Amount fee, ECC::Scalar* pE, bool bSign) const
 	{
 		if (m_iMethod)
 		{
@@ -62,23 +62,12 @@ namespace beam::bvm2 {
 		ECC::Point::Native ptFunds;
 		fcm.ToCommitment(ptFunds);
 
-
 		if (IsAdvanced())
 		{
-			ECC::Scalar::Native skNonce, skSig;
-			kdf.DeriveKey(skNonce, m_Adv.m_hvNonce);
-			kdf.DeriveKey(sk, m_Adv.m_hvBlind);
-
-			ECC::Point::Native pt1, pt2;
-			pt1 = ECC::Context::get().G * skNonce;
-			pt2.Import(m_Adv.m_ptExtraNonce); // don't care
-			pt1 += pt2;
-
-			krn.m_Signature.m_NoncePub = pt1;
-
-			pt1 = ECC::Context::get().G * sk;
-			pt1 += ptFunds;
-			krn.m_Commitment = pt1;
+			ECC::Point::Native pt;
+			pt.Import(m_Adv.m_ptFullBlind);
+			pt += ptFunds;
+			krn.m_Commitment = pt;
 
 			krn.UpdateMsg();
 
@@ -94,7 +83,10 @@ namespace beam::bvm2 {
 				>> hv;
 
 			ECC::Oracle oracle;
+			krn.m_Signature.m_NoncePub = m_Adv.m_ptFullNonce;
 			krn.m_Signature.Expose(oracle, hv);
+
+			ECC::Scalar::Native skNonce, skSig;
 
 			for (uint32_t i = 0; ; i++)
 			{
@@ -106,16 +98,22 @@ namespace beam::bvm2 {
 					pE[i] = skSig;
 			}
 
-			skSig *= sk;
-			skSig += skNonce;
+			if (bSign)
+			{
+				kdf.DeriveKey(skNonce, m_Adv.m_hvNonce);
+				kdf.DeriveKey(sk, m_Adv.m_hvBlind);
 
-			skNonce = m_Adv.m_kExtraSig;
-			skSig += skNonce;
+				skSig *= sk;
+				skSig += skNonce;
 
-			skSig = -skSig; // our formula is sig.ptNonce + Pk[i]*e[i] + G*sig.k == 0
-			krn.m_Signature.m_k = skSig;
+				skNonce = m_Adv.m_kForeignSig;
+				skSig += skNonce;
 
-			krn.MsgToID();
+				skSig = -skSig; // our formula is sig.ptNonce + Pk[i]*e[i] + G*sig.k == 0
+				krn.m_Signature.m_k = skSig;
+
+				krn.MsgToID();
+			}
 		}
 		else
 		{
@@ -145,7 +143,7 @@ namespace beam::bvm2 {
 	{
 		std::unique_ptr<TxKernelContractControl> pKrn;
 		ECC::Scalar::Native sk;
-		Generate(pKrn, sk, kdf, hr, fee, nullptr);
+		Generate(pKrn, sk, kdf, hr, fee, nullptr, true);
 
 		tx.m_vKernels.push_back(std::move(pKrn));
 

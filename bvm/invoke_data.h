@@ -43,10 +43,11 @@ namespace beam::bvm2 {
 		{
 			HeightRange m_Height;
 			Amount m_Fee;
-			ECC::Point m_ptExtraNonce;
-			ECC::Scalar m_kExtraSig;
+			ECC::Point m_ptFullBlind;
+			ECC::Point m_ptFullNonce;
 			ECC::Hash::Value m_hvBlind;
 			ECC::Hash::Value m_hvNonce;
+			ECC::Scalar m_kForeignSig;
 
 			std::vector<ECC::Point> m_vPks;
 
@@ -79,17 +80,18 @@ namespace beam::bvm2 {
 				ar
 					& m_Adv.m_Height
 					& m_Adv.m_Fee
-					& m_Adv.m_ptExtraNonce
-					& m_Adv.m_kExtraSig
+					& m_Adv.m_ptFullBlind
+					& m_Adv.m_ptFullNonce
 					& m_Adv.m_hvBlind
 					& m_Adv.m_hvNonce
+					& m_Adv.m_kForeignSig
 					& m_Adv.m_vPks;
 			}
 		}
 
 		void Generate(Transaction&, Key::IKdf&, const HeightRange& hr, Amount fee) const;
 
-		void Generate(std::unique_ptr<TxKernelContractControl>&, ECC::Scalar::Native& sk, Key::IKdf&, const HeightRange& hr, Amount fee, ECC::Scalar* pE) const;
+		void Generate(std::unique_ptr<TxKernelContractControl>&, ECC::Scalar::Native& sk, Key::IKdf&, const HeightRange& hr, Amount fee, ECC::Scalar* pE, bool bSign) const;
 
 		[[nodiscard]] Amount get_FeeMin(Height) const;
 

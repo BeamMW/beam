@@ -2794,7 +2794,7 @@ namespace bvm2 {
 		return v;
 	}
 
-	void ProcessorManager::SetKernelAdv(Height hMin, Height hMax, uint32_t ptExtraNonce, uint32_t skExtraSig, uint32_t iSlotBlind, uint32_t iSlotNonce, const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE)
+	void ProcessorManager::SetKernelAdv(Height hMin, Height hMax, const PubKey& ptFullBlind, const PubKey& ptFullNonce, const ECC::Scalar& skForeignSig, uint32_t iSlotBlind, uint32_t iSlotNonce, const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE)
 	{
 		assert(!m_vInvokeData.empty());
 		auto& v = m_vInvokeData.back();
@@ -2816,11 +2816,9 @@ namespace bvm2 {
 		}
 
 		v.m_Adv.m_vPks.assign(pSig, pSig + nSig);
+		v.m_Adv.m_ptFullBlind = ptFullBlind;
+		v.m_Adv.m_ptFullNonce = ptFullNonce;
 
-		m_Secp.m_Point.FindStrict(ptExtraNonce).m_Val.Export(v.m_Adv.m_ptExtraNonce);
-
-		get_SlotPreimageInternal(v.m_Adv.m_hvBlind, iSlotBlind);
-		get_SlotPreimageInternal(v.m_Adv.m_hvNonce, iSlotNonce);
 
 		if (pE)
 		{
@@ -2829,13 +2827,17 @@ namespace bvm2 {
 			std::unique_ptr<TxKernelContractControl> pKrn;
 			ECC::Scalar::Native sk;
 
-			v.Generate(pKrn, sk, *m_pKdf, v.m_Adv.m_Height, v.m_Adv.m_Fee, pE);
+			v.Generate(pKrn, sk, *m_pKdf, v.m_Adv.m_Height, v.m_Adv.m_Fee, pE, false);
 
 			m_vInvokeData.pop_back(); // no more needed
 		}
 		else
 		{
-			m_Secp.m_Scalar.FindStrict(skExtraSig).m_Val.Export(v.m_Adv.m_kExtraSig);
+			v.m_Adv.m_kForeignSig = skForeignSig;
+
+			get_SlotPreimageInternal(v.m_Adv.m_hvBlind, iSlotBlind);
+			get_SlotPreimageInternal(v.m_Adv.m_hvNonce, iSlotNonce);
+
 			SlotErase(iSlotBlind);
 			SlotErase(iSlotNonce);
 		}
@@ -2849,13 +2851,13 @@ namespace bvm2 {
 		const PubKey* pSig_ = get_ArrayAddrAsR<PubKey>(pSig, nSig);
 		ECC::Scalar* pE = pChallenges ? get_ArrayAddrAsW<ECC::Scalar>(pChallenges, nSig) : nullptr;
 
-		SetKernelAdv(hMin, hMax, ptExtraNonce, skExtraSig, iSlotBlind, iSlotNonce, pSig_, nSig, pE);
+		SetKernelAdv(hMin, hMax,  get_AddrAsR<PubKey>(ptFullBlind), get_AddrAsR<PubKey>(ptFullNonce), get_AddrAsR<ECC::Scalar>(skForeignSig), iSlotBlind, iSlotNonce, pSig_, nSig, pE);
 	}
 
 	BVM_METHOD_HOST(GenerateKernelAdvanced)
 	{
 		GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, false, szComment, nCharge);
-		SetKernelAdv(hMin, hMax, Secp::Point::From(ptExtraNonce), Secp::Scalar::From(skExtraSig), iSlotBlind, iSlotNonce, pSig, nSig, pChallenges);
+		SetKernelAdv(hMin, hMax, ptFullBlind, ptFullNonce, skForeignSig, iSlotBlind, iSlotNonce, pSig, nSig, pChallenges);
 	}
 
 	BVM_METHOD(GenerateRandom)
