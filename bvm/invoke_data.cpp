@@ -180,6 +180,9 @@ namespace beam::bvm2 {
 
 	Amount ContractInvokeEntry::get_FeeMin(Height h) const
 	{
+		if (IsAdvanced())
+			return m_Adv.m_Fee;
+
 		const auto& fs = Transaction::FeeSettings::get(h);
 
 		Amount ret = std::max(fs.m_Bvm.m_ChargeUnitPrice * m_Charge, fs.m_Bvm.m_Minimum);

@@ -98,9 +98,15 @@ namespace beam::wallet
             {
                 const auto& cdata = vData[i];
 
-                Amount fee = cdata.get_FeeMin(builder.m_Height.m_Min);
-                if (!i)
-                    fee += builder.m_Fee;
+                Amount fee;
+                if (cdata.IsAdvanced())
+                    fee = cdata.m_Adv.m_Fee; // can't change!
+                else
+                {
+                    fee = cdata.get_FeeMin(builder.m_Height.m_Min);
+                    if (!i)
+                        fee += builder.m_Fee;
+                }
 
                 cdata.Generate(*builder.m_pTransaction, *pKdf, builder.m_Height, fee);
 
