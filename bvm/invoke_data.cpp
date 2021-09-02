@@ -16,7 +16,7 @@
 
 namespace beam::bvm2 {
 
-    void ContractInvokeEntry::Generate(std::unique_ptr<TxKernelContractControl>& pKrn, ECC::Scalar::Native& sk, Key::IKdf& kdf, const HeightRange& hr, Amount fee, ECC::Scalar::Native* pE) const
+    void ContractInvokeEntry::Generate(std::unique_ptr<TxKernelContractControl>& pKrn, ECC::Scalar::Native& sk, Key::IKdf& kdf, const HeightRange& hr, Amount fee, ECC::Scalar* pE) const
 	{
 		if (m_iMethod)
 		{
@@ -96,9 +96,12 @@ namespace beam::bvm2 {
 			ECC::Oracle oracle;
 			krn.m_Signature.Expose(oracle, hv);
 
-			for (uint32_t i = 0; i < m_Adv.m_vPks.size() + 1; i++)
+			for (uint32_t i = 0; ; i++)
 			{
 				oracle >> skSig;
+				if (m_Adv.m_vPks.size() == i)
+					break;
+
 				if (pE)
 					pE[i] = skSig;
 			}

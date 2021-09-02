@@ -89,7 +89,7 @@ namespace beam::bvm2 {
 
 		void Generate(Transaction&, Key::IKdf&, const HeightRange& hr, Amount fee) const;
 
-		void Generate(std::unique_ptr<TxKernelContractControl>&, ECC::Scalar::Native& sk, Key::IKdf&, const HeightRange& hr, Amount fee, ECC::Scalar::Native* pE) const;
+		void Generate(std::unique_ptr<TxKernelContractControl>&, ECC::Scalar::Native& sk, Key::IKdf&, const HeightRange& hr, Amount fee, ECC::Scalar* pE) const;
 
 		[[nodiscard]] Amount get_FeeMin(Height) const;
 
