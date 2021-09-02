@@ -2427,6 +2427,36 @@ namespace beam
 					IMPLEMENT_GET_PARENT_OBJ(MyManager, m_DelayedStart)
 
 				} m_DelayedStart;
+
+				std::map<uint32_t, ECC::Hash::Value> m_Slots;
+
+				bool SlotLoad(ECC::Hash::Value& hv, uint32_t iSlot) override
+				{
+					auto it = m_Slots.find(iSlot);
+					if (m_Slots.end() == it)
+						return false;
+
+					hv = it->second;
+					return true;
+				}
+
+				void SlotSave(const ECC::Hash::Value& hv, uint32_t iSlot) override
+				{
+					m_Slots[iSlot] = hv;
+				}
+
+				void SlotErase(uint32_t iSlot) override
+				{
+					auto it = m_Slots.find(iSlot);
+					if (m_Slots.end() != it)
+						m_Slots.erase(it);
+				}
+
+				Height get_Height() override
+				{
+					return m_This.m_vStates.empty() ? 0 : m_This.m_vStates.back().m_Height;
+				}
+
 			};
 
 			std::unique_ptr<MyManager> m_pMan;
@@ -2562,6 +2592,7 @@ namespace beam
 				MyManager& proc = *m_pMan;
 
 				proc.m_pPKdf = m_Wallet.m_pKdf;
+				proc.m_pKdf = m_Wallet.m_pKdf; // enable privileged mode!
 
 				bvm2::Compile(proc.m_BodyManager, "vault/app.wasm", bvm2::Processor::Kind::Manager);
 				bvm2::Compile(proc.m_BodyContract, "vault/contract.wasm", bvm2::Processor::Kind::Contract);
