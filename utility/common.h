@@ -165,6 +165,9 @@ namespace beam
 
 	bool DeleteFile(const char*);
 
+	// shame, utoa, ultoa - non-standard!
+	void utoa(char* sz, uint32_t n);
+
 	struct CorruptionException
 	{
 		std::string m_sErr;
