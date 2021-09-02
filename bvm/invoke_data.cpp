@@ -16,7 +16,7 @@
 
 namespace beam::bvm2 {
 
-    void ContractInvokeEntry::Generate(std::unique_ptr<TxKernelContractControl>& pKrn, ECC::Scalar::Native& sk, Key::IKdf& kdf, const HeightRange& hr, Amount fee, ECC::Scalar* pE, bool bSign) const
+	void ContractInvokeEntry::CreateKrnUnsigned(std::unique_ptr<TxKernelContractControl>& pKrn, ECC::Point::Native& ptFunds, const HeightRange& hr, Amount fee) const
 	{
 		if (m_iMethod)
 		{
@@ -59,61 +59,92 @@ namespace beam::bvm2 {
 			fcm.Add(bSpend ? valUns : (0 - valUns), aid, !bSpend);
 		}
 
-		ECC::Point::Native ptFunds;
 		fcm.ToCommitment(ptFunds);
+	}
+
+	void ContractInvokeEntry::GenerateAdv(Key::IKdf* pKdf, ECC::Scalar* pE, const ECC::Point& ptFullBlind, const ECC::Point& ptFullNonce, const ECC::Hash::Value* phvNonce, const ECC::Scalar* pForeignSig, const ECC::Point* pPks, uint32_t nPks)
+	{
+		std::unique_ptr<TxKernelContractControl> pKrn;
+		ECC::Point::Native ptFunds;
+		CreateKrnUnsigned(pKrn, ptFunds, m_Adv.m_Height, m_Adv.m_Fee);
+
+		auto& krn = *pKrn;
+
+		ECC::Point::Native pt;
+		pt.Import(ptFullBlind);
+		pt += ptFunds;
+		krn.m_Commitment = pt;
+
+		krn.UpdateMsg();
+
+		ECC::Hash::Processor hp;
+		hp << krn.m_Msg;
+
+		for (uint32_t i = 0; i < nPks; i++)
+			hp << pPks[i];
+
+		ECC::Hash::Value hv;
+		hp
+			<< krn.m_Commitment
+			>> hv;
+
+		ECC::Oracle oracle;
+		m_Adv.m_Sig.m_NoncePub = ptFullNonce;
+		m_Adv.m_Sig.Expose(oracle, hv);
+
+		ECC::Scalar::Native skSig;
+
+		for (uint32_t i = 0; ; i++)
+		{
+			oracle >> skSig;
+			if (nPks == i)
+				break;
+
+			if (pE)
+				pE[i] = skSig;
+		}
+
+		if (pKdf)
+		{
+			assert(phvNonce && pForeignSig);
+
+			ECC::Scalar::Native skNonce, sk;
+
+			pKdf->DeriveKey(skNonce, *phvNonce);
+			pKdf->DeriveKey(sk, m_Adv.m_hvSk);
+
+			skSig *= sk;
+			skSig += skNonce;
+
+			skNonce = *pForeignSig;
+			skSig += skNonce;
+
+			skSig = -skSig; // our formula is sig.ptNonce + Pk[i]*e[i] + G*sig.k == 0
+			m_Adv.m_Sig.m_k = skSig;
+		}
+
+	}
+
+	void ContractInvokeEntry::Generate(Transaction& tx, Key::IKdf& kdf, const HeightRange& hr, Amount fee) const
+	{
+		ECC::Scalar::Native sk;
+		std::unique_ptr<TxKernelContractControl> pKrn;
+		ECC::Point::Native ptFunds;
+		CreateKrnUnsigned(pKrn, ptFunds, hr, fee);
+
+		auto& krn = *pKrn;
 
 		if (IsAdvanced())
 		{
-			ECC::Point::Native pt;
-			pt.Import(m_Adv.m_ptFullBlind);
+			kdf.DeriveKey(sk, m_Adv.m_hvSk);
+
+			ECC::Point::Native pt = ECC::Context::get().G * sk;
 			pt += ptFunds;
 			krn.m_Commitment = pt;
 
-			krn.UpdateMsg();
+			krn.m_Signature = m_Adv.m_Sig; // signed already
 
-			ECC::Hash::Processor hp;
-			hp << krn.m_Msg;
-
-			for (uint32_t i = 0; i < m_Adv.m_vPks.size(); i++)
-				hp << m_Adv.m_vPks[i];
-
-			ECC::Hash::Value hv;
-			hp
-				<< krn.m_Commitment
-				>> hv;
-
-			ECC::Oracle oracle;
-			krn.m_Signature.m_NoncePub = m_Adv.m_ptFullNonce;
-			krn.m_Signature.Expose(oracle, hv);
-
-			ECC::Scalar::Native skNonce, skSig;
-
-			for (uint32_t i = 0; ; i++)
-			{
-				oracle >> skSig;
-				if (m_Adv.m_vPks.size() == i)
-					break;
-
-				if (pE)
-					pE[i] = skSig;
-			}
-
-			if (bSign)
-			{
-				kdf.DeriveKey(skNonce, m_Adv.m_hvNonce);
-				kdf.DeriveKey(sk, m_Adv.m_hvBlind);
-
-				skSig *= sk;
-				skSig += skNonce;
-
-				skNonce = m_Adv.m_kForeignSig;
-				skSig += skNonce;
-
-				skSig = -skSig; // our formula is sig.ptNonce + Pk[i]*e[i] + G*sig.k == 0
-				krn.m_Signature.m_k = skSig;
-
-				krn.MsgToID();
-			}
+			krn.UpdateID();
 		}
 		else
 		{
@@ -136,14 +167,6 @@ namespace beam::bvm2 {
 
 			krn.Sign(&vSk.front(), static_cast<uint32_t>(vSk.size()), ptFunds);
 		}
-
-	}
-
-	void ContractInvokeEntry::Generate(Transaction& tx, Key::IKdf& kdf, const HeightRange& hr, Amount fee) const
-	{
-		std::unique_ptr<TxKernelContractControl> pKrn;
-		ECC::Scalar::Native sk;
-		Generate(pKrn, sk, kdf, hr, fee, nullptr, true);
 
 		tx.m_vKernels.push_back(std::move(pKrn));
 

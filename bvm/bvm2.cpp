@@ -2815,32 +2815,26 @@ namespace bvm2 {
 			v.m_Adv.m_Fee += std::max(fs.get_DefaultStd(), fs.m_Output * nPossibleOutputs);
 		}
 
-		v.m_Adv.m_vPks.assign(pSig, pSig + nSig);
-		v.m_Adv.m_ptFullBlind = ptFullBlind;
-		v.m_Adv.m_ptFullNonce = ptFullNonce;
+		Key::IKdf* pKdf = nullptr;
+		ECC::Hash::Value hvNonce;
 
 
-		if (pE)
+		if (!pE)
 		{
 			Wasm::Test(m_pKdf != nullptr);
+			pKdf = m_pKdf.get();
 
-			std::unique_ptr<TxKernelContractControl> pKrn;
-			ECC::Scalar::Native sk;
-
-			v.Generate(pKrn, sk, *m_pKdf, v.m_Adv.m_Height, v.m_Adv.m_Fee, pE, false);
-
-			m_vInvokeData.pop_back(); // no more needed
-		}
-		else
-		{
-			v.m_Adv.m_kForeignSig = skForeignSig;
-
-			get_SlotPreimageInternal(v.m_Adv.m_hvBlind, iSlotBlind);
-			get_SlotPreimageInternal(v.m_Adv.m_hvNonce, iSlotNonce);
+			get_SlotPreimageInternal(v.m_Adv.m_hvSk, iSlotBlind);
+			get_SlotPreimageInternal(hvNonce, iSlotNonce);
 
 			SlotErase(iSlotBlind);
 			SlotErase(iSlotNonce);
 		}
+
+		v.GenerateAdv(pKdf, pE, ptFullBlind, ptFullNonce, &hvNonce, &skForeignSig, pSig, nSig);
+
+		if (pE)
+			m_vInvokeData.pop_back(); // no more needed
 	}
 
 	BVM_METHOD(GenerateKernelAdvanced)
