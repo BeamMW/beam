@@ -225,10 +225,20 @@ namespace bvm2 {
 			return *reinterpret_cast<T*>(get_AddrW(nOffset, sizeof(T)));
 		}
 
-		template <typename T> const T* get_ArrayAddrAsR(uint32_t nOffset, uint32_t nCount) {
+		template <typename T>
+		static uint32_t ToArrSize(uint32_t nCount)
+		{
 			uint32_t nSize = sizeof(T) * nCount;
 			Wasm::Test(nSize / sizeof(T) == nCount); // overflow test
-			return reinterpret_cast<const T*>(get_AddrR(nOffset, nSize));
+			return nSize;
+		}
+
+		template <typename T> const T* get_ArrayAddrAsR(uint32_t nOffset, uint32_t nCount) {
+			return reinterpret_cast<const T*>(get_AddrR(nOffset, ToArrSize<T>(nCount)));
+		}
+
+		template <typename T> T* get_ArrayAddrAsW(uint32_t nOffset, uint32_t nCount) {
+			return reinterpret_cast<T*>(get_AddrW(nOffset, ToArrSize<T>(nCount)));
 		}
 
 		struct Header;
