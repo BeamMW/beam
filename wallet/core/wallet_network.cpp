@@ -82,26 +82,33 @@ namespace beam::wallet {
             uint8_t* pMsg = &buf.front();
             uint32_t nSize = static_cast<uint32_t>(buf.size());
 
-            if (!proto::Bbs::Decrypt(pMsg, nSize, it->get_ParentObj().m_sk))
+            auto& x = it->get_ParentObj();
+
+            if (!proto::Bbs::Decrypt(pMsg, nSize, x.m_sk))
                 continue;
 
-            SetTxParameter msgWallet;
-            bool bValid = false;
-
-            try {
-                Deserializer der;
-                der.reset(pMsg, nSize);
-                der& msgWallet;
-                bValid = true;
-            }
-            catch (const std::exception&) {
-                LOG_WARNING() << "BBS deserialization failed";
-            }
-
-            if (bValid)
+            if (x.m_pHandler)
+                x.m_pHandler->OnMsg(Blob(pMsg, nSize));
+            else
             {
-                m_Wallet.OnWalletMessage(it->get_ParentObj().m_Wid.m_Value, msgWallet);
-                break;
+                SetTxParameter msgWallet;
+                bool bValid = false;
+
+                try {
+                    Deserializer der;
+                    der.reset(pMsg, nSize);
+                    der& msgWallet;
+                    bValid = true;
+                }
+                catch (const std::exception&) {
+                    LOG_WARNING() << "BBS deserialization failed";
+                }
+
+                if (bValid)
+                {
+                    m_Wallet.OnWalletMessage(it->get_ParentObj().m_Wid.m_Value, msgWallet);
+                    break;
+                }
             }
         }
     }
@@ -192,8 +199,16 @@ namespace beam::wallet {
             return;
 
         Serializer ser;
-        ser& msg;
+        ser & msg;
         SerializeBuffer sb = ser.buffer();
+
+        Send(peerID, Blob(sb.first, static_cast<uint32_t>(sb.second)));
+    }
+
+    void BaseMessageEndpoint::Send(const WalletID& peerID, const Blob& msg)
+    {
+        if (!m_pKdfSbbs)
+            return;
 
         ECC::NoLeak<ECC::Hash::Value> hvRandom;
         ECC::GenRandom(hvRandom.V);
@@ -202,7 +217,7 @@ namespace beam::wallet {
         m_pKdfSbbs->DeriveKey(nonce, hvRandom.V);
 
         ByteBuffer encryptedMessage;
-        if (proto::Bbs::Encrypt(encryptedMessage, peerID.m_Pk, nonce, sb.first, static_cast<uint32_t>(sb.second)))
+        if (proto::Bbs::Encrypt(encryptedMessage, peerID.m_Pk, nonce, msg.p, msg.n))
         {
             SendRawMessage(peerID, encryptedMessage);
         }
@@ -229,7 +244,7 @@ namespace beam::wallet {
         m_AddressExpirationTimer->start(AddressUpdateInterval_ms, false, [this] { OnAddressTimer(); });
     }
 
-    void BaseMessageEndpoint::Listen(const WalletID& addr, const ECC::Scalar::Native& sk)
+    void BaseMessageEndpoint::Listen(const WalletID& addr, const ECC::Scalar::Native& sk, IHandler* pHandler)
     {
         Addr* pAddr = CreateOwnAddr(addr);
         pAddr->m_sk = sk;

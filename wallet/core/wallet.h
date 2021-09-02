@@ -100,10 +100,15 @@ namespace beam::wallet
     // Used as a base for SBBS and Cold walelt endpoints
     struct IWalletMessageEndpoint
     {
+        struct IHandler {
+            virtual void OnMsg(const Blob&) = 0;
+        };
+
         using Ptr = std::shared_ptr<IWalletMessageEndpoint>;
         virtual void Send(const WalletID& peerID, const SetTxParameter& msg) = 0;
+        virtual void Send(const WalletID& peerID, const Blob&) {}
         virtual void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) = 0;
-        virtual void Listen(const WalletID&, const ECC::Scalar::Native& sk) {}
+        virtual void Listen(const WalletID&, const ECC::Scalar::Native& sk, IHandler* = nullptr) {}
         virtual void Unlisten(const WalletID&) {}
     };
 
