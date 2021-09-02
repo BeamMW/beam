@@ -350,6 +350,7 @@ namespace beam
         const char* SHADER_ARGS         = "shader_args";
         const char* SHADER_BYTECODE_APP      = "shader_app_file";
         const char* SHADER_BYTECODE_CONTRACT = "shader_contract_file";
+        const char* SHADER_PRIVILEGE    = "shader_privilege";
     }
 
 
@@ -466,6 +467,7 @@ namespace beam
             (cli::PROXY_USE, po::value<bool>()->default_value(false), "use socks5 proxy server for node connection")
             (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "proxy server address")
             (cli::SHADER_ARGS, po::value<string>()->default_value(""), "Arguments to pass to the shader")
+            (cli::SHADER_PRIVILEGE, po::value<uint32_t>()->default_value(0), "shader privilege level")
             (cli::SHADER_BYTECODE_APP, po::value<string>()->default_value(""), "Path to the app shader file")
             (cli::SHADER_BYTECODE_CONTRACT, po::value<string>()->default_value(""), "Path to the shader file for the contract (if the contract is being-created)")
             (cli::MAX_PRIVACY_ADDRESS, po::bool_switch()->default_value(false), "generate max privacy transaction address")

@@ -2323,7 +2323,11 @@ namespace
                 sVal = vm[cli::SHADER_ARGS].as<string>(); // should be comma-separated list of name=val pairs
                 if (!sVal.empty())
                     man.AddArgs(&sVal.front());
-               
+
+                uint32_t nPrivilege = vm[cli::SHADER_PRIVILEGE].as<uint32_t>();
+                if (nPrivilege)
+                    man.m_pKdf = walletDB->get_MasterKdf();
+
                 std::cout << "Executing shader..." << std::endl;
 
                 man.StartRun(man.m_Args.empty() ? 0 : 1); // scheme if no args
