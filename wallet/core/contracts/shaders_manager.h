@@ -18,9 +18,31 @@
 #include "bvm/ManagerStd.h"
 
 namespace beam::wallet {
+
+    struct ManagerStdInWallet
+        :public bvm2::ManagerStd
+    {
+        ManagerStdInWallet(WalletDB::Ptr, proto::FlyClient::INetwork::Ptr);
+
+    protected:
+
+        WalletDB::Ptr m_pWalletDB;
+
+        struct SlotName;
+
+        bool SlotLoad(ECC::Hash::Value&, uint32_t iSlot) override;
+        void SlotSave(const ECC::Hash::Value&, uint32_t iSlot) override;
+        void SlotErase(uint32_t iSlot) override;
+    };
+
+
+
+
+
+
     class ShadersManager
         : public IShadersManager
-        , private beam::bvm2::ManagerStd
+        , private ManagerStdInWallet
     {
     public:
         ShadersManager(beam::wallet::Wallet::Ptr wallet,
@@ -51,7 +73,6 @@ namespace beam::wallet {
         std::string _currentAppId;
         std::string _currentAppName;
 
-        beam::wallet::IWalletDB::Ptr _wdb;
         beam::wallet::Wallet::Ptr _wallet;
 
         struct Request {

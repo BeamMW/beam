@@ -16,23 +16,62 @@
 #include "utility/logger.h"
 
 namespace beam::wallet {
+
+    struct ManagerStdInWallet::SlotName
+    {
+#define SLOT_PREFIX_NAME "app_sh_slot_"
+        char m_sz[_countof(SLOT_PREFIX_NAME) + 10];
+
+        SlotName(uint32_t iSlot)
+        {
+            memcpy(m_sz, SLOT_PREFIX_NAME, sizeof(SLOT_PREFIX_NAME) - sizeof(char));
+            beam::utoa(m_sz + _countof(SLOT_PREFIX_NAME) - 1, iSlot);
+        }
+    };
+
+    ManagerStdInWallet::ManagerStdInWallet(WalletDB::Ptr wdb, proto::FlyClient::INetwork::Ptr pNetwork)
+        :m_pWalletDB(std::move(wdb))
+    {
+        assert(m_pWalletDB);
+
+        m_pPKdf = m_pWalletDB->get_OwnerKdf();
+        m_pHist = &m_pWalletDB->get_History();
+
+        m_pNetwork = std::move(pNetwork);
+        assert(m_pNetwork);
+    }
+
+    bool ManagerStdInWallet::SlotLoad(ECC::Hash::Value& hv, uint32_t iSlot)
+    {
+        SlotName sn(iSlot);
+        return m_pWalletDB->getVarRaw(sn.m_sz, hv.m_pData, hv.nBytes);
+    }
+
+    void ManagerStdInWallet::SlotSave(const ECC::Hash::Value& hv, uint32_t iSlot)
+    {
+        SlotName sn(iSlot);
+        m_pWalletDB->setVarRaw(sn.m_sz, hv.m_pData, hv.nBytes);
+    }
+
+    void ManagerStdInWallet::SlotErase(uint32_t iSlot)
+    {
+        SlotName sn(iSlot);
+        m_pWalletDB->removeVarRaw(sn.m_sz);
+    }
+
+
+
     ShadersManager::ShadersManager(beam::wallet::Wallet::Ptr wallet,
                                    beam::wallet::IWalletDB::Ptr walletDB,
                                    beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
                                    std::string appid,
                                    std::string appname)
-        : _currentAppId(std::move(appid))
+        :ManagerStdInWallet(std::move(walletDB), std::move(nodeNetwork))
+        , _currentAppId(std::move(appid))
         , _currentAppName(std::move(appname))
-        , _wdb(std::move(walletDB))
         , _wallet(std::move(wallet))
     {
-        assert(_wdb);
         assert(_wallet);
-        assert(nodeNetwork);
-
-        m_pPKdf = _wdb->get_OwnerKdf();
-        m_pNetwork = std::move(nodeNetwork);
-        m_pHist = &_wdb->get_History();
     }
 
     void ShadersManager::compileAppShader(const std::vector<uint8_t> &shader)

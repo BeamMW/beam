@@ -22,6 +22,7 @@
 #include "wallet/core/simple_transaction.h"
 #include "wallet/core/secstring.h"
 #include "wallet/core/strings_resources.h"
+#include "wallet/core/contracts/shaders_manager.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/transactions/swaps/common.h"
 #include "wallet/transactions/swaps/utils.h"
@@ -73,8 +74,6 @@
 #include <future>
 #include <regex>
 #include <core/block_crypt.h>
-
-#include "bvm/ManagerStd.h"
 
 using namespace std;
 using namespace beam;
@@ -2274,11 +2273,13 @@ namespace
             {
 
 			    struct MyManager
-				    :public bvm2::ManagerStd
+				    :public ManagerStdInWallet
 			    {
 				    bool m_Done = false;
 				    bool m_Err = false;
                     bool m_Async = false;
+
+                    using ManagerStdInWallet::ManagerStdInWallet;
 
 				    void OnDone(const std::exception* pExc) override
 				    {
@@ -2307,10 +2308,7 @@ namespace
                     }
                 };
 
-                MyManager man;
-                man.m_pPKdf = walletDB->get_OwnerKdf();
-                man.m_pNetwork = wallet->GetNodeEndpoint();
-                man.m_pHist = &walletDB->get_History();
+                MyManager man(walletDB, wallet->GetNodeEndpoint());
 
                 auto sVal = vm[cli::SHADER_BYTECODE_APP].as<string>();
                 if (sVal.empty())
