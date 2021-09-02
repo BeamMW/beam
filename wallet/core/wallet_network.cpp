@@ -483,7 +483,7 @@ namespace beam::wallet {
     void WalletNetworkViaBbs::SendRawMessage(const WalletID& peerID, const ByteBuffer& msg)
     {
         // first store message for accidental app close
-        auto messageID = m_WalletDB->saveWalletMessage(OutgoingWalletMessage{ 0, peerID, msg });
+        auto messageID = m_WalletDB->saveWalletMessage(peerID, msg);
         BbsProcessor::Send(peerID, msg, messageID);
     }
 

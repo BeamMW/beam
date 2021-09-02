@@ -570,11 +570,11 @@ namespace beam::wallet
         // ///////////////////////////////
         // Message management
         virtual std::vector<OutgoingWalletMessage> getWalletMessages() const = 0;
-        virtual uint64_t saveWalletMessage(const OutgoingWalletMessage& message) = 0;
+        virtual uint64_t saveWalletMessage(const WalletID&, const Blob&) = 0;
         virtual void deleteWalletMessage(uint64_t id) = 0;
 
         virtual std::vector<IncomingWalletMessage> getIncomingWalletMessages() const = 0;
-        virtual uint64_t saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message) = 0;
+        virtual uint64_t saveIncomingWalletMessage(BbsChannel channel, const Blob& message) = 0;
         virtual void deleteIncomingWalletMessage(uint64_t id) = 0;
 
         // Assets management
@@ -735,11 +735,11 @@ namespace beam::wallet
         void ShrinkHistory() override;
 
         std::vector<OutgoingWalletMessage> getWalletMessages() const override;
-        uint64_t saveWalletMessage(const OutgoingWalletMessage& message) override;
+        uint64_t saveWalletMessage(const WalletID&, const Blob&) override;
         void deleteWalletMessage(uint64_t id) override;
 
         std::vector<IncomingWalletMessage> getIncomingWalletMessages() const override;
-        uint64_t saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message) override;
+        uint64_t saveIncomingWalletMessage(BbsChannel channel, const Blob& message) override;
         void deleteIncomingWalletMessage(uint64_t id) override;
 
         void saveAsset(const Asset::Full& info, Height refreshHeight) override;

@@ -5390,12 +5390,12 @@ namespace beam::wallet
         return messages;
     }
 
-    uint64_t WalletDB::saveWalletMessage(const OutgoingWalletMessage& message)
+    uint64_t WalletDB::saveWalletMessage(const WalletID& peerID, const Blob& msg)
     {
         const char* req = "INSERT INTO " WALLET_MESSAGE_NAME " (PeerID, Message) VALUES(?,?)";
         sqlite::Statement stm(this, req);
-        stm.bind(1, message.m_PeerID);
-        stm.bind(2, message.m_Message);
+        stm.bind(1, peerID);
+        stm.bind(2, msg);
 
         stm.step();
 
@@ -5422,7 +5422,7 @@ namespace beam::wallet
         return messages;
     }
 
-    uint64_t WalletDB::saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message)
+    uint64_t WalletDB::saveIncomingWalletMessage(BbsChannel channel, const Blob& message)
     {
         const char* req = "INSERT INTO " INCOMING_WALLET_MESSAGE_NAME " (Channel, Message) VALUES(?,?);";
         sqlite::Statement stm(this, req);
