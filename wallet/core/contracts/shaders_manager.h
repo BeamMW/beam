@@ -22,11 +22,12 @@ namespace beam::wallet {
     struct ManagerStdInWallet
         :public bvm2::ManagerStd
     {
-        ManagerStdInWallet(WalletDB::Ptr, proto::FlyClient::INetwork::Ptr);
+        ManagerStdInWallet(WalletDB::Ptr, Wallet::Ptr);
 
     protected:
 
         WalletDB::Ptr m_pWalletDB;
+        Wallet::Ptr m_pWallet;
 
         struct SlotName;
 

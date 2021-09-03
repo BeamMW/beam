@@ -2308,7 +2308,7 @@ namespace
                     }
                 };
 
-                MyManager man(walletDB, wallet->GetNodeEndpoint());
+                MyManager man(walletDB, wallet);
 
                 auto sVal = vm[cli::SHADER_BYTECODE_APP].as<string>();
                 if (sVal.empty())

@@ -29,15 +29,16 @@ namespace beam::wallet {
         }
     };
 
-    ManagerStdInWallet::ManagerStdInWallet(WalletDB::Ptr wdb, proto::FlyClient::INetwork::Ptr pNetwork)
+    ManagerStdInWallet::ManagerStdInWallet(WalletDB::Ptr wdb, Wallet::Ptr pWallet)
         :m_pWalletDB(std::move(wdb))
+        ,m_pWallet(std::move(pWallet))
     {
-        assert(m_pWalletDB);
+        assert(m_pWalletDB && m_pWallet);
 
         m_pPKdf = m_pWalletDB->get_OwnerKdf();
         m_pHist = &m_pWalletDB->get_History();
 
-        m_pNetwork = std::move(pNetwork);
+        m_pNetwork = m_pWallet->GetNodeEndpoint();
         assert(m_pNetwork);
     }
 
@@ -66,7 +67,7 @@ namespace beam::wallet {
                                    beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
                                    std::string appid,
                                    std::string appname)
-        :ManagerStdInWallet(std::move(walletDB), std::move(nodeNetwork))
+        :ManagerStdInWallet(std::move(walletDB), wallet)
         , _currentAppId(std::move(appid))
         , _currentAppName(std::move(appname))
         , _wallet(std::move(wallet))

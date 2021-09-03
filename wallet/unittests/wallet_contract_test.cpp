@@ -96,7 +96,7 @@ namespace
         , const std::string& contractShader
         , std::string args)
     {
-        MyManager man(walletDB, wallet->GetNodeEndpoint());
+        MyManager man(walletDB, wallet);
 
         if (appShader.empty())
             throw std::runtime_error("shader file not specified");
