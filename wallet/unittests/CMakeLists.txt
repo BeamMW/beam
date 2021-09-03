@@ -7,6 +7,9 @@ set(TEST_SHADERS test_shader.cpp)
 add_library(wallet_test_node STATIC wallet_test_node.cpp)
 target_link_libraries(wallet_test_node PUBLIC node wallet)
 
+configure_file("../../bvm/Shaders/vault/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/vault/contract.wasm" COPYONLY)
+configure_file("../../bvm/Shaders/vault/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/vault/app.wasm" COPYONLY)
+
 
 add_test_snippet(wallet_test wallet node mnemonic wallet wallet_client wallet_api wallet_test_node)
 add_test_snippet(wallet_db_test wallet)
