@@ -1846,9 +1846,6 @@ namespace
                 if (m_vInvokeData.empty())
                     return false;
 
-
-                const auto height  = m_pWallet->get_TipHeight();
-
                 auto txID = m_pWallet->StartTransaction(
                     CreateTransactionParameters(TxType::Contract)
                     .SetParameter(TxParameterID::ContractDataPacked, m_vInvokeData));
