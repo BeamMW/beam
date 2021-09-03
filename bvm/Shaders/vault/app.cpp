@@ -21,12 +21,15 @@
     macro(manager, view_account)
 
 #define Vault_my_account_view(macro) macro(ContractID, cid)
+#define Vault_my_account_get_key(macro) macro(ContractID, cid)
 #define Vault_my_account_get_proof(macro) \
     macro(ContractID, cid) \
     macro(AssetID, aid)
 
 #define Vault_my_account_deposit(macro) \
     macro(ContractID, cid) \
+    macro(PubKey, pkForeign) \
+    macro(uint32_t, bCoSigner) \
     macro(Amount, amount) \
     macro(AssetID, aid)
 
@@ -38,6 +41,7 @@
 
 #define VaultRole_my_account(macro) \
     macro(my_account, view) \
+    macro(my_account, get_key) \
     macro(my_account, get_proof) \
     macro(my_account, deposit) \
     macro(my_account, withdraw)
@@ -187,6 +191,55 @@ void DeriveMyPk(PubKey& pubKey, const ContractID& cid)
     Env::DerivePk(pubKey, &myid, sizeof(myid));
 }
 
+struct MultiSigProto
+{
+#pragma pack (push, 1)
+    struct Msg0
+    {
+        PubKey m_pkKrnBlind; // serves as ID of this session
+    };
+
+    struct Msg1
+        :public Msg0
+    {
+        static const uint32_t s_Magic = 0x12342a34; // change with proto version
+        uint32_t m_Magic = s_Magic;
+
+        Height m_hMin;
+        PubKey m_pkSignerNonce;
+    };
+
+    struct Msg2
+        :public Msg0
+    {
+        PubKey m_pkFullNonce;
+        Secp_scalar_data m_kSig;
+    };
+#pragma pack (pop)
+
+    Msg1 m_Msg1;
+    Msg2 m_Msg2;
+
+    static const Height s_dh = 20;
+
+    static const uint32_t s_iSlotNonceKey = 0;
+    static const uint32_t s_iSlotKrnNonce = 1;
+    static const uint32_t s_iSlotKrnBlind = 2;
+
+
+    const ContractID* m_pCid;
+    const Vault::Request* m_pArg;
+    const FundsChange* m_pFc;
+
+    void InvokeKrn(const Secp_scalar_data& kSig, Secp_scalar_data* pE)
+    {
+        Env::GenerateKernelAdvanced(
+            m_pCid, Vault::Withdraw::s_iMethod, m_pArg, sizeof(*m_pArg), m_pFc, 1, &m_pArg->m_Account, 1, "withdraw from Vault", 0,
+            m_Msg1.m_hMin, m_Msg1.m_hMin + s_dh, m_Msg1.m_pkKrnBlind, m_Msg2.m_pkFullNonce, kSig, s_iSlotKrnBlind, s_iSlotKrnNonce, pE);
+    }
+};
+
+
 ON_METHOD(my_account, move)
 {
     if (!amount)
@@ -195,7 +248,22 @@ ON_METHOD(my_account, move)
     Vault::Request arg;
     arg.m_Amount = amount;
     arg.m_Aid = aid;
-    DeriveMyPk(arg.m_Account, cid);
+
+    MyAccountID myid;
+    _POD_(myid.m_Cid) = cid;
+    Env::DerivePk(arg.m_Account, &myid, sizeof(myid));
+
+    bool bIsMultisig = !_POD_(pkForeign).IsZero();
+    if (bIsMultisig)
+    {
+        Secp::Point p0, p1;
+        p0.Import(arg.m_Account);
+        if (!p1.Import(pkForeign))
+            return OnError("bad foreign key");
+
+        p0 += p1;
+        p0.Export(arg.m_Account);
+    }
 
     FundsChange fc;
     fc.m_Amount = arg.m_Amount;
@@ -206,72 +274,110 @@ ON_METHOD(my_account, move)
         Env::GenerateKernel(&cid, Vault::Deposit::s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "deposit to Vault", 0);
     else
     {
-        MyAccountID myid;
-        myid.m_Cid = cid;
+        if (bIsMultisig)
+        {
+            Env::Comm_Listen(&myid, sizeof(myid), 1);
 
-#if 0
+            MultiSigProto msp;
+            msp.m_pCid = &cid;
+            msp.m_pArg = &arg;
+            msp.m_pFc = &fc;
 
-        PubKey pkFullBlind, pkFullNonce, pkMy;
-        Env::DerivePk(pkMy, &myid, sizeof(myid));
+            Height h = Env::get_Height();
 
-        Height hMin = Env::get_Height() + 1;
-        Height hMax = hMin + 10;
+            if (bCoSigner)
+            {
+                // wait for signer
+                while (true)
+                {
+                    Env::Comm_ReadExact_T(msp.m_Msg1, "Waiting for signer");
+                    if (msp.m_Msg1.m_Magic == msp.m_Msg1.s_Magic)
+                        break;
+                }
 
-        const uint32_t iSlotMy = 0;
-        const uint32_t iSlotKrn = 1;
-        const uint32_t iSlotBlind = 2;
+                if ((msp.m_Msg1.m_hMin + 10 < h) || (msp.m_Msg1.m_hMin > h + 20))
+                    return OnError("foreign height insane");
 
-        Secp_scalar* s0 = Env::Secp_Scalar_alloc();
-        Secp_point* p0 = Env::Secp_Point_alloc();
-        Secp_point* p1 = Env::Secp_Point_alloc();
+                Secp::Point p0, p1;
+                p0.Import(msp.m_Msg1.m_pkSignerNonce);
+                p1.FromSlot(msp.s_iSlotNonceKey);
+                p0 += p1;
+                p0.Export(msp.m_Msg2.m_pkFullNonce);
 
-        Env::get_SlotImage(*p0, iSlotBlind); // kernel blinding factor
-        Env::Secp_Point_Export(*p0, pkFullBlind);
+                Secp_scalar_data e;
+                msp.InvokeKrn(e, &e);
 
-        Env::get_SlotImage(*p0, iSlotMy); // my nonce
-        Env::get_SlotImage(*p1, iSlotKrn); // kernel nonce
-        Env::Secp_Point_add(*p0, *p0, *p1); // total nonce
-        Env::Secp_Point_Export(*p0, pkFullNonce);
+                Secp::Scalar s;
+                s.Import(e);
+                Env::get_BlindSk(s, &myid, sizeof(myid), s, msp.s_iSlotNonceKey);
 
-        Secp_scalar_data pE[1]; // my challenge
+                s.Export(msp.m_Msg2.m_kSig);
 
-        // 1st call. Show our pk and nonce image (denoted by slot). Get the challenge
-        Env::GenerateKernelAdvanced(&cid, Vault::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &pkMy, 1, "", 0, hMin, hMax, pkFullBlind, pkFullNonce, pE[0], iSlotBlind, iSlotKrn, pE);
+                // send result back
+                _POD_(msp.m_Msg2.m_pkKrnBlind) = msp.m_Msg1.m_pkKrnBlind;
+                Env::Comm_Send_T(pkForeign, msp.m_Msg2);
 
-        Env::Secp_Scalar_import(*s0, pE[0]);
+                Env::DocAddText("", "Negotiation is over");
+            }
+            else
+            {
+                msp.m_Msg1.m_hMin = h + 1;
 
-        // get the blinded sk.
-        Env::get_BlindSk(*s0, &myid, sizeof(myid), *s0, iSlotMy);
+                Secp::Point p0, p1;
 
-        Env::Secp_Scalar_export(*s0, pE[0]);
+                p0.FromSlot(msp.s_iSlotKrnBlind);
+                p0.Export(msp.m_Msg1.m_pkKrnBlind);
 
-        // 2nd call. Same args, this time we put real sk (blinded, answering the correct challenge)
-        Env::GenerateKernelAdvanced(&cid, Vault::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &pkMy, 1, "withdraw from Vault", 0, hMin, hMax, pkFullBlind, pkFullNonce, pE[0], iSlotBlind, iSlotKrn, nullptr);
+                p0.FromSlot(msp.s_iSlotKrnNonce);
+                p1.FromSlot(msp.s_iSlotNonceKey);
+                p0 += p1;
+                p0.Export(msp.m_Msg1.m_pkSignerNonce); // both kernel and our key
 
-        Env::Secp_Scalar_free(*s0);
-        Env::Secp_Point_free(*p0);
-        Env::Secp_Point_free(*p1);
+                Env::Comm_Send_T(pkForeign, msp.m_Msg1);
 
-#else
+                // wait for co-signer
+                while (true)
+                {
+                    Env::Comm_ReadExact_T(msp.m_Msg2, "Waiting for co-signer");
+                    if (_POD_(msp.m_Msg1.m_pkKrnBlind) == msp.m_Msg2.m_pkKrnBlind)
+                        break;
+                }
 
-        SigRequest sig;
-        sig.m_pID = &myid;
-        sig.m_nID = sizeof(myid);
+                Secp_scalar_data e;
+                msp.InvokeKrn(e, &e);
 
-        Env::GenerateKernel(&cid, Vault::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "withdraw from Vault", 0);
+                Secp::Scalar s0, s1;
+                s0.Import(msp.m_Msg2.m_kSig);
 
-#endif
+                s1.Import(e);
+                Env::get_BlindSk(s1, &myid, sizeof(myid), s1, msp.s_iSlotNonceKey);
+
+                s0 += s1; // full key
+                s0.Export(e);
+
+                msp.InvokeKrn(e, nullptr);
+            }
+
+        }
+        else
+        {
+            SigRequest sig;
+            sig.m_pID = &myid;
+            sig.m_nID = sizeof(myid);
+
+            Env::GenerateKernel(&cid, Vault::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "withdraw from Vault", 0);
+        }
     }
 }
 
 ON_METHOD(my_account, deposit)
 {
-    On_my_account_move(1, cid, amount, aid);
+    On_my_account_move(1, cid, pkForeign, bCoSigner, amount, aid);
 }
 
 ON_METHOD(my_account, withdraw)
 {
-    On_my_account_move(0, cid, amount, aid);
+    On_my_account_move(0, cid, pkForeign, bCoSigner, amount, aid);
 }
 
 ON_METHOD(my_account, view)
@@ -279,6 +385,13 @@ ON_METHOD(my_account, view)
     PubKey pubKey;
     DeriveMyPk(pubKey, cid);
     DumpAccount(pubKey, cid);
+}
+
+ON_METHOD(my_account, get_key)
+{
+    PubKey pubKey;
+    DeriveMyPk(pubKey, cid);
+    Env::DocAddBlob_T("key", pubKey);
 }
 
 ON_METHOD(my_account, get_proof)
