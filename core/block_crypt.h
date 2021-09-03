@@ -35,7 +35,7 @@ namespace beam
 
 		bool ExportNnz(ECC::Point::Native&) const;
 		bool Import(const ECC::Point::Native&); // returns if the sign is preserved
-		void FromSk(ECC::Scalar::Native&); // will negate the scalar iff necessary
+		bool FromSk(ECC::Scalar::Native&); // will negate the scalar iff necessary. returns if the sign is preserved
 	};
 
 	typedef uint64_t BbsChannel;

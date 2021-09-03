@@ -38,11 +38,14 @@ namespace beam
 		return !pk.m_Y;
 	}
 
-	void PeerID::FromSk(ECC::Scalar::Native& sk)
+	bool PeerID::FromSk(ECC::Scalar::Native& sk)
 	{
 		ECC::Point::Native pt = ECC::Context::get().G * sk;
-		if (!Import(pt))
-			sk = -sk;
+		if (Import(pt))
+			return true;
+
+		sk = -sk;
+		return false;
 	}
 
 	/////////////
