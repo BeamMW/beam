@@ -21,6 +21,7 @@ namespace beam::bvm2 {
 	class ManagerStd
 		:public ProcessorManager
 	{
+	protected:
 		uint32_t m_Freeze = 0; // incremented when we're awaiting something
 		void Unfreeze();
 		void OnUnfreezed();

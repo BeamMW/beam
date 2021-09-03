@@ -46,7 +46,7 @@ namespace beam::wallet {
         void SlotErase(uint32_t iSlot) override;
         void Comm_CreateListener(Comm::Channel::Ptr&, const ECC::Hash::Value&) override;
         void Comm_Send(const ECC::Point&, const Blob&) override;
-        bool Comm_Wait() override;
+        void Comm_Wait() override;
     };
 
 

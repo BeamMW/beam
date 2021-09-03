@@ -554,7 +554,7 @@ namespace bvm2 {
 
 		virtual void Comm_CreateListener(Comm::Channel::Ptr&, const ECC::Hash::Value&) {}
 		virtual void Comm_Send(const ECC::Point&, const Blob&) {}
-		virtual bool Comm_Wait() { return false; }
+		virtual void Comm_Wait() { Wasm::Fail(); }
 
 	public:
 

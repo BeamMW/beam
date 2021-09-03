@@ -110,7 +110,7 @@ namespace beam::wallet {
             if (x.m_WaitingMsg)
             {
                 x.m_WaitingMsg = false;
-                io::Reactor::get_Current().stop();
+                m_pThis->Unfreeze();
             }
         }
     };
@@ -160,18 +160,17 @@ namespace beam::wallet {
             p->Send(wid, msg);
     }
 
-    bool ManagerStdInWallet::Comm_Wait()
+    void ManagerStdInWallet::Comm_Wait()
     {
+        assert(m_Comms.m_Rcv.empty());
+
+        if (m_WaitingMsg)
+            return; // shouldn't happen, but anyway
+
         TestCommAllowed();
 
-        assert(!m_WaitingMsg);
-
-        bool bVal = true;
-        TemporarySwap guard(m_WaitingMsg, bVal);
-
-        io::Reactor::get_Current().run();
-
-        return !m_WaitingMsg;
+        m_Freeze++;
+        m_WaitingMsg = true;
     }
 
     ShadersManager::ShadersManager(beam::wallet::Wallet::Ptr wallet,
