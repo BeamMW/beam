@@ -704,4 +704,60 @@ namespace Merkle
     }
 }
 
+namespace Secp
+{
+    struct Scalar
+    {
+        Secp_scalar* m_p;
+
+        Scalar() { m_p = Env::Secp_Scalar_alloc(); }
+        ~Scalar() { Env::Secp_Scalar_free(*m_p); }
+
+        operator Secp_scalar& () const {
+            return *m_p;
+        }
+
+        uint8_t Import(const Secp_scalar_data& k) const {
+            return Env::Secp_Scalar_import(*m_p, k);
+        }
+
+        void Export(Secp_scalar_data& k) const {
+            Env::Secp_Scalar_export(*m_p, k);
+        }
+
+        void operator += (const Scalar& x) {
+            Env::Secp_Scalar_add(*m_p, *m_p, x);
+        }
+    };
+
+    struct Point
+    {
+        Secp_point* m_p;
+
+        Point() { m_p = Env::Secp_Point_alloc(); }
+        ~Point() { Env::Secp_Point_free(*m_p); }
+
+        operator Secp_point& () const {
+            return *m_p;
+        }
+
+        uint8_t Import(const PubKey& pk) {
+            return Env::Secp_Point_Import(*m_p, pk);
+        }
+
+        void FromSlot(uint32_t iSlot)
+        {
+            Env::get_SlotImage(*m_p, iSlot);
+        }
+
+        void Export(PubKey& pk) const {
+            Env::Secp_Point_Export(*m_p, pk);
+        }
+
+        void operator += (const Point& x) {
+            Env::Secp_Point_add(*m_p, *m_p, x);
+        }
+    };
+}
+
 static const Amount g_Beam2Groth = 100000000;
