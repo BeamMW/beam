@@ -2865,11 +2865,11 @@ namespace bvm2 {
 		ECC::GenRandom(pBuf, nSize);
 	}
 
-	BVM_METHOD(ListenAddr)
+	BVM_METHOD(Comm_Listen)
 	{
-		OnHost_ListenAddr(get_AddrR(pID, nID), nID, bOn);
+		OnHost_Comm_Listen(get_AddrR(pID, nID), nID, bOn);
 	}
-	BVM_METHOD_HOST(ListenAddr)
+	BVM_METHOD_HOST(Comm_Listen)
 	{
 		ECC::Hash::Value hv;
 		DeriveKeyPreimage(hv, Blob(pID, nID));
@@ -2895,23 +2895,22 @@ namespace bvm2 {
 				m_Comms.m_Map.Delete(*it);
 		}
 	}
-	BVM_METHOD(SendMsg)
+	BVM_METHOD(Comm_Send)
 	{
-		OnHost_SendMsg(get_AddrAsR<PubKey>(pkRemote), get_AddrR(pBuf, nSize), nSize);
+		OnHost_Comm_Send(get_AddrAsR<PubKey>(pkRemote), get_AddrR(pBuf, nSize), nSize);
 	}
-	BVM_METHOD_HOST(SendMsg)
+	BVM_METHOD_HOST(Comm_Send)
 	{
 		Comm_Send(pkRemote, Blob(pBuf, nSize));
 	}
-	BVM_METHOD(RecvMsg)
+	BVM_METHOD(Comm_Read)
 	{
-		return OnHost_RecvMsg(get_AddrW(pBuf, nSize), nSize, bKeep);
+		return OnHost_Comm_Read(get_AddrW(pBuf, nSize), nSize, bKeep);
 	}
-	BVM_METHOD_HOST(RecvMsg)
+	BVM_METHOD_HOST(Comm_Read)
 	{
-		while (m_Comms.m_Rcv.empty())
-			if (!Comm_Wait())
-				return 0;
+		if (m_Comms.m_Rcv.empty())
+			return 0;
 
 		auto& x = m_Comms.m_Rcv.front();
 
@@ -2923,6 +2922,17 @@ namespace bvm2 {
 			m_Comms.m_Rcv.Delete(x);
 
 		return nRet;
+	}
+
+	BVM_METHOD(Comm_WaitMsg)
+	{
+		return OnHost_Comm_WaitMsg(RealizeStr(szComment));
+	}
+	BVM_METHOD_HOST(Comm_WaitMsg)
+	{
+		// ignore comment
+		if (m_Comms.m_Rcv.empty())
+			Comm_Wait();
 	}
 
 #undef BVM_METHOD_BinaryVar

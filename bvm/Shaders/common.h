@@ -138,6 +138,32 @@ namespace Env {
             Halt();
     }
 
+    inline void Comm_ReadExact(void* pBuf, uint32_t nSize, const char* szWaitComment)
+    {
+        while (true)
+        {
+            uint32_t val = Comm_Read(pBuf, nSize, 0);
+            if (val == nSize)
+                break;
+
+            if (!val)
+                Comm_WaitMsg(szWaitComment);
+        }
+    }
+
+
+    template <typename T>
+    inline void Comm_ReadExact_T(T& x, const char* szWaitComment)
+    {
+        Comm_ReadExact(&x, sizeof(x), szWaitComment);
+    }
+
+    template <typename T>
+    inline void Comm_Send_T(const PubKey& pkRemote, const T& x)
+    {
+        Comm_Send(pkRemote, &x, sizeof(x));
+    }
+
     template <typename T>
     inline T* StackAlloc_T(uint32_t n) {
         return (T*) StackAlloc(sizeof(T) * n);
