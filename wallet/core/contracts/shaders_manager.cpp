@@ -137,12 +137,12 @@ namespace beam::wallet {
         auto& c = *pCh;
 
         c.m_Y = !c.m_Wid.m_Pk.FromSk(sk);
-        pCh->m_Wid.SetChannelFromPk();
+        c.m_Wid.SetChannelFromPk();
 
-        pCh->m_pThis = this;
+        c.m_pThis = this;
 
         for (auto& p : m_pWallet->get_MessageEndpoints())
-            p->Listen(pCh->m_Wid, sk, &c.m_Handler);
+            p->Listen(c.m_Wid, sk, &c.m_Handler);
 
         pRes = std::move(pCh);
     }

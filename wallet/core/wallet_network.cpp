@@ -249,6 +249,7 @@ namespace beam::wallet {
         Addr* pAddr = CreateOwnAddr(addr);
         pAddr->m_sk = sk;
         pAddr->m_ExpirationTime = Timestamp(-1);
+        pAddr->m_pHandler = pHandler;
     }
 
     void BaseMessageEndpoint::Unlisten(const WalletID& wid)
