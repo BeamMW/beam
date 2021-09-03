@@ -18,6 +18,7 @@
 #include <boost/beast/ssl.hpp>
 #include <boost/beast/websocket/ssl.hpp>
 #include <boost/asio/strand.hpp>
+#include <boost/filesystem.hpp>
 
 namespace net = boost::asio;            // from <boost/asio.hpp>
 namespace ssl = boost::asio::ssl;       // from <boost/asio/ssl.hpp>
@@ -157,14 +158,16 @@ namespace beam
             {
                 ctx.use_private_key_file(options.keyPath, ssl::context::file_format::pem);
             }
-            //if (!options.dhParams.empty())
-            //{
-            //    ctx.use_tmp_dh(boost::asio::buffer(options.dhParams.data(), options.dhParams.size()));
-            //}
-            //else if (!options.dhParamsPath.empty())
-            //{
-            //    ctx.use_tmp_dh_file(options.dhParamsPath);
-            //}
+            if (!options.dhParams.empty())
+            {
+                ctx.set_options(ssl::context::single_dh_use);
+                ctx.use_tmp_dh(boost::asio::buffer(options.dhParams.data(), options.dhParams.size()));
+            }
+            else if (!options.dhParamsPath.empty() && boost::filesystem::exists(options.dhParamsPath))
+            {
+                ctx.set_options(ssl::context::single_dh_use);
+                ctx.use_tmp_dh_file(options.dhParamsPath);
+            }
         }
         LOG_INFO() << "Listening websocket protocol on port " << options.port;
         _iocThread = std::make_shared<MyThread>([this, port = options.port, reactor]()
