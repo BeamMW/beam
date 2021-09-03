@@ -211,9 +211,9 @@ namespace beam::wallet
     // Describes structure of generic transaction parameter
     struct TxParameter
     {
-        TxID m_txID;
+        TxID m_txID = {};
         int m_subTxID = static_cast<int>(kDefaultSubTxID);
-        int m_paramID;
+        int m_paramID = 0;
         ByteBuffer m_value;
     };
 
@@ -340,7 +340,7 @@ namespace beam::wallet
     template<typename T>
     std::string GetCoinSpentTxID(const T& c)
     {
-        return c.m_createTxId.is_initialized() ? std::to_string(*c.m_createTxId) : "";
+        return c.m_spentTxId.is_initialized() ? std::to_string(*c.m_spentTxId) : "";
     }
 
     // Notifications for all collection changes

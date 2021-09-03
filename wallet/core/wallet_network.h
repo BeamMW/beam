@@ -50,7 +50,7 @@ namespace beam::wallet
             }
 
             ECC::Scalar::Native m_sk; // private addr
-            Timestamp m_ExpirationTime;
+            Timestamp m_ExpirationTime = 0;
             IHandler* m_pHandler = nullptr;
         };
     public:

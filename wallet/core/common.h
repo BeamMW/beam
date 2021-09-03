@@ -68,7 +68,7 @@ namespace beam::wallet
         uintBigFor<BbsChannel>::Type m_Channel;
         PeerID m_Pk;
 
-        WalletID() {}
+        WalletID() = default;
         WalletID(Zero_)
             : m_Channel(Zero)
             , m_Pk(Zero)
