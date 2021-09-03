@@ -23,17 +23,28 @@ namespace beam::wallet {
         :public bvm2::ManagerStd
     {
         ManagerStdInWallet(WalletDB::Ptr, Wallet::Ptr);
+        virtual ~ManagerStdInWallet();
+
+        void set_Privilege(uint32_t);
 
     protected:
 
         WalletDB::Ptr m_pWalletDB;
         Wallet::Ptr m_pWallet;
+        uint32_t m_Privilege;
+        bool m_WaitingMsg;
 
         struct SlotName;
+        struct Channel;
+
+        void TestCommAllowed() const;
 
         bool SlotLoad(ECC::Hash::Value&, uint32_t iSlot) override;
         void SlotSave(const ECC::Hash::Value&, uint32_t iSlot) override;
         void SlotErase(uint32_t iSlot) override;
+        void Comm_CreateListener(Comm::Channel::Ptr&, const ECC::Hash::Value&) override;
+        void Comm_Send(const ECC::Point&, const Blob&) override;
+        bool Comm_Wait() override;
     };
 
 

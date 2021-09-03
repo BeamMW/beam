@@ -2324,9 +2324,7 @@ namespace
                 if (!sVal.empty())
                     man.AddArgs(&sVal.front());
 
-                uint32_t nPrivilege = vm[cli::SHADER_PRIVILEGE].as<uint32_t>();
-                if (nPrivilege)
-                    man.m_pKdf = walletDB->get_MasterKdf();
+                man.set_Privilege(vm[cli::SHADER_PRIVILEGE].as<uint32_t>());
 
                 std::cout << "Executing shader..." << std::endl;
 

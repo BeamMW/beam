@@ -32,6 +32,7 @@ namespace beam::wallet {
     ManagerStdInWallet::ManagerStdInWallet(WalletDB::Ptr wdb, Wallet::Ptr pWallet)
         :m_pWalletDB(std::move(wdb))
         ,m_pWallet(std::move(pWallet))
+        ,m_WaitingMsg(false)
     {
         assert(m_pWalletDB && m_pWallet);
 
@@ -40,6 +41,18 @@ namespace beam::wallet {
 
         m_pNetwork = m_pWallet->GetNodeEndpoint();
         assert(m_pNetwork);
+    }
+
+    ManagerStdInWallet::~ManagerStdInWallet()
+    {
+        m_Comms.m_Map.Clear(); // must be cleared before our d'tor ends, not in the base d'tor
+    }
+
+    void ManagerStdInWallet::set_Privilege(uint32_t n)
+    {
+        m_Privilege = n;
+        if (n)
+            m_pKdf = m_pWalletDB->get_MasterKdf();
     }
 
     bool ManagerStdInWallet::SlotLoad(ECC::Hash::Value& hv, uint32_t iSlot)
@@ -60,7 +73,100 @@ namespace beam::wallet {
         m_pWalletDB->removeVarRaw(sn.m_sz);
     }
 
+    struct ManagerStdInWallet::Channel
+        :public ManagerStd::Comm::Channel
+    {
+        ManagerStdInWallet* m_pThis = nullptr;
+        WalletID m_Wid;
+        uint8_t m_Y;
 
+        virtual ~Channel()
+        {
+            if (m_pThis)
+            {
+                for (auto& p : m_pThis->m_pWallet->get_MessageEndpoints())
+                    p->Unlisten(m_Wid);
+            }
+        }
+
+        struct Handler
+            :public IWalletMessageEndpoint::IHandler
+        {
+            void OnMsg(const Blob& msg) override
+            {
+                if (msg.n) // ignore empty msgs
+                    get_ParentObj().OnMsg(msg);
+            }
+
+            IMPLEMENT_GET_PARENT_OBJ(Channel, m_Handler)
+        } m_Handler;
+
+        void OnMsg(const Blob& msg)
+        {
+            auto& x = *m_pThis;
+            auto* pItem = x.m_Comms.m_Rcv.Create_back();
+            msg.Export(pItem->m_Msg);
+
+            if (x.m_WaitingMsg)
+            {
+                x.m_WaitingMsg = false;
+                io::Reactor::get_Current().stop();
+            }
+        }
+    };
+
+    void ManagerStdInWallet::TestCommAllowed() const
+    {
+        Wasm::Test(m_Privilege >= 2);
+    }
+
+    void ManagerStdInWallet::Comm_CreateListener(Comm::Channel::Ptr& pRes, const ECC::Hash::Value& hv)
+    {
+        TestCommAllowed();
+
+        ECC::Scalar::Native sk;
+        get_Sk(sk, hv); // would fail if not in privileged mode
+
+        auto pCh = std::make_unique<Channel>();
+        auto& c = *pCh;
+
+        c.m_Y = !c.m_Wid.m_Pk.FromSk(sk);
+        pCh->m_Wid.SetChannelFromPk();
+
+        pCh->m_pThis = this;
+
+        for (auto& p : m_pWallet->get_MessageEndpoints())
+            p->Listen(pCh->m_Wid, sk, &c.m_Handler);
+
+        pRes = std::move(pCh);
+    }
+
+    void ManagerStdInWallet::Comm_Send(const ECC::Point& pk, const Blob& msg)
+    {
+        TestCommAllowed();
+
+
+        WalletID wid;
+        wid.m_Pk = pk.m_X;
+        wid.SetChannelFromPk();
+
+        for (auto& p : m_pWallet->get_MessageEndpoints())
+            p->Send(wid, msg);
+    }
+
+    bool ManagerStdInWallet::Comm_Wait()
+    {
+        TestCommAllowed();
+
+        assert(!m_WaitingMsg);
+
+        bool bVal = true;
+        TemporarySwap guard(m_WaitingMsg, bVal);
+
+        io::Reactor::get_Current().run();
+
+        return !m_WaitingMsg;
+    }
 
     ShadersManager::ShadersManager(beam::wallet::Wallet::Ptr wallet,
                                    beam::wallet::IWalletDB::Ptr walletDB,
