@@ -2863,6 +2863,66 @@ namespace bvm2 {
 		ECC::GenRandom(pBuf, nSize);
 	}
 
+	BVM_METHOD(ListenAddr)
+	{
+		OnHost_ListenAddr(get_AddrR(pID, nID), nID, bOn);
+	}
+	BVM_METHOD_HOST(ListenAddr)
+	{
+		ECC::Hash::Value hv;
+		DeriveKeyPreimage(hv, Blob(pID, nID));
+
+		auto it = m_Comms.m_Map.find(hv, Comm::Channel::Comparator());
+		if (m_Comms.m_Map.end() == it)
+		{
+			if (bOn)
+			{
+				Comm::Channel::Ptr pCh;
+				Comm_CreateListener(pCh, hv);
+
+				if (pCh)
+				{
+					pCh->m_Key = hv;
+					m_Comms.m_Map.insert(*pCh.release());
+				}
+			}
+		}
+		else
+		{
+			if (!bOn)
+				m_Comms.m_Map.Delete(*it);
+		}
+	}
+	BVM_METHOD(SendMsg)
+	{
+		OnHost_SendMsg(get_AddrAsR<PubKey>(pkRemote), get_AddrR(pBuf, nSize), nSize);
+	}
+	BVM_METHOD_HOST(SendMsg)
+	{
+		Comm_Send(pkRemote, Blob(pBuf, nSize));
+	}
+	BVM_METHOD(RecvMsg)
+	{
+		return OnHost_RecvMsg(get_AddrW(pBuf, nSize), nSize, bKeep);
+	}
+	BVM_METHOD_HOST(RecvMsg)
+	{
+		while (m_Comms.m_Rcv.empty())
+			if (!Comm_Wait())
+				return 0;
+
+		auto& x = m_Comms.m_Rcv.front();
+
+		uint32_t nRet = static_cast<uint32_t>(x.m_Msg.size());
+		if (nRet)
+			memcpy(pBuf, &x.m_Msg.front(), std::min(nRet, nSize));
+
+		if (!bKeep)
+			m_Comms.m_Rcv.Delete(x);
+
+		return nRet;
+	}
+
 #undef BVM_METHOD_BinaryVar
 #undef BVM_METHOD
 #undef THE_MACRO_ParamDecl

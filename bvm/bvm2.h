@@ -520,6 +520,42 @@ namespace bvm2 {
 		virtual void SlotSave(const ECC::Hash::Value&, uint32_t iSlot) { }
 		virtual void SlotErase(uint32_t iSlot) { }
 
+		struct Comm
+		{
+			struct Channel
+				:public intrusive::set_base_hook<ECC::Hash::Value>
+			{
+				virtual ~Channel() {} // auto
+
+				typedef std::unique_ptr<Channel> Ptr;
+				typedef intrusive::multiset_autoclear<Channel> Map;
+
+			};
+
+			Channel::Map m_Map;
+
+			struct Rcv
+				:public boost::intrusive::list_base_hook<>
+			{
+				ByteBuffer m_Msg;
+
+				typedef intrusive::list_autoclear<Rcv> List;
+			};
+
+			Rcv::List m_Rcv;
+
+			void Clear()
+			{
+				m_Map.Clear();
+				m_Rcv.Clear();
+			}
+
+		} m_Comms;
+
+		virtual void Comm_CreateListener(Comm::Channel::Ptr&, const ECC::Hash::Value&) {}
+		virtual void Comm_Send(const ECC::Point&, const Blob&) {}
+		virtual bool Comm_Wait() { return false; }
+
 	public:
 
 		static const uint32_t s_Slots = 10;

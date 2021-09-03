@@ -398,6 +398,20 @@
 	macro(uint32_t, iSlotNonce) sep \
 	macro(Secp_scalar_data*, pChallenges)
 
+#define BVMOp_ListenAddr(macro, sep) \
+	macro(const void*, pID) sep \
+	macro(uint32_t, nID) sep \
+	macro(uint8_t, bOn)
+
+#define BVMOp_RecvMsg(macro, sep) \
+	macro(void*, pBuf) sep \
+	macro(uint32_t, nSize) sep \
+	macro(uint8_t, bKeep)
+
+#define BVMOp_SendMsg(macro, sep) \
+	macro(const PubKey&, pkRemote) sep \
+	macro(const void*, pBuf) sep \
+	macro(uint32_t, nSize)
 
 #define BVMOpsAll_Common(macro) \
 	macro(0x10, void*    , Memcpy) \
@@ -489,5 +503,8 @@
 	macro(0xA3, void     , get_Pk) \
 	macro(0xA4, void     , get_BlindSk) \
 	macro(0xA5, void     , GenerateKernelAdvanced) \
+	macro(0xB0, void     , ListenAddr) \
+	macro(0xB1, uint32_t , RecvMsg) \
+	macro(0xB2, void     , SendMsg) \
 
 #define EXTRA_LINE_BEFORE_EOF_SO_THAT_THE_STUPID_COMPILER_WONT_COMPLAIN_ABOUT_BACKSLASH_ON_PREVIOUS_LINE

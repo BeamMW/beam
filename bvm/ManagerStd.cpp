@@ -357,6 +357,7 @@ namespace bvm2 {
 		m_Out.str("");
 		m_Out.clear();
 		decltype(m_vInvokeData)().swap(m_vInvokeData);
+		m_Comms.Clear();
 
 		try {
 			CallMethod(iMethod);
