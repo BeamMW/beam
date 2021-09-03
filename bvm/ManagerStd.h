@@ -48,6 +48,7 @@ namespace beam::bvm2 {
 		bool LogGetProof(const HeightPos&, beam::Merkle::Proof&) override;
 
 		virtual void OnDone(const std::exception* pExc) {}
+		virtual void OnReset();
 
 	public:
 

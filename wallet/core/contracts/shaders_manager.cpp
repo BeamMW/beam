@@ -120,6 +120,12 @@ namespace beam::wallet {
         Wasm::Test(m_Privilege >= 2);
     }
 
+    void ManagerStdInWallet::OnReset()
+    {
+        ManagerStd::OnReset();
+        m_WaitingMsg = false;
+    }
+
     void ManagerStdInWallet::Comm_CreateListener(Comm::Channel::Ptr& pRes, const ECC::Hash::Value& hv)
     {
         TestCommAllowed();

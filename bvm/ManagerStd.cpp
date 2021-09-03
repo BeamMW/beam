@@ -350,7 +350,7 @@ namespace bvm2 {
 		return true;
 	}
 
-	void ManagerStd::StartRun(uint32_t iMethod)
+	void ManagerStd::OnReset()
 	{
 		InitMem();
 		m_Code = m_BodyManager;
@@ -358,6 +358,16 @@ namespace bvm2 {
 		m_Out.clear();
 		decltype(m_vInvokeData)().swap(m_vInvokeData);
 		m_Comms.Clear();
+
+		m_mapReadVars.Clear();
+		m_mapReadLogs.Clear();
+
+		m_Freeze = 0;
+	}
+
+	void ManagerStd::StartRun(uint32_t iMethod)
+	{
+		OnReset();
 
 		try {
 			CallMethod(iMethod);

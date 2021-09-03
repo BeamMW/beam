@@ -174,6 +174,8 @@ namespace bvm2 {
 		m_vHeap.clear();
 
 		m_DataProcessor.m_Map.Clear();
+		m_Secp.m_Point.m_Map.Clear();
+		m_Secp.m_Scalar.m_Map.Clear();
 	}
 
 	void ProcessorContract::InitStackPlus(uint32_t nStackBytes)

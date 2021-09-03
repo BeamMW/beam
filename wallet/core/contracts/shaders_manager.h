@@ -39,6 +39,8 @@ namespace beam::wallet {
 
         void TestCommAllowed() const;
 
+        void OnReset() override;
+
         bool SlotLoad(ECC::Hash::Value&, uint32_t iSlot) override;
         void SlotSave(const ECC::Hash::Value&, uint32_t iSlot) override;
         void SlotErase(uint32_t iSlot) override;
