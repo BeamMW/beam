@@ -131,13 +131,12 @@ namespace beam
     {
         if (options.useTls)
         {
-            _tlsContext = std::make_unique<ssl::context>(ssl::context::tlsv12_server);
+            _tlsContext = std::make_unique<ssl::context>(ssl::context::tlsv13_server);
             auto& ctx = *_tlsContext;
             ctx.set_options(
                 ssl::context::default_workarounds |
                 ssl::context::no_sslv2 |
-                ssl::context::no_sslv3 |
-                ssl::context::single_dh_use);
+                ssl::context::no_sslv3 );
             ctx.set_verify_mode(ssl::verify_none);
             if (!options.certificate.empty())
             {
@@ -158,14 +157,14 @@ namespace beam
             {
                 ctx.use_private_key_file(options.keyPath, ssl::context::file_format::pem);
             }
-            if (!options.dhParams.empty())
-            {
-                ctx.use_tmp_dh(boost::asio::buffer(options.dhParams.data(), options.dhParams.size()));
-            }
-            else if (!options.dhParamsPath.empty())
-            {
-                ctx.use_tmp_dh_file(options.dhParamsPath);
-            }
+            //if (!options.dhParams.empty())
+            //{
+            //    ctx.use_tmp_dh(boost::asio::buffer(options.dhParams.data(), options.dhParams.size()));
+            //}
+            //else if (!options.dhParamsPath.empty())
+            //{
+            //    ctx.use_tmp_dh_file(options.dhParamsPath);
+            //}
         }
         LOG_INFO() << "Listening websocket protocol on port " << options.port;
         _iocThread = std::make_shared<MyThread>([this, port = options.port, reactor]()

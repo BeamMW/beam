@@ -233,7 +233,7 @@ namespace
             net::io_context ioc;
 
             // The SSL context is required, and holds certificates
-            ssl::context ctx{ ssl::context::tlsv12_client };
+            ssl::context ctx{ ssl::context::tlsv13_client };
 
             // This holds the root certificate used for verification
             boost::system::error_code ec;
