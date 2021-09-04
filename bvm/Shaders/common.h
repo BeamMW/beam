@@ -138,13 +138,14 @@ namespace Env {
             Halt();
     }
 
-    inline void Comm_ReadExact(void* pBuf, uint32_t nSize, const char* szWaitComment)
+    inline uint32_t Comm_ReadExact(void* pBuf, uint32_t nSize, const char* szWaitComment)
     {
         while (true)
         {
-            uint32_t val = Comm_Read(pBuf, nSize, 0);
+            uint32_t nCookie;
+            uint32_t val = Comm_Read(pBuf, nSize, &nCookie, 0);
             if (val == nSize)
-                break;
+                return nCookie;
 
             if (!val)
                 Comm_WaitMsg(szWaitComment);

@@ -38,7 +38,7 @@ namespace beam::bvm2 {
 
 		void RunSync();
 		bool PerformRequestSync(proto::FlyClient::Request&);
-		void Comm_OnNewMsg();
+		void Comm_OnNewMsg(const Blob&, const Comm::Channel&);
 
 	protected:
 		Height get_Height() override;

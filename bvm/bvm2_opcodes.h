@@ -401,7 +401,7 @@
 #define BVMOp_Comm_Listen(macro, sep) \
 	macro(const void*, pID) sep \
 	macro(uint32_t, nID) sep \
-	macro(uint8_t, bOn)
+	macro(uint32_t, nCookie)
 
 #define BVMOp_Comm_Send(macro, sep) \
 	macro(const PubKey&, pkRemote) sep \
@@ -411,6 +411,7 @@
 #define BVMOp_Comm_Read(macro, sep) \
 	macro(void*, pBuf) sep \
 	macro(uint32_t, nSize) sep \
+	macro(uint32_t*, pCookie) sep \
 	macro(uint8_t, bKeep)
 
 #define BVMOp_Comm_WaitMsg(macro, sep) \

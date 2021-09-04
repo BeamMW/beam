@@ -93,21 +93,12 @@ namespace beam::wallet {
         {
             void OnMsg(const Blob& msg) override
             {
-                if (msg.n) // ignore empty msgs
-                    get_ParentObj().OnMsg(msg);
+                auto& c = get_ParentObj();
+                c.m_pThis->Comm_OnNewMsg(msg, c);
             }
 
             IMPLEMENT_GET_PARENT_OBJ(Channel, m_Handler)
         } m_Handler;
-
-        void OnMsg(const Blob& msg)
-        {
-            auto& x = *m_pThis;
-            auto* pItem = x.m_Comms.m_Rcv.Create_back();
-            msg.Export(pItem->m_Msg);
-
-            x.Comm_OnNewMsg();
-        }
     };
 
     void ManagerStdInWallet::TestCommAllowed() const

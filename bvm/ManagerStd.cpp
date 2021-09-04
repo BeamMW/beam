@@ -390,8 +390,15 @@ namespace bvm2 {
 		m_WaitingMsg = true;
 	}
 
-	void ManagerStd::Comm_OnNewMsg()
+	void ManagerStd::Comm_OnNewMsg(const Blob& msg, const Comm::Channel& c)
 	{
+		if (!msg.n)
+			return; // ignore empty msgs
+
+		auto* pItem = m_Comms.m_Rcv.Create_back();
+		pItem->m_Cookie = c.m_Cookie;
+		msg.Export(pItem->m_Msg);
+
 		if (m_WaitingMsg)
 		{
 			m_WaitingMsg = false;

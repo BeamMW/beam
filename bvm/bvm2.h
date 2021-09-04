@@ -525,6 +525,8 @@ namespace bvm2 {
 			struct Channel
 				:public intrusive::set_base_hook<ECC::Hash::Value>
 			{
+				uint32_t m_Cookie;
+
 				virtual ~Channel() {} // auto
 
 				typedef std::unique_ptr<Channel> Ptr;
@@ -537,6 +539,7 @@ namespace bvm2 {
 			struct Rcv
 				:public boost::intrusive::list_base_hook<>
 			{
+				uint32_t m_Cookie;
 				ByteBuffer m_Msg;
 
 				typedef intrusive::list_autoclear<Rcv> List;
