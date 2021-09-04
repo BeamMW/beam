@@ -32,7 +32,6 @@ namespace beam::wallet {
     ManagerStdInWallet::ManagerStdInWallet(WalletDB::Ptr wdb, Wallet::Ptr pWallet)
         :m_pWalletDB(std::move(wdb))
         ,m_pWallet(std::move(pWallet))
-        ,m_WaitingMsg(false)
     {
         assert(m_pWalletDB && m_pWallet);
 
@@ -107,23 +106,13 @@ namespace beam::wallet {
             auto* pItem = x.m_Comms.m_Rcv.Create_back();
             msg.Export(pItem->m_Msg);
 
-            if (x.m_WaitingMsg)
-            {
-                x.m_WaitingMsg = false;
-                m_pThis->Unfreeze();
-            }
+            x.Comm_OnNewMsg();
         }
     };
 
     void ManagerStdInWallet::TestCommAllowed() const
     {
         Wasm::Test(m_Privilege >= 2);
-    }
-
-    void ManagerStdInWallet::OnReset()
-    {
-        ManagerStd::OnReset();
-        m_WaitingMsg = false;
     }
 
     void ManagerStdInWallet::Comm_CreateListener(Comm::Channel::Ptr& pRes, const ECC::Hash::Value& hv)
@@ -158,19 +147,6 @@ namespace beam::wallet {
 
         for (auto& p : m_pWallet->get_MessageEndpoints())
             p->Send(wid, msg);
-    }
-
-    void ManagerStdInWallet::Comm_Wait()
-    {
-        assert(m_Comms.m_Rcv.empty());
-
-        if (m_WaitingMsg)
-            return; // shouldn't happen, but anyway
-
-        TestCommAllowed();
-
-        m_Freeze++;
-        m_WaitingMsg = true;
     }
 
     ShadersManager::ShadersManager(beam::wallet::Wallet::Ptr wallet,

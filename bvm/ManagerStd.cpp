@@ -363,6 +363,7 @@ namespace bvm2 {
 		m_mapReadLogs.Clear();
 
 		m_Freeze = 0;
+		m_WaitingMsg = false;
 	}
 
 	void ManagerStd::StartRun(uint32_t iMethod)
@@ -378,6 +379,25 @@ namespace bvm2 {
 		}
 	}
 
+	void ManagerStd::Comm_Wait()
+	{
+		assert(m_Comms.m_Rcv.empty());
+
+		if (m_WaitingMsg)
+			return; // shouldn't happen, but anyway
+
+		m_Freeze++;
+		m_WaitingMsg = true;
+	}
+
+	void ManagerStd::Comm_OnNewMsg()
+	{
+		if (m_WaitingMsg)
+		{
+			m_WaitingMsg = false;
+			Unfreeze();
+		}
+	}
 
 	void ManagerStd::RunSync()
 	{

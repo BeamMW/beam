@@ -23,6 +23,7 @@ namespace beam::bvm2 {
 	{
 	protected:
 		uint32_t m_Freeze = 0; // incremented when we're awaiting something
+		bool m_WaitingMsg;
 		void Unfreeze();
 		void OnUnfreezed();
 
@@ -37,6 +38,7 @@ namespace beam::bvm2 {
 
 		void RunSync();
 		bool PerformRequestSync(proto::FlyClient::Request&);
+		void Comm_OnNewMsg();
 
 	protected:
 		Height get_Height() override;
@@ -47,6 +49,7 @@ namespace beam::bvm2 {
 		bool get_SpecialParam(const char*, Blob&) override;
 		bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) override;
 		bool LogGetProof(const HeightPos&, beam::Merkle::Proof&) override;
+		void Comm_Wait() override;
 
 		virtual void OnDone(const std::exception* pExc) {}
 		virtual void OnReset();
