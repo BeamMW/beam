@@ -379,7 +379,7 @@ namespace bvm2 {
 		}
 	}
 
-	void ManagerStd::Comm_Wait()
+	void ManagerStd::Comm_Wait(uint32_t nTimeout_ms)
 	{
 		assert(m_Comms.m_Rcv.empty());
 
@@ -388,6 +388,15 @@ namespace bvm2 {
 
 		m_Freeze++;
 		m_WaitingMsg = true;
+
+		if (static_cast<uint32_t>(-1) != nTimeout_ms)
+		{
+			if (!m_pOnMsgTimer)
+				m_pOnMsgTimer = io::Timer::create(io::Reactor::get_Current());
+
+			m_pOnMsgTimer->start(nTimeout_ms, false, [this]() { Comm_OnNewMsg(); });
+		}
+
 	}
 
 	void ManagerStd::Comm_OnNewMsg(const Blob& msg, const Comm::Channel& c)
@@ -399,10 +408,18 @@ namespace bvm2 {
 		pItem->m_Cookie = c.m_Cookie;
 		msg.Export(pItem->m_Msg);
 
+		Comm_OnNewMsg();
+	}
+
+	void ManagerStd::Comm_OnNewMsg()
+	{
 		if (m_WaitingMsg)
 		{
 			m_WaitingMsg = false;
 			Unfreeze();
+
+			if (m_pOnMsgTimer)
+				m_pOnMsgTimer->cancel();
 		}
 	}
 

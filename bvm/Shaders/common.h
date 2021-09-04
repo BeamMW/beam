@@ -148,7 +148,7 @@ namespace Env {
                 return nCookie;
 
             if (!val)
-                Comm_WaitMsg(szWaitComment);
+                Comm_WaitMsg(-1, szWaitComment);
         }
     }
 
