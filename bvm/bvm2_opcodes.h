@@ -76,6 +76,9 @@
 #define BVMOp_HashFree(macro, sep) \
 	macro(HashObj*, pHash)
 
+#define BVMOp_HashClone(macro, sep) \
+	macro(HashObj*, pHash)
+
 #define BVMOp_Secp_Scalar_alloc(macro, sep)
 
 #define BVMOp_Secp_Scalar_free(macro, sep) \
@@ -433,6 +436,7 @@
 	macro(0x2B, void     , HashWrite) \
 	macro(0x2D, void     , HashGetValue) \
 	macro(0x2E, void     , HashFree) \
+	macro(0x2F, HashObj* , HashClone) \
 	macro(0x40, Height   , get_Height) \
 	macro(0x41, void     , get_HdrInfo) \
 	macro(0x42, void     , get_HdrFull) \

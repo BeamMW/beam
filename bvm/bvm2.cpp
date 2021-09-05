@@ -1539,6 +1539,11 @@ namespace bvm2 {
 			{
 				ECC::Hash::Processor(m_Hp) >> hv;
 			}
+			virtual void Clone(std::unique_ptr<Base>& pOut) const override
+			{
+				pOut = std::make_unique<Sha256>();
+				Cast::Up<Sha256>(*pOut).m_Hp = m_Hp;
+			}
 		};
 
 		struct Blake2b
@@ -1556,6 +1561,11 @@ namespace bvm2 {
 				auto s = m_B2b; // copy
 				return s.Read(p, n);
 			}
+			virtual void Clone(std::unique_ptr<Base>& pOut) const override
+			{
+				pOut = std::make_unique<Blake2b>();
+				Cast::Up<Blake2b>(*pOut).m_B2b = m_B2b;
+			}
 		};
 
 		template <uint32_t nBits>
@@ -1572,6 +1582,11 @@ namespace bvm2 {
 			virtual void Read(uintBig_t<nBits/8>& hv) override
 			{
 				m_State.Read(hv.m_pData);
+			}
+			virtual void Clone(std::unique_ptr<Base>& pOut) const override
+			{
+				pOut = std::make_unique<Keccak>();
+				Cast::Up<Keccak>(*pOut).m_State = m_State;
 			}
 		};
 
@@ -1601,6 +1616,13 @@ namespace bvm2 {
 		m_DataProcessor.m_Map.insert(*p.release());
 
 		return ret;
+	}
+
+	uint32_t Processor::CloneHash(const DataProcessor::Base& x)
+	{
+		std::unique_ptr<DataProcessor::Base> pHash;
+		x.Clone(pHash);
+		return AddHash(std::move(pHash));
 	}
 
 	BVM_METHOD(HashCreateSha256)
@@ -1688,6 +1710,19 @@ namespace bvm2 {
 	BVM_METHOD_HOST(HashFree)
 	{
 		m_DataProcessor.m_Map.Delete(m_DataProcessor.FindStrict(pHash));
+	}
+
+	BVM_METHOD(HashClone)
+	{
+		if (Kind::Contract == get_Kind())
+			Wasm::Test(IsPastHF4());
+
+		return CloneHash(m_DataProcessor.FindStrict(pHash));
+	}
+	BVM_METHOD_HOST(HashClone)
+	{
+		auto val = CloneHash(m_DataProcessor.FindStrict(pHash));
+		return val ? reinterpret_cast<HashObj*>(static_cast<size_t>(val)) : nullptr;
 	}
 
 	/////////////////////////////////////////////

@@ -258,6 +258,7 @@ namespace bvm2 {
 				virtual ~Base() {}
 				virtual void Write(const uint8_t*, uint32_t) = 0;
 				virtual uint32_t Read(uint8_t*, uint32_t) = 0;
+				virtual void Clone(std::unique_ptr<Base>&) const = 0;
 			};
 
 			typedef intrusive::multiset_autoclear<Base> Map;
@@ -271,6 +272,7 @@ namespace bvm2 {
 		} m_DataProcessor;
 
 		uint32_t AddHash(std::unique_ptr<DataProcessor::Base>&&);
+		uint32_t CloneHash(const DataProcessor::Base&);
 
 		static void CvtHdr(Shaders::BlockHeader::InfoBase&, const Block::SystemState::Full&);
 
@@ -311,6 +313,11 @@ namespace bvm2 {
 		} m_Secp;
 
 		const HeightPos* FromWasmOpt(Wasm::Word pPos, HeightPos& buf);
+
+		bool IsPastHF4() {
+			// current height does not include the current being-interpreted block
+			return get_Height() + 1 >= Rules::get().pForks[4].m_Height;
+		}
 
 	public:
 
@@ -404,11 +411,6 @@ namespace bvm2 {
 
 		std::vector<ECC::Point::Native> m_vPks;
 		ECC::Point::Native& AddSigInternal(const ECC::Point&);
-
-		bool IsPastHF4() {
-			// current heught does not include the current being-interpreted block
-			return get_Height() + 1 >= Rules::get().pForks[4].m_Height;
-		}
 
 		void TestVarSize(uint32_t n)
 		{
