@@ -846,6 +846,90 @@ namespace Secp
             return !!Env::Secp_Point_IsZero(*m_p);
         }
     };
+
+    struct Oracle
+    {
+        HashProcessor::Sha256 m_Hp;
+        void get_E(Scalar& s)
+        {
+            while (true)
+            {
+                Secp_scalar_data sd;
+                m_Hp >> sd;
+                m_Hp.Write(&sd, sizeof(sd));
+
+                if (!_POD_(sd).IsZero() && s.Import(sd))
+                    break;
+            }
+        }
+
+        Oracle& operator >> (Scalar& s) {
+            get_E(s);
+            return *this;
+        }
+    };
+
+    struct Signature
+    {
+#pragma pack (push, 1)
+        Secp_point_data m_NoncePub;
+        Secp_scalar_data m_kSig;
+#pragma pack (pop)
+
+        void Sign(Oracle& o, const Env::KeyID& kid)
+        {
+            const uint32_t iNonceSlot = s_NonceSlots - 1;
+
+            {
+                // opt: derive strong seed for nonce
+                HashProcessor::Base hp;
+                hp.m_p = Env::HashClone(o.m_Hp.m_p);
+                hp.Write(kid.m_pID, kid.m_nID); // add key material
+
+                HashValue hv;
+                hp >> hv;
+
+                Env::SlotInit(&hv, sizeof(hv), iNonceSlot);
+            }
+
+            Point ptN;
+            Env::get_SlotImage(ptN, iNonceSlot);
+            ptN.Export(m_NoncePub);
+
+            o.m_Hp << m_NoncePub;
+
+            Scalar e;
+            o >> e;
+
+            kid.get_Blind(e, e, iNonceSlot);
+            e = -e;
+            e.Export(m_kSig);
+        }
+
+        bool IsValid(Oracle& o, const PubKey& pk) const
+        {
+            Secp::Point p0, p1;
+            if (!p0.Import(pk) ||
+                !p1.Import(m_NoncePub))
+                return false;
+
+            o.m_Hp << m_NoncePub;
+
+            Scalar e;
+            o >> e;
+
+            Env::Secp_Point_mul(p0, p0, e);
+            p0 += p1;
+
+            if (!e.Import(m_kSig))
+                return false;
+
+            Env::Secp_Point_mul_G(p1, e);
+            p0 += p1;
+
+            return p0.IsZero();
+        }
+    };
 }
 
 static const Amount g_Beam2Groth = 100000000;
