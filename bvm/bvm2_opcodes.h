@@ -361,9 +361,9 @@
 	macro(Secp_point&, res) sep \
 	macro(uint32_t, iSlot)
 
-#define BVMOp_get_SlotImageEx(macro, sep) \
-	macro(Secp_point&, res) sep \
-	macro(const Secp_point&, gen) sep \
+#define BVMOp_SlotInit(macro, sep) \
+	macro(const void*, pExtraSeed) sep \
+	macro(uint32_t, nExtraSeed) sep \
 	macro(uint32_t, iSlot)
 
 #define BVMOp_get_Pk(macro, sep) \
@@ -504,7 +504,7 @@
 	macro(0x70, void     , GenerateKernel) \
 	macro(0xA0, void     , GenerateRandom) \
 	macro(0xA1, void     , get_SlotImage) \
-	macro(0xA2, void     , get_SlotImageEx) \
+	macro(0xA2, void     , SlotInit) \
 	macro(0xA3, void     , get_Pk) \
 	macro(0xA4, void     , get_BlindSk) \
 	macro(0xA5, void     , GenerateKernelAdvanced) \

@@ -2418,19 +2418,18 @@ namespace bvm2 {
 		m_pPKdf->DerivePKeyG(m_Secp.m_Point.FindStrict(res).m_Val, hv);
 
 	}
-	BVM_METHOD_HOST_AUTO(get_SlotImage)
-
-	BVM_METHOD(get_SlotImageEx)
+	BVM_METHOD(SlotInit)
 	{
-		ECC::Hash::Value hv;
-		get_SlotPreimageInternal(hv, iSlot);
-
-		ECC::Scalar::Native sk;
-		get_Sk(sk, hv);
-
-		m_Secp.m_Point.FindStrict(res).m_Val = m_Secp.m_Point.FindStrict(gen).m_Val * sk;
+		OnHost_SlotInit(get_AddrR(pExtraSeed, nExtraSeed), nExtraSeed, iSlot);
 	}
-	BVM_METHOD_HOST_AUTO(get_SlotImageEx)
+
+	BVM_METHOD_HOST(SlotInit)
+	{
+		Wasm::Test(iSlot < s_Slots);
+
+		ECC::Hash::Value hv;
+		SlotRenegerateInternal(hv, iSlot, pExtraSeed, nExtraSeed);
+	}
 
 	BVM_METHOD(get_BlindSk)
 	{
@@ -2446,10 +2445,23 @@ namespace bvm2 {
 		Wasm::Test(iSlot < s_Slots);
 
 		if (!SlotLoad(hv, iSlot))
+			SlotRenegerateInternal(hv, iSlot, nullptr, 0);
+	}
+
+	void ProcessorManager::SlotRenegerateInternal(ECC::Hash::Value& hvRes, uint32_t iSlot, const void* pSeedExtra, uint32_t nSeedExtra)
+	{
+		ECC::GenRandom(hvRes);
+
+		if (nSeedExtra)
 		{
-			ECC::GenRandom(hv);
-			SlotSave(hv, iSlot);
+			ECC::Hash::Processor()
+				<< "bvm.slot.seed"
+				<< Blob(pSeedExtra, nSeedExtra)
+				<< hvRes
+				>> hvRes;
 		}
+
+		SlotSave(hvRes, iSlot);
 	}
 
 	void ProcessorManager::get_Sk(ECC::Scalar::Native& sk, const ECC::Hash::Value& hv)

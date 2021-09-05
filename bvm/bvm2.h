@@ -466,6 +466,7 @@ namespace bvm2 {
 		void DerivePkInternal(ECC::Point::Native&, const Blob&);
 
 		void get_SlotPreimageInternal(ECC::Hash::Value&, uint32_t);
+		void SlotRenegerateInternal(ECC::Hash::Value& hvRes, uint32_t iSlot, const void* pSeedExtra, uint32_t nSeedExtra);
 		void get_Sk(ECC::Scalar::Native&, const ECC::Hash::Value&);
 		void get_BlindSkInternal(uint32_t iRes, uint32_t iMul, uint32_t iSlot, const Blob&);
 
