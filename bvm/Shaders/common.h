@@ -137,6 +137,35 @@ namespace Env {
         if (b)
             Halt();
     }
+
+    struct KeyID
+        :public SigRequest
+    {
+        KeyID() {}
+        KeyID(const void* p, uint32_t n) {
+            m_pID = p;
+            m_nID = n;
+        }
+
+        template <typename T>
+        KeyID(const T& x) : KeyID(&x, sizeof(x)) {}
+
+        void get_Pk(PubKey& pk) const {
+            DerivePk(pk, m_pID, m_nID);
+        }
+
+        void get_Pk(Secp_point& pk) const {
+            Env::get_Pk(pk, m_pID, m_nID);
+        }
+
+        void get_Blind(Secp_scalar& s, const Secp_scalar& mul, uint32_t iNonceSlot) const {
+            Env::get_BlindSk(s, m_pID, m_nID, mul, iNonceSlot);
+        }
+
+        void Comm_Listen(uint32_t nCookie) {
+            Env::Comm_Listen(m_pID, m_nID, nCookie);
+        }
+    };
 	
     inline void Comm_WaitMsg(const char* szWaitComment)
     {

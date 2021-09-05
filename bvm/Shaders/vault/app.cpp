@@ -251,7 +251,9 @@ ON_METHOD(my_account, move)
 
     MyAccountID myid;
     _POD_(myid.m_Cid) = cid;
-    Env::DerivePk(arg.m_Account, &myid, sizeof(myid));
+
+    Env::KeyID kid(myid);
+    kid.get_Pk(arg.m_Account);
 
     bool bIsMultisig = !_POD_(pkForeign).IsZero();
     if (bIsMultisig)
@@ -276,7 +278,7 @@ ON_METHOD(my_account, move)
     {
         if (bIsMultisig)
         {
-            Env::Comm_Listen(&myid, sizeof(myid), 1);
+            kid.Comm_Listen(1);
 
             MultiSigProto msp;
             msp.m_pCid = &cid;
@@ -309,7 +311,7 @@ ON_METHOD(my_account, move)
 
                 Secp::Scalar s;
                 s.Import(e);
-                Env::get_BlindSk(s, &myid, sizeof(myid), s, msp.s_iSlotNonceKey);
+                kid.get_Blind(s, s, msp.s_iSlotNonceKey);
 
                 s.Export(msp.m_Msg2.m_kSig);
 
@@ -350,7 +352,7 @@ ON_METHOD(my_account, move)
                 s0.Import(msp.m_Msg2.m_kSig);
 
                 s1.Import(e);
-                Env::get_BlindSk(s1, &myid, sizeof(myid), s1, msp.s_iSlotNonceKey);
+                kid.get_Blind(s1, s1, msp.s_iSlotNonceKey);
 
                 s0 += s1; // full key
                 s0.Export(e);
@@ -361,11 +363,7 @@ ON_METHOD(my_account, move)
         }
         else
         {
-            SigRequest sig;
-            sig.m_pID = &myid;
-            sig.m_nID = sizeof(myid);
-
-            Env::GenerateKernel(&cid, Vault::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "withdraw from Vault", 0);
+            Env::GenerateKernel(&cid, Vault::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &kid, 1, "withdraw from Vault", 0);
         }
     }
 }
