@@ -150,4 +150,6 @@ namespace Merkle
 	};
 }
 
+static const uint32_t s_NonceSlots = 256;
+
 #pragma pack (pop)

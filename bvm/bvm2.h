@@ -564,8 +564,6 @@ namespace bvm2 {
 
 	public:
 
-		static const uint32_t s_Slots = 10;
-
 		std::ostream* m_pOut;
 		bool m_NeedComma = false;
 		bool m_RawText = false; // don't perform json-style decoration

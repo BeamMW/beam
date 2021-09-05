@@ -2462,7 +2462,7 @@ namespace bvm2 {
 
 	BVM_METHOD_HOST(SlotInit)
 	{
-		Wasm::Test(iSlot < s_Slots);
+		Wasm::Test(iSlot < Shaders::s_NonceSlots);
 
 		ECC::Hash::Value hv;
 		SlotRenegerateInternal(hv, iSlot, pExtraSeed, nExtraSeed);
@@ -2479,7 +2479,7 @@ namespace bvm2 {
 
 	void ProcessorManager::get_SlotPreimageInternal(ECC::Hash::Value& hv, uint32_t iSlot)
 	{
-		Wasm::Test(iSlot < s_Slots);
+		Wasm::Test(iSlot < Shaders::s_NonceSlots);
 
 		if (!SlotLoad(hv, iSlot))
 			SlotRenegerateInternal(hv, iSlot, nullptr, 0);
