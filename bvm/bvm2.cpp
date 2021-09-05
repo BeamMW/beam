@@ -2453,6 +2453,8 @@ namespace bvm2 {
 		m_pPKdf->DerivePKeyG(m_Secp.m_Point.FindStrict(res).m_Val, hv);
 
 	}
+	BVM_METHOD_HOST_AUTO(get_SlotImage)
+
 	BVM_METHOD(SlotInit)
 	{
 		OnHost_SlotInit(get_AddrR(pExtraSeed, nExtraSeed), nExtraSeed, iSlot);
