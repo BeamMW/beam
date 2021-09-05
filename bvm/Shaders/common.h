@@ -536,28 +536,28 @@ namespace Cast
 	template <typename TT, typename T> inline const TT& Up(const T& x)
 	{
 		const TT& ret = (const TT&) x;
-		const T& unused = ret; unused;
+        [[maybe_unused]] const T& unused = ret;
 		return ret;
 	}
 
 	template <typename TT, typename T> inline TT& Up(T& x)
 	{
 		TT& ret = (TT&) x;
-		T& unused = ret; unused;
+        [[maybe_unused]] T& unused = ret;
 		return ret;
 	}
 
 	template <typename TT, typename T> inline TT* Up(T* p)
 	{
 		TT* ret = (TT*) p;
-		T* unused = ret; unused;
+        [[maybe_unused]] T* unused = ret;
 		return ret;
 	}
 
 	template <typename TT, typename T> inline const TT* Up(const T* p)
 	{
 		const TT* ret = (const TT*) p;
-		const T* unused = ret; unused;
+        [[maybe_unused]] const T* unused = ret;
 		return ret;
 	}
 
