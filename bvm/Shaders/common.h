@@ -137,6 +137,11 @@ namespace Env {
         if (b)
             Halt();
     }
+	
+    inline void Comm_WaitMsg(const char* szWaitComment)
+    {
+        Comm_WaitMsg(static_cast<uint32_t>(-1), szWaitComment); // wait forever
+    }
 
     inline uint32_t Comm_ReadExact(void* pBuf, uint32_t nSize, const char* szWaitComment)
     {
@@ -148,7 +153,7 @@ namespace Env {
                 return nCookie;
 
             if (!val)
-                Comm_WaitMsg(-1, szWaitComment);
+                Comm_WaitMsg(szWaitComment);
         }
     }
 
