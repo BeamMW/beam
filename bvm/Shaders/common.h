@@ -738,6 +738,12 @@ namespace Merkle
 
 namespace Secp
 {
+    template <typename T>
+    struct UnaryMinus {
+        const T& m_Src;
+        UnaryMinus(const T& x) :m_Src(x) {}
+    };
+
     struct Scalar
     {
         Secp_scalar* m_p;
@@ -760,6 +766,15 @@ namespace Secp
         void operator += (const Scalar& x) {
             Env::Secp_Scalar_add(*m_p, *m_p, x);
         }
+
+        UnaryMinus<Scalar> operator - () {
+            return UnaryMinus<Scalar>(*this);
+        }
+
+        void operator = (const UnaryMinus<Scalar>& x) {
+            Env::Secp_Scalar_neg(*m_p, x.m_Src);
+        }
+
     };
 
     struct Point
@@ -788,6 +803,18 @@ namespace Secp
 
         void operator += (const Point& x) {
             Env::Secp_Point_add(*m_p, *m_p, x);
+        }
+
+        UnaryMinus<Point> operator - () {
+            return UnaryMinus<Point>(*this);
+        }
+
+        void operator = (const UnaryMinus<Point>& x) {
+            Env::Secp_Point_neg(*m_p, x.m_Src);
+        }
+
+        bool IsZero() const {
+            return !!Env::Secp_Point_IsZero(*m_p);
         }
     };
 }
