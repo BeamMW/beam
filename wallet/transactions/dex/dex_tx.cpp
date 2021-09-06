@@ -26,9 +26,18 @@ namespace beam::wallet
             Amount amountPeer,
             const boost::optional<TxID>& txId)
     {
+        // TODO:DEX set more correctly
+        Amount minFee = 100000;
+
         return CreateTransactionParameters(TxType::DexSimpleSwap, txId)
             .SetParameter(TxParameterID::PeerID, peerID)
-            .SetParameter(TxParameterID::DexOrderID, dexOrderID);
+            .SetParameter(TxParameterID::DexOrderID, dexOrderID)
+            .SetParameter(TxParameterID::SavePeerAddress, false)
+            .SetParameter(TxParameterID::DexReceiveAsset, coinPeer)
+            .SetParameter(TxParameterID::DexReceiveAmount, amountPeer)
+            .SetParameter(TxParameterID::Amount, amountMy)
+            .SetParameter(TxParameterID::AssetID, coinMy)
+            .SetParameter(TxParameterID::Fee, minFee);
     }
 
     DexTransaction::Creator::Creator(IWalletDB::Ptr wdb)
@@ -52,6 +61,8 @@ namespace beam::wallet
             throw InvalidTransactionParametersException("DexSimpleSwap missing order id");
         }
 
+        // TODO:DEX this is not good, TxParameterID::IsSelfTx seems to be dropped
+        /*
         const auto selfTx = params.GetParameter<bool>(TxParameterID::IsSelfTx);
         if (!selfTx)
         {
@@ -62,22 +73,63 @@ namespace beam::wallet
         {
             throw InvalidTransactionParametersException("DexSimpleSwap transaction cannot be sent to the self");
         }
+        */
 
+        //
+        // Check Peer
+        //
+        const auto peerID = params.GetParameter<WalletID>(TxParameterID::PeerID);
+        if(!peerID)
+        {
+            throw InvalidTransactionParametersException("DexSimpleSwap missing PeerID");
+        }
+
+        const auto peeraddr = _wdb->getAddress(*peerID);
+        if (peeraddr && peeraddr->isOwn())
+        {
+            throw InvalidTransactionParametersException("DexSimpleSwap transaction cannot be sent to the self");
+        }
+
+        //
+        // Check self
+        //
         const auto myID = params.GetParameter<WalletID>(TxParameterID::MyID);
-        if (!myID)
+        if (!myID.is_initialized())
         {
-             throw InvalidTransactionParametersException("DexSimpleSwap missing MyID");
+            throw InvalidTransactionParametersException("DexSimpleSwap missing MyID");
         }
 
-        auto waddr = _wdb->getAddress(*myID);
-        if (!waddr || !waddr->isOwn())
+        auto myaddr = _wdb->getAddress(*myID);
+        if (myaddr && myaddr->isOwn())
         {
-            throw SenderInvalidAddressException();
+            if(!myaddr->isOwn())
+            {
+                throw InvalidTransactionParametersException("DexSimpleSwap not own address in MyID");
+            }
+
+            params.SetParameter(TxParameterID::MyAddressID, myaddr->m_OwnID);
+            params.SetParameter(TxParameterID::MyWalletIdentity, myaddr->m_Identity); // TODO: do we need this? it is set in ConstructTransactionFromParameters
         }
 
-        params.SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
-        // May be in the future
-        // params.SetParameter(TxParameterID::MyWalletIdentity, waddr->m_Identity);
+        //
+        // Check assets
+        //
+        const auto sendID = params.GetParameter<beam::Asset::ID>(TxParameterID::AssetID);
+        if (!sendID)
+        {
+            throw InvalidTransactionParametersException("DexSimpleSwap missing AssetID");
+        }
+
+        const auto recevieID = params.GetParameter<beam::Asset::ID>(TxParameterID::DexReceiveAsset);
+        if (!recevieID)
+        {
+            throw InvalidTransactionParametersException("DexSimpleSwap missing DexReceiveAsset");
+        }
+
+        if (*recevieID == *sendID)
+        {
+             throw InvalidTransactionParametersException("DexSimpleSwap same asset on both sides");
+        }
 
         return params;
     }
@@ -108,13 +160,13 @@ namespace beam::wallet
         case TxParameterID::DexReceiveAmount:
         case TxParameterID::DexReceiveAsset:
         case TxParameterID::Fee:
-        case TxParameterID::MinHeight: // TODO: check where set
-        case TxParameterID::MaxHeight: // TODO: check where set
+        case TxParameterID::MinHeight: // TODO:DEX check where set
+        case TxParameterID::MaxHeight: // TODO:DEX check where set
         case TxParameterID::Message:
-        case TxParameterID::Lifetime:  // TODO: check where set
+        case TxParameterID::Lifetime:  // TODO:DEX check where set
         case TxParameterID::PaymentConfirmation:
         case TxParameterID::PeerProtoVersion:
-        case TxParameterID::PeerWalletIdentity: // TODO: check if really passed
+        case TxParameterID::PeerWalletIdentity: // TODO:DEX check if really passed
         case TxParameterID::PeerMaxHeight:
         case TxParameterID::PeerPublicExcess:
         case TxParameterID::PeerPublicNonce:
@@ -139,6 +191,12 @@ namespace beam::wallet
         if (_builder->m_Coins.IsEmpty())
         {
             _builder->VerifyAssetsEnabled();
+
+            if (_builder->m_AssetID == _builder->m_ReceiveAssetID)
+            {
+                // TODO:DEX remove, it is done in Check and complete tx
+                throw std::runtime_error("same asset on both sides");
+            }
 
             if (_builder->m_AssetID != Asset::s_BeamID)
             {
@@ -166,8 +224,8 @@ namespace beam::wallet
             if (_builder->m_IsSender)
             {
                 bb.m_Map[_builder->m_AssetID].m_Value -= _builder->m_Amount;
-                bb.m_Map[_builder->m_ReceiveAssetID].m_Value += _builder->m_ReceiveAmount;
                 bb.m_Map[Asset::s_BeamID].m_Value -= _builder->m_Fee;
+                // bb.m_Map[_builder->m_ReceiveAssetID].m_Value += _builder->m_ReceiveAmount; done in CreateOutput
                 bb.CreateOutput(_builder->m_ReceiveAmount, _builder->m_ReceiveAssetID, Key::Type::Regular);
 
                 Height maxResponseHeight = 0;
@@ -178,9 +236,10 @@ namespace beam::wallet
             }
             else
             {
-                bb.m_Map[_builder->m_AssetID].m_Value += _builder->m_Amount;
                 bb.m_Map[_builder->m_ReceiveAssetID].m_Value -= _builder->m_ReceiveAmount;
+                // bb.m_Map[_builder->m_AssetID].m_Value += _builder->m_Amount; done in CreateOutput
                 bb.CreateOutput(_builder->m_Amount, _builder->m_AssetID, Key::Type::Regular);
+                //throw std::runtime_error("ERROR!");
             }
             bb.CompleteBalance();
 

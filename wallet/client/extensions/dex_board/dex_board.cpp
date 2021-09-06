@@ -49,6 +49,7 @@ namespace beam::wallet {
         return boost::none;
     }
 
+    //TODO:DEX consider move accept here
     /*void DexBoard::acceptOrder(const DexOrderID &id)
     {
         auto order = _orders.find(id);
