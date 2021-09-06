@@ -125,7 +125,7 @@ namespace beam::wallet
 
         void AnyThread_callWalletApiDirectly(const std::string& request)
         {
-            LOG_INFO () << "AppsApi direct call for " << getAppName() << ", " << getAppId() << "): " << request;
+            //LOG_INFO () << "AppsApi direct call for " << getAppName() << ", " << getAppId() << "): " << request;
 
             //
             // Do not assume thread here
@@ -156,7 +156,7 @@ namespace beam::wallet
                 IWalletApi::ParseResult data;
             };
 
-            LOG_INFO () << "AppsApi checked call for " << getAppName() << ", " << getAppId() << "): " << request;
+            // LOG_INFO () << "AppsApi checked call for " << getAppName() << ", " << getAppId() << "): " << request;
             getAsync()->makeIWTCall(
                 [wp = _weakSelf, this, request]() -> boost::any {
                     auto locked = wp.lock();
@@ -236,7 +236,6 @@ namespace beam::wallet
         virtual void AnyThread_sendApiResponse(const beam::wallet::json& result)
         {
             auto str = result.dump();
-            LOG_INFO() << "AnyThread_sendAPIResponse: " << str;
             if (!str.empty())
             {
                 AnyThread_sendApiResponse(str);

@@ -80,12 +80,6 @@ namespace beam::wallet
     {
         JsonRpcId rpcid;
         return callGuarded<ApiCallInfo>(rpcid, [this, &rpcid, data, size] () {
-            {
-                std::string s(data, size);
-                static std::regex keyRE(R"'(\"key\"\s*:\s*\"[\d\w]+\"\s*,?)'");
-                LOG_INFO() << "got " << std::regex_replace(s, keyRE, "");
-            }
-
             if (size == 0)
             {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Empty JSON request");
@@ -130,8 +124,6 @@ namespace beam::wallet
             return boost::none;
         }
 
-        LOG_DEBUG() << "parseAPIRequest. Method: " << pinfo->method << ", params: " << pinfo->params.dump();
-
         return callGuarded<ParseResult>(pinfo->rpcid, [this, pinfo] () -> ParseResult {
             const auto& minfo = _methods[pinfo->method];
             const auto finfo = minfo.parseFunc(pinfo->rpcid, pinfo->params);
@@ -146,10 +138,17 @@ namespace beam::wallet
         const auto pinfo = parseCallInfo(data, size);
         if (pinfo == boost::none)
         {
+            LOG_WARNING() << "executeAPIRequest, parseCallInfo returned none for " << data;
             return ApiSyncMode::DoneSync;
         }
 
-        LOG_DEBUG() << "executeAPIRequest. Method: " << pinfo->method << ", params: " << pinfo->params.dump();
+        {
+            const auto params = pinfo->params.dump();
+            LOG_DEBUG() << "executeAPIRequest";
+            LOG_DEBUG() << "\trequest: " << std::string_view(data).substr(0, 200);
+            LOG_DEBUG() << "\tmethod:  " << pinfo->method;
+            LOG_DEBUG() << "\tparams:  " << std::string_view(params).substr(0, 200);
+        }
 
         const auto result = callGuarded<ApiSyncMode>(pinfo->rpcid, [this, pinfo] () -> ApiSyncMode {
             const auto& minfo = _methods[pinfo->method];

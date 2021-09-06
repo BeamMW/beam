@@ -80,6 +80,7 @@ namespace beam::wallet {
         void compileAppShader(const std::vector<uint8_t> &shader);
 
         bool _done = true;
+        bool _logResult = true;
         std::string _currentAppId;
         std::string _currentAppName;
 

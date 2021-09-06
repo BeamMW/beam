@@ -151,6 +151,7 @@ namespace beam::wallet {
         , _wallet(std::move(wallet))
     {
         assert(_wallet);
+        _logResult = appid.empty();
     }
 
     void ShadersManager::compileAppShader(const std::vector<uint8_t> &shader)
@@ -349,7 +350,10 @@ namespace beam::wallet {
         }
 
         boost::optional<std::string> result = m_Out.str();
-        LOG_INFO () << "Shader result: " << *result;
+        if (_logResult)
+        {
+            LOG_INFO () << "Shader result: " << std::string_view(result ? *result : std::string()).substr(0, 200);
+        }
 
         if (m_vInvokeData.empty())
         {

@@ -10,7 +10,7 @@ client.connect(10000, '127.0.0.1', function() {
 			id: 'get_utxo',
 			method: 'ev_subunsub',
 			params: {
-				'ev_utxos_changed': true
+				'ev_system_state': true
 			}
 		}) + '\n')
 })
