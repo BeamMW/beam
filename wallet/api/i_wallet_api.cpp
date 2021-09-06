@@ -24,7 +24,7 @@ namespace beam::wallet
 
         uint32_t SApiVer2NApiVer(std::string sver)
         {
-            if (sver.empty() || sver == kVerCurrent)
+            if (sver == kVerCurrent)
             {
                 return ApiVerCurrent;
             }
@@ -36,6 +36,11 @@ namespace beam::wallet
 
     bool IWalletApi::ValidateAPIVersion(const std::string& sver)
     {
+        if (sver.empty())
+        {
+            return false;
+        }
+
         try
         {
             const auto version = SApiVer2NApiVer(sver);
