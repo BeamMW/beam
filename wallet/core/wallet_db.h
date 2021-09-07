@@ -627,6 +627,7 @@ namespace beam::wallet
     {
     public:
         static bool isInitialized(const std::string& path);
+        static bool isValidPassword(const std::string& path, const SecString& password);
         static Ptr  init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, bool separateDBForPrivateData = false);
         static Ptr  init(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&, bool separateDBForPrivateData = false);
         static Ptr  initNoKeepr(const std::string& path, const SecString& password, bool separateDBForPrivateData = false);

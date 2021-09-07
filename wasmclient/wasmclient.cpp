@@ -616,6 +616,16 @@ public:
         }
     }
 
+    static bool IsInitialized(const std::string& dbName)
+    {
+        return WalletDB::isInitialized(dbName);
+    }
+
+    static bool CheckPassword(const std::string& dbName, const std::string& pass)
+    {
+        return WalletDB::isValidPassword(dbName, SecString(pass));
+    }
+
     static IWalletDB::Ptr OpenWallet(const std::string& dbName, const std::string& pass)
     {
         AssertMainThread();
@@ -705,6 +715,8 @@ EMSCRIPTEN_BINDINGS()
         .class_function("CreateWallet", &WasmWalletClient::CreateWallet)
         .class_function("MountFS", &WasmWalletClient::MountFS)
         .class_function("DeleteWallet", &WasmWalletClient::DeleteWallet)
+        .class_function("IsInitialized", &WasmWalletClient::IsInitialized)
+        .class_function("CheckPassword", &WasmWalletClient::CheckPassword)
         ;
     class_<WasmAppApi>("AppAPI")
         .smart_ptr<std::shared_ptr<WasmAppApi>>("AppAPI")
