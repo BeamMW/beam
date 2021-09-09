@@ -191,26 +191,141 @@ void DeriveMyPk(PubKey& pubKey, const ContractID& cid)
     Env::DerivePk(pubKey, &myid, sizeof(myid));
 }
 
+struct Comm
+{
+    struct Channel
+    {
+        const Env::KeyID m_Kid;
+        const PubKey& m_pkRemote;
+        Secp::Oracle m_Context;
+
+        Utils::Vector<uint8_t> m_vMsg;
+        uint32_t m_MsgMin = 0;
+        uint32_t m_MsgMax = 0;
+        bool m_Waiting = false;
+
+        uint32_t get_Cookie() const
+        {
+            return reinterpret_cast<uint32_t>(this);
+        }
+
+        Channel(const Env::KeyID kid, const PubKey& pkRemote)
+            :m_Kid(kid)
+            ,m_pkRemote(pkRemote)
+        {
+            kid.Comm_Listen(get_Cookie());
+        }
+
+        ~Channel()
+        {
+            Env::Comm_Listen(nullptr, 0, get_Cookie());
+        }
+
+        template <typename T>
+        void Expose(const T x)
+        {
+            m_Context.m_Hp << x;
+        }
+
+        void ExposeSelf()
+        {
+            PubKey pk;
+            m_Kid.get_Pk(pk);
+            Expose(pk);
+        }
+
+        void Send(const void* pMsg, uint32_t nMsg)
+        {
+            m_Context.m_Hp.Write(pMsg, nMsg);
+
+            uint32_t nSizePlus = sizeof(Secp::Signature) + nMsg;
+            auto* pBuf = (uint8_t*) Env::StackAlloc(nSizePlus);
+
+            Env::Memcpy(pBuf, pMsg, nMsg);
+            ((Secp::Signature*) (pBuf + nMsg))->Sign(m_Context, m_Kid);
+
+            Env::Comm_Send(m_pkRemote, pBuf, nSizePlus);
+        }
+
+        template <typename T>
+        void Send_T(const T& x)
+        {
+            Send(&x, sizeof(x));
+        }
+
+        void Wait(const char* szWaitComment)
+        {
+            for (m_Waiting = true; m_Waiting; )
+            {
+                uint32_t nCookie;
+                uint32_t nSize = Env::Comm_Read(nullptr, 0, &nCookie, 1);
+                if (nSize)
+                    ((Channel*) nCookie)->ReadMsg(nSize);
+                else
+                    Env::Comm_WaitMsg(szWaitComment);
+            }
+        }
+
+        void WaitExact(uint32_t nSize, const char* szWaitComment)
+        {
+            m_MsgMin = m_MsgMax = nSize;
+            Wait(szWaitComment);
+        }
+
+        void WaitExact(void* pMsg, uint32_t nSize, const char* szWaitComment)
+        {
+            WaitExact(nSize, szWaitComment);
+            Env::Memcpy(pMsg, m_vMsg.m_p, nSize);
+        }
+
+        template <typename T>
+        void Wait_T(T& x, const char* szWaitComment)
+        {
+            WaitExact(&x, sizeof(x), szWaitComment);
+        }
+
+    protected:
+
+        void ReadMsg(uint32_t nSize)
+        {
+            uint32_t nSizeNetto = nSize - sizeof(Secp::Signature); // may overflow, nevermind
+
+            if (m_Waiting && (nSizeNetto >= m_MsgMin) && (nSizeNetto <= m_MsgMax))
+            {
+                m_vMsg.Prepare(nSize);
+                Env::Comm_Read(m_vMsg.m_p, nSize, nullptr, 0);
+
+                HashProcessor::Base hp0;
+                hp0.m_p = Env::HashClone(m_Context.m_Hp.m_p);
+
+                m_Context.m_Hp.Write(m_vMsg.m_p, nSizeNetto);
+
+                if (((Secp::Signature*)(m_vMsg.m_p + nSizeNetto))->IsValid(m_Context, m_pkRemote))
+                {
+                    m_vMsg.m_Count = nSizeNetto;
+                    m_Waiting = false;
+                }
+                else
+                    std::swap(hp0.m_p, m_Context.m_Hp.m_p); // restore context
+            }
+            else
+                // just skip it
+                Env::Comm_Read(nullptr, 0, nullptr, 0);
+        }
+    };
+};
+
 struct MultiSigProto
 {
 #pragma pack (push, 1)
-    struct Msg0
-    {
-        PubKey m_pkKrnBlind; // serves as ID of this session
-    };
-
     struct Msg1
-        :public Msg0
     {
-        static const uint32_t s_Magic = 0x12342a34; // change with proto version
-        uint32_t m_Magic = s_Magic;
-
         Height m_hMin;
         PubKey m_pkSignerNonce;
+        PubKey m_pkKrnBlind;
     };
 
     struct Msg2
-        :public Msg0
     {
         PubKey m_pkFullNonce;
         Secp_scalar_data m_kSig;
@@ -276,10 +391,11 @@ ON_METHOD(my_account, move)
         Env::GenerateKernel(&cid, Vault::Deposit::s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "deposit to Vault", 0);
     else
     {
+        Comm::Channel cc(kid, pkForeign);
+        cc.Expose((uint32_t) 0x12342a34); // change with proto version
+
         if (bIsMultisig)
         {
-            kid.Comm_Listen(1);
-
             MultiSigProto msp;
             msp.m_pCid = &cid;
             msp.m_pArg = &arg;
@@ -289,16 +405,12 @@ ON_METHOD(my_account, move)
 
             if (bCoSigner)
             {
-                // wait for signer
-                while (true)
-                {
-                    Env::Comm_ReadExact_T(msp.m_Msg1, "Waiting for signer");
-                    if (msp.m_Msg1.m_Magic == msp.m_Msg1.s_Magic)
-                        break;
-                }
+                cc.Expose(pkForeign);
+                cc.ExposeSelf();
 
-                if ((msp.m_Msg1.m_hMin + 10 < h) || (msp.m_Msg1.m_hMin > h + 20))
-                    return OnError("foreign height insane");
+                cc.Wait_T(msp.m_Msg1, "Waiting for signer");
+                if ((msp.m_Msg1.m_hMin + 10 < h) || (msp.m_Msg1.m_hMin >= h + 20))
+                    OnError("height insane");
 
                 Secp::Point p0, p1;
                 p0.Import(msp.m_Msg1.m_pkSignerNonce);
@@ -316,13 +428,15 @@ ON_METHOD(my_account, move)
                 s.Export(msp.m_Msg2.m_kSig);
 
                 // send result back
-                _POD_(msp.m_Msg2.m_pkKrnBlind) = msp.m_Msg1.m_pkKrnBlind;
-                Env::Comm_Send_T(pkForeign, msp.m_Msg2);
+                cc.Send_T(msp.m_Msg2);
 
                 Env::DocAddText("", "Negotiation is over");
             }
             else
             {
+                cc.ExposeSelf();
+                cc.Expose(pkForeign);
+
                 msp.m_Msg1.m_hMin = h + 1;
 
                 Secp::Point p0, p1;
@@ -335,15 +449,8 @@ ON_METHOD(my_account, move)
                 p0 += p1;
                 p0.Export(msp.m_Msg1.m_pkSignerNonce); // both kernel and our key
 
-                Env::Comm_Send_T(pkForeign, msp.m_Msg1);
-
-                // wait for co-signer
-                while (true)
-                {
-                    Env::Comm_ReadExact_T(msp.m_Msg2, "Waiting for co-signer");
-                    if (_POD_(msp.m_Msg1.m_pkKrnBlind) == msp.m_Msg2.m_pkKrnBlind)
-                        break;
-                }
+                cc.Send_T(msp.m_Msg1);
+                cc.Wait_T(msp.m_Msg2, "Waiting for co-signer");
 
                 Secp_scalar_data e;
                 msp.InvokeKrn(e, &e);
