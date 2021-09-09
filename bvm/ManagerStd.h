@@ -38,7 +38,7 @@ namespace beam::bvm2 {
 
 		void RunSync();
 		bool PerformRequestSync(proto::FlyClient::Request&);
-		void Comm_OnNewMsg(const Blob&, const Comm::Channel&);
+		void Comm_OnNewMsg(const Blob&, Comm::Channel&);
 		void Comm_OnNewMsg();
 
 		io::Timer::Ptr m_pOnMsgTimer;
