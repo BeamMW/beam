@@ -2960,7 +2960,7 @@ namespace bvm2 {
 		uint32_t* pCookie_ = pCookie ? &get_AddrAsW<uint32_t>(pCookie) : nullptr;
 		auto nRet = OnHost_Comm_Read(get_AddrW(pBuf, nSize), nSize, pCookie_, bKeep);
 
-		if (nRet)
+		if (nRet && pCookie_)
 			*pCookie_ = Wasm::to_wasm(*pCookie_);
 
 		return nRet;
