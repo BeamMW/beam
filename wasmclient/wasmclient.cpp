@@ -19,6 +19,7 @@
 #include <queue>
 #include <exception>
 #include <filesystem>
+#include <thread>
 
 #include "common.h"
 #include "wallet/client/wallet_client.h"
@@ -621,9 +622,33 @@ public:
         return WalletDB::isInitialized(dbName);
     }
 
-    static bool CheckPassword(const std::string& dbName, const std::string& pass)
+    using CallbackResult = std::pair<std::shared_ptr<val>, bool>;
+    static void ProsessCallbackOnMainThread(CallbackResult* pCallback)
     {
-        return WalletDB::isValidPassword(dbName, SecString(pass));
+        std::unique_ptr<CallbackResult> cb(pCallback);
+        if (!cb->first->isNull())
+        {
+            (*cb->first)(cb->second);
+        }
+    }
+
+    static void CheckPasswordImpl(const std::string& dbName, const std::string& pass, std::shared_ptr<val> cb)
+    {
+        WalletDB::isValidPassword(dbName, SecString(pass));
+        auto res = WalletDB::isValidPassword(dbName, SecString(pass));
+        LOG_DEBUG() << __FUNCTION__ << TRACE(dbName) << TRACE(pass) << TRACE(res);
+        auto cbPtr = std::make_unique<CallbackResult>(std::move(cb), res);
+        emscripten_async_run_in_main_runtime_thread(
+            EM_FUNC_SIG_VI,
+            &WasmWalletClient::ProsessCallbackOnMainThread,
+            reinterpret_cast<int>(cbPtr.release()));
+    }
+
+
+    static void CheckPassword(const std::string& dbName, const std::string& pass, val cb)
+    {
+        auto pcb = std::make_shared<val>(cb);
+        MyThread(&WasmWalletClient::CheckPasswordImpl, dbName, pass, pcb).detach();
     }
 
     static IWalletDB::Ptr OpenWallet(const std::string& dbName, const std::string& pass)
