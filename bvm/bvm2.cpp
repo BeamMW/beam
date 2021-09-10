@@ -2920,31 +2920,28 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(Comm_Listen)
 	{
-		ECC::Hash::Value hv;
-		DeriveKeyPreimage(hv, Blob(pID, nID));
-
-		auto it = m_Comms.m_Map.find(hv, Comm::Channel::Comparator());
+		auto it = m_Comms.m_Map.find(nCookie, Comm::Channel::Comparator());
 		if (m_Comms.m_Map.end() == it)
 		{
-			if (nCookie)
+			if (nID)
 			{
+				ECC::Hash::Value hv;
+				DeriveKeyPreimage(hv, Blob(pID, nID));
+
 				Comm::Channel::Ptr pCh;
 				Comm_CreateListener(pCh, hv);
 
 				if (pCh)
 				{
-					pCh->m_Key = hv;
-					pCh->m_Cookie = nCookie;
+					pCh->m_Key = nCookie;
 					m_Comms.m_Map.insert(*pCh.release());
 				}
 			}
 		}
 		else
 		{
-			if (nCookie)
-				it->m_Cookie = nCookie;
-			else
-				m_Comms.m_Map.Delete(*it);
+			Wasm::Test(!nID);
+			m_Comms.m_Map.Delete(*it);
 		}
 	}
 	BVM_METHOD(Comm_Send)
@@ -2960,7 +2957,7 @@ namespace bvm2 {
 		uint32_t* pCookie_ = pCookie ? &get_AddrAsW<uint32_t>(pCookie) : nullptr;
 		auto nRet = OnHost_Comm_Read(get_AddrW(pBuf, nSize), nSize, pCookie_, bKeep);
 
-		if (nRet)
+		if (nRet && pCookie_)
 			*pCookie_ = Wasm::to_wasm(*pCookie_);
 
 		return nRet;
@@ -2970,17 +2967,18 @@ namespace bvm2 {
 		if (m_Comms.m_Rcv.empty())
 			return 0;
 
-		auto& x = m_Comms.m_Rcv.front();
+		auto& x = m_Comms.m_Rcv.front().get_ParentObj();
 
 		uint32_t nRet = static_cast<uint32_t>(x.m_Msg.size());
 		if (nRet)
 			memcpy(pBuf, &x.m_Msg.front(), std::min(nRet, nSize));
 
+		auto& c = *x.m_pChannel;
 		if (pCookie)
-			*pCookie = x.m_Cookie;
+			*pCookie = c.m_Key;
 
 		if (!bKeep)
-			m_Comms.m_Rcv.Delete(x);
+			c.m_List.Delete(x);
 
 		return nRet;
 	}

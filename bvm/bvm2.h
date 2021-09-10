@@ -525,12 +525,39 @@ namespace bvm2 {
 
 		struct Comm
 		{
-			struct Channel
-				:public intrusive::set_base_hook<ECC::Hash::Value>
-			{
-				uint32_t m_Cookie;
+			struct Channel;
 
+			struct Rcv
+				:public boost::intrusive::list_base_hook<>
+			{
+				ByteBuffer m_Msg;
+
+				typedef intrusive::list_autoclear<Rcv> List;
+				Channel* m_pChannel = nullptr;
+
+				struct Global
+					:public boost::intrusive::list_base_hook<>
+				{
+					typedef intrusive::list<Global> List;
+					List* m_pList = nullptr;
+
+					~Global()
+					{
+						if (m_pList)
+							m_pList->erase(List::s_iterator_to(*this));
+					}
+
+					IMPLEMENT_GET_PARENT_OBJ(Rcv, m_Global)
+				} m_Global;
+
+			};
+
+			struct Channel
+				:public intrusive::set_base_hook<uint32_t>
+			{
 				virtual ~Channel() {} // auto
+
+				Rcv::List m_List;
 
 				typedef std::unique_ptr<Channel> Ptr;
 				typedef intrusive::multiset_autoclear<Channel> Map;
@@ -538,22 +565,12 @@ namespace bvm2 {
 			};
 
 			Channel::Map m_Map;
-
-			struct Rcv
-				:public boost::intrusive::list_base_hook<>
-			{
-				uint32_t m_Cookie;
-				ByteBuffer m_Msg;
-
-				typedef intrusive::list_autoclear<Rcv> List;
-			};
-
-			Rcv::List m_Rcv;
+			Rcv::Global::List m_Rcv;
 
 			void Clear()
 			{
 				m_Map.Clear();
-				m_Rcv.Clear();
+				assert(m_Rcv.empty());
 			}
 
 		} m_Comms;

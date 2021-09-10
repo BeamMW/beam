@@ -162,7 +162,7 @@ namespace Env {
             Env::get_BlindSk(s, m_pID, m_nID, mul, iNonceSlot);
         }
 
-        void Comm_Listen(uint32_t nCookie) {
+        void Comm_Listen(uint32_t nCookie) const {
             Env::Comm_Listen(m_pID, m_nID, nCookie);
         }
     };
@@ -170,33 +170,6 @@ namespace Env {
     inline void Comm_WaitMsg(const char* szWaitComment)
     {
         Comm_WaitMsg(static_cast<uint32_t>(-1), szWaitComment); // wait forever
-    }
-
-    inline uint32_t Comm_ReadExact(void* pBuf, uint32_t nSize, const char* szWaitComment)
-    {
-        while (true)
-        {
-            uint32_t nCookie;
-            uint32_t val = Comm_Read(pBuf, nSize, &nCookie, 0);
-            if (val == nSize)
-                return nCookie;
-
-            if (!val)
-                Comm_WaitMsg(szWaitComment);
-        }
-    }
-
-
-    template <typename T>
-    inline void Comm_ReadExact_T(T& x, const char* szWaitComment)
-    {
-        Comm_ReadExact(&x, sizeof(x), szWaitComment);
-    }
-
-    template <typename T>
-    inline void Comm_Send_T(const PubKey& pkRemote, const T& x)
-    {
-        Comm_Send(pkRemote, &x, sizeof(x));
     }
 
     template <typename T>

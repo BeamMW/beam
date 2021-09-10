@@ -399,13 +399,17 @@ namespace bvm2 {
 
 	}
 
-	void ManagerStd::Comm_OnNewMsg(const Blob& msg, const Comm::Channel& c)
+	void ManagerStd::Comm_OnNewMsg(const Blob& msg, Comm::Channel& c)
 	{
 		if (!msg.n)
 			return; // ignore empty msgs
 
-		auto* pItem = m_Comms.m_Rcv.Create_back();
-		pItem->m_Cookie = c.m_Cookie;
+		auto* pItem = c.m_List.Create_back();
+		pItem->m_pChannel = &c;
+
+		m_Comms.m_Rcv.push_back(pItem->m_Global);
+		pItem->m_Global.m_pList = &m_Comms.m_Rcv;
+			
 		msg.Export(pItem->m_Msg);
 
 		Comm_OnNewMsg();
