@@ -197,7 +197,7 @@ struct Comm
     {
         const Env::KeyID m_Kid;
         const PubKey& m_pkRemote;
-        Secp::Oracle m_Context;
+        HashProcessor::Sha256 m_Context;
 
         Utils::Vector<uint8_t> m_vMsg;
         uint32_t m_MsgMin = 0;
@@ -224,7 +224,7 @@ struct Comm
         template <typename T>
         void Expose(const T x)
         {
-            m_Context.m_Hp << x;
+            m_Context << x;
         }
 
         void ExposeSelf()
@@ -236,7 +236,7 @@ struct Comm
 
         void Send(const void* pMsg, uint32_t nMsg)
         {
-            m_Context.m_Hp.Write(pMsg, nMsg);
+            m_Context.Write(pMsg, nMsg);
 
             uint32_t nSizePlus = sizeof(Secp::Signature) + nMsg;
             auto* pBuf = (uint8_t*) Env::StackAlloc(nSizePlus);
@@ -296,9 +296,9 @@ struct Comm
                 Env::Comm_Read(m_vMsg.m_p, nSize, nullptr, 0);
 
                 HashProcessor::Base hp0;
-                hp0.m_p = Env::HashClone(m_Context.m_Hp.m_p);
+                hp0.m_p = Env::HashClone(m_Context.m_p);
 
-                m_Context.m_Hp.Write(m_vMsg.m_p, nSizeNetto);
+                m_Context.Write(m_vMsg.m_p, nSizeNetto);
 
                 if (((Secp::Signature*)(m_vMsg.m_p + nSizeNetto))->IsValid(m_Context, m_pkRemote))
                 {
@@ -306,7 +306,7 @@ struct Comm
                     m_Waiting = false;
                 }
                 else
-                    std::swap(hp0.m_p, m_Context.m_Hp.m_p); // restore context
+                    std::swap(hp0.m_p, m_Context.m_p); // restore context
             }
             else
                 // just skip it
