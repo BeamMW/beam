@@ -142,26 +142,31 @@ struct Comm
             }
         }
 
-        void RcvExact(uint32_t nSize, const char* szWaitComment)
+        void RcvWaitExact(uint32_t nSize, const char* szWaitComment, bool bStartNow = true)
         {
-            do
-            {
+            if (bStartNow)
                 RcvStart();
+
+            while (true)
+            {
                 RcvWait(szWaitComment);
-            } while (m_vMsg.m_Count != nSize);
+                if (m_vMsg.m_Count == nSize)
+                    break;
+                RcvStart();
+            }
         }
 
         template <typename T>
-        T& Rcv_T(const char* szWaitComment)
+        T& Rcv_T(const char* szWaitComment, bool bStartNow = true)
         {
-            RcvExact(sizeof(T), szWaitComment);
+            RcvWaitExact(sizeof(T), szWaitComment, bStartNow);
             return *(T*) m_vMsg.m_p;
         }
 
         template <typename T>
-        void Rcv_T(T& x, const char* szWaitComment)
+        void Rcv_T(T& x, const char* szWaitComment, bool bStartNow = true)
         {
-            _POD_(x) = Rcv_T<T>(szWaitComment);
+            _POD_(x) = Rcv_T<T>(szWaitComment, bStartNow);
         }
     };
 };
