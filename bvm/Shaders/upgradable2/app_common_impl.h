@@ -523,7 +523,23 @@ struct ManagerUpgadable2
 				return OnError("no settings");
 
 			Perform(stg);
+		}
 
+		static void Perform_ScheduleUpgrade(const Env::KeyID& kid, const ContractID& cid, const ContractID& cidVersion, Height hTarget)
+		{
+			Upgradable2::Control::ScheduleUpgrade arg;
+			_POD_(arg.m_Next.m_Cid) = cidVersion;
+			arg.m_Next.m_hTarget = hTarget;
+
+			MultiSigRitual msp;
+			msp.m_szComment = "Upgradable2 schedule upgrade";
+			msp.m_iMethod = Upgradable2::Control::s_iMethod;
+			msp.m_pArg = &arg;
+			msp.m_nArg = sizeof(arg);
+			msp.m_pCid = &cid;
+			msp.m_Kid = kid;
+
+			msp.Perform();
 		}
 	};
 
