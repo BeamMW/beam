@@ -523,6 +523,38 @@ namespace Utils {
         }
     };
 
+    struct String
+    {
+        template <uint32_t nRadix>
+        struct Radix
+        {
+            static void Print(char* sz, uint64_t val)
+            {
+                uint32_t nDigs = 1;
+                for (uint64_t val0 = val; ; nDigs++)
+                    if (!(val0 /= nRadix))
+                        break;
+
+                for (sz[nDigs] = 0; ; val /= nRadix)
+                {
+                    sz[--nDigs] = '0' + (val % nRadix);
+                    if (!nDigs)
+                        break;
+                }
+            }
+
+            template <uint64_t x> struct Digits {
+                static const uint32_t N_Raw = x ? (1 + Digits<x / nRadix>::N_Raw) : 0;
+                static const uint32_t N = N_Raw ? N_Raw : 1;
+            };
+
+            template <typename T> struct DigitsMax {
+                static const uint32_t N = Digits<static_cast<T>(-1)>::N;
+            };
+        };
+
+        typedef Radix<10> Decimal;
+    };
 
 } // namespace Utils
 
