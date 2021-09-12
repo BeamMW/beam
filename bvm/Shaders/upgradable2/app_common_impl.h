@@ -281,7 +281,7 @@ struct ManagerUpgadable2
 						iAdmin = i + 1;
 					}
 
-					m_nPks++;
+					_POD_(m_pPks[m_nPks++]) = pk;
 				}
 			}
 
@@ -330,14 +330,16 @@ struct ManagerUpgadable2
 					if (!InMask(msk, iPeer))
 						continue;
 					if (iPeer == iAdmin)
-						continue;
+						p1.FromSlot(s_iSlotKrnNonce);
+					else
+					{
+						auto& cc = pPeers[iPeer];
+						auto& msg1 = cc.Rcv_T<Msg1>("waiting for co-signer nonce", false);
 
-					auto& cc = pPeers[iPeer];
-					auto& msg1 = cc.Rcv_T<Msg1>("waiting for co-signer nonce", false);
 
-					if (!p1.Import(msg1.m_pkMyNonce))
-						return OnError("bad nonce");
-
+						if (!p1.Import(msg1.m_pkMyNonce))
+							return OnError("bad nonce");
+					}
 					p0 += p1;
 				}
 
@@ -362,17 +364,17 @@ struct ManagerUpgadable2
 				}
 
 				Secp::Scalar kSig, e;
-				m_nPks = 0;
 
 				for (uint32_t iPeer = 0; iPeer < stg.s_AdminsMax; iPeer++)
 				{
 					if (!InMask(msk, iPeer))
 						continue;
 
-					e.Import(m_pE[m_nPks++]);
-
 					if (iPeer == iAdmin)
+					{
+						e.Import(m_pE[iAdminKeyIdx]);
 						m_Kid.get_Blind(e, e, s_iSlotNonceKey);
+					}
 					else
 					{
 						auto& cc = pPeers[iPeer];
@@ -388,7 +390,7 @@ struct ManagerUpgadable2
 				Secp_scalar_data kSigData;
 				kSig.Export(kSigData);
 
-				Finalize(kSigData); // get all challenges
+				Finalize(kSigData);
 			}
 			else
 			{
