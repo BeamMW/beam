@@ -13,7 +13,10 @@
 // limitations under the License.
 
 #pragma once
+#include "../common.h"
+#include "../app_common_impl.h"
 #include "../app_comm.h"
+#include "contract.h"
 
 struct ManagerUpgadable2
 {
@@ -61,10 +64,29 @@ struct ManagerUpgadable2
 		}
 	};
 
+	static bool ReadState(Upgradable2::State& s, const ContractID& cid)
+	{
+		Env::Key_T<uint16_t> key;
+		key.m_Prefix.m_Cid = cid;
+		key.m_KeyInContract = Upgradable2::State::s_Key;
+
+		return Env::VarReader::Read_T(key, s);
+	}
+
 #define Upgradable2_deploy(macro) \
     macro(ContractID, cidVersion) \
     macro(Height, hUpgradeDelay) \
     macro(uint32_t, nMinApprovers)
+
+#define Upgradable2_multisig_args(macro) \
+    macro(uint32_t, iSender) \
+    macro(uint32_t, approve_mask)
+
+#define Upgradable2_schedule_upgrade(macro) \
+    macro(ContractID, cid) \
+    macro(ContractID, cidVersion) \
+    macro(Height, hTarget) \
+    Upgradable2_multisig_args(macro)
 
 	static bool FillDeployArgs(Upgradable2::Create& arg, const PubKey* pKeyMy)
 	{
@@ -195,11 +217,7 @@ struct ManagerUpgadable2
 			{
 				const auto& cid = m_Wlk.m_Key.m_KeyInContract.m_Cid; // alias
 
-				Env::Key_T<uint16_t> key;
-				key.m_Prefix.m_Cid = cid;
-				key.m_KeyInContract = Upgradable2::State::s_Key;
-
-				if (!Env::VarReader::Read_T(key, m_State))
+				if (!ReadState(m_State, cid))
 					continue;
 
 				m_VerCurrent = m_VerInfo.Find(m_State.m_Active.m_Cid) + 1;
@@ -525,7 +543,7 @@ struct ManagerUpgadable2
 			Perform(stg);
 		}
 
-		static void Perform_ScheduleUpgrade(const Env::KeyID& kid, const ContractID& cid, const ContractID& cidVersion, Height hTarget)
+		static void Perform_ScheduleUpgrade(const ContractID& cid, const Env::KeyID& kid, const ContractID& cidVersion, Height hTarget)
 		{
 			Upgradable2::Control::ScheduleUpgrade arg;
 			_POD_(arg.m_Next.m_Cid) = cidVersion;
@@ -540,6 +558,53 @@ struct ManagerUpgadable2
 			msp.m_Kid = kid;
 
 			msp.Perform();
+		}
+
+		static void Perform_ReplaceAdmin(const ContractID& cid, const Env::KeyID& kid, uint32_t iAdmin, const PubKey& pk)
+		{
+			Upgradable2::Control::ReplaceAdmin arg;
+			arg.m_iAdmin = iAdmin;
+			_POD_(arg.m_Pk) = pk;
+
+			MultiSigRitual msp;
+			msp.m_szComment = "Upgradable2 replace admin";
+			msp.m_iMethod = Upgradable2::Control::s_iMethod;
+			msp.m_pArg = &arg;
+			msp.m_nArg = sizeof(arg);
+			msp.m_pCid = &cid;
+			msp.m_Kid = kid;
+
+			msp.Perform();
+		}
+
+		static void Perform_SetApprovers(const ContractID& cid, const Env::KeyID& kid, uint32_t newVal)
+		{
+			Upgradable2::Control::SetApprovers arg;
+			arg.m_NewVal = newVal;
+
+			MultiSigRitual msp;
+			msp.m_szComment = "Upgradable2 change num approvers";
+			msp.m_iMethod = Upgradable2::Control::s_iMethod;
+			msp.m_pArg = &arg;
+			msp.m_nArg = sizeof(arg);
+			msp.m_pCid = &cid;
+			msp.m_Kid = kid;
+
+			msp.Perform();
+		}
+
+		static void Perform_ExplicitUpgrade(const ContractID& cid)
+		{
+			Upgradable2::State s;
+			if (!ReadState(s, cid))
+				return OnError("no state");
+
+			if (s.m_Next.m_hTarget > Env::get_Height())
+				return OnError("too early");
+
+
+			Upgradable2::Control::ExplicitUpgrade arg;
+			Env::GenerateKernel(&cid, Upgradable2::Control::s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Upgradable2 explicit upgrade", 0);
 		}
 	};
 
