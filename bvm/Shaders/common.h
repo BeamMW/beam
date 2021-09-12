@@ -684,13 +684,13 @@ struct HashProcessor
             Env::HashGetValue(m_p, p, n);
         }
 
-        template <uint32_t nBytes>
-        void operator >> (Opaque<nBytes>& res)
+        template <typename T>
+        void operator >> (T& res)
         {
             Read(&res, sizeof(res));
         }
 
-        void ReadScalar(Secp_scalar& s)
+        Base& get_Challenge(Secp_scalar& s)
         {
             while (true)
             {
@@ -701,10 +701,6 @@ struct HashProcessor
                 if (!_POD_(sd).IsZero() && Env::Secp_Scalar_import(s, sd))
                     break;
             }
-        }
-
-        Base& operator >> (Secp_scalar& s) {
-            ReadScalar(s);
             return *this;
         }
 
@@ -907,7 +903,7 @@ namespace Secp
             o << m_NoncePub;
 
             Scalar e;
-            o >> e;
+            o.get_Challenge(e);
 
             kid.get_Blind(e, e, iNonceSlot);
             e = -e;
@@ -924,7 +920,7 @@ namespace Secp
             o << m_NoncePub;
 
             Scalar e;
-            o >> e;
+            o.get_Challenge(e);
 
             Env::Secp_Point_mul(p0, p0, e);
             p0 += p1;
