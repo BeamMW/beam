@@ -1,6 +1,7 @@
 #include "../common.h"
-#include "../app_common_impl.h"
 #include "contract.h"
+#include "../app_common_impl.h"
+#include "../app_comm.h"
 
 #define Vault_manager_create(macro)
 #define Vault_manager_view(macro)
@@ -191,130 +192,6 @@ void DeriveMyPk(PubKey& pubKey, const ContractID& cid)
     Env::DerivePk(pubKey, &myid, sizeof(myid));
 }
 
-struct Comm
-{
-    struct Channel
-    {
-        const Env::KeyID m_Kid;
-        const PubKey& m_pkRemote;
-        Secp::Oracle m_Context;
-
-        Utils::Vector<uint8_t> m_vMsg;
-        uint32_t m_MsgMin = 0;
-        uint32_t m_MsgMax = 0;
-        bool m_Waiting = false;
-
-        uint32_t get_Cookie() const
-        {
-            return reinterpret_cast<uint32_t>(this);
-        }
-
-        Channel(const Env::KeyID kid, const PubKey& pkRemote)
-            :m_Kid(kid)
-            ,m_pkRemote(pkRemote)
-        {
-            kid.Comm_Listen(get_Cookie());
-        }
-
-        ~Channel()
-        {
-            Env::Comm_Listen(nullptr, 0, get_Cookie());
-        }
-
-        template <typename T>
-        void Expose(const T x)
-        {
-            m_Context.m_Hp << x;
-        }
-
-        void ExposeSelf()
-        {
-            PubKey pk;
-            m_Kid.get_Pk(pk);
-            Expose(pk);
-        }
-
-        void Send(const void* pMsg, uint32_t nMsg)
-        {
-            m_Context.m_Hp.Write(pMsg, nMsg);
-
-            uint32_t nSizePlus = sizeof(Secp::Signature) + nMsg;
-            auto* pBuf = (uint8_t*) Env::StackAlloc(nSizePlus);
-
-            Env::Memcpy(pBuf, pMsg, nMsg);
-            ((Secp::Signature*) (pBuf + nMsg))->Sign(m_Context, m_Kid);
-
-            Env::Comm_Send(m_pkRemote, pBuf, nSizePlus);
-        }
-
-        template <typename T>
-        void Send_T(const T& x)
-        {
-            Send(&x, sizeof(x));
-        }
-
-        void Wait(const char* szWaitComment)
-        {
-            for (m_Waiting = true; m_Waiting; )
-            {
-                uint32_t nCookie;
-                uint32_t nSize = Env::Comm_Read(nullptr, 0, &nCookie, 1);
-                if (nSize)
-                    ((Channel*) nCookie)->ReadMsg(nSize);
-                else
-                    Env::Comm_WaitMsg(szWaitComment);
-            }
-        }
-
-        void WaitExact(uint32_t nSize, const char* szWaitComment)
-        {
-            m_MsgMin = m_MsgMax = nSize;
-            Wait(szWaitComment);
-        }
-
-        void WaitExact(void* pMsg, uint32_t nSize, const char* szWaitComment)
-        {
-            WaitExact(nSize, szWaitComment);
-            Env::Memcpy(pMsg, m_vMsg.m_p, nSize);
-        }
-
-        template <typename T>
-        void Wait_T(T& x, const char* szWaitComment)
-        {
-            WaitExact(&x, sizeof(x), szWaitComment);
-        }
-
-    protected:
-
-        void ReadMsg(uint32_t nSize)
-        {
-            uint32_t nSizeNetto = nSize - sizeof(Secp::Signature); // may overflow, nevermind
-
-            if (m_Waiting && (nSizeNetto >= m_MsgMin) && (nSizeNetto <= m_MsgMax))
-            {
-                m_vMsg.Prepare(nSize);
-                Env::Comm_Read(m_vMsg.m_p, nSize, nullptr, 0);
-
-                HashProcessor::Base hp0;
-                hp0.m_p = Env::HashClone(m_Context.m_Hp.m_p);
-
-                m_Context.m_Hp.Write(m_vMsg.m_p, nSizeNetto);
-
-                if (((Secp::Signature*)(m_vMsg.m_p + nSizeNetto))->IsValid(m_Context, m_pkRemote))
-                {
-                    m_vMsg.m_Count = nSizeNetto;
-                    m_Waiting = false;
-                }
-                else
-                    std::swap(hp0.m_p, m_Context.m_Hp.m_p); // restore context
-            }
-            else
-                // just skip it
-                Env::Comm_Read(nullptr, 0, nullptr, 0);
-        }
-    };
-};
-
 struct MultiSigProto
 {
 #pragma pack (push, 1)
@@ -408,7 +285,7 @@ ON_METHOD(my_account, move)
                 cc.Expose(pkForeign);
                 cc.ExposeSelf();
 
-                cc.Wait_T(msp.m_Msg1, "Waiting for signer");
+                cc.Rcv_T(msp.m_Msg1, "Waiting for signer");
                 if ((msp.m_Msg1.m_hMin + 10 < h) || (msp.m_Msg1.m_hMin >= h + 20))
                     OnError("height insane");
 
@@ -450,7 +327,7 @@ ON_METHOD(my_account, move)
                 p0.Export(msp.m_Msg1.m_pkSignerNonce); // both kernel and our key
 
                 cc.Send_T(msp.m_Msg1);
-                cc.Wait_T(msp.m_Msg2, "Waiting for co-signer");
+                cc.Rcv_T(msp.m_Msg2, "Waiting for co-signer");
 
                 Secp_scalar_data e;
                 msp.InvokeKrn(e, &e);

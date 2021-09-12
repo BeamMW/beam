@@ -613,7 +613,6 @@ struct HashProcessor
             Write(sz, n);
         }
 
-
         template <typename T>
         void Write(T v)
         {
@@ -648,11 +647,35 @@ struct HashProcessor
             Write(&pd, sizeof(pd));
         }
 
-        template <typename T>
-        void operator >> (T& res)
+        void Read(void* p, uint32_t n)
         {
-            Env::HashGetValue(m_p, &res, sizeof(res));
+            Env::HashGetValue(m_p, p, n);
         }
+
+        template <uint32_t nBytes>
+        void operator >> (Opaque<nBytes>& res)
+        {
+            Read(&res, sizeof(res));
+        }
+
+        void ReadScalar(Secp_scalar& s)
+        {
+            while (true)
+            {
+                Secp_scalar_data sd;
+                *this >> sd;
+                Write(&sd, sizeof(sd));
+
+                if (!_POD_(sd).IsZero() && Env::Secp_Scalar_import(s, sd))
+                    break;
+            }
+        }
+
+        Base& operator >> (Secp_scalar& s) {
+            ReadScalar(s);
+            return *this;
+        }
+
     };
 
     struct Sha256
@@ -820,27 +843,7 @@ namespace Secp
         }
     };
 
-    struct Oracle
-    {
-        HashProcessor::Sha256 m_Hp;
-        void get_E(Scalar& s)
-        {
-            while (true)
-            {
-                Secp_scalar_data sd;
-                m_Hp >> sd;
-                m_Hp.Write(&sd, sizeof(sd));
-
-                if (!_POD_(sd).IsZero() && s.Import(sd))
-                    break;
-            }
-        }
-
-        Oracle& operator >> (Scalar& s) {
-            get_E(s);
-            return *this;
-        }
-    };
+    typedef HashProcessor::Base Oracle;
 
     struct Signature
     {
@@ -856,7 +859,7 @@ namespace Secp
             {
                 // opt: derive strong seed for nonce
                 HashProcessor::Base hp;
-                hp.m_p = Env::HashClone(o.m_Hp.m_p);
+                hp.m_p = Env::HashClone(o.m_p);
                 hp.Write(kid.m_pID, kid.m_nID); // add key material
 
                 HashValue hv;
@@ -869,7 +872,7 @@ namespace Secp
             Env::get_SlotImage(ptN, iNonceSlot);
             ptN.Export(m_NoncePub);
 
-            o.m_Hp << m_NoncePub;
+            o << m_NoncePub;
 
             Scalar e;
             o >> e;
@@ -886,7 +889,7 @@ namespace Secp
                 !p1.Import(m_NoncePub))
                 return false;
 
-            o.m_Hp << m_NoncePub;
+            o << m_NoncePub;
 
             Scalar e;
             o >> e;
