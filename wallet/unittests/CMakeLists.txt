@@ -10,9 +10,9 @@ target_link_libraries(wallet_test_node PUBLIC node wallet)
 configure_file("../../bvm/Shaders/vault/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/vault/contract.wasm" COPYONLY)
 configure_file("../../bvm/Shaders/vault/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/vault/app.wasm" COPYONLY)
 configure_file("../../bvm/Shaders/upgradable2/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable2/contract.wasm" COPYONLY)
-configure_file("../../bvm/Shaders/upgradable2/test/test_v0.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable2/test/test_v0.wasm" COPYONLY)
-configure_file("../../bvm/Shaders/upgradable2/test/test_v1.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable2/test/test_v1.wasm" COPYONLY)
-configure_file("../../bvm/Shaders/upgradable2/test/test_app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable2/test/test_app.wasm" COPYONLY)
+configure_file("../../bvm/Shaders/upgradable2/Test/test_v0.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable2/Test/test_v0.wasm" COPYONLY)
+configure_file("../../bvm/Shaders/upgradable2/Test/test_v1.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable2/Test/test_v1.wasm" COPYONLY)
+configure_file("../../bvm/Shaders/upgradable2/Test/test_app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable2/Test/test_app.wasm" COPYONLY)
 
 
 add_test_snippet(wallet_test wallet node mnemonic wallet wallet_client wallet_api wallet_test_node)

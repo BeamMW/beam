@@ -2025,12 +2025,12 @@ namespace
             if (i)
                 pMan[i]->m_BodyManager = pMan[0]->m_BodyManager;
             else
-                MyManager::Compile(pMan[i]->m_BodyManager, "upgradable2/test/test_app.wasm", MyManager::Kind::Manager);
+                MyManager::Compile(pMan[i]->m_BodyManager, "upgradable2/Test/test_app.wasm", MyManager::Kind::Manager);
         }
 
         printf("Deploying v0\n");
 
-        MyManager::Compile(pMan[iSender]->m_BodyContract, "upgradable2/test/test_v0.wasm", MyManager::Kind::Contract);
+        MyManager::Compile(pMan[iSender]->m_BodyContract, "upgradable2/Test/test_v0.wasm", MyManager::Kind::Contract);
         pMan[iSender]->m_Args["role"] = "manager";
         pMan[iSender]->m_Args["action"] = "deploy_version";
         pMan[iSender]->RunSync(1);
@@ -2040,7 +2040,7 @@ namespace
 
         printf("Deploying v1\n");
 
-        MyManager::Compile(pMan[iSender]->m_BodyContract, "upgradable2/test/test_v1.wasm", MyManager::Kind::Contract);
+        MyManager::Compile(pMan[iSender]->m_BodyContract, "upgradable2/Test/test_v1.wasm", MyManager::Kind::Contract);
         pMan[iSender]->RunSync(1);
         WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
 
