@@ -2038,14 +2038,29 @@ namespace
 
         WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
 
-        printf("reading v0 cid...\n");
+        printf("Deploying v1\n");
+
+        MyManager::Compile(pMan[iSender]->m_BodyContract, "upgradable2/test/test_v1.wasm", MyManager::Kind::Contract);
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+        printf("reading ver cids...\n");
 
         pMan[iSender]->m_Args["action"] = "view";
         pMan[iSender]->RunSync(1);
         WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
 
-        std::string sV0Cid;
-        WALLET_CHECK(pMan[iSender]->get_OutpStr("\"cid\": \"", sV0Cid, bvm2::ContractID::nTxtLen));
+        std::string sTmp, sV0Cid, sV1Cid;
+
+        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"Number\": 0", sTmp, nullptr));
+        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"cid\": \"", sV0Cid, &bvm2::ContractID::nTxtLen));
+
+        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"Number\": 1", sTmp, nullptr));
+        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"cid\": \"", sV1Cid, &bvm2::ContractID::nTxtLen));
+
+        WALLET_CHECK(!sV0Cid.empty() && !sV1Cid.empty() && (sV0Cid != sV1Cid));
 
         printf("collecting keys...\n");
 
@@ -2083,7 +2098,7 @@ namespace
         pMan[iSender]->RunSync(1);
         WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
 
-        std::string sCid, sTmp;
+        std::string sCid;
         WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"contracts\":", sTmp, nullptr));
         WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"cid\": \"", sCid, &bvm2::ContractID::nTxtLen));
 
@@ -2093,7 +2108,7 @@ namespace
         {
             pMan[i]->m_Args["action"] = "schedule_upgrade";
             pMan[i]->m_Args["cid"] = sCid;
-            pMan[i]->m_Args["cidVersion"] = sV0Cid;
+            pMan[i]->m_Args["cidVersion"] = sV1Cid;
             pMan[i]->m_Args["hTarget"] = std::to_string(node.get_Processor().m_Cursor.m_Full.m_Height + 50);
             pMan[i]->m_Args["iSender"] = std::to_string(iSender);
             pMan[i]->m_Args["approve_mask"] = std::to_string((1U << nPeers) - 1);
