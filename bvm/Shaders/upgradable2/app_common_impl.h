@@ -212,7 +212,7 @@ struct ManagerUpgadable2
 
 		}
 
-		void DumpCurrent(const PubKey& pkMy)
+		void DumpCurrent(const PubKey* pMy)
 		{
 			const auto& cid = m_Wlk.m_Key.m_KeyInContract.m_Cid;
 
@@ -242,9 +242,12 @@ struct ManagerUpgadable2
 						}
 					}
 
-					uint32_t iAdmin = stg.FindAdmin(pkMy);
-					if (iAdmin)
-						Env::DocAddNum("iAdmin", iAdmin - 1);
+					if (pMy)
+					{
+						uint32_t iAdmin = stg.FindAdmin(*pMy);
+						if (iAdmin)
+							Env::DocAddNum("iAdmin", iAdmin - 1);
+					}
 				}
 			}
 
@@ -256,6 +259,24 @@ struct ManagerUpgadable2
 				if (m_VerNext)
 					Env::DocAddNum("next_version", m_VerNext - 1);
 				Env::DocAddNum("next_height", m_State.m_Next.m_hTarget);
+			}
+		}
+
+		void ViewAll(const Env::KeyID* pMyKey)
+		{
+			m_VerInfo.Init();
+			m_VerInfo.Dump();
+
+			Env::DocArray gr("contracts");
+
+			PubKey pkAdmin;
+			if (pMyKey)
+				pMyKey->get_Pk(pkAdmin);
+
+			for (Enum(); MoveNext(); )
+			{
+				Env::DocGroup root("");
+				DumpCurrent(pMyKey ? &pkAdmin : nullptr);
 			}
 		}
 	};
