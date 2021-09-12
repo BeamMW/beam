@@ -17,26 +17,101 @@
 
 struct ManagerUpgadable2
 {
-	static uint32_t FindAdmin(const Upgradable2::Settings& stg, const PubKey& pk)
-	{
-		for (uint32_t i = 0; i < stg.s_AdminsMax; i++)
-			if (_POD_(stg.m_pAdmin[i]) == pk)
-				return i + 1;
-
-		return 0;
-	}
-
-	static bool ReadSettings(Upgradable2::Settings& stg, const ContractID& cid)
-	{
-		Env::Key_T<uint16_t> key;
-		key.m_Prefix.m_Cid = cid;
-		key.m_KeyInContract = Upgradable2::Settings::s_Key;
-		return Env::VarReader::Read_T(key, stg);
-	}
-
 	static void OnError(const char* sz)
 	{
 		Env::DocAddText("error", sz);
+	}
+
+	struct Settings
+		:public Upgradable2::Settings
+	{
+		uint32_t FindAdmin(const PubKey& pk) const
+		{
+			for (uint32_t i = 0; i < s_AdminsMax; i++)
+				if (_POD_(m_pAdmin[i]) == pk)
+					return i + 1;
+
+			return 0;
+		}
+
+		bool Read(const ContractID& cid)
+		{
+			Env::Key_T<uint16_t> key;
+			key.m_Prefix.m_Cid = cid;
+			key.m_KeyInContract = s_Key;
+			return Env::VarReader::Read_T(key, *this);
+		}
+
+		bool TestValid() const
+		{
+			uint32_t nActiveAdmins = 0;
+
+			for (uint32_t i = 0; i < s_AdminsMax; i++)
+				if (!_POD_(m_pAdmin[i]).IsZero())
+					nActiveAdmins++;
+
+			uint32_t val = m_MinApprovers - 1; // would overflow if zero
+			if (val >= nActiveAdmins)
+			{
+				OnError("invalid admins/approvers");
+				return false;
+			}
+
+			return true;
+		}
+	};
+
+#define Upgradable2_deploy(macro) \
+    macro(ContractID, cidVersion) \
+    macro(Height, hUpgradeDelay) \
+    macro(uint32_t, nMinApprovers)
+
+	static bool FillDeployArgs(Upgradable2::Create& arg, const PubKey* pKeyMy)
+	{
+		if (!Env::DocGet("cidVersion", arg.m_Active.m_Cid))
+		{
+			OnError("cidVersion not specified");
+			return false;
+		}
+
+		Env::DocGet("hUpgradeDelay", arg.m_Settings.m_hMinUpgadeDelay);
+		Env::DocGet("nMinApprovers", arg.m_Settings.m_MinApprovers);
+
+#define ARG_NAME_PREFIX "admin-"
+		char szBuf[_countof(ARG_NAME_PREFIX) + Utils::String::Decimal::Digits<Settings::s_AdminsMax>::N] = ARG_NAME_PREFIX;
+
+		uint32_t iFree = arg.m_Settings.s_AdminsMax;
+
+		for (uint32_t i = 0; i < Settings::s_AdminsMax; i++)
+		{
+			Utils::String::Decimal::Print(szBuf + _countof(ARG_NAME_PREFIX) - 1, i);
+			auto& pk = arg.m_Settings.m_pAdmin[i];
+
+			if (Env::DocGet(szBuf, pk)) // sets zero if not specified
+			{
+				if (pKeyMy && (_POD_(pk) == *pKeyMy))
+					pKeyMy = nullptr; // included
+			}
+			else
+				iFree = std::min(iFree, i);
+		}
+#undef ARG_NAME_PREFIX
+
+		if (pKeyMy)
+		{
+			if (iFree >= arg.m_Settings.s_AdminsMax)
+			{
+				OnError("cannot include self key");
+				return false;
+			}
+
+			_POD_(arg.m_Settings.m_pAdmin[iFree]) = *pKeyMy;
+		}
+
+		if (!Cast::Up<Settings>(arg.m_Settings).TestValid())
+			return false;
+
+		return true;
 	}
 
 	struct Walker
@@ -145,8 +220,8 @@ struct ManagerUpgadable2
 			Env::DocAddNum("Height", m_Wlk.m_Height);
 
 			{
-				Upgradable2::Settings stg;
-				if (ReadSettings(stg, cid))
+				Settings stg;
+				if (stg.Read(cid))
 				{
 					Env::DocAddNum("min_upgrade_delay", stg.m_hMinUpgadeDelay);
 					Env::DocAddNum("min_approvers", stg.m_MinApprovers);
@@ -167,7 +242,7 @@ struct ManagerUpgadable2
 						}
 					}
 
-					uint32_t iAdmin = FindAdmin(stg, pkMy);
+					uint32_t iAdmin = stg.FindAdmin(pkMy);
 					if (iAdmin)
 						Env::DocAddNum("iAdmin", iAdmin - 1);
 				}
@@ -248,7 +323,7 @@ struct ManagerUpgadable2
 			return !!(1 & (msk >> i));
 		}
 
-		void Perform(const Upgradable2::Settings& stg)
+		void Perform(const Settings& stg)
 		{
 			uint32_t msk = 0, iSender = 0;
 			Env::DocGet("approve_mask", msk);
@@ -422,8 +497,8 @@ struct ManagerUpgadable2
 
 		void Perform()
 		{
-			Upgradable2::Settings stg;
-			if (!ReadSettings(stg, *m_pCid))
+			Settings stg;
+			if (!stg.Read(*m_pCid))
 				return OnError("no settings");
 
 			Perform(stg);
