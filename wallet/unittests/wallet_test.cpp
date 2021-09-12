@@ -1729,7 +1729,117 @@ namespace
         }
     }
 
-    void TestAppShader()
+    struct MyManager
+        :public ManagerStdInWallet
+    {
+        bool m_Done = false;
+        bool m_Err = false;
+        bool m_Async = false;
+
+        using ManagerStdInWallet::ManagerStdInWallet;
+
+        void OnDone(const std::exception* pExc) override
+        {
+            m_Done = true;
+            m_Err = !!pExc;
+
+            if (m_Async)
+                io::Reactor::get_Current().stop();
+        }
+
+        void get_Pk(ECC::Point& res, const Blob& d)
+        {
+            ECC::Point::Native pt;
+            DerivePkInternal(pt, d);
+            pt.Export(res);
+        }
+
+        static void Compile(ByteBuffer& res, const char* sz, Kind kind)
+        {
+            std::FStream fs;
+            fs.Open(sz, true, true);
+
+            res.resize(static_cast<size_t>(fs.get_Remaining()));
+            if (!res.empty())
+                fs.read(&res.front(), res.size());
+
+            bvm2::Processor::Compile(res, res, kind);
+        }
+
+        void RunSync0(uint32_t iMethod)
+        {
+            m_Done = false;
+            m_Err = false;
+            m_Async = false;
+
+            StartRun(iMethod);
+        }
+
+        void RunSync1()
+        {
+            if (m_Done)
+                return;
+
+            m_Async = true;
+            io::Reactor::get_Current().run();
+
+            if (!m_Done)
+                // propagate it
+                io::Reactor::get_Current().stop();
+        }
+
+        void RunSync(uint32_t iMethod)
+        {
+            RunSync0(iMethod);
+            RunSync1();
+        }
+
+        bool DoTx(int& completedCount)
+        {
+            if (m_vInvokeData.empty())
+                return false;
+
+            auto txID = m_pWallet->StartTransaction(
+                CreateTransactionParameters(TxType::Contract)
+                .SetParameter(TxParameterID::ContractDataPacked, m_vInvokeData));
+
+            completedCount++;
+            io::Reactor::get_Current().run();
+
+            auto pTx = m_pWalletDB->getTx(txID);
+            return (pTx->m_status == wallet::TxStatus::Completed);
+        }
+
+        static bool get_OutpStrEx(const std::string& s, const char* szKey, std::string& sOut, const uint32_t* pLen)
+        {
+            auto i = s.find(szKey, 0);
+            if (s.npos == i)
+                return false;
+
+            i += strlen(szKey);
+
+            if (pLen)
+            {
+                if (s.size() < i + *pLen)
+                    return false;
+
+                sOut.assign(s.c_str() + i, *pLen);
+            }
+            else
+                sOut = s.c_str() + i;
+
+            return true;
+        }
+
+        bool get_OutpStr(const char* szKey, std::string& sOut, uint32_t nLen) const
+        {
+            return get_OutpStrEx(m_Out.str(), szKey, sOut, &nLen);
+        }
+
+    };
+
+
+    void TestAppShader1()
     {
         printf("Testing multi-wallet app shader with comm...\n");
 
@@ -1759,7 +1869,7 @@ namespace
 
         auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
         {
-            InitNodeToTest(node, treasury, nullptr, port, 10000, path, peers, miningNode);
+            InitNodeToTest(node, treasury, nullptr, port, 3000, path, peers, miningNode);
             io::Address address;
             address.resolve("127.0.0.1");
             address.port(port);
@@ -1767,113 +1877,12 @@ namespace
         };
 
 
-        Node senderNode;
-        auto senderNodeAddress = nodeCreator(senderNode, treasury, 32125, "sender_node.db");
-        Node receiverNode;
-        auto receiverNodeAddress = nodeCreator(receiverNode, treasury, 32126, "receiver_node.db", { senderNodeAddress }, false);
+        Node node;
+        auto nodeAddress = nodeCreator(node, treasury, 32125, "node.db");
 
-        TestWalletRig sender(dbSender, f, TestWalletRig::Type::Regular, false, 0, senderNodeAddress);
-        TestWalletRig receiver(dbReceiver, f, TestWalletRig::Type::Regular, false, 0, receiverNodeAddress);
+        TestWalletRig sender(dbSender, f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
+        TestWalletRig receiver(dbReceiver, f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
 
-
-        struct MyManager
-            :public ManagerStdInWallet
-        {
-            bool m_Done = false;
-            bool m_Err = false;
-            bool m_Async = false;
-
-            using ManagerStdInWallet::ManagerStdInWallet;
-
-            void OnDone(const std::exception* pExc) override
-            {
-                m_Done = true;
-                m_Err = !!pExc;
-
-                if (m_Async)
-                    io::Reactor::get_Current().stop();
-            }
-
-            void get_Pk(ECC::Point& res, const Blob& d)
-            {
-                ECC::Point::Native pt;
-                DerivePkInternal(pt, d);
-                pt.Export(res);
-            }
-
-            static void Compile(ByteBuffer& res, const char* sz, Kind kind)
-            {
-                std::FStream fs;
-                fs.Open(sz, true, true);
-
-                res.resize(static_cast<size_t>(fs.get_Remaining()));
-                if (!res.empty())
-                    fs.read(&res.front(), res.size());
-
-                bvm2::Processor::Compile(res, res, kind);
-            }
-
-            void RunSync0(uint32_t iMethod)
-            {
-                m_Done = false;
-                m_Err = false;
-                m_Async = false;
-
-                StartRun(iMethod);
-            }
-
-            void RunSync1()
-            {
-                if (m_Done)
-                    return;
-
-                m_Async = true;
-                io::Reactor::get_Current().run();
-
-                if (!m_Done)
-                    // propagate it
-                    io::Reactor::get_Current().stop();
-            }
-
-            void RunSync(uint32_t iMethod)
-            {
-                RunSync0(iMethod);
-                RunSync1();
-            }
-
-            bool DoTx(int& completedCount)
-            {
-                if (m_vInvokeData.empty())
-                    return false;
-
-                auto txID = m_pWallet->StartTransaction(
-                    CreateTransactionParameters(TxType::Contract)
-                    .SetParameter(TxParameterID::ContractDataPacked, m_vInvokeData));
-
-                completedCount++;
-                io::Reactor::get_Current().run();
-
-                auto pTx = m_pWalletDB->getTx(txID);
-                return (pTx->m_status == wallet::TxStatus::Completed);
-            }
-
-            bool get_OutpStr(const char* szKey, std::string& sOut, uint32_t nLen) const
-            {
-                std::string s = m_Out.str();
-
-                auto i = s.find(szKey, 0);
-                if (s.npos == i)
-                    return false;
-
-                i += strlen(szKey);
-                if (s.size() < i + nLen)
-                    return false;
-
-                sOut.assign(s.c_str() + i, nLen);
-                return true;
-            }
-
-        };
 
         MyManager manSender(dbSender, sender.m_Wallet);
         manSender.set_Privilege(2);
@@ -3878,8 +3887,8 @@ int main()
     Rules::get().pForks[2].m_Height = 1;
     Rules::get().pForks[3].m_Height = 1;
     Rules::get().UpdateChecksum();
-    TestAppShader();
 
+    TestAppShader1();
     Rules::get().pForks[1].m_Height = 20;
     Rules::get().pForks[2].m_Height = 20;
     Rules::get().pForks[3].m_Height = 20;
