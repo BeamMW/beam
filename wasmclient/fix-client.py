@@ -1,15 +1,16 @@
 #/bin/python
-
-# Hello World program in Python
 import sys
 
+print("Fixing wasm client, file: ", sys.argv[1], " output: ")
+
 t_poll  = "function ___sys_poll"
-t_proxy = "if (ENVIRONMENT_IS_PTHREAD) return"
+t_proxy = "if (ENVIRONMENT_IS_PTHREAD)"
 t_ret   = "return"
 t_end   = ");"
 
 # read all input
-text  = sys.stdin.read()
+with open(sys.argv[1], 'r') as original:
+    text = original.read()
 
 # find function sys_poll
 ipoll = text.index(t_poll)
@@ -29,5 +30,6 @@ text = text[:iret] + '{\n  var ret =' + text[iret + len(t_ret):]
 iend  = text.index(t_end, iret)
 text = text[:iend + len(t_end)] + '\n  if (ret == 0) Atomics.wait(AB, 0, 0, 50);\n  return ret;\n }' + text[iend + len(t_end):]
 
-print(text)
+with open(sys.argv[1], 'w') as result:
+    result.write(text)
 
