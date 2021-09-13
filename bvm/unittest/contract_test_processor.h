@@ -325,6 +325,7 @@ namespace beam::bvm2
 				DischargeUnits(Limits::Cost::Cycle);
 				RunOnce();
 
+#ifdef WASM_INTERPRETER_DEBUG
 				if (m_Dbg.m_pOut)
 				{
 					std::cout << m_Dbg.m_pOut->str();
@@ -333,6 +334,7 @@ namespace beam::bvm2
 					if (m_Cycles >= 100000)
 						m_Dbg.m_pOut = nullptr; // in debug max num of cycles takes too long because if this
 				}
+#endif // WASM_INTERPRETER_DEBUG
 			}
 
 			if (bWasm) {

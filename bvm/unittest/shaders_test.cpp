@@ -1014,16 +1014,9 @@ namespace bvm2 {
 		}
 
 		{
-			Dbg dbg = m_Dbg;
-			m_Dbg.m_Instructions = false;
-			m_Dbg.m_Stack = false;
-			m_Dbg.m_ExtCall = false;
-
 			Shaders::Dummy::InfCycle args;
 			args.m_Val = 12;
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
-
-			m_Dbg = dbg;
 		}
 
 		{
@@ -1135,14 +1128,7 @@ namespace bvm2 {
 			CvtHdrElement(args.m_Hdr, s);
 			args.m_RulesCfg = r.pForks[2].m_Hash;
 
-			Dbg dbg = m_Dbg;
-			m_Dbg.m_Instructions = false;
-			m_Dbg.m_Stack = false;
-			m_Dbg.m_ExtCall = false;
-
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
-
-			m_Dbg = dbg;
 
 			verify_test(args.m_Hash == hv);
 
@@ -1360,10 +1346,6 @@ namespace bvm2 {
 
 	void MyProcessor::TestOracle()
 	{
-		Dbg dbg = m_Dbg;
-		m_Dbg.m_Instructions = false;
-		m_Dbg.m_Stack = false;
-
 		typedef Shaders::Oracle::ValueType ValueType;
 
 		constexpr uint32_t nOracles = 15;
@@ -1467,8 +1449,6 @@ namespace bvm2 {
 
 		Zero_ zero;
 		verify_test(ContractDestroy_T(m_cidOracle, zero));
-
-		m_Dbg = dbg;
 	}
 
 	static uint64_t RateFromFraction(uint32_t nom, uint32_t denom)
@@ -2169,11 +2149,13 @@ namespace bvm2 {
 			{
 				RunOnce();
 
+#ifdef WASM_INTERPRETER_DEBUG
 				if (m_Dbg.m_pOut)
 				{
 					std::cout << m_Dbg.m_pOut->str();
 					m_Dbg.m_pOut->str("");
 				}
+#endif // WASM_INTERPRETER_DEBUG
 			}
 
 

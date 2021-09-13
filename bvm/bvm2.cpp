@@ -611,10 +611,15 @@ namespace bvm2 {
 #define PAR_ASSIGN(type, name) args.m_##name =
 #define PAR_DUMP(type, name) << "," #name "=" << LogFrom(m_##name.V)
 
+#ifdef WASM_INTERPRETER_DEBUG
+#	define WASM_LOG_EXTCALL(name) if (m_Dbg.m_ExtCall) *m_Dbg.m_pOut << "  " #name << std::endl;
+#else // WASM_INTERPRETER_DEBUG
+#	define WASM_LOG_EXTCALL(name)
+#endif // WASM_INTERPRETER_DEBUG
+
 #define THE_MACRO(id, ret, name) \
 		case id: { \
-			if (m_Dbg.m_ExtCall) \
-				*m_Dbg.m_pOut << "  " #name << std::endl; \
+			WASM_LOG_EXTCALL(name) \
 			struct Args :public Wasm::Checkpoint { \
 				BVMOp_##name(PAR_DECL, MACRO_NOP) \
 				RetType_##name Call(TProcessor& me) const { return me.OnMethod_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); } \
