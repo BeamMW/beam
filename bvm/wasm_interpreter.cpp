@@ -1429,7 +1429,7 @@ namespace Wasm {
 
 	template void Processor::Stack::Log(uint32_t, bool);
 	template void Processor::Stack::Log(uint64_t, bool);
-#endif WASM_INTERPRETER_DEBUG
+#endif // WASM_INTERPRETER_DEBUG
 
 	Word Processor::Stack::get_AlasSp() const
 	{
