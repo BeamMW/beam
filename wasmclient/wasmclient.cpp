@@ -387,6 +387,7 @@ public:
     bool StartWallet()
     {
         AssertMainThread();
+        EnsureFSMounted();
         if (m_Client)
         {
             LOG_WARNING() << "The client is already running";
@@ -395,11 +396,11 @@ public:
 
         try
         {
-            auto db = OpenWallet(m_DbPath, m_Pass);
-            m_Client = std::make_shared<WalletClient2>(Rules::get(), db, m_Node, m_Reactor);
+            auto dbFunc = [path = m_DbPath, pass = m_Pass]() {return OpenWallet(path, pass);};
+            m_Client = std::make_shared<WalletClient2>(Rules::get(), dbFunc, m_Node, m_Reactor);
             m_Client->SetHandler(this);
             auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
-            additionalTxCreators->emplace(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(db));
+            additionalTxCreators->emplace(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(dbFunc));
             m_Client->getAsync()->enableBodyRequests(true);
             m_Client->start({}, true, additionalTxCreators);
             return true;
@@ -653,8 +654,6 @@ public:
 
     static IWalletDB::Ptr OpenWallet(const std::string& dbName, const std::string& pass)
     {
-        AssertMainThread();
-        EnsureFSMounted();
         Rules::get().UpdateChecksum();
         LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
         return WalletDB::open(dbName, SecString(pass));

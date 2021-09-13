@@ -329,10 +329,15 @@ namespace Wasm {
 			IMPLEMENT_GET_PARENT_OBJ(Processor, m_Stack) // for logging
 
 		private:
-			template <typename T> void Log(T, bool bPush);
 
+#ifdef WASM_INTERPRETER_DEBUG
+			template <typename T> void Log(T, bool bPush);
+#else // WASM_INTERPRETER_DEBUG
+			template <typename T> void Log(T, bool bPush) {}
+#endif // WASM_INTERPRETER_DEBUG
 		} m_Stack;
 
+#ifdef WASM_INTERPRETER_DEBUG
 		struct Dbg
 		{
 			std::ostringstream* m_pOut = nullptr;
@@ -340,6 +345,7 @@ namespace Wasm {
 			bool m_Instructions = false;
 			bool m_ExtCall = false;
 		} m_Dbg;
+#endif // WASM_INTERPRETER_DEBUG
 
 		Processor()
 			:m_Instruction(Reader::Mode::Emulate_x86)
