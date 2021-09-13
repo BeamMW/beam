@@ -523,6 +523,38 @@ namespace Utils {
         }
     };
 
+    struct String
+    {
+        template <uint32_t nRadix>
+        struct Radix
+        {
+            static void Print(char* sz, uint64_t val)
+            {
+                uint32_t nDigs = 1;
+                for (uint64_t val0 = val; ; nDigs++)
+                    if (!(val0 /= nRadix))
+                        break;
+
+                for (sz[nDigs] = 0; ; val /= nRadix)
+                {
+                    sz[--nDigs] = '0' + (val % nRadix);
+                    if (!nDigs)
+                        break;
+                }
+            }
+
+            template <uint64_t x> struct Digits {
+                static const uint32_t N_Raw = x ? (1 + Digits<x / nRadix>::N_Raw) : 0;
+                static const uint32_t N = N_Raw ? N_Raw : 1;
+            };
+
+            template <typename T> struct DigitsMax {
+                static const uint32_t N = Digits<static_cast<T>(-1)>::N;
+            };
+        };
+
+        typedef Radix<10> Decimal;
+    };
 
 } // namespace Utils
 
@@ -652,13 +684,13 @@ struct HashProcessor
             Env::HashGetValue(m_p, p, n);
         }
 
-        template <uint32_t nBytes>
-        void operator >> (Opaque<nBytes>& res)
+        template <typename T>
+        void operator >> (T& res)
         {
             Read(&res, sizeof(res));
         }
 
-        void ReadScalar(Secp_scalar& s)
+        Base& get_Challenge(Secp_scalar& s)
         {
             while (true)
             {
@@ -669,10 +701,6 @@ struct HashProcessor
                 if (!_POD_(sd).IsZero() && Env::Secp_Scalar_import(s, sd))
                     break;
             }
-        }
-
-        Base& operator >> (Secp_scalar& s) {
-            ReadScalar(s);
             return *this;
         }
 
@@ -875,7 +903,7 @@ namespace Secp
             o << m_NoncePub;
 
             Scalar e;
-            o >> e;
+            o.get_Challenge(e);
 
             kid.get_Blind(e, e, iNonceSlot);
             e = -e;
@@ -892,7 +920,7 @@ namespace Secp
             o << m_NoncePub;
 
             Scalar e;
-            o >> e;
+            o.get_Challenge(e);
 
             Env::Secp_Point_mul(p0, p0, e);
             p0 += p1;

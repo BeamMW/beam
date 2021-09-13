@@ -1,7 +1,7 @@
 #pragma once
 namespace Upgradable2
 {
-    static const ShaderID s_SID = { 0x32,0x4a,0x87,0xd8,0x1a,0x6d,0x27,0xc7,0xd8,0x3a,0x59,0xe5,0xe9,0x29,0x58,0x9c,0x15,0xcf,0x86,0xce,0xe2,0xf9,0x1d,0xa5,0xbb,0xe0,0x6a,0x55,0xb0,0xfd,0xa2,0xd1 };
+    static const ShaderID s_SID = { 0xa4,0xfa,0xb5,0x4a,0xab,0xfd,0x14,0x18,0x61,0x05,0x38,0x63,0x77,0xfd,0x7e,0x24,0x9e,0x6e,0x09,0x82,0x4d,0xaf,0x37,0x99,0x16,0x56,0x9a,0xf6,0xf7,0x8a,0x96,0xe1 };
 
 #pragma pack (push, 1) // the following structures will be stored in the node in binary form
 
@@ -48,15 +48,15 @@ namespace Upgradable2
 
         struct Base
         {
-            uint32_t m_ApproveMask; // bitmask of approvers. Each must sign this call
             uint8_t m_Type;
+            Base(uint8_t nType) :m_Type(nType) {}
         };
 
         struct ExplicitUpgrade
             :public Base
         {
             static const uint8_t s_Type = 1;
-            uint8_t m_Type = s_Type;
+            ExplicitUpgrade() :Base(s_Type) {}
 
             // induce the scheduled upgrade. Without the need to 'hijack' another method.
             // doesn't need to be signed (i.e. any user can invoke)
@@ -66,6 +66,7 @@ namespace Upgradable2
         struct Signed
             :public Base
         {
+            Signed(uint8_t nType) :Base(nType) {}
             uint32_t m_ApproveMask; // bitmask of approvers. Each must sign this call
         };
 
@@ -74,7 +75,7 @@ namespace Upgradable2
             :public Signed
         {
             static const uint8_t s_Type = 2;
-            uint8_t m_Type = s_Type;
+            ScheduleUpgrade() :Signed(s_Type) {}
 
             Next m_Next;
         };
@@ -83,7 +84,7 @@ namespace Upgradable2
             :public Signed
         {
             static const uint8_t s_Type = 3;
-            uint8_t m_Type = s_Type;
+            ReplaceAdmin() :Signed(s_Type) {}
 
             uint32_t m_iAdmin;
             PubKey m_Pk;
@@ -93,7 +94,7 @@ namespace Upgradable2
             :public Signed
         {
             static const uint8_t s_Type = 4;
-            uint8_t m_Type = s_Type;
+            SetApprovers() :Signed(s_Type) {}
 
             uint32_t m_NewVal; // must be within [1, s_AdminsMax]
         };
