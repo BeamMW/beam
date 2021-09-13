@@ -520,13 +520,16 @@ namespace beam::wallet
                 LogRotation logRotation(*m_reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
 #endif // !__EMSCRIPTEN__
 
-                if (!m_walletDB && m_openDBFunc)
+                if (!m_walletDB)
                 {
-                    m_walletDB = m_openDBFunc();
-                }
-                else
-                {
-                    throw std::runtime_error("WalletClient: database is not provided");
+                    if (m_openDBFunc)
+                    {
+                        m_walletDB = m_openDBFunc();
+                    }
+                    else
+                    {
+                        throw std::runtime_error("WalletClient: database is not provided");
+                    }
                 }
 
                 auto wallet = make_shared<Wallet>(m_walletDB);
