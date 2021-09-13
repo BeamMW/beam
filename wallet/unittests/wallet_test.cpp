@@ -1810,7 +1810,7 @@ namespace
             return (pTx->m_status == wallet::TxStatus::Completed);
         }
 
-        static bool get_OutpStrEx(const std::string& s, const char* szKey, std::string& sOut, const uint32_t* pLen)
+        static bool get_OutpStrEx2(const std::string& s, const char* szKey, std::string& sOut, const uint32_t* pLen)
         {
             auto i = s.find(szKey, 0);
             if (s.npos == i)
@@ -1831,9 +1831,19 @@ namespace
             return true;
         }
 
+        static bool get_OutpStrEx(const std::string& s, const char* szKey, std::string& sOut, uint32_t nLen)
+        {
+            return get_OutpStrEx2(s, szKey, sOut, &nLen);
+        }
+
+        static bool get_OutpStrEx(const std::string& s, const char* szKey, std::string& sOut)
+        {
+            return get_OutpStrEx2(s, szKey, sOut, nullptr);
+        }
+
         bool get_OutpStr(const char* szKey, std::string& sOut, uint32_t nLen) const
         {
-            return get_OutpStrEx(m_Out.str(), szKey, sOut, &nLen);
+            return get_OutpStrEx(m_Out.str(), szKey, sOut, nLen);
         }
 
     };
@@ -2054,11 +2064,11 @@ namespace
 
         std::string sTmp, sV0Cid, sV1Cid;
 
-        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"Number\": 0", sTmp, nullptr));
-        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"cid\": \"", sV0Cid, &bvm2::ContractID::nTxtLen));
+        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"Number\": 0", sTmp));
+        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"cid\": \"", sV0Cid, bvm2::ContractID::nTxtLen));
 
-        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"Number\": 1", sTmp, nullptr));
-        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"cid\": \"", sV1Cid, &bvm2::ContractID::nTxtLen));
+        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"Number\": 1", sTmp));
+        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"cid\": \"", sV1Cid, bvm2::ContractID::nTxtLen));
 
         WALLET_CHECK(!sV0Cid.empty() && !sV1Cid.empty() && (sV0Cid != sV1Cid));
 
@@ -2099,8 +2109,8 @@ namespace
         WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
 
         std::string sCid;
-        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"contracts\":", sTmp, nullptr));
-        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"cid\": \"", sCid, &bvm2::ContractID::nTxtLen));
+        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"contracts\":", sTmp));
+        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"cid\": \"", sCid, bvm2::ContractID::nTxtLen));
 
         printf("scheduling upgrade...\n");
 
@@ -2140,7 +2150,7 @@ namespace
         pMan[iSender]->RunSync(1);
         WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
 
-        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"next_version\":", sTmp, nullptr));
+        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"next_version\":", sTmp));
     }
 
 
