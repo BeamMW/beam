@@ -18,6 +18,6 @@ namespace beam::wallet::lelantus
 {
     void RegisterCreators(Wallet& wallet, IWalletDB::Ptr walletDB)
     {
-        wallet.RegisterTransactionType(TxType::PushTransaction, std::make_shared<PushTransaction::Creator>(walletDB));
+        wallet.RegisterTransactionType(TxType::PushTransaction, std::make_shared<PushTransaction::Creator>([=]() {return walletDB; }));
     }
 }

@@ -41,6 +41,7 @@
 
 #include <thread>
 #include <atomic>
+#include <functional>
 
 namespace beam::wallet
 {
@@ -101,7 +102,11 @@ namespace beam::wallet
         , private IVerificationObserver
     {
     public:
+
+        using OpenDBFunction = std::function<IWalletDB::Ptr()>;
+        WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor);
         WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor);
+        WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor); // lazy DB creation ctor
         virtual ~WalletClient();
 
         void start( std::map<Notification::Type,bool> activeNotifications,
@@ -385,5 +390,6 @@ namespace beam::wallet
         std::vector<std::pair<beam::Height, beam::TxoID>> m_shieldedCountHistoryPart;
         beam::TxoID m_shieldedPer24h = 0;
         uint8_t m_mpLockTimeLimit = 0;
+        OpenDBFunction m_openDBFunc;
     };
 }
