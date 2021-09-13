@@ -3201,6 +3201,15 @@ namespace bvm2 {
 		}
 
 		ToggleSidEntry(sid, cid, !!pCode);
+
+		if (IsPastHF4())
+		{
+			VarKey vk;
+			vk.Set(cid);
+
+			vk.Append(VarKey::Tag::ShaderChange, Blob(nullptr, 0));
+			OnLog(vk.ToBlob(), pCode ? Blob(sid) : Blob(nullptr, 0));
+		}
 	}
 
 	void ProcessorContract::ToggleSidEntry(const ShaderID& sid, const ContractID& cid, bool bSet)
