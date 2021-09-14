@@ -60,7 +60,7 @@ namespace Shaders {
 #include "../Shaders/pipe/contract.h"
 #include "../Shaders/mirrorcoin/contract.h"
 #include "../Shaders/voting/contract.h"
-#include "../Shaders/demoXdao/contract.h"
+#include "../Shaders/dao-core/contract.h"
 #include "../Shaders/aphorize/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
@@ -296,7 +296,7 @@ namespace Shaders {
 #include "../Shaders/voting/contract.cpp"
 	}
 	namespace DemoXdao {
-#include "../Shaders/demoXdao/contract.cpp"
+#include "../Shaders/dao-core/contract.cpp"
 	}
 	namespace Aphorize {
 #include "../Shaders/aphorize/contract.cpp"
@@ -639,7 +639,7 @@ namespace bvm2 {
 		AddCode(m_Code.m_Pipe, "pipe/contract.wasm");
 		AddCode(m_Code.m_MirrorCoin, "mirrorcoin/contract.wasm");
 		AddCode(m_Code.m_Voting, "voting/contract.wasm");
-		AddCode(m_Code.m_DemoXdao, "demoXdao/contract.wasm");
+		AddCode(m_Code.m_DemoXdao, "dao-core/contract.wasm");
 		AddCode(m_Code.m_Aphorize, "aphorize/contract.wasm");
 
 		TestVault();
