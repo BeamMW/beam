@@ -48,7 +48,7 @@ void AllocateAll(const DaoCore::State& s)
 
     Env::Halt_if(!Env::AssetEmit(s.m_Aid, DaoCore::Preallocated::s_Emission + DaoCore::Farming::State::s_Emission, 1));
 
-#define OPEN_BRACES(x) x
+    constexpr uint32_t nBlockPerMonth = 1440 * 365 / 12;
 
     static const Opaque<33> s_pPk[] = {
 #define THE_MACRO(seed, value) seed,
@@ -66,9 +66,13 @@ void AllocateAll(const DaoCore::State& s)
 #undef THE_MACRO_SEED
     };
 
+    Height h = Env::get_Height();
+
+    DaoCore::Preallocated::User::Key puk;
     DaoCore::Preallocated::User pu;
     pu.m_Received = 0;
-    DaoCore::Preallocated::User::Key puk;
+    pu.m_Vesting_h0 = h;
+    pu.m_Vesting_dh = nBlockPerMonth * 24;
 
     for (uint32_t i = 0; i < _countof(s_pPk); i++)
     {
@@ -77,10 +81,6 @@ void AllocateAll(const DaoCore::State& s)
 
         Env::SaveVar_T(puk, pu);
     }
-
-    DaoCore::Preallocated pr;
-    pr.m_h0 = Env::get_Height();
-    Env::SaveVar_T((uint8_t) pr.s_Key, pr);
 }
 
 BEAM_EXPORT void Ctor(const void*)
@@ -119,14 +119,12 @@ BEAM_EXPORT void Method_3(const DaoCore::GetPreallocated& r)
 
     Strict::Add(pu.m_Received, r.m_Amount);
 
-    DaoCore::Preallocated pr;
-    Env::LoadVar_T((uint8_t) pr.s_Key, pr);
-
-    const auto duration = pr.s_Duration;
-    Height dh = std::min(Env::get_Height() - pr.m_h0, duration);
+    Height dh = Env::get_Height();
+    Strict::Sub(dh, pu.m_Vesting_h0);
+    dh = std::min(dh, pu.m_Vesting_dh);
 
     Env::Halt_if(
-        MultiPrecision::From(pu.m_Received) * MultiPrecision::From(pr.s_Duration) >
+        MultiPrecision::From(pu.m_Received) * MultiPrecision::From(pu.m_Vesting_dh) >
         MultiPrecision::From(pu.m_Total) * MultiPrecision::From(dh));
 
     // ok

@@ -232,26 +232,24 @@ TY CalculateFraction(TY val, TX x, TX xTotal)
     return res.template Get<0, TY>();
 }
 
-Amount CalculatePreallocAvail(const ContractID& cid, Amount val)
+Amount CalculatePreallocAvail(const DaoCore::Preallocated::User& pu)
 {
-    Env::Key_T<uint8_t> prk;
-    _POD_(prk.m_Prefix.m_Cid) = cid;
-    prk.m_KeyInContract = DaoCore::Preallocated::s_Key;
-
-    DaoCore::Preallocated pr;
-    if (!Env::VarReader::Read_T(prk, pr))
+    Height dh = Env::get_Height();
+    if (dh < pu.m_Vesting_h0)
         return 0;
 
-    Height dh = Env::get_Height() - pr.m_h0;
-    if (dh >= pr.s_Duration)
-        return val;
+    dh -= pu.m_Vesting_h0;
 
-    return CalculateFraction(val, dh, pr.s_Duration);
+    if (dh >= pu.m_Vesting_dh)
+        return pu.m_Total;
+
+    return CalculateFraction(pu.m_Total, dh, pu.m_Vesting_dh);
 }
 
 ON_METHOD(manager, prealloc_totals)
 {
     Amount valReceived = DaoCore::Preallocated::s_Emission;
+    Amount valAvail = DaoCore::Preallocated::s_Emission;
 
     Env::Key_T<DaoCore::Preallocated::User::Key> k0, k1;
     _POD_(k0.m_Prefix.m_Cid) = cid;
@@ -266,9 +264,8 @@ ON_METHOD(manager, prealloc_totals)
             break;
 
         valReceived += pu.m_Received - pu.m_Total;
+        valAvail += CalculatePreallocAvail(pu) - pu.m_Total;
     }
-
-    Amount valAvail = CalculatePreallocAvail(cid, DaoCore::Preallocated::s_Emission);
 
     Env::DocAddNum("total", DaoCore::Preallocated::s_Emission);
     Env::DocAddNum("avail", valAvail);
@@ -288,8 +285,7 @@ ON_METHOD(manager, prealloc_view)
         Env::DocAddNum("received", pu.m_Received);
 
         // calculate the maximum available
-        Amount nMaxAvail = CalculatePreallocAvail(cid, pu.m_Total);
-
+        Amount nMaxAvail = CalculatePreallocAvail(pu);
 
         Env::DocAddNum("avail_total", nMaxAvail);
         Env::DocAddNum("avail_remaining", (nMaxAvail> pu.m_Received) ? (nMaxAvail - pu.m_Received) : 0);

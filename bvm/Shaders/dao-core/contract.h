@@ -139,23 +139,23 @@ namespace DaoCore
 
     struct Preallocated
     {
-        static const uint8_t s_Key = 1;
-
         struct User
         {
+            static const uint8_t s_Key = 1;
+
             struct Key {
                 uint8_t m_Tag = s_Key;
                 PubKey m_Pk;
             };
 
+            Height m_Vesting_h0; // start
+            Height m_Vesting_dh; // duration
+
             Amount m_Total;
             Amount m_Received;
         };
 
-        static const Height s_Duration = 1440 * 365 * 2; // 2 years
         static const Amount s_Emission = g_Beam2Groth * 99'000'000;
-
-        Height m_h0;
     };
 
     struct GetPreallocated
