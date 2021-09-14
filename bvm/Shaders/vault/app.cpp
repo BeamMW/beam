@@ -1,6 +1,7 @@
 #include "../common.h"
-#include "../app_common_impl.h"
 #include "contract.h"
+#include "../app_common_impl.h"
+#include "../app_comm.h"
 
 #define Vault_manager_create(macro)
 #define Vault_manager_view(macro)
@@ -194,23 +195,14 @@ void DeriveMyPk(PubKey& pubKey, const ContractID& cid)
 struct MultiSigProto
 {
 #pragma pack (push, 1)
-    struct Msg0
-    {
-        PubKey m_pkKrnBlind; // serves as ID of this session
-    };
-
     struct Msg1
-        :public Msg0
     {
-        static const uint32_t s_Magic = 0x12342a34; // change with proto version
-        uint32_t m_Magic = s_Magic;
-
         Height m_hMin;
         PubKey m_pkSignerNonce;
+        PubKey m_pkKrnBlind;
     };
 
     struct Msg2
-        :public Msg0
     {
         PubKey m_pkFullNonce;
         Secp_scalar_data m_kSig;
@@ -276,10 +268,11 @@ ON_METHOD(my_account, move)
         Env::GenerateKernel(&cid, Vault::Deposit::s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "deposit to Vault", 0);
     else
     {
+        Comm::Channel cc(kid, pkForeign);
+        cc.Expose((uint32_t) 0x12342a34); // change with proto version
+
         if (bIsMultisig)
         {
-            kid.Comm_Listen(1);
-
             MultiSigProto msp;
             msp.m_pCid = &cid;
             msp.m_pArg = &arg;
@@ -289,16 +282,12 @@ ON_METHOD(my_account, move)
 
             if (bCoSigner)
             {
-                // wait for signer
-                while (true)
-                {
-                    Env::Comm_ReadExact_T(msp.m_Msg1, "Waiting for signer");
-                    if (msp.m_Msg1.m_Magic == msp.m_Msg1.s_Magic)
-                        break;
-                }
+                cc.Expose(pkForeign);
+                cc.ExposeSelf();
 
-                if ((msp.m_Msg1.m_hMin + 10 < h) || (msp.m_Msg1.m_hMin > h + 20))
-                    return OnError("foreign height insane");
+                cc.Rcv_T(msp.m_Msg1, "Waiting for signer");
+                if ((msp.m_Msg1.m_hMin + 10 < h) || (msp.m_Msg1.m_hMin >= h + 20))
+                    OnError("height insane");
 
                 Secp::Point p0, p1;
                 p0.Import(msp.m_Msg1.m_pkSignerNonce);
@@ -316,13 +305,15 @@ ON_METHOD(my_account, move)
                 s.Export(msp.m_Msg2.m_kSig);
 
                 // send result back
-                _POD_(msp.m_Msg2.m_pkKrnBlind) = msp.m_Msg1.m_pkKrnBlind;
-                Env::Comm_Send_T(pkForeign, msp.m_Msg2);
+                cc.Send_T(msp.m_Msg2);
 
                 Env::DocAddText("", "Negotiation is over");
             }
             else
             {
+                cc.ExposeSelf();
+                cc.Expose(pkForeign);
+
                 msp.m_Msg1.m_hMin = h + 1;
 
                 Secp::Point p0, p1;
@@ -335,15 +326,8 @@ ON_METHOD(my_account, move)
                 p0 += p1;
                 p0.Export(msp.m_Msg1.m_pkSignerNonce); // both kernel and our key
 
-                Env::Comm_Send_T(pkForeign, msp.m_Msg1);
-
-                // wait for co-signer
-                while (true)
-                {
-                    Env::Comm_ReadExact_T(msp.m_Msg2, "Waiting for co-signer");
-                    if (_POD_(msp.m_Msg1.m_pkKrnBlind) == msp.m_Msg2.m_pkKrnBlind)
-                        break;
-                }
+                cc.Send_T(msp.m_Msg1);
+                cc.Rcv_T(msp.m_Msg2, "Waiting for co-signer");
 
                 Secp_scalar_data e;
                 msp.InvokeKrn(e, &e);

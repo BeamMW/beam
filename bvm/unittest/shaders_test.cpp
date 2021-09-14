@@ -60,7 +60,7 @@ namespace Shaders {
 #include "../Shaders/pipe/contract.h"
 #include "../Shaders/mirrorcoin/contract.h"
 #include "../Shaders/voting/contract.h"
-#include "../Shaders/demoXdao/contract.h"
+#include "../Shaders/dao-core/contract.h"
 #include "../Shaders/aphorize/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
@@ -231,11 +231,11 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Amount);
 	}
 
-	template <bool bToShader> void Convert(DemoXdao::UpdPosFarming& x) {
+	template <bool bToShader> void Convert(DaoCore::UpdPosFarming& x) {
 		ConvertOrd<bToShader>(x.m_Beam);
 		ConvertOrd<bToShader>(x.m_WithdrawBeamX);
 	}
-	template <bool bToShader> void Convert(DemoXdao::GetPreallocated& x) {
+	template <bool bToShader> void Convert(DaoCore::GetPreallocated& x) {
 		ConvertOrd<bToShader>(x.m_Amount);
 	}
 
@@ -295,8 +295,8 @@ namespace Shaders {
 	namespace Voting {
 #include "../Shaders/voting/contract.cpp"
 	}
-	namespace DemoXdao {
-#include "../Shaders/demoXdao/contract.cpp"
+	namespace DaoCore {
+#include "../Shaders/dao-core/contract.cpp"
 	}
 	namespace Aphorize {
 #include "../Shaders/aphorize/contract.cpp"
@@ -406,7 +406,7 @@ namespace bvm2 {
 			ByteBuffer m_Pipe;
 			ByteBuffer m_MirrorCoin;
 			ByteBuffer m_Voting;
-			ByteBuffer m_DemoXdao;
+			ByteBuffer m_DaoCore;
 			ByteBuffer m_Aphorize;
 
 		} m_Code;
@@ -423,7 +423,7 @@ namespace bvm2 {
 		ContractID m_cidMirrorCoin1;
 		ContractID m_cidMirrorCoin2;
 		ContractID m_cidVoting;
-		ContractID m_cidDemoXdao;
+		ContractID m_cidDaoCore;
 		ContractID m_cidAphorize;
 
 		struct {
@@ -572,14 +572,14 @@ namespace bvm2 {
 				//}
 			}
 
-			if (cid == m_cidDemoXdao)
+			if (cid == m_cidDaoCore)
 			{
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
 				//{
-				//case 0: Shaders::DemoXdao::Ctor(nullptr); return;
-				//case 3: Shaders::DemoXdao::Method_3(CastArg<Shaders::DemoXdao::GetPreallocated>(pArgs)); return;
-				//case 4: Shaders::DemoXdao::Method_4(CastArg<Shaders::DemoXdao::UpdPosFarming>(pArgs)); return;
+				//case 0: Shaders::DaoCore::Ctor(nullptr); return;
+				//case 3: Shaders::DaoCore::Method_3(CastArg<Shaders::DaoCore::GetPreallocated>(pArgs)); return;
+				//case 4: Shaders::DaoCore::Method_4(CastArg<Shaders::DaoCore::UpdPosFarming>(pArgs)); return;
 				//}
 			}
 
@@ -608,7 +608,7 @@ namespace bvm2 {
 		void TestPipe();
 		void TestMirrorCoin();
 		void TestVoting();
-		void TestDemoXdao();
+		void TestDaoCore();
 		void TestAphorize();
 
 		void TestAll();
@@ -639,7 +639,7 @@ namespace bvm2 {
 		AddCode(m_Code.m_Pipe, "pipe/contract.wasm");
 		AddCode(m_Code.m_MirrorCoin, "mirrorcoin/contract.wasm");
 		AddCode(m_Code.m_Voting, "voting/contract.wasm");
-		AddCode(m_Code.m_DemoXdao, "demoXdao/contract.wasm");
+		AddCode(m_Code.m_DaoCore, "dao-core/contract.wasm");
 		AddCode(m_Code.m_Aphorize, "aphorize/contract.wasm");
 
 		TestVault();
@@ -647,7 +647,7 @@ namespace bvm2 {
 		TestFaucet();
 		TestRoulette();
 		TestVoting();
-		TestDemoXdao();
+		TestDaoCore();
 		TestDummy();
 		TestSidechain();
 		TestOracle();
@@ -1014,16 +1014,9 @@ namespace bvm2 {
 		}
 
 		{
-			Dbg dbg = m_Dbg;
-			m_Dbg.m_Instructions = false;
-			m_Dbg.m_Stack = false;
-			m_Dbg.m_ExtCall = false;
-
 			Shaders::Dummy::InfCycle args;
 			args.m_Val = 12;
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
-
-			m_Dbg = dbg;
 		}
 
 		{
@@ -1135,14 +1128,7 @@ namespace bvm2 {
 			CvtHdrElement(args.m_Hdr, s);
 			args.m_RulesCfg = r.pForks[2].m_Hash;
 
-			Dbg dbg = m_Dbg;
-			m_Dbg.m_Instructions = false;
-			m_Dbg.m_Stack = false;
-			m_Dbg.m_ExtCall = false;
-
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
-
-			m_Dbg = dbg;
 
 			verify_test(args.m_Hash == hv);
 
@@ -1360,10 +1346,6 @@ namespace bvm2 {
 
 	void MyProcessor::TestOracle()
 	{
-		Dbg dbg = m_Dbg;
-		m_Dbg.m_Instructions = false;
-		m_Dbg.m_Stack = false;
-
 		typedef Shaders::Oracle::ValueType ValueType;
 
 		constexpr uint32_t nOracles = 15;
@@ -1467,8 +1449,6 @@ namespace bvm2 {
 
 		Zero_ zero;
 		verify_test(ContractDestroy_T(m_cidOracle, zero));
-
-		m_Dbg = dbg;
 	}
 
 	static uint64_t RateFromFraction(uint32_t nom, uint32_t denom)
@@ -2018,7 +1998,7 @@ namespace bvm2 {
 		}
 	};
 
-	void MyProcessor::TestDemoXdao()
+	void MyProcessor::TestDaoCore()
 	{
 		//struct MyLutGenerator
 		//	:public LutGenerator
@@ -2035,21 +2015,21 @@ namespace bvm2 {
 		//lg.Normalize(1000000);
 
 		Zero_ zero;
-		verify_test(ContractCreate_T(m_cidDemoXdao, m_Code.m_DemoXdao, zero));
+		verify_test(ContractCreate_T(m_cidDaoCore, m_Code.m_DaoCore, zero));
 
 		bvm2::ShaderID sid;
-		bvm2::get_ShaderID(sid, m_Code.m_DemoXdao);
-		VERIFY_ID(Shaders::DemoXdao::s_SID, sid);
+		bvm2::get_ShaderID(sid, m_Code.m_DaoCore);
+		VERIFY_ID(Shaders::DaoCore::s_SID, sid);
 
 		for (uint32_t i = 0; i < 10; i++)
 		{
-			Shaders::DemoXdao::UpdPosFarming args;
+			Shaders::DaoCore::UpdPosFarming args;
 			ZeroObject(args);
 
 			args.m_Beam = Shaders::g_Beam2Groth * 20000 * (i + 3);
 			args.m_BeamLock = 1;
 			args.m_Pk.m_X = i;
-			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_cidDaoCore, args.s_iMethod, args));
 
 			if (i & 1)
 				m_Height += 1000;
@@ -2057,12 +2037,12 @@ namespace bvm2 {
 
 		for (uint32_t i = 0; i < 10; i++)
 		{
-			Shaders::DemoXdao::UpdPosFarming args;
+			Shaders::DaoCore::UpdPosFarming args;
 			ZeroObject(args);
 
 			args.m_Beam = Shaders::g_Beam2Groth * 20000 * (i + 3);
 			args.m_Pk.m_X = i;
-			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_cidDaoCore, args.s_iMethod, args));
 
 			if (i & 1)
 				m_Height += 1000;
@@ -2071,17 +2051,17 @@ namespace bvm2 {
 		// the following is disabled, since the contract in this test is standalone, not under Upgradable, hence it doesn' allocate anything in c'tor
 /*
 		{
-			Shaders::DemoXdao::GetPreallocated args;
+			Shaders::DaoCore::GetPreallocated args;
 			ZeroObject(args);
 			args.m_Amount = 50;
 			Cast::Reinterpret<beam::uintBig_t<33> >(args.m_Pk).Scan("8bb3375b455d9c577134b00e8b0b108a29ce2bc0fce929049306cf4fed723b7d00");
-			verify_test(!RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args)); // wrong pk
+			verify_test(!RunGuarded_T(m_cidDaoCore, args.s_iMethod, args)); // wrong pk
 
 			Cast::Reinterpret<beam::uintBig_t<33> >(args.m_Pk).Scan("8bb3375b455d9c577134b00e8b0b108a29ce2bc0fce929049306cf4fed723b7d01");
-			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args)); // ok
+			verify_test(RunGuarded_T(m_cidDaoCore, args.s_iMethod, args)); // ok
 
 			args.m_Amount = 31000 / 2 * Shaders::g_Beam2Groth;
-			verify_test(!RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args)); // too much
+			verify_test(!RunGuarded_T(m_cidDaoCore, args.s_iMethod, args)); // too much
 		}
 */
 	}
@@ -2169,11 +2149,13 @@ namespace bvm2 {
 			{
 				RunOnce();
 
+#ifdef WASM_INTERPRETER_DEBUG
 				if (m_Dbg.m_pOut)
 				{
 					std::cout << m_Dbg.m_pOut->str();
 					m_Dbg.m_pOut->str("");
 				}
+#endif // WASM_INTERPRETER_DEBUG
 			}
 
 

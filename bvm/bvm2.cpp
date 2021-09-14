@@ -611,10 +611,15 @@ namespace bvm2 {
 #define PAR_ASSIGN(type, name) args.m_##name =
 #define PAR_DUMP(type, name) << "," #name "=" << LogFrom(m_##name.V)
 
+#ifdef WASM_INTERPRETER_DEBUG
+#	define WASM_LOG_EXTCALL(name) if (m_Dbg.m_ExtCall) *m_Dbg.m_pOut << "  " #name << std::endl;
+#else // WASM_INTERPRETER_DEBUG
+#	define WASM_LOG_EXTCALL(name)
+#endif // WASM_INTERPRETER_DEBUG
+
 #define THE_MACRO(id, ret, name) \
 		case id: { \
-			if (m_Dbg.m_ExtCall) \
-				*m_Dbg.m_pOut << "  " #name << std::endl; \
+			WASM_LOG_EXTCALL(name) \
 			struct Args :public Wasm::Checkpoint { \
 				BVMOp_##name(PAR_DECL, MACRO_NOP) \
 				RetType_##name Call(TProcessor& me) const { return me.OnMethod_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); } \
@@ -2920,31 +2925,28 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(Comm_Listen)
 	{
-		ECC::Hash::Value hv;
-		DeriveKeyPreimage(hv, Blob(pID, nID));
-
-		auto it = m_Comms.m_Map.find(hv, Comm::Channel::Comparator());
+		auto it = m_Comms.m_Map.find(nCookie, Comm::Channel::Comparator());
 		if (m_Comms.m_Map.end() == it)
 		{
-			if (nCookie)
+			if (nID)
 			{
+				ECC::Hash::Value hv;
+				DeriveKeyPreimage(hv, Blob(pID, nID));
+
 				Comm::Channel::Ptr pCh;
 				Comm_CreateListener(pCh, hv);
 
 				if (pCh)
 				{
-					pCh->m_Key = hv;
-					pCh->m_Cookie = nCookie;
+					pCh->m_Key = nCookie;
 					m_Comms.m_Map.insert(*pCh.release());
 				}
 			}
 		}
 		else
 		{
-			if (nCookie)
-				it->m_Cookie = nCookie;
-			else
-				m_Comms.m_Map.Delete(*it);
+			Wasm::Test(!nID);
+			m_Comms.m_Map.Delete(*it);
 		}
 	}
 	BVM_METHOD(Comm_Send)
@@ -2960,7 +2962,7 @@ namespace bvm2 {
 		uint32_t* pCookie_ = pCookie ? &get_AddrAsW<uint32_t>(pCookie) : nullptr;
 		auto nRet = OnHost_Comm_Read(get_AddrW(pBuf, nSize), nSize, pCookie_, bKeep);
 
-		if (nRet)
+		if (nRet && pCookie_)
 			*pCookie_ = Wasm::to_wasm(*pCookie_);
 
 		return nRet;
@@ -2970,17 +2972,18 @@ namespace bvm2 {
 		if (m_Comms.m_Rcv.empty())
 			return 0;
 
-		auto& x = m_Comms.m_Rcv.front();
+		auto& x = m_Comms.m_Rcv.front().get_ParentObj();
 
 		uint32_t nRet = static_cast<uint32_t>(x.m_Msg.size());
 		if (nRet)
 			memcpy(pBuf, &x.m_Msg.front(), std::min(nRet, nSize));
 
+		auto& c = *x.m_pChannel;
 		if (pCookie)
-			*pCookie = x.m_Cookie;
+			*pCookie = c.m_Key;
 
 		if (!bKeep)
-			m_Comms.m_Rcv.Delete(x);
+			c.m_List.Delete(x);
 
 		return nRet;
 	}
@@ -3198,6 +3201,15 @@ namespace bvm2 {
 		}
 
 		ToggleSidEntry(sid, cid, !!pCode);
+
+		if (IsPastHF4())
+		{
+			VarKey vk;
+			vk.Set(cid);
+
+			vk.Append(VarKey::Tag::ShaderChange, Blob(nullptr, 0));
+			OnLog(vk.ToBlob(), pCode ? Blob(sid) : Blob(nullptr, 0));
+		}
 	}
 
 	void ProcessorContract::ToggleSidEntry(const ShaderID& sid, const ContractID& cid, bool bSet)

@@ -1,58 +1,53 @@
 #include "../common.h"
 #include "../app_common_impl.h"
 #include "contract.h"
-#include "../upgradable/contract.h"
-#include "../upgradable/app_common_impl.h"
-#include "../Math.h"
+#include "../upgradable2/contract.h"
+#include "../upgradable2/app_common_impl.h"
 
-#define DemoXdao_manager_deploy_version(macro)
-#define DemoXdao_manager_view(macro)
-#define DemoXdao_manager_view_params(macro) macro(ContractID, cid)
-#define DemoXdao_manager_lock(macro) \
+#define DaoCore_manager_deploy_version(macro)
+#define DaoCore_manager_view(macro)
+#define DaoCore_manager_view_params(macro) macro(ContractID, cid)
+#define DaoCore_manager_lock(macro) \
     macro(ContractID, cid) \
     macro(Amount, amount)
 
-#define DemoXdao_manager_farm_view(macro) \
+#define DaoCore_manager_farm_view(macro) \
     macro(ContractID, cid)
 
-#define DemoXdao_manager_farm_get_yield(macro) \
+#define DaoCore_manager_farm_get_yield(macro) \
     macro(ContractID, cid) \
     macro(Amount, amount) \
     macro(Height, hPeriod)
 
-#define DemoXdao_manager_farm_totals(macro) \
+#define DaoCore_manager_farm_totals(macro) \
     macro(ContractID, cid)
 
-#define DemoXdao_manager_farm_update(macro) \
+#define DaoCore_manager_farm_update(macro) \
     macro(ContractID, cid) \
     macro(Amount, amountBeamX) \
     macro(Amount, amountBeam) \
     macro(uint32_t, bLockOrUnlock) \
 
-#define DemoXdao_manager_prealloc_totals(macro) \
+#define DaoCore_manager_prealloc_totals(macro) \
     macro(ContractID, cid)
 
-#define DemoXdao_manager_prealloc_view(macro) \
+#define DaoCore_manager_prealloc_view(macro) \
     macro(ContractID, cid)
 
-#define DemoXdao_manager_prealloc_withdraw(macro) \
+#define DaoCore_manager_prealloc_withdraw(macro) \
     macro(ContractID, cid) \
     macro(Amount, amount)
 
-#define DemoXdao_manager_my_xid(macro)
+#define DaoCore_manager_my_xid(macro)
 
-#define DemoXdao_manager_deploy_contract(macro) \
-    macro(ContractID, cidVersion) \
-    macro(Height, hUpgradeDelay)
+#define DaoCore_manager_my_admin_key(macro)
 
-#define DemoXdao_manager_schedule_upgrade(macro) \
-    macro(ContractID, cid) \
-    macro(ContractID, cidVersion) \
-    macro(Height, dh)
+#define DaoCore_manager_deploy_contract(macro) Upgradable2_deploy(macro)
+#define DaoCore_manager_schedule_upgrade(macro) Upgradable2_schedule_upgrade(macro)
 
-#define DemoXdao_manager_view_stake(macro) macro(ContractID, cid)
+#define DaoCore_manager_view_stake(macro) macro(ContractID, cid)
 
-#define DemoXdaoRole_manager(macro) \
+#define DaoCoreRole_manager(macro) \
     macro(manager, deploy_version) \
     macro(manager, view) \
     macro(manager, deploy_contract) \
@@ -60,6 +55,7 @@
     macro(manager, view_params) \
     macro(manager, view_stake) \
     macro(manager, my_xid) \
+    macro(manager, my_admin_key) \
     macro(manager, prealloc_totals) \
     macro(manager, prealloc_view) \
     macro(manager, prealloc_withdraw) \
@@ -68,7 +64,7 @@
     macro(manager, farm_totals) \
     macro(manager, farm_update)
 
-#define DemoXdaoRoles_All(macro) \
+#define DaoCoreRoles_All(macro) \
     macro(manager)
 
 BEAM_EXPORT void Method_0()
@@ -79,10 +75,10 @@ BEAM_EXPORT void Method_0()
     {   Env::DocGroup gr("roles");
 
 #define THE_FIELD(type, name) Env::DocAddText(#name, #type);
-#define THE_METHOD(role, name) { Env::DocGroup grMethod(#name);  DemoXdao_##role##_##name(THE_FIELD) }
-#define THE_ROLE(name) { Env::DocGroup grRole(#name); DemoXdaoRole_##name(THE_METHOD) }
+#define THE_METHOD(role, name) { Env::DocGroup grMethod(#name);  DaoCore_##role##_##name(THE_FIELD) }
+#define THE_ROLE(name) { Env::DocGroup grRole(#name); DaoCoreRole_##name(THE_METHOD) }
         
-        DemoXdaoRoles_All(THE_ROLE)
+        DaoCoreRoles_All(THE_ROLE)
 #undef THE_ROLE
 #undef THE_METHOD
 #undef THE_FIELD
@@ -90,52 +86,41 @@ BEAM_EXPORT void Method_0()
 }
 
 #define THE_FIELD(type, name) const type& name,
-#define ON_METHOD(role, name) void On_##role##_##name(DemoXdao_##role##_##name(THE_FIELD) int unused = 0)
+#define ON_METHOD(role, name) void On_##role##_##name(DaoCore_##role##_##name(THE_FIELD) int unused = 0)
 
 void OnError(const char* sz)
 {
     Env::DocAddText("error", sz);
 }
 
+const char g_szAdminSeed[] = "upgr2-dao-core";
+
+struct MyKeyID :public Env::KeyID {
+    MyKeyID() :Env::KeyID(&g_szAdminSeed, sizeof(g_szAdminSeed)) {}
+};
+
 ON_METHOD(manager, view)
 {
     static const ShaderID s_pSid[] = {
-        DemoXdao::s_SID_0,
-        DemoXdao::s_SID_1,
-        DemoXdao::s_SID_2,
-        DemoXdao::s_SID_3,
-        DemoXdao::s_SID // latest version
+        DaoCore::s_SID // latest version
     };
 
     ContractID pVerCid[_countof(s_pSid)];
     Height pVerDeploy[_countof(s_pSid)];
 
-    WalkerUpgradable wlk;
+    ManagerUpgadable2::Walker wlk;
     wlk.m_VerInfo.m_Count = _countof(s_pSid);
     wlk.m_VerInfo.s_pSid = s_pSid;
     wlk.m_VerInfo.m_pCid = pVerCid;
     wlk.m_VerInfo.m_pHeight = pVerDeploy;
 
-    wlk.m_VerInfo.Init();
-    wlk.m_VerInfo.Dump();
-
-    Env::DocArray gr("contracts");
-
-    PubKey pk;
-    Env::DerivePk(pk, &Upgradable::s_SID, sizeof(Upgradable::s_SID));
-
-    for (wlk.Enum(); wlk.MoveNext(); )
-    {
-        Env::DocGroup root("");
-        wlk.DumpCurrent();
-
-        Env::DocAddNum("owner", (uint32_t) ((_POD_(wlk.m_State.m_Pk) == pk) ? 1 : 0));
-    }
+    MyKeyID kid;
+    wlk.ViewAll(&kid);
 }
 
 ON_METHOD(manager, deploy_version)
 {
-    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy demoXdao bytecode", 0);
+    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy DaoCore bytecode", 0);
 }
 
 static const Amount g_DepositCA = 3000 * g_Beam2Groth; // 3K beams
@@ -147,25 +132,21 @@ ON_METHOD(manager, deploy_contract)
     fc.m_Amount = g_DepositCA; // amount of the input or output
     fc.m_Consume = 1; // contract consumes funds (i.e input, in this case)
 
-    Upgradable::Create arg;
-    _POD_(arg.m_Cid) = cidVersion;
-    arg.m_hMinUpgadeDelay = hUpgradeDelay;
-    Env::DerivePk(arg.m_Pk, &Upgradable::s_SID, sizeof(Upgradable::s_SID));
+    MyKeyID kid;
+    PubKey pk;
+    kid.get_Pk(pk);
 
-    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deploy demoXdao contract", 0);
+    Upgradable2::Create arg;
+    if (!ManagerUpgadable2::FillDeployArgs(arg, &pk))
+        return;
+
+    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deploy DaoCore contract", 0);
 }
 
 ON_METHOD(manager, schedule_upgrade)
 {
-    Upgradable::ScheduleUpgrade arg;
-    _POD_(arg.m_cidNext) = cidVersion;
-    arg.m_hNextActivate = Env::get_Height() + dh;
-
-    SigRequest sig;
-    sig.m_pID = &Upgradable::s_SID;
-    sig.m_nID = sizeof(Upgradable::s_SID);
-
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, &sig, 1, "Upgradfe demoXdao contract version", 0);
+    MyKeyID kid;
+    ManagerUpgadable2::MultiSigRitual::Perform_ScheduleUpgrade(cid, kid, cidVersion, hTarget);
 }
 
 Amount get_ContractLocked(AssetID aid, const ContractID& cid)
@@ -193,7 +174,7 @@ AssetID get_TrgAid(const ContractID& cid)
     _POD_(key.m_Prefix.m_Cid) = cid;
     key.m_KeyInContract = 0;
 
-    DemoXdao::State s;
+    DaoCore::State s;
     if (!Env::VarReader::Read_T(key, s))
     {
         OnError("no such contract");
@@ -234,6 +215,14 @@ ON_METHOD(manager, my_xid)
     Env::DocAddBlob_T("xid", pk);
 }
 
+ON_METHOD(manager, my_admin_key)
+{
+    PubKey pk;
+    MyKeyID kid;
+    kid.get_Pk(pk);
+    Env::DocAddBlob_T("admin_key", pk);
+}
+
 template <typename TX, typename TY>
 TY CalculateFraction(TY val, TX x, TX xTotal)
 {
@@ -247,9 +236,9 @@ Amount CalculatePreallocAvail(const ContractID& cid, Amount val)
 {
     Env::Key_T<uint8_t> prk;
     _POD_(prk.m_Prefix.m_Cid) = cid;
-    prk.m_KeyInContract = DemoXdao::Preallocated::s_Key;
+    prk.m_KeyInContract = DaoCore::Preallocated::s_Key;
 
-    DemoXdao::Preallocated pr;
+    DaoCore::Preallocated pr;
     if (!Env::VarReader::Read_T(prk, pr))
         return 0;
 
@@ -262,9 +251,9 @@ Amount CalculatePreallocAvail(const ContractID& cid, Amount val)
 
 ON_METHOD(manager, prealloc_totals)
 {
-    Amount valTotal = 0, valReceived = 0;
+    Amount valReceived = DaoCore::Preallocated::s_Emission;
 
-    Env::Key_T<DemoXdao::Preallocated::User::Key> k0, k1;
+    Env::Key_T<DaoCore::Preallocated::User::Key> k0, k1;
     _POD_(k0.m_Prefix.m_Cid) = cid;
     _POD_(k0.m_KeyInContract.m_Pk).SetZero();
     _POD_(k1.m_Prefix.m_Cid) = cid;
@@ -272,31 +261,27 @@ ON_METHOD(manager, prealloc_totals)
 
     for (Env::VarReader r(k0, k1); ; )
     {
-        DemoXdao::Preallocated::User pu;
+        DaoCore::Preallocated::User pu;
         if (!r.MoveNext_T(k0, pu))
             break;
 
-        valReceived += pu.m_Received;
-        valTotal += pu.m_Total;
+        valReceived += pu.m_Received - pu.m_Total;
     }
 
-    // TODO: after the vesting period is over and the user withdraws all the preallocated - its record is erased completely.
-    // Account for this. valTotal should be raised to the expected, valReceived raise by the same value as well
+    Amount valAvail = CalculatePreallocAvail(cid, DaoCore::Preallocated::s_Emission);
 
-    Amount valAvail = CalculatePreallocAvail(cid, valTotal);
-
-    Env::DocAddNum("total", valTotal);
+    Env::DocAddNum("total", DaoCore::Preallocated::s_Emission);
     Env::DocAddNum("avail", valAvail);
     Env::DocAddNum("received", valReceived);
 }
 
 ON_METHOD(manager, prealloc_view)
 {
-    Env::Key_T<DemoXdao::Preallocated::User::Key> puk;
+    Env::Key_T<DaoCore::Preallocated::User::Key> puk;
     _POD_(puk.m_Prefix.m_Cid) = cid;
     Env::DerivePk(puk.m_KeyInContract.m_Pk, g_szXid, sizeof(g_szXid));
 
-    DemoXdao::Preallocated::User pu;
+    DaoCore::Preallocated::User pu;
     if (Env::VarReader::Read_T(puk, pu))
     {
         Env::DocAddNum("total", pu.m_Total);
@@ -317,7 +302,7 @@ ON_METHOD(manager, prealloc_withdraw)
     if (!aid)
         return;
 
-    DemoXdao::GetPreallocated arg;
+    DaoCore::GetPreallocated arg;
     Env::DerivePk(arg.m_Pk, g_szXid, sizeof(g_szXid));
     arg.m_Amount = amount;
     
@@ -333,13 +318,13 @@ ON_METHOD(manager, prealloc_withdraw)
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "Get preallocated demoX tokens", 0);
 }
 
-void GetFarmingState(const ContractID& cid, DemoXdao::Farming::State& fs)
+void GetFarmingState(const ContractID& cid, DaoCore::Farming::State& fs)
 {
     Height h = Env::get_Height();
 
     Env::Key_T<uint8_t> fsk;
     _POD_(fsk.m_Prefix.m_Cid) = cid;
-    fsk.m_KeyInContract = DemoXdao::Farming::s_Key;
+    fsk.m_KeyInContract = DaoCore::Farming::s_Key;
 
     if (!Env::VarReader::Read_T(fsk, fs))
         _POD_(fs).SetZero();
@@ -349,11 +334,11 @@ void GetFarmingState(const ContractID& cid, DemoXdao::Farming::State& fs)
     fs.m_hLast = h;
 }
 
-void GetFarmingState(const ContractID& cid, DemoXdao::Farming::State& fs, DemoXdao::Farming::UserPos& fup)
+void GetFarmingState(const ContractID& cid, DaoCore::Farming::State& fs, DaoCore::Farming::UserPos& fup)
 {
     GetFarmingState(cid, fs);
 
-    Env::Key_T<DemoXdao::Farming::UserPos::Key> fupk;
+    Env::Key_T<DaoCore::Farming::UserPos::Key> fupk;
     _POD_(fupk.m_Prefix.m_Cid) = cid;
     Env::DerivePk(fupk.m_KeyInContract.m_Pk, &cid, sizeof(cid));
 
@@ -366,8 +351,8 @@ void GetFarmingState(const ContractID& cid, DemoXdao::Farming::State& fs, DemoXd
 
 ON_METHOD(manager, farm_view)
 {
-    DemoXdao::Farming::State fs;
-    DemoXdao::Farming::UserPos fup;
+    DaoCore::Farming::State fs;
+    DaoCore::Farming::UserPos fup;
     GetFarmingState(cid, fs, fup);
 
     {
@@ -389,13 +374,13 @@ ON_METHOD(manager, farm_view)
 
 ON_METHOD(manager, farm_get_yield)
 {
-    DemoXdao::Farming::State fs;
-    DemoXdao::Farming::UserPos fup;
+    DaoCore::Farming::State fs;
+    DaoCore::Farming::UserPos fup;
     GetFarmingState(cid, fs, fup);
 
     fs.RemoveFraction(fup);
 
-    DemoXdao::Farming::Weight::Type w = DemoXdao::Farming::Weight::Calculate(amount);
+    DaoCore::Farming::Weight::Type w = DaoCore::Farming::Weight::Calculate(amount);
     fs.m_WeightTotal += w;
 
     _POD_(fup.m_SigmaLast) = fs.m_Sigma;
@@ -410,30 +395,36 @@ ON_METHOD(manager, farm_get_yield)
 
 ON_METHOD(manager, farm_totals)
 {
-    DemoXdao::Farming::State fs;
+    DaoCore::Farming::State fs;
     GetFarmingState(cid, fs);
     Amount beamLocked = 0, beamXinternal = 0;
 
-    Env::Key_T<DemoXdao::Farming::UserPos::Key> k0, k1;
+    Env::Key_T<DaoCore::Farming::UserPos::Key> k0, k1;
     _POD_(k0.m_Prefix.m_Cid) = cid;
     _POD_(k0.m_KeyInContract.m_Pk).SetZero();
     _POD_(k1.m_Prefix.m_Cid) = cid;
     _POD_(k1.m_KeyInContract.m_Pk).SetObject(0xff);
 
+    uint32_t nTotalFarming = 0;
+
     for (Env::VarReader r(k0, k1); ; )
     {
-        DemoXdao::Farming::UserPos fup;
+        DaoCore::Farming::UserPos fup;
         if (!r.MoveNext_T(k0, fup))
             break;
 
         beamXinternal += fup.m_BeamX; // already assigned to the user, but not claimed yet
         beamLocked += fup.m_Beam;
+
+        if (fup.m_Beam)
+            nTotalFarming++;
     }
 
 
 
     Env::DocAddNum("duation", fs.m_hTotal);
     Env::DocAddNum("total", fs.s_Emission);
+    Env::DocAddNum("total_users", nTotalFarming);
     Env::DocAddNum("avail", fs.get_EmissionSoFar());
     Env::DocAddNum("received", fs.m_TotalDistributed - beamXinternal);
     Env::DocAddNum("beam_locked", beamLocked);
@@ -445,7 +436,7 @@ ON_METHOD(manager, farm_update)
     if (!aid)
         return;
 
-    DemoXdao::UpdPosFarming arg;
+    DaoCore::UpdPosFarming arg;
     arg.m_BeamLock = bLockOrUnlock;
     arg.m_Beam = amountBeam;
     arg.m_WithdrawBeamX = amountBeamX;
@@ -490,18 +481,18 @@ BEAM_EXPORT void Method_1()
 
 #define THE_METHOD(role, name) \
         if (!Env::Strcmp(szAction, #name)) { \
-            DemoXdao_##role##_##name(PAR_READ) \
-            On_##role##_##name(DemoXdao_##role##_##name(PAR_PASS) 0); \
+            DaoCore_##role##_##name(PAR_READ) \
+            On_##role##_##name(DaoCore_##role##_##name(PAR_PASS) 0); \
             return; \
         }
 
 #define THE_ROLE(name) \
     if (!Env::Strcmp(szRole, #name)) { \
-        DemoXdaoRole_##name(THE_METHOD) \
+        DaoCoreRole_##name(THE_METHOD) \
         return OnError("invalid Action"); \
     }
 
-    DemoXdaoRoles_All(THE_ROLE)
+    DaoCoreRoles_All(THE_ROLE)
 
 #undef THE_ROLE
 #undef THE_METHOD

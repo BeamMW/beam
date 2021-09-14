@@ -1729,7 +1729,127 @@ namespace
         }
     }
 
-    void TestAppShader()
+    struct MyManager
+        :public ManagerStdInWallet
+    {
+        bool m_Done = false;
+        bool m_Err = false;
+        bool m_Async = false;
+
+        using ManagerStdInWallet::ManagerStdInWallet;
+
+        void OnDone(const std::exception* pExc) override
+        {
+            m_Done = true;
+            m_Err = !!pExc;
+
+            if (m_Async)
+                io::Reactor::get_Current().stop();
+        }
+
+        void get_Pk(ECC::Point& res, const Blob& d)
+        {
+            ECC::Point::Native pt;
+            DerivePkInternal(pt, d);
+            pt.Export(res);
+        }
+
+        static void Compile(ByteBuffer& res, const char* sz, Kind kind)
+        {
+            std::FStream fs;
+            fs.Open(sz, true, true);
+
+            res.resize(static_cast<size_t>(fs.get_Remaining()));
+            if (!res.empty())
+                fs.read(&res.front(), res.size());
+
+            bvm2::Processor::Compile(res, res, kind);
+        }
+
+        void RunSync0(uint32_t iMethod)
+        {
+            m_Done = false;
+            m_Err = false;
+            m_Async = false;
+
+            StartRun(iMethod);
+        }
+
+        void RunSync1()
+        {
+            if (m_Done)
+                return;
+
+            m_Async = true;
+            io::Reactor::get_Current().run();
+
+            if (!m_Done)
+                // propagate it
+                io::Reactor::get_Current().stop();
+        }
+
+        void RunSync(uint32_t iMethod)
+        {
+            RunSync0(iMethod);
+            RunSync1();
+        }
+
+        bool DoTx(int& completedCount)
+        {
+            if (m_vInvokeData.empty())
+                return false;
+
+            auto txID = m_pWallet->StartTransaction(
+                CreateTransactionParameters(TxType::Contract)
+                .SetParameter(TxParameterID::ContractDataPacked, m_vInvokeData));
+
+            completedCount++;
+            io::Reactor::get_Current().run();
+
+            auto pTx = m_pWalletDB->getTx(txID);
+            return (pTx->m_status == wallet::TxStatus::Completed);
+        }
+
+        static bool get_OutpStrEx2(const std::string& s, const char* szKey, std::string& sOut, const uint32_t* pLen)
+        {
+            auto i = s.find(szKey, 0);
+            if (s.npos == i)
+                return false;
+
+            i += strlen(szKey);
+
+            if (pLen)
+            {
+                if (s.size() < i + *pLen)
+                    return false;
+
+                sOut.assign(s.c_str() + i, *pLen);
+            }
+            else
+                sOut = s.c_str() + i;
+
+            return true;
+        }
+
+        static bool get_OutpStrEx(const std::string& s, const char* szKey, std::string& sOut, uint32_t nLen)
+        {
+            return get_OutpStrEx2(s, szKey, sOut, &nLen);
+        }
+
+        static bool get_OutpStrEx(const std::string& s, const char* szKey, std::string& sOut)
+        {
+            return get_OutpStrEx2(s, szKey, sOut, nullptr);
+        }
+
+        bool get_OutpStr(const char* szKey, std::string& sOut, uint32_t nLen) const
+        {
+            return get_OutpStrEx(m_Out.str(), szKey, sOut, nLen);
+        }
+
+    };
+
+
+    void TestAppShader1()
     {
         printf("Testing multi-wallet app shader with comm...\n");
 
@@ -1759,7 +1879,7 @@ namespace
 
         auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
         {
-            InitNodeToTest(node, treasury, nullptr, port, 10000, path, peers, miningNode);
+            InitNodeToTest(node, treasury, nullptr, port, 3000, path, peers, miningNode);
             io::Address address;
             address.resolve("127.0.0.1");
             address.port(port);
@@ -1767,113 +1887,12 @@ namespace
         };
 
 
-        Node senderNode;
-        auto senderNodeAddress = nodeCreator(senderNode, treasury, 32125, "sender_node.db");
-        Node receiverNode;
-        auto receiverNodeAddress = nodeCreator(receiverNode, treasury, 32126, "receiver_node.db", { senderNodeAddress }, false);
+        Node node;
+        auto nodeAddress = nodeCreator(node, treasury, 32125, "node.db");
 
-        TestWalletRig sender(dbSender, f, TestWalletRig::Type::Regular, false, 0, senderNodeAddress);
-        TestWalletRig receiver(dbReceiver, f, TestWalletRig::Type::Regular, false, 0, receiverNodeAddress);
+        TestWalletRig sender(dbSender, f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
+        TestWalletRig receiver(dbReceiver, f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
 
-
-        struct MyManager
-            :public ManagerStdInWallet
-        {
-            bool m_Done = false;
-            bool m_Err = false;
-            bool m_Async = false;
-
-            using ManagerStdInWallet::ManagerStdInWallet;
-
-            void OnDone(const std::exception* pExc) override
-            {
-                m_Done = true;
-                m_Err = !!pExc;
-
-                if (m_Async)
-                    io::Reactor::get_Current().stop();
-            }
-
-            void get_Pk(ECC::Point& res, const Blob& d)
-            {
-                ECC::Point::Native pt;
-                DerivePkInternal(pt, d);
-                pt.Export(res);
-            }
-
-            static void Compile(ByteBuffer& res, const char* sz, Kind kind)
-            {
-                std::FStream fs;
-                fs.Open(sz, true, true);
-
-                res.resize(static_cast<size_t>(fs.get_Remaining()));
-                if (!res.empty())
-                    fs.read(&res.front(), res.size());
-
-                bvm2::Processor::Compile(res, res, kind);
-            }
-
-            void RunSync0(uint32_t iMethod)
-            {
-                m_Done = false;
-                m_Err = false;
-                m_Async = false;
-
-                StartRun(iMethod);
-            }
-
-            void RunSync1()
-            {
-                if (m_Done)
-                    return;
-
-                m_Async = true;
-                io::Reactor::get_Current().run();
-
-                if (!m_Done)
-                    // propagate it
-                    io::Reactor::get_Current().stop();
-            }
-
-            void RunSync(uint32_t iMethod)
-            {
-                RunSync0(iMethod);
-                RunSync1();
-            }
-
-            bool DoTx(int& completedCount)
-            {
-                if (m_vInvokeData.empty())
-                    return false;
-
-                auto txID = m_pWallet->StartTransaction(
-                    CreateTransactionParameters(TxType::Contract)
-                    .SetParameter(TxParameterID::ContractDataPacked, m_vInvokeData));
-
-                completedCount++;
-                io::Reactor::get_Current().run();
-
-                auto pTx = m_pWalletDB->getTx(txID);
-                return (pTx->m_status == wallet::TxStatus::Completed);
-            }
-
-            bool get_OutpStr(const char* szKey, std::string& sOut, uint32_t nLen) const
-            {
-                std::string s = m_Out.str();
-
-                auto i = s.find(szKey, 0);
-                if (s.npos == i)
-                    return false;
-
-                i += strlen(szKey);
-                if (s.size() < i + nLen)
-                    return false;
-
-                sOut.assign(s.c_str() + i, nLen);
-                return true;
-            }
-
-        };
 
         MyManager manSender(dbSender, sender.m_Wallet);
         manSender.set_Privilege(2);
@@ -1953,6 +1972,189 @@ namespace
         WALLET_CHECK(manSender.DoTx(completedCount));
 
     }
+
+
+
+    void TestAppShader2()
+    {
+        printf("Testing upgradable2...\n");
+
+        io::Reactor::Ptr mainReactor(io::Reactor::create());
+        io::Reactor::Scope scope(*mainReactor);
+
+        string nodePath = "node.db";
+        if (boost::filesystem::exists(nodePath))
+            boost::filesystem::remove(nodePath);
+
+        int completedCount = 0;
+
+        //auto timer = io::Timer::create(io::Reactor::get_Current());
+        auto f = [&completedCount, mainReactor](auto txID)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+              //  timer->cancel();
+                mainReactor->stop();
+            }
+        };
+
+        constexpr uint32_t nPeers = 5;
+        constexpr uint32_t iSender = 3;
+        wallet::IWalletDB::Ptr pDb[nPeers];
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            std::string sPath = std::string("sender_") + std::to_string(i) + "wallet.db";
+            pDb[i] = createSqliteWalletDB(sPath, false, true);
+        }
+
+        auto treasury = createTreasury(pDb[iSender], AmountList{Rules::Coin * 300000});
+
+        auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
+        {
+            InitNodeToTest(node, treasury, nullptr, port, 3000, path, peers, miningNode);
+            io::Address address;
+            address.resolve("127.0.0.1");
+            address.port(port);
+            return address;
+        };
+
+
+        Node node;
+        auto nodeAddress = nodeCreator(node, treasury, 32125, "node.db");
+
+        std::unique_ptr<TestWalletRig> pRig[nPeers];
+        std::unique_ptr<MyManager> pMan[nPeers];
+
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            pRig[i] = std::make_unique<TestWalletRig>(pDb[i], f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
+            pMan[i] = std::make_unique<MyManager>(pDb[i], pRig[i]->m_Wallet);
+            pMan[i]->set_Privilege(2);
+
+            if (i)
+                pMan[i]->m_BodyManager = pMan[0]->m_BodyManager;
+            else
+                MyManager::Compile(pMan[i]->m_BodyManager, "upgradable2/Test/test_app.wasm", MyManager::Kind::Manager);
+        }
+
+        printf("Deploying v0\n");
+
+        MyManager::Compile(pMan[iSender]->m_BodyContract, "upgradable2/Test/test_v0.wasm", MyManager::Kind::Contract);
+        pMan[iSender]->m_Args["role"] = "manager";
+        pMan[iSender]->m_Args["action"] = "deploy_version";
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+        printf("Deploying v1\n");
+
+        MyManager::Compile(pMan[iSender]->m_BodyContract, "upgradable2/Test/test_v1.wasm", MyManager::Kind::Contract);
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+        printf("reading ver cids...\n");
+
+        pMan[iSender]->m_Args["action"] = "view";
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        std::string sTmp, sV0Cid, sV1Cid;
+
+        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"Number\": 0", sTmp));
+        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"cid\": \"", sV0Cid, bvm2::ContractID::nTxtLen));
+
+        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"Number\": 1", sTmp));
+        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"cid\": \"", sV1Cid, bvm2::ContractID::nTxtLen));
+
+        WALLET_CHECK(!sV0Cid.empty() && !sV1Cid.empty() && (sV0Cid != sV1Cid));
+
+        printf("collecting keys...\n");
+
+        std::string pAdminKey[nPeers];
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            pMan[i]->m_Args["role"] = "manager";
+            pMan[i]->m_Args["action"] = "my_admin_key";
+            pMan[i]->RunSync(1);
+            WALLET_CHECK(pMan[i]->m_Done && !pMan[i]->m_Err);
+
+            WALLET_CHECK(pMan[i]->get_OutpStr("\"admin_key\": \"", pAdminKey[i], sizeof(ECC::Point) * 2));
+        }
+
+
+        printf("Deploying upgradable2/v0\n");
+
+        MyManager::Compile(pMan[iSender]->m_BodyContract, "upgradable2/contract.wasm", MyManager::Kind::Contract);
+        pMan[iSender]->m_Args["action"] = "deploy_contract";
+        pMan[iSender]->m_Args["cidVersion"] = sV0Cid;
+        pMan[iSender]->m_Args["hUpgradeDelay"] = "1";
+        pMan[iSender]->m_Args["nMinApprovers"] = std::to_string(nPeers);
+
+        for (uint32_t i = 0; i < nPeers; i++)
+            pMan[iSender]->m_Args[std::string("admin-") + std::to_string(i)] = pAdminKey[i];
+
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+        printf("reading cid...\n");
+
+        pMan[iSender]->m_Args["action"] = "view";
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        std::string sCid;
+        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"contracts\":", sTmp));
+        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"cid\": \"", sCid, bvm2::ContractID::nTxtLen));
+
+        printf("scheduling upgrade...\n");
+
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            pMan[i]->m_Args["action"] = "schedule_upgrade";
+            pMan[i]->m_Args["cid"] = sCid;
+            pMan[i]->m_Args["cidVersion"] = sV1Cid;
+            pMan[i]->m_Args["hTarget"] = std::to_string(node.get_Processor().m_Cursor.m_Full.m_Height + 50);
+            pMan[i]->m_Args["iSender"] = std::to_string(iSender);
+            pMan[i]->m_Args["approve_mask"] = std::to_string((1U << nPeers) - 1);
+
+            if (iSender == i)
+            {
+                pMan[i]->RunSync0(1);
+                WALLET_CHECK(!pMan[i]->m_Done);
+            }
+        }
+
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            if (iSender != i)
+            {
+                pMan[i]->RunSync0(1);
+                WALLET_CHECK(!pMan[i]->m_Done);
+            }
+        }
+
+        pMan[iSender]->RunSync1(); // wait synchronously
+
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+        printf("checking state...\n");
+
+        pMan[iSender]->m_Args["action"] = "view";
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"next_version\":", sTmp));
+    }
+
+
+
 
     struct MyZeroInit {
         static void Do(std::string&) {}
@@ -3878,8 +4080,8 @@ int main()
     Rules::get().pForks[2].m_Height = 1;
     Rules::get().pForks[3].m_Height = 1;
     Rules::get().UpdateChecksum();
-    TestAppShader();
-
+    TestAppShader1();
+    TestAppShader2();
     Rules::get().pForks[1].m_Height = 20;
     Rules::get().pForks[2].m_Height = 20;
     Rules::get().pForks[3].m_Height = 20;

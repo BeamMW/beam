@@ -404,7 +404,7 @@ namespace beam::wallet
         return GetStatus(Asset::s_BeamID);
     }
 
-    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor)
         : m_rules(rules)
         , m_walletDB(walletDB)
         , m_reactor{ reactor ? reactor : io::Reactor::create() }
@@ -419,9 +419,21 @@ namespace beam::wallet
              onTxStatus(action, items);
               })
         , m_shieldedPer24hFilter(std::make_unique<Filter>(kShieldedPer24hFilterSize))
+        , m_openDBFunc(std::move(walletDBFunc))
     {
         m_ainfoDelayed = io::Timer::create(*m_reactor);
         m_balanceDelayed = io::Timer::create(*m_reactor);
+    }
+
+    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+        : WalletClient(rules, walletDB, {}, nodeAddr, reactor)
+    {
+
+    }
+
+    WalletClient::WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+        : WalletClient(rules, nullptr, std::move(walletDBFunc), nodeAddr, reactor)
+    {
     }
 
     WalletClient::~WalletClient()
@@ -508,6 +520,17 @@ namespace beam::wallet
                 LogRotation logRotation(*m_reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
 #endif // !__EMSCRIPTEN__
 
+                if (!m_walletDB)
+                {
+                    if (m_openDBFunc)
+                    {
+                        m_walletDB = m_openDBFunc();
+                    }
+                    else
+                    {
+                        throw std::runtime_error("WalletClient: database is not provided");
+                    }
+                }
 
                 auto wallet = make_shared<Wallet>(m_walletDB);
                 m_wallet = wallet;

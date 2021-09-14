@@ -19,6 +19,7 @@
 #include <queue>
 #include <exception>
 #include <filesystem>
+#include <thread>
 
 #include "common.h"
 #include "wallet/client/wallet_client.h"
@@ -386,6 +387,7 @@ public:
     bool StartWallet()
     {
         AssertMainThread();
+        EnsureFSMounted();
         if (m_Client)
         {
             LOG_WARNING() << "The client is already running";
@@ -394,11 +396,11 @@ public:
 
         try
         {
-            auto db = OpenWallet(m_DbPath, m_Pass);
-            m_Client = std::make_shared<WalletClient2>(Rules::get(), db, m_Node, m_Reactor);
+            auto dbFunc = [path = m_DbPath, pass = m_Pass]() {return OpenWallet(path, pass);};
+            m_Client = std::make_shared<WalletClient2>(Rules::get(), dbFunc, m_Node, m_Reactor);
             m_Client->SetHandler(this);
             auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
-            additionalTxCreators->emplace(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(db));
+            additionalTxCreators->emplace(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(dbFunc));
             m_Client->getAsync()->enableBodyRequests(true);
             m_Client->start({}, true, additionalTxCreators);
             return true;
@@ -621,15 +623,37 @@ public:
         return WalletDB::isInitialized(dbName);
     }
 
-    static bool CheckPassword(const std::string& dbName, const std::string& pass)
+    using CallbackResult = std::pair<std::shared_ptr<val>, bool>;
+    static void ProsessCallbackOnMainThread(CallbackResult* pCallback)
     {
-        return WalletDB::isValidPassword(dbName, SecString(pass));
+        std::unique_ptr<CallbackResult> cb(pCallback);
+        if (!cb->first->isNull())
+        {
+            (*cb->first)(cb->second);
+        }
+    }
+
+    static void CheckPasswordImpl(const std::string& dbName, const std::string& pass, std::shared_ptr<val> cb)
+    {
+        WalletDB::isValidPassword(dbName, SecString(pass));
+        auto res = WalletDB::isValidPassword(dbName, SecString(pass));
+        LOG_DEBUG() << __FUNCTION__ << TRACE(dbName) << TRACE(pass) << TRACE(res);
+        auto cbPtr = std::make_unique<CallbackResult>(std::move(cb), res);
+        emscripten_async_run_in_main_runtime_thread(
+            EM_FUNC_SIG_VI,
+            &WasmWalletClient::ProsessCallbackOnMainThread,
+            reinterpret_cast<int>(cbPtr.release()));
+    }
+
+
+    static void CheckPassword(const std::string& dbName, const std::string& pass, val cb)
+    {
+        auto pcb = std::make_shared<val>(cb);
+        MyThread(&WasmWalletClient::CheckPasswordImpl, dbName, pass, pcb).detach();
     }
 
     static IWalletDB::Ptr OpenWallet(const std::string& dbName, const std::string& pass)
     {
-        AssertMainThread();
-        EnsureFSMounted();
         Rules::get().UpdateChecksum();
         LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
         return WalletDB::open(dbName, SecString(pass));
