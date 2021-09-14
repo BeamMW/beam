@@ -3,7 +3,6 @@
 #include "contract.h"
 #include "../upgradable/contract.h"
 #include "../upgradable/app_common_impl.h"
-#include "../Math.h"
 
 #define DaoCore_manager_deploy_version(macro)
 #define DaoCore_manager_view(macro)
@@ -100,10 +99,6 @@ void OnError(const char* sz)
 ON_METHOD(manager, view)
 {
     static const ShaderID s_pSid[] = {
-        DaoCore::s_SID_0,
-        DaoCore::s_SID_1,
-        DaoCore::s_SID_2,
-        DaoCore::s_SID_3,
         DaoCore::s_SID // latest version
     };
 
@@ -262,7 +257,7 @@ Amount CalculatePreallocAvail(const ContractID& cid, Amount val)
 
 ON_METHOD(manager, prealloc_totals)
 {
-    Amount valTotal = 0, valReceived = 0;
+    Amount valReceived = DaoCore::Preallocated::s_Emission;
 
     Env::Key_T<DaoCore::Preallocated::User::Key> k0, k1;
     _POD_(k0.m_Prefix.m_Cid) = cid;
@@ -276,16 +271,12 @@ ON_METHOD(manager, prealloc_totals)
         if (!r.MoveNext_T(k0, pu))
             break;
 
-        valReceived += pu.m_Received;
-        valTotal += pu.m_Total;
+        valReceived += pu.m_Received - pu.m_Total;
     }
 
-    // TODO: after the vesting period is over and the user withdraws all the preallocated - its record is erased completely.
-    // Account for this. valTotal should be raised to the expected, valReceived raise by the same value as well
+    Amount valAvail = CalculatePreallocAvail(cid, DaoCore::Preallocated::s_Emission);
 
-    Amount valAvail = CalculatePreallocAvail(cid, valTotal);
-
-    Env::DocAddNum("total", valTotal);
+    Env::DocAddNum("total", DaoCore::Preallocated::s_Emission);
     Env::DocAddNum("avail", valAvail);
     Env::DocAddNum("received", valReceived);
 }
@@ -420,6 +411,8 @@ ON_METHOD(manager, farm_totals)
     _POD_(k1.m_Prefix.m_Cid) = cid;
     _POD_(k1.m_KeyInContract.m_Pk).SetObject(0xff);
 
+    uint32_t nTotalFarming = 0;
+
     for (Env::VarReader r(k0, k1); ; )
     {
         DaoCore::Farming::UserPos fup;
@@ -428,12 +421,16 @@ ON_METHOD(manager, farm_totals)
 
         beamXinternal += fup.m_BeamX; // already assigned to the user, but not claimed yet
         beamLocked += fup.m_Beam;
+
+        if (fup.m_Beam)
+            nTotalFarming++;
     }
 
 
 
     Env::DocAddNum("duation", fs.m_hTotal);
     Env::DocAddNum("total", fs.s_Emission);
+    Env::DocAddNum("total_users", nTotalFarming);
     Env::DocAddNum("avail", fs.get_EmissionSoFar());
     Env::DocAddNum("received", fs.m_TotalDistributed - beamXinternal);
     Env::DocAddNum("beam_locked", beamLocked);
