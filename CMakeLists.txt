@@ -286,6 +286,7 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-const-variable") # so what?
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function") # mostly in 3rd-party libs
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-value") # proto.h
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nonnull") # yas
 endif()
 
 if(BEAM_HW_WALLET)
