@@ -89,7 +89,7 @@ BEAM_EXPORT void Ctor(const void*)
     {
         DaoCore::State s;
 
-        static const char szMeta[] = "STD:SCH_VER=1;N=DemoX Coin;SN=DemoX;UN=DEMOX;NTHUN=DGROTH";
+        static const char szMeta[] = "STD:SCH_VER=1;N=BeamX Token;SN=BeamX;UN=BEAMX;NTHUN=GROTHX";
         s.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
         Env::Halt_if(!s.m_Aid);
 
