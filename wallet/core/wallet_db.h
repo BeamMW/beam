@@ -609,12 +609,8 @@ namespace beam::wallet
         virtual void visitEvents(Height min, const Blob& key, std::function<bool(Height, ByteBuffer&&)>&& func) const = 0;
         virtual void visitEvents(Height min, std::function<bool(Height, ByteBuffer&&)>&& func) const = 0;
 
-        void addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator);
-        TxStatusInterpreter::Ptr getStatusInterpreter(const TxParameters& txParams) const;
-
        private:
            bool get_CommitmentSafe(ECC::Point& comm, const CoinID&, IPrivateKeyKeeper2*);
-           std::map<TxType, TxStatusInterpreter::Creator> m_statusInterpreterCreators;
     };
 
     namespace sqlite

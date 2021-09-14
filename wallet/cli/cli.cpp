@@ -120,6 +120,44 @@ namespace beam
 
 namespace
 {
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    class CliSwapTxStatusInterpreter: public TxStatusInterpreter
+    {
+      public:
+        explicit CliSwapTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams)
+        {
+            if (auto value = txParams.GetParameter<AtomicSwapTransaction::State>(wallet::TxParameterID::State); value)
+                m_state = *value;
+        }
+
+        ~CliSwapTxStatusInterpreter() override = default;
+
+        [[nodiscard]] std::string getStatus() const override
+        {
+            return wallet::getSwapTxStatus(m_state);
+        }
+      private:
+        wallet::AtomicSwapTransaction::State m_state = wallet::AtomicSwapTransaction::State::Initial;
+    };
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+    std::string interpretStatusCliImpl(const beam::wallet::TxDescription& tx)
+    {
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        if (tx.m_txType == TxType::AtomicSwap)
+        {
+            auto statusInterpreter = std::make_unique<CliSwapTxStatusInterpreter>(tx);
+            return statusInterpreter->getStatus();
+        }
+        else
+        {
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+            return beam::wallet::interpretStatus(tx);
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        }
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+    }
+
     std::string TxDetailsInfo(const IWalletDB::Ptr& walletDB, const TxID& txID)
     {
         auto tx = walletDB->getTx(txID);
@@ -248,50 +286,6 @@ namespace
         }
 
         auto walletDB = WalletDB::open(walletPath, pass);
-
-        auto assetsSICreator = [] (const TxParameters& txParams) {
-            return std::make_shared<AssetTxStatusInterpreter>(txParams);
-        };
-
-        auto simpleSICreator = [] (const TxParameters& txParams) {
-            return std::make_shared<TxStatusInterpreter>(txParams);
-        };
-
-        auto maxPrivSICreator = [] (const TxParameters& txParams) {
-            return std::make_shared<MaxPrivacyTxStatusInterpreter>(txParams);
-        };
-
-        walletDB->addStatusInterpreterCreator(TxType::Simple,          simpleSICreator);
-        walletDB->addStatusInterpreterCreator(TxType::AssetIssue,      assetsSICreator);
-        walletDB->addStatusInterpreterCreator(TxType::AssetConsume,    assetsSICreator);
-        walletDB->addStatusInterpreterCreator(TxType::AssetReg,        assetsSICreator);
-        walletDB->addStatusInterpreterCreator(TxType::AssetUnreg,      assetsSICreator);
-        walletDB->addStatusInterpreterCreator(TxType::AssetInfo,       assetsSICreator);
-        walletDB->addStatusInterpreterCreator(TxType::PushTransaction, maxPrivSICreator);
-
-        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-        walletDB->addStatusInterpreterCreator(TxType::AtomicSwap, [] (const TxParameters& txParams) {
-            class CliSwapTxStatusInterpreter: public TxStatusInterpreter
-            {
-            public:
-                explicit CliSwapTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams)
-                {
-                    if (auto value = txParams.GetParameter<AtomicSwapTransaction::State>(wallet::TxParameterID::State); value)
-                        m_state = *value;
-                }
-
-                ~CliSwapTxStatusInterpreter() override = default;
-
-                [[nodiscard]] std::string getStatus() const override
-                {
-                    return wallet::getSwapTxStatus(m_state);
-                }
-            private:
-                wallet::AtomicSwapTransaction::State m_state = wallet::AtomicSwapTransaction::State::Initial;
-            };
-            return std::make_shared<CliSwapTxStatusInterpreter>(txParams);
-        });
-        #endif
 
         LOG_INFO() << kWalletOpenedMessage;
         return walletDB;
@@ -1313,8 +1307,6 @@ namespace
                     cout << kTxHistoryUnreliableTxs;
                 }
 
-                const auto statusInterpreter = walletDB->getStatusInterpreter(tx);
-                const auto status = statusInterpreter->getStatus();
                 const auto tstamp = format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false);
                 const auto txid   = to_hex(tx.m_txId.data(), tx.m_txId.size());
                 const auto token     = tx.getToken();
@@ -1323,7 +1315,7 @@ namespace
                 cout << std::string(4, ' ') <<  kTxHistoryColumnHeight << ": " << static_cast<int64_t>(height) << std::endl;
                 cout << std::string(4, ' ') << kTxHistoryColumnDirection << ": " << direction << std::endl;
                 cout << std::string(4, ' ') << amountHeader << ": " << amount << std::endl;
-                cout << std::string(4, ' ') <<  kTxHistoryColumnStatus << ": " << status << std::endl;
+                cout << std::string(4, ' ') <<  kTxHistoryColumnStatus << ": " << interpretStatusCliImpl(tx) << std::endl;
                 cout << std::string(4, ' ') << kTxHistoryColumnId << ": " << txid << std::endl;
                 if (!kernelId.empty())
                     cout << std::string(4, ' ') <<  kTxHistoryColumnKernelId << ": " << kernelId << std::endl;
@@ -1508,11 +1500,9 @@ namespace
                 cout << "TRANSACTIONS" << std::endl << std::endl << std::string(120, '-') << std::endl;
 
                 for (auto& tx : txHistory) {
-                    const auto statusInterpreter = walletDB->getStatusInterpreter(tx);
                     const auto tstamp    = format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false);
                     const auto direction = tx.m_selfTx ? kTxDirectionSelf : (tx.m_sender ? kTxDirectionOut : kTxDirectionIn);
                     const auto amount    = to_string(PrintableAmount(tx.m_amount, true));
-                    const auto status    = statusInterpreter->getStatus();
                     const auto txid      = to_hex(tx.m_txId.data(), tx.m_txId.size());
                     const auto krnid     = to_string(tx.m_kernelID);
                     const auto token     = tx.getToken();
@@ -1520,7 +1510,7 @@ namespace
                     cout << std::string(4, ' ') << kTxHistoryColumnDatetTime << ": " << tstamp << std::endl;
                     cout << std::string(4, ' ') << kTxHistoryColumnDirection << ": " << direction << std::endl;
                     cout << std::string(4, ' ') << kTxHistoryColumnAmount << ": " << amount << std::endl;
-                    cout << std::string(4, ' ') <<  kTxHistoryColumnStatus << ": " << status << std::endl;
+                    cout << std::string(4, ' ') <<  kTxHistoryColumnStatus << ": " << interpretStatusCliImpl(tx) << std::endl;
                     cout << std::string(4, ' ') << kTxHistoryColumnId << ": " << txid << std::endl;
                     if (!krnid.empty())
                         cout << std::string(4, ' ') << kTxHistoryColumnKernelId << ": " << krnid << std::endl;
@@ -1571,7 +1561,6 @@ namespace
                     ss << (isBeamSide ? kBEAM : to_string(swapCoin)) << " <--> "
                         << (!isBeamSide ? kBEAM : to_string(swapCoin));
 
-                    auto statusInterpreter = walletDB->getStatusInterpreter(tx);
                     cout << boost::format(kSwapTxHistoryTableFormat)
                         % boost::io::group(left, setw(columnWidths[0]),
                             format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
@@ -1579,7 +1568,7 @@ namespace
                             to_string(PrintableAmount(tx.m_amount, true)))
                         % boost::io::group(right, setw(columnWidths[2]), swapAmount)
                         % boost::io::group(right, setw(columnWidths[3]), ss.str())
-                        % boost::io::group(left, setw(columnWidths[4]), statusInterpreter->getStatus())
+                        % boost::io::group(left, setw(columnWidths[4]), interpretStatusCliImpl(tx))
                         % boost::io::group(left, setw(columnWidths[5]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
                         << std::endl;
                 }
@@ -1656,12 +1645,10 @@ namespace
         }
 
         const auto token = tx->getToken();
-        const auto statusInterpreter = walletDB->getStatusInterpreter(*tx);
-        const auto txstatus = statusInterpreter->getStatus();
 
         cout
             << "\n"
-            << boost::format(kTxDetailsFormat) % txdetails % txstatus
+            << boost::format(kTxDetailsFormat) % txdetails % interpretStatusCliImpl(*tx)
             << (tx->m_status == TxStatus::Failed ? boost::format(kTxDetailsFailReason) % GetFailureMessage(tx->m_failureReason) : boost::format(""))
             << (!token.empty() ? "\nAddress:           " : "") << token;
 
@@ -2464,8 +2451,7 @@ namespace
                         wallet->CancelTransaction(*txId);
                         return 0;
                     }
-                    auto statusInterpreter = walletDB->getStatusInterpreter(*tx);
-                    LOG_ERROR() << kErrorCancelTxInInvalidStatus << statusInterpreter->getStatus();
+                    LOG_ERROR() << kErrorCancelTxInInvalidStatus << interpretStatusCliImpl(*tx);
                     return -1;
                 }
                 LOG_ERROR() << kErrorTxIdUnknown;

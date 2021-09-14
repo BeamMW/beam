@@ -2896,27 +2896,6 @@ namespace beam::wallet
         storage::setVar(*this, kMaxPrivacyLockTimeLimitHours, val);
     }
 
-    void IWalletDB::addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator)
-    {
-        m_statusInterpreterCreators[txType] = interpreterCreator;
-    }
-
-    TxStatusInterpreter::Ptr IWalletDB::getStatusInterpreter(const TxParameters& txParams) const
-    {
-        if (auto txType = txParams.GetParameter<TxType>(TxParameterID::TransactionType); txType)
-        {
-            auto it = m_statusInterpreterCreators.find(*txType);
-            if (it != m_statusInterpreterCreators.end())
-            {
-                auto creator = it->second;
-                return creator(txParams);
-            }
-        }
-
-        return std::make_shared<TxStatusInterpreter>(txParams);
-    }
-
-
     void WalletDB::selectCoins2(Height h, Amount nTrg, Asset::ID aid, std::vector<Coin>& vSelStd, std::vector<ShieldedCoin>& vSelShielded, uint32_t nMaxShielded, bool bCanReturnLess)
     {
         if (!nTrg)

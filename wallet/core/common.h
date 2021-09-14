@@ -575,7 +575,7 @@ namespace beam::wallet
     protected:
         wallet::TxType m_txType = wallet::TxType::AssetInfo;
     };
-    
+
     // Specifies key transaction parameters for interaction with Wallet Clients
     struct TxDescription : public TxParameters
     {
@@ -654,6 +654,8 @@ namespace beam::wallet
 #undef MACRO
 
     };
+
+    std::string interpretStatus(const TxDescription& tx);
 
     // messages
     struct SetTxParameter

@@ -882,6 +882,38 @@ namespace beam::wallet
         return TxStatusInterpreter::getStatus();
     }
 
+    std::string interpretStatus(const TxDescription& tx)
+    {
+        std::unique_ptr<beam::wallet::TxStatusInterpreter> statusInterpreter;
+        if (tx.m_txType == wallet::TxType::Simple)
+        {
+            statusInterpreter = std::make_unique<beam::wallet::SimpleTxStatusInterpreter>(tx);
+        }
+        else if (tx.m_txType == wallet::TxType::PushTransaction)
+        {
+            statusInterpreter = std::make_unique<beam::wallet::MaxPrivacyTxStatusInterpreter>(tx);
+        }
+        else if (tx.m_txType >= wallet::TxType::AssetIssue && tx.m_txType <= wallet::TxType::AssetInfo)
+        {
+            statusInterpreter = std::make_unique<beam::wallet::AssetTxStatusInterpreter>(tx);
+        }
+        else if (tx.m_txType == wallet::TxType::Contract)
+        {
+            statusInterpreter = std::make_unique<beam::wallet::ContractTxStatusInterpreter>(tx);
+        }
+        else if (tx.m_txType == wallet::TxType::DexSimpleSwap)
+        {
+            statusInterpreter = std::make_unique<beam::wallet::SimpleTxStatusInterpreter>(tx);
+        }
+        else
+        {
+            BOOST_ASSERT_MSG(false, kErrorUnknownTxType);
+            return "unknown";
+        }
+
+        return statusInterpreter->getStatus();
+    }
+
     TxDescription::TxDescription(const TxParameters& p)
         : TxParameters(p)
     {

@@ -114,15 +114,14 @@ std::string ExportTxHistoryToCsv(const IWalletDB& db)
         std::string amountInUsd = convertAmount(tx.m_amount, tx.getExchangeRate(Currency::USD()), 2);
         std::string amountInBtc = convertAmount(tx.m_amount, tx.getExchangeRate(Currency::BTC()), 8);
 
-        auto statusInterpreter = db.getStatusInterpreter(tx);
-        ss << (tx.m_sender ? "Send" : "Receive") << ","                                     // Type
+        ss << (tx.m_sender ? "Send" : "Receive") << ","                                      // Type
             << format_timestamp(kTimeStampFormatCsv, tx.m_createTime * 1000, false) << ","   // Date | Time
             << "\"" << PrintableAmount(tx.m_amount, true) << "\"" << ","                     // Amount
             << "\"" << unitName << "\"" << ","                                               // Unit name
             << "\"" << amountInUsd << "\"" << ","                                            // Amount, USD
             << "\"" << amountInBtc << "\"" << ","                                            // Amount, BTC
             << "\"" << PrintableAmount(tx.m_fee, true) << "\"" << ","                        // Transaction fee, BEAM
-            << statusInterpreter->getStatus() << ","                                         // Status
+            << beam::wallet::interpretStatus(tx) << ","                                      // Status
             << std::string { tx.m_message.begin(), tx.m_message.end() } << ","               // Comment
             << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                             // Transaction ID
             << std::to_string(tx.m_kernelID) << ","                                          // Kernel ID
