@@ -23,7 +23,7 @@
     macro(macro_seed( 0x8b,0xb3,0x37,0x5b,0x45,0x5d,0x9c,0x57,0x71,0x34,0xb0,0x0e,0x8b,0x0b,0x10,0x8a,0x29,0xce,0x2b,0xc0,0xfc,0xe9,0x29,0x04,0x93,0x06,0xcf,0x4f,0xed,0x72,0x3b,0x7d,0x01 ), 31000)  /* Vladik                  */ \
     macro(macro_seed( 0xa4,0x22,0xf0,0xc6,0xd7,0x35,0x0c,0x48,0xdc,0x2c,0x3d,0x63,0xcc,0x04,0xdc,0x8b,0xb0,0xeb,0x28,0x3f,0x19,0xb3,0x0b,0xd2,0xde,0x44,0xba,0x1c,0xab,0x1d,0xad,0x02,0x01 ), 48000)  /* Denis                   */
 
-void AllocateAll(const DemoXdao::State& s)
+void AllocateAll(const DaoCore::State& s)
 {
 #define THE_MACRO_SEED(...)
 #define THE_MACRO(seed, value) value+
@@ -32,7 +32,7 @@ void AllocateAll(const DemoXdao::State& s)
 #undef THE_MACRO
 #undef THE_MACRO_SEED
 
-    Env::Halt_if(!Env::AssetEmit(s.m_Aid, nTotalPreallocated + DemoXdao::Farming::State::s_Emission, 1));
+    Env::Halt_if(!Env::AssetEmit(s.m_Aid, nTotalPreallocated + DaoCore::Farming::State::s_Emission, 1));
 
 #define OPEN_BRACES(x) x
 
@@ -52,9 +52,9 @@ void AllocateAll(const DemoXdao::State& s)
 #undef THE_MACRO_SEED
     };
 
-    DemoXdao::Preallocated::User pu;
+    DaoCore::Preallocated::User pu;
     pu.m_Received = 0;
-    DemoXdao::Preallocated::User::Key puk;
+    DaoCore::Preallocated::User::Key puk;
 
     for (uint32_t i = 0; i < _countof(s_pPk); i++)
     {
@@ -64,7 +64,7 @@ void AllocateAll(const DemoXdao::State& s)
         Env::SaveVar_T(puk, pu);
     }
 
-    DemoXdao::Preallocated pr;
+    DaoCore::Preallocated pr;
     pr.m_h0 = Env::get_Height();
     Env::SaveVar_T((uint8_t) pr.s_Key, pr);
 }
@@ -73,7 +73,7 @@ BEAM_EXPORT void Ctor(const void*)
 {
     if (Env::get_CallDepth() > 1)
     {
-        DemoXdao::State s;
+        DaoCore::State s;
 
         static const char szMeta[] = "STD:SCH_VER=1;N=DemoX Coin;SN=DemoX;UN=DEMOX;NTHUN=DGROTH";
         s.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
@@ -93,23 +93,23 @@ BEAM_EXPORT void Method_2(void*)
 {
     // called on upgrade
     // very first version didn't allocate properly. Fix this
-    DemoXdao::State s;
+    DaoCore::State s;
     Env::LoadVar_T((uint8_t) s.s_Key, s);
 
     AllocateAll(s);
 }
 
-BEAM_EXPORT void Method_3(const DemoXdao::GetPreallocated& r)
+BEAM_EXPORT void Method_3(const DaoCore::GetPreallocated& r)
 {
-    DemoXdao::Preallocated::User::Key puk;
+    DaoCore::Preallocated::User::Key puk;
     _POD_(puk.m_Pk) = r.m_Pk;
 
-    DemoXdao::Preallocated::User pu;
+    DaoCore::Preallocated::User pu;
     Env::Halt_if(!Env::LoadVar_T(puk, pu));
 
     Strict::Add(pu.m_Received, r.m_Amount);
 
-    DemoXdao::Preallocated pr;
+    DaoCore::Preallocated pr;
     Env::LoadVar_T((uint8_t) pr.s_Key, pr);
 
     const auto duration = pr.s_Duration;
@@ -125,26 +125,26 @@ BEAM_EXPORT void Method_3(const DemoXdao::GetPreallocated& r)
     else
         Env::DelVar_T(puk);
 
-    DemoXdao::State s;
+    DaoCore::State s;
     Env::LoadVar_T((uint8_t) s.s_Key, s);
     Env::FundsUnlock(s.m_Aid, r.m_Amount);
 
     Env::AddSig(r.m_Pk);
 }
 
-BEAM_EXPORT void Method_4(const DemoXdao::UpdPosFarming& r)
+BEAM_EXPORT void Method_4(const DaoCore::UpdPosFarming& r)
 {
     Height h = Env::get_Height();
 
-    DemoXdao::Farming::State fs;
-    if (Env::LoadVar_T((uint8_t) DemoXdao::Farming::s_Key, fs))
+    DaoCore::Farming::State fs;
+    if (Env::LoadVar_T((uint8_t)DaoCore::Farming::s_Key, fs))
         fs.Update(h);
     else
         _POD_(fs).SetZero();
     fs.m_hLast = h;
 
-    DemoXdao::Farming::UserPos up;
-    DemoXdao::Farming::UserPos::Key uk;
+    DaoCore::Farming::UserPos up;
+    DaoCore::Farming::UserPos::Key uk;
     _POD_(uk.m_Pk) = r.m_Pk;
 
     if (Env::LoadVar_T(uk, up))
@@ -161,7 +161,7 @@ BEAM_EXPORT void Method_4(const DemoXdao::UpdPosFarming& r)
     {
         Strict::Sub(up.m_BeamX, r.m_WithdrawBeamX);
 
-        DemoXdao::State s;
+        DaoCore::State s;
         Env::LoadVar_T((uint8_t) s.s_Key, s);
 
         Env::FundsUnlock(s.m_Aid, r.m_WithdrawBeamX);
@@ -181,10 +181,10 @@ BEAM_EXPORT void Method_4(const DemoXdao::UpdPosFarming& r)
         }
     }
 
-    fs.m_WeightTotal += DemoXdao::Farming::Weight::Calculate(up.m_Beam);
+    fs.m_WeightTotal += DaoCore::Farming::Weight::Calculate(up.m_Beam);
 
     // fin
-    Env::SaveVar_T((uint8_t) DemoXdao::Farming::s_Key, fs);
+    Env::SaveVar_T((uint8_t) DaoCore::Farming::s_Key, fs);
 
     if (up.m_Beam || up.m_BeamX)
         Env::SaveVar_T(uk, up);
