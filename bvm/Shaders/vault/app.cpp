@@ -245,19 +245,24 @@ ON_METHOD(my_account, move)
     _POD_(myid.m_Cid) = cid;
 
     Env::KeyID kid(myid);
-    kid.get_Pk(arg.m_Account);
+    PubKey pkMy;
 
     bool bIsMultisig = !_POD_(pkForeign).IsZero();
     if (bIsMultisig)
     {
         Secp::Point p0, p1;
-        p0.Import(arg.m_Account);
+
         if (!p1.Import(pkForeign))
             return OnError("bad foreign key");
+
+        kid.get_Pk(p0);
+        p0.Export(pkMy);
 
         p0 += p1;
         p0.Export(arg.m_Account);
     }
+    else
+        kid.get_Pk(arg.m_Account);
 
     FundsChange fc;
     fc.m_Amount = arg.m_Amount;
@@ -268,11 +273,15 @@ ON_METHOD(my_account, move)
         Env::GenerateKernel(&cid, Vault::Deposit::s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "deposit to Vault", 0);
     else
     {
-        Comm::Channel cc(kid, pkForeign);
-        cc.Expose((uint32_t) 0x12342a34); // change with proto version
-
         if (bIsMultisig)
         {
+            Comm::Channel cc(kid, pkForeign);
+            cc.m_Context
+                << 1U // proto version 
+                << cid
+                << Vault::Deposit::s_iMethod;
+            cc.m_Context.Write(&arg, sizeof(arg));
+
             MultiSigProto msp;
             msp.m_pCid = &cid;
             msp.m_pArg = &arg;
@@ -282,8 +291,7 @@ ON_METHOD(my_account, move)
 
             if (bCoSigner)
             {
-                cc.Expose(pkForeign);
-                cc.ExposeSelf();
+                cc.m_Context << pkForeign;
 
                 cc.Rcv_T(msp.m_Msg1, "Waiting for signer");
                 if ((msp.m_Msg1.m_hMin + 10 < h) || (msp.m_Msg1.m_hMin >= h + 20))
@@ -311,8 +319,7 @@ ON_METHOD(my_account, move)
             }
             else
             {
-                cc.ExposeSelf();
-                cc.Expose(pkForeign);
+                cc.m_Context << pkMy;
 
                 msp.m_Msg1.m_hMin = h + 1;
 

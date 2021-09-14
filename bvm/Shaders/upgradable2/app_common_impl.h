@@ -331,7 +331,7 @@ struct ManagerUpgadable2
 		static const uint32_t s_iSlotKrnBlind = 2;
 
 		Env::KeyID m_Kid;
-		const ContractID* m_pCid;
+		const ContractID* m_pCid = nullptr;
 		uint32_t m_iMethod;
 		Upgradable2::Control::Signed* m_pArg;
 		uint32_t m_nArg;
@@ -408,6 +408,10 @@ struct ManagerUpgadable2
 			iAdmin--;
 
 			HashProcessor::Sha256 hpContext;
+			hpContext << 1u; // proto version
+			if (m_pCid)
+				hpContext << *m_pCid;
+
 			hpContext.Write(m_pArg, m_nArg);
 			hpContext << m_iMethod << msk << iSender;
 
@@ -433,7 +437,7 @@ struct ManagerUpgadable2
 					auto& cc = pPeers[iPeer];
 
 					cc.Init(m_Kid, stg.m_pAdmin[iPeer], &hpContext);
-					cc.Expose(iPeer);
+					cc.m_Context << iPeer;
 					cc.RcvStart();
 				}
 
@@ -509,7 +513,7 @@ struct ManagerUpgadable2
 			else
 			{
 				Comm::Channel cc(m_Kid, stg.m_pAdmin[iSender], &hpContext);
-				cc.Expose(iAdmin);
+				cc.m_Context << iAdmin;
 
 				Msg1 msg1;
 				p0.Export(msg1.m_pkMyNonce);

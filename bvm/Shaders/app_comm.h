@@ -20,7 +20,6 @@ struct Comm
     {
         Env::KeyID m_Kid;
         const PubKey* m_pRemote = nullptr;
-        Secp::Oracle m_Context;
         bool m_Waiting = false;
 
         uint32_t get_Cookie() const
@@ -30,7 +29,7 @@ struct Comm
 
         void ReadMsg(uint32_t nSize)
         {
-            if (m_Waiting && (nSize >= sizeof(Secp::Signature)))
+            if (m_Waiting && (nSize >= sizeof(HashValue)))
             {
                 m_vMsg.Prepare(nSize);
                 Env::Comm_Read(m_vMsg.m_p, nSize, nullptr, 0);
@@ -38,10 +37,13 @@ struct Comm
                 HashProcessor::Base hp0;
                 hp0.m_p = Env::HashClone(m_Context.m_p);
 
-                uint32_t nSizeNetto = nSize - sizeof(Secp::Signature);
+                uint32_t nSizeNetto = nSize - sizeof(HashValue);
                 m_Context.Write(m_vMsg.m_p, nSizeNetto);
 
-                if (((Secp::Signature*)(m_vMsg.m_p + nSizeNetto))->IsValid(m_Context, *m_pRemote))
+                HashValue hvExp;
+                m_Context >> hvExp;
+
+                if (_POD_(hvExp) == *(HashValue*) (m_vMsg.m_p + nSizeNetto))
                 {
                     m_vMsg.m_Count = nSizeNetto;
                     m_Waiting = false;
@@ -55,6 +57,8 @@ struct Comm
         }
 
     public:
+
+        HashProcessor::Base m_Context;
 
         Utils::Vector<uint8_t> m_vMsg; // last received msg
 
@@ -76,6 +80,15 @@ struct Comm
                 std::swap(m_Context.m_p, hp.m_p);
             }
 
+            Secp::Point p0;
+            p0.Import(pkRemote); // dont care if failed
+            Env::get_PkEx(p0, p0, kid.m_pID, kid.m_nID);
+
+            PubKey pkShared;
+            p0.Export(pkShared);
+
+            m_Context << pkShared;
+
             m_Kid.Comm_Listen(get_Cookie());
         }
 
@@ -92,28 +105,15 @@ struct Comm
                 Env::Comm_Listen(nullptr, 0, get_Cookie());
         }
 
-        template <typename T>
-        void Expose(const T& x)
-        {
-            m_Context << x;
-        }
-
-        void ExposeSelf()
-        {
-            PubKey pk;
-            m_Kid.get_Pk(pk);
-            Expose(pk);
-        }
-
         void Send(const void* pMsg, uint32_t nMsg)
         {
             m_Context.Write(pMsg, nMsg);
 
-            uint32_t nSizePlus = sizeof(Secp::Signature) + nMsg;
+            uint32_t nSizePlus = sizeof(HashValue) + nMsg;
             auto* pBuf = (uint8_t*) Env::StackAlloc(nSizePlus);
 
             Env::Memcpy(pBuf, pMsg, nMsg);
-            ((Secp::Signature*) (pBuf + nMsg))->Sign(m_Context, m_Kid);
+            m_Context >> *(HashValue*) (pBuf + nMsg);
 
             Env::Comm_Send(*m_pRemote, pBuf, nSizePlus);
         }
