@@ -2449,6 +2449,19 @@ namespace bvm2 {
 			>> hv;
 	}
 
+	BVM_METHOD(get_PkEx)
+	{
+		ECC::Hash::Value hv;
+		DeriveKeyPreimage(hv, Blob(get_AddrR(pID, nID), nID));
+		get_DH_Internal(res, hv, gen);
+	}
+	BVM_METHOD_HOST(get_PkEx)
+	{
+		ECC::Hash::Value hv;
+		DeriveKeyPreimage(hv, Blob(pID, nID));
+		get_DH_Internal(Secp::Point::From(res), hv, Secp::Point::From(gen));
+	}
+
 	BVM_METHOD(get_SlotImage)
 	{
 		ECC::Hash::Value hv;
@@ -2459,6 +2472,26 @@ namespace bvm2 {
 
 	}
 	BVM_METHOD_HOST_AUTO(get_SlotImage)
+
+	void ProcessorManager::get_DH_Internal(uint32_t res, const ECC::Hash::Value& hv, uint32_t gen)
+	{
+		Wasm::Test(m_pKdf != nullptr);
+		ECC::Scalar::Native sk;
+		m_pKdf->DeriveKey(sk, hv);
+
+		// careful: res and gen may not be distinct
+		ECC::Point::Native pt = m_Secp.m_Point.FindStrict(gen).m_Val * sk;
+		m_Secp.m_Point.FindStrict(res).m_Val = pt;
+	}
+
+	BVM_METHOD(get_SlotImageEx)
+	{
+		ECC::Hash::Value hv;
+		get_SlotPreimageInternal(hv, iSlot);
+
+		get_DH_Internal(res, hv, gen);
+	}
+	BVM_METHOD_HOST_AUTO(get_SlotImageEx)
 
 	BVM_METHOD(SlotInit)
 	{

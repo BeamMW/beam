@@ -466,6 +466,7 @@ namespace bvm2 {
 
 		static void DeriveKeyPreimage(ECC::Hash::Value&, const Blob&);
 		void DerivePkInternal(ECC::Point::Native&, const Blob&);
+		void get_DH_Internal(uint32_t res, const ECC::Hash::Value&, uint32_t gen);
 
 		void get_SlotPreimageInternal(ECC::Hash::Value&, uint32_t);
 		void SlotRenegerateInternal(ECC::Hash::Value& hvRes, uint32_t iSlot, const void* pSeedExtra, uint32_t nSeedExtra);
