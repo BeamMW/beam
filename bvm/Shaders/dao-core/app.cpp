@@ -1,8 +1,8 @@
 #include "../common.h"
 #include "../app_common_impl.h"
 #include "contract.h"
-#include "../upgradable/contract.h"
-#include "../upgradable/app_common_impl.h"
+#include "../upgradable2/contract.h"
+#include "../upgradable2/app_common_impl.h"
 
 #define DaoCore_manager_deploy_version(macro)
 #define DaoCore_manager_view(macro)
@@ -40,14 +40,10 @@
 
 #define DaoCore_manager_my_xid(macro)
 
-#define DaoCore_manager_deploy_contract(macro) \
-    macro(ContractID, cidVersion) \
-    macro(Height, hUpgradeDelay)
+#define DaoCore_manager_my_admin_key(macro)
 
-#define DaoCore_manager_schedule_upgrade(macro) \
-    macro(ContractID, cid) \
-    macro(ContractID, cidVersion) \
-    macro(Height, dh)
+#define DaoCore_manager_deploy_contract(macro) Upgradable2_deploy(macro)
+#define DaoCore_manager_schedule_upgrade(macro) Upgradable2_schedule_upgrade(macro)
 
 #define DaoCore_manager_view_stake(macro) macro(ContractID, cid)
 
@@ -59,6 +55,7 @@
     macro(manager, view_params) \
     macro(manager, view_stake) \
     macro(manager, my_xid) \
+    macro(manager, my_admin_key) \
     macro(manager, prealloc_totals) \
     macro(manager, prealloc_view) \
     macro(manager, prealloc_withdraw) \
@@ -96,6 +93,12 @@ void OnError(const char* sz)
     Env::DocAddText("error", sz);
 }
 
+const char g_szAdminSeed[] = "upgr2-dao-core";
+
+struct MyKeyID :public Env::KeyID {
+    MyKeyID() :Env::KeyID(&g_szAdminSeed, sizeof(g_szAdminSeed)) {}
+};
+
 ON_METHOD(manager, view)
 {
     static const ShaderID s_pSid[] = {
@@ -105,27 +108,14 @@ ON_METHOD(manager, view)
     ContractID pVerCid[_countof(s_pSid)];
     Height pVerDeploy[_countof(s_pSid)];
 
-    WalkerUpgradable wlk;
+    ManagerUpgadable2::Walker wlk;
     wlk.m_VerInfo.m_Count = _countof(s_pSid);
     wlk.m_VerInfo.s_pSid = s_pSid;
     wlk.m_VerInfo.m_pCid = pVerCid;
     wlk.m_VerInfo.m_pHeight = pVerDeploy;
 
-    wlk.m_VerInfo.Init();
-    wlk.m_VerInfo.Dump();
-
-    Env::DocArray gr("contracts");
-
-    PubKey pk;
-    Env::DerivePk(pk, &Upgradable::s_SID, sizeof(Upgradable::s_SID));
-
-    for (wlk.Enum(); wlk.MoveNext(); )
-    {
-        Env::DocGroup root("");
-        wlk.DumpCurrent();
-
-        Env::DocAddNum("owner", (uint32_t) ((_POD_(wlk.m_State.m_Pk) == pk) ? 1 : 0));
-    }
+    MyKeyID kid;
+    wlk.ViewAll(&kid);
 }
 
 ON_METHOD(manager, deploy_version)
@@ -142,25 +132,21 @@ ON_METHOD(manager, deploy_contract)
     fc.m_Amount = g_DepositCA; // amount of the input or output
     fc.m_Consume = 1; // contract consumes funds (i.e input, in this case)
 
-    Upgradable::Create arg;
-    _POD_(arg.m_Cid) = cidVersion;
-    arg.m_hMinUpgadeDelay = hUpgradeDelay;
-    Env::DerivePk(arg.m_Pk, &Upgradable::s_SID, sizeof(Upgradable::s_SID));
+    MyKeyID kid;
+    PubKey pk;
+    kid.get_Pk(pk);
+
+    Upgradable2::Create arg;
+    if (!ManagerUpgadable2::FillDeployArgs(arg, &pk))
+        return;
 
     Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deploy DaoCore contract", 0);
 }
 
 ON_METHOD(manager, schedule_upgrade)
 {
-    Upgradable::ScheduleUpgrade arg;
-    _POD_(arg.m_cidNext) = cidVersion;
-    arg.m_hNextActivate = Env::get_Height() + dh;
-
-    SigRequest sig;
-    sig.m_pID = &Upgradable::s_SID;
-    sig.m_nID = sizeof(Upgradable::s_SID);
-
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, &sig, 1, "Upgradfe DaoCore contract version", 0);
+    MyKeyID kid;
+    ManagerUpgadable2::MultiSigRitual::Perform_ScheduleUpgrade(cid, kid, cidVersion, hTarget);
 }
 
 Amount get_ContractLocked(AssetID aid, const ContractID& cid)
@@ -227,6 +213,14 @@ ON_METHOD(manager, my_xid)
     PubKey pk;
     Env::DerivePk(pk, g_szXid, sizeof(g_szXid));
     Env::DocAddBlob_T("xid", pk);
+}
+
+ON_METHOD(manager, my_admin_key)
+{
+    PubKey pk;
+    MyKeyID kid;
+    kid.get_Pk(pk);
+    Env::DocAddBlob_T("admin_key", pk);
 }
 
 template <typename TX, typename TY>
