@@ -1,7 +1,7 @@
 
 set(BEAM_SIDGEN_BUILD_TYPE Release)
 
-#if (NOT TARGET sid_generator)
+if (NOT TARGET sid_generator)
     add_custom_target(sid_generator ALL
         COMMAND ${CMAKE_COMMAND} 
                                     -DCMAKE_BUILD_TYPE=Release
@@ -15,7 +15,7 @@ set(BEAM_SIDGEN_BUILD_TYPE Release)
         COMMENT "Building SID generator..."
         VERBATIM
     )
-#endif()
+endif()
 
 function(generate_sid_header shader_target)
     add_custom_target(${shader_target}_header
