@@ -282,6 +282,14 @@ namespace beam::wallet
             {
                 WalletAddress senderAddress;
                 walletDB->createAddress(senderAddress);
+
+                if (isApp())
+                {
+                    // This address is created for DApp
+                    // Make it visible to DApp
+                    senderAddress.setCategory(getAppId());
+                }
+
                 walletDB->saveAddress(senderAddress);
                 from = senderAddress.m_walletID;
             }
