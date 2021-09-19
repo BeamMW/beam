@@ -2924,9 +2924,9 @@ namespace bvm2 {
 			pKdf = m_pKdf.get();
 
 			get_SlotPreimageInternal(v.m_Adv.m_hvSk, iSlotBlind);
-			get_SlotPreimageInternal(hvNonce, iSlotNonce);
-
 			SlotErase(iSlotBlind);
+
+			get_SlotPreimageInternal(hvNonce, iSlotNonce);
 			SlotErase(iSlotNonce);
 		}
 
