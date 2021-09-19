@@ -43,6 +43,7 @@ namespace beam::wallet {
         void SlotErase(uint32_t iSlot) override;
         void Comm_CreateListener(Comm::Channel::Ptr&, const ECC::Hash::Value&) override;
         void Comm_Send(const ECC::Point&, const Blob&) override;
+        void WriteStream(const Blob&, uint32_t iStream) override;
     };
 
 

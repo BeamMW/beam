@@ -140,6 +140,22 @@ namespace beam::wallet {
             p->Send(wid, msg);
     }
 
+    void ManagerStdInWallet::WriteStream(const Blob& b, uint32_t iStream)
+    {
+        const char* szPrefix = "";
+        switch (iStream)
+        {
+        case Shaders::Stream::Out: szPrefix = "App out: "; break;
+        case Shaders::Stream::Error: szPrefix = "App error: "; break;
+        default:
+            return;
+        }
+
+        std::cout << szPrefix;
+        std::cout.write((const char*) b.p, b.n);
+        std::cout << std::endl;
+    }
+
     ShadersManager::ShadersManager(beam::wallet::Wallet::Ptr wallet,
                                    beam::wallet::IWalletDB::Ptr walletDB,
                                    beam::proto::FlyClient::INetwork::Ptr nodeNetwork,

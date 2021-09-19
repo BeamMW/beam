@@ -151,6 +151,12 @@ namespace Merkle
 	};
 }
 
+struct Stream
+{
+	static const uint32_t Out = 0;
+	static const uint32_t Error = 1;
+};
+
 static const uint32_t s_NonceSlots = 256;
 
 #pragma pack (pop)

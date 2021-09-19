@@ -250,6 +250,10 @@ namespace bvm2 {
 		void DischargeMemOp(uint32_t size);
 		virtual void DischargeUnits(uint32_t size) {}
 
+		virtual void WriteStream(const Blob&, uint32_t iStream) {
+			Wasm::Fail();
+		}
+
 		struct DataProcessor
 		{
 			struct Base

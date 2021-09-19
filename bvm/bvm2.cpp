@@ -798,6 +798,16 @@ namespace bvm2 {
 
 #define BVM_METHOD_VIA_HOST(name) BVM_METHOD(name) { return OnHost_##name(BVMOp_##name(BVM_METHOD_PAR_PASS_TO_HOST, MACRO_COMMA)); }
 
+	BVM_METHOD(Write)
+	{
+		OnHost_Write(get_AddrR(pData, nData), nData, iStream);
+	}
+	BVM_METHOD_HOST(Write)
+	{
+		if (nData)
+			WriteStream(Blob(pData, nData), iStream);
+	}
+
 	BVM_METHOD(Memcpy)
 	{
 		OnHost_Memcpy(get_AddrW(pDst, size), get_AddrR(pSrc, size), size);

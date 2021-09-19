@@ -14,6 +14,11 @@
 
 #pragma once
 
+#define BVMOp_Write(macro, sep) \
+	macro(const void*, pData) sep \
+	macro(uint32_t, nData) sep \
+	macro(uint32_t, iStream)
+
 #define BVMOp_Memcpy(macro, sep) \
 	macro(void*, pDst) sep \
 	macro(const void*, pSrc) sep \
@@ -433,6 +438,7 @@
 	macro(const char*, szComment)
 
 #define BVMOpsAll_Common(macro) \
+	macro(0x05, void     , Write) \
 	macro(0x10, void*    , Memcpy) \
 	macro(0x11, void*    , Memset) \
 	macro(0x12, int32_t  , Memcmp) \
