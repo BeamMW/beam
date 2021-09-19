@@ -528,12 +528,14 @@ namespace Utils {
         template <uint32_t nRadix>
         struct Radix
         {
-            static void Print(char* sz, uint64_t val)
+            static uint32_t Print(char* sz, uint64_t val)
             {
                 uint32_t nDigs = 1;
                 for (uint64_t val0 = val; ; nDigs++)
                     if (!(val0 /= nRadix))
                         break;
+
+                uint32_t retVal = nDigs;
 
                 for (sz[nDigs] = 0; ; val /= nRadix)
                 {
@@ -541,6 +543,8 @@ namespace Utils {
                     if (!nDigs)
                         break;
                 }
+
+                return retVal;
             }
 
             template <uint64_t x> struct Digits {
