@@ -293,7 +293,8 @@ ON_METHOD(my_account, move)
             {
                 cc.m_Context << pkForeign;
 
-                cc.Rcv_T(msp.m_Msg1, "Waiting for signer");
+                Env::WriteStr("Waiting for signer", Stream::Out);
+                cc.Rcv_T(msp.m_Msg1);
                 if ((msp.m_Msg1.m_hMin + 10 < h) || (msp.m_Msg1.m_hMin >= h + 20))
                     OnError("height insane");
 
@@ -315,7 +316,7 @@ ON_METHOD(my_account, move)
                 // send result back
                 cc.Send_T(msp.m_Msg2);
 
-                Env::DocAddText("", "Negotiation is over");
+                Env::WriteStr("Negotiation is over", Stream::Out);
             }
             else
             {
@@ -334,7 +335,8 @@ ON_METHOD(my_account, move)
                 p0.Export(msp.m_Msg1.m_pkSignerNonce); // both kernel and our key
 
                 cc.Send_T(msp.m_Msg1);
-                cc.Rcv_T(msp.m_Msg2, "Waiting for co-signer");
+                Env::WriteStr("Waiting for co-signer", Stream::Out);
+                cc.Rcv_T(msp.m_Msg2);
 
                 Secp_scalar_data e;
                 msp.InvokeKrn(e, &e);

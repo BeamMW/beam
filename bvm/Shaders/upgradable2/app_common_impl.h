@@ -452,7 +452,8 @@ struct ManagerUpgadable2
 					else
 					{
 						auto& cc = pPeers[iPeer];
-						auto& msg1 = cc.Rcv_T<Msg1>("waiting for co-signer nonce", false);
+						Env::WriteStr("waiting for co-signer nonce", Stream::Out);
+						auto& msg1 = cc.Rcv_T<Msg1>(false);
 
 
 						if (!p1.Import(msg1.m_pkMyNonce))
@@ -496,7 +497,8 @@ struct ManagerUpgadable2
 					else
 					{
 						auto& cc = pPeers[iPeer];
-						auto& msg3 = cc.Rcv_T<Msg3>("waiting for co-signer sig", false);
+						Env::WriteStr("waiting for co-signer sig", Stream::Out);
+						auto& msg3 = cc.Rcv_T<Msg3>(false);
 
 						if (!e.Import(msg3.m_kMySig))
 							return OnError("bad sig");
@@ -519,7 +521,8 @@ struct ManagerUpgadable2
 				p0.Export(msg1.m_pkMyNonce);
 				cc.Send_T(msg1);
 
-				cc.Rcv_T(m_Msg2, "waiting for sender");
+				Env::WriteStr("waiting for sender", Stream::Out);
+				cc.Rcv_T(m_Msg2);
 
 				if ((m_Msg2.m_hMin + 10 < h) || (m_Msg2.m_hMin >= h + 20))
 					OnError("height insane");

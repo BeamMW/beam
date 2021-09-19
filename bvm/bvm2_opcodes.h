@@ -434,8 +434,7 @@
 	macro(uint8_t, bKeep)
 
 #define BVMOp_Comm_WaitMsg(macro, sep) \
-	macro(uint32_t, nTimeout_ms) sep \
-	macro(const char*, szComment)
+	macro(uint32_t, nTimeout_ms)
 
 #define BVMOpsAll_Common(macro) \
 	macro(0x05, void     , Write) \

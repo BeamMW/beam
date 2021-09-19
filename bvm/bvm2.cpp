@@ -3033,11 +3033,10 @@ namespace bvm2 {
 
 	BVM_METHOD(Comm_WaitMsg)
 	{
-		return OnHost_Comm_WaitMsg(nTimeout_ms, RealizeStr(szComment));
+		return OnHost_Comm_WaitMsg(nTimeout_ms);
 	}
 	BVM_METHOD_HOST(Comm_WaitMsg)
 	{
-		// ignore comment
 		if (m_Comms.m_Rcv.empty())
 			Comm_Wait(nTimeout_ms);
 	}

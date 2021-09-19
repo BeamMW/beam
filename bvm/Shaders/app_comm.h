@@ -129,7 +129,7 @@ struct Comm
             m_Waiting = true;
         }
 
-        void RcvWait(const char* szWaitComment)
+        void RcvWait()
         {
             while (m_Waiting)
             {
@@ -138,18 +138,18 @@ struct Comm
                 if (nSize)
                     ((Channel*) nCookie)->ReadMsg(nSize);
                 else
-                    Env::Comm_WaitMsg(szWaitComment);
+                    Env::Comm_WaitMsg();
             }
         }
 
-        void RcvWaitExact(uint32_t nSize, const char* szWaitComment, bool bStartNow = true)
+        void RcvWaitExact(uint32_t nSize, bool bStartNow = true)
         {
             if (bStartNow)
                 RcvStart();
 
             while (true)
             {
-                RcvWait(szWaitComment);
+                RcvWait();
                 if (m_vMsg.m_Count == nSize)
                     break;
                 RcvStart();
@@ -157,16 +157,16 @@ struct Comm
         }
 
         template <typename T>
-        T& Rcv_T(const char* szWaitComment, bool bStartNow = true)
+        T& Rcv_T(bool bStartNow = true)
         {
-            RcvWaitExact(sizeof(T), szWaitComment, bStartNow);
+            RcvWaitExact(sizeof(T), bStartNow);
             return *(T*) m_vMsg.m_p;
         }
 
         template <typename T>
-        void Rcv_T(T& x, const char* szWaitComment, bool bStartNow = true)
+        void Rcv_T(T& x, bool bStartNow = true)
         {
-            _POD_(x) = Rcv_T<T>(szWaitComment, bStartNow);
+            _POD_(x) = Rcv_T<T>(bStartNow);
         }
     };
 };

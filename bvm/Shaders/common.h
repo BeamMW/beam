@@ -167,9 +167,9 @@ namespace Env {
         }
     };
 	
-    inline void Comm_WaitMsg(const char* szWaitComment)
+    inline void Comm_WaitMsg()
     {
-        Comm_WaitMsg(static_cast<uint32_t>(-1), szWaitComment); // wait forever
+        Comm_WaitMsg(static_cast<uint32_t>(-1)); // wait forever
     }
 
     template <typename T>
@@ -234,6 +234,13 @@ namespace Env {
     inline bool DocGet(const char* szID, PubKey& val) {
         return DocGetBlobEx(szID, &val, sizeof(val));
     }
+
+    template <uint32_t n>
+    void WriteStr(const char(&sz)[n], uint32_t iStream)
+    {
+        Env::Write(sz, n - 1, iStream);
+    }
+
 
     // variable enum/read wrappers
 #pragma pack (push, 1)
