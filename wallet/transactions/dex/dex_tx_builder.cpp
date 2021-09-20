@@ -39,6 +39,9 @@ namespace beam::wallet
 
         if (m_IsSender)
         {
+            // Here we swap receive & send amounts
+            // It will reduce code for inputs & outputs creation,
+            // it will be the same for sender & receiver
             msg
                 .AddParameter(TxParameterID::Amount, m_ReceiveAmount)
                 .AddParameter(TxParameterID::AssetID, m_ReceiveAssetID)

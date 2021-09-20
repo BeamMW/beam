@@ -220,27 +220,31 @@ namespace beam::wallet
 
             UpdateTxDescription(TxStatus::InProgress);
 
+            std::stringstream ss;
+            ss << GetTxID()
+               << " Sending via DEX "
+               << PrintableAmount(_builder->m_Amount, false, _builder->m_AssetID)
+               << " and Receiving "
+               << PrintableAmount(_builder->m_ReceiveAmount, false, _builder->m_ReceiveAssetID);
+
+            ss << " (fee: " << PrintableAmount(_builder->m_Fee) << ")";
+            LOG_INFO() << ss.str();
+
             BaseTxBuilder::Balance bb(*_builder);
+            bb.m_Map[_builder->m_AssetID].m_Value -= _builder->m_Amount;
+            bb.m_Map[_builder->m_ReceiveAssetID].m_Value += _builder->m_ReceiveAmount;
+            bb.CreateOutput(_builder->m_ReceiveAmount, _builder->m_ReceiveAssetID, Key::Type::Regular);
+
             if (_builder->m_IsSender)
             {
-                bb.m_Map[_builder->m_AssetID].m_Value -= _builder->m_Amount;
                 bb.m_Map[Asset::s_BeamID].m_Value -= _builder->m_Fee;
-                // bb.m_Map[_builder->m_ReceiveAssetID].m_Value += _builder->m_ReceiveAmount; done in CreateOutput
-                bb.CreateOutput(_builder->m_ReceiveAmount, _builder->m_ReceiveAssetID, Key::Type::Regular);
-
                 Height maxResponseHeight = 0;
                 if (GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight))
                 {
                     LOG_INFO() << GetTxID() << " Max height for response: " << maxResponseHeight;
                 }
             }
-            else
-            {
-                bb.m_Map[_builder->m_ReceiveAssetID].m_Value -= _builder->m_ReceiveAmount;
-                // bb.m_Map[_builder->m_AssetID].m_Value += _builder->m_Amount; done in CreateOutput
-                bb.CreateOutput(_builder->m_Amount, _builder->m_AssetID, Key::Type::Regular);
-                //throw std::runtime_error("ERROR!");
-            }
+
             bb.CompleteBalance();
 
             //
@@ -253,29 +257,6 @@ namespace beam::wallet
                 _builder->CheckMinimumFee(&tsExtra);
             }
 
-            std::stringstream ss;
-            ss << GetTxID();
-
-            if (_builder->m_IsSender)
-            {
-                ss << " Sending via DEX "
-                   << PrintableAmount(_builder->m_Amount, false, _builder->m_AssetID);
-
-                ss << " and Receiving "
-                   << PrintableAmount(_builder->m_ReceiveAmount, false, _builder->m_ReceiveAssetID);
-            }
-            else
-            {
-                ss << " Receiving via DEX "
-                   << PrintableAmount(_builder->m_Amount, false, _builder->m_AssetID);
-
-                ss << " and Sending "
-                   << PrintableAmount(_builder->m_ReceiveAmount, false, _builder->m_ReceiveAssetID);
-            }
-
-            ss << " (fee: " << PrintableAmount(_builder->m_Fee) << ")";
-
-            LOG_INFO() << ss.str();
             _builder->SaveCoins();
         }
 

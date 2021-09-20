@@ -1236,6 +1236,10 @@ namespace beam::wallet
                 LOG_ERROR() << e.what();
             }
         }
+        else
+        {
+            throw std::runtime_error("DEX is not available/enabled");
+        }
     }
 
     void WalletClient::acceptDexOrder(const DexOrderID& orderId)
@@ -1244,6 +1248,10 @@ namespace beam::wallet
         {
             if (auto order = dex->getOrder(orderId))
             {
+                LOG_INFO() << "Accepting dex order: "
+                           << "send " << PrintableAmount(order->getISendAmount(), false,order->getISendCoin())
+                           << ", receive " << PrintableAmount(order->getIReceiveAmount(), false,order->getIReceiveCoin());
+
                 auto params = CreateDexTransactionParams(
                                 orderId,
                                 order->getSBBSID(),
@@ -1254,6 +1262,10 @@ namespace beam::wallet
 
                 startTransaction(std::move(params));
             }
+        }
+        else
+        {
+            throw std::runtime_error("DEX is not available/enabled");
         }
 
         /*if (auto dex = _dex.lock())

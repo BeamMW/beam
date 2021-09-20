@@ -29,5 +29,6 @@ namespace beam::wallet
 
     protected:
         void SendToPeer(SetTxParameter&& msgSub) override;
+        bool IsConventional() override { return false; }
     };
 }
