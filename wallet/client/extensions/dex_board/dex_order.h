@@ -32,14 +32,14 @@ namespace beam::wallet
 
         DexOrder() = default;
         DexOrder(const ByteBuffer& buffer, const ByteBuffer& signature, beam::Key::IKdf::Ptr);
-        DexOrder(DexOrderID orderId,
-                 WalletID   sbbsId,
-                 uint64_t   sbbsKeyIdx,
-                 DexMarket  market,
+        DexOrder(DexOrderID    orderId,
+                 WalletID      sbbsId,
+                 uint64_t      sbbsKeyIdx,
+                 DexMarket     market,
                  DexMarketSide side,
-                 Amount     size,
-                 Amount     price,
-                 Timestamp  expiration);
+                 Amount        size,
+                 Amount        price,
+                 Timestamp     expiration);
 
         bool operator==(const DexOrder& other) const
         {
