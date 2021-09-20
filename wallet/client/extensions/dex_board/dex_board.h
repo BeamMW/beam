@@ -36,7 +36,7 @@ namespace beam::wallet {
         [[nodiscard]] boost::optional<DexOrder> getOrder(const DexOrderID&) const;
 
         void publishOrder(const DexOrder&);
-        //void acceptOrder(const DexOrderID& id);
+        void acceptOrder(const DexOrderID& id);
 
         void Subscribe(IObserver* observer)
         {

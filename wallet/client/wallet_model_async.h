@@ -55,8 +55,6 @@ namespace beam::wallet
 
         virtual void getDexOrders() = 0;
         virtual void publishDexOrder(const DexOrder&) = 0;
-
-        // TODO:DEX this is only for test, if will remain consider replacing QString to actual type
         virtual void acceptDexOrder(const DexOrderID&) = 0;
 
         virtual void deleteAddress(const WalletID& addr) = 0;

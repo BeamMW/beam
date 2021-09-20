@@ -1223,62 +1223,28 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::publishDexOrder(const DexOrder& offer)
+    void WalletClient::publishDexOrder(const DexOrder& order)
     {
         if (auto dex = _dex.lock())
         {
-            try
-            {
-                dex->publishOrder(offer);
-            }
-            catch (const std::runtime_error& e)
-            {
-                LOG_ERROR() << e.what();
-            }
+            dex->publishOrder(order);
+            return;
         }
-        else
-        {
-            throw std::runtime_error("DEX is not available/enabled");
-        }
+
+        assert(false);
+        LOG_WARNING() << "WalletClient::publishDexOrder but DEX is not available";
     }
 
     void WalletClient::acceptDexOrder(const DexOrderID& orderId)
     {
         if (auto dex = _dex.lock())
         {
-            if (auto order = dex->getOrder(orderId))
-            {
-                LOG_INFO() << "Accepting dex order: "
-                           << "send " << PrintableAmount(order->getISendAmount(), false,order->getISendCoin())
-                           << ", receive " << PrintableAmount(order->getIReceiveAmount(), false,order->getIReceiveCoin());
-
-                auto params = CreateDexTransactionParams(
-                                orderId,
-                                order->getSBBSID(),
-                                order->getISendCoin(),
-                                order->getISendAmount(),
-                                order->getIReceiveCoin(),
-                                order->getIReceiveAmount());
-
-                startTransaction(std::move(params));
-            }
-        }
-        else
-        {
-            throw std::runtime_error("DEX is not available/enabled");
+            dex->acceptOrder(orderId);
+            return;
         }
 
-        /*if (auto dex = _dex.lock())
-        {
-            try
-            {
-                dex->acceptOrder(orderId);
-            }
-            catch (const std::runtime_error& e)
-            {
-                LOG_ERROR() << e.what();
-            }
-        }*/
+        assert(false);
+        LOG_WARNING() << "WalletClient::acceptDexOrder but DEX is not available";
     }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
