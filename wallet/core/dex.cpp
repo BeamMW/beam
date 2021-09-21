@@ -16,8 +16,10 @@
 // TODO:DEX getrandom not available until API 28 in the Android NDK 17b
 // https://github.com/boostorg/uuid/issues/76 - should be already fixed here
 // but somewhy doesn't compile MUST FIX THIS, commented only temporary
-#if defined(__ANDROID__) and  (__ANDROID_API__ < 28)
+#if defined(__ANDROID__)
+#if (__ANDROID_API__ < 28)
 #define BOOST_UUID_RANDOM_PROVIDER_DISABLE_GETRANDOM 1
+#endif
 #endif
 
 #include "boost/uuid/random_generator.hpp"
