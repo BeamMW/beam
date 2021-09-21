@@ -55,6 +55,7 @@ namespace beam::wallet
         CheckSenderAddress(initialParams, _wdb);
         auto params = ProcessReceiverAddress(initialParams, _wdb, true);
 
+        // TODO: check if isSelf only, if not self set from External source
         const auto orderId = params.GetParameter<DexOrderID>(TxParameterID::DexOrderID);
         if (!orderId)
         {
@@ -159,6 +160,7 @@ namespace beam::wallet
         case TxParameterID::AssetID:
         case TxParameterID::DexReceiveAmount:
         case TxParameterID::DexReceiveAsset:
+        case TxParameterID::ExternalDexOrderID:
         case TxParameterID::Fee:
         case TxParameterID::MinHeight: // TODO:DEX check where set
         case TxParameterID::MaxHeight: // TODO:DEX check where set

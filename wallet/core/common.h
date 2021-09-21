@@ -330,6 +330,7 @@ namespace beam::wallet
     MACRO(PeerLockImage,                   115, Hash::Value) \
     MACRO(AssetMetadata,                   116, std::string)\
     MACRO(DexOrderID,                      117, DexOrderID) \
+    MACRO(ExternalDexOrderID,              118, DexOrderID) \
     MACRO(ExchangeRates,                   120, std::vector<ExchangeRate>) \
     MACRO(OriginalToken,                   121, std::string) \
     /* Lelantus */ \
@@ -686,6 +687,17 @@ namespace beam::wallet
             const ByteBuffer& b = pit->second;
             fromByteBuffer(b, value);
             return true;
+        }
+
+        template <typename T>
+        T GetParameterOrDefault(TxParameterID paramID, const T& defval = T()) const
+        {
+            T val;
+            if (GetParameter(paramID, val))
+            {
+                return val;
+            }
+            return defval;
         }
 
         SERIALIZE(m_From, m_TxID, m_Type, m_Parameters);

@@ -23,6 +23,7 @@ namespace beam::wallet
 
         GetParameter(TxParameterID::DexReceiveAsset, m_ReceiveAssetID);
         GetParameter(TxParameterID::DexReceiveAmount, m_ReceiveAmount);
+        GetParameter(TxParameterID::DexOrderID, m_orderID);
     }
 
     void DexSimpleSwapBuilder::SendToPeer(SetTxParameter&& msg)
@@ -47,6 +48,7 @@ namespace beam::wallet
                 .AddParameter(TxParameterID::AssetID, m_ReceiveAssetID)
                 .AddParameter(TxParameterID::DexReceiveAsset, m_AssetID)
                 .AddParameter(TxParameterID::DexReceiveAmount, m_Amount)
+                .AddParameter(TxParameterID::ExternalDexOrderID, m_orderID)
                 .AddParameter(TxParameterID::Fee, m_Fee)
                 .AddParameter(TxParameterID::MinHeight, m_Height.m_Min)
                 .AddParameter(TxParameterID::Lifetime, m_Lifetime)

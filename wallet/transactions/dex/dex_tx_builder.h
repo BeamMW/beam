@@ -26,6 +26,7 @@ namespace beam::wallet
 
         Asset::ID m_ReceiveAssetID = 0;
         Amount m_ReceiveAmount = 0;
+        DexOrderID m_orderID;
 
     protected:
         void SendToPeer(SetTxParameter&& msgSub) override;

@@ -149,15 +149,15 @@ namespace beam::wallet {
         }
     }
 
-    bool DexBoard::onNewSimpleSwap(const SetTxParameter& msg)
+    bool DexBoard::acceptIncomingDexSS(const SetTxParameter& msg)
     {
-        // TODO:DEX check if we have an order to accept
+        // TODO:DEX perform real check
         // always true is only for tests
         return true;
     }
 
-    void DexBoard::onSimpleSwapConstructed(BaseTransaction::Ptr)
+    void DexBoard::onDexTxCreated(const SetTxParameter& msg, BaseTransaction::Ptr)
     {
-        // TODO:DEX set order id and connect order to tx
+        // TODO:DEX associate with the real order
     }
 }

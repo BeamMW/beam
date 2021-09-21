@@ -87,13 +87,13 @@ namespace beam::wallet
         // @param id - connected node peer id
         // @param connected - true if node has connected otherwise false
         virtual void onOwnedNode(const PeerID& id, bool connected) {}
+    };
 
+    struct ISimpleSwapHandler
+    {
         // Callback on DexSimpleSwapTx received from peer
-        // If we should accept this Tx return true from callback
-        virtual bool onNewSimpleSwap(const SetTxParameter& msg) {return false;}
-
-        // DexSimpleSwapTx received from peer and transaction is successfully created
-        virtual void onSimpleSwapConstructed(BaseTransaction::Ptr) {}
+        virtual bool acceptIncomingDexSS(const SetTxParameter& msg) {return false;}
+        virtual void onDexTxCreated(const SetTxParameter& msg, BaseTransaction::Ptr) {}
     };
     
     // Interface for wallet message consumer
@@ -161,6 +161,8 @@ namespace beam::wallet
         
         void Subscribe(IWalletObserver* observer);
         void Unsubscribe(IWalletObserver* observer);
+        void Subscribe(ISimpleSwapHandler*);
+        void Unsubscribe(ISimpleSwapHandler*);
         void ResumeAllTransactions();
         void VisitActiveTransaction(const TxVisitor& visitor);
 
@@ -471,6 +473,7 @@ namespace beam::wallet
         uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;
+        ISimpleSwapHandler* m_ssHandler = nullptr;
 
         // Counter of running transaction updates. Used by Cold wallet
         int m_AsyncUpdateCounter = 0;

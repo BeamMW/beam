@@ -2003,21 +2003,36 @@ namespace beam::wallet
     void Wallet::Subscribe(IWalletObserver* observer)
     {
         assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
-
         m_subscribers.push_back(observer);
-
         m_WalletDB->Subscribe(observer);
     }
 
     void Wallet::Unsubscribe(IWalletObserver* observer)
     {
         auto it = std::find(m_subscribers.begin(), m_subscribers.end(), observer);
-
         assert(it != m_subscribers.end());
-
         m_subscribers.erase(it);
-
         m_WalletDB->Unsubscribe(observer);
+    }
+
+    void Wallet::Subscribe(ISimpleSwapHandler* handler)
+    {
+        if (m_ssHandler)
+        {
+            assert(false);
+            throw std::runtime_error("Can be only one SimpleSwap handler");
+        }
+        m_ssHandler = handler;
+    }
+
+    void Wallet::Unsubscribe(ISimpleSwapHandler* handler)
+    {
+        if (m_ssHandler != handler)
+        {
+            assert(false);
+            throw std::runtime_error("Unexpected SimpleSwap unsubscribe");
+        }
+        m_ssHandler = nullptr;
     }
 
     void Wallet::OnTransactionMsg(const WalletID& myID, const SetTxParameter& msg)
@@ -2096,23 +2111,26 @@ namespace beam::wallet
             return;
         }
 
+        if (msg.m_Type == TxType::DexSimpleSwap)
+        {
+            if (m_ssHandler == nullptr)
+            {
+                LOG_WARNING() << "DexSimpleSwap tx is received but feature is disabled. " << "TxID is " << msg.m_TxID;
+                return;
+            }
+        }
+
         if (msg.m_Type == TxType::Simple || msg.m_Type == TxType::DexSimpleSwap)
         {
-            // TODO: forward to DEX board
             if (msg.m_Type == TxType::DexSimpleSwap)
             {
-                bool accept = false;
-                for (const auto sub: m_subscribers)
+                if (!m_ssHandler->acceptIncomingDexSS(msg))
                 {
-                    if (sub->onNewSimpleSwap(msg))
-                    {
-                        accept = true;
-                    }
-                }
-
-                if (!accept)
-                {
-                    LOG_INFO() << "Incoming DexSimpleSwap is rejected: " << msg.m_TxID;
+                    // TODO:DEX create tx and fail tx with rejected reason to make the peer not wait
+                    LOG_INFO() << "Incoming DexSimpleSwap rejected. "
+                               << "DexOrderID [" << msg.GetParameterOrDefault<DexOrderID>(TxParameterID::ExternalDexOrderID) << "] "
+                               << "TxID " << msg.m_TxID;
+                    return;
                 }
             }
 
@@ -2120,14 +2138,6 @@ namespace beam::wallet
             if (!pTx)
             {
                 return;
-            }
-
-            if (msg.m_Type == TxType::DexSimpleSwap)
-            {
-                for (const auto sub: m_subscribers)
-                {
-                    sub->onSimpleSwapConstructed(pTx);
-                }
             }
 
             pTx->SetParameter(TxParameterID::TransactionType, msg.m_Type, true);
@@ -2147,6 +2157,12 @@ namespace beam::wallet
             MakeTransactionActive(pTx);
             ApplyTransactionParameters(pTx, msg.m_Parameters, false);
             UpdateTransaction(pTx);
+
+            if (msg.m_Type == TxType::DexSimpleSwap)
+            {
+                m_ssHandler->onDexTxCreated(msg, pTx);
+                LOG_INFO() << "Incoming DexSimpleSwap accepted. TxID is " << msg.m_TxID;
+            }
         }
         else
         {
