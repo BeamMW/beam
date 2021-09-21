@@ -2065,40 +2065,97 @@ namespace beam::wallet
             return;
         }
 
-        TxType type = TxType::Simple;
-        if (storage::getTxParameter(*m_WalletDB, msg.m_TxID, TxParameterID::TransactionType, type))
-            // we return only active transactions
-            return;
-
-        if (msg.m_Type == TxType::AtomicSwap)
-            return; // we don't create swap from SBBS message
-
-        bool isSender = false;
-        if (!msg.GetParameter(TxParameterID::IsSender, isSender) || isSender == true)
-            return;
-
-        BaseTransaction::Ptr pTx = ConstructTransaction(msg.m_TxID, msg.m_Type);
-        if (!pTx)
-            return;
-
-        pTx->SetParameter(TxParameterID::TransactionType, msg.m_Type, true);
-        pTx->SetParameter(TxParameterID::CreateTime, getTimestamp(), true); // true in order to get ChangeAction::Added
-        pTx->SetParameter(TxParameterID::MyID, myID, false);
-        pTx->SetParameter(TxParameterID::PeerID, msg.m_From, false);
-        pTx->SetParameter(TxParameterID::IsInitiator, false, false);
-        pTx->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
-
-        auto address = m_WalletDB->getAddress(myID);
-        if (address.is_initialized())
         {
-            ByteBuffer message(address->m_label.begin(), address->m_label.end());
-            pTx->SetParameter(TxParameterID::Message, message);
+            TxType type = TxType::Simple;
+            if (storage::getTxParameter(*m_WalletDB, msg.m_TxID, TxParameterID::TransactionType, type)) {
+                // This request has already been processed
+                // assert should always be OK, if triggered means that we have mistake in the code OR
+                // somebody is trying to tamper with our transactions
+                assert(type == msg.m_Type);
+                return;
+            }
         }
 
-        MakeTransactionActive(pTx);
-        ApplyTransactionParameters(pTx, msg.m_Parameters, false);
+        if (msg.m_Type == TxType::AtomicSwap)
+        {
+            // we don't create swap from SBBS message
+            return;
+        }
 
-        UpdateTransaction(pTx);
+        bool isSender = false;
+        if (!msg.GetParameter(TxParameterID::IsSender, isSender))
+        {
+            // we don't accept txs without IsSender
+            return;
+        }
+
+        if (isSender)
+        {
+            // this is our transaction. Should never happen
+            assert(false);
+            return;
+        }
+
+        if (msg.m_Type == TxType::Simple || msg.m_Type == TxType::DexSimpleSwap)
+        {
+            // TODO: forward to DEX board
+            if (msg.m_Type == TxType::DexSimpleSwap)
+            {
+                bool accept = false;
+                for (const auto sub: m_subscribers)
+                {
+                    if (sub->onNewSimpleSwap(msg))
+                    {
+                        accept = true;
+                    }
+                }
+
+                if (!accept)
+                {
+                    LOG_INFO() << "Incoming DexSimpleSwap is rejected: " << msg.m_TxID;
+                }
+            }
+
+            auto pTx = ConstructTransaction(msg.m_TxID, msg.m_Type);
+            if (!pTx)
+            {
+                return;
+            }
+
+            if (msg.m_Type == TxType::DexSimpleSwap)
+            {
+                for (const auto sub: m_subscribers)
+                {
+                    sub->onSimpleSwapConstructed(pTx);
+                }
+            }
+
+            pTx->SetParameter(TxParameterID::TransactionType, msg.m_Type, true);
+            pTx->SetParameter(TxParameterID::CreateTime, getTimestamp(),true);
+            pTx->SetParameter(TxParameterID::MyID, myID, false);
+            pTx->SetParameter(TxParameterID::PeerID, msg.m_From, false);
+            pTx->SetParameter(TxParameterID::IsInitiator, false, false);
+            pTx->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
+
+            auto address = m_WalletDB->getAddress(myID);
+            if (address.is_initialized())
+            {
+                ByteBuffer message(address->m_label.begin(), address->m_label.end());
+                pTx->SetParameter(TxParameterID::Message, message);
+            }
+
+            MakeTransactionActive(pTx);
+            ApplyTransactionParameters(pTx, msg.m_Parameters, false);
+            UpdateTransaction(pTx);
+        }
+        else
+        {
+            assert(false);
+            LOG_WARNING() << "Unsupported TX Type requested via SBBS: "
+                          << " type: " << static_cast<unsigned int>(msg.m_Type)
+                          << " txid: " << msg.m_TxID;
+            return;
+        }
     }
 
     BaseTransaction::Ptr Wallet::ConstructTransaction(const TxID& id, TxType type)

@@ -148,4 +148,16 @@ namespace beam::wallet {
             obs->onDexOrdersChanged(action, orders);
         }
     }
+
+    bool DexBoard::onNewSimpleSwap(const SetTxParameter& msg)
+    {
+        // TODO:DEX check if we have an order to accept
+        // always true is only for tests
+        return true;
+    }
+
+    void DexBoard::onSimpleSwapConstructed(BaseTransaction::Ptr)
+    {
+        // TODO:DEX set order id and connect order to tx
+    }
 }

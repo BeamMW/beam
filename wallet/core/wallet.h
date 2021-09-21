@@ -87,6 +87,13 @@ namespace beam::wallet
         // @param id - connected node peer id
         // @param connected - true if node has connected otherwise false
         virtual void onOwnedNode(const PeerID& id, bool connected) {}
+
+        // Callback on DexSimpleSwapTx received from peer
+        // If we should accept this Tx return true from callback
+        virtual bool onNewSimpleSwap(const SetTxParameter& msg) {return false;}
+
+        // DexSimpleSwapTx received from peer and transaction is successfully created
+        virtual void onSimpleSwapConstructed(BaseTransaction::Ptr) {}
     };
     
     // Interface for wallet message consumer

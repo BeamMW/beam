@@ -22,7 +22,7 @@ namespace beam::wallet {
     class WalletClient;
     class DexBoard
        : public IBroadcastListener
-       , public IWalletDbObserver
+       , public IWalletObserver
     {
     public:
         struct IObserver
@@ -57,6 +57,12 @@ namespace beam::wallet {
         //
         bool onMessage(uint64_t, ByteBuffer&&) override;
         bool onMessage(uint64_t, BroadcastMsg&&) override;
+
+        //
+        // IWalletObserver
+        //
+        bool onNewSimpleSwap(const SetTxParameter& msg) override;
+        void onSimpleSwapConstructed(BaseTransaction::Ptr) override;
 
         //
         // Serialization
