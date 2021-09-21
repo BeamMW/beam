@@ -142,7 +142,8 @@ namespace beam::wallet
             temp.SetParameter(TxParameterID::IsSelfTx, receiverAddr->isOwn());
             return temp;
         }
-        else if (savePeerAddress)
+
+        if (savePeerAddress)
         {
             WalletAddress address;
             address.m_walletID = *peerID;
@@ -155,11 +156,12 @@ namespace beam::wallet
             {
                 address.m_Identity = *identity;
             }
-
             walletDB->saveAddress(address);
         }
-        
-        return parameters;
+
+        TxParameters temp{parameters};
+        temp.SetParameter(TxParameterID::IsSelfTx, false);
+        return temp;
     }
     
     Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
@@ -2106,7 +2108,7 @@ namespace beam::wallet
 
         if (isSender)
         {
-            // this is our transaction. Should never happen
+            // TxParameterID::IsSender should always be false if it is coming from outside
             assert(false);
             return;
         }

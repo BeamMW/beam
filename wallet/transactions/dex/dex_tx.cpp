@@ -55,15 +55,6 @@ namespace beam::wallet
         CheckSenderAddress(initialParams, _wdb);
         auto params = ProcessReceiverAddress(initialParams, _wdb, true);
 
-        // TODO: check if isSelf only, if not self set from External source
-        const auto orderId = params.GetParameter<DexOrderID>(TxParameterID::DexOrderID);
-        if (!orderId)
-        {
-            throw InvalidTransactionParametersException("DexSimpleSwap missing order id");
-        }
-
-        // TODO:DEX this is not good, TxParameterID::IsSelfTx seems to be dropped
-        /*
         const auto selfTx = params.GetParameter<bool>(TxParameterID::IsSelfTx);
         if (!selfTx)
         {
@@ -74,7 +65,14 @@ namespace beam::wallet
         {
             throw InvalidTransactionParametersException("DexSimpleSwap transaction cannot be sent to the self");
         }
-        */
+
+        // TODO: check if set correctly for OUR & External transactions
+        //       Should not come from external source but set to order found in locally kept orders
+        const auto orderId = params.GetParameter<DexOrderID>(TxParameterID::DexOrderID);
+        if (!orderId)
+        {
+            throw InvalidTransactionParametersException("DexSimpleSwap missing order id");
+        }
 
         //
         // Check Peer
@@ -86,9 +84,9 @@ namespace beam::wallet
         }
 
         const auto peeraddr = _wdb->getAddress(*peerID);
-        if (peeraddr && peeraddr->isOwn())
+        if (peeraddr)
         {
-            throw InvalidTransactionParametersException("DexSimpleSwap transaction cannot be sent to the self");
+            throw InvalidTransactionParametersException("DexSimpleSwap transaction should not save peer adddress");
         }
 
         //
