@@ -39,6 +39,9 @@
 #include <regex>
 #include <limits>
 
+#include "dao/web_api_creator.h"
+
+
 #define WALLET_FILENAME "wallet.db"
 #define BBS_FILENAME "keys.bbs"
 
@@ -56,7 +59,7 @@ namespace
     // this code for node
     static unique_ptr<NodeModel> nodeModel;
 
-    static unique_ptr<WalletModel> walletModel;
+    static WalletModel::Ptr walletModel;
 
     static IWalletDB::Ptr walletDB;
     static Reactor::Ptr reactor;
@@ -68,6 +71,8 @@ namespace
     static uint32_t m_confirmationOffset = 0;
     static ShieldedVoucherList lastVouchers;
     static std::string lastWalledId("");
+
+    static WebAPICreator webAPICreator;
 
     void initLogger(const string& appData, const string& appVersion)
     {
@@ -432,12 +437,14 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 
         if (restore)
         {
-            walletModel = make_unique<WalletModel>(walletDB, "127.0.0.1:10005", reactor);
+            walletModel = make_shared<WalletModel>(walletDB, "127.0.0.1:10005", reactor);
         }
         else
         {
-            walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
+            walletModel = make_shared<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
         }
+
+       // webAPICreator = WebAPICreator();
 
         jobject walletObj = env->AllocObject(WalletClass);
 
@@ -1139,6 +1146,46 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(isSynced)(JNIEnv *env, job
     return isSynced;
 }
 
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(launchApp)(JNIEnv *env, jobject thiz, jstring name, jstring url)
+{
+        
+    auto _name = JString(env, name).value();
+    auto _url = JString(env, url).value();
+
+    auto appId = webAPICreator.generateAppID(_name, _url);
+
+    try
+    {
+        auto verWant = "current";
+        auto verMin  = "";
+        webAPICreator.createApi(walletModel, verWant, verMin, _name, _url);
+    }
+    catch (...)
+    {
+        LOG_DEBUG() << "launchApp error ";
+    }
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(callWalletApi)(JNIEnv *env, jobject thiz, jstring json)
+{
+    auto request = JString(env, json).value();
+    webAPICreator._api->contractInfoRejected(request);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(contractInfoApproved)(JNIEnv *env, jobject thiz, jstring json)
+{
+    auto request = JString(env, json).value();
+    webAPICreator._api->contractInfoRejected(request);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(contractInfoRejected)(JNIEnv *env, jobject thiz, jstring json)
+{
+    auto request = JString(env, json).value();
+    webAPICreator._api->contractInfoRejected(request);
+}
+
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv *env;
@@ -1225,6 +1272,13 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
         AssetInfoClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
         env->DeleteLocalRef(cls);
     }
+
+        {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/ContractConsentDTO");
+        ContractConsetClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
+    }
+
 
     return JNI_VERSION_1_6;
 }
