@@ -167,6 +167,10 @@ void TestTreasuryRestore()
         WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Value == 38000000);
         WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Key.m_IsCreatedByViewer == true);
         WALLET_CHECK(shieldedCoins[0].m_Status == ShieldedCoin::Status::Available);
+
+        uint32_t nStatus = static_cast<uint32_t>(shieldedCoins[0].m_Status);
+        cout << "@@@ coin status: " << nStatus << std::endl;
+        
     }
 }
 
