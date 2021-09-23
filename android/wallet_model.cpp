@@ -92,7 +92,69 @@ namespace
 
         setIntField(env, TxDescriptionClass, tx, "assetId", txDescription.m_assetId);
 
-        if(txDescription.m_txType == wallet::TxType::PushTransaction) {
+        if (txDescription.m_txType == wallet::TxType::Contract) {
+            setBooleanField(env, TxDescriptionClass, tx, "isDapps", true);
+
+            bvm2::ContractInvokeData vData;
+            Height h = txDescription.m_minHeight;
+
+            if (auto strdesc = txDescription.GetParameter<std::string>(beam::wallet::TxParameterID::AppName))
+            {
+                setStringField(env, TxDescriptionClass, tx, "appName", strdesc->c_str());
+            }
+            
+            if (auto strid = txDescription.GetParameter<std::string>(beam::wallet::TxParameterID::AppID))
+            {
+                setStringField(env, TxDescriptionClass, tx, "appID", strid->c_str());
+            }
+            
+            if(txDescription.GetParameter(TxParameterID::ContractDataPacked, vData))
+            {
+                if (!vData.empty())
+                {
+                    std::stringstream ss;
+                    ss << vData[0].m_Cid.str();
+                    
+                    if (vData.size() > 1)
+                    {
+                        ss << " +" << vData.size() - 1;
+                    }
+                    
+                    setStringField(env, TxDescriptionClass, tx, "contractCids", ss.str().c_str());
+                }
+                
+                auto contractFee = bvm2::getFullFee(vData, h);
+                auto contractSpend = bvm2::getFullSpend(vData);
+                
+                setLongField(env, TxDescriptionClass, tx, "fee", contractFee);
+
+
+                auto mainAmount = txDescription.m_amount;
+                for (const auto& info: contractSpend)
+                {
+                    auto amount = info.second;
+                    if (info.first == beam::Asset::s_BeamID)
+                    {
+                        if (amount < 0)
+                        {
+                            amount += contractFee;
+                        }
+                    }
+                    
+                    mainAmount = mainAmount + amount;
+                }
+                
+
+                setBooleanField(env, TxDescriptionClass, tx, "sender", mainAmount <= 0);
+                
+                if (mainAmount < 0) {
+                    mainAmount = mainAmount * -1;
+                }
+
+                setLongField(env, TxDescriptionClass, tx, "amount", mainAmount);
+            }
+        }
+        else if(txDescription.m_txType == wallet::TxType::PushTransaction) {
             auto token = txDescription.getToken();
             if (token.size() > 0) { //send
                 auto p = wallet::ParseParameters(token);

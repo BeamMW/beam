@@ -100,9 +100,9 @@ void AppsApiUI::ClientThread_getSendConsent(const std::string& request, const nl
 
     jobject contractConset = env->AllocObject(ContractConsetClass);
     {   
-        setStringField(env, ContractConsetClass, contractConset, "json", request);
+        setStringField(env, ContractConsetClass, contractConset, "request", request);
         setStringField(env, ContractConsetClass, contractConset, "info", info);
-        setStringField(env, ContractConsetClass, contractConset, "amount", amounts);
+        setStringField(env, ContractConsetClass, contractConset, "amounts", amounts);
     }
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "approveSend", "(L" BEAM_JAVA_PATH "/entities/dto/ContractConsentDTO;)V");
@@ -120,9 +120,9 @@ void AppsApiUI::ClientThread_getContractConsent(const std::string& request, cons
 
     jobject contractConset = env->AllocObject(ContractConsetClass);
     {   
-        setStringField(env, ContractConsetClass, contractConset, "json", request);
+        setStringField(env, ContractConsetClass, contractConset, "request", request);
         setStringField(env, ContractConsetClass, contractConset, "info", info);
-        setStringField(env, ContractConsetClass, contractConset, "amount", amounts);
+        setStringField(env, ContractConsetClass, contractConset, "amounts", amounts);
     }
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "approveContractInfo", "(L" BEAM_JAVA_PATH "/entities/dto/ContractConsentDTO;)V");

@@ -21,6 +21,7 @@
 #include "wallet/transactions/lelantus/push_transaction.h"
 #include "wallet/core/simple_transaction.h"
 #include "wallet/core/common_utils.h"
+#include "wallet/transactions/dex/dex_tx.h"
 
 #include "utility/bridge.h"
 #include "utility/string_helpers.h"
@@ -72,7 +73,7 @@ namespace
     static ShieldedVoucherList lastVouchers;
     static std::string lastWalledId("");
 
-    static WebAPICreator webAPICreator;
+    static unique_ptr<WebAPICreator> webAPICreator;
 
     void initLogger(const string& appData, const string& appVersion)
     {
@@ -443,18 +444,19 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         {
             walletModel = make_shared<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
         }
-
-       // webAPICreator = WebAPICreator();
-
+ 
         jobject walletObj = env->AllocObject(WalletClass);
 
         auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>([=]() { return walletDB; });
         
         auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
         additionalTxCreators->emplace(TxType::PushTransaction, pushTxCreator);
-        
+        additionalTxCreators->emplace(TxType::DexSimpleSwap, std::make_shared<DexTransaction::Creator>(walletDB));
+
         
         walletModel->start(initNotifications(true), true, additionalTxCreators);
+
+        webAPICreator = make_unique<WebAPICreator>();
 
         return walletObj;
     }
@@ -522,8 +524,11 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
         
         auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
         additionalTxCreators->emplace(TxType::PushTransaction, pushTxCreator);
-        
+        additionalTxCreators->emplace(TxType::DexSimpleSwap, std::make_shared<DexTransaction::Creator>(walletDB));
+
         walletModel->start(initNotifications(true), true, additionalTxCreators);
+
+        webAPICreator = make_unique<WebAPICreator>();
 
         return walletObj;
     }
@@ -1153,13 +1158,11 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(launchApp)(JNIEnv *env, jobjec
     auto _name = JString(env, name).value();
     auto _url = JString(env, url).value();
 
-    auto appId = webAPICreator.generateAppID(_name, _url);
-
     try
     {
         auto verWant = "current";
         auto verMin  = "";
-        webAPICreator.createApi(walletModel, verWant, verMin, _name, _url);
+        webAPICreator->createApi(walletModel, verWant, verMin, _name, _url);
     }
     catch (...)
     {
@@ -1170,19 +1173,19 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(launchApp)(JNIEnv *env, jobjec
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(callWalletApi)(JNIEnv *env, jobject thiz, jstring json)
 {
     auto request = JString(env, json).value();
-    webAPICreator._api->contractInfoRejected(request);
+    webAPICreator->_api->callWalletApi(request);
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(contractInfoApproved)(JNIEnv *env, jobject thiz, jstring json)
 {
     auto request = JString(env, json).value();
-    webAPICreator._api->contractInfoRejected(request);
+    webAPICreator->_api->contractInfoApproved(request);
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(contractInfoRejected)(JNIEnv *env, jobject thiz, jstring json)
 {
     auto request = JString(env, json).value();
-    webAPICreator._api->contractInfoRejected(request);
+    webAPICreator->_api->contractInfoRejected(request);
 }
 
 
