@@ -2,7 +2,7 @@
 
 public class ContractConsentDTO
 {       
-    public String json;         
+    public String request;         
     public String info;
-    public String amount;
+    public String amounts;
 }

@@ -22,8 +22,8 @@
 class WebAPICreator {
     
 public:
-    explicit WebAPICreator();
-    
+    WebAPICreator();
+
     void createApi(WalletModel::Ptr walletModel, const std::string& verWant, const std::string& verMin, const std::string& appName, const std::string& appUrl);
     bool apiSupported(const std::string& apiVersion) const;
     std::string generateAppID(const std::string& appName, const std::string& appUrl);
