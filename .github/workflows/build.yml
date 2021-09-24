@@ -14,7 +14,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-10.15, ubuntu-16.04, ubuntu-18.04, windows-2019]
+        os: [macos-10.15, Ubuntu-16.04, ubuntu-18.04, windows-2019]
         #os: [macos-10.15, ubuntu-16.04, ubuntu-18.04, ubuntu-20.04, windows-2019]
 
     steps:
@@ -34,14 +34,14 @@ jobs:
 
     - name: Create Build Environment [ununtu all]
       shell: bash
-      if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'Ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
       run: |
         sudo apt-get update
         sudo apt-get install libssl-dev curl libxi-dev libcups2-dev -y
       
     - name: Create Build Environment [ubuntu-18.04]
       shell: bash
-      if: matrix.os == 'ubuntu-16.04'
+      if: matrix.os == 'Ubuntu-16.04'
       run: |
         sudo add-apt-repository ppa:ubuntu-toolchain-r/test
         sudo apt-get update
@@ -76,7 +76,7 @@ jobs:
         cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
 
     - name: Configure CMake [ununtu all]
-      if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'Ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
       run: |
         # git apply 3rdparty/protobuf-patch.diff
         cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=ON -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
@@ -104,7 +104,7 @@ jobs:
 
     - name: Build [ununtu all]
       shell: bash
-      if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'Ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
       run: make -j$(nproc)
 
     - name: Build [windows]
@@ -121,7 +121,7 @@ jobs:
       run: ctest -C $BUILD_TYPE --verbose
 
     - name: Test [ununtu all]
-      if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'Ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
       continue-on-error: false
       shell: bash
       run: ctest --verbose
@@ -152,7 +152,7 @@ jobs:
         codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp bvm/ethash_service/ethash-service
 
     - name: Checksum [ubuntu]
-      if: matrix.os == 'ubuntu-16.04' || matrix.os =='ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'Ubuntu-16.04' || matrix.os =='ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
       run: |
         sha256sum beam/beam-node${{env.BEAM_TARGET_SUFFIX}} > beam/beam-node${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
         sha256sum wallet/cli/beam-wallet${{env.BEAM_TARGET_SUFFIX}} > wallet/cli/beam-wallet${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
