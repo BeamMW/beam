@@ -241,7 +241,7 @@ namespace bvm2 {
 		FarCalls::Frame* pPrev = bInheritContext ? &m_FarCalls.m_Stack.back() : nullptr;
 
 		auto& x = *m_FarCalls.m_Stack.Create_back();
-
+		x.m_Local.m_Missing = 0;
 		x.m_Cid = cid;
 		x.m_FarRetAddr = nRetAddr;
 		x.m_StackBytesMax = m_Stack.m_BytesMax;
@@ -268,27 +268,86 @@ namespace bvm2 {
 
 	void ProcessorContract::OnRet(Wasm::Word nRetAddr)
 	{
-		if (!nRetAddr)
+		auto& x = m_FarCalls.m_Stack.back();
+		if (x.m_Local.m_Missing)
+			x.m_Local.m_Missing--;
+		else
 		{
-			Wasm::Test(m_Stack.m_Pos == m_Stack.m_PosMin);
-
-			auto& x = m_FarCalls.m_Stack.back();
-			Wasm::Test(m_Stack.m_BytesCurrent == x.m_StackBytesRet);
-
-			nRetAddr = x.m_FarRetAddr;
-
-			m_Stack.m_PosMin = x.m_StackPosMin;
-			m_Stack.m_BytesMax = x.m_StackBytesMax;
-
-			m_FarCalls.m_Stack.Delete(x);
-			if (m_FarCalls.m_Stack.empty())
-				return; // finished
-
-			m_Code = m_FarCalls.m_Stack.back().m_Body;
-			ParseMod(); // restore code/data sections
+			if (!x.m_Local.m_v.empty())
+				x.m_Local.m_v.pop_back();
 		}
 
-		Processor::OnRet(nRetAddr);
+		if (nRetAddr)
+			Processor::OnRet(nRetAddr);
+		else
+			OnRetFar();
+	}
+
+	void ProcessorContract::OnRetFar()
+	{
+		Wasm::Test(m_Stack.m_Pos == m_Stack.m_PosMin);
+
+		auto& x = m_FarCalls.m_Stack.back();
+		Wasm::Test(m_Stack.m_BytesCurrent == x.m_StackBytesRet);
+
+		Wasm::Word nRetAddr = x.m_FarRetAddr;
+
+		m_Stack.m_PosMin = x.m_StackPosMin;
+		m_Stack.m_BytesMax = x.m_StackBytesMax;
+
+		m_FarCalls.m_Stack.Delete(x);
+
+		if (!m_FarCalls.m_Stack.empty())
+		{
+			m_Code = m_FarCalls.m_Stack.back().m_Body;
+			ParseMod(); // restore code/data sections
+
+			Processor::OnRet(nRetAddr);
+		}
+	}
+
+	void ProcessorContract::OnCall(Wasm::Word nAddr)
+	{
+		if (m_FarCalls.m_SaveLocal)
+		{
+			auto& x = m_FarCalls.m_Stack.back();
+			if (x.m_Local.m_v.size() < x.m_Local.s_MaxEntries)
+			{
+				bool bWasEmpty = x.m_Local.m_v.empty();
+
+				auto& fl = x.m_Local.m_v.emplace_back();
+				fl.m_Addr = nAddr;
+				fl.m_CallerIp = bWasEmpty ? x.m_FarRetAddr : get_Ip();
+			}
+			else
+				x.m_Local.m_Missing++;
+		}
+
+		Processor::OnCall(nAddr);
+	}
+
+	void ProcessorContract::DumpCallstack(std::ostream& os) const
+	{
+		Wasm::Word ip = get_Ip();
+
+		for (auto itF = m_FarCalls.m_Stack.rbegin(); m_FarCalls.m_Stack.rend() != itF; itF++)
+		{
+			const auto& fr = *itF;
+
+			bvm2::ShaderID sid;
+			bvm2::get_ShaderID(sid, fr.m_Body); // theoretically m_Body may be different, the contract code may modify itself. Never mind.
+
+			os << std::endl << "Cid=" << fr.m_Cid << ", Sid=" << sid;
+
+			for (uint32_t i = (uint32_t) fr.m_Local.m_v.size(); i--; )
+			{
+				const auto& x = fr.m_Local.m_v[i];
+
+				os << std::endl << "Ip=" << uintBigFrom(x.m_Addr) << "+" << uintBigFrom(ip - x.m_Addr);
+				ip = x.m_CallerIp;
+			}
+
+		}
 	}
 
 	uint32_t ProcessorContract::get_HeapLimit()

@@ -2437,29 +2437,7 @@ struct NodeProcessor::BlockInterpretCtx
 
 		void ParseExtraInfo(ContractInvokeExtraInfo&, const bvm2::ShaderID&, uint32_t iMethod, const Blob& args);
 
-		struct DbgCallstack
-		{
-			struct Entry {
-				uint32_t m_FarFrames;
-				Wasm::Word m_CallerIp;
-				Wasm::Word m_Addr;
-			};
-
-			static const uint32_t s_MaxEntries = 256;
-
-			std::vector<Entry> m_v;
-			size_t m_Missing = 0;
-
-			bool m_Enable = false;
-
-		} m_DbgCallstack;
-
-		void DbgCallstackTrim();
-		void DumpCallstack(std::ostream&);
-		void DumpFarFrames(std::ostream&, intrusive::list_autoclear<FarCalls::Frame>::reverse_iterator&, uint32_t& nFrames, uint32_t nTrg);
-
 		virtual void CallFar(const bvm2::ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext) override;
-		virtual void OnCall(Wasm::Word nAddr) override;
 		virtual void OnRet(Wasm::Word nRetAddr) override;
 	};
 
@@ -4466,7 +4444,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 		m_Charge = m_Bic.m_ChargePerBlock;
 
 		if (m_Bic.m_pTxErrorInfo)
-			m_DbgCallstack.m_Enable = true;
+			m_FarCalls.m_SaveLocal = true;
 
 		InitStackPlus(m_Stack.AlignUp(static_cast<uint32_t>(krn.m_Args.size())));
 		m_Stack.PushAlias(krn.m_Args);
@@ -5093,91 +5071,6 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 	}
 }
 
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::DbgCallstackTrim()
-{
-	uint32_t nFarFrames = static_cast<uint32_t>(m_FarCalls.m_Stack.size());
-
-	for (; !m_DbgCallstack.m_v.empty(); m_DbgCallstack.m_v.pop_back())
-		if (m_DbgCallstack.m_v.back().m_FarFrames <= nFarFrames)
-			break;
-}
-
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::DumpCallstack(std::ostream& os)
-{
-	DbgCallstackTrim();
-
-	uint32_t nFarFrames = static_cast<uint32_t>(m_FarCalls.m_Stack.size());
-	auto itFrame = m_FarCalls.m_Stack.rbegin();
-
-	Wasm::Word ip = get_Ip();
-
-	for (uint32_t iDbg = static_cast<uint32_t>(m_DbgCallstack.m_v.size()); iDbg--; )
-	{
-		auto& x = m_DbgCallstack.m_v[iDbg];
-		DumpFarFrames(os, itFrame, nFarFrames, x.m_FarFrames);
-
-		os << std::endl << "Ip=" << uintBigFrom(x.m_Addr) << "+" << uintBigFrom(ip - x.m_Addr);
-		ip = x.m_CallerIp;
-	}
-
-	DumpFarFrames(os, itFrame, nFarFrames, 0);
-}
-
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::DumpFarFrames(std::ostream& os, intrusive::list_autoclear<FarCalls::Frame>::reverse_iterator& it, uint32_t& nFrames, uint32_t nTrg)
-{
-	assert(nFrames >= nTrg);
-	for (; nFrames > nTrg; nFrames--)
-	{
-		auto& fr = *it++;
-
-		bvm2::ShaderID sid;
-		bvm2::get_ShaderID(sid, fr.m_Body); // theoretically m_Body may be different, the contract code may modify itself. Never mind.
-
-		os << std::endl << "Cid=" << fr.m_Cid << ", Sid=" << sid;
-
-	}
-}
-
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::OnCall(Wasm::Word nAddr)
-{
-	if (m_DbgCallstack.m_Enable)
-	{
-		DbgCallstackTrim();
-
-		if (m_DbgCallstack.m_v.size() >= m_DbgCallstack.s_MaxEntries) {
-			m_DbgCallstack.m_Missing++;
-		}
-		else
-		{
-			assert(!m_FarCalls.m_Stack.empty());
-			uint32_t nFarFrames = static_cast<uint32_t>(m_FarCalls.m_Stack.size());
-
-			Wasm::Word nCallerIp = 0;
-			if (!m_DbgCallstack.m_v.empty())
-			{
-				const auto& xPrev = m_DbgCallstack.m_v.back();
-				assert(xPrev.m_FarFrames <= nFarFrames);
-
-				auto it = m_FarCalls.m_Stack.rbegin();
-				for (uint32_t n = nFarFrames - xPrev.m_FarFrames; n--; )
-					--it;
-
-				Blob code = it->m_Body;
-
-				TemporarySwap<Blob>(m_Code, code);
-				nCallerIp = get_Ip();
-			}
-
-			auto& x = m_DbgCallstack.m_v.emplace_back();
-			x.m_Addr = nAddr;
-			x.m_FarFrames = nFarFrames;
-			x.m_CallerIp = nCallerIp;
-		}
-	}
-
-	bvm2::ProcessorContract::OnCall(nAddr);
-}
-
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::CallFar(const bvm2::ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext)
 {
 	bvm2::ProcessorContract::CallFar(cid, iMethod, pArgs, bInheritContext);
@@ -5257,16 +5150,6 @@ void NodeProcessor::ContractInvokeExtraInfo::SetUnk(uint32_t iMethod, const Blob
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::OnRet(Wasm::Word nRetAddr)
 {
 	bvm2::ProcessorContract::OnRet(nRetAddr);
-
-	if (!m_DbgCallstack.m_v.empty())
-	{
-		if (m_DbgCallstack.m_Missing)
-			m_DbgCallstack.m_Missing--;
-		else
-			m_DbgCallstack.m_v.pop_back();
-
-		DbgCallstackTrim();
-	}
 
 	if (m_Bic.m_pvC && !nRetAddr)
 	{

@@ -396,7 +396,9 @@ namespace beam::bvm2
 			}
 			catch (const std::exception& e) {
 				std::cout << "*** Shader Execution failed. Undoing changes" << std::endl;
-				std::cout << e.what() << std::endl;
+				std::cout << e.what();
+				DumpCallstack(std::cout);
+				std::cout << std::endl;
 
 				UndoChanges(nChanges);
 				m_FarCalls.m_Stack.Clear();

@@ -642,6 +642,8 @@ namespace bvm2 {
 		AddCode(m_Code.m_DaoCore, "dao-core/contract.wasm");
 		AddCode(m_Code.m_Aphorize, "aphorize/contract.wasm");
 
+		m_FarCalls.m_SaveLocal = true;
+
 		TestVault();
 		TestAphorize();
 		TestFaucet();

@@ -365,11 +365,29 @@ namespace bvm2 {
 				Wasm::Word m_StackPosMin;
 				Wasm::Word m_StackBytesMax;
 				Wasm::Word m_StackBytesRet;
+
+				struct Local
+				{
+					struct Entry {
+						Wasm::Word m_CallerIp;
+						Wasm::Word m_Addr;
+					};
+
+					static const uint32_t s_MaxEntries = 256;
+
+					std::vector<Entry> m_v;
+					uint32_t m_Missing;
+
+				} m_Local;
 			};
 
 			intrusive::list_autoclear<Frame> m_Stack;
 
+			bool m_SaveLocal = false; // enable for debugging
+
 		} m_FarCalls;
+
+		void DumpCallstack(std::ostream& os) const;
 
 		bool LoadFixedOrZero(const VarKey&, uint8_t* pVal, uint32_t);
 		uint32_t SaveNnz(const VarKey&, const uint8_t* pVal, uint32_t);
@@ -386,6 +404,7 @@ namespace bvm2 {
 
 
 		virtual void InvokeExt(uint32_t) override;
+		virtual void OnCall(Wasm::Word nAddr) override;
 		virtual void OnRet(Wasm::Word nRetAddr) override;
 		virtual uint32_t get_HeapLimit() override;
 		virtual void DischargeUnits(uint32_t size) override;
@@ -423,6 +442,8 @@ namespace bvm2 {
 		}
 
 		void ToggleSidEntry(const ShaderID& sid, const ContractID& cid, bool bSet);
+
+		void OnRetFar();
 
 	public:
 
