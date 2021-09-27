@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "apps_utils.h"
 #include "core/ecc_native.h"
+#include "wallet/api/i_wallet_api.h"
 
 namespace beam::wallet
 {
@@ -41,5 +42,10 @@ namespace beam::wallet
         }
 
         return res;
+    }
+
+    bool IsAppSupported(const std::string& apiver, const std::string& apivermin)
+    {
+        return IWalletApi::ValidateAPIVersion(apiver) || IWalletApi::ValidateAPIVersion(apivermin);
     }
 }

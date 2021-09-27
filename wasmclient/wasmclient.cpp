@@ -25,6 +25,7 @@
 #include "wallet/client/wallet_client.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/api/i_wallet_api.h"
+#include "wallet/client/apps_api/apps_utils.h"
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
 #include "wallet/transactions/lelantus/push_transaction.h"
 #include "mnemonic/mnemonic.h"
@@ -562,6 +563,11 @@ public:
         return m_Client && m_Client->isRunning();
     }
 
+    static bool IsAppSupported(const std::string& apiver, const std::string& apivermin)
+    {
+        return beam::wallet::IsAppSupported(apiver, apivermin);
+    }
+
     static std::string GeneratePhrase()
     {
         return boost::join(createMnemonic(getEntropy()), " ");
@@ -739,6 +745,7 @@ EMSCRIPTEN_BINDINGS()
         .function("setApproveSendHandler", &WasmWalletClient::SetApproveSendHandler)
         .function("setApproveContractInfoHandler", &WasmWalletClient::SetApproveContractInfoHandler)
         .function("createAppAPI", &WasmWalletClient::CreateAppAPI)
+        .class_function("IsAppSupported", &WasmWalletClient::IsAppSupported)
         .class_function("GeneratePhrase", &WasmWalletClient::GeneratePhrase)
         .class_function("IsAllowedWord", &WasmWalletClient::IsAllowedWord)
         .class_function("IsValidPhrase", &WasmWalletClient::IsValidPhrase)
