@@ -10,8 +10,6 @@ set(SRC
     common.cpp 
     node_model.h 
     node_model.cpp
-    dao/public.h 
-    dao/public.cpp
     dao/apps_api_ui.h
     dao/apps_api_ui.cpp
     dao/web_api_creator.h

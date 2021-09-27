@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+// Copyright 2020 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,10 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#pragma once
 
-#include "wallet/api/i_wallet_api.h"
-#include "wallet/core/contracts/i_shaders_manager.h"
-#include "wallet/client/apps_api/apps_api.h"
+#include <string>
 
-std::string GenerateAppID(const std::string& appName, const std::string& appUrl);
-std::string StripAppIDPrefix(const std::string& appId);
+namespace beam::wallet
+{
+    std::string GenerateAppID(const std::string& appName, const std::string& appUrl);
+    std::string StripAppIDPrefix(const std::string& appId);
+}

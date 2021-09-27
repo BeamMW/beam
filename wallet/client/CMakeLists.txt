@@ -26,6 +26,7 @@ target_sources(wallet_client
         extensions/dex_board/dex_board.cpp
         extensions/export/tx_history_to_csv.cpp
         apps_api/apps_api.cpp
+        apps_api/apps_utils.cpp
 )
 
 target_link_libraries(wallet_client 

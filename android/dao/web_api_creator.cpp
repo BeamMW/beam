@@ -11,14 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-#include "public.h"
 #include "web_api_creator.h"
-
 #include "wallet/api/i_wallet_api.h"
 #include "wallet/core/common.h"
+#include "wallet/client/apps_api/apps_utils.h"
 #include "bvm/invoke_data.h"
-
 
 WebAPICreator::WebAPICreator()
 {
@@ -37,8 +34,7 @@ void WebAPICreator::createApi(WalletModel::Ptr walletModel, const std::string& v
         version = verMin;
     }
     
-    const auto appid = GenerateAppID(appName, appUrl);
-    
+    const auto appid = beam::wallet::GenerateAppID(appName, appUrl);
     auto guard = this;
     
     AppsApiUI::ClientThread_Create(walletModel.get(), version, appid, appName,
@@ -62,6 +58,6 @@ bool WebAPICreator::apiSupported(const std::string& apiVersion) const
 
 std::string WebAPICreator::generateAppID(const std::string& appName, const std::string& appUrl)
 {
-    const auto appid = GenerateAppID(appName, appUrl);
+    const auto appid = beam::wallet::GenerateAppID(appName, appUrl);
     return appid;
 }

@@ -11,28 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #include "apps_api_ui.h"
-#include "public.h"
-
 #include <boost/regex.hpp>
 #include <boost/optional.hpp>
-
 #include "utility/logger.h"
 #include "utility/bridge.h"
 #include "utility/io/asyncevent.h"
 #include "utility/helpers.h"
 #include "utility/common.h"
-
 #include <sstream>
-
 #include <jni.h>
 #include "../common.h"
 
-
 AppsApiUI::AppsApiUI(const std::string& appid, const std::string& appname) : AppsApi<AppsApiUI>(appid, appname)
 {
-
 }
 
 int AppsApiUI::test()
