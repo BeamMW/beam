@@ -540,6 +540,7 @@ jobs:
 #        python ./wasmclient/fix-client.py < ./wasmclient/wasm-client.js > ./wasmclient/wasm-client.js-fixed
 #        rm ./wasmclient/wasm-client.js
 #        mv ./wasmclient/wasm-client.js-fixed ./wasmclient/wasm-client.js
+#        jsut to increase revsion number
 
     - name: Save version info
       run: |
