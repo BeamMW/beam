@@ -499,7 +499,7 @@ public:
                 {
                     const char* errmsg = "CreateAppAPI: failed to create API";
                     LOG_WARNING() << errmsg;
-                    cb(errmsg, nullptr);
+                    cb(errmsg, val::undefined());
                     return;
                 }
 
@@ -542,7 +542,7 @@ public:
                     }
                 );
 
-                cb(nullptr, wapi);
+                cb(val::undefined(), wapi);
             }
         );
     }
