@@ -487,14 +487,22 @@ public:
         }
     }
 
-    void CreateAppAPI(const std::string& appid, const std::string& appname, val cb)
+    void CreateAppAPI(const std::string& apiver, const std::string& appid, const std::string& appname, val cb)
     {
         AssertMainThread();
 
         std::weak_ptr<WalletClient2> weak2 = m_Client;
-        WasmAppApi::ClientThread_Create(m_Client.get(), "current", appid, appname,
+        WasmAppApi::ClientThread_Create(m_Client.get(), apiver, appid, appname,
             [cb, weak2](WasmAppApi::Ptr wapi)
             {
+                if (!wapi)
+                {
+                    const char* errmsg = "CreateAppAPI: failed to create API";
+                    LOG_WARNING() << errmsg;
+                    cb(errmsg, nullptr);
+                    return;
+                }
+
                 WasmAppApi::WeakPtr weakApi = wapi;
                 wapi->SetPostToClientHandler(
                     [weak2](std::function<void (void)> func)
@@ -534,7 +542,7 @@ public:
                     }
                 );
 
-                cb(wapi);
+                cb(nullptr, wapi);
             }
         );
     }
