@@ -568,6 +568,11 @@ public:
         return beam::wallet::IsAppSupported(apiver, apivermin);
     }
 
+    static std::string GenerateAppID(const std::string& appname, const std::string& appurl)
+    {
+        return beam::wallet::GenerateAppID(appname, appurl);
+    }
+
     static std::string GeneratePhrase()
     {
         return boost::join(createMnemonic(getEntropy()), " ");
@@ -746,6 +751,7 @@ EMSCRIPTEN_BINDINGS()
         .function("setApproveContractInfoHandler", &WasmWalletClient::SetApproveContractInfoHandler)
         .function("createAppAPI", &WasmWalletClient::CreateAppAPI)
         .class_function("IsAppSupported", &WasmWalletClient::IsAppSupported)
+        .class_function("GenerateAppID", &WasmWalletClient::GenerateAppID)
         .class_function("GeneratePhrase", &WasmWalletClient::GeneratePhrase)
         .class_function("IsAllowedWord", &WasmWalletClient::IsAllowedWord)
         .class_function("IsValidPhrase", &WasmWalletClient::IsValidPhrase)
