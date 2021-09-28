@@ -25,6 +25,7 @@
 #include "wallet/client/wallet_client.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/api/i_wallet_api.h"
+#include "wallet/client/apps_api/apps_utils.h"
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
 #include "wallet/transactions/lelantus/push_transaction.h"
 #include "mnemonic/mnemonic.h"
@@ -487,9 +488,27 @@ public:
         }
     }
 
-    void CreateAppAPI(const std::string& apiver, const std::string& appid, const std::string& appname, val cb)
+    void CreateAppAPI(const std::string& apiver, const std::string& minapiver, const std::string& appid, const std::string& appname, val cb)
     {
         AssertMainThread();
+
+        std::string version;
+        if (IWalletApi::ValidateAPIVersion(apiver))
+        {
+            version = apiver;
+        }
+        else if (IWalletApi::ValidateAPIVersion(minapiver))
+        {
+            version = minapiver;
+        }
+
+        if (version.empty())
+        {
+            const std::string errmsg = std::string("Unsupported api version requested: ") + apiver + "/" + minapiver;
+            LOG_WARNING() << errmsg;
+            cb(errmsg, val::undefined());
+            return;
+        }
 
         std::weak_ptr<WalletClient2> weak2 = m_Client;
         WasmAppApi::ClientThread_Create(m_Client.get(), apiver, appid, appname,
@@ -560,6 +579,16 @@ public:
     {
         AssertMainThread();
         return m_Client && m_Client->isRunning();
+    }
+
+    static bool IsAppSupported(const std::string& apiver, const std::string& apivermin)
+    {
+        return beam::wallet::IsAppSupported(apiver, apivermin);
+    }
+
+    static std::string GenerateAppID(const std::string& appname, const std::string& appurl)
+    {
+        return beam::wallet::GenerateAppID(appname, appurl);
     }
 
     static std::string GeneratePhrase()
@@ -739,6 +768,8 @@ EMSCRIPTEN_BINDINGS()
         .function("setApproveSendHandler", &WasmWalletClient::SetApproveSendHandler)
         .function("setApproveContractInfoHandler", &WasmWalletClient::SetApproveContractInfoHandler)
         .function("createAppAPI", &WasmWalletClient::CreateAppAPI)
+        .class_function("IsAppSupported", &WasmWalletClient::IsAppSupported)
+        .class_function("GenerateAppID", &WasmWalletClient::GenerateAppID)
         .class_function("GeneratePhrase", &WasmWalletClient::GeneratePhrase)
         .class_function("IsAllowedWord", &WasmWalletClient::IsAllowedWord)
         .class_function("IsValidPhrase", &WasmWalletClient::IsValidPhrase)

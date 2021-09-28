@@ -19,4 +19,5 @@ namespace beam::wallet
 {
     std::string GenerateAppID(const std::string& appName, const std::string& appUrl);
     std::string StripAppIDPrefix(const std::string& appId);
+    bool IsAppSupported(const std::string& apiver, const std::string& apivermin);
 }
