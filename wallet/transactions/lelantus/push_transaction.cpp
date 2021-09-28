@@ -34,33 +34,39 @@ namespace beam::wallet::lelantus
 
     TxParameters PushTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
+        LOG_INFO() << "CheckAndCompleteParameters";
         auto walletDB = m_dbFunc();
         wallet::CheckSenderAddress(parameters, walletDB);
 
         const auto& originalToken = parameters.GetParameter<std::string>(TxParameterID::OriginalToken);
         if (originalToken)
         {
+            LOG_INFO() << "CheckAndCompleteParameters originalToken";
             auto addrType = parameters.GetParameter<TxAddressType>(TxParameterID::AddressType);
             if (addrType && addrType == TxAddressType::PublicOffline)
             {
                 auto publicToken = GeneratePublicToken(*walletDB, std::string());
                 if (*originalToken == publicToken)
                 {
+                    LOG_INFO() << "CheckAndCompleteParameters originalToken == publicToken";
                     TxParameters temp{ parameters };
                     temp.SetParameter(TxParameterID::IsSelfTx, true);
                     return wallet::ProcessReceiverAddress(temp, walletDB, false);
                 }
             }
             else {
+                LOG_INFO() << "CheckAndCompleteParameters originalToken != publicToken";
                 auto addr = walletDB->getAddressByToken(*originalToken);
                 if (addr && addr->isOwn())
                 {
+                    LOG_INFO() << "CheckAndCompleteParameters addr && addr->isOwn()";
                     TxParameters temp{ parameters };
                     temp.SetParameter(TxParameterID::IsSelfTx, addr->isOwn());
                     return wallet::ProcessReceiverAddress(temp, walletDB, false);
                 }
             }
         }
+        LOG_INFO() << "CheckAndCompleteParameters !originalToken";
         return wallet::ProcessReceiverAddress(parameters, walletDB, false);
     }
 
