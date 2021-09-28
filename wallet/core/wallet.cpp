@@ -102,7 +102,6 @@ namespace beam::wallet
 
     TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB, bool isMandatory)
     {
-        LOG_INFO() << "ProcessReceiverAddress";
         const auto& peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
         if (!peerID)
         {
@@ -119,7 +118,6 @@ namespace beam::wallet
         auto receiverAddr = walletDB->getAddress(*peerID);
         if (receiverAddr)
         {
-            LOG_INFO() << "ProcessReceiverAddress receiverAddr";
             if (receiverAddr->isOwn() && receiverAddr->isExpired())
             {
                 LOG_ERROR() << "Can't send to the expired address.";
@@ -141,7 +139,6 @@ namespace beam::wallet
             }
 
             TxParameters temp{ parameters };
-            LOG_INFO() << "ProcessReceiverAddress receiverAddr->isOwn() " << receiverAddr->isOwn();
             temp.SetParameter(TxParameterID::IsSelfTx, receiverAddr->isOwn());
             return temp;
         }
@@ -163,7 +160,6 @@ namespace beam::wallet
         }
 
         TxParameters temp{parameters};
-        LOG_INFO() << "ProcessReceiverAddress receiverAddr->isOwn() " << false;
         temp.SetParameter(TxParameterID::IsSelfTx, false);
         return temp;
     }
