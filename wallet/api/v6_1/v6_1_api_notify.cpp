@@ -362,7 +362,7 @@ namespace beam::wallet
 
                 Status::Response &item = items.emplace_back();
                 item.tx = tx;
-                item.txHeight = storage::DeduceTxProofHeight(*walletDB, tx);
+                item.txProofHeight = storage::DeduceTxProofHeight(*walletDB, tx);
                 item.systemHeight = stateID.m_Height;
             }
 

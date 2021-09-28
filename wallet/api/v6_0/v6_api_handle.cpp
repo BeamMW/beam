@@ -488,7 +488,7 @@ namespace beam::wallet
             Status::Response result;
             result.tx            = *tx;
             result.systemHeight  = stateID.m_Height;
-            result.txHeight      = storage::DeduceTxProofHeight(*walletDB, *tx);
+            result.txProofHeight = storage::DeduceTxProofHeight(*walletDB, *tx);
 
             doResponse(id, result);
         }
@@ -764,10 +764,9 @@ namespace beam::wallet
                 {
                     return true;
                 }
-                const auto height = storage::DeduceTxProofHeight(*walletDB, tx);
                 Status::Response& item = res.resultList.emplace_back();
                 item.tx = tx;
-                item.txHeight = height;
+                item.txProofHeight = storage::DeduceTxProofHeight(*walletDB, tx);
                 item.systemHeight = stateID.m_Height;
 
                 ++counter;

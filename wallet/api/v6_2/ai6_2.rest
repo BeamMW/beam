@@ -5,6 +5,5 @@ content-type: application/json-rpc
 {
     "jsonrpc" : "2.0",
     "id" : 1,
-    "method" : "get_version"
+    "method" : "tx_list"
 }
-
