@@ -488,9 +488,27 @@ public:
         }
     }
 
-    void CreateAppAPI(const std::string& apiver, const std::string& appid, const std::string& appname, val cb)
+    void CreateAppAPI(const std::string& apiver, const std::string& minapiver, const std::string& appid, const std::string& appname, val cb)
     {
         AssertMainThread();
+
+        std::string version;
+        if (IWalletApi::ValidateAPIVersion(apiver))
+        {
+            version = apiver;
+        }
+        else if (IWalletApi::ValidateAPIVersion(minapiver))
+        {
+            version = minapiver;
+        }
+
+        if (version.empty())
+        {
+            const std::string errmsg = std::string("Unsupported api version requested: ") + apiver + "/" + minapiver;
+            LOG_WARNING() << errmsg;
+            cb(errmsg, val::undefined());
+            return;
+        }
 
         std::weak_ptr<WalletClient2> weak2 = m_Client;
         WasmAppApi::ClientThread_Create(m_Client.get(), apiver, appid, appname,
