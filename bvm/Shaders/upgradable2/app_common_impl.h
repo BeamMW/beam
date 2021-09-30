@@ -88,6 +88,17 @@ struct ManagerUpgadable2
     macro(Height, hTarget) \
     Upgradable2_multisig_args(macro)
 
+#define Upgradable2_replace_admin(macro) \
+    macro(ContractID, cid) \
+    macro(uint32_t, iAdmin) \
+    macro(PubKey, pk) \
+    Upgradable2_multisig_args(macro)
+
+#define Upgradable2_set_min_approvers(macro) \
+    macro(ContractID, cid) \
+    macro(uint32_t, newVal) \
+    Upgradable2_multisig_args(macro)
+
 	static bool FillDeployArgs(Upgradable2::Create& arg, const PubKey* pKeyMy)
 	{
 		if (!Env::DocGet("cidVersion", arg.m_Active.m_Cid))
