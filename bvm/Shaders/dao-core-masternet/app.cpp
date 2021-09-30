@@ -44,6 +44,7 @@
 
 #define DaoCore_manager_deploy_contract(macro) Upgradable2_deploy(macro)
 #define DaoCore_manager_schedule_upgrade(macro) Upgradable2_schedule_upgrade(macro)
+#define DaoCore_manager_explicit_upgrade(macro) macro(ContractID, cid)
 #define DaoCore_manager_replace_admin(macro) Upgradable2_replace_admin(macro)
 #define DaoCore_manager_set_min_approvers(macro) Upgradable2_set_min_approvers(macro)
 
@@ -54,6 +55,7 @@
     macro(manager, view) \
     macro(manager, deploy_contract) \
     macro(manager, schedule_upgrade) \
+    macro(manager, explicit_upgrade) \
     macro(manager, replace_admin) \
     macro(manager, set_min_approvers) \
     macro(manager, view_params) \
@@ -152,6 +154,11 @@ ON_METHOD(manager, schedule_upgrade)
 {
     MyKeyID kid;
     ManagerUpgadable2::MultiSigRitual::Perform_ScheduleUpgrade(cid, kid, cidVersion, hTarget);
+}
+
+ON_METHOD(manager, explicit_upgrade)
+{
+    ManagerUpgadable2::MultiSigRitual::Perform_ExplicitUpgrade(cid);
 }
 
 ON_METHOD(manager, replace_admin)
