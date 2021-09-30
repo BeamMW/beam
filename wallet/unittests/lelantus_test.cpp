@@ -166,10 +166,10 @@ void TestTreasuryRestore()
         auto shieldedCoins = receiver.m_WalletDB->getShieldedCoins(Asset::Asset::s_BeamID);
         WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Value == 38000000);
         WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Key.m_IsCreatedByViewer == true);
-        WALLET_CHECK(shieldedCoins[0].m_Status == ShieldedCoin::Status::Available);
 
-        uint32_t nStatus = static_cast<uint32_t>(shieldedCoins[0].m_Status);
-        cout << "@@@ coin status: " << nStatus << std::endl;
+        auto nStatus = shieldedCoins[0].m_Status;
+        cout << "@@@ coin status: " << static_cast<uint32_t>(nStatus) << std::endl;
+        WALLET_CHECK((ShieldedCoin::Status::Available == nStatus) || (ShieldedCoin::Status::Maturing == nStatus));
         
     }
 }
