@@ -129,8 +129,17 @@ BEAM_EXPORT void Dtor(void*)
 
 BEAM_EXPORT void Method_2(void*)
 {
-    // called on upgrade. N/A
-    Env::Halt();
+    // called on upgrade. Add 1 more key. No vesting.
+    static const PubKey pk = { 0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00 };
+
+    DaoCore::Preallocated::User::Key puk;
+    _POD_(puk.m_Pk) = pk;
+
+    DaoCore::Preallocated::User pu;
+    _POD_(pu).SetZero();
+    pu.m_Total = g_Beam2Groth * 1'000'000;
+
+    Env::SaveVar_T(puk, pu);
 }
 
 BEAM_EXPORT void Method_3(const DaoCore::GetPreallocated& r)
