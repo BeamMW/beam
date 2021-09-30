@@ -511,6 +511,9 @@ struct ManagerUpgadable2
 						Env::WriteStr("waiting for co-signer sig", Stream::Out);
 						auto& msg3 = cc.Rcv_T<Msg3>(false);
 
+						uint8_t ack = 1;
+						cc.Send_T(ack); // send any ack to the peer
+
 						if (!e.Import(msg3.m_kMySig))
 							return OnError("bad sig");
 					}
@@ -549,6 +552,7 @@ struct ManagerUpgadable2
 				cc.Send_T(msg3);
 
 				Env::DocAddText("", "Negotiation is over");
+				Env::Comm_WaitMsg(10000);
 			}
 		}
 
