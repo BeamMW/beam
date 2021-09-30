@@ -300,6 +300,9 @@ ON_METHOD(manager, prealloc_view)
         Env::DocAddNum("total", pu.m_Total);
         Env::DocAddNum("received", pu.m_Received);
 
+        Env::DocAddNum("vesting_start", pu.m_Vesting_h0);
+        Env::DocAddNum("vesting_end", pu.m_Vesting_h0 + pu.m_Vesting_dh);
+
         // calculate the maximum available
         Amount nMaxAvail = CalculatePreallocAvail(pu);
 
