@@ -272,8 +272,13 @@ Amount CalculatePreallocAvail(const DaoCore::Preallocated::User& pu)
 
 ON_METHOD(manager, prealloc_totals)
 {
-    Amount valReceived = DaoCore::Preallocated::s_Emission;
-    Amount valAvail = DaoCore::Preallocated::s_Emission;
+    const Amount valAssigned =
+        DaoCore::Preallocated::s_Emission -
+        DaoCore::Preallocated::s_Unassigned +
+        DaoCore::Preallocated::s_Assigned_v1;
+
+    Amount valReceived = valAssigned;
+    Amount valAvail = valAssigned;
 
     Env::Key_T<DaoCore::Preallocated::User::Key> k0, k1;
     _POD_(k0.m_Prefix.m_Cid) = cid;
