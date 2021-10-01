@@ -156,6 +156,12 @@ namespace DaoCore
         };
 
         static const Amount s_Emission = g_Beam2Groth * 99'000'000;
+
+        static const Amount s_Unassigned = g_Beam2Groth * (
+            35'000'000 + // liquidity mining
+            20'000'000 // Dao treasury 
+        );
+
     };
 
     struct GetPreallocated

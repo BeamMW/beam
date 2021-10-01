@@ -73,12 +73,7 @@ void AllocateAll(const DaoCore::State& s)
     constexpr Amount nPreallocatedAssigned = g_Beam2Groth * (BEAMX_ALLOCATION_All(THE_MACRO, MACRO_NOP) 0);
 #undef THE_MACRO
 
-    constexpr Amount nPreallocatedUnassigned = g_Beam2Groth * (
-        35'000'000 + // liquidity mining
-        20'000'000 // Dao treasury 
-    );
-
-    static_assert(nPreallocatedAssigned + nPreallocatedUnassigned == DaoCore::Preallocated::s_Emission);
+    static_assert(nPreallocatedAssigned + DaoCore::Preallocated::s_Unassigned == DaoCore::Preallocated::s_Emission);
 
     // Ensure vesting periods are well-defined (order, won't overflow)
     constexpr uint32_t nBlockPerMonth = 1440 * 365 / 12;

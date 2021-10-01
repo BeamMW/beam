@@ -44,6 +44,9 @@
 
 #define DaoCore_manager_deploy_contract(macro) Upgradable2_deploy(macro)
 #define DaoCore_manager_schedule_upgrade(macro) Upgradable2_schedule_upgrade(macro)
+#define DaoCore_manager_explicit_upgrade(macro) macro(ContractID, cid)
+#define DaoCore_manager_replace_admin(macro) Upgradable2_replace_admin(macro)
+#define DaoCore_manager_set_min_approvers(macro) Upgradable2_set_min_approvers(macro)
 
 #define DaoCore_manager_view_stake(macro) macro(ContractID, cid)
 
@@ -52,6 +55,9 @@
     macro(manager, view) \
     macro(manager, deploy_contract) \
     macro(manager, schedule_upgrade) \
+    macro(manager, explicit_upgrade) \
+    macro(manager, replace_admin) \
+    macro(manager, set_min_approvers) \
     macro(manager, view_params) \
     macro(manager, view_stake) \
     macro(manager, my_xid) \
@@ -147,6 +153,23 @@ ON_METHOD(manager, schedule_upgrade)
 {
     MyKeyID kid;
     ManagerUpgadable2::MultiSigRitual::Perform_ScheduleUpgrade(cid, kid, cidVersion, hTarget);
+}
+
+ON_METHOD(manager, explicit_upgrade)
+{
+    ManagerUpgadable2::MultiSigRitual::Perform_ExplicitUpgrade(cid);
+}
+
+ON_METHOD(manager, replace_admin)
+{
+    MyKeyID kid;
+    ManagerUpgadable2::MultiSigRitual::Perform_ReplaceAdmin(cid, kid, iAdmin, pk);
+}
+
+ON_METHOD(manager, set_min_approvers)
+{
+    MyKeyID kid;
+    ManagerUpgadable2::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
 }
 
 Amount get_ContractLocked(AssetID aid, const ContractID& cid)
@@ -248,8 +271,12 @@ Amount CalculatePreallocAvail(const DaoCore::Preallocated::User& pu)
 
 ON_METHOD(manager, prealloc_totals)
 {
-    Amount valReceived = DaoCore::Preallocated::s_Emission;
-    Amount valAvail = DaoCore::Preallocated::s_Emission;
+    const Amount valAssigned =
+        DaoCore::Preallocated::s_Emission -
+        DaoCore::Preallocated::s_Unassigned;
+
+    Amount valReceived = valAssigned;
+    Amount valAvail = valAssigned;
 
     Env::Key_T<DaoCore::Preallocated::User::Key> k0, k1;
     _POD_(k0.m_Prefix.m_Cid) = cid;
@@ -283,6 +310,9 @@ ON_METHOD(manager, prealloc_view)
     {
         Env::DocAddNum("total", pu.m_Total);
         Env::DocAddNum("received", pu.m_Received);
+
+        Env::DocAddNum("vesting_start", pu.m_Vesting_h0);
+        Env::DocAddNum("vesting_end", pu.m_Vesting_h0 + pu.m_Vesting_dh);
 
         // calculate the maximum available
         Amount nMaxAvail = CalculatePreallocAvail(pu);
