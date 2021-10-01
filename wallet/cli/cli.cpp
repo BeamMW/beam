@@ -233,7 +233,27 @@ namespace
             s << "Receiver wallet's signature: " << receiverIdentity << std::endl;
         }
 
-        s << "Amount:            " << PrintableAmount(desc.m_amount) << std::endl;
+        if (desc.m_assetId == Asset::s_BeamID)
+        {
+            s << "Amount:            " << PrintableAmount(desc.m_amount) << std::endl;
+        }
+        else
+        {
+            const auto info = walletDB->findAsset(desc.m_assetId);
+            std::string unitName = kAmountASSET;
+            std::string nthName  = kAmountAGROTH;
+            if (info.is_initialized())
+            {
+                const auto &meta = WalletAssetMeta(*info);
+                unitName = meta.GetUnitName();
+                trimAssetName(unitName, 28);
+                nthName  = meta.GetNthUnitName();
+                trimAssetName(nthName, 28);
+            }
+            s << "Amount:            "
+              << PrintableAmount(desc.m_amount, false, desc.m_assetId, unitName, nthName) << std::endl;
+        }
+
         s << "KernelID:          " << std::to_string(desc.m_kernelID) << std::endl;
 
         return s.str();
@@ -964,7 +984,7 @@ namespace
         const auto info = db->findAsset(totals.AssetId);
         if (info.is_initialized())
         {
-            const WalletAssetMeta &meta = info.is_initialized() ? WalletAssetMeta(*info) : WalletAssetMeta(Asset::Full());
+            const WalletAssetMeta &meta = WalletAssetMeta(*info);
             isOwned  = info->m_IsOwned;
             unitName = meta.GetUnitName();
             trimAssetName(unitName, 28);
@@ -977,6 +997,7 @@ namespace
             rfHeight = std::to_string(info->m_RefreshHeight);
 
             std::stringstream ss;
+
             ss << PrintableAmount(info->m_Value, true, totals.AssetId, unitName, nthName);
             emission = ss.str();
         }
