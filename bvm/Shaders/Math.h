@@ -14,6 +14,49 @@
 
 #pragma once
 
+namespace BitUtils
+{
+	namespace details
+	{
+		template <uint32_t nBits>
+		struct PerBits {
+
+			template <typename T>
+			static uint32_t get_BitsUsed(T x)
+			{
+				const uint32_t nHalf = nBits / 2;
+				if constexpr (nHalf > 0)
+				{
+					T x1 = x >> nHalf;
+
+					uint32_t ret;
+					if (x1)
+						ret = nHalf;
+					else
+					{
+						ret = 0;
+						x1 = x;
+					}
+
+					return ret + PerBits<nHalf>::get_BitsUsed(x1);
+				}
+				else
+				{
+					assert(x <= 1);
+					return static_cast<uint32_t>(x);
+				}
+			}
+		};
+	}
+
+	template <typename T>
+	inline uint32_t FindHiBit(T x)
+	{
+		return details::PerBits<sizeof(T) * 8>::get_BitsUsed(x);
+	}
+
+}
+
 // big-uint implementation in a 'wasm-friendly' way.
 // Everything via templates. No arrays, no mandatory memory store/load.
 namespace MultiPrecision
@@ -58,6 +101,86 @@ namespace MultiPrecision
 		}
 	}
 
+
+
+	template <uint32_t nWords_>
+	struct UInt;
+
+	template <> struct UInt<0>
+	{
+		template <uint32_t nDepth>
+		Word get_Val() const
+		{
+			return 0;
+		}
+
+		template <uint32_t nDepth>
+		void set_Val(Word x)
+		{
+		}
+
+		void ToBE(Word* p) const
+		{
+		}
+
+		void FromBE(const Word* p)
+		{
+		}
+
+		template <uint32_t wa, uint32_t wb>
+		DWord SetAdd(const UInt<wa>&, const UInt<wb>&)
+		{
+			return 0;
+		}
+
+		template <uint32_t wa, uint32_t wb>
+		DWordSigned SetSub(const UInt<wa>&, const UInt<wb>&)
+		{
+			return 0;
+		}
+
+		template <uint32_t wa, uint32_t wb>
+		void AddMulInto(UInt<wa>& a, const UInt<wb>& b) const
+		{
+		}
+
+		template <uint32_t wa, uint32_t wb>
+		DWord AddMulInto2(UInt<wa>& a, Word b) const
+		{
+			return 0;
+		}
+
+		template <uint32_t nShiftWords, typename T>
+		T set_Ord(T val)
+		{
+			return val;
+		}
+
+		template <uint32_t nShiftWords, typename T>
+		T get_Ord() const
+		{
+			return 0;
+		}
+
+		template <uint32_t wa>
+		int _Cmp(const UInt<wa>& a) const
+		{
+			return 0;
+		}
+
+		template <uint32_t nShiftWords, uint32_t wa>
+		void Assign(const UInt<wa>&)
+		{
+		}
+
+		template <uint32_t w0, uint32_t w1>
+		bool IsZeroRange() const
+		{
+			return true;
+		}
+	};
+
+
 	template <uint32_t nWords_> struct UInt
 		:public UInt<nWords_ - 1>
 	{
@@ -84,10 +207,21 @@ namespace MultiPrecision
 				Base::template set_Val<nDepth>(x);
 		}
 
+		void Fill(Word x)
+		{
+			m_Val = x;
+			if constexpr (nWords > 1)
+				Base::Fill(x);
+		}
+
 		void Set0()
 		{
-			m_Val = 0;
-			Base::Set0();
+			Fill(0);
+		}
+
+		void SetMax()
+		{
+			Fill(static_cast<Word>(-1));
 		}
 
 		UInt()
@@ -292,19 +426,42 @@ namespace MultiPrecision
 		template <uint32_t wa, uint32_t wb>
 		void SetDivResid(UInt<wa>& __restrict__ resid, const UInt<wb>& __restrict__ b)
 		{
-			if constexpr (wb > 1)
+			if constexpr (wb == 0)
+				SetMax(); // div by 0
+			else
 			{
-				if (!b.template get_Val<wb>())
+				Word val = b.template get_Val<wb>();
+				if (val)
 				{
-					SetDivResid<wa, wb - 1>(resid, b);
-					return;
+					/*
+					if constexpr (wb == 1)
+					{
+						SetDivResidSimple(resid, val);
+						return;
+					}
+					*/
+
+					uint32_t nBits = BitUtils::FindHiBit(val);
+					assert(nBits);
+
+					if (nWordBits == nBits)
+						SetDivResidNormalized(resid, b);
+					else
+					{
+						UInt<wb> b2;
+						b2.Set_LShift(nWordBits - nBits, b);
+
+						UInt<wa + 1> r2;
+						r2.Set_LShift(nWordBits - nBits, resid);
+
+						SetDivResidNormalized(r2, b2);
+
+						resid.Set_RShift(nWordBits - nBits, r2);
+					}
 				}
+				else
+					SetDivResid<wa, wb - 1>(resid, b);
 			}
-
-			UInt<wb + 1> div;
-			div.template Assign<1>(b);
-
-			SetDivResidInternal(resid, div);
 		}
 
 		template <uint32_t wb>
@@ -392,166 +549,131 @@ namespace MultiPrecision
 			return Base::_Cmp(a);
 		}
 
-		template <uint32_t nBits>
-		void RShift(Word carry = 0)
+		template <uint32_t wa>
+		void Set_RShift(uint32_t nBits, const UInt<wa>& __restrict__ a)
 		{
-			static_assert(nBits && nBits < nWordBits);
-
-			Base::template RShift<nBits>(m_Val);
-			m_Val = (m_Val >> nBits) | (carry << (nWordBits - nBits));
-		}
-
-		template <uint32_t wa, uint32_t wd>
-		void SetDivResidInternal(UInt<wa>& __restrict__ resid, UInt<wd>& __restrict__ div)
-		{
-			m_Val = resid.template DivOnceInternal<nWords - 1>(div);
-			Base::template SetDivResidInternal(resid, div);
-		}
-
-		template <uint32_t nLShift, uint32_t wd>
-		Word DivOnceInternal(UInt<wd>& __restrict__ div0)
-		{
-			if constexpr (nWords > wd + nLShift)
-				return Base::template DivOnceInternal<nLShift>(div0);
-
-			Word nMsk = ((Word) 1) << (nWordBits - 1);
-			Word res = 0;
-
-			UInt<wd> div(div0); // copy
-
-			while (true)
-			{
-				div.template RShift<1>();
-
-				if (TrySubtract<nLShift, 1>(div, 0))
-					res |= nMsk;
-
-				nMsk >>= 1;
-				if (!nMsk)
-					break;
-			}
-
-			return res;
-		}
-
-		template <uint32_t nLShift, uint32_t iWord, uint32_t wd>
-		bool TrySubtract(const UInt<wd>& __restrict__ div, DWordSigned carry)
-		{
-			if constexpr (iWord + nLShift > nWords) {
-				if (carry)
-					return false;
-			}
-			else
-				carry += get_Val<iWord + nLShift>();
-
-			carry -= div.template get_Val<iWord>();
-
-			Word res = (Word) carry;
-			carry >>= nWordBits;
-
-			if constexpr (iWord == wd)
-			{
-				if (carry)
-					return false;
-			}
+			if constexpr (wa > nWords + 1)
+				Set_RShift<wa - 1>(nBits, a);
 			else
 			{
-				if (!TrySubtract<nLShift, iWord + 1>(div, carry >> nWordBits))
-					return false;
+				assert(nBits && nBits < nWordBits);
+				m_Val = (a.template get_Val<nWords>() >> nBits) | (a.template get_Val<nWords + 1>() << (nWordBits - nBits));
+
+				if constexpr (nWords > 1)
+					Base::Set_RShift(nBits, a);
+
 			}
-
-			set_Val<iWord + nLShift>(res);
-
-			return true;
-		}
-
-	};
-
-	template <> struct UInt<0>
-	{
-		void Set0() {}
-
-		template <uint32_t nDepth>
-		Word get_Val() const
-		{
-			return 0;
-		}
-
-		template <uint32_t nDepth>
-		void set_Val(Word x)
-		{
-		}
-
-		void ToBE(Word* p) const
-		{
-		}
-
-		void FromBE(const Word* p)
-		{
-		}
-
-		template <uint32_t wa, uint32_t wb>
-		DWord SetAdd(const UInt<wa>&, const UInt<wb>&)
-		{
-			return 0;
-		}
-
-		template <uint32_t wa, uint32_t wb>
-		DWordSigned SetSub(const UInt<wa>&, const UInt<wb>&)
-		{
-			return 0;
-		}
-
-		template <uint32_t wa, uint32_t wb>
-		void AddMulInto(UInt<wa>& a, const UInt<wb>& b) const
-		{
-		}
-
-		template <uint32_t wa, uint32_t wb>
-		DWord AddMulInto2(UInt<wa>& a, Word b) const
-		{
-			return 0;
-		}
-
-		template <uint32_t nShiftWords, typename T>
-		T set_Ord(T val)
-		{
-			return val;
-		}
-
-		template <uint32_t nShiftWords, typename T>
-		T get_Ord() const
-		{
-			return 0;
 		}
 
 		template <uint32_t wa>
-		int _Cmp(const UInt<wa>& a) const
+		void Set_LShift(uint32_t nBits, const UInt<wa>& __restrict__ a)
 		{
-			return 0;
+			if constexpr (wa > nWords)
+				Set_LShift<wa - 1>(nBits, a);
+			else
+			{
+				assert(nBits && nBits < nWordBits);
+				m_Val = (a.template get_Val<nWords>() << nBits) | (a.template get_Val<nWords - 1>() >> (nWordBits - nBits));
+
+				if constexpr (nWords > 1)
+					Base::Set_LShift(nBits, a);
+
+			}
 		}
 
 		template <uint32_t wa, uint32_t wd>
-		void SetDivResidInternal(const UInt<wa>& resid, const UInt<wd>& div)
+		void SetDivResidNormalized(UInt<wa>& __restrict__ resid, const UInt<wd>& __restrict__ div)
 		{
+			m_Val = resid.template DivOnceNormalized<nWords - 1>(div);
+			if constexpr (nWords > 1)
+				Base::template SetDivResidNormalized(resid, div);
 		}
 
-		template <uint32_t nShiftWords, uint32_t wa>
-		void Assign(const UInt<wa>&)
+		template <uint32_t nLShift, uint32_t wd>
+		Word DivOnceNormalized(const UInt<wd>& __restrict__ div)
 		{
+			// div must have msb set
+
+			if constexpr (nWords > wd + nLShift + 1)
+				return Base::template DivOnceNormalized<nLShift>(div);
+			else
+			{
+				if constexpr (nWords < wd + nLShift)
+					return 0;
+				else
+				{
+					DWord hiPart = static_cast<DWord>(get_Val<wd + nLShift + 1>()) << nWordBits;
+					hiPart |= get_Val<wd + nLShift>();
+
+					Word res = static_cast<Word>(hiPart / div.template get_Val<wd>()); // dont care about overflow
+					if (!res)
+						return 0;
+
+					auto mul = div * UInt<1>(res);
+
+					auto carry0 = SubShifted<nLShift, wd + 1>(mul);
+					if (carry0)
+					{
+						res--;
+						auto carry1 = AddShifted<nLShift, wd + 1>(div);
+
+						if (!carry1)
+						{
+							res--;
+							carry1 = AddShifted<nLShift, wd + 1>(div);
+
+							assert(carry1);
+						}
+					}
+
+					return res;
+				}
+			}
 		}
 
-		template <uint32_t nBits>
-		void RShift(Word carry)
+		template <uint32_t nLShift, uint32_t iWord, uint32_t wd>
+		DWordSigned SubShifted(const UInt<wd>& __restrict__ val)
 		{
+			if constexpr (iWord > 0)
+			{
+				if constexpr (wd > iWord)
+					return SubShifted<nLShift, iWord, wd - 1>(val);
+				else
+				{
+					DWordSigned carry = SubShifted<nLShift, iWord - 1>(val);
+					carry += get_Val<nLShift + iWord>();
+					carry -= val.template get_Val<iWord>();
+
+					set_Val<nLShift + iWord>((Word) carry);
+					return carry >> nWordBits;
+				}
+			}
+			else
+				return 0;
 		}
 
-		template <uint32_t w0, uint32_t w1>
-		bool IsZeroRange() const
+		template <uint32_t nLShift, uint32_t iWord, uint32_t wd>
+		DWord AddShifted(const UInt<wd>& __restrict__ val)
 		{
-			return true;
+			if constexpr (iWord > 0)
+			{
+				if constexpr (wd > iWord)
+					return AddShifted<nLShift, iWord, wd - 1>(val);
+				else
+				{
+					DWord carry = AddShifted<nLShift, iWord - 1>(val);
+					carry += get_Val<nLShift + iWord>();
+					carry += val.template get_Val<iWord>();
+
+					set_Val<nLShift + iWord>((Word) carry);
+					return carry >> nWordBits;
+				}
+			}
+			else
+				return 0;
 		}
 	};
+
 
 	template <uint32_t nShiftWords, typename T>
 	UInt< (sizeof(T) + sizeof(Word) - 1) / sizeof(Word) + nShiftWords > FromEx(T x)
