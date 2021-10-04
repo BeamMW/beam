@@ -109,6 +109,9 @@ namespace beam::wallet
         virtual void removeRawSeedPhrase() = 0;
         virtual void readRawSeedPhrase(AsyncCallback<const std::string&>&& callback) = 0;
 
+        using AppsListCallback = AsyncCallback<bool, const std::string&>;
+        virtual void getAppsList(AppsListCallback&& callback) = 0;
+
         virtual void enableBodyRequests(bool value) = 0;
         virtual ~IWalletModelAsync() = default;
     };

@@ -16,6 +16,7 @@
 #include "wallet/core/simple_transaction.h"
 #include "wallet/transactions/dex/dex_tx.h"
 #include "utility/log_rotation.h"
+#include "http/http_client.h"
 #include "core/block_rw.h"
 #include "wallet/core/common_utils.h"
 #include "extensions/broadcast_gateway/broadcast_router.h"
@@ -30,6 +31,7 @@
 #endif // BEAM_LELANTUS_SUPPORT
 
 #include "filter.h"
+#include <regex>
 
 using namespace std;
 
@@ -373,6 +375,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     void readRawSeedPhrase(AsyncCallback<const std::string&>&& callback) override
     {
         call_async(&IWalletModelAsync::readRawSeedPhrase, std::move(callback));
+    }
+
+    void getAppsList(AppsListCallback&& callback) override
+    {
+        call_async(&IWalletModelAsync::getAppsList, std::move(callback));
     }
 
     void enableBodyRequests(bool value) override
@@ -1751,6 +1758,107 @@ namespace beam::wallet
                 cb(res);
             });
         }
+    }
+
+    namespace
+    {
+        constexpr auto getAppsUrl()
+        {
+#ifdef BEAM_BEAMX
+            return "";
+#elif defined(BEAM_TESTNET)
+            return "https://apps-testnet.beam.mw/appslist.json";
+#elif defined(BEAM_MAINNET)
+            return "https://apps.beam.mw/appslist.json";
+#else
+            return "http://3.19.141.112/app/appslist.json";
+#endif
+        }
+    }
+
+    void WalletClient::getAppsList(AppsListCallback&& callback)
+    {
+        if (!m_httpClient)
+        {
+            m_httpClient = std::make_unique<HttpClient>(*m_reactor);
+        }
+
+        io::Address address;
+
+        constexpr auto url = getAppsUrl();
+
+        static std::regex exrp("^(?:(http[s]?)://)?([^/]+)((/?.*/?)/(.*))$");
+        std::smatch groups;
+        std::string host;
+        std::string path;
+        std::string scheme;
+        std::string myUrl(url);
+        if (std::regex_match(myUrl, groups, exrp))
+        {
+            host.assign(groups[2].first, groups[2].second);
+            path.assign(groups[3].first, groups[3].second);
+            scheme.assign(groups[1].first, groups[1].second);
+        }
+
+        if (!address.resolve(host.c_str()))
+        {
+            LOG_ERROR() << "Unable to resolve address: " << host;
+
+            callback(false , "");
+            return;
+        }
+        if (address.port() == 0)
+        {
+            if (scheme == "http")
+                address.port(80);
+            else if (scheme == "https")
+                address.port(443);
+        }
+;
+        std::vector<HeaderPair> headers;
+        headers.push_back({ "Content-Type", "application/json" });
+        headers.push_back({ "Host", host.c_str() });
+
+        HttpClient::Request request;
+
+        request.address(address)
+            //.connectTimeoutMsec(2000)
+            .pathAndQuery(path.c_str())
+            .headers(&headers.front())
+            .numHeaders(headers.size())
+            .method("GET");
+
+        request.callback([callback](uint64_t id, const HttpMsgReader::Message& msg) -> bool
+        {
+            bool isOk = false;
+            std::string response;
+            if (msg.what == HttpMsgReader::http_message)
+            {
+                size_t sz = 0;
+                const void* body = msg.msg->get_body(sz);
+                isOk = sz > 0 && body;
+                if (isOk)
+                {
+                    response = std::string(static_cast<const char*>(body), sz);
+                }
+            }
+            else if (msg.what == HttpMsgReader::connection_error)
+            {
+                LOG_ERROR() << "Failed to load application list: conection error(" << msg.connectionError << ")";
+            }
+            else if (msg.what == HttpMsgReader::message_corrupted)
+            {
+                LOG_ERROR() << "Failed to load application list: corrupted message";
+            }
+            else
+            {
+                LOG_ERROR() << "Failed to load application list reason: " << msg.what;
+            }
+            callback(isOk, response);
+            return false;
+        });
+
+        m_httpClient->send_request(request);
     }
 
     void WalletClient::getCoinConfirmationsOffset(AsyncCallback<uint32_t>&& callback)

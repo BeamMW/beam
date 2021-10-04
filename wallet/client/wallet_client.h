@@ -43,6 +43,11 @@
 #include <atomic>
 #include <functional>
 
+namespace beam
+{
+    class HttpClient;
+}
+
 namespace beam::wallet
 {
 #if defined(BEAM_TESTNET)
@@ -287,6 +292,8 @@ namespace beam::wallet
         void removeRawSeedPhrase() override;
         void readRawSeedPhrase(AsyncCallback<const std::string&>&& callback) override;
 
+        void getAppsList(AppsListCallback&& callback) override;
+
         void enableBodyRequests(bool value) override;
 
         // implement IWalletDB::IRecoveryProgress
@@ -391,5 +398,6 @@ namespace beam::wallet
         beam::TxoID m_shieldedPer24h = 0;
         uint8_t m_mpLockTimeLimit = 0;
         OpenDBFunction m_openDBFunc;
+        std::unique_ptr<HttpClient> m_httpClient;
     };
 }
