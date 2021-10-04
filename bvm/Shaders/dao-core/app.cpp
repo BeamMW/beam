@@ -319,6 +319,8 @@ ON_METHOD(manager, prealloc_view)
 
         Env::DocAddNum("avail_total", nMaxAvail);
         Env::DocAddNum("avail_remaining", (nMaxAvail> pu.m_Received) ? (nMaxAvail - pu.m_Received) : 0);
+
+        Env::DocAddNum("h", Env::get_Height());
     }
 }
 
