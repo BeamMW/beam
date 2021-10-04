@@ -76,6 +76,8 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Try);
 		ConvertOrd<bToShader>(x.m_IsOk);
 	}
+	template <bool bToShader> void Convert(Dummy::MathTest2 x) {
+	}
 	template <bool bToShader> void Convert(Dummy::DivTest1& x) {
 		ConvertOrd<bToShader>(x.m_Nom);
 		ConvertOrd<bToShader>(x.m_Denom);
@@ -959,6 +961,38 @@ namespace bvm2 {
 		}
 	}
 
+	template <uint32_t wNom, uint32_t wDenom, uint32_t wQuotient>
+	void TestMultiPrecisionDiv(
+		const Shaders::MultiPrecision::UInt<wNom>& nom,
+		const Shaders::MultiPrecision::UInt<wDenom>& denom,
+		const Shaders::MultiPrecision::UInt<wNom>& resid,
+		const Shaders::MultiPrecision::UInt<wQuotient>& quotient)
+	{
+		auto myResid = nom;
+		Shaders::MultiPrecision::UInt<wQuotient> myQuotient;
+		myQuotient.SetDivResid(myResid, denom);
+
+		// in-host results should be the same
+		verify_test(myResid == resid);
+		verify_test(myQuotient == quotient);
+
+		if (denom.IsZero())
+		{
+			verify_test(resid == nom);
+			
+			myQuotient += Shaders::MultiPrecision::UInt<1>(1);
+			verify_test(myQuotient.IsZero());
+		}
+		else
+		{
+			verify_test(resid < denom);
+
+			auto val = resid + denom * quotient;
+			verify_test(val == nom);
+		}
+
+	}
+
 	void MyProcessor::TestDummy()
 	{
 		ContractID cid;
@@ -1002,6 +1036,68 @@ namespace bvm2 {
 
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
 		}
+
+		{
+			Shaders::Dummy::MathTest2 args;
+
+			ZeroObject(args);
+
+			args.m_Nom.set_Val<5>(0x7fffffff);
+			args.m_Nom.set_Val<4>(0x80000000);
+			args.m_Nom.set_Val<3>(0xe3212316);
+			args.m_Nom.set_Val<2>(0xe3212316);
+			args.m_Nom.set_Val<1>(0xcc212316);
+
+			args.m_Denom.set_Val<4>(0x80000000); // tricky case, division correction vs init guess is done twice
+			args.m_Denom.set_Val<3>(0xffffffff);
+
+			auto myResid = args.m_Resid;
+			auto myQuotient = args.m_Quotient;
+
+			//args.m_Quotient.Fill(0xcccccccc);
+			//args.m_Resid.Fill(0xcccccccc);
+
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+
+			args.m_Denom.set_Val<3>(0x7fffffff); // msb not set, normalization would be applied
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+
+			args.m_Denom.set_Val<3>(0x1fffffff); // one correction
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+
+			args.m_Denom.set_Val<4>(0x12345678); // no correction
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+
+			args.m_Denom.Set0(); // div by 0
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+
+			// some random numbers
+			for (uint32_t i = 0; i < 50; i++)
+			{
+				ECC::GenRandom(&args.m_Nom, sizeof(args.m_Nom));
+				ECC::GenRandom(&args.m_Denom, sizeof(args.m_Denom));
+
+				if (i > 20)
+				{
+					args.m_Denom.set_Val<4>(0);
+					if (i > 30)
+					{
+						args.m_Denom.set_Val<3>(0);
+						if (i > 40)
+							args.m_Denom.set_Val<2>(0);
+					}
+				}
+
+				verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+				TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+			}
+		}
+
 
 		{
 			Shaders::Dummy::DivTest1 args;
