@@ -110,6 +110,7 @@ ON_METHOD(manager, view)
     static const ShaderID s_pSid[] = {
         DaoCore::s_SID_0,
         DaoCore::s_SID_1,
+        DaoCore::s_SID_2,
     };
 
     ContractID pVerCid[_countof(s_pSid)];
