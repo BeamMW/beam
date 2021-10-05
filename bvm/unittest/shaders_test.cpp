@@ -1051,12 +1051,6 @@ namespace bvm2 {
 			args.m_Denom.set_Val<4>(0x80000000); // tricky case, division correction vs init guess is done twice
 			args.m_Denom.set_Val<3>(0xffffffff);
 
-			auto myResid = args.m_Resid;
-			auto myQuotient = args.m_Quotient;
-
-			//args.m_Quotient.Fill(0xcccccccc);
-			//args.m_Resid.Fill(0xcccccccc);
-
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
 			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
 
