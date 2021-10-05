@@ -217,7 +217,7 @@ ON_METHOD(manager, view_params)
 
     Env::DocGroup gr("params");
     Env::DocAddNum("aid", aid);
-    Env::DocAddNum("locked_demoX", get_ContractLocked(aid, cid));
+    Env::DocAddNum("locked_beamX", get_ContractLocked(aid, cid));
     Env::DocAddNum("locked_beams", get_ContractLocked(0, cid));
 }
 
@@ -346,7 +346,7 @@ ON_METHOD(manager, prealloc_withdraw)
     fc.m_Amount = amount;
     fc.m_Consume = 0;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "Get preallocated demoX tokens", 0);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "Get preallocated beamX tokens", 0);
 }
 
 void GetFarmingState(const ContractID& cid, DaoCore::Farming::State& fs)
@@ -486,7 +486,7 @@ ON_METHOD(manager, farm_update)
     pFc[1].m_Amount = amountBeam;
     pFc[1].m_Consume = bLockOrUnlock;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), &sig, 1, "Lock/Unlock and get farmed demoX tokens", 0);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), &sig, 1, "Lock/Unlock and get farmed beamX tokens", 0);
 
 }
 
