@@ -32,6 +32,8 @@ target_sources(wallet_client
 target_link_libraries(wallet_client 
     PUBLIC
         wallet
+    PRIVATE
+        http
 )
 
 target_compile_features(wallet_client PUBLIC cxx_std_17)
