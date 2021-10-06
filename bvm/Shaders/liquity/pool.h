@@ -229,7 +229,7 @@ private:
         auto x_ = MultiPrecision::From(x);
         auto val = x_ * MultiPrecision::From(nom);
         x_.SetDivResid(val, MultiPrecision::From(denom));
-        return x_.Get<0, T1>();
+        return x_.template Get<0, T1>();
     }
 
     template <uint32_t nNormWords, uint32_t nWords>
