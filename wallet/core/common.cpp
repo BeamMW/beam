@@ -1471,10 +1471,15 @@ namespace beam::wallet
 
         for (const auto& pair : packedParams)
         {
+            const auto& v = GetParameterValue(pair.first, pair.second);
+            if (v.is_null())
+            {
+                continue;
+            }
             params.push_back(
             {
                 GetParameterName(pair.first),
-                GetParameterValue(pair.first, pair.second)
+                v
             });
         }
         auto txID = p->GetTxID();

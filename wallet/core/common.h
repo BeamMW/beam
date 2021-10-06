@@ -339,8 +339,8 @@ namespace beam::wallet
     MACRO(ShieldedVoucherList,             124, ShieldedVoucherList) \
     MACRO(Voucher,                         125, ShieldedTxo::Voucher) \
     /* Version */ \
-    MACRO(ClientVersion,                   126, std::string) \
-    MACRO(LibraryVersion,                  127, std::string)\
+    MACRO(ClientVersion,                   126, ByteBuffer/*std::string*/) \
+    MACRO(LibraryVersion,                  127, ByteBuffer/*std::string*/) \
 
     // Ids of the transaction parameters
     enum class TxParameterID : uint8_t

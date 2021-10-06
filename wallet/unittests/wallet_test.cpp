@@ -2153,13 +2153,20 @@ namespace
         WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"next_version\":", sTmp));
     }
 
-
-
-
     struct MyZeroInit {
         static void Do(std::string&) {}
-        static void Do(beam::ShieldedTxo::PublicGen&) {}
+        static void Do(beam::ShieldedTxo::PublicGen& pg)
+        {
+            SecString secretSeed;
+            //secretSeed.assign(buf.data(), buf.size());
+
+            Key::IKdf::Ptr kdf;
+            ECC::HKdf::Create(kdf, secretSeed.hash().V);
+            pg = GeneratePublicAddress(*kdf);
+        }
         template <typename T> static void Do(std::vector<T>&) {}
+        // fill with valid wallet id
+        static void Do(WalletID& id) { id.FromHex("1b516fb39884a3281bc0761f97817782a8bc51fdb1336882a2c7efebdb400d00d4"); } 
         template <typename T> static void Do(T& x) { ZeroObject(x);  }
     };
 
@@ -2199,7 +2206,7 @@ namespace
             {
                 "7a3b9afd0f6bba147a4e044329b135424ca3a57ab9982fe68747010a71e0cac3f3",
                 "9f03ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95",
-                "0103ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95",
+                "0103ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95"
             };
             for (const auto& a : addresses)
             {
@@ -2227,7 +2234,12 @@ namespace
                 WALLET_CHECK(jsonParams == jsonParams2);
                 WALLET_CHECK(token1 == token2);
             }
-
+            {
+                std::string addr = "vn9dekHru14SuuU7otEzdVztGDAaKT6ku7HigdhydPfzQry3rxpVXvbAnmCeBVdCR7rudexjueDVz863cyM2CQtmtKfxuVZNHotgyp8SzNM9NyHKTB8h8MiwuWgLpnhzVEznYFnqZTestf6kQMUfiEsMpMCTv3EhQRyjjx22cbZnmih43hwapEkfiWetM8UjvToQ1ZWu8EMuNGGWKyBHPxeCPvJvJRiDYjZMqyxcAccYvvj6p6A2iEnEEBs7V2sxQLLDtobP7Jmoiv5kRJUxjf3Lmda9dUin7YqXRy8tei1BDPakW7tC3X69BAg4S6ocSSLLArjHiSVF4Y4f9q3k54nEcHCc41wTZpLkh8kjQB6Rv12gCuRxELUgno6PGfMQaSjkzxCorVWRnRqR7jbepyxiikNaJGzKQugoysFKSRjfWfTzgyzHKcorJmZ4qEueE5fncWgMEkLGmobxVwpNzy3";
+                WALLET_CHECK(CheckReceiverAddress(addr));
+                auto p = ConvertTokenToJson(addr);
+                WALLET_CHECK(!p.empty());
+            }
             {
                 // don't save uninitialized variables
                 TxParameters allParams;
@@ -2241,9 +2253,11 @@ namespace
 #undef MACRO
 
                 allParams.DeleteParameter(TxParameterID::SubTxIndex);
+                allParams.DeleteParameter(TxParameterID::PublicAddreessGen);
                 auto token1 = std::to_string(allParams);
 
                 auto jsonParams = ConvertTokenToJson(token1);
+                WALLET_CHECK(!jsonParams.empty());
                 auto token2 = ConvertJsonToToken(jsonParams);
                 auto jsonParams2 = ConvertTokenToJson(token2);
                 WALLET_CHECK(jsonParams == jsonParams2);
