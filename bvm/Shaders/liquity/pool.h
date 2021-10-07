@@ -1,14 +1,21 @@
 #pragma once
 #include "../Math.h"
 
-struct ExchangePool
+struct HomogenousPool
 {
     typedef MultiPrecision::Float Float;
 
-    struct Decay
+    struct Scale
     {
-        static const int32_t s_Threshold1 = -20;
-        static const int32_t s_Threshold2 = -40;
+        static const uint32_t s_Threshold = 20; // 1mln
+
+        static bool IsSane(const Float& x, uint32_t nThreshold)
+        {
+            // should be (nThreshold > x.m_Order >= -nThreshold)
+            // (2*nThreshold > x.m_Order + nThreshold >= 0)
+            uint32_t val = nThreshold + x.m_Order;
+            return (val < nThreshold * 2);
+        }
     };
 
     struct Pair {
@@ -16,18 +23,23 @@ struct ExchangePool
         Amount b;
     };
 
+    enum Mode {
+        Neutral, // s doesn't change during the trade (i.e. farming)
+        Burn, // s is decreased during the trade (i.e. exchange, s burns-out)
+        Grow, // s grows during the trade (i.e. redistribution)
+    };
+
     struct Epoch
     {
         uint32_t m_Users;
         Pair m_Balance;
         Float m_Sigma;
-        Float m_kDecay;
+        Float m_kScale;
 
+        template <Mode m>
         void Trade_(const Pair& d)
         {
             Amount s0 = m_Balance.s;
-            assert(d.s <= s0);
-
             if (!s0)
             {
                 assert(!d.s && !d.b);
@@ -36,14 +48,31 @@ struct ExchangePool
 
             Float s0_(s0);
 
-            // dSigma = (d.b * m_kDecay) / s0
-            m_Sigma = m_Sigma + Float(d.b) * m_kDecay / s0_;
+            if (d.b)
+            {
+                // dSigma = (d.b * m_kScale) / s0
+                m_Sigma = m_Sigma + Float(d.b) * m_kScale / s0_;
 
-            Strict::Add(m_Balance.b, d.b);
-            m_Balance.s -= d.s;
+                Strict::Add(m_Balance.b, d.b);
+            }
 
-            // m_kDecay *= m_Balance.s / s0;
-            m_kDecay = m_kDecay * Float(m_Balance.s) / s0_;
+            if (d.s)
+            {
+                if constexpr (Mode::Burn == m)
+                {
+                    assert(d.s <= s0);
+                    m_Balance.s -= d.s;
+                }
+                else
+                {
+                    if constexpr (Mode::Grow == m)
+                        Strict::Add(m_Balance.s, d.s);
+                }
+
+                if constexpr (Mode::Neutral != m)
+                    // m_kScale *= m_Balance.s / s0;
+                    m_kScale = m_kScale * Float(m_Balance.s) / s0_;
+            }
         }
     };
 
@@ -60,7 +89,7 @@ struct ExchangePool
     void Init()
     {
         _POD_(*this).SetZero();
-        ResetActiveDecay();
+        ResetActiveScale();
         m_iActive = 1;
     }
 
@@ -75,9 +104,7 @@ struct ExchangePool
             assert(valSell);
             m_Sigma0 = e.m_Sigma;
 
-            assert(e.m_kDecay.m_Order >= Decay::s_Threshold1);
-
-            m_SellScaled = Float(valSell) / e.m_kDecay;
+            m_SellScaled = Float(valSell) / e.m_kScale;
 
             Strict::Add(e.m_Balance.s, valSell);
             e.m_Users++; // won't overflow, 4bln isn't feasible
@@ -89,7 +116,7 @@ struct ExchangePool
             assert(e.m_Users);
             if (--e.m_Users)
             {
-                out.s = std::min<Amount>(e.m_Balance.s, m_SellScaled * e.m_kDecay);
+                out.s = std::min<Amount>(e.m_Balance.s, m_SellScaled * e.m_kScale);
                 out.b = std::min<Amount>(e.m_Balance.b, m_SellScaled * (e.m_Sigma - m_Sigma0));
             }
             else
@@ -136,7 +163,8 @@ struct ExchangePool
         }
     }
 
-    void Trade(const Pair& d)
+    template <Mode m>
+    void Trade_(const Pair& d)
     {
         assert(d.s);
 
@@ -154,29 +182,35 @@ struct ExchangePool
             d0.s = Float(d.s) * kRatio;
             d0.b = Float(d.b) * kRatio;
 
-            m_Active.Trade_(d0);
+            m_Active.Trade_<m>(d0);
 
             d0.s = d.s - d0.s;
             d0.b = d.b - d0.b;
 
-            m_Draining.Trade_(d0);        }
+            m_Draining.Trade_<m>(d0);
+        }
         else
-            m_Active.Trade_(d);
+            m_Active.Trade_<m>(d);
     }
 
     template <class IO>
     void OnPostTrade()
     {
-        if (m_Active.m_kDecay >= Decay::s_Threshold)
-            return;
+        if (!Scale::IsSane(m_Active.m_kScale, Scale::s_Threshold))
+        {
+            UnloadDraining<IO>();
 
-        if (m_Draining.m_Users)
-            IO::Save(m_iActive - 1, m_Draining);
+            _POD_(m_Draining) = m_Active;
 
-        _POD_(m_Draining) = m_Active;
+            ResetActive();
+            m_iActive++;
+        }
 
-        ResetActive();
-        m_iActive++;
+        if (!Scale::IsSane(m_Draining.m_kScale, Scale::s_Threshold * 2))
+        {
+            UnloadDraining<IO>();
+            _POD_(m_Draining).SetZero();
+        }
     }
 
 private:
@@ -184,13 +218,37 @@ private:
     void ResetActive()
     {
         _POD_(m_Active).SetZero();
-        ResetActiveDecay();
+        ResetActiveScale();
     }
 
-    void ResetActiveDecay()
+    void ResetActiveScale()
     {
-        m_Active.m_kDecay.m_Num = m_Active.m_kDecay.s_HiBit;
-        m_Active.m_kDecay.m_Order = 0;
+        m_Active.m_kScale.m_Num = m_Active.m_kScale.s_HiBit;
+        m_Active.m_kScale.m_Order = 0;
+    }
+
+    template <class IO>
+    void UnloadDraining()
+    {
+        if(m_Draining.m_Users)
+            IO::Save(m_iActive - 1, m_Draining);
     }
 };
 
+struct ExchangePool
+    :public HomogenousPool
+{
+    void Trade(const Pair& d)
+    {
+        Trade_<Mode::Burn>(d);
+    }
+};
+
+struct DistributionPool
+    :public HomogenousPool
+{
+    void Trade(const Pair& d)
+    {
+        Trade_<Mode::Grow>(d);
+    }
+};
