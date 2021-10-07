@@ -4,7 +4,6 @@
 #include "../upgradable2/contract.h"
 #include "../upgradable2/app_common_impl.h"
 
-#define DaoCore_manager_deploy_version(macro)
 #define DaoCore_manager_view(macro)
 #define DaoCore_manager_view_params(macro) macro(ContractID, cid)
 #define DaoCore_manager_lock(macro) \
@@ -42,22 +41,13 @@
 
 #define DaoCore_manager_my_admin_key(macro)
 
-#define DaoCore_manager_deploy_contract(macro) Upgradable2_deploy(macro)
-#define DaoCore_manager_schedule_upgrade(macro) Upgradable2_schedule_upgrade(macro)
 #define DaoCore_manager_explicit_upgrade(macro) macro(ContractID, cid)
-#define DaoCore_manager_replace_admin(macro) Upgradable2_replace_admin(macro)
-#define DaoCore_manager_set_min_approvers(macro) Upgradable2_set_min_approvers(macro)
 
 #define DaoCore_manager_view_stake(macro) macro(ContractID, cid)
 
 #define DaoCoreRole_manager(macro) \
-    macro(manager, deploy_version) \
     macro(manager, view) \
-    macro(manager, deploy_contract) \
-    macro(manager, schedule_upgrade) \
     macro(manager, explicit_upgrade) \
-    macro(manager, replace_admin) \
-    macro(manager, set_min_approvers) \
     macro(manager, view_params) \
     macro(manager, view_stake) \
     macro(manager, my_xid) \
@@ -124,52 +114,9 @@ ON_METHOD(manager, view)
     wlk.ViewAll(&kid);
 }
 
-ON_METHOD(manager, deploy_version)
-{
-    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy DaoCore bytecode", 0);
-}
-
-static const Amount g_DepositCA = 3000 * g_Beam2Groth; // 3K beams
-
-ON_METHOD(manager, deploy_contract)
-{
-    FundsChange fc;
-    fc.m_Aid = 0; // asset id
-    fc.m_Amount = g_DepositCA; // amount of the input or output
-    fc.m_Consume = 1; // contract consumes funds (i.e input, in this case)
-
-    MyKeyID kid;
-    PubKey pk;
-    kid.get_Pk(pk);
-
-    Upgradable2::Create arg;
-    if (!ManagerUpgadable2::FillDeployArgs(arg, &pk))
-        return;
-
-    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deploy DaoCore contract", 0);
-}
-
-ON_METHOD(manager, schedule_upgrade)
-{
-    MyKeyID kid;
-    ManagerUpgadable2::MultiSigRitual::Perform_ScheduleUpgrade(cid, kid, cidVersion, hTarget);
-}
-
 ON_METHOD(manager, explicit_upgrade)
 {
     ManagerUpgadable2::MultiSigRitual::Perform_ExplicitUpgrade(cid);
-}
-
-ON_METHOD(manager, replace_admin)
-{
-    MyKeyID kid;
-    ManagerUpgadable2::MultiSigRitual::Perform_ReplaceAdmin(cid, kid, iAdmin, pk);
-}
-
-ON_METHOD(manager, set_min_approvers)
-{
-    MyKeyID kid;
-    ManagerUpgadable2::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
 }
 
 Amount get_ContractLocked(AssetID aid, const ContractID& cid)
@@ -215,7 +162,7 @@ ON_METHOD(manager, view_params)
 
     Env::DocGroup gr("params");
     Env::DocAddNum("aid", aid);
-    Env::DocAddNum("locked_demoX", get_ContractLocked(aid, cid));
+    Env::DocAddNum("locked_beamX", get_ContractLocked(aid, cid));
     Env::DocAddNum("locked_beams", get_ContractLocked(0, cid));
 }
 
@@ -343,7 +290,7 @@ ON_METHOD(manager, prealloc_withdraw)
     fc.m_Amount = amount;
     fc.m_Consume = 0;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "Get preallocated demoX tokens", 0);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "Get preallocated beamX tokens", 0);
 }
 
 void GetFarmingState(const ContractID& cid, DaoCore::Farming::State& fs)
@@ -483,7 +430,7 @@ ON_METHOD(manager, farm_update)
     pFc[1].m_Amount = amountBeam;
     pFc[1].m_Consume = bLockOrUnlock;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), &sig, 1, "Lock/Unlock and get farmed demoX tokens", 0);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), &sig, 1, "Lock/Unlock and get farmed beamX tokens", 0);
 
 }
 
