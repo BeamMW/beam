@@ -581,6 +581,8 @@ namespace MultiPrecision
 			}
 		}
 
+		friend struct Float;
+
 		template <uint32_t wa, uint32_t wd>
 		void SetDivResidNormalized(UInt<wa>& __restrict__ resid, const UInt<wd>& __restrict__ div)
 		{
@@ -688,6 +690,224 @@ namespace MultiPrecision
 	{
 		return FromEx<0, T>(x);
 	}
+
+
+
+
+    struct Float
+    {
+        // simple impl. fixed-size mantissa, non-negative, no inf/nan and etc.
+        uint64_t m_Num; // msb must be set unless zero
+        int32_t m_Order;
+
+        static const uint32_t s_Bits = sizeof(m_Num) * 8;
+        static const uint64_t s_HiBit = 1ull << (s_Bits - 1);
+
+        Float() {}
+        Float(uint64_t val) { Set(val); }
+
+        void Set0()
+        {
+            m_Num = 0;
+            m_Order = 0;
+        }
+
+        void Set(uint64_t val)
+        {
+            m_Num = val;
+            m_Order = 0;
+            Normalize();
+        }
+
+        uint64_t Get() const
+        {
+            if (m_Order >= 0)
+            {
+                uint32_t ord = m_Order;
+                if (ord >= s_Bits)
+                    return static_cast<uint64_t>(-1); // inf
+
+                return m_Num << ord;
+            }
+            else
+            {
+                uint32_t ord = -m_Order;
+                if (ord >= s_Bits)
+                    return 0;
+
+                return m_Num >> ord;
+
+            }
+        }
+
+        operator uint64_t () const {
+            return Get();
+        }
+
+        bool IsZero() const
+        {
+            return !m_Num;
+        }
+
+        void Normalize()
+        {
+            // call explicitly only if manipulating directly
+            auto nBits = BitUtils::FindHiBit(m_Num);
+            if (nBits != s_Bits)
+            {
+                if (nBits)
+                {
+                    uint32_t nDelta = s_Bits - nBits;
+                    m_Num <<= nDelta;
+                    m_Order -= nDelta;
+                }
+                else
+                    Set0();
+            }
+        }
+
+        Float operator + (Float b) const
+        {
+            if (IsZero())
+                return b;
+            if (b.IsZero())
+                return *this;
+
+            return (m_Order >= b.m_Order) ? AddInternal(b) : b.AddInternal(*this);
+        }
+
+        Float operator - (Float b) const
+        {
+            if (b.IsZero())
+                return *this;
+
+            assert(!IsZero());
+            assert(m_Order >= b.m_Order);
+            uint32_t dOrder = m_Order - b.m_Order;
+
+            if (dOrder >= s_Bits)
+                return *this;
+
+            Float res;
+            res.m_Num = m_Num - (b.m_Num >> dOrder);
+            res.m_Order = m_Order;
+
+            res.Normalize();
+            return res;
+        }
+
+        Float operator * (Float b) const
+        {
+            if (IsZero())
+                return *this;
+            if (b.IsZero())
+                return b;
+
+            // both must be normalized
+            auto x = MultiPrecision::From(m_Num) * MultiPrecision::From(b.m_Num);
+
+            // the result may loose at most 1 msb
+            Float res;
+            res.m_Order = m_Order + b.m_Order + s_Bits;
+            x.Get<2>(res.m_Num);
+
+            if (!(s_HiBit & res.m_Num))
+            {
+                res.m_Num = (res.m_Num << 1) | (x.get_Val<2>() >> (MultiPrecision::nWordBits - 1));
+                res.m_Order--;
+            }
+
+            return res;
+        }
+
+        Float operator / (Float b) const
+        {
+            if (IsZero())
+                return *this;
+            if (b.IsZero())
+                return b; // actually the result should be inf, but nevermind
+
+            Float res;
+            res.m_Order = m_Order - b.m_Order - s_Bits;
+
+            // since both operands are normalized, the result must be within (1/2 .. 2)
+            if (m_Num >= b.m_Num)
+            {
+                res.m_Num = DivInternal(m_Num - b.m_Num, b.m_Num);
+                res.AddMsb();
+            }
+            else
+            {
+                res.m_Num = DivInternal(m_Num, b.m_Num);
+                assert(s_HiBit & res.m_Num);
+            }
+
+            return res;
+        }
+
+        Float operator << (int32_t n)
+        {
+            if (IsZero())
+                return *this;
+
+            Float res;
+            res.m_Num = m_Num;
+            res.m_Order = m_Order + n;
+            return res;
+        }
+
+        Float operator >> (int32_t n)
+        {
+            if (IsZero())
+                return *this;
+
+            Float res;
+            res.m_Num = m_Num;
+            res.m_Order = m_Order - n;
+            return res;
+        }
+
+    private:
+
+        void AddMsb()
+        {
+            m_Num = (m_Num >> 1) | s_HiBit;
+            m_Order++;
+        }
+
+        Float AddInternal(const Float& __restrict__ b) const
+        {
+            assert(!IsZero() && !b.IsZero() && m_Order >= b.m_Order);
+            uint32_t dOrder = m_Order - b.m_Order;
+
+            if (dOrder >= s_Bits)
+                return *this;
+
+            Float res;
+            res.m_Num = m_Num + (b.m_Num >> dOrder);
+            res.m_Order = m_Order;
+            if (res.m_Num < m_Num)
+                // overflow
+                res.AddMsb();
+
+            return res;
+        }
+
+        static uint64_t DivInternal(uint64_t a, uint64_t b)
+        {
+            assert((s_HiBit & b) && (a < b));
+
+            MultiPrecision::UInt<4> nom;
+            nom.Set<2>(a);
+
+            MultiPrecision::UInt<2> res;
+            res.SetDivResidNormalized(nom, MultiPrecision::From(b));
+
+            return res.Get<0, uint64_t>();
+        }
+    };
+
+
 
 } // namespace MultiPrecision
 
