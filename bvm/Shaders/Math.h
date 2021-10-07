@@ -604,12 +604,22 @@ namespace MultiPrecision
 					return 0;
 				else
 				{
-					DWord hiPart = static_cast<DWord>(get_Val<wd + nLShift + 1>()) << nWordBits;
+					Word hiNom = get_Val<wd + nLShift + 1>();
+					Word hiDenom = div.template get_Val<wd>();
+
+					DWord hiPart = static_cast<DWord>(hiNom) << nWordBits;
 					hiPart |= get_Val<wd + nLShift>();
 
-					Word res = static_cast<Word>(hiPart / div.template get_Val<wd>()); // dont care about overflow
+					Word res = static_cast<Word>(hiPart / hiDenom);
 					if (!res)
-						return 0;
+					{
+						// could be due to overflow
+						if (!hiNom)
+							return 0;
+
+						assert(hiNom >= hiDenom);
+						res = static_cast<Word>(-1);
+					}
 
 					auto mul = div * UInt<1>(res);
 
@@ -664,11 +674,16 @@ namespace MultiPrecision
 				else
 				{
 					DWord carry = AddShifted<nLShift, iWord - 1>(val);
-					carry += get_Val<nLShift + iWord>();
-					carry += val.template get_Val<iWord>();
+					if constexpr (nLShift + iWord > nWords)
+						return carry; // don't propagate it to the non-existing word. Can happen at the beginning of division
+					else
+					{
+						carry += get_Val<nLShift + iWord>();
+						carry += val.template get_Val<iWord>();
 
-					set_Val<nLShift + iWord>((Word) carry);
-					return carry >> nWordBits;
+						set_Val<nLShift + iWord>((Word)carry);
+						return carry >> nWordBits;
+					}
 				}
 			}
 			else
@@ -748,6 +763,11 @@ namespace MultiPrecision
         {
             return !m_Num;
         }
+
+		bool operator == (const Float& x) const
+		{
+			return (m_Num == x.m_Num) && (m_Order == x.m_Order);
+		}
 
         void Normalize()
         {

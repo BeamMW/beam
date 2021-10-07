@@ -1070,6 +1070,14 @@ namespace bvm2 {
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
 			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
 
+
+			args.m_Nom.Set<2>(0xb5e620f47ffc0000ull);
+			args.m_Denom.Set<0>(0xb5e620f480000000ull); // tricky case: hiwords of nom and denom are equal, init guess will exceed 1 word
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+
+
+
 			// some random numbers
 			for (uint32_t i = 0; i < 50; i++)
 			{
