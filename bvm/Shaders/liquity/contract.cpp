@@ -9,7 +9,7 @@ BEAM_EXPORT void Ctor(void*)
     _POD_(s).SetZero();
 
     s.m_StabPool.Init();
-    s.m_Troves.m_Liquidated.Init();
+    s.m_RedistPool.Init();
 
     static const char szMeta[] = "STD:SCH_VER=1;N=Liquity Token;SN=Liqt;UN=LIQT;NTHUN=GROTHL";
     s.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);

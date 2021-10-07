@@ -39,7 +39,7 @@ namespace Liquity
 
         PubKey m_pkOwner;
         Pair m_Amounts;
-        ExchangePool::User m_Liquidated; // enforced liquidations
+        ExchangePool::User m_RedistUser; // accumulates enforced liquidations
     };
 
     struct Global
@@ -50,13 +50,108 @@ namespace Liquity
         struct Troves
         {
             uint32_t m_iLast;
-            Pair m_Totals; // effective amounts, after accounting for liquidations
-
-            ExchangePool m_Liquidated;
+            Pair m_Totals; // Total minted tokens and collateral in all troves
 
         } m_Troves;
 
-        ExchangePool m_StabPool;
+        struct RedistPool
+            :public DistributionPool
+        {
+            bool Add(Trove& t)
+            {
+                assert(!t.m_RedistUser.m_iEpoch);
+
+                if (!t.m_Amounts.s)
+                    return false;
+
+                UserAdd(t.m_RedistUser, t.m_Amounts.s);
+                assert(.m_RedistUser.m_iEpoch);
+
+                return true;
+            }
+
+            bool IsUnchanged(const Trove& t) const
+            {
+                return
+                    (t.m_RedistUser.m_iEpoch == m_iActive) &&
+                    (t.m_RedistUser.m_Sigma0 == m_Active.m_Sigma);
+            }
+
+            template <class IO>
+            bool Remove(Trove& t)
+            {
+                if (!t.m_RedistUser.m_iEpoch)
+                    return false;
+
+                // try to avoid recalculations if nothing changed, to prevent inaccuracies
+                //
+                // // should not overflow, all values are bounded by totals.
+                if (IsUnchanged(t))
+                    m_Active.m_Balance.s -= t.m_Amounts.s; // silent removal
+                else
+                {
+                    Pair out;
+                    UserDel<IO>(t.m_RedistUser, out);
+
+                    t.m_Amounts.s = out.s;
+                    t.m_Amounts.b += out.b;
+                }
+
+                t.m_RedistUser.m_iEpoch = 0;
+
+                return true;
+            }
+
+            bool Liquidate(Trove& t)
+            {
+                assert(!t.m_RedistUser.m_iEpoch); // should not be a part of the pool during liquidation!
+
+                if (t.m_Amounts.s > get_TotalSell())
+                    return false;
+
+                Trade(t.m_Amounts);
+
+                t.m_Amounts.s = 0;
+                t.m_Amounts.b = 0;
+                return true;
+            }
+
+        } m_RedistPool;
+
+        struct StabilityPool
+            :public ExchangePool
+        {
+            bool Liquidate(Trove& t)
+            {
+                auto maxVal = get_TotalSell();
+                if (!maxVal)
+                    return false;
+
+                if (maxVal >= t.m_Amounts.s)
+                {
+                    Trade(t.m_Amounts);
+
+                    t.m_Amounts.s = 0;
+                    t.m_Amounts.b = 0;
+                }
+                else
+                {
+                    // partial liquidation is ok
+                    Pair part = t.m_Amounts.get_Fraction(maxVal, t.m_Amounts.s);
+                    if (!part.s)
+                        return false;
+
+                    Trade(t.m_Amounts);
+
+                    t.m_Amounts = t.m_Amounts - part;
+                }
+
+                return true;
+            }
+
+            IMPLEMENT_GET_PARENT_OBJ(Global, m_StabPool)
+        } m_StabPool;
+
     };
 
 #pragma pack (pop)

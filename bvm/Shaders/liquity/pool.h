@@ -18,9 +18,32 @@ struct HomogenousPool
         }
     };
 
-    struct Pair {
+    struct Pair
+    {
         Amount s;
         Amount b;
+
+        Pair get_Fraction(const Float& kRatio) const
+        {
+            Pair p;
+            p.s = Float(s) * kRatio;
+            p.b = Float(b) * kRatio;
+            return p;
+        }
+
+        Pair get_Fraction(Amount w1, Amount wTotal) const
+        {
+            assert(wTotal);
+            return get_Fraction(Float(w1) / Float(wTotal));
+        }
+
+        Pair operator - (const Pair& p) const
+        {
+            Pair ret;
+            ret.s = s - p.s;
+            ret.b = b - p.b;
+            return ret;
+        }
     };
 
     enum Mode {
@@ -175,18 +198,10 @@ struct HomogenousPool
             Amount totalSell = get_TotalSell();
             assert(d.s <= totalSell);
 
-            // split among active/draining w.r.t. their currency proportion. Round in favor of draining
-            Float kRatio = Float(m_Active.m_Balance.s) / Float(totalSell);
-            Pair d0;
-        
-            d0.s = Float(d.s) * kRatio;
-            d0.b = Float(d.b) * kRatio;
-
+            Pair d0 = d.get_Fraction(m_Active.m_Balance.s, totalSell);
             m_Active.Trade_<m>(d0);
 
-            d0.s = d.s - d0.s;
-            d0.b = d.b - d0.b;
-
+            d0 = d - d0;
             m_Draining.Trade_<m>(d0);
         }
         else
