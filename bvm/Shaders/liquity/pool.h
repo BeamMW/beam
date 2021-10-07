@@ -3,24 +3,12 @@
 
 struct ExchangePool
 {
+    typedef MultiPrecision::Float Float;
+
     struct Decay
     {
-        typedef MultiPrecision::UInt<2> Type;
-        static const uint64_t s_One = 1ull << 60;
-        static const uint64_t s_Threshold = 1ull << 40;
-    };
-
-    struct Sigma
-    {
-        // sigma grows by portions of dSigma = (delta_buy_amount * kDecay / total_sell_amount).
-        // kDecay should not fall below s_Threshold^2, i.e. 1 << 20
-        //
-        // The normalization factor is 2 words. Means in worst case dSigma is no less than 2^20 (practically would be much much larger).
-        // On the opposite side normalized dSigma may grow as 6 words (practically would be much lower).
-        // Hence to mitigate possible overflow we allocate 7 words
-
-        typedef MultiPrecision::UInt<7> Type;
-        static const uint32_t s_NormWords = 2;
+        static const int32_t s_Threshold1 = -20;
+        static const int32_t s_Threshold2 = -40;
     };
 
     struct Pair {
@@ -32,8 +20,8 @@ struct ExchangePool
     {
         uint32_t m_Users;
         Pair m_Balance;
-        Sigma::Type m_Sigma;
-        Decay::Type m_kDecay;
+        Float m_Sigma;
+        Float m_kDecay;
 
         void Trade_(const Pair& d)
         {
@@ -46,29 +34,16 @@ struct ExchangePool
                 return;
             }
 
-            auto s0_ = MultiPrecision::From(s0);
+            Float s0_(s0);
 
-            {
-                // dSigma = ((d.b * m_kDecay) << normalization) / s0
-
-                auto val = MultiPrecision::From(d.b) * m_kDecay; // 4 words
-                static_assert(val.nWords == 4);
-
-                MultiPrecision::UInt<4 + Sigma::s_NormWords> valNorm, dSigma;
-                valNorm.Assign<Sigma::s_NormWords>(val);
-                dSigma.SetDivResid(valNorm, s0_);
-
-                m_Sigma += dSigma; // overflow should not happen
-            }
+            // dSigma = (d.b * m_kDecay) / s0
+            m_Sigma = m_Sigma + Float(d.b) * m_kDecay / s0_;
 
             Strict::Add(m_Balance.b, d.b);
             m_Balance.s -= d.s;
 
-            {
-                // m_kDecay *= m_Balance.s / s0;
-                auto val = MultiPrecision::From(m_Balance.s) * m_kDecay;
-                m_kDecay.SetDivResid(val, s0_);
-            }
+            // m_kDecay *= m_Balance.s / s0;
+            m_kDecay = m_kDecay * Float(m_Balance.s) / s0_;
         }
     };
 
@@ -85,32 +60,24 @@ struct ExchangePool
     void Init()
     {
         _POD_(*this).SetZero();
-        m_Active.m_kDecay = Decay::s_One;
+        ResetActiveDecay();
+        m_iActive = 1;
     }
 
     struct User
     {
         uint32_t m_iEpoch;
-        Sigma::Type m_Sigma0;
-
-        static const uint32_t s_WeightNormWords = 3;
-        typedef MultiPrecision::UInt<2 + s_WeightNormWords> WeightType;
-        WeightType m_SellScaled;
+        Float m_Sigma0;
+        Float m_SellScaled;
 
         void Add_(Epoch& e, Amount valSell)
         {
             assert(valSell);
             m_Sigma0 = e.m_Sigma;
 
-            assert(e.m_kDecay >= MultiPrecision::From(Decay::s_Threshold));
+            assert(e.m_kDecay.m_Order >= Decay::s_Threshold1);
 
-            {
-                // u.m_SellScaled = valSell / m_Active.m_kDecay;
-                MultiPrecision::UInt<2 + s_WeightNormWords> val;
-                val.Assign<s_WeightNormWords>(MultiPrecision::From(valSell));
-
-                m_SellScaled.SetDivResid(val, e.m_kDecay);
-            }
+            m_SellScaled = Float(valSell) / e.m_kDecay;
 
             Strict::Add(e.m_Balance.s, valSell);
             e.m_Users++; // won't overflow, 4bln isn't feasible
@@ -122,12 +89,8 @@ struct ExchangePool
             assert(e.m_Users);
             if (--e.m_Users)
             {
-                out.s = get_AmountSaturated<s_WeightNormWords>(m_SellScaled * e.m_kDecay, e.m_Balance.s);
-
-                Sigma::Type dS;
-                dS.SetSub(e.m_Sigma, m_Sigma0);
-
-                out.b = get_AmountSaturated<s_WeightNormWords + Sigma::s_NormWords>(m_SellScaled * dS, e.m_Balance.b);
+                out.s = std::min<Amount>(e.m_Balance.s, m_SellScaled * e.m_kDecay);
+                out.b = std::min<Amount>(e.m_Balance.b, m_SellScaled * (e.m_Sigma - m_Sigma0));
             }
             else
                 out = e.m_Balance;
@@ -185,10 +148,11 @@ struct ExchangePool
             assert(d.s <= totalSell);
 
             // split among active/draining w.r.t. their currency proportion. Round in favor of draining
+            Float kRatio = Float(m_Active.m_Balance.s) / Float(totalSell);
             Pair d0;
         
-            d0.s = MulDiv(d.s, m_Active.m_Balance.s, totalSell);
-            d0.b = MulDiv(d.b, m_Active.m_Balance.s, totalSell);
+            d0.s = Float(d.s) * kRatio;
+            d0.b = Float(d.b) * kRatio;
 
             m_Active.Trade_(d0);
 
@@ -220,27 +184,13 @@ private:
     void ResetActive()
     {
         _POD_(m_Active).SetZero();
-        m_Active.m_kDecay = Decay::s_One;
+        ResetActiveDecay();
     }
 
-    template <typename T1, typename T2>
-    static T1 MulDiv(T1 x, T2 nom, T2 denom)
+    void ResetActiveDecay()
     {
-        auto x_ = MultiPrecision::From(x);
-        auto val = x_ * MultiPrecision::From(nom);
-        x_.SetDivResid(val, MultiPrecision::From(denom));
-        return x_.template Get<0, T1>();
+        m_Active.m_kDecay.m_Num = m_Active.m_kDecay.s_HiBit;
+        m_Active.m_kDecay.m_Order = 0;
     }
-
-    template <uint32_t nNormWords, uint32_t nWords>
-    static Amount get_AmountSaturated(const MultiPrecision::UInt<nWords>& x, Amount bound)
-    {
-        if (!x.template IsZeroRange<2 + nNormWords, nWords>())
-            return bound; // overflow
-
-        auto val = x.template Get<nNormWords, Amount>();
-        return std::min(val, bound);
-    }
-
 };
 
