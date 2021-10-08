@@ -63,7 +63,8 @@ struct MyKeyID :public Env::KeyID {
 ON_METHOD(manager, view)
 {
     static const ShaderID s_pSid[] = {
-        DaoCore::s_SID // latest version
+        DaoCore::s_SID_0,
+        DaoCore::s_SID_1,
     };
 
     ContractID pVerCid[_countof(s_pSid)];
@@ -84,7 +85,7 @@ ON_METHOD(manager, deploy_version)
     Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy DaoCore bytecode", 0);
 }
 
-static const Amount g_DepositCA = 3000 * g_Beam2Groth; // 3K beams
+static const Amount g_DepositCA = 1000 * g_Beam2Groth; // 1K beams
 
 ON_METHOD(manager, deploy_contract)
 {
