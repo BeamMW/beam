@@ -10,8 +10,9 @@ namespace Liquity
     struct Tags
     {
         static const uint8_t s_State = 0;
-        static const uint8_t s_Epoch = 1;
-        static const uint8_t s_Trove = 2;
+        static const uint8_t s_Trove = 1;
+        static const uint8_t s_Epoch_Redist = 2;
+        static const uint8_t s_Epoch_Stable = 2;
     };
 
     typedef ExchangePool::Pair Pair; // s == stable, b == collateral
@@ -27,7 +28,10 @@ namespace Liquity
         typedef Amount ValueType;
     };
 
-
+    struct EpochKey {
+        uint8_t m_Tag;
+        uint32_t m_iEpoch;
+    };
 
     struct Trove
     {
@@ -46,6 +50,7 @@ namespace Liquity
     {
         ContractID m_cidOracle;
         AssetID m_Aid;
+        MultiPrecision::Float m_kTokenPrice;
 
         struct Troves
         {
@@ -77,8 +82,8 @@ namespace Liquity
                     (t.m_RedistUser.m_Sigma0 == m_Active.m_Sigma);
             }
 
-            template <class IO>
-            bool Remove(Trove& t)
+            template <class Storage>
+            bool Remove(Trove& t, Storage& stor)
             {
                 if (!t.m_RedistUser.m_iEpoch)
                     return false;
@@ -91,7 +96,7 @@ namespace Liquity
                 else
                 {
                     Pair out;
-                    UserDel<IO>(t.m_RedistUser, out);
+                    UserDel(t.m_RedistUser, out, stor);
 
                     t.m_Amounts.s = out.s;
                     t.m_Amounts.b += out.b;
@@ -141,7 +146,7 @@ namespace Liquity
                     if (!part.s)
                         return false;
 
-                    Trade(t.m_Amounts);
+                    Trade(part);
 
                     t.m_Amounts = t.m_Amounts - part;
                 }
@@ -149,9 +154,23 @@ namespace Liquity
                 return true;
             }
 
-            IMPLEMENT_GET_PARENT_OBJ(Global, m_StabPool)
         } m_StabPool;
 
+    };
+
+
+    struct OpenTrove
+    {
+        static const uint32_t s_iMethod = 3;
+
+        PubKey m_pkOwner;
+        Pair m_Amounts;
+    };
+
+    struct CloseTrove
+    {
+        static const uint32_t s_iMethod = 4;
+        uint32_t m_iTrove;
     };
 
 #pragma pack (pop)

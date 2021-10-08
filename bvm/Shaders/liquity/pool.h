@@ -145,8 +145,7 @@ struct HomogenousPool
             else
                 out = e.m_Balance;
 
-            e.m_Balance.s -= out.s;
-            e.m_Balance.b -= out.b;
+            e.m_Balance = e.m_Balance - out;
         }
     };
 
@@ -158,8 +157,8 @@ struct HomogenousPool
         Env::Halt_if(get_TotalSell() < m_Active.m_Balance.s); // overflow test
     }
 
-    template <class IO>
-    void UserDel(User& u, Pair& out)
+    template <class Storage>
+    void UserDel(User& u, Pair& out, Storage& stor)
     {
         if (u.m_iEpoch == m_iActive)
         {
@@ -174,14 +173,14 @@ struct HomogenousPool
             else
             {
                 Epoch e;
-                IO::Load(u.m_iEpoch, e);
+                stor.Load(u.m_iEpoch, e);
 
                 u.Del_(e, out);
 
                 if (e.m_Users)
-                    IO::Save(u.m_iEpoch, e);
+                    stor.Save(u.m_iEpoch, e);
                 else
-                    IO::Del(u.m_iEpoch);
+                    stor.Del(u.m_iEpoch);
             }
         }
     }
@@ -208,12 +207,12 @@ struct HomogenousPool
             m_Active.Trade_<m>(d);
     }
 
-    template <class IO>
-    void OnPostTrade()
+    template <class Storage>
+    void OnPostTrade(Storage& stor)
     {
         if (!Scale::IsSane(m_Active.m_kScale, Scale::s_Threshold))
         {
-            UnloadDraining<IO>();
+            UnloadDraining(stor);
 
             _POD_(m_Draining) = m_Active;
 
@@ -223,7 +222,7 @@ struct HomogenousPool
 
         if (!Scale::IsSane(m_Draining.m_kScale, Scale::s_Threshold * 2))
         {
-            UnloadDraining<IO>();
+            UnloadDraining(stor);
             _POD_(m_Draining).SetZero();
         }
     }
@@ -242,11 +241,11 @@ private:
         m_Active.m_kScale.m_Order = 0;
     }
 
-    template <class IO>
-    void UnloadDraining()
+    template <class Storage>
+    void UnloadDraining(Storage& stor)
     {
         if(m_Draining.m_Users)
-            IO::Save(m_iActive - 1, m_Draining);
+            stor.Save(m_iActive - 1, m_Draining);
     }
 };
 
