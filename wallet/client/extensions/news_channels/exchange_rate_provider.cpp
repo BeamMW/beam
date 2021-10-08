@@ -18,6 +18,18 @@
 
 namespace beam::wallet
 {
+    namespace
+    {
+        void logRate(const ExchangeRate& rate)
+        {
+            {
+                beam::wallet::PrintableAmount amount(rate.m_rate, true /*show decimal point*/);
+                LOG_DEBUG() << "Exchange rate (updated " << format_timestamp(kTimeStampFormat3x3, rate.m_updateTime * 1000, false) << "): 1 " << rate.m_from.m_value << " = "
+                    << amount << " " << rate.m_to.m_value;
+            }
+        }
+    }
+
     ExchangeRateProvider::ExchangeRateProvider(
         IBroadcastMsgGateway& broadcastGateway,
         BroadcastMsgValidator& validator,
@@ -56,6 +68,7 @@ namespace beam::wallet
         {
             const auto uniqID = std::make_pair(rate.m_from, rate.m_to);
             m_cache[uniqID] = rate;
+            logRate(rate);
         }
     }
 
@@ -79,6 +92,7 @@ namespace beam::wallet
             || storedRateIt->second.m_updateTime < rate.m_updateTime)
             {
                 m_cache[uniqID] = rate;
+                logRate(rate);
                 m_storage.saveExchangeRate(rate);
                 m_changedPairs.emplace(uniqID);
                 if (!m_updateTimer)
