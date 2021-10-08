@@ -51,7 +51,8 @@ namespace beam::wallet::lelantus
                     return wallet::ProcessReceiverAddress(temp, walletDB, false);
                 }
             }
-            else {
+            else
+            {
                 auto addr = walletDB->getAddressByToken(*originalToken);
                 if (addr && addr->isOwn())
                 {

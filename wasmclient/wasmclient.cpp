@@ -397,7 +397,14 @@ public:
 
         try
         {
-            auto dbFunc = [path = m_DbPath, pass = m_Pass]() {return OpenWallet(path, pass);};
+            auto dbFunc = [path = m_DbPath, pass = m_Pass, dbPtr = std::make_shared<WalletDB::Ptr>()]()
+            {
+                if (!*dbPtr)
+                {
+                    *dbPtr = OpenWallet(path, pass);
+                }
+                return *dbPtr;
+            };
             m_Client = std::make_shared<WalletClient2>(Rules::get(), dbFunc, m_Node, m_Reactor);
             m_Client->SetHandler(this);
             auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
@@ -691,9 +698,17 @@ public:
 
     static IWalletDB::Ptr OpenWallet(const std::string& dbName, const std::string& pass)
     {
-        Rules::get().UpdateChecksum();
-        LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
-        return WalletDB::open(dbName, SecString(pass));
+        try
+        {
+            Rules::get().UpdateChecksum();
+            LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
+            return WalletDB::open(dbName, SecString(pass));
+        }
+        catch (const DatabaseException& ex)
+        {
+            LOG_ERROR() << ex.what();
+            throw;
+        }
     }
 
     static void MountFS(val cb)
