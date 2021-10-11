@@ -17,6 +17,11 @@ if(EMSCRIPTEN)
         mnemonic
         wallet_api
     )
+    if (BEAM_MAINNET)
+        set(BEAM_NETWORK_NAME "mainnet")
+    else()
+        set(BEAM_NETWORK_NAME ${BEAM_SUFFIX_LOWER_CASE})
+    endif()
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/package.json.in" "${CMAKE_CURRENT_BINARY_DIR}/package.json")
    # configure_file("${CMAKE_CURRENT_SOURCE_DIR}/../License" "${CMAKE_CURRENT_BINARY_DIR}/License" COPYONLY)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/README.md" "${CMAKE_CURRENT_BINARY_DIR}/README.md" COPYONLY)
