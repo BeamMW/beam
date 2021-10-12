@@ -334,6 +334,8 @@ ON_METHOD(manager, farm_view)
         Env::DocGroup gr("farming");
         Env::DocAddNum("duation", fs.m_hTotal);
         Env::DocAddNum("emission", fs.get_EmissionSoFar());
+        Env::DocAddNum("h", Env::get_Height());
+        Env::DocAddNum("h0", DaoCore::Preallocated::s_hLaunch);
     }
 
     {
