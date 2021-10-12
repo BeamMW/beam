@@ -6,9 +6,6 @@
 
 #define DaoCore_manager_view(macro)
 #define DaoCore_manager_view_params(macro) macro(ContractID, cid)
-#define DaoCore_manager_lock(macro) \
-    macro(ContractID, cid) \
-    macro(Amount, amount)
 
 #define DaoCore_manager_farm_view(macro) \
     macro(ContractID, cid)
@@ -43,13 +40,10 @@
 
 #define DaoCore_manager_explicit_upgrade(macro) macro(ContractID, cid)
 
-#define DaoCore_manager_view_stake(macro) macro(ContractID, cid)
-
 #define DaoCoreRole_manager(macro) \
     macro(manager, view) \
     macro(manager, explicit_upgrade) \
     macro(manager, view_params) \
-    macro(manager, view_stake) \
     macro(manager, my_xid) \
     macro(manager, my_admin_key) \
     macro(manager, prealloc_totals) \
@@ -164,16 +158,6 @@ ON_METHOD(manager, view_params)
     Env::DocAddNum("aid", aid);
     Env::DocAddNum("locked_beamX", get_ContractLocked(aid, cid));
     Env::DocAddNum("locked_beams", get_ContractLocked(0, cid));
-}
-
-ON_METHOD(manager, view_stake)
-{
-    Env::Key_T<PubKey> key;
-    _POD_(key.m_Prefix.m_Cid) = cid;
-    Env::DerivePk(key.m_KeyInContract, &cid, sizeof(cid));
-
-    Amount amount;
-    Env::DocAddNum("stake", Env::VarReader::Read_T(key, amount) ? amount : 0);
 }
 
 static const char g_szXid[] = "xid-seed";
@@ -334,6 +318,8 @@ ON_METHOD(manager, farm_view)
         Env::DocGroup gr("farming");
         Env::DocAddNum("duation", fs.m_hTotal);
         Env::DocAddNum("emission", fs.get_EmissionSoFar());
+        Env::DocAddNum("h", Env::get_Height());
+        Env::DocAddNum("h0", DaoCore::Preallocated::s_hLaunch);
     }
 
     {
