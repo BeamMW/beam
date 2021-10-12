@@ -122,7 +122,7 @@ BEAM_EXPORT void Dtor(void*)
 
 BEAM_EXPORT void Method_2(void*)
 {
-    Env::Halt();
+    // called on upgrade. N/A
 }
 
 BEAM_EXPORT void Method_3(const DaoCore::GetPreallocated& r)
