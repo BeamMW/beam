@@ -47,6 +47,13 @@ namespace Liquity
         Pair m_Amounts;
         ID m_iRcrNext;
         ExchangePool::User m_RedistUser; // accumulates enforced liquidations
+
+        MultiPrecision::Float get_Rcr() const
+        {
+            // rcr == raw collateralization ratio, i.e. b/s
+            // Don't care about s==0 case (our Float doesn't handle inf), valid troves must always have s, otherwise they're closed
+            return MultiPrecision::Float(m_Amounts.b) / MultiPrecision::Float(m_Amounts.s);
+        }
     };
 
     struct Global
@@ -60,6 +67,10 @@ namespace Liquity
             Trove::ID m_iLastCreated;
             Trove::ID m_iRcrLow;
             Pair m_Totals; // Total minted tokens and collateral in all troves
+
+            // minimum amount of tokens when opening or updating the trove. Normally should not go below this value.
+            // Can decrease temporarily due to partial liquidation or redeeming, can happen only for the lowest trove.
+            static const Amount s_MinAmountS = g_Beam2Groth * 10;
 
         } m_Troves;
 
@@ -169,20 +180,29 @@ namespace Liquity
         uint8_t m_SpendB;
     };
 
-
     struct OpenTrove
     {
         static const uint32_t s_iMethod = 3;
 
         PubKey m_pkOwner;
         Pair m_Amounts;
-        Trove::ID m_iRcrPos;
+        Trove::ID m_iRcrPos1;
     };
 
     struct CloseTrove
     {
         static const uint32_t s_iMethod = 4;
-        uint32_t m_iTrove;
+        Trove::ID m_iTrove;
+        Trove::ID m_iRcrPos0;
+
+        FundsMove m_Fm;
+    };
+
+    struct FundsAccess
+    {
+        static const uint32_t s_iMethod = 5;
+        PubKey m_pkUser;
+        FundsMove m_Fm;
     };
 
 #pragma pack (pop)
