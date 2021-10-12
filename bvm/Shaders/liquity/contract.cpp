@@ -65,6 +65,14 @@ struct MyGlobal
         }
     }
 
+    static void AmountAdjustStrict(Amount& x, Amount y, uint8_t bAdd)
+    {
+        if (bAdd)
+            Strict::Add(x, y);
+        else
+            Strict::Sub(x, y);
+    }
+
     void FinalyzeTx(const Liquity::FundsMove& fmUser, Liquity::FundsMove& fmContract, const PubKey& pk) const
     {
         FundsAccountForUser(fmContract.m_Amounts.s, fmContract.m_SpendS, fmUser.m_Amounts.s, fmUser.m_SpendS, m_Aid);
@@ -79,21 +87,29 @@ struct MyGlobal
             if (!Env::LoadVar_T(kub, ub))
                 _POD_(ub).SetZero();
 
-            if (fmContract.m_SpendS)
-                Strict::Sub(ub.m_Amounts.s, fmContract.m_Amounts.s);
-            else
-                Strict::Add(ub.m_Amounts.s, fmContract.m_Amounts.s);
-
-            if (fmContract.m_SpendB)
-                Strict::Sub(ub.m_Amounts.b, fmContract.m_Amounts.b);
-            else
-                Strict::Add(ub.m_Amounts.b, fmContract.m_Amounts.b);
+            AmountAdjustStrict(ub.m_Amounts.s, fmContract.m_Amounts.s, !fmContract.m_SpendS);
+            AmountAdjustStrict(ub.m_Amounts.b, fmContract.m_Amounts.b, !fmContract.m_SpendB);
 
             if (ub.m_Amounts.s || ub.m_Amounts.b)
                 Env::SaveVar_T(kub, ub);
             else
                 Env::DelVar_T(kub);
         }
+    }
+
+    void FinalyzeTxAndEmission(const Liquity::FundsMove& fmUser, Liquity::FundsMove& fmContract, const PubKey& pk)
+    {
+        AmountAdjustStrict(m_Troves.m_Totals.s, fmContract.m_Amounts.s, !fmContract.m_SpendS);
+        AmountAdjustStrict(m_Troves.m_Totals.b, fmContract.m_Amounts.b, fmContract.m_SpendB);
+
+        Amount valS = fmContract.m_Amounts.s;
+        if (valS && !fmContract.m_SpendS)
+            Env::Halt_if(!Env::AssetEmit(m_Aid, valS, 1));
+
+        FinalyzeTx(fmUser, fmContract, pk);
+
+        if (valS && fmContract.m_SpendS)
+            Env::Halt_if(!Env::AssetEmit(m_Aid, valS, 0));
     }
 
     void TrovePop(Liquity::Trove& t, Liquity::Trove::ID iTrove, Liquity::Trove::ID iPrev)
@@ -188,6 +204,7 @@ BEAM_EXPORT void OnMethod_3(const Liquity::OpenTrove& r)
 {
     MyGlobal s;
     s.Load();
+    Env::Halt_if(s.m_kTokenPrice.IsZero()); // ensure we have price prioir to opening troves
 
     Liquity::Trove t;
     _POD_(t).SetZero();
@@ -195,22 +212,28 @@ BEAM_EXPORT void OnMethod_3(const Liquity::OpenTrove& r)
     _POD_(t.m_pkOwner) = r.m_pkOwner;
     t.m_Amounts = r.m_Amounts;
 
-    Strict::Add(s.m_Troves.m_Totals.s, t.m_Amounts.s);
-    Strict::Add(s.m_Troves.m_Totals.b, t.m_Amounts.b);
-
     MultiPrecision::Float rcr = t.get_Rcr();
-    // TODO: test amounts. Must satisfy current ratio, and allowed min/max for trove
-
     s.TrovePush(t, ++s.m_Troves.m_iLastCreated, rcr, r.m_iRcrPos1);
-
-    Env::Halt_if(!Env::AssetEmit(s.m_Aid, t.m_Amounts.s, 1));
 
     Liquity::FundsMove fm;
     fm.m_Amounts = t.m_Amounts;
     fm.m_SpendS = 0;
     fm.m_SpendB = 1;
 
-    s.FinalyzeTx(fm, fm, r.m_pkOwner);
+    s.FinalyzeTxAndEmission(fm, fm, r.m_pkOwner);
+
+    // test amounts and cr.
+    Env::Halt_if(t.m_Amounts.s < t.s_MinAmountS);
+
+    MultiPrecision::Float trcr =
+        MultiPrecision::Float(s.m_Troves.m_Totals.s) /
+        MultiPrecision::Float(s.m_Troves.m_Totals.b);
+
+    if (s.IsBelow150(trcr))
+        Env::Halt_if(s.IsBelow150(rcr)); // recovery mode
+    else
+        Env::Halt_if(s.IsBelow110(rcr));
+
     s.Save();
 }
 
@@ -227,17 +250,15 @@ BEAM_EXPORT void OnMethod_4(const Liquity::CloseTrove& r)
     Env::DelVar_T(tk);
 
     s.m_Troves.m_Totals = s.m_Troves.m_Totals - t.m_Amounts;
-    s.Save();
 
     Liquity::FundsMove fm;
     fm.m_Amounts = t.m_Amounts;
     fm.m_SpendS = 1;
     fm.m_SpendB = 0;
 
-    s.FinalyzeTx(r.m_Fm, fm, t.m_pkOwner);
+    s.FinalyzeTxAndEmission(r.m_Fm, fm, t.m_pkOwner);
+    s.Save();
     Env::AddSig(t.m_pkOwner);
-
-    Env::Halt_if(!Env::AssetEmit(s.m_Aid, t.m_Amounts.s, 0));
 }
 
 BEAM_EXPORT void OnMethod_5(const Liquity::FundsAccess& r)
@@ -247,7 +268,7 @@ BEAM_EXPORT void OnMethod_5(const Liquity::FundsAccess& r)
 
     MyGlobal s;
     s.Load();
-    s.FinalyzeTx(r.m_Fm, fm, r.m_pkUser);
 
+    s.FinalyzeTx(r.m_Fm, fm, r.m_pkUser);
     Env::AddSig(r.m_pkUser);
 }

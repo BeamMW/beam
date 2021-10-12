@@ -54,6 +54,11 @@ namespace Liquity
             // Don't care about s==0 case (our Float doesn't handle inf), valid troves must always have s, otherwise they're closed
             return MultiPrecision::Float(m_Amounts.b) / MultiPrecision::Float(m_Amounts.s);
         }
+
+        // minimum amount of tokens when opening or updating the trove. Normally should not go below this value.
+        // Can decrease temporarily due to partial liquidation or redeeming, can happen only for the lowest trove.
+        static const Amount s_MinAmountS = g_Beam2Groth * 10;
+
     };
 
     struct Global
@@ -67,10 +72,6 @@ namespace Liquity
             Trove::ID m_iLastCreated;
             Trove::ID m_iRcrLow;
             Pair m_Totals; // Total minted tokens and collateral in all troves
-
-            // minimum amount of tokens when opening or updating the trove. Normally should not go below this value.
-            // Can decrease temporarily due to partial liquidation or redeeming, can happen only for the lowest trove.
-            static const Amount s_MinAmountS = g_Beam2Groth * 10;
 
         } m_Troves;
 
@@ -171,6 +172,29 @@ namespace Liquity
 
         } m_StabPool;
 
+        static MultiPrecision::Float get_k150()
+        {
+            MultiPrecision::Float val = 3;
+            val.m_Order--; // 3/2
+            return val;
+        }
+
+        static MultiPrecision::Float get_k110()
+        {
+            MultiPrecision::Float val = 72090;
+            val.m_Order -= 16; // 72090/2^16
+            return val;
+        }
+
+        bool IsBelow150(MultiPrecision::Float rcr) const
+        {
+            return rcr < get_k150()* m_kTokenPrice;
+        }
+
+        bool IsBelow110(MultiPrecision::Float rcr) const
+        {
+            return rcr < get_k110()* m_kTokenPrice;
+        }
     };
 
     struct FundsMove
