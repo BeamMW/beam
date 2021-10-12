@@ -17,6 +17,64 @@ struct MyGlobal
         auto key = Liquity::Tags::s_State;
         Env::SaveVar_T(key, *this);
     }
+
+    void FundsAccountForUser(Amount& valContract, uint8_t& bSpendContract, Amount valUser, uint8_t bSpendUser, AssetID aid)
+    {
+        if (!valUser)
+            return;
+
+        if (bSpendUser)
+            Env::FundsLock(aid, valUser);
+        else
+            Env::FundsUnlock(aid, valUser);
+
+        if (bSpendContract == !bSpendUser) // NOTE: bSpendUser may be zero or any non-zero value, do not compare directly
+            Strict::Add(valContract, valUser);
+        else
+        {
+            if (valContract >= valUser)
+                valContract -= valUser;
+            else
+            {
+                valContract = valUser - valContract;
+                bSpendContract = !bSpendContract;
+            }
+        }
+    }
+
+    void FinalyzeTx(const Liquity::FundsMove& fmUser, Liquity::FundsMove& fmContract, const PubKey& pk)
+    {
+        FundsAccountForUser(fmContract.m_Amounts.s, fmContract.m_SpendS, fmUser.m_Amounts.s, fmUser.m_SpendS, m_Aid);
+        FundsAccountForUser(fmContract.m_Amounts.b, fmContract.m_SpendB, fmUser.m_Amounts.b, fmUser.m_SpendB, 0);
+
+        if (fmContract.m_Amounts.s || fmContract.m_Amounts.b)
+        {
+            Liquity::Balance::Key kub;
+            _POD_(kub.m_Pk) = pk;
+
+            Liquity::Balance ub;
+            if (!Env::LoadVar_T(kub, ub))
+                _POD_(ub).SetZero();
+
+            if (fmContract.m_SpendS)
+                Strict::Sub(ub.m_Amounts.s, fmContract.m_Amounts.s);
+            else
+                Strict::Add(ub.m_Amounts.s, fmContract.m_Amounts.s);
+
+            if (fmContract.m_SpendB)
+                Strict::Sub(ub.m_Amounts.b, fmContract.m_Amounts.b);
+            else
+                Strict::Add(ub.m_Amounts.b, fmContract.m_Amounts.b);
+
+            if (ub.m_Amounts.s || ub.m_Amounts.b)
+                Env::SaveVar_T(kub, ub);
+            else
+                Env::DelVar_T(kub);
+        }
+
+
+    }
+
 };
 
 template <uint8_t nTag>
@@ -74,7 +132,7 @@ BEAM_EXPORT void OnMethod_3(const Liquity::OpenTrove& r)
     // TODO: test amounts. Must satisfy current ratio, and allowed min/max for trove
 
     Liquity::Trove::Key tk;
-    tk.m_iTrove = ++s.m_Troves.m_iLast;
+    tk.m_iTrove = ++s.m_Troves.m_iLastCreated;
 
     Liquity::Trove t;
     _POD_(t).SetZero();

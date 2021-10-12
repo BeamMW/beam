@@ -12,7 +12,8 @@ namespace Liquity
         static const uint8_t s_State = 0;
         static const uint8_t s_Trove = 1;
         static const uint8_t s_Epoch_Redist = 2;
-        static const uint8_t s_Epoch_Stable = 2;
+        static const uint8_t s_Epoch_Stable = 3;
+        static const uint8_t s_Balance = 4;
     };
 
     typedef ExchangePool::Pair Pair; // s == stable, b == collateral
@@ -20,12 +21,11 @@ namespace Liquity
     struct Balance
     {
         struct Key {
-            uint8_t m_Tag = 1;
+            uint8_t m_Tag = Tags::s_Balance;
             PubKey m_Pk;
-            AssetID m_Aid;
         };
 
-        typedef Amount ValueType;
+        Pair m_Amounts;
     };
 
     struct EpochKey {
@@ -35,14 +35,17 @@ namespace Liquity
 
     struct Trove
     {
+        typedef uint32_t ID;
+
         struct Key
         {
             uint8_t m_Tag = Tags::s_Trove;
-            uint32_t m_iTrove;
+            ID m_iTrove;
         };
 
         PubKey m_pkOwner;
         Pair m_Amounts;
+        ID m_iRcrNext;
         ExchangePool::User m_RedistUser; // accumulates enforced liquidations
     };
 
@@ -54,7 +57,8 @@ namespace Liquity
 
         struct Troves
         {
-            uint32_t m_iLast;
+            Trove::ID m_iLastCreated;
+            Trove::ID m_iRcrLow;
             Pair m_Totals; // Total minted tokens and collateral in all troves
 
         } m_Troves;
@@ -158,6 +162,13 @@ namespace Liquity
 
     };
 
+    struct FundsMove
+    {
+        Pair m_Amounts;
+        uint8_t m_SpendS;
+        uint8_t m_SpendB;
+    };
+
 
     struct OpenTrove
     {
@@ -165,6 +176,7 @@ namespace Liquity
 
         PubKey m_pkOwner;
         Pair m_Amounts;
+        Trove::ID m_iRcrPos;
     };
 
     struct CloseTrove
