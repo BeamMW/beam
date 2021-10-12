@@ -146,11 +146,6 @@ namespace
                 
 
                 setBooleanField(env, TxDescriptionClass, tx, "sender", mainAmount <= 0);
-                
-                if (mainAmount < 0) {
-                    mainAmount = mainAmount * -1;
-                }
-
                 setLongField(env, TxDescriptionClass, tx, "amount", mainAmount);
             }
         }
