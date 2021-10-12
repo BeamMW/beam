@@ -1152,6 +1152,15 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(isSynced)(JNIEnv *env, job
 }
 
 
+JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(appSupported)(JNIEnv *env, jobject thiz, jstring api_version,
+ jstring min_api_version)
+{
+    auto verWant = JString(env, api_version).value();
+    auto verMin = JString(env, min_api_version).value();
+
+    return webAPICreator->apiSupported(verWant) || webAPICreator->apiSupported(verMin);
+}
+
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(launchApp)(JNIEnv *env, jobject thiz, jstring name, jstring url)
 {
         
@@ -1187,7 +1196,6 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(contractInfoRejected)(JNIEnv *
     auto request = JString(env, json).value();
     webAPICreator->_api->contractInfoRejected(request);
 }
-
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
