@@ -148,7 +148,7 @@ BEAM_EXPORT void Method_2(const Upgradable2::Control::Base& r_)
             Env::Halt_if(r.m_Next.m_hTarget < Env::get_Height() + stg.m_hMinUpgadeDelay);
 
             StatePlus s;
-            s.Load_UpgradeIfNecessary();
+            s.Load(); // don't attempt to upgrade here! Newly-scheduled upgrade removes the old one, even if its height already reached
 
             _POD_(s.m_Next) = r.m_Next;
             s.Save();
