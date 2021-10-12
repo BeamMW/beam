@@ -764,11 +764,6 @@ namespace MultiPrecision
             return !m_Num;
         }
 
-		bool operator == (const Float& x) const
-		{
-			return (m_Num == x.m_Num) && (m_Order == x.m_Order);
-		}
-
         void Normalize()
         {
             // call explicitly only if manipulating directly
@@ -886,6 +881,33 @@ namespace MultiPrecision
             res.m_Order = m_Order - n;
             return res;
         }
+
+		int cmp(const Float& x) const
+		{
+			if (IsZero())
+				return x.IsZero() ? 0 : -1;
+			if (x.IsZero())
+				return 1;
+
+			if (m_Order < x.m_Order)
+				return -1;
+			if (m_Order > x.m_Order)
+				return 1;
+
+			if (m_Num < x.m_Num)
+				return -1;
+			if (m_Num > x.m_Num)
+				return 1;
+
+			return 0;
+		}
+
+		bool operator < (const Float& x) const { return cmp(x) < 0; }
+		bool operator > (const Float& x) const { return cmp(x) > 0; }
+		bool operator <= (const Float& x) const { return cmp(x) <= 0; }
+		bool operator >= (const Float& x) const { return cmp(x) >= 0; }
+		bool operator == (const Float& x) const { return cmp(x) == 0; }
+		bool operator != (const Float& x) const { return cmp(x) != 0; }
 
     private:
 
