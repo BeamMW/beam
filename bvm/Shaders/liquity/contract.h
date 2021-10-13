@@ -222,9 +222,38 @@ namespace Liquity
 
     struct FundsMove
     {
-        Pair m_Amounts;
-        uint8_t m_SpendS;
-        uint8_t m_SpendB;
+        struct Component
+        {
+            Amount m_Val;
+            uint8_t m_Spend; // not necessarily normalized, i.e. can be zero or any nnz value when comres from user
+
+            void operator += (const Component& c) {
+                Add(c.m_Val, c.m_Spend);
+            }
+
+            void operator -= (const Component& c) {
+                Add(c.m_Val, !c.m_Spend);
+            }
+
+            void Add(Amount x, uint8_t bSpend)
+            {
+                if ((!m_Spend) == (!bSpend))
+                    Strict::Add(m_Val, x);
+                else
+                {
+                    if (m_Val >= x)
+                        m_Val -= x;
+                    else
+                    {
+                        m_Val = x - m_Val;
+                        m_Spend = !m_Spend;
+                    }
+                }
+            }
+        };
+
+        Component s;
+        Component b;
     };
 
 
