@@ -42,7 +42,7 @@ namespace beam::wallet
         {
             for (auto& item : root.items())
             {
-                if (item.value().is_structured())
+                if (item.value().is_object())
                 {
                     FilterRequest(item.value());
                 }
