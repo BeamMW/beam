@@ -209,12 +209,12 @@ namespace Liquity
 
             bool IsBelow150(MultiPrecision::Float rcr) const
             {
-                return rcr < get_k150()* m_Value;
+                return rcr * m_Value < get_k150();
             }
 
             bool IsBelow110(MultiPrecision::Float rcr) const
             {
-                return rcr < get_k110()* m_Value;
+                return rcr * m_Value < get_k110();
             }
         };
 
@@ -259,6 +259,12 @@ namespace Liquity
 
     namespace Method
     {
+        struct OracleGet
+        {
+            static const uint32_t s_iMethod = 3;
+            MultiPrecision::Float m_Val;
+        };
+
         struct Create
         {
             static const uint32_t s_iMethod = 2;

@@ -101,14 +101,14 @@ struct MyGlobal
 
     void AdjustTroveAndTotals(const Liquity::FundsMove& fmContract, Liquity::Trove& t)
     {
-        auto s_ = fmContract.s;
-        s_.m_Spend = !s_.m_Spend; // invert
+        auto b_ = fmContract.b;
+        b_.m_Spend = !b_.m_Spend; // invert
 
-        BalanceAdjustStrict(m_Troves.m_Totals.s, s_);
-        BalanceAdjustStrict(m_Troves.m_Totals.b, fmContract.b);
+        BalanceAdjustStrict(m_Troves.m_Totals.s, fmContract.s);
+        BalanceAdjustStrict(m_Troves.m_Totals.b, b_);
 
-        BalanceAdjustStrict(t.m_Amounts.s, s_);
-        BalanceAdjustStrict(t.m_Amounts.b, fmContract.b);
+        BalanceAdjustStrict(t.m_Amounts.s, fmContract.s);
+        BalanceAdjustStrict(t.m_Amounts.b, b_);
     }
 
     Liquity::Trove::ID TrovePop(Liquity::Trove& t, Liquity::Trove::ID iPrev)
@@ -189,8 +189,8 @@ struct MyGlobal
         Env::Halt_if(t.m_Amounts.s < m_Settings.m_TroveMinTokens); // trove must have minimum tokens
 
         MultiPrecision::Float trcr =
-            MultiPrecision::Float(m_Troves.m_Totals.s) /
-            MultiPrecision::Float(m_Troves.m_Totals.b);
+            MultiPrecision::Float(m_Troves.m_Totals.b) /
+            MultiPrecision::Float(m_Troves.m_Totals.s);
 
         if (pPrice->IsBelow150(trcr))
             // recovery mode
@@ -201,8 +201,11 @@ struct MyGlobal
 
     Liquity::Global::Price get_Price()
     {
+        Liquity::Method::OracleGet args;
+        Env::CallFar_T(m_Settings.m_cidOracle, args, 0);
+
         Liquity::Global::Price ret;
-        Env::CallFar(m_Settings.m_cidOracle, 3, &ret, sizeof(ret), 0);
+        ret.m_Value = args.m_Val;
         return ret;
     }
 };
