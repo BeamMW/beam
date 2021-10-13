@@ -18,6 +18,46 @@
 
 namespace beam::wallet
 {
+    namespace
+    {
+        std::string CompactifyAddress(const std::string& str, size_t s)
+        {
+            const static std::string_view ellipsis = "...";
+            if (str.size() <= s)
+                return str;
+            if (s <= ellipsis.size())
+                return str.substr(0, s);
+
+            auto s2 = s - ellipsis.size();
+            auto h = (s2 / 2) + 1;
+            std::string res;
+            res.reserve(s);
+            res.append(str, 0, h);
+            res.append(ellipsis);
+            res.append(str, h, s - h - ellipsis.size());
+            return res;
+        }
+
+        void FilterRequest(json& root)
+        {
+            for (auto& item : root.items())
+            {
+                if (item.value().is_structured())
+                {
+                    FilterRequest(item.value());
+                }
+                else if (item.value().is_string() && item.key() == "address")
+                {
+                    root[item.key()] = CompactifyAddress(item.value().get<std::string>(), 32);
+                }
+                else if (item.value().is_array() && item.key() == "contract")
+                {
+                    root[item.key()] = json::array();
+                }
+            }
+        }
+    }
+
     ApiBase::ApiBase(IWalletApiHandler& handler, const ApiInitData& initData)
         : _handler(handler)
         , _acl(initData.acl)
@@ -143,11 +183,11 @@ namespace beam::wallet
         }
 
         {
-            const auto params = pinfo->params.dump();
-            LOG_DEBUG() << "executeAPIRequest";
-            LOG_DEBUG() << "\trequest: " << std::string_view(data).substr(0, 200);
-            LOG_DEBUG() << "\tmethod:  " << pinfo->method;
-            LOG_DEBUG() << "\tparams:  " << std::string_view(params).substr(0, 200);
+            json messageCopy = pinfo->message;
+            FilterRequest(messageCopy);
+             
+            const auto message = messageCopy.dump(1, '\t');
+            LOG_DEBUG() << "executeAPIRequest:\n" << message;
         }
 
         const auto result = callGuarded<ApiSyncMode>(pinfo->rpcid, [this, pinfo] () -> ApiSyncMode {
