@@ -176,19 +176,20 @@ struct MyGlobal
     }
 };
 
-BEAM_EXPORT void Ctor(void*)
+BEAM_EXPORT void Ctor(const Liquity::Method::Create& r)
 {
-    MyGlobal s;
-    _POD_(s).SetZero();
+    MyGlobal g;
+    _POD_(g).SetZero();
 
-    s.m_StabPool.Init();
-    s.m_RedistPool.Init();
+    _POD_(g.m_cidOracle) = r.m_cidOracle;
+    g.m_StabPool.Init();
+    g.m_RedistPool.Init();
 
     static const char szMeta[] = "STD:SCH_VER=1;N=Liquity Token;SN=Liqt;UN=LIQT;NTHUN=GROTHL";
-    s.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
-    Env::Halt_if(!s.m_Aid);
+    g.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
+    Env::Halt_if(!g.m_Aid);
 
-    s.Save();
+    g.Save();
 }
 
 BEAM_EXPORT void Dtor(void*)
@@ -197,14 +198,14 @@ BEAM_EXPORT void Dtor(void*)
 
 BEAM_EXPORT void OnMethod_2(void*)
 {
-    Env::Halt();
+    // called on upgrade
 }
 
-BEAM_EXPORT void OnMethod_3(const Liquity::OpenTrove& r)
+BEAM_EXPORT void OnMethod_3(const Liquity::Method::OpenTrove& r)
 {
-    MyGlobal s;
-    s.Load();
-    Env::Halt_if(s.m_kTokenPrice.IsZero()); // ensure we have price prioir to opening troves
+    MyGlobal g;
+    g.Load();
+    Env::Halt_if(g.m_kTokenPrice.IsZero()); // ensure we have price prioir to opening troves
 
     Liquity::Trove t;
     _POD_(t).SetZero();
@@ -213,62 +214,62 @@ BEAM_EXPORT void OnMethod_3(const Liquity::OpenTrove& r)
     t.m_Amounts = r.m_Amounts;
 
     MultiPrecision::Float rcr = t.get_Rcr();
-    s.TrovePush(t, ++s.m_Troves.m_iLastCreated, rcr, r.m_iRcrPos1);
+    g.TrovePush(t, ++g.m_Troves.m_iLastCreated, rcr, r.m_iRcrPos1);
 
     Liquity::FundsMove fm;
     fm.m_Amounts = t.m_Amounts;
     fm.m_SpendS = 0;
     fm.m_SpendB = 1;
 
-    s.FinalyzeTxAndEmission(fm, fm, r.m_pkOwner);
+    g.FinalyzeTxAndEmission(fm, fm, r.m_pkOwner);
 
     // test amounts and cr.
     Env::Halt_if(t.m_Amounts.s < t.s_MinAmountS);
 
     MultiPrecision::Float trcr =
-        MultiPrecision::Float(s.m_Troves.m_Totals.s) /
-        MultiPrecision::Float(s.m_Troves.m_Totals.b);
+        MultiPrecision::Float(g.m_Troves.m_Totals.s) /
+        MultiPrecision::Float(g.m_Troves.m_Totals.b);
 
-    if (s.IsBelow150(trcr))
-        Env::Halt_if(s.IsBelow150(rcr)); // recovery mode
+    if (g.IsBelow150(trcr))
+        Env::Halt_if(g.IsBelow150(rcr)); // recovery mode
     else
-        Env::Halt_if(s.IsBelow110(rcr));
+        Env::Halt_if(g.IsBelow110(rcr));
 
-    s.Save();
+    g.Save();
 }
 
-BEAM_EXPORT void OnMethod_4(const Liquity::CloseTrove& r)
+BEAM_EXPORT void OnMethod_4(const Liquity::Method::CloseTrove& r)
 {
-    MyGlobal s;
-    s.Load();
+    MyGlobal g;
+    g.Load();
 
     Liquity::Trove t;
-    s.TrovePop(t, r.m_iTrove, r.m_iRcrPos0);
+    g.TrovePop(t, r.m_iTrove, r.m_iRcrPos0);
 
     Liquity::Trove::Key tk;
     tk.m_iTrove = r.m_iTrove;
     Env::DelVar_T(tk);
 
-    s.m_Troves.m_Totals = s.m_Troves.m_Totals - t.m_Amounts;
+    g.m_Troves.m_Totals = g.m_Troves.m_Totals - t.m_Amounts;
 
     Liquity::FundsMove fm;
     fm.m_Amounts = t.m_Amounts;
     fm.m_SpendS = 1;
     fm.m_SpendB = 0;
 
-    s.FinalyzeTxAndEmission(r.m_Fm, fm, t.m_pkOwner);
-    s.Save();
+    g.FinalyzeTxAndEmission(r.m_Fm, fm, t.m_pkOwner);
+    g.Save();
     Env::AddSig(t.m_pkOwner);
 }
 
-BEAM_EXPORT void OnMethod_5(const Liquity::FundsAccess& r)
+BEAM_EXPORT void OnMethod_5(const Liquity::Method::FundsAccess& r)
 {
     Liquity::FundsMove fm;
     _POD_(fm).SetZero();
 
-    MyGlobal s;
-    s.Load();
+    MyGlobal g;
+    g.Load();
 
-    s.FinalyzeTx(r.m_Fm, fm, r.m_pkUser);
+    g.FinalyzeTx(r.m_Fm, fm, r.m_pkUser);
     Env::AddSig(r.m_pkUser);
 }

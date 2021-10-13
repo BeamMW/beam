@@ -204,31 +204,52 @@ namespace Liquity
         uint8_t m_SpendB;
     };
 
-    struct OpenTrove
+
+    namespace Method
     {
-        static const uint32_t s_iMethod = 3;
+        struct Create
+        {
+            static const uint32_t s_iMethod = 2;
+            ContractID m_cidOracle;
+        };
 
-        PubKey m_pkOwner;
-        Pair m_Amounts;
-        Trove::ID m_iRcrPos1;
-    };
+        struct OpenTrove
+        {
+            static const uint32_t s_iMethod = 3;
 
-    struct CloseTrove
-    {
-        static const uint32_t s_iMethod = 4;
-        Trove::ID m_iTrove;
-        Trove::ID m_iRcrPos0;
+            PubKey m_pkOwner;
+            Pair m_Amounts;
+            Trove::ID m_iRcrPos1;
+        };
 
-        FundsMove m_Fm;
-    };
+        struct CloseTrove
+        {
+            static const uint32_t s_iMethod = 4;
+            Trove::ID m_iTrove;
+            Trove::ID m_iRcrPos0;
 
-    struct FundsAccess
-    {
-        static const uint32_t s_iMethod = 5;
-        PubKey m_pkUser;
-        FundsMove m_Fm;
-    };
+            FundsMove m_Fm;
+        };
 
+        struct FundsAccess
+        {
+            static const uint32_t s_iMethod = 5;
+            PubKey m_pkUser;
+            FundsMove m_Fm;
+        };
+
+        struct ModifyTrove
+        {
+            static const uint32_t s_iMethod = 6;
+            Trove::ID m_iTrove;
+            Trove::ID m_iRcrPos0;
+            Trove::ID m_iRcrPos1;
+
+            FundsMove m_Fm;
+            FundsMove m_FmTrove;
+        };
+
+    } // namespace Method
 #pragma pack (pop)
 
 }
