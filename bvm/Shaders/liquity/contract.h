@@ -14,6 +14,7 @@ namespace Liquity
         static const uint8_t s_Epoch_Redist = 2;
         static const uint8_t s_Epoch_Stable = 3;
         static const uint8_t s_Balance = 4;
+        static const uint8_t s_StabPool = 5;
     };
 
     typedef ExchangePool::Pair Pair; // s == stable, b == collateral
@@ -31,6 +32,17 @@ namespace Liquity
     struct EpochKey {
         uint8_t m_Tag;
         uint32_t m_iEpoch;
+    };
+
+    struct StabPoolEntry
+    {
+        struct Key
+        {
+            uint8_t m_Tag = Tags::s_StabPool;
+            PubKey m_pkUser;
+        };
+
+        ExchangePool::User m_User;
     };
 
     struct Trove
@@ -256,6 +268,15 @@ namespace Liquity
 
             FundsMove m_Fm;
             FundsMove m_FmTrove;
+        };
+
+        struct UpdStabPool
+        {
+            static const uint32_t s_iMethod = 7;
+
+            Amount m_NewAmount;
+            PubKey m_pkUser;
+            FundsMove m_Fm;
         };
 
     } // namespace Method

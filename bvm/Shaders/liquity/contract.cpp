@@ -99,12 +99,6 @@ struct MyGlobal
 
     void FinalyzeTxAndEmission(const Liquity::FundsMove& fmUser, Liquity::FundsMove& fmContract, Liquity::Trove& t)
     {
-        AmountAdjustStrict(m_Troves.m_Totals.s, fmContract.m_Amounts.s, !fmContract.m_SpendS);
-        AmountAdjustStrict(m_Troves.m_Totals.b, fmContract.m_Amounts.b, fmContract.m_SpendB);
-
-        AmountAdjustStrict(t.m_Amounts.s, fmContract.m_Amounts.s, !fmContract.m_SpendS);
-        AmountAdjustStrict(t.m_Amounts.b, fmContract.m_Amounts.b, fmContract.m_SpendB);
-
         Amount valS = fmContract.m_Amounts.s;
         if (valS && !fmContract.m_SpendS)
             Env::Halt_if(!Env::AssetEmit(m_Aid, valS, 1));
@@ -113,6 +107,15 @@ struct MyGlobal
 
         if (valS && fmContract.m_SpendS)
             Env::Halt_if(!Env::AssetEmit(m_Aid, valS, 0));
+    }
+
+    void AdjustTroveAndTotals(const Liquity::FundsMove& fmContract, Liquity::Trove& t)
+    {
+        AmountAdjustStrict(m_Troves.m_Totals.s, fmContract.m_Amounts.s, !fmContract.m_SpendS);
+        AmountAdjustStrict(m_Troves.m_Totals.b, fmContract.m_Amounts.b, fmContract.m_SpendB);
+
+        AmountAdjustStrict(t.m_Amounts.s, fmContract.m_Amounts.s, !fmContract.m_SpendS);
+        AmountAdjustStrict(t.m_Amounts.b, fmContract.m_Amounts.b, fmContract.m_SpendB);
     }
 
     Liquity::Trove::ID TrovePop(Liquity::Trove& t, Liquity::Trove::ID iPrev)
@@ -252,6 +255,9 @@ BEAM_EXPORT void OnMethod_3(const Liquity::Method::OpenTrove& r)
     fm.m_SpendS = 0;
     fm.m_SpendB = 1;
 
+    g.AdjustTroveAndTotals(fm, t);
+
+    Strict::Add(fm.m_Amounts.b, g.m_Settings.m_CloseCompensation);
     g.FinalyzeTxAndEmission(fm, fm, t);
 
     auto price = g.get_Price();
@@ -276,7 +282,11 @@ BEAM_EXPORT void OnMethod_4(const Liquity::Method::CloseTrove& r)
     fm.m_SpendS = 1;
     fm.m_SpendB = 0;
 
+    g.AdjustTroveAndTotals(fm, t);
+
+    Strict::Add(fm.m_Amounts.b, g.m_Settings.m_CloseCompensation);
     g.FinalyzeTxAndEmission(r.m_Fm, fm, t);
+
     g.Save();
     Env::AddSig(t.m_pkOwner);
 }
@@ -304,6 +314,7 @@ BEAM_EXPORT void OnMethod_6(Liquity::Method::ModifyTrove& r)
     r.m_FmTrove.m_SpendB &= 1;
     r.m_FmTrove.m_SpendS &= 1;
 
+    g.AdjustTroveAndTotals(r.m_FmTrove, t);
     g.FinalyzeTxAndEmission(r.m_Fm, r.m_FmTrove, t);
 
     auto price = g.get_Price();
@@ -311,4 +322,48 @@ BEAM_EXPORT void OnMethod_6(Liquity::Method::ModifyTrove& r)
 
     g.Save();
     Env::AddSig(t.m_pkOwner);
+}
+
+BEAM_EXPORT void OnMethod_7(Liquity::Method::UpdStabPool& r)
+{
+    MyGlobal g;
+    g.Load();
+
+    Liquity::StabPoolEntry::Key spk;
+    _POD_(spk.m_pkUser) = r.m_pkUser;
+
+    Liquity::FundsMove fm;
+    _POD_(fm).SetZero();
+
+    Liquity::StabPoolEntry spe;
+    if (!Env::LoadVar_T(spk, spe))
+        _POD_(spe).SetZero();
+    else
+    {
+        EpochStorage<Liquity::Tags::s_Epoch_Stable> stor;
+        g.m_StabPool.UserDel(spe.m_User, fm.m_Amounts, stor);
+    }
+
+    if (r.m_NewAmount)
+    {
+        g.m_StabPool.UserAdd(spe.m_User, r.m_NewAmount);
+        Env::SaveVar_T(spk, spe);
+
+        if (fm.m_Amounts.s >= r.m_NewAmount)
+            fm.m_Amounts.s -= r.m_NewAmount;
+        else
+        {
+            fm.m_Amounts.s = r.m_NewAmount - fm.m_Amounts.s;
+            fm.m_SpendS = 1;
+        }
+    }
+    else
+        Env::DelVar_T(spk);
+
+
+
+    g.FinalyzeTx(r.m_Fm, fm, r.m_pkUser);
+    g.Save();
+
+    Env::AddSig(r.m_pkUser);
 }
