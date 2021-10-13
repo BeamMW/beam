@@ -640,7 +640,7 @@ void CopyParameter(beam::wallet::TxParameterID paramID, const beam::wallet::TxPa
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, jobject thiz,
-    jstring senderAddr, jstring receiverAddr, jstring comment, jlong amount, jlong fee, jint assetId)
+    jstring senderAddr, jstring receiverAddr, jstring comment, jlong amount, jlong fee, jint assetId, jboolean isOffline)
 {
     LOG_DEBUG() << "sendTransaction(" << JString(env, senderAddr).value() << ", " << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
     LOG_DEBUG() << "asset id" << assetId;
@@ -670,7 +670,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
     auto params = CreateSimpleTransactionParameters();
     const auto type = GetAddressType(address);
 
-    if (type == TxAddressType::MaxPrivacy || type == TxAddressType::PublicOffline || (type == TxAddressType::Offline)) {
+    if (type == TxAddressType::MaxPrivacy || type == TxAddressType::PublicOffline || (type == TxAddressType::Offline && isOffline)) {
         if (!LoadReceiverParams(_txParameters, params, type)) {
             assert(false);
             return;
