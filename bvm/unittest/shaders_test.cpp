@@ -62,6 +62,7 @@ namespace Shaders {
 #include "../Shaders/voting/contract.h"
 #include "../Shaders/dao-core/contract.h"
 #include "../Shaders/aphorize/contract.h"
+#include "../Shaders/liquity/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
@@ -249,6 +250,11 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Len);
 	}
 
+	template <bool bToShader> void Convert(Liquity::Method::Create& x) {
+		ConvertOrd<bToShader>(x.m_Settings.m_CloseCompensation);
+		ConvertOrd<bToShader>(x.m_Settings.m_TroveMinTokens);
+	}
+
 	namespace Env {
 
 
@@ -302,6 +308,9 @@ namespace Shaders {
 	}
 	namespace Aphorize {
 #include "../Shaders/aphorize/contract.cpp"
+	}
+	namespace Liquity {
+#include "../Shaders/liquity/contract.cpp"
 	}
 
 #ifdef _MSC_VER
@@ -410,6 +419,7 @@ namespace bvm2 {
 			ByteBuffer m_Voting;
 			ByteBuffer m_DaoCore;
 			ByteBuffer m_Aphorize;
+			ByteBuffer m_Liquity;
 
 		} m_Code;
 
@@ -427,6 +437,7 @@ namespace bvm2 {
 		ContractID m_cidVoting;
 		ContractID m_cidDaoCore;
 		ContractID m_cidAphorize;
+		ContractID m_cidLiquity;
 
 		struct {
 
@@ -595,6 +606,13 @@ namespace bvm2 {
 				//}
 			}
 
+			if (cid == m_cidLiquity)
+			{
+				//TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//}
+			}
 
 			ProcessorContract::CallFar(cid, iMethod, pArgs, bInheritContext);
 		}
@@ -612,6 +630,7 @@ namespace bvm2 {
 		void TestVoting();
 		void TestDaoCore();
 		void TestAphorize();
+		void TestLiquity();
 
 		void TestAll();
 	};
@@ -643,11 +662,13 @@ namespace bvm2 {
 		AddCode(m_Code.m_Voting, "voting/contract.wasm");
 		AddCode(m_Code.m_DaoCore, "dao-core/contract.wasm");
 		AddCode(m_Code.m_Aphorize, "aphorize/contract.wasm");
+		AddCode(m_Code.m_Liquity, "liquity/contract.wasm");
 
 		m_FarCalls.m_SaveLocal = true;
 
 		TestVault();
 		TestAphorize();
+		TestLiquity();
 		TestFaucet();
 		TestRoulette();
 		TestVoting();
@@ -791,6 +812,10 @@ namespace bvm2 {
 
 			verify_test(RunGuarded_T(m_cidAphorize, args.s_iMethod, args));
 		}
+	}
+
+	void MyProcessor::TestLiquity()
+	{
 	}
 
 	namespace IndexDecoder

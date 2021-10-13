@@ -103,7 +103,7 @@ namespace Liquity
                     return false;
 
                 UserAdd(t.m_RedistUser, t.m_Amounts.s);
-                assert(.m_RedistUser.m_iEpoch);
+                assert(t.m_RedistUser.m_iEpoch);
 
                 return true;
             }

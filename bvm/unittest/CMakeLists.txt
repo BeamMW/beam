@@ -15,3 +15,4 @@ configure_file("../Shaders/voting/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/vo
 configure_file("../Shaders/voting/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/voting/app.wasm" COPYONLY)
 configure_file("../Shaders/dao-core/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/dao-core/contract.wasm" COPYONLY)
 configure_file("../Shaders/aphorize/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/aphorize/contract.wasm" COPYONLY)
+configure_file("../Shaders/liquity/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/liquity/contract.wasm" COPYONLY)
