@@ -58,14 +58,19 @@ namespace Liquity
         // minimum amount of tokens when opening or updating the trove. Normally should not go below this value.
         // Can decrease temporarily due to partial liquidation or redeeming, can happen only for the lowest trove.
         static const Amount s_MinAmountS = g_Beam2Groth * 10;
+    };
 
+    struct Settings
+    {
+        ContractID m_cidOracle;
+        Amount m_TroveMinTokens; // minimum amount of tokens in an active trove. Can go below during forced update, i.e. partial liquidation
+        Amount m_CloseCompensation;
     };
 
     struct Global
     {
-        ContractID m_cidOracle;
+        Settings m_Settings;
         AssetID m_Aid;
-        MultiPrecision::Float m_kTokenPrice;
 
         struct Troves
         {
@@ -172,29 +177,35 @@ namespace Liquity
 
         } m_StabPool;
 
-        static MultiPrecision::Float get_k150()
+        struct Price
         {
-            MultiPrecision::Float val = 3;
-            val.m_Order--; // 3/2
-            return val;
-        }
+            MultiPrecision::Float m_Value;
 
-        static MultiPrecision::Float get_k110()
-        {
-            MultiPrecision::Float val = 72090;
-            val.m_Order -= 16; // 72090/2^16
-            return val;
-        }
+            static MultiPrecision::Float get_k150()
+            {
+                MultiPrecision::Float val = 3;
+                val.m_Order--; // 3/2
+                return val;
+            }
 
-        bool IsBelow150(MultiPrecision::Float rcr) const
-        {
-            return rcr < get_k150()* m_kTokenPrice;
-        }
+            static MultiPrecision::Float get_k110()
+            {
+                MultiPrecision::Float val = 72090;
+                val.m_Order -= 16; // 72090/2^16
+                return val;
+            }
 
-        bool IsBelow110(MultiPrecision::Float rcr) const
-        {
-            return rcr < get_k110()* m_kTokenPrice;
-        }
+            bool IsBelow150(MultiPrecision::Float rcr) const
+            {
+                return rcr < get_k150()* m_Value;
+            }
+
+            bool IsBelow110(MultiPrecision::Float rcr) const
+            {
+                return rcr < get_k110()* m_Value;
+            }
+        };
+
     };
 
     struct FundsMove
@@ -210,7 +221,7 @@ namespace Liquity
         struct Create
         {
             static const uint32_t s_iMethod = 2;
-            ContractID m_cidOracle;
+            Settings m_Settings;
         };
 
         struct OpenTrove
@@ -225,7 +236,6 @@ namespace Liquity
         struct CloseTrove
         {
             static const uint32_t s_iMethod = 4;
-            Trove::ID m_iTrove;
             Trove::ID m_iRcrPos0;
 
             FundsMove m_Fm;
@@ -241,7 +251,6 @@ namespace Liquity
         struct ModifyTrove
         {
             static const uint32_t s_iMethod = 6;
-            Trove::ID m_iTrove;
             Trove::ID m_iRcrPos0;
             Trove::ID m_iRcrPos1;
 

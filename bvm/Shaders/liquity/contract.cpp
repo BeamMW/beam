@@ -97,46 +97,53 @@ struct MyGlobal
         }
     }
 
-    void FinalyzeTxAndEmission(const Liquity::FundsMove& fmUser, Liquity::FundsMove& fmContract, const PubKey& pk)
+    void FinalyzeTxAndEmission(const Liquity::FundsMove& fmUser, Liquity::FundsMove& fmContract, Liquity::Trove& t)
     {
         AmountAdjustStrict(m_Troves.m_Totals.s, fmContract.m_Amounts.s, !fmContract.m_SpendS);
         AmountAdjustStrict(m_Troves.m_Totals.b, fmContract.m_Amounts.b, fmContract.m_SpendB);
+
+        AmountAdjustStrict(t.m_Amounts.s, fmContract.m_Amounts.s, !fmContract.m_SpendS);
+        AmountAdjustStrict(t.m_Amounts.b, fmContract.m_Amounts.b, fmContract.m_SpendB);
 
         Amount valS = fmContract.m_Amounts.s;
         if (valS && !fmContract.m_SpendS)
             Env::Halt_if(!Env::AssetEmit(m_Aid, valS, 1));
 
-        FinalyzeTx(fmUser, fmContract, pk);
+        FinalyzeTx(fmUser, fmContract, t.m_pkOwner);
 
         if (valS && fmContract.m_SpendS)
             Env::Halt_if(!Env::AssetEmit(m_Aid, valS, 0));
     }
 
-    void TrovePop(Liquity::Trove& t, Liquity::Trove::ID iTrove, Liquity::Trove::ID iPrev)
+    Liquity::Trove::ID TrovePop(Liquity::Trove& t, Liquity::Trove::ID iPrev)
     {
         Liquity::Trove::Key tk;
-        tk.m_iTrove = iTrove;
-        Env::Halt_if(!Env::LoadVar_T(tk, t));
-
         if (iPrev)
         {
-            tk.m_iTrove = iPrev;
+            Liquity::Trove::Key tkPrev;
+            tkPrev.m_iTrove = iPrev;
             Liquity::Trove tPrev;
-            Env::Halt_if(!Env::LoadVar_T(tk, tPrev));
+            Env::Halt_if(!Env::LoadVar_T(tkPrev, tPrev));
 
-            Env::Halt_if(tPrev.m_iRcrNext != iTrove);
+            tk.m_iTrove = tPrev.m_iRcrNext;
+            Env::Halt_if(!Env::LoadVar_T(tk, t));
 
             tPrev.m_iRcrNext = t.m_iRcrNext;
-            Env::SaveVar_T(tk, tPrev); // TODO - we may omit this, if after manipulations t goes at the same position
+            Env::SaveVar_T(tkPrev, tPrev); // TODO - we may omit this, if after manipulations t goes at the same position
+           
         }
         else
         {
-            Env::Halt_if(m_Troves.m_iRcrLow != iTrove); // must be the 1st
+            tk.m_iTrove = m_Troves.m_iRcrLow;
+            Env::Halt_if(!Env::LoadVar_T(tk, t));
+
             m_Troves.m_iRcrLow = t.m_iRcrNext;
         }
 
         EpochStorage<Liquity::Tags::s_Epoch_Redist> stor;
         m_RedistPool.Remove(t, stor);
+
+        return tk.m_iTrove;
     }
 
     void TrovePush(Liquity::Trove& t, Liquity::Trove::ID iTrove, MultiPrecision::Float rcr, Liquity::Trove::ID iPrev)
@@ -174,6 +181,34 @@ struct MyGlobal
         tk.m_iTrove = iTrove;
         Env::SaveVar_T(tk, t);
     }
+
+    void TrovePushValidate(Liquity::Trove& t, Liquity::Trove::ID iTrove, Liquity::Trove::ID iPrev, const Liquity::Global::Price* pPrice)
+    {
+        MultiPrecision::Float rcr = t.get_Rcr();
+        TrovePush(t, iTrove, rcr, iPrev);
+
+        if (!pPrice)
+            return; // forced trove update, no need to verify icr
+
+        Env::Halt_if(t.m_Amounts.s < m_Settings.m_TroveMinTokens); // trove must have minimum tokens
+
+        MultiPrecision::Float trcr =
+            MultiPrecision::Float(m_Troves.m_Totals.s) /
+            MultiPrecision::Float(m_Troves.m_Totals.b);
+
+        if (pPrice->IsBelow150(trcr))
+            // recovery mode
+            Env::Halt_if(pPrice->IsBelow150(rcr));
+        else
+            Env::Halt_if(pPrice->IsBelow110(rcr));
+    }
+
+    Liquity::Global::Price get_Price()
+    {
+        Liquity::Global::Price ret;
+        Env::CallFar(m_Settings.m_cidOracle, 3, &ret, sizeof(ret), 0);
+        return ret;
+    }
 };
 
 BEAM_EXPORT void Ctor(const Liquity::Method::Create& r)
@@ -181,13 +216,15 @@ BEAM_EXPORT void Ctor(const Liquity::Method::Create& r)
     MyGlobal g;
     _POD_(g).SetZero();
 
-    _POD_(g.m_cidOracle) = r.m_cidOracle;
+    _POD_(g.m_Settings) = r.m_Settings;
     g.m_StabPool.Init();
     g.m_RedistPool.Init();
 
     static const char szMeta[] = "STD:SCH_VER=1;N=Liquity Token;SN=Liqt;UN=LIQT;NTHUN=GROTHL";
     g.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
     Env::Halt_if(!g.m_Aid);
+
+    Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidOracle));
 
     g.Save();
 }
@@ -205,35 +242,20 @@ BEAM_EXPORT void OnMethod_3(const Liquity::Method::OpenTrove& r)
 {
     MyGlobal g;
     g.Load();
-    Env::Halt_if(g.m_kTokenPrice.IsZero()); // ensure we have price prioir to opening troves
 
     Liquity::Trove t;
     _POD_(t).SetZero();
-
     _POD_(t.m_pkOwner) = r.m_pkOwner;
-    t.m_Amounts = r.m_Amounts;
-
-    MultiPrecision::Float rcr = t.get_Rcr();
-    g.TrovePush(t, ++g.m_Troves.m_iLastCreated, rcr, r.m_iRcrPos1);
 
     Liquity::FundsMove fm;
     fm.m_Amounts = t.m_Amounts;
     fm.m_SpendS = 0;
     fm.m_SpendB = 1;
 
-    g.FinalyzeTxAndEmission(fm, fm, r.m_pkOwner);
+    g.FinalyzeTxAndEmission(fm, fm, t);
 
-    // test amounts and cr.
-    Env::Halt_if(t.m_Amounts.s < t.s_MinAmountS);
-
-    MultiPrecision::Float trcr =
-        MultiPrecision::Float(g.m_Troves.m_Totals.s) /
-        MultiPrecision::Float(g.m_Troves.m_Totals.b);
-
-    if (g.IsBelow150(trcr))
-        Env::Halt_if(g.IsBelow150(rcr)); // recovery mode
-    else
-        Env::Halt_if(g.IsBelow110(rcr));
+    auto price = g.get_Price();
+    g.TrovePushValidate(t, ++g.m_Troves.m_iLastCreated, r.m_iRcrPos1, &price);
 
     g.Save();
 }
@@ -243,21 +265,18 @@ BEAM_EXPORT void OnMethod_4(const Liquity::Method::CloseTrove& r)
     MyGlobal g;
     g.Load();
 
-    Liquity::Trove t;
-    g.TrovePop(t, r.m_iTrove, r.m_iRcrPos0);
-
     Liquity::Trove::Key tk;
-    tk.m_iTrove = r.m_iTrove;
-    Env::DelVar_T(tk);
+    Liquity::Trove t;
+    tk.m_iTrove = g.TrovePop(t, r.m_iRcrPos0);
 
-    g.m_Troves.m_Totals = g.m_Troves.m_Totals - t.m_Amounts;
+    Env::DelVar_T(tk);
 
     Liquity::FundsMove fm;
     fm.m_Amounts = t.m_Amounts;
     fm.m_SpendS = 1;
     fm.m_SpendB = 0;
 
-    g.FinalyzeTxAndEmission(r.m_Fm, fm, t.m_pkOwner);
+    g.FinalyzeTxAndEmission(r.m_Fm, fm, t);
     g.Save();
     Env::AddSig(t.m_pkOwner);
 }
@@ -272,4 +291,24 @@ BEAM_EXPORT void OnMethod_5(const Liquity::Method::FundsAccess& r)
 
     g.FinalyzeTx(r.m_Fm, fm, r.m_pkUser);
     Env::AddSig(r.m_pkUser);
+}
+
+BEAM_EXPORT void OnMethod_6(Liquity::Method::ModifyTrove& r)
+{
+    MyGlobal g;
+    g.Load();
+
+    Liquity::Trove t;
+    auto iTrove = g.TrovePop(t, r.m_iRcrPos0);
+
+    r.m_FmTrove.m_SpendB &= 1;
+    r.m_FmTrove.m_SpendS &= 1;
+
+    g.FinalyzeTxAndEmission(r.m_Fm, r.m_FmTrove, t);
+
+    auto price = g.get_Price();
+    g.TrovePushValidate(t, iTrove, r.m_iRcrPos1, &price);
+
+    g.Save();
+    Env::AddSig(t.m_pkOwner);
 }
