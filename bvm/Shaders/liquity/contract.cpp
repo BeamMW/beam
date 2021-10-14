@@ -188,10 +188,7 @@ struct MyGlobal
 
         Env::Halt_if(t.m_Amounts.s < m_Settings.m_TroveMinTokens); // trove must have minimum tokens
 
-        MultiPrecision::Float trcr =
-            MultiPrecision::Float(m_Troves.m_Totals.b) /
-            MultiPrecision::Float(m_Troves.m_Totals.s);
-
+        MultiPrecision::Float trcr = m_Troves.get_Trcr();
         if (pPrice->IsBelow150(trcr))
             // recovery mode
             Env::Halt_if(pPrice->IsBelow150(rcr));
@@ -358,4 +355,58 @@ BEAM_EXPORT void Method_7(Liquity::Method::UpdStabPool& r)
     g.Save();
 
     Env::AddSig(r.m_pkUser);
+}
+
+BEAM_EXPORT void Method_8(Liquity::Method::EnforceLiquidatation& r)
+{
+    MyGlobal g;
+    g.Load();
+
+    auto price = g.get_Price();
+    Amount valCompensate = 0;
+    Amount s0 = g.m_Troves.m_Totals.s;
+
+    for (uint32_t nRemaining = r.m_Count; ; )
+    {
+        Liquity::Trove t;
+        auto iTrove = g.TrovePop(t, 0); // would fail if no more troves
+
+        auto rcr = t.get_Rcr();
+        Env::Halt_if(!price.IsBelow110(rcr));
+
+        Liquity::Pair part;
+        Env::Halt_if(!g.m_StabPool.Liquidate(t, part));
+
+        {
+            EpochStorage<Liquity::Tags::s_Epoch_Stable> stor;
+            g.m_StabPool.OnPostTrade(stor);
+        }
+
+        t.m_Amounts = t.m_Amounts - part;
+        g.m_Troves.m_Totals = g.m_Troves.m_Totals - part; // no need in 'Strict'
+
+        bool bLast = !--nRemaining;
+
+        if (t.m_Amounts.s || t.m_Amounts.b)
+        {
+            Env::Halt_if(!bLast);
+            g.TrovePushValidate(t, iTrove, r.m_iRcrPos1, nullptr);
+        }
+        else
+        {
+            Liquity::Trove::Key tk;
+            tk.m_iTrove = iTrove;
+
+            Env::DelVar_T(tk);
+            Strict::Add(valCompensate, g.m_Settings.m_CloseCompensation);
+        }
+
+        if (bLast)
+            break;
+    }
+
+    Env::Halt_if(!Env::AssetEmit(g.m_Aid, s0 - g.m_Troves.m_Totals.s, 0));
+    Env::FundsUnlock(0, valCompensate);
+
+    g.Save();
 }

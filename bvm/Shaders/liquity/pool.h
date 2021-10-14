@@ -1,6 +1,7 @@
 #pragma once
 #include "../Math.h"
 
+#pragma pack (push, 1)
 struct HomogenousPool
 {
     typedef MultiPrecision::Float Float;
@@ -266,3 +267,4 @@ struct DistributionPool
         Trade_<Mode::Grow>(d);
     }
 };
+#pragma pack (pop)

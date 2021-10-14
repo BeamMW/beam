@@ -263,6 +263,14 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Val.m_Num);
 		ConvertOrd<bToShader>((uint32_t&) x.m_Val.m_Order);
 	}
+	template <bool bToShader> void Convert(Liquity::Method::UpdStabPool& x) {
+		ConvertOrd<bToShader>(x.m_Fm.s.m_Val);
+		ConvertOrd<bToShader>(x.m_Fm.b.m_Val);
+		ConvertOrd<bToShader>(x.m_NewAmount);
+	}
+	template <bool bToShader> void Convert(Liquity::Method::EnforceLiquidatation& x) {
+		ConvertOrd<bToShader>(x.m_Count);
+	}
 
 	namespace Env {
 
@@ -620,17 +628,19 @@ namespace bvm2 {
 				//case 2: Shaders::Aphorize::Method_2(CastArg<Shaders::Aphorize::Submit>(pArgs)); return;
 				//}
 			}
-
+/*
 			if (cid == m_cidLiquity)
 			{
-				//TempFrame f(*this, cid);
-				//switch (iMethod)
-				//{
-				//case 0: Shaders::Liquity::Ctor(CastArg<Shaders::Liquity::Method::Create>(pArgs)); return;
-				//case 3: Shaders::Liquity::Method_3(CastArg<Shaders::Liquity::Method::OpenTrove>(pArgs)); return;
-				//}
+				TempFrame f(*this, cid);
+				switch (iMethod)
+				{
+				case 0: Shaders::Liquity::Ctor(CastArg<Shaders::Liquity::Method::Create>(pArgs)); return;
+				case 3: Shaders::Liquity::Method_3(CastArg<Shaders::Liquity::Method::OpenTrove>(pArgs)); return;
+				case 7: Shaders::Liquity::Method_7(CastArg<Shaders::Liquity::Method::UpdStabPool>(pArgs)); return;
+				case 8: Shaders::Liquity::Method_8(CastArg<Shaders::Liquity::Method::EnforceLiquidatation>(pArgs)); return;
+				}
 			}
-
+*/
 			if (cid == m_MyOracle.m_Cid)
 			{
 				TempFrame f(*this, cid);
@@ -867,6 +877,35 @@ namespace bvm2 {
 			args.m_Amounts.s = Rules::Coin * 1000;
 			args.m_Amounts.b = Rules::Coin * 35; // should be enough for 150% tcr
 			args.m_pkOwner.m_X = 43U;
+			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
+		}
+
+		for (uint32_t i = 0; i < 2; i++)
+		{
+			Shaders::Liquity::Method::UpdStabPool args;
+			ZeroObject(args);
+			args.m_NewAmount = Rules::Coin * 750;
+			args.m_Fm.s.m_Val = args.m_NewAmount;
+			args.m_Fm.s.m_Spend = 1;
+			args.m_pkUser.m_X = 77U + i;
+
+			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
+		}
+
+		m_MyOracle.m_Value = 17; // price drop
+
+		{
+			Shaders::Liquity::Method::EnforceLiquidatation args;
+			ZeroObject(args);
+			args.m_Count = 1;
+			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
+		}
+
+		for (uint32_t i = 0; i < 2; i++)
+		{
+			Shaders::Liquity::Method::UpdStabPool args;
+			ZeroObject(args);
+			args.m_pkUser.m_X = 77U + i;
 			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
 		}
 	}

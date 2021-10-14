@@ -90,6 +90,13 @@ namespace Liquity
             Trove::ID m_iRcrLow;
             Pair m_Totals; // Total minted tokens and collateral in all troves
 
+            MultiPrecision::Float get_Trcr() const
+            {
+                return
+                    MultiPrecision::Float(m_Totals.b) /
+                    MultiPrecision::Float(m_Totals.s);
+            }
+
         } m_Troves;
 
         struct RedistPool
@@ -125,7 +132,10 @@ namespace Liquity
                 //
                 // // should not overflow, all values are bounded by totals.
                 if (IsUnchanged(t))
+                {
                     m_Active.m_Balance.s -= t.m_Amounts.s; // silent removal
+                    m_Active.m_Users--;
+                }
                 else
                 {
                     Pair out;
@@ -159,7 +169,7 @@ namespace Liquity
         struct StabilityPool
             :public ExchangePool
         {
-            bool Liquidate(Trove& t)
+            bool Liquidate(Trove& t, Pair& part)
             {
                 auto maxVal = get_TotalSell();
                 if (!maxVal)
@@ -168,20 +178,16 @@ namespace Liquity
                 if (maxVal >= t.m_Amounts.s)
                 {
                     Trade(t.m_Amounts);
-
-                    t.m_Amounts.s = 0;
-                    t.m_Amounts.b = 0;
+                    part = t.m_Amounts;
                 }
                 else
                 {
                     // partial liquidation is ok
-                    Pair part = t.m_Amounts.get_Fraction(maxVal, t.m_Amounts.s);
+                    part = t.m_Amounts.get_Fraction(maxVal, t.m_Amounts.s);
                     if (!part.s)
                         return false;
 
                     Trade(part);
-
-                    t.m_Amounts = t.m_Amounts - part;
                 }
 
                 return true;
@@ -207,6 +213,11 @@ namespace Liquity
                 return val;
             }
 
+            static MultiPrecision::Float get_k100()
+            {
+                return MultiPrecision::Float(1u);
+            }
+
             bool IsBelow150(MultiPrecision::Float rcr) const
             {
                 return rcr * m_Value < get_k150();
@@ -215,6 +226,11 @@ namespace Liquity
             bool IsBelow110(MultiPrecision::Float rcr) const
             {
                 return rcr * m_Value < get_k110();
+            }
+
+            bool IsBelow100(MultiPrecision::Float rcr) const
+            {
+                return rcr * m_Value < get_k100();
             }
         };
 
@@ -312,6 +328,13 @@ namespace Liquity
             Amount m_NewAmount;
             PubKey m_pkUser;
             FundsMove m_Fm;
+        };
+
+        struct EnforceLiquidatation
+        {
+            static const uint32_t s_iMethod = 8;
+            uint32_t m_Count;
+            Trove::ID m_iRcrPos1; // in case the last trove is only partially liquidated - this is its new position
         };
 
     } // namespace Method
