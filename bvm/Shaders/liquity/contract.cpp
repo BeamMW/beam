@@ -232,12 +232,12 @@ BEAM_EXPORT void Dtor(void*)
 {
 }
 
-BEAM_EXPORT void OnMethod_2(void*)
+BEAM_EXPORT void Method_2(void*)
 {
     // called on upgrade
 }
 
-BEAM_EXPORT void OnMethod_3(const Liquity::Method::OpenTrove& r)
+BEAM_EXPORT void Method_3(const Liquity::Method::OpenTrove& r)
 {
     MyGlobal g;
     g.Load();
@@ -263,7 +263,7 @@ BEAM_EXPORT void OnMethod_3(const Liquity::Method::OpenTrove& r)
     g.Save();
 }
 
-BEAM_EXPORT void OnMethod_4(const Liquity::Method::CloseTrove& r)
+BEAM_EXPORT void Method_4(const Liquity::Method::CloseTrove& r)
 {
     MyGlobal g;
     g.Load();
@@ -289,7 +289,7 @@ BEAM_EXPORT void OnMethod_4(const Liquity::Method::CloseTrove& r)
     Env::AddSig(t.m_pkOwner);
 }
 
-BEAM_EXPORT void OnMethod_5(const Liquity::Method::FundsAccess& r)
+BEAM_EXPORT void Method_5(const Liquity::Method::FundsAccess& r)
 {
     Liquity::FundsMove fm;
     _POD_(fm).SetZero();
@@ -301,7 +301,7 @@ BEAM_EXPORT void OnMethod_5(const Liquity::Method::FundsAccess& r)
     Env::AddSig(r.m_pkUser);
 }
 
-BEAM_EXPORT void OnMethod_6(Liquity::Method::ModifyTrove& r)
+BEAM_EXPORT void Method_6(Liquity::Method::ModifyTrove& r)
 {
     MyGlobal g;
     g.Load();
@@ -319,7 +319,7 @@ BEAM_EXPORT void OnMethod_6(Liquity::Method::ModifyTrove& r)
     Env::AddSig(t.m_pkOwner);
 }
 
-BEAM_EXPORT void OnMethod_7(Liquity::Method::UpdStabPool& r)
+BEAM_EXPORT void Method_7(Liquity::Method::UpdStabPool& r)
 {
     MyGlobal g;
     g.Load();
