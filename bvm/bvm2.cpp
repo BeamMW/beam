@@ -1300,9 +1300,10 @@ namespace bvm2 {
 				pArgs = m_Stack.get_AlasSp();
 		}
 
+		auto nDepth = m_FarCalls.m_Stack.size(); // see if depth increases. If it doesn't - the call was hijacked, performed natively. No need to adjust m_BytesMax
 		CallFar(get_AddrAsR<ContractID>(cid), iMethod, pArgs, bInheritContext);
 
-		if (!bInheritContext)
+		if (!bInheritContext && (m_FarCalls.m_Stack.size() > nDepth))
 			m_Stack.m_BytesMax = nCalleeStackMax;
 	}
 	BVM_METHOD_HOST(CallFar)
