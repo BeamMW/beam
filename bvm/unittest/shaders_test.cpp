@@ -254,6 +254,15 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Settings.m_CloseCompensation);
 		ConvertOrd<bToShader>(x.m_Settings.m_TroveMinTokens);
 	}
+	template <bool bToShader> void Convert(Liquity::Method::OpenTrove& x) {
+		ConvertOrd<bToShader>(x.m_Amounts.s);
+		ConvertOrd<bToShader>(x.m_Amounts.b);
+		ConvertOrd<bToShader>(x.m_iRcrPos1);
+	}
+	template <bool bToShader> void Convert(Liquity::Method::OracleGet& x) {
+		ConvertOrd<bToShader>(x.m_Val.m_Num);
+		ConvertOrd<bToShader>((uint32_t&) x.m_Val.m_Order);
+	}
 
 	namespace Env {
 
@@ -439,6 +448,12 @@ namespace bvm2 {
 		ContractID m_cidAphorize;
 		ContractID m_cidLiquity;
 
+		struct MyOracle {
+			ContractID m_Cid;
+			Shaders::MultiPrecision::Float m_Value;
+		} m_MyOracle;
+
+
 		struct {
 
 			Shaders::Eth::Header m_Header;
@@ -611,7 +626,20 @@ namespace bvm2 {
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
 				//{
+				//case 0: Shaders::Liquity::Ctor(CastArg<Shaders::Liquity::Method::Create>(pArgs)); return;
+				//case 3: Shaders::Liquity::Method_3(CastArg<Shaders::Liquity::Method::OpenTrove>(pArgs)); return;
 				//}
+			}
+
+			if (cid == m_MyOracle.m_Cid)
+			{
+				TempFrame f(*this, cid);
+				switch (iMethod)
+				{
+				case 3:
+					CastArg<Shaders::MultiPrecision::Float>(pArgs) = m_MyOracle.m_Value;
+					return;
+				}
 			}
 
 			ProcessorContract::CallFar(cid, iMethod, pArgs, bInheritContext);
@@ -665,6 +693,8 @@ namespace bvm2 {
 		AddCode(m_Code.m_Liquity, "liquity/contract.wasm");
 
 		m_FarCalls.m_SaveLocal = true;
+
+		m_MyOracle.m_Cid = 77453U;
 
 		TestVault();
 		TestAphorize();
@@ -816,6 +846,29 @@ namespace bvm2 {
 
 	void MyProcessor::TestLiquity()
 	{
+		m_MyOracle.m_Value = 45; // to the moon!
+
+		SaveVar(m_MyOracle.m_Cid, m_MyOracle.m_Cid); // dummy val, nevermind, just pretend the contract exists
+
+		{
+			Shaders::Liquity::Method::Create args;
+			ZeroObject(args);
+			args.m_Settings.m_cidOracle = m_MyOracle.m_Cid;
+			args.m_Settings.m_CloseCompensation = Rules::Coin * 5;
+			args.m_Settings.m_TroveMinTokens = Rules::Coin * 10;
+
+			verify_test(ContractCreate_T(m_cidLiquity, m_Code.m_Liquity, args));
+		}
+
+		{
+			Shaders::Liquity::Method::OpenTrove args;
+			ZeroObject(args);
+
+			args.m_Amounts.s = Rules::Coin * 1000;
+			args.m_Amounts.b = Rules::Coin * 35; // should be enough for 150% tcr
+			args.m_pkOwner.m_X = 43U;
+			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
+		}
 	}
 
 	namespace IndexDecoder
