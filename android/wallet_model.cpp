@@ -63,6 +63,8 @@ namespace
     {
         jobject tx = env->AllocObject(TxDescriptionClass);
 
+        std::string comment(txDescription.m_message.begin(), txDescription.m_message.end());
+
         setStringField(env, TxDescriptionClass, tx, "id", to_hex(txDescription.m_txId.data(), txDescription.m_txId.size()));
         setLongField(env, TxDescriptionClass, tx, "amount", txDescription.m_amount);
         setLongField(env, TxDescriptionClass, tx, "fee", txDescription.m_fee);
@@ -71,7 +73,7 @@ namespace
         setStringField(env, TxDescriptionClass, tx, "peerId", to_string(txDescription.m_peerId));
         setStringField(env, TxDescriptionClass, tx, "myId", to_string(txDescription.m_myId));
 
-        setStringField(env, TxDescriptionClass, tx, "message", string(txDescription.m_message.begin(), txDescription.m_message.end()));
+        setStringField(env, TxDescriptionClass, tx, "message", comment);
         setLongField(env, TxDescriptionClass, tx, "createTime", txDescription.m_createTime);
         setLongField(env, TxDescriptionClass, tx, "modifyTime", txDescription.m_modifyTime);
         setBooleanField(env, TxDescriptionClass, tx, "sender", txDescription.m_sender);
