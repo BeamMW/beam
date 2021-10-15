@@ -823,10 +823,10 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(updateAddress)(JNIEnv *env, jo
     case 1:
         expirationStatus = WalletAddress::ExpirationStatus::Auto;
         break;
-    case 3:
+    case 2:
         expirationStatus = WalletAddress::ExpirationStatus::Never;
         break;
-    case 4:
+    case 3:
         expirationStatus = WalletAddress::ExpirationStatus::AsIs;
         break;
     default:
