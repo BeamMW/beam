@@ -823,14 +823,11 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(updateAddress)(JNIEnv *env, jo
     case 1:
         expirationStatus = WalletAddress::ExpirationStatus::Auto;
         break;
-    case 2:
+    case 3:
         expirationStatus = WalletAddress::ExpirationStatus::Never;
         break;
-    case 3:
-        expirationStatus = WalletAddress::ExpirationStatus::AsIs;
-        break;
     case 4:
-        expirationStatus = WalletAddress::ExpirationStatus::Auto;
+        expirationStatus = WalletAddress::ExpirationStatus::AsIs;
         break;
     default:
         LOG_ERROR() << "Address expiration is not valid!!!";
