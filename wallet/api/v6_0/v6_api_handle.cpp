@@ -794,7 +794,12 @@ namespace beam::wallet
 
         checkTxAccessRights(*tx, ApiError::PaymentProofExportError, kErrorPpExportFailed);
 
-        if (!tx->m_sender || tx->m_selfTx)
+        if (!tx->m_sender || tx->m_selfTx ||
+            tx->m_txType == TxType::AssetIssue ||
+            tx->m_txType == TxType::AssetConsume ||
+            tx->m_txType == TxType::AssetReg ||
+            tx->m_txType == TxType::AssetUnreg ||
+            tx->m_txType == TxType::Contract)
         {
             throw jsonrpc_exception(ApiError::PaymentProofExportError, kErrorPpCannotExportForReceiver);
         }
