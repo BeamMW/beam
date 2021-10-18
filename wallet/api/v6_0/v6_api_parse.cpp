@@ -232,7 +232,7 @@ namespace beam::wallet
             {
                 msg["fee"] = bvm2::getFullFee(vData, txProofHeight ? txProofHeight : tx.m_minHeight);
 
-                bool hasIncome = false;
+                bool isIncome = true;
                 bool isFeeOnly = true;
                 for (const auto& data : vData)
                 {
@@ -242,7 +242,7 @@ namespace beam::wallet
                         isFeeOnly = false;
                         if (info.second > 0)
                         {
-                            hasIncome = false;
+                            isIncome = false;
                         }
                         amounts.push_back(json{
                             {"asset_id", info.first},
@@ -257,7 +257,7 @@ namespace beam::wallet
                 }
 
                 msg["fee_only"] = isFeeOnly;
-                msg["income"] = isFeeOnly ? false : hasIncome;
+                msg["income"] = isFeeOnly ? false : isIncome;
             }
         }
 
