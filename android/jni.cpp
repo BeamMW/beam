@@ -1142,7 +1142,7 @@ JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getMaxPrivacyLockTimeLimitHou
 
 JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getCoinConfirmationsOffset)(JNIEnv *env, jobject thiz)
 {
-    return m_minConfirmations;
+    return m_confirmationOffset;
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getAssetInfo)(JNIEnv *env, jobject thiz, jint id)
