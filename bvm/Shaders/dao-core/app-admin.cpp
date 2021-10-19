@@ -63,7 +63,7 @@ struct MyKeyID :public Env::KeyID {
 ON_METHOD(manager, view)
 {
     static const ShaderID s_pSid[] = {
-        DaoCore::s_SID // latest version
+        DaoCore::s_SID,
     };
 
     ContractID pVerCid[_countof(s_pSid)];

@@ -2238,6 +2238,8 @@ namespace bvm2 {
 		bvm2::get_ShaderID(sid, m_Code.m_DaoCore);
 		VERIFY_ID(Shaders::DaoCore::s_SID, sid);
 
+		m_Height += Shaders::DaoCore::Preallocated::s_hLaunch;
+
 		for (uint32_t i = 0; i < 10; i++)
 		{
 			Shaders::DaoCore::UpdPosFarming args;

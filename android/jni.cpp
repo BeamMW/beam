@@ -70,6 +70,8 @@ namespace
 
     static uint8_t m_mpLockTimeLimit = 64;
     static uint32_t m_confirmationOffset = 0;
+
+
     static ShieldedVoucherList lastVouchers;
     static std::string lastWalledId("");
 
@@ -278,11 +280,15 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     return trusted;
  }
 
-  JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(callMyMethod)(JNIEnv *env, jobject thiz)
+ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(callMyMethod)(JNIEnv *env, jobject thiz)
  {
     walletModel->callMyFunction();
  }
 
+ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(clearLastWalletId)(JNIEnv *env, jobject thiz)
+ {
+    lastWalledId = "";
+ }
  
  JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(generateOfflineAddress)(JNIEnv *env, jobject thiz, jlong amount, jstring walletId, jint assetId)
  {
@@ -1133,6 +1139,7 @@ JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getMaxPrivacyLockTimeLimitHou
 {
     return m_mpLockTimeLimit;
 }
+
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getAssetInfo)(JNIEnv *env, jobject thiz, jint id)
 {
