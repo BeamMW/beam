@@ -138,15 +138,49 @@ namespace Env {
             Halt();
     }
 
+    struct KeyID
+        :public SigRequest
+    {
+        KeyID() {}
+        KeyID(const void* p, uint32_t n) {
+            m_pID = p;
+            m_nID = n;
+        }
+
+        template <typename T>
+        KeyID(const T& x) : KeyID(&x, sizeof(x)) {}
+
+        void get_Pk(PubKey& pk) const {
+            DerivePk(pk, m_pID, m_nID);
+        }
+
+        void get_Pk(Secp_point& pk) const {
+            Env::get_Pk(pk, m_pID, m_nID);
+        }
+
+        void get_Blind(Secp_scalar& s, const Secp_scalar& mul, uint32_t iNonceSlot) const {
+            Env::get_BlindSk(s, m_pID, m_nID, mul, iNonceSlot);
+        }
+
+        void Comm_Listen(uint32_t nCookie) const {
+            Env::Comm_Listen(m_pID, m_nID, nCookie);
+        }
+    };
+	
+    inline void Comm_WaitMsg()
+    {
+        Comm_WaitMsg(static_cast<uint32_t>(-1)); // wait forever
+    }
+
     template <typename T>
     inline T* StackAlloc_T(uint32_t n) {
         return (T*) StackAlloc(sizeof(T) * n);
     }
 
     template <typename T>
-    inline T* StackFree_T(uint32_t n) {
+    inline void StackFree_T(uint32_t n) {
         // not mandatory to call, but sometimes usefull before calling other heavy functions
-        return StackFree(sizeof(T) * n);
+        StackFree(sizeof(T) * n);
     }
 
 #ifndef HOST_BUILD
@@ -200,6 +234,13 @@ namespace Env {
     inline bool DocGet(const char* szID, PubKey& val) {
         return DocGetBlobEx(szID, &val, sizeof(val));
     }
+
+    template <uint32_t n>
+    void WriteStr(const char(&sz)[n], uint32_t iStream)
+    {
+        Env::Write(sz, n - 1, iStream);
+    }
+
 
     // variable enum/read wrappers
 #pragma pack (push, 1)
@@ -478,6 +519,8 @@ namespace Utils {
                 Env::Memcpy(m_p, pOld, sizeof(T) * m_Count);
                 Env::Heap_Free(pOld);
             }
+
+            m_Alloc = n;
         }
 
         T& emplace_back()
@@ -487,6 +530,42 @@ namespace Utils {
         }
     };
 
+    struct String
+    {
+        template <uint32_t nRadix>
+        struct Radix
+        {
+            static uint32_t Print(char* sz, uint64_t val)
+            {
+                uint32_t nDigs = 1;
+                for (uint64_t val0 = val; ; nDigs++)
+                    if (!(val0 /= nRadix))
+                        break;
+
+                uint32_t retVal = nDigs;
+
+                for (sz[nDigs] = 0; ; val /= nRadix)
+                {
+                    sz[--nDigs] = '0' + (val % nRadix);
+                    if (!nDigs)
+                        break;
+                }
+
+                return retVal;
+            }
+
+            template <uint64_t x> struct Digits {
+                static const uint32_t N_Raw = x ? (1 + Digits<x / nRadix>::N_Raw) : 0;
+                static const uint32_t N = N_Raw ? N_Raw : 1;
+            };
+
+            template <typename T> struct DigitsMax {
+                static const uint32_t N = Digits<static_cast<T>(-1)>::N;
+            };
+        };
+
+        typedef Radix<10> Decimal;
+    };
 
 } // namespace Utils
 
@@ -502,28 +581,28 @@ namespace Cast
 	template <typename TT, typename T> inline const TT& Up(const T& x)
 	{
 		const TT& ret = (const TT&) x;
-		const T& unused = ret; unused;
+        [[maybe_unused]] const T& unused = ret;
 		return ret;
 	}
 
 	template <typename TT, typename T> inline TT& Up(T& x)
 	{
 		TT& ret = (TT&) x;
-		T& unused = ret; unused;
+        [[maybe_unused]] T& unused = ret;
 		return ret;
 	}
 
 	template <typename TT, typename T> inline TT* Up(T* p)
 	{
 		TT* ret = (TT*) p;
-		T* unused = ret; unused;
+        [[maybe_unused]] T* unused = ret;
 		return ret;
 	}
 
 	template <typename TT, typename T> inline const TT* Up(const T* p)
 	{
 		const TT* ret = (const TT*) p;
-		const T* unused = ret; unused;
+        [[maybe_unused]] const T* unused = ret;
 		return ret;
 	}
 
@@ -577,7 +656,6 @@ struct HashProcessor
             Write(sz, n);
         }
 
-
         template <typename T>
         void Write(T v)
         {
@@ -612,11 +690,31 @@ struct HashProcessor
             Write(&pd, sizeof(pd));
         }
 
+        void Read(void* p, uint32_t n)
+        {
+            Env::HashGetValue(m_p, p, n);
+        }
+
         template <typename T>
         void operator >> (T& res)
         {
-            Env::HashGetValue(m_p, &res, sizeof(res));
+            Read(&res, sizeof(res));
         }
+
+        Base& get_Challenge(Secp_scalar& s)
+        {
+            while (true)
+            {
+                Secp_scalar_data sd;
+                *this >> sd;
+                Write(&sd, sizeof(sd));
+
+                if (!_POD_(sd).IsZero() && Env::Secp_Scalar_import(s, sd))
+                    break;
+            }
+            return *this;
+        }
+
     };
 
     struct Sha256
@@ -700,6 +798,153 @@ namespace Merkle
 
         hp >> hv;
     }
+}
+
+namespace Secp
+{
+    template <typename T>
+    struct UnaryMinus {
+        const T& m_Src;
+        UnaryMinus(const T& x) :m_Src(x) {}
+    };
+
+    struct Scalar
+    {
+        Secp_scalar* m_p;
+
+        Scalar() { m_p = Env::Secp_Scalar_alloc(); }
+        ~Scalar() { Env::Secp_Scalar_free(*m_p); }
+
+        operator Secp_scalar& () const {
+            return *m_p;
+        }
+
+        uint8_t Import(const Secp_scalar_data& k) const {
+            return Env::Secp_Scalar_import(*m_p, k);
+        }
+
+        void Export(Secp_scalar_data& k) const {
+            Env::Secp_Scalar_export(*m_p, k);
+        }
+
+        void operator += (const Scalar& x) {
+            Env::Secp_Scalar_add(*m_p, *m_p, x);
+        }
+
+        UnaryMinus<Scalar> operator - () {
+            return UnaryMinus<Scalar>(*this);
+        }
+
+        void operator = (const UnaryMinus<Scalar>& x) {
+            Env::Secp_Scalar_neg(*m_p, x.m_Src);
+        }
+
+    };
+
+    struct Point
+    {
+        Secp_point* m_p;
+
+        Point() { m_p = Env::Secp_Point_alloc(); }
+        ~Point() { Env::Secp_Point_free(*m_p); }
+
+        operator Secp_point& () const {
+            return *m_p;
+        }
+
+        uint8_t Import(const PubKey& pk) {
+            return Env::Secp_Point_Import(*m_p, pk);
+        }
+
+        void FromSlot(uint32_t iSlot)
+        {
+            Env::get_SlotImage(*m_p, iSlot);
+        }
+
+        void Export(PubKey& pk) const {
+            Env::Secp_Point_Export(*m_p, pk);
+        }
+
+        void operator += (const Point& x) {
+            Env::Secp_Point_add(*m_p, *m_p, x);
+        }
+
+        UnaryMinus<Point> operator - () {
+            return UnaryMinus<Point>(*this);
+        }
+
+        void operator = (const UnaryMinus<Point>& x) {
+            Env::Secp_Point_neg(*m_p, x.m_Src);
+        }
+
+        bool IsZero() const {
+            return !!Env::Secp_Point_IsZero(*m_p);
+        }
+    };
+
+    typedef HashProcessor::Base Oracle;
+
+    struct Signature
+    {
+#pragma pack (push, 1)
+        Secp_point_data m_NoncePub;
+        Secp_scalar_data m_kSig;
+#pragma pack (pop)
+
+        void Sign(Oracle& o, const Env::KeyID& kid)
+        {
+            const uint32_t iNonceSlot = s_NonceSlots - 1;
+
+            {
+                // opt: derive strong seed for nonce
+                HashProcessor::Base hp;
+                hp.m_p = Env::HashClone(o.m_p);
+                hp.Write(kid.m_pID, kid.m_nID); // add key material
+
+                HashValue hv;
+                hp >> hv;
+
+                Env::SlotInit(&hv, sizeof(hv), iNonceSlot);
+            }
+
+            Point ptN;
+            Env::get_SlotImage(ptN, iNonceSlot);
+            ptN.Export(m_NoncePub);
+
+            o << m_NoncePub;
+
+            Scalar e;
+            o.get_Challenge(e);
+
+            kid.get_Blind(e, e, iNonceSlot);
+            e = -e;
+            e.Export(m_kSig);
+        }
+
+        bool IsValid(Oracle& o, const PubKey& pk) const
+        {
+            Secp::Point p0, p1;
+            if (!p0.Import(pk) ||
+                !p1.Import(m_NoncePub))
+                return false;
+
+            o << m_NoncePub;
+
+            Scalar e;
+            o.get_Challenge(e);
+
+            Env::Secp_Point_mul(p0, p0, e);
+            p0 += p1;
+
+            if (!e.Import(m_kSig))
+                return false;
+
+            Env::Secp_Point_mul_G(p1, e);
+            p0 += p1;
+
+            return p0.IsZero();
+        }
+    };
 }
 
 static const Amount g_Beam2Groth = 100000000;

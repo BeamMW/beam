@@ -263,3 +263,9 @@ BEAM_EXPORT void Method_12(Dummy::TestEthHeader& r)
     Ethash::VerifyHdr(hdr.get_Epoch(), r.m_EpochDatasetSize, hvSeed, hdr.m_Nonce, hdr.m_Difficulty, &r + 1, static_cast<uint32_t>(-1));
 }
 
+BEAM_EXPORT void Method_13(Dummy::MathTest2& r)
+{
+    r.m_Resid = r.m_Nom;
+    r.m_Quotient.SetDivResid(r.m_Resid, r.m_Denom);
+}
+

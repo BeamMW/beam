@@ -20,27 +20,31 @@
 #include "utility/io/reactor.h"
 #include "utility/io/asyncevent.h"
 
-class SafeReactor: std::enable_shared_from_this<SafeReactor>
+namespace beam
 {
-public:
-    SafeReactor(const SafeReactor&) = delete;
-    SafeReactor& operator=(const SafeReactor&) = delete;
-    SafeReactor() = default;
+    class SafeReactor : std::enable_shared_from_this<SafeReactor>
+    {
+    public:
+        SafeReactor(const SafeReactor&) = delete;
+        SafeReactor& operator=(const SafeReactor&) = delete;
+        SafeReactor() = default;
 
-    using Ptr = std::shared_ptr<SafeReactor>;
-    using Callback = beam::io::AsyncEvent::Callback;
-    static Ptr create();
+        using Ptr = std::shared_ptr<SafeReactor>;
+        using Callback = beam::io::AsyncEvent::Callback;
+        static Ptr create();
 
-    void callAsync(Callback cback);
-    void assert_thread();
-    beam::io::Reactor& ref ();
-    beam::io::Reactor::Ptr ptr();
+        void callAsync(Callback cback);
+        void assert_thread();
+        io::Reactor& ref();
+        io::Reactor::Ptr ptr();
 
-private:
-    beam::io::Reactor::Ptr    _reactor;
-    beam::io::AsyncEvent::Ptr _event;
-    std::thread::id           _reactorThread;
+    private:
+        io::Reactor::Ptr    _reactor;
+        io::AsyncEvent::Ptr _event;
+        std::thread::id           _reactorThread;
 
-    std::mutex _queueMutex;
-    std::queue<Callback> _queue;
-};
+        std::mutex _queueMutex;
+        std::queue<Callback> _queue;
+    };
+
+}

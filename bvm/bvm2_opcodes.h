@@ -14,6 +14,11 @@
 
 #pragma once
 
+#define BVMOp_Write(macro, sep) \
+	macro(const void*, pData) sep \
+	macro(uint32_t, nData) sep \
+	macro(uint32_t, iStream)
+
 #define BVMOp_Memcpy(macro, sep) \
 	macro(void*, pDst) sep \
 	macro(const void*, pSrc) sep \
@@ -74,6 +79,9 @@
 	macro(uint32_t, size)
 
 #define BVMOp_HashFree(macro, sep) \
+	macro(HashObj*, pHash)
+
+#define BVMOp_HashClone(macro, sep) \
 	macro(HashObj*, pHash)
 
 #define BVMOp_Secp_Scalar_alloc(macro, sep)
@@ -353,7 +361,83 @@
 	macro(const char*, szComment) sep \
 	macro(uint32_t, nCharge)
 
+#define BVMOp_GenerateRandom(macro, sep) \
+	macro(void*, pBuf) sep \
+	macro(uint32_t, nSize)
+
+#define BVMOp_get_SlotImage(macro, sep) \
+	macro(Secp_point&, res) sep \
+	macro(uint32_t, iSlot)
+
+#define BVMOp_get_SlotImageEx(macro, sep) \
+	macro(Secp_point&, res) sep \
+	macro(const Secp_point&, gen) sep \
+	macro(uint32_t, iSlot)
+
+#define BVMOp_SlotInit(macro, sep) \
+	macro(const void*, pExtraSeed) sep \
+	macro(uint32_t, nExtraSeed) sep \
+	macro(uint32_t, iSlot)
+
+#define BVMOp_get_Pk(macro, sep) \
+	macro(Secp_point&, res) sep \
+	macro(const void*, pID) sep \
+	macro(uint32_t, nID)
+
+#define BVMOp_get_PkEx(macro, sep) \
+	macro(Secp_point&, res) sep \
+	macro(const Secp_point&, gen) sep \
+	macro(const void*, pID) sep \
+	macro(uint32_t, nID)
+
+#define BVMOp_get_BlindSk(macro, sep) \
+	macro(Secp_scalar&, res) sep \
+	macro(const void*, pID) sep \
+	macro(uint32_t, nID) sep \
+	macro(const Secp_scalar&, mul) sep \
+	macro(uint32_t, iSlot)
+
+#define BVMOp_GenerateKernelAdvanced(macro, sep) \
+	macro(const ContractID*, pCid) sep \
+	macro(uint32_t, iMethod) sep \
+	macro(const void*, pArg) sep \
+	macro(uint32_t, nArg) sep \
+	macro(const FundsChange*, pFunds) sep \
+	macro(uint32_t, nFunds) sep \
+	macro(const PubKey*, pSig) sep \
+	macro(uint32_t, nSig) sep \
+	macro(const char*, szComment) sep \
+	macro(uint32_t, nCharge) sep \
+	macro(Height, hMin) sep \
+	macro(Height, hMax) sep \
+	macro(const PubKey&, ptFullBlind) sep \
+	macro(const PubKey&, ptFullNonce) sep \
+	macro(const Secp_scalar_data&, skForeignSig) sep \
+	macro(uint32_t, iSlotBlind) sep \
+	macro(uint32_t, iSlotNonce) sep \
+	macro(Secp_scalar_data*, pChallenges)
+
+#define BVMOp_Comm_Listen(macro, sep) \
+	macro(const void*, pID) sep \
+	macro(uint32_t, nID) sep \
+	macro(uint32_t, nCookie)
+
+#define BVMOp_Comm_Send(macro, sep) \
+	macro(const PubKey&, pkRemote) sep \
+	macro(const void*, pBuf) sep \
+	macro(uint32_t, nSize)
+
+#define BVMOp_Comm_Read(macro, sep) \
+	macro(void*, pBuf) sep \
+	macro(uint32_t, nSize) sep \
+	macro(uint32_t*, pCookie) sep \
+	macro(uint8_t, bKeep)
+
+#define BVMOp_Comm_WaitMsg(macro, sep) \
+	macro(uint32_t, nTimeout_ms)
+
 #define BVMOpsAll_Common(macro) \
+	macro(0x05, void     , Write) \
 	macro(0x10, void*    , Memcpy) \
 	macro(0x11, void*    , Memset) \
 	macro(0x12, int32_t  , Memcmp) \
@@ -368,6 +452,7 @@
 	macro(0x2B, void     , HashWrite) \
 	macro(0x2D, void     , HashGetValue) \
 	macro(0x2E, void     , HashFree) \
+	macro(0x2F, HashObj* , HashClone) \
 	macro(0x40, Height   , get_Height) \
 	macro(0x41, void     , get_HdrInfo) \
 	macro(0x42, void     , get_HdrFull) \
@@ -436,6 +521,18 @@
 	macro(0x6A, uint8_t  , DocGetNum32) \
 	macro(0x6B, uint8_t  , DocGetNum64) \
 	macro(0x6C, uint32_t , DocGetBlob) \
-	macro(0x70, void     , GenerateKernel)
+	macro(0x70, void     , GenerateKernel) \
+	macro(0xA0, void     , GenerateRandom) \
+	macro(0xA1, void     , get_SlotImage) \
+	macro(0xA2, void     , SlotInit) \
+	macro(0xA3, void     , get_Pk) \
+	macro(0xA4, void     , get_BlindSk) \
+	macro(0xA5, void     , GenerateKernelAdvanced) \
+	macro(0xA6, void     , get_SlotImageEx) \
+	macro(0xA7, void     , get_PkEx) \
+	macro(0xB0, void     , Comm_Listen) \
+	macro(0xB1, void     , Comm_Send) \
+	macro(0xB2, uint32_t , Comm_Read) \
+	macro(0xB3, void     , Comm_WaitMsg) \
 
 #define EXTRA_LINE_BEFORE_EOF_SO_THAT_THE_STUPID_COMPILER_WONT_COMPLAIN_ABOUT_BACKSLASH_ON_PREVIOUS_LINE

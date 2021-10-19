@@ -56,7 +56,6 @@ namespace beam::wallet
         }
 
         TxParameters result{params};
-        result.SetParameter(TxParameterID::IsSelfTx, true);
         result.SetParameter(TxParameterID::MyID, WalletID(Zero)); // Mandatory parameter
         return result;
     }

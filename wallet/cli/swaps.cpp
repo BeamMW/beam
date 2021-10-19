@@ -371,25 +371,25 @@ void ShowSwapSettings(const IWalletDB::Ptr& walletDB, AtomicSwapCoin swapCoin)
     {
         ostringstream stream;
         stream << "\n" << GetCoinName(swapCoin) << " settings" << '\n';
-        if (settings.GetConnectionOptions().IsInitialized())
+        if (const auto& s = settings.GetConnectionOptions(); s.IsInitialized())
         {
-            stream << "RPC user: " << settings.GetConnectionOptions().m_userName << '\n'
-                << "RPC node: " << settings.GetConnectionOptions().m_address.str() << '\n';
+            stream << "RPC user: " << s.m_userName << '\n'
+                << "RPC node: " << s.m_address.str() << '\n';
         }
 
-        if (settings.GetElectrumConnectionOptions().IsInitialized())
+        if (const auto& s = settings.GetElectrumConnectionOptions(); s.IsInitialized())
         {
-            if (settings.GetElectrumConnectionOptions().m_automaticChooseAddress)
+            if (s.m_automaticChooseAddress)
             {
                 stream << "Automatic node selection mode is turned ON.\n";
             }
             else
             {
-                stream << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address << '\n';
+                stream << "Electrum node: " << s.m_address << '\n';
             }
 
-            stream << "Amount of receiving addresses: " << settings.GetElectrumConnectionOptions().m_receivingAddressAmount << '\n';
-            stream << "Amount of change addresses: " << settings.GetElectrumConnectionOptions().m_changeAddressAmount << '\n';
+            stream << "Amount of receiving addresses: " << s.m_receivingAddressAmount << '\n';
+            stream << "Amount of change addresses: " << s.m_changeAddressAmount << '\n';
         }
         stream << "Active connection: " << bitcoin::to_string(settings.GetCurrentConnectionType()) << '\n';
 

@@ -12,28 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "dex.h"
+#include "wallet/core/common.h"
+#include "utility/hex.h"
 
-// TODO: getrandom not available until API 28 in the Android NDK 17b
-// https://github.com/boostorg/uuid/issues/76
+// TODO:DEX getrandom not available until API 28 in the Android NDK 17b
+// https://github.com/boostorg/uuid/issues/76 - should be already fixed here
+// but somewhy doesn't compile MUST FIX THIS, commented only temporary
 #if defined(__ANDROID__)
+#if (__ANDROID_API__ < 28)
 #define BOOST_UUID_RANDOM_PROVIDER_DISABLE_GETRANDOM 1
+#endif
 #endif
 
 #include "boost/uuid/random_generator.hpp"
-#include "utility/hex.h"
 
-namespace beam::wallet {
-    std::string DexOrderID::to_string() const
-    {
-        return to_hex(data(), size());
-    }
-
+namespace beam::wallet
+{
     DexOrderID DexOrderID::generate()
     {
         boost::uuids::uuid uuid = boost::uuids::random_generator()();
         DexOrderID orderId {};
         std::copy(uuid.begin(), uuid.end(), orderId.begin());
         return orderId;
+    }
+
+    std::string DexOrderID::to_string() const
+    {
+        return to_hex(data(), size());
     }
 
     bool DexOrderID::FromHex(const std::string &hex)

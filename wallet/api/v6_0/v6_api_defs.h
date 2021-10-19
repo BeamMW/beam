@@ -211,7 +211,7 @@ namespace beam::wallet
         struct Response
         {
             TxDescription tx;
-            Height txHeight;
+            Height txProofHeight;
             Height systemHeight;
         };
     };

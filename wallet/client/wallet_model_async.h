@@ -55,8 +55,6 @@ namespace beam::wallet
 
         virtual void getDexOrders() = 0;
         virtual void publishDexOrder(const DexOrder&) = 0;
-
-        // TODO:DEX this is only for test, if will remain consider replacing QString to actual type
         virtual void acceptDexOrder(const DexOrderID&) = 0;
 
         virtual void deleteAddress(const WalletID& addr) = 0;
@@ -110,6 +108,9 @@ namespace beam::wallet
 
         virtual void removeRawSeedPhrase() = 0;
         virtual void readRawSeedPhrase(AsyncCallback<const std::string&>&& callback) = 0;
+
+        using AppsListCallback = AsyncCallback<bool, const std::string&>;
+        virtual void getAppsList(AppsListCallback&& callback) = 0;
 
         virtual void enableBodyRequests(bool value) = 0;
         virtual ~IWalletModelAsync() = default;

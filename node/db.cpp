@@ -1319,7 +1319,7 @@ void NodeDB::OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height h, bool b
 				rs.get(1, nFlags);
 				assert(StateFlags::Functional & nFlags);
 				assert(!(StateFlags::Reachable & nFlags) == b);
-				rows.push_back(RowAndFlags(rowid, nFlags));
+				rows.emplace_back(rowid, nFlags);
 			}
 		}
 

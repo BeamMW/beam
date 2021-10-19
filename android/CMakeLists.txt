@@ -10,12 +10,17 @@ set(SRC
     common.cpp 
     node_model.h 
     node_model.cpp
+    dao/apps_api_ui.h
+    dao/apps_api_ui.cpp
+    dao/web_api_creator.h
+    dao/web_api_creator.cpp
 )
 
 add_library(${TARGET_NAME} SHARED ${SRC})
 target_link_libraries(${TARGET_NAME}
     PRIVATE
         wallet_client
+        wallet_api
         utility 
         node 
         mnemonic

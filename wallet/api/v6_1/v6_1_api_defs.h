@@ -16,9 +16,9 @@
 namespace beam::wallet
 {
     #define V6_1_API_METHODS(macro) \
-        macro(EvSubUnsub,        "ev_subunsub",     API_READ_ACCESS,  API_SYNC,  APPS_BLOCKED) \
+        macro(EvSubUnsub,        "ev_subunsub",     API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) \
         macro(GetVersion,        "get_version",     API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) \
-        macro(WalletStatusV61,   "wallet_status",   API_READ_ACCESS,  API_SYNC,  APPS_BLOCKED) \
+        macro(WalletStatusV61,   "wallet_status",   API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) \
         macro(InvokeContractV61, "invoke_contract", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)
 
     struct EvSubUnsub

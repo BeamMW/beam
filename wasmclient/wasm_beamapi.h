@@ -13,10 +13,47 @@
 // limitations under the License.
 #pragma once
 
+#include "wallet/client/apps_api/apps_api.h"
+#include <emscripten/val.h>
+
+class WasmAppApi
+    : public beam::wallet::AppsApi<WasmAppApi>
+    , public std::enable_shared_from_this<WasmAppApi>
+{
+public:
+    WasmAppApi(const std::string appid, const std::string appname);
+    ~WasmAppApi() override = default;
+
+    // This is visible to jscript
+    void CallWalletAPI(const std::string& request);
+
+    // This is visible to jscript
+    void SetResultHandler(emscripten::val handler);
+
+    typedef std::function<void (const std::string&, const std::string&, const std::string&)> ClientThread_ContractConsentHandler;
+    typedef std::function<void (const std::string&, const std::string&)> ClientThread_SendConsentHandler;
+    typedef std::function<void (std::function<void (void)>)> AnyThread_PostHandler;
+
+    void SetContractConsentHandler(ClientThread_ContractConsentHandler handler);
+    void SetSendConsentHandler(ClientThread_SendConsentHandler handler);
+    void SetPostToClientHandler(AnyThread_PostHandler handler);
+
+    // AppsApi overrides
+    void AnyThread_sendApiResponse(const std::string& result) override;
+    void ClientThread_getSendConsent(const std::string& request, const nlohmann::json& info, const nlohmann::json& amounts) override;
+    void ClientThread_getContractConsent(const std::string& request, const nlohmann::json& info, const nlohmann::json& amounts) override;
+
+private:
+    std::unique_ptr<emscripten::val> m_jsResultReceiver;
+    ClientThread_ContractConsentHandler m_ctContractConsent;
+    ClientThread_SendConsentHandler m_ctSendConsent;
+    AnyThread_PostHandler m_postToClient;
+};
+
+/*
 #include "wallet/api/i_wallet_api.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/client/wallet_model_async.h"
-
 #include <boost/any.hpp>
 
 namespace beam::wallet
@@ -29,12 +66,11 @@ namespace beam::applications
     using namespace beam::wallet;
     using WalletClientPtr = std::shared_ptr<beam::wallet::WalletClient>;
     using WalletClientWeakPtr = std::weak_ptr<beam::wallet::WalletClient>;
-    using ApproveMap = std::map<std::string, boost::any>;
-    using ApproveAmounts = std::vector<std::map<std::string, boost::any>>;
 
-    class WebAPI_Beam
+    class WasmBeamApi
         : public beam::wallet::IWalletApiHandler
-        , public std::enable_shared_from_this<WebAPI_Beam>
+        , public std::enable_shared_from_this<WasmBeamApi>
+        , public AppsApi
     {
     protected:
         struct ApiHandlerProxy: beam::wallet::IWalletApiHandler
@@ -51,14 +87,14 @@ namespace beam::applications
 
     public:
 
-        using Ptr       = std::shared_ptr<WebAPI_Beam>;
-        using WeakPtr   = std::weak_ptr<WebAPI_Beam>;
+        using Ptr       = std::shared_ptr<WasmBeamApi>;
+        using WeakPtr   = std::weak_ptr<WasmBeamApi>;
 
         // Do not call directly, use ::Create instead
-        WebAPI_Beam(WalletClientPtr wc, IWalletDB::Ptr db, beam::wallet::IShadersManager::Ptr shaders, const std::string& version, const std::string& appid, const std::string& appname);
-        ~WebAPI_Beam() override;
+        WasmBeamApi(WalletClientPtr wc, IWalletDB::Ptr db, beam::wallet::IShadersManager::Ptr shaders, const std::string& version, const std::string& appid, const std::string& appname);
+        ~WasmBeamApi() override;
 
-        //static std::shared_ptr<WebAPI_Beam> Create(const std::string& version, const std::string& appid, const std::string& appname);
+        //static std::shared_ptr<WasmBeamApi> Create(const std::string& version, const std::string& appid, const std::string& appname);
 
         //[[nodiscard]] QMap<QString, QVariant> getAssets();
         void sendApproved(const std::string& request);
@@ -71,19 +107,8 @@ namespace beam::applications
     //signals:
        virtual void onCallWalletApiResult(const std::string& result) {}
     //   void assetsChanged();
-       virtual void onApproveSend(const std::string& request, const ApproveMap& info) {}
-       virtual void onApproveContractInfo(const std::string& request, const ApproveMap& info, const ApproveAmounts& amounts) {}
-
-    public:
-        [[nodiscard]] std::string getAppId() const
-        {
-            return _appId;
-        }
-
-        [[nodiscard]] std::string getAppName() const
-        {
-            return _appName;
-        }
+       virtual void onApproveSend(const std::string& request, const std::string& info) {}
+       virtual void onApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts) {}
 
     private:
         void AnyThread_getSendConsent(const std::string& request, const beam::wallet::IWalletApi::ParseResult&);
@@ -106,14 +131,13 @@ namespace beam::applications
         // API should be accessed only in context of the reactor thread
         using ApiPtr = beam::wallet::IWalletApi::Ptr;
         ApiPtr _walletAPI;
+
     protected:
         std::shared_ptr<ApiHandlerProxy> _walletAPIProxy;
-    private:
-        std::string _appId;
-        std::string _appName;
 
         //AssetsManager::Ptr _amgr;
         std::set<beam::Asset::ID> _mappedAssets;
         WalletClientPtr _client;
     };
 }
+*/

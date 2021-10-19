@@ -18,16 +18,17 @@ namespace beam::wallet
     DexSimpleSwapBuilder::DexSimpleSwapBuilder(BaseTransaction& tx)
         : MutualTxBuilder(tx, kDefaultSubTxID)
     {
-        // TODO:CHECK, set in simple tx builder
+        // TODO:DEX CHECK, set in simple tx builder
         //m_Lifetime = 0; // disable auto max height adjustment
 
         GetParameter(TxParameterID::DexReceiveAsset, m_ReceiveAssetID);
         GetParameter(TxParameterID::DexReceiveAmount, m_ReceiveAmount);
+        GetParameter(TxParameterID::DexOrderID, m_orderID);
     }
 
     void DexSimpleSwapBuilder::SendToPeer(SetTxParameter&& msg)
     {
-        // TODO: Check what's going on here
+        // TODO:DEX Check what's going on here
         Height hMax = (m_Height.m_Max != MaxHeight) ?
             m_Height.m_Max :
             m_Height.m_Min + m_Lifetime;
@@ -39,14 +40,19 @@ namespace beam::wallet
 
         if (m_IsSender)
         {
+            // Here we swap receive & send amounts
+            // It will reduce code for inputs & outputs creation,
+            // it will be the same for sender & receiver
             msg
-                .AddParameter(TxParameterID::Amount, m_Amount)
-                .AddParameter(TxParameterID::AssetID, m_AssetID)
+                .AddParameter(TxParameterID::Amount, m_ReceiveAmount)
+                .AddParameter(TxParameterID::AssetID, m_ReceiveAssetID)
+                .AddParameter(TxParameterID::DexReceiveAsset, m_AssetID)
+                .AddParameter(TxParameterID::DexReceiveAmount, m_Amount)
+                .AddParameter(TxParameterID::ExternalDexOrderID, m_orderID)
                 .AddParameter(TxParameterID::Fee, m_Fee)
                 .AddParameter(TxParameterID::MinHeight, m_Height.m_Min)
                 .AddParameter(TxParameterID::Lifetime, m_Lifetime)
                 .AddParameter(TxParameterID::IsSender, false);
-
         }
         else
         {

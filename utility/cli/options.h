@@ -32,6 +32,11 @@ namespace beam
         extern const char* STRATUM_SECRETS_PATH;
         extern const char* STRATUM_USE_TLS;
         extern const char* WEBSOCKET_PORT;
+        extern const char* WEBSOCKET_SECRETS_PATH;
+        extern const char* WEBSOCKET_USE_TLS;
+        extern const char* WEBSOCKET_KEY;
+        extern const char* WEBSOCKET_CERT;
+        extern const char* WEBSOCKET_DH;
         extern const char* STORAGE;
         extern const char* WALLET_STORAGE;
         extern const char* MINING_THREADS;
@@ -246,6 +251,7 @@ namespace beam
         extern const char* SHADER_ARGS;
         extern const char* SHADER_BYTECODE_APP;
         extern const char* SHADER_BYTECODE_CONTRACT;
+        extern const char* SHADER_PRIVILEGE;
     }
 
     enum OptionsFlag : int
@@ -280,7 +286,7 @@ namespace beam
     struct Nonnegative {
         static_assert(std::is_unsigned<T>::value, "Nonnegative<T> requires unsigned type.");
 
-        Nonnegative() {}
+        Nonnegative() = default;
         explicit Nonnegative(const T& v) : value(v) {}
 
         T value = 0;
@@ -290,7 +296,7 @@ namespace beam
     struct NonnegativeFloatingPoint {
         static_assert(std::is_floating_point<T>::value, "NonnegativeFloatingPoint<T> requires floating_point type.");
 
-        NonnegativeFloatingPoint() {}
+        NonnegativeFloatingPoint() = default;
         explicit NonnegativeFloatingPoint(const T& v) : value(v) {}
 
         T value = 0;
@@ -300,7 +306,7 @@ namespace beam
     struct Positive {
         static_assert(std::is_arithmetic<T>::value, "Positive<T> requires numerical type.");
 
-        Positive() {}
+        Positive() = default;
         explicit Positive(const T& v) : value(v) {}
 
         T value = 0;

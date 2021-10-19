@@ -56,7 +56,7 @@ namespace Sigma {
 		uint32_t get_N() const; // n^M if parameters are sane, 0 otherwise
 		uint32_t get_F() const; // M * (n - 1)
 
-		Cfg() {}
+		Cfg() = default;
 		Cfg(uint32_t n_, uint32_t M_)
 			:n(n_)
 			,M(M_)

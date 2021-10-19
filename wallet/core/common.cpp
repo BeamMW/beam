@@ -788,13 +788,13 @@ namespace beam::wallet
                 switch (m_status)
                 {
                 case TxStatus::Registering:
-                    return "in progress max privacy";
+                    return m_selfTx ? "sending maximum anonymity to own address" : "in progress maximum anonymity";
                 case TxStatus::Failed:
-                    return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed max privacy";
+                    return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed maximum anonymity";
                 case TxStatus::Canceled:
-                    return "canceled max privacy";
+                    return "canceled maximum anonymity";
                 case TxStatus::Completed:
-                    return m_sender ? "sent max privacy" : "received max privacy";
+                    return m_selfTx ? "sent maximum anonymity to own address" : (m_sender ? "sent maximum anonymity" : "received maximum anonymity");
                 default:
                     break;
                 }
@@ -803,13 +803,13 @@ namespace beam::wallet
                 switch (m_status)
                 {
                 case TxStatus::Registering:
-                    return "in progress offline";
+                    return m_selfTx ? "sending offline to own address" : "in progress offline";
                 case TxStatus::Failed:
                     return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed offline";
                 case TxStatus::Canceled:
                     return "canceled offline";
                 case TxStatus::Completed:
-                    return m_sender ? "sent offline" : "received offline";
+                    return m_selfTx ? "sent offline to own address" : (m_sender ? "sent offline" : "received offline");
                 default:
                     break;
                 }
@@ -818,13 +818,13 @@ namespace beam::wallet
                 switch (m_status)
                 {
                 case TxStatus::Registering:
-                    return "in progress public offline";
+                    return m_selfTx ? "sending offline to own address" : "in progress public offline";
                 case TxStatus::Failed:
                     return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed public offline";
                 case TxStatus::Canceled:
                     return "canceled public offline";
                 case TxStatus::Completed:
-                    return m_sender ? "sent public offline" : "received public offline";
+                    return m_selfTx ? "sent offline to own address" : (m_sender ? "sent public offline" : "received public offline");
                 default:
                     break;
                 }
@@ -880,6 +880,38 @@ namespace beam::wallet
             break;
         }
         return TxStatusInterpreter::getStatus();
+    }
+
+    std::string interpretStatus(const TxDescription& tx)
+    {
+        std::unique_ptr<beam::wallet::TxStatusInterpreter> statusInterpreter;
+        if (tx.m_txType == wallet::TxType::Simple)
+        {
+            statusInterpreter = std::make_unique<beam::wallet::SimpleTxStatusInterpreter>(tx);
+        }
+        else if (tx.m_txType == wallet::TxType::PushTransaction)
+        {
+            statusInterpreter = std::make_unique<beam::wallet::MaxPrivacyTxStatusInterpreter>(tx);
+        }
+        else if (tx.m_txType >= wallet::TxType::AssetIssue && tx.m_txType <= wallet::TxType::AssetInfo)
+        {
+            statusInterpreter = std::make_unique<beam::wallet::AssetTxStatusInterpreter>(tx);
+        }
+        else if (tx.m_txType == wallet::TxType::Contract)
+        {
+            statusInterpreter = std::make_unique<beam::wallet::ContractTxStatusInterpreter>(tx);
+        }
+        else if (tx.m_txType == wallet::TxType::DexSimpleSwap)
+        {
+            statusInterpreter = std::make_unique<beam::wallet::SimpleTxStatusInterpreter>(tx);
+        }
+        else
+        {
+            BOOST_ASSERT_MSG(false, kErrorUnknownTxType);
+            return "unknown";
+        }
+
+        return statusInterpreter->getStatus();
     }
 
     TxDescription::TxDescription(const TxParameters& p)
@@ -1439,10 +1471,15 @@ namespace beam::wallet
 
         for (const auto& pair : packedParams)
         {
+            const auto& v = GetParameterValue(pair.first, pair.second);
+            if (v.is_null())
+            {
+                continue;
+            }
             params.push_back(
             {
                 GetParameterName(pair.first),
-                GetParameterValue(pair.first, pair.second)
+                v
             });
         }
         auto txID = p->GetTxID();

@@ -21,6 +21,7 @@
 #include "wallet/transactions/lelantus/push_transaction.h"
 #include "wallet/core/simple_transaction.h"
 #include "wallet/core/common_utils.h"
+#include "wallet/transactions/dex/dex_tx.h"
 
 #include "utility/bridge.h"
 #include "utility/string_helpers.h"
@@ -39,6 +40,9 @@
 #include <regex>
 #include <limits>
 
+#include "dao/web_api_creator.h"
+
+
 #define WALLET_FILENAME "wallet.db"
 #define BBS_FILENAME "keys.bbs"
 
@@ -56,7 +60,7 @@ namespace
     // this code for node
     static unique_ptr<NodeModel> nodeModel;
 
-    static unique_ptr<WalletModel> walletModel;
+    static WalletModel::Ptr walletModel;
 
     static IWalletDB::Ptr walletDB;
     static Reactor::Ptr reactor;
@@ -68,6 +72,8 @@ namespace
     static uint32_t m_confirmationOffset = 0;
     static ShieldedVoucherList lastVouchers;
     static std::string lastWalledId("");
+
+    static unique_ptr<WebAPICreator> webAPICreator;
 
     void initLogger(const string& appData, const string& appVersion)
     {
@@ -222,7 +228,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
 
             if(libVersion) 
             {
-                std::string myLibVersionStr = PROJECT_VERSION;
+                std::string myLibVersionStr(PROJECT_VERSION);
                 std::regex libVersionRegex("\\d{1,}\\.\\d{1,}\\.\\d{4,}");
                 if (std::regex_match(*libVersion, libVersionRegex) &&
                         std::lexicographical_compare(
@@ -432,22 +438,25 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 
         if (restore)
         {
-            walletModel = make_unique<WalletModel>(walletDB, "127.0.0.1:10005", reactor);
+            walletModel = make_shared<WalletModel>(walletDB, "127.0.0.1:10005", reactor);
         }
         else
         {
-            walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
+            walletModel = make_shared<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
         }
-
+ 
         jobject walletObj = env->AllocObject(WalletClass);
 
-        auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>(walletDB);
+        auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>([=]() { return walletDB; });
         
         auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
         additionalTxCreators->emplace(TxType::PushTransaction, pushTxCreator);
-        
+        additionalTxCreators->emplace(TxType::DexSimpleSwap, std::make_shared<DexTransaction::Creator>(walletDB));
+
         
         walletModel->start(initNotifications(true), true, additionalTxCreators);
+
+        webAPICreator = make_unique<WebAPICreator>();
 
         return walletObj;
     }
@@ -511,12 +520,15 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
                 
         jobject walletObj = env->AllocObject(WalletClass);
 
-        auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>(walletDB);
+        auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>([=]() { return walletDB; });
         
         auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
         additionalTxCreators->emplace(TxType::PushTransaction, pushTxCreator);
-        
+        additionalTxCreators->emplace(TxType::DexSimpleSwap, std::make_shared<DexTransaction::Creator>(walletDB));
+
         walletModel->start(initNotifications(true), true, additionalTxCreators);
+
+        webAPICreator = make_unique<WebAPICreator>();
 
         return walletObj;
     }
@@ -528,7 +540,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(getLibVersion)(JNIEnv *env, jobject thiz)
 {
-    jstring str = env->NewStringUTF(PROJECT_VERSION.c_str());
+    jstring str = env->NewStringUTF(PROJECT_VERSION.data());
 
     return str;
 }
@@ -628,7 +640,7 @@ void CopyParameter(beam::wallet::TxParameterID paramID, const beam::wallet::TxPa
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, jobject thiz,
-    jstring senderAddr, jstring receiverAddr, jstring comment, jlong amount, jlong fee, jint assetId)
+    jstring senderAddr, jstring receiverAddr, jstring comment, jlong amount, jlong fee, jint assetId, jboolean isOffline)
 {
     LOG_DEBUG() << "sendTransaction(" << JString(env, senderAddr).value() << ", " << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
     LOG_DEBUG() << "asset id" << assetId;
@@ -658,7 +670,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
     auto params = CreateSimpleTransactionParameters();
     const auto type = GetAddressType(address);
 
-    if (type == TxAddressType::MaxPrivacy || type == TxAddressType::PublicOffline || (type == TxAddressType::Offline)) {
+    if (type == TxAddressType::MaxPrivacy || type == TxAddressType::PublicOffline || (type == TxAddressType::Offline && isOffline)) {
         if (!LoadReceiverParams(_txParameters, params, type)) {
             assert(false);
             return;
@@ -816,9 +828,6 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(updateAddress)(JNIEnv *env, jo
         break;
     case 3:
         expirationStatus = WalletAddress::ExpirationStatus::AsIs;
-        break;
-    case 4:
-        expirationStatus = WalletAddress::ExpirationStatus::Auto;
         break;
     default:
         LOG_ERROR() << "Address expiration is not valid!!!";
@@ -1139,6 +1148,52 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(isSynced)(JNIEnv *env, job
     return isSynced;
 }
 
+
+JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(appSupported)(JNIEnv *env, jobject thiz, jstring api_version,
+ jstring min_api_version)
+{
+    auto verWant = JString(env, api_version).value();
+    auto verMin = JString(env, min_api_version).value();
+
+    return webAPICreator->apiSupported(verWant) || webAPICreator->apiSupported(verMin);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(launchApp)(JNIEnv *env, jobject thiz, jstring name, jstring url)
+{
+        
+    auto _name = JString(env, name).value();
+    auto _url = JString(env, url).value();
+
+    try
+    {
+        auto verWant = "current";
+        auto verMin  = "";
+        webAPICreator->createApi(walletModel, verWant, verMin, _name, _url);
+    }
+    catch (...)
+    {
+        LOG_DEBUG() << "launchApp error ";
+    }
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(callWalletApi)(JNIEnv *env, jobject thiz, jstring json)
+{
+    auto request = JString(env, json).value();
+    webAPICreator->_api->callWalletApi(request);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(contractInfoApproved)(JNIEnv *env, jobject thiz, jstring json)
+{
+    auto request = JString(env, json).value();
+    webAPICreator->_api->contractInfoApproved(request);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(contractInfoRejected)(JNIEnv *env, jobject thiz, jstring json)
+{
+    auto request = JString(env, json).value();
+    webAPICreator->_api->contractInfoRejected(request);
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv *env;
@@ -1225,6 +1280,13 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
         AssetInfoClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
         env->DeleteLocalRef(cls);
     }
+
+        {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/ContractConsentDTO");
+        ContractConsetClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
+    }
+
 
     return JNI_VERSION_1_6;
 }

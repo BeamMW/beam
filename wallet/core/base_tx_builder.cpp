@@ -824,6 +824,7 @@ namespace beam::wallet
         TxBase::Context::Params pars;
         TxBase::Context ctx(pars);
         ctx.m_Height.m_Min = m_Height.m_Min;
+        // TODO:DEX set to false, other side will not see it!!!
         if (!m_pTransaction->IsValid(ctx))
             throw TransactionFailedException(false, TxFailureReason::InvalidTransaction);
     }
@@ -920,7 +921,7 @@ namespace beam::wallet
     // SimpleTxBuilder
 
     SimpleTxBuilder::SimpleTxBuilder(BaseTransaction& tx, SubTxID subTxID)
-        :BaseTxBuilder(tx, subTxID)
+        : BaseTxBuilder(tx, subTxID)
         , m_Lifetime(kDefaultTxLifetime)
     {
         GetParameter(TxParameterID::Amount, m_Amount);
