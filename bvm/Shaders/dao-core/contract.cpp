@@ -112,8 +112,6 @@ void AllocateAll(const DaoCore::State& s)
 #undef THE_MACRO_SEED
 
 
-    Height h = Env::get_Height();
-
     DaoCore::Preallocated::User::Key puk;
     DaoCore::Preallocated::User pu;
     pu.m_Received = 0;
@@ -125,7 +123,7 @@ void AllocateAll(const DaoCore::State& s)
 
         pu.m_Total = g_Beam2Groth * (Amount) e.m_ValueBeams;
 
-        pu.m_Vesting_h0 = h + nBlockPerMonth * e.m_Month_0;
+        pu.m_Vesting_h0 = DaoCore::Preallocated::s_hLaunch + nBlockPerMonth * e.m_Month_0;
         pu.m_Vesting_dh = nBlockPerMonth * e.m_Month_Delta;
 
         Env::Halt_if(Env::SaveVar_T(puk, pu)); // would fail if key is duplicated
@@ -191,6 +189,7 @@ BEAM_EXPORT void Method_3(const DaoCore::GetPreallocated& r)
 BEAM_EXPORT void Method_4(const DaoCore::UpdPosFarming& r)
 {
     Height h = Env::get_Height();
+    Env::Halt_if(h < DaoCore::Preallocated::s_hLaunch); // farming starts at the same time
 
     DaoCore::Farming::State fs;
     if (Env::LoadVar_T((uint8_t) DaoCore::Farming::s_Key, fs))
