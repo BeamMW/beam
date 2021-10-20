@@ -501,7 +501,7 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(isWalletRunning)(JNIEnv *env,
 }
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobject thiz, 
-    jstring appVersion, jstring nodeAddrStr, jstring appDataStr, jstring passStr)
+    jstring appVersion, jstring nodeAddrStr, jstring appDataStr, jstring passStr, jboolean enableBodyRequests)
 {
     auto appData = JString(env, appDataStr).value();
 
@@ -531,6 +531,8 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
         auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
         additionalTxCreators->emplace(TxType::PushTransaction, pushTxCreator);
         additionalTxCreators->emplace(TxType::DexSimpleSwap, std::make_shared<DexTransaction::Creator>(walletDB));
+
+        walletModel->getAsync()->enableBodyRequests(enableBodyRequests);
 
         walletModel->start(initNotifications(true), true, additionalTxCreators);
 
