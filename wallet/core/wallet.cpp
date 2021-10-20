@@ -748,10 +748,12 @@ namespace beam::wallet
         {
         case TxType::VoucherRequest:
             {
+                LOG_DEBUG() << "Got voucher request!";
                 auto pKeyKeeper = m_WalletDB->get_KeyKeeper();
                 if (!pKeyKeeper                                         // We can generate the ticket with OwnerKey, but can't sign it.
                  || !CanDetectCoins())                                  // The wallet has no ability to recognize received shielded coin
                 {
+                    LOG_ERROR() << "Cannot send voucher" << TRACE(pKeyKeeper) << TRACE(CanDetectCoins());
                     FailVoucherRequest(msg.m_From, myID);
                     return; 
                 }
@@ -761,6 +763,7 @@ namespace beam::wallet
 
                 if (!nCount)
                 {
+                    LOG_ERROR() << "Cannot send voucher" << TRACE(nCount);
                     FailVoucherRequest(msg.m_From, myID);
                     return; //?!
                 }
@@ -770,11 +773,11 @@ namespace beam::wallet
                     return;
 
                 auto res = GenerateVoucherList(pKeyKeeper, address->m_OwnID, nCount);
-
+                LOG_DEBUG() << "Generated voucher list, size: " << res.size();
                 SetTxParameter msgOut;
                 msgOut.m_Type = TxType::VoucherResponse;
                 msgOut.m_From = myID;
-                msgOut.AddParameter(TxParameterID::ShieldedVoucherList, std::move(res));
+                msgOut.AddParameter(TxParameterID::ShieldedVoucherList, res);
 
                 SendSpecialMsg(msg.m_From, msgOut);
 
