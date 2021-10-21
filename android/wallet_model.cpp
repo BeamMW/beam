@@ -142,6 +142,10 @@ namespace
                             amount += contractFee;
                         }
                     }
+                    else 
+                    {
+                        setIntField(env, TxDescriptionClass, tx, "assetId", info.first);
+                    }
                     
                     mainAmount = mainAmount + amount;
                 }
