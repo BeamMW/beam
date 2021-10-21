@@ -3,7 +3,7 @@ import sys
 
 print("Fixing wasm client, file: ", sys.argv[1], " output: ")
 
-t_poll  = "function ___sys_poll"
+t_poll  = "function ___syscall_poll"
 t_proxy = "if (ENVIRONMENT_IS_PTHREAD)"
 t_ret   = "return"
 t_end   = ");"

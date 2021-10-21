@@ -459,8 +459,8 @@ jobs:
         git clone https://github.com/emscripten-core/emsdk.git
         cd emsdk
         git pull
-        ./emsdk install 2.0.29
-        ./emsdk activate 2.0.29
+        ./emsdk install latest
+        ./emsdk activate latest
 
     - name: Download boost
       shell: bash
