@@ -1099,6 +1099,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(setCoinConfirmationsOffset)(JN
 {
     if (offset <= std::numeric_limits<uint32_t>::max())
     {
+        m_confirmationOffset = static_cast<uint32_t>(offset);
         walletModel->getAsync()->setCoinConfirmationsOffset(static_cast<uint32_t>(offset));
     }
 }
