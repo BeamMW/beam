@@ -91,8 +91,14 @@ namespace
         setStringField(env, TxDescriptionClass, tx, "senderAddress", txDescription.getAddressFrom());
 
         setStringField(env, TxDescriptionClass, tx, "token", txDescription.getToken());
-
         setIntField(env, TxDescriptionClass, tx, "assetId", txDescription.m_assetId);
+
+        if (txDescription.m_txType == wallet::TxType::Simple) {
+            if (auto minConfirmations = txDescription.GetParameter<uint32_t>(beam::wallet::TxParameterID::MinConfirmations))
+            {
+                setIntField(env, TxDescriptionClass, tx, "minConfirmations", static_cast<jint>(*minConfirmations));
+            }
+        }
 
         if (txDescription.m_txType == wallet::TxType::Contract) {
             setBooleanField(env, TxDescriptionClass, tx, "isDapps", true);
@@ -542,6 +548,12 @@ void WalletModel::onTxStatus(ChangeAction action, const std::vector<TxDescriptio
             const auto& item = items[i];
 
             jobject tx = fillTransactionData(env, item);
+            if (item.m_txType == wallet::TxType::Simple) {
+                if (auto minConfirmations = item.GetParameter<uint32_t>(beam::wallet::TxParameterID::MinConfirmations))
+                    {
+                        setStringField(env, TxDescriptionClass, tx, "minConfirmationsProgress", getConfirmationProgress(item, *minConfirmations));
+                    }
+            }
 
             env->SetObjectArrayElement(txItems, static_cast<jsize>(i), tx);
 
@@ -928,6 +940,31 @@ void WalletModel::callMyFunction()
 void WalletModel::doFunction(const std::function<void()>& func)
 {
     func();  
+}
+
+std::string WalletModel::getConfirmationProgress(beam::wallet::TxDescription transaction, uint32_t minConfirmations) 
+{
+    if (minConfirmations)
+    {
+        auto currHeight = this->getCurrentHeight();
+        if (currHeight && minConfirmations)
+        {
+            if (auto proofHeight = transaction.GetParameter<Height>(wallet::TxParameterID::KernelProofHeight); proofHeight)
+            {
+                std::stringstream ss;
+                auto blocksAfter = (currHeight - *proofHeight);
+                ss << (blocksAfter > minConfirmations ? minConfirmations : blocksAfter) << "/" << minConfirmations;
+                return ss.str();
+            }
+            else
+            {
+                std::stringstream ss;
+                ss << 0 << "/" << minConfirmations;
+                return ss.str();
+            }
+        }
+    }
+    return "unknown";
 }
 
 void WalletModel::onExportTxHistoryToCsv(const std::string& data) 
