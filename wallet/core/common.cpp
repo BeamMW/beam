@@ -941,16 +941,23 @@ namespace beam::wallet
     }
 
     /// Return empty string if exchange rate is not available
-    Amount TxDescription::getExchangeRate(const Currency& targetCurrency) const
+    Amount TxDescription::getExchangeRate(const Currency& targetCurrency, beam::Asset::ID assetId /* = beam::Asset::s_InvalidID*/) const
     {
         auto exchangeRatesOptional = GetParameter<std::vector<ExchangeRate>>(TxParameterID::ExchangeRates);
         if (exchangeRatesOptional)
         {
             std::vector<ExchangeRate>& rates = *exchangeRatesOptional;
 
-            auto assetIdOptional = GetParameter<Asset::ID>(TxParameterID::AssetID);
-            Asset::ID assetId  = assetIdOptional ? *assetIdOptional : 0;
-            auto fromCurrency = beam::wallet::Currency(assetId);
+            beam::wallet::Currency fromCurrency(beam::Asset::s_BeamID);
+            if (assetId == beam::Asset::s_InvalidID || assetId == beam::Asset::s_BeamID)
+            {
+                auto assetIdOptional = GetParameter<Asset::ID>(TxParameterID::AssetID);
+                Asset::ID txAssetId  = assetIdOptional ? *assetIdOptional : beam::Asset::s_BeamID;
+                fromCurrency = beam::wallet::Currency(txAssetId);
+            } else
+            {
+                fromCurrency = beam::wallet::Currency(assetId);
+            }
 
             auto search = std::find_if(std::begin(rates), std::end(rates),
                                     [&fromCurrency, &targetCurrency](const ExchangeRate& r)
