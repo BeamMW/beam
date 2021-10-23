@@ -1352,10 +1352,10 @@ namespace bvm2 {
 		DischargeUnits(Limits::Cost::UpdateShader + Limits::Cost::SaveVarPerByte * nVal);
 
 		const auto& cid = m_FarCalls.m_Stack.back().m_Cid;
-		AddRemoveShader(cid, nullptr);
+		AddRemoveShader(cid, nullptr, false);
 
 		Blob blob(pVal, nVal);
-		AddRemoveShader(cid, &blob);
+		AddRemoveShader(cid, &blob, true);
 	}
 
 	BVM_METHOD(Halt)
@@ -3286,6 +3286,11 @@ namespace bvm2 {
 	// Shader aux
 	void ProcessorContract::AddRemoveShader(const ContractID& cid, const Blob* pCode)
 	{
+		AddRemoveShader(cid, pCode, IsPastHF4());
+	}
+
+	void ProcessorContract::AddRemoveShader(const ContractID& cid, const Blob* pCode, bool bFireEvent)
+	{
 		ShaderID sid;
 
 		if (pCode)
@@ -3304,7 +3309,7 @@ namespace bvm2 {
 
 		ToggleSidEntry(sid, cid, !!pCode);
 
-		if (IsPastHF4())
+		if (bFireEvent)
 		{
 			VarKey vk;
 			vk.Set(cid);

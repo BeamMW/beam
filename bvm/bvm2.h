@@ -456,6 +456,7 @@ namespace bvm2 {
 		ECC::Hash::Processor* m_pSigValidate = nullptr; // assign it to allow sig validation
 		void CheckSigs(const ECC::Point& comm, const ECC::Signature&);
 
+		void AddRemoveShader(const ContractID&, const Blob*, bool bFireEvent);
 		void AddRemoveShader(const ContractID&, const Blob*);
 
 		std::vector<ECC::Point>* m_pvSigs = nullptr;
