@@ -718,7 +718,10 @@ namespace beam::wallet
     bool BaseTxBuilder::HandlerInOuts::InputsShielded::OnList(BaseTxBuilder& b, proto::ShieldedList& msg)
     {
         if (msg.m_Items.size() > m_Count)
+        {
+            LOG_ERROR() << "ShieldedList message returned more coins than requested " << TRACE(msg.m_Items.size()) << TRACE(m_Count);
             return false;
+        }
 
         uint32_t nItems = static_cast<uint32_t>(msg.m_Items.size());
 
@@ -744,7 +747,10 @@ namespace beam::wallet
         if (nItems < m_N)
         {
             if (m_Wnd0 || (nItems <= m_Method.m_iIdx))
+            {
+                LOG_ERROR() << "ShieldedList message returned unexpected data " << TRACE(m_Wnd0) << TRACE(nItems) << TRACE(m_Method.m_iIdx);
                 return false;
+            }
 
             uint32_t nDelta = m_N - nItems;
             m_Lst.m_Skip = nDelta;
