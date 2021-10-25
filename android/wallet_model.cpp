@@ -93,12 +93,12 @@ namespace
         setStringField(env, TxDescriptionClass, tx, "token", txDescription.getToken());
         setIntField(env, TxDescriptionClass, tx, "assetId", txDescription.m_assetId);
 
-        if (txDescription.m_txType == wallet::TxType::Simple) {
-            if (auto minConfirmations = txDescription.GetParameter<uint32_t>(beam::wallet::TxParameterID::MinConfirmations))
-            {
-                setIntField(env, TxDescriptionClass, tx, "minConfirmations", static_cast<jint>(*minConfirmations));
-            }
-        }
+        // if (txDescription.m_txType == wallet::TxType::Simple) {
+        //     if (auto minConfirmations = txDescription.GetParameter<uint32_t>(beam::wallet::TxParameterID::MinConfirmations))
+        //     {
+        //         setIntField(env, TxDescriptionClass, tx, "minConfirmations", static_cast<jint>(*minConfirmations));
+        //     }
+        // }
 
         if (txDescription.m_txType == wallet::TxType::Contract) {
             setBooleanField(env, TxDescriptionClass, tx, "isDapps", true);
