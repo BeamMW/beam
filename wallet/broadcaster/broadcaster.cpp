@@ -23,6 +23,7 @@
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_msg_creator.h"
 #include "wallet/client/extensions/news_channels/interface.h"
+#include "wallet/core/strings_resources.h"
 
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
@@ -208,6 +209,15 @@ namespace
         Block::SystemState::HistoryMap m_Headers;
     };
 
+    struct MyNetwork final : public proto::FlyClient::NetworkStd
+    {
+        using proto::FlyClient::NetworkStd::NetworkStd;
+        void OnConnectionFailed(const proto::NodeConnection::DisconnectReason& reason) override
+        {
+            LOG_ERROR() << kErrorConnectionFailed << ", reason: " << reason;
+        };
+    };
+
     struct MyTimestampHolder : ITimestampHolder
     {
         Timestamp GetTimestamp(BbsChannel channel) override
@@ -328,7 +338,7 @@ namespace
         }
 
         MyFlyClient client;
-        auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(client);
+        auto nnet = std::make_shared<MyNetwork>(client);
 
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
         
