@@ -872,7 +872,6 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddressChanges)(JNIEnv *en
     walletModel->getAsync()->updateAddress(walletID, JString(env, name).value(), expirationStatus);
 }
 
-// don't use it. i don't check it
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(cancelTx)(JNIEnv *env, jobject thiz,
     jstring txId)
 {
@@ -884,6 +883,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(cancelTx)(JNIEnv *env, jobject
     std::copy_n(buffer.begin(), id.size(), id.begin());
     walletModel->getAsync()->cancelTx(id);
 }
+
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(deleteTx)(JNIEnv *env, jobject thiz,
     jstring txId)
@@ -1156,6 +1156,32 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(isSynced)(JNIEnv *env, job
     LOG_DEBUG() << "isSynced() " << isSynced;
 
     return isSynced;
+}
+
+
+JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionRate)(JNIEnv *env, jobject thiz, jstring txId, jint currencyId)
+{
+    auto buffer = from_hex(JString(env, txId).value());
+    TxID id;
+
+    std::copy_n(buffer.begin(), id.size(), id.begin());
+
+     auto currency = Currency::USD();
+    
+    if (currencyId == 1) {
+        currency = Currency::ETH();
+    }
+    else if (currencyId == 2) {
+        currency = Currency::BTC();
+    }
+
+    if (auto transaction = walletDB->getTx(id))
+    {
+        auto rate = transaction->getExchangeRate(currency);
+        return rate;
+    }
+
+    return 0;
 }
 
 
