@@ -35,6 +35,7 @@
 #include "bvm/ManagerStd.h"
 #include "wallet_test_node.h"
 #include "mnemonic/mnemonic.h"
+#include "bvm/bvm2.h"
 
 #include "test_helpers.h"
 
@@ -3654,6 +3655,59 @@ void TestKeyKeeper(IPrivateKeyKeeper2::Ptr externalKeyKeeper = {}, size_t index 
     WALLET_CHECK(tx.IsValid(ctx));
 }
 
+void TestArgumentParsing()
+{
+    {
+        bvm2::ProcessorManager p;
+        p.AddArgs(" role=manager, action    =destroy_contract, cid = 2dd39c06ede9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d , name=\"my \"trt,ywy\" name\", te_t = \"saa ,  \"    ");
+        WALLET_CHECK(p.m_Args.size() == 5);
+        WALLET_CHECK(p.m_Args["role"] == "manager");
+        WALLET_CHECK(p.m_Args["action"] == "destroy_contract");
+        WALLET_CHECK(p.m_Args["cid"] == "2dd39c06ede9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d");
+        WALLET_CHECK(p.m_Args["name"] == "my \"trt,ywy\" name");
+        WALLET_CHECK(p.m_Args["te_t"] == "saa ,  ");
+    }
+    {
+        bvm2::ProcessorManager p;
+        p.AddArgs("role=manager,action=destroy_contract,cid=2dd39c06ede9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d,name=\"my \"trt,ywy\" name\",te_t = \"saa ,  \"    ");
+        WALLET_CHECK(p.m_Args.size() == 5);
+        WALLET_CHECK(p.m_Args["role"] == "manager");
+        WALLET_CHECK(p.m_Args["action"] == "destroy_contract");
+        WALLET_CHECK(p.m_Args["cid"] == "2dd39c06ede9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d");
+        WALLET_CHECK(p.m_Args["name"] == "my \"trt,ywy\" name");
+        WALLET_CHECK(p.m_Args["te_t"] == "saa ,  ");
+    }
+    {
+        bvm2::ProcessorManager p;
+        p.AddArgs("");
+        WALLET_CHECK(p.m_Args.size() == 0);
+    }
+
+    {
+        bvm2::ProcessorManager p;
+        p.AddArgs("r54ole=manager,act ion=destroy_contract,cid=2dd39c06e653563 543536 76 76��������������;;;;';'df;;.,,,,,,de9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d,na ");
+        WALLET_CHECK(p.m_Args.size() == 2);
+        WALLET_CHECK(p.m_Args["r54ole"] == "manager");
+        WALLET_CHECK(p.m_Args["ion"] == "destroy_contract");
+    }
+
+    {
+        bvm2::ProcessorManager p;
+        p.AddArgs("r54ole=manager,act ion=destroy_contract,cid=2dd39c06e653563   ");
+        WALLET_CHECK(p.m_Args.size() == 3);
+        WALLET_CHECK(p.m_Args["r54ole"] == "manager");
+        WALLET_CHECK(p.m_Args["ion"] == "destroy_contract");
+        WALLET_CHECK(p.m_Args["cid"] == "2dd39c06e653563");
+    }
+
+    {
+        bvm2::ProcessorManager p;
+        p.AddArgs("data=\"role=manager,action=destroy_contract,cid=2dd39c06e653563    \"");
+        WALLET_CHECK(p.m_Args.size() == 1);
+        WALLET_CHECK(p.m_Args["data"] == "role=manager,action=destroy_contract,cid=2dd39c06e653563    ");
+    }
+}
+
 void TestVouchers()
 {
     cout << "\nTesting wallets vouchers exchange...\n";
@@ -4241,6 +4295,7 @@ int main()
     wallet::g_AssetsEnabled = true;
 
     storage::HookErrors();
+    TestArgumentParsing();
     TestThreadPool();
     //GenerateTreasury(100, 100, 100000000);
     TestTxList();
