@@ -736,23 +736,14 @@ namespace MultiPrecision
 
         uint64_t Get() const
         {
-            if (m_Order >= 0)
-            {
-                uint32_t ord = m_Order;
-                if (ord >= s_Bits)
-                    return static_cast<uint64_t>(-1); // inf
+			if (m_Order > 0)
+				return static_cast<uint64_t>(-1); // overflow/inf
 
-                return m_Num << ord;
-            }
-            else
-            {
-                uint32_t ord = -m_Order;
-                if (ord >= s_Bits)
-                    return 0;
+            uint32_t ord = -m_Order;
+            if (ord >= s_Bits)
+                return 0;
 
-                return m_Num >> ord;
-
-            }
+            return m_Num >> ord;
         }
 
         operator uint64_t () const {
