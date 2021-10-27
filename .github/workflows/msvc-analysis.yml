@@ -30,7 +30,12 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Configure CMake
-        run: cmake -B ${{ env.build }}
+        run: |
+          git clone --depth=1 https://github.com/BeamMW/libs.git c:/beam-libs
+          echo "OPENSSL_ROOT_DIR=c:\beam-libs\openssl" >> $GITHUB_ENV
+          git clone https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git c:/boost_prebuild
+          echo "BOOST_ROOT=c:\boost_prebuild" >> $GITHUB_ENV
+          cmake -B ${{ env.build }}
 
       # Build is not required unless generated source files are used
       # - name: Build CMake
