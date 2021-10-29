@@ -260,12 +260,18 @@ namespace beam::wallet {
             }
             catch(std::exception& ex)
             {
+                BOOST_SCOPE_EXIT_ALL(&, this) {
+                    _queue.pop();
+                };
                 return req.doneCall(boost::none, boost::none, std::string(ex.what()));
             }
         }
 
         if (m_BodyManager.empty())
         {
+            BOOST_SCOPE_EXIT_ALL(&, this) {
+                _queue.pop();
+            };
             return req.doneCall(boost::none, boost::none, std::string("missing shader code"));
         }
 
@@ -335,12 +341,12 @@ namespace beam::wallet {
         }
 
         BOOST_SCOPE_EXIT_ALL(&, this) {
+            _queue.pop();
             this->nextRequest();
         };
 
         _done = true;
         const auto req = _queue.top();
-        _queue.pop();
 
         if (pExc != nullptr)
         {
