@@ -15,6 +15,7 @@
 #define _CRT_SECURE_NO_WARNINGS // sprintf
 #include "bvm2_impl.h"
 #include <sstream>
+#include <regex>
 
 #if defined(__ANDROID__) || !defined(BEAM_USE_AVX)
 #include "crypto/blake/ref/blake2.h"
@@ -1352,10 +1353,10 @@ namespace bvm2 {
 		DischargeUnits(Limits::Cost::UpdateShader + Limits::Cost::SaveVarPerByte * nVal);
 
 		const auto& cid = m_FarCalls.m_Stack.back().m_Cid;
-		AddRemoveShader(cid, nullptr);
+		AddRemoveShader(cid, nullptr, false);
 
 		Blob blob(pVal, nVal);
-		AddRemoveShader(cid, &blob);
+		AddRemoveShader(cid, &blob, true);
 	}
 
 	BVM_METHOD(Halt)
@@ -3286,6 +3287,11 @@ namespace bvm2 {
 	// Shader aux
 	void ProcessorContract::AddRemoveShader(const ContractID& cid, const Blob* pCode)
 	{
+		AddRemoveShader(cid, pCode, IsPastHF4());
+	}
+
+	void ProcessorContract::AddRemoveShader(const ContractID& cid, const Blob* pCode, bool bFireEvent)
+	{
 		ShaderID sid;
 
 		if (pCode)
@@ -3304,7 +3310,7 @@ namespace bvm2 {
 
 		ToggleSidEntry(sid, cid, !!pCode);
 
-		if (IsPastHF4())
+		if (bFireEvent)
 		{
 			VarKey vk;
 			vk.Set(cid);
@@ -3356,34 +3362,32 @@ namespace bvm2 {
 		return 0x800000; // 8MB
 	}
 
-	uint32_t ProcessorManager::AddArgs(char* szCommaSeparatedPairs)
+	uint32_t ProcessorManager::AddArgs(const std::string& commaSeparatedPairs)
 	{
+		static const std::regex expr("\\s*([\\w\\d_]+)\\s*=\\s*(([\\w\\d_]+)|\"(.*?)\")\\s*(,|$)");
+		std::cmatch groups;
+		const char* s = commaSeparatedPairs.c_str();
 		uint32_t ret = 0;
-		for (size_t nLen = strlen(szCommaSeparatedPairs); nLen; )
+		while (std::regex_search(s, groups, expr))
 		{
-			char* szMid = (char*) memchr(szCommaSeparatedPairs, ',', nLen);
-
-			size_t nLen1;
-			if (szMid)
+			if (groups.size() > 0)
 			{
-				nLen1 = (szMid - szCommaSeparatedPairs) + 1;
-				*szMid = 0;
-			}
-			else
-				nLen1 = nLen;
+				std::string key{ groups[1].first, groups[1].second };
+				std::string value;
+				if (groups[3].matched)
+				{
+					value.assign(groups[3].first, groups[3].second);
+				}
+				else if (groups[4].matched)
+				{
+					value.assign(groups[4].first, groups[4].second);
+				}
 
-			szMid = (char*) memchr(szCommaSeparatedPairs, '=', nLen1);
-			if (szMid)
-			{
-				*szMid = 0;
-				m_Args[szCommaSeparatedPairs] = szMid + 1;
-				ret++;
+				m_Args.emplace(std::move(key), std::move(value));
+				++ret;
 			}
-
-			szCommaSeparatedPairs += nLen1;
-			nLen -= nLen1;
+			s = groups.suffix().first;
 		}
-
 		return ret;
 	}
 

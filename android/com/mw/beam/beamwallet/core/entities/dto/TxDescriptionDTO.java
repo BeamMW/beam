@@ -40,6 +40,6 @@ public class TxDescriptionDTO
 	public String appName;
 	public String appID;
 	public String contractCids;
-	public String minConfirmations;
+	public int minConfirmations;
 	public String minConfirmationsProgress;	
 }

@@ -456,6 +456,7 @@ namespace bvm2 {
 		ECC::Hash::Processor* m_pSigValidate = nullptr; // assign it to allow sig validation
 		void CheckSigs(const ECC::Point& comm, const ECC::Signature&);
 
+		void AddRemoveShader(const ContractID&, const Blob*, bool bFireEvent);
 		void AddRemoveShader(const ContractID&, const Blob*);
 
 		std::vector<ECC::Point>* m_pvSigs = nullptr;
@@ -619,7 +620,7 @@ namespace bvm2 {
 
 		std::map<std::string, std::string> m_Args;
 		void set_ArgBlob(const char* sz, const Blob&);
-		uint32_t AddArgs(char* szCommaSeparatedPairs);
+		uint32_t AddArgs(const std::string& commaSeparatedPairs);
 
 		Kind get_Kind() override { return Kind::Manager; }
 
