@@ -17,7 +17,49 @@ namespace Liquity
         static const uint8_t s_StabPool = 5;
     };
 
-    typedef ExchangePool::Pair Pair; // s == stable, b == collateral
+    typedef MultiPrecision::Float Float;
+
+    template <typename T> struct Pair_T
+    {
+        T Tok;
+        T Col;
+    };
+
+    typedef Pair_T<Amount> Pair;
+
+    struct Flow
+    {
+        Amount m_Val;
+        uint8_t m_Spend; // not necessarily normalized, i.e. can be zero or any nnz value when comes from user
+
+        void operator += (const Flow& c) {
+            Add(c.m_Val, c.m_Spend);
+        }
+
+        void operator -= (const Flow& c) {
+            Add(c.m_Val, !c.m_Spend);
+        }
+
+        void Add(Amount x, uint8_t bSpend)
+        {
+            if ((!m_Spend) == (!bSpend))
+                Strict::Add(m_Val, x);
+            else
+            {
+                if (m_Val >= x)
+                    m_Val -= x;
+                else
+                {
+                    m_Val = x - m_Val;
+                    m_Spend = !m_Spend;
+                }
+            }
+        }
+    };
+
+    typedef Pair_T<Flow> FlowPair;
+
+
 
     struct Balance
     {
@@ -57,14 +99,13 @@ namespace Liquity
 
         PubKey m_pkOwner;
         Pair m_Amounts;
-        ID m_iRcrNext;
         ExchangePool::User m_RedistUser; // accumulates enforced liquidations
 
-        MultiPrecision::Float get_Rcr() const
+        Float get_Rcr() const
         {
-            // rcr == raw collateralization ratio, i.e. b/s
+            // rcr == raw collateralization ratio, i.e. Tok/Col
             // Don't care about s==0 case (our Float doesn't handle inf), valid troves must always have s, otherwise they're closed
-            return MultiPrecision::Float(m_Amounts.b) / MultiPrecision::Float(m_Amounts.s);
+            return Float(m_Amounts.Col) / Float(m_Amounts.Tok);
         }
 
         // minimum amount of tokens when opening or updating the trove. Normally should not go below this value.
@@ -75,8 +116,8 @@ namespace Liquity
     struct Settings
     {
         ContractID m_cidOracle;
-        Amount m_TroveMinTokens; // minimum amount of tokens in an active trove. Can go below during forced update, i.e. partial liquidation
-        Amount m_CloseCompensation;
+        Amount m_TroveMinDebt; // minimum amount of tokens in an active trove. Can go below during forced update, i.e. partial liquidation
+        Amount m_TroveLiquidationReserve;
     };
 
     struct Global
@@ -87,14 +128,11 @@ namespace Liquity
         struct Troves
         {
             Trove::ID m_iLastCreated;
-            Trove::ID m_iRcrLow;
-            Pair m_Totals; // Total minted tokens and collateral in all troves
+            Pair m_Totals; // Total debt (== minted tokens) and collateral in all troves
 
-            MultiPrecision::Float get_Trcr() const
+            Float get_Trcr() const
             {
-                return
-                    MultiPrecision::Float(m_Totals.b) /
-                    MultiPrecision::Float(m_Totals.s);
+                return Float(m_Totals.Col) / Float(m_Totals.Tok);
             }
 
         } m_Troves;
@@ -106,10 +144,10 @@ namespace Liquity
             {
                 assert(!t.m_RedistUser.m_iEpoch);
 
-                if (!t.m_Amounts.s)
+                if (!t.m_Amounts.Tok)
                     return false;
 
-                UserAdd(t.m_RedistUser, t.m_Amounts.s);
+                UserAdd(t.m_RedistUser, t.m_Amounts.Tok);
                 assert(t.m_RedistUser.m_iEpoch);
 
                 return true;
@@ -133,7 +171,7 @@ namespace Liquity
                 // // should not overflow, all values are bounded by totals.
                 if (IsUnchanged(t))
                 {
-                    m_Active.m_Balance.s -= t.m_Amounts.s; // silent removal
+                    m_Active.m_Balance.s -= t.m_Amounts.Tok; // silent removal
                     m_Active.m_Users--;
                 }
                 else
@@ -141,8 +179,8 @@ namespace Liquity
                     Pair out;
                     UserDel(t.m_RedistUser, out, stor);
 
-                    t.m_Amounts.s = out.s;
-                    t.m_Amounts.b += out.b;
+                    t.m_Amounts.Tok = out.s;
+                    t.m_Amounts.Col += out.b;
                 }
 
                 t.m_RedistUser.m_iEpoch = 0;
@@ -154,13 +192,15 @@ namespace Liquity
             {
                 assert(!t.m_RedistUser.m_iEpoch); // should not be a part of the pool during liquidation!
 
-                if (t.m_Amounts.s > get_TotalSell())
-                    return false;
+                if (!get_TotalSell())
+                    return false; // empty
 
-                Trade(t.m_Amounts);
+                Pair p;
+                p.s = t.m_Amounts.Tok;
+                p.b = t.m_Amounts.Col;
+                Trade(p);
 
-                t.m_Amounts.s = 0;
-                t.m_Amounts.b = 0;
+                _POD_(t.m_Amounts).SetZero();
                 return true;
             }
 
@@ -169,116 +209,100 @@ namespace Liquity
         struct StabilityPool
             :public ExchangePool
         {
-            bool Liquidate(Trove& t, Pair& part)
+            bool LiquidatePartial(Trove& t)
             {
-                auto maxVal = get_TotalSell();
-                if (!maxVal)
+                Pair p;
+                p.s = get_TotalSell();
+                if (!p.s)
                     return false;
 
-                if (maxVal >= t.m_Amounts.s)
+                if (p.s >= t.m_Amounts.Tok)
                 {
-                    Trade(t.m_Amounts);
-                    part = t.m_Amounts;
+                    p.s = t.m_Amounts.Tok;
+                    p.b = t.m_Amounts.Col;
+                    _POD_(t.m_Amounts).SetZero();
                 }
                 else
                 {
-                    // partial liquidation is ok
-                    part = t.m_Amounts.get_Fraction(maxVal, t.m_Amounts.s);
-                    if (!part.s)
-                        return false;
+                    p.b = Float(t.m_Amounts.Col) * Float(p.s) / Float(t.m_Amounts.Tok);
+                    assert(p.b <= t.m_Amounts.Col);
 
-                    Trade(part);
+                    t.m_Amounts.Tok -= p.s;
+                    t.m_Amounts.Col -= p.b;
                 }
 
+                Trade(p);
                 return true;
             }
 
         } m_StabPool;
 
+        StaticPool<Amount, Amount> m_ProfitPool;
+
         struct Price
         {
-            MultiPrecision::Float m_Value;
+            Float m_Value;
 
-            static MultiPrecision::Float get_k150()
+            static Float get_k150()
             {
-                MultiPrecision::Float val = 3;
+                Float val = 3;
                 val.m_Order--; // 3/2
                 return val;
             }
 
-            static MultiPrecision::Float get_k110()
+            static Float get_k110()
             {
-                MultiPrecision::Float val = 72090;
+                Float val = 72090;
                 val.m_Order -= 16; // 72090/2^16
                 return val;
             }
 
-            static MultiPrecision::Float get_k100()
+            static Float get_k100()
             {
-                return MultiPrecision::Float(1u);
+                return Float(1u);
             }
 
-            bool IsBelow150(MultiPrecision::Float rcr) const
+            bool IsBelow150(Float rcr) const
             {
                 return rcr * m_Value < get_k150();
             }
 
-            bool IsBelow110(MultiPrecision::Float rcr) const
+            bool IsBelow110(Float rcr) const
             {
                 return rcr * m_Value < get_k110();
             }
 
-            bool IsBelow100(MultiPrecision::Float rcr) const
+            bool IsBelow100(Float rcr) const
             {
                 return rcr * m_Value < get_k100();
             }
         };
 
-    };
-
-    struct FundsMove
-    {
-        struct Component
+        Amount get_LiquidationRewardReduce(Float icr) const
         {
-            Amount m_Val;
-            uint8_t m_Spend; // not necessarily normalized, i.e. can be zero or any nnz value when comres from user
+            Amount half = m_Settings.m_TroveLiquidationReserve / 2;
 
-            void operator += (const Component& c) {
-                Add(c.m_Val, c.m_Spend);
-            }
+            // icr == 0 - full reward
+            // icr == threshold - reward is reduced to half
 
-            void operator -= (const Component& c) {
-                Add(c.m_Val, !c.m_Spend);
-            }
+            Amount ret = Float(half) * icr / Price::get_k110();
 
-            void Add(Amount x, uint8_t bSpend)
-            {
-                if ((!m_Spend) == (!bSpend))
-                    Strict::Add(m_Val, x);
-                else
-                {
-                    if (m_Val >= x)
-                        m_Val -= x;
-                    else
-                    {
-                        m_Val = x - m_Val;
-                        m_Spend = !m_Spend;
-                    }
-                }
-            }
-        };
+            return std::min(ret, half);
+        }
 
-        Component s;
-        Component b;
+        Float m_kBaseRate;
+        void UpdateBaseRate()
+        {
+            // TODO
+        }
     };
-
 
     namespace Method
     {
         struct OracleGet
         {
             static const uint32_t s_iMethod = 3;
-            MultiPrecision::Float m_Val;
+            Float m_Val;
         };
 
         struct Create
@@ -287,54 +311,51 @@ namespace Liquity
             Settings m_Settings;
         };
 
-        struct OpenTrove
+        struct BaseTx {
+            FlowPair m_Flow;
+        };
+
+        struct BaseTxUser :public BaseTx {
+            PubKey m_pkUser;
+        };
+
+        struct BaseTxTrove :public BaseTx {
+            Trove::ID m_iTrove;
+        };
+
+        struct TroveOpen :public BaseTxUser
         {
             static const uint32_t s_iMethod = 3;
-
-            PubKey m_pkOwner;
             Pair m_Amounts;
-            Trove::ID m_iRcrPos1;
         };
 
-        struct CloseTrove
+        struct TroveClose :public BaseTxTrove
         {
             static const uint32_t s_iMethod = 4;
-            Trove::ID m_iRcrPos0;
-
-            FundsMove m_Fm;
         };
 
-        struct FundsAccess
+        struct TroveModify :public BaseTxTrove
         {
             static const uint32_t s_iMethod = 5;
-            PubKey m_pkUser;
-            FundsMove m_Fm;
+            Pair m_Amounts;
         };
 
-        struct ModifyTrove
+        struct FundsAccess :public BaseTxUser
         {
             static const uint32_t s_iMethod = 6;
-            Trove::ID m_iRcrPos0;
-            Trove::ID m_iRcrPos1;
-
-            FundsMove m_Fm;
-            FundsMove m_FmTrove;
         };
 
-        struct UpdStabPool
+        struct UpdStabPool :public BaseTxUser
         {
             static const uint32_t s_iMethod = 7;
-
             Amount m_NewAmount;
-            PubKey m_pkUser;
-            FundsMove m_Fm;
         };
 
-        struct EnforceLiquidatation
+        struct EnforceLiquidatation :public BaseTxUser
         {
             static const uint32_t s_iMethod = 8;
             uint32_t m_Count;
-            Trove::ID m_iRcrPos1; // in case the last trove is only partially liquidated - this is its new position
+            // followed by array of Trove::ID
         };
 
     } // namespace Method

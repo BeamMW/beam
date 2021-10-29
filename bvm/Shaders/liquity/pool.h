@@ -267,4 +267,67 @@ struct DistributionPool
         Trade_<Mode::Grow>(d);
     }
 };
+
+template <typename TWeight, typename TValue>
+struct StaticPool
+{
+    typedef MultiPrecision::Float Float;
+
+    TWeight m_Weight;
+    TValue m_Value;
+    Float m_Sigma;
+
+    void AddValue(TValue v)
+    {
+        // dSigma = d / s0
+        m_Sigma = m_Sigma + Float(v) / Float(m_Weight);
+        Strict::Add(m_Value, v);
+    }
+
+    bool IsEmpty() const {
+        return !m_Weight;
+    }
+
+    void Reset()
+    {
+        _POD_(*this).SetZero();
+    }
+
+    struct User
+    {
+        Float m_Sigma0;
+        TWeight m_Weight;
+    };
+
+    void Add(User& u)
+    {
+        u.m_Sigma0 = m_Sigma;
+        Strict::Add(m_Weight.s, u.m_Weight);
+    }
+
+    TValue Remove(const User& u)
+    {
+        TValue ret;
+
+        if (m_Weight == u.m_Weight)
+        {
+            ret = m_Value;
+            Reset();
+        }
+        else
+        {
+            assert(m_Weight > u.m_Weight);
+
+            ret = Float(u.m_Weight) * (m_Sigma - u.m_Sigma0);
+            ret = std::min(ret, m_Value);
+
+            m_Weight -= u.m_Weight;
+            m_Value -= ret;
+        }
+
+        return ret;
+    }
+};
+
+
 #pragma pack (pop)

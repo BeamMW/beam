@@ -250,22 +250,30 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Len);
 	}
 
-	template <bool bToShader> void Convert(Liquity::Method::Create& x) {
-		ConvertOrd<bToShader>(x.m_Settings.m_CloseCompensation);
-		ConvertOrd<bToShader>(x.m_Settings.m_TroveMinTokens);
+	template <bool bToShader> void Convert(Liquity::Method::BaseTx& x) {
+		ConvertOrd<bToShader>(x.m_Flow.Tok.m_Val);
+		ConvertOrd<bToShader>(x.m_Flow.Col.m_Val);
 	}
-	template <bool bToShader> void Convert(Liquity::Method::OpenTrove& x) {
-		ConvertOrd<bToShader>(x.m_Amounts.s);
-		ConvertOrd<bToShader>(x.m_Amounts.b);
-		ConvertOrd<bToShader>(x.m_iRcrPos1);
+	template <bool bToShader> void Convert(Liquity::Method::Create& x) {
+		ConvertOrd<bToShader>(x.m_Settings.m_TroveMinDebt);
+		ConvertOrd<bToShader>(x.m_Settings.m_TroveLiquidationReserve);
 	}
 	template <bool bToShader> void Convert(Liquity::Method::OracleGet& x) {
 		ConvertOrd<bToShader>(x.m_Val.m_Num);
 		ConvertOrd<bToShader>((uint32_t&) x.m_Val.m_Order);
 	}
+	template <bool bToShader> void Convert(Liquity::Method::TroveOpen& x) {
+		Convert<bToShader>(Cast::Down<Liquity::Method::BaseTx>(x));
+		ConvertOrd<bToShader>(x.m_Amounts.Tok);
+		ConvertOrd<bToShader>(x.m_Amounts.Col);
+	}
+	template <bool bToShader> void Convert(Liquity::Method::TroveModify& x) {
+		Convert<bToShader>(Cast::Down<Liquity::Method::BaseTx>(x));
+		ConvertOrd<bToShader>(x.m_Amounts.Tok);
+		ConvertOrd<bToShader>(x.m_Amounts.Col);
+	}
 	template <bool bToShader> void Convert(Liquity::Method::UpdStabPool& x) {
-		ConvertOrd<bToShader>(x.m_Fm.s.m_Val);
-		ConvertOrd<bToShader>(x.m_Fm.b.m_Val);
+		Convert<bToShader>(Cast::Down<Liquity::Method::BaseTx>(x));
 		ConvertOrd<bToShader>(x.m_NewAmount);
 	}
 	template <bool bToShader> void Convert(Liquity::Method::EnforceLiquidatation& x) {
@@ -326,9 +334,8 @@ namespace Shaders {
 	namespace Aphorize {
 #include "../Shaders/aphorize/contract.cpp"
 	}
-	namespace Liquity {
-#include "../Shaders/liquity/contract.cpp"
-	}
+
+#include "../Shaders/liquity/contract.cpp" // already within namespace
 
 #ifdef _MSC_VER
 #	pragma warning (default : 4200 4702)
@@ -635,7 +642,7 @@ namespace bvm2 {
 				switch (iMethod)
 				{
 				case 0: Shaders::Liquity::Ctor(CastArg<Shaders::Liquity::Method::Create>(pArgs)); return;
-				case 3: Shaders::Liquity::Method_3(CastArg<Shaders::Liquity::Method::OpenTrove>(pArgs)); return;
+				case 3: Shaders::Liquity::Method_3(CastArg<Shaders::Liquity::Method::TroveOpen>(pArgs)); return;
 				case 7: Shaders::Liquity::Method_7(CastArg<Shaders::Liquity::Method::UpdStabPool>(pArgs)); return;
 				case 8: Shaders::Liquity::Method_8(CastArg<Shaders::Liquity::Method::EnforceLiquidatation>(pArgs)); return;
 				}
@@ -654,6 +661,8 @@ namespace bvm2 {
 
 			ProcessorContract::CallFar(cid, iMethod, pArgs, bInheritContext);
 		}
+
+		void LiquityPrintBank(const PubKey& pk);
 
 		void TestVault();
 		void TestDummy();
@@ -854,6 +863,30 @@ namespace bvm2 {
 		}
 	}
 
+	double Val2Num(Amount x)
+	{
+		double res = static_cast<double>(x);
+		return res * 1e-8;
+	} 
+
+	void MyProcessor::LiquityPrintBank(const PubKey& pk)
+	{
+		Shaders::Env::Key_T<Shaders::Liquity::Balance::Key> key;
+		key.m_Prefix.m_Cid = m_cidLiquity;
+		key.m_KeyInContract.m_Pk = pk;
+
+		Blob b;
+		LoadVar(Blob(&key, sizeof(key)), b);
+
+		Shaders::Liquity::Pair vals;
+		if (sizeof(Shaders::Liquity::Balance) == b.n)
+			vals = reinterpret_cast<const Shaders::Liquity::Balance*>(b.p)->m_Amounts;
+		else
+			ZeroObject(vals);
+
+		std::cout << "\tTok=" << Val2Num(vals.Tok) << ", Col=" << Val2Num(vals.Col) << std::endl;
+	}
+
 	void MyProcessor::TestLiquity()
 	{
 		m_MyOracle.m_Value = 45; // to the moon!
@@ -864,20 +897,24 @@ namespace bvm2 {
 			Shaders::Liquity::Method::Create args;
 			ZeroObject(args);
 			args.m_Settings.m_cidOracle = m_MyOracle.m_Cid;
-			args.m_Settings.m_CloseCompensation = Rules::Coin * 5;
-			args.m_Settings.m_TroveMinTokens = Rules::Coin * 10;
+			args.m_Settings.m_TroveMinDebt = Rules::Coin * 10;
+			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 5;
 
 			verify_test(ContractCreate_T(m_cidLiquity, m_Code.m_Liquity, args));
 		}
 
 		{
-			Shaders::Liquity::Method::OpenTrove args;
+			Shaders::Liquity::Method::TroveOpen args;
 			ZeroObject(args);
 
-			args.m_Amounts.s = Rules::Coin * 1000;
-			args.m_Amounts.b = Rules::Coin * 35; // should be enough for 150% tcr
-			args.m_pkOwner.m_X = 43U;
+			args.m_Amounts.Tok = Rules::Coin * 1000;
+			args.m_Amounts.Col = Rules::Coin * 35; // should be enough for 150% tcr
+			args.m_pkUser.m_X = 43U;
+			args.m_Flow.Col.Add(Rules::Coin * 40, 1);
 			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
+
+			std::cout << "Trove0: Tok=" << Val2Num(args.m_Amounts.Tok) << ", Col=" << Val2Num(args.m_Amounts.Tok) << std::endl;
+			LiquityPrintBank(args.m_pkUser);
 		}
 
 		for (uint32_t i = 0; i < 2; i++)
@@ -885,20 +922,32 @@ namespace bvm2 {
 			Shaders::Liquity::Method::UpdStabPool args;
 			ZeroObject(args);
 			args.m_NewAmount = Rules::Coin * 750;
-			args.m_Fm.s.m_Val = args.m_NewAmount;
-			args.m_Fm.s.m_Spend = 1;
+			args.m_Flow.Tok.Add(args.m_NewAmount, 1);
 			args.m_pkUser.m_X = 77U + i;
 
 			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
+
+			std::cout << "Stab" << i << ": Put=" << Val2Num(args.m_NewAmount) << std::endl;
+			LiquityPrintBank(args.m_pkUser);
 		}
 
-		m_MyOracle.m_Value = 17; // price drop
+		m_MyOracle.m_Value = 30; // price drop. icr would be about 105%
 
 		{
-			Shaders::Liquity::Method::EnforceLiquidatation args;
+#pragma pack (push, 1)
+			struct Arg :public Shaders::Liquity::Method::EnforceLiquidatation {
+				Shaders::Liquity::Trove::ID m_pID[1];
+			} args;
+#pragma pack (pop)
+
 			ZeroObject(args);
 			args.m_Count = 1;
+			args.m_pID[0] = 1;
+			args.m_pkUser.m_X = 96U;
 			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
+
+			std::cout << "Trove0 liquidated." << std::endl;
+			LiquityPrintBank(args.m_pkUser);
 		}
 
 		for (uint32_t i = 0; i < 2; i++)
@@ -907,6 +956,9 @@ namespace bvm2 {
 			ZeroObject(args);
 			args.m_pkUser.m_X = 77U + i;
 			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
+
+			std::cout << "Stab" << i << " all out" << std::endl;
+			LiquityPrintBank(args.m_pkUser);
 		}
 	}
 
