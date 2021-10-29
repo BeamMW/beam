@@ -268,20 +268,20 @@ struct DistributionPool
     }
 };
 
-template <typename TWeight, typename TValue>
+template <typename TWeight, typename TValue, uint32_t nDims>
 struct StaticPool
 {
     typedef MultiPrecision::Float Float;
 
     TWeight m_Weight;
-    TValue m_Value;
-    Float m_Sigma;
+    TValue m_pValue[nDims];
+    Float m_pSigma[nDims];
 
-    void AddValue(TValue v)
+    void AddValue(TValue v, uint32_t iDim)
     {
         // dSigma = d / s0
-        m_Sigma = m_Sigma + Float(v) / Float(m_Weight);
-        Strict::Add(m_Value, v);
+        m_pSigma[iDim] = m_pSigma[iDim] + Float(v) / Float(m_Weight);
+        Strict::Add(m_pValue[iDim], v);
     }
 
     bool IsEmpty() const {
@@ -295,37 +295,40 @@ struct StaticPool
 
     struct User
     {
-        Float m_Sigma0;
         TWeight m_Weight;
+        Float m_pSigma0[nDims];
     };
 
     void Add(User& u)
     {
-        u.m_Sigma0 = m_Sigma;
-        Strict::Add(m_Weight.s, u.m_Weight);
+        Strict::Add(m_Weight, u.m_Weight);
+
+        for (uint32_t i = 0; i < nDims; i++)
+            u.m_pSigma0[i] = m_pSigma[i];
     }
 
-    TValue Remove(const User& u)
+    void Remove(TValue* pRet, const User& u)
     {
-        TValue ret;
-
         if (m_Weight == u.m_Weight)
         {
-            ret = m_Value;
+            for (uint32_t i = 0; i < nDims; i++)
+                pRet[i] = m_pValue[i];
+
             Reset();
         }
         else
         {
             assert(m_Weight > u.m_Weight);
-
-            ret = Float(u.m_Weight) * (m_Sigma - u.m_Sigma0);
-            ret = std::min(ret, m_Value);
-
             m_Weight -= u.m_Weight;
-            m_Value -= ret;
-        }
+            Float w(u.m_Weight);
 
-        return ret;
+            for (uint32_t i = 0; i < nDims; i++)
+            {
+                pRet[i] = w * (m_pSigma[i] - u.m_pSigma0[i]);
+                pRet[i] = std::min(pRet[i], m_pValue[i]);
+                m_pValue[i] -= pRet[i];
+            }
+        }
     }
 };
 

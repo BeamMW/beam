@@ -15,6 +15,7 @@ namespace Liquity
         static const uint8_t s_Epoch_Stable = 3;
         static const uint8_t s_Balance = 4;
         static const uint8_t s_StabPool = 5;
+        static const uint8_t s_ProfitPool = 5;
     };
 
     typedef MultiPrecision::Float Float;
@@ -59,7 +60,7 @@ namespace Liquity
 
     typedef Pair_T<Flow> FlowPair;
 
-
+    typedef StaticPool<Amount, Amount, 2> ProfitPool;
 
     struct Balance
     {
@@ -85,6 +86,17 @@ namespace Liquity
         };
 
         ExchangePool::User m_User;
+    };
+
+    struct ProfitPoolEntry
+    {
+        struct Key
+        {
+            uint8_t m_Tag = Tags::s_ProfitPool;
+            PubKey m_pkUser;
+        };
+
+        ProfitPool::User m_User;
     };
 
     struct Trove
@@ -118,6 +130,7 @@ namespace Liquity
         ContractID m_cidOracle;
         Amount m_TroveMinDebt; // minimum amount of tokens in an active trove. Can go below during forced update, i.e. partial liquidation
         Amount m_TroveLiquidationReserve;
+        AssetID m_AidProfit;
     };
 
     struct Global
@@ -237,7 +250,7 @@ namespace Liquity
 
         } m_StabPool;
 
-        StaticPool<Amount, Amount> m_ProfitPool;
+        ProfitPool m_ProfitPool;
 
         struct Price
         {
@@ -356,6 +369,12 @@ namespace Liquity
             static const uint32_t s_iMethod = 8;
             uint32_t m_Count;
             // followed by array of Trove::ID
+        };
+
+        struct UpdProfitPool :public BaseTxUser
+        {
+            static const uint32_t s_iMethod = 9;
+            Amount m_NewAmount;
         };
 
     } // namespace Method

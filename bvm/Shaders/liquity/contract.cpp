@@ -195,7 +195,7 @@ struct MyGlobal
             Amount fee = m_kBaseRate * Float(fpTotals.Tok.m_Val);
             fee = std::min(fee, fpTotals.Tok.m_Val);
 
-            m_ProfitPool.AddValue(fee);
+            m_ProfitPool.AddValue(fee, 0);
             fpLogic.Tok.Add(fee, 1);
         }
 
@@ -555,5 +555,46 @@ BEAM_EXPORT void Method_8(Method::EnforceLiquidatation& r)
     g.AdjustAll(r, fpTotals, fpLogic, r.m_pkUser);
 }
 
+BEAM_EXPORT void Method_9(Method::UpdProfitPool& r)
+{
+    MyGlobal_LoadSave g;
+
+    ProfitPoolEntry::Key pk;
+    _POD_(pk.m_pkUser) = r.m_pkUser;
+
+    FlowPair fpLogic;
+    _POD_(fpLogic).SetZero();
+
+    ProfitPoolEntry pe;
+    if (!Env::LoadVar_T(pk, pe))
+        _POD_(pe).SetZero();
+    else
+    {
+        Amount pOut[2];
+        g.m_ProfitPool.Remove(pOut, pe.m_User);
+
+        fpLogic.Tok.m_Val = pOut[0];
+        fpLogic.Col.m_Val = pOut[1];
+    }
+
+    if (r.m_NewAmount > pe.m_User.m_Weight)
+        Env::FundsLock(g.m_Settings.m_AidProfit, r.m_NewAmount - pe.m_User.m_Weight);
+
+    if (pe.m_User.m_Weight > r.m_NewAmount)
+        Env::FundsUnlock(g.m_Settings.m_AidProfit, pe.m_User.m_Weight - r.m_NewAmount);
+
+    if (r.m_NewAmount)
+    {
+        pe.m_User.m_Weight = r.m_NewAmount;
+        g.m_ProfitPool.Add(pe.m_User);
+
+        Env::SaveVar_T(pk, pe);
+    }
+    else
+        Env::DelVar_T(pk);
+
+    g.AdjustTxFunds(r);
+    g.AdjustTxBank(fpLogic, r, r.m_pkUser);
+}
 
 } // namespace Liquity
