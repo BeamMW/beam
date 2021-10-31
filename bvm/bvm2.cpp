@@ -15,7 +15,6 @@
 #define _CRT_SECURE_NO_WARNINGS // sprintf
 #include "bvm2_impl.h"
 #include <sstream>
-#include <regex>
 
 #if defined(__ANDROID__) || !defined(BEAM_USE_AVX)
 #include "crypto/blake/ref/blake2.h"
@@ -3362,32 +3361,34 @@ namespace bvm2 {
 		return 0x800000; // 8MB
 	}
 
-	uint32_t ProcessorManager::AddArgs(const std::string& commaSeparatedPairs)
+	uint32_t ProcessorManager::AddArgs(char* szCommaSeparatedPairs)
 	{
-		static const std::regex expr("\\s*([\\w\\d_]+)\\s*=\\s*(([\\w\\d_]+)|\"(.*?)\")\\s*(,|$)");
-		std::cmatch groups;
-		const char* s = commaSeparatedPairs.c_str();
 		uint32_t ret = 0;
-		while (std::regex_search(s, groups, expr))
+		for (size_t nLen = strlen(szCommaSeparatedPairs); nLen; )
 		{
-			if (groups.size() > 0)
-			{
-				std::string key{ groups[1].first, groups[1].second };
-				std::string value;
-				if (groups[3].matched)
-				{
-					value.assign(groups[3].first, groups[3].second);
-				}
-				else if (groups[4].matched)
-				{
-					value.assign(groups[4].first, groups[4].second);
-				}
+			char* szMid = (char*) memchr(szCommaSeparatedPairs, ',', nLen);
 
-				m_Args.emplace(std::move(key), std::move(value));
-				++ret;
+			size_t nLen1;
+			if (szMid)
+			{
+				nLen1 = (szMid - szCommaSeparatedPairs) + 1;
+				*szMid = 0;
 			}
-			s = groups.suffix().first;
+			else
+				nLen1 = nLen;
+
+			szMid = (char*) memchr(szCommaSeparatedPairs, '=', nLen1);
+			if (szMid)
+			{
+				*szMid = 0;
+				m_Args[szCommaSeparatedPairs] = szMid + 1;
+				ret++;
+			}
+
+			szCommaSeparatedPairs += nLen1;
+			nLen -= nLen1;
 		}
+
 		return ret;
 	}
 

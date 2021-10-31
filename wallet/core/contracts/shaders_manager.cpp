@@ -278,7 +278,8 @@ namespace beam::wallet {
         m_Args.clear();
         if (!req.args.empty())
         {
-            AddArgs(req.args);
+            std::string temp = req.args;
+            AddArgs(&temp.front());
         }
 
         _done = false;

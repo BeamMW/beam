@@ -2330,7 +2330,7 @@ namespace
 
                 sVal = vm[cli::SHADER_ARGS].as<string>(); // should be comma-separated list of name=val pairs
                 if (!sVal.empty())
-                    man.AddArgs(sVal);
+                    man.AddArgs(&sVal.front());
 
                 man.set_Privilege(vm[cli::SHADER_PRIVILEGE].as<uint32_t>());
 

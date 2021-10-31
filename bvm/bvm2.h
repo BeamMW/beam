@@ -620,7 +620,7 @@ namespace bvm2 {
 
 		std::map<std::string, std::string> m_Args;
 		void set_ArgBlob(const char* sz, const Blob&);
-		uint32_t AddArgs(const std::string& commaSeparatedPairs);
+		uint32_t AddArgs(char* szCommaSeparatedPairs);
 
 		Kind get_Kind() override { return Kind::Manager; }
 

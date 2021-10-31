@@ -107,7 +107,7 @@ namespace
             MyManager::Compile(man.m_BodyContract, contractShader.c_str(), MyManager::Kind::Contract);
 
         if (!args.empty())
-            man.AddArgs(args);
+            man.AddArgs(&args.front());
 
         std::cout << "Executing shader..." << std::endl;
 
