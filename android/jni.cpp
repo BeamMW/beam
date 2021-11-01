@@ -1177,7 +1177,7 @@ JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionRate)(JNIEnv *e
 
     if (auto transaction = walletDB->getTx(id))
     {
-        auto rate = transaction->getExchangeRate(currency);
+        auto rate = transaction->getExchangeRate(currency, transaction->m_assetId);
         return rate;
     }
 
