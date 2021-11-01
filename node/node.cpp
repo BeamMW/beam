@@ -52,7 +52,7 @@ void Node::SyncStatus::ToRelative(Height hDone0)
 
 void Node::RefreshCongestions()
 {
-	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
+	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; ++it)
 		it->m_bNeeded = false;
 
     m_Processor.EnumCongestions();
@@ -78,7 +78,7 @@ void Node::UpdateSyncStatus()
 
 			LOG_INFO() << "Tx replication is ON";
 
-			for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+			for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; ++it)
 			{
 				Peer& peer = *it;
 				if ((Peer::Flags::Connected & peer.m_Flags) && !(Peer::Flags::Probe & peer.m_Flags))
@@ -101,7 +101,7 @@ void Node::UpdateSyncStatusRaw()
 	if (m_Processor.IsFastSync())
 		hTotal = m_Processor.m_SyncData.m_Target.m_Height;
 
-	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
+	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; ++it)
 	{
 		const Task& t = *it;
 		if (!t.m_bNeeded)
@@ -188,7 +188,7 @@ void Node::WantedTx::OnExpired(const KeyType& key)
     proto::GetTransaction msg;
     msg.m_ID = key;
 
-    for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; it++)
+    for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
     {
         Peer& peer = *it;
         if (peer.m_LoginFlags & proto::LoginFlags::SpreadingTransactions)
@@ -214,7 +214,7 @@ void Node::Bbs::WantedMsg::OnExpired(const KeyType& key)
     proto::BbsGetMsg msg;
     msg.m_Key = key;
 
-    for (PeerList::iterator it = get_ParentObj().get_ParentObj().m_lstPeers.begin(); get_ParentObj().get_ParentObj().m_lstPeers.end() != it; it++)
+    for (PeerList::iterator it = get_ParentObj().get_ParentObj().m_lstPeers.begin(); get_ParentObj().get_ParentObj().m_lstPeers.end() != it; ++it)
     {
         Peer& peer = *it;
         if (peer.m_LoginFlags & proto::LoginFlags::Bbs)
@@ -323,7 +323,7 @@ void Node::Wanted::OnTimer()
 void Node::TryAssignTask(Task& t)
 {
 	// Prioritize w.r.t. rating!
-	for (PeerMan::LiveSet::iterator it = m_PeerMan.m_LiveSet.begin(); m_PeerMan.m_LiveSet.end() != it; it++)
+	for (PeerMan::LiveSet::iterator it = m_PeerMan.m_LiveSet.begin(); m_PeerMan.m_LiveSet.end() != it; ++it)
 	{
 		Peer& p = *it->m_p;
 		if (TryAssignTask(t, p))
@@ -362,7 +362,7 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 
     // check if the peer currently transfers a block
     uint32_t nBlocks = 0;
-	for (TaskList::iterator it = p.m_lstTasks.begin(); p.m_lstTasks.end() != it; it++)
+	for (TaskList::iterator it = p.m_lstTasks.begin(); p.m_lstTasks.end() != it; ++it)
 	{
 		if (it->m_Key.second)
 			nBlocks++;
@@ -633,7 +633,7 @@ void Node::Processor::OnNewState()
     proto::NewTip msg;
     msg.m_Description = m_Cursor.m_Full;
 
-    for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; it++)
+    for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
     {
         Peer& peer = *it;
         if (!(Peer::Flags::Connected & peer.m_Flags))
@@ -672,7 +672,7 @@ void Node::Processor::OnFastSyncSucceeded()
 
     get_DB().ParamSet(NodeDB::ParamID::EventsSerif, &m_Extra.m_TxoHi, &blob);
 
-    for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; it++)
+    for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
     {
         Peer& peer = *it;
         peer.m_Flags &= ~Peer::Flags::SerifSent;
@@ -1156,7 +1156,7 @@ Node::~Node()
     }
     m_Miner.m_vThreads.clear();
 
-    for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+    for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; ++it)
         it->m_LoginFlags = 0; // prevent re-assigning of tasks in the next loop
 
     while (!m_lstPeers.empty())
@@ -1194,7 +1194,7 @@ void Node::Peer::OnResendPeers()
     const PeerMan::RawRatingSet& rs = pm.get_Ratings();
     uint32_t nRemaining = pm.m_Cfg.m_DesiredHighest;
 
-    for (PeerMan::RawRatingSet::const_iterator it = rs.begin(); nRemaining && (rs.end() != it); it++)
+    for (PeerMan::RawRatingSet::const_iterator it = rs.begin(); nRemaining && (rs.end() != it); ++it)
     {
         const PeerMan::PeerInfo& pi = it->get_ParentObj();
         if ((Flags::PiRcvd & m_Flags) && (&pi == m_pInfo))
@@ -1635,7 +1635,7 @@ void Node::Peer::OnMsg(proto::Pong&&)
 	BroadcastTxs();
 	BroadcastBbs();
 
-	for (Bbs::Subscription::PeerSet::iterator it = m_Subscriptions.begin(); m_Subscriptions.end() != it; it++)
+	for (Bbs::Subscription::PeerSet::iterator it = m_Subscriptions.begin(); m_Subscriptions.end() != it; ++it)
 		BroadcastBbs(it->get_ParentObj());
 }
 
@@ -2422,7 +2422,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, std::ostream* pExtraInfo
 
         AddDummyInputs(*ptx);
 
-        std::unique_ptr<TxPool::Stem::Element> pGuard(new TxPool::Stem::Element);
+        auto pGuard = std::make_unique<TxPool::Stem::Element>();
         pGuard->m_bAggregating = false;
         pGuard->m_Time.m_Value = 0;
         pGuard->m_Profit.m_Fee = ctx.m_Stats.m_Fee;
@@ -2464,7 +2464,7 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
     // must have at least 1 peer to continue the stem phase
     uint32_t nStemPeers = 0;
 
-    for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+    for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; ++it)
         if (it->m_LoginFlags & proto::LoginFlags::SpreadingTransactions)
             nStemPeers++;
 
@@ -2481,7 +2481,7 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
             // Choose random peer index between 0 and nStemPeers - 1 
             uint32_t nRandomPeerIdx = RandomUInt32(nStemPeers);
 
-            for (PeerList::iterator it = m_lstPeers.begin(); ; it++)
+            for (PeerList::iterator it = m_lstPeers.begin(); ; ++it)
                 if ((it->m_LoginFlags & proto::LoginFlags::SpreadingTransactions) && !nRandomPeerIdx--)
                 {
 					if (m_Cfg.m_LogTxStem)
@@ -2634,7 +2634,7 @@ bool Node::AddDummyInputRaw(Transaction& tx, const CoinID& cid)
 		return false;
 
 	// unspent
-	Input::Ptr pInp(new Input);
+	auto pInp = std::make_unique<Input>();
 	pInp->m_Commitment = comm;
 
 	tx.m_vInputs.push_back(std::move(pInp));
@@ -2671,7 +2671,7 @@ void Node::AddDummyOutputs(Transaction& tx, Amount feeReserve)
 
         bModified = true;
 
-        Output::Ptr pOutput(new Output);
+        auto pOutput = std::make_unique<Output>();
         ECC::Scalar::Native sk;
         pOutput->Create(m_Processor.m_Cursor.m_ID.m_Height + 1, sk, *m_Keys.m_pMiner, cid, *m_Keys.m_pOwner);
 
@@ -2801,7 +2801,7 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
     proto::HaveTransaction msgOut;
     msgOut.m_ID = key.m_Key;
 
-    for (PeerList::iterator it2 = m_lstPeers.begin(); m_lstPeers.end() != it2; it2++)
+    for (PeerList::iterator it2 = m_lstPeers.begin(); m_lstPeers.end() != it2; ++it2)
     {
         Peer& peer = *it2;
         if (pSender && peer.m_pInfo && (peer.m_pInfo->m_ID.m_Key == *pSender))
@@ -3461,7 +3461,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
     proto::BbsHaveMsg msgOut;
     msgOut.m_Key = wlk.m_Data.m_Key;
 
-    for (PeerList::iterator it = m_This.m_lstPeers.begin(); m_This.m_lstPeers.end() != it; it++)
+    for (PeerList::iterator it = m_This.m_lstPeers.begin(); m_This.m_lstPeers.end() != it; ++it)
     {
         Peer& peer = *it;
         if (this == &peer)
@@ -3942,7 +3942,7 @@ void Node::Miner::OnFinalizerChanged(Peer* p)
     if (!m_pFinalizer)
     {
         // try to find another one
-        for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; it++)
+        for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
             if (it->ShouldFinalizeMining())
             {
                 m_pFinalizer = &(*it);
@@ -4528,7 +4528,7 @@ void Node::PeerMan::OnFlush()
 
     const PeerMan::RawRatingSet& rs = get_Ratings();
 
-    for (PeerMan::RawRatingSet::const_iterator it = rs.begin(); rs.end() != it; it++)
+    for (PeerMan::RawRatingSet::const_iterator it = rs.begin(); rs.end() != it; ++it)
     {
         const PeerMan::PeerInfo& pi = it->get_ParentObj();
 
@@ -4797,7 +4797,7 @@ void Node::PrintTxos()
     {
         std::ostringstream& m_os;
         AssetMap m_Map;
-        Height m_Height;
+        Height m_Height = 0;
 
         MyParser(std::ostringstream& os) :m_os(os) {}
 
@@ -4841,7 +4841,7 @@ void Node::PrintTxos()
 
     os << "Totals:" << std::endl;
 
-    for (AssetMap::iterator it = p.m_Map.begin(); p.m_Map.end() != it; it++)
+    for (AssetMap::iterator it = p.m_Map.begin(); p.m_Map.end() != it; ++it)
     {
         const PerAsset& pa = it->second;
         if (pa.m_Avail || pa.m_Locked)
@@ -4973,7 +4973,7 @@ void Node::PrintRollbackStats()
                 }
             }
 
-            for (DoubleSpendMap::iterator it = dsm.begin(); dsm.end() != it; it++)
+            for (DoubleSpendMap::iterator it = dsm.begin(); dsm.end() != it; ++it)
             {
                 uint32_t n = it->second;
                 if (uint32_t(-1) == n)

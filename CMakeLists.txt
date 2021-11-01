@@ -100,6 +100,8 @@ set(BEAM_VERSION_MAJOR ${VERSION_MAJOR} CACHE INTERNAL "")
 set(BEAM_VERSION_MINOR ${VERSION_MINOR} CACHE INTERNAL "")
 set(BEAM_VERSION_REVISION ${VERSION_REVISION} CACHE INTERNAL "")
 set(BEAM_BRANCH_NAME ${BRANCH_NAME} CACHE INTERNAL "")
+set(BEAM_PROJECT_SOURCE_DIR ${PROJECT_SOURCE_DIR} CACHE INTERNAL "")
+set(BEAM_PROJECT_BINARY_DIR ${PROJECT_BINARY_DIR} CACHE INTERNAL "")
 
 message("BEAM_VERSION: ${PROJECT_VERSION}")
 
@@ -286,6 +288,7 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-const-variable") # so what?
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function") # mostly in 3rd-party libs
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-value") # proto.h
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nonnull") # yas
 endif()
 
 if(BEAM_HW_WALLET)
@@ -446,7 +449,6 @@ if(NOT BEAM_BVM_ONLY)
     add_subdirectory(hw_crypto)
     add_subdirectory(node)
     add_subdirectory(mnemonic)
-    add_subdirectory(websocket)
 endif()
 
 if (EMSCRIPTEN)
@@ -460,4 +462,5 @@ endif()
 if(NOT BEAM_WALLET_CLIENT_LIBRARY)
     add_subdirectory(beam)
     add_subdirectory(explorer)
+    add_subdirectory(websocket)
 endif()

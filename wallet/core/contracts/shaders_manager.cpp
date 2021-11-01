@@ -16,23 +16,158 @@
 #include "utility/logger.h"
 
 namespace beam::wallet {
+
+    struct ManagerStdInWallet::SlotName
+    {
+#define SLOT_PREFIX_NAME "app_sh_slot_"
+        char m_sz[_countof(SLOT_PREFIX_NAME) + 10];
+
+        SlotName(uint32_t iSlot)
+        {
+            memcpy(m_sz, SLOT_PREFIX_NAME, sizeof(SLOT_PREFIX_NAME) - sizeof(char));
+            beam::utoa(m_sz + _countof(SLOT_PREFIX_NAME) - 1, iSlot);
+        }
+    };
+
+    ManagerStdInWallet::ManagerStdInWallet(WalletDB::Ptr wdb, Wallet::Ptr pWallet)
+        :m_pWalletDB(std::move(wdb))
+        ,m_pWallet(std::move(pWallet))
+    {
+        assert(m_pWalletDB && m_pWallet);
+
+        m_pPKdf = m_pWalletDB->get_OwnerKdf();
+        m_pHist = &m_pWalletDB->get_History();
+
+        m_pNetwork = m_pWallet->GetNodeEndpoint();
+        assert(m_pNetwork);
+    }
+
+    ManagerStdInWallet::~ManagerStdInWallet()
+    {
+        m_Comms.m_Map.Clear(); // must be cleared before our d'tor ends, not in the base d'tor
+    }
+
+    void ManagerStdInWallet::set_Privilege(uint32_t n)
+    {
+        m_Privilege = n;
+        if (n)
+            m_pKdf = m_pWalletDB->get_MasterKdf();
+    }
+
+    bool ManagerStdInWallet::SlotLoad(ECC::Hash::Value& hv, uint32_t iSlot)
+    {
+        SlotName sn(iSlot);
+        return m_pWalletDB->getVarRaw(sn.m_sz, hv.m_pData, hv.nBytes);
+    }
+
+    void ManagerStdInWallet::SlotSave(const ECC::Hash::Value& hv, uint32_t iSlot)
+    {
+        SlotName sn(iSlot);
+        m_pWalletDB->setVarRaw(sn.m_sz, hv.m_pData, hv.nBytes);
+    }
+
+    void ManagerStdInWallet::SlotErase(uint32_t iSlot)
+    {
+        SlotName sn(iSlot);
+        m_pWalletDB->removeVarRaw(sn.m_sz);
+    }
+
+    struct ManagerStdInWallet::Channel
+        :public ManagerStd::Comm::Channel
+    {
+        ManagerStdInWallet* m_pThis = nullptr;
+        WalletID m_Wid;
+        uint8_t m_Y;
+
+        virtual ~Channel()
+        {
+            if (m_pThis)
+            {
+                for (auto& p : m_pThis->m_pWallet->get_MessageEndpoints())
+                    p->Unlisten(m_Wid);
+            }
+        }
+
+        struct Handler
+            :public IWalletMessageEndpoint::IHandler
+        {
+            void OnMsg(const Blob& msg) override
+            {
+                auto& c = get_ParentObj();
+                c.m_pThis->Comm_OnNewMsg(msg, c);
+            }
+
+            IMPLEMENT_GET_PARENT_OBJ(Channel, m_Handler)
+        } m_Handler;
+    };
+
+    void ManagerStdInWallet::TestCommAllowed() const
+    {
+        Wasm::Test(m_Privilege >= 2);
+    }
+
+    void ManagerStdInWallet::Comm_CreateListener(Comm::Channel::Ptr& pRes, const ECC::Hash::Value& hv)
+    {
+        TestCommAllowed();
+
+        ECC::Scalar::Native sk;
+        get_Sk(sk, hv); // would fail if not in privileged mode
+
+        auto pCh = std::make_unique<Channel>();
+        auto& c = *pCh;
+
+        c.m_Y = !c.m_Wid.m_Pk.FromSk(sk);
+        c.m_Wid.SetChannelFromPk();
+
+        c.m_pThis = this;
+
+        for (auto& p : m_pWallet->get_MessageEndpoints())
+            p->Listen(c.m_Wid, sk, &c.m_Handler);
+
+        pRes = std::move(pCh);
+    }
+
+    void ManagerStdInWallet::Comm_Send(const ECC::Point& pk, const Blob& msg)
+    {
+        TestCommAllowed();
+
+
+        WalletID wid;
+        wid.m_Pk = pk.m_X;
+        wid.SetChannelFromPk();
+
+        for (auto& p : m_pWallet->get_MessageEndpoints())
+            p->Send(wid, msg);
+    }
+
+    void ManagerStdInWallet::WriteStream(const Blob& b, uint32_t iStream)
+    {
+        const char* szPrefix = "";
+        switch (iStream)
+        {
+        case Shaders::Stream::Out: szPrefix = "App out: "; break;
+        case Shaders::Stream::Error: szPrefix = "App error: "; break;
+        default:
+            return;
+        }
+
+        std::cout << szPrefix;
+        std::cout.write((const char*) b.p, b.n);
+        std::cout << std::endl;
+    }
+
     ShadersManager::ShadersManager(beam::wallet::Wallet::Ptr wallet,
                                    beam::wallet::IWalletDB::Ptr walletDB,
                                    beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
                                    std::string appid,
                                    std::string appname)
-        : _currentAppId(std::move(appid))
+        :ManagerStdInWallet(std::move(walletDB), wallet)
+        , _currentAppId(std::move(appid))
         , _currentAppName(std::move(appname))
-        , _wdb(std::move(walletDB))
         , _wallet(std::move(wallet))
     {
-        assert(_wdb);
         assert(_wallet);
-        assert(nodeNetwork);
-
-        m_pPKdf = _wdb->get_OwnerKdf();
-        m_pNetwork = std::move(nodeNetwork);
-        m_pHist = &_wdb->get_History();
+        _logResult = appid.empty();
     }
 
     void ShadersManager::compileAppShader(const std::vector<uint8_t> &shader)
@@ -125,12 +260,18 @@ namespace beam::wallet {
             }
             catch(std::exception& ex)
             {
+                BOOST_SCOPE_EXIT_ALL(&, this) {
+                    _queue.pop();
+                };
                 return req.doneCall(boost::none, boost::none, std::string(ex.what()));
             }
         }
 
         if (m_BodyManager.empty())
         {
+            BOOST_SCOPE_EXIT_ALL(&, this) {
+                _queue.pop();
+            };
             return req.doneCall(boost::none, boost::none, std::string("missing shader code"));
         }
 
@@ -200,12 +341,12 @@ namespace beam::wallet {
         }
 
         BOOST_SCOPE_EXIT_ALL(&, this) {
+            _queue.pop();
             this->nextRequest();
         };
 
         _done = true;
         const auto req = _queue.top();
-        _queue.pop();
 
         if (pExc != nullptr)
         {
@@ -231,7 +372,10 @@ namespace beam::wallet {
         }
 
         boost::optional<std::string> result = m_Out.str();
-        LOG_INFO () << "Shader result: " << *result;
+        if (_logResult)
+        {
+            LOG_INFO () << "Shader result: " << std::string_view(result ? *result : std::string()).substr(0, 200);
+        }
 
         if (m_vInvokeData.empty())
         {

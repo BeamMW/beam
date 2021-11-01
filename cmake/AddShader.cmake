@@ -42,3 +42,23 @@ function(add_shader kind shaders_dir)
     )
 
 endfunction()
+
+
+function(build_target target_name)
+    add_custom_target(${target_name}_build ALL
+        COMMAND ${CMAKE_COMMAND} 
+                                    -G "Ninja" 
+                                    -DCMAKE_BUILD_TYPE:STRING=MinSizeRel
+                                    -DCMAKE_TOOLCHAIN_FILE:FILEPATH=${WASI_SDK_PREFIX}/share/cmake/wasi-sdk.cmake
+                                    -DBEAM_SHADER_SDK=${BEAM_SHADER_SDK}
+                                    -DCMAKE_SYSROOT=${WASI_SDK_PREFIX}/share/wasi-sysroot
+                                    -DWASI_SDK_PREFIX=${WASI_SDK_PREFIX}
+                                    -DCMAKE_CXX_COMPILER_FORCED=True
+                                    -DCMAKE_C_COMPILER_FORCED=True 
+                                    -S ${PROJECT_SOURCE_DIR}
+                                    -B ${PROJECT_BINARY_DIR}/shaders
+        COMMAND ${CMAKE_COMMAND} --build ${PROJECT_BINARY_DIR}/shaders --parallel --target ${target_name}  # --config ${BEAM_SIDGEN_BUILD_TYPE}
+        COMMENT "Building target ${target_name} ..."
+        VERBATIM
+    )
+endfunction()

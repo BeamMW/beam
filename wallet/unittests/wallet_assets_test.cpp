@@ -412,7 +412,6 @@ void TestAssets() {
     WALLET_CHECK(tx.m_status == TxStatus::Completed);
     WALLET_CHECK(tx.m_assetId == ASSET1_ID);
     WALLET_CHECK(tx.m_assetMeta == ASSET1_META);
-    WALLET_CHECK(tx.m_selfTx);
     checkOwnerTotals(currBM, currA1, currA2);
 
     // consume asset #1
@@ -430,7 +429,6 @@ void TestAssets() {
     WALLET_CHECK(tx.m_status == TxStatus::Completed);
     WALLET_CHECK(tx.m_assetId == ASSET1_ID);
     WALLET_CHECK(tx.m_assetMeta == ASSET1_META);
-    WALLET_CHECK(tx.m_selfTx);
     checkOwnerTotals(currBM, currA1, currA2);
 
     // issue asset #2
@@ -448,7 +446,6 @@ void TestAssets() {
     WALLET_CHECK(tx.m_status == TxStatus::Completed);
     WALLET_CHECK(tx.m_assetId == ASSET2_ID);
     WALLET_CHECK(tx.m_assetMeta == ASSET2_META);
-    WALLET_CHECK(tx.m_selfTx);
     checkOwnerTotals(currBM, currA1, currA2);
 
     // send locked asset, tx should fail on SENDER size, thus only 1 transaction wait
@@ -681,7 +678,7 @@ int main () {
 
     TestAssets();
 
-    LOG_INFO() << "Assets test - completed";
+    LOG_INFO() << "Assets test - completed, failures: " << g_failureCount;
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
 }

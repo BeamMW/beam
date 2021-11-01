@@ -61,8 +61,9 @@ namespace Shaders {
 #include "../Shaders/pipe/contract.h"
 #include "../Shaders/mirrorcoin/contract.h"
 #include "../Shaders/voting/contract.h"
-#include "../Shaders/demoXdao/contract.h"
+#include "../Shaders/dao-core/contract.h"
 #include "../Shaders/aphorize/contract.h"
+#include "../Shaders/liquity/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
@@ -76,6 +77,8 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Factor);
 		ConvertOrd<bToShader>(x.m_Try);
 		ConvertOrd<bToShader>(x.m_IsOk);
+	}
+	template <bool bToShader> void Convert(Dummy::MathTest2 x) {
 	}
 	template <bool bToShader> void Convert(Dummy::DivTest1& x) {
 		ConvertOrd<bToShader>(x.m_Nom);
@@ -232,11 +235,11 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Amount);
 	}
 
-	template <bool bToShader> void Convert(DemoXdao::UpdPosFarming& x) {
+	template <bool bToShader> void Convert(DaoCore::UpdPosFarming& x) {
 		ConvertOrd<bToShader>(x.m_Beam);
 		ConvertOrd<bToShader>(x.m_WithdrawBeamX);
 	}
-	template <bool bToShader> void Convert(DemoXdao::GetPreallocated& x) {
+	template <bool bToShader> void Convert(DaoCore::GetPreallocated& x) {
 		ConvertOrd<bToShader>(x.m_Amount);
 	}
 
@@ -246,6 +249,36 @@ namespace Shaders {
 	}
 	template <bool bToShader> void Convert(Aphorize::Submit& x) {
 		ConvertOrd<bToShader>(x.m_Len);
+	}
+
+	template <bool bToShader> void Convert(Liquity::Method::BaseTx& x) {
+		ConvertOrd<bToShader>(x.m_Flow.Tok.m_Val);
+		ConvertOrd<bToShader>(x.m_Flow.Col.m_Val);
+	}
+	template <bool bToShader> void Convert(Liquity::Method::Create& x) {
+		ConvertOrd<bToShader>(x.m_Settings.m_TroveMinDebt);
+		ConvertOrd<bToShader>(x.m_Settings.m_TroveLiquidationReserve);
+	}
+	template <bool bToShader> void Convert(Liquity::Method::OracleGet& x) {
+		ConvertOrd<bToShader>(x.m_Val.m_Num);
+		ConvertOrd<bToShader>((uint32_t&) x.m_Val.m_Order);
+	}
+	template <bool bToShader> void Convert(Liquity::Method::TroveOpen& x) {
+		Convert<bToShader>(Cast::Down<Liquity::Method::BaseTx>(x));
+		ConvertOrd<bToShader>(x.m_Amounts.Tok);
+		ConvertOrd<bToShader>(x.m_Amounts.Col);
+	}
+	template <bool bToShader> void Convert(Liquity::Method::TroveModify& x) {
+		Convert<bToShader>(Cast::Down<Liquity::Method::BaseTx>(x));
+		ConvertOrd<bToShader>(x.m_Amounts.Tok);
+		ConvertOrd<bToShader>(x.m_Amounts.Col);
+	}
+	template <bool bToShader> void Convert(Liquity::Method::UpdStabPool& x) {
+		Convert<bToShader>(Cast::Down<Liquity::Method::BaseTx>(x));
+		ConvertOrd<bToShader>(x.m_NewAmount);
+	}
+	template <bool bToShader> void Convert(Liquity::Method::EnforceLiquidatation& x) {
+		ConvertOrd<bToShader>(x.m_Count);
 	}
 
 	namespace Env {
@@ -296,12 +329,14 @@ namespace Shaders {
 	namespace Voting {
 #include "../Shaders/voting/contract.cpp"
 	}
-	namespace DemoXdao {
-#include "../Shaders/demoXdao/contract.cpp"
+	namespace DaoCore {
+#include "../Shaders/dao-core/contract.cpp"
 	}
 	namespace Aphorize {
 #include "../Shaders/aphorize/contract.cpp"
 	}
+
+#include "../Shaders/liquity/contract.cpp" // already within namespace
 
 #ifdef _MSC_VER
 #	pragma warning (default : 4200 4702)
@@ -407,8 +442,9 @@ namespace bvm2 {
 			ByteBuffer m_Pipe;
 			ByteBuffer m_MirrorCoin;
 			ByteBuffer m_Voting;
-			ByteBuffer m_DemoXdao;
+			ByteBuffer m_DaoCore;
 			ByteBuffer m_Aphorize;
+			ByteBuffer m_Liquity;
 
 		} m_Code;
 
@@ -424,8 +460,15 @@ namespace bvm2 {
 		ContractID m_cidMirrorCoin1;
 		ContractID m_cidMirrorCoin2;
 		ContractID m_cidVoting;
-		ContractID m_cidDemoXdao;
+		ContractID m_cidDaoCore;
 		ContractID m_cidAphorize;
+		ContractID m_cidLiquity;
+
+		struct MyOracle {
+			ContractID m_Cid;
+			Shaders::MultiPrecision::Float m_Value;
+		} m_MyOracle;
+
 
 		struct {
 
@@ -573,14 +616,14 @@ namespace bvm2 {
 				//}
 			}
 
-			if (cid == m_cidDemoXdao)
+			if (cid == m_cidDaoCore)
 			{
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
 				//{
-				//case 0: Shaders::DemoXdao::Ctor(nullptr); return;
-				//case 3: Shaders::DemoXdao::Method_3(CastArg<Shaders::DemoXdao::GetPreallocated>(pArgs)); return;
-				//case 4: Shaders::DemoXdao::Method_4(CastArg<Shaders::DemoXdao::UpdPosFarming>(pArgs)); return;
+				//case 0: Shaders::DaoCore::Ctor(nullptr); return;
+				//case 3: Shaders::DaoCore::Method_3(CastArg<Shaders::DaoCore::GetPreallocated>(pArgs)); return;
+				//case 4: Shaders::DaoCore::Method_4(CastArg<Shaders::DaoCore::UpdPosFarming>(pArgs)); return;
 				//}
 			}
 
@@ -593,10 +636,34 @@ namespace bvm2 {
 				//case 2: Shaders::Aphorize::Method_2(CastArg<Shaders::Aphorize::Submit>(pArgs)); return;
 				//}
 			}
-
+/*
+			if (cid == m_cidLiquity)
+			{
+				TempFrame f(*this, cid);
+				switch (iMethod)
+				{
+				case 0: Shaders::Liquity::Ctor(CastArg<Shaders::Liquity::Method::Create>(pArgs)); return;
+				case 3: Shaders::Liquity::Method_3(CastArg<Shaders::Liquity::Method::TroveOpen>(pArgs)); return;
+				case 7: Shaders::Liquity::Method_7(CastArg<Shaders::Liquity::Method::UpdStabPool>(pArgs)); return;
+				case 8: Shaders::Liquity::Method_8(CastArg<Shaders::Liquity::Method::EnforceLiquidatation>(pArgs)); return;
+				}
+			}
+*/
+			if (cid == m_MyOracle.m_Cid)
+			{
+				TempFrame f(*this, cid);
+				switch (iMethod)
+				{
+				case 3:
+					CastArg<Shaders::MultiPrecision::Float>(pArgs) = m_MyOracle.m_Value;
+					return;
+				}
+			}
 
 			ProcessorContract::CallFar(cid, iMethod, pArgs, bInheritContext);
 		}
+
+		void LiquityPrintBank(const PubKey& pk);
 
 		void TestVault();
 		void TestDummy();
@@ -609,8 +676,9 @@ namespace bvm2 {
 		void TestPipe();
 		void TestMirrorCoin();
 		void TestVoting();
-		void TestDemoXdao();
+		void TestDaoCore();
 		void TestAphorize();
+		void TestLiquity();
 
 		void TestAll();
 	};
@@ -640,15 +708,21 @@ namespace bvm2 {
 		AddCode(m_Code.m_Pipe, "pipe/contract.wasm");
 		AddCode(m_Code.m_MirrorCoin, "mirrorcoin/contract.wasm");
 		AddCode(m_Code.m_Voting, "voting/contract.wasm");
-		AddCode(m_Code.m_DemoXdao, "demoXdao/contract.wasm");
+		AddCode(m_Code.m_DaoCore, "dao-core/contract.wasm");
 		AddCode(m_Code.m_Aphorize, "aphorize/contract.wasm");
+		AddCode(m_Code.m_Liquity, "liquity/contract.wasm");
+
+		m_FarCalls.m_SaveLocal = true;
+
+		m_MyOracle.m_Cid = 77453U;
 
 		TestVault();
 		TestAphorize();
+		TestLiquity();
 		TestFaucet();
 		TestRoulette();
 		TestVoting();
-		TestDemoXdao();
+		TestDaoCore();
 		TestDummy();
 		TestSidechain();
 		TestOracle();
@@ -787,6 +861,105 @@ namespace bvm2 {
 			memset(args.m_szText, 'a' + i, sizeof(args.m_szText));
 
 			verify_test(RunGuarded_T(m_cidAphorize, args.s_iMethod, args));
+		}
+	}
+
+	double Val2Num(Amount x)
+	{
+		double res = static_cast<double>(x);
+		return res * 1e-8;
+	} 
+
+	void MyProcessor::LiquityPrintBank(const PubKey& pk)
+	{
+		Shaders::Env::Key_T<Shaders::Liquity::Balance::Key> key;
+		key.m_Prefix.m_Cid = m_cidLiquity;
+		key.m_KeyInContract.m_Pk = pk;
+
+		Blob b;
+		LoadVar(Blob(&key, sizeof(key)), b);
+
+		Shaders::Liquity::Pair vals;
+		if (sizeof(Shaders::Liquity::Balance) == b.n)
+			vals = reinterpret_cast<const Shaders::Liquity::Balance*>(b.p)->m_Amounts;
+		else
+			ZeroObject(vals);
+
+		std::cout << "\tTok=" << Val2Num(vals.Tok) << ", Col=" << Val2Num(vals.Col) << std::endl;
+	}
+
+	void MyProcessor::TestLiquity()
+	{
+		m_MyOracle.m_Value = 45; // to the moon!
+
+		SaveVar(m_MyOracle.m_Cid, m_MyOracle.m_Cid); // dummy val, nevermind, just pretend the contract exists
+
+		{
+			Shaders::Liquity::Method::Create args;
+			ZeroObject(args);
+			args.m_Settings.m_cidOracle = m_MyOracle.m_Cid;
+			args.m_Settings.m_TroveMinDebt = Rules::Coin * 10;
+			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 5;
+
+			verify_test(ContractCreate_T(m_cidLiquity, m_Code.m_Liquity, args));
+		}
+
+		{
+			Shaders::Liquity::Method::TroveOpen args;
+			ZeroObject(args);
+
+			args.m_Amounts.Tok = Rules::Coin * 1000;
+			args.m_Amounts.Col = Rules::Coin * 35; // should be enough for 150% tcr
+			args.m_pkUser.m_X = 43U;
+			args.m_Flow.Col.Add(Rules::Coin * 40, 1);
+			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
+
+			std::cout << "Trove0: Tok=" << Val2Num(args.m_Amounts.Tok) << ", Col=" << Val2Num(args.m_Amounts.Tok) << std::endl;
+			LiquityPrintBank(args.m_pkUser);
+		}
+
+		for (uint32_t i = 0; i < 2; i++)
+		{
+			Shaders::Liquity::Method::UpdStabPool args;
+			ZeroObject(args);
+			args.m_NewAmount = Rules::Coin * 750;
+			args.m_Flow.Tok.Add(args.m_NewAmount, 1);
+			args.m_pkUser.m_X = 77U + i;
+
+			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
+
+			std::cout << "Stab" << i << ": Put=" << Val2Num(args.m_NewAmount) << std::endl;
+			LiquityPrintBank(args.m_pkUser);
+		}
+
+		m_MyOracle.m_Value = 30; // price drop. icr would be about 105%
+
+		{
+#pragma pack (push, 1)
+			struct Arg :public Shaders::Liquity::Method::EnforceLiquidatation {
+				Shaders::Liquity::Trove::ID m_pID[1];
+			} args;
+#pragma pack (pop)
+
+			ZeroObject(args);
+			args.m_Count = 1;
+			args.m_pID[0] = 1;
+			args.m_pkUser.m_X = 96U;
+			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
+
+			std::cout << "Trove0 liquidated." << std::endl;
+			LiquityPrintBank(args.m_pkUser);
+		}
+
+		for (uint32_t i = 0; i < 2; i++)
+		{
+			Shaders::Liquity::Method::UpdStabPool args;
+			ZeroObject(args);
+			args.m_pkUser.m_X = 77U + i;
+			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
+
+			std::cout << "Stab" << i << " all out" << std::endl;
+			LiquityPrintBank(args.m_pkUser);
 		}
 	}
 
@@ -958,6 +1131,38 @@ namespace bvm2 {
 		}
 	}
 
+	template <uint32_t wNom, uint32_t wDenom, uint32_t wQuotient>
+	void TestMultiPrecisionDiv(
+		const Shaders::MultiPrecision::UInt<wNom>& nom,
+		const Shaders::MultiPrecision::UInt<wDenom>& denom,
+		const Shaders::MultiPrecision::UInt<wNom>& resid,
+		const Shaders::MultiPrecision::UInt<wQuotient>& quotient)
+	{
+		auto myResid = nom;
+		Shaders::MultiPrecision::UInt<wQuotient> myQuotient;
+		myQuotient.SetDivResid(myResid, denom);
+
+		// in-host results should be the same
+		verify_test(myResid == resid);
+		verify_test(myQuotient == quotient);
+
+		if (denom.IsZero())
+		{
+			verify_test(resid == nom);
+			
+			myQuotient += Shaders::MultiPrecision::UInt<1>(1);
+			verify_test(myQuotient.IsZero());
+		}
+		else
+		{
+			verify_test(resid < denom);
+
+			auto val = resid + denom * quotient;
+			verify_test(val == nom);
+		}
+
+	}
+
 	void MyProcessor::TestDummy()
 	{
 		ContractID cid;
@@ -1003,6 +1208,70 @@ namespace bvm2 {
 		}
 
 		{
+			Shaders::Dummy::MathTest2 args;
+
+			ZeroObject(args);
+
+			args.m_Nom.set_Val<5>(0x7fffffff);
+			args.m_Nom.set_Val<4>(0x80000000);
+			args.m_Nom.set_Val<3>(0xe3212316);
+			args.m_Nom.set_Val<2>(0xe3212316);
+			args.m_Nom.set_Val<1>(0xcc212316);
+
+			args.m_Denom.set_Val<4>(0x80000000); // tricky case, division correction vs init guess is done twice
+			args.m_Denom.set_Val<3>(0xffffffff);
+
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+
+			args.m_Denom.set_Val<3>(0x7fffffff); // msb not set, normalization would be applied
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+
+			args.m_Denom.set_Val<3>(0x1fffffff); // one correction
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+
+			args.m_Denom.set_Val<4>(0x12345678); // no correction
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+
+			args.m_Denom.Set0(); // div by 0
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+
+
+			args.m_Nom.Set<2>(0xb5e620f47ffc0000ull);
+			args.m_Denom.Set<0>(0xb5e620f480000000ull); // tricky case: hiwords of nom and denom are equal, init guess will exceed 1 word
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+
+
+
+			// some random numbers
+			for (uint32_t i = 0; i < 50; i++)
+			{
+				ECC::GenRandom(&args.m_Nom, sizeof(args.m_Nom));
+				ECC::GenRandom(&args.m_Denom, sizeof(args.m_Denom));
+
+				if (i > 20)
+				{
+					args.m_Denom.set_Val<4>(0);
+					if (i > 30)
+					{
+						args.m_Denom.set_Val<3>(0);
+						if (i > 40)
+							args.m_Denom.set_Val<2>(0);
+					}
+				}
+
+				verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+				TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+			}
+		}
+
+
+		{
 			Shaders::Dummy::DivTest1 args;
 			args.m_Nom = 0;
 			args.m_Denom = 12;
@@ -1015,16 +1284,9 @@ namespace bvm2 {
 		}
 
 		{
-			Dbg dbg = m_Dbg;
-			m_Dbg.m_Instructions = false;
-			m_Dbg.m_Stack = false;
-			m_Dbg.m_ExtCall = false;
-
 			Shaders::Dummy::InfCycle args;
 			args.m_Val = 12;
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
-
-			m_Dbg = dbg;
 		}
 
 		{
@@ -1136,14 +1398,7 @@ namespace bvm2 {
 			CvtHdrElement(args.m_Hdr, s);
 			args.m_RulesCfg = r.pForks[2].m_Hash;
 
-			Dbg dbg = m_Dbg;
-			m_Dbg.m_Instructions = false;
-			m_Dbg.m_Stack = false;
-			m_Dbg.m_ExtCall = false;
-
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
-
-			m_Dbg = dbg;
 
 			verify_test(args.m_Hash == hv);
 
@@ -1361,10 +1616,6 @@ namespace bvm2 {
 
 	void MyProcessor::TestOracle()
 	{
-		Dbg dbg = m_Dbg;
-		m_Dbg.m_Instructions = false;
-		m_Dbg.m_Stack = false;
-
 		typedef Shaders::Oracle::ValueType ValueType;
 
 		constexpr uint32_t nOracles = 15;
@@ -1468,8 +1719,6 @@ namespace bvm2 {
 
 		Zero_ zero;
 		verify_test(ContractDestroy_T(m_cidOracle, zero));
-
-		m_Dbg = dbg;
 	}
 
 	static uint64_t RateFromFraction(uint32_t nom, uint32_t denom)
@@ -2019,7 +2268,7 @@ namespace bvm2 {
 		}
 	};
 
-	void MyProcessor::TestDemoXdao()
+	void MyProcessor::TestDaoCore()
 	{
 		//struct MyLutGenerator
 		//	:public LutGenerator
@@ -2036,21 +2285,23 @@ namespace bvm2 {
 		//lg.Normalize(1000000);
 
 		Zero_ zero;
-		verify_test(ContractCreate_T(m_cidDemoXdao, m_Code.m_DemoXdao, zero));
+		verify_test(ContractCreate_T(m_cidDaoCore, m_Code.m_DaoCore, zero));
 
 		bvm2::ShaderID sid;
-		bvm2::get_ShaderID(sid, m_Code.m_DemoXdao);
-		VERIFY_ID(Shaders::DemoXdao::s_SID, sid);
+		bvm2::get_ShaderID(sid, m_Code.m_DaoCore);
+		VERIFY_ID(Shaders::DaoCore::s_SID, sid);
+
+		m_Height += Shaders::DaoCore::Preallocated::s_hLaunch;
 
 		for (uint32_t i = 0; i < 10; i++)
 		{
-			Shaders::DemoXdao::UpdPosFarming args;
+			Shaders::DaoCore::UpdPosFarming args;
 			ZeroObject(args);
 
 			args.m_Beam = Shaders::g_Beam2Groth * 20000 * (i + 3);
 			args.m_BeamLock = 1;
 			args.m_Pk.m_X = i;
-			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_cidDaoCore, args.s_iMethod, args));
 
 			if (i & 1)
 				m_Height += 1000;
@@ -2058,12 +2309,12 @@ namespace bvm2 {
 
 		for (uint32_t i = 0; i < 10; i++)
 		{
-			Shaders::DemoXdao::UpdPosFarming args;
+			Shaders::DaoCore::UpdPosFarming args;
 			ZeroObject(args);
 
 			args.m_Beam = Shaders::g_Beam2Groth * 20000 * (i + 3);
 			args.m_Pk.m_X = i;
-			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_cidDaoCore, args.s_iMethod, args));
 
 			if (i & 1)
 				m_Height += 1000;
@@ -2072,17 +2323,17 @@ namespace bvm2 {
 		// the following is disabled, since the contract in this test is standalone, not under Upgradable, hence it doesn' allocate anything in c'tor
 /*
 		{
-			Shaders::DemoXdao::GetPreallocated args;
+			Shaders::DaoCore::GetPreallocated args;
 			ZeroObject(args);
 			args.m_Amount = 50;
 			Cast::Reinterpret<beam::uintBig_t<33> >(args.m_Pk).Scan("8bb3375b455d9c577134b00e8b0b108a29ce2bc0fce929049306cf4fed723b7d00");
-			verify_test(!RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args)); // wrong pk
+			verify_test(!RunGuarded_T(m_cidDaoCore, args.s_iMethod, args)); // wrong pk
 
 			Cast::Reinterpret<beam::uintBig_t<33> >(args.m_Pk).Scan("8bb3375b455d9c577134b00e8b0b108a29ce2bc0fce929049306cf4fed723b7d01");
-			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args)); // ok
+			verify_test(RunGuarded_T(m_cidDaoCore, args.s_iMethod, args)); // ok
 
 			args.m_Amount = 31000 / 2 * Shaders::g_Beam2Groth;
-			verify_test(!RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args)); // too much
+			verify_test(!RunGuarded_T(m_cidDaoCore, args.s_iMethod, args)); // too much
 		}
 */
 	}
@@ -2168,11 +2419,13 @@ namespace bvm2 {
 			{
 				RunOnce();
 
+#ifdef WASM_INTERPRETER_DEBUG
 				if (m_Dbg.m_pOut)
 				{
 					std::cout << m_Dbg.m_pOut->str();
 					m_Dbg.m_pOut->str("");
 				}
+#endif // WASM_INTERPRETER_DEBUG
 			}
 
 

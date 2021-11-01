@@ -68,7 +68,7 @@ namespace beam::wallet
         uintBigFor<BbsChannel>::Type m_Channel;
         PeerID m_Pk;
 
-        WalletID() {}
+        WalletID() = default;
         WalletID(Zero_)
             : m_Channel(Zero)
             , m_Pk(Zero)
@@ -330,6 +330,7 @@ namespace beam::wallet
     MACRO(PeerLockImage,                   115, Hash::Value) \
     MACRO(AssetMetadata,                   116, std::string)\
     MACRO(DexOrderID,                      117, DexOrderID) \
+    MACRO(ExternalDexOrderID,              118, DexOrderID) \
     MACRO(ExchangeRates,                   120, std::vector<ExchangeRate>) \
     MACRO(OriginalToken,                   121, std::string) \
     /* Lelantus */ \
@@ -338,8 +339,8 @@ namespace beam::wallet
     MACRO(ShieldedVoucherList,             124, ShieldedVoucherList) \
     MACRO(Voucher,                         125, ShieldedTxo::Voucher) \
     /* Version */ \
-    MACRO(ClientVersion,                   126, std::string) \
-    MACRO(LibraryVersion,                  127, std::string)\
+    MACRO(ClientVersion,                   126, ByteBuffer/*std::string*/) \
+    MACRO(LibraryVersion,                  127, ByteBuffer/*std::string*/) \
 
     // Ids of the transaction parameters
     enum class TxParameterID : uint8_t
@@ -575,7 +576,7 @@ namespace beam::wallet
     protected:
         wallet::TxType m_txType = wallet::TxType::AssetInfo;
     };
-    
+
     // Specifies key transaction parameters for interaction with Wallet Clients
     struct TxDescription : public TxParameters
     {
@@ -618,7 +619,7 @@ namespace beam::wallet
         [[nodiscard]] bool canCancel() const;
         [[nodiscard]] bool canDelete() const;
         [[nodiscard]] std::string getTxTypeString() const;
-        [[nodiscard]] Amount getExchangeRate(const Currency& target) const;
+        [[nodiscard]] Amount getExchangeRate(const Currency& target, beam::Asset::ID assetId = beam::Asset::s_InvalidID) const;
         [[nodiscard]] std::string getToken() const;
         [[nodiscard]] std::string getSenderIdentity() const;
         [[nodiscard]] std::string getReceiverIdentity() const;
@@ -655,13 +656,15 @@ namespace beam::wallet
 
     };
 
+    std::string interpretStatus(const TxDescription& tx);
+
     // messages
     struct SetTxParameter
     {
         WalletID m_From = Zero;
         TxID m_TxID;
 
-        TxType m_Type;
+        TxType m_Type = TxType::Simple;
 
         PackedTxParameters m_Parameters = {};
         
@@ -684,6 +687,17 @@ namespace beam::wallet
             const ByteBuffer& b = pit->second;
             fromByteBuffer(b, value);
             return true;
+        }
+
+        template <typename T>
+        T GetParameterOrDefault(TxParameterID paramID, const T& defval = T()) const
+        {
+            T val;
+            if (GetParameter(paramID, val))
+            {
+                return val;
+            }
+            return defval;
         }
 
         SERIALIZE(m_From, m_TxID, m_Type, m_Parameters);
@@ -763,7 +777,7 @@ namespace beam::wallet
     struct PaymentConfirmation : public ConfirmationBase
     {
         // I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
-        Amount m_Value;
+        Amount m_Value = 0;
         Asset::ID m_AssetID = Asset::s_InvalidID;
         ECC::Hash::Value m_KernelID;
         PeerID m_Sender;

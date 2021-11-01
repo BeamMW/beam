@@ -142,7 +142,8 @@ namespace beam::wallet
             temp.SetParameter(TxParameterID::IsSelfTx, receiverAddr->isOwn());
             return temp;
         }
-        else if (savePeerAddress)
+
+        if (savePeerAddress)
         {
             WalletAddress address;
             address.m_walletID = *peerID;
@@ -155,11 +156,12 @@ namespace beam::wallet
             {
                 address.m_Identity = *identity;
             }
-
             walletDB->saveAddress(address);
         }
-        
-        return parameters;
+
+        TxParameters temp{parameters};
+        temp.SetParameter(TxParameterID::IsSelfTx, false);
+        return temp;
     }
     
     Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
@@ -746,10 +748,12 @@ namespace beam::wallet
         {
         case TxType::VoucherRequest:
             {
+                LOG_DEBUG() << "Got voucher request!";
                 auto pKeyKeeper = m_WalletDB->get_KeyKeeper();
                 if (!pKeyKeeper                                         // We can generate the ticket with OwnerKey, but can't sign it.
-                 || !CanDetectCoins())                                  // The wallet has no ability to recognoize received shielded coin
+                 || !CanDetectCoins())                                  // The wallet has no ability to recognize received shielded coin
                 {
+                    LOG_ERROR() << "Cannot send voucher" << TRACE(pKeyKeeper) << TRACE(CanDetectCoins());
                     FailVoucherRequest(msg.m_From, myID);
                     return; 
                 }
@@ -759,6 +763,7 @@ namespace beam::wallet
 
                 if (!nCount)
                 {
+                    LOG_ERROR() << "Cannot send voucher" << TRACE(nCount);
                     FailVoucherRequest(msg.m_From, myID);
                     return; //?!
                 }
@@ -768,11 +773,11 @@ namespace beam::wallet
                     return;
 
                 auto res = GenerateVoucherList(pKeyKeeper, address->m_OwnID, nCount);
-
+                LOG_DEBUG() << "Generated voucher list, size: " << res.size();
                 SetTxParameter msgOut;
                 msgOut.m_Type = TxType::VoucherResponse;
                 msgOut.m_From = myID;
-                msgOut.AddParameter(TxParameterID::ShieldedVoucherList, std::move(res));
+                msgOut.AddParameter(TxParameterID::ShieldedVoucherList, res);
 
                 SendSpecialMsg(msg.m_From, msgOut);
 
@@ -2003,21 +2008,36 @@ namespace beam::wallet
     void Wallet::Subscribe(IWalletObserver* observer)
     {
         assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
-
         m_subscribers.push_back(observer);
-
         m_WalletDB->Subscribe(observer);
     }
 
     void Wallet::Unsubscribe(IWalletObserver* observer)
     {
         auto it = std::find(m_subscribers.begin(), m_subscribers.end(), observer);
-
         assert(it != m_subscribers.end());
-
         m_subscribers.erase(it);
-
         m_WalletDB->Unsubscribe(observer);
+    }
+
+    void Wallet::Subscribe(ISimpleSwapHandler* handler)
+    {
+        if (m_ssHandler)
+        {
+            assert(false);
+            throw std::runtime_error("Can be only one SimpleSwap handler");
+        }
+        m_ssHandler = handler;
+    }
+
+    void Wallet::Unsubscribe(ISimpleSwapHandler* handler)
+    {
+        if (m_ssHandler != handler)
+        {
+            assert(false);
+            throw std::runtime_error("Unexpected SimpleSwap unsubscribe");
+        }
+        m_ssHandler = nullptr;
     }
 
     void Wallet::OnTransactionMsg(const WalletID& myID, const SetTxParameter& msg)
@@ -2065,40 +2085,98 @@ namespace beam::wallet
             return;
         }
 
-        TxType type = TxType::Simple;
-        if (storage::getTxParameter(*m_WalletDB, msg.m_TxID, TxParameterID::TransactionType, type))
-            // we return only active transactions
-            return;
-
-        if (msg.m_Type == TxType::AtomicSwap)
-            return; // we don't create swap from SBBS message
-
-        bool isSender = false;
-        if (!msg.GetParameter(TxParameterID::IsSender, isSender) || isSender == true)
-            return;
-
-        BaseTransaction::Ptr pTx = ConstructTransaction(msg.m_TxID, msg.m_Type);
-        if (!pTx)
-            return;
-
-        pTx->SetParameter(TxParameterID::TransactionType, msg.m_Type, true);
-        pTx->SetParameter(TxParameterID::CreateTime, getTimestamp(), true); // true in order to get ChangeAction::Added
-        pTx->SetParameter(TxParameterID::MyID, myID, false);
-        pTx->SetParameter(TxParameterID::PeerID, msg.m_From, false);
-        pTx->SetParameter(TxParameterID::IsInitiator, false, false);
-        pTx->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
-
-        auto address = m_WalletDB->getAddress(myID);
-        if (address.is_initialized())
         {
-            ByteBuffer message(address->m_label.begin(), address->m_label.end());
-            pTx->SetParameter(TxParameterID::Message, message);
+            TxType type = TxType::Simple;
+            if (storage::getTxParameter(*m_WalletDB, msg.m_TxID, TxParameterID::TransactionType, type)) {
+                // This request has already been processed
+                // assert should always be OK, if triggered means that we have mistake in the code OR
+                // somebody is trying to tamper with our transactions
+                assert(type == msg.m_Type);
+                return;
+            }
         }
 
-        MakeTransactionActive(pTx);
-        ApplyTransactionParameters(pTx, msg.m_Parameters, false);
+        if (msg.m_Type == TxType::AtomicSwap)
+        {
+            // we don't create swap from SBBS message
+            return;
+        }
 
-        UpdateTransaction(pTx);
+        bool isSender = false;
+        if (!msg.GetParameter(TxParameterID::IsSender, isSender))
+        {
+            // we don't accept txs without IsSender
+            return;
+        }
+
+        if (isSender)
+        {
+            // TxParameterID::IsSender should always be false if it is coming from outside
+            assert(false);
+            return;
+        }
+
+        if (msg.m_Type == TxType::DexSimpleSwap)
+        {
+            if (m_ssHandler == nullptr)
+            {
+                LOG_WARNING() << "DexSimpleSwap tx is received but feature is disabled. " << "TxID is " << msg.m_TxID;
+                return;
+            }
+        }
+
+        if (msg.m_Type == TxType::Simple || msg.m_Type == TxType::DexSimpleSwap)
+        {
+            if (msg.m_Type == TxType::DexSimpleSwap)
+            {
+                if (!m_ssHandler->acceptIncomingDexSS(msg))
+                {
+                    // TODO:DEX create tx and fail tx with rejected reason to make the peer not wait
+                    LOG_INFO() << "Incoming DexSimpleSwap rejected. "
+                               << "DexOrderID [" << msg.GetParameterOrDefault<DexOrderID>(TxParameterID::ExternalDexOrderID) << "] "
+                               << "TxID " << msg.m_TxID;
+                    return;
+                }
+            }
+
+            auto pTx = ConstructTransaction(msg.m_TxID, msg.m_Type);
+            if (!pTx)
+            {
+                return;
+            }
+
+            pTx->SetParameter(TxParameterID::TransactionType, msg.m_Type, true);
+            pTx->SetParameter(TxParameterID::CreateTime, getTimestamp(),true);
+            pTx->SetParameter(TxParameterID::MyID, myID, false);
+            pTx->SetParameter(TxParameterID::PeerID, msg.m_From, false);
+            pTx->SetParameter(TxParameterID::IsInitiator, false, false);
+            pTx->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
+
+            auto address = m_WalletDB->getAddress(myID);
+            if (address.is_initialized())
+            {
+                ByteBuffer message(address->m_label.begin(), address->m_label.end());
+                pTx->SetParameter(TxParameterID::Message, message);
+            }
+
+            MakeTransactionActive(pTx);
+            ApplyTransactionParameters(pTx, msg.m_Parameters, false);
+            UpdateTransaction(pTx);
+
+            if (msg.m_Type == TxType::DexSimpleSwap)
+            {
+                m_ssHandler->onDexTxCreated(msg, pTx);
+                LOG_INFO() << "Incoming DexSimpleSwap accepted. TxID is " << msg.m_TxID;
+            }
+        }
+        else
+        {
+            assert(false);
+            LOG_WARNING() << "Unsupported TX Type requested via SBBS: "
+                          << " type: " << static_cast<unsigned int>(msg.m_Type)
+                          << " txid: " << msg.m_TxID;
+            return;
+        }
     }
 
     BaseTransaction::Ptr Wallet::ConstructTransaction(const TxID& id, TxType type)

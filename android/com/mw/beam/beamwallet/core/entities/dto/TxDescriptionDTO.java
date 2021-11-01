@@ -36,4 +36,10 @@ public class TxDescriptionDTO
     public boolean isMaxPrivacy;
     public boolean isShielded;
 	public int assetId;
+    public boolean isDapps;
+	public String appName;
+	public String appID;
+	public String contractCids;
+	public int minConfirmations;
+	public String minConfirmationsProgress;	
 }

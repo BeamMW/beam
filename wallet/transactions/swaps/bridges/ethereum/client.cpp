@@ -169,8 +169,9 @@ void Client::EstimateGasPrice()
 
         if (IBridge::None == error.m_type)
         {
+            const Amount coinUnits = ethereum::GetCoinUnitsMultiplier(wallet::AtomicSwapCoin::Ethereum);
             // convert from wei to gwei
-            Amount result = gasPrice / ethereum::GetCoinUnitsMultiplier(wallet::AtomicSwapCoin::Ethereum);
+            Amount result = gasPrice / coinUnits + (gasPrice % coinUnits ? 1 : 0);
 
             if (GetSettings().GetMinFeeRate() > result)
             {

@@ -1180,6 +1180,26 @@ namespace beam::wallet
 
     namespace
     {
+        void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password);
+    }
+
+    bool WalletDB::isValidPassword(const std::string& path, const SecString& password)
+    {
+        try 
+        {
+            sqlite3* db = nullptr;
+            OpenAndMigrateIfNeeded(path, &db, password);
+            return true;
+        }
+        catch (...)
+        {
+
+        }
+        return false;
+    }
+
+    namespace
+    {
         bool IsTableCreated(const WalletDB* db, const char* tableName)
         {
             std::string req = "SELECT name FROM sqlite_master WHERE type='table' AND name='";
@@ -1711,7 +1731,8 @@ namespace beam::wallet
             throwIfError(ret, *db);
             enterKey(*db, password);
             // try to decrypt
-            ret = sqlite3_exec(*db, "PRAGMA user_version;", nullptr, nullptr, nullptr);
+            auto checkKey = [&]() {return sqlite3_exec(*db, "SELECT count(*) FROM sqlite_master;", NULL, NULL, NULL); };
+            ret = checkKey();
             if (ret != SQLITE_OK)
             {
                 LOG_INFO() << "Applying PRAGMA cipher_migrate...";
@@ -1721,6 +1742,8 @@ namespace beam::wallet
                 throwIfError(ret, *db);
                 enterKey(*db, password);
                 ret = sqlite3_exec(*db, "PRAGMA cipher_migrate; ", nullptr, nullptr, nullptr);
+                throwIfError(ret, *db);
+                ret = checkKey();
                 throwIfError(ret, *db);
             }
         }
@@ -2872,27 +2895,6 @@ namespace beam::wallet
     {
         storage::setVar(*this, kMaxPrivacyLockTimeLimitHours, val);
     }
-
-    void IWalletDB::addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator)
-    {
-        m_statusInterpreterCreators[txType] = interpreterCreator;
-    }
-
-    TxStatusInterpreter::Ptr IWalletDB::getStatusInterpreter(const TxParameters& txParams) const
-    {
-        if (auto txType = txParams.GetParameter<TxType>(TxParameterID::TransactionType); txType)
-        {
-            auto it = m_statusInterpreterCreators.find(*txType);
-            if (it != m_statusInterpreterCreators.end())
-            {
-                auto creator = it->second;
-                return creator(txParams);
-            }
-        }
-
-        return std::make_shared<TxStatusInterpreter>(txParams);
-    }
-
 
     void WalletDB::selectCoins2(Height h, Amount nTrg, Asset::ID aid, std::vector<Coin>& vSelStd, std::vector<ShieldedCoin>& vSelShielded, uint32_t nMaxShielded, bool bCanReturnLess)
     {
@@ -5390,12 +5392,12 @@ namespace beam::wallet
         return messages;
     }
 
-    uint64_t WalletDB::saveWalletMessage(const OutgoingWalletMessage& message)
+    uint64_t WalletDB::saveWalletMessage(const WalletID& peerID, const Blob& msg)
     {
         const char* req = "INSERT INTO " WALLET_MESSAGE_NAME " (PeerID, Message) VALUES(?,?)";
         sqlite::Statement stm(this, req);
-        stm.bind(1, message.m_PeerID);
-        stm.bind(2, message.m_Message);
+        stm.bind(1, peerID);
+        stm.bind(2, msg);
 
         stm.step();
 
@@ -5422,7 +5424,7 @@ namespace beam::wallet
         return messages;
     }
 
-    uint64_t WalletDB::saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message)
+    uint64_t WalletDB::saveIncomingWalletMessage(BbsChannel channel, const Blob& message)
     {
         const char* req = "INSERT INTO " INCOMING_WALLET_MESSAGE_NAME " (Channel, Message) VALUES(?,?);";
         sqlite::Statement stm(this, req);
@@ -6040,6 +6042,10 @@ namespace beam::wallet
                 addressType = TxAddressType::PublicOffline;
             }
             storage::setTxParameter(db, txID, TxParameterID::AddressType, addressType, true);
+
+            bool isSelfTx = message->m_Flags & kIsSelfTxBit;
+            storage::setTxParameter(db, txID, TxParameterID::IsSelfTx, isSelfTx, true);
+            storage::setTxParameter(db, txID, TxParameterID::IsSender, isSelfTx, true);
 
             auto tx = db.getTx(txID);
             if (tx)

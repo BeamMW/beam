@@ -211,9 +211,9 @@ namespace beam::wallet
     // Describes structure of generic transaction parameter
     struct TxParameter
     {
-        TxID m_txID;
+        TxID m_txID = {};
         int m_subTxID = static_cast<int>(kDefaultSubTxID);
-        int m_paramID;
+        int m_paramID = 0;
         ByteBuffer m_value;
     };
 
@@ -340,7 +340,7 @@ namespace beam::wallet
     template<typename T>
     std::string GetCoinSpentTxID(const T& c)
     {
-        return c.m_createTxId.is_initialized() ? std::to_string(*c.m_createTxId) : "";
+        return c.m_spentTxId.is_initialized() ? std::to_string(*c.m_spentTxId) : "";
     }
 
     // Notifications for all collection changes
@@ -570,11 +570,11 @@ namespace beam::wallet
         // ///////////////////////////////
         // Message management
         virtual std::vector<OutgoingWalletMessage> getWalletMessages() const = 0;
-        virtual uint64_t saveWalletMessage(const OutgoingWalletMessage& message) = 0;
+        virtual uint64_t saveWalletMessage(const WalletID&, const Blob&) = 0;
         virtual void deleteWalletMessage(uint64_t id) = 0;
 
         virtual std::vector<IncomingWalletMessage> getIncomingWalletMessages() const = 0;
-        virtual uint64_t saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message) = 0;
+        virtual uint64_t saveIncomingWalletMessage(BbsChannel channel, const Blob& message) = 0;
         virtual void deleteIncomingWalletMessage(uint64_t id) = 0;
 
         // Assets management
@@ -609,12 +609,8 @@ namespace beam::wallet
         virtual void visitEvents(Height min, const Blob& key, std::function<bool(Height, ByteBuffer&&)>&& func) const = 0;
         virtual void visitEvents(Height min, std::function<bool(Height, ByteBuffer&&)>&& func) const = 0;
 
-        void addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator);
-        TxStatusInterpreter::Ptr getStatusInterpreter(const TxParameters& txParams) const;
-
        private:
            bool get_CommitmentSafe(ECC::Point& comm, const CoinID&, IPrivateKeyKeeper2*);
-           std::map<TxType, TxStatusInterpreter::Creator> m_statusInterpreterCreators;
     };
 
     namespace sqlite
@@ -627,6 +623,7 @@ namespace beam::wallet
     {
     public:
         static bool isInitialized(const std::string& path);
+        static bool isValidPassword(const std::string& path, const SecString& password);
         static Ptr  init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, bool separateDBForPrivateData = false);
         static Ptr  init(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&, bool separateDBForPrivateData = false);
         static Ptr  initNoKeepr(const std::string& path, const SecString& password, bool separateDBForPrivateData = false);
@@ -735,11 +732,11 @@ namespace beam::wallet
         void ShrinkHistory() override;
 
         std::vector<OutgoingWalletMessage> getWalletMessages() const override;
-        uint64_t saveWalletMessage(const OutgoingWalletMessage& message) override;
+        uint64_t saveWalletMessage(const WalletID&, const Blob&) override;
         void deleteWalletMessage(uint64_t id) override;
 
         std::vector<IncomingWalletMessage> getIncomingWalletMessages() const override;
-        uint64_t saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message) override;
+        uint64_t saveIncomingWalletMessage(BbsChannel channel, const Blob& message) override;
         void deleteIncomingWalletMessage(uint64_t id) override;
 
         void saveAsset(const Asset::Full& info, Height refreshHeight) override;

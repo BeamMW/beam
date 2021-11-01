@@ -174,6 +174,8 @@ namespace bvm2 {
 		m_vHeap.clear();
 
 		m_DataProcessor.m_Map.Clear();
+		m_Secp.m_Point.m_Map.Clear();
+		m_Secp.m_Scalar.m_Map.Clear();
 	}
 
 	void ProcessorContract::InitStackPlus(uint32_t nStackBytes)
@@ -239,7 +241,7 @@ namespace bvm2 {
 		FarCalls::Frame* pPrev = bInheritContext ? &m_FarCalls.m_Stack.back() : nullptr;
 
 		auto& x = *m_FarCalls.m_Stack.Create_back();
-
+		x.m_Local.m_Missing = 0;
 		x.m_Cid = cid;
 		x.m_FarRetAddr = nRetAddr;
 		x.m_StackBytesMax = m_Stack.m_BytesMax;
@@ -266,27 +268,86 @@ namespace bvm2 {
 
 	void ProcessorContract::OnRet(Wasm::Word nRetAddr)
 	{
-		if (!nRetAddr)
+		auto& x = m_FarCalls.m_Stack.back();
+		if (x.m_Local.m_Missing)
+			x.m_Local.m_Missing--;
+		else
 		{
-			Wasm::Test(m_Stack.m_Pos == m_Stack.m_PosMin);
-
-			auto& x = m_FarCalls.m_Stack.back();
-			Wasm::Test(m_Stack.m_BytesCurrent == x.m_StackBytesRet);
-
-			nRetAddr = x.m_FarRetAddr;
-
-			m_Stack.m_PosMin = x.m_StackPosMin;
-			m_Stack.m_BytesMax = x.m_StackBytesMax;
-
-			m_FarCalls.m_Stack.Delete(x);
-			if (m_FarCalls.m_Stack.empty())
-				return; // finished
-
-			m_Code = m_FarCalls.m_Stack.back().m_Body;
-			ParseMod(); // restore code/data sections
+			if (!x.m_Local.m_v.empty())
+				x.m_Local.m_v.pop_back();
 		}
 
-		Processor::OnRet(nRetAddr);
+		if (nRetAddr)
+			Processor::OnRet(nRetAddr);
+		else
+			OnRetFar();
+	}
+
+	void ProcessorContract::OnRetFar()
+	{
+		Wasm::Test(m_Stack.m_Pos == m_Stack.m_PosMin);
+
+		auto& x = m_FarCalls.m_Stack.back();
+		Wasm::Test(m_Stack.m_BytesCurrent == x.m_StackBytesRet);
+
+		Wasm::Word nRetAddr = x.m_FarRetAddr;
+
+		m_Stack.m_PosMin = x.m_StackPosMin;
+		m_Stack.m_BytesMax = x.m_StackBytesMax;
+
+		m_FarCalls.m_Stack.Delete(x);
+
+		if (!m_FarCalls.m_Stack.empty())
+		{
+			m_Code = m_FarCalls.m_Stack.back().m_Body;
+			ParseMod(); // restore code/data sections
+
+			Processor::OnRet(nRetAddr);
+		}
+	}
+
+	void ProcessorContract::OnCall(Wasm::Word nAddr)
+	{
+		if (m_FarCalls.m_SaveLocal)
+		{
+			auto& x = m_FarCalls.m_Stack.back();
+			if (x.m_Local.m_v.size() < x.m_Local.s_MaxEntries)
+			{
+				bool bWasEmpty = x.m_Local.m_v.empty();
+
+				auto& fl = x.m_Local.m_v.emplace_back();
+				fl.m_Addr = nAddr;
+				fl.m_CallerIp = bWasEmpty ? x.m_FarRetAddr : get_Ip();
+			}
+			else
+				x.m_Local.m_Missing++;
+		}
+
+		Processor::OnCall(nAddr);
+	}
+
+	void ProcessorContract::DumpCallstack(std::ostream& os) const
+	{
+		Wasm::Word ip = get_Ip();
+
+		for (auto itF = m_FarCalls.m_Stack.rbegin(); m_FarCalls.m_Stack.rend() != itF; itF++)
+		{
+			const auto& fr = *itF;
+
+			bvm2::ShaderID sid;
+			bvm2::get_ShaderID(sid, fr.m_Body); // theoretically m_Body may be different, the contract code may modify itself. Never mind.
+
+			os << std::endl << "Cid=" << fr.m_Cid << ", Sid=" << sid;
+
+			for (uint32_t i = (uint32_t) fr.m_Local.m_v.size(); i--; )
+			{
+				const auto& x = fr.m_Local.m_v[i];
+
+				os << std::endl << "Ip=" << uintBigFrom(x.m_Addr) << "+" << uintBigFrom(ip - x.m_Addr);
+				ip = x.m_CallerIp;
+			}
+
+		}
 	}
 
 	uint32_t ProcessorContract::get_HeapLimit()
@@ -609,10 +670,15 @@ namespace bvm2 {
 #define PAR_ASSIGN(type, name) args.m_##name =
 #define PAR_DUMP(type, name) << "," #name "=" << LogFrom(m_##name.V)
 
+#ifdef WASM_INTERPRETER_DEBUG
+#	define WASM_LOG_EXTCALL(name) if (m_Dbg.m_ExtCall) *m_Dbg.m_pOut << "  " #name << std::endl;
+#else // WASM_INTERPRETER_DEBUG
+#	define WASM_LOG_EXTCALL(name)
+#endif // WASM_INTERPRETER_DEBUG
+
 #define THE_MACRO(id, ret, name) \
 		case id: { \
-			if (m_Dbg.m_ExtCall) \
-				*m_Dbg.m_pOut << "  " #name << std::endl; \
+			WASM_LOG_EXTCALL(name) \
 			struct Args :public Wasm::Checkpoint { \
 				BVMOp_##name(PAR_DECL, MACRO_NOP) \
 				RetType_##name Call(TProcessor& me) const { return me.OnMethod_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); } \
@@ -790,6 +856,16 @@ namespace bvm2 {
 #define BVM_METHOD_HOST_AUTO(name) BVM_METHOD_HOST(name)  { return BVM_METHOD_AUTO_INVOKE(name); }
 
 #define BVM_METHOD_VIA_HOST(name) BVM_METHOD(name) { return OnHost_##name(BVMOp_##name(BVM_METHOD_PAR_PASS_TO_HOST, MACRO_COMMA)); }
+
+	BVM_METHOD(Write)
+	{
+		OnHost_Write(get_AddrR(pData, nData), nData, iStream);
+	}
+	BVM_METHOD_HOST(Write)
+	{
+		if (nData)
+			WriteStream(Blob(pData, nData), iStream);
+	}
 
 	BVM_METHOD(Memcpy)
 	{
@@ -1224,9 +1300,10 @@ namespace bvm2 {
 				pArgs = m_Stack.get_AlasSp();
 		}
 
+		auto nDepth = m_FarCalls.m_Stack.size(); // see if depth increases. If it doesn't - the call was hijacked, performed natively. No need to adjust m_BytesMax
 		CallFar(get_AddrAsR<ContractID>(cid), iMethod, pArgs, bInheritContext);
 
-		if (!bInheritContext)
+		if (!bInheritContext && (m_FarCalls.m_Stack.size() > nDepth))
 			m_Stack.m_BytesMax = nCalleeStackMax;
 	}
 	BVM_METHOD_HOST(CallFar)
@@ -1275,10 +1352,10 @@ namespace bvm2 {
 		DischargeUnits(Limits::Cost::UpdateShader + Limits::Cost::SaveVarPerByte * nVal);
 
 		const auto& cid = m_FarCalls.m_Stack.back().m_Cid;
-		AddRemoveShader(cid, nullptr);
+		AddRemoveShader(cid, nullptr, false);
 
 		Blob blob(pVal, nVal);
-		AddRemoveShader(cid, &blob);
+		AddRemoveShader(cid, &blob, true);
 	}
 
 	BVM_METHOD(Halt)
@@ -1537,6 +1614,11 @@ namespace bvm2 {
 			{
 				ECC::Hash::Processor(m_Hp) >> hv;
 			}
+			virtual void Clone(std::unique_ptr<Base>& pOut) const override
+			{
+				pOut = std::make_unique<Sha256>();
+				Cast::Up<Sha256>(*pOut).m_Hp = m_Hp;
+			}
 		};
 
 		struct Blake2b
@@ -1554,6 +1636,11 @@ namespace bvm2 {
 				auto s = m_B2b; // copy
 				return s.Read(p, n);
 			}
+			virtual void Clone(std::unique_ptr<Base>& pOut) const override
+			{
+				pOut = std::make_unique<Blake2b>();
+				Cast::Up<Blake2b>(*pOut).m_B2b = m_B2b;
+			}
 		};
 
 		template <uint32_t nBits>
@@ -1570,6 +1657,11 @@ namespace bvm2 {
 			virtual void Read(uintBig_t<nBits/8>& hv) override
 			{
 				m_State.Read(hv.m_pData);
+			}
+			virtual void Clone(std::unique_ptr<Base>& pOut) const override
+			{
+				pOut = std::make_unique<Keccak>();
+				Cast::Up<Keccak>(*pOut).m_State = m_State;
 			}
 		};
 
@@ -1599,6 +1691,13 @@ namespace bvm2 {
 		m_DataProcessor.m_Map.insert(*p.release());
 
 		return ret;
+	}
+
+	uint32_t Processor::CloneHash(const DataProcessor::Base& x)
+	{
+		std::unique_ptr<DataProcessor::Base> pHash;
+		x.Clone(pHash);
+		return AddHash(std::move(pHash));
 	}
 
 	BVM_METHOD(HashCreateSha256)
@@ -1686,6 +1785,19 @@ namespace bvm2 {
 	BVM_METHOD_HOST(HashFree)
 	{
 		m_DataProcessor.m_Map.Delete(m_DataProcessor.FindStrict(pHash));
+	}
+
+	BVM_METHOD(HashClone)
+	{
+		if (Kind::Contract == get_Kind())
+			Wasm::Test(IsPastHF4());
+
+		return CloneHash(m_DataProcessor.FindStrict(pHash));
+	}
+	BVM_METHOD_HOST(HashClone)
+	{
+		auto val = CloneHash(m_DataProcessor.FindStrict(pHash));
+		return val ? reinterpret_cast<HashObj*>(static_cast<size_t>(val)) : nullptr;
 	}
 
 	/////////////////////////////////////////////
@@ -2370,15 +2482,33 @@ namespace bvm2 {
 		return nRet;
 	}
 
+	void ProcessorManager::DerivePkInternal(ECC::Point::Native& res, const Blob& b)
+	{
+		ECC::Hash::Value hv;
+		DeriveKeyPreimage(hv, b);
+
+		Wasm::Test(m_pPKdf != nullptr);
+		m_pPKdf->DerivePKeyG(res, hv);
+	}
+
 	BVM_METHOD(DerivePk)
 	{
 		return OnHost_DerivePk(get_AddrAsW<PubKey>(pubKey), get_AddrR(pID, nID), nID);
 	}
 	BVM_METHOD_HOST(DerivePk)
 	{
-		ECC::Hash::Value hv;
-		DeriveKeyPreimage(hv, Blob(pID, nID));
-		DerivePk(pubKey, hv);
+		ECC::Point::Native pt;
+		DerivePkInternal(pt, Blob(pID, nID));
+		pt.Export(pubKey);
+	}
+
+	BVM_METHOD(get_Pk)
+	{
+		DerivePkInternal(m_Secp.m_Point.FindStrict(res).m_Val, Blob(get_AddrR(pID, nID), nID));
+	}
+	BVM_METHOD_HOST(get_Pk)
+	{
+		DerivePkInternal(m_Secp.m_Point.FindStrict(Secp::Point::From(res)).m_Val, Blob(pID, nID));
 	}
 
 	void ProcessorManager::DeriveKeyPreimage(ECC::Hash::Value& hv, const Blob& b)
@@ -2387,6 +2517,122 @@ namespace bvm2 {
 			<< "bvm.m.key"
 			<< b
 			>> hv;
+	}
+
+	BVM_METHOD(get_PkEx)
+	{
+		ECC::Hash::Value hv;
+		DeriveKeyPreimage(hv, Blob(get_AddrR(pID, nID), nID));
+		get_DH_Internal(res, hv, gen);
+	}
+	BVM_METHOD_HOST(get_PkEx)
+	{
+		ECC::Hash::Value hv;
+		DeriveKeyPreimage(hv, Blob(pID, nID));
+		get_DH_Internal(Secp::Point::From(res), hv, Secp::Point::From(gen));
+	}
+
+	BVM_METHOD(get_SlotImage)
+	{
+		ECC::Hash::Value hv;
+		get_SlotPreimageInternal(hv, iSlot);
+
+		Wasm::Test(m_pPKdf != nullptr);
+		m_pPKdf->DerivePKeyG(m_Secp.m_Point.FindStrict(res).m_Val, hv);
+
+	}
+	BVM_METHOD_HOST_AUTO(get_SlotImage)
+
+	void ProcessorManager::get_DH_Internal(uint32_t res, const ECC::Hash::Value& hv, uint32_t gen)
+	{
+		Wasm::Test(m_pKdf != nullptr);
+		ECC::Scalar::Native sk;
+		m_pKdf->DeriveKey(sk, hv);
+
+		// careful: res and gen may not be distinct
+		ECC::Point::Native pt = m_Secp.m_Point.FindStrict(gen).m_Val * sk;
+		m_Secp.m_Point.FindStrict(res).m_Val = pt;
+	}
+
+	BVM_METHOD(get_SlotImageEx)
+	{
+		ECC::Hash::Value hv;
+		get_SlotPreimageInternal(hv, iSlot);
+
+		get_DH_Internal(res, hv, gen);
+	}
+	BVM_METHOD_HOST_AUTO(get_SlotImageEx)
+
+	BVM_METHOD(SlotInit)
+	{
+		OnHost_SlotInit(get_AddrR(pExtraSeed, nExtraSeed), nExtraSeed, iSlot);
+	}
+
+	BVM_METHOD_HOST(SlotInit)
+	{
+		Wasm::Test(iSlot < Shaders::s_NonceSlots);
+
+		ECC::Hash::Value hv;
+		SlotRenegerateInternal(hv, iSlot, pExtraSeed, nExtraSeed);
+	}
+
+	BVM_METHOD(get_BlindSk)
+	{
+		get_BlindSkInternal(res, mul, iSlot, Blob(get_AddrR(pID, nID), nID));
+	}
+	BVM_METHOD_HOST(get_BlindSk)
+	{
+		get_BlindSkInternal(Secp::Scalar::From(res), Secp::Scalar::From(mul), iSlot, Blob(pID, nID));
+	}
+
+	void ProcessorManager::get_SlotPreimageInternal(ECC::Hash::Value& hv, uint32_t iSlot)
+	{
+		Wasm::Test(iSlot < Shaders::s_NonceSlots);
+
+		if (!SlotLoad(hv, iSlot))
+			SlotRenegerateInternal(hv, iSlot, nullptr, 0);
+	}
+
+	void ProcessorManager::SlotRenegerateInternal(ECC::Hash::Value& hvRes, uint32_t iSlot, const void* pSeedExtra, uint32_t nSeedExtra)
+	{
+		ECC::GenRandom(hvRes);
+
+		if (nSeedExtra)
+		{
+			ECC::Hash::Processor()
+				<< "bvm.slot.seed"
+				<< Blob(pSeedExtra, nSeedExtra)
+				<< hvRes
+				>> hvRes;
+		}
+
+		SlotSave(hvRes, iSlot);
+	}
+
+	void ProcessorManager::get_Sk(ECC::Scalar::Native& sk, const ECC::Hash::Value& hv)
+	{
+		Wasm::Test(m_pKdf != nullptr);
+		m_pKdf->DeriveKey(sk, hv);
+	}
+
+	void ProcessorManager::get_BlindSkInternal(uint32_t iRes, uint32_t iMul, uint32_t iSlot, const Blob& b)
+	{
+		ECC::Hash::Value hv;
+		DeriveKeyPreimage(hv, b);
+
+		// careful, iRes, iMul don't have to be distinct
+		ECC::Scalar::Native sk;
+		get_Sk(sk, hv);
+
+		sk *= m_Secp.m_Scalar.FindStrict(iMul).m_Val;
+
+		get_SlotPreimageInternal(hv, iSlot);
+		SlotErase(iSlot); // important!
+
+		auto& res = m_Secp.m_Scalar.FindStrict(iRes).m_Val;
+
+		get_Sk(res, hv);
+		res += sk;
 	}
 
 	uint8_t* ProcessorManager::ResizeAux(uint32_t nSize)
@@ -2649,10 +2895,11 @@ namespace bvm2 {
 		};
 #pragma pack (pop)
 
-		auto* pSig_ = get_ArrayAddrAsR<SigRequest>(pSig, nSig);
+		const FundsChange* pFunds_ = get_ArrayAddrAsR<FundsChange>(pFunds, nFunds);
+		auto& v = GenerateKernel(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, iMethod, Blob(get_AddrR(pArg, nArg), nArg), pFunds_, nFunds, true, RealizeStr(szComment), nCharge);
 
-		std::vector<ECC::Hash::Value> vPreimages;
-		vPreimages.reserve(nSig);
+		auto* pSig_ = get_ArrayAddrAsR<SigRequest>(pSig, nSig);
+		v.m_vSig.reserve(nSig);
 
 		for (uint32_t i = 0; i < nSig; i++)
 		{
@@ -2660,32 +2907,207 @@ namespace bvm2 {
 			SigRequest x;
 			x.m_pID = Wasm::from_wasm(x_.m_pID);
 			x.m_nID = Wasm::from_wasm(x_.m_nID);
-			DeriveKeyPreimage(vPreimages.emplace_back(), Blob(get_AddrR(x.m_pID, x.m_nID), x.m_nID));
+			DeriveKeyPreimage(v.m_vSig.emplace_back(), Blob(get_AddrR(x.m_pID, x.m_nID), x.m_nID));
 		}
 
-		FundsChange* pFunds_ = Cast::NotConst(get_ArrayAddrAsR<FundsChange>(pFunds, nFunds));
-		for (uint32_t i = 0; i < nFunds; i++)
-			pFunds_[i].Convert<true>();
-
-		Wasm::Test(pCid || !iMethod); // only c'tor can be invoked without cid
-
-		GenerateKernel(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, iMethod, Blob(get_AddrR(pArg, nArg), nArg), pFunds_, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig, RealizeStr(szComment), nCharge);
-
-		for (uint32_t i = 0; i < nFunds; i++)
-			pFunds_[i].Convert<false>();
 	}
 	BVM_METHOD_HOST(GenerateKernel)
 	{
-		std::vector<ECC::Hash::Value> vPreimages;
-		vPreimages.reserve(nSig);
+		auto& v = GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, false, szComment, nCharge);
+
+		v.m_vSig.reserve(nSig);
 
 		for (uint32_t i = 0; i < nSig; i++)
 		{
 			const auto& x = pSig[i];
-			DeriveKeyPreimage(vPreimages.emplace_back(), Blob(x.m_pID, x.m_nID));
+			DeriveKeyPreimage(v.m_vSig.emplace_back(), Blob(x.m_pID, x.m_nID));
+		}
+	}
+
+	ContractInvokeEntry& ProcessorManager::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, bool bCvtFunds, const char* szComment, uint32_t nCharge)
+	{
+		Wasm::Test(nCharge != ContractInvokeEntry::s_ChargeAdv);
+
+		auto& v = m_vInvokeData.emplace_back();
+
+		if (iMethod)
+		{
+			Wasm::Test(pCid != nullptr); // only c'tor can be invoked without cid
+			v.m_Cid = *pCid;
+		}
+		else
+		{
+			v.m_Cid = Zero;
+			get_ContractShader(v.m_Data);
 		}
 
-		GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig, szComment, nCharge);
+		v.m_iMethod = iMethod;
+		args.Export(v.m_Args);
+		v.m_sComment = szComment;
+		v.m_Charge = nCharge;
+
+		for (uint32_t i = 0; i < nFunds; i++)
+		{
+			auto x = pFunds[i];
+			if (bCvtFunds)
+				x.Convert<false>();
+
+			AmountSigned val = x.m_Amount;
+			if (!x.m_Consume)
+				val = -val;
+
+			v.m_Spend.AddSpend(x.m_Aid, val);
+		}
+
+		return v;
+	}
+
+	void ProcessorManager::SetKernelAdv(Height hMin, Height hMax, const PubKey& ptFullBlind, const PubKey& ptFullNonce, const ECC::Scalar& skForeignSig, uint32_t iSlotBlind, uint32_t iSlotNonce, const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE)
+	{
+		assert(!m_vInvokeData.empty());
+		auto& v = m_vInvokeData.back();
+
+		v.m_Adv.m_Height.m_Min = hMin;
+		v.m_Adv.m_Height.m_Max = hMax;
+
+		v.m_Adv.m_Fee = v.get_FeeMin(hMin);
+		v.m_Charge = v.s_ChargeAdv;
+
+		// add fees for possible tx outputs
+		{
+			uint32_t nPossibleOutputs = static_cast<uint32_t>(v.m_Spend.size());
+			if (v.m_Spend.find(0) == v.m_Spend.end())
+				nPossibleOutputs++; // assume always Beam output, even though not directly tx in/out
+
+			const auto& fs = Transaction::FeeSettings::get(hMin);
+			v.m_Adv.m_Fee += std::max(fs.get_DefaultStd(), fs.m_Output * nPossibleOutputs);
+		}
+
+		Key::IKdf* pKdf = nullptr;
+		ECC::Hash::Value hvNonce;
+
+
+		if (!pE)
+		{
+			Wasm::Test(m_pKdf != nullptr);
+			pKdf = m_pKdf.get();
+
+			get_SlotPreimageInternal(v.m_Adv.m_hvSk, iSlotBlind);
+			SlotErase(iSlotBlind);
+
+			get_SlotPreimageInternal(hvNonce, iSlotNonce);
+			SlotErase(iSlotNonce);
+		}
+
+		v.GenerateAdv(pKdf, pE, ptFullBlind, ptFullNonce, &hvNonce, &skForeignSig, pSig, nSig);
+
+		if (pE)
+			m_vInvokeData.pop_back(); // no more needed
+	}
+
+	BVM_METHOD(GenerateKernelAdvanced)
+	{
+		const FundsChange* pFunds_ = get_ArrayAddrAsR<FundsChange>(pFunds, nFunds);
+		GenerateKernel(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, iMethod, Blob(get_AddrR(pArg, nArg), nArg), pFunds_, nFunds, true, RealizeStr(szComment), nCharge);
+
+		const PubKey* pSig_ = get_ArrayAddrAsR<PubKey>(pSig, nSig);
+		ECC::Scalar* pE = pChallenges ? get_ArrayAddrAsW<ECC::Scalar>(pChallenges, nSig) : nullptr;
+
+		SetKernelAdv(hMin, hMax,  get_AddrAsR<PubKey>(ptFullBlind), get_AddrAsR<PubKey>(ptFullNonce), get_AddrAsR<ECC::Scalar>(skForeignSig), iSlotBlind, iSlotNonce, pSig_, nSig, pE);
+	}
+
+	BVM_METHOD_HOST(GenerateKernelAdvanced)
+	{
+		GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, false, szComment, nCharge);
+		SetKernelAdv(hMin, hMax, ptFullBlind, ptFullNonce, skForeignSig, iSlotBlind, iSlotNonce, pSig, nSig, pChallenges);
+	}
+
+	BVM_METHOD(GenerateRandom)
+	{
+		OnHost_GenerateRandom(get_AddrW(pBuf, nSize), nSize);
+	}
+	BVM_METHOD_HOST(GenerateRandom)
+	{
+		ECC::GenRandom(pBuf, nSize);
+	}
+
+	BVM_METHOD(Comm_Listen)
+	{
+		OnHost_Comm_Listen(get_AddrR(pID, nID), nID, nCookie);
+	}
+	BVM_METHOD_HOST(Comm_Listen)
+	{
+		auto it = m_Comms.m_Map.find(nCookie, Comm::Channel::Comparator());
+		if (m_Comms.m_Map.end() == it)
+		{
+			if (nID)
+			{
+				ECC::Hash::Value hv;
+				DeriveKeyPreimage(hv, Blob(pID, nID));
+
+				Comm::Channel::Ptr pCh;
+				Comm_CreateListener(pCh, hv);
+
+				if (pCh)
+				{
+					pCh->m_Key = nCookie;
+					m_Comms.m_Map.insert(*pCh.release());
+				}
+			}
+		}
+		else
+		{
+			Wasm::Test(!nID);
+			m_Comms.m_Map.Delete(*it);
+		}
+	}
+	BVM_METHOD(Comm_Send)
+	{
+		OnHost_Comm_Send(get_AddrAsR<PubKey>(pkRemote), get_AddrR(pBuf, nSize), nSize);
+	}
+	BVM_METHOD_HOST(Comm_Send)
+	{
+		Comm_Send(pkRemote, Blob(pBuf, nSize));
+	}
+	BVM_METHOD(Comm_Read)
+	{
+		uint32_t* pCookie_ = pCookie ? &get_AddrAsW<uint32_t>(pCookie) : nullptr;
+		auto nRet = OnHost_Comm_Read(get_AddrW(pBuf, nSize), nSize, pCookie_, bKeep);
+
+		if (nRet && pCookie_)
+			*pCookie_ = Wasm::to_wasm(*pCookie_);
+
+		return nRet;
+	}
+	BVM_METHOD_HOST(Comm_Read)
+	{
+		if (m_Comms.m_Rcv.empty())
+			return 0;
+
+		auto& x = m_Comms.m_Rcv.front().get_ParentObj();
+
+		uint32_t nRet = static_cast<uint32_t>(x.m_Msg.size());
+		if (nRet)
+			memcpy(pBuf, &x.m_Msg.front(), std::min(nRet, nSize));
+
+		auto& c = *x.m_pChannel;
+		if (pCookie)
+			*pCookie = c.m_Key;
+
+		if (!bKeep)
+			c.m_List.Delete(x);
+
+		return nRet;
+	}
+
+	BVM_METHOD(Comm_WaitMsg)
+	{
+		return OnHost_Comm_WaitMsg(nTimeout_ms);
+	}
+	BVM_METHOD_HOST(Comm_WaitMsg)
+	{
+		if (m_Comms.m_Rcv.empty())
+			Comm_Wait(nTimeout_ms);
 	}
 
 #undef BVM_METHOD_BinaryVar
@@ -2873,6 +3295,11 @@ namespace bvm2 {
 	// Shader aux
 	void ProcessorContract::AddRemoveShader(const ContractID& cid, const Blob* pCode)
 	{
+		AddRemoveShader(cid, pCode, IsPastHF4());
+	}
+
+	void ProcessorContract::AddRemoveShader(const ContractID& cid, const Blob* pCode, bool bFireEvent)
+	{
 		ShaderID sid;
 
 		if (pCode)
@@ -2890,6 +3317,15 @@ namespace bvm2 {
 		}
 
 		ToggleSidEntry(sid, cid, !!pCode);
+
+		if (bFireEvent)
+		{
+			VarKey vk;
+			vk.Set(cid);
+
+			vk.Append(VarKey::Tag::ShaderChange, Blob(nullptr, 0));
+			OnLog(vk.ToBlob(), pCode ? Blob(sid) : Blob(nullptr, 0));
+		}
 	}
 
 	void ProcessorContract::ToggleSidEntry(const ShaderID& sid, const ContractID& cid, bool bSet)

@@ -229,7 +229,7 @@ namespace beam::wallet::lelantus
 
     void UnlinkFundsTransaction::CreateInsertTransaction()
     {
-        PushTransaction::Creator creator(GetWalletDB());
+        PushTransaction::Creator creator([this]() {return GetWalletDB(); });
         BaseTransaction::Creator& baseCreator = creator;
 
         struct PushTxGateway : public UnlinkTxBaseGateway

@@ -50,7 +50,8 @@ namespace beam::wallet
             }
 
             ECC::Scalar::Native m_sk; // private addr
-            Timestamp m_ExpirationTime;
+            Timestamp m_ExpirationTime = 0;
+            IHandler* m_pHandler = nullptr;
         };
     public:
         BaseMessageEndpoint(IWalletMessageConsumer&, const IWalletDB::Ptr&);
@@ -71,7 +72,8 @@ namespace beam::wallet
 
         // IWalletMessageEndpoint
         void Send(const WalletID& peerID, const SetTxParameter& msg) override;
-        void Listen(const WalletID&, const ECC::Scalar::Native&) override;
+        void Send(const WalletID& peerID, const Blob&) override;
+        void Listen(const WalletID&, const ECC::Scalar::Native&, IHandler*) override;
         void Unlisten(const WalletID&) override;
         void OnAddressTimer();
         

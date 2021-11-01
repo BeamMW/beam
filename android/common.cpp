@@ -29,6 +29,7 @@ jclass ExchangeRateClass = 0;
 jclass VersionInfoClass = 0;
 jclass TransactionParametersClass = 0;
 jclass AssetInfoClass = 0;
+jclass ContractConsetClass = 0;
 
 namespace
 {

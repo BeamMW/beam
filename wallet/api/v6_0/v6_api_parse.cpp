@@ -143,7 +143,7 @@ namespace beam::wallet
 
     void GetStatusResponseJson(const TxDescription& tx,
         json& msg,
-        Height txHeight,
+        Height txProofHeight,
         Height systemHeight,
         bool showIdentities = false)
     {
@@ -200,15 +200,19 @@ namespace beam::wallet
             {"status_string", statusInterpreter ? statusInterpreter->getStatus() : "unknown"},
             {"sender", tx.getAddressFrom()},
             {"receiver", tx.getAddressTo()},
-            {"value", tx.m_amount},
             {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
             {"create_time", tx.m_createTime},
-            {"asset_id", tx.m_assetId},
             {"tx_type", tx.m_txType},
             {"tx_type_string", tx.getTxTypeString()}
         };
 
-        if (tx.m_txType != TxType::AtomicSwap)
+        if (tx.m_txType != TxType::Contract)
+        {
+            msg["asset_id"] = tx.m_assetId;
+            msg["value"] = tx.m_amount;
+        }
+
+        if (tx.m_txType != TxType::AtomicSwap && tx.m_txType != TxType::Contract)
         {
             msg["fee"] = tx.m_fee;
             msg["income"] = !tx.m_sender;
@@ -221,26 +225,48 @@ namespace beam::wallet
 
         if (tx.m_txType == TxType::Contract)
         {
+            msg["fee"] = tx.m_fee;
+
             beam::bvm2::ContractInvokeData vData;
             if (tx.GetParameter(TxParameterID::ContractDataPacked, vData))
             {
+                msg["fee"] = bvm2::getFullFee(vData, txProofHeight ? txProofHeight : tx.m_minHeight);
+
+                bool isIncome = true;
+                bool isFeeOnly = true;
                 for (const auto& data : vData)
                 {
-                    auto ivdata = json {
-                       {"contract_id", data.m_Cid.str()}
-                    };
-                    msg["invoke_data"].push_back(ivdata);
+                    auto amounts = json::array();
+                    for(const auto& info: data.m_Spend)
+                    {
+                        isFeeOnly = false;
+                        if (info.second > 0)
+                        {
+                            isIncome = false;
+                        }
+                        amounts.push_back(json{
+                            {"asset_id", info.first},
+                            {"amount", info.second}
+                        });
+                    }
+
+                    msg["invoke_data"].push_back(json {
+                         {"contract_id", data.m_Cid.str()},
+                         {"amounts", amounts}
+                    });
                 }
+
+                msg["fee_only"] = isFeeOnly;
+                msg["income"] = isFeeOnly ? false : isIncome;
             }
         }
 
-        if (txHeight > 0)
+        if (txProofHeight > 0)
         {
-            msg["height"] = txHeight;
-
-            if (systemHeight >= txHeight)
+            msg["height"] = txProofHeight;
+            if (systemHeight >= txProofHeight)
             {
-                msg["confirmations"] = systemHeight - txHeight;
+                msg["confirmations"] = systemHeight - txProofHeight;
             }
         }
 
@@ -565,7 +591,7 @@ namespace beam::wallet
 
         auto assetId = split.assetId ? *split.assetId : beam::Asset::s_BeamID;
         info.appendSpend(assetId, splitAmount);
-        info.appendSpend(assetId, splitAmount);
+        info.appendReceive(assetId, splitAmount);
         info.fee = split.fee;
 
         return std::make_pair(split, info);
@@ -1194,7 +1220,7 @@ namespace beam::wallet
             {"result", {}}
         };
 
-        GetStatusResponseJson(res.tx, msg["result"], res.txHeight, res.systemHeight, true);
+        GetStatusResponseJson(res.tx, msg["result"], res.txProofHeight, res.systemHeight, true);
     }
 
     void V6Api::getResponse(const JsonRpcId& id, const Split::Response& res, json& msg)
@@ -1239,7 +1265,7 @@ namespace beam::wallet
             GetStatusResponseJson(
                 resItem.tx,
                 item,
-                resItem.txHeight,
+                resItem.txProofHeight,
                 resItem.systemHeight,
                 true);
             arr.push_back(item);

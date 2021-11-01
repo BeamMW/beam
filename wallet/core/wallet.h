@@ -88,6 +88,13 @@ namespace beam::wallet
         // @param connected - true if node has connected otherwise false
         virtual void onOwnedNode(const PeerID& id, bool connected) {}
     };
+
+    struct ISimpleSwapHandler
+    {
+        // Callback on DexSimpleSwapTx received from peer
+        virtual bool acceptIncomingDexSS(const SetTxParameter& msg) {return false;}
+        virtual void onDexTxCreated(const SetTxParameter& msg, BaseTransaction::Ptr) {}
+    };
     
     // Interface for wallet message consumer
     struct IWalletMessageConsumer
@@ -100,10 +107,15 @@ namespace beam::wallet
     // Used as a base for SBBS and Cold walelt endpoints
     struct IWalletMessageEndpoint
     {
+        struct IHandler {
+            virtual void OnMsg(const Blob&) = 0;
+        };
+
         using Ptr = std::shared_ptr<IWalletMessageEndpoint>;
         virtual void Send(const WalletID& peerID, const SetTxParameter& msg) = 0;
+        virtual void Send(const WalletID& peerID, const Blob&) {}
         virtual void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) = 0;
-        virtual void Listen(const WalletID&, const ECC::Scalar::Native& sk) {}
+        virtual void Listen(const WalletID&, const ECC::Scalar::Native& sk, IHandler* = nullptr) {}
         virtual void Unlisten(const WalletID&) {}
     };
 
@@ -149,6 +161,8 @@ namespace beam::wallet
         
         void Subscribe(IWalletObserver* observer);
         void Unsubscribe(IWalletObserver* observer);
+        void Subscribe(ISimpleSwapHandler*);
+        void Unsubscribe(ISimpleSwapHandler*);
         void ResumeAllTransactions();
         void VisitActiveTransaction(const TxVisitor& visitor);
 
@@ -166,6 +180,10 @@ namespace beam::wallet
         bool CanDetectCoins() const;
         void EnableBodyRequests(bool value);
         void assertThread() const; // throws if not in wallet thread
+
+        const std::set<IWalletMessageEndpoint::Ptr>& get_MessageEndpoints() const {
+            return m_MessageEndpoints;
+        }
 
     protected:
         void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
@@ -455,6 +473,7 @@ namespace beam::wallet
         uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;
+        ISimpleSwapHandler* m_ssHandler = nullptr;
 
         // Counter of running transaction updates. Used by Cold wallet
         int m_AsyncUpdateCounter = 0;

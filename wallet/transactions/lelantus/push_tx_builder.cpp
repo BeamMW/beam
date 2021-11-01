@@ -128,6 +128,15 @@ namespace beam::wallet::lelantus
         // store receiver's own ID to allow it to restore the address
         GetParameter(TxParameterID::PeerOwnID, packedMessage->m_ReceiverOwnID);
 
+        // store flags
+        uint8_t flags = 0;
+        bool is_selfTx = false;
+        GetParameter(TxParameterID::IsSelfTx, is_selfTx);
+        if (is_selfTx)
+            flags = flags | kIsSelfTxBit;
+
+        packedMessage->m_Flags = flags;
+
         ShieldedTxo::Viewer viewer;
         viewer.FromOwner(*m_Tx.GetWalletDB()->get_OwnerKdf(), 0);
 

@@ -33,6 +33,7 @@ public:
 
 private:
     void doFunction(const std::function<void()>& func);
+    std::string getConfirmationProgress(beam::wallet::TxDescription transaction, uint32_t minConfirmations);
 
     void onStatus(const beam::wallet::WalletStatus& status) override;
     void onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>& items) override;
