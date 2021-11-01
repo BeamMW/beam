@@ -1159,7 +1159,7 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(isSynced)(JNIEnv *env, job
 }
 
 
-JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionRate)(JNIEnv *env, jobject thiz, jstring txId, jint currencyId)
+JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionRate)(JNIEnv *env, jobject thiz, jstring txId, jint currencyId, jlong assetId)
 {
     auto buffer = from_hex(JString(env, txId).value());
     TxID id;
@@ -1177,7 +1177,7 @@ JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionRate)(JNIEnv *e
 
     if (auto transaction = walletDB->getTx(id))
     {
-        auto rate = transaction->getExchangeRate(currency, transaction->m_assetId);
+        auto rate = transaction->getExchangeRate(currency, assetId);
         return rate;
     }
 
