@@ -498,7 +498,7 @@ namespace beam::wallet
 
     void Wallet::RequestHandler::OnComplete(Request& r)
     {
-        uint32_t n = get_ParentObj().SyncRemains();
+        auto n = get_ParentObj().SyncRemains();
 
         switch (r.get_Type())
         {
@@ -1416,6 +1416,10 @@ namespace beam::wallet
         if (!IsMobileNodeEnabled())
             return;
 
+        Block::SystemState::Full tip;
+        get_tip(tip);
+        m_RequestedBlocks = tip.m_Height;
+
         if (!storage::isTreasuryHandled(*m_WalletDB))
         {
             RequestTreasury();
@@ -1425,6 +1429,7 @@ namespace beam::wallet
             Height nextEvent = GetEventsHeightNext();
             if (nextEvent) 
             {
+                m_RequestedBlocks -= nextEvent - 1;
                 RequestBodies(nextEvent - 1, nextEvent);
             }
             else
@@ -1592,7 +1597,7 @@ namespace beam::wallet
         storage::setNextEventHeight(*m_WalletDB, h + 1); // we're actually saving the next
     }
 
-    Height Wallet::GetEventsHeightNext()
+    Height Wallet::GetEventsHeightNext() const
     {
         return storage::getNextEventHeight(*m_WalletDB);
     }
@@ -1876,7 +1881,7 @@ namespace beam::wallet
         PostReqUnique(*pReq);
     }
 
-    uint32_t Wallet::SyncRemains() const
+    size_t Wallet::SyncRemains() const
     {
         size_t val =
 #define THE_MACRO(type) m_Pending##type.size() +
@@ -1884,7 +1889,21 @@ namespace beam::wallet
 #undef THE_MACRO
             0;
 
-        return static_cast<uint32_t>(val);
+        if (m_RequestedBlocks)
+        {
+            Block::SystemState::Full tip;
+            get_tip(tip);
+            auto h = GetEventsHeightNext();
+            val += tip.m_Height - h;
+            if (h)
+                val += 1;
+        }
+        return val;
+    }
+
+    size_t Wallet::GetSyncTotal() const
+    {
+        return m_LastSyncTotal + m_RequestedBlocks;
     }
 
     void Wallet::CheckSyncDone()
@@ -1959,12 +1978,12 @@ namespace beam::wallet
 
     void Wallet::NotifySyncProgress()
     {
-        uint32_t n = SyncRemains();
-        int total = m_LastSyncTotal;
-        int done = m_LastSyncTotal - n;
+        auto n = SyncRemains();
+        auto total = GetSyncTotal();
+        auto done = total - n;
         for (const auto sub : m_subscribers)
         {
-            sub->onSyncProgress(done, total);
+            sub->onSyncProgress(static_cast<int>(done), static_cast<int>(total));
         }
     }
 
@@ -1972,11 +1991,11 @@ namespace beam::wallet
     {
         if (!m_LastSyncTotal)
             return;
-
-        uint32_t nDone = m_LastSyncTotal - SyncRemains();
-        assert(nDone <= m_LastSyncTotal);
-        int p = static_cast<int>((nDone * 100) / m_LastSyncTotal);
-        LOG_INFO() << "Synchronizing with node: " << p << "% (" << nDone << "/" << m_LastSyncTotal << ")";
+        auto total = GetSyncTotal();
+        auto nDone = total - SyncRemains();
+        assert(nDone <= total);
+        int p = static_cast<int>((nDone * 100) / total);
+        LOG_INFO() << "Synchronizing with node: " << p << "% (" << nDone << "/" << total << ")";
 
         NotifySyncProgress();
     }
