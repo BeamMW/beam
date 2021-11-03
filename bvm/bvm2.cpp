@@ -2973,16 +2973,6 @@ namespace bvm2 {
 		v.m_Adv.m_Fee = v.get_FeeMin(hMin);
 		v.m_Charge = v.s_ChargeAdv;
 
-		// add fees for possible tx outputs
-		{
-			uint32_t nPossibleOutputs = static_cast<uint32_t>(v.m_Spend.size());
-			if (v.m_Spend.find(0) == v.m_Spend.end())
-				nPossibleOutputs++; // assume always Beam output, even though not directly tx in/out
-
-			const auto& fs = Transaction::FeeSettings::get(hMin);
-			v.m_Adv.m_Fee += std::max(fs.get_DefaultStd(), fs.m_Output * nPossibleOutputs);
-		}
-
 		Key::IKdf* pKdf = nullptr;
 		ECC::Hash::Value hvNonce;
 

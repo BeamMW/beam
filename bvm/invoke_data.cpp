@@ -204,13 +204,22 @@ namespace beam::bvm2 {
 		if (IsAdvanced())
 			return m_Adv.m_Fee;
 
+		TxStats s;
+		s.m_Kernels++;
+		s.m_KernelsNonStd++;
+		s.m_Contract++;
+		s.m_ContractSizeExtra += static_cast<uint32_t>(m_Args.size() + m_Data.size());
+
+		s.m_Outputs += (uint32_t) m_Spend.size();
+		if (m_Spend.end() == m_Spend.find(0))
+			s.m_Outputs++; // assume we have always beam output (either direct output or change).
+
 		const auto& fs = Transaction::FeeSettings::get(h);
 
-		Amount ret = std::max(fs.m_Bvm.m_ChargeUnitPrice * m_Charge, fs.m_Bvm.m_Minimum);
+		Amount ret = fs.Calculate(s); // accounts for contract kernel size, but not charge
+		std::setmax(ret, fs.get_DefaultStd()); // round up to std fee
 
-		auto nSizeExtra = static_cast<uint32_t>(m_Args.size() + m_Data.size());
-		if (nSizeExtra > fs.m_Bvm.m_ExtraSizeFree)
-			ret += fs.m_Bvm.m_ExtraBytePrice * (nSizeExtra - fs.m_Bvm.m_ExtraSizeFree);
+		ret += fs.CalculateForBvm(s, m_Charge); // accounts for charge, adds at least min contract exec fee
 
 		return ret;
 	}
@@ -253,7 +262,7 @@ namespace beam::bvm2 {
 
     beam::Amount getFullFee(const ContractInvokeData& data, Height h)
     {
-        auto fee = Transaction::FeeSettings::get(h).get_DefaultStd();
+        Amount fee = 0;
         for (const auto& cdata: data)
         {
             fee += cdata.get_FeeMin(h);
