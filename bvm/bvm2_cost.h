@@ -25,7 +25,6 @@ struct ChargeFor {
 struct Cost
 {
 	static const uint32_t Cycle				= ChargeFor<20*1000*1000>::V;
-	static const uint32_t MemOp				= ChargeFor<2*1000*1000>::V;
 	static const uint32_t MemOpPerByte		= ChargeFor<50*1000*1000>::V;
 	static const uint32_t HeapOp			= ChargeFor<1000*1000>::V;
 	static const uint32_t LoadVar			= ChargeFor<20*1000>::V;

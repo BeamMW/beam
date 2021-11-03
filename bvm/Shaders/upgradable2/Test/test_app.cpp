@@ -90,7 +90,9 @@ ON_METHOD(manager, deploy_contract)
     if (!ManagerUpgadable2::FillDeployArgs(arg, &pk))
         return;
 
-    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Deploy testo contract", 0);
+    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Deploy testo contract",
+        ManagerUpgadable2::get_ChargeDeploy() +
+        Env::Cost::SaveVar_For(sizeof(Upgradable2::Test::State)));
 }
 
 ON_METHOD(manager, schedule_upgrade)

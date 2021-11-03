@@ -147,6 +147,25 @@ struct ManagerUpgadable2
 		return true;
 	}
 
+	static const uint32_t get_ChargeInvoke()
+	{
+		return
+			Env::Cost::LoadVar_For(sizeof(Upgradable2::State)) +
+			Env::Cost::CallFar * 2 +
+			Env::Cost::Cycle * 50;
+	}
+
+	static const uint32_t get_ChargeDeploy()
+	{
+		return
+			Env::Cost::CallFar * 2 +
+			Env::Cost::SaveVar_For(sizeof(Upgradable2::State)) +
+			Env::Cost::SaveVar_For(sizeof(Upgradable2::Settings)) +
+			Env::Cost::Refs +
+			Env::Cost::MemOpPerByte * (sizeof(Upgradable2::State) + sizeof(Upgradable2::Settings) + sizeof(Upgradable2::Active)) +
+			Env::Cost::Cycle * 150;
+	}
+
 	struct Walker
 	{
 		struct VerInfo
@@ -351,10 +370,15 @@ struct ManagerUpgadable2
 		Secp_scalar_data m_pE[Upgradable2::Settings::s_AdminsMax];
 		uint32_t m_nPks;
 
+		uint32_t m_Charge =
+			Env::Cost::CallFar +
+			Env::Cost::LoadVar_For(sizeof(Upgradable2::Settings)) +
+			Env::Cost::Cycle * (300 + 20 * Upgradable2::Settings::s_AdminsMax);
+
 		void InvokeKrn(const Secp_scalar_data& kSig, Secp_scalar_data* pE)
 		{
 			Env::GenerateKernelAdvanced(
-				m_pCid, m_iMethod, m_pArg, m_nArg, nullptr, 0, m_pPks, m_nPks, m_szComment, 0,
+				m_pCid, m_iMethod, m_pArg, m_nArg, nullptr, 0, m_pPks, m_nPks, m_szComment, m_Charge,
 				m_Msg2.m_hMin, m_Msg2.m_hMin + s_dh, m_Msg2.m_pkKrnBlind, m_Msg2.m_pkFullNonce, kSig, s_iSlotKrnBlind, s_iSlotKrnNonce, pE);
 		}
 
@@ -396,6 +420,8 @@ struct ManagerUpgadable2
 			{
 				if (InMask(msk, i))
 				{
+					m_Charge += Env::Cost::AddSig;
+
 					const PubKey& pk = stg.m_pAdmin[i];
 					if (_POD_(pk).IsZero())
 						return OnError("some approvers aren't valid");
@@ -579,6 +605,10 @@ struct ManagerUpgadable2
 			msp.m_pCid = &cid;
 			msp.m_Kid = kid;
 
+			msp.m_Charge +=
+				Env::Cost::LoadVar_For(sizeof(Upgradable2::State)) +
+				Env::Cost::SaveVar_For(sizeof(Upgradable2::State));
+
 			msp.Perform();
 		}
 
@@ -596,6 +626,9 @@ struct ManagerUpgadable2
 			msp.m_pCid = &cid;
 			msp.m_Kid = kid;
 
+			msp.m_Charge +=
+				Env::Cost::SaveVar_For(sizeof(Upgradable2::Settings));
+
 			msp.Perform();
 		}
 
@@ -612,10 +645,13 @@ struct ManagerUpgadable2
 			msp.m_pCid = &cid;
 			msp.m_Kid = kid;
 
+			msp.m_Charge +=
+				Env::Cost::SaveVar_For(sizeof(Upgradable2::Settings));
+
 			msp.Perform();
 		}
 
-		static void Perform_ExplicitUpgrade(const ContractID& cid)
+		static void Perform_ExplicitUpgrade(const ContractID& cid, uint32_t nChargeExtra = 0)
 		{
 			Upgradable2::State s;
 			if (!ReadState(s, cid))
@@ -624,9 +660,15 @@ struct ManagerUpgadable2
 			if (s.m_Next.m_hTarget > Env::get_Height())
 				return OnError("too early");
 
+			nChargeExtra +=
+				get_ChargeInvoke() +
+				Env::Cost::SaveVar_For(sizeof(Upgradable2::State)) +
+				Env::Cost::Refs * 2 + // release old, grab new
+				Env::Cost::MemOpPerByte * sizeof(Upgradable2::Active) * 2 +
+				Env::Cost::Cycle * 300; // other stuff
 
 			Upgradable2::Control::ExplicitUpgrade arg;
-			Env::GenerateKernel(&cid, Upgradable2::Control::s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Upgradable2 explicit upgrade", 0);
+			Env::GenerateKernel(&cid, Upgradable2::Control::s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Upgradable2 explicit upgrade", nChargeExtra);
 		}
 	};
 
