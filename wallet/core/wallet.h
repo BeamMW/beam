@@ -213,7 +213,8 @@ namespace beam::wallet
             IMPLEMENT_GET_PARENT_OBJ(Wallet, m_RequestHandler)
         } m_RequestHandler;
 
-        uint32_t SyncRemains() const;
+        size_t SyncRemains() const;
+        size_t GetSyncTotal() const;
         void CheckSyncDone();
         void getUtxoProof(const Coin&);
         void ReportSyncProgress();
@@ -235,7 +236,7 @@ namespace beam::wallet
         void ProcessEventUtxo(const CoinID&, Height h, Height hMaturity, bool bAdd, const Output::User& user);
         void ProcessEventAsset(const proto::Event::AssetCtl& assetCtl, Height h);
         void SetEventsHeight(Height);
-        Height GetEventsHeightNext();
+        Height GetEventsHeightNext() const;
         void ProcessEventShieldedUtxo(const proto::Event::Shielded& shieldedEvt, Height h);
         void RequestStateSummary();
 
@@ -451,7 +452,8 @@ namespace beam::wallet
         UpdateCompletedAction m_UpdateCompleted;
 
         // Number of tasks running during sync with Node
-        uint32_t m_LastSyncTotal;
+        size_t m_LastSyncTotal;
+        size_t m_RequestedBlocks = 0;
         uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;
