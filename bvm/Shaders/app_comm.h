@@ -14,6 +14,10 @@
 
 #pragma once
 
+namespace Env {
+#include "../bvm2_cost.h"
+} // namespace Env
+
 struct Comm
 {
     class Channel
