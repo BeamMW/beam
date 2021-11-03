@@ -2218,7 +2218,11 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint3
     if (!CalculateFeeReserve(ctx.m_Stats, ctx.m_Height, ctx.m_Stats.m_Fee, nBvmCharge, feeReserve))
     {
         if (pExtraInfo)
-            *pExtraInfo << "Low fee";
+        {
+            *pExtraInfo << "Low fee. Min = " << feeReserve << ", provided = " << AmountBig::get_Lo(ctx.m_Stats.m_Fee);
+            if (nBvmCharge)
+                *pExtraInfo << ", Bvm charge = " << nBvmCharge;
+        }
         return proto::TxStatus::LowFee;
     }
 
@@ -2240,7 +2244,10 @@ bool Node::CalculateFeeReserve(const TxStats& s, const HeightRange& hr, const Am
         AmountBig::Type val(feesMin);
 
         if (fees < val)
+        {
+            feeReserve = feesMin;
             return false;
+        }
 
         val.Negate();
         val += fees;
