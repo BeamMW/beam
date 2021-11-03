@@ -2353,7 +2353,9 @@ namespace beam::wallet
 
     bool Wallet::IsMobileNodeEnabled() const
     {
-        return !m_OwnedNodesOnline && (m_IsBodyRequestsEnabled || storage::needToRequestBodies(*m_WalletDB));
+        return !m_OwnedNodesOnline
+            && (m_IsBodyRequestsEnabled || storage::needToRequestBodies(*m_WalletDB))
+            && !!m_WalletDB->get_MasterKdf();
     }
 
     void Wallet::assertThread() const

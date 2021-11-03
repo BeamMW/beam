@@ -75,9 +75,9 @@ namespace
         EM_ASM
         (
             FS.syncfs(false, function()
-        {
-            console.log("wallet created!");
-        });
+            {
+                console.log("wallet created!");
+            });
         );
         return db;
     }
@@ -163,6 +163,19 @@ public:
         return getWalletDB();
     }
 
+    void SetHeadless(bool headless)
+    {
+        postFunctionToClientContext([this, sp = shared_from_this(), headless]()
+        {
+            m_Headless = headless;
+        });
+    }
+
+    bool IsHeadless() const
+    {
+        return m_Headless;
+    }
+
 private:
     void onSyncProgressUpdated(int done, int total) override
     {
@@ -239,6 +252,7 @@ private:
     ICallbackHandler* m_CbHandler = nullptr;
     Callback m_StoppedHandler;
     IWalletApi::Ptr m_WalletApi;
+    bool m_Headless = true;
 };
 
 class AppAPICallback
@@ -397,11 +411,12 @@ public:
 
         try
         {
-            auto dbFunc = [path = m_DbPath, pass = m_Pass, dbPtr = std::make_shared<WalletDB::Ptr>()]()
+            auto dbFunc = [clientPtr=&m_Client, path = m_DbPath, pass = m_Pass, dbPtr = std::make_shared<WalletDB::Ptr>()]()
             {
                 if (!*dbPtr)
                 {
                     *dbPtr = OpenWallet(path, pass);
+                    (*clientPtr)->SetHeadless(!!(*dbPtr)->get_MasterKdf());
                 }
                 return *dbPtr;
             };
@@ -588,6 +603,12 @@ public:
         return m_Client && m_Client->isRunning();
     }
 
+    bool IsHeadless() const
+    {
+        AssertMainThread();
+        return m_Client && m_Client->IsHeadless();
+    }
+
     static bool IsAppSupported(const std::string& apiver, const std::string& apivermin)
     {
         return beam::wallet::IsAppSupported(apiver, apivermin);
@@ -641,6 +662,29 @@ public:
         try
         {
             CreateDatabase(seed, dbName, pass);
+        }
+        catch (const std::exception& ex)
+        {
+            HandleException(ex);
+        }
+    }
+
+    static void CreateHeadlessWallet(const std::string& dbName, const std::string& pass)
+    {
+        AssertMainThread();
+        EnsureFSMounted();
+        try
+        {
+            auto r = io::Reactor::create();
+            io::Reactor::Scope scope(*r);
+            WalletDB::initNoKeeper(dbName, SecString(pass));
+            EM_ASM
+            (
+                FS.syncfs(false, function()
+                {
+                    console.log("headless wallet created!");
+                });
+            );
         }
         catch (const std::exception& ex)
         {
@@ -776,6 +820,7 @@ EMSCRIPTEN_BINDINGS()
         .function("startWallet", &WasmWalletClient::StartWallet)
         .function("stopWallet", &WasmWalletClient::StopWallet)
         .function("isRunning", &WasmWalletClient::IsRunning)
+        .function("isHeadless", &WasmWalletClient::IsHeadless)
         .function("sendRequest", &WasmWalletClient::ExecuteAPIRequest)
         .function("subscribe", &WasmWalletClient::Subscribe)
         .function("unsubscribe", &WasmWalletClient::Unsubscribe)
@@ -791,6 +836,7 @@ EMSCRIPTEN_BINDINGS()
         .class_function("ConvertTokenToJson", &WasmWalletClient::ConvertTokenToJson)
         .class_function("ConvertJsonToToken", &WasmWalletClient::ConvertJsonToToken)
         .class_function("CreateWallet", &WasmWalletClient::CreateWallet)
+        .class_function("CreateHeadlessWallet", &WasmWalletClient::CreateHeadlessWallet)
         .class_function("MountFS", &WasmWalletClient::MountFS)
         .class_function("DeleteWallet", &WasmWalletClient::DeleteWallet)
         .class_function("IsInitialized", &WasmWalletClient::IsInitialized)

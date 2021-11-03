@@ -2063,7 +2063,7 @@ namespace beam::wallet
         }
     }
 
-    IWalletDB::Ptr WalletDB::initNoKeepr(const std::string& path, const SecString& password, bool separateDBForPrivateData)
+    IWalletDB::Ptr WalletDB::initNoKeeper(const std::string& path, const SecString& password, bool separateDBForPrivateData)
     {
         return initBase(path, password, separateDBForPrivateData);
     }
@@ -2421,7 +2421,7 @@ namespace beam::wallet
                 ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
                 bool bHadOwnerKey = storage::getVar(*walletDB, OwnerKey, packedOwnerKey.V);
 
-                if (pKeyKeeper || !bHadOwnerKey)
+                if (pKeyKeeper)
                 {
                     walletDB->m_pKeyKeeper = pKeyKeeper;
                     walletDB->FromKeyKeeper();
@@ -2438,14 +2438,24 @@ namespace beam::wallet
                     else
                         walletDB->storeOwnerKey();
                 }
-                else
+                else if (bHadOwnerKey)
                 {
-                    assert(bHadOwnerKey);
                     // Read-only wallet.
                     walletDB->m_pKdfOwner = std::make_shared<ECC::HKdfPub>();
                     Cast::Up<ECC::HKdfPub>(*walletDB->m_pKdfOwner).Import(packedOwnerKey.V);
                 }
-
+                else // Headless wallet. Generate dummy owner kdf
+                {
+                    ECC::HKdf kdf;
+                    ECC::Scalar::Native sk;
+                    ECC::Scalar s;
+                    sk.GenRandomNnz();
+                    sk.Export(s);
+                    kdf.Generate(s.m_Value);
+                    auto pubKdf = std::make_shared<ECC::HKdfPub>();
+                    pubKdf->GenerateFrom(kdf);
+                    walletDB->m_pKdfOwner = pubKdf;
+                }
             }
         }
         walletDB->getVarRaw(COIN_CONFIRMATIONS_COUNT, &walletDB->m_coinConfirmationsOffset, sizeof(uint32_t));
