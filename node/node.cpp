@@ -2207,16 +2207,16 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint3
         return proto::TxStatus::Invalid;
     }
 
-    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false, nSizeCorrection, pExtraInfo);
+    uint32_t nBvmCharge = 0;
+    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false, nBvmCharge, pExtraInfo);
     if (proto::TxStatus::Ok != nCode)
         return nCode;
 
-    if (nSizeCorrection) {
-        // convert charge to effective size correction
-        nSizeCorrection = (uint32_t) (((uint64_t) nSizeCorrection) * Rules::get().MaxBodySize / bvm2::Limits::BlockCharge);
-    }
+    // convert charge to effective size correction
+    nSizeCorrection = (uint32_t) (((uint64_t) nBvmCharge) * Rules::get().MaxBodySize / bvm2::Limits::BlockCharge);
 
-    if (!CalculateFeeReserve(ctx.m_Stats, ctx.m_Height, ctx.m_Stats.m_Fee, nSizeCorrection, feeReserve)) {
+    if (!CalculateFeeReserve(ctx.m_Stats, ctx.m_Height, ctx.m_Stats.m_Fee, nBvmCharge, feeReserve))
+    {
         if (pExtraInfo)
             *pExtraInfo << "Low fee";
         return proto::TxStatus::LowFee;
