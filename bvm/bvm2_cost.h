@@ -50,4 +50,23 @@ struct Cost
 	static const uint32_t Secp_Point_Multiply	= ChargeFor<2*1000>::V;
 
 	static const uint32_t BeamHashIII		= ChargeFor<20*1000>::V;
+
+	static const uint32_t Refs = LoadVar + SaveVar;
+
+	static uint32_t LoadVar_For(uint32_t nValSize) {
+		return Cost::LoadVar + Cost::LoadVarPerByte * nValSize;
+	}
+
+	static uint32_t SaveVar_For(uint32_t nValSize) {
+		return Cost::SaveVar + Cost::SaveVarPerByte * nValSize;
+	}
+
+	static uint32_t Log_For(uint32_t nValSize) {
+		return Cost::Log + Cost::LogPerByte * nValSize;
+	}
+
+	static uint32_t UpdateShader_For(uint32_t nValSize) {
+		return Cost::UpdateShader + Cost::SaveVarPerByte * nValSize;
+	}
+
 };

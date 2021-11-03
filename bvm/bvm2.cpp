@@ -1220,7 +1220,7 @@ namespace bvm2 {
 	{
 		uint32_t ret = OnHost_LoadVar(get_AddrR(pKey, nKey), nKey, get_AddrW(pVal, nVal), nVal, nType);
 
-		DischargeUnits(Limits::Cost::LoadVar + Limits::Cost::LoadVarPerByte * std::min(nVal, ret));
+		DischargeUnits(Limits::Cost::LoadVar_For(std::min(nVal, ret)));
 
 		return ret;
 	}
@@ -1238,7 +1238,7 @@ namespace bvm2 {
 
 	BVM_METHOD(SaveVar)
 	{
-		DischargeUnits(Limits::Cost::SaveVar + Limits::Cost::SaveVarPerByte * nVal);
+		DischargeUnits(Limits::Cost::SaveVar_For(nVal));
 		return OnHost_SaveVar(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal, nType);
 	}
 	BVM_METHOD_HOST(SaveVar)
@@ -1253,7 +1253,7 @@ namespace bvm2 {
 
 	BVM_METHOD(EmitLog)
 	{
-		DischargeUnits(Limits::Cost::Log + Limits::Cost::LogPerByte * nVal);
+		DischargeUnits(Limits::Cost::Log_For(nVal));
 		return OnHost_EmitLog(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal, nType);
 	}
 	BVM_METHOD_HOST(EmitLog)
@@ -1349,7 +1349,7 @@ namespace bvm2 {
 		Wasm::Test(IsPastHF4());
 
 		TestVarSize(nVal);
-		DischargeUnits(Limits::Cost::UpdateShader + Limits::Cost::SaveVarPerByte * nVal);
+		DischargeUnits(Limits::Cost::UpdateShader_For(nVal));
 
 		const auto& cid = m_FarCalls.m_Stack.back().m_Cid;
 		AddRemoveShader(cid, nullptr, false);
@@ -1404,7 +1404,7 @@ namespace bvm2 {
 
 	BVM_METHOD(RefAdd)
 	{
-		DischargeUnits(Limits::Cost::SaveVar + Limits::Cost::LoadVar);
+		DischargeUnits(Limits::Cost::Refs);
 		return OnHost_RefAdd(get_AddrAsR<ContractID>(cid));
 	}
 	BVM_METHOD_HOST(RefAdd)
@@ -1414,7 +1414,7 @@ namespace bvm2 {
 
 	BVM_METHOD(RefRelease)
 	{
-		DischargeUnits(Limits::Cost::SaveVar + Limits::Cost::LoadVar);
+		DischargeUnits(Limits::Cost::Refs);
 		return OnHost_RefRelease(get_AddrAsR<ContractID>(cid));
 	}
 	BVM_METHOD_HOST(RefRelease)
