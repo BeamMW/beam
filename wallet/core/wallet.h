@@ -214,6 +214,7 @@ namespace beam::wallet
         } m_RequestHandler;
 
         size_t SyncRemains() const;
+        size_t GetSyncDone() const;
         size_t GetSyncTotal() const;
         void CheckSyncDone();
         void getUtxoProof(const Coin&);
@@ -454,6 +455,7 @@ namespace beam::wallet
         // Number of tasks running during sync with Node
         size_t m_LastSyncTotal;
         size_t m_RequestedBlocks = 0;
+        size_t m_BlocksDone = 0;
         uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;

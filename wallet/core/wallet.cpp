@@ -1377,6 +1377,7 @@ namespace beam::wallet
         PreprocessBlock(block);
         recognizer.Recognize(block, h, 0, false);
         SetEventsHeight(h);
+        ++m_BlocksDone;
     }
 
     void Wallet::PreprocessBlock(TxVectors::Full& block)
@@ -1416,10 +1417,10 @@ namespace beam::wallet
 
         Block::SystemState::Full tip;
         get_tip(tip);
-        m_RequestedBlocks = tip.m_Height;
 
         if (!storage::isTreasuryHandled(*m_WalletDB))
         {
+            m_RequestedBlocks = tip.m_Height;
             RequestTreasury();
         }
         else
@@ -1427,13 +1428,22 @@ namespace beam::wallet
             Height nextEvent = GetEventsHeightNext();
             if (nextEvent) 
             {
-                m_RequestedBlocks -= nextEvent - 1;
-                RequestBodies(nextEvent - 1, nextEvent);
+                --nextEvent;
+                if (!m_RequestedBlocks)
+                {
+                    m_RequestedBlocks = tip.m_Height - nextEvent;
+                }
+                else
+                {
+                    // new tip
+                    ++m_RequestedBlocks;
+                }
             }
             else
             {
-                RequestBodies(nextEvent, nextEvent + 1);
+                m_RequestedBlocks = tip.m_Height;
             }
+            RequestBodies(nextEvent, nextEvent + 1);
         }
     }
 
@@ -1887,16 +1897,19 @@ namespace beam::wallet
 #undef THE_MACRO
             0;
 
-        if (m_RequestedBlocks)
-        {
-            Block::SystemState::Full tip;
-            get_tip(tip);
-            auto h = GetEventsHeightNext();
-            val += tip.m_Height - h;
-            if (h)
-                val += 1;
-        }
         return val;
+    }
+
+    size_t Wallet::GetSyncDone() const
+    {
+        auto val = SyncRemains();
+        if (val)
+        {
+            val += m_BlocksDone;
+        }
+        auto total = GetSyncTotal();
+        assert(val <= total);
+        return total - val;
     }
 
     size_t Wallet::GetSyncTotal() const
@@ -1912,6 +1925,8 @@ namespace beam::wallet
             return;
 
         m_LastSyncTotal = 0;
+        m_RequestedBlocks = 0;
+        m_BlocksDone = 0;
 
         SaveKnownState();
     }
@@ -1976,9 +1991,8 @@ namespace beam::wallet
 
     void Wallet::NotifySyncProgress()
     {
-        auto n = SyncRemains();
         auto total = GetSyncTotal();
-        auto done = total - n;
+        auto done = GetSyncDone();
         for (const auto sub : m_subscribers)
         {
             sub->onSyncProgress(static_cast<int>(done), static_cast<int>(total));
@@ -1990,10 +2004,10 @@ namespace beam::wallet
         if (!m_LastSyncTotal)
             return;
         auto total = GetSyncTotal();
-        auto nDone = total - SyncRemains();
-        assert(nDone <= total);
-        int p = static_cast<int>((nDone * 100) / total);
-        LOG_INFO() << "Synchronizing with node: " << p << "% (" << nDone << "/" << total << ")";
+        auto done = GetSyncDone();
+        assert(done <= total);
+        int p = static_cast<int>((done * 100) / total);
+        LOG_INFO() << "Synchronizing with node: " << p << "% (" << done << "/" << total << ")";
 
         NotifySyncProgress();
     }
