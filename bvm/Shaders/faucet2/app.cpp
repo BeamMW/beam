@@ -160,6 +160,8 @@ ON_METHOD(user, view_params)
 
         uint32_t bEqual = _POD_(s.m_Params.m_pkAdmin) == pk;
         Env::DocAddNum("isAdmin", bEqual);
+
+        Env::DocAddNum("enabled", (uint32_t) s.m_Enabled);
     }
 
     Height h = std::max(Env::get_Height(), s.m_Epoch.m_Height);
