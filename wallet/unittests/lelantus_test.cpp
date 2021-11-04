@@ -1468,8 +1468,8 @@ int main()
 
     auto testAll = []()
     {
-        //TestRestoreInterruption();
-        //TestTreasuryRestore();
+        TestRestoreInterruption();
+        TestTreasuryRestore();
         TestSimpleTx();
         TestMaxPrivacyTx();
         TestPublicAddressTx();
