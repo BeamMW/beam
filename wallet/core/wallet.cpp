@@ -1907,10 +1907,7 @@ namespace beam::wallet
         auto val = SyncRemains();
         assert(val <= m_LastSyncTotal);
         size_t done = m_LastSyncTotal - val;
-        if (val)
-        {
-            done += m_BlocksDone;
-        }
+        done += m_BlocksDone;
         return done;
     }
 
