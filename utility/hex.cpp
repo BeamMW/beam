@@ -41,7 +41,7 @@ namespace beam
     char* to_hex(char* dst, const void* bytes, size_t size)
     {
         to_hex_impl(dst, bytes, size);
-        *(dst + size) = '\0';
+        *(dst + size * 2) = '\0';
         return dst;
     }
 
