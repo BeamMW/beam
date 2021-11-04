@@ -1903,13 +1903,13 @@ namespace beam::wallet
     size_t Wallet::GetSyncDone() const
     {
         auto val = SyncRemains();
+        assert(val <= m_LastSyncTotal);
+        size_t done = m_LastSyncTotal - val;
         if (val)
         {
-            val += m_BlocksDone;
+            done += m_BlocksDone;
         }
-        auto total = GetSyncTotal();
-        assert(val <= total);
-        return total - val;
+        return done;
     }
 
     size_t Wallet::GetSyncTotal() const
@@ -1993,6 +1993,7 @@ namespace beam::wallet
     {
         auto total = GetSyncTotal();
         auto done = GetSyncDone();
+        assert(done <= total);
         for (const auto sub : m_subscribers)
         {
             sub->onSyncProgress(static_cast<int>(done), static_cast<int>(total));
