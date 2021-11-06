@@ -10,12 +10,13 @@ namespace Liquity
     struct Tags
     {
         static const uint8_t s_State = 0;
-        static const uint8_t s_Trove = 1;
+        // don't use taag=1 for multiple data entries, it's used by Upgradable2
         static const uint8_t s_Epoch_Redist = 2;
         static const uint8_t s_Epoch_Stable = 3;
         static const uint8_t s_Balance = 4;
         static const uint8_t s_StabPool = 5;
-        static const uint8_t s_ProfitPool = 5;
+        static const uint8_t s_ProfitPool = 6;
+        static const uint8_t s_Trove = 7;
     };
 
     typedef MultiPrecision::Float Float;
@@ -60,7 +61,7 @@ namespace Liquity
 
     typedef Pair_T<Flow> FlowPair;
 
-    typedef StaticPool<Amount, Amount, 2> ProfitPool;
+    typedef StaticPool<Amount, Amount, 1> ProfitPool;
 
     struct Balance
     {
@@ -320,7 +321,7 @@ namespace Liquity
 
         struct Create
         {
-            static const uint32_t s_iMethod = 2;
+            static const uint32_t s_iMethod = 0;
             Settings m_Settings;
         };
 
@@ -364,7 +365,7 @@ namespace Liquity
             Amount m_NewAmount;
         };
 
-        struct EnforceLiquidatation :public BaseTxUser
+        struct Liquidate :public BaseTxUser
         {
             static const uint32_t s_iMethod = 8;
             uint32_t m_Count;
@@ -375,6 +376,14 @@ namespace Liquity
         {
             static const uint32_t s_iMethod = 9;
             Amount m_NewAmount;
+        };
+
+        struct Redeem :public BaseTxUser
+        {
+            static const uint32_t s_iMethod = 10;
+            Amount m_Amount;
+            uint32_t m_Count;
+            // followed by array of Trove::ID
         };
 
     } // namespace Method

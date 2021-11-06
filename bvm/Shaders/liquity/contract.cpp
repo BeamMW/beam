@@ -192,11 +192,10 @@ struct MyGlobal
         {
             UpdateBaseRate();
 
-            Amount fee = m_kBaseRate * Float(fpTotals.Tok.m_Val);
-            fee = std::min(fee, fpTotals.Tok.m_Val);
+            Amount fee = m_kBaseRate * Float(fpTotals.Tok.m_Val) / price.m_Value;
 
             m_ProfitPool.AddValue(fee, 0);
-            fpLogic.Tok.Add(fee, 1);
+            fpLogic.Col.Add(fee, 1);
         }
 
         AdjustAll(r, fpTotals, fpLogic, t.m_pkOwner); // will invoke AddSig
@@ -486,7 +485,7 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
     g.AdjustTxBank(fpLogic, r, r.m_pkUser);
 }
 
-BEAM_EXPORT void Method_8(Method::EnforceLiquidatation& r)
+BEAM_EXPORT void Method_8(Method::Liquidate& r)
 {
     MyGlobal_LoadSave g;
 
@@ -514,14 +513,14 @@ BEAM_EXPORT void Method_8(Method::EnforceLiquidatation& r)
 
         fpTotals.Tok.Add(t.m_Amounts.Tok, 1); // all debt would be burned, unless redist pool is used
         fpTotals.Col.Add(t.m_Amounts.Col, 0);
+        Env::DelVar_T(tk);
 
         assert(t.m_Amounts.Tok >= g.m_Settings.m_TroveLiquidationReserve);
 
         Amount valBurn = g.get_LiquidationRewardReduce(icr);
         assert(valBurn < g.m_Settings.m_TroveLiquidationReserve);
-        Amount valReward = g.m_Settings.m_TroveLiquidationReserve - valBurn;
 
-        fpLogic.Tok.Add(valReward, 0); // goes to the liquidator
+        fpLogic.Tok.Add(g.m_Settings.m_TroveLiquidationReserve - valBurn, 0); // part of the reward, goes to the liquidator
         t.m_Amounts.Tok -= valBurn; // goes as a 'discount' for the stab pool
 
         if (icr > Global::Price::get_k100())
@@ -538,6 +537,7 @@ BEAM_EXPORT void Method_8(Method::EnforceLiquidatation& r)
             fpTotals.Tok.Add(t.m_Amounts.Tok, 0);
             fpTotals.Col.Add(t.m_Amounts.Col, 1);
         }
+
     }
 
     if (bStab)
@@ -569,13 +569,7 @@ BEAM_EXPORT void Method_9(Method::UpdProfitPool& r)
     if (!Env::LoadVar_T(pk, pe))
         _POD_(pe).SetZero();
     else
-    {
-        Amount pOut[2];
-        g.m_ProfitPool.Remove(pOut, pe.m_User);
-
-        fpLogic.Tok.m_Val = pOut[0];
-        fpLogic.Col.m_Val = pOut[1];
-    }
+        g.m_ProfitPool.Remove(&fpLogic.Col.m_Val, pe.m_User);
 
     if (r.m_NewAmount > pe.m_User.m_Weight)
         Env::FundsLock(g.m_Settings.m_AidProfit, r.m_NewAmount - pe.m_User.m_Weight);
@@ -596,5 +590,84 @@ BEAM_EXPORT void Method_9(Method::UpdProfitPool& r)
     g.AdjustTxFunds(r);
     g.AdjustTxBank(fpLogic, r, r.m_pkUser);
 }
+
+BEAM_EXPORT void Method_10(Method::Redeem& r)
+{
+    MyGlobal_LoadSave g;
+    g.UpdateBaseRate();
+
+    FlowPair fpTotals, fpLogic;
+    _POD_(fpTotals).SetZero();
+    _POD_(fpLogic).SetZero();
+
+    auto price = g.get_Price();
+
+    auto pId = reinterpret_cast<const Trove::ID*>(&r + 1);
+    Trove::Key tk;
+
+    Amount valRemaining = r.m_Amount;
+
+    for (uint32_t i = 0; i < r.m_Count; i++)
+    {
+        tk.m_iTrove = pId[i];
+        Trove t;
+        g.TrovePop(tk, t);
+
+        auto icr = price.m_Value * t.get_Rcr();
+
+        bool bCanRedeem = true; // TODO
+        if (!bCanRedeem)
+            continue;
+
+        assert(t.m_Amounts.Tok >= g.m_Settings.m_TroveLiquidationReserve);
+        Amount valTok = t.m_Amounts.Tok - g.m_Settings.m_TroveLiquidationReserve;
+
+        bool bFullRedeem = (valRemaining >= valTok);
+        if (!bFullRedeem)
+            valTok = valRemaining;
+
+        Amount valCol = valTok / price.m_Value;
+        Amount valColSurplus = t.m_Amounts.Col;
+        Strict::Sub(valColSurplus, valCol);
+
+        // TODO: update base rate w.r.t. fraction of tokens redeemed
+
+        if (bFullRedeem)
+        {
+            // close trove
+            fpTotals.Tok.Add(t.m_Amounts.Tok, 1);
+            fpTotals.Col.Add(t.m_Amounts.Col, 0);
+            Env::DelVar_T(tk);
+
+            FlowPair fpTrove;
+            _POD_(fpTrove).SetZero();
+            fpTrove.Col.Add(valColSurplus, 1);
+            g.AdjustBank(fpTrove, t.m_pkOwner);
+        }
+        else
+        {
+            fpTotals.Tok.Add(valTok, 1);
+            fpTotals.Col.Add(valCol, 0);
+
+            t.m_Amounts.Tok -= valTok;
+            t.m_Amounts.Col = valColSurplus;
+            Env::SaveVar_T(tk, t);
+        }
+
+
+        if (!g.m_ProfitPool.IsEmpty())
+
+        Amount fee = m_kBaseRate * valCol;
+        Strict::Sub(valCol, fee);
+        m_ProfitPool.AddValue(fee, 0);
+
+        fpLogic.Tok.Add(valTok, 1);
+        fpLogic.Col.Add(valCol, 0); // TODO - fees
+
+    }
+
+    g.AdjustAll(r, fpTotals, fpLogic, r.m_pkUser);
+}
+
 
 } // namespace Liquity
