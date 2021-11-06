@@ -656,10 +656,11 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
 
 
         if (!g.m_ProfitPool.IsEmpty())
-
-        Amount fee = m_kBaseRate * valCol;
-        Strict::Sub(valCol, fee);
-        m_ProfitPool.AddValue(fee, 0);
+        {
+            Amount fee = g.m_kBaseRate * Float(valCol);
+            Strict::Sub(valCol, fee);
+            g.m_ProfitPool.AddValue(fee, 0);
+        }
 
         fpLogic.Tok.Add(valTok, 1);
         fpLogic.Col.Add(valCol, 0); // TODO - fees
