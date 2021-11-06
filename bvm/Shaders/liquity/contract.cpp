@@ -91,17 +91,6 @@ struct MyGlobal
         AdjustTxFunds(r.m_Flow.Col, 0);
     }
 
-    void AdjustTxFundsAndEmission(const FlowPair& fpTotals, const Method::BaseTx& r) const
-    {
-        if (fpTotals.Tok.m_Val && !fpTotals.Tok.m_Spend)
-            Env::Halt_if(!Env::AssetEmit(m_Aid, fpTotals.Tok.m_Val, 1));
-
-        AdjustTxFunds(r);
-
-        if (fpTotals.Tok.m_Val && fpTotals.Tok.m_Spend)
-            Env::Halt_if(!Env::AssetEmit(m_Aid, fpTotals.Tok.m_Val, 0));
-    }
-
     void AdjustTxBank(const FlowPair& fpLogic, const Method::BaseTx& r, const PubKey& pk)
     {
         FlowPair fpDelta = r.m_Flow;
@@ -111,17 +100,17 @@ struct MyGlobal
         AdjustBank(fpDelta, pk);
     }
 
-    void AdjustTotals(const FlowPair& fp)
+    void AdjustAll(const Method::BaseTx& r, const Pair& totals0, const FlowPair& fpLogic, const PubKey& pk)
     {
-        AdjustStrict(m_Troves.m_Totals.Tok, fp.Tok.m_Val, !fp.Tok.m_Spend); // reverse direction!
-        AdjustStrict(m_Troves.m_Totals.Col, fp.Col.m_Val, fp.Col.m_Spend);
-    }
+        if (m_Troves.m_Totals.Tok > totals0.Tok)
+            Env::Halt_if(!Env::AssetEmit(m_Aid, m_Troves.m_Totals.Tok - totals0.Tok, 1));
 
-    void AdjustAll(const Method::BaseTx& r, const FlowPair& fpTotals, const FlowPair& fpLogic, const PubKey& pk)
-    {
-        AdjustTxFundsAndEmission(fpTotals, r);
+        AdjustTxFunds(r);
+
+        if (totals0.Tok > m_Troves.m_Totals.Tok)
+            Env::Halt_if(!Env::AssetEmit(m_Aid, totals0.Tok - m_Troves.m_Totals.Tok, 0));
+
         AdjustTxBank(fpLogic, r, pk);
-        AdjustTotals(fpTotals);
     }
 
     void TrovePop(const Trove::Key& tk, Trove& t)
@@ -130,10 +119,17 @@ struct MyGlobal
 
         EpochStorage<Tags::s_Epoch_Redist> stor;
         m_RedistPool.Remove(t, stor);
+
+        // just fore more safety. Theoreticall strict isn't necessary
+        Strict::Sub(m_Troves.m_Totals.Tok, t.m_Amounts.Tok);
+        Strict::Sub(m_Troves.m_Totals.Col, t.m_Amounts.Col);
     }
 
     bool TrovePush(const Trove::Key& tk, Trove& t)
     {
+        Strict::Add(m_Troves.m_Totals.Tok, t.m_Amounts.Tok);
+        Strict::Add(m_Troves.m_Totals.Col, t.m_Amounts.Col);
+
         m_RedistPool.Add(t);
         return Env::SaveVar_T(tk, t); // returns if existed already (i.e. overwriting)
     }
@@ -143,9 +139,16 @@ struct MyGlobal
         bool bOpen = !!pPk;
         bool bClose = !pNewVals;
 
-        FlowPair fpTotals, fpLogic;
+        Pair totals0 = m_Troves.m_Totals;
+        FlowPair fpLogic;
+        _POD_(fpLogic).SetZero();
+
         Trove t;
         Trove::Key tk;
+
+        Float trcr0;
+        if (!bClose)
+            trcr0 = m_Troves.get_Trcr();
 
         if (bOpen)
         {
@@ -153,57 +156,40 @@ struct MyGlobal
             _POD_(t.m_pkOwner) = *pPk;
             tk.m_iTrove = ++m_Troves.m_iLastCreated;
 
-            _POD_(fpTotals).SetZero();
+            fpLogic.Tok.Add(m_Settings.m_TroveLiquidationReserve, 1);
         }
         else
         {
             tk.m_iTrove = tid;
             TrovePop(tk, t);
 
-            fpTotals.Tok.m_Val = t.m_Amounts.Tok;
-            fpTotals.Tok.m_Spend = 1;
-            fpTotals.Col.m_Val = t.m_Amounts.Col;
-            fpTotals.Col.m_Spend = 0;
+            fpLogic.Tok.Add(t.m_Amounts.Tok, 0);
+            fpLogic.Col.Add(t.m_Amounts.Col, 1);
         }
 
-        if (!bClose)
-        {
-            fpTotals.Tok.Add(pNewVals->Tok, 0);
-            fpTotals.Col.Add(pNewVals->Col, 1);
-        }
-
-        _POD_(fpLogic) = fpTotals;
-
-        if (bOpen)
-            fpLogic.Tok.Add(m_Settings.m_TroveLiquidationReserve, 1);
-
-        Price price;
-        Float trcr0;
 
         if (bClose)
+        {
             fpLogic.Tok.Add(m_Settings.m_TroveLiquidationReserve, 0);
-        else
-        {
-            price = get_Price();
-            trcr0 = m_Troves.get_Trcr();
-        }
-
-        if (fpTotals.Tok.m_Val && !fpTotals.Tok.m_Spend && !m_ProfitPool.IsEmpty())
-        {
-            UpdateBaseRate();
-
-            Amount fee = m_kBaseRate * Float(fpTotals.Tok.m_Val) / price.m_Value;
-
-            m_ProfitPool.AddValue(fee, 0);
-            fpLogic.Col.Add(fee, 1);
-        }
-
-        AdjustAll(r, fpTotals, fpLogic, t.m_pkOwner); // will invoke AddSig
-
-        if (bClose)
             Env::DelVar_T(tid);
+        }
         else
         {
+            Price price = get_Price();
+
+            fpLogic.Tok.Add(pNewVals->Tok, 1);
+            fpLogic.Col.Add(pNewVals->Col, 0);
+
+            if ((m_Troves.m_Totals.Tok > totals0.Tok) && !m_ProfitPool.IsEmpty())
+            {
+                UpdateBaseRate();
+
+                Amount fee = m_kBaseRate * Float(m_Troves.m_Totals.Tok - totals0.Tok) / price.m_Value;
+
+                m_ProfitPool.AddValue(fee, 0);
+                fpLogic.Col.Add(fee, 1);
+            }
+
             t.m_Amounts = *pNewVals;
             Env::Halt_if(t.m_Amounts.Tok < m_Settings.m_TroveMinDebt);
 
@@ -212,6 +198,9 @@ struct MyGlobal
             bool bExisted = TrovePush(tk, t);
             Env::Halt_if(bOpen && bExisted);
         }
+
+
+        AdjustAll(r, totals0, fpLogic, t.m_pkOwner); // will invoke AddSig
     }
 
 
@@ -489,9 +478,9 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
 {
     MyGlobal_LoadSave g;
 
-    FlowPair fpTotals, fpLogic;
-    _POD_(fpTotals).SetZero();
+    FlowPair fpLogic;
     _POD_(fpLogic).SetZero();
+    Pair totals0 = g.m_Troves.m_Totals;
 
     auto price = g.get_Price();
 
@@ -511,8 +500,6 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
         // TODO: deduce mode, decide if liquidation is ok
         Env::Halt_if(icr >= Global::Price::get_k110());
 
-        fpTotals.Tok.Add(t.m_Amounts.Tok, 1); // all debt would be burned, unless redist pool is used
-        fpTotals.Col.Add(t.m_Amounts.Col, 0);
         Env::DelVar_T(tk);
 
         assert(t.m_Amounts.Tok >= g.m_Settings.m_TroveLiquidationReserve);
@@ -534,8 +521,8 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
             bRedist = true;
             Env::Halt_if(!g.m_RedistPool.Liquidate(t));
 
-            fpTotals.Tok.Add(t.m_Amounts.Tok, 0);
-            fpTotals.Col.Add(t.m_Amounts.Col, 1);
+            Strict::Add(g.m_Troves.m_Totals.Tok, t.m_Amounts.Tok);
+            Strict::Add(g.m_Troves.m_Totals.Col, t.m_Amounts.Col);
         }
 
     }
@@ -552,7 +539,7 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
         g.m_RedistPool.OnPostTrade(stor);
     }
 
-    g.AdjustAll(r, fpTotals, fpLogic, r.m_pkUser);
+    g.AdjustAll(r, totals0, fpLogic, r.m_pkUser);
 }
 
 BEAM_EXPORT void Method_9(Method::UpdProfitPool& r)
@@ -596,8 +583,8 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
     MyGlobal_LoadSave g;
     g.UpdateBaseRate();
 
-    FlowPair fpTotals, fpLogic;
-    _POD_(fpTotals).SetZero();
+    Pair totals0 = g.m_Troves.m_Totals;
+    FlowPair fpLogic;
     _POD_(fpLogic).SetZero();
 
     auto price = g.get_Price();
@@ -635,8 +622,6 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
         if (bFullRedeem)
         {
             // close trove
-            fpTotals.Tok.Add(t.m_Amounts.Tok, 1);
-            fpTotals.Col.Add(t.m_Amounts.Col, 0);
             Env::DelVar_T(tk);
 
             FlowPair fpTrove;
@@ -646,12 +631,10 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
         }
         else
         {
-            fpTotals.Tok.Add(valTok, 1);
-            fpTotals.Col.Add(valCol, 0);
-
             t.m_Amounts.Tok -= valTok;
             t.m_Amounts.Col = valColSurplus;
-            Env::SaveVar_T(tk, t);
+
+            g.TrovePush(tk, t);
         }
 
 
@@ -667,7 +650,7 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
 
     }
 
-    g.AdjustAll(r, fpTotals, fpLogic, r.m_pkUser);
+    g.AdjustAll(r, totals0, fpLogic, r.m_pkUser);
 }
 
 
