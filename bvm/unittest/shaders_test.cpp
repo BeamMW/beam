@@ -277,7 +277,7 @@ namespace Shaders {
 		Convert<bToShader>(Cast::Down<Liquity::Method::BaseTx>(x));
 		ConvertOrd<bToShader>(x.m_NewAmount);
 	}
-	template <bool bToShader> void Convert(Liquity::Method::EnforceLiquidatation& x) {
+	template <bool bToShader> void Convert(Liquity::Method::Liquidate& x) {
 		ConvertOrd<bToShader>(x.m_Count);
 	}
 
@@ -645,7 +645,7 @@ namespace bvm2 {
 				case 0: Shaders::Liquity::Ctor(CastArg<Shaders::Liquity::Method::Create>(pArgs)); return;
 				case 3: Shaders::Liquity::Method_3(CastArg<Shaders::Liquity::Method::TroveOpen>(pArgs)); return;
 				case 7: Shaders::Liquity::Method_7(CastArg<Shaders::Liquity::Method::UpdStabPool>(pArgs)); return;
-				case 8: Shaders::Liquity::Method_8(CastArg<Shaders::Liquity::Method::EnforceLiquidatation>(pArgs)); return;
+				case 8: Shaders::Liquity::Method_8(CastArg<Shaders::Liquity::Method::Liquidate>(pArgs)); return;
 				}
 			}
 */
@@ -914,9 +914,11 @@ namespace bvm2 {
 			args.m_Flow.Col.Add(Rules::Coin * 40, 1);
 			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
 
-			std::cout << "Trove0: Tok=" << Val2Num(args.m_Amounts.Tok) << ", Col=" << Val2Num(args.m_Amounts.Tok) << std::endl;
+			std::cout << "Trove0: Tok=" << Val2Num(args.m_Amounts.Tok) << ", Col=" << Val2Num(args.m_Amounts.Col) << std::endl;
 			LiquityPrintBank(args.m_pkUser);
 		}
+
+		m_Height++;
 
 		for (uint32_t i = 0; i < 2; i++)
 		{
@@ -933,10 +935,11 @@ namespace bvm2 {
 		}
 
 		m_MyOracle.m_Value = 30; // price drop. icr would be about 105%
+		m_Height += 10;
 
 		{
 #pragma pack (push, 1)
-			struct Arg :public Shaders::Liquity::Method::EnforceLiquidatation {
+			struct Arg :public Shaders::Liquity::Method::Liquidate {
 				Shaders::Liquity::Trove::ID m_pID[1];
 			} args;
 #pragma pack (pop)
