@@ -664,6 +664,7 @@ namespace bvm2 {
 		}
 
 		void LiquityPrintBank(const PubKey& pk);
+		void PrintAllLiquity();
 
 		void TestVault();
 		void TestDummy();
@@ -888,6 +889,61 @@ namespace bvm2 {
 		std::cout << "\tTok=" << Val2Num(vals.Tok) << ", Col=" << Val2Num(vals.Col) << std::endl;
 	}
 
+	void MyProcessor::PrintAllLiquity()
+	{
+		Shaders::Liquity::Global g;
+		{
+			Shaders::Env::Key_T<uint8_t> key;
+			key.m_Prefix.m_Cid = m_cidLiquity;
+			key.m_KeyInContract = Shaders::Liquity::Tags::s_State;
+
+			Blob b;
+			LoadVar(Blob(&key, sizeof(key)), b);
+			verify_test(sizeof(g) == b.n);
+			memcpy(&g, b.p, sizeof(g));
+		}
+
+		std::cout << "Totals Tok=" << Val2Num(g.m_Troves.m_Totals.Tok) << ", Col=" << Val2Num(g.m_Troves.m_Totals.Col) << std::endl;
+		std::cout << "RedistPool Tok=" << Val2Num(g.m_RedistPool.m_Active.m_Balance.s) << ", Col=" << Val2Num(g.m_RedistPool.m_Active.m_Balance.b) << std::endl;
+		std::cout << "StabPool Tok=" << Val2Num(g.m_StabPool.m_Active.m_Balance.s) << ", Col=" << Val2Num(g.m_StabPool.m_Active.m_Balance.b) << std::endl;
+
+		verify_test(g.m_Troves.m_Totals.Tok == g.m_RedistPool.m_Active.m_Balance.s);
+
+		Amount totalCol = g.m_RedistPool.m_Active.m_Balance.b;
+
+		{
+			typedef Shaders::Env::Key_T<Shaders::Liquity::Trove::Key> TroveKey;
+			TroveKey tk;
+			tk.m_Prefix.m_Cid = m_cidLiquity;
+			tk.m_KeyInContract.m_iTrove = 0;
+
+			for (auto it = m_Vars.lower_bound(Blob(&tk, sizeof(tk)), BlobMap::Set::Comparator()); m_Vars.end() != it; it++)
+			{
+				const auto& v = *it;
+				auto k = v.ToBlob();
+				if (sizeof(tk) != k.n)
+					break;
+				auto& tk1 = *((TroveKey*) k.p);
+
+				if (tk1.m_KeyInContract.m_Tag != tk.m_KeyInContract.m_Tag)
+					break;
+
+				auto iTrove = tk1.m_KeyInContract.m_iTrove; // not stored in BE form
+
+				if (v.m_Data.size() != sizeof(Shaders::Liquity::Trove))
+					continue;
+
+				const auto& t = *(Shaders::Liquity::Trove*) &v.m_Data.front();
+
+				std::cout << "\tiTrove=" << iTrove <<  ", Tok=" << Val2Num(t.m_Amounts.Tok) << ", Col=" << Val2Num(t.m_Amounts.Col) << std::endl;
+
+				totalCol += t.m_Amounts.Col;
+			}
+
+			verify_test(g.m_Troves.m_Totals.Col == totalCol);
+		}
+	}
+
 	void MyProcessor::TestLiquity()
 	{
 		m_MyOracle.m_Value = 45; // to the moon!
@@ -916,6 +972,7 @@ namespace bvm2 {
 
 			std::cout << "Trove0: Tok=" << Val2Num(args.m_Amounts.Tok) << ", Col=" << Val2Num(args.m_Amounts.Col) << std::endl;
 			LiquityPrintBank(args.m_pkUser);
+			PrintAllLiquity();
 		}
 
 		m_Height++;
@@ -932,6 +989,7 @@ namespace bvm2 {
 
 			std::cout << "Stab" << i << ": Put=" << Val2Num(args.m_NewAmount) << std::endl;
 			LiquityPrintBank(args.m_pkUser);
+			PrintAllLiquity();
 		}
 
 		m_MyOracle.m_Value = 30; // price drop. icr would be about 105%
@@ -952,6 +1010,7 @@ namespace bvm2 {
 
 			std::cout << "Trove0 liquidated." << std::endl;
 			LiquityPrintBank(args.m_pkUser);
+			PrintAllLiquity();
 		}
 
 		for (uint32_t i = 0; i < 2; i++)
@@ -963,6 +1022,7 @@ namespace bvm2 {
 
 			std::cout << "Stab" << i << " all out" << std::endl;
 			LiquityPrintBank(args.m_pkUser);
+			PrintAllLiquity();
 		}
 	}
 
