@@ -614,7 +614,7 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
         Trove t;
         g.TrovePop(tk, t);
 
-        auto icr = price.m_Value * t.get_Rcr();
+        //auto icr = price.m_Value * t.get_Rcr();
 
         bool bCanRedeem = true; // TODO
         if (!bCanRedeem)
