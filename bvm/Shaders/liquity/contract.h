@@ -87,6 +87,7 @@ namespace Liquity
         };
 
         ExchangePool::User m_User;
+        Height m_hLastModify;
     };
 
     struct ProfitPoolEntry
@@ -98,6 +99,7 @@ namespace Liquity
         };
 
         ProfitPool::User m_User;
+        Height m_hLastModify;
     };
 
     struct Trove

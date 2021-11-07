@@ -446,11 +446,15 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
     FlowPair fpLogic;
     _POD_(fpLogic).SetZero();
 
+    Height h = Env::get_Height();
+
     StabPoolEntry spe;
     if (!Env::LoadVar_T(spk, spe))
         _POD_(spe).SetZero();
     else
     {
+        Env::Halt_if(spe.m_hLastModify == h);
+
         EpochStorage<Tags::s_Epoch_Stable> stor;
 
         HomogenousPool::Pair out;
@@ -462,6 +466,7 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
 
     if (r.m_NewAmount)
     {
+        spe.m_hLastModify = h;
         g.m_StabPool.UserAdd(spe.m_User, r.m_NewAmount);
         Env::SaveVar_T(spk, spe);
 
@@ -552,11 +557,16 @@ BEAM_EXPORT void Method_9(Method::UpdProfitPool& r)
     FlowPair fpLogic;
     _POD_(fpLogic).SetZero();
 
+    Height h = Env::get_Height();
+
     ProfitPoolEntry pe;
     if (!Env::LoadVar_T(pk, pe))
         _POD_(pe).SetZero();
     else
+    {
+        Env::Halt_if(pe.m_hLastModify == h);
         g.m_ProfitPool.Remove(&fpLogic.Col.m_Val, pe.m_User);
+    }
 
     if (r.m_NewAmount > pe.m_User.m_Weight)
         Env::FundsLock(g.m_Settings.m_AidProfit, r.m_NewAmount - pe.m_User.m_Weight);
@@ -569,6 +579,7 @@ BEAM_EXPORT void Method_9(Method::UpdProfitPool& r)
         pe.m_User.m_Weight = r.m_NewAmount;
         g.m_ProfitPool.Add(pe.m_User);
 
+        pe.m_hLastModify = h;
         Env::SaveVar_T(pk, pe);
     }
     else
