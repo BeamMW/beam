@@ -163,8 +163,8 @@ struct MyGlobal
             tk.m_iTrove = tid;
             TrovePop(tk, t);
 
-            fpLogic.Tok.Add(t.m_Amounts.Tok, 0);
-            fpLogic.Col.Add(t.m_Amounts.Col, 1);
+            fpLogic.Tok.Add(t.m_Amounts.Tok, 1);
+            fpLogic.Col.Add(t.m_Amounts.Col, 0);
         }
 
 
@@ -177,8 +177,16 @@ struct MyGlobal
         {
             Price price = get_Price();
 
-            fpLogic.Tok.Add(pNewVals->Tok, 1);
-            fpLogic.Col.Add(pNewVals->Col, 0);
+            fpLogic.Tok.Add(pNewVals->Tok, 0);
+            fpLogic.Col.Add(pNewVals->Col, 1);
+
+            t.m_Amounts = *pNewVals;
+            Env::Halt_if(t.m_Amounts.Tok < m_Settings.m_TroveMinDebt);
+
+            // TODO: check icr, tcr, ensure tcr doesn't decrease if in recovery mode
+
+            bool bExisted = TrovePush(tk, t);
+            Env::Halt_if(bOpen && bExisted);
 
             if ((m_Troves.m_Totals.Tok > totals0.Tok) && !m_ProfitPool.IsEmpty())
             {
@@ -189,14 +197,6 @@ struct MyGlobal
                 m_ProfitPool.AddValue(fee, 0);
                 fpLogic.Col.Add(fee, 1);
             }
-
-            t.m_Amounts = *pNewVals;
-            Env::Halt_if(t.m_Amounts.Tok < m_Settings.m_TroveMinDebt);
-
-            // TODO: check icr, tcr, ensure tcr doesn't decrease if in recovery mode
-
-            bool bExisted = TrovePush(tk, t);
-            Env::Halt_if(bOpen && bExisted);
         }
 
 
@@ -565,7 +565,10 @@ BEAM_EXPORT void Method_9(Method::UpdProfitPool& r)
     else
     {
         Env::Halt_if(pe.m_hLastModify == h);
-        g.m_ProfitPool.Remove(&fpLogic.Col.m_Val, pe.m_User);
+
+        Amount valOut;
+        g.m_ProfitPool.Remove(&valOut, pe.m_User);
+        fpLogic.Col.m_Val = valOut;
     }
 
     if (r.m_NewAmount > pe.m_User.m_Weight)
