@@ -5297,9 +5297,12 @@ namespace beam::wallet
             m_DbTransaction.reset();
 
 #ifdef __EMSCRIPTEN__
-            MAIN_THREAD_ASYNC_EM_ASM(
-                FS.syncfs(false, function() {});
-            );
+            if (get_MasterKdf()) // dont do sync for headless wallet
+            {
+                MAIN_THREAD_ASYNC_EM_ASM(
+                    FS.syncfs(false, function() {});
+                );
+            }
 #endif
         }
     }

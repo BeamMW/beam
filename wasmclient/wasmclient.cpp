@@ -669,7 +669,7 @@ public:
         }
     }
 
-    static void CreateHeadlessWallet(const std::string& dbName, const std::string& pass)
+    static void CreateHeadlessWallet()
     {
         AssertMainThread();
         EnsureFSMounted();
@@ -677,13 +677,11 @@ public:
         {
             auto r = io::Reactor::create();
             io::Reactor::Scope scope(*r);
-            WalletDB::initNoKeeper(dbName, SecString(pass));
+            WalletDB::initNoKeeper("wallet.db", SecString("anypass"));
+            s_Mounted = true; // headless wallet has in-memory database 
             EM_ASM
             (
-                FS.syncfs(false, function()
-                {
-                    console.log("headless wallet created!");
-                });
+                console.log("headless wallet created!");
             );
         }
         catch (const std::exception& ex)
@@ -779,12 +777,12 @@ public:
         );
     }
 private:
-    static void OnMountFS()
+    static void OnMountFS(val error)
     {
         s_Mounted = true;
         if (!s_MountCB.isNull())
         {
-            s_MountCB();
+            s_MountCB(error);
         }
         else
         {
