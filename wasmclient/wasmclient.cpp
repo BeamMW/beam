@@ -770,10 +770,9 @@ public:
                 FS.mkdir("/beam_wallet");
                 FS.mount(IDBFS, {}, "/beam_wallet");
                 console.log("mounting...");
-                FS.syncfs(true, function()
+                FS.syncfs(true, function(error)
                 {
-                    console.log("mounted");
-                    dynCall('v', $0);
+                    dynCall('vi', $0, [error]);
                 });
 
             }, OnMountFS
