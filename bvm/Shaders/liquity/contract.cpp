@@ -146,10 +146,6 @@ struct MyGlobal
         Trove t;
         Trove::Key tk;
 
-        Float trcr0;
-        if (!bClose)
-            trcr0 = m_Troves.get_Trcr();
-
         if (bOpen)
         {
             _POD_(t).SetZero();
@@ -175,24 +171,34 @@ struct MyGlobal
         }
         else
         {
-            Price price = get_Price();
-
             fpLogic.Tok.Add(pNewVals->Tok, 0);
             fpLogic.Col.Add(pNewVals->Col, 1);
 
             t.m_Amounts = *pNewVals;
             Env::Halt_if(t.m_Amounts.Tok < m_Settings.m_TroveMinDebt);
 
-            // TODO: check icr, tcr, ensure tcr doesn't decrease if in recovery mode
-
             bool bExisted = TrovePush(tk, t);
             Env::Halt_if(bOpen && bExisted);
+
+            // check cr
+            Price price = get_Price();
+            Float trcr = m_Troves.m_Totals.get_Rcr();
+
+            if (price.IsBelow150(trcr))
+            {
+                // recovery mode.
+                Env::Halt_if(!totals0.Tok); // the very first trove, should not drive us into recovery
+                Env::Halt_if(totals0.get_Rcr() > trcr); // Ban txs that further decreese the tcr
+            }
+            else
+                Env::Halt_if(price.IsBelow110(t.m_Amounts.get_Rcr()));
+
 
             if ((m_Troves.m_Totals.Tok > totals0.Tok) && !m_ProfitPool.IsEmpty())
             {
                 UpdateBaseRate();
 
-                Amount fee = m_kBaseRate * Float(m_Troves.m_Totals.Tok - totals0.Tok) / price.m_Value;
+                Amount fee = price.T2C(m_kBaseRate * Float(m_Troves.m_Totals.Tok - totals0.Tok));
 
                 m_ProfitPool.AddValue(fee, 0);
                 fpLogic.Col.Add(fee, 1);
@@ -500,24 +506,25 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
         Trove t;
         g.TrovePop(tk, t);
 
-        auto icr = price.m_Value * t.get_Rcr();
+        auto rcr = t.m_Amounts.get_Rcr();
+        auto cr = price.ToCR(rcr);
 
         // TODO: deduce mode, decide if liquidation is ok
-        Env::Halt_if(icr >= Global::Price::get_k110());
+        Env::Halt_if(cr >= Global::Price::get_k110());
 
         Env::DelVar_T(tk);
 
         assert(t.m_Amounts.Tok >= g.m_Settings.m_TroveLiquidationReserve);
 
-        Amount valBurn = g.get_LiquidationRewardReduce(icr);
+        Amount valBurn = g.get_LiquidationRewardReduce(cr);
         assert(valBurn < g.m_Settings.m_TroveLiquidationReserve);
 
         fpLogic.Tok.Add(g.m_Settings.m_TroveLiquidationReserve - valBurn, 0); // part of the reward, goes to the liquidator
         t.m_Amounts.Tok -= valBurn; // goes as a 'discount' for the stab pool
 
-        if (icr > Global::Price::get_k100())
+        if (cr > Global::Price::get_k100())
         {
-            if (g.m_StabPool.LiquidatePartial(t))
+            if (g.m_StabPool.LiquidatePartial(t, rcr))
                 bStab = true;
         }
 

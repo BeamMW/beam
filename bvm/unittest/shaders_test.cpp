@@ -665,6 +665,7 @@ namespace bvm2 {
 
 		void LiquityPrintBank(const PubKey& pk);
 		void PrintAllLiquity();
+		void AddLiquityPoolTotals(Shaders::Liquity::Pair&, uint8_t nTag);
 
 		void TestVault();
 		void TestDummy();
@@ -889,6 +890,37 @@ namespace bvm2 {
 		std::cout << "\tTok=" << Val2Num(vals.Tok) << ", Col=" << Val2Num(vals.Col) << std::endl;
 	}
 
+	void MyProcessor::AddLiquityPoolTotals(Shaders::Liquity::Pair& res, uint8_t nTag)
+	{
+		typedef Shaders::Env::Key_T<Shaders::Liquity::EpochKey> EpochKey;
+		EpochKey ek;
+		ek.m_Prefix.m_Cid = m_cidLiquity;
+		ek.m_KeyInContract.m_Tag = nTag;
+		ek.m_KeyInContract.m_iEpoch = 0;
+
+		for (auto it = m_Vars.lower_bound(Blob(&ek, sizeof(ek)), BlobMap::Set::Comparator()); m_Vars.end() != it; it++)
+		{
+			const auto& v = *it;
+			auto k = v.ToBlob();
+			if (sizeof(ek) != k.n)
+				break;
+			auto& ek1 = *((EpochKey*) k.p);
+
+			if (ek1.m_KeyInContract.m_Tag != ek.m_KeyInContract.m_Tag)
+				break;
+
+			auto iEpoch = ek.m_KeyInContract.m_iEpoch;
+
+			if (v.m_Data.size() != sizeof(Shaders::HomogenousPool::Epoch))
+				continue;
+
+			const auto& epoch = *(Shaders::HomogenousPool::Epoch*) &v.m_Data.front();
+
+			res.Tok += epoch.m_Balance.s;
+			res.Col += epoch.m_Balance.b;
+		}
+	}
+
 	void MyProcessor::PrintAllLiquity()
 	{
 		Shaders::Liquity::Global g;
@@ -903,13 +935,27 @@ namespace bvm2 {
 			memcpy(&g, b.p, sizeof(g));
 		}
 
+		Shaders::Liquity::Pair totalStab, totalRedist, totalTrovesRaw;
+
+		totalStab.Tok = g.m_StabPool.get_TotalSell();
+		totalStab.Col = g.m_StabPool.m_Active.m_Balance.b + g.m_StabPool.m_Draining.m_Balance.b;
+		AddLiquityPoolTotals(totalStab, Shaders::Liquity::Tags::s_Epoch_Stable);
+
+		totalRedist.Tok = g.m_RedistPool.get_TotalSell();
+		totalRedist.Col = g.m_RedistPool.m_Active.m_Balance.b + g.m_RedistPool.m_Draining.m_Balance.b;
+		AddLiquityPoolTotals(totalRedist, Shaders::Liquity::Tags::s_Epoch_Redist);
+
 		std::cout << "Totals Tok=" << Val2Num(g.m_Troves.m_Totals.Tok) << ", Col=" << Val2Num(g.m_Troves.m_Totals.Col) << std::endl;
-		std::cout << "RedistPool Tok=" << Val2Num(g.m_RedistPool.m_Active.m_Balance.s) << ", Col=" << Val2Num(g.m_RedistPool.m_Active.m_Balance.b) << std::endl;
-		std::cout << "StabPool Tok=" << Val2Num(g.m_StabPool.m_Active.m_Balance.s) << ", Col=" << Val2Num(g.m_StabPool.m_Active.m_Balance.b) << std::endl;
+		std::cout << "RedistPool Tok=" << Val2Num(totalRedist.Tok) << ", Col=" << Val2Num(totalRedist.Col) << std::endl;
+		std::cout << "StabPool Tok=" << Val2Num(totalStab.Tok) << ", Col=" << Val2Num(totalStab.Col) << std::endl;
 
-		verify_test(g.m_Troves.m_Totals.Tok == g.m_RedistPool.m_Active.m_Balance.s);
+		verify_test(g.m_Troves.m_Totals.Tok == totalRedist.Tok); // all troves must participate in the RedistPool
 
-		Amount totalCol = g.m_RedistPool.m_Active.m_Balance.b;
+		auto itAsset = m_Assets.find(g.m_Aid);
+		verify_test(m_Assets.end() != itAsset);
+		verify_test(itAsset->second.m_Amount == g.m_Troves.m_Totals.Tok); // total debt must be equal minted amount
+
+		Amount totalCol = totalRedist.Col;
 
 		{
 			typedef Shaders::Env::Key_T<Shaders::Liquity::Trove::Key> TroveKey;

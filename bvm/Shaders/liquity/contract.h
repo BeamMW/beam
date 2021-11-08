@@ -27,7 +27,15 @@ namespace Liquity
         T Col;
     };
 
-    typedef Pair_T<Amount> Pair;
+    struct Pair :public Pair_T<Amount>
+    {
+        Float get_Rcr() const
+        {
+            // rcr == raw collateralization ratio, i.e. Col/Tok
+            // Don't care about Tok==0 case (our Float doesn't handle inf), valid troves must always have Tok no lesser than liquidation reserve
+            return Float(Col) / Float(Tok);
+        }
+    };
 
     struct Flow
     {
@@ -115,17 +123,6 @@ namespace Liquity
         PubKey m_pkOwner;
         Pair m_Amounts;
         ExchangePool::User m_RedistUser; // accumulates enforced liquidations
-
-        Float get_Rcr() const
-        {
-            // rcr == raw collateralization ratio, i.e. Tok/Col
-            // Don't care about s==0 case (our Float doesn't handle inf), valid troves must always have s, otherwise they're closed
-            return Float(m_Amounts.Col) / Float(m_Amounts.Tok);
-        }
-
-        // minimum amount of tokens when opening or updating the trove. Normally should not go below this value.
-        // Can decrease temporarily due to partial liquidation or redeeming, can happen only for the lowest trove.
-        static const Amount s_MinAmountS = g_Beam2Groth * 10;
     };
 
     struct Settings
@@ -145,11 +142,6 @@ namespace Liquity
         {
             Trove::ID m_iLastCreated;
             Pair m_Totals; // Total debt (== minted tokens) and collateral in all troves
-
-            Float get_Trcr() const
-            {
-                return Float(m_Totals.Col) / Float(m_Totals.Tok);
-            }
 
         } m_Troves;
 
@@ -227,6 +219,11 @@ namespace Liquity
         {
             bool LiquidatePartial(Trove& t)
             {
+                return LiquidatePartial(t, t.m_Amounts.get_Rcr());
+            }
+
+            bool LiquidatePartial(Trove& t, Float rcr)
+            {
                 Pair p;
                 p.s = get_TotalSell();
                 if (!p.s)
@@ -240,11 +237,12 @@ namespace Liquity
                 }
                 else
                 {
-                    p.b = Float(t.m_Amounts.Col) * Float(p.s) / Float(t.m_Amounts.Tok);
+                    p.b = rcr * Float(p.s);
                     assert(p.b <= t.m_Amounts.Col);
+                    p.b = std::min(p.b, t.m_Amounts.Col); // for more safety, but should be ok
 
                     t.m_Amounts.Tok -= p.s;
-                    t.m_Amounts.Col -= p.b;
+                    t.m_Amounts.Col -= p.b; 
                 }
 
                 Trade(p);
@@ -257,7 +255,13 @@ namespace Liquity
 
         struct Price
         {
-            Float m_Value;
+            Float m_Value; // 1 col == 1 tok * m_Value
+            Float C2T(Float c) const { return c * m_Value; }
+            Float T2C(Float t) const { return t / m_Value; }
+
+            Float ToCR(Float rcr) const {
+                return C2T(rcr);
+            }
 
             static Float get_k150()
             {
@@ -280,28 +284,28 @@ namespace Liquity
 
             bool IsBelow150(Float rcr) const
             {
-                return rcr * m_Value < get_k150();
+                return ToCR(rcr) < get_k150();
             }
 
             bool IsBelow110(Float rcr) const
             {
-                return rcr * m_Value < get_k110();
+                return ToCR(rcr) < get_k110();
             }
 
             bool IsBelow100(Float rcr) const
             {
-                return rcr * m_Value < get_k100();
+                return ToCR(rcr) < get_k100();
             }
         };
 
-        Amount get_LiquidationRewardReduce(Float icr) const
+        Amount get_LiquidationRewardReduce(Float cr) const
         {
             Amount half = m_Settings.m_TroveLiquidationReserve / 2;
 
             // icr == 0 - full reward
             // icr == threshold - reward is reduced to half
 
-            Amount ret = Float(half) * icr / Price::get_k110();
+            Amount ret = Float(half) * cr / Price::get_k110();
 
             return std::min(ret, half);
         }
