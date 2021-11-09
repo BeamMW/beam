@@ -164,19 +164,6 @@ public:
         return getWalletDB();
     }
 
-    void SetHeadless(bool headless)
-    {
-        postFunctionToClientContext([this, sp = shared_from_this(), headless]()
-        {
-            m_Headless = headless;
-        });
-    }
-
-    bool IsHeadless() const
-    {
-        return m_Headless;
-    }
-
 private:
     void onSyncProgressUpdated(int done, int total) override
     {
@@ -253,7 +240,6 @@ private:
     ICallbackHandler* m_CbHandler = nullptr;
     Callback m_StoppedHandler;
     IWalletApi::Ptr m_WalletApi;
-    bool m_Headless = true;
 };
 
 class AppAPICallback
@@ -433,7 +419,7 @@ public:
             }
 
             EnsureFSMounted();
-            auto dbFunc = [clientPtr=&m_Client, path = m_DbPath, pass = m_Pass, dbPtr = std::make_shared<WalletDB::Ptr>()]()
+            auto dbFunc = [path = m_DbPath, pass = m_Pass, dbPtr = std::make_shared<WalletDB::Ptr>()]()
             {
                 if (!*dbPtr)
                 {
@@ -626,10 +612,16 @@ public:
         return m_Client && m_Client->isRunning();
     }
 
+    void SetHeadless(bool headless)
+    {
+        AssertMainThread();
+        m_Headless = headless;
+    }
+
     bool IsHeadless() const
     {
         AssertMainThread();
-        return m_Client && m_Client->IsHeadless();
+        return m_Headless;
     }
 
     static bool IsAppSupported(const std::string& apiver, const std::string& apivermin)
@@ -806,6 +798,7 @@ private:
     std::unique_ptr<val> m_ApproveContractInfoHandler;
     WalletClient2::Ptr m_Client;
     IWalletApi::Ptr m_WalletApi;
+    bool m_Headless = false;
 };
 
 val WasmWalletClient::s_MountCB = val::null();
