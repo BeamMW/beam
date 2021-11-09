@@ -196,12 +196,19 @@ struct MyGlobal
 
             if ((m_Troves.m_Totals.Tok > totals0.Tok) && !m_ProfitPool.IsEmpty())
             {
-                UpdateBaseRate();
 
-                Amount fee = price.T2C(m_kBaseRate * Float(m_Troves.m_Totals.Tok - totals0.Tok));
+                Amount valMinted = m_Troves.m_Totals.Tok - totals0.Tok;
+                Amount feeTokMin = valMinted / 200; // 0.5 percent
+                Amount feeTokMax = valMinted / 20; // 5 percent
 
-                m_ProfitPool.AddValue(fee, 0);
-                fpLogic.Col.Add(fee, 1);
+                m_BaseRate.Decay();
+                Amount feeTok = feeTokMin + m_BaseRate.m_k * Float(valMinted);
+                feeTok = std::min(feeTok, feeTokMax);
+
+                Amount feeCol = price.T2C(feeTok);
+
+                m_ProfitPool.AddValue(feeCol, 0);
+                fpLogic.Col.Add(feeCol, 1);
             }
         }
 
@@ -509,8 +516,20 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
         auto rcr = t.m_Amounts.get_Rcr();
         auto cr = price.ToCR(rcr);
 
+        bool bRecovery = 
+            g.m_Troves.m_Totals.Tok &&
+            price.IsBelow150(g.m_Troves.m_Totals.get_Rcr());
+
+        if (bRecovery)
+        {
+        }
+        else
+        {
+            Env::Halt_if(cr >= Global::Price::get_k110());
+        }
+
+
         // TODO: deduce mode, decide if liquidation is ok
-        Env::Halt_if(cr >= Global::Price::get_k110());
 
         Env::DelVar_T(tk);
 
@@ -602,7 +621,6 @@ BEAM_EXPORT void Method_9(Method::UpdProfitPool& r)
 BEAM_EXPORT void Method_10(Method::Redeem& r)
 {
     MyGlobal_LoadSave g;
-    g.UpdateBaseRate();
 
     Pair totals0 = g.m_Troves.m_Totals;
     FlowPair fpLogic;
@@ -614,18 +632,20 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
     Trove::Key tk;
 
     Amount valRemaining = r.m_Amount;
+    Amount valTok;
 
-    for (uint32_t i = 0; i < r.m_Count; i++)
+    for (uint32_t i = 0; (i < r.m_Count) && valRemaining; i++)
     {
         tk.m_iTrove = pId[i];
         Trove t;
         g.TrovePop(tk, t);
 
-        //auto icr = price.m_Value * t.get_Rcr();
+        //auto cr = price.ToCR(t.m_Amounts.get_Rcr());
+        bool bCanRedeem =
+            g.m_Troves.m_Totals.Tok &&
+            (t.m_Amounts.get_Rcr() <= g.m_Troves.m_Totals.get_Rcr());
 
-        bool bCanRedeem = true; // TODO
-        if (!bCanRedeem)
-            continue;
+        Env::Halt_if(!bCanRedeem);
 
         assert(t.m_Amounts.Tok >= g.m_Settings.m_TroveLiquidationReserve);
         Amount valTok = t.m_Amounts.Tok - g.m_Settings.m_TroveLiquidationReserve;
@@ -637,8 +657,6 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
         Amount valCol = valTok / price.m_Value;
         Amount valColSurplus = t.m_Amounts.Col;
         Strict::Sub(valColSurplus, valCol);
-
-        // TODO: update base rate w.r.t. fraction of tokens redeemed
 
         if (bFullRedeem)
         {
@@ -659,16 +677,26 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
         }
 
 
-        if (!g.m_ProfitPool.IsEmpty())
-        {
-            Amount fee = g.m_kBaseRate * Float(valCol);
-            Strict::Sub(valCol, fee);
-            g.m_ProfitPool.AddValue(fee, 0);
-        }
-
         fpLogic.Tok.Add(valTok, 1);
-        fpLogic.Col.Add(valCol, 0); // TODO - fees
+        fpLogic.Col.Add(valCol, 0);
 
+    }
+
+    if (!g.m_ProfitPool.IsEmpty() && fpLogic.Tok.m_Val)
+    {
+        Amount feeBase = fpLogic.Col.m_Val / 200; // redemption fee floor is 0.5 percent
+
+        // update dynamic redeem ratio 
+        g.m_BaseRate.Decay();
+        Float kDrainRatio = Float(fpLogic.Tok.m_Val) / Float(fpLogic.Tok.m_Val + g.m_Troves.m_Totals.Tok);
+        g.m_BaseRate.m_k = g.m_BaseRate.m_k + kDrainRatio;
+
+        
+        Amount fee = feeBase + g.m_BaseRate.m_k * Float(fpLogic.Col.m_Val);
+        fee = std::min(fee, fpLogic.Col.m_Val); // fee can go as high as 100 percents
+
+        Strict::Sub(fpLogic.Col.m_Val, fee);
+        g.m_ProfitPool.AddValue(fee, 0);
     }
 
     g.AdjustAll(r, totals0, fpLogic, r.m_pkUser);

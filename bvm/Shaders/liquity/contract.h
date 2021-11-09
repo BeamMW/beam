@@ -310,11 +310,36 @@ namespace Liquity
             return std::min(ret, half);
         }
 
-        Float m_kBaseRate;
-        void UpdateBaseRate()
+        struct BaseRate
         {
-            // TODO
-        }
+            Float m_k;
+            Height m_hLastDecay;
+
+            void Decay()
+            {
+                Height h = Env::get_Height();
+                if (m_hLastDecay < h)
+                {
+                    if (!m_k.IsZero())
+                    {
+                        // decay rate is 1 percent in 60 blocks, i.e. 1/6K / block, approximately 11185 * 2^-26
+                        Float kRate = 11185;
+                        kRate.m_Order -= 26;
+
+                        Float kDiff = kRate * Float(h - m_hLastDecay);
+
+                        if (m_k > kDiff)
+                            m_k = m_k - kDiff;
+                        else
+                            m_k.Set0();
+                   }
+
+                   m_hLastDecay = h;
+                }
+            }
+
+        } m_BaseRate;
+
     };
 
     namespace Method
