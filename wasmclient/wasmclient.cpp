@@ -84,6 +84,7 @@ namespace
 
     void HandleException(const std::exception& ex)
     {
+        LOG_ERROR() << ex.what();
         EM_ASM
         (
             {
@@ -299,6 +300,12 @@ class WasmWalletClient
     , private WalletClient2::ICallbackHandler
 {
 public:
+    WasmWalletClient(const std::string& node)
+        : WasmWalletClient("headless.db", "anything", node)
+    {
+        SetHeadless(true);
+    }
+
     WasmWalletClient(const std::string& dbName, const std::string& pass, const std::string& node)
         : m_Logger(beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG))
         , m_Reactor(io::Reactor::create())
@@ -308,6 +315,7 @@ public:
     {
         wallet::g_AssetsEnabled = true;
     }
+
 
     void sendAPIResponse(const json& result) override
     {
@@ -399,40 +407,55 @@ public:
         });
     }
 
-    bool StartWallet()
+    void StartWallet()
     {
         AssertMainThread();
-        EnsureFSMounted();
+
         if (m_Client)
         {
-            LOG_WARNING() << "The client is already running";
-            return false;
+            HandleException(std::runtime_error("The client is already running"));
+            return;
         }
 
         try
         {
+            if (IsHeadless())
+            {
+                auto r = io::Reactor::create();
+                io::Reactor::Scope scope(*r);
+                WalletDB::initNoKeeper(m_DbPath, m_Pass);
+                s_Mounted = true;
+
+                EM_ASM
+                (
+                    console.log("headless wallet created!");
+                );
+            }
+
+            EnsureFSMounted();
             auto dbFunc = [clientPtr=&m_Client, path = m_DbPath, pass = m_Pass, dbPtr = std::make_shared<WalletDB::Ptr>()]()
             {
                 if (!*dbPtr)
                 {
                     *dbPtr = OpenWallet(path, pass);
-                    (*clientPtr)->SetHeadless(!!(*dbPtr)->get_MasterKdf());
                 }
                 return *dbPtr;
             };
+
             m_Client = std::make_shared<WalletClient2>(Rules::get(), dbFunc, m_Node, m_Reactor);
             m_Client->SetHandler(this);
+
             auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
             additionalTxCreators->emplace(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(dbFunc));
+
             m_Client->getAsync()->enableBodyRequests(true);
             m_Client->start({}, true, additionalTxCreators);
-            return true;
         }
         catch (const std::exception& ex)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << ex.what();
+            HandleException(ex);
+            return;
         }
-        return false;
     }
 
     void StopWallet(val handler = val::null())
@@ -669,27 +692,6 @@ public:
         }
     }
 
-    static void CreateHeadlessWallet()
-    {
-        AssertMainThread();
-        EnsureFSMounted();
-        try
-        {
-            auto r = io::Reactor::create();
-            io::Reactor::Scope scope(*r);
-            WalletDB::initNoKeeper("wallet.db", SecString("anypass"));
-            s_Mounted = true; // headless wallet has in-memory database 
-            EM_ASM
-            (
-                console.log("headless wallet created!");
-            );
-        }
-        catch (const std::exception& ex)
-        {
-            HandleException(ex);
-        }
-    }
-
     static void DeleteWallet(const std::string& dbName)
     {
         AssertMainThread();
@@ -813,7 +815,8 @@ bool WasmWalletClient::s_Mounted = false;
 EMSCRIPTEN_BINDINGS()
 {
     class_<WasmWalletClient>("WasmWalletClient")
-        .constructor<const std::string&, const std::string&, const std::string&>()
+        .constructor<const std::string&, const std::string&, const std::string&>() // db + pass + node
+        .constructor<const std::string&>() // node only, imply headless
         .function("startWallet", &WasmWalletClient::StartWallet)
         .function("stopWallet", &WasmWalletClient::StopWallet)
         .function("isRunning", &WasmWalletClient::IsRunning)
@@ -833,7 +836,6 @@ EMSCRIPTEN_BINDINGS()
         .class_function("ConvertTokenToJson", &WasmWalletClient::ConvertTokenToJson)
         .class_function("ConvertJsonToToken", &WasmWalletClient::ConvertJsonToToken)
         .class_function("CreateWallet", &WasmWalletClient::CreateWallet)
-        .class_function("CreateHeadlessWallet", &WasmWalletClient::CreateHeadlessWallet)
         .class_function("MountFS", &WasmWalletClient::MountFS)
         .class_function("DeleteWallet", &WasmWalletClient::DeleteWallet)
         .class_function("IsInitialized", &WasmWalletClient::IsInitialized)
