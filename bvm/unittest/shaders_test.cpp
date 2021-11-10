@@ -662,7 +662,6 @@ namespace bvm2 {
 			ProcessorContract::CallFar(cid, iMethod, pArgs, bInheritContext);
 		}
 
-		void LiquityPrintBank(const PubKey& pk);
 		void PrintAllLiquity();
 		void AddLiquityPoolTotals(Shaders::Liquity::Pair&, uint8_t nTag);
 
@@ -869,25 +868,114 @@ namespace bvm2 {
 	{
 		double res = static_cast<double>(x);
 		return res * 1e-8;
-	} 
-
-	void MyProcessor::LiquityPrintBank(const PubKey& pk)
-	{
-		Shaders::Env::Key_T<Shaders::Liquity::Balance::Key> key;
-		key.m_Prefix.m_Cid = m_cidLiquity;
-		key.m_KeyInContract.m_Pk = pk;
-
-		Blob b;
-		LoadVar(Blob(&key, sizeof(key)), b);
-
-		Shaders::Liquity::Pair vals;
-		if (sizeof(Shaders::Liquity::Balance) == b.n)
-			vals = reinterpret_cast<const Shaders::Liquity::Balance*>(b.p)->m_Amounts;
-		else
-			ZeroObject(vals);
-
-		std::cout << "\tTok=" << Val2Num(vals.Tok) << ", Col=" << Val2Num(vals.Col) << std::endl;
 	}
+
+	double Val2NumDiff(Amount x, Amount x0)
+	{
+		return (x >= x0) ? Val2Num(x - x0) : -Val2Num(x0 - x);
+	}
+
+	struct LiquityContext
+	{
+		MyProcessor& m_Proc;
+		LiquityContext(MyProcessor& proc) :m_Proc(proc) {}
+
+		typedef Shaders::Liquity::Balance Balance;
+		typedef Shaders::Liquity::Pair Pair;
+
+		Pair get_Balance(const PubKey& pk)
+		{
+			Shaders::Env::Key_T<Balance::Key> key;
+			key.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+			key.m_KeyInContract.m_Pk = pk;
+
+			Blob b;
+			m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
+
+			if (sizeof(Balance) == b.n)
+				return reinterpret_cast<const Balance*>(b.p)->m_Amounts;
+
+			Pair vals;
+			ZeroObject(vals);
+			return vals;
+		}
+
+		static const Amount s_BankTstReserve = Rules::Coin * 1000000000ull;
+
+		void PrintBankExcess()
+		{
+			Shaders::Env::Key_T<Balance::Key> key;
+			key.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+			ZeroObject(key.m_KeyInContract.m_Pk);
+
+			while (true)
+			{
+				auto it = m_Proc.m_Vars.lower_bound(Blob(&key, sizeof(key)), BlobMap::Set::Comparator());
+				if (m_Proc.m_Vars.end() == it)
+					break;
+
+				const auto& v = *it;
+				auto k = v.ToBlob();
+				if (sizeof(key) != k.n)
+					break;
+				auto& k1 = ((Shaders::Env::Key_T<Balance::Key>*) k.p)->m_KeyInContract;
+				if (k1.m_Tag != key.m_KeyInContract.m_Tag)
+					break;
+
+				verify_test(v.m_Data.size() == sizeof(Balance));
+				auto& vals = ((Balance*) &v.m_Data.front())->m_Amounts;
+
+				if ((vals.Tok != s_BankTstReserve) || (vals.Col != s_BankTstReserve))
+				{
+					std::cout << "\tUser=" << k1.m_Pk
+						<< ", Tok=" << Val2NumDiff(vals.Tok, s_BankTstReserve)
+						<< ", Col=" << Val2NumDiff(vals.Col, s_BankTstReserve)
+						<< std::endl;
+
+					vals.Tok = s_BankTstReserve;
+					vals.Col = s_BankTstReserve;
+				}
+
+				m_Proc.m_Vars.erase(it);
+			}
+		}
+
+		void InitBankExcess(const PubKey& pkUser)
+		{
+			Shaders::Env::Key_T<Balance::Key> key;
+			key.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+			key.m_KeyInContract.m_Pk = pkUser;
+
+			Balance vals;
+			vals.m_Amounts.Tok = s_BankTstReserve;
+			vals.m_Amounts.Col = s_BankTstReserve;
+			m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&vals, sizeof(vals)));
+		}
+
+		bool InvokeBase(Shaders::Liquity::Method::BaseTx& args, uint32_t nSizeArgs, uint32_t iMethod, const PubKey& pkUser)
+		{
+			ZeroObject(args.m_Flow);
+			InitBankExcess(pkUser);
+
+			if (!m_Proc.RunGuarded(m_Proc.m_cidLiquity, iMethod, Blob(&args, nSizeArgs), nullptr))
+				return false;
+
+			PrintBankExcess();
+			return true;
+		}
+
+		template <typename TMethod>
+		bool InvokeTx(TMethod& args, const PubKey& pkUser)
+		{
+			return InvokeBase(args, sizeof(args), args.s_iMethod, pkUser);
+		}
+
+		template <typename TMethod>
+		bool InvokeTxUser(TMethod& args)
+		{
+			return InvokeBase(args, sizeof(args), args.s_iMethod, args.m_pkUser);
+		}
+	};
 
 	void MyProcessor::AddLiquityPoolTotals(Shaders::Liquity::Pair& res, uint8_t nTag)
 	{
@@ -1004,6 +1092,8 @@ namespace bvm2 {
 			verify_test(ContractCreate_T(m_cidLiquity, m_Code.m_Liquity, args));
 		}
 
+		LiquityContext lc(*this);
+
 		{
 			Shaders::Liquity::Method::TroveOpen args;
 			ZeroObject(args);
@@ -1011,11 +1101,10 @@ namespace bvm2 {
 			args.m_Amounts.Tok = Rules::Coin * 1000;
 			args.m_Amounts.Col = Rules::Coin * 35; // should be enough for 150% tcr
 			args.m_pkUser.m_X = 43U;
-			args.m_Flow.Col.Add(Rules::Coin * 40, 1);
-			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
 
 			std::cout << "Trove0: Tok=" << Val2Num(args.m_Amounts.Tok) << ", Col=" << Val2Num(args.m_Amounts.Col) << std::endl;
-			LiquityPrintBank(args.m_pkUser);
+			verify_test(lc.InvokeTxUser(args));
+
 			PrintAllLiquity();
 		}
 
@@ -1026,13 +1115,11 @@ namespace bvm2 {
 			Shaders::Liquity::Method::UpdStabPool args;
 			ZeroObject(args);
 			args.m_NewAmount = Rules::Coin * 750;
-			args.m_Flow.Tok.Add(args.m_NewAmount, 1);
 			args.m_pkUser.m_X = 77U + i;
 
-			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
-
 			std::cout << "Stab" << i << ": Put=" << Val2Num(args.m_NewAmount) << std::endl;
-			LiquityPrintBank(args.m_pkUser);
+			verify_test(lc.InvokeTxUser(args));
+
 			PrintAllLiquity();
 		}
 
@@ -1050,10 +1137,10 @@ namespace bvm2 {
 			args.m_Count = 1;
 			args.m_pID[0] = 1;
 			args.m_pkUser.m_X = 96U;
-			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
 
 			std::cout << "Trove0 liquidated." << std::endl;
-			LiquityPrintBank(args.m_pkUser);
+			verify_test(lc.InvokeTxUser(args));
+
 			PrintAllLiquity();
 		}
 
@@ -1062,10 +1149,10 @@ namespace bvm2 {
 			Shaders::Liquity::Method::UpdStabPool args;
 			ZeroObject(args);
 			args.m_pkUser.m_X = 77U + i;
-			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
 
 			std::cout << "Stab" << i << " all out" << std::endl;
-			LiquityPrintBank(args.m_pkUser);
+			verify_test(lc.InvokeTxUser(args));
+
 			PrintAllLiquity();
 		}
 	}
