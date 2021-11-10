@@ -110,6 +110,8 @@ public:
         virtual void OnResult(const json&) {}
         virtual void OnApproveSend(const std::string&, const string&, WasmAppApi::WeakPtr api) {}
         virtual void OnApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WasmAppApi::WeakPtr api) {}
+        virtual void OnImportRecoveryProgress(uint64_t done, uint64_t total) {}
+        virtual void OnWalletError(ErrorType error) {}
     };
 
     using WalletClient::WalletClient;
@@ -208,7 +210,24 @@ private:
 
     void onImportRecoveryProgress(uint64_t done, uint64_t total) override
     {
-        LOG_DEBUG() << "Recovering [" << done << '/' << total << ']';
+        postFunctionToClientContext([this, done, total]()
+        {
+            if (m_CbHandler)
+            {
+                m_CbHandler->OnImportRecoveryProgress(done, total);
+            }
+        });
+    }
+
+    void onWalletError(ErrorType error) override
+    {
+        postFunctionToClientContext([this, error]()
+        {
+            if (m_CbHandler)
+            {
+                m_CbHandler->OnWalletError(error);
+            }
+        });
     }
 
     static void ProsessMessageOnMainThread(int pThis)
@@ -524,6 +543,34 @@ public:
         }
     }
 
+    void OnImportRecoveryProgress(uint64_t done, uint64_t total) override
+    {
+        OnImportRecoveryProgress(val::null(), done, total);
+    }
+
+    void OnImportRecoveryProgress(val error, uint64_t done, uint64_t total)
+    {
+        AssertMainThread();
+        if (m_RecoveryCallback && !m_RecoveryCallback->isNull())
+        {
+            (*m_RecoveryCallback)(error, static_cast<int>(done), static_cast<int>(total));
+            if (done == total || !error.isNull())
+            {
+                m_RecoveryCallback.reset();
+            }
+        }
+    }
+
+    void OnWalletError(ErrorType e) override
+    {
+        if (e == ErrorType::ImportRecoveryError)
+        {
+            auto error = val::global("Error").new_(val("Failed to import recovery"));
+            OnImportRecoveryProgress(error, 0, 0);
+        }
+    }
+
+
     void CreateAppAPI(const std::string& apiver, const std::string& minapiver, const std::string& appid, const std::string& appname, val cb)
     {
         AssertMainThread();
@@ -602,7 +649,7 @@ public:
         );
     }
 
-    void ImportRecovery(const std::string& buf)
+    void ImportRecovery(const std::string& buf, val&& callback)
     {
         AssertMainThread();
         if (!m_Client)
@@ -610,12 +657,29 @@ public:
             LOG_WARNING() << "The client is stopped";
             return;
         }
-        constexpr std::string_view fileName= "recovery.bin";
+        if (m_RecoveryCallback)
         {
-            std::ofstream s(fileName.data(), ios_base::binary | ios_base::out | ios_base::trunc);
-            s.write(reinterpret_cast<const char*>(buf.data()), buf.size());
+            LOG_WARNING() << "Recovery is in progress";
+            return;
         }
-        m_Client->getAsync()->importRecovery(fileName.data());
+        
+        try
+        {
+            constexpr std::string_view fileName = "recovery.bin";
+            {
+                std::ofstream s(fileName.data(), ios_base::binary | ios_base::out | ios_base::trunc);
+                s.write(reinterpret_cast<const char*>(buf.data()), buf.size());
+            }
+            if (!callback.isNull())
+            {
+                m_RecoveryCallback = std::make_unique<val>(std::move(callback));
+            }
+            m_Client->getAsync()->importRecovery(fileName.data());
+        }
+        catch (const std::exception& ex)
+        {
+            HandleException(ex);
+        }
     }
 
     static void DoCallbackOnMainThread(val* h)
@@ -823,6 +887,7 @@ private:
     std::unique_ptr<val> m_SyncHandler;
     std::unique_ptr<val> m_ApproveSendHandler;
     std::unique_ptr<val> m_ApproveContractInfoHandler;
+    std::unique_ptr<val> m_RecoveryCallback;
     WalletClient2::Ptr m_Client;
     IWalletApi::Ptr m_WalletApi;
     bool m_Headless = false;
