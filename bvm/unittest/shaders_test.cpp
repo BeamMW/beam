@@ -1072,6 +1072,7 @@ namespace bvm2 {
 			std::cout << "Totals Tok=" << Val2Num(g.m_Troves.m_Totals.Tok) << ", Col=" << Val2Num(g.m_Troves.m_Totals.Col) << std::endl;
 			std::cout << "RedistPool Tok=" << Val2Num(totalRedist.Tok) << ", Col=" << Val2Num(totalRedist.Col) << std::endl;
 			std::cout << "StabPool Tok=" << Val2Num(totalStab.Tok) << ", Col=" << Val2Num(totalStab.Col) << std::endl;
+			std::cout << "ProfitPool X-Tok=" << Val2Num(g.m_ProfitPool.m_Weight) << ", Col=" << Val2Num(*g.m_ProfitPool.m_pValue) << std::endl;
 
 			verify_test(g.m_Troves.m_Totals.Tok == totalRedist.Tok); // all troves must participate in the RedistPool
 
@@ -1133,6 +1134,7 @@ namespace bvm2 {
 			ZeroObject(args);
 			args.m_Settings.m_cidOracle = m_MyOracle.m_Cid;
 			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 5;
+			args.m_Settings.m_AidProfit = 77;
 
 			verify_test(ContractCreate_T(m_cidLiquity, m_Code.m_Liquity, args));
 		}
@@ -1145,6 +1147,15 @@ namespace bvm2 {
 		{
 			ECC::GenRandom(pPk[i].m_X);
 			pPk[i].m_Y = 0;
+
+			if (i < 2)
+			{
+				Shaders::Liquity::Method::UpdProfitPool arg1;
+				ZeroObject(arg1);
+				arg1.m_NewAmount = Rules::Coin * (5 + i);
+				arg1.m_pkUser = pPk[i];
+				verify_test(lc.InvokeTxUser(arg1));
+			}
 
 			Shaders::Liquity::Method::TroveOpen args;
 			ZeroObject(args);
@@ -1220,6 +1231,17 @@ namespace bvm2 {
 			lc.PrintAll();
 		}
 
+		for (uint32_t i = 0; i < 2; i++)
+		{
+			Shaders::Liquity::Method::UpdProfitPool arg1;
+			ZeroObject(arg1);
+			arg1.m_pkUser = pPk[i];
+
+			std::cout << "profit withdraw" << std::endl;
+			verify_test(lc.InvokeTxUser(arg1));
+
+			lc.PrintAll();
+		}
 	}
 
 	namespace IndexDecoder
