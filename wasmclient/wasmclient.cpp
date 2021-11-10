@@ -206,6 +206,11 @@ private:
         });
     }
 
+    void onImportRecoveryProgress(uint64_t done, uint64_t total) override
+    {
+        LOG_DEBUG() << "Recovering [" << done << '/' << total << ']';
+    }
+
     static void ProsessMessageOnMainThread(int pThis)
     {
         std::unique_ptr<WeakPtr> wp(reinterpret_cast<WeakPtr*>(pThis));
@@ -597,6 +602,22 @@ public:
         );
     }
 
+    void ImportRecovery(const std::string& buf)
+    {
+        AssertMainThread();
+        if (!m_Client)
+        {
+            LOG_WARNING() << "The client is stopped";
+            return;
+        }
+        constexpr std::string_view fileName= "recovery.bin";
+        {
+            std::ofstream s(fileName.data(), ios_base::binary | ios_base::out | ios_base::trunc);
+            s.write(reinterpret_cast<const char*>(buf.data()), buf.size());
+        }
+        m_Client->getAsync()->importRecovery(fileName.data());
+    }
+
     static void DoCallbackOnMainThread(val* h)
     {
         std::unique_ptr<val> handler(h);
@@ -764,19 +785,24 @@ public:
                 console.log("mounting...");
                 FS.syncfs(true, function(error)
                 {
-                    dynCall('vi', $0, [error]);
+                    if (error == null) {
+                        dynCall('vi', $0, [$1]);
+                    }
+                    else {
+                        dynCall('vi', $0, [error]);
+                    }
                 });
 
-            }, OnMountFS
+            }, OnMountFS, &s_Null
         );
     }
 private:
-    static void OnMountFS(val error)
+    static void OnMountFS(val* error)
     {
         s_Mounted = true;
         if (!s_MountCB.isNull())
         {
-            s_MountCB(error);
+            s_MountCB(*error);
         }
         else
         {
@@ -787,6 +813,7 @@ private:
 private:
     static val s_MountCB;
     static bool s_Mounted;
+    static val s_Null;
     std::shared_ptr<Logger> m_Logger;
     io::Reactor::Ptr m_Reactor;
     std::string m_DbPath;
@@ -803,6 +830,7 @@ private:
 
 val WasmWalletClient::s_MountCB = val::null();
 bool WasmWalletClient::s_Mounted = false;
+val WasmWalletClient::s_Null = val::null();
 
 // Binding code
 EMSCRIPTEN_BINDINGS()
@@ -821,6 +849,7 @@ EMSCRIPTEN_BINDINGS()
         .function("setApproveSendHandler", &WasmWalletClient::SetApproveSendHandler)
         .function("setApproveContractInfoHandler", &WasmWalletClient::SetApproveContractInfoHandler)
         .function("createAppAPI", &WasmWalletClient::CreateAppAPI)
+        .function("importRecovery", &WasmWalletClient::ImportRecovery)
         .class_function("IsAppSupported", &WasmWalletClient::IsAppSupported)
         .class_function("GenerateAppID", &WasmWalletClient::GenerateAppID)
         .class_function("GeneratePhrase", &WasmWalletClient::GeneratePhrase)
