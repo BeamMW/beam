@@ -167,7 +167,7 @@ struct MyGlobal
         if (bClose)
         {
             fpLogic.Tok.Add(m_Settings.m_TroveLiquidationReserve, 0);
-            Env::DelVar_T(tid);
+            Env::DelVar_T(tk);
         }
         else
         {
@@ -513,8 +513,7 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
         Trove t;
         g.TrovePop(tk, t);
 
-        auto rcr = t.m_Amounts.get_Rcr();
-        auto cr = price.ToCR(rcr);
+        auto cr = price.ToCR(t.m_Amounts.get_Rcr());
 
         bool bRecovery = 
             g.m_Troves.m_Totals.Tok &&
@@ -543,7 +542,7 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
 
         if (cr > Global::Price::get_k100())
         {
-            if (g.m_StabPool.LiquidatePartial(t, rcr))
+            if (g.m_StabPool.LiquidatePartial(t))
                 bStab = true;
         }
 

@@ -643,6 +643,7 @@ namespace bvm2 {
 				{
 				case 0: Shaders::Liquity::Ctor(CastArg<Shaders::Liquity::Method::Create>(pArgs)); return;
 				case 3: Shaders::Liquity::Method_3(CastArg<Shaders::Liquity::Method::TroveOpen>(pArgs)); return;
+				case 4: Shaders::Liquity::Method_4(CastArg<Shaders::Liquity::Method::TroveClose>(pArgs)); return;
 				case 7: Shaders::Liquity::Method_7(CastArg<Shaders::Liquity::Method::UpdStabPool>(pArgs)); return;
 				case 8: Shaders::Liquity::Method_8(CastArg<Shaders::Liquity::Method::Liquidate>(pArgs)); return;
 				}
@@ -1004,6 +1005,46 @@ namespace bvm2 {
 			}
 		}
 
+		struct EpochStorage
+		{
+			MyProcessor& m_Proc;
+			uint8_t m_Tag;
+
+			EpochStorage(MyProcessor& proc, uint8_t nTag)
+				:m_Proc(proc)
+				,m_Tag(nTag)
+			{}
+
+			typedef Shaders::Env::Key_T<Shaders::Liquity::EpochKey> Key;
+
+			Key get_Key(uint32_t iEpoch) const {
+				Key k;
+				k.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+				k.m_KeyInContract.m_Tag = m_Tag;
+				k.m_KeyInContract.m_iEpoch = iEpoch;
+				return k;
+			}
+
+			void Load(uint32_t iEpoch, Shaders::ExchangePool::Epoch& e) const
+			{
+				auto k = get_Key(iEpoch);
+				Blob out;
+				m_Proc.LoadVar(Blob(&k, sizeof(k)), out);
+
+				verify_test(sizeof(e) == out.n);
+				memcpy(&e, out.p, out.n);
+			}
+
+			static void Save(uint32_t iEpoch, const Shaders::ExchangePool::Epoch& e) {
+				// ignore
+			}
+
+			static void Del(uint32_t iEpoch) {
+				// ignore
+			}
+		};
+
+
 		void PrintAll()
 		{
 			Shaders::Liquity::Global g;
@@ -1063,8 +1104,13 @@ namespace bvm2 {
 						continue;
 
 					const auto& t = *(Shaders::Liquity::Trove*) &v.m_Data.front();
+					auto t1 = t; // copy
 
-					std::cout << "\tiTrove=" << iTrove <<  ", Tok=" << Val2Num(t.m_Amounts.Tok) << ", Col=" << Val2Num(t.m_Amounts.Col) << std::endl;
+					EpochStorage stor(m_Proc, Shaders::Liquity::Tags::s_Epoch_Redist);
+					g.m_RedistPool.Remove(t1, stor);
+
+
+					std::cout << "\tiTrove=" << iTrove <<  ", Tok=" << Val2Num(t1.m_Amounts.Tok) << ", Col=" << Val2Num(t1.m_Amounts.Col) << std::endl;
 
 					totalCol += t.m_Amounts.Col;
 				}
@@ -1081,6 +1127,7 @@ namespace bvm2 {
 
 		SaveVar(m_MyOracle.m_Cid, m_MyOracle.m_Cid); // dummy val, nevermind, just pretend the contract exists
 
+
 		{
 			Shaders::Liquity::Method::Create args;
 			ZeroObject(args);
@@ -1092,15 +1139,21 @@ namespace bvm2 {
 
 		LiquityContext lc(*this);
 
+		const uint32_t s_Users = 5;
+		PubKey pPk[s_Users];
+		for (uint32_t i = 0; i < s_Users; i++)
 		{
+			ECC::GenRandom(pPk[i].m_X);
+			pPk[i].m_Y = 0;
+
 			Shaders::Liquity::Method::TroveOpen args;
 			ZeroObject(args);
 
 			args.m_Amounts.Tok = Rules::Coin * 1000;
-			args.m_Amounts.Col = Rules::Coin * 35; // should be enough for 150% tcr
-			args.m_pkUser.m_X = 43U;
+			args.m_Amounts.Col = Rules::Coin * (35 + i * 5); // should be enough for 150% tcr
+			args.m_pkUser = pPk[i];
 
-			std::cout << "Trove0: Tok=" << Val2Num(args.m_Amounts.Tok) << ", Col=" << Val2Num(args.m_Amounts.Col) << std::endl;
+			//std::cout << "Trove Tok=" << Val2Num(args.m_Amounts.Tok) << ", Col=" << Val2Num(args.m_Amounts.Col) << std::endl;
 			verify_test(lc.InvokeTxUser(args));
 
 			lc.PrintAll();
@@ -1113,7 +1166,7 @@ namespace bvm2 {
 			Shaders::Liquity::Method::UpdStabPool args;
 			ZeroObject(args);
 			args.m_NewAmount = Rules::Coin * 750;
-			args.m_pkUser.m_X = 77U + i;
+			args.m_pkUser = pPk[i];
 
 			std::cout << "Stab" << i << ": Put=" << Val2Num(args.m_NewAmount) << std::endl;
 			verify_test(lc.InvokeTxUser(args));
@@ -1121,9 +1174,10 @@ namespace bvm2 {
 			lc.PrintAll();
 		}
 
-		m_MyOracle.m_Value = 30; // price drop. icr would be about 105%
+		m_MyOracle.m_Value = 25; // price drop. Some would be liquidated vs stabpool, others via redistpool
 		m_Height += 10;
 
+		for (uint32_t i = 0; i < 3; i++)
 		{
 #pragma pack (push, 1)
 			struct Arg :public Shaders::Liquity::Method::Liquidate {
@@ -1133,10 +1187,10 @@ namespace bvm2 {
 
 			ZeroObject(args);
 			args.m_Count = 1;
-			args.m_pID[0] = 1;
-			args.m_pkUser.m_X = 96U;
+			args.m_pID[0] = i + 1;
+			args.m_pkUser = pPk[0];
 
-			std::cout << "Trove0 liquidated." << std::endl;
+			std::cout << "Trove liquidating" << std::endl;
 			verify_test(lc.InvokeTxUser(args));
 
 			lc.PrintAll();
@@ -1146,13 +1200,26 @@ namespace bvm2 {
 		{
 			Shaders::Liquity::Method::UpdStabPool args;
 			ZeroObject(args);
-			args.m_pkUser.m_X = 77U + i;
+			args.m_pkUser = pPk[i];
 
 			std::cout << "Stab" << i << " all out" << std::endl;
 			verify_test(lc.InvokeTxUser(args));
 
 			lc.PrintAll();
 		}
+
+		for (uint32_t i = 3; i < s_Users; i++)
+		{
+			Shaders::Liquity::Method::TroveClose args;
+			ZeroObject(args);
+			args.m_iTrove = i + 1;
+
+			std::cout << "Trove closing" << std::endl;
+			verify_test(lc.InvokeTx(args, pPk[i]));
+
+			lc.PrintAll();
+		}
+
 	}
 
 	namespace IndexDecoder
