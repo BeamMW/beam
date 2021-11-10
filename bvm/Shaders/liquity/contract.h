@@ -128,7 +128,6 @@ namespace Liquity
     struct Settings
     {
         ContractID m_cidOracle;
-        Amount m_TroveMinDebt; // minimum amount of tokens in an active trove. Can go below during forced update, i.e. partial liquidation
         Amount m_TroveLiquidationReserve;
         AssetID m_AidProfit;
     };
@@ -208,7 +207,6 @@ namespace Liquity
                 p.b = t.m_Amounts.Col;
                 Trade(p);
 
-                _POD_(t.m_Amounts).SetZero();
                 return true;
             }
 
@@ -218,11 +216,6 @@ namespace Liquity
             :public ExchangePool
         {
             bool LiquidatePartial(Trove& t)
-            {
-                return LiquidatePartial(t, t.m_Amounts.get_Rcr());
-            }
-
-            bool LiquidatePartial(Trove& t, Float rcr)
             {
                 Pair p;
                 p.s = get_TotalSell();
@@ -237,7 +230,7 @@ namespace Liquity
                 }
                 else
                 {
-                    p.b = rcr * Float(p.s);
+                    p.b = t.m_Amounts.get_Rcr() * Float(p.s);
                     assert(p.b <= t.m_Amounts.Col);
                     p.b = std::min(p.b, t.m_Amounts.Col); // for more safety, but should be ok
 

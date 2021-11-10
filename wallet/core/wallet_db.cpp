@@ -5993,21 +5993,6 @@ namespace beam::wallet
             storage::setVar(db, s_szNextEvt, uintBigFor<Height>::Type(value));
         }
 
-        void updateCurrentStateWithTip(IWalletDB& db)
-        {
-            Block::SystemState::Full sTip;
-            db.get_History().get_Tip(sTip);
-
-            Block::SystemState::ID id;
-            if (sTip.m_Height)
-                sTip.get_ID(id);
-            else
-                ZeroObject(id);
-
-            db.setSystemStateID(id);
-            LOG_INFO() << "Current state is " << id;
-        }
-
         namespace
         {
             Timestamp RestoreCreationTime(const Block::SystemState::Full& tip, Height confirmHeight)

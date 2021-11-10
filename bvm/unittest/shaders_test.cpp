@@ -256,7 +256,6 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Flow.Col.m_Val);
 	}
 	template <bool bToShader> void Convert(Liquity::Method::Create& x) {
-		ConvertOrd<bToShader>(x.m_Settings.m_TroveMinDebt);
 		ConvertOrd<bToShader>(x.m_Settings.m_TroveLiquidationReserve);
 	}
 	template <bool bToShader> void Convert(Liquity::Method::OracleGet& x) {
@@ -644,6 +643,7 @@ namespace bvm2 {
 				{
 				case 0: Shaders::Liquity::Ctor(CastArg<Shaders::Liquity::Method::Create>(pArgs)); return;
 				case 3: Shaders::Liquity::Method_3(CastArg<Shaders::Liquity::Method::TroveOpen>(pArgs)); return;
+				case 4: Shaders::Liquity::Method_4(CastArg<Shaders::Liquity::Method::TroveClose>(pArgs)); return;
 				case 7: Shaders::Liquity::Method_7(CastArg<Shaders::Liquity::Method::UpdStabPool>(pArgs)); return;
 				case 8: Shaders::Liquity::Method_8(CastArg<Shaders::Liquity::Method::Liquidate>(pArgs)); return;
 				}
@@ -662,10 +662,6 @@ namespace bvm2 {
 
 			ProcessorContract::CallFar(cid, iMethod, pArgs, bInheritContext);
 		}
-
-		void LiquityPrintBank(const PubKey& pk);
-		void PrintAllLiquity();
-		void AddLiquityPoolTotals(Shaders::Liquity::Pair&, uint8_t nTag);
 
 		void TestVault();
 		void TestDummy();
@@ -870,125 +866,261 @@ namespace bvm2 {
 	{
 		double res = static_cast<double>(x);
 		return res * 1e-8;
-	} 
-
-	void MyProcessor::LiquityPrintBank(const PubKey& pk)
-	{
-		Shaders::Env::Key_T<Shaders::Liquity::Balance::Key> key;
-		key.m_Prefix.m_Cid = m_cidLiquity;
-		key.m_KeyInContract.m_Pk = pk;
-
-		Blob b;
-		LoadVar(Blob(&key, sizeof(key)), b);
-
-		Shaders::Liquity::Pair vals;
-		if (sizeof(Shaders::Liquity::Balance) == b.n)
-			vals = reinterpret_cast<const Shaders::Liquity::Balance*>(b.p)->m_Amounts;
-		else
-			ZeroObject(vals);
-
-		std::cout << "\tTok=" << Val2Num(vals.Tok) << ", Col=" << Val2Num(vals.Col) << std::endl;
 	}
 
-	void MyProcessor::AddLiquityPoolTotals(Shaders::Liquity::Pair& res, uint8_t nTag)
+	double Val2NumDiff(Amount x, Amount x0)
 	{
-		typedef Shaders::Env::Key_T<Shaders::Liquity::EpochKey> EpochKey;
-		EpochKey ek;
-		ek.m_Prefix.m_Cid = m_cidLiquity;
-		ek.m_KeyInContract.m_Tag = nTag;
-		ek.m_KeyInContract.m_iEpoch = 0;
-
-		for (auto it = m_Vars.lower_bound(Blob(&ek, sizeof(ek)), BlobMap::Set::Comparator()); m_Vars.end() != it; it++)
-		{
-			const auto& v = *it;
-			auto k = v.ToBlob();
-			if (sizeof(ek) != k.n)
-				break;
-			auto& ek1 = *((EpochKey*) k.p);
-
-			if (ek1.m_KeyInContract.m_Tag != ek.m_KeyInContract.m_Tag)
-				break;
-
-			auto iEpoch = ek.m_KeyInContract.m_iEpoch;
-
-			if (v.m_Data.size() != sizeof(Shaders::HomogenousPool::Epoch))
-				continue;
-
-			const auto& epoch = *(Shaders::HomogenousPool::Epoch*) &v.m_Data.front();
-
-			res.Tok += epoch.m_Balance.s;
-			res.Col += epoch.m_Balance.b;
-		}
+		return (x >= x0) ? Val2Num(x - x0) : -Val2Num(x0 - x);
 	}
 
-	void MyProcessor::PrintAllLiquity()
+	struct LiquityContext
 	{
-		Shaders::Liquity::Global g;
+		MyProcessor& m_Proc;
+		LiquityContext(MyProcessor& proc) :m_Proc(proc) {}
+
+		typedef Shaders::Liquity::Balance Balance;
+		typedef Shaders::Liquity::Pair Pair;
+
+		Pair get_Balance(const PubKey& pk)
 		{
-			Shaders::Env::Key_T<uint8_t> key;
-			key.m_Prefix.m_Cid = m_cidLiquity;
-			key.m_KeyInContract = Shaders::Liquity::Tags::s_State;
+			Shaders::Env::Key_T<Balance::Key> key;
+			key.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+			key.m_KeyInContract.m_Pk = pk;
 
 			Blob b;
-			LoadVar(Blob(&key, sizeof(key)), b);
-			verify_test(sizeof(g) == b.n);
-			memcpy(&g, b.p, sizeof(g));
+			m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
+
+			if (sizeof(Balance) == b.n)
+				return reinterpret_cast<const Balance*>(b.p)->m_Amounts;
+
+			Pair vals;
+			ZeroObject(vals);
+			return vals;
 		}
 
-		Shaders::Liquity::Pair totalStab, totalRedist, totalTrovesRaw;
+		static const Amount s_BankTstReserve = Rules::Coin * 1000000000ull;
 
-		totalStab.Tok = g.m_StabPool.get_TotalSell();
-		totalStab.Col = g.m_StabPool.m_Active.m_Balance.b + g.m_StabPool.m_Draining.m_Balance.b;
-		AddLiquityPoolTotals(totalStab, Shaders::Liquity::Tags::s_Epoch_Stable);
-
-		totalRedist.Tok = g.m_RedistPool.get_TotalSell();
-		totalRedist.Col = g.m_RedistPool.m_Active.m_Balance.b + g.m_RedistPool.m_Draining.m_Balance.b;
-		AddLiquityPoolTotals(totalRedist, Shaders::Liquity::Tags::s_Epoch_Redist);
-
-		std::cout << "Totals Tok=" << Val2Num(g.m_Troves.m_Totals.Tok) << ", Col=" << Val2Num(g.m_Troves.m_Totals.Col) << std::endl;
-		std::cout << "RedistPool Tok=" << Val2Num(totalRedist.Tok) << ", Col=" << Val2Num(totalRedist.Col) << std::endl;
-		std::cout << "StabPool Tok=" << Val2Num(totalStab.Tok) << ", Col=" << Val2Num(totalStab.Col) << std::endl;
-
-		verify_test(g.m_Troves.m_Totals.Tok == totalRedist.Tok); // all troves must participate in the RedistPool
-
-		auto itAsset = m_Assets.find(g.m_Aid);
-		verify_test(m_Assets.end() != itAsset);
-		verify_test(itAsset->second.m_Amount == g.m_Troves.m_Totals.Tok); // total debt must be equal minted amount
-
-		Amount totalCol = totalRedist.Col;
-
+		void PrintBankExcess()
 		{
-			typedef Shaders::Env::Key_T<Shaders::Liquity::Trove::Key> TroveKey;
-			TroveKey tk;
-			tk.m_Prefix.m_Cid = m_cidLiquity;
-			tk.m_KeyInContract.m_iTrove = 0;
+			Shaders::Env::Key_T<Balance::Key> key;
+			key.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+			ZeroObject(key.m_KeyInContract.m_Pk);
 
-			for (auto it = m_Vars.lower_bound(Blob(&tk, sizeof(tk)), BlobMap::Set::Comparator()); m_Vars.end() != it; it++)
+			while (true)
+			{
+				auto it = m_Proc.m_Vars.lower_bound(Blob(&key, sizeof(key)), BlobMap::Set::Comparator());
+				if (m_Proc.m_Vars.end() == it)
+					break;
+
+				const auto& v = *it;
+				auto k = v.ToBlob();
+				if (sizeof(key) != k.n)
+					break;
+				auto& k1 = ((Shaders::Env::Key_T<Balance::Key>*) k.p)->m_KeyInContract;
+				if (k1.m_Tag != key.m_KeyInContract.m_Tag)
+					break;
+
+				verify_test(v.m_Data.size() == sizeof(Balance));
+				auto& vals = ((Balance*) &v.m_Data.front())->m_Amounts;
+
+				if ((vals.Tok != s_BankTstReserve) || (vals.Col != s_BankTstReserve))
+				{
+					std::cout << "\tUser=" << k1.m_Pk
+						<< ", Tok=" << Val2NumDiff(vals.Tok, s_BankTstReserve)
+						<< ", Col=" << Val2NumDiff(vals.Col, s_BankTstReserve)
+						<< std::endl;
+
+					vals.Tok = s_BankTstReserve;
+					vals.Col = s_BankTstReserve;
+				}
+
+				m_Proc.m_Vars.erase(it);
+			}
+		}
+
+		void InitBankExcess(const PubKey& pkUser)
+		{
+			Shaders::Env::Key_T<Balance::Key> key;
+			key.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+			key.m_KeyInContract.m_Pk = pkUser;
+
+			Balance vals;
+			vals.m_Amounts.Tok = s_BankTstReserve;
+			vals.m_Amounts.Col = s_BankTstReserve;
+			m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&vals, sizeof(vals)));
+		}
+
+		bool InvokeBase(Shaders::Liquity::Method::BaseTx& args, uint32_t nSizeArgs, uint32_t iMethod, const PubKey& pkUser)
+		{
+			ZeroObject(args.m_Flow);
+			InitBankExcess(pkUser);
+
+			if (!m_Proc.RunGuarded(m_Proc.m_cidLiquity, iMethod, Blob(&args, nSizeArgs), nullptr))
+				return false;
+
+			PrintBankExcess();
+			return true;
+		}
+
+		template <typename TMethod>
+		bool InvokeTx(TMethod& args, const PubKey& pkUser)
+		{
+			return InvokeBase(args, sizeof(args), args.s_iMethod, pkUser);
+		}
+
+		template <typename TMethod>
+		bool InvokeTxUser(TMethod& args)
+		{
+			return InvokeBase(args, sizeof(args), args.s_iMethod, args.m_pkUser);
+		}
+
+		void AddPoolTotals(Pair& res, uint8_t nTag)
+		{
+			typedef Shaders::Env::Key_T<Shaders::Liquity::EpochKey> EpochKey;
+			EpochKey ek;
+			ek.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+			ek.m_KeyInContract.m_Tag = nTag;
+			ek.m_KeyInContract.m_iEpoch = 0;
+
+			for (auto it = m_Proc.m_Vars.lower_bound(Blob(&ek, sizeof(ek)), BlobMap::Set::Comparator()); m_Proc.m_Vars.end() != it; it++)
 			{
 				const auto& v = *it;
 				auto k = v.ToBlob();
-				if (sizeof(tk) != k.n)
+				if (sizeof(ek) != k.n)
 					break;
-				auto& tk1 = *((TroveKey*) k.p);
+				auto& ek1 = *((EpochKey*) k.p);
 
-				if (tk1.m_KeyInContract.m_Tag != tk.m_KeyInContract.m_Tag)
+				if (ek1.m_KeyInContract.m_Tag != ek.m_KeyInContract.m_Tag)
 					break;
 
-				auto iTrove = tk1.m_KeyInContract.m_iTrove; // not stored in BE form
+				//auto iEpoch = ek.m_KeyInContract.m_iEpoch;
 
-				if (v.m_Data.size() != sizeof(Shaders::Liquity::Trove))
+				if (v.m_Data.size() != sizeof(Shaders::HomogenousPool::Epoch))
 					continue;
 
-				const auto& t = *(Shaders::Liquity::Trove*) &v.m_Data.front();
+				const auto& epoch = *(Shaders::HomogenousPool::Epoch*) &v.m_Data.front();
 
-				std::cout << "\tiTrove=" << iTrove <<  ", Tok=" << Val2Num(t.m_Amounts.Tok) << ", Col=" << Val2Num(t.m_Amounts.Col) << std::endl;
+				res.Tok += epoch.m_Balance.s;
+				res.Col += epoch.m_Balance.b;
+			}
+		}
 
-				totalCol += t.m_Amounts.Col;
+		struct EpochStorage
+		{
+			MyProcessor& m_Proc;
+			uint8_t m_Tag;
+
+			EpochStorage(MyProcessor& proc, uint8_t nTag)
+				:m_Proc(proc)
+				,m_Tag(nTag)
+			{}
+
+			typedef Shaders::Env::Key_T<Shaders::Liquity::EpochKey> Key;
+
+			Key get_Key(uint32_t iEpoch) const {
+				Key k;
+				k.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+				k.m_KeyInContract.m_Tag = m_Tag;
+				k.m_KeyInContract.m_iEpoch = iEpoch;
+				return k;
 			}
 
-			verify_test(g.m_Troves.m_Totals.Col == totalCol);
+			void Load(uint32_t iEpoch, Shaders::ExchangePool::Epoch& e) const
+			{
+				auto k = get_Key(iEpoch);
+				Blob out;
+				m_Proc.LoadVar(Blob(&k, sizeof(k)), out);
+
+				verify_test(sizeof(e) == out.n);
+				memcpy(&e, out.p, out.n);
+			}
+
+			static void Save(uint32_t iEpoch, const Shaders::ExchangePool::Epoch& e) {
+				// ignore
+			}
+
+			static void Del(uint32_t iEpoch) {
+				// ignore
+			}
+		};
+
+
+		void PrintAll()
+		{
+			Shaders::Liquity::Global g;
+			{
+				Shaders::Env::Key_T<uint8_t> key;
+				key.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+				key.m_KeyInContract = Shaders::Liquity::Tags::s_State;
+
+				Blob b;
+				m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
+				verify_test(sizeof(g) == b.n);
+				memcpy(&g, b.p, sizeof(g));
+			}
+
+			Pair totalStab, totalRedist;
+
+			totalStab.Tok = g.m_StabPool.get_TotalSell();
+			totalStab.Col = g.m_StabPool.m_Active.m_Balance.b + g.m_StabPool.m_Draining.m_Balance.b;
+			AddPoolTotals(totalStab, Shaders::Liquity::Tags::s_Epoch_Stable);
+
+			totalRedist.Tok = g.m_RedistPool.get_TotalSell();
+			totalRedist.Col = g.m_RedistPool.m_Active.m_Balance.b + g.m_RedistPool.m_Draining.m_Balance.b;
+			AddPoolTotals(totalRedist, Shaders::Liquity::Tags::s_Epoch_Redist);
+
+			std::cout << "Totals Tok=" << Val2Num(g.m_Troves.m_Totals.Tok) << ", Col=" << Val2Num(g.m_Troves.m_Totals.Col) << std::endl;
+			std::cout << "RedistPool Tok=" << Val2Num(totalRedist.Tok) << ", Col=" << Val2Num(totalRedist.Col) << std::endl;
+			std::cout << "StabPool Tok=" << Val2Num(totalStab.Tok) << ", Col=" << Val2Num(totalStab.Col) << std::endl;
+			std::cout << "ProfitPool X-Tok=" << Val2Num(g.m_ProfitPool.m_Weight) << ", Col=" << Val2Num(*g.m_ProfitPool.m_pValue) << std::endl;
+
+			verify_test(g.m_Troves.m_Totals.Tok == totalRedist.Tok); // all troves must participate in the RedistPool
+
+			auto itAsset = m_Proc.m_Assets.find(g.m_Aid);
+			verify_test(m_Proc.m_Assets.end() != itAsset);
+			verify_test(itAsset->second.m_Amount == g.m_Troves.m_Totals.Tok); // total debt must be equal minted amount
+
+			Amount totalCol = totalRedist.Col;
+
+			{
+				typedef Shaders::Env::Key_T<Shaders::Liquity::Trove::Key> TroveKey;
+				TroveKey tk;
+				tk.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+				tk.m_KeyInContract.m_iTrove = 0;
+
+				for (auto it = m_Proc.m_Vars.lower_bound(Blob(&tk, sizeof(tk)), BlobMap::Set::Comparator()); m_Proc.m_Vars.end() != it; it++)
+				{
+					const auto& v = *it;
+					auto k = v.ToBlob();
+					if (sizeof(tk) != k.n)
+						break;
+					auto& tk1 = *((TroveKey*) k.p);
+
+					if (tk1.m_KeyInContract.m_Tag != tk.m_KeyInContract.m_Tag)
+						break;
+
+					auto iTrove = tk1.m_KeyInContract.m_iTrove; // not stored in BE form
+
+					if (v.m_Data.size() != sizeof(Shaders::Liquity::Trove))
+						continue;
+
+					const auto& t = *(Shaders::Liquity::Trove*) &v.m_Data.front();
+					auto t1 = t; // copy
+
+					EpochStorage stor(m_Proc, Shaders::Liquity::Tags::s_Epoch_Redist);
+					g.m_RedistPool.Remove(t1, stor);
+
+
+					std::cout << "\tiTrove=" << iTrove <<  ", Tok=" << Val2Num(t1.m_Amounts.Tok) << ", Col=" << Val2Num(t1.m_Amounts.Col) << std::endl;
+
+					totalCol += t.m_Amounts.Col;
+				}
+
+				verify_test(g.m_Troves.m_Totals.Col == totalCol);
+			}
 		}
-	}
+
+	};
 
 	void MyProcessor::TestLiquity()
 	{
@@ -996,29 +1128,46 @@ namespace bvm2 {
 
 		SaveVar(m_MyOracle.m_Cid, m_MyOracle.m_Cid); // dummy val, nevermind, just pretend the contract exists
 
+
 		{
 			Shaders::Liquity::Method::Create args;
 			ZeroObject(args);
 			args.m_Settings.m_cidOracle = m_MyOracle.m_Cid;
-			args.m_Settings.m_TroveMinDebt = Rules::Coin * 10;
 			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 5;
+			args.m_Settings.m_AidProfit = 77;
 
 			verify_test(ContractCreate_T(m_cidLiquity, m_Code.m_Liquity, args));
 		}
 
+		LiquityContext lc(*this);
+
+		const uint32_t s_Users = 5;
+		PubKey pPk[s_Users];
+		for (uint32_t i = 0; i < s_Users; i++)
 		{
+			ECC::GenRandom(pPk[i].m_X);
+			pPk[i].m_Y = 0;
+
+			if (i < 2)
+			{
+				Shaders::Liquity::Method::UpdProfitPool arg1;
+				ZeroObject(arg1);
+				arg1.m_NewAmount = Rules::Coin * (5 + i);
+				arg1.m_pkUser = pPk[i];
+				verify_test(lc.InvokeTxUser(arg1));
+			}
+
 			Shaders::Liquity::Method::TroveOpen args;
 			ZeroObject(args);
 
 			args.m_Amounts.Tok = Rules::Coin * 1000;
-			args.m_Amounts.Col = Rules::Coin * 35; // should be enough for 150% tcr
-			args.m_pkUser.m_X = 43U;
-			args.m_Flow.Col.Add(Rules::Coin * 40, 1);
-			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
+			args.m_Amounts.Col = Rules::Coin * (35 + i * 5); // should be enough for 150% tcr
+			args.m_pkUser = pPk[i];
 
-			std::cout << "Trove0: Tok=" << Val2Num(args.m_Amounts.Tok) << ", Col=" << Val2Num(args.m_Amounts.Col) << std::endl;
-			LiquityPrintBank(args.m_pkUser);
-			PrintAllLiquity();
+			//std::cout << "Trove Tok=" << Val2Num(args.m_Amounts.Tok) << ", Col=" << Val2Num(args.m_Amounts.Col) << std::endl;
+			verify_test(lc.InvokeTxUser(args));
+
+			lc.PrintAll();
 		}
 
 		m_Height++;
@@ -1028,19 +1177,18 @@ namespace bvm2 {
 			Shaders::Liquity::Method::UpdStabPool args;
 			ZeroObject(args);
 			args.m_NewAmount = Rules::Coin * 750;
-			args.m_Flow.Tok.Add(args.m_NewAmount, 1);
-			args.m_pkUser.m_X = 77U + i;
-
-			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
+			args.m_pkUser = pPk[i];
 
 			std::cout << "Stab" << i << ": Put=" << Val2Num(args.m_NewAmount) << std::endl;
-			LiquityPrintBank(args.m_pkUser);
-			PrintAllLiquity();
+			verify_test(lc.InvokeTxUser(args));
+
+			lc.PrintAll();
 		}
 
-		m_MyOracle.m_Value = 30; // price drop. icr would be about 105%
+		m_MyOracle.m_Value = 25; // price drop. Some would be liquidated vs stabpool, others via redistpool
 		m_Height += 10;
 
+		for (uint32_t i = 0; i < 3; i++)
 		{
 #pragma pack (push, 1)
 			struct Arg :public Shaders::Liquity::Method::Liquidate {
@@ -1050,25 +1198,49 @@ namespace bvm2 {
 
 			ZeroObject(args);
 			args.m_Count = 1;
-			args.m_pID[0] = 1;
-			args.m_pkUser.m_X = 96U;
-			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
+			args.m_pID[0] = i + 1;
+			args.m_pkUser = pPk[0];
 
-			std::cout << "Trove0 liquidated." << std::endl;
-			LiquityPrintBank(args.m_pkUser);
-			PrintAllLiquity();
+			std::cout << "Trove liquidating" << std::endl;
+			verify_test(lc.InvokeTxUser(args));
+
+			lc.PrintAll();
 		}
 
 		for (uint32_t i = 0; i < 2; i++)
 		{
 			Shaders::Liquity::Method::UpdStabPool args;
 			ZeroObject(args);
-			args.m_pkUser.m_X = 77U + i;
-			verify_test(RunGuarded_T(m_cidLiquity, args.s_iMethod, args));
+			args.m_pkUser = pPk[i];
 
 			std::cout << "Stab" << i << " all out" << std::endl;
-			LiquityPrintBank(args.m_pkUser);
-			PrintAllLiquity();
+			verify_test(lc.InvokeTxUser(args));
+
+			lc.PrintAll();
+		}
+
+		for (uint32_t i = 3; i < s_Users; i++)
+		{
+			Shaders::Liquity::Method::TroveClose args;
+			ZeroObject(args);
+			args.m_iTrove = i + 1;
+
+			std::cout << "Trove closing" << std::endl;
+			verify_test(lc.InvokeTx(args, pPk[i]));
+
+			lc.PrintAll();
+		}
+
+		for (uint32_t i = 0; i < 2; i++)
+		{
+			Shaders::Liquity::Method::UpdProfitPool arg1;
+			ZeroObject(arg1);
+			arg1.m_pkUser = pPk[i];
+
+			std::cout << "profit withdraw" << std::endl;
+			verify_test(lc.InvokeTxUser(arg1));
+
+			lc.PrintAll();
 		}
 	}
 

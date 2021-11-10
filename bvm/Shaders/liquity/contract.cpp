@@ -167,7 +167,7 @@ struct MyGlobal
         if (bClose)
         {
             fpLogic.Tok.Add(m_Settings.m_TroveLiquidationReserve, 0);
-            Env::DelVar_T(tid);
+            Env::DelVar_T(tk);
         }
         else
         {
@@ -175,7 +175,7 @@ struct MyGlobal
             fpLogic.Col.Add(pNewVals->Col, 1);
 
             t.m_Amounts = *pNewVals;
-            Env::Halt_if(t.m_Amounts.Tok < m_Settings.m_TroveMinDebt);
+            Env::Halt_if(t.m_Amounts.Tok <= m_Settings.m_TroveLiquidationReserve);
 
             bool bExisted = TrovePush(tk, t);
             Env::Halt_if(bOpen && bExisted);
@@ -513,8 +513,7 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
         Trove t;
         g.TrovePop(tk, t);
 
-        auto rcr = t.m_Amounts.get_Rcr();
-        auto cr = price.ToCR(rcr);
+        auto cr = price.ToCR(t.m_Amounts.get_Rcr());
 
         bool bRecovery = 
             g.m_Troves.m_Totals.Tok &&
@@ -543,7 +542,7 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
 
         if (cr > Global::Price::get_k100())
         {
-            if (g.m_StabPool.LiquidatePartial(t, rcr))
+            if (g.m_StabPool.LiquidatePartial(t))
                 bStab = true;
         }
 
@@ -632,7 +631,6 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
     Trove::Key tk;
 
     Amount valRemaining = r.m_Amount;
-    Amount valTok;
 
     for (uint32_t i = 0; (i < r.m_Count) && valRemaining; i++)
     {
@@ -680,6 +678,7 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
         fpLogic.Tok.Add(valTok, 1);
         fpLogic.Col.Add(valCol, 0);
 
+        valRemaining -= valTok;
     }
 
     if (!g.m_ProfitPool.IsEmpty() && fpLogic.Tok.m_Val)
