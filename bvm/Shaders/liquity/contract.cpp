@@ -175,7 +175,7 @@ struct MyGlobal
             fpLogic.Col.Add(pNewVals->Col, 1);
 
             t.m_Amounts = *pNewVals;
-            Env::Halt_if(t.m_Amounts.Tok < m_Settings.m_TroveMinDebt);
+            Env::Halt_if(t.m_Amounts.Tok <= m_Settings.m_TroveLiquidationReserve);
 
             bool bExisted = TrovePush(tk, t);
             Env::Halt_if(bOpen && bExisted);
@@ -632,7 +632,6 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
     Trove::Key tk;
 
     Amount valRemaining = r.m_Amount;
-    Amount valTok;
 
     for (uint32_t i = 0; (i < r.m_Count) && valRemaining; i++)
     {
@@ -680,6 +679,7 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
         fpLogic.Tok.Add(valTok, 1);
         fpLogic.Col.Add(valCol, 0);
 
+        valRemaining -= valTok;
     }
 
     if (!g.m_ProfitPool.IsEmpty() && fpLogic.Tok.m_Val)

@@ -128,7 +128,6 @@ namespace Liquity
     struct Settings
     {
         ContractID m_cidOracle;
-        Amount m_TroveMinDebt; // minimum amount of tokens in an active trove. Can go below during forced update, i.e. partial liquidation
         Amount m_TroveLiquidationReserve;
         AssetID m_AidProfit;
     };

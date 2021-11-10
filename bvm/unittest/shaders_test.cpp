@@ -256,7 +256,6 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Flow.Col.m_Val);
 	}
 	template <bool bToShader> void Convert(Liquity::Method::Create& x) {
-		ConvertOrd<bToShader>(x.m_Settings.m_TroveMinDebt);
 		ConvertOrd<bToShader>(x.m_Settings.m_TroveLiquidationReserve);
 	}
 	template <bool bToShader> void Convert(Liquity::Method::OracleGet& x) {
@@ -909,7 +908,7 @@ namespace bvm2 {
 			if (ek1.m_KeyInContract.m_Tag != ek.m_KeyInContract.m_Tag)
 				break;
 
-			auto iEpoch = ek.m_KeyInContract.m_iEpoch;
+			//auto iEpoch = ek.m_KeyInContract.m_iEpoch;
 
 			if (v.m_Data.size() != sizeof(Shaders::HomogenousPool::Epoch))
 				continue;
@@ -935,7 +934,7 @@ namespace bvm2 {
 			memcpy(&g, b.p, sizeof(g));
 		}
 
-		Shaders::Liquity::Pair totalStab, totalRedist, totalTrovesRaw;
+		Shaders::Liquity::Pair totalStab, totalRedist;
 
 		totalStab.Tok = g.m_StabPool.get_TotalSell();
 		totalStab.Col = g.m_StabPool.m_Active.m_Balance.b + g.m_StabPool.m_Draining.m_Balance.b;
@@ -1000,7 +999,6 @@ namespace bvm2 {
 			Shaders::Liquity::Method::Create args;
 			ZeroObject(args);
 			args.m_Settings.m_cidOracle = m_MyOracle.m_Cid;
-			args.m_Settings.m_TroveMinDebt = Rules::Coin * 10;
 			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 5;
 
 			verify_test(ContractCreate_T(m_cidLiquity, m_Code.m_Liquity, args));
