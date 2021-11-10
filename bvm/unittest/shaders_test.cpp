@@ -1118,6 +1118,21 @@ namespace bvm2 {
 			}
 			
 			verify_test(g.m_Troves.m_Totals.Col == totalCol);
+
+			for (KeyWalker_T<Shaders::Liquity::ProfitPoolEntry::Key, Shaders::Liquity::ProfitPoolEntry> wlk(m_Proc, Shaders::Liquity::Tags::s_ProfitPool); wlk.MoveNext(); )
+			{
+				const auto& e = *wlk.m_pVal;
+				auto e1 = e; // copy
+
+				Amount val = 0;
+				g.m_ProfitPool.Remove(&val, e1.m_User);
+
+				std::cout << "\tUser=" << wlk.m_pKey->m_KeyInContract.m_pkUser << ", Stake=" << Val2Num(e.m_User.m_Weight) << ", Gain=" << Val2Num(val) << std::endl;
+
+
+			}
+
+			verify_test(!g.m_ProfitPool.m_Weight);
 		}
 
 	};
