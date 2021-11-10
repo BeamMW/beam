@@ -54,7 +54,11 @@ struct MyGlobal
     static void AdjustBank(const FlowPair& fp, const PubKey& pk)
     {
         Env::AddSig(pk);
+        AdjustBankNoSig(fp, pk);
+    }
 
+    static void AdjustBankNoSig(const FlowPair& fp, const PubKey& pk)
+    {
         if (fp.Tok.m_Val || fp.Col.m_Val)
         {
             Balance::Key kub;
@@ -652,7 +656,7 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
         if (!bFullRedeem)
             valTok = valRemaining;
 
-        Amount valCol = valTok / price.m_Value;
+        Amount valCol = price.T2C(valTok);
         Amount valColSurplus = t.m_Amounts.Col;
         Strict::Sub(valColSurplus, valCol);
 
@@ -664,7 +668,7 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
             FlowPair fpTrove;
             _POD_(fpTrove).SetZero();
             fpTrove.Col.Add(valColSurplus, 1);
-            g.AdjustBank(fpTrove, t.m_pkOwner);
+            g.AdjustBankNoSig(fpTrove, t.m_pkOwner);
         }
         else
         {

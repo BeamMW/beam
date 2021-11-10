@@ -646,6 +646,7 @@ namespace bvm2 {
 				case 4: Shaders::Liquity::Method_4(CastArg<Shaders::Liquity::Method::TroveClose>(pArgs)); return;
 				case 7: Shaders::Liquity::Method_7(CastArg<Shaders::Liquity::Method::UpdStabPool>(pArgs)); return;
 				case 8: Shaders::Liquity::Method_8(CastArg<Shaders::Liquity::Method::Liquidate>(pArgs)); return;
+				case 10: Shaders::Liquity::Method_10(CastArg<Shaders::Liquity::Method::Redeem>(pArgs)); return;
 				}
 			}
 */
@@ -974,7 +975,7 @@ namespace bvm2 {
 					vals.Col = s_BankTstReserve;
 				}
 
-				m_Proc.m_Vars.erase(it);
+				//m_Proc.m_Vars.erase(it);
 			}
 		}
 
@@ -1062,6 +1063,13 @@ namespace bvm2 {
 			}
 		};
 
+		static double ToDouble(Shaders::Liquity::Float x)
+		{
+			if (x.IsZero())
+				return 0;
+
+			return ldexp(x.m_Num, x.m_Order);
+		}
 
 		void PrintAll()
 		{
@@ -1077,6 +1085,8 @@ namespace bvm2 {
 				memcpy(&g, b.p, sizeof(g));
 			}
 
+			g.m_BaseRate.Decay(m_Proc.m_Height);
+
 			Pair totalStab, totalRedist;
 
 			totalStab.Tok = g.m_StabPool.get_TotalSell();
@@ -1091,6 +1101,7 @@ namespace bvm2 {
 			std::cout << "RedistPool Tok=" << Val2Num(totalRedist.Tok) << ", Col=" << Val2Num(totalRedist.Col) << std::endl;
 			std::cout << "StabPool Tok=" << Val2Num(totalStab.Tok) << ", Col=" << Val2Num(totalStab.Col) << std::endl;
 			std::cout << "ProfitPool X-Tok=" << Val2Num(g.m_ProfitPool.m_Weight) << ", Col=" << Val2Num(*g.m_ProfitPool.m_pValue) << std::endl;
+			std::cout << "kRate = " << ToDouble(g.m_BaseRate.m_k) * 100. << "%" << std::endl;
 
 			verify_test(g.m_Troves.m_Totals.Tok == totalRedist.Tok); // all troves must participate in the RedistPool
 
@@ -1179,9 +1190,9 @@ namespace bvm2 {
 			args.m_Amounts.Col = Rules::Coin * (35 + i * 5); // should be enough for 150% tcr
 			args.m_pkUser = pPk[i];
 
-			//std::cout << "Trove Tok=" << Val2Num(args.m_Amounts.Tok) << ", Col=" << Val2Num(args.m_Amounts.Col) << std::endl;
 			verify_test(lc.InvokeTxUser(args));
 
+			std::cout << "Trove opened" << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1194,16 +1205,37 @@ namespace bvm2 {
 			args.m_NewAmount = Rules::Coin * 750;
 			args.m_pkUser = pPk[i];
 
-			std::cout << "Stab" << i << ": Put=" << Val2Num(args.m_NewAmount) << std::endl;
 			verify_test(lc.InvokeTxUser(args));
 
+			std::cout << "Stab" << i << ": Put=" << Val2Num(args.m_NewAmount) << std::endl;
+			lc.PrintAll();
+		}
+
+		for (uint32_t iCycle = 0; iCycle < 2; iCycle++)
+		{
+#pragma pack (push, 1)
+			struct Arg :public Shaders::Liquity::Method::Redeem {
+				Shaders::Liquity::Trove::ID m_pID[2];
+			} args;
+#pragma pack (pop)
+
+			ZeroObject(args);
+			args.m_Count = _countof(args.m_pID);
+			args.m_pID[0] = 1;
+			args.m_pID[1] = 2;
+			args.m_pkUser = pPk[s_Users - 1];
+			args.m_Amount = Rules::Coin * (iCycle ? 650 : 350); // 1st trove will be fully redeemed after 995 Tok
+
+			verify_test(lc.InvokeTxUser(args));
+
+			std::cout << "Redeem" << std::endl;
 			lc.PrintAll();
 		}
 
 		m_MyOracle.m_Value = 25; // price drop. Some would be liquidated vs stabpool, others via redistpool
 		m_Height += 10;
 
-		for (uint32_t i = 0; i < 3; i++)
+		for (uint32_t i = 1; i < 3; i++) 
 		{
 #pragma pack (push, 1)
 			struct Arg :public Shaders::Liquity::Method::Liquidate {
@@ -1216,9 +1248,9 @@ namespace bvm2 {
 			args.m_pID[0] = i + 1;
 			args.m_pkUser = pPk[0];
 
-			std::cout << "Trove liquidating" << std::endl;
 			verify_test(lc.InvokeTxUser(args));
 
+			std::cout << "Trove liquidating" << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1228,9 +1260,9 @@ namespace bvm2 {
 			ZeroObject(args);
 			args.m_pkUser = pPk[i];
 
-			std::cout << "Stab" << i << " all out" << std::endl;
 			verify_test(lc.InvokeTxUser(args));
 
+			std::cout << "Stab" << i << " all out" << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1240,9 +1272,9 @@ namespace bvm2 {
 			ZeroObject(args);
 			args.m_iTrove = i + 1;
 
-			std::cout << "Trove closing" << std::endl;
 			verify_test(lc.InvokeTx(args, pPk[i]));
 
+			std::cout << "Trove closing" << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1252,9 +1284,9 @@ namespace bvm2 {
 			ZeroObject(arg1);
 			arg1.m_pkUser = pPk[i];
 
-			std::cout << "profit withdraw" << std::endl;
 			verify_test(lc.InvokeTxUser(arg1));
 
+			std::cout << "profit withdraw" << std::endl;
 			lc.PrintAll();
 		}
 	}
