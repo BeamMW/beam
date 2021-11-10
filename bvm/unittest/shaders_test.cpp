@@ -900,32 +900,72 @@ namespace bvm2 {
 
 		static const Amount s_BankTstReserve = Rules::Coin * 1000000000ull;
 
+		struct KeyWalker
+		{
+			MyProcessor& m_Proc;
+			BlobMap::Set::iterator m_it;
+			uint8_t m_Tag;
+
+			KeyWalker(MyProcessor& proc, uint8_t nTag)
+				:m_Proc(proc)
+				,m_Tag(nTag)
+			{
+				Shaders::Env::Key_T<uint8_t> key;
+				key.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+				key.m_KeyInContract = nTag;
+				m_it = m_Proc.m_Vars.lower_bound(Blob(&key, sizeof(key)), BlobMap::Set::Comparator());
+			}
+
+			template <typename T>
+			static T* FromBlob(const Blob& x) {
+				return (x.n >= sizeof(T)) ? reinterpret_cast<T*>(Cast::NotConst(x.p)) : nullptr;
+			}
+
+			template <typename TKey, typename TValue>
+			bool MoveNext_T(TKey*& pKey, TValue*& pVal)
+			{
+				if (m_Proc.m_Vars.end() == m_it)
+					return false;
+
+				pKey = FromBlob<TKey>(m_it->ToBlob());
+				if (!pKey || (pKey->m_KeyInContract.m_Tag != m_Tag))
+					return false;
+
+				pVal = FromBlob<TValue>(m_it->m_Data);
+				if (!pVal)
+					return false;
+
+				m_it++;
+				return true;
+			}
+		};
+
+		template <typename TKey, typename TValue>
+		struct KeyWalker_T
+			:public KeyWalker
+		{
+			using KeyWalker::KeyWalker;
+
+			Shaders::Env::Key_T<TKey>* m_pKey;
+			TValue* m_pVal;
+
+			bool MoveNext() {
+				return KeyWalker::MoveNext_T(m_pKey, m_pVal);
+			}
+		};
+
 		void PrintBankExcess()
 		{
-			Shaders::Env::Key_T<Balance::Key> key;
-			key.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
-			ZeroObject(key.m_KeyInContract.m_Pk);
-
-			while (true)
+			for (KeyWalker_T<Balance::Key, Balance> wlk(m_Proc, Shaders::Liquity::Tags::s_Balance); ; )
 			{
-				auto it = m_Proc.m_Vars.lower_bound(Blob(&key, sizeof(key)), BlobMap::Set::Comparator());
-				if (m_Proc.m_Vars.end() == it)
+				auto it = wlk.m_it;
+				if (!wlk.MoveNext())
 					break;
 
-				const auto& v = *it;
-				auto k = v.ToBlob();
-				if (sizeof(key) != k.n)
-					break;
-				auto& k1 = ((Shaders::Env::Key_T<Balance::Key>*) k.p)->m_KeyInContract;
-				if (k1.m_Tag != key.m_KeyInContract.m_Tag)
-					break;
-
-				verify_test(v.m_Data.size() == sizeof(Balance));
-				auto& vals = ((Balance*) &v.m_Data.front())->m_Amounts;
-
+				auto& vals = wlk.m_pVal->m_Amounts;
 				if ((vals.Tok != s_BankTstReserve) || (vals.Col != s_BankTstReserve))
 				{
-					std::cout << "\tUser=" << k1.m_Pk
+					std::cout << "\tUser=" << wlk.m_pKey->m_KeyInContract.m_Pk
 						<< ", Tok=" << Val2NumDiff(vals.Tok, s_BankTstReserve)
 						<< ", Col=" << Val2NumDiff(vals.Col, s_BankTstReserve)
 						<< std::endl;
@@ -976,32 +1016,10 @@ namespace bvm2 {
 
 		void AddPoolTotals(Pair& res, uint8_t nTag)
 		{
-			typedef Shaders::Env::Key_T<Shaders::Liquity::EpochKey> EpochKey;
-			EpochKey ek;
-			ek.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
-			ek.m_KeyInContract.m_Tag = nTag;
-			ek.m_KeyInContract.m_iEpoch = 0;
-
-			for (auto it = m_Proc.m_Vars.lower_bound(Blob(&ek, sizeof(ek)), BlobMap::Set::Comparator()); m_Proc.m_Vars.end() != it; it++)
+			for (KeyWalker_T<Shaders::Liquity::EpochKey, Shaders::HomogenousPool::Epoch> wlk(m_Proc, nTag); wlk.MoveNext(); )
 			{
-				const auto& v = *it;
-				auto k = v.ToBlob();
-				if (sizeof(ek) != k.n)
-					break;
-				auto& ek1 = *((EpochKey*) k.p);
-
-				if (ek1.m_KeyInContract.m_Tag != ek.m_KeyInContract.m_Tag)
-					break;
-
-				//auto iEpoch = ek.m_KeyInContract.m_iEpoch;
-
-				if (v.m_Data.size() != sizeof(Shaders::HomogenousPool::Epoch))
-					continue;
-
-				const auto& epoch = *(Shaders::HomogenousPool::Epoch*) &v.m_Data.front();
-
-				res.Tok += epoch.m_Balance.s;
-				res.Col += epoch.m_Balance.b;
+				res.Tok += wlk.m_pVal->m_Balance.s;
+				res.Col += wlk.m_pVal->m_Balance.b;
 			}
 		}
 
@@ -1082,42 +1100,24 @@ namespace bvm2 {
 
 			Amount totalCol = totalRedist.Col;
 
+			for (KeyWalker_T<Shaders::Liquity::Trove::Key, Shaders::Liquity::Trove> wlk(m_Proc, Shaders::Liquity::Tags::s_Trove); wlk.MoveNext(); )
 			{
-				typedef Shaders::Env::Key_T<Shaders::Liquity::Trove::Key> TroveKey;
-				TroveKey tk;
-				tk.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
-				tk.m_KeyInContract.m_iTrove = 0;
+				auto iTrove = wlk.m_pKey->m_KeyInContract.m_iTrove; // not stored in BE form
 
-				for (auto it = m_Proc.m_Vars.lower_bound(Blob(&tk, sizeof(tk)), BlobMap::Set::Comparator()); m_Proc.m_Vars.end() != it; it++)
-				{
-					const auto& v = *it;
-					auto k = v.ToBlob();
-					if (sizeof(tk) != k.n)
-						break;
-					auto& tk1 = *((TroveKey*) k.p);
+				const auto& t = *wlk.m_pVal;
+				auto t1 = t; // copy
 
-					if (tk1.m_KeyInContract.m_Tag != tk.m_KeyInContract.m_Tag)
-						break;
-
-					auto iTrove = tk1.m_KeyInContract.m_iTrove; // not stored in BE form
-
-					if (v.m_Data.size() != sizeof(Shaders::Liquity::Trove))
-						continue;
-
-					const auto& t = *(Shaders::Liquity::Trove*) &v.m_Data.front();
-					auto t1 = t; // copy
-
-					EpochStorage stor(m_Proc, Shaders::Liquity::Tags::s_Epoch_Redist);
-					g.m_RedistPool.Remove(t1, stor);
+				EpochStorage stor(m_Proc, Shaders::Liquity::Tags::s_Epoch_Redist);
+				g.m_RedistPool.Remove(t1, stor);
 
 
-					std::cout << "\tiTrove=" << iTrove <<  ", Tok=" << Val2Num(t1.m_Amounts.Tok) << ", Col=" << Val2Num(t1.m_Amounts.Col) << std::endl;
+				std::cout << "\tiTrove=" << iTrove <<  ", Tok=" << Val2Num(t1.m_Amounts.Tok) << ", Col=" << Val2Num(t1.m_Amounts.Col) << std::endl;
 
-					totalCol += t.m_Amounts.Col;
-				}
+				totalCol += t.m_Amounts.Col;
 
-				verify_test(g.m_Troves.m_Totals.Col == totalCol);
 			}
+			
+			verify_test(g.m_Troves.m_Totals.Col == totalCol);
 		}
 
 	};
