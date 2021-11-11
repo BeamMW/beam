@@ -297,12 +297,12 @@ namespace beam::wallet
 
         storage::setNextEventHeight(*m_WalletDB, 0);
         m_WalletDB->deleteEventsFrom(Rules::HeightGenesis - 1);
+        ResetCommitmentsCache();
+        SetTreasuryHandled(false);
         if (!m_OwnedNodesOnline)
         {
             storage::setNeedToRequestBodies(*m_WalletDB, true); // temporarilly enable bodies requests
         }
-        ResetCommitmentsCache();
-        SetTreasuryHandled(false);
         RequestBodies();
         RequestEvents();
     }
@@ -1985,7 +1985,7 @@ namespace beam::wallet
 
         LOG_DEBUG() << TRACE(IsMobileNodeEnabled()) << TRACE(m_Extra.m_ShieldedOutputs) << " Node shielded outs=" << m_WalletDB->get_ShieldedOuts();
         assert(m_Extra.m_ShieldedOutputs == m_WalletDB->get_ShieldedOuts());
-        storage::setNeedToRequestBodies(*m_WalletDB, false); // disable bodies requests after importing recovery or rescan
+        storage::setNeedToRequestBodies(*m_WalletDB, false); // disable body requests after importing recovery or rescan
     }
 
     void Wallet::NotifySyncProgress()

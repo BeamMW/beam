@@ -2807,6 +2807,7 @@ namespace beam::wallet
 
         };
 
+        get_History().DeleteFrom(Rules::HeightGenesis); // clear all the history
         MyParser p(*this, gateway, prog);
         p.Init(get_OwnerKdf());
 
@@ -2817,7 +2818,7 @@ namespace beam::wallet
             Block::SystemState::Full sTip;
             get_History().get_Tip(sTip);
             storage::setNextEventHeight(*this, sTip.m_Height + 1); // next
-            storage::setNeedToRequestBodies(*this, true); // temporarilly enable body requests, to solve lag in blocks
+            storage::setNeedToRequestBodies(*this, true); // temporarily enable body requests, to solve lag in blocks
             return true;
         }
         return false;
