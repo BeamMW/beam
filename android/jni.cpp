@@ -526,7 +526,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
                 
         jobject walletObj = env->AllocObject(WalletClass);
 
-        auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>(walletDB);
+        auto pushTxCreator = std::make_shared<lelantus::PushTransaction::Creator>([=]() { return walletDB; });
         
         auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
         additionalTxCreators->emplace(TxType::PushTransaction, pushTxCreator);
