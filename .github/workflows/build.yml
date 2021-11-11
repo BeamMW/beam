@@ -459,8 +459,8 @@ jobs:
         git clone https://github.com/emscripten-core/emsdk.git
         cd emsdk
         git pull
-        ./emsdk install latest
-        ./emsdk activate latest
+        ./emsdk install 2.0.33
+        ./emsdk activate 2.0.33
 
     - name: Download boost
       shell: bash
@@ -514,8 +514,8 @@ jobs:
         git clone https://github.com/emscripten-core/emsdk.git ${{runner.workspace}}/emsdk
         cd ${{runner.workspace}}/emsdk
         git pull
-        ./emsdk install latest
-        ./emsdk activate latest
+        ./emsdk install 2.0.33
+        ./emsdk activate 2.0.33
 
     - name: Download boost
       shell: bash
@@ -537,10 +537,6 @@ jobs:
         source ${{runner.workspace}}/emsdk/emsdk_env.sh
         cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DBoost_DEBUG=On -DBEAM_TESTS_ENABLED=Off -DBEAM_WALLET_CLIENT_LIBRARY=On -DBEAM_ATOMIC_SWAP_SUPPORT=Off -DBEAM_LASER_SUPPORT=Off -DBEAM_USE_STATIC=On -DBOOST_ROOT=${{runner.workspace}}/boost_prebuild -DCMAKE_FIND_ROOT_PATH:FILEPATH="${{runner.workspace}}/boost_prebuild;${{runner.workspace}}/openssl-wasm" -DOPENSSL_ROOT_DIR=${{runner.workspace}}/openssl-wasm -B${{runner.workspace}}/build_wasm
         emmake make -j$(nproc) -C ${{runner.workspace}}/build_wasm
-#        python ./wasmclient/fix-client.py < ./wasmclient/wasm-client.js > ./wasmclient/wasm-client.js-fixed
-#        rm ./wasmclient/wasm-client.js
-#        mv ./wasmclient/wasm-client.js-fixed ./wasmclient/wasm-client.js
-#        jsut to increase revsion number
 
     - name: Save version info
       run: |
