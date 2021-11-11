@@ -31,6 +31,10 @@
 
 #define Gallery_manager_explicit_upgrade(macro) macro(ContractID, cid)
 
+#define Gallery_manager_admin_delete(macro) \
+    macro(ContractID, cid) \
+    macro(Gallery::Masterpiece::ID, id)
+
 #define GalleryRole_manager(macro) \
     macro(manager, view) \
     macro(manager, view_params) \
@@ -42,6 +46,7 @@
     macro(manager, add_rewards) \
     macro(manager, my_admin_key) \
     macro(manager, explicit_upgrade) \
+    macro(manager, admin_delete) \
 
 #define Gallery_artist_view(macro) macro(ContractID, cid)
 #define Gallery_artist_get_key(macro) macro(ContractID, cid)
@@ -69,6 +74,11 @@
     macro(Amount, amount) \
     macro(AssetID, aid)
 
+#define Gallery_user_transfer(macro) \
+    macro(ContractID, cid) \
+    macro(Gallery::Masterpiece::ID, id) \
+    macro(PubKey, pkNewOwner)
+
 #define Gallery_user_buy(macro) \
     macro(ContractID, cid) \
     macro(Gallery::Masterpiece::ID, id)
@@ -89,6 +99,7 @@
     macro(user, view_all) \
     macro(user, download) \
     macro(user, set_price) \
+    macro(user, transfer) \
     macro(user, buy) \
     macro(user, view_balance) \
     macro(user, withdraw) \
@@ -383,6 +394,18 @@ ON_METHOD(manager, upload)
     Env::GenerateKernel(&cid, pArgs->s_iMethod, pArgs, nSizeArgs, nullptr, 0, &sig, 1, "Gallery upload masterpiece", nCharge);
 
     Env::Heap_Free(pArgs);
+}
+
+ON_METHOD(manager, admin_delete)
+{
+    auto id_ = Utils::FromBE(id);
+
+    Gallery::Method::AdminDelete args;
+    args.m_ID = id_;
+
+    KeyMaterial::MyAdminKey kid;
+    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), nullptr, 0, &kid, 1, "Gallery delete masterpiece", 0);
+
 }
 
 ON_METHOD(manager, add_rewards)
@@ -803,6 +826,26 @@ ON_METHOD(user, set_price)
     sig.m_nID = sizeof(oi.m_km);
 
     Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), nullptr, 0, &sig, 1, "Gallery set item price", 0);
+}
+
+ON_METHOD(user, transfer)
+{
+    auto id_ = Utils::FromBE(id);
+
+    Gallery::Masterpiece m;
+    OwnerInfo oi;
+    if (!oi.ReadOwnedItem(cid, id_, m))
+        return;
+
+    Gallery::Method::Transfer args;
+    args.m_ID = id_;
+    _POD_(args.m_pkNewOwner) = pkNewOwner;
+
+    SigRequest sig;
+    sig.m_pID = &oi.m_km;
+    sig.m_nID = sizeof(oi.m_km);
+
+    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), nullptr, 0, &sig, 1, "Gallery transfer item", 0);
 }
 
 ON_METHOD(user, buy)
