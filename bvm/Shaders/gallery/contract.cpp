@@ -295,3 +295,34 @@ BEAM_EXPORT void Method_12(const Gallery::Method::AddVoteRewards& r)
 
     Env::FundsLock(s.m_Config.m_VoteReward.m_Aid, r.m_Amount);
 }
+
+BEAM_EXPORT void Method_13(const Gallery::Method::AdminDelete& r)
+{
+    // ensure the masterpiece doesn't have aid
+    Gallery::Masterpiece::Key mk;
+    mk.m_ID = r.m_ID;
+    Gallery::Masterpiece m;
+    Env::Halt_if(!Env::LoadVar_T(mk, m));
+
+    Env::Halt_if(m.m_Aid);
+
+    Env::DelVar_T(mk);
+
+    MyState s;
+    s.AddSigAdmin();
+}
+
+BEAM_EXPORT void Method_14(const Gallery::Method::Transfer& r)
+{
+    Gallery::Masterpiece::Key mk;
+    mk.m_ID = r.m_ID;
+    Gallery::Masterpiece m;
+    Env::Halt_if(!Env::LoadVar_T(mk, m));
+
+    Env::AddSig(m.m_pkOwner);
+    _POD_(m.m_pkOwner) = r.m_pkNewOwner;
+
+    Env::SaveVar_T(mk, m);
+
+}
+

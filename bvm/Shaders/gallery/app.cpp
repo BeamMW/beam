@@ -172,7 +172,8 @@ namespace KeyMaterial
 ON_METHOD(manager, view)
 {
     static const ShaderID s_pSid[] = {
-        Gallery::s_SID,
+        Gallery::s_SID_0,
+        Gallery::s_SID_1,
     };
 
     ContractID pVerCid[_countof(s_pSid)];
@@ -949,7 +950,7 @@ BEAM_EXPORT void Method_1()
 {
     Env::DocGroup root("");
 
-    char szRole[0x10], szAction[0x10];
+    char szRole[0x10], szAction[0x20];
 
     if (!Env::DocGetText("role", szRole, sizeof(szRole)))
         return OnError("Role not specified");
