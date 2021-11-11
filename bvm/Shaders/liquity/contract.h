@@ -310,7 +310,12 @@ namespace Liquity
 
             void Decay()
             {
-                Height h = Env::get_Height();
+                Decay(Env::get_Height());
+            }
+
+            void Decay(Height h)
+            {
+
                 if (m_hLastDecay < h)
                 {
                     if (!m_k.IsZero())

@@ -54,7 +54,11 @@ struct MyGlobal
     static void AdjustBank(const FlowPair& fp, const PubKey& pk)
     {
         Env::AddSig(pk);
+        AdjustBankNoSig(fp, pk);
+    }
 
+    static void AdjustBankNoSig(const FlowPair& fp, const PubKey& pk)
+    {
         if (fp.Tok.m_Val || fp.Col.m_Val)
         {
             Balance::Key kub;
@@ -73,6 +77,16 @@ struct MyGlobal
                 Env::DelVar_T(kub);
         }
     }
+
+    static void ExtractSurplusCol(Amount val, const Trove& t)
+    {
+        FlowPair fp;
+        _POD_(fp.Tok).SetZero();
+        fp.Col.m_Spend = 1;
+        fp.Col.m_Val = val;
+        AdjustBankNoSig(fp, t.m_pkOwner);
+    }
+
 
     static void AdjustTxFunds(const Flow& f, AssetID aid)
     {
@@ -184,7 +198,8 @@ struct MyGlobal
             Price price = get_Price();
             Float trcr = m_Troves.m_Totals.get_Rcr();
 
-            if (price.IsBelow150(trcr))
+            bool bRecovery = price.IsBelow150(trcr);
+            if (bRecovery)
             {
                 // recovery mode.
                 Env::Halt_if(!totals0.Tok); // the very first trove, should not drive us into recovery
@@ -193,8 +208,8 @@ struct MyGlobal
             else
                 Env::Halt_if(price.IsBelow110(t.m_Amounts.get_Rcr()));
 
-
-            if ((m_Troves.m_Totals.Tok > totals0.Tok) && !m_ProfitPool.IsEmpty())
+            // during recovery borrowing fee is OFF
+            if ((m_Troves.m_Totals.Tok > totals0.Tok) && !m_ProfitPool.IsEmpty() && !bRecovery)
             {
 
                 Amount valMinted = m_Troves.m_Totals.Tok - totals0.Tok;
@@ -515,21 +530,6 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
 
         auto cr = price.ToCR(t.m_Amounts.get_Rcr());
 
-        bool bRecovery = 
-            g.m_Troves.m_Totals.Tok &&
-            price.IsBelow150(g.m_Troves.m_Totals.get_Rcr());
-
-        if (bRecovery)
-        {
-        }
-        else
-        {
-            Env::Halt_if(cr >= Global::Price::get_k110());
-        }
-
-
-        // TODO: deduce mode, decide if liquidation is ok
-
         Env::DelVar_T(tk);
 
         assert(t.m_Amounts.Tok >= g.m_Settings.m_TroveLiquidationReserve);
@@ -542,6 +542,24 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
 
         if (cr > Global::Price::get_k100())
         {
+            if (cr >= Global::Price::get_k110())
+            {
+                bool bRecovery =
+                    g.m_Troves.m_Totals.Tok &&
+                    price.IsBelow150(g.m_Troves.m_Totals.get_Rcr());
+
+                Env::Halt_if(!(bRecovery && (cr < Global::Price::get_k150()))); // in recovery mode can liquidate up to cr == 1.5
+
+                Amount valColMax = price.T2C(Float(t.m_Amounts.Tok) * Global::Price::get_k110());
+                assert(valColMax <= t.m_Amounts.Col);
+                if (valColMax < t.m_Amounts.Col) // should always be true, just for more safety
+                {
+                    g.ExtractSurplusCol(t.m_Amounts.Col - valColMax, t);
+                    t.m_Amounts.Col = valColMax;
+                }
+
+            }
+
             if (g.m_StabPool.LiquidatePartial(t))
                 bStab = true;
         }
@@ -652,7 +670,7 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
         if (!bFullRedeem)
             valTok = valRemaining;
 
-        Amount valCol = valTok / price.m_Value;
+        Amount valCol = price.T2C(valTok);
         Amount valColSurplus = t.m_Amounts.Col;
         Strict::Sub(valColSurplus, valCol);
 
@@ -661,10 +679,7 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
             // close trove
             Env::DelVar_T(tk);
 
-            FlowPair fpTrove;
-            _POD_(fpTrove).SetZero();
-            fpTrove.Col.Add(valColSurplus, 1);
-            g.AdjustBank(fpTrove, t.m_pkOwner);
+            g.ExtractSurplusCol(valColSurplus, t);
         }
         else
         {
