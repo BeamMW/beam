@@ -30,7 +30,7 @@ namespace beam::wallet::lelantus
         {
         public:
             using DbProvider = std::function<IWalletDB::Ptr ()>;// lazy db provider func
-            Creator(DbProvider&& func)
+            explicit Creator(DbProvider&& func)
                 : m_dbFunc(std::move(func))
                 {}
 
