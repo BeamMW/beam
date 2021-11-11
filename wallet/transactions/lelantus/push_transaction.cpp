@@ -36,7 +36,7 @@ namespace beam::wallet::lelantus
     {
         auto walletDB = m_dbFunc();
         wallet::CheckSenderAddress(parameters, walletDB);
-        return wallet::ProcessReceiverAddress(parameters, m_walletDB, false);
+        return wallet::ProcessReceiverAddress(parameters, walletDB, false);
     }
 
     PushTransaction::PushTransaction(const TxContext& context)
