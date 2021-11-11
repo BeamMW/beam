@@ -959,7 +959,7 @@ namespace bvm2 {
 		{
 			for (KeyWalker_T<Balance::Key, Balance> wlk(m_Proc, Shaders::Liquity::Tags::s_Balance); ; )
 			{
-				auto it = wlk.m_it;
+				//auto it = wlk.m_it;
 				if (!wlk.MoveNext())
 					break;
 
