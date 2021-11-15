@@ -62,9 +62,9 @@ jobs:
       if: matrix.os != 'windows-2019'
       shell: bash
       run: |
-        git clone --depth=1 https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git ${{runner.workspace}}/boost_prebuild
-        echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include" >> $GITHUB_ENV
-        echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/" >> $GITHUB_ENV
+        git clone --depth=1 https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git ${{runner.workspace}}/boost_prebuild2
+        echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild2/include" >> $GITHUB_ENV
+        echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild2/lib/" >> $GITHUB_ENV
 
 ###############################################################################
 # Configure CMake
