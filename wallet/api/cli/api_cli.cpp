@@ -490,7 +490,7 @@ int main(int argc, char* argv[])
     namespace po = boost::program_options;
 
     const auto path = boost::filesystem::system_complete("./logs");
-    auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "api_", path.string());
+    auto logger = beam::Logger::create(LOG_LEVEL_ERROR, LOG_LEVEL_ERROR, LOG_LEVEL_ERROR, "api_", path.string());
 
     try
     {
