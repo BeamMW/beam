@@ -242,6 +242,11 @@ struct BeamHashIII
 		uint32_t pIndices[32];
 		IndexDecoder::State<25, 0, 25>::Do(pIndices, (const uint32_t*)pSol);
 
+#ifdef HOST_BUILD
+		for (uint32_t i = 0; i < _countof(pIndices); i++)
+			std::cout << "\tIndex-" << i << " = " << pIndices[i] << std::endl;
+#endif // HOST_BUILD
+
 		StepElemLite pElemLite[_countof(pIndices)];
 		for (uint32_t i = 0; i < _countof(pIndices); i++)
 			pElemLite[i].Init(prePoW, pIndices[i]);
@@ -251,6 +256,15 @@ struct BeamHashIII
 		{
 #ifdef HOST_BUILD
 			std::cout << "\tRound =" << round << std::endl;
+
+			for (uint32_t i = 0; i < _countof(pIndices); i++)
+			{
+				std::cout << "\tElem-" << i << " = ";
+				const auto& e = pElemLite[i];
+
+				beam::uintBigImpl::_PrintFull((const uint8_t*)&e, sizeof(e), std::cout);
+				std::cout << std::endl;
+			}
 #endif // HOST_BUILD
 
 			for (uint32_t i0 = 0; i0 < _countof(pIndices); )
