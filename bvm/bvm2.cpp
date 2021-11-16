@@ -98,6 +98,7 @@ namespace bvm2 {
 			};
 		};
 
+#define HOST_BUILD
 #include "Shaders/BeamHashIII.h"
 	}
 
