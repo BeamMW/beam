@@ -158,6 +158,15 @@ struct BeamHashIII
 			if (padNum > nIdx)
 				padNum = nIdx;
 
+#ifdef HOST_BUILD
+			if (bVerbose)
+			{
+				std::cout << "\t\tpTemp = ";
+				beam::uintBigImpl::_PrintFull((const uint8_t*)pTemp, sizeof(pTemp), std::cout);
+				std::cout << std::endl;
+			}
+#endif // HOST_BUILD
+
 			for (uint32_t i = 0; i < padNum; i++)
 			{
 				uint32_t nShift = remLen + i * (s_collisionBitSize + 1);
@@ -170,27 +179,25 @@ struct BeamHashIII
 
 				if (nShift + s_collisionBitSize + 1 > (sizeof(WorkWord) * 8))
 					pTemp[n0 + 1] |= idx >> (sizeof(WorkWord) * 8 - nShift);
+
+#ifdef HOST_BUILD
+				if (bVerbose)
+				{
+					std::cout << "\t\t\tpTemp = ";
+					beam::uintBigImpl::_PrintFull((const uint8_t*)pTemp, sizeof(pTemp), std::cout);
+					std::cout << std::endl;
+				}
+#endif // HOST_BUILD
+
 			}
 
 
 			// Applyin the mix from the lined up bits
 			uint64_t result = 0;
 			for (uint32_t i = 0; i < 8; i++)
-			{
 				result += sipHash::rotl(pTemp[i], (29 * (i + 1)) & 0x3F);
 
-#ifdef HOST_BUILD
-				if (bVerbose)
-					std::cout << "\t\tword = " << pTemp[i] << ", res = " << result << std::endl;
-#endif // HOST_BUILD
-			}
-
 			result = sipHash::rotl(result, 24);
-
-#ifdef HOST_BUILD
-			if (bVerbose)
-				std::cout << "\tres = " << result << std::endl;
-#endif // HOST_BUILD
 
 			// Wipe out lowest 64 bits in favor of the mixed bits
 			m_pWorkWords[0] = result;
@@ -198,8 +205,8 @@ struct BeamHashIII
 #ifdef HOST_BUILD
 			if (bVerbose)
 			{
-				std::cout << "\tpElem = ";
-				beam::uintBigImpl::_PrintFull((const uint8_t*)m_pWorkWords, sizeof(m_pWorkWords), std::cout);
+				std::cout << "\t\tpTemp = ";
+				beam::uintBigImpl::_PrintFull((const uint8_t*)pTemp, sizeof(pTemp), std::cout);
 				std::cout << std::endl;
 			}
 #endif // HOST_BUILD
