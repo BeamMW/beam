@@ -256,15 +256,6 @@ struct BeamHashIII
 		{
 #ifdef HOST_BUILD
 			std::cout << "\tRound =" << round << std::endl;
-
-			for (uint32_t i = 0; i < _countof(pIndices); i++)
-			{
-				std::cout << "\tElem-" << i << " = ";
-				const auto& e = pElemLite[i];
-
-				beam::uintBigImpl::_PrintFull((const uint8_t*)&e, sizeof(e), std::cout);
-				std::cout << std::endl;
-			}
 #endif // HOST_BUILD
 
 			for (uint32_t i0 = 0; i0 < _countof(pIndices); )
@@ -277,11 +268,31 @@ struct BeamHashIII
 				uint32_t i1 = i0 + nStep;
 				pElemLite[i1].applyMix(remLen, pIndices + i1, nStep);
 
+#ifdef HOST_BUILD
+				std::cout << "\tElem-" << i0 << " = ";
+				beam::uintBigImpl::_PrintFull((const uint8_t*) &pElemLite[i0], sizeof(pElemLite[i0]), std::cout);
+				std::cout << std::endl;
+				std::cout << "\tElem-" << i1 << " = ";
+				beam::uintBigImpl::_PrintFull((const uint8_t*)&pElemLite[i1], sizeof(pElemLite[i1]), std::cout);
+				std::cout << std::endl;
+#endif // HOST_BUILD
+
+
 				if (!pElemLite[i0].hasCollision(pElemLite[i1]))
+				{
+#ifdef HOST_BUILD
+					std::cout << "\tNo collisions!" << round << std::endl;
+#endif // HOST_BUILD
 					return false;
+				}
 
 				if (pIndices[i0] >= pIndices[i1])
+				{
+#ifdef HOST_BUILD
+					std::cout << "\tIndices OOO!" << round << std::endl;
+#endif // HOST_BUILD
 					return false;
+				}
 
 				remLen = s_workBitSize - round * s_collisionBitSize;
 				if (round == 4) remLen -= 64;
