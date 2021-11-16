@@ -195,17 +195,6 @@ struct BeamHashIII
 
 	static bool Verify(const void* pInp, uint32_t nInp, const void* pNonce, uint32_t nNonce, const uint8_t* pSol, uint32_t nSol)
 	{
-#ifdef HOST_BUILD
-		std::cout << "BeamHashIII input: pInp = ";
-		beam::uintBigImpl::_PrintFull((const uint8_t*)pInp, nInp, std::cout);
-		std::cout << ", pNonce = ";
-		beam::uintBigImpl::_PrintFull((const uint8_t*) pNonce, nNonce, std::cout);
-		std::cout << ", pSol = ";
-		beam::uintBigImpl::_PrintFull((const uint8_t*) pSol, nSol, std::cout);
-		std::cout << std::endl;
-
-#endif // HOST_BUILD
-
 		if (104 != nSol)
 			return false;
 
@@ -230,13 +219,6 @@ struct BeamHashIII
 			hp.Write(pNonce, nNonce);
 			hp.Write(pSol + 100, 4); // last 4 bytes are the extra nonce
 			hp >> prePoW;
-
-#ifdef HOST_BUILD
-			std::cout << "\tprePow =";
-			beam::uintBigImpl::_PrintFull((const uint8_t*) &prePoW, sizeof(prePoW), std::cout);
-			std::cout << std::endl;
-#endif // HOST_BUILD
-
 		}
 
 		uint32_t pIndices[32];
@@ -249,10 +231,6 @@ struct BeamHashIII
 		uint32_t round = 1;
 		for (uint32_t nStep = 1; nStep < _countof(pIndices); nStep <<= 1)
 		{
-#ifdef HOST_BUILD
-			std::cout << "\tRound =" << round << std::endl;
-#endif // HOST_BUILD
-
 			for (uint32_t i0 = 0; i0 < _countof(pIndices); )
 			{
 				uint32_t remLen = s_workBitSize - (round - 1) * s_collisionBitSize;
@@ -282,12 +260,7 @@ struct BeamHashIII
 		}
 
 		if (!Env::Memis0(pElemLite[0].m_pWorkWords, sizeof(pElemLite[0].m_pWorkWords)))
-		{
-#ifdef HOST_BUILD
-			std::cout << "\tMemis0 failed" << std::endl;
-#endif // HOST_BUILD
 			return false;
-		}
 
 		// ensure all the indices are distinct
 		static_assert(sizeof(pElemLite) >= sizeof(pIndices), "");
@@ -295,16 +268,8 @@ struct BeamHashIII
 
 		for (uint32_t i = 0; i + 1 < _countof(pIndices); i++)
 			if (pSorted[i] >= pSorted[i + 1])
-			{
-#ifdef HOST_BUILD
-				std::cout << "\tIndex order failed" << std::endl;
-#endif // HOST_BUILD
 				return false;
-			}
 
-#ifdef HOST_BUILD
-		std::cout << "\tValidated ok" << std::endl;
-#endif // HOST_BUILD
 		return true;
 	}
 
