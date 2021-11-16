@@ -140,8 +140,8 @@ BEAM_EXPORT void Method_8(Dummy::Hash3& r)
 BEAM_EXPORT void Method_9(Dummy::VerifyBeamHeader& r)
 {
     r.m_Hdr.get_Hash(r.m_Hash, &r.m_RulesCfg);
-    Env::Halt_if(!r.m_Hdr.IsValid<true>(&r.m_RulesCfg));
     Env::Halt_if(!r.m_Hdr.IsValid<false>(&r.m_RulesCfg));
+    Env::Halt_if(!r.m_Hdr.IsValid<true>(&r.m_RulesCfg));
 
     BeamDifficulty::Raw w0, w1;
     BeamDifficulty::Unpack(w1, r.m_Hdr.m_PoW.m_Difficulty);
