@@ -146,7 +146,7 @@ struct BeamHashIII
 			Env::Memset(((uint8_t*)m_pWorkWords) + remBytes, 0, s_workBytes - remBytes);
 		}
 
-		void applyMix(uint32_t remLen, const uint32_t* pIdx, uint32_t nIdx, bool bVerbose)
+		void applyMix(uint32_t remLen, const uint32_t* pIdx, uint32_t nIdx)
 		{
 			WorkWord pTemp[9];
 			static_assert(sizeof(pTemp) > sizeof(m_pWorkWords), "");
@@ -157,15 +157,6 @@ struct BeamHashIII
 			uint32_t padNum = ((512 - remLen) + s_collisionBitSize) / (s_collisionBitSize + 1);
 			if (padNum > nIdx)
 				padNum = nIdx;
-
-#ifdef HOST_BUILD
-			if (bVerbose)
-			{
-				std::cout << "\t\tpTemp = ";
-				beam::uintBigImpl::_PrintFull((const uint8_t*)pTemp, sizeof(pTemp), std::cout);
-				std::cout << std::endl;
-			}
-#endif // HOST_BUILD
 
 			for (uint32_t i = 0; i < padNum; i++)
 			{
@@ -179,16 +170,6 @@ struct BeamHashIII
 
 				if (nShift + s_collisionBitSize + 1 > (sizeof(WorkWord) * 8))
 					pTemp[n0 + 1] |= idx >> (sizeof(WorkWord) * 8 - nShift);
-
-#ifdef HOST_BUILD
-				if (bVerbose)
-				{
-					std::cout << "\t\t\tpTemp = ";
-					beam::uintBigImpl::_PrintFull((const uint8_t*)pTemp, sizeof(pTemp), std::cout);
-					std::cout << std::endl;
-				}
-#endif // HOST_BUILD
-
 			}
 
 
@@ -201,15 +182,6 @@ struct BeamHashIII
 
 			// Wipe out lowest 64 bits in favor of the mixed bits
 			m_pWorkWords[0] = result;
-
-#ifdef HOST_BUILD
-			if (bVerbose)
-			{
-				std::cout << "\t\tpTemp = ";
-				beam::uintBigImpl::_PrintFull((const uint8_t*)pTemp, sizeof(pTemp), std::cout);
-				std::cout << std::endl;
-			}
-#endif // HOST_BUILD
 		}
 
 		bool hasCollision(const StepElemLite& x) const
@@ -286,17 +258,15 @@ struct BeamHashIII
 			std::cout << "\tRound =" << round << std::endl;
 #endif // HOST_BUILD
 
-			bool bVerbose = (2 == round);
-
 			for (uint32_t i0 = 0; i0 < _countof(pIndices); )
 			{
 				uint32_t remLen = s_workBitSize - (round - 1) * s_collisionBitSize;
 				if (round == 5) remLen -= 64;
 
-				pElemLite[i0].applyMix(remLen, pIndices + i0, nStep, bVerbose);
+				pElemLite[i0].applyMix(remLen, pIndices + i0, nStep);
 
 				uint32_t i1 = i0 + nStep;
-				pElemLite[i1].applyMix(remLen, pIndices + i1, nStep, bVerbose);
+				pElemLite[i1].applyMix(remLen, pIndices + i1, nStep);
 
 #ifdef HOST_BUILD
 				std::cout << "\tElem-" << i0 << " = ";
