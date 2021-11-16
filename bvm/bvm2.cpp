@@ -31,7 +31,7 @@ namespace bvm2 {
 	{
 		namespace Env {
 			void Memcpy(void* pDst, const void* pSrc, uint32_t n) {
-				memcpy(pDst, pSrc, n);
+				memmove(pDst, pSrc, n);
 			}
 			void Memset(void* pDst, char c, uint32_t n) {
 				memset(pDst, c, n);
