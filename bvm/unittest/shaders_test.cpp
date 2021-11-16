@@ -1136,9 +1136,12 @@ namespace bvm2 {
 			args.m_RulesCfg = r.pForks[2].m_Hash;
 
 			Dbg dbg = m_Dbg;
-			m_Dbg.m_Instructions = false;
-			m_Dbg.m_Stack = false;
-			m_Dbg.m_ExtCall = false;
+			m_Dbg.m_Instructions = true;
+			m_Dbg.m_Stack = true;
+			m_Dbg.m_ExtCall = true;
+
+			std::ostringstream os;
+			m_Dbg.m_pOut = &os;
 
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
 
