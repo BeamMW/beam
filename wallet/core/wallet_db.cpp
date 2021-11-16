@@ -1730,6 +1730,8 @@ namespace beam::wallet
             int ret = sqlite3_open_v2(path.c_str(), db, SQLITE_OPEN_READWRITE, nullptr);
             throwIfError(ret, *db);
             enterKey(*db, password);
+            ret = sqlite3_exec(*db, "PRAGMA locking_mode = EXCLUSIVE; ", nullptr, nullptr, nullptr);
+            throwIfError(ret, *db);
             // try to decrypt
             auto checkKey = [&]() {return sqlite3_exec(*db, "SELECT count(*) FROM sqlite_master;", NULL, NULL, NULL); };
             ret = checkKey();
