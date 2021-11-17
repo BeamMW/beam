@@ -146,9 +146,7 @@ namespace detail
 	};
 
 
-    template<std::size_t F, typename T>
-    struct serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, F, T>
-    {
+
 		template< typename Archive, typename T2>
 		static void savePtr(Archive& ar, const std::unique_ptr<T2>& pPtr)
 		{
@@ -161,8 +159,6 @@ namespace detail
 			pPtr = std::make_unique<T2>();
 			ar & *pPtr;
 		}
-
-
 
         ///////////////////////////////////////////////////////////
         /// ECC serialization adapters
@@ -1998,7 +1994,25 @@ namespace detail
 
 			return ar;
 		}
+
+    template<std::size_t F, typename T>
+    struct serializer<
+		type_prop::not_a_fundamental,
+		ser_method::use_internal_serializer, F, T>
+    {
+		template<typename Archive, typename T2>
+		static Archive& save(Archive& ar, const T2& x)
+		{
+			return detail::save(ar, x);
+		}
+
+		template<typename Archive, typename T2>
+		static Archive& load(Archive& ar, T2& x)
+		{
+			return detail::load(ar, x);
+		}
 	};
+
 
     template <std::size_t F>
     struct serializer<
@@ -2014,7 +2028,7 @@ namespace detail
 			ar & nType;
 
 			if (p)
-				serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, F, beam::TxKernel>::ImplTxKernel::save1(ar, *p, nType);
+				ImplTxKernel::save1(ar, *p, nType);
 
 			return ar;
 		}
@@ -2033,7 +2047,7 @@ namespace detail
 
 			if (nType)
 			{
-				serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, F, beam::TxKernel>::ImplTxKernel::load1(ar, pPtr, nType, 0);
+				ImplTxKernel::load1(ar, pPtr, nType, 0);
 				pPtr->UpdateID();
 			}
 			else
@@ -2091,7 +2105,7 @@ namespace detail
 	template <typename Archive>
 	void SaveKrn(Archive& ar, const beam::TxKernel& krn, bool bAssumeStd)
 	{
-		serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, 0, beam::TxKernel>::ImplTxKernel::save2(ar, krn, bAssumeStd);
+		ImplTxKernel::save2(ar, krn, bAssumeStd);
 	}
 
 	template <typename Trg>
