@@ -1674,8 +1674,6 @@ namespace beam
 
 			virtual bool OnUtxo(Height h, const Output& outp) override
 			{
-				verify_test(outp.m_RecoveryOnly);
-
 				CoinID cid;
 				bool b1 = outp.Recover(h, *m_pOwner1, cid);
 				bool b2 = outp.Recover(h, *m_pOwner2, cid);

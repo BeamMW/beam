@@ -414,7 +414,6 @@ namespace beam
 	{
 		Cast::Down<TxElement>(*this) = v;
 		m_Coinbase = v.m_Coinbase;
-		m_RecoveryOnly = v.m_RecoveryOnly;
 		m_Incubation = v.m_Incubation;
 		ClonePtr(m_pConfidential, v.m_pConfidential);
 		ClonePtr(m_pPublic, v.m_pPublic);
@@ -431,7 +430,6 @@ namespace beam
 		}
 
 		CMP_MEMBER(m_Coinbase)
-		CMP_MEMBER(m_RecoveryOnly)
 		CMP_MEMBER(m_Incubation)
 		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)

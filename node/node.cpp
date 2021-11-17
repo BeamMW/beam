@@ -2005,10 +2005,16 @@ bool Node::Peer::GetBlock(proto::BodyBuffers& out, const NodeDB::StateID& sid, c
 		der & Cast::Down<Block::BodyBase>(block);
 		der & Cast::Down<TxVectors::Perishable>(block);
 
-		for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-			block.m_vOutputs[i]->m_RecoveryOnly = true;
+        Serializer ser;
+        ser & block.m_vInputs;
+        ser & block.m_vOutputs.size();
 
-		Serializer ser;
+        for (size_t i = 0; i < block.m_vOutputs.size(); i++)
+        {
+            const auto& outp = *block.m_vOutputs[i];
+            yas::detail::saveRecovery(ser, outp);
+        }
+
 		ser & Cast::Down<Block::BodyBase>(block);
 		ser & Cast::Down<TxVectors::Perishable>(block);
 

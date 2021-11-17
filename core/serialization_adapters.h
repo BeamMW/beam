@@ -1055,7 +1055,7 @@ namespace detail
 
         /// beam::Output serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const beam::Output& output)
+        static Archive& saveEx(Archive& ar, const beam::Output& output, bool bRecoveryOnly)
         {
 			uint8_t nFlags2 = 0;
 
@@ -1066,7 +1066,7 @@ namespace detail
 				(output.m_pPublic ? 8 : 0) |
 				(output.m_Incubation ? 0x10 : 0) |
 				(output.m_pAsset ? 0x20 : 0) |
-				(output.m_RecoveryOnly ? 0x40 : 0) |
+				//(output.m_RecoveryOnly ? 0x40 : 0) |
 				(nFlags2 ? 0x80 : 0);
 
 			ar
@@ -1074,22 +1074,34 @@ namespace detail
 				& output.m_Commitment.m_X;
 
 			if (output.m_pConfidential)
-				save(ar, *output.m_pConfidential, output.m_RecoveryOnly);
+				save(ar, *output.m_pConfidential, bRecoveryOnly);
 
 			if (output.m_pPublic)
-				save(ar, *output.m_pPublic, output.m_RecoveryOnly);
+				save(ar, *output.m_pPublic, bRecoveryOnly);
 
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
 
-			if ((0x20 & nFlags) && !output.m_RecoveryOnly)
+			if ((0x20 & nFlags) && !bRecoveryOnly)
 				savePtr(ar, output.m_pAsset);
 
             return ar;
         }
 
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Output& output)
+		{
+			return saveEx(ar, output, false);
+		}
+
+		template<typename Archive>
+		static Archive& saveRecovery(Archive& ar, const beam::Output& output)
+		{
+			return saveEx(ar, output, true);
+		}
+
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::Output& output)
+        static Archive& loadEx(Archive& ar, beam::Output& output, bool bRecoveryOnly)
         {
 			uint8_t nFlags;
 			ar
@@ -1098,24 +1110,24 @@ namespace detail
 
 			output.m_Commitment.m_Y = (1 & nFlags);
 			output.m_Coinbase = 0 != (2 & nFlags);
-			output.m_RecoveryOnly = 0 != (0x40 & nFlags);
+			//output.m_RecoveryOnly = 0 != (0x40 & nFlags);
 
 			if (4 & nFlags)
 			{
 				output.m_pConfidential = std::make_unique<ECC::RangeProof::Confidential>();
-				load(ar, *output.m_pConfidential, output.m_RecoveryOnly);
+				load(ar, *output.m_pConfidential, bRecoveryOnly);
 			}
 
 			if (8 & nFlags)
 			{
 				output.m_pPublic = std::make_unique<ECC::RangeProof::Public>();
-				load(ar, *output.m_pPublic, output.m_RecoveryOnly);
+				load(ar, *output.m_pPublic, bRecoveryOnly);
 			}
 
 			if (0x10 & nFlags)
 				ar & output.m_Incubation;
 
-			if ((0x20 & nFlags) && !output.m_RecoveryOnly)
+			if ((0x20 & nFlags) && !bRecoveryOnly)
 				loadPtr(ar, output.m_pAsset);
 
 			if (0x80 & nFlags)
@@ -1126,6 +1138,18 @@ namespace detail
 
             return ar;
         }
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Output& output)
+		{
+			return loadEx(ar, output, false);
+		}
+
+		template<typename Archive>
+		static Archive& loadRecovery(Archive& ar, beam::Output& output)
+		{
+			return loadEx(ar, output, true);
+		}
 
 		/// beam::TxKernelStd::HashLock serialization
 		template<typename Archive>
