@@ -300,6 +300,8 @@ namespace beam
         const char* API_USE_ACL  = "use_acl";
         const char* API_ACL_PATH = "acl_path";
         const char* API_VERSION  = "api_version";
+        const char* API_ENABLE_IPFS = "enable_ipfs";
+        const char* API_IPFS_STORAGE = "ipfs_storage";
 
         // treasury
         const char* TR_OPCODE = "tr_op";

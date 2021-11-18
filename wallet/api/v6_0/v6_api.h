@@ -32,6 +32,9 @@ namespace beam::wallet
         virtual ISwapsProvider::Ptr  getSwaps() const;
         virtual IShadersManager::Ptr getContracts() const;
         virtual Height               get_TipHeight() const;
+        #ifdef BEAM_IPFS_SUPPORT
+        IPFSService::Ptr getIPFS() const;
+        #endif
 
         void assertWalletThread() const;
         void checkCAEnabled() const;
@@ -78,6 +81,10 @@ namespace beam::wallet
         Wallet::Ptr          _wallet;
         ISwapsProvider::Ptr  _swaps;
         IShadersManager::Ptr _contracts;
+
+        #ifdef BEAM_IPFS_SUPPORT
+        IPFSService::Ptr _ipfs;
+        #endif
 
         struct RequestHeaderMsg
             : public proto::FlyClient::RequestEnumHdrs

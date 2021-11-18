@@ -203,6 +203,7 @@ option(BEAM_ATOMIC_SWAP_SUPPORT "Build wallet with atomic swap support" ON)
 option(BEAM_LELANTUS_SUPPORT "Build wallet with lelantus support" ON)
 option(BEAM_LASER_SUPPORT "Build wallet with laser support" ON)
 option(BEAM_CONFIDENTIAL_ASSETS_SUPPORT "Build wallet with confidential assets support" ON)
+option(BEAM_IPFS_SUPPORT "Build wallet with IPFS support" ON)
 option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
 
 if(BEAM_HW_WALLET)
@@ -304,7 +305,7 @@ endif()
 
 #Boost
 if (NOT EMSCRIPTEN)
-    set(BEAM_BOOST_COMPONENTS system filesystem program_options thread regex log locale date_time)
+    set(BEAM_BOOST_COMPONENTS system filesystem program_options thread regex log locale date_time coroutine)
 endif()
 function(CreateBoostComponentTargets listOfComponents root libPrefix libSuffix)
     add_library(Boost::boost INTERFACE IMPORTED)

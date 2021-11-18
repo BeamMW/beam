@@ -33,6 +33,10 @@ target_link_libraries(wallet_api
         utility
 )
 
+if(BEAM_IPFS_SUPPORT)
+    target_link_libraries(wallet_api PUBLIC wallet_ipfs)
+endif()
+
 if (NOT BEAM_WALLET_CLIENT_LIBRARY)
     set(WALLET_API_NAME wallet-api${BEAM_TARGET_SUFFIX})
 

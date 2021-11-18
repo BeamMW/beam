@@ -16,4 +16,62 @@
 
 namespace beam::wallet
 {
+    void V62Api::onHandleIPFSAdd(const JsonRpcId &id, const IPFSAdd& req)
+    {
+        auto ipfs = getIPFS();
+
+        // TODO:IPFS cannot use move because of const
+        std::vector dcopy = req.data;
+        ipfs->add(std::move(dcopy),
+            [this, id, wguard = _weakSelf](std::string&& hash) {
+                auto guard = wguard.lock();
+                if (!guard)
+                {
+                    LOG_WARNING() << "API destroyed before IPFS response received.";
+                    return;
+                }
+
+                IPFSAdd::Response response = {hash};
+                doResponse(id, response);
+            },
+            [this, id, wguard = _weakSelf] (std::string&& err) {
+                auto guard = wguard.lock();
+                if (!guard)
+                {
+                    LOG_WARNING() << "API destroyed before IPFS response received.";
+                    return;
+                }
+
+                sendError(id, ApiError::IPFSError, err);
+            }
+        );
+    }
+
+    void V62Api::onHandleIPFSGet(const JsonRpcId &id, const IPFSGet& req)
+    {
+        auto ipfs = getIPFS();
+        ipfs->get(req.hash,
+        [this, id, hash = req.hash, wguard = _weakSelf](std::vector<uint8_t>&& data) {
+                auto guard = wguard.lock();
+                if (!guard)
+                {
+                    LOG_WARNING() << "API destroyed before IPFS response received.";
+                    return;
+                }
+
+                IPFSGet::Response response = {hash, std::move(data)};
+                doResponse(id, response);
+            },
+            [this, id, wguard = _weakSelf] (std::string&& err) {
+                auto guard = wguard.lock();
+                if (!guard)
+                {
+                    LOG_WARNING() << "API destroyed before IPFS response received.";
+                    return;
+                }
+
+                sendError(id, ApiError::IPFSError, err);
+            }
+        );
+    }
 }

@@ -50,3 +50,7 @@ endif()
 if(BEAM_LELANTUS_SUPPORT)
     target_link_libraries(wallet_client PUBLIC lelantus)
 endif()
+
+if(BEAM_IPFS_SUPPORT)
+    target_link_libraries(wallet_client PUBLIC wallet_ipfs)
+endif()

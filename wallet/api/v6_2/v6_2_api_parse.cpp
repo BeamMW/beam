@@ -16,4 +16,54 @@
 
 namespace beam::wallet
 {
+    std::pair<IPFSAdd, IWalletApi::MethodInfo> V62Api::onParseIPFSAdd(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        IPFSAdd message;
+
+        // TODO:IPFS json&, optimize? this might be slow, BSON?
+        json data = getMandatoryParam<NonEmptyJsonArray>(params, "data");
+        for (const auto& byte: data)
+        {
+            const auto ubyte = byte.get<uint8_t>();
+            message.data.push_back(ubyte);
+        }
+
+        return std::make_pair(std::move(message), MethodInfo());
+    }
+
+    void V62Api::getResponse(const JsonRpcId& id, const IPFSAdd::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result",
+                {
+                    {"hash", res.hash}
+                }
+            }
+        };
+    }
+
+    std::pair<IPFSGet, IWalletApi::MethodInfo> V62Api::onParseIPFSGet(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        IPFSGet message;
+        message.hash = getMandatoryParam<NonEmptyString>(params, "hash");
+        return std::make_pair(std::move(message), MethodInfo());
+    }
+
+    void V62Api::getResponse(const JsonRpcId& id, const IPFSGet::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result",
+                {
+                    {"hash", res.hash},
+                    {"data", res.data}
+                }
+            }
+        };
+    }
 }

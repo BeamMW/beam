@@ -40,9 +40,15 @@
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/transactions/assets/assets_reg_creators.h"
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "api_cli_swap.h"
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
+#endif
+
+#ifdef BEAM_IPFS_SUPPORT
+#include "wallet/ipfs/ipfs.h"
+#include "wallet/ipfs/ipfs_async.h"
+#endif
 
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
 #include "wallet/core/contracts/i_shaders_manager.h"
@@ -66,6 +72,14 @@ namespace
         bool requestCertificate;
         bool rejectUnauthorized;
     };
+
+    #ifdef BEAM_IPFS_SUPPORT
+    struct IPFSOptions
+    {
+        bool enabled = false;
+        std::string storage;
+    };
+    #endif
 
     ApiACL loadACL(const std::string& path)
     {
@@ -160,14 +174,61 @@ namespace
             stop();
         }
 
+        #ifdef BEAM_IPFS_SUPPORT
+        struct IPFSHandler: beam::wallet::IPFSService::Handler
+        {
+            explicit IPFSHandler(io::Reactor::Ptr reactor)
+            {
+                _toServerThread = PostToReactorThread::create(std::move(reactor));
+            }
 
+            void pushToClient(std::function<void()>&& action) override
+            {
+                _toServerThread->post(std::move(action));
+            }
+
+        private:
+            wallet::PostToReactorThread::Ptr _toServerThread;
+        };
+
+        bool startIPFS(const std::string& storagePath, io::Reactor::Ptr reactor)
+        {
+            try
+            {
+                _ipfsHandler = std::make_shared<IPFSHandler>(std::move(reactor));
+                _ipfs = beam::wallet::IPFSService::create(_ipfsHandler);
+                _ipfs->start(storagePath);
+                LOG_INFO() << "IPFS Service successfully started, ID " << _ipfs->id();
+                return true;
+            }
+            catch(std::runtime_error& err)
+            {
+                LOG_ERROR() << err.what();
+                return false;
+            }
+        }
+
+        void stopIPFS()
+        {
+            _ipfs->stop();
+            _ipfs.reset();
+            _ipfsHandler.reset();
+        }
+
+        private:
+            beam::wallet::IPFSService::Ptr _ipfs;
+            std::shared_ptr<IPFSHandler> _ipfsHandler;
+        public:
+        #endif
+
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void initSwapFeature(proto::FlyClient::INetwork::Ptr nnet, IWalletMessageEndpoint& wnet)
         {
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
             _swapsProvider = std::make_shared<ApiCliSwap>(_walletDB);
             _swapsProvider->initSwapFeature(nnet, wnet);
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
         }
+        #endif
+
     protected:
         void start()
         {
@@ -219,11 +280,16 @@ namespace
                 _walletData = std::make_unique<ApiInitData>();
                 _walletData->walletDB  = _walletDB;
                 _walletData->wallet    = _wallet;
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-                _walletData->swaps     = _swapsProvider;
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
                 _walletData->acl       = _acl;
                 _walletData->contracts = IShadersManager::CreateInstance(_wallet, _walletDB, _network, "", "");
+
+                #ifdef BEAM_ATOMIC_SWAP_SUPPORT
+                _walletData->swaps = _swapsProvider;
+                #endif
+
+                #ifdef BEAM_IPFS_SUPPORT
+                _walletData->ipfs = _ipfs;
+                #endif
             }
 
             return std::make_shared<T>(_apiVersion, *this, std::move(newStream), *_walletData);
@@ -473,9 +539,9 @@ namespace
         Wallet::Ptr _wallet;
         proto::FlyClient::NetworkStd::Ptr _network;
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::shared_ptr<ApiCliSwap> _swapsProvider;
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
+        #endif // BEAM_ATOMIC_SWAP_SUPPORT
 
         std::unique_ptr<ApiInitData> _walletData;
         std::vector<uint64_t> _pendingToClose;
@@ -512,6 +578,9 @@ int main(int argc, char* argv[])
         } options;
 
         TlsOptions tlsOptions;
+        #ifdef BEAM_IPFS_SUPPORT
+        IPFSOptions ipfsOptions;
+        #endif
 
         io::Address node_addr;
         IWalletDB::Ptr walletDB;
@@ -554,8 +623,17 @@ int main(int argc, char* argv[])
 
             desc.add(authDesc);
             desc.add(tlsDesc);
-            desc.add(createRulesOptionsDescription());
 
+            #ifdef BEAM_IPFS_SUPPORT
+            po::options_description ipfsDesc("IPFS options");
+            ipfsDesc.add_options()
+                    (cli::API_ENABLE_IPFS, po::value<bool>(&ipfsOptions.enabled)->default_value(false), "enable IPFS support")
+                    (cli::API_IPFS_STORAGE,   po::value<std::string>(&ipfsOptions.storage)->default_value("./ipfs-repo"), "IPFS repository path")
+                    ;
+            desc.add(ipfsDesc);
+            #endif
+
+            desc.add(createRulesOptionsDescription());
             po::variables_map vm;
 
             po::store(po::command_line_parser(argc, argv)
@@ -665,7 +743,6 @@ int main(int argc, char* argv[])
             // this should be exactly CLI flag value to print correct error messages
             // Rules::CA.Enabled would be checked as well but later
             wallet::g_AssetsEnabled = vm[cli::WITH_ASSETS].as<bool>();
-
             options.enableLelentus = vm[cli::ENABLE_LELANTUS].as<bool>();
         }
 
@@ -706,10 +783,21 @@ int main(int argc, char* argv[])
         wallet->SetNodeEndpoint(nnet);
 
         WalletApiServer server(options.apiVersion, walletDB, wallet, nnet, *reactor, listenTo, options.useHttp, acl, tlsOptions, whitelist);
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         RegisterSwapTxCreators(wallet, walletDB);
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
         server.initSwapFeature(nnet, *wnet);
+        #endif
+
+        #ifdef BEAM_IPFS_SUPPORT
+        if (ipfsOptions.enabled)
+        {
+            if(!server.startIPFS(ipfsOptions.storage, reactor))
+            {
+                return -1;
+            }
+        }
+        #endif
 
         if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
         {
@@ -724,6 +812,13 @@ int main(int argc, char* argv[])
         // All TxCreators must be registered by this point
         wallet->ResumeAllTransactions();
         io::Reactor::get_Current().run();
+
+        #ifdef BEAM_IPFS_SUPPORT
+        if (ipfsOptions.enabled)
+        {
+            server.stopIPFS();
+        }
+        #endif
 
         LOG_INFO() << "Done";
     }

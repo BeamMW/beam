@@ -13,7 +13,32 @@
 // limitations under the License.
 #pragma once
 
+#include <vector>
+#include <memory>
+#include <string>
+
 namespace beam::wallet
 {
-#define V6_2_API_METHODS(macro)
+    #define V6_2_API_METHODS(macro) \
+        macro(IPFSAdd, "ipfs_add", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
+        macro(IPFSGet, "ipfs_get", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)
+
+    struct IPFSAdd
+    {
+        std::vector<uint8_t> data;
+        struct Response
+        {
+            std::string hash;
+        };
+    };
+
+    struct IPFSGet
+    {
+        std::string hash;
+        struct Response
+        {
+            std::string hash;
+            std::vector<uint8_t> data;
+        };
+    };
 }

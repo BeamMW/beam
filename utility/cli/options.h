@@ -201,6 +201,8 @@ namespace beam
         extern const char* API_USE_ACL;
         extern const char* API_ACL_PATH;
         extern const char* API_VERSION;
+        extern const char* API_ENABLE_IPFS;
+        extern const char* API_IPFS_STORAGE;
 
         // treasury
         extern const char* TR_OPCODE;
