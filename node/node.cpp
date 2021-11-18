@@ -4716,10 +4716,12 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
                 virtual bool OnKrnEx(const TxKernelShieldedOutput& krn) override
                 {
+                    Asset::Proof::Ptr pAsset;
+
                     uint8_t nFlags = RecoveryInfo::Flags::Output;
                     if (krn.m_Txo.m_pAsset)
                     {
-                        Cast::NotConst(krn).m_Txo.m_pAsset.reset(); // not needed for recovery atm
+                        pAsset.swap(Cast::NotConst(krn).m_Txo.m_pAsset);
                         nFlags |= RecoveryInfo::Flags::HadAsset;
                     }
 
@@ -4727,6 +4729,10 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
                     m_Ser & nFlags;
                     m_Ser & krn.m_Txo;
                     m_Ser & krn.m_Msg;
+
+                    if (pAsset && (m_Height >= Rules::get().pForks[3].m_Height))
+                        m_Ser & pAsset->m_hGen;
+
                     return true;
                 }
 
