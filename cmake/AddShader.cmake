@@ -48,6 +48,7 @@ function(build_target target_name)
     add_custom_target(${target_name}_build ALL
         COMMAND ${CMAKE_COMMAND} 
                                     -G "Ninja" 
+                                    -DCMAKE_SYSTEM_NAME="WASI"
                                     -DCMAKE_BUILD_TYPE:STRING=MinSizeRel
                                     -DCMAKE_TOOLCHAIN_FILE:FILEPATH=${WASI_SDK_PREFIX}/share/cmake/wasi-sdk.cmake
                                     -DBEAM_SHADER_SDK=${BEAM_SHADER_SDK}

@@ -110,6 +110,8 @@ public:
         virtual void OnResult(const json&) {}
         virtual void OnApproveSend(const std::string&, const string&, WasmAppApi::WeakPtr api) {}
         virtual void OnApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WasmAppApi::WeakPtr api) {}
+        virtual void OnImportRecoveryProgress(uint64_t done, uint64_t total) {}
+        virtual void OnWalletError(ErrorType error) {}
     };
 
     using WalletClient::WalletClient;
@@ -202,6 +204,28 @@ private:
                 sp.reset(); // handler may hold WalletClient too, but can destroy it, we don't want to prevent this
                 Assert(wp.use_count() == 1);
                 h();
+            }
+        });
+    }
+
+    void onImportRecoveryProgress(uint64_t done, uint64_t total) override
+    {
+        postFunctionToClientContext([this, done, total]()
+        {
+            if (m_CbHandler)
+            {
+                m_CbHandler->OnImportRecoveryProgress(done, total);
+            }
+        });
+    }
+
+    void onWalletError(ErrorType error) override
+    {
+        postFunctionToClientContext([this, error]()
+        {
+            if (m_CbHandler)
+            {
+                m_CbHandler->OnWalletError(error);
             }
         });
     }
@@ -519,6 +543,34 @@ public:
         }
     }
 
+    void OnImportRecoveryProgress(uint64_t done, uint64_t total) override
+    {
+        OnImportRecoveryProgress(val::null(), done, total);
+    }
+
+    void OnImportRecoveryProgress(val error, uint64_t done, uint64_t total)
+    {
+        AssertMainThread();
+        if (m_RecoveryCallback && !m_RecoveryCallback->isNull())
+        {
+            (*m_RecoveryCallback)(error, static_cast<int>(done), static_cast<int>(total));
+            if (done == total || !error.isNull())
+            {
+                m_RecoveryCallback.reset();
+            }
+        }
+    }
+
+    void OnWalletError(ErrorType e) override
+    {
+        if (e == ErrorType::ImportRecoveryError)
+        {
+            auto error = val::global("Error").new_(val("Failed to import recovery"));
+            OnImportRecoveryProgress(error, 0, 0);
+        }
+    }
+
+
     void CreateAppAPI(const std::string& apiver, const std::string& minapiver, const std::string& appid, const std::string& appname, val cb)
     {
         AssertMainThread();
@@ -595,6 +647,39 @@ public:
                 cb(val::undefined(), wapi);
             }
         );
+    }
+
+    void ImportRecovery(const std::string& buf, val&& callback)
+    {
+        AssertMainThread();
+        if (!m_Client)
+        {
+            LOG_WARNING() << "The client is stopped";
+            return;
+        }
+        if (m_RecoveryCallback)
+        {
+            LOG_WARNING() << "Recovery is in progress";
+            return;
+        }
+        
+        try
+        {
+            constexpr std::string_view fileName = "recovery.bin";
+            {
+                std::ofstream s(fileName.data(), ios_base::binary | ios_base::out | ios_base::trunc);
+                s.write(reinterpret_cast<const char*>(buf.data()), buf.size());
+            }
+            if (!callback.isNull())
+            {
+                m_RecoveryCallback = std::make_unique<val>(std::move(callback));
+            }
+            m_Client->getAsync()->importRecovery(fileName.data());
+        }
+        catch (const std::exception& ex)
+        {
+            HandleException(ex);
+        }
     }
 
     static void DoCallbackOnMainThread(val* h)
@@ -764,19 +849,24 @@ public:
                 console.log("mounting...");
                 FS.syncfs(true, function(error)
                 {
-                    dynCall('vi', $0, [error]);
+                    if (error == null) {
+                        dynCall('vi', $0, [$1]);
+                    }
+                    else {
+                        dynCall('vi', $0, [error]);
+                    }
                 });
 
-            }, OnMountFS
+            }, OnMountFS, &s_Null
         );
     }
 private:
-    static void OnMountFS(val error)
+    static void OnMountFS(val* error)
     {
         s_Mounted = true;
         if (!s_MountCB.isNull())
         {
-            s_MountCB(error);
+            s_MountCB(*error);
         }
         else
         {
@@ -787,6 +877,7 @@ private:
 private:
     static val s_MountCB;
     static bool s_Mounted;
+    static val s_Null;
     std::shared_ptr<Logger> m_Logger;
     io::Reactor::Ptr m_Reactor;
     std::string m_DbPath;
@@ -796,6 +887,7 @@ private:
     std::unique_ptr<val> m_SyncHandler;
     std::unique_ptr<val> m_ApproveSendHandler;
     std::unique_ptr<val> m_ApproveContractInfoHandler;
+    std::unique_ptr<val> m_RecoveryCallback;
     WalletClient2::Ptr m_Client;
     IWalletApi::Ptr m_WalletApi;
     bool m_Headless = false;
@@ -803,6 +895,7 @@ private:
 
 val WasmWalletClient::s_MountCB = val::null();
 bool WasmWalletClient::s_Mounted = false;
+val WasmWalletClient::s_Null = val::null();
 
 // Binding code
 EMSCRIPTEN_BINDINGS()
@@ -821,6 +914,7 @@ EMSCRIPTEN_BINDINGS()
         .function("setApproveSendHandler", &WasmWalletClient::SetApproveSendHandler)
         .function("setApproveContractInfoHandler", &WasmWalletClient::SetApproveContractInfoHandler)
         .function("createAppAPI", &WasmWalletClient::CreateAppAPI)
+        .function("importRecovery", &WasmWalletClient::ImportRecovery)
         .class_function("IsAppSupported", &WasmWalletClient::IsAppSupported)
         .class_function("GenerateAppID", &WasmWalletClient::GenerateAppID)
         .class_function("GeneratePhrase", &WasmWalletClient::GeneratePhrase)

@@ -1617,7 +1617,10 @@ namespace beam::wallet
         {
             if (auto w = getWallet())
             {
-                m_walletDB->ImportRecovery(path, *w, *this);
+                if (!m_walletDB->ImportRecovery(path, *w, *this))
+                {
+                    onWalletError(ErrorType::ImportRecoveryError);
+                }
             }
             return;
         }
