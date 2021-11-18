@@ -1055,7 +1055,7 @@ namespace detail
 
         /// beam::Output serialization
         template<typename Archive>
-        static Archive& saveEx(Archive& ar, const beam::Output& output, bool bRecoveryOnly)
+        static Archive& saveEx(Archive& ar, const beam::Output& output, const beam::Height* pRecoveryScheme)
         {
 			uint8_t nFlags2 = 0;
 
@@ -1073,6 +1073,8 @@ namespace detail
 				& nFlags
 				& output.m_Commitment.m_X;
 
+			bool bRecoveryOnly = !!pRecoveryScheme;
+
 			if (output.m_pConfidential)
 				save(ar, *output.m_pConfidential, bRecoveryOnly);
 
@@ -1082,8 +1084,15 @@ namespace detail
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
 
-			if ((0x20 & nFlags) && !bRecoveryOnly)
-				savePtr(ar, output.m_pAsset);
+			if (0x20 & nFlags)
+			{
+				if (bRecoveryOnly)
+				{
+					if (*pRecoveryScheme >= beam::Rules::get().pForks[3].m_Height)
+						ar & output.m_pAsset->m_hGen;
+				} else
+					savePtr(ar, output.m_pAsset);
+			}
 
             return ar;
         }
@@ -1091,17 +1100,17 @@ namespace detail
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::Output& output)
 		{
-			return saveEx(ar, output, false);
+			return saveEx(ar, output, nullptr);
 		}
 
 		template<typename Archive>
-		static Archive& saveRecovery(Archive& ar, const beam::Output& output)
+		static Archive& saveRecovery(Archive& ar, const beam::Output& output, beam::Height hScheme)
 		{
-			return saveEx(ar, output, true);
+			return saveEx(ar, output, &hScheme);
 		}
 
         template<typename Archive>
-        static Archive& loadEx(Archive& ar, beam::Output& output, bool bRecoveryOnly)
+        static Archive& loadEx(Archive& ar, beam::Output& output, const beam::Height* pRecoveryScheme)
         {
 			uint8_t nFlags;
 			ar
@@ -1111,6 +1120,8 @@ namespace detail
 			output.m_Commitment.m_Y = (1 & nFlags);
 			output.m_Coinbase = 0 != (2 & nFlags);
 			//output.m_RecoveryOnly = 0 != (0x40 & nFlags);
+
+			bool bRecoveryOnly = !!pRecoveryScheme;
 
 			if (4 & nFlags)
 			{
@@ -1127,8 +1138,20 @@ namespace detail
 			if (0x10 & nFlags)
 				ar & output.m_Incubation;
 
-			if ((0x20 & nFlags) && !bRecoveryOnly)
-				loadPtr(ar, output.m_pAsset);
+			if (0x20 & nFlags)
+			{
+				if (bRecoveryOnly)
+				{
+					if (*pRecoveryScheme >= beam::Rules::get().pForks[3].m_Height)
+					{
+						output.m_pAsset = std::make_unique<beam::Asset::Proof>();
+						ar & output.m_pAsset->m_hGen;
+					}
+				}
+				else
+					loadPtr(ar, output.m_pAsset);
+			}
+
 
 			if (0x80 & nFlags)
 			{
@@ -1142,13 +1165,13 @@ namespace detail
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::Output& output)
 		{
-			return loadEx(ar, output, false);
+			return loadEx(ar, output, nullptr);
 		}
 
 		template<typename Archive>
-		static Archive& loadRecovery(Archive& ar, beam::Output& output)
+		static Archive& loadRecovery(Archive& ar, beam::Output& output, beam::Height hScheme)
 		{
-			return loadEx(ar, output, true);
+			return loadEx(ar, output, &hScheme);
 		}
 
 		/// beam::TxKernelStd::HashLock serialization

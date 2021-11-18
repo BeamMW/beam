@@ -511,7 +511,7 @@ namespace beam
 				break;
 
 			Output outp;
-			yas::detail::loadRecovery(m_Der, outp);
+			yas::detail::loadRecovery(m_Der, outp, h);
 
 			UtxoTree::Key::Data d;
 			d.m_Commitment = outp.m_Commitment;

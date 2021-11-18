@@ -3103,14 +3103,17 @@ namespace beam
 		{
 			uint32_t m_Spent = 0;
 			uint32_t m_Utxos = 0;
+			uint32_t m_UtxosCA = 0;
 			uint32_t m_Assets = 0;
 
 			typedef std::set<ECC::Point> PkSet;
 			PkSet m_SpendKeys;
 
-			virtual bool OnUtxoRecognized(Height, const Output&, CoinID&, const Output::User&) override
+			virtual bool OnUtxoRecognized(Height, const Output&, CoinID& cid, const Output::User&) override
 			{
 				m_Utxos++;
+				if (cid.m_AssetID)
+					m_UtxosCA++;
 				return true;
 			}
 
@@ -3140,7 +3143,7 @@ namespace beam
 		p.Init(cl.m_Wallet.m_pKdf);
 		p.Proceed(beam::g_sz3); // check we can rebuild the Live consistently with shielded and assets
 
-		verify_test((p.m_SpendKeys.size() == 1) && (p.m_Spent == 1) && p.m_Utxos && p.m_Assets);
+		verify_test((p.m_SpendKeys.size() == 1) && (p.m_Spent == 1) && p.m_Utxos && p.m_UtxosCA && p.m_Assets);
 
 		auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
 		node.PrintTxos();

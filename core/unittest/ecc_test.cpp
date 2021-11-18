@@ -989,7 +989,7 @@ void TestRangeProof(bool bCustomTag)
 		WriteSizeSerialized("Out-UTXO-Public", outp);
 
 		beam::SerializerSizeCounter ssc;
-		yas::detail::saveRecovery(ssc, outp);
+		yas::detail::saveRecovery(ssc, outp, g_hFork);
 		PrintSizeSerialized("Out-UTXO-Public-RecoveryOnly", ssc);
 	}
 	{
@@ -1006,7 +1006,7 @@ void TestRangeProof(bool bCustomTag)
 		WriteSizeSerialized("Out-UTXO-Confidential", outp);
 
 		beam::SerializerSizeCounter ssc;
-		yas::detail::saveRecovery(ssc, outp);
+		yas::detail::saveRecovery(ssc, outp, g_hFork);
 		PrintSizeSerialized("Out-UTXO-Confidential-RecoveryOnly", ssc);
 
 		CoinID cid2;
