@@ -32,9 +32,8 @@ text = text[:iend + len(t_end)] + '\n  if (ret == 0) Atomics.wait(AB, 0, 0, 50);
 
 # replace buffer instanceof SharedArrayBuffer
 # to fix https://bugs.chromium.org/p/chromium/issues/detail?id=1269096
-text.replace("buffer instanceof SharedArrayBuffer", "buffer[Symbol.toStringTag] == 'SharedArrayBuffer'")
+text = text.replace("buffer instanceof SharedArrayBuffer", "buffer[Symbol.toStringTag] == 'SharedArrayBuffer'")
 
 #save fixed result
 with open(sys.argv[1], 'w') as result:
     result.write(text)
-
