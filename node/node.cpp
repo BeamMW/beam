@@ -2005,10 +2005,16 @@ bool Node::Peer::GetBlock(proto::BodyBuffers& out, const NodeDB::StateID& sid, c
 		der & Cast::Down<Block::BodyBase>(block);
 		der & Cast::Down<TxVectors::Perishable>(block);
 
-		for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-			block.m_vOutputs[i]->m_RecoveryOnly = true;
+        Serializer ser;
+        ser & block.m_vInputs;
+        ser & block.m_vOutputs.size();
 
-		Serializer ser;
+        for (size_t i = 0; i < block.m_vOutputs.size(); i++)
+        {
+            const auto& outp = *block.m_vOutputs[i];
+            yas::detail::saveRecovery(ser, outp, sid.m_Height);
+        }
+
 		ser & Cast::Down<Block::BodyBase>(block);
 		ser & Cast::Down<TxVectors::Perishable>(block);
 
@@ -4660,7 +4666,6 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 			der & outp;
 
             assert(outp.m_Commitment == d.m_Commitment);
-            outp.m_RecoveryOnly = true;
 
 			// 2 ways to discover the UTXO create height: either directly by looking its TxoID in States table, or reverse-engineer it from Maturity
 			// Since currently maturity delta is independent of current height (not a function of height, not changed in current forks) - we prefer the 2nd method, which is faster.
@@ -4672,7 +4677,8 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
             MySerializer ser(m_Writer.m_Stream);
             ser & hCreateHeight;
-            ser & outp;
+
+            yas::detail::saveRecovery(ser, outp, hCreateHeight);
 		}
 	};
 
@@ -4710,10 +4716,12 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
                 virtual bool OnKrnEx(const TxKernelShieldedOutput& krn) override
                 {
+                    Asset::Proof::Ptr pAsset;
+
                     uint8_t nFlags = RecoveryInfo::Flags::Output;
                     if (krn.m_Txo.m_pAsset)
                     {
-                        Cast::NotConst(krn).m_Txo.m_pAsset.reset(); // not needed for recovery atm
+                        pAsset.swap(Cast::NotConst(krn).m_Txo.m_pAsset);
                         nFlags |= RecoveryInfo::Flags::HadAsset;
                     }
 
@@ -4721,6 +4729,10 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
                     m_Ser & nFlags;
                     m_Ser & krn.m_Txo;
                     m_Ser & krn.m_Msg;
+
+                    if (pAsset && (m_Height >= Rules::get().pForks[3].m_Height))
+                        m_Ser & pAsset->m_hGen;
+
                     return true;
                 }
 

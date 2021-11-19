@@ -549,12 +549,10 @@ namespace beam
 		typedef std::unique_ptr<Output> Ptr;
 
 		bool		m_Coinbase;
-		bool		m_RecoveryOnly;
 		Height		m_Incubation; // # of blocks before it's mature
 
 		Output()
 			:m_Coinbase(false)
-			,m_RecoveryOnly(false)
 			,m_Incubation(0)
 		{
 		}
@@ -562,7 +560,6 @@ namespace beam
 		Output(const Output& o)
 			:TxElement(o)
 			,m_Coinbase(o.m_Coinbase)
-			,m_RecoveryOnly(o.m_RecoveryOnly)
 			,m_Incubation(o.m_Incubation)
 		{
 		}
