@@ -30,6 +30,11 @@ text = text[:iret] + '{\n  var ret =' + text[iret + len(t_ret):]
 iend  = text.index(t_end, iret)
 text = text[:iend + len(t_end)] + '\n  if (ret == 0) Atomics.wait(AB, 0, 0, 50);\n  return ret;\n }' + text[iend + len(t_end):]
 
+# replace buffer instanceof SharedArrayBuffer
+# to fix https://bugs.chromium.org/p/chromium/issues/detail?id=1269096
+text.replace("buffer instanceof SharedArrayBuffer", "buffer[Symbol.toStringTag] == 'SharedArrayBuffer'")
+
+#save fixed result
 with open(sys.argv[1], 'w') as result:
     result.write(text)
 
