@@ -155,6 +155,11 @@ namespace proto {
     macro(Transaction::Ptr, Transaction) \
     macro(bool, Fluff)
 
+#define BeamNodeMsg_Transaction2(macro) \
+    macro(Transaction::Ptr, Transaction) \
+    macro(std::unique_ptr<Merkle::Hash>, Context) \
+    macro(bool, Fluff)
+
 #define BeamNodeMsg_HaveTransaction(macro) \
     macro(Transaction::KeyType, ID)
 
@@ -344,6 +349,7 @@ namespace proto {
     macro(0x30, NewTransaction) \
     macro(0x31, HaveTransaction) \
     macro(0x32, GetTransaction) \
+    macro(0x49, Transaction2) \
     /* bbs */ \
     macro(0x39, BbsHaveMsg) \
     macro(0x3a, BbsGetMsg) \
@@ -379,9 +385,10 @@ namespace proto {
             // 6 - Newer Event::AssetCtl, newer Utxo events
             // 7 - GetShieldedOutputsAt
             // 8 - Contract vars and logs, flexible hdr request, newer ShieldedList, Status
+            // 9 - Dependent txs
 
             static const uint32_t Minimum = 8;
-            static const uint32_t Maximum = 8;
+            static const uint32_t Maximum = 9;
 
             static void set(uint32_t& nFlags, uint32_t nExt);
             static uint32_t get(uint32_t nFlags);
@@ -600,6 +607,9 @@ namespace proto {
         static const uint8_t ContractFailLast = 0x3f;
 
         static const uint8_t ContractFailNode = ContractFailLast; // non-existing contract invoked, duplicate contract created, contract d'tor left garbage
+
+        static const uint8_t DependentNoParent = 0x48;
+        static const uint8_t DependentNotBest = 0x48; // tx is ok, but looses to a competing tx
     };
 
 
