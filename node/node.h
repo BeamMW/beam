@@ -213,7 +213,7 @@ struct Node
 	bool DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>&, const proto::HdrPack&);
 	static bool DecodeAndCheckHdrsImpl(std::vector<Block::SystemState::Full>&, const proto::HdrPack&, ExecutorMT&);
 
-	uint8_t OnTransaction(Transaction::Ptr&&, const PeerID*, bool bFluff, std::ostream* pExtraInfo);
+	uint8_t OnTransaction(Transaction::Ptr&&, std::unique_ptr<Merkle::Hash>&&, const PeerID*, bool bFluff, std::ostream* pExtraInfo);
 
         // for step-by-step tests
 	void GenerateFakeBlocks(uint32_t n);
@@ -274,6 +274,7 @@ private:
 	} m_Processor;
 
 	TxPool::Fluff m_TxPool;
+	TxPool::Dependent m_TxDependent;
 
 	struct Peer;
 
@@ -375,6 +376,7 @@ private:
 		struct Element
 		{
 			Transaction::Ptr m_pTx;
+			std::unique_ptr<Merkle::Hash> m_pCtx;
 			PeerID m_Sender;
 			bool m_Fluff;
 		};
@@ -386,9 +388,10 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_TxDeferred)
 	} m_TxDeferred;
 
-	void OnTransactionDeferred(Transaction::Ptr&&, const PeerID*, bool bFluff);
+	void OnTransactionDeferred(Transaction::Ptr&&, std::unique_ptr<Merkle::Hash>&&, const PeerID*, bool bFluff);
 	uint8_t OnTransactionStem(Transaction::Ptr&&, std::ostream* pExtraInfo);
 	uint8_t OnTransactionFluff(Transaction::Ptr&&, std::ostream* pExtraInfo, const PeerID*, Dandelion::Element*);
+	uint8_t OnTransactionDependent(Transaction::Ptr&& pTx, std::unique_ptr<Merkle::Hash>&& pCtx, const PeerID* pSender, bool bFluff, std::ostream* pExtraInfo);
 	void OnTransactionAggregated(Dandelion::Element&);
 	void OnTransactionWaitingConfirm(TxPool::Stem::Element&);
 	void PerformAggregation(Dandelion::Element&);
@@ -584,6 +587,7 @@ private:
 		virtual void OnMsg(proto::Body&&) override;
 		virtual void OnMsg(proto::BodyPack&&) override;
 		virtual void OnMsg(proto::NewTransaction&&) override;
+		virtual void OnMsg(proto::Transaction2&&) override;
 		virtual void OnMsg(proto::HaveTransaction&&) override;
 		virtual void OnMsg(proto::GetTransaction&&) override;
 		virtual void OnMsg(proto::GetCommonState&&) override;
