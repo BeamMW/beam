@@ -2872,6 +2872,7 @@ uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, std::unique_ptr<Mer
         }
 
         // TODO
+        pParent;
         return proto::TxStatus::Unspecified;
 
     }
