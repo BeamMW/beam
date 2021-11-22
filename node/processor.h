@@ -168,6 +168,8 @@ class NodeProcessor
 	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
 	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
 
+	struct DependentContextSwitch;
+
 	void InternalAssetAdd(Asset::Full&, bool bMmr);
 	void InternalAssetDel(Asset::ID, bool bMmr);
 

@@ -4035,6 +4035,61 @@ bool NodeProcessor::HandleValidatedBlock(const Block::Body& block, BlockInterpre
 	return true;
 }
 
+struct NodeProcessor::DependentContextSwitch
+{
+	NodeProcessor& m_This;
+	BlockInterpretCtx& m_Bic;
+	std::vector<Transaction*> m_vTxs;
+
+	DependentContextSwitch(NodeProcessor& np, BlockInterpretCtx& bic)
+		:m_This(np)
+		,m_Bic(bic)
+	{
+	}
+
+	~DependentContextSwitch()
+	{
+		Undo();
+	}
+
+	void Undo()
+	{
+		m_Bic.m_Fwd = false;
+		for (uint32_t i = (uint32_t) m_vTxs.size(); i--; )
+			m_This.HandleValidatedTx(*m_vTxs[i], m_Bic);
+
+		m_vTxs.clear();
+	}
+
+	bool Apply(const TxPool::Dependent::Element* pTop)
+	{
+		uint32_t n = 0;
+		for (auto p = pTop; p; p = p->m_pParent)
+			n++;
+
+		assert(m_vTxs.empty());
+		m_vTxs.resize(n);
+		for (auto p = pTop; p; p = p->m_pParent)
+			m_vTxs[--n] = p->m_pValue.get();
+
+		n = (uint32_t) m_vTxs.size();
+
+		assert(m_Bic.m_Fwd);
+
+		for (uint32_t i = 0; i < n; i++)
+		{
+			if (!m_This.HandleValidatedTx(*m_vTxs[i], m_Bic))
+			{
+				Undo();
+				m_Bic.m_Fwd = true;
+				return false;
+			}
+		}
+
+		return true;
+	}
+};
+
 bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 {
 	UtxoTree::Cursor cu;
@@ -5699,7 +5754,7 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return thw.first;
 }
 
-uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRange& hr, bool bShieldedTested, uint32_t& nBvmCharge, TxPool::Dependent::Element* /* pParent */, std::ostream* pExtraInfo)
+uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRange& hr, bool bShieldedTested, uint32_t& nBvmCharge, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo)
 {
 	Height h = m_Cursor.m_ID.m_Height + 1;
 
@@ -5708,6 +5763,21 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 		if (pExtraInfo)
 			*pExtraInfo << "Height range fail";
 		return proto::TxStatus::InvalidContext;
+	}
+
+	BlockInterpretCtx bic(h, true);
+	bic.SetAssetHi(*this);
+
+	bic.m_Temporary = true;
+	bic.m_TxValidation = true;
+	bic.m_SkipDefinition = true;
+	bic.m_pTxErrorInfo = pExtraInfo;
+
+	DependentContextSwitch dcs(*this, bic);
+	if (!dcs.Apply(pParent))
+	{
+		LOG_WARNING() << "can't switch dependent context"; // normally should not happen
+		return proto::TxStatus::DependentNoParent;
 	}
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
@@ -5730,15 +5800,6 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 			return proto::TxStatus::InvalidInput; // some input UTXOs are missing
 		}
 	}
-
-	// Ensure kernels are ok
-	BlockInterpretCtx bic(h, true);
-	bic.SetAssetHi(*this);
-
-	bic.m_Temporary = true;
-	bic.m_TxValidation = true;
-	bic.m_SkipDefinition = true;
-	bic.m_pTxErrorInfo = pExtraInfo;
 
 	nBvmCharge = bic.m_ChargePerBlock;
 
