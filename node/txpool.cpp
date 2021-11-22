@@ -359,4 +359,70 @@ TxPool::Stem::Element* TxPool::Stem::get_NextTimeout(uint32_t& nTimeout_ms)
 	return &ret;
 }
 
+/////////////////////////////
+// Dependent
+TxPool::Dependent::Element* TxPool::Dependent::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx, const Transaction::KeyType& key, const Merkle::Hash& hvContext, Element* pParent)
+{
+	assert(pValue);
+
+	Element* p = new Element;
+	p->m_pValue = std::move(pValue);
+	p->m_pParent = pParent;
+
+	p->m_Context.m_Key = hvContext;
+	m_setContexts.insert(p->m_Context);
+
+	p->m_Tx.m_Key = key;
+	m_setTxs.insert(p->m_Tx);
+
+	const Amount feeMax = static_cast<Amount>(-1);
+	auto& fee = ctx.m_Stats.m_Fee;
+
+	if (AmountBig::get_Hi(fee)) // unlikely, though possible
+		p->m_TotalFee = feeMax;
+	else
+	{
+		p->m_TotalFee = AmountBig::get_Lo(fee);
+		if (pParent)
+		{
+			p->m_TotalFee += pParent->m_TotalFee;
+			if (p->m_TotalFee < pParent->m_TotalFee)
+				p->m_TotalFee = feeMax; // overflow
+		}
+	}
+
+	if (ShouldUpdateBest(*p))
+		m_pBest = p;
+
+	return p;
+}
+
+bool TxPool::Dependent::ShouldUpdateBest(const Element& x)
+{
+	if (!m_pBest || (m_pBest->m_TotalFee < x.m_TotalFee))
+		return true;
+
+	if (m_pBest->m_TotalFee > x.m_TotalFee)
+		return false;
+
+	// fee is identical. Enforece order w.r.t. context to ensure consistent ordering across different nodes
+	return x.m_Context.m_Key > m_pBest->m_Context.m_Key;
+}
+
+void TxPool::Dependent::Clear()
+{
+	m_pBest = nullptr;
+
+	while (!m_setContexts.empty())
+	{
+		auto it = m_setContexts.begin();
+		auto& x = it->get_ParentObj();
+
+		m_setContexts.erase(it);
+		m_setTxs.erase(TxSet::s_iterator_to(x.m_Tx));
+
+		delete &x;
+	}
+}
+
 } // namespace beam
