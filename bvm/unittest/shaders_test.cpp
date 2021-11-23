@@ -1071,6 +1071,40 @@ namespace bvm2 {
 			return ldexp(x.m_Num, x.m_Order);
 		}
 
+		struct Entry :public Shaders::Liquity::Trove
+		{
+			Entry()
+			{
+				ZeroObject(*this);
+			}
+
+			uint32_t m_iTrove;
+			Shaders::Liquity::Float m_Rcr;
+			bool operator < (const Entry& x) const
+			{
+				if (m_Rcr.IsZero())
+					return false;
+				if (x.m_Rcr.IsZero())
+					return true;
+				return m_Rcr < x.m_Rcr;
+			}
+
+		};
+
+		std::vector<Entry> m_Troves;
+		uint32_t FindPrev(const Shaders::Liquity::Pair& vals, size_t i0 = 0) const
+		{
+			auto rcr = vals.get_Rcr();
+			for (size_t i = m_Troves.size(); i-- > i0; )
+			{
+				const auto& x = m_Troves[i];
+				if (x.m_Rcr <= rcr)
+					return x.m_iTrove;
+			}
+
+			return 0;
+		}
+
 		void PrintAll()
 		{
 			Shaders::Liquity::Global g;
@@ -1097,7 +1131,11 @@ namespace bvm2 {
 			totalRedist.Col = g.m_RedistPool.m_Active.m_Balance.b + g.m_RedistPool.m_Draining.m_Balance.b;
 			AddPoolTotals(totalRedist, Shaders::Liquity::Tags::s_Epoch_Redist);
 
+			Shaders::Liquity::Global::Price price;
+			price.m_Value = m_Proc.m_MyOracle.m_Value;
+
 			std::cout << "Totals Tok=" << Val2Num(g.m_Troves.m_Totals.Tok) << ", Col=" << Val2Num(g.m_Troves.m_Totals.Col) << std::endl;
+			std::cout << "TCR = " << (ToDouble(price.ToCR(g.m_Troves.m_Totals.get_Rcr())) * 100.) << "" << std::endl;
 			std::cout << "RedistPool Tok=" << Val2Num(totalRedist.Tok) << ", Col=" << Val2Num(totalRedist.Col) << std::endl;
 			std::cout << "StabPool Tok=" << Val2Num(totalStab.Tok) << ", Col=" << Val2Num(totalStab.Col) << std::endl;
 			std::cout << "ProfitPool X-Tok=" << Val2Num(g.m_ProfitPool.m_Weight) << ", Col=" << Val2Num(*g.m_ProfitPool.m_pValue) << std::endl;
@@ -1111,24 +1149,59 @@ namespace bvm2 {
 
 			Amount totalCol = totalRedist.Col;
 
+			m_Troves.clear();
+			m_Troves.resize(g.m_Troves.m_iLastCreated);
+
+			uint32_t nActiveTroves = 0;
 			for (KeyWalker_T<Shaders::Liquity::Trove::Key, Shaders::Liquity::Trove> wlk(m_Proc, Shaders::Liquity::Tags::s_Trove); wlk.MoveNext(); )
 			{
 				auto iTrove = wlk.m_pKey->m_KeyInContract.m_iTrove; // not stored in BE form
+				verify_test(iTrove <= g.m_Troves.m_iLastCreated);
 
-				const auto& t = *wlk.m_pVal;
-				auto t1 = t; // copy
+				auto& x = m_Troves[iTrove - 1];
+				Cast::Down<Shaders::Liquity::Trove>(x) = *wlk.m_pVal;
+
+				totalCol += x.m_Amounts.Col; // before accounting for redist
 
 				EpochStorage stor(m_Proc, Shaders::Liquity::Tags::s_Epoch_Redist);
-				g.m_RedistPool.Remove(t1, stor);
+				x.m_Amounts = g.m_RedistPool.get_UpdatedAmounts(x, stor);
+				x.m_Rcr = x.m_Amounts.get_Rcr();
 
-
-				std::cout << "\tiTrove=" << iTrove <<  ", Tok=" << Val2Num(t1.m_Amounts.Tok) << ", Col=" << Val2Num(t1.m_Amounts.Col) << std::endl;
-
-				totalCol += t.m_Amounts.Col;
+				nActiveTroves++;
 
 			}
 			
 			verify_test(g.m_Troves.m_Totals.Col == totalCol);
+
+			// check troves order
+			Shaders::Liquity::Float rcrPrev;
+			rcrPrev.Set0();
+			uint32_t nCount = 0;
+			for (uint32_t iTrove = g.m_Troves.m_iHead; iTrove; nCount++)
+			{
+				verify_test(iTrove <= g.m_Troves.m_iLastCreated);
+				auto& x = m_Troves[iTrove - 1];
+
+				verify_test(!x.m_iTrove); // ensure no loops
+				x.m_iTrove = iTrove;
+
+				verify_test(rcrPrev <= x.m_Rcr);
+				rcrPrev = x.m_Rcr;
+
+				iTrove = x.m_iNext;
+			}
+			verify_test(nCount == nActiveTroves);
+
+			std::sort(m_Troves.begin(), m_Troves.end());
+			m_Troves.resize(nCount);
+
+			for (uint32_t i = 0; i < nCount; i++)
+			{
+				const auto& x = m_Troves[i];
+				std::cout << "\tiTrove=" << x.m_iTrove <<  ", Tok=" << Val2Num(x.m_Amounts.Tok) << ", Col=" << Val2Num(x.m_Amounts.Col)
+					<< ", CR = " << (ToDouble(price.ToCR(x.m_Rcr)) * 100.) << "" << std::endl;
+			}
+
 
 			for (KeyWalker_T<Shaders::Liquity::ProfitPoolEntry::Key, Shaders::Liquity::ProfitPoolEntry> wlk(m_Proc, Shaders::Liquity::Tags::s_ProfitPool); wlk.MoveNext(); )
 			{
@@ -1181,6 +1254,7 @@ namespace bvm2 {
 				arg1.m_NewAmount = Rules::Coin * (5 + i);
 				arg1.m_pkUser = pPk[i];
 				verify_test(lc.InvokeTxUser(arg1));
+				std::cout << "Deposit to profit pool" << std::endl;
 			}
 
 			Shaders::Liquity::Method::TroveOpen args;
@@ -1188,7 +1262,10 @@ namespace bvm2 {
 
 			args.m_Amounts.Tok = Rules::Coin * 1000;
 			args.m_Amounts.Col = Rules::Coin * (35 + i * 5); // should be enough for 150% tcr
+			if (1 & i)
+				args.m_Amounts.Col -= Rules::Coin * 7; // play with order
 			args.m_pkUser = pPk[i];
+			args.m_iPrev1 = lc.FindPrev(args.m_Amounts);
 
 			verify_test(lc.InvokeTxUser(args));
 
@@ -1213,18 +1290,37 @@ namespace bvm2 {
 
 		for (uint32_t iCycle = 0; iCycle < 2; iCycle++)
 		{
-#pragma pack (push, 1)
-			struct Arg :public Shaders::Liquity::Method::Redeem {
-				Shaders::Liquity::Trove::ID m_pID[2];
-			} args;
-#pragma pack (pop)
+			Shaders::Liquity::Method::Redeem args;
 
 			ZeroObject(args);
-			args.m_Count = _countof(args.m_pID);
-			args.m_pID[0] = 1;
-			args.m_pID[1] = 2;
 			args.m_pkUser = pPk[s_Users - 1];
-			args.m_Amount = Rules::Coin * (iCycle ? 650 : 350); // 1st trove will be fully redeemed after 995 Tok
+			args.m_Amount = Rules::Coin * (iCycle ? 1200 : 350);
+
+			// predict the redeem effect
+			Amount valRemaining = args.m_Amount;
+			for (size_t i = 0; i < lc.m_Troves.size(); i++)
+			{
+				const auto& x = lc.m_Troves[i];
+				Amount maxRedeem = x.m_Amounts.Tok - Rules::Coin * 5;
+				if (valRemaining <= maxRedeem)
+				{
+					if (valRemaining < maxRedeem)
+					{
+						Shaders::Liquity::Pair vals = x.m_Amounts;
+
+						Shaders::Liquity::Global::Price price;
+						price.m_Value = m_MyOracle.m_Value;
+
+						vals.Tok -= valRemaining;
+						vals.Col -= price.T2C(valRemaining); // dont care about overflow, let it fail in the contract
+
+						args.m_iPrev1 = lc.FindPrev(vals, i + 1);
+
+					}
+					break;
+				}
+				valRemaining -= maxRedeem;
+			}
 
 			verify_test(lc.InvokeTxUser(args));
 
@@ -1234,18 +1330,15 @@ namespace bvm2 {
 
 		m_MyOracle.m_Value = 25; // price drop. Some would be liquidated vs stabpool, others via redistpool
 		m_Height += 10;
+		std::cout << "Price drop" << std::endl;
+		lc.PrintAll();
 
 		for (uint32_t i = 1; i < 3; i++) 
 		{
-#pragma pack (push, 1)
-			struct Arg :public Shaders::Liquity::Method::Liquidate {
-				Shaders::Liquity::Trove::ID m_pID[1];
-			} args;
-#pragma pack (pop)
+			Shaders::Liquity::Method::Liquidate args;
 
 			ZeroObject(args);
 			args.m_Count = 1;
-			args.m_pID[0] = i + 1;
 			args.m_pkUser = pPk[0];
 
 			verify_test(lc.InvokeTxUser(args));
@@ -1266,13 +1359,14 @@ namespace bvm2 {
 			lc.PrintAll();
 		}
 
-		for (uint32_t i = 3; i < s_Users; i++)
+		while (!lc.m_Troves.empty())
 		{
 			Shaders::Liquity::Method::TroveClose args;
 			ZeroObject(args);
-			args.m_iTrove = i + 1;
+			size_t iIdx = lc.m_Troves.size() / 2;
+			args.m_iPrev0 = iIdx ? lc.m_Troves[iIdx - 1].m_iTrove : 0;
 
-			verify_test(lc.InvokeTx(args, pPk[i]));
+			verify_test(lc.InvokeTx(args, pPk[lc.m_Troves[iIdx].m_iTrove - 1]));
 
 			std::cout << "Trove closing" << std::endl;
 			lc.PrintAll();

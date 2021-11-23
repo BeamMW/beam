@@ -127,28 +127,96 @@ struct MyGlobal
         AdjustTxBank(fpLogic, r, pk);
     }
 
-    void TrovePop(const Trove::Key& tk, Trove& t)
+    Trove::ID TrovePop(Trove::ID iPrev, Trove& t)
     {
+        Trove tPrev;
+        Trove::Key tk;
+        Trove::ID iTrove;
+
+        if (iPrev)
+        {
+            tk.m_iTrove = iPrev;
+            Env::Halt_if(!Env::LoadVar_T(tk, tPrev));
+            iTrove = tPrev.m_iNext;
+        }
+        else
+            iTrove = m_Troves.m_iHead;
+
+        tk.m_iTrove = iTrove;
         Env::Halt_if(!Env::LoadVar_T(tk, t));
 
         EpochStorage<Tags::s_Epoch_Redist> stor;
         m_RedistPool.Remove(t, stor);
 
-        // just fore more safety. Theoreticall strict isn't necessary
+        // just for more safety. Theoretically strict isn't necessary
         Strict::Sub(m_Troves.m_Totals.Tok, t.m_Amounts.Tok);
         Strict::Sub(m_Troves.m_Totals.Col, t.m_Amounts.Col);
+
+        if (iPrev)
+        {
+            tPrev.m_iNext = t.m_iNext;
+            tk.m_iTrove = iPrev;
+            Env::SaveVar_T(tk, tPrev);
+        }
+        else
+            m_Troves.m_iHead = t.m_iNext;
+
+        return iTrove;
     }
 
-    bool TrovePush(const Trove::Key& tk, Trove& t)
+    int TroveLoadCmp(const Trove::Key& tk, Trove& t, const Trove& tRef)
+    {
+        Env::Halt_if(!Env::LoadVar_T(tk, t));
+
+        EpochStorage<Tags::s_Epoch_Redist> stor;
+        auto vals = m_RedistPool.get_UpdatedAmounts(t, stor);
+
+        return vals.CmpRcr(tRef.m_Amounts);
+    }
+
+    void TrovePush(Trove::ID iTrove, Trove& t, Trove::ID iPrev)
     {
         Strict::Add(m_Troves.m_Totals.Tok, t.m_Amounts.Tok);
         Strict::Add(m_Troves.m_Totals.Col, t.m_Amounts.Col);
 
         m_RedistPool.Add(t);
-        return Env::SaveVar_T(tk, t); // returns if existed already (i.e. overwriting)
+
+        Trove::Key tk;
+
+        if (iPrev)
+        {
+            Trove tPrev;
+            tk.m_iTrove = iPrev;
+            int iCmp = TroveLoadCmp(tk, tPrev, t);
+
+            Env::Halt_if(iCmp > 0);
+
+            t.m_iNext = tPrev.m_iNext;
+            tPrev.m_iNext = iTrove;
+
+            Env::SaveVar_T(tk, tPrev);
+
+        }
+        else
+        {
+            t.m_iNext = m_Troves.m_iHead;
+            m_Troves.m_iHead = iTrove;
+        }
+
+        if (t.m_iNext)
+        {
+            Trove tNext;
+            tk.m_iTrove = t.m_iNext;
+            int iCmp = TroveLoadCmp(tk, tNext, t);
+
+            Env::Halt_if(iCmp < 0);
+        }
+
+        tk.m_iTrove = iTrove;
+        Env::SaveVar_T(tk, t);
     }
 
-    void TroveModify(Trove::ID tid, const Pair* pNewVals, const PubKey* pPk, const Method::BaseTx& r)
+    void TroveModify(Trove::ID iPrev0, Trove::ID iPrev1, const Pair* pNewVals, const PubKey* pPk, const Method::BaseTx& r)
     {
         bool bOpen = !!pPk;
         bool bClose = !pNewVals;
@@ -158,20 +226,19 @@ struct MyGlobal
         _POD_(fpLogic).SetZero();
 
         Trove t;
-        Trove::Key tk;
+        Trove::ID iTrove;
 
         if (bOpen)
         {
             _POD_(t).SetZero();
             _POD_(t.m_pkOwner) = *pPk;
-            tk.m_iTrove = ++m_Troves.m_iLastCreated;
+            iTrove = ++m_Troves.m_iLastCreated;
 
             fpLogic.Tok.Add(m_Settings.m_TroveLiquidationReserve, 1);
         }
         else
         {
-            tk.m_iTrove = tid;
-            TrovePop(tk, t);
+            iTrove = TrovePop(iPrev0, t);
 
             fpLogic.Tok.Add(t.m_Amounts.Tok, 1);
             fpLogic.Col.Add(t.m_Amounts.Col, 0);
@@ -181,6 +248,8 @@ struct MyGlobal
         if (bClose)
         {
             fpLogic.Tok.Add(m_Settings.m_TroveLiquidationReserve, 0);
+            Trove::Key tk;
+            tk.m_iTrove = iTrove;
             Env::DelVar_T(tk);
         }
         else
@@ -191,8 +260,7 @@ struct MyGlobal
             t.m_Amounts = *pNewVals;
             Env::Halt_if(t.m_Amounts.Tok <= m_Settings.m_TroveLiquidationReserve);
 
-            bool bExisted = TrovePush(tk, t);
-            Env::Halt_if(bOpen && bExisted);
+            TrovePush(iTrove, t, iPrev1);
 
             // check cr
             Price price = get_Price();
@@ -230,155 +298,6 @@ struct MyGlobal
 
         AdjustAll(r, totals0, fpLogic, t.m_pkOwner); // will invoke AddSig
     }
-
-
-    //static void FundsAccountForUser(const FundsMove::Component& cLogic, const FundsMove::Component& cUser, AssetID aid)
-    //{
-    //    if (!cUser.m_Val)
-    //        return;
-
-    //    if (cUser.m_Spend)
-    //        Env::FundsLock(aid, cUser.m_Val);
-    //    else
-    //        Env::FundsUnlock(aid, cUser.m_Val);
-
-    //    cContract -= cUser;
-    //}
-
-
-    //void FinalyzeTx(const FundsMove& fmUser, const FundsMove& fmContract, const PubKey& pk) const
-    //{
-    //    auto fmDiff = fmContract;
-    //    FundsAccountForUser(fmDiff.s, fmUser.s, m_Aid);
-    //    FundsAccountForUser(fmDiff.b, fmUser.b, 0);
-
-    //    if (fmDiff.s.m_Val || fmDiff.b.m_Val)
-    //    {
-    //        Balance::Key kub;
-    //        _POD_(kub.m_Pk) = pk;
-
-    //        Balance ub;
-    //        if (!Env::LoadVar_T(kub, ub))
-    //            _POD_(ub).SetZero();
-
-    //        BalanceAdjustStrict(ub.m_Amounts.s, fmDiff.s);
-    //        BalanceAdjustStrict(ub.m_Amounts.b, fmDiff.b);
-
-    //        if (ub.m_Amounts.s || ub.m_Amounts.b)
-    //            Env::SaveVar_T(kub, ub);
-    //        else
-    //            Env::DelVar_T(kub);
-    //    }
-    //}
-
-    //void FinalyzeTxAndEmission(const FundsMove& fmUser, FundsMove& fmContract, Trove& t)
-    //{
-    //    const auto& s_ = fmContract.s;
-    //    if (s_.m_Val && !s_.m_Spend)
-    //        Env::Halt_if(!Env::AssetEmit(m_Aid, s_.m_Val, 1));
-
-    //    FinalyzeTx(fmUser, fmContract, t.m_pkOwner);
-
-    //    if (s_.m_Val && s_.m_Spend)
-    //        Env::Halt_if(!Env::AssetEmit(m_Aid, s_.m_Val, 0));
-    //}
-
-    //void AdjustTroveAndTotals(const FundsMove& fmContract, Trove& t)
-    //{
-    //    auto b_ = fmContract.b;
-    //    b_.m_Spend = !b_.m_Spend; // invert
-
-    //    BalanceAdjustStrict(m_Troves.m_Totals.s, fmContract.s);
-    //    BalanceAdjustStrict(m_Troves.m_Totals.b, b_);
-
-    //    BalanceAdjustStrict(t.m_Amounts.s, fmContract.s);
-    //    BalanceAdjustStrict(t.m_Amounts.b, b_);
-    //}
-
-    //Trove::ID TrovePop(Trove& t, Trove::ID iPrev)
-    //{
-    //    Trove::Key tk;
-    //    if (iPrev)
-    //    {
-    //        Trove::Key tkPrev;
-    //        tkPrev.m_iTrove = iPrev;
-    //        Trove tPrev;
-    //        Env::Halt_if(!Env::LoadVar_T(tkPrev, tPrev));
-
-    //        tk.m_iTrove = tPrev.m_iRcrNext;
-    //        Env::Halt_if(!Env::LoadVar_T(tk, t));
-
-    //        tPrev.m_iRcrNext = t.m_iRcrNext;
-    //        Env::SaveVar_T(tkPrev, tPrev); // TODO - we may omit this, if after manipulations t goes at the same position
-    //       
-    //    }
-    //    else
-    //    {
-    //        tk.m_iTrove = m_Troves.m_iRcrLow;
-    //        Env::Halt_if(!Env::LoadVar_T(tk, t));
-
-    //        m_Troves.m_iRcrLow = t.m_iRcrNext;
-    //    }
-
-    //    EpochStorage<Tags::s_Epoch_Redist> stor;
-    //    m_RedistPool.Remove(t, stor);
-
-    //    return tk.m_iTrove;
-    //}
-
-    //void TrovePush(Trove& t, Trove::ID iTrove, MultiPrecision::Float rcr, Trove::ID iPrev)
-    //{
-    //    Trove::Key tk;
-
-    //    if (iPrev)
-    //    {
-    //        Trove tPrev;
-    //        tk.m_iTrove = iPrev;
-    //        Env::Halt_if(!Env::LoadVar_T(tk, tPrev));
-
-    //        tk.m_iTrove = tPrev.m_iRcrNext;
-    //        tPrev.m_iRcrNext = iTrove;
-    //        Env::SaveVar_T(tk, tPrev);
-
-    //        Env::Halt_if(tPrev.get_Rcr() > rcr);
-    //    }
-    //    else
-    //    {
-    //        tk.m_iTrove = m_Troves.m_iRcrLow;
-    //        m_Troves.m_iRcrLow = iTrove;
-    //    }
-
-    //    if (tk.m_iTrove)
-    //    {
-    //        Trove tNext;
-    //        Env::Halt_if(!Env::LoadVar_T(tk, tNext));
-    //        Env::Halt_if(rcr > tNext.get_Rcr());
-    //    }
-
-    //    t.m_iRcrNext = tk.m_iTrove;
-    //    m_RedistPool.Add(t);
-
-    //    tk.m_iTrove = iTrove;
-    //    Env::SaveVar_T(tk, t);
-    //}
-
-    //void TrovePushValidate(Trove& t, Trove::ID iTrove, Trove::ID iPrev, const Global::Price* pPrice)
-    //{
-    //    MultiPrecision::Float rcr = t.get_Rcr();
-    //    TrovePush(t, iTrove, rcr, iPrev);
-
-    //    if (!pPrice)
-    //        return; // forced trove update, no need to verify icr
-
-    //    Env::Halt_if(t.m_Amounts.s < m_Settings.m_TroveMinTokens); // trove must have minimum tokens
-
-    //    MultiPrecision::Float trcr = m_Troves.get_Trcr();
-    //    if (pPrice->IsBelow150(trcr))
-    //        // recovery mode
-    //        Env::Halt_if(pPrice->IsBelow150(rcr));
-    //    else
-    //        Env::Halt_if(pPrice->IsBelow110(rcr));
-    //}
 
     Global::Price get_Price()
     {
@@ -442,19 +361,19 @@ BEAM_EXPORT void Method_2(void*)
 BEAM_EXPORT void Method_3(const Method::TroveOpen& r)
 {
     MyGlobal_LoadSave g;
-    g.TroveModify(0, &r.m_Amounts, &r.m_pkUser, r);
+    g.TroveModify(0, r.m_iPrev1, &r.m_Amounts, &r.m_pkUser, r);
 }
 
 BEAM_EXPORT void Method_4(const Method::TroveClose& r)
 {
     MyGlobal_LoadSave g;
-    g.TroveModify(r.m_iTrove, nullptr, nullptr, r);
+    g.TroveModify(r.m_iPrev0, 0, nullptr, nullptr, r);
 }
 
 BEAM_EXPORT void Method_5(Method::TroveModify& r)
 {
     MyGlobal_LoadSave g;
-    g.TroveModify(r.m_iTrove, &r.m_Amounts, nullptr, r);
+    g.TroveModify(r.m_iPrev0, r.m_iPrev1, &r.m_Amounts, nullptr, r);
 }
 
 BEAM_EXPORT void Method_6(const Method::FundsAccess& r)
@@ -517,28 +436,20 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
 
     auto price = g.get_Price();
 
-    auto pId = reinterpret_cast<const Trove::ID*>(&r + 1);
-    Trove::Key tk;
-
     bool bStab = false, bRedist = false;
+    Trove::Key tk;
 
     for (uint32_t i = 0; i < r.m_Count; i++)
     {
-        tk.m_iTrove = pId[i];
         Trove t;
-        g.TrovePop(tk, t);
+        tk.m_iTrove = g.TrovePop(0, t);
+        Env::DelVar_T(tk);
 
         auto cr = price.ToCR(t.m_Amounts.get_Rcr());
 
-        Env::DelVar_T(tk);
-
         assert(t.m_Amounts.Tok >= g.m_Settings.m_TroveLiquidationReserve);
 
-        Amount valBurn = g.get_LiquidationRewardReduce(cr);
-        assert(valBurn < g.m_Settings.m_TroveLiquidationReserve);
-
-        fpLogic.Tok.Add(g.m_Settings.m_TroveLiquidationReserve - valBurn, 0); // part of the reward, goes to the liquidator
-        t.m_Amounts.Tok -= valBurn; // goes as a 'discount' for the stab pool
+        fpLogic.Tok.Add(g.m_Settings.m_TroveLiquidationReserve, 0); // goes to the liquidator
 
         if (cr > Global::Price::get_k100())
         {
@@ -645,23 +556,12 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
 
     auto price = g.get_Price();
 
-    auto pId = reinterpret_cast<const Trove::ID*>(&r + 1);
     Trove::Key tk;
 
-    Amount valRemaining = r.m_Amount;
-
-    for (uint32_t i = 0; (i < r.m_Count) && valRemaining; i++)
+    for (Amount valRemaining = r.m_Amount; valRemaining; )
     {
-        tk.m_iTrove = pId[i];
         Trove t;
-        g.TrovePop(tk, t);
-
-        //auto cr = price.ToCR(t.m_Amounts.get_Rcr());
-        bool bCanRedeem =
-            g.m_Troves.m_Totals.Tok &&
-            (t.m_Amounts.get_Rcr() <= g.m_Troves.m_Totals.get_Rcr());
-
-        Env::Halt_if(!bCanRedeem);
+        tk.m_iTrove = g.TrovePop(0, t);
 
         assert(t.m_Amounts.Tok >= g.m_Settings.m_TroveLiquidationReserve);
         Amount valTok = t.m_Amounts.Tok - g.m_Settings.m_TroveLiquidationReserve;
@@ -672,7 +572,7 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
 
         Amount valCol = price.T2C(valTok);
         Amount valColSurplus = t.m_Amounts.Col;
-        Strict::Sub(valColSurplus, valCol);
+        Strict::Sub(valColSurplus, valCol); // would fail if undercollateralized
 
         if (bFullRedeem)
         {
@@ -686,7 +586,7 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
             t.m_Amounts.Tok -= valTok;
             t.m_Amounts.Col = valColSurplus;
 
-            g.TrovePush(tk, t);
+            g.TrovePush(tk.m_iTrove, t, r.m_iPrev1);
         }
 
 
