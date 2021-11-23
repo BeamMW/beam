@@ -134,19 +134,24 @@ struct HomogenousPool
             e.m_Users++; // won't overflow, 4bln isn't feasible
         }
 
-
-        void Del_(Epoch& e, Pair& out)
+        template <bool bReadOnly>
+        void Del_(Epoch& e, Pair& out) const
         {
             assert(e.m_Users);
-            if (--e.m_Users)
+
+            if (1 == e.m_Users)
+                out = e.m_Balance;
+            else
             {
                 out.s = std::min<Amount>(e.m_Balance.s, m_SellScaled * e.m_kScale);
                 out.b = std::min<Amount>(e.m_Balance.b, m_SellScaled * (e.m_Sigma - m_Sigma0));
             }
-            else
-                out = e.m_Balance;
 
-            e.m_Balance = e.m_Balance - out;
+            if constexpr (!bReadOnly)
+            {
+                e.m_Users--;
+                e.m_Balance = e.m_Balance - out;
+            }
         }
     };
 
@@ -158,30 +163,36 @@ struct HomogenousPool
         Env::Halt_if(get_TotalSell() < m_Active.m_Balance.s); // overflow test
     }
 
-    template <class Storage>
+    template <bool bReadOnly = false, class Storage>
     void UserDel(User& u, Pair& out, Storage& stor)
     {
         if (u.m_iEpoch == m_iActive)
         {
-            u.Del_(m_Active, out);
-            if (!m_Active.m_Users)
-                ResetActive();
+            u.Del_<bReadOnly>(m_Active, out);
+            if constexpr (!bReadOnly)
+            {
+                if (!m_Active.m_Users)
+                    ResetActive();
+            }
         }
         else
         {
             if (u.m_iEpoch + 1 == m_iActive)
-                u.Del_(m_Draining, out);
+                u.Del_<bReadOnly>(m_Draining, out);
             else
             {
                 Epoch e;
                 stor.Load(u.m_iEpoch, e);
 
-                u.Del_(e, out);
+                u.Del_<bReadOnly>(e, out);
 
-                if (e.m_Users)
-                    stor.Save(u.m_iEpoch, e);
-                else
-                    stor.Del(u.m_iEpoch);
+                if constexpr (!bReadOnly)
+                {
+                    if (e.m_Users)
+                        stor.Save(u.m_iEpoch, e);
+                    else
+                        stor.Del(u.m_iEpoch);
+                }
             }
         }
     }
