@@ -151,11 +151,11 @@ namespace proto {
 #define BeamNodeMsg_Ping(macro)
 #define BeamNodeMsg_Pong(macro)
 
-#define BeamNodeMsg_NewTransaction(macro) \
+#define BeamNodeMsg_NewTransaction0(macro) \
     macro(Transaction::Ptr, Transaction) \
     macro(bool, Fluff)
 
-#define BeamNodeMsg_Transaction2(macro) \
+#define BeamNodeMsg_NewTransaction(macro) \
     macro(Transaction::Ptr, Transaction) \
     macro(std::unique_ptr<Merkle::Hash>, Context) \
     macro(bool, Fluff)
@@ -346,10 +346,10 @@ namespace proto {
     macro(0x2e, GetBlockFinalization) \
     macro(0x2f, BlockFinalization) \
     /* tx broadcast and replication */ \
-    macro(0x30, NewTransaction) \
+    macro(0x30, NewTransaction0) \
     macro(0x31, HaveTransaction) \
     macro(0x32, GetTransaction) \
-    macro(0x49, Transaction2) \
+    macro(0x49, NewTransaction) \
     /* bbs */ \
     macro(0x39, BbsHaveMsg) \
     macro(0x3a, BbsGetMsg) \
@@ -788,6 +788,7 @@ namespace proto {
 		virtual void OnMsg(GetTime&&) override;
 		virtual void OnMsg(Time&&) override;
 		virtual void OnMsg(Login&&) override;
+        virtual void OnMsg(NewTransaction0&&) override;
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 
@@ -858,6 +859,8 @@ namespace proto {
 #define THE_MACRO(code, msg) void Send(const msg& v);
         BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
+
+        void Send(const NewTransaction&, uint32_t nLoginFlags);
 
         struct Server
         {

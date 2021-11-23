@@ -2124,15 +2124,6 @@ void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
 
 void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 {
-    proto::Transaction2 msg1;
-    msg1.m_Transaction = std::move(msg.m_Transaction);
-    msg1.m_Fluff = msg.m_Fluff;
-    OnMsg(std::move(msg1));
-}
-
-void Node::Peer::OnMsg(proto::Transaction2&& msg)
-{
-
     if (!msg.m_Transaction)
         ThrowUnexpected(); // our deserialization permits NULL Ptrs.
     // However the transaction body must have already been checked for NULLs
@@ -3127,7 +3118,7 @@ void Node::Peer::SendTx(Transaction::Ptr& ptx, bool bFluff)
 
     TemporarySwap scope(msg.m_Transaction, ptx);
 
-    Send(msg);
+    Send(msg, m_LoginFlags);
 }
 
 void Node::Peer::OnMsg(proto::GetCommonState&& msg)

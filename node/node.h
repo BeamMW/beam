@@ -588,7 +588,6 @@ private:
 		virtual void OnMsg(proto::Body&&) override;
 		virtual void OnMsg(proto::BodyPack&&) override;
 		virtual void OnMsg(proto::NewTransaction&&) override;
-		virtual void OnMsg(proto::Transaction2&&) override;
 		virtual void OnMsg(proto::HaveTransaction&&) override;
 		virtual void OnMsg(proto::GetTransaction&&) override;
 		virtual void OnMsg(proto::GetCommonState&&) override;
