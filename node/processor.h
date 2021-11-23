@@ -601,6 +601,7 @@ public:
 		:public GeneratedBlock
 	{
 		TxPool::Fluff& m_TxPool;
+		const TxPool::Dependent::Element* m_pParent;
 
 		Key::Index m_SubIdx;
 		Key::IKdf& m_Coin;

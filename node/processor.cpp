@@ -5947,6 +5947,14 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	if (bc.m_Fees)
 		ssc.m_Counter.m_Value += m_nSizeUtxoComission;
 
+	DependentContextSwitch dcs(*this, bic);
+	if (!dcs.Apply(bc.m_pParent))
+	{
+		LOG_WARNING() << "can't switch dependent context during block gen"; // normally should not happen
+		return proto::TxStatus::DependentNoParent;
+	}
+
+
 	const size_t nSizeMax = Rules::get().MaxBodySize;
 	if (ssc.m_Counter.m_Value > nSizeMax)
 	{
@@ -6078,6 +6086,7 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc, BlockInterpretCtx& bic)
 
 NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::Index nSubKey, Key::IKdf& coin, Key::IPKdf& tag)
 	:m_TxPool(txp)
+	,m_pParent(nullptr)
 	,m_SubIdx(nSubKey)
 	,m_Coin(coin)
 	,m_Tag(tag)

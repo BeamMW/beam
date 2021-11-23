@@ -391,7 +391,7 @@ private:
 	void OnTransactionDeferred(Transaction::Ptr&&, std::unique_ptr<Merkle::Hash>&&, const PeerID*, bool bFluff);
 	uint8_t OnTransactionStem(Transaction::Ptr&&, std::ostream* pExtraInfo);
 	uint8_t OnTransactionFluff(Transaction::Ptr&&, std::ostream* pExtraInfo, const PeerID*, Dandelion::Element*);
-	uint8_t OnTransactionDependent(Transaction::Ptr&& pTx, std::unique_ptr<Merkle::Hash>&& pCtx, const PeerID* pSender, bool bFluff, std::ostream* pExtraInfo);
+	uint8_t OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash& hvCtx, const PeerID* pSender, bool bFluff, std::ostream* pExtraInfo);
 	void OnTransactionAggregated(Dandelion::Element&);
 	void OnTransactionWaitingConfirm(TxPool::Stem::Element&);
 	void PerformAggregation(Dandelion::Element&);

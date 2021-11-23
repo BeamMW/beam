@@ -192,7 +192,9 @@ struct TxPool
 			Transaction::Ptr m_pValue;
 			Element* m_pParent;
 
-			Amount m_TotalFee;
+			// cumulative
+			Amount m_Fee;
+			uint32_t m_BvmCharge;
 
 			struct Tx
 				:public intrusive::set_base_hook<Transaction::KeyType>

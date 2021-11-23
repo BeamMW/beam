@@ -379,15 +379,15 @@ TxPool::Dependent::Element* TxPool::Dependent::AddValidTx(Transaction::Ptr&& pVa
 	auto& fee = ctx.m_Stats.m_Fee;
 
 	if (AmountBig::get_Hi(fee)) // unlikely, though possible
-		p->m_TotalFee = feeMax;
+		p->m_Fee = feeMax;
 	else
 	{
-		p->m_TotalFee = AmountBig::get_Lo(fee);
+		p->m_Fee = AmountBig::get_Lo(fee);
 		if (pParent)
 		{
-			p->m_TotalFee += pParent->m_TotalFee;
-			if (p->m_TotalFee < pParent->m_TotalFee)
-				p->m_TotalFee = feeMax; // overflow
+			p->m_Fee += pParent->m_Fee;
+			if (p->m_Fee < pParent->m_Fee)
+				p->m_Fee = feeMax; // overflow
 		}
 	}
 
@@ -399,10 +399,10 @@ TxPool::Dependent::Element* TxPool::Dependent::AddValidTx(Transaction::Ptr&& pVa
 
 bool TxPool::Dependent::ShouldUpdateBest(const Element& x)
 {
-	if (!m_pBest || (m_pBest->m_TotalFee < x.m_TotalFee))
+	if (!m_pBest || (m_pBest->m_Fee < x.m_Fee))
 		return true;
 
-	if (m_pBest->m_TotalFee > x.m_TotalFee)
+	if (m_pBest->m_Fee > x.m_Fee)
 		return false;
 
 	// fee is identical. Enforece order w.r.t. context to ensure consistent ordering across different nodes

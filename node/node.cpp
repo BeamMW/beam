@@ -2210,7 +2210,7 @@ uint8_t Node::OnTransaction(Transaction::Ptr&& pTx, std::unique_ptr<Merkle::Hash
 {
     return 
         pCtx ?
-            OnTransactionDependent(std::move(pTx), std::move(pCtx), pSender, bFluff, pExtraInfo) :
+            OnTransactionDependent(std::move(pTx), *pCtx, pSender, bFluff, pExtraInfo) :
             bFluff ?
                 OnTransactionFluff(std::move(pTx), pExtraInfo, pSender, nullptr) :
                 OnTransactionStem(std::move(pTx), pExtraInfo);
@@ -2854,10 +2854,8 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
     return nCode;
 }
 
-uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, std::unique_ptr<Merkle::Hash>&& pCtx, const PeerID* pSender, bool bFluff, std::ostream* pExtraInfo)
+uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash& hvCtx, const PeerID* pSender, bool bFluff, std::ostream* pExtraInfo)
 {
-    assert(pCtx);
-
     Transaction::KeyType keyTx;
     pTx->get_Key(keyTx);
 
@@ -2868,22 +2866,36 @@ uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, std::unique_ptr<Mer
     else
     {
         TxPool::Dependent::Element* pParent;
-        if (m_Processor.m_Cursor.m_Full.m_Prev == *pCtx)
+        if (m_Processor.m_Cursor.m_Full.m_Prev == hvCtx)
             pParent = nullptr;
         else
         {
-            auto itCtx = m_TxDependent.m_setContexts.find(*pCtx, TxPool::Dependent::Element::Context::Comparator());
+            auto itCtx = m_TxDependent.m_setContexts.find(hvCtx, TxPool::Dependent::Element::Context::Comparator());
             if (m_TxDependent.m_setContexts.end() == itCtx)
                 return proto::TxStatus::DependentNoParent;
 
             pParent = &itCtx->get_ParentObj();
         }
 
-        // TODO
-        pParent;
-        return proto::TxStatus::Unspecified;
+        Transaction::Context::Params pars;
+        Transaction::Context ctx(pars);
+        uint32_t nBvmCharge = 0;
+        Amount feeReserve = 0;
+        uint8_t nRes = ValidateTx2(ctx, *pTx, nBvmCharge, feeReserve, pParent, pExtraInfo);
 
+        if (proto::TxStatus::Ok != nRes)
+            return nRes;
+
+        Merkle::Hash hvCtxNew;
+        proto::DependentContext::get_Ancestor(hvCtxNew, hvCtx, keyTx); // TODO - this should be kernelIDs
+
+        pElem = m_TxDependent.AddValidTx(std::move(pTx), ctx, keyTx, hvCtxNew, pParent);
+        pElem->m_BvmCharge = nBvmCharge;
+        if (pParent)
+            pElem->m_BvmCharge += pParent->m_BvmCharge;
     }
+
+    // TODO: broadcast it w.r.t. fluff/stem
 
     return (m_TxDependent.m_pBest == pElem) ? proto::TxStatus::Ok : proto::TxStatus::DependentNotBest;
 }
@@ -4195,6 +4207,8 @@ bool Node::Miner::Restart()
         keys.m_nMinerSubIndex,
         keys.m_pMiner ? *keys.m_pMiner : *keys.m_pGeneric,
         keys.m_pOwner ? *keys.m_pOwner : *keys.m_pGeneric);
+
+    bc.m_pParent = get_ParentObj().m_TxDependent.m_pBest;
 
     if (m_pFinalizer)
         bc.m_Mode = NodeProcessor::BlockContext::Mode::Assemble;
