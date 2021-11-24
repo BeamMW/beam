@@ -166,6 +166,9 @@ namespace proto {
 #define BeamNodeMsg_GetTransaction(macro) \
     macro(Transaction::KeyType, ID)
 
+#define BeamNodeMsg_SetDependentContext(macro) \
+    macro(std::unique_ptr<Merkle::Hash>, Context)
+
 #define BeamNodeMsg_Bye(macro) \
     macro(uint8_t, Reason)
 
@@ -350,6 +353,8 @@ namespace proto {
     macro(0x31, HaveTransaction) \
     macro(0x32, GetTransaction) \
     macro(0x49, NewTransaction) \
+    /* dependent context and txs */ \
+    macro(0x4a, SetDependentContext) \
     /* bbs */ \
     macro(0x39, BbsHaveMsg) \
     macro(0x3a, BbsGetMsg) \

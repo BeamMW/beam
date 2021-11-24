@@ -3950,6 +3950,11 @@ void Node::Peer::OnMsg(proto::GetContractLogProof&& msg)
     Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::SetDependentContext&& msg)
+{
+    n_pDependentContext = std::move(msg.m_Context);
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
     if (newStream)

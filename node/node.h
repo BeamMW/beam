@@ -522,6 +522,8 @@ private:
 
 		Block::SystemState::Full m_Tip;
 
+		std::unique_ptr<Merkle::Hash> n_pDependentContext;
+
 		uint64_t m_CursorBbs;
 		TxPool::Fluff::Element* m_pCursorTx;
 
@@ -615,6 +617,7 @@ private:
 		virtual void OnMsg(proto::GetContractVar&&) override;
 		virtual void OnMsg(proto::GetContractLogProof&&) override;
 		virtual void OnMsg(proto::GetShieldedOutputsAt&&) override;
+		virtual void OnMsg(proto::SetDependentContext&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
