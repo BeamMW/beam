@@ -2409,4 +2409,16 @@ namespace beam::wallet
             throw std::runtime_error("Wallet accessed from wrong thread");
         }
     }
+
+    void Wallet::markAppNotificationAsRead(const TxID& id)
+    {
+        auto it = m_ActiveTransactions.find(id);
+        if (m_ActiveTransactions.end() == it)
+        {
+            return;
+        }
+
+        if (!storage::setTxParameter(*m_WalletDB, id, TxParameterID::IsContractNotificationMarkedAsRead, true, true))
+            LOG_ERROR() << "Can't mark application notification as read.";
+    }
 }

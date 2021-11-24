@@ -409,6 +409,7 @@ namespace beam::wallet
         AddressType = 211,
         SavePeerAddress = 212, // allows to preserve and control the old behaviour of saving address 
         TransactionRegisteredInternal = 222, // used to overwrite previouse result
+        IsContractNotificationMarkedAsRead = 223,
         State = 255
     };
 

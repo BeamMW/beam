@@ -293,6 +293,7 @@ namespace beam::wallet
         void readRawSeedPhrase(AsyncCallback<const std::string&>&& callback) override;
 
         void getAppsList(AppsListCallback&& callback) override;
+        void markAppNotificationAsRead(const TxID id) override;
 
         void enableBodyRequests(bool value) override;
 
