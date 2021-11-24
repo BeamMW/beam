@@ -521,7 +521,6 @@ private:
 		beam::io::Address m_RemoteAddr; // for logging only
 
 		Block::SystemState::Full m_Tip;
-		uint32_t m_LoginFlags;
 
 		uint64_t m_CursorBbs;
 		TxPool::Fluff::Element* m_pCursorTx;
@@ -571,7 +570,7 @@ private:
 		virtual void GenerateSChannelNonce(ECC::Scalar::Native&) override; // Must be overridden to support SChannel
 		// login
 		virtual void SetupLogin(proto::Login&) override;
-		virtual void OnLogin(proto::Login&&) override;
+		virtual void OnLogin(proto::Login&&, uint32_t nFlagsPrev) override;
 		virtual Height get_MinPeerFork() override;
 		// messages
 		virtual void OnMsg(proto::Authentication&&) override;

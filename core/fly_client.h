@@ -219,7 +219,6 @@ namespace proto {
 				void AssignRequest(RequestNode&);
 
 				bool IsAtTip() const;
-				uint32_t m_LoginFlags;
 				uint8_t m_Flags;
 
 				struct Flags {
@@ -230,7 +229,7 @@ namespace proto {
 
 				// NodeConnection
 				virtual void OnConnectedSecure() override;
-				virtual void OnLogin(Login&&) override;
+				virtual void OnLogin(Login&&, uint32_t nFlagsPrev) override;
 				virtual void SetupLogin(Login&) override;
 				virtual void OnDisconnect(const DisconnectReason&) override;
 				virtual void OnMsg(proto::Authentication&& msg) override;
@@ -251,7 +250,6 @@ namespace proto {
 
 				template <typename Req> void SendRequest(Req& r) { Send(r.m_Msg); }
 				void SendRequest(RequestBbsMsg&);
-				void SendRequest(RequestTransaction&);
 			};
 
 			typedef boost::intrusive::list<Connection> ConnectionList;

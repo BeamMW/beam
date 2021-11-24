@@ -909,7 +909,6 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
     pPeer->m_Port = 0;
     ZeroObject(pPeer->m_Tip);
     pPeer->m_RemoteAddr = addr;
-    pPeer->m_LoginFlags = 0;
 	pPeer->m_CursorBbs = std::numeric_limits<int64_t>::max();
 	pPeer->m_pCursorTx = nullptr;
 
@@ -2919,7 +2918,7 @@ bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange
     return true;
 }
 
-void Node::Peer::OnLogin(proto::Login&& msg)
+void Node::Peer::OnLogin(proto::Login&& msg, uint32_t nFlagsPrev)
 {
     if (Flags::Probe & m_Flags)
     {
@@ -2927,9 +2926,9 @@ void Node::Peer::OnLogin(proto::Login&& msg)
         return;
     }
 
-    if ((m_LoginFlags ^ msg.m_Flags) & proto::LoginFlags::SendPeers)
+    if ((m_LoginFlags ^ nFlagsPrev) & proto::LoginFlags::SendPeers)
     {
-        if (msg.m_Flags & proto::LoginFlags::SendPeers)
+        if (m_LoginFlags & proto::LoginFlags::SendPeers)
         {
             if (!m_pTimerPeers)
                 m_pTimerPeers = io::Timer::create(io::Reactor::get_Current());
@@ -2948,15 +2947,14 @@ void Node::Peer::OnLogin(proto::Login&& msg)
     bool b = ShouldFinalizeMining();
 
 	if (m_This.m_Cfg.m_Bbs.IsEnabled() &&
-		!(proto::LoginFlags::Bbs & m_LoginFlags) &&
-		(proto::LoginFlags::Bbs & msg.m_Flags))
+		!(proto::LoginFlags::Bbs & nFlagsPrev) &&
+		(proto::LoginFlags::Bbs & m_LoginFlags))
 	{
 		proto::BbsResetSync msgOut;
 		msgOut.m_TimeFrom = std::min(m_This.m_Bbs.m_HighestPosted_s, getTimestamp() - Rules::get().DA.MaxAhead_s);
 		Send(msgOut);
 	}
 
-    m_LoginFlags = msg.m_Flags;
     MaybeSendSerif();
 
 	if (b != ShouldFinalizeMining()) {
@@ -3118,7 +3116,7 @@ void Node::Peer::SendTx(Transaction::Ptr& ptx, bool bFluff)
 
     TemporarySwap scope(msg.m_Transaction, ptx);
 
-    Send(msg, m_LoginFlags);
+    Send(msg);
 }
 
 void Node::Peer::OnMsg(proto::GetCommonState&& msg)

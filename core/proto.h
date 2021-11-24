@@ -762,6 +762,9 @@ namespace proto {
 
     public:
 
+        uint32_t m_LoginFlags;
+        uint32_t get_Ext() const;
+
         NodeConnection();
         virtual ~NodeConnection();
         void Reset();
@@ -795,7 +798,7 @@ namespace proto {
 		// Login-specific
 		void SendLogin();
 		virtual void SetupLogin(Login&);
-		virtual void OnLogin(Login&&);
+		virtual void OnLogin(Login&&, uint32_t nFlagsPrev);
 		virtual Height get_MinPeerFork();
 
         bool IsLive() const;
@@ -856,11 +859,16 @@ namespace proto {
         void OnExc(const std::exception&);
         void OnProcessingExc(const NodeProcessingException& exception);
 
-#define THE_MACRO(code, msg) void Send(const msg& v);
+#define THE_MACRO(code, msg) void SendRaw(const msg& v);
         BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
 
-        void Send(const NewTransaction&, uint32_t nLoginFlags);
+        template <typename TMsg>
+        void Send(const TMsg& msg) {
+            SendRaw(msg);
+        }
+
+        void Send(const NewTransaction&);
 
         struct Server
         {
