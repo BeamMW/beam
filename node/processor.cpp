@@ -4037,54 +4037,47 @@ bool NodeProcessor::HandleValidatedBlock(const Block::Body& block, BlockInterpre
 
 struct NodeProcessor::DependentContextSwitch
 {
+	typedef std::vector<const TxPool::Dependent::Element*> Vec;
+
 	NodeProcessor& m_This;
 	BlockInterpretCtx& m_Bic;
-	std::vector<Transaction*> m_vTxs;
+	Vec m_vec;
+	uint32_t m_Applied;
 
 	DependentContextSwitch(NodeProcessor& np, BlockInterpretCtx& bic)
 		:m_This(np)
 		,m_Bic(bic)
+		,m_Applied(0)
 	{
 	}
 
 	~DependentContextSwitch()
 	{
-		Undo();
-	}
-
-	void Undo()
-	{
 		m_Bic.m_Fwd = false;
-		for (uint32_t i = (uint32_t) m_vTxs.size(); i--; )
-			m_This.HandleValidatedTx(*m_vTxs[i], m_Bic);
-
-		m_vTxs.clear();
+		while (m_Applied)
+			m_This.HandleValidatedTx(*m_vec[--m_Applied]->m_pValue, m_Bic);
 	}
 
-	bool Apply(const TxPool::Dependent::Element* pTop)
+	static void Convert(Vec& vec, const TxPool::Dependent::Element* pTop)
 	{
 		uint32_t n = 0;
 		for (auto p = pTop; p; p = p->m_pParent)
 			n++;
 
-		assert(m_vTxs.empty());
-		m_vTxs.resize(n);
+		vec.resize(n);
 		for (auto p = pTop; p; p = p->m_pParent)
-			m_vTxs[--n] = p->m_pValue.get();
+			vec[--n] = p;
+	}
 
-		n = (uint32_t) m_vTxs.size();
+	bool Apply(const TxPool::Dependent::Element* pTop) 
+	{
+		Convert(m_vec, pTop);
 
-		assert(m_Bic.m_Fwd);
+		assert(m_Bic.m_Fwd && !m_Applied);
 
-		for (uint32_t i = 0; i < n; i++)
-		{
-			if (!m_This.HandleValidatedTx(*m_vTxs[i], m_Bic))
-			{
-				Undo();
-				m_Bic.m_Fwd = true;
+		for (; m_Applied < m_vec.size(); m_Applied++)
+			if (!m_This.HandleValidatedTx(*m_vec[m_Applied]->m_pValue, m_Bic))
 				return false;
-			}
-		}
 
 		return true;
 	}
@@ -5947,14 +5940,6 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	if (bc.m_Fees)
 		ssc.m_Counter.m_Value += m_nSizeUtxoComission;
 
-	DependentContextSwitch dcs(*this, bic);
-	if (!dcs.Apply(bc.m_pParent))
-	{
-		LOG_WARNING() << "can't switch dependent context during block gen"; // normally should not happen
-		return proto::TxStatus::DependentNoParent;
-	}
-
-
 	const size_t nSizeMax = Rules::get().MaxBodySize;
 	if (ssc.m_Counter.m_Value > nSizeMax)
 	{
@@ -5964,6 +5949,49 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	}
 
 	size_t nTxNum = 0;
+
+	DependentContextSwitch::Vec vDependent;
+	DependentContextSwitch::Convert(vDependent, bc.m_pParent);
+
+	for (size_t i = 0; i < vDependent.size(); i++)
+	{
+		const auto& x = *vDependent[i];
+		Amount txFee = x.m_Fee;
+		auto nSize = x.m_Size;
+		if (x.m_pParent)
+		{
+			txFee -= x.m_pParent->m_Fee;
+			nSize -= x.m_pParent->m_Size;
+		}
+
+		Amount feesNext = bc.m_Fees + txFee;
+		if (feesNext < bc.m_Fees)
+			break; // huge fees are unsupported
+
+
+		size_t nSizeNext = ssc.m_Counter.m_Value + nSize;
+		if (!bc.m_Fees && feesNext)
+			nSizeNext += m_nSizeUtxoComission;
+
+		if (nSizeNext > nSizeMax)
+			break;
+
+		Transaction& tx = *x.m_pValue;
+
+		assert(!bic.m_LimitExceeded);
+		if (!HandleValidatedTx(tx, bic))
+		{
+			bic.m_LimitExceeded = false;
+			break;
+		}
+
+		TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(tx.get_Reader());
+
+		bc.m_Fees = feesNext;
+		ssc.m_Counter.m_Value = nSizeNext;
+		offset += ECC::Scalar::Native(tx.m_Offset);
+		++nTxNum;
+	}
 
 	for (TxPool::Fluff::ProfitSet::iterator it = bc.m_TxPool.m_setProfit.begin(); bc.m_TxPool.m_setProfit.end() != it; )
 	{
