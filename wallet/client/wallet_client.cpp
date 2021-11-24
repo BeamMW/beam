@@ -926,9 +926,19 @@ namespace beam::wallet
         return m_status.stateID.m_Height;
     }
 
-    beam::Height WalletClient::getCurrentHeightTimestamp() const
+    beam::Timestamp WalletClient::getCurrentHeightTimestamp() const
     {
         return m_status.update.lastTime;
+    }
+
+    beam::Timestamp WalletClient::getAverageBlockTime() const
+    {
+        return m_averageBlockTime;
+    }
+
+    beam::Timestamp WalletClient::getLastBlockTime() const
+    {
+        return m_lastBlockTime;
     }
 
     beam::Block::SystemState::ID WalletClient::getCurrentStateID() const
@@ -1990,6 +2000,38 @@ namespace beam::wallet
                 m_currentHeight = currentHeight;
                 m_unsafeActiveTxCount = count;
                 m_mpLockTimeLimit = limit;
+            });
+
+            auto currentHeight = w->get_TipHeight();
+
+            struct Walker :public Block::SystemState::IHistory::IWalker
+            {
+                std::vector<Block::SystemState::Full> m_vStates;
+                uint32_t m_Count;
+
+                virtual bool OnState(const Block::SystemState::Full& s) override
+                {
+                    m_vStates.push_back(s);
+                    return m_vStates.size() < m_Count;
+                }
+            } walker;
+
+            walker.m_Count = 10;
+            walker.m_vStates.reserve(10);
+            Height historyHeight = currentHeight - 10;
+            m_walletDB->get_History().Enum(walker, &historyHeight);
+
+            auto oldest = walker.m_vStates[walker.m_vStates.size() - 1];
+            Block::SystemState::Full curentState;
+            m_walletDB->get_History().get_Tip(curentState);
+            auto distance = currentHeight - oldest.m_Height;
+            auto averageBlockTime = (curentState.m_TimeStamp - oldest.m_TimeStamp) / distance;
+            auto lastBlockTime = curentState.m_TimeStamp;
+
+            postFunctionToClientContext([this, averageBlockTime, lastBlockTime]()
+            {
+                m_averageBlockTime = averageBlockTime;
+                m_lastBlockTime = lastBlockTime;
             });
         }
     }

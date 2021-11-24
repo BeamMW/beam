@@ -151,6 +151,8 @@ namespace beam::wallet
 
         beam::Height getCurrentHeight() const;
         beam::Timestamp getCurrentHeightTimestamp() const;
+        beam::Timestamp getAverageBlockTime() const;
+        beam::Timestamp getLastBlockTime() const;
         beam::Block::SystemState::ID getCurrentStateID() const;
 
         /// INodeConnectionObserver implementation
@@ -400,5 +402,7 @@ namespace beam::wallet
         uint8_t m_mpLockTimeLimit = 0;
         OpenDBFunction m_openDBFunc;
         std::unique_ptr<HttpClient> m_httpClient;
+        beam::Timestamp m_averageBlockTime = 0;
+        beam::Timestamp m_lastBlockTime = 0;
     };
 }
