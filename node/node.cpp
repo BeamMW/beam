@@ -3819,88 +3819,124 @@ void Node::Peer::OnMsg(proto::GetShieldedOutputsAt&& msg)
 
 void Node::Peer::OnMsg(proto::ContractVarsEnum&& msg)
 {
-    NodeDB::WalkerContractData wlk;
-    m_This.m_Processor.get_DB().ContractDataEnum(wlk, msg.m_KeyMin, msg.m_KeyMax);
-
-    proto::ContractVars msgOut;
-    Serializer ser;
-
-    while (true)
+    struct Wrk
+        :public NodeProcessor::IWorker
     {
-        if (!wlk.MoveNext())
-            break;
+        Peer& m_This;
+        proto::ContractVarsEnum& m_In;
+        proto::ContractVars m_Out;
 
-        if (msg.m_bSkipMin)
+        Wrk(Peer& x, proto::ContractVarsEnum& msgIn)
+            :m_This(x)
+            ,m_In(msgIn)
+        {}
+
+        void Do() override
         {
-            msg.m_bSkipMin = false;
-            if (wlk.m_Key == msg.m_KeyMin)
-                continue; // skip
+            NodeDB::WalkerContractData wlk;
+            m_This.m_This.m_Processor.get_DB().ContractDataEnum(wlk, m_In.m_KeyMin, m_In.m_KeyMax);
+
+            Serializer ser;
+
+            while (true)
+            {
+                if (!wlk.MoveNext())
+                    break;
+
+                if (m_In.m_bSkipMin && (wlk.m_Key == m_In.m_KeyMin))
+                    continue; // skip
+
+                ser
+                    & wlk.m_Key.n
+                    & wlk.m_Val.n;
+
+                ser.WriteRaw(wlk.m_Key.p, wlk.m_Key.n);
+                ser.WriteRaw(wlk.m_Val.p, wlk.m_Val.n);
+
+                if (m_This.IsChocking(ser.buffer().second))
+                {
+                    m_Out.m_bMore = true;
+                    break;
+                }
+            }
+
+            ser.swap_buf(m_Out.m_Result);
         }
+    };
 
-        ser
-            & wlk.m_Key.n
-            & wlk.m_Val.n;
+    Wrk wrk(*this, msg);
 
-        ser.WriteRaw(wlk.m_Key.p, wlk.m_Key.n);
-        ser.WriteRaw(wlk.m_Val.p, wlk.m_Val.n);
+    m_This.m_Processor.ExecInDependentContext(wrk, n_pDependentContext.get(), m_This.m_TxDependent);
 
-        if (IsChocking(ser.buffer().second))
-        {
-            msgOut.m_bMore = true;
-            break;
-        }
-    }
-
-    ser.swap_buf(msgOut.m_Result);
-    Send(msgOut);
+    Send(wrk.m_Out);
 }
 
 void Node::Peer::OnMsg(proto::ContractLogsEnum&& msg)
 {
-    auto& db = m_This.m_Processor.get_DB();
-
-    NodeDB::ContractLog::Walker wlk;
-    if (msg.m_KeyMin.empty() && msg.m_KeyMax.empty())
-        db.ContractLogEnum(wlk, msg.m_PosMin, msg.m_PosMax);
-    else
-        db.ContractLogEnum(wlk, msg.m_KeyMin, msg.m_KeyMax, msg.m_PosMin, msg.m_PosMax);
-
-    proto::ContractLogs msgOut;
-    Serializer ser;
-
-    while (true)
+    struct Wrk
+        :public NodeProcessor::IWorker
     {
-        if (!wlk.MoveNext())
-            break;
+        Peer& m_This;
+        proto::ContractLogsEnum& m_In;
+        proto::ContractLogs m_Out;
 
-        HeightPos dp;
-        dp.m_Height = wlk.m_Entry.m_Pos.m_Height - msg.m_PosMin.m_Height;
-        if (dp.m_Height)
+        Wrk(Peer& x, proto::ContractLogsEnum& msgIn)
+            :m_This(x)
+            , m_In(msgIn)
+        {}
+
+        void Do() override
         {
-            msg.m_PosMin.m_Height = wlk.m_Entry.m_Pos.m_Height;
-            msg.m_PosMin.m_Pos = 0;
+            auto& db = m_This.m_This.m_Processor.get_DB();
+
+            NodeDB::ContractLog::Walker wlk;
+            if (m_In.m_KeyMin.empty() && m_In.m_KeyMax.empty())
+                db.ContractLogEnum(wlk, m_In.m_PosMin, m_In.m_PosMax);
+            else
+                db.ContractLogEnum(wlk, m_In.m_KeyMin, m_In.m_KeyMax, m_In.m_PosMin, m_In.m_PosMax);
+
+            Serializer ser;
+
+            while (true)
+            {
+                if (!wlk.MoveNext())
+                    break;
+
+                HeightPos dp;
+                dp.m_Height = wlk.m_Entry.m_Pos.m_Height - m_In.m_PosMin.m_Height;
+                if (dp.m_Height)
+                {
+                    m_In.m_PosMin.m_Height = wlk.m_Entry.m_Pos.m_Height;
+                    m_In.m_PosMin.m_Pos = 0;
+                }
+
+                dp.m_Pos = wlk.m_Entry.m_Pos.m_Pos - m_In.m_PosMin.m_Pos;
+                m_In.m_PosMin.m_Pos = wlk.m_Entry.m_Pos.m_Pos;
+
+                ser
+                    & dp
+                    & wlk.m_Entry.m_Key.n
+                    & wlk.m_Entry.m_Val.n;
+
+                ser.WriteRaw(wlk.m_Entry.m_Key.p, wlk.m_Entry.m_Key.n);
+                ser.WriteRaw(wlk.m_Entry.m_Val.p, wlk.m_Entry.m_Val.n);
+
+                if (m_This.IsChocking(ser.buffer().second))
+                {
+                    m_Out.m_bMore = true;
+                    break;
+                }
+            }
+
+            ser.swap_buf(m_Out.m_Result);
         }
+    };
 
-        dp.m_Pos = wlk.m_Entry.m_Pos.m_Pos - msg.m_PosMin.m_Pos;
-        msg.m_PosMin.m_Pos = wlk.m_Entry.m_Pos.m_Pos;
+    Wrk wrk(*this, msg);
 
-        ser
-            & dp
-            & wlk.m_Entry.m_Key.n
-            & wlk.m_Entry.m_Val.n;
+    m_This.m_Processor.ExecInDependentContext(wrk, n_pDependentContext.get(), m_This.m_TxDependent);
 
-        ser.WriteRaw(wlk.m_Entry.m_Key.p, wlk.m_Entry.m_Key.n);
-        ser.WriteRaw(wlk.m_Entry.m_Val.p, wlk.m_Entry.m_Val.n);
-
-        if (IsChocking(ser.buffer().second))
-        {
-            msgOut.m_bMore = true;
-            break;
-        }
-    }
-
-    ser.swap_buf(msgOut.m_Result);
-    Send(msgOut);
+    Send(wrk.m_Out);
 }
 
 void Node::Peer::OnMsg(proto::GetContractVar&& msg)

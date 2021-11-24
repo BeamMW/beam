@@ -857,6 +857,11 @@ public:
 
 	} m_ValCache;
 
+	struct IWorker {
+		virtual void Do() = 0;
+	};
+	bool ExecInDependentContext(IWorker&, const Merkle::Hash*, const TxPool::Dependent&);
+
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
 	void GenerateNewHdr(BlockContext&, BlockInterpretCtx&);

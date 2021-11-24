@@ -4083,6 +4083,38 @@ struct NodeProcessor::DependentContextSwitch
 	}
 };
 
+bool NodeProcessor::ExecInDependentContext(IWorker& wrk, const Merkle::Hash* pCtx, const TxPool::Dependent& txp)
+{
+	if (!pCtx)
+		wrk.Do();
+	else
+	{
+		if (m_Cursor.m_Full.m_Prev == *pCtx)
+			wrk.Do();
+		else
+		{
+			auto itCtx = txp.m_setContexts.find(*pCtx, TxPool::Dependent::Element::Context::Comparator());
+			if (txp.m_setContexts.end() == itCtx)
+				return false;
+
+			BlockInterpretCtx bic(m_Cursor.m_ID.m_Height + 1, true);
+			bic.SetAssetHi(*this);
+			bic.m_Temporary = true;
+			bic.m_TxValidation = true;
+			bic.m_SkipDefinition = true;
+
+			DependentContextSwitch dcs(*this, bic);
+			if (!dcs.Apply(&itCtx->get_ParentObj()))
+				return false;
+
+			wrk.Do();
+		}
+	}
+
+	return true;
+}
+
+
 bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 {
 	UtxoTree::Cursor cu;
