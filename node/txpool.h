@@ -195,6 +195,7 @@ struct TxPool
 			// cumulative
 			Amount m_Fee;
 			uint32_t m_BvmCharge;
+			uint32_t m_Size;
 
 			struct Tx
 				:public intrusive::set_base_hook<Transaction::KeyType>
