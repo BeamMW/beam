@@ -573,22 +573,13 @@ int main(int argc, char* argv[])
     } options;
     TlsOptions tlsOptions;
 
+    #ifdef BEAM_IPFS_SUPPORT
+    IPFSOptions ipfsOptions;
+    #endif
+
     po::options_description desc("Wallet API general options");
     {
         desc.add_options()
-        TlsOptions tlsOptions;
-        #ifdef BEAM_IPFS_SUPPORT
-        IPFSOptions ipfsOptions;
-        #endif
-
-        io::Address node_addr;
-        IWalletDB::Ptr walletDB;
-        ApiACL acl;
-        std::vector<uint32_t> whitelist;
-
-        {
-            po::options_description desc("Wallet API general options");
-            desc.add_options()
                 (cli::HELP_FULL, "list of all options")
                 (cli::VERSION_FULL, "print project version")
                 (cli::PORT_FULL, po::value(&options.port)->default_value(10000), "port to start server on")
@@ -622,21 +613,26 @@ int main(int argc, char* argv[])
                 (cli::API_TLS_REJECT_UNAUTHORIZED, po::value<bool>(&tlsOptions.rejectUnauthorized)->default_value("true"), "server will reject any connection which is not authorized with the list of supplied CAs.")
         ;
 
-            desc.add(authDesc);
-            desc.add(tlsDesc);
+        desc.add(authDesc);
+        desc.add(tlsDesc);
 
-            #ifdef BEAM_IPFS_SUPPORT
-            po::options_description ipfsDesc("IPFS options");
-            ipfsDesc.add_options()
-                    (cli::API_ENABLE_IPFS, po::value<bool>(&ipfsOptions.enabled)->default_value(false), "enable IPFS support")
-                    (cli::API_IPFS_STORAGE,   po::value<std::string>(&ipfsOptions.storage)->default_value("./ipfs-repo"), "IPFS repository path")
-                    ;
-            desc.add(ipfsDesc);
-            #endif
+        #ifdef BEAM_IPFS_SUPPORT
+        po::options_description ipfsDesc("IPFS options");
+        ipfsDesc.add_options()
+                (cli::API_ENABLE_IPFS, po::value<bool>(&ipfsOptions.enabled)->default_value(false), "enable IPFS support")
+                (cli::API_IPFS_STORAGE,   po::value<std::string>(&ipfsOptions.storage)->default_value("./ipfs-repo"), "IPFS repository path")
+                ;
+        desc.add(ipfsDesc);
+        #endif
 
-            desc.add(createRulesOptionsDescription());
-            po::variables_map vm;
+        desc.add(createRulesOptionsDescription());
+    }
 
+    try
+    {
+        po::variables_map vm;
+        try
+        {
             po::store(po::command_line_parser(argc, argv)
                               .options(desc)
                               .style(po::command_line_style::default_style ^ po::command_line_style::allow_guessing)
