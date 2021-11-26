@@ -2021,11 +2021,14 @@ namespace beam::wallet
             Height historyHeight = currentHeight - 10;
             m_walletDB->get_History().Enum(walker, &historyHeight);
 
+            if (walker.m_vStates.empty())
+                return;
+
             auto oldest = walker.m_vStates[walker.m_vStates.size() - 1];
             Block::SystemState::Full curentState;
             m_walletDB->get_History().get_Tip(curentState);
             auto distance = currentHeight - oldest.m_Height;
-            auto averageBlockTime = (curentState.m_TimeStamp - oldest.m_TimeStamp) / distance;
+            auto averageBlockTime = distance ? (curentState.m_TimeStamp - oldest.m_TimeStamp) / distance : 0; 
             auto lastBlockTime = curentState.m_TimeStamp;
 
             postFunctionToClientContext([this, averageBlockTime, lastBlockTime]()
