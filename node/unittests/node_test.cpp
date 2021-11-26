@@ -1061,7 +1061,7 @@ namespace beam
 				HeightRange hr(np.m_Cursor.m_ID.m_Height + 1, MaxHeight);
 
 				uint32_t nBvmCharge = 0;
-				verify_test(proto::TxStatus::Ok == np.ValidateTxContextEx(*pTx, hr, false, nBvmCharge, nullptr));
+				verify_test(proto::TxStatus::Ok == np.ValidateTxContextEx(*pTx, hr, false, nBvmCharge, nullptr, nullptr));
 
 				Transaction::Context::Params pars;
 				Transaction::Context ctx(pars);
@@ -1674,8 +1674,6 @@ namespace beam
 
 			virtual bool OnUtxo(Height h, const Output& outp) override
 			{
-				verify_test(outp.m_RecoveryOnly);
-
 				CoinID cid;
 				bool b1 = outp.Recover(h, *m_pOwner1, cid);
 				bool b2 = outp.Recover(h, *m_pOwner2, cid);
@@ -1947,7 +1945,7 @@ namespace beam
 					sdp.m_Output.m_User.m_Sender = 165U;
 					sdp.m_Output.m_User.m_pMessage[0] = 243U;
 					sdp.m_Output.m_User.m_pMessage[1] = 2435U;
-					sdp.GenerateOutp(pKrn->m_Txo, h + 1, oracle);
+					sdp.GenerateOutp(pKrn->m_Txo, h + 1, oracle, true); // generate asset proof, though it's not CA
 
 					pKrn->MsgToID();
 
@@ -3103,16 +3101,20 @@ namespace beam
 		struct MyParser
 			:public beam::RecoveryInfo::IRecognizer
 		{
-			uint32_t m_Spent = 0;
 			uint32_t m_Utxos = 0;
+			uint32_t m_UtxosCA = 0;
 			uint32_t m_Assets = 0;
+			uint32_t m_ShieldedOuts = 0;
+			uint32_t m_ShieldedIns = 0;
 
 			typedef std::set<ECC::Point> PkSet;
 			PkSet m_SpendKeys;
 
-			virtual bool OnUtxoRecognized(Height, const Output&, CoinID&, const Output::User&) override
+			virtual bool OnUtxoRecognized(Height, const Output&, CoinID& cid, const Output::User&) override
 			{
 				m_Utxos++;
+				if (cid.m_AssetID)
+					m_UtxosCA++;
 				return true;
 			}
 
@@ -3120,13 +3122,14 @@ namespace beam
 			{
 				verify_test(m_SpendKeys.end() == m_SpendKeys.find(pars.m_Ticket.m_SpendPk));
 				m_SpendKeys.insert(pars.m_Ticket.m_SpendPk);
+				m_ShieldedOuts++;
 				return true;
 			}
 
 			virtual bool OnShieldedIn(const ShieldedTxo::DescriptionInp& din) override
 			{
 				if (m_SpendKeys.end() != m_SpendKeys.find(din.m_SpendPk))
-					m_Spent++;
+					m_ShieldedIns++;
 				return true;
 			}
 
@@ -3142,7 +3145,7 @@ namespace beam
 		p.Init(cl.m_Wallet.m_pKdf);
 		p.Proceed(beam::g_sz3); // check we can rebuild the Live consistently with shielded and assets
 
-		verify_test((p.m_SpendKeys.size() == 1) && (p.m_Spent == 1) && p.m_Utxos && p.m_Assets);
+		verify_test((p.m_SpendKeys.size() == 1) && p.m_Utxos && p.m_UtxosCA && p.m_Assets && p.m_ShieldedOuts && p.m_ShieldedIns);
 
 		auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
 		node.PrintTxos();

@@ -251,6 +251,7 @@ namespace proto {
 
 				template <typename Req> void SendRequest(Req& r) { Send(r.m_Msg); }
 				void SendRequest(RequestBbsMsg&);
+				void SendRequest(RequestTransaction&);
 			};
 
 			typedef boost::intrusive::list<Connection> ConnectionList;

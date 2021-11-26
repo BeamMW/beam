@@ -382,6 +382,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getAppsList, std::move(callback));
     }
 
+    void markAppNotificationAsRead(const TxID id) override
+    {
+        call_async(&IWalletModelAsync::markAppNotificationAsRead, id);
+    }
+
     void enableBodyRequests(bool value) override
     {
         call_async(&IWalletModelAsync::enableBodyRequests, value);
@@ -1862,6 +1867,15 @@ namespace beam::wallet
         });
 
         m_httpClient->send_request(request);
+    }
+
+    void WalletClient::markAppNotificationAsRead(const TxID id)
+    {
+        auto w = m_wallet.lock();
+        if (w)
+        {
+            w->markAppNotificationAsRead(id);
+        }
     }
 
     void WalletClient::getCoinConfirmationsOffset(AsyncCallback<uint32_t>&& callback)

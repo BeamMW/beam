@@ -577,7 +577,7 @@ void Node::DeleteOutdated()
 		Transaction& tx = *x.m_pValue;
 
         uint32_t nBvmCharge = 0;
-		if (proto::TxStatus::Ok != m_Processor.ValidateTxContextEx(tx, x.m_Height, true, nBvmCharge, nullptr))
+		if (proto::TxStatus::Ok != m_Processor.ValidateTxContextEx(tx, x.m_Height, true, nBvmCharge, nullptr, nullptr))
             m_TxPool.SetOutdated(x, m_Processor.m_Cursor.m_ID.m_Height);
 	}
 
@@ -594,7 +594,7 @@ void Node::DeleteOutdated()
             auto& x = c.get_ParentObj();
 
             uint32_t nBvmCharge = 0;
-            if (proto::TxStatus::Ok == m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Height, true, nBvmCharge, nullptr))
+            if (proto::TxStatus::Ok == m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Height, true, nBvmCharge, nullptr, nullptr))
             {
                 LogTxStem(*x.m_pValue, "Not confirmed, fluffing");
                 OnTransactionFluff(std::move(x.m_pValue), nullptr, nullptr, &x);
@@ -623,6 +623,7 @@ void Node::Processor::OnNewState()
 
     get_ParentObj().DeleteOutdated(); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
     // because in practice mining could be OFF (for instance, if miner key isn't defined, and owner wallet is offline).
+    get_ParentObj().m_TxDependent.Clear();
 
     if (get_ParentObj().m_Miner.IsEnabled())
     {
@@ -746,7 +747,7 @@ void Node::Processor::OnRolledBack()
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
         if (!IsShieldedInPool(*x.m_pValue))
         {
-            get_ParentObj().OnTransactionDeferred(std::move(x.m_pValue), nullptr, true);
+            get_ParentObj().OnTransactionDeferred(std::move(x.m_pValue), nullptr, nullptr, true);
             get_ParentObj().m_TxPool.DeleteEmpty(x);
         }
 	}
@@ -757,9 +758,9 @@ void Node::Processor::OnRolledBack()
 		TxPool::Stem::Element& x = (it++)->get_ParentObj();
 		if (!IsShieldedInPool(*x.m_pValue))
 			txps.Delete(x);
-			
 	}
 
+    get_ParentObj().m_TxDependent.Clear();
 
 	IObserver* pObserver = get_ParentObj().m_Cfg.m_Observer;
 	if (pObserver)
@@ -2005,10 +2006,16 @@ bool Node::Peer::GetBlock(proto::BodyBuffers& out, const NodeDB::StateID& sid, c
 		der & Cast::Down<Block::BodyBase>(block);
 		der & Cast::Down<TxVectors::Perishable>(block);
 
-		for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-			block.m_vOutputs[i]->m_RecoveryOnly = true;
+        Serializer ser;
+        ser & block.m_vInputs;
+        ser & block.m_vOutputs.size();
 
-		Serializer ser;
+        for (size_t i = 0; i < block.m_vOutputs.size(); i++)
+        {
+            const auto& outp = *block.m_vOutputs[i];
+            yas::detail::saveRecovery(ser, outp, sid.m_Height);
+        }
+
 		ser & Cast::Down<Block::BodyBase>(block);
 		ser & Cast::Down<TxVectors::Perishable>(block);
 
@@ -2134,21 +2141,22 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
         std::ostringstream errInfo;
 
         proto::Status msgOut;
-        msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), pSender, msg.m_Fluff, &errInfo);
+        msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), std::move(msg.m_Context), pSender, msg.m_Fluff, &errInfo);
 
         msgOut.m_ExtraInfo = errInfo.str();
         Send(msgOut);
     }
     else
     {
-        m_This.OnTransactionDeferred(std::move(msg.m_Transaction), pSender, msg.m_Fluff);
+        m_This.OnTransactionDeferred(std::move(msg.m_Transaction), std::move(msg.m_Context), pSender, msg.m_Fluff);
     }
 }
 
-void Node::OnTransactionDeferred(Transaction::Ptr&& pTx, const PeerID* pSender, bool bFluff)
+void Node::OnTransactionDeferred(Transaction::Ptr&& pTx, std::unique_ptr<Merkle::Hash>&& pCtx, const PeerID* pSender, bool bFluff)
 {
     TxDeferred::Element txd;
     txd.m_pTx = std::move(pTx);
+    txd.m_pCtx = std::move(pCtx);
     txd.m_Fluff = bFluff;
 
     if (pSender)
@@ -2180,7 +2188,7 @@ void Node::TxDeferred::OnSchedule()
     if (!m_lst.empty())
     {
         TxDeferred::Element& x = m_lst.front();
-        get_ParentObj().OnTransaction(std::move(x.m_pTx), &x.m_Sender, x.m_Fluff, nullptr);
+        get_ParentObj().OnTransaction(std::move(x.m_pTx), std::move(x.m_pCtx), &x.m_Sender, x.m_Fluff, nullptr);
         m_lst.pop_front();
     }
 
@@ -2189,14 +2197,28 @@ void Node::TxDeferred::OnSchedule()
 
 }
 
-uint8_t Node::OnTransaction(Transaction::Ptr&& pTx, const PeerID* pSender, bool bFluff, std::ostream* pExtraInfo)
+uint8_t Node::OnTransaction(Transaction::Ptr&& pTx, std::unique_ptr<Merkle::Hash>&& pCtx, const PeerID* pSender, bool bFluff, std::ostream* pExtraInfo)
 {
-    return bFluff ?
-        OnTransactionFluff(std::move(pTx), pExtraInfo, pSender, nullptr) :
-        OnTransactionStem(std::move(pTx), pExtraInfo);
+    return 
+        pCtx ?
+            OnTransactionDependent(std::move(pTx), *pCtx, pSender, bFluff, pExtraInfo) :
+            bFluff ?
+                OnTransactionFluff(std::move(pTx), pExtraInfo, pSender, nullptr) :
+                OnTransactionStem(std::move(pTx), pExtraInfo);
 }
 
 uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint32_t& nSizeCorrection, Amount& feeReserve, std::ostream* pExtraInfo)
+{
+    uint32_t nBvmCharge = 0;
+    uint8_t nRet = ValidateTx2(ctx, tx, nBvmCharge, feeReserve, nullptr, pExtraInfo);
+    if (proto::TxStatus::Ok == nRet)
+        // convert charge to effective size correction
+        nSizeCorrection = (uint32_t) (((uint64_t) nBvmCharge) * Rules::get().MaxBodySize / bvm2::Limits::BlockCharge);
+
+    return nRet;
+}
+
+uint8_t Node::ValidateTx2(Transaction::Context& ctx, const Transaction& tx, uint32_t& nBvmCharge, Amount& feeReserve, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo)
 {
     ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
 
@@ -2207,13 +2229,10 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint3
         return proto::TxStatus::Invalid;
     }
 
-    uint32_t nBvmCharge = 0;
-    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false, nBvmCharge, pExtraInfo);
+    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false, nBvmCharge, pParent, pExtraInfo);
     if (proto::TxStatus::Ok != nCode)
         return nCode;
 
-    // convert charge to effective size correction
-    nSizeCorrection = (uint32_t) (((uint64_t) nBvmCharge) * Rules::get().MaxBodySize / bvm2::Limits::BlockCharge);
 
     if (!CalculateFeeReserve(ctx.m_Stats, ctx.m_Height, ctx.m_Stats.m_Fee, nBvmCharge, feeReserve))
     {
@@ -2826,6 +2845,52 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
     return nCode;
 }
 
+uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash& hvCtx, const PeerID* pSender, bool bFluff, std::ostream* pExtraInfo)
+{
+    Transaction::KeyType keyTx;
+    pTx->get_Key(keyTx);
+
+    TxPool::Dependent::Element* pElem;
+    auto itTx = m_TxDependent.m_setTxs.find(keyTx, TxPool::Dependent::Element::Tx::Comparator());
+    if (m_TxDependent.m_setTxs.end() != itTx)
+        pElem = &itTx->get_ParentObj();
+    else
+    {
+        TxPool::Dependent::Element* pParent;
+        if (m_Processor.m_Cursor.m_Full.m_Prev == hvCtx)
+            pParent = nullptr;
+        else
+        {
+            auto itCtx = m_TxDependent.m_setContexts.find(hvCtx, TxPool::Dependent::Element::Context::Comparator());
+            if (m_TxDependent.m_setContexts.end() == itCtx)
+                return proto::TxStatus::DependentNoParent;
+
+            pParent = &itCtx->get_ParentObj();
+        }
+
+        Transaction::Context::Params pars;
+        Transaction::Context ctx(pars);
+        uint32_t nBvmCharge = 0;
+        Amount feeReserve = 0;
+        uint8_t nRes = ValidateTx2(ctx, *pTx, nBvmCharge, feeReserve, pParent, pExtraInfo);
+
+        if (proto::TxStatus::Ok != nRes)
+            return nRes;
+
+        Merkle::Hash hvCtxNew;
+        proto::DependentContext::get_Ancestor(hvCtxNew, hvCtx, keyTx); // TODO - this should be kernelIDs
+
+        pElem = m_TxDependent.AddValidTx(std::move(pTx), ctx, keyTx, hvCtxNew, pParent);
+        pElem->m_BvmCharge = nBvmCharge;
+        if (pParent)
+            pElem->m_BvmCharge += pParent->m_BvmCharge;
+    }
+
+    // TODO: broadcast it w.r.t. fluff/stem
+
+    return (m_TxDependent.m_pBest == pElem) ? proto::TxStatus::Ok : proto::TxStatus::DependentNotBest;
+}
+
 void Node::Dandelion::OnTimedOut(Element& x)
 {
     if (x.m_bAggregating)
@@ -2844,7 +2909,7 @@ void Node::Dandelion::OnTimedOut(Element& x)
 bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr, const AmountBig::Type& fees, Amount& feeReserve)
 {
     uint32_t nBvmCharge = 0;
-    if (proto::TxStatus::Ok != get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true, nBvmCharge, nullptr))
+    if (proto::TxStatus::Ok != get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true, nBvmCharge, nullptr, nullptr))
         return false;
 
     TxStats s;
@@ -3053,7 +3118,7 @@ void Node::Peer::SendTx(Transaction::Ptr& ptx, bool bFluff)
 
     TemporarySwap scope(msg.m_Transaction, ptx);
 
-    Send(msg);
+    Send(msg, m_LoginFlags);
 }
 
 void Node::Peer::OnMsg(proto::GetCommonState&& msg)
@@ -4134,6 +4199,8 @@ bool Node::Miner::Restart()
         keys.m_pMiner ? *keys.m_pMiner : *keys.m_pGeneric,
         keys.m_pOwner ? *keys.m_pOwner : *keys.m_pGeneric);
 
+    bc.m_pParent = get_ParentObj().m_TxDependent.m_pBest;
+
     if (m_pFinalizer)
         bc.m_Mode = NodeProcessor::BlockContext::Mode::Assemble;
 
@@ -4660,7 +4727,6 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 			der & outp;
 
             assert(outp.m_Commitment == d.m_Commitment);
-            outp.m_RecoveryOnly = true;
 
 			// 2 ways to discover the UTXO create height: either directly by looking its TxoID in States table, or reverse-engineer it from Maturity
 			// Since currently maturity delta is independent of current height (not a function of height, not changed in current forks) - we prefer the 2nd method, which is faster.
@@ -4672,7 +4738,8 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
             MySerializer ser(m_Writer.m_Stream);
             ser & hCreateHeight;
-            ser & outp;
+
+            yas::detail::saveRecovery(ser, outp, hCreateHeight);
 		}
 	};
 
@@ -4710,10 +4777,12 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
                 virtual bool OnKrnEx(const TxKernelShieldedOutput& krn) override
                 {
+                    Asset::Proof::Ptr pAsset;
+
                     uint8_t nFlags = RecoveryInfo::Flags::Output;
                     if (krn.m_Txo.m_pAsset)
                     {
-                        Cast::NotConst(krn).m_Txo.m_pAsset.reset(); // not needed for recovery atm
+                        pAsset.swap(Cast::NotConst(krn).m_Txo.m_pAsset);
                         nFlags |= RecoveryInfo::Flags::HadAsset;
                     }
 
@@ -4721,6 +4790,10 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
                     m_Ser & nFlags;
                     m_Ser & krn.m_Txo;
                     m_Ser & krn.m_Msg;
+
+                    if (pAsset && (m_Height >= Rules::get().pForks[3].m_Height))
+                        m_Ser & pAsset->m_hGen;
+
                     return true;
                 }
 

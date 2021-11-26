@@ -222,7 +222,7 @@ namespace beam::wallet {
             return nextRequest();
         }
 
-        LOG_INFO () << "shader call is still in progress, request " << args << " queued";
+        LOG_VERBOSE() << "shader call is still in progress, request " << args << " queued";
     }
 
     void ShadersManager::CallShader(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, uint32_t priority, uint32_t unique, DoneCallHandler doneHandler)
@@ -241,7 +241,7 @@ namespace beam::wallet {
             return nextRequest();
         }
 
-        LOG_INFO () << "shader call is still in progress, request " << args << " queued";
+        LOG_VERBOSE () << "shader call is still in progress, request " << args << " queued";
     }
 
     void ShadersManager::nextRequest()
@@ -374,7 +374,7 @@ namespace beam::wallet {
         boost::optional<std::string> result = m_Out.str();
         if (_logResult)
         {
-            LOG_INFO () << "Shader result: " << std::string_view(result ? *result : std::string()).substr(0, 200);
+            LOG_VERBOSE () << "Shader result: " << std::string_view(result ? *result : std::string()).substr(0, 200);
         }
 
         if (m_vInvokeData.empty())

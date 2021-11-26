@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <boost/optional.hpp>
 #include <boost/program_options.hpp>
 #include "utility/logger.h"
 #include "wallet/core/secstring.h"
@@ -274,9 +275,9 @@ namespace beam
 
     void getRulesOptions(po::variables_map& vm);
 
-    bool ReadCfgFromFile(po::variables_map&, const po::options_description&);
-    bool ReadCfgFromFile(po::variables_map&, const po::options_description&, const char* szFile);
-    bool ReadCfgFromFileCommon(po::variables_map&, const po::options_description&);
+    boost::optional<std::string> ReadCfgFromFile(po::variables_map&, const po::options_description&);
+    boost::optional<std::string> ReadCfgFromFile(po::variables_map&, const po::options_description&, const char* szFile);
+    boost::optional<std::string> ReadCfgFromFileCommon(po::variables_map&, const po::options_description&);
 
     int getLogLevel(const std::string &dstLog, const po::variables_map& vm, int defaultValue = LOG_LEVEL_DEBUG);
 

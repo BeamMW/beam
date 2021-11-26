@@ -759,7 +759,13 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestEvents& req)
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestTransaction& req)
 {
-    return (LoginFlags::SpreadingTransactions & m_LoginFlags) && IsAtTip();
+    if (!(LoginFlags::SpreadingTransactions & m_LoginFlags) && IsAtTip())
+        return false;
+
+    if (req.m_Msg.m_Context && (proto::LoginFlags::Extension::get(m_LoginFlags) < 9))
+        return false;
+
+    return true;
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestTransaction& req)
@@ -998,6 +1004,11 @@ void FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
 
 	Ping msg2(Zero);
     Send(msg2);
+}
+
+void FlyClient::NetworkStd::Connection::SendRequest(RequestTransaction& req)
+{
+    Send(req.m_Msg, m_LoginFlags);
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestBbsMsg& req)

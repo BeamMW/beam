@@ -151,8 +151,13 @@ namespace proto {
 #define BeamNodeMsg_Ping(macro)
 #define BeamNodeMsg_Pong(macro)
 
+#define BeamNodeMsg_NewTransaction0(macro) \
+    macro(Transaction::Ptr, Transaction) \
+    macro(bool, Fluff)
+
 #define BeamNodeMsg_NewTransaction(macro) \
     macro(Transaction::Ptr, Transaction) \
+    macro(std::unique_ptr<Merkle::Hash>, Context) \
     macro(bool, Fluff)
 
 #define BeamNodeMsg_HaveTransaction(macro) \
@@ -341,9 +346,10 @@ namespace proto {
     macro(0x2e, GetBlockFinalization) \
     macro(0x2f, BlockFinalization) \
     /* tx broadcast and replication */ \
-    macro(0x30, NewTransaction) \
+    macro(0x30, NewTransaction0) \
     macro(0x31, HaveTransaction) \
     macro(0x32, GetTransaction) \
+    macro(0x49, NewTransaction) \
     /* bbs */ \
     macro(0x39, BbsHaveMsg) \
     macro(0x3a, BbsGetMsg) \
@@ -379,14 +385,27 @@ namespace proto {
             // 6 - Newer Event::AssetCtl, newer Utxo events
             // 7 - GetShieldedOutputsAt
             // 8 - Contract vars and logs, flexible hdr request, newer ShieldedList, Status
+            // 9 - Dependent txs
 
             static const uint32_t Minimum = 8;
-            static const uint32_t Maximum = 8;
+            static const uint32_t Maximum = 9;
 
             static void set(uint32_t& nFlags, uint32_t nExt);
             static uint32_t get(uint32_t nFlags);
         };
 	};
+
+    struct DependentContext
+    {
+        static void get_Ancestor(Merkle::Hash& hvRes, const Merkle::Hash& hvParent, const Merkle::Hash& hvTx)
+        {
+            ECC::Hash::Processor()
+                << "dep.tx"
+                << hvParent
+                << hvTx
+                >> hvRes;
+        }
+    };
 
     struct IDType
     {
@@ -600,6 +619,9 @@ namespace proto {
         static const uint8_t ContractFailLast = 0x3f;
 
         static const uint8_t ContractFailNode = ContractFailLast; // non-existing contract invoked, duplicate contract created, contract d'tor left garbage
+
+        static const uint8_t DependentNoParent = 0x48;
+        static const uint8_t DependentNotBest = 0x48; // tx is ok, but looses to a competing tx
     };
 
 
@@ -766,6 +788,7 @@ namespace proto {
 		virtual void OnMsg(GetTime&&) override;
 		virtual void OnMsg(Time&&) override;
 		virtual void OnMsg(Login&&) override;
+        virtual void OnMsg(NewTransaction0&&) override;
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 
@@ -836,6 +859,8 @@ namespace proto {
 #define THE_MACRO(code, msg) void Send(const msg& v);
         BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
+
+        void Send(const NewTransaction&, uint32_t nLoginFlags);
 
         struct Server
         {

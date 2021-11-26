@@ -180,6 +180,7 @@ namespace beam::wallet
         bool CanDetectCoins() const;
         void EnableBodyRequests(bool value);
         void assertThread() const; // throws if not in wallet thread
+        void markAppNotificationAsRead(const TxID& id);
 
         const std::set<IWalletMessageEndpoint::Ptr>& get_MessageEndpoints() const {
             return m_MessageEndpoints;

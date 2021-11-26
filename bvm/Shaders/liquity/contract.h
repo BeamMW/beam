@@ -35,6 +35,14 @@ namespace Liquity
             // Don't care about Tok==0 case (our Float doesn't handle inf), valid troves must always have Tok no lesser than liquidation reserve
             return Float(Col) / Float(Tok);
         }
+
+        int CmpRcr(const Pair& x) const
+        {
+            // somewhat faster than calculating rcrs individually
+            auto a = MultiPrecision::From(Col) * MultiPrecision::From(x.Tok);
+            auto b = MultiPrecision::From(Tok) * MultiPrecision::From(x.Col);
+            return a.cmp(b);
+        }
     };
 
     struct Flow
@@ -123,6 +131,7 @@ namespace Liquity
         PubKey m_pkOwner;
         Pair m_Amounts;
         ExchangePool::User m_RedistUser; // accumulates enforced liquidations
+        ID m_iNext;
     };
 
     struct Settings
@@ -140,6 +149,7 @@ namespace Liquity
         struct Troves
         {
             Trove::ID m_iLastCreated;
+            Trove::ID m_iHead;
             Pair m_Totals; // Total debt (== minted tokens) and collateral in all troves
 
         } m_Troves;
@@ -147,17 +157,9 @@ namespace Liquity
         struct RedistPool
             :public DistributionPool
         {
-            bool Add(Trove& t)
+            void Add(Trove& t)
             {
-                assert(!t.m_RedistUser.m_iEpoch);
-
-                if (!t.m_Amounts.Tok)
-                    return false;
-
                 UserAdd(t.m_RedistUser, t.m_Amounts.Tok);
-                assert(t.m_RedistUser.m_iEpoch);
-
-                return true;
             }
 
             bool IsUnchanged(const Trove& t) const
@@ -168,11 +170,8 @@ namespace Liquity
             }
 
             template <class Storage>
-            bool Remove(Trove& t, Storage& stor)
+            void Remove(Trove& t, Storage& stor)
             {
-                if (!t.m_RedistUser.m_iEpoch)
-                    return false;
-
                 // try to avoid recalculations if nothing changed, to prevent inaccuracies
                 //
                 // // should not overflow, all values are bounded by totals.
@@ -185,20 +184,25 @@ namespace Liquity
                 {
                     Pair out;
                     UserDel(t.m_RedistUser, out, stor);
-
-                    t.m_Amounts.Tok = out.s;
-                    t.m_Amounts.Col += out.b;
+                    UpdAmountsPostRemove(t.m_Amounts, out);
                 }
+            }
 
-                t.m_RedistUser.m_iEpoch = 0;
-
-                return true;
+            template <class Storage>
+            Liquity::Pair get_UpdatedAmounts(const Trove& t, Storage& stor) const
+            {
+                auto ret = t.m_Amounts;
+                if (!IsUnchanged(t))
+                {
+                    Pair out;
+                    Cast::NotConst(*this).UserDel<true>(Cast::NotConst(t.m_RedistUser), out, stor);
+                    UpdAmountsPostRemove(ret, out);
+                }
+                return ret;
             }
 
             bool Liquidate(Trove& t)
             {
-                assert(!t.m_RedistUser.m_iEpoch); // should not be a part of the pool during liquidation!
-
                 if (!get_TotalSell())
                     return false; // empty
 
@@ -208,6 +212,13 @@ namespace Liquity
                 Trade(p);
 
                 return true;
+            }
+
+        private:
+            static void UpdAmountsPostRemove(Liquity::Pair& vals, const Pair& out)
+            {
+                vals.Tok = out.s;
+                vals.Col += out.b;
             }
 
         } m_RedistPool;
@@ -290,7 +301,7 @@ namespace Liquity
                 return ToCR(rcr) < get_k100();
             }
         };
-
+/*
         Amount get_LiquidationRewardReduce(Float cr) const
         {
             Amount half = m_Settings.m_TroveLiquidationReserve / 2;
@@ -302,7 +313,7 @@ namespace Liquity
 
             return std::min(ret, half);
         }
-
+*/
         struct BaseRate
         {
             Float m_k;
@@ -363,13 +374,14 @@ namespace Liquity
         };
 
         struct BaseTxTrove :public BaseTx {
-            Trove::ID m_iTrove;
+            Trove::ID m_iPrev0;
         };
 
         struct TroveOpen :public BaseTxUser
         {
             static const uint32_t s_iMethod = 3;
             Pair m_Amounts;
+            Trove::ID m_iPrev1;
         };
 
         struct TroveClose :public BaseTxTrove
@@ -381,6 +393,7 @@ namespace Liquity
         {
             static const uint32_t s_iMethod = 5;
             Pair m_Amounts;
+            Trove::ID m_iPrev1;
         };
 
         struct FundsAccess :public BaseTxUser
@@ -398,7 +411,7 @@ namespace Liquity
         {
             static const uint32_t s_iMethod = 8;
             uint32_t m_Count;
-            // followed by array of Trove::ID
+            Trove::ID m_iPrev1;
         };
 
         struct UpdProfitPool :public BaseTxUser
@@ -411,8 +424,7 @@ namespace Liquity
         {
             static const uint32_t s_iMethod = 10;
             Amount m_Amount;
-            uint32_t m_Count;
-            // followed by array of Trove::ID
+            Trove::ID m_iPrev1;
         };
 
     } // namespace Method

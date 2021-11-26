@@ -658,24 +658,24 @@ namespace beam
         return rules_options;
     }
 
-    bool ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc)
+    boost::optional<std::string> ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc)
     {
         return ReadCfgFromFile(vm, desc, vm[cli::CONFIG_FILE_PATH].as<std::string>().c_str());
     }
 
-    bool ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc, const char* szFile)
+    boost::optional<std::string> ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc, const char* szFile)
     {
         const auto fullPath = boost::filesystem::system_complete(szFile).string();
         std::ifstream cfg(fullPath);
         if (!cfg)
-            return false;
+            return boost::none;
 
-        LOG_INFO() << "Reading config from " << fullPath;
+        std::cout << "Reading config from " << fullPath << std::endl;
         po::store(po::parse_config_file(cfg, desc), vm);
-        return true;
+        return fullPath;
     }
 
-    bool ReadCfgFromFileCommon(po::variables_map& vm, const po::options_description& desc)
+    boost::optional<std::string> ReadCfgFromFileCommon(po::variables_map& vm, const po::options_description& desc)
     {
         return ReadCfgFromFile(vm, desc, "beam-common.cfg");
     }

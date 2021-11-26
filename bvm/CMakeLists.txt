@@ -16,6 +16,8 @@ target_link_libraries(bvm
         ethash
 )
 
+target_include_directories(bvm PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
 if (NOT BEAM_WALLET_CLIENT_LIBRARY)
     add_subdirectory(ethash_service)
 endif()

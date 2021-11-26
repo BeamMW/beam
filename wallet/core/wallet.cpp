@@ -1371,8 +1371,20 @@ namespace beam::wallet
         Block::Body block;
         Deserializer der;
         der.reset(b.m_Perishable);
-        der& Cast::Down<Block::BodyBase>(block);
-        der& Cast::Down<TxVectors::Perishable>(block);
+
+        der & block.m_vInputs;
+
+        size_t nOuts = 0;
+        der & nOuts;
+        block.m_vOutputs.resize(nOuts);
+
+        for (size_t i = 0; i < nOuts; i++)
+        {
+            auto& pOut = block.m_vOutputs[i];
+            pOut = std::make_unique<Output>();
+
+            yas::detail::loadRecovery(der, *pOut, h);
+        }
 
         der.reset(b.m_Eternal);
         der& Cast::Down<TxVectors::Eternal>(block);
@@ -1486,7 +1498,7 @@ namespace beam::wallet
         {
             MyRequestBodyPack::Ptr pReq(new MyRequestBodyPack);
 
-            pReq->m_Msg.m_FlagP = proto::BodyBuffers::Full;
+            pReq->m_Msg.m_FlagP = proto::BodyBuffers::Recovery1;
             pReq->m_Msg.m_FlagE = proto::BodyBuffers::Full;
 
             newTip.get_ID(pReq->m_Msg.m_Top);
@@ -1505,7 +1517,7 @@ namespace beam::wallet
         {
             MyRequestBody::Ptr pReq(new MyRequestBody);
 
-            pReq->m_Msg.m_FlagP = proto::BodyBuffers::Full;
+            pReq->m_Msg.m_FlagP = proto::BodyBuffers::Recovery1;
             pReq->m_Msg.m_FlagE = proto::BodyBuffers::Full;
 
             newTip.get_ID(pReq->m_Msg.m_Top);
@@ -2396,5 +2408,17 @@ namespace beam::wallet
             assert(false);
             throw std::runtime_error("Wallet accessed from wrong thread");
         }
+    }
+
+    void Wallet::markAppNotificationAsRead(const TxID& id)
+    {
+        auto it = m_ActiveTransactions.find(id);
+        if (m_ActiveTransactions.end() == it)
+        {
+            return;
+        }
+
+        if (!storage::setTxParameter(*m_WalletDB, id, TxParameterID::IsContractNotificationMarkedAsRead, true, true))
+            LOG_ERROR() << "Can't mark application notification as read.";
     }
 }

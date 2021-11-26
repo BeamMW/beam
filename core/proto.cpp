@@ -943,6 +943,28 @@ void NodeConnection::OnMsg(Time&& msg)
 	}
 }
 
+void NodeConnection::OnMsg(NewTransaction0&& msg0)
+{
+    NewTransaction msg;
+    msg.m_Transaction = std::move(msg0.m_Transaction);
+    msg.m_Fluff = msg0.m_Fluff;
+    Cast::Down<INodeMsgHandler>(*this).OnMsg(std::move(msg));
+}
+
+void NodeConnection::Send(const NewTransaction& msg, uint32_t nLoginFlags)
+{
+    if (LoginFlags::Extension::get(nLoginFlags) >= 9)
+        Send(msg);
+    else
+    {
+        NewTransaction0 msg0;
+        TemporarySwap scope(Cast::NotConst(msg.m_Transaction), msg0.m_Transaction);
+
+        msg0.m_Fluff = msg0.m_Fluff;
+        Send(msg0);
+    }
+}
+
 /////////////////////////
 // NodeConnection::Server
 void NodeConnection::Server::Listen(const io::Address& addr)

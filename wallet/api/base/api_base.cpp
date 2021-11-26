@@ -187,7 +187,7 @@ namespace beam::wallet
             FilterRequest(messageCopy);
              
             const auto message = messageCopy.dump(1, '\t');
-            LOG_DEBUG() << "executeAPIRequest:\n" << message;
+            LOG_VERBOSE() << "executeAPIRequest:\n" << message;
         }
 
         const auto result = callGuarded<ApiSyncMode>(pinfo->rpcid, [this, pinfo] () -> ApiSyncMode {
