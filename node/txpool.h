@@ -208,6 +208,8 @@ struct TxPool
 			{
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Context)
 			} m_Context;
+
+			bool m_Fluff = false;
 		};
 
 		typedef boost::intrusive::multiset<Element::Tx> TxSet;

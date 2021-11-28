@@ -2892,7 +2892,43 @@ uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash&
             pElem->m_BvmCharge += pParent->m_BvmCharge;
     }
 
-    // TODO: broadcast it w.r.t. fluff/stem
+    struct MySelector :public Peer::ISelector {
+        static bool IsValid_(Peer& p) {
+            return Peer::Selector_Stem::IsValid_(p) && (p.get_Ext() >= 9);
+        }
+        bool IsValid(Peer& p) override {
+            return IsValid_(p);
+        }
+    };
+
+    if (!bFluff)
+    {
+        MySelector sel;
+
+        Peer* pNext = SelectRandomPeer(sel);
+        if (pNext)
+            pNext->SendTx(pElem->m_pValue, false, &hvCtx);
+        else
+            bFluff = true;
+    }
+
+    if (bFluff && !pElem->m_Fluff)
+    {
+        pElem->m_Fluff = true;
+
+        for (PeerList::iterator it2 = m_lstPeers.begin(); m_lstPeers.end() != it2; ++it2)
+        {
+            Peer& peer = *it2;
+            if (pSender && peer.m_pInfo && (peer.m_pInfo->m_ID.m_Key == *pSender))
+                continue;
+            if (!MySelector::IsValid_(peer)/* || peer.IsChocking()*/)
+                continue;
+
+            // save time, send the full tx
+            peer.SendTx(pElem->m_pValue, true, &hvCtx);
+        }
+
+    }
 
     return (m_TxDependent.m_pBest == pElem) ? proto::TxStatus::Ok : proto::TxStatus::DependentNotBest;
 }
@@ -3011,6 +3047,8 @@ void Node::Peer::BroadcastTxs()
 {
 	if (!(proto::LoginFlags::SpreadingTransactions & m_LoginFlags))
 		return;
+
+    // TODO: send dependent txs
 
 	if (IsChocking())
 		return;
