@@ -86,6 +86,7 @@ void FlyClient::NetworkStd::Connection::ResetVars()
     ZeroObject(m_Tip);
     m_Flags = 0;
     m_NodeID = Zero;
+    m_pDependentCtx.reset();
 }
 
 void FlyClient::NetworkStd::Connection::ResetInternal()
@@ -927,20 +928,70 @@ void FlyClient::NetworkStd::Connection::OnMsg(DataMissing&& msg)
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractVars& req)
 {
-    return (Flags::Node & m_Flags) && IsAtTip();
+    if (!((Flags::Node & m_Flags) && IsAtTip()))
+        return false;
+
+    if (req.m_pCtx && (get_Ext() < 9))
+        return false;
+
+    return true;
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractVars& req)
 {
 }
 
+void FlyClient::NetworkStd::Connection::SendRequest(RequestContractVars& req)
+{
+    SendTrgCtx(req);
+    Send(req.m_Msg);
+}
+
+void FlyClient::NetworkStd::Connection::SendTrgCtx(const details::ExtraData_DependentCtx& ctx)
+{
+    if (ctx.m_pCtx)
+    {
+        if (m_pDependentCtx)
+        {
+            if (*ctx.m_pCtx == *m_pDependentCtx)
+                return;
+        }
+        else
+            m_pDependentCtx = std::make_unique<Merkle::Hash>();
+
+        *m_pDependentCtx = *ctx.m_pCtx;
+    }
+    else
+    {
+        if (!m_pDependentCtx)
+            return;
+        m_pDependentCtx.reset();
+    }
+
+    proto::SetDependentContext msg;
+    TemporarySwap ts(msg.m_Context, m_pDependentCtx);
+    Send(msg);
+}
+
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractLogs& req)
 {
-    return (Flags::Node & m_Flags) && IsAtTip();
+    if (!((Flags::Node & m_Flags) && IsAtTip()))
+        return false;
+
+    if (req.m_pCtx && (get_Ext() < 9))
+        return false;
+
+    return true;
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractLogs& req)
 {
+}
+
+void FlyClient::NetworkStd::Connection::SendRequest(RequestContractLogs& req)
+{
+    SendTrgCtx(req);
+    Send(req.m_Msg);
 }
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractVar& req)
