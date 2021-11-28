@@ -1365,6 +1365,7 @@ namespace beam
 		m_Commitment = v.m_Commitment;
 		m_Signature = v.m_Signature;
 		m_Args = v.m_Args;
+		m_Dependent = v.m_Dependent;
 	}
 
 	void TxKernelContractControl::HashSelfForMsg(ECC::Hash::Processor& hp) const

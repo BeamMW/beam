@@ -1084,6 +1084,7 @@ namespace beam
 		ECC::Signature m_Signature; // aggreagtedmulti-signature of the blinding factor + all the keys required by the contract
 
 		ByteBuffer m_Args;
+		bool m_Dependent = false;
 
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void AddStats(TxStats&) const override;

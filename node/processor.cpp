@@ -2350,6 +2350,7 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_SkipDefinition = false; // no need to calculate the full definition (i.e. not generating/interpreting a block), MMR updates and etc. can be omitted
 	bool m_LimitExceeded = false;
 	bool m_TxValidation = false; // tx or block
+	bool m_DependentCtxSet = false;
 	uint8_t m_TxStatus = proto::TxStatus::Unspecified;
 	std::ostream* m_pTxErrorInfo = nullptr;
 
@@ -2362,6 +2363,8 @@ struct NodeProcessor::BlockInterpretCtx
 	std::vector<Merkle::Hash> m_vLogs;
 
 	ByteBuffer m_Rollback;
+
+	Merkle::Hash m_hvDependentCtx;
 
 	struct Ser
 		:public Serializer
@@ -2407,6 +2410,7 @@ struct NodeProcessor::BlockInterpretCtx
 			static const Type AssetDestroy = 6;
 			static const Type Log = 7;
 			static const Type Recharge = 8;
+			static const Type DependentCtx = 9;
 		};
 
 		BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& db);
@@ -4542,7 +4546,25 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 
 		if (!m_Bic.m_AlreadyValidated)
 		{
-			hp << krn.m_Msg;
+			if (krn.m_Dependent)
+			{
+				const auto& hvPrev = m_Bic.m_DependentCtxSet ? m_Bic.m_hvDependentCtx : m_Proc.m_Cursor.m_Full.m_Prev;
+				m_Bic.m_DependentCtxSet = true;
+
+				if (m_Bic.m_Temporary)
+				{
+					BlockInterpretCtx::Ser ser(m_Bic);
+					RecoveryTag::Type nTag = RecoveryTag::DependentCtx;
+					ser & nTag;
+					ser & hvPrev;
+				}
+
+				proto::DependentContext::get_Ancestor(m_Bic.m_hvDependentCtx, hvPrev, krn.m_Msg);
+				hp << m_Bic.m_hvDependentCtx;
+			}
+			else
+				hp << krn.m_Msg;
+
 			m_pSigValidate = &hp;
 		}
 
@@ -5116,6 +5138,13 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 		{
 			assert(m_Bic.m_Temporary);
 			der & m_Bic.m_ChargePerBlock;
+		}
+		break;
+
+		case RecoveryTag::DependentCtx:
+		{
+			assert(m_Bic.m_Temporary && m_Bic.m_DependentCtxSet);
+			der & m_Bic.m_hvDependentCtx;
 		}
 		break;
 
