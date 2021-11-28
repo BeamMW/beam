@@ -1129,6 +1129,18 @@ namespace beam
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
 
+	struct DependentContext
+	{
+		static void get_Ancestor(Merkle::Hash& hvRes, const Merkle::Hash& hvParent, const Merkle::Hash& hvTx)
+		{
+			ECC::Hash::Processor()
+				<< "dep.tx"
+				<< hvParent
+				<< hvTx
+				>> hvRes;
+		}
+	};
+
 	struct TxBase
 	{
 		class Context;

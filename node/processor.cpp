@@ -4559,7 +4559,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 					ser & hvPrev;
 				}
 
-				proto::DependentContext::get_Ancestor(m_Bic.m_hvDependentCtx, hvPrev, krn.m_Msg);
+				DependentContext::get_Ancestor(m_Bic.m_hvDependentCtx, hvPrev, krn.m_Msg);
 				hp << m_Bic.m_hvDependentCtx;
 			}
 			else

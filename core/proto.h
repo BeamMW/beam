@@ -400,18 +400,6 @@ namespace proto {
         };
 	};
 
-    struct DependentContext
-    {
-        static void get_Ancestor(Merkle::Hash& hvRes, const Merkle::Hash& hvParent, const Merkle::Hash& hvTx)
-        {
-            ECC::Hash::Processor()
-                << "dep.tx"
-                << hvParent
-                << hvTx
-                >> hvRes;
-        }
-    };
-
     struct IDType
     {
         static const uint8_t Node        = 'N';
@@ -626,7 +614,8 @@ namespace proto {
         static const uint8_t ContractFailNode = ContractFailLast; // non-existing contract invoked, duplicate contract created, contract d'tor left garbage
 
         static const uint8_t DependentNoParent = 0x48;
-        static const uint8_t DependentNotBest = 0x48; // tx is ok, but looses to a competing tx
+        static const uint8_t DependentNotBest = 0x49; // tx is ok, but looses to a competing tx
+        static const uint8_t DependentNoNewCtx = 0x4a; // duplicated new context. Probably means tx kernel was not marked as dependent
     };
 
 
