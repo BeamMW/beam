@@ -577,7 +577,7 @@ void Node::DeleteOutdated()
 		Transaction& tx = *x.m_pValue;
 
         uint32_t nBvmCharge = 0;
-		if (proto::TxStatus::Ok != m_Processor.ValidateTxContextEx(tx, x.m_Height, true, nBvmCharge, nullptr, nullptr))
+		if (proto::TxStatus::Ok != m_Processor.ValidateTxContextEx(tx, x.m_Height, true, nBvmCharge, nullptr, nullptr, nullptr))
             m_TxPool.SetOutdated(x, m_Processor.m_Cursor.m_ID.m_Height);
 	}
 
@@ -594,7 +594,7 @@ void Node::DeleteOutdated()
             auto& x = c.get_ParentObj();
 
             uint32_t nBvmCharge = 0;
-            if (proto::TxStatus::Ok == m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Height, true, nBvmCharge, nullptr, nullptr))
+            if (proto::TxStatus::Ok == m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Height, true, nBvmCharge, nullptr, nullptr, nullptr))
             {
                 LogTxStem(*x.m_pValue, "Not confirmed, fluffing");
                 OnTransactionFluff(std::move(x.m_pValue), nullptr, nullptr, &x);
@@ -2209,7 +2209,7 @@ uint8_t Node::OnTransaction(Transaction::Ptr&& pTx, std::unique_ptr<Merkle::Hash
 uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint32_t& nSizeCorrection, Amount& feeReserve, std::ostream* pExtraInfo)
 {
     uint32_t nBvmCharge = 0;
-    uint8_t nRet = ValidateTx2(ctx, tx, nBvmCharge, feeReserve, nullptr, pExtraInfo);
+    uint8_t nRet = ValidateTx2(ctx, tx, nBvmCharge, feeReserve, nullptr, pExtraInfo, nullptr);
     if (proto::TxStatus::Ok == nRet)
         // convert charge to effective size correction
         nSizeCorrection = (uint32_t) (((uint64_t) nBvmCharge) * Rules::get().MaxBodySize / bvm2::Limits::BlockCharge);
@@ -2217,7 +2217,7 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint3
     return nRet;
 }
 
-uint8_t Node::ValidateTx2(Transaction::Context& ctx, const Transaction& tx, uint32_t& nBvmCharge, Amount& feeReserve, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo)
+uint8_t Node::ValidateTx2(Transaction::Context& ctx, const Transaction& tx, uint32_t& nBvmCharge, Amount& feeReserve, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo, Merkle::Hash* pNewCtx)
 {
     ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
 
@@ -2228,7 +2228,7 @@ uint8_t Node::ValidateTx2(Transaction::Context& ctx, const Transaction& tx, uint
         return proto::TxStatus::Invalid;
     }
 
-    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false, nBvmCharge, pParent, pExtraInfo);
+    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false, nBvmCharge, pParent, pExtraInfo, pNewCtx);
     if (proto::TxStatus::Ok != nCode)
         return nCode;
 
@@ -2871,14 +2871,15 @@ uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash&
         Transaction::Context ctx(pars);
         uint32_t nBvmCharge = 0;
         Amount feeReserve = 0;
-        uint8_t nRes = ValidateTx2(ctx, *pTx, nBvmCharge, feeReserve, pParent, pExtraInfo);
+        Merkle::Hash hvCtxNew;
+        uint8_t nRes = ValidateTx2(ctx, *pTx, nBvmCharge, feeReserve, pParent, pExtraInfo, &hvCtxNew);
 
         if (proto::TxStatus::Ok != nRes)
             return nRes;
 
-        Merkle::Hash hvCtxNew;
-        proto::DependentContext::get_Ancestor(hvCtxNew, hvCtx, keyTx); // TODO - this should be kernelIDs
-
+        if (m_TxDependent.m_setContexts.find(hvCtxNew, TxPool::Dependent::Element::Context::Comparator()) == m_TxDependent.m_setContexts.end())
+            return proto::TxStatus::DependentNotBest;
+        
         pElem = m_TxDependent.AddValidTx(std::move(pTx), ctx, keyTx, hvCtxNew, pParent);
         pElem->m_BvmCharge = nBvmCharge;
         if (pParent)
@@ -2908,7 +2909,7 @@ void Node::Dandelion::OnTimedOut(Element& x)
 bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr, const AmountBig::Type& fees, Amount& feeReserve)
 {
     uint32_t nBvmCharge = 0;
-    if (proto::TxStatus::Ok != get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true, nBvmCharge, nullptr, nullptr))
+    if (proto::TxStatus::Ok != get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true, nBvmCharge, nullptr, nullptr, nullptr))
         return false;
 
     TxStats s;
