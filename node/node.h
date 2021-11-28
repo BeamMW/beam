@@ -522,7 +522,12 @@ private:
 
 		Block::SystemState::Full m_Tip;
 
-		std::unique_ptr<Merkle::Hash> n_pDependentContext;
+		struct DependentContext
+		{
+			std::unique_ptr<Merkle::Hash> m_pQuery;
+			std::vector<Merkle::Hash> m_vSent;
+			Height m_hSent;
+		} m_Dependent;
 
 		uint64_t m_CursorBbs;
 		TxPool::Fluff::Element* m_pCursorTx;
@@ -551,6 +556,7 @@ private:
 		void BroadcastBbs();
 		void BroadcastBbs(Bbs::Subscription&);
 		void MaybeSendSerif();
+		void MaybeSendDependent();
 		void OnChocking();
 		void SetTxCursor(TxPool::Fluff::Element*);
 		bool GetBlock(proto::BodyBuffers&, const NodeDB::StateID&, const proto::GetBodyPack&, bool bActive);

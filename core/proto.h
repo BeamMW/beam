@@ -169,6 +169,10 @@ namespace proto {
 #define BeamNodeMsg_SetDependentContext(macro) \
     macro(std::unique_ptr<Merkle::Hash>, Context)
 
+#define BeamNodeMsg_DependentContextChanged(macro) \
+    macro(std::vector<Merkle::Hash>, vCtxs) \
+    macro(uint32_t, PrefixDepth)
+
 #define BeamNodeMsg_Bye(macro) \
     macro(uint8_t, Reason)
 
@@ -355,6 +359,7 @@ namespace proto {
     macro(0x49, NewTransaction) \
     /* dependent context and txs */ \
     macro(0x4a, SetDependentContext) \
+    macro(0x4b, DependentContextChanged) \
     /* bbs */ \
     macro(0x39, BbsHaveMsg) \
     macro(0x3a, BbsGetMsg) \
@@ -398,6 +403,9 @@ namespace proto {
             static void set(uint32_t& nFlags, uint32_t nExt);
             static uint32_t get(uint32_t nFlags);
         };
+
+        static const uint32_t WantDependentState     = 0x10000; // Please send me dependent state updates
+        static_assert(!(WantDependentState  & Extension::Msk));
 	};
 
     struct IDType

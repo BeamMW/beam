@@ -2912,6 +2912,8 @@ uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash&
             bFluff = true;
     }
 
+    bool bNewBest = (m_TxDependent.m_pBest == pElem);
+
     if (bFluff && !pElem->m_Fluff)
     {
         pElem->m_Fluff = true;
@@ -2919,6 +2921,9 @@ uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash&
         for (PeerList::iterator it2 = m_lstPeers.begin(); m_lstPeers.end() != it2; ++it2)
         {
             Peer& peer = *it2;
+            if (bNewBest)
+                peer.MaybeSendDependent();
+
             if (pSender && peer.m_pInfo && (peer.m_pInfo->m_ID.m_Key == *pSender))
                 continue;
             if (!MySelector::IsValid_(peer)/* || peer.IsChocking()*/)
@@ -2930,7 +2935,7 @@ uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash&
 
     }
 
-    return (m_TxDependent.m_pBest == pElem) ? proto::TxStatus::Ok : proto::TxStatus::DependentNotBest;
+    return bNewBest ? proto::TxStatus::Ok : proto::TxStatus::DependentNotBest;
 }
 
 void Node::Dandelion::OnTimedOut(Element& x)
@@ -2999,6 +3004,7 @@ void Node::Peer::OnLogin(proto::Login&& msg, uint32_t nFlagsPrev)
 	}
 
     MaybeSendSerif();
+    MaybeSendDependent();
 
 	if (b != ShouldFinalizeMining()) {
 		// stupid compiler insists on parentheses!
@@ -3123,6 +3129,52 @@ void Node::Peer::MaybeSendSerif()
 
     Send(msg);
     m_Flags |= Flags::SerifSent;
+}
+
+void Node::Peer::MaybeSendDependent()
+{
+    auto& vec = m_Dependent.m_vSent; // alias
+    if (m_Dependent.m_hSent != m_This.m_Processor.m_Cursor.m_Full.m_Height)
+    {
+        m_Dependent.m_hSent = m_This.m_Processor.m_Cursor.m_Full.m_Height;
+        vec.clear();
+    }
+
+    if (!(proto::LoginFlags::WantDependentState & m_LoginFlags))
+        return;
+
+    auto* pTop = m_This.m_TxDependent.m_pBest;
+    if (!pTop)
+        return;
+
+    proto::DependentContextChanged msg;
+    for (msg.m_PrefixDepth = std::min(pTop->m_Depth, (uint32_t) vec.size()); msg.m_PrefixDepth; msg.m_PrefixDepth--, pTop = pTop->m_pParent)
+        if (vec[msg.m_PrefixDepth - 1] == pTop->m_Context.m_Key)
+            break;
+
+    vec.resize(msg.m_PrefixDepth);
+
+    pTop = m_This.m_TxDependent.m_pBest;
+    if (pTop->m_Depth == msg.m_PrefixDepth)
+        return; // no change
+
+    assert(vec.size() < pTop->m_Depth);
+    vec.resize(pTop->m_Depth);
+    msg.m_vCtxs.resize(vec.size() - msg.m_PrefixDepth);
+
+    for (uint32_t i = pTop->m_Depth; ; pTop = pTop->m_pParent)
+    {
+        const auto& hv = pTop->m_Context.m_Key;
+        vec[--i] = hv;
+
+        uint32_t i2 = i - msg.m_PrefixDepth;
+        msg.m_vCtxs[i2] = hv;
+
+        if (!i2)
+            break;
+    }
+
+    Send(msg);
 }
 
 void Node::Peer::OnMsg(proto::HaveTransaction&& msg)
@@ -3915,7 +3967,7 @@ void Node::Peer::OnMsg(proto::ContractVarsEnum&& msg)
 
     Wrk wrk(*this, msg);
 
-    m_This.m_Processor.ExecInDependentContext(wrk, n_pDependentContext.get(), m_This.m_TxDependent);
+    m_This.m_Processor.ExecInDependentContext(wrk, m_Dependent.m_pQuery.get(), m_This.m_TxDependent);
 
     Send(wrk.m_Out);
 }
@@ -3983,7 +4035,7 @@ void Node::Peer::OnMsg(proto::ContractLogsEnum&& msg)
 
     Wrk wrk(*this, msg);
 
-    m_This.m_Processor.ExecInDependentContext(wrk, n_pDependentContext.get(), m_This.m_TxDependent);
+    m_This.m_Processor.ExecInDependentContext(wrk, m_Dependent.m_pQuery.get(), m_This.m_TxDependent);
 
     Send(wrk.m_Out);
 }
@@ -4037,7 +4089,7 @@ void Node::Peer::OnMsg(proto::GetContractLogProof&& msg)
 
 void Node::Peer::OnMsg(proto::SetDependentContext&& msg)
 {
-    n_pDependentContext = std::move(msg.m_Context);
+    m_Dependent.m_pQuery = std::move(msg.m_Context);
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
