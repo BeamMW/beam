@@ -2481,53 +2481,59 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, std::ostream* pExtraInfo
     return proto::TxStatus::Ok;
 }
 
-void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
+Node::Peer* Node::SelectRandomPeer(Peer::ISelector& sel)
 {
-	m_Dandelion.DeleteAggr(x);
-	LogTxStem(*x.m_pValue, "Aggregation finished");
-
     // must have at least 1 peer to continue the stem phase
-    uint32_t nStemPeers = 0;
+    uint32_t nCount = 0;
 
     for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; ++it)
-        if (it->m_LoginFlags & proto::LoginFlags::SpreadingTransactions)
-            nStemPeers++;
+        if (sel.IsValid(*it))
+            nCount++;
 
-    if (nStemPeers)
+    if (nCount)
     {
         auto thr = uintBigFrom(m_Cfg.m_Dandelion.m_FluffProbability);
 
         // Compare two bytes of threshold with random nonce 
         if (memcmp(thr.m_pData, NextNonce().m_pData, thr.nBytes) < 0)
         {
-            // broadcast to random peer
-            assert(nStemPeers);
-
             // Choose random peer index between 0 and nStemPeers - 1 
-            uint32_t nRandomPeerIdx = RandomUInt32(nStemPeers);
+            uint32_t nRandomPeerIdx = RandomUInt32(nCount);
 
             for (PeerList::iterator it = m_lstPeers.begin(); ; ++it)
-                if ((it->m_LoginFlags & proto::LoginFlags::SpreadingTransactions) && !nRandomPeerIdx--)
-                {
-					if (m_Cfg.m_LogTxStem)
-					{
-						LOG_INFO() << "Stem continues to " << it->m_RemoteAddr;
-					}
-
-					it->SendTx(x.m_pValue, false);
-                    break;
-                }
-
-            // set random timer
-            uint32_t nTimeout_ms = m_Cfg.m_Dandelion.m_TimeoutMin_ms + RandomUInt32(m_Cfg.m_Dandelion.m_TimeoutMax_ms - m_Cfg.m_Dandelion.m_TimeoutMin_ms);
-            m_Dandelion.SetTimer(nTimeout_ms, x);
-
-            return;
+                if (sel.IsValid(*it) && !nRandomPeerIdx--)
+                    return & *it;
         }
     }
 
-	LogTxStem(*x.m_pValue, "Going to fluff");
-	OnTransactionFluff(std::move(x.m_pValue), nullptr, nullptr, &x);
+    return nullptr;
+}
+
+void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
+{
+	m_Dandelion.DeleteAggr(x);
+	LogTxStem(*x.m_pValue, "Aggregation finished");
+
+    Peer::Selector_Stem sel;
+    Peer* pNext = SelectRandomPeer(sel);
+    if (pNext)
+    {
+		if (m_Cfg.m_LogTxStem)
+		{
+			LOG_INFO() << "Stem continues to " << pNext->m_RemoteAddr;
+		}
+
+		pNext->SendTx(x.m_pValue, false);
+
+        // set random timer
+        uint32_t nTimeout_ms = m_Cfg.m_Dandelion.m_TimeoutMin_ms + RandomUInt32(m_Cfg.m_Dandelion.m_TimeoutMax_ms - m_Cfg.m_Dandelion.m_TimeoutMin_ms);
+        m_Dandelion.SetTimer(nTimeout_ms, x);
+    }
+    else
+    {
+        LogTxStem(*x.m_pValue, "Going to fluff");
+        OnTransactionFluff(std::move(x.m_pValue), nullptr, nullptr, &x);
+    }
 }
 
 void Node::PerformAggregation(TxPool::Stem::Element& x)
@@ -3110,11 +3116,15 @@ void Node::Peer::OnMsg(proto::GetTransaction&& msg)
     SendTx(it->get_ParentObj().m_pValue, true);
 }
 
-void Node::Peer::SendTx(Transaction::Ptr& ptx, bool bFluff)
+void Node::Peer::SendTx(Transaction::Ptr& ptx, bool bFluff, const Merkle::Hash* pCtx /* = nullptr */)
 {
-    proto::NewTransaction msg;
+    struct MyMsg :public proto::NewTransaction {
+        ~MyMsg() {
+            m_Context.release();
+        }
+    } msg;
     msg.m_Fluff = bFluff;
-
+    msg.m_Context.reset(Cast::NotConst(pCtx)); // fictive
     TemporarySwap scope(msg.m_Transaction, ptx);
 
     Send(msg);

@@ -564,7 +564,20 @@ private:
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
 		void ModifyRatingWrtData(size_t nSize);
 		void SendHdrs(NodeDB::StateID&, uint32_t nCount);
-		void SendTx(Transaction::Ptr& ptx, bool bFluff);
+		void SendTx(Transaction::Ptr& ptx, bool bFluff, const Merkle::Hash* pCtx = nullptr);
+
+		struct ISelector {
+			virtual bool IsValid(Peer&)= 0;
+		};
+
+		struct Selector_Stem :public ISelector {
+			static bool IsValid_(Peer& p) {
+				return !!(proto::LoginFlags::SpreadingTransactions & p.m_LoginFlags);
+			}
+			bool IsValid(Peer& p) override {
+				return IsValid_(p);
+			}
+		};
 
 		// proto::NodeConnection
 		virtual void OnConnectedSecure() override;
@@ -628,6 +641,9 @@ private:
 	void NextNonce(ECC::Scalar::Native&);
 
 	uint32_t RandomUInt32(uint32_t threshold);
+
+
+	Peer* SelectRandomPeer(Peer::ISelector&);
 
 	ECC::Scalar::Native m_MyPrivateID;
 	PeerID m_MyPublicID;
