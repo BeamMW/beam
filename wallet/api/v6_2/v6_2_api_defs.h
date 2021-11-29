@@ -19,9 +19,12 @@
 
 namespace beam::wallet
 {
+    // TODO:IPFS move to version 6.3
+    // TODO:IPFS add ipfs_unpin
     #define V6_2_API_METHODS(macro) \
         macro(IPFSAdd, "ipfs_add", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
-        macro(IPFSGet, "ipfs_get", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)
+        macro(IPFSGet, "ipfs_get", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
+        macro(IPFSPin, "ipfs_pin", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)
 
     struct IPFSAdd
     {
@@ -39,6 +42,15 @@ namespace beam::wallet
         {
             std::string hash;
             std::vector<uint8_t> data;
+        };
+    };
+
+    struct IPFSPin
+    {
+        std::string hash;
+        struct Response
+        {
+            std::string hash;
         };
     };
 }

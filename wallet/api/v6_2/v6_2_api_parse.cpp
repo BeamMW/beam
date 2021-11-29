@@ -66,4 +66,26 @@ namespace beam::wallet
             }
         };
     }
+
+    std::pair<IPFSPin, IWalletApi::MethodInfo> V62Api::onParseIPFSPin(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        IPFSPin message;
+        message.hash = getMandatoryParam<NonEmptyString>(params, "hash");
+        return std::make_pair(std::move(message), MethodInfo());
+    }
+
+    void V62Api::getResponse(const JsonRpcId& id, const IPFSPin::Response& res, json& msg)
+    {
+        msg = json
+            {
+                {JsonRpcHeader, JsonRpcVersion},
+                {"id", id},
+                {"result",
+                    {
+                        {"hash", res.hash},
+                        {"result", true}
+                    }
+                }
+            };
+    }
 }

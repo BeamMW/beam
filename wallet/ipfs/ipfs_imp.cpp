@@ -231,6 +231,47 @@ namespace beam::wallet::imp
         );
     }
 
+    void IPFSService::pin(const std::string& hash, std::function<void ()>&& res, Err&& err)
+    {
+        if(!_node || !_thread)
+        {
+            retToClient([err = std::move(err)](){
+                err("Unexpected get call. IPFS is not started");
+            });
+        }
+
+        if (hash.empty())
+        {
+            retToClient([err = std::move(err)](){
+                err("Cannot get data via an empty hash");
+            });
+        }
+
+        boost::asio::spawn(*_ios, [this, hash, err = std::move(err), res = std::move(res)]
+            (boost::asio::yield_context yield) mutable {
+                try
+                {
+                   std::function<void ()> cancel = [this, err] () {
+                       retToClient([this, err] () {
+                           err("IPF pin operation cancelled");
+                       });
+                   };
+
+                   _node->pin(hash, cancel, std::move(yield));
+                   retToClient([res = std::move(res)] () mutable {
+                       res();
+                   });
+                }
+                catch(const boost::system::system_error& se)
+                {
+                   retToClient([err = std::move(err), what = err2str(se)] () mutable {
+                       err(std::move(what));
+                   });
+                }
+            }
+        );
+    }
+
     void IPFSService::retToClient(std::function<void()>&& what)
     {
         _handler->pushToClient(std::move(what));

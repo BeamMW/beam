@@ -206,6 +206,10 @@ option(BEAM_CONFIDENTIAL_ASSETS_SUPPORT "Build wallet with confidential assets s
 option(BEAM_IPFS_SUPPORT "Build wallet with IPFS support" ON)
 option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
 
+if (BEAM_IPFS_SUPPORT)
+    message("BEAM_IPFS_SUPPORT is ON")
+endif()
+
 if(BEAM_HW_WALLET)
 
     if(BEAM_USE_STATIC)

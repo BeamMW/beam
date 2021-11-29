@@ -56,6 +56,11 @@ namespace beam::wallet
         virtual void get(const std::string& hash,
                          std::function<void (std::vector<uint8_t>&&)>&& res,
                          Err&&) = 0;
+
+        /// \brief Pin to the local node
+        virtual void pin(const std::string& hash,
+                         std::function<void ()>&& res,
+                         Err&&) = 0;
     };
 }
 #endif
