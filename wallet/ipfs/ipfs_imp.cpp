@@ -35,7 +35,9 @@ namespace beam::wallet::imp
     {
         std::string err2str(const boost::system::system_error &err)
         {
-            return ((std::stringstream()) << err.code() << ", " << err.what()).str();
+            std::stringstream ss;
+            ss << err.code() << ", " << err.what();
+            return ss.str();
         }
     }
 
