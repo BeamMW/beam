@@ -680,6 +680,8 @@ namespace beam::wallet
                 // TODO:IPFS path from settings
                 ipfsService->start("./ipfs-repo");
                 m_ipfs = ipfsService;
+                #else
+                LOG_INFO () << "IPFS Service is disabled."
                 #endif
 
                 //
