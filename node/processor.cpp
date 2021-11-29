@@ -2350,6 +2350,7 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_SkipDefinition = false; // no need to calculate the full definition (i.e. not generating/interpreting a block), MMR updates and etc. can be omitted
 	bool m_LimitExceeded = false;
 	bool m_TxValidation = false; // tx or block
+	bool m_DependentCtxSet = false;
 	uint8_t m_TxStatus = proto::TxStatus::Unspecified;
 	std::ostream* m_pTxErrorInfo = nullptr;
 
@@ -2362,6 +2363,8 @@ struct NodeProcessor::BlockInterpretCtx
 	std::vector<Merkle::Hash> m_vLogs;
 
 	ByteBuffer m_Rollback;
+
+	Merkle::Hash m_hvDependentCtx;
 
 	struct Ser
 		:public Serializer
@@ -2407,6 +2410,7 @@ struct NodeProcessor::BlockInterpretCtx
 			static const Type AssetDestroy = 6;
 			static const Type Log = 7;
 			static const Type Recharge = 8;
+			static const Type DependentCtx = 9;
 		};
 
 		BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& db);
@@ -4037,58 +4041,83 @@ bool NodeProcessor::HandleValidatedBlock(const Block::Body& block, BlockInterpre
 
 struct NodeProcessor::DependentContextSwitch
 {
+	typedef std::vector<const TxPool::Dependent::Element*> Vec;
+
 	NodeProcessor& m_This;
 	BlockInterpretCtx& m_Bic;
-	std::vector<Transaction*> m_vTxs;
+	Vec m_vec;
+	uint32_t m_Applied;
 
 	DependentContextSwitch(NodeProcessor& np, BlockInterpretCtx& bic)
 		:m_This(np)
 		,m_Bic(bic)
+		,m_Applied(0)
 	{
 	}
 
 	~DependentContextSwitch()
 	{
-		Undo();
-	}
-
-	void Undo()
-	{
 		m_Bic.m_Fwd = false;
-		for (uint32_t i = (uint32_t) m_vTxs.size(); i--; )
-			m_This.HandleValidatedTx(*m_vTxs[i], m_Bic);
-
-		m_vTxs.clear();
+		while (m_Applied)
+			m_This.HandleValidatedTx(*m_vec[--m_Applied]->m_pValue, m_Bic);
 	}
 
-	bool Apply(const TxPool::Dependent::Element* pTop)
+	static void Convert(Vec& vec, const TxPool::Dependent::Element* pTop)
 	{
 		uint32_t n = 0;
 		for (auto p = pTop; p; p = p->m_pParent)
 			n++;
 
-		assert(m_vTxs.empty());
-		m_vTxs.resize(n);
+		vec.resize(n);
 		for (auto p = pTop; p; p = p->m_pParent)
-			m_vTxs[--n] = p->m_pValue.get();
+			vec[--n] = p;
+	}
 
-		n = (uint32_t) m_vTxs.size();
+	bool Apply(const TxPool::Dependent::Element* pTop) 
+	{
+		Convert(m_vec, pTop);
 
-		assert(m_Bic.m_Fwd);
+		assert(m_Bic.m_Fwd && !m_Applied);
 
-		for (uint32_t i = 0; i < n; i++)
-		{
-			if (!m_This.HandleValidatedTx(*m_vTxs[i], m_Bic))
-			{
-				Undo();
-				m_Bic.m_Fwd = true;
+		for (; m_Applied < m_vec.size(); m_Applied++)
+			if (!m_This.HandleValidatedTx(*m_vec[m_Applied]->m_pValue, m_Bic))
 				return false;
-			}
-		}
 
 		return true;
 	}
 };
+
+bool NodeProcessor::ExecInDependentContext(IWorker& wrk, const Merkle::Hash* pCtx, const TxPool::Dependent& txp)
+{
+	if (!pCtx)
+		wrk.Do();
+	else
+	{
+		if (m_Cursor.m_Full.m_Prev == *pCtx)
+			wrk.Do();
+		else
+		{
+			auto itCtx = txp.m_setContexts.find(*pCtx, TxPool::Dependent::Element::Context::Comparator());
+			if (txp.m_setContexts.end() == itCtx)
+				return false;
+
+			BlockInterpretCtx bic(m_Cursor.m_ID.m_Height + 1, true);
+			bic.SetAssetHi(*this);
+			bic.m_Temporary = true;
+			bic.m_TxValidation = true;
+			bic.m_SkipDefinition = true;
+
+			DependentContextSwitch dcs(*this, bic);
+			if (!dcs.Apply(&itCtx->get_ParentObj()))
+				return false;
+
+			wrk.Do();
+		}
+	}
+
+	return true;
+}
+
 
 bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 {
@@ -4517,7 +4546,25 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 
 		if (!m_Bic.m_AlreadyValidated)
 		{
-			hp << krn.m_Msg;
+			if (krn.m_Dependent)
+			{
+				const auto& hvPrev = m_Bic.m_DependentCtxSet ? m_Bic.m_hvDependentCtx : m_Proc.m_Cursor.m_Full.m_Prev;
+				m_Bic.m_DependentCtxSet = true;
+
+				if (m_Bic.m_Temporary)
+				{
+					BlockInterpretCtx::Ser ser(m_Bic);
+					RecoveryTag::Type nTag = RecoveryTag::DependentCtx;
+					ser & nTag;
+					ser & hvPrev;
+				}
+
+				DependentContext::get_Ancestor(m_Bic.m_hvDependentCtx, hvPrev, krn.m_Msg);
+				hp << m_Bic.m_hvDependentCtx;
+			}
+			else
+				hp << krn.m_Msg;
+
 			m_pSigValidate = &hp;
 		}
 
@@ -5091,6 +5138,13 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 		{
 			assert(m_Bic.m_Temporary);
 			der & m_Bic.m_ChargePerBlock;
+		}
+		break;
+
+		case RecoveryTag::DependentCtx:
+		{
+			assert(m_Bic.m_Temporary && m_Bic.m_DependentCtxSet);
+			der & m_Bic.m_hvDependentCtx;
 		}
 		break;
 
@@ -5754,7 +5808,7 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return thw.first;
 }
 
-uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRange& hr, bool bShieldedTested, uint32_t& nBvmCharge, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo)
+uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRange& hr, bool bShieldedTested, uint32_t& nBvmCharge, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo, Merkle::Hash* pCtxNew)
 {
 	Height h = m_Cursor.m_ID.m_Height + 1;
 
@@ -5805,6 +5859,9 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 
 	size_t n = 0;
 	bool bOk = HandleElementVecFwd(tx.m_vKernels, bic, n);
+
+	if (bOk && pCtxNew)
+		*pCtxNew = bic.m_DependentCtxSet ? bic.m_hvDependentCtx : m_Cursor.m_Full.m_Prev;
 
 	nBvmCharge -= bic.m_ChargePerBlock;
 
@@ -5947,14 +6004,6 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	if (bc.m_Fees)
 		ssc.m_Counter.m_Value += m_nSizeUtxoComission;
 
-	DependentContextSwitch dcs(*this, bic);
-	if (!dcs.Apply(bc.m_pParent))
-	{
-		LOG_WARNING() << "can't switch dependent context during block gen"; // normally should not happen
-		return proto::TxStatus::DependentNoParent;
-	}
-
-
 	const size_t nSizeMax = Rules::get().MaxBodySize;
 	if (ssc.m_Counter.m_Value > nSizeMax)
 	{
@@ -5964,6 +6013,49 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	}
 
 	size_t nTxNum = 0;
+
+	DependentContextSwitch::Vec vDependent;
+	DependentContextSwitch::Convert(vDependent, bc.m_pParent);
+
+	for (size_t i = 0; i < vDependent.size(); i++)
+	{
+		const auto& x = *vDependent[i];
+		Amount txFee = x.m_Fee;
+		auto nSize = x.m_Size;
+		if (x.m_pParent)
+		{
+			txFee -= x.m_pParent->m_Fee;
+			nSize -= x.m_pParent->m_Size;
+		}
+
+		Amount feesNext = bc.m_Fees + txFee;
+		if (feesNext < bc.m_Fees)
+			break; // huge fees are unsupported
+
+
+		size_t nSizeNext = ssc.m_Counter.m_Value + nSize;
+		if (!bc.m_Fees && feesNext)
+			nSizeNext += m_nSizeUtxoComission;
+
+		if (nSizeNext > nSizeMax)
+			break;
+
+		Transaction& tx = *x.m_pValue;
+
+		assert(!bic.m_LimitExceeded);
+		if (!HandleValidatedTx(tx, bic))
+		{
+			bic.m_LimitExceeded = false;
+			break;
+		}
+
+		TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(tx.get_Reader());
+
+		bc.m_Fees = feesNext;
+		ssc.m_Counter.m_Value = nSizeNext;
+		offset += ECC::Scalar::Native(tx.m_Offset);
+		++nTxNum;
+	}
 
 	for (TxPool::Fluff::ProfitSet::iterator it = bc.m_TxPool.m_setProfit.begin(); bc.m_TxPool.m_setProfit.end() != it; )
 	{

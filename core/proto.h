@@ -166,6 +166,13 @@ namespace proto {
 #define BeamNodeMsg_GetTransaction(macro) \
     macro(Transaction::KeyType, ID)
 
+#define BeamNodeMsg_SetDependentContext(macro) \
+    macro(std::unique_ptr<Merkle::Hash>, Context)
+
+#define BeamNodeMsg_DependentContextChanged(macro) \
+    macro(std::vector<Merkle::Hash>, vCtxs) \
+    macro(uint32_t, PrefixDepth)
+
 #define BeamNodeMsg_Bye(macro) \
     macro(uint8_t, Reason)
 
@@ -350,6 +357,9 @@ namespace proto {
     macro(0x31, HaveTransaction) \
     macro(0x32, GetTransaction) \
     macro(0x49, NewTransaction) \
+    /* dependent context and txs */ \
+    macro(0x4a, SetDependentContext) \
+    macro(0x4b, DependentContextChanged) \
     /* bbs */ \
     macro(0x39, BbsHaveMsg) \
     macro(0x3a, BbsGetMsg) \
@@ -393,19 +403,10 @@ namespace proto {
             static void set(uint32_t& nFlags, uint32_t nExt);
             static uint32_t get(uint32_t nFlags);
         };
-	};
 
-    struct DependentContext
-    {
-        static void get_Ancestor(Merkle::Hash& hvRes, const Merkle::Hash& hvParent, const Merkle::Hash& hvTx)
-        {
-            ECC::Hash::Processor()
-                << "dep.tx"
-                << hvParent
-                << hvTx
-                >> hvRes;
-        }
-    };
+        static const uint32_t WantDependentState     = 0x10000; // Please send me dependent state updates
+        static_assert(!(WantDependentState  & Extension::Msk));
+	};
 
     struct IDType
     {
@@ -621,7 +622,8 @@ namespace proto {
         static const uint8_t ContractFailNode = ContractFailLast; // non-existing contract invoked, duplicate contract created, contract d'tor left garbage
 
         static const uint8_t DependentNoParent = 0x48;
-        static const uint8_t DependentNotBest = 0x48; // tx is ok, but looses to a competing tx
+        static const uint8_t DependentNotBest = 0x49; // tx is ok, but looses to a competing tx
+        static const uint8_t DependentNoNewCtx = 0x4a; // duplicated new context. Probably means tx kernel was not marked as dependent
     };
 
 
@@ -762,6 +764,9 @@ namespace proto {
 
     public:
 
+        uint32_t m_LoginFlags;
+        uint32_t get_Ext() const;
+
         NodeConnection();
         virtual ~NodeConnection();
         void Reset();
@@ -795,7 +800,7 @@ namespace proto {
 		// Login-specific
 		void SendLogin();
 		virtual void SetupLogin(Login&);
-		virtual void OnLogin(Login&&);
+		virtual void OnLogin(Login&&, uint32_t nFlagsPrev);
 		virtual Height get_MinPeerFork();
 
         bool IsLive() const;
@@ -856,11 +861,16 @@ namespace proto {
         void OnExc(const std::exception&);
         void OnProcessingExc(const NodeProcessingException& exception);
 
-#define THE_MACRO(code, msg) void Send(const msg& v);
+#define THE_MACRO(code, msg) void SendRaw(const msg& v);
         BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
 
-        void Send(const NewTransaction&, uint32_t nLoginFlags);
+        template <typename TMsg>
+        void Send(const TMsg& msg) {
+            SendRaw(msg);
+        }
+
+        void Send(const NewTransaction&);
 
         struct Server
         {
