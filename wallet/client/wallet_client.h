@@ -31,13 +31,17 @@
 #include "extensions/broadcast_gateway/broadcast_msg_validator.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
 #include "extensions/news_channels/verification_provider.h"
-
 #include "extensions/dex_board/dex_board.h"
 #include "extensions/dex_board/dex_order.h"
+
+#ifdef BEAM_IPFS_SUPPORT
+#include "wallet/ipfs/ipfs.h"
+#endif
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "extensions/offers_board/swap_offers_observer.h"
 #include "extensions/offers_board/swap_offer.h"
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+#endif
 
 #include <thread>
 #include <atomic>
@@ -121,6 +125,10 @@ namespace beam::wallet
         IWalletModelAsync::Ptr getAsync();
         Wallet::Ptr getWallet(); // can return null
         IWalletDB::Ptr getWalletDB();
+
+        #ifdef BEAM_IPFS_SUPPORT
+        IPFSService::Ptr getIPFS();
+        #endif
 
         IShadersManager::Ptr IWThread_createAppShaders(const std::string& appid, const std::string& appname);
 
@@ -346,6 +354,7 @@ namespace beam::wallet
         std::weak_ptr<NodeNetwork> m_nodeNetwork;
         std::weak_ptr<IWalletMessageEndpoint> m_walletNetwork;
         std::weak_ptr<Wallet> m_wallet;
+        std::weak_ptr<IPFSService> m_ipfs;
         // broadcasting via BBS
         std::weak_ptr<IBroadcastMsgGateway> m_broadcastRouter;
         std::weak_ptr<IBroadcastListener> m_updatesProvider;

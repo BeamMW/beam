@@ -107,6 +107,10 @@ namespace beam::wallet
                     data.appId     = appid;
                     data.appName   = appname;
 
+                    #ifdef BEAM_IPFS_SUPPORT
+                    data.ipfs = client->getIPFS();
+                    #endif
+
                     wapi->_walletAPI = IWalletApi::CreateInstance(version, *wapi->_walletAPIProxy, data);
                     cback(std::move(wapi));
                 }

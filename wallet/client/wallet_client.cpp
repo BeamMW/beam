@@ -658,6 +658,31 @@ namespace beam::wallet
                 */
 
                 //
+                // IPFS
+                //
+                #ifdef BEAM_IPFS_SUPPORT
+                struct IPFSHandler: public IPFSService::Handler {
+                    explicit IPFSHandler(WalletClient* wc)
+                        : _wc(wc)
+                    {
+                    }
+
+                    void pushToClient(std::function<void()>&& action) override {
+                        _wc->postFunctionToClientContext(std::move(action));
+                    }
+
+                private:
+                    WalletClient* _wc;
+                };
+
+                auto ipfsHandler = std::make_shared<IPFSHandler>(this);
+                auto ipfsService = IPFSService::create(ipfsHandler);
+                // TODO:IPFS path from settings
+                ipfsService->start("./ipfs-repo");
+                m_ipfs = ipfsService;
+                #endif
+
+                //
                 // Shaders
                 //
                 auto clientShaders = IShadersManager::CreateInstance(wallet, m_walletDB, nodeNetwork, "", "");
@@ -709,6 +734,14 @@ namespace beam::wallet
         auto sp = m_wallet.lock();
         return sp;
     }
+
+    #ifdef BEAM_IPFS_SUPPORT
+    IPFSService::Ptr WalletClient::getIPFS()
+    {
+        auto sp = m_ipfs.lock();
+        return sp;
+    }
+    #endif
 
     IShadersManager::Ptr WalletClient::IWThread_createAppShaders(const std::string& appid, const std::string& appname)
     {
