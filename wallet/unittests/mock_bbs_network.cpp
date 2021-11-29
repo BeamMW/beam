@@ -38,10 +38,10 @@ public:
     }
 
     // INetwork
-    virtual void Connect() override {};
-    virtual void Disconnect() override {};
-    virtual void PostRequestInternal(FlyClient::Request&) override {};
-    virtual void BbsSubscribe(BbsChannel channel, Timestamp ts, FlyClient::IBbsReceiver* subscriber) override
+    void Connect() override {};
+    void Disconnect() override {};
+    void PostRequestInternal(FlyClient::Request&) override {};
+    void BbsSubscribe(BbsChannel channel, Timestamp ts, FlyClient::IBbsReceiver* subscriber) override
     {
         m_subscriptions[channel].push_back(std::make_pair(subscriber, ts));
     };
@@ -50,7 +50,7 @@ public:
     /**
      *  Redirects BBS messages to subscribers
      */
-    virtual void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override
+    void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override
     {
         beam::BbsChannel channel;
         peerID.m_Channel.Export(channel);
@@ -67,7 +67,7 @@ public:
             }
         }
     };
-    virtual void Send(const WalletID& peerID, const SetTxParameter& msg) override {};
+    void Send(const WalletID& peerID, const SetTxParameter& msg) override {};
 
 private:
     std::map<BbsChannel, std::vector<std::pair<FlyClient::IBbsReceiver*, Timestamp>>> m_subscriptions;

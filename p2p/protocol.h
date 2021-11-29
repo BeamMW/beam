@@ -94,24 +94,6 @@ public:
         );
     }
 
-    /// Adds custom message handler without object deserialization
-    // Deprecated. TODO: dh remove after 2 fork.
-    template <
-        typename MsgHandler,
-        bool(MsgHandler::*MessageFn)(uint64_t, std::vector<uint8_t>&&)
-    >
-    void add_message_handler_wo_deserializer(MsgType type, MsgHandler* msgHandler, uint32_t minMsgSize, uint32_t maxMsgSize) {
-        add_custom_message_handler(
-            type, msgHandler, minMsgSize, maxMsgSize,
-            [](void* msgHandler, IErrorHandler& errorHandler, Deserializer& des, uint64_t fromStream, const void* data, size_t size) -> bool {
-                const uint8_t* begin = static_cast<const uint8_t*>(data);
-                const uint8_t* end = begin + size;
-                std::vector<uint8_t> m(begin, end);
-                return (static_cast<MsgHandler*>(msgHandler)->*MessageFn)(fromStream, std::move(m));
-            }
-        );
-    }
-
     /// If externalTailSize > 0 then serialized msg must be followed by raw buffer of thet size
     template <typename MsgObject> void serialize(SerializedMsg& out, MsgType type, const MsgObject& obj, size_t externalTailSize=0) {
 		serializeNoFinalize(out, type, obj);

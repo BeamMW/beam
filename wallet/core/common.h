@@ -785,14 +785,6 @@ namespace beam::wallet
 
         void get_Hash(ECC::Hash::Value&) const override;
     };
-    
-    struct SwapOfferConfirmation : public ConfirmationBase
-    {
-        // Identifies owner for swap offer modification
-        ByteBuffer m_offerData;
-
-        void get_Hash(ECC::Hash::Value&) const override;
-    };
 
     struct SignatureHandler : public ConfirmationBase
     {

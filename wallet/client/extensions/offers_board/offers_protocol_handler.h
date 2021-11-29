@@ -44,13 +44,11 @@ namespace beam::wallet
          * @param content   Swap offer data
          * @param keyOwnID  Signatory's BBS key ID, used to derive Sk to create signature
          */
-        ByteBuffer createMessage(const SwapOffer& content, uint64_t keyOwnID) const; // Deprecated. TODO: dh remove after 2 fork
         BroadcastMsg createBroadcastMessage(const SwapOffer& content, uint64_t keyOwnID) const;
 
         /**
          *  Parse message and verify signature.
          */
-        boost::optional<SwapOffer> parseMessage(const ByteBuffer& rawMessage) const;    // Deprecated. TODO: dh remove after 2 fork.
         boost::optional<SwapOffer> parseMessage(const BroadcastMsg& msg) const;
 
     private:

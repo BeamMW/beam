@@ -42,14 +42,6 @@ bool SwapOffersBoard::onMessage(uint64_t unused, BroadcastMsg&& msg)
     return onOfferFromNetwork(*newOffer);
 }
 
-bool SwapOffersBoard::onMessage(uint64_t unused, ByteBuffer&& msg)
-{
-    auto newOffer = m_protocolHandler.parseMessage(msg);
-    if (!newOffer) return false;
-
-    return onOfferFromNetwork(*newOffer);
-}
-
 /**
  *  Watches for system state to remove stuck expired offers from board.
  *  Doesn't push any updates to network, just notify subscribers.
@@ -356,16 +348,8 @@ void SwapOffersBoard::sendUpdateToNetwork(const SwapOffer& offer) const
 
 void SwapOffersBoard::broadcastOffer(const SwapOffer& offer, uint64_t keyOwnID) const
 {
-    if (m_currentHeight < Rules::get().pForks[2].m_Height)
-    {
-        auto message = m_protocolHandler.createMessage(offer, keyOwnID);
-        m_broadcastGateway.sendRawMessage(BroadcastContentType::SwapOffers, message);
-    }
-    else
-    {
-        auto message = m_protocolHandler.createBroadcastMessage(offer, keyOwnID);
-        m_broadcastGateway.sendMessage(BroadcastContentType::SwapOffers, message);
-    }
+    auto message = m_protocolHandler.createBroadcastMessage(offer, keyOwnID);
+    m_broadcastGateway.sendMessage(BroadcastContentType::SwapOffers, message);
 }
 
 void SwapOffersBoard::Subscribe(ISwapOffersObserver* observer)

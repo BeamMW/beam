@@ -55,7 +55,6 @@ namespace beam::wallet {
         //
         // IBroadcastListener
         //
-        bool onMessage(uint64_t, ByteBuffer&&) override;
         bool onMessage(uint64_t, BroadcastMsg&&) override;
 
         //

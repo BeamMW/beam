@@ -592,9 +592,7 @@ namespace proto {
 		// Hence our sharding factor is 1K. Gives decent reduction of the traffic under peak loads, whereas maintains some degree of obfuscation on modest loads too.
 		// In the future it can be changed without breaking compatibility
 
-        static constexpr uint32_t s_BtcSwapOffersChannel = s_MaxWalletChannels;
-        static constexpr uint32_t s_LtcSwapOffersChannel = s_MaxWalletChannels + 1;
-        static constexpr uint32_t s_QtumSwapOffersChannel = s_MaxWalletChannels + 2;
+        static constexpr uint32_t s_SwapOffersChannel = s_MaxWalletChannels;
         static constexpr uint32_t s_BroadcastChannel = s_MaxWalletChannels + 3;
         static constexpr uint32_t s_DexOffersChannel = s_MaxWalletChannels + 4;
 

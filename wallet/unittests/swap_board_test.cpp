@@ -82,11 +82,11 @@ namespace
 
     struct MockBroadcastListener : public IBroadcastListener
     {
-        using OnMessage = function<void(ByteBuffer&)>;
+        using OnMessage = function<void(BroadcastMsg&)>;
 
         MockBroadcastListener(OnMessage func) : m_callback(func) {};
 
-        virtual bool onMessage(uint64_t unused, ByteBuffer&& msg) override
+        virtual bool onMessage(uint64_t unused, BroadcastMsg&& msg) override
         {
             m_callback(msg);
             return true;
@@ -191,8 +191,8 @@ namespace
     {
         PrivateKey sk;
         std::tie(std::ignore, sk) = deriveKeypair(walletDB, keyIndex);
-        SwapOfferConfirmation signHandler;
-        signHandler.m_offerData = data;
+        SignatureHandler signHandler;
+        signHandler.m_data = data;
         signHandler.Sign(sk);
         ByteBuffer rawSignature = toByteBuffer(signHandler.m_Signature);
         return rawSignature;
@@ -202,19 +202,11 @@ namespace
      *  Create message according to protocol.
      *  Concatenate message body and signature.
      */
-    ByteBuffer makeMsg(const ByteBuffer& msgRaw, const ByteBuffer& signatureRaw)
+    BroadcastMsg makeMsg(const ByteBuffer& msgRaw, const ByteBuffer& signatureRaw)
     {
         size_t size = msgRaw.size() + signatureRaw.size();
         assert(size <= UINT32_MAX);
-        ByteBuffer fullMsg(size);
-
-        auto it = std::copy(std::begin(msgRaw),
-                            std::end(msgRaw),
-                            std::begin(fullMsg));
-        std::copy(  std::begin(signatureRaw),
-                    std::end(signatureRaw),
-                    it);
-
+        BroadcastMsg fullMsg{ msgRaw, signatureRaw };
         return fullMsg;
     }    
 
@@ -296,7 +288,7 @@ namespace
 
             MockBroadcastListener testListener(
                 [&executed, &offer, &protocolHandler]
-                (ByteBuffer& msg)
+                (BroadcastMsg& msg)
                 {
                     boost::optional<SwapOffer> res;
                     WALLET_CHECK_NO_THROW(res = protocolHandler.parseMessage(msg));
@@ -306,10 +298,10 @@ namespace
                 });
             broadcastRouter.registerListener(BroadcastContentType::SwapOffers, &testListener);
 
-            ByteBuffer msg;
-            WALLET_CHECK_NO_THROW(msg = protocolHandler.createMessage(offer, storage->getAddress(offer.m_publisherId)->m_OwnID));
+            BroadcastMsg msg;
+            WALLET_CHECK_NO_THROW(msg = protocolHandler.createBroadcastMessage(offer, storage->getAddress(offer.m_publisherId)->m_OwnID));
 
-            broadcastRouter.sendRawMessage(BroadcastContentType::SwapOffers, msg);
+            broadcastRouter.sendMessage(BroadcastContentType::SwapOffers, msg);
 
             WALLET_CHECK(executed);
         }
@@ -857,8 +849,8 @@ namespace
             std::tie(foreignOffer, foreignID) = generateTestOffer(storage);
             ownOffer.m_txId = ++txID;
             foreignOffer.m_txId = ++txID;
-            ByteBuffer ownMsg = protocolHandler.createMessage(ownOffer, ownID);
-            ByteBuffer foreignMsg = protocolHandler.createMessage(foreignOffer, foreignID);
+            auto ownMsg = protocolHandler.createBroadcastMessage(ownOffer, ownID);
+            auto foreignMsg = protocolHandler.createBroadcastMessage(foreignOffer, foreignID);
             storage->deleteAddress(foreignOffer.m_publisherId);
 
             uint32_t exCount = 0;
@@ -883,10 +875,10 @@ namespace
                 });
             Alice.Subscribe(&observer);
 
-            broadcastRouter.sendRawMessage(BroadcastContentType::SwapOffers, ownMsg);
+            broadcastRouter.sendMessage(BroadcastContentType::SwapOffers, ownMsg);
             WALLET_CHECK(exCount == 1);
             WALLET_CHECK(Alice.getOffersList().size() == ++offersOnBoard);
-            broadcastRouter.sendRawMessage(BroadcastContentType::SwapOffers, foreignMsg);
+            broadcastRouter.sendMessage(BroadcastContentType::SwapOffers, foreignMsg);
             WALLET_CHECK(exCount == 2);
             WALLET_CHECK(Alice.getOffersList().size() == ++offersOnBoard);
         }

@@ -44,22 +44,6 @@ namespace beam::wallet
         }
     }
 
-    // Deprecated. TODO: dh remove after 2 fork.
-    bool BroadcastMsgValidator::processMessage(const ByteBuffer& in, BroadcastMsg& out) const
-    {
-        try
-        {
-            fromByteBuffer(in, out);
-        }
-        catch(...)
-        {
-            LOG_WARNING() << "broadcast message deserialization exception";
-            return false;
-        }
-
-        return isSignatureValid(out);
-    }
-
     // Later on can be implemented in ProtocolBase::VerifyMsg() and become incapsulated in BroadcatRouter class
     bool BroadcastMsgValidator::isSignatureValid(const BroadcastMsg& msg) const
     {
