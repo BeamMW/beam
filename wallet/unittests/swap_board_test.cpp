@@ -204,8 +204,7 @@ namespace
      */
     BroadcastMsg makeMsg(const ByteBuffer& msgRaw, const ByteBuffer& signatureRaw)
     {
-        size_t size = msgRaw.size() + signatureRaw.size();
-        assert(size <= UINT32_MAX);
+        assert(msgRaw.size() + signatureRaw.size());
         BroadcastMsg fullMsg{ msgRaw, signatureRaw };
         return fullMsg;
     }    
