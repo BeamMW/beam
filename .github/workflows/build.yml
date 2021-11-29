@@ -504,7 +504,7 @@ jobs:
 ###############################################################################
   build_wasm:
     runs-on: ubuntu-20.04
-    # if: ${{false}}
+    if: ${{false}}
 
     steps:
     - uses: actions/checkout@v2
