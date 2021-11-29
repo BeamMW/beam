@@ -274,7 +274,16 @@ ON_METHOD(manager, prealloc_withdraw)
     fc.m_Amount = amount;
     fc.m_Consume = 0;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "Get preallocated beamX tokens", 0);
+    uint32_t nCharge =
+        ManagerUpgadable2::get_ChargeInvoke() +
+        Env::Cost::LoadVar_For(sizeof(DaoCore::Preallocated::User)) +
+        Env::Cost::SaveVar_For(sizeof(DaoCore::Preallocated::User)) +
+        Env::Cost::LoadVar_For(sizeof(DaoCore::State)) +
+        Env::Cost::FundsLock +
+        Env::Cost::AddSig +
+        (Env::Cost::Cycle * 1000);
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "Get preallocated beamX tokens", nCharge);
 }
 
 void GetFarmingState(const ContractID& cid, DaoCore::Farming::State& fs)
@@ -416,7 +425,18 @@ ON_METHOD(manager, farm_update)
     pFc[1].m_Amount = amountBeam;
     pFc[1].m_Consume = bLockOrUnlock;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), &sig, 1, "Lock/Unlock and get farmed beamX tokens", 0);
+    uint32_t nCharge =
+        ManagerUpgadable2::get_ChargeInvoke() +
+        Env::Cost::LoadVar_For(sizeof(DaoCore::Farming::UserPos)) +
+        Env::Cost::SaveVar_For(sizeof(DaoCore::Farming::UserPos)) +
+        Env::Cost::LoadVar_For(sizeof(DaoCore::Farming::State)) +
+        Env::Cost::SaveVar_For(sizeof(DaoCore::Farming::State)) +
+        Env::Cost::LoadVar_For(sizeof(DaoCore::State)) +
+        Env::Cost::FundsLock * 2 +
+        Env::Cost::AddSig +
+        (Env::Cost::Cycle * 2000);
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), &sig, 1, "Lock/Unlock and get farmed beamX tokens", nCharge);
 
 }
 
