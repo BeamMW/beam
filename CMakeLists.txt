@@ -200,15 +200,24 @@ if(SWAP_MAINNET)
 endif()
 
 option(BEAM_ATOMIC_SWAP_SUPPORT "Build wallet with atomic swap support" ON)
-option(BEAM_LELANTUS_SUPPORT "Build wallet with lelantus support" ON)
-option(BEAM_LASER_SUPPORT "Build wallet with laser support" ON)
-option(BEAM_CONFIDENTIAL_ASSETS_SUPPORT "Build wallet with confidential assets support" ON)
-option(BEAM_IPFS_SUPPORT "Build wallet with IPFS support" ON)
-option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
+message("BEAM_ATOMIC_SWAP_SUPPORT is ${BEAM_ATOMIC_SWAP_SUPPORT}")
 
-if (BEAM_IPFS_SUPPORT)
-    message("BEAM_IPFS_SUPPORT is ON")
-endif()
+option(BEAM_LELANTUS_SUPPORT "Build wallet with lelantus support" ON)
+message("BEAM_LELANTUS_SUPPORT is ${BEAM_LELANTUS_SUPPORT}")
+
+option(BEAM_LASER_SUPPORT "Build wallet with laser support" ON)
+message("BEAM_LASER_SUPPORT is ${BEAM_LASER_SUPPORT}")
+
+option(BEAM_CONFIDENTIAL_ASSETS_SUPPORT "Build wallet with confidential assets support" ON)
+message("BEAM_CONFIDENTIAL_ASSETS_SUPPORT is ${BEAM_CONFIDENTIAL_ASSETS_SUPPORT}")
+
+option(BEAM_IPFS_SUPPORT "Build wallet with IPFS support" ON)
+message("BEAM_IPFS_SUPPORT is ${BEAM_IPFS_SUPPORT}")
+
+option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
+message("BEAM_HW_WALLET is ${BEAM_HW_WALLET}")
+
+
 
 if(BEAM_HW_WALLET)
 
