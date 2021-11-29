@@ -298,6 +298,7 @@ NodeConnection::NodeConnection()
     :m_Protocol('B', 'm', 10, sizeof(HighestMsgCode), *this, 20000)
     ,m_ConnectPending(false)
 	,m_RulesCfgSent(false)
+    ,m_LoginFlags(0)
 {
 #define THE_MACRO(code, msg) \
     m_Protocol.add_message_handler<NodeConnection, msg##_NoInit, &NodeConnection::OnMsgInternal>(uint8_t(code), this, 0, 1024*1024*10);
@@ -322,6 +323,7 @@ void NodeConnection::Reset()
 	m_RulesCfgSent = false;
     m_Connection = NULL;
     m_pAsyncFail = NULL;
+    m_LoginFlags = 0;
 
     m_Protocol.ResetVars();
 }
@@ -519,7 +521,7 @@ bool NodeConnection::IsLive() const
 }
 
 #define THE_MACRO(code, msg) \
-void NodeConnection::Send(const msg& v) \
+void NodeConnection::SendRaw(const msg& v) \
 { \
     if (!IsLive()) \
         return; \
@@ -680,7 +682,7 @@ Height NodeConnection::get_MinPeerFork()
 	return Rules::HeightGenesis - 1;
 }
 
-void NodeConnection::OnLogin(Login&&)
+void NodeConnection::OnLogin(Login&&, uint32_t /* nFlagsPrev */)
 {
 }
 
@@ -739,9 +741,17 @@ void NodeConnection::OnMsg(Login&& msg)
 	ThrowUnexpected(os.str().c_str(), NodeProcessingException::Type::Incompatible);
 }
 
+uint32_t NodeConnection::get_Ext() const
+{
+    return LoginFlags::Extension::get(m_LoginFlags);
+}
+
 void NodeConnection::OnLoginInternal(Login&& msg)
 {
-    uint32_t nExt = LoginFlags::Extension::get(msg.m_Flags);
+    uint32_t nFlagsPrev = m_LoginFlags;
+    m_LoginFlags = msg.m_Flags;
+
+    uint32_t nExt = get_Ext();
     if (LoginFlags::Extension::Maximum != nExt)
     {
         bool bNewer = (nExt > LoginFlags::Extension::Maximum);
@@ -751,7 +761,7 @@ void NodeConnection::OnLoginInternal(Login&& msg)
             ThrowUnexpected("Legacy", NodeProcessingException::Type::Incompatible);
     }
 
-	OnLogin(std::move(msg));
+	OnLogin(std::move(msg), nFlagsPrev);
 }
 
 void NodeConnection::OnMsg(SChannelReady&& msg)
@@ -951,10 +961,10 @@ void NodeConnection::OnMsg(NewTransaction0&& msg0)
     Cast::Down<INodeMsgHandler>(*this).OnMsg(std::move(msg));
 }
 
-void NodeConnection::Send(const NewTransaction& msg, uint32_t nLoginFlags)
+void NodeConnection::Send(const NewTransaction& msg)
 {
-    if (LoginFlags::Extension::get(nLoginFlags) >= 9)
-        Send(msg);
+    if (get_Ext() >= 9)
+        SendRaw(msg);
     else
     {
         NewTransaction0 msg0;

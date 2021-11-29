@@ -403,7 +403,7 @@ private:
 	void DeleteOutdated();
 
 	uint8_t ValidateTx(Transaction::Context&, const Transaction&, uint32_t& nSizeCorrection, Amount& feeReserve, std::ostream* pExtraInfo); // complete validation
-	uint8_t ValidateTx2(Transaction::Context&, const Transaction&, uint32_t& nBvmCharge, Amount& feeReserve, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo); // complete validation
+	uint8_t ValidateTx2(Transaction::Context&, const Transaction&, uint32_t& nBvmCharge, Amount& feeReserve, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo, Merkle::Hash* pNewCtx);
 	static bool CalculateFeeReserve(const TxStats&, const HeightRange&, const AmountBig::Type&, uint32_t nBvmCharge, Amount& feeReserve);
 	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
 	void LogTxStem(const Transaction&, const char* szTxt);
@@ -521,7 +521,13 @@ private:
 		beam::io::Address m_RemoteAddr; // for logging only
 
 		Block::SystemState::Full m_Tip;
-		uint32_t m_LoginFlags;
+
+		struct DependentContext
+		{
+			std::unique_ptr<Merkle::Hash> m_pQuery;
+			std::vector<Merkle::Hash> m_vSent;
+			Height m_hSent;
+		} m_Dependent;
 
 		uint64_t m_CursorBbs;
 		TxPool::Fluff::Element* m_pCursorTx;
@@ -550,6 +556,7 @@ private:
 		void BroadcastBbs();
 		void BroadcastBbs(Bbs::Subscription&);
 		void MaybeSendSerif();
+		void MaybeSendDependent();
 		void OnChocking();
 		void SetTxCursor(TxPool::Fluff::Element*);
 		bool GetBlock(proto::BodyBuffers&, const NodeDB::StateID&, const proto::GetBodyPack&, bool bActive);
@@ -563,7 +570,20 @@ private:
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
 		void ModifyRatingWrtData(size_t nSize);
 		void SendHdrs(NodeDB::StateID&, uint32_t nCount);
-		void SendTx(Transaction::Ptr& ptx, bool bFluff);
+		void SendTx(Transaction::Ptr& ptx, bool bFluff, const Merkle::Hash* pCtx = nullptr);
+
+		struct ISelector {
+			virtual bool IsValid(Peer&)= 0;
+		};
+
+		struct Selector_Stem :public ISelector {
+			static bool IsValid_(Peer& p) {
+				return !!(proto::LoginFlags::SpreadingTransactions & p.m_LoginFlags);
+			}
+			bool IsValid(Peer& p) override {
+				return IsValid_(p);
+			}
+		};
 
 		// proto::NodeConnection
 		virtual void OnConnectedSecure() override;
@@ -571,7 +591,7 @@ private:
 		virtual void GenerateSChannelNonce(ECC::Scalar::Native&) override; // Must be overridden to support SChannel
 		// login
 		virtual void SetupLogin(proto::Login&) override;
-		virtual void OnLogin(proto::Login&&) override;
+		virtual void OnLogin(proto::Login&&, uint32_t nFlagsPrev) override;
 		virtual Height get_MinPeerFork() override;
 		// messages
 		virtual void OnMsg(proto::Authentication&&) override;
@@ -616,6 +636,7 @@ private:
 		virtual void OnMsg(proto::GetContractVar&&) override;
 		virtual void OnMsg(proto::GetContractLogProof&&) override;
 		virtual void OnMsg(proto::GetShieldedOutputsAt&&) override;
+		virtual void OnMsg(proto::SetDependentContext&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
@@ -626,6 +647,9 @@ private:
 	void NextNonce(ECC::Scalar::Native&);
 
 	uint32_t RandomUInt32(uint32_t threshold);
+
+
+	Peer* SelectRandomPeer(Peer::ISelector&);
 
 	ECC::Scalar::Native m_MyPrivateID;
 	PeerID m_MyPublicID;
