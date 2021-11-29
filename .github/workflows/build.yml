@@ -22,6 +22,11 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Submodule update
+      shell: bash
+      run: |
+        git submodule update --init --recursive --remote --jobs 4
+
 ###############################################################################
 # Create Build Environment
 ###############################################################################
