@@ -280,8 +280,6 @@ void FlyClient::NetworkStd::Connection::OnMsg(NewTip&& msg)
     if (m_pSync && m_pSync->m_vConfirming.empty() && !m_pSync->m_TipBeforeGap.m_Height && !m_Tip.IsNext(msg.m_Description))
         m_pSync->m_TipBeforeGap = m_Tip;
 
-    bool shouldReassignRequests = !m_Tip.IsValid();
-
     m_Tip = msg.m_Description;
 
     if (!m_pSync)
@@ -293,10 +291,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(NewTip&& msg)
         else
         {
             m_This.m_Client.OnTipUnchanged();
-            if (shouldReassignRequests)
-            {
-                AssignRequests();
-            }
+            AssignRequests();
         }
     }
 }
@@ -600,8 +595,26 @@ bool FlyClient::NetworkStd::Connection::IsAtTip() const
 
 void FlyClient::NetworkStd::Connection::AssignRequests()
 {
-    for (RequestList::iterator it = m_This.m_lst.begin(); m_This.m_lst.end() != it; )
-        AssignRequest(*it++);
+    if (!(Flags::Node & m_Flags))
+        return;
+
+    // currently we have no requests that can be assigned unless at tip.
+    if (!IsAtTip())
+        return;
+
+    RequestList lst;
+    for (lst.swap(m_This.m_lst); !lst.empty(); )
+    {
+        RequestNode& n = lst.front();
+        if (n.m_pRequest->m_pTrg)
+        {
+            lst.pop_front();
+            m_lst.push_back(n);
+            AssignRequest(n);
+        }
+        else
+            lst.Delete(n);
+    }
 
     if (m_lst.empty() && m_This.m_Cfg.m_PollPeriod_ms)
         SetTimer(m_This.m_Cfg.m_CloseConnectionDelay_ms); // this should allow to get sbbs messages
@@ -612,34 +625,26 @@ void FlyClient::NetworkStd::Connection::AssignRequests()
 void FlyClient::NetworkStd::Connection::AssignRequest(RequestNode& n)
 {
     assert(n.m_pRequest);
-    if (!n.m_pRequest->m_pTrg)
-    {
-        m_This.m_lst.Delete(n);
-        return;
-    }
 
     switch (n.m_pRequest->get_Type())
     {
-#define THE_MACRO(type, msgOut, msgIn) \
+#define THE_MACRO(type) \
     case Request::Type::type: \
-        { \
-            Request##type& req = Cast::Up<Request##type>(*n.m_pRequest); \
-            if (!IsSupported(req)) \
-                return; \
-            SendRequest(req); \
-        } \
+        if (SendRequest(Cast::Up<Request##type>(*n.m_pRequest))) \
+            return; \
         break;
 
     REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
 
     default: // ?!
-        m_This.m_lst.Finish(n);
+        m_lst.Finish(n);
         return;
     }
 
-    m_This.m_lst.erase(RequestList::s_iterator_to(n));
-    m_lst.push_back(n);
+    // could not assign the request, return it to global list
+    m_lst.erase(RequestList::s_iterator_to(n));
+    m_This.m_lst.push_back(n);
 }
 
 void FlyClient::NetworkStd::RequestList::Finish(RequestNode& n)
@@ -650,55 +655,49 @@ void FlyClient::NetworkStd::RequestList::Finish(RequestNode& n)
     Delete(n);
 }
 
-FlyClient::Request& FlyClient::NetworkStd::Connection::get_FirstRequestStrict(Request::Type x)
-{
-    auto& r = get_FirstRequest();
-
-    if (r.get_Type() != x)
-        ThrowUnexpected();
-
-    return r;
-}
-
-FlyClient::Request& FlyClient::NetworkStd::Connection::get_FirstRequest()
+FlyClient::NetworkStd::RequestNode& FlyClient::NetworkStd::Connection::get_FirstRequest()
 {
     if (m_lst.empty())
         ThrowUnexpected();
     RequestNode& n = m_lst.front();
     assert(n.m_pRequest);
 
-    return *n.m_pRequest;
+    return n;
 }
 
-#define THE_MACRO_SWAP_FIELD(type, name) std::swap(req.m_Res.m_##name, msg.m_##name);
-#define THE_MACRO(type, msgOut, msgIn) \
+#define REQUEST_STD_RCV(type, msgIn) \
 void FlyClient::NetworkStd::Connection::OnMsg(msgIn&& msg) \
+{ \
+    auto& n = get_FirstRequest(); \
+    auto& r = n.m_pRequest->As<Request##type>(); \
+    r.m_Res = std::move(msg); \
+ \
+     OnRequestData(r); \
+ \
+    OnDone(n); \
+}
+
+
+#define THE_MACRO(type, msgOut, msgIn) \
+REQUEST_STD_RCV(type, msgIn) \
+ \
+bool FlyClient::NetworkStd::Connection::SendRequest(Request##type& req) \
 {  \
-    Request##type& req = Cast::Up<Request##type>(get_FirstRequestStrict(Request::Type::type)); \
-    BeamNodeMsg_##msgIn(THE_MACRO_SWAP_FIELD) \
-    OnRequestData(req); \
-    OnFirstRequestDone(IsSupported(req)); \
+    if (!IsSupported(req)) \
+        return false; \
+ \
+    Send(req.m_Msg); \
+    return true; \
 }
 
-REQUEST_TYPES_All(THE_MACRO)
+REQUEST_TYPES_Std(THE_MACRO)
 #undef THE_MACRO
-#undef THE_MACRO_SWAP_FIELD
-
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestUtxo& req)
-{
-    return IsAtTip();
-}
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestUtxo& req)
 {
     for (size_t i = 0; i < req.m_Res.m_Proofs.size(); i++)
         if (!m_Tip.IsValidProofUtxo(req.m_Msg.m_Utxo, req.m_Res.m_Proofs[i]))
             ThrowUnexpected();
-}
-
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestKernel& req)
-{
-    return (Flags::Node & m_Flags) && IsAtTip();
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel& req)
@@ -708,11 +707,6 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel& req)
             ThrowUnexpected();
 }
 
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestKernel2& req)
-{
-    return (Flags::Node & m_Flags) && IsAtTip();
-}
-
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestAsset& req)
 {
     if (req.m_Res.m_Info.m_Owner != Zero) // valid asset info
@@ -720,7 +714,7 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestAsset& req)
         if (req.m_Msg.m_Owner != Zero && req.m_Msg.m_Owner != req.m_Res.m_Info.m_Owner)
             ThrowUnexpected();
 
-        if (req.m_Msg.m_AssetID != Asset::s_InvalidID && req.m_Msg.m_AssetID != req.m_Res.m_Info.m_ID)
+        if (req.m_Msg.m_AssetID && (req.m_Msg.m_AssetID != req.m_Res.m_Info.m_ID))
             ThrowUnexpected();
     }
 
@@ -729,60 +723,30 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestAsset& req)
             ThrowUnexpected();
 }
 
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestAsset& req)
-{
-    return (Flags::Node & m_Flags) && IsAtTip();
-}
-
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel2& req)
 {
     if (req.m_Res.m_Kernel)
     {
         ECC::Point::Native exc;
-
         if (!req.m_Res.m_Kernel->IsValid(req.m_Res.m_Height, exc))
-        {
             ThrowUnexpected();
-        }
     }
 }
 
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestEvents& req)
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestEvents&)
 {
-    return (Flags::Owned & m_Flags) && IsAtTip();
-}
-
-void FlyClient::NetworkStd::Connection::OnRequestData(RequestEvents& req)
-{
+    return !!(Flags::Owned & m_Flags);
 }
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestTransaction& req)
 {
-    if (!(LoginFlags::SpreadingTransactions & m_LoginFlags) && IsAtTip())
+    if (!(LoginFlags::SpreadingTransactions & m_LoginFlags))
         return false;
 
     if (req.m_Msg.m_Context && (get_Ext() < 9))
         return false;
 
     return true;
-}
-
-void FlyClient::NetworkStd::Connection::OnRequestData(RequestTransaction& req)
-{
-}
-
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestShieldedList& req)
-{
-    return (Flags::Node & m_Flags) && IsAtTip();
-}
-
-void FlyClient::NetworkStd::Connection::OnRequestData(RequestShieldedList& req)
-{
-}
-
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestProofShieldedInp& req)
-{
-    return (Flags::Node & m_Flags) && IsAtTip();
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestProofShieldedInp& req)
@@ -794,15 +758,8 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestProofShieldedInp& r
         desc.m_SpendPk = req.m_Msg.m_SpendPk;
 
         if (!m_Tip.IsValidProofShieldedInp(desc, req.m_Res.m_Proof))
-        {
             ThrowUnexpected();
-        }
     }
-}
-
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestProofShieldedOutp& req)
-{
-    return (Flags::Node & m_Flags) && IsAtTip();
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestProofShieldedOutp& req)
@@ -816,27 +773,11 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestProofShieldedOutp& 
         desc.m_Commitment = req.m_Res.m_Commitment;
 
         if (!m_Tip.IsValidProofShieldedOutp(desc, req.m_Res.m_Proof))
-        {
             ThrowUnexpected();
-        }
     }
 }
 
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestStateSummary& req)
-{
-    return (Flags::Node & m_Flags) && IsAtTip();
-}
-
-void FlyClient::NetworkStd::Connection::OnRequestData(RequestStateSummary& req)
-{
-}
-
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestEnumHdrs& req)
-{
-    return (Flags::Node & m_Flags) && IsAtTip();
-}
-
-bool details::ExtraData<proto::HdrPack>::DecodeAndCheck(const HdrPack& msg)
+bool FlyClient::Data::DecodedHdrPack::DecodeAndCheck(const HdrPack& msg)
 {
     if (msg.m_vElements.empty())
         return true; // this is allowed
@@ -900,104 +841,92 @@ bool details::ExtraData<proto::HdrPack>::DecodeAndCheck(const HdrPack& msg)
     return t.m_Valid;
 }
 
-void FlyClient::NetworkStd::Connection::OnRequestData(RequestEnumHdrs& req)
+bool FlyClient::NetworkStd::Connection::SendRequest(RequestEnumHdrs& req)
 {
-    if (!req.DecodeAndCheck(req.m_Res))
+    Send(req.m_Msg);
+    return true;
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(proto::HdrPack&& msg)
+{
+    auto& n = get_FirstRequest();
+    auto& r = n.m_pRequest->As<RequestEnumHdrs>();
+
+    if (!r.DecodeAndCheck(msg))
         ThrowUnexpected();
+
+    OnDone(n, r.m_vStates.empty());
 }
 
 void FlyClient::NetworkStd::Connection::OnMsg(DataMissing&& msg)
 {
-    auto& r = get_FirstRequest();
-    auto type = r.get_Type();
-    if (type == Request::Type::EnumHdrs)
+    auto& n = get_FirstRequest();
+    auto& r = *n.m_pRequest;
+
+    switch (r.get_Type())
     {
-        auto& req = Cast::Up<RequestEnumHdrs>(get_FirstRequestStrict(Request::Type::EnumHdrs));
-        OnFirstRequestDone(IsSupported(req));
-    }
-    else if (type == Request::Type::BodyPack)
-    {
-        auto& req = Cast::Up<RequestBodyPack>(get_FirstRequestStrict(Request::Type::BodyPack));
-        OnFirstRequestDone(IsSupported(req));
-    }
-    else
-    {
+    case Request::Type::EnumHdrs:
+    case Request::Type::BodyPack:
+        OnDone(n);
+        break;
+
+    default:
         ThrowUnexpected();
     }
 }
 
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractVars& req)
+bool FlyClient::NetworkStd::Connection::SendTrgCtx(const std::unique_ptr<Merkle::Hash>& pCtx)
 {
-    if (!((Flags::Node & m_Flags) && IsAtTip()))
-        return false;
-
-    if (req.m_pCtx && (get_Ext() < 9))
-        return false;
-
-    return true;
-}
-
-void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractVars& req)
-{
-}
-
-void FlyClient::NetworkStd::Connection::SendRequest(RequestContractVars& req)
-{
-    SendTrgCtx(req);
-    Send(req.m_Msg);
-}
-
-void FlyClient::NetworkStd::Connection::SendTrgCtx(const details::ExtraData_DependentCtx& ctx)
-{
-    if (ctx.m_pCtx)
+    if (pCtx)
     {
+        if (get_Ext() < 9)
+            return false;
+
         if (m_pDependentCtx)
         {
-            if (*ctx.m_pCtx == *m_pDependentCtx)
-                return;
+            if (*pCtx == *m_pDependentCtx)
+                return true;
         }
         else
             m_pDependentCtx = std::make_unique<Merkle::Hash>();
 
-        *m_pDependentCtx = *ctx.m_pCtx;
+        *m_pDependentCtx = *pCtx;
     }
     else
     {
         if (!m_pDependentCtx)
-            return;
+            return true;
         m_pDependentCtx.reset();
     }
 
     proto::SetDependentContext msg;
     TemporarySwap ts(msg.m_Context, m_pDependentCtx);
     Send(msg);
-}
-
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractLogs& req)
-{
-    if (!((Flags::Node & m_Flags) && IsAtTip()))
-        return false;
-
-    if (req.m_pCtx && (get_Ext() < 9))
-        return false;
 
     return true;
 }
 
-void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractLogs& req)
+bool FlyClient::NetworkStd::Connection::SendRequest(RequestContractVars& req)
 {
-}
+    if (!SendTrgCtx(req.m_pCtx))
+        return false;
 
-void FlyClient::NetworkStd::Connection::SendRequest(RequestContractLogs& req)
-{
-    SendTrgCtx(req);
     Send(req.m_Msg);
+    return true;
 }
 
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractVar& req)
+REQUEST_STD_RCV(ContractVars, ContractVars)
+
+bool FlyClient::NetworkStd::Connection::SendRequest(RequestContractLogs& req)
 {
-    return (Flags::Node & m_Flags) && IsAtTip();
+    if (!SendTrgCtx(req.m_pCtx))
+        return false;
+
+    Send(req.m_Msg);
+    return true;
 }
+
+REQUEST_STD_RCV(ContractLogs, ContractLogs)
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractVar& req)
 {
@@ -1005,66 +934,32 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractVar& req)
         ThrowUnexpected();
 }
 
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestContractLogProof& req)
+bool FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
 {
-    return (Flags::Node & m_Flags) && IsAtTip();
-}
+    if (!(LoginFlags::Bbs & m_LoginFlags))
+        return false;
 
-void FlyClient::NetworkStd::Connection::OnRequestData(RequestContractLogProof& req)
-{
-    // can't validate the proof in-place, the appropriate header is not part of the reply
-}
-
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestShieldedOutputsAt& req)
-{
-    return (Flags::Node & m_Flags) && IsAtTip();
-}
-
-void FlyClient::NetworkStd::Connection::OnRequestData(RequestShieldedOutputsAt& req)
-{
-}
-
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestBodyPack& req)
-{
-    return (Flags::Node & m_Flags) && IsAtTip();
-}
-
-void FlyClient::NetworkStd::Connection::OnRequestData(RequestBodyPack& req)
-{
-}
-
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestBody& req)
-{
-    return (Flags::Node & m_Flags) && IsAtTip();
-}
-
-void FlyClient::NetworkStd::Connection::OnRequestData(RequestBody& req)
-{
-}
-
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestBbsMsg& req)
-{
-    return (LoginFlags::Bbs & m_LoginFlags) && IsAtTip();
-}
-
-void FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
-{
-	Send(req.m_Msg);
+    Send(req.m_Msg);
     Send(proto::Ping());
+
+    return true;
 }
 
-void FlyClient::NetworkStd::Connection::OnRequestData(RequestBbsMsg& req)
+void FlyClient::NetworkStd::Connection::OnMsg(proto::Pong&&)
 {
+    auto& n = get_FirstRequest();
+    n.m_pRequest->As<RequestBbsMsg>(); // validate type
+    OnDone(n, false);
 }
 
-void FlyClient::NetworkStd::Connection::OnFirstRequestDone(bool bStillSupported)
+
+void FlyClient::NetworkStd::Connection::OnDone(RequestNode& n, bool bMaybeRetry /* = true */)
 {
-    RequestNode& n = m_lst.front();
     assert(n.m_pRequest);
 
     if (n.m_pRequest->m_pTrg)
     {
-        if (!bStillSupported)
+        if (bMaybeRetry && !IsAtTip())
         {
             // should retry
             m_lst.erase(RequestList::s_iterator_to(n));
@@ -1079,9 +974,7 @@ void FlyClient::NetworkStd::Connection::OnFirstRequestDone(bool bStillSupported)
         m_lst.Delete(n); // aborted already
 
     if (m_lst.empty() && m_This.m_Cfg.m_PollPeriod_ms)
-    {
         SetTimer(0);
-    }
 }
 
 void FlyClient::NetworkStd::BbsSubscribe(BbsChannel ch, Timestamp ts, IBbsReceiver* p)

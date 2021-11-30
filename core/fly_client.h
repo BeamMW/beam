@@ -21,48 +21,47 @@
 namespace beam {
 namespace proto {
 
-	namespace details {
-
-		template <typename T> struct ExtraData {
-		};
-
-		template <> struct ExtraData<proto::HdrPack>
-		{
-			std::vector<Block::SystemState::Full> m_vStates;
-
-			bool DecodeAndCheck(const HdrPack& msg);
-		};
-
-		struct ExtraData_DependentCtx {
-			std::unique_ptr<Merkle::Hash> m_pCtx;
-		};
-
-		template <> struct ExtraData<proto::ContractVars> :public ExtraData_DependentCtx {};
-		template <> struct ExtraData<proto::ContractLogs> :public ExtraData_DependentCtx {};
-	}
-
 	struct FlyClient
 	{
 #define REQUEST_TYPES_All(macro) \
-		macro(Utxo,              GetProofUtxo,         ProofUtxo) \
-		macro(Kernel,            GetProofKernel,       ProofKernel) \
-		macro(Kernel2,           GetProofKernel2,      ProofKernel2) \
-		macro(Events,            GetEvents,            Events) \
-		macro(Transaction,       NewTransaction,       Status) \
-		macro(ShieldedList,      GetShieldedList,      ShieldedList) \
-		macro(ProofShieldedInp,  GetProofShieldedInp,  ProofShieldedInp) \
-		macro(ProofShieldedOutp, GetProofShieldedOutp, ProofShieldedOutp) \
-		macro(BbsMsg,            BbsMsg,               Pong) \
-		macro(Asset,             GetProofAsset,        ProofAsset) \
-		macro(StateSummary,      GetStateSummary,      StateSummary) \
-		macro(EnumHdrs,          EnumHdrs,             HdrPack) \
-		macro(ContractVars,      ContractVarsEnum,     ContractVars) \
-		macro(ContractLogs,      ContractLogsEnum,     ContractLogs) \
-		macro(ContractVar,       GetContractVar,       ContractVar) \
-		macro(ContractLogProof,  GetContractLogProof,  ContractLogProof) \
-		macro(ShieldedOutputsAt, GetShieldedOutputsAt, ShieldedOutputsAt) \
-		macro(BodyPack,          GetBodyPack,          BodyPack) \
-		macro(Body,              GetBodyPack,          Body)
+		macro(Utxo) \
+		macro(Kernel) \
+		macro(Kernel2) \
+		macro(Events) \
+		macro(Transaction) \
+		macro(ShieldedList) \
+		macro(ProofShieldedInp) \
+		macro(ProofShieldedOutp) \
+		macro(BbsMsg) \
+		macro(Asset) \
+		macro(StateSummary) \
+		macro(EnumHdrs) \
+		macro(ContractVars) \
+		macro(ContractLogs) \
+		macro(ContractVar) \
+		macro(ContractLogProof) \
+		macro(ShieldedOutputsAt) \
+		macro(BodyPack) \
+		macro(Body)
+
+
+#define REQUEST_TYPES_Std(macro) \
+        macro(Utxo,              GetProofUtxo,         ProofUtxo) \
+        macro(Kernel,            GetProofKernel,       ProofKernel) \
+        macro(Asset,             GetProofAsset,        ProofAsset) \
+        macro(Kernel2,           GetProofKernel2,      ProofKernel2) \
+        macro(Events,            GetEvents,            Events) \
+        macro(Transaction,       NewTransaction,       Status) \
+        macro(ShieldedList,      GetShieldedList,      ShieldedList) \
+        macro(ProofShieldedInp,  GetProofShieldedInp,  ProofShieldedInp) \
+        macro(ProofShieldedOutp, GetProofShieldedOutp, ProofShieldedOutp) \
+        macro(StateSummary,      GetStateSummary,      StateSummary) \
+        macro(ContractVar,       GetContractVar,       ContractVar) \
+        macro(ContractLogProof,  GetContractLogProof,  ContractLogProof) \
+        macro(ShieldedOutputsAt, GetShieldedOutputsAt, ShieldedOutputsAt) \
+        macro(BodyPack,          GetBodyPack,          BodyPack) \
+        macro(Body,              GetBodyPack,          Body)
+
 
 		class Request
 		{
@@ -77,7 +76,7 @@ namespace proto {
 			void Release() { if (!--m_Refs) delete this; }
 
 			enum Type {
-#define THE_MACRO(type, msgOut, msgIn) type,
+#define THE_MACRO(type) type,
 				REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
 				count
@@ -91,18 +90,61 @@ namespace proto {
 			};
 
 			IHandler* m_pTrg = NULL; // set to NULL if aborted.
+
+			template <typename T>
+			T& As()
+			{
+				if (get_Type() != T::s_Type)
+					proto::NodeConnection::ThrowUnexpected();
+
+				return Cast::Up<T>(*this);
+			}
 		};
 
+		struct Data
+		{
+			struct Std {};
+
 #define THE_MACRO(type, msgOut, msgIn) \
+			struct type :public Std { \
+				proto::msgOut m_Msg; \
+				proto::msgIn m_Res; \
+			};
+			REQUEST_TYPES_Std(THE_MACRO)
+#undef THE_MACRO
+
+			struct BbsMsg {
+				proto::BbsMsg m_Msg;
+			};
+
+			struct DecodedHdrPack {
+				std::vector<Block::SystemState::Full> m_vStates;
+				bool DecodeAndCheck(const HdrPack& msg);
+			};
+			struct EnumHdrs :public DecodedHdrPack {
+				proto::EnumHdrs m_Msg;
+			};
+			struct ContractVars :public Std {
+				std::unique_ptr<Merkle::Hash> m_pCtx;
+				proto::ContractVarsEnum m_Msg;
+				proto::ContractVars m_Res;
+			};
+			struct ContractLogs :public Std {
+				std::unique_ptr<Merkle::Hash> m_pCtx;
+				proto::ContractLogsEnum m_Msg;
+				proto::ContractLogs m_Res;
+			};
+		};
+
+#define THE_MACRO(type) \
 		struct Request##type \
 			:public Request \
-			,public details::ExtraData<msgIn> \
+			,public Data::type \
 		{ \
 			typedef boost::intrusive_ptr<Request##type> Ptr; \
 			virtual ~Request##type() {} \
-			virtual Type get_Type() const { return Type::type; } \
-			proto::msgOut m_Msg; \
-			proto::msgIn m_Res; \
+			static const Type s_Type = Type::type; \
+			virtual Type get_Type() const { return s_Type; } \
 		};
 
 		REQUEST_TYPES_All(THE_MACRO)
@@ -194,9 +236,8 @@ namespace proto {
 				void RequestChainworkProof();
 				void PostChainworkProof(const StateArray&, Height hLowHeight);
 				void PrioritizeSelf();
-				Request& get_FirstRequestStrict(Request::Type);
-				Request& get_FirstRequest();
-				void OnFirstRequestDone(bool bStillSupported);
+				RequestNode& get_FirstRequest();
+				void OnDone(RequestNode&, bool bMaybeRetry = true);
 
 				io::Timer::Ptr m_pTimer;
 				void OnTimer();
@@ -236,31 +277,47 @@ namespace proto {
 				};
 
 				// NodeConnection
-				virtual void OnConnectedSecure() override;
-				virtual void OnLogin(Login&&, uint32_t nFlagsPrev) override;
-				virtual void SetupLogin(Login&) override;
-				virtual void OnDisconnect(const DisconnectReason&) override;
-				virtual void OnMsg(proto::Authentication&& msg) override;
-				virtual void OnMsg(proto::GetBlockFinalization&& msg) override;
-				virtual void OnMsg(proto::NewTip&& msg) override;
-				virtual void OnMsg(proto::ProofCommonState&& msg) override;
-				virtual void OnMsg(proto::ProofChainWork&& msg) override;
-				virtual void OnMsg(proto::BbsMsg&& msg) override;
-				virtual void OnMsg(proto::EventsSerif&& msg) override;
-				virtual void OnMsg(proto::DataMissing&& msg) override;
-				virtual void OnMsg(PeerInfo&& msg) override;
-#define THE_MACRO(type, msgOut, msgIn) \
-				virtual void OnMsg(proto::msgIn&&) override; \
-				bool IsSupported(Request##type&); \
-				void OnRequestData(Request##type&);
+				void OnConnectedSecure() override;
+				void OnLogin(Login&&, uint32_t nFlagsPrev) override;
+				void SetupLogin(Login&) override;
+				void OnDisconnect(const DisconnectReason&) override;
+				void OnMsg(proto::Authentication&& msg) override;
+				void OnMsg(proto::GetBlockFinalization&& msg) override;
+				void OnMsg(proto::NewTip&& msg) override;
+				void OnMsg(proto::ProofCommonState&& msg) override;
+				void OnMsg(proto::ProofChainWork&& msg) override;
+				void OnMsg(proto::BbsMsg&& msg) override;
+				void OnMsg(proto::EventsSerif&& msg) override;
+				void OnMsg(proto::DataMissing&& msg) override;
+				void OnMsg(proto::PeerInfo&& msg) override;
+
+#define THE_MACRO(type) bool SendRequest(Request##type&);
 				REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
 
-				template <typename Req> void SendRequest(Req& r) { Send(r.m_Msg); }
-				void SendRequest(RequestBbsMsg&);
-				void SendRequest(RequestContractVars&);
-				void SendRequest(RequestContractLogs&);
-				void SendTrgCtx(const details::ExtraData_DependentCtx&);
+#define THE_MACRO(type, msgOut, msgIn) void OnMsg(proto::msgIn&&) override;
+				REQUEST_TYPES_Std(THE_MACRO)
+#undef THE_MACRO
+
+				void OnMsg(proto::Pong&& msg) override;
+				void OnMsg(proto::HdrPack&& msg) override;
+				void OnMsg(proto::ContractVars&& msg) override;
+				void OnMsg(proto::ContractLogs&& msg) override;
+
+				bool IsSupported(const Data::Std&) { return true; }
+				bool IsSupported(RequestEvents&);
+				bool IsSupported(RequestTransaction&);
+
+				void OnRequestData(const Data::Std&) {}
+				void OnRequestData(RequestUtxo&);
+				void OnRequestData(RequestKernel&);
+				void OnRequestData(RequestKernel2&);
+				void OnRequestData(RequestAsset&);
+				void OnRequestData(RequestProofShieldedInp&);
+				void OnRequestData(RequestProofShieldedOutp&);
+				void OnRequestData(RequestContractVar&);
+
+				bool SendTrgCtx(const std::unique_ptr<Merkle::Hash>&);
 			};
 
 			typedef boost::intrusive::list<Connection> ConnectionList;

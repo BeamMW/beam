@@ -296,7 +296,7 @@ namespace beam::wallet
         macro(Body) 
 
         struct AllTasks {
-#define THE_MACRO(type, msgOut, msgIn) struct type { static const bool b = false; };
+#define THE_MACRO(type) struct type { static const bool b = false; };
             REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
         };

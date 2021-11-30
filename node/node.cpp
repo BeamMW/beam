@@ -1826,7 +1826,7 @@ bool Node::DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>& v, const pr
     // PoW verification is heavy for big packs. Do it in parallel
     Executor::Scope scope(m_Processor.m_ExecutorMT);
 
-    proto::details::ExtraData<proto::HdrPack> ex;
+    proto::FlyClient::Data::DecodedHdrPack ex;
     if (!ex.DecodeAndCheck(msg))
         return false;
 
