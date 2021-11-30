@@ -118,7 +118,7 @@ namespace beam::wallet
         WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor); // lazy DB creation ctor
         virtual ~WalletClient();
 
-        void start( std::map<Notification::Type,bool> activeNotifications,
+        void start( std::map<Notification::Type,bool> activeNotifications, const std::string& ipfsStorage,
                     bool withExchangeRates = false,
                     std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr);
 

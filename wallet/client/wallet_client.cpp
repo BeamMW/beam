@@ -513,6 +513,7 @@ namespace beam::wallet
     }
 
     void WalletClient::start( std::map<Notification::Type,bool> activeNotifications,
+                              const std::string& ipfsStorage,
                               bool withExchangeRates,
                               std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
     {
@@ -520,7 +521,7 @@ namespace beam::wallet
         {
             return;
         }
-        m_thread = std::make_shared<MyThread>([this, withExchangeRates, txCreators, activeNotifications]()
+        m_thread = std::make_shared<MyThread>([this, withExchangeRates, txCreators, activeNotifications, ipfsStorage]()
         {
             try
             {
@@ -661,27 +662,36 @@ namespace beam::wallet
                 // IPFS
                 //
                 #ifdef BEAM_IPFS_SUPPORT
-                struct IPFSHandler: public IPFSService::Handler {
-                    explicit IPFSHandler(WalletClient* wc)
-                        : _wc(wc)
-                    {
+                struct IPFSHandler : public IPFSService::Handler {
+                    explicit IPFSHandler(WalletClient *wc)
+                            : _wc(wc) {
                     }
 
-                    void pushToClient(std::function<void()>&& action) override {
+                    void pushToClient(std::function<void()> &&action) override {
                         _wc->postFunctionToClientContext(std::move(action));
                     }
 
                 private:
-                    WalletClient* _wc;
+                    WalletClient *_wc;
                 };
 
-                auto ipfsHandler = std::make_shared<IPFSHandler>(this);
-                auto ipfsService = IPFSService::create(ipfsHandler);
-                // TODO:IPFS path from settings
-                ipfsService->start("./ipfs-repo");
-                m_ipfs = ipfsService;
+                std::shared_ptr<IPFSHandler> ipfsHandler;
+                std::shared_ptr<IPFSService> ipfsService;
+
+                if (ipfsStorage.empty())
+                {
+                    LOG_WARNING() << "Empty IPFS storage path passed. IPFS node won't be started.";
+                }
+                else
+                {
+                    LOG_INFO() << "IPFS Enabled. Starting IPFS node.";
+                    ipfsHandler = std::make_shared<IPFSHandler>(this);
+                    ipfsService = IPFSService::create(ipfsHandler);
+                    ipfsService->start(ipfsStorage);
+                    m_ipfs = ipfsService;
+                }
                 #else
-                LOG_INFO () << "IPFS Service is disabled."
+                LOG_WARNING () << "IPFS Service is disabled."
                 #endif
 
                 //
