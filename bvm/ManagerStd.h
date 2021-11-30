@@ -44,7 +44,7 @@ namespace beam::bvm2 {
 		io::Timer::Ptr m_pOnMsgTimer;
 
 	protected:
-		Height get_Height() override;
+		void SelectContext(bool bDependent, uint32_t nChargeNeeded) override;
 		bool get_HdrAt(Block::SystemState::Full&) override;
 		void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr&) override;
 		void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax, IReadLogs::Ptr&) override;

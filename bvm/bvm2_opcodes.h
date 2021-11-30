@@ -251,6 +251,10 @@
 	macro(Height, h) sep \
 	macro(HashValue&, res)
 
+#define BVMOp_SelectContext(macro, sep) \
+	macro(uint8_t, bDependent) sep \
+	macro(uint32_t, nChargeNeeded)
+
 #define BVMOp_Vars_Enum(macro, sep) \
 	macro(const void*, pKey0) sep \
 	macro(uint32_t, nKey0) sep \
@@ -500,6 +504,7 @@
 	macro(0x3A, uint8_t  , AssetDestroy) \
 
 #define BVMOpsAll_Manager(macro) \
+	macro(0x50, void     , SelectContext) \
 	macro(0x51, uint32_t , Vars_Enum) \
 	macro(0x52, uint8_t  , Vars_MoveNext) \
 	macro(0x53, void     , Vars_Close) \

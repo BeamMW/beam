@@ -257,13 +257,14 @@ namespace bvm2 {
 	}
 
 
-	Height ManagerStd::get_Height()
+	void ManagerStd::SelectContext(bool /* bDependent */, uint32_t /* nChargeNeeded */)
 	{
 		Wasm::Test(m_pHist);
 
 		Block::SystemState::Full s;
 		m_pHist->get_Tip(s); // zero-inits if no tip
-		return s.m_Height;
+
+		m_Context.m_Height = s.m_Height;
 	}
 
 	bool ManagerStd::PerformRequestSync(proto::FlyClient::Request& r)
@@ -358,6 +359,7 @@ namespace bvm2 {
 		m_Out.clear();
 		decltype(m_vInvokeData)().swap(m_vInvokeData);
 		m_Comms.Clear();
+		m_Context.Reset();
 
 		m_mapReadVars.Clear();
 		m_mapReadLogs.Clear();

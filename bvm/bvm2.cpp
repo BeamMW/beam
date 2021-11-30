@@ -2222,6 +2222,24 @@ namespace bvm2 {
 	//	Wasm::Test(pCallback);
 	//	return LoadAllVars(*pCallback);
 	//}
+	BVM_METHOD(SelectContext)
+	{
+		return OnHost_SelectContext(bDependent, nChargeNeeded);
+	}
+	BVM_METHOD_HOST(SelectContext)
+	{
+		bool b = !!bDependent;
+		if (MaxHeight != m_Context.m_Height)
+		{
+			bool b0 = !!m_Context.m_pParent;
+			if (b == b0)
+				return; // no change
+
+			m_Context.Reset();
+		}
+
+		SelectContext(b, nChargeNeeded);
+	}
 
 	BVM_METHOD(Vars_Enum)
 	{
@@ -2229,6 +2247,8 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(Vars_Enum)
 	{
+		EnsureContext();
+
 		IReadVars::Ptr pObj;
 		VarsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1), pObj);
 		if (!pObj)
@@ -2306,6 +2326,8 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(Logs_Enum)
 	{
+		EnsureContext();
+
 		IReadLogs::Ptr pObj;
 		LogsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1), pPosMin, pPosMax, pObj);
 		if (!pObj)
@@ -2368,6 +2390,8 @@ namespace bvm2 {
 
 	uint32_t ProcessorManager::VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof)
 	{
+		EnsureContext();
+
 		ByteBuffer val;
 		beam::Merkle::Proof proof;
 
@@ -2429,6 +2453,8 @@ namespace bvm2 {
 
 	uint32_t ProcessorManager::LogGetProofInternal(const HeightPos& hp, Wasm::Word& pProof)
 	{
+		EnsureContext();
+
 		ByteBuffer val;
 		beam::Merkle::Proof proof;
 
@@ -2921,6 +2947,21 @@ namespace bvm2 {
 		{
 			const auto& x = pSig[i];
 			DeriveKeyPreimage(v.m_vSig.emplace_back(), Blob(x.m_pID, x.m_nID));
+		}
+	}
+
+	Height ProcessorManager::get_Height()
+	{
+		EnsureContext();
+		return m_Context.m_Height;
+	}
+
+	void ProcessorManager::EnsureContext()
+	{
+		if (MaxHeight == m_Context.m_Height)
+		{
+			SelectContext(false, 0);
+			Wasm::Test(MaxHeight != m_Context.m_Height);
 		}
 	}
 
