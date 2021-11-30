@@ -1797,7 +1797,7 @@ namespace beam
 				SetTimer(90 * 1000);
 				SendLogin();
 
-				Send(proto::GetExternalAddr(Zero));
+				Send(proto::GetExternalAddr());
 			}
 
 			virtual void OnMsg(proto::Authentication&& msg) override

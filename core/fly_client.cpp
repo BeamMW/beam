@@ -1050,9 +1050,7 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestBbsMsg& req)
 void FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
 {
 	Send(req.m_Msg);
-
-	Ping msg2(Zero);
-    Send(msg2);
+    Send(proto::Ping());
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestBbsMsg& req)

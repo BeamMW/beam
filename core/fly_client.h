@@ -99,7 +99,6 @@ namespace proto {
 			,public details::ExtraData<msgIn> \
 		{ \
 			typedef boost::intrusive_ptr<Request##type> Ptr; \
-			Request##type() :m_Msg(Zero), m_Res(Zero) {} \
 			virtual ~Request##type() {} \
 			virtual Type get_Type() const { return Type::type; } \
 			proto::msgOut m_Msg; \
