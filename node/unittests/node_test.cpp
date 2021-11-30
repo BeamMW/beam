@@ -2450,9 +2450,9 @@ namespace beam
 						m_Slots.erase(it);
 				}
 
-				Height get_Height() override
+				void SelectContext(bool /* bDependent */, uint32_t /* nChargeNeeded */) override
 				{
-					return m_This.m_vStates.empty() ? 0 : m_This.m_vStates.back().m_Height;
+					m_Context.m_Height = m_This.m_vStates.empty() ? 0 : m_This.m_vStates.back().m_Height;
 				}
 
 			};
