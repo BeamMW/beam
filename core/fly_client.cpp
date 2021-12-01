@@ -61,6 +61,28 @@ void FlyClient::NetworkStd::Disconnect()
         delete &m_Connections.front();
 }
 
+FlyClient::NetworkStd::Connection* FlyClient::NetworkStd::get_ActiveConnection()
+{
+    Connection* pRet = nullptr;
+
+    for (ConnectionList::iterator it = m_Connections.begin(); m_Connections.end() != it; ++it)
+    {
+        Connection& c = *it;
+        if (!c.IsLive() || !c.IsAtTip())
+            continue;
+
+        if (pRet)
+        {
+            if (pRet->m_Dependent.m_vec.size() > c.m_Dependent.m_vec.size())
+                continue;
+        }
+
+        pRet = &c;
+    }
+
+    return pRet;
+}
+
 FlyClient::NetworkStd::Connection::Connection(NetworkStd& x)
     : m_This(x)
 {
@@ -86,7 +108,9 @@ void FlyClient::NetworkStd::Connection::ResetVars()
     ZeroObject(m_Tip);
     m_Flags = 0;
     m_NodeID = Zero;
-    m_pDependentCtx.reset();
+
+    m_Dependent.m_pQuery.reset();
+    m_Dependent.m_vec.clear();
 }
 
 void FlyClient::NetworkStd::Connection::ResetInternal()
@@ -277,6 +301,8 @@ void FlyClient::NetworkStd::Connection::OnMsg(NewTip&& msg)
     if (!(msg.m_Description.IsValid()))
         ThrowUnexpected();
 
+    m_Dependent.m_vec.clear();
+
     if (m_pSync && m_pSync->m_vConfirming.empty() && !m_pSync->m_TipBeforeGap.m_Height && !m_Tip.IsNext(msg.m_Description))
         m_pSync->m_TipBeforeGap = m_Tip;
 
@@ -313,7 +339,6 @@ void FlyClient::NetworkStd::Connection::StartSync()
     }
     else
     {
-        // starting search
         // starting search
         m_pSync.reset(new SyncCtx);
         m_pSync->m_LowHeight = m_Tip.m_Height;
@@ -585,6 +610,28 @@ void FlyClient::NetworkStd::OnNewRequests()
             break;
         }
     }
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(DependentContextChanged&& msg)
+{
+    if (msg.m_vCtxs.empty())
+        ThrowUnexpected();
+
+    if (msg.m_PrefixDepth)
+    {
+        if (m_Dependent.m_vec.size() < msg.m_PrefixDepth)
+            ThrowUnexpected();
+
+        m_Dependent.m_vec.resize(msg.m_PrefixDepth + msg.m_vCtxs.size());
+
+        for (size_t i = 0; i < msg.m_vCtxs.size(); i++)
+            m_Dependent.m_vec[i + msg.m_PrefixDepth] = msg.m_vCtxs[i];
+    }
+    else
+        m_Dependent.m_vec.swap(msg.m_vCtxs);
+
+    if (this == m_This.get_ActiveConnection())
+        m_This.m_Client.OnDependentStateChanged();
 }
 
 bool FlyClient::NetworkStd::Connection::IsAtTip() const
@@ -889,25 +936,25 @@ bool FlyClient::NetworkStd::Connection::SendTrgCtx(const std::unique_ptr<Merkle:
         if (get_Ext() < 9)
             return false;
 
-        if (m_pDependentCtx)
+        if (m_Dependent.m_pQuery)
         {
-            if (*pCtx == *m_pDependentCtx)
+            if (*pCtx == *m_Dependent.m_pQuery)
                 return true;
         }
         else
-            m_pDependentCtx = std::make_unique<Merkle::Hash>();
+            m_Dependent.m_pQuery = std::make_unique<Merkle::Hash>();
 
-        *m_pDependentCtx = *pCtx;
+        *m_Dependent.m_pQuery = *pCtx;
     }
     else
     {
-        if (!m_pDependentCtx)
+        if (!m_Dependent.m_pQuery)
             return true;
-        m_pDependentCtx.reset();
+        m_Dependent.m_pQuery.reset();
     }
 
     proto::SetDependentContext msg;
-    TemporarySwap ts(msg.m_Context, m_pDependentCtx);
+    TemporarySwap ts(msg.m_Context, m_Dependent.m_pQuery);
     Send(msg);
 
     return true;

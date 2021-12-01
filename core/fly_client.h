@@ -164,6 +164,7 @@ namespace proto {
 		virtual void OnOwnedNode(const PeerID&, bool bUp) {}
 		virtual void OnEventsSerif(const ECC::Hash::Value&, Height) {}
 		virtual void OnNewPeer(const PeerID& id, io::Address address) {}
+		virtual void OnDependentStateChanged() {}
 
 		struct IBbsReceiver
 		{
@@ -251,8 +252,6 @@ namespace proto {
 				void ResetInternal();
 				void ResetVars();
 
-				std::unique_ptr<Merkle::Hash> m_pDependentCtx;
-
 			public:
 				NetworkStd& m_This;
 
@@ -263,6 +262,12 @@ namespace proto {
 
 				io::Address m_Addr;
 				PeerID m_NodeID;
+
+				struct DependentContext
+				{
+					std::unique_ptr<Merkle::Hash> m_pQuery; // affects remote querying
+					std::vector<Merkle::Hash> m_vec;
+				} m_Dependent;
 
 				// most recent tip of the Node, according to which all the proofs are interpreted
 				Block::SystemState::Full m_Tip;
@@ -294,6 +299,7 @@ namespace proto {
 				void OnMsg(proto::EventsSerif&& msg) override;
 				void OnMsg(proto::DataMissing&& msg) override;
 				void OnMsg(proto::PeerInfo&& msg) override;
+				void OnMsg(proto::DependentContextChanged&& msg) override;
 
 #define THE_MACRO(type) bool SendRequest(Request##type&);
 				REQUEST_TYPES_All(THE_MACRO)
@@ -326,6 +332,8 @@ namespace proto {
 
 			typedef boost::intrusive::list<Connection> ConnectionList;
 			ConnectionList m_Connections;
+
+			Connection* get_ActiveConnection();
 
 			typedef std::map<BbsChannel, std::pair<IBbsReceiver*, Timestamp> > BbsSubscriptions;
 			BbsSubscriptions m_BbsSubscriptions;
