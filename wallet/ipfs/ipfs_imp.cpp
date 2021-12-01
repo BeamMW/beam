@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "ipfs_imp.h"
-#include "boost/asio/spawn.hpp"
 #include "utility/logger.h"
 #include <boost/filesystem.hpp>
+#include <boost/asio/spawn.hpp>
+#include <boost/asio/deadline_timer.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 // TODO:IPFS checlk
 // 2021/11/16 20:13:48 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 2048 kiB, got: 416 kiB).
@@ -33,6 +35,12 @@ namespace beam::wallet::imp
 
     namespace
     {
+        #ifdef NDEBUG
+        const uint32_t kDefaultTimeout = 10000;
+        #else
+        const uint32_t kDefaultTimeout = 5000;
+        #endif
+
         std::string err2str(const boost::system::system_error &err)
         {
             std::stringstream ss;
@@ -190,7 +198,7 @@ namespace beam::wallet::imp
         );
     }
 
-    void IPFSService::get(const std::string& hash, std::function<void (std::vector<uint8_t>&&)>&& res, Err&& err)
+    void IPFSService::get(const std::string& hash, uint32_t timeout, std::function<void (std::vector<uint8_t>&&)>&& res, Err&& err)
     {
         if(!_node || !_thread)
         {
@@ -206,10 +214,25 @@ namespace beam::wallet::imp
             });
         }
 
-        boost::asio::spawn(*_ios, [this, hash, err = std::move(err), res = std::move(res)]
+        if (!timeout)
+        {
+            timeout = kDefaultTimeout;
+        }
+
+        boost::asio::deadline_timer t(*_ios, boost::posix_time::milliseconds(timeout));
+        boost::asio::spawn(*_ios, [this, hash, t = std::move(t), err = std::move(err), res = std::move(res)]
             (boost::asio::yield_context yield) mutable {
                 try
                 {
+                    // TODO:ipfs hanle timeout
+                    //LOG_ERROR() << "!!!!! wait start timeout";
+                    //t.async_wait([](const boost::system::error_code& errorCode) {
+                    //    int a = 0;
+                    //    a++;
+                    //    LOG_ERROR() << "!!!!! timeout";
+                    //});
+
+                    // TODO:IPFS drop cancel, like this is incorrect
                     std::function<void ()> cancel = [this, err] () {
                         retToClient([this, err] () {
                             err("IPF get operation cancelled");

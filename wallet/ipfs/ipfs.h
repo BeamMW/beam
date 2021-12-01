@@ -53,7 +53,7 @@ namespace beam::wallet
                          Err&&) = 0;
 
         /// \brief Get data from IPFS
-        virtual void get(const std::string& hash,
+        virtual void get(const std::string& hash, uint32_t timeout,
                          std::function<void (std::vector<uint8_t>&&)>&& res,
                          Err&&) = 0;
 

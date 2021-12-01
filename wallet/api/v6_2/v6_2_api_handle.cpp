@@ -50,7 +50,7 @@ namespace beam::wallet
     void V62Api::onHandleIPFSGet(const JsonRpcId &id, const IPFSGet& req)
     {
         auto ipfs = getIPFS();
-        ipfs->get(req.hash,
+        ipfs->get(req.hash, 0,
         [this, id, hash = req.hash, wguard = _weakSelf](std::vector<uint8_t>&& data) {
                 auto guard = wguard.lock();
                 if (!guard)

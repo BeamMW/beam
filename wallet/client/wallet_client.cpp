@@ -661,6 +661,7 @@ namespace beam::wallet
                 //
                 // IPFS
                 //
+                // TODO:IPFS consider starting ipfs node only when DAPPS are started
                 #ifdef BEAM_IPFS_SUPPORT
                 struct IPFSHandler : public IPFSService::Handler {
                     explicit IPFSHandler(WalletClient *wc)

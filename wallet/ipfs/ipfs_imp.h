@@ -30,7 +30,7 @@ namespace beam::wallet::imp
         void start(const std::string& storagePath) override;
         void stop() override;
         void add(std::vector<uint8_t>&& data, std::function<void (std::string&&)>&& res, Err&&) override;
-        void get(const std::string& hash, std::function<void (std::vector<uint8_t>&&)>&& res, Err&&) override;
+        void get(const std::string& hash, uint32_t timeout, std::function<void (std::vector<uint8_t>&&)>&& res, Err&&) override;
         void pin(const std::string& hash, std::function<void ()>&& res, Err&&) override;
 
         [[nodiscard]] std::string id() const override
