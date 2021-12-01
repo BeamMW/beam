@@ -83,6 +83,19 @@ FlyClient::NetworkStd::Connection* FlyClient::NetworkStd::get_ActiveConnection()
     return pRet;
 }
 
+const Merkle::Hash* FlyClient::NetworkStd::get_DependentState(uint32_t& nCount)
+{
+    nCount = 0;
+
+    auto* pC = get_ActiveConnection();
+    if (!pC)
+        return nullptr;
+
+    const auto& v = pC->m_Dependent.m_vec;
+    nCount = (uint32_t) v.size();
+    return nCount ? &v.front() : nullptr;
+}
+
 FlyClient::NetworkStd::Connection::Connection(NetworkStd& x)
     : m_This(x)
 {

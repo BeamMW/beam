@@ -136,7 +136,7 @@ namespace proto {
 				proto::ContractLogs m_Res;
 			};
 			struct EnsureSync {
-				// no members needed
+				bool m_IsDependent;
 			};
 		};
 
@@ -180,6 +180,7 @@ namespace proto {
 			virtual void Disconnect() = 0;
 			virtual void PostRequestInternal(Request&) = 0;
 			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) {} // duplicates should be handled internally
+			virtual const Merkle::Hash* get_DependentState(uint32_t& nCount) = 0;
 
 			void PostRequest(Request&, Request::IHandler&);
 		};
@@ -343,6 +344,7 @@ namespace proto {
 			virtual void Disconnect() override;
 			virtual void PostRequestInternal(Request&) override;
 			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) override;
+			virtual const Merkle::Hash* get_DependentState(uint32_t& nCount) override;
 
 			// more events
 			virtual void OnNodeConnected(bool) {}

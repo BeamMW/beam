@@ -50,6 +50,13 @@ namespace bvm2 {
 
 	struct ManagerStd::RemoteRead
 	{
+		static void SetContext(std::unique_ptr<beam::Merkle::Hash>& pTrg, const std::unique_ptr<beam::Merkle::Hash>& pSrc)
+		{
+			assert(!pTrg);
+			if (pSrc)
+				pTrg = std::make_unique<beam::Merkle::Hash>(*pSrc);
+		}
+
 		struct Base
 			:public proto::FlyClient::Request::IHandler
 		{
@@ -225,6 +232,7 @@ namespace bvm2 {
 		kMin.Export(r.m_Msg.m_KeyMin);
 		kMax.Export(r.m_Msg.m_KeyMax);
 
+		RemoteRead::SetContext(r.m_pCtx, m_Context.m_pParent);
 		p->m_pRequest = std::move(pReq);
 		p->Post();
 
@@ -250,6 +258,7 @@ namespace bvm2 {
 		else
 			r.m_Msg.m_PosMax.m_Height = MaxHeight;
 
+		RemoteRead::SetContext(r.m_pCtx, m_Context.m_pParent);
 		p->m_pRequest = std::move(pReq);
 		p->Post();
 
@@ -257,9 +266,10 @@ namespace bvm2 {
 	}
 
 
-	void ManagerStd::SelectContext(bool /* bDependent */, uint32_t /* nChargeNeeded */)
+	void ManagerStd::SelectContext(bool bDependent, uint32_t /* nChargeNeeded */)
 	{
 		proto::FlyClient::RequestEnsureSync::Ptr pReq(new proto::FlyClient::RequestEnsureSync);
+		pReq->m_IsDependent = bDependent;
 		Wasm::Test(PerformRequestSync(*pReq));
 
 		Wasm::Test(m_pHist);
