@@ -259,6 +259,9 @@ namespace bvm2 {
 
 	void ManagerStd::SelectContext(bool /* bDependent */, uint32_t /* nChargeNeeded */)
 	{
+		proto::FlyClient::RequestEnsureSync::Ptr pReq(new proto::FlyClient::RequestEnsureSync);
+		Wasm::Test(PerformRequestSync(*pReq));
+
 		Wasm::Test(m_pHist);
 
 		Block::SystemState::Full s;

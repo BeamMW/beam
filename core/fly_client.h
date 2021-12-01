@@ -28,6 +28,7 @@ namespace proto {
 		macro(Kernel) \
 		macro(Kernel2) \
 		macro(Events) \
+		macro(EnsureSync) \
 		macro(Transaction) \
 		macro(ShieldedList) \
 		macro(ProofShieldedInp) \
@@ -133,6 +134,9 @@ namespace proto {
 				std::unique_ptr<Merkle::Hash> m_pCtx;
 				proto::ContractLogsEnum m_Msg;
 				proto::ContractLogs m_Res;
+			};
+			struct EnsureSync {
+				// no members needed
 			};
 		};
 

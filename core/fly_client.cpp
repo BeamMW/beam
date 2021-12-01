@@ -738,6 +738,13 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestEvents&)
     return !!(Flags::Owned & m_Flags);
 }
 
+bool FlyClient::NetworkStd::Connection::SendRequest(RequestEnsureSync& req)
+{
+    auto& n = get_FirstRequest();
+    OnDone(n);
+    return true;
+}
+
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestTransaction& req)
 {
     if (!(LoginFlags::SpreadingTransactions & m_LoginFlags))
