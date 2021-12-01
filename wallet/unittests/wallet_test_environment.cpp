@@ -1177,8 +1177,7 @@ private:
 
         void OnMsg(proto::Ping&& msg) override
         {
-            proto::Pong msgOut(Zero);
-            Send(msgOut);
+            Send(proto::Pong());
         }
 
         void OnMsg(proto::GetStateSummary&& msg) override

@@ -2793,6 +2793,11 @@ namespace bvm2 {
 			}
 		};
 
+		void SelectContext(bool /* bDependent */, uint32_t /* nChargeNeeded */) override
+		{
+			m_Context.m_Height = 15;
+		}
+
 		virtual void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr& pRes) override
 		{
 			auto p = std::make_unique<VarEnumCtx>();

@@ -638,9 +638,8 @@ namespace proto {
         static const uint8_t s_Code = code; \
         BeamNodeMsg_##msg(THE_MACRO2) \
         template <typename Archive> void serialize(Archive& ar) { ar BeamNodeMsg_##msg(THE_MACRO3); } \
-        msg(Zero_ = Zero) { BeamNodeMsg_##msg(THE_MACRO4) } /* default c'tor, zero-init everything */ \
+        msg() { BeamNodeMsg_##msg(THE_MACRO4) } /* default c'tor, zero-init everything */ \
         msg(Uninitialized_) { } /* don't init members */ \
-        msg(BeamNodeMsg_##msg(THE_MACRO5) Unused_ = Unused) { BeamNodeMsg_##msg(THE_MACRO6) } /* explicit init */ \
     }; \
     struct msg##_NoInit :public msg { \
         msg##_NoInit() :msg(Uninitialized) {} \

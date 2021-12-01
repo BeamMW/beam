@@ -472,6 +472,7 @@ namespace bvm2 {
 
 		virtual void InvokeExt(uint32_t) override;
 		virtual uint32_t get_HeapLimit() override;
+		virtual Height get_Height() override;
 
 		struct IReadVars
 			:public intrusive::set_base_hook<uint32_t>
@@ -514,6 +515,21 @@ namespace bvm2 {
 		virtual bool SlotLoad(ECC::Hash::Value&, uint32_t iSlot) { return false; }
 		virtual void SlotSave(const ECC::Hash::Value&, uint32_t iSlot) { }
 		virtual void SlotErase(uint32_t iSlot) { }
+
+		virtual void SelectContext(bool bDependent, uint32_t nChargeNeeded) = 0;
+
+		void EnsureContext();
+
+		struct Context {
+			Height m_Height = MaxHeight;
+			std::unique_ptr<beam::Merkle::Hash> m_pParent;
+
+			void Reset() {
+				m_Height = MaxHeight;
+				m_pParent.reset();
+			}
+
+		} m_Context;
 
 		struct Comm
 		{

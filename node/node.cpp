@@ -1751,10 +1751,7 @@ void Node::Peer::OnMsg(proto::GetHdr&& msg)
         m_This.m_Processor.get_DB().get_State(rowid, msgHdr.m_Description);
         Send(msgHdr);
     } else
-    {
-        proto::DataMissing msgMiss(Zero);
-        Send(msgMiss);
-    }
+        Send(proto::DataMissing());
 }
 
 void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
@@ -1818,7 +1815,7 @@ void Node::Peer::SendHdrs(NodeDB::StateID& sid, uint32_t nCount)
         }
     }
 
-    Send(proto::DataMissing(Zero));
+    Send(proto::DataMissing());
 }
 
 bool Node::DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>& v, const proto::HdrPack& msg)
@@ -1829,7 +1826,7 @@ bool Node::DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>& v, const pr
     // PoW verification is heavy for big packs. Do it in parallel
     Executor::Scope scope(m_Processor.m_ExecutorMT);
 
-    proto::details::ExtraData<proto::HdrPack> ex;
+    proto::FlyClient::Data::DecodedHdrPack ex;
     if (!ex.DecodeAndCheck(msg))
         return false;
 
@@ -1961,8 +1958,7 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
         }
     }
 
-    proto::DataMissing msgMiss(Zero);
-    Send(msgMiss);
+    Send(proto::DataMissing());
 }
 
 bool Node::Peer::GetBlock(proto::BodyBuffers& out, const NodeDB::StateID& sid, const proto::GetBodyPack& msg, bool bActive)
@@ -3032,7 +3028,7 @@ void Node::Peer::OnChocking()
 	if (!(Flags::Chocking & m_Flags))
 	{
 		m_Flags |= Flags::Chocking;
-		Send(proto::Ping(Zero));
+		Send(proto::Ping());
 	}
 }
 

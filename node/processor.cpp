@@ -4633,8 +4633,8 @@ struct NodeProcessor::ProcessorInfoParser
 	ByteBuffer m_bufParser;
 	std::ostringstream m_os;
 
-	Height get_Height() override {
-		return m_Height;
+	void SelectContext(bool /* bDependent */, uint32_t /* nChargeNeeded */) override {
+		m_Context.m_Height;
 	}
 	bool get_HdrAt(Block::SystemState::Full& s) override
 	{
