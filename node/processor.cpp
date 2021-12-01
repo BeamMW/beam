@@ -2410,7 +2410,6 @@ struct NodeProcessor::BlockInterpretCtx
 			static const Type AssetDestroy = 6;
 			static const Type Log = 7;
 			static const Type Recharge = 8;
-			static const Type DependentCtx = 9;
 		};
 
 		BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& db);
@@ -4106,6 +4105,7 @@ bool NodeProcessor::ExecInDependentContext(IWorker& wrk, const Merkle::Hash* pCt
 			bic.m_Temporary = true;
 			bic.m_TxValidation = true;
 			bic.m_SkipDefinition = true;
+			bic.m_AlreadyValidated = true;
 
 			DependentContextSwitch dcs(*this, bic);
 			if (!dcs.Apply(&itCtx->get_ParentObj()))
@@ -4360,17 +4360,43 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 
 bool NodeProcessor::HandleKernelTypeAny(const TxKernel& krn, BlockInterpretCtx& bic)
 {
-	switch (krn.get_Subtype())
+	auto eType = krn.get_Subtype();
+
+	bool bContextChange = !krn.m_CanEmbed && (TxKernel::Subtype::Std != eType);
+	if (bContextChange && !bic.m_Fwd && bic.m_Temporary)
+	{
+		BlockInterpretCtx::Der der(bic);
+		der & bic.m_hvDependentCtx;
+	}
+
+	switch (eType)
 	{
 #define THE_MACRO(id, name) \
 	case TxKernel::Subtype::name: \
-		return HandleKernelType(Cast::Up<TxKernel##name>(krn), bic); \
+		if (!HandleKernelType(Cast::Up<TxKernel##name>(krn), bic)) \
+			return false; \
+		break; 
 
 	BeamKernelsAll(THE_MACRO)
 #undef THE_MACRO
+
+	default:
+		assert(false); // should not happen!
 	}
 
-	assert(false); // should not happen!
+	if (bContextChange && bic.m_Fwd)
+	{
+		const auto& hvPrev = bic.m_DependentCtxSet ? bic.m_hvDependentCtx : m_Cursor.m_Full.m_Prev;
+		if (bic.m_Temporary)
+		{
+			BlockInterpretCtx::Ser ser(bic);
+			ser & hvPrev;
+		}
+
+		DependentContext::get_Ancestor(bic.m_hvDependentCtx, hvPrev, krn.m_Internal.m_ID);
+		bic.m_DependentCtxSet = true;
+	}
+
 	return true;
 }
 
@@ -4546,24 +4572,14 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 
 		if (!m_Bic.m_AlreadyValidated)
 		{
-			if (krn.m_Dependent)
+			hp << krn.m_Msg;
+
+			if (krn.m_Dependent && (m_Bic.m_Height >= Rules::get().pForks[4].m_Height))
 			{
-				const auto& hvPrev = m_Bic.m_DependentCtxSet ? m_Bic.m_hvDependentCtx : m_Proc.m_Cursor.m_Full.m_Prev;
-				m_Bic.m_DependentCtxSet = true;
-
-				if (m_Bic.m_Temporary)
-				{
-					BlockInterpretCtx::Ser ser(m_Bic);
-					RecoveryTag::Type nTag = RecoveryTag::DependentCtx;
-					ser & nTag;
-					ser & hvPrev;
-				}
-
-				DependentContext::get_Ancestor(m_Bic.m_hvDependentCtx, hvPrev, krn.m_Msg);
-				hp << m_Bic.m_hvDependentCtx;
+				const auto& hvCtx = m_Bic.m_DependentCtxSet ? m_Bic.m_hvDependentCtx : m_Proc.m_Cursor.m_Full.m_Prev;
+				hp << hvCtx;
 			}
 			else
-				hp << krn.m_Msg;
 
 			m_pSigValidate = &hp;
 		}
@@ -5138,13 +5154,6 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 		{
 			assert(m_Bic.m_Temporary);
 			der & m_Bic.m_ChargePerBlock;
-		}
-		break;
-
-		case RecoveryTag::DependentCtx:
-		{
-			assert(m_Bic.m_Temporary && m_Bic.m_DependentCtxSet);
-			der & m_Bic.m_hvDependentCtx;
 		}
 		break;
 
@@ -5826,6 +5835,7 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 	bic.m_TxValidation = true;
 	bic.m_SkipDefinition = true;
 	bic.m_pTxErrorInfo = pExtraInfo;
+	bic.m_AlreadyValidated = true;
 
 	DependentContextSwitch dcs(*this, bic);
 	if (!dcs.Apply(pParent))
@@ -5833,6 +5843,8 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 		LOG_WARNING() << "can't switch dependent context"; // normally should not happen
 		return proto::TxStatus::DependentNoParent;
 	}
+
+	bic.m_AlreadyValidated = false;
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
 
