@@ -34,6 +34,7 @@ public:
             BbsChannel ch,
             Timestamp timestamp,
             FlyClient::IBbsReceiver* receiver) override;
+    virtual const Merkle::Hash* get_DependentState(uint32_t& nCount) override;
 private:
     void OnMined();
     void MineBbsRequest(FlyClient::RequestBbsMsg& r);
