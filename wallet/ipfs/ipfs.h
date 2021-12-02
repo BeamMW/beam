@@ -58,7 +58,7 @@ namespace beam::wallet
                          Err&&) = 0;
 
         /// \brief Pin to the local node
-        virtual void pin(const std::string& hash,
+        virtual void pin(const std::string& hash, uint32_t timeout,
                          std::function<void ()>&& res,
                          Err&&) = 0;
     };

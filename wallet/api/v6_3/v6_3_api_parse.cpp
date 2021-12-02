@@ -16,6 +16,18 @@
 
 namespace beam::wallet
 {
+    namespace
+    {
+        uint32_t parseTimeout(V63Api& api, const nlohmann::json& params)
+        {
+            if(auto otimeout = api.getOptionalParam<uint32_t>(params, "timeout"))
+            {
+                return *otimeout;
+            }
+            return 0;
+        }
+    }
+
     std::pair<IPFSAdd, IWalletApi::MethodInfo> V63Api::onParseIPFSAdd(const JsonRpcId& id, const nlohmann::json& params)
     {
         IPFSAdd message;
@@ -48,6 +60,7 @@ namespace beam::wallet
     std::pair<IPFSGet, IWalletApi::MethodInfo> V63Api::onParseIPFSGet(const JsonRpcId& id, const nlohmann::json& params)
     {
         IPFSGet message;
+        message.timeout = parseTimeout(*this, params);
         message.hash = getMandatoryParam<NonEmptyString>(params, "hash");
         return std::make_pair(std::move(message), MethodInfo());
     }
@@ -70,6 +83,7 @@ namespace beam::wallet
     std::pair<IPFSPin, IWalletApi::MethodInfo> V63Api::onParseIPFSPin(const JsonRpcId& id, const nlohmann::json& params)
     {
         IPFSPin message;
+        message.timeout = parseTimeout(*this, params);
         message.hash = getMandatoryParam<NonEmptyString>(params, "hash");
         return std::make_pair(std::move(message), MethodInfo());
     }

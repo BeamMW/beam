@@ -31,6 +31,8 @@ namespace beam::wallet
     struct IPFSAdd
     {
         std::vector<uint8_t> data;
+        uint32_t timeout = 0;
+
         struct Response
         {
             std::string hash;
@@ -40,6 +42,8 @@ namespace beam::wallet
     struct IPFSGet
     {
         std::string hash;
+        uint32_t timeout = 0;
+
         struct Response
         {
             std::string hash;
@@ -50,6 +54,8 @@ namespace beam::wallet
     struct IPFSPin
     {
         std::string hash;
+        uint32_t timeout = 0;
+
         struct Response
         {
             std::string hash;

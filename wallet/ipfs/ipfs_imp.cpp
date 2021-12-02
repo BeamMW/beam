@@ -41,6 +41,17 @@ namespace beam::wallet::imp
         const uint32_t kDefaultTimeout = 5000;
         #endif
 
+        std::shared_ptr<boost::asio::deadline_timer> make_deadline(boost::asio::io_context& ctx, uint32_t timeout)
+        {
+            if (timeout)
+            {
+                return std::make_shared<boost::asio::deadline_timer>(
+                        ctx, boost::posix_time::milliseconds(timeout)
+                       );
+            }
+            return nullptr;
+        }
+
         std::string err2str(const boost::system::system_error &err)
         {
             std::stringstream ss;
@@ -219,25 +230,19 @@ namespace beam::wallet::imp
             timeout = kDefaultTimeout;
         }
 
-        boost::asio::deadline_timer t(*_ios, boost::posix_time::milliseconds(timeout));
-        boost::asio::spawn(*_ios, [this, hash, t = std::move(t), err = std::move(err), res = std::move(res)]
+        auto deadline =  make_deadline(*_ios, timeout);
+        boost::asio::spawn(*_ios, [this, hash, d = std::move(deadline), err = std::move(err), res = std::move(res)]
             (boost::asio::yield_context yield) mutable {
                 try
                 {
-                    // TODO:ipfs hanle timeout
-                    //LOG_ERROR() << "!!!!! wait start timeout";
-                    //t.async_wait([](const boost::system::error_code& errorCode) {
-                    //    int a = 0;
-                    //    a++;
-                    //    LOG_ERROR() << "!!!!! timeout";
-                    //});
-
-                    // TODO:IPFS drop cancel, like this is incorrect
-                    std::function<void ()> cancel = [this, err] () {
-                        retToClient([this, err] () {
-                            err("IPF get operation cancelled");
+                    std::function<void ()> cancel;
+                    if (d)
+                    {
+                        d->async_wait([&cancel](const boost::system::error_code&) {
+                            LOG_ERROR() << "!!!!! IPFS get timeout";
+                            cancel();
                         });
-                    };
+                    }
 
                     auto data = _node->cat(hash, cancel, std::move(yield));
                     retToClient([data = std::move(data), res = std::move(res)] () mutable {
@@ -246,6 +251,7 @@ namespace beam::wallet::imp
                 }
                 catch(const boost::system::system_error& se)
                 {
+                    LOG_ERROR() << "!!!!! IPFS get error";
                     retToClient([err = std::move(err), what = err2str(se)] () mutable {
                         err(std::move(what));
                     });
@@ -254,7 +260,7 @@ namespace beam::wallet::imp
         );
     }
 
-    void IPFSService::pin(const std::string& hash, std::function<void ()>&& res, Err&& err)
+    void IPFSService::pin(const std::string& hash, uint32_t timeout, std::function<void ()>&& res, Err&& err)
     {
         if(!_node || !_thread)
         {

@@ -698,6 +698,7 @@ namespace beam::wallet
                 //
                 // Shaders
                 //
+                LOG_INFO() << "Wallet Client THREAD " << gettid();
                 auto clientShaders = IShadersManager::CreateInstance(wallet, m_walletDB, nodeNetwork, "", "");
                 _clientShaders = clientShaders;
 
@@ -706,6 +707,9 @@ namespace beam::wallet
                     wallet->CleanupNetwork();
                     nodeNetwork->Disconnect();
                 });
+
+                wallet->CleanupNetwork();
+                nodeNetwork->Disconnect();
 
                 assert(clientShaders.use_count() == 1);
                 clientShaders.reset();
