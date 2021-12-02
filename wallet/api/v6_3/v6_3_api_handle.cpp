@@ -11,12 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "v6_2_api.h"
+#include "v6_3_api.h"
 #include "version.h"
 
 namespace beam::wallet
 {
-    void V62Api::onHandleIPFSAdd(const JsonRpcId &id, const IPFSAdd& req)
+    void V63Api::onHandleIPFSAdd(const JsonRpcId &id, const IPFSAdd& req)
     {
         auto ipfs = getIPFS();
 
@@ -47,7 +47,7 @@ namespace beam::wallet
         );
     }
 
-    void V62Api::onHandleIPFSGet(const JsonRpcId &id, const IPFSGet& req)
+    void V63Api::onHandleIPFSGet(const JsonRpcId &id, const IPFSGet& req)
     {
         auto ipfs = getIPFS();
         ipfs->get(req.hash, 0,
@@ -75,7 +75,7 @@ namespace beam::wallet
         );
     }
 
-    void V62Api::onHandleIPFSPin(const JsonRpcId &id, const IPFSPin& req)
+    void V63Api::onHandleIPFSPin(const JsonRpcId &id, const IPFSPin& req)
     {
         auto ipfs = getIPFS();
         ipfs->pin(req.hash,

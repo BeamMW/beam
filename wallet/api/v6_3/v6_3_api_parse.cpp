@@ -11,12 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "v6_2_api.h"
+#include "v6_3_api.h"
 #include "version.h"
 
 namespace beam::wallet
 {
-    std::pair<IPFSAdd, IWalletApi::MethodInfo> V62Api::onParseIPFSAdd(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<IPFSAdd, IWalletApi::MethodInfo> V63Api::onParseIPFSAdd(const JsonRpcId& id, const nlohmann::json& params)
     {
         IPFSAdd message;
 
@@ -31,7 +31,7 @@ namespace beam::wallet
         return std::make_pair(std::move(message), MethodInfo());
     }
 
-    void V62Api::getResponse(const JsonRpcId& id, const IPFSAdd::Response& res, json& msg)
+    void V63Api::getResponse(const JsonRpcId& id, const IPFSAdd::Response& res, json& msg)
     {
         msg = json
         {
@@ -45,14 +45,14 @@ namespace beam::wallet
         };
     }
 
-    std::pair<IPFSGet, IWalletApi::MethodInfo> V62Api::onParseIPFSGet(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<IPFSGet, IWalletApi::MethodInfo> V63Api::onParseIPFSGet(const JsonRpcId& id, const nlohmann::json& params)
     {
         IPFSGet message;
         message.hash = getMandatoryParam<NonEmptyString>(params, "hash");
         return std::make_pair(std::move(message), MethodInfo());
     }
 
-    void V62Api::getResponse(const JsonRpcId& id, const IPFSGet::Response& res, json& msg)
+    void V63Api::getResponse(const JsonRpcId& id, const IPFSGet::Response& res, json& msg)
     {
         msg = json
         {
@@ -67,14 +67,14 @@ namespace beam::wallet
         };
     }
 
-    std::pair<IPFSPin, IWalletApi::MethodInfo> V62Api::onParseIPFSPin(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<IPFSPin, IWalletApi::MethodInfo> V63Api::onParseIPFSPin(const JsonRpcId& id, const nlohmann::json& params)
     {
         IPFSPin message;
         message.hash = getMandatoryParam<NonEmptyString>(params, "hash");
         return std::make_pair(std::move(message), MethodInfo());
     }
 
-    void V62Api::getResponse(const JsonRpcId& id, const IPFSPin::Response& res, json& msg)
+    void V63Api::getResponse(const JsonRpcId& id, const IPFSPin::Response& res, json& msg)
     {
         msg = json
             {
