@@ -278,6 +278,14 @@ namespace bvm2 {
 		m_pHist->get_Tip(s); // zero-inits if no tip
 
 		m_Context.m_Height = s.m_Height;
+
+		if (bDependent)
+		{
+			uint32_t n = 0;
+			const auto* pV = m_pNetwork->get_DependentState(n);
+			const auto& hvCtx = n ? pV[n - 1] : s.m_Prev;
+			m_Context.m_pParent = std::make_unique<beam::Merkle::Hash>(hvCtx);
+		}
 	}
 
 	bool ManagerStd::PerformRequestSync(proto::FlyClient::Request& r)
