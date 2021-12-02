@@ -361,10 +361,14 @@ Reactor::Reactor() :
     _loop.data = this;
 
     errorCode = (ErrorCode)uv_async_init(&_loop, &_stopEvent, [](uv_async_t* handle) {
-        auto reactor = reinterpret_cast<Reactor*>(handle->data);
+        auto reactor = reinterpret_cast<Reactor *>(handle->data);
         assert(reactor);
-        if (reactor && reactor->_stopCB) {
-            reactor->_stopCB();
+
+        if (reactor) {
+            assert(reactor->_runs > 0);
+            if (--reactor->_runs == 0 && reactor->_stopCB) {
+                reactor->_stopCB();
+            }
         }
         uv_stop(handle->loop);
     });
@@ -439,6 +443,7 @@ void Reactor::run() {
     }
     block_sigpipe();
     // NOTE: blocks
+    _runs++;
     uv_run(&_loop, UV_RUN_DEFAULT);
 
     // HACK: it is likely that this is the end of the thread, we have to break cycle reference
