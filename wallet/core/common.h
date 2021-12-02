@@ -734,7 +734,7 @@ namespace beam::wallet
         virtual ~INegotiatorGateway() {}
         virtual void on_tx_completed(const TxID& ) = 0;
         virtual void on_tx_failed(const TxID&) = 0;
-        virtual void register_tx(const TxID&, Transaction::Ptr, SubTxID subTxID = kDefaultSubTxID) = 0;
+        virtual void register_tx(const TxID&, const Transaction::Ptr&, const Merkle::Hash* pParentCtx = nullptr, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_asset(const TxID& txID, const Asset::ID assetId, SubTxID subTxID = kDefaultSubTxID) = 0;

@@ -127,7 +127,7 @@ namespace beam::wallet::lelantus
                     return;
 
                 // register TX
-                GetGateway().register_tx(GetTxID(), builder.m_pTransaction, GetSubTxID());
+                GetGateway().register_tx(GetTxID(), builder.m_pTransaction, nullptr, GetSubTxID());
                 return;
             }
         }

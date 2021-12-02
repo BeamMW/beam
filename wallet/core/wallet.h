@@ -187,7 +187,7 @@ namespace beam::wallet
         }
 
     protected:
-        void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
+        void SendTransactionToNode(const TxID& txId, const Transaction::Ptr&, const Merkle::Hash* pParentCtx, SubTxID subTxID);
     private:
         void ProcessTransaction(BaseTransaction::Ptr tx);
         void ResumeTransaction(const TxDescription& tx);
@@ -207,7 +207,7 @@ namespace beam::wallet
         void send_tx_params(const WalletID& peerID, const SetTxParameter&) override;
         void get_shielded_list(const TxID& txId, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback) override;
         void get_proof_shielded_output(const TxID& txId, const ECC::Point& serialPublic, ProofShildedOutputCallback&& callback) override;
-        void register_tx(const TxID& txId, Transaction::Ptr, SubTxID subTxID) override;
+        void register_tx(const TxID& txId, const Transaction::Ptr&, const Merkle::Hash* pParentCtx, SubTxID subTxID) override;
         void UpdateOnNextTip(const TxID&) override;
         void get_UniqueVoucher(const WalletID& peerID, const TxID& txID, boost::optional<ShieldedTxo::Voucher>&) override;
 
