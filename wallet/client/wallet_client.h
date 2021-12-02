@@ -116,9 +116,9 @@ namespace beam::wallet
         WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor);
         WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor);
         WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor); // lazy DB creation ctor
-        virtual ~WalletClient();
+        ~WalletClient() override;
 
-        void start( std::map<Notification::Type,bool> activeNotifications, const std::string& ipfsStorage,
+        void start( std::map<Notification::Type,bool> activeNotifications, const std::string& ipfsStorage = std::string(),
                     bool withExchangeRates = false,
                     std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr);
 
@@ -205,8 +205,8 @@ namespace beam::wallet
         virtual void onPostFunctionToClientContext(MessageFunction&& func) {}
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
         virtual void onAssetInfo(Asset::ID assetId, const WalletAsset&) {}
-        virtual void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
         virtual void onStopped() {}
+        void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
 
         virtual Version getLibVersion() const;
         virtual uint32_t getClientRevision() const;
@@ -235,7 +235,7 @@ namespace beam::wallet
         void startTransaction(TxParameters&& parameters) override;
         void syncWithNode() override;
         void calcChange(Amount amount, Amount fee, Asset::ID assetId) override;
-        void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded = false) override;
+        void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded) override;
         void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded, AsyncCallback<const CoinsSelectionInfo&>&& callback) override;
         void getWalletStatus() override;
         void getTransactions() override;
