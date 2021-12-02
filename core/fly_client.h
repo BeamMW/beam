@@ -180,7 +180,7 @@ namespace proto {
 			virtual void Disconnect() = 0;
 			virtual void PostRequestInternal(Request&) = 0;
 			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) {} // duplicates should be handled internally
-			virtual const Merkle::Hash* get_DependentState(uint32_t& nCount) = 0;
+			virtual const Merkle::Hash* get_DependentState(uint32_t& nCount) { nCount = 0; return nullptr; }
 
 			void PostRequest(Request&, Request::IHandler&);
 		};

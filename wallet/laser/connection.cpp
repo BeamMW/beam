@@ -47,11 +47,6 @@ void Connection::BbsSubscribe(
     m_pNet->BbsSubscribe(ch, timestamp, receiver);
 }
 
-const Merkle::Hash* Connection::get_DependentState(uint32_t& nCount)
-{
-    return nullptr;
-}
-
 void Connection::PostRequestInternal(FlyClient::Request& r)
 {
     if (FlyClient::Request::Type::Transaction == r.get_Type())
