@@ -73,7 +73,7 @@ FlyClient::NetworkStd::Connection* FlyClient::NetworkStd::get_ActiveConnection()
 
         if (pRet)
         {
-            if (pRet->m_Dependent.m_vec.size() > c.m_Dependent.m_vec.size())
+            if (pRet->m_Dependent.m_vec.size() >= c.m_Dependent.m_vec.size())
                 continue;
         }
 
@@ -81,6 +81,32 @@ FlyClient::NetworkStd::Connection* FlyClient::NetworkStd::get_ActiveConnection()
     }
 
     return pRet;
+}
+
+void FlyClient::NetworkStd::DependentSubscribe(bool bSubscribe)
+{
+    bool b0 = HasDependentSubscriptions();
+
+    if (bSubscribe)
+        m_DependentSubscriptions++;
+    else
+    {
+        if (m_DependentSubscriptions)
+            m_DependentSubscriptions--;
+    }
+
+    if (HasDependentSubscriptions() != b0)
+        OnDependentSubscriptionChanged();
+}
+
+void FlyClient::NetworkStd::OnDependentSubscriptionChanged()
+{
+    for (ConnectionList::iterator it = m_Connections.begin(); m_Connections.end() != it; ++it)
+    {
+        Connection& c = *it;
+        if (c.IsLoginSent())
+            c.SendLoginPlus(); // i.e. resend
+    }
 }
 
 const Merkle::Hash* FlyClient::NetworkStd::get_DependentState(uint32_t& nCount)
@@ -145,9 +171,22 @@ void FlyClient::NetworkStd::Connection::ResetInternal()
     }
 }
 
+void FlyClient::NetworkStd::Connection::SendLoginPlus()
+{
+    SendLogin();
+
+    if (!m_This.HasDependentSubscriptions())
+        return;
+    if (Flags::DependentPending & m_Flags)
+        return;
+
+    Send(proto::Ping());
+    m_Flags |= Flags::DependentPending;
+}
+
 void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 {
-	SendLogin();
+	SendLoginPlus();
 
     if (!(Flags::ReportedConnected & m_Flags))
     {
@@ -800,8 +839,27 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestEvents&)
 
 bool FlyClient::NetworkStd::Connection::SendRequest(RequestEnsureSync& req)
 {
+    if (req.m_IsDependent)
+    {
+        if (!m_This.HasDependentSubscriptions())
+        {
+            // temporarily emulate subsciption, to get the most recent dependent state
+            {
+                uint32_t nSub = 1;
+                TemporarySwap ts(nSub, m_This.m_DependentSubscriptions);
+
+                SendLoginPlus();
+            }
+            SendLogin();
+        }
+
+        if (Flags::DependentPending & m_Flags)
+            return true;
+    }
+
     auto& n = get_FirstRequest();
     OnDone(n);
+
     return true;
 }
 
@@ -1014,9 +1072,27 @@ bool FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
 
 void FlyClient::NetworkStd::Connection::OnMsg(proto::Pong&&)
 {
-    auto& n = get_FirstRequest();
-    n.m_pRequest->As<RequestBbsMsg>(); // validate type
-    OnDone(n, false);
+    if (!m_lst.empty())
+    {
+        auto& n = get_FirstRequest();
+        switch (n.m_pRequest->get_Type())
+        {
+        case Request::Type::BbsMsg:
+            OnDone(n, false);
+            return;
+        }
+    }
+
+    if (!(Flags::DependentPending & m_Flags))
+        ThrowUnexpected();
+    m_Flags &= ~Flags::DependentPending;
+
+    for (auto it = m_lst.begin(); m_lst.end() != it; )
+    {
+        auto& n = *it++;
+        if (Request::Type::EnsureSync == n.m_pRequest->get_Type())
+            OnDone(n, false);
+    }
 }
 
 

@@ -180,6 +180,7 @@ namespace proto {
 			virtual void Disconnect() = 0;
 			virtual void PostRequestInternal(Request&) = 0;
 			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) {} // duplicates should be handled internally
+			virtual void DependentSubscribe(bool bSubscribe) {}
 			virtual const Merkle::Hash* get_DependentState(uint32_t& nCount) { nCount = 0; return nullptr; }
 
 			void PostRequest(Request&, Request::IHandler&);
@@ -277,6 +278,8 @@ namespace proto {
 				void AssignRequests();
 				void AssignRequest(RequestNode&);
 
+				void SendLoginPlus();
+
 				bool IsAtTip() const;
 				uint8_t m_Flags;
 
@@ -284,6 +287,7 @@ namespace proto {
 					static const uint8_t Node = 1;
 					static const uint8_t Owned = 2;
 					static const uint8_t ReportedConnected = 4;
+					static const uint8_t DependentPending = 8;
 				};
 
 				// NodeConnection
@@ -339,11 +343,16 @@ namespace proto {
 			typedef std::map<BbsChannel, std::pair<IBbsReceiver*, Timestamp> > BbsSubscriptions;
 			BbsSubscriptions m_BbsSubscriptions;
 
+			uint32_t m_DependentSubscriptions = 0;
+			bool HasDependentSubscriptions() const { return m_DependentSubscriptions > 0; }
+			void OnDependentSubscriptionChanged();
+
 			// INetwork
 			virtual void Connect() override;
 			virtual void Disconnect() override;
 			virtual void PostRequestInternal(Request&) override;
 			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) override;
+			virtual void DependentSubscribe(bool bSubscribe) override;
 			virtual const Merkle::Hash* get_DependentState(uint32_t& nCount) override;
 
 			// more events
