@@ -306,7 +306,12 @@ namespace bvm2 {
 
 		io::Reactor::get_Current().run();
 
-		return !r.m_pTrg;
+		if (!r.m_pTrg)
+			return true;
+
+		// propagate the stop
+		io::Reactor::get_Current().stop();
+		return false;
 	}
 
 	bool ManagerStd::get_HdrAt(Block::SystemState::Full& s)
