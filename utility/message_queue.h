@@ -141,6 +141,7 @@ public:
 
 private:
     void on_receive() {
+        T _msg;
         while (_queue->receive(_msg)) {
             _callback(std::move(_msg));
         }
@@ -149,9 +150,6 @@ private:
     std::shared_ptr<MessageQueue<T>> _queue;
     io::AsyncEvent::Ptr _asyncEvent;
     Callback _callback;
-
-    /// Message must be default-constructible
-    T _msg;
 };
 
 } //namespace
