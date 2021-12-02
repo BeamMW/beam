@@ -1080,6 +1080,9 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::Pong&&)
         case Request::Type::BbsMsg:
             OnDone(n, false);
             return;
+
+        default: // suppress warning
+            break;
         }
     }
 
