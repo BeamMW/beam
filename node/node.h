@@ -720,6 +720,7 @@ private:
 
 		void Initialize(IExternalPOW* externalPOW=nullptr);
 
+		void SoftRestart();
 		void OnRefresh(uint32_t iIdx);
 		void OnRefreshExternal();
 		void OnMined();
@@ -748,6 +749,7 @@ private:
 
 		io::Timer::Ptr m_pTimer;
 		bool m_bTimerPending = false;
+		uint32_t m_LastRestart_ms;
 		void OnTimer();
 		void SetTimer(uint32_t timeout_ms, bool bHard);
 

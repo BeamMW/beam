@@ -2840,8 +2840,7 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
 		peer.SetTxCursor(pNewTxElem);
     }
 
-    if (m_Miner.IsEnabled() && !m_Miner.m_pTaskToFinalize)
-        m_Miner.SetTimer(m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
+    m_Miner.SoftRestart();
 
     return nCode;
 }
@@ -2879,7 +2878,7 @@ uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash&
         if (proto::TxStatus::Ok != nRes)
             return nRes;
 
-        if (m_TxDependent.m_setContexts.find(hvCtxNew, TxPool::Dependent::Element::Context::Comparator()) == m_TxDependent.m_setContexts.end())
+        if (m_TxDependent.m_setContexts.find(hvCtxNew, TxPool::Dependent::Element::Context::Comparator()) != m_TxDependent.m_setContexts.end())
             return proto::TxStatus::DependentNotBest;
         
         pElem = m_TxDependent.AddValidTx(std::move(pTx), ctx, keyTx, hvCtxNew, pParent);
@@ -2930,6 +2929,9 @@ uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash&
         }
 
     }
+
+    if (bNewBest)
+        m_Miner.SoftRestart();
 
     return bNewBest ? proto::TxStatus::Ok : proto::TxStatus::DependentNotBest;
 }
@@ -4120,6 +4122,7 @@ void Node::Miner::Initialize(IExternalPOW* externalPOW)
     if (!cfg.m_MiningThreads && !externalPOW)
         return;
 
+    m_LastRestart_ms = 0;
     m_pEvtMined = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
 
     if (cfg.m_MiningThreads) {
@@ -4209,7 +4212,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 
             for (uint32_t t0_ms = GetTime_ms(); !bSolved; )
             {
-                if (fnCancel(false))
+                if (fnCancel(true))
                     break;
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
@@ -4283,8 +4286,25 @@ void Node::Miner::HardAbortSafe()
 		}
 
 		if (bHadTasks)
-		m_External.m_pSolver->stop_current();
+		    m_External.m_pSolver->stop_current();
 	}
+}
+
+void Node::Miner::SoftRestart()
+{
+    if (!IsEnabled() || m_pTaskToFinalize)
+        return;
+
+    uint32_t nTimeout_ms = 0;
+    if (m_LastRestart_ms)
+    {
+        uint32_t nMin_ms = get_ParentObj().m_Cfg.m_Timeout.m_MiningSoftRestart_ms;
+        uint32_t nElapsed_ms = GetTimeNnz_ms() - m_LastRestart_ms;
+        if (nElapsed_ms < nMin_ms)
+            nTimeout_ms = nMin_ms - nElapsed_ms;
+    }
+
+    SetTimer(nTimeout_ms, false);
 }
 
 void Node::Miner::SetTimer(uint32_t timeout_ms, bool bHard)
@@ -4310,6 +4330,8 @@ void Node::Miner::OnTimer()
 
 bool Node::Miner::Restart()
 {
+    m_LastRestart_ms = GetTimeNnz_ms();
+
     if (!IsEnabled())
         return false; //  n/a
 
