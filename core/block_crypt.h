@@ -1089,7 +1089,8 @@ namespace beam
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void AddStats(TxStats&) const override;
 
-		void Sign(const ECC::Scalar::Native*, uint32_t nKeys, const ECC::Point::Native& ptFunds);
+		void Prepare(ECC::Hash::Processor&, const Merkle::Hash* pParentCtx) const;
+		void Sign(const ECC::Scalar::Native*, uint32_t nKeys, const ECC::Point::Native& ptFunds, const Merkle::Hash* pParentCtx);
 
 	protected:
 		void CopyFrom(const TxKernelContractControl&);

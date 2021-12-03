@@ -4572,14 +4572,8 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 
 		if (!m_Bic.m_AlreadyValidated)
 		{
-			hp << krn.m_Msg;
-
-			if (krn.m_Dependent && (m_Bic.m_Height >= Rules::get().pForks[4].m_Height))
-			{
-				const auto& hvCtx = m_Bic.m_DependentCtxSet ? m_Bic.m_hvDependentCtx : m_Proc.m_Cursor.m_Full.m_Prev;
-				hp << hvCtx;
-			}
-			else
+			const auto& hvCtx = m_Bic.m_DependentCtxSet ? m_Bic.m_hvDependentCtx : m_Proc.m_Cursor.m_Full.m_Prev;
+			krn.Prepare(hp, &hvCtx);
 
 			m_pSigValidate = &hp;
 		}
