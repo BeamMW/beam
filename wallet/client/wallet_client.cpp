@@ -698,7 +698,6 @@ namespace beam::wallet
                 //
                 // Shaders
                 //
-                LOG_INFO() << "Wallet Client THREAD " << gettid();
                 auto clientShaders = IShadersManager::CreateInstance(wallet, m_walletDB, nodeNetwork, "", "");
                 _clientShaders = clientShaders;
 
