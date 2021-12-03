@@ -2024,7 +2024,7 @@ namespace beam::wallet
         NotifySyncProgress();
     }
 
-    void Wallet::SendTransactionToNode(const TxID& txId, Transaction::Ptr data, SubTxID subTxID)
+    void Wallet::SendTransactionToNode(const TxID& txId, const Transaction::Ptr& data, const Merkle::Hash* pParentCtx, SubTxID subTxID)
     {
         LOG_DEBUG() << txId << "[" << subTxID << "]" << " sending tx for registration";
 
@@ -2038,14 +2038,17 @@ namespace beam::wallet
         MyRequestTransaction::Ptr pReq(new MyRequestTransaction);
         pReq->m_TxID = txId;
         pReq->m_SubTxID = subTxID;
-        pReq->m_Msg.m_Transaction = std::move(data);
+        pReq->m_Msg.m_Transaction = data;
+
+        if (pParentCtx)
+            pReq->m_Msg.m_Context = std::make_unique<Merkle::Hash>(*pParentCtx);
 
         PostReqUnique(*pReq);
     }
 
-    void Wallet::register_tx(const TxID& txId, Transaction::Ptr data, SubTxID subTxID)
+    void Wallet::register_tx(const TxID& txId, const Transaction::Ptr& data, const Merkle::Hash* pParentCtx, SubTxID subTxID)
     {
-        SendTransactionToNode(txId, data, subTxID);
+        SendTransactionToNode(txId, data, pParentCtx, subTxID);
     }
 
     void Wallet::Subscribe(IWalletObserver* observer)

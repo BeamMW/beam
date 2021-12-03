@@ -136,7 +136,7 @@ namespace proto {
 				proto::ContractLogs m_Res;
 			};
 			struct EnsureSync {
-				// no members needed
+				bool m_IsDependent;
 			};
 		};
 
@@ -164,6 +164,7 @@ namespace proto {
 		virtual void OnOwnedNode(const PeerID&, bool bUp) {}
 		virtual void OnEventsSerif(const ECC::Hash::Value&, Height) {}
 		virtual void OnNewPeer(const PeerID& id, io::Address address) {}
+		virtual void OnDependentStateChanged() {}
 
 		struct IBbsReceiver
 		{
@@ -179,6 +180,8 @@ namespace proto {
 			virtual void Disconnect() = 0;
 			virtual void PostRequestInternal(Request&) = 0;
 			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) {} // duplicates should be handled internally
+			virtual void DependentSubscribe(bool bSubscribe) {}
+			virtual const Merkle::Hash* get_DependentState(uint32_t& nCount) { nCount = 0; return nullptr; }
 
 			void PostRequest(Request&, Request::IHandler&);
 		};
@@ -251,8 +254,6 @@ namespace proto {
 				void ResetInternal();
 				void ResetVars();
 
-				std::unique_ptr<Merkle::Hash> m_pDependentCtx;
-
 			public:
 				NetworkStd& m_This;
 
@@ -264,12 +265,20 @@ namespace proto {
 				io::Address m_Addr;
 				PeerID m_NodeID;
 
+				struct DependentContext
+				{
+					std::unique_ptr<Merkle::Hash> m_pQuery; // affects remote querying
+					std::vector<Merkle::Hash> m_vec;
+				} m_Dependent;
+
 				// most recent tip of the Node, according to which all the proofs are interpreted
 				Block::SystemState::Full m_Tip;
 
 				RequestList m_lst; // in progress
 				void AssignRequests();
 				void AssignRequest(RequestNode&);
+
+				void SendLoginPlus();
 
 				bool IsAtTip() const;
 				uint8_t m_Flags;
@@ -278,6 +287,7 @@ namespace proto {
 					static const uint8_t Node = 1;
 					static const uint8_t Owned = 2;
 					static const uint8_t ReportedConnected = 4;
+					static const uint8_t DependentPending = 8;
 				};
 
 				// NodeConnection
@@ -294,6 +304,7 @@ namespace proto {
 				void OnMsg(proto::EventsSerif&& msg) override;
 				void OnMsg(proto::DataMissing&& msg) override;
 				void OnMsg(proto::PeerInfo&& msg) override;
+				void OnMsg(proto::DependentContextChanged&& msg) override;
 
 #define THE_MACRO(type) bool SendRequest(Request##type&);
 				REQUEST_TYPES_All(THE_MACRO)
@@ -327,14 +338,22 @@ namespace proto {
 			typedef boost::intrusive::list<Connection> ConnectionList;
 			ConnectionList m_Connections;
 
+			Connection* get_ActiveConnection();
+
 			typedef std::map<BbsChannel, std::pair<IBbsReceiver*, Timestamp> > BbsSubscriptions;
 			BbsSubscriptions m_BbsSubscriptions;
+
+			uint32_t m_DependentSubscriptions = 0;
+			bool HasDependentSubscriptions() const { return m_DependentSubscriptions > 0; }
+			void OnDependentSubscriptionChanged();
 
 			// INetwork
 			virtual void Connect() override;
 			virtual void Disconnect() override;
 			virtual void PostRequestInternal(Request&) override;
 			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) override;
+			virtual void DependentSubscribe(bool bSubscribe) override;
+			virtual const Merkle::Hash* get_DependentState(uint32_t& nCount) override;
 
 			// more events
 			virtual void OnNodeConnected(bool) {}

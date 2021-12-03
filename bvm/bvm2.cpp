@@ -2967,8 +2967,7 @@ namespace bvm2 {
 
 	ContractInvokeEntry& ProcessorManager::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, bool bCvtFunds, const char* szComment, uint32_t nCharge)
 	{
-		Wasm::Test(nCharge != ContractInvokeEntry::s_ChargeAdv);
-
+		bool bFirst = m_vInvokeData.empty();
 		auto& v = m_vInvokeData.emplace_back();
 
 		if (iMethod)
@@ -2986,6 +2985,14 @@ namespace bvm2 {
 		args.Export(v.m_Args);
 		v.m_sComment = szComment;
 		v.m_Charge = nCharge;
+		v.m_Flags = 0;
+
+		if (m_Context.m_pParent && bFirst)
+		{
+			v.m_Flags |= ContractInvokeEntry::Flags::Dependent;
+			v.m_ParentCtx.m_Height = m_Context.m_Height;
+			v.m_ParentCtx.m_Hash = *m_Context.m_pParent;
+		}
 
 		for (uint32_t i = 0; i < nFunds; i++)
 		{
@@ -3012,7 +3019,7 @@ namespace bvm2 {
 		v.m_Adv.m_Height.m_Max = hMax;
 
 		v.m_Adv.m_Fee = v.get_FeeMin(hMin);
-		v.m_Charge = v.s_ChargeAdv;
+		v.m_Flags |= ContractInvokeEntry::Flags::Adv;
 
 		Key::IKdf* pKdf = nullptr;
 		ECC::Hash::Value hvNonce;

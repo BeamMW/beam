@@ -72,20 +72,40 @@ namespace beam::wallet
 
         Key::IKdf::Ptr pKdf = get_MasterKdfStrict();
 
+        bvm2::ContractInvokeData vData;
+        GetParameter(TxParameterID::ContractDataPacked, vData, GetSubTxID());
+
+        const HeightHash* pParentCtx = nullptr;
+        for (uint32_t i = 0; i < vData.size(); i++)
+        {
+            const auto& cdata = vData[i];
+            if (bvm2::ContractInvokeEntry::Flags::Dependent & cdata.m_Flags)
+            {
+                pParentCtx = &cdata.m_ParentCtx;
+                break;
+            }
+        }
+
         auto s = GetState<State>();
         if (State::Initial == s)
         {
             UpdateTxDescription(TxStatus::InProgress);
 
-            Block::SystemState::Full sTip;
-            if (GetTip(sTip))
+            if (pParentCtx)
             {
-                builder.m_Height.m_Max = sTip.m_Height + kDefaultTxLifetime;
+                builder.m_Height = pParentCtx->m_Height;
+                SetParameter(TxParameterID::MinHeight, builder.m_Height.m_Min, GetSubTxID());
                 SetParameter(TxParameterID::MaxHeight, builder.m_Height.m_Max, GetSubTxID());
             }
-
-            bvm2::ContractInvokeData vData;
-            GetParameter(TxParameterID::ContractDataPacked, vData, GetSubTxID());
+            else
+            {
+                Block::SystemState::Full sTip;
+                if (GetTip(sTip))
+                {
+                    builder.m_Height.m_Max = sTip.m_Height + kDefaultTxLifetime;
+                    SetParameter(TxParameterID::MaxHeight, builder.m_Height.m_Max, GetSubTxID());
+                }
+            }
 
             if (vData.empty())
                 throw TransactionFailedException(false, TxFailureReason::Unknown);
@@ -146,7 +166,7 @@ namespace beam::wallet
                 if (CheckExpired())
                     return;
 
-                GetGateway().register_tx(GetTxID(), builder.m_pTransaction);
+                GetGateway().register_tx(GetTxID(), builder.m_pTransaction, pParentCtx ? &pParentCtx->m_Hash : nullptr);
                 SetState(State::Registration);
                 return;
             }

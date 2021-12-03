@@ -805,6 +805,7 @@ namespace proto {
         bool IsLive() const;
         bool IsSecureIn() const;
         bool IsSecureOut() const;
+        bool IsLoginSent() const { return m_RulesCfgSent; } // at least once
 
         const Connection* get_Connection() { return m_Connection.get(); }
 

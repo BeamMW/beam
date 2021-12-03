@@ -61,6 +61,67 @@ void FlyClient::NetworkStd::Disconnect()
         delete &m_Connections.front();
 }
 
+FlyClient::NetworkStd::Connection* FlyClient::NetworkStd::get_ActiveConnection()
+{
+    Connection* pRet = nullptr;
+
+    for (ConnectionList::iterator it = m_Connections.begin(); m_Connections.end() != it; ++it)
+    {
+        Connection& c = *it;
+        if (!c.IsLive() || !c.IsAtTip())
+            continue;
+
+        if (pRet)
+        {
+            if (pRet->m_Dependent.m_vec.size() >= c.m_Dependent.m_vec.size())
+                continue;
+        }
+
+        pRet = &c;
+    }
+
+    return pRet;
+}
+
+void FlyClient::NetworkStd::DependentSubscribe(bool bSubscribe)
+{
+    bool b0 = HasDependentSubscriptions();
+
+    if (bSubscribe)
+        m_DependentSubscriptions++;
+    else
+    {
+        if (m_DependentSubscriptions)
+            m_DependentSubscriptions--;
+    }
+
+    if (HasDependentSubscriptions() != b0)
+        OnDependentSubscriptionChanged();
+}
+
+void FlyClient::NetworkStd::OnDependentSubscriptionChanged()
+{
+    for (ConnectionList::iterator it = m_Connections.begin(); m_Connections.end() != it; ++it)
+    {
+        Connection& c = *it;
+        if (c.IsLoginSent())
+            c.SendLoginPlus(); // i.e. resend
+    }
+}
+
+const Merkle::Hash* FlyClient::NetworkStd::get_DependentState(uint32_t& nCount)
+{
+    nCount = 0;
+
+    auto* pC = get_ActiveConnection();
+    if (!pC)
+        return nullptr;
+
+    const auto& v = pC->m_Dependent.m_vec;
+    nCount = (uint32_t) v.size();
+    return nCount ? &v.front() : nullptr;
+}
+
 FlyClient::NetworkStd::Connection::Connection(NetworkStd& x)
     : m_This(x)
 {
@@ -86,7 +147,9 @@ void FlyClient::NetworkStd::Connection::ResetVars()
     ZeroObject(m_Tip);
     m_Flags = 0;
     m_NodeID = Zero;
-    m_pDependentCtx.reset();
+
+    m_Dependent.m_pQuery.reset();
+    m_Dependent.m_vec.clear();
 }
 
 void FlyClient::NetworkStd::Connection::ResetInternal()
@@ -108,9 +171,22 @@ void FlyClient::NetworkStd::Connection::ResetInternal()
     }
 }
 
+void FlyClient::NetworkStd::Connection::SendLoginPlus()
+{
+    SendLogin();
+
+    if (!m_This.HasDependentSubscriptions())
+        return;
+    if (Flags::DependentPending & m_Flags)
+        return;
+
+    Send(proto::Ping());
+    m_Flags |= Flags::DependentPending;
+}
+
 void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 {
-	SendLogin();
+	SendLoginPlus();
 
     if (!(Flags::ReportedConnected & m_Flags))
     {
@@ -277,6 +353,8 @@ void FlyClient::NetworkStd::Connection::OnMsg(NewTip&& msg)
     if (!(msg.m_Description.IsValid()))
         ThrowUnexpected();
 
+    m_Dependent.m_vec.clear();
+
     if (m_pSync && m_pSync->m_vConfirming.empty() && !m_pSync->m_TipBeforeGap.m_Height && !m_Tip.IsNext(msg.m_Description))
         m_pSync->m_TipBeforeGap = m_Tip;
 
@@ -313,7 +391,6 @@ void FlyClient::NetworkStd::Connection::StartSync()
     }
     else
     {
-        // starting search
         // starting search
         m_pSync.reset(new SyncCtx);
         m_pSync->m_LowHeight = m_Tip.m_Height;
@@ -587,6 +664,28 @@ void FlyClient::NetworkStd::OnNewRequests()
     }
 }
 
+void FlyClient::NetworkStd::Connection::OnMsg(DependentContextChanged&& msg)
+{
+    if (msg.m_vCtxs.empty())
+        ThrowUnexpected();
+
+    if (msg.m_PrefixDepth)
+    {
+        if (m_Dependent.m_vec.size() < msg.m_PrefixDepth)
+            ThrowUnexpected();
+
+        m_Dependent.m_vec.resize(msg.m_PrefixDepth + msg.m_vCtxs.size());
+
+        for (size_t i = 0; i < msg.m_vCtxs.size(); i++)
+            m_Dependent.m_vec[i + msg.m_PrefixDepth] = msg.m_vCtxs[i];
+    }
+    else
+        m_Dependent.m_vec.swap(msg.m_vCtxs);
+
+    if (this == m_This.get_ActiveConnection())
+        m_This.m_Client.OnDependentStateChanged();
+}
+
 bool FlyClient::NetworkStd::Connection::IsAtTip() const
 {
     Block::SystemState::Full sTip;
@@ -740,8 +839,27 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestEvents&)
 
 bool FlyClient::NetworkStd::Connection::SendRequest(RequestEnsureSync& req)
 {
+    if (req.m_IsDependent)
+    {
+        if (!m_This.HasDependentSubscriptions())
+        {
+            // temporarily emulate subsciption, to get the most recent dependent state
+            {
+                uint32_t nSub = 1;
+                TemporarySwap ts(nSub, m_This.m_DependentSubscriptions);
+
+                SendLoginPlus();
+            }
+            SendLogin();
+        }
+
+        if (Flags::DependentPending & m_Flags)
+            return true;
+    }
+
     auto& n = get_FirstRequest();
     OnDone(n);
+
     return true;
 }
 
@@ -889,25 +1007,25 @@ bool FlyClient::NetworkStd::Connection::SendTrgCtx(const std::unique_ptr<Merkle:
         if (get_Ext() < 9)
             return false;
 
-        if (m_pDependentCtx)
+        if (m_Dependent.m_pQuery)
         {
-            if (*pCtx == *m_pDependentCtx)
+            if (*pCtx == *m_Dependent.m_pQuery)
                 return true;
         }
         else
-            m_pDependentCtx = std::make_unique<Merkle::Hash>();
+            m_Dependent.m_pQuery = std::make_unique<Merkle::Hash>();
 
-        *m_pDependentCtx = *pCtx;
+        *m_Dependent.m_pQuery = *pCtx;
     }
     else
     {
-        if (!m_pDependentCtx)
+        if (!m_Dependent.m_pQuery)
             return true;
-        m_pDependentCtx.reset();
+        m_Dependent.m_pQuery.reset();
     }
 
     proto::SetDependentContext msg;
-    TemporarySwap ts(msg.m_Context, m_pDependentCtx);
+    TemporarySwap ts(msg.m_Context, m_Dependent.m_pQuery);
     Send(msg);
 
     return true;
@@ -954,9 +1072,30 @@ bool FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
 
 void FlyClient::NetworkStd::Connection::OnMsg(proto::Pong&&)
 {
-    auto& n = get_FirstRequest();
-    n.m_pRequest->As<RequestBbsMsg>(); // validate type
-    OnDone(n, false);
+    if (!m_lst.empty())
+    {
+        auto& n = get_FirstRequest();
+        switch (n.m_pRequest->get_Type())
+        {
+        case Request::Type::BbsMsg:
+            OnDone(n, false);
+            return;
+
+        default: // suppress warning
+            break;
+        }
+    }
+
+    if (!(Flags::DependentPending & m_Flags))
+        ThrowUnexpected();
+    m_Flags &= ~Flags::DependentPending;
+
+    for (auto it = m_lst.begin(); m_lst.end() != it; )
+    {
+        auto& n = *it++;
+        if (Request::Type::EnsureSync == n.m_pRequest->get_Type())
+            OnDone(n, false);
+    }
 }
 
 

@@ -80,6 +80,9 @@ namespace beam::bvm2 {
 		ECC::Hash::Processor hp;
 		hp << krn.m_Msg;
 
+		if ((Flags::Dependent & m_Flags) && (m_ParentCtx.m_Height >= Rules::get().pForks[4].m_Height))
+			hp << m_ParentCtx.m_Hash;
+
 		for (uint32_t i = 0; i < nPks; i++)
 			hp << pPks[i];
 
