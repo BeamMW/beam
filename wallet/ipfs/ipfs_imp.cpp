@@ -14,9 +14,6 @@
 #include "ipfs_imp.h"
 #include "utility/logger.h"
 #include <boost/filesystem.hpp>
-#include <boost/asio/spawn.hpp>
-#include <boost/asio/deadline_timer.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
 
 // TODO:IPFS checlk
 // 2021/11/16 20:13:48 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 2048 kiB, got: 416 kiB).
@@ -32,33 +29,6 @@ namespace beam::wallet
 namespace beam::wallet::imp
 {
     namespace asio = boost::asio;
-
-    namespace
-    {
-        #ifdef NDEBUG
-        const uint32_t kDefaultTimeout = 10000;
-        #else
-        const uint32_t kDefaultTimeout = 5000;
-        #endif
-
-        std::shared_ptr<boost::asio::deadline_timer> make_deadline(boost::asio::io_context& ctx, uint32_t timeout)
-        {
-            if (timeout)
-            {
-                return std::make_shared<boost::asio::deadline_timer>(
-                        ctx, boost::posix_time::milliseconds(timeout)
-                       );
-            }
-            return nullptr;
-        }
-
-        std::string err2str(const boost::system::system_error &err)
-        {
-            std::stringstream ss;
-            ss << err.code() << ", " << err.what();
-            return ss.str();
-        }
-    }
 
     IPFSService::IPFSService(HandlerPtr handler)
         : _handler(std::move(handler))
@@ -170,135 +140,48 @@ namespace beam::wallet::imp
 
     void IPFSService::add(std::vector<uint8_t>&& data, std::function<void (std::string&&)>&& res, Err&& err)
     {
-        if(!_node || !_thread)
-        {
-            retToClient([err = std::move(err)](){
-                err("Unexpected add call. IPFS is not started");
-            });
-        }
-
         if (data.empty())
         {
-            retToClient([err = std::move(err)](){
-                err("Empty data buffer cannot be added to IPFS");
-            });
+            retErr(std::move(err), "Empty data buffer cannot be added to IPFS");
+            return;
         }
 
-        boost::asio::spawn(*_ios, [this, data = std::move(data), res = std::move(res), err = std::move(err)]
-            (boost::asio::yield_context yield) mutable {
-                try
-                {
-                    std::function<void ()> cancel = [this, err] () {
-                        retToClient([this, err] () {
-                            err("IPF add operation cancelled");
-                        });
-                    };
-
-                    auto hash = _node->add(&data[0], data.size(), cancel, std::move(yield));
-                    retToClient([res = std::move(res), hash = std::move(hash)] () mutable {
-                        res(std::move(hash));
-                    });
-                }
-                catch(const boost::system::system_error& se)
-                {
-                    retToClient([err = std::move(err), what = err2str(se)] () mutable {
-                        err(std::move(what));
-                    });
-                }
-            }
-        );
+        call_ipfs(0, std::move(res), std::move(err),[this, data = std::move(data)]
+        (boost::asio::yield_context yield, std::function<void()>& cancel) -> auto
+        {
+            return _node->add(&data[0], data.size(), cancel, std::move(yield));
+        });
     }
 
     void IPFSService::get(const std::string& hash, uint32_t timeout, std::function<void (std::vector<uint8_t>&&)>&& res, Err&& err)
     {
-        if(!_node || !_thread)
-        {
-            retToClient([err = std::move(err)](){
-                err("Unexpected get call. IPFS is not started");
-            });
-        }
-
         if (hash.empty())
         {
-            retToClient([err = std::move(err)](){
-                err("Cannot get data via an empty hash");
-            });
+            retErr(std::move(err), "Cannot get data via an empty hash");
+            return;
         }
 
-        if (!timeout)
+        call_ipfs(timeout, std::move(res), std::move(err), [this, hash]
+        (boost::asio::yield_context yield, std::function<void()>& cancel) -> auto
         {
-            timeout = kDefaultTimeout;
-        }
-
-        auto deadline =  make_deadline(*_ios, timeout);
-        boost::asio::spawn(*_ios, [this, hash, d = std::move(deadline), err = std::move(err), res = std::move(res)]
-            (boost::asio::yield_context yield) mutable {
-                try
-                {
-                    std::function<void ()> cancel;
-                    if (d)
-                    {
-                        d->async_wait([&cancel](const boost::system::error_code&) {
-                            LOG_ERROR() << "!!!!! IPFS get timeout";
-                            cancel();
-                        });
-                    }
-
-                    auto data = _node->cat(hash, cancel, std::move(yield));
-                    retToClient([data = std::move(data), res = std::move(res)] () mutable {
-                        res(std::move(data));
-                    });
-                }
-                catch(const boost::system::system_error& se)
-                {
-                    LOG_ERROR() << "!!!!! IPFS get error";
-                    retToClient([err = std::move(err), what = err2str(se)] () mutable {
-                        err(std::move(what));
-                    });
-                }
-            }
-        );
+            return _node->cat(hash, cancel, std::move(yield));
+        });
     }
 
     void IPFSService::pin(const std::string& hash, uint32_t timeout, std::function<void ()>&& res, Err&& err)
     {
-        if(!_node || !_thread)
-        {
-            retToClient([err = std::move(err)](){
-                err("Unexpected get call. IPFS is not started");
-            });
-        }
-
         if (hash.empty())
         {
-            retToClient([err = std::move(err)](){
-                err("Cannot get data via an empty hash");
-            });
+            retErr(std::move(err), "Cannot get data via an empty hash");
+            return;
         }
 
-        boost::asio::spawn(*_ios, [this, hash, err = std::move(err), res = std::move(res)]
-            (boost::asio::yield_context yield) mutable {
-                try
-                {
-                   std::function<void ()> cancel = [this, err] () {
-                       retToClient([this, err] () {
-                           err("IPF pin operation cancelled");
-                       });
-                   };
-
-                   _node->pin(hash, cancel, std::move(yield));
-                   retToClient([res = std::move(res)] () mutable {
-                       res();
-                   });
-                }
-                catch(const boost::system::system_error& se)
-                {
-                   retToClient([err = std::move(err), what = err2str(se)] () mutable {
-                       err(std::move(what));
-                   });
-                }
-            }
-        );
+        call_ipfs(timeout, std::move(res), std::move(err), [this, hash]
+                (boost::asio::yield_context yield, std::function<void()>& cancel) -> JustVoid
+        {
+            _node->pin(hash, cancel, std::move(yield));
+            return JustVoid{};
+        });
     }
 
     void IPFSService::retToClient(std::function<void()>&& what)

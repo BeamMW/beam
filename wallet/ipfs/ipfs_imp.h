@@ -16,6 +16,10 @@
 #include "ipfs.h"
 #include "ipfs_async.h"
 #include "asio-ipfs/include/asio_ipfs/node.h"
+#include "utility/logger.h"
+#include <boost/asio/spawn.hpp>
+#include <boost/asio/deadline_timer.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 namespace beam::wallet::imp
 {
@@ -39,11 +43,89 @@ namespace beam::wallet::imp
         }
 
     private:
+        struct JustVoid {};
+
+        template<typename TA, typename TR>
+        void call_ipfs(uint32_t timeout, TR&& res, Err&& err, TA&& action)
+        {
+            if(!_node || !_thread)
+            {
+                retErr(std::move(err), "Unexpected add call. IPFS is not started");
+                return;
+            }
+
+            std::shared_ptr<boost::asio::deadline_timer> deadline;
+            if (timeout)
+            {
+                deadline = std::make_shared<boost::asio::deadline_timer>(
+                        *_ios, boost::posix_time::milliseconds(timeout)
+                );
+            }
+
+            boost::asio::spawn(*_ios, [this,
+                                       err = std::move(err),
+                                       deadline = std::move(deadline),
+                                       action = std::forward<TA>(action),
+                                       res = std::forward<TR>(res)
+                                      ]
+                (boost::asio::yield_context yield) mutable {
+                    try
+                    {
+                        std::function<void ()> cancel;
+                        if (deadline)
+                        {
+                            deadline->async_wait([&cancel, err, this](const boost::system::error_code& ec) mutable {
+                                if (ec == boost::asio::error::operation_aborted)
+                                {
+                                    // Timer cancelled
+                                }
+                                else
+                                {
+                                    retErr(std::move(err), "operation timed out");
+                                }
+                            });
+                        }
+
+                        auto result = action(yield, cancel);
+                        if (deadline)
+                        {
+                            deadline->cancel();
+                        }
+                        retVal(std::move(res), std::move(result));
+                    }
+                    catch(const boost::system::system_error& se)
+                    {
+                        retErr(std::move(err), err2str(se));
+                    }
+                }
+            );
+        }
+
         // do not change this to varargs & bind
         // a bit verbose to call but caller would always
         // copy params to lambda if any present and
         // won't pass local vars by accident
         void retToClient(std::function<void ()>&& what);
+
+        template<typename T1, typename T2>
+        void retVal(T1&& func, T2&& what)
+        {
+            retToClient([func = std::forward<T1>(func), what = std::forward<T2>(what)]() mutable {
+                func(std::move(what));
+            });
+        }
+
+        void retErr(Err&& err, std::string&& what)
+        {
+            retVal(std::move(err), std::move(what));
+        }
+
+        std::string err2str(const boost::system::system_error &err)
+        {
+            std::stringstream ss;
+            ss << err.code() << ", " << err.what();
+            return ss.str();
+        }
 
         std::string _path;
         std::string _myid;
@@ -59,4 +141,12 @@ namespace beam::wallet::imp
         typedef boost::asio::executor_work_guard<decltype(_ios->get_executor())> IOSGuard;
         std::unique_ptr<IOSGuard> _ios_guard;
     };
+
+    template<>
+    void IPFSService::retVal(std::function<void()>&& func, IPFSService::JustVoid&& what)
+    {
+        retToClient([func = std::move(func)] {
+            func();
+        });
+    }
 }
