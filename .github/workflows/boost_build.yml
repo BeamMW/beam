@@ -65,7 +65,7 @@ jobs:
       - name: Download
         shell: bash
         run: |
-          wget -q https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/source/boost_1_75_0.tar.gz
+          wget -q https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/boost_1_75_0.tar.gz
           tar -xvf boost_1_75_0.tar.gz > /dev/null
           mv ./boost_1_75_0 ${{runner.workspace}}/boost
 
