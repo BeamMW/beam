@@ -67,6 +67,11 @@ namespace beam::wallet
         virtual void unpin(const std::string& hash, uint32_t timeout,
                            std::function<void ()>&& res,
                            Err&&) = 0;
+
+        /// \brief GC, i.e. remove all unpinned
+        virtual void gc(uint32_t timeout,
+                        std::function<void ()>&& res,
+                        Err&&) = 0;
     };
 }
 #endif

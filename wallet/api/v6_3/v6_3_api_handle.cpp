@@ -128,4 +128,31 @@ namespace beam::wallet
           }
         );
     }
+
+    void V63Api::onHandleIPFSGc(const JsonRpcId &id, const IPFSGc& req)
+    {
+        auto ipfs = getIPFS();
+        ipfs->gc(req.timeout,
+            [this, id, wguard = _weakSelf]() {
+                auto guard = wguard.lock();
+                if (!guard)
+                {
+                    LOG_WARNING() << "API destroyed before IPFS response received.";
+                    return;
+                }
+
+                IPFSGc::Response response;
+                doResponse(id, response);
+            },
+            [this, id, wguard = _weakSelf] (std::string&& err) {
+                auto guard = wguard.lock();
+                if (!guard)
+                {
+                    LOG_WARNING() << "API destroyed before IPFS response received.";
+                    return;
+                }
+                sendError(id, ApiError::IPFSError, err);
+            }
+        );
+    }
 }

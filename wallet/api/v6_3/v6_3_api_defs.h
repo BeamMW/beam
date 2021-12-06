@@ -25,7 +25,8 @@ namespace beam::wallet
         macro(IPFSAdd,   "ipfs_add",   API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(IPFSGet,   "ipfs_get",   API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(IPFSPin,   "ipfs_pin",   API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
-        macro(IPFSUnpin, "ipfs_unpin", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)
+        macro(IPFSUnpin, "ipfs_unpin", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
+        macro(IPFSGc,    "ipfs_gc",    API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)
 
     struct IPFSAdd
     {
@@ -69,6 +70,14 @@ namespace beam::wallet
         struct Response
         {
             std::string hash;
+        };
+    };
+
+    struct IPFSGc
+    {
+        uint32_t timeout = 0;
+        struct Response
+        {
         };
     };
 }

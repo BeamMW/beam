@@ -125,4 +125,25 @@ namespace beam::wallet
             }
         };
     }
+
+    std::pair<IPFSGc, IWalletApi::MethodInfo> V63Api::onParseIPFSGc(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        IPFSGc message;
+        message.timeout = parseTimeout(*this, params);
+        return std::make_pair(message, MethodInfo());
+    }
+
+    void V63Api::getResponse(const JsonRpcId& id, const IPFSGc::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result",
+                {
+                    {"result", true}
+                }
+            }
+        };
+    }
 }

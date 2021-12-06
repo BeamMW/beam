@@ -189,7 +189,7 @@ namespace beam::wallet::imp
         }
 
         call_ipfs(timeout, std::move(res), std::move(err), [this, hash]
-                (boost::asio::yield_context yield, std::function<void()>& cancel) -> JustVoid
+        (boost::asio::yield_context yield, std::function<void()>& cancel) -> JustVoid
         {
             _node->pin(hash, cancel, std::move(yield));
             return JustVoid{};
@@ -205,9 +205,19 @@ namespace beam::wallet::imp
         }
 
         call_ipfs(timeout, std::move(res), std::move(err), [this, hash]
-                (boost::asio::yield_context yield, std::function<void()>& cancel) -> JustVoid
+        (boost::asio::yield_context yield, std::function<void()>& cancel) -> JustVoid
         {
             _node->unpin(hash, cancel, std::move(yield));
+            return JustVoid{};
+        });
+    }
+
+    void IPFSService::gc(uint32_t timeout, std::function<void ()>&& res, Err&& err)
+    {
+        call_ipfs(timeout, std::move(res), std::move(err), [this]
+        (boost::asio::yield_context yield, std::function<void()>& cancel) -> JustVoid
+        {
+            _node->gc(cancel, std::move(yield));
             return JustVoid{};
         });
     }
