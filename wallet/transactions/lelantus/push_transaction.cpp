@@ -37,6 +37,16 @@ namespace beam::wallet::lelantus
         auto walletDB = m_dbFunc();
         wallet::CheckSenderAddress(parameters, walletDB);
 
+        auto receiverID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
+        if (receiverID)
+        {
+            auto vouchers = parameters.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
+            if (vouchers)
+            {
+                storage::SaveVouchers(*walletDB, *vouchers, *receiverID);
+            }
+        }
+
         const auto& originalToken = parameters.GetParameter<std::string>(TxParameterID::OriginalToken);
         if (originalToken)
         {

@@ -2254,11 +2254,6 @@ namespace
                 auto params = CreateSimpleTransactionParameters();
                 LoadReceiverParams(vm, params);
 
-                if (auto vouchers = params.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
-                {
-                    storage::SaveVouchers(*walletDB, *vouchers, receiverWalletID);
-                }
-
                 WalletAddress senderAddress;
                 walletDB->createAddress(senderAddress);
                 walletDB->saveAddress(senderAddress);
