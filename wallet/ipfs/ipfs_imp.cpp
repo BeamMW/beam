@@ -37,6 +37,11 @@ namespace beam::wallet::imp
 
     IPFSService::~IPFSService()
     {
+        if (running())
+        {
+            stop();
+        }
+
         assert(!_node);
         assert(!_thread);
         assert(!_ios_guard);
@@ -133,6 +138,7 @@ namespace beam::wallet::imp
             throw std::runtime_error("IPFS service thread already stopped");
         }
 
+        LOG_INFO() << "Stopping IPFS Service...";
         _node.reset();
         _ios_guard->reset();
         _ios_guard.reset();
@@ -141,6 +147,7 @@ namespace beam::wallet::imp
         _thread->join();
         _thread.reset();
         _ios.reset();
+        LOG_INFO() << "IPFS Services stopped.";
     }
 
     void IPFSService::add(std::vector<uint8_t>&& data, std::function<void (std::string&&)>&& res, Err&& err)
