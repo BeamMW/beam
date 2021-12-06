@@ -16,7 +16,7 @@ jobs:
       - name: Download
         shell: powershell
         run: |
-          $Url = "https://dl.bintray.com/boostorg/release/1.72.0/source/boost_1_72_0.zip"
+          $Url = "https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/boost_1_75_0.zip"
           (New-Object System.Net.WebClient).DownloadFile($Url, "$env:TEMP\boost_1_72_0.zip")
           Expand-Archive -Path "$env:TEMP\boost_1_72_0.zip" -DestinationPath ${{runner.workspace}}/boost
 
@@ -42,7 +42,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-16.04, ubuntu-18.04, ubuntu-20.04]
+        # disabled ubuntu-16.04
+        os: [ubuntu-18.04, ubuntu-20.04]
 
     steps:
       - name: Create Build Environment
@@ -64,7 +65,7 @@ jobs:
       - name: Download
         shell: bash
         run: |
-          wget -q https://dl.bintray.com/boostorg/release/1.75.0/source/boost_1_75_0.tar.gz
+          wget -q https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/source/boost_1_75_0.tar.gz
           tar -xvf boost_1_75_0.tar.gz > /dev/null
           mv ./boost_1_75_0 ${{runner.workspace}}/boost
 
@@ -103,7 +104,7 @@ jobs:
       - name: Download
         shell: bash
         run: |
-          wget -q https://dl.bintray.com/boostorg/release/1.75.0/source/boost_1_75_0.tar.gz
+          wget -q https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/boost_1_75_0.tar.gz
           tar -xvf boost_1_75_0.tar.gz > /dev/null
           mv ./boost_1_75_0 ${{runner.workspace}}/boost
 
