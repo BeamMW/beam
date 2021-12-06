@@ -42,6 +42,11 @@ namespace beam::wallet::imp
         assert(!_ios_guard);
     }
 
+    bool IPFSService::running() const
+    {
+        return _thread && _ios;
+    }
+
     void IPFSService::start(const std::string& incompletePath)
     {
         if (_thread || _ios)

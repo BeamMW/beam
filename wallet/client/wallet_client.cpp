@@ -416,7 +416,7 @@ namespace beam::wallet
         return GetStatus(Asset::s_BeamID);
     }
 
-    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, const std::string& ipfsStorage, const std::string& nodeAddr, io::Reactor::Ptr reactor)
         : m_rules(rules)
         , m_walletDB(walletDB)
         , m_reactor{ reactor ? reactor : io::Reactor::create() }
@@ -424,6 +424,7 @@ namespace beam::wallet
         , m_connectedNodesCount(0)
         , m_trustedConnectionCount(0)
         , m_initialNodeAddrStr(nodeAddr)
+        , m_ipfsStorage(ipfsStorage)
         , m_CoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onNormalCoinsChanged(action, items); })
         , m_ShieldedCoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onShieldedCoinChanged(action, items); })
         , m_AddressChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAddressesChanged(action, items); })
@@ -437,14 +438,14 @@ namespace beam::wallet
         m_balanceDelayed = io::Timer::create(*m_reactor);
     }
 
-    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor)
-        : WalletClient(rules, walletDB, {}, nodeAddr, reactor)
+    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& ipfsStorage, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+        : WalletClient(rules, walletDB, {}, ipfsStorage, nodeAddr, reactor)
     {
 
     }
 
-    WalletClient::WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor)
-        : WalletClient(rules, nullptr, std::move(walletDBFunc), nodeAddr, reactor)
+    WalletClient::WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, const std::string& ipfsStorage, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+        : WalletClient(rules, nullptr, std::move(walletDBFunc), ipfsStorage, nodeAddr, reactor)
     {
     }
 
@@ -513,7 +514,6 @@ namespace beam::wallet
     }
 
     void WalletClient::start( std::map<Notification::Type,bool> activeNotifications,
-                              const std::string& ipfsStorage,
                               bool withExchangeRates,
                               std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
     {
@@ -521,7 +521,7 @@ namespace beam::wallet
         {
             return;
         }
-        m_thread = std::make_shared<MyThread>([this, withExchangeRates, txCreators, activeNotifications, ipfsStorage]()
+        m_thread = std::make_shared<MyThread>([this, withExchangeRates, txCreators, activeNotifications]()
         {
             try
             {
@@ -679,16 +679,15 @@ namespace beam::wallet
                 std::shared_ptr<IPFSHandler> ipfsHandler;
                 std::shared_ptr<IPFSService> ipfsService;
 
-                if (ipfsStorage.empty())
+                if (m_ipfsStorage.empty())
                 {
                     LOG_WARNING() << "Empty IPFS storage path passed. IPFS node won't be started.";
                 }
                 else
                 {
-                    LOG_INFO() << "IPFS Enabled. Starting IPFS node.";
+                    LOG_INFO() << "IPFS Service is enabled. Node would be started on app demand";
                     ipfsHandler = std::make_shared<IPFSHandler>(this);
                     ipfsService = IPFSService::create(ipfsHandler);
-                    ipfsService->start(ipfsStorage);
                     m_ipfs = ipfsService;
                 }
                 #else
@@ -755,6 +754,28 @@ namespace beam::wallet
     IPFSService::Ptr WalletClient::getIPFS()
     {
         auto sp = m_ipfs.lock();
+        if(!sp || !sp->running())
+        {
+            assert(false);
+            throw std::runtime_error("IPFS Service is not running");
+        }
+        return sp;
+    }
+
+    IPFSService::Ptr WalletClient::IWThread_startIPFSNode()
+    {
+        auto sp = m_ipfs.lock();
+        if (!sp)
+        {
+            assert(false);
+            throw std::runtime_error("IPFS service is not created");
+        }
+
+        if (!sp->running())
+        {
+            sp->start(m_ipfsStorage);
+        }
+
         return sp;
     }
     #endif

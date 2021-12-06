@@ -113,12 +113,12 @@ namespace beam::wallet
     public:
 
         using OpenDBFunction = std::function<IWalletDB::Ptr()>;
-        WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor);
-        WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor);
-        WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor); // lazy DB creation ctor
+        WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, const std::string& ipfsStorage, const std::string& nodeAddr, io::Reactor::Ptr reactor);
+        WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& ipfsStorage, const std::string& nodeAddr, io::Reactor::Ptr reactor);
+        WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, const std::string& ipfsStorage, const std::string& nodeAddr, io::Reactor::Ptr reactor); // lazy DB creation ctor
         ~WalletClient() override;
 
-        void start( std::map<Notification::Type,bool> activeNotifications, const std::string& ipfsStorage = std::string(),
+        void start( std::map<Notification::Type,bool> activeNotifications,
                     bool withExchangeRates = false,
                     std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr);
 
@@ -127,7 +127,8 @@ namespace beam::wallet
         IWalletDB::Ptr getWalletDB();
 
         #ifdef BEAM_IPFS_SUPPORT
-        IPFSService::Ptr getIPFS();
+        IPFSService::Ptr getIPFS(); // IPFS methods can be called only in context of WalletClient thread
+        IPFSService::Ptr IWThread_startIPFSNode();
         #endif
 
         IShadersManager::Ptr IWThread_createAppShaders(const std::string& appid, const std::string& appname);
@@ -369,6 +370,7 @@ namespace beam::wallet
         uint32_t m_trustedConnectionCount;
         boost::optional<ErrorType> m_walletError;
         std::string m_initialNodeAddrStr;
+        std::string m_ipfsStorage;
 
         struct CoinKey
         {

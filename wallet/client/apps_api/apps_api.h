@@ -82,12 +82,27 @@ namespace beam::wallet
                 throw std::runtime_error("no client provided");
             }
 
+            struct IWTResult
+            {
+                #ifdef BEAM_IPFS_SUPPORT
+                IPFSService::Ptr ipfs;
+                #endif
+                IShadersManager::Ptr shaders;
+            };
+
             client->getAsync()->makeIWTCall(
                 [client, appid, appname]() -> boost::any {
                     //
-                    // THIS IS REACTOR THREAD
+                    // THIS IS WALLET CLIENT REACTOR THREAD
                     //
-                    return client->IWThread_createAppShaders(appid, appname);
+                    IWTResult result;
+
+                    #ifdef BEAM_IPFS_SUPPORT
+                    result.ipfs = client->IWThread_startIPFSNode();
+                    #endif
+                    result.shaders = client->IWThread_createAppShaders(appid, appname);
+
+                    return result;
                 },
                 [client, cback, version, appid, appname](boost::any aptr) {
                     //
@@ -99,8 +114,8 @@ namespace beam::wallet
                     wapi->_weakSelf = wapi;
 
                     ApiInitData data;
-                    auto shaders   = boost::any_cast<IShadersManager::Ptr>(aptr);
-                    data.contracts = std::move(shaders);
+                    auto iwtres    = boost::any_cast<IWTResult>(aptr);
+                    data.contracts = std::move(iwtres.shaders);
                     data.swaps     = nullptr;
                     data.wallet    = client->getWallet();
                     data.walletDB  = client->getWalletDB();
@@ -108,7 +123,7 @@ namespace beam::wallet
                     data.appName   = appname;
 
                     #ifdef BEAM_IPFS_SUPPORT
-                    data.ipfs = client->getIPFS();
+                    data.ipfs = std::move(iwtres.ipfs);
                     #endif
 
                     wapi->_walletAPI = IWalletApi::CreateInstance(version, *wapi->_walletAPIProxy, data);

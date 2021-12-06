@@ -31,6 +31,7 @@ namespace beam::wallet::imp
         explicit IPFSService(HandlerPtr);
         ~IPFSService() override;
 
+        bool running() const override;
         void start(const std::string& storagePath) override;
         void stop() override;
         void add(std::vector<uint8_t>&& data, std::function<void (std::string&&)>&& res, Err&&) override;
@@ -143,7 +144,7 @@ namespace beam::wallet::imp
     };
 
     template<>
-    void IPFSService::retVal(std::function<void()>&& func, IPFSService::JustVoid&& what)
+    inline void IPFSService::retVal(std::function<void()>&& func, IPFSService::JustVoid&& what)
     {
         retToClient([func = std::move(func)] {
             func();

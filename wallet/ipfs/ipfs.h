@@ -38,6 +38,7 @@ namespace beam::wallet
         [[nodiscard]] static Ptr create(HandlerPtr);
 
         /// \exception std::runtime_error
+        virtual bool running() const = 0;
         virtual void start(const std::string& storagePath) = 0;
 
         /// \exception std::runtime_error
