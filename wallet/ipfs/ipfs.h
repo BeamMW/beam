@@ -62,6 +62,11 @@ namespace beam::wallet
         virtual void pin(const std::string& hash, uint32_t timeout,
                          std::function<void ()>&& res,
                          Err&&) = 0;
+
+        /// \brief Unpin from the local node
+        virtual void unpin(const std::string& hash, uint32_t timeout,
+                           std::function<void ()>&& res,
+                           Err&&) = 0;
     };
 }
 #endif

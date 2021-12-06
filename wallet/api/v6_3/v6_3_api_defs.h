@@ -19,14 +19,13 @@
 
 namespace beam::wallet
 {
-    // TODO:IPFS move to version 6.3
-    // TODO:IPFS add ipfs_unpin
     // TODO:IPFS add ev_ipfs_status
     // TODO:IPFS add ev_ipfs_delayed_pin event for pins after restart
     #define V6_3_API_METHODS(macro) \
-        macro(IPFSAdd, "ipfs_add", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
-        macro(IPFSGet, "ipfs_get", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
-        macro(IPFSPin, "ipfs_pin", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)
+        macro(IPFSAdd,   "ipfs_add",   API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
+        macro(IPFSGet,   "ipfs_get",   API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
+        macro(IPFSPin,   "ipfs_pin",   API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
+        macro(IPFSUnpin, "ipfs_unpin", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)
 
     struct IPFSAdd
     {
@@ -52,6 +51,17 @@ namespace beam::wallet
     };
 
     struct IPFSPin
+    {
+        std::string hash;
+        uint32_t timeout = 0;
+
+        struct Response
+        {
+            std::string hash;
+        };
+    };
+
+    struct IPFSUnpin
     {
         std::string hash;
         uint32_t timeout = 0;

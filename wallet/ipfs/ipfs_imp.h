@@ -37,6 +37,7 @@ namespace beam::wallet::imp
         void add(std::vector<uint8_t>&& data, std::function<void (std::string&&)>&& res, Err&&) override;
         void get(const std::string& hash, uint32_t timeout, std::function<void (std::vector<uint8_t>&&)>&& res, Err&&) override;
         void pin(const std::string& hash, uint32_t timeout, std::function<void ()>&& res, Err&&) override;
+        void unpin(const std::string& hash, uint32_t timeout, std::function<void ()>&& res, Err&&) override;
 
         [[nodiscard]] std::string id() const override
         {

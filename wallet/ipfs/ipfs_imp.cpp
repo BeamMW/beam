@@ -196,6 +196,22 @@ namespace beam::wallet::imp
         });
     }
 
+    void IPFSService::unpin(const std::string& hash, uint32_t timeout, std::function<void ()>&& res, Err&& err)
+    {
+        if (hash.empty())
+        {
+            retErr(std::move(err), "Cannot unpin an empty hash");
+            return;
+        }
+
+        call_ipfs(timeout, std::move(res), std::move(err), [this, hash]
+                (boost::asio::yield_context yield, std::function<void()>& cancel) -> JustVoid
+        {
+            _node->unpin(hash, cancel, std::move(yield));
+            return JustVoid{};
+        });
+    }
+
     void IPFSService::retToClient(std::function<void()>&& what)
     {
         _handler->pushToClient(std::move(what));
