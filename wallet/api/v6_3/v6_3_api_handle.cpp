@@ -16,13 +16,10 @@
 
 namespace beam::wallet
 {
-    void V63Api::onHandleIPFSAdd(const JsonRpcId &id, const IPFSAdd& req)
+    void V63Api::onHandleIPFSAdd(const JsonRpcId &id, IPFSAdd&& req)
     {
         auto ipfs = getIPFS();
-
-        // TODO:IPFS cannot use move because of const
-        std::vector dcopy = req.data;
-        ipfs->add(std::move(dcopy),
+        ipfs->add(std::move(req.data),
             [this, id, wguard = _weakSelf](std::string&& hash) {
                 auto guard = wguard.lock();
                 if (!guard)
@@ -47,7 +44,7 @@ namespace beam::wallet
         );
     }
 
-    void V63Api::onHandleIPFSGet(const JsonRpcId &id, const IPFSGet& req)
+    void V63Api::onHandleIPFSGet(const JsonRpcId &id, IPFSGet&& req)
     {
         auto ipfs = getIPFS();
         ipfs->get(req.hash, req.timeout,
@@ -75,7 +72,7 @@ namespace beam::wallet
         );
     }
 
-    void V63Api::onHandleIPFSPin(const JsonRpcId &id, const IPFSPin& req)
+    void V63Api::onHandleIPFSPin(const JsonRpcId &id, IPFSPin&& req)
     {
         auto ipfs = getIPFS();
         ipfs->pin(req.hash, req.timeout,
@@ -102,7 +99,7 @@ namespace beam::wallet
         );
     }
 
-    void V63Api::onHandleIPFSUnpin(const JsonRpcId &id, const IPFSUnpin& req)
+    void V63Api::onHandleIPFSUnpin(const JsonRpcId &id, IPFSUnpin&& req)
     {
         auto ipfs = getIPFS();
         ipfs->unpin(req.hash, req.timeout,
@@ -129,7 +126,7 @@ namespace beam::wallet
         );
     }
 
-    void V63Api::onHandleIPFSGc(const JsonRpcId &id, const IPFSGc& req)
+    void V63Api::onHandleIPFSGc(const JsonRpcId &id, IPFSGc&& req)
     {
         auto ipfs = getIPFS();
         ipfs->gc(req.timeout,

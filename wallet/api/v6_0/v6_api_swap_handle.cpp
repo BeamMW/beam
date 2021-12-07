@@ -138,7 +138,7 @@ namespace beam::wallet
         return true;
     }
 
-    void V6Api::onHandleOffersList(const JsonRpcId& id, const OffersList& data)
+    void V6Api::onHandleOffersList(const JsonRpcId& id, OffersList&& data)
     {
         auto swaps = getSwaps();
         auto walletDB = getWalletDB();
@@ -182,7 +182,7 @@ namespace beam::wallet
             });
     }
 
-    void V6Api::onHandleOffersBoard(const JsonRpcId& id, const OffersBoard& data)
+    void V6Api::onHandleOffersBoard(const JsonRpcId& id, OffersBoard&& data)
     {
         auto swaps = getSwaps();
         auto walletDB = getWalletDB();
@@ -209,7 +209,7 @@ namespace beam::wallet
             });
     }
 
-    void V6Api::onHandleCreateOffer(const JsonRpcId& id, const CreateOffer& data)
+    void V6Api::onHandleCreateOffer(const JsonRpcId& id, CreateOffer&& data)
     {
         auto swaps    = getSwaps();
         auto walletDB = getWalletDB();
@@ -305,7 +305,7 @@ namespace beam::wallet
             });
     }
 
-    void V6Api::onHandlePublishOffer(const JsonRpcId& id, const PublishOffer& data)
+    void V6Api::onHandlePublishOffer(const JsonRpcId& id, PublishOffer&& data)
     {
         auto txParams = ParseParameters(data.token);
         if (!txParams)
@@ -345,7 +345,7 @@ namespace beam::wallet
         }
     }
 
-    void V6Api::onHandleAcceptOffer(const JsonRpcId& id, const AcceptOffer& data)
+    void V6Api::onHandleAcceptOffer(const JsonRpcId& id, AcceptOffer&& data)
     {
         auto txParams = ParseParameters(data.token);
         if (!txParams)
@@ -485,7 +485,7 @@ namespace beam::wallet
             });
     }
 
-    void V6Api::onHandleOfferStatus(const JsonRpcId& id, const OfferStatus& data)
+    void V6Api::onHandleOfferStatus(const JsonRpcId& id, OfferStatus&& data)
     {
         auto swaps = getSwaps();
         auto walletDB = getWalletDB();
@@ -509,7 +509,7 @@ namespace beam::wallet
         doResponse(id, OfferStatus::Response{ walletDB->getCurrentHeight(), offer });
     }
 
-    void V6Api::onHandleDecodeToken(const JsonRpcId& id, const DecodeToken& data)
+    void V6Api::onHandleDecodeToken(const JsonRpcId& id, DecodeToken&& data)
     {
         auto txParams = ParseParameters(data.token);
         if (!txParams)
@@ -559,7 +559,7 @@ namespace beam::wallet
             });
     }
 
-    void V6Api::onHandleGetBalance(const JsonRpcId& id, const GetBalance& data)
+    void V6Api::onHandleGetBalance(const JsonRpcId& id, GetBalance&& data)
     {
         auto swaps = getSwaps();
         ensureConnected(swaps, data.coin);
@@ -568,7 +568,7 @@ namespace beam::wallet
         doResponse(id, GetBalance::Response{available});
     }
 
-    void V6Api::onHandleRecommendedFeeRate(const JsonRpcId& id, const RecommendedFeeRate& data)
+    void V6Api::onHandleRecommendedFeeRate(const JsonRpcId& id, RecommendedFeeRate&& data)
     {
         auto swaps = getSwaps();
         ensureConnected(swaps, data.coin);
@@ -577,9 +577,9 @@ namespace beam::wallet
         doResponse(id, RecommendedFeeRate::Response{feeRate});
     }
 
-    void V6Api::onHandleCancelOffer(const JsonRpcId& id, const CancelOffer& data)
+    void V6Api::onHandleCancelOffer(const JsonRpcId& id, CancelOffer&& data)
     {
         LOG_DEBUG() << "CancelOffer(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
-        onHandleTxCancel(id, data);
+        onHandleTxCancel(id, std::move(data));
     }
 }

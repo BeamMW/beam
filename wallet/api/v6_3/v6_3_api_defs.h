@@ -19,8 +19,6 @@
 
 namespace beam::wallet
 {
-    // TODO:IPFS add ev_ipfs_status
-    // TODO:IPFS add ev_ipfs_delayed_pin event for pins after restart
     #define V6_3_API_METHODS(macro) \
         macro(IPFSAdd,   "ipfs_add",   API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(IPFSGet,   "ipfs_get",   API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
