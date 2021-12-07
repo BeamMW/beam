@@ -2351,6 +2351,7 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_LimitExceeded = false;
 	bool m_TxValidation = false; // tx or block
 	bool m_DependentCtxSet = false;
+	bool m_SkipInOuts = false;
 	uint8_t m_TxStatus = proto::TxStatus::Unspecified;
 	std::ostream* m_pTxErrorInfo = nullptr;
 
@@ -4106,6 +4107,7 @@ bool NodeProcessor::ExecInDependentContext(IWorker& wrk, const Merkle::Hash* pCt
 			bic.m_TxValidation = true;
 			bic.m_SkipDefinition = true;
 			bic.m_AlreadyValidated = true;
+			bic.m_SkipInOuts = true;
 
 			DependentContextSwitch dcs(*this, bic);
 			if (!dcs.Apply(&itCtx->get_ParentObj()))
@@ -4121,6 +4123,9 @@ bool NodeProcessor::ExecInDependentContext(IWorker& wrk, const Merkle::Hash* pCt
 
 bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 {
+	if (bic.m_SkipInOuts)
+		return true;
+
 	UtxoTree::Cursor cu;
 	UtxoTree::MyLeaf* p;
 	UtxoTree::Key::Data d;
@@ -4196,9 +4201,14 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 
 bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 {
+	if (bic.m_SkipInOuts)
+		return true;
+
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
-	d.m_Maturity = v.get_MinMaturity(bic.m_Height);
+	d.m_Maturity = bic.m_SkipDefinition ?
+		(bic.m_Height - 1) : // allow this output to be spent in exactly this block. Won't happen in normal blocks (matching in/outs are not allowed), but ok when assembling a block, before cut-through
+		v.get_MinMaturity(bic.m_Height);
 
 	UtxoTree::Key key;
 	key = d;
