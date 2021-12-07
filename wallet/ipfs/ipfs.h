@@ -19,6 +19,7 @@
 #include <string>
 #include <functional>
 #include <stdexcept>
+#include <asio-ipfs/include/asio_ipfs/config.h>
 
 namespace beam::wallet
 {
@@ -39,7 +40,7 @@ namespace beam::wallet
 
         /// \exception std::runtime_error
         virtual bool running() const = 0;
-        virtual void start(const std::string& storagePath) = 0;
+        virtual void start(const std::string& repoPath, asio_ipfs::config config) = 0;
 
         /// \exception std::runtime_error
         virtual void stop() = 0;

@@ -113,9 +113,9 @@ namespace beam::wallet
     public:
 
         using OpenDBFunction = std::function<IWalletDB::Ptr()>;
-        WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, const std::string& ipfsStorage, const std::string& nodeAddr, io::Reactor::Ptr reactor);
-        WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& ipfsStorage, const std::string& nodeAddr, io::Reactor::Ptr reactor);
-        WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, const std::string& ipfsStorage, const std::string& nodeAddr, io::Reactor::Ptr reactor); // lazy DB creation ctor
+        WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, const std::string& ipfsRepo, asio_ipfs::config ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor);
+        WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& ipfsRepo, asio_ipfs::config ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor);
+        WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, const std::string& ipfsRepo, asio_ipfs::config ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor); // lazy DB creation ctor
         ~WalletClient() override;
 
         void start( std::map<Notification::Type,bool> activeNotifications,
@@ -370,7 +370,8 @@ namespace beam::wallet
         uint32_t m_trustedConnectionCount;
         boost::optional<ErrorType> m_walletError;
         std::string m_initialNodeAddrStr;
-        std::string m_ipfsStorage;
+        std::string m_ipfsRepo;
+        asio_ipfs::config m_ipfsConfig;
 
         struct CoinKey
         {

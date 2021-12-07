@@ -2411,7 +2411,7 @@ namespace
     struct TestWalletClient : public WalletClient
     {
         TestWalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor)
-            : WalletClient(Rules::get(), walletDB, std::string(), nodeAddr, reactor)
+            : WalletClient(Rules::get(), walletDB, std::string(), asio_ipfs::config(), nodeAddr, reactor)
         {
         }
 

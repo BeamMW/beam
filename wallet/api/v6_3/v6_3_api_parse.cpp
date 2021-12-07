@@ -32,7 +32,6 @@ namespace beam::wallet
     {
         IPFSAdd message;
 
-        // TODO:IPFS json&, optimize? this might be slow, BSON?
         json data = getMandatoryParam<NonEmptyJsonArray>(params, "data");
         for (const auto& byte: data)
         {

@@ -416,7 +416,7 @@ namespace beam::wallet
         return GetStatus(Asset::s_BeamID);
     }
 
-    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, const std::string& ipfsStorage, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, const std::string& ipfsRepo, asio_ipfs::config ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
         : m_rules(rules)
         , m_walletDB(walletDB)
         , m_reactor{ reactor ? reactor : io::Reactor::create() }
@@ -424,7 +424,8 @@ namespace beam::wallet
         , m_connectedNodesCount(0)
         , m_trustedConnectionCount(0)
         , m_initialNodeAddrStr(nodeAddr)
-        , m_ipfsStorage(ipfsStorage)
+        , m_ipfsRepo(ipfsRepo)
+        , m_ipfsConfig(std::move(ipfsConfig))
         , m_CoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onNormalCoinsChanged(action, items); })
         , m_ShieldedCoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onShieldedCoinChanged(action, items); })
         , m_AddressChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAddressesChanged(action, items); })
@@ -438,14 +439,14 @@ namespace beam::wallet
         m_balanceDelayed = io::Timer::create(*m_reactor);
     }
 
-    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& ipfsStorage, const std::string& nodeAddr, io::Reactor::Ptr reactor)
-        : WalletClient(rules, walletDB, {}, ipfsStorage, nodeAddr, reactor)
+    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& ipfsRepo, asio_ipfs::config ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+        : WalletClient(rules, walletDB, {}, ipfsRepo, std::move(ipfsConfig), nodeAddr, reactor)
     {
 
     }
 
-    WalletClient::WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, const std::string& ipfsStorage, const std::string& nodeAddr, io::Reactor::Ptr reactor)
-        : WalletClient(rules, nullptr, std::move(walletDBFunc), ipfsStorage, nodeAddr, reactor)
+    WalletClient::WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, const std::string& ipfsRepo, asio_ipfs::config ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+        : WalletClient(rules, nullptr, std::move(walletDBFunc), ipfsRepo, std::move(ipfsConfig), nodeAddr, reactor)
     {
     }
 
@@ -678,7 +679,7 @@ namespace beam::wallet
                 std::shared_ptr<IPFSHandler> ipfsHandler;
                 std::shared_ptr<IPFSService> ipfsService;
 
-                if (m_ipfsStorage.empty())
+                if (m_ipfsRepo.empty())
                 {
                     LOG_WARNING() << "Empty IPFS storage path passed. IPFS node won't be started.";
                 }
@@ -706,6 +707,9 @@ namespace beam::wallet
                 });
 
                 #ifdef BEAM_IPFS_SUPPORT
+                if (ipfsService->running()) {
+                    ipfsService->stop();
+                }
                 assert(m_ipfs.use_count() ==1);
                 m_ipfs.reset();
                 #endif
@@ -777,7 +781,7 @@ namespace beam::wallet
 
         if (!sp->running())
         {
-            sp->start(m_ipfsStorage);
+            sp->start(m_ipfsRepo, m_ipfsConfig);
         }
 
         return sp;

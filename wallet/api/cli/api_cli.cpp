@@ -191,13 +191,13 @@ namespace
             wallet::PostToReactorThread::Ptr _toServerThread;
         };
 
-        bool startIPFS(const std::string& storagePath, io::Reactor::Ptr reactor)
+        bool startIPFS(const std::string& storagePath, asio_ipfs::config config, io::Reactor::Ptr reactor)
         {
             try
             {
                 _ipfsHandler = std::make_shared<IPFSHandler>(std::move(reactor));
                 _ipfs = beam::wallet::IPFSService::create(_ipfsHandler);
-                _ipfs->start(storagePath);
+                _ipfs->start(storagePath, config);
                 LOG_INFO() << "IPFS Service successfully started, ID " << _ipfs->id();
                 return true;
             }
@@ -817,7 +817,7 @@ int main(int argc, char* argv[])
         #ifdef BEAM_IPFS_SUPPORT
         if (ipfsOptions.enabled)
         {
-            if(!server.startIPFS(ipfsOptions.storage, reactor))
+            if(!server.startIPFS(ipfsOptions.storage, asio_ipfs::config(), reactor))
             {
                 return -1;
             }

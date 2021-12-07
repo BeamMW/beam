@@ -32,7 +32,7 @@ namespace beam::wallet::imp
         ~IPFSService() override;
 
         bool running() const override;
-        void start(const std::string& storagePath) override;
+        void start(const std::string& repoPath, asio_ipfs::config config) override;
         void stop() override;
         void add(std::vector<uint8_t>&& data, std::function<void (std::string&&)>&& res, Err&&) override;
         void get(const std::string& hash, uint32_t timeout, std::function<void (std::vector<uint8_t>&&)>&& res, Err&&) override;

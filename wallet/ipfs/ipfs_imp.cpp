@@ -37,11 +37,6 @@ namespace beam::wallet::imp
 
     IPFSService::~IPFSService()
     {
-        if (running())
-        {
-            stop();
-        }
-
         assert(!_node);
         assert(!_thread);
         assert(!_ios_guard);
@@ -52,7 +47,7 @@ namespace beam::wallet::imp
         return _thread && _ios;
     }
 
-    void IPFSService::start(const std::string& incompletePath)
+    void IPFSService::start(const std::string& repoPath, asio_ipfs::config config)
     {
         if (_thread || _ios)
         {
@@ -60,7 +55,7 @@ namespace beam::wallet::imp
             throw std::runtime_error("IPFS Service is already running");
         }
 
-        const auto fullPath = boost::filesystem::system_complete(incompletePath);
+        const auto fullPath = boost::filesystem::system_complete(repoPath);
 
         //
         // boost::filesystem::weakly_canonical(fullPath) doesn't throw exception
@@ -87,7 +82,19 @@ namespace beam::wallet::imp
             asio::spawn(*startctx, [&](boost::asio::yield_context yield) {
                 try
                 {
-                    _node = asio_ipfs::node::build(*startctx, storagePath, asio_ipfs::node::config{}, std::move(yield));
+                    if (config.bootstrap.empty())
+                    {
+                        #if defined(BEAM_TESTNET)
+                            #error ("Define Testnet IPFS bootstrap")
+                        #elif defined(BEAM_MAINNET)
+                            #error ("Define Mainnet IPFS bootstrap")
+                        #else
+                            config.bootstrap.emplace_back("/ip4/3.19.141.112/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
+                        #endif
+                    }
+
+                    _node = asio_ipfs::node::build(*startctx, storagePath, config, std::move(yield));
+
                     // TODO:IPFS ensure if connected
                     // TODO:IPFS lower connect timeout
                     assert(_node);
