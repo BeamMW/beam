@@ -218,6 +218,9 @@ struct Node
         // for step-by-step tests
 	void GenerateFakeBlocks(uint32_t n);
 
+	TxPool::Fluff m_TxPool;
+	TxPool::Dependent m_TxDependent;
+
 private:
 
 	struct Processor
@@ -272,9 +275,6 @@ private:
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
-
-	TxPool::Fluff m_TxPool;
-	TxPool::Dependent m_TxDependent;
 
 	struct Peer;
 

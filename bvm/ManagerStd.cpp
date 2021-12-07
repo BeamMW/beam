@@ -268,6 +268,9 @@ namespace bvm2 {
 
 	void ManagerStd::SelectContext(bool bDependent, uint32_t /* nChargeNeeded */)
 	{
+		if (m_EnforceDependent)
+			bDependent = true;
+
 		proto::FlyClient::RequestEnsureSync::Ptr pReq(new proto::FlyClient::RequestEnsureSync);
 		pReq->m_IsDependent = bDependent;
 		Wasm::Test(PerformRequestSync(*pReq));
@@ -399,6 +402,10 @@ namespace bvm2 {
 		OnReset();
 
 		try {
+
+			if (m_EnforceDependent)
+				EnsureContext();
+
 			CallMethod(iMethod);
 			RunSync();
 		}

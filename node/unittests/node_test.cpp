@@ -3207,11 +3207,10 @@ namespace beam
 
 	void RaiseHeightTo(Node& node, Height h)
 	{
-		TxPool::Fluff txPool;
-
 		while (node.get_Processor().m_Cursor.m_ID.m_Height < h)
 		{
-			NodeProcessor::BlockContext bc(txPool, 0, *node.m_Keys.m_pMiner, *node.m_Keys.m_pMiner);
+			NodeProcessor::BlockContext bc(node.m_TxPool, 0, *node.m_Keys.m_pMiner, *node.m_Keys.m_pMiner);
+			bc.m_pParent = node.m_TxDependent.m_pBest;
 			verify_test(node.get_Processor().GenerateNewBlock(bc));
 			node.get_Processor().OnState(bc.m_Hdr, PeerID());
 
