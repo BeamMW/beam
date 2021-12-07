@@ -49,8 +49,10 @@ void FlyClient::NetworkStd::Connect()
         {
             Connection* pConn = new Connection(*this);
             pConn->m_Addr = m_Cfg.m_vNodes[i];
-            if (m_Cfg.m_UseProxy) pConn->Connect(pConn->m_Addr, m_Cfg.m_ProxyAddr);
-            else pConn->Connect(pConn->m_Addr);
+            if (m_Cfg.m_UseProxy)
+                pConn->Connect(pConn->m_Addr, m_Cfg.m_ProxyAddr);
+            else
+                pConn->Connect(pConn->m_Addr);
         }
     }
 }
@@ -198,6 +200,8 @@ void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 void FlyClient::NetworkStd::Connection::SetupLogin(Login& msg)
 {
     msg.m_Flags |= LoginFlags::MiningFinalization | LoginFlags::SendPeers;
+    if (m_This.HasDependentSubscriptions())
+        msg.m_Flags |= LoginFlags::WantDependentState;
     m_This.OnLoginSetup(msg);
 }
 

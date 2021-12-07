@@ -5838,7 +5838,8 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 		return proto::TxStatus::DependentNoParent;
 	}
 
-	bic.m_AlreadyValidated = false;
+	bool bNewVal = false;
+	TemporarySwap ts(bic.m_AlreadyValidated, bNewVal);
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
 
