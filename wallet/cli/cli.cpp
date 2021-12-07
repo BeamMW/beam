@@ -1715,7 +1715,7 @@ namespace
             sTxt.resize(res.size() * 2);
 
             beam::to_hex(&sTxt.front(), res.data(), res.size());
-            LOG_INFO() << boost::format(kPpExportedFrom) % sTxt;
+            std::cout << boost::format(kPpExportedFrom) % sTxt;
         }
 
         return 0;
