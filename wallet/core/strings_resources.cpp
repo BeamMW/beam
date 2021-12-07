@@ -217,7 +217,7 @@ namespace beam
     const char kTxDetailsFormat[] = "Transaction details:\n\n%1%Status:            %2%";
     const char kTxDetailsFailReason[] = "\nReason:            %1%";
 
-    const char kPpExportedFrom[] = "Exported form: %1%";
+    const char kPpExportedFrom[] = "Exported from: %1%";
     const char kSubKeyInfo[] = "Secret Subkey %1%: %2%";
     const char kOwnerKeyInfo[] = "Owner Viewer key: %1%";
     const char kDataExportedMessage[] = "Data has been successfully exported.";
