@@ -3781,7 +3781,7 @@ namespace beam
 		RaiseHeightTo(node, 21);
 
 		// make sure everything's included in the block
-		for (auto i = 0; i < man.m_vKrnIds.size(); i++)
+		for (uint32_t i = 0; i < man.m_vKrnIds.size(); i++)
 		{
 			const auto& hv = man.m_vKrnIds[i];
 
