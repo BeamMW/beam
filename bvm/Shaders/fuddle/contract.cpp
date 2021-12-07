@@ -126,6 +126,14 @@ BEAM_EXPORT void Method_4(const Method::SetPrice& r)
     Env::AddSig(r.m_Key.m_pkUser);
 }
 
+void DecAndSave(const Letter::Key& lk, Letter& let)
+{
+    if (--let.m_Count)
+        Env::SaveVar_T(lk, let);
+    else
+        Env::DelVar_T(lk);
+}
+
 BEAM_EXPORT void Method_5(const Method::Buy& r)
 {
     Letter::Key lk;
@@ -141,18 +149,15 @@ BEAM_EXPORT void Method_5(const Method::Buy& r)
         _POD_(let.m_Price).SetZero();
     }
     else
-        // not for sale, must be just minted
+        // not for sale, must be just minted. Claim it.
         Env::Halt_if(!_POD_(r.m_Key.m_pkUser).IsZero());
 
-    if (--let.m_Count)
-        Env::SaveVar_T(lk, let);
-    else
-        Env::DelVar_T(lk);
+    DecAndSave(lk, let);
 
     AddLetter(r.m_pkNewOwner, r.m_Key.m_Char);
 }
 
-BEAM_EXPORT void Method_(const Method::Mint& r)
+BEAM_EXPORT void Method_6(const Method::Mint& r)
 {
     PubKey pk;
     _POD_(pk) = r.m_Key.m_pkUser;
@@ -160,6 +165,60 @@ BEAM_EXPORT void Method_(const Method::Mint& r)
 
     MyState s;
     s.AddSigAdmin();
+}
+
+BEAM_EXPORT void Method_7(const Method::SetQuest& r)
+{
+    Env::Halt_if(!r.m_Prize.m_Amount);
+    Env::FundsLock(r.m_Prize.m_Aid, r.m_Prize.m_Amount);
+
+    MyState s;
+    s.AddSigAdmin();
+
+    Quest::Key qk;
+    qk.m_ID = ++s.m_Quests;
+    s.Save();
+
+    Env::Halt_if(r.m_Len > Quest::s_MaxLen);
+    uint32_t nSizeChars = sizeof(Letter::Char) * r.m_Len;
+    uint32_t nSize = sizeof(Quest) + nSizeChars;
+
+    auto* pQ = (Quest*) Env::StackAlloc(nSize);
+    pQ->m_Prize = r.m_Prize;
+    Env::Memcpy(pQ + 1, &r + 1, nSizeChars);
+
+    Env::SaveVar(&qk, sizeof(qk), pQ, nSize, KeyTag::Internal);
+}
+
+BEAM_EXPORT void Method_8(const Method::SolveQuest& r)
+{
+    Quest::Key qk;
+    qk.m_ID = r.m_iQuest;
+
+    QuestMax q;
+    auto nSize = Env::LoadVar(&qk, sizeof(qk), &q, sizeof(q), KeyTag::Internal);
+    Env::Halt_if(nSize < sizeof(Quest));
+    Env::Halt_if(!q.m_Prize.m_Amount);
+
+    auto nLen = (nSize - sizeof(Quest)) / sizeof(Letter::Char);
+
+    Letter::Key lk;
+    _POD_(lk.m_Raw.m_pkUser) = r.m_pkUser;
+
+    for (uint32_t i = 0; i < nLen; i++)
+    {
+        lk.m_Raw.m_Char = q.m_pCh[i];
+
+        Letter let;
+        Env::Halt_if(!Env::LoadVar_T(lk, let));
+        DecAndSave(lk, let);
+    }
+
+    Env::Halt_if(!q.m_Prize.m_Amount);
+    Env::FundsUnlock(q.m_Prize.m_Aid, q.m_Prize.m_Amount);
+    _POD_(q.m_Prize).SetZero();
+
+    Env::AddSig(r.m_pkUser);
 }
 
 

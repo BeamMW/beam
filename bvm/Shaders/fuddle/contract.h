@@ -11,6 +11,7 @@ namespace Fuddle
         static const uint8_t s_Global = 2;
         static const uint8_t s_Payout = 3;
         static const uint8_t s_Letter = 4;
+        static const uint8_t s_Quest = 5;
     };
 
     struct AmountWithAsset {
@@ -49,6 +50,26 @@ namespace Fuddle
         AmountWithAsset m_Price;
     };
 
+    struct Quest
+    {
+        typedef uint32_t ID;
+
+        struct Key
+        {
+            uint8_t m_Tag = Tags::s_Quest;
+            ID m_ID;
+        };
+
+        static const uint32_t s_MaxLen = 256;
+
+        AmountWithAsset m_Prize;
+        // followed by Chars
+    };
+
+    struct QuestMax :public Quest {
+        Letter::Char m_pCh[s_MaxLen];
+    };
+
     struct Config
     {
         PubKey m_pkAdmin;
@@ -59,7 +80,7 @@ namespace Fuddle
         static const uint8_t s_Key = Tags::s_Global;
 
         Config m_Config;
-        uint32_t m_Quests;
+        Quest::ID m_Quests;
     };
 
     namespace Method
@@ -108,8 +129,17 @@ namespace Fuddle
         {
             static const uint32_t s_iMethod = 7;
 
-            uint32_t m_Length;
+            AmountWithAsset m_Prize;
+            uint32_t m_Len;
             // followed by array of Chars
+        };
+
+        struct SolveQuest
+        {
+            static const uint32_t s_iMethod = 8;
+
+            PubKey m_pkUser;
+            Quest::ID m_iQuest;
         };
 
     } // namespace Method
