@@ -16,7 +16,6 @@
 #include "wallet/core/strings_resources.h"
 #include "utility/logger.h"
 #include "wallet_db.h"
-#include <limits>
 #include <regex>
 #include <set>
 
@@ -309,12 +308,6 @@ namespace beam::wallet {
         if(m_IsOwned)
         {
             LOG_INFO() << prefix << "You own this asset";
-        }
-
-        if (AmountBig::get_Hi(m_Value))
-        {
-            auto maxTxValue = PrintableAmount(std::numeric_limits<Amount>::max(), false, m_ID);
-            LOG_INFO() << "Warning. Total amount of asset would be larger that can be sent in one transaction (" << maxTxValue << "). You would be forced to send using several transactions.";
         }
     }
 
