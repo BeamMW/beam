@@ -111,27 +111,11 @@ namespace beam::wallet
             Block::SystemState::ID state;
             if (m_storage.getSystemStateID(state))
             {
-                if (state.m_Height >= Rules::get().pForks[3].m_Height)
+                if (state.m_Height >= Rules::get().pForks[3].m_Height) // we do not process old versioned messages
                 {
                     std::vector<ExchangeRate> receivedRates;
                     if (fromByteBuffer(buffer, receivedRates))
                     {
-                        processRates(receivedRates);
-                    }
-                }
-                else
-                {
-                    std::vector<ExchangeRateF2> f2Rates;
-                    if (fromByteBuffer(buffer, f2Rates))
-                    {
-                        std::vector<ExchangeRate> receivedRates;
-                        for(const auto& r2: f2Rates)
-                        {
-                            auto newRate = ExchangeRate::FromERH2(r2);
-                            receivedRates.push_back(newRate);
-                        }
-
-                        assert(receivedRates.size() == f2Rates.size());
                         processRates(receivedRates);
                     }
                 }
@@ -149,22 +133,6 @@ namespace beam::wallet
             LOG_WARNING() << "broadcast rate message processing exception";
             return false;
         }
-    }
-
-    bool ExchangeRateProvider::onMessage(uint64_t unused, ByteBuffer&& input)
-    {
-        if (!m_isEnabled)
-        {
-            return true;
-        }
-
-        BroadcastMsg res;
-        if (m_validator.processMessage(input, res))
-        {
-            return processRatesMessage(res.m_content);
-        }
-
-        return false;
     }
 
     bool ExchangeRateProvider::onMessage(uint64_t unused, BroadcastMsg&& msg)

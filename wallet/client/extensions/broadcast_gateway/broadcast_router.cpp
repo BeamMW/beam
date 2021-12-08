@@ -22,16 +22,14 @@ namespace beam
 
 const std::vector<BbsChannel> BroadcastRouter::m_incomingBbsChannels =
 {
-    proto::Bbs::s_BtcSwapOffersChannel,     // can be renamed to s_SwapOffersChannel after fork 2
-    proto::Bbs::s_LtcSwapOffersChannel,     // TODO: dh remove after 2 fork.
-    proto::Bbs::s_QtumSwapOffersChannel,    // TODO: dh remove after 2 fork.
+    proto::Bbs::s_SwapOffersChannel,     // can be renamed to s_SwapOffersChannel after fork 2
     proto::Bbs::s_BroadcastChannel,
     proto::Bbs::s_DexOffersChannel
 };
 
 const std::map<BroadcastContentType, BbsChannel> BroadcastRouter::m_outgoingBbsChannelsMap =
 {
-    { BroadcastContentType::SwapOffers, proto::Bbs::s_BtcSwapOffersChannel },
+    { BroadcastContentType::SwapOffers, proto::Bbs::s_SwapOffersChannel },
     { BroadcastContentType::SoftwareUpdates, proto::Bbs::s_BroadcastChannel },
     { BroadcastContentType::ExchangeRates, proto::Bbs::s_BroadcastChannel },
     { BroadcastContentType::WalletUpdates, proto::Bbs::s_BroadcastChannel },
@@ -83,26 +81,16 @@ BroadcastRouter::BbsTsHolder::BbsTsHolder(wallet::IWalletDB::Ptr db)
 BroadcastRouter::BroadcastRouter(proto::FlyClient::INetwork::Ptr bbsNetwork, IWalletMessageEndpoint& bbsEndpoint, ITimestampHolder::Ptr timestampHolder)
     : BbsProcessor(bbsNetwork, timestampHolder)
     , m_bbsMessageEndpoint(bbsEndpoint)
-    , m_protocol_old(m_ver_1[0],
-                     m_ver_1[1],
-                     m_ver_1[2],
-                 m_maxMessageTypes,
-                 *this,
-                 MsgHeader::SIZE+1)     // note: MsgSerializer is not used here
     , m_protocol(m_ver_2[0],
                  m_ver_2[1],
                  m_ver_2[2],
                  m_maxMessageTypes,
                  *this,
                  MsgHeader::SIZE+1)
-    , m_msgReader_old(m_protocol_old,
-                      0,                // uint64_t streamId is not used here
-                      m_defaultMessageSize)
     , m_msgReader(m_protocol,
                   0,                    // uint64_t streamId is not used here
                   m_defaultMessageSize)
 {
-    m_msgReader_old.disable_all_msg_types();
     m_msgReader.disable_all_msg_types();
 
     for (const auto& ch : m_incomingBbsChannels)
@@ -129,19 +117,12 @@ void BroadcastRouter::registerListener(BroadcastContentType type, IBroadcastList
 
     auto msgType = getMsgType(type);
 
-    // For SwapOffers common serilization data object is not used.
-    m_protocol_old.add_message_handler_wo_deserializer
-        < IBroadcastListener,
-          &IBroadcastListener::onMessage >
-        (msgType, listener, m_minMessageSize, m_maxMessageSize);
-
     m_protocol.add_message_handler
         < IBroadcastListener,
           BroadcastMsg,
           &IBroadcastListener::onMessage >
         (msgType, listener, m_minMessageSize, m_maxMessageSize);
 
-    m_msgReader_old.enable_msg_type(msgType);
     m_msgReader.enable_msg_type(msgType);
 }
 
@@ -151,13 +132,11 @@ void BroadcastRouter::unregisterListener(BroadcastContentType type)
     assert(it != std::cend(m_listeners));
     m_listeners.erase(it);
 
-    m_msgReader_old.disable_msg_type(getMsgType(type));
     m_msgReader.disable_msg_type(getMsgType(type));
 }
 
 /**
  *  Deprecated method. Send without packing into common data object before serialization. Used in SwapOffersBoard.
- *  TODO: dh make private after 2 fork.
  */
 void BroadcastRouter::sendRawMessage(BroadcastContentType type, const ByteBuffer& msg)
 {
@@ -203,9 +182,7 @@ void BroadcastRouter::OnMsg(const proto::BbsMsg& bbsMsg)
     size_t size = bbsMsg.m_Message.size();
 
     // Here MsgReader used in stateless mode. State from previous message can cause error.
-    m_msgReader_old.reset();
     m_msgReader.reset();
-    m_msgReader_old.new_data_from_stream(io::EC_OK, data, size);
     m_msgReader.new_data_from_stream(io::EC_OK, data, size);
 }
 

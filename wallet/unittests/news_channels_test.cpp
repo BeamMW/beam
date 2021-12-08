@@ -95,13 +95,6 @@ namespace
         OnNotification m_onNotification;
     };
 
-    void setBeforeFork3(IWalletDB::Ptr walletDB)
-    {
-        beam::Block::SystemState::ID id = { };
-        id.m_Height = Rules::get().pForks[3].m_Height - 1;
-        walletDB->setSystemStateID(id);
-    }
-
     void setAfterFork3(IWalletDB::Ptr walletDB)
     {
         beam::Block::SystemState::ID id = { };
@@ -115,11 +108,10 @@ namespace
         {
             boost::filesystem::remove(dbFileName);
         }
-
         ECC::NoLeak<ECC::uintBig> seed;
         seed.V = 10283UL;
         auto walletDB = WalletDB::init(dbFileName, string("pass123"), seed);
-        setBeforeFork3(walletDB);
+        setAfterFork3(walletDB);
         return walletDB;
     }
 
@@ -136,6 +128,15 @@ namespace
         return std::make_tuple(pk, sk);
     }
 
+    // test class to check that old messages don't break newer code
+    class TestBroadcastRouter : public BroadcastRouter
+    {
+    public:
+        using BroadcastRouter::BroadcastRouter;
+        using BroadcastRouter::sendRawMessage;
+        static constexpr std::array<uint8_t, 3> m_ver_1 = { 0, 0, 1 };
+    };
+
     /**
      *  Send broadcast message using protocol version 0.0.1
      *  Used to test compatibility between versions.
@@ -148,9 +149,9 @@ namespace
 
         // Prepare Protocol header
         ByteBuffer packet(packSize);
-        MsgHeader header(BroadcastRouter::m_ver_1[0],
-                         BroadcastRouter::m_ver_1[1],
-                         BroadcastRouter::m_ver_1[2]);
+        MsgHeader header(TestBroadcastRouter::m_ver_1[0],
+                         TestBroadcastRouter::m_ver_1[1],
+                         TestBroadcastRouter::m_ver_1[2]);
         
         switch (type)
         {
@@ -256,7 +257,7 @@ namespace
 
         auto storage = createSqliteWalletDB();
         auto network = MockBbsNetwork::CreateInstance();
-        BroadcastRouter broadcastRouter(network, *network, MockTimestampHolder::CreateInstance());
+        TestBroadcastRouter broadcastRouter(network, *network, MockTimestampHolder::CreateInstance());
         BroadcastMsgValidator validator;
         AppUpdateInfoProvider updatesProvider(broadcastRouter, validator);
         WalletUpdatesProvider walletUpdatesProvider(broadcastRouter, validator);
@@ -279,15 +280,11 @@ namespace
             };
 
         auto timestamp = getTimestamp();
-        std::vector<ExchangeRateF2> ratesF2 = {{ ExchangeRateF2::CurrencyF2::Beam, ExchangeRateF2::CurrencyF2::Usd, 147852369, timestamp}};
-
-        timestamp++;
         std::vector<ExchangeRate> ratesF3 = {{ Currency::BEAM(), Currency::USD(), 147852369, timestamp}};
 
         const auto& [pk, sk] = deriveKeypair(storage, 321);
         BroadcastMsg msgV    = BroadcastMsgCreator::createSignedMessage(toByteBuffer(verInfo), sk);
         BroadcastMsg msgWV   = BroadcastMsgCreator::createSignedMessage(toByteBuffer(walletVerInfo), sk);
-        BroadcastMsg msgRF2  = BroadcastMsgCreator::createSignedMessage(toByteBuffer(ratesF2), sk);
         BroadcastMsg msgRF3  = BroadcastMsgCreator::createSignedMessage(toByteBuffer(ratesF3), sk);
 
         MockNewsObserver testObserver(
@@ -328,17 +325,11 @@ namespace
             broadcastRouter.sendMessage(BroadcastContentType::WalletUpdates, msgWV);
             WALLET_CHECK(execCountWalletVers == 1);
 
-            // only one below should succeed
-            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF2);
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF3);
 
             CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 1); });
 
-            setAfterFork3(storage);
-            // only one below should succeed
-            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF2);
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF3);
-            setBeforeFork3(storage);
             CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 2); });
         }
 
@@ -349,7 +340,6 @@ namespace
             rateProvider.Unsubscribe(&testObserver);
             broadcastRouter.sendMessage(BroadcastContentType::SoftwareUpdates, msgV);
             broadcastRouter.sendMessage(BroadcastContentType::WalletUpdates, msgWV);
-            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF2);
             WALLET_CHECK(execCountVers == 1);
             WALLET_CHECK(execCountWalletVers == 1);
             CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 2); });
@@ -366,10 +356,7 @@ namespace
             broadcastRouter.sendMessage(BroadcastContentType::WalletUpdates, msgWV);
             WALLET_CHECK(execCountWalletVers == 2);
 
-            broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF2);
-            setAfterFork3(storage);
             broadcastRouter.sendMessage(BroadcastContentType::ExchangeRates, msgRF3);
-            setBeforeFork3(storage);
             CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 2); });    // the rate was the same so no need in the notification
         }
 
@@ -385,30 +372,22 @@ namespace
 
         {
             cout << "Case: compatibility with the previous ver:0.0.1" << endl;
-            timestamp++;
-            ratesF2.front().m_updateTime = timestamp;
 
             timestamp++;
             ratesF3.front().m_updateTime = timestamp;
 
             msgV   = BroadcastMsgCreator::createSignedMessage(toByteBuffer(verInfo), sk);
             msgWV  = BroadcastMsgCreator::createSignedMessage(toByteBuffer(walletVerInfo), sk);
-            msgRF2 = BroadcastMsgCreator::createSignedMessage(toByteBuffer(ratesF2), sk);
             msgRF3 = BroadcastMsgCreator::createSignedMessage(toByteBuffer(ratesF3), sk);
 
             broadcastRouter.sendRawMessage(BroadcastContentType::SoftwareUpdates, createMessage(BroadcastContentType::SoftwareUpdates, msgV));
-            WALLET_CHECK(execCountVers == 3);
+            WALLET_CHECK(execCountVers == 2); // we don't detect old proto anymore
 
             broadcastRouter.sendRawMessage(BroadcastContentType::WalletUpdates, createMessage(BroadcastContentType::WalletUpdates, msgWV));
             WALLET_CHECK(execCountWalletVers == 2);     // BroadcastContentType::WalletUpdates are not implemented for protocol 0.0.1
 
-            broadcastRouter.sendRawMessage(BroadcastContentType::ExchangeRates, createMessage(BroadcastContentType::ExchangeRates, msgRF2));
-            CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 3); });
-
-            setAfterFork3(storage);
             broadcastRouter.sendRawMessage(BroadcastContentType::ExchangeRates, createMessage(BroadcastContentType::ExchangeRates, msgRF3));
-            setBeforeFork3(storage);
-            CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 4); });
+            CheckAfter(100, [&]() { WALLET_CHECK(execCountRate == 2); });
         }
 
         cout << "Test end" << endl;
@@ -423,7 +402,6 @@ namespace
         BroadcastMsgValidator validator;
 
         auto storage = createSqliteWalletDB();
-        setAfterFork3(storage);
 
         ExchangeRateProvider rateProvider(broadcastRouter, validator, *storage);
 

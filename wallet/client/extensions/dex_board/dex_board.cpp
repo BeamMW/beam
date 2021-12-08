@@ -80,13 +80,6 @@ namespace beam::wallet {
         _gateway.sendMessage(BroadcastContentType::DexOffers, message);
     }
 
-    bool DexBoard::onMessage(uint64_t, ByteBuffer&&)
-    {
-        assert(false);
-        LOG_WARNING() << "DexBoard: deprecated protocol message";
-        return false;
-    }
-
     bool DexBoard::onMessage(uint64_t, BroadcastMsg&& msg)
     {
         auto order = parseMessage(msg);

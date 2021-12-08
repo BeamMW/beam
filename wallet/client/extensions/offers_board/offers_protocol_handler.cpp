@@ -34,67 +34,6 @@ namespace beam::wallet
         return BroadcastMsgCreator::createSignedMessage(toByteBuffer(SwapOfferToken(content)), sk);
     }
 
-    ByteBuffer OfferBoardProtocolHandler::createMessage(const SwapOffer& content, uint64_t keyOwnID) const
-    {
-        // Get private key
-        PrivateKey sk;
-        PublicKey pk;
-        m_sbbsKdf->DeriveKey(sk, ECC::Key::ID(keyOwnID, Key::Type::Bbs));
-        pk.FromSk(sk);
-
-        // Sign data with private key
-        SwapOfferConfirmation confirmationBuilder;
-        auto& contentRaw = confirmationBuilder.m_offerData;
-        contentRaw = toByteBuffer(SwapOfferToken(content));
-        confirmationBuilder.Sign(sk);
-        auto signatureRaw = toByteBuffer(confirmationBuilder.m_Signature);
-
-        // Create message header according to protocol
-        size_t msgBodySize = contentRaw.size() + signatureRaw.size();
-        assert(msgBodySize + MsgHeader::SIZE <= Bbs::s_MaxMsgSize);
-        MsgHeader header(0, 0, m_protocolVersion, m_msgType, static_cast<uint32_t>(msgBodySize));
-
-        // Combine all to final message
-        ByteBuffer finalMessage(header.SIZE);
-        header.write(finalMessage.data());  // copy header to finalMessage
-        finalMessage.reserve(header.SIZE + static_cast<size_t>(header.size));
-        std::copy(  std::begin(contentRaw),
-                    std::end(contentRaw),
-                    std::back_inserter(finalMessage));
-        std::copy(  std::begin(signatureRaw),
-                    std::end(signatureRaw),
-                    std::back_inserter(finalMessage));
-        
-        return finalMessage;
-    };
-
-    boost::optional<SwapOffer> OfferBoardProtocolHandler::parseMessage(const ByteBuffer& msg) const
-    {        
-        SwapOfferToken token;
-        SwapOfferConfirmation confirmation;
-
-        try
-        {
-            Deserializer d;
-            d.reset(msg.data(), msg.size());
-            d & token;
-            d & confirmation.m_Signature;
-        }
-        catch(...)
-        {
-            LOG_WARNING() << "offer board message deserialization exception";
-            return boost::none;
-        }
-        
-        confirmation.m_offerData = toByteBuffer(token);
-        if (token.getPublicKey() && !confirmation.IsValid(token.getPublicKey()->m_Pk))
-        {
-            LOG_WARNING() << "offer board message signature is invalid";
-            return boost::none;
-        }
-        return token.Unpack();
-    }
-
     boost::optional<SwapOffer> OfferBoardProtocolHandler::parseMessage(const BroadcastMsg& msg) const
     {        
         SwapOfferToken token;

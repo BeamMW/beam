@@ -86,6 +86,95 @@ namespace
     }
 }
 
+void TestMaxPrivacyAndOffline()
+{
+    cout << "\nTest sequential maxPrivacy and offline transactions\n";
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    int completedCount = 2;
+    auto completeAction = [&mainReactor, &completedCount](auto)
+    {
+        --completedCount;
+        if (completedCount == 0)
+        {
+            mainReactor->stop();
+        }
+    };
+
+    auto senderWalletDB = createSenderWalletDB(0, 0, false, true);
+    auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
+    TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto receiverWalletDB = createReceiverWalletDB(false, true);
+    TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+
+    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=]() {return senderWalletDB; }));
+    receiver.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=]() {return receiverWalletDB; }));
+
+    TxID txID = {}, txID2 = {};
+    Node node;
+    NodeObserver observer([&]()
+    {
+        auto cursor = node.get_Processor().m_Cursor;
+        if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+        {
+            WalletAddress walletAddress;
+            receiver.m_WalletDB->createAddress(walletAddress);
+            receiver.m_WalletDB->saveAddress(walletAddress);
+            auto maxPrivacyToken = GenerateToken(TokenType::MaxPrivacy, walletAddress, receiver.m_WalletDB);
+            auto offlineToken = GenerateToken(TokenType::Offline, walletAddress, receiver.m_WalletDB, 1);
+
+            auto f = [&](const std::string& token, TxAddressType t)->TxID
+            {
+                auto p = ParseParameters(token);
+                WALLET_CHECK(p);
+                WALLET_CHECK(t == GetAddressType(token));
+                auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                    .SetParameter(TxParameterID::Amount, 18000000)
+                    .SetParameter(TxParameterID::Fee, 12000000);
+                LoadReceiverParams(*p, parameters, t);
+
+                return sender.m_Wallet->StartTransaction(parameters);
+            };
+
+            txID = f(maxPrivacyToken, TxAddressType::MaxPrivacy);
+            txID2 = f(offlineToken, TxAddressType::Offline);
+        }
+        else if (cursor.m_Sid.m_Height == 50)
+        {
+            mainReactor->stop();
+        }
+    });
+
+    InitOwnNodeToTest(node, binaryTreasury, &observer, receiver.m_WalletDB->get_MasterKdf(), 32125, 200);
+
+    mainReactor->run();
+
+    WALLET_CHECK(completedCount == 0);
+    {
+        auto txHistory = sender.m_WalletDB->getTxHistory(TxType::ALL);
+        WALLET_CHECK(txHistory.size() == 2);
+        WALLET_CHECK(txHistory[0].m_txType == TxType::PushTransaction && txHistory[0].m_status == TxStatus::Completed);
+        WALLET_CHECK(txHistory[1].m_txType == TxType::PushTransaction && txHistory[1].m_status == TxStatus::Completed);
+    }
+
+    {
+        auto txHistory = receiver.m_WalletDB->getTxHistory(TxType::ALL);
+        WALLET_CHECK(txHistory.size() == 2);
+        WALLET_CHECK(txHistory[0].m_txType == TxType::PushTransaction && txHistory[0].m_status == TxStatus::Completed);
+        WALLET_CHECK(txHistory[1].m_txType == TxType::PushTransaction && txHistory[1].m_status == TxStatus::Completed);
+
+        auto shieldedCoins = receiver.m_WalletDB->getShieldedCoins(Asset::Asset::s_BeamID);
+        WALLET_CHECK(shieldedCoins.size() == 2);
+        WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Value == 18000000);
+        WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Key.m_IsCreatedByViewer == true);
+        WALLET_CHECK(shieldedCoins[0].m_Status == ShieldedCoin::Status::Maturing);
+        WALLET_CHECK(shieldedCoins[1].m_CoinID.m_Value == 18000000);
+        WALLET_CHECK(shieldedCoins[1].m_CoinID.m_Key.m_IsCreatedByViewer == true);
+        WALLET_CHECK(shieldedCoins[1].m_Status == ShieldedCoin::Status::Available);
+    }
+}
+
 void TestTreasuryRestore()
 {
     cout << "\nTest tresury restore\n";
@@ -1468,6 +1557,7 @@ int main()
 
     auto testAll = []()
     {
+        TestMaxPrivacyAndOffline();
         TestRestoreInterruption();
         TestTreasuryRestore();
         TestSimpleTx();
