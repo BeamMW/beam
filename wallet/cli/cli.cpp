@@ -2192,6 +2192,27 @@ namespace
 
         auto txCompletedAction = isServer ? Wallet::TxCompletedAction() : onTxCompleteAction;
 
+        if (vm[cli::COMMAND].as<string>() == cli::ASSET_INFO || vm.count(cli::ASSET_INFO))
+        {
+            txCompletedAction = [&onTxCompleteAction, &walletDB](const TxID& txID) {
+                auto tx = walletDB->getTx(txID);
+                if (tx)
+                {
+                    const TxDescription& desc = *tx;
+                    const auto info = walletDB->findAsset(desc.m_assetId);
+                    if (AmountBig::get_Hi(info->m_Value))
+                    {
+                        auto maxTxValue = PrintableAmount(std::numeric_limits<Amount>::max(), false, info->m_ID);
+                        cout << "Warning. Total amount of asset would be larger that can be sent in one transaction (" 
+                             << maxTxValue << "). You would be forced to send using several transactions."
+                             << endl;
+                    }
+                }
+
+                onTxCompleteAction(txID);
+            };
+        }
+
         auto wallet = std::make_shared<Wallet>(walletDB,
                       std::move(txCompletedAction),
                       Wallet::UpdateCompletedAction());

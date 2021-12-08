@@ -214,7 +214,7 @@ namespace beam
     const char kNoAssetTxsInWallet[] = "You do not have any asset transactions in your wallet";
 
     // Tx Details
-    const char kTxDetailsFormat[] = "Transaction details:\n\n%1%Status:            %2%";
+    const char kTxDetailsFormat[] = "Transaction details:\n\n%1%Status:            %2%\n";
     const char kTxDetailsFailReason[] = "\nReason:            %1%";
 
     const char kPpExportedFrom[] = "Exported from: %1%";
