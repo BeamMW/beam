@@ -134,6 +134,11 @@ namespace beam
         const char* STRATUM_SECRETS_PATH = "stratum_secrets_path";
         const char* STRATUM_USE_TLS = "stratum_use_tls";
         const char* WEBSOCKET_PORT = "websocket_port";
+        const char* WEBSOCKET_SECRETS_PATH = "websocket_secrets_path";
+        const char* WEBSOCKET_USE_TLS = "websocket_use_tls";
+        const char* WEBSOCKET_KEY = "websocket_key";
+        const char* WEBSOCKET_CERT = "websocket_cert";
+        const char* WEBSOCKET_DH = "websocket_dh";
         const char* STORAGE = "storage";
         const char* WALLET_STORAGE = "wallet_path";
         const char* MINING_THREADS = "mining_threads";
@@ -345,6 +350,7 @@ namespace beam
         const char* SHADER_ARGS         = "shader_args";
         const char* SHADER_BYTECODE_APP      = "shader_app_file";
         const char* SHADER_BYTECODE_CONTRACT = "shader_contract_file";
+        const char* SHADER_PRIVILEGE    = "shader_privilege";
     }
 
 
@@ -400,6 +406,11 @@ namespace beam
             (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
             (cli::STRATUM_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on startum server")
             (cli::WEBSOCKET_PORT, po::value<uint16_t>()->default_value(0), "port to start websocket server on, it allows to communicate with node from web browser")
+            (cli::WEBSOCKET_SECRETS_PATH, po::value<string>()->default_value("."), "path to websocket server api keys file, and tls certificate and private key")
+            (cli::WEBSOCKET_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on websocket server")
+            (cli::WEBSOCKET_KEY, po::value<string>()->default_value("wskey.pem"), "name of the private key file for websocket server")
+            (cli::WEBSOCKET_CERT, po::value<string>()->default_value("wscert.pem"), "name of the certificate file for websocket server")
+            (cli::WEBSOCKET_DH, po::value<string>()->default_value("wsdhparams.pem"), "name of the DH params file for websocket server")
             (cli::RESET_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication). Must do if the node is cloned")
             (cli::ERASE_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication) and stop before re-creating the new one.")
             (cli::PRINT_TXO, po::value<bool>()->default_value(false), "Print TXO movements (create/spend) recognized by the owner key.")
@@ -456,6 +467,7 @@ namespace beam
             (cli::PROXY_USE, po::value<bool>()->default_value(false), "use socks5 proxy server for node connection")
             (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "proxy server address")
             (cli::SHADER_ARGS, po::value<string>()->default_value(""), "Arguments to pass to the shader")
+            (cli::SHADER_PRIVILEGE, po::value<uint32_t>()->default_value(0), "shader privilege level")
             (cli::SHADER_BYTECODE_APP, po::value<string>()->default_value(""), "Path to the app shader file")
             (cli::SHADER_BYTECODE_CONTRACT, po::value<string>()->default_value(""), "Path to the shader file for the contract (if the contract is being-created)")
             (cli::MAX_PRIVACY_ADDRESS, po::bool_switch()->default_value(false), "generate max privacy transaction address")
@@ -644,24 +656,24 @@ namespace beam
         return rules_options;
     }
 
-    bool ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc)
+    boost::optional<std::string> ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc)
     {
         return ReadCfgFromFile(vm, desc, vm[cli::CONFIG_FILE_PATH].as<std::string>().c_str());
     }
 
-    bool ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc, const char* szFile)
+    boost::optional<std::string> ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc, const char* szFile)
     {
         const auto fullPath = boost::filesystem::system_complete(szFile).string();
         std::ifstream cfg(fullPath);
         if (!cfg)
-            return false;
+            return boost::none;
 
-        LOG_INFO() << "Reading config from " << fullPath;
+        std::cout << "Reading config from " << fullPath << std::endl;
         po::store(po::parse_config_file(cfg, desc), vm);
-        return true;
+        return fullPath;
     }
 
-    bool ReadCfgFromFileCommon(po::variables_map& vm, const po::options_description& desc)
+    boost::optional<std::string> ReadCfgFromFileCommon(po::variables_map& vm, const po::options_description& desc)
     {
         return ReadCfgFromFile(vm, desc, "beam-common.cfg");
     }

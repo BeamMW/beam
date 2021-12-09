@@ -375,10 +375,10 @@ namespace beam
 
 	struct FourCC
 	{
-		uint32_t V; // In "host" order, i.e. platform-dependent
+		uint32_t V = 0; // In "host" order, i.e. platform-dependent
 		operator uint32_t () const { return V; }
 
-		FourCC() {}
+		FourCC() = default;
 		FourCC(uint32_t x) :V(x) {}
 
 		struct Text

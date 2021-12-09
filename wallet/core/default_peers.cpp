@@ -28,7 +28,6 @@ namespace beam
             "eu-nodes.mainnet.beam.mw:8100",
             "us-nodes.mainnet.beam.mw:8100",
             "ap-hk-nodes.mainnet.beam.mw:8100",
-            "shanghai-node.mainnet.beam.mw:8100"
 #elif defined(BEAM_BEAMX)
             "us-node01.beamx.beam.mw:8100",
             "us-node02.beamx.beam.mw:8100",

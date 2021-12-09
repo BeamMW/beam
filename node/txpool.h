@@ -14,8 +14,7 @@
 
 #pragma once
 
-#include <boost/intrusive/set.hpp>
-#include <boost/intrusive/list.hpp>
+#include "../utility/containers.h"
 #include "../core/block_crypt.h"
 #include "../utility/io/timer.h"
 
@@ -185,6 +184,52 @@ struct TxPool
 		void DeleteRaw(Element&);
 		void SetTimerRaw(uint32_t nTimeout_ms);
 	};
+
+	struct Dependent
+	{
+		struct Element
+		{
+			Transaction::Ptr m_pValue;
+			Element* m_pParent;
+
+			// cumulative
+			Amount m_Fee;
+			uint32_t m_BvmCharge;
+			uint32_t m_Size;
+
+			struct Tx
+				:public intrusive::set_base_hook<Transaction::KeyType>
+			{
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Tx)
+			} m_Tx;
+
+			struct Context
+				:public intrusive::set_base_hook<Merkle::Hash>
+			{
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Context)
+			} m_Context;
+		};
+
+		typedef boost::intrusive::multiset<Element::Tx> TxSet;
+		typedef boost::intrusive::multiset<Element::Context> ContextSet;
+
+		TxSet m_setTxs;
+		ContextSet m_setContexts;
+
+		Element* m_pBest;
+
+		Element* AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType& key, const Merkle::Hash&, Element* pParent);
+		void Clear();
+
+		Dependent() :m_pBest(nullptr) {}
+
+		~Dependent() { Clear(); }
+
+	private:
+		bool ShouldUpdateBest(const Element&);
+	};
+
+
 };
 
 

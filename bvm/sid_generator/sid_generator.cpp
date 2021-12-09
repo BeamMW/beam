@@ -38,20 +38,28 @@ int main(int argc, char* argv[])
         std::cerr << "Please, specify WASM file" << std::endl;
         return -1;
     }
-    ByteBuffer buffer;
-    LoadCode(buffer, argv[1]);
-    ShaderID sid;
-    get_ShaderID(sid, Blob(buffer));
-    //std::cout << "#pragma once\n";
-    std::cout << "// SID: " << sid.str() << '\n';
-    std::cout <<"static const ShaderID s_SID = {";
-    auto c = sizeof(ShaderID);
-    unsigned int i = 0;
-    std::cout << std::hex << std::setfill('0') << std::setw(2);
-    for (; i < c - 1; ++i)
+    try
     {
-        std::cout << "0x" << std::setw(2) << static_cast<int>(sid.m_pData[i]) << ",";
+        ByteBuffer buffer;
+        LoadCode(buffer, argv[1]);
+        ShaderID sid;
+        get_ShaderID(sid, Blob(buffer));
+        //std::cout << "#pragma once\n";
+        std::cout << "// SID: " << sid.str() << '\n';
+        std::cout << "static const ShaderID s_SID = {";
+        auto c = sizeof(ShaderID);
+        unsigned int i = 0;
+        std::cout << std::hex << std::setfill('0') << std::setw(2);
+        for (; i < c - 1; ++i)
+        {
+            std::cout << "0x" << std::setw(2) << static_cast<int>(sid.m_pData[i]) << ",";
+        }
+        std::cout << "0x" << std::setw(2) << static_cast<int>(sid.m_pData[i]) << "};";
+        return 0;
     }
-    std::cout << "0x" << std::setw(2) << static_cast<int>(sid.m_pData[i]) << "};";
-    return 0;
+    catch (const std::exception& ex)
+    {
+        std::cerr << "Failed to calc SID: " << ex.what() << std::endl;
+    }
+    return -1;
 }

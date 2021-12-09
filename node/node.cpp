@@ -52,7 +52,7 @@ void Node::SyncStatus::ToRelative(Height hDone0)
 
 void Node::RefreshCongestions()
 {
-	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
+	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; ++it)
 		it->m_bNeeded = false;
 
     m_Processor.EnumCongestions();
@@ -78,7 +78,7 @@ void Node::UpdateSyncStatus()
 
 			LOG_INFO() << "Tx replication is ON";
 
-			for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+			for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; ++it)
 			{
 				Peer& peer = *it;
 				if ((Peer::Flags::Connected & peer.m_Flags) && !(Peer::Flags::Probe & peer.m_Flags))
@@ -101,7 +101,7 @@ void Node::UpdateSyncStatusRaw()
 	if (m_Processor.IsFastSync())
 		hTotal = m_Processor.m_SyncData.m_Target.m_Height;
 
-	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
+	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; ++it)
 	{
 		const Task& t = *it;
 		if (!t.m_bNeeded)
@@ -188,7 +188,7 @@ void Node::WantedTx::OnExpired(const KeyType& key)
     proto::GetTransaction msg;
     msg.m_ID = key;
 
-    for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; it++)
+    for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
     {
         Peer& peer = *it;
         if (peer.m_LoginFlags & proto::LoginFlags::SpreadingTransactions)
@@ -214,7 +214,7 @@ void Node::Bbs::WantedMsg::OnExpired(const KeyType& key)
     proto::BbsGetMsg msg;
     msg.m_Key = key;
 
-    for (PeerList::iterator it = get_ParentObj().get_ParentObj().m_lstPeers.begin(); get_ParentObj().get_ParentObj().m_lstPeers.end() != it; it++)
+    for (PeerList::iterator it = get_ParentObj().get_ParentObj().m_lstPeers.begin(); get_ParentObj().get_ParentObj().m_lstPeers.end() != it; ++it)
     {
         Peer& peer = *it;
         if (peer.m_LoginFlags & proto::LoginFlags::Bbs)
@@ -323,7 +323,7 @@ void Node::Wanted::OnTimer()
 void Node::TryAssignTask(Task& t)
 {
 	// Prioritize w.r.t. rating!
-	for (PeerMan::LiveSet::iterator it = m_PeerMan.m_LiveSet.begin(); m_PeerMan.m_LiveSet.end() != it; it++)
+	for (PeerMan::LiveSet::iterator it = m_PeerMan.m_LiveSet.begin(); m_PeerMan.m_LiveSet.end() != it; ++it)
 	{
 		Peer& p = *it->m_p;
 		if (TryAssignTask(t, p))
@@ -362,7 +362,7 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 
     // check if the peer currently transfers a block
     uint32_t nBlocks = 0;
-	for (TaskList::iterator it = p.m_lstTasks.begin(); p.m_lstTasks.end() != it; it++)
+	for (TaskList::iterator it = p.m_lstTasks.begin(); p.m_lstTasks.end() != it; ++it)
 	{
 		if (it->m_Key.second)
 			nBlocks++;
@@ -577,7 +577,7 @@ void Node::DeleteOutdated()
 		Transaction& tx = *x.m_pValue;
 
         uint32_t nBvmCharge = 0;
-		if (proto::TxStatus::Ok != m_Processor.ValidateTxContextEx(tx, x.m_Height, true, nBvmCharge, nullptr))
+		if (proto::TxStatus::Ok != m_Processor.ValidateTxContextEx(tx, x.m_Height, true, nBvmCharge, nullptr, nullptr))
             m_TxPool.SetOutdated(x, m_Processor.m_Cursor.m_ID.m_Height);
 	}
 
@@ -594,7 +594,7 @@ void Node::DeleteOutdated()
             auto& x = c.get_ParentObj();
 
             uint32_t nBvmCharge = 0;
-            if (proto::TxStatus::Ok == m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Height, true, nBvmCharge, nullptr))
+            if (proto::TxStatus::Ok == m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Height, true, nBvmCharge, nullptr, nullptr))
             {
                 LogTxStem(*x.m_pValue, "Not confirmed, fluffing");
                 OnTransactionFluff(std::move(x.m_pValue), nullptr, nullptr, &x);
@@ -623,6 +623,7 @@ void Node::Processor::OnNewState()
 
     get_ParentObj().DeleteOutdated(); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
     // because in practice mining could be OFF (for instance, if miner key isn't defined, and owner wallet is offline).
+    get_ParentObj().m_TxDependent.Clear();
 
     if (get_ParentObj().m_Miner.IsEnabled())
     {
@@ -633,7 +634,7 @@ void Node::Processor::OnNewState()
     proto::NewTip msg;
     msg.m_Description = m_Cursor.m_Full;
 
-    for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; it++)
+    for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
     {
         Peer& peer = *it;
         if (!(Peer::Flags::Connected & peer.m_Flags))
@@ -672,7 +673,7 @@ void Node::Processor::OnFastSyncSucceeded()
 
     get_DB().ParamSet(NodeDB::ParamID::EventsSerif, &m_Extra.m_TxoHi, &blob);
 
-    for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; it++)
+    for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
     {
         Peer& peer = *it;
         peer.m_Flags &= ~Peer::Flags::SerifSent;
@@ -746,7 +747,7 @@ void Node::Processor::OnRolledBack()
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
         if (!IsShieldedInPool(*x.m_pValue))
         {
-            get_ParentObj().OnTransactionDeferred(std::move(x.m_pValue), nullptr, true);
+            get_ParentObj().OnTransactionDeferred(std::move(x.m_pValue), nullptr, nullptr, true);
             get_ParentObj().m_TxPool.DeleteEmpty(x);
         }
 	}
@@ -757,9 +758,9 @@ void Node::Processor::OnRolledBack()
 		TxPool::Stem::Element& x = (it++)->get_ParentObj();
 		if (!IsShieldedInPool(*x.m_pValue))
 			txps.Delete(x);
-			
 	}
 
+    get_ParentObj().m_TxDependent.Clear();
 
 	IObserver* pObserver = get_ParentObj().m_Cfg.m_Observer;
 	if (pObserver)
@@ -908,7 +909,6 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
     pPeer->m_Port = 0;
     ZeroObject(pPeer->m_Tip);
     pPeer->m_RemoteAddr = addr;
-    pPeer->m_LoginFlags = 0;
 	pPeer->m_CursorBbs = std::numeric_limits<int64_t>::max();
 	pPeer->m_pCursorTx = nullptr;
 
@@ -1156,7 +1156,7 @@ Node::~Node()
     }
     m_Miner.m_vThreads.clear();
 
-    for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+    for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; ++it)
         it->m_LoginFlags = 0; // prevent re-assigning of tasks in the next loop
 
     while (!m_lstPeers.empty())
@@ -1194,7 +1194,7 @@ void Node::Peer::OnResendPeers()
     const PeerMan::RawRatingSet& rs = pm.get_Ratings();
     uint32_t nRemaining = pm.m_Cfg.m_DesiredHighest;
 
-    for (PeerMan::RawRatingSet::const_iterator it = rs.begin(); nRemaining && (rs.end() != it); it++)
+    for (PeerMan::RawRatingSet::const_iterator it = rs.begin(); nRemaining && (rs.end() != it); ++it)
     {
         const PeerMan::PeerInfo& pi = it->get_ParentObj();
         if ((Flags::PiRcvd & m_Flags) && (&pi == m_pInfo))
@@ -1635,7 +1635,7 @@ void Node::Peer::OnMsg(proto::Pong&&)
 	BroadcastTxs();
 	BroadcastBbs();
 
-	for (Bbs::Subscription::PeerSet::iterator it = m_Subscriptions.begin(); m_Subscriptions.end() != it; it++)
+	for (Bbs::Subscription::PeerSet::iterator it = m_Subscriptions.begin(); m_Subscriptions.end() != it; ++it)
 		BroadcastBbs(it->get_ParentObj());
 }
 
@@ -2005,10 +2005,16 @@ bool Node::Peer::GetBlock(proto::BodyBuffers& out, const NodeDB::StateID& sid, c
 		der & Cast::Down<Block::BodyBase>(block);
 		der & Cast::Down<TxVectors::Perishable>(block);
 
-		for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-			block.m_vOutputs[i]->m_RecoveryOnly = true;
+        Serializer ser;
+        ser & block.m_vInputs;
+        ser & block.m_vOutputs.size();
 
-		Serializer ser;
+        for (size_t i = 0; i < block.m_vOutputs.size(); i++)
+        {
+            const auto& outp = *block.m_vOutputs[i];
+            yas::detail::saveRecovery(ser, outp, sid.m_Height);
+        }
+
 		ser & Cast::Down<Block::BodyBase>(block);
 		ser & Cast::Down<TxVectors::Perishable>(block);
 
@@ -2134,21 +2140,22 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
         std::ostringstream errInfo;
 
         proto::Status msgOut;
-        msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), pSender, msg.m_Fluff, &errInfo);
+        msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), std::move(msg.m_Context), pSender, msg.m_Fluff, &errInfo);
 
         msgOut.m_ExtraInfo = errInfo.str();
         Send(msgOut);
     }
     else
     {
-        m_This.OnTransactionDeferred(std::move(msg.m_Transaction), pSender, msg.m_Fluff);
+        m_This.OnTransactionDeferred(std::move(msg.m_Transaction), std::move(msg.m_Context), pSender, msg.m_Fluff);
     }
 }
 
-void Node::OnTransactionDeferred(Transaction::Ptr&& pTx, const PeerID* pSender, bool bFluff)
+void Node::OnTransactionDeferred(Transaction::Ptr&& pTx, std::unique_ptr<Merkle::Hash>&& pCtx, const PeerID* pSender, bool bFluff)
 {
     TxDeferred::Element txd;
     txd.m_pTx = std::move(pTx);
+    txd.m_pCtx = std::move(pCtx);
     txd.m_Fluff = bFluff;
 
     if (pSender)
@@ -2180,7 +2187,7 @@ void Node::TxDeferred::OnSchedule()
     if (!m_lst.empty())
     {
         TxDeferred::Element& x = m_lst.front();
-        get_ParentObj().OnTransaction(std::move(x.m_pTx), &x.m_Sender, x.m_Fluff, nullptr);
+        get_ParentObj().OnTransaction(std::move(x.m_pTx), std::move(x.m_pCtx), &x.m_Sender, x.m_Fluff, nullptr);
         m_lst.pop_front();
     }
 
@@ -2189,14 +2196,28 @@ void Node::TxDeferred::OnSchedule()
 
 }
 
-uint8_t Node::OnTransaction(Transaction::Ptr&& pTx, const PeerID* pSender, bool bFluff, std::ostream* pExtraInfo)
+uint8_t Node::OnTransaction(Transaction::Ptr&& pTx, std::unique_ptr<Merkle::Hash>&& pCtx, const PeerID* pSender, bool bFluff, std::ostream* pExtraInfo)
 {
-    return bFluff ?
-        OnTransactionFluff(std::move(pTx), pExtraInfo, pSender, nullptr) :
-        OnTransactionStem(std::move(pTx), pExtraInfo);
+    return 
+        pCtx ?
+            OnTransactionDependent(std::move(pTx), *pCtx, pSender, bFluff, pExtraInfo) :
+            bFluff ?
+                OnTransactionFluff(std::move(pTx), pExtraInfo, pSender, nullptr) :
+                OnTransactionStem(std::move(pTx), pExtraInfo);
 }
 
 uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint32_t& nSizeCorrection, Amount& feeReserve, std::ostream* pExtraInfo)
+{
+    uint32_t nBvmCharge = 0;
+    uint8_t nRet = ValidateTx2(ctx, tx, nBvmCharge, feeReserve, nullptr, pExtraInfo);
+    if (proto::TxStatus::Ok == nRet)
+        // convert charge to effective size correction
+        nSizeCorrection = (uint32_t) (((uint64_t) nBvmCharge) * Rules::get().MaxBodySize / bvm2::Limits::BlockCharge);
+
+    return nRet;
+}
+
+uint8_t Node::ValidateTx2(Transaction::Context& ctx, const Transaction& tx, uint32_t& nBvmCharge, Amount& feeReserve, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo)
 {
     ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
 
@@ -2207,18 +2228,19 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint3
         return proto::TxStatus::Invalid;
     }
 
-    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false, nSizeCorrection, pExtraInfo);
+    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false, nBvmCharge, pParent, pExtraInfo);
     if (proto::TxStatus::Ok != nCode)
         return nCode;
 
-    if (nSizeCorrection) {
-        // convert charge to effective size correction
-        nSizeCorrection = (uint32_t) (((uint64_t) nSizeCorrection) * Rules::get().MaxBodySize / bvm2::Limits::BlockCharge);
-    }
 
-    if (!CalculateFeeReserve(ctx.m_Stats, ctx.m_Height, ctx.m_Stats.m_Fee, nSizeCorrection, feeReserve)) {
+    if (!CalculateFeeReserve(ctx.m_Stats, ctx.m_Height, ctx.m_Stats.m_Fee, nBvmCharge, feeReserve))
+    {
         if (pExtraInfo)
-            *pExtraInfo << "Low fee";
+        {
+            *pExtraInfo << "Low fee. Min = " << feeReserve << ", provided = " << AmountBig::get_Lo(ctx.m_Stats.m_Fee);
+            if (nBvmCharge)
+                *pExtraInfo << ", Bvm charge = " << nBvmCharge;
+        }
         return proto::TxStatus::LowFee;
     }
 
@@ -2240,7 +2262,10 @@ bool Node::CalculateFeeReserve(const TxStats& s, const HeightRange& hr, const Am
         AmountBig::Type val(feesMin);
 
         if (fees < val)
+        {
+            feeReserve = feesMin;
             return false;
+        }
 
         val.Negate();
         val += fees;
@@ -2422,7 +2447,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, std::ostream* pExtraInfo
 
         AddDummyInputs(*ptx);
 
-        std::unique_ptr<TxPool::Stem::Element> pGuard(new TxPool::Stem::Element);
+        auto pGuard = std::make_unique<TxPool::Stem::Element>();
         pGuard->m_bAggregating = false;
         pGuard->m_Time.m_Value = 0;
         pGuard->m_Profit.m_Fee = ctx.m_Stats.m_Fee;
@@ -2464,7 +2489,7 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
     // must have at least 1 peer to continue the stem phase
     uint32_t nStemPeers = 0;
 
-    for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+    for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; ++it)
         if (it->m_LoginFlags & proto::LoginFlags::SpreadingTransactions)
             nStemPeers++;
 
@@ -2481,7 +2506,7 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
             // Choose random peer index between 0 and nStemPeers - 1 
             uint32_t nRandomPeerIdx = RandomUInt32(nStemPeers);
 
-            for (PeerList::iterator it = m_lstPeers.begin(); ; it++)
+            for (PeerList::iterator it = m_lstPeers.begin(); ; ++it)
                 if ((it->m_LoginFlags & proto::LoginFlags::SpreadingTransactions) && !nRandomPeerIdx--)
                 {
 					if (m_Cfg.m_LogTxStem)
@@ -2634,7 +2659,7 @@ bool Node::AddDummyInputRaw(Transaction& tx, const CoinID& cid)
 		return false;
 
 	// unspent
-	Input::Ptr pInp(new Input);
+	auto pInp = std::make_unique<Input>();
 	pInp->m_Commitment = comm;
 
 	tx.m_vInputs.push_back(std::move(pInp));
@@ -2671,7 +2696,7 @@ void Node::AddDummyOutputs(Transaction& tx, Amount feeReserve)
 
         bModified = true;
 
-        Output::Ptr pOutput(new Output);
+        auto pOutput = std::make_unique<Output>();
         ECC::Scalar::Native sk;
         pOutput->Create(m_Processor.m_Cursor.m_ID.m_Height + 1, sk, *m_Keys.m_pMiner, cid, *m_Keys.m_pOwner);
 
@@ -2801,7 +2826,7 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
     proto::HaveTransaction msgOut;
     msgOut.m_ID = key.m_Key;
 
-    for (PeerList::iterator it2 = m_lstPeers.begin(); m_lstPeers.end() != it2; it2++)
+    for (PeerList::iterator it2 = m_lstPeers.begin(); m_lstPeers.end() != it2; ++it2)
     {
         Peer& peer = *it2;
         if (pSender && peer.m_pInfo && (peer.m_pInfo->m_ID.m_Key == *pSender))
@@ -2817,6 +2842,52 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
         m_Miner.SetTimer(m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
 
     return nCode;
+}
+
+uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash& hvCtx, const PeerID* pSender, bool bFluff, std::ostream* pExtraInfo)
+{
+    Transaction::KeyType keyTx;
+    pTx->get_Key(keyTx);
+
+    TxPool::Dependent::Element* pElem;
+    auto itTx = m_TxDependent.m_setTxs.find(keyTx, TxPool::Dependent::Element::Tx::Comparator());
+    if (m_TxDependent.m_setTxs.end() != itTx)
+        pElem = &itTx->get_ParentObj();
+    else
+    {
+        TxPool::Dependent::Element* pParent;
+        if (m_Processor.m_Cursor.m_Full.m_Prev == hvCtx)
+            pParent = nullptr;
+        else
+        {
+            auto itCtx = m_TxDependent.m_setContexts.find(hvCtx, TxPool::Dependent::Element::Context::Comparator());
+            if (m_TxDependent.m_setContexts.end() == itCtx)
+                return proto::TxStatus::DependentNoParent;
+
+            pParent = &itCtx->get_ParentObj();
+        }
+
+        Transaction::Context::Params pars;
+        Transaction::Context ctx(pars);
+        uint32_t nBvmCharge = 0;
+        Amount feeReserve = 0;
+        uint8_t nRes = ValidateTx2(ctx, *pTx, nBvmCharge, feeReserve, pParent, pExtraInfo);
+
+        if (proto::TxStatus::Ok != nRes)
+            return nRes;
+
+        Merkle::Hash hvCtxNew;
+        proto::DependentContext::get_Ancestor(hvCtxNew, hvCtx, keyTx); // TODO - this should be kernelIDs
+
+        pElem = m_TxDependent.AddValidTx(std::move(pTx), ctx, keyTx, hvCtxNew, pParent);
+        pElem->m_BvmCharge = nBvmCharge;
+        if (pParent)
+            pElem->m_BvmCharge += pParent->m_BvmCharge;
+    }
+
+    // TODO: broadcast it w.r.t. fluff/stem
+
+    return (m_TxDependent.m_pBest == pElem) ? proto::TxStatus::Ok : proto::TxStatus::DependentNotBest;
 }
 
 void Node::Dandelion::OnTimedOut(Element& x)
@@ -2837,7 +2908,7 @@ void Node::Dandelion::OnTimedOut(Element& x)
 bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr, const AmountBig::Type& fees, Amount& feeReserve)
 {
     uint32_t nBvmCharge = 0;
-    if (proto::TxStatus::Ok != get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true, nBvmCharge, nullptr))
+    if (proto::TxStatus::Ok != get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true, nBvmCharge, nullptr, nullptr))
         return false;
 
     TxStats s;
@@ -2847,7 +2918,7 @@ bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange
     return true;
 }
 
-void Node::Peer::OnLogin(proto::Login&& msg)
+void Node::Peer::OnLogin(proto::Login&& msg, uint32_t nFlagsPrev)
 {
     if (Flags::Probe & m_Flags)
     {
@@ -2855,9 +2926,9 @@ void Node::Peer::OnLogin(proto::Login&& msg)
         return;
     }
 
-    if ((m_LoginFlags ^ msg.m_Flags) & proto::LoginFlags::SendPeers)
+    if ((m_LoginFlags ^ nFlagsPrev) & proto::LoginFlags::SendPeers)
     {
-        if (msg.m_Flags & proto::LoginFlags::SendPeers)
+        if (m_LoginFlags & proto::LoginFlags::SendPeers)
         {
             if (!m_pTimerPeers)
                 m_pTimerPeers = io::Timer::create(io::Reactor::get_Current());
@@ -2876,15 +2947,14 @@ void Node::Peer::OnLogin(proto::Login&& msg)
     bool b = ShouldFinalizeMining();
 
 	if (m_This.m_Cfg.m_Bbs.IsEnabled() &&
-		!(proto::LoginFlags::Bbs & m_LoginFlags) &&
-		(proto::LoginFlags::Bbs & msg.m_Flags))
+		!(proto::LoginFlags::Bbs & nFlagsPrev) &&
+		(proto::LoginFlags::Bbs & m_LoginFlags))
 	{
 		proto::BbsResetSync msgOut;
 		msgOut.m_TimeFrom = std::min(m_This.m_Bbs.m_HighestPosted_s, getTimestamp() - Rules::get().DA.MaxAhead_s);
 		Send(msgOut);
 	}
 
-    m_LoginFlags = msg.m_Flags;
     MaybeSendSerif();
 
 	if (b != ShouldFinalizeMining()) {
@@ -3461,7 +3531,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
     proto::BbsHaveMsg msgOut;
     msgOut.m_Key = wlk.m_Data.m_Key;
 
-    for (PeerList::iterator it = m_This.m_lstPeers.begin(); m_This.m_lstPeers.end() != it; it++)
+    for (PeerList::iterator it = m_This.m_lstPeers.begin(); m_This.m_lstPeers.end() != it; ++it)
     {
         Peer& peer = *it;
         if (this == &peer)
@@ -3749,88 +3819,124 @@ void Node::Peer::OnMsg(proto::GetShieldedOutputsAt&& msg)
 
 void Node::Peer::OnMsg(proto::ContractVarsEnum&& msg)
 {
-    NodeDB::WalkerContractData wlk;
-    m_This.m_Processor.get_DB().ContractDataEnum(wlk, msg.m_KeyMin, msg.m_KeyMax);
-
-    proto::ContractVars msgOut;
-    Serializer ser;
-
-    while (true)
+    struct Wrk
+        :public NodeProcessor::IWorker
     {
-        if (!wlk.MoveNext())
-            break;
+        Peer& m_This;
+        proto::ContractVarsEnum& m_In;
+        proto::ContractVars m_Out;
 
-        if (msg.m_bSkipMin)
+        Wrk(Peer& x, proto::ContractVarsEnum& msgIn)
+            :m_This(x)
+            ,m_In(msgIn)
+        {}
+
+        void Do() override
         {
-            msg.m_bSkipMin = false;
-            if (wlk.m_Key == msg.m_KeyMin)
-                continue; // skip
+            NodeDB::WalkerContractData wlk;
+            m_This.m_This.m_Processor.get_DB().ContractDataEnum(wlk, m_In.m_KeyMin, m_In.m_KeyMax);
+
+            Serializer ser;
+
+            while (true)
+            {
+                if (!wlk.MoveNext())
+                    break;
+
+                if (m_In.m_bSkipMin && (wlk.m_Key == m_In.m_KeyMin))
+                    continue; // skip
+
+                ser
+                    & wlk.m_Key.n
+                    & wlk.m_Val.n;
+
+                ser.WriteRaw(wlk.m_Key.p, wlk.m_Key.n);
+                ser.WriteRaw(wlk.m_Val.p, wlk.m_Val.n);
+
+                if (m_This.IsChocking(ser.buffer().second))
+                {
+                    m_Out.m_bMore = true;
+                    break;
+                }
+            }
+
+            ser.swap_buf(m_Out.m_Result);
         }
+    };
 
-        ser
-            & wlk.m_Key.n
-            & wlk.m_Val.n;
+    Wrk wrk(*this, msg);
 
-        ser.WriteRaw(wlk.m_Key.p, wlk.m_Key.n);
-        ser.WriteRaw(wlk.m_Val.p, wlk.m_Val.n);
+    m_This.m_Processor.ExecInDependentContext(wrk, n_pDependentContext.get(), m_This.m_TxDependent);
 
-        if (IsChocking(ser.buffer().second))
-        {
-            msgOut.m_bMore = true;
-            break;
-        }
-    }
-
-    ser.swap_buf(msgOut.m_Result);
-    Send(msgOut);
+    Send(wrk.m_Out);
 }
 
 void Node::Peer::OnMsg(proto::ContractLogsEnum&& msg)
 {
-    auto& db = m_This.m_Processor.get_DB();
-
-    NodeDB::ContractLog::Walker wlk;
-    if (msg.m_KeyMin.empty() && msg.m_KeyMax.empty())
-        db.ContractLogEnum(wlk, msg.m_PosMin, msg.m_PosMax);
-    else
-        db.ContractLogEnum(wlk, msg.m_KeyMin, msg.m_KeyMax, msg.m_PosMin, msg.m_PosMax);
-
-    proto::ContractLogs msgOut;
-    Serializer ser;
-
-    while (true)
+    struct Wrk
+        :public NodeProcessor::IWorker
     {
-        if (!wlk.MoveNext())
-            break;
+        Peer& m_This;
+        proto::ContractLogsEnum& m_In;
+        proto::ContractLogs m_Out;
 
-        HeightPos dp;
-        dp.m_Height = wlk.m_Entry.m_Pos.m_Height - msg.m_PosMin.m_Height;
-        if (dp.m_Height)
+        Wrk(Peer& x, proto::ContractLogsEnum& msgIn)
+            :m_This(x)
+            , m_In(msgIn)
+        {}
+
+        void Do() override
         {
-            msg.m_PosMin.m_Height = wlk.m_Entry.m_Pos.m_Height;
-            msg.m_PosMin.m_Pos = 0;
+            auto& db = m_This.m_This.m_Processor.get_DB();
+
+            NodeDB::ContractLog::Walker wlk;
+            if (m_In.m_KeyMin.empty() && m_In.m_KeyMax.empty())
+                db.ContractLogEnum(wlk, m_In.m_PosMin, m_In.m_PosMax);
+            else
+                db.ContractLogEnum(wlk, m_In.m_KeyMin, m_In.m_KeyMax, m_In.m_PosMin, m_In.m_PosMax);
+
+            Serializer ser;
+
+            while (true)
+            {
+                if (!wlk.MoveNext())
+                    break;
+
+                HeightPos dp;
+                dp.m_Height = wlk.m_Entry.m_Pos.m_Height - m_In.m_PosMin.m_Height;
+                if (dp.m_Height)
+                {
+                    m_In.m_PosMin.m_Height = wlk.m_Entry.m_Pos.m_Height;
+                    m_In.m_PosMin.m_Pos = 0;
+                }
+
+                dp.m_Pos = wlk.m_Entry.m_Pos.m_Pos - m_In.m_PosMin.m_Pos;
+                m_In.m_PosMin.m_Pos = wlk.m_Entry.m_Pos.m_Pos;
+
+                ser
+                    & dp
+                    & wlk.m_Entry.m_Key.n
+                    & wlk.m_Entry.m_Val.n;
+
+                ser.WriteRaw(wlk.m_Entry.m_Key.p, wlk.m_Entry.m_Key.n);
+                ser.WriteRaw(wlk.m_Entry.m_Val.p, wlk.m_Entry.m_Val.n);
+
+                if (m_This.IsChocking(ser.buffer().second))
+                {
+                    m_Out.m_bMore = true;
+                    break;
+                }
+            }
+
+            ser.swap_buf(m_Out.m_Result);
         }
+    };
 
-        dp.m_Pos = wlk.m_Entry.m_Pos.m_Pos - msg.m_PosMin.m_Pos;
-        msg.m_PosMin.m_Pos = wlk.m_Entry.m_Pos.m_Pos;
+    Wrk wrk(*this, msg);
 
-        ser
-            & dp
-            & wlk.m_Entry.m_Key.n
-            & wlk.m_Entry.m_Val.n;
+    m_This.m_Processor.ExecInDependentContext(wrk, n_pDependentContext.get(), m_This.m_TxDependent);
 
-        ser.WriteRaw(wlk.m_Entry.m_Key.p, wlk.m_Entry.m_Key.n);
-        ser.WriteRaw(wlk.m_Entry.m_Val.p, wlk.m_Entry.m_Val.n);
-
-        if (IsChocking(ser.buffer().second))
-        {
-            msgOut.m_bMore = true;
-            break;
-        }
-    }
-
-    ser.swap_buf(msgOut.m_Result);
-    Send(msgOut);
+    Send(wrk.m_Out);
 }
 
 void Node::Peer::OnMsg(proto::GetContractVar&& msg)
@@ -3878,6 +3984,11 @@ void Node::Peer::OnMsg(proto::GetContractLogProof&& msg)
     proto::ContractLogProof msgOut;
     m_This.m_Processor.get_ProofContractLog(msgOut.m_Proof, msg.m_Pos);
     Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::SetDependentContext&& msg)
+{
+    n_pDependentContext = std::move(msg.m_Context);
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
@@ -3942,7 +4053,7 @@ void Node::Miner::OnFinalizerChanged(Peer* p)
     if (!m_pFinalizer)
     {
         // try to find another one
-        for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; it++)
+        for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
             if (it->ShouldFinalizeMining())
             {
                 m_pFinalizer = &(*it);
@@ -4126,6 +4237,8 @@ bool Node::Miner::Restart()
         keys.m_nMinerSubIndex,
         keys.m_pMiner ? *keys.m_pMiner : *keys.m_pGeneric,
         keys.m_pOwner ? *keys.m_pOwner : *keys.m_pGeneric);
+
+    bc.m_pParent = get_ParentObj().m_TxDependent.m_pBest;
 
     if (m_pFinalizer)
         bc.m_Mode = NodeProcessor::BlockContext::Mode::Assemble;
@@ -4528,7 +4641,7 @@ void Node::PeerMan::OnFlush()
 
     const PeerMan::RawRatingSet& rs = get_Ratings();
 
-    for (PeerMan::RawRatingSet::const_iterator it = rs.begin(); rs.end() != it; it++)
+    for (PeerMan::RawRatingSet::const_iterator it = rs.begin(); rs.end() != it; ++it)
     {
         const PeerMan::PeerInfo& pi = it->get_ParentObj();
 
@@ -4653,7 +4766,6 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 			der & outp;
 
             assert(outp.m_Commitment == d.m_Commitment);
-            outp.m_RecoveryOnly = true;
 
 			// 2 ways to discover the UTXO create height: either directly by looking its TxoID in States table, or reverse-engineer it from Maturity
 			// Since currently maturity delta is independent of current height (not a function of height, not changed in current forks) - we prefer the 2nd method, which is faster.
@@ -4665,7 +4777,8 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
             MySerializer ser(m_Writer.m_Stream);
             ser & hCreateHeight;
-            ser & outp;
+
+            yas::detail::saveRecovery(ser, outp, hCreateHeight);
 		}
 	};
 
@@ -4703,10 +4816,12 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
                 virtual bool OnKrnEx(const TxKernelShieldedOutput& krn) override
                 {
+                    Asset::Proof::Ptr pAsset;
+
                     uint8_t nFlags = RecoveryInfo::Flags::Output;
                     if (krn.m_Txo.m_pAsset)
                     {
-                        Cast::NotConst(krn).m_Txo.m_pAsset.reset(); // not needed for recovery atm
+                        pAsset.swap(Cast::NotConst(krn).m_Txo.m_pAsset);
                         nFlags |= RecoveryInfo::Flags::HadAsset;
                     }
 
@@ -4714,6 +4829,10 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
                     m_Ser & nFlags;
                     m_Ser & krn.m_Txo;
                     m_Ser & krn.m_Msg;
+
+                    if (pAsset && (m_Height >= Rules::get().pForks[3].m_Height))
+                        m_Ser & pAsset->m_hGen;
+
                     return true;
                 }
 
@@ -4797,7 +4916,7 @@ void Node::PrintTxos()
     {
         std::ostringstream& m_os;
         AssetMap m_Map;
-        Height m_Height;
+        Height m_Height = 0;
 
         MyParser(std::ostringstream& os) :m_os(os) {}
 
@@ -4841,7 +4960,7 @@ void Node::PrintTxos()
 
     os << "Totals:" << std::endl;
 
-    for (AssetMap::iterator it = p.m_Map.begin(); p.m_Map.end() != it; it++)
+    for (AssetMap::iterator it = p.m_Map.begin(); p.m_Map.end() != it; ++it)
     {
         const PerAsset& pa = it->second;
         if (pa.m_Avail || pa.m_Locked)
@@ -4973,7 +5092,7 @@ void Node::PrintRollbackStats()
                 }
             }
 
-            for (DoubleSpendMap::iterator it = dsm.begin(); dsm.end() != it; it++)
+            for (DoubleSpendMap::iterator it = dsm.begin(); dsm.end() != it; ++it)
             {
                 uint32_t n = it->second;
                 if (uint32_t(-1) == n)

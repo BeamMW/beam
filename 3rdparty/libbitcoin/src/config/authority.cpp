@@ -126,7 +126,7 @@ authority::authority(const message::network_address& address)
 
 static asio::ipv6 to_boost_address(const message::ip_address& in)
 {
-    asio::ipv6::bytes_type bytes;
+    asio::ipv6::bytes_type bytes = {};
     BITCOIN_ASSERT(bytes.size() == in.size());
     std::copy_n(in.begin(), in.size(), bytes.begin());
     const asio::ipv6 out(bytes);

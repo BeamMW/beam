@@ -18,6 +18,7 @@
 #include "../../core/keccak.h"
 #include "../../utility/test_helpers.h"
 #include "../../utility/blobmap.h"
+#include "../../utility/hex.h"
 #include "../bvm2.h"
 #include "../bvm2_impl.h"
 
@@ -60,8 +61,9 @@ namespace Shaders {
 #include "../Shaders/pipe/contract.h"
 #include "../Shaders/mirrorcoin/contract.h"
 #include "../Shaders/voting/contract.h"
-#include "../Shaders/demoXdao/contract.h"
+#include "../Shaders/dao-core/contract.h"
 #include "../Shaders/aphorize/contract.h"
+#include "../Shaders/liquity/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
@@ -75,6 +77,8 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Factor);
 		ConvertOrd<bToShader>(x.m_Try);
 		ConvertOrd<bToShader>(x.m_IsOk);
+	}
+	template <bool bToShader> void Convert(Dummy::MathTest2 x) {
 	}
 	template <bool bToShader> void Convert(Dummy::DivTest1& x) {
 		ConvertOrd<bToShader>(x.m_Nom);
@@ -231,11 +235,11 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Amount);
 	}
 
-	template <bool bToShader> void Convert(DemoXdao::UpdPosFarming& x) {
+	template <bool bToShader> void Convert(DaoCore::UpdPosFarming& x) {
 		ConvertOrd<bToShader>(x.m_Beam);
 		ConvertOrd<bToShader>(x.m_WithdrawBeamX);
 	}
-	template <bool bToShader> void Convert(DemoXdao::GetPreallocated& x) {
+	template <bool bToShader> void Convert(DaoCore::GetPreallocated& x) {
 		ConvertOrd<bToShader>(x.m_Amount);
 	}
 
@@ -245,6 +249,35 @@ namespace Shaders {
 	}
 	template <bool bToShader> void Convert(Aphorize::Submit& x) {
 		ConvertOrd<bToShader>(x.m_Len);
+	}
+
+	template <bool bToShader> void Convert(Liquity::Method::BaseTx& x) {
+		ConvertOrd<bToShader>(x.m_Flow.Tok.m_Val);
+		ConvertOrd<bToShader>(x.m_Flow.Col.m_Val);
+	}
+	template <bool bToShader> void Convert(Liquity::Method::Create& x) {
+		ConvertOrd<bToShader>(x.m_Settings.m_TroveLiquidationReserve);
+	}
+	template <bool bToShader> void Convert(Liquity::Method::OracleGet& x) {
+		ConvertOrd<bToShader>(x.m_Val.m_Num);
+		ConvertOrd<bToShader>((uint32_t&) x.m_Val.m_Order);
+	}
+	template <bool bToShader> void Convert(Liquity::Method::TroveOpen& x) {
+		Convert<bToShader>(Cast::Down<Liquity::Method::BaseTx>(x));
+		ConvertOrd<bToShader>(x.m_Amounts.Tok);
+		ConvertOrd<bToShader>(x.m_Amounts.Col);
+	}
+	template <bool bToShader> void Convert(Liquity::Method::TroveModify& x) {
+		Convert<bToShader>(Cast::Down<Liquity::Method::BaseTx>(x));
+		ConvertOrd<bToShader>(x.m_Amounts.Tok);
+		ConvertOrd<bToShader>(x.m_Amounts.Col);
+	}
+	template <bool bToShader> void Convert(Liquity::Method::UpdStabPool& x) {
+		Convert<bToShader>(Cast::Down<Liquity::Method::BaseTx>(x));
+		ConvertOrd<bToShader>(x.m_NewAmount);
+	}
+	template <bool bToShader> void Convert(Liquity::Method::Liquidate& x) {
+		ConvertOrd<bToShader>(x.m_Count);
 	}
 
 	namespace Env {
@@ -295,12 +328,14 @@ namespace Shaders {
 	namespace Voting {
 #include "../Shaders/voting/contract.cpp"
 	}
-	namespace DemoXdao {
-#include "../Shaders/demoXdao/contract.cpp"
+	namespace DaoCore {
+#include "../Shaders/dao-core/contract.cpp"
 	}
 	namespace Aphorize {
 #include "../Shaders/aphorize/contract.cpp"
 	}
+
+#include "../Shaders/liquity/contract.cpp" // already within namespace
 
 #ifdef _MSC_VER
 #	pragma warning (default : 4200 4702)
@@ -406,8 +441,9 @@ namespace bvm2 {
 			ByteBuffer m_Pipe;
 			ByteBuffer m_MirrorCoin;
 			ByteBuffer m_Voting;
-			ByteBuffer m_DemoXdao;
+			ByteBuffer m_DaoCore;
 			ByteBuffer m_Aphorize;
+			ByteBuffer m_Liquity;
 
 		} m_Code;
 
@@ -423,8 +459,15 @@ namespace bvm2 {
 		ContractID m_cidMirrorCoin1;
 		ContractID m_cidMirrorCoin2;
 		ContractID m_cidVoting;
-		ContractID m_cidDemoXdao;
+		ContractID m_cidDaoCore;
 		ContractID m_cidAphorize;
+		ContractID m_cidLiquity;
+
+		struct MyOracle {
+			ContractID m_Cid;
+			Shaders::MultiPrecision::Float m_Value;
+		} m_MyOracle;
+
 
 		struct {
 
@@ -572,14 +615,14 @@ namespace bvm2 {
 				//}
 			}
 
-			if (cid == m_cidDemoXdao)
+			if (cid == m_cidDaoCore)
 			{
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
 				//{
-				//case 0: Shaders::DemoXdao::Ctor(nullptr); return;
-				//case 3: Shaders::DemoXdao::Method_3(CastArg<Shaders::DemoXdao::GetPreallocated>(pArgs)); return;
-				//case 4: Shaders::DemoXdao::Method_4(CastArg<Shaders::DemoXdao::UpdPosFarming>(pArgs)); return;
+				//case 0: Shaders::DaoCore::Ctor(nullptr); return;
+				//case 3: Shaders::DaoCore::Method_3(CastArg<Shaders::DaoCore::GetPreallocated>(pArgs)); return;
+				//case 4: Shaders::DaoCore::Method_4(CastArg<Shaders::DaoCore::UpdPosFarming>(pArgs)); return;
 				//}
 			}
 
@@ -592,7 +635,31 @@ namespace bvm2 {
 				//case 2: Shaders::Aphorize::Method_2(CastArg<Shaders::Aphorize::Submit>(pArgs)); return;
 				//}
 			}
-
+/*
+			if (cid == m_cidLiquity)
+			{
+				TempFrame f(*this, cid);
+				switch (iMethod)
+				{
+				case 0: Shaders::Liquity::Ctor(CastArg<Shaders::Liquity::Method::Create>(pArgs)); return;
+				case 3: Shaders::Liquity::Method_3(CastArg<Shaders::Liquity::Method::TroveOpen>(pArgs)); return;
+				case 4: Shaders::Liquity::Method_4(CastArg<Shaders::Liquity::Method::TroveClose>(pArgs)); return;
+				case 7: Shaders::Liquity::Method_7(CastArg<Shaders::Liquity::Method::UpdStabPool>(pArgs)); return;
+				case 8: Shaders::Liquity::Method_8(CastArg<Shaders::Liquity::Method::Liquidate>(pArgs)); return;
+				case 10: Shaders::Liquity::Method_10(CastArg<Shaders::Liquity::Method::Redeem>(pArgs)); return;
+				}
+			}
+*/
+			if (cid == m_MyOracle.m_Cid)
+			{
+				TempFrame f(*this, cid);
+				switch (iMethod)
+				{
+				case 3:
+					CastArg<Shaders::MultiPrecision::Float>(pArgs) = m_MyOracle.m_Value;
+					return;
+				}
+			}
 
 			ProcessorContract::CallFar(cid, iMethod, pArgs, bInheritContext);
 		}
@@ -608,8 +675,9 @@ namespace bvm2 {
 		void TestPipe();
 		void TestMirrorCoin();
 		void TestVoting();
-		void TestDemoXdao();
+		void TestDaoCore();
 		void TestAphorize();
+		void TestLiquity();
 
 		void TestAll();
 	};
@@ -639,15 +707,21 @@ namespace bvm2 {
 		AddCode(m_Code.m_Pipe, "pipe/contract.wasm");
 		AddCode(m_Code.m_MirrorCoin, "mirrorcoin/contract.wasm");
 		AddCode(m_Code.m_Voting, "voting/contract.wasm");
-		AddCode(m_Code.m_DemoXdao, "demoXdao/contract.wasm");
+		AddCode(m_Code.m_DaoCore, "dao-core/contract.wasm");
 		AddCode(m_Code.m_Aphorize, "aphorize/contract.wasm");
+		AddCode(m_Code.m_Liquity, "liquity/contract.wasm");
+
+		m_FarCalls.m_SaveLocal = true;
+
+		m_MyOracle.m_Cid = 77453U;
 
 		TestVault();
 		TestAphorize();
+		TestLiquity();
 		TestFaucet();
 		TestRoulette();
 		TestVoting();
-		TestDemoXdao();
+		TestDaoCore();
 		TestDummy();
 		TestSidechain();
 		TestOracle();
@@ -786,6 +860,528 @@ namespace bvm2 {
 			memset(args.m_szText, 'a' + i, sizeof(args.m_szText));
 
 			verify_test(RunGuarded_T(m_cidAphorize, args.s_iMethod, args));
+		}
+	}
+
+	double Val2Num(Amount x)
+	{
+		double res = static_cast<double>(x);
+		return res * 1e-8;
+	}
+
+	double Val2NumDiff(Amount x, Amount x0)
+	{
+		return (x >= x0) ? Val2Num(x - x0) : -Val2Num(x0 - x);
+	}
+
+	struct LiquityContext
+	{
+		MyProcessor& m_Proc;
+		LiquityContext(MyProcessor& proc) :m_Proc(proc) {}
+
+		typedef Shaders::Liquity::Balance Balance;
+		typedef Shaders::Liquity::Pair Pair;
+
+		Pair get_Balance(const PubKey& pk)
+		{
+			Shaders::Env::Key_T<Balance::Key> key;
+			key.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+			key.m_KeyInContract.m_Pk = pk;
+
+			Blob b;
+			m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
+
+			if (sizeof(Balance) == b.n)
+				return reinterpret_cast<const Balance*>(b.p)->m_Amounts;
+
+			Pair vals;
+			ZeroObject(vals);
+			return vals;
+		}
+
+		static const Amount s_BankTstReserve = Rules::Coin * 1000000000ull;
+
+		struct KeyWalker
+		{
+			MyProcessor& m_Proc;
+			BlobMap::Set::iterator m_it;
+			uint8_t m_Tag;
+
+			KeyWalker(MyProcessor& proc, uint8_t nTag)
+				:m_Proc(proc)
+				,m_Tag(nTag)
+			{
+				Shaders::Env::Key_T<uint8_t> key;
+				key.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+				key.m_KeyInContract = nTag;
+				m_it = m_Proc.m_Vars.lower_bound(Blob(&key, sizeof(key)), BlobMap::Set::Comparator());
+			}
+
+			template <typename T>
+			static T* FromBlob(const Blob& x) {
+				return (x.n >= sizeof(T)) ? reinterpret_cast<T*>(Cast::NotConst(x.p)) : nullptr;
+			}
+
+			template <typename TKey, typename TValue>
+			bool MoveNext_T(TKey*& pKey, TValue*& pVal)
+			{
+				if (m_Proc.m_Vars.end() == m_it)
+					return false;
+
+				pKey = FromBlob<TKey>(m_it->ToBlob());
+				if (!pKey || (pKey->m_KeyInContract.m_Tag != m_Tag))
+					return false;
+
+				pVal = FromBlob<TValue>(m_it->m_Data);
+				if (!pVal)
+					return false;
+
+				m_it++;
+				return true;
+			}
+		};
+
+		template <typename TKey, typename TValue>
+		struct KeyWalker_T
+			:public KeyWalker
+		{
+			using KeyWalker::KeyWalker;
+
+			Shaders::Env::Key_T<TKey>* m_pKey;
+			TValue* m_pVal;
+
+			bool MoveNext() {
+				return KeyWalker::MoveNext_T(m_pKey, m_pVal);
+			}
+		};
+
+		void PrintBankExcess()
+		{
+			for (KeyWalker_T<Balance::Key, Balance> wlk(m_Proc, Shaders::Liquity::Tags::s_Balance); ; )
+			{
+				//auto it = wlk.m_it;
+				if (!wlk.MoveNext())
+					break;
+
+				auto& vals = wlk.m_pVal->m_Amounts;
+				if ((vals.Tok != s_BankTstReserve) || (vals.Col != s_BankTstReserve))
+				{
+					std::cout << "\tUser=" << wlk.m_pKey->m_KeyInContract.m_Pk
+						<< ", Tok=" << Val2NumDiff(vals.Tok, s_BankTstReserve)
+						<< ", Col=" << Val2NumDiff(vals.Col, s_BankTstReserve)
+						<< std::endl;
+
+					vals.Tok = s_BankTstReserve;
+					vals.Col = s_BankTstReserve;
+				}
+
+				//m_Proc.m_Vars.erase(it);
+			}
+		}
+
+		void InitBankExcess(const PubKey& pkUser)
+		{
+			Shaders::Env::Key_T<Balance::Key> key;
+			key.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+			key.m_KeyInContract.m_Pk = pkUser;
+
+			Balance vals;
+			vals.m_Amounts.Tok = s_BankTstReserve;
+			vals.m_Amounts.Col = s_BankTstReserve;
+			m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&vals, sizeof(vals)));
+		}
+
+		bool InvokeBase(Shaders::Liquity::Method::BaseTx& args, uint32_t nSizeArgs, uint32_t iMethod, const PubKey& pkUser)
+		{
+			ZeroObject(args.m_Flow);
+			InitBankExcess(pkUser);
+
+			if (!m_Proc.RunGuarded(m_Proc.m_cidLiquity, iMethod, Blob(&args, nSizeArgs), nullptr))
+				return false;
+
+			PrintBankExcess();
+			return true;
+		}
+
+		template <typename TMethod>
+		bool InvokeTx(TMethod& args, const PubKey& pkUser)
+		{
+			return InvokeBase(args, sizeof(args), args.s_iMethod, pkUser);
+		}
+
+		template <typename TMethod>
+		bool InvokeTxUser(TMethod& args)
+		{
+			return InvokeBase(args, sizeof(args), args.s_iMethod, args.m_pkUser);
+		}
+
+		void AddPoolTotals(Pair& res, uint8_t nTag)
+		{
+			for (KeyWalker_T<Shaders::Liquity::EpochKey, Shaders::HomogenousPool::Epoch> wlk(m_Proc, nTag); wlk.MoveNext(); )
+			{
+				res.Tok += wlk.m_pVal->m_Balance.s;
+				res.Col += wlk.m_pVal->m_Balance.b;
+			}
+		}
+
+		struct EpochStorage
+		{
+			MyProcessor& m_Proc;
+			uint8_t m_Tag;
+
+			EpochStorage(MyProcessor& proc, uint8_t nTag)
+				:m_Proc(proc)
+				,m_Tag(nTag)
+			{}
+
+			typedef Shaders::Env::Key_T<Shaders::Liquity::EpochKey> Key;
+
+			Key get_Key(uint32_t iEpoch) const {
+				Key k;
+				k.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+				k.m_KeyInContract.m_Tag = m_Tag;
+				k.m_KeyInContract.m_iEpoch = iEpoch;
+				return k;
+			}
+
+			void Load(uint32_t iEpoch, Shaders::ExchangePool::Epoch& e) const
+			{
+				auto k = get_Key(iEpoch);
+				Blob out;
+				m_Proc.LoadVar(Blob(&k, sizeof(k)), out);
+
+				verify_test(sizeof(e) == out.n);
+				memcpy(&e, out.p, out.n);
+			}
+
+			static void Save(uint32_t iEpoch, const Shaders::ExchangePool::Epoch& e) {
+				// ignore
+			}
+
+			static void Del(uint32_t iEpoch) {
+				// ignore
+			}
+		};
+
+		static double ToDouble(Shaders::Liquity::Float x)
+		{
+			if (x.IsZero())
+				return 0;
+
+			return ldexp(x.m_Num, x.m_Order);
+		}
+
+		struct Entry :public Shaders::Liquity::Trove
+		{
+			Entry()
+			{
+				ZeroObject(*this);
+			}
+
+			uint32_t m_iTrove;
+			Shaders::Liquity::Float m_Rcr;
+			bool operator < (const Entry& x) const
+			{
+				if (m_Rcr.IsZero())
+					return false;
+				if (x.m_Rcr.IsZero())
+					return true;
+				return m_Rcr < x.m_Rcr;
+			}
+
+		};
+
+		std::vector<Entry> m_Troves;
+		uint32_t FindPrev(const Shaders::Liquity::Pair& vals, size_t i0 = 0) const
+		{
+			auto rcr = vals.get_Rcr();
+			for (size_t i = m_Troves.size(); i-- > i0; )
+			{
+				const auto& x = m_Troves[i];
+				if (x.m_Rcr <= rcr)
+					return x.m_iTrove;
+			}
+
+			return 0;
+		}
+
+		void PrintAll()
+		{
+			Shaders::Liquity::Global g;
+			{
+				Shaders::Env::Key_T<uint8_t> key;
+				key.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+				key.m_KeyInContract = Shaders::Liquity::Tags::s_State;
+
+				Blob b;
+				m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
+				verify_test(sizeof(g) == b.n);
+				memcpy(&g, b.p, sizeof(g));
+			}
+
+			g.m_BaseRate.Decay(m_Proc.m_Height);
+
+			Pair totalStab, totalRedist;
+
+			totalStab.Tok = g.m_StabPool.get_TotalSell();
+			totalStab.Col = g.m_StabPool.m_Active.m_Balance.b + g.m_StabPool.m_Draining.m_Balance.b;
+			AddPoolTotals(totalStab, Shaders::Liquity::Tags::s_Epoch_Stable);
+
+			totalRedist.Tok = g.m_RedistPool.get_TotalSell();
+			totalRedist.Col = g.m_RedistPool.m_Active.m_Balance.b + g.m_RedistPool.m_Draining.m_Balance.b;
+			AddPoolTotals(totalRedist, Shaders::Liquity::Tags::s_Epoch_Redist);
+
+			Shaders::Liquity::Global::Price price;
+			price.m_Value = m_Proc.m_MyOracle.m_Value;
+
+			std::cout << "Totals Tok=" << Val2Num(g.m_Troves.m_Totals.Tok) << ", Col=" << Val2Num(g.m_Troves.m_Totals.Col) << std::endl;
+			std::cout << "TCR = " << (ToDouble(price.ToCR(g.m_Troves.m_Totals.get_Rcr())) * 100.) << "" << std::endl;
+			std::cout << "RedistPool Tok=" << Val2Num(totalRedist.Tok) << ", Col=" << Val2Num(totalRedist.Col) << std::endl;
+			std::cout << "StabPool Tok=" << Val2Num(totalStab.Tok) << ", Col=" << Val2Num(totalStab.Col) << std::endl;
+			std::cout << "ProfitPool X-Tok=" << Val2Num(g.m_ProfitPool.m_Weight) << ", Col=" << Val2Num(*g.m_ProfitPool.m_pValue) << std::endl;
+			std::cout << "kRate = " << ToDouble(g.m_BaseRate.m_k) * 100. << "%" << std::endl;
+
+			verify_test(g.m_Troves.m_Totals.Tok == totalRedist.Tok); // all troves must participate in the RedistPool
+
+			auto itAsset = m_Proc.m_Assets.find(g.m_Aid);
+			verify_test(m_Proc.m_Assets.end() != itAsset);
+			verify_test(itAsset->second.m_Amount == g.m_Troves.m_Totals.Tok); // total debt must be equal minted amount
+
+			Amount totalCol = totalRedist.Col;
+
+			m_Troves.clear();
+			m_Troves.resize(g.m_Troves.m_iLastCreated);
+
+			uint32_t nActiveTroves = 0;
+			for (KeyWalker_T<Shaders::Liquity::Trove::Key, Shaders::Liquity::Trove> wlk(m_Proc, Shaders::Liquity::Tags::s_Trove); wlk.MoveNext(); )
+			{
+				auto iTrove = wlk.m_pKey->m_KeyInContract.m_iTrove; // not stored in BE form
+				verify_test(iTrove <= g.m_Troves.m_iLastCreated);
+
+				auto& x = m_Troves[iTrove - 1];
+				Cast::Down<Shaders::Liquity::Trove>(x) = *wlk.m_pVal;
+
+				totalCol += x.m_Amounts.Col; // before accounting for redist
+
+				EpochStorage stor(m_Proc, Shaders::Liquity::Tags::s_Epoch_Redist);
+				x.m_Amounts = g.m_RedistPool.get_UpdatedAmounts(x, stor);
+				x.m_Rcr = x.m_Amounts.get_Rcr();
+
+				nActiveTroves++;
+
+			}
+			
+			verify_test(g.m_Troves.m_Totals.Col == totalCol);
+
+			// check troves order
+			Shaders::Liquity::Float rcrPrev;
+			rcrPrev.Set0();
+			uint32_t nCount = 0;
+			for (uint32_t iTrove = g.m_Troves.m_iHead; iTrove; nCount++)
+			{
+				verify_test(iTrove <= g.m_Troves.m_iLastCreated);
+				auto& x = m_Troves[iTrove - 1];
+
+				verify_test(!x.m_iTrove); // ensure no loops
+				x.m_iTrove = iTrove;
+
+				verify_test(rcrPrev <= x.m_Rcr);
+				rcrPrev = x.m_Rcr;
+
+				iTrove = x.m_iNext;
+			}
+			verify_test(nCount == nActiveTroves);
+
+			std::sort(m_Troves.begin(), m_Troves.end());
+			m_Troves.resize(nCount);
+
+			for (uint32_t i = 0; i < nCount; i++)
+			{
+				const auto& x = m_Troves[i];
+				std::cout << "\tiTrove=" << x.m_iTrove <<  ", Tok=" << Val2Num(x.m_Amounts.Tok) << ", Col=" << Val2Num(x.m_Amounts.Col)
+					<< ", CR = " << (ToDouble(price.ToCR(x.m_Rcr)) * 100.) << "" << std::endl;
+			}
+
+
+			for (KeyWalker_T<Shaders::Liquity::ProfitPoolEntry::Key, Shaders::Liquity::ProfitPoolEntry> wlk(m_Proc, Shaders::Liquity::Tags::s_ProfitPool); wlk.MoveNext(); )
+			{
+				const auto& e = *wlk.m_pVal;
+				auto e1 = e; // copy
+
+				Amount val = 0;
+				g.m_ProfitPool.Remove(&val, e1.m_User);
+
+				std::cout << "\tUser=" << wlk.m_pKey->m_KeyInContract.m_pkUser << ", Stake=" << Val2Num(e.m_User.m_Weight) << ", Gain=" << Val2Num(val) << std::endl;
+
+
+			}
+
+			verify_test(!g.m_ProfitPool.m_Weight);
+		}
+
+	};
+
+	void MyProcessor::TestLiquity()
+	{
+		m_MyOracle.m_Value = 45; // to the moon!
+
+		SaveVar(m_MyOracle.m_Cid, m_MyOracle.m_Cid); // dummy val, nevermind, just pretend the contract exists
+
+
+		{
+			Shaders::Liquity::Method::Create args;
+			ZeroObject(args);
+			args.m_Settings.m_cidOracle = m_MyOracle.m_Cid;
+			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 5;
+			args.m_Settings.m_AidProfit = 77;
+
+			verify_test(ContractCreate_T(m_cidLiquity, m_Code.m_Liquity, args));
+		}
+
+		LiquityContext lc(*this);
+
+		const uint32_t s_Users = 5;
+		PubKey pPk[s_Users];
+		for (uint32_t i = 0; i < s_Users; i++)
+		{
+			ECC::GenRandom(pPk[i].m_X);
+			pPk[i].m_Y = 0;
+
+			if (i < 2)
+			{
+				Shaders::Liquity::Method::UpdProfitPool arg1;
+				ZeroObject(arg1);
+				arg1.m_NewAmount = Rules::Coin * (5 + i);
+				arg1.m_pkUser = pPk[i];
+				verify_test(lc.InvokeTxUser(arg1));
+				std::cout << "Deposit to profit pool" << std::endl;
+			}
+
+			Shaders::Liquity::Method::TroveOpen args;
+			ZeroObject(args);
+
+			args.m_Amounts.Tok = Rules::Coin * 1000;
+			args.m_Amounts.Col = Rules::Coin * (35 + i * 5); // should be enough for 150% tcr
+			if (1 & i)
+				args.m_Amounts.Col -= Rules::Coin * 7; // play with order
+			args.m_pkUser = pPk[i];
+			args.m_iPrev1 = lc.FindPrev(args.m_Amounts);
+
+			verify_test(lc.InvokeTxUser(args));
+
+			std::cout << "Trove opened" << std::endl;
+			lc.PrintAll();
+		}
+
+		m_Height++;
+
+		for (uint32_t i = 0; i < 2; i++)
+		{
+			Shaders::Liquity::Method::UpdStabPool args;
+			ZeroObject(args);
+			args.m_NewAmount = Rules::Coin * 750;
+			args.m_pkUser = pPk[i];
+
+			verify_test(lc.InvokeTxUser(args));
+
+			std::cout << "Stab" << i << ": Put=" << Val2Num(args.m_NewAmount) << std::endl;
+			lc.PrintAll();
+		}
+
+		for (uint32_t iCycle = 0; iCycle < 2; iCycle++)
+		{
+			Shaders::Liquity::Method::Redeem args;
+
+			ZeroObject(args);
+			args.m_pkUser = pPk[s_Users - 1];
+			args.m_Amount = Rules::Coin * (iCycle ? 1200 : 350);
+
+			// predict the redeem effect
+			Amount valRemaining = args.m_Amount;
+			for (size_t i = 0; i < lc.m_Troves.size(); i++)
+			{
+				const auto& x = lc.m_Troves[i];
+				Amount maxRedeem = x.m_Amounts.Tok - Rules::Coin * 5;
+				if (valRemaining <= maxRedeem)
+				{
+					if (valRemaining < maxRedeem)
+					{
+						Shaders::Liquity::Pair vals = x.m_Amounts;
+
+						Shaders::Liquity::Global::Price price;
+						price.m_Value = m_MyOracle.m_Value;
+
+						vals.Tok -= valRemaining;
+						vals.Col -= price.T2C(valRemaining); // dont care about overflow, let it fail in the contract
+
+						args.m_iPrev1 = lc.FindPrev(vals, i + 1);
+
+					}
+					break;
+				}
+				valRemaining -= maxRedeem;
+			}
+
+			verify_test(lc.InvokeTxUser(args));
+
+			std::cout << "Redeem" << std::endl;
+			lc.PrintAll();
+		}
+
+		m_MyOracle.m_Value = 25; // price drop. Some would be liquidated vs stabpool, others via redistpool
+		m_Height += 10;
+		std::cout << "Price drop" << std::endl;
+		lc.PrintAll();
+
+		for (uint32_t i = 1; i < 3; i++) 
+		{
+			Shaders::Liquity::Method::Liquidate args;
+
+			ZeroObject(args);
+			args.m_Count = 1;
+			args.m_pkUser = pPk[0];
+
+			verify_test(lc.InvokeTxUser(args));
+
+			std::cout << "Trove liquidating" << std::endl;
+			lc.PrintAll();
+		}
+
+		for (uint32_t i = 0; i < 2; i++)
+		{
+			Shaders::Liquity::Method::UpdStabPool args;
+			ZeroObject(args);
+			args.m_pkUser = pPk[i];
+
+			verify_test(lc.InvokeTxUser(args));
+
+			std::cout << "Stab" << i << " all out" << std::endl;
+			lc.PrintAll();
+		}
+
+		while (!lc.m_Troves.empty())
+		{
+			Shaders::Liquity::Method::TroveClose args;
+			ZeroObject(args);
+			size_t iIdx = lc.m_Troves.size() / 2;
+			args.m_iPrev0 = iIdx ? lc.m_Troves[iIdx - 1].m_iTrove : 0;
+
+			verify_test(lc.InvokeTx(args, pPk[lc.m_Troves[iIdx].m_iTrove - 1]));
+
+			std::cout << "Trove closing" << std::endl;
+			lc.PrintAll();
+		}
+
+		for (uint32_t i = 0; i < 2; i++)
+		{
+			Shaders::Liquity::Method::UpdProfitPool arg1;
+			ZeroObject(arg1);
+			arg1.m_pkUser = pPk[i];
+
+			verify_test(lc.InvokeTxUser(arg1));
+
+			std::cout << "profit withdraw" << std::endl;
+			lc.PrintAll();
 		}
 	}
 
@@ -957,6 +1553,38 @@ namespace bvm2 {
 		}
 	}
 
+	template <uint32_t wNom, uint32_t wDenom, uint32_t wQuotient>
+	void TestMultiPrecisionDiv(
+		const Shaders::MultiPrecision::UInt<wNom>& nom,
+		const Shaders::MultiPrecision::UInt<wDenom>& denom,
+		const Shaders::MultiPrecision::UInt<wNom>& resid,
+		const Shaders::MultiPrecision::UInt<wQuotient>& quotient)
+	{
+		auto myResid = nom;
+		Shaders::MultiPrecision::UInt<wQuotient> myQuotient;
+		myQuotient.SetDivResid(myResid, denom);
+
+		// in-host results should be the same
+		verify_test(myResid == resid);
+		verify_test(myQuotient == quotient);
+
+		if (denom.IsZero())
+		{
+			verify_test(resid == nom);
+			
+			myQuotient += Shaders::MultiPrecision::UInt<1>(1);
+			verify_test(myQuotient.IsZero());
+		}
+		else
+		{
+			verify_test(resid < denom);
+
+			auto val = resid + denom * quotient;
+			verify_test(val == nom);
+		}
+
+	}
+
 	void MyProcessor::TestDummy()
 	{
 		ContractID cid;
@@ -1002,6 +1630,70 @@ namespace bvm2 {
 		}
 
 		{
+			Shaders::Dummy::MathTest2 args;
+
+			ZeroObject(args);
+
+			args.m_Nom.set_Val<5>(0x7fffffff);
+			args.m_Nom.set_Val<4>(0x80000000);
+			args.m_Nom.set_Val<3>(0xe3212316);
+			args.m_Nom.set_Val<2>(0xe3212316);
+			args.m_Nom.set_Val<1>(0xcc212316);
+
+			args.m_Denom.set_Val<4>(0x80000000); // tricky case, division correction vs init guess is done twice
+			args.m_Denom.set_Val<3>(0xffffffff);
+
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+
+			args.m_Denom.set_Val<3>(0x7fffffff); // msb not set, normalization would be applied
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+
+			args.m_Denom.set_Val<3>(0x1fffffff); // one correction
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+
+			args.m_Denom.set_Val<4>(0x12345678); // no correction
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+
+			args.m_Denom.Set0(); // div by 0
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+
+
+			args.m_Nom.Set<2>(0xb5e620f47ffc0000ull);
+			args.m_Denom.Set<0>(0xb5e620f480000000ull); // tricky case: hiwords of nom and denom are equal, init guess will exceed 1 word
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+
+
+
+			// some random numbers
+			for (uint32_t i = 0; i < 50; i++)
+			{
+				ECC::GenRandom(&args.m_Nom, sizeof(args.m_Nom));
+				ECC::GenRandom(&args.m_Denom, sizeof(args.m_Denom));
+
+				if (i > 20)
+				{
+					args.m_Denom.set_Val<4>(0);
+					if (i > 30)
+					{
+						args.m_Denom.set_Val<3>(0);
+						if (i > 40)
+							args.m_Denom.set_Val<2>(0);
+					}
+				}
+
+				verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+				TestMultiPrecisionDiv(args.m_Nom, args.m_Denom, args.m_Resid, args.m_Quotient);
+			}
+		}
+
+
+		{
 			Shaders::Dummy::DivTest1 args;
 			args.m_Nom = 0;
 			args.m_Denom = 12;
@@ -1014,16 +1706,9 @@ namespace bvm2 {
 		}
 
 		{
-			Dbg dbg = m_Dbg;
-			m_Dbg.m_Instructions = false;
-			m_Dbg.m_Stack = false;
-			m_Dbg.m_ExtCall = false;
-
 			Shaders::Dummy::InfCycle args;
 			args.m_Val = 12;
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
-
-			m_Dbg = dbg;
 		}
 
 		{
@@ -1135,14 +1820,7 @@ namespace bvm2 {
 			CvtHdrElement(args.m_Hdr, s);
 			args.m_RulesCfg = r.pForks[2].m_Hash;
 
-			Dbg dbg = m_Dbg;
-			m_Dbg.m_Instructions = false;
-			m_Dbg.m_Stack = false;
-			m_Dbg.m_ExtCall = false;
-
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
-
-			m_Dbg = dbg;
 
 			verify_test(args.m_Hash == hv);
 
@@ -1360,10 +2038,6 @@ namespace bvm2 {
 
 	void MyProcessor::TestOracle()
 	{
-		Dbg dbg = m_Dbg;
-		m_Dbg.m_Instructions = false;
-		m_Dbg.m_Stack = false;
-
 		typedef Shaders::Oracle::ValueType ValueType;
 
 		constexpr uint32_t nOracles = 15;
@@ -1467,8 +2141,6 @@ namespace bvm2 {
 
 		Zero_ zero;
 		verify_test(ContractDestroy_T(m_cidOracle, zero));
-
-		m_Dbg = dbg;
 	}
 
 	static uint64_t RateFromFraction(uint32_t nom, uint32_t denom)
@@ -2018,7 +2690,7 @@ namespace bvm2 {
 		}
 	};
 
-	void MyProcessor::TestDemoXdao()
+	void MyProcessor::TestDaoCore()
 	{
 		//struct MyLutGenerator
 		//	:public LutGenerator
@@ -2035,21 +2707,23 @@ namespace bvm2 {
 		//lg.Normalize(1000000);
 
 		Zero_ zero;
-		verify_test(ContractCreate_T(m_cidDemoXdao, m_Code.m_DemoXdao, zero));
+		verify_test(ContractCreate_T(m_cidDaoCore, m_Code.m_DaoCore, zero));
 
 		bvm2::ShaderID sid;
-		bvm2::get_ShaderID(sid, m_Code.m_DemoXdao);
-		VERIFY_ID(Shaders::DemoXdao::s_SID, sid);
+		bvm2::get_ShaderID(sid, m_Code.m_DaoCore);
+		VERIFY_ID(Shaders::DaoCore::s_SID, sid);
+
+		m_Height += Shaders::DaoCore::Preallocated::s_hLaunch;
 
 		for (uint32_t i = 0; i < 10; i++)
 		{
-			Shaders::DemoXdao::UpdPosFarming args;
+			Shaders::DaoCore::UpdPosFarming args;
 			ZeroObject(args);
 
 			args.m_Beam = Shaders::g_Beam2Groth * 20000 * (i + 3);
 			args.m_BeamLock = 1;
 			args.m_Pk.m_X = i;
-			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_cidDaoCore, args.s_iMethod, args));
 
 			if (i & 1)
 				m_Height += 1000;
@@ -2057,12 +2731,12 @@ namespace bvm2 {
 
 		for (uint32_t i = 0; i < 10; i++)
 		{
-			Shaders::DemoXdao::UpdPosFarming args;
+			Shaders::DaoCore::UpdPosFarming args;
 			ZeroObject(args);
 
 			args.m_Beam = Shaders::g_Beam2Groth * 20000 * (i + 3);
 			args.m_Pk.m_X = i;
-			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_cidDaoCore, args.s_iMethod, args));
 
 			if (i & 1)
 				m_Height += 1000;
@@ -2071,22 +2745,20 @@ namespace bvm2 {
 		// the following is disabled, since the contract in this test is standalone, not under Upgradable, hence it doesn' allocate anything in c'tor
 /*
 		{
-			Shaders::DemoXdao::GetPreallocated args;
+			Shaders::DaoCore::GetPreallocated args;
 			ZeroObject(args);
 			args.m_Amount = 50;
 			Cast::Reinterpret<beam::uintBig_t<33> >(args.m_Pk).Scan("8bb3375b455d9c577134b00e8b0b108a29ce2bc0fce929049306cf4fed723b7d00");
-			verify_test(!RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args)); // wrong pk
+			verify_test(!RunGuarded_T(m_cidDaoCore, args.s_iMethod, args)); // wrong pk
 
 			Cast::Reinterpret<beam::uintBig_t<33> >(args.m_Pk).Scan("8bb3375b455d9c577134b00e8b0b108a29ce2bc0fce929049306cf4fed723b7d01");
-			verify_test(RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args)); // ok
+			verify_test(RunGuarded_T(m_cidDaoCore, args.s_iMethod, args)); // ok
 
 			args.m_Amount = 31000 / 2 * Shaders::g_Beam2Groth;
-			verify_test(!RunGuarded_T(m_cidDemoXdao, args.s_iMethod, args)); // too much
+			verify_test(!RunGuarded_T(m_cidDaoCore, args.s_iMethod, args)); // too much
 		}
 */
 	}
-
-
 
 	struct MyManager
 		:public ProcessorManager
@@ -2169,11 +2841,13 @@ namespace bvm2 {
 			{
 				RunOnce();
 
+#ifdef WASM_INTERPRETER_DEBUG
 				if (m_Dbg.m_pOut)
 				{
 					std::cout << m_Dbg.m_pOut->str();
 					m_Dbg.m_pOut->str("");
 				}
+#endif // WASM_INTERPRETER_DEBUG
 			}
 
 
@@ -2330,6 +3004,28 @@ namespace
 			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer.empty());// == ByteBuffer({ '\0' }));
 		}
 
+		//The integer 15 = [0x0F]
+		{
+			Rlp::Node n(15);
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x0F }));
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 0x0f }));
+		}
+
+		//The integer 156 = [0x819C]
+		{
+			Rlp::Node n(156);
+			ByteStream bs;
+			n.Write(bs);
+			verify_test(bs.m_Buffer == ByteBuffer({ 0x81, 0x9C }));
+			RlpVisitor v;
+			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
+			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 0x9C }));
+		}
+
 		//The encoded integer 0 ('\x00') = [0x00]
 		{
 			auto op = to_opaque("\0");
@@ -2399,6 +3095,180 @@ namespace
 			verify_test(v4.m_Items.size() == 2 && v4.m_Items[0].m_Type == Rlp::Node::Type::List && v4.m_Items[1].m_Type == Rlp::Node::Type::List);
 		}
 
+		/*{
+			// eth event proof
+			// block 0xbf1116, TX 0x5cc6f39c9060e489ca890ca8698ecbfe46a4f6e33bc5ab256e3f2aa98941db65, TX_Index = 0xb2
+			auto buff = beam::from_hex("f90a75f90131a03560d9eed3444461ddfb5d160e0fb8a219f9024712a828021495d37f174559f2a07756074051552beda92a9e740b8e745b7e00d739055f8948d593dc00fbd3f7bfa0903307d973b0142fcd73b3356f0b722a8677ea1bde388dfc1aa9684397dd2f87a0a38b1ba99bdf4139007e99539f78fbb1ffb11c77390f97a0ce498ab2732cc5eba0cbf8a39475c1d6bb50748625194c31d8fd4a99881f5b031a02d78b7ad1f6f2dda01c7e262956bff1224f243ac306a5a36167604dba1548e409cb71450f2fb91140a0e9ee479aedfffb0c89c9e374e674199222ba81dd0b0225a4bffcc3bb8896e3c8a00e6ad449bd6eb9deae455939141b17f9119c8500a7d61ae58509b62d0968088fa0b4a234a3ecb24298915e64e2a1787a1723516706232e3eaafe40590c49211a4a8080808080808080f871a0f95633e95a8558a1f500445d05c19a147a7ef922379fe464c254ff55185ae5daa02e3d1d6607511ac52bc09b00b52f92c3d878814d1177dd9813e3e2dfb2107acea0bebe2a45f302d818753d6eb2eb4958fd1d34bd94f97114ce38335e52f438a82b8080808080808080808080808080f901118080808080808080a08843fb4bf42cd300485f04d507e98a802623aca141cd61c6a73503cfd6f0177ea0ac8c061c9a3f9d2e6f34dde923d4f0b7f5e5f216934056b89925ff520b181285a0c4baa35c1094223c148fb8f8ed54cfd9b310a72fdb1988e71c59935352b93d4fa0fab71929e2082ad0b8ba4d128a6421f575a3ef2d6a9eb59f3e82eef7e3ac39aca0223e2c8f3c24c63aece14f7f2caa2886d1b5c3f6dc5c113d09f0946e2e5394b3a037f2c55ff64db846deb1134da5c9353d3c106bf70d0d3b52cfda4700442025f0a0b2f6e85b04ad9da11f7481890fc09661e5ff5a0914aef8b69998de553261a543a0e1a76f686577614dd88e8b296d95e523da906d40d9a7fd743273af56c77b7b6f80f90211a0c69f64874dbe6a51102d2ff0128ee73789cca16645fe91751baa39cea188e80fa08068020d46ee81e30e0b6c4c8efc6c499f3d569011dc1ee4c59464b863e8c16fa0c2b8aa794e3d11ac07e289227ea9e53f204b57f871b6865505e81592c3e054a1a059caca8bfcb20aefcd8e83a10d69bf5523879edd2da89b5f93bbbdd20807f5eaa0ec482b119c6aad6517ccb50e2aaef3d9ccd9088b3270e5a3ea55e503a419e38ca0d9533bc5d3a338346f40b90b50237d48afd3e3262810129c7b6171da510aaf68a03273c53d5c9e084ef9cc5ecca211ecf145827414577225e7d9453514b9b14f49a0e68d0907dbf5a984785544c62c47ca3aea5436c53d8f2d022a90343ba1b16fe6a0422e65f5e046a14d94bd2811877f676d2cca9ad7feceda07aa5ddcc4697bebd2a029765e6d40bffda57b5050939f86cbd9a288ef6c1e6a6499479214a01056c8b2a01d37fadcef7cf5124579fedcc8000d7e149feb8ea88c99a4d3cc9177fbf3b837a017e8d9b19a9af8f98e381b988520d18114ee023d450bea11138c9ecd1bc37876a0239ef3ea46ee1f7fc8ba7535acf9554a5c26967c1e196a45bbbcdde6f0355719a0e96c6c1e3f8f9b87b99595cfecf9bfc98769a08f60de7f2d49400a2596558cb0a09e29700ebdfca58740871d10040d21bc8fa86c4c63a9234d554ab3f69c33ccffa0da550e277223653019e81070ffeeda8391d4829c6c266a13b5d86d8b4a3c305d80f905a320b9059ff9059c0183884e49b9010000000002000000000000000020000000000000000000000000000040000000000000000000000000000000100000000002000000080020000000000000000000000000000000000808200008400000000000000008000000000000008000000010000000000000000000180000000000000000000000002000000010000800000000008000000000000000000000000000000001010000000000000000000000000000000000200000000000800000000000080000020000000000008000000000000002200000020000000000000000000002000000000000000000000000000000200000000000008000000000000000000000000000400000000000000000f90491f89b94a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa00000000000000000000000006c6bc977e13df9b0de53b251522280bb72383700a0000000000000000000000000a877184a3d42bf121c8182c3363427337ec49a3ba00000000000000000000000000000000000000000000000000000000023c34600f89b946b175474e89094c44da98b954eedeac495271d0ff863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa000000000000000000000000060594a405d53811d3bc4766596efd80fd545a270a00000000000000000000000006c6bc977e13df9b0de53b251522280bb72383700a000000000000000000000000000000000000000000000002082e413780b5db14af87a94c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2f842a0e1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109ca0000000000000000000000000e592427a0aece92de3edee1f18e0157c05861564a00000000000000000000000000000000000000000000000000341252927ea3fbff89b94c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa0000000000000000000000000e592427a0aece92de3edee1f18e0157c05861564a000000000000000000000000060594a405d53811d3bc4766596efd80fd545a270a00000000000000000000000000000000000000000000000000341252927ea3fbff9011c9460594a405d53811d3bc4766596efd80fd545a270f863a0c42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67a0000000000000000000000000e592427a0aece92de3edee1f18e0157c05861564a00000000000000000000000006c6bc977e13df9b0de53b251522280bb72383700b8a0ffffffffffffffffffffffffffffffffffffffffffffffdf7d1bec87f4a24eb60000000000000000000000000000000000000000000000000341252927ea3fbf000000000000000000000000000000000000000005100f011f27a5e41938a53c0000000000000000000000000000000000000000000003a215dfb35f0e0caf8efffffffffffffffffffffffffffffffffffffffffffffffffffffffffffecd7af9011c946c6bc977e13df9b0de53b251522280bb72383700f863a0c42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67a0000000000000000000000000e592427a0aece92de3edee1f18e0157c05861564a0000000000000000000000000a877184a3d42bf121c8182c3363427337ec49a3bb8a000000000000000000000000000000000000000000000002082e413780b5db14affffffffffffffffffffffffffffffffffffffffffffffffffffffffdc3cba000000000000000000000000000000000000000000000010c9047004407a08eaaf000000000000000000000000000000000000000000001206bbf0ef217797f1e7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbc8a5");
+			HashValue hv;
+			hv.Scan("885c604594f953fb56cdc3204f2c91d0992bd60912717c29c2601ed83b34bd45");
+
+			uint8_t* out = nullptr;
+			uint32_t outSize = 0;
+
+			auto triePath = beam::from_hex("81b2");
+			uint32_t nibblesLength = (uint32_t)(2 * triePath.size());
+			auto pathInNibbles = std::make_unique<uint8_t[]>(nibblesLength);
+
+			TriePathToNibbles(triePath.data(), (uint32_t)triePath.size(), pathInNibbles.get(), nibblesLength);
+
+			verify_test(VerifyEthProof(pathInNibbles.get(), nibblesLength, buff.data(), (uint32_t)buff.size(), hv, &out, outSize));
+			auto expected = beam::from_hex("f9059c0183884e49b9010000000002000000000000000020000000000000000000000000000040000000000000000000000000000000100000000002000000080020000000000000000000000000000000000808200008400000000000000008000000000000008000000010000000000000000000180000000000000000000000002000000010000800000000008000000000000000000000000000000001010000000000000000000000000000000000200000000000800000000000080000020000000000008000000000000002200000020000000000000000000002000000000000000000000000000000200000000000008000000000000000000000000000400000000000000000f90491f89b94a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa00000000000000000000000006c6bc977e13df9b0de53b251522280bb72383700a0000000000000000000000000a877184a3d42bf121c8182c3363427337ec49a3ba00000000000000000000000000000000000000000000000000000000023c34600f89b946b175474e89094c44da98b954eedeac495271d0ff863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa000000000000000000000000060594a405d53811d3bc4766596efd80fd545a270a00000000000000000000000006c6bc977e13df9b0de53b251522280bb72383700a000000000000000000000000000000000000000000000002082e413780b5db14af87a94c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2f842a0e1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109ca0000000000000000000000000e592427a0aece92de3edee1f18e0157c05861564a00000000000000000000000000000000000000000000000000341252927ea3fbff89b94c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa0000000000000000000000000e592427a0aece92de3edee1f18e0157c05861564a000000000000000000000000060594a405d53811d3bc4766596efd80fd545a270a00000000000000000000000000000000000000000000000000341252927ea3fbff9011c9460594a405d53811d3bc4766596efd80fd545a270f863a0c42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67a0000000000000000000000000e592427a0aece92de3edee1f18e0157c05861564a00000000000000000000000006c6bc977e13df9b0de53b251522280bb72383700b8a0ffffffffffffffffffffffffffffffffffffffffffffffdf7d1bec87f4a24eb60000000000000000000000000000000000000000000000000341252927ea3fbf000000000000000000000000000000000000000005100f011f27a5e41938a53c0000000000000000000000000000000000000000000003a215dfb35f0e0caf8efffffffffffffffffffffffffffffffffffffffffffffffffffffffffffecd7af9011c946c6bc977e13df9b0de53b251522280bb72383700f863a0c42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67a0000000000000000000000000e592427a0aece92de3edee1f18e0157c05861564a0000000000000000000000000a877184a3d42bf121c8182c3363427337ec49a3bb8a000000000000000000000000000000000000000000000002082e413780b5db14affffffffffffffffffffffffffffffffffffffffffffffffffffffffdc3cba000000000000000000000000000000000000000000000010c9047004407a08eaaf000000000000000000000000000000000000000000001206bbf0ef217797f1e7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbc8a5");
+			verify_test(expected.size() == outSize);
+			verify_test(!memcmp(expected.data(), out, std::min((size_t)outSize, expected.size())));
+		}*/
+
+		{
+			// find bridge event
+			auto buff = beam::from_hex("f9033f01829297b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000200000000000000000000010004008000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000100000000000000000000010000000002020000000000000000000000000000000000000000000000000000000000000000000002000000000000000000010000000000000000000000000000001000000010000020000020000000000100000000000000000000000001008800000000f90235f89b94d8672a4a1bf37d36bef74e36edb4f17845e76f4ef863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa0000000000000000000000000627306090abab3a6e1400e9345bc60c78a8bef57a0000000000000000000000000fa21e79ca2dfb3ab15469796069622903919159ca000000000000000000000000000000000000000000000000000000000006acfc0f89b94d8672a4a1bf37d36bef74e36edb4f17845e76f4ef863a08c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925a0000000000000000000000000627306090abab3a6e1400e9345bc60c78a8bef57a0000000000000000000000000fa21e79ca2dfb3ab15469796069622903919159ca00000000000000000000000000000000000000000000000000000000000000000f8f994fa21e79ca2dfb3ab15469796069622903919159ce1a02ee2b75bef6a1e98db7f58994a8997fc42664e7d47f2116cec5cd82dc67233cab8c0000000000000000000000000627306090abab3a6e1400e9345bc60c78a8bef5700000000000000000000000000000000000000000000000000000000006acfc0000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000214209059b49805c3317c69edb7acd181271ad8d13fbfc528224775310cf03a9620100000000000000000000000000000000000000000000000000000000000000");
+			RlpVisitor v0;
+
+			verify_test(Rlp::Decode(buff.data(), (uint32_t)buff.size(), v0));
+			verify_test(v0.m_Items.size() == 1);
+			verify_test(v0.m_Items.front().m_Type == Rlp::Node::Type::List);
+
+			RlpVisitor v1;
+			verify_test(Rlp::Decode(v0.m_Items.front().m_Buffer.data(), (uint32_t)v0.m_Items.front().m_Buffer.size(), v1));
+			verify_test(v1.m_Items.size() == 4);
+			verify_test(v1.m_Items.back().m_Type == Rlp::Node::Type::List);
+
+			// get event list
+			RlpVisitor v2;
+			verify_test(Rlp::Decode(v1.m_Items.back().m_Buffer.data(), (uint32_t)v1.m_Items.back().m_Buffer.size(), v2));
+			verify_test(v2.m_Items.size() > 0);
+			bool isFound = false;
+			const ByteBuffer expectedTopic = beam::from_hex("2ee2b75bef6a1e98db7f58994a8997fc42664e7d47f2116cec5cd82dc67233ca");
+			for (auto idx = v2.m_Items.begin(); idx != v2.m_Items.end(); ++idx)
+			{
+				RlpVisitor eventNode;
+				verify_test(Rlp::Decode(idx->m_Buffer.data(), (uint32_t)idx->m_Buffer.size(), eventNode));
+				verify_test(eventNode.m_Items.size() == 3);
+
+				RlpVisitor topics;
+				verify_test(Rlp::Decode(eventNode.m_Items[1].m_Buffer.data(), (uint32_t)eventNode.m_Items[1].m_Buffer.size(), topics));
+
+				if (topics.m_Items.size() != 1) continue;
+				if (topics.m_Items.front().m_Buffer.size() != expectedTopic.size()) continue;
+				if (!memcmp(topics.m_Items.front().m_Buffer.data(), expectedTopic.data(), expectedTopic.size()))
+				{
+					isFound = true;
+					break;
+				}
+			}
+
+			verify_test(isFound);
+		}
+
+		{
+			// verify log data
+			auto buffer = beam::from_hex("00000000000000000000000000000000000000000000000000000000000000060000000000000000000000008f0483125fcb9aaaefa9209d8e9d7b9c8b9fb90fb2ca0cefbd65320247f2b13e7b8dff4cd39652a53227a54fbaa0fe339be1b1f300000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000029a340e205eafbe2e23d65d807b7678945f6e85cf9b73ba98e4cf2bfab7def2dc30100000000006acfc00000000000000000000000000000000000000000000000");
+
+			uint8_t* idx = buffer.data();
+			Opaque<32> rawNumber;
+			memcpy(&rawNumber, idx, 32);
+			MultiPrecision::UInt<8> msgId;
+			msgId.FromBE_T(rawNumber);
+			MultiPrecision::UInt<8> expectedMsgId = 6u;
+
+			verify_test(msgId == expectedMsgId);
+
+			idx += 32;
+			Opaque<20> senderAddress;
+			memcpy(&senderAddress, idx + 12, 20);
+			auto expectedAddress = beam::from_hex("8f0483125FCb9aaAEFA9209D8E9d7b9C8B9Fb90F");
+			verify_test(!memcmp(&senderAddress, expectedAddress.data(), 20));
+
+			idx += 32;
+			Opaque<32> receiverAddress;
+			memcpy(&receiverAddress, idx, 32);
+			auto expectedReceiverAddress = beam::from_hex("b2ca0cefbd65320247f2b13e7b8dff4cd39652a53227a54fbaa0fe339be1b1f3");
+			verify_test(!memcmp(&receiverAddress, expectedReceiverAddress.data(), 32));
+
+			// offset
+			idx += 32;
+			memcpy(&rawNumber, idx, 32);
+			MultiPrecision::UInt<8> offset;
+			offset.FromBE_T(rawNumber);
+			MultiPrecision::UInt<8> expectedOffset = 128;
+			verify_test(offset == expectedOffset);
+
+			// size
+			idx += 32;
+			memcpy(&rawNumber, idx, 32);
+			MultiPrecision::UInt<8> size;
+			size.FromBE_T(rawNumber);
+			MultiPrecision::UInt<8> expectedSize = 41;
+			verify_test(size == expectedSize);
+
+			// read msg
+			idx += 32;
+			auto expectedData = beam::from_hex("a340e205eafbe2e23d65d807b7678945f6e85cf9b73ba98e4cf2bfab7def2dc30100000000006acfc0");
+			verify_test(!memcmp(idx, expectedData.data(), 41));
+		}
+
+		{
+			// verify result of proof
+			auto buff = beam::from_hex("f9033f01829297b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000200000000000000000000010004008000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000100000000000000000000010000000002020000000000000000000000000000000000000000000000000000000000000000000002000000000000000000010000000000000000000000000000001000000010000020000020000000000100000000000000000000000001008800000000f90235f89b94d8672a4a1bf37d36bef74e36edb4f17845e76f4ef863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa0000000000000000000000000627306090abab3a6e1400e9345bc60c78a8bef57a0000000000000000000000000fa21e79ca2dfb3ab15469796069622903919159ca000000000000000000000000000000000000000000000000000000000006acfc0f89b94d8672a4a1bf37d36bef74e36edb4f17845e76f4ef863a08c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925a0000000000000000000000000627306090abab3a6e1400e9345bc60c78a8bef57a0000000000000000000000000fa21e79ca2dfb3ab15469796069622903919159ca00000000000000000000000000000000000000000000000000000000000000000f8f994fa21e79ca2dfb3ab15469796069622903919159ce1a02ee2b75bef6a1e98db7f58994a8997fc42664e7d47f2116cec5cd82dc67233cab8c0000000000000000000000000627306090abab3a6e1400e9345bc60c78a8bef5700000000000000000000000000000000000000000000000000000000006acfc0000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000214209059b49805c3317c69edb7acd181271ad8d13fbfc528224775310cf03a9620100000000000000000000000000000000000000000000000000000000000000");
+			RlpVisitor v;
+
+			verify_test(Rlp::Decode(buff.data(), (uint32_t)buff.size(), v));
+			RlpVisitor v1;
+			verify_test(Rlp::Decode(v.m_Items.front().m_Buffer.data(), (uint32_t)v.m_Items.front().m_Buffer.size(), v1));
+			RlpVisitor v2;
+			verify_test(Rlp::Decode(v1.m_Items.back().m_Buffer.data(), (uint32_t)v1.m_Items.back().m_Buffer.size(), v2));
+			RlpVisitor v3;
+			verify_test(Rlp::Decode(v2.m_Items.back().m_Buffer.data(), (uint32_t)v2.m_Items.back().m_Buffer.size(), v3));
+			verify_test(v3.m_Items.back().m_Buffer.size() == 192);
+
+			// check receiver address
+			verify_test(v3.m_Items.front().m_Buffer.size() == 20);
+			uint8_t* address = v3.m_Items.front().m_Buffer.data();
+			ByteBuffer expectedAddress = beam::from_hex("fa21e79ca2dfb3ab15469796069622903919159c");
+			verify_test(!memcmp(address, expectedAddress.data(), 20));
+
+			// check topic (hash of event name)
+			RlpVisitor v4;
+			verify_test(Rlp::Decode(v3.m_Items[1].m_Buffer.data(), (uint32_t)v3.m_Items[1].m_Buffer.size(), v4));
+			verify_test(v4.m_Items.size() == 1);
+			ByteBuffer expectedTopic = beam::from_hex("2ee2b75bef6a1e98db7f58994a8997fc42664e7d47f2116cec5cd82dc67233ca");
+			verify_test(v4.m_Items.front().m_Buffer.size() == expectedTopic.size());
+			uint8_t* firstTopic = v4.m_Items.front().m_Buffer.data();
+			verify_test(!memcmp(firstTopic, expectedTopic.data(), expectedTopic.size()));
+
+			// check data item
+			uint8_t* tmp = v3.m_Items.back().m_Buffer.data();
+			tmp += 32;
+			Opaque<32> rawNumber;
+			memcpy(&rawNumber, tmp, 32);
+			MultiPrecision::UInt<8> amount;
+			amount.FromBE_T(rawNumber);
+			MultiPrecision::UInt<8> amount1;
+			amount1 = 7000000u;
+			verify_test(!amount.cmp(amount1));
+
+			// check offset
+			tmp += 32;
+			memcpy(&rawNumber, tmp, 32);
+			amount.FromBE_T(rawNumber);
+			amount1 = 96u;
+			verify_test(!amount.cmp(amount1));
+
+			// check size
+			tmp += 32;
+			memcpy(&rawNumber, tmp, 32);
+			amount.FromBE_T(rawNumber);
+			amount1 = 33u;
+			verify_test(!amount.cmp(amount1));
+
+			// check public key
+			tmp += 32;
+			PubKey pubKey;
+			memcpy(reinterpret_cast<uint8_t*>(&pubKey), tmp, 33);
+			PubKey expectPubKey;
+			memcpy(reinterpret_cast<uint8_t*>(&expectPubKey), beam::from_hex("4209059b49805c3317c69edb7acd181271ad8d13fbfc528224775310cf03a96201").data(), 33);
+
+			verify_test(pubKey == expectPubKey);
+		}
+
 		//The string 'Lorem ipsum dolor sit amet, consectetur adipisicing elit' = [0xb8, 0x38, 'L', 'o', 'r', 'e', 'm', ' ', ..., 'e', 'l', 'i', 't']
 		{
 			auto op = to_opaque("Lorem ipsum dolor sit amet, consectetur adipisicing elit");
@@ -2411,6 +3281,60 @@ namespace
 			verify_test(Rlp::Decode(bs.m_Buffer.data(), (uint32_t)bs.m_Buffer.size(), v));
 			verify_test(v.m_Items[0].m_Type == Rlp::Node::Type::String && v.m_Items[0].m_Buffer == ByteBuffer({ 'L', 'o', 'r', 'e', 'm', ' ', 'i', 'p', 's', 'u', 'm', ' ', 'd', 'o', 'l', 'o', 'r', ' ', 's', 'i', 't', ' ', 'a', 'm', 'e', 't', ',', ' ', 'c', 'o', 'n', 's', 'e', 'c', 't', 'e', 't', 'u', 'r', ' ', 'a', 'd', 'i', 'p', 'i', 's', 'i', 'c', 'i', 'n', 'g', ' ',  'e', 'l', 'i', 't' }));
 
+		}
+	}
+	void TestEthSeedForPoW()
+	{
+		{
+			Shaders::Eth::Header hdr;
+			hdr.m_ParentHash.Scan("7a4bf8dc58922f2f8814399542abb379d0b0cc295687f3d5c32e0ce0b9005e3d");
+			hdr.m_UncleHash.Scan("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");
+			hdr.m_Coinbase.Scan("ea674fdde714fd979de3edf0f56aa9716b898ec8");
+			hdr.m_Root.Scan("416e7a6de2f67bdb1321c8a9fda385f91e5cd13ddaf1d7b943321110c38be679");
+			hdr.m_TxHash.Scan("127d45c910e002965ca732674236310e0bc2880f05df3d85492550a605867891");
+			hdr.m_ReceiptHash.Scan("de44f15c086f97cbc6255359280916a75c7a23785941ebacf98be5ae5554b0e9");
+			hdr.m_Bloom.Scan("55a861f3f6165d14d38f269a8823d263888cd00d94984854c7a50081198a2b2f922c356c07949a35d040535a1e400dd11e18838449433926924593ad55e6682b605c64922b02a33efcebf28d14aa5cf30522133c9b48380eee4616fcc2475715dcad428cbf818c8601d6d3002100f9c8566dd46488380603c2c94ff7048c9be4c954cb7fc616ef71b4d147ec40973e4611359fa9af6f5068097a2b67891115a1e7dfa91137b721e25785df8cfd41f7e18bc03ea50a035021c166864a8c00cd255dd004762b87a4f16bc6d2b406db3a1d0358ee036e65797bc55872ce0cea246582fd68118d1a6008e04c9c6c90b27694cc33764c5b4b834884bb7306a073faa1");
+			hdr.m_nExtra = hdr.m_Extra.Scan("65746865726d696e652d6575726f70652d6e6f72746831") / 2;
+			hdr.m_Difficulty = 0x1ac0292081bbf2;
+			hdr.m_Number = 0xbeb053; // height
+			hdr.m_GasLimit = 0xe4e157;
+			hdr.m_GasUsed = 0xe4c170;
+			hdr.m_Time = 0x60ab9baf;
+			hdr.m_Nonce = 0x9e2b2184779e0239;
+
+			Shaders::Dummy::Ethash::Hash512 hvSeed;
+			hdr.get_SeedForPoW(hvSeed);
+
+			Shaders::Dummy::Ethash::Hash512 hvExpected;
+			hvExpected.Scan("fcbb65e35afc98de2ea3729c18d8fa3872e5088c82538e99e0cb58a5482cb17602a0c19b9dd0cb0b01f1db3769c9c0e48976240233855c5a11315aa9f2a1bb28");
+			verify_test(!hvSeed.cmp(hvExpected));
+		}
+		{
+			// London HF: block with additional field BaseFeePerGas
+			// Block from ETH testnet Ropsten
+			Shaders::Eth::Header hdr;
+			hdr.m_ParentHash.Scan("b3d1cd15530aa9bd06d774ee203696ddcc52a831fb7dfc48ac890a25d53e4ca1");
+			hdr.m_UncleHash.Scan("d95f5aa2ee654ed2177faf2002f16e670098d1642701d8855bf8cd7ebad021f8");
+			hdr.m_Coinbase.Scan("9ffed2297c7b81293413550db675073ab46980b2");
+			hdr.m_Root.Scan("5fa10298d75a783f80e25f9fd5f1a2ef0f1288ec511900c648695a933a9cec21");
+			hdr.m_TxHash.Scan("e0da8cdae41fa8188600590da87866fd2782b15478914d02b0123e6870e25a1a");
+			hdr.m_ReceiptHash.Scan("88be83e41f8fb35ecae55c1c2debb7d11c915c242a83db6e857eb11bfffdf3be");
+			hdr.m_Bloom.Scan("0020000800000002000000000000000800008000000000000080000000000000010000000000002000080000008000000000000000100000000000000020000000001000002000080000000840000081000180000200000800000000000000080000000002000800000080000010080000000000000000000000101000000040000080000000004020000000000000000020000000000000000000010000008002000000a800000000000000000004000000001000001000000005000080020100000002000040000000000000000041001010000000000000000000000020000010100000000000080000000001000000000200000000000000000200000200");
+			hdr.m_nExtra = hdr.m_Extra.Scan("d883010a05846765746888676f312e31362e35856c696e7578") / 2;
+			hdr.m_Difficulty = 0x2d4c89a1;
+			hdr.m_Number = 0xa2df0c; // height
+			hdr.m_GasLimit = 0x7a1200;
+			hdr.m_GasUsed = 0x5b7a79;
+			hdr.m_Time = 0x60f6f41e;
+			hdr.m_Nonce = 0xdc889a9752ae31e2;
+			hdr.m_BaseFeePerGas = 0x9;
+
+			Shaders::Dummy::Ethash::Hash512 hvSeed;
+			hdr.get_SeedForPoW(hvSeed);
+
+			Shaders::Dummy::Ethash::Hash512 hvExpected;
+			hvExpected.Scan("813c4a1bc1fa0ea152eb8202f15b175a5288c62626a93efb0c285f314960091f4702f01a5c0d9a4a2cea6d7ba3ad74fba16e76352dd57a209b25e7467c59f181");
+			verify_test(!hvSeed.cmp(hvExpected));
 		}
 	}
 }
@@ -2427,6 +3351,7 @@ int main()
 
 		TestMergeSort();
 		TestRLP();
+		TestEthSeedForPoW();
 
 		MyProcessor proc;
 

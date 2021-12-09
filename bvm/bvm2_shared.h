@@ -136,6 +136,7 @@ struct KeyTag
 	static const uint8_t LockedAmount = 1;
 	static const uint8_t Refs = 2;
 	static const uint8_t OwnedAsset = 3;
+	static const uint8_t ShaderChange = 4; // from HF4: event when contract shader changes (including creaton and destruction)
 
 	// Synthetic tags, not really contract vars
 	static const uint8_t SidCid = 16; // Key={00...00}tag{sid}{cid}, Value=BigEndian(createHeight)
@@ -149,5 +150,13 @@ namespace Merkle
 		HashValue m_Value;
 	};
 }
+
+struct Stream
+{
+	static const uint32_t Out = 0;
+	static const uint32_t Error = 1;
+};
+
+static const uint32_t s_NonceSlots = 256;
 
 #pragma pack (pop)

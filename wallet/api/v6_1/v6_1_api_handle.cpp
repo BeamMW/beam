@@ -182,7 +182,7 @@ namespace beam::wallet
 
     void V61Api::onHandleInvokeContractV61(const JsonRpcId &id, const InvokeContractV61 &data)
     {
-        LOG_DEBUG() << "InvokeContract(id = " << id << ")";
+        LOG_VERBOSE() << "InvokeContract(id = " << id << ")";
         auto contracts = getContracts();
 
         if (data.createTx)

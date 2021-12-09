@@ -49,7 +49,6 @@ namespace beam
         // IBroadcastMsgGateway
         void registerListener(BroadcastContentType, IBroadcastListener*) override;
         void unregisterListener(BroadcastContentType) override;
-        void sendRawMessage(BroadcastContentType type, const ByteBuffer&) override; // Used in SwapOffersBoard. Deprecated. TODO: after 2 fork should be made private.
         void sendMessage(BroadcastContentType type, const BroadcastMsg&) override;
 
         // BbsProcessor
@@ -59,9 +58,9 @@ namespace beam
         void on_protocol_error(uint64_t fromStream, ProtocolError error) override;
         void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override; /// unused
 
-        static constexpr std::array<uint8_t, 3> m_ver_1 = { 0, 0, 1 };  // version used before 2nd fork: has custom deserialization and signature hash for SwapOffersBoard. TODO: dh remove after 2 fork.
         static constexpr std::array<uint8_t, 3> m_ver_2 = { 0, 0, 2 };  // verison after 2nd fork: will has common deserialization and signatures type for all BBS-based broadcasting.
-
+    protected:
+        void sendRawMessage(BroadcastContentType type, const ByteBuffer&) override;
     private:
         static constexpr size_t m_maxMessageTypes = 6;
         static constexpr size_t m_defaultMessageSize = 200;         // set experimentally
@@ -77,9 +76,7 @@ namespace beam
 
         wallet::IWalletMessageEndpoint& m_bbsMessageEndpoint;
 
-        Protocol m_protocol_old;    // TODO: dh remove after 2 fork. Used only with SwapOffersBoard
         Protocol m_protocol;
-        MsgReader m_msgReader_old;  // TODO: dh remove after 2 fork.
         MsgReader m_msgReader;
         std::map<BroadcastContentType, IBroadcastListener*> m_listeners;
     };

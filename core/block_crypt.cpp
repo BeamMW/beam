@@ -38,11 +38,14 @@ namespace beam
 		return !pk.m_Y;
 	}
 
-	void PeerID::FromSk(ECC::Scalar::Native& sk)
+	bool PeerID::FromSk(ECC::Scalar::Native& sk)
 	{
 		ECC::Point::Native pt = ECC::Context::get().G * sk;
-		if (!Import(pt))
-			sk = -sk;
+		if (Import(pt))
+			return true;
+
+		sk = -sk;
+		return false;
 	}
 
 	/////////////
@@ -154,10 +157,21 @@ namespace beam
 		return 0;
 	}
 
-	void Input::operator = (const Input& v)
+	Input& Input::operator = (const Input& v)
 	{
 		Cast::Down<TxElement>(*this) = v;
 		m_Internal = v.m_Internal;
+		return *this;
+	}
+
+	Input& Input::operator = (Input&& v) noexcept
+	{
+		if (*this != v)
+		{
+			Cast::Down<TxElement>(*this) = std::move(v);
+			m_Internal = std::exchange(v.m_Internal, {});
+		}
+		return *this;
 	}
 
 	void Input::AddStats(TxStats& s) const
@@ -396,15 +410,15 @@ namespace beam
 		return m_pPublic->IsValid(comm, oracle, pGen);
 	}
 
-	void Output::operator = (const Output& v)
+	Output& Output::operator = (const Output& v)
 	{
 		Cast::Down<TxElement>(*this) = v;
 		m_Coinbase = v.m_Coinbase;
-		m_RecoveryOnly = v.m_RecoveryOnly;
 		m_Incubation = v.m_Incubation;
 		ClonePtr(m_pConfidential, v.m_pConfidential);
 		ClonePtr(m_pPublic, v.m_pPublic);
 		ClonePtr(m_pAsset, v.m_pAsset);
+		return *this;
 	}
 
 	int Output::cmp(const Output& v) const
@@ -416,7 +430,6 @@ namespace beam
 		}
 
 		CMP_MEMBER(m_Coinbase)
-		CMP_MEMBER(m_RecoveryOnly)
 		CMP_MEMBER(m_Incubation)
 		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)

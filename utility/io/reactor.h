@@ -189,6 +189,8 @@ private:
     std::unique_ptr<TcpConnectors> _tcpConnectors;
     std::unique_ptr<ProxyConnector> _proxyConnector;
     std::unique_ptr<TcpShutdowns>  _tcpShutdowns;
+
+    uint32_t _runs = 0;
     StopCallback _stopCB;
 
     friend class TcpConnectors;

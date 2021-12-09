@@ -84,7 +84,6 @@ bool FlyClient::NetworkStd::Connection::ShouldSync() const
 void FlyClient::NetworkStd::Connection::ResetVars()
 {
     ZeroObject(m_Tip);
-    m_LoginFlags = 0;
     m_Flags = 0;
     m_NodeID = Zero;
 }
@@ -248,9 +247,8 @@ void FlyClient::NetworkStd::Connection::OnMsg(GetBlockFinalization&& msg)
     Send(msgOut);
 }
 
-void FlyClient::NetworkStd::Connection::OnLogin(Login&& msg)
+void FlyClient::NetworkStd::Connection::OnLogin(Login&& msg, uint32_t /* nFlagsPrev */)
 {
-    m_LoginFlags = msg.m_Flags;
     AssignRequests();
 
     if (LoginFlags::Bbs & m_LoginFlags)
@@ -759,7 +757,13 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestEvents& req)
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestTransaction& req)
 {
-    return (LoginFlags::SpreadingTransactions & m_LoginFlags) && IsAtTip();
+    if (!(LoginFlags::SpreadingTransactions & m_LoginFlags) && IsAtTip())
+        return false;
+
+    if (req.m_Msg.m_Context && (get_Ext() < 9))
+        return false;
+
+    return true;
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestTransaction& req)
