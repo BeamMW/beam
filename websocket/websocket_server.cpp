@@ -102,7 +102,7 @@ namespace beam
                     if (m_allowedOrigin.empty())
                     {
                         // Create the Detect Session and run it
-                        std::make_shared<DetectSession>(std::move(m_socket), *m_tlsContext, m_reactor, m_handlerCreator)->run();
+                        std::make_shared<DetectSession>(std::move(m_socket), m_tlsContext, m_reactor, m_handlerCreator)->run();
                     }
                     else
                     {
