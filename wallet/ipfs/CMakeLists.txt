@@ -12,7 +12,6 @@ target_link_libraries(wallet_ipfs
     PRIVATE
         utility
         asio-ipfs
-        asio-ipfs_static_asio
 )
 
 target_include_directories(wallet_ipfs PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
