@@ -432,7 +432,7 @@ namespace beam
     {
     public:
         explicit
-            DetectSession(tcp::socket&& socket, ssl::context& ctx, SafeReactor::Ptr reactor, HandlerCreator creator)
+            DetectSession(tcp::socket&& socket, ssl::context* ctx, SafeReactor::Ptr reactor, HandlerCreator creator)
             : _stream(std::move(socket))
             , _ctx(ctx)
             , _reactor(reactor)
@@ -462,11 +462,14 @@ namespace beam
 
             if (result)
             {
+                if (_ctx == nullptr)
+                    return fail(ec, "tls is turned off");
+
                 // Launch SSL session
                 std::make_shared<SecureWebsocketSession>(
                     std::move(_stream),
                     std::move(_buffer),
-                    _ctx,
+                    *_ctx,
                     _reactor,
                     _creator)->run();
                 return;
@@ -481,7 +484,7 @@ namespace beam
         }
     private:
         beast::tcp_stream _stream;
-        ssl::context& _ctx;
+        ssl::context* _ctx;
         boost::beast::multi_buffer _buffer;
         SafeReactor::Ptr _reactor;
         HandlerCreator _creator;
