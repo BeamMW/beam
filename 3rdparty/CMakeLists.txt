@@ -18,7 +18,6 @@ add_subdirectory(crypto/blake)
 add_subdirectory(libuv)
 
 if(BEAM_IPFS_SUPPORT)
-    SET(ASIO_IPFS_WITH_EXAMPLE_BINARIES OFF CACHE BOOL "Build with example binaries" FORCE)
     add_subdirectory(asio-ipfs)
 endif()
 

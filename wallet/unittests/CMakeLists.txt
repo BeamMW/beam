@@ -72,5 +72,14 @@ if (BEAM_LELANTUS_SUPPORT)
     add_test_snippet(lelantus_test lelantus wallet node wallet_test_node)
 endif()
 
+if (BEAM_IPFS_SUPPORT AND WIN32)
+    # TODO: This if hacky AF and beacuse we place everything in different folders.
+    get_target_property(IPFS_DLL asio-ipfs IPFS_DLL)
+    add_custom_command(
+        TARGET wallet_test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy ${IPFS_DLL} ${CMAKE_CURRENT_BINARY_DIR}
+    )
+endif()
+
 #add_executable(offline offline.cpp)
 #target_link_libraries(offline node wallet)
