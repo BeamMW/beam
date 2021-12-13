@@ -707,11 +707,16 @@ namespace beam::wallet
                 });
 
                 #ifdef BEAM_IPFS_SUPPORT
-                if (ipfsService->running()) {
-                    ipfsService->stop();
+                // IPFS service might be not started, so need to check
+                if (ipfsService) 
+                {
+                    if (ipfsService->running()) {
+                        ipfsService->stop();
+                    }
+
+                    assert(ipfsService.use_count() == 1);
+                    ipfsService.reset();
                 }
-                assert(m_ipfs.use_count() ==1);
-                m_ipfs.reset();
                 #endif
 
                 wallet->CleanupNetwork();
