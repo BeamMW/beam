@@ -752,7 +752,7 @@ namespace beam::wallet
 
     std::string GetSimpleTxStatusStr(const TxParameters& txParams)
     {
-        auto [status, failureReason, sender, selfTx] = ParseParamsForStatusInterpretation(txParams);
+        [[maybe_unused]] auto [status, failureReason, sender, selfTx] = ParseParamsForStatusInterpretation(txParams);
 
         switch (status)
         {
