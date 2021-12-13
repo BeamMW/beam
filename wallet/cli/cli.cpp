@@ -120,34 +120,15 @@ namespace beam
 
 namespace
 {
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-    class CliSwapTxStatusInterpreter: public TxStatusInterpreter
-    {
-      public:
-        explicit CliSwapTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams)
-        {
-            if (auto value = txParams.GetParameter<AtomicSwapTransaction::State>(wallet::TxParameterID::State); value)
-                m_state = *value;
-        }
-
-        ~CliSwapTxStatusInterpreter() override = default;
-
-        [[nodiscard]] std::string getStatus() const override
-        {
-            return wallet::getSwapTxStatus(m_state);
-        }
-      private:
-        wallet::AtomicSwapTransaction::State m_state = wallet::AtomicSwapTransaction::State::Initial;
-    };
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
     std::string interpretStatusCliImpl(const beam::wallet::TxDescription& tx)
     {
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        AtomicSwapTransaction::State state = wallet::AtomicSwapTransaction::State::Initial;
         if (tx.m_txType == TxType::AtomicSwap)
         {
-            auto statusInterpreter = std::make_unique<CliSwapTxStatusInterpreter>(tx);
-            return statusInterpreter->getStatus();
+            if (auto value = tx.GetParameter<AtomicSwapTransaction::State>(wallet::TxParameterID::State); value)
+                state = *value;
+            return wallet::getSwapTxStatus(state);
         }
         else
         {

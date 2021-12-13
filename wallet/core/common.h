@@ -26,6 +26,8 @@
 #include "wallet/core/dex.h"
 #include "utility/std_extension.h"
 
+#include <tuple>
+
 namespace beam::wallet
 {
 
@@ -524,59 +526,12 @@ namespace beam::wallet
         PublicOffline
     };
 
-    class TxStatusInterpreter
-    {
-    public:
-        typedef std::shared_ptr<TxStatusInterpreter> Ptr;
-        using Creator = std::function<Ptr (const TxParameters& txParams)>;
-
-        explicit TxStatusInterpreter(const TxParameters& txParams);
-        virtual ~TxStatusInterpreter() = default;
-        [[nodiscard]] virtual std::string getStatus() const;
-
-    protected:
-        TxStatus m_status = TxStatus::Pending;
-        bool m_sender = false;
-        bool m_selfTx = false;
-        TxFailureReason m_failureReason = TxFailureReason::Unknown;
-    };
-
-    class SimpleTxStatusInterpreter : public TxStatusInterpreter
-    {
-    public:
-        explicit SimpleTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
-        [[nodiscard]] std::string getStatus() const override;
-    };
-
-    class MaxPrivacyTxStatusInterpreter : public TxStatusInterpreter
-    {
-    public:
-        explicit MaxPrivacyTxStatusInterpreter(const TxParameters& txParams);
-        ~MaxPrivacyTxStatusInterpreter() override = default;
-        [[nodiscard]] std::string getStatus() const override;
-    private:
-        TxAddressType m_addressType = TxAddressType::Unknown;
-    };
-
-    class AssetTxStatusInterpreter : public TxStatusInterpreter
-    {
-    public:
-        explicit AssetTxStatusInterpreter(const TxParameters& txParams);
-        ~AssetTxStatusInterpreter() override = default;
-        [[nodiscard]] std::string getStatus() const override;
-    protected:
-        wallet::TxType m_txType = wallet::TxType::AssetInfo;
-    };
-
-    class ContractTxStatusInterpreter : public TxStatusInterpreter
-    {
-    public:
-        explicit ContractTxStatusInterpreter(const TxParameters& txParams);
-        ~ContractTxStatusInterpreter() override = default;
-        [[nodiscard]] std::string getStatus() const override;
-    protected:
-        wallet::TxType m_txType = wallet::TxType::AssetInfo;
-    };
+    std::tuple<TxStatus, TxFailureReason, bool, bool> ParseParamsForStatusInterpretation(const TxParameters& txParams);
+    std::string GetTxStatusStr(const TxParameters& txParams);
+    std::string GetSimpleTxStatusStr(const TxParameters& txParams);
+    std::string GetMaxAnonimityTxStatusStr(const TxParameters& txParams);
+    std::string GetAssetTxStatusStr(const TxParameters& txParams);
+    std::string GetContractTxStatusStr(const TxParameters& txParams);
 
     // Specifies key transaction parameters for interaction with Wallet Clients
     struct TxDescription : public TxParameters

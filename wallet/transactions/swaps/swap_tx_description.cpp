@@ -18,25 +18,26 @@
 
 namespace beam::wallet
 {
-
-std::string SwapTxStatusInterpreter::getStatus() const
+std::string GetSwapTxStatusStr(const TxParameters& txParams)
 {
-    switch (m_status)
+    auto [status, failureReason, sender, selfTx] = ParseParamsForStatusInterpretation(txParams);
+
+    switch (status)
     {
         case wallet::TxStatus::Pending: return "pending";
         case wallet::TxStatus::Registering: return "in progress";
         case wallet::TxStatus::InProgress:
         {
             auto refundConfirmations =
-                m_txParams.GetParameter<uint32_t>(TxParameterID::Confirmations, SubTxIndex::REFUND_TX);
+                txParams.GetParameter<uint32_t>(TxParameterID::Confirmations, SubTxIndex::REFUND_TX);
             return refundConfirmations ? "failing": "in progress";
         }
         case wallet::TxStatus::Completed: return "completed";
         case wallet::TxStatus::Canceled: return "canceled";
         case wallet::TxStatus::Failed:
         {
-            auto failureReason = m_txParams.GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
-            if (failureReason && *failureReason == TxFailureReason::TransactionExpired)
+            auto swapFailureReason = txParams.GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
+            if (swapFailureReason && *swapFailureReason == TxFailureReason::TransactionExpired)
             {
                 return "expired";
             }
