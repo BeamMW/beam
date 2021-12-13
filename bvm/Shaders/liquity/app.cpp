@@ -107,15 +107,22 @@ struct MyGlobal
 {
     bool Load(const ContractID& cid)
     {
+        Env::SelectContext(1, 0); // dependent ctx
+
         Env::Key_T<uint8_t> key;
         _POD_(key.m_Prefix.m_Cid) = cid;
         key.m_KeyInContract = Tags::s_State;
 
-        if (Env::VarReader::Read_T(key, Cast::Down<Global>(*this)))
-            return true;
+        if (!Env::VarReader::Read_T(key, Cast::Down<Global>(*this)))
+        {
+            OnError("no such a contract");
+            return false;
+        }
 
-        OnError("no such a contract");
-        return false;
+        m_BaseRate.Decay();
+
+        return true;
+
     }
 };
 
@@ -125,7 +132,22 @@ void DocAddPair(const char* sz, const Pair& p)
 
     Env::DocAddNum("tok", p.Tok);
     Env::DocAddNum("col", p.Col);
+}
 
+
+
+void DocAddPerc(const char* sz, Float x)
+{
+    uint64_t val = x * Float(10000); // convert to percents, with 2 digits after point
+
+    char szBuf[Utils::String::Decimal::DigitsMax<uint64_t>::N + 2]; // dot + 0-term
+    uint32_t nPos = Utils::String::Decimal::Print(szBuf, val / 100u);
+    szBuf[nPos++] = '.';
+    nPos += Utils::String::Decimal::Print(szBuf + nPos, val % 100u);
+    szBuf[nPos] = 0;
+
+
+    Env::DocAddText(sz, szBuf);
 }
 
 ON_METHOD(manager, view_params)
@@ -135,8 +157,17 @@ ON_METHOD(manager, view_params)
         return;
 
     Env::DocGroup gr("params");
-    Env::DocAddNum("aid", g.m_Aid);
+
+    Env::DocAddBlob_T("oracle", g.m_Settings.m_cidOracle);
+    Env::DocAddNum("aidTok", g.m_Aid);
+    Env::DocAddNum("aidGov", g.m_Settings.m_AidProfit);
+    Env::DocAddNum("liq_reserve", g.m_Settings.m_TroveLiquidationReserve);
+    Env::DocAddNum("troves_created", g.m_Troves.m_iLastCreated);
     DocAddPair("totals", g.m_Troves.m_Totals);
+    DocAddPerc("baserate", g.m_BaseRate.m_k);
+    Env::DocAddNum("stab_pool", g.m_StabPool.get_TotalSell());
+    Env::DocAddNum("gov_pool", g.m_ProfitPool.m_Weight);
+
 }
 
 ON_METHOD(manager, my_admin_key)
