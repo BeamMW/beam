@@ -27,7 +27,9 @@ namespace beam::wallet
     {
         struct Handler {
             virtual ~Handler() = default;
-            // execute callback in the same thread where ::create has been called
+            // All IPFS actions are executed in a separate IPFS thread
+            // This function is called from that thread and should push
+            // the 'action' to the thread where add/get/... is called
             virtual void pushToClient(std::function<void()>&& action) = 0;
         };
 
