@@ -11,7 +11,7 @@ namespace Fuddle
         static const uint8_t s_Global = 2;
         static const uint8_t s_Payout = 3;
         static const uint8_t s_Letter = 4;
-        static const uint8_t s_Quest = 5;
+        static const uint8_t s_Goal = 5;
     };
 
     struct AmountWithAsset {
@@ -50,13 +50,13 @@ namespace Fuddle
         AmountWithAsset m_Price;
     };
 
-    struct Quest
+    struct Goal
     {
         typedef uint32_t ID;
 
         struct Key
         {
-            uint8_t m_Tag = Tags::s_Quest;
+            uint8_t m_Tag = Tags::s_Goal;
             ID m_ID;
         };
 
@@ -66,7 +66,7 @@ namespace Fuddle
         // followed by Chars
     };
 
-    struct QuestMax :public Quest {
+    struct GoalMax :public Goal {
         Letter::Char m_pCh[s_MaxLen];
     };
 
@@ -80,7 +80,7 @@ namespace Fuddle
         static const uint8_t s_Key = Tags::s_Global;
 
         Config m_Config;
-        Quest::ID m_Quests;
+        Goal::ID m_Goals;
     };
 
     namespace Method
@@ -125,7 +125,7 @@ namespace Fuddle
             uint32_t m_Count;
         };
 
-        struct SetQuest
+        struct SetGoal
         {
             static const uint32_t s_iMethod = 7;
 
@@ -134,12 +134,12 @@ namespace Fuddle
             // followed by array of Chars
         };
 
-        struct SolveQuest
+        struct SolveGoal
         {
             static const uint32_t s_iMethod = 8;
 
             PubKey m_pkUser;
-            Quest::ID m_iQuest;
+            Goal::ID m_iGoal;
         };
 
     } // namespace Method

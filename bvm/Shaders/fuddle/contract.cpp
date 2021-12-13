@@ -31,7 +31,7 @@ BEAM_EXPORT void Ctor(const Method::Init& r)
     {
         MyState s(false);
         _POD_(s.m_Config) = r.m_Config;
-        s.m_Quests = 0;
+        s.m_Goals = 0;
 
         s.Save();
     }
@@ -167,7 +167,7 @@ BEAM_EXPORT void Method_6(const Method::Mint& r)
     s.AddSigAdmin();
 }
 
-BEAM_EXPORT void Method_7(const Method::SetQuest& r)
+BEAM_EXPORT void Method_7(const Method::SetGoal& r)
 {
     Env::Halt_if(!r.m_Prize.m_Amount);
     Env::FundsLock(r.m_Prize.m_Aid, r.m_Prize.m_Amount);
@@ -175,32 +175,31 @@ BEAM_EXPORT void Method_7(const Method::SetQuest& r)
     MyState s;
     s.AddSigAdmin();
 
-    Quest::Key qk;
-    qk.m_ID = ++s.m_Quests;
+    Goal::Key qk;
+    qk.m_ID = ++s.m_Goals;
     s.Save();
 
-    Env::Halt_if(r.m_Len > Quest::s_MaxLen);
+    Env::Halt_if(r.m_Len > Goal::s_MaxLen);
     uint32_t nSizeChars = sizeof(Letter::Char) * r.m_Len;
-    uint32_t nSize = sizeof(Quest) + nSizeChars;
+    uint32_t nSize = sizeof(Goal) + nSizeChars;
 
-    auto* pQ = (Quest*) Env::StackAlloc(nSize);
+    auto* pQ = (Goal*) Env::StackAlloc(nSize);
     pQ->m_Prize = r.m_Prize;
     Env::Memcpy(pQ + 1, &r + 1, nSizeChars);
 
     Env::SaveVar(&qk, sizeof(qk), pQ, nSize, KeyTag::Internal);
 }
 
-BEAM_EXPORT void Method_8(const Method::SolveQuest& r)
+BEAM_EXPORT void Method_8(const Method::SolveGoal& r)
 {
-    Quest::Key qk;
-    qk.m_ID = r.m_iQuest;
+    Goal::Key qk;
+    qk.m_ID = r.m_iGoal;
 
-    QuestMax q;
+    GoalMax q;
     auto nSize = Env::LoadVar(&qk, sizeof(qk), &q, sizeof(q), KeyTag::Internal);
-    Env::Halt_if(nSize < sizeof(Quest));
-    Env::Halt_if(!q.m_Prize.m_Amount);
+    Env::Halt_if(nSize < sizeof(Goal));
 
-    auto nLen = (nSize - sizeof(Quest)) / sizeof(Letter::Char);
+    auto nLen = (nSize - sizeof(Goal)) / sizeof(Letter::Char);
 
     Letter::Key lk;
     _POD_(lk.m_Raw.m_pkUser) = r.m_pkUser;
@@ -214,9 +213,9 @@ BEAM_EXPORT void Method_8(const Method::SolveQuest& r)
         DecAndSave(lk, let);
     }
 
-    Env::Halt_if(!q.m_Prize.m_Amount);
     Env::FundsUnlock(q.m_Prize.m_Aid, q.m_Prize.m_Amount);
-    _POD_(q.m_Prize).SetZero();
+
+    Env::DelVar_T(qk);
 
     Env::AddSig(r.m_pkUser);
 }
