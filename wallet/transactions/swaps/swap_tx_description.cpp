@@ -20,7 +20,9 @@ namespace beam::wallet
 {
 std::string GetSwapTxStatusStr(const TxParameters& txParams)
 {
-    auto [status, failureReason, sender, selfTx] = ParseParamsForStatusInterpretation(txParams);
+    TxStatus status = TxStatus::Pending;
+    if (auto value = txParams.GetParameter<wallet::TxStatus>(TxParameterID::Status); value)
+        status = *value;
 
     switch (status)
     {

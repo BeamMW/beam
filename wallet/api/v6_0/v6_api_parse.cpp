@@ -25,7 +25,7 @@ namespace
 {
     std::string GetApiTxStatusStr(const beam::wallet::TxParameters& txParams)
     {
-        auto [status, failureReason, sender, selfTx] = beam::wallet::ParseParamsForStatusInterpretation(txParams);
+        auto [status, sender, selfTx] = beam::wallet::ParseParamsForStatusInterpretation(txParams);
 
         if (status == beam::wallet::TxStatus::Registering)
                         return selfTx ? "self sending" : (sender ? "sending" : "receiving");

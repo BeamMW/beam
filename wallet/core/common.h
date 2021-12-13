@@ -526,7 +526,7 @@ namespace beam::wallet
         PublicOffline
     };
 
-    std::tuple<TxStatus, TxFailureReason, bool, bool> ParseParamsForStatusInterpretation(const TxParameters& txParams);
+    std::tuple<TxStatus, bool, bool> ParseParamsForStatusInterpretation(const TxParameters& txParams);
     std::string GetTxStatusStr(const TxParameters& txParams);
     std::string GetSimpleTxStatusStr(const TxParameters& txParams);
     std::string GetMaxAnonimityTxStatusStr(const TxParameters& txParams);

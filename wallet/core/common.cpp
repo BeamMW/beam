@@ -83,6 +83,15 @@ namespace
         }
         return false;
     }
+
+    beam::wallet::TxFailureReason GetFailtureReason(const beam::wallet::TxParameters& txParams)
+    {
+        beam::wallet::TxFailureReason failureReason = beam::wallet::TxFailureReason::Unknown;
+        if (auto value = txParams.GetParameter<beam::wallet::TxFailureReason>(beam::wallet::TxParameterID::FailureReason); value)
+            failureReason = *value;
+
+        return failureReason;
+    }
 }
 
 namespace std
@@ -698,22 +707,14 @@ namespace beam::wallet
         return true;
     }
 
-    std::tuple<TxStatus, TxFailureReason, bool, bool> ParseParamsForStatusInterpretation(const TxParameters& txParams)
+    std::tuple<TxStatus, bool, bool> ParseParamsForStatusInterpretation(const TxParameters& txParams)
     {
         TxStatus status = TxStatus::Pending;
-        TxFailureReason failureReason = TxFailureReason::Unknown;
         bool sender = false;
         bool selfTx = false;
 
         if (auto value = txParams.GetParameter<wallet::TxStatus>(TxParameterID::Status); value)
-        {
             status = *value;
-            if (status == TxStatus::Failed)
-            {
-                if (auto value2 = txParams.GetParameter<TxFailureReason>(TxParameterID::FailureReason); value2)
-                    failureReason = *value2;
-            }
-        }
 
         if (auto value = txParams.GetParameter<bool>(TxParameterID::IsSender); value)
             sender = *value;
@@ -721,12 +722,12 @@ namespace beam::wallet
         if (auto value = txParams.GetParameter<bool>(TxParameterID::IsSelfTx); value)
             selfTx = *value;
 
-        return std::make_tuple(status, failureReason, sender, selfTx);
+        return std::make_tuple(status, sender, selfTx);
     }
 
     std::string GetTxStatusStr(const TxParameters& txParams)
     {
-        auto [status, failureReason, sender, selfTx] = ParseParamsForStatusInterpretation(txParams);
+        auto [status, sender, selfTx] = ParseParamsForStatusInterpretation(txParams);
 
         switch (status)
         {
@@ -737,7 +738,7 @@ namespace beam::wallet
             case TxStatus::Registering: 
                 return selfTx ? "self sending" : (sender ? "sending" : "receiving" );
             case TxStatus::Failed:
-                return TxFailureReason::TransactionExpired == failureReason ? "expired" : "failed";
+                return TxFailureReason::TransactionExpired == GetFailtureReason(txParams) ? "expired" : "failed";
             case TxStatus::Canceled:
                 return "cancelled";
             case TxStatus::Completed:
@@ -752,7 +753,7 @@ namespace beam::wallet
 
     std::string GetSimpleTxStatusStr(const TxParameters& txParams)
     {
-        [[maybe_unused]] auto [status, failureReason, sender, selfTx] = ParseParamsForStatusInterpretation(txParams);
+        auto [status, sender, selfTx] = ParseParamsForStatusInterpretation(txParams);
 
         switch (status)
         {
@@ -782,7 +783,7 @@ namespace beam::wallet
             addressType = tx_desc.m_sender ? GetAddressType(tx_desc) : TxAddressType::Unknown;
         }
 
-        auto [status, failureReason, sender, selfTx] = ParseParamsForStatusInterpretation(txParams);
+        auto [status, sender, selfTx] = ParseParamsForStatusInterpretation(txParams);
 
         switch (addressType)
         {
@@ -792,7 +793,7 @@ namespace beam::wallet
                 case TxStatus::Registering:
                     return selfTx ? "sending maximum anonymity to own address" : "in progress maximum anonymity";
                 case TxStatus::Failed:
-                    return TxFailureReason::TransactionExpired == failureReason ? "expired" : "failed maximum anonymity";
+                    return TxFailureReason::TransactionExpired == GetFailtureReason(txParams) ? "expired" : "failed maximum anonymity";
                 case TxStatus::Canceled:
                     return "canceled maximum anonymity";
                 case TxStatus::Completed:
@@ -807,7 +808,7 @@ namespace beam::wallet
                 case TxStatus::Registering:
                     return selfTx ? "sending offline to own address" : "in progress offline";
                 case TxStatus::Failed:
-                    return TxFailureReason::TransactionExpired == failureReason ? "expired" : "failed offline";
+                    return TxFailureReason::TransactionExpired == GetFailtureReason(txParams) ? "expired" : "failed offline";
                 case TxStatus::Canceled:
                     return "canceled offline";
                 case TxStatus::Completed:
@@ -822,7 +823,7 @@ namespace beam::wallet
                 case TxStatus::Registering:
                     return selfTx ? "sending offline to own address" : "in progress public offline";
                 case TxStatus::Failed:
-                    return TxFailureReason::TransactionExpired == failureReason ? "expired" : "failed public offline";
+                    return TxFailureReason::TransactionExpired == GetFailtureReason(txParams) ? "expired" : "failed public offline";
                 case TxStatus::Canceled:
                     return "canceled public offline";
                 case TxStatus::Completed:
