@@ -64,6 +64,7 @@ namespace beam::bvm2 {
 		// Params
 		proto::FlyClient::INetwork::Ptr m_pNetwork; // required for 'view' operations
 		Block::SystemState::IHistory* m_pHist = nullptr;
+		bool m_EnforceDependent = false;
 
 		ByteBuffer m_BodyManager; // always required
 		ByteBuffer m_BodyContract; // required if creating a new contract

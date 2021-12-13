@@ -1715,7 +1715,7 @@ namespace
             sTxt.resize(res.size() * 2);
 
             beam::to_hex(&sTxt.front(), res.data(), res.size());
-            LOG_INFO() << boost::format(kPpExportedFrom) % sTxt;
+            std::cout << boost::format(kPpExportedFrom) % sTxt;
         }
 
         return 0;
@@ -2192,6 +2192,27 @@ namespace
 
         auto txCompletedAction = isServer ? Wallet::TxCompletedAction() : onTxCompleteAction;
 
+        if (vm[cli::COMMAND].as<string>() == cli::ASSET_INFO || vm.count(cli::ASSET_INFO))
+        {
+            txCompletedAction = [&onTxCompleteAction, &walletDB](const TxID& txID) {
+                auto tx = walletDB->getTx(txID);
+                if (tx)
+                {
+                    const TxDescription& desc = *tx;
+                    const auto info = walletDB->findAsset(desc.m_assetId);
+                    if (AmountBig::get_Hi(info->m_Value))
+                    {
+                        auto maxTxValue = PrintableAmount(std::numeric_limits<Amount>::max(), false, info->m_ID);
+                        cout << "Warning. Total amount of asset would be larger that can be sent in one transaction (" 
+                             << maxTxValue << "). You would be forced to send using several transactions."
+                             << endl;
+                    }
+                }
+
+                onTxCompleteAction(txID);
+            };
+        }
+
         auto wallet = std::make_shared<Wallet>(walletDB,
                       std::move(txCompletedAction),
                       Wallet::UpdateCompletedAction());
@@ -2253,11 +2274,6 @@ namespace
 
                 auto params = CreateSimpleTransactionParameters();
                 LoadReceiverParams(vm, params);
-
-                if (auto vouchers = params.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
-                {
-                    storage::SaveVouchers(*walletDB, *vouchers, receiverWalletID);
-                }
 
                 WalletAddress senderAddress;
                 walletDB->createAddress(senderAddress);

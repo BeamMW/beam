@@ -774,7 +774,7 @@ bool Manager::LocalContext::SendContractTx(std::unique_ptr<TxKernelContractContr
             ptFunds = -ptFunds;
     }
 
-    pKrn->Sign(pKs, nKs, ptFunds);
+    pKrn->Sign(pKs, nKs, ptFunds, &m_Node.get_Processor().m_Cursor.m_Full.m_Prev);
     return SendTx(std::move(pKrn), sz, val, bSpend, skKrn);
 }
 

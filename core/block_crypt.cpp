@@ -1381,7 +1381,18 @@ namespace beam
 		hp.Serialize(m_Signature);
 	}
 
-	void TxKernelContractControl::Sign(const ECC::Scalar::Native* pK, uint32_t nKeys, const ECC::Point::Native& ptFunds)
+	void TxKernelContractControl::Prepare(ECC::Hash::Processor& hp, const Merkle::Hash* pParentCtx) const
+	{
+		hp << m_Msg;
+		if (m_Dependent)
+		{
+			assert(pParentCtx);
+			if (m_Height.m_Min >= Rules::get().pForks[4].m_Height)
+				hp << *pParentCtx;
+		}
+	}
+
+	void TxKernelContractControl::Sign(const ECC::Scalar::Native* pK, uint32_t nKeys, const ECC::Point::Native& ptFunds, const Merkle::Hash* pParentCtx)
 	{
 		assert(nKeys);
 		ECC::Point::Native pt = ECC::Context::get().G * pK[nKeys - 1];
@@ -1391,7 +1402,7 @@ namespace beam
 		UpdateMsg();
 
 		ECC::Hash::Processor hp;
-		hp << m_Msg;
+		Prepare(hp, pParentCtx);
 
 		for (uint32_t i = 0; i + 1 < nKeys; i++)
 		{

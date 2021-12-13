@@ -1642,7 +1642,7 @@ namespace detail
 				(val.m_Commitment.m_Y ? 1 : 0) |
 				(val.m_Signature.m_NoncePub.m_Y ? 0x10 : 0) |
 				(val.m_CanEmbed ? 0x20 : 0) |
-				(val.m_Dependent ? 0x40 : 0);
+				(val.m_Dependent ? 0x80 : 0);
 
 			ar
 				& nFlags
@@ -1676,7 +1676,7 @@ namespace detail
 
 			if (0x20 & nFlags)
 				val.m_CanEmbed = true;
-			if (0x40 & nFlags)
+			if (0x80 & nFlags)
 				val.m_Dependent = true;
 		}
 

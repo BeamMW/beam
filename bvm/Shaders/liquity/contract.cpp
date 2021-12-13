@@ -459,7 +459,7 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
                     g.m_Troves.m_Totals.Tok &&
                     price.IsBelow150(g.m_Troves.m_Totals.get_Rcr());
 
-                Env::Halt_if(!(bRecovery && (cr < Global::Price::get_k150()))); // in recovery mode can liquidate up to cr == 1.5
+                Env::Halt_if(!bRecovery); // in recovery mode can liquidate up to cr == 1.5
 
                 Amount valColMax = price.T2C(Float(t.m_Amounts.Tok) * Global::Price::get_k110());
                 assert(valColMax <= t.m_Amounts.Col);

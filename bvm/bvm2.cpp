@@ -2990,7 +2990,7 @@ namespace bvm2 {
 		if (m_Context.m_pParent && bFirst)
 		{
 			v.m_Flags |= ContractInvokeEntry::Flags::Dependent;
-			v.m_ParentCtx.m_Height = m_Context.m_Height;
+			v.m_ParentCtx.m_Height = m_Context.m_Height + 1;
 			v.m_ParentCtx.m_Hash = *m_Context.m_pParent;
 		}
 

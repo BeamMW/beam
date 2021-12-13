@@ -441,15 +441,6 @@ namespace beam::wallet
         hp >> hv;
     }
 
-    void SwapOfferConfirmation::get_Hash(Hash::Value& hv) const
-    {
-        beam::Blob data(m_offerData);
-        Hash::Processor()
-            << "SwapOfferSignature"
-            << data
-            >> hv;
-    }
-
     void SignatureHandler::get_Hash(Hash::Value& hv) const
     {
         beam::Blob data(m_data);
