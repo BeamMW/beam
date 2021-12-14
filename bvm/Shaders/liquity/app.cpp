@@ -26,10 +26,16 @@
     macro(uint32_t, opCol) \
     macro(uint32_t, bPredictOnly)
 
+#define Liquity_user_liquidate(macro) \
+    macro(ContractID, cid) \
+    macro(uint32_t, nMaxTroves) \
+    macro(uint32_t, bPredictOnly)
+
 #define LiquityRole_user(macro) \
     macro(user, view) \
     macro(user, withdraw_surplus) \
-    macro(user, trove_modify)
+    macro(user, trove_modify) \
+    macro(user, liquidate)
 
 #define LiquityRoles_All(macro) \
     macro(manager) \
@@ -294,6 +300,20 @@ struct MyGlobalPlus
         return bFound;
     }
 
+    void PopTrove(Trove::ID iPrev, Trove& t)
+    {
+        if (iPrev)
+            get_T(iPrev).m_iNext = t.m_iNext;
+        else
+            m_Troves.m_iHead = t.m_iNext;
+
+        EpochStorage<Tags::s_Epoch_Redist> stor(m_Kid.m_Blob.m_Cid);
+        m_RedistPool.Remove(t, stor);
+
+        m_Troves.m_Totals.Tok -= t.m_Amounts.Tok;
+        m_Troves.m_Totals.Col -= t.m_Amounts.Col;
+    }
+
     bool PopMyTrove()
     {
         assert(!m_MyTrove.m_pT);
@@ -306,16 +326,7 @@ struct MyGlobalPlus
             Trove& t = get_T(m_MyTrove.m_iT);
             if (_POD_(m_MyTrove.m_Pk) == t.m_pkOwner)
             {
-                if (m_MyTrove.m_iPrev0)
-                    get_T(m_MyTrove.m_iPrev0).m_iNext = t.m_iNext;
-                else
-                    m_Troves.m_iHead = t.m_iNext;
-
-                EpochStorage<Tags::s_Epoch_Redist> stor(m_Kid.m_Blob.m_Cid);
-                m_RedistPool.Remove(t, stor);
-
-                m_Troves.m_Totals.Tok -= t.m_Amounts.Tok;
-                m_Troves.m_Totals.Col -= t.m_Amounts.Col;
+                PopTrove(m_MyTrove.m_iPrev0, t);
 
                 m_MyTrove.m_pT = &t;
                 return true;
@@ -681,6 +692,58 @@ ON_METHOD(user, trove_modify)
 
         if (!bPredictOnly)
             Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "trove close", 0);
+    }
+}
+
+ON_METHOD(user, liquidate)
+{
+    MyGlobalPlus g(cid);
+    if (!g.LoadPlus())
+        return;
+
+    g.ReadVault();
+
+    Global::Liquidator ctx;
+    ctx.m_Price = g.m_Price;
+    _POD_(ctx.m_fpLogic).SetZero();
+
+    uint32_t nCount = 0;
+    bool bSelf = false;
+
+    while (g.m_Troves.m_iHead)
+    {
+        auto& t = g.get_T(g.m_Troves.m_iHead);
+        g.PopTrove(0, t);
+
+        Amount valSurplus = 0;
+        Env::Halt_if(!g.LiquidateTrove(t, ctx, valSurplus));
+
+        if (_POD_(g.m_MyTrove.m_Pk) == t.m_pkOwner)
+            bSelf = true;
+
+        if (nMaxTroves == ++nCount) // if nMaxTroves is 0 then unlimited
+            break;
+    }
+
+    if (bPredictOnly)
+    {
+        Env::DocGroup gr("prediction");
+        Env::DocAddNum("count", nCount);
+        Env::DocAddNum("tok", ctx.m_fpLogic.Tok.m_Val);
+        if (bSelf)
+            Env::DocAddNum("self_kill", 1u);
+    }
+    else
+    {
+
+        Method::Liquidate args;
+        args.m_Flow = ctx.m_fpLogic;
+        args.m_Count = nCount;
+
+        FundsChange pFc[2];
+        g.PrepareTx(args, pFc);
+
+        Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "troves liquidate", 0);
     }
 }
 

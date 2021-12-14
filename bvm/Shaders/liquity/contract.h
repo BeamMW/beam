@@ -326,19 +326,55 @@ namespace Liquity
             return price.T2C(feeTok);
         }
 
-/*
-        Amount get_LiquidationRewardReduce(Float cr) const
+        struct Liquidator
         {
-            Amount half = m_Settings.m_TroveLiquidationReserve / 2;
+            Price m_Price;
+            FlowPair m_fpLogic;
+            bool m_Stab = false;
+            bool m_Redist = false;
+        };
 
-            // icr == 0 - full reward
-            // icr == threshold - reward is reduced to half
+        bool LiquidateTrove(Trove& t, Liquidator& ctx, Amount& valSurplus)
+        {
+            assert(t.m_Amounts.Tok >= m_Settings.m_TroveLiquidationReserve);
 
-            Amount ret = Float(half) * cr / Price::get_k110();
+            auto cr = ctx.m_Price.ToCR(t.m_Amounts.get_Rcr());
+            if (cr > Global::Price::get_k100())
+            {
+                if (cr >= Global::Price::get_k110())
+                {
+                    if (!IsRecovery(ctx.m_Price)) // in recovery mode can liquidate the weakest
+                        return false;
 
-            return std::min(ret, half);
+                    Amount valColMax = ctx.m_Price.T2C(Float(t.m_Amounts.Tok) * Price::get_k110());
+                    assert(valColMax <= t.m_Amounts.Col);
+                    if (valColMax < t.m_Amounts.Col) // should always be true, just for more safety
+                    {
+                        valSurplus = t.m_Amounts.Col - valColMax;
+                        t.m_Amounts.Col = valColMax;
+                    }
+
+                }
+
+                if (m_StabPool.LiquidatePartial(t))
+                    ctx.m_Stab = true;
+            }
+
+            if (t.m_Amounts.Tok || t.m_Amounts.Col)
+            {
+                ctx.m_Redist = true;
+                if (!m_RedistPool.Liquidate(t))
+                    return false;
+
+                Strict::Add(m_Troves.m_Totals.Tok, t.m_Amounts.Tok);
+                Strict::Add(m_Troves.m_Totals.Col, t.m_Amounts.Col);
+            }
+
+            ctx.m_fpLogic.Tok.Add(m_Settings.m_TroveLiquidationReserve, 0); // goes to the liquidator
+            return true;
+
         }
-*/
+
         struct BaseRate
         {
             Float m_k;
@@ -432,7 +468,6 @@ namespace Liquity
         {
             static const uint32_t s_iMethod = 8;
             uint32_t m_Count;
-            Trove::ID m_iPrev1;
         };
 
         struct UpdProfitPool :public BaseTxUser
