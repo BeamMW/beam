@@ -287,21 +287,35 @@ namespace Liquity
                 return Float(1u);
             }
 
-            bool IsBelow150(Float rcr) const
+            bool IsBelow(const Pair& p, Float k) const
             {
-                return ToCR(rcr) < get_k150();
+                // theoretical formula: p.Col / p.Tok * m_Value < k
+                // rewrite it as: p.Col * m_Value < p.Tok * k
+                return C2T(p.Col) < (Float(p.Tok) * k);
             }
 
-            bool IsBelow110(Float rcr) const
-            {
-                return ToCR(rcr) < get_k110();
+            bool IsBelow150(const Pair& p) const {
+                return IsBelow(p, get_k150());
             }
 
-            bool IsBelow100(Float rcr) const
-            {
-                return ToCR(rcr) < get_k100();
+            bool IsBelow110(const Pair& p) const {
+                return IsBelow(p, get_k110());
+            }
+
+            bool IsBelow100(const Pair& p) const             {
+                return IsBelow(p, get_k100());
             }
         };
+
+        bool IsTroveUpdInvalid(const Trove& t, const Price& price, bool bRecovery) const
+        {
+            if (bRecovery)
+                // Ban txs that don't increase the tcr. Also covers the case where the very 1st trove drives us into recovery
+                return m_Troves.m_Totals.CmpRcr(t.m_Amounts) >= 0;
+
+            return price.IsBelow110(t.m_Amounts);
+        }
+
 /*
         Amount get_LiquidationRewardReduce(Float cr) const
         {

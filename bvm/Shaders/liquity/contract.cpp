@@ -264,17 +264,9 @@ struct MyGlobal
 
             // check cr
             Price price = get_Price();
-            Float trcr = m_Troves.m_Totals.get_Rcr();
 
-            bool bRecovery = price.IsBelow150(trcr);
-            if (bRecovery)
-            {
-                // recovery mode.
-                Env::Halt_if(!totals0.Tok); // the very first trove, should not drive us into recovery
-                Env::Halt_if(totals0.get_Rcr() > trcr); // Ban txs that further decreese the tcr
-            }
-            else
-                Env::Halt_if(price.IsBelow110(t.m_Amounts.get_Rcr()));
+            bool bRecovery = price.IsBelow150(m_Troves.m_Totals);
+            Env::Halt_if(IsTroveUpdInvalid(t, price, bRecovery));
 
             // during recovery borrowing fee is OFF
             if ((m_Troves.m_Totals.Tok > totals0.Tok) && !m_ProfitPool.IsEmpty() && !bRecovery)
@@ -457,7 +449,7 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
             {
                 bool bRecovery =
                     g.m_Troves.m_Totals.Tok &&
-                    price.IsBelow150(g.m_Troves.m_Totals.get_Rcr());
+                    price.IsBelow150(g.m_Troves.m_Totals);
 
                 Env::Halt_if(!bRecovery); // in recovery mode can liquidate up to cr == 1.5
 
