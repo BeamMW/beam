@@ -305,7 +305,7 @@ struct MyGlobal
         Env::CallFar_T(m_Settings.m_cidOracle, args, 0);
 
         Global::Price ret;
-        ret.m_Value = args.m_Val;
+        ret.m_Value = args.m_Value;
         return ret;
     }
 };

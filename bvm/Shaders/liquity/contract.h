@@ -1,5 +1,6 @@
 #pragma once
 #include "pool.h"
+#include "../oracle2/contract.h"
 
 namespace Liquity
 {
@@ -353,11 +354,7 @@ namespace Liquity
 
     namespace Method
     {
-        struct OracleGet
-        {
-            static const uint32_t s_iMethod = 3;
-            Float m_Val;
-        };
+        typedef Oracle2::Method::Get OracleGet;
 
         struct Create
         {

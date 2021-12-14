@@ -52,6 +52,7 @@ namespace Shaders {
 
 #include "../Shaders/vault/contract.h"
 #include "../Shaders/oracle/contract.h"
+#include "../Shaders/oracle2/contract.h"
 #include "../Shaders/dummy/contract.h"
 #include "../Shaders/StableCoin/contract.h"
 #include "../Shaders/faucet/contract.h"
@@ -163,6 +164,23 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Value);
 	}
 
+	template <bool bToShader, uint32_t nProvs> void Convert(MultiPrecision::Float& x) {
+		ConvertOrd<bToShader>(x.m_Num);
+		ConvertOrd<bToShader>((uint32_t&) x.m_Order);
+	}
+
+	template <bool bToShader, uint32_t nProvs> void Convert(Oracle2::Method::Create<nProvs>& x) {
+		ConvertOrd<bToShader>(x.m_Providers);
+		ConvertOrd<bToShader>(x.m_InitialValue);
+	}
+	template <bool bToShader> void Convert(Oracle2::Method::Set& x) {
+		ConvertOrd<bToShader>(x.m_iProvider);
+		ConvertOrd<bToShader>(x.m_Value);
+	}
+	template <bool bToShader> void Convert(Oracle2::Method::Get& x) {
+		ConvertOrd<bToShader>(x.m_Value);
+	}
+
 	template <bool bToShader> void Convert(Sidechain::Init& x) {
 		x.m_Hdr0.template Convert<bToShader>();
 		ConvertOrd<bToShader>(x.m_ComissionForProof);
@@ -258,10 +276,6 @@ namespace Shaders {
 	template <bool bToShader> void Convert(Liquity::Method::Create& x) {
 		ConvertOrd<bToShader>(x.m_Settings.m_TroveLiquidationReserve);
 	}
-	template <bool bToShader> void Convert(Liquity::Method::OracleGet& x) {
-		ConvertOrd<bToShader>(x.m_Val.m_Num);
-		ConvertOrd<bToShader>((uint32_t&) x.m_Val.m_Order);
-	}
 	template <bool bToShader> void Convert(Liquity::Method::TroveOpen& x) {
 		Convert<bToShader>(Cast::Down<Liquity::Method::BaseTx>(x));
 		ConvertOrd<bToShader>(x.m_Amounts.Tok);
@@ -301,6 +315,9 @@ namespace Shaders {
 	namespace Oracle {
 #include "../Shaders/oracle/contract.cpp"
 	}
+
+#include "../Shaders/oracle2/contract.cpp"
+
 	namespace StableCoin {
 #include "../Shaders/StableCoin/contract.cpp"
 	}
@@ -432,6 +449,7 @@ namespace bvm2 {
 		{
 			ByteBuffer m_Vault;
 			ByteBuffer m_Oracle;
+			ByteBuffer m_Oracle2;
 			ByteBuffer m_Dummy;
 			ByteBuffer m_Sidechain;
 			ByteBuffer m_StableCoin;
@@ -449,6 +467,7 @@ namespace bvm2 {
 
 		ContractID m_cidVault;
 		ContractID m_cidOracle;
+		ContractID m_cidOracle2;
 		ContractID m_cidStableCoin;
 		ContractID m_cidFaucet;
 		ContractID m_cidRoulette;
@@ -462,11 +481,6 @@ namespace bvm2 {
 		ContractID m_cidDaoCore;
 		ContractID m_cidAphorize;
 		ContractID m_cidLiquity;
-
-		struct MyOracle {
-			ContractID m_Cid;
-			Shaders::MultiPrecision::Float m_Value;
-		} m_MyOracle;
 
 
 		struct {
@@ -501,6 +515,18 @@ namespace bvm2 {
 				//case 1: Shaders::Oracle::Dtor(nullptr); return;
 				//case 2: Shaders::Oracle::Method_2(CastArg<Shaders::Oracle::Set>(pArgs)); return;
 				//case 3: Shaders::Oracle::Method_3(CastArg<Shaders::Oracle::Get>(pArgs)); return;
+				//}
+			}
+
+			if (cid == m_cidOracle2)
+			{
+				//TempFrame f(*this, cid);
+				//switch (iMethod)
+				//{
+				//case 0: Shaders::Oracle2::Ctor(CastArg<Shaders::Oracle2::Method::Create<0> >(pArgs)); return;
+				//case 1: Shaders::Oracle2::Dtor(nullptr); return;
+				//case 3: Shaders::Oracle2::Method_3(CastArg<Shaders::Oracle2::Method::Get>(pArgs)); return;
+				//case 4: Shaders::Oracle2::Method_4(CastArg<Shaders::Oracle2::Method::Set>(pArgs)); return;
 				//}
 			}
 
@@ -650,16 +676,6 @@ namespace bvm2 {
 				}
 			}
 */
-			if (cid == m_MyOracle.m_Cid)
-			{
-				TempFrame f(*this, cid);
-				switch (iMethod)
-				{
-				case 3:
-					CastArg<Shaders::MultiPrecision::Float>(pArgs) = m_MyOracle.m_Value;
-					return;
-				}
-			}
 
 			ProcessorContract::CallFar(cid, iMethod, pArgs, bInheritContext);
 		}
@@ -699,6 +715,7 @@ namespace bvm2 {
 		AddCode(m_Code.m_Vault, "vault/contract.wasm");
 		AddCode(m_Code.m_Dummy, "dummy/contract.wasm");
 		AddCode(m_Code.m_Oracle, "oracle/contract.wasm");
+		AddCode(m_Code.m_Oracle2, "oracle2/contract.wasm");
 		AddCode(m_Code.m_StableCoin, "StableCoin/contract.wasm");
 		AddCode(m_Code.m_Faucet, "faucet/contract.wasm");
 		AddCode(m_Code.m_Roulette, "roulette/contract.wasm");
@@ -712,8 +729,6 @@ namespace bvm2 {
 		AddCode(m_Code.m_Liquity, "liquity/contract.wasm");
 
 		m_FarCalls.m_SaveLocal = true;
-
-		m_MyOracle.m_Cid = 77453U;
 
 		TestVault();
 		TestAphorize();
@@ -1132,7 +1147,16 @@ namespace bvm2 {
 			AddPoolTotals(totalRedist, Shaders::Liquity::Tags::s_Epoch_Redist);
 
 			Shaders::Liquity::Global::Price price;
-			price.m_Value = m_Proc.m_MyOracle.m_Value;
+			{
+				Shaders::Env::Key_T<uint8_t> key;
+				key.m_Prefix.m_Cid = g.m_Settings.m_cidOracle;
+				key.m_KeyInContract = Shaders::Oracle2::Tags::s_Median;
+
+				Blob b;
+				m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
+				verify_test(sizeof(price.m_Value) == b.n);
+				memcpy(&price.m_Value, b.p, sizeof(price.m_Value));
+			}
 
 			std::cout << "Totals Tok=" << Val2Num(g.m_Troves.m_Totals.Tok) << ", Col=" << Val2Num(g.m_Troves.m_Totals.Col) << std::endl;
 			std::cout << "TCR = " << (ToDouble(price.ToCR(g.m_Troves.m_Totals.get_Rcr())) * 100.) << "" << std::endl;
@@ -1223,15 +1247,19 @@ namespace bvm2 {
 
 	void MyProcessor::TestLiquity()
 	{
-		m_MyOracle.m_Value = 45; // to the moon!
+		{
+			Shaders::Oracle2::Method::Create<1> args;
+			ZeroObject(args);
+			args.m_Providers = 1;
+			args.m_InitialValue = 45; // to the moon!
 
-		SaveVar(m_MyOracle.m_Cid, m_MyOracle.m_Cid); // dummy val, nevermind, just pretend the contract exists
-
+			verify_test(ContractCreate_T(m_cidOracle2, m_Code.m_Oracle2, args));
+		}
 
 		{
 			Shaders::Liquity::Method::Create args;
 			ZeroObject(args);
-			args.m_Settings.m_cidOracle = m_MyOracle.m_Cid;
+			args.m_Settings.m_cidOracle = m_cidOracle2;
 			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 5;
 			args.m_Settings.m_AidProfit = 77;
 
@@ -1309,7 +1337,7 @@ namespace bvm2 {
 						Shaders::Liquity::Pair vals = x.m_Amounts;
 
 						Shaders::Liquity::Global::Price price;
-						price.m_Value = m_MyOracle.m_Value;
+						price.m_Value = 45;
 
 						vals.Tok -= valRemaining;
 						vals.Col -= price.T2C(valRemaining); // dont care about overflow, let it fail in the contract
@@ -1328,7 +1356,15 @@ namespace bvm2 {
 			lc.PrintAll();
 		}
 
-		m_MyOracle.m_Value = 25; // price drop. Some would be liquidated vs stabpool, others via redistpool
+		{
+			Shaders::Oracle2::Method::Set args;
+			ZeroObject(args);
+			args.m_Value = 25; // price drop. Some would be liquidated vs stabpool, others via redistpool
+
+			verify_test(RunGuarded_T(m_cidOracle2, args.s_iMethod, args));
+
+		}
+
 		m_Height += 10;
 		std::cout << "Price drop" << std::endl;
 		lc.PrintAll();
