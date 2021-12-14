@@ -151,8 +151,13 @@ namespace proto {
 #define BeamNodeMsg_Ping(macro)
 #define BeamNodeMsg_Pong(macro)
 
+#define BeamNodeMsg_NewTransaction0(macro) \
+    macro(Transaction::Ptr, Transaction) \
+    macro(bool, Fluff)
+
 #define BeamNodeMsg_NewTransaction(macro) \
     macro(Transaction::Ptr, Transaction) \
+    macro(std::unique_ptr<Merkle::Hash>, Context) \
     macro(bool, Fluff)
 
 #define BeamNodeMsg_HaveTransaction(macro) \
@@ -160,6 +165,9 @@ namespace proto {
 
 #define BeamNodeMsg_GetTransaction(macro) \
     macro(Transaction::KeyType, ID)
+
+#define BeamNodeMsg_SetDependentContext(macro) \
+    macro(std::unique_ptr<Merkle::Hash>, Context)
 
 #define BeamNodeMsg_Bye(macro) \
     macro(uint8_t, Reason)
@@ -341,9 +349,12 @@ namespace proto {
     macro(0x2e, GetBlockFinalization) \
     macro(0x2f, BlockFinalization) \
     /* tx broadcast and replication */ \
-    macro(0x30, NewTransaction) \
+    macro(0x30, NewTransaction0) \
     macro(0x31, HaveTransaction) \
     macro(0x32, GetTransaction) \
+    macro(0x49, NewTransaction) \
+    /* dependent context and txs */ \
+    macro(0x4a, SetDependentContext) \
     /* bbs */ \
     macro(0x39, BbsHaveMsg) \
     macro(0x3a, BbsGetMsg) \
@@ -379,14 +390,27 @@ namespace proto {
             // 6 - Newer Event::AssetCtl, newer Utxo events
             // 7 - GetShieldedOutputsAt
             // 8 - Contract vars and logs, flexible hdr request, newer ShieldedList, Status
+            // 9 - Dependent txs
 
             static const uint32_t Minimum = 8;
-            static const uint32_t Maximum = 8;
+            static const uint32_t Maximum = 9;
 
             static void set(uint32_t& nFlags, uint32_t nExt);
             static uint32_t get(uint32_t nFlags);
         };
 	};
+
+    struct DependentContext
+    {
+        static void get_Ancestor(Merkle::Hash& hvRes, const Merkle::Hash& hvParent, const Merkle::Hash& hvTx)
+        {
+            ECC::Hash::Processor()
+                << "dep.tx"
+                << hvParent
+                << hvTx
+                >> hvRes;
+        }
+    };
 
     struct IDType
     {
@@ -568,9 +592,7 @@ namespace proto {
 		// Hence our sharding factor is 1K. Gives decent reduction of the traffic under peak loads, whereas maintains some degree of obfuscation on modest loads too.
 		// In the future it can be changed without breaking compatibility
 
-        static constexpr uint32_t s_BtcSwapOffersChannel = s_MaxWalletChannels;
-        static constexpr uint32_t s_LtcSwapOffersChannel = s_MaxWalletChannels + 1;
-        static constexpr uint32_t s_QtumSwapOffersChannel = s_MaxWalletChannels + 2;
+        static constexpr uint32_t s_SwapOffersChannel = s_MaxWalletChannels;
         static constexpr uint32_t s_BroadcastChannel = s_MaxWalletChannels + 3;
         static constexpr uint32_t s_DexOffersChannel = s_MaxWalletChannels + 4;
 
@@ -600,6 +622,9 @@ namespace proto {
         static const uint8_t ContractFailLast = 0x3f;
 
         static const uint8_t ContractFailNode = ContractFailLast; // non-existing contract invoked, duplicate contract created, contract d'tor left garbage
+
+        static const uint8_t DependentNoParent = 0x48;
+        static const uint8_t DependentNotBest = 0x48; // tx is ok, but looses to a competing tx
     };
 
 
@@ -740,6 +765,9 @@ namespace proto {
 
     public:
 
+        uint32_t m_LoginFlags;
+        uint32_t get_Ext() const;
+
         NodeConnection();
         virtual ~NodeConnection();
         void Reset();
@@ -766,13 +794,14 @@ namespace proto {
 		virtual void OnMsg(GetTime&&) override;
 		virtual void OnMsg(Time&&) override;
 		virtual void OnMsg(Login&&) override;
+        virtual void OnMsg(NewTransaction0&&) override;
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 
 		// Login-specific
 		void SendLogin();
 		virtual void SetupLogin(Login&);
-		virtual void OnLogin(Login&&);
+		virtual void OnLogin(Login&&, uint32_t nFlagsPrev);
 		virtual Height get_MinPeerFork();
 
         bool IsLive() const;
@@ -833,9 +862,16 @@ namespace proto {
         void OnExc(const std::exception&);
         void OnProcessingExc(const NodeProcessingException& exception);
 
-#define THE_MACRO(code, msg) void Send(const msg& v);
+#define THE_MACRO(code, msg) void SendRaw(const msg& v);
         BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
+
+        template <typename TMsg>
+        void Send(const TMsg& msg) {
+            SendRaw(msg);
+        }
+
+        void Send(const NewTransaction&);
 
         struct Server
         {

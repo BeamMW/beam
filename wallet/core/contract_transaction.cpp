@@ -66,10 +66,8 @@ namespace beam::wallet
     void ContractTransaction::UpdateImpl()
     {
         if (!m_TxBuilder)
-        {
             m_TxBuilder = std::make_shared<MyBuilder>(*this, kDefaultSubTxID);
-            std::setmax(m_TxBuilder->m_Fee, Transaction::FeeSettings::get(m_TxBuilder->m_Height.m_Min).get_DefaultStd());
-        }
+
         auto& builder = *m_TxBuilder;
 
         Key::IKdf::Ptr pKdf = get_MasterKdfStrict();
@@ -98,9 +96,15 @@ namespace beam::wallet
             {
                 const auto& cdata = vData[i];
 
-                Amount fee = cdata.get_FeeMin(builder.m_Height.m_Min);
-                if (!i)
-                    fee += builder.m_Fee;
+                Amount fee;
+                if (cdata.IsAdvanced())
+                    fee = cdata.m_Adv.m_Fee; // can't change!
+                else
+                {
+                    fee = cdata.get_FeeMin(builder.m_Height.m_Min);
+                    if (!i)
+                        std::setmax(fee, builder.m_Fee);
+                }
 
                 cdata.Generate(*builder.m_pTransaction, *pKdf, builder.m_Height, fee);
 

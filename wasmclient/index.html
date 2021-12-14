@@ -13,7 +13,19 @@
             Module.WasmWalletClient.MountFS(function()
                 {
                     console.log("mounted");
-                    //Module.WasmWalletClient.CreateWallet(phrase, "/beam_wallet/wallet.db", "123");
+
+                    Module.WasmWalletClient.CheckPassword("/beam_wallet/wallet.db", "13", (res) => {
+                        if (res)
+                            console.log("Password is correct")
+                        else
+                            console.log("Password is not correct")
+                    })
+
+                    return;
+                    console.log("Module.WasmWalletClient.IsInitialized(\"/beam_wallet/wallet.db\")", Module.WasmWalletClient.IsInitialized("/beam_wallet/wallet.db"))
+                    if (!Module.WasmWalletClient.IsInitialized("/beam_wallet/wallet.db")) {
+                        Module.WasmWalletClient.CreateWallet(phrase, "/beam_wallet/wallet.db", "123");
+                    }
                     var walletClient = new Module.WasmWalletClient("/beam_wallet/wallet.db", "123", "eu-node01.masternet.beam.mw:8200");
                     {
                         walletClient.setSyncHandler((done, total) => {
@@ -75,7 +87,7 @@
                     }, 10, walletClient);    
 
                     setTimeout((wc)=>{
-                        console.log("Stopoping...")
+                        console.log("Stopping...")
                         console.log("is running: " + wc.isRunning())
                         wc.stopWallet(()=> {
                             console.log("is running: " + wc.isRunning())

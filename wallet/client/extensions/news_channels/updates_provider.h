@@ -30,7 +30,6 @@ namespace beam::wallet
         AppUpdateInfoProvider(IBroadcastMsgGateway&, BroadcastMsgValidator&);
         virtual ~AppUpdateInfoProvider() = default;
         // IBroadcastListener implementation
-        bool onMessage(uint64_t unused, ByteBuffer&&) override;     // TODO: dh remove after 2 fork.
         bool onMessage(uint64_t unused, BroadcastMsg&&) override;
         
         // INewsObserver interface

@@ -16,6 +16,7 @@
 #include "wasm_interpreter.h"
 #include "../utility/containers.h"
 #include "../core/block_crypt.h"
+#include "invoke_data.h"
 
 namespace Shaders {
 
@@ -90,43 +91,8 @@ namespace bvm2 {
 		static const uint32_t SecScalars = 16;
 		static const uint32_t SecPoints = 16;
 
-		static const uint32_t BlockCharge = 100*1000*1000; // 100 mln units
+#include "bvm2_cost.h"
 
-		template <uint32_t nMaxOps>
-		struct ChargeFor {
-			static const uint32_t V = (BlockCharge + nMaxOps - 1) / nMaxOps;
-			static_assert(V, "");
-		};
-
-		struct Cost
-		{
-			static const uint32_t Cycle				= ChargeFor<20*1000*1000>::V;
-			static const uint32_t MemOp				= ChargeFor<2*1000*1000>::V;
-			static const uint32_t MemOpPerByte		= ChargeFor<50*1000*1000>::V;
-			static const uint32_t HeapOp			= ChargeFor<1000*1000>::V;
-			static const uint32_t LoadVar			= ChargeFor<20*1000>::V;
-			static const uint32_t LoadVarPerByte	= ChargeFor<2*1000*1000>::V;
-			static const uint32_t SaveVar			= ChargeFor<5*1000>::V;
-			static const uint32_t SaveVarPerByte	= ChargeFor<1000*1000>::V;
-			static const uint32_t Log				= ChargeFor<20*1000>::V;
-			static const uint32_t LogPerByte		= ChargeFor<1000*1000>::V;
-			static const uint32_t UpdateShader		= ChargeFor<1*1000>::V;
-			static const uint32_t CallFar			= ChargeFor<10*1000>::V;
-			static const uint32_t AddSig			= ChargeFor<10*1000>::V;
-			static const uint32_t AssetManage		= ChargeFor<1000>::V;
-			static const uint32_t AssetEmit			= ChargeFor<20*1000>::V;
-			static const uint32_t FundsLock			= ChargeFor<50*1000>::V;
-			static const uint32_t HashOp			= ChargeFor<1000*1000>::V;
-			static const uint32_t HashWrite			= ChargeFor<5 * 1000*1000>::V;
-			static const uint32_t HashWritePerByte	= ChargeFor<50*1000*1000>::V;
-
-			static const uint32_t Secp_ScalarInv		= ChargeFor<5*1000>::V;
-			static const uint32_t Secp_Point_Import		= ChargeFor<5*1000>::V;
-			static const uint32_t Secp_Point_Export		= ChargeFor<5*1000>::V;
-			static const uint32_t Secp_Point_Multiply	= ChargeFor<2*1000>::V;
-
-			static const uint32_t BeamHashIII		= ChargeFor<20*1000>::V;
-		};
 	};
 
 	// Contract unique identifier 
@@ -224,10 +190,20 @@ namespace bvm2 {
 			return *reinterpret_cast<T*>(get_AddrW(nOffset, sizeof(T)));
 		}
 
-		template <typename T> const T* get_ArrayAddrAsR(uint32_t nOffset, uint32_t nCount) {
+		template <typename T>
+		static uint32_t ToArrSize(uint32_t nCount)
+		{
 			uint32_t nSize = sizeof(T) * nCount;
 			Wasm::Test(nSize / sizeof(T) == nCount); // overflow test
-			return reinterpret_cast<const T*>(get_AddrR(nOffset, nSize));
+			return nSize;
+		}
+
+		template <typename T> const T* get_ArrayAddrAsR(uint32_t nOffset, uint32_t nCount) {
+			return reinterpret_cast<const T*>(get_AddrR(nOffset, ToArrSize<T>(nCount)));
+		}
+
+		template <typename T> T* get_ArrayAddrAsW(uint32_t nOffset, uint32_t nCount) {
+			return reinterpret_cast<T*>(get_AddrW(nOffset, ToArrSize<T>(nCount)));
 		}
 
 		struct Header;
@@ -239,6 +215,10 @@ namespace bvm2 {
 		void DischargeMemOp(uint32_t size);
 		virtual void DischargeUnits(uint32_t size) {}
 
+		virtual void WriteStream(const Blob&, uint32_t iStream) {
+			Wasm::Fail();
+		}
+
 		struct DataProcessor
 		{
 			struct Base
@@ -247,6 +227,7 @@ namespace bvm2 {
 				virtual ~Base() {}
 				virtual void Write(const uint8_t*, uint32_t) = 0;
 				virtual uint32_t Read(uint8_t*, uint32_t) = 0;
+				virtual void Clone(std::unique_ptr<Base>&) const = 0;
 			};
 
 			typedef intrusive::multiset_autoclear<Base> Map;
@@ -260,6 +241,7 @@ namespace bvm2 {
 		} m_DataProcessor;
 
 		uint32_t AddHash(std::unique_ptr<DataProcessor::Base>&&);
+		uint32_t CloneHash(const DataProcessor::Base&);
 
 		static void CvtHdr(Shaders::BlockHeader::InfoBase&, const Block::SystemState::Full&);
 
@@ -300,6 +282,11 @@ namespace bvm2 {
 		} m_Secp;
 
 		const HeightPos* FromWasmOpt(Wasm::Word pPos, HeightPos& buf);
+
+		bool IsPastHF4() {
+			// current height does not include the current being-interpreted block
+			return get_Height() + 1 >= Rules::get().pForks[4].m_Height;
+		}
 
 	public:
 
@@ -343,11 +330,29 @@ namespace bvm2 {
 				Wasm::Word m_StackPosMin;
 				Wasm::Word m_StackBytesMax;
 				Wasm::Word m_StackBytesRet;
+
+				struct Local
+				{
+					struct Entry {
+						Wasm::Word m_CallerIp;
+						Wasm::Word m_Addr;
+					};
+
+					static const uint32_t s_MaxEntries = 256;
+
+					std::vector<Entry> m_v;
+					uint32_t m_Missing;
+
+				} m_Local;
 			};
 
 			intrusive::list_autoclear<Frame> m_Stack;
 
+			bool m_SaveLocal = false; // enable for debugging
+
 		} m_FarCalls;
+
+		void DumpCallstack(std::ostream& os) const;
 
 		bool LoadFixedOrZero(const VarKey&, uint8_t* pVal, uint32_t);
 		uint32_t SaveNnz(const VarKey&, const uint8_t* pVal, uint32_t);
@@ -364,6 +369,7 @@ namespace bvm2 {
 
 
 		virtual void InvokeExt(uint32_t) override;
+		virtual void OnCall(Wasm::Word nAddr) override;
 		virtual void OnRet(Wasm::Word nRetAddr) override;
 		virtual uint32_t get_HeapLimit() override;
 		virtual void DischargeUnits(uint32_t size) override;
@@ -394,11 +400,6 @@ namespace bvm2 {
 		std::vector<ECC::Point::Native> m_vPks;
 		ECC::Point::Native& AddSigInternal(const ECC::Point&);
 
-		bool IsPastHF4() {
-			// current heught does not include the current being-interpreted block
-			return get_Height() + 1 >= Rules::get().pForks[4].m_Height;
-		}
-
 		void TestVarSize(uint32_t n)
 		{
 			uint32_t nMax = IsPastHF4() ? Limits::VarSize_4 : Limits::VarSize_0;
@@ -406,6 +407,8 @@ namespace bvm2 {
 		}
 
 		void ToggleSidEntry(const ShaderID& sid, const ContractID& cid, bool bSet);
+
+		void OnRetFar();
 
 	public:
 
@@ -418,6 +421,7 @@ namespace bvm2 {
 		ECC::Hash::Processor* m_pSigValidate = nullptr; // assign it to allow sig validation
 		void CheckSigs(const ECC::Point& comm, const ECC::Signature&);
 
+		void AddRemoveShader(const ContractID&, const Blob*, bool bFireEvent);
 		void AddRemoveShader(const ContractID&, const Blob*);
 
 		std::vector<ECC::Point>* m_pvSigs = nullptr;
@@ -451,7 +455,17 @@ namespace bvm2 {
 		void DocID(const char*);
 		const std::string* FindArg(const char*);
 
-		void DeriveKeyPreimage(ECC::Hash::Value&, const Blob&);
+		static void DeriveKeyPreimage(ECC::Hash::Value&, const Blob&);
+		void DerivePkInternal(ECC::Point::Native&, const Blob&);
+		void get_DH_Internal(uint32_t res, const ECC::Hash::Value&, uint32_t gen);
+
+		void get_SlotPreimageInternal(ECC::Hash::Value&, uint32_t);
+		void SlotRenegerateInternal(ECC::Hash::Value& hvRes, uint32_t iSlot, const void* pSeedExtra, uint32_t nSeedExtra);
+		void get_Sk(ECC::Scalar::Native&, const ECC::Hash::Value&);
+		void get_BlindSkInternal(uint32_t iRes, uint32_t iMul, uint32_t iSlot, const Blob&);
+
+		ContractInvokeEntry& GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, bool bCvtFunds, const char* szComment, uint32_t nCharge);
+		void SetKernelAdv(Height hMin, Height hMax, const PubKey& ptFullBlind, const PubKey& ptFullNonce, const ECC::Scalar& skForeignSig, uint32_t iSlotBlind, uint32_t iSlotNonce, const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE);
 
 		uint32_t VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof);
 		uint32_t LogGetProofInternal(const HeightPos&, Wasm::Word& pProof);
@@ -494,15 +508,80 @@ namespace bvm2 {
 
 		virtual bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) { return false; }
 		virtual bool LogGetProof(const HeightPos&, beam::Merkle::Proof&) { return false; }
-		virtual void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value&) { ZeroObject(pubKey);  }
-		virtual void GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) {}
+		virtual void get_ContractShader(ByteBuffer&) {} // needed when app asks to deploy a contract
 		virtual bool get_SpecialParam(const char*, Blob&) { return false; }
+
+		virtual bool SlotLoad(ECC::Hash::Value&, uint32_t iSlot) { return false; }
+		virtual void SlotSave(const ECC::Hash::Value&, uint32_t iSlot) { }
+		virtual void SlotErase(uint32_t iSlot) { }
+
+		struct Comm
+		{
+			struct Channel;
+
+			struct Rcv
+				:public boost::intrusive::list_base_hook<>
+			{
+				ByteBuffer m_Msg;
+
+				typedef intrusive::list_autoclear<Rcv> List;
+				Channel* m_pChannel = nullptr;
+
+				struct Global
+					:public boost::intrusive::list_base_hook<>
+				{
+					typedef intrusive::list<Global> List;
+					List* m_pList = nullptr;
+
+					~Global()
+					{
+						if (m_pList)
+							m_pList->erase(List::s_iterator_to(*this));
+					}
+
+					IMPLEMENT_GET_PARENT_OBJ(Rcv, m_Global)
+				} m_Global;
+
+			};
+
+			struct Channel
+				:public intrusive::set_base_hook<uint32_t>
+			{
+				virtual ~Channel() {} // auto
+
+				Rcv::List m_List;
+
+				typedef std::unique_ptr<Channel> Ptr;
+				typedef intrusive::multiset_autoclear<Channel> Map;
+
+			};
+
+			Channel::Map m_Map;
+			Rcv::Global::List m_Rcv;
+
+			void Clear()
+			{
+				m_Map.Clear();
+				assert(m_Rcv.empty());
+			}
+
+		} m_Comms;
+
+		virtual void Comm_CreateListener(Comm::Channel::Ptr&, const ECC::Hash::Value&) {}
+		virtual void Comm_Send(const ECC::Point&, const Blob&) {}
+		virtual void Comm_Wait(uint32_t nTimeout_ms) { Wasm::Fail(); }
 
 	public:
 
 		std::ostream* m_pOut;
 		bool m_NeedComma = false;
 		bool m_RawText = false; // don't perform json-style decoration
+
+		Key::IPKdf::Ptr m_pPKdf; // required for user-related info (account-specific pubkeys, etc.)
+
+		Key::IKdf::Ptr m_pKdf; // gives more access to the keys. Set only when app runs in a privileged mode
+
+		ContractInvokeData m_vInvokeData;
 
 		std::map<std::string, std::string> m_Args;
 		void set_ArgBlob(const char* sz, const Blob&);

@@ -16,7 +16,8 @@
 #include <string>
 #include <array>
 
-namespace beam::wallet {
+namespace beam::wallet
+{
     struct DexOrderID: std::array<uint8_t, 16>
     {
         [[nodiscard]] std::string to_string() const;

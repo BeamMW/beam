@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "dex_board.h"
 #include "utility/logger.h"
+#include "wallet/transactions/dex/dex_tx.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_msg_creator.h"
 #include "wallet/client/wallet_client.h"
 
@@ -49,30 +50,34 @@ namespace beam::wallet {
         return boost::none;
     }
 
-    /*void DexBoard::acceptOrder(const DexOrderID &id)
+    void DexBoard::acceptOrder(const DexOrderID &orderId)
     {
-        auto order = _orders.find(id);
-        if (order == _orders.end())
+        const auto order = getOrder(orderId);
+        if (!order)
         {
-            LOG_WARNING() << "DexBoard::acceptOrder, order " << id.to_string() << " not found";
+            assert(false);
             return;
         }
 
-        auto params = CreateDexTransactionParams();
+        LOG_INFO() << "Accepting dex order: "
+                   << "send " << PrintableAmount(order->getISendAmount(), false,order->getISendCoin())
+                   << ", receive " << PrintableAmount(order->getIReceiveAmount(), false,order->getIReceiveCoin());
+
+        auto params = beam::wallet::CreateDexTransactionParams(
+                    orderId,
+                    order->getSBBSID(),
+                    order->getISendCoin(),
+                    order->getISendAmount(),
+                    order->getIReceiveCoin(),
+                    order->getIReceiveAmount());
+
         _wallet->startTransaction(std::move(params));
-    }*/
+    }
 
     void DexBoard::publishOrder(const DexOrder &offer)
     {
         [[maybe_unused]] auto message = createMessage(offer);
         _gateway.sendMessage(BroadcastContentType::DexOffers, message);
-    }
-
-    bool DexBoard::onMessage(uint64_t, ByteBuffer&&)
-    {
-        assert(false);
-        LOG_WARNING() << "DexBoard: deprecated protocol message";
-        return false;
     }
 
     bool DexBoard::onMessage(uint64_t, BroadcastMsg&& msg)
@@ -135,5 +140,17 @@ namespace beam::wallet {
         {
             obs->onDexOrdersChanged(action, orders);
         }
+    }
+
+    bool DexBoard::acceptIncomingDexSS(const SetTxParameter& msg)
+    {
+        // TODO:DEX perform real check
+        // always true is only for tests
+        return true;
+    }
+
+    void DexBoard::onDexTxCreated(const SetTxParameter& msg, BaseTransaction::Ptr)
+    {
+        // TODO:DEX associate with the real order
     }
 }

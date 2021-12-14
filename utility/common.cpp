@@ -79,6 +79,17 @@ namespace beam
 
 #endif // WIN32
 
+	void utoa(char* sz, uint32_t n)
+	{
+		uint32_t nDigits = 1;
+		for (uint32_t x = n; ; nDigits++)
+			if (!(x /= 10))
+				break;
+
+		for (sz[nDigits] = 0; nDigits--; n /= 10)
+			sz[nDigits] = '0' + (n % 10);
+	}
+
 	Blob::Blob(const ByteBuffer& bb)
 	{
 		if ((n = (uint32_t)bb.size()) != 0)

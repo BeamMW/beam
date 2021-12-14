@@ -292,7 +292,12 @@ namespace bvm2 {
 
 		io::Reactor::get_Current().run();
 
-		return !r.m_pTrg;
+		if (!r.m_pTrg)
+			return true;
+
+		// propagate the stop
+		io::Reactor::get_Current().stop();
+		return false;
 	}
 
 	bool ManagerStd::get_HdrAt(Block::SystemState::Full& s)
@@ -350,13 +355,25 @@ namespace bvm2 {
 		return true;
 	}
 
-	void ManagerStd::StartRun(uint32_t iMethod)
+	void ManagerStd::OnReset()
 	{
 		InitMem();
 		m_Code = m_BodyManager;
 		m_Out.str("");
 		m_Out.clear();
 		decltype(m_vInvokeData)().swap(m_vInvokeData);
+		m_Comms.Clear();
+
+		m_mapReadVars.Clear();
+		m_mapReadLogs.Clear();
+
+		m_Freeze = 0;
+		m_WaitingMsg = false;
+	}
+
+	void ManagerStd::StartRun(uint32_t iMethod)
+	{
+		OnReset();
 
 		try {
 			CallMethod(iMethod);
@@ -367,6 +384,53 @@ namespace bvm2 {
 		}
 	}
 
+	void ManagerStd::Comm_Wait(uint32_t nTimeout_ms)
+	{
+		assert(m_Comms.m_Rcv.empty());
+
+		if (m_WaitingMsg)
+			return; // shouldn't happen, but anyway
+
+		m_Freeze++;
+		m_WaitingMsg = true;
+
+		if (static_cast<uint32_t>(-1) != nTimeout_ms)
+		{
+			if (!m_pOnMsgTimer)
+				m_pOnMsgTimer = io::Timer::create(io::Reactor::get_Current());
+
+			m_pOnMsgTimer->start(nTimeout_ms, false, [this]() { Comm_OnNewMsg(); });
+		}
+
+	}
+
+	void ManagerStd::Comm_OnNewMsg(const Blob& msg, Comm::Channel& c)
+	{
+		if (!msg.n)
+			return; // ignore empty msgs
+
+		auto* pItem = c.m_List.Create_back();
+		pItem->m_pChannel = &c;
+
+		m_Comms.m_Rcv.push_back(pItem->m_Global);
+		pItem->m_Global.m_pList = &m_Comms.m_Rcv;
+			
+		msg.Export(pItem->m_Msg);
+
+		Comm_OnNewMsg();
+	}
+
+	void ManagerStd::Comm_OnNewMsg()
+	{
+		if (m_WaitingMsg)
+		{
+			m_WaitingMsg = false;
+			Unfreeze();
+
+			if (m_pOnMsgTimer)
+				m_pOnMsgTimer->cancel();
+		}
+	}
 
 	void ManagerStd::RunSync()
 	{
@@ -380,45 +444,9 @@ namespace bvm2 {
 		OnDone(nullptr);
 	}
 
-	void ManagerStd::DerivePk(ECC::Point& pubKey, const ECC::Hash::Value& hv)
+	void ManagerStd::get_ContractShader(ByteBuffer& res)
 	{
-		Wasm::Test(m_pPKdf != nullptr);
-
-		ECC::Point::Native pt;
-		m_pPKdf->DerivePKeyG(pt, hv);
-		pubKey = pt;
-	}
-
-	void ManagerStd::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge)
-	{
-		auto& v = m_vInvokeData.emplace_back();
-
-		if (iMethod)
-		{
-			assert(pCid);
-			v.m_Cid = *pCid;
-		}
-		else
-		{
-			v.m_Cid = Zero;
-			v.m_Data = m_BodyContract;
-		}
-
-		v.m_iMethod = iMethod;
-		args.Export(v.m_Args);
-		v.m_vSig.assign(pSig, pSig + nSig);
-		v.m_sComment = szComment;
-		v.m_Charge = nCharge;
-
-		for (uint32_t i = 0; i < nFunds; i++)
-		{
-			const auto& x = pFunds[i];
-			AmountSigned val = x.m_Amount;
-			if (!x.m_Consume)
-				val = -val;
-
-			v.m_Spend.AddSpend(x.m_Aid, val);
-		}
+		res = m_BodyContract;
 	}
 
 	bool ManagerStd::get_SpecialParam(const char* sz, Blob& b)

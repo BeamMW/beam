@@ -168,6 +168,8 @@ class NodeProcessor
 	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
 	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
 
+	struct DependentContextSwitch;
+
 	void InternalAssetAdd(Asset::Full&, bool bMmr);
 	void InternalAssetDel(Asset::ID, bool bMmr);
 
@@ -577,7 +579,7 @@ public:
 	uint64_t FindActiveAtStrict(Height);
 	Height FindVisibleKernel(const Merkle::Hash&, const BlockInterpretCtx&);
 
-	uint8_t ValidateTxContextEx(const Transaction&, const HeightRange&, bool bShieldedTested, uint32_t& nBvmCharge, std::ostream* pExtraInfo); // assuming context-free validation is already performed, but 
+	uint8_t ValidateTxContextEx(const Transaction&, const HeightRange&, bool bShieldedTested, uint32_t& nBvmCharge, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo); // assuming context-free validation is already performed, but 
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
 	bool ValidateUniqueNoDup(BlockInterpretCtx&, const Blob& key, const Blob* pVal);
 	void ManageKrnID(BlockInterpretCtx&, const TxKernel&);
@@ -599,6 +601,7 @@ public:
 		:public GeneratedBlock
 	{
 		TxPool::Fluff& m_TxPool;
+		const TxPool::Dependent::Element* m_pParent;
 
 		Key::Index m_SubIdx;
 		Key::IKdf& m_Coin;
@@ -853,6 +856,11 @@ public:
 		void RemoveRaw(Entry&);
 
 	} m_ValCache;
+
+	struct IWorker {
+		virtual void Do() = 0;
+	};
+	bool ExecInDependentContext(IWorker&, const Merkle::Hash*, const TxPool::Dependent&);
 
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);

@@ -18,9 +18,42 @@
 #include "bvm/ManagerStd.h"
 
 namespace beam::wallet {
+
+    struct ManagerStdInWallet
+        :public bvm2::ManagerStd
+    {
+        ManagerStdInWallet(WalletDB::Ptr, Wallet::Ptr);
+        virtual ~ManagerStdInWallet();
+
+        void set_Privilege(uint32_t);
+
+    protected:
+
+        WalletDB::Ptr m_pWalletDB;
+        Wallet::Ptr m_pWallet;
+        uint32_t m_Privilege;
+
+        struct SlotName;
+        struct Channel;
+
+        void TestCommAllowed() const;
+
+        bool SlotLoad(ECC::Hash::Value&, uint32_t iSlot) override;
+        void SlotSave(const ECC::Hash::Value&, uint32_t iSlot) override;
+        void SlotErase(uint32_t iSlot) override;
+        void Comm_CreateListener(Comm::Channel::Ptr&, const ECC::Hash::Value&) override;
+        void Comm_Send(const ECC::Point&, const Blob&) override;
+        void WriteStream(const Blob&, uint32_t iStream) override;
+    };
+
+
+
+
+
+
     class ShadersManager
         : public IShadersManager
-        , private beam::bvm2::ManagerStd
+        , private ManagerStdInWallet
     {
     public:
         ShadersManager(beam::wallet::Wallet::Ptr wallet,
@@ -48,10 +81,10 @@ namespace beam::wallet {
         void compileAppShader(const std::vector<uint8_t> &shader);
 
         bool _done = true;
+        bool _logResult = true;
         std::string _currentAppId;
         std::string _currentAppName;
 
-        beam::wallet::IWalletDB::Ptr _wdb;
         beam::wallet::Wallet::Ptr _wallet;
 
         struct Request {

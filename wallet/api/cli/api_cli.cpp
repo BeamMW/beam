@@ -486,41 +486,30 @@ namespace
 
 int main(int argc, char* argv[])
 {
-    using namespace beam;
     namespace po = boost::program_options;
+    using namespace beam;
 
-    const auto path = boost::filesystem::system_complete("./logs");
-    auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "api_", path.string());
-
-    try
+    struct
     {
-        struct
-        {
-            uint16_t port;
-            std::string walletPath;
-            std::string nodeURI;
-            bool useHttp;
-            Nonnegative<uint32_t> pollPeriod_ms;
+        uint16_t port;
+        std::string walletPath;
+        std::string nodeURI;
+        bool useHttp;
+        Nonnegative<uint32_t> pollPeriod_ms;
 
-            bool useAcl;
-            std::string aclPath;
-            std::string whitelist;
-            std::string apiVersion;
+        bool useAcl;
+        std::string aclPath;
+        std::string whitelist;
+        std::string apiVersion;
 
-            uint32_t logCleanupPeriod;
-            bool enableLelentus = false;
-        } options;
+        uint32_t logCleanupPeriod;
+        bool enableLelantus = false;
+    } options;
+    TlsOptions tlsOptions;
 
-        TlsOptions tlsOptions;
-
-        io::Address node_addr;
-        IWalletDB::Ptr walletDB;
-        ApiACL acl;
-        std::vector<uint32_t> whitelist;
-
-        {
-            po::options_description desc("Wallet API general options");
-            desc.add_options()
+    po::options_description desc("Wallet API general options");
+    {
+        desc.add_options()
                 (cli::HELP_FULL, "list of all options")
                 (cli::VERSION_FULL, "print project version")
                 (cli::PORT_FULL, po::value(&options.port)->default_value(10000), "port to start server on")
@@ -529,56 +518,90 @@ int main(int argc, char* argv[])
                 (cli::PASS, po::value<std::string>(), "password for the wallet")
                 (cli::API_USE_HTTP, po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
                 (cli::IP_WHITELIST, po::value<std::string>(&options.whitelist)->default_value(""), "IP whitelist")
-                (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
                 (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
                 (cli::WITH_ASSETS,    po::bool_switch()->default_value(false), "enable confidential assets transactions")
                 (cli::ENABLE_LELANTUS, po::bool_switch()->default_value(false), "enable Lelantus MW transactions")
                 (cli::API_VERSION, po::value<std::string>(&options.apiVersion)->default_value("current"), "API version")
-                (cli::CONFIG_FILE_PATH, po::value<std::string>()->default_value("wallet-api.cfg"), "path to the config file");
-            ;
+                (cli::CONFIG_FILE_PATH, po::value<std::string>()->default_value("wallet-api.cfg"), "path to the config file")
+                (cli::LOG_LEVEL, po::value<std::string>(), "set log level [error|warning|info(default)|debug|verbose]")
+                (cli::FILE_LOG_LEVEL, po::value<std::string>(), "set file log level [error|warning|info(default)|debug|verbose]")
+                (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
+        ;
 
-            po::options_description authDesc("User authorization options");
-            authDesc.add_options()
+        po::options_description authDesc("User authorization options");
+        authDesc.add_options()
                 (cli::API_USE_ACL, po::value<bool>(&options.useAcl)->default_value(false), "use Access Control List (ACL)")
                 (cli::API_ACL_PATH, po::value<std::string>(&options.aclPath)->default_value("wallet_api.acl"), "path to ACL file")
-            ;
+        ;
 
-            po::options_description tlsDesc("TLS protocol options");
-            tlsDesc.add_options()
+        po::options_description tlsDesc("TLS protocol options");
+        tlsDesc.add_options()
                 (cli::API_USE_TLS, po::value<bool>(&tlsOptions.use)->default_value(false), "use TLS protocol")
                 (cli::API_TLS_CERT, po::value<std::string>(&tlsOptions.certPath)->default_value("wallet_api.crt"), "path to TLS certificate")
                 (cli::API_TLS_KEY, po::value<std::string>(&tlsOptions.keyPath)->default_value("wallet_api.key"), "path to TLS private key")
                 (cli::API_TLS_REQUEST_CERTIFICATE, po::value<bool>(&tlsOptions.requestCertificate)->default_value("false"), "request client's certificate for verification")
                 (cli::API_TLS_REJECT_UNAUTHORIZED, po::value<bool>(&tlsOptions.rejectUnauthorized)->default_value("true"), "server will reject any connection which is not authorized with the list of supplied CAs.")
-            ;
+        ;
 
-            desc.add(authDesc);
-            desc.add(tlsDesc);
-            desc.add(createRulesOptionsDescription());
+        desc.add(authDesc);
+        desc.add(tlsDesc);
+        desc.add(createRulesOptionsDescription());
+    }
 
-            po::variables_map vm;
-
+    try
+    {
+        po::variables_map vm;
+        try
+        {
             po::store(po::command_line_parser(argc, argv)
-                .options(desc)
-                .style(po::command_line_style::default_style ^ po::command_line_style::allow_guessing)
-                .run(), vm);
+                              .options(desc)
+                              .style(po::command_line_style::default_style ^ po::command_line_style::allow_guessing)
+                              .run(), vm);
+        }
+        catch (const std::exception& e)
+        {
+            std::cerr << "EXCEPTION: " << e.what() << std::endl;
+        }
 
-            if (vm.count(cli::HELP))
-            {
-                std::cout << desc << std::endl;
-                return 0;
-            }
+        if (vm.count(cli::HELP))
+        {
+            std::cout << desc << std::endl;
+            return 0;
+        }
 
-            if (vm.count(cli::VERSION))
-            {
-                std::cout << PROJECT_VERSION << std::endl;
-                return 0;
-            }
+        if (vm.count(cli::VERSION))
+        {
+            std::cout << PROJECT_VERSION << std::endl;
+            return 0;
+        }
 
-            ReadCfgFromFileCommon(vm, desc);
-            ReadCfgFromFile(vm, desc);
-            vm.notify();
+        auto cfgCommon = ReadCfgFromFileCommon(vm, desc);
+        auto cfgApi = ReadCfgFromFile(vm, desc);
+        vm.notify();
 
+        int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
+        int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
+
+        const auto path = boost::filesystem::system_complete("./logs");
+        auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "api_", path.string());
+
+        // Since ReadCfg outputs file name to std::cout print also to logs
+        if (cfgCommon)
+        {
+            LOG_INFO() << "Wallet API common config read from: " << *cfgCommon;
+        }
+
+        if (cfgApi)
+        {
+            LOG_INFO() << "Wallet API config read from: " << *cfgApi;
+        }
+
+        io::Address node_addr;
+        IWalletDB::Ptr walletDB;
+        ApiACL acl;
+        std::vector<uint32_t> whitelist;
+
+        {
             if (!IWalletApi::ValidateAPIVersion(options.apiVersion))
             {
                 std::cout << "Unsupported API version requested: " << options.apiVersion << std::endl;
@@ -665,8 +688,7 @@ int main(int argc, char* argv[])
             // this should be exactly CLI flag value to print correct error messages
             // Rules::CA.Enabled would be checked as well but later
             wallet::g_AssetsEnabled = vm[cli::WITH_ASSETS].as<bool>();
-
-            options.enableLelentus = vm[cli::ENABLE_LELANTUS].as<bool>();
+            options.enableLelantus = vm[cli::ENABLE_LELANTUS].as<bool>();
         }
 
         io::Reactor::Ptr reactor = io::Reactor::create();
@@ -716,7 +738,7 @@ int main(int argc, char* argv[])
             RegisterAllAssetCreators(*wallet);
         }
 
-        if (options.enableLelentus)
+        if (options.enableLelantus)
         {
             lelantus::RegisterCreators(*wallet, walletDB);
         }

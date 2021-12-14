@@ -213,7 +213,7 @@ struct Node
 	bool DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>&, const proto::HdrPack&);
 	static bool DecodeAndCheckHdrsImpl(std::vector<Block::SystemState::Full>&, const proto::HdrPack&, ExecutorMT&);
 
-	uint8_t OnTransaction(Transaction::Ptr&&, const PeerID*, bool bFluff, std::ostream* pExtraInfo);
+	uint8_t OnTransaction(Transaction::Ptr&&, std::unique_ptr<Merkle::Hash>&&, const PeerID*, bool bFluff, std::ostream* pExtraInfo);
 
         // for step-by-step tests
 	void GenerateFakeBlocks(uint32_t n);
@@ -274,6 +274,7 @@ private:
 	} m_Processor;
 
 	TxPool::Fluff m_TxPool;
+	TxPool::Dependent m_TxDependent;
 
 	struct Peer;
 
@@ -375,6 +376,7 @@ private:
 		struct Element
 		{
 			Transaction::Ptr m_pTx;
+			std::unique_ptr<Merkle::Hash> m_pCtx;
 			PeerID m_Sender;
 			bool m_Fluff;
 		};
@@ -386,9 +388,10 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_TxDeferred)
 	} m_TxDeferred;
 
-	void OnTransactionDeferred(Transaction::Ptr&&, const PeerID*, bool bFluff);
+	void OnTransactionDeferred(Transaction::Ptr&&, std::unique_ptr<Merkle::Hash>&&, const PeerID*, bool bFluff);
 	uint8_t OnTransactionStem(Transaction::Ptr&&, std::ostream* pExtraInfo);
 	uint8_t OnTransactionFluff(Transaction::Ptr&&, std::ostream* pExtraInfo, const PeerID*, Dandelion::Element*);
+	uint8_t OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash& hvCtx, const PeerID* pSender, bool bFluff, std::ostream* pExtraInfo);
 	void OnTransactionAggregated(Dandelion::Element&);
 	void OnTransactionWaitingConfirm(TxPool::Stem::Element&);
 	void PerformAggregation(Dandelion::Element&);
@@ -400,6 +403,7 @@ private:
 	void DeleteOutdated();
 
 	uint8_t ValidateTx(Transaction::Context&, const Transaction&, uint32_t& nSizeCorrection, Amount& feeReserve, std::ostream* pExtraInfo); // complete validation
+	uint8_t ValidateTx2(Transaction::Context&, const Transaction&, uint32_t& nBvmCharge, Amount& feeReserve, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo); // complete validation
 	static bool CalculateFeeReserve(const TxStats&, const HeightRange&, const AmountBig::Type&, uint32_t nBvmCharge, Amount& feeReserve);
 	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
 	void LogTxStem(const Transaction&, const char* szTxt);
@@ -517,7 +521,8 @@ private:
 		beam::io::Address m_RemoteAddr; // for logging only
 
 		Block::SystemState::Full m_Tip;
-		uint32_t m_LoginFlags;
+
+		std::unique_ptr<Merkle::Hash> n_pDependentContext;
 
 		uint64_t m_CursorBbs;
 		TxPool::Fluff::Element* m_pCursorTx;
@@ -567,7 +572,7 @@ private:
 		virtual void GenerateSChannelNonce(ECC::Scalar::Native&) override; // Must be overridden to support SChannel
 		// login
 		virtual void SetupLogin(proto::Login&) override;
-		virtual void OnLogin(proto::Login&&) override;
+		virtual void OnLogin(proto::Login&&, uint32_t nFlagsPrev) override;
 		virtual Height get_MinPeerFork() override;
 		// messages
 		virtual void OnMsg(proto::Authentication&&) override;
@@ -612,6 +617,7 @@ private:
 		virtual void OnMsg(proto::GetContractVar&&) override;
 		virtual void OnMsg(proto::GetContractLogProof&&) override;
 		virtual void OnMsg(proto::GetShieldedOutputsAt&&) override;
+		virtual void OnMsg(proto::SetDependentContext&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;

@@ -686,13 +686,18 @@ void TestCommitments()
 	}
 }
 
+void PrintSizeSerialized(const char* sz, const beam::SerializerSizeCounter& ssc)
+{
+	printf("%s size = %u\n", sz, (uint32_t)ssc.m_Counter.m_Value);
+}
+
 template <typename T>
 void WriteSizeSerialized(const char* sz, const T& t)
 {
 	beam::SerializerSizeCounter ssc;
 	ssc & t;
 
-	printf("%s size = %u\n", sz, (uint32_t) ssc.m_Counter.m_Value);
+	PrintSizeSerialized(sz, ssc);
 }
 
 struct AssetTag
@@ -983,8 +988,9 @@ void TestRangeProof(bool bCustomTag)
 		verify_test(outp.IsValid(g_hFork, comm));
 		WriteSizeSerialized("Out-UTXO-Public", outp);
 
-		outp.m_RecoveryOnly = true;
-		WriteSizeSerialized("Out-UTXO-Public-RecoveryOnly", outp);
+		beam::SerializerSizeCounter ssc;
+		yas::detail::saveRecovery(ssc, outp, g_hFork);
+		PrintSizeSerialized("Out-UTXO-Public-RecoveryOnly", ssc);
 	}
 	{
 		beam::Output::User user, user2;
@@ -999,8 +1005,9 @@ void TestRangeProof(bool bCustomTag)
 		verify_test(outp.IsValid(g_hFork, comm));
 		WriteSizeSerialized("Out-UTXO-Confidential", outp);
 
-		outp.m_RecoveryOnly = true;
-		WriteSizeSerialized("Out-UTXO-Confidential-RecoveryOnly", outp);
+		beam::SerializerSizeCounter ssc;
+		yas::detail::saveRecovery(ssc, outp, g_hFork);
+		PrintSizeSerialized("Out-UTXO-Confidential-RecoveryOnly", ssc);
 
 		CoinID cid2;
 		verify_test(outp.Recover(g_hFork, kdf, cid2, &user2));

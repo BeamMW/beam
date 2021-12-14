@@ -18,6 +18,7 @@
 
 namespace Eth
 {
+	using Address = Opaque<20>;
 
 	void MemCopy(void* dest, const void* src, uint32_t n)
 	{
@@ -28,6 +29,14 @@ namespace Eth
 #endif // HOST_BUILD
 	}
 
+	int MemCmp(const void* dest, const void* src, uint32_t n)
+	{
+#ifdef HOST_BUILD
+		return memcmp(dest, src, n);
+#else // HOST_BUILD
+		return Env::Memcmp(dest, src, n);
+#endif // HOST_BUILD
+	}
 
 	template <uint32_t N>
 	constexpr uint32_t strlen(char const (&s)[N])
@@ -199,9 +208,16 @@ namespace Eth
 
 				case Type::Integer:
 					{
-						uint8_t nLen = get_BytesFor(m_Integer);
-						WriteSize(s, 0x80, nLen);
-						WriteVarLen(s, m_Integer, nLen);
+						if (m_Integer && m_Integer < 0x80)
+						{
+							s.Write(static_cast<uint8_t>(m_Integer));
+						}
+						else
+						{
+							uint8_t nLen = get_BytesFor(m_Integer);
+							WriteSize(s, 0x80, nLen);
+							WriteVarLen(s, m_Integer, nLen);
+						}
 					}
 				}
 			}
@@ -387,6 +403,7 @@ namespace Eth
 		uint64_t m_GasUsed;
 		uint64_t m_Time;
 		uint64_t m_Nonce;
+		uint64_t m_BaseFeePerGas = 0;
 
 		void get_HashForPow(Opaque<32>& hv) const
 		{
@@ -427,7 +444,7 @@ namespace Eth
 
 		void get_HashInternal(Opaque<32>& hv, const Opaque<32>* phvMix) const
 		{
-			Rlp::Node pN[15];
+			Rlp::Node pN[16];
 			pN[0].Set(m_ParentHash);
 			pN[1].Set(m_UncleHash);
 			pN[2].Set(m_Coinbase);
@@ -455,6 +472,11 @@ namespace Eth
 			else
 				nRoot.m_nLen = 13;
 
+			if (m_BaseFeePerGas)
+			{
+				pN[nRoot.m_nLen].Set(m_BaseFeePerGas);
+				nRoot.m_nLen += 1;
+			}
 
 			Rlp::HashStream hs;
 			nRoot.Write(hs);
@@ -462,4 +484,200 @@ namespace Eth
 		}
 	};
 
+	uint8_t GetRLPPrefixSize(const Rlp::Node& node)
+	{
+		if (node.m_nLen > 55)
+			return 1 + Rlp::Node::get_BytesFor(node.m_nLen);
+
+		return (node.m_nLen == 1 && node.m_pBuf[0] <= 0x7f) ? 0 : 1;
+	}
+
+	void TriePathToNibbles(const uint8_t* path, uint32_t pathLength,
+		uint8_t* nibbles, uint32_t nibblesLength)
+	{
+		assert(nibblesLength != pathLength);
+		// to nibbles
+		for (uint8_t i = 0; i < pathLength; i++)
+		{
+			nibbles[i * 2] = path[i] >> 4;
+			nibbles[i * 2 + 1] = path[i] & 15;
+		}
+	}
+
+	// Validates prefix, compares "sharedNibbles(or key-end if leaf node)" and returns TrieKey offset
+	int RemovePrefix(const uint8_t* encodedPath, uint32_t encodedPathLength,
+					 const uint8_t* key, uint32_t keyLength, uint8_t keyPos)
+	{
+		// encodedPath to nibbles
+		uint8_t* nibbles = nullptr;
+		uint32_t nibblesLength = encodedPathLength * 2;
+
+#ifdef HOST_BUILD
+		auto tmp = std::make_unique<uint8_t[]>(nibblesLength);
+		nibbles = tmp.get();
+#else // HOST_BUILD
+		nibbles = (uint8_t*)Env::StackAlloc(nibblesLength);
+#endif // HOST_BUILD
+
+		TriePathToNibbles(encodedPath, encodedPathLength, nibbles, nibblesLength);
+
+		// checking prefix
+		/* 0 - even extension node
+		 * 1 - odd extension node
+		 * 2 - even leaf node
+		 * 3 - odd leaf node
+		*/
+		assert(nibbles[0] <= 3 && "The proof has the incorrect format!");
+
+		// even extension node OR even leaf node -> skips 2 nibbles
+		uint8_t offset = (nibbles[0] == 0 || nibbles[0] == 2) ? 2 : 1;
+
+		// checking that key contains nibbles
+		if (!MemCmp(nibbles + offset, key + keyPos, nibblesLength - offset))
+		{
+			return nibblesLength - offset;
+		}
+
+		assert(false && "encodedPath not found in the key");
+		return -1;
+	}
+
+	bool VerifyEthProof(const uint8_t* trieKey, uint32_t trieKeySize,
+						const uint8_t* proof, uint32_t proofSize,
+						const HashValue& rootHash,
+						uint8_t** out, uint32_t& outSize)
+	{
+		struct RlpVisitor
+		{
+			bool OnNode(const Rlp::Node& node)
+			{
+				auto& item = m_Items.emplace_back();
+				item = node;
+				m_Nested++;
+				return m_Nested < m_MaxNested;
+			}
+
+			uint32_t ItemsCount() const
+			{
+#ifdef HOST_BUILD
+				return static_cast<uint32_t>(m_Items.size());
+#else // HOST_BUILD
+				return static_cast<uint32_t>(m_Items.m_Count);
+#endif // HOST_BUILD
+			}
+
+			const Rlp::Node& GetItem(uint32_t index) const
+			{
+#ifdef HOST_BUILD
+				return m_Items[index];
+#else // HOST_BUILD
+				return m_Items.m_p[index];
+#endif // HOST_BUILD
+			}
+			
+			uint8_t m_Nested = 0;
+			uint8_t m_MaxNested = 2;
+#ifdef HOST_BUILD
+			std::vector<Rlp::Node> m_Items;
+#else // HOST_BUILD
+			Utils::Vector<Rlp::Node> m_Items;
+#endif // HOST_BUILD
+			
+		};
+
+		RlpVisitor rootVisitor;
+		Rlp::Decode(proof, proofSize, rootVisitor);
+		const uint8_t* newExpectedRoot = reinterpret_cast<const uint8_t*>(&rootHash);
+		uint8_t keyPos = 0;
+		HashValue nodeHash;
+
+		for (uint32_t i = 1; i < rootVisitor.ItemsCount(); i++)
+		{
+			// TODO: is always a hash? check some samples with currentNode.size() < 32 bytes
+			RlpVisitor visitor;
+			Rlp::Decode(rootVisitor.GetItem(i).m_pBuf, rootVisitor.GetItem(i).m_nLen, visitor);
+
+#ifdef HOST_BUILD
+			beam::KeccakProcessor<256> hp;
+#else // HOST_BUILD
+			HashProcessor::Base hp;
+			hp.m_p = Env::HashCreateKeccak(256);
+#endif // HOST_BUILD
+			
+			// For hash calculation used full data: prefix(type + length) + body
+			uint32_t prefixOffset = GetRLPPrefixSize(rootVisitor.GetItem(i));
+
+			hp.Write(rootVisitor.GetItem(i).m_pBuf - prefixOffset, rootVisitor.GetItem(i).m_nLen + prefixOffset);
+			hp >> nodeHash;
+
+			if (MemCmp(newExpectedRoot, reinterpret_cast<const uint8_t*>(&nodeHash), 32))
+			{
+				return false;
+			}
+
+			if (keyPos > trieKeySize)
+			{
+				return false;
+			}
+			switch (visitor.ItemsCount())
+			{
+				// branch node
+				case 17:
+				{
+					if (keyPos == trieKeySize)
+					{
+						if (i == rootVisitor.ItemsCount() - 1)
+						{
+							// value stored in the branch
+							*out = const_cast<uint8_t*>(visitor.GetItem(visitor.ItemsCount() - 1).m_pBuf);
+							outSize = visitor.GetItem(visitor.ItemsCount() - 1).m_nLen;
+							return true;
+						}
+						else
+							assert(false && "i != proof.size() - 1");
+
+						return false;
+					}
+
+					newExpectedRoot = visitor.GetItem(trieKey[keyPos]).m_pBuf;
+					keyPos += 1;
+					break;
+				}
+				// leaf or extension node
+				case 2:
+				{
+					int offset = RemovePrefix(visitor.GetItem(0).m_pBuf,
+											  visitor.GetItem(0).m_nLen,
+											  trieKey, trieKeySize, keyPos);
+
+					if (offset == -1)
+						return false;
+
+					keyPos += static_cast<uint8_t>(offset);
+					if (keyPos == trieKeySize)
+					{
+						// leaf node
+						if (i == rootVisitor.ItemsCount() - 1)
+						{
+							*out = const_cast<uint8_t*>(visitor.GetItem(1).m_pBuf);
+							outSize = visitor.GetItem(1).m_nLen;
+							return true;
+						}
+						return false;
+					}
+					else
+					{
+						// extension node
+						newExpectedRoot = visitor.GetItem(1).m_pBuf;
+					}
+					break;
+				}
+				default:
+				{
+					return false;
+				}
+			}
+		}
+		return false;
+	}
 }

@@ -18,6 +18,18 @@
 
 namespace beam::wallet
 {
+    namespace
+    {
+        void logRate(const ExchangeRate& rate)
+        {
+            {
+                beam::wallet::PrintableAmount amount(rate.m_rate, true /*show decimal point*/);
+                LOG_DEBUG() << "Exchange rate (updated " << format_timestamp(kTimeStampFormat3x3, rate.m_updateTime * 1000, false) << "): 1 " << rate.m_from.m_value << " = "
+                    << amount << " " << rate.m_to.m_value;
+            }
+        }
+    }
+
     ExchangeRateProvider::ExchangeRateProvider(
         IBroadcastMsgGateway& broadcastGateway,
         BroadcastMsgValidator& validator,
@@ -56,6 +68,7 @@ namespace beam::wallet
         {
             const auto uniqID = std::make_pair(rate.m_from, rate.m_to);
             m_cache[uniqID] = rate;
+            logRate(rate);
         }
     }
 
@@ -79,6 +92,7 @@ namespace beam::wallet
             || storedRateIt->second.m_updateTime < rate.m_updateTime)
             {
                 m_cache[uniqID] = rate;
+                logRate(rate);
                 m_storage.saveExchangeRate(rate);
                 m_changedPairs.emplace(uniqID);
                 if (!m_updateTimer)
@@ -97,27 +111,11 @@ namespace beam::wallet
             Block::SystemState::ID state;
             if (m_storage.getSystemStateID(state))
             {
-                if (state.m_Height >= Rules::get().pForks[3].m_Height)
+                if (state.m_Height >= Rules::get().pForks[3].m_Height) // we do not process old versioned messages
                 {
                     std::vector<ExchangeRate> receivedRates;
                     if (fromByteBuffer(buffer, receivedRates))
                     {
-                        processRates(receivedRates);
-                    }
-                }
-                else
-                {
-                    std::vector<ExchangeRateF2> f2Rates;
-                    if (fromByteBuffer(buffer, f2Rates))
-                    {
-                        std::vector<ExchangeRate> receivedRates;
-                        for(const auto& r2: f2Rates)
-                        {
-                            auto newRate = ExchangeRate::FromERH2(r2);
-                            receivedRates.push_back(newRate);
-                        }
-
-                        assert(receivedRates.size() == f2Rates.size());
                         processRates(receivedRates);
                     }
                 }
@@ -135,22 +133,6 @@ namespace beam::wallet
             LOG_WARNING() << "broadcast rate message processing exception";
             return false;
         }
-    }
-
-    bool ExchangeRateProvider::onMessage(uint64_t unused, ByteBuffer&& input)
-    {
-        if (!m_isEnabled)
-        {
-            return true;
-        }
-
-        BroadcastMsg res;
-        if (m_validator.processMessage(input, res))
-        {
-            return processRatesMessage(res.m_content);
-        }
-
-        return false;
     }
 
     bool ExchangeRateProvider::onMessage(uint64_t unused, BroadcastMsg&& msg)

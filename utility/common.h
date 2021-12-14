@@ -165,6 +165,9 @@ namespace beam
 
 	bool DeleteFile(const char*);
 
+	// shame, utoa, ultoa - non-standard!
+	void utoa(char* sz, uint32_t n);
+
 	struct CorruptionException
 	{
 		std::string m_sErr;
@@ -173,11 +176,12 @@ namespace beam
 		static void Throw(const char*);
 	};
 
-	struct Blob {
-		const void* p;
-		uint32_t n;
+	struct Blob
+	{
+		const void* p = nullptr;
+		uint32_t n = 0;
 
-		Blob() {}
+		Blob() = default;
 		Blob(const void* p_, uint32_t n_) :p(p_), n(n_) {}
 		Blob(const ByteBuffer& bb);
 		template <uint32_t nBytes_>

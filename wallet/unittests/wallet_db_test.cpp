@@ -1322,7 +1322,7 @@ void TestWalletMessages()
         msg.AddParameter(TxParameterID::PeerID, walletID);
         msg.AddParameter(TxParameterID::Lifetime, 130);
 
-        auto id = db->saveWalletMessage(OutgoingWalletMessage{ 0, walletID, toByteBuffer(msg)});
+        auto id = db->saveWalletMessage(walletID, toByteBuffer(msg));
         WALLET_CHECK(id == 1);
         auto messages = db->getWalletMessages();
         WALLET_CHECK(messages.size() == 1);
@@ -1345,7 +1345,7 @@ void TestWalletMessages()
         msg.AddParameter(TxParameterID::PeerID, walletID);
         msg.AddParameter(TxParameterID::Lifetime, 230);
 
-        auto id = db->saveWalletMessage(OutgoingWalletMessage{ 0, walletID, toByteBuffer(msg) });
+        auto id = db->saveWalletMessage(walletID, toByteBuffer(msg));
         WALLET_CHECK(id == 2);
         auto messages = db->getWalletMessages();
         WALLET_CHECK(messages.size() == 2);

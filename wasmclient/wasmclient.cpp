@@ -11,46 +11,39 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #include <emscripten.h>
 #include <emscripten/bind.h>
 #include <emscripten/threading.h>
 #include <emscripten/val.h>
+#include <boost/algorithm/string.hpp>
+#include <queue>
+#include <exception>
+#include <filesystem>
+#include <thread>
 
+#include "common.h"
 #include "wallet/client/wallet_client.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/api/i_wallet_api.h"
+#include "wallet/client/apps_api/apps_utils.h"
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
 #include "wallet/transactions/lelantus/push_transaction.h"
 #include "mnemonic/mnemonic.h"
 #include "utility/string_helpers.h"
-#include "webapi_beam.h"
+#include "wasm_beamapi.h"
 
-#include <boost/algorithm/string.hpp>
-
-#include <queue>
-#include <exception>
-#include <filesystem>
 namespace fs = std::filesystem;
-
 using namespace beam;
 using namespace beam::io;
 using namespace std;
 using namespace emscripten;
 using namespace ECC;
 using namespace beam::wallet;
-using namespace beam::applications;
 
 #define Assert(x) ((void)((x) || (__assert_fail(#x, __FILE__, __LINE__, __func__),0)))
 
 namespace
 {
-    void AssertMainThread()
-    {
-        if (emscripten_is_main_browser_thread() != 1)
-            throw std::runtime_error("Invalid thread");
-    }
-
     void GetWalletSeed(NoLeak<uintBig>& walletSeed, const std::string& s)
     {
         SecString seed;
@@ -82,11 +75,22 @@ namespace
         EM_ASM
         (
             FS.syncfs(false, function()
-        {
-            console.log("wallet created!");
-        });
+            {
+                console.log("wallet created!");
+            });
         );
         return db;
+    }
+
+    void HandleException(const std::exception& ex)
+    {
+        LOG_ERROR() << ex.what();
+        EM_ASM
+        (
+            {
+                throw new Error("Exception: " + Module.UTF8ToString($0));
+            }, ex.what()
+        );
     }
 }
 
@@ -104,8 +108,10 @@ public:
     {
         virtual void OnSyncProgress(int done, int total) {}
         virtual void OnResult(const json&) {}
-        virtual void OnApproveSend(const std::string&, const ApproveMap&, WebAPI_Beam::WeakPtr api) {}
-        virtual void OnApproveContractInfo(const std::string& request, const ApproveMap& info, ApproveAmounts amounts, WebAPI_Beam::WeakPtr api) {}
+        virtual void OnApproveSend(const std::string&, const string&, WasmAppApi::WeakPtr api) {}
+        virtual void OnApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WasmAppApi::WeakPtr api) {}
+        virtual void OnImportRecoveryProgress(uint64_t done, uint64_t total) {}
+        virtual void OnWalletError(ErrorType error) {}
     };
 
     using WalletClient::WalletClient;
@@ -131,30 +137,22 @@ public:
         });
     }
 
-    void ApproveSend(const std::string& request, const ApproveMap& info, WebAPI_Beam::Ptr api)
+    void ClientThread_ApproveSend(const std::string& request, const std::string& info, WasmAppApi::Ptr api)
     {
-        WebAPI_Beam::WeakPtr wpApi = api;
-
-        postFunctionToClientContext([this, sp = shared_from_this(), request, info, wpApi]()
+        AssertMainThread();
+        if (m_CbHandler)
         {
-            if (m_CbHandler)
-            {
-                m_CbHandler->OnApproveSend(request, info, wpApi);
-            }
-        });
+            m_CbHandler->OnApproveSend(request, info, api);
+        }
     }
 
-    void ApproveContractInfo(const std::string& request, const ApproveMap& info, ApproveAmounts amounts, WebAPI_Beam::Ptr api)
+    void ClientThread_ApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WasmAppApi::Ptr api)
     {
-        WebAPI_Beam::WeakPtr wpApi = api;
-
-        postFunctionToClientContext([this, sp = shared_from_this(), request, info, amounts, wpApi]()
+        AssertMainThread();
+        if (m_CbHandler)
         {
-            if (m_CbHandler)
-            {
-                m_CbHandler->OnApproveContractInfo(request, info, amounts, wpApi);
-            }
-        });
+            m_CbHandler->OnApproveContractInfo(request, info, amounts, api);
+        }
     }
 
     void Stop(Callback&& handler)
@@ -210,6 +208,28 @@ private:
         });
     }
 
+    void onImportRecoveryProgress(uint64_t done, uint64_t total) override
+    {
+        postFunctionToClientContext([this, done, total]()
+        {
+            if (m_CbHandler)
+            {
+                m_CbHandler->OnImportRecoveryProgress(done, total);
+            }
+        });
+    }
+
+    void onWalletError(ErrorType error) override
+    {
+        postFunctionToClientContext([this, error]()
+        {
+            if (m_CbHandler)
+            {
+                m_CbHandler->OnWalletError(error);
+            }
+        });
+    }
+
     static void ProsessMessageOnMainThread(int pThis)
     {
         std::unique_ptr<WeakPtr> wp(reinterpret_cast<WeakPtr*>(pThis));
@@ -246,84 +266,10 @@ private:
     IWalletApi::Ptr m_WalletApi;
 };
 
-class AppAPI : public WebAPI_Beam
-{
-public:
-    AppAPI(WalletClient2::Ptr client, IShadersManager::Ptr shaders, const std::string& version, const std::string& appid, const std::string& appname)
-        : WebAPI_Beam(client, client->GetWalletDB(), shaders, version, appid, appname)
-        , m_Client2(client)
-    {
-
-    }
-
-    static void Create(WalletClient2::Ptr client, const std::string& version, const std::string& appid, const std::string& appname, val cb)
-    {
-        AssertMainThread();
-        client->getAsync()->makeIWTCall(
-            [appid, appname, client]() -> boost::any 
-            {
-                //
-                // THIS IS REACTOR THREAD
-                //
-                auto result = client->IWThread_createAppShaders(appid, appname);
-                return result;
-            },
-            [cb = std::move(cb), version, appid, appname, client](boost::any aptr) 
-            {
-                //
-                // THIS IS UI THREAD
-                //
-                AssertMainThread();
-                auto shaders = boost::any_cast<IShadersManager::Ptr>(aptr);
-                auto wapi = std::make_shared<AppAPI>(client, shaders, version, appid, appname);
-                wapi->_walletAPIProxy->_handler = wapi;
-                cb(wapi);
-            }
-        );
-    }
-
-    void CallWalletAPI(const std::string& request)
-    {
-        AssertMainThread();
-        callWalletApi(request);
-    }
-
-    void SetResultHandler(val handler)
-    {
-        AssertMainThread();
-        m_ResultHandler = std::make_unique<val>(std::move(handler));
-    }
-private:
-    void onCallWalletApiResult(const std::string& result) override
-    {
-        m_Client2->postFunctionToClientContext([this, sp = shared_from_this(), result]()
-        {
-            if (m_ResultHandler && !m_ResultHandler->isNull())
-            {
-                (*m_ResultHandler)(result);
-            }
-        });
-    }
-
-    void onApproveSend(const std::string& request, const ApproveMap& info) override
-    {
-        m_Client2->ApproveSend(request, info, shared_from_this());
-    }
-
-    void onApproveContractInfo(const std::string& request, const ApproveMap& info, const ApproveAmounts& amounts) override
-    {
-        m_Client2->ApproveContractInfo(request, info, amounts, shared_from_this());
-    }
-
-private:
-    WalletClient2::Ptr m_Client2;
-    std::unique_ptr<val> m_ResultHandler;
-};
-
 class AppAPICallback
 {
 public:
-    AppAPICallback(WebAPI_Beam::WeakPtr sp)
+    AppAPICallback(WasmAppApi::WeakPtr sp)
         : m_Api(sp)
     {}
 
@@ -331,32 +277,32 @@ public:
     {
         AssertMainThread();
         if (auto sp = m_Api.lock())
-            sp->sendApproved(request);
+            sp->AnyThread_callWalletApiDirectly(request);
     }
 
     void SendRejected(const std::string& request)
     {
         AssertMainThread();
         if (auto sp = m_Api.lock())
-            sp->sendRejected(request);
+            sp-> AnyThread_sendApiError(request, beam::wallet::ApiError::UserRejected, std::string());
     }
 
     void ContractInfoApproved(const std::string& request)
     {
         AssertMainThread();
         if (auto sp = m_Api.lock())
-            sp->contractInfoApproved(request);
+            sp->AnyThread_callWalletApiDirectly(request);
     }
 
     void ContractInfoRejected(const std::string& request)
     {
         AssertMainThread();
         if (auto sp = m_Api.lock())
-            sp->contractInfoRejected(request);
+            sp->AnyThread_sendApiError(request, beam::wallet::ApiError::UserRejected, std::string());
     }
 
 private:
-    WebAPI_Beam::WeakPtr m_Api;
+    WasmAppApi::WeakPtr m_Api;
 };
 
 class WasmWalletClient
@@ -364,6 +310,12 @@ class WasmWalletClient
     , private WalletClient2::ICallbackHandler
 {
 public:
+    WasmWalletClient(const std::string& node)
+        : WasmWalletClient("headless.db", "anything", node)
+    {
+        SetHeadless(true);
+    }
+
     WasmWalletClient(const std::string& dbName, const std::string& pass, const std::string& node)
         : m_Logger(beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG))
         , m_Reactor(io::Reactor::create())
@@ -373,6 +325,7 @@ public:
     {
         wallet::g_AssetsEnabled = true;
     }
+
 
     void sendAPIResponse(const json& result) override
     {
@@ -464,31 +417,55 @@ public:
         });
     }
 
-    bool StartWallet()
+    void StartWallet()
     {
         AssertMainThread();
+
         if (m_Client)
         {
-            LOG_WARNING() << "The client is already running";
-            return false;
+            HandleException(std::runtime_error("The client is already running"));
+            return;
         }
 
         try
         {
-            auto db = OpenWallet(m_DbPath, m_Pass);
-            m_Client = std::make_shared<WalletClient2>(Rules::get(), db, m_Node, m_Reactor);
+            if (IsHeadless())
+            {
+                auto r = io::Reactor::create();
+                io::Reactor::Scope scope(*r);
+                WalletDB::initNoKeeper(m_DbPath, m_Pass);
+                s_Mounted = true;
+
+                EM_ASM
+                (
+                    console.log("headless wallet created!");
+                );
+            }
+
+            EnsureFSMounted();
+            auto dbFunc = [path = m_DbPath, pass = m_Pass, dbPtr = std::make_shared<WalletDB::Ptr>()]()
+            {
+                if (!*dbPtr)
+                {
+                    *dbPtr = OpenWallet(path, pass);
+                }
+                return *dbPtr;
+            };
+
+            m_Client = std::make_shared<WalletClient2>(Rules::get(), dbFunc, m_Node, m_Reactor);
             m_Client->SetHandler(this);
+
             auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
-            additionalTxCreators->emplace(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(db));
+            additionalTxCreators->emplace(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(dbFunc));
+
             m_Client->getAsync()->enableBodyRequests(true);
             m_Client->start({}, true, additionalTxCreators);
-            return true;
         }
         catch (const std::exception& ex)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << ex.what();
+            HandleException(ex);
+            return;
         }
-        return false;
     }
 
     void StopWallet(val handler = val::null())
@@ -548,7 +525,7 @@ public:
         }
     }
 
-    void OnApproveSend(const std::string& request, const ApproveMap& info, WebAPI_Beam::WeakPtr api) override
+    void OnApproveSend(const std::string& request, const std::string& info, WasmAppApi::WeakPtr api) override
     {
         AssertMainThread();
         if (m_ApproveSendHandler && !m_ApproveSendHandler->isNull())
@@ -557,10 +534,152 @@ public:
         }
     }
 
-    void CreateAppAPI(const std::string& appid, const std::string& appName, val cb)
+    void OnApproveContractInfo(const std::string& request, const std::string& info, const std::string& amounts, WasmAppApi::WeakPtr api) override
     {
         AssertMainThread();
-        AppAPI::Create(m_Client, "current", appid, appName, std::move(cb));
+        if (m_ApproveContractInfoHandler && !m_ApproveContractInfoHandler->isNull())
+        {
+            (*m_ApproveContractInfoHandler)(request, info, amounts, AppAPICallback(api));
+        }
+    }
+
+    void OnImportRecoveryProgress(uint64_t done, uint64_t total) override
+    {
+        OnImportRecoveryProgress(val::null(), done, total);
+    }
+
+    void OnImportRecoveryProgress(val error, uint64_t done, uint64_t total)
+    {
+        AssertMainThread();
+        if (m_RecoveryCallback && !m_RecoveryCallback->isNull())
+        {
+            (*m_RecoveryCallback)(error, static_cast<int>(done), static_cast<int>(total));
+            if (done == total || !error.isNull())
+            {
+                m_RecoveryCallback.reset();
+            }
+        }
+    }
+
+    void OnWalletError(ErrorType e) override
+    {
+        if (e == ErrorType::ImportRecoveryError)
+        {
+            auto error = val::global("Error").new_(val("Failed to import recovery"));
+            OnImportRecoveryProgress(error, 0, 0);
+        }
+    }
+
+
+    void CreateAppAPI(const std::string& apiver, const std::string& minapiver, const std::string& appid, const std::string& appname, val cb)
+    {
+        AssertMainThread();
+
+        std::string version;
+        if (IWalletApi::ValidateAPIVersion(apiver))
+        {
+            version = apiver;
+        }
+        else if (IWalletApi::ValidateAPIVersion(minapiver))
+        {
+            version = minapiver;
+        }
+
+        if (version.empty())
+        {
+            const std::string errmsg = std::string("Unsupported api version requested: ") + apiver + "/" + minapiver;
+            LOG_WARNING() << errmsg;
+            cb(errmsg, val::undefined());
+            return;
+        }
+
+        std::weak_ptr<WalletClient2> weak2 = m_Client;
+        WasmAppApi::ClientThread_Create(m_Client.get(), apiver, appid, appname,
+            [cb, weak2](WasmAppApi::Ptr wapi)
+            {
+                if (!wapi)
+                {
+                    const char* errmsg = "CreateAppAPI: failed to create API";
+                    LOG_WARNING() << errmsg;
+                    cb(errmsg, val::undefined());
+                    return;
+                }
+
+                WasmAppApi::WeakPtr weakApi = wapi;
+                wapi->SetPostToClientHandler(
+                    [weak2](std::function<void (void)> func)
+                    {
+                        if (auto client2 = weak2.lock())
+                        {
+                            client2->postFunctionToClientContext([func]() {
+                                func();
+                            });
+                        }
+                    }
+                );
+
+                wapi->SetContractConsentHandler(
+                    [weak2, weakApi](const std::string& req, const std::string& info, const std::string& amoutns)
+                    {
+                        auto client2 = weak2.lock();
+                        auto wapi = weakApi.lock();
+
+                        if(client2 && wapi)
+                        {
+                            client2->ClientThread_ApproveContractInfo(req, info, amoutns, wapi);
+                        }
+                    }
+                );
+
+                wapi->SetSendConsentHandler(
+                    [weak2, weakApi](const std::string& req, const std::string& info)
+                    {
+                        auto client2 = weak2.lock();
+                        auto wapi = weakApi.lock();
+
+                        if(client2 && wapi)
+                        {
+                            client2->ClientThread_ApproveSend(req, info, wapi);
+                        }
+                    }
+                );
+
+                cb(val::undefined(), wapi);
+            }
+        );
+    }
+
+    void ImportRecovery(const std::string& buf, val&& callback)
+    {
+        AssertMainThread();
+        if (!m_Client)
+        {
+            LOG_WARNING() << "The client is stopped";
+            return;
+        }
+        if (m_RecoveryCallback)
+        {
+            LOG_WARNING() << "Recovery is in progress";
+            return;
+        }
+        
+        try
+        {
+            constexpr std::string_view fileName = "recovery.bin";
+            {
+                std::ofstream s(fileName.data(), ios_base::binary | ios_base::out | ios_base::trunc);
+                s.write(reinterpret_cast<const char*>(buf.data()), buf.size());
+            }
+            if (!callback.isNull())
+            {
+                m_RecoveryCallback = std::make_unique<val>(std::move(callback));
+            }
+            m_Client->getAsync()->importRecovery(fileName.data());
+        }
+        catch (const std::exception& ex)
+        {
+            HandleException(ex);
+        }
     }
 
     static void DoCallbackOnMainThread(val* h)
@@ -576,6 +695,28 @@ public:
     {
         AssertMainThread();
         return m_Client && m_Client->isRunning();
+    }
+
+    void SetHeadless(bool headless)
+    {
+        AssertMainThread();
+        m_Headless = headless;
+    }
+
+    bool IsHeadless() const
+    {
+        AssertMainThread();
+        return m_Headless;
+    }
+
+    static bool IsAppSupported(const std::string& apiver, const std::string& apivermin)
+    {
+        return beam::wallet::IsAppSupported(apiver, apivermin);
+    }
+
+    static std::string GenerateAppID(const std::string& appname, const std::string& appurl)
+    {
+        return beam::wallet::GenerateAppID(appname, appurl);
     }
 
     static std::string GeneratePhrase()
@@ -603,53 +744,140 @@ public:
         return wallet::ConvertJsonToToken(jsonParams);
     }
 
+    static void EnsureFSMounted()
+    {
+        if (!s_Mounted)
+        {
+            EM_ASM
+            (
+                throw new Error("File system should be mounted!");
+            );
+        }
+    }
+
     static void CreateWallet(const std::string& seed, const std::string& dbName, const std::string& pass)
     {
         AssertMainThread();
-        CreateDatabase(seed, dbName, pass);
+        EnsureFSMounted();
+        try
+        {
+            CreateDatabase(seed, dbName, pass);
+        }
+        catch (const std::exception& ex)
+        {
+            HandleException(ex);
+        }
     }
 
     static void DeleteWallet(const std::string& dbName)
     {
         AssertMainThread();
-        fs::remove(dbName);
+        EnsureFSMounted();
+        try
+        {
+            fs::remove(dbName);
+        }
+        catch (const std::exception& ex)
+        {
+            HandleException(ex);
+        }
+    }
+
+    static bool IsInitialized(const std::string& dbName)
+    {
+        return WalletDB::isInitialized(dbName);
+    }
+
+    using CallbackResult = std::pair<std::shared_ptr<val>, bool>;
+    static void ProsessCallbackOnMainThread(CallbackResult* pCallback)
+    {
+        std::unique_ptr<CallbackResult> cb(pCallback);
+        if (!cb->first->isNull())
+        {
+            (*cb->first)(cb->second);
+        }
+    }
+
+    static void CheckPasswordImpl(const std::string& dbName, const std::string& pass, std::shared_ptr<val> cb)
+    {
+        WalletDB::isValidPassword(dbName, SecString(pass));
+        auto res = WalletDB::isValidPassword(dbName, SecString(pass));
+        LOG_DEBUG() << __FUNCTION__ << TRACE(dbName) << TRACE(pass) << TRACE(res);
+        auto cbPtr = std::make_unique<CallbackResult>(std::move(cb), res);
+        emscripten_async_run_in_main_runtime_thread(
+            EM_FUNC_SIG_VI,
+            &WasmWalletClient::ProsessCallbackOnMainThread,
+            reinterpret_cast<int>(cbPtr.release()));
+    }
+
+
+    static void CheckPassword(const std::string& dbName, const std::string& pass, val cb)
+    {
+        auto pcb = std::make_shared<val>(cb);
+        MyThread(&WasmWalletClient::CheckPasswordImpl, dbName, pass, pcb).detach();
     }
 
     static IWalletDB::Ptr OpenWallet(const std::string& dbName, const std::string& pass)
     {
-        AssertMainThread();
-        Rules::get().UpdateChecksum();
-        LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
-        return WalletDB::open(dbName, SecString(pass));
+        try
+        {
+            Rules::get().UpdateChecksum();
+            LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
+            return WalletDB::open(dbName, SecString(pass));
+        }
+        catch (const DatabaseException& ex)
+        {
+            LOG_ERROR() << ex.what();
+            throw;
+        }
     }
 
     static void MountFS(val cb)
     {
         AssertMainThread();
-        m_MountCB = cb;
+        s_MountCB = cb;
+        if (s_Mounted)
+        {
+            LOG_WARNING() << "File systen is already mounted.";
+            return;
+        }
         EM_ASM
         (
             {
                 FS.mkdir("/beam_wallet");
                 FS.mount(IDBFS, {}, "/beam_wallet");
                 console.log("mounting...");
-                FS.syncfs(true, function()
+                FS.syncfs(true, function(error)
                 {
-                    console.log("mounted");
-                    dynCall('v', $0);
+                    if (error == null) {
+                        dynCall('vi', $0, [$1]);
+                    }
+                    else {
+                        dynCall('vi', $0, [error]);
+                    }
                 });
 
-            }, OnMountFS
+            }, OnMountFS, &s_Null
         );
     }
 private:
-    static void OnMountFS()
+    static void OnMountFS(val* error)
     {
-        m_MountCB();
+        s_Mounted = true;
+        if (!s_MountCB.isNull())
+        {
+            s_MountCB(*error);
+        }
+        else
+        {
+            LOG_WARNING() << "Callback for mount is not set";
+        }
     }
 
 private:
-    static val m_MountCB;
+    static val s_MountCB;
+    static bool s_Mounted;
+    static val s_Null;
     std::shared_ptr<Logger> m_Logger;
     io::Reactor::Ptr m_Reactor;
     std::string m_DbPath;
@@ -659,20 +887,26 @@ private:
     std::unique_ptr<val> m_SyncHandler;
     std::unique_ptr<val> m_ApproveSendHandler;
     std::unique_ptr<val> m_ApproveContractInfoHandler;
+    std::unique_ptr<val> m_RecoveryCallback;
     WalletClient2::Ptr m_Client;
     IWalletApi::Ptr m_WalletApi;
+    bool m_Headless = false;
 };
 
-val WasmWalletClient::m_MountCB = val::null();
+val WasmWalletClient::s_MountCB = val::null();
+bool WasmWalletClient::s_Mounted = false;
+val WasmWalletClient::s_Null = val::null();
 
 // Binding code
 EMSCRIPTEN_BINDINGS()
 {
     class_<WasmWalletClient>("WasmWalletClient")
-        .constructor<const std::string&, const std::string&, const std::string&>()
+        .constructor<const std::string&, const std::string&, const std::string&>() // db + pass + node
+        .constructor<const std::string&>() // node only, imply headless
         .function("startWallet", &WasmWalletClient::StartWallet)
         .function("stopWallet", &WasmWalletClient::StopWallet)
         .function("isRunning", &WasmWalletClient::IsRunning)
+        .function("isHeadless", &WasmWalletClient::IsHeadless)
         .function("sendRequest", &WasmWalletClient::ExecuteAPIRequest)
         .function("subscribe", &WasmWalletClient::Subscribe)
         .function("unsubscribe", &WasmWalletClient::Unsubscribe)
@@ -680,6 +914,9 @@ EMSCRIPTEN_BINDINGS()
         .function("setApproveSendHandler", &WasmWalletClient::SetApproveSendHandler)
         .function("setApproveContractInfoHandler", &WasmWalletClient::SetApproveContractInfoHandler)
         .function("createAppAPI", &WasmWalletClient::CreateAppAPI)
+        .function("importRecovery", &WasmWalletClient::ImportRecovery)
+        .class_function("IsAppSupported", &WasmWalletClient::IsAppSupported)
+        .class_function("GenerateAppID", &WasmWalletClient::GenerateAppID)
         .class_function("GeneratePhrase", &WasmWalletClient::GeneratePhrase)
         .class_function("IsAllowedWord", &WasmWalletClient::IsAllowedWord)
         .class_function("IsValidPhrase", &WasmWalletClient::IsValidPhrase)
@@ -688,14 +925,16 @@ EMSCRIPTEN_BINDINGS()
         .class_function("CreateWallet", &WasmWalletClient::CreateWallet)
         .class_function("MountFS", &WasmWalletClient::MountFS)
         .class_function("DeleteWallet", &WasmWalletClient::DeleteWallet)
+        .class_function("IsInitialized", &WasmWalletClient::IsInitialized)
+        .class_function("CheckPassword", &WasmWalletClient::CheckPassword)
         ;
-    class_<AppAPI>("AppAPI")
-        .smart_ptr<std::shared_ptr<AppAPI>>("AppAPI")
-        .function("callWalletApi", &AppAPI::CallWalletAPI)
-        .function("setHandler", &AppAPI::SetResultHandler)
+    class_<WasmAppApi>("AppAPI")
+        .smart_ptr<std::shared_ptr<WasmAppApi>>("AppAPI")
+        .function("callWalletApi", &WasmAppApi::CallWalletAPI)
+        .function("setHandler", &WasmAppApi::SetResultHandler)
         ;
     class_<AppAPICallback>("AppAPICallback")
-        .constructor<WebAPI_Beam::Ptr>()
+        .constructor<WasmAppApi::Ptr>()
         .function("sendApproved", &AppAPICallback::SendApproved)
         .function("sendRejected", &AppAPICallback::SendRejected)
         .function("contractInfoApproved", &AppAPICallback::ContractInfoApproved)

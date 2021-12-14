@@ -1419,6 +1419,7 @@ namespace Wasm {
 		Push1(static_cast<Word>(x)); // loword
 	}
 
+#ifdef WASM_INTERPRETER_DEBUG
 	template <typename T>
 	void Processor::Stack::Log(T x, bool bPush)
 	{
@@ -1428,6 +1429,7 @@ namespace Wasm {
 
 	template void Processor::Stack::Log(uint32_t, bool);
 	template void Processor::Stack::Log(uint64_t, bool);
+#endif // WASM_INTERPRETER_DEBUG
 
 	Word Processor::Stack::get_AlasSp() const
 	{
@@ -1634,12 +1636,18 @@ namespace Wasm {
 			typedef Instruction I;
 			I nInstruction = (I) m_Instruction.Read1();
 
-				if (m_Dbg.m_Instructions)
-					*m_Dbg.m_pOut << "ip=" << uintBigFrom(cp.m_Ip) << ", sp=" << uintBigFrom(m_Stack.m_Pos) << ' ';
+#ifdef WASM_INTERPRETER_DEBUG
+			if (m_Dbg.m_Instructions)
+				*m_Dbg.m_pOut << "ip=" << uintBigFrom(cp.m_Ip) << ", sp=" << uintBigFrom(m_Stack.m_Pos) << ' ';
+
+#	define WASM_LOG_INSTRUCTION(name) if (m_Dbg.m_Instructions) (*m_Dbg.m_pOut) << #name << std::endl;
+#else // WASM_INTERPRETER_DEBUG
+#	define WASM_LOG_INSTRUCTION(name)
+#endif // WASM_INTERPRETER_DEBUG
 
 			switch (nInstruction)
 			{
-#define THE_CASE(name) case I::name: if (m_Dbg.m_Instructions) (*m_Dbg.m_pOut) << #name << std::endl;
+#define THE_CASE(name) case I::name: WASM_LOG_INSTRUCTION(name)
 
 #define THE_MACRO(id, name) THE_CASE(name) On_##name(); break;
 			WasmInstructions_CustomPorted(THE_MACRO)

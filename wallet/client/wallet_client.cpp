@@ -16,6 +16,7 @@
 #include "wallet/core/simple_transaction.h"
 #include "wallet/transactions/dex/dex_tx.h"
 #include "utility/log_rotation.h"
+#include "http/http_client.h"
 #include "core/block_rw.h"
 #include "wallet/core/common_utils.h"
 #include "extensions/broadcast_gateway/broadcast_router.h"
@@ -30,6 +31,7 @@
 #endif // BEAM_LELANTUS_SUPPORT
 
 #include "filter.h"
+#include <regex>
 
 using namespace std;
 
@@ -375,6 +377,16 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::readRawSeedPhrase, std::move(callback));
     }
 
+    void getAppsList(AppsListCallback&& callback) override
+    {
+        call_async(&IWalletModelAsync::getAppsList, std::move(callback));
+    }
+
+    void markAppNotificationAsRead(const TxID id) override
+    {
+        call_async(&IWalletModelAsync::markAppNotificationAsRead, id);
+    }
+
     void enableBodyRequests(bool value) override
     {
         call_async(&IWalletModelAsync::enableBodyRequests, value);
@@ -404,7 +416,7 @@ namespace beam::wallet
         return GetStatus(Asset::s_BeamID);
     }
 
-    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor)
         : m_rules(rules)
         , m_walletDB(walletDB)
         , m_reactor{ reactor ? reactor : io::Reactor::create() }
@@ -419,9 +431,21 @@ namespace beam::wallet
              onTxStatus(action, items);
               })
         , m_shieldedPer24hFilter(std::make_unique<Filter>(kShieldedPer24hFilterSize))
+        , m_openDBFunc(std::move(walletDBFunc))
     {
         m_ainfoDelayed = io::Timer::create(*m_reactor);
         m_balanceDelayed = io::Timer::create(*m_reactor);
+    }
+
+    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+        : WalletClient(rules, walletDB, {}, nodeAddr, reactor)
+    {
+
+    }
+
+    WalletClient::WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+        : WalletClient(rules, nullptr, std::move(walletDBFunc), nodeAddr, reactor)
+    {
     }
 
     WalletClient::~WalletClient()
@@ -508,6 +532,17 @@ namespace beam::wallet
                 LogRotation logRotation(*m_reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
 #endif // !__EMSCRIPTEN__
 
+                if (!m_walletDB)
+                {
+                    if (m_openDBFunc)
+                    {
+                        m_walletDB = m_openDBFunc();
+                    }
+                    else
+                    {
+                        throw std::runtime_error("WalletClient: database is not provided");
+                    }
+                }
 
                 auto wallet = make_shared<Wallet>(m_walletDB);
                 m_wallet = wallet;
@@ -891,9 +926,19 @@ namespace beam::wallet
         return m_status.stateID.m_Height;
     }
 
-    beam::Height WalletClient::getCurrentHeightTimestamp() const
+    beam::Timestamp WalletClient::getCurrentHeightTimestamp() const
     {
         return m_status.update.lastTime;
+    }
+
+    beam::Timestamp WalletClient::getAverageBlockTime() const
+    {
+        return m_averageBlockTime;
+    }
+
+    beam::Timestamp WalletClient::getLastBlockTime() const
+    {
+        return m_lastBlockTime;
     }
 
     beam::Block::SystemState::ID WalletClient::getCurrentStateID() const
@@ -1200,50 +1245,28 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::publishDexOrder(const DexOrder& offer)
+    void WalletClient::publishDexOrder(const DexOrder& order)
     {
         if (auto dex = _dex.lock())
         {
-            try
-            {
-                dex->publishOrder(offer);
-            }
-            catch (const std::runtime_error& e)
-            {
-                LOG_ERROR() << e.what();
-            }
+            dex->publishOrder(order);
+            return;
         }
+
+        assert(false);
+        LOG_WARNING() << "WalletClient::publishDexOrder but DEX is not available";
     }
 
     void WalletClient::acceptDexOrder(const DexOrderID& orderId)
     {
         if (auto dex = _dex.lock())
         {
-            if (auto order = dex->getOrder(orderId))
-            {
-                auto params = CreateDexTransactionParams(
-                                orderId,
-                                order->getSBBSID(),
-                                order->getISendCoin(),
-                                order->getISendAmount(),
-                                order->getIReceiveCoin(),
-                                order->getIReceiveAmount());
-
-                startTransaction(std::move(params));
-            }
+            dex->acceptOrder(orderId);
+            return;
         }
 
-        /*if (auto dex = _dex.lock())
-        {
-            try
-            {
-                dex->acceptOrder(orderId);
-            }
-            catch (const std::runtime_error& e)
-            {
-                LOG_ERROR() << e.what();
-            }
-        }*/
+        assert(false);
+        LOG_WARNING() << "WalletClient::acceptDexOrder but DEX is not available";
     }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -1513,11 +1536,6 @@ namespace beam::wallet
     {
         try
         {
-            if (m_walletDB->getVoucherCount(walletID) > 0)
-            {
-                // don't save vouchers if we already have to avoid zombie vouchers
-                return;
-            }
             storage::SaveVouchers(*m_walletDB, vouchers, walletID);
         }
         catch (const std::exception& e)
@@ -1609,7 +1627,10 @@ namespace beam::wallet
         {
             if (auto w = getWallet())
             {
-                m_walletDB->ImportRecovery(path, *w, *this);
+                if (!m_walletDB->ImportRecovery(path, *w, *this))
+                {
+                    onWalletError(ErrorType::ImportRecoveryError);
+                }
             }
             return;
         }
@@ -1752,6 +1773,116 @@ namespace beam::wallet
         }
     }
 
+    namespace
+    {
+        constexpr auto getAppsUrl()
+        {
+#ifdef BEAM_BEAMX
+            return "";
+#elif defined(BEAM_TESTNET)
+            return "https://apps-testnet.beam.mw/appslist.json";
+#elif defined(BEAM_MAINNET)
+            return "https://apps.beam.mw/appslist.json";
+#else
+            return "http://3.19.141.112/app/appslist.json";
+#endif
+        }
+    }
+
+    void WalletClient::getAppsList(AppsListCallback&& callback)
+    {
+        if (!m_httpClient)
+        {
+            m_httpClient = std::make_unique<HttpClient>(*m_reactor);
+        }
+
+        io::Address address;
+
+        constexpr auto url = getAppsUrl();
+
+        static std::regex exrp("^(?:(http[s]?)://)?([^/]+)((/?.*/?)/(.*))$");
+        std::smatch groups;
+        std::string host;
+        std::string path;
+        std::string scheme;
+        std::string myUrl(url);
+        if (std::regex_match(myUrl, groups, exrp))
+        {
+            host.assign(groups[2].first, groups[2].second);
+            path.assign(groups[3].first, groups[3].second);
+            scheme.assign(groups[1].first, groups[1].second);
+        }
+
+        if (!address.resolve(host.c_str()))
+        {
+            LOG_ERROR() << "Unable to resolve address: " << host;
+
+            callback(false , "");
+            return;
+        }
+        if (address.port() == 0)
+        {
+            if (scheme == "http")
+                address.port(80);
+            else if (scheme == "https")
+                address.port(443);
+        }
+;
+        std::vector<HeaderPair> headers;
+        headers.push_back({ "Content-Type", "application/json" });
+        headers.push_back({ "Host", host.c_str() });
+
+        HttpClient::Request request;
+
+        request.address(address)
+            //.connectTimeoutMsec(2000)
+            .pathAndQuery(path.c_str())
+            .headers(&headers.front())
+            .numHeaders(headers.size())
+            .method("GET");
+
+        request.callback([callback](uint64_t id, const HttpMsgReader::Message& msg) -> bool
+        {
+            bool isOk = false;
+            std::string response;
+            if (msg.what == HttpMsgReader::http_message)
+            {
+                size_t sz = 0;
+                const void* body = msg.msg->get_body(sz);
+                isOk = sz > 0 && body;
+                if (isOk)
+                {
+                    response = std::string(static_cast<const char*>(body), sz);
+                }
+            }
+            else if (msg.what == HttpMsgReader::connection_error)
+            {
+                LOG_ERROR() << "Failed to load application list: conection error(" << msg.connectionError << ")";
+            }
+            else if (msg.what == HttpMsgReader::message_corrupted)
+            {
+                LOG_ERROR() << "Failed to load application list: corrupted message";
+            }
+            else
+            {
+                LOG_ERROR() << "Failed to load application list reason: " << msg.what;
+            }
+            callback(isOk, response);
+            return false;
+        });
+
+        m_httpClient->send_request(request);
+    }
+
+    void WalletClient::markAppNotificationAsRead(const TxID id)
+    {
+        auto w = m_wallet.lock();
+        if (w)
+        {
+            w->markAppNotificationAsRead(id);
+        }
+    }
+
     void WalletClient::getCoinConfirmationsOffset(AsyncCallback<uint32_t>&& callback)
     {
         auto confirmationOffset = m_walletDB->getCoinConfirmationsOffset();
@@ -1864,6 +1995,41 @@ namespace beam::wallet
                 m_currentHeight = currentHeight;
                 m_unsafeActiveTxCount = count;
                 m_mpLockTimeLimit = limit;
+            });
+
+            auto currentHeight = w->get_TipHeight();
+
+            struct Walker :public Block::SystemState::IHistory::IWalker
+            {
+                std::vector<Block::SystemState::Full> m_vStates;
+                uint32_t m_Count;
+
+                virtual bool OnState(const Block::SystemState::Full& s) override
+                {
+                    m_vStates.push_back(s);
+                    return m_vStates.size() < m_Count;
+                }
+            } walker;
+
+            walker.m_Count = 10;
+            walker.m_vStates.reserve(10);
+            Height historyHeight = currentHeight - 10;
+            m_walletDB->get_History().Enum(walker, &historyHeight);
+
+            if (walker.m_vStates.empty())
+                return;
+
+            auto oldest = walker.m_vStates[walker.m_vStates.size() - 1];
+            Block::SystemState::Full curentState;
+            m_walletDB->get_History().get_Tip(curentState);
+            auto distance = currentHeight - oldest.m_Height;
+            auto averageBlockTime = distance ? (curentState.m_TimeStamp - oldest.m_TimeStamp) / distance : 0; 
+            auto lastBlockTime = curentState.m_TimeStamp;
+
+            postFunctionToClientContext([this, averageBlockTime, lastBlockTime]()
+            {
+                m_averageBlockTime = averageBlockTime;
+                m_lastBlockTime = lastBlockTime;
             });
         }
     }

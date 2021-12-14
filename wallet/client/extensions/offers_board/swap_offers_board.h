@@ -75,7 +75,6 @@ public:
      *  IBroadcastListener implementation
      *  Processes broadcast messages
      */
-    bool onMessage(uint64_t, ByteBuffer&&) override;    // TODO: dh remove after 2 fork.
     bool onMessage(uint64_t, BroadcastMsg&&) override;
     
     /**
