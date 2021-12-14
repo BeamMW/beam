@@ -18,6 +18,14 @@
 #define Liquity_user_view(macro) macro(ContractID, cid)
 #define Liquity_user_withdraw_surplus(macro) macro(ContractID, cid)
 
+#define Liquity_user_upd_stab(macro) \
+    macro(ContractID, cid) \
+    macro(Amount, newVal) \
+
+#define Liquity_user_upd_profit(macro) \
+    macro(ContractID, cid) \
+    macro(Amount, newVal) \
+
 #define Liquity_user_trove_modify(macro) \
     macro(ContractID, cid) \
     macro(Amount, tok) \
@@ -34,6 +42,8 @@
 #define LiquityRole_user(macro) \
     macro(user, view) \
     macro(user, withdraw_surplus) \
+    macro(user, upd_stab) \
+    macro(user, upd_profit) \
     macro(user, trove_modify) \
     macro(user, liquidate)
 
@@ -376,7 +386,10 @@ struct MyGlobalPlus
 
         StabPoolEntry e;
         if (!Env::VarReader::Read_T(k, e))
+        {
+            m_MyStab.m_Amounts.Tok = m_MyStab.m_Amounts.Col = 0;
             return false;
+        }
 
         EpochStorage<Tags::s_Epoch_Stable> stor(m_Kid.m_Blob.m_Cid);
 
@@ -564,6 +577,61 @@ ON_METHOD(user, withdraw_surplus)
     g.PrepareTx(args, pFc);
 
     Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "surplus withdraw", 0);
+}
+
+ON_METHOD(user, upd_stab)
+{
+    MyGlobalPlus g(cid);
+    if (!g.Load(cid)) // skip loading all troves
+        return;
+
+    g.PopMyStab();
+
+    if ((newVal == g.m_MyStab.m_Amounts.Tok) && !g.m_MyStab.m_Amounts.Col)
+        OnError("no change");
+
+    g.m_MyTrove.m_Vault = g.m_MyStab.m_Amounts;
+
+    Method::UpdStabPool args;
+    FundsChange pFc[2];
+
+    _POD_(args.m_Flow).SetZero();
+    args.m_Flow.Tok.Add(newVal, 1);
+
+    g.PrepareTx(args, pFc);
+
+    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "update stab pool", 0);
+}
+
+ON_METHOD(user, upd_profit)
+{
+    MyGlobalPlus g(cid);
+    if (!g.Load(cid)) // skip loading all troves
+        return;
+
+    g.PopMyProfit();
+
+    if ((newVal == g.m_MyProfit.m_Gov) && !g.m_MyProfit.m_Beam)
+        OnError("no change");
+
+    g.m_MyTrove.m_Vault.Col = g.m_MyProfit.m_Beam;
+    g.m_MyTrove.m_Vault.Tok = 0;
+
+    Method::UpdProfitPool args;
+    FundsChange pFc[3];
+
+    _POD_(args.m_Flow).SetZero();
+    args.m_Flow.Tok.Add(newVal, 1);
+
+    g.PrepareTx(args, pFc);
+
+    auto& fc = pFc[2];
+    fc.m_Aid = g.m_Settings.m_AidProfit;
+    fc.m_Consume = (newVal > g.m_MyProfit.m_Gov);
+    fc.m_Amount = fc.m_Consume ? (newVal - g.m_MyProfit.m_Gov) : (g.m_MyProfit.m_Gov - newVal);
+    
+
+    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "update profit pool", 0);
 }
 
 bool AdjustVal(Amount& dst, Amount src, uint32_t op)
