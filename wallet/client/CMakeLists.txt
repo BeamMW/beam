@@ -65,7 +65,7 @@ endif()
 
 if(BEAM_LELANTUS_SUPPORT)
     target_link_libraries(wallet_client PUBLIC lelantus)
-    target_link_libraries(wallet_client_no_ipfs PUBLIC assets dex)
+    target_link_libraries(wallet_client_no_ipfs PUBLIC lelantus)
 endif()
 
 if(BEAM_IPFS_SUPPORT)
