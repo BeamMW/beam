@@ -164,7 +164,7 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Value);
 	}
 
-	template <bool bToShader, uint32_t nProvs> void Convert(MultiPrecision::Float& x) {
+	template <bool bToShader> void Convert(MultiPrecision::Float& x) {
 		ConvertOrd<bToShader>(x.m_Num);
 		ConvertOrd<bToShader>((uint32_t&) x.m_Order);
 	}
