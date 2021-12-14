@@ -171,14 +171,14 @@ namespace Shaders {
 
 	template <bool bToShader, uint32_t nProvs> void Convert(Oracle2::Method::Create<nProvs>& x) {
 		ConvertOrd<bToShader>(x.m_Providers);
-		ConvertOrd<bToShader>(x.m_InitialValue);
+		Convert<bToShader>(x.m_InitialValue);
 	}
 	template <bool bToShader> void Convert(Oracle2::Method::Set& x) {
 		ConvertOrd<bToShader>(x.m_iProvider);
-		ConvertOrd<bToShader>(x.m_Value);
+		Convert<bToShader>(x.m_Value);
 	}
 	template <bool bToShader> void Convert(Oracle2::Method::Get& x) {
-		ConvertOrd<bToShader>(x.m_Value);
+		Convert<bToShader>(x.m_Value);
 	}
 
 	template <bool bToShader> void Convert(Sidechain::Init& x) {
