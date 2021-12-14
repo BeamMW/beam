@@ -36,6 +36,8 @@
 
 #ifdef BEAM_IPFS_SUPPORT
 #include "wallet/ipfs/ipfs.h"
+#else
+#include "wallet/ipfs/ipfs_config.h"
 #endif
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -355,7 +357,11 @@ namespace beam::wallet
         std::weak_ptr<NodeNetwork> m_nodeNetwork;
         std::weak_ptr<IWalletMessageEndpoint> m_walletNetwork;
         std::weak_ptr<Wallet> m_wallet;
+
+        #ifdef BEAM_IPFS_SUPPORT
         std::weak_ptr<IPFSService> m_ipfs;
+        #endif
+
         // broadcasting via BBS
         std::weak_ptr<IBroadcastMsgGateway> m_broadcastRouter;
         std::weak_ptr<IBroadcastListener> m_updatesProvider;
@@ -363,15 +369,20 @@ namespace beam::wallet
         std::weak_ptr<ExchangeRateProvider> m_exchangeRateProvider;
         std::weak_ptr<VerificationProvider> m_verificationProvider;
         std::shared_ptr<NotificationCenter> m_notificationCenter;
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+        #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
         uint32_t m_connectedNodesCount;
         uint32_t m_trustedConnectionCount;
         boost::optional<ErrorType> m_walletError;
         std::string m_initialNodeAddrStr;
+
+        #ifdef BEAM_IPFS_SUPPORT
         std::string m_ipfsRepo;
         asio_ipfs::config m_ipfsConfig;
+        #endif
 
         struct CoinKey
         {

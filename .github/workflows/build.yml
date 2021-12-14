@@ -263,7 +263,7 @@ jobs:
         name: ${{env.PLATFORM_NAME}}-wallet-api${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
         path: |
           artifacts/wallet-api*
-          artifacts/*ipfs-bindings*
+          artifacts/ipfs-bindings*
         if-no-files-found: error
     
     - uses: actions/upload-artifact@v2
@@ -281,9 +281,7 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: ${{env.PLATFORM_NAME}}-ethash-service${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
-        path: |
-          artifacts/ethash-service*
-          artifacts/*ipfs-bindings*
+        path: artifacts/ethash-service*
         if-no-files-found: error
 
 ###############################################################################

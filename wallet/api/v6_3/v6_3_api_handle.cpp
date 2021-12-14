@@ -18,6 +18,7 @@ namespace beam::wallet
 {
     void V63Api::onHandleIPFSAdd(const JsonRpcId &id, IPFSAdd&& req)
     {
+        #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
         ipfs->add(std::move(req.data),
             [this, id, wguard = _weakSelf](std::string&& hash) {
@@ -42,10 +43,14 @@ namespace beam::wallet
                 sendError(id, ApiError::IPFSError, err);
             }
         );
+        #else
+        sendError(id, ApiError::NotSupported);
+        #endif
     }
 
     void V63Api::onHandleIPFSGet(const JsonRpcId &id, IPFSGet&& req)
     {
+        #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
         ipfs->get(req.hash, req.timeout,
         [this, id, hash = req.hash, wguard = _weakSelf](std::vector<uint8_t>&& data) {
@@ -70,10 +75,14 @@ namespace beam::wallet
                 sendError(id, ApiError::IPFSError, err);
             }
         );
+        #else
+        sendError(id, ApiError::NotSupported);
+        #endif
     }
 
     void V63Api::onHandleIPFSPin(const JsonRpcId &id, IPFSPin&& req)
     {
+        #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
         ipfs->pin(req.hash, req.timeout,
         [this, id, hash = req.hash, wguard = _weakSelf]() {
@@ -97,10 +106,14 @@ namespace beam::wallet
                 sendError(id, ApiError::IPFSError, err);
             }
         );
+        #else
+        sendError(id, ApiError::NotSupported);
+        #endif
     }
 
     void V63Api::onHandleIPFSUnpin(const JsonRpcId &id, IPFSUnpin&& req)
     {
+        #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
         ipfs->unpin(req.hash, req.timeout,
           [this, id, hash = req.hash, wguard = _weakSelf]() {
@@ -124,10 +137,14 @@ namespace beam::wallet
               sendError(id, ApiError::IPFSError, err);
           }
         );
+        #else
+        sendError(id, ApiError::NotSupported);
+        #endif
     }
 
     void V63Api::onHandleIPFSGc(const JsonRpcId &id, IPFSGc&& req)
     {
+        #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
         ipfs->gc(req.timeout,
             [this, id, wguard = _weakSelf]() {
@@ -151,5 +168,8 @@ namespace beam::wallet
                 sendError(id, ApiError::IPFSError, err);
             }
         );
+        #else
+        sendError(id, ApiError::NotSupported);
+        #endif
     }
 }

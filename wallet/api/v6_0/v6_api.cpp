@@ -113,6 +113,7 @@ namespace beam::wallet
         return _contracts;
     }
 
+    #ifdef BEAM_IPFS_SUPPORT
     IPFSService::Ptr V6Api::getIPFS() const
     {
         if (_ipfs == nullptr)
@@ -123,6 +124,7 @@ namespace beam::wallet
         assertWalletThread();
         return _ipfs;
     }
+    #endif
 
     void V6Api::assertWalletThread() const
     {

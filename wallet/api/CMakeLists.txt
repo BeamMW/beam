@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 
-add_library(wallet_api STATIC
+set(SOURCES
     base/api_base.cpp
     base/api_errors_imp.cpp
     i_wallet_api.cpp
@@ -16,13 +16,28 @@ add_library(wallet_api STATIC
     v6_3/v6_3_api_parse.cpp
 )
 
+add_library(wallet_api STATIC
+    ${SOURCES}
+)
+
+add_library(wallet_api_no_ipfs STATIC
+    ${SOURCES}
+)
+
 if(BEAM_ATOMIC_SWAP_SUPPORT)
+    set(SOURCES_SWAP
+        v6_0/v6_api_swap_handle.cpp
+        v6_0/v6_api_swap_parse.cpp
+        cli/swap_client.cpp
+        cli/swap_eth_client.cpp
+    )
+
     target_sources(wallet_api
-        PRIVATE
-            v6_0/v6_api_swap_handle.cpp
-            v6_0/v6_api_swap_parse.cpp
-            cli/swap_client.cpp
-            cli/swap_eth_client.cpp
+        PRIVATE ${SOURCES_SWAP}
+    )
+
+    target_sources(wallet_api_no_ipfs
+        PRIVATE ${SOURCES_SWAP}
     )
 endif()
 
@@ -30,6 +45,13 @@ target_link_libraries(wallet_api
     PUBLIC 
         wallet 
         wallet_client
+        utility
+)
+
+target_link_libraries(wallet_api_no_ipfs
+    PUBLIC
+        wallet
+        wallet_client_no_ipfs
         utility
 )
 

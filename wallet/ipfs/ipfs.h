@@ -19,7 +19,7 @@
 #include <string>
 #include <functional>
 #include <stdexcept>
-#include <asio-ipfs/include/asio_ipfs/config.h>
+#include "ipfs_config.h"
 
 namespace beam::wallet
 {

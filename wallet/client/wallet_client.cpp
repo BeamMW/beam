@@ -424,8 +424,6 @@ namespace beam::wallet
         , m_connectedNodesCount(0)
         , m_trustedConnectionCount(0)
         , m_initialNodeAddrStr(nodeAddr)
-        , m_ipfsRepo(ipfsRepo)
-        , m_ipfsConfig(std::move(ipfsConfig))
         , m_CoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onNormalCoinsChanged(action, items); })
         , m_ShieldedCoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onShieldedCoinChanged(action, items); })
         , m_AddressChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAddressesChanged(action, items); })
@@ -437,6 +435,11 @@ namespace beam::wallet
     {
         m_ainfoDelayed = io::Timer::create(*m_reactor);
         m_balanceDelayed = io::Timer::create(*m_reactor);
+
+        #ifdef BEAM_IPFS_SUPPORT
+        m_ipfsRepo = ipfsRepo;
+        m_ipfsConfig = std::move(ipfsConfig);
+        #endif
     }
 
     WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& ipfsRepo, asio_ipfs::config ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
@@ -691,7 +694,7 @@ namespace beam::wallet
                     m_ipfs = ipfsService;
                 }
                 #else
-                LOG_WARNING () << "IPFS Service is disabled."
+                LOG_WARNING () << "IPFS Service is disabled.";
                 #endif
 
                 //
