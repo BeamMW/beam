@@ -265,23 +265,12 @@ struct MyGlobal
             // check cr
             Price price = get_Price();
 
-            bool bRecovery = price.IsBelow150(m_Troves.m_Totals);
+            bool bRecovery = IsRecovery(price);
             Env::Halt_if(IsTroveUpdInvalid(t, price, bRecovery));
 
-            // during recovery borrowing fee is OFF
-            if ((m_Troves.m_Totals.Tok > totals0.Tok) && !m_ProfitPool.IsEmpty() && !bRecovery)
+            Amount feeCol = get_BorrowFee(m_Troves.m_Totals.Tok, totals0.Tok, bRecovery, price);
+            if (feeCol)
             {
-
-                Amount valMinted = m_Troves.m_Totals.Tok - totals0.Tok;
-                Amount feeTokMin = valMinted / 200; // 0.5 percent
-                Amount feeTokMax = valMinted / 20; // 5 percent
-
-                m_BaseRate.Decay();
-                Amount feeTok = feeTokMin + m_BaseRate.m_k * Float(valMinted);
-                feeTok = std::min(feeTok, feeTokMax);
-
-                Amount feeCol = price.T2C(feeTok);
-
                 m_ProfitPool.AddValue(feeCol, 0);
                 fpLogic.Col.Add(feeCol, 1);
             }
@@ -447,11 +436,7 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
         {
             if (cr >= Global::Price::get_k110())
             {
-                bool bRecovery =
-                    g.m_Troves.m_Totals.Tok &&
-                    price.IsBelow150(g.m_Troves.m_Totals);
-
-                Env::Halt_if(!bRecovery); // in recovery mode can liquidate up to cr == 1.5
+                Env::Halt_if(!g.IsRecovery(price)); // in recovery mode can liquidate up to cr == 1.5
 
                 Amount valColMax = price.T2C(Float(t.m_Amounts.Tok) * Global::Price::get_k110());
                 assert(valColMax <= t.m_Amounts.Col);

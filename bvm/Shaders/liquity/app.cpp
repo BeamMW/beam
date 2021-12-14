@@ -15,12 +15,21 @@
     macro(manager, view_params) \
     macro(manager, my_admin_key) \
 
-#define Liquity_user_my_key(macro) macro(ContractID, cid)
-#define Liquity_user_my_trove(macro) macro(ContractID, cid)
+#define Liquity_user_view(macro) macro(ContractID, cid)
+#define Liquity_user_withdraw_surplus(macro) macro(ContractID, cid)
+
+#define Liquity_user_trove_modify(macro) \
+    macro(ContractID, cid) \
+    macro(Amount, tok) \
+    macro(Amount, col) \
+    macro(uint32_t, opTok) \
+    macro(uint32_t, opCol) \
+    macro(uint32_t, bPredictOnly)
 
 #define LiquityRole_user(macro) \
-    macro(user, my_key) \
-    macro(user, my_trove)
+    macro(user, view) \
+    macro(user, withdraw_surplus) \
+    macro(user, trove_modify)
 
 #define LiquityRoles_All(macro) \
     macro(manager) \
@@ -60,7 +69,12 @@ struct AdminKeyID :public Env::KeyID {
     AdminKeyID() :Env::KeyID(g_szAdminSeed, sizeof(g_szAdminSeed)) {}
 };
 
-struct TroveKeyID :public Env::KeyID
+template <uint8_t a, uint8_t b, uint8_t c, uint8_t d>
+struct FourCC {
+    static const uint32_t V = (((((a << 8) | b) << 8) | c) << 8) | d;
+};
+
+struct MyKeyID :public Env::KeyID
 {
 #pragma pack (push, 1)
     struct Blob {
@@ -69,14 +83,23 @@ struct TroveKeyID :public Env::KeyID
     } m_Blob;
 #pragma pack (pop)
 
-    TroveKeyID(const ContractID& cid)
+    MyKeyID(const ContractID& cid)
     {
         m_pID = &m_Blob;
         m_nID = sizeof(m_Blob);
-
         _POD_(m_Blob.m_Cid) = cid;
-        m_Blob.m_Magic = 0x21260ac2;
+    }
 
+    void set_Trove() {
+        m_Blob.m_Magic = FourCC<'t', 'r', 'o', 'v'>::V;
+    }
+
+    void set_Stab() {
+        m_Blob.m_Magic = FourCC<'s', 't', 'a', 'b'>::V;
+    }
+
+    void set_Profit() {
+        m_Blob.m_Magic = FourCC<'p', 'f', 't', '$'>::V;
     }
 };
 
@@ -147,12 +170,12 @@ struct MyGlobal
     };
 };
 
-struct MyGlobalPlusTroves
+struct MyGlobalPlus
     :public MyGlobal
 {
-    const ContractID& m_Cid;
+    MyKeyID m_Kid;
 
-    MyGlobalPlusTroves(const ContractID& cid) :m_Cid(cid) {}
+    MyGlobalPlus(const ContractID& cid) :m_Kid(cid) {}
 
     MyPrice m_Price;
 
@@ -180,13 +203,28 @@ struct MyGlobalPlusTroves
     Trove* m_pT = nullptr;
     uint32_t m_ActiveTroves = 0;
 
-    struct My 
+    struct MyTrove
     {
         Trove* m_pT = nullptr;
         Trove::ID m_iT;
+        Trove::ID m_iPrev0;
         uint32_t m_Index;
+        Pair m_Vault;
         PubKey m_Pk;
-    } m_My;
+    } m_MyTrove;
+
+    struct MyStab
+    {
+        PubKey m_Pk;
+        Pair m_Amounts;
+    } m_MyStab;
+
+    struct MyProfit
+    {
+        PubKey m_Pk;
+        Amount m_Beam;
+        Amount m_Gov;
+    } m_MyProfit;
 
     Trove& get_T(Trove::ID iTrove)
     {
@@ -194,7 +232,7 @@ struct MyGlobalPlusTroves
         return m_pT[iTrove - 1];
     }
 
-    ~MyGlobalPlusTroves()
+    ~MyGlobalPlus()
     {
         if (m_pT)
             Env::Heap_Free(m_pT);
@@ -208,8 +246,8 @@ struct MyGlobalPlusTroves
         Env::Memset(m_pT, 0, nSize);
 
         Env::Key_T<Trove::Key> k0, k1;
-        _POD_(k0.m_Prefix.m_Cid) = m_Cid;
-        _POD_(k1.m_Prefix.m_Cid) = m_Cid;
+        _POD_(k0.m_Prefix.m_Cid) = m_Kid.m_Blob.m_Cid;
+        _POD_(k1.m_Prefix.m_Cid) = m_Kid.m_Blob.m_Cid;
         k0.m_KeyInContract.m_iTrove = 0;
         k1.m_KeyInContract.m_iTrove = static_cast<Trove::ID>(-1);
 
@@ -223,9 +261,9 @@ struct MyGlobalPlusTroves
         }
     }
 
-    bool Load()
+    bool LoadPlus()
     {
-        if (!MyGlobal::Load(m_Cid))
+        if (!Load(m_Kid.m_Blob.m_Cid))
             return false;
 
         if (!m_Price.Load(*this))
@@ -237,36 +275,163 @@ struct MyGlobalPlusTroves
         return true;
     }
 
-    bool PopMyTrove(const TroveKeyID& kid)
+    bool ReadVault()
     {
-        assert(!m_My.m_pT);
-        kid.get_Pk(m_My.m_Pk);
+        m_Kid.set_Trove();
+        m_Kid.get_Pk(m_MyTrove.m_Pk);
 
-        Trove* pP = nullptr;
-        for (m_My.m_iT = m_Troves.m_iHead; m_My.m_iT; m_My.m_Index++)
+        Env::Key_T<Balance::Key> k;
+        k.m_Prefix.m_Cid = m_Kid.m_Blob.m_Cid;
+        _POD_(k.m_KeyInContract.m_Pk) = m_MyTrove.m_Pk;
+
+        Balance x;
+        bool bFound = Env::VarReader::Read_T(k, x);
+
+        if (bFound)
+            m_MyTrove.m_Vault = x.m_Amounts;
+        else
+            _POD_(m_MyTrove.m_Vault).SetZero();
+        return bFound;
+    }
+
+    bool PopMyTrove()
+    {
+        assert(!m_MyTrove.m_pT);
+
+        ReadVault();
+
+        m_MyTrove.m_iPrev0 = 0;
+        for (m_MyTrove.m_iT = m_Troves.m_iHead; m_MyTrove.m_iT; m_MyTrove.m_Index++)
         {
-            Trove& t = get_T(m_My.m_iT);
-            if (_POD_(m_My.m_Pk) == t.m_pkOwner)
+            Trove& t = get_T(m_MyTrove.m_iT);
+            if (_POD_(m_MyTrove.m_Pk) == t.m_pkOwner)
             {
-                if (pP)
-                    pP->m_iNext = t.m_iNext;
+                if (m_MyTrove.m_iPrev0)
+                    get_T(m_MyTrove.m_iPrev0).m_iNext = t.m_iNext;
                 else
                     m_Troves.m_iHead = t.m_iNext;
 
-                EpochStorage<Tags::s_Epoch_Redist> stor(m_Cid);
+                EpochStorage<Tags::s_Epoch_Redist> stor(m_Kid.m_Blob.m_Cid);
                 m_RedistPool.Remove(t, stor);
 
                 m_Troves.m_Totals.Tok -= t.m_Amounts.Tok;
                 m_Troves.m_Totals.Col -= t.m_Amounts.Col;
 
-                m_My.m_pT = &t;
+                m_MyTrove.m_pT = &t;
                 return true;
             }
 
-            pP = &t;
-            m_My.m_iT = t.m_iNext;
+            m_MyTrove.m_iPrev0 = m_MyTrove.m_iT;
+            m_MyTrove.m_iT = t.m_iNext;
         }
         return false;
+    }
+
+    Trove::ID PushMyTrove()
+    {
+        assert(m_MyTrove.m_pT);
+        const auto& tVals = m_MyTrove.m_pT->m_Amounts;
+
+        EpochStorage<Tags::s_Epoch_Redist> stor(m_Kid.m_Blob.m_Cid);
+
+        Trove::ID iPrev1 = 0;
+        for (Trove::ID iT = m_Troves.m_iHead; iT; )
+        {
+            const Trove& t1 = get_T(iT);
+
+            auto vals = m_RedistPool.get_UpdatedAmounts(t1, stor);
+            if (vals.CmpRcr(tVals) >= 0)
+                break;
+
+            iPrev1 = iT;
+            iT = t1.m_iNext;
+        }
+
+        // no need to modify list, we're not doing anything with it further. Just update totals
+        m_Troves.m_Totals.Tok += tVals.Tok;
+        m_Troves.m_Totals.Col += tVals.Col;
+
+        return iPrev1;
+    }
+
+    bool PopMyStab()
+    {
+        m_Kid.set_Stab();
+        m_Kid.get_Pk(m_MyStab.m_Pk);
+
+        Env::Key_T<StabPoolEntry::Key> k;
+        k.m_Prefix.m_Cid = m_Kid.m_Blob.m_Cid;
+        _POD_(k.m_KeyInContract.m_pkUser) = m_MyStab.m_Pk;
+
+        StabPoolEntry e;
+        if (!Env::VarReader::Read_T(k, e))
+            return false;
+
+        EpochStorage<Tags::s_Epoch_Stable> stor(m_Kid.m_Blob.m_Cid);
+
+        HomogenousPool::Pair out;
+        m_StabPool.UserDel(e.m_User, out, stor);
+
+        m_MyStab.m_Amounts.Tok = out.s;
+        m_MyStab.m_Amounts.Col = out.b;
+
+        return true;
+    }
+
+    bool PopMyProfit()
+    {
+        m_Kid.set_Profit();
+        m_Kid.get_Pk(m_MyProfit.m_Pk);
+
+        Env::Key_T<ProfitPoolEntry::Key> k;
+        k.m_Prefix.m_Cid = m_Kid.m_Blob.m_Cid;
+        _POD_(k.m_KeyInContract.m_pkUser) = m_MyProfit.m_Pk;
+
+        ProfitPoolEntry e;
+        if (!Env::VarReader::Read_T(k, e))
+            return false;
+
+        m_MyProfit.m_Gov = e.m_User.m_Weight;
+        m_ProfitPool.Remove(&m_MyProfit.m_Beam, e.m_User);
+
+        return true;
+    }
+
+    static void PrepareComp(Flow& dst, Amount vault, FundsChange& fc)
+    {
+        dst.Add(vault, 0);
+        fc.m_Amount = dst.m_Val;
+        fc.m_Consume = dst.m_Spend;
+    }
+
+    void PrepareTxBase(Method::BaseTx& tx, FundsChange* pFc)
+    {
+        // account for surplus, and update fc
+        PrepareComp(tx.m_Flow.Tok, m_MyTrove.m_Vault.Tok, pFc[0]);
+        PrepareComp(tx.m_Flow.Col, m_MyTrove.m_Vault.Col, pFc[1]);
+
+        pFc[0].m_Aid = m_Aid;
+        pFc[1].m_Aid = 0;
+    }
+
+    void PrepareTx(Method::BaseTxUser& tx, FundsChange* pFc)
+    {
+        PrepareTxBase(tx, pFc);
+        _POD_(tx.m_pkUser) = m_MyTrove.m_Pk;
+    }
+
+    void PrepareTx(Method::BaseTxTrove& tx, FundsChange* pFc)
+    {
+        PrepareTxBase(tx, pFc);
+        tx.m_iPrev0 = m_MyTrove.m_iPrev0;
+    }
+
+    void OnTroveMove(Method::BaseTx& tx, uint8_t bPop)
+    {
+        const Pair& tVals = m_MyTrove.m_pT->m_Amounts;
+        tx.m_Flow.Tok.Add(!m_Settings.m_TroveLiquidationReserve, bPop);
+        tx.m_Flow.Tok.Add(tVals.Tok, bPop);
+        tx.m_Flow.Col.Add(tVals.Col, !bPop);
     }
 };
 
@@ -337,31 +502,185 @@ ON_METHOD(manager, my_admin_key)
     Env::DocAddBlob_T("admin_key", pk);
 }
 
-ON_METHOD(user, my_key)
+ON_METHOD(user, view)
 {
-    PubKey pk;
-    TroveKeyID(cid).get_Pk(pk);
-    Env::DocAddBlob_T("key", pk);
-}
-
-ON_METHOD(user, my_trove)
-{
-    MyGlobalPlusTroves g(cid);
-    if (!g.Load())
+    MyGlobalPlus g(cid);
+    if (!g.LoadPlus())
         return;
 
     Env::DocGroup gr("res");
     Env::DocAddNum("nTotal", g.m_ActiveTroves);
 
-    TroveKeyID kid(cid);
-    if (g.PopMyTrove(kid))
+    if (g.PopMyTrove())
     {
-        auto& t = *g.m_My.m_pT;
+        auto& t = *g.m_MyTrove.m_pT;
 
-        Env::DocAddNum("iPos", g.m_My.m_Index);
+        Env::DocAddNum("iPos", g.m_MyTrove.m_Index);
         DocAddPair("amounts", t.m_Amounts);
         DocAddPerc("cr", g.m_Price.ToCR(t.m_Amounts.get_Rcr()));
+    }
 
+    if (g.m_MyTrove.m_Vault.Tok || g.m_MyTrove.m_Vault.Col)
+        DocAddPair("surplus", g.m_MyTrove.m_Vault);
+
+    if (g.PopMyStab())
+        DocAddPair("stab", g.m_MyStab.m_Amounts);
+
+    if (g.PopMyProfit())
+    {
+        Env::DocGroup gr1("profit");
+        Env::DocAddNum("gov", g.m_MyProfit.m_Gov);
+        Env::DocAddNum("beam", g.m_MyProfit.m_Beam);
+    }
+}
+
+ON_METHOD(user, withdraw_surplus)
+{
+    MyGlobalPlus g(cid);
+    if (!g.Load(cid)) // skip loading all troves
+        return;
+
+    if (!g.ReadVault())
+        OnError("no surplus");
+
+    const auto& v = g.m_MyTrove.m_Vault;
+    assert(v.Col || v.Tok);
+
+    Method::FundsAccess args;
+    FundsChange pFc[2];
+
+    _POD_(args.m_Flow).SetZero();
+    g.PrepareTx(args, pFc);
+
+    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "surplus withdraw", 0);
+}
+
+bool AdjustVal(Amount& dst, Amount src, uint32_t op)
+{
+    switch (op)
+    {
+    case 0:
+        dst = src;
+        return true;
+
+    case 1:
+        dst += src;
+        if (dst >= src)
+            return true;
+
+        OnError("val overflow");
+        return false;
+
+    case 2:
+        if (dst < src)
+        {
+            OnError("val overflow");
+            return false;
+        }
+        dst -= src;
+        return true;
+    }
+
+    OnError("invalid val op");
+    return false;
+}
+
+ON_METHOD(user, trove_modify)
+{
+    MyGlobalPlus g(cid);
+    if (!g.LoadPlus())
+        return;
+
+    Trove tNew;
+    Method::BaseTx txb;
+    _POD_(txb.m_Flow).SetZero();
+
+    bool bPopped = g.PopMyTrove();
+    if (bPopped)
+        g.OnTroveMove(txb, 1);
+    else
+    {
+        g.m_MyTrove.m_pT = &tNew;
+        tNew.m_Amounts.Tok = tNew.m_Amounts.Col = 0;
+    }
+
+    auto& t = *g.m_MyTrove.m_pT; // alias
+    Amount tok0 = t.m_Amounts.Tok;
+
+    if (!AdjustVal(t.m_Amounts.Tok, tok, opTok) ||
+        !AdjustVal(t.m_Amounts.Col, col, opCol))
+        return;
+
+    FundsChange pFc[2];
+
+    if (t.m_Amounts.Tok || t.m_Amounts.Col)
+    {
+        if (t.m_Amounts.Tok < g.m_Settings.m_TroveLiquidationReserve)
+        {
+            OnError("min tok required");
+            return;
+        }
+
+       auto iPrev1 = g.PushMyTrove();
+
+        bool bRecovery = g.IsRecovery(g.m_Price);
+        if (g.IsTroveUpdInvalid(t, g.m_Price, bRecovery))
+            return OnError("insufficient collateral");
+
+        g.OnTroveMove(txb, 0);
+
+        Amount fee = g.get_BorrowFee(t.m_Amounts.Tok, tok0, bRecovery, g.m_Price);
+        txb.m_Flow.Col.Add(fee, 1);
+
+        if (bPopped)
+        {
+            Method::TroveModify args;
+            Cast::Down<Method::BaseTx>(args) = txb;
+
+            args.m_Amounts = t.m_Amounts;
+            args.m_iPrev1 = iPrev1;
+            g.PrepareTx(args, pFc);
+
+            if (!bPredictOnly)
+                Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "trove modify", 0);
+        }
+        else
+        {
+            Method::TroveOpen args;
+            Cast::Down<Method::BaseTx>(args) = txb;
+
+            args.m_Amounts = t.m_Amounts;
+            args.m_iPrev1 = iPrev1;
+            g.PrepareTx(args, pFc);
+
+            if (!bPredictOnly)
+                Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "trove open", 0);
+        }
+
+        if (bPredictOnly)
+        {
+            Env::DocGroup gr("prediction");
+            DocAddPair("newVals", t.m_Amounts);
+            DocAddPerc("cr", g.m_Price.ToCR(t.m_Amounts.get_Rcr()));
+
+            if (fee)
+                Env::DocAddNum("fee", fee);
+        }
+
+    }
+    else
+    {
+        // closing
+        if (!bPopped)
+            return OnError("trove already closed");
+
+        Method::TroveClose args;
+        Cast::Down<Method::BaseTx>(args) = txb;
+        
+        g.PrepareTx(args, pFc);
+
+        if (!bPredictOnly)
+            Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "trove close", 0);
     }
 }
 

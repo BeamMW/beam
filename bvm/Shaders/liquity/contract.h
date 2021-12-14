@@ -293,19 +293,12 @@ namespace Liquity
                 // rewrite it as: p.Col * m_Value < p.Tok * k
                 return C2T(p.Col) < (Float(p.Tok) * k);
             }
-
-            bool IsBelow150(const Pair& p) const {
-                return IsBelow(p, get_k150());
-            }
-
-            bool IsBelow110(const Pair& p) const {
-                return IsBelow(p, get_k110());
-            }
-
-            bool IsBelow100(const Pair& p) const             {
-                return IsBelow(p, get_k100());
-            }
         };
+
+        bool IsRecovery(const Price& price) const
+        {
+            return price.IsBelow(m_Troves.m_Totals, Price::get_k150());
+        }
 
         bool IsTroveUpdInvalid(const Trove& t, const Price& price, bool bRecovery) const
         {
@@ -313,7 +306,24 @@ namespace Liquity
                 // Ban txs that don't increase the tcr. Also covers the case where the very 1st trove drives us into recovery
                 return m_Troves.m_Totals.CmpRcr(t.m_Amounts) >= 0;
 
-            return price.IsBelow110(t.m_Amounts);
+            return price.IsBelow(t.m_Amounts, Price::get_k110());
+        }
+
+        Amount get_BorrowFee(Amount tok, Amount tok0, bool bRecovery, const Price& price)
+        {
+            // during recovery borrowing fee is OFF
+            if (bRecovery || (tok <= tok0) || m_ProfitPool.IsEmpty())
+                return 0;
+
+            Amount valMinted = tok - tok0;
+            Amount feeTokMin = valMinted / 200; // 0.5 percent
+            Amount feeTokMax = valMinted / 20; // 5 percent
+
+            m_BaseRate.Decay();
+            Amount feeTok = feeTokMin + m_BaseRate.m_k * Float(valMinted);
+            feeTok = std::min(feeTok, feeTokMax);
+
+            return price.T2C(feeTok);
         }
 
 /*
