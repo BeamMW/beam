@@ -39,13 +39,19 @@
     macro(uint32_t, nMaxTroves) \
     macro(uint32_t, bPredictOnly)
 
+#define Liquity_user_redeem(macro) \
+    macro(ContractID, cid) \
+    macro(Amount, val) \
+    macro(uint32_t, bPredictOnly)
+
 #define LiquityRole_user(macro) \
     macro(user, view) \
     macro(user, withdraw_surplus) \
     macro(user, upd_stab) \
     macro(user, upd_profit) \
     macro(user, trove_modify) \
-    macro(user, liquidate)
+    macro(user, liquidate) \
+    macro(user, redeem)
 
 #define LiquityRoles_All(macro) \
     macro(manager) \
@@ -348,11 +354,8 @@ struct MyGlobalPlus
         return false;
     }
 
-    Trove::ID PushMyTrove()
+    Trove::ID PushTrove(const Pair& tVals)
     {
-        assert(m_MyTrove.m_pT);
-        const auto& tVals = m_MyTrove.m_pT->m_Amounts;
-
         EpochStorage<Tags::s_Epoch_Redist> stor(m_Kid.m_Blob.m_Cid);
 
         Trove::ID iPrev1 = 0;
@@ -373,6 +376,12 @@ struct MyGlobalPlus
         m_Troves.m_Totals.Col += tVals.Col;
 
         return iPrev1;
+    }
+
+    Trove::ID PushMyTrove()
+    {
+        assert(m_MyTrove.m_pT);
+        return PushTrove(m_MyTrove.m_pT->m_Amounts);
     }
 
     bool PopMyStab()
@@ -812,6 +821,63 @@ ON_METHOD(user, liquidate)
         g.PrepareTx(args, pFc);
 
         Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "troves liquidate", 0);
+    }
+}
+
+ON_METHOD(user, redeem)
+{
+    MyGlobalPlus g(cid);
+    if (!g.LoadPlus())
+        return;
+
+    g.ReadVault();
+
+    Global::Redeemer ctx;
+    ctx.m_Price = g.m_Price;
+    _POD_(ctx.m_fpLogic).SetZero();
+    ctx.m_TokRemaining = val;
+
+    Trove::ID iPrev1 = 0;
+
+    while (g.m_Troves.m_iHead && ctx.m_TokRemaining)
+    {
+        auto& t = g.get_T(g.m_Troves.m_iHead);
+        g.PopTrove(0, t);
+
+        if (!g.RedeemTrove(t, ctx))
+            break;
+
+        if (t.m_Amounts.Tok)
+        {
+            assert(!ctx.m_TokRemaining);
+            if (!bPredictOnly)
+                iPrev1 = g.PushTrove(t.m_Amounts);
+        }
+    }
+
+    Amount fee = g.AddRedeemFee(ctx);
+
+    if (bPredictOnly)
+    {
+        Env::DocGroup gr("prediction");
+        Env::DocAddNum("tok", ctx.m_fpLogic.Tok.m_Val);
+        Env::DocAddNum("col", ctx.m_fpLogic.Col.m_Val - fee);
+        Env::DocAddNum("fee", fee);
+    }
+    else
+    {
+        if (ctx.m_TokRemaining)
+            OnError("insufficient redeemable troves");
+
+        Method::Redeem args;
+        args.m_Flow = ctx.m_fpLogic;
+        args.m_Amount = val;
+        args.m_iPrev1 = iPrev1;
+
+        FundsChange pFc[2];
+        g.PrepareTx(args, pFc);
+
+        Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "redeem", 0);
     }
 }
 

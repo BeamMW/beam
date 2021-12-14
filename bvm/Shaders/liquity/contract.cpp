@@ -496,69 +496,35 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
     MyGlobal_LoadSave g;
 
     Pair totals0 = g.m_Troves.m_Totals;
-    FlowPair fpLogic;
-    _POD_(fpLogic).SetZero();
 
-    auto price = g.get_Price();
+    Global::Redeemer ctx;
+    ctx.m_Price = g.get_Price();
+    _POD_(ctx.m_fpLogic).SetZero();
 
     Trove::Key tk;
 
-    for (Amount valRemaining = r.m_Amount; valRemaining; )
+    for (ctx.m_TokRemaining = r.m_Amount; ctx.m_TokRemaining; )
     {
         Trove t;
         tk.m_iTrove = g.TrovePop(0, t);
 
-        assert(t.m_Amounts.Tok >= g.m_Settings.m_TroveLiquidationReserve);
-        Amount valTok = t.m_Amounts.Tok - g.m_Settings.m_TroveLiquidationReserve;
+        Env::Halt_if(!g.RedeemTrove(t, ctx));
 
-        bool bFullRedeem = (valRemaining >= valTok);
-        if (!bFullRedeem)
-            valTok = valRemaining;
-
-        Amount valCol = price.T2C(valTok);
-        Amount valColSurplus = t.m_Amounts.Col;
-        Strict::Sub(valColSurplus, valCol); // would fail if undercollateralized
-
-        if (bFullRedeem)
+        if (t.m_Amounts.Tok)
+            g.TrovePush(tk.m_iTrove, t, r.m_iPrev1);
+        else
         {
             // close trove
             Env::DelVar_T(tk);
-
-            g.ExtractSurplusCol(valColSurplus, t);
+            g.ExtractSurplusCol(t.m_Amounts.Col, t);
         }
-        else
-        {
-            t.m_Amounts.Tok -= valTok;
-            t.m_Amounts.Col = valColSurplus;
-
-            g.TrovePush(tk.m_iTrove, t, r.m_iPrev1);
-        }
-
-
-        fpLogic.Tok.Add(valTok, 1);
-        fpLogic.Col.Add(valCol, 0);
-
-        valRemaining -= valTok;
     }
 
-    if (!g.m_ProfitPool.IsEmpty() && fpLogic.Tok.m_Val)
-    {
-        Amount feeBase = fpLogic.Col.m_Val / 200; // redemption fee floor is 0.5 percent
-
-        // update dynamic redeem ratio 
-        g.m_BaseRate.Decay();
-        Float kDrainRatio = Float(fpLogic.Tok.m_Val) / Float(fpLogic.Tok.m_Val + g.m_Troves.m_Totals.Tok);
-        g.m_BaseRate.m_k = g.m_BaseRate.m_k + kDrainRatio;
-
-        
-        Amount fee = feeBase + g.m_BaseRate.m_k * Float(fpLogic.Col.m_Val);
-        fee = std::min(fee, fpLogic.Col.m_Val); // fee can go as high as 100 percents
-
-        Strict::Sub(fpLogic.Col.m_Val, fee);
+    Amount fee = g.AddRedeemFee(ctx);
+    if (fee)
         g.m_ProfitPool.AddValue(fee, 0);
-    }
 
-    g.AdjustAll(r, totals0, fpLogic, r.m_pkUser);
+    g.AdjustAll(r, totals0, ctx.m_fpLogic, r.m_pkUser);
 }
 
 

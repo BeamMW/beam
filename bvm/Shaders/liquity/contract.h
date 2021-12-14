@@ -372,8 +372,67 @@ namespace Liquity
 
             ctx.m_fpLogic.Tok.Add(m_Settings.m_TroveLiquidationReserve, 0); // goes to the liquidator
             return true;
-
         }
+
+        struct Redeemer
+        {
+            Price m_Price;
+            FlowPair m_fpLogic;
+            Amount m_TokRemaining;
+        };
+
+        bool RedeemTrove(Trove& t, Redeemer& ctx) const
+        {
+            assert(ctx.m_TokRemaining && (t.m_Amounts.Tok >= m_Settings.m_TroveLiquidationReserve));
+
+            Amount valTok = t.m_Amounts.Tok - m_Settings.m_TroveLiquidationReserve;
+
+            bool bFullRedeem = (ctx.m_TokRemaining >= valTok);
+            if (!bFullRedeem)
+                valTok = ctx.m_TokRemaining;
+
+            Amount valCol = ctx.m_Price.T2C(valTok);
+            if (t.m_Amounts.Col < valCol)
+                return false; // undercollateralized, must be liquidated, not redeemed
+
+            t.m_Amounts.Col -= valCol;
+            if (bFullRedeem)
+            {
+                t.m_Amounts.Tok = 0;
+                ctx.m_TokRemaining -= valTok;
+            }
+            else
+            {
+                t.m_Amounts.Tok -= valTok;
+                ctx.m_TokRemaining = 0;
+            }
+
+            ctx.m_fpLogic.Tok.Add(valTok, 1);
+            ctx.m_fpLogic.Col.Add(valCol, 0);
+            
+            return true;
+        }
+
+        Amount AddRedeemFee(Redeemer& ctx)
+        {
+            if (m_ProfitPool.IsEmpty() || !ctx.m_fpLogic.Tok.m_Val)
+                return 0;
+
+            Amount feeBase = ctx.m_fpLogic.Col.m_Val / 200; // redemption fee floor is 0.5 percent
+
+            // update dynamic redeem ratio 
+            m_BaseRate.Decay();
+            Float kDrainRatio = Float(ctx.m_fpLogic.Tok.m_Val) / Float(ctx.m_fpLogic.Tok.m_Val + m_Troves.m_Totals.Tok);
+            m_BaseRate.m_k = m_BaseRate.m_k + kDrainRatio;
+
+
+            Amount fee = feeBase + m_BaseRate.m_k * Float(ctx.m_fpLogic.Col.m_Val);
+            fee = std::min(fee, ctx.m_fpLogic.Col.m_Val); // fee can go as high as 100 percents
+
+            ctx.m_fpLogic.Col.m_Val -= fee;
+            return fee;
+        }
+
 
         struct BaseRate
         {
