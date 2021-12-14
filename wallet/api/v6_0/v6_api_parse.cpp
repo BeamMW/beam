@@ -21,6 +21,18 @@
 #include "wallet/transactions/swaps/swap_tx_description.h"
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
 
+namespace
+{
+    std::string GetApiTxStatusStr(const beam::wallet::TxParameters& txParams)
+    {
+        auto [status, sender, selfTx] = beam::wallet::ParseParamsForStatusInterpretation(txParams);
+
+        if (status == beam::wallet::TxStatus::Registering)
+                        return selfTx ? "self sending" : (sender ? "sending" : "receiving");
+        return beam::wallet::GetTxStatusStr(txParams);
+    }
+}  // namespace
+
 namespace beam::wallet
 {
     CoinIDList readCoinsParameter(const JsonRpcId& id, const json& params)
@@ -147,57 +159,34 @@ namespace beam::wallet
         Height systemHeight,
         bool showIdentities = false)
     {
-        std::unique_ptr<TxStatusInterpreter> statusInterpreter = nullptr;
+        std::string statusStr = "unknown";
         if (tx.m_txType == TxType::Simple)
         {
-            struct ApiTxStatusInterpreter : public TxStatusInterpreter
-            {
-                explicit ApiTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
-                ~ApiTxStatusInterpreter() override = default;
-
-                [[nodiscard]] std::string getStatus() const override
-                {
-                    if (m_status == TxStatus::Registering)
-                        return m_selfTx ? "self sending" : (m_sender ? "sending" : "receiving");
-                    return TxStatusInterpreter::getStatus();
-                }
-            };
-
-            statusInterpreter = std::make_unique<ApiTxStatusInterpreter>(tx);
+            statusStr = beam::wallet::GetTxStatusStr(tx);
         }
         else if (tx.m_txType >= TxType::AssetIssue && tx.m_txType <= TxType::AssetInfo)
         {
-            struct ApiAssetTxStatusInterpreter : public AssetTxStatusInterpreter
-            {
-                explicit ApiAssetTxStatusInterpreter(const TxParameters& txParams) : AssetTxStatusInterpreter(txParams) {};
-                [[nodiscard]] std::string getStatus() const override
-                {
-                    if (m_status == TxStatus::Registering)
-                        return m_selfTx ? "self sending" : (m_sender ? "sending" : "receiving");
-                    return AssetTxStatusInterpreter::getStatus();
-                }
-            };
-            statusInterpreter = std::make_unique<AssetTxStatusInterpreter>(tx);
+            statusStr = beam::wallet::GetAssetTxStatusStr(tx);
         }
         else if (tx.m_txType == TxType::PushTransaction)
         {
-            statusInterpreter = std::make_unique<MaxPrivacyTxStatusInterpreter>(tx);
+            statusStr = beam::wallet::GetMaxAnonimityTxStatusStr(tx);
         }
         else if (tx.m_txType == TxType::AtomicSwap)
         {
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-            statusInterpreter = std::make_unique<SwapTxStatusInterpreter>(tx);
+            statusStr = beam::wallet::GetSwapTxStatusStr(tx);
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
         }
         else if (tx.m_txType == TxType::Contract)
         {
-            statusInterpreter = std::make_unique<ContractTxStatusInterpreter>(tx);
+            statusStr = beam::wallet::GetContractTxStatusStr(tx);
         }
         msg = json
         {
             {"txId", std::to_string(tx.m_txId)},
             {"status", tx.m_status},
-            {"status_string", statusInterpreter ? statusInterpreter->getStatus() : "unknown"},
+            {"status_string", statusStr},
             {"sender", tx.getAddressFrom()},
             {"receiver", tx.getAddressTo()},
             {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},

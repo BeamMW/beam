@@ -1,5 +1,6 @@
 #pragma once
 #include "pool.h"
+#include "../oracle2/contract.h"
 
 namespace Liquity
 {
@@ -286,34 +287,94 @@ namespace Liquity
                 return Float(1u);
             }
 
-            bool IsBelow150(Float rcr) const
+            bool IsBelow(const Pair& p, Float k) const
             {
-                return ToCR(rcr) < get_k150();
-            }
-
-            bool IsBelow110(Float rcr) const
-            {
-                return ToCR(rcr) < get_k110();
-            }
-
-            bool IsBelow100(Float rcr) const
-            {
-                return ToCR(rcr) < get_k100();
+                // theoretical formula: p.Col / p.Tok * m_Value < k
+                // rewrite it as: p.Col * m_Value < p.Tok * k
+                return C2T(p.Col) < (Float(p.Tok) * k);
             }
         };
-/*
-        Amount get_LiquidationRewardReduce(Float cr) const
+
+        bool IsRecovery(const Price& price) const
         {
-            Amount half = m_Settings.m_TroveLiquidationReserve / 2;
-
-            // icr == 0 - full reward
-            // icr == threshold - reward is reduced to half
-
-            Amount ret = Float(half) * cr / Price::get_k110();
-
-            return std::min(ret, half);
+            return price.IsBelow(m_Troves.m_Totals, Price::get_k150());
         }
-*/
+
+        bool IsTroveUpdInvalid(const Trove& t, const Price& price, bool bRecovery) const
+        {
+            if (bRecovery)
+                // Ban txs that don't increase the tcr. Also covers the case where the very 1st trove drives us into recovery
+                return m_Troves.m_Totals.CmpRcr(t.m_Amounts) >= 0;
+
+            return price.IsBelow(t.m_Amounts, Price::get_k110());
+        }
+
+        Amount get_BorrowFee(Amount tok, Amount tok0, bool bRecovery, const Price& price)
+        {
+            // during recovery borrowing fee is OFF
+            if (bRecovery || (tok <= tok0) || m_ProfitPool.IsEmpty())
+                return 0;
+
+            Amount valMinted = tok - tok0;
+            Amount feeTokMin = valMinted / 200; // 0.5 percent
+            Amount feeTokMax = valMinted / 20; // 5 percent
+
+            m_BaseRate.Decay();
+            Amount feeTok = feeTokMin + m_BaseRate.m_k * Float(valMinted);
+            feeTok = std::min(feeTok, feeTokMax);
+
+            return price.T2C(feeTok);
+        }
+
+        struct Liquidator
+        {
+            Price m_Price;
+            FlowPair m_fpLogic;
+            bool m_Stab = false;
+            bool m_Redist = false;
+        };
+
+        bool LiquidateTrove(Trove& t, Liquidator& ctx, Amount& valSurplus)
+        {
+            assert(t.m_Amounts.Tok >= m_Settings.m_TroveLiquidationReserve);
+
+            auto cr = ctx.m_Price.ToCR(t.m_Amounts.get_Rcr());
+            if (cr > Global::Price::get_k100())
+            {
+                if (cr >= Global::Price::get_k110())
+                {
+                    if (!IsRecovery(ctx.m_Price)) // in recovery mode can liquidate the weakest
+                        return false;
+
+                    Amount valColMax = ctx.m_Price.T2C(Float(t.m_Amounts.Tok) * Price::get_k110());
+                    assert(valColMax <= t.m_Amounts.Col);
+                    if (valColMax < t.m_Amounts.Col) // should always be true, just for more safety
+                    {
+                        valSurplus = t.m_Amounts.Col - valColMax;
+                        t.m_Amounts.Col = valColMax;
+                    }
+
+                }
+
+                if (m_StabPool.LiquidatePartial(t))
+                    ctx.m_Stab = true;
+            }
+
+            if (t.m_Amounts.Tok || t.m_Amounts.Col)
+            {
+                ctx.m_Redist = true;
+                if (!m_RedistPool.Liquidate(t))
+                    return false;
+
+                Strict::Add(m_Troves.m_Totals.Tok, t.m_Amounts.Tok);
+                Strict::Add(m_Troves.m_Totals.Col, t.m_Amounts.Col);
+            }
+
+            ctx.m_fpLogic.Tok.Add(m_Settings.m_TroveLiquidationReserve, 0); // goes to the liquidator
+            return true;
+
+        }
+
         struct BaseRate
         {
             Float m_k;
@@ -353,11 +414,7 @@ namespace Liquity
 
     namespace Method
     {
-        struct OracleGet
-        {
-            static const uint32_t s_iMethod = 3;
-            Float m_Val;
-        };
+        typedef Oracle2::Method::Get OracleGet;
 
         struct Create
         {
@@ -411,7 +468,6 @@ namespace Liquity
         {
             static const uint32_t s_iMethod = 8;
             uint32_t m_Count;
-            Trove::ID m_iPrev1;
         };
 
         struct UpdProfitPool :public BaseTxUser

@@ -264,32 +264,13 @@ struct MyGlobal
 
             // check cr
             Price price = get_Price();
-            Float trcr = m_Troves.m_Totals.get_Rcr();
 
-            bool bRecovery = price.IsBelow150(trcr);
-            if (bRecovery)
+            bool bRecovery = IsRecovery(price);
+            Env::Halt_if(IsTroveUpdInvalid(t, price, bRecovery));
+
+            Amount feeCol = get_BorrowFee(m_Troves.m_Totals.Tok, totals0.Tok, bRecovery, price);
+            if (feeCol)
             {
-                // recovery mode.
-                Env::Halt_if(!totals0.Tok); // the very first trove, should not drive us into recovery
-                Env::Halt_if(totals0.get_Rcr() > trcr); // Ban txs that further decreese the tcr
-            }
-            else
-                Env::Halt_if(price.IsBelow110(t.m_Amounts.get_Rcr()));
-
-            // during recovery borrowing fee is OFF
-            if ((m_Troves.m_Totals.Tok > totals0.Tok) && !m_ProfitPool.IsEmpty() && !bRecovery)
-            {
-
-                Amount valMinted = m_Troves.m_Totals.Tok - totals0.Tok;
-                Amount feeTokMin = valMinted / 200; // 0.5 percent
-                Amount feeTokMax = valMinted / 20; // 5 percent
-
-                m_BaseRate.Decay();
-                Amount feeTok = feeTokMin + m_BaseRate.m_k * Float(valMinted);
-                feeTok = std::min(feeTok, feeTokMax);
-
-                Amount feeCol = price.T2C(feeTok);
-
                 m_ProfitPool.AddValue(feeCol, 0);
                 fpLogic.Col.Add(feeCol, 1);
             }
@@ -305,7 +286,7 @@ struct MyGlobal
         Env::CallFar_T(m_Settings.m_cidOracle, args, 0);
 
         Global::Price ret;
-        ret.m_Value = args.m_Val;
+        ret.m_Value = args.m_Value;
         return ret;
     }
 };
@@ -430,13 +411,11 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
 {
     MyGlobal_LoadSave g;
 
-    FlowPair fpLogic;
-    _POD_(fpLogic).SetZero();
+    Global::Liquidator ctx;
+    ctx.m_Price = g.get_Price();
+    _POD_(ctx.m_fpLogic).SetZero();
     Pair totals0 = g.m_Troves.m_Totals;
 
-    auto price = g.get_Price();
-
-    bool bStab = false, bRedist = false;
     Trove::Key tk;
 
     for (uint32_t i = 0; i < r.m_Count; i++)
@@ -445,60 +424,26 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
         tk.m_iTrove = g.TrovePop(0, t);
         Env::DelVar_T(tk);
 
-        auto cr = price.ToCR(t.m_Amounts.get_Rcr());
+        Amount valSurplus = 0;
+        Env::Halt_if(!g.LiquidateTrove(t, ctx, valSurplus));
 
-        assert(t.m_Amounts.Tok >= g.m_Settings.m_TroveLiquidationReserve);
-
-        fpLogic.Tok.Add(g.m_Settings.m_TroveLiquidationReserve, 0); // goes to the liquidator
-
-        if (cr > Global::Price::get_k100())
-        {
-            if (cr >= Global::Price::get_k110())
-            {
-                bool bRecovery =
-                    g.m_Troves.m_Totals.Tok &&
-                    price.IsBelow150(g.m_Troves.m_Totals.get_Rcr());
-
-                Env::Halt_if(!bRecovery); // in recovery mode can liquidate up to cr == 1.5
-
-                Amount valColMax = price.T2C(Float(t.m_Amounts.Tok) * Global::Price::get_k110());
-                assert(valColMax <= t.m_Amounts.Col);
-                if (valColMax < t.m_Amounts.Col) // should always be true, just for more safety
-                {
-                    g.ExtractSurplusCol(t.m_Amounts.Col - valColMax, t);
-                    t.m_Amounts.Col = valColMax;
-                }
-
-            }
-
-            if (g.m_StabPool.LiquidatePartial(t))
-                bStab = true;
-        }
-
-        if (t.m_Amounts.Tok || t.m_Amounts.Col)
-        {
-            bRedist = true;
-            Env::Halt_if(!g.m_RedistPool.Liquidate(t));
-
-            Strict::Add(g.m_Troves.m_Totals.Tok, t.m_Amounts.Tok);
-            Strict::Add(g.m_Troves.m_Totals.Col, t.m_Amounts.Col);
-        }
-
+        if (valSurplus)
+            g.ExtractSurplusCol(valSurplus, t);
     }
 
-    if (bStab)
+    if (ctx.m_Stab)
     {
         EpochStorage<Tags::s_Epoch_Stable> stor;
         g.m_StabPool.OnPostTrade(stor);
     }
 
-    if (bRedist)
+    if (ctx.m_Redist)
     {
         EpochStorage<Tags::s_Epoch_Redist> stor;
         g.m_RedistPool.OnPostTrade(stor);
     }
 
-    g.AdjustAll(r, totals0, fpLogic, r.m_pkUser);
+    g.AdjustAll(r, totals0, ctx.m_fpLogic, r.m_pkUser);
 }
 
 BEAM_EXPORT void Method_9(Method::UpdProfitPool& r)
