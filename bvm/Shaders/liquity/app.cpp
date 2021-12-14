@@ -126,6 +126,25 @@ struct MyGlobal
         return true;
 
     }
+
+    struct MyPrice
+        :public Price
+    {
+        bool Load(const MyGlobal& g)
+        {
+            Env::Key_T<uint8_t> key;
+            _POD_(key.m_Prefix.m_Cid) = g.m_Settings.m_cidOracle;
+            key.m_KeyInContract = Oracle2::Tags::s_Median;
+
+            Oracle2::Median med;
+
+            if (!Env::VarReader::Read_T(key, med))
+                return false;
+
+            m_Value = med.m_Res;
+            return true;
+        }
+    };
 };
 
 struct MyGlobalPlusTroves
@@ -134,6 +153,8 @@ struct MyGlobalPlusTroves
     const ContractID& m_Cid;
 
     MyGlobalPlusTroves(const ContractID& cid) :m_Cid(cid) {}
+
+    MyPrice m_Price;
 
     template <uint8_t nTag>
     struct EpochStorage
@@ -207,6 +228,9 @@ struct MyGlobalPlusTroves
         if (!MyGlobal::Load(m_Cid))
             return false;
 
+        if (!m_Price.Load(*this))
+            return false;
+
         if (m_Troves.m_iLastCreated)
             LoadAllTroves();
 
@@ -255,20 +279,26 @@ void DocAddPair(const char* sz, const Pair& p)
     Env::DocAddNum("col", p.Col);
 }
 
+void DocAddFloat(const char* sz, Float x, uint32_t nDigsAfterDot)
+{
+    uint64_t norm = 1;
+    for (uint32_t i = 0; i < nDigsAfterDot; i++)
+        norm *= 10;
+
+    uint64_t val = x * Float(norm);
+
+    char szBuf[Utils::String::Decimal::DigitsMax<uint64_t>::N + 2]; // dot + 0-term
+    uint32_t nPos = Utils::String::Decimal::Print(szBuf, val / norm);
+    szBuf[nPos++] = '.';
+    Utils::String::Decimal::Print(szBuf + nPos, val % 100u, nDigsAfterDot);
+
+    Env::DocAddText(sz, szBuf);
+}
 
 
 void DocAddPerc(const char* sz, Float x)
 {
-    uint64_t val = x * Float(10000); // convert to percents, with 2 digits after point
-
-    char szBuf[Utils::String::Decimal::DigitsMax<uint64_t>::N + 2]; // dot + 0-term
-    uint32_t nPos = Utils::String::Decimal::Print(szBuf, val / 100u);
-    szBuf[nPos++] = '.';
-    nPos += Utils::String::Decimal::Print(szBuf + nPos, val % 100u);
-    szBuf[nPos] = 0;
-
-
-    Env::DocAddText(sz, szBuf);
+    DocAddFloat(sz, x * Float(100), 3);
 }
 
 ON_METHOD(manager, view_params)
@@ -288,6 +318,15 @@ ON_METHOD(manager, view_params)
     DocAddPerc("baserate", g.m_BaseRate.m_k);
     Env::DocAddNum("stab_pool", g.m_StabPool.get_TotalSell());
     Env::DocAddNum("gov_pool", g.m_ProfitPool.m_Weight);
+
+    MyGlobal::MyPrice price;
+    if (price.Load(g))
+    {
+        DocAddFloat("price", price.m_Value, 4);
+
+        if (g.m_Troves.m_Totals.Tok)
+            DocAddPerc("tcr", price.ToCR(g.m_Troves.m_Totals.get_Rcr()));
+    }
 }
 
 ON_METHOD(manager, my_admin_key)
@@ -321,6 +360,8 @@ ON_METHOD(user, my_trove)
 
         Env::DocAddNum("iPos", g.m_My.m_Index);
         DocAddPair("amounts", t.m_Amounts);
+        DocAddPerc("cr", g.m_Price.ToCR(t.m_Amounts.get_Rcr()));
+
     }
 }
 
