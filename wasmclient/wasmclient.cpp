@@ -454,7 +454,7 @@ public:
 
             m_Client = std::make_shared<WalletClient2>(Rules::get(), dbFunc, std::string(), asio_ipfs::config(), m_Node, m_Reactor);
             m_Client->SetHandler(this);
-s
+
             auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
             additionalTxCreators->emplace(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(dbFunc));
 
