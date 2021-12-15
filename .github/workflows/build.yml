@@ -26,7 +26,7 @@ jobs:
     - name: Submodule update
       shell: bash
       run: |
-        git submodule update --init --recursive --remote --jobs 4
+        git submodule update --init --recursive --jobs 4
 
 ###############################################################################
 # Create Build Environment
