@@ -89,6 +89,7 @@ namespace beam::wallet::imp
                         #elif defined(BEAM_MAINNET)
                             #error ("Define Mainnet IPFS bootstrap")
                         #else
+                            // TODO:IPFS ensure boostrap is changed after startup
                             config.bootstrap.emplace_back("/ip4/3.19.141.112/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
                         #endif
                     }
