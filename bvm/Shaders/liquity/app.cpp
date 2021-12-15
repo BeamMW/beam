@@ -57,6 +57,8 @@
     macro(manager) \
     macro(user)
 
+namespace Liquity {
+
 BEAM_EXPORT void Method_0()
 {
     // scheme
@@ -77,8 +79,6 @@ BEAM_EXPORT void Method_0()
 
 #define THE_FIELD(type, name) const type& name,
 #define ON_METHOD(role, name) void On_##role##_##name(Liquity_##role##_##name(THE_FIELD) int unused = 0)
-
-namespace Liquity {
 
 void OnError(const char* sz)
 {
@@ -149,7 +149,7 @@ ON_METHOD(manager, explicit_upgrade)
     ManagerUpgadable2::MultiSigRitual::Perform_ExplicitUpgrade(cid);
 }
 
-struct MyGlobal
+struct AppGlobal
     :public Global
 {
     bool Load(const ContractID& cid)
@@ -175,7 +175,7 @@ struct MyGlobal
     struct MyPrice
         :public Price
     {
-        bool Load(const MyGlobal& g)
+        bool Load(const AppGlobal& g)
         {
             Env::Key_T<uint8_t> key;
             _POD_(key.m_Prefix.m_Cid) = g.m_Settings.m_cidOracle;
@@ -192,12 +192,12 @@ struct MyGlobal
     };
 };
 
-struct MyGlobalPlus
-    :public MyGlobal
+struct AppGlobalPlus
+    :public AppGlobal
 {
     MyKeyID m_Kid;
 
-    MyGlobalPlus(const ContractID& cid) :m_Kid(cid) {}
+    AppGlobalPlus(const ContractID& cid) :m_Kid(cid) {}
 
     MyPrice m_Price;
 
@@ -254,7 +254,7 @@ struct MyGlobalPlus
         return m_pT[iTrove - 1];
     }
 
-    ~MyGlobalPlus()
+    ~AppGlobalPlus()
     {
         if (m_pT)
             Env::Heap_Free(m_pT);
@@ -488,7 +488,7 @@ void DocAddFloat(const char* sz, Float x, uint32_t nDigsAfterDot)
     char szBuf[Utils::String::Decimal::DigitsMax<uint64_t>::N + 2]; // dot + 0-term
     uint32_t nPos = Utils::String::Decimal::Print(szBuf, val / norm);
     szBuf[nPos++] = '.';
-    Utils::String::Decimal::Print(szBuf + nPos, val % 100u, nDigsAfterDot);
+    Utils::String::Decimal::Print(szBuf + nPos, val % norm, nDigsAfterDot);
 
     Env::DocAddText(sz, szBuf);
 }
@@ -501,7 +501,7 @@ void DocAddPerc(const char* sz, Float x)
 
 ON_METHOD(manager, view_params)
 {
-    MyGlobal g;
+    AppGlobal g;
     if (!g.Load(cid))
         return;
 
@@ -517,7 +517,7 @@ ON_METHOD(manager, view_params)
     Env::DocAddNum("stab_pool", g.m_StabPool.get_TotalSell());
     Env::DocAddNum("gov_pool", g.m_ProfitPool.m_Weight);
 
-    MyGlobal::MyPrice price;
+    AppGlobal::MyPrice price;
     if (price.Load(g))
     {
         DocAddFloat("price", price.m_Value, 4);
@@ -537,7 +537,7 @@ ON_METHOD(manager, my_admin_key)
 
 ON_METHOD(user, view)
 {
-    MyGlobalPlus g(cid);
+    AppGlobalPlus g(cid);
     if (!g.LoadPlus())
         return;
 
@@ -569,7 +569,7 @@ ON_METHOD(user, view)
 
 ON_METHOD(user, withdraw_surplus)
 {
-    MyGlobalPlus g(cid);
+    AppGlobalPlus g(cid);
     if (!g.Load(cid)) // skip loading all troves
         return;
 
@@ -590,7 +590,7 @@ ON_METHOD(user, withdraw_surplus)
 
 ON_METHOD(user, upd_stab)
 {
-    MyGlobalPlus g(cid);
+    AppGlobalPlus g(cid);
     if (!g.Load(cid)) // skip loading all troves
         return;
 
@@ -614,7 +614,7 @@ ON_METHOD(user, upd_stab)
 
 ON_METHOD(user, upd_profit)
 {
-    MyGlobalPlus g(cid);
+    AppGlobalPlus g(cid);
     if (!g.Load(cid)) // skip loading all troves
         return;
 
@@ -675,7 +675,7 @@ bool AdjustVal(Amount& dst, Amount src, uint32_t op)
 
 ON_METHOD(user, trove_modify)
 {
-    MyGlobalPlus g(cid);
+    AppGlobalPlus g(cid);
     if (!g.LoadPlus())
         return;
 
@@ -774,7 +774,7 @@ ON_METHOD(user, trove_modify)
 
 ON_METHOD(user, liquidate)
 {
-    MyGlobalPlus g(cid);
+    AppGlobalPlus g(cid);
     if (!g.LoadPlus())
         return;
 
@@ -826,7 +826,7 @@ ON_METHOD(user, liquidate)
 
 ON_METHOD(user, redeem)
 {
-    MyGlobalPlus g(cid);
+    AppGlobalPlus g(cid);
     if (!g.LoadPlus())
         return;
 
@@ -850,8 +850,7 @@ ON_METHOD(user, redeem)
         if (t.m_Amounts.Tok)
         {
             assert(!ctx.m_TokRemaining);
-            if (!bPredictOnly)
-                iPrev1 = g.PushTrove(t.m_Amounts);
+            iPrev1 = g.PushTrove(t.m_Amounts);
         }
     }
 
@@ -861,7 +860,7 @@ ON_METHOD(user, redeem)
     {
         Env::DocGroup gr("prediction");
         Env::DocAddNum("tok", ctx.m_fpLogic.Tok.m_Val);
-        Env::DocAddNum("col", ctx.m_fpLogic.Col.m_Val - fee);
+        Env::DocAddNum("col", ctx.m_fpLogic.Col.m_Val);
         Env::DocAddNum("fee", fee);
     }
     else
@@ -895,8 +894,6 @@ BEAM_EXPORT void Method_1()
 
     if (!Env::DocGetText("action", szAction, sizeof(szAction)))
         return OnError("Action not specified");
-
-    const char* szErr = nullptr;
 
 #define PAR_READ(type, name) type arg_##name; Env::DocGet(#name, arg_##name);
 #define PAR_PASS(type, name) arg_##name,
