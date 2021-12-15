@@ -89,7 +89,7 @@ namespace beam
 
 			// for big/little endian the to/from flag doesn't matter
 			// return x;
-			if (bNativeLE == bLE)
+			if constexpr (bNativeLE == bLE)
 				return x;
 			else
 				return bswap(x);
