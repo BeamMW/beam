@@ -793,7 +793,8 @@ ON_METHOD(user, liquidate)
         g.PopTrove(0, t);
 
         Amount valSurplus = 0;
-        Env::Halt_if(!g.LiquidateTrove(t, ctx, valSurplus));
+        if (!g.LiquidateTrove(t, ctx, valSurplus))
+            break;
 
         if (_POD_(g.m_MyTrove.m_Pk) == t.m_pkOwner)
             bSelf = true;
