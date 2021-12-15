@@ -125,6 +125,37 @@ struct MyKeyID :public Env::KeyID
     }
 };
 
+void DocAddPair(const char* sz, const Pair& p)
+{
+    Env::DocGroup gr(sz);
+
+    Env::DocAddNum("tok", p.Tok);
+    Env::DocAddNum("col", p.Col);
+}
+
+void DocAddFloat(const char* sz, Float x, uint32_t nDigsAfterDot)
+{
+    uint64_t norm = 1;
+    for (uint32_t i = 0; i < nDigsAfterDot; i++)
+        norm *= 10;
+
+    uint64_t val = x * Float(norm);
+
+    char szBuf[Utils::String::Decimal::DigitsMax<uint64_t>::N + 2]; // dot + 0-term
+    uint32_t nPos = Utils::String::Decimal::Print(szBuf, val / norm);
+    szBuf[nPos++] = '.';
+    Utils::String::Decimal::Print(szBuf + nPos, val % norm, nDigsAfterDot);
+
+    Env::DocAddText(sz, szBuf);
+}
+
+
+void DocAddPerc(const char* sz, Float x)
+{
+    DocAddFloat(sz, x * Float(100), 3);
+}
+
+
 ON_METHOD(manager, view)
 {
     static const ShaderID s_pSid[] = {
@@ -297,6 +328,12 @@ struct AppGlobalPlus
         return true;
     }
 
+    void DocAddTrove(const Trove& t)
+    {
+        DocAddPair("amounts", t.m_Amounts);
+        DocAddPerc("cr", m_Price.ToCR(t.m_Amounts.get_Rcr()));
+    }
+
     bool ReadVault()
     {
         m_Kid.set_Trove();
@@ -395,10 +432,7 @@ struct AppGlobalPlus
 
         StabPoolEntry e;
         if (!Env::VarReader::Read_T(k, e))
-        {
-            m_MyStab.m_Amounts.Tok = m_MyStab.m_Amounts.Col = 0;
             return false;
-        }
 
         EpochStorage<Tags::s_Epoch_Stable> stor(m_Kid.m_Blob.m_Cid);
 
@@ -430,74 +464,51 @@ struct AppGlobalPlus
         return true;
     }
 
-    static void PrepareComp(Flow& dst, Amount vault, FundsChange& fc)
+    static void Flow2Fc(FundsChange& fc, const Flow& f, AssetID aid)
     {
-        dst.Add(vault, 0);
-        fc.m_Amount = dst.m_Val;
-        fc.m_Consume = dst.m_Spend;
+        fc.m_Amount = f.m_Val;
+        fc.m_Consume = f.m_Spend;
+        fc.m_Aid = aid;
     }
 
-    void PrepareTxBase(Method::BaseTx& tx, FundsChange* pFc)
+    void Flow2Fc(FundsChange* pFc, const FlowPair& fp)
     {
-        // account for surplus, and update fc
-        PrepareComp(tx.m_Flow.Tok, m_MyTrove.m_Vault.Tok, pFc[0]);
-        PrepareComp(tx.m_Flow.Col, m_MyTrove.m_Vault.Col, pFc[1]);
-
-        pFc[0].m_Aid = m_Aid;
-        pFc[1].m_Aid = 0;
+        Flow2Fc(pFc[0], fp.Tok, m_Aid);
+        Flow2Fc(pFc[1], fp.Col, 0);
     }
 
-    void PrepareTx(Method::BaseTxUser& tx, FundsChange* pFc)
+    void UseVault(Method::BaseTx& tx)
     {
-        PrepareTxBase(tx, pFc);
+        tx.m_Flow.Tok.Add(m_MyTrove.m_Vault.Tok, 0);
+        tx.m_Flow.Col.Add(m_MyTrove.m_Vault.Col, 0);
+    }
+
+    void PrepareVaultTx(Method::BaseTx& tx, FundsChange* pFc)
+    {
+        UseVault(tx);
+        Flow2Fc(pFc, tx.m_Flow);
+    }
+
+    void PrepareTroveTx(Method::BaseTxUser& tx, FundsChange* pFc)
+    {
+        PrepareVaultTx(tx, pFc);
         _POD_(tx.m_pkUser) = m_MyTrove.m_Pk;
     }
 
-    void PrepareTx(Method::BaseTxTrove& tx, FundsChange* pFc)
+    void PrepareTroveTx(Method::BaseTxTrove& tx, FundsChange* pFc)
     {
-        PrepareTxBase(tx, pFc);
+        PrepareVaultTx(tx, pFc);
         tx.m_iPrev0 = m_MyTrove.m_iPrev0;
     }
 
     void OnTroveMove(Method::BaseTx& tx, uint8_t bPop)
     {
         const Pair& tVals = m_MyTrove.m_pT->m_Amounts;
-        tx.m_Flow.Tok.Add(!m_Settings.m_TroveLiquidationReserve, bPop);
+        tx.m_Flow.Tok.Add(m_Settings.m_TroveLiquidationReserve, !bPop);
         tx.m_Flow.Tok.Add(tVals.Tok, bPop);
         tx.m_Flow.Col.Add(tVals.Col, !bPop);
     }
 };
-
-
-void DocAddPair(const char* sz, const Pair& p)
-{
-    Env::DocGroup gr(sz);
-
-    Env::DocAddNum("tok", p.Tok);
-    Env::DocAddNum("col", p.Col);
-}
-
-void DocAddFloat(const char* sz, Float x, uint32_t nDigsAfterDot)
-{
-    uint64_t norm = 1;
-    for (uint32_t i = 0; i < nDigsAfterDot; i++)
-        norm *= 10;
-
-    uint64_t val = x * Float(norm);
-
-    char szBuf[Utils::String::Decimal::DigitsMax<uint64_t>::N + 2]; // dot + 0-term
-    uint32_t nPos = Utils::String::Decimal::Print(szBuf, val / norm);
-    szBuf[nPos++] = '.';
-    Utils::String::Decimal::Print(szBuf + nPos, val % norm, nDigsAfterDot);
-
-    Env::DocAddText(sz, szBuf);
-}
-
-
-void DocAddPerc(const char* sz, Float x)
-{
-    DocAddFloat(sz, x * Float(100), 3);
-}
 
 ON_METHOD(manager, view_params)
 {
@@ -542,16 +553,10 @@ ON_METHOD(user, view)
         return;
 
     Env::DocGroup gr("res");
-    Env::DocAddNum("nTotal", g.m_ActiveTroves);
+    Env::DocAddNum("troves", g.m_ActiveTroves);
 
     if (g.PopMyTrove())
-    {
-        auto& t = *g.m_MyTrove.m_pT;
-
-        Env::DocAddNum("iPos", g.m_MyTrove.m_Index);
-        DocAddPair("amounts", t.m_Amounts);
-        DocAddPerc("cr", g.m_Price.ToCR(t.m_Amounts.get_Rcr()));
-    }
+        g.DocAddTrove(*g.m_MyTrove.m_pT);
 
     if (g.m_MyTrove.m_Vault.Tok || g.m_MyTrove.m_Vault.Col)
         DocAddPair("surplus", g.m_MyTrove.m_Vault);
@@ -580,10 +585,10 @@ ON_METHOD(user, withdraw_surplus)
     assert(v.Col || v.Tok);
 
     Method::FundsAccess args;
-    FundsChange pFc[2];
-
     _POD_(args.m_Flow).SetZero();
-    g.PrepareTx(args, pFc);
+
+    FundsChange pFc[2];
+    g.PrepareTroveTx(args, pFc);
 
     Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "surplus withdraw", 0);
 }
@@ -594,20 +599,25 @@ ON_METHOD(user, upd_stab)
     if (!g.Load(cid)) // skip loading all troves
         return;
 
-    g.PopMyStab();
-
-    if ((newVal == g.m_MyStab.m_Amounts.Tok) && !g.m_MyStab.m_Amounts.Col)
-        OnError("no change");
-
-    g.m_MyTrove.m_Vault = g.m_MyStab.m_Amounts;
-
     Method::UpdStabPool args;
-    FundsChange pFc[2];
-
     _POD_(args.m_Flow).SetZero();
+
+    if (g.PopMyStab())
+    {
+        args.m_Flow.Col.Add(g.m_MyStab.m_Amounts.Col, 0);
+        args.m_Flow.Tok.Add(g.m_MyStab.m_Amounts.Tok, 0);
+    }
+
     args.m_Flow.Tok.Add(newVal, 1);
 
-    g.PrepareTx(args, pFc);
+    if (!args.m_Flow.Tok.m_Val && !args.m_Flow.Col.m_Val)
+        OnError("no change");
+
+    args.m_NewAmount = newVal;
+    _POD_(args.m_pkUser) = g.m_MyStab.m_Pk;
+
+    FundsChange pFc[2];
+    g.Flow2Fc(pFc, args.m_Flow);
 
     Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "update stab pool", 0);
 }
@@ -618,27 +628,30 @@ ON_METHOD(user, upd_profit)
     if (!g.Load(cid)) // skip loading all troves
         return;
 
-    g.PopMyProfit();
-
-    if ((newVal == g.m_MyProfit.m_Gov) && !g.m_MyProfit.m_Beam)
-        OnError("no change");
-
-    g.m_MyTrove.m_Vault.Col = g.m_MyProfit.m_Beam;
-    g.m_MyTrove.m_Vault.Tok = 0;
-
     Method::UpdProfitPool args;
-    FundsChange pFc[3];
+    args.m_NewAmount = newVal;
 
     _POD_(args.m_Flow).SetZero();
-    args.m_Flow.Tok.Add(newVal, 1);
-
-    g.PrepareTx(args, pFc);
-
-    auto& fc = pFc[2];
-    fc.m_Aid = g.m_Settings.m_AidProfit;
-    fc.m_Consume = (newVal > g.m_MyProfit.m_Gov);
-    fc.m_Amount = fc.m_Consume ? (newVal - g.m_MyProfit.m_Gov) : (g.m_MyProfit.m_Gov - newVal);
+    Flow fGov;
+    fGov.m_Spend = 0;
     
+    if (g.PopMyProfit())
+    {
+        args.m_Flow.Col.m_Val = g.m_MyProfit.m_Beam;
+        fGov.m_Val = g.m_MyProfit.m_Gov;
+    } else
+        fGov.m_Val = 0;
+
+    fGov.Add(newVal, 1);
+
+    if (!args.m_Flow.Col.m_Val && !fGov.m_Val)
+        OnError("no change");
+
+    _POD_(args.m_pkUser) = g.m_MyProfit.m_Pk;
+
+    FundsChange pFc[2];
+    g.Flow2Fc(pFc[0], args.m_Flow.Col, 0);
+    g.Flow2Fc(pFc[1], fGov, g.m_Settings.m_AidProfit);
 
     Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "update profit pool", 0);
 }
@@ -727,7 +740,7 @@ ON_METHOD(user, trove_modify)
 
             args.m_Amounts = t.m_Amounts;
             args.m_iPrev1 = iPrev1;
-            g.PrepareTx(args, pFc);
+            g.PrepareTroveTx(args, pFc);
 
             if (!bPredictOnly)
                 Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "trove modify", 0);
@@ -739,17 +752,15 @@ ON_METHOD(user, trove_modify)
 
             args.m_Amounts = t.m_Amounts;
             args.m_iPrev1 = iPrev1;
-            g.PrepareTx(args, pFc);
+            g.PrepareTroveTx(args, pFc);
 
             if (!bPredictOnly)
                 Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "trove open", 0);
         }
 
-        if (bPredictOnly)
         {
             Env::DocGroup gr("prediction");
-            DocAddPair("newVals", t.m_Amounts);
-            DocAddPerc("cr", g.m_Price.ToCR(t.m_Amounts.get_Rcr()));
+            g.DocAddTrove(t);
 
             if (fee)
                 Env::DocAddNum("fee", fee);
@@ -765,7 +776,7 @@ ON_METHOD(user, trove_modify)
         Method::TroveClose args;
         Cast::Down<Method::BaseTx>(args) = txb;
         
-        g.PrepareTx(args, pFc);
+        g.PrepareTroveTx(args, pFc);
 
         if (!bPredictOnly)
             Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "trove close", 0);
@@ -803,7 +814,6 @@ ON_METHOD(user, liquidate)
             break;
     }
 
-    if (bPredictOnly)
     {
         Env::DocGroup gr("prediction");
         Env::DocAddNum("count", nCount);
@@ -811,7 +821,8 @@ ON_METHOD(user, liquidate)
         if (bSelf)
             Env::DocAddNum("self_kill", 1u);
     }
-    else
+
+    if (!bPredictOnly)
     {
 
         Method::Liquidate args;
@@ -819,7 +830,7 @@ ON_METHOD(user, liquidate)
         args.m_Count = nCount;
 
         FundsChange pFc[2];
-        g.PrepareTx(args, pFc);
+        g.PrepareTroveTx(args, pFc);
 
         Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "troves liquidate", 0);
     }
@@ -857,14 +868,14 @@ ON_METHOD(user, redeem)
 
     Amount fee = g.AddRedeemFee(ctx);
 
-    if (bPredictOnly)
     {
         Env::DocGroup gr("prediction");
         Env::DocAddNum("tok", ctx.m_fpLogic.Tok.m_Val);
-        Env::DocAddNum("col", ctx.m_fpLogic.Col.m_Val);
+        Env::DocAddNum("col", ctx.m_fpLogic.Col.m_Val + fee);
         Env::DocAddNum("fee", fee);
     }
-    else
+
+    if (!bPredictOnly)
     {
         if (ctx.m_TokRemaining)
             OnError("insufficient redeemable troves");
@@ -875,7 +886,7 @@ ON_METHOD(user, redeem)
         args.m_iPrev1 = iPrev1;
 
         FundsChange pFc[2];
-        g.PrepareTx(args, pFc);
+        g.PrepareTroveTx(args, pFc);
 
         Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "redeem", 0);
     }
