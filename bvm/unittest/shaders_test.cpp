@@ -710,6 +710,123 @@ namespace bvm2 {
 	};
 
 
+	struct MyManager
+		:public ProcessorManager
+	{
+		MyProcessor& m_Proc;
+		std::ostringstream m_Out;
+
+		MyManager(MyProcessor& proc)
+			:m_Proc(proc)
+		{
+			m_pOut = &m_Out;
+		}
+
+		struct VarEnumCtx
+			:public IReadVars
+		{
+			BlobMap::Set::iterator m_it;
+			BlobMap::Set::iterator m_itEnd;
+
+			virtual bool MoveNext() override
+			{
+				if (m_it == m_itEnd)
+					return false;
+
+				const auto& x = *m_it;
+
+				m_LastKey = x.ToBlob();
+				m_LastVal = x.m_Data;
+
+				m_it++;
+				return true;
+			}
+		};
+
+		void SelectContext(bool /* bDependent */, uint32_t /* nChargeNeeded */) override
+		{
+			m_Context.m_Height = m_Proc.m_Height;
+		}
+
+		virtual void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr& pRes) override
+		{
+			auto p = std::make_unique<VarEnumCtx>();
+
+			ZeroObject(p->m_LastKey);
+			ZeroObject(p->m_LastVal);
+
+			p->m_it = m_Proc.m_Vars.lower_bound(kMin, BlobMap::Set::Comparator());
+			p->m_itEnd = m_Proc.m_Vars.upper_bound(kMax, BlobMap::Set::Comparator());
+
+			pRes = std::move(p);
+		}
+
+		void TestHeap()
+		{
+			uint32_t p1, p2, p3;
+			verify_test(HeapAllocEx(p1, 160));
+			verify_test(HeapAllocEx(p2, 300));
+			verify_test(HeapAllocEx(p3, 28));
+
+			HeapFreeEx(p2);
+			verify_test(HeapAllocEx(p2, 260));
+			HeapFreeEx(p2);
+			verify_test(HeapAllocEx(p2, 360));
+
+			HeapFreeEx(p1);
+			HeapFreeEx(p3);
+			HeapFreeEx(p2);
+
+			verify_test(HeapAllocEx(p1, 37443));
+			HeapFreeEx(p1);
+		}
+
+		void RunMany(uint32_t iMethod)
+		{
+			std::ostringstream os;
+			//m_Dbg.m_pOut = &os;
+
+			os << "BVM Method: " << iMethod << std::endl;
+
+			Shaders::Env::g_pEnv = this;
+
+			uint32_t nCycles = 0;
+
+			for (CallMethod(iMethod); !IsDone(); nCycles++)
+			{
+				RunOnce();
+
+#ifdef WASM_INTERPRETER_DEBUG
+				if (m_Dbg.m_pOut)
+				{
+					std::cout << m_Dbg.m_pOut->str();
+					m_Dbg.m_pOut->str("");
+				}
+#endif // WASM_INTERPRETER_DEBUG
+			}
+
+
+			os << "Done in " << nCycles << " cycles" << std::endl << std::endl;
+			std::cout << os.str();
+		}
+
+		bool RunGuarded(uint32_t iMethod)
+		{
+			bool ret = true;
+			try
+			{
+				RunMany(iMethod);
+			}
+			catch (const std::exception& e) {
+				std::cout << "*** Shader Execution failed. Undoing changes" << std::endl;
+				std::cout << e.what() << std::endl;
+				ret = false;
+			}
+			return ret;
+		}
+	};
+
+
 	void MyProcessor::TestAll()
 	{
 		AddCode(m_Code.m_Vault, "vault/contract.wasm");
@@ -2796,122 +2913,6 @@ namespace bvm2 {
 */
 	}
 
-	struct MyManager
-		:public ProcessorManager
-	{
-		BlobMap::Set& m_Vars;
-		std::ostringstream m_Out;
-
-		MyManager(BlobMap::Set& vars)
-			:m_Vars(vars)
-		{
-			m_pOut = &m_Out;
-		}
-
-		struct VarEnumCtx
-			:public IReadVars
-		{
-			BlobMap::Set::iterator m_it;
-			BlobMap::Set::iterator m_itEnd;
-
-			virtual bool MoveNext() override
-			{
-				if (m_it == m_itEnd)
-					return false;
-
-				const auto& x = *m_it;
-
-				m_LastKey = x.ToBlob();
-				m_LastVal = x.m_Data;
-
-				m_it++;
-				return true;
-			}
-		};
-
-		void SelectContext(bool /* bDependent */, uint32_t /* nChargeNeeded */) override
-		{
-			m_Context.m_Height = 15;
-		}
-
-		virtual void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr& pRes) override
-		{
-			auto p = std::make_unique<VarEnumCtx>();
-
-			ZeroObject(p->m_LastKey);
-			ZeroObject(p->m_LastVal);
-
-			p->m_it = m_Vars.lower_bound(kMin, BlobMap::Set::Comparator());
-			p->m_itEnd = m_Vars.upper_bound(kMax, BlobMap::Set::Comparator());
-
-			pRes = std::move(p);
-		}
-
-		void TestHeap()
-		{
-			uint32_t p1, p2, p3;
-			verify_test(HeapAllocEx(p1, 160));
-			verify_test(HeapAllocEx(p2, 300));
-			verify_test(HeapAllocEx(p3, 28));
-
-			HeapFreeEx(p2);
-			verify_test(HeapAllocEx(p2, 260));
-			HeapFreeEx(p2);
-			verify_test(HeapAllocEx(p2, 360));
-
-			HeapFreeEx(p1);
-			HeapFreeEx(p3);
-			HeapFreeEx(p2);
-
-			verify_test(HeapAllocEx(p1, 37443));
-			HeapFreeEx(p1);
-		}
-
-		void RunMany(uint32_t iMethod)
-		{
-			std::ostringstream os;
-			//m_Dbg.m_pOut = &os;
-
-			os << "BVM Method: " << iMethod << std::endl;
-
-			Shaders::Env::g_pEnv = this;
-
-			uint32_t nCycles = 0;
-
-			for (CallMethod(iMethod); !IsDone(); nCycles++)
-			{
-				RunOnce();
-
-#ifdef WASM_INTERPRETER_DEBUG
-				if (m_Dbg.m_pOut)
-				{
-					std::cout << m_Dbg.m_pOut->str();
-					m_Dbg.m_pOut->str("");
-				}
-#endif // WASM_INTERPRETER_DEBUG
-			}
-
-
-			os << "Done in " << nCycles << " cycles" << std::endl << std::endl;
-			std::cout << os.str();
-		}
-
-		bool RunGuarded(uint32_t iMethod)
-		{
-			bool ret = true;
-			try
-			{
-				RunMany(iMethod);
-			}
-			catch (const std::exception& e) {
-				std::cout << "*** Shader Execution failed. Undoing changes" << std::endl;
-				std::cout << e.what() << std::endl;
-				ret = false;
-			}
-			return ret;
-		}
-	};
-
 
 } // namespace bvm2
 
@@ -3470,7 +3471,7 @@ int main()
 
 		proc.TestAll();
 
-		MyManager man(proc.m_Vars);
+		MyManager man(proc);
 		man.InitMem();
 		man.TestHeap();
 
