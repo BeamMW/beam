@@ -816,6 +816,10 @@ namespace bvm2 {
 			try
 			{
 				RunMany(iMethod);
+
+				std::cout << m_Out.str() << std::endl;
+				m_Out.str("");
+
 			}
 			catch (const std::exception& e) {
 				std::cout << "*** Shader Execution failed. Undoing changes" << std::endl;
@@ -3480,16 +3484,12 @@ int main()
 		man.m_Code = buf;
 
 		man.RunGuarded(0); // get scheme
-		std::cout << man.m_Out.str();
-		man.m_Out.str("");
 
 		man.m_Args["role"] = "manager";
 		man.m_Args["action"] = "view_accounts";
 		man.set_ArgBlob("cid", Shaders::Vault::s_CID);
 
 		man.RunGuarded(1);
-		std::cout << man.m_Out.str();
-		man.m_Out.str("");
 
 	}
 	catch (const std::exception & ex)
