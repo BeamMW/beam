@@ -6,6 +6,7 @@
 
 #define Liquity_manager_view(macro)
 #define Liquity_manager_view_params(macro) macro(ContractID, cid)
+#define Liquity_manager_view_all(macro) macro(ContractID, cid)
 #define Liquity_manager_my_admin_key(macro)
 #define Liquity_manager_explicit_upgrade(macro) macro(ContractID, cid)
 
@@ -13,6 +14,7 @@
     macro(manager, view) \
     macro(manager, explicit_upgrade) \
     macro(manager, view_params) \
+    macro(manager, view_all) \
     macro(manager, my_admin_key) \
 
 #define Liquity_user_view(macro) macro(ContractID, cid)
@@ -535,6 +537,31 @@ ON_METHOD(manager, view_params)
 
         if (g.m_Troves.m_Totals.Tok)
             DocAddPerc("tcr", price.ToCR(g.m_Troves.m_Totals.get_Rcr()));
+    }
+}
+
+ON_METHOD(manager, view_all)
+{
+    AppGlobalPlus g(cid);
+    if (!g.LoadPlus())
+        return;
+
+    Env::DocGroup gr("res");
+
+    {
+        Env::DocArray gr1("troves");
+
+        AppGlobalPlus::EpochStorage<Tags::s_Epoch_Redist> stor(cid);
+        for (Trove::ID iT = g.m_Troves.m_iHead; iT; )
+        {
+            Env::DocGroup gr2("");
+
+            Trove& t = g.get_T(iT);
+            t.m_Amounts = g.m_RedistPool.get_UpdatedAmounts(t, stor);
+            g.DocAddTrove(t);
+
+            iT = t.m_iNext;
+        }
     }
 }
 
