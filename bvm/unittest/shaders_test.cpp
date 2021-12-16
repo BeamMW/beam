@@ -828,6 +828,30 @@ namespace bvm2 {
 			}
 			return ret;
 		}
+
+		bool RunGuardedEx(void* pArgs, uint32_t nArgs)
+		{
+			if (!RunGuarded(1))
+				return false;
+
+			auto vInv = std::move(m_vInvokeData);
+
+			if (vInv.size() != 1)
+				return false;
+
+			auto& x = vInv.front();
+			if (x.m_Args.size() != nArgs)
+				return false;
+
+			memcpy(pArgs, &x.m_Args.front(), nArgs);
+			return true;
+		}
+
+		template <typename TMethod>
+		bool RunGuarded_T(TMethod& ret)
+		{
+			return RunGuardedEx(&ret, sizeof(ret));
+		}
 	};
 
 
@@ -1035,7 +1059,8 @@ namespace bvm2 {
 			return vals;
 		}
 
-		static const Amount s_BankTstReserve = Rules::Coin * 1000000000ull;
+		static const Amount s_TstReserveTok = Rules::Coin * 1000000077ull;
+		static const Amount s_TstReserveCol = Rules::Coin * 1000000033ull;
 
 		struct KeyWalker
 		{
@@ -1100,55 +1125,93 @@ namespace bvm2 {
 					break;
 
 				auto& vals = wlk.m_pVal->m_Amounts;
-				if ((vals.Tok != s_BankTstReserve) || (vals.Col != s_BankTstReserve))
+				if ((vals.Tok != s_TstReserveTok) || (vals.Col != s_TstReserveCol))
 				{
 					std::cout << "\tUser=" << wlk.m_pKey->m_KeyInContract.m_Pk
-						<< ", Tok=" << Val2NumDiff(vals.Tok, s_BankTstReserve)
-						<< ", Col=" << Val2NumDiff(vals.Col, s_BankTstReserve)
+						<< ", Tok=" << Val2NumDiff(vals.Tok, s_TstReserveTok)
+						<< ", Col=" << Val2NumDiff(vals.Col, s_TstReserveCol)
 						<< std::endl;
 
-					vals.Tok = s_BankTstReserve;
-					vals.Col = s_BankTstReserve;
+					vals.Tok = s_TstReserveTok;
+					vals.Col = s_TstReserveCol;
 				}
 
 				//m_Proc.m_Vars.erase(it);
 			}
 		}
 
-		void InitBankExcess(const PubKey& pkUser)
+		Pair ReadBalance(const Shaders::Env::Key_T<Balance::Key>& key)
+		{
+			Blob blVal;
+			m_Proc.LoadVar(Blob(&key, sizeof(key)), blVal);
+			if (sizeof(Balance) == blVal.n)
+				return Cast::Reinterpret<Balance*>(blVal.p)->m_Amounts;
+
+			Pair p = { 0 };
+			return p;
+		}
+
+		void SetBalance(const Shaders::Env::Key_T<Balance::Key>& key, const Pair& vals)
+		{
+			static_assert(sizeof(vals) == sizeof(Balance));
+			m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&vals, sizeof(vals)));
+		}
+
+		bool InvokeBase(Shaders::Liquity::Method::BaseTx& args, uint32_t nSizeArgs, uint32_t iMethod, const PubKey& pkUser, bool bShouldUseVault)
 		{
 			Shaders::Env::Key_T<Balance::Key> key;
 			key.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
 			key.m_KeyInContract.m_Pk = pkUser;
 
-			Balance vals;
-			vals.m_Amounts.Tok = s_BankTstReserve;
-			vals.m_Amounts.Col = s_BankTstReserve;
-			m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&vals, sizeof(vals)));
-		}
+			Pair vals = ReadBalance(key);
+			if (vals.Tok || vals.Col)
+			{
+				verify_test(s_TstReserveTok == vals.Tok);
+				verify_test(s_TstReserveCol == vals.Col);
 
-		bool InvokeBase(Shaders::Liquity::Method::BaseTx& args, uint32_t nSizeArgs, uint32_t iMethod, const PubKey& pkUser)
-		{
+				if (bShouldUseVault)
+				{
+					args.m_Flow.Tok.Add(s_TstReserveTok, 1);
+					args.m_Flow.Col.Add(s_TstReserveCol, 1);
+				}
+			}
+			else
+			{
+				vals.Tok = s_TstReserveTok;
+				vals.Col = s_TstReserveCol;
+				SetBalance(key, vals);
+			}
+
+			Shaders::Liquity::FlowPair fp = args.m_Flow;
 			ZeroObject(args.m_Flow);
-			InitBankExcess(pkUser);
 
 			if (!m_Proc.RunGuarded(m_Proc.m_cidLiquity, iMethod, Blob(&args, nSizeArgs), nullptr))
 				return false;
+
+			// verify the init-guess flow was correct
+			fp.Tok.Add(s_TstReserveTok, 0);
+			fp.Col.Add(s_TstReserveCol, 0);
+
+			vals = ReadBalance(key);
+			fp.Tok.Add(vals.Tok, 1);
+			fp.Col.Add(vals.Col, 1);
+
+			verify_test(!fp.Tok.m_Val && !fp.Col.m_Val);
 
 			PrintBankExcess();
 			return true;
 		}
 
 		template <typename TMethod>
-		bool InvokeTx(TMethod& args, const PubKey& pkUser)
+		bool InvokeTx(TMethod& args, const PubKey& pkUser, bool bShouldUseVault = true)
 		{
-			return InvokeBase(args, sizeof(args), args.s_iMethod, pkUser);
+			return InvokeBase(args, sizeof(args), args.s_iMethod, pkUser, bShouldUseVault);
 		}
 
 		template <typename TMethod>
-		bool InvokeTxUser(TMethod& args)
+		bool InvokeTxUser(TMethod& args, bool bShouldUseVault = true)
 		{
-			return InvokeBase(args, sizeof(args), args.s_iMethod, args.m_pkUser);
+			return InvokeBase(args, sizeof(args), args.s_iMethod, args.m_pkUser, bShouldUseVault);
 		}
 
 		void AddPoolTotals(Pair& res, uint8_t nTag)
@@ -1368,6 +1431,13 @@ namespace bvm2 {
 
 	void MyProcessor::TestLiquity()
 	{
+		MyManager man(*this);
+		man.InitMem();
+
+		ByteBuffer bufApp;
+		MyProcessor::AddCodeEx(bufApp, "liquity/app.wasm", Processor::Kind::Manager);
+		man.m_Code = bufApp;
+
 		{
 			Shaders::Oracle2::Method::Create<1> args;
 			ZeroObject(args);
@@ -1390,31 +1460,42 @@ namespace bvm2 {
 		LiquityContext lc(*this);
 
 		const uint32_t s_Users = 5;
+
+		Key::IKdf::Ptr ppKdf[s_Users];
 		PubKey pPk[s_Users];
+
+		man.set_ArgBlob("cid", m_cidLiquity);
+		man.m_Args["role"] = "user";
+
 		for (uint32_t i = 0; i < s_Users; i++)
 		{
-			ECC::GenRandom(pPk[i].m_X);
-			pPk[i].m_Y = 0;
+			ECC::SetRandom(ppKdf[i]);
+			man.m_pPKdf = ppKdf[i];
 
 			if (i < 2)
 			{
+				man.m_Args["action"] = "upd_profit";
+				man.m_Args["newVal"] = std::to_string(Rules::Coin * (5 + i));
+
 				Shaders::Liquity::Method::UpdProfitPool arg1;
-				ZeroObject(arg1);
-				arg1.m_NewAmount = Rules::Coin * (5 + i);
-				arg1.m_pkUser = pPk[i];
-				verify_test(lc.InvokeTxUser(arg1));
+				verify_test(man.RunGuarded_T(arg1));
+
+				verify_test(lc.InvokeTxUser(arg1, false));
 				std::cout << "Deposit to profit pool" << std::endl;
 			}
 
-			Shaders::Liquity::Method::TroveOpen args;
-			ZeroObject(args);
-
-			args.m_Amounts.Tok = Rules::Coin * 1000;
-			args.m_Amounts.Col = Rules::Coin * (35 + i * 5); // should be enough for 150% tcr
+			Amount col = Rules::Coin * (35 + i * 5); // should be enough for 150% tcr
 			if (1 & i)
-				args.m_Amounts.Col -= Rules::Coin * 7; // play with order
-			args.m_pkUser = pPk[i];
-			args.m_iPrev1 = lc.FindPrev(args.m_Amounts);
+				col -= Rules::Coin * 7; // play with order
+
+			man.m_Args["action"] = "trove_modify";
+			man.m_Args["tok"] = std::to_string(Rules::Coin * 1000);
+			man.m_Args["col"] = std::to_string(col);
+
+			Shaders::Liquity::Method::TroveOpen args;
+			verify_test(man.RunGuarded_T(args));
+
+			pPk[i] = args.m_pkUser;
 
 			verify_test(lc.InvokeTxUser(args));
 
@@ -1426,12 +1507,15 @@ namespace bvm2 {
 
 		for (uint32_t i = 0; i < 2; i++)
 		{
-			Shaders::Liquity::Method::UpdStabPool args;
-			ZeroObject(args);
-			args.m_NewAmount = Rules::Coin * 750;
-			args.m_pkUser = pPk[i];
+			man.m_pPKdf = ppKdf[i];
 
-			verify_test(lc.InvokeTxUser(args));
+			man.m_Args["action"] = "upd_stab";
+			man.m_Args["newVal"] = std::to_string(Rules::Coin * 750);
+
+			Shaders::Liquity::Method::UpdStabPool args;
+			verify_test(man.RunGuarded_T(args));
+
+			verify_test(lc.InvokeTxUser(args, false));
 
 			std::cout << "Stab" << i << ": Put=" << Val2Num(args.m_NewAmount) << std::endl;
 			lc.PrintAll();
@@ -1439,37 +1523,13 @@ namespace bvm2 {
 
 		for (uint32_t iCycle = 0; iCycle < 2; iCycle++)
 		{
+			man.m_pPKdf = ppKdf[s_Users - 1];
+
+			man.m_Args["action"] = "redeem";
+			man.m_Args["val"] = std::to_string(Rules::Coin * (iCycle ? 1200 : 350));
+
 			Shaders::Liquity::Method::Redeem args;
-
-			ZeroObject(args);
-			args.m_pkUser = pPk[s_Users - 1];
-			args.m_Amount = Rules::Coin * (iCycle ? 1200 : 350);
-
-			// predict the redeem effect
-			Amount valRemaining = args.m_Amount;
-			for (size_t i = 0; i < lc.m_Troves.size(); i++)
-			{
-				const auto& x = lc.m_Troves[i];
-				Amount maxRedeem = x.m_Amounts.Tok - Rules::Coin * 5;
-				if (valRemaining <= maxRedeem)
-				{
-					if (valRemaining < maxRedeem)
-					{
-						Shaders::Liquity::Pair vals = x.m_Amounts;
-
-						Shaders::Liquity::Global::Price price;
-						price.m_Value = 45;
-
-						vals.Tok -= valRemaining;
-						vals.Col -= price.T2C(valRemaining); // dont care about overflow, let it fail in the contract
-
-						args.m_iPrev1 = lc.FindPrev(vals, i + 1);
-
-					}
-					break;
-				}
-				valRemaining -= maxRedeem;
-			}
+			verify_test(man.RunGuarded_T(args));
 
 			verify_test(lc.InvokeTxUser(args));
 
@@ -1492,11 +1552,14 @@ namespace bvm2 {
 
 		for (uint32_t i = 1; i < 3; i++) 
 		{
-			Shaders::Liquity::Method::Liquidate args;
+			man.m_pPKdf = ppKdf[0];
 
-			ZeroObject(args);
-			args.m_Count = 1;
-			args.m_pkUser = pPk[0];
+			man.m_Args["role"] = "user";
+			man.m_Args["action"] = "liquidate";
+			man.m_Args["nMaxTroves"] = "1";
+
+			Shaders::Liquity::Method::Liquidate args;
+			verify_test(man.RunGuarded_T(args));
 
 			verify_test(lc.InvokeTxUser(args));
 
@@ -1506,11 +1569,15 @@ namespace bvm2 {
 
 		for (uint32_t i = 0; i < 2; i++)
 		{
-			Shaders::Liquity::Method::UpdStabPool args;
-			ZeroObject(args);
-			args.m_pkUser = pPk[i];
+			man.m_pPKdf = ppKdf[i];
 
-			verify_test(lc.InvokeTxUser(args));
+			man.m_Args["action"] = "upd_stab";
+			man.m_Args["newVal"] = "0";
+
+			Shaders::Liquity::Method::UpdStabPool args;
+			verify_test(man.RunGuarded_T(args));
+
+			verify_test(lc.InvokeTxUser(args, false));
 
 			std::cout << "Stab" << i << " all out" << std::endl;
 			lc.PrintAll();
@@ -1518,12 +1585,20 @@ namespace bvm2 {
 
 		while (!lc.m_Troves.empty())
 		{
-			Shaders::Liquity::Method::TroveClose args;
-			ZeroObject(args);
 			size_t iIdx = lc.m_Troves.size() / 2;
-			args.m_iPrev0 = iIdx ? lc.m_Troves[iIdx - 1].m_iTrove : 0;
+			auto iTrove = lc.m_Troves[iIdx].m_iTrove;
 
-			verify_test(lc.InvokeTx(args, pPk[lc.m_Troves[iIdx].m_iTrove - 1]));
+			man.m_pPKdf = ppKdf[iTrove - 1];
+
+			man.m_Args["action"] = "trove_modify";
+			man.m_Args["tok"] = "0";
+			man.m_Args["col"] = "0";
+
+
+			Shaders::Liquity::Method::TroveClose args;
+			verify_test(man.RunGuarded_T(args));
+
+			verify_test(lc.InvokeTx(args, pPk[iTrove - 1]));
 
 			std::cout << "Trove closing" << std::endl;
 			lc.PrintAll();
@@ -1531,11 +1606,15 @@ namespace bvm2 {
 
 		for (uint32_t i = 0; i < 2; i++)
 		{
-			Shaders::Liquity::Method::UpdProfitPool arg1;
-			ZeroObject(arg1);
-			arg1.m_pkUser = pPk[i];
+			man.m_pPKdf = ppKdf[i];
 
-			verify_test(lc.InvokeTxUser(arg1));
+			man.m_Args["action"] = "upd_profit";
+			man.m_Args["newVal"] = "0";
+
+			Shaders::Liquity::Method::UpdProfitPool arg1;
+			verify_test(man.RunGuarded_T(arg1));
+
+			verify_test(lc.InvokeTxUser(arg1, false));
 
 			std::cout << "profit withdraw" << std::endl;
 			lc.PrintAll();
