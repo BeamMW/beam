@@ -296,6 +296,8 @@ namespace Shaders {
 
 	namespace Env {
 
+		//typedef beam::bvm2::Limits::Cost Cost;
+		//typedef Shaders::Env::KeyID KeyID;
 
 		void CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint8_t bInheritContext);
 
@@ -308,6 +310,9 @@ namespace Shaders {
 		}
 
 	} // namespace Env
+
+//#include "../Shaders/app_common_impl.h"
+//#include "../Shaders/app_comm.h"
 
 	namespace Vault {
 #include "../Shaders/vault/contract.cpp"
@@ -353,6 +358,7 @@ namespace Shaders {
 	}
 
 #include "../Shaders/liquity/contract.cpp" // already within namespace
+//#include "../Shaders/liquity/app.cpp"
 
 #ifdef _MSC_VER
 #	pragma warning (default : 4200 4702)
@@ -1147,7 +1153,8 @@ namespace bvm2 {
 			if (sizeof(Balance) == blVal.n)
 				return Cast::Reinterpret<Balance*>(blVal.p)->m_Amounts;
 
-			Pair p = { 0 };
+			Pair p;
+			p.Tok = p.Col = 0;
 			return p;
 		}
 
