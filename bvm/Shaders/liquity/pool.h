@@ -63,19 +63,18 @@ struct HomogenousPool
         template <Mode m>
         void Trade_(const Pair& d)
         {
-            Amount s0 = m_Balance.s;
-            if (!s0)
+            if (!m_Balance.s)
             {
                 assert(!d.s && !d.b);
                 return;
             }
 
-            Float s0_(s0);
+            Float kScale_div_s = m_kScale / Float(m_Balance.s);
 
             if (d.b)
             {
-                // dSigma = (d.b * m_kScale) / s0
-                m_Sigma = m_Sigma + Float(d.b) * m_kScale / s0_;
+                // dSigma = m_kScale * db / s
+                m_Sigma = m_Sigma + kScale_div_s * Float(d.b);
 
                 Strict::Add(m_Balance.b, d.b);
             }
@@ -84,7 +83,7 @@ struct HomogenousPool
             {
                 if constexpr (Mode::Burn == m)
                 {
-                    assert(d.s <= s0);
+                    assert(m_Balance.s >= d.s);
                     m_Balance.s -= d.s;
                 }
                 else
@@ -94,8 +93,8 @@ struct HomogenousPool
                 }
 
                 if constexpr (Mode::Neutral != m)
-                    // m_kScale *= m_Balance.s / s0;
-                    m_kScale = m_kScale * Float(m_Balance.s) / s0_;
+                    // m_kScale *= sNew / sOld;
+                    m_kScale = kScale_div_s * Float(m_Balance.s);
             }
         }
     };
