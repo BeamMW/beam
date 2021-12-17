@@ -5,21 +5,20 @@
 
 namespace Liquity {
 
-template <uint8_t nTag>
 struct EpochStorage
 {
     static EpochKey get_Key(uint32_t iEpoch) {
         EpochKey k;
-        k.m_Tag = nTag;
+        k.m_Tag = Tags::s_Epoch_Stable;
         k.m_iEpoch = iEpoch;
         return k;
     }
 
-    static void Load(uint32_t iEpoch, ExchangePool::Epoch& e) {
+    static void Load(uint32_t iEpoch, HomogenousPool::Epoch& e) {
         Env::LoadVar_T(get_Key(iEpoch), e);
     }
 
-    static void Save(uint32_t iEpoch, const ExchangePool::Epoch& e) {
+    static void Save(uint32_t iEpoch, const HomogenousPool::Epoch& e) {
         Env::SaveVar_T(get_Key(iEpoch), e);
     }
 
@@ -145,8 +144,7 @@ struct MyGlobal
         tk.m_iTrove = iTrove;
         Env::Halt_if(!Env::LoadVar_T(tk, t));
 
-        EpochStorage<Tags::s_Epoch_Redist> stor;
-        m_RedistPool.Remove(t, stor);
+        m_RedistPool.Remove(t);
 
         // just for more safety. Theoretically strict isn't necessary
         Strict::Sub(m_Troves.m_Totals.Tok, t.m_Amounts.Tok);
@@ -168,8 +166,7 @@ struct MyGlobal
     {
         Env::Halt_if(!Env::LoadVar_T(tk, t));
 
-        EpochStorage<Tags::s_Epoch_Redist> stor;
-        auto vals = m_RedistPool.get_UpdatedAmounts(t, stor);
+        auto vals = m_RedistPool.get_UpdatedAmounts(t);
 
         return vals.CmpRcr(tRef.m_Amounts);
     }
@@ -319,7 +316,7 @@ BEAM_EXPORT void Ctor(const Method::Create& r)
 
     _POD_(g.m_Settings) = r.m_Settings;
     g.m_StabPool.Init();
-    g.m_RedistPool.Init();
+    g.m_RedistPool.Reset();
 
     static const char szMeta[] = "STD:SCH_VER=1;N=Liquity Token;SN=Liqt;UN=LIQT;NTHUN=GROTHL";
     g.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
@@ -383,7 +380,7 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
     {
         Env::Halt_if(spe.m_hLastModify == h);
 
-        EpochStorage<Tags::s_Epoch_Stable> stor;
+        EpochStorage stor;
 
         HomogenousPool::Pair out;
         g.m_StabPool.UserDel(spe.m_User, out, stor);
@@ -433,14 +430,8 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
 
     if (ctx.m_Stab)
     {
-        EpochStorage<Tags::s_Epoch_Stable> stor;
+        EpochStorage stor;
         g.m_StabPool.OnPostTrade(stor);
-    }
-
-    if (ctx.m_Redist)
-    {
-        EpochStorage<Tags::s_Epoch_Redist> stor;
-        g.m_RedistPool.OnPostTrade(stor);
     }
 
     g.AdjustAll(r, totals0, ctx.m_fpLogic, r.m_pkUser);

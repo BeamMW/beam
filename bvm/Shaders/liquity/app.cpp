@@ -234,23 +234,22 @@ struct AppGlobalPlus
 
     MyPrice m_Price;
 
-    template <uint8_t nTag>
     struct EpochStorage
     {
         const ContractID& m_Cid;
         EpochStorage(const ContractID& cid) :m_Cid(cid) {}
 
-        void Load(uint32_t iEpoch, ExchangePool::Epoch& e)
+        void Load(uint32_t iEpoch, HomogenousPool::Epoch& e)
         {
             Env::Key_T<EpochKey> k;
             _POD_(k.m_Prefix.m_Cid) = m_Cid;
-            k.m_KeyInContract.m_Tag = nTag;
+            k.m_KeyInContract.m_Tag = Tags::s_Epoch_Stable;
             k.m_KeyInContract.m_iEpoch = iEpoch;
 
             Env::Halt_if(!Env::VarReader::Read_T(k, e));
         }
 
-        static void Save(uint32_t iEpoch, const ExchangePool::Epoch& e) {}
+        static void Save(uint32_t iEpoch, const HomogenousPool::Epoch& e) {}
         static void Del(uint32_t iEpoch) {}
     };
 
@@ -362,8 +361,7 @@ struct AppGlobalPlus
         else
             m_Troves.m_iHead = t.m_iNext;
 
-        EpochStorage<Tags::s_Epoch_Redist> stor(m_Kid.m_Blob.m_Cid);
-        m_RedistPool.Remove(t, stor);
+        m_RedistPool.Remove(t);
 
         m_Troves.m_Totals.Tok -= t.m_Amounts.Tok;
         m_Troves.m_Totals.Col -= t.m_Amounts.Col;
@@ -395,14 +393,12 @@ struct AppGlobalPlus
 
     Trove::ID PushTrove(const Pair& tVals)
     {
-        EpochStorage<Tags::s_Epoch_Redist> stor(m_Kid.m_Blob.m_Cid);
-
         Trove::ID iPrev1 = 0;
         for (Trove::ID iT = m_Troves.m_iHead; iT; )
         {
             const Trove& t1 = get_T(iT);
 
-            auto vals = m_RedistPool.get_UpdatedAmounts(t1, stor);
+            auto vals = m_RedistPool.get_UpdatedAmounts(t1);
             if (vals.CmpRcr(tVals) >= 0)
                 break;
 
@@ -436,7 +432,7 @@ struct AppGlobalPlus
         if (!Env::VarReader::Read_T(k, e))
             return false;
 
-        EpochStorage<Tags::s_Epoch_Stable> stor(m_Kid.m_Blob.m_Cid);
+        EpochStorage stor(m_Kid.m_Blob.m_Cid);
 
         HomogenousPool::Pair out;
         m_StabPool.UserDel(e.m_User, out, stor);
@@ -551,13 +547,12 @@ ON_METHOD(manager, view_all)
     {
         Env::DocArray gr1("troves");
 
-        AppGlobalPlus::EpochStorage<Tags::s_Epoch_Redist> stor(cid);
         for (Trove::ID iT = g.m_Troves.m_iHead; iT; )
         {
             Env::DocGroup gr2("");
 
             Trove& t = g.get_T(iT);
-            t.m_Amounts = g.m_RedistPool.get_UpdatedAmounts(t, stor);
+            t.m_Amounts = g.m_RedistPool.get_UpdatedAmounts(t);
             g.DocAddTrove(t);
 
             iT = t.m_iNext;

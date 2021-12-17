@@ -1250,7 +1250,7 @@ namespace bvm2 {
 				return k;
 			}
 
-			void Load(uint32_t iEpoch, Shaders::ExchangePool::Epoch& e) const
+			void Load(uint32_t iEpoch, Shaders::HomogenousPool::Epoch& e) const
 			{
 				auto k = get_Key(iEpoch);
 				Blob out;
@@ -1260,7 +1260,7 @@ namespace bvm2 {
 				memcpy(&e, out.p, out.n);
 			}
 
-			static void Save(uint32_t iEpoch, const Shaders::ExchangePool::Epoch& e) {
+			static void Save(uint32_t iEpoch, const Shaders::HomogenousPool::Epoch& e) {
 				// ignore
 			}
 
@@ -1334,8 +1334,7 @@ namespace bvm2 {
 			AddPoolTotals(totalStab, Shaders::Liquity::Tags::s_Epoch_Stable);
 
 			totalRedist.Tok = g.m_RedistPool.get_TotalSell();
-			totalRedist.Col = g.m_RedistPool.m_Active.m_Balance.b + g.m_RedistPool.m_Draining.m_Balance.b;
-			AddPoolTotals(totalRedist, Shaders::Liquity::Tags::s_Epoch_Redist);
+			totalRedist.Col = g.m_RedistPool.m_Active.m_Balance.b;
 
 			Shaders::Liquity::Global::Price price;
 			{
@@ -1378,8 +1377,7 @@ namespace bvm2 {
 
 				totalCol += x.m_Amounts.Col; // before accounting for redist
 
-				EpochStorage stor(m_Proc, Shaders::Liquity::Tags::s_Epoch_Redist);
-				x.m_Amounts = g.m_RedistPool.get_UpdatedAmounts(x, stor);
+				x.m_Amounts = g.m_RedistPool.get_UpdatedAmounts(x);
 				x.m_Rcr = x.m_Amounts.get_Rcr();
 
 				nActiveTroves++;
