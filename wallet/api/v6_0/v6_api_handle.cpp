@@ -964,7 +964,7 @@ namespace beam::wallet
             return;
         }
 
-        auto headerRequest = dynamic_cast<RequestHeaderMsg&>(request);
+        auto& headerRequest = dynamic_cast<RequestHeaderMsg&>(request);
         headerRequest.m_pTrg = nullptr;
 
         if (headerRequest.m_vStates.size() != 1)
