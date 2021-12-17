@@ -581,6 +581,22 @@ void Node::DeleteOutdated()
             m_TxPool.SetOutdated(x, m_Processor.m_Cursor.m_ID.m_Height);
 	}
 
+    for (TxPool::Stem::TimeSet::iterator it = m_Dandelion.m_setTime.begin(); m_Dandelion.m_setTime.end() != it; )
+    {
+        TxPool::Stem::Element& x = (it++)->get_ParentObj();
+        assert(MaxHeight == x.m_Confirm.m_Height);
+
+        uint32_t nBvmCharge = 0;
+        uint8_t nStatus = m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Height, true, nBvmCharge, nullptr, nullptr);
+        if (proto::TxStatus::Ok != nStatus)
+        {
+            bool bDone = x.m_Height.IsInRange(m_Processor.m_Cursor.m_ID.m_Height + 1);
+            LogTxStem(*x.m_pValue, bDone ? "confirmed without fluff" : "outdated");
+
+            m_Dandelion.Delete(x);
+        }
+    }
+
     if (m_Processor.m_Cursor.m_ID.m_Height >= m_Cfg.m_Dandelion.m_dhStemConfirm)
     {
         h = m_Processor.m_Cursor.m_ID.m_Height - m_Cfg.m_Dandelion.m_dhStemConfirm;
@@ -592,16 +608,20 @@ void Node::DeleteOutdated()
                 break;
 
             auto& x = c.get_ParentObj();
+            assert(!x.m_Time.m_Value);
 
             uint32_t nBvmCharge = 0;
-            if (proto::TxStatus::Ok == m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Height, true, nBvmCharge, nullptr, nullptr))
+            uint8_t nStatus = m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Height, true, nBvmCharge, nullptr, nullptr);
+            if (proto::TxStatus::Ok == nStatus)
             {
                 LogTxStem(*x.m_pValue, "Not confirmed, fluffing");
                 OnTransactionFluff(std::move(x.m_pValue), nullptr, nullptr, &x);
             }
             else
             {
-                LogTxStem(*x.m_pValue, "confirm done");
+                bool bDone = x.m_Height.IsInRange(m_Processor.m_Cursor.m_ID.m_Height + 1);
+                LogTxStem(*x.m_pValue, bDone ? "confirm done" : "outdated");
+
                 m_Dandelion.Delete(x);
             }
         }
@@ -759,6 +779,14 @@ void Node::Processor::OnRolledBack()
 		if (!IsShieldedInPool(*x.m_pValue))
 			txps.Delete(x);
 	}
+
+    for (TxPool::Stem::ConfirmList::iterator it = txps.m_lstConfirm.begin(); txps.m_lstConfirm.end() != it; )
+    {
+        TxPool::Stem::Element& x = (it++)->get_ParentObj();
+        if (!IsShieldedInPool(*x.m_pValue))
+            txps.Delete(x);
+    }
+
 
     get_ParentObj().m_TxDependent.Clear();
 
