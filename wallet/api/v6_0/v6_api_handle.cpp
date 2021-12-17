@@ -999,7 +999,7 @@ namespace beam::wallet
         response.pow = beam::to_hex(&state.m_PoW, sizeof(state.m_PoW));
         response.difficulty = state.m_PoW.m_Difficulty.ToFloat();
         response.packedDifficulty = state.m_PoW.m_Difficulty.m_Packed;
-        response.rulesHash = rulesHash;
+        response.rulesHash = std::move(rulesHash);
 
         _wapi.doResponse(headerRequest._id, response);
     }
