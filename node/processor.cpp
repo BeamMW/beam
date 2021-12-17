@@ -4654,7 +4654,7 @@ struct NodeProcessor::ProcessorInfoParser
 	std::ostringstream m_os;
 
 	void SelectContext(bool /* bDependent */, uint32_t /* nChargeNeeded */) override {
-		m_Context.m_Height;
+		m_Context.m_Height = m_Height;
 	}
 	bool get_HdrAt(Block::SystemState::Full& s) override
 	{
