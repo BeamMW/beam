@@ -388,8 +388,23 @@ ON_METHOD(manager, upload)
     // - event for the data. This is 100 units per byte, plus 5K units per call, which is repeated for each 8K of data
     // - add some extra for other stuff
 
-    uint32_t nCharge = 90000;
-    nCharge += nDataLen * 110;
+    uint32_t nCharge =
+        ManagerUpgadable2::get_ChargeInvoke() +
+        Env::Cost::LoadVar_For(sizeof(Gallery::State)) +
+        Env::Cost::SaveVar_For(sizeof(Gallery::State)) +
+        Env::Cost::LoadVar_For(sizeof(Gallery::Artist)) +
+        Env::Cost::SaveVar_For(sizeof(Gallery::Masterpiece)) +
+        Env::Cost::AddSig +
+        Env::Cost::Cycle * 200;
+
+    const uint32_t nSizeEvt = 0x2000;
+    uint32_t nFullCycles = nDataLen / nSizeEvt;
+
+    nCharge += (Env::Cost::Log_For(nSizeEvt) + Env::Cost::Cycle * 50) * nFullCycles;
+
+    nDataLen %= nSizeEvt;
+    if (nDataLen)
+        nCharge += Env::Cost::Log_For(nDataLen) + Env::Cost::Cycle * 50;
 
     Env::GenerateKernel(&cid, pArgs->s_iMethod, pArgs, nSizeArgs, nullptr, 0, &sig, 1, "Gallery upload masterpiece", nCharge);
 
