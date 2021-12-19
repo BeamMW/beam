@@ -4289,6 +4289,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 void Node::Miner::HardAbortSafe()
 {
     m_pTaskToFinalize.reset();
+    m_FeesTrg = 0;
 
     std::scoped_lock<std::mutex> scope(m_Mutex);
 
@@ -4398,6 +4399,9 @@ bool Node::Miner::Restart()
         return false;
     }
 
+    if (!IsShouldMine(bc))
+        return false;
+
     Task::Ptr pTask(std::make_shared<Task>());
     Cast::Down<NodeProcessor::GeneratedBlock>(*pTask) = std::move(bc);
 
@@ -4422,34 +4426,50 @@ bool Node::Miner::Restart()
     return true;
 }
 
+bool Node::Miner::IsShouldMine(const NodeProcessor::GeneratedBlock& bc)
+{
+    if (bc.m_Fees >= m_FeesTrg)
+        return true;
+
+    LOG_INFO() << "Block generation no change";
+    return false;
+}
+
 void Node::Miner::StartMining(Task::Ptr&& pTask)
 {
     assert(pTask && !m_pTaskToFinalize);
 
     const NodeProcessor::GeneratedBlock& x = *pTask;
+    if (!IsShouldMine(x))
+        return;
+
     LOG_INFO() << "Block generated: Height=" << x.m_Hdr.m_Height << ", Fee=" << x.m_Fees << ", Difficulty=" << x.m_Hdr.m_PoW.m_Difficulty << ", Size=" << (x.m_BodyP.size() + x.m_BodyE.size());
+
+    m_FeesTrg = x.m_Fees + 1;
 
     pTask->m_hvNonceSeed = get_ParentObj().NextNonce();
 
     // let's mine it.
-    std::scoped_lock<std::mutex> scope(m_Mutex);
-
-    if (m_pTask)
     {
-        if (*m_pTask->m_pStop)
-            return; // block already mined, probably notification to this thread on its way. Ignore the newly-constructed block
-        pTask->m_pStop = m_pTask->m_pStop; // use the same soft-restart indicator
-    }
-    else
-    {
-        pTask->m_pStop.reset(new volatile bool);
-        *pTask->m_pStop = false;
-    }
+        std::scoped_lock<std::mutex> scope(m_Mutex);
 
-    m_pTask = std::move(pTask);
+        if (m_pTask)
+        {
+            if (*m_pTask->m_pStop)
+                return; // block already mined, probably notification to this thread on its way. Ignore the newly-constructed block
+            pTask->m_pStop = m_pTask->m_pStop; // use the same soft-restart indicator
+        }
+        else
+        {
+            pTask->m_pStop.reset(new volatile bool);
+            *pTask->m_pStop = false;
+        }
 
-    for (size_t i = 0; i < m_vThreads.size(); i++)
-        m_vThreads[i].m_pEvt->post();
+        m_pTask = std::move(pTask);
+
+        for (size_t i = 0; i < m_vThreads.size(); i++)
+            m_vThreads[i].m_pEvt->post();
+    }
 
     OnRefreshExternal();
 }

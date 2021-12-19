@@ -726,6 +726,7 @@ private:
 		void OnMined();
 		IExternalPOW::BlockFoundResult OnMinedExternal();
 		void OnFinalizerChanged(Peer*);
+		bool IsShouldMine(const NodeProcessor::GeneratedBlock&);
 
 		void HardAbortSafe();
 		bool Restart();
@@ -750,6 +751,7 @@ private:
 		io::Timer::Ptr m_pTimer;
 		bool m_bTimerPending = false;
 		uint32_t m_LastRestart_ms;
+		Amount m_FeesTrg = 0;
 		void OnTimer();
 		void SetTimer(uint32_t timeout_ms, bool bHard);
 
