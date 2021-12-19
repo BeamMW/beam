@@ -561,9 +561,9 @@ void Node::DeleteOutdated()
     {
         h = m_Processor.m_Cursor.m_ID.m_Height - h;
 
-        while (!m_TxPool.m_setOutdated.empty())
+        while (!m_TxPool.m_lstOutdated.empty())
         {
-            TxPool::Fluff::Element& x = m_TxPool.m_setOutdated.begin()->get_ParentObj();
+            TxPool::Fluff::Element& x = m_TxPool.m_lstOutdated.front().get_ParentObj();
             if (x.m_Outdated.m_Height > h)
                 break;
 
@@ -752,9 +752,9 @@ void Node::Processor::OnRolledBack()
     LOG_INFO() << "Rolled back to: " << m_Cursor.m_ID;
 
 	TxPool::Fluff& txp = get_ParentObj().m_TxPool;
-    while (!txp.m_setOutdated.empty())
+    while (!txp.m_lstOutdated.empty())
     {
-        TxPool::Fluff::Element& x = txp.m_setOutdated.rbegin()->get_ParentObj();
+        TxPool::Fluff::Element& x = txp.m_lstOutdated.back().get_ParentObj();
         if (x.m_Outdated.m_Height <= m_Cursor.m_ID.m_Height)
             break;
 
@@ -2842,11 +2842,11 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
 
 	TxPool::Fluff::Element* pNewTxElem = m_TxPool.AddValidTx(std::move(ptx), stats, key.m_Key);
 
-	while (m_TxPool.m_setProfit.size() + m_TxPool.m_setOutdated.size() > m_Cfg.m_MaxPoolTransactions)
+	while (m_TxPool.m_setProfit.size() + m_TxPool.m_lstOutdated.size() > m_Cfg.m_MaxPoolTransactions)
 	{
-        TxPool::Fluff::Element& txDel = m_TxPool.m_setOutdated.empty() ?
+        TxPool::Fluff::Element& txDel = m_TxPool.m_lstOutdated.empty() ?
             m_TxPool.m_setProfit.rbegin()->get_ParentObj() :
-            m_TxPool.m_setOutdated.begin()->get_ParentObj();
+            m_TxPool.m_lstOutdated.front().get_ParentObj();
 
 		if (&txDel == pNewTxElem)
 			pNewTxElem = nullptr; // Anti-spam protection: in case the maximum pool capacity is reached - ensure this tx is any better BEFORE broadcasting ti

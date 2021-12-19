@@ -61,7 +61,7 @@ struct TxPool
 			} m_Profit;
 
 			struct Outdated
-				:public boost::intrusive::set_base_hook<>
+				:public boost::intrusive::list_base_hook<>
 			{
 				Height m_Height;
 
@@ -81,12 +81,12 @@ struct TxPool
 
 		typedef boost::intrusive::multiset<Element::Tx> TxSet;
 		typedef boost::intrusive::multiset<Element::Profit> ProfitSet;
-		typedef boost::intrusive::multiset<Element::Outdated> OutdatedSet;
+		typedef boost::intrusive::list<Element::Outdated> OutdatedList;
 		typedef boost::intrusive::list<Element::Queue> Queue;
 
 		TxSet m_setTxs;
 		ProfitSet m_setProfit;
-		OutdatedSet m_setOutdated;
+		OutdatedList m_lstOutdated;
 		Queue m_Queue;
 
 		Element* AddValidTx(Transaction::Ptr&&, const Stats&, const Transaction::KeyType&);
