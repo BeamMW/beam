@@ -81,7 +81,10 @@ void TxPool::Fluff::SetOutdated(Element& x, Height h)
 void TxPool::Fluff::InternalInsert(Element& x)
 {
 	if (x.IsOutdated())
-		m_setOutdated.insert(x.m_Outdated);
+	{
+		assert(m_lstOutdated.empty() || (m_lstOutdated.back().m_Height <= x.m_Outdated.m_Height)); // order must be preserved
+		m_lstOutdated.push_back(x.m_Outdated);
+	}
 	else
 	{
 		m_setTxs.insert(x.m_Tx);
@@ -92,7 +95,7 @@ void TxPool::Fluff::InternalInsert(Element& x)
 void TxPool::Fluff::InternalErase(Element& x)
 {
 	if (x.IsOutdated())
-		m_setOutdated.erase(OutdatedSet::s_iterator_to(x.m_Outdated));
+		m_lstOutdated.erase(OutdatedList::s_iterator_to(x.m_Outdated));
 	else
 	{
 		m_setTxs.erase(TxSet::s_iterator_to(x.m_Tx));
@@ -130,8 +133,8 @@ void TxPool::Fluff::Clear()
 	while (!m_setProfit.empty())
 		Delete(m_setProfit.begin()->get_ParentObj());
 
-	while (!m_setOutdated.empty())
-		Delete(m_setOutdated.begin()->get_ParentObj());
+	while (!m_lstOutdated.empty())
+		Delete(m_lstOutdated.begin()->get_ParentObj());
 }
 
 /////////////////////////////
