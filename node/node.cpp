@@ -577,7 +577,7 @@ void Node::DeleteOutdated()
 		Transaction& tx = *x.m_pValue;
 
         uint32_t nBvmCharge = 0;
-		if (proto::TxStatus::Ok != m_Processor.ValidateTxContextEx(tx, x.m_Height, true, nBvmCharge, nullptr, nullptr))
+		if (proto::TxStatus::Ok != m_Processor.ValidateTxContextEx(tx, x.m_Profit.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr))
             m_TxPool.SetOutdated(x, m_Processor.m_Cursor.m_ID.m_Height);
 	}
 
@@ -587,10 +587,10 @@ void Node::DeleteOutdated()
         assert(MaxHeight == x.m_Confirm.m_Height);
 
         uint32_t nBvmCharge = 0;
-        uint8_t nStatus = m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Height, true, nBvmCharge, nullptr, nullptr);
+        uint8_t nStatus = m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Profit.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr);
         if (proto::TxStatus::Ok != nStatus)
         {
-            bool bDone = x.m_Height.IsInRange(m_Processor.m_Cursor.m_ID.m_Height + 1);
+            bool bDone = x.m_Profit.m_Stats.m_Hr.IsInRange(m_Processor.m_Cursor.m_ID.m_Height + 1);
             LogTxStem(*x.m_pValue, bDone ? "confirmed without fluff" : "outdated");
 
             m_Dandelion.Delete(x);
@@ -611,7 +611,7 @@ void Node::DeleteOutdated()
             assert(!x.m_Time.m_Value);
 
             uint32_t nBvmCharge = 0;
-            uint8_t nStatus = m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Height, true, nBvmCharge, nullptr, nullptr);
+            uint8_t nStatus = m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr);
             if (proto::TxStatus::Ok == nStatus)
             {
                 LogTxStem(*x.m_pValue, "Not confirmed, fluffing");
@@ -619,7 +619,7 @@ void Node::DeleteOutdated()
             }
             else
             {
-                bool bDone = x.m_Height.IsInRange(m_Processor.m_Cursor.m_ID.m_Height + 1);
+                bool bDone = x.m_Profit.m_Stats.m_Hr.IsInRange(m_Processor.m_Cursor.m_ID.m_Height + 1);
                 LogTxStem(*x.m_pValue, bDone ? "confirm done" : "outdated");
 
                 m_Dandelion.Delete(x);
@@ -2234,13 +2234,23 @@ uint8_t Node::OnTransaction(Transaction::Ptr&& pTx, std::unique_ptr<Merkle::Hash
                 OnTransactionStem(std::move(pTx), pExtraInfo);
 }
 
-uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx, uint32_t& nSizeCorrection, Amount& feeReserve, std::ostream* pExtraInfo)
+uint8_t Node::ValidateTx(TxPool::Stats& stats, const Transaction& tx, std::ostream* pExtraInfo)
 {
+    Transaction::Context::Params pars;
+    Transaction::Context ctx(pars);
     uint32_t nBvmCharge = 0;
+    Amount feeReserve = 0;
+
     uint8_t nRet = ValidateTx2(ctx, tx, nBvmCharge, feeReserve, nullptr, pExtraInfo);
     if (proto::TxStatus::Ok == nRet)
-        // convert charge to effective size correction
-        nSizeCorrection = (uint32_t) (((uint64_t) nBvmCharge) * Rules::get().MaxBodySize / bvm2::Limits::BlockCharge);
+    {
+        if (AmountBig::get_Hi(ctx.m_Stats.m_Fee))
+            return proto::TxStatus::LowFee; // actually it's ridiculously-high fee
+
+        auto nSizeCorrection = (uint32_t) (((uint64_t) nBvmCharge) * Rules::get().MaxBodySize / bvm2::Limits::BlockCharge);
+
+        stats.From(tx, ctx, feeReserve, nSizeCorrection);
+    }
 
     return nRet;
 }
@@ -2407,12 +2417,9 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, std::ostream* pExtraInfo
         return proto::TxStatus::LimitExceeded;
     }
 
-	Transaction::Context::Params pars;
-	Transaction::Context ctx(pars);
+    TxPool::Stats stats;
     bool bTested = false;
     TxPool::Stem::Element* pDup = nullptr;
-    uint32_t nSizeCorrection = 0;
-    Amount feeReserve = 0;
 
     // find match by kernels
     for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
@@ -2453,7 +2460,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, std::ostream* pExtraInfo
 
 		if (!bTested)
 		{
-			uint8_t nCode = ValidateTx(ctx, *ptx, nSizeCorrection, feeReserve, pExtraInfo);
+			uint8_t nCode = ValidateTx(stats, *ptx, pExtraInfo);
 			if (proto::TxStatus::Ok != nCode)
 				return nCode;
 
@@ -2468,21 +2475,18 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, std::ostream* pExtraInfo
     {
 		if (!bTested)
 		{
-			uint8_t nCode = ValidateTx(ctx, *ptx, nSizeCorrection, feeReserve, pExtraInfo);
+			uint8_t nCode = ValidateTx(stats, *ptx, pExtraInfo);
 			if (proto::TxStatus::Ok != nCode)
 				return nCode;
 		}
 
-        AddDummyInputs(*ptx);
+        AddDummyInputs(*ptx, stats);
 
         auto pGuard = std::make_unique<TxPool::Stem::Element>();
         pGuard->m_bAggregating = false;
         pGuard->m_Time.m_Value = 0;
-        pGuard->m_Profit.m_Fee = ctx.m_Stats.m_Fee;
-        pGuard->m_Profit.SetSize(*ptx, nSizeCorrection);
+        pGuard->m_Profit.m_Stats = stats;
         pGuard->m_pValue.swap(ptx);
-		pGuard->m_Height = ctx.m_Height;
-        pGuard->m_FeeReserve = feeReserve;
 
         m_Dandelion.InsertKrn(*pGuard);
 
@@ -2562,6 +2566,7 @@ void Node::PerformAggregation(TxPool::Stem::Element& x)
 {
     assert(x.m_bAggregating);
 
+    bool bModified = false;
     // Aggregation policiy: first select those with worse profit, than those with better
     TxPool::Stem::ProfitSet::iterator it = TxPool::Stem::ProfitSet::s_iterator_to(x.m_Profit);
     ++it;
@@ -2574,7 +2579,8 @@ void Node::PerformAggregation(TxPool::Stem::Element& x)
         TxPool::Stem::Element& src = it->get_ParentObj();
         ++it;
 
-        m_Dandelion.TryMerge(x, src);
+        if (m_Dandelion.TryMerge(x, src))
+            bModified = true;
     }
 
     it = TxPool::Stem::ProfitSet::s_iterator_to(x.m_Profit);
@@ -2589,11 +2595,18 @@ void Node::PerformAggregation(TxPool::Stem::Element& x)
             if (!bEnd)
                 --it;
 
-            m_Dandelion.TryMerge(x, src);
+            if (m_Dandelion.TryMerge(x, src))
+                bModified = true;
 
             if (bEnd)
                 break;
         }
+    }
+
+    if (bModified)
+    {
+        m_Dandelion.DeleteAggr(x);
+        m_Dandelion.InsertAggr(x);
     }
 
 	LogTxStem(*x.m_pValue, "Aggregated so far");
@@ -2607,7 +2620,7 @@ void Node::PerformAggregation(TxPool::Stem::Element& x)
 	}
 }
 
-void Node::AddDummyInputs(Transaction& tx)
+void Node::AddDummyInputs(Transaction& tx, TxPool::Stats& stats)
 {
 	if (!m_Keys.m_pMiner)
 		return;
@@ -2638,6 +2651,7 @@ void Node::AddDummyInputs(Transaction& tx)
 
     if (bModified)
     {
+        stats.SetSize(tx);
         m_Processor.FlushDB(); // make sure they're not lost
         tx.Normalize();
     }
@@ -2696,7 +2710,7 @@ bool Node::AddDummyInputRaw(Transaction& tx, const CoinID& cid)
 	return true;
 }
 
-void Node::AddDummyOutputs(Transaction& tx, Amount feeReserve)
+void Node::AddDummyOutputs(Transaction& tx, TxPool::Stats& stats)
 {
     if (!m_Cfg.m_Dandelion.m_DummyLifetimeHi || !m_Keys.m_pMiner)
         return;
@@ -2708,7 +2722,7 @@ void Node::AddDummyOutputs(Transaction& tx, Amount feeReserve)
 
     while (tx.m_vOutputs.size() < m_Cfg.m_Dandelion.m_OutputsMin)
     {
-        if (feeReserve < fs.m_Output)
+        if (stats.m_FeeReserve < fs.m_Output)
             break;
 
 		CoinID cid(Zero);
@@ -2736,11 +2750,12 @@ void Node::AddDummyOutputs(Transaction& tx, Amount feeReserve)
         sk = -sk;
         tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + sk;
 
-        feeReserve -= fs.m_Output;
+        stats.m_FeeReserve -= fs.m_Output;
     }
 
     if (bModified)
     {
+        stats.SetSize(tx);
         m_Processor.FlushDB();
         tx.Normalize();
     }
@@ -2775,14 +2790,10 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
     Transaction::Ptr ptx;
     ptx.swap(ptxArg);
 
-	Transaction::Context::Params pars;
-	Transaction::Context ctx(pars);
+    TxPool::Stats stats;
     if (pElem)
     {
-		bool bValid = pElem->m_Height.IsInRange(m_Processor.m_Cursor.m_ID.m_Height + 1);
-
-        ctx.m_Stats.m_Fee = pElem->m_Profit.m_Fee;
-		ctx.m_Height = pElem->m_Height;
+        stats = pElem->m_Profit.m_Stats;
 
         if (MaxHeight == pElem->m_Confirm.m_Height)
         {
@@ -2794,9 +2805,6 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
         else
             // fluff from 
             m_Dandelion.Delete(*pElem);
-
-		if (!bValid)
-			return proto::TxStatus::InvalidContext;
 	}
 
     TxPool::Fluff::Element::Tx key;
@@ -2809,9 +2817,7 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
     const Transaction& tx = *ptx;
 
     // new transaction
-    uint32_t nSizeCorrection = 0;
-    Amount feeReserve = 0;
-    uint8_t nCode = pElem ? proto::TxStatus::Ok : ValidateTx(ctx, tx, nSizeCorrection, feeReserve, pExtraInfo);
+    uint8_t nCode = pElem ? proto::TxStatus::Ok : ValidateTx(stats, tx, pExtraInfo);
     LogTx(tx, nCode, key.m_Key);
 
 	if (proto::TxStatus::Ok != nCode) {
@@ -2834,7 +2840,7 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
 
     }
 
-	TxPool::Fluff::Element* pNewTxElem = m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key, nSizeCorrection);
+	TxPool::Fluff::Element* pNewTxElem = m_TxPool.AddValidTx(std::move(ptx), stats, key.m_Key);
 
 	while (m_TxPool.m_setProfit.size() + m_TxPool.m_setOutdated.size() > m_Cfg.m_MaxPoolTransactions)
 	{
@@ -2922,7 +2928,7 @@ void Node::Dandelion::OnTimedOut(Element& x)
 {
     if (x.m_bAggregating)
     {
-        get_ParentObj().AddDummyOutputs(*x.m_pValue, x.m_FeeReserve);
+        get_ParentObj().AddDummyOutputs(*x.m_pValue, x.m_Profit.m_Stats);
 		get_ParentObj().LogTxStem(*x.m_pValue, "Aggregation timed-out, dummies added");
 		get_ParentObj().OnTransactionAggregated(x);
 	}
@@ -3059,7 +3065,7 @@ void Node::Peer::BroadcastTxs()
 		msgOut.m_ID = m_pCursorTx->m_Tx.m_Key;
 		Send(msgOut);
 
-		nExtra += m_pCursorTx->m_Profit.m_nSize;
+		nExtra += m_pCursorTx->m_Profit.m_Stats.m_Size;
 		if (IsChocking(nExtra))
 			break;
 	}

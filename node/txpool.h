@@ -22,15 +22,22 @@ namespace beam {
 
 struct TxPool
 {
+	struct Stats
+	{
+		Amount m_Fee;
+		Amount m_FeeReserve;
+		uint32_t m_Size;
+		uint32_t m_SizeCorrection;
+		HeightRange m_Hr;
+
+		void From(const Transaction&, const Transaction::Context&, Amount feeReserve, uint32_t nSizeCorrection);
+		void SetSize(const Transaction&);
+	};
+
 	struct Profit
 		:public boost::intrusive::set_base_hook<>
 	{
-		AmountBig::Type m_Fee; // since a tx may include multiple kernels - theoretically fee may be huge (though highly unlikely)
-		uint32_t m_nSize;
-		uintBigFor<uint32_t>::Type m_nSizeCorrected;
-
-		void SetSize(const Transaction&, uint32_t nCorrection);
-		uint32_t get_Correction() const;
+		Stats m_Stats;
 
 		bool operator < (const Profit& t) const;
 	};
@@ -42,11 +49,8 @@ struct TxPool
 			Transaction::Ptr m_pValue;
 
 			struct Tx
-				:public boost::intrusive::set_base_hook<>
+				:public intrusive::set_base_hook<Transaction::KeyType>
 			{
-				Transaction::KeyType m_Key;
-
-				bool operator < (const Tx& t) const { return m_Key < t.m_Key; }
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Tx)
 			} m_Tx;
 
@@ -55,8 +59,6 @@ struct TxPool
 			{
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Profit)
 			} m_Profit;
-
-			HeightRange m_Height;
 
 			struct Outdated
 				:public boost::intrusive::set_base_hook<>
@@ -87,7 +89,7 @@ struct TxPool
 		OutdatedSet m_setOutdated;
 		Queue m_Queue;
 
-		Element* AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&, uint32_t nSizeCorrection);
+		Element* AddValidTx(Transaction::Ptr&&, const Stats&, const Transaction::KeyType&);
 		void SetOutdated(Element&, Height);
 		void Delete(Element&);
 		void DeleteEmpty(Element&);
@@ -140,8 +142,7 @@ struct TxPool
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Confirm)
 			} m_Confirm;
 
-			HeightRange m_Height;
-			Amount m_FeeReserve;
+			Stats m_Stats;
 
 			std::vector<Kernel> m_vKrn;
 		};
