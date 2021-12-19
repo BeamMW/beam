@@ -6078,18 +6078,12 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	{
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
 
-		if (AmountBig::get_Hi(x.m_Profit.m_Fee))
-		{
-			// huge fees are unsupported
-			bc.m_TxPool.Delete(x);
-			continue;
-		}
 
-		Amount feesNext = bc.m_Fees + AmountBig::get_Lo(x.m_Profit.m_Fee);
+		Amount feesNext = bc.m_Fees + x.m_Profit.m_Stats.m_Fee;
 		if (feesNext < bc.m_Fees)
 			continue; // huge fees are unsupported
 
-		size_t nSizeNext = ssc.m_Counter.m_Value + x.m_Profit.m_nSize;
+		size_t nSizeNext = ssc.m_Counter.m_Value + x.m_Profit.m_Stats.m_Size;
 		if (!bc.m_Fees && feesNext)
 			nSizeNext += m_nSizeUtxoComission;
 
@@ -6108,7 +6102,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 		Transaction& tx = *x.m_pValue;
 
-		bool bDelete = !x.m_Height.IsInRange(bic.m_Height);
+		bool bDelete = !x.m_Profit.m_Stats.m_Hr.IsInRange(bic.m_Height);
 		if (!bDelete)
 		{
 			assert(!bic.m_LimitExceeded);

@@ -395,14 +395,14 @@ private:
 	void OnTransactionAggregated(Dandelion::Element&);
 	void OnTransactionWaitingConfirm(TxPool::Stem::Element&);
 	void PerformAggregation(Dandelion::Element&);
-	void AddDummyInputs(Transaction&);
+	void AddDummyInputs(Transaction&, TxPool::Stats&);
 	bool AddDummyInputRaw(Transaction& tx, const CoinID&);
 	bool AddDummyInputEx(Transaction& tx, const CoinID&);
-	void AddDummyOutputs(Transaction&, Amount feeReserve);
+	void AddDummyOutputs(Transaction&, TxPool::Stats&);
 	Height SampleDummySpentHeight();
 	void DeleteOutdated();
 
-	uint8_t ValidateTx(Transaction::Context&, const Transaction&, uint32_t& nSizeCorrection, Amount& feeReserve, std::ostream* pExtraInfo); // complete validation
+	uint8_t ValidateTx(TxPool::Stats&, const Transaction&, std::ostream* pExtraInfo); // complete validation
 	uint8_t ValidateTx2(Transaction::Context&, const Transaction&, uint32_t& nBvmCharge, Amount& feeReserve, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo, Merkle::Hash* pNewCtx);
 	static bool CalculateFeeReserve(const TxStats&, const HeightRange&, const AmountBig::Type&, uint32_t nBvmCharge, Amount& feeReserve);
 	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);

@@ -25,40 +25,40 @@ void save_VecPtr(Archive& ar, const std::vector<TPtr>& v)
 		ar & *v[i];
 }
 
-void TxPool::Profit::SetSize(const Transaction& tx, uint32_t nCorrection)
+void TxPool::Stats::SetSize(const Transaction& tx)
 {
-	m_nSize = (uint32_t) tx.get_Reader().get_SizeNetto();
-	m_nSizeCorrected = m_nSize + nCorrection;
+	m_Size = (uint32_t)tx.get_Reader().get_SizeNetto();
 }
 
-uint32_t TxPool::Profit::get_Correction() const
+void TxPool::Stats::From(const Transaction& tx, const Transaction::Context& ctx, Amount feeReserve, uint32_t nSizeCorrection)
 {
-	uint32_t ret;
-	m_nSizeCorrected.Export(ret);
-	return ret - m_nSize;
+	assert(!AmountBig::get_Hi(ctx.m_Stats.m_Fee)); // ignore such txs atm
+	m_Fee = AmountBig::get_Lo(ctx.m_Stats.m_Fee);
+	m_FeeReserve = feeReserve;
+	m_Hr = ctx.m_Height;
+
+	SetSize(tx);
+	m_SizeCorrection = nSizeCorrection;
 }
 
 bool TxPool::Profit::operator < (const Profit& t) const
 {
 	// handle overflow. To be precise need to use big-int (96-bit) arithmetics
-	//	return m_Fee * t.m_nSize > t.m_Fee * m_nSize;
 
 	return
-		(m_Fee * t.m_nSizeCorrected) >
-		(t.m_Fee * m_nSizeCorrected);
+		(uintBigFrom(m_Stats.m_Fee) * uintBigFrom(t.m_Stats.m_Size + t.m_Stats.m_SizeCorrection)) >
+		(uintBigFrom(t.m_Stats.m_Fee) * uintBigFrom(m_Stats.m_Size + m_Stats.m_SizeCorrection));
 }
 
 /////////////////////////////
 // Fluff
-TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx, const Transaction::KeyType& key, uint32_t nSizeCorrection)
+TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Stats& stats, const Transaction::KeyType& key)
 {
 	assert(pValue);
 
 	Element* p = new Element;
 	p->m_pValue = std::move(pValue);
-	p->m_Height	= ctx.m_Height;
-	p->m_Profit.m_Fee = ctx.m_Stats.m_Fee;
-	p->m_Profit.SetSize(*p->m_pValue, nSizeCorrection);
+	p->m_Profit.m_Stats = stats;
 	p->m_Tx.m_Key = key;
 	p->m_Outdated.m_Height = MaxHeight;
 	assert(!p->IsOutdated());
@@ -140,8 +140,8 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 {
 	assert(trg.m_bAggregating && src.m_bAggregating);
 
-	HeightRange hr = trg.m_Height;
-	hr.Intersect(src.m_Height);
+	HeightRange hr = trg.m_Profit.m_Stats.m_Hr;
+	hr.Intersect(src.m_Profit.m_Stats.m_Hr);
 	if (hr.IsEmpty())
 		return false;
 
@@ -160,25 +160,26 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 //	assert(txNew.IsValid(ctx));
 //#endif // _DEBUG
 
-	auto fees = trg.m_Profit.m_Fee;
-	fees += src.m_Profit.m_Fee;
+	auto fees = trg.m_Profit.m_Stats.m_Fee;
+	fees += src.m_Profit.m_Stats.m_Fee;
 	Amount feeReserve = 0;
 	if (!ValidateTxContext(txNew, hr, fees, feeReserve))
 		return false; // conflicting txs, can't merge
 
-	trg.m_Profit.m_Fee += fees;
-	trg.m_Profit.SetSize(txNew, trg.m_Profit.get_Correction() + src.m_Profit.get_Correction());
 
-	Delete(src);
-	DeleteKrn(trg);
+	trg.m_Profit.m_Stats.m_Fee += src.m_Profit.m_Stats.m_Fee;
+	trg.m_Profit.m_Stats.m_FeeReserve = feeReserve;
+	trg.m_Profit.m_Stats.m_Hr = hr;
+	trg.m_Profit.m_Stats.SetSize(txNew);
+	trg.m_Profit.m_Stats.m_SizeCorrection += src.m_Profit.m_Stats.m_SizeCorrection;
 
 	trg.m_pValue->m_vInputs.swap(txNew.m_vInputs);
 	trg.m_pValue->m_vOutputs.swap(txNew.m_vOutputs);
 	trg.m_pValue->m_vKernels.swap(txNew.m_vKernels);
 	trg.m_pValue->m_Offset = txNew.m_Offset;
-	trg.m_FeeReserve = feeReserve;
-	trg.m_Height = hr;
 
+	Delete(src);
+	DeleteKrn(trg);
 	InsertKrn(trg);
 
 	return true;
