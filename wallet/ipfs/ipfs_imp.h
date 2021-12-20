@@ -77,7 +77,7 @@ namespace beam::wallet::imp
                         std::function<void ()> cancel;
                         if (deadline)
                         {
-                            deadline->async_wait([&cancel, err, this](const boost::system::error_code& ec) mutable {
+                            deadline->async_wait([err, this](const boost::system::error_code& ec) mutable {
                                 if (ec == boost::asio::error::operation_aborted)
                                 {
                                     // Timer cancelled
