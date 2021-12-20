@@ -136,22 +136,25 @@ void TxPool::Fluff::SetState(Element& x, Features f0, Features f)
 			m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
 	}
 
-	SetStateHist(x, m_lstOutdated, f0.m_Outdated, f.m_Outdated);
-	SetStateHist(x, m_lstWaitFluff, f0.m_WaitFluff, f.m_WaitFluff);
+	SetStateHistOut(x, m_lstOutdated, f0.m_Outdated, f.m_Outdated);
+	SetStateHistOut(x, m_lstWaitFluff, f0.m_WaitFluff, f.m_WaitFluff);
+	SetStateHistIn(x, m_lstOutdated, f0.m_Outdated, f.m_Outdated);
+	SetStateHistIn(x, m_lstWaitFluff, f0.m_WaitFluff, f.m_WaitFluff);
 }
 
-void TxPool::Fluff::SetStateHist(Element& x, HistList& lst, bool b0, bool b)
+void TxPool::Fluff::SetStateHistIn(Element& x, HistList& lst, bool b0, bool b)
 {
-	if (b != b0)
+	if (b && !b0)
 	{
-		if (b)
-		{
-			assert(lst.empty() || (lst.back().m_Height <= x.m_Hist.m_Height)); // order must be preserved
-			lst.push_back(x.m_Hist);
-		}
-		else
-			lst.erase(HistList::s_iterator_to(x.m_Hist));
+		assert(lst.empty() || (lst.back().m_Height <= x.m_Hist.m_Height)); // order must be preserved
+		lst.push_back(x.m_Hist);
 	}
+}
+
+void TxPool::Fluff::SetStateHistOut(Element& x, HistList& lst, bool b0, bool b)
+{
+	if (b0 && !b)
+		lst.erase(HistList::s_iterator_to(x.m_Hist));
 }
 
 void TxPool::Fluff::Delete(Element& x)
@@ -255,7 +258,6 @@ void TxPool::Stem::DeleteRaw(Element& x)
 	DeleteTimer(x);
 	DeleteAggr(x);
 	DeleteKrn(x);
-	DeleteConfirm(x);
 
 	delete &x;
 }
@@ -282,25 +284,6 @@ void TxPool::Stem::DeleteAggr(Element& x)
 	{
 		m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
 		x.m_bAggregating = false;
-	}
-}
-
-void TxPool::Stem::InsertConfirm(Element& x, Height h)
-{
-	DeleteConfirm(x);
-	if (MaxHeight != h)
-	{
-		x.m_Confirm.m_Height = h;
-		m_lstConfirm.push_back(x.m_Confirm);
-	}
-}
-
-void TxPool::Stem::DeleteConfirm(Element& x)
-{
-	if (MaxHeight != x.m_Confirm.m_Height)
-	{
-		m_lstConfirm.erase(ConfirmList::s_iterator_to(x.m_Confirm));
-		x.m_Confirm.m_Height = MaxHeight;
 	}
 }
 

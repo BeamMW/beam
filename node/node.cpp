@@ -587,15 +587,12 @@ void Node::DeleteOutdated()
     for (TxPool::Stem::TimeSet::iterator it = m_Dandelion.m_setTime.begin(); m_Dandelion.m_setTime.end() != it; )
     {
         TxPool::Stem::Element& x = (it++)->get_ParentObj();
-        assert(MaxHeight == x.m_Confirm.m_Height);
 
         uint32_t nBvmCharge = 0;
         uint8_t nStatus = m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Profit.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr);
         if (proto::TxStatus::Ok != nStatus)
         {
-            bool bDone = x.m_Profit.m_Stats.m_Hr.IsInRange(m_Processor.m_Cursor.m_ID.m_Height + 1);
-            LogTxStem(*x.m_pValue, bDone ? "confirmed without fluff" : "outdated");
-
+            LogTxStem(*x.m_pValue, "out-1");
             m_Dandelion.Delete(x);
         }
     }
@@ -604,28 +601,27 @@ void Node::DeleteOutdated()
     {
         h = m_Processor.m_Cursor.m_ID.m_Height - m_Cfg.m_Dandelion.m_dhStemConfirm;
 
-        while (!m_Dandelion.m_lstConfirm.empty())
+        while (!m_TxPool.m_lstWaitFluff.empty())
         {
-            auto& c = m_Dandelion.m_lstConfirm.front();
+            auto& c = m_TxPool.m_lstWaitFluff.front();
             if (c.m_Height >= h)
                 break;
 
             auto& x = c.get_ParentObj();
-            assert(!x.m_Time.m_Value);
 
             uint32_t nBvmCharge = 0;
-            uint8_t nStatus = m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr);
+            uint8_t nStatus = m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Profit.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr);
             if (proto::TxStatus::Ok == nStatus)
             {
-                LogTxStem(*x.m_pValue, "Not confirmed, fluffing");
-                OnTransactionFluff(std::move(x.m_pValue), nullptr, nullptr, &x);
+                LogTxStem(*x.m_pValue, "auto-fluffing");
+
+                m_TxPool.SetState(x, TxPool::Fluff::State::Fluffed);
+                OnTransactionFluff(x, nullptr);
             }
             else
             {
-                bool bDone = x.m_Profit.m_Stats.m_Hr.IsInRange(m_Processor.m_Cursor.m_ID.m_Height + 1);
-                LogTxStem(*x.m_pValue, bDone ? "confirm done" : "outdated");
-
-                m_Dandelion.Delete(x);
+                LogTxStem(*x.m_pValue, "out-2");
+                m_TxPool.Delete(x);
             }
         }
     }
@@ -783,13 +779,14 @@ void Node::Processor::OnRolledBack()
 			txps.Delete(x);
 	}
 
-    for (TxPool::Stem::ConfirmList::iterator it = txps.m_lstConfirm.begin(); txps.m_lstConfirm.end() != it; )
+    while (!txp.m_lstWaitFluff.empty())
     {
-        TxPool::Stem::Element& x = (it++)->get_ParentObj();
-        if (!IsShieldedInPool(*x.m_pValue))
-            txps.Delete(x);
-    }
+        TxPool::Fluff::Element& x = txp.m_lstWaitFluff.back().get_ParentObj();
+        if (x.m_Hist.m_Height <= m_Cursor.m_ID.m_Height)
+            break;
 
+        txp.Delete(x); // never mind
+    }
 
     get_ParentObj().m_TxDependent.Clear();
 
@@ -2420,69 +2417,74 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, std::ostream* pExtraInfo
         return proto::TxStatus::LimitExceeded;
     }
 
+    Transaction::KeyType keyTx;
+    ptx->get_Key(keyTx);
+
+    auto itF = m_TxPool.m_setTxs.find(keyTx, TxPool::Fluff::Element::Tx::Comparator());
+    TxPool::Fluff::Element* pF = (m_TxPool.m_setTxs.end() == itF) ? nullptr : &itF->get_ParentObj();
+
     TxPool::Stats stats;
     bool bTested = false;
-    TxPool::Stem::Element* pDup = nullptr;
 
-    // find match by kernels
-    for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
+    if (pF)
     {
-        const TxKernel& krn = *ptx->m_vKernels[i];
-
-        TxPool::Stem::Element::Kernel key;
-		key.m_pKrn = &krn;
-
-        TxPool::Stem::KrnSet::iterator it = m_Dandelion.m_setKrns.find(key);
-        if (m_Dandelion.m_setKrns.end() == it)
-            continue;
-
-        TxPool::Stem::Element* pElem = it->m_pThis;
-        bool bElemCovers = true, bNewCovers = true;
-        pElem->m_pValue->get_Reader().Compare(std::move(ptx->get_Reader()), bElemCovers, bNewCovers);
-
-		if (!bNewCovers)
-		{
-			LogTxStem(*ptx, "obscured by another tx. Deleting");
-			LogTxStem(*pElem->m_pValue, "Remaining");
-			return proto::TxStatus::Obscured; // the new tx is reduced, drop it
-		}
-
-        if (bElemCovers)
+        if (TxPool::Fluff::State::Fluffed == pF->m_State)
         {
-            pDup = pElem; // exact match
-
-			if (pDup->m_bAggregating)
-			{
-				LogTxStem(*ptx, "Received despite being-aggregated");
-				return proto::TxStatus::Ok; // it shouldn't have been received, but nevermind, just ignore
-			}
-
-			LogTxStem(*ptx, "Already received");
-			break;
+            LogTxStem(*ptx, "Already fluffed");
+            return proto::TxStatus::Ok;
         }
 
-		if (!bTested)
-		{
-			uint8_t nCode = ValidateTx(stats, *ptx, pExtraInfo);
-			if (proto::TxStatus::Ok != nCode)
-				return nCode;
+        if (pF->m_Hist.m_Height == m_Processor.m_Cursor.m_Full.m_Height)
+        {
+            stats = pF->m_Profit.m_Stats;
+            bTested = true;
+        }
 
-			bTested = true;
-		}
-
-		LogTxStem(*pElem->m_pValue, "obscured by newer tx");
-        OnTransactionWaitingConfirm(*pElem);
+        ptx = pF->m_pValue; // prefer it, to avoid ambiguity
     }
 
-    if (!pDup)
-    {
-		if (!bTested)
-		{
-			uint8_t nCode = ValidateTx(stats, *ptx, pExtraInfo);
-			if (proto::TxStatus::Ok != nCode)
-				return nCode;
-		}
+    LogTxStem(*ptx, pF ? "Already received" : "New");
 
+    if (!bTested)
+    {
+        uint8_t nCode = ValidateTx(stats, *ptx, pExtraInfo);
+        if (proto::TxStatus::Ok != nCode)
+        {
+            LogTxStem(*ptx, "invalid");
+            return nCode;
+        }
+    }
+
+    bool bDontAggregate = true;
+    if (!pF)
+    {
+        bDontAggregate =
+            (ptx->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMax) || // already big enough
+            s.m_KernelsNonStd || // contains non-std elements
+            !m_Keys.m_pMiner; // can't manage decoys
+
+        // add it to wait-fluff list BEFORE we modify it
+        Transaction::Ptr pTxOrig;
+        if (bDontAggregate)
+            pTxOrig = ptx;
+        else
+        {
+            // clone the tx, since we may modify it in the fure
+            pTxOrig = std::make_shared<Transaction>();
+            TxVectors::Writer wtx(*pTxOrig, *pTxOrig);
+
+            wtx.Dump(ptx->get_Reader());
+            pTxOrig->m_Offset = ptx->m_Offset;
+        }
+
+        pF = m_TxPool.AddValidTx(std::move(pTxOrig), stats, keyTx, TxPool::Fluff::State::PreFluffed, m_Processor.m_Cursor.m_Full.m_Height);
+        m_Wtx.Delete(keyTx);
+    }
+
+    if (bDontAggregate)
+        OnTransactionAggregated(std::move(ptx), stats);
+    else
+    {
         AddDummyInputs(*ptx, stats);
 
         auto pGuard = std::make_unique<TxPool::Stem::Element>();
@@ -2492,25 +2494,10 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, std::ostream* pExtraInfo
         pGuard->m_pValue.swap(ptx);
 
         m_Dandelion.InsertKrn(*pGuard);
+        m_Dandelion.InsertAggr(*pGuard);
+        auto* pElem = pGuard.release();
 
-        pDup = pGuard.release();
-
-		LogTxStem(*pDup->m_pValue, "New");
-    }
-
-    assert(!pDup->m_bAggregating);
-
-	bool bDontAggregate =
-		(pDup->m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMax) || // already big enough
-		s.m_KernelsNonStd || // contains non-std elements
-		!m_Keys.m_pMiner; // can't manage decoys
-
-    if (bDontAggregate)
-        OnTransactionAggregated(*pDup);
-    else
-    {
-        m_Dandelion.InsertAggr(*pDup);
-        PerformAggregation(*pDup);
+        PerformAggregation(*pElem);
     }
 
     return proto::TxStatus::Ok;
@@ -2542,23 +2529,33 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
             uint32_t nRandomPeerIdx = RandomUInt32(nStemPeers);
 
             for (PeerList::iterator it = m_lstPeers.begin(); ; ++it)
-                if ((it->m_LoginFlags & proto::LoginFlags::SpreadingTransactions) && !nRandomPeerIdx--)
-                {
-					if (m_Cfg.m_LogTxStem)
-					{
-						LOG_INFO() << "Stem continues to " << it->m_RemoteAddr;
-					}
-
-					it->SendTx(x.m_pValue, false);
-                    break;
-                }
-
-            // set random timer
-            uint32_t nTimeout_ms = m_Cfg.m_Dandelion.m_TimeoutMin_ms + RandomUInt32(m_Cfg.m_Dandelion.m_TimeoutMax_ms - m_Cfg.m_Dandelion.m_TimeoutMin_ms);
-            m_Dandelion.SetTimer(nTimeout_ms, x);
-
-            return;
+                if (sel.IsValid(*it) && !nRandomPeerIdx--)
+                    return & *it;
         }
+    }
+
+    return nullptr;
+}
+
+void Node::OnTransactionAggregated(Transaction::Ptr&& pTx, const TxPool::Stats& stats)
+{
+    LogTxStem(*pTx, "Aggregation finished");
+
+    Peer::Selector_Stem sel;
+    Peer* pNext = SelectRandomPeer(sel);
+    if (pNext)
+    {
+        if (m_Cfg.m_LogTxStem)
+        {
+            LOG_INFO() << "Stem continues to " << pNext->m_RemoteAddr;
+        }
+
+        pNext->SendTx(pTx, false);
+    }
+    else
+    {
+        LogTxStem(*pTx, "Going to fluff");
+        OnTransactionFluff(std::move(pTx), nullptr, nullptr, &stats);
     }
 
 	LogTxStem(*x.m_pValue, "Going to fluff");
@@ -2615,8 +2612,11 @@ void Node::PerformAggregation(TxPool::Stem::Element& x)
 	LogTxStem(*x.m_pValue, "Aggregated so far");
 
     if (x.m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMin)
-        OnTransactionAggregated(x);
-	else
+    {
+        OnTransactionAggregated(std::move(x.m_pValue), x.m_Profit.m_Stats);
+        m_Dandelion.Delete(x);
+    }
+    else
 	{
 		LogTxStem(*x.m_pValue, "Aggregation pending");
 		m_Dandelion.SetTimer(m_Cfg.m_Dandelion.m_AggregationTime_ms, x);
@@ -2776,92 +2776,64 @@ Height Node::SampleDummySpentHeight()
 	return h;
 }
 
-void Node::OnTransactionWaitingConfirm(TxPool::Stem::Element& x)
-{
-    m_Dandelion.DeleteAggr(x);
-    m_Dandelion.DeleteTimer(x);
-
-    if (MaxHeight == x.m_Confirm.m_Height)
-    {
-        m_Dandelion.InsertConfirm(x, m_Processor.m_Cursor.m_Full.m_Height);
-        LogTxStem(*x.m_pValue, "Waiting confirmation");
-    }
-}
-
-uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtraInfo, const PeerID* pSender, TxPool::Stem::Element* pElem)
+uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtraInfo, const PeerID* pSender, const TxPool::Stats* pStats)
 {
     Transaction::Ptr ptx;
     ptx.swap(ptxArg);
 
+    Transaction::KeyType keyTx;
+    ptx->get_Key(keyTx);
+
+    auto itF = m_TxPool.m_setTxs.find(keyTx, TxPool::Fluff::Element::Tx::Comparator());
+    TxPool::Fluff::Element* pF = (m_TxPool.m_setTxs.end() == itF) ? nullptr : &itF->get_ParentObj();
+
+    if (pF && (TxPool::Fluff::State::Fluffed == pF->m_State))
+        return proto::TxStatus::Ok; // already fluffed
+
     TxPool::Stats stats;
-    if (pElem)
+    if (!pStats)
     {
-        stats = pElem->m_Profit.m_Stats;
-
-        if (MaxHeight == pElem->m_Confirm.m_Height)
+        bool bTested = pF && (pF->m_Hist.m_Height == m_Processor.m_Cursor.m_Full.m_Height);
+        if (!bTested)
         {
-            assert(!pElem->m_pValue);
-            pElem->m_pValue = ptx; // save ptr only, no need to clone, assuming it won't be changing
+            const auto& pTxToTest = pF ? pF->m_pValue : ptx; // avoid ambiguity
 
-            OnTransactionWaitingConfirm(*pElem);
+            uint8_t nCode = ValidateTx(stats, *pTxToTest, pExtraInfo);
+            LogTx(*pTxToTest, nCode, keyTx);
+
+            if (proto::TxStatus::Ok != nCode)
+                return nCode;
         }
-        else
-            // fluff from 
-            m_Dandelion.Delete(*pElem);
-	}
-
-    TxPool::Fluff::Element::Tx key;
-    ptx->get_Key(key.m_Key);
-
-    TxPool::Fluff::TxSet::iterator it = m_TxPool.m_setTxs.find(key);
-    if (m_TxPool.m_setTxs.end() != it)
-        return proto::TxStatus::Ok;
-
-    const Transaction& tx = *ptx;
-
-    // new transaction
-    uint8_t nCode = pElem ? proto::TxStatus::Ok : ValidateTx(stats, tx, pExtraInfo);
-    LogTx(tx, nCode, key.m_Key);
-
-	if (proto::TxStatus::Ok != nCode) {
-		return nCode; // stupid compiler insists on parentheses here!
-	}
-
-    m_Wtx.Delete(key.m_Key);
-
-    if (!pElem)
-    {
-        for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
-        {
-            TxPool::Stem::Element::Kernel keyKrn;
-            keyKrn.m_pKrn = ptx->m_vKernels[i].get();
-
-            TxPool::Stem::KrnSet::iterator itKrn = m_Dandelion.m_setKrns.find(keyKrn);
-            if (m_Dandelion.m_setKrns.end() != itKrn)
-                OnTransactionWaitingConfirm(*itKrn->m_pThis);
-        }
-
     }
 
-	TxPool::Fluff::Element* pNewTxElem = m_TxPool.AddValidTx(std::move(ptx), stats, key.m_Key, TxPool::Fluff::State::Fluffed);
+    if (!pF)
+    {
+        pF = m_TxPool.AddValidTx(std::move(ptx), (pStats ? *pStats : stats), keyTx, TxPool::Fluff::State::Fluffed);
+        m_Wtx.Delete(keyTx);
+    }
 
-	while (m_TxPool.m_setProfit.size() + m_TxPool.m_lstOutdated.size() > m_Cfg.m_MaxPoolTransactions)
-	{
+    while (m_TxPool.m_setProfit.size() + m_TxPool.m_lstOutdated.size() > m_Cfg.m_MaxPoolTransactions)
+    {
         TxPool::Fluff::Element& txDel = m_TxPool.m_lstOutdated.empty() ?
             m_TxPool.m_setProfit.rbegin()->get_ParentObj() :
             m_TxPool.m_lstOutdated.front().get_ParentObj();
 
-		if (&txDel == pNewTxElem)
-			pNewTxElem = nullptr; // Anti-spam protection: in case the maximum pool capacity is reached - ensure this tx is any better BEFORE broadcasting ti
+        if (&txDel == pF)
+            pF = nullptr; // Anti-spam protection: in case the maximum pool capacity is reached - ensure this tx is any better BEFORE broadcasting ti
 
-		m_TxPool.Delete(txDel);
-	}
+        m_TxPool.Delete(txDel);
+    }
 
-    if (!pNewTxElem)
-		return nCode; // though the tx is dropped, we return status ok.
+    if (pF)
+        OnTransactionFluff(*pF, pSender);
 
+    return proto::TxStatus::Ok;
+}
+
+void Node::OnTransactionFluff(TxPool::Fluff::Element& x, const PeerID* pSender)
+{
     proto::HaveTransaction msgOut;
-    msgOut.m_ID = key.m_Key;
+    msgOut.m_ID = x.m_Tx.m_Key;
 
     for (PeerList::iterator it2 = m_lstPeers.begin(); m_lstPeers.end() != it2; ++it2)
     {
@@ -2872,13 +2844,10 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
             continue;
 
         peer.Send(msgOut);
-		peer.SetTxCursor(pNewTxElem->m_pSend);
+        peer.SetTxCursor(x.m_pSend);
     }
 
-    if (m_Miner.IsEnabled() && !m_Miner.m_pTaskToFinalize)
-        m_Miner.SetTimer(m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
-
-    return nCode;
+    m_Miner.SoftRestart();
 }
 
 uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash& hvCtx, const PeerID* pSender, bool bFluff, std::ostream* pExtraInfo)
@@ -2932,13 +2901,15 @@ void Node::Dandelion::OnTimedOut(Element& x)
     if (x.m_bAggregating)
     {
         get_ParentObj().AddDummyOutputs(*x.m_pValue, x.m_Profit.m_Stats);
-		get_ParentObj().LogTxStem(*x.m_pValue, "Aggregation timed-out, dummies added");
-		get_ParentObj().OnTransactionAggregated(x);
-	}
+        get_ParentObj().LogTxStem(*x.m_pValue, "Aggregation timed-out, dummies added");
+        get_ParentObj().OnTransactionAggregated(std::move(x.m_pValue), x.m_Profit.m_Stats);
+
+        get_ParentObj().m_Dandelion.Delete(x);
+    }
 	else
 	{
-		get_ParentObj().LogTxStem(*x.m_pValue, "Fluff timed-out. Emergency fluff");
-		get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), nullptr, nullptr, &x);
+		//get_ParentObj().LogTxStem(*x.m_pValue, "Fluff timed-out. Emergency fluff");
+		//get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), nullptr, nullptr, &x);
 	}
 }
 
