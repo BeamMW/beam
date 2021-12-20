@@ -77,7 +77,7 @@ TxPool::Fluff::Features TxPool::Fluff::Features::get(State s)
 	{
 	case State::Fluffed:
 		ret.m_TxSet = true;
-		ret.m_Send = true;
+		ret.m_SendAndProfit = true;
 		break;
 
 	case State::PreFluffed:
@@ -107,9 +107,9 @@ void TxPool::Fluff::SetState(Element& x, State s)
 
 void TxPool::Fluff::SetState(Element& x, Features f0, Features f)
 {
-	if (f.m_Send != f0.m_Send)
+	if (f.m_SendAndProfit != f0.m_SendAndProfit)
 	{
-		if (f.m_Send)
+		if (f.m_SendAndProfit)
 		{
 			assert(!x.m_pSend);
 
@@ -117,6 +117,8 @@ void TxPool::Fluff::SetState(Element& x, Features f0, Features f)
 			x.m_pSend->m_Refs = 1;
 			x.m_pSend->m_pThis = &x;
 			m_SendQueue.push_back(*x.m_pSend);
+
+			m_setProfit.insert(x.m_Profit);
 		}
 		else
 		{
@@ -125,15 +127,17 @@ void TxPool::Fluff::SetState(Element& x, Features f0, Features f)
 			x.m_pSend->m_pThis = nullptr;
 			Release(*x.m_pSend);
 			x.m_pSend = nullptr;
+
+			m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
 		}
 	}
 
 	if (f.m_TxSet != f0.m_TxSet)
 	{
 		if (f.m_TxSet)
-			m_setProfit.insert(x.m_Profit);
+			m_setTxs.insert(x.m_Tx);
 		else
-			m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
+			m_setTxs.erase(TxSet::s_iterator_to(x.m_Tx));
 	}
 
 	SetStateHistOut(x, m_lstOutdated, f0.m_Outdated, f.m_Outdated);
@@ -179,8 +183,8 @@ void TxPool::Fluff::Release(Element::Send& x)
 
 void TxPool::Fluff::Clear()
 {
-	while (!m_setProfit.empty())
-		Delete(m_setProfit.begin()->get_ParentObj());
+	while (!m_setTxs.empty())
+		Delete(m_setTxs.begin()->get_ParentObj());
 
 	while (!m_lstOutdated.empty())
 		Delete(m_lstOutdated.begin()->get_ParentObj());

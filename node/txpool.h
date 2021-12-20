@@ -106,7 +106,7 @@ struct TxPool
 
 		struct Features
 		{
-			bool m_Send;
+			bool m_SendAndProfit;
 			bool m_TxSet;
 			bool m_WaitFluff;
 			bool m_Outdated;
