@@ -525,7 +525,7 @@ private:
 		std::unique_ptr<Merkle::Hash> n_pDependentContext;
 
 		uint64_t m_CursorBbs;
-		TxPool::Fluff::Element* m_pCursorTx;
+		TxPool::Fluff::Element::Send* m_pCursorTx;
 
 		TaskList m_lstTasks;
 		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
@@ -552,7 +552,7 @@ private:
 		void BroadcastBbs(Bbs::Subscription&);
 		void MaybeSendSerif();
 		void OnChocking();
-		void SetTxCursor(TxPool::Fluff::Element*);
+		void SetTxCursor(TxPool::Fluff::Element::Send*);
 		bool GetBlock(proto::BodyBuffers&, const NodeDB::StateID&, const proto::GetBodyPack&, bool bActive);
 
 		bool IsChocking(size_t nExtra = 0);

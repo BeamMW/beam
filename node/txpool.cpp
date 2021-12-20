@@ -65,10 +65,31 @@ TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, con
 
 	InternalInsert(*p);
 
-	p->m_Queue.m_Refs = 1;
-	m_Queue.push_back(p->m_Queue);
+	EnsureSend(*p, true);
 
 	return p;
+}
+
+void TxPool::Fluff::EnsureSend(Element& x, bool b)
+{
+	if (b == !!x.m_pSend)
+		return; // no change
+
+	if (x.m_pSend)
+	{
+		assert(x.m_pSend && (&x == x.m_pSend->m_pThis));
+
+		x.m_pSend->m_pThis = nullptr;
+		Release(*x.m_pSend);
+		x.m_pSend = nullptr;
+	}
+	else
+	{
+		x.m_pSend = new Element::Send;
+		x.m_pSend->m_Refs = 1;
+		x.m_pSend->m_pThis = &x;
+		m_SendQueue.push_back(*x.m_pSend);
+	}
 }
 
 void TxPool::Fluff::SetOutdated(Element& x, Height h)
@@ -76,6 +97,8 @@ void TxPool::Fluff::SetOutdated(Element& x, Height h)
 	InternalErase(x);
 	x.m_Outdated.m_Height = h;
 	InternalInsert(x);
+
+	EnsureSend(x, !x.IsOutdated());
 }
 
 void TxPool::Fluff::InternalInsert(Element& x)
@@ -105,25 +128,19 @@ void TxPool::Fluff::InternalErase(Element& x)
 
 void TxPool::Fluff::Delete(Element& x)
 {
-	assert(x.m_pValue);
-	x.m_pValue.reset();
-	DeleteEmpty(x);
-}
-
-void TxPool::Fluff::DeleteEmpty(Element& x)
-{
-	assert(!x.m_pValue);
 	InternalErase(x);
-	Release(x);
+	EnsureSend(x, false);
+
+	delete &x;
 }
 
-void TxPool::Fluff::Release(Element& x)
+void TxPool::Fluff::Release(Element::Send& x)
 {
-	assert(x.m_Queue.m_Refs);
-	if (!--x.m_Queue.m_Refs)
+	assert(x.m_Refs);
+	if (!--x.m_Refs)
 	{
-		assert(!x.m_pValue);
-		m_Queue.erase(Queue::s_iterator_to(x.m_Queue));
+		assert(!x.m_pThis);
+		m_SendQueue.erase(SendQueue::s_iterator_to(x));
 		delete &x;
 	}
 }

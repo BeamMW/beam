@@ -69,12 +69,13 @@ struct TxPool
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Outdated)
 			} m_Outdated;
 
-			struct Queue
+			struct Send
 				:public boost::intrusive::list_base_hook<>
 			{
+				Element* m_pThis;
 				uint32_t m_Refs = 0;
-				IMPLEMENT_GET_PARENT_OBJ(Element, m_Queue)
-			} m_Queue;
+			};
+			Send* m_pSend = nullptr;
 
 			bool IsOutdated() const { return MaxHeight != m_Outdated.m_Height; }
 		};
@@ -82,18 +83,17 @@ struct TxPool
 		typedef boost::intrusive::multiset<Element::Tx> TxSet;
 		typedef boost::intrusive::multiset<Element::Profit> ProfitSet;
 		typedef boost::intrusive::list<Element::Outdated> OutdatedList;
-		typedef boost::intrusive::list<Element::Queue> Queue;
+		typedef boost::intrusive::list<Element::Send> SendQueue;
 
 		TxSet m_setTxs;
 		ProfitSet m_setProfit;
 		OutdatedList m_lstOutdated;
-		Queue m_Queue;
+		SendQueue m_SendQueue;
 
 		Element* AddValidTx(Transaction::Ptr&&, const Stats&, const Transaction::KeyType&);
 		void SetOutdated(Element&, Height);
 		void Delete(Element&);
-		void DeleteEmpty(Element&);
-		void Release(Element&);
+		void Release(Element::Send&);
 		void Clear();
 
 		~Fluff() { Clear(); }
@@ -101,6 +101,7 @@ struct TxPool
 	private:
 		void InternalInsert(Element&);
 		void InternalErase(Element&);
+		void EnsureSend(Element&, bool);
 	};
 
 	struct Stem
