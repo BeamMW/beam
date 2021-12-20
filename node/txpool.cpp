@@ -52,7 +52,7 @@ bool TxPool::Profit::operator < (const Profit& t) const
 
 /////////////////////////////
 // Fluff
-TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Stats& stats, const Transaction::KeyType& key)
+TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Stats& stats, const Transaction::KeyType& key, State s)
 {
 	assert(pValue);
 
@@ -60,76 +60,104 @@ TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, con
 	p->m_pValue = std::move(pValue);
 	p->m_Profit.m_Stats = stats;
 	p->m_Tx.m_Key = key;
-	p->m_Outdated.m_Height = MaxHeight;
-	assert(!p->IsOutdated());
 
-	InternalInsert(*p);
+	p->m_State = s;
 
-	EnsureSend(*p, true);
+	Features f0 = { false };
+	SetState(*p, f0, Features::get(s));
 
 	return p;
 }
 
-void TxPool::Fluff::EnsureSend(Element& x, bool b)
+TxPool::Fluff::Features TxPool::Fluff::Features::get(State s)
 {
-	if (b == !!x.m_pSend)
-		return; // no change
-
-	if (x.m_pSend)
+	Features ret = { false };
+	switch (s)
 	{
-		assert(x.m_pSend && (&x == x.m_pSend->m_pThis));
+	case State::Fluffed:
+		ret.m_TxSet = true;
+		ret.m_Send = true;
+		break;
 
-		x.m_pSend->m_pThis = nullptr;
-		Release(*x.m_pSend);
-		x.m_pSend = nullptr;
+	case State::PreFluffed:
+		ret.m_TxSet = true;
+		ret.m_WaitFluff = true;
+		break;
+
+	case State::Outdated:
+		ret.m_Outdated = true;
+		break;
+
+	default: // suppress warning
+		break;
 	}
-	else
-	{
-		x.m_pSend = new Element::Send;
-		x.m_pSend->m_Refs = 1;
-		x.m_pSend->m_pThis = &x;
-		m_SendQueue.push_back(*x.m_pSend);
-	}
+
+	return ret;
 }
 
-void TxPool::Fluff::SetOutdated(Element& x, Height h)
+void TxPool::Fluff::SetState(Element& x, State s)
 {
-	InternalErase(x);
-	x.m_Outdated.m_Height = h;
-	InternalInsert(x);
+	auto f0 = Features::get(x.m_State);
+	auto f = Features::get(s);
 
-	EnsureSend(x, !x.IsOutdated());
+	x.m_State = s;
+	SetState(x, f0, f);
 }
 
-void TxPool::Fluff::InternalInsert(Element& x)
+void TxPool::Fluff::SetState(Element& x, Features f0, Features f)
 {
-	if (x.IsOutdated())
+	if (f.m_Send != f0.m_Send)
 	{
-		assert(m_lstOutdated.empty() || (m_lstOutdated.back().m_Height <= x.m_Outdated.m_Height)); // order must be preserved
-		m_lstOutdated.push_back(x.m_Outdated);
+		if (f.m_Send)
+		{
+			assert(!x.m_pSend);
+
+			x.m_pSend = new Element::Send;
+			x.m_pSend->m_Refs = 1;
+			x.m_pSend->m_pThis = &x;
+			m_SendQueue.push_back(*x.m_pSend);
+		}
+		else
+		{
+			assert(x.m_pSend && (&x == x.m_pSend->m_pThis));
+
+			x.m_pSend->m_pThis = nullptr;
+			Release(*x.m_pSend);
+			x.m_pSend = nullptr;
+		}
 	}
-	else
+
+	if (f.m_TxSet != f0.m_TxSet)
 	{
-		m_setTxs.insert(x.m_Tx);
-		m_setProfit.insert(x.m_Profit);
+		if (f.m_TxSet)
+			m_setProfit.insert(x.m_Profit);
+		else
+			m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
 	}
+
+	SetStateHist(x, m_lstOutdated, f0.m_Outdated, f.m_Outdated);
+	SetStateHist(x, m_lstWaitFluff, f0.m_WaitFluff, f.m_WaitFluff);
 }
 
-void TxPool::Fluff::InternalErase(Element& x)
+void TxPool::Fluff::SetStateHist(Element& x, HistList& lst, bool b0, bool b)
 {
-	if (x.IsOutdated())
-		m_lstOutdated.erase(OutdatedList::s_iterator_to(x.m_Outdated));
-	else
+	if (b != b0)
 	{
-		m_setTxs.erase(TxSet::s_iterator_to(x.m_Tx));
-		m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
+		if (b)
+		{
+			assert(lst.empty() || (lst.back().m_Height <= x.m_Hist.m_Height)); // order must be preserved
+			lst.push_back(x.m_Hist);
+		}
+		else
+			lst.erase(HistList::s_iterator_to(x.m_Hist));
 	}
 }
 
 void TxPool::Fluff::Delete(Element& x)
 {
-	InternalErase(x);
-	EnsureSend(x, false);
+	auto f0 = Features::get(x.m_State);
+	Features f = { false };
+	SetState(x, f0, f);
 
 	delete &x;
 }

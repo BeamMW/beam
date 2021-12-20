@@ -44,9 +44,16 @@ struct TxPool
 
 	struct Fluff
 	{
+		enum State {
+			PreFluffed,
+			Fluffed,
+			Outdated,
+		};
+
 		struct Element
 		{
 			Transaction::Ptr m_pValue;
+			State m_State;
 
 			struct Tx
 				:public intrusive::set_base_hook<Transaction::KeyType>
@@ -60,14 +67,12 @@ struct TxPool
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Profit)
 			} m_Profit;
 
-			struct Outdated
+			struct Hist
 				:public boost::intrusive::list_base_hook<>
 			{
 				Height m_Height;
-
-				bool operator < (const Outdated& t) const { return m_Height < t.m_Height; }
-				IMPLEMENT_GET_PARENT_OBJ(Element, m_Outdated)
-			} m_Outdated;
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Hist)
+			} m_Hist;
 
 			struct Send
 				:public boost::intrusive::list_base_hook<>
@@ -76,22 +81,21 @@ struct TxPool
 				uint32_t m_Refs = 0;
 			};
 			Send* m_pSend = nullptr;
-
-			bool IsOutdated() const { return MaxHeight != m_Outdated.m_Height; }
 		};
 
 		typedef boost::intrusive::multiset<Element::Tx> TxSet;
 		typedef boost::intrusive::multiset<Element::Profit> ProfitSet;
-		typedef boost::intrusive::list<Element::Outdated> OutdatedList;
+		typedef boost::intrusive::list<Element::Hist> HistList;
 		typedef boost::intrusive::list<Element::Send> SendQueue;
 
 		TxSet m_setTxs;
 		ProfitSet m_setProfit;
-		OutdatedList m_lstOutdated;
 		SendQueue m_SendQueue;
+		HistList m_lstOutdated;
+		HistList m_lstWaitFluff;
 
-		Element* AddValidTx(Transaction::Ptr&&, const Stats&, const Transaction::KeyType&);
-		void SetOutdated(Element&, Height);
+		Element* AddValidTx(Transaction::Ptr&&, const Stats&, const Transaction::KeyType&, State);
+		void SetState(Element&, State);
 		void Delete(Element&);
 		void Release(Element::Send&);
 		void Clear();
@@ -99,9 +103,20 @@ struct TxPool
 		~Fluff() { Clear(); }
 
 	private:
-		void InternalInsert(Element&);
-		void InternalErase(Element&);
-		void EnsureSend(Element&, bool);
+
+		struct Features
+		{
+			bool m_Send;
+			bool m_TxSet;
+			bool m_WaitFluff;
+			bool m_Outdated;
+
+			static Features get(State);
+		};
+
+		void SetState(Element&, Features f0, Features f);
+		static void SetStateHist(Element&, HistList&, bool b0, bool b);
+
 	};
 
 	struct Stem
