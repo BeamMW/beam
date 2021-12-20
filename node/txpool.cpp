@@ -190,8 +190,6 @@ void TxPool::Fluff::Clear()
 // Stem
 bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 {
-	assert(trg.m_bAggregating && src.m_bAggregating);
-
 	HeightRange hr = trg.m_Profit.m_Stats.m_Hr;
 	hr.Intersect(src.m_Profit.m_Stats.m_Hr);
 	if (hr.IsEmpty())
@@ -231,8 +229,6 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 	trg.m_pValue->m_Offset = txNew.m_Offset;
 
 	Delete(src);
-	DeleteKrn(trg);
-	InsertKrn(trg);
 
 	return true;
 }
@@ -257,34 +253,18 @@ void TxPool::Stem::DeleteRaw(Element& x)
 {
 	DeleteTimer(x);
 	DeleteAggr(x);
-	DeleteKrn(x);
 
 	delete &x;
 }
 
-void TxPool::Stem::DeleteKrn(Element& x)
-{
-	for (size_t i = 0; i < x.m_vKrn.size(); i++)
-		m_setKrns.erase(KrnSet::s_iterator_to(x.m_vKrn[i]));
-	x.m_vKrn.clear();
-}
-
 void TxPool::Stem::InsertAggr(Element& x)
 {
-	if (!x.m_bAggregating)
-	{
-		x.m_bAggregating = true;
-		m_setProfit.insert(x.m_Profit);
-	}
+	m_setProfit.insert(x.m_Profit);
 }
 
 void TxPool::Stem::DeleteAggr(Element& x)
 {
-	if (x.m_bAggregating)
-	{
-		m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
-		x.m_bAggregating = false;
-	}
+	m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
 }
 
 void TxPool::Stem::DeleteTimer(Element& x)
@@ -296,24 +276,10 @@ void TxPool::Stem::DeleteTimer(Element& x)
 	}
 }
 
-void TxPool::Stem::InsertKrn(Element& x)
-{
-	const Transaction& tx = *x.m_pValue;
-	x.m_vKrn.resize(tx.m_vKernels.size());
-
-	for (size_t i = 0; i < x.m_vKrn.size(); i++)
-	{
-		Element::Kernel& n = x.m_vKrn[i];
-		n.m_pKrn = tx.m_vKernels[i].get();
-		m_setKrns.insert(n);
-		n.m_pThis = &x;
-	}
-}
-
 void TxPool::Stem::Clear()
 {
-	while (!m_setKrns.empty())
-		DeleteRaw(*m_setKrns.begin()->m_pThis);
+	while (!m_setProfit.empty())
+		DeleteRaw(m_setProfit.begin()->get_ParentObj());
 
 	KillTimer();
 }

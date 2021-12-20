@@ -122,11 +122,9 @@ struct TxPool
 
 	struct Stem
 	{
-
 		struct Element
 		{
 			Transaction::Ptr m_pValue;
-			bool m_bAggregating; // if set - the tx isn't broadcasted yet, and inserted in the 'Profit' set
 
 			struct Time
 				:public boost::intrusive::set_base_hook<>
@@ -144,31 +142,17 @@ struct TxPool
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Profit)
 			} m_Profit;
 
-			struct Kernel
-				:public boost::intrusive::set_base_hook<>
-			{
-				Element* m_pThis;
-				const TxKernel* m_pKrn;
-				bool operator < (const Kernel& t) const { return m_pKrn->m_Internal.m_ID < t.m_pKrn->m_Internal.m_ID; }
-			};
-
 			Stats m_Stats;
-
-			std::vector<Kernel> m_vKrn;
 		};
 
-		typedef boost::intrusive::multiset<Element::Kernel> KrnSet;
 		typedef boost::intrusive::multiset<Element::Time> TimeSet;
 		typedef boost::intrusive::multiset<Element::Profit> ProfitSet;
 
-		KrnSet m_setKrns;
 		TimeSet m_setTime;
 		ProfitSet m_setProfit;
 
 		void Delete(Element&);
 		void Clear();
-		void InsertKrn(Element&);
-		void DeleteKrn(Element&);
 		void InsertAggr(Element&);
 		void DeleteAggr(Element&);
 		void DeleteTimer(Element&);
