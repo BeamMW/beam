@@ -2828,6 +2828,8 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
 
 void Node::OnTransactionFluff(TxPool::Fluff::Element& x, const PeerID* pSender)
 {
+    m_TxPool.SetState(x, TxPool::Fluff::State::Fluffed);
+
     proto::HaveTransaction msgOut;
     msgOut.m_ID = x.m_Tx.m_Key;
 
@@ -3084,7 +3086,17 @@ void Node::Peer::OnMsg(proto::HaveTransaction&& msg)
 
     TxPool::Fluff::TxSet::iterator it = m_This.m_TxPool.m_setTxs.find(key);
     if (m_This.m_TxPool.m_setTxs.end() != it)
-        return; // already have it
+    {
+        // already have it
+        TxPool::Fluff::Element& x = it->get_ParentObj();
+        if (TxPool::Fluff::State::Fluffed != x.m_State)
+        {
+            const PeerID* pSender = m_pInfo ? &m_pInfo->m_ID.m_Key : nullptr;
+            m_This.OnTransactionFluff(x, pSender);
+        }
+
+        return;
+    }
 
     if (!m_This.m_Wtx.Add(key.m_Key))
         return; // already waiting for it
