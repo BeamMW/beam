@@ -134,7 +134,7 @@ struct Node
 		struct Dandelion
 		{
 			uint16_t m_FluffProbability = 0x1999; // normalized wrt 16 bit. Equals to 0.1
-			uint32_t m_dhStemConfirm = 5; // if stem tx is not mined within this number of blocks - it's auto-fluffed
+			uint32_t m_dhStemConfirm = 2; // if stem tx is not mined within this number of blocks (+1) - it's auto-fluffed
 
 			uint32_t m_AggregationTime_ms = 10000;
 			uint32_t m_OutputsMin = 5; // must be aggregated.
@@ -215,6 +215,10 @@ struct Node
 
         // for step-by-step tests
 	void GenerateFakeBlocks(uint32_t n);
+
+	TxPool::Fluff m_TxPool;
+	TxPool::Dependent m_TxDependent;
+	std::map<Transaction::KeyType, uint8_t> m_TxReject; // spam
 
 private:
 
@@ -400,7 +404,7 @@ private:
 	Height SampleDummySpentHeight();
 	void DeleteOutdated();
 
-	uint8_t ValidateTx(TxPool::Stats&, const Transaction&, std::ostream* pExtraInfo); // complete validation
+	uint8_t ValidateTx(TxPool::Stats&, const Transaction&, const Transaction::KeyType& keyTx, std::ostream* pExtraInfo, bool& bAlreadyRejected); // complete validation
 	uint8_t ValidateTx2(Transaction::Context&, const Transaction&, uint32_t& nBvmCharge, Amount& feeReserve, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo); // complete validation
 	static bool CalculateFeeReserve(const TxStats&, const HeightRange&, const AmountBig::Type&, uint32_t nBvmCharge, Amount& feeReserve);
 	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
