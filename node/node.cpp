@@ -2484,12 +2484,10 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, std::ostream* pExtraInfo
         AddDummyInputs(*ptx, stats);
 
         auto pGuard = std::make_unique<TxPool::Stem::Element>();
-        pGuard->m_bAggregating = false;
         pGuard->m_Time.m_Value = 0;
         pGuard->m_Profit.m_Stats = stats;
         pGuard->m_pValue.swap(ptx);
 
-        m_Dandelion.InsertKrn(*pGuard);
         m_Dandelion.InsertAggr(*pGuard);
         auto* pElem = pGuard.release();
 
@@ -2551,8 +2549,6 @@ void Node::OnTransactionAggregated(Transaction::Ptr&& pTx, const TxPool::Stats& 
 
 void Node::PerformAggregation(TxPool::Stem::Element& x)
 {
-    assert(x.m_bAggregating);
-
     bool bModified = false;
     // Aggregation policiy: first select those with worse profit, than those with better
     TxPool::Stem::ProfitSet::iterator it = TxPool::Stem::ProfitSet::s_iterator_to(x.m_Profit);
@@ -2930,19 +2926,11 @@ uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash&
 
 void Node::Dandelion::OnTimedOut(Element& x)
 {
-    if (x.m_bAggregating)
-    {
-        get_ParentObj().AddDummyOutputs(*x.m_pValue, x.m_Profit.m_Stats);
-        get_ParentObj().LogTxStem(*x.m_pValue, "Aggregation timed-out, dummies added");
-        get_ParentObj().OnTransactionAggregated(std::move(x.m_pValue), x.m_Profit.m_Stats);
+    get_ParentObj().AddDummyOutputs(*x.m_pValue, x.m_Profit.m_Stats);
+    get_ParentObj().LogTxStem(*x.m_pValue, "Aggregation timed-out, dummies added");
+    get_ParentObj().OnTransactionAggregated(std::move(x.m_pValue), x.m_Profit.m_Stats);
 
-        get_ParentObj().m_Dandelion.Delete(x);
-    }
-	else
-	{
-		//get_ParentObj().LogTxStem(*x.m_pValue, "Fluff timed-out. Emergency fluff");
-		//get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), nullptr, nullptr, &x);
-	}
+    get_ParentObj().m_Dandelion.Delete(x);
 }
 
 bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr, const AmountBig::Type& fees, Amount& feeReserve)

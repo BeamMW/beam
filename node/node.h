@@ -134,8 +134,6 @@ struct Node
 		struct Dandelion
 		{
 			uint16_t m_FluffProbability = 0x1999; // normalized wrt 16 bit. Equals to 0.1
-			uint32_t m_TimeoutMin_ms = 20000;
-			uint32_t m_TimeoutMax_ms = 50000;
 			uint32_t m_dhStemConfirm = 5; // if stem tx is not mined within this number of blocks - it's auto-fluffed
 
 			uint32_t m_AggregationTime_ms = 10000;
