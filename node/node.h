@@ -275,9 +275,6 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
 
-	TxPool::Fluff m_TxPool;
-	TxPool::Dependent m_TxDependent;
-
 	struct Peer;
 
 	struct Task
@@ -568,6 +565,19 @@ private:
 		void SendHdrs(NodeDB::StateID&, uint32_t nCount);
 		void SendTx(Transaction::Ptr& ptx, bool bFluff);
 
+		struct ISelector {
+			virtual bool IsValid(Peer&)= 0;
+		};
+
+		struct Selector_Stem :public ISelector {
+			static bool IsValid_(Peer& p) {
+				return !!(proto::LoginFlags::SpreadingTransactions & p.m_LoginFlags);
+			}
+			bool IsValid(Peer& p) override {
+				return IsValid_(p);
+			}
+		};
+
 		// proto::NodeConnection
 		virtual void OnConnectedSecure() override;
 		virtual void OnDisconnect(const DisconnectReason&) override;
@@ -630,6 +640,9 @@ private:
 	void NextNonce(ECC::Scalar::Native&);
 
 	uint32_t RandomUInt32(uint32_t threshold);
+
+
+	Peer* SelectRandomPeer(Peer::ISelector&);
 
 	ECC::Scalar::Native m_MyPrivateID;
 	PeerID m_MyPublicID;
@@ -700,6 +713,7 @@ private:
 
 		void Initialize(IExternalPOW* externalPOW=nullptr);
 
+		void SoftRestart();
 		void OnRefresh(uint32_t iIdx);
 		void OnRefreshExternal();
 		void OnMined();
@@ -729,6 +743,7 @@ private:
 
 		io::Timer::Ptr m_pTimer;
 		bool m_bTimerPending = false;
+		uint32_t m_LastRestart_ms;
 		Amount m_FeesTrg = 0;
 		void OnTimer();
 		void SetTimer(uint32_t timeout_ms, bool bHard);

@@ -2518,30 +2518,24 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, std::ostream* pExtraInfo
     return proto::TxStatus::Ok;
 }
 
-void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
+Node::Peer* Node::SelectRandomPeer(Peer::ISelector& sel)
 {
-	m_Dandelion.DeleteAggr(x);
-	LogTxStem(*x.m_pValue, "Aggregation finished");
-
     // must have at least 1 peer to continue the stem phase
-    uint32_t nStemPeers = 0;
+    uint32_t nCount = 0;
 
     for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; ++it)
-        if (it->m_LoginFlags & proto::LoginFlags::SpreadingTransactions)
-            nStemPeers++;
+        if (sel.IsValid(*it))
+            nCount++;
 
-    if (nStemPeers)
+    if (nCount)
     {
         auto thr = uintBigFrom(m_Cfg.m_Dandelion.m_FluffProbability);
 
         // Compare two bytes of threshold with random nonce 
         if (memcmp(thr.m_pData, NextNonce().m_pData, thr.nBytes) < 0)
         {
-            // broadcast to random peer
-            assert(nStemPeers);
-
             // Choose random peer index between 0 and nStemPeers - 1 
-            uint32_t nRandomPeerIdx = RandomUInt32(nStemPeers);
+            uint32_t nRandomPeerIdx = RandomUInt32(nCount);
 
             for (PeerList::iterator it = m_lstPeers.begin(); ; ++it)
                 if (sel.IsValid(*it) && !nRandomPeerIdx--)
@@ -2572,9 +2566,6 @@ void Node::OnTransactionAggregated(Transaction::Ptr&& pTx, const TxPool::Stats& 
         LogTxStem(*pTx, "Going to fluff");
         OnTransactionFluff(std::move(pTx), nullptr, nullptr, &stats);
     }
-
-	LogTxStem(*x.m_pValue, "Going to fluff");
-	OnTransactionFluff(std::move(x.m_pValue), nullptr, nullptr, &x);
 }
 
 void Node::PerformAggregation(TxPool::Stem::Element& x)
@@ -4055,6 +4046,7 @@ void Node::Miner::Initialize(IExternalPOW* externalPOW)
     if (!cfg.m_MiningThreads && !externalPOW)
         return;
 
+    m_LastRestart_ms = 0;
     m_pEvtMined = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
 
     if (cfg.m_MiningThreads) {
@@ -4144,7 +4136,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 
             for (uint32_t t0_ms = GetTime_ms(); !bSolved; )
             {
-                if (fnCancel(false))
+                if (fnCancel(true))
                     break;
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
@@ -4219,8 +4211,25 @@ void Node::Miner::HardAbortSafe()
 		}
 
 		if (bHadTasks)
-		m_External.m_pSolver->stop_current();
+		    m_External.m_pSolver->stop_current();
 	}
+}
+
+void Node::Miner::SoftRestart()
+{
+    if (!IsEnabled() || m_pTaskToFinalize)
+        return;
+
+    uint32_t nTimeout_ms = 0;
+    if (m_LastRestart_ms)
+    {
+        uint32_t nMin_ms = get_ParentObj().m_Cfg.m_Timeout.m_MiningSoftRestart_ms;
+        uint32_t nElapsed_ms = GetTimeNnz_ms() - m_LastRestart_ms;
+        if (nElapsed_ms < nMin_ms)
+            nTimeout_ms = nMin_ms - nElapsed_ms;
+    }
+
+    SetTimer(nTimeout_ms, false);
 }
 
 void Node::Miner::SetTimer(uint32_t timeout_ms, bool bHard)
@@ -4246,6 +4255,8 @@ void Node::Miner::OnTimer()
 
 bool Node::Miner::Restart()
 {
+    m_LastRestart_ms = GetTimeNnz_ms();
+
     if (!IsEnabled())
         return false; //  n/a
 
