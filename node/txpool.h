@@ -94,7 +94,7 @@ struct TxPool
 		HistList m_lstOutdated;
 		HistList m_lstWaitFluff;
 
-		Element* AddValidTx(Transaction::Ptr&&, const Stats&, const Transaction::KeyType&, State);
+		Element* AddValidTx(Transaction::Ptr&&, const Stats&, const Transaction::KeyType&, State, Height hLst = 0);
 		void SetState(Element&, State);
 		void Delete(Element&);
 		void Release(Element::Send&);

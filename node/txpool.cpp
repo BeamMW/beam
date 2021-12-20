@@ -52,7 +52,7 @@ bool TxPool::Profit::operator < (const Profit& t) const
 
 /////////////////////////////
 // Fluff
-TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Stats& stats, const Transaction::KeyType& key, State s)
+TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Stats& stats, const Transaction::KeyType& key, State s, Height hLst /* = 0 */)
 {
 	assert(pValue);
 
@@ -60,6 +60,7 @@ TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, con
 	p->m_pValue = std::move(pValue);
 	p->m_Profit.m_Stats = stats;
 	p->m_Tx.m_Key = key;
+	p->m_Hist.m_Height = hLst;
 
 	p->m_State = s;
 
