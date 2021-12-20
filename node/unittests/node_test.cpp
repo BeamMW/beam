@@ -1074,7 +1074,7 @@ namespace beam
 				TxPool::Stats stats;
 				stats.From(*pTx, ctx, 0, 0);
 
-				np.m_TxPool.AddValidTx(std::move(pTx), stats, key);
+				np.m_TxPool.AddValidTx(std::move(pTx), stats, key, TxPool::Fluff::State::Fluffed);
 			}
 
 			NodeProcessor::BlockContext bc(np.m_TxPool, 0, *np.m_Wallet.m_pKdf, *np.m_Wallet.m_pKdf);

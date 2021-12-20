@@ -564,7 +564,7 @@ void Node::DeleteOutdated()
         while (!m_TxPool.m_lstOutdated.empty())
         {
             TxPool::Fluff::Element& x = m_TxPool.m_lstOutdated.front().get_ParentObj();
-            if (x.m_Outdated.m_Height > h)
+            if (x.m_Hist.m_Height > h)
                 break;
 
             m_TxPool.Delete(x);
@@ -577,8 +577,11 @@ void Node::DeleteOutdated()
 		Transaction& tx = *x.m_pValue;
 
         uint32_t nBvmCharge = 0;
-		if (proto::TxStatus::Ok != m_Processor.ValidateTxContextEx(tx, x.m_Profit.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr, nullptr))
-            m_TxPool.SetOutdated(x, m_Processor.m_Cursor.m_ID.m_Height);
+        if (proto::TxStatus::Ok != m_Processor.ValidateTxContextEx(tx, x.m_Profit.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr, nullptr))
+        {
+            x.m_Hist.m_Height = m_Processor.m_Cursor.m_ID.m_Height;
+            m_TxPool.SetState(x, TxPool::Fluff::State::Outdated);
+        }
 	}
 
     for (TxPool::Stem::TimeSet::iterator it = m_Dandelion.m_setTime.begin(); m_Dandelion.m_setTime.end() != it; )
@@ -755,10 +758,10 @@ void Node::Processor::OnRolledBack()
     while (!txp.m_lstOutdated.empty())
     {
         TxPool::Fluff::Element& x = txp.m_lstOutdated.back().get_ParentObj();
-        if (x.m_Outdated.m_Height <= m_Cursor.m_ID.m_Height)
+        if (x.m_Hist.m_Height <= m_Cursor.m_ID.m_Height)
             break;
 
-        txp.SetOutdated(x, MaxHeight); // may be deferred by the next loop
+        txp.SetState(x, TxPool::Fluff::State::Fluffed); // may be deferred by the next loop
     }
 
 	// Shielded txs that referenced shielded outputs which were reverted - must be reprocessed
@@ -2842,7 +2845,7 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
 
     }
 
-	TxPool::Fluff::Element* pNewTxElem = m_TxPool.AddValidTx(std::move(ptx), stats, key.m_Key);
+	TxPool::Fluff::Element* pNewTxElem = m_TxPool.AddValidTx(std::move(ptx), stats, key.m_Key, TxPool::Fluff::State::Fluffed);
 
 	while (m_TxPool.m_setProfit.size() + m_TxPool.m_lstOutdated.size() > m_Cfg.m_MaxPoolTransactions)
 	{

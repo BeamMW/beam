@@ -6125,7 +6125,10 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 		}
 
 		if (bDelete)
-			bc.m_TxPool.SetOutdated(x, h); // isn't available in this context
+		{
+			x.m_Hist.m_Height = m_Cursor.m_ID.m_Height;
+			bc.m_TxPool.SetState(x, TxPool::Fluff::State::Outdated); // isn't available in this context
+		}
 	}
 
 	LOG_INFO() << "GenerateNewBlock: size of block = " << ssc.m_Counter.m_Value << "; amount of tx = " << nTxNum;
