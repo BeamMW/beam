@@ -768,7 +768,7 @@ void Node::Processor::OnRolledBack()
         if (!IsShieldedInPool(*x.m_pValue))
         {
             get_ParentObj().OnTransactionDeferred(std::move(x.m_pValue), nullptr, nullptr, true);
-            get_ParentObj().m_TxPool.DeleteEmpty(x);
+            get_ParentObj().m_TxPool.Delete(x);
         }
 	}
 
@@ -2871,7 +2871,7 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
             continue;
 
         peer.Send(msgOut);
-		peer.SetTxCursor(pNewTxElem);
+		peer.SetTxCursor(pNewTxElem->m_pSend);
     }
 
     m_Miner.SoftRestart();
@@ -3068,7 +3068,7 @@ void Node::Peer::OnChocking()
 	}
 }
 
-void Node::Peer::SetTxCursor(TxPool::Fluff::Element* p)
+void Node::Peer::SetTxCursor(TxPool::Fluff::Element::Send* p)
 {
 	if (m_pCursorTx)
 	{
@@ -3078,7 +3078,7 @@ void Node::Peer::SetTxCursor(TxPool::Fluff::Element* p)
 
 	m_pCursorTx = p;
 	if (m_pCursorTx)
-		m_pCursorTx->m_Queue.m_Refs++;
+		m_pCursorTx->m_Refs++;
 }
 
 void Node::Peer::BroadcastTxs()
@@ -3093,28 +3093,29 @@ void Node::Peer::BroadcastTxs()
 
 	for (size_t nExtra = 0; ; )
 	{
-		TxPool::Fluff::Queue::iterator itNext;
+		TxPool::Fluff::SendQueue::iterator itNext;
 		if (m_pCursorTx)
 		{
-			itNext = TxPool::Fluff::Queue::s_iterator_to(m_pCursorTx->m_Queue);
+			itNext = TxPool::Fluff::SendQueue::s_iterator_to(*m_pCursorTx);
 			++itNext;
 		}
 		else
-			itNext = m_This.m_TxPool.m_Queue.begin();
+			itNext = m_This.m_TxPool.m_SendQueue.begin();
 
-		if (m_This.m_TxPool.m_Queue.end() == itNext)
+		if (m_This.m_TxPool.m_SendQueue.end() == itNext)
 			break; // all sent
 
-		SetTxCursor(&itNext->get_ParentObj());
+		SetTxCursor(&(*itNext));
 
-		if (!m_pCursorTx->m_pValue || m_pCursorTx->IsOutdated())
+		if (!m_pCursorTx->m_pThis)
 			continue; // already deleted
+        auto& x = *m_pCursorTx->m_pThis;
 
 		proto::HaveTransaction msgOut;
-		msgOut.m_ID = m_pCursorTx->m_Tx.m_Key;
+		msgOut.m_ID = x.m_Tx.m_Key;
 		Send(msgOut);
 
-		nExtra += m_pCursorTx->m_Profit.m_Stats.m_Size;
+		nExtra += x.m_Profit.m_Stats.m_Size;
 		if (IsChocking(nExtra))
 			break;
 	}
