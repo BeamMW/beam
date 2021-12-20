@@ -640,6 +640,7 @@ void Node::Processor::OnNewState()
 	if (IsFastSync())
 		return;
 
+    get_ParentObj().m_TxReject.clear();
     get_ParentObj().DeleteOutdated(); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
     // because in practice mining could be OFF (for instance, if miner key isn't defined, and owner wallet is offline).
     get_ParentObj().m_TxDependent.Clear();
@@ -2230,8 +2231,15 @@ uint8_t Node::OnTransaction(Transaction::Ptr&& pTx, std::unique_ptr<Merkle::Hash
                 OnTransactionStem(std::move(pTx), pExtraInfo);
 }
 
-uint8_t Node::ValidateTx(TxPool::Stats& stats, const Transaction& tx, std::ostream* pExtraInfo)
+uint8_t Node::ValidateTx(TxPool::Stats& stats, const Transaction& tx, const Transaction::KeyType& keyTx, std::ostream* pExtraInfo, bool& bAlreadyRejected)
 {
+    auto it = m_TxReject.find(keyTx);
+    if (m_TxReject.end() != it)
+    {
+        bAlreadyRejected = true;
+        return it->second;
+    }
+
     Transaction::Context::Params pars;
     Transaction::Context ctx(pars);
     uint32_t nBvmCharge = 0;
@@ -2241,11 +2249,18 @@ uint8_t Node::ValidateTx(TxPool::Stats& stats, const Transaction& tx, std::ostre
     if (proto::TxStatus::Ok == nRet)
     {
         if (AmountBig::get_Hi(ctx.m_Stats.m_Fee))
-            return proto::TxStatus::LowFee; // actually it's ridiculously-high fee
+            nRet = proto::TxStatus::LowFee; // actually it's ridiculously-high fee
+        else
+        {
+            auto nSizeCorrection = (uint32_t)(((uint64_t)nBvmCharge) * Rules::get().MaxBodySize / bvm2::Limits::BlockCharge);
+            stats.From(tx, ctx, feeReserve, nSizeCorrection);
+        }
+    }
 
-        auto nSizeCorrection = (uint32_t) (((uint64_t) nBvmCharge) * Rules::get().MaxBodySize / bvm2::Limits::BlockCharge);
-
-        stats.From(tx, ctx, feeReserve, nSizeCorrection);
+    if (proto::TxStatus::Ok != nRet)
+    {
+        m_TxReject[keyTx] = nRet;
+        m_Wtx.Delete(keyTx);
     }
 
     return nRet;
@@ -2443,10 +2458,12 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, std::ostream* pExtraInfo
 
     if (!bTested)
     {
-        uint8_t nCode = ValidateTx(stats, *ptx, pExtraInfo);
+        bool bAlreadyRejected = false;
+        uint8_t nCode = ValidateTx(stats, *ptx, keyTx, pExtraInfo, bAlreadyRejected);
         if (proto::TxStatus::Ok != nCode)
         {
-            LogTxStem(*ptx, "invalid");
+            if (!bAlreadyRejected)
+                LogTxStem(*ptx, "invalid");
             return nCode;
         }
     }
@@ -2781,8 +2798,11 @@ uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtra
         {
             const auto& pTxToTest = pF ? pF->m_pValue : ptx; // avoid ambiguity
 
-            uint8_t nCode = ValidateTx(stats, *pTxToTest, pExtraInfo);
-            LogTx(*pTxToTest, nCode, keyTx);
+            bool bAlreadyRejected = false;
+            uint8_t nCode = ValidateTx(stats, *pTxToTest, keyTx, pExtraInfo, bAlreadyRejected);
+
+            if (!bAlreadyRejected)
+                LogTx(*pTxToTest, nCode, keyTx);
 
             if (proto::TxStatus::Ok != nCode)
                 return nCode;
@@ -3178,6 +3198,9 @@ void Node::Peer::OnMsg(proto::HaveTransaction&& msg)
 
         return;
     }
+
+    if (m_This.m_TxReject.end() != m_This.m_TxReject.find(msg.m_ID))
+        return;
 
     if (!m_This.m_Wtx.Add(key.m_Key))
         return; // already waiting for it
