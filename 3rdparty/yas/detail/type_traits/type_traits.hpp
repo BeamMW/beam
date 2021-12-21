@@ -37,15 +37,7 @@
 #define __yas__detail__type_traits__type_traits_hpp
 
 #include <yas/detail/config/endian.hpp>
-
-#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
-#	pragma GCC diagnostic push
-#	pragma GCC diagnostic ignored "-Wnonnull"
-#endif
 #include <yas/detail/type_traits/has_method_serialize.hpp>
-#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
-#	pragma GCC diagnostic pop
-#endif
 #include <yas/detail/type_traits/has_function_serialize.hpp>
 #include <yas/version.hpp>
 

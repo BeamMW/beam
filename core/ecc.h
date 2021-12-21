@@ -157,10 +157,6 @@ namespace ECC
 
 	typedef beam::Amount Amount;
 
-#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
-#	pragma GCC diagnostic push
-#	pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-#endif
 	struct SignatureBase
 	{
 		//	Generalized Schnorr's signature. Very flexible.
@@ -195,9 +191,6 @@ namespace ECC
 	protected:
 		bool IsValidPartialInternal(const Config&, MultiMac& mm, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk, const Point::Native& noncePub) const;
 	};
-#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
-#	pragma GCC diagnostic pop
-#endif
 
 	struct Signature
 		:public SignatureBase
