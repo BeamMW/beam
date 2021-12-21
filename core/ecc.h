@@ -192,7 +192,6 @@ namespace ECC
 		bool IsValidPartialInternal(const Config&, MultiMac& mm, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk, const Point::Native& noncePub) const;
 	};
 
-
 	struct Signature
 		:public SignatureBase
 	{

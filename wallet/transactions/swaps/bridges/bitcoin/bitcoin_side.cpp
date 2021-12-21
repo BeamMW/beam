@@ -517,8 +517,8 @@ namespace beam::wallet
                 libbitcoin::hash_digest embeddedScriptHash = libbitcoin::sha256_hash(contractScript.to_data(false));
                 libbitcoin::machine::operation::list p2shOperations;
 
-                p2shOperations.push_back(libbitcoin::machine::operation(libbitcoin::machine::opcode::push_size_0));
-                p2shOperations.push_back(libbitcoin::machine::operation(libbitcoin::to_chunk(embeddedScriptHash)));
+                p2shOperations.emplace_back(libbitcoin::machine::operation(libbitcoin::machine::opcode::push_size_0));
+                p2shOperations.emplace_back(libbitcoin::machine::operation(libbitcoin::to_chunk(embeddedScriptHash)));
 
                 outputScript = libbitcoin::chain::script(p2shOperations);
             }
@@ -947,9 +947,9 @@ namespace beam::wallet
             witnessStack.push_back(emptyChunk);
             witnessStack.push_back(sig);
             witnessStack.push_back(secretSig);
-            witnessStack.push_back(libbitcoin::machine::operation(libbitcoin::machine::opcode(1)).to_data());
+            witnessStack.emplace_back(libbitcoin::machine::operation(libbitcoin::machine::opcode(1)).to_data());
         }
-        witnessStack.push_back(contractScript.to_data(false));
+        witnessStack.emplace_back(contractScript.to_data(false));
 
         libbitcoin::chain::witness p2wshWitness(witnessStack);
 
@@ -1014,13 +1014,13 @@ namespace beam::wallet
             }
 
             // 0 <their sig> <secret sig> 1
-            sig_script.push_back(libbitcoin::machine::operation(libbitcoin::machine::opcode(0)));
-            sig_script.push_back(libbitcoin::machine::operation(sig));
-            sig_script.push_back(libbitcoin::machine::operation(secretSig));
-            sig_script.push_back(libbitcoin::machine::operation(libbitcoin::machine::opcode::push_positive_1));
+            sig_script.emplace_back(libbitcoin::machine::operation(libbitcoin::machine::opcode(0)));
+            sig_script.emplace_back(libbitcoin::machine::operation(sig));
+            sig_script.emplace_back(libbitcoin::machine::operation(secretSig));
+            sig_script.emplace_back(libbitcoin::machine::operation(libbitcoin::machine::opcode::push_positive_1));
         }
 
-        sig_script.push_back(libbitcoin::machine::operation(contractScript.to_data(false)));
+        sig_script.emplace_back(libbitcoin::machine::operation(contractScript.to_data(false)));
 
         libbitcoin::chain::script input_script(sig_script);
 
@@ -1070,8 +1070,8 @@ namespace beam::wallet
             if (CanUseSegwit())
             {
                 libbitcoin::hash_digest contractScriptHash = libbitcoin::sha256_hash(contractScript.to_data(false));
-                inputScriptOperations.push_back(libbitcoin::machine::operation(libbitcoin::machine::opcode::push_size_0));
-                inputScriptOperations.push_back(libbitcoin::machine::operation(libbitcoin::to_chunk(contractScriptHash)));
+                inputScriptOperations.emplace_back(libbitcoin::machine::operation(libbitcoin::machine::opcode::push_size_0));
+                inputScriptOperations.emplace_back(libbitcoin::machine::operation(libbitcoin::to_chunk(contractScriptHash)));
             }
             else
             {

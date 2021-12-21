@@ -277,7 +277,6 @@ struct ManagerUpgadable2
 					{
 						Env::DocArray gr0("admins");
 
-						uint32_t iAdminMy = 0;
 						for (uint32_t i = 0; i < stg.s_AdminsMax; i++)
 						{
 							const auto& pk = stg.m_pAdmin[i];

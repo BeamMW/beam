@@ -12,7 +12,6 @@ namespace Liquity
     {
         static const uint8_t s_State = 0;
         // don't use taag=1 for multiple data entries, it's used by Upgradable2
-        static const uint8_t s_Epoch_Redist = 2;
         static const uint8_t s_Epoch_Stable = 3;
         static const uint8_t s_Balance = 4;
         static const uint8_t s_StabPool = 5;
@@ -165,13 +164,10 @@ namespace Liquity
 
             bool IsUnchanged(const Trove& t) const
             {
-                return
-                    (t.m_RedistUser.m_iEpoch == m_iActive) &&
-                    (t.m_RedistUser.m_Sigma0 == m_Active.m_Sigma);
+                return (t.m_RedistUser.m_Sigma0 == m_Active.m_Sigma);
             }
 
-            template <class Storage>
-            void Remove(Trove& t, Storage& stor)
+            void Remove(Trove& t)
             {
                 // try to avoid recalculations if nothing changed, to prevent inaccuracies
                 //
@@ -183,20 +179,19 @@ namespace Liquity
                 }
                 else
                 {
-                    Pair out;
-                    UserDel(t.m_RedistUser, out, stor);
+                    HomogenousPool::Pair out;
+                    UserDel(t.m_RedistUser, out);
                     UpdAmountsPostRemove(t.m_Amounts, out);
                 }
             }
 
-            template <class Storage>
-            Liquity::Pair get_UpdatedAmounts(const Trove& t, Storage& stor) const
+            Pair get_UpdatedAmounts(const Trove& t) const
             {
                 auto ret = t.m_Amounts;
                 if (!IsUnchanged(t))
                 {
-                    Pair out;
-                    Cast::NotConst(*this).UserDel<true>(Cast::NotConst(t.m_RedistUser), out, stor);
+                    HomogenousPool::Pair out;
+                    t.m_RedistUser.DelRO_(m_Active, out);
                     UpdAmountsPostRemove(ret, out);
                 }
                 return ret;
@@ -207,7 +202,7 @@ namespace Liquity
                 if (!get_TotalSell())
                     return false; // empty
 
-                Pair p;
+                HomogenousPool::Pair p;
                 p.s = t.m_Amounts.Tok;
                 p.b = t.m_Amounts.Col;
                 Trade(p);
@@ -216,7 +211,7 @@ namespace Liquity
             }
 
         private:
-            static void UpdAmountsPostRemove(Liquity::Pair& vals, const Pair& out)
+            static void UpdAmountsPostRemove(Pair& vals, const HomogenousPool::Pair& out)
             {
                 vals.Tok = out.s;
                 vals.Col += out.b;
@@ -229,7 +224,7 @@ namespace Liquity
         {
             bool LiquidatePartial(Trove& t)
             {
-                Pair p;
+                HomogenousPool::Pair p;
                 p.s = get_TotalSell();
                 if (!p.s)
                     return false;
@@ -331,7 +326,6 @@ namespace Liquity
             Price m_Price;
             FlowPair m_fpLogic;
             bool m_Stab = false;
-            bool m_Redist = false;
         };
 
         bool LiquidateTrove(Trove& t, Liquidator& ctx, Amount& valSurplus)
@@ -362,9 +356,8 @@ namespace Liquity
 
             if (t.m_Amounts.Tok || t.m_Amounts.Col)
             {
-                ctx.m_Redist = true;
                 if (!m_RedistPool.Liquidate(t))
-                    return false;
+                    return false; // last trove?
 
                 Strict::Add(m_Troves.m_Totals.Tok, t.m_Amounts.Tok);
                 Strict::Add(m_Troves.m_Totals.Col, t.m_Amounts.Col);
