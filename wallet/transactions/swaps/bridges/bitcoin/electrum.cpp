@@ -116,7 +116,7 @@ namespace beam::bitcoin
                         continue;
                     hash_digest txHash;
                     decode_hash(txHash, coin.m_details["tx_hash"].get<std::string>());
-                    unspentPoints.points.push_back(point_value(point(txHash, coin.m_details["tx_pos"].get<uint32_t>()), coin.m_details["value"].get<uint64_t>()));
+                    unspentPoints.points.emplace_back(point_value(point(txHash, coin.m_details["tx_pos"].get<uint32_t>()), coin.m_details["value"].get<uint64_t>()));
                 }
 
                 auto privateKeys = generateMasterPrivateKeys(m_settingsProvider.GetSettings().GetElectrumConnectionOptions().m_secretWords);
@@ -816,13 +816,13 @@ namespace beam::bitcoin
 
         for (uint32_t i = 0; i < receivingAddressAmount; i++)
         {
-            result.push_back(ec_private(privateKeys.first.derive_private(i).secret(), addressVersion));
+            result.emplace_back(ec_private(privateKeys.first.derive_private(i).secret(), addressVersion));
         }
 
         auto changeAddressAmount = settings.m_changeAddressAmount;
         for (uint32_t i = 0; i < changeAddressAmount; i++)
         {
-            result.push_back(ec_private(privateKeys.second.derive_private(i).secret(), addressVersion));
+            result.emplace_back(ec_private(privateKeys.second.derive_private(i).secret(), addressVersion));
         }
         return result;
     }

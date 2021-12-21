@@ -1135,7 +1135,7 @@ void FlyClient::NetworkStd::BbsSubscribe(BbsChannel ch, Timestamp ts, IBbsReceiv
         if (!p)
             return;
 
-        m_BbsSubscriptions.insert(std::make_pair(ch, std::make_pair(p, ts)));
+        m_BbsSubscriptions.emplace(std::make_pair(ch, std::make_pair(p, ts)));
     }
     else
     {

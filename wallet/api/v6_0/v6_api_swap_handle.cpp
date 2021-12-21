@@ -31,7 +31,7 @@ namespace beam::wallet
     const char kSwapFeeToLowError[]             = R"("'fee_rate' must be greater or equal than ")";
     const char kSwapFeeToHighError[]            = "\'fee_rate\' must be less or equal than ";
 
-    void ensureBEAMAmount(const IWalletDB::Ptr walletDB, Amount beamAmount, Amount beamFee)
+    void ensureBEAMAmount(const IWalletDB::Ptr& walletDB, Amount beamAmount, Amount beamFee)
     {
         storage::Totals allTotals(*walletDB, false);
 

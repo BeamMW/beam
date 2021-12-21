@@ -561,6 +561,13 @@ namespace Utils {
                 static const uint32_t N = N_Raw ? N_Raw : 1;
             };
 
+#ifdef _MSC_VER // the following specialization is needed for msvc. Other compilers don't need this, and they'll complain about specialization in non-namespace
+            template <> struct Digits<0> {
+                static const uint32_t N_Raw = 0;
+                static const uint32_t N = 1;
+            };
+#endif // _MSC_VER
+
             template <typename T> struct DigitsMax {
                 static const uint32_t N = Digits<static_cast<T>(-1)>::N;
             };

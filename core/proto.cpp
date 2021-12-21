@@ -970,7 +970,7 @@ void NodeConnection::Send(const NewTransaction& msg)
         NewTransaction0 msg0;
         TemporarySwap scope(Cast::NotConst(msg.m_Transaction), msg0.m_Transaction);
 
-        msg0.m_Fluff = msg0.m_Fluff;
+        msg0.m_Fluff = msg.m_Fluff;
         Send(msg0);
     }
 }
