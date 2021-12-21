@@ -4461,7 +4461,8 @@ void NodeProcessor::BlockInterpretCtx::Der::SetBwd(ByteBuffer& buf, uint32_t nPo
 	size_t nVal = buf.size() - nPortion;
 	reset(&buf.front() + nVal, nPortion);
 
-	buf.resize(nVal); // it's safe to call resize() while the buffer is being used, coz std::vector does NOT reallocate on shrink
+	if (nVal < buf.size()) // to avoid stringop-overflow warning
+		buf.resize(nVal); // it's safe to call resize() while the buffer is being used, coz std::vector does NOT reallocate on shrink
 }
 
 bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key, const Blob* pVal)
