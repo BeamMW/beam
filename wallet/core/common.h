@@ -537,7 +537,7 @@ namespace beam::wallet
     struct TxDescription : public TxParameters
     {
         TxDescription() = default;
-        explicit TxDescription(const TxID& txId
+        TxDescription(const TxID& txId
             , TxType txType           = TxType::Simple
             , Amount amount           = 0
             , Amount fee              = 0
