@@ -923,13 +923,11 @@ namespace beam::wallet
             m_txId = *txId;
         }
 
-#define MACRO(id, type, field, init) \
+        #define MACRO(id, type, field, init) \
         if (auto value = parameters.GetParameter<type>(id); value) \
             field = *value; 
         BEAM_TX_DESCRIPTION_INITIAL_PARAMS(MACRO)
-
-#undef MACRO
-
+        #undef MACRO
     }
 
     bool TxDescription::canResume() const

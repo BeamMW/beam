@@ -174,14 +174,15 @@ namespace beam::wallet
         }
         else if (tx.m_txType == TxType::AtomicSwap)
         {
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+            #ifdef BEAM_ATOMIC_SWAP_SUPPORT
             statusStr = beam::wallet::GetSwapTxStatusStr(tx);
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
+            #endif // BEAM_ATOMIC_SWAP_SUPPORT
         }
         else if (tx.m_txType == TxType::Contract)
         {
             statusStr = beam::wallet::GetContractTxStatusStr(tx);
         }
+
         msg = json
         {
             {"txId", std::to_string(tx.m_txId)},
@@ -194,6 +195,12 @@ namespace beam::wallet
             {"tx_type", tx.m_txType},
             {"tx_type_string", tx.getTxTypeString()}
         };
+
+        if (!tx.m_appName.empty() || !tx.m_appID.empty())
+        {
+            msg["appname"] = tx.m_appName;
+            msg["appid"] = tx.m_appID;
+        }
 
         if (tx.m_txType != TxType::Contract)
         {
@@ -285,12 +292,12 @@ namespace beam::wallet
             }
         }
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         if (tx.m_txType == TxType::AtomicSwap)
         {
             AddSwapTxDetailsToJson(tx, msg);
         }
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
+        #endif // BEAM_ATOMIC_SWAP_SUPPORT
     }
 
     Amount V6Api::getBeamFeeParam(const json& params, const std::string& name) const

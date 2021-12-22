@@ -537,7 +537,7 @@ namespace beam::wallet
     struct TxDescription : public TxParameters
     {
         TxDescription() = default;
-        TxDescription(const TxID& txId
+        explicit TxDescription(const TxID& txId
             , TxType txType           = TxType::Simple
             , Amount amount           = 0
             , Amount fee              = 0
@@ -562,10 +562,6 @@ namespace beam::wallet
             , m_createTime{ createTime }
             , m_modifyTime{ createTime }
             , m_sender{ sender }
-            , m_selfTx{ false }
-            , m_status{ TxStatus::Pending }
-            , m_kernelID{ Zero }
-            , m_failureReason{ TxFailureReason::Unknown }
         {
         }
         explicit TxDescription(const TxParameters&);
@@ -585,7 +581,7 @@ namespace beam::wallet
         [[nodiscard]] std::string getAddressFrom() const;
         [[nodiscard]] std::string getAddressTo() const;
 
-#define BEAM_TX_DESCRIPTION_INITIAL_PARAMS(macro) \
+        #define BEAM_TX_DESCRIPTION_INITIAL_PARAMS(macro) \
         macro(TxParameterID::TransactionType,   TxType,          m_txType,          wallet::TxType::Simple) \
         macro(TxParameterID::Amount,            Amount,          m_amount,          0) \
         macro(TxParameterID::Fee,               Amount,          m_fee,             0) \
@@ -602,14 +598,13 @@ namespace beam::wallet
         macro(TxParameterID::Status,            TxStatus,        m_status,          TxStatus::Pending) \
         macro(TxParameterID::KernelID,          Merkle::Hash,    m_kernelID,        Zero) \
         macro(TxParameterID::FailureReason,     TxFailureReason, m_failureReason,   TxFailureReason::Unknown) \
+        macro(TxParameterID::AppID,             std::string,     m_appID,           std::string()) \
+        macro(TxParameterID::AppName,           std::string,     m_appName,         std::string())
 
-    //private:
         TxID m_txId = {};
-
-#define MACRO(id, type, field, init) type field = init;
+        #define MACRO(id, type, field, init) type field = init;
         BEAM_TX_DESCRIPTION_INITIAL_PARAMS(MACRO)
-#undef MACRO
-
+        #undef MACRO
     };
 
     std::string interpretStatus(const TxDescription& tx);
