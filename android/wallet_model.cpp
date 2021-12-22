@@ -107,13 +107,13 @@ namespace
         //
         if(!txDescription.m_appName.empty())
         {
-            setStringField(env, TxDescriptionClass, tx, "appName", strdesc->c_str());
+            setStringField(env, TxDescriptionClass, tx, "appName", txDescription.m_appName.c_str());
             setBooleanField(env, TxDescriptionClass, tx, "isDapps", true);
         }
 
         if (!txDescription.m_appID.empty())
         {
-            setStringField(env, TxDescriptionClass, tx, "appID", strid->c_str());
+            setStringField(env, TxDescriptionClass, tx, "appID", txDescription.m_appID.c_str());
             setBooleanField(env, TxDescriptionClass, tx, "isDapps", true);
         }
 
