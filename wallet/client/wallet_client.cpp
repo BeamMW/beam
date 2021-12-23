@@ -416,7 +416,7 @@ namespace beam::wallet
         return GetStatus(Asset::s_BeamID);
     }
 
-    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, asio_ipfs::config ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, boost::optional<asio_ipfs::config> ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
         : m_rules(rules)
         , m_walletDB(walletDB)
         , m_reactor{ reactor ? reactor : io::Reactor::create() }
@@ -441,13 +441,13 @@ namespace beam::wallet
         #endif
     }
 
-    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, asio_ipfs::config ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, boost::optional<asio_ipfs::config> ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
         : WalletClient(rules, walletDB, {}, std::move(ipfsConfig), nodeAddr, reactor)
     {
 
     }
 
-    WalletClient::WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, asio_ipfs::config ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+    WalletClient::WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, boost::optional<asio_ipfs::config> ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
         : WalletClient(rules, nullptr, std::move(walletDBFunc), std::move(ipfsConfig), nodeAddr, reactor)
     {
     }
@@ -681,16 +681,17 @@ namespace beam::wallet
                 std::shared_ptr<IPFSHandler> ipfsHandler;
                 std::shared_ptr<IPFSService> ipfsService;
 
-                if (m_ipfsConfig.repo_root.empty())
-                {
-                    LOG_WARNING() << "Empty IPFS storage path passed. IPFS node won't be started.";
-                }
-                else
+                if (m_ipfsConfig)
                 {
                     LOG_INFO() << "IPFS Service is enabled. Node would be started on app demand";
                     ipfsHandler = std::make_shared<IPFSHandler>(this);
                     ipfsService = IPFSService::create(ipfsHandler);
                     m_ipfs = ipfsService;
+
+                }
+                else
+                {
+                    LOG_WARNING() << "Empty IPFS storage path passed. IPFS node won't be started.";
                 }
                 #else
                 LOG_WARNING () << "IPFS Service is disabled.";
@@ -779,6 +780,12 @@ namespace beam::wallet
 
     IPFSService::Ptr WalletClient::IWThread_startIPFSNode()
     {
+        if (!m_ipfsConfig)
+        {
+            assert(false);
+            throw std::runtime_error("IPFS config is not provided");
+        }
+
         auto sp = m_ipfs.lock();
         if (!sp)
         {
@@ -788,7 +795,7 @@ namespace beam::wallet
 
         if (!sp->running())
         {
-            sp->start(m_ipfsConfig);
+            sp->start(*m_ipfsConfig);
         }
 
         return sp;
