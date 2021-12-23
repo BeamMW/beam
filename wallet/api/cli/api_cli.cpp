@@ -605,7 +605,7 @@ int main(int argc, char* argv[])
         desc.add(tlsDesc);
 
         #ifdef BEAM_IPFS_SUPPORT
-        desc.add(createIPFSOptionsDesrition(false));
+        desc.add(createIPFSOptionsDesrition(false, "./ipfs-repo"));
         #endif
 
         desc.add(createRulesOptionsDescription());
@@ -798,7 +798,7 @@ int main(int argc, char* argv[])
         #endif
 
         #ifdef BEAM_IPFS_SUPPORT
-        auto ipfsOpts = getIPFSConfig(vm, "./ipfs-repo");
+        auto ipfsOpts = getIPFSConfig(vm);
         if (ipfsOpts)
         {
             if(!server.startIPFS(ipfsOpts->storage, *ipfsOpts, reactor))
