@@ -44,6 +44,7 @@ namespace beam::wallet
             }
         );
         #else
+        // TODO:IPFS access via http
         sendError(id, ApiError::NotSupported);
         #endif
     }

@@ -73,14 +73,6 @@ namespace
         bool rejectUnauthorized;
     };
 
-    #ifdef BEAM_IPFS_SUPPORT
-    struct IPFSOptions
-    {
-        bool enabled = false;
-        std::string storage;
-    };
-    #endif
-
     ApiACL loadACL(const std::string& path)
     {
         std::ifstream file(path);
@@ -573,29 +565,25 @@ int main(int argc, char* argv[])
     } options;
     TlsOptions tlsOptions;
 
-    #ifdef BEAM_IPFS_SUPPORT
-    IPFSOptions ipfsOptions;
-    #endif
-
     po::options_description desc("Wallet API general options");
     {
         desc.add_options()
-                (cli::HELP_FULL, "list of all options")
-                (cli::VERSION_FULL, "print project version")
-                (cli::PORT_FULL, po::value(&options.port)->default_value(10000), "port to start server on")
-                (cli::NODE_ADDR_FULL, po::value<std::string>(&options.nodeURI), "address of node")
-                (cli::WALLET_STORAGE, po::value<std::string>(&options.walletPath)->default_value("wallet.db"), "path to wallet file")
-                (cli::PASS, po::value<std::string>(), "password for the wallet")
-                (cli::API_USE_HTTP, po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
-                (cli::IP_WHITELIST, po::value<std::string>(&options.whitelist)->default_value(""), "IP whitelist")
-                (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
-                (cli::WITH_ASSETS,    po::bool_switch()->default_value(false), "enable confidential assets transactions")
-                (cli::ENABLE_LELANTUS, po::bool_switch()->default_value(false), "enable Lelantus MW transactions")
-                (cli::API_VERSION, po::value<std::string>(&options.apiVersion)->default_value("current"), "API version")
-                (cli::CONFIG_FILE_PATH, po::value<std::string>()->default_value("wallet-api.cfg"), "path to the config file")
-                (cli::LOG_LEVEL, po::value<std::string>(), "set log level [error|warning|info(default)|debug|verbose]")
-                (cli::FILE_LOG_LEVEL, po::value<std::string>(), "set file log level [error|warning|info(default)|debug|verbose]")
-                (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
+            (cli::HELP_FULL,       "list of all options")
+            (cli::VERSION_FULL,    "print project version")
+            (cli::PORT_FULL,        po::value(&options.port)->default_value(10000), "port to start server on")
+            (cli::NODE_ADDR_FULL,   po::value<std::string>(&options.nodeURI), "address of node")
+            (cli::WALLET_STORAGE,   po::value<std::string>(&options.walletPath)->default_value("wallet.db"), "path to wallet file")
+            (cli::PASS,             po::value<std::string>(), "password for the wallet")
+            (cli::API_USE_HTTP,     po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
+            (cli::IP_WHITELIST,     po::value<std::string>(&options.whitelist)->default_value(""), "IP whitelist")
+            (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
+            (cli::WITH_ASSETS,      po::bool_switch()->default_value(false), "enable confidential assets transactions")
+            (cli::ENABLE_LELANTUS,  po::bool_switch()->default_value(false), "enable Lelantus MW transactions")
+            (cli::API_VERSION,      po::value<std::string>(&options.apiVersion)->default_value("current"), "API version")
+            (cli::CONFIG_FILE_PATH, po::value<std::string>()->default_value("wallet-api.cfg"), "path to the config file")
+            (cli::LOG_LEVEL,        po::value<std::string>(), "set log level [error|warning|info(default)|debug|verbose]")
+            (cli::FILE_LOG_LEVEL,   po::value<std::string>(), "set file log level [error|warning|info(default)|debug|verbose]")
+            (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
         ;
 
         po::options_description authDesc("User authorization options");
@@ -617,12 +605,7 @@ int main(int argc, char* argv[])
         desc.add(tlsDesc);
 
         #ifdef BEAM_IPFS_SUPPORT
-        po::options_description ipfsDesc("IPFS options");
-        ipfsDesc.add_options()
-                (cli::API_ENABLE_IPFS, po::value<bool>(&ipfsOptions.enabled)->default_value(false), "enable IPFS support")
-                (cli::API_IPFS_STORAGE,   po::value<std::string>(&ipfsOptions.storage)->default_value("./ipfs-repo"), "IPFS repository path")
-                ;
-        desc.add(ipfsDesc);
+        desc.add(createIPFSOptionsDesrition(false));
         #endif
 
         desc.add(createRulesOptionsDescription());
@@ -815,12 +798,17 @@ int main(int argc, char* argv[])
         #endif
 
         #ifdef BEAM_IPFS_SUPPORT
-        if (ipfsOptions.enabled)
+        auto ipfsOpts = getIPFSConfig(vm, "./ipfs-repo");
+        if (ipfsOpts)
         {
-            if(!server.startIPFS(ipfsOptions.storage, asio_ipfs::config(), reactor))
+            if(!server.startIPFS(ipfsOpts->storage, *ipfsOpts, reactor))
             {
                 return -1;
             }
+        }
+        else
+        {
+            LOG_INFO() << "IPFS is not enabled. IPFS node will be not started.";
         }
         #endif
 
@@ -839,7 +827,7 @@ int main(int argc, char* argv[])
         io::Reactor::get_Current().run();
 
         #ifdef BEAM_IPFS_SUPPORT
-        if (ipfsOptions.enabled)
+        if (ipfsOpts)
         {
             server.stopIPFS();
         }
