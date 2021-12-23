@@ -183,13 +183,13 @@ namespace
             wallet::PostToReactorThread::Ptr _toServerThread;
         };
 
-        bool startIPFS(const std::string& storagePath, asio_ipfs::config config, io::Reactor::Ptr reactor)
+        bool startIPFS(asio_ipfs::config config, io::Reactor::Ptr reactor)
         {
             try
             {
                 _ipfsHandler = std::make_shared<IPFSHandler>(std::move(reactor));
                 _ipfs = beam::wallet::IPFSService::create(_ipfsHandler);
-                _ipfs->start(storagePath, config);
+                _ipfs->start(config);
                 LOG_INFO() << "IPFS Service successfully started, ID " << _ipfs->id();
                 return true;
             }
@@ -605,7 +605,7 @@ int main(int argc, char* argv[])
         desc.add(tlsDesc);
 
         #ifdef BEAM_IPFS_SUPPORT
-        desc.add(createIPFSOptionsDesrition(false, "./ipfs-repo"));
+        desc.add(createIPFSOptionsDesrition(false, asio_ipfs::config()));
         #endif
 
         desc.add(createRulesOptionsDescription());
@@ -801,7 +801,7 @@ int main(int argc, char* argv[])
         auto ipfsOpts = getIPFSConfig(vm);
         if (ipfsOpts)
         {
-            if(!server.startIPFS(ipfsOpts->storage, *ipfsOpts, reactor))
+            if(!server.startIPFS(*ipfsOpts, reactor))
             {
                 return -1;
             }
@@ -835,18 +835,19 @@ int main(int argc, char* argv[])
 
         LOG_INFO() << "Done";
     }
+    // DO NOT USE LOG_ below. Logger is dead here
     catch (const DatabaseException& e)
     {
-        LOG_ERROR() << "Wallet not opened. " << e.what();
+        std::cerr << "Wallet not opened. " << e.what();
         return -1;
     }
     catch (const std::exception& e)
     {
-        LOG_ERROR() << "EXCEPTION: " << e.what();
+        std::cerr << "EXCEPTION: " << e.what();
     }
     catch (...)
     {
-        LOG_ERROR() << "NON_STD EXCEPTION";
+        std::cerr << "NON_STD EXCEPTION";
     }
 
     return 0;

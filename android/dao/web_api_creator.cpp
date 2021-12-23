@@ -42,7 +42,6 @@ void WebAPICreator::createApi(WalletModel::Ptr walletModel, const std::string& v
         if (guard)
         {
             _api = std::move(api);
-            LOG_INFO() << "API created: " << version << ", " << appName << ", " << appid;
         }
         else
         {

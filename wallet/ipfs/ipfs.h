@@ -42,7 +42,7 @@ namespace beam::wallet
 
         /// \exception std::runtime_error
         virtual bool running() const = 0;
-        virtual void start(const std::string& repoPath, asio_ipfs::config config) = 0;
+        virtual void start(asio_ipfs::config config) = 0;
 
         /// \exception std::runtime_error
         virtual void stop() = 0;

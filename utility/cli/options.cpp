@@ -615,39 +615,38 @@ namespace beam
     }
 
     #ifdef BEAM_IPFS_SUPPORT
-    po::options_description createIPFSOptionsDesrition(bool enableByDefault, std::string defStorage)
+    po::options_description createIPFSOptionsDesrition(bool enableByDefault, const asio_ipfs::config& defs)
     {
-        asio_ipfs::config defIPFS;
         po::options_description ipfs_options("IPFS support");
         ipfs_options.add_options()
-            (cli::IPFS_ENABLE,     po::value<bool>()->default_value(enableByDefault)->implicit_value(true), "enable IPFS support/launch IPFS node")
-            (cli::IPFS_STORAGE,    po::value<string>()->default_value(defStorage), "IPFS repository path")
-            (cli::IPFS_LOW_WATER,  po::value<uint32_t>()->default_value(defIPFS.low_water), "Swarm.ConnMgr.LowWater")
-            (cli::IPFS_HIGH_WATER, po::value<uint32_t>()->default_value(defIPFS.high_water), "Swarm.ConnMgr.HighWater")
-            (cli::IPFS_GRACE,      po::value<uint32_t>()->default_value(defIPFS.grace_period), "Swarm.ConnMgr.GracePeriod uint32 seconds")
+            (cli::IPFS_ENABLE,     po::value<bool>()->default_value(enableByDefault)->implicit_value(enableByDefault), "enable IPFS support/launch IPFS node")
+            (cli::IPFS_STORAGE,    po::value<string>()->default_value(defs.repo_root), "IPFS repository path")
+            (cli::IPFS_LOW_WATER,  po::value<uint32_t>()->default_value(defs.low_water), "Swarm.ConnMgr.LowWater")
+            (cli::IPFS_HIGH_WATER, po::value<uint32_t>()->default_value(defs.high_water), "Swarm.ConnMgr.HighWater")
+            (cli::IPFS_GRACE,      po::value<uint32_t>()->default_value(defs.grace_period), "Swarm.ConnMgr.GracePeriod uint32 seconds")
             (cli::IPFS_BOOTSTRAP,  po::value<std::vector<string>>()->multitoken(), "Bootstrap nodes multiaddr space separated list")
-            (cli::IPFS_SWARM_PORT, po::value<uint32_t>()->default_value(defIPFS.node_swarm_port), "Addresses.Swarm port");
+            (cli::IPFS_SWARM_PORT, po::value<uint32_t>()->default_value(defs.node_swarm_port), "Addresses.Swarm port");
         return ipfs_options;
     }
 
-    boost::optional<IPFSOptions> getIPFSConfig(const po::variables_map& vm)
+    boost::optional<asio_ipfs::config> getIPFSConfig(const po::variables_map& vm)
     {
         if (!vm[cli::IPFS_ENABLE].as<bool>()) {
             return boost::none;
         }
 
-        IPFSOptions options;
-        options.storage = vm[cli::IPFS_STORAGE].as<string>();
-        options.low_water = vm[cli::IPFS_LOW_WATER].as<uint32_t>();
-        options.low_water = vm[cli::IPFS_HIGH_WATER].as<uint32_t>();
-        options.grace_period = vm[cli::IPFS_GRACE].as<uint32_t>();
-        options.node_swarm_port = vm[cli::IPFS_SWARM_PORT].as<uint32_t>();
+        asio_ipfs::config cfg;
+        cfg.repo_root = vm[cli::IPFS_STORAGE].as<string>();
+        cfg.low_water = vm[cli::IPFS_LOW_WATER].as<uint32_t>();
+        cfg.low_water = vm[cli::IPFS_HIGH_WATER].as<uint32_t>();
+        cfg.grace_period = vm[cli::IPFS_GRACE].as<uint32_t>();
+        cfg.node_swarm_port = vm[cli::IPFS_SWARM_PORT].as<uint32_t>();
 
         if (vm.count(cli::IPFS_BOOTSTRAP)) {
-            options.bootstrap = vm[cli::IPFS_BOOTSTRAP].as<std::vector<string>>();
+            cfg.bootstrap = vm[cli::IPFS_BOOTSTRAP].as<std::vector<string>>();
         }
 
-        return options;
+        return cfg;
     }
     #endif
 

@@ -47,7 +47,7 @@ namespace beam::wallet::imp
         return _thread && _ios;
     }
 
-    void IPFSService::start(const std::string& repoPath, asio_ipfs::config config)
+    void IPFSService::start(asio_ipfs::config config)
     {
         if (_thread || _ios)
         {
@@ -55,7 +55,7 @@ namespace beam::wallet::imp
             throw std::runtime_error("IPFS Service is already running");
         }
 
-        const auto fullPath = boost::filesystem::system_complete(repoPath);
+        const auto fullPath = boost::filesystem::system_complete(config.repo_root);
 
         //
         // boost::filesystem::weakly_canonical(fullPath) doesn't throw exception
@@ -68,8 +68,8 @@ namespace beam::wallet::imp
             throw boost::filesystem::filesystem_error("IPFS service failed to form canonical path", ec);
         }
 
-        auto storagePath = canonicalPath.string();
-        LOG_INFO() << "Starting IPFS Service. Storage path is " << storagePath;
+        config.repo_root = canonicalPath.string();
+        LOG_INFO() << "Starting IPFS Service. Repo path is " << config.repo_root;
 
         //
         // Startup sequence, we run it sync, in main thread. May be need to make async
@@ -93,7 +93,7 @@ namespace beam::wallet::imp
                         #endif
                     }
 
-                    _node = asio_ipfs::node::build(*startctx, storagePath, config, std::move(yield));
+                    _node = asio_ipfs::node::build(*startctx, config, std::move(yield));
 
                     // TODO:IPFS ensure if connected
                     // TODO:IPFS lower connect timeout
@@ -128,7 +128,7 @@ namespace beam::wallet::imp
         // Here we know that everything is OK, and we're ready for a real
         // threaded startup. Save data & spawn an infinitely running thread
         //
-        _path = storagePath;
+        _path = config.repo_root;
         _myid = _node->id();
         _ios_guard = std::make_unique<IOSGuard>(_ios->get_executor());
         _thread = std::make_unique<MyThread>([this, repo = _path]()

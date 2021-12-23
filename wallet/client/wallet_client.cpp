@@ -416,7 +416,7 @@ namespace beam::wallet
         return GetStatus(Asset::s_BeamID);
     }
 
-    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, const std::string& ipfsRepo, asio_ipfs::config ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, asio_ipfs::config ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
         : m_rules(rules)
         , m_walletDB(walletDB)
         , m_reactor{ reactor ? reactor : io::Reactor::create() }
@@ -437,19 +437,18 @@ namespace beam::wallet
         m_balanceDelayed = io::Timer::create(*m_reactor);
 
         #ifdef BEAM_IPFS_SUPPORT
-        m_ipfsRepo = ipfsRepo;
         m_ipfsConfig = std::move(ipfsConfig);
         #endif
     }
 
-    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& ipfsRepo, asio_ipfs::config ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
-        : WalletClient(rules, walletDB, {}, ipfsRepo, std::move(ipfsConfig), nodeAddr, reactor)
+    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, asio_ipfs::config ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+        : WalletClient(rules, walletDB, {}, std::move(ipfsConfig), nodeAddr, reactor)
     {
 
     }
 
-    WalletClient::WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, const std::string& ipfsRepo, asio_ipfs::config ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
-        : WalletClient(rules, nullptr, std::move(walletDBFunc), ipfsRepo, std::move(ipfsConfig), nodeAddr, reactor)
+    WalletClient::WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, asio_ipfs::config ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+        : WalletClient(rules, nullptr, std::move(walletDBFunc), std::move(ipfsConfig), nodeAddr, reactor)
     {
     }
 
@@ -682,7 +681,7 @@ namespace beam::wallet
                 std::shared_ptr<IPFSHandler> ipfsHandler;
                 std::shared_ptr<IPFSService> ipfsService;
 
-                if (m_ipfsRepo.empty())
+                if (m_ipfsConfig.repo_root.empty())
                 {
                     LOG_WARNING() << "Empty IPFS storage path passed. IPFS node won't be started.";
                 }
@@ -789,7 +788,7 @@ namespace beam::wallet
 
         if (!sp->running())
         {
-            sp->start(m_ipfsRepo, m_ipfsConfig);
+            sp->start(m_ipfsConfig);
         }
 
         return sp;

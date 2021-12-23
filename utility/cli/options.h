@@ -282,15 +282,8 @@ namespace beam
     po::options_description createRulesOptionsDescription();
 
     #ifdef BEAM_IPFS_SUPPORT
-    po::options_description createIPFSOptionsDesrition(bool enableByDefault, std::string defStorage);
-
-    struct IPFSOptions: public asio_ipfs::config
-    {
-        std::string storage;
-    };
-
-    // boost::none if IPFS is not enabled
-    boost::optional<IPFSOptions> getIPFSConfig(const po::variables_map& vm);
+    po::options_description createIPFSOptionsDesrition(bool enableByDefault, const asio_ipfs::config& defaults);
+    boost::optional<asio_ipfs::config> getIPFSConfig(const po::variables_map& vm); // boost::none if IPFS is not enabled
     #endif
 
     po::variables_map getOptions(int argc, char* argv[], const po::options_description& options, bool walletOptions = false);
