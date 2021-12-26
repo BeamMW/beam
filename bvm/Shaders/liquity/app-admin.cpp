@@ -99,7 +99,14 @@ ON_METHOD(manager, deploy_contract)
     if (!ManagerUpgadable2::FillDeployArgs(arg, &pk))
         return;
 
-    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deploy Liquity contract", 0);
+    const uint32_t nCharge =
+        ManagerUpgadable2::get_ChargeDeploy() +
+        Env::Cost::AssetManage +
+        Env::Cost::Refs +
+        Env::Cost::SaveVar_For(sizeof(Liquity::Global)) +
+        Env::Cost::Cycle * 300;
+
+    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deploy Liquity contract", nCharge);
 }
 
 ON_METHOD(manager, schedule_upgrade)
