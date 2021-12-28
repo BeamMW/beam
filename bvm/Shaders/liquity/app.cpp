@@ -619,13 +619,19 @@ namespace Charge
             Env::Cost::SaveVar_For(sizeof(Global));
     }
 
-    static uint32_t BankAccess()
+    static uint32_t BankAccess_NoSig()
     {
         return
-            Env::Cost::AddSig +
             Env::Cost::LoadVar_For(sizeof(Balance)) +
             Env::Cost::SaveVar_For(sizeof(Balance)) +
             Env::Cost::Cycle * 50;
+    }
+
+    static uint32_t BankAccess()
+    {
+        return
+            BankAccess_NoSig() +
+            Env::Cost::AddSig;
     }
 
     static uint32_t Funds(const Method::BaseTx& tx)
@@ -675,6 +681,7 @@ namespace Charge
 
     static const uint32_t Price =
         Env::Cost::CallFar +
+        Env::Cost::LoadVar_For(sizeof(Oracle2::Median)) +
         Env::Cost::Cycle * 50;
 
 }
@@ -888,7 +895,7 @@ ON_METHOD(user, trove_modify)
             g.PrepareTroveTx(args, pFc);
 
             if (!bPredictOnly)
-                Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "trove modify", 0);
+                Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "trove modify", nCharge);
         }
         else
         {
@@ -900,7 +907,7 @@ ON_METHOD(user, trove_modify)
             g.PrepareTroveTx(args, pFc);
 
             if (!bPredictOnly)
-                Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "trove open", 0);
+                Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "trove open", nCharge);
         }
 
         {
@@ -928,7 +935,7 @@ ON_METHOD(user, trove_modify)
             Charge::Funds(txb);
 
         if (!bPredictOnly)
-            Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "trove close", 0);
+            Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "trove close", nCharge);
     }
 }
 
@@ -944,8 +951,19 @@ ON_METHOD(user, liquidate)
     ctx.m_Price = g.m_Price;
     _POD_(ctx.m_fpLogic).SetZero();
 
+    uint32_t nCharge =
+        Charge::StdCall() +
+        Charge::BankAccess() +
+        Charge::Price;
+
+
     uint32_t nCount = 0;
     bool bSelf = false;
+
+    Float& sStab = g.m_StabPool.m_Active.m_Sigma; // alias
+    Float& sRedist = g.m_RedistPool.m_Active.m_Sigma;
+    Float s0Stab = sStab;
+    Float s0Redist = sRedist;
 
     while (g.m_Troves.m_iHead)
     {
@@ -955,6 +973,25 @@ ON_METHOD(user, liquidate)
         Amount valSurplus = 0;
         if (!g.LiquidateTrove(t, ctx, valSurplus))
             break;
+
+        nCharge +=
+            Charge::TrovePull0() +
+            Env::Cost::Cycle * 50;
+
+        if (s0Stab != sStab)
+        {
+            s0Stab = sStab;
+            nCharge += Env::Cost::Cycle * 500;
+        }
+
+        if (s0Redist != sRedist)
+        {
+            s0Redist = sRedist;
+            nCharge += Env::Cost::Cycle * 300;
+        }
+
+        if (valSurplus)
+            nCharge += Charge::BankAccess_NoSig();
 
         if (_POD_(g.m_MyTrove.m_Pk) == t.m_pkOwner)
             bSelf = true;
@@ -973,6 +1010,16 @@ ON_METHOD(user, liquidate)
 
     if (!bPredictOnly)
     {
+        if (ctx.m_Stab)
+        {
+            AppGlobalPlus::EpochStorage stor(cid);
+            g.m_StabPool.OnPostTrade(stor);
+
+            nCharge +=
+                stor.m_Charge +
+                Env::Cost::Cycle * 100;
+
+        }
 
         Method::Liquidate args;
         args.m_Flow = ctx.m_fpLogic;
@@ -981,7 +1028,7 @@ ON_METHOD(user, liquidate)
         FundsChange pFc[2];
         g.PrepareTroveTx(args, pFc);
 
-        Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "troves liquidate", 0);
+        Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "troves liquidate", nCharge);
     }
 }
 
@@ -992,6 +1039,11 @@ ON_METHOD(user, redeem)
         return;
 
     g.ReadVault();
+
+    uint32_t nCharge =
+        Charge::StdCall() +
+        Charge::BankAccess() +
+        Charge::Price;
 
     Global::Redeemer ctx;
     ctx.m_Price = g.m_Price;
@@ -1005,6 +1057,10 @@ ON_METHOD(user, redeem)
         auto& t = g.get_T(g.m_Troves.m_iHead);
         g.PopTrove(0, t);
 
+        nCharge +=
+            Charge::TrovePull0() +
+            Env::Cost::Cycle * 500;
+
         if (!g.RedeemTrove(t, ctx))
             break;
 
@@ -1012,6 +1068,9 @@ ON_METHOD(user, redeem)
         {
             assert(!ctx.m_TokRemaining);
             iPrev1 = g.PushTrove(t.m_Amounts);
+
+            auto iNext1 = iPrev1 ? g.get_T(iPrev1).m_iNext : g.m_Troves.m_iHead;
+            nCharge += Charge::TrovePush(iPrev1, iNext1);
         }
     }
 
@@ -1029,6 +1088,8 @@ ON_METHOD(user, redeem)
         if (ctx.m_TokRemaining)
             OnError("insufficient redeemable troves");
 
+        nCharge += Env::Cost::Cycle * 300; // comission
+
         Method::Redeem args;
         args.m_Flow = ctx.m_fpLogic;
         args.m_Amount = val;
@@ -1037,7 +1098,7 @@ ON_METHOD(user, redeem)
         FundsChange pFc[2];
         g.PrepareTroveTx(args, pFc);
 
-        Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "redeem", 0);
+        Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "redeem", nCharge);
     }
 }
 
