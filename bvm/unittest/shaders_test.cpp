@@ -296,8 +296,8 @@ namespace Shaders {
 
 	namespace Env {
 
-		//typedef beam::bvm2::Limits::Cost Cost;
-		//typedef Shaders::Env::KeyID KeyID;
+		typedef beam::bvm2::Limits::Cost Cost;
+		typedef Shaders::Env::KeyID KeyID;
 
 		void CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint8_t bInheritContext);
 
@@ -359,6 +359,7 @@ namespace Shaders {
 
 #include "../Shaders/liquity/contract.cpp" // already within namespace
 //#include "../Shaders/liquity/app.cpp"
+#include "../Shaders/upgradable2/app_common_impl.h"
 
 #ifdef _MSC_VER
 #	pragma warning (default : 4200 4702)
@@ -721,6 +722,7 @@ namespace bvm2 {
 	{
 		MyProcessor& m_Proc;
 		std::ostringstream m_Out;
+		uint32_t m_Charge;
 
 		MyManager(MyProcessor& proc)
 			:m_Proc(proc)
@@ -848,6 +850,8 @@ namespace bvm2 {
 			auto& x = vInv.front();
 			if (x.m_Args.size() != nArgs)
 				return false;
+
+			m_Charge = x.m_Charge - Shaders::ManagerUpgadable2::get_ChargeInvoke() + bvm2::Limits::Cost::CallFar;
 
 			memcpy(pArgs, &x.m_Args.front(), nArgs);
 			return true;
@@ -1487,6 +1491,7 @@ namespace bvm2 {
 
 				verify_test(lc.InvokeTxUser(arg1, false));
 				std::cout << "Deposit to profit pool" << std::endl;
+				std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			}
 
 			Amount col = Rules::Coin * (35 + i * 5); // should be enough for 150% tcr
@@ -1505,6 +1510,7 @@ namespace bvm2 {
 			verify_test(lc.InvokeTxUser(args));
 
 			std::cout << "Trove opened" << std::endl;
+			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1523,6 +1529,7 @@ namespace bvm2 {
 			verify_test(lc.InvokeTxUser(args, false));
 
 			std::cout << "Stab" << i << ": Put=" << Val2Num(args.m_NewAmount) << std::endl;
+			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1539,6 +1546,7 @@ namespace bvm2 {
 			verify_test(lc.InvokeTxUser(args));
 
 			std::cout << "Redeem" << std::endl;
+			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1569,6 +1577,7 @@ namespace bvm2 {
 			verify_test(lc.InvokeTxUser(args));
 
 			std::cout << "Trove liquidating" << std::endl;
+			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1585,6 +1594,7 @@ namespace bvm2 {
 			verify_test(lc.InvokeTxUser(args, false));
 
 			std::cout << "Stab" << i << " all out" << std::endl;
+			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1606,6 +1616,7 @@ namespace bvm2 {
 			verify_test(lc.InvokeTx(args, pPk[iTrove - 1]));
 
 			std::cout << "Trove closing" << std::endl;
+			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1622,6 +1633,7 @@ namespace bvm2 {
 			verify_test(lc.InvokeTxUser(arg1, false));
 
 			std::cout << "profit withdraw" << std::endl;
+			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 	}
