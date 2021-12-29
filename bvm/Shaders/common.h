@@ -530,6 +530,21 @@ namespace Utils {
         }
     };
 
+    namespace details {
+
+        template <uint64_t x> struct Number {
+            template <uint32_t nRadix> struct Radix {
+                static const uint32_t nDigits = 1 + Number<x / nRadix>::template Radix<nRadix>::nDigits;
+            };
+        };
+
+        template <> struct Number<0> {
+            template <uint32_t nRadix> struct Radix {
+                static const uint32_t nDigits = 0;
+            };
+        };
+    }
+
     struct String
     {
         template <uint32_t nRadix>
@@ -557,16 +572,8 @@ namespace Utils {
             }
 
             template <uint64_t x> struct Digits {
-                static const uint32_t N_Raw = x ? (1 + Digits<x / nRadix>::N_Raw) : 0;
-                static const uint32_t N = N_Raw ? N_Raw : 1;
+                static const uint32_t N = x ? details::Number<x>::template Radix<nRadix>::nDigits : 1;
             };
-
-#ifdef _MSC_VER // the following specialization is needed for msvc. Other compilers don't need this, and they'll complain about specialization in non-namespace
-            template <> struct Digits<0> {
-                static const uint32_t N_Raw = 0;
-                static const uint32_t N = 1;
-            };
-#endif // _MSC_VER
 
             template <typename T> struct DigitsMax {
                 static const uint32_t N = Digits<static_cast<T>(-1)>::N;
