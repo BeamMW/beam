@@ -438,7 +438,10 @@ struct AppGlobalPlus
 
         StabPoolEntry e;
         if (!Env::VarReader::Read_T(k, e))
+        {
+            m_MyStab.m_Charge = 0;
             return false;
+        }
 
         EpochStorage stor(m_Kid.m_Blob.m_Cid);
 
@@ -640,7 +643,7 @@ namespace Charge
     }
 
     static const uint32_t RedistPoolOp =
-        Env::Cost::Cycle * 500;
+        Env::Cost::Cycle * 1000;
 
     static uint32_t TrovePull0()
     {
@@ -663,27 +666,50 @@ namespace Charge
         return nRet;
     }
 
+    static const uint32_t TrovePushCheck1 =
+        Env::Cost::Cycle * 200;
+
     static uint32_t TrovePush(Trove::ID iPrev, Trove::ID iNext)
     {
         uint32_t nRet =
             Env::Cost::SaveVar_For(sizeof(Trove)) +
             RedistPoolOp;
 
-        uint32_t nCount = (!!iPrev) + (!!iNext);
-        return
-            nRet +
-            (TrovePull0() + Env::Cost::SaveVar_For(sizeof(Trove))) * nCount;
+        if (iPrev)
+        {
+            nRet +=
+                TrovePull0() +
+                TrovePushCheck1 +
+                Env::Cost::SaveVar_For(sizeof(Trove));
+        }
+
+        if (iNext)
+        {
+            nRet +=
+                TrovePull0() +
+                TrovePushCheck1;
+        }
+
+        return nRet;
 
     }
+
+    static const uint32_t BorrowFee =
+        Env::Cost::Cycle * 1000;
 
     static const uint32_t StabPoolOp0 =
         Env::Cost::Cycle * 1000;
 
-    static const uint32_t Price =
-        Env::Cost::CallFar +
-        Env::Cost::LoadVar_For(sizeof(Oracle2::Median)) +
-        Env::Cost::Cycle * 50;
+    static const uint32_t Price()
+    {
+        return
+            Env::Cost::CallFar +
+            Env::Cost::LoadVar_For(sizeof(Oracle2::Median)) +
+            Env::Cost::Cycle * 50;
+    }
 
+    static const uint32_t TroveTest =
+        Env::Cost::Cycle * 1000;
 }
 
 ON_METHOD(user, withdraw_surplus)
@@ -837,7 +863,8 @@ ON_METHOD(user, trove_modify)
 
     uint32_t nCharge =
         Charge::StdCall() +
-        Charge::BankAccess();
+        Charge::BankAccess() +
+        Env::Cost::Cycle * 200;
 
     bool bPopped = g.PopMyTrove();
     if (bPopped)
@@ -857,6 +884,9 @@ ON_METHOD(user, trove_modify)
     if (!AdjustVal(t.m_Amounts.Tok, tok, opTok) ||
         !AdjustVal(t.m_Amounts.Col, col, opCol))
         return;
+
+    if (tok0 != t.m_Amounts.Tok)
+        nCharge += Env::Cost::AssetEmit;
 
     FundsChange pFc[2];
 
@@ -878,10 +908,15 @@ ON_METHOD(user, trove_modify)
         g.OnTroveMove(txb, 0);
 
         Amount fee = g.get_BorrowFee(t.m_Amounts.Tok, tok0, bRecovery, g.m_Price);
-        txb.m_Flow.Col.Add(fee, 1);
+        if (fee)
+        {
+            txb.m_Flow.Col.Add(fee, 1);
+            nCharge += Charge::BorrowFee;
+        }
 
         nCharge +=
-            Charge::Price +
+            Charge::Price() +
+            Charge::TroveTest +
             Charge::TrovePush(iPrev1, iNext1) +
             Charge::Funds(txb);
 
@@ -954,7 +989,7 @@ ON_METHOD(user, liquidate)
     uint32_t nCharge =
         Charge::StdCall() +
         Charge::BankAccess() +
-        Charge::Price;
+        Charge::Price();
 
 
     uint32_t nCount = 0;
@@ -976,22 +1011,27 @@ ON_METHOD(user, liquidate)
 
         nCharge +=
             Charge::TrovePull0() +
-            Env::Cost::Cycle * 50;
+            Charge::TroveTest +
+            Env::Cost::SaveVar; // trove del
 
         if (s0Stab != sStab)
         {
             s0Stab = sStab;
-            nCharge += Env::Cost::Cycle * 500;
+            nCharge += Charge::StabPoolOp0;
         }
 
         if (s0Redist != sRedist)
         {
             s0Redist = sRedist;
-            nCharge += Env::Cost::Cycle * 300;
+            nCharge += Charge::StabPoolOp0;
         }
 
         if (valSurplus)
-            nCharge += Charge::BankAccess_NoSig();
+        {
+            nCharge +=
+                Charge::BankAccess_NoSig() +
+                Env::Cost::Cycle * 500; // surplus calculation
+        }
 
         if (_POD_(g.m_MyTrove.m_Pk) == t.m_pkOwner)
             bSelf = true;
@@ -1017,6 +1057,7 @@ ON_METHOD(user, liquidate)
 
             nCharge +=
                 stor.m_Charge +
+                Env::Cost::AssetEmit +
                 Env::Cost::Cycle * 100;
 
         }
@@ -1027,6 +1068,9 @@ ON_METHOD(user, liquidate)
 
         FundsChange pFc[2];
         g.PrepareTroveTx(args, pFc);
+
+        nCharge +=
+            Charge::Funds(args);
 
         Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "troves liquidate", nCharge);
     }
@@ -1043,7 +1087,7 @@ ON_METHOD(user, redeem)
     uint32_t nCharge =
         Charge::StdCall() +
         Charge::BankAccess() +
-        Charge::Price;
+        Charge::Price();
 
     Global::Redeemer ctx;
     ctx.m_Price = g.m_Price;
@@ -1059,7 +1103,8 @@ ON_METHOD(user, redeem)
 
         nCharge +=
             Charge::TrovePull0() +
-            Env::Cost::Cycle * 500;
+            Charge::TroveTest +
+            Env::Cost::Cycle * 800;
 
         if (!g.RedeemTrove(t, ctx))
             break;
@@ -1071,6 +1116,12 @@ ON_METHOD(user, redeem)
 
             auto iNext1 = iPrev1 ? g.get_T(iPrev1).m_iNext : g.m_Troves.m_iHead;
             nCharge += Charge::TrovePush(iPrev1, iNext1);
+        }
+        else
+        {
+            nCharge
+                += Env::Cost::SaveVar + // del trove
+                Charge::BankAccess_NoSig(); // surplus
         }
     }
 
@@ -1088,8 +1139,6 @@ ON_METHOD(user, redeem)
         if (ctx.m_TokRemaining)
             OnError("insufficient redeemable troves");
 
-        nCharge += Env::Cost::Cycle * 300; // comission
-
         Method::Redeem args;
         args.m_Flow = ctx.m_fpLogic;
         args.m_Amount = val;
@@ -1097,6 +1146,11 @@ ON_METHOD(user, redeem)
 
         FundsChange pFc[2];
         g.PrepareTroveTx(args, pFc);
+
+        nCharge +=
+            Charge::Funds(args) +
+            Charge::BorrowFee +
+            Env::Cost::AssetEmit; // comission
 
         Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "redeem", nCharge);
     }
