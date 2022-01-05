@@ -15,17 +15,10 @@ struct MyState
         Env::SaveVar_T((uint8_t) Tags::s_State, *this);
     }
 
-    bool MaybeChangeEpoch()
+    void LoadPlus()
     {
-        auto iEpoch = get_Epoch();
-        if (m_iCurrentEpoch == iEpoch)
-            return false;
-
-        m_CurrentProposals = m_NextProposals;
-        m_NextProposals = 0;
-        m_iCurrentEpoch = iEpoch;
-
-        return true;
+        Load();
+        UpdateEpoch();
     }
 };
 
@@ -64,20 +57,21 @@ BEAM_EXPORT void Method_2(void*)
     // to be called on update
 }
 
-BEAM_EXPORT void Method_3(Method::AddProposal& r)
+BEAM_EXPORT void Method_3(const Method::AddProposal& r)
 {
     Env::Halt_if(r.m_Data.m_Variants > Proposal::s_VariantsMax);
 
     MyState s;
-    s.Load();
-    s.MaybeChangeEpoch();
+    s.LoadPlus();
 
     MyProposal p;
     p.m_Variants = r.m_Data.m_Variants;
     Env::Memset(p.m_pVals, 0, sizeof(*p.m_pVals) * p.m_Variants);
 
     p.m_Key.m_ID = ++s.m_iLastProposal;
+
     s.m_NextProposals++;
+    Env::Halt_if(s.m_NextProposals > Proposal::s_ProposalsPerEpochMax);
 
     p.Save();
     s.Save();
