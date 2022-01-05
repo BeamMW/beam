@@ -9,6 +9,7 @@ namespace DaoVote
         static const uint8_t s_State = 0;
         // don't use taag=1 for multiple data entries, it's used by Upgradable2
         static const uint8_t s_Proposal = 2;
+        static const uint8_t s_User = 3;
     };
 
     struct Cfg
@@ -58,6 +59,21 @@ namespace DaoVote
                 m_NextProposals = 0;
             }
         }
+    };
+
+    struct User
+    {
+        struct Key {
+            uint8_t m_Tag = Tags::s_User;
+            PubKey m_pk;
+        };
+
+        uint32_t m_iEpoch;
+        Amount m_Stake;
+        Amount m_StakeNext;
+
+        // followed by the votes for the epoch's proposal
+
     };
 
     struct Events

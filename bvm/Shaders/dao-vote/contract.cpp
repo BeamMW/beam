@@ -1,5 +1,6 @@
 ////////////////////////
 #include "../common.h"
+#include "../Math.h"
 #include "contract.h"
 
 namespace DaoVote {
@@ -20,6 +21,8 @@ struct MyState
         Load();
         UpdateEpoch();
     }
+
+    void AdjustVotes(const uint8_t* p0, const uint8_t* p1, Amount v0, Amount v1, bool bHasPrev) const;
 };
 
 struct MyProposal
@@ -37,6 +40,75 @@ struct MyProposal
     }
 
 };
+
+void MyState::AdjustVotes(const uint8_t* p0, const uint8_t* p1, Amount v0, Amount v1, bool bHasPrev) const
+{
+    MyProposal p;
+    p.m_Key.m_ID = m_iLastProposal - m_NextProposals - m_CurrentProposals;
+
+    bool bTrySkip = (bHasPrev && (v0 == v1));
+
+    for (uint32_t i = 0; i < m_CurrentProposals; i++)
+    {
+        ++p.m_Key.m_ID;
+
+        if (bTrySkip && (p0[i] == p1[i]))
+            continue;
+
+        p.Load();
+        if (bHasPrev)
+        {
+            auto n0 = p0[0];
+            assert(n0 < p.m_Variants);
+            assert(p.m_pVals[n0] >= v0);
+            p.m_pVals[n0] -= v0;
+        }
+
+        auto n1 = p1[0];
+        Env::Halt_if(n1 >= p.m_Variants);
+        p.m_pVals[n1] += v1;
+
+        p.Save();
+    }
+}
+
+struct MyUser
+{
+    User::Key m_Key;
+    uint32_t m_Proposals;
+
+    struct UserPlus
+        :public User
+    {
+        uint8_t m_pVotes[Proposal::s_ProposalsPerEpochMax];
+    } m_U;
+
+    bool Load()
+    {
+        uint32_t nSize = Env::LoadVar(&m_Key, sizeof(m_Key), &m_U, sizeof(m_U), KeyTag::Internal);
+        if (!nSize)
+            return false;
+
+        m_Proposals = (nSize - sizeof(User)) / sizeof(*m_U.m_pVotes);
+        return true;
+    }
+
+    void Save() {
+        Env::SaveVar(&m_Key, sizeof(m_Key), &m_U, sizeof(User) + sizeof(*m_U.m_pVotes) * m_Proposals, KeyTag::Internal);
+    }
+
+    void OnEpoch(uint32_t iEpoch)
+    {
+        if (m_U.m_iEpoch != iEpoch)
+        {
+            m_U.m_iEpoch = iEpoch;
+            m_U.m_Stake += m_U.m_StakeNext;
+            m_U.m_StakeNext = 0;
+            m_Proposals = 0;
+        }
+    }
+};
+
 
 BEAM_EXPORT void Ctor(const Method::Create& r)
 {
@@ -83,5 +155,79 @@ BEAM_EXPORT void Method_3(const Method::AddProposal& r)
     Env::EmitLog(&key, sizeof(key), &r.m_Data, sizeof(&r.m_Data) + r.m_TxtLen, KeyTag::Internal);
 }
 
+BEAM_EXPORT void Method_4(const Method::MoveFunds& r)
+{
+    MyState s;
+    s.LoadPlus();
+
+    MyUser u;
+    _POD_(u.m_Key.m_pk) = r.m_pkUser;
+    if (u.Load())
+        u.OnEpoch(s.m_iCurrentEpoch);
+    else
+    {
+        _POD_(Cast::Down<User>(u.m_U)).SetZero();
+        u.m_U.m_iEpoch = s.m_iCurrentEpoch;
+        u.m_Proposals = 0;
+    }
+
+    if (r.m_Lock)
+    {
+        u.m_U.m_StakeNext += r.m_Amount;
+        Env::FundsLock(s.m_Cfg.m_Aid, r.m_Amount);
+    }
+    else
+    {
+        if (u.m_U.m_StakeNext >= r.m_Amount)
+            u.m_U.m_StakeNext -= r.m_Amount;
+        else
+        {
+            Amount val0 = u.m_U.m_Stake;
+
+            Strict::Sub(u.m_U.m_Stake, r.m_Amount - u.m_U.m_StakeNext);
+            u.m_U.m_StakeNext = 0;
+
+            if (u.m_Proposals)
+                s.AdjustVotes(u.m_U.m_pVotes, u.m_U.m_pVotes, val0, u.m_U.m_Stake, true);
+        }
+
+        Env::FundsUnlock(s.m_Cfg.m_Aid, r.m_Amount);
+
+        Env::AddSig(r.m_pkUser);
+    }
+
+    if (u.m_U.m_Stake || u.m_U.m_StakeNext)
+        u.Save();
+    else
+        Env::DelVar_T(u.m_Key);
+}
+
+BEAM_EXPORT void Method_5(const Method::Vote& r)
+{
+    MyState s;
+    s.LoadPlus();
+
+    Env::Halt_if((s.m_iCurrentEpoch != r.m_iEpoch) || !s.m_CurrentProposals);
+
+    MyUser u;
+    _POD_(u.m_Key.m_pk) = r.m_pkUser;
+    Env::Halt_if(!u.Load());
+
+    u.OnEpoch(s.m_iCurrentEpoch);
+
+    Amount val = u.m_U.m_Stake;
+    Env::Halt_if(!val);
+
+    auto pV = reinterpret_cast<const uint8_t*>(&r + 1);
+
+    s.AdjustVotes(u.m_U.m_pVotes, pV, val, val, (u.m_Proposals == s.m_CurrentProposals));
+
+    u.m_Proposals = s.m_CurrentProposals;
+    Env::Memcpy(u.m_U.m_pVotes, pV, sizeof(*pV) * u.m_Proposals);
+
+    u.Save();
+
+    Env::AddSig(r.m_pkUser);
+}
 
 } // namespace DaoVote
