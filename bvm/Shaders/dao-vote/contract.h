@@ -7,9 +7,10 @@ namespace DaoVote
     struct Tags
     {
         static const uint8_t s_State = 0;
-        // don't use taag=1 for multiple data entries, it's used by Upgradable2
+        // don't use tag=1 for multiple data entries, it's used by Upgradable2
         static const uint8_t s_Proposal = 2;
         static const uint8_t s_User = 3;
+        static const uint8_t s_Dividend = 4;
     };
 
     struct Cfg
@@ -34,6 +35,30 @@ namespace DaoVote
         // followed by variants
     };
 
+    struct AssetAmount {
+        AssetID m_Aid;
+        Amount m_Amount;
+    };
+
+    struct Dividend0
+    {
+        struct Key {
+            uint8_t m_Tag = Tags::s_Dividend;
+            uint32_t m_iEpoch;
+        };
+
+        Amount m_Stake;
+
+        // followed by array of AssetAmount
+        static const uint32_t s_AssetsMax = 64;
+    };
+
+    struct DividendMax
+        :public Dividend0
+    {
+        AssetAmount m_pArr[s_AssetsMax];
+    };
+
     struct State
     {
         Cfg m_Cfg;
@@ -45,20 +70,18 @@ namespace DaoVote
         }
 
         Proposal::ID m_iLastProposal;
-        uint32_t m_iCurrentEpoch;
-        uint32_t m_CurrentProposals;
-        uint32_t m_NextProposals;
 
-        void UpdateEpoch()
-        {
-            auto iEpoch = get_Epoch();
-            if (m_iCurrentEpoch != iEpoch)
-            {
-                m_iCurrentEpoch = iEpoch;
-                m_CurrentProposals = (m_iCurrentEpoch + 1 == iEpoch) ? m_NextProposals : 0;
-                m_NextProposals = 0;
-            }
-        }
+        struct Current {
+            uint32_t m_iEpoch;
+            uint32_t m_Proposals;
+            uint32_t m_iDividendEpoch; // set to 0 if no reward
+            Amount m_Stake;
+        } m_Current;
+
+        struct Next {
+            uint32_t m_Proposals;
+            uint32_t m_iDividendEpoch;
+        } m_Next;
     };
 
     struct User
@@ -69,6 +92,7 @@ namespace DaoVote
         };
 
         uint32_t m_iEpoch;
+        uint32_t m_iDividendEpoch;
         Amount m_Stake;
         Amount m_StakeNext;
 
@@ -128,6 +152,11 @@ namespace DaoVote
             // followed by appropriate vote per proposal
         };
 
+        struct AddDividend
+        {
+            static const uint32_t s_iMethod = 6;
+            AssetAmount m_Val;
+        };
     }
 #pragma pack (pop)
 
