@@ -14,7 +14,7 @@ struct MyDividend
     void Load() {
         uint32_t nSize = Env::LoadVar(&m_Key, sizeof(m_Key), this, sizeof(DividendMax), KeyTag::Internal);
         assert(nSize >= sizeof(Dividend0));
-        m_Assets = (nSize / sizeof(Dividend0)) / sizeof(*m_pArr);
+        m_Assets = (nSize - sizeof(Dividend0)) / sizeof(*m_pArr);
     }
 
     void Save() {
@@ -55,11 +55,16 @@ struct MyState
                 d.m_Stake = m_Current.m_Stake;
                 d.Save();
 
-                m_Current.m_iDividendEpoch = m_Next.m_iDividendEpoch;
-                m_Next.m_iDividendEpoch = 0;
+                m_Current.m_iDividendEpoch = 0;
             }
 
             m_Current.m_Stake = 0;
+        }
+
+        if (!m_Current.m_iDividendEpoch)
+        {
+            m_Current.m_iDividendEpoch = m_Next.m_iDividendEpoch;
+            m_Next.m_iDividendEpoch = 0;
         }
 
         return true;
@@ -106,13 +111,13 @@ void MyState::AdjustVotes(const uint8_t* p0, const uint8_t* p1, Amount v0, Amoun
         p.Load();
         if (bHasPrev)
         {
-            auto n0 = p0[0];
+            auto n0 = p0[i];
             assert(n0 < p.m_Variants);
             assert(p.m_pVals[n0] >= v0);
             p.m_pVals[n0] -= v0;
         }
 
-        auto n1 = p1[0];
+        auto n1 = p1[i];
         Env::Halt_if(n1 >= p.m_Variants);
         p.m_pVals[n1] += v1;
 
@@ -167,42 +172,47 @@ struct MyUser
     {
         if (m_U.m_iEpoch != iEpoch)
         {
-            if (m_U.m_iDividendEpoch && m_U.m_Stake)
+            if (m_U.m_iDividendEpoch)
             {
-                MyDividend d;
-                d.m_Key.m_iEpoch = m_U.m_iDividendEpoch;
-                d.Load();
-
-                bool bLast = (m_U.m_Stake == d.m_Stake);
-                MultiPrecision::Float k;
-
-                if (!bLast)
+                if (m_U.m_Stake)
                 {
-                    assert(m_U.m_Stake < d.m_Stake);
-                    k = MultiPrecision::Float(m_U.m_Stake) / MultiPrecision::Float(d.m_Stake);
-                }
+                    MyDividend d;
+                    d.m_Key.m_iEpoch = m_U.m_iDividendEpoch;
+                    d.Load();
 
-                for (uint32_t i = 0; i < d.m_Assets; i++)
-                {
-                    auto& v = d.m_pArr[i];
+                    bool bLast = (m_U.m_Stake == d.m_Stake);
+                    MultiPrecision::Float k;
 
-                    Amount val = v.m_Amount;
                     if (!bLast)
                     {
-                        val = MultiPrecision::Float(val) * k;
-                        v.m_Amount -= val;
+                        assert(m_U.m_Stake < d.m_Stake);
+                        k = MultiPrecision::Float(m_U.m_Stake) / MultiPrecision::Float(d.m_Stake);
                     }
 
-                    Env::FundsUnlock(v.m_Aid, val);
+                    for (uint32_t i = 0; i < d.m_Assets; i++)
+                    {
+                        auto& v = d.m_pArr[i];
+
+                        Amount val = v.m_Amount;
+                        if (!bLast)
+                        {
+                            val = MultiPrecision::Float(val) * k;
+                            v.m_Amount -= val;
+                        }
+
+                        Env::FundsUnlock(v.m_Aid, val);
+                    }
+
+                    if (bLast)
+                        Env::DelVar_T(d.m_Key);
+                    else
+                    {
+                        d.m_Stake -= m_U.m_Stake;
+                        d.Save();
+                    }
                 }
 
-                if (bLast)
-                    Env::DelVar_T(d.m_Key);
-                else
-                {
-                    d.m_Stake -= m_U.m_Stake;
-                    d.Save();
-                }
+                m_U.m_iDividendEpoch = 0;
             }
 
             m_U.m_iEpoch = iEpoch;
@@ -348,6 +358,7 @@ BEAM_EXPORT void Method_5(const Method::Vote& r)
 BEAM_EXPORT void Method_6(const Method::AddDividend& r)
 {
     Env::Halt_if(!r.m_Val.m_Amount);
+    Env::FundsLock(r.m_Val.m_Aid, r.m_Val.m_Amount);
 
     MyState_AutoSave s;
 
@@ -360,7 +371,9 @@ BEAM_EXPORT void Method_6(const Method::AddDividend& r)
     else
     {
         s.m_Next.m_iDividendEpoch = s.m_Current.m_iEpoch + 1;
+        s.m_Dirty = true;
         d.m_Key.m_iEpoch = s.m_Next.m_iDividendEpoch;
+        d.m_Assets = 0;
         d.m_Stake = 0;
     }
 

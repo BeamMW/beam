@@ -266,6 +266,20 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Cfg.m_Aid);
 		ConvertOrd<bToShader>(x.m_Cfg.m_hEpochDuration);
 	}
+	template <bool bToShader> void Convert(DaoVote::Method::AddProposal& x) {
+		ConvertOrd<bToShader>(x.m_TxtLen);
+		ConvertOrd<bToShader>(x.m_Data.m_Variants);
+	}
+	template <bool bToShader> void Convert(DaoVote::Method::AddDividend& x) {
+		ConvertOrd<bToShader>(x.m_Val.m_Aid);
+		ConvertOrd<bToShader>(x.m_Val.m_Amount);
+	}
+	template <bool bToShader> void Convert(DaoVote::Method::MoveFunds& x) {
+		ConvertOrd<bToShader>(x.m_Amount);
+	}
+	template <bool bToShader> void Convert(DaoVote::Method::Vote& x) {
+		ConvertOrd<bToShader>(x.m_iEpoch);
+	}
 
 	template <bool bToShader> void Convert(Aphorize::Create& x) {
 		ConvertOrd<bToShader>(x.m_Cfg.m_hPeriod);
@@ -665,6 +679,10 @@ namespace bvm2 {
 			//	switch (iMethod)
 			//	{
 			//	case 0: Shaders::DaoVote::Ctor(CastArg<Shaders::DaoVote::Method::Create>(pArgs)); return;
+			//	case 3: Shaders::DaoVote::Method_3(CastArg<Shaders::DaoVote::Method::AddProposal>(pArgs)); return;
+			//	case 4: Shaders::DaoVote::Method_4(CastArg<Shaders::DaoVote::Method::MoveFunds>(pArgs)); return;
+			//	case 5: Shaders::DaoVote::Method_5(CastArg<Shaders::DaoVote::Method::Vote>(pArgs)); return;
+			//	case 6: Shaders::DaoVote::Method_6(CastArg<Shaders::DaoVote::Method::AddDividend>(pArgs)); return;
 			//	}
 			//}
 
@@ -3014,6 +3032,59 @@ namespace bvm2 {
 			verify_test(ContractCreate_T(m_DaoVote.m_Cid, m_DaoVote.m_Code, args));
 		}
 		//VERIFY_ID(Shaders::DaoVote::s_SID, m_DaoVote.m_Sid);
+
+		for (uint32_t iEpoch = 1; iEpoch <= 4; iEpoch++, m_Height += 50)
+		{
+			const uint32_t nProposalsPerEpoch = 3;
+			for (uint32_t i = 0; i < nProposalsPerEpoch; i++)
+			{
+				Shaders::DaoVote::Method::AddProposal args;
+				args.m_TxtLen = 0;
+				args.m_Data.m_Variants = i + 2;
+
+				verify_test(RunGuarded_T(m_DaoVote.m_Cid, args.s_iMethod, args));
+			}
+
+			for (uint32_t i = 0; i < 4; i++)
+			{
+				Shaders::DaoVote::Method::AddDividend args;
+				args.m_Val.m_Aid = 33 + i;
+				args.m_Val.m_Amount = Rules::Coin * 40;
+				verify_test(RunGuarded_T(m_DaoVote.m_Cid, args.s_iMethod, args));
+			}
+
+			for (uint32_t i = 0; i < 5; i++)
+			{
+				Shaders::DaoVote::Method::MoveFunds args;
+				ZeroObject(args);
+				args.m_Amount = 20 + i;
+				args.m_Lock = 1;
+				args.m_pkUser.m_X = i;
+				verify_test(RunGuarded_T(m_DaoVote.m_Cid, args.s_iMethod, args));
+			}
+
+			if (iEpoch <= 1)
+				continue; // no proposals yet
+
+			for (uint32_t i = 0; i < 5; i++)
+			{
+#pragma pack (push, 1)
+				struct MyArgs :public Shaders::DaoVote::Method::Vote {
+					uint8_t m_Vote[nProposalsPerEpoch];
+				};
+#pragma pack (pop)
+
+				MyArgs args;
+				ZeroObject(args);
+				args.m_iEpoch = iEpoch;
+				args.m_pkUser.m_X = i;
+				args.m_Vote[1] = 1;
+				args.m_Vote[2] = 2;
+
+				verify_test(RunGuarded_T(m_DaoVote.m_Cid, args.s_iMethod, args));
+			}
+
+		}
 	}
 
 } // namespace bvm2
