@@ -63,6 +63,7 @@ namespace Shaders {
 #include "../Shaders/mirrorcoin/contract.h"
 #include "../Shaders/voting/contract.h"
 #include "../Shaders/dao-core/contract.h"
+#include "../Shaders/dao-vote/contract.h"
 #include "../Shaders/aphorize/contract.h"
 #include "../Shaders/liquity/contract.h"
 
@@ -261,6 +262,11 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Amount);
 	}
 
+	template <bool bToShader> void Convert(DaoVote::Method::Create& x) {
+		ConvertOrd<bToShader>(x.m_Cfg.m_Aid);
+		ConvertOrd<bToShader>(x.m_Cfg.m_hEpochDuration);
+	}
+
 	template <bool bToShader> void Convert(Aphorize::Create& x) {
 		ConvertOrd<bToShader>(x.m_Cfg.m_hPeriod);
 		ConvertOrd<bToShader>(x.m_Cfg.m_PriceSubmit);
@@ -357,6 +363,7 @@ namespace Shaders {
 #include "../Shaders/aphorize/contract.cpp"
 	}
 
+#include "../Shaders/dao-vote/contract.cpp" // already within namespace
 #include "../Shaders/liquity/contract.cpp" // already within namespace
 //#include "../Shaders/liquity/app.cpp"
 #include "../Shaders/upgradable2/app_common_impl.h"
@@ -471,6 +478,7 @@ namespace bvm2 {
 		ContractWrap m_MirrorCoin;
 		ContractWrap m_Voting;
 		ContractWrap m_DaoCore;
+		ContractWrap m_DaoVote;
 		ContractWrap m_Aphorize;
 		ContractWrap m_Liquity;
 
@@ -651,6 +659,15 @@ namespace bvm2 {
 				//}
 			}
 
+			//if (cid == m_DaoVote.m_Cid)
+			//{
+			//	TempFrame f(*this, cid);
+			//	switch (iMethod)
+			//	{
+			//	case 0: Shaders::DaoVote::Ctor(CastArg<Shaders::DaoVote::Method::Create>(pArgs)); return;
+			//	}
+			//}
+
 			if (cid == m_Aphorize.m_Cid)
 			{
 				//TempFrame f(*this, cid);
@@ -691,6 +708,7 @@ namespace bvm2 {
 		void TestMirrorCoin();
 		void TestVoting();
 		void TestDaoCore();
+		void TestDaoVote();
 		void TestAphorize();
 		void TestLiquity();
 
@@ -898,6 +916,7 @@ namespace bvm2 {
 		AddCode(m_MirrorCoin, "mirrorcoin/contract.wasm");
 		AddCode(m_Voting, "voting/contract.wasm");
 		AddCode(m_DaoCore, "dao-core/contract.wasm");
+		AddCode(m_DaoVote, "dao-vote/contract.wasm");
 		AddCode(m_Aphorize, "aphorize/contract.wasm");
 		AddCode(m_Liquity, "liquity/contract.wasm");
 
@@ -910,6 +929,7 @@ namespace bvm2 {
 		TestRoulette();
 		TestVoting();
 		TestDaoCore();
+		TestDaoVote();
 		TestDummy();
 		TestSidechain();
 		TestOracle();
@@ -2983,6 +3003,18 @@ namespace bvm2 {
 */
 	}
 
+	void MyProcessor::TestDaoVote()
+	{
+		{
+			Shaders::DaoVote::Method::Create args;
+			ZeroObject(args);
+			args.m_Cfg.m_Aid = 22;
+			args.m_Cfg.m_hEpochDuration = 50;
+
+			verify_test(ContractCreate_T(m_DaoVote.m_Cid, m_DaoVote.m_Code, args));
+		}
+		//VERIFY_ID(Shaders::DaoVote::s_SID, m_DaoVote.m_Sid);
+	}
 
 } // namespace bvm2
 
