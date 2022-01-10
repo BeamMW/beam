@@ -16,7 +16,9 @@
 
 #ifndef HOST_BUILD
 
+#ifndef _MSC_VER
 #pragma clang section bss = "disable_bss_for_global_zeroinitialized_vars_use_standard_data_section"
+#endif
 
 // Common ord types
 typedef unsigned char uint8_t;
@@ -68,7 +70,11 @@ inline void ConvertOrd(T&) {}
 #   define _countof(x) (sizeof(x) / sizeof((x)[0]))
 #endif // _countof
 
+#ifndef _MSC_VER
 #   define BEAM_EXPORT __attribute__( ( visibility( "default" ) ) ) extern "C"
+#else
+#   define BEAM_EXPORT extern "C"
+#endif
 
 #ifndef assert
 #   define assert(expr) do {} while (false)
@@ -419,6 +425,10 @@ namespace std {
 
 #endif // HOST_BUILD
 
+#if defined(_MSC_VER) && !defined(HOST_BUILD)
+#include <stdlib.h>
+#endif
+
 namespace Utils {
 
     template <typename T> struct BlobOf
@@ -473,15 +483,27 @@ namespace Utils {
     }
 
     inline uint16_t FromBE(uint16_t x) {
+#ifdef _MSC_VER
+        return _byteswap_ushort(x);
+#else
         return __builtin_bswap16(x);
+#endif
     }
 
     inline uint32_t FromBE(uint32_t x) {
+#ifdef _MSC_VER
+        return _byteswap_ulong(x);
+#else
         return __builtin_bswap32(x);
+#endif
     }
 
     inline uint64_t FromBE(uint64_t x) {
+#ifdef _MSC_VER
+        return _byteswap_uint64(x);
+#else
         return __builtin_bswap64(x);
+#endif
     }
 
     template <typename T>

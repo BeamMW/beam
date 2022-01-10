@@ -29,5 +29,6 @@ if(NOT ANDROID AND NOT IOS)
 endif()
 
 if(BEAM_TESTS_ENABLED)
+    #add_subdirectory(Shaders/liquity)
     add_subdirectory(unittest)
 endif()
