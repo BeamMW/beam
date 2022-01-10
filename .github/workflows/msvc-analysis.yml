@@ -9,8 +9,8 @@
 name: Microsoft C++ Code Analysis
 
 on:
-  #push:
-  #  branches: [ master ]
+  push:
+    branches: [ master ]
   #pull_request:
   #  branches: [ master ]
   schedule:
