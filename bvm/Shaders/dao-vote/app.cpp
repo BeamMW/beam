@@ -7,18 +7,33 @@
 #define DaoVote_manager_view(macro)
 #define DaoVote_manager_view_params(macro) macro(ContractID, cid)
 #define DaoVote_manager_my_admin_key(macro)
-#define DaoVote_manager_my_uid(macro) macro(ContractID, cid)
 #define DaoVote_manager_explicit_upgrade(macro) macro(ContractID, cid)
+
+#define DaoVote_manager_view_proposals(macro) \
+    macro(ContractID, cid) \
+    macro(Proposal::ID, id0) \
+    macro(uint32_t, nCount)
+
+#define DaoVote_manager_view_proposal(macro) \
+    macro(ContractID, cid) \
+    macro(Proposal::ID, id)
 
 #define DaoVoteRole_manager(macro) \
     macro(manager, view) \
     macro(manager, explicit_upgrade) \
     macro(manager, view_params) \
-    macro(manager, my_uid) \
+    macro(manager, view_proposals) \
+    macro(manager, view_proposal) \
     macro(manager, my_admin_key)
 
+#define DaoVote_user_my_key(macro) macro(ContractID, cid)
+
+#define DaoVoteRole_user(macro) \
+    macro(user, my_key) \
+
 #define DaoVoteRoles_All(macro) \
-    macro(manager)
+    macro(manager) \
+    macro(user)
 
 BEAM_EXPORT void Method_0()
 {
@@ -172,6 +187,69 @@ ON_METHOD(manager, view_params)
 
 }
 
+ON_METHOD(manager, my_admin_key)
+{
+    PubKey pk;
+    AdminKeyID().get_Pk(pk);
+    Env::DocAddBlob_T("admin_key", pk);
+}
+
+ON_METHOD(manager, view_proposals)
+{
+    Env::Key_T<Events::Proposal::Key> k0, k1;
+    _POD_(k0.m_Prefix.m_Cid) = cid;
+    _POD_(k1.m_Prefix.m_Cid) = cid;
+    k0.m_KeyInContract.m_ID_be = Utils::FromBE(id0);
+
+    uint32_t id1 = id0 + nCount - 1;
+    k1.m_KeyInContract.m_ID_be = (id1 >= id0) ? Utils::FromBE(id1) : static_cast<uint32_t>(-1);
+
+    Env::DocArray gr("res");
+
+    for (Env::LogReader r(k0, k1); ; )
+    {
+        uint32_t nKey = sizeof(k0), nVal = 0;
+        if (!r.MoveNext(&k0, nKey, nullptr, nVal, 0))
+            break;
+
+        if ((sizeof(k0) != nKey) || (nVal < sizeof(Events::Proposal)))
+            continue;
+
+        auto* pProp = (Events::Proposal*) Env::StackAlloc(nVal + 1);
+        r.MoveNext(&k0, nKey, pProp, nVal, 1);
+
+        Env::DocGroup gr1("");
+        Env::DocAddNum("id", Utils::FromBE(k0.m_KeyInContract.m_ID_be));
+        Env::DocAddNum("height", r.m_Pos.m_Height);
+        Env::DocAddNum("variants", pProp->m_Variants);
+
+        ((char*) pProp)[nVal] = 0; // text 0-term
+        Env::DocAddText("text", (const char*) (pProp + 1));
+        
+        Env::StackFree(nVal + 1);
+    }
+}
+
+ON_METHOD(manager, view_proposal)
+{
+    Env::Key_T<Proposal::Key> key;
+    _POD_(key.m_Prefix.m_Cid) = cid;
+    key.m_KeyInContract.m_ID = id;
+
+    Env::VarReader r(key, key);
+
+    ProposalMax p;
+    uint32_t nKey = sizeof(key), nVal = sizeof(p);
+    if (!r.MoveNext(&key, nKey, &p, nVal, 0))
+        return OnError("no proposal");
+
+    uint32_t nVariants = nVal / sizeof(*p.m_pVariant);
+
+    Env::DocArray gr("variants");
+    for (uint32_t i = 0; i < nVariants; i++)
+        Env::DocAddNum("", p.m_pVariant[i]);
+}
+
 struct UserKeyID :public Env::KeyID {
     UserKeyID(const ContractID& cid)
     {
@@ -180,18 +258,11 @@ struct UserKeyID :public Env::KeyID {
     }
 };
 
-ON_METHOD(manager, my_uid)
+ON_METHOD(user, my_key)
 {
     PubKey pk;
     UserKeyID(cid).get_Pk(pk);
-    Env::DocAddBlob_T("uid", pk);
-}
-
-ON_METHOD(manager, my_admin_key)
-{
-    PubKey pk;
-    AdminKeyID().get_Pk(pk);
-    Env::DocAddBlob_T("admin_key", pk);
+    Env::DocAddBlob_T("key", pk);
 }
 
 #undef ON_METHOD
