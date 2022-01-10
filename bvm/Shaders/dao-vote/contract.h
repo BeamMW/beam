@@ -2,6 +2,8 @@
 
 namespace DaoVote
 {
+    static const ShaderID s_SID = { 0xb5,0x43,0x84,0x6d,0x6e,0xa0,0x8f,0x1d,0x70,0x29,0x13,0xc7,0x96,0x11,0x00,0x64,0xd5,0x58,0x54,0x7a,0x63,0xfe,0xbe,0x80,0x1a,0x35,0x38,0x55,0x01,0x6a,0x56,0xba };
+
 #pragma pack (push, 1)
 
     struct Tags
@@ -33,6 +35,12 @@ namespace DaoVote
         static const uint32_t s_ProposalsPerEpochMax = 50;
 
         // followed by variants
+    };
+
+    struct ProposalMax
+        :public Proposal
+    {
+        Amount m_pVariant[s_VariantsMax];
     };
 
     struct AssetAmount {
@@ -156,6 +164,15 @@ namespace DaoVote
         {
             static const uint32_t s_iMethod = 6;
             AssetAmount m_Val;
+        };
+
+        struct GetResults
+        {
+            static const uint32_t s_iMethod = 7;
+            Proposal::ID m_ID;
+            uint32_t m_Variants; // in/out
+            uint8_t m_Finished;
+            // followed by variants
         };
     }
 #pragma pack (pop)

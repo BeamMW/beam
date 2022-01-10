@@ -80,17 +80,18 @@ struct MyState
 };
 
 struct MyProposal
+    :public ProposalMax
 {
     Proposal::Key m_Key;
     uint32_t m_Variants;
-    Amount m_pVals[Proposal::s_VariantsMax];
 
     void Load() {
-        m_Variants = Env::LoadVar(&m_Key, sizeof(m_Key), m_pVals, sizeof(m_pVals), KeyTag::Internal) / sizeof(*m_pVals);
+        uint32_t nSize = Env::LoadVar(&m_Key, sizeof(m_Key), this, sizeof(ProposalMax), KeyTag::Internal);
+        m_Variants = nSize / sizeof(*m_pVariant);
     }
 
     void Save() {
-        Env::SaveVar(&m_Key, sizeof(m_Key), m_pVals, sizeof(*m_pVals) * m_Variants, KeyTag::Internal);
+        Env::SaveVar(&m_Key, sizeof(m_Key), this, sizeof(*m_pVariant) * m_Variants, KeyTag::Internal);
     }
 };
 
@@ -113,13 +114,13 @@ void MyState::AdjustVotes(const uint8_t* p0, const uint8_t* p1, Amount v0, Amoun
         {
             auto n0 = p0[i];
             assert(n0 < p.m_Variants);
-            assert(p.m_pVals[n0] >= v0);
-            p.m_pVals[n0] -= v0;
+            assert(p.m_pVariant[n0] >= v0);
+            p.m_pVariant[n0] -= v0;
         }
 
         auto n1 = p1[i];
         Env::Halt_if(n1 >= p.m_Variants);
-        p.m_pVals[n1] += v1;
+        p.m_pVariant[n1] += v1;
 
         p.Save();
     }
@@ -252,7 +253,7 @@ BEAM_EXPORT void Method_3(const Method::AddProposal& r)
 
     MyProposal p;
     p.m_Variants = r.m_Data.m_Variants;
-    Env::Memset(p.m_pVals, 0, sizeof(*p.m_pVals) * p.m_Variants);
+    Env::Memset(p.m_pVariant, 0, sizeof(*p.m_pVariant) * p.m_Variants);
 
     p.m_Key.m_ID = ++s.m_iLastProposal;
 
@@ -395,6 +396,35 @@ BEAM_EXPORT void Method_6(const Method::AddDividend& r)
     }
 
     d.Save();
+}
+
+BEAM_EXPORT void Method_7(Method::GetResults& r)
+{
+    MyState s;
+    s.Load();
+
+    r.m_Finished = 0;
+
+    if (r.m_ID > s.m_iLastProposal)
+        r.m_Variants = 0;
+    else
+    {
+        MyProposal p;
+        p.m_Key.m_ID = r.m_ID;
+        p.Load();
+
+        uint32_t nVars = std::min(r.m_Variants, p.m_Variants);
+        r.m_Variants = p.m_Variants;
+
+        Env::Memcpy(&r + 1, p.m_pVariant, sizeof(*p.m_pVariant) * nVars);
+
+        uint32_t nUnfinished = s.m_Next.m_Proposals;
+        if (s.get_Epoch() == s.m_Current.m_iEpoch)
+            nUnfinished += s.m_Current.m_Proposals;
+
+        if (r.m_ID <= s.m_iLastProposal - nUnfinished)
+            r.m_Finished = 1;
+    }
 }
 
 } // namespace DaoVote

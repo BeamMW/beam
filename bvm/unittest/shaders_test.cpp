@@ -3031,7 +3031,7 @@ namespace bvm2 {
 
 			verify_test(ContractCreate_T(m_DaoVote.m_Cid, m_DaoVote.m_Code, args));
 		}
-		//VERIFY_ID(Shaders::DaoVote::s_SID, m_DaoVote.m_Sid);
+		VERIFY_ID(Shaders::DaoVote::s_SID, m_DaoVote.m_Sid);
 
 		for (uint32_t iEpoch = 1; iEpoch <= 4; iEpoch++, m_Height += 50)
 		{
