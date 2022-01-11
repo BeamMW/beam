@@ -28,14 +28,24 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+      
+      - name: Checkout OpenSSL prebuild
+        uses: actions/checkout@v2
+        with:
+          repository: https://github.com/BeamMW/libs.git
+          
+      - name: Checkout Boost prebuild
+        uses: actions/checkout@v2
+        with:
+          repository: https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git
 
       - name: Configure CMake
         shell: bash
         run: |
-          git clone --depth=1 https://github.com/BeamMW/libs.git c:/beam-libs
-          echo "OPENSSL_ROOT_DIR=c:\beam-libs\openssl" >> $GITHUB_ENV
-          git clone https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git c:/boost_prebuild
-          echo "BOOST_ROOT=c:\boost_prebuild" >> $GITHUB_ENV
+          #git clone --depth=1 https://github.com/BeamMW/libs.git c:/beam-libs
+          echo "OPENSSL_ROOT_DIR=${{ github.workspace }}\beam-libs\openssl" >> $GITHUB_ENV
+          #git clone https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git c:/boost_prebuild
+          echo "BOOST_ROOT=${{ github.workspace }}\boost_prebuild" >> $GITHUB_ENV
           cmake -B ${{ env.build }}
 
       # Build is not required unless generated source files are used
