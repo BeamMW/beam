@@ -239,6 +239,13 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::setNodeAddress, addr);
     }
 
+    #ifdef BEAM_IPFS_SUPPORT
+    void setIPFSConfig(asio_ipfs::config&& cfg)
+    {
+        call_async(&IWalletModelAsync::setIPFSConfig, std::move(cfg));
+    }
+    #endif
+
     void changeWalletPassword(const SecString& pass) override
     {
         // TODO: should be investigated, don't know how to "move" SecString into lambda
@@ -799,6 +806,28 @@ namespace beam::wallet
         }
 
         return sp;
+    }
+
+    void WalletClient::setIPFSConfig(asio_ipfs::config&& cfg)
+    {
+        //
+        // if service is already running restart with new settings
+        // otherwise we just store settings for future use
+        //
+        m_ipfsConfig = std::move(cfg);
+
+        auto sp = m_ipfs.lock();
+        if (!sp)
+        {
+            assert(false);
+            throw std::runtime_error("IPFS service is not created");
+        }
+
+        if (sp->running())
+        {
+            sp->stop();
+            sp->start(*m_ipfsConfig);
+        }
     }
     #endif
 

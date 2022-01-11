@@ -11,20 +11,22 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
 
 #include "wallet/core/common_utils.h"
 #include "wallet/core/common.h"
 #include "boost/any.hpp"
+#ifdef BEAM_IPFS_SUPPORT
+#include <asio-ipfs/include/asio_ipfs/config.h>
+#endif
 
 namespace beam::wallet
 {
     class DexOrder;
     struct DexOrderID;
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     struct SwapOffer;
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+    #endif
     struct IWalletModelAsync
     {
         using Ptr = std::shared_ptr<IWalletModelAsync>;
@@ -46,12 +48,17 @@ namespace beam::wallet
         virtual void saveAddress(const WalletAddress& address) = 0;
         virtual void generateNewAddress() = 0;
         virtual void generateNewAddress(AsyncCallback<const WalletAddress&>&& callback) = 0;
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         virtual void loadSwapParams() = 0;
         virtual void storeSwapParams(const beam::ByteBuffer& params) = 0;
         virtual void getSwapOffers() = 0;
         virtual void publishSwapOffer(const SwapOffer& offer) = 0;
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+        #endif
+
+        #ifdef BEAM_IPFS_SUPPORT
+        virtual void setIPFSConfig(asio_ipfs::config&&) = 0;
+        #endif
 
         virtual void getDexOrders() = 0;
         virtual void publishDexOrder(const DexOrder&) = 0;

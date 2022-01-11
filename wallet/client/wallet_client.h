@@ -129,8 +129,8 @@ namespace beam::wallet
         IWalletDB::Ptr getWalletDB();
 
         #ifdef BEAM_IPFS_SUPPORT
-        IPFSService::Ptr getIPFS(); // IPFS methods can be called only in context of WalletClient thread
-        IPFSService::Ptr IWThread_startIPFSNode();
+        IPFSService::Ptr getIPFS(); // safe to call from any thread, result should be called only in context of WalletClient thread
+        IPFSService::Ptr IWThread_startIPFSNode(); // safe to call only in context of WalletClient thread
         #endif
 
         IShadersManager::Ptr IWThread_createAppShaders(const std::string& appid, const std::string& appname);
@@ -245,12 +245,18 @@ namespace beam::wallet
         void getTransactions(AsyncCallback<const std::vector<TxDescription>&>&& callback) override;
         void getAllUtxosStatus() override;
         void getAddresses(bool own) override;
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void getSwapOffers() override;
         void publishSwapOffer(const SwapOffer& offer) override;
         void loadSwapParams() override;
         void storeSwapParams(const beam::ByteBuffer& params) override;
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+        #endif
+
+        #ifdef BEAM_IPFS_SUPPORT
+        void setIPFSConfig(asio_ipfs::config&&) override;
+        #endif
+
         void getDexOrders() override;
         void publishDexOrder(const DexOrder&) override;
         void acceptDexOrder(const DexOrderID&) override;
