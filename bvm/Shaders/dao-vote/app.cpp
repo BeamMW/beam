@@ -19,16 +19,28 @@
     macro(ContractID, cid) \
     macro(Proposal::ID, id)
 
+#define DaoVote_manager_add_proposal(macro) \
+    macro(ContractID, cid) \
+    macro(uint32_t, variants)
+
+#define DaoVote_manager_add_dividend(macro) \
+    macro(ContractID, cid) \
+    macro(AssetID, aid) \
+    macro(Amount, amount)
+
 #define DaoVoteRole_manager(macro) \
     macro(manager, view) \
     macro(manager, explicit_upgrade) \
     macro(manager, view_params) \
     macro(manager, view_proposals) \
     macro(manager, view_proposal) \
+    macro(manager, add_proposal) \
+    macro(manager, add_dividend) \
     macro(manager, my_admin_key)
 
 #define DaoVote_user_my_key(macro) macro(ContractID, cid)
 #define DaoVote_user_view(macro) macro(ContractID, cid)
+#define DaoVote_user_vote(macro) macro(ContractID, cid)
 
 #define DaoVote_user_move_funds(macro) \
     macro(ContractID, cid) \
@@ -39,6 +51,7 @@
     macro(user, my_key) \
     macro(user, view) \
     macro(user, move_funds) \
+    macro(user, vote) \
 
 #define DaoVoteRoles_All(macro) \
     macro(manager) \
@@ -284,6 +297,58 @@ ON_METHOD(manager, view_proposals)
     }
 }
 
+ON_METHOD(manager, add_proposal)
+{
+    if (!variants || (variants > Proposal::s_VariantsMax))
+        return OnError("num of variants invalid");
+
+    MyState s;
+    if (!s.Load(cid))
+        return;
+    s.MaybeNextEpoch();
+
+    if (s.m_Next.m_Proposals >= Proposal::s_ProposalsPerEpochMax)
+        return OnError("too many proposals");
+
+    static const char s_szName[] = "text";
+    uint32_t nLen = Env::DocGetText(s_szName, nullptr, 0);
+    if (nLen <= 1)
+        OnError("text missing");
+
+    uint32_t nArgsSize = sizeof(Method::AddProposal) + nLen;
+    auto* pArgs = (Method::AddProposal*) Env::Heap_Alloc(nArgsSize);
+    Env::DocGetText(s_szName, (char*) (pArgs + 1), nLen);
+
+    pArgs->m_TxtLen = nLen - 1;
+    pArgs->m_Data.m_Variants = variants;
+
+    AdminKeyID kid;
+    Env::GenerateKernel(&cid, pArgs->s_iMethod, pArgs, nArgsSize, nullptr, 0, &kid, 1, "dao-vote add proposal", 0);
+
+    Env::Heap_Free(pArgs);
+}
+
+ON_METHOD(manager, add_dividend)
+{
+    if (!amount)
+        return OnError("amount not specified");
+    MyState s;
+    if (!s.Load(cid))
+        return;
+    s.MaybeNextEpoch();
+
+    Method::AddDividend args;
+    args.m_Val.m_Aid = aid;
+    args.m_Val.m_Amount = amount;
+
+    FundsChange fc;
+    fc.m_Aid = aid;
+    fc.m_Amount = amount;
+    fc.m_Consume = 1;
+
+    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), &fc, 1, nullptr, 0, "dao-vote add dividend", 0);
+}
+
 ON_METHOD(manager, view_proposal)
 {
     Env::Key_T<Proposal::Key> key;
@@ -299,9 +364,16 @@ ON_METHOD(manager, view_proposal)
 
     uint32_t nVariants = nVal / sizeof(*p.m_pVariant);
 
-    Env::DocArray gr("variants");
-    for (uint32_t i = 0; i < nVariants; i++)
-        Env::DocAddNum("", p.m_pVariant[i]);
+    Amount total = 0;
+    {
+        Env::DocArray gr("variants");
+        for (uint32_t i = 0; i < nVariants; i++)
+        {
+            Env::DocAddNum("", p.m_pVariant[i]);
+            total += p.m_pVariant[i];
+        }
+    }
+    Env::DocAddNum("total", total);
 }
 
 struct UserKeyID :public Env::KeyID {
@@ -330,6 +402,7 @@ struct MyUser
     bool Load(const ContractID& cid, const MyState& s)
     {
         m_Charge = Env::Cost::LoadVar;
+        m_Dividend.m_Assets = 0;
 
         Env::Key_T<User::Key> key;
         _POD_(key.m_Prefix.m_Cid) = cid;
@@ -394,6 +467,19 @@ struct MyUser
 
         return true;
     }
+
+    void PrepareTx(FundsChange* pFc) const
+    {
+        for (uint32_t i = 0; i < m_Dividend.m_Assets; i++)
+        {
+            auto& dst = pFc[i];
+            const auto& src = m_Dividend.m_pArr[i];
+
+            dst.m_Aid = src.m_Aid;
+            dst.m_Amount = src.m_Amount;
+            dst.m_Consume = 0;
+        }
+    }
 };
 
 ON_METHOD(user, view)
@@ -431,8 +517,6 @@ ON_METHOD(user, move_funds)
         return;
     s.MaybeNextEpoch();
 
-    Env::DocGroup gr("res");
-
     MyUser u;
     u.Load(cid, s);
 
@@ -447,21 +531,66 @@ ON_METHOD(user, move_funds)
     kid.get_Pk(args.m_pkUser);
 
     auto* pFc = Env::StackAlloc_T<FundsChange>(u.m_Dividend.m_Assets + 1);
-    for (uint32_t i = 0; i < u.m_Dividend.m_Assets; i++)
-    {
-        auto& dst = pFc[i];
-        const auto& src = u.m_Dividend.m_pArr[i];
+    u.PrepareTx(pFc + 1);
 
-        dst.m_Aid = src.m_Aid;
-        dst.m_Amount = src.m_Amount;
-        dst.m_Consume = 0;
-    }
-    auto& dstX = pFc[u.m_Dividend.m_Assets];
-    dstX.m_Aid = s.m_Cfg.m_Aid;
-    dstX.m_Amount = amount;
-    dstX.m_Consume = args.m_Lock;
+    pFc->m_Aid = s.m_Cfg.m_Aid;
+    pFc->m_Amount = amount;
+    pFc->m_Consume = args.m_Lock;
 
     Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, u.m_Dividend.m_Assets + 1, &kid, 1, "dao-vote move funds", 0);
+}
+
+ON_METHOD(user, vote)
+{
+    MyState s;
+    if (!s.Load(cid))
+        return;
+    s.MaybeNextEpoch();
+
+    MyUser u;
+    u.Load(cid, s);
+
+    if (!u.m_Stake)
+        return OnError("no voting power");
+    if (!s.m_Current.m_Proposals)
+        return OnError("no current proposals");
+
+#pragma pack (push, 1)
+    struct Args
+        :public Method::Vote
+    {
+        uint8_t m_pVote[Proposal::s_ProposalsPerEpochMax];
+    };
+#pragma pack (pop)
+
+    Env::Halt_if(s.m_Current.m_Proposals > Proposal::s_ProposalsPerEpochMax);
+
+    Args args;
+    args.m_iEpoch = s.m_Current.m_iEpoch;
+
+    UserKeyID kid(cid);
+    kid.get_Pk(args.m_pkUser);
+
+    static const char s_szPrefix[] = "vote_";
+    char szBuf[_countof(s_szPrefix) + Utils::String::Decimal::Digits<Proposal::s_ProposalsPerEpochMax>::N];
+    Env::Memcpy(szBuf, s_szPrefix, sizeof(s_szPrefix) - sizeof(char));
+
+    for (uint32_t i = 0; i < s.m_Current.m_Proposals; i++)
+    {
+        uint32_t nPrintLen = Utils::String::Decimal::Print(szBuf + _countof(s_szPrefix) - 1, i + 1);
+        szBuf[_countof(s_szPrefix) - 1 + nPrintLen] = 0;
+
+        uint32_t nVote = 0;
+        if (!Env::DocGet(szBuf, nVote))
+            return OnError("vote missing");
+
+        args.m_pVote[i] = (uint8_t) nVote;
+    }
+
+    auto* pFc = Env::StackAlloc_T<FundsChange>(u.m_Dividend.m_Assets);
+    u.PrepareTx(pFc);
+
+    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(Method::Vote) + sizeof(*args.m_pVote) * s.m_Current.m_Proposals, pFc, u.m_Dividend.m_Assets, &kid, 1, "dao-vote Vote", 0);
 }
 
 #undef ON_METHOD
