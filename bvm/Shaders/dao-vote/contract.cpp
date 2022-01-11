@@ -120,7 +120,7 @@ void MyState::AdjustVotes(const uint8_t* p0, const uint8_t* p1, Amount v0, Amoun
 
         auto n1 = p1[i];
         Env::Halt_if(n1 >= p.m_Variants);
-        p.m_pVariant[n1] += v1;
+        p.m_pVariant[n1] += v1; // no need for Strict, we have it for the overall staking (i.e. sum of all votes in epoch)
 
         p.Save();
     }
@@ -212,7 +212,7 @@ struct MyUser
             }
 
             m_iEpoch = iEpoch;
-            m_Stake += m_StakeNext;
+            Strict::Add(m_Stake, m_StakeNext);
             m_StakeNext = 0;
             m_Proposals = 0;
         }
@@ -282,7 +282,7 @@ BEAM_EXPORT void Method_4(const Method::MoveFunds& r)
 
     if (r.m_Lock)
     {
-        u.m_StakeNext += r.m_Amount;
+        Strict::Add(u.m_StakeNext, r.m_Amount);
         Env::FundsLock(s.m_Cfg.m_Aid, r.m_Amount);
     }
     else
@@ -339,7 +339,7 @@ BEAM_EXPORT void Method_5(const Method::Vote& r)
     if (!bHasPrev)
     {
         u.m_iDividendEpoch = s.m_Current.m_iDividendEpoch;
-        s.m_Current.m_Stake += val;
+        Strict::Add(s.m_Current.m_Stake, val);
         s.m_Dirty = true;
     }
 
