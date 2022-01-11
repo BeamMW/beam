@@ -3,6 +3,7 @@
 #include "contract.h"
 #include "../upgradable2/contract.h"
 #include "../upgradable2/app_common_impl.h"
+#include "../Math.h"
 
 #define DaoVote_manager_view(macro)
 #define DaoVote_manager_view_params(macro) macro(ContractID, cid)
@@ -27,9 +28,17 @@
     macro(manager, my_admin_key)
 
 #define DaoVote_user_my_key(macro) macro(ContractID, cid)
+#define DaoVote_user_view(macro) macro(ContractID, cid)
+
+#define DaoVote_user_move_funds(macro) \
+    macro(ContractID, cid) \
+    macro(Amount, amount) \
+    macro(uint32_t, bLock)
 
 #define DaoVoteRole_user(macro) \
     macro(user, my_key) \
+    macro(user, view) \
+    macro(user, move_funds) \
 
 #define DaoVoteRoles_All(macro) \
     macro(manager) \
@@ -108,6 +117,46 @@ struct MyState
         OnError("no state");
         return false;
     }
+
+    struct PrevDividend {
+        uint32_t m_iEpoch;
+        Amount m_Stake;
+    } m_PrevDividend;
+
+    bool MaybeNextEpoch()
+    {
+        uint32_t iEpoch = get_Epoch();
+        if (iEpoch == m_Current.m_iEpoch)
+            return false;
+
+        m_Current.m_iEpoch = iEpoch;
+
+        m_Current.m_Proposals = m_Next.m_Proposals;
+        m_Next.m_Proposals = 0;
+
+        _POD_(m_PrevDividend).SetZero();
+
+        if (m_Current.m_Stake)
+        {
+            if (m_Current.m_iDividendEpoch)
+            {
+                m_PrevDividend.m_iEpoch = m_Current.m_iDividendEpoch;
+                m_PrevDividend.m_Stake = m_Current.m_Stake;
+
+                m_Current.m_iDividendEpoch = 0;
+            }
+
+            m_Current.m_Stake = 0;
+        }
+
+        if (!m_Current.m_iDividendEpoch)
+        {
+            m_Current.m_iDividendEpoch = m_Next.m_iDividendEpoch;
+            m_Next.m_iDividendEpoch = 0;
+        }
+
+        return true;
+    }
 };
 
 struct MyDividend
@@ -129,26 +178,30 @@ struct MyDividend
 
         m_Assets = (nSize - sizeof(Dividend0)) / sizeof(*m_pArr);
     }
+
+    void Write() const
+    {
+        Env::DocArray gr("dividend");
+
+        for (uint32_t i = 0; i < m_Assets; i++)
+        {
+            const auto& x = m_pArr[i];
+            Env::DocGroup gr1("");
+
+            Env::DocAddNum("aid", x.m_Aid);
+            Env::DocAddNum("amount", x.m_Amount);
+        }
+    }
 };
 
-void WriteDividend(const ContractID& cid, uint32_t iDividendEpoch, const Amount* pStake)
+void WriteDividend(const ContractID& cid, uint32_t iDividendEpoch)
 {
     if (!iDividendEpoch)
         return;
 
     MyDividend d;
     d.Load(cid, iDividendEpoch);
-
-    Env::DocArray gr("dividend");
-
-    for (uint32_t i = 0; i < d.m_Assets; i++)
-    {
-        const auto& x = d.m_pArr[i];
-        Env::DocGroup gr1("");
-
-        Env::DocAddNum("aid", x.m_Aid);
-        Env::DocAddNum("amount", x.m_Amount);
-    }
+    d.Write();
 }
 
 ON_METHOD(manager, view_params)
@@ -156,6 +209,7 @@ ON_METHOD(manager, view_params)
     MyState s;
     if (!s.Load(cid))
         return;
+    s.MaybeNextEpoch();
 
     Env::DocGroup gr("params");
     Env::DocAddNum("epoch_dh", s.m_Cfg.m_hEpochDuration);
@@ -176,13 +230,13 @@ ON_METHOD(manager, view_params)
         Env::DocAddNum("iEpoch", s.m_Current.m_iEpoch);
         Env::DocAddNum("proposals", s.m_Current.m_Proposals);
 
-        WriteDividend(cid, s.m_Current.m_iDividendEpoch, &s.m_Current.m_Stake);
+        WriteDividend(cid, s.m_Current.m_iDividendEpoch);
     }
     {
         Env::DocGroup gr("next");
         Env::DocAddNum("proposals", s.m_Next.m_Proposals);
 
-        WriteDividend(cid, s.m_Next.m_iDividendEpoch, nullptr);
+        WriteDividend(cid, s.m_Next.m_iDividendEpoch);
     }
 
 }
@@ -263,6 +317,151 @@ ON_METHOD(user, my_key)
     PubKey pk;
     UserKeyID(cid).get_Pk(pk);
     Env::DocAddBlob_T("key", pk);
+}
+
+struct MyUser
+    :public UserMax
+{
+    uint32_t m_Votes = 0;
+    uint32_t m_Charge = 0;
+
+    MyDividend m_Dividend;
+
+    bool Load(const ContractID& cid, const MyState& s)
+    {
+        m_Charge = Env::Cost::LoadVar;
+
+        Env::Key_T<User::Key> key;
+        _POD_(key.m_Prefix.m_Cid) = cid;
+        UserKeyID(cid).get_Pk(key.m_KeyInContract.m_pk);
+
+        Env::VarReader r(key, key);
+        uint32_t nKey = 0, nVal = sizeof(UserMax);
+        if (!r.MoveNext(nullptr, nKey, this, nVal, 0))
+        {
+            _POD_(Cast::Down<User>(*this)).SetZero();
+            return false;
+        }
+
+        Env::Halt_if(nVal < sizeof(User));
+        m_Votes = (nVal - sizeof(User)) / sizeof(*m_pVotes);
+
+        m_Charge +=
+            Env::Cost::LoadVarPerByte * nVal +
+            Env::Cost::Cycle * 50;
+
+        if (m_iEpoch != s.m_Current.m_iEpoch)
+        {
+            if (m_iDividendEpoch)
+            {
+                if (m_Stake)
+                {
+                    m_Dividend.Load(cid, m_iDividendEpoch);
+
+                    if (s.m_PrevDividend.m_iEpoch == m_iDividendEpoch)
+                        m_Dividend.m_Stake = s.m_PrevDividend.m_Stake;
+
+                    m_Charge +=
+                        Env::Cost::LoadVar_For(sizeof(Dividend0) + sizeof(*m_Dividend.m_pArr) * m_Dividend.m_Assets) +
+                        Env::Cost::Cycle * 50 * (m_Dividend.m_Assets + 1) +
+                        Env::Cost::FundsLock * m_Dividend.m_Assets +
+                        Env::Cost::SaveVar;
+
+                    if (m_Stake != m_Dividend.m_Stake)
+                    {
+                        m_Charge +=
+                            Env::Cost::Cycle * 500 * (m_Dividend.m_Assets + 1);
+
+                        assert(m_Stake < m_Dividend.m_Stake);
+                        MultiPrecision::Float k = MultiPrecision::Float(m_Stake) / MultiPrecision::Float(m_Dividend.m_Stake);
+
+                        for (uint32_t i = 0; i < m_Dividend.m_Assets; i++)
+                        {
+                            auto& v = m_Dividend.m_pArr[i];
+                            v.m_Amount = MultiPrecision::Float(v.m_Amount) * k;
+                        }
+                    }
+                }
+
+                m_iDividendEpoch = 0;
+            }
+
+            m_iEpoch = s.m_Current.m_iEpoch;
+            m_Stake += m_StakeNext;
+            m_StakeNext = 0;
+            m_Votes = 0;
+        }
+
+        return true;
+    }
+};
+
+ON_METHOD(user, view)
+{
+    MyState s;
+    if (!s.Load(cid))
+        return;
+    s.MaybeNextEpoch();
+
+    Env::DocGroup gr("res");
+
+    MyUser u;
+    if (!u.Load(cid, s))
+        return;
+
+    Env::DocAddNum("stake_active", u.m_Stake);
+    Env::DocAddNum("stake_passive", u.m_StakeNext);
+
+    if (u.m_Votes)
+    {
+        Env::DocArray gr1("current_votes");
+
+        for (uint32_t i = 0; i < u.m_Votes; i++)
+            Env::DocAddNum32("", u.m_pVotes[i]);
+    }
+
+    if (u.m_Dividend.m_Assets)
+        u.m_Dividend.Write();
+}
+
+ON_METHOD(user, move_funds)
+{
+    MyState s;
+    if (!s.Load(cid))
+        return;
+    s.MaybeNextEpoch();
+
+    Env::DocGroup gr("res");
+
+    MyUser u;
+    u.Load(cid, s);
+
+    if (!amount && !u.m_Dividend.m_Assets)
+        return OnError("no funds to move");
+
+    Method::MoveFunds args;
+    args.m_Amount = amount;
+    args.m_Lock = !!bLock;
+
+    UserKeyID kid(cid);
+    kid.get_Pk(args.m_pkUser);
+
+    auto* pFc = Env::StackAlloc_T<FundsChange>(u.m_Dividend.m_Assets + 1);
+    for (uint32_t i = 0; i < u.m_Dividend.m_Assets; i++)
+    {
+        auto& dst = pFc[i];
+        const auto& src = u.m_Dividend.m_pArr[i];
+
+        dst.m_Aid = src.m_Aid;
+        dst.m_Amount = src.m_Amount;
+        dst.m_Consume = 0;
+    }
+    auto& dstX = pFc[u.m_Dividend.m_Assets];
+    dstX.m_Aid = s.m_Cfg.m_Aid;
+    dstX.m_Amount = amount;
+    dstX.m_Consume = args.m_Lock;
+
+    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, u.m_Dividend.m_Assets + 1, &kid, 1, "dao-vote move funds", 0);
 }
 
 #undef ON_METHOD
