@@ -240,7 +240,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     }
 
     #ifdef BEAM_IPFS_SUPPORT
-    void setIPFSConfig(asio_ipfs::config&& cfg)
+    void setIPFSConfig(asio_ipfs::config&& cfg) override
     {
         call_async(&IWalletModelAsync::setIPFSConfig, std::move(cfg));
     }
