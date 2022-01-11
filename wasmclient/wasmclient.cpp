@@ -452,7 +452,7 @@ public:
                 return *dbPtr;
             };
 
-            m_Client = std::make_shared<WalletClient2>(Rules::get(), dbFunc, boost::none, std::string(), m_Node, m_Reactor);
+            m_Client = std::make_shared<WalletClient2>(Rules::get(), dbFunc, boost::none, m_Node, m_Reactor);
             m_Client->SetHandler(this);
 
             auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
