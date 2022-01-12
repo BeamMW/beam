@@ -3029,7 +3029,32 @@ namespace bvm2 {
 			args.m_Cfg.m_Aid = 22;
 			args.m_Cfg.m_hEpochDuration = 50;
 
+			// emulate invocation from upgradable2
+
+			auto pFr = m_FarCalls.m_Stack.Create_back();
+
+#pragma pack (push, 1)
+			struct Hdr0
+			{
+				uint32_t m_Version;
+				uint32_t m_NumMethods;
+				uint32_t m_hdrData0;
+				uint32_t m_hdrTable0;
+
+				uint32_t m_pMethod[2];
+			};
+#pragma pack (pop)
+
+			pFr->m_Body.resize(sizeof(Hdr0));
+			Hdr0& hdr = *(Hdr0*) &pFr->m_Body.front();
+
+			ZeroObject(hdr);
+			hdr.m_Version = ByteOrder::to_le(2u);
+			hdr.m_NumMethods = ByteOrder::to_le(2u);
+
 			verify_test(ContractCreate_T(m_DaoVote.m_Cid, m_DaoVote.m_Code, args));
+
+			m_FarCalls.m_Stack.Clear();
 		}
 		VERIFY_ID(Shaders::DaoVote::s_SID, m_DaoVote.m_Sid);
 

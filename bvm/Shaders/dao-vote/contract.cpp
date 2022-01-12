@@ -222,11 +222,14 @@ struct MyUser
 
 BEAM_EXPORT void Ctor(const Method::Create& r)
 {
-    MyState s;
-    _POD_(s).SetZero();
-    _POD_(s.m_Cfg) = r.m_Cfg;
-    s.m_hStart = Env::get_Height();
-    s.Save();
+    if (Env::get_CallDepth() > 1)
+    {
+        MyState s;
+        _POD_(s).SetZero();
+        _POD_(s.m_Cfg) = r.m_Cfg;
+        s.m_hStart = Env::get_Height();
+        s.Save();
+    }
 }
 
 BEAM_EXPORT void Dtor(void*)
