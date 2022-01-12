@@ -111,7 +111,12 @@ ON_METHOD(manager, deploy_contract)
     args.m_Cfg.m_hEpochDuration = hEpochDuration;
     _POD_(args.m_Cfg.m_pkAdmin) = pk;
 
-    Env::GenerateKernel(nullptr, 0, &args, sizeof(args), nullptr, 0, nullptr, 0, "Deploy DaoVote contract", 0);
+    const uint32_t nCharge =
+        ManagerUpgadable2::get_ChargeDeploy() +
+        Env::Cost::SaveVar_For(sizeof(DaoVote::State)) +
+        Env::Cost::Cycle * 50;
+
+    Env::GenerateKernel(nullptr, 0, &args, sizeof(args), nullptr, 0, nullptr, 0, "Deploy DaoVote contract", nCharge);
 }
 
 ON_METHOD(manager, schedule_upgrade)

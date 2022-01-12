@@ -124,8 +124,13 @@ struct MyState
         _POD_(key.m_Prefix.m_Cid) = cid;
         key.m_KeyInContract = Tags::s_State;
 
-        if (Env::VarReader::Read_T(key, *this))
+        if (Env::VarReader::Read_T(key, Cast::Down<State>(*this)))
+        {
+            m_Charge =
+                ManagerUpgadable2::get_ChargeInvoke() +
+                Env::Cost::LoadVar_For(sizeof(State));
             return true;
+        }
 
         OnError("no state");
         return false;
@@ -136,11 +141,15 @@ struct MyState
         Amount m_Stake;
     } m_PrevDividend;
 
+    Amount m_Charge;
+
     bool MaybeNextEpoch()
     {
         uint32_t iEpoch = get_Epoch();
         if (iEpoch == m_Current.m_iEpoch)
             return false;
+
+        m_Charge += Env::Cost::SaveVar_For(sizeof(State));
 
         m_Current.m_iEpoch = iEpoch;
 
@@ -153,6 +162,10 @@ struct MyState
         {
             if (m_Current.m_iDividendEpoch)
             {
+                m_Charge +=
+                    Env::Cost::LoadVar_For(sizeof(DividendMax)) +
+                    Env::Cost::SaveVar_For(sizeof(DividendMax));
+
                 m_PrevDividend.m_iEpoch = m_Current.m_iDividendEpoch;
                 m_PrevDividend.m_Stake = m_Current.m_Stake;
 
@@ -305,7 +318,7 @@ ON_METHOD(manager, add_proposal)
     MyState s;
     if (!s.Load(cid))
         return;
-    s.MaybeNextEpoch();
+    bool bEpochClosed = s.MaybeNextEpoch();
 
     if (s.m_Next.m_Proposals >= Proposal::s_ProposalsPerEpochMax)
         return OnError("too many proposals");
@@ -322,8 +335,19 @@ ON_METHOD(manager, add_proposal)
     pArgs->m_TxtLen = nLen - 1;
     pArgs->m_Data.m_Variants = variants;
 
+    uint32_t nCharge =
+        s.m_Charge +
+        Env::Cost::AddSig +
+        Env::Cost::SaveVar_For(sizeof(Amount) * variants) +
+        Env::Cost::Log_For(sizeof(Events::Proposal) + nLen) +
+        Env::Cost::MemOpPerByte * nLen +
+        Env::Cost::Cycle * 100;
+
+    if (!bEpochClosed)
+        nCharge += Env::Cost::SaveVar_For(sizeof(State));
+
     AdminKeyID kid;
-    Env::GenerateKernel(&cid, pArgs->s_iMethod, pArgs, nArgsSize, nullptr, 0, &kid, 1, "dao-vote add proposal", 0);
+    Env::GenerateKernel(&cid, pArgs->s_iMethod, pArgs, nArgsSize, nullptr, 0, &kid, 1, "dao-vote add proposal", nCharge);
 
     Env::Heap_Free(pArgs);
 }
@@ -346,7 +370,15 @@ ON_METHOD(manager, add_dividend)
     fc.m_Amount = amount;
     fc.m_Consume = 1;
 
-    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), &fc, 1, nullptr, 0, "dao-vote add dividend", 0);
+    uint32_t nCharge =
+        s.m_Charge +
+        Env::Cost::FundsLock +
+        Env::Cost::SaveVar_For(sizeof(DividendMax));
+
+    if (s.m_Current.m_iDividendEpoch)
+        nCharge += Env::Cost::LoadVar_For(sizeof(DividendMax));
+
+    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), &fc, 1, nullptr, 0, "dao-vote add dividend", nCharge);
 }
 
 ON_METHOD(manager, view_proposal)
@@ -468,7 +500,7 @@ struct MyUser
         return true;
     }
 
-    void PrepareTx(FundsChange* pFc) const
+    uint32_t PrepareTx(FundsChange* pFc) const
     {
         for (uint32_t i = 0; i < m_Dividend.m_Assets; i++)
         {
@@ -479,6 +511,12 @@ struct MyUser
             dst.m_Amount = src.m_Amount;
             dst.m_Consume = 0;
         }
+
+        Amount nCharge =
+            Env::Cost::FundsLock +
+            Env::Cost::Cycle * 500;
+
+        return nCharge * m_Dividend.m_Assets;
     }
 };
 
@@ -530,14 +568,30 @@ ON_METHOD(user, move_funds)
     UserKeyID kid(cid);
     kid.get_Pk(args.m_pkUser);
 
+    uint32_t nCharge =
+        s.m_Charge +
+        Env::Cost::AddSig +
+        Env::Cost::FundsLock +
+        Env::Cost::LoadVar_For(sizeof(User) + u.m_Votes) +
+        Env::Cost::SaveVar_For(sizeof(User) + u.m_Votes);
+
+    if (u.m_Votes && !bLock && (amount > u.m_StakeNext))
+    {
+        const Amount perProp =
+            Env::Cost::LoadVar_For(sizeof(ProposalMax)) +
+            Env::Cost::SaveVar_For(sizeof(ProposalMax));
+
+        nCharge += perProp * u.m_Votes;
+    }
+
     auto* pFc = Env::StackAlloc_T<FundsChange>(u.m_Dividend.m_Assets + 1);
-    u.PrepareTx(pFc + 1);
+    nCharge += u.PrepareTx(pFc + 1);
 
     pFc->m_Aid = s.m_Cfg.m_Aid;
     pFc->m_Amount = amount;
     pFc->m_Consume = args.m_Lock;
 
-    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, u.m_Dividend.m_Assets + 1, &kid, 1, "dao-vote move funds", 0);
+    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, u.m_Dividend.m_Assets + 1, &kid, 1, "dao-vote move funds", nCharge);
 }
 
 ON_METHOD(user, vote)
@@ -587,10 +641,23 @@ ON_METHOD(user, vote)
         args.m_pVote[i] = (uint8_t) nVote;
     }
 
-    auto* pFc = Env::StackAlloc_T<FundsChange>(u.m_Dividend.m_Assets);
-    u.PrepareTx(pFc);
+    const Amount perProp =
+        Env::Cost::LoadVar_For(sizeof(ProposalMax)) +
+        Env::Cost::SaveVar_For(sizeof(ProposalMax));
 
-    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(Method::Vote) + sizeof(*args.m_pVote) * s.m_Current.m_Proposals, pFc, u.m_Dividend.m_Assets, &kid, 1, "dao-vote Vote", 0);
+    uint32_t nCharge =
+        s.m_Charge +
+        Env::Cost::AddSig +
+        Env::Cost::LoadVar_For(sizeof(User) + u.m_Votes) +
+        Env::Cost::SaveVar_For(sizeof(User) + s.m_Current.m_Proposals) +
+        perProp * s.m_Current.m_Proposals;
+
+
+
+    auto* pFc = Env::StackAlloc_T<FundsChange>(u.m_Dividend.m_Assets);
+    nCharge += u.PrepareTx(pFc);
+
+    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(Method::Vote) + sizeof(*args.m_pVote) * s.m_Current.m_Proposals, pFc, u.m_Dividend.m_Assets, &kid, 1, "dao-vote Vote", nCharge);
 }
 
 #undef ON_METHOD
