@@ -37,8 +37,10 @@ jobs:
           git clone https://github.com/BeamMW/boost_prebuild_windows-2019.git c:/boost_prebuild
           echo "BOOST_ROOT=c:/boost_prebuild" >> $GITHUB_ENV
           echo "BUILD_ROOT=${{ env.build }}" >> $GITHUB_ENV
+          echo "BUILD_ROOT=$BUILD_ROOT"
           echo "BUILD_ROOT=${BUILD_ROOT//\\//}" >> $GITHUB_ENV
-          cmake -B ${{ env.BUILD_ROOT }}
+          echo "BUILD_ROOT=$BUILD_ROOT"
+          cmake -B ./build
 
       # Build is not required unless generated source files are used
       # - name: Build CMake
