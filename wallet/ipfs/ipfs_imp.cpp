@@ -38,18 +38,18 @@ namespace beam::wallet::imp
     IPFSService::~IPFSService()
     {
         assert(!_node);
-        assert(!_thread);
+        assert(!_thread.joinable());
         assert(!_ios_guard);
     }
 
     bool IPFSService::running() const
     {
-        return _thread && _ios;
+        return _thread.joinable();
     }
 
     void IPFSService::start(asio_ipfs::config config)
     {
-        if (_thread || _ios)
+        if (_thread.joinable())
         {
             assert(false);
             throw std::runtime_error("IPFS Service is already running");
@@ -118,10 +118,8 @@ namespace beam::wallet::imp
                 throw std::runtime_error("_node is somewhy empty");
             }
 
-            // save context, since it has been running need
-            // also to reset it
-            _ios = std::move(startctx);
-            _ios->reset();
+            // since it has been running need to reset context
+            _ios.reset();
         }
 
         //
@@ -130,16 +128,16 @@ namespace beam::wallet::imp
         //
         _path = config.repo_root;
         _myid = _node->id();
-        _ios_guard = std::make_unique<IOSGuard>(_ios->get_executor());
-        _thread = std::make_unique<MyThread>([this, repo = _path]()
+        _ios_guard = std::make_unique<IOSGuard>(_ios.get_executor());
+        _thread = MyThread([this, repo = _path]()
         {
-            _ios->run();
+            _ios.run();
         });
     }
 
     void IPFSService::stop()
     {
-        if (!_node || !_thread || !_thread->joinable())
+        if (!_node || !_thread.joinable())
         {
             assert(false);
             throw std::runtime_error("IPFS service thread already stopped");
@@ -150,9 +148,8 @@ namespace beam::wallet::imp
         _ios_guard->reset();
         _ios_guard.reset();
 
-        assert(_thread->joinable());
-        _thread->join();
-        _thread.reset();
+        assert(_thread.joinable());
+        _thread.join();
         _ios.reset();
         LOG_INFO() << "IPFS Services stopped.";
     }

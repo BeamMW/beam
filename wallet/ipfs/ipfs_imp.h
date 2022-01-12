@@ -51,7 +51,7 @@ namespace beam::wallet::imp
         template<typename TA, typename TR>
         void call_ipfs(uint32_t timeout, TR&& res, Err&& err, TA&& action)
         {
-            if(!_node || !_thread)
+            if(!_node || !_thread.joinable())
             {
                 retErr(std::move(err), "Unexpected add call. IPFS is not started");
                 return;
@@ -61,11 +61,11 @@ namespace beam::wallet::imp
             if (timeout)
             {
                 deadline = std::make_shared<boost::asio::deadline_timer>(
-                        *_ios, boost::posix_time::milliseconds(timeout)
+                        _ios, boost::posix_time::milliseconds(timeout)
                 );
             }
 
-            boost::asio::spawn(*_ios, [this,
+            boost::asio::spawn(_ios, [this,
                                        err = std::move(err),
                                        deadline = std::move(deadline),
                                        action = std::forward<TA>(action),
@@ -138,10 +138,10 @@ namespace beam::wallet::imp
         // Threading & async stuff
         //
         HandlerPtr _handler;
-        std::unique_ptr<MyThread> _thread;
-        std::unique_ptr<boost::asio::io_context> _ios;
+        MyThread _thread;
+        boost::asio::io_context _ios;
 
-        typedef boost::asio::executor_work_guard<decltype(_ios->get_executor())> IOSGuard;
+        typedef boost::asio::executor_work_guard<decltype(_ios.get_executor())> IOSGuard;
         std::unique_ptr<IOSGuard> _ios_guard;
     };
 
