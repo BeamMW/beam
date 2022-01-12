@@ -38,7 +38,7 @@ jobs:
           echo "BOOST_ROOT=c:/boost_prebuild" >> $GITHUB_ENV
           echo "BUILD_ROOT=${{ env.build }}" >> $GITHUB_ENV
           echo "BUILD_ROOT=${BUILD_ROOT//\\//}" >> $GITHUB_ENV
-          cmake -B $BUILD_ROOT
+          cmake -B ${{ env.BUILD_ROOT }}
 
       # Build is not required unless generated source files are used
       # - name: Build CMake
