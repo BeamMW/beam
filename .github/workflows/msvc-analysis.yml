@@ -36,7 +36,7 @@ jobs:
           echo "OPENSSL_ROOT_DIR=c:/beam-libs/openssl" >> $GITHUB_ENV
           git clone https://github.com/BeamMW/boost_prebuild_windows-2019.git c:/boost_prebuild
           echo "BOOST_ROOT=c:/boost_prebuild" >> $GITHUB_ENV
-          cmake -B ./build
+          cmake -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=On -B ./build
 
       # Build is not required unless generated source files are used
       # - name: Build CMake
