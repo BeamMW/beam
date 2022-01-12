@@ -821,13 +821,13 @@ namespace beam::wallet
                 switch (status)
                 {
                 case TxStatus::Registering:
-                    return selfTx ? "sending offline to own address" : "in progress public offline";
+                    return selfTx ? "sending public offline to own address" : "in progress public offline";
                 case TxStatus::Failed:
                     return TxFailureReason::TransactionExpired == GetFailtureReason(txParams) ? "expired" : "failed public offline";
                 case TxStatus::Canceled:
                     return "canceled public offline";
                 case TxStatus::Completed:
-                    return selfTx ? "sent offline to own address" : (sender ? "sent public offline" : "received public offline");
+                    return selfTx ? "sent public offline to own address" : (sender ? "sent public offline" : "received public offline");
                 default:
                     break;
                 }
