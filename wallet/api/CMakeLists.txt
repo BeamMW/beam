@@ -39,13 +39,15 @@ if(BEAM_ATOMIC_SWAP_SUPPORT)
     target_sources(wallet_api_no_ipfs
         PRIVATE ${SOURCES_SWAP}
     )
+    target_link_libraries(wallet_api
+        PUBLIC 
+            swap_offers_board
+    )
 endif()
 
 target_link_libraries(wallet_api
     PUBLIC 
-        wallet 
-        wallet_client
-        utility
+        wallet
 )
 
 target_link_libraries(wallet_api_no_ipfs
