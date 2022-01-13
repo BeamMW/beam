@@ -141,7 +141,6 @@ namespace beam::wallet::imp
 
         std::unique_ptr<asio_ipfs::node> _node;
         std::string _myid;
-        mutable uint64_t _lcnt = 0;
 
         //
         // Threading & async stuff
