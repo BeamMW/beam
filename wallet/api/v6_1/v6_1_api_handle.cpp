@@ -16,7 +16,7 @@
 
 namespace beam::wallet
 {
-    void V61Api::onHandleEvSubUnsub(const JsonRpcId &id, const EvSubUnsub &data)
+    void V61Api::onHandleEvSubUnsub(const JsonRpcId &id, EvSubUnsub&& data)
     {
         auto oldSubs = _evSubs;
 
@@ -121,7 +121,7 @@ namespace beam::wallet
         }
     }
 
-    void V61Api::onHandleGetVersion(const JsonRpcId& id, const GetVersion& params)
+    void V61Api::onHandleGetVersion(const JsonRpcId& id, GetVersion&& params)
     {
         GetVersion::Response resp;
 
@@ -138,7 +138,7 @@ namespace beam::wallet
         doResponse(id, resp);
     }
 
-    void V61Api::onHandleWalletStatusV61(const JsonRpcId &id, const WalletStatusV61 &data)
+    void V61Api::onHandleWalletStatusV61(const JsonRpcId &id, WalletStatusV61&& data)
     {
         LOG_DEBUG() << "WalletStatusV61(id = " << id << ")";
 
@@ -180,22 +180,22 @@ namespace beam::wallet
         doResponse(id, response);
     }
 
-    void V61Api::onHandleInvokeContractV61(const JsonRpcId &id, const InvokeContractV61 &data)
+    void V61Api::onHandleInvokeContractV61(const JsonRpcId &id, InvokeContractV61&& data)
     {
         LOG_VERBOSE() << "InvokeContract(id = " << id << ")";
         auto contracts = getContracts();
 
         if (data.createTx)
         {
-            onHandleInvokeContractWithTX(id, data);
+            onHandleInvokeContractWithTX(id, std::move(data));
         }
         else
         {
-            onHandleInvokeContractNoTX(id, data);
+            onHandleInvokeContractNoTX(id, std::move(data));
         }
     }
 
-    void V61Api::onHandleInvokeContractWithTX(const JsonRpcId &id, const InvokeContractV61& data)
+    void V61Api::onHandleInvokeContractWithTX(const JsonRpcId &id, InvokeContractV61&& data)
     {
         getContracts()->CallShaderAndStartTx(data.contract, data.args, data.args.empty() ? 0 : 1, data.priority, data.unique,
         [this, id, wguard = _weakSelf](boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
@@ -225,7 +225,7 @@ namespace beam::wallet
         });
     }
 
-    void V61Api::onHandleInvokeContractNoTX(const JsonRpcId &id, const InvokeContractV61& data)
+    void V61Api::onHandleInvokeContractNoTX(const JsonRpcId &id, InvokeContractV61&& data)
     {
         getContracts()->CallShader(data.contract, data.args, data.args.empty() ? 0 : 1, data.priority, data.unique,
         [this, id, wguard = _weakSelf](boost::optional<ByteBuffer> data, boost::optional<std::string> output, boost::optional<std::string> error) {

@@ -40,9 +40,15 @@
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/transactions/assets/assets_reg_creators.h"
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "api_cli_swap.h"
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
+#endif
+
+#ifdef BEAM_IPFS_SUPPORT
+#include "wallet/ipfs/ipfs.h"
+#include "wallet/ipfs/ipfs_async.h"
+#endif
 
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
 #include "wallet/core/contracts/i_shaders_manager.h"
@@ -160,14 +166,61 @@ namespace
             stop();
         }
 
+        #ifdef BEAM_IPFS_SUPPORT
+        struct IPFSHandler: beam::wallet::IPFSService::Handler
+        {
+            explicit IPFSHandler(io::Reactor::Ptr reactor)
+            {
+                _toServerThread = PostToReactorThread::create(std::move(reactor));
+            }
 
+            void pushToClient(std::function<void()>&& action) override
+            {
+                _toServerThread->post(std::move(action));
+            }
+
+        private:
+            wallet::PostToReactorThread::Ptr _toServerThread;
+        };
+
+        bool startIPFS(asio_ipfs::config config, io::Reactor::Ptr reactor)
+        {
+            try
+            {
+                _ipfsHandler = std::make_shared<IPFSHandler>(std::move(reactor));
+                _ipfs = beam::wallet::IPFSService::AnyThread_create(_ipfsHandler);
+                _ipfs->ServiceThread_start(std::move(config));
+                LOG_INFO() << "IPFS Service successfully started, ID " << _ipfs->AnyThread_id();
+                return true;
+            }
+            catch(std::runtime_error& err)
+            {
+                LOG_ERROR() << err.what();
+                return false;
+            }
+        }
+
+        void stopIPFS()
+        {
+            _ipfs->ServiceThread_stop();
+            _ipfs.reset();
+            _ipfsHandler.reset();
+        }
+
+        private:
+            beam::wallet::IPFSService::Ptr _ipfs;
+            std::shared_ptr<IPFSHandler> _ipfsHandler;
+        public:
+        #endif
+
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void initSwapFeature(proto::FlyClient::INetwork::Ptr nnet, IWalletMessageEndpoint& wnet)
         {
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
             _swapsProvider = std::make_shared<ApiCliSwap>(_walletDB);
             _swapsProvider->initSwapFeature(nnet, wnet);
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
         }
+        #endif
+
     protected:
         void start()
         {
@@ -219,11 +272,16 @@ namespace
                 _walletData = std::make_unique<ApiInitData>();
                 _walletData->walletDB  = _walletDB;
                 _walletData->wallet    = _wallet;
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-                _walletData->swaps     = _swapsProvider;
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
                 _walletData->acl       = _acl;
                 _walletData->contracts = IShadersManager::CreateInstance(_wallet, _walletDB, _network, "", "");
+
+                #ifdef BEAM_ATOMIC_SWAP_SUPPORT
+                _walletData->swaps = _swapsProvider;
+                #endif
+
+                #ifdef BEAM_IPFS_SUPPORT
+                _walletData->ipfs = _ipfs;
+                #endif
             }
 
             return std::make_shared<T>(_apiVersion, *this, std::move(newStream), *_walletData);
@@ -478,9 +536,9 @@ namespace
         Wallet::Ptr _wallet;
         proto::FlyClient::NetworkStd::Ptr _network;
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::shared_ptr<ApiCliSwap> _swapsProvider;
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
+        #endif // BEAM_ATOMIC_SWAP_SUPPORT
 
         std::unique_ptr<ApiInitData> _walletData;
         std::vector<uint64_t> _pendingToClose;
@@ -515,22 +573,22 @@ int main(int argc, char* argv[])
     po::options_description desc("Wallet API general options");
     {
         desc.add_options()
-                (cli::HELP_FULL, "list of all options")
-                (cli::VERSION_FULL, "print project version")
-                (cli::PORT_FULL, po::value(&options.port)->default_value(10000), "port to start server on")
-                (cli::NODE_ADDR_FULL, po::value<std::string>(&options.nodeURI), "address of node")
-                (cli::WALLET_STORAGE, po::value<std::string>(&options.walletPath)->default_value("wallet.db"), "path to wallet file")
-                (cli::PASS, po::value<std::string>(), "password for the wallet")
-                (cli::API_USE_HTTP, po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
-                (cli::IP_WHITELIST, po::value<std::string>(&options.whitelist)->default_value(""), "IP whitelist")
-                (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
-                (cli::WITH_ASSETS,    po::bool_switch()->default_value(false), "enable confidential assets transactions")
-                (cli::ENABLE_LELANTUS, po::bool_switch()->default_value(false), "enable Lelantus MW transactions")
-                (cli::API_VERSION, po::value<std::string>(&options.apiVersion)->default_value("current"), "API version")
-                (cli::CONFIG_FILE_PATH, po::value<std::string>()->default_value("wallet-api.cfg"), "path to the config file")
-                (cli::LOG_LEVEL, po::value<std::string>(), "set log level [error|warning|info(default)|debug|verbose]")
-                (cli::FILE_LOG_LEVEL, po::value<std::string>(), "set file log level [error|warning|info(default)|debug|verbose]")
-                (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
+            (cli::HELP_FULL,       "list of all options")
+            (cli::VERSION_FULL,    "print project version")
+            (cli::PORT_FULL,        po::value(&options.port)->default_value(10000), "port to start server on")
+            (cli::NODE_ADDR_FULL,   po::value<std::string>(&options.nodeURI), "address of node")
+            (cli::WALLET_STORAGE,   po::value<std::string>(&options.walletPath)->default_value("wallet.db"), "path to wallet file")
+            (cli::PASS,             po::value<std::string>(), "password for the wallet")
+            (cli::API_USE_HTTP,     po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
+            (cli::IP_WHITELIST,     po::value<std::string>(&options.whitelist)->default_value(""), "IP whitelist")
+            (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
+            (cli::WITH_ASSETS,      po::bool_switch()->default_value(false), "enable confidential assets transactions")
+            (cli::ENABLE_LELANTUS,  po::bool_switch()->default_value(false), "enable Lelantus MW transactions")
+            (cli::API_VERSION,      po::value<std::string>(&options.apiVersion)->default_value("current"), "API version")
+            (cli::CONFIG_FILE_PATH, po::value<std::string>()->default_value("wallet-api.cfg"), "path to the config file")
+            (cli::LOG_LEVEL,        po::value<std::string>(), "set log level [error|warning|info(default)|debug|verbose]")
+            (cli::FILE_LOG_LEVEL,   po::value<std::string>(), "set file log level [error|warning|info(default)|debug|verbose]")
+            (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
         ;
 
         po::options_description authDesc("User authorization options");
@@ -550,6 +608,11 @@ int main(int argc, char* argv[])
 
         desc.add(authDesc);
         desc.add(tlsDesc);
+
+        #ifdef BEAM_IPFS_SUPPORT
+        desc.add(createIPFSOptionsDesrition(false, asio_ipfs::config()));
+        #endif
+
         desc.add(createRulesOptionsDescription());
     }
 
@@ -733,10 +796,26 @@ int main(int argc, char* argv[])
         wallet->SetNodeEndpoint(nnet);
 
         WalletApiServer server(options.apiVersion, walletDB, wallet, nnet, *reactor, listenTo, options.useHttp, acl, tlsOptions, whitelist);
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         RegisterSwapTxCreators(wallet, walletDB);
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
         server.initSwapFeature(nnet, *wnet);
+        #endif
+
+        #ifdef BEAM_IPFS_SUPPORT
+        auto ipfsOpts = getIPFSConfig(vm);
+        if (ipfsOpts)
+        {
+            if(!server.startIPFS(*ipfsOpts, reactor))
+            {
+                return -1;
+            }
+        }
+        else
+        {
+            LOG_INFO() << "IPFS is not enabled. IPFS node will be not started.";
+        }
+        #endif
 
         if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
         {
@@ -752,20 +831,28 @@ int main(int argc, char* argv[])
         wallet->ResumeAllTransactions();
         io::Reactor::get_Current().run();
 
+        #ifdef BEAM_IPFS_SUPPORT
+        if (ipfsOpts)
+        {
+            server.stopIPFS();
+        }
+        #endif
+
         LOG_INFO() << "Done";
     }
+    // DO NOT USE LOG_ below. Logger is dead here
     catch (const DatabaseException& e)
     {
-        LOG_ERROR() << "Wallet not opened. " << e.what();
+        std::cerr << "Wallet not opened. " << e.what();
         return -1;
     }
     catch (const std::exception& e)
     {
-        LOG_ERROR() << "EXCEPTION: " << e.what();
+        std::cerr << "EXCEPTION: " << e.what();
     }
     catch (...)
     {
-        LOG_ERROR() << "NON_STD EXCEPTION";
+        std::cerr << "NON_STD EXCEPTION";
     }
 
     return 0;

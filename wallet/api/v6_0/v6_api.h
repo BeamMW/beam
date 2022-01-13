@@ -33,6 +33,10 @@ namespace beam::wallet
         virtual IShadersManager::Ptr getContracts() const;
         virtual Height               get_TipHeight() const;
 
+        #ifdef BEAM_IPFS_SUPPORT
+        IPFSService::Ptr getIPFS() const;
+        #endif
+
         void assertWalletThread() const;
         void checkCAEnabled() const;
         bool getCAEnabled() const;
@@ -53,12 +57,12 @@ namespace beam::wallet
         void doTxAlreadyExistsError(const JsonRpcId& id);
 
         template<typename T>
-        void onHandleIssueConsume(bool issue, const JsonRpcId& id, const T& data);
+        void onHandleIssueConsume(bool issue, const JsonRpcId& id, T&& data);
         template<typename T>
         void setTxAssetParams(const JsonRpcId& id, TxParameters& tx, const T& data);
 
-        void onHandleInvokeContractWithTX(const JsonRpcId &id, const InvokeContract& data);
-        void onHandleInvokeContractNoTX(const JsonRpcId &id, const InvokeContract& data);
+        void onHandleInvokeContractWithTX(const JsonRpcId &id, InvokeContract&& data);
+        void onHandleInvokeContractNoTX(const JsonRpcId &id, InvokeContract&& data);
 
         bool checkTxAccessRights(const TxParameters&);
         void checkTxAccessRights(const TxParameters&, ApiError code, const std::string& errmsg);
@@ -78,6 +82,10 @@ namespace beam::wallet
         Wallet::Ptr          _wallet;
         ISwapsProvider::Ptr  _swaps;
         IShadersManager::Ptr _contracts;
+
+        #ifdef BEAM_IPFS_SUPPORT
+        IPFSService::Ptr _ipfs;
+        #endif
 
         struct RequestHeaderMsg
             : public proto::FlyClient::RequestEnumHdrs

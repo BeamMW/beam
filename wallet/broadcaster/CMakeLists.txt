@@ -13,7 +13,7 @@ endif()
 
 target_link_libraries(${TARGET_NAME}
     PRIVATE
-        wallet_client
+        wallet_client_no_ipfs
         cli
         mnemonic
 )

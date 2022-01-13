@@ -172,7 +172,7 @@ namespace
         LOG_DEBUG() << "Response: \n" << msg.dump();
     }
 
-    void ProverApi::onHandleGetProof(const JsonRpcId& id, const GetProof& data)
+    void ProverApi::onHandleGetProof(const JsonRpcId& id, GetProof&& data)
     {
         GetProof::Response res;
         std::string sEpoch = std::to_string(data.epoch);

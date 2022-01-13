@@ -40,7 +40,7 @@ namespace beam::wallet
         }
 
     #define BEAM_API_HANDLE_FUNC(api, name, ...) \
-         virtual void onHandle##api(const JsonRpcId& id, const api& data);
+         virtual void onHandle##api(const JsonRpcId& id, api&& data);
 
     #define BEAM_API_PARSE_FUNC(api, name, ...) \
         [[nodiscard]] std::pair<api, MethodInfo> onParse##api(const JsonRpcId& id, const json& msg);
@@ -51,7 +51,7 @@ namespace beam::wallet
         regMethod(name, {                                                     \
             [this] (const JsonRpcId &id, const json &msg) {                   \
                 auto parseRes = onParse##api(id, msg);                        \
-                onHandle##api(id, parseRes.first);                            \
+                onHandle##api(id, std::move(parseRes.first));                 \
             },                                                                \
             [this] (const JsonRpcId &id, const json &msg) -> MethodInfo {     \
                 auto parseRes = onParse##api(id, msg);                        \

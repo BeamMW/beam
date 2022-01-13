@@ -19,8 +19,8 @@ set(SRC
 add_library(${TARGET_NAME} SHARED ${SRC})
 target_link_libraries(${TARGET_NAME}
     PRIVATE
-        wallet_client
-        wallet_api
+        wallet_client_no_ipfs
+        wallet_api_no_ipfs
         utility 
         node 
         mnemonic

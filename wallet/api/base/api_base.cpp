@@ -175,7 +175,7 @@ namespace beam::wallet
 
     ApiSyncMode ApiBase::executeAPIRequest(const char* data, size_t size)
     {
-        const auto pinfo = parseCallInfo(data, size);
+        auto pinfo = parseCallInfo(data, size);
         if (pinfo == boost::none)
         {
             LOG_WARNING() << "executeAPIRequest, parseCallInfo returned none for " << data;
@@ -185,12 +185,12 @@ namespace beam::wallet
         {
             json messageCopy = pinfo->message;
             FilterRequest(messageCopy);
-             
+
             const auto message = messageCopy.dump(1, '\t');
             LOG_VERBOSE() << "executeAPIRequest:\n" << message;
         }
 
-        const auto result = callGuarded<ApiSyncMode>(pinfo->rpcid, [this, pinfo] () -> ApiSyncMode {
+        const auto result = callGuarded<ApiSyncMode>(pinfo->rpcid, [this, pinfo = std::move(pinfo)] () -> ApiSyncMode {
             const auto& minfo = _methods[pinfo->method];
 
             if (_acl)

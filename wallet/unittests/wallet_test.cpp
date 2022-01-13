@@ -204,7 +204,7 @@ namespace
         sw.start();
         for (int i = 0; i < 100; ++i)
         {
-            api.onHandleTxList(1, message);
+            api.onHandleTxList(1, TxList(message));
             api.TestTxListResSize(10);
             api.m_Messages.clear();
         }
@@ -213,43 +213,43 @@ namespace
 
         message.count = 10;
         message.skip = 0;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(10);
         api.m_Messages.clear();
 
         message.count = 100;
         message.skip = 0;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(64);
         api.m_Messages.clear();
 
         message.count = 100;
         message.skip = 10;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(54);
         api.m_Messages.clear();
 
         message.count = 10;
         message.skip = 10;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(10);
         api.m_Messages.clear();
 
         message.count = 10;
         message.skip = 63;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(1);
         api.m_Messages.clear();
 
         message.count = 10;
         message.skip = 64;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(0);
         api.m_Messages.clear();
 
         message.count = 10;
         message.skip = 65;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(0);
         api.m_Messages.clear();
 
@@ -278,7 +278,7 @@ namespace
             message2.filter.status = wallet::TxStatus::Completed;
             message2.filter.height = p.second;
 
-            api.onHandleTxList(1, message2);
+            api.onHandleTxList(1, std::move(message2));
             api.TestTxListResSize(1);
             api.TestTxListResHeight(p.second);
 
@@ -2411,7 +2411,7 @@ namespace
     struct TestWalletClient : public WalletClient
     {
         TestWalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor)
-            : WalletClient(Rules::get(), walletDB, nodeAddr, reactor)
+            : WalletClient(Rules::get(), walletDB,  boost::none, nodeAddr, reactor)
         {
         }
 

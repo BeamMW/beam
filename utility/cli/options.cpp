@@ -300,6 +300,8 @@ namespace beam
         const char* API_USE_ACL  = "use_acl";
         const char* API_ACL_PATH = "acl_path";
         const char* API_VERSION  = "api_version";
+        const char* API_ENABLE_IPFS = "enable_ipfs";
+        const char* API_IPFS_STORAGE = "ipfs_storage";
 
         // treasury
         const char* TR_OPCODE = "tr_op";
@@ -346,11 +348,22 @@ namespace beam
         const char* SEND_OFFLINE        = "offline";
 
         // shaders
-        const char* SHADER_INVOKE       = "shader";
-        const char* SHADER_ARGS         = "shader_args";
+        const char* SHADER_INVOKE            = "shader";
+        const char* SHADER_ARGS              = "shader_args";
         const char* SHADER_BYTECODE_APP      = "shader_app_file";
         const char* SHADER_BYTECODE_CONTRACT = "shader_contract_file";
-        const char* SHADER_PRIVILEGE    = "shader_privilege";
+        const char* SHADER_PRIVILEGE         = "shader_privilege";
+
+        // IPFS
+        #ifdef BEAM_IPFS_SUPPORT
+        const char* IPFS_ENABLE      = "enable_ipfs";
+        const char* IPFS_STORAGE     = "ipfs_repo";
+        const char* IPFS_LOW_WATER   = "ipfs_low_water";
+        const char* IPFS_HIGH_WATER  = "ipfs_high_water";
+        const char* IPFS_GRACE       = "ipfs_grace_period";
+        const char* IPFS_BOOTSTRAP   = "ipfs_bootstrap";
+        const char* IPFS_SWARM_PORT  = "ipfs_swarm_port";
+        #endif
     }
 
 
@@ -381,7 +394,7 @@ namespace beam
 
     pair<po::options_description, po::options_description> createOptionsDescription(int flags, const std::string& configFile)
     {
-        po::options_description general_options("General");
+        po::options_description general_options("General options");
         general_options.add_options()
             (cli::HELP_FULL, "list all available options and commands")
             (cli::VERSION_FULL, "print project version")
@@ -527,7 +540,7 @@ namespace beam
             (cli::ASSET_METADATA,   po::value<string>(), "asset metadata")
             (cli::WITH_ASSETS,      po::bool_switch()->default_value(false), "enable confidential assets transactions");
 
-#ifdef BEAM_LASER_SUPPORT
+        #ifdef BEAM_LASER_SUPPORT
         po::options_description laser_options("Laser beam");
         laser_options.add_options()
             (cli::LASER_LIST, "print all opened lightning channel")
@@ -544,7 +557,7 @@ namespace beam
             (cli::LASER_TARGET_ADDR, po::value<string>(), "address of laser receiver")
             (cli::LASER_FEE, po::value<Nonnegative<Amount>>(), "transaction fee (in GROTH, 100,000,000 groth = 1 BEAM)")
             (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID");
-#endif  // BEAM_LASER_SUPPORT
+        #endif
 
         po::options_description options{ "OPTIONS" };
         po::options_description visible_options{ "OPTIONS" };
@@ -581,10 +594,10 @@ namespace beam
                 visible_options.add(wallet_assets_options);
             }
 
-#ifdef BEAM_LASER_SUPPORT
+            #ifdef BEAM_LASER_SUPPORT
             options.add(laser_options);
             visible_options.add(laser_options);
-#endif  // BEAM_LASER_SUPPORT
+            #endif
         }
 
         if (flags & UI_OPTIONS)
@@ -600,6 +613,42 @@ namespace beam
         visible_options.add(rules_options);
         return { options, visible_options };
     }
+
+    #ifdef BEAM_IPFS_SUPPORT
+    po::options_description createIPFSOptionsDesrition(bool enableByDefault, const asio_ipfs::config& defs)
+    {
+        po::options_description ipfs_options("IPFS support");
+        ipfs_options.add_options()
+            (cli::IPFS_ENABLE,     po::value<bool>()->default_value(enableByDefault)->implicit_value(enableByDefault), "enable IPFS support/launch IPFS node")
+            (cli::IPFS_STORAGE,    po::value<string>()->default_value(defs.repo_root), "IPFS repository path")
+            (cli::IPFS_LOW_WATER,  po::value<uint32_t>()->default_value(defs.low_water), "Swarm.ConnMgr.LowWater")
+            (cli::IPFS_HIGH_WATER, po::value<uint32_t>()->default_value(defs.high_water), "Swarm.ConnMgr.HighWater")
+            (cli::IPFS_GRACE,      po::value<uint32_t>()->default_value(defs.grace_period), "Swarm.ConnMgr.GracePeriod uint32 seconds")
+            (cli::IPFS_BOOTSTRAP,  po::value<std::vector<string>>()->multitoken(), "Bootstrap nodes multiaddr space separated list")
+            (cli::IPFS_SWARM_PORT, po::value<uint32_t>()->default_value(defs.node_swarm_port), "Addresses.Swarm port");
+        return ipfs_options;
+    }
+
+    boost::optional<asio_ipfs::config> getIPFSConfig(const po::variables_map& vm)
+    {
+        if (!vm[cli::IPFS_ENABLE].as<bool>()) {
+            return boost::none;
+        }
+
+        asio_ipfs::config cfg;
+        cfg.repo_root = vm[cli::IPFS_STORAGE].as<string>();
+        cfg.low_water = vm[cli::IPFS_LOW_WATER].as<uint32_t>();
+        cfg.low_water = vm[cli::IPFS_HIGH_WATER].as<uint32_t>();
+        cfg.grace_period = vm[cli::IPFS_GRACE].as<uint32_t>();
+        cfg.node_swarm_port = vm[cli::IPFS_SWARM_PORT].as<uint32_t>();
+
+        if (vm.count(cli::IPFS_BOOTSTRAP)) {
+            cfg.bootstrap = vm[cli::IPFS_BOOTSTRAP].as<std::vector<string>>();
+        }
+
+        return cfg;
+    }
+    #endif
 
     po::options_description createRulesOptionsDescription()
     {

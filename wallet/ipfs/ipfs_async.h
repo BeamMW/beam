@@ -11,14 +11,29 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "v6_2_api.h"
+#pragma once
+
+#include "utility/thread.h"
+#include "utility/io/reactor.h"
+#include "utility/io/asyncevent.h"
 
 namespace beam::wallet
 {
-    V62Api::V62Api(IWalletApiHandler &handler, unsigned long avMajor, unsigned long avMinor, const ApiInitData &init)
-            : V61Api(handler, avMajor, avMinor, init)
+    class PostToReactorThread: std::enable_shared_from_this<PostToReactorThread>
     {
-        // MUST BE SAFE TO CALL FROM ANY THREAD
-        V6_2_API_METHODS(BEAM_API_REG_METHOD)
-    }
+    public:
+        ~PostToReactorThread();
+
+        typedef std::shared_ptr<PostToReactorThread> Ptr;
+        static Ptr create(beam::io::Reactor::Ptr reactor);
+        void post(std::function<void()>&& what);
+
+    private:
+        PostToReactorThread() = default;
+        void doInReactorThread();
+
+        std::mutex _queueGuard;
+        std::queue<std::function<void ()>> _queue;
+        io::AsyncEvent::Ptr _queueEvent;
+    };
 }

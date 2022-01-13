@@ -514,7 +514,7 @@ namespace
 }
 
 WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, Reactor::Ptr reactor)
-    : WalletClient(Rules::get() , walletDB, nodeAddr, reactor)
+    : WalletClient(Rules::get(), walletDB, boost::none, nodeAddr, reactor)
 {    
 }
 

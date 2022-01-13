@@ -23,6 +23,11 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Submodule update
+      shell: bash
+      run: |
+        git submodule update --init --recursive --jobs 4
+
 ###############################################################################
 # Create Build Environment
 ###############################################################################
@@ -87,6 +92,7 @@ jobs:
       if: matrix.os == 'windows-2019'
       run: |
         # git apply 3rdparty/protobuf-patch.diff
+        cmake --version
         cmake -G "Visual Studio 16 2019" -A x64 -DCMAKE_CONFIGURATION_TYPES:STRING=$BUILD_CONFIG -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=On -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_BUILD_JNI=Off -DBEAM_HW_WALLET=Off .
 
     - name: Save version info
@@ -184,7 +190,6 @@ jobs:
         tar -cvf artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}.tar -C wallet/broadcaster broadcaster${{env.BEAM_TARGET_SUFFIX}} broadcaster${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
         tar -cvf artifacts/ethash-service.tar -C bvm/ethash_service ethash-service ethash-service-checksum.txt
 
-
     - name: Collect [windows]
       shell: bash
       if: matrix.os == 'windows-2019'
@@ -200,6 +205,7 @@ jobs:
         cp explorer/explorer-node.cfg artifacts/explorer-node.cfg
         cp wallet/broadcaster/${{env.BUILD_CONFIG}}/broadcaster${{env.BEAM_TARGET_SUFFIX}}.exe artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}.exe
         cp bvm/ethash_service/${{env.BUILD_CONFIG}}/ethash-service.exe artifacts/ethash-service.exe
+        cp 3rdparty/asio-ipfs/ipfs_bindings/ipfs-bindings.dll artifacts/ipfs-bindings.dll
 
     - name: Collect pdb [windows]
       shell: bash
@@ -222,6 +228,7 @@ jobs:
         certUtil -hashfile artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}}.exe SHA256 > artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
         certUtil -hashfile artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}.exe SHA256 > artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
         certUtil -hashfile artifacts/ethash-service.exe SHA256 > artifacts/ethash-service-checksum.txt
+        certUtil -hashfile artifacts/ipfs-bindings.dll SHA256 > artifacts/ipfs-bindings-checksum.txt
 
     - name: OS name [macos-10.15]
       if: matrix.os == 'macos-10.15'
@@ -255,7 +262,9 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: ${{env.PLATFORM_NAME}}-wallet-api${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
-        path: artifacts/wallet-api*
+        path: |
+          artifacts/wallet-api*
+          artifacts/ipfs-bindings*
         if-no-files-found: error
     
     - uses: actions/upload-artifact@v2
@@ -291,7 +300,7 @@ jobs:
 ###############################################################################
   build_ios:
     runs-on: macos-10.15
-    # if: ${{false}}
+    #if: ${{false}}
 
     steps:
     - uses: actions/checkout@v2
@@ -322,10 +331,10 @@ jobs:
       run: |
         # git apply 3rdparty/protobuf-patch.diff
         export BOOST_ROOT_IOS="${{runner.workspace}}/dependencies/boost-ios"
-        cmake . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/dependencies/toolchain-ios/ios.toolchain.cmake -DPLATFORM=OS64 -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DDEPLOYMENT_TARGET=11.0 -DENABLE_BITCODE=NO -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY -DOPENSSL_INCLUDE_DIR=$OPENSSL_INCLUDE_DIR -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY -DOPENSSL_LIBRARIES=$OPENSSL_LIBRARIES -DIOS=YES -Wno-error=deprecated-declarations -Wno-error=deprecated -DCMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_WARN_DEPRECATED -B./build
+        cmake . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/dependencies/toolchain-ios/ios.toolchain.cmake -DPLATFORM=OS64 -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DDEPLOYMENT_TARGET=11.0 -DENABLE_BITCODE=NO -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY -DOPENSSL_INCLUDE_DIR=$OPENSSL_INCLUDE_DIR -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY -DOPENSSL_LIBRARIES=$OPENSSL_LIBRARIES -DIOS=YES -Wno-error=deprecated-declarations -Wno-error=deprecated -DCMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_WARN_DEPRECATED -DBEAM_IPFS_SUPPORT=Off -B./build
         make -C ./build -j$(sysctl -n hw.ncpu)
         export BOOST_ROOT_IOS="${{runner.workspace}}/dependencies/boost-ios-simulator"
-        cmake . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/dependencies/toolchain-ios/ios.toolchain.cmake -DPLATFORM=SIMULATOR64 -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DDEPLOYMENT_TARGET=11.0 -DENABLE_BITCODE=NO -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY -DOPENSSL_INCLUDE_DIR=$OPENSSL_INCLUDE_DIR -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY -DOPENSSL_LIBRARIES=$OPENSSL_LIBRARIES -DIOS=YES -Wno-error=deprecated-declarations -Wno-error=deprecated -DCMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_WARN_DEPRECATED -B./build-simulator
+        cmake . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/dependencies/toolchain-ios/ios.toolchain.cmake -DPLATFORM=SIMULATOR64 -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DDEPLOYMENT_TARGET=11.0 -DENABLE_BITCODE=NO -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY -DOPENSSL_INCLUDE_DIR=$OPENSSL_INCLUDE_DIR -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY -DOPENSSL_LIBRARIES=$OPENSSL_LIBRARIES -DIOS=YES -Wno-error=deprecated-declarations -Wno-error=deprecated -DCMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_WARN_DEPRECATED -DBEAM_IPFS_SUPPORT=Off -B./build-simulator
         make -C ./build-simulator -j$(sysctl -n hw.ncpu)
 
     - name: Save version info
@@ -381,7 +390,7 @@ jobs:
 ###############################################################################
   build_android:
     runs-on: ubuntu-18.04
-    # if: ${{false}}
+    #if: ${{false}}
     strategy:
       matrix:
         abi: [x86, x86_64, armeabi-v7a, arm64-v8a]
@@ -411,7 +420,7 @@ jobs:
     - name: Configure CMake
       run: |
         export PATH=${{env.ANDROID_NDK_HOME}}:$PATH
-        cmake -DCMAKE_TOOLCHAIN_FILE=${{env.ANDROID_NDK_HOME}}/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=${{env.ANDROID_SDK_VERSION}} -DANDROID_ABI=${{env.ANDROID_ABI}} -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} .
+        cmake -DCMAKE_TOOLCHAIN_FILE=${{env.ANDROID_NDK_HOME}}/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=${{env.ANDROID_SDK_VERSION}} -DANDROID_ABI=${{env.ANDROID_ABI}} -DBEAM_IPFS_SUPPORT=Off -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} .
 
 ###############################################################################
 # Build
@@ -444,7 +453,6 @@ jobs:
   build_key_keeper:
     if: ${{false}} # disabled 
     runs-on: ubuntu-18.04
-    # if: ${{false}}
 
     steps:
     - uses: actions/checkout@v2
@@ -499,7 +507,7 @@ jobs:
 ###############################################################################
   build_wasm:
     runs-on: ubuntu-20.04
-    # if: ${{false}}
+    #if: ${{false}}
 
     steps:
     - uses: actions/checkout@v2
@@ -536,7 +544,7 @@ jobs:
     - name: Configure CMake && Build
       run: |
         source ${{runner.workspace}}/emsdk/emsdk_env.sh
-        cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DBoost_DEBUG=On -DBEAM_TESTS_ENABLED=Off -DBEAM_WALLET_CLIENT_LIBRARY=On -DBEAM_ATOMIC_SWAP_SUPPORT=Off -DBEAM_LASER_SUPPORT=Off -DBEAM_USE_STATIC=On -DBOOST_ROOT=${{runner.workspace}}/boost_prebuild -DCMAKE_FIND_ROOT_PATH:FILEPATH="${{runner.workspace}}/boost_prebuild;${{runner.workspace}}/openssl-wasm" -DOPENSSL_ROOT_DIR=${{runner.workspace}}/openssl-wasm -B${{runner.workspace}}/build_wasm
+        cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DBoost_DEBUG=On -DBEAM_TESTS_ENABLED=Off -DBEAM_WALLET_CLIENT_LIBRARY=On -DBEAM_ATOMIC_SWAP_SUPPORT=Off -DBEAM_IPFS_SUPPORT=Off -DBEAM_LASER_SUPPORT=Off -DBEAM_USE_STATIC=On -DBOOST_ROOT=${{runner.workspace}}/boost_prebuild -DCMAKE_FIND_ROOT_PATH:FILEPATH="${{runner.workspace}}/boost_prebuild;${{runner.workspace}}/openssl-wasm" -DOPENSSL_ROOT_DIR=${{runner.workspace}}/openssl-wasm -B${{runner.workspace}}/build_wasm
         emmake make -j$(nproc) -C ${{runner.workspace}}/build_wasm
 
     - name: Save version info
