@@ -22,7 +22,7 @@ if (NOT BEAM_WALLET_CLIENT_LIBRARY)
     add_subdirectory(ethash_service)
 endif()
 
-if(NOT ANDROID AND NOT IOS)
+if(NOT ANDROID AND NOT IOS AND NOT EMSCRIPTEN)
 ##if (NOT BEAM_WALLET_CLIENT_LIBRARY OR BEAM_BVM_ONLY)
     add_subdirectory(sid_generator)
 #endif()

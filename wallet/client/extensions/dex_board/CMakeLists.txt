@@ -12,6 +12,7 @@ target_sources(dex_board
 
 target_link_libraries(dex_board 
     PUBLIC
+        broadcast_gateway
         wallet
 )
 

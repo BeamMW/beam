@@ -13,6 +13,7 @@ target_sources(notifications
 
 target_link_libraries(notifications 
     PUBLIC
+        broadcast_gateway
         wallet_core
 )
 

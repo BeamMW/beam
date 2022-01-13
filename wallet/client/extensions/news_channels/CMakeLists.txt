@@ -20,6 +20,7 @@ target_sources(news_channels
 
 target_link_libraries(news_channels 
     PUBLIC
+        broadcast_gateway
         wallet_core
 )
 
