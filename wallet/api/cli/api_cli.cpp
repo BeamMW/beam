@@ -188,9 +188,9 @@ namespace
             try
             {
                 _ipfsHandler = std::make_shared<IPFSHandler>(std::move(reactor));
-                _ipfs = beam::wallet::IPFSService::create(_ipfsHandler);
-                _ipfs->start(config);
-                LOG_INFO() << "IPFS Service successfully started, ID " << _ipfs->id();
+                _ipfs = beam::wallet::IPFSService::AnyThread_create(_ipfsHandler);
+                _ipfs->ServiceThread_start(std::move(config));
+                LOG_INFO() << "IPFS Service successfully started, ID " << _ipfs->AnyThread_id();
                 return true;
             }
             catch(std::runtime_error& err)
@@ -202,7 +202,7 @@ namespace
 
         void stopIPFS()
         {
-            _ipfs->stop();
+            _ipfs->ServiceThread_stop();
             _ipfs.reset();
             _ipfsHandler.reset();
         }
