@@ -78,6 +78,10 @@ namespace beam::wallet
         virtual void setNodeAddress(const std::string& addr) = 0;
         virtual void changeWalletPassword(const beam::SecString& password) = 0;
 
+        #ifdef BEAM_IPFS_SUPPORT
+        virtual void getIPFSStatus() = 0;
+        #endif
+
         virtual void getNetworkStatus() = 0;
         virtual void rescan() = 0;
         virtual void exportPaymentProof(const TxID& id) = 0;

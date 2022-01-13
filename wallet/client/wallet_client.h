@@ -129,8 +129,8 @@ namespace beam::wallet
         IWalletDB::Ptr getWalletDB();
 
         #ifdef BEAM_IPFS_SUPPORT
-        IPFSService::Ptr getIPFS(); // safe to call from any thread, result should be called only in context of WalletClient thread
-        IPFSService::Ptr IWThread_startIPFSNode(); // safe to call only in context of WalletClient thread
+        IPFSService::Ptr getIPFS();
+        IPFSService::Ptr IWThread_startIPFSNode();
         #endif
 
         IShadersManager::Ptr IWThread_createAppShaders(const std::string& appid, const std::string& appname);
@@ -216,14 +216,17 @@ namespace beam::wallet
         void onExchangeRates(const ExchangeRates&) override {}
         void onNotificationsChanged(ChangeAction, const std::vector<Notification>&) override {}
         void onVerificationInfo(const std::vector<VerificationInfo>&) override {}
+        virtual void onPublicAddress(const std::string& publicAddr) {}
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) override {}
-#endif
-        virtual void onPublicAddress(const std::string& publicAddr) {};
+        #endif
+
+        #ifdef BEAM_IPFS_SUPPORT
+        virtual void onIPFSStatus(bool connected, const std::string& error) {}
+        #endif
 
     private:
-
         void onAssetChanged(ChangeAction action, Asset::ID assetID) override;
         void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items) override;
         void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
@@ -278,6 +281,11 @@ namespace beam::wallet
         void setNodeAddress(const std::string& addr) override;
         void changeWalletPassword(const SecString& password) override;
         void getNetworkStatus() override;
+
+        #ifdef BEAM_IPFS_SUPPORT
+        void getIPFSStatus() override;
+        #endif
+
         void rescan() override;
         void exportPaymentProof(const TxID& id) override;
         void checkNetworkAddress(const std::string& addr) override;

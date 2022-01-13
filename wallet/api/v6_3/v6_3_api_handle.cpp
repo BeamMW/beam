@@ -20,7 +20,7 @@ namespace beam::wallet
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
-        ipfs->add(std::move(req.data),
+        ipfs->AnyThread_add(std::move(req.data),
             [this, id, wguard = _weakSelf](std::string&& hash) {
                 auto guard = wguard.lock();
                 if (!guard)
@@ -53,7 +53,7 @@ namespace beam::wallet
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
-        ipfs->get(req.hash, req.timeout,
+        ipfs->AnyThread_get(req.hash, req.timeout,
         [this, id, hash = req.hash, wguard = _weakSelf](std::vector<uint8_t>&& data) {
                 auto guard = wguard.lock();
                 if (!guard)
@@ -85,7 +85,7 @@ namespace beam::wallet
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
-        ipfs->pin(req.hash, req.timeout,
+        ipfs->AnyThread_pin(req.hash, req.timeout,
         [this, id, hash = req.hash, wguard = _weakSelf]() {
                 auto guard = wguard.lock();
                 if (!guard)
@@ -116,7 +116,7 @@ namespace beam::wallet
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
-        ipfs->unpin(req.hash, req.timeout,
+        ipfs->AnyThread_unpin(req.hash, req.timeout,
           [this, id, hash = req.hash, wguard = _weakSelf]() {
               auto guard = wguard.lock();
               if (!guard)
@@ -147,7 +147,7 @@ namespace beam::wallet
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
-        ipfs->gc(req.timeout,
+        ipfs->AnyThread_gc(req.timeout,
             [this, id, wguard = _weakSelf]() {
                 auto guard = wguard.lock();
                 if (!guard)

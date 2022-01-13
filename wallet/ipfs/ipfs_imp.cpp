@@ -20,7 +20,7 @@
 // See https://github.com/lucas-clemente/quic-go/wiki/UDP-Receive-Buffer-Size for details.
 namespace beam::wallet
 {
-    IPFSService::Ptr IPFSService::create(HandlerPtr handler)
+    IPFSService::Ptr IPFSService::AnyThread_create(HandlerPtr handler)
     {
         return std::make_shared<imp::IPFSService>(std::move(handler));
     }
@@ -40,18 +40,17 @@ namespace beam::wallet::imp
         assert(!_node);
         assert(!_thread.joinable());
         assert(!_ios_guard);
+
+        if (_thread.joinable()) {
+            std::terminate();
+        }
     }
 
-    bool IPFSService::running() const
+    void IPFSService::ServiceThread_start(asio_ipfs::config config)
     {
-        return _thread.joinable();
-    }
-
-    void IPFSService::start(asio_ipfs::config config)
-    {
+        std::scoped_lock lock(_mutex);
         if (_thread.joinable())
         {
-            assert(false);
             throw std::runtime_error("IPFS Service is already running");
         }
 
@@ -77,9 +76,7 @@ namespace beam::wallet::imp
         //
         {
             std::string error;
-            auto startctx = std::make_unique<asio::io_context>();
-
-            asio::spawn(*startctx, [&](boost::asio::yield_context yield) {
+            asio::spawn(_ios, [&](boost::asio::yield_context yield) {
                 try
                 {
                     if (config.bootstrap.empty())
@@ -93,7 +90,7 @@ namespace beam::wallet::imp
                         #endif
                     }
 
-                    _node = asio_ipfs::node::build(*startctx, config, std::move(yield));
+                    _node = asio_ipfs::node::build(_ios, config, std::move(yield));
 
                     // TODO:IPFS ensure if connected
                     // TODO:IPFS lower connect timeout
@@ -104,7 +101,7 @@ namespace beam::wallet::imp
                     error = err2str(err);
                 }
             });
-            startctx->run();
+            _ios.run();
 
             if (!error.empty())
             {
@@ -126,18 +123,18 @@ namespace beam::wallet::imp
         // Here we know that everything is OK, and we're ready for a real
         // threaded startup. Save data & spawn an infinitely running thread
         //
-        _path = config.repo_root;
         _myid = _node->id();
         _ios_guard = std::make_unique<IOSGuard>(_ios.get_executor());
-        _thread = MyThread([this, repo = _path]()
+        _thread = MyThread([this, repo = config.repo_root]()
         {
             _ios.run();
         });
     }
 
-    void IPFSService::stop()
+    void IPFSService::ServiceThread_stop()
     {
-        if (!_node || !_thread.joinable())
+        std::scoped_lock lock(_mutex);
+        if (!_thread.joinable())
         {
             assert(false);
             throw std::runtime_error("IPFS service thread already stopped");
@@ -154,11 +151,11 @@ namespace beam::wallet::imp
         LOG_INFO() << "IPFS Services stopped.";
     }
 
-    void IPFSService::add(std::vector<uint8_t>&& data, std::function<void (std::string&&)>&& res, Err&& err)
+    void IPFSService::AnyThread_add(std::vector<uint8_t>&& data, std::function<void (std::string&&)>&& res, Err&& err)
     {
         if (data.empty())
         {
-            retErr(std::move(err), "Empty data buffer cannot be added to IPFS");
+            AnyThreaad_retErr(std::move(err), "Empty data buffer cannot be added to IPFS");
             return;
         }
 
@@ -169,11 +166,11 @@ namespace beam::wallet::imp
         });
     }
 
-    void IPFSService::get(const std::string& hash, uint32_t timeout, std::function<void (std::vector<uint8_t>&&)>&& res, Err&& err)
+    void IPFSService::AnyThread_get(const std::string& hash, uint32_t timeout, std::function<void (std::vector<uint8_t>&&)>&& res, Err&& err)
     {
         if (hash.empty())
         {
-            retErr(std::move(err), "Cannot get data via an empty hash");
+            AnyThreaad_retErr(std::move(err), "Cannot get data via an empty hash");
             return;
         }
 
@@ -184,11 +181,11 @@ namespace beam::wallet::imp
         });
     }
 
-    void IPFSService::pin(const std::string& hash, uint32_t timeout, std::function<void ()>&& res, Err&& err)
+    void IPFSService::AnyThread_pin(const std::string& hash, uint32_t timeout, std::function<void ()>&& res, Err&& err)
     {
         if (hash.empty())
         {
-            retErr(std::move(err), "Cannot get data via an empty hash");
+            AnyThreaad_retErr(std::move(err), "Cannot get data via an empty hash");
             return;
         }
 
@@ -200,11 +197,11 @@ namespace beam::wallet::imp
         });
     }
 
-    void IPFSService::unpin(const std::string& hash, uint32_t timeout, std::function<void ()>&& res, Err&& err)
+    void IPFSService::AnyThread_unpin(const std::string& hash, uint32_t timeout, std::function<void ()>&& res, Err&& err)
     {
         if (hash.empty())
         {
-            retErr(std::move(err), "Cannot unpin an empty hash");
+            AnyThreaad_retErr(std::move(err), "Cannot unpin an empty hash");
             return;
         }
 
@@ -216,7 +213,7 @@ namespace beam::wallet::imp
         });
     }
 
-    void IPFSService::gc(uint32_t timeout, std::function<void ()>&& res, Err&& err)
+    void IPFSService::AnyThread_gc(uint32_t timeout, std::function<void ()>&& res, Err&& err)
     {
         call_ipfs(timeout, std::move(res), std::move(err), [this]
         (boost::asio::yield_context yield, std::function<void()>& cancel) -> JustVoid
@@ -226,7 +223,7 @@ namespace beam::wallet::imp
         });
     }
 
-    void IPFSService::retToClient(std::function<void()>&& what)
+    void IPFSService::AnyThreaad_retToClient(std::function<void()>&& what)
     {
         _handler->pushToClient(std::move(what));
     }

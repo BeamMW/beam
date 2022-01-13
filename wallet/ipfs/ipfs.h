@@ -38,41 +38,44 @@ namespace beam::wallet
         typedef std::function<void (std::string&&)> Err;
         virtual ~IPFSService() = default;
 
-        [[nodiscard]] static Ptr create(HandlerPtr);
+        [[nodiscard]] static Ptr AnyThread_create(HandlerPtr);
 
         /// \exception std::runtime_error
-        virtual bool running() const = 0;
-        virtual void start(asio_ipfs::config config) = 0;
+        /// \breief Calling thread becomes the `ServiceThread`
+        virtual void ServiceThread_start(asio_ipfs::config config) = 0;
 
         /// \exception std::runtime_error
-        virtual void stop() = 0;
+        virtual void ServiceThread_stop() = 0;
+
+        // \result true if service is active
+        [[nodiscard]] virtual bool AnyThread_running() const = 0;
 
         /// \result IPFS node ID
-        [[nodiscard]] virtual std::string id() const = 0;
+        [[nodiscard]] virtual std::string AnyThread_id() const = 0;
 
         /// \brief Store data in IPFS and get ipfs hash back via callback.
         ///        Async, executed in other thread, may take long time or fail.
-        virtual void add(std::vector<uint8_t>&& data,
+        virtual void AnyThread_add(std::vector<uint8_t>&& data,
                          std::function<void (std::string&&)>&& res,
                          Err&&) = 0;
 
         /// \brief Get data from IPFS
-        virtual void get(const std::string& hash, uint32_t timeout,
+        virtual void AnyThread_get(const std::string& hash, uint32_t timeout,
                          std::function<void (std::vector<uint8_t>&&)>&& res,
                          Err&&) = 0;
 
         /// \brief Pin to the local node
-        virtual void pin(const std::string& hash, uint32_t timeout,
+        virtual void AnyThread_pin(const std::string& hash, uint32_t timeout,
                          std::function<void ()>&& res,
                          Err&&) = 0;
 
         /// \brief Unpin from the local node
-        virtual void unpin(const std::string& hash, uint32_t timeout,
+        virtual void AnyThread_unpin(const std::string& hash, uint32_t timeout,
                            std::function<void ()>&& res,
                            Err&&) = 0;
 
         /// \brief GC, i.e. remove all unpinned
-        virtual void gc(uint32_t timeout,
+        virtual void AnyThread_gc(uint32_t timeout,
                         std::function<void ()>&& res,
                         Err&&) = 0;
     };

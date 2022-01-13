@@ -20,6 +20,7 @@
 #include <boost/asio/spawn.hpp>
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <shared_mutex>
 
 namespace beam::wallet::imp
 {
@@ -31,18 +32,25 @@ namespace beam::wallet::imp
         explicit IPFSService(HandlerPtr);
         ~IPFSService() override;
 
-        bool running() const override;
-        void start(asio_ipfs::config config) override;
-        void stop() override;
-        void add(std::vector<uint8_t>&& data, std::function<void (std::string&&)>&& res, Err&&) override;
-        void get(const std::string& hash, uint32_t timeout, std::function<void (std::vector<uint8_t>&&)>&& res, Err&&) override;
-        void pin(const std::string& hash, uint32_t timeout, std::function<void ()>&& res, Err&&) override;
-        void unpin(const std::string& hash, uint32_t timeout, std::function<void ()>&& res, Err&&) override;
-        void gc(uint32_t timeout, std::function<void ()>&& res, Err&&) override;
+        void ServiceThread_start(asio_ipfs::config config) override;
+        void ServiceThread_stop() override;
 
-        [[nodiscard]] std::string id() const override
+        void AnyThread_add(std::vector<uint8_t>&& data, std::function<void (std::string&&)>&& res, Err&&) override;
+        void AnyThread_get(const std::string& hash, uint32_t timeout, std::function<void (std::vector<uint8_t>&&)>&& res, Err&&) override;
+        void AnyThread_pin(const std::string& hash, uint32_t timeout, std::function<void ()>&& res, Err&&) override;
+        void AnyThread_unpin(const std::string& hash, uint32_t timeout, std::function<void ()>&& res, Err&&) override;
+        void AnyThread_gc(uint32_t timeout, std::function<void ()>&& res, Err&&) override;
+
+        [[nodiscard]] std::string AnyThread_id() const override
         {
+            std::scoped_lock lock(_mutex);
             return _myid;
+        }
+
+        [[nodiscard]] bool AnyThread_running() const override
+        {
+            std::scoped_lock lock(_mutex);
+            return _thread.joinable();
         }
 
     private:
@@ -51,9 +59,10 @@ namespace beam::wallet::imp
         template<typename TA, typename TR>
         void call_ipfs(uint32_t timeout, TR&& res, Err&& err, TA&& action)
         {
-            if(!_node || !_thread.joinable())
+            std::scoped_lock lock(_mutex);
+            if(!_thread.joinable())
             {
-                retErr(std::move(err), "Unexpected add call. IPFS is not started");
+                AnyThreaad_retErr(std::move(err), "Unexpected add call. IPFS is not started");
                 return;
             }
 
@@ -84,7 +93,7 @@ namespace beam::wallet::imp
                                 }
                                 else
                                 {
-                                    retErr(std::move(err), "operation timed out");
+                                    AnyThreaad_retErr(std::move(err), "operation timed out");
                                 }
                             });
                         }
@@ -94,11 +103,11 @@ namespace beam::wallet::imp
                         {
                             deadline->cancel();
                         }
-                        retVal(std::move(res), std::move(result));
+                        AnyThreaad_retVal(std::move(res), std::move(result));
                     }
                     catch(const boost::system::system_error& se)
                     {
-                        retErr(std::move(err), err2str(se));
+                        AnyThreaad_retErr(std::move(err), err2str(se));
                     }
                 }
             );
@@ -108,19 +117,19 @@ namespace beam::wallet::imp
         // a bit verbose to call but caller would always
         // copy params to lambda if any present and
         // won't pass local vars by accident
-        void retToClient(std::function<void ()>&& what);
+        void AnyThreaad_retToClient(std::function<void ()>&& what);
 
         template<typename T1, typename T2>
-        void retVal(T1&& func, T2&& what)
+        void AnyThreaad_retVal(T1&& func, T2&& what)
         {
-            retToClient([func = std::forward<T1>(func), what = std::forward<T2>(what)]() mutable {
+            AnyThreaad_retToClient([func = std::forward<T1>(func), what = std::forward<T2>(what)]() mutable {
                 func(std::move(what));
             });
         }
 
-        void retErr(Err&& err, std::string&& what)
+        void AnyThreaad_retErr(Err&& err, std::string&& what)
         {
-            retVal(std::move(err), std::move(what));
+            AnyThreaad_retVal(std::move(err), std::move(what));
         }
 
         std::string err2str(const boost::system::system_error &err)
@@ -130,9 +139,9 @@ namespace beam::wallet::imp
             return ss.str();
         }
 
-        std::string _path;
-        std::string _myid;
         std::unique_ptr<asio_ipfs::node> _node;
+        std::string _myid;
+        mutable uint64_t _lcnt = 0;
 
         //
         // Threading & async stuff
@@ -143,12 +152,18 @@ namespace beam::wallet::imp
 
         typedef boost::asio::executor_work_guard<decltype(_ios.get_executor())> IOSGuard;
         std::unique_ptr<IOSGuard> _ios_guard;
+
+        // Since we usually have only 1 thread that uses IPFSService + multiple IPFS threads
+        // that do not require lock on `this` recursive_mutex is OK.
+        // Shared (read/write) recursive mutex would fit better for real multithreading for client
+        // side, but there is no such beast in std::
+        mutable std::recursive_mutex _mutex;
     };
 
     template<>
-    inline void IPFSService::retVal(std::function<void()>&& func, IPFSService::JustVoid&& what)
+    inline void IPFSService::AnyThreaad_retVal(std::function<void()>&& func, IPFSService::JustVoid&& what)
     {
-        retToClient([func = std::move(func)] {
+        AnyThreaad_retToClient([func = std::move(func)] {
             func();
         });
     }

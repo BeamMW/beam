@@ -259,6 +259,13 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getNetworkStatus);
     }
 
+    #ifdef BEAM_IPFS_SUPPORT
+    void getIPFSStatus() override
+    {
+        call_async(&IWalletModelAsync::getIPFSStatus);
+    }
+    #endif
+
     void rescan() override
     {
         call_async(&IWalletModelAsync::rescan);
@@ -692,7 +699,7 @@ namespace beam::wallet
                 {
                     LOG_INFO() << "IPFS Service is enabled. Node would be started on app demand";
                     ipfsHandler = std::make_shared<IPFSHandler>(this);
-                    ipfsService = IPFSService::create(ipfsHandler);
+                    ipfsService = IPFSService::AnyThread_create(ipfsHandler);
                     m_ipfs = ipfsService;
 
                 }
@@ -720,8 +727,8 @@ namespace beam::wallet
                 // IPFS service might be not started, so need to check
                 if (ipfsService) 
                 {
-                    if (ipfsService->running()) {
-                        ipfsService->stop();
+                    if (ipfsService->AnyThread_running()) {
+                        ipfsService->ServiceThread_stop();
                     }
 
                     assert(ipfsService.use_count() == 1);
@@ -777,7 +784,7 @@ namespace beam::wallet
     IPFSService::Ptr WalletClient::getIPFS()
     {
         auto sp = m_ipfs.lock();
-        if(!sp || !sp->running())
+        if(!sp || !sp->AnyThread_running())
         {
             assert(false);
             throw std::runtime_error("IPFS Service is not running");
@@ -800,9 +807,9 @@ namespace beam::wallet
             throw std::runtime_error("IPFS service is not created");
         }
 
-        if (!sp->running())
+        if (!sp->AnyThread_running())
         {
-            sp->start(*m_ipfsConfig);
+            sp->ServiceThread_start(*m_ipfsConfig);
         }
 
         return sp;
@@ -823,10 +830,10 @@ namespace beam::wallet
             throw std::runtime_error("IPFS service is not created");
         }
 
-        if (sp->running())
+        if (sp->AnyThread_running())
         {
-            sp->stop();
-            sp->start(*m_ipfsConfig);
+            sp->ServiceThread_stop();
+            sp->ServiceThread_start(*m_ipfsConfig);
         }
     }
     #endif
@@ -1709,6 +1716,21 @@ namespace beam::wallet
 
         onNodeConnectionChanged(isConnected());
     }
+
+    #ifdef BEAM_IPFS_SUPPORT
+    void WalletClient::getIPFSStatus()
+    {
+        auto sp = m_ipfs.lock();
+        if (!sp || !sp->AnyThread_running())
+        {
+            onIPFSStatus(false, std::string());
+            return;
+        }
+
+        // TODO: this is not real status, handle errors
+        onIPFSStatus(sp->AnyThread_running(), std::string());
+    }
+    #endif
 
     void WalletClient::rescan()
     {
