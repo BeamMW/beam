@@ -436,6 +436,11 @@ namespace
                 size_t size = 0;
                 auto data = msg.msg->get_body(size);
 
+                if (size == 0)
+                {
+                    return send(_connection, 400, "Bad Request");
+                }
+
                 _sendResponseCalled = false;
                 const auto asyncResult = _walletApi->executeAPIRequest(reinterpret_cast<const char*>(data), size);
 

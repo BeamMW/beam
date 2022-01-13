@@ -63,6 +63,7 @@ namespace Shaders {
 #include "../Shaders/mirrorcoin/contract.h"
 #include "../Shaders/voting/contract.h"
 #include "../Shaders/dao-core/contract.h"
+#include "../Shaders/dao-vote/contract.h"
 #include "../Shaders/aphorize/contract.h"
 #include "../Shaders/liquity/contract.h"
 
@@ -261,6 +262,25 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Amount);
 	}
 
+	template <bool bToShader> void Convert(DaoVote::Method::Create& x) {
+		ConvertOrd<bToShader>(x.m_Cfg.m_Aid);
+		ConvertOrd<bToShader>(x.m_Cfg.m_hEpochDuration);
+	}
+	template <bool bToShader> void Convert(DaoVote::Method::AddProposal& x) {
+		ConvertOrd<bToShader>(x.m_TxtLen);
+		ConvertOrd<bToShader>(x.m_Data.m_Variants);
+	}
+	template <bool bToShader> void Convert(DaoVote::Method::AddDividend& x) {
+		ConvertOrd<bToShader>(x.m_Val.m_Aid);
+		ConvertOrd<bToShader>(x.m_Val.m_Amount);
+	}
+	template <bool bToShader> void Convert(DaoVote::Method::MoveFunds& x) {
+		ConvertOrd<bToShader>(x.m_Amount);
+	}
+	template <bool bToShader> void Convert(DaoVote::Method::Vote& x) {
+		ConvertOrd<bToShader>(x.m_iEpoch);
+	}
+
 	template <bool bToShader> void Convert(Aphorize::Create& x) {
 		ConvertOrd<bToShader>(x.m_Cfg.m_hPeriod);
 		ConvertOrd<bToShader>(x.m_Cfg.m_PriceSubmit);
@@ -296,8 +316,8 @@ namespace Shaders {
 
 	namespace Env {
 
-		//typedef beam::bvm2::Limits::Cost Cost;
-		//typedef Shaders::Env::KeyID KeyID;
+		typedef beam::bvm2::Limits::Cost Cost;
+		typedef Shaders::Env::KeyID KeyID;
 
 		void CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint8_t bInheritContext);
 
@@ -357,8 +377,10 @@ namespace Shaders {
 #include "../Shaders/aphorize/contract.cpp"
 	}
 
+#include "../Shaders/dao-vote/contract.cpp" // already within namespace
 #include "../Shaders/liquity/contract.cpp" // already within namespace
 //#include "../Shaders/liquity/app.cpp"
+#include "../Shaders/upgradable2/app_common_impl.h"
 
 #ifdef _MSC_VER
 #	pragma warning (default : 4200 4702)
@@ -450,44 +472,37 @@ namespace bvm2 {
 	struct MyProcessor
 		:public ContractTestProcessor
 	{
-
-		struct Code
+		struct ContractWrap
 		{
-			ByteBuffer m_Vault;
-			ByteBuffer m_Oracle;
-			ByteBuffer m_Oracle2;
-			ByteBuffer m_Dummy;
-			ByteBuffer m_Sidechain;
-			ByteBuffer m_StableCoin;
-			ByteBuffer m_Faucet;
-			ByteBuffer m_Roulette;
-			ByteBuffer m_Perpetual;
-			ByteBuffer m_Pipe;
-			ByteBuffer m_MirrorCoin;
-			ByteBuffer m_Voting;
-			ByteBuffer m_DaoCore;
-			ByteBuffer m_Aphorize;
-			ByteBuffer m_Liquity;
+			ByteBuffer m_Code;
+			ShaderID m_Sid;
+			ContractID m_Cid;
+		};
 
-		} m_Code;
+		ContractWrap m_Vault;
+		ContractWrap m_Oracle;
+		ContractWrap m_Oracle2;
+		ContractWrap m_Dummy;
+		ContractWrap m_Sidechain;
+		ContractWrap m_StableCoin;
+		ContractWrap m_Faucet;
+		ContractWrap m_Roulette;
+		ContractWrap m_Perpetual;
+		ContractWrap m_Pipe;
+		ContractWrap m_MirrorCoin;
+		ContractWrap m_Voting;
+		ContractWrap m_DaoCore;
+		ContractWrap m_DaoVote;
+		ContractWrap m_Aphorize;
+		ContractWrap m_Liquity;
 
-		ContractID m_cidVault;
-		ContractID m_cidOracle;
-		ContractID m_cidOracle2;
-		ContractID m_cidStableCoin;
-		ContractID m_cidFaucet;
-		ContractID m_cidRoulette;
-		ContractID m_cidDummy;
-		ContractID m_cidSidechain;
-		ContractID m_cidPerpetual;
-		ContractID m_cidPipe;
-		ContractID m_cidMirrorCoin1;
+		void AddCode(ContractWrap& cw, const char* sz)
+		{
+			ContractTestProcessor::AddCode(cw.m_Code, sz);
+			get_ShaderID(cw.m_Sid, cw.m_Code);
+		}
+
 		ContractID m_cidMirrorCoin2;
-		ContractID m_cidVoting;
-		ContractID m_cidDaoCore;
-		ContractID m_cidAphorize;
-		ContractID m_cidLiquity;
-
 
 		struct {
 
@@ -500,7 +515,7 @@ namespace bvm2 {
 
 		virtual void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext) override
 		{
-			if (cid == m_cidVault)
+			if (cid == m_Vault.m_Cid)
 			{
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
@@ -512,7 +527,7 @@ namespace bvm2 {
 				//}
 			}
 
-			if (cid == m_cidOracle)
+			if (cid == m_Oracle.m_Cid)
 			{
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
@@ -524,7 +539,7 @@ namespace bvm2 {
 				//}
 			}
 
-			if (cid == m_cidOracle2)
+			if (cid == m_Oracle2.m_Cid)
 			{
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
@@ -536,7 +551,7 @@ namespace bvm2 {
 				//}
 			}
 
-			if (cid == m_cidStableCoin)
+			if (cid == m_StableCoin.m_Cid)
 			{
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
@@ -549,7 +564,7 @@ namespace bvm2 {
 				//}
 			}
 
-			if (cid == m_cidFaucet)
+			if (cid == m_Faucet.m_Cid)
 			{
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
@@ -561,7 +576,7 @@ namespace bvm2 {
 				//}
 			}
 
-			if (cid == m_cidRoulette)
+			if (cid == m_Roulette.m_Cid)
 			{
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
@@ -575,7 +590,7 @@ namespace bvm2 {
 				//}
 			}
 
-			if (cid == m_cidDummy)
+			if (cid == m_Dummy.m_Cid)
 			{
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
@@ -586,7 +601,7 @@ namespace bvm2 {
 				//}
 			}
 
-			if (cid == m_cidSidechain)
+			if (cid == m_Sidechain.m_Cid)
 			{
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
@@ -598,7 +613,7 @@ namespace bvm2 {
 				//}
 			}
 
-			if (cid == m_cidPerpetual)
+			if (cid == m_Perpetual.m_Cid)
 			{
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
@@ -609,7 +624,7 @@ namespace bvm2 {
 				//}
 			}
 
-			if (cid == m_cidPipe)
+			if (cid == m_Pipe.m_Cid)
 			{
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
@@ -624,7 +639,7 @@ namespace bvm2 {
 				//}
 			}
 
-			if ((cid == m_cidMirrorCoin1) || (cid == m_cidMirrorCoin2))
+			if ((cid == m_MirrorCoin.m_Cid) || (cid == m_cidMirrorCoin2))
 			{
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
@@ -636,7 +651,7 @@ namespace bvm2 {
 				//}
 			}
 
-			if (cid == m_cidVoting)
+			if (cid == m_Voting.m_Cid)
 			{
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
@@ -647,7 +662,7 @@ namespace bvm2 {
 				//}
 			}
 
-			if (cid == m_cidDaoCore)
+			if (cid == m_DaoCore.m_Cid)
 			{
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
@@ -658,7 +673,20 @@ namespace bvm2 {
 				//}
 			}
 
-			if (cid == m_cidAphorize)
+			//if (cid == m_DaoVote.m_Cid)
+			//{
+			//	TempFrame f(*this, cid);
+			//	switch (iMethod)
+			//	{
+			//	case 0: Shaders::DaoVote::Ctor(CastArg<Shaders::DaoVote::Method::Create>(pArgs)); return;
+			//	case 3: Shaders::DaoVote::Method_3(CastArg<Shaders::DaoVote::Method::AddProposal>(pArgs)); return;
+			//	case 4: Shaders::DaoVote::Method_4(CastArg<Shaders::DaoVote::Method::MoveFunds>(pArgs)); return;
+			//	case 5: Shaders::DaoVote::Method_5(CastArg<Shaders::DaoVote::Method::Vote>(pArgs)); return;
+			//	case 6: Shaders::DaoVote::Method_6(CastArg<Shaders::DaoVote::Method::AddDividend>(pArgs)); return;
+			//	}
+			//}
+
+			if (cid == m_Aphorize.m_Cid)
 			{
 				//TempFrame f(*this, cid);
 				//switch (iMethod)
@@ -668,7 +696,7 @@ namespace bvm2 {
 				//}
 			}
 /*
-			if (cid == m_cidLiquity)
+			if (cid == m_Liquity.m_Cid)
 			{
 				TempFrame f(*this, cid);
 				switch (iMethod)
@@ -698,6 +726,7 @@ namespace bvm2 {
 		void TestMirrorCoin();
 		void TestVoting();
 		void TestDaoCore();
+		void TestDaoVote();
 		void TestAphorize();
 		void TestLiquity();
 
@@ -721,6 +750,7 @@ namespace bvm2 {
 	{
 		MyProcessor& m_Proc;
 		std::ostringstream m_Out;
+		uint32_t m_Charge;
 
 		MyManager(MyProcessor& proc)
 			:m_Proc(proc)
@@ -849,6 +879,8 @@ namespace bvm2 {
 			if (x.m_Args.size() != nArgs)
 				return false;
 
+			m_Charge = x.m_Charge - Shaders::ManagerUpgadable2::get_ChargeInvoke() + bvm2::Limits::Cost::CallFar;
+
 			memcpy(pArgs, &x.m_Args.front(), nArgs);
 			return true;
 		}
@@ -860,46 +892,12 @@ namespace bvm2 {
 		}
 	};
 
-
-	void MyProcessor::TestAll()
-	{
-		AddCode(m_Code.m_Vault, "vault/contract.wasm");
-		AddCode(m_Code.m_Dummy, "dummy/contract.wasm");
-		AddCode(m_Code.m_Oracle, "oracle/contract.wasm");
-		AddCode(m_Code.m_Oracle2, "oracle2/contract.wasm");
-		AddCode(m_Code.m_StableCoin, "StableCoin/contract.wasm");
-		AddCode(m_Code.m_Faucet, "faucet/contract.wasm");
-		AddCode(m_Code.m_Roulette, "roulette/contract.wasm");
-		AddCode(m_Code.m_Sidechain, "sidechain/contract.wasm");
-		AddCode(m_Code.m_Perpetual, "perpetual/contract.wasm");
-		AddCode(m_Code.m_Pipe, "pipe/contract.wasm");
-		AddCode(m_Code.m_MirrorCoin, "mirrorcoin/contract.wasm");
-		AddCode(m_Code.m_Voting, "voting/contract.wasm");
-		AddCode(m_Code.m_DaoCore, "dao-core/contract.wasm");
-		AddCode(m_Code.m_Aphorize, "aphorize/contract.wasm");
-		AddCode(m_Code.m_Liquity, "liquity/contract.wasm");
-
-		m_FarCalls.m_SaveLocal = true;
-
-		TestVault();
-		TestAphorize();
-		TestLiquity();
-		TestFaucet();
-		TestRoulette();
-		TestVoting();
-		TestDaoCore();
-		TestDummy();
-		TestSidechain();
-		TestOracle();
-		TestStableCoin();
-		TestPerpetual();
-		TestPipe();
-		TestMirrorCoin();
-	}
-
 	struct CidTxt
 	{
 		char m_szBuf[Shaders::ContractID::nBytes * 5];
+
+		CidTxt() {}
+		CidTxt(const Shaders::ContractID& sid) { Set(sid); }
 
 		void Set(const Shaders::ContractID& x)
 		{
@@ -921,6 +919,44 @@ namespace bvm2 {
 		}
 	};
 
+	void MyProcessor::TestAll()
+	{
+		AddCode(m_Vault, "vault/contract.wasm");
+		AddCode(m_Dummy, "dummy/contract.wasm");
+		AddCode(m_Oracle, "oracle/contract.wasm");
+		AddCode(m_Oracle2, "oracle2/contract.wasm");
+		AddCode(m_StableCoin, "StableCoin/contract.wasm");
+		AddCode(m_Faucet, "faucet/contract.wasm");
+		AddCode(m_Roulette, "roulette/contract.wasm");
+		AddCode(m_Sidechain, "sidechain/contract.wasm");
+		AddCode(m_Perpetual, "perpetual/contract.wasm");
+		AddCode(m_Pipe, "pipe/contract.wasm");
+		AddCode(m_MirrorCoin, "mirrorcoin/contract.wasm");
+		AddCode(m_Voting, "voting/contract.wasm");
+		AddCode(m_DaoCore, "dao-core/contract.wasm");
+		AddCode(m_DaoVote, "dao-vote/contract.wasm");
+		AddCode(m_Aphorize, "aphorize/contract.wasm");
+		AddCode(m_Liquity, "liquity/contract.wasm");
+
+		m_FarCalls.m_SaveLocal = true;
+
+		TestVault();
+		TestAphorize();
+		TestLiquity();
+		TestFaucet();
+		TestRoulette();
+		TestVoting();
+		TestDaoCore();
+		TestDaoVote();
+		TestDummy();
+		TestSidechain();
+		TestOracle();
+		TestStableCoin();
+		TestPerpetual();
+		TestPipe();
+		TestMirrorCoin();
+	}
+
 	static void VerifyId(const ContractID& cidExp, const ContractID& cid, const char* szName)
 	{
 		if (cidExp != cid)
@@ -939,12 +975,9 @@ namespace bvm2 {
 	void MyProcessor::TestVault()
 	{
 		Zero_ zero;
-		verify_test(ContractCreate_T(m_cidVault, m_Code.m_Vault, zero));
-		VERIFY_ID(Shaders::Vault::s_CID, m_cidVault);
-
-		bvm2::ShaderID sid;
-		bvm2::get_ShaderID(sid, m_Code.m_Vault);
-		VERIFY_ID(Shaders::Vault::s_SID, sid);
+		verify_test(ContractCreate_T(m_Vault.m_Cid, m_Vault.m_Code, zero));
+		VERIFY_ID(Shaders::Vault::s_CID, m_Vault.m_Cid);
+		VERIFY_ID(Shaders::Vault::s_SID, m_Vault.m_Sid);
 
 		m_lstUndo.Clear();
 
@@ -958,47 +991,47 @@ namespace bvm2 {
 		args.m_Aid = 3;
 		args.m_Amount = 45;
 
-		verify_test(RunGuarded_T(m_cidVault, Shaders::Vault::Deposit::s_iMethod, args));
+		verify_test(RunGuarded_T(m_Vault.m_Cid, Shaders::Vault::Deposit::s_iMethod, args));
 
 		args.m_Amount = 46;
-		verify_test(!RunGuarded_T(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, args)); // too much withdrawn
+		verify_test(!RunGuarded_T(m_Vault.m_Cid, Shaders::Vault::Withdraw::s_iMethod, args)); // too much withdrawn
 
 		args.m_Aid = 0;
 		args.m_Amount = 43;
-		verify_test(!RunGuarded_T(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, args)); // wrong asset
+		verify_test(!RunGuarded_T(m_Vault.m_Cid, Shaders::Vault::Withdraw::s_iMethod, args)); // wrong asset
 
 		args.m_Aid = 3;
-		verify_test(RunGuarded_T(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, args)); // ok
+		verify_test(RunGuarded_T(m_Vault.m_Cid, Shaders::Vault::Withdraw::s_iMethod, args)); // ok
 
 		args.m_Amount = 2;
-		verify_test(RunGuarded_T(m_cidVault, Shaders::Vault::Withdraw::s_iMethod, args)); // ok, pos terminated
+		verify_test(RunGuarded_T(m_Vault.m_Cid, Shaders::Vault::Withdraw::s_iMethod, args)); // ok, pos terminated
 
 		args.m_Amount = 0xdead2badcadebabeULL;
 
-		verify_test(RunGuarded_T(m_cidVault, Shaders::Vault::Deposit::s_iMethod, args)); // huge amount, should work
-		verify_test(!RunGuarded_T(m_cidVault, Shaders::Vault::Deposit::s_iMethod, args)); // would overflow
+		verify_test(RunGuarded_T(m_Vault.m_Cid, Shaders::Vault::Deposit::s_iMethod, args)); // huge amount, should work
+		verify_test(!RunGuarded_T(m_Vault.m_Cid, Shaders::Vault::Deposit::s_iMethod, args)); // would overflow
 
 		UndoChanges(); // up to (but not including) contract creation
 
 		// create several accounts with different assets
 		args.m_Amount = 400000;
 		args.m_Aid = 0;
-		verify_test(RunGuarded_T(m_cidVault, Shaders::Vault::Deposit::s_iMethod, args));
+		verify_test(RunGuarded_T(m_Vault.m_Cid, Shaders::Vault::Deposit::s_iMethod, args));
 
 		args.m_Amount = 300000;
 		args.m_Aid = 2;
-		verify_test(RunGuarded_T(m_cidVault, Shaders::Vault::Deposit::s_iMethod, args));
+		verify_test(RunGuarded_T(m_Vault.m_Cid, Shaders::Vault::Deposit::s_iMethod, args));
 
 		pt = pt * ECC::Two;
 		args.m_Account = pt;
 
 		args.m_Amount = 700000;
 		args.m_Aid = 0;
-		verify_test(RunGuarded_T(m_cidVault, Shaders::Vault::Deposit::s_iMethod, args));
+		verify_test(RunGuarded_T(m_Vault.m_Cid, Shaders::Vault::Deposit::s_iMethod, args));
 
 		args.m_Amount = 500000;
 		args.m_Aid = 6;
-		verify_test(RunGuarded_T(m_cidVault, Shaders::Vault::Deposit::s_iMethod, args));
+		verify_test(RunGuarded_T(m_Vault.m_Cid, Shaders::Vault::Deposit::s_iMethod, args));
 
 		m_lstUndo.Clear();
 	}
@@ -1010,7 +1043,7 @@ namespace bvm2 {
 			args.m_Cfg.m_hPeriod = 10;
 			args.m_Cfg.m_PriceSubmit = Shaders::g_Beam2Groth * 2;
 			ZeroObject(args.m_Cfg.m_Moderator);
-			verify_test(ContractCreate_T(m_cidAphorize, m_Code.m_Aphorize, args));
+			verify_test(ContractCreate_T(m_Aphorize.m_Cid, m_Aphorize.m_Code, args));
 		}
 
 		for (uint32_t i = 0; i < 20; i++)
@@ -1025,7 +1058,7 @@ namespace bvm2 {
 
 			memset(args.m_szText, 'a' + i, sizeof(args.m_szText));
 
-			verify_test(RunGuarded_T(m_cidAphorize, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_Aphorize.m_Cid, args.s_iMethod, args));
 		}
 	}
 
@@ -1051,7 +1084,7 @@ namespace bvm2 {
 		Pair get_Balance(const PubKey& pk)
 		{
 			Shaders::Env::Key_T<Balance::Key> key;
-			key.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+			key.m_Prefix.m_Cid = m_Proc.m_Liquity.m_Cid;
 			key.m_KeyInContract.m_Pk = pk;
 
 			Blob b;
@@ -1079,7 +1112,7 @@ namespace bvm2 {
 				,m_Tag(nTag)
 			{
 				Shaders::Env::Key_T<uint8_t> key;
-				key.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+				key.m_Prefix.m_Cid = m_Proc.m_Liquity.m_Cid;
 				key.m_KeyInContract = nTag;
 				m_it = m_Proc.m_Vars.lower_bound(Blob(&key, sizeof(key)), BlobMap::Set::Comparator());
 			}
@@ -1167,7 +1200,7 @@ namespace bvm2 {
 		bool InvokeBase(Shaders::Liquity::Method::BaseTx& args, uint32_t nSizeArgs, uint32_t iMethod, const PubKey& pkUser, bool bShouldUseVault)
 		{
 			Shaders::Env::Key_T<Balance::Key> key;
-			key.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+			key.m_Prefix.m_Cid = m_Proc.m_Liquity.m_Cid;
 			key.m_KeyInContract.m_Pk = pkUser;
 
 			Pair vals = ReadBalance(key);
@@ -1192,7 +1225,7 @@ namespace bvm2 {
 			Shaders::Liquity::FlowPair fp = args.m_Flow;
 			ZeroObject(args.m_Flow);
 
-			if (!m_Proc.RunGuarded(m_Proc.m_cidLiquity, iMethod, Blob(&args, nSizeArgs), nullptr))
+			if (!m_Proc.RunGuarded(m_Proc.m_Liquity.m_Cid, iMethod, Blob(&args, nSizeArgs), nullptr))
 				return false;
 
 			// verify the init-guess flow was correct
@@ -1244,7 +1277,7 @@ namespace bvm2 {
 
 			Key get_Key(uint32_t iEpoch) const {
 				Key k;
-				k.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+				k.m_Prefix.m_Cid = m_Proc.m_Liquity.m_Cid;
 				k.m_KeyInContract.m_Tag = m_Tag;
 				k.m_KeyInContract.m_iEpoch = iEpoch;
 				return k;
@@ -1316,7 +1349,7 @@ namespace bvm2 {
 			Shaders::Liquity::Global g;
 			{
 				Shaders::Env::Key_T<uint8_t> key;
-				key.m_Prefix.m_Cid = m_Proc.m_cidLiquity;
+				key.m_Prefix.m_Cid = m_Proc.m_Liquity.m_Cid;
 				key.m_KeyInContract = Shaders::Liquity::Tags::s_State;
 
 				Blob b;
@@ -1449,17 +1482,17 @@ namespace bvm2 {
 			args.m_Providers = 1;
 			args.m_InitialValue = 45; // to the moon!
 
-			verify_test(ContractCreate_T(m_cidOracle2, m_Code.m_Oracle2, args));
+			verify_test(ContractCreate_T(m_Oracle2.m_Cid, m_Oracle2.m_Code, args));
 		}
 
 		{
 			Shaders::Liquity::Method::Create args;
 			ZeroObject(args);
-			args.m_Settings.m_cidOracle = m_cidOracle2;
+			args.m_Settings.m_cidOracle = m_Oracle2.m_Cid;
 			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 5;
 			args.m_Settings.m_AidProfit = 77;
 
-			verify_test(ContractCreate_T(m_cidLiquity, m_Code.m_Liquity, args));
+			verify_test(ContractCreate_T(m_Liquity.m_Cid, m_Liquity.m_Code, args));
 		}
 
 		LiquityContext lc(*this);
@@ -1469,7 +1502,7 @@ namespace bvm2 {
 		Key::IKdf::Ptr ppKdf[s_Users];
 		PubKey pPk[s_Users];
 
-		man.set_ArgBlob("cid", m_cidLiquity);
+		man.set_ArgBlob("cid", m_Liquity.m_Cid);
 		man.m_Args["role"] = "user";
 
 		for (uint32_t i = 0; i < s_Users; i++)
@@ -1487,6 +1520,7 @@ namespace bvm2 {
 
 				verify_test(lc.InvokeTxUser(arg1, false));
 				std::cout << "Deposit to profit pool" << std::endl;
+				std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			}
 
 			Amount col = Rules::Coin * (35 + i * 5); // should be enough for 150% tcr
@@ -1505,6 +1539,7 @@ namespace bvm2 {
 			verify_test(lc.InvokeTxUser(args));
 
 			std::cout << "Trove opened" << std::endl;
+			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1523,6 +1558,7 @@ namespace bvm2 {
 			verify_test(lc.InvokeTxUser(args, false));
 
 			std::cout << "Stab" << i << ": Put=" << Val2Num(args.m_NewAmount) << std::endl;
+			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1539,6 +1575,7 @@ namespace bvm2 {
 			verify_test(lc.InvokeTxUser(args));
 
 			std::cout << "Redeem" << std::endl;
+			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1547,7 +1584,7 @@ namespace bvm2 {
 			ZeroObject(args);
 			args.m_Value = 25; // price drop. Some would be liquidated vs stabpool, others via redistpool
 
-			verify_test(RunGuarded_T(m_cidOracle2, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_Oracle2.m_Cid, args.s_iMethod, args));
 
 		}
 
@@ -1569,6 +1606,7 @@ namespace bvm2 {
 			verify_test(lc.InvokeTxUser(args));
 
 			std::cout << "Trove liquidating" << std::endl;
+			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1585,6 +1623,7 @@ namespace bvm2 {
 			verify_test(lc.InvokeTxUser(args, false));
 
 			std::cout << "Stab" << i << " all out" << std::endl;
+			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1606,6 +1645,7 @@ namespace bvm2 {
 			verify_test(lc.InvokeTx(args, pPk[iTrove - 1]));
 
 			std::cout << "Trove closing" << std::endl;
+			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1622,6 +1662,7 @@ namespace bvm2 {
 			verify_test(lc.InvokeTxUser(arg1, false));
 
 			std::cout << "profit withdraw" << std::endl;
+			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 	}
@@ -1828,10 +1869,9 @@ namespace bvm2 {
 
 	void MyProcessor::TestDummy()
 	{
-		ContractID cid;
+		ContractID& cid = m_Dummy.m_Cid;
 		Zero_ zero;
-		verify_test(ContractCreate_T(cid, m_Code.m_Dummy, zero));
-		m_cidDummy = cid;
+		verify_test(ContractCreate_T(cid, m_Dummy.m_Code, zero));
 
 		{
 			Shaders::Dummy::TestFarCall args;
@@ -2090,7 +2130,7 @@ namespace bvm2 {
 			ZeroObject(args);
 
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
-			verify_test(args.m_Cid == m_cidDummy);
+			verify_test(args.m_Cid == m_Dummy.m_Cid);
 
 			args.m_iCaller = 1;
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
@@ -2177,12 +2217,10 @@ namespace bvm2 {
 			CvtHdrPrefix(args.m_Hdr0, s);
 			CvtHdrElement(args.m_Hdr0, s);
 			args.m_Rules = Rules::get().pForks[2].m_Hash;
-			verify_test(ContractCreate_T(m_cidSidechain, m_Code.m_Sidechain, args));
+			verify_test(ContractCreate_T(m_Sidechain.m_Cid, m_Sidechain.m_Code, args));
 		}
 
-		bvm2::ShaderID sid;
-		bvm2::get_ShaderID(sid, m_Code.m_Sidechain);
-		VERIFY_ID(Shaders::Sidechain::s_SID, sid);
+		VERIFY_ID(Shaders::Sidechain::s_SID, m_Sidechain.m_Sid);
 
 		{
 			const uint32_t nSeq = 10;
@@ -2200,12 +2238,12 @@ namespace bvm2 {
 
 			CvtHdrSequence(args.m_Prefix, args.m_pSequence, nSeq, &vChain.at(1));
 
-			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_Sidechain.m_Cid, args.s_iMethod, args));
 
-			verify_test(!RunGuarded_T(m_cidSidechain, args.s_iMethod, args)); // chainwork didn't grow
+			verify_test(!RunGuarded_T(m_Sidechain.m_Cid, args.s_iMethod, args)); // chainwork didn't grow
 
 			args.m_Prefix.m_ChainWork.Inc(); // tamper with chainwork
-			verify_test(!RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
+			verify_test(!RunGuarded_T(m_Sidechain.m_Cid, args.s_iMethod, args));
 		}
 
 		Merkle::FixedMmr fmmr;
@@ -2243,7 +2281,7 @@ namespace bvm2 {
 
 			CvtHdrSequence(args.m_Prefix, args.m_pSequence, nSeq, &vChain.at(1));
 
-			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args)); // reorg should be ok, despite the fact it's shorter
+			verify_test(RunGuarded_T(m_Sidechain.m_Cid, args.s_iMethod, args)); // reorg should be ok, despite the fact it's shorter
 		}
 
 		{
@@ -2261,8 +2299,8 @@ namespace bvm2 {
 				args.m_pProof[i].m_Value = vProof[i].second;
 			}
 
-			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
-			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args)); // redundant proofs is ok
+			verify_test(RunGuarded_T(m_Sidechain.m_Cid, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_Sidechain.m_Cid, args.s_iMethod, args)); // redundant proofs is ok
 		}
 
 		{
@@ -2271,9 +2309,9 @@ namespace bvm2 {
 			args.m_Contributor.m_X = 116U;
 			args.m_Amount = 400;
 
-			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
-			verify_test(RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
-			verify_test(!RunGuarded_T(m_cidSidechain, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_Sidechain.m_Cid, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_Sidechain.m_Cid, args.s_iMethod, args));
+			verify_test(!RunGuarded_T(m_Sidechain.m_Cid, args.s_iMethod, args));
 		}
 	}
 
@@ -2349,15 +2387,15 @@ namespace bvm2 {
 			}
 
 			args.m_Providers = 0;
-			verify_test(!ContractCreate_T(m_cidOracle, m_Code.m_Oracle, args)); // zero providers not allowed
+			verify_test(!ContractCreate_T(m_Oracle.m_Cid, m_Oracle.m_Code, args)); // zero providers not allowed
 
 			args.m_Providers = nOracles;
-			verify_test(ContractCreate_T(m_cidOracle, m_Code.m_Oracle, args));
+			verify_test(ContractCreate_T(m_Oracle.m_Cid, m_Oracle.m_Code, args));
 		}
 
 		Shaders::Oracle::Get argsResult;
 		argsResult.m_Value = 0;
-		verify_test(RunGuarded_T(m_cidOracle, argsResult.s_iMethod, argsResult));
+		verify_test(RunGuarded_T(m_Oracle.m_Cid, argsResult.s_iMethod, argsResult));
 		pd.TestMedian(argsResult.m_Value);
 
 		// set rate, trigger median recalculation
@@ -2371,17 +2409,17 @@ namespace bvm2 {
 			ECC::GenRandom(&args.m_Value, sizeof(args.m_Value));
 			pd.Set(iOracle, args.m_Value);
 
-			verify_test(RunGuarded_T(m_cidOracle, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_Oracle.m_Cid, args.s_iMethod, args));
 
 			pd.Sort();
 
 			argsResult.m_Value = 0;
-			verify_test(RunGuarded_T(m_cidOracle, argsResult.s_iMethod, argsResult));
+			verify_test(RunGuarded_T(m_Oracle.m_Cid, argsResult.s_iMethod, argsResult));
 			pd.TestMedian(argsResult.m_Value);
 		}
 
 		Zero_ zero;
-		verify_test(ContractDestroy_T(m_cidOracle, zero));
+		verify_test(ContractDestroy_T(m_Oracle.m_Cid, zero));
 	}
 
 	static uint64_t RateFromFraction(uint32_t nom, uint32_t denom)
@@ -2408,16 +2446,16 @@ namespace bvm2 {
 			args.m_InitialValue = RateFromPercents(36); // current ratio: 1 beam == 0.36 stablecoin
 			args.m_Providers = 1;
 			ZeroObject(args.m_pPk[0]);
-			verify_test(ContractCreate_T(m_cidOracle, m_Code.m_Oracle, args));
+			verify_test(ContractCreate_T(m_Oracle.m_Cid, m_Oracle.m_Code, args));
 		}
 
 		Shaders::StableCoin::Create<sizeof(szMyMeta) - 1> argSc;
-		argSc.m_RateOracle = m_cidOracle;
+		argSc.m_RateOracle = m_Oracle.m_Cid;
 		argSc.m_nMetaData = sizeof(szMyMeta) - 1;
 		memcpy(argSc.m_pMetaData, szMyMeta, argSc.m_nMetaData);
 		argSc.m_CollateralizationRatio = RateFromPercents(150);
 
-		verify_test(ContractCreate_T(m_cidStableCoin, m_Code.m_StableCoin, argSc));
+		verify_test(ContractCreate_T(m_StableCoin.m_Cid, m_StableCoin.m_Code, argSc));
 
 		Shaders::StableCoin::UpdatePosition argUpd;
 		argUpd.m_Change.m_Beam = 1000;
@@ -2426,28 +2464,26 @@ namespace bvm2 {
 		argUpd.m_Direction.m_AssetAdd = 0;
 		ZeroObject(argUpd.m_Pk);
 
-		verify_test(!RunGuarded_T(m_cidStableCoin, argUpd.s_iMethod, argUpd)); // will fail, not enough collateral
+		verify_test(!RunGuarded_T(m_StableCoin.m_Cid, argUpd.s_iMethod, argUpd)); // will fail, not enough collateral
 
 		argUpd.m_Change.m_Asset = 239;
-		verify_test(RunGuarded_T(m_cidStableCoin, argUpd.s_iMethod, argUpd)); // should work
+		verify_test(RunGuarded_T(m_StableCoin.m_Cid, argUpd.s_iMethod, argUpd)); // should work
 
 		Zero_ zero;
-		verify_test(!ContractDestroy_T(m_cidStableCoin, zero)); // asset was not fully burned
+		verify_test(!ContractDestroy_T(m_StableCoin.m_Cid, zero)); // asset was not fully burned
 
 		//verify_test(ContractDestroy_T(argSc.m_RateOracle, zero));
 	}
 
 	void MyProcessor::TestPerpetual()
 	{
-		bvm2::ShaderID sid;
-		bvm2::get_ShaderID(sid, m_Code.m_Perpetual);
-		VERIFY_ID(Shaders::Perpetual::s_SID, sid);
+		VERIFY_ID(Shaders::Perpetual::s_SID, m_Perpetual.m_Sid);
 
 		{
 			Shaders::Perpetual::Create arg;
-			arg.m_Oracle =  m_cidOracle;
+			arg.m_Oracle = m_Oracle.m_Cid;
 			arg.m_MarginRequirement_mp = 15 * 1000;
-			verify_test(ContractCreate_T(m_cidPerpetual, m_Code.m_Perpetual, arg));
+			verify_test(ContractCreate_T(m_Perpetual.m_Cid, m_Perpetual.m_Code, arg));
 		}
 
 		{
@@ -2456,18 +2492,16 @@ namespace bvm2 {
 			arg.m_AmountBeam = 1000;
 			arg.m_AmountToken = 140;
 			arg.m_TotalBeams = 1149;
-			verify_test(!RunGuarded_T(m_cidPerpetual, arg.s_iMethod, arg)); // less than 15% collateral
+			verify_test(!RunGuarded_T(m_Perpetual.m_Cid, arg.s_iMethod, arg)); // less than 15% collateral
 
 			arg.m_TotalBeams = 1150;
-			verify_test(RunGuarded_T(m_cidPerpetual, arg.s_iMethod, arg));
+			verify_test(RunGuarded_T(m_Perpetual.m_Cid, arg.s_iMethod, arg));
 		}
 	}
 
 	void MyProcessor::TestPipe()
 	{
-		bvm2::ShaderID sid;
-		bvm2::get_ShaderID(sid, m_Code.m_Pipe);
-		VERIFY_ID(Shaders::Pipe::s_SID, sid);
+		VERIFY_ID(Shaders::Pipe::s_SID, m_Pipe.m_Sid);
 
 		{
 			Shaders::Pipe::Create arg;
@@ -2483,16 +2517,16 @@ namespace bvm2 {
 			arg.m_Cfg.m_In.m_FakePoW = true;
 
 
-			verify_test(ContractCreate_T(m_cidPipe, m_Code.m_Pipe, arg));
+			verify_test(ContractCreate_T(m_Pipe.m_Cid, m_Pipe.m_Code, arg));
 		}
 
 		{
 			Shaders::Pipe::SetRemote arg;
 			ZeroObject(arg);
-			verify_test(!RunGuarded_T(m_cidPipe, arg.s_iMethod, arg));
+			verify_test(!RunGuarded_T(m_Pipe.m_Cid, arg.s_iMethod, arg));
 
 			arg.m_cid.Inc();
-			verify_test(RunGuarded_T(m_cidPipe, arg.s_iMethod, arg));
+			verify_test(RunGuarded_T(m_Pipe.m_Cid, arg.s_iMethod, arg));
 		}
 
 		ByteBuffer bufMsgs;
@@ -2512,7 +2546,7 @@ namespace bvm2 {
 			arg.m_Push.m_MsgSize = (uint32_t) sizeof(arg.m_pMsg) - i;
 			memset(arg.m_pMsg, '0' + i, arg.m_Push.m_MsgSize);
 
-			verify_test(RunGuarded(m_cidPipe, arg.m_Push.s_iMethod, Blob(&arg, sizeof(arg)), nullptr));
+			verify_test(RunGuarded(m_Pipe.m_Cid, arg.m_Push.s_iMethod, Blob(&arg, sizeof(arg)), nullptr));
 
 			size_t iPos = bufMsgs.size();
 			bufMsgs.resize(bufMsgs.size() + sizeof(Shaders::Pipe::MsgHdr) + sizeof(uint32_t) + arg.m_Push.m_MsgSize);
@@ -2547,18 +2581,18 @@ namespace bvm2 {
 
 			memcpy(&bufArg.front() + sizeof(Shaders::Pipe::PushRemote0) + sizeof(uint32_t), &bufMsgs.front(), nSize);
 
-			verify_test(RunGuarded(m_cidPipe, pArg->s_iMethod, bufArg, nullptr)); // should be ok
+			verify_test(RunGuarded(m_Pipe.m_Cid, pArg->s_iMethod, bufArg, nullptr)); // should be ok
 
-			verify_test(!RunGuarded(m_cidPipe, pArg->s_iMethod, bufArg, nullptr)); // should evaluate both variants, and notice they're same
+			verify_test(!RunGuarded(m_Pipe.m_Cid, pArg->s_iMethod, bufArg, nullptr)); // should evaluate both variants, and notice they're same
 		}
 
 		{
 			Shaders::Pipe::FinalyzeRemote arg;
 			arg.m_DepositStake = 0;
-			verify_test(!RunGuarded(m_cidPipe, arg.s_iMethod, Blob(&arg, sizeof(arg)), nullptr)); // too early
+			verify_test(!RunGuarded(m_Pipe.m_Cid, arg.s_iMethod, Blob(&arg, sizeof(arg)), nullptr)); // too early
 
 			m_Height += 40;
-			verify_test(RunGuarded(m_cidPipe, arg.s_iMethod, Blob(&arg, sizeof(arg)), nullptr));
+			verify_test(RunGuarded(m_Pipe.m_Cid, arg.s_iMethod, Blob(&arg, sizeof(arg)), nullptr));
 		}
 
 		{
@@ -2574,14 +2608,14 @@ namespace bvm2 {
 			arg.m_Read.m_Wipe = 1;
 			arg.m_Read.m_MsgSize = sizeof(arg.m_pMsg);
 
-			verify_test(!RunGuarded(m_cidPipe, arg.m_Read.s_iMethod, Blob(&arg, sizeof(arg)), nullptr)); // private msg, we can't read it
+			verify_test(!RunGuarded(m_Pipe.m_Cid, arg.m_Read.s_iMethod, Blob(&arg, sizeof(arg)), nullptr)); // private msg, we can't read it
 
 			arg.m_Read.m_iMsg = 2;
-			verify_test(!RunGuarded(m_cidPipe, arg.m_Read.s_iMethod, Blob(&arg, sizeof(arg)), nullptr)); // public, can't wipe
+			verify_test(!RunGuarded(m_Pipe.m_Cid, arg.m_Read.s_iMethod, Blob(&arg, sizeof(arg)), nullptr)); // public, can't wipe
 
 			arg.m_Read.m_Wipe = 0;
-			verify_test(RunGuarded(m_cidPipe, arg.m_Read.s_iMethod, Blob(&arg, sizeof(arg)), nullptr)); // ok
-			verify_test(RunGuarded(m_cidPipe, arg.m_Read.s_iMethod, Blob(&arg, sizeof(arg)), nullptr)); // ok, msg is not wiped
+			verify_test(RunGuarded(m_Pipe.m_Cid, arg.m_Read.s_iMethod, Blob(&arg, sizeof(arg)), nullptr)); // ok
+			verify_test(RunGuarded(m_Pipe.m_Cid, arg.m_Read.s_iMethod, Blob(&arg, sizeof(arg)), nullptr)); // ok, msg is not wiped
 
 			verify_test(arg.m_Read.m_MsgSize == 126);
 			for (uint32_t i = 0; i < arg.m_Read.m_MsgSize; i++)
@@ -2591,17 +2625,15 @@ namespace bvm2 {
 
 	void MyProcessor::TestMirrorCoin()
 	{
-		bvm2::ShaderID sid;
-		bvm2::get_ShaderID(sid, m_Code.m_MirrorCoin);
-		VERIFY_ID(Shaders::MirrorCoin::s_SID, sid);
+		VERIFY_ID(Shaders::MirrorCoin::s_SID, m_MirrorCoin.m_Sid);
 
 		{
 			Shaders::MirrorCoin::Create0 arg;
 			arg.m_Aid = 0;
 			arg.m_MetadataSize = 0;
-			arg.m_PipeID = m_cidPipe;
+			arg.m_PipeID = m_Pipe.m_Cid;
 
-			verify_test(ContractCreate_T(m_cidMirrorCoin1, m_Code.m_MirrorCoin, arg));
+			verify_test(ContractCreate_T(m_MirrorCoin.m_Cid, m_MirrorCoin.m_Code, arg));
 		}
 
 		{
@@ -2612,16 +2644,16 @@ namespace bvm2 {
 #pragma pack (pop)
 			arg.m_Aid = 0;
 			arg.m_MetadataSize = sizeof(arg.m_chMeta);
-			arg.m_PipeID = m_cidPipe;
+			arg.m_PipeID = m_Pipe.m_Cid;
 
-			verify_test(ContractCreate_T(m_cidMirrorCoin2, m_Code.m_MirrorCoin, arg));
+			verify_test(ContractCreate_T(m_cidMirrorCoin2, m_MirrorCoin.m_Code, arg));
 		}
 
 		{
 			Shaders::MirrorCoin::SetRemote arg;
 			arg.m_Cid = m_cidMirrorCoin2;
-			verify_test(RunGuarded_T(m_cidMirrorCoin1, arg.s_iMethod, arg));
-			arg.m_Cid = m_cidMirrorCoin1;
+			verify_test(RunGuarded_T(m_MirrorCoin.m_Cid, arg.s_iMethod, arg));
+			arg.m_Cid = m_MirrorCoin.m_Cid;
 			verify_test(RunGuarded_T(m_cidMirrorCoin2, arg.s_iMethod, arg));
 		}
 
@@ -2635,8 +2667,8 @@ namespace bvm2 {
 
 		for (uint32_t iCycle = 0; iCycle < 2; iCycle++)
 		{
-			const ContractID& cidSrc = iCycle ? m_cidMirrorCoin2 : m_cidMirrorCoin1;
-			const ContractID& cidDst = iCycle ? m_cidMirrorCoin1 : m_cidMirrorCoin2;
+			const ContractID& cidSrc = iCycle ? m_cidMirrorCoin2 : m_MirrorCoin.m_Cid;
+			const ContractID& cidDst = iCycle ? m_MirrorCoin.m_Cid : m_cidMirrorCoin2;
 
 			Shaders::MirrorCoin::Send argS;
 			argS.m_Amount = 450;
@@ -2647,7 +2679,7 @@ namespace bvm2 {
 
 			// simulate message passed
 			Shaders::Env::Key_T<Shaders::Pipe::MsgHdr::KeyIn> key;
-			key.m_Prefix.m_Cid = m_cidPipe;
+			key.m_Prefix.m_Cid = m_Pipe.m_Cid;
 			key.m_KeyInContract.m_iCheckpoint_BE = 0;
 			key.m_KeyInContract.m_iMsg_BE = ByteOrder::to_be(1U);
 
@@ -2675,18 +2707,15 @@ namespace bvm2 {
 		pars.m_BacklogPeriod = 5;
 		pars.m_MaxWithdraw = 400;
 
-		verify_test(ContractCreate_T(m_cidFaucet, m_Code.m_Faucet, pars));
-
-		bvm2::ShaderID sid;
-		bvm2::get_ShaderID(sid, m_Code.m_Faucet);
-		VERIFY_ID(Shaders::Faucet::s_SID, sid);
+		verify_test(ContractCreate_T(m_Faucet.m_Cid, m_Faucet.m_Code, pars));
+		VERIFY_ID(Shaders::Faucet::s_SID, m_Faucet.m_Sid);
 
 		m_lstUndo.Clear();
 
 		Shaders::Faucet::Deposit deps;
 		deps.m_Aid = 10;
 		deps.m_Amount = 20000;
-		verify_test(RunGuarded_T(m_cidFaucet, Shaders::Faucet::Deposit::s_iMethod, deps));
+		verify_test(RunGuarded_T(m_Faucet.m_Cid, Shaders::Faucet::Deposit::s_iMethod, deps));
 
 		Shaders::Faucet::Withdraw wdrw;
 
@@ -2698,18 +2727,18 @@ namespace bvm2 {
 		wdrw.m_Key.m_Aid = 10;
 		wdrw.m_Amount = 150;
 
-		verify_test(RunGuarded_T(m_cidFaucet, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
-		verify_test(RunGuarded_T(m_cidFaucet, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
-		verify_test(!RunGuarded_T(m_cidFaucet, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
+		verify_test(RunGuarded_T(m_Faucet.m_Cid, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
+		verify_test(RunGuarded_T(m_Faucet.m_Cid, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
+		verify_test(!RunGuarded_T(m_Faucet.m_Cid, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
 
 		m_Height += 15;
-		verify_test(RunGuarded_T(m_cidFaucet, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
+		verify_test(RunGuarded_T(m_Faucet.m_Cid, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
 
 		wdrw.m_Amount = 0;
-		verify_test(RunGuarded_T(m_cidFaucet, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
+		verify_test(RunGuarded_T(m_Faucet.m_Cid, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
 
 		m_Height += 5;
-		verify_test(RunGuarded_T(m_cidFaucet, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
+		verify_test(RunGuarded_T(m_Faucet.m_Cid, Shaders::Faucet::Withdraw::s_iMethod, wdrw));
 
 		UndoChanges(); // up to (but not including) contract creation
 	}
@@ -2719,14 +2748,11 @@ namespace bvm2 {
 		Shaders::Roulette::Params pars;
 		memset(reinterpret_cast<void*>(&pars.m_Dealer), 0xe1, sizeof(pars.m_Dealer));
 
-		verify_test(ContractCreate_T(m_cidRoulette, m_Code.m_Roulette, pars));
-
-		bvm2::ShaderID sid;
-		bvm2::get_ShaderID(sid, m_Code.m_Roulette);
-		VERIFY_ID(Shaders::Roulette::s_SID, sid);
+		verify_test(ContractCreate_T(m_Roulette.m_Cid, m_Roulette.m_Code, pars));
+		VERIFY_ID(Shaders::Roulette::s_SID, m_Roulette.m_Sid);
 
 		Shaders::Roulette::Spin spin;
-		verify_test(RunGuarded_T(m_cidRoulette, spin.s_iMethod, spin));
+		verify_test(RunGuarded_T(m_Roulette.m_Cid, spin.s_iMethod, spin));
 
 		Shaders::Roulette::Bid bid;
 		bid.m_Player.m_Y = 0;
@@ -2735,14 +2761,14 @@ namespace bvm2 {
 		{
 			bid.m_Player.m_X = i;
 			bid.m_iSector = i % Shaders::Roulette::State::s_Sectors;
-			verify_test(RunGuarded_T(m_cidRoulette, bid.s_iMethod, bid));
+			verify_test(RunGuarded_T(m_Roulette.m_Cid, bid.s_iMethod, bid));
 		}
 
-		verify_test(!RunGuarded_T(m_cidRoulette, bid.s_iMethod, bid)); // redundant bid
+		verify_test(!RunGuarded_T(m_Roulette.m_Cid, bid.s_iMethod, bid)); // redundant bid
 
 		bid.m_iSector = Shaders::Roulette::State::s_Sectors + 3;
 		bid.m_Player.m_X = Shaders::Roulette::State::s_Sectors * 2 + 8;
-		verify_test(!RunGuarded_T(m_cidRoulette, bid.s_iMethod, bid)); // invalid sector
+		verify_test(!RunGuarded_T(m_Roulette.m_Cid, bid.s_iMethod, bid)); // invalid sector
 
 		// alleged winner
 		Block::SystemState::Full s;
@@ -2760,13 +2786,13 @@ namespace bvm2 {
 		Shaders::Roulette::Take take;
 		take.m_Player.m_X = iWinner;
 		take.m_Player.m_Y = 0;
-		verify_test(!RunGuarded_T(m_cidRoulette, take.s_iMethod, take)); // round isn't over
+		verify_test(!RunGuarded_T(m_Roulette.m_Cid, take.s_iMethod, take)); // round isn't over
 
 		Zero_ zero;
-		verify_test(RunGuarded_T(m_cidRoulette, Shaders::Roulette::BetsOff::s_iMethod, zero));
+		verify_test(RunGuarded_T(m_Roulette.m_Cid, Shaders::Roulette::BetsOff::s_iMethod, zero));
 
-		verify_test(RunGuarded_T(m_cidRoulette, take.s_iMethod, take)); // ok
-		verify_test(!RunGuarded_T(m_cidRoulette, take.s_iMethod, take)); // already took
+		verify_test(RunGuarded_T(m_Roulette.m_Cid, take.s_iMethod, take)); // ok
+		verify_test(!RunGuarded_T(m_Roulette.m_Cid, take.s_iMethod, take)); // already took
 
 		UndoChanges(); // up to (but not including) contract creation
 	}
@@ -2774,12 +2800,9 @@ namespace bvm2 {
 	void MyProcessor::TestVoting()
 	{
 		Zero_ zero;
-		verify_test(ContractCreate_T(m_cidVoting, m_Code.m_Voting, zero));
-		VERIFY_ID(Shaders::Voting::s_CID, m_cidVoting);
-
-		bvm2::ShaderID sid;
-		bvm2::get_ShaderID(sid, m_Code.m_Voting);
-		VERIFY_ID(Shaders::Voting::s_SID, sid);
+		verify_test(ContractCreate_T(m_Voting.m_Cid, m_Voting.m_Code, zero));
+		VERIFY_ID(Shaders::Voting::s_CID, m_Voting.m_Cid);
+		VERIFY_ID(Shaders::Voting::s_SID, m_Voting.m_Sid);
 
 		m_lstUndo.Clear();
 		m_Height = 10;
@@ -2793,12 +2816,12 @@ namespace bvm2 {
 			args.m_Params.m_hMin = 0;
 			args.m_Params.m_hMax = 1;
 			args.m_Variants = 12;
-			verify_test(!RunGuarded_T(m_cidVoting, args.s_iMethod, args)); // too late
+			verify_test(!RunGuarded_T(m_Voting.m_Cid, args.s_iMethod, args)); // too late
 
 			args.m_Params.m_hMax = 10;
-			verify_test(RunGuarded_T(m_cidVoting, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_Voting.m_Cid, args.s_iMethod, args));
 
-			verify_test(!RunGuarded_T(m_cidVoting, args.s_iMethod, args)); // duplicated ID
+			verify_test(!RunGuarded_T(m_Voting.m_Cid, args.s_iMethod, args)); // duplicated ID
 		}
 
 		ECC::Scalar::Native k;
@@ -2813,18 +2836,18 @@ namespace bvm2 {
 			args.m_Amount = 100;
 			args.m_Variant = 4;
 
-			verify_test(!RunGuarded_T(m_cidVoting, args.s_iMethod, args));
+			verify_test(!RunGuarded_T(m_Voting.m_Cid, args.s_iMethod, args));
 
 			args.m_ID = hvProposal;
 			args.m_Variant = 12; // out-of-bounds
-			verify_test(!RunGuarded_T(m_cidVoting, args.s_iMethod, args));
+			verify_test(!RunGuarded_T(m_Voting.m_Cid, args.s_iMethod, args));
 
 			args.m_Variant = 11;
 			m_Height = 15; // too late
-			verify_test(!RunGuarded_T(m_cidVoting, args.s_iMethod, args));
+			verify_test(!RunGuarded_T(m_Voting.m_Cid, args.s_iMethod, args));
 
 			m_Height = 5; // ok
-			verify_test(RunGuarded_T(m_cidVoting, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_Voting.m_Cid, args.s_iMethod, args));
 		}
 
 		{
@@ -2833,12 +2856,12 @@ namespace bvm2 {
 			args.m_Pk = pt;
 			args.m_Amount = 50;
 
-			verify_test(!RunGuarded_T(m_cidVoting, args.s_iMethod, args)); // voting isn't over yet
+			verify_test(!RunGuarded_T(m_Voting.m_Cid, args.s_iMethod, args)); // voting isn't over yet
 
 			m_Height = 11;
-			verify_test(RunGuarded_T(m_cidVoting, args.s_iMethod, args)); // ok, withdrew half
-			verify_test(RunGuarded_T(m_cidVoting, args.s_iMethod, args)); // withdrew all
-			verify_test(!RunGuarded_T(m_cidVoting, args.s_iMethod, args)); // no more left
+			verify_test(RunGuarded_T(m_Voting.m_Cid, args.s_iMethod, args)); // ok, withdrew half
+			verify_test(RunGuarded_T(m_Voting.m_Cid, args.s_iMethod, args)); // withdrew all
+			verify_test(!RunGuarded_T(m_Voting.m_Cid, args.s_iMethod, args)); // no more left
 		}
 	}
 
@@ -2948,11 +2971,8 @@ namespace bvm2 {
 		//lg.Normalize(1000000);
 
 		Zero_ zero;
-		verify_test(ContractCreate_T(m_cidDaoCore, m_Code.m_DaoCore, zero));
-
-		bvm2::ShaderID sid;
-		bvm2::get_ShaderID(sid, m_Code.m_DaoCore);
-		VERIFY_ID(Shaders::DaoCore::s_SID, sid);
+		verify_test(ContractCreate_T(m_DaoCore.m_Cid, m_DaoCore.m_Code, zero));
+		VERIFY_ID(Shaders::DaoCore::s_SID, m_DaoCore.m_Sid);
 
 		m_Height += Shaders::DaoCore::Preallocated::s_hLaunch;
 
@@ -2964,7 +2984,7 @@ namespace bvm2 {
 			args.m_Beam = Shaders::g_Beam2Groth * 20000 * (i + 3);
 			args.m_BeamLock = 1;
 			args.m_Pk.m_X = i;
-			verify_test(RunGuarded_T(m_cidDaoCore, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_DaoCore.m_Cid, args.s_iMethod, args));
 
 			if (i & 1)
 				m_Height += 1000;
@@ -2977,7 +2997,7 @@ namespace bvm2 {
 
 			args.m_Beam = Shaders::g_Beam2Groth * 20000 * (i + 3);
 			args.m_Pk.m_X = i;
-			verify_test(RunGuarded_T(m_cidDaoCore, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_DaoCore.m_Cid, args.s_iMethod, args));
 
 			if (i & 1)
 				m_Height += 1000;
@@ -2990,17 +3010,107 @@ namespace bvm2 {
 			ZeroObject(args);
 			args.m_Amount = 50;
 			Cast::Reinterpret<beam::uintBig_t<33> >(args.m_Pk).Scan("8bb3375b455d9c577134b00e8b0b108a29ce2bc0fce929049306cf4fed723b7d00");
-			verify_test(!RunGuarded_T(m_cidDaoCore, args.s_iMethod, args)); // wrong pk
+			verify_test(!RunGuarded_T(m_DaoCore.m_Cid, args.s_iMethod, args)); // wrong pk
 
 			Cast::Reinterpret<beam::uintBig_t<33> >(args.m_Pk).Scan("8bb3375b455d9c577134b00e8b0b108a29ce2bc0fce929049306cf4fed723b7d01");
-			verify_test(RunGuarded_T(m_cidDaoCore, args.s_iMethod, args)); // ok
+			verify_test(RunGuarded_T(m_DaoCore.m_Cid, args.s_iMethod, args)); // ok
 
 			args.m_Amount = 31000 / 2 * Shaders::g_Beam2Groth;
-			verify_test(!RunGuarded_T(m_cidDaoCore, args.s_iMethod, args)); // too much
+			verify_test(!RunGuarded_T(m_DaoCore.m_Cid, args.s_iMethod, args)); // too much
 		}
 */
 	}
 
+	void MyProcessor::TestDaoVote()
+	{
+		{
+			Shaders::DaoVote::Method::Create args;
+			ZeroObject(args);
+			args.m_Cfg.m_Aid = 22;
+			args.m_Cfg.m_hEpochDuration = 50;
+
+			// emulate invocation from upgradable2
+
+			auto pFr = m_FarCalls.m_Stack.Create_back();
+
+#pragma pack (push, 1)
+			struct Hdr0
+			{
+				uint32_t m_Version;
+				uint32_t m_NumMethods;
+				uint32_t m_hdrData0;
+				uint32_t m_hdrTable0;
+
+				uint32_t m_pMethod[2];
+			};
+#pragma pack (pop)
+
+			pFr->m_Body.resize(sizeof(Hdr0));
+			Hdr0& hdr = *(Hdr0*) &pFr->m_Body.front();
+
+			ZeroObject(hdr);
+			hdr.m_Version = ByteOrder::to_le(2u);
+			hdr.m_NumMethods = ByteOrder::to_le(2u);
+
+			verify_test(ContractCreate_T(m_DaoVote.m_Cid, m_DaoVote.m_Code, args));
+
+			m_FarCalls.m_Stack.Clear();
+		}
+		VERIFY_ID(Shaders::DaoVote::s_SID, m_DaoVote.m_Sid);
+
+		for (uint32_t iEpoch = 1; iEpoch <= 4; iEpoch++, m_Height += 50)
+		{
+			const uint32_t nProposalsPerEpoch = 3;
+			for (uint32_t i = 0; i < nProposalsPerEpoch; i++)
+			{
+				Shaders::DaoVote::Method::AddProposal args;
+				args.m_TxtLen = 0;
+				args.m_Data.m_Variants = i + 2;
+
+				verify_test(RunGuarded_T(m_DaoVote.m_Cid, args.s_iMethod, args));
+			}
+
+			for (uint32_t i = 0; i < 4; i++)
+			{
+				Shaders::DaoVote::Method::AddDividend args;
+				args.m_Val.m_Aid = 33 + i;
+				args.m_Val.m_Amount = Rules::Coin * 40;
+				verify_test(RunGuarded_T(m_DaoVote.m_Cid, args.s_iMethod, args));
+			}
+
+			for (uint32_t i = 0; i < 5; i++)
+			{
+				Shaders::DaoVote::Method::MoveFunds args;
+				ZeroObject(args);
+				args.m_Amount = 20 + i;
+				args.m_Lock = 1;
+				args.m_pkUser.m_X = i;
+				verify_test(RunGuarded_T(m_DaoVote.m_Cid, args.s_iMethod, args));
+			}
+
+			if (iEpoch <= 1)
+				continue; // no proposals yet
+
+			for (uint32_t i = 0; i < 5; i++)
+			{
+#pragma pack (push, 1)
+				struct MyArgs :public Shaders::DaoVote::Method::Vote {
+					uint8_t m_Vote[nProposalsPerEpoch];
+				};
+#pragma pack (pop)
+
+				MyArgs args;
+				ZeroObject(args);
+				args.m_iEpoch = iEpoch;
+				args.m_pkUser.m_X = i;
+				args.m_Vote[1] = 1;
+				args.m_Vote[2] = 2;
+
+				verify_test(RunGuarded_T(m_DaoVote.m_Cid, args.s_iMethod, args));
+			}
+
+		}
+	}
 
 } // namespace bvm2
 

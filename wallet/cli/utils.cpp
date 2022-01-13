@@ -56,10 +56,11 @@ namespace beam::wallet
                 return false;
             }
 
-            if (preciseAmount > limit)
+            boost::multiprecision::cpp_dec_float_50 preciseLimit(limit);
+            if (preciseAmount > preciseLimit)
             {
                 std::stringstream ssLimit;
-                ssLimit << PrintableAmount(limit, false, assetId);
+                ssLimit << PrintableAmount(limit, true, assetId);
                 LOG_ERROR() << (boost::format(kErrorTooBigAmount) % strAmount % ssLimit.str()).str();
                 return false;
             }

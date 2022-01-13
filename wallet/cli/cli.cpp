@@ -2181,11 +2181,12 @@ namespace
                 {
                     const TxDescription& desc = *tx;
                     const auto info = walletDB->findAsset(desc.m_assetId);
-                    if (AmountBig::get_Hi(info->m_Value))
+                    Amount maxTxAmount = std::numeric_limits<AmountSigned>::max();
+                    if (AmountBig::get_Hi(info->m_Value) || AmountBig::get_Lo(info->m_Value) > maxTxAmount)
                     {
-                        auto maxTxValue = PrintableAmount(std::numeric_limits<Amount>::max(), false, info->m_ID);
-                        cout << "Warning. Total amount of asset would be larger that can be sent in one transaction (" 
-                             << maxTxValue << "). You would be forced to send using several transactions."
+                        auto maxTxValue = PrintableAmount(maxTxAmount, true, info->m_ID);
+                        cout << "Warning. Total amount of asset would be larger that can be sent in one transaction " 
+                             << maxTxValue << ". You would be forced to send using several transactions."
                              << endl;
                     }
                 }

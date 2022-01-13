@@ -799,6 +799,7 @@ namespace beam::wallet
             tx->m_txType == TxType::AssetConsume ||
             tx->m_txType == TxType::AssetReg ||
             tx->m_txType == TxType::AssetUnreg ||
+            tx->m_txType == TxType::AssetInfo ||
             tx->m_txType == TxType::Contract)
         {
             throw jsonrpc_exception(ApiError::PaymentProofExportError, kErrorPpCannotExportForReceiver);

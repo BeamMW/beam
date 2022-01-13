@@ -147,7 +147,7 @@ struct ManagerUpgadable2
 		return true;
 	}
 
-	static const uint32_t get_ChargeInvoke()
+	static uint32_t get_ChargeInvoke()
 	{
 		return
 			Env::Cost::LoadVar_For(sizeof(Upgradable2::State)) +
@@ -155,7 +155,7 @@ struct ManagerUpgadable2
 			Env::Cost::Cycle * 50;
 	}
 
-	static const uint32_t get_ChargeDeploy()
+	static uint32_t get_ChargeDeploy()
 	{
 		return
 			Env::Cost::CallFar * 2 +

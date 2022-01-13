@@ -28,7 +28,7 @@ struct Comm
 
         uint32_t get_Cookie() const
         {
-#ifdef HOST_BUILD
+#if defined(HOST_BUILD) || defined(_MSC_VER)
             return (uint32_t)(size_t) this;
 #else // HOST_BUILD
             return reinterpret_cast<uint32_t>(this);
@@ -144,7 +144,7 @@ struct Comm
                 uint32_t nCookie;
                 uint32_t nSize = Env::Comm_Read(nullptr, 0, &nCookie, 1);
                 if (nSize)
-#ifdef HOST_BUILD
+#if defined(HOST_BUILD) || defined(_MSC_VER)
                     ((Channel*)(size_t) nCookie)->ReadMsg(nSize);
 #else // HOST_BUILD
                     ((Channel*) nCookie)->ReadMsg(nSize);

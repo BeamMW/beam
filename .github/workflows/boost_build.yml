@@ -30,7 +30,7 @@ jobs:
         shell: cmd
         run: |
           cd ${{runner.workspace}}\boost\boost_1_75_0
-          .\b2 install --prefix=${{runner.workspace}}\boost_prebuild address-model=64 variant=release threading=multi link=static runtime-link=static,shared --with-headers --with-filesystem --with-program_options --with-thread --with-regex --with-log --with-locale --with-coroutine --with-date_time
+          .\b2 install --prefix=${{runner.workspace}}\boost_prebuild address-model=64 variant=release threading=multi link=static runtime-link=static,shared --with-headers --with-filesystem --with-program_options --with-thread --with-regex --with-log --with-locale --with-coroutine --with-date_time --with-json --with-container
 
       - uses: actions/upload-artifact@v2
         with:
@@ -42,7 +42,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # disabled ubuntu-16.04
         os: [ubuntu-18.04, ubuntu-20.04]
 
     steps:

@@ -4,16 +4,20 @@
 #include "../upgradable2/contract.h"
 #include "../upgradable2/app_common_impl.h"
 
-#define Liquity_manager_deploy_version(macro)
-#define Liquity_manager_view(macro)
-#define Liquity_manager_my_admin_key(macro)
-#define Liquity_manager_deploy_contract(macro) Upgradable2_deploy(macro)
-#define Liquity_manager_schedule_upgrade(macro) Upgradable2_schedule_upgrade(macro)
-#define Liquity_manager_explicit_upgrade(macro) macro(ContractID, cid)
-#define Liquity_manager_replace_admin(macro) Upgradable2_replace_admin(macro)
-#define Liquity_manager_set_min_approvers(macro) Upgradable2_set_min_approvers(macro)
+#define DaoVote_manager_deploy_version(macro)
+#define DaoVote_manager_view(macro)
+#define DaoVote_manager_my_admin_key(macro)
+#define DaoVote_manager_schedule_upgrade(macro) Upgradable2_schedule_upgrade(macro)
+#define DaoVote_manager_explicit_upgrade(macro) macro(ContractID, cid)
+#define DaoVote_manager_replace_admin(macro) Upgradable2_replace_admin(macro)
+#define DaoVote_manager_set_min_approvers(macro) Upgradable2_set_min_approvers(macro)
 
-#define LiquityRole_manager(macro) \
+#define DaoVote_manager_deploy_contract(macro) \
+    Upgradable2_deploy(macro) \
+    macro(AssetID, aidVote) \
+    macro(Height, hEpochDuration)
+
+#define DaoVoteRole_manager(macro) \
     macro(manager, deploy_version) \
     macro(manager, view) \
     macro(manager, deploy_contract) \
@@ -23,7 +27,7 @@
     macro(manager, set_min_approvers) \
     macro(manager, my_admin_key) \
 
-#define LiquityRoles_All(macro) \
+#define DaoVoteRoles_All(macro) \
     macro(manager)
 
 BEAM_EXPORT void Method_0()
@@ -34,10 +38,10 @@ BEAM_EXPORT void Method_0()
     {   Env::DocGroup gr("roles");
 
 #define THE_FIELD(type, name) Env::DocAddText(#name, #type);
-#define THE_METHOD(role, name) { Env::DocGroup grMethod(#name);  Liquity_##role##_##name(THE_FIELD) }
-#define THE_ROLE(name) { Env::DocGroup grRole(#name); LiquityRole_##name(THE_METHOD) }
+#define THE_METHOD(role, name) { Env::DocGroup grMethod(#name);  DaoVote_##role##_##name(THE_FIELD) }
+#define THE_ROLE(name) { Env::DocGroup grRole(#name); DaoVoteRole_##name(THE_METHOD) }
         
-        LiquityRoles_All(THE_ROLE)
+        DaoVoteRoles_All(THE_ROLE)
 #undef THE_ROLE
 #undef THE_METHOD
 #undef THE_FIELD
@@ -45,23 +49,23 @@ BEAM_EXPORT void Method_0()
 }
 
 #define THE_FIELD(type, name) const type& name,
-#define ON_METHOD(role, name) void On_##role##_##name(Liquity_##role##_##name(THE_FIELD) int unused = 0)
+#define ON_METHOD(role, name) void On_##role##_##name(DaoVote_##role##_##name(THE_FIELD) int unused = 0)
 
 void OnError(const char* sz)
 {
     Env::DocAddText("error", sz);
 }
 
-const char g_szAdminSeed[] = "upgr2-liquity";
+const char g_szAdminSeed[] = "upgr2-dao-vote";
 
-struct MyKeyID :public Env::KeyID {
-    MyKeyID() :Env::KeyID(&g_szAdminSeed, sizeof(g_szAdminSeed)) {}
+struct AdminKeyID :public Env::KeyID {
+    AdminKeyID() :Env::KeyID(&g_szAdminSeed, sizeof(g_szAdminSeed)) {}
 };
 
 ON_METHOD(manager, view)
 {
     static const ShaderID s_pSid[] = {
-        Liquity::s_SID,
+        DaoVote::s_SID,
     };
 
     ContractID pVerCid[_countof(s_pSid)];
@@ -73,45 +77,51 @@ ON_METHOD(manager, view)
     wlk.m_VerInfo.m_pCid = pVerCid;
     wlk.m_VerInfo.m_pHeight = pVerDeploy;
 
-    MyKeyID kid;
+    AdminKeyID kid;
     wlk.ViewAll(&kid);
 }
 
 ON_METHOD(manager, deploy_version)
 {
-    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy Liquity bytecode", 0);
+    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy DaoVote bytecode", 0);
 }
 
 static const Amount g_DepositCA = 3000 * g_Beam2Groth; // 3K beams
 
 ON_METHOD(manager, deploy_contract)
 {
-    FundsChange fc;
-    fc.m_Aid = 0; // asset id
-    fc.m_Amount = g_DepositCA; // amount of the input or output
-    fc.m_Consume = 1; // contract consumes funds (i.e input, in this case)
-
-    MyKeyID kid;
+    AdminKeyID kid;
     PubKey pk;
     kid.get_Pk(pk);
 
-    Upgradable2::Create arg;
-    if (!ManagerUpgadable2::FillDeployArgs(arg, &pk))
+#pragma pack (push, 1)
+
+    struct Args
+        :public Upgradable2::Create
+        ,public DaoVote::Method::Create
+    {
+    };
+#pragma pack (pop)
+
+    Args args;
+    if (!ManagerUpgadable2::FillDeployArgs(args, &pk))
         return;
+
+    args.m_Cfg.m_Aid = aidVote;
+    args.m_Cfg.m_hEpochDuration = hEpochDuration;
+    _POD_(args.m_Cfg.m_pkAdmin) = pk;
 
     const uint32_t nCharge =
         ManagerUpgadable2::get_ChargeDeploy() +
-        Env::Cost::AssetManage +
-        Env::Cost::Refs +
-        Env::Cost::SaveVar_For(sizeof(Liquity::Global)) +
-        Env::Cost::Cycle * 300;
+        Env::Cost::SaveVar_For(sizeof(DaoVote::State)) +
+        Env::Cost::Cycle * 50;
 
-    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deploy Liquity contract", nCharge);
+    Env::GenerateKernel(nullptr, 0, &args, sizeof(args), nullptr, 0, nullptr, 0, "Deploy DaoVote contract", nCharge);
 }
 
 ON_METHOD(manager, schedule_upgrade)
 {
-    MyKeyID kid;
+    AdminKeyID kid;
     ManagerUpgadable2::MultiSigRitual::Perform_ScheduleUpgrade(cid, kid, cidVersion, hTarget);
 }
 
@@ -122,13 +132,13 @@ ON_METHOD(manager, explicit_upgrade)
 
 ON_METHOD(manager, replace_admin)
 {
-    MyKeyID kid;
+    AdminKeyID kid;
     ManagerUpgadable2::MultiSigRitual::Perform_ReplaceAdmin(cid, kid, iAdmin, pk);
 }
 
 ON_METHOD(manager, set_min_approvers)
 {
-    MyKeyID kid;
+    AdminKeyID kid;
     ManagerUpgadable2::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
 }
 
@@ -154,7 +164,7 @@ Amount get_ContractLocked(AssetID aid, const ContractID& cid)
 ON_METHOD(manager, my_admin_key)
 {
     PubKey pk;
-    MyKeyID kid;
+    AdminKeyID kid;
     kid.get_Pk(pk);
     Env::DocAddBlob_T("admin_key", pk);
 }
@@ -181,18 +191,18 @@ BEAM_EXPORT void Method_1()
 
 #define THE_METHOD(role, name) \
         if (!Env::Strcmp(szAction, #name)) { \
-            Liquity_##role##_##name(PAR_READ) \
-            On_##role##_##name(Liquity_##role##_##name(PAR_PASS) 0); \
+            DaoVote_##role##_##name(PAR_READ) \
+            On_##role##_##name(DaoVote_##role##_##name(PAR_PASS) 0); \
             return; \
         }
 
 #define THE_ROLE(name) \
     if (!Env::Strcmp(szRole, #name)) { \
-        LiquityRole_##name(THE_METHOD) \
+        DaoVoteRole_##name(THE_METHOD) \
         return OnError("invalid Action"); \
     }
 
-    LiquityRoles_All(THE_ROLE)
+    DaoVoteRoles_All(THE_ROLE)
 
 #undef THE_ROLE
 #undef THE_METHOD
