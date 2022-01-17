@@ -124,6 +124,8 @@ namespace beam::wallet::imp
         // threaded startup. Save data & spawn an infinitely running thread
         //
         _myid = _node->id();
+        LOG_INFO() << "IPFS Service successfully started, ID is " << _myid;
+
         _ios_guard = std::make_unique<IOSGuard>(_ios.get_executor());
         _thread = MyThread([this, repo = config.repo_root]()
         {
