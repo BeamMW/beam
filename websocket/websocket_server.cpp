@@ -32,8 +32,8 @@ namespace beam
         {
         public:
             Listener(boost::asio::io_context& ioc, tcp::endpoint endpoint, SafeReactor::Ptr reactor, HandlerCreator creator, const std::string& allowedOrigin, ssl::context* tlsContext)
-                : m_acceptor(net::make_strand(ioc))
-                , m_socket(ioc)
+                : m_ioc(ioc)
+                , m_acceptor(net::make_strand(ioc))
                 , m_reactor(std::move(reactor))
                 , m_handlerCreator(std::move(creator))
                 , m_allowedOrigin(allowedOrigin)
@@ -63,7 +63,7 @@ namespace beam
                     failEx(ec, "bind");
                 }
 
-                // Start listening for connections
+                // Start listening for connections 
                 m_acceptor.listen(
                     boost::asio::socket_base::max_listen_connections, ec);
 
@@ -84,14 +84,13 @@ namespace beam
             void do_accept()
             {
                 m_acceptor.async_accept(
-                    m_socket,
-                    [sp = shared_from_this()](boost::system::error_code ec)
-                {
-                    sp->on_accept(ec);
-                });
+                    net::make_strand(m_ioc),
+                    beast::bind_front_handler(
+                        &Listener::on_accept,
+                        shared_from_this()));
             }
 
-            void on_accept(boost::system::error_code ec)
+            void on_accept(boost::system::error_code ec, tcp::socket socket)
             {
                 if (ec)
                 {
@@ -102,12 +101,12 @@ namespace beam
                     if (m_allowedOrigin.empty())
                     {
                         // Create the Detect Session and run it
-                        std::make_shared<DetectSession>(std::move(m_socket), m_tlsContext, m_reactor, m_handlerCreator)->run();
+                        std::make_shared<DetectSession>(std::move(socket), m_tlsContext, m_reactor, m_handlerCreator)->run();
                     }
                     else
                     {
                         // Create the HttpSession and run it to handle Origin field
-                        std::make_shared<HttpSession>(std::move(m_socket), m_reactor, m_handlerCreator, m_allowedOrigin)->run();
+                        std::make_shared<HttpSession>(std::move(socket), m_reactor, m_handlerCreator, m_allowedOrigin)->run();
                     }
                 }
 
@@ -116,8 +115,8 @@ namespace beam
             }
 
         private:
+            boost::asio::io_context& m_ioc;
             tcp::acceptor m_acceptor;
-            tcp::socket m_socket;
             SafeReactor::Ptr m_reactor;
             HandlerCreator m_handlerCreator;
             std::string m_allowedOrigin;

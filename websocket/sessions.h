@@ -45,6 +45,8 @@ namespace beam
     class WebsocketSession
     {
     public:
+        static inline size_t counter = 0;
+
         // Take ownership of the socket
         explicit WebsocketSession(boost::beast::multi_buffer&& buffer, SafeReactor::Ptr reactor, HandlerCreator creator)
             : _buffer(buffer)
@@ -52,12 +54,13 @@ namespace beam
             , _creator(std::move(creator))
         {
             LOG_DEBUG() << "WebsocketSession created";
+            ++counter;
         }
 
         ~WebsocketSession()
         {
             LOG_DEBUG() << "WebsocketSession destroyed";
-
+            --counter;
             // Client handler must be destroyed in the Loop thread
             // Transfer ownership and register destroy request
             _reactor->callAsync([handler = std::move(_handler)]() mutable
