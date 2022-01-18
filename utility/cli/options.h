@@ -19,7 +19,7 @@
 #include "wallet/core/secstring.h"
 
 #ifdef BEAM_IPFS_SUPPORT
-#include <asio-ipfs/include/asio_ipfs/config.h>
+#include <asio-ipfs/include/ipfs_config.h>
 #endif
 
 namespace beam

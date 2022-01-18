@@ -15,7 +15,7 @@
 
 #include "ipfs.h"
 #include "ipfs_async.h"
-#include "asio-ipfs/include/asio_ipfs/node.h"
+#include <asio-ipfs/include/asio_ipfs.h>
 #include "utility/logger.h"
 #include <boost/asio/spawn.hpp>
 #include <boost/asio/deadline_timer.hpp>
