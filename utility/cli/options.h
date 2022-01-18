@@ -264,6 +264,8 @@ namespace beam
         extern const char* IPFS_LOW_WATER;
         extern const char* IPFS_HIGH_WATER;
         extern const char* IPFS_GRACE;
+        extern const char* IPFS_AUTO_RELAY;
+        extern const char* IPFS_RELAY_HOP;
         extern const char* IPFS_BOOTSTRAP;
         extern const char* IPFS_SWARM_PORT;
         #endif
@@ -283,7 +285,7 @@ namespace beam
 
     #ifdef BEAM_IPFS_SUPPORT
     po::options_description createIPFSOptionsDesrition(bool enableByDefault, const asio_ipfs::config& defaults);
-    boost::optional<asio_ipfs::config> getIPFSConfig(const po::variables_map& vm); // boost::none if IPFS is not enabled
+    boost::optional<asio_ipfs::config> getIPFSConfig(const po::variables_map& vm, asio_ipfs::config defaults); // boost::none if IPFS is not enabled
     #endif
 
     po::variables_map getOptions(int argc, char* argv[], const po::options_description& options, bool walletOptions = false);

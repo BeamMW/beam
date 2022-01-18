@@ -609,7 +609,8 @@ int main(int argc, char* argv[])
         desc.add(tlsDesc);
 
         #ifdef BEAM_IPFS_SUPPORT
-        desc.add(createIPFSOptionsDesrition(false, asio_ipfs::config()));
+        auto ipfsDefs = asio_ipfs::config(asio_ipfs::config::Mode::Server);
+        desc.add(createIPFSOptionsDesrition(false, ipfsDefs));
         #endif
 
         desc.add(createRulesOptionsDescription());
@@ -802,7 +803,7 @@ int main(int argc, char* argv[])
         #endif
 
         #ifdef BEAM_IPFS_SUPPORT
-        auto ipfsOpts = getIPFSConfig(vm);
+        auto ipfsOpts = getIPFSConfig(vm, asio_ipfs::config(asio_ipfs::config::Mode::Server));
         if (ipfsOpts)
         {
             if(!server.startIPFS(*ipfsOpts, reactor))

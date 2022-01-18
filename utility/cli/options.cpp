@@ -361,6 +361,8 @@ namespace beam
         const char* IPFS_LOW_WATER   = "ipfs_low_water";
         const char* IPFS_HIGH_WATER  = "ipfs_high_water";
         const char* IPFS_GRACE       = "ipfs_grace_period";
+        const char* IPFS_AUTO_RELAY  = "ipfs_auto_relay";
+        const char* IPFS_RELAY_HOP   = "ipfs_relay_hop";
         const char* IPFS_BOOTSTRAP   = "ipfs_bootstrap";
         const char* IPFS_SWARM_PORT  = "ipfs_swarm_port";
         #endif
@@ -624,22 +626,26 @@ namespace beam
             (cli::IPFS_LOW_WATER,  po::value<uint32_t>()->default_value(defs.low_water), "Swarm.ConnMgr.LowWater")
             (cli::IPFS_HIGH_WATER, po::value<uint32_t>()->default_value(defs.high_water), "Swarm.ConnMgr.HighWater")
             (cli::IPFS_GRACE,      po::value<uint32_t>()->default_value(defs.grace_period), "Swarm.ConnMgr.GracePeriod uint32 seconds")
-            (cli::IPFS_BOOTSTRAP,  po::value<std::vector<string>>()->multitoken(), "Bootstrap nodes multiaddr space separated list")
-            (cli::IPFS_SWARM_PORT, po::value<uint32_t>()->default_value(defs.node_swarm_port), "Addresses.Swarm port");
+            (cli::IPFS_AUTO_RELAY, po::value<bool>()->default_value(defs.auto_relay), "Swarm.EnableAutoRelay")
+            (cli::IPFS_RELAY_HOP,  po::value<bool>()->default_value(defs.relay_hop), "Swarm.EnableRelayHop")
+            (cli::IPFS_SWARM_PORT, po::value<uint32_t>()->default_value(defs.node_swarm_port), "Addresses.Swarm port")
+            (cli::IPFS_BOOTSTRAP,  po::value<std::vector<string>>()->multitoken(), "Bootstrap nodes multiaddr space separated list");
         return ipfs_options;
     }
 
-    boost::optional<asio_ipfs::config> getIPFSConfig(const po::variables_map& vm)
+    boost::optional<asio_ipfs::config> getIPFSConfig(const po::variables_map& vm, asio_ipfs::config defs)
     {
         if (!vm[cli::IPFS_ENABLE].as<bool>()) {
             return boost::none;
         }
 
-        asio_ipfs::config cfg;
+        asio_ipfs::config cfg = std::move(defs);
         cfg.repo_root = vm[cli::IPFS_STORAGE].as<string>();
         cfg.low_water = vm[cli::IPFS_LOW_WATER].as<uint32_t>();
         cfg.low_water = vm[cli::IPFS_HIGH_WATER].as<uint32_t>();
         cfg.grace_period = vm[cli::IPFS_GRACE].as<uint32_t>();
+        cfg.auto_relay = vm[cli::IPFS_AUTO_RELAY].as<bool>();
+        cfg.relay_hop = vm[cli::IPFS_RELAY_HOP].as<bool>();
         cfg.node_swarm_port = vm[cli::IPFS_SWARM_PORT].as<uint32_t>();
 
         if (vm.count(cli::IPFS_BOOTSTRAP)) {
