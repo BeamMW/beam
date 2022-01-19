@@ -115,9 +115,9 @@ namespace beam::wallet
     public:
 
         using OpenDBFunction = std::function<IWalletDB::Ptr()>;
-        WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, boost::optional<asio_ipfs::config>, const std::string& nodeAddr, io::Reactor::Ptr reactor);
-        WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, boost::optional<asio_ipfs::config>, const std::string& nodeAddr, io::Reactor::Ptr reactor);
-        WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, boost::optional<asio_ipfs::config>, const std::string& nodeAddr, io::Reactor::Ptr reactor); // lazy DB creation ctor
+        WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor);
+        WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor);
+        WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor); // lazy DB creation ctor
         ~WalletClient() override;
 
         void start( std::map<Notification::Type,bool> activeNotifications,
@@ -258,6 +258,8 @@ namespace beam::wallet
 
         #ifdef BEAM_IPFS_SUPPORT
         void setIPFSConfig(asio_ipfs::config&&) override;
+        void stopIPFSNode() override;
+        void startIPFSNode() override;
         #endif
 
         void getDexOrders() override;
@@ -350,7 +352,6 @@ namespace beam::wallet
         //
         IShadersManager::WeakPtr _appsShaders;   // this is used only for applications support
         IShadersManager::WeakPtr _clientShaders; // this is used internally in the wallet client (callShader method)
-        ShaderCallback _clientShadersCback;
 
         // Asset info can be requested multiple times for the same ID
         // We collect all such events and process them in bulk at

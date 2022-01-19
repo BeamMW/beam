@@ -74,6 +74,7 @@ namespace beam::wallet
                        std::string version,
                        std::string appid,
                        std::string appname,
+                       bool ipfsnode,
                        std::function<void (Ptr)> cback)
         {
             if (client == nullptr)
@@ -91,17 +92,26 @@ namespace beam::wallet
             };
 
             client->getAsync()->makeIWTCall(
-                [client, appid, appname]() -> boost::any {
+                [client, appid, appname, ipfsnode]() -> boost::any {
                     //
                     // THIS IS WALLET CLIENT REACTOR THREAD
                     //
                     IWTResult result;
+                    bool hasIPFSNode = false;
 
                     #ifdef BEAM_IPFS_SUPPORT
-                    result.ipfs = client->IWThread_startIPFSNode();
+                    if (ipfsnode) {
+                        result.ipfs = client->IWThread_startIPFSNode();
+                        hasIPFSNode = true;
+                    }
                     #endif
-                    result.shaders = client->IWThread_createAppShaders(appid, appname);
 
+                    if (!hasIPFSNode) {
+                        LOG_INFO() << "IPFS Node is not running. IPFS would not be available for the '"
+                                   << appname << "' DApp";
+                    }
+
+                    result.shaders = client->IWThread_createAppShaders(appid, appname);
                     return result;
                 },
                 [client, cback, version, appid, appname](boost::any aptr) {

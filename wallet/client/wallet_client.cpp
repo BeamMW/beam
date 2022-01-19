@@ -244,6 +244,16 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::setIPFSConfig, std::move(cfg));
     }
+
+    void stopIPFSNode() override
+    {
+        call_async(&IWalletModelAsync::stopIPFSNode);
+    }
+
+    void startIPFSNode() override
+    {
+        call_async(&IWalletModelAsync::startIPFSNode);
+    }
     #endif
 
     void changeWalletPassword(const SecString& pass) override
@@ -430,7 +440,7 @@ namespace beam::wallet
         return GetStatus(Asset::s_BeamID);
     }
 
-    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, boost::optional<asio_ipfs::config> ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor)
         : m_rules(rules)
         , m_walletDB(walletDB)
         , m_reactor{ reactor ? reactor : io::Reactor::create() }
@@ -449,20 +459,16 @@ namespace beam::wallet
     {
         m_ainfoDelayed = io::Timer::create(*m_reactor);
         m_balanceDelayed = io::Timer::create(*m_reactor);
-
-        #ifdef BEAM_IPFS_SUPPORT
-        m_ipfsConfig = std::move(ipfsConfig);
-        #endif
     }
 
-    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, boost::optional<asio_ipfs::config> ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
-        : WalletClient(rules, walletDB, {}, std::move(ipfsConfig), nodeAddr, reactor)
+    WalletClient::WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+        : WalletClient(rules, walletDB, {}, nodeAddr, reactor)
     {
 
     }
 
-    WalletClient::WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, boost::optional<asio_ipfs::config> ipfsConfig, const std::string& nodeAddr, io::Reactor::Ptr reactor)
-        : WalletClient(rules, nullptr, std::move(walletDBFunc), std::move(ipfsConfig), nodeAddr, reactor)
+    WalletClient::WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+        : WalletClient(rules, nullptr, std::move(walletDBFunc), nodeAddr, reactor)
     {
     }
 
@@ -695,20 +701,12 @@ namespace beam::wallet
                 std::shared_ptr<IPFSHandler> ipfsHandler;
                 std::shared_ptr<IPFSService> ipfsService;
 
-                if (m_ipfsConfig)
-                {
-                    LOG_INFO() << "IPFS Service is enabled. Node would be started on app demand";
-                    ipfsHandler = std::make_shared<IPFSHandler>(this);
-                    ipfsService = IPFSService::AnyThread_create(ipfsHandler);
-                    m_ipfs = ipfsService;
-
-                }
-                else
-                {
-                    LOG_WARNING() << "Empty IPFS storage path passed. IPFS node won't be started.";
-                }
+                LOG_INFO() << "IPFS Service is enabled.";
+                ipfsHandler = std::make_shared<IPFSHandler>(this);
+                ipfsService = IPFSService::AnyThread_create(ipfsHandler);
+                m_ipfs = ipfsService;
                 #else
-                LOG_WARNING () << "IPFS Service is disabled.";
+                LOG_INFO () << "IPFS Service is disabled.";
                 #endif
 
                 //
@@ -835,6 +833,25 @@ namespace beam::wallet
             sp->ServiceThread_stop();
             sp->ServiceThread_start(*m_ipfsConfig);
         }
+    }
+
+    void WalletClient::stopIPFSNode()
+    {
+        auto sp = m_ipfs.lock();
+        if (!sp)
+        {
+            assert(false);
+            throw std::runtime_error("IPFS service is not created");
+        }
+
+        if (sp->AnyThread_running()) {
+            sp->ServiceThread_stop();
+        }
+    }
+
+    void WalletClient::startIPFSNode()
+    {
+        IWThread_startIPFSNode();
     }
     #endif
 
@@ -2375,38 +2392,31 @@ namespace beam::wallet
             return;
         }
 
-        if (_clientShadersCback || !smgr->IsDone()) {
-            postFunctionToClientContext([cb = std::move(cback)]() {
-                cb("previous call is not finished", "", TxID());
-            });
-            return;
-        }
-
-        _clientShadersCback = std::move(cback);
         smgr->CallShaderAndStartTx(shader, args, args.empty() ? 0 : 1, 0, 0,
-        [this, shaders = _clientShaders] (boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
-            auto smgr = _clientShaders.lock();
-            if (!smgr)
-            {
-                LOG_WARNING () << "onShaderDone but empty manager. This can happen if node changed.";
-                return;
-            }
+            [this, cb = std::move(cback), shaders = _clientShaders]
+            (boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
+                auto smgr = _clientShaders.lock();
+                if (!smgr)
+                {
+                    LOG_WARNING () << "onShaderDone but empty manager. This can happen if node changed.";
+                    return;
+                }
 
-            if (!_clientShadersCback)
-            {
-                assert(false);
-                LOG_ERROR() << "onShaderDone but empty callback";
-                return;
-            }
+                if (!cb)
+                {
+                    assert(false);
+                    LOG_ERROR() << "onShaderDone but empty callback";
+                    return;
+                }
 
-            postFunctionToClientContext([
-                    txid = std::move(txid),
-                    res = std::move(result),
-                    err = std::move(error),
-                    cb = std::move(_clientShadersCback)
-                    ] () {
-                        cb(err ? *err : "", res ? *res : "", txid ? *txid: TxID());
-                    });
-        });
+                postFunctionToClientContext([
+                        txid = std::move(txid),
+                        res = std::move(result),
+                        err = std::move(error),
+                        cb = std::move(cb)
+                        ] () {
+                            cb(err ? *err : "", res ? *res : "", txid ? *txid: TxID());
+                        });
+            });
     }
 }

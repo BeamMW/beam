@@ -58,6 +58,8 @@ namespace beam::wallet
 
         #ifdef BEAM_IPFS_SUPPORT
         virtual void setIPFSConfig(asio_ipfs::config&&) = 0;
+        virtual void stopIPFSNode() = 0;
+        virtual void startIPFSNode() = 0;
         #endif
 
         virtual void getDexOrders() = 0;

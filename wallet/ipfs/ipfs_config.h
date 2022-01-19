@@ -15,16 +15,4 @@
 
 #ifdef BEAM_IPFS_SUPPORT
 #include <asio-ipfs/include/ipfs_config.h>
-#else
-namespace asio_ipfs {
-    // This is just a stub to compile constructors when there is no IPFS library
-    struct config {
-        enum class Mode {
-            Desktop,
-            Server,
-        };
-        explicit config (enum Mode) {
-        }
-    };
-}
 #endif
