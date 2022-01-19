@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 
-add_test_snippet(websocket_test websocket Boost::date_time Boost::coroutine utility)
+add_test_snippet(websocket_test websocket Boost::date_time Boost::coroutine Boost::thread utility)
 
 if(MSVC)
     # to avoid 4702 warning here, until another workaround will be found
