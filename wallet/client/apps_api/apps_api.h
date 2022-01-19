@@ -104,6 +104,8 @@ namespace beam::wallet
                         result.ipfs = client->IWThread_startIPFSNode();
                         hasIPFSNode = true;
                     }
+                    #else
+                    ipfsnode;
                     #endif
 
                     if (!hasIPFSNode) {

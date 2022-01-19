@@ -15,9 +15,6 @@
 #include "utility/logger.h"
 #include <boost/filesystem.hpp>
 
-// TODO:IPFS check
-// 2021/11/16 20:13:48 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 2048 kiB, got: 416 kiB).
-// See https://github.com/lucas-clemente/quic-go/wiki/UDP-Receive-Buffer-Size for details.
 namespace beam::wallet
 {
     IPFSService::Ptr IPFSService::AnyThread_create(HandlerPtr handler)
