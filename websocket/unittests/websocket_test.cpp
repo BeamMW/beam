@@ -390,7 +390,7 @@ namespace
         if (ec)
             return fail(ec, "handshake");
 
-        for (int i = 0; i < 10; ++i)
+        for (int i = 0; i < 1000; ++i)
         {
             // create test message
             std::stringstream ss;
@@ -411,7 +411,9 @@ namespace
 
             std::stringstream ss2;
             ss2 << beast::make_printable(buffer.data());
-            WALLET_CHECK(ss2.str() == testMessage + testMessage);
+            auto t = ss2.str();
+            WALLET_CHECK(std::equal(t.begin(), t.begin()+ testMessage.size(), testMessage.begin(), testMessage.end()));
+            WALLET_CHECK(std::equal(t.begin() + testMessage.size(), t.end(), testMessage.begin(), testMessage.end()));
         }
 
 
@@ -501,7 +503,7 @@ namespace
                 MyClientHandler(WebSocketServer::SendFunc wsSend, WebSocketServer::CloseFunc wsClose)
                     : m_wsSend(wsSend)
                 {}
-                void ReactorThread_onWSDataReceived(const std::string& message) override
+                void ReactorThread_onWSDataReceived(std::string&& message) override
                 {
                     std::cout << "Message: " << message << std::endl;
                     WALLET_CHECK(message == "test message");
@@ -538,7 +540,7 @@ namespace
                 MyClientHandler(WebSocketServer::SendFunc wsSend, WebSocketServer::CloseFunc wsClose)
                     : m_wsSend(wsSend)
                 {}
-                void ReactorThread_onWSDataReceived(const std::string& message) override
+                void ReactorThread_onWSDataReceived(std::string&& message) override
                 {
                     //std::cout << "Secure Message: " << message << std::endl;
                     //WALLET_CHECK(message == "test message");
@@ -550,7 +552,7 @@ namespace
             io::Reactor::Ptr reactor = safeReactor->ptr();
             io::Reactor::Scope scope(*reactor);
 
-            size_t count = clientCount *2;
+            size_t count = clientCount *3;
             auto timer = io::Timer::create(*reactor);
             auto cb = [&count, reactor, &timer]()
             {
@@ -569,16 +571,20 @@ namespace
             };
 
             WebSocketServer::Options options;
-            options.port = 8200;
+            options.port = 8202;
             options.useTls = true;
             LoadServerCertificate(options);
             MyWebSocketServer<MyClientHandler> server(safeReactor, options);
             std::vector<std::thread> threads;
             threads.reserve(count);
+            std::string message = "test message";
+            message.resize(500000);
+            std::generate(message.begin(), message.end(), []() { return 'a'; });// (std::string::value_type)std::rand();  });
             for (size_t i = 0; i < clientCount; ++i)
             {
-                threads.emplace_back(SendSecureMessage2, "127.0.0.1", "8200", "test message", connections, cb);
-                threads.emplace_back(SendMessage, "127.0.0.1", "8200", "test message", cb);
+                threads.emplace_back(SendSecureMessage2, "127.0.0.1", "8202", message, connections, cb);
+                threads.emplace_back(SendSecureMessage, "127.0.0.1", "8202", "test message", 2, cb);
+                threads.emplace_back(SendMessage, "127.0.0.1", "8202", "test message", cb);
             }
             reactor->run();
 
@@ -604,7 +610,7 @@ int main()
 
     PlainWebsocketTest();
     //SecureWebsocketTest();
-    SecureWebsocketTest(1, 10000);
+    SecureWebsocketTest(1, 1);
 
     return WALLET_CHECK_RESULT;
 }
