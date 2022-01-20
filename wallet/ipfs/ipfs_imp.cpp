@@ -91,6 +91,7 @@ namespace beam::wallet::imp
 
                     // TODO:IPFS ensure if connected
                     // TODO:IPFS lower connect timeout
+                    // TODO:IPFS consider async launch
                     assert(_node);
                 }
                 catch (const boost::system::system_error &err)
