@@ -367,6 +367,9 @@ namespace beam
         const char* IPFS_SWARM_PORT    = "ipfs_swarm_port";
         const char* IPFS_STORAGE_MAX   = "ipfs_storage_max";
         const char* IPFS_NODE_API_PORT = "ipfs_node_api_port";
+        const char* IPFS_AUTONAT       = "ipfs_autonat";
+        const char* IPFS_AUTONAT_LIMIT = "ipfs_autonat_limit";
+        const char* IPFS_AUTONAT_PEER_LIMIT = "ipfs_autonat_peer_limit";
         #endif
     }
 
@@ -622,17 +625,20 @@ namespace beam
     {
         po::options_description ipfs_options("IPFS support");
         ipfs_options.add_options()
-            (cli::IPFS_ENABLE,        po::value<bool>()->default_value(enableByDefault)->implicit_value(enableByDefault), "enable IPFS support/launch IPFS node")
-            (cli::IPFS_STORAGE,       po::value<string>()->default_value(defs.repo_root), "IPFS repository path")
-            (cli::IPFS_LOW_WATER,     po::value<uint32_t>()->default_value(defs.low_water), "Swarm.ConnMgr.LowWater")
-            (cli::IPFS_HIGH_WATER,    po::value<uint32_t>()->default_value(defs.high_water), "Swarm.ConnMgr.HighWater")
-            (cli::IPFS_GRACE,         po::value<uint32_t>()->default_value(defs.grace_period), "Swarm.ConnMgr.GracePeriod uint32 seconds")
-            (cli::IPFS_AUTO_RELAY,    po::value<bool>()->default_value(defs.auto_relay), "Swarm.EnableAutoRelay")
-            (cli::IPFS_RELAY_HOP,     po::value<bool>()->default_value(defs.relay_hop), "Swarm.EnableRelayHop")
-            (cli::IPFS_SWARM_PORT,    po::value<uint32_t>()->default_value(defs.node_swarm_port), "Addresses.Swarm port")
-            (cli::IPFS_STORAGE_MAX,   po::value<string>()->default_value(defs.storage_max), "Datastore.StorageMax")
-            (cli::IPFS_BOOTSTRAP,     po::value<std::vector<string>>()->multitoken(), "Bootstrap nodes multiaddr space separated list")
-            (cli::IPFS_NODE_API_PORT, po::value<uint32_t>()->default_value(defs.node_api_port), "Addresses.API port");
+            (cli::IPFS_ENABLE,             po::value<bool>()->default_value(enableByDefault)->implicit_value(enableByDefault), "enable IPFS support/launch IPFS node")
+            (cli::IPFS_STORAGE,            po::value<string>()->default_value(defs.repo_root), "IPFS repository path")
+            (cli::IPFS_LOW_WATER,          po::value<uint32_t>()->default_value(defs.low_water), "Swarm.ConnMgr.LowWater")
+            (cli::IPFS_HIGH_WATER,         po::value<uint32_t>()->default_value(defs.high_water), "Swarm.ConnMgr.HighWater")
+            (cli::IPFS_GRACE,              po::value<uint32_t>()->default_value(defs.grace_period), "Swarm.ConnMgr.GracePeriod as uint32 seconds")
+            (cli::IPFS_AUTO_RELAY,         po::value<bool>()->default_value(defs.auto_relay), "Swarm.EnableAutoRelay")
+            (cli::IPFS_RELAY_HOP,          po::value<bool>()->default_value(defs.relay_hop), "Swarm.EnableRelayHop")
+            (cli::IPFS_SWARM_PORT,         po::value<uint32_t>()->default_value(defs.node_swarm_port), "Addresses.Swarm port")
+            (cli::IPFS_STORAGE_MAX,        po::value<string>()->default_value(defs.storage_max), "Datastore.StorageMax")
+            (cli::IPFS_BOOTSTRAP,          po::value<std::vector<string>>()->multitoken(), "Bootstrap nodes multiaddr space separated list")
+            (cli::IPFS_NODE_API_PORT,      po::value<uint32_t>()->default_value(defs.node_api_port), "Addresses.API port")
+            (cli::IPFS_AUTONAT,            po::value<bool>()->default_value(defs.autonat), "AutoNAT.ServiceMode as bool")
+            (cli::IPFS_AUTONAT_LIMIT,      po::value<uint32_t>()->default_value(defs.autonat_limit), "AutoNAT.Throttle.GlobalLimit")
+            (cli::IPFS_AUTONAT_PEER_LIMIT, po::value<uint32_t>()->default_value(defs.autonat_peer_limit), "AutoNAT.Throttle.PeerLimit");
         return ipfs_options;
     }
 
@@ -652,6 +658,9 @@ namespace beam
         cfg.node_swarm_port = vm[cli::IPFS_SWARM_PORT].as<uint32_t>();
         cfg.storage_max = vm[cli::IPFS_STORAGE_MAX].as<string>();
         cfg.node_api_port = vm[cli::IPFS_NODE_API_PORT].as<uint32_t>();
+        cfg.autonat = vm[cli::IPFS_AUTONAT].as<bool>();
+        cfg.autonat_limit = vm[cli::IPFS_AUTONAT_LIMIT].as<uint32_t>();
+        cfg.autonat_peer_limit = vm[cli::IPFS_AUTONAT_PEER_LIMIT].as<uint32_t>();
 
         if (vm.count(cli::IPFS_BOOTSTRAP)) {
             cfg.bootstrap = vm[cli::IPFS_BOOTSTRAP].as<std::vector<string>>();

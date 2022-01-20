@@ -270,6 +270,9 @@ namespace beam
         extern const char* IPFS_SWARM_PORT;
         extern const char* IPFS_STORAGE_MAX;
         extern const char* IPFS_NODE_API_PORT;
+        extern const char* IPFS_AUTONAT;
+        extern const char* IPFS_AUTONAT_LIMIT;
+        extern const char* IPFS_AUTONAT_PEER_LIMIT;
         #endif
     }
 
