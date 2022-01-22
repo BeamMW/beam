@@ -5,19 +5,23 @@
 #define Amm_admin_create(macro)
 #define Amm_admin_view(macro)
 #define Amm_admin_destroy(macro) macro(ContractID, cid)
+#define Amm_admin_pools_view(macro) macro(ContractID, cid)
 
-#define Amm_admin_pool_create(macro) \
+#define Amm_admin_pool_view(macro) \
     macro(ContractID, cid) \
     macro(AssetID, aid1) \
     macro(AssetID, aid2)
 
-#define Amm_admin_pool_destroy(macro) Amm_admin_pool_create(macro)
+#define Amm_admin_pool_create(macro) Amm_admin_pool_view(macro)
+#define Amm_admin_pool_destroy(macro) Amm_admin_pool_view(macro)
 
 
 #define AmmRole_admin(macro) \
     macro(admin, view) \
     macro(admin, create) \
     macro(admin, destroy) \
+    macro(admin, pool_view) \
+    macro(admin, pools_view) \
     macro(admin, pool_create) \
     macro(admin, pool_destroy)
 
@@ -81,12 +85,12 @@ ON_METHOD(admin, destroy)
     Env::GenerateKernel(&cid, 1, nullptr, 0, nullptr, 0, nullptr, 0, "destroy Amm contract", 0);
 }
 
-bool SetKey(Method::PoolInvoke& arg, AssetID aid1, AssetID aid2)
+bool SetKey(Pool::ID& pid, AssetID aid1, AssetID aid2)
 {
     if (aid1 < aid2)
     {
-        arg.m_PoolID.m_Aid1 = aid1;
-        arg.m_PoolID.m_Aid2 = aid2;
+        pid.m_Aid1 = aid1;
+        pid.m_Aid2 = aid2;
     }
     else
     {
@@ -96,11 +100,68 @@ bool SetKey(Method::PoolInvoke& arg, AssetID aid1, AssetID aid2)
             return false;
         }
 
-        arg.m_PoolID.m_Aid1 = aid2;
-        arg.m_PoolID.m_Aid2 = aid1;
+        pid.m_Aid1 = aid2;
+        pid.m_Aid2 = aid1;
     }
 
     return true;
+}
+
+bool ReadPool(Pool& p, const ContractID& cid, const Pool::ID& pid)
+{
+    Env::Key_T<Pool::Key> key;
+    _POD_(key.m_Prefix.m_Cid) = cid;
+    key.m_KeyInContract.m_ID = pid;
+
+    return Env::VarReader::Read_T(key, p);
+}
+
+void PrintPool(const Pool& p)
+{
+    Env::DocAddNum("aidCtl", p.m_aidCtl);
+    Env::DocAddNum("ctl", p.m_Totals.m_Ctl);
+    Env::DocAddNum("tok1", p.m_Totals.m_Tok1);
+    Env::DocAddNum("tok2", p.m_Totals.m_Tok2);
+}
+
+ON_METHOD(admin, pools_view)
+{
+    Env::Key_T<Pool::Key> key1, key2;
+    _POD_(key1.m_Prefix.m_Cid) = cid;
+    _POD_(key2.m_Prefix.m_Cid) = cid;
+    _POD_(key1.m_KeyInContract.m_ID).SetZero();
+    _POD_(key2.m_KeyInContract.m_ID).SetObject(0xff);
+
+    Env::DocArray gr("res");
+
+    for (Env::VarReader r(key1, key2); ; )
+    {
+        Pool p;
+        if (!r.MoveNext_T(key1, p))
+            break;
+
+        Env::DocGroup gr1("");
+
+        Env::DocAddNum("aid1", key1.m_KeyInContract.m_ID.m_Aid1);
+        Env::DocAddNum("aid2", key1.m_KeyInContract.m_ID.m_Aid2);
+        PrintPool(p);
+    }
+}
+
+ON_METHOD(admin, pool_view)
+{
+    Pool::ID pid;
+    if (!SetKey(pid, aid1, aid2))
+        return;
+
+    Pool p;
+    if (ReadPool(p, cid, pid))
+    {
+        Env::DocGroup gr("res");
+        PrintPool(p);
+    }
+    else
+        OnError("no such a pool");
 }
 
 static const Amount g_DepositCA = 3000 * g_Beam2Groth; // 3K beams
@@ -108,8 +169,12 @@ static const Amount g_DepositCA = 3000 * g_Beam2Groth; // 3K beams
 ON_METHOD(admin, pool_create)
 {
     Method::CreatePool arg;
-    if (!SetKey(arg, aid1, aid2))
+    if (!SetKey(arg.m_PoolID, aid1, aid2))
         return;
+
+    Pool p;
+    if (ReadPool(p, cid, arg.m_PoolID))
+        return OnError("already exists");
 
     FundsChange fc;
     fc.m_Aid = 0;
@@ -123,8 +188,15 @@ ON_METHOD(admin, pool_create)
 ON_METHOD(admin, pool_destroy)
 {
     Method::DeletePool arg;
-    if (!SetKey(arg, aid1, aid2))
+    if (!SetKey(arg.m_PoolID, aid1, aid2))
         return;
+
+    Pool p;
+    if (!ReadPool(p, cid, arg.m_PoolID))
+        return OnError("no such a pool");
+
+    if (p.m_Totals.m_Ctl)
+        return OnError("pool is non-empty");
 
     FundsChange fc;
     fc.m_Aid = 0;
