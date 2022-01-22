@@ -69,9 +69,20 @@ BEAM_EXPORT void Method_2(const Method::CreatePool& r)
     MyPool p;
     _POD_(p).SetZero();
 
-    // TODO: generate unique metadata, contract can't create different assets with the same metadata
-    static const char szMeta[] = "STD:SCH_VER=1;N=Amm Token;SN=Amm;UN=AMM;NTHUN=GROTHX";
-    p.m_aidCtl = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
+    // generate unique metadata
+    static const char s_szMeta[] = "STD:SCH_VER=1;N=Amm Token;SN=Amm;UN=AMM;NTHUN=GROTHX";
+
+#pragma pack (push, 1)
+    struct Meta {
+        char m_szMeta[sizeof(s_szMeta)]; // including 0-terminator
+        Pool::ID m_Pid;
+    } md;
+#pragma pack (pop)
+
+    Env::Memcpy(md.m_szMeta, s_szMeta, sizeof(s_szMeta));
+    md.m_Pid = r.m_PoolID;
+
+    p.m_aidCtl = Env::AssetCreate(&md, sizeof(md));
     Env::Halt_if(!p.m_aidCtl);
 
     MyPool::MyKey key(r.m_PoolID);
@@ -180,8 +191,8 @@ BEAM_EXPORT void Method_6(const Method::Trade& r)
     Amount valPay = MyPool::ToAmount(vol / Float(p.m_Totals.m_Tok1));
     Strict::Sub(valPay, p.m_Totals.m_Tok2);
 
-    // add comission 0.3%
-    Amount fee = valPay / 1000 * 3;
+    // add comission 0.3%, plus add 1 groth (min unit) to compensate for potential round-off error during division
+    Amount fee = valPay / 1000 * 3 + 1;
     Strict::Add(valPay, fee);
     Strict::Add(p.m_Totals.m_Tok2, valPay);
 
