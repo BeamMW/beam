@@ -89,8 +89,16 @@ namespace
 				LOG_DEBUG() << "Websocket proxy connected to the node";
 				m_Stream = std::move(newStream);
 				m_Stream->enable_read(
-					[this](io::ErrorCode what, void* data, size_t size) -> bool
+					[this](io::ErrorCode errorCode, void* data, size_t size) -> bool
 					{
+						if (errorCode != 0)
+						{
+							std::stringstream ss;
+							ss << "Websocket proxy failed to read, code=" << io::error_str(errorCode);
+							LOG_ERROR() << ss.str();
+							m_wsClose(ss.str());
+							return false;
+						}
 						m_wsSend(std::string((const char*)data, size));
 						return true;
 					});
@@ -100,7 +108,7 @@ namespace
 			{
 				std::stringstream ss;
 				ss << "Websocket proxy failed connected to the node: " << io::error_str(errorCode);
-				LOG_DEBUG() << ss.str();
+				LOG_ERROR() << ss.str();
 				m_wsClose(ss.str());
 			}
 		}
