@@ -366,10 +366,14 @@ namespace beam
         const char* IPFS_BOOTSTRAP     = "ipfs_bootstrap";
         const char* IPFS_SWARM_PORT    = "ipfs_swarm_port";
         const char* IPFS_STORAGE_MAX   = "ipfs_storage_max";
-        const char* IPFS_NODE_API_PORT = "ipfs_node_api_port";
+        const char* IPFS_API_PORT      = "ipfs_api_port";
+        const char* IPFS_GATEWAY_PORT  = "ipfs_gateway_port";
         const char* IPFS_AUTONAT       = "ipfs_autonat";
         const char* IPFS_AUTONAT_LIMIT = "ipfs_autonat_limit";
         const char* IPFS_AUTONAT_PEER_LIMIT = "ipfs_autonat_peer_limit";
+        const char* IPFS_SWARM_KEY     = "ipfs_swarm_key";
+        const char* IPFS_ROUTING_TYPE  = "ipfs_routing_type";
+        const char* IPFS_RUN_GC        = "ipfs_run_gc";
         #endif
     }
 
@@ -632,13 +636,17 @@ namespace beam
             (cli::IPFS_GRACE,              po::value<uint32_t>()->default_value(defs.grace_period), "Swarm.ConnMgr.GracePeriod as uint32 seconds")
             (cli::IPFS_AUTO_RELAY,         po::value<bool>()->default_value(defs.auto_relay), "Swarm.EnableAutoRelay")
             (cli::IPFS_RELAY_HOP,          po::value<bool>()->default_value(defs.relay_hop), "Swarm.EnableRelayHop")
-            (cli::IPFS_SWARM_PORT,         po::value<uint32_t>()->default_value(defs.node_swarm_port), "Addresses.Swarm port")
+            (cli::IPFS_SWARM_PORT,         po::value<uint32_t>()->default_value(defs.swarm_port), "Addresses.Swarm port")
             (cli::IPFS_STORAGE_MAX,        po::value<string>()->default_value(defs.storage_max), "Datastore.StorageMax")
             (cli::IPFS_BOOTSTRAP,          po::value<std::vector<string>>()->multitoken(), "Bootstrap nodes multiaddr space separated list")
-            (cli::IPFS_NODE_API_PORT,      po::value<uint32_t>()->default_value(defs.node_api_port), "Addresses.API port")
+            (cli::IPFS_API_PORT,           po::value<uint32_t>()->default_value(defs.api_port), "Addresses.API port")
+            (cli::IPFS_GATEWAY_PORT,       po::value<uint32_t>()->default_value(defs.gateway_port), "Addresses.Gateway port")
             (cli::IPFS_AUTONAT,            po::value<bool>()->default_value(defs.autonat), "AutoNAT.ServiceMode as bool")
             (cli::IPFS_AUTONAT_LIMIT,      po::value<uint32_t>()->default_value(defs.autonat_limit), "AutoNAT.Throttle.GlobalLimit")
-            (cli::IPFS_AUTONAT_PEER_LIMIT, po::value<uint32_t>()->default_value(defs.autonat_peer_limit), "AutoNAT.Throttle.PeerLimit");
+            (cli::IPFS_AUTONAT_PEER_LIMIT, po::value<uint32_t>()->default_value(defs.autonat_peer_limit), "AutoNAT.Throttle.PeerLimit")
+            (cli::IPFS_SWARM_KEY,          po::value<string>()->default_value(defs.swarm_key), "ipfs-repo/swarm.key file contents")
+            (cli::IPFS_ROUTING_TYPE,       po::value<string>()->default_value(defs.routing_type), "Routing.Type")
+            (cli::IPFS_RUN_GC,             po::value<bool>()->default_value(defs.run_gc), "Run IPFS periodic garbage collector");
         return ipfs_options;
     }
 
@@ -655,12 +663,16 @@ namespace beam
         cfg.grace_period = vm[cli::IPFS_GRACE].as<uint32_t>();
         cfg.auto_relay = vm[cli::IPFS_AUTO_RELAY].as<bool>();
         cfg.relay_hop = vm[cli::IPFS_RELAY_HOP].as<bool>();
-        cfg.node_swarm_port = vm[cli::IPFS_SWARM_PORT].as<uint32_t>();
+        cfg.swarm_port = vm[cli::IPFS_SWARM_PORT].as<uint32_t>();
         cfg.storage_max = vm[cli::IPFS_STORAGE_MAX].as<string>();
-        cfg.node_api_port = vm[cli::IPFS_NODE_API_PORT].as<uint32_t>();
+        cfg.api_port = vm[cli::IPFS_API_PORT].as<uint32_t>();
+        cfg.gateway_port = vm[cli::IPFS_GATEWAY_PORT].as<uint32_t>();
         cfg.autonat = vm[cli::IPFS_AUTONAT].as<bool>();
         cfg.autonat_limit = vm[cli::IPFS_AUTONAT_LIMIT].as<uint32_t>();
         cfg.autonat_peer_limit = vm[cli::IPFS_AUTONAT_PEER_LIMIT].as<uint32_t>();
+        cfg.swarm_key = vm[cli::IPFS_SWARM_KEY].as<string>();
+        cfg.routing_type = vm[cli::IPFS_ROUTING_TYPE].as<string>();
+        cfg.run_gc = vm[cli::IPFS_RUN_GC].as<bool>();
 
         if (vm.count(cli::IPFS_BOOTSTRAP)) {
             cfg.bootstrap = vm[cli::IPFS_BOOTSTRAP].as<std::vector<string>>();
