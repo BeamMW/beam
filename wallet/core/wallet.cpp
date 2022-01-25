@@ -1059,7 +1059,7 @@ namespace beam::wallet
         if (!req.m_Res.m_Proof.empty())
         {
             const auto& info  = req.m_Res.m_Info;
-            const auto height = m_WalletDB->getCurrentHeight();
+            const auto height = sTip.m_Height;
 
             m_WalletDB->saveAsset(info, height);
             LOG_INFO() << msgPrefix << (msgPrefix.empty() ? "" : " ") << "Received proof for Asset with ID " << info.m_ID;
