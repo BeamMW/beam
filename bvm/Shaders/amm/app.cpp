@@ -44,6 +44,8 @@
 
 namespace Amm {
 
+using MultiPrecision::Float;
+
 BEAM_EXPORT void Method_0()
 {
     // scheme
@@ -116,12 +118,123 @@ bool ReadPool(Pool& p, const ContractID& cid, const Pool::ID& pid)
     return Env::VarReader::Read_T(key, p);
 }
 
+struct FloatTxt
+{
+    static const uint32_t s_DigsAfterDotMax = 18;
+    static const uint32_t s_TxtLenMax = Utils::String::Decimal::DigitsMax<uint32_t>::N + s_DigsAfterDotMax + 6; // 1st dig, dot, space, E, space, minus
+
+    static uint32_t Print_(char* szBuf, Float x, uint32_t nDigitsAfterDot)
+    {
+        if (x.IsZero())
+        {
+            szBuf[0] = '0';
+            szBuf[1] = 0;
+            return 1;
+        }
+
+        if (nDigitsAfterDot > s_DigsAfterDotMax)
+            nDigitsAfterDot = s_DigsAfterDotMax;
+
+        uint64_t trgLo = 1;
+        for (uint32_t i = 0; i < nDigitsAfterDot; i++)
+            trgLo *= 10;
+
+        uint64_t trgHi = trgLo * 10;
+
+        int ord = nDigitsAfterDot;
+
+        Float one(1u);
+        Float dec(10u);
+
+        uint64_t x_ = x.Get();
+        if (x_ < trgLo)
+        {
+            do
+            {
+                x = x * dec;
+                ord--;
+            } while ((x_ = x.Get()) < trgLo);
+
+            if (x_ >= trgHi)
+            {
+                x_ /= 10;
+                ord++;
+            }
+        }
+        else
+        {
+            if (x_ >= trgHi)
+            {
+                Float dec_inv = one / dec;
+
+                do
+                {
+                    x = x * dec_inv;
+                    ord++;
+                } while ((x_ = x.Get()) >= trgHi);
+
+                if (x_ < trgLo)
+                {
+                    x_ *= 10;
+                    ord--;
+                }
+            }
+        }
+
+        uint32_t nPos = 0;
+
+        szBuf[nPos++] = '0' + (x_ / trgLo);
+        szBuf[nPos++] = '.';
+
+        Utils::String::Decimal::Print(szBuf + nPos, x_ - trgLo, nDigitsAfterDot);
+        nPos += nDigitsAfterDot;
+
+        if (ord)
+        {
+            szBuf[nPos++] = ' ';
+            szBuf[nPos++] = 'E';
+
+            if (ord > 0)
+                szBuf[nPos++] = ' ';
+            else
+            {
+                ord = -ord;
+                szBuf[nPos++] = '-';
+            }
+
+            nPos += Utils::String::Decimal::Print(szBuf + nPos, ord);
+        }
+
+        szBuf[nPos] = 0;
+        return nPos;
+    }
+
+    char m_sz[s_TxtLenMax + 1];
+    uint32_t Print(Float f, uint32_t nDigitsAfterDot = 10)
+    {
+        return Print_(m_sz, f, nDigitsAfterDot);
+    }
+};
+
+void DocAddRate(const char* sz, Amount v1, Amount v2)
+{
+    FloatTxt ftxt;
+    ftxt.Print(Float(v1) / Float(v2));
+    Env::DocAddText(sz, ftxt.m_sz);
+}
+
 void PrintPool(const Pool& p)
 {
     Env::DocAddNum("aidCtl", p.m_aidCtl);
     Env::DocAddNum("ctl", p.m_Totals.m_Ctl);
     Env::DocAddNum("tok1", p.m_Totals.m_Tok1);
     Env::DocAddNum("tok2", p.m_Totals.m_Tok2);
+
+    if (p.m_Totals.m_Ctl)
+    {
+        DocAddRate("k1_2", p.m_Totals.m_Tok1, p.m_Totals.m_Tok2);
+        DocAddRate("k2_1", p.m_Totals.m_Tok2, p.m_Totals.m_Tok1);
+    }
 }
 
 ON_METHOD(admin, pools_view)
