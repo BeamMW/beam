@@ -30,7 +30,8 @@ namespace beam::wallet
             // All IPFS actions are executed in a separate IPFS thread
             // This function is called from that thread and should push
             // the 'action' to the thread where add/get/... is called
-            virtual void pushToClient(std::function<void()>&& action) = 0;
+            virtual void AnyThread_pushToClient(std::function<void()>&& action) = 0;
+            virtual void AnyThread_onStatus(const std::string& error, uint32_t peercnt) = 0;
         };
 
         typedef std::shared_ptr<IPFSService> Ptr;
@@ -42,6 +43,7 @@ namespace beam::wallet
 
         /// \exception std::runtime_error
         /// \breief Calling thread becomes the `ServiceThread`
+        /// TODO:IPFS handle start errors
         virtual void ServiceThread_start(asio_ipfs::config config) = 0;
 
         /// \exception std::runtime_error

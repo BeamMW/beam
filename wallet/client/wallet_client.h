@@ -223,7 +223,7 @@ namespace beam::wallet
         #endif
 
         #ifdef BEAM_IPFS_SUPPORT
-        virtual void onIPFSStatus(bool connected, const std::string& error) {}
+        virtual void onIPFSStatus(bool running, const std::string& error, unsigned int peercnt) {}
         #endif
 
     private:
@@ -376,6 +376,8 @@ namespace beam::wallet
         #ifdef BEAM_IPFS_SUPPORT
         std::weak_ptr<IPFSService> m_ipfs;
         boost::optional<asio_ipfs::config> m_ipfsConfig;
+        uint32_t m_ipfsPeerCnt = 0;
+        std::string m_ipfsError;
         #endif
 
         // broadcasting via BBS

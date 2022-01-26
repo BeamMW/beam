@@ -87,9 +87,11 @@ namespace beam::wallet::imp
                         #endif
                     }
 
-                    _node = asio_ipfs::node::build(_ios, config, std::move(yield));
+                    asio_ipfs::node::StateCB scb = [this](const std::string& error, uint32_t pcnt) {
+                        _handler->AnyThread_onStatus(error, pcnt);
+                    };
 
-                    // TODO:IPFS ensure if connected
+                    _node = asio_ipfs::node::build(_ios, scb, config, std::move(yield));
                     // TODO:IPFS lower connect timeout
                     // TODO:IPFS consider async launch
                     assert(_node);
@@ -226,6 +228,6 @@ namespace beam::wallet::imp
 
     void IPFSService::AnyThreaad_retToClient(std::function<void()>&& what)
     {
-        _handler->pushToClient(std::move(what));
+        _handler->AnyThread_pushToClient(std::move(what));
     }
 }
