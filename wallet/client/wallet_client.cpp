@@ -2430,6 +2430,15 @@ namespace beam::wallet
 
     void WalletClient::callShader(const std::string& shaderFile, const std::string& args, ShaderCallback&& cback)
     {
-        callShader(fsutils::fread(shaderFile), args, std::move(cback));
+        try
+        {
+            callShader(fsutils::fread(shaderFile), args, std::move(cback));
+        }
+        catch (std::runtime_error& err)
+        {
+            postFunctionToClientContext([errorMsg = std::string(err.what()), cb = std::move(cback)]() {
+                cb(errorMsg, "", TxID());
+            });
+        }
     }
 }
