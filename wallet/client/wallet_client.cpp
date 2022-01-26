@@ -23,6 +23,7 @@
 #include "extensions/export/tx_history_to_csv.h"
 #include "extensions/news_channels/wallet_updates_provider.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
+#include "utility/fsutils.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -368,7 +369,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 
     void callShader(const std::vector<uint8_t>& shader, const std::string& args, ShaderCallback&& cback) override
     {
-        call_async(&IWalletModelAsync::callShader, shader, args, cback);
+        typedef void(IWalletModelAsync::* MethodType)(const std::vector<uint8_t>&, const std::string&, ShaderCallback&&);
+        call_async((MethodType)&IWalletModelAsync::callShader, shader, args, cback);
+    }
+
+    void callShader(const std::string& shaderFile, const std::string& args, ShaderCallback&& cback) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(const std::string&, const std::string&, ShaderCallback&&);
+        call_async((MethodType)&IWalletModelAsync::callShader, shaderFile, args, cback);
     }
 
     void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override
@@ -2418,5 +2426,10 @@ namespace beam::wallet
                             cb(err ? *err : "", res ? *res : "", txid ? *txid: TxID());
                         });
             });
+    }
+
+    void WalletClient::callShader(const std::string& shaderFile, const std::string& args, ShaderCallback&& cback)
+    {
+        callShader(fsutils::fread(shaderFile), args, std::move(cback));
     }
 }

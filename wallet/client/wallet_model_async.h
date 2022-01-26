@@ -112,6 +112,7 @@ namespace beam::wallet
         // error (if any), shader output (if any), txid (if any)
         typedef AsyncCallback<const std::string&, const std::string&, const TxID&> ShaderCallback;
         virtual void callShader(const std::vector<uint8_t>& shader, const std::string& args, ShaderCallback&& cback) = 0;
+        virtual void callShader(const std::string& shaderFile, const std::string& args, ShaderCallback&& cback) = 0;
 
         virtual void setMaxPrivacyLockTimeLimitHours(uint8_t limit) = 0;
         virtual void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) = 0;
