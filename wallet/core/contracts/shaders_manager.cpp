@@ -284,9 +284,9 @@ namespace beam::wallet {
 
         _done = false;
         _startEvent = io::AsyncEvent::create(io::Reactor::get_Current(),
-            [this, &req]()
+            [this, method = req.method]()
             {
-                StartRun(req.method);
+                StartRun(method);
             });
 
         _wallet->DoInSyncedWallet([this]()
