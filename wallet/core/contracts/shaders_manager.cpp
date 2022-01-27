@@ -283,7 +283,16 @@ namespace beam::wallet {
         }
 
         _done = false;
-        StartRun(req.method);
+        _startEvent = io::AsyncEvent::create(io::Reactor::get_Current(),
+            [this, &req]()
+            {
+                StartRun(req.method);
+            });
+
+        _wallet->DoInSyncedWallet([this]()
+            {
+                _startEvent->post();
+            });
     }
 
     void ShadersManager::ProcessTxData(const ByteBuffer& buffer, DoneTxHandler doneHandler)
