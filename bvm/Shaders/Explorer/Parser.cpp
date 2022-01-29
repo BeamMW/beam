@@ -4,6 +4,7 @@
 #include "../vault/contract.h"
 #include "../faucet/contract.h"
 #include "../dao-core/contract.h"
+#include "../gallery/contract.h"
 
 void get_ShaderID(ShaderID& sid, void* pBuf, uint32_t nBuf)
 {
@@ -43,7 +44,8 @@ bool get_ShaderID(ShaderID& sid, const ContractID& cid)
 	macro(Upgradable2, Upgradable2::s_SID) \
 	macro(Vault, Vault::s_SID) \
 	macro(Faucet, Faucet::s_SID) \
-	macro(DaoCore, DaoCore::s_SID)
+	macro(DaoCore, DaoCore::s_SID) \
+	macro(Gallery, Gallery::s_SID_1)
 
 
 struct ParserContext
@@ -385,6 +387,75 @@ void ParserContext::On_DaoCore()
 		{
 		case DaoCore::GetPreallocated::s_iMethod: Env::DocAddText("", "GetPreallocated"); break;
 		case DaoCore::UpdPosFarming::s_iMethod: Env::DocAddText("", "Farming Upd"); break;
+		}
+	}
+
+	if (m_State)
+	{
+		// TODO:
+	}
+}
+
+void WriteGalleryAdrID(Gallery::Masterpiece::ID id)
+{
+	Env::DocAddText("", ", art_id=");
+	Env::DocAddNum("", Utils::FromBE(id));
+}
+
+void WriteGalleryPrice(const Gallery::AmountWithAsset& x)
+{
+	if (x.m_Aid)
+	{
+		Env::DocAddText("", ", aid=");
+		Env::DocAddNum("", x.m_Aid);
+	}
+	Env::DocAddText("", ", amount=");
+	Env::DocAddNum("", x.m_Amount);
+}
+
+void ParserContext::On_Gallery()
+{
+	if (m_Method && !WriteStdMethod())
+	{
+		switch (m_iMethod)
+		{
+		case Gallery::Method::AddExhibit::s_iMethod:
+			Env::DocAddText("", "AddExhibit");
+			break;
+
+		case Gallery::Method::SetPrice::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::SetPrice))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::SetPrice*>(m_pArg);
+
+				Env::DocAddText("", "SetPrice");
+				WriteGalleryAdrID(arg.m_ID);
+				WriteGalleryPrice(arg.m_Price);
+			}
+			break;
+
+		case Gallery::Method::Buy::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::Buy))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::Buy*>(m_pArg);
+
+				Env::DocAddText("", "Buy");
+				WriteGalleryAdrID(arg.m_ID);
+			}
+			break;
+
+		case Gallery::Method::Vote::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::Vote))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::Vote*>(m_pArg);
+
+				Env::DocAddText("", "Vote");
+				WriteGalleryAdrID(arg.m_ID.m_MasterpieceID);
+
+				Env::DocAddText("", ", impression=");
+				Env::DocAddNum("", arg.m_Impression.m_Value);
+			}
+			break;
 		}
 	}
 
