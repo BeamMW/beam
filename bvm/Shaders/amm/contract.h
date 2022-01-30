@@ -13,7 +13,7 @@ namespace Amm
     {
         // don't use tag=1 for multiple data entries, it's used by Upgradable2
         static const uint8_t s_Pool = 2;
-        //static const uint8_t s_User = 3;
+        static const uint8_t s_User = 3;
     };
 
     struct Amounts
@@ -157,56 +157,54 @@ namespace Amm
         };
 
         Totals m_Totals;
-        AssetID m_aidCtl;
     };
 
-    //struct User
-    //{
-    //    struct Key {
-    //        uint8_t m_Tag = Tags::s_User;
-    //        Pool::ID m_PoolID;
-    //        PubKey m_pk;
-    //    };
-    //
-    //    Totals m_Totals;
-    //};
+    struct User
+    {
+        struct ID
+        {
+            Pool::ID m_Pid;
+            PubKey m_pk;
+        };
+
+        struct Key {
+            uint8_t m_Tag = Tags::s_User;
+            ID m_ID;
+        };
+    
+        Amount m_Ctl;
+    };
 
     namespace Method
     {
         struct PoolInvoke
         {
-            Pool::ID m_PoolID;
+            Pool::ID m_Pid;
         };
 
-        struct CreatePool :public PoolInvoke
+        struct PoolUserInvoke
+        {
+            User::ID m_Uid;
+        };
+
+        struct AddLiquidity :public PoolUserInvoke
         {
             static const uint32_t s_iMethod = 2;
-        };
-
-        struct DeletePool :public PoolInvoke
-        {
-            static const uint32_t s_iMethod = 3;
-        };
-
-        struct AddLiquidity :public PoolInvoke
-        {
-            static const uint32_t s_iMethod = 4;
             Amounts m_Amounts;
         };
 
-        struct Withdraw :public PoolInvoke
+        struct Withdraw :public PoolUserInvoke
         {
-            static const uint32_t s_iMethod = 5;
+            static const uint32_t s_iMethod = 3;
             Amount m_Ctl;
         };
 
         struct Trade :public PoolInvoke
         {
-            static const uint32_t s_iMethod = 6;
+            static const uint32_t s_iMethod = 4;
             Amount m_Buy;
             uint8_t m_iBuy;
         };
-
     }
 #pragma pack (pop)
 

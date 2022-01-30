@@ -31,53 +31,19 @@ struct MyPool :public Pool
 
     MyPool(const Key& key)
     {
-        Env::Halt_if(!Env::LoadVar_T(key, *this));
+        if (!Env::LoadVar_T(key, *this))
+            _POD_(*this).SetZero();
     }
 
-    bool Save(const Key& key)
+    void Save(const Key& key)
     {
-        return Env::SaveVar_T(key, *this);
+        Env::SaveVar_T(key, *this);
     }
 };
 
-BEAM_EXPORT void Method_2(const Method::CreatePool& r)
+BEAM_EXPORT void Method_2(const Method::AddLiquidity& r)
 {
-    MyPool p;
-    _POD_(p).SetZero();
-
-    // generate unique metadata
-    static const char s_szMeta[] = "STD:SCH_VER=1;N=Amm Token;SN=Amm;UN=AMM;NTHUN=GROTHX";
-
-#pragma pack (push, 1)
-    struct Meta {
-        char m_szMeta[sizeof(s_szMeta)]; // including 0-terminator
-        Pool::ID m_Pid;
-    } md;
-#pragma pack (pop)
-
-    Env::Memcpy(md.m_szMeta, s_szMeta, sizeof(s_szMeta));
-    md.m_Pid = r.m_PoolID;
-
-    p.m_aidCtl = Env::AssetCreate(&md, sizeof(md));
-    Env::Halt_if(!p.m_aidCtl);
-
-    MyPool::MyKey key(r.m_PoolID);
-    Env::Halt_if(p.Save(key)); // would fail if duplicated
-}
-
-BEAM_EXPORT void Method_3(const Method::DeletePool& r)
-{
-    MyPool::MyKey key(r.m_PoolID);
-    MyPool p(key);
-
-    Env::Halt_if(!Env::AssetDestroy(p.m_aidCtl)); // would fail unless fully burned
-
-    Env::DelVar_T(key);
-}
-
-BEAM_EXPORT void Method_4(const Method::AddLiquidity& r)
-{
-    MyPool::MyKey key(r.m_PoolID);
+    MyPool::MyKey key(r.m_Uid.m_Pid);
     MyPool p(key);
 
     Amount dCtl;
@@ -106,13 +72,21 @@ BEAM_EXPORT void Method_4(const Method::AddLiquidity& r)
     Env::FundsLock(key.m_ID.m_Aid1, r.m_Amounts.m_Tok1);
     Env::FundsLock(key.m_ID.m_Aid2, r.m_Amounts.m_Tok2);
 
-    Env::Halt_if(!Env::AssetEmit(p.m_aidCtl, dCtl, 1));
-    Env::FundsUnlock(p.m_aidCtl, dCtl);
+    User::Key uk;
+    _POD_(uk.m_ID) = r.m_Uid;
+
+    User u;
+    if (Env::LoadVar_T(uk, u))
+        Strict::Add(u.m_Ctl, dCtl);
+    else
+        u.m_Ctl = dCtl;
+
+    Env::SaveVar_T(uk, u);
 }
 
-BEAM_EXPORT void Method_5(const Method::Withdraw& r)
+BEAM_EXPORT void Method_3(const Method::Withdraw& r)
 {
-    MyPool::MyKey key(r.m_PoolID);
+    MyPool::MyKey key(r.m_Uid.m_Pid);
     MyPool p(key);
 
     auto dVals = p.m_Totals.Remove(r.m_Ctl);
@@ -121,13 +95,22 @@ BEAM_EXPORT void Method_5(const Method::Withdraw& r)
     Env::FundsUnlock(key.m_ID.m_Aid1, dVals.m_Tok1);
     Env::FundsUnlock(key.m_ID.m_Aid2, dVals.m_Tok2);
 
-    Env::FundsLock(p.m_aidCtl, r.m_Ctl);
-    Env::Halt_if(!Env::AssetEmit(p.m_aidCtl, r.m_Ctl, 0));
+    User::Key uk;
+    _POD_(uk.m_ID) = r.m_Uid;
+
+    User u;
+    Env::Halt_if(!Env::LoadVar_T(uk, u));
+    Strict::Sub(u.m_Ctl, r.m_Ctl);
+
+    if (u.m_Ctl)
+        Env::SaveVar_T(uk, u);
+    else
+        Env::DelVar_T(uk);
 }
 
-BEAM_EXPORT void Method_6(const Method::Trade& r)
+BEAM_EXPORT void Method_4(const Method::Trade& r)
 {
-    MyPool::MyKey key(r.m_PoolID);
+    MyPool::MyKey key(r.m_Pid);
     MyPool p(key);
 
     if (r.m_iBuy)
