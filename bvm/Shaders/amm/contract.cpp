@@ -101,6 +101,8 @@ BEAM_EXPORT void Method_3(const Method::Withdraw& r)
         Env::SaveVar_T(uk, u);
     else
         Env::DelVar_T(uk);
+
+    Env::AddSig(uk.m_ID.m_pk);
 }
 
 BEAM_EXPORT void Method_4(const Method::Trade& r)
@@ -118,12 +120,12 @@ BEAM_EXPORT void Method_4(const Method::Trade& r)
     MyPool p(key);
 
     if (bReverse)
-        std::swap(p.m_Totals.m_Tok1, p.m_Totals.m_Tok2);
+        p.m_Totals.Swap();
 
     Amount valPay = p.m_Totals.Trade(r.m_Buy1);
 
     if (bReverse)
-        std::swap(p.m_Totals.m_Tok1, p.m_Totals.m_Tok2);
+        p.m_Totals.Swap();
 
     Env::FundsUnlock(r.m_Pid.m_Aid1, r.m_Buy1);
     Env::FundsLock(r.m_Pid.m_Aid2, valPay);

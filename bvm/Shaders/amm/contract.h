@@ -20,6 +20,11 @@ namespace Amm
     {
         Amount m_Tok1;
         Amount m_Tok2;
+
+        void Swap()
+        {
+            std::swap(m_Tok1, m_Tok2);
+        }
     };
 
     struct Totals :public Amounts

@@ -95,12 +95,13 @@ ON_METHOD(admin, destroy)
     Env::GenerateKernel(&cid, 1, nullptr, 0, nullptr, 0, nullptr, 0, "destroy Amm contract", 0);
 }
 
-bool SetKey(Pool::ID& pid, AssetID aid1, AssetID aid2)
+bool SetKey(Pool::ID& pid, bool& bReverse, AssetID aid1, AssetID aid2)
 {
-    if (aid1 < aid2)
+    bReverse = (aid1 > aid2);
+    if (bReverse)
     {
-        pid.m_Aid1 = aid1;
-        pid.m_Aid2 = aid2;
+        pid.m_Aid1 = aid2;
+        pid.m_Aid2 = aid1;
     }
     else
     {
@@ -110,11 +111,17 @@ bool SetKey(Pool::ID& pid, AssetID aid1, AssetID aid2)
             return false;
         }
 
-        pid.m_Aid1 = aid2;
-        pid.m_Aid2 = aid1;
+        pid.m_Aid1 = aid1;
+        pid.m_Aid2 = aid2;
     }
 
     return true;
+}
+
+bool SetKey(Pool::ID& pid, AssetID aid1, AssetID aid2)
+{
+    bool bDummy;
+    return SetKey(pid, bDummy, aid1, aid2);
 }
 
 struct FloatTxt
@@ -374,10 +381,110 @@ ON_METHOD(user, add_liquidity)
 
 ON_METHOD(user, withdraw)
 {
+    UserKeyMaterial ukm;
+    _POD_(ukm.m_Cid) = cid;
+    if (!SetKey(ukm.m_Pid, aid1, aid2))
+        return;
+
+    if (!ctl)
+        return OnError("withdraw ctl not specified");
+
+    Env::Key_T<User::Key> uk;
+    _POD_(uk.m_Prefix.m_Cid) = cid;
+    uk.m_KeyInContract.m_ID.m_Pid = ukm.m_Pid;
+    Env::DerivePk(uk.m_KeyInContract.m_ID.m_pk, &ukm, sizeof(ukm));
+
+    User u;
+    if (!Env::VarReader::Read_T(uk, u))
+        return OnError("no ctl");
+
+    PoolsWalker pw;
+    pw.Enum(cid, ukm.m_Pid);
+    if (!pw.Move())
+        return OnError("pool not found");
+
+    Totals x;
+    x.m_Ctl = std::min(ctl, u.m_Ctl);
+    Cast::Down<Amounts>(x) = pw.m_Pool.m_Totals.Remove(x.m_Ctl);
+
+    if (bPredictOnly)
+    {
+        Env::DocGroup gr("res");
+        pw.PrintTotals(x);
+    }
+    else
+    {
+        Method::Withdraw arg;
+        arg.m_Ctl = x.m_Ctl;
+        _POD_(arg.m_Uid) = uk.m_KeyInContract.m_ID;
+
+        FundsChange pFc[2];
+        pFc[0].m_Amount = x.m_Tok1;
+        pFc[0].m_Aid = ukm.m_Pid.m_Aid1;
+        pFc[0].m_Consume = 0;
+        pFc[1].m_Amount = x.m_Tok2;
+        pFc[1].m_Aid = ukm.m_Pid.m_Aid2;
+        pFc[1].m_Consume = 0;
+
+        Env::KeyID kid(ukm);
+
+        Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), &kid, 1, "Amm withdraw", 0);
+    }
 }
 
 ON_METHOD(user, trade)
 {
+    Pool::ID pid;
+    bool bReverse;
+    if (!SetKey(pid, bReverse, aid1, aid2))
+        return;
+
+    if (!val1_buy)
+        return OnError("buy amount not specified");
+
+    PoolsWalker pw;
+    pw.Enum(cid, pid);
+    if (!pw.Move())
+        return OnError("no such a pool");
+
+    Pool& p = pw.m_Pool; // alias
+    if (bReverse)
+        p.m_Totals.Swap();
+
+    Method::Trade arg;
+    arg.m_Buy1 = val1_buy;
+
+    if (arg.m_Buy1 >= p.m_Totals.m_Tok1)
+    {
+        if (p.m_Totals.m_Tok1 <= 1)
+            return OnError("no liquidity");
+
+        arg.m_Buy1 = p.m_Totals.m_Tok1 - 1; // truncate
+    }
+
+    Amount valPay = p.m_Totals.Trade(arg.m_Buy1);
+
+    if (bPredictOnly)
+    {
+        Env::DocGroup gr("res");
+        Env::DocAddNum("buy", arg.m_Buy1);
+        Env::DocAddNum("pay", valPay);
+    }
+    else
+    {
+        arg.m_Pid.m_Aid1 = aid1; // order as specified, not normalized
+        arg.m_Pid.m_Aid2 = aid2;
+
+        FundsChange pFc[2];
+        pFc[0].m_Amount = arg.m_Buy1;
+        pFc[0].m_Aid = aid1;
+        pFc[0].m_Consume = 0;
+        pFc[1].m_Amount = valPay;
+        pFc[1].m_Aid = aid2;
+        pFc[1].m_Consume = 1;
+
+        Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), nullptr, 0, "Amm trade", 0);
+    }
 }
 
 #undef ON_METHOD
