@@ -21,10 +21,17 @@
     macro(admin, pool_view) \
     macro(admin, pools_view) \
 
+#define Amm_user_view(macro) Amm_poolop(macro)
+
 #define Amm_user_add_liquidity(macro) \
     Amm_poolop(macro) \
     macro(Amount, val1) \
     macro(Amount, val2) \
+    macro(uint32_t, bPredictOnly)
+
+#define Amm_user_withdraw(macro) \
+    Amm_poolop(macro) \
+    macro(Amount, ctl) \
     macro(uint32_t, bPredictOnly)
 
 #define Amm_user_trade(macro) \
@@ -33,7 +40,9 @@
     macro(uint32_t, bPredictOnly)
 
 #define AmmRole_user(macro) \
+    macro(user, view) \
     macro(user, add_liquidity) \
+    macro(user, withdraw) \
     macro(user, trade) \
 
 
@@ -106,15 +115,6 @@ bool SetKey(Pool::ID& pid, AssetID aid1, AssetID aid2)
     }
 
     return true;
-}
-
-bool ReadPool(Pool& p, const ContractID& cid, const Pool::ID& pid)
-{
-    Env::Key_T<Pool::Key> key;
-    _POD_(key.m_Prefix.m_Cid) = cid;
-    key.m_KeyInContract.m_ID = pid;
-
-    return Env::VarReader::Read_T(key, p);
 }
 
 struct FloatTxt
@@ -222,40 +222,74 @@ void DocAddRate(const char* sz, Amount v1, Amount v2)
     Env::DocAddText(sz, ftxt.m_sz);
 }
 
-void PrintPool(const Pool& p)
+struct PoolsWalker
 {
-    Env::DocAddNum("ctl", p.m_Totals.m_Ctl);
-    Env::DocAddNum("tok1", p.m_Totals.m_Tok1);
-    Env::DocAddNum("tok2", p.m_Totals.m_Tok2);
+    Env::VarReaderEx<true> m_R;
+    Env::Key_T<Pool::Key> m_Key;
+    Pool m_Pool;
 
-    if (p.m_Totals.m_Ctl)
+    void Enum(const ContractID& cid)
     {
-        DocAddRate("k1_2", p.m_Totals.m_Tok1, p.m_Totals.m_Tok2);
-        DocAddRate("k2_1", p.m_Totals.m_Tok2, p.m_Totals.m_Tok1);
+        _POD_(m_Key.m_Prefix.m_Cid) = cid;
+        _POD_(m_Key.m_KeyInContract.m_ID).SetZero();
+
+        Env::Key_T<Pool::Key> key2;
+        _POD_(key2.m_Prefix.m_Cid) = cid;
+        _POD_(key2.m_KeyInContract.m_ID).SetObject(0xff);
+
+        m_R.Enum_T(m_Key, key2);
     }
-}
+
+    void Enum(const ContractID& cid, const Pool::ID& pid)
+    {
+        _POD_(m_Key.m_Prefix.m_Cid) = cid;
+        m_Key.m_KeyInContract.m_ID = pid;
+
+        m_R.Enum_T(m_Key, m_Key);
+    }
+
+    bool Move()
+    {
+        return m_R.MoveNext_T(m_Key, m_Pool);
+    }
+
+    static void PrintTotals(const Totals& x)
+    {
+        Env::DocAddNum("ctl", x.m_Ctl);
+        Env::DocAddNum("tok1", x.m_Tok1);
+        Env::DocAddNum("tok2", x.m_Tok2);
+    }
+
+    void PrintPool() const
+    {
+        PrintTotals(m_Pool.m_Totals);
+
+        if (m_Pool.m_Totals.m_Ctl)
+        {
+            DocAddRate("k1_2", m_Pool.m_Totals.m_Tok1, m_Pool.m_Totals.m_Tok2);
+            DocAddRate("k2_1", m_Pool.m_Totals.m_Tok2, m_Pool.m_Totals.m_Tok1);
+        }
+    }
+
+    void PrintKey() const
+    {
+        Env::DocAddNum("aid1", m_Key.m_KeyInContract.m_ID.m_Aid1);
+        Env::DocAddNum("aid2", m_Key.m_KeyInContract.m_ID.m_Aid2);
+    }
+
+};
 
 ON_METHOD(admin, pools_view)
 {
-    Env::Key_T<Pool::Key> key1, key2;
-    _POD_(key1.m_Prefix.m_Cid) = cid;
-    _POD_(key2.m_Prefix.m_Cid) = cid;
-    _POD_(key1.m_KeyInContract.m_ID).SetZero();
-    _POD_(key2.m_KeyInContract.m_ID).SetObject(0xff);
-
     Env::DocArray gr("res");
 
-    for (Env::VarReader r(key1, key2); ; )
+    PoolsWalker pw;
+    for (pw.Enum(cid); pw.Move(); )
     {
-        Pool p;
-        if (!r.MoveNext_T(key1, p))
-            break;
-
         Env::DocGroup gr1("");
 
-        Env::DocAddNum("aid1", key1.m_KeyInContract.m_ID.m_Aid1);
-        Env::DocAddNum("aid2", key1.m_KeyInContract.m_ID.m_Aid2);
-        PrintPool(p);
+        pw.PrintKey();
+        pw.PrintPool();
     }
 }
 
@@ -265,17 +299,80 @@ ON_METHOD(admin, pool_view)
     if (!SetKey(pid, aid1, aid2))
         return;
 
-    Pool p;
-    if (ReadPool(p, cid, pid))
+    PoolsWalker pw;
+    pw.Enum(cid, pid);
+    if (pw.Move())
     {
         Env::DocGroup gr("res");
-        PrintPool(p);
+        pw.PrintPool();
     }
     else
         OnError("no such a pool");
 }
 
+#pragma pack (push, 1)
+struct UserKeyMaterial
+{
+    ContractID m_Cid;
+    Pool::ID m_Pid;
+};
+#pragma pack (pop)
+
+ON_METHOD(user, view)
+{
+    PoolsWalker pw;
+
+    bool bSpecific = (aid1 || aid2);
+    if (bSpecific)
+    {
+        Pool::ID pid;
+        if (!SetKey(pid, aid1, aid2))
+            return;
+
+        pw.Enum(cid, pid);
+    }
+    else
+        pw.Enum(cid);
+
+    UserKeyMaterial ukm;
+    _POD_(ukm.m_Cid) = cid;
+
+    Env::Key_T<User::Key> uk;
+    _POD_(uk.m_Prefix.m_Cid) = cid;
+
+    Env::DocArray gr("res");
+
+    while (pw.Move())
+    {
+        ukm.m_Pid = pw.m_Key.m_KeyInContract.m_ID;
+
+        uk.m_KeyInContract.m_ID.m_Pid = pw.m_Key.m_KeyInContract.m_ID;
+        Env::DerivePk(uk.m_KeyInContract.m_ID.m_pk, &ukm, sizeof(ukm));
+
+        User u;
+        if (Env::VarReader::Read_T(uk, u))
+        {
+            assert(u.m_Ctl);
+
+            Env::DocGroup gr1("");
+
+            if (!bSpecific)
+                pw.PrintKey();
+
+            Totals x;
+            x.m_Ctl = u.m_Ctl;
+            Cast::Down<Amounts>(x) = pw.m_Pool.m_Totals.Remove(x.m_Ctl);
+
+            pw.PrintTotals(x);
+        }
+    }
+}
+
 ON_METHOD(user, add_liquidity)
+{
+}
+
+ON_METHOD(user, withdraw)
 {
 }
 

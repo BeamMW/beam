@@ -81,7 +81,11 @@ BEAM_EXPORT void Method_3(const Method::Withdraw& r)
     MyPool p(key);
 
     auto dVals = p.m_Totals.Remove(r.m_Ctl);
-    p.Save(key);
+
+    if (p.m_Totals.m_Ctl)
+        p.Save(key);
+    else
+        Env::DelVar_T(key);
 
     Env::FundsUnlock(key.m_ID.m_Aid1, dVals.m_Tok1);
     Env::FundsUnlock(key.m_ID.m_Aid2, dVals.m_Tok2);
