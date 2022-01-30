@@ -7,14 +7,12 @@
 #define Amm_admin_destroy(macro) macro(ContractID, cid)
 #define Amm_admin_pools_view(macro) macro(ContractID, cid)
 
-#define Amm_admin_pool_view(macro) \
+#define Amm_poolop(macro) \
     macro(ContractID, cid) \
     macro(AssetID, aid1) \
     macro(AssetID, aid2)
 
-#define Amm_admin_pool_create(macro) Amm_admin_pool_view(macro)
-#define Amm_admin_pool_destroy(macro) Amm_admin_pool_view(macro)
-
+#define Amm_admin_pool_view(macro) Amm_poolop(macro)
 
 #define AmmRole_admin(macro) \
     macro(admin, view) \
@@ -22,19 +20,20 @@
     macro(admin, destroy) \
     macro(admin, pool_view) \
     macro(admin, pools_view) \
-    macro(admin, pool_create) \
-    macro(admin, pool_destroy)
 
-
-#define Amm_user_trade(macro) \
-    macro(ContractID, cid) \
-    macro(AssetID, aidBuy) \
-    macro(AssetID, aidPay) \
-    macro(Amount, valBuy) \
+#define Amm_user_add_liquidity(macro) \
+    Amm_poolop(macro) \
+    macro(Amount, val1) \
+    macro(Amount, val2) \
     macro(uint32_t, bPredictOnly)
 
+#define Amm_user_trade(macro) \
+    Amm_poolop(macro) \
+    macro(Amount, val1_buy) \
+    macro(uint32_t, bPredictOnly)
 
 #define AmmRole_user(macro) \
+    macro(user, add_liquidity) \
     macro(user, trade) \
 
 
@@ -225,7 +224,6 @@ void DocAddRate(const char* sz, Amount v1, Amount v2)
 
 void PrintPool(const Pool& p)
 {
-    Env::DocAddNum("aidCtl", p.m_aidCtl);
     Env::DocAddNum("ctl", p.m_Totals.m_Ctl);
     Env::DocAddNum("tok1", p.m_Totals.m_Tok1);
     Env::DocAddNum("tok2", p.m_Totals.m_Tok2);
@@ -277,47 +275,8 @@ ON_METHOD(admin, pool_view)
         OnError("no such a pool");
 }
 
-static const Amount g_DepositCA = 3000 * g_Beam2Groth; // 3K beams
-
-ON_METHOD(admin, pool_create)
+ON_METHOD(user, add_liquidity)
 {
-    Method::CreatePool arg;
-    if (!SetKey(arg.m_PoolID, aid1, aid2))
-        return;
-
-    Pool p;
-    if (ReadPool(p, cid, arg.m_PoolID))
-        return OnError("already exists");
-
-    FundsChange fc;
-    fc.m_Aid = 0;
-    fc.m_Consume = 1;
-    fc.m_Amount = g_DepositCA;
-
-
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Amm pool create", 0);
-}
-
-ON_METHOD(admin, pool_destroy)
-{
-    Method::DeletePool arg;
-    if (!SetKey(arg.m_PoolID, aid1, aid2))
-        return;
-
-    Pool p;
-    if (!ReadPool(p, cid, arg.m_PoolID))
-        return OnError("no such a pool");
-
-    if (p.m_Totals.m_Ctl)
-        return OnError("pool is non-empty");
-
-    FundsChange fc;
-    fc.m_Aid = 0;
-    fc.m_Consume = 0;
-    fc.m_Amount = g_DepositCA;
-
-
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Amm pool destroy", 0);
 }
 
 ON_METHOD(user, trade)
