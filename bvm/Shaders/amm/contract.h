@@ -202,8 +202,7 @@ namespace Amm
         struct Trade :public PoolInvoke
         {
             static const uint32_t s_iMethod = 4;
-            Amount m_Buy;
-            uint8_t m_iBuy;
+            Amount m_Buy1;
         };
     }
 #pragma pack (pop)

@@ -17,34 +17,24 @@ BEAM_EXPORT void Dtor(void*)
 
 struct MyPool :public Pool
 {
-    struct MyKey :public Key
-    {
-        MyKey(const Pool::ID& pid)
-        {
-            Env::Halt_if(pid.m_Aid1 >= pid.m_Aid2);
-            m_ID = pid;
-        }
-    };
-
-
     MyPool() {}
 
-    MyPool(const Key& key)
-    {
-        if (!Env::LoadVar_T(key, *this))
-            _POD_(*this).SetZero();
-    }
+    MyPool(const Key& key) { Env::Halt_if(!Env::LoadVar_T(key, *this)); }
 
-    void Save(const Key& key)
-    {
-        Env::SaveVar_T(key, *this);
-    }
+    void Save(const Key& key) { Env::SaveVar_T(key, *this); }
 };
 
 BEAM_EXPORT void Method_2(const Method::AddLiquidity& r)
 {
-    MyPool::MyKey key(r.m_Uid.m_Pid);
-    MyPool p(key);
+    Pool::Key key;
+    key.m_ID = r.m_Uid.m_Pid;
+
+    MyPool p;
+    if (!Env::LoadVar_T(key, p))
+    {
+        Env::Halt_if(key.m_ID.m_Aid1 >= key.m_ID.m_Aid2); // potentially creating a new pool, key must be well-ordered
+        _POD_(p).SetZero();
+    }
 
     Amount dCtl;
     if (p.m_Totals.m_Ctl)
@@ -86,7 +76,8 @@ BEAM_EXPORT void Method_2(const Method::AddLiquidity& r)
 
 BEAM_EXPORT void Method_3(const Method::Withdraw& r)
 {
-    MyPool::MyKey key(r.m_Uid.m_Pid);
+    Pool::Key key;
+    key.m_ID = r.m_Uid.m_Pid;
     MyPool p(key);
 
     auto dVals = p.m_Totals.Remove(r.m_Ctl);
@@ -110,25 +101,28 @@ BEAM_EXPORT void Method_3(const Method::Withdraw& r)
 
 BEAM_EXPORT void Method_4(const Method::Trade& r)
 {
-    MyPool::MyKey key(r.m_Pid);
+    Pool::Key key;
+    bool bReverse = (r.m_Pid.m_Aid1 > r.m_Pid.m_Aid2);
+    if (bReverse)
+    {
+        key.m_ID.m_Aid1 = r.m_Pid.m_Aid2;
+        key.m_ID.m_Aid2 = r.m_Pid.m_Aid1;
+    }
+    else
+        key.m_ID = r.m_Pid;
+    
     MyPool p(key);
 
-    if (r.m_iBuy)
-    {
+    if (bReverse)
         std::swap(p.m_Totals.m_Tok1, p.m_Totals.m_Tok2);
-        std::swap(key.m_ID.m_Aid1, key.m_ID.m_Aid2);
-    }
 
-    Amount valPay = p.m_Totals.Trade(r.m_Buy);
+    Amount valPay = p.m_Totals.Trade(r.m_Buy1);
 
-    Env::FundsUnlock(key.m_ID.m_Aid1, r.m_Buy);
-    Env::FundsLock(key.m_ID.m_Aid2, valPay);
-
-    if (r.m_iBuy)
-    {
+    if (bReverse)
         std::swap(p.m_Totals.m_Tok1, p.m_Totals.m_Tok2);
-        std::swap(key.m_ID.m_Aid1, key.m_ID.m_Aid2);
-    }
+
+    Env::FundsUnlock(r.m_Pid.m_Aid1, r.m_Buy1);
+    Env::FundsLock(r.m_Pid.m_Aid2, valPay);
 
     p.Save(key);
 }
