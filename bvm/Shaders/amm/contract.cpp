@@ -5,8 +5,6 @@
 
 namespace Amm {
 
-using MultiPrecision::Float;
-
 
 BEAM_EXPORT void Ctor(const void*)
 {
@@ -39,28 +37,6 @@ struct MyPool :public Pool
     bool Save(const Key& key)
     {
         return Env::SaveVar_T(key, *this);
-    }
-
-    Float get_Vol() const
-    {
-        return Float(m_Totals.m_Tok1) * Float(m_Totals.m_Tok2);
-    }
-
-    static Amount ToAmount(const Float& f)
-    {
-        static_assert(sizeof(Amount) == sizeof(f.m_Num));
-        Env::Halt_if(f.m_Order > 0);
-        return f.Get();
-
-    }
-
-    static Amount ShrinkTok(const Float& kShrink, Amount& val)
-    {
-        Amount val0 = val;
-        val = Float(val0) * kShrink;
-
-        assert(val <= val0); // no need for runtime check
-        return val0 - val;
     }
 };
 
@@ -105,20 +81,15 @@ BEAM_EXPORT void Method_4(const Method::AddLiquidity& r)
     MyPool p(key);
 
     Amount dCtl;
-    Amount ctl0 = p.m_Totals.m_Ctl;
-    if (ctl0)
+    if (p.m_Totals.m_Ctl)
     {
-        Float vol0 = p.get_Vol();
+        Env::Halt_if(p.m_Totals.TestAdd(r.m_Amounts));
 
-        Strict::Add(p.m_Totals.m_Tok1, r.m_Amounts.m_Tok1);
-        Strict::Add(p.m_Totals.m_Tok2, r.m_Amounts.m_Tok2);
+        dCtl = p.m_Totals.m_Ctl;
+        p.m_Totals.Add(r.m_Amounts);
 
-        Float kGrow = p.get_Vol() / vol0;
-
-        p.m_Totals.m_Ctl = MyPool::ToAmount(Float(ctl0) * kGrow);
-
-        Env::Halt_if(p.m_Totals.m_Ctl <= ctl0);
-        dCtl = p.m_Totals.m_Ctl - ctl0;
+        Env::Halt_if(p.m_Totals.m_Ctl <= dCtl);
+        dCtl = p.m_Totals.m_Ctl - dCtl;
     }
     else
     {
@@ -144,25 +115,7 @@ BEAM_EXPORT void Method_5(const Method::Withdraw& r)
     MyPool::MyKey key(r.m_PoolID);
     MyPool p(key);
 
-    Amount ctl0 = p.m_Totals.m_Ctl;
-    Strict::Sub(p.m_Totals.m_Ctl, r.m_Ctl);
-
-    Amounts dVals;
-
-    if (p.m_Totals.m_Ctl)
-    {
-        Float kShrink = Float(p.m_Totals.m_Ctl) / Float(ctl0);
-
-        dVals.m_Tok1 = MyPool::ShrinkTok(kShrink, p.m_Totals.m_Tok1);
-        dVals.m_Tok2 = MyPool::ShrinkTok(kShrink, p.m_Totals.m_Tok2);
-    }
-    else
-    {
-        // last provider
-        dVals = p.m_Totals;
-        _POD_(p.m_Totals).SetZero();
-    }
-
+    auto dVals = p.m_Totals.Remove(r.m_Ctl);
     p.Save(key);
 
     Env::FundsUnlock(key.m_ID.m_Aid1, dVals.m_Tok1);
@@ -183,18 +136,7 @@ BEAM_EXPORT void Method_6(const Method::Trade& r)
         std::swap(key.m_ID.m_Aid1, key.m_ID.m_Aid2);
     }
 
-    Float vol = p.get_Vol();
-
-    Env::Halt_if(p.m_Totals.m_Tok1 <= r.m_Buy);
-    p.m_Totals.m_Tok1 -= r.m_Buy;
-
-    Amount valPay = MyPool::ToAmount(vol / Float(p.m_Totals.m_Tok1));
-    Strict::Sub(valPay, p.m_Totals.m_Tok2);
-
-    // add comission 0.3%, plus add 1 groth (min unit) to compensate for potential round-off error during division
-    Amount fee = valPay / 1000 * 3 + 1;
-    Strict::Add(valPay, fee);
-    Strict::Add(p.m_Totals.m_Tok2, valPay);
+    Amount valPay = p.m_Totals.Trade(r.m_Buy);
 
     Env::FundsUnlock(key.m_ID.m_Aid1, r.m_Buy);
     Env::FundsLock(key.m_ID.m_Aid2, valPay);
