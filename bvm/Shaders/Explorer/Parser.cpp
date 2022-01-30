@@ -45,6 +45,7 @@ bool get_ShaderID(ShaderID& sid, const ContractID& cid)
 	macro(Vault, Vault::s_SID) \
 	macro(Faucet, Faucet::s_SID) \
 	macro(DaoCore, DaoCore::s_SID) \
+	macro(Gallery_0, Gallery::s_SID_0) \
 	macro(Gallery, Gallery::s_SID_1)
 
 
@@ -62,7 +63,7 @@ struct ParserContext
 
 	ParserContext(const ShaderID& sid, const ContractID& cid)
 		:m_Sid(sid)
-		, m_Cid(cid)
+		,m_Cid(cid)
 	{
 	}
 
@@ -413,6 +414,11 @@ void WriteGalleryPrice(const Gallery::AmountWithAsset& x)
 	Env::DocAddNum("", x.m_Amount);
 }
 
+void ParserContext::On_Gallery_0()
+{
+	On_Gallery(); // same, we only added methods
+}
+
 void ParserContext::On_Gallery()
 {
 	if (m_Method && !WriteStdMethod())
@@ -454,6 +460,16 @@ void ParserContext::On_Gallery()
 
 				Env::DocAddText("", ", impression=");
 				Env::DocAddNum("", arg.m_Impression.m_Value);
+			}
+			break;
+
+		case Gallery::Method::AdminDelete::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::AdminDelete))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::AdminDelete*>(m_pArg);
+
+				Env::DocAddText("", "AdminDelete");
+				WriteGalleryAdrID(arg.m_ID);
 			}
 			break;
 		}
