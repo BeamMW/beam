@@ -14,7 +14,6 @@
 #include "api_errors_imp.h"
 #include "api_base.h"
 #include "utility/logger.h"
-#include <regex>
 
 namespace beam::wallet
 {

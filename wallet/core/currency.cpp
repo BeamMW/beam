@@ -12,8 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "currency.h"
+#include <regex>
+#include "utility/logger.h"
 
 namespace beam::wallet {
+
+    namespace {
+        const char* AssetPrefix = "asset_";
+        std::regex  AssetRegexp("^asset_(\\d+)$");
+    }
 
     Currency::Currency(beam::Asset::ID assetId)
     {
@@ -24,8 +31,32 @@ namespace beam::wallet {
         }
 
         std::stringstream ss;
-        ss << "asset_" << assetId;
+        ss << AssetPrefix << assetId;
         m_value = ss.str();
+    }
+
+    beam::Asset::ID Currency::toAssetID() const
+    {
+        if (m_value == BEAM().m_value)
+        {
+            return beam::Asset::s_BeamID;
+        }
+
+        std::smatch match;
+        if (regex_search(m_value, match, AssetRegexp))
+        {
+            try
+            {
+                return std::stoi(match.str(1));
+            }
+            catch(const std::runtime_error& err)
+            {
+                LOG_WARNING() << "Failed to parse asset id from currency: " << m_value
+                              << ", " << err.what();
+            }
+        }
+
+        return beam::Asset::s_MaxCount;
     }
 
     const Currency& Currency::BEAM() {
