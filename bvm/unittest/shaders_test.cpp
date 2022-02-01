@@ -66,6 +66,7 @@ namespace Shaders {
 #include "../Shaders/dao-vote/contract.h"
 #include "../Shaders/aphorize/contract.h"
 #include "../Shaders/liquity/contract.h"
+#include "../Shaders/amm/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
@@ -380,6 +381,8 @@ namespace Shaders {
 #include "../Shaders/dao-vote/contract.cpp" // already within namespace
 #include "../Shaders/liquity/contract.cpp" // already within namespace
 //#include "../Shaders/liquity/app.cpp"
+#include "../Shaders/amm/contract.cpp" // already within namespace
+//#include "../Shaders/amm/app.cpp"
 #include "../Shaders/upgradable2/app_common_impl.h"
 
 #ifdef _MSC_VER
@@ -495,6 +498,7 @@ namespace bvm2 {
 		ContractWrap m_DaoVote;
 		ContractWrap m_Aphorize;
 		ContractWrap m_Liquity;
+		ContractWrap m_Amm;
 
 		void AddCode(ContractWrap& cw, const char* sz)
 		{
@@ -711,6 +715,15 @@ namespace bvm2 {
 			}
 */
 
+/*
+			if (cid == m_Amm.m_Cid)
+			{
+				TempFrame f(*this, cid);
+				switch (iMethod)
+				{
+				}
+			}
+*/
 			ProcessorContract::CallFar(cid, iMethod, pArgs, bInheritContext);
 		}
 
@@ -729,6 +742,7 @@ namespace bvm2 {
 		void TestDaoVote();
 		void TestAphorize();
 		void TestLiquity();
+		void TestAmm();
 
 		void TestAll();
 	};
@@ -937,12 +951,14 @@ namespace bvm2 {
 		AddCode(m_DaoVote, "dao-vote/contract.wasm");
 		AddCode(m_Aphorize, "aphorize/contract.wasm");
 		AddCode(m_Liquity, "liquity/contract.wasm");
+		AddCode(m_Amm, "amm/contract.wasm");
 
 		m_FarCalls.m_SaveLocal = true;
 
 		TestVault();
 		TestAphorize();
 		TestLiquity();
+		TestAmm();
 		TestFaucet();
 		TestRoulette();
 		TestVoting();
@@ -1665,6 +1681,11 @@ namespace bvm2 {
 			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
+	}
+
+	void MyProcessor::TestAmm()
+	{
+		VERIFY_ID(Shaders::Amm::s_SID, m_Amm.m_Sid);
 	}
 
 	namespace IndexDecoder

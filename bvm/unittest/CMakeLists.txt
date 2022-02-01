@@ -19,3 +19,5 @@ configure_file("../Shaders/dao-vote/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/
 configure_file("../Shaders/aphorize/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/aphorize/contract.wasm" COPYONLY)
 configure_file("../Shaders/liquity/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/liquity/contract.wasm" COPYONLY)
 configure_file("../Shaders/liquity/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/liquity/app.wasm" COPYONLY)
+configure_file("../Shaders/amm/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/amm/contract.wasm" COPYONLY)
+configure_file("../Shaders/amm/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/amm/app.wasm" COPYONLY)
