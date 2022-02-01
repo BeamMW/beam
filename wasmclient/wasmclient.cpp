@@ -561,6 +561,7 @@ public:
             (*m_RecoveryCallback)(error, static_cast<int>(done), static_cast<int>(total));
             if (done == total || !error.isNull())
             {
+                LOG_DEBUG() << "Recovery done";
                 m_RecoveryCallback.reset();
             }
         }
