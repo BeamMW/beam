@@ -21,3 +21,17 @@ content-type: application/json-rpc
         "rates": true
     }
 }
+
+### export_payment_proof
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc" : "2.0",
+    "id" : 1,
+    "method" : "export_payment_proof",
+    "params": {
+        "txId": "d4c80b52886942d88f9d56e6ca96105b"
+    }
+}
+

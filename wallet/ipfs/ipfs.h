@@ -72,7 +72,7 @@ namespace beam::wallet
                          Err&&) = 0;
 
         /// \brief Unpin from the local node
-        virtual void AnyThread_unpin(const std::string& hash, uint32_t timeout,
+        virtual void AnyThread_unpin(const std::string& hash,
                            std::function<void ()>&& res,
                            Err&&) = 0;
 

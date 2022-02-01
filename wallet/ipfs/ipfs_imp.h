@@ -38,7 +38,7 @@ namespace beam::wallet::imp
         void AnyThread_add(std::vector<uint8_t>&& data, std::function<void (std::string&&)>&& res, Err&&) override;
         void AnyThread_get(const std::string& hash, uint32_t timeout, std::function<void (std::vector<uint8_t>&&)>&& res, Err&&) override;
         void AnyThread_pin(const std::string& hash, uint32_t timeout, std::function<void ()>&& res, Err&&) override;
-        void AnyThread_unpin(const std::string& hash, uint32_t timeout, std::function<void ()>&& res, Err&&) override;
+        void AnyThread_unpin(const std::string& hash, std::function<void ()>&& res, Err&&) override;
         void AnyThread_gc(uint32_t timeout, std::function<void ()>&& res, Err&&) override;
 
         [[nodiscard]] std::string AnyThread_id() const override

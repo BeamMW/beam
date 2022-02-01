@@ -200,7 +200,7 @@ namespace beam::wallet::imp
         });
     }
 
-    void IPFSService::AnyThread_unpin(const std::string& hash, uint32_t timeout, std::function<void ()>&& res, Err&& err)
+    void IPFSService::AnyThread_unpin(const std::string& hash, std::function<void ()>&& res, Err&& err)
     {
         if (hash.empty())
         {
@@ -208,7 +208,7 @@ namespace beam::wallet::imp
             return;
         }
 
-        call_ipfs(timeout, std::move(res), std::move(err), [this, hash]
+        call_ipfs(0, std::move(res), std::move(err), [this, hash]
         (boost::asio::yield_context yield, std::function<void()>& cancel) -> JustVoid
         {
             _node->unpin(hash, cancel, std::move(yield));
