@@ -458,6 +458,11 @@ public:
             auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
             additionalTxCreators->emplace(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(dbFunc));
 
+            if (m_NeedToRestore)
+            {
+                m_NeedToRestore = false;
+                m_Client->getAsync()->importRecovery(RecoveryFileName.data());
+            }
             m_Client->getAsync()->enableBodyRequests(true);
             m_Client->start({}, true, additionalTxCreators);
         }
@@ -649,32 +654,27 @@ public:
         );
     }
 
+    static constexpr std::string_view RecoveryFileName{ "recovery.bin" };
+
     void ImportRecovery(const std::string& buf, val&& callback)
     {
         AssertMainThread();
-        if (!m_Client)
-        {
-            LOG_WARNING() << "The client is stopped";
-            return;
-        }
         if (m_RecoveryCallback)
         {
             LOG_WARNING() << "Recovery is in progress";
             return;
         }
-        
         try
         {
-            constexpr std::string_view fileName = "recovery.bin";
             {
-                std::ofstream s(fileName.data(), ios_base::binary | ios_base::out | ios_base::trunc);
+                std::ofstream s(RecoveryFileName.data(), ios_base::binary | ios_base::out | ios_base::trunc);
                 s.write(reinterpret_cast<const char*>(buf.data()), buf.size());
             }
             if (!callback.isNull())
             {
                 m_RecoveryCallback = std::make_unique<val>(std::move(callback));
             }
-            m_Client->getAsync()->importRecovery(fileName.data());
+            m_NeedToRestore = true;
         }
         catch (const std::exception& ex)
         {
@@ -891,6 +891,7 @@ private:
     WalletClient2::Ptr m_Client;
     IWalletApi::Ptr m_WalletApi;
     bool m_Headless = false;
+    bool m_NeedToRestore = false;
 };
 
 val WasmWalletClient::s_MountCB = val::null();
