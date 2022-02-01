@@ -235,6 +235,11 @@ struct PoolsWalker
     Env::Key_T<Pool::Key> m_Key;
     Pool m_Pool;
 
+    PoolsWalker()
+    {
+        Env::SelectContext(1, 0); // dependent
+    }
+
     void Enum(const ContractID& cid)
     {
         _POD_(m_Key.m_Prefix.m_Cid) = cid;
@@ -260,11 +265,16 @@ struct PoolsWalker
         return m_R.MoveNext_T(m_Key, m_Pool);
     }
 
+    static void PrintAmounts(const Amounts& x)
+    {
+        Env::DocAddNum("tok1", x.m_Tok1);
+        Env::DocAddNum("tok2", x.m_Tok2);
+    }
+
     static void PrintTotals(const Totals& x)
     {
         Env::DocAddNum("ctl", x.m_Ctl);
-        Env::DocAddNum("tok1", x.m_Tok1);
-        Env::DocAddNum("tok2", x.m_Tok2);
+        PrintAmounts(x);
     }
 
     void PrintPool() const
@@ -377,6 +387,79 @@ ON_METHOD(user, view)
 
 ON_METHOD(user, add_liquidity)
 {
+    UserKeyMaterial ukm;
+    _POD_(ukm.m_Cid) = cid;
+    bool bReverse;
+    if (!SetKey(ukm.m_Pid, bReverse, aid1, aid2))
+        return;
+
+    Method::AddLiquidity arg;
+    arg.m_Amounts.m_Tok1 = val1;
+    arg.m_Amounts.m_Tok2 = val2;
+
+    PoolsWalker pw;
+    pw.Enum(cid, ukm.m_Pid);
+    auto& t = pw.m_Pool.m_Totals; // alias
+
+    bool bEmpty = !pw.Move();
+    if (bEmpty)
+    {
+        if (!(val1 && val2))
+            return OnError("pool empty - both tokens must be specified");
+    }
+    else
+    {
+        if (bReverse)
+            t.Swap();
+
+        int iAdjustDir = 0;
+        Amount threshold = 0;
+        if (val1)
+        {
+            if (!val2)
+            {
+                arg.m_Amounts.m_Tok2 = Float(t.m_Tok1) * Float(t.m_Tok2) / Float(val1);
+                iAdjustDir = -1;
+            }
+        }
+        else
+        {
+            if (!val2)
+                return OnError("at least 1 token must be specified");
+
+            arg.m_Amounts.m_Tok1 = Float(t.m_Tok1) * Float(t.m_Tok2) / Float(val2);
+            iAdjustDir = 1;
+        }
+
+        int n = t.TestAdd(arg.m_Amounts);
+        if (n)
+            // TODO: auto-adjust values
+            return OnError((n > 0) ? "val1 too large" : "val2 too large");
+    }
+
+    if (bPredictOnly)
+    {
+        Env::DocGroup gr("res");
+        pw.PrintAmounts(arg.m_Amounts);
+    }
+    else
+    {
+        arg.m_Uid.m_Pid = ukm.m_Pid;
+        Env::DerivePk(arg.m_Uid.m_pk, &ukm, sizeof(ukm));
+
+        if (bReverse)
+            arg.m_Amounts.Swap();
+
+        FundsChange pFc[2];
+        pFc[0].m_Amount = arg.m_Amounts.m_Tok1;
+        pFc[0].m_Aid = ukm.m_Pid.m_Aid1;
+        pFc[0].m_Consume = 1;
+        pFc[1].m_Amount = arg.m_Amounts.m_Tok2;
+        pFc[1].m_Aid = ukm.m_Pid.m_Aid2;
+        pFc[1].m_Consume = 1;
+
+        Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), nullptr, 0, "Amm add", 0);
+    }
 }
 
 ON_METHOD(user, withdraw)
@@ -389,6 +472,11 @@ ON_METHOD(user, withdraw)
     if (!ctl)
         return OnError("withdraw ctl not specified");
 
+    PoolsWalker pw;
+    pw.Enum(cid, ukm.m_Pid);
+    if (!pw.Move())
+        return OnError("pool not found");
+
     Env::Key_T<User::Key> uk;
     _POD_(uk.m_Prefix.m_Cid) = cid;
     uk.m_KeyInContract.m_ID.m_Pid = ukm.m_Pid;
@@ -397,11 +485,6 @@ ON_METHOD(user, withdraw)
     User u;
     if (!Env::VarReader::Read_T(uk, u))
         return OnError("no ctl");
-
-    PoolsWalker pw;
-    pw.Enum(cid, ukm.m_Pid);
-    if (!pw.Move())
-        return OnError("pool not found");
 
     Totals x;
     x.m_Ctl = std::min(ctl, u.m_Ctl);
