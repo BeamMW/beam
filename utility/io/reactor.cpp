@@ -379,6 +379,18 @@ Reactor::Reactor() :
         IO_EXCEPTION(errorCode);
     }
 
+#ifndef WIN32
+    _shutdownChecker.data = this;
+    uv_timer_init(&_loop, &_shutdownChecker);
+    uv_timer_start(&_shutdownChecker, [] (uv_timer_t* handle) {
+        auto* reactor = reinterpret_cast<Reactor *>(handle->data);
+        if (reactor && reactor->_isShutdownRequestedCounter > 0) {
+            LOG_DEBUG() << "Shutdown requested by signal";
+            reactor->stop();
+        }
+    }, 0, config().get_int("signal.shutdown_timer", 1000, 100, 10000));
+#endif // WIN32
+
     _stopEvent.data = this;
     _pendingWrites  = std::make_unique<PendingWrites>(*this);
     _tcpConnectors  = std::make_unique<TcpConnectors>(*this);
@@ -410,6 +422,9 @@ Reactor::~Reactor() {
     // run one cycle to release all closing handles
     uv_run(&_loop, UV_RUN_NOWAIT);
 
+#ifndef WIN32
+    uv_timer_stop(&_shutdownChecker);
+#endif // WIN32
     if (uv_loop_close(&_loop) == UV_EBUSY) {
         LOG_DEBUG() << "closing unclosed handles";
         uv_walk(
@@ -797,8 +812,12 @@ void Reactor::GracefulIntHandler::Handler(int sig)
 {
 	if (sig != SIGPIPE /*&& sig != SIGHUP*/) {
         assert(s_pAppReactor);
-        s_pAppReactor->stop();
+        s_pAppReactor->RequestShutdownFromSignal();
     }
+}
+
+void Reactor::RequestShutdownFromSignal() {
+    _isShutdownRequestedCounter = 1;
 }
 
 #endif // WIN32

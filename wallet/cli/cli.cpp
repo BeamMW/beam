@@ -62,7 +62,7 @@
 
 #include "utils.h"
 
-#include <boost/assert.hpp> 
+#include <boost/assert.hpp>
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
@@ -651,7 +651,7 @@ namespace
                          const IWalletDB::Ptr& walletDB,
                          const std::string& defaultComment = "")
     {
-        auto comment = defaultComment.empty() 
+        auto comment = defaultComment.empty()
             ? vm[cli::NEW_ADDRESS_COMMENT].as<string>()
             : defaultComment;
         auto expiration = vm[cli::EXPIRATION_TIME].as<string>();
@@ -738,7 +738,7 @@ namespace
             LOG_ERROR() << kErrorSeedPhraseFail;
             return -1;
         }
-        
+
         auto walletDB = WalletDB::init(walletPath, pass, walletSeed);
         if (walletDB)
         {
@@ -811,7 +811,7 @@ namespace
             }
         }
 
-        try 
+        try
         {
             address.m_Address = GenerateToken(type, address, walletDB, offlineCount);
             walletDB->saveAddress(address);
@@ -821,7 +821,7 @@ namespace
         {
             std::cerr << ex.what();
         }
-        
+
         return 0;
     }
 
@@ -1610,9 +1610,9 @@ namespace
             LOG_ERROR() << kErrorTxIdParamReqired;
             return res;
         }
-        
+
         auto txIdVec = from_hex(txIdStr);
-        
+
         if (txIdVec.size() >= 16)
         {
             res.emplace();
@@ -2185,7 +2185,7 @@ namespace
                     if (AmountBig::get_Hi(info->m_Value) || AmountBig::get_Lo(info->m_Value) > maxTxAmount)
                     {
                         auto maxTxValue = PrintableAmount(maxTxAmount, true, info->m_ID);
-                        cout << "Warning. Total amount of asset would be larger that can be sent in one transaction " 
+                        cout << "Warning. Total amount of asset would be larger that can be sent in one transaction "
                              << maxTxValue << ". You would be forced to send using several transactions."
                              << endl;
                     }
@@ -2408,7 +2408,7 @@ namespace
                 return 0;
             });
     }
-    
+
     int Rescan(const po::variables_map& vm)
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
@@ -2545,7 +2545,7 @@ namespace
         {
             auto walletDB = OpenDataBase(vm);
             auto swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
-            
+
             ShowSwapSettings(vm, walletDB, swapCoin);
             return 0;
         }
@@ -2640,7 +2640,7 @@ namespace
             Wallet::TxCompletedAction(),
             Wallet::UpdateCompletedAction());
         auto nnet = CreateNetwork(*wallet, vm);
-        
+
         if (!nnet)
         {
             return -1;
@@ -2728,7 +2728,7 @@ io::Reactor::Ptr reactor;
 
 static const unsigned LOG_ROTATION_PERIOD_SEC = 3*60*60; // 3 hours
 
-int main_impl(int argc, char* argv[])
+int main(int argc, char* argv[])
 {
     beam::Crash::InstallHandler(NULL);
     const Command commands[] =
@@ -2766,7 +2766,7 @@ int main_impl(int argc, char* argv[])
         {cli::GET_ADDRESS,            GetAddress,                   "generate transaction address for a specific receiver (identifiable by SBBS address or wallet's signature)"},
         {cli::SET_CONFIRMATIONS_COUNT, SetConfirmationsCount,       "set count of confirmations before you can't spend coin"},
         {cli::GET_CONFIRMATIONS_COUNT, GetConfirmationsCount,       "get count of confirmations before you can't spend coin"},
-#ifdef BEAM_LASER_SUPPORT   
+#ifdef BEAM_LASER_SUPPORT
         {cli::LASER,                HandleLaser,                    "laser beam command"},
 #endif  // BEAM_LASER_SUPPORT
         {cli::ASSET_ISSUE,          IssueAsset,                     "issue new confidential asset"},
@@ -2922,30 +2922,4 @@ int main_impl(int argc, char* argv[])
     }
 
     return 0;
-}
-
-int main(int argc, char* argv[]) {
-#ifdef _WIN32
-    return main_impl(argc, argv);
-#else
-    block_sigpipe();
-    auto f = std::async(
-        std::launch::async,
-        [argc, argv]() -> int {
-            // TODO: this hungs app on OSX
-            //lock_signals_in_this_thread();
-            int ret = main_impl(argc, argv);
-            std::cout << std::flush;
-            std::cerr << std::flush;
-            kill(0, SIGINT);
-            return ret;
-        }
-    );
-
-    wait_for_termination(0);
-
-    if (reactor) reactor->stop();
-
-    return f.get();
-#endif
 }
