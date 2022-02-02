@@ -494,6 +494,7 @@ namespace beam
 		}
 
 		Finalyze();
+		OnProgress();
 		return true;
 	}
 
