@@ -367,16 +367,33 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::makeIWTCall, std::move(function), std::move(resultCallback));
     }
 
-    void callShader(const std::vector<uint8_t>& shader, const std::string& args, ShaderCallback&& cback) override
+    void callShader(const std::vector<uint8_t>& shader, const std::string& args, CallShaderCallback&& cback) override
     {
-        typedef void(IWalletModelAsync::* MethodType)(const std::vector<uint8_t>&, const std::string&, ShaderCallback&&);
+        typedef void(IWalletModelAsync::* MethodType)(const std::vector<uint8_t>&, const std::string&, CallShaderCallback&&);
         call_async((MethodType)&IWalletModelAsync::callShader, shader, args, cback);
     }
 
-    void callShader(const std::string& shaderFile, const std::string& args, ShaderCallback&& cback) override
+    void callShader(const std::string& shaderFile, const std::string& args, CallShaderCallback&& cback) override
     {
-        typedef void(IWalletModelAsync::* MethodType)(const std::string&, const std::string&, ShaderCallback&&);
+        typedef void(IWalletModelAsync::* MethodType)(const std::string&, const std::string&, CallShaderCallback&&);
         call_async((MethodType)&IWalletModelAsync::callShader, shaderFile, args, cback);
+    }
+
+    void callShaderAndStartTx(const beam::ByteBuffer& shader, const std::string& args, CallShaderAndStartTxCallback&& cback) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(const std::vector<uint8_t>&, const std::string&, CallShaderAndStartTxCallback&&);
+        call_async((MethodType)&IWalletModelAsync::callShaderAndStartTx, shader, args, cback);
+    }
+
+    void callShaderAndStartTx(const std::string& shaderFile, const std::string& args, CallShaderAndStartTxCallback&& cback) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(const std::string&, const std::string&, CallShaderAndStartTxCallback&&);
+        call_async((MethodType)&IWalletModelAsync::callShaderAndStartTx, shaderFile, args, cback);
+    }
+
+    void processShaderTxData(const beam::ByteBuffer& data, ProcessShaderTxDataCallback&& cback) override
+    {
+        call_async(&IWalletModelAsync::processShaderTxData, data, cback);
     }
 
     void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override
@@ -2388,7 +2405,7 @@ namespace beam::wallet
         });
     }
 
-    void WalletClient::callShader(const std::vector<uint8_t>& shader, const std::string& args, ShaderCallback&& cback)
+    void WalletClient::callShaderAndStartTx(const beam::ByteBuffer& shader, const std::string& args, CallShaderAndStartTxCallback&& cback)
     {
         auto smgr = _clientShaders.lock();
         if (!smgr)
@@ -2417,18 +2434,64 @@ namespace beam::wallet
                     return;
                 }
 
-                postFunctionToClientContext([
-                        txid = std::move(txid),
-                        res = std::move(result),
-                        err = std::move(error),
-                        cb = std::move(cb)
-                        ] () {
-                            cb(err ? *err : "", res ? *res : "", txid ? *txid: TxID());
-                        });
-            });
+                postFunctionToClientContext(
+                    [txid = std::move(txid), res = std::move(result), err = std::move(error), cb = std::move(cb)] () {
+                        cb(err ? *err : "", res ? *res : "", txid ? *txid: TxID());
+                    });
+        });
     }
 
-    void WalletClient::callShader(const std::string& shaderFile, const std::string& args, ShaderCallback&& cback)
+    void WalletClient::callShaderAndStartTx(const std::string& shaderFile, const std::string& args, CallShaderAndStartTxCallback&& cback)
+    {
+        try
+        {
+            callShaderAndStartTx(fsutils::fread(shaderFile), args, std::move(cback));
+        }
+        catch (std::runtime_error& err)
+        {
+            postFunctionToClientContext([errorMsg = std::string(err.what()), cb = std::move(cback)]() {
+                cb(errorMsg, "", TxID());
+            });
+        }
+    }
+
+    void WalletClient::callShader(const beam::ByteBuffer& shader, const std::string& args, CallShaderCallback&& cback)
+    {
+        auto smgr = _clientShaders.lock();
+        if (!smgr)
+        {
+            assert(false);
+            postFunctionToClientContext([cb = std::move(cback)]() {
+                cb("unexpected: m_wallet is null", "", beam::ByteBuffer());
+            });
+            return;
+        }
+
+        smgr->CallShader(shader, args, args.empty() ? 0 : 1, 0, 0,
+            [this, cb = std::move(cback), shaders = _clientShaders]
+            (boost::optional<ByteBuffer> data, boost::optional<std::string> output, boost::optional<std::string> error) {
+                auto smgr = _clientShaders.lock();
+                if (!smgr)
+                {
+                    LOG_WARNING() << "onShaderDone but empty manager. This can happen if node changed.";
+                    return;
+                }
+
+                if (!cb)
+                {
+                    assert(false);
+                    LOG_ERROR() << "onShaderDone but empty callback";
+                    return;
+                }
+
+                postFunctionToClientContext(
+                    [data = std::move(data), res = std::move(output), err = std::move(error), cb = std::move(cb)] () {
+                        cb(err ? *err : "", res ? *res : "", data ? *data : beam::ByteBuffer());
+                    });
+        });
+    }
+
+    void WalletClient::callShader(const std::string& shaderFile, const std::string& args, CallShaderCallback&& cback)
     {
         try
         {
@@ -2437,8 +2500,43 @@ namespace beam::wallet
         catch (std::runtime_error& err)
         {
             postFunctionToClientContext([errorMsg = std::string(err.what()), cb = std::move(cback)]() {
-                cb(errorMsg, "", TxID());
+                cb(errorMsg, "", {});
             });
         }
+    }
+
+    void WalletClient::processShaderTxData(const beam::ByteBuffer& data, ProcessShaderTxDataCallback&& cback)
+    {
+        auto smgr = _clientShaders.lock();
+        if (!smgr)
+        {
+            assert(false);
+            postFunctionToClientContext([cb = std::move(cback)]() {
+                cb("unexpected: m_wallet is null", TxID());
+            });
+            return;
+        }
+
+        smgr->ProcessTxData(data,
+            [this, cb = std::move(cback), shaders = _clientShaders] (boost::optional<TxID> txid, boost::optional<std::string> error) {
+                auto smgr = _clientShaders.lock();
+                if (!smgr)
+                {
+                    LOG_WARNING() << "onShaderDone but empty manager. This can happen if node changed.";
+                    return;
+                }
+
+                if (!cb)
+                {
+                    assert(false);
+                    LOG_ERROR() << "onShaderDone but empty callback";
+                    return;
+                }
+
+                postFunctionToClientContext(
+                    [txid = std::move(txid), err = std::move(error), cb = std::move(cb)] () {
+                        cb(err ? *err : "", txid ? *txid : TxID());
+                    });
+        });
     }
 }

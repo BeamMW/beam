@@ -109,10 +109,19 @@ namespace beam::wallet
         virtual void getAssetInfo(Asset::ID) = 0;
         virtual void makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<const boost::any&>&& resultCallback) = 0;
 
+        // error (if any), shader output (if any), invokeData (if any)
+        typedef AsyncCallback<const std::string&, const std::string&, const beam::ByteBuffer&> CallShaderCallback;
+        virtual void callShader(const beam::ByteBuffer& shader, const std::string& args, CallShaderCallback&& cback) = 0;
+        virtual void callShader(const std::string& shaderFile, const std::string& args, CallShaderCallback&& cback) = 0;
+
         // error (if any), shader output (if any), txid (if any)
-        typedef AsyncCallback<const std::string&, const std::string&, const TxID&> ShaderCallback;
-        virtual void callShader(const std::vector<uint8_t>& shader, const std::string& args, ShaderCallback&& cback) = 0;
-        virtual void callShader(const std::string& shaderFile, const std::string& args, ShaderCallback&& cback) = 0;
+        typedef AsyncCallback<const std::string&, const std::string&, const TxID&> CallShaderAndStartTxCallback;
+        virtual void callShaderAndStartTx(const beam::ByteBuffer& shader, const std::string& args, CallShaderAndStartTxCallback&& cback) = 0;
+        virtual void callShaderAndStartTx(const std::string& shaderFile, const std::string& args, CallShaderAndStartTxCallback&& cback) = 0;
+
+        // error (if any), txid (if any)
+        typedef AsyncCallback<const std::string&, const TxID&> ProcessShaderTxDataCallback;
+        virtual void processShaderTxData(const beam::ByteBuffer& data, ProcessShaderTxDataCallback&& cback) = 0;
 
         virtual void setMaxPrivacyLockTimeLimitHours(uint8_t limit) = 0;
         virtual void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) = 0;

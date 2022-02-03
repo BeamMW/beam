@@ -297,8 +297,11 @@ namespace beam::wallet
         void exportTxHistoryToCsv() override;
         void getAssetInfo(const Asset::ID) override;
         void makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<const boost::any&>&& resultCallback) override;
-        void callShader(const std::vector<uint8_t>& shader, const std::string& args, ShaderCallback&& cback) override;
-        void callShader(const std::string& shaderFile, const std::string& args, ShaderCallback&& cback) override;
+        void callShader(const beam::ByteBuffer& shader, const std::string& args, CallShaderCallback&& cback) override;
+        void callShader(const std::string& shaderFile, const std::string& args, CallShaderCallback&& cback) override;
+        void callShaderAndStartTx(const beam::ByteBuffer& shader, const std::string& args, CallShaderAndStartTxCallback&& cback) override;
+        void callShaderAndStartTx(const std::string& shaderFile, const std::string& args, CallShaderAndStartTxCallback&& cback) override;
+        void processShaderTxData(const beam::ByteBuffer& data, ProcessShaderTxDataCallback&& cback) override;
 
         void switchOnOffExchangeRates(bool isActive) override;
         void switchOnOffNotifications(Notification::Type type, bool isActive) override;
