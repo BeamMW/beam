@@ -159,13 +159,15 @@ ON_METHOD(manager, view_params)
 
     Env::DocArray gr1("provs");
 
-    for (uint32_t i = 0; i < s.m_Provs; i++)
+    for (uint32_t iProv = 0; iProv < s.m_Provs; iProv++)
     {
         Env::DocGroup gr2("");
 
-        const auto& x = s.m_pE[i];
+        const auto& x = s.m_pE[iProv];
         Env::DocAddBlob_T("pk", x.m_Pk);
-        Env::DocAddNum("val", x.m_Val * get_Norm_n());
+
+        auto iPos = x.m_iPos;
+        Env::DocAddNum("val", s.m_pE[iPos].m_Val * get_Norm_n());
     }
 }
 
