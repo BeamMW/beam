@@ -2,7 +2,7 @@
 #include "../app_common_impl.h"
 #include "contract.h"
 
-#define Oracle2_manager_create(macro) macro(uint64_t, initialVal_u)
+#define Oracle2_manager_create(macro) macro(uint64_t, initialVal_n)
 #define Oracle2_manager_view(macro)
 #define Oracle2_manager_view_params(macro) macro(ContractID, cid)
 #define Oracle2_manager_view_median(macro) macro(ContractID, cid)
@@ -16,7 +16,7 @@
 #define Oracle2_provider_get_key(macro)
 #define Oracle2_provider_set(macro) \
     macro(ContractID, cid) \
-    macro(uint64_t, val_u)
+    macro(uint64_t, val_n)
 
 #define Oracle2Role_provider(macro) \
     macro(provider, get_key) \
@@ -29,7 +29,7 @@
 namespace Oracle2
 {
 
-    MultiPrecision::Float get_Norm_u()
+    MultiPrecision::Float get_Norm_n()
     {
         return MultiPrecision::Float(1e9);
     }
@@ -75,13 +75,13 @@ ON_METHOD(manager, view)
 
 ON_METHOD(manager, create)
 {
-    if (!initialVal_u)
+    if (!initialVal_n)
         return OnError("val can't be zero");
 
     ProviderKeyID kid;
 
     Method::Create<StateFull::s_ProvsMax> arg;
-    arg.m_InitialValue = MultiPrecision::Float(initialVal_u) / get_Norm_u();
+    arg.m_InitialValue = MultiPrecision::Float(initialVal_n) / get_Norm_n();
 
     arg.m_Providers = 1;
     kid.get_Pk(arg.m_pPk[0]);
@@ -165,7 +165,7 @@ ON_METHOD(manager, view_params)
 
         const auto& x = s.m_pE[i];
         Env::DocAddBlob_T("pk", x.m_Pk);
-        Env::DocAddNum("val", x.m_Val * get_Norm_u());
+        Env::DocAddNum("val", x.m_Val * get_Norm_n());
     }
 }
 
@@ -179,7 +179,7 @@ ON_METHOD(manager, view_median)
     if (Env::VarReader::Read_T(k, val))
     {
         Env::DocArray gr("res");
-        Env::DocAddNum("val", val * get_Norm_u());
+        Env::DocAddNum("val", val * get_Norm_n());
     }
     else
         OnError("not found");
@@ -198,7 +198,7 @@ ON_METHOD(provider, get_key)
 
 ON_METHOD(provider, set)
 {
-    if (!val_u)
+    if (!val_n)
         return OnError("val can't be zero");
 
     MyState s;
@@ -210,7 +210,7 @@ ON_METHOD(provider, set)
 
     Method::Set arg;
     arg.m_iProvider = s.m_iProv;
-    arg.m_Value = val_u / get_Norm_u();
+    arg.m_Value = MultiPrecision::Float(val_n) / get_Norm_n();
 
     ProviderKeyID kid;
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, &kid, 1, "Oracle2 set val", 0);
