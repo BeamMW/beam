@@ -1485,6 +1485,9 @@ namespace bvm2 {
 
 	void MyProcessor::TestLiquity()
 	{
+		VERIFY_ID(Shaders::Liquity::s_SID, m_Liquity.m_Sid);
+		VERIFY_ID(Shaders::Oracle2::s_SID, m_Oracle2.m_Sid);
+
 		MyManager man(*this);
 		man.InitMem();
 
@@ -1508,7 +1511,11 @@ namespace bvm2 {
 			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 5;
 			args.m_Settings.m_AidProfit = 77;
 
+			m_FarCalls.m_Stack.Create_back()->m_Body = m_Dummy.m_Code; // add dummy frame, any valid shader is ok
+
 			verify_test(ContractCreate_T(m_Liquity.m_Cid, m_Liquity.m_Code, args));
+
+			m_FarCalls.m_Stack.Clear();
 		}
 
 		LiquityContext lc(*this);
