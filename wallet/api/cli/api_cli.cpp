@@ -396,7 +396,7 @@ namespace
                     peerId,
                     BaseConnection::inbound,
                     BIND_THIS_MEMFN(on_request),
-                    1024 * 1024,
+                    16 * 1024 * 1024,
                     1024,
                     std::move(newStream)
                     );
