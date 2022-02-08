@@ -426,15 +426,37 @@ void ParserContext::On_Gallery()
 		switch (m_iMethod)
 		{
 		case Gallery::Method::AddExhibit::s_iMethod:
-			Env::DocAddText("", "AddExhibit");
+			if (m_nArg >= sizeof(Gallery::Method::AddExhibit))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::AddExhibit*>(m_pArg);
+				Env::DocAddText("", "Method=AddArtwork");
+				Env::DocAddText("", ", pkUser=");
+				Env::DocAddBlob_T("", arg.m_pkArtist);
+			}
 			break;
 
+		case Gallery::Method::ManageArtist::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::ManageArtist))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::ManageArtist*>(m_pArg);
+
+				Env::DocAddText("", "Method=ManageArtist");
+				Env::DocAddText("", ", pkUser=");
+				Env::DocAddBlob_T("", arg.m_pkArtist);
+				
+				Env::DocAddText("", ", name=");
+	            Env::DocAddNum32("", arg.m_LabelLen);
+				
+			}
+			break;
+		
+		
 		case Gallery::Method::SetPrice::s_iMethod:
 			if (m_nArg >= sizeof(Gallery::Method::SetPrice))
 			{
 				const auto& arg = *reinterpret_cast<const Gallery::Method::SetPrice*>(m_pArg);
 
-				Env::DocAddText("", "SetPrice");
+				Env::DocAddText("", "Method=SetPrice");
 				WriteGalleryAdrID(arg.m_ID);
 				WriteGalleryPrice(arg.m_Price);
 			}
@@ -445,17 +467,71 @@ void ParserContext::On_Gallery()
 			{
 				const auto& arg = *reinterpret_cast<const Gallery::Method::Buy*>(m_pArg);
 
-				Env::DocAddText("", "Buy");
+				Env::DocAddText("", "Method=Buy");
 				WriteGalleryAdrID(arg.m_ID);
+				
+				Env::DocAddText("", ", pkUser=");
+	            Env::DocAddBlob_T("", arg.m_pkUser);
+	            
+	            Env::DocAddText("", ", hasAid=");
+	            Env::DocAddNum32("", arg.m_HasAid);
+				
+				Env::DocAddText("", ", payMax=");
+				Env::DocAddNum64("", arg.m_PayMax);
 			}
 			break;
+		
+		case Gallery::Method::Transfer::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::Transfer))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::Transfer*>(m_pArg);
+
+				Env::DocAddText("", "Method=Transfer");
+				WriteGalleryAdrID(arg.m_ID);
+				
+				Env::DocAddText("", ", newPkUser=");
+	            Env::DocAddBlob_T("", arg.m_pkNewOwner);
+			}
+			break;
+		
+			
+		case Gallery::Method::Withdraw::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::Withdraw))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::Withdraw*>(m_pArg);
+
+				Env::DocAddText("", "Method=Withdraw");
+				
+				// TODO roman
+				Env::DocAddText("", ", key=");
+	            Env::DocAddBlob_T("", arg.m_Key);
+	            
+	            Env::DocAddText("", ", value=");
+	            Env::DocAddNum64("", arg.m_Value);
+				
+			}
+			break;
+		
+		case Gallery::Method::AddVoteRewards::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::AddVoteRewards))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::AddVoteRewards*>(m_pArg);
+
+				Env::DocAddText("", "Method=AddVoteRewards");
+				
+				Env::DocAddText("", ", amount=");
+	            Env::DocAddNum64("", arg.m_Amount);
+			}
+			break;
+		
+		
 
 		case Gallery::Method::Vote::s_iMethod:
 			if (m_nArg >= sizeof(Gallery::Method::Vote))
 			{
 				const auto& arg = *reinterpret_cast<const Gallery::Method::Vote*>(m_pArg);
 
-				Env::DocAddText("", "Vote");
+				Env::DocAddText("", "Method=Vote");
 				WriteGalleryAdrID(arg.m_ID.m_MasterpieceID);
 
 				Env::DocAddText("", ", impression=");
@@ -468,8 +544,9 @@ void ParserContext::On_Gallery()
 			{
 				const auto& arg = *reinterpret_cast<const Gallery::Method::AdminDelete*>(m_pArg);
 
-				Env::DocAddText("", "AdminDelete");
+				Env::DocAddText("", "Method=AdminDelete");
 				WriteGalleryAdrID(arg.m_ID);
+
 			}
 			break;
 		}
