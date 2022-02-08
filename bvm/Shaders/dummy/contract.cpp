@@ -269,3 +269,86 @@ BEAM_EXPORT void Method_13(Dummy::MathTest2& r)
     r.m_Quotient.SetDivResid(r.m_Resid, r.m_Denom);
 }
 
+BEAM_EXPORT void Method_14(Dummy::FindVarTest& r)
+{
+    Env::SaveVar_T((uint8_t) 1, (uint8_t) 1);
+    Env::SaveVar_T((uint8_t) 3, (uint8_t) 3);
+    Env::SaveVar_T((uint8_t) 5, (uint8_t) 5);
+
+    uint8_t nKey, nVal;
+    uint32_t nKeySize, nValSize;
+
+
+    Env::LoadVarEx(&(nKey = 3), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, KeySearchFlags::Exact | KeySearchFlags::Bigger);
+    Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 3) || (nVal != 3));
+
+    Env::LoadVarEx(&(nKey = 3), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, KeySearchFlags::Bigger);
+    Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 5) || (nVal != 5));
+
+    Env::LoadVarEx(&(nKey = 3), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, KeySearchFlags::Exact);
+    Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 3) || (nVal != 3));
+
+    Env::LoadVarEx(&(nKey = 3), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, 0);
+    Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 1) || (nVal != 1));
+
+    Env::LoadVarEx(&(nKey = 2), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, KeySearchFlags::Exact | KeySearchFlags::Bigger);
+    Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 3) || (nVal != 3));
+
+    Env::LoadVarEx(&(nKey = 2), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, KeySearchFlags::Bigger);
+    Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 3) || (nVal != 3));
+
+    Env::LoadVarEx(&(nKey = 2), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, KeySearchFlags::Exact);
+    Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 1) || (nVal != 1));
+
+    Env::LoadVarEx(&(nKey = 2), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, 0);
+    Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 1) || (nVal != 1));
+
+    Env::LoadVarEx(&(nKey = 1), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, KeySearchFlags::Exact | KeySearchFlags::Bigger);
+    Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 1) || (nVal != 1));
+
+    Env::LoadVarEx(&(nKey = 1), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, KeySearchFlags::Bigger);
+    Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 3) || (nVal != 3));
+
+    Env::LoadVarEx(&(nKey = 1), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, KeySearchFlags::Exact);
+    Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 1) || (nVal != 1));
+
+    Env::LoadVarEx(&(nKey = 1), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, 0);
+    Env::Halt_if(nKeySize || nValSize);
+
+    Env::LoadVarEx(&(nKey = 0), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, KeySearchFlags::Exact | KeySearchFlags::Bigger);
+    Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 1) || (nVal != 1));
+
+    Env::LoadVarEx(&(nKey = 0), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, KeySearchFlags::Bigger);
+    Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 1) || (nVal != 1));
+
+    Env::LoadVarEx(&(nKey = 0), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, KeySearchFlags::Exact);
+    Env::Halt_if(nKeySize || nValSize);
+
+    Env::LoadVarEx(&(nKey = 0), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, 0);
+    Env::Halt_if(nKeySize || nValSize);
+
+    Env::LoadVarEx(&(nKey = 5), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, KeySearchFlags::Exact | KeySearchFlags::Bigger);
+    Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 5) || (nVal != 5));
+
+    Env::LoadVarEx(&(nKey = 5), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, KeySearchFlags::Bigger);
+    Env::Halt_if(nKeySize || nValSize);
+
+    Env::LoadVarEx(&(nKey = 5), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, KeySearchFlags::Exact);
+    Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 5) || (nVal != 5));
+
+    Env::LoadVarEx(&(nKey = 5), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, 0);
+    Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 3) || (nVal != 3));
+
+    Env::LoadVarEx(&(nKey = 6), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, KeySearchFlags::Exact | KeySearchFlags::Bigger);
+    Env::Halt_if(nKeySize || nValSize);
+
+    Env::LoadVarEx(&(nKey = 6), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, KeySearchFlags::Bigger);
+    Env::Halt_if(nKeySize || nValSize);
+
+    Env::LoadVarEx(&(nKey = 6), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, KeySearchFlags::Exact);
+    Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 5) || (nVal != 5));
+
+    Env::LoadVarEx(&(nKey = 6), (nKeySize = sizeof(nKey)), sizeof(nKey), &nVal, (nValSize = sizeof(nVal)), KeyTag::Internal, 0);
+    Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 5) || (nVal != 5));
+}
+

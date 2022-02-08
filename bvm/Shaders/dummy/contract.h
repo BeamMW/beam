@@ -116,6 +116,11 @@ namespace Dummy
         MultiPrecision::UInt<5> m_Resid;
     };
 
+    struct FindVarTest
+    {
+        static const uint32_t s_iMethod = 14;
+    };
+
 #pragma pack (pop)
 
 }

@@ -111,6 +111,8 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Header.m_Nonce);
 		ConvertOrd<bToShader>(x.m_EpochDatasetSize);
 	}
+	template <bool bToShader> void Convert(Dummy::FindVarTest& x) {
+	}
 
 	template <bool bToShader> void Convert(Roulette::Params& x) {
 	}
@@ -1901,6 +1903,8 @@ namespace bvm2 {
 		Zero_ zero;
 		verify_test(ContractCreate_T(cid, m_Dummy.m_Code, zero));
 
+		m_lstUndo.Clear();
+
 		{
 			Shaders::Dummy::TestFarCall args;
 			args.m_Variant = 0;
@@ -1924,6 +1928,8 @@ namespace bvm2 {
 			args.m_Variant = 0;
 			args.m_InheritCtx = 1;
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args)); // should succeed, but won't affect the callee contract
+
+			UndoChanges();
 		}
 
 		{
@@ -2216,6 +2222,17 @@ namespace bvm2 {
 			args.m_EpochDatasetSize = m_Eth.m_DatasetCount;
 
 			verify_test(RunGuarded(cid, args.s_iMethod, buf, nullptr));
+		}
+
+		{
+			Rules::get().pForks[4].m_Height = 1000000000;
+			Rules::get().pForks[4].m_Hash = Zero;
+
+			Height h = Rules::get().pForks[4].m_Height + 3;
+			TemporarySwap ts(h, m_Height);
+
+			Shaders::Dummy::FindVarTest args;
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
 		}
 
 		verify_test(ContractDestroy_T(cid, zero));
