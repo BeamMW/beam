@@ -2416,6 +2416,7 @@ struct NodeProcessor::BlockInterpretCtx
 		BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& db);
 
 		virtual void LoadVar(const Blob& key, Blob& res) override;
+		virtual void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) override;
 		virtual uint32_t SaveVar(const Blob& key, const Blob&) override;
 		virtual uint32_t OnLog(const Blob& key, const Blob& val) override;
 
@@ -2426,6 +2427,7 @@ struct NodeProcessor::BlockInterpretCtx
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) override;
 		virtual bool AssetDestroy(Asset::ID, const PeerID&) override;
 
+		BlobMap::Entry* FindVarEx(const Blob& key, bool bExact, bool bBigger);
 		bool EnsureNoVars(const bvm2::ContractID&);
 		static bool IsOwnedVar(const bvm2::ContractID&, const Blob& key);
 
@@ -3339,44 +3341,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::EnsureNoVars(const bvm2::ContractID& cid)
 {
-	// pass 1. Ensure no vars in DB
 	Blob key(cid);
-	while (true)
-	{
-		NodeDB::Recordset rs;
-		if (!m_Proc.m_DB.ContractDataFindNext(key, rs) || !IsOwnedVar(cid, key))
-			break; // ok
 
-		if (m_Bic.m_Temporary)
-		{
-			// actual DB data is intact, make sure cached data is erased
-			auto* pE = m_Bic.m_ContractVars.Find(key);
-			if (pE && pE->m_Data.empty())
-			{
-				key = pE->ToBlob(); // this buf will survive the next iteration
-				continue; // ok
-			}
-		}
-
-		// not all variables have been removed.
-		return false;
-	}
-
-	if (m_Bic.m_Temporary)
-	{
-		// pass 2. make sure no unsaved variables too
-		for (auto it = m_Bic.m_ContractVars.lower_bound(Blob(cid), BlobMap::Set::Comparator()); m_Bic.m_ContractVars.end() != it; ++it)
-		{
-			const auto& e = *it;
-			if (!IsOwnedVar(cid, e.ToBlob()))
-				break; // ok
-
-			if (!e.m_Data.empty())
-				return false;
-		}
-	}
-
-	return true;
+	auto* pE = FindVarEx(key, true, true);
+	return !(pE && IsOwnedVar(cid, pE->ToBlob()));
 }
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::IsOwnedVar(const bvm2::ContractID& cid, const Blob& key)
@@ -4855,6 +4823,59 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const Blob& key, Bl
 {
 	auto& e = m_Bic.get_ContractVar(key, m_Proc.m_DB);
 	res = e.m_Data;
+}
+
+BlobMap::Entry* NodeProcessor::BlockInterpretCtx::BvmProcessor::FindVarEx(const Blob& key, bool bExact, bool bBigger)
+{
+	auto* pE = &m_Bic.get_ContractVar(key, m_Proc.m_DB);
+	if (pE->m_Data.empty() || !bExact)
+	{
+		while (true)
+		{
+			NodeDB::Recordset rs;
+			Blob keyDB = pE->ToBlob();
+			bool bNextDB = bBigger ?
+				m_Proc.m_DB.ContractDataFindNext(keyDB, rs) :
+				m_Proc.m_DB.ContractDataFindPrev(keyDB, rs);
+
+			if (bNextDB)
+				m_Bic.get_ContractVar(keyDB, m_Proc.m_DB);
+
+			auto it = BlobMap::Set::s_iterator_to(*pE);
+			if (bBigger)
+			{
+				++it;
+				if (m_Bic.m_ContractVars.end() == it)
+					return nullptr;
+			}
+			else
+			{
+				if (m_Bic.m_ContractVars.begin() == it)
+					return nullptr;
+				--it;
+			}
+
+			pE = &(*it);
+			if (!pE->m_Data.empty())
+				break;
+		}
+	}
+	return pE;
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger)
+{
+	auto* pE = FindVarEx(key, bExact, bBigger);
+	if (pE)
+	{
+		key = pE->ToBlob();
+		res = pE->m_Data;
+	}
+	else
+	{
+		key.n = 0;
+		res.n = 0;
+	}
 }
 
 uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, const Blob& data)
