@@ -1236,6 +1236,55 @@ namespace bvm2 {
 		return res.n;
 	}
 
+	BVM_METHOD(LoadVarEx)
+	{
+		auto& nKey_ = get_AddrAsW<Wasm::Word>(nKey);
+		auto& nVal_ = get_AddrAsW<Wasm::Word>(nVal);
+
+		auto nKeySize = Wasm::from_wasm(nKey_);
+		auto nValSize = Wasm::from_wasm(nVal_);
+
+		OnHost_LoadVarEx(get_AddrW(pKey, nKeyBufSize), nKeySize, nKeyBufSize, get_AddrW(pVal, nValSize), nValSize, nType, nSearchFlag);
+
+		nKey_ = Wasm::to_wasm(nKeySize);
+		nVal_ = Wasm::to_wasm(nValSize);
+	}
+	BVM_METHOD_HOST(LoadVarEx)
+	{
+		Wasm::Test(IsPastHF4());
+
+		std::setmin(nKeyBufSize, Limits::VarKeySize);
+		Wasm::Test(nKey <= nKeyBufSize);
+
+		VarKey vk;
+		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), false);
+
+		Blob key = vk.ToBlob(), res;
+		LoadVarEx(key, res,
+			!!(Shaders::KeySearchFlags::Exact & nSearchFlag),
+			!!(Shaders::KeySearchFlags::Bigger & nSearchFlag));
+
+		if (key.n > ContractID::nBytes)
+		{
+			// make sure we're still in the context of the contract vars
+			auto pK = (const uint8_t*) key.p;
+			const auto& cid = m_FarCalls.m_Stack.back().m_Cid;
+
+			if (!memcmp(pK, cid.m_pData, cid.nBytes) && (nType == pK[cid.nBytes]))
+			{
+				nKey = key.n - (ContractID::nBytes + 1);
+				memcpy(pKey, pK + ContractID::nBytes + 1, std::min(nKey, nKeyBufSize));
+
+				memcpy(pVal, res.p, std::min(nVal, res.n));
+				nVal = res.n;
+				return;
+			}
+		}
+
+		nKey = 0;
+		nVal = 0;
+	}
+
 	BVM_METHOD(SaveVar)
 	{
 		DischargeUnits(Limits::Cost::SaveVar_For(nVal));

@@ -378,6 +378,11 @@ namespace bvm2 {
 		virtual uint32_t SaveVar(const Blob&, const Blob& val) { return 0; }
 		virtual uint32_t OnLog(const Blob&, const Blob& val) { return 0; }
 
+		virtual void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) {
+			key.n = 0;
+			res.n = 0;
+		}
+
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) { return 0; }
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }
 		virtual bool AssetDestroy(Asset::ID, const PeerID&) { return false; }

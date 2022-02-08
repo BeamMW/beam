@@ -177,6 +177,15 @@
 	macro(uint32_t, nVal) sep \
 	macro(uint8_t, nType)
 
+#define BVMOp_LoadVarEx(macro, sep) \
+	macro(void*, pKey) sep \
+	macro(uint32_t&, nKey) sep \
+	macro(uint32_t, nKeyBufSize) sep \
+	macro(void*, pVal) sep \
+	macro(uint32_t&, nVal) sep \
+	macro(uint8_t, nType) sep \
+	macro(uint8_t, nSearchFlag)
+
 #define BVMOp_SaveVar(macro, sep) \
 	macro(const void*, pKey) sep \
 	macro(uint32_t, nKey) sep \
@@ -494,6 +503,7 @@
 	macro(0x24, uint32_t , get_CallDepth) \
 	macro(0x25, void     , get_CallerCid) \
 	macro(0x26, void     , UpdateShader) \
+	macro(0x27, void     , LoadVarEx) \
 	macro(0x29, void     , AddSig) \
 	macro(0x30, void     , FundsLock) \
 	macro(0x31, void     , FundsUnlock) \
