@@ -1243,8 +1243,11 @@ namespace bvm2 {
 
 		auto nKeySize = Wasm::from_wasm(nKey_);
 		auto nValSize = Wasm::from_wasm(nVal_);
+		auto nValSize0 = nValSize;
 
 		OnHost_LoadVarEx(get_AddrW(pKey, nKeyBufSize), nKeySize, nKeyBufSize, get_AddrW(pVal, nValSize), nValSize, nType, nSearchFlag);
+
+		DischargeUnits(Limits::Cost::LoadVar_For(std::min(nValSize, nValSize0)));
 
 		nKey_ = Wasm::to_wasm(nKeySize);
 		nVal_ = Wasm::to_wasm(nValSize);
