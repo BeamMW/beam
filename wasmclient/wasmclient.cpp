@@ -197,7 +197,7 @@ private:
         auto thisWeakPtr = std::make_unique<WeakPtr>(shared_from_this());
         emscripten_async_run_in_main_runtime_thread(
             EM_FUNC_SIG_VI,
-            &WalletClient2::ProsessMessageOnMainThread,
+            &WalletClient2::ProcessMessageOnMainThread,
             reinterpret_cast<int>(thisWeakPtr.release()));
     }
 
@@ -240,7 +240,7 @@ private:
         });
     }
 
-    static void ProsessMessageOnMainThread(int pThis)
+    static void ProcessMessageOnMainThread(int pThis)
     {
         std::unique_ptr<WeakPtr> wp(reinterpret_cast<WeakPtr*>(pThis));
         assert(wp->use_count() == 1);
@@ -675,11 +675,11 @@ public:
 
                 WasmAppApi::WeakPtr weakApi = wapi;
                 wapi->SetPostToClientHandler(
-                    [weak2](std::function<void (void)> func)
+                    [weak2](std::function<void (void)>&& func)
                     {
                         if (auto client2 = weak2.lock())
                         {
-                            client2->postFunctionToClientContext([func]() {
+                            client2->postFunctionToClientContext([func=std::move(func)]() {
                                 func();
                             });
                         }

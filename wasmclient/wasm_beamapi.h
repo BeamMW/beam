@@ -32,11 +32,11 @@ public:
 
     typedef std::function<void (const std::string&, const std::string&, const std::string&)> ClientThread_ContractConsentHandler;
     typedef std::function<void (const std::string&, const std::string&)> ClientThread_SendConsentHandler;
-    typedef std::function<void (std::function<void (void)>)> AnyThread_PostHandler;
+    typedef std::function<void (std::function<void (void)>&&)> AnyThread_PostHandler;
 
     void SetContractConsentHandler(ClientThread_ContractConsentHandler handler);
     void SetSendConsentHandler(ClientThread_SendConsentHandler handler);
-    void SetPostToClientHandler(AnyThread_PostHandler handler);
+    void SetPostToClientHandler(AnyThread_PostHandler&& handler);
 
     // AppsApi overrides
     void AnyThread_sendApiResponse(std::string&& result) override;
