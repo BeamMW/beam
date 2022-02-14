@@ -34,6 +34,12 @@ namespace Mintor
         static const uint8_t s_User = 3;
     };
 
+    struct PubKeyFlag
+    {
+        static const uint8_t s_Cid = 2; // pk.X == cid
+        static const uint8_t s_CA = 3; // transfer directly via allocated CA
+    };
+
     struct Token
     {
         typedef uint32_t ID;
@@ -46,6 +52,7 @@ namespace Mintor
         AmountBig m_Mint;
         AmountBig m_Limit;
         PubKey m_pkOwner;
+        AssetID m_Aid;
     };
 
     struct User
