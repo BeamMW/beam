@@ -116,6 +116,10 @@ namespace Mintor
             PubKey m_pkDst;
         };
 
+        struct CreateCA :public Base
+        {
+            static const uint32_t s_iMethod = 7;
+        };
     }
 #pragma pack (pop)
 

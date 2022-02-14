@@ -175,4 +175,31 @@ BEAM_EXPORT void Method_6(Method::Transfer& r)
     User_Modify(r.m_Tid, t, r.m_pkDst, r.m_Value, true);
 }
 
+BEAM_EXPORT void Method_7(Method::CreateCA& r)
+{
+    Token::Key tk;
+    tk.m_ID = r.m_Tid;
+
+    Token t;
+    Env::Halt_if(!Env::LoadVar_T(tk, t) || t.m_Aid);
+
+    // generate unique metadata
+    static const char s_szMeta[] = "STD:SCH_VER=1;N=Mintor Generic Token;SN=Generic;UN=GENERIC;NTHUN=GROTH";
+
+#pragma pack (push, 1)
+    struct Meta {
+        char m_szMeta[sizeof(s_szMeta)]; // including 0-terminator
+        Token::ID m_Tid;
+    } md;
+#pragma pack (pop)
+
+    Env::Memcpy(md.m_szMeta, s_szMeta, sizeof(s_szMeta));
+    md.m_Tid = r.m_Tid;
+
+    t.m_Aid = Env::AssetCreate(&md, sizeof(md));
+    Env::Halt_if(!t.m_Aid);
+
+    Env::SaveVar_T(tk, t);
+}
+
 } // namespace Mintor
