@@ -81,7 +81,7 @@ void WasmAppApi::SetPostToClientHandler(AnyThread_PostHandler handler)
     m_postToClient = std::move(handler);
 }
 
-void WasmAppApi::AnyThread_sendApiResponse(const std::string& result)
+void WasmAppApi::AnyThread_sendApiResponse(std::string&& result)
 {
     if (!m_postToClient)
     {
@@ -89,7 +89,7 @@ void WasmAppApi::AnyThread_sendApiResponse(const std::string& result)
     }
 
     WeakPtr wp = shared_from_this();
-    std::function<void (void)> execInCT = [this, wp, result]()
+    std::function<void (void)> execInCT = [this, wp, result=std::move(result)]()
     {
         if (auto sp = wp.lock())
         {

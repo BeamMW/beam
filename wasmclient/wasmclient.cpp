@@ -521,10 +521,9 @@ public:
             auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
             additionalTxCreators->emplace(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(dbFunc));
 
-            if (m_NeedToRestore)
+            if (!m_CurrentRecoveryFile.empty())
             {
-                m_NeedToRestore = false;
-                m_Client->getAsync()->importRecovery(RecoveryFileName.data());
+                m_Client->getAsync()->importRecovery(std::move(m_CurrentRecoveryFile)); // m_CurrentRecoveryFile should be cleared 
             }
             m_Client->getAsync()->enableBodyRequests(true);
             m_Client->start({}, true, additionalTxCreators);
@@ -742,7 +741,29 @@ public:
             {
                 m_RecoveryCallback = std::make_unique<val>(std::move(callback));
             }
-            m_NeedToRestore = true;
+            m_CurrentRecoveryFile = RecoveryFileName;
+        }
+        catch (const std::exception& ex)
+        {
+            HandleException(ex);
+        }
+    }
+
+    void ImportRecoveryFromFile(const std::string& fileName, val&& callback)
+    {
+        AssertMainThread();
+        if (m_RecoveryCallback)
+        {
+            LOG_WARNING() << "Recovery is in progress";
+            return;
+        }
+        try
+        {
+            if (!callback.isNull())
+            {
+                m_RecoveryCallback = std::make_unique<val>(std::move(callback));
+            }
+            m_CurrentRecoveryFile = fileName;
         }
         catch (const std::exception& ex)
         {
@@ -959,7 +980,7 @@ private:
     WalletClient2::Ptr m_Client;
     IWalletApi::Ptr m_WalletApi;
     bool m_Headless = false;
-    bool m_NeedToRestore = false;
+    std::string m_CurrentRecoveryFile;
 };
 
 val WasmWalletClient::s_MountCB = val::null();
@@ -984,6 +1005,7 @@ EMSCRIPTEN_BINDINGS()
         .function("setApproveContractInfoHandler", &WasmWalletClient::SetApproveContractInfoHandler)
         .function("createAppAPI", &WasmWalletClient::CreateAppAPI)
         .function("importRecovery", &WasmWalletClient::ImportRecovery)
+        .function("importRecoveryFromFile", &WasmWalletClient::ImportRecoveryFromFile)
         .class_function("IsAppSupported", &WasmWalletClient::IsAppSupported)
         .class_function("GenerateAppID", &WasmWalletClient::GenerateAppID)
         .class_function("GeneratePhrase", &WasmWalletClient::GeneratePhrase)
