@@ -95,8 +95,7 @@ namespace beam::wallet
                 {"id", id},
                 {"result",
                     {
-                        {"hash", res.hash},
-                        {"result", true}
+                        {"hash", res.hash}
                     }
                 }
             };
@@ -105,7 +104,6 @@ namespace beam::wallet
     std::pair<IPFSUnpin, IWalletApi::MethodInfo> V63Api::onParseIPFSUnpin(const JsonRpcId& id, const nlohmann::json& params)
     {
         IPFSUnpin message;
-        message.timeout = parseTimeout(*this, params);
         message.hash = getMandatoryParam<NonEmptyString>(params, "hash");
         return std::make_pair(std::move(message), MethodInfo());
     }
@@ -118,8 +116,7 @@ namespace beam::wallet
             {"id", id},
             {"result",
                 {
-                    {"hash", res.hash},
-                    {"result", true}
+                    {"hash", res.hash}
                 }
             }
         };

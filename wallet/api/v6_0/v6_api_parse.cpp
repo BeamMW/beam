@@ -157,7 +157,7 @@ namespace beam::wallet
         json& msg,
         Height txProofHeight,
         Height systemHeight,
-        bool showIdentities = false)
+        bool withRates)
     {
         std::string statusStr = "unknown";
         if (tx.m_txType == TxType::Simple)
@@ -281,15 +281,12 @@ namespace beam::wallet
             }
         }
 
-        if (showIdentities)
+        auto senderIdentity = tx.getSenderIdentity();
+        auto receiverIdentity = tx.getReceiverIdentity();
+        if (!senderIdentity.empty() && !receiverIdentity.empty())
         {
-            auto senderIdentity = tx.getSenderIdentity();
-            auto receiverIdentity = tx.getReceiverIdentity();
-            if (!senderIdentity.empty() && !receiverIdentity.empty())
-            {
-                msg["sender_identity"] = senderIdentity;
-                msg["receiver_identity"] = receiverIdentity;
-            }
+            msg["sender_identity"] = senderIdentity;
+            msg["receiver_identity"] = receiverIdentity;
         }
 
         #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -298,6 +295,39 @@ namespace beam::wallet
             AddSwapTxDetailsToJson(tx, msg);
         }
         #endif // BEAM_ATOMIC_SWAP_SUPPORT
+
+        if (withRates)
+        {
+            msg["rates"] = json::array();
+            auto& jrates = msg["rates"];
+
+            auto rates = tx.GetParameter<std::vector<ExchangeRate>>(TxParameterID::ExchangeRates);
+            if (rates)
+            {
+                for (auto& rate: *rates)
+                {
+                    auto jrate = json
+                    {
+                        {"rate", rate.m_rate},
+                        {"rate_str", std::to_string(rate.m_rate)}
+                    };
+
+                    if (auto aidf = rate.m_from.toAssetID(); aidf != beam::Asset::s_MaxCount) {
+                        jrate["from"] = aidf;
+                    } else {
+                        jrate["from"] = rate.m_from.m_value;
+                    }
+
+                    if (auto aidt = rate.m_to.toAssetID(); aidt != beam::Asset::s_MaxCount) {
+                        jrate["to"] = aidt;
+                    } else {
+                        jrate["to"] = rate.m_to.m_value;
+                    }
+
+                    jrates.emplace_back(std::move(jrate));
+                }
+            }
+        }
     }
 
     Amount V6Api::getBeamFeeParam(const json& params, const std::string& name) const
@@ -541,6 +571,10 @@ namespace beam::wallet
     {
         Status status = {};
         status.txId = getMandatoryParam<ValidTxID>(params, "txId");
+
+        auto rates = getOptionalParam<bool>(params, "rates");
+        status.withRates = rates && *rates;
+
         return std::make_pair(status, MethodInfo());
     }
 
@@ -750,6 +784,9 @@ namespace beam::wallet
         {
             txList.skip = *skip;
         }
+
+        auto rates = getOptionalParam<bool>(params, "rates");
+        txList.withRates = rates && *rates;
 
         return std::make_pair(txList, MethodInfo());
     }
@@ -1216,7 +1253,7 @@ namespace beam::wallet
             {"result", {}}
         };
 
-        GetStatusResponseJson(res.tx, msg["result"], res.txProofHeight, res.systemHeight, true);
+        GetStatusResponseJson(res.tx, msg["result"], res.txProofHeight, res.systemHeight, res.withRates);
     }
 
     void V6Api::getResponse(const JsonRpcId& id, const Split::Response& res, json& msg)
@@ -1263,7 +1300,7 @@ namespace beam::wallet
                 item,
                 resItem.txProofHeight,
                 resItem.systemHeight,
-                true);
+                resItem.withRates);
             arr.push_back(item);
         }
     }

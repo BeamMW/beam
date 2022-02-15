@@ -102,7 +102,7 @@ namespace beam::wallet
                 Block::SystemState::Full sTip;
                 if (GetTip(sTip))
                 {
-                    builder.m_Height.m_Max = sTip.m_Height + kDefaultTxLifetime;
+                    builder.m_Height.m_Max = sTip.m_Height + 20; // 20 blocks - standard contract tx life time
                     SetParameter(TxParameterID::MaxHeight, builder.m_Height.m_Max, GetSubTxID());
                 }
             }

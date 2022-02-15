@@ -14,7 +14,6 @@
 #include "api_errors_imp.h"
 #include "api_base.h"
 #include "utility/logger.h"
-#include <regex>
 
 namespace beam::wallet
 {
@@ -164,7 +163,7 @@ namespace beam::wallet
             return boost::none;
         }
 
-        return callGuarded<ParseResult>(pinfo->rpcid, [this, pinfo] () -> ParseResult {
+        return callGuarded<ParseResult>(pinfo->rpcid, [this, &pinfo] () -> ParseResult {
             const auto& minfo = _methods[pinfo->method];
             const auto finfo = minfo.parseFunc(pinfo->rpcid, pinfo->params);
 
@@ -190,7 +189,7 @@ namespace beam::wallet
             LOG_VERBOSE() << "executeAPIRequest:\n" << message;
         }
 
-        const auto result = callGuarded<ApiSyncMode>(pinfo->rpcid, [this, pinfo = std::move(pinfo)] () -> ApiSyncMode {
+        const auto result = callGuarded<ApiSyncMode>(pinfo->rpcid, [this, &pinfo] () -> ApiSyncMode {
             const auto& minfo = _methods[pinfo->method];
 
             if (_acl)

@@ -174,10 +174,15 @@ namespace
                 _toServerThread = PostToReactorThread::create(std::move(reactor));
             }
 
-            void pushToClient(std::function<void()>&& action) override
+            void AnyThread_pushToClient(std::function<void()>&& action) override
             {
                 _toServerThread->post(std::move(action));
             }
+
+            void AnyThread_onStatus(const std::string& /* error */, uint32_t /* peercnt */) override
+            {
+            }
+
 
         private:
             wallet::PostToReactorThread::Ptr _toServerThread;
@@ -391,7 +396,7 @@ namespace
                     peerId,
                     BaseConnection::inbound,
                     BIND_THIS_MEMFN(on_request),
-                    1024 * 1024,
+                    16 * 1024 * 1024,
                     1024,
                     std::move(newStream)
                     );

@@ -86,6 +86,7 @@ namespace beam::wallet {
         std::string _currentAppName;
 
         beam::wallet::Wallet::Ptr _wallet;
+        beam::io::AsyncEvent::Ptr _startEvent;
 
         struct Request {
             uint32_t unique = 0;

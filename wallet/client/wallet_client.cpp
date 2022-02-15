@@ -715,8 +715,24 @@ namespace beam::wallet
                             : _wc(wc) {
                     }
 
-                    void pushToClient(std::function<void()> &&action) override {
+                    void AnyThread_pushToClient(std::function<void()> &&action) override {
                         _wc->postFunctionToClientContext(std::move(action));
+                    }
+
+                    void AnyThread_onStatus(const std::string& error, uint32_t peercnt) override {
+                        _wc->getAsync()->makeIWTCall([this, error, peercnt]() -> boost::any {
+                            if (error.empty()) {
+                                LOG_INFO() << "IPFS Status: peercnt " << peercnt;
+                            } else {
+                                LOG_INFO() << "IPFS Status: peercnt " << peercnt << ", error: " << error;
+                            }
+                            _wc->m_ipfsError = error;
+                            _wc->m_ipfsPeerCnt = static_cast<unsigned int>(peercnt);
+                            _wc->getIPFSStatus();
+                            return boost::none;
+                        }, [](const boost::any&) {
+                            // client thread
+                        });
                     }
 
                 private:
@@ -1763,14 +1779,18 @@ namespace beam::wallet
     void WalletClient::getIPFSStatus()
     {
         auto sp = m_ipfs.lock();
-        if (!sp || !sp->AnyThread_running())
-        {
-            onIPFSStatus(false, std::string());
+        if (!sp) {
+            onIPFSStatus(false, std::string(), 0);
             return;
         }
 
-        // TODO: this is not real status, handle errors
-        onIPFSStatus(sp->AnyThread_running(), std::string());
+        auto running = sp->AnyThread_running();
+        if (running && m_ipfsPeerCnt == 0 && m_ipfsError.empty()) {
+            onIPFSStatus(running, "IPFS node is not connected to peers", m_ipfsPeerCnt);
+            return;
+        }
+
+        onIPFSStatus(running, m_ipfsError, m_ipfsPeerCnt);
     }
     #endif
 

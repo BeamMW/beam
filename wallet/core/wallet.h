@@ -134,13 +134,14 @@ namespace beam::wallet
         using TxCompletedAction = std::function<void(const TxID& tx_id)>;
         using UpdateCompletedAction = std::function<void()>;
         using TxVisitor = std::function<void (const TxID&, BaseTransaction::Ptr)>;
+        using OnSyncAction = std::function<void()>;
 
         Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction());
         virtual ~Wallet();
         void CleanupNetwork();
 
         void SetNodeEndpoint(proto::FlyClient::INetwork::Ptr nodeEndpoint);
-        proto::FlyClient::INetwork::Ptr GetNodeEndpoint();
+        proto::FlyClient::INetwork::Ptr GetNodeEndpoint() const;
         void AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint);
 
         // Rescans the blockchain from scratch
@@ -153,6 +154,9 @@ namespace beam::wallet
         {
             RegisterTransactionType(type, std::static_pointer_cast<BaseTransaction::Creator>(creator));
         }
+
+        // Puts new transaction in a list of active transactions.
+        // If the wallet is in sync it starts immediately, otherwise, it's queued
         TxID StartTransaction(const TxParameters& parameters);
         bool CanCancelTransaction(const TxID& txId) const;
         void CancelTransaction(const TxID& txId);
@@ -168,6 +172,9 @@ namespace beam::wallet
 
         bool IsWalletInSync() const;
         Height get_TipHeight() const;
+
+        // Performs action only if wallet is in sync, otherwise this action is queued.
+        void DoInSyncedWallet(OnSyncAction&& action); 
 
         // Count of active transactions which are not in safe state, negotiation are not finished or data is not sent to node
         size_t GetUnsafeActiveTransactionsCount() const;
@@ -241,6 +248,7 @@ namespace beam::wallet
         void NotifySyncProgress();
         void UpdateTransaction(const TxID& txID);
         void UpdateTransaction(BaseTransaction::Ptr tx);
+        void UpdateActiveTransaction(BaseTransaction::Ptr tx);
         void UpdateOnSynced(BaseTransaction::Ptr tx);
         void UpdateOnNextTip(BaseTransaction::Ptr tx);
         void SaveKnownState();
@@ -459,9 +467,6 @@ namespace beam::wallet
         // List of currently active (incomplete) transactions
         std::map<TxID, BaseTransaction::Ptr> m_ActiveTransactions;
 
-        // List of transactions that are waiting for wallet to finish sync before tx update
-        std::unordered_set<BaseTransaction::Ptr> m_TransactionsToUpdate;
-
         // List of transactions that are waiting for the next tip (new block) to arrive
         std::unordered_set<BaseTransaction::Ptr> m_NextTipTransactionToUpdate;
 
@@ -490,5 +495,9 @@ namespace beam::wallet
         bool m_IsTreasuryHandled = false;
         std::map<ECC::Point, Height> m_Commitments;
         bool m_IsCommitmentsCached = false;
+
+        // the queue of actions to be performed after wallet synchronization
+        using ActionQueue = std::queue<OnSyncAction>;
+        ActionQueue m_SyncActionsQueue;
     };
 }

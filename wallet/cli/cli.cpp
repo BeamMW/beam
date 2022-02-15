@@ -2334,7 +2334,16 @@ namespace
 
                 std::cout << "Executing shader..." << std::endl;
 
-                man.StartRun(man.m_Args.empty() ? 0 : 1); // scheme if no args
+                auto startedEvent = io::AsyncEvent::create(io::Reactor::get_Current(),
+                    [&man]()
+                    {
+                        man.StartRun(man.m_Args.empty() ? 0 : 1); // scheme if no args
+                    });
+
+                wallet->DoInSyncedWallet([startedEvent]()
+                    {
+                        startedEvent->post();
+                    });
 
                 if (!man.m_Done)
                 {
@@ -2358,6 +2367,17 @@ namespace
                 const auto spend   = bvm2::getFullSpend(man.m_vInvokeData);
 
                 std::cout << "Creating new contract invocation tx on behalf of the shader" << std::endl;
+                if (man.m_Args["action"] == "create" || man.m_Args["action"] == "destroy")
+                {
+                    bvm2::ShaderID sid;
+                    bvm2::get_ShaderID(sid, Blob(man.m_BodyContract));
+                    for (auto& invokeEntry : man.m_vInvokeData)
+                    {
+                        bvm2::ContractID cid;
+                        bvm2::get_CidViaSid(cid, sid, Blob(invokeEntry.m_Args));
+                        std::cout << "Contract ID: " << cid.str() << std::endl;
+                    }
+                }
                 std::cout << "\tComment: " << comment;
 
                 for (const auto& info: spend)

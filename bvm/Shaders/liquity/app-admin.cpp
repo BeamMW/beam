@@ -7,7 +7,12 @@
 #define Liquity_manager_deploy_version(macro)
 #define Liquity_manager_view(macro)
 #define Liquity_manager_my_admin_key(macro)
-#define Liquity_manager_deploy_contract(macro) Upgradable2_deploy(macro)
+#define Liquity_manager_deploy_contract(macro) \
+    Upgradable2_deploy(macro) \
+    macro(ContractID, cidOracle) \
+    macro(Amount, troveLiquidationReserve) \
+    macro(AssetID, aidProfit)
+
 #define Liquity_manager_schedule_upgrade(macro) Upgradable2_schedule_upgrade(macro)
 #define Liquity_manager_explicit_upgrade(macro) macro(ContractID, cid)
 #define Liquity_manager_replace_admin(macro) Upgradable2_replace_admin(macro)
@@ -95,9 +100,22 @@ ON_METHOD(manager, deploy_contract)
     PubKey pk;
     kid.get_Pk(pk);
 
-    Upgradable2::Create arg;
+#pragma pack (push, 1)
+    struct Arg :public Upgradable2::Create {
+        Liquity::Method::Create m_Inner;
+    } arg;
+#pragma pack (pop)
+
     if (!ManagerUpgadable2::FillDeployArgs(arg, &pk))
         return;
+
+    if (!troveLiquidationReserve)
+        return OnError("trove Liquidation Reserve should not be zero");
+
+    auto& s = arg.m_Inner.m_Settings; // alias
+    s.m_AidProfit = aidProfit;
+    s.m_TroveLiquidationReserve = troveLiquidationReserve;
+    _POD_(s.m_cidOracle) = cidOracle;
 
     const uint32_t nCharge =
         ManagerUpgadable2::get_ChargeDeploy() +

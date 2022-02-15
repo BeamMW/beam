@@ -5,8 +5,6 @@
 
 namespace Amm {
 
-using MultiPrecision::Float;
-
 
 BEAM_EXPORT void Ctor(const void*)
 {
@@ -19,95 +17,35 @@ BEAM_EXPORT void Dtor(void*)
 
 struct MyPool :public Pool
 {
-    struct MyKey :public Key
-    {
-        MyKey(const Pool::ID& pid)
-        {
-            Env::Halt_if(pid.m_Aid1 >= pid.m_Aid2);
-            m_ID = pid;
-        }
-    };
-
-
     MyPool() {}
 
-    MyPool(const Key& key)
-    {
-        Env::Halt_if(!Env::LoadVar_T(key, *this));
-    }
+    MyPool(const Key& key) { Env::Halt_if(!Env::LoadVar_T(key, *this)); }
 
-    bool Save(const Key& key)
-    {
-        return Env::SaveVar_T(key, *this);
-    }
-
-    Float get_Vol() const
-    {
-        return Float(m_Totals.m_Tok1) * Float(m_Totals.m_Tok2);
-    }
-
-    static Amount ToAmount(const Float& f)
-    {
-        static_assert(sizeof(Amount) == sizeof(f.m_Num));
-        Env::Halt_if(f.m_Order > 0);
-        return f.Get();
-
-    }
-
-    static Amount ShrinkTok(const Float& kShrink, Amount& val)
-    {
-        Amount val0 = val;
-        val = Float(val0) * kShrink;
-
-        assert(val <= val0); // no need for runtime check
-        return val0 - val;
-    }
+    void Save(const Key& key) { Env::SaveVar_T(key, *this); }
 };
 
-BEAM_EXPORT void Method_2(const Method::CreatePool& r)
+BEAM_EXPORT void Method_2(const Method::AddLiquidity& r)
 {
+    Pool::Key key;
+    key.m_ID = r.m_Uid.m_Pid;
+
     MyPool p;
-    _POD_(p).SetZero();
-
-    // TODO: generate unique metadata, contract can't create different assets with the same metadata
-    static const char szMeta[] = "STD:SCH_VER=1;N=Amm Token;SN=Amm;UN=AMM;NTHUN=GROTHX";
-    p.m_aidCtl = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
-    Env::Halt_if(!p.m_aidCtl);
-
-    MyPool::MyKey key(r.m_PoolID);
-    Env::Halt_if(p.Save(key)); // would fail if duplicated
-}
-
-BEAM_EXPORT void Method_3(const Method::DeletePool& r)
-{
-    MyPool::MyKey key(r.m_PoolID);
-    MyPool p(key);
-
-    Env::Halt_if(!Env::AssetDestroy(p.m_aidCtl)); // would fail unless fully burned
-
-    Env::DelVar_T(key);
-}
-
-BEAM_EXPORT void Method_4(const Method::AddLiquidity& r)
-{
-    MyPool::MyKey key(r.m_PoolID);
-    MyPool p(key);
+    if (!Env::LoadVar_T(key, p))
+    {
+        Env::Halt_if(key.m_ID.m_Aid1 >= key.m_ID.m_Aid2); // potentially creating a new pool, key must be well-ordered
+        _POD_(p).SetZero();
+    }
 
     Amount dCtl;
-    Amount ctl0 = p.m_Totals.m_Ctl;
-    if (ctl0)
+    if (p.m_Totals.m_Ctl)
     {
-        Float vol0 = p.get_Vol();
+        Env::Halt_if(p.m_Totals.TestAdd(r.m_Amounts));
 
-        Strict::Add(p.m_Totals.m_Tok1, r.m_Amounts.m_Tok1);
-        Strict::Add(p.m_Totals.m_Tok2, r.m_Amounts.m_Tok2);
+        dCtl = p.m_Totals.m_Ctl;
+        p.m_Totals.Add(r.m_Amounts);
 
-        Float kGrow = p.get_Vol() / vol0;
-
-        p.m_Totals.m_Ctl = MyPool::ToAmount(Float(ctl0) * kGrow);
-
-        Env::Halt_if(p.m_Totals.m_Ctl <= ctl0);
-        dCtl = p.m_Totals.m_Ctl - ctl0;
+        Env::Halt_if(p.m_Totals.m_Ctl <= dCtl);
+        dCtl = p.m_Totals.m_Ctl - dCtl;
     }
     else
     {
@@ -124,75 +62,73 @@ BEAM_EXPORT void Method_4(const Method::AddLiquidity& r)
     Env::FundsLock(key.m_ID.m_Aid1, r.m_Amounts.m_Tok1);
     Env::FundsLock(key.m_ID.m_Aid2, r.m_Amounts.m_Tok2);
 
-    Env::Halt_if(!Env::AssetEmit(p.m_aidCtl, dCtl, 1));
-    Env::FundsUnlock(p.m_aidCtl, dCtl);
+    User::Key uk;
+    _POD_(uk.m_ID) = r.m_Uid;
+
+    User u;
+    if (Env::LoadVar_T(uk, u))
+        Strict::Add(u.m_Ctl, dCtl);
+    else
+        u.m_Ctl = dCtl;
+
+    Env::SaveVar_T(uk, u);
 }
 
-BEAM_EXPORT void Method_5(const Method::Withdraw& r)
+BEAM_EXPORT void Method_3(const Method::Withdraw& r)
 {
-    MyPool::MyKey key(r.m_PoolID);
+    Pool::Key key;
+    key.m_ID = r.m_Uid.m_Pid;
     MyPool p(key);
 
-    Amount ctl0 = p.m_Totals.m_Ctl;
-    Strict::Sub(p.m_Totals.m_Ctl, r.m_Ctl);
-
-    Amounts dVals;
+    auto dVals = p.m_Totals.Remove(r.m_Ctl);
 
     if (p.m_Totals.m_Ctl)
-    {
-        Float kShrink = Float(p.m_Totals.m_Ctl) / Float(ctl0);
-
-        dVals.m_Tok1 = MyPool::ShrinkTok(kShrink, p.m_Totals.m_Tok1);
-        dVals.m_Tok2 = MyPool::ShrinkTok(kShrink, p.m_Totals.m_Tok2);
-    }
+        p.Save(key);
     else
-    {
-        // last provider
-        dVals = p.m_Totals;
-        _POD_(p.m_Totals).SetZero();
-    }
-
-    p.Save(key);
+        Env::DelVar_T(key);
 
     Env::FundsUnlock(key.m_ID.m_Aid1, dVals.m_Tok1);
     Env::FundsUnlock(key.m_ID.m_Aid2, dVals.m_Tok2);
 
-    Env::FundsLock(p.m_aidCtl, r.m_Ctl);
-    Env::Halt_if(!Env::AssetEmit(p.m_aidCtl, r.m_Ctl, 0));
+    User::Key uk;
+    _POD_(uk.m_ID) = r.m_Uid;
+
+    User u;
+    Env::Halt_if(!Env::LoadVar_T(uk, u));
+    Strict::Sub(u.m_Ctl, r.m_Ctl);
+
+    if (u.m_Ctl)
+        Env::SaveVar_T(uk, u);
+    else
+        Env::DelVar_T(uk);
+
+    Env::AddSig(uk.m_ID.m_pk);
 }
 
-BEAM_EXPORT void Method_6(const Method::Trade& r)
+BEAM_EXPORT void Method_4(const Method::Trade& r)
 {
-    MyPool::MyKey key(r.m_PoolID);
+    Pool::Key key;
+    bool bReverse = (r.m_Pid.m_Aid1 > r.m_Pid.m_Aid2);
+    if (bReverse)
+    {
+        key.m_ID.m_Aid1 = r.m_Pid.m_Aid2;
+        key.m_ID.m_Aid2 = r.m_Pid.m_Aid1;
+    }
+    else
+        key.m_ID = r.m_Pid;
+    
     MyPool p(key);
 
-    if (r.m_iBuy)
-    {
-        std::swap(p.m_Totals.m_Tok1, p.m_Totals.m_Tok2);
-        std::swap(key.m_ID.m_Aid1, key.m_ID.m_Aid2);
-    }
+    if (bReverse)
+        p.m_Totals.Swap();
 
-    Float vol = p.get_Vol();
+    Amount valPay = p.m_Totals.Trade(r.m_Buy1);
 
-    Env::Halt_if(p.m_Totals.m_Tok1 <= r.m_Buy);
-    p.m_Totals.m_Tok1 -= r.m_Buy;
+    if (bReverse)
+        p.m_Totals.Swap();
 
-    Amount valPay = MyPool::ToAmount(vol / Float(p.m_Totals.m_Tok1));
-    Strict::Sub(valPay, p.m_Totals.m_Tok2);
-
-    // add comission 0.3%
-    Amount fee = valPay / 1000 * 3;
-    Strict::Add(valPay, fee);
-    Strict::Add(p.m_Totals.m_Tok2, valPay);
-
-    Env::FundsUnlock(key.m_ID.m_Aid1, r.m_Buy);
-    Env::FundsLock(key.m_ID.m_Aid2, valPay);
-
-    if (r.m_iBuy)
-    {
-        std::swap(p.m_Totals.m_Tok1, p.m_Totals.m_Tok2);
-        std::swap(key.m_ID.m_Aid1, key.m_ID.m_Aid2);
-    }
+    Env::FundsUnlock(r.m_Pid.m_Aid1, r.m_Buy1);
+    Env::FundsLock(r.m_Pid.m_Aid2, valPay);
 
     p.Save(key);
 }

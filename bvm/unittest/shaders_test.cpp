@@ -66,6 +66,7 @@ namespace Shaders {
 #include "../Shaders/dao-vote/contract.h"
 #include "../Shaders/aphorize/contract.h"
 #include "../Shaders/liquity/contract.h"
+#include "../Shaders/amm/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
@@ -109,6 +110,8 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Header.m_Time);
 		ConvertOrd<bToShader>(x.m_Header.m_Nonce);
 		ConvertOrd<bToShader>(x.m_EpochDatasetSize);
+	}
+	template <bool bToShader> void Convert(Dummy::FindVarTest& x) {
 	}
 
 	template <bool bToShader> void Convert(Roulette::Params& x) {
@@ -380,6 +383,8 @@ namespace Shaders {
 #include "../Shaders/dao-vote/contract.cpp" // already within namespace
 #include "../Shaders/liquity/contract.cpp" // already within namespace
 //#include "../Shaders/liquity/app.cpp"
+#include "../Shaders/amm/contract.cpp" // already within namespace
+//#include "../Shaders/amm/app.cpp"
 #include "../Shaders/upgradable2/app_common_impl.h"
 
 #ifdef _MSC_VER
@@ -495,6 +500,7 @@ namespace bvm2 {
 		ContractWrap m_DaoVote;
 		ContractWrap m_Aphorize;
 		ContractWrap m_Liquity;
+		ContractWrap m_Amm;
 
 		void AddCode(ContractWrap& cw, const char* sz)
 		{
@@ -711,6 +717,15 @@ namespace bvm2 {
 			}
 */
 
+/*
+			if (cid == m_Amm.m_Cid)
+			{
+				TempFrame f(*this, cid);
+				switch (iMethod)
+				{
+				}
+			}
+*/
 			ProcessorContract::CallFar(cid, iMethod, pArgs, bInheritContext);
 		}
 
@@ -729,6 +744,7 @@ namespace bvm2 {
 		void TestDaoVote();
 		void TestAphorize();
 		void TestLiquity();
+		void TestAmm();
 
 		void TestAll();
 	};
@@ -937,12 +953,14 @@ namespace bvm2 {
 		AddCode(m_DaoVote, "dao-vote/contract.wasm");
 		AddCode(m_Aphorize, "aphorize/contract.wasm");
 		AddCode(m_Liquity, "liquity/contract.wasm");
+		AddCode(m_Amm, "amm/contract.wasm");
 
 		m_FarCalls.m_SaveLocal = true;
 
 		TestVault();
 		TestAphorize();
 		TestLiquity();
+		TestAmm();
 		TestFaucet();
 		TestRoulette();
 		TestVoting();
@@ -1469,6 +1487,9 @@ namespace bvm2 {
 
 	void MyProcessor::TestLiquity()
 	{
+		VERIFY_ID(Shaders::Liquity::s_SID, m_Liquity.m_Sid);
+		VERIFY_ID(Shaders::Oracle2::s_SID, m_Oracle2.m_Sid);
+
 		MyManager man(*this);
 		man.InitMem();
 
@@ -1492,7 +1513,11 @@ namespace bvm2 {
 			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 5;
 			args.m_Settings.m_AidProfit = 77;
 
+			m_FarCalls.m_Stack.Create_back()->m_Body = m_Dummy.m_Code; // add dummy frame, any valid shader is ok
+
 			verify_test(ContractCreate_T(m_Liquity.m_Cid, m_Liquity.m_Code, args));
+
+			m_FarCalls.m_Stack.Clear();
 		}
 
 		LiquityContext lc(*this);
@@ -1665,6 +1690,11 @@ namespace bvm2 {
 			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
+	}
+
+	void MyProcessor::TestAmm()
+	{
+		VERIFY_ID(Shaders::Amm::s_SID, m_Amm.m_Sid);
 	}
 
 	namespace IndexDecoder
@@ -1873,6 +1903,8 @@ namespace bvm2 {
 		Zero_ zero;
 		verify_test(ContractCreate_T(cid, m_Dummy.m_Code, zero));
 
+		m_lstUndo.Clear();
+
 		{
 			Shaders::Dummy::TestFarCall args;
 			args.m_Variant = 0;
@@ -1896,6 +1928,8 @@ namespace bvm2 {
 			args.m_Variant = 0;
 			args.m_InheritCtx = 1;
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args)); // should succeed, but won't affect the callee contract
+
+			UndoChanges();
 		}
 
 		{
@@ -2188,6 +2222,17 @@ namespace bvm2 {
 			args.m_EpochDatasetSize = m_Eth.m_DatasetCount;
 
 			verify_test(RunGuarded(cid, args.s_iMethod, buf, nullptr));
+		}
+
+		{
+			Rules::get().pForks[4].m_Height = 1000000000;
+			Rules::get().pForks[4].m_Hash = Zero;
+
+			Height h = Rules::get().pForks[4].m_Height + 3;
+			TemporarySwap ts(h, m_Height);
+
+			Shaders::Dummy::FindVarTest args;
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
 		}
 
 		verify_test(ContractDestroy_T(cid, zero));

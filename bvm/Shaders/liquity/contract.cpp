@@ -311,6 +311,9 @@ struct MyGlobal_LoadSave
 
 BEAM_EXPORT void Ctor(const Method::Create& r)
 {
+    if (Env::get_CallDepth() == 1)
+        return;
+
     MyGlobal g;
     _POD_(g).SetZero();
 
@@ -334,6 +337,12 @@ BEAM_EXPORT void Dtor(void*)
 BEAM_EXPORT void Method_2(void*)
 {
     // called on upgrade
+    //
+    // Make sure it's invoked appropriately
+    //ContractID cid0, cid1;
+    //Env::get_CallerCid(0, cid0);
+    //Env::get_CallerCid(1, cid1);
+    //Env::Halt_if(_POD_(cid0) != cid1);
 }
 
 BEAM_EXPORT void Method_3(const Method::TroveOpen& r)

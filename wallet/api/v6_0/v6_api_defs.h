@@ -207,12 +207,14 @@ namespace beam::wallet
     struct Status
     {
         TxID txId;
+        bool withRates = false;
 
         struct Response
         {
             TxDescription tx;
             Height txProofHeight;
             Height systemHeight;
+            bool withRates;
         };
     };
 
@@ -322,6 +324,7 @@ namespace beam::wallet
 
         uint32_t count = 0;
         uint32_t skip = 0;
+        bool withRates = false;
 
         struct Response
         {

@@ -116,7 +116,7 @@ namespace beam::wallet
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
-        ipfs->AnyThread_unpin(req.hash, req.timeout,
+        ipfs->AnyThread_unpin(req.hash,
           [this, id, hash = req.hash, wguard = _weakSelf]() {
               auto guard = wguard.lock();
               if (!guard)

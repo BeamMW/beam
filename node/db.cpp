@@ -2991,6 +2991,17 @@ bool NodeDB::ContractDataFindNext(Blob& key, Recordset& rs)
 	return true;
 }
 
+bool NodeDB::ContractDataFindPrev(Blob& key, Recordset& rs)
+{
+	rs.Reset(*this, Query::ContractDataFindPrev, "SELECT " TblContracts_Key " FROM " TblContracts " WHERE " TblContracts_Key "<?");
+	rs.put(0, key);
+	if (!rs.Step())
+		return false;
+
+	rs.get(0, key);
+	return true;
+}
+
 void NodeDB::ContractDataInsert(const Blob& key, const Blob& data)
 {
 	Recordset rs(*this, Query::ContractDataInsert, "INSERT INTO " TblContracts " (" TblContracts_Key "," TblContracts_Value ") VALUES(?,?)");

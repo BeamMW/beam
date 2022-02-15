@@ -147,6 +147,7 @@ BEAM_EXPORT void Method_4(const Method::Set& r)
     }
 
     med.Save();
+    s.Save();
 }
 
 

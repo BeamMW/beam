@@ -494,6 +494,7 @@ namespace beam
 		}
 
 		Finalyze();
+		OnProgress();
 		return true;
 	}
 
@@ -606,6 +607,12 @@ namespace beam
 
 			if (ai.m_ID > Asset::s_MaxCount)
 				break;
+
+			if (ai.m_ID <= m_Assets.m_Count)
+				ThrowBadData();
+
+			while (ai.m_ID > m_Assets.m_Count + 1)
+				m_Assets.Append(Zero);
 
 			m_Der & Cast::Down<Asset::Info>(ai);
 

@@ -187,7 +187,7 @@ struct AppGlobal
 {
     bool Load(const ContractID& cid)
     {
-        Env::SelectContext(1, 0); // dependent ctx
+        //Env::SelectContext(1, 0); // dependent ctx
 
         Env::Key_T<uint8_t> key;
         _POD_(key.m_Prefix.m_Cid) = cid;
@@ -757,7 +757,7 @@ ON_METHOD(user, upd_stab)
     args.m_Flow.Tok.Add(newVal, 1);
 
     if (!args.m_Flow.Tok.m_Val && !args.m_Flow.Col.m_Val)
-        OnError("no change");
+        return OnError("no change");
 
     args.m_NewAmount = newVal;
     _POD_(args.m_pkUser) = g.m_MyStab.m_Pk;
@@ -801,7 +801,7 @@ ON_METHOD(user, upd_profit)
     fGov.Add(newVal, 1);
 
     if (!args.m_Flow.Col.m_Val && !fGov.m_Val)
-        OnError("no change");
+        return OnError("no change");
 
     _POD_(args.m_pkUser) = g.m_MyProfit.m_Pk;
 

@@ -25,7 +25,9 @@ namespace beam::wallet
         macro(IPFSPin,   "ipfs_pin",   API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(IPFSUnpin, "ipfs_unpin", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(IPFSGc,    "ipfs_gc",    API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)
-        // TODO:IPFS add ipfs_caps method that returns all available capabilities
+        // TODO:IPFS add ipfs_caps/ev_ipfs_state methods that returns all available capabilities and ipfs state
+        // TODO:IPFS check ipfs_unpin behavior in case when data is not present
+        // TODO:IPFS consider pin flag for ipfs_add
 
     struct IPFSAdd
     {
@@ -64,8 +66,6 @@ namespace beam::wallet
     struct IPFSUnpin
     {
         std::string hash;
-        uint32_t timeout = 0;
-
         struct Response
         {
             std::string hash;
