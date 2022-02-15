@@ -801,7 +801,7 @@ ON_METHOD(user, upd_profit)
     fGov.Add(newVal, 1);
 
     if (!args.m_Flow.Col.m_Val && !fGov.m_Val)
-        OnError("no change");
+        return OnError("no change");
 
     _POD_(args.m_pkUser) = g.m_MyProfit.m_Pk;
 
