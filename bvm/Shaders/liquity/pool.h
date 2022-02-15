@@ -19,6 +19,17 @@ struct HomogenousPool
         }
     };
 
+    static Amount Round(Float x)
+    {
+        assert(x.m_Order <= 0); // assume overflow won't happen
+
+        Float half;
+        half.m_Num = Float::s_HiBit;
+        half.m_Order = 0 - Float::s_Bits;
+
+        return x + half;
+    }
+
     struct Pair
     {
         Amount s;
@@ -114,6 +125,12 @@ struct HomogenousPool
                 e.m_Users++; // won't overflow, 4bln isn't feasible
             }
 
+            Amount CalcComponent_(Amount threshold, Float x) const
+            {
+                Amount res = Round(m_SellScaled * x);
+                return std::min(res, threshold);
+            }
+
             void DelRO_(const Epoch& e, Pair& out) const
             {
                 assert(e.m_Users);
@@ -122,8 +139,8 @@ struct HomogenousPool
                     out = e.m_Balance;
                 else
                 {
-                    out.s = std::min<Amount>(e.m_Balance.s, m_SellScaled * e.m_kScale);
-                    out.b = std::min<Amount>(e.m_Balance.b, m_SellScaled * (e.m_Sigma - m_Sigma0));
+                    out.s = CalcComponent_(e.m_Balance.s, e.m_kScale);
+                    out.b = CalcComponent_(e.m_Balance.b, e.m_Sigma - m_Sigma0);
                 }
             }
 
@@ -373,7 +390,7 @@ struct StaticPool
 
             for (uint32_t i = 0; i < nDims; i++)
             {
-                pRet[i] = w * (m_pSigma[i] - u.m_pSigma0[i]);
+                pRet[i] = HomogenousPool::Round(w * (m_pSigma[i] - u.m_pSigma0[i]));
                 pRet[i] = std::min(pRet[i], m_pValue[i]);
                 m_pValue[i] -= pRet[i];
             }
