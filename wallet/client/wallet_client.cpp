@@ -2022,7 +2022,10 @@ namespace beam::wallet
         {
             LOG_ERROR() << "Unable to resolve address: " << host;
 
-            callback(false , "");
+            postFunctionToClientContext([cb = std::move(callback)]()
+            {
+                cb(false, "");
+            });
             return;
         }
         if (address.port() == 0)
@@ -2046,7 +2049,7 @@ namespace beam::wallet
             .numHeaders(headers.size())
             .method("GET");
 
-        request.callback([callback](uint64_t id, const HttpMsgReader::Message& msg) -> bool
+        request.callback([this, cb = std::move(callback)](uint64_t id, const HttpMsgReader::Message& msg) -> bool
         {
             bool isOk = false;
             std::string response;
@@ -2072,7 +2075,11 @@ namespace beam::wallet
             {
                 LOG_ERROR() << "Failed to load application list reason: " << msg.what;
             }
-            callback(isOk, response);
+
+            postFunctionToClientContext([isOk, res = std::move(response), callback = std::move(cb)]()
+            {
+                callback(isOk, res);
+            });
             return false;
         });
 
