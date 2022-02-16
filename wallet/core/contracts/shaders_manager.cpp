@@ -212,7 +212,7 @@ namespace beam::wallet {
         req.shader   = shader;
         req.args     = args;
         req.method   = method;
-        req.doneAll  = doneHandler;
+        req.doneAll  = std::move(doneHandler);
         req.priority = priority;
         req.unique   = unique;
         pushRequest(std::move(req));
@@ -231,7 +231,7 @@ namespace beam::wallet {
         req.shader   = shader;
         req.args     = args;
         req.method   = method;
-        req.doneCall = doneHandler;
+        req.doneCall = std::move(doneHandler);
         req.priority = priority;
         req.unique   = unique;
         pushRequest(std::move(req));
@@ -363,11 +363,11 @@ namespace beam::wallet {
             LOG_INFO() << "Shader Error: " << *error;
             if (req.doneAll)
             {
-                return req.doneAll(boost::none, boost::none, error);
+                return req.doneAll(boost::none, boost::none, std::move(error));
             }
             else
             {
-                return req.doneCall(boost::none, boost::none, error);
+                return req.doneCall(boost::none, boost::none, std::move(error));
             }
         }
 
@@ -381,11 +381,11 @@ namespace beam::wallet {
         {
             if (req.doneAll)
             {
-                return req.doneAll(boost::none, result, boost::none);
+                return req.doneAll(boost::none, std::move(result), boost::none);
             }
             else
             {
-                return req.doneCall(boost::none, result, boost::none);
+                return req.doneCall(boost::none, std::move(result), boost::none);
             }
         }
 
@@ -395,12 +395,12 @@ namespace beam::wallet {
 
             if (req.doneCall)
             {
-                return req.doneCall(buffer, result, boost::none);
+                return req.doneCall(std::move(buffer), std::move(result), boost::none);
             }
 
-            return ProcessTxData(buffer, [result, allHandler = req.doneAll] (boost::optional<TxID> txid, boost::optional<std::string> error)
+            return ProcessTxData(buffer, [result=std::move(result), allHandler = std::move(req.doneAll)](const boost::optional<TxID>& txid, boost::optional<std::string>&& error) mutable
             {
-                return allHandler(std::move(txid), result, std::move(error));
+                return allHandler(txid, std::move(result), std::move(error));
             });
         }
         catch (std::runtime_error &err)
@@ -408,11 +408,11 @@ namespace beam::wallet {
             std::string error = err.what();
             if (req.doneAll)
             {
-                return req.doneAll(boost::none, result, error);
+                return req.doneAll(boost::none, std::move(result), std::move(error));
             }
             else
             {
-                return req.doneCall(boost::none, result, error);
+                return req.doneCall(boost::none, std::move(result), std::move(error));
             }
         }
     }
