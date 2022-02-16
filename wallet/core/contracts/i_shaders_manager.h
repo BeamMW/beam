@@ -22,9 +22,9 @@ namespace beam::wallet
     class IShadersManager
     {
     public:
-        typedef std::function <void (boost::optional<TxID> txid, boost::optional<std::string> output, boost::optional<std::string> error)> DoneAllHandler;
-        typedef std::function <void (boost::optional<ByteBuffer> data, boost::optional<std::string> output, boost::optional<std::string> error)> DoneCallHandler;
-        typedef std::function <void (boost::optional<TxID> txid, boost::optional<std::string> error)> DoneTxHandler;
+        typedef std::function <void (const boost::optional<TxID>& txid, boost::optional<std::string>&& output, boost::optional<std::string>&& error)> DoneAllHandler;
+        typedef std::function <void (boost::optional<ByteBuffer>&& data, boost::optional<std::string>&& output, boost::optional<std::string>&& error)> DoneCallHandler;
+        typedef std::function <void (const boost::optional<TxID>& txid, boost::optional<std::string>&& error)> DoneTxHandler;
 
         typedef std::shared_ptr<IShadersManager> Ptr;
         typedef std::weak_ptr<IShadersManager> WeakPtr;
