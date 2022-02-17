@@ -316,6 +316,9 @@ namespace Shaders {
 	template <bool bToShader> void Convert(Liquity::Method::Liquidate& x) {
 		ConvertOrd<bToShader>(x.m_Count);
 	}
+	template <bool bToShader> void Convert(Mintor::Method::Base& x) {
+		ConvertOrd<bToShader>(x.m_Tid);
+	}
 
 	namespace Env {
 
@@ -500,6 +503,7 @@ namespace bvm2 {
 		ContractWrap m_DaoVote;
 		ContractWrap m_Aphorize;
 		ContractWrap m_Liquity;
+		ContractWrap m_Mintor;
 		ContractWrap m_Amm;
 
 		void AddCode(ContractWrap& cw, const char* sz)
@@ -744,6 +748,7 @@ namespace bvm2 {
 		void TestDaoVote();
 		void TestAphorize();
 		void TestLiquity();
+		void TestMintor();
 		void TestAmm();
 
 		void TestAll();
@@ -953,6 +958,7 @@ namespace bvm2 {
 		AddCode(m_DaoVote, "dao-vote/contract.wasm");
 		AddCode(m_Aphorize, "aphorize/contract.wasm");
 		AddCode(m_Liquity, "liquity/contract.wasm");
+		AddCode(m_Mintor, "mintor/contract.wasm");
 		AddCode(m_Amm, "amm/contract.wasm");
 
 		m_FarCalls.m_SaveLocal = true;
@@ -960,6 +966,7 @@ namespace bvm2 {
 		TestVault();
 		TestAphorize();
 		TestLiquity();
+		TestMintor();
 		TestAmm();
 		TestFaucet();
 		TestRoulette();
@@ -1690,6 +1697,18 @@ namespace bvm2 {
 			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
+	}
+
+	void MyProcessor::TestMintor()
+	{
+		VERIFY_ID(Shaders::Mintor::s_SID, m_Mintor.m_Sid);
+
+		{
+			Zero_ zero;
+			verify_test(ContractCreate_T(m_Mintor.m_Cid, m_Mintor.m_Code, zero));
+		}
+
+		VERIFY_ID(Shaders::Mintor::s_CID, m_Mintor.m_Cid);
 	}
 
 	void MyProcessor::TestAmm()
