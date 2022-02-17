@@ -198,7 +198,7 @@ namespace beam::wallet
     void V61Api::onHandleInvokeContractWithTX(const JsonRpcId &id, InvokeContractV61&& data)
     {
         getContracts()->CallShaderAndStartTx(data.contract, data.args, data.args.empty() ? 0 : 1, data.priority, data.unique,
-        [this, id, wguard = _weakSelf](boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
+        [this, id, wguard = _weakSelf](const boost::optional<TxID>& txid, boost::optional<std::string>&& result, boost::optional<std::string>&& error) {
             auto guard = wguard.lock();
             if (!guard)
             {
@@ -228,7 +228,7 @@ namespace beam::wallet
     void V61Api::onHandleInvokeContractNoTX(const JsonRpcId &id, InvokeContractV61&& data)
     {
         getContracts()->CallShader(data.contract, data.args, data.args.empty() ? 0 : 1, data.priority, data.unique,
-        [this, id, wguard = _weakSelf](boost::optional<ByteBuffer> data, boost::optional<std::string> output, boost::optional<std::string> error) {
+        [this, id, wguard = _weakSelf](boost::optional<ByteBuffer>&& data, boost::optional<std::string>&& output, boost::optional<std::string>&& error) {
             auto guard = wguard.lock();
             if (!guard)
             {

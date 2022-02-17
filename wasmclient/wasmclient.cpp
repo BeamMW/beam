@@ -166,6 +166,16 @@ public:
         return getWalletDB();
     }
 
+    void RegisterApi(WasmAppApi::Ptr api)
+    {
+        m_Apis.emplace_back(api);
+    }
+
+    void UnregisterApi(WasmAppApi::Ptr api)
+    {
+        m_Apis.erase(std::remove(m_Apis.begin(), m_Apis.end(), api), m_Apis.end());
+    }
+
 private:
     void onSyncProgressUpdated(int done, int total) override
     {
@@ -187,7 +197,7 @@ private:
         auto thisWeakPtr = std::make_unique<WeakPtr>(shared_from_this());
         emscripten_async_run_in_main_runtime_thread(
             EM_FUNC_SIG_VI,
-            &WalletClient2::ProsessMessageOnMainThread,
+            &WalletClient2::ProcessMessageOnMainThread,
             reinterpret_cast<int>(thisWeakPtr.release()));
     }
 
@@ -230,7 +240,7 @@ private:
         });
     }
 
-    static void ProsessMessageOnMainThread(int pThis)
+    static void ProcessMessageOnMainThread(int pThis)
     {
         std::unique_ptr<WeakPtr> wp(reinterpret_cast<WeakPtr*>(pThis));
         assert(wp->use_count() == 1);
@@ -264,6 +274,59 @@ private:
     ICallbackHandler* m_CbHandler = nullptr;
     Callback m_StoppedHandler;
     IWalletApi::Ptr m_WalletApi;
+    std::vector<WasmAppApi::Ptr> m_Apis;
+};
+
+class WasmAppApiProxy
+{
+public:
+    WasmAppApiProxy(WalletClient2::Ptr wc, WasmAppApi::Ptr api)
+        : m_wclient{ wc }
+        , m_wapi{ api }
+    {
+
+    }
+
+    ~WasmAppApiProxy()
+    {
+        if (auto sp = m_wclient.lock())
+        {
+            if (auto sp2 = m_wapi.lock())
+            {
+                sp->UnregisterApi(sp2);
+            }
+        }
+    }
+
+    // This is visible to jscript
+    void CallWalletAPI(const std::string& request)
+    {
+        if (auto sp = m_wapi.lock())
+        {
+            sp->CallWalletAPI(request);
+        }
+        else
+        {
+            LOG_ERROR() << "Failed to call API, wallet is not running";
+        }
+    }
+
+    // This is visible to jscript
+    void SetResultHandler(emscripten::val handler)
+    {
+        if (auto sp = m_wapi.lock())
+        {
+            sp->SetResultHandler(std::move(handler));
+        }
+        else
+        {
+            LOG_ERROR() << "Failed to set result callback, wallet is not running";
+        }
+    }
+
+private:
+    WalletClient2::WeakPtr m_wclient;
+    WasmAppApi::WeakPtr m_wapi;
 };
 
 class AppAPICallback
@@ -458,10 +521,9 @@ public:
             auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
             additionalTxCreators->emplace(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(dbFunc));
 
-            if (m_NeedToRestore)
+            if (!m_CurrentRecoveryFile.empty())
             {
-                m_NeedToRestore = false;
-                m_Client->getAsync()->importRecovery(RecoveryFileName.data());
+                m_Client->getAsync()->importRecovery(std::move(m_CurrentRecoveryFile)); // m_CurrentRecoveryFile should be cleared 
             }
             m_Client->getAsync()->enableBodyRequests(true);
             m_Client->start({}, true, additionalTxCreators);
@@ -613,11 +675,11 @@ public:
 
                 WasmAppApi::WeakPtr weakApi = wapi;
                 wapi->SetPostToClientHandler(
-                    [weak2](std::function<void (void)> func)
+                    [weak2](std::function<void (void)>&& func)
                     {
                         if (auto client2 = weak2.lock())
                         {
-                            client2->postFunctionToClientContext([func]() {
+                            client2->postFunctionToClientContext([func=std::move(func)]() {
                                 func();
                             });
                         }
@@ -649,8 +711,12 @@ public:
                         }
                     }
                 );
+                if (auto client = weak2.lock())
+                {
+                    client->RegisterApi(wapi);
+                    cb(val::undefined(), std::make_unique<WasmAppApiProxy>(client, wapi));               
+                }
 
-                cb(val::undefined(), wapi);
             }
         );
     }
@@ -675,7 +741,29 @@ public:
             {
                 m_RecoveryCallback = std::make_unique<val>(std::move(callback));
             }
-            m_NeedToRestore = true;
+            m_CurrentRecoveryFile = RecoveryFileName;
+        }
+        catch (const std::exception& ex)
+        {
+            HandleException(ex);
+        }
+    }
+
+    void ImportRecoveryFromFile(const std::string& fileName, val&& callback)
+    {
+        AssertMainThread();
+        if (m_RecoveryCallback)
+        {
+            LOG_WARNING() << "Recovery is in progress";
+            return;
+        }
+        try
+        {
+            if (!callback.isNull())
+            {
+                m_RecoveryCallback = std::make_unique<val>(std::move(callback));
+            }
+            m_CurrentRecoveryFile = fileName;
         }
         catch (const std::exception& ex)
         {
@@ -892,7 +980,7 @@ private:
     WalletClient2::Ptr m_Client;
     IWalletApi::Ptr m_WalletApi;
     bool m_Headless = false;
-    bool m_NeedToRestore = false;
+    std::string m_CurrentRecoveryFile;
 };
 
 val WasmWalletClient::s_MountCB = val::null();
@@ -917,6 +1005,7 @@ EMSCRIPTEN_BINDINGS()
         .function("setApproveContractInfoHandler", &WasmWalletClient::SetApproveContractInfoHandler)
         .function("createAppAPI", &WasmWalletClient::CreateAppAPI)
         .function("importRecovery", &WasmWalletClient::ImportRecovery)
+        .function("importRecoveryFromFile", &WasmWalletClient::ImportRecoveryFromFile)
         .class_function("IsAppSupported", &WasmWalletClient::IsAppSupported)
         .class_function("GenerateAppID", &WasmWalletClient::GenerateAppID)
         .class_function("GeneratePhrase", &WasmWalletClient::GeneratePhrase)
@@ -930,13 +1019,11 @@ EMSCRIPTEN_BINDINGS()
         .class_function("IsInitialized", &WasmWalletClient::IsInitialized)
         .class_function("CheckPassword", &WasmWalletClient::CheckPassword)
         ;
-    class_<WasmAppApi>("AppAPI")
-        .smart_ptr<std::shared_ptr<WasmAppApi>>("AppAPI")
-        .function("callWalletApi", &WasmAppApi::CallWalletAPI)
-        .function("setHandler", &WasmAppApi::SetResultHandler)
+    class_<WasmAppApiProxy>("AppAPI")
+        .function("callWalletApi", &WasmAppApiProxy::CallWalletAPI)
+        .function("setHandler", &WasmAppApiProxy::SetResultHandler)
         ;
     class_<AppAPICallback>("AppAPICallback")
-        .constructor<WasmAppApi::Ptr>()
         .function("sendApproved", &AppAPICallback::SendApproved)
         .function("sendRejected", &AppAPICallback::SendRejected)
         .function("contractInfoApproved", &AppAPICallback::ContractInfoApproved)

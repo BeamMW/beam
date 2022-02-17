@@ -76,12 +76,12 @@ void WasmAppApi::SetContractConsentHandler(ClientThread_ContractConsentHandler h
     m_ctContractConsent = std::move(handler);
 }
 
-void WasmAppApi::SetPostToClientHandler(AnyThread_PostHandler handler)
+void WasmAppApi::SetPostToClientHandler(AnyThread_PostHandler&& handler)
 {
     m_postToClient = std::move(handler);
 }
 
-void WasmAppApi::AnyThread_sendApiResponse(const std::string& result)
+void WasmAppApi::AnyThread_sendApiResponse(std::string&& result)
 {
     if (!m_postToClient)
     {
@@ -89,7 +89,7 @@ void WasmAppApi::AnyThread_sendApiResponse(const std::string& result)
     }
 
     WeakPtr wp = shared_from_this();
-    std::function<void (void)> execInCT = [this, wp, result]()
+    std::function<void (void)> execInCT = [this, wp, result=std::move(result)]()
     {
         if (auto sp = wp.lock())
         {
@@ -99,7 +99,7 @@ void WasmAppApi::AnyThread_sendApiResponse(const std::string& result)
             }
         }
     };
-    m_postToClient(execInCT);
+    m_postToClient(std::move(execInCT));
 }
 
 void WasmAppApi::ClientThread_getContractConsent(const std::string& request, const nlohmann::json& oinfo, const nlohmann::json& oamounts)

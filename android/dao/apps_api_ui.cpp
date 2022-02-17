@@ -63,7 +63,7 @@ void AppsApiUI::callWalletApi(const std::string& request)
     AnyThread_callWalletApiChecked(request);
 }
 
-void AppsApiUI::AnyThread_sendApiResponse(const std::string& result)
+void AppsApiUI::AnyThread_sendApiResponse(std::string&& result)
 {
     LOG_INFO() << "Send Api Response: " << getAppName() << ", " << getAppId() << ", " << result;
 

@@ -269,7 +269,7 @@ namespace beam::wallet
             auto str = result.dump();
             if (!str.empty())
             {
-                AnyThread_sendApiResponse(str);
+                AnyThread_sendApiResponse(std::move(str));
             }
         }
 
@@ -283,7 +283,7 @@ namespace beam::wallet
             AnyThread_sendApiResponse(error);
         }
 
-        virtual void AnyThread_sendApiResponse(const std::string& result) = 0;
+        virtual void AnyThread_sendApiResponse(std::string&& result) = 0;
         virtual void ClientThread_getSendConsent(const std::string& request, const nlohmann::json& info, const nlohmann::json& amounts) = 0;
         virtual void ClientThread_getContractConsent(const std::string& request, const nlohmann::json& info, const nlohmann::json& amounts) = 0;
 
