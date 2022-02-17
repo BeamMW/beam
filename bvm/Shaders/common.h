@@ -44,8 +44,8 @@ struct Opaque {
 };
 
 struct Secp_point_data {
-    Opaque<32> X;
-    uint8_t Y;
+    Opaque<32> m_X;
+    uint8_t m_Y;
 };
 
 #pragma pack (pop)
