@@ -1,9 +1,10 @@
 #pragma once
 #include "../Math.h"
+#include "../mintor/contract.h"
 
 namespace Amm
 {
-    static const ShaderID s_SID = { 0x31,0x94,0x69,0xe7,0x40,0x8c,0x27,0x92,0x9b,0x30,0x41,0x70,0xac,0x00,0xde,0x37,0xd3,0x0a,0x1c,0xfe,0x2e,0xfe,0xd1,0x7e,0xeb,0xa9,0xb3,0x6f,0xb2,0x65,0x43,0x43 };
+    static const ShaderID s_SID = { 0xa7,0x09,0xac,0xd7,0x8b,0x4a,0x78,0x0a,0x11,0x5e,0xb1,0x0e,0x88,0x32,0xc6,0x28,0x55,0xf3,0xe8,0x37,0xf7,0x43,0x0c,0xc4,0x8a,0x59,0xb4,0x19,0x9a,0xa8,0x47,0xf4 };
 
 #pragma pack (push, 1)
 
@@ -13,7 +14,6 @@ namespace Amm
     {
         // don't use tag=1 for multiple data entries, it's used by Upgradable2
         static const uint8_t s_Pool = 2;
-        static const uint8_t s_User = 3;
     };
 
     struct Amounts
@@ -163,23 +163,8 @@ namespace Amm
             ID m_ID;
         };
 
+        Mintor::Token::ID m_tidCtl;
         Totals m_Totals;
-    };
-
-    struct User
-    {
-        struct ID
-        {
-            Pool::ID m_Pid;
-            PubKey m_pk;
-        };
-
-        struct Key {
-            uint8_t m_Tag = Tags::s_User;
-            ID m_ID;
-        };
-    
-        Amount m_Ctl;
     };
 
     namespace Method
@@ -190,8 +175,9 @@ namespace Amm
         };
 
         struct PoolUserInvoke
+            :public PoolInvoke
         {
-            User::ID m_Uid;
+            PubKey m_pk;
         };
 
         struct AddLiquidity :public PoolUserInvoke

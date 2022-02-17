@@ -8,6 +8,7 @@ namespace Amm {
 
 BEAM_EXPORT void Ctor(const void*)
 {
+    Env::Halt_if(!Env::RefAdd(Mintor::s_CID));
 }
 
 BEAM_EXPORT void Dtor(void*)
@@ -27,13 +28,22 @@ struct MyPool :public Pool
 BEAM_EXPORT void Method_2(const Method::AddLiquidity& r)
 {
     Pool::Key key;
-    key.m_ID = r.m_Uid.m_Pid;
+    key.m_ID = r.m_Pid;
 
     MyPool p;
     if (!Env::LoadVar_T(key, p))
     {
         Env::Halt_if(key.m_ID.m_Aid1 >= key.m_ID.m_Aid2); // potentially creating a new pool, key must be well-ordered
         _POD_(p).SetZero();
+
+        Mintor::Method::Create arg;
+        arg.m_pkUser.m_Y = Mintor::PubKeyFlag::s_Cid;
+        Env::get_CallerCid(0, arg.m_pkUser.m_X);
+        _POD_(arg.m_Limit).SetObject(0xff);
+
+        Env::CallFar_T(Mintor::s_CID, arg);
+
+        p.m_tidCtl = arg.m_Tid;
     }
 
     Amount dCtl;
@@ -62,22 +72,18 @@ BEAM_EXPORT void Method_2(const Method::AddLiquidity& r)
     Env::FundsLock(key.m_ID.m_Aid1, r.m_Amounts.m_Tok1);
     Env::FundsLock(key.m_ID.m_Aid2, r.m_Amounts.m_Tok2);
 
-    User::Key uk;
-    _POD_(uk.m_ID) = r.m_Uid;
-
-    User u;
-    if (Env::LoadVar_T(uk, u))
-        Strict::Add(u.m_Ctl, dCtl);
-    else
-        u.m_Ctl = dCtl;
-
-    Env::SaveVar_T(uk, u);
+    Mintor::Method::Mint arg;
+    arg.m_Tid = p.m_tidCtl;
+    arg.m_Mint = 1;
+    arg.m_Value = dCtl;
+    _POD_(arg.m_pkUser) = r.m_pk;
+    Env::CallFar_T(Mintor::s_CID, arg);
 }
 
 BEAM_EXPORT void Method_3(const Method::Withdraw& r)
 {
     Pool::Key key;
-    key.m_ID = r.m_Uid.m_Pid;
+    key.m_ID = r.m_Pid;
     MyPool p(key);
 
     auto dVals = p.m_Totals.Remove(r.m_Ctl);
@@ -90,19 +96,12 @@ BEAM_EXPORT void Method_3(const Method::Withdraw& r)
     Env::FundsUnlock(key.m_ID.m_Aid1, dVals.m_Tok1);
     Env::FundsUnlock(key.m_ID.m_Aid2, dVals.m_Tok2);
 
-    User::Key uk;
-    _POD_(uk.m_ID) = r.m_Uid;
-
-    User u;
-    Env::Halt_if(!Env::LoadVar_T(uk, u));
-    Strict::Sub(u.m_Ctl, r.m_Ctl);
-
-    if (u.m_Ctl)
-        Env::SaveVar_T(uk, u);
-    else
-        Env::DelVar_T(uk);
-
-    Env::AddSig(uk.m_ID.m_pk);
+    Mintor::Method::Mint arg;
+    arg.m_Tid = p.m_tidCtl;
+    arg.m_Mint = 0;
+    arg.m_Value = r.m_Ctl;
+    _POD_(arg.m_pkUser) = r.m_pk;
+    Env::CallFar_T(Mintor::s_CID, arg);
 }
 
 BEAM_EXPORT void Method_4(const Method::Trade& r)
