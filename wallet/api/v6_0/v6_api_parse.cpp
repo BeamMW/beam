@@ -1290,18 +1290,18 @@ namespace beam::wallet
         };
     }
 
-    void V6Api::fillTransactions(json& arr, const std::vector<Status::Response> txs)
+    void V6Api::fillTransactions(json& arr, const std::vector<Status::Response>& txs)
     {
         for (const auto& resItem : txs)
         {
-            json item = {};
+            arr.emplace_back();
+            json& item = arr.back();
             GetStatusResponseJson(
                 resItem.tx,
                 item,
                 resItem.txProofHeight,
                 resItem.systemHeight,
                 resItem.withRates);
-            arr.push_back(item);
         }
     }
 

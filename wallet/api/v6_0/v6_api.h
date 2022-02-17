@@ -50,7 +50,7 @@ namespace beam::wallet
         virtual void fillAssetInfo(json& arr, const WalletAsset& info);
         virtual void fillAddresses(json& arr, const std::vector<WalletAddress>& items);
         virtual void fillCoins(json& arr, const std::vector<ApiCoin>& coins);
-        virtual void fillTransactions(json& arr, const std::vector<Status::Response> txs);
+        virtual void fillTransactions(json& arr, const std::vector<Status::Response>& txs);
 
     private:
         void FillAddressData(const AddressData& data, WalletAddress& address);
