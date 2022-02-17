@@ -561,6 +561,11 @@ ON_METHOD(user, trade)
         arg.m_Pid.m_Aid1 = aid1; // order as specified, not normalized
         arg.m_Pid.m_Aid2 = aid2;
 
+        if ((Pool::ID::s_Token & aid1) || (Pool::ID::s_Token & aid2))
+            return OnError("tokens not supported yet");
+
+        _POD_(arg.m_pk).SetZero();
+
         FundsChange pFc[2];
         pFc[0].m_Amount = arg.m_Buy1;
         pFc[0].m_Aid = aid1;

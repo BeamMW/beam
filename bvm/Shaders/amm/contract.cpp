@@ -13,6 +13,7 @@ BEAM_EXPORT void Ctor(const void*)
 
 BEAM_EXPORT void Dtor(void*)
 {
+    Env::Halt_if(!Env::RefRelease(Mintor::s_CID));
 }
 
 
@@ -24,6 +25,42 @@ struct MyPool :public Pool
 
     void Save(const Key& key) { Env::SaveVar_T(key, *this); }
 };
+
+void FundsMove(AssetID aid, const PubKey& pk, Amount val, bool bLock)
+{
+    if (Pool::ID::s_Token & aid)
+    {
+        Mintor::Method::Transfer arg;
+        arg.m_Tid = aid & ~Pool::ID::s_Token;
+        arg.m_Value = val;
+
+        auto& pkUser = bLock ? arg.m_pkUser : arg.m_pkDst;
+        auto& pkMe = bLock ? arg.m_pkDst : arg.m_pkUser;
+
+        _POD_(pkUser) = pk;
+        _POD_(pkMe.m_X).SetZero();
+        pkMe.m_Y = Mintor::PubKeyFlag::s_Cid;
+
+        Env::CallFar_T(Mintor::s_CID, arg);
+    }
+    else
+    {
+        if (bLock)
+            Env::FundsLock(aid, val);
+        else
+            Env::FundsUnlock(aid, val);
+    }
+}
+
+void PoolCtlMove(const Pool& p, const PubKey& pk, Amount val, uint8_t bMint)
+{
+    Mintor::Method::Mint arg;
+    arg.m_Tid = p.m_tidCtl;
+    arg.m_Mint = bMint;
+    arg.m_Value = val;
+    _POD_(arg.m_pkUser) = pk;
+    Env::CallFar_T(Mintor::s_CID, arg);
+}
 
 BEAM_EXPORT void Method_2(const Method::AddLiquidity& r)
 {
@@ -69,15 +106,10 @@ BEAM_EXPORT void Method_2(const Method::AddLiquidity& r)
 
     p.Save(key);
 
-    Env::FundsLock(key.m_ID.m_Aid1, r.m_Amounts.m_Tok1);
-    Env::FundsLock(key.m_ID.m_Aid2, r.m_Amounts.m_Tok2);
+    FundsMove(key.m_ID.m_Aid1, r.m_pk, r.m_Amounts.m_Tok1, true);
+    FundsMove(key.m_ID.m_Aid2, r.m_pk, r.m_Amounts.m_Tok2, true);
 
-    Mintor::Method::Mint arg;
-    arg.m_Tid = p.m_tidCtl;
-    arg.m_Mint = 1;
-    arg.m_Value = dCtl;
-    _POD_(arg.m_pkUser) = r.m_pk;
-    Env::CallFar_T(Mintor::s_CID, arg);
+    PoolCtlMove(p, r.m_pk, dCtl, 1);
 }
 
 BEAM_EXPORT void Method_3(const Method::Withdraw& r)
@@ -93,15 +125,10 @@ BEAM_EXPORT void Method_3(const Method::Withdraw& r)
     else
         Env::DelVar_T(key);
 
-    Env::FundsUnlock(key.m_ID.m_Aid1, dVals.m_Tok1);
-    Env::FundsUnlock(key.m_ID.m_Aid2, dVals.m_Tok2);
+    FundsMove(key.m_ID.m_Aid1, r.m_pk, dVals.m_Tok1, false);
+    FundsMove(key.m_ID.m_Aid2, r.m_pk, dVals.m_Tok2, false);
 
-    Mintor::Method::Mint arg;
-    arg.m_Tid = p.m_tidCtl;
-    arg.m_Mint = 0;
-    arg.m_Value = r.m_Ctl;
-    _POD_(arg.m_pkUser) = r.m_pk;
-    Env::CallFar_T(Mintor::s_CID, arg);
+    PoolCtlMove(p, r.m_pk, r.m_Ctl, 0);
 }
 
 BEAM_EXPORT void Method_4(const Method::Trade& r)
@@ -126,8 +153,8 @@ BEAM_EXPORT void Method_4(const Method::Trade& r)
     if (bReverse)
         p.m_Totals.Swap();
 
-    Env::FundsUnlock(r.m_Pid.m_Aid1, r.m_Buy1);
-    Env::FundsLock(r.m_Pid.m_Aid2, valPay);
+    FundsMove(r.m_Pid.m_Aid1, r.m_pk, r.m_Buy1, false);
+    FundsMove(r.m_Pid.m_Aid2, r.m_pk, valPay, true);
 
     p.Save(key);
 }
