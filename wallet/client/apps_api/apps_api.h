@@ -162,16 +162,8 @@ namespace beam::wallet
             // Do not assume thread here
             // Should be safe to call from any thread
             //
-            getAsync()->makeIWTCall(
+            makeIWTCallGuarded(
                 [wp = _weakSelf, this, request]() -> boost::any {
-                    auto locked = wp.lock();
-                    if (!locked)
-                    {
-                        // this means that api is disconnected and destroyed already
-                        // well, okay, nothing to do then
-                        return boost::none;
-                    }
-
                     _walletAPI->executeAPIRequest(request.c_str(), request.size());
                     return boost::none;
                 },
@@ -187,19 +179,9 @@ namespace beam::wallet
                 IWalletApi::ParseResult data;
             };
 
-            // this guard should prevent to destroy API object from incorrect thread
-            auto apiGuard = std::make_shared<Ptr>();
-
             // LOG_INFO () << "AppsApi checked call for " << getAppName() << ", " << getAppId() << "): " << request;
-            getAsync()->makeIWTCall(
-                [apiGuard, wp = _weakSelf, this, request]() mutable -> boost::any {
-                    auto locked = wp.lock();
-                    if (!locked)
-                    {
-                        // this means that api is disconnected and destroyed already, this is normal
-                        return {};
-                    }
-                    *apiGuard = locked;
+            makeIWTCallGuarded(
+                [this, request]() mutable -> boost::any {
                     if (auto pres = _walletAPI->parseAPIRequest(request.c_str(), request.size()); pres)
                     {
                         const auto& acinfo = pres->acinfo;
@@ -241,7 +223,7 @@ namespace beam::wallet
                         return {};
                     }
                 },
-                [apiGuard, wp = _weakSelf, this, request] (const boost::any& any) {
+                [wp = _weakSelf, this, request] (const boost::any& any) {
                     if (any.empty())
                     {
                         return;
@@ -291,6 +273,29 @@ namespace beam::wallet
         virtual void ClientThread_getContractConsent(const std::string& request, const nlohmann::json& info, const nlohmann::json& amounts) = 0;
 
     private:
+
+        void makeIWTCallGuarded(std::function<boost::any()>&& function, IWalletModelAsync::AsyncCallback<const boost::any&>&& resultCallback)
+        {
+            // this guard should prevent to destroy API object from incorrect thread
+            auto apiGuard = std::make_shared<Ptr>();
+            getAsync()->makeIWTCall(
+                [apiGuard, wp = _weakSelf, function=std::move(function)]()->boost::any {
+                    auto locked = wp.lock();
+                    if (!locked)
+                    {
+                        // this means that api is disconnected and destroyed already
+                        // well, okay, nothing to do then
+                        return boost::none;
+                    }
+                    *apiGuard = locked;
+                    return function();
+                },
+                [resultCallback=std::move(resultCallback)](const boost::any& any) {
+                    resultCallback(any);
+                }
+            );
+        }
+
         WalletClient* getClinet ()
         {
             if (_client != nullptr)
