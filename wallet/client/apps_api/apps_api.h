@@ -89,7 +89,7 @@ namespace beam::wallet
                     //
                     return client->IWThread_createAppShaders(appid, appname);
                 },
-                [client, cback, version, appid, appname](boost::any aptr) {
+                [client, cback=std::move(cback), version, appid, appname](boost::any aptr) {
                     //
                     // THIS IS UI THREAD
                     //
@@ -156,16 +156,19 @@ namespace beam::wallet
                 IWalletApi::ParseResult data;
             };
 
+            // this guard should prevent to destroy API object from incorrect thread
+            auto apiGuard = std::make_shared<Ptr>();
+
             // LOG_INFO () << "AppsApi checked call for " << getAppName() << ", " << getAppId() << "): " << request;
             getAsync()->makeIWTCall(
-                [wp = _weakSelf, this, request]() -> boost::any {
+                [apiGuard, wp = _weakSelf, this, request]() mutable -> boost::any {
                     auto locked = wp.lock();
                     if (!locked)
                     {
                         // this means that api is disconnected and destroyed already, this is normal
                         return {};
                     }
-
+                    *apiGuard = locked;
                     if (auto pres = _walletAPI->parseAPIRequest(request.c_str(), request.size()); pres)
                     {
                         const auto& acinfo = pres->acinfo;
@@ -207,7 +210,7 @@ namespace beam::wallet
                         return {};
                     }
                 },
-                [wp = _weakSelf, this, request] (const boost::any& any) {
+                [apiGuard, wp = _weakSelf, this, request] (const boost::any& any) {
                     if (any.empty())
                     {
                         return;
