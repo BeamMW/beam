@@ -2213,8 +2213,7 @@ namespace beam::wallet
 
     void WalletClient::makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<const boost::any&>&& resultCallback)
     {
-        auto result = function();
-        postFunctionToClientContext([result, cb = std::move(resultCallback)]()
+        postFunctionToClientContext([result = function(), cb = std::move(resultCallback)]()
         {
             cb(result);
         });
