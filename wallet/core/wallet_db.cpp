@@ -6502,8 +6502,19 @@ namespace beam::wallet
                 der & pi;
                 if (der.bytes_left() > 0)
                 {
-                    throw std::runtime_error("Invalid data buffer");
+                    uint32_t cflags = 0;
+                    der & cflags;
+
+                    if (cflags & ContentFlags::HasAssetID)
+                    {
+                        der & pi.m_AssetID;
+                        cflags = cflags & ~ContentFlags::HasAssetID;
+                    }
+
+                    if (cflags != 0) throw std::runtime_error("Invalid data buffer");
                 }
+
+                if (der.bytes_left() > 0) throw std::runtime_error("Invalid data buffer");
             }
             return pi;
         }

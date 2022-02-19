@@ -39,6 +39,8 @@
 
 #include <string>
 
+// #include "utility/logger.h"
+
 struct sqlite3;
 
 namespace beam::wallet
@@ -1035,6 +1037,23 @@ namespace beam::wallet
                 wid.m_Channel = ch;
             }
 
+            //
+            // If you want to store something new just define new flag then
+            // set it if you want to write and add read/write block.
+            //
+            // This allows to read old proofs in new clients and also to produce
+            // proofs compatible with old clients (if possible, i.e. BEAM transactions
+            // do not need AssetID and we can keep an old format)
+            //
+            // Old client would be unable to read proofs if you would store anything below
+            //
+            // See PaymentInfo::FromByteBuffer for read case and PaymentInfo::serialize for write
+            //
+            enum ContentFlags
+            {
+                HasAssetID = 1 << 0
+            };
+
             template <typename Archive>
             void serialize(Archive& ar)
             {
@@ -1045,37 +1064,9 @@ namespace beam::wallet
                     & m_KernelID
                     & m_Signature;
 
-                //
-                // If you want to store something new just define new flag then
-                // set it if you want to write and add read/write block.
-                //
-                // This allows to read old proofs in new clients and also to produce
-                // proofs compatible with old clients (if possible, i.e. BEAM transactions
-                // do not need AssetID and we can keep an old format)
-                //
-                // Old client would be unable to read proofs if you would store anything below
-                //
-                enum ContentFlags
+                if (ar.is_writable())
                 {
-                    HasAssetID = 1 << 0
-                };
-
-                uint32_t cflags = 0;
-
-                if (ar.is_readable())
-                {
-                    try
-                    {
-                        ar & cflags;
-                    }
-                    catch (const std::runtime_error &)
-                    {
-                        // old payment proof without flags and additional data
-                        // just ignore and continue
-                    }
-                }
-                else
-                {
+                    uint32_t cflags = 0;
                     if (m_AssetID != Asset::s_InvalidID)
                     {
                         cflags |= ContentFlags::HasAssetID;
@@ -1085,11 +1076,11 @@ namespace beam::wallet
                     {
                         ar & cflags;
                     }
-                }
 
-                if (cflags & ContentFlags::HasAssetID)
-                {
-                    ar & m_AssetID;
+                    if (cflags & ContentFlags::HasAssetID)
+                    {
+                        ar & m_AssetID;
+                    }
                 }
             }
 
