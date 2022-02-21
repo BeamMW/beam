@@ -22,7 +22,7 @@
 #include <stdlib.h>
 
 #ifndef WIN32
-#include <signal.h>
+#include <csignal>
 #endif // WIN32
 
 #ifndef LOG_VERBOSE_ENABLED
@@ -384,7 +384,7 @@ Reactor::Reactor() :
     uv_timer_init(&_loop, &_shutdownChecker);
     uv_timer_start(&_shutdownChecker, [] (uv_timer_t* handle) {
         auto* reactor = reinterpret_cast<Reactor *>(handle->data);
-        if (reactor && reactor->_isShutdownRequestedCounter > 0) {
+        if (reactor && GracefulIntHandler::IsSignalAccepted()) { // Some handler accepts shutdown signal
             LOG_DEBUG() << "Shutdown requested by signal";
             reactor->stop();
         }
@@ -757,7 +757,8 @@ Reactor& Reactor::get_Current()
 	return *s_pReactor;
 }
 
-Reactor* Reactor::GracefulIntHandler::s_pAppReactor = NULL;
+Reactor* Reactor::GracefulIntHandler::s_pAppReactor = nullptr;
+volatile sig_atomic_t Reactor::GracefulIntHandler::s_iSignalsAccepted = 0;
 
 Reactor::GracefulIntHandler::GracefulIntHandler(Reactor& r)
 {
@@ -779,7 +780,7 @@ Reactor::GracefulIntHandler::~GracefulIntHandler()
 	SetHandler(false);
 #endif // WIN32
 
-	s_pAppReactor = NULL;
+	s_pAppReactor = nullptr;
 }
 
 #ifdef WIN32
@@ -811,13 +812,14 @@ void Reactor::GracefulIntHandler::SetHandler(bool bSet)
 void Reactor::GracefulIntHandler::Handler(int sig)
 {
 	if (sig != SIGPIPE /*&& sig != SIGHUP*/) {
-        assert(s_pAppReactor);
-        s_pAppReactor->RequestShutdownFromSignal();
+        // According to https://www.gnu.org/software/libc/manual/html_node/Atomic-Types.html
+        // this way _must_ works on all platforms
+        s_iSignalsAccepted = 1;
     }
 }
 
-void Reactor::RequestShutdownFromSignal() {
-    _isShutdownRequestedCounter = 1;
+bool Reactor::GracefulIntHandler::IsSignalAccepted() {
+    return s_iSignalsAccepted > 0;
 }
 
 #endif // WIN32

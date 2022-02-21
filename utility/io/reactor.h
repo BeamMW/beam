@@ -21,7 +21,6 @@
 #include <functional>
 #include <unordered_map>
 #include <unordered_set>
-#include <atomic>
 
 namespace beam { namespace io {
 
@@ -97,6 +96,7 @@ public:
 	class GracefulIntHandler
 	{
 		static Reactor* s_pAppReactor;
+        static volatile sig_atomic_t s_iSignalsAccepted;
 
 #ifdef WIN32
 		static BOOL WINAPI Handler(DWORD dwCtrlType);
@@ -108,11 +108,11 @@ public:
 	public:
 		GracefulIntHandler(Reactor&);
 		~GracefulIntHandler();
-	};
 
-#ifndef _WIN32
-    void RequestShutdownFromSignal();
-#endif
+#ifndef WIN32
+        static bool IsSignalAccepted();
+#endif // WIN32
+	};
 
 private:
     /// Ctor. private and called by create()
@@ -200,7 +200,6 @@ private:
 
 #ifndef WIN32
     uv_timer_t _shutdownChecker;
-    sig_atomic_t _isShutdownRequestedCounter = 0;
 #endif // WIN32
 
     friend class TcpConnectors;
