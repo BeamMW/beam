@@ -255,7 +255,7 @@ private:
 	Node* m_pNode;
 };
 
-int main_impl(int argc, char* argv[])
+int main(int argc, char* argv[])
 {
 	beam::Crash::InstallHandler(NULL);
 
@@ -609,28 +609,3 @@ int main_impl(int argc, char* argv[])
 
 	return 0;
 }
-
-int main(int argc, char* argv[]) {
-#ifdef _WIN32
-	return main_impl(argc, argv);
-#else
-	block_sigpipe();
-	auto f = std::async(
-		std::launch::async,
-		[argc, argv]() -> int {
-			// TODO: this hungs app on OSX
-			//lock_signals_in_this_thread();
-			int ret = main_impl(argc, argv);
-			kill(0, SIGINT);
-			return ret;
-		}
-	);
-
-	wait_for_termination(0);
-
-	if (reactor) reactor->stop();
-
-	return f.get();
-#endif
-}
-
