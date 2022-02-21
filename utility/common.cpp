@@ -150,7 +150,13 @@ namespace beam
 
 	ExecutorMT::ExecutorMT()
 	{
+#if defined(EMSCRIPTEN)
+		m_Threads = 2;
+#else
+
 		m_Threads = MyThread::hardware_concurrency();
+#endif
+		
 	}
 
 	void ExecutorMT::set_Threads(uint32_t nThreads)
