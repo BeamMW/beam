@@ -233,8 +233,8 @@ namespace beam::wallet
             // Do not assume thread here
             // Should be safe to call from any thread
             //
-            const auto error = _walletAPI->fromError(request, err, message);
-            AnyThread_sendApiResponse(error);
+            auto error = _walletAPI->fromError(request, err, message);
+            AnyThread_sendApiResponse(std::move(error));
         }
 
         virtual void AnyThread_sendApiResponse(std::string&& result) = 0;
