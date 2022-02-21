@@ -95,8 +95,7 @@ public:
 
 	class GracefulIntHandler
 	{
-		static Reactor* s_pAppReactor;
-        static volatile sig_atomic_t s_iSignalsAccepted;
+		static Reactor* volatile s_pAppReactor;
 
 #ifdef WIN32
 		static BOOL WINAPI Handler(DWORD dwCtrlType);
@@ -108,10 +107,6 @@ public:
 	public:
 		GracefulIntHandler(Reactor&);
 		~GracefulIntHandler();
-
-#ifndef WIN32
-        static bool IsSignalAccepted();
-#endif // WIN32
 	};
 
 private:
@@ -197,10 +192,6 @@ private:
 
     uint32_t _runs = 0;
     StopCallback _stopCB;
-
-#ifndef WIN32
-    uv_timer_t _shutdownChecker;
-#endif // WIN32
 
     friend class TcpConnectors;
     friend class ProxyConnector;

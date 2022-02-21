@@ -379,18 +379,6 @@ Reactor::Reactor() :
         IO_EXCEPTION(errorCode);
     }
 
-#ifndef WIN32
-    _shutdownChecker.data = this;
-    uv_timer_init(&_loop, &_shutdownChecker);
-    uv_timer_start(&_shutdownChecker, [] (uv_timer_t* handle) {
-        auto* reactor = reinterpret_cast<Reactor *>(handle->data);
-        if (reactor && GracefulIntHandler::IsSignalAccepted()) { // Some handler accepts shutdown signal
-            LOG_DEBUG() << "Shutdown requested by signal";
-            reactor->stop();
-        }
-    }, 0, config().get_int("signal.shutdown_timer", 1000, 100, 10000));
-#endif // WIN32
-
     _stopEvent.data = this;
     _pendingWrites  = std::make_unique<PendingWrites>(*this);
     _tcpConnectors  = std::make_unique<TcpConnectors>(*this);
@@ -421,10 +409,6 @@ Reactor::~Reactor() {
 
     // run one cycle to release all closing handles
     uv_run(&_loop, UV_RUN_NOWAIT);
-
-#ifndef WIN32
-    uv_timer_stop(&_shutdownChecker);
-#endif // WIN32
     if (uv_loop_close(&_loop) == UV_EBUSY) {
         LOG_DEBUG() << "closing unclosed handles";
         uv_walk(
@@ -757,8 +741,7 @@ Reactor& Reactor::get_Current()
 	return *s_pReactor;
 }
 
-Reactor* Reactor::GracefulIntHandler::s_pAppReactor = nullptr;
-volatile sig_atomic_t Reactor::GracefulIntHandler::s_iSignalsAccepted = 0;
+Reactor* volatile Reactor::GracefulIntHandler::s_pAppReactor = nullptr;
 
 Reactor::GracefulIntHandler::GracefulIntHandler(Reactor& r)
 {
@@ -813,13 +796,10 @@ void Reactor::GracefulIntHandler::Handler(int sig)
 {
 	if (sig != SIGPIPE /*&& sig != SIGHUP*/) {
         // According to https://www.gnu.org/software/libc/manual/html_node/Atomic-Types.html
-        // this way _must_ works on all platforms
-        s_iSignalsAccepted = 1;
+        // we can assume that pointers are atomics
+        assert(s_pAppReactor);
+        s_pAppReactor->stop();
     }
-}
-
-bool Reactor::GracefulIntHandler::IsSignalAccepted() {
-    return s_iSignalsAccepted > 0;
 }
 
 #endif // WIN32
