@@ -1111,13 +1111,14 @@ namespace beam::wallet
                 }
 
                 ar & cflags;
+                if (!cflags) throw std::runtime_error("Invalid data buffer");
                 if (cflags & ContentFlags::HasAssetID)
                 {
                     ar & m_AssetID;
                     cflags = cflags & ~ContentFlags::HasAssetID;
                 }
 
-                if (cflags != 0) throw std::runtime_error("Invalid data buffer");
+                if (cflags) throw std::runtime_error("Invalid data buffer");
             }
 
             bool IsValid() const;
