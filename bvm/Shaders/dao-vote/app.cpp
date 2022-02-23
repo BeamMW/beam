@@ -158,7 +158,7 @@ struct MyState
 
         _POD_(m_PrevDividend).SetZero();
 
-        if (m_Current.m_Stake)
+        if (m_Current.m_DividendStake)
         {
             if (m_Current.m_iDividendEpoch)
             {
@@ -167,12 +167,12 @@ struct MyState
                     Env::Cost::SaveVar_For(sizeof(DividendMax));
 
                 m_PrevDividend.m_iEpoch = m_Current.m_iDividendEpoch;
-                m_PrevDividend.m_Stake = m_Current.m_Stake;
+                m_PrevDividend.m_Stake = m_Current.m_DividendStake;
 
                 m_Current.m_iDividendEpoch = 0;
             }
 
-            m_Current.m_Stake = 0;
+            m_Current.m_DividendStake = 0;
         }
 
         if (!m_Current.m_iDividendEpoch)
