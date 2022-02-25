@@ -50,9 +50,15 @@ namespace beam::wallet
             _evSubs = *data.txsChanged ? _evSubs | SubFlags::TXsChanged : _evSubs & ~SubFlags::TXsChanged;
         }
 
+        if (data.connectChanged.is_initialized())
+        {
+            _evSubs = *data.connectChanged ? _evSubs | SubFlags::ConnectChanged : _evSubs & ~SubFlags::ConnectChanged;
+        }
+
         if (_evSubs && !_subscribedToListener)
         {
             getWallet()->Subscribe(this);
+            _network->Subscribe(this);
             _subscribedToListener = true;
         }
 
@@ -118,6 +124,11 @@ namespace beam::wallet
             }, TxListFilter());
 
             onTransactionChanged(ChangeAction::Reset, txs);
+        }
+
+        if ((_evSubs & SubFlags::ConnectChanged) != 0 && (oldSubs & SubFlags::ConnectChanged) == 0)
+        {
+            sendConnectionStatus();
         }
     }
 

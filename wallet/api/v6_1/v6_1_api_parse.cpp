@@ -25,6 +25,7 @@ namespace beam::wallet
         allowed.insert("ev_addrs_changed");
         allowed.insert("ev_utxos_changed");
         allowed.insert("ev_txs_changed");
+        allowed.insert("ev_connection_changed");
 
         bool found = false;
         for (auto it : params.items())
@@ -58,12 +59,13 @@ namespace beam::wallet
         // So here we are sure that at least one known event is present
         // Typecheck & get value
         EvSubUnsub message;
-        message.syncProgress = getOptionalParam<bool>(params, "ev_sync_progress");
-        message.systemState  = getOptionalParam<bool>(params, "ev_system_state");
-        message.assetChanged = getOptionalParam<bool>(params, "ev_assets_changed");
-        message.addrsChanged = getOptionalParam<bool>(params, "ev_addrs_changed");
-        message.utxosChanged = getOptionalParam<bool>(params, "ev_utxos_changed");
-        message.txsChanged   = getOptionalParam<bool>(params, "ev_txs_changed");
+        message.syncProgress   = getOptionalParam<bool>(params, "ev_sync_progress");
+        message.systemState    = getOptionalParam<bool>(params, "ev_system_state");
+        message.assetChanged   = getOptionalParam<bool>(params, "ev_assets_changed");
+        message.addrsChanged   = getOptionalParam<bool>(params, "ev_addrs_changed");
+        message.utxosChanged   = getOptionalParam<bool>(params, "ev_utxos_changed");
+        message.txsChanged     = getOptionalParam<bool>(params, "ev_txs_changed");
+        message.connectChanged = getOptionalParam<bool>(params, "ev_connection_changed");
 
         return std::make_pair(message, MethodInfo());
     }
