@@ -20,6 +20,7 @@
 #include <nlohmann/json.hpp>
 #include "utility/logger.h"
 #include "wallet/core/contracts/i_shaders_manager.h"
+#include "wallet/core/node_network.h"
 #include "wallet/ipfs/ipfs.h"
 #include "base/api_errors.h"
 #include "i_swaps_provider.h"
@@ -60,6 +61,7 @@ namespace beam::wallet
         ISwapsProvider::Ptr swaps;
         IWalletDB::Ptr walletDB;
         Wallet::Ptr wallet;
+        NodeNetwork::Ptr nodeNetwork;
         #ifdef BEAM_IPFS_SUPPORT
         IPFSService::Ptr ipfs;
         #endif

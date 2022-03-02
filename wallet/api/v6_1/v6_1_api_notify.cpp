@@ -76,6 +76,11 @@ namespace beam::wallet
         }
     }
 
+    void V61Api::onOwnedNode(const PeerID& id, bool connected)
+    {
+        sendConnectionStatus();
+    }
+
     void V61Api::onSystemStateChanged(const Block::SystemState::ID& stateID)
     {
         if ((_evSubs & SubFlags::SystemState) == 0)
@@ -378,5 +383,51 @@ namespace beam::wallet
         {
             LOG_ERROR() << "V61Api::onTransactionChanged failed: " << e.what();
         }
+    }
+
+    void V61Api::onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason& dr)
+    {
+        sendConnectionStatus();
+    }
+
+    void V61Api::onNodeConnectedStatusChanged(bool isNodeConnected)
+    {
+        sendConnectionStatus();
+    }
+
+    void V61Api::sendConnectionStatus()
+    {
+        if ((_evSubs & SubFlags::ConnectChanged) == 0)
+        {
+            return;
+        }
+        // THIS METHOD IS NOT GUARDED
+        try
+        {
+            _handler.sendAPIResponse(fillConnectionState());
+        }
+        catch (std::exception& e)
+        {
+            LOG_ERROR() << "V61Api::sendConnectionStatus failed: " << e.what();
+        }
+    }
+
+    json V61Api::fillConnectionState() const
+    {
+        json msg = json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", "ev_connection_changed"},
+            {"result", {}}
+        };
+        auto& parent = msg["result"];
+        parent["node_connected"] = _network->getConnections();
+        parent["own_node"] = getWallet()->IsConnectedToOwnNode();
+        const auto& error = _network->getLastError();
+        if (!error.empty())
+        { 
+            parent["last_connect_error"] = error;
+        }
+        return msg;
     }
 }

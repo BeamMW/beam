@@ -39,8 +39,6 @@
 
 #include <string>
 
-// #include "utility/logger.h"
-
 struct sqlite3;
 
 namespace beam::wallet
@@ -1025,6 +1023,17 @@ namespace beam::wallet
             PaymentInfo();
 
             template <typename Archive>
+            static void serializeWid(Archive& ar, const WalletID& wid)
+            {
+                BbsChannel ch;
+                wid.m_Channel.Export(ch);
+
+                ar
+                    & ch
+                    & wid.m_Pk;
+            }
+
+            template <typename Archive>
             static void serializeWid(Archive& ar, WalletID& wid)
             {
                 BbsChannel ch;
@@ -1047,12 +1056,37 @@ namespace beam::wallet
             //
             // Old client would be unable to read proofs if you would store anything below
             //
-            // See PaymentInfo::FromByteBuffer for read case and PaymentInfo::serialize for write
-            //
             enum ContentFlags
             {
                 HasAssetID = 1 << 0
             };
+
+            template <typename Archive>
+            void serialize(Archive& ar) const
+            {
+                serializeWid(ar, m_Sender);
+                serializeWid(ar, m_Receiver);
+                ar
+                    & m_Amount
+                    & m_KernelID
+                    & m_Signature;
+
+                uint32_t cflags = 0;
+                if (m_AssetID != Asset::s_InvalidID)
+                {
+                    cflags |= ContentFlags::HasAssetID;
+                }
+
+                if (cflags)
+                {
+                    ar & cflags;
+                }
+
+                if (cflags & ContentFlags::HasAssetID)
+                {
+                    ar & m_AssetID;
+                }
+            }
 
             template <typename Archive>
             void serialize(Archive& ar)
@@ -1064,24 +1098,27 @@ namespace beam::wallet
                     & m_KernelID
                     & m_Signature;
 
-                if (ar.is_writable())
+                uint32_t cflags = 0;
+
+                try
                 {
-                    uint32_t cflags = 0;
-                    if (m_AssetID != Asset::s_InvalidID)
-                    {
-                        cflags |= ContentFlags::HasAssetID;
-                    }
-
-                    if (cflags)
-                    {
-                        ar & cflags;
-                    }
-
-                    if (cflags & ContentFlags::HasAssetID)
-                    {
-                        ar & m_AssetID;
-                    }
+                    ar.peekch();
                 }
+                catch (const std::runtime_error &)
+                {
+                    // old payment proof without flags and additional data
+                    return;
+                }
+
+                ar & cflags;
+                if (!cflags) throw std::runtime_error("Invalid data buffer");
+                if (cflags & ContentFlags::HasAssetID)
+                {
+                    ar & m_AssetID;
+                    cflags = cflags & ~ContentFlags::HasAssetID;
+                }
+
+                if (cflags) throw std::runtime_error("Invalid data buffer");
             }
 
             bool IsValid() const;

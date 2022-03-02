@@ -37,6 +37,7 @@
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/simple_transaction.h"
+#include "wallet/core/node_network.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/transactions/assets/assets_reg_creators.h"
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
@@ -139,7 +140,7 @@ namespace
     public:
         WalletApiServer(const std::string& apiVersion, IWalletDB::Ptr walletDB,
                         Wallet::Ptr wallet,
-                        proto::FlyClient::NetworkStd::Ptr nnet,
+                        NodeNetwork::Ptr nnet,
                         io::Reactor& reactor,
                         io::Address listenTo,
                         bool useHttp,
@@ -274,10 +275,11 @@ namespace
             if (!_walletData)
             {
                 _walletData = std::make_unique<ApiInitData>();
-                _walletData->walletDB  = _walletDB;
-                _walletData->wallet    = _wallet;
-                _walletData->acl       = _acl;
-                _walletData->contracts = IShadersManager::CreateInstance(_wallet, _walletDB, _network, "", "");
+                _walletData->walletDB    = _walletDB;
+                _walletData->wallet      = _wallet;
+                _walletData->acl         = _acl;
+                _walletData->contracts   = IShadersManager::CreateInstance(_wallet, _walletDB, _network, "", "");
+                _walletData->nodeNetwork = _network;
 
                 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
                 _walletData->swaps = _swapsProvider;
@@ -538,7 +540,7 @@ namespace
 
         IWalletDB::Ptr _walletDB;
         Wallet::Ptr _wallet;
-        proto::FlyClient::NetworkStd::Ptr _network;
+        NodeNetwork::Ptr _network;
 
         #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::shared_ptr<ApiCliSwap> _swapsProvider;
@@ -772,7 +774,7 @@ int main(int argc, char* argv[])
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
         auto wallet = std::make_shared<Wallet>(walletDB);
 
-        auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(*wallet);
+        auto nnet = std::make_shared<NodeNetwork>(*wallet);
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
         
         if (nnet->m_Cfg.m_PollPeriod_ms)

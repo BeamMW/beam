@@ -366,9 +366,9 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::makeIWTCall, std::move(function), std::move(resultCallback));
     }
 
-    void callShader(const std::vector<uint8_t>& shader, const std::string& args, ShaderCallback&& cback) override
+    void callShader(std::vector<uint8_t>&& shader, std::string&& args, ShaderCallback&& cback) override
     {
-        call_async(&IWalletModelAsync::callShader, shader, args, cback);
+        call_async(&IWalletModelAsync::callShader, std::move(shader), std::move(args), std::move(cback));
     }
 
     void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override
@@ -2393,14 +2393,13 @@ namespace beam::wallet
 
     void WalletClient::makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<const boost::any&>&& resultCallback)
     {
-        auto result = function();
-        postFunctionToClientContext([result, cb = std::move(resultCallback)]()
+        postFunctionToClientContext([result = function(), cb = std::move(resultCallback)]()
         {
             cb(result);
         });
     }
 
-    void WalletClient::callShader(const std::vector<uint8_t>& shader, const std::string& args, ShaderCallback&& cback)
+    void WalletClient::callShader(std::vector<uint8_t>&& shader, std::string&& args, ShaderCallback&& cback)
     {
         auto smgr = _clientShaders.lock();
         if (!smgr)
@@ -2412,7 +2411,7 @@ namespace beam::wallet
             return;
         }
 
-        smgr->CallShaderAndStartTx(shader, args, args.empty() ? 0 : 1, 0, 0,
+        smgr->CallShaderAndStartTx(std::move(shader), std::move(args), args.empty() ? 0 : 1, 0, 0,
             [this, cb = std::move(cback), shaders = _clientShaders]
             (const boost::optional<TxID>& txid, boost::optional<std::string>&& result, boost::optional<std::string>&& error) {
                 auto smgr = _clientShaders.lock();
