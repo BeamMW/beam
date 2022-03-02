@@ -1357,7 +1357,7 @@ namespace beam::wallet
                 auto incoming = totals.Incoming; incoming += totals.IncomingShielded;
                 jtotals["receiving_str"] = std::to_string(incoming);
 
-                if (totals.Incoming <= kMaxAllowedInt)
+                if (incoming <= kMaxAllowedInt)
                 {
                     jtotals["receiving"] = AmountBig::get_Lo(incoming);
                 }
@@ -1365,7 +1365,7 @@ namespace beam::wallet
                 auto outgoing = totals.Outgoing; outgoing += totals.OutgoingShielded;
                 jtotals["sending_str"] = std::to_string(outgoing);
 
-                if (totals.Outgoing <= kMaxAllowedInt)
+                if (outgoing <= kMaxAllowedInt)
                 {
                     jtotals["sending"] = AmountBig::get_Lo(outgoing);
                 }
@@ -1373,7 +1373,7 @@ namespace beam::wallet
                 auto maturing = totals.Maturing; maturing += totals.MaturingShielded;
                 jtotals["maturing_str"] = std::to_string(maturing);
 
-                if (totals.Maturing <= kMaxAllowedInt)
+                if (maturing <= kMaxAllowedInt)
                 {
                     jtotals["maturing"] = AmountBig::get_Lo(maturing);
                 }
