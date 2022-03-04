@@ -196,6 +196,28 @@ namespace beam::wallet
             {"tx_type_string", tx.getTxTypeString()}
         };
 
+        if (tx.m_txType == TxType::PushTransaction)
+        {
+            auto storedType = tx.GetParameter<TxAddressType>(TxParameterID::AddressType);
+            if (storedType)
+            {
+                auto c = [](TxAddressType t)
+                {
+                    switch (t)
+                    {
+                    case TxAddressType::MaxPrivacy:
+                        return "max_privacy";
+                    case TxAddressType::PublicOffline:
+                        return "public_offline";
+                    case TxAddressType::Offline:
+                    default:
+                        return "offline";
+                    }
+                };
+                msg["address_type"] = c(*storedType);
+            }
+        }
+
         if (!tx.m_appName.empty() || !tx.m_appID.empty())
         {
             msg["appname"] = tx.m_appName;
