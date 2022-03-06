@@ -295,11 +295,14 @@ namespace Liquity
             return price.IsBelow(m_Troves.m_Totals, Price::get_k150());
         }
 
-        bool IsTroveUpdInvalid(const Trove& t, const Price& price, bool bRecovery) const
+        bool IsTroveUpdInvalid(const Trove& t, const Pair& totals0, const Price& price, bool bRecovery) const
         {
             if (bRecovery)
+            {
                 // Ban txs that don't increase the tcr. Also covers the case where the very 1st trove drives us into recovery
-                return m_Troves.m_Totals.CmpRcr(t.m_Amounts) >= 0;
+                if (m_Troves.m_Totals.CmpRcr(totals0) <= 0)
+                    return true;
+            }
 
             return price.IsBelow(t.m_Amounts, Price::get_k110());
         }

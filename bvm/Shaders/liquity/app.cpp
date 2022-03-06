@@ -898,11 +898,12 @@ ON_METHOD(user, trove_modify)
             return;
         }
 
-       auto iPrev1 = g.PushMyTrove();
-       auto iNext1 = iPrev1 ? g.get_T(iPrev1).m_iNext : g.m_Troves.m_iHead;
+        auto totals0 = g.m_Troves.m_Totals;
+        auto iPrev1 = g.PushMyTrove();
+        auto iNext1 = iPrev1 ? g.get_T(iPrev1).m_iNext : g.m_Troves.m_iHead;
 
         bool bRecovery = g.IsRecovery(g.m_Price);
-        if (g.IsTroveUpdInvalid(t, g.m_Price, bRecovery))
+        if (g.IsTroveUpdInvalid(t, totals0, g.m_Price, bRecovery))
             return OnError("insufficient collateral");
 
         g.OnTroveMove(txb, 0);

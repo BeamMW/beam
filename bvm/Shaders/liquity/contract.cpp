@@ -263,7 +263,7 @@ struct MyGlobal
             Price price = get_Price();
 
             bool bRecovery = IsRecovery(price);
-            Env::Halt_if(IsTroveUpdInvalid(t, price, bRecovery));
+            Env::Halt_if(IsTroveUpdInvalid(t, totals0, price, bRecovery));
 
             Amount feeCol = get_BorrowFee(m_Troves.m_Totals.Tok, totals0.Tok, bRecovery, price);
             if (feeCol)
