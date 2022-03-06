@@ -1003,11 +1003,12 @@ ON_METHOD(user, liquidate)
 
     while (g.m_Troves.m_iHead)
     {
+        Pair totals0 = g.m_Troves.m_Totals;
         auto& t = g.get_T(g.m_Troves.m_iHead);
         g.PopTrove(0, t);
 
         Amount valSurplus = 0;
-        if (!g.LiquidateTrove(t, ctx, valSurplus))
+        if (!g.LiquidateTrove(t, totals0, ctx, valSurplus))
             break;
 
         nCharge +=

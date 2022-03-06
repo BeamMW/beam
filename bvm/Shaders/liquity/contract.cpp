@@ -426,12 +426,13 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
 
     for (uint32_t i = 0; i < r.m_Count; i++)
     {
+        Pair totals1 = g.m_Troves.m_Totals;
         Trove t;
         tk.m_iTrove = g.TrovePop(0, t);
         Env::DelVar_T(tk);
 
         Amount valSurplus = 0;
-        Env::Halt_if(!g.LiquidateTrove(t, ctx, valSurplus));
+        Env::Halt_if(!g.LiquidateTrove(t, totals1, ctx, valSurplus));
 
         if (valSurplus)
             g.ExtractSurplusCol(valSurplus, t);
