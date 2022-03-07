@@ -352,10 +352,10 @@ namespace beam::wallet
         }
     }
 
-    Amount V6Api::getBeamFeeParam(const json& params, const std::string& name) const
+    Amount V6Api::getBeamFeeParam(const json& params, const std::string& name, bool hasShieldedOutputs) const
     {
         auto &fs = Transaction::FeeSettings::get(get_TipHeight());
-        return getBeamFeeParam(params, name, fs.get_DefaultStd());
+        return getBeamFeeParam(params, name, hasShieldedOutputs ? fs.get_DefaultShieldedOut() : fs.get_DefaultStd());
     }
 
     Amount V6Api::getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const
@@ -574,7 +574,7 @@ namespace beam::wallet
             send.tokenFrom = fromParam;
         }
 
-        send.fee = getBeamFeeParam(params, "fee");
+        send.fee = getBeamFeeParam(params, "fee", info.spendOffline);
         info.fee = send.fee;
 
         if (auto comment = getOptionalParam<std::string>(params, "comment"))
