@@ -31,6 +31,7 @@ namespace beam::wallet
     std::pair<IPFSAdd, IWalletApi::MethodInfo> V63Api::onParseIPFSAdd(const JsonRpcId& id, const nlohmann::json& params)
     {
         IPFSAdd message;
+        message.timeout = parseTimeout(*this, params);
 
         json data = getMandatoryParam<NonEmptyJsonArray>(params, "data");
         data.get<std::vector<uint8_t>>().swap(message.data);
@@ -39,16 +40,6 @@ namespace beam::wallet
         {
             message.pin = *opin;
         }
-
-        return std::make_pair(std::move(message), MethodInfo());
-    }
-
-    std::pair<IPFSHash, IWalletApi::MethodInfo> V63Api::onParseIPFSHash(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        IPFSHash message;
-
-        json data = getMandatoryParam<NonEmptyJsonArray>(params, "data");
-        data.get<std::vector<uint8_t>>().swap(message.data);
 
         return std::make_pair(std::move(message), MethodInfo());
     }
@@ -66,6 +57,17 @@ namespace beam::wallet
                 }
             }
         };
+    }
+
+    std::pair<IPFSHash, IWalletApi::MethodInfo> V63Api::onParseIPFSHash(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        IPFSHash message;
+        message.timeout = parseTimeout(*this, params);
+
+        json data = getMandatoryParam<NonEmptyJsonArray>(params, "data");
+        data.get<std::vector<uint8_t>>().swap(message.data);
+
+        return std::make_pair(std::move(message), MethodInfo());
     }
 
     void V63Api::getResponse(const JsonRpcId& id, const IPFSHash::Response& res, json& msg)

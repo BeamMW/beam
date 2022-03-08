@@ -57,9 +57,15 @@ namespace beam::wallet
 
         /// \brief Store data in IPFS and get ipfs hash back via callback.
         ///        Async, executed in other thread, may take long time or fail.
-        virtual void AnyThread_add(std::vector<uint8_t>&& data, bool pin,
+        virtual void AnyThread_add(std::vector<uint8_t>&& data, bool pin, uint32_t timeout,
                          std::function<void (std::string&&)>&& res,
                          Err&&) = 0;
+
+        /// \brief Calculate IPFS hash (CID) for data back via callback.
+        ///        Async, executed in other thread, may take long time or fail.
+        virtual void AnyThread_hash(std::vector<uint8_t>&& data, uint32_t timeout,
+                                    std::function<void (std::string&&)>&& res,
+                                    Err&&) = 0;
 
         /// \brief Get data from IPFS
         virtual void AnyThread_get(const std::string& hash, uint32_t timeout,
@@ -75,12 +81,6 @@ namespace beam::wallet
         virtual void AnyThread_unpin(const std::string& hash,
                            std::function<void ()>&& res,
                            Err&&) = 0;
-
-        /// \brief Calculate IPFS hash (CID) for data back via callback.
-        ///        Async, executed in other thread, may take long time or fail.
-        virtual void AnyThread_hash(std::vector<uint8_t>&& data,
-                                   std::function<void (std::string&&)>&& res,
-                                   Err&&) = 0;
 
         /// \brief GC, i.e. remove all unpinned
         virtual void AnyThread_gc(uint32_t timeout,

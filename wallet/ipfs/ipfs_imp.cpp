@@ -154,7 +154,7 @@ namespace beam::wallet::imp
         LOG_INFO() << "IPFS Services stopped";
     }
 
-    void IPFSService::AnyThread_add(std::vector<uint8_t>&& data, bool pin, std::function<void (std::string&&)>&& res, Err&& err)
+    void IPFSService::AnyThread_add(std::vector<uint8_t>&& data, bool pin, uint32_t timeout, std::function<void (std::string&&)>&& res, Err&& err)
     {
         if (data.empty())
         {
@@ -162,14 +162,14 @@ namespace beam::wallet::imp
             return;
         }
 
-        call_ipfs(0, std::move(res), std::move(err),[this, data = std::move(data), pin]
+        call_ipfs(timeout, std::move(res), std::move(err),[this, data = std::move(data), pin]
         (boost::asio::yield_context yield, std::function<void()>& cancel) -> auto
         {
             return _node->add(&data[0], data.size(), pin, cancel, std::move(yield));
         });
     }
 
-    void IPFSService::AnyThread_hash(std::vector<uint8_t>&& data, std::function<void (std::string&&)>&& res, Err&& err)
+    void IPFSService::AnyThread_hash(std::vector<uint8_t>&& data, uint32_t timeout, std::function<void (std::string&&)>&& res, Err&& err)
     {
         if (data.empty())
         {
@@ -177,7 +177,7 @@ namespace beam::wallet::imp
             return;
         }
 
-        call_ipfs(0, std::move(res), std::move(err),[this, data = std::move(data)]
+        call_ipfs(timeout, std::move(res), std::move(err),[this, data = std::move(data)]
         (boost::asio::yield_context yield, std::function<void()>& cancel) -> auto
         {
             return _node->calc_cid(&data[0], data.size(), cancel, std::move(yield));

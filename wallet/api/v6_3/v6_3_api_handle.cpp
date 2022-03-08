@@ -20,7 +20,7 @@ namespace beam::wallet
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
-        ipfs->AnyThread_add(std::move(req.data), req.pin,
+        ipfs->AnyThread_add(std::move(req.data), req.pin, req.timeout,
             [this, id, pin = req.pin, wguard = _weakSelf](std::string&& hash) {
                 auto guard = wguard.lock();
                 if (!guard)
@@ -42,6 +42,38 @@ namespace beam::wallet
 
                 sendError(id, ApiError::IPFSError, err);
             }
+        );
+        #else
+        sendError(id, ApiError::NotSupported);
+        #endif
+    }
+
+    void V63Api::onHandleIPFSHash(const JsonRpcId &id, IPFSHash&& req)
+    {
+        #ifdef BEAM_IPFS_SUPPORT
+        auto ipfs = getIPFS();
+        ipfs->AnyThread_hash(std::move(req.data), req.timeout,
+             [this, id, wguard = _weakSelf](std::string&& hash) {
+                 auto guard = wguard.lock();
+                 if (!guard)
+                 {
+                     LOG_WARNING() << "API destroyed before IPFS response received.";
+                     return;
+                 }
+
+                 IPFSHash::Response response = {hash};
+                 doResponse(id, response);
+             },
+             [this, id, wguard = _weakSelf] (std::string&& err) {
+                 auto guard = wguard.lock();
+                 if (!guard)
+                 {
+                     LOG_WARNING() << "API destroyed before IPFS response received.";
+                     return;
+                 }
+
+                 sendError(id, ApiError::IPFSError, err);
+             }
         );
         #else
         sendError(id, ApiError::NotSupported);
@@ -165,38 +197,6 @@ namespace beam::wallet
                     LOG_WARNING() << "API destroyed before IPFS response received.";
                     return;
                 }
-                sendError(id, ApiError::IPFSError, err);
-            }
-        );
-        #else
-        sendError(id, ApiError::NotSupported);
-        #endif
-    }
-
-    void V63Api::onHandleIPFSHash(const JsonRpcId &id, IPFSHash&& req)
-    {
-        #ifdef BEAM_IPFS_SUPPORT
-        auto ipfs = getIPFS();
-        ipfs->AnyThread_hash(std::move(req.data),
-            [this, id, wguard = _weakSelf](std::string&& hash) {
-                auto guard = wguard.lock();
-                if (!guard)
-                {
-                    LOG_WARNING() << "API destroyed before IPFS response received.";
-                    return;
-                }
-
-                IPFSHash::Response response = {hash};
-                doResponse(id, response);
-            },
-            [this, id, wguard = _weakSelf] (std::string&& err) {
-                auto guard = wguard.lock();
-                if (!guard)
-                {
-                    LOG_WARNING() << "API destroyed before IPFS response received.";
-                    return;
-                }
-
                 sendError(id, ApiError::IPFSError, err);
             }
         );
