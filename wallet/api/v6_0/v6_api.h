@@ -72,7 +72,7 @@ namespace beam::wallet
 
         // If no fee read and no min fee provided this function calculates minimum fee itself
         Amount getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const;
-        Amount getBeamFeeParam(const json& params, const std::string& name) const;
+        Amount getBeamFeeParam(const json& params, const std::string& name, bool hasShieldedOutputs = false) const;
 
         std::string getTokenType(TokenType type) const;
 

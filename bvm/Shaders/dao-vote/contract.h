@@ -83,7 +83,7 @@ namespace DaoVote
             uint32_t m_iEpoch;
             uint32_t m_Proposals;
             uint32_t m_iDividendEpoch; // set to 0 if no reward
-            Amount m_Stake;
+            Amount m_DividendStake; // not necessarily equal to the total voting stake, can be less.
         } m_Current;
 
         struct Next {
@@ -103,6 +103,9 @@ namespace DaoVote
         uint32_t m_iDividendEpoch;
         Amount m_Stake;
         Amount m_StakeNext;
+
+        static const uint8_t s_NoVote = 0xff;
+        static_assert(s_NoVote >= Proposal::s_VariantsMax);
 
         // followed by the votes for the epoch's proposal
     };

@@ -4,7 +4,7 @@
 
 namespace Liquity
 {
-    static const ShaderID s_SID = { 0x72,0xad,0xea,0x59,0x00,0xcb,0xf8,0x00,0xee,0x18,0xf2,0xe8,0xcc,0x3d,0xf7,0x30,0x71,0x64,0x4c,0xb5,0xa2,0x23,0x65,0x0e,0xa7,0x95,0x69,0x3b,0xa4,0x15,0x5a,0x6d };
+    static const ShaderID s_SID = { 0x97,0x1f,0xf0,0x60,0x3d,0xcf,0x87,0x9f,0x86,0x4e,0x80,0xd0,0x76,0xc8,0xa0,0x5b,0x4f,0x4e,0x38,0xad,0xd5,0x6f,0xa4,0x6d,0xaf,0xa8,0xe6,0xa3,0xa6,0x42,0xdc,0xbb };
 
 #pragma pack (push, 1)
 
@@ -288,18 +288,27 @@ namespace Liquity
                 // rewrite it as: p.Col * m_Value < p.Tok * k
                 return C2T(p.Col) < (Float(p.Tok) * k);
             }
+
+            bool IsRecovery(const Pair& totals) const
+            {
+                return IsBelow(totals, Price::get_k150());
+            }
+
         };
 
         bool IsRecovery(const Price& price) const
         {
-            return price.IsBelow(m_Troves.m_Totals, Price::get_k150());
+            return price.IsRecovery(m_Troves.m_Totals);
         }
 
-        bool IsTroveUpdInvalid(const Trove& t, const Price& price, bool bRecovery) const
+        bool IsTroveUpdInvalid(const Trove& t, const Pair& totals0, const Price& price, bool bRecovery) const
         {
             if (bRecovery)
+            {
                 // Ban txs that don't increase the tcr. Also covers the case where the very 1st trove drives us into recovery
-                return m_Troves.m_Totals.CmpRcr(t.m_Amounts) >= 0;
+                if (m_Troves.m_Totals.CmpRcr(totals0) <= 0)
+                    return true;
+            }
 
             return price.IsBelow(t.m_Amounts, Price::get_k110());
         }
@@ -328,7 +337,7 @@ namespace Liquity
             bool m_Stab = false;
         };
 
-        bool LiquidateTrove(Trove& t, Liquidator& ctx, Amount& valSurplus)
+        bool LiquidateTrove(Trove& t, const Pair& totals0, Liquidator& ctx, Amount& valSurplus)
         {
             assert(t.m_Amounts.Tok >= m_Settings.m_TroveLiquidationReserve);
 
@@ -337,7 +346,7 @@ namespace Liquity
             {
                 if (cr >= Global::Price::get_k110())
                 {
-                    if (!IsRecovery(ctx.m_Price)) // in recovery mode can liquidate the weakest
+                    if (!ctx.m_Price.IsRecovery(totals0)) // in recovery mode can liquidate the weakest
                         return false;
 
                     Amount valColMax = ctx.m_Price.T2C(Float(t.m_Amounts.Tok) * Price::get_k110());
