@@ -58,7 +58,9 @@ namespace beam::wallet
         if (_evSubs && !_subscribedToListener)
         {
             getWallet()->Subscribe(this);
-            _network->Subscribe(this);
+            if (_network) {
+                _network->Subscribe(this);
+            }
             _subscribedToListener = true;
         }
 
@@ -111,7 +113,6 @@ namespace beam::wallet
             auto addrs2 = getWalletDB()->getAddresses(false);
             addrs.reserve(addrs.size() + addrs2.size());
             addrs.insert(addrs.end(), addrs2.begin(), addrs2.end());
-
             onAddressChanged(ChangeAction::Reset, addrs);
         }
 
@@ -122,7 +123,6 @@ namespace beam::wallet
                 txs.push_back(tx);
                 return true;
             }, TxListFilter());
-
             onTransactionChanged(ChangeAction::Reset, txs);
         }
 

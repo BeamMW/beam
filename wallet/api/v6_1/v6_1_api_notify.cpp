@@ -414,20 +414,29 @@ namespace beam::wallet
 
     json V61Api::fillConnectionState() const
     {
+        if (!_network)
+        {
+            assert(false);
+            throw std::runtime_error("fillConnectionState is called while empty _network");
+        }
+
         json msg = json
         {
             {JsonRpcHeader, JsonRpcVersion},
             {"id", "ev_connection_changed"},
             {"result", {}}
         };
+
         auto& parent = msg["result"];
         parent["node_connected"] = _network->getConnections();
         parent["own_node"] = getWallet()->IsConnectedToOwnNode();
+
         const auto& error = _network->getLastError();
         if (!error.empty())
         { 
             parent["last_connect_error"] = error;
         }
+
         return msg;
     }
 }
