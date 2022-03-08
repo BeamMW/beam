@@ -41,7 +41,7 @@ namespace beam::wallet
     macro(-32019, ContractError,             "Contract call failed")                \
     macro(-32020, NotAllowedError,           "Call is not allowed")                 \
     macro(-32021, UserRejected,              "Call is rejected by user")            \
-    macro(-32022, IPFSError,                 "IPFS call failed")
+    macro(-32022, IPFSError,                 "IPFS call failed")                    \
 
     enum ApiError
     {

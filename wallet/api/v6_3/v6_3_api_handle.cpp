@@ -20,8 +20,8 @@ namespace beam::wallet
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
-        ipfs->AnyThread_add(std::move(req.data),
-            [this, id, wguard = _weakSelf](std::string&& hash) {
+        ipfs->AnyThread_add(std::move(req.data), req.pin,
+            [this, id, pin = req.pin, wguard = _weakSelf](std::string&& hash) {
                 auto guard = wguard.lock();
                 if (!guard)
                 {
@@ -29,7 +29,7 @@ namespace beam::wallet
                     return;
                 }
 
-                IPFSAdd::Response response = {hash};
+                IPFSAdd::Response response = {hash, pin};
                 doResponse(id, response);
             },
             [this, id, wguard = _weakSelf] (std::string&& err) {
@@ -44,7 +44,6 @@ namespace beam::wallet
             }
         );
         #else
-        // TODO:IPFS access via http
         sendError(id, ApiError::NotSupported);
         #endif
     }
@@ -166,6 +165,38 @@ namespace beam::wallet
                     LOG_WARNING() << "API destroyed before IPFS response received.";
                     return;
                 }
+                sendError(id, ApiError::IPFSError, err);
+            }
+        );
+        #else
+        sendError(id, ApiError::NotSupported);
+        #endif
+    }
+
+    void V63Api::onHandleIPFSHash(const JsonRpcId &id, IPFSHash&& req)
+    {
+        #ifdef BEAM_IPFS_SUPPORT
+        auto ipfs = getIPFS();
+        ipfs->AnyThread_hash(std::move(req.data),
+            [this, id, wguard = _weakSelf](std::string&& hash) {
+                auto guard = wguard.lock();
+                if (!guard)
+                {
+                    LOG_WARNING() << "API destroyed before IPFS response received.";
+                    return;
+                }
+
+                IPFSHash::Response response = {hash};
+                doResponse(id, response);
+            },
+            [this, id, wguard = _weakSelf] (std::string&& err) {
+                auto guard = wguard.lock();
+                if (!guard)
+                {
+                    LOG_WARNING() << "API destroyed before IPFS response received.";
+                    return;
+                }
+
                 sendError(id, ApiError::IPFSError, err);
             }
         );

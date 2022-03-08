@@ -24,19 +24,20 @@ namespace beam::wallet
         macro(IPFSGet,   "ipfs_get",   API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(IPFSPin,   "ipfs_pin",   API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(IPFSUnpin, "ipfs_unpin", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
+        macro(IPFSHash,  "ipfs_hash",  API_READ_ACCESS,  API_ASYNC, APPS_ALLOWED) \
         macro(IPFSGc,    "ipfs_gc",    API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)
         // TODO:IPFS add ipfs_caps/ev_ipfs_state methods that returns all available capabilities and ipfs state
         // TODO:IPFS check ipfs_unpin behavior in case when data is not present
-        // TODO:IPFS consider pin flag for ipfs_add
 
     struct IPFSAdd
     {
         std::vector<uint8_t> data;
-        uint32_t timeout = 0;
+        bool pin = true;
 
         struct Response
         {
             std::string hash;
+            bool pinned = false;
         };
     };
 
@@ -77,6 +78,15 @@ namespace beam::wallet
         uint32_t timeout = 0;
         struct Response
         {
+        };
+    };
+
+    struct IPFSHash
+    {
+        std::vector<uint8_t> data;
+        struct Response
+        {
+            std::string hash;
         };
     };
 }
