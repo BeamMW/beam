@@ -170,9 +170,10 @@ namespace
         #ifdef BEAM_IPFS_SUPPORT
         struct IPFSHandler: beam::wallet::IPFSService::Handler
         {
-            explicit IPFSHandler(io::Reactor::Ptr reactor)
+            explicit IPFSHandler(io::Reactor::Ptr reactor, std::function<void (std::string)> onerr)
             {
                 _toServerThread = PostToReactorThread::create(std::move(reactor));
+                _onError = std::move(onerr);
             }
 
             void AnyThread_pushToClient(std::function<void()>&& action) override
@@ -180,20 +181,33 @@ namespace
                 _toServerThread->post(std::move(action));
             }
 
-            void AnyThread_onStatus(const std::string& /* error */, uint32_t /* peercnt */) override
+            void AnyThread_onStatus(const std::string& error, uint32_t peercnt) override
             {
-            }
+                if (error.empty())
+                {
+                    LOG_INFO() << "IPFS peers count: " << peercnt;
+                    return;
+                }
 
+                _toServerThread->post([onerr = _onError, error](){
+                    onerr(error);
+                });
+            }
 
         private:
             wallet::PostToReactorThread::Ptr _toServerThread;
+            std::function<void (std::string)> _onError;
         };
 
         bool startIPFS(asio_ipfs::config config, io::Reactor::Ptr reactor)
         {
             try
             {
-                _ipfsHandler = std::make_shared<IPFSHandler>(std::move(reactor));
+                _ipfsHandler = std::make_shared<IPFSHandler>(reactor, [reactor, this] (const std::string& error) {
+                    _ipfsError = error;
+                    reactor->stop();
+                });
+
                 _ipfs = beam::wallet::IPFSService::AnyThread_create(_ipfsHandler);
                 _ipfs->ServiceThread_start(std::move(config));
                 return true;
@@ -212,9 +226,15 @@ namespace
             _ipfsHandler.reset();
         }
 
+        [[nodiscard]] const std::string& getIPFSError() const
+        {
+            return _ipfsError;
+        }
+
         private:
             beam::wallet::IPFSService::Ptr _ipfs;
             std::shared_ptr<IPFSHandler> _ipfsHandler;
+            std::string _ipfsError;
         public:
         #endif
 
@@ -842,6 +862,10 @@ int main(int argc, char* argv[])
         if (ipfsOpts)
         {
             server.stopIPFS();
+            if(auto err = server.getIPFSError(); !err.empty())
+            {
+                throw std::runtime_error(std::string("IPFS failed: ") + err);
+            }
         }
         #endif
 
