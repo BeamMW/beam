@@ -36,7 +36,7 @@ namespace beam::wallet::imp
         void ServiceThread_stop() override;
 
         void AnyThread_add(std::vector<uint8_t>&& data, bool pin, std::function<void (std::string&&)>&& res, Err&&) override;
-        void AnyThread_hash(std::vector<uint8_t>&& data, std::function<void (std::string&&)>&& res, Err&&);
+        void AnyThread_hash(std::vector<uint8_t>&& data, std::function<void (std::string&&)>&& res, Err&&) override;
 
         void AnyThread_get(const std::string& hash, uint32_t timeout, std::function<void (std::vector<uint8_t>&&)>&& res, Err&&) override;
         void AnyThread_pin(const std::string& hash, uint32_t timeout, std::function<void ()>&& res, Err&&) override;
