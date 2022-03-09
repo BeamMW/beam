@@ -718,9 +718,6 @@ namespace beam::wallet
                 std::shared_ptr<IPFSService> ipfsService;
 
                 LOG_INFO() << "IPFS Service is enabled.";
-                ipfsHandler = std::make_shared<IPFSHandler>(this);
-                ipfsService = IPFSService::AnyThread_create(ipfsHandler);
-                m_ipfs = ipfsService;
                 #else
                 LOG_INFO () << "IPFS Service is disabled.";
                 #endif
@@ -823,6 +820,7 @@ namespace beam::wallet
 
         if (!sp->AnyThread_running())
         {
+            // throws
             sp->ServiceThread_start(*m_ipfsConfig);
         }
 
@@ -867,7 +865,18 @@ namespace beam::wallet
 
     void WalletClient::startIPFSNode()
     {
-        IWThread_startIPFSNode();
+        try
+        {
+            IWThread_startIPFSNode();
+        }
+        catch(std::runtime_error& err)
+        {
+            auto errmsg = std::string("Failed to start IPFS service. ") + err.what();
+            LOG_ERROR() << errmsg;
+            m_ipfsError = errmsg;
+            m_ipfsPeerCnt = 0;
+            getIPFSStatus();
+        }
     }
     #endif
 
