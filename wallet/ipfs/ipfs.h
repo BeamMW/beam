@@ -43,7 +43,7 @@ namespace beam::wallet
 
         /// \exception std::runtime_error
         /// \breief Calling thread becomes the `ServiceThread`
-        /// TODO:IPFS handle start errors
+        // TODO:IPFS handle exceptions
         virtual void ServiceThread_start(asio_ipfs::config config) = 0;
 
         /// \exception std::runtime_error

@@ -868,7 +868,6 @@ int main(int argc, char* argv[])
             }
         }
         #endif
-
         LOG_INFO() << "Done";
     }
     // DO NOT USE LOG_ below. Logger is dead here
@@ -880,10 +879,12 @@ int main(int argc, char* argv[])
     catch (const std::exception& e)
     {
         std::cerr << "EXCEPTION: " << e.what();
+        return -1;
     }
     catch (...)
     {
         std::cerr << "NON_STD EXCEPTION";
+        return -1;
     }
 
     return 0;
