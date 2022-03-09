@@ -42,6 +42,11 @@
 #define DaoVote_user_view(macro) macro(ContractID, cid)
 #define DaoVote_user_vote(macro) macro(ContractID, cid)
 
+#define DaoVote_user_view_votes(macro) \
+    macro(ContractID, cid) \
+    macro(Proposal::ID, iProp1) \
+    macro(uint32_t, nMaxCount)
+
 #define DaoVote_user_move_funds(macro) \
     macro(ContractID, cid) \
     macro(Amount, amount) \
@@ -50,6 +55,7 @@
 #define DaoVoteRole_user(macro) \
     macro(user, my_key) \
     macro(user, view) \
+    macro(user, view_votes) \
     macro(user, move_funds) \
     macro(user, vote) \
 
@@ -520,6 +526,14 @@ struct MyUser
     }
 };
 
+void PrintVotesArr(const char* szName, const uint8_t* p, uint32_t n)
+{
+    Env::DocArray gr(szName);
+
+    for (uint32_t i = 0; i < n; i++)
+        Env::DocAddNum32("", p[i]);
+}
+
 ON_METHOD(user, view)
 {
     MyState s;
@@ -537,15 +551,44 @@ ON_METHOD(user, view)
     Env::DocAddNum("stake_passive", u.m_StakeNext);
 
     if (u.m_Votes)
-    {
-        Env::DocArray gr1("current_votes");
-
-        for (uint32_t i = 0; i < u.m_Votes; i++)
-            Env::DocAddNum32("", u.m_pVotes[i]);
-    }
+        PrintVotesArr("current_votes", u.m_pVotes, u.m_Votes);
 
     if (u.m_Dividend.m_Assets)
         u.m_Dividend.Write();
+}
+
+ON_METHOD(user, view_votes)
+{
+    UserKeyID kid(cid);
+
+    Env::Key_T<Events::UserVote::Key> k0, k1;
+    _POD_(k0.m_Prefix.m_Cid) = cid;
+    kid.get_Pk(k0.m_KeyInContract.m_pk);
+    k0.m_KeyInContract.m_ID_0_be = Utils::FromBE(iProp1);
+    _POD_(k1.m_Prefix.m_Cid) = cid;
+    k1.m_KeyInContract.m_ID_0_be = (Proposal::ID) -1;
+    _POD_(k1.m_KeyInContract.m_pk) = k0.m_KeyInContract.m_pk;
+
+    Env::DocArray gr0("res");
+
+    Env::LogReader r(k0, k1);
+    for (uint32_t i = 0; ; )
+    {
+        Events::UserVoteMax uv;
+        uint32_t nKey = sizeof(k0);
+        uint32_t nVal = sizeof(uv);
+
+        if (!r.MoveNext(&k0, nKey, &uv, nVal, 0))
+            break;
+
+        Env::DocGroup gr1("");
+        Env::DocAddNum("id1", Utils::FromBE(k0.m_KeyInContract.m_ID_0_be));
+        Env::DocAddNum("stake", uv.m_Stake);
+        PrintVotesArr("votes", uv.m_pVotes, nVal - sizeof(Events::UserVote));
+
+        if (++i == nMaxCount)
+            break;
+    }
 }
 
 ON_METHOD(user, move_funds)
