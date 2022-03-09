@@ -718,6 +718,9 @@ namespace beam::wallet
                 std::shared_ptr<IPFSService> ipfsService;
 
                 LOG_INFO() << "IPFS Service is enabled.";
+                ipfsHandler = std::make_shared<IPFSHandler>(this);
+                ipfsService = IPFSService::AnyThread_create(ipfsHandler);
+                m_ipfs = ipfsService;
                 #else
                 LOG_INFO () << "IPFS Service is disabled.";
                 #endif
