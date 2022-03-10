@@ -9,6 +9,7 @@
 #define DaoVote_manager_view_params(macro) macro(ContractID, cid)
 #define DaoVote_manager_my_admin_key(macro)
 #define DaoVote_manager_explicit_upgrade(macro) macro(ContractID, cid)
+#define DaoVote_manager_view_totals(macro) macro(ContractID, cid)
 
 #define DaoVote_manager_view_proposals(macro) \
     macro(ContractID, cid) \
@@ -34,6 +35,7 @@
     macro(manager, view_params) \
     macro(manager, view_proposals) \
     macro(manager, view_proposal) \
+    macro(manager, view_totals) \
     macro(manager, add_proposal) \
     macro(manager, add_dividend) \
     macro(manager, my_admin_key)
@@ -356,6 +358,42 @@ ON_METHOD(manager, add_proposal)
     Env::GenerateKernel(&cid, pArgs->s_iMethod, pArgs, nArgsSize, nullptr, 0, &kid, 1, "dao-vote add proposal", nCharge);
 
     Env::Heap_Free(pArgs);
+}
+
+ON_METHOD(manager, view_totals)
+{
+    MyState s;
+    if (!s.Load(cid))
+        return;
+
+    Env::Key_T<User::Key> k0, k1;
+    _POD_(k0.m_Prefix.m_Cid) = cid;
+    _POD_(k1.m_Prefix.m_Cid) = cid;
+    _POD_(k0.m_KeyInContract.m_pk).SetZero();
+    _POD_(k1.m_KeyInContract.m_pk).SetObject(0xff);
+
+    Amount valActive = 0, valPassive = 0;
+
+    for (Env::VarReader r(k0, k1); ; )
+    {
+        UserMax u;
+        uint32_t nKey = sizeof(k0);
+        uint32_t nVal = sizeof(u);
+
+        if (!r.MoveNext(&k0, nKey, &u, nVal, 0))
+            break;
+
+        valActive += u.m_Stake;
+
+        bool bUpdated = (s.m_Current.m_iEpoch == u.m_iEpoch);
+        (bUpdated ? valPassive : valActive) += u.m_StakeNext;
+
+    }
+
+    Env::DocArray gr("res");
+
+    Env::DocAddNum("stake_active", valActive);
+    Env::DocAddNum("stake_passive", valPassive);
 }
 
 ON_METHOD(manager, add_dividend)
