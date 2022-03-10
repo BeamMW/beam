@@ -123,7 +123,7 @@ struct MyState_AutoSave
         }
 
         MyProposal p;
-        p.m_Key.m_ID = m_iLastProposal - m_Next.m_Proposals - m_Current.m_Proposals;
+        p.m_Key.m_ID = get_Proposal0();
 
         Amount v1 = u.m_Stake;
         bool bTrySkip = (v0 == v1);
@@ -223,6 +223,22 @@ struct MyUser
         }
     }
 
+    void EmitVotes(uint32_t nSizeVotes) const
+    {
+        if (!nSizeVotes)
+            return;
+
+        Events::UserVoteMax uv;
+        uv.m_Stake = m_Stake;
+        Env::Memcpy(uv.m_pVotes, m_pVotes, nSizeVotes);
+
+        Events::UserVote::Key uvk;
+        _POD_(uvk.m_pk) = m_Key.m_pk;
+        uvk.m_ID_0_be = Utils::FromBE(m_iProposal0);
+
+        Env::EmitLog(&uvk, sizeof(uvk), &uv, sizeof(Events::UserVote) + nSizeVotes, KeyTag::Internal);
+    }
+
     void LoadPlus(const State& s, const PubKey& pk)
     {
         _POD_(m_Key.m_pk) = pk;
@@ -232,8 +248,7 @@ struct MyUser
             if (m_iEpoch == s.m_Current.m_iEpoch)
                 return;
 
-            // TODO: event for prev votes
-            //uint32_t nProposals = (nSize - sizeof(User)) / sizeof(*m_pVotes);
+            EmitVotes(nSize - sizeof(User));
 
             if (m_iDividendEpoch)
             {
@@ -251,6 +266,8 @@ struct MyUser
 
         // init epoch
         m_iEpoch = s.m_Current.m_iEpoch;
+        m_iProposal0 = s.m_iLastProposal;
+
         Env::Memset(m_pVotes, s_NoVote, sizeof(*m_pVotes) * s.m_Current.m_Proposals);
     }
 };

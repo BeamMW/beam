@@ -794,6 +794,12 @@ namespace beam::wallet
         return sp;
     }
 
+    NodeNetwork::Ptr WalletClient::getNodeNetwork()
+    {
+        auto sp = m_nodeNetwork.lock();
+        return sp;
+    }
+
     #ifdef BEAM_IPFS_SUPPORT
     IPFSService::Ptr WalletClient::getIPFS()
     {

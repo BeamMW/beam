@@ -2,7 +2,7 @@
 
 namespace DaoVote
 {
-    static const ShaderID s_SID = { 0x32,0xdd,0xbd,0x3f,0x55,0x1f,0x8f,0xaf,0x96,0x0b,0x04,0x1d,0x9f,0x2f,0x0f,0x19,0x95,0x99,0x9f,0x58,0xa8,0x75,0xbf,0x1f,0x3d,0x14,0x37,0x00,0xca,0xd1,0x54,0x42 };
+    static const ShaderID s_SID = { 0x0c,0xe9,0xd8,0x61,0xbd,0xd6,0x1e,0x75,0x78,0xec,0x7a,0x2f,0xed,0x4e,0x2e,0xef,0x2e,0x98,0xf5,0xf7,0x1f,0xb3,0x13,0x0b,0xd9,0x6e,0xae,0xaa,0xcb,0xa0,0xa4,0x74 };
 
 #pragma pack (push, 1)
 
@@ -79,6 +79,10 @@ namespace DaoVote
 
         Proposal::ID m_iLastProposal;
 
+        Proposal::ID get_Proposal0() const {
+            return m_iLastProposal - m_Next.m_Proposals - m_Current.m_Proposals;
+        }
+
         struct Current {
             uint32_t m_iEpoch;
             uint32_t m_Proposals;
@@ -100,6 +104,7 @@ namespace DaoVote
         };
 
         uint32_t m_iEpoch;
+        Proposal::ID m_iProposal0;
         uint32_t m_iDividendEpoch;
         Amount m_Stake;
         Amount m_StakeNext;
@@ -110,10 +115,14 @@ namespace DaoVote
         // followed by the votes for the epoch's proposal
     };
 
+    struct VotesMax {
+        uint8_t m_pVotes[Proposal::s_ProposalsPerEpochMax];
+    };
+
     struct UserMax
         :public User
+        ,public VotesMax
     {
-        uint8_t m_pVotes[Proposal::s_ProposalsPerEpochMax];
     };
 
     struct Events
@@ -121,6 +130,7 @@ namespace DaoVote
         struct Tags
         {
             static const uint8_t s_Proposal = 0;
+            static const uint8_t s_UserVote = 1;
         };
 
         struct Proposal
@@ -132,6 +142,24 @@ namespace DaoVote
 
             uint32_t m_Variants;
             // followed by arbitrary text
+        };
+
+        struct UserVote
+        {
+            struct Key {
+                uint8_t m_Tag = Tags::s_UserVote;
+                PubKey m_pk;
+                DaoVote::Proposal::ID m_ID_0_be;
+            };
+
+            Amount m_Stake;
+            // followed by votes
+        };
+
+        struct UserVoteMax
+            :public UserVote
+            ,public VotesMax
+        {
         };
     };
 
