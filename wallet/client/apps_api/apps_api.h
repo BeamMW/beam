@@ -126,13 +126,14 @@ namespace beam::wallet
                     wapi->_weakSelf = wapi;
 
                     ApiInitData data;
-                    auto iwtres    = boost::any_cast<IWTResult>(aptr);
-                    data.contracts = std::move(iwtres.shaders);
-                    data.swaps     = nullptr;
-                    data.wallet    = client->getWallet();
-                    data.walletDB  = client->getWalletDB();
-                    data.appId     = appid;
-                    data.appName   = appname;
+                    auto iwtres      = boost::any_cast<IWTResult>(aptr);
+                    data.contracts   = std::move(iwtres.shaders);
+                    data.swaps       = nullptr;
+                    data.wallet      = client->getWallet();
+                    data.walletDB    = client->getWalletDB();
+                    data.appId       = appid;
+                    data.appName     = appname;
+                    data.nodeNetwork = client->getNodeNetwork();
 
                     #ifdef BEAM_IPFS_SUPPORT
                     data.ipfs = std::move(iwtres.ipfs);

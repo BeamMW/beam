@@ -26,6 +26,7 @@ namespace beam::wallet
         _apiVersion = ss.str();
         _wallet = init.wallet;
         _network = init.nodeNetwork;
+        assert(_network);
         V6_1_API_METHODS(BEAM_API_REG_METHOD)
     }
 

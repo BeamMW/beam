@@ -127,6 +127,7 @@ namespace beam::wallet
         IWalletModelAsync::Ptr getAsync();
         Wallet::Ptr getWallet(); // can return null
         IWalletDB::Ptr getWalletDB();
+        NodeNetwork::Ptr getNodeNetwork(); // may return null
 
         #ifdef BEAM_IPFS_SUPPORT
         IPFSService::Ptr getIPFS();
