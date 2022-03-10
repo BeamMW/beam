@@ -90,6 +90,16 @@ namespace beam::wallet::imp
                         #endif
                     }
 
+                    if (config.peering.empty()) {
+                        #if defined(BEAM_TESTNET)
+                        #error ("Define Testnet IPFS peering")
+                        #elif defined(BEAM_MAINNET)
+                        #error ("Define Mainnet IPFS peering")
+                        #else
+                        config.peering.emplace_back("/ip4/3.19.141.112/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
+                        #endif
+                    }
+
                     asio_ipfs::node::StateCB scb = [this](const std::string& error, uint32_t pcnt) {
                         _handler->AnyThread_onStatus(error, pcnt);
                     };
