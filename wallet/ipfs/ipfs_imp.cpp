@@ -66,6 +66,9 @@ namespace beam::wallet::imp
 
         config.repo_root = canonicalPath.string();
         LOG_INFO() << "Starting IPFS Service. Repo path is " << config.repo_root;
+        asio_ipfs::node::redirect_logs([] (const char* what) {
+           LOG_INFO() << what;
+        });
 
         //
         // Startup sequence, we run it sync, in main thread. May be need to make async
