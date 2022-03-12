@@ -390,7 +390,7 @@ ON_METHOD(manager, view_totals)
 
     }
 
-    Env::DocArray gr("res");
+    Env::DocGroup gr("res");
 
     Env::DocAddNum("stake_active", valActive);
     Env::DocAddNum("stake_passive", valPassive);
