@@ -283,6 +283,8 @@ namespace Shaders {
 	template <bool bToShader> void Convert(DaoVote::Method::Vote& x) {
 		ConvertOrd<bToShader>(x.m_iEpoch);
 	}
+	template <bool bToShader> void Convert(DaoVote::Method::SetModerator& x) {
+	}
 
 	template <bool bToShader> void Convert(Aphorize::Create& x) {
 		ConvertOrd<bToShader>(x.m_Cfg.m_hPeriod);
@@ -3122,12 +3124,28 @@ namespace bvm2 {
 		}
 		VERIFY_ID(Shaders::DaoVote::s_SID, m_DaoVote.m_Sid);
 
+		PubKey pkModerator(Zero);
+		pkModerator.m_X = 4432U;
+
+		{
+			Shaders::DaoVote::Method::SetModerator args;
+			args.m_pk = pkModerator;
+			args.m_Enable = 0;
+			verify_test(!RunGuarded_T(m_DaoVote.m_Cid, args.s_iMethod, args));
+
+			args.m_Enable = 1;
+			verify_test(RunGuarded_T(m_DaoVote.m_Cid, args.s_iMethod, args));
+			verify_test(!RunGuarded_T(m_DaoVote.m_Cid, args.s_iMethod, args));
+
+		}
+
 		for (uint32_t iEpoch = 1; iEpoch <= 4; iEpoch++, m_Height += 50)
 		{
 			const uint32_t nProposalsPerEpoch = 3;
 			for (uint32_t i = 0; i < nProposalsPerEpoch; i++)
 			{
 				Shaders::DaoVote::Method::AddProposal args;
+				args.m_pkModerator = pkModerator;
 				args.m_TxtLen = 0;
 				args.m_Data.m_Variants = i + 2;
 

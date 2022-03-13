@@ -299,6 +299,16 @@ BEAM_EXPORT void Method_3(const Method::AddProposal& r)
 {
     Env::Halt_if(r.m_Data.m_Variants > Proposal::s_VariantsMax);
 
+    {
+        Moderator::Key mk;
+        _POD_(mk.m_pk) = r.m_pkModerator;
+
+        Moderator m;
+        Env::Halt_if(!Env::LoadVar_T(mk, m));
+
+        Env::AddSig(r.m_pkModerator);
+    }
+
     MyState s;
     s.LoadUpd_NoSave();
 
@@ -313,7 +323,6 @@ BEAM_EXPORT void Method_3(const Method::AddProposal& r)
 
     p.Save();
     s.Save();
-    Env::AddSig(s.m_Cfg.m_pkAdmin);
 
     Events::Proposal::Key key;
     key.m_ID_be = Utils::FromBE(p.m_Key.m_ID);
@@ -447,6 +456,25 @@ BEAM_EXPORT void Method_7(Method::GetResults& r)
         if (r.m_ID <= s.m_iLastProposal - nUnfinished)
             r.m_Finished = 1;
     }
+}
+
+BEAM_EXPORT void Method_8(Method::SetModerator& r)
+{
+    MyState s;
+    s.Load();
+    Env::AddSig(s.m_Cfg.m_pkAdmin);
+
+    Moderator::Key mk;
+    _POD_(mk.m_pk) = r.m_pk;
+
+    if (r.m_Enable)
+    {
+        Moderator m;
+        m.m_Height = Env::get_Height();
+        Env::Halt_if(Env::SaveVar_T(mk, m)); // fail if existed
+    }
+    else
+        Env::Halt_if(!Env::DelVar_T(mk)); // fail unless existed
 }
 
 } // namespace DaoVote

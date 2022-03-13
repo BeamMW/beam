@@ -2,7 +2,7 @@
 
 namespace DaoVote
 {
-    static const ShaderID s_SID = { 0x0c,0xe9,0xd8,0x61,0xbd,0xd6,0x1e,0x75,0x78,0xec,0x7a,0x2f,0xed,0x4e,0x2e,0xef,0x2e,0x98,0xf5,0xf7,0x1f,0xb3,0x13,0x0b,0xd9,0x6e,0xae,0xaa,0xcb,0xa0,0xa4,0x74 };
+    static const ShaderID s_SID = { 0x0f,0x2d,0x91,0xa2,0xd3,0x97,0xaf,0xe5,0x04,0x62,0x6a,0x8d,0x8e,0xad,0x18,0x04,0x42,0x79,0xa5,0xcb,0xd9,0x6c,0x87,0xd1,0xfb,0xdf,0x19,0x03,0x86,0xc6,0x17,0x13 };
 
 #pragma pack (push, 1)
 
@@ -13,6 +13,7 @@ namespace DaoVote
         static const uint8_t s_Proposal = 2;
         static const uint8_t s_User = 3;
         static const uint8_t s_Dividend = 4;
+        static const uint8_t s_Moderator = 5;
     };
 
     struct Cfg
@@ -20,6 +21,16 @@ namespace DaoVote
         uint32_t m_hEpochDuration;
         AssetID m_Aid;
         PubKey m_pkAdmin;
+    };
+
+    struct Moderator
+    {
+        struct Key {
+            uint8_t m_Tag = Tags::s_Moderator;
+            PubKey m_pk;
+        };
+
+        Height m_Height;
     };
 
     struct Proposal
@@ -175,6 +186,7 @@ namespace DaoVote
         {
             static const uint32_t s_iMethod = 3;
 
+            PubKey m_pkModerator;
             uint32_t m_TxtLen;
             Events::Proposal m_Data;
             // followed by text
@@ -208,6 +220,14 @@ namespace DaoVote
             Proposal::ID m_ID;
             uint32_t m_Variants; // in/out
             uint8_t m_Finished;
+            // followed by variants
+        };
+
+        struct SetModerator
+        {
+            static const uint32_t s_iMethod = 8;
+            PubKey m_pk;
+            uint8_t m_Enable;
             // followed by variants
         };
     }
