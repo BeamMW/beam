@@ -99,6 +99,14 @@ struct AdminKeyID :public Env::KeyID {
     AdminKeyID() :Env::KeyID(&g_szAdminSeed, sizeof(g_szAdminSeed)) {}
 };
 
+struct UserKeyID :public Env::KeyID {
+    UserKeyID(const ContractID& cid)
+    {
+        m_pID = &cid;
+        m_nID = sizeof(cid);
+    }
+};
+
 ON_METHOD(manager, view)
 {
     static const ShaderID s_pSid[] = {
@@ -451,14 +459,6 @@ ON_METHOD(manager, view_proposal)
     }
     Env::DocAddNum("total", total);
 }
-
-struct UserKeyID :public Env::KeyID {
-    UserKeyID(const ContractID& cid)
-    {
-        m_pID = &cid;
-        m_nID = sizeof(cid);
-    }
-};
 
 ON_METHOD(user, my_key)
 {
