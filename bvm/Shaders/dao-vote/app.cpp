@@ -43,6 +43,7 @@
     macro(manager, view_proposals) \
     macro(manager, view_proposal) \
     macro(manager, view_totals) \
+    macro(manager, view_moderators) \
     macro(manager, set_moderator) \
     macro(manager, add_proposal) \
     macro(manager, add_dividend) \
