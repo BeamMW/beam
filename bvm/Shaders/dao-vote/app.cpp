@@ -24,6 +24,13 @@
     macro(ContractID, cid) \
     macro(uint32_t, variants)
 
+#define DaoVote_manager_set_moderator(macro) \
+    macro(ContractID, cid) \
+    macro(PubKey, pk) \
+    macro(uint32_t, bEnable)
+
+#define DaoVote_manager_view_moderators(macro) macro(ContractID, cid)
+
 #define DaoVote_manager_add_dividend(macro) \
     macro(ContractID, cid) \
     macro(AssetID, aid) \
@@ -36,6 +43,7 @@
     macro(manager, view_proposals) \
     macro(manager, view_proposal) \
     macro(manager, view_totals) \
+    macro(manager, set_moderator) \
     macro(manager, add_proposal) \
     macro(manager, add_dividend) \
     macro(manager, my_admin_key)
@@ -326,6 +334,46 @@ ON_METHOD(manager, view_proposals)
     }
 }
 
+ON_METHOD(manager, view_moderators)
+{
+    Env::Key_T<Moderator::Key> k0, k1;
+    _POD_(k0.m_Prefix.m_Cid) = cid;
+    _POD_(k1.m_Prefix.m_Cid) = cid;
+    _POD_(k0.m_KeyInContract.m_pk).SetZero();
+    _POD_(k1.m_KeyInContract.m_pk).SetObject(0xff);
+
+    Env::DocArray gr0("res");
+
+    for (Env::VarReader r(k0, k1); ; )
+    {
+        Moderator m;
+        if (!r.MoveNext_T(k0, m))
+            break;
+
+        Env::DocGroup gr1("");
+        Env::DocAddBlob_T("pk", k0.m_KeyInContract.m_pk);
+        Env::DocAddNum("height", m.m_Height);
+    }
+}
+
+
+ON_METHOD(manager, set_moderator)
+{
+    Method::SetModerator args;
+    args.m_Enable = !!bEnable;
+    _POD_(args.m_pk) = pk;
+
+    uint32_t nCharge =
+        ManagerUpgadable2::get_ChargeInvoke() +
+        Env::Cost::AddSig +
+        Env::Cost::LoadVar_For(sizeof(Moderator)) +
+        Env::Cost::SaveVar_For(sizeof(Moderator)) +
+        Env::Cost::Cycle * 100;
+
+    AdminKeyID kid;
+    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), nullptr, 0, &kid, 1, "dao-vote set moderator", nCharge);
+}
+
 ON_METHOD(manager, add_proposal)
 {
     if (!variants || (variants > Proposal::s_VariantsMax))
@@ -354,6 +402,7 @@ ON_METHOD(manager, add_proposal)
     uint32_t nCharge =
         s.m_Charge +
         Env::Cost::AddSig +
+        Env::Cost::LoadVar_For(sizeof(Moderator)) +
         Env::Cost::SaveVar_For(sizeof(Amount) * variants) +
         Env::Cost::Log_For(sizeof(Events::Proposal) + nLen) +
         Env::Cost::MemOpPerByte * nLen +
@@ -362,7 +411,7 @@ ON_METHOD(manager, add_proposal)
     if (!bEpochClosed)
         nCharge += Env::Cost::SaveVar_For(sizeof(State));
 
-    AdminKeyID kid;
+    UserKeyID kid(cid);
     Env::GenerateKernel(&cid, pArgs->s_iMethod, pArgs, nArgsSize, nullptr, 0, &kid, 1, "dao-vote add proposal", nCharge);
 
     Env::Heap_Free(pArgs);
