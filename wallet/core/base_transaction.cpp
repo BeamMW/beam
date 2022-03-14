@@ -122,7 +122,7 @@ namespace beam::wallet
         {
             GetAsyncAcontext().OnAsyncStarted();
             m_EventToUpdate = io::AsyncEvent::create(io::Reactor::get_Current(), [this, weak = this->weak_from_this()]()
-            { 
+            {
                 auto eventHolder = m_EventToUpdate;
                 if (auto tx = weak.lock())
                 {
@@ -280,11 +280,24 @@ namespace beam::wallet
         else
         {
             Height lastUnconfirmedHeight = 0;
-            if (GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight) && lastUnconfirmedHeight > 0)
+            const bool hasUnconfirmedHeight = GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight);
+            if (hasUnconfirmedHeight && lastUnconfirmedHeight > 0)
             {
                 if (lastUnconfirmedHeight >= maxHeight)
                 {
                     LOG_INFO() << m_Context << " Transaction expired. Last unconfirmeed height: " << lastUnconfirmedHeight << ", max kernel height: " << maxHeight;
+                    OnFailed(TxFailureReason::TransactionExpired);
+                    return true;
+                }
+            } else if (!hasUnconfirmedHeight) {
+                Block::SystemState::Full state;
+                TxStatus txStatus;
+                const bool hasStatus = GetParameter(TxParameterID::Status, txStatus);
+                if (hasStatus &&
+                   (txStatus == TxStatus::Registering || txStatus == TxStatus::InProgress) &&
+                    GetTip(state) && state.m_Height > maxHeight)
+                { // We're registering tx without kernel for too long.
+                    LOG_INFO() << m_Context << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << maxHeight;
                     OnFailed(TxFailureReason::TransactionExpired);
                     return true;
                 }
@@ -311,7 +324,7 @@ namespace beam::wallet
                     reason = TxFailureReason::AssetsDisabledReceiver;
                 }
             }
-                
+
             OnFailed(reason);
             return true;
         }
@@ -486,9 +499,9 @@ namespace beam::wallet
         WalletID peerID;
         if (GetParameter(TxParameterID::MyID, msg.m_From)
             && GetParameter(TxParameterID::PeerID, peerID))
-        { 
+        {
             PeerID secureWalletID = Zero, peerWalletID = Zero;
-            if (GetParameter(TxParameterID::MyWalletIdentity, secureWalletID) 
+            if (GetParameter(TxParameterID::MyWalletIdentity, secureWalletID)
              && GetParameter(TxParameterID::PeerWalletIdentity, peerWalletID))
             {
                 msg.AddParameter(TxParameterID::PeerWalletIdentity, secureWalletID);
