@@ -265,7 +265,8 @@ namespace beam::wallet
         uint8_t nRegistered = proto::TxStatus::Unspecified;
         Merkle::Hash kernelID;
         bool isSender = GetMandatoryParameter<bool>(TxParameterID::IsSender);
-        if ((!GetParameter(TxParameterID::TransactionRegistered, nRegistered) && isSender)
+        const bool hasRegister = GetParameter(TxParameterID::TransactionRegistered, nRegistered);
+        if (((!hasRegister || nRegistered != proto::TxStatus::Ok) && isSender)
             || !GetParameter(TxParameterID::KernelID, kernelID))
         {
             Block::SystemState::Full state;

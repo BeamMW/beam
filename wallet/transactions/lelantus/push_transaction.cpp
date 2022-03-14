@@ -92,6 +92,16 @@ namespace beam::wallet::lelantus
             m_TxBuilder = std::make_shared<PushTxBuilder>(*this);
         PushTxBuilder& builder = *m_TxBuilder;
 
+        if (MaxHeight == builder.m_Height.m_Max) {
+            uint32_t lifetime = 0;
+            Block::SystemState::Full s;
+            if (GetParameter(TxParameterID::Lifetime, lifetime) && lifetime > 0 && GetTip(s)) {
+                builder.m_Height.m_Max = s.m_Height + lifetime;
+                LOG_DEBUG() << "Setup max height for PushTransaction = " << builder.m_Height.m_Max;
+                SetParameter(TxParameterID::MaxHeight, builder.m_Height.m_Max, GetSubTxID());
+            }
+        }
+
         if (builder.m_Coins.IsEmpty())
         {
             UpdateTxDescription(TxStatus::InProgress);
