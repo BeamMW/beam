@@ -50,7 +50,7 @@ namespace beam::wallet
         virtual void fillAssetInfo(json& arr, const WalletAsset& info);
         virtual void fillAddresses(json& arr, const std::vector<WalletAddress>& items);
         virtual void fillCoins(json& arr, const std::vector<ApiCoin>& coins);
-        virtual void fillTransactions(json& arr, const std::vector<Status::Response> txs);
+        virtual void fillTransactions(json& arr, const std::vector<Status::Response>& txs);
 
     private:
         void FillAddressData(const AddressData& data, WalletAddress& address);
@@ -72,7 +72,7 @@ namespace beam::wallet
 
         // If no fee read and no min fee provided this function calculates minimum fee itself
         Amount getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const;
-        Amount getBeamFeeParam(const json& params, const std::string& name) const;
+        Amount getBeamFeeParam(const json& params, const std::string& name, bool hasShieldedOutputs = false) const;
 
         std::string getTokenType(TokenType type) const;
 

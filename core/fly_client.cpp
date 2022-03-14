@@ -861,7 +861,9 @@ bool FlyClient::NetworkStd::Connection::SendRequest(RequestEnsureSync& req)
             return true;
     }
 
-    auto& n = get_FirstRequest();
+    RequestNode& n = m_lst.back(); // SendRequest is called on the most recently added request
+    assert(&req == n.m_pRequest);
+
     OnDone(n);
 
     return true;

@@ -25,7 +25,7 @@ BEAM_EXPORT void Method_2(Method::View& r)
 
 void AddSigPlus(const PubKey& pk)
 {
-    switch (pk.Y)
+    switch (pk.m_Y)
     {
     case 0:
     case 1:
@@ -37,7 +37,7 @@ void AddSigPlus(const PubKey& pk)
         // contract
         ContractID cid;
         Env::get_CallerCid(1, cid);
-        Env::Halt_if(_POD_(cid) != pk.X);
+        Env::Halt_if(_POD_(cid) != pk.m_X);
     }
     break;
 
@@ -63,7 +63,7 @@ void User_get(Amount& res, Token::ID tid, const PubKey& pk)
 
 void User_Modify(Token::ID tid, Token& t, const PubKey& pk, Amount val, bool bAdd)
 {
-    if (pk.Y == PubKeyFlag::s_CA)
+    if (pk.m_Y == PubKeyFlag::s_CA)
     {
         if (!t.m_Aid)
         {

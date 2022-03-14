@@ -367,33 +367,33 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::makeIWTCall, std::move(function), std::move(resultCallback));
     }
 
-    void callShader(const std::vector<uint8_t>& shader, const std::string& args, CallShaderCallback&& cback) override
+    void callShader(std::vector<uint8_t>&& shader, std::string&& args, CallShaderCallback&& cback) override
     {
-        typedef void(IWalletModelAsync::* MethodType)(const std::vector<uint8_t>&, const std::string&, CallShaderCallback&&);
-        call_async((MethodType)&IWalletModelAsync::callShader, shader, args, cback);
+        typedef void(IWalletModelAsync::* MethodType)(std::vector<uint8_t>&&, std::string&&, CallShaderCallback&&);
+        call_async((MethodType)&IWalletModelAsync::callShader, std::move(shader), std::move(args), std::move(cback));
     }
 
-    void callShader(const std::string& shaderFile, const std::string& args, CallShaderCallback&& cback) override
+    void callShader(std::string&& shaderFile, std::string&& args, CallShaderCallback&& cback) override
     {
-        typedef void(IWalletModelAsync::* MethodType)(const std::string&, const std::string&, CallShaderCallback&&);
-        call_async((MethodType)&IWalletModelAsync::callShader, shaderFile, args, cback);
+        typedef void(IWalletModelAsync::* MethodType)(std::string&&, std::string&&, CallShaderCallback&&);
+        call_async((MethodType)&IWalletModelAsync::callShader, std::move(shaderFile), std::move(args), std::move(cback));
     }
 
-    void callShaderAndStartTx(const beam::ByteBuffer& shader, const std::string& args, CallShaderAndStartTxCallback&& cback) override
+    void callShaderAndStartTx(beam::ByteBuffer&& shader, std::string&& args, CallShaderAndStartTxCallback&& cback) override
     {
-        typedef void(IWalletModelAsync::* MethodType)(const std::vector<uint8_t>&, const std::string&, CallShaderAndStartTxCallback&&);
-        call_async((MethodType)&IWalletModelAsync::callShaderAndStartTx, shader, args, cback);
+        typedef void(IWalletModelAsync::* MethodType)(std::vector<uint8_t>&&, std::string&&, CallShaderAndStartTxCallback&&);
+        call_async((MethodType)&IWalletModelAsync::callShaderAndStartTx, std::move(shader), std::move(args), std::move(cback));
     }
 
-    void callShaderAndStartTx(const std::string& shaderFile, const std::string& args, CallShaderAndStartTxCallback&& cback) override
+    void callShaderAndStartTx(std::string&& shaderFile, std::string&& args, CallShaderAndStartTxCallback&& cback) override
     {
-        typedef void(IWalletModelAsync::* MethodType)(const std::string&, const std::string&, CallShaderAndStartTxCallback&&);
-        call_async((MethodType)&IWalletModelAsync::callShaderAndStartTx, shaderFile, args, cback);
+        typedef void(IWalletModelAsync::* MethodType)(std::string&&, std::string&&, CallShaderAndStartTxCallback&&);
+        call_async((MethodType)&IWalletModelAsync::callShaderAndStartTx, std::move(shaderFile), std::move(args), std::move(cback));
     }
 
-    void processShaderTxData(const beam::ByteBuffer& data, ProcessShaderTxDataCallback&& cback) override
+    void processShaderTxData(beam::ByteBuffer&& data, ProcessShaderTxDataCallback&& cback) override
     {
-        call_async(&IWalletModelAsync::processShaderTxData, data, cback);
+        call_async(&IWalletModelAsync::processShaderTxData, std::move(data), std::move(cback));
     }
 
     void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override
@@ -819,6 +819,12 @@ namespace beam::wallet
         return sp;
     }
 
+    NodeNetwork::Ptr WalletClient::getNodeNetwork()
+    {
+        auto sp = m_nodeNetwork.lock();
+        return sp;
+    }
+
     #ifdef BEAM_IPFS_SUPPORT
     IPFSService::Ptr WalletClient::getIPFS()
     {
@@ -848,6 +854,7 @@ namespace beam::wallet
 
         if (!sp->AnyThread_running())
         {
+            // throws
             sp->ServiceThread_start(*m_ipfsConfig);
         }
 
@@ -892,7 +899,18 @@ namespace beam::wallet
 
     void WalletClient::startIPFSNode()
     {
-        IWThread_startIPFSNode();
+        try
+        {
+            IWThread_startIPFSNode();
+        }
+        catch(std::runtime_error& err)
+        {
+            auto errmsg = std::string("Failed to start IPFS service. ") + err.what();
+            LOG_ERROR() << errmsg;
+            m_ipfsError = errmsg;
+            m_ipfsPeerCnt = 0;
+            getIPFSStatus();
+        }
     }
     #endif
 
@@ -2425,14 +2443,13 @@ namespace beam::wallet
 
     void WalletClient::makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<const boost::any&>&& resultCallback)
     {
-        auto result = function();
-        postFunctionToClientContext([result, cb = std::move(resultCallback)]()
+        postFunctionToClientContext([result = function(), cb = std::move(resultCallback)]()
         {
             cb(result);
         });
     }
 
-    void WalletClient::callShaderAndStartTx(const beam::ByteBuffer& shader, const std::string& args, CallShaderAndStartTxCallback&& cback)
+    void WalletClient::callShaderAndStartTx(beam::ByteBuffer&& shader, std::string&& args, CallShaderAndStartTxCallback&& cback)
     {
         auto smgr = _clientShaders.lock();
         if (!smgr)
@@ -2444,9 +2461,9 @@ namespace beam::wallet
             return;
         }
 
-        smgr->CallShaderAndStartTx(shader, args, args.empty() ? 0 : 1, 0, 0,
+        smgr->CallShaderAndStartTx(std::move(shader), std::move(args), args.empty() ? 0 : 1, 0, 0,
             [this, cb = std::move(cback), shaders = _clientShaders]
-            (boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
+            (const boost::optional<TxID>& txid, boost::optional<std::string>&& result, boost::optional<std::string>&& error) {
                 auto smgr = _clientShaders.lock();
                 if (!smgr)
                 {
@@ -2468,11 +2485,11 @@ namespace beam::wallet
         });
     }
 
-    void WalletClient::callShaderAndStartTx(const std::string& shaderFile, const std::string& args, CallShaderAndStartTxCallback&& cback)
+    void WalletClient::callShaderAndStartTx(std::string&& shaderFile, std::string&& args, CallShaderAndStartTxCallback&& cback)
     {
         try
         {
-            callShaderAndStartTx(fsutils::fread(shaderFile), args, std::move(cback));
+            callShaderAndStartTx(fsutils::fread(shaderFile), std::move(args), std::move(cback));
         }
         catch (std::runtime_error& err)
         {
@@ -2482,7 +2499,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::callShader(const beam::ByteBuffer& shader, const std::string& args, CallShaderCallback&& cback)
+    void WalletClient::callShader(beam::ByteBuffer&& shader, std::string&& args, CallShaderCallback&& cback)
     {
         auto smgr = _clientShaders.lock();
         if (!smgr)
@@ -2494,9 +2511,9 @@ namespace beam::wallet
             return;
         }
 
-        smgr->CallShader(shader, args, args.empty() ? 0 : 1, 0, 0,
+        smgr->CallShader(std::move(shader), std::move(args), args.empty() ? 0 : 1, 0, 0,
             [this, cb = std::move(cback), shaders = _clientShaders]
-            (boost::optional<ByteBuffer> data, boost::optional<std::string> output, boost::optional<std::string> error) {
+            (boost::optional<ByteBuffer>&& data, boost::optional<std::string>&& output, boost::optional<std::string>&& error) {
                 auto smgr = _clientShaders.lock();
                 if (!smgr)
                 {
@@ -2518,11 +2535,11 @@ namespace beam::wallet
         });
     }
 
-    void WalletClient::callShader(const std::string& shaderFile, const std::string& args, CallShaderCallback&& cback)
+    void WalletClient::callShader(std::string&& shaderFile, std::string&& args, CallShaderCallback&& cback)
     {
         try
         {
-            callShader(fsutils::fread(shaderFile), args, std::move(cback));
+            callShader(fsutils::fread(shaderFile), std::move(args), std::move(cback));
         }
         catch (std::runtime_error& err)
         {
@@ -2532,7 +2549,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::processShaderTxData(const beam::ByteBuffer& data, ProcessShaderTxDataCallback&& cback)
+    void WalletClient::processShaderTxData(beam::ByteBuffer&& data, ProcessShaderTxDataCallback&& cback)
     {
         auto smgr = _clientShaders.lock();
         if (!smgr)
@@ -2545,7 +2562,7 @@ namespace beam::wallet
         }
 
         smgr->ProcessTxData(data,
-            [this, cb = std::move(cback), shaders = _clientShaders] (boost::optional<TxID> txid, boost::optional<std::string> error) {
+            [this, cb = std::move(cback), shaders = _clientShaders] (const boost::optional<TxID>& txid, boost::optional<std::string>&& error) {
                 auto smgr = _clientShaders.lock();
                 if (!smgr)
                 {

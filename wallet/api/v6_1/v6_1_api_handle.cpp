@@ -50,9 +50,17 @@ namespace beam::wallet
             _evSubs = *data.txsChanged ? _evSubs | SubFlags::TXsChanged : _evSubs & ~SubFlags::TXsChanged;
         }
 
+        if (data.connectChanged.is_initialized())
+        {
+            _evSubs = *data.connectChanged ? _evSubs | SubFlags::ConnectChanged : _evSubs & ~SubFlags::ConnectChanged;
+        }
+
         if (_evSubs && !_subscribedToListener)
         {
             getWallet()->Subscribe(this);
+            if (_network) {
+                _network->Subscribe(this);
+            }
             _subscribedToListener = true;
         }
 
@@ -105,7 +113,6 @@ namespace beam::wallet
             auto addrs2 = getWalletDB()->getAddresses(false);
             addrs.reserve(addrs.size() + addrs2.size());
             addrs.insert(addrs.end(), addrs2.begin(), addrs2.end());
-
             onAddressChanged(ChangeAction::Reset, addrs);
         }
 
@@ -116,8 +123,12 @@ namespace beam::wallet
                 txs.push_back(tx);
                 return true;
             }, TxListFilter());
-
             onTransactionChanged(ChangeAction::Reset, txs);
+        }
+
+        if ((_evSubs & SubFlags::ConnectChanged) != 0 && (oldSubs & SubFlags::ConnectChanged) == 0)
+        {
+            sendConnectionStatus();
         }
     }
 
@@ -197,8 +208,8 @@ namespace beam::wallet
 
     void V61Api::onHandleInvokeContractWithTX(const JsonRpcId &id, InvokeContractV61&& data)
     {
-        getContracts()->CallShaderAndStartTx(data.contract, data.args, data.args.empty() ? 0 : 1, data.priority, data.unique,
-        [this, id, wguard = _weakSelf](boost::optional<TxID> txid, boost::optional<std::string> result, boost::optional<std::string> error) {
+        getContracts()->CallShaderAndStartTx(std::move(data.contract), std::move(data.args), data.args.empty() ? 0 : 1, data.priority, data.unique,
+        [this, id, wguard = _weakSelf](const boost::optional<TxID>& txid, boost::optional<std::string>&& result, boost::optional<std::string>&& error) {
             auto guard = wguard.lock();
             if (!guard)
             {
@@ -227,8 +238,8 @@ namespace beam::wallet
 
     void V61Api::onHandleInvokeContractNoTX(const JsonRpcId &id, InvokeContractV61&& data)
     {
-        getContracts()->CallShader(data.contract, data.args, data.args.empty() ? 0 : 1, data.priority, data.unique,
-        [this, id, wguard = _weakSelf](boost::optional<ByteBuffer> data, boost::optional<std::string> output, boost::optional<std::string> error) {
+        getContracts()->CallShader(std::move(data.contract), std::move(data.args), data.args.empty() ? 0 : 1, data.priority, data.unique,
+        [this, id, wguard = _weakSelf](boost::optional<ByteBuffer>&& data, boost::optional<std::string>&& output, boost::optional<std::string>&& error) {
             auto guard = wguard.lock();
             if (!guard)
             {

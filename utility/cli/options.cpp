@@ -302,6 +302,7 @@ namespace beam
         const char* API_VERSION  = "api_version";
         const char* API_ENABLE_IPFS = "enable_ipfs";
         const char* API_IPFS_STORAGE = "ipfs_storage";
+        const char* API_TCP_MAX_LINE = "tcp_max_line";
 
         // treasury
         const char* TR_OPCODE = "tr_op";

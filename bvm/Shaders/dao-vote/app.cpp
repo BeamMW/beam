@@ -9,6 +9,7 @@
 #define DaoVote_manager_view_params(macro) macro(ContractID, cid)
 #define DaoVote_manager_my_admin_key(macro)
 #define DaoVote_manager_explicit_upgrade(macro) macro(ContractID, cid)
+#define DaoVote_manager_view_totals(macro) macro(ContractID, cid)
 
 #define DaoVote_manager_view_proposals(macro) \
     macro(ContractID, cid) \
@@ -23,6 +24,13 @@
     macro(ContractID, cid) \
     macro(uint32_t, variants)
 
+#define DaoVote_manager_set_moderator(macro) \
+    macro(ContractID, cid) \
+    macro(PubKey, pk) \
+    macro(uint32_t, bEnable)
+
+#define DaoVote_manager_view_moderators(macro) macro(ContractID, cid)
+
 #define DaoVote_manager_add_dividend(macro) \
     macro(ContractID, cid) \
     macro(AssetID, aid) \
@@ -34,6 +42,9 @@
     macro(manager, view_params) \
     macro(manager, view_proposals) \
     macro(manager, view_proposal) \
+    macro(manager, view_totals) \
+    macro(manager, view_moderators) \
+    macro(manager, set_moderator) \
     macro(manager, add_proposal) \
     macro(manager, add_dividend) \
     macro(manager, my_admin_key)
@@ -41,6 +52,11 @@
 #define DaoVote_user_my_key(macro) macro(ContractID, cid)
 #define DaoVote_user_view(macro) macro(ContractID, cid)
 #define DaoVote_user_vote(macro) macro(ContractID, cid)
+
+#define DaoVote_user_view_votes(macro) \
+    macro(ContractID, cid) \
+    macro(Proposal::ID, iProp1) \
+    macro(uint32_t, nMaxCount)
 
 #define DaoVote_user_move_funds(macro) \
     macro(ContractID, cid) \
@@ -50,6 +66,7 @@
 #define DaoVoteRole_user(macro) \
     macro(user, my_key) \
     macro(user, view) \
+    macro(user, view_votes) \
     macro(user, move_funds) \
     macro(user, vote) \
 
@@ -89,6 +106,14 @@ const char g_szAdminSeed[] = "upgr2-dao-vote";
 
 struct AdminKeyID :public Env::KeyID {
     AdminKeyID() :Env::KeyID(&g_szAdminSeed, sizeof(g_szAdminSeed)) {}
+};
+
+struct UserKeyID :public Env::KeyID {
+    UserKeyID(const ContractID& cid)
+    {
+        m_pID = &cid;
+        m_nID = sizeof(cid);
+    }
 };
 
 ON_METHOD(manager, view)
@@ -158,7 +183,7 @@ struct MyState
 
         _POD_(m_PrevDividend).SetZero();
 
-        if (m_Current.m_Stake)
+        if (m_Current.m_DividendStake)
         {
             if (m_Current.m_iDividendEpoch)
             {
@@ -167,12 +192,12 @@ struct MyState
                     Env::Cost::SaveVar_For(sizeof(DividendMax));
 
                 m_PrevDividend.m_iEpoch = m_Current.m_iDividendEpoch;
-                m_PrevDividend.m_Stake = m_Current.m_Stake;
+                m_PrevDividend.m_Stake = m_Current.m_DividendStake;
 
                 m_Current.m_iDividendEpoch = 0;
             }
 
-            m_Current.m_Stake = 0;
+            m_Current.m_DividendStake = 0;
         }
 
         if (!m_Current.m_iDividendEpoch)
@@ -310,6 +335,46 @@ ON_METHOD(manager, view_proposals)
     }
 }
 
+ON_METHOD(manager, view_moderators)
+{
+    Env::Key_T<Moderator::Key> k0, k1;
+    _POD_(k0.m_Prefix.m_Cid) = cid;
+    _POD_(k1.m_Prefix.m_Cid) = cid;
+    _POD_(k0.m_KeyInContract.m_pk).SetZero();
+    _POD_(k1.m_KeyInContract.m_pk).SetObject(0xff);
+
+    Env::DocArray gr0("res");
+
+    for (Env::VarReader r(k0, k1); ; )
+    {
+        Moderator m;
+        if (!r.MoveNext_T(k0, m))
+            break;
+
+        Env::DocGroup gr1("");
+        Env::DocAddBlob_T("pk", k0.m_KeyInContract.m_pk);
+        Env::DocAddNum("height", m.m_Height);
+    }
+}
+
+
+ON_METHOD(manager, set_moderator)
+{
+    Method::SetModerator args;
+    args.m_Enable = !!bEnable;
+    _POD_(args.m_pk) = pk;
+
+    uint32_t nCharge =
+        ManagerUpgadable2::get_ChargeInvoke() +
+        Env::Cost::AddSig +
+        Env::Cost::LoadVar_For(sizeof(Moderator)) +
+        Env::Cost::SaveVar_For(sizeof(Moderator)) +
+        Env::Cost::Cycle * 100;
+
+    AdminKeyID kid;
+    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), nullptr, 0, &kid, 1, "dao-vote set moderator", nCharge);
+}
+
 ON_METHOD(manager, add_proposal)
 {
     if (!variants || (variants > Proposal::s_VariantsMax))
@@ -338,6 +403,7 @@ ON_METHOD(manager, add_proposal)
     uint32_t nCharge =
         s.m_Charge +
         Env::Cost::AddSig +
+        Env::Cost::LoadVar_For(sizeof(Moderator)) +
         Env::Cost::SaveVar_For(sizeof(Amount) * variants) +
         Env::Cost::Log_For(sizeof(Events::Proposal) + nLen) +
         Env::Cost::MemOpPerByte * nLen +
@@ -346,10 +412,46 @@ ON_METHOD(manager, add_proposal)
     if (!bEpochClosed)
         nCharge += Env::Cost::SaveVar_For(sizeof(State));
 
-    AdminKeyID kid;
+    UserKeyID kid(cid);
     Env::GenerateKernel(&cid, pArgs->s_iMethod, pArgs, nArgsSize, nullptr, 0, &kid, 1, "dao-vote add proposal", nCharge);
 
     Env::Heap_Free(pArgs);
+}
+
+ON_METHOD(manager, view_totals)
+{
+    MyState s;
+    if (!s.Load(cid))
+        return;
+
+    Env::Key_T<User::Key> k0, k1;
+    _POD_(k0.m_Prefix.m_Cid) = cid;
+    _POD_(k1.m_Prefix.m_Cid) = cid;
+    _POD_(k0.m_KeyInContract.m_pk).SetZero();
+    _POD_(k1.m_KeyInContract.m_pk).SetObject(0xff);
+
+    Amount valActive = 0, valPassive = 0;
+
+    for (Env::VarReader r(k0, k1); ; )
+    {
+        UserMax u;
+        uint32_t nKey = sizeof(k0);
+        uint32_t nVal = sizeof(u);
+
+        if (!r.MoveNext(&k0, nKey, &u, nVal, 0))
+            break;
+
+        valActive += u.m_Stake;
+
+        bool bUpdated = (s.m_Current.m_iEpoch == u.m_iEpoch);
+        (bUpdated ? valPassive : valActive) += u.m_StakeNext;
+
+    }
+
+    Env::DocGroup gr("res");
+
+    Env::DocAddNum("stake_active", valActive);
+    Env::DocAddNum("stake_passive", valPassive);
 }
 
 ON_METHOD(manager, add_dividend)
@@ -407,14 +509,6 @@ ON_METHOD(manager, view_proposal)
     }
     Env::DocAddNum("total", total);
 }
-
-struct UserKeyID :public Env::KeyID {
-    UserKeyID(const ContractID& cid)
-    {
-        m_pID = &cid;
-        m_nID = sizeof(cid);
-    }
-};
 
 ON_METHOD(user, my_key)
 {
@@ -520,6 +614,14 @@ struct MyUser
     }
 };
 
+void PrintVotesArr(const char* szName, const uint8_t* p, uint32_t n)
+{
+    Env::DocArray gr(szName);
+
+    for (uint32_t i = 0; i < n; i++)
+        Env::DocAddNum32("", p[i]);
+}
+
 ON_METHOD(user, view)
 {
     MyState s;
@@ -537,15 +639,44 @@ ON_METHOD(user, view)
     Env::DocAddNum("stake_passive", u.m_StakeNext);
 
     if (u.m_Votes)
-    {
-        Env::DocArray gr1("current_votes");
-
-        for (uint32_t i = 0; i < u.m_Votes; i++)
-            Env::DocAddNum32("", u.m_pVotes[i]);
-    }
+        PrintVotesArr("current_votes", u.m_pVotes, u.m_Votes);
 
     if (u.m_Dividend.m_Assets)
         u.m_Dividend.Write();
+}
+
+ON_METHOD(user, view_votes)
+{
+    UserKeyID kid(cid);
+
+    Env::Key_T<Events::UserVote::Key> k0, k1;
+    _POD_(k0.m_Prefix.m_Cid) = cid;
+    kid.get_Pk(k0.m_KeyInContract.m_pk);
+    k0.m_KeyInContract.m_ID_0_be = Utils::FromBE(iProp1);
+    _POD_(k1.m_Prefix.m_Cid) = cid;
+    k1.m_KeyInContract.m_ID_0_be = (Proposal::ID) -1;
+    _POD_(k1.m_KeyInContract.m_pk) = k0.m_KeyInContract.m_pk;
+
+    Env::DocArray gr0("res");
+
+    Env::LogReader r(k0, k1);
+    for (uint32_t i = 0; ; )
+    {
+        Events::UserVoteMax uv;
+        uint32_t nKey = sizeof(k0);
+        uint32_t nVal = sizeof(uv);
+
+        if (!r.MoveNext(&k0, nKey, &uv, nVal, 0))
+            break;
+
+        Env::DocGroup gr1("");
+        Env::DocAddNum("id1", Utils::FromBE(k0.m_KeyInContract.m_ID_0_be));
+        Env::DocAddNum("stake", uv.m_Stake);
+        PrintVotesArr("votes", uv.m_pVotes, nVal - sizeof(Events::UserVote));
+
+        if (++i == nMaxCount)
+            break;
+    }
 }
 
 ON_METHOD(user, move_funds)

@@ -95,7 +95,7 @@ public:
 
 	class GracefulIntHandler
 	{
-		static Reactor* s_pAppReactor;
+		static Reactor* volatile s_pAppReactor;
 
 #ifdef WIN32
 		static BOOL WINAPI Handler(DWORD dwCtrlType);

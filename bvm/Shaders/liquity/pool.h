@@ -8,15 +8,8 @@ struct HomogenousPool
 
     struct Scale
     {
+        static const uint32_t s_Initial = 64;
         static const uint32_t s_Threshold = 20; // 1mln
-
-        static bool IsSane(const Float& x, uint32_t nThreshold)
-        {
-            // should be (nThreshold > x.m_Order >= -nThreshold)
-            // (2*nThreshold > x.m_Order + nThreshold >= 0)
-            uint32_t val = nThreshold + x.m_Order;
-            return (val < nThreshold * 2);
-        }
     };
 
     static Amount Round(Float x)
@@ -291,20 +284,18 @@ struct HomogenousPool
         template <class Storage>
         void OnPostTrade(Storage& stor)
         {
-            if (!Scale::IsSane(m_Active.m_kScale, Scale::s_Threshold))
+            static_assert(Mode::Burn == m);
+            static_assert(Scale::s_Initial > Scale::s_Threshold * 2); // this means that order==0 is also covered
+
+            if (m_Active.m_kScale.m_Order < (int32_t) (Scale::s_Initial - Scale::s_Threshold))
             {
-                UnloadDraining(stor);
+                if (m_Draining.m_Users)
+                    stor.Save(m_iActive - 1, m_Draining);
 
                 _POD_(m_Draining) = m_Active;
 
                 ResetActive();
                 m_iActive++;
-            }
-
-            if (!Scale::IsSane(m_Draining.m_kScale, Scale::s_Threshold * 2))
-            {
-                UnloadDraining(stor);
-                _POD_(m_Draining).SetZero();
             }
         }
 
@@ -319,14 +310,7 @@ struct HomogenousPool
         void ResetActiveScale()
         {
             m_Active.m_kScale.m_Num = m_Active.m_kScale.s_HiBit;
-            m_Active.m_kScale.m_Order = 0;
-        }
-
-        template <class Storage>
-        void UnloadDraining(Storage& stor)
-        {
-            if (m_Draining.m_Users)
-                stor.Save(m_iActive - 1, m_Draining);
+            m_Active.m_kScale.m_Order = Scale::s_Initial;
         }
     };
 };

@@ -37,6 +37,7 @@
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/simple_transaction.h"
+#include "wallet/core/node_network.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/transactions/assets/assets_reg_creators.h"
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
@@ -63,6 +64,7 @@ namespace
 {
     const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
     const size_t PACKER_FRAGMENTS_SIZE = 4096;
+    constexpr size_t LINE_FRAGMENT_SIZE = 4096;
 
     struct TlsOptions
     {
@@ -71,6 +73,13 @@ namespace
         std::string keyPath;
         bool requestCertificate;
         bool rejectUnauthorized;
+    };
+
+    struct ConnectionOptions
+    {
+        bool useHttp;
+        size_t maxLineSize;
+        TlsOptions tls;
     };
 
     ApiACL loadACL(const std::string& path)
@@ -139,19 +148,17 @@ namespace
     public:
         WalletApiServer(const std::string& apiVersion, IWalletDB::Ptr walletDB,
                         Wallet::Ptr wallet,
-                        proto::FlyClient::NetworkStd::Ptr nnet,
+                        NodeNetwork::Ptr nnet,
                         io::Reactor& reactor,
                         io::Address listenTo,
-                        bool useHttp,
+                        const ConnectionOptions& connectionOptions,
                         ApiACL acl,
-                        const TlsOptions& tlsOptions,
                         const std::vector<uint32_t>& whitelist)
 
             : _apiVersion(apiVersion)
             , _reactor(reactor)
             , _bindAddress(listenTo)
-            , _useHttp(useHttp)
-            , _tlsOptions(tlsOptions)
+            , _connectionOptions(connectionOptions)
             , _walletDB(walletDB)
             , _wallet(wallet)
             , _network(nnet)
@@ -169,9 +176,10 @@ namespace
         #ifdef BEAM_IPFS_SUPPORT
         struct IPFSHandler: beam::wallet::IPFSService::Handler
         {
-            explicit IPFSHandler(io::Reactor::Ptr reactor)
+            explicit IPFSHandler(io::Reactor::Ptr reactor, std::function<void (std::string)> onerr)
             {
                 _toServerThread = PostToReactorThread::create(std::move(reactor));
+                _onError = std::move(onerr);
             }
 
             void AnyThread_pushToClient(std::function<void()>&& action) override
@@ -179,20 +187,33 @@ namespace
                 _toServerThread->post(std::move(action));
             }
 
-            void AnyThread_onStatus(const std::string& /* error */, uint32_t /* peercnt */) override
+            void AnyThread_onStatus(const std::string& error, uint32_t peercnt) override
             {
-            }
+                if (error.empty())
+                {
+                    LOG_INFO() << "IPFS peers count: " << peercnt;
+                    return;
+                }
 
+                _toServerThread->post([onerr = _onError, error](){
+                    onerr(error);
+                });
+            }
 
         private:
             wallet::PostToReactorThread::Ptr _toServerThread;
+            std::function<void (std::string)> _onError;
         };
 
         bool startIPFS(asio_ipfs::config config, io::Reactor::Ptr reactor)
         {
             try
             {
-                _ipfsHandler = std::make_shared<IPFSHandler>(std::move(reactor));
+                _ipfsHandler = std::make_shared<IPFSHandler>(reactor, [reactor, this] (const std::string& error) {
+                    _ipfsError = error;
+                    reactor->stop();
+                });
+
                 _ipfs = beam::wallet::IPFSService::AnyThread_create(_ipfsHandler);
                 _ipfs->ServiceThread_start(std::move(config));
                 return true;
@@ -211,9 +232,15 @@ namespace
             _ipfsHandler.reset();
         }
 
+        [[nodiscard]] const std::string& getIPFSError() const
+        {
+            return _ipfsError;
+        }
+
         private:
             beam::wallet::IPFSService::Ptr _ipfs;
             std::shared_ptr<IPFSHandler> _ipfsHandler;
+            std::string _ipfsError;
         public:
         #endif
 
@@ -232,9 +259,10 @@ namespace
 
             try
             {
-                _server = _tlsOptions.use
+                const auto& tls = _connectionOptions.tls;
+                _server = tls.use
                     ? io::SslServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted)
-                        , _tlsOptions.certPath.c_str(), _tlsOptions.keyPath.c_str(), _tlsOptions.requestCertificate, _tlsOptions.rejectUnauthorized)
+                        , tls.certPath.c_str(), tls.keyPath.c_str(), tls.requestCertificate, tls.rejectUnauthorized)
                     : io::TcpServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted));
 
             }
@@ -274,10 +302,11 @@ namespace
             if (!_walletData)
             {
                 _walletData = std::make_unique<ApiInitData>();
-                _walletData->walletDB  = _walletDB;
-                _walletData->wallet    = _wallet;
-                _walletData->acl       = _acl;
-                _walletData->contracts = IShadersManager::CreateInstance(_wallet, _walletDB, _network, "", "");
+                _walletData->walletDB    = _walletDB;
+                _walletData->wallet      = _wallet;
+                _walletData->acl         = _acl;
+                _walletData->contracts   = IShadersManager::CreateInstance(_wallet, _walletDB, _network, "", "");
+                _walletData->nodeNetwork = _network;
 
                 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
                 _walletData->swaps = _swapsProvider;
@@ -288,7 +317,7 @@ namespace
                 #endif
             }
 
-            return std::make_shared<T>(_apiVersion, *this, std::move(newStream), *_walletData);
+            return std::make_shared<T>(_apiVersion, *this, std::move(newStream), *_walletData, _connectionOptions);
         }
 
         void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
@@ -310,7 +339,7 @@ namespace
 
                 checkConnections();
 
-                _connections[peer.u64()] = _useHttp
+                _connections[peer.u64()] = _connectionOptions.useHttp
                     ? createConnection<HttpApiConnection>(std::move(newStream))
                     : createConnection<TcpApiConnection>(std::move(newStream));
             }
@@ -324,10 +353,10 @@ namespace
             , public IWalletApiHandler
         {
         public:
-            TcpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, ApiInitData& walletData)
+            TcpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, ApiInitData& walletData, const ConnectionOptions& options)
                 : _server(server)
                 , _stream(std::move(newStream))
-                , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
+                , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write), LINE_FRAGMENT_SIZE, options.maxLineSize)
             {
                 _walletApi = IWalletApi::CreateInstance(apiVersion, *this, walletData);
                 _stream->enable_keepalive(2);
@@ -355,18 +384,24 @@ namespace
                 if (errorCode != 0)
                 {
                     LOG_INFO() << "peer disconnected, code=" << io::error_str(errorCode);
-                    _server.closeConnection(_stream->peer_address().u64());
+                    closeConnection();
                     return false;
                 }
 
                 if (!_lineProtocol.new_data_from_stream(data, size))
                 {
                     LOG_INFO() << "stream corrupted";
-                    _server.closeConnection(_stream->peer_address().u64());
+                    closeConnection();
                     return false;
                 }
 
                 return true;
+            }
+
+            void closeConnection()
+            {
+                _stream->shutdown();
+                _server.closeConnection(_stream->peer_address().u64());
             }
 
         private:
@@ -381,7 +416,7 @@ namespace
             , public IWalletApiHandler
         {
         public:
-            HttpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, ApiInitData& walletData)
+            HttpApiConnection(const std::string& apiVersion, IWalletApiServer& server, io::TcpStream::Ptr&& newStream, ApiInitData& walletData, const ConnectionOptions&)
                 : _server(server)
                 , _sendResponseCalled(false)
                 , _msgCreator(2000)
@@ -531,14 +566,13 @@ namespace
         io::Reactor&       _reactor;
         io::TcpServer::Ptr _server;
         io::Address        _bindAddress;
-        bool               _useHttp;
-        TlsOptions         _tlsOptions;
+        ConnectionOptions  _connectionOptions;
 
         std::unordered_map<uint64_t, IServerConnection::Ptr> _connections;
 
         IWalletDB::Ptr _walletDB;
         Wallet::Ptr _wallet;
-        proto::FlyClient::NetworkStd::Ptr _network;
+        NodeNetwork::Ptr _network;
 
         #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::shared_ptr<ApiCliSwap> _swapsProvider;
@@ -561,7 +595,6 @@ int main(int argc, char* argv[])
         uint16_t port;
         std::string walletPath;
         std::string nodeURI;
-        bool useHttp;
         Nonnegative<uint32_t> pollPeriod_ms;
 
         bool useAcl;
@@ -572,7 +605,7 @@ int main(int argc, char* argv[])
         uint32_t logCleanupPeriod;
         bool enableLelantus = false;
     } options;
-    TlsOptions tlsOptions;
+    ConnectionOptions connectionOptions;
 
     po::options_description desc("Wallet API general options");
     {
@@ -583,7 +616,7 @@ int main(int argc, char* argv[])
             (cli::NODE_ADDR_FULL,   po::value<std::string>(&options.nodeURI), "address of node")
             (cli::WALLET_STORAGE,   po::value<std::string>(&options.walletPath)->default_value("wallet.db"), "path to wallet file")
             (cli::PASS,             po::value<std::string>(), "password for the wallet")
-            (cli::API_USE_HTTP,     po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
+            (cli::API_USE_HTTP,     po::value<bool>(&connectionOptions.useHttp)->default_value(false), "use JSON RPC over HTTP")
             (cli::IP_WHITELIST,     po::value<std::string>(&options.whitelist)->default_value(""), "IP whitelist")
             (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
             (cli::WITH_ASSETS,      po::bool_switch()->default_value(false), "enable confidential assets transactions")
@@ -593,6 +626,7 @@ int main(int argc, char* argv[])
             (cli::LOG_LEVEL,        po::value<std::string>(), "set log level [error|warning|info(default)|debug|verbose]")
             (cli::FILE_LOG_LEVEL,   po::value<std::string>(), "set file log level [error|warning|info(default)|debug|verbose]")
             (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
+            (cli::API_TCP_MAX_LINE, po::value<size_t>(&connectionOptions.maxLineSize)->default_value(65536), "max line size in TCP mode")
         ;
 
         po::options_description authDesc("User authorization options");
@@ -603,11 +637,11 @@ int main(int argc, char* argv[])
 
         po::options_description tlsDesc("TLS protocol options");
         tlsDesc.add_options()
-                (cli::API_USE_TLS, po::value<bool>(&tlsOptions.use)->default_value(false), "use TLS protocol")
-                (cli::API_TLS_CERT, po::value<std::string>(&tlsOptions.certPath)->default_value("wallet_api.crt"), "path to TLS certificate")
-                (cli::API_TLS_KEY, po::value<std::string>(&tlsOptions.keyPath)->default_value("wallet_api.key"), "path to TLS private key")
-                (cli::API_TLS_REQUEST_CERTIFICATE, po::value<bool>(&tlsOptions.requestCertificate)->default_value("false"), "request client's certificate for verification")
-                (cli::API_TLS_REJECT_UNAUTHORIZED, po::value<bool>(&tlsOptions.rejectUnauthorized)->default_value("true"), "server will reject any connection which is not authorized with the list of supplied CAs.")
+                (cli::API_USE_TLS, po::value<bool>(&connectionOptions.tls.use)->default_value(false), "use TLS protocol")
+                (cli::API_TLS_CERT, po::value<std::string>(&connectionOptions.tls.certPath)->default_value("wallet_api.crt"), "path to TLS certificate")
+                (cli::API_TLS_KEY, po::value<std::string>(&connectionOptions.tls.keyPath)->default_value("wallet_api.key"), "path to TLS private key")
+                (cli::API_TLS_REQUEST_CERTIFICATE, po::value<bool>(&connectionOptions.tls.requestCertificate)->default_value("false"), "request client's certificate for verification")
+                (cli::API_TLS_REJECT_UNAUTHORIZED, po::value<bool>(&connectionOptions.tls.rejectUnauthorized)->default_value("true"), "server will reject any connection which is not authorized with the list of supplied CAs.")
         ;
 
         desc.add(authDesc);
@@ -695,17 +729,19 @@ int main(int argc, char* argv[])
                 }
             }
 
-            if (tlsOptions.use)
+            if (connectionOptions.tls.use)
             {
-                if (tlsOptions.certPath.empty() || !boost::filesystem::exists(tlsOptions.certPath))
+                const auto& certPath = connectionOptions.tls.certPath;
+                if (certPath.empty() || !boost::filesystem::exists(certPath))
                 {
-                    LOG_ERROR() << "TLS certificate not found, path is: " << tlsOptions.certPath;
+                    LOG_ERROR() << "TLS certificate not found, path is: " << certPath;
                     return -1;
                 }
 
-                if (tlsOptions.keyPath.empty() || !boost::filesystem::exists(tlsOptions.keyPath))
+                const auto& keyPath = connectionOptions.tls.keyPath;
+                if (keyPath.empty() || !boost::filesystem::exists(keyPath))
                 {
-                    LOG_ERROR() << "TLS private key not found, path is: " << tlsOptions.keyPath;
+                    LOG_ERROR() << "TLS private key not found, path is: " << keyPath;
                     return -1;
                 }
             }
@@ -772,7 +808,7 @@ int main(int argc, char* argv[])
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
         auto wallet = std::make_shared<Wallet>(walletDB);
 
-        auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(*wallet);
+        auto nnet = std::make_shared<NodeNetwork>(*wallet);
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
         
         if (nnet->m_Cfg.m_PollPeriod_ms)
@@ -800,7 +836,7 @@ int main(int argc, char* argv[])
 		wallet->AddMessageEndpoint(wnet);
         wallet->SetNodeEndpoint(nnet);
 
-        WalletApiServer server(options.apiVersion, walletDB, wallet, nnet, *reactor, listenTo, options.useHttp, acl, tlsOptions, whitelist);
+        WalletApiServer server(options.apiVersion, walletDB, wallet, nnet, *reactor, listenTo, connectionOptions, acl, whitelist);
 
         #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         RegisterSwapTxCreators(wallet, walletDB);
@@ -840,9 +876,12 @@ int main(int argc, char* argv[])
         if (ipfsOpts)
         {
             server.stopIPFS();
+            if(auto err = server.getIPFSError(); !err.empty())
+            {
+                throw std::runtime_error(std::string("IPFS failed: ") + err);
+            }
         }
         #endif
-
         LOG_INFO() << "Done";
     }
     // DO NOT USE LOG_ below. Logger is dead here
@@ -854,10 +893,12 @@ int main(int argc, char* argv[])
     catch (const std::exception& e)
     {
         std::cerr << "EXCEPTION: " << e.what();
+        return -1;
     }
     catch (...)
     {
         std::cerr << "NON_STD EXCEPTION";
+        return -1;
     }
 
     return 0;

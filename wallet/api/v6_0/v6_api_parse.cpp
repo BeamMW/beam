@@ -196,6 +196,28 @@ namespace beam::wallet
             {"tx_type_string", tx.getTxTypeString()}
         };
 
+        if (tx.m_txType == TxType::PushTransaction)
+        {
+            auto storedType = tx.GetParameter<TxAddressType>(TxParameterID::AddressType);
+            if (storedType)
+            {
+                auto c = [](TxAddressType t)
+                {
+                    switch (t)
+                    {
+                    case TxAddressType::MaxPrivacy:
+                        return "max_privacy";
+                    case TxAddressType::PublicOffline:
+                        return "public_offline";
+                    case TxAddressType::Offline:
+                    default:
+                        return "offline";
+                    }
+                };
+                msg["address_type"] = c(*storedType);
+            }
+        }
+
         if (!tx.m_appName.empty() || !tx.m_appID.empty())
         {
             msg["appname"] = tx.m_appName;
@@ -330,10 +352,10 @@ namespace beam::wallet
         }
     }
 
-    Amount V6Api::getBeamFeeParam(const json& params, const std::string& name) const
+    Amount V6Api::getBeamFeeParam(const json& params, const std::string& name, bool hasShieldedOutputs) const
     {
         auto &fs = Transaction::FeeSettings::get(get_TipHeight());
-        return getBeamFeeParam(params, name, fs.get_DefaultStd());
+        return getBeamFeeParam(params, name, hasShieldedOutputs ? fs.get_DefaultShieldedOut() : fs.get_DefaultStd());
     }
 
     Amount V6Api::getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const
@@ -552,7 +574,7 @@ namespace beam::wallet
             send.tokenFrom = fromParam;
         }
 
-        send.fee = getBeamFeeParam(params, "fee");
+        send.fee = getBeamFeeParam(params, "fee", info.spendOffline);
         info.fee = send.fee;
 
         if (auto comment = getOptionalParam<std::string>(params, "comment"))
@@ -1290,18 +1312,18 @@ namespace beam::wallet
         };
     }
 
-    void V6Api::fillTransactions(json& arr, const std::vector<Status::Response> txs)
+    void V6Api::fillTransactions(json& arr, const std::vector<Status::Response>& txs)
     {
         for (const auto& resItem : txs)
         {
-            json item = {};
+            arr.emplace_back();
+            json& item = arr.back();
             GetStatusResponseJson(
                 resItem.tx,
                 item,
                 resItem.txProofHeight,
                 resItem.systemHeight,
                 resItem.withRates);
-            arr.push_back(item);
         }
     }
 
@@ -1357,7 +1379,7 @@ namespace beam::wallet
                 auto incoming = totals.Incoming; incoming += totals.IncomingShielded;
                 jtotals["receiving_str"] = std::to_string(incoming);
 
-                if (totals.Incoming <= kMaxAllowedInt)
+                if (incoming <= kMaxAllowedInt)
                 {
                     jtotals["receiving"] = AmountBig::get_Lo(incoming);
                 }
@@ -1365,7 +1387,7 @@ namespace beam::wallet
                 auto outgoing = totals.Outgoing; outgoing += totals.OutgoingShielded;
                 jtotals["sending_str"] = std::to_string(outgoing);
 
-                if (totals.Outgoing <= kMaxAllowedInt)
+                if (outgoing <= kMaxAllowedInt)
                 {
                     jtotals["sending"] = AmountBig::get_Lo(outgoing);
                 }
@@ -1373,7 +1395,7 @@ namespace beam::wallet
                 auto maturing = totals.Maturing; maturing += totals.MaturingShielded;
                 jtotals["maturing_str"] = std::to_string(maturing);
 
-                if (totals.Maturing <= kMaxAllowedInt)
+                if (maturing <= kMaxAllowedInt)
                 {
                     jtotals["maturing"] = AmountBig::get_Lo(maturing);
                 }

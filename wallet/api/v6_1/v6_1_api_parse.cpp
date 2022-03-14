@@ -25,6 +25,7 @@ namespace beam::wallet
         allowed.insert("ev_addrs_changed");
         allowed.insert("ev_utxos_changed");
         allowed.insert("ev_txs_changed");
+        allowed.insert("ev_connection_changed");
 
         bool found = false;
         for (auto it : params.items())
@@ -58,12 +59,13 @@ namespace beam::wallet
         // So here we are sure that at least one known event is present
         // Typecheck & get value
         EvSubUnsub message;
-        message.syncProgress = getOptionalParam<bool>(params, "ev_sync_progress");
-        message.systemState  = getOptionalParam<bool>(params, "ev_system_state");
-        message.assetChanged = getOptionalParam<bool>(params, "ev_assets_changed");
-        message.addrsChanged = getOptionalParam<bool>(params, "ev_addrs_changed");
-        message.utxosChanged = getOptionalParam<bool>(params, "ev_utxos_changed");
-        message.txsChanged   = getOptionalParam<bool>(params, "ev_txs_changed");
+        message.syncProgress   = getOptionalParam<bool>(params, "ev_sync_progress");
+        message.systemState    = getOptionalParam<bool>(params, "ev_system_state");
+        message.assetChanged   = getOptionalParam<bool>(params, "ev_assets_changed");
+        message.addrsChanged   = getOptionalParam<bool>(params, "ev_addrs_changed");
+        message.utxosChanged   = getOptionalParam<bool>(params, "ev_utxos_changed");
+        message.txsChanged     = getOptionalParam<bool>(params, "ev_txs_changed");
+        message.connectChanged = getOptionalParam<bool>(params, "ev_connection_changed");
 
         return std::make_pair(message, MethodInfo());
     }
@@ -153,34 +155,100 @@ namespace beam::wallet
 
                 auto avail = totals.Avail; avail += totals.AvailShielded;
                 jtotals["available_str"] = std::to_string(avail);
+                jtotals["available_regular_str"] = std::to_string(totals.Avail);
+                jtotals["available_mp_str"] = std::to_string(totals.AvailShielded);
 
                 if (avail <= kMaxAllowedInt)
                 {
                     jtotals["available"] = AmountBig::get_Lo(avail);
                 }
 
+                if (totals.Avail <= kMaxAllowedInt)
+                {
+                    jtotals["available_regular"] = AmountBig::get_Lo(totals.Avail);
+                }
+
+                if (totals.AvailShielded <= kMaxAllowedInt)
+                {
+                    jtotals["available_mp"] = AmountBig::get_Lo(totals.AvailShielded);
+                }
+
                 auto incoming = totals.Incoming; incoming += totals.IncomingShielded;
                 jtotals["receiving_str"] = std::to_string(incoming);
+                jtotals["receiving_regular_str"] = std::to_string(totals.Incoming);
+                jtotals["receiving_mp_str"] = std::to_string(totals.IncomingShielded);
 
-                if (totals.Incoming <= kMaxAllowedInt)
+                if (incoming <= kMaxAllowedInt)
                 {
                     jtotals["receiving"] = AmountBig::get_Lo(incoming);
                 }
 
+                if (totals.Incoming <= kMaxAllowedInt)
+                {
+                    jtotals["receiving_regular"] = AmountBig::get_Lo(totals.Incoming);
+                }
+
+                if (totals.IncomingShielded <= kMaxAllowedInt)
+                {
+                    jtotals["receiving_mp"] = AmountBig::get_Lo(totals.IncomingShielded);
+                }
+
                 auto outgoing = totals.Outgoing; outgoing += totals.OutgoingShielded;
                 jtotals["sending_str"] = std::to_string(outgoing);
+                jtotals["sending_regular_str"] = std::to_string(totals.Outgoing);
+                jtotals["sending_mp_str"] = std::to_string(totals.OutgoingShielded);
 
-                if (totals.Outgoing <= kMaxAllowedInt)
+                if (outgoing <= kMaxAllowedInt)
                 {
                     jtotals["sending"] = AmountBig::get_Lo(outgoing);
                 }
 
+                if (totals.Outgoing <= kMaxAllowedInt)
+                {
+                    jtotals["sending_regular"] = AmountBig::get_Lo(totals.Outgoing);
+                }
+
+                if (totals.OutgoingShielded <= kMaxAllowedInt)
+                {
+                    jtotals["sending_mp"] = AmountBig::get_Lo(totals.OutgoingShielded);
+                }
+
                 auto maturing = totals.Maturing; maturing += totals.MaturingShielded;
                 jtotals["maturing_str"] = std::to_string(maturing);
+                jtotals["maturing_regular_str"] = std::to_string(totals.Maturing);
+                jtotals["maturing_mp_str"] = std::to_string(totals.MaturingShielded);
+
+                if (maturing <= kMaxAllowedInt)
+                {
+                    jtotals["maturing"] = AmountBig::get_Lo(maturing);
+                }
 
                 if (totals.Maturing <= kMaxAllowedInt)
                 {
-                    jtotals["maturing"] = AmountBig::get_Lo(maturing);
+                    jtotals["maturing_regular"] = AmountBig::get_Lo(totals.Maturing);
+                }
+
+                if (totals.MaturingShielded <= kMaxAllowedInt)
+                {
+                    jtotals["maturing_mp"] = AmountBig::get_Lo(totals.MaturingShielded);
+                }
+
+                auto change = totals.ReceivingChange;
+                jtotals["change_str"] = std::to_string(change);
+
+                if (change <= kMaxAllowedInt)
+                {
+                    jtotals["change"] = AmountBig::get_Lo(change);
+                }
+
+                auto locked = totals.Maturing;
+                locked += totals.MaturingShielded;
+                locked += totals.ReceivingChange;
+                jtotals["locked_str"] = std::to_string(locked);
+
+                if (locked <= kMaxAllowedInt)
+                {
+                    jtotals["locked"] = AmountBig::get_Lo(locked);
                 }
 
                 result["totals"].push_back(jtotals);

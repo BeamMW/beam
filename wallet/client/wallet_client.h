@@ -127,6 +127,7 @@ namespace beam::wallet
         IWalletModelAsync::Ptr getAsync();
         Wallet::Ptr getWallet(); // can return null
         IWalletDB::Ptr getWalletDB();
+        NodeNetwork::Ptr getNodeNetwork(); // may return null
 
         #ifdef BEAM_IPFS_SUPPORT
         IPFSService::Ptr getIPFS();
@@ -297,11 +298,11 @@ namespace beam::wallet
         void exportTxHistoryToCsv() override;
         void getAssetInfo(const Asset::ID) override;
         void makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<const boost::any&>&& resultCallback) override;
-        void callShader(const beam::ByteBuffer& shader, const std::string& args, CallShaderCallback&& cback) override;
-        void callShader(const std::string& shaderFile, const std::string& args, CallShaderCallback&& cback) override;
-        void callShaderAndStartTx(const beam::ByteBuffer& shader, const std::string& args, CallShaderAndStartTxCallback&& cback) override;
-        void callShaderAndStartTx(const std::string& shaderFile, const std::string& args, CallShaderAndStartTxCallback&& cback) override;
-        void processShaderTxData(const beam::ByteBuffer& data, ProcessShaderTxDataCallback&& cback) override;
+        void callShader(beam::ByteBuffer&& shader, std::string&& args, CallShaderCallback&& cback) override;
+        void callShader(std::string&& shaderFile, std::string&& args, CallShaderCallback&& cback) override;
+        void callShaderAndStartTx(beam::ByteBuffer&& shader, std::string&& args, CallShaderAndStartTxCallback&& cback) override;
+        void callShaderAndStartTx(std::string&& shaderFile, std::string&& args, CallShaderAndStartTxCallback&& cback) override;
+        void processShaderTxData(beam::ByteBuffer&& data, ProcessShaderTxDataCallback&& cback) override;
 
         void switchOnOffExchangeRates(bool isActive) override;
         void switchOnOffNotifications(Notification::Type type, bool isActive) override;

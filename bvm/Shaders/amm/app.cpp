@@ -280,6 +280,7 @@ struct PoolsWalker
     void PrintPool() const
     {
         PrintTotals(m_Pool.m_Totals);
+        Env::DocAddNum("tid", m_Pool.m_tidCtl);
 
         if (m_Pool.m_Totals.m_Ctl)
         {
@@ -332,6 +333,20 @@ struct UserKeyMaterial
 {
     ContractID m_Cid;
     Pool::ID m_Pid;
+
+    Amount ReadBalance(const Pool& p, PubKey* pPk) const
+    {
+        Env::Key_T<Mintor::User::Key> key;
+        _POD_(key.m_Prefix.m_Cid) = m_Cid;
+        key.m_KeyInContract.m_Tid = p.m_tidCtl;
+        Env::DerivePk(key.m_KeyInContract.m_pk, this, sizeof(*this));
+
+        if (pPk)
+            _POD_(*pPk) = key.m_KeyInContract.m_pk;
+
+        Amount res;
+        return Env::VarReader::Read_T(key, res) ? res : 0;
+    }
 };
 #pragma pack (pop)
 
@@ -354,30 +369,22 @@ ON_METHOD(user, view)
     UserKeyMaterial ukm;
     _POD_(ukm.m_Cid) = cid;
 
-    Env::Key_T<User::Key> uk;
-    _POD_(uk.m_Prefix.m_Cid) = cid;
-
     Env::DocArray gr("res");
 
     while (pw.Move())
     {
         ukm.m_Pid = pw.m_Key.m_KeyInContract.m_ID;
 
-        uk.m_KeyInContract.m_ID.m_Pid = pw.m_Key.m_KeyInContract.m_ID;
-        Env::DerivePk(uk.m_KeyInContract.m_ID.m_pk, &ukm, sizeof(ukm));
-
-        User u;
-        if (Env::VarReader::Read_T(uk, u))
+        Amount uVal = ukm.ReadBalance(pw.m_Pool, nullptr);
+        if (uVal)
         {
-            assert(u.m_Ctl);
-
             Env::DocGroup gr1("");
 
             if (!bSpecific)
                 pw.PrintKey();
 
             Totals x;
-            x.m_Ctl = u.m_Ctl;
+            x.m_Ctl = uVal;
             Cast::Down<Amounts>(x) = pw.m_Pool.m_Totals.Remove(x.m_Ctl);
 
             pw.PrintTotals(x);
@@ -444,8 +451,8 @@ ON_METHOD(user, add_liquidity)
     }
     else
     {
-        arg.m_Uid.m_Pid = ukm.m_Pid;
-        Env::DerivePk(arg.m_Uid.m_pk, &ukm, sizeof(ukm));
+        arg.m_Pid = ukm.m_Pid;
+        Env::DerivePk(arg.m_pk, &ukm, sizeof(ukm));
 
         if (bReverse)
             arg.m_Amounts.Swap();
@@ -476,18 +483,15 @@ ON_METHOD(user, withdraw)
     pw.Enum(cid, ukm.m_Pid);
     if (!pw.Move())
         return OnError("pool not found");
+    
+    Method::Withdraw arg;
 
-    Env::Key_T<User::Key> uk;
-    _POD_(uk.m_Prefix.m_Cid) = cid;
-    uk.m_KeyInContract.m_ID.m_Pid = ukm.m_Pid;
-    Env::DerivePk(uk.m_KeyInContract.m_ID.m_pk, &ukm, sizeof(ukm));
-
-    User u;
-    if (!Env::VarReader::Read_T(uk, u))
+    Amount valMax = ukm.ReadBalance(pw.m_Pool, &arg.m_pk);
+    if (!valMax)
         return OnError("no ctl");
 
     Totals x;
-    x.m_Ctl = std::min(ctl, u.m_Ctl);
+    x.m_Ctl = std::min(ctl, valMax);
     Cast::Down<Amounts>(x) = pw.m_Pool.m_Totals.Remove(x.m_Ctl);
 
     if (bPredictOnly)
@@ -497,9 +501,8 @@ ON_METHOD(user, withdraw)
     }
     else
     {
-        Method::Withdraw arg;
         arg.m_Ctl = x.m_Ctl;
-        _POD_(arg.m_Uid) = uk.m_KeyInContract.m_ID;
+        arg.m_Pid = ukm.m_Pid;
 
         FundsChange pFc[2];
         pFc[0].m_Amount = x.m_Tok1;
@@ -557,6 +560,11 @@ ON_METHOD(user, trade)
     {
         arg.m_Pid.m_Aid1 = aid1; // order as specified, not normalized
         arg.m_Pid.m_Aid2 = aid2;
+
+        if ((Pool::ID::s_Token & aid1) || (Pool::ID::s_Token & aid2))
+            return OnError("tokens not supported yet");
+
+        _POD_(arg.m_pk).SetZero();
 
         FundsChange pFc[2];
         pFc[0].m_Amount = arg.m_Buy1;

@@ -66,6 +66,9 @@ namespace beam::wallet::imp
 
         config.repo_root = canonicalPath.string();
         LOG_INFO() << "Starting IPFS Service. Repo path is " << config.repo_root;
+        asio_ipfs::node::redirect_logs([] (const char* what) {
+           LOG_INFO() << what;
+        });
 
         //
         // Startup sequence, we run it sync, in main thread. May be need to make async
@@ -84,6 +87,16 @@ namespace beam::wallet::imp
                             #error ("Define Mainnet IPFS bootstrap")
                         #else
                             config.bootstrap.emplace_back("/ip4/3.19.141.112/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
+                        #endif
+                    }
+
+                    if (config.peering.empty()) {
+                        #if defined(BEAM_TESTNET)
+                        #error ("Define Testnet IPFS peering")
+                        #elif defined(BEAM_MAINNET)
+                        #error ("Define Mainnet IPFS peering")
+                        #else
+                        config.peering.emplace_back("/ip4/3.19.141.112/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
                         #endif
                     }
 
@@ -154,7 +167,7 @@ namespace beam::wallet::imp
         LOG_INFO() << "IPFS Services stopped";
     }
 
-    void IPFSService::AnyThread_add(std::vector<uint8_t>&& data, std::function<void (std::string&&)>&& res, Err&& err)
+    void IPFSService::AnyThread_add(std::vector<uint8_t>&& data, bool pin, uint32_t timeout, std::function<void (std::string&&)>&& res, Err&& err)
     {
         if (data.empty())
         {
@@ -162,10 +175,25 @@ namespace beam::wallet::imp
             return;
         }
 
-        call_ipfs(0, std::move(res), std::move(err),[this, data = std::move(data)]
+        call_ipfs(timeout, std::move(res), std::move(err),[this, data = std::move(data), pin]
         (boost::asio::yield_context yield, std::function<void()>& cancel) -> auto
         {
-            return _node->add(&data[0], data.size(), cancel, std::move(yield));
+            return _node->add(&data[0], data.size(), pin, cancel, std::move(yield));
+        });
+    }
+
+    void IPFSService::AnyThread_hash(std::vector<uint8_t>&& data, uint32_t timeout, std::function<void (std::string&&)>&& res, Err&& err)
+    {
+        if (data.empty())
+        {
+            AnyThreaad_retErr(std::move(err), "Empty data buffer cannot be hashed");
+            return;
+        }
+
+        call_ipfs(timeout, std::move(res), std::move(err),[this, data = std::move(data)]
+        (boost::asio::yield_context yield, std::function<void()>& cancel) -> auto
+        {
+            return _node->calc_cid(&data[0], data.size(), cancel, std::move(yield));
         });
     }
 

@@ -263,7 +263,7 @@ struct MyGlobal
             Price price = get_Price();
 
             bool bRecovery = IsRecovery(price);
-            Env::Halt_if(IsTroveUpdInvalid(t, price, bRecovery));
+            Env::Halt_if(IsTroveUpdInvalid(t, totals0, price, bRecovery));
 
             Amount feeCol = get_BorrowFee(m_Troves.m_Totals.Tok, totals0.Tok, bRecovery, price);
             if (feeCol)
@@ -426,12 +426,13 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
 
     for (uint32_t i = 0; i < r.m_Count; i++)
     {
+        Pair totals1 = g.m_Troves.m_Totals;
         Trove t;
         tk.m_iTrove = g.TrovePop(0, t);
         Env::DelVar_T(tk);
 
         Amount valSurplus = 0;
-        Env::Halt_if(!g.LiquidateTrove(t, ctx, valSurplus));
+        Env::Halt_if(!g.LiquidateTrove(t, totals1, ctx, valSurplus));
 
         if (valSurplus)
             g.ExtractSurplusCol(valSurplus, t);

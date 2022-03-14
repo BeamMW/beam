@@ -31,12 +31,14 @@ namespace beam::wallet
     std::pair<IPFSAdd, IWalletApi::MethodInfo> V63Api::onParseIPFSAdd(const JsonRpcId& id, const nlohmann::json& params)
     {
         IPFSAdd message;
+        message.timeout = parseTimeout(*this, params);
 
         json data = getMandatoryParam<NonEmptyJsonArray>(params, "data");
-        for (const auto& byte: data)
+        data.get<std::vector<uint8_t>>().swap(message.data);
+
+        if (auto opin = getOptionalParam<bool>(params, "pin"))
         {
-            const auto ubyte = byte.get<uint8_t>();
-            message.data.push_back(ubyte);
+            message.pin = *opin;
         }
 
         return std::make_pair(std::move(message), MethodInfo());
@@ -50,10 +52,36 @@ namespace beam::wallet
             {"id", id},
             {"result",
                 {
-                    {"hash", res.hash}
+                    {"hash", res.hash},
+                    {"pinned", res.pinned}
                 }
             }
         };
+    }
+
+    std::pair<IPFSHash, IWalletApi::MethodInfo> V63Api::onParseIPFSHash(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        IPFSHash message;
+        message.timeout = parseTimeout(*this, params);
+
+        json data = getMandatoryParam<NonEmptyJsonArray>(params, "data");
+        data.get<std::vector<uint8_t>>().swap(message.data);
+
+        return std::make_pair(std::move(message), MethodInfo());
+    }
+
+    void V63Api::getResponse(const JsonRpcId& id, const IPFSHash::Response& res, json& msg)
+    {
+        msg = json
+            {
+                {JsonRpcHeader, JsonRpcVersion},
+                {"id", id},
+                {"result",
+                    {
+                        {"hash", res.hash}
+                    }
+                }
+            };
     }
 
     std::pair<IPFSGet, IWalletApi::MethodInfo> V63Api::onParseIPFSGet(const JsonRpcId& id, const nlohmann::json& params)

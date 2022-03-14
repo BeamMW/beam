@@ -1023,6 +1023,17 @@ namespace beam::wallet
             PaymentInfo();
 
             template <typename Archive>
+            static void serializeWid(Archive& ar, const WalletID& wid)
+            {
+                BbsChannel ch;
+                wid.m_Channel.Export(ch);
+
+                ar
+                    & ch
+                    & wid.m_Pk;
+            }
+
+            template <typename Archive>
             static void serializeWid(Archive& ar, WalletID& wid)
             {
                 BbsChannel ch;
@@ -1035,6 +1046,48 @@ namespace beam::wallet
                 wid.m_Channel = ch;
             }
 
+            //
+            // If you want to store something new just define new flag then
+            // set it if you want to write and add read/write block.
+            //
+            // This allows to read old proofs in new clients and also to produce
+            // proofs compatible with old clients (if possible, i.e. BEAM transactions
+            // do not need AssetID and we can keep an old format)
+            //
+            // Old client would be unable to read proofs if you would store anything below
+            //
+            enum ContentFlags
+            {
+                HasAssetID = 1 << 0
+            };
+
+            template <typename Archive>
+            void serialize(Archive& ar) const
+            {
+                serializeWid(ar, m_Sender);
+                serializeWid(ar, m_Receiver);
+                ar
+                    & m_Amount
+                    & m_KernelID
+                    & m_Signature;
+
+                uint32_t cflags = 0;
+                if (m_AssetID != Asset::s_InvalidID)
+                {
+                    cflags |= ContentFlags::HasAssetID;
+                }
+
+                if (cflags)
+                {
+                    ar & cflags;
+                }
+
+                if (cflags & ContentFlags::HasAssetID)
+                {
+                    ar & m_AssetID;
+                }
+            }
+
             template <typename Archive>
             void serialize(Archive& ar)
             {
@@ -1045,52 +1098,27 @@ namespace beam::wallet
                     & m_KernelID
                     & m_Signature;
 
-                //
-                // If you want to store something new just define new flag then
-                // set it if you want to write and add read/write block.
-                //
-                // This allows to read old proofs in new clients and also to produce
-                // proofs compatible with old clients (if possible, i.e. BEAM transactions
-                // do not need AssetID and we can keep an old format)
-                //
-                // Old client would be unable to read proofs if you would store anything below
-                //
-                enum ContentFlags
-                {
-                    HasAssetID = 1 << 0
-                };
-
                 uint32_t cflags = 0;
 
-                if (ar.is_readable())
+                try
                 {
-                    try
-                    {
-                        ar & cflags;
-                    }
-                    catch (const std::runtime_error &)
-                    {
-                        // old payment proof without flags and additional data
-                        // just ignore and continue
-                    }
+                    ar.peekch();
                 }
-                else
+                catch (const std::runtime_error &)
                 {
-                    if (m_AssetID != Asset::s_InvalidID)
-                    {
-                        cflags |= ContentFlags::HasAssetID;
-                    }
-
-                    if (cflags)
-                    {
-                        ar & cflags;
-                    }
+                    // old payment proof without flags and additional data
+                    return;
                 }
 
+                ar & cflags;
+                if (!cflags) throw std::runtime_error("Invalid data buffer");
                 if (cflags & ContentFlags::HasAssetID)
                 {
                     ar & m_AssetID;
+                    cflags = cflags & ~ContentFlags::HasAssetID;
                 }
+
+                if (cflags) throw std::runtime_error("Invalid data buffer");
             }
 
             bool IsValid() const;

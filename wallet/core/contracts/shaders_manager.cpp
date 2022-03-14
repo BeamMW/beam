@@ -206,13 +206,13 @@ namespace beam::wallet {
         _queue.push(std::move(newReq));
     }
 
-    void ShadersManager::CallShaderAndStartTx(const std::vector<uint8_t>& shader, const std::string &args, unsigned method, uint32_t priority, uint32_t unique, DoneAllHandler doneHandler)
+    void ShadersManager::CallShaderAndStartTx(std::vector<uint8_t>&& shader, std::string&& args, unsigned method, uint32_t priority, uint32_t unique, DoneAllHandler doneHandler)
     {
         Request req;
-        req.shader   = shader;
-        req.args     = args;
+        req.shader   = std::move(shader);
+        req.args     = std::move(args);
         req.method   = method;
-        req.doneAll  = doneHandler;
+        req.doneAll  = std::move(doneHandler);
         req.priority = priority;
         req.unique   = unique;
         pushRequest(std::move(req));
@@ -225,13 +225,13 @@ namespace beam::wallet {
         LOG_VERBOSE() << "shader call is still in progress, request " << args << " queued";
     }
 
-    void ShadersManager::CallShader(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, uint32_t priority, uint32_t unique, DoneCallHandler doneHandler)
+    void ShadersManager::CallShader(std::vector<uint8_t>&& shader, std::string&& args, unsigned method, uint32_t priority, uint32_t unique, DoneCallHandler doneHandler)
     {
         Request req;
-        req.shader   = shader;
-        req.args     = args;
+        req.shader   = std::move(shader);
+        req.args     = std::move(args);
         req.method   = method;
-        req.doneCall = doneHandler;
+        req.doneCall = std::move(doneHandler);
         req.priority = priority;
         req.unique   = unique;
         pushRequest(std::move(req));
@@ -355,7 +355,7 @@ namespace beam::wallet {
         };
 
         _done = true;
-        const auto req = _queue.top();
+        const auto& req = _queue.top();
 
         if (pExc != nullptr)
         {
@@ -372,11 +372,11 @@ namespace beam::wallet {
             LOG_INFO() << "Shader Error: " << *error;
             if (req.doneAll)
             {
-                return req.doneAll(boost::none, boost::none, error);
+                return req.doneAll(boost::none, boost::none, std::move(error));
             }
             else
             {
-                return req.doneCall(boost::none, boost::none, error);
+                return req.doneCall(boost::none, boost::none, std::move(error));
             }
         }
 
@@ -390,11 +390,11 @@ namespace beam::wallet {
         {
             if (req.doneAll)
             {
-                return req.doneAll(boost::none, result, boost::none);
+                return req.doneAll(boost::none, std::move(result), boost::none);
             }
             else
             {
-                return req.doneCall(boost::none, result, boost::none);
+                return req.doneCall(boost::none, std::move(result), boost::none);
             }
         }
 
@@ -404,12 +404,12 @@ namespace beam::wallet {
 
             if (req.doneCall)
             {
-                return req.doneCall(buffer, result, boost::none);
+                return req.doneCall(std::move(buffer), std::move(result), boost::none);
             }
 
-            return ProcessTxData(buffer, [result, allHandler = req.doneAll] (boost::optional<TxID> txid, boost::optional<std::string> error)
+            return ProcessTxData(buffer, [result=std::move(result), allHandler = std::move(req.doneAll)](const boost::optional<TxID>& txid, boost::optional<std::string>&& error) mutable
             {
-                return allHandler(std::move(txid), result, std::move(error));
+                return allHandler(txid, std::move(result), std::move(error));
             });
         }
         catch (std::runtime_error &err)
@@ -417,11 +417,11 @@ namespace beam::wallet {
             std::string error = err.what();
             if (req.doneAll)
             {
-                return req.doneAll(boost::none, result, error);
+                return req.doneAll(boost::none, std::move(result), std::move(error));
             }
             else
             {
-                return req.doneCall(boost::none, result, error);
+                return req.doneCall(boost::none, std::move(result), std::move(error));
             }
         }
     }
