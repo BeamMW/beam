@@ -2367,7 +2367,7 @@ namespace
                 const auto spend   = bvm2::getFullSpend(man.m_vInvokeData);
 
                 std::cout << "Creating new contract invocation tx on behalf of the shader" << std::endl;
-                if (man.m_Args["action"] == "create" || man.m_Args["action"] == "destroy")
+                if (man.m_Args["action"] == "create")
                 {
                     bvm2::ShaderID sid;
                     bvm2::get_ShaderID(sid, Blob(man.m_BodyContract));
@@ -2377,6 +2377,10 @@ namespace
                         bvm2::get_CidViaSid(cid, sid, Blob(invokeEntry.m_Args));
                         std::cout << "Contract ID: " << cid.str() << std::endl;
                     }
+                }
+                else if(man.m_Args["action"] == "destroy" && !man.m_Args["cid"].empty())
+                {
+                    std::cout << "Contract ID: " << man.m_Args["cid"] << std::endl;
                 }
                 std::cout << "\tComment: " << comment;
 
