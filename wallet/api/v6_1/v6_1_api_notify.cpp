@@ -369,6 +369,7 @@ namespace beam::wallet
                 item.tx = tx;
                 item.txProofHeight = storage::DeduceTxProofHeight(*walletDB, tx);
                 item.systemHeight = stateID.m_Height;
+                item.withRates = true;
             }
 
             // allow reset even if empty

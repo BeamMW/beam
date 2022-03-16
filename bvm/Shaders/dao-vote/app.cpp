@@ -413,6 +413,8 @@ ON_METHOD(manager, add_proposal)
         nCharge += Env::Cost::SaveVar_For(sizeof(State));
 
     UserKeyID kid(cid);
+    kid.get_Pk(pArgs->m_pkModerator);
+
     Env::GenerateKernel(&cid, pArgs->s_iMethod, pArgs, nArgsSize, nullptr, 0, &kid, 1, "dao-vote add proposal", nCharge);
 
     Env::Heap_Free(pArgs);
