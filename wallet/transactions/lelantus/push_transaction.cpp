@@ -245,4 +245,29 @@ namespace beam::wallet::lelantus
         GetWalletDB()->deleteShieldedCoinsCreatedByTx(GetTxID());
     }
 
+    bool PushTransaction::CheckExpired()
+    {
+        if (BaseTransaction::CheckExpired()) // Avoid duplicated cases
+        {
+            return true;
+        }
+
+        const boost::optional<Height> maxHeight = GetMaxHeight();
+        if (!maxHeight)
+        {
+            return false;
+        }
+
+        uint8_t nRegistered = proto::TxStatus::Unspecified;
+        bool isSender = GetMandatoryParameter<bool>(TxParameterID::IsSender);
+        const bool hasRegister = GetParameter(TxParameterID::TransactionRegistered, nRegistered);
+        ShieldedTxo::Voucher voucher;
+        if (((hasRegister && nRegistered != proto::TxStatus::Ok) || !GetParameter(TxParameterID::Voucher, voucher)) && isSender)
+        {
+            return CheckHeightAndFailIfExpired(*maxHeight);
+        }
+
+        return false;
+    }
+
 } // namespace beam::wallet::lelantus

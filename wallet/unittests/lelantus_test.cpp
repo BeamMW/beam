@@ -1519,7 +1519,7 @@ void TestPushTxNoVoucherAtTime() {
                                           .SetParameter(TxParameterID::Amount, 18000000)
                                           .SetParameter(TxParameterID::Fee, 12000000)
                                           .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
-                                          .SetParameter(TxParameterID::Lifetime, static_cast<Height>(2))
+                                          .SetParameter(TxParameterID::Lifetime, static_cast<Height>(1))
                                           .SetParameter(TxParameterID::Voucher, vouchers.front()) // attempt to reuse same voucher
                                           .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
                                           .SetParameter(TxParameterID::PeerOwnID, receiver.m_OwnID);
