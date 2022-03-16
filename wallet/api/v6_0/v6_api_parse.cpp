@@ -542,7 +542,10 @@ namespace beam::wallet
             // To trigger an offline tx flag should be provided
             if (auto offline = getOptionalParam<bool>(params, "offline"); !offline || !(*offline))
             {
-                send.addressType  = TxAddressType::Regular;
+                send.addressType = TxAddressType::Regular;
+            }
+            else
+            {
                 info.spendOffline = true;
             }
         }
