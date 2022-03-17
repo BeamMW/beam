@@ -102,6 +102,8 @@ namespace beam::wallet::lelantus
             }
         }
 
+        Height maxHeight = builder.m_Height.m_Max;
+
         if (builder.m_Coins.IsEmpty())
         {
             UpdateTxDescription(TxStatus::InProgress);
@@ -153,7 +155,7 @@ namespace beam::wallet::lelantus
 
         if (!m_OutpHeight)
         {
-            m_OutpHeight = MaxHeight;
+            m_OutpHeight = maxHeight;
             GetGateway().get_proof_shielded_output(GetTxID(), builder.get_TxoStrict().m_Ticket.m_SerialPub, [this, weak = this->weak_from_this()](proto::ProofShieldedOutp& proof)
             {
                 auto thisHolder = weak.lock();
@@ -170,7 +172,7 @@ namespace beam::wallet::lelantus
             });
         }
 
-        if (MaxHeight == m_OutpHeight)
+        if (maxHeight == m_OutpHeight)
             return;
 
         Height h = 0;
@@ -243,31 +245,6 @@ namespace beam::wallet::lelantus
         m_Context.GetWalletDB()->restoreCoinsSpentByTx(GetTxID());
         m_Context.GetWalletDB()->deleteCoinsCreatedByTx(GetTxID());
         GetWalletDB()->deleteShieldedCoinsCreatedByTx(GetTxID());
-    }
-
-    bool PushTransaction::CheckExpired()
-    {
-        if (BaseTransaction::CheckExpired()) // Avoid duplicated cases
-        {
-            return true;
-        }
-
-        const boost::optional<Height> maxHeight = GetMaxHeight();
-        if (!maxHeight)
-        {
-            return false;
-        }
-
-        uint8_t nRegistered = proto::TxStatus::Unspecified;
-        bool isSender = GetMandatoryParameter<bool>(TxParameterID::IsSender);
-        const bool hasRegister = GetParameter(TxParameterID::TransactionRegistered, nRegistered);
-        ShieldedTxo::Voucher voucher;
-        if (((hasRegister && nRegistered != proto::TxStatus::Ok) || !GetParameter(TxParameterID::Voucher, voucher)) && isSender)
-        {
-            return CheckHeightAndFailIfExpired(*maxHeight);
-        }
-
-        return false;
     }
 
 } // namespace beam::wallet::lelantus

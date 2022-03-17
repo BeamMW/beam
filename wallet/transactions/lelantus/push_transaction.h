@@ -44,9 +44,6 @@ namespace beam::wallet::lelantus
 
         explicit PushTransaction(const TxContext& context);
 
-    protected:
-        bool CheckExpired() override;
-
     private:
         bool IsInSafety() const override;
         void UpdateImpl() override;

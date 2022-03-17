@@ -309,9 +309,6 @@ namespace beam::wallet
         void SetCompletedTxCoinStatuses(Height proofHeight);
         void LogFailedParameter(TxParameterID paramID, SubTxID subTxID) const;
 
-        boost::optional<Height> GetMaxHeight() const;
-        bool CheckHeightAndFailIfExpired(Height maxHeight);
-
     protected:
         TxType m_txType;
         TxContext m_Context;

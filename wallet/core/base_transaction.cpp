@@ -247,20 +247,36 @@ namespace beam::wallet
             return false;
         }
 
-        const boost::optional<Height> maybeMaxHeight = GetMaxHeight();
-        if (!maybeMaxHeight)
+        Height maxHeight = MaxHeight;
+        if (!GetParameter(TxParameterID::MaxHeight, maxHeight)
+            && !GetParameter(TxParameterID::PeerResponseHeight, maxHeight))
         {
-            return false;
+            // we have no data to make decision, but we can use kernels maximum life time from the rules
+            if (GetParameter(TxParameterID::MinHeight, maxHeight))
+            {
+                maxHeight += Rules::get().MaxKernelValidityDH;
+            }
+            else
+            {
+                return false;
+            }
         }
-        Height maxHeight = *maybeMaxHeight;
 
         uint8_t nRegistered = proto::TxStatus::Unspecified;
         Merkle::Hash kernelID;
         bool isSender = GetMandatoryParameter<bool>(TxParameterID::IsSender);
-        if ((!GetParameter(TxParameterID::TransactionRegistered, nRegistered) && isSender)
+        GetParameter(TxParameterID::TransactionRegistered, nRegistered);
+        if ((nRegistered != proto::TxStatus::Ok && isSender)
             || !GetParameter(TxParameterID::KernelID, kernelID))
         {
-            return CheckHeightAndFailIfExpired(maxHeight);
+            Block::SystemState::Full state;
+            if (GetTip(state) && state.m_Height > maxHeight)
+            {
+                LOG_INFO() << m_Context << "  PushTransaction expired. Current height: " << state.m_Height << ", max kernel height: " << maxHeight;
+                OnFailed(TxFailureReason::TransactionExpired);
+                return true;
+            }
+            return false;
         }
         else
         {
@@ -644,37 +660,5 @@ namespace beam::wallet
         const auto peerID = GetMandatoryParameter<WalletID>(TxParameterID::PeerID);
         const auto address = GetWalletDB()->getAddress(peerID);
         return address.is_initialized() && address->isOwn();
-    }
-
-    boost::optional<Height> BaseTransaction::GetMaxHeight() const
-    {
-        Height maxHeight = MaxHeight;
-        if (!GetParameter(TxParameterID::MaxHeight, maxHeight)
-            && !GetParameter(TxParameterID::PeerResponseHeight, maxHeight))
-        {
-            // we have no data to make decision, but we can use kernels maximum life time from the rules
-            if (GetParameter(TxParameterID::MinHeight, maxHeight))
-            {
-                maxHeight += Rules::get().MaxKernelValidityDH;
-            }
-            else
-            {
-                return boost::none;
-            }
-        }
-        return maxHeight;
-    }
-
-
-    bool BaseTransaction::CheckHeightAndFailIfExpired(Height maxHeight)
-    {
-        Block::SystemState::Full state;
-        if (GetTip(state) && state.m_Height > maxHeight)
-        {
-            LOG_INFO() << m_Context << "  PushTransaction expired. Current height: " << state.m_Height << ", max kernel height: " << maxHeight;
-            OnFailed(TxFailureReason::TransactionExpired);
-            return true;
-        }
-        return false;
     }
 }
