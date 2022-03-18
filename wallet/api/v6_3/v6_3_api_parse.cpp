@@ -214,6 +214,10 @@ namespace beam::wallet
     std::pair<SendRawTransaction, IWalletApi::MethodInfo> V63Api::onParseSendRawTransaction(const JsonRpcId& id, const nlohmann::json& params)
     {
         SendRawTransaction message;
+        auto data = params[0].get<std::string>();
+        auto pos = data.find_first_not_of("0x");
+        data = data.substr(std::min(pos, data.size()));
+        message.rawTransaction = from_hex(data);
         return std::make_pair(message, MethodInfo());
     }
 

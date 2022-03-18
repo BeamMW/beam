@@ -16,6 +16,7 @@
 #include <vector>
 #include <memory>
 #include <string>
+#include "utility/common.h"
 
 namespace beam::wallet
 {
@@ -32,10 +33,6 @@ namespace beam::wallet
         macro(SendRawTransaction,       "eth_sendRawTransaction",       API_WRITE_ACCESS,   API_SYNC, APPS_ALLOWED) \
         macro(GetTransactionReceipt,    "eth_getTransactionReceipt",    API_READ_ACCESS,    API_SYNC, APPS_ALLOWED) \
         macro(GetBlockByHash,           "eth_getBlockByHash",           API_READ_ACCESS,    API_SYNC, APPS_ALLOWED)
-
-    
-    
-
 
 
 
@@ -119,9 +116,10 @@ namespace beam::wallet
 
     struct SendRawTransaction
     {
+        ByteBuffer rawTransaction;
         struct Response
         {
-
+            ByteBuffer txHash;
         };
     };
 
