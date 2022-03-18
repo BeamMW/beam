@@ -16,6 +16,97 @@
 
 namespace beam::wallet
 {
+    void V63Api::onHandleChainID(const JsonRpcId& id, ChainID&& req)
+    {
+        ChainID::Response res;
+        doResponse(id, res);
+    }
+
+    void V63Api::onHandleNetVersion(const JsonRpcId& id, NetVersion&& req)
+    {
+        NetVersion::Response res;
+        doResponse(id, res);
+    }
+
+    void V63Api::onHandleBlockNumber(const JsonRpcId& id, BlockNumber&& req)
+    {
+        BlockNumber::Response res;
+
+        res.height = get_TipHeight();
+        doResponse(id, res);
+    }
+
+    void V63Api::onHandleBalance(const JsonRpcId& id, Balance&& req)
+    {
+        Balance::Response res;
+        auto walletDB = getWalletDB();
+        storage::Totals allTotals(*walletDB, false);
+        const auto& totals = allTotals.GetBeamTotals();
+        auto b = totals.Avail;
+        b += totals.AvailShielded;
+        uintBig_t<sizeof(Amount)> m;
+        m = 10'000'000'000UL;
+        b = b * m ;
+        
+        res.balanceHi = AmountBig::get_Hi(b);
+        res.balanceLo = AmountBig::get_Lo(b);
+
+        doResponse(id, res);
+    }
+
+    void V63Api::onHandleBlockByNumber(const JsonRpcId& id, BlockByNumber&& req)
+    {
+        BlockByNumber::Response res;
+        res.number = get_TipHeight();
+        doResponse(id, res);
+    }
+
+    void V63Api::onHandleGasPrice(const JsonRpcId& id, GasPrice&& req)
+    {
+        GasPrice::Response res;
+        doResponse(id, res);
+    }
+
+    void V63Api::onHandleEstimateGas(const JsonRpcId& id, EstimateGas&& req)
+    {
+        EstimateGas::Response res;
+        doResponse(id, res);
+    }
+
+    void V63Api::onHandleGetCode(const JsonRpcId& id, GetCode&& req)
+    {
+        GetCode::Response res;
+        doResponse(id, res);
+    }
+
+    void V63Api::onHandleGetTransactionCount(const JsonRpcId& id, GetTransactionCount&& req)
+    {
+        GetTransactionCount::Response res;
+        doResponse(id, res);
+    }
+
+    void V63Api::onHandleSendRawTransaction(const JsonRpcId& id, SendRawTransaction&& req)
+    {
+        SendRawTransaction::Response res;
+        doResponse(id, res);
+    }
+
+    void V63Api::onHandleGetTransactionReceipt(const JsonRpcId& id, GetTransactionReceipt&& req)
+    {
+        GetTransactionReceipt::Response res;
+        doResponse(id, res);
+    }
+
+    void V63Api::onHandleGetBlockByHash(const JsonRpcId& id, GetBlockByHash&& req)
+    {
+        GetBlockByHash::Response res;
+        res.number = get_TipHeight();
+        doResponse(id, res);
+    }
+
+    /////
+
+
     void V63Api::onHandleIPFSAdd(const JsonRpcId &id, IPFSAdd&& req)
     {
         #ifdef BEAM_IPFS_SUPPORT

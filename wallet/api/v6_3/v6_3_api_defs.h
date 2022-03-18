@@ -19,14 +19,133 @@
 
 namespace beam::wallet
 {
+    #define ETH_API_METHODS(macro) \
+        macro(ChainID,                  "eth_chainId",                  API_READ_ACCESS,    API_SYNC, APPS_ALLOWED) \
+        macro(NetVersion,               "net_version",                  API_READ_ACCESS,    API_SYNC, APPS_ALLOWED) \
+        macro(BlockNumber,              "eth_blockNumber",              API_READ_ACCESS,    API_SYNC, APPS_ALLOWED) \
+        macro(Balance,                  "eth_getBalance",               API_READ_ACCESS,    API_SYNC, APPS_ALLOWED) \
+        macro(BlockByNumber,            "eth_getBlockByNumber",         API_READ_ACCESS,    API_SYNC, APPS_ALLOWED) \
+        macro(GasPrice,                 "eth_gasPrice",                 API_READ_ACCESS,    API_SYNC, APPS_ALLOWED) \
+        macro(EstimateGas,              "eth_estimateGas",              API_READ_ACCESS,    API_SYNC, APPS_ALLOWED) \
+        macro(GetCode,                  "eth_getCode",                  API_READ_ACCESS,    API_SYNC, APPS_ALLOWED) \
+        macro(GetTransactionCount,      "eth_getTransactionCount",      API_READ_ACCESS,    API_SYNC, APPS_ALLOWED) \
+        macro(SendRawTransaction,       "eth_sendRawTransaction",       API_WRITE_ACCESS,   API_SYNC, APPS_ALLOWED) \
+        macro(GetTransactionReceipt,    "eth_getTransactionReceipt",    API_READ_ACCESS,    API_SYNC, APPS_ALLOWED) \
+        macro(GetBlockByHash,           "eth_getBlockByHash",           API_READ_ACCESS,    API_SYNC, APPS_ALLOWED)
+
+    
+    
+
+
+
+
     #define V6_3_API_METHODS(macro) \
         macro(IPFSAdd,   "ipfs_add",   API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(IPFSHash,  "ipfs_hash",  API_READ_ACCESS,  API_ASYNC, APPS_ALLOWED) \
         macro(IPFSGet,   "ipfs_get",   API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(IPFSPin,   "ipfs_pin",   API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(IPFSUnpin, "ipfs_unpin", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
-        macro(IPFSGc,    "ipfs_gc",    API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)
+        macro(IPFSGc,    "ipfs_gc",    API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
+        ETH_API_METHODS(macro)
         // TODO:IPFS add ipfs_caps/ev_ipfs_state methods that returns all available capabilities and ipfs state
+
+
+    struct ChainID
+    {
+        struct Response
+        {
+        };
+    };
+
+    struct NetVersion
+    {
+        struct Response {};
+    };
+
+    struct BlockNumber
+    {
+        struct Response
+        {
+            uint64_t height;
+        };
+    };
+
+    struct Balance
+    {
+        std::string address;
+        std::string tag;
+        std::string block;
+
+        struct Response
+        {
+            uint64_t balanceHi = 0;
+            uint64_t balanceLo = 0;
+        };
+    };
+
+    struct BlockByNumber
+    {
+        std::string tag;
+        bool fullTxInfo = false;
+
+        struct Response
+        {
+            uint64_t number;
+        };
+    };
+
+    struct GasPrice
+    {
+        struct Response {};
+    };
+
+    struct EstimateGas
+    {
+        struct Response {};
+    };
+
+    struct GetCode
+    {
+        struct Response {};
+    };
+
+    struct GetTransactionCount
+    {
+        struct Response
+        {
+
+        };
+    };
+
+    struct SendRawTransaction
+    {
+        struct Response
+        {
+
+        };
+    };
+
+    struct GetTransactionReceipt
+    {
+        struct Response
+        {
+
+        };
+    };
+    
+
+    struct GetBlockByHash
+    {
+
+        struct Response
+        {
+            uint64_t number;
+        };
+    };
+
+    
+
+    ////////////////////
 
     struct IPFSAdd
     {
