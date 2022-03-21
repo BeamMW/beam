@@ -272,7 +272,7 @@ namespace beam::wallet
             Block::SystemState::Full state;
             if (GetTip(state) && state.m_Height > maxHeight)
             {
-                LOG_INFO() << m_Context << "  PushTransaction expired. Current height: " << state.m_Height << ", max kernel height: " << maxHeight;
+                LOG_INFO() << m_Context << "  Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << maxHeight;
                 OnFailed(TxFailureReason::TransactionExpired);
                 return true;
             }
