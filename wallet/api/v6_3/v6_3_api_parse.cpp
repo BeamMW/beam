@@ -170,4 +170,27 @@ namespace beam::wallet
             }
         };
     }
+
+    std::pair<SignMessage, IWalletApi::MethodInfo> V63Api::onParseSignMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        SignMessage message;
+        message.message = getMandatoryParam<NonEmptyString>(params, "message");
+        auto km = getMandatoryParam<NonEmptyString>(params, "key_material");
+        message.keyMaterial = from_hex(km);
+        return std::make_pair(message, MethodInfo());
+    }
+
+    void V63Api::getResponse(const JsonRpcId& id, const SignMessage::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result",
+                {
+                    {"signature", res.signature}
+                }
+            }
+        };
+    }
 }

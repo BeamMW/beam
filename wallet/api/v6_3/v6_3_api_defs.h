@@ -20,12 +20,13 @@
 namespace beam::wallet
 {
     #define V6_3_API_METHODS(macro) \
-        macro(IPFSAdd,   "ipfs_add",   API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
-        macro(IPFSHash,  "ipfs_hash",  API_READ_ACCESS,  API_ASYNC, APPS_ALLOWED) \
-        macro(IPFSGet,   "ipfs_get",   API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
-        macro(IPFSPin,   "ipfs_pin",   API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
-        macro(IPFSUnpin, "ipfs_unpin", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
-        macro(IPFSGc,    "ipfs_gc",    API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)
+        macro(IPFSAdd,      "ipfs_add",         API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
+        macro(IPFSHash,     "ipfs_hash",        API_READ_ACCESS,  API_ASYNC, APPS_ALLOWED) \
+        macro(IPFSGet,      "ipfs_get",         API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
+        macro(IPFSPin,      "ipfs_pin",         API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
+        macro(IPFSUnpin,    "ipfs_unpin",       API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
+        macro(IPFSGc,       "ipfs_gc",          API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
+        macro(SignMessage,  "sign_message",     API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) 
         // TODO:IPFS add ipfs_caps/ev_ipfs_state methods that returns all available capabilities and ipfs state
 
     struct IPFSAdd
@@ -88,6 +89,16 @@ namespace beam::wallet
         uint32_t timeout = 0;
         struct Response
         {
+        };
+    };
+
+    struct SignMessage
+    {
+        std::vector<uint8_t> keyMaterial;
+        std::string message;
+        struct Response
+        {
+            std::string signature;
         };
     };
 }

@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "v6_3_api.h"
 #include "version.h"
+#include "bvm/bvm2.h"
 
 namespace beam::wallet
 {
@@ -203,5 +204,43 @@ namespace beam::wallet
         #else
         sendError(id, ApiError::NotSupported);
         #endif
+    }
+
+    namespace
+    {
+        struct MyProcessor : bvm2::ProcessorManager
+        {
+            using ProcessorManager::DeriveKeyPreimage;
+        };
+        static void DeriveKeyPreimage(ECC::Hash::Value&, const Blob&);
+    }
+
+    void V63Api::onHandleSignMessage(const JsonRpcId& id, SignMessage&& req)
+    {
+        SignMessage::Response resp;
+        ECC::Hash::Value hv;
+        MyProcessor::DeriveKeyPreimage(hv, Blob(req.keyMaterial));
+        auto db = getWalletDB();
+        auto pKdf = db->get_MasterKdf();
+        ECC::Scalar::Native sk;
+        pKdf->DeriveKey(sk, hv);
+        
+        std::stringstream ss;
+        ss << "Beam Signed Message:\n"
+            << req.message.size()
+            << req.message;
+
+        ECC::Hash::Processor()
+            << ss.str()
+            >> hv;
+
+        ECC::Signature sig;
+        sig.Sign(hv, sk);
+
+        Serializer s;
+        s & sig;
+
+        resp.signature = to_hex(s.buffer().first, s.buffer().second);
+        doResponse(id, resp);
     }
 }
