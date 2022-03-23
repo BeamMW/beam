@@ -258,6 +258,8 @@ namespace Wasm {
 		Blob m_LinearMem;
 		Reader m_Instruction;
 
+        virtual ~Processor() = default;
+
 		struct Stack
 		{
 			Word* m_pPtr;
