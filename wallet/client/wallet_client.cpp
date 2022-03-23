@@ -33,6 +33,7 @@
 
 #include "filter.h"
 #include <regex>
+#include <boost/scope_exit.hpp>
 
 using namespace std;
 
@@ -757,6 +758,11 @@ namespace beam::wallet
                 _clientShaders = clientShaders;
 
                 nodeNetwork->tryToConnect();
+                onBeforeMainLoop();
+                BOOST_SCOPE_EXIT_ALL(&, this) 
+                {
+                    onAfterMainLoop();;
+                };
                 m_reactor->run_ex([&wallet, &nodeNetwork](){
                     wallet->CleanupNetwork();
                     nodeNetwork->Disconnect();

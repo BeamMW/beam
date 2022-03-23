@@ -530,13 +530,14 @@ void Reactor::cancel_timer(Object* o) {
 ErrorCode Reactor::init_tcpserver(Object* o, Address bindAddress, uv_connection_cb cb) {
     assert(o);
     assert(cb);
-
+    LOG_DEBUG() << __FUNCTION__ << __LINE__;
     uv_handle_t* h = _handlePool.alloc();
     ErrorCode errorCode = (ErrorCode)uv_tcp_init(&_loop, (uv_tcp_t*)h);
     if (init_object(errorCode, o, h) != EC_OK) {
         return errorCode;
     }
 
+    LOG_DEBUG() << __FUNCTION__ << __LINE__;
     sockaddr_in addr;
     bindAddress.fill_sockaddr_in(addr);
 
@@ -544,13 +545,13 @@ ErrorCode Reactor::init_tcpserver(Object* o, Address bindAddress, uv_connection_
     if (errorCode != 0) {
         return errorCode;
     }
-
+    LOG_DEBUG() << __FUNCTION__ << __LINE__;
     errorCode = (ErrorCode)uv_listen(
         (uv_stream_t*)h,
         config().get_int("io.tcp_listen_backlog", 32, 5, 2000),
         cb
     );
-
+    LOG_DEBUG() << __FUNCTION__ << __LINE__;
     return errorCode;
 }
 

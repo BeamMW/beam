@@ -227,6 +227,9 @@ namespace beam::wallet
         virtual void onIPFSStatus(bool running, const std::string& error, unsigned int peercnt) {}
         #endif
 
+        virtual void onBeforeMainLoop() {}
+        virtual void onAfterMainLoop() {}
+
     private:
         void onAssetChanged(ChangeAction action, Asset::ID assetID) override;
         void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items) override;

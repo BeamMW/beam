@@ -43,6 +43,8 @@ if(EMSCRIPTEN)
                    -s SOCKET_DEBUG=0 \
                    -s DISABLE_EXCEPTION_CATCHING=0 \
                    -s VERBOSE=1 \
+                   -s PROXY_POSIX_SOCKETS=0 \
+                   -s PROXY_TO_PTHREAD=0 \
                    -s USE_PTHREADS=1 \
                    -s WASM=1 \
                    -s ERROR_ON_UNDEFINED_SYMBOLS=1 \
@@ -57,6 +59,7 @@ if(EMSCRIPTEN)
                    -s EXPORT_NAME='BeamModule' \
                    -s EXPORTED_RUNTIME_METHODS=[\"UTF8ToString\",\"FS\"] \
                    -s WEBSOCKET_SUBPROTOCOL='null' \
-                   -lidbfs.js"
+                   -lidbfs.js \
+                   -lwebsocket.js"
     )
 endif()

@@ -24,6 +24,7 @@
 #include "wallet/transactions/swaps/second_side.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin.h"
 #include "wallet/transactions/swaps/bridges/ethereum/ethereum.h"
+#include "utility/string_helpers.h"
 
 #include "http/http_client.h"
 #include "utility/test_helpers.h"
@@ -2075,6 +2076,18 @@ int main()
     Rules::get().pForks[2].m_Height = fork1Height;
     Rules::get().pForks[3].m_Height = MaxHeight; // swap values currently specified in the test are insufficient for fees after HF3
     Rules::get().UpdateChecksum();
+
+    {
+        std::string seedPhrase{ "drum;number;north;fly;silk;recall;execute;season;december;foot;spirit;tennis;" };
+        auto words = string_helpers::split(seedPhrase, ';');
+        for (uint32_t i = 0; i < 10; ++i)
+        {
+            auto a1 = beam::ethereum::GenerateEthereumAddress(words, i);
+            cout << "0x" << beam::to_hex(a1.data(), a1.size()) << std::endl;
+        }
+        
+    }
+
 
     TestSwapTransaction(true, fork1Height);
     TestSwapTransaction(false, fork1Height);
