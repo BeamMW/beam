@@ -545,7 +545,8 @@ struct MyUser
         }
 
         Env::Halt_if(nVal < sizeof(User));
-        m_Votes = (nVal - sizeof(User)) / sizeof(*m_pVotes);
+        uint32_t nSizeVotes = nVal - sizeof(User);
+        m_Votes = nSizeVotes / sizeof(*m_pVotes);
 
         m_Charge +=
             Env::Cost::LoadVarPerByte * nVal +
@@ -555,6 +556,9 @@ struct MyUser
         {
             if (m_iDividendEpoch)
             {
+                if (nSizeVotes)
+                    m_Charge += Env::Cost::Log_For(sizeof(Events::UserVote) + nSizeVotes);
+
                 if (m_Stake)
                 {
                     m_Dividend.Load(cid, m_iDividendEpoch);
@@ -703,6 +707,7 @@ ON_METHOD(user, move_funds)
 
     uint32_t nCharge =
         s.m_Charge +
+        u.m_Charge +
         Env::Cost::AddSig +
         Env::Cost::FundsLock +
         Env::Cost::LoadVar_For(sizeof(User) + u.m_Votes) +
@@ -780,6 +785,7 @@ ON_METHOD(user, vote)
 
     uint32_t nCharge =
         s.m_Charge +
+        u.m_Charge +
         Env::Cost::AddSig +
         Env::Cost::LoadVar_For(sizeof(User) + u.m_Votes) +
         Env::Cost::SaveVar_For(sizeof(User) + s.m_Current.m_Proposals) +
