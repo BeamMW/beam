@@ -212,7 +212,18 @@ namespace beam::wallet
         {
             using ProcessorManager::DeriveKeyPreimage;
         };
-        static void DeriveKeyPreimage(ECC::Hash::Value&, const Blob&);
+
+        void GetMessageHash(ECC::Hash::Value& hv, const std::string& message)
+        {
+            std::stringstream ss;
+            ss << "beam.signed.message"
+                << message.size()
+                << message;
+
+            ECC::Hash::Processor()
+                << ss.str()
+                >> hv;
+        }
     }
 
     void V63Api::onHandleSignMessage(const JsonRpcId& id, SignMessage&& req)
@@ -224,15 +235,8 @@ namespace beam::wallet
         auto pKdf = db->get_MasterKdf();
         ECC::Scalar::Native sk;
         pKdf->DeriveKey(sk, hv);
-        
-        std::stringstream ss;
-        ss << "Beam Signed Message:\n"
-            << req.message.size()
-            << req.message;
 
-        ECC::Hash::Processor()
-            << ss.str()
-            >> hv;
+        GetMessageHash(hv, req.message);
 
         ECC::Signature sig;
         sig.Sign(hv, sk);
@@ -241,6 +245,20 @@ namespace beam::wallet
         s & sig;
 
         resp.signature = to_hex(s.buffer().first, s.buffer().second);
+        doResponse(id, resp);
+    }
+
+    void V63Api::onHandleVerifySignature(const JsonRpcId& id, VerifySignature&& req)
+    {
+        VerifySignature::Response resp;
+        ECC::Hash::Value hv;
+        GetMessageHash(hv, req.message);
+
+        Deserializer d;
+        ECC::Signature sig;
+        d.reset(req.signature);
+        d& sig;
+        resp.result = sig.IsValid(hv, req.publicKey);
         doResponse(id, resp);
     }
 }
