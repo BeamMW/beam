@@ -26,6 +26,39 @@ namespace beam::wallet
             }
             return 0;
         }
+
+        bool ExtractPoint(ECC::Point::Native& point, const json& j)
+        {
+            auto s = type_get<NonEmptyString>(j);
+            auto buf = from_hex(s);
+            ECC::Point pt;
+            Deserializer dr;
+            dr.reset(buf);
+            dr& pt;
+
+            return point.ImportNnz(pt);
+        }
+    }
+
+    template<>
+    const char* type_name<ECC::Point::Native>()
+    {
+        return "hex encoded elliptic curve point";
+    }
+
+    template<>
+    bool type_check<ECC::Point::Native>(const json& j)
+    {
+        ECC::Point::Native pt;
+        return type_check<NonEmptyString>(j) && ExtractPoint(pt, j);
+    }
+
+    template<>
+    ECC::Point::Native type_get<ECC::Point::Native>(const json& j)
+    {
+        ECC::Point::Native pt;
+        ExtractPoint(pt, j);
+        return pt;
     }
 
     std::pair<IPFSAdd, IWalletApi::MethodInfo> V63Api::onParseIPFSAdd(const JsonRpcId& id, const nlohmann::json& params)
@@ -168,6 +201,49 @@ namespace beam::wallet
                     {"result", true}
                 }
             }
+        };
+    }
+
+    std::pair<SignMessage, IWalletApi::MethodInfo> V63Api::onParseSignMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        SignMessage message;
+        message.message = getMandatoryParam<NonEmptyString>(params, "message");
+        auto km = getMandatoryParam<NonEmptyString>(params, "key_material");
+        message.keyMaterial = from_hex(km);
+        return std::make_pair(message, MethodInfo());
+    }
+
+    void V63Api::getResponse(const JsonRpcId& id, const SignMessage::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result",
+                {
+                    {"signature", res.signature}
+                }
+            }
+        };
+    }
+
+    std::pair<VerifySignature, IWalletApi::MethodInfo> V63Api::onParseVerifySignature(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        VerifySignature message;
+        message.message = getMandatoryParam<NonEmptyString>(params, "message");
+        message.publicKey = getMandatoryParam<ECC::Point::Native>(params, "public_key");
+        message.signature = getMandatoryParam<ValidHexBuffer>(params, "signature");
+        
+        return std::make_pair(message, MethodInfo());
+    }
+
+    void V63Api::getResponse(const JsonRpcId& id, const VerifySignature::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result", res.result }
         };
     }
 }
