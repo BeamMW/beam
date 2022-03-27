@@ -4,7 +4,7 @@
 
 namespace Liquity
 {
-    static const ShaderID s_SID = { 0x97,0x1f,0xf0,0x60,0x3d,0xcf,0x87,0x9f,0x86,0x4e,0x80,0xd0,0x76,0xc8,0xa0,0x5b,0x4f,0x4e,0x38,0xad,0xd5,0x6f,0xa4,0x6d,0xaf,0xa8,0xe6,0xa3,0xa6,0x42,0xdc,0xbb };
+    static const ShaderID s_SID = { 0xaa,0x5e,0xec,0xa4,0x65,0x6d,0x62,0xc9,0x91,0x66,0xbf,0xd0,0xa6,0x63,0xa2,0x2b,0xc6,0x8f,0xc7,0x06,0x04,0xeb,0xf7,0x0b,0x3f,0xc8,0xfa,0xfc,0xa7,0xc7,0x03,0xb5 };
 
 #pragma pack (push, 1)
 
@@ -305,9 +305,11 @@ namespace Liquity
         {
             if (bRecovery)
             {
-                // Ban txs that don't increase the tcr. Also covers the case where the very 1st trove drives us into recovery
-                if (m_Troves.m_Totals.CmpRcr(totals0) <= 0)
-                    return true;
+                if (m_Troves.m_Totals.CmpRcr(totals0) < 0)
+                    return true; // Ban txs that decrease the tcr.
+
+                if (!totals0.Tok)
+                    return true; // The very 1st trove drives us into recovery
             }
 
             return price.IsBelow(t.m_Amounts, Price::get_k110());
@@ -340,11 +342,13 @@ namespace Liquity
         bool LiquidateTrove(Trove& t, const Pair& totals0, Liquidator& ctx, Amount& valSurplus)
         {
             assert(t.m_Amounts.Tok >= m_Settings.m_TroveLiquidationReserve);
+            bool bUseRedistPool = true;
 
             auto cr = ctx.m_Price.ToCR(t.m_Amounts.get_Rcr());
             if (cr > Global::Price::get_k100())
             {
-                if (cr >= Global::Price::get_k110())
+                bool bAboveMcr = (cr >= Global::Price::get_k110());
+                if (bAboveMcr)
                 {
                     if (!ctx.m_Price.IsRecovery(totals0)) // in recovery mode can liquidate the weakest
                         return false;
@@ -356,14 +360,22 @@ namespace Liquity
                         valSurplus = t.m_Amounts.Col - valColMax;
                         t.m_Amounts.Col = valColMax;
                     }
-
                 }
 
                 if (m_StabPool.LiquidatePartial(t))
                     ctx.m_Stab = true;
+
+                if (t.m_Amounts.Tok || t.m_Amounts.Col)
+                {
+                    if (bAboveMcr)
+                        return false;
+                }
+                else
+                    bUseRedistPool = false;
+
             }
 
-            if (t.m_Amounts.Tok || t.m_Amounts.Col)
+            if (bUseRedistPool)
             {
                 if (!m_RedistPool.Liquidate(t))
                     return false; // last trove?
