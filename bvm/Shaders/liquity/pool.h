@@ -266,7 +266,7 @@ struct HomogenousPool
 
             // Active epoch must always be valid
             // Account for draining epoch iff not empty
-            if (m_Draining.m_Users)
+            if (m_Draining.m_Balance.s)
             {
                 Amount totalSell = get_TotalSell();
                 assert(d.s <= totalSell);
