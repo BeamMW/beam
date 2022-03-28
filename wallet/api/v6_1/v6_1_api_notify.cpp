@@ -429,7 +429,7 @@ namespace beam::wallet
         };
 
         auto& parent = msg["result"];
-        parent["node_connected"] = _network->getConnections();
+        parent["node_connected"] = (_network->getConnections() > 0);
         parent["own_node"] = getWallet()->IsConnectedToOwnNode();
 
         const auto& error = _network->getLastError();
