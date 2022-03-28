@@ -512,6 +512,8 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
 {
     MyGlobal_LoadSave g;
 
+    Env::Halt_if(Env::get_Height() < g.m_Settings.m_hMinRedemptionHeight);
+
     Pair totals0 = g.m_Troves.m_Totals;
 
     Global::Redeemer ctx;
