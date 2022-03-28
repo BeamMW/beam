@@ -11,7 +11,8 @@
     Upgradable2_deploy(macro) \
     macro(ContractID, cidOracle) \
     macro(Amount, troveLiquidationReserve) \
-    macro(AssetID, aidProfit)
+    macro(AssetID, aidProfit) \
+    macro(uint32_t, hInitialPeriod)
 
 #define Liquity_manager_schedule_upgrade(macro) Upgradable2_schedule_upgrade(macro)
 #define Liquity_manager_explicit_upgrade(macro) macro(ContractID, cid)
@@ -116,6 +117,7 @@ ON_METHOD(manager, deploy_contract)
     s.m_AidProfit = aidProfit;
     s.m_TroveLiquidationReserve = troveLiquidationReserve;
     _POD_(s.m_cidOracle) = cidOracle;
+    s.m_hMinRedemptionHeight = Env::get_Height() + hInitialPeriod;
 
     const uint32_t nCharge =
         ManagerUpgadable2::get_ChargeDeploy() +

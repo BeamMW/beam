@@ -531,6 +531,7 @@ ON_METHOD(manager, view_params)
     Env::DocAddBlob_T("oracle", g.m_Settings.m_cidOracle);
     Env::DocAddNum("aidTok", g.m_Aid);
     Env::DocAddNum("aidGov", g.m_Settings.m_AidProfit);
+    Env::DocAddNum("redemptionHeight", g.m_Settings.m_hMinRedemptionHeight);
     Env::DocAddNum("liq_reserve", g.m_Settings.m_TroveLiquidationReserve);
     Env::DocAddNum("troves_created", g.m_Troves.m_iLastCreated);
     DocAddPair("totals", g.m_Troves.m_Totals);
@@ -774,6 +775,15 @@ ON_METHOD(user, upd_stab)
         Charge::StabPoolOp0 +
         g.m_MyStab.m_Charge +
         Env::Cost::Cycle * 100;
+
+    if (newVal < g.m_MyStab.m_Amounts.Tok && g.m_Troves.m_iHead)
+    {
+        // verification that 1st trove can't be liquidated
+        nCharge +=
+            Charge::Price() +
+            Charge::TrovePull0() +
+            Charge::TroveTest;
+    }
 
     Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "update stab pool", nCharge);
 }
