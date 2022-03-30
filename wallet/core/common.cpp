@@ -1506,7 +1506,7 @@ namespace beam::wallet
             auto txIDIt = obj.find(TxIDName);
             if (txIDIt != obj.end() && !txIDIt->is_null())
             {
-                auto txIdVec = from_hex(*txIDIt);
+                auto txIdVec = from_hex_string(*txIDIt);
 
                 if (txIdVec.size() >= 16)
                 {

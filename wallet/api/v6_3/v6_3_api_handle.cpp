@@ -15,6 +15,7 @@
 #include "version.h"
 
 #include <string_view>
+#include "bitcoin/bitcoin/math/elliptic_curve.hpp"
 
 namespace beam::wallet
 {
@@ -57,122 +58,122 @@ namespace beam::wallet
                 {
                 }
 
-                //template <uint32_t nBytes>
-                //void Set(const Opaque<nBytes>& hv)
-                //{
-                //    m_Type = Type::String;
-                //    m_nLen = nBytes;
-                //    m_pBuf = reinterpret_cast<const uint8_t*>(&hv);
-                //}
+                /*template <uint32_t nBytes>
+                void Set(const Opaque<nBytes>& hv)
+                {
+                    m_Type = Type::String;
+                    m_nLen = nBytes;
+                    m_pBuf = reinterpret_cast<const uint8_t*>(&hv);
+                }*/
 
-                //void Set(uint64_t n)
-                //{
-                //    m_Type = Type::Integer;
-                //    m_Integer = n;
-                //}
+                void Set(uint64_t n)
+                {
+                    m_Type = Type::Integer;
+                    m_Integer = n;
+                }
 
-                //static constexpr uint8_t get_BytesFor(uint64_t n)
-                //{
-                //    uint8_t nLen = 0;
-                //    while (n)
-                //    {
-                //        n >>= 8;
-                //        nLen++;
+                static constexpr uint8_t get_BytesFor(uint64_t n)
+                {
+                    uint8_t nLen = 0;
+                    while (n)
+                    {
+                        n >>= 8;
+                        nLen++;
 
-                //    }
-                //    return nLen;
-                //}
+                    }
+                    return nLen;
+                }
 
-                //void EnsureSizeBrutto() const
-                //{
-                //    if (!m_SizeBrutto)
-                //    {
-                //        struct SizeCounter {
-                //            uint64_t m_Val = 0;
-                //            void Write(uint8_t) { m_Val++; }
-                //            void Write(const void*, uint32_t nLen) { m_Val += nLen; }
-                //        } sc;
+                void EnsureSizeBrutto() const
+                {
+                    if (!m_SizeBrutto)
+                    {
+                        struct SizeCounter {
+                            uint64_t m_Val = 0;
+                            void Write(uint8_t) { m_Val++; }
+                            void Write(const void*, uint32_t nLen) { m_Val += nLen; }
+                        } sc;
 
-                //        Write(sc);
-                //        m_SizeBrutto = sc.m_Val;
-                //    }
-                //}
+                        Write(sc);
+                        m_SizeBrutto = sc.m_Val;
+                    }
+                }
 
-                //template <typename TStream>
-                //static void WriteVarLen(TStream& s, uint64_t n, uint8_t nLen)
-                //{
-                //    for (nLen <<= 3; nLen; )
-                //    {
-                //        nLen -= 8;
-                //        s.Write(static_cast<uint8_t>(n >> nLen));
-                //    }
-                //}
+                template <typename TStream>
+                static void WriteVarLen(TStream& s, uint64_t n, uint8_t nLen)
+                {
+                    for (nLen <<= 3; nLen; )
+                    {
+                        nLen -= 8;
+                        s.Write(static_cast<uint8_t>(n >> nLen));
+                    }
+                }
 
-                //template <typename TStream>
-                //void WriteSize(TStream& s, uint8_t nBase, uint64_t n) const
-                //{
-                //    if (n < 56)
-                //        s.Write(nBase + static_cast<uint8_t>(n));
-                //    else
-                //    {
-                //        uint8_t nLen = get_BytesFor(n);
-                //        s.Write(nBase + 55 + nLen);
-                //        WriteVarLen(s, n, nLen);
-                //    }
-                //}
+                template <typename TStream>
+                void WriteSize(TStream& s, uint8_t nBase, uint64_t n) const
+                {
+                    if (n < 56)
+                        s.Write(nBase + static_cast<uint8_t>(n));
+                    else
+                    {
+                        uint8_t nLen = get_BytesFor(n);
+                        s.Write(nBase + 55 + nLen);
+                        WriteVarLen(s, n, nLen);
+                    }
+                }
 
-                //template <typename TStream>
-                //void Write(TStream& s) const
-                //{
-                //    switch (m_Type)
-                //    {
-                //    case Type::List:
-                //    {
-                //        uint64_t nChildren = 0;
+                template <typename TStream>
+                void Write(TStream& s) const
+                {
+                    switch (m_Type)
+                    {
+                    case Type::List:
+                    {
+                        uint64_t nChildren = 0;
 
-                //        for (uint32_t i = 0; i < m_nLen; i++)
-                //        {
-                //            m_pC[i].EnsureSizeBrutto();
-                //            nChildren += m_pC[i].m_SizeBrutto;
-                //        }
+                        for (uint32_t i = 0; i < m_nLen; i++)
+                        {
+                            m_pC[i].EnsureSizeBrutto();
+                            nChildren += m_pC[i].m_SizeBrutto;
+                        }
 
-                //        WriteSize(s, 0xc0, nChildren);
+                        WriteSize(s, 0xc0, nChildren);
 
-                //        for (uint32_t i = 0; i < m_nLen; i++)
-                //            m_pC[i].Write(s);
+                        for (uint32_t i = 0; i < m_nLen; i++)
+                            m_pC[i].Write(s);
 
-                //    }
-                //    break;
+                    }
+                    break;
 
-                //    case Type::String:
-                //    {
-                //        if (m_nLen != 1 || m_pBuf[0] >= 0x80)
-                //        {
-                //            WriteSize(s, 0x80, m_nLen);
-                //        }
-                //        s.Write(m_pBuf, m_nLen);
-                //    }
-                //    break;
+                    case Type::String:
+                    {
+                        if (m_nLen != 1 || m_pBuf[0] >= 0x80)
+                        {
+                            WriteSize(s, 0x80, m_nLen);
+                        }
+                        s.Write(m_pBuf, m_nLen);
+                    }
+                    break;
 
-                //    default:
-                //        assert(false);
-                //        // no break;
+                    default:
+                        assert(false);
+                        // no break;
 
-                //    case Type::Integer:
-                //    {
-                //        if (m_Integer && m_Integer < 0x80)
-                //        {
-                //            s.Write(static_cast<uint8_t>(m_Integer));
-                //        }
-                //        else
-                //        {
-                //            uint8_t nLen = get_BytesFor(m_Integer);
-                //            WriteSize(s, 0x80, nLen);
-                //            WriteVarLen(s, m_Integer, nLen);
-                //        }
-                //    }
-                //    }
-                //}
+                    case Type::Integer:
+                    {
+                        if (m_Integer && m_Integer < 0x80)
+                        {
+                            s.Write(static_cast<uint8_t>(m_Integer));
+                        }
+                        else
+                        {
+                            uint8_t nLen = get_BytesFor(m_Integer);
+                            WriteSize(s, 0x80, nLen);
+                            WriteVarLen(s, m_Integer, nLen);
+                        }
+                    }
+                    }
+                }
             };
 
 
@@ -376,6 +377,14 @@ namespace beam::wallet
         AmountBig::Type amount{Blob(v2.m_Items[3].m_Buffer)};
         address;
         amount;
+
+        //libbitcoin::der_signature d{std::move(v2.m_Items[7].m_Buffer)};
+        //libbitcoin::recoverable_signature sig;
+        //libbitcoin::parse_signature(sig.signature, d, true);
+        //sig.recovery_id = d.back();
+        //libbitcoin::ec_compressed pub;
+        //auto hash  = ethash::keccak256(req.rawTransaction)
+        //libbitcoin::recover_public(pub, sig, libbitcoin::h)
 
         doResponse(id, res);
     }

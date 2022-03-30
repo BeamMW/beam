@@ -840,7 +840,7 @@ namespace beam::wallet
         VerifyPaymentProof data;
 
         const auto proof = getMandatoryParam<NonEmptyString>(params, "payment_proof");
-        data.paymentProof = from_hex(proof);
+        data.paymentProof = from_hex_string(proof);
 
         return std::make_pair(data, MethodInfo());
     }

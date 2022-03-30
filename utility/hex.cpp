@@ -53,7 +53,12 @@ namespace beam
         return res;
     }
 
-    std::vector<uint8_t> from_hex(const std::string& str, bool* wholeStringIsNumber)
+    std::vector<uint8_t> from_hex_string(const std::string& str, bool* wholeStringIsNumber)
+    {
+        return from_hex(std::string_view(str.data(), str.size()), wholeStringIsNumber);
+    }
+
+    std::vector<uint8_t> from_hex(const std::string_view str, bool* wholeStringIsNumber)
     {
         size_t bias = (str.size() % 2) == 0 ? 0 : 1;
         assert((str.size() + bias) % 2 == 0);

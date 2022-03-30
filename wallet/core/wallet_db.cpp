@@ -6172,7 +6172,7 @@ namespace beam::wallet
                             if (auto it = jsonAddress.find(Fields::Identity); it != jsonAddress.end())
                             {
                                 bool isValid = false;
-                                auto buf = from_hex(*it, &isValid);
+                                auto buf = from_hex_string(*it, &isValid);
                                 if (isValid)
                                 {
                                     address.m_Identity = Blob(buf);

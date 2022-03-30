@@ -54,6 +54,12 @@
 #include "keykeeper/hw_wallet.h"
 #endif
 
+#include "bitcoin/bitcoin/math/elliptic_curve.hpp"
+#include <ethash/keccak.hpp>
+#include <initializer_list>
+#include "wallet/transactions/swaps/bridges/ethereum/common.h"
+#include "utility/string_helpers.h"
+
 using namespace beam;
 using namespace std;
 using namespace ECC;
@@ -4010,6 +4016,417 @@ void TestThreadPool()
     TestThread<std::thread>();
 }
 
+namespace
+{
+    namespace Rlp
+    {
+        class Node
+        {
+        public:
+            enum struct Type
+            {
+                List,
+                String,
+                Integer,
+            };
+
+            explicit Node(uint64_t n)
+                : m_Type(Type::Integer)
+                , m_nLen(0)
+                , m_Integer(n)
+            {
+            }
+
+            Node(std::initializer_list<Node> nodes)
+                : m_Type(Type::List)
+                , m_nLen(nodes.size())
+                , m_pC(nodes.begin())
+            {
+
+            }
+
+            Node(Type type, const uint8_t* data, size_t size)
+                : m_Type(type)
+                , m_nLen(size)
+                , m_pBuf(data)
+            {
+            }
+
+            template <size_t nBytes>
+            explicit Node(const std::array<uint8_t, nBytes>& hv)
+                : Node(Type::String, hv.data(), nBytes)
+            {
+                
+            }
+
+            explicit Node(const std::vector<uint8_t>& hv)
+                : Node(Type::String, hv.data(), hv.size())
+            {
+            }
+
+            static constexpr uint8_t get_BytesFor(uint64_t n)
+            {
+                uint8_t nLen = 0;
+                while (n)
+                {
+                    n >>= 8;
+                    nLen++;
+
+                }
+                return nLen;
+            }
+
+            Type type() const
+            {
+                return m_Type;
+            }
+
+            const uint8_t* data() const
+            {
+                return m_pBuf;
+            }
+
+            size_t size() const
+            {
+                return m_nLen;
+            }
+
+            void EnsureSizeBrutto() const
+            {
+                if (!m_SizeBrutto)
+                {
+                    struct SizeCounter
+                    {
+                        uint64_t m_Val = 0;
+                        void Write(uint8_t) { m_Val++; }
+                        void Write(const void*, size_t nLen) { m_Val += nLen; }
+                    } sc;
+
+                    Write(sc);
+                    m_SizeBrutto = sc.m_Val;
+                }
+            }
+
+            template <typename TStream>
+            static void WriteVarLen(TStream& s, uint64_t n, uint8_t nLen)
+            {
+                for (nLen <<= 3; nLen; )
+                {
+                    nLen -= 8;
+                    s.Write(static_cast<uint8_t>(n >> nLen));
+                }
+            }
+
+            template <typename TStream>
+            void WriteSize(TStream& s, uint8_t nBase, uint64_t n) const
+            {
+                if (n < 56)
+                    s.Write(nBase + static_cast<uint8_t>(n));
+                else
+                {
+                    uint8_t nLen = get_BytesFor(n);
+                    s.Write(nBase + 55 + nLen);
+                    WriteVarLen(s, n, nLen);
+                }
+            }
+
+            template <typename TStream>
+            void Write(TStream& s) const
+            {
+                switch (m_Type)
+                {
+                case Type::List:
+                {
+                    uint64_t nChildren = 0;
+
+                    for (uint32_t i = 0; i < m_nLen; i++)
+                    {
+                        m_pC[i].EnsureSizeBrutto();
+                        nChildren += m_pC[i].m_SizeBrutto;
+                    }
+
+                    WriteSize(s, 0xc0, nChildren);
+
+                    for (uint32_t i = 0; i < m_nLen; i++)
+                        m_pC[i].Write(s);
+
+                }
+                break;
+
+                case Type::String:
+                {
+                    if (m_nLen != 1 || m_pBuf[0] >= 0x80)
+                    {
+                        WriteSize(s, 0x80, m_nLen);
+                    }
+                    s.Write(m_pBuf, m_nLen);
+                }
+                break;
+
+                default:
+                    assert(false);
+                    // no break;
+
+                case Type::Integer:
+                {
+                    if (m_Integer && m_Integer < 0x80)
+                    {
+                        s.Write(static_cast<uint8_t>(m_Integer));
+                    }
+                    else
+                    {
+                        uint8_t nLen = get_BytesFor(m_Integer);
+                        WriteSize(s, 0x80, nLen);
+                        WriteVarLen(s, m_Integer, nLen);
+                    }
+                }
+                }
+            }
+
+        private:
+            Type m_Type;
+            mutable uint64_t m_SizeBrutto = 0; // cached
+            size_t m_nLen; // for strings and lists
+
+            union {
+                const Node* m_pC;
+                const uint8_t* m_pBuf;
+                uint64_t m_Integer;
+            };
+        };
+
+
+        template<typename Visitor>
+        bool Decode(const uint8_t* input, size_t size, Visitor& visitor)
+        {
+            size_t position = 0;
+            auto decodeInteger = [&](uint8_t bytes, uint32_t& length)
+            {
+                if (bytes > size - position)
+                    return false;
+                length = 0;
+                while (bytes--)
+                {
+                    length = input[position++] + length * 256;
+                }
+                return true;
+            };
+
+            while (position < size)
+            {
+                auto b = input[position++];
+                if (b <= 0x7f)  // single byte
+                {
+                    visitor.OnNode({ Node::Type::String, &input[position - 1], 1 });
+                }
+                else
+                {
+                    uint32_t length = 0;
+                    if (b <= 0xb7) // short string
+                    {
+                        length = b - 0x80;
+                        if (length > size - position)
+                            return false;
+                        DecodeString(input + position, length, visitor);
+                    }
+                    else if (b <= 0xbf) // long string
+                    {
+                        if (!decodeInteger(b - 0xb7, length) || length > size - position)
+                            return false;
+                        DecodeString(input + position, length, visitor);
+                    }
+                    else if (b <= 0xf7) // short list
+                    {
+                        length = b - 0xc0;
+                        if (length > size - position)
+                            return false;
+                        if (!DecodeList(input + position, length, visitor))
+                            return false;
+                    }
+                    else if (b <= 0xff) // long list
+                    {
+                        if (!decodeInteger(b - 0xf7, length) || length > size - position)
+                            return false;
+                        if (!DecodeList(input + position, length, visitor))
+                            return false;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                    position += length;
+                }
+            }
+            return true;
+        }
+
+        template <typename Visitor>
+        void DecodeString(const uint8_t* input, size_t size, Visitor& visitor)
+        {
+            visitor.OnNode(Rlp::Node(Node::Type::String, input, size));
+        }
+
+        template <typename Visitor>
+        bool DecodeList(const uint8_t* input, size_t size, Visitor& visitor)
+        {
+            if (visitor.OnNode(Rlp::Node(Node::Type::List, input, size)))
+            {
+                return Decode(input, size, visitor);
+            }
+            return true;
+        }
+    };
+
+    struct RlpVisitor
+    {
+        struct Node
+        {
+            Rlp::Node::Type m_Type;
+            ByteBuffer m_Buffer;
+        };
+
+        bool OnNode(const Rlp::Node& node)
+        {
+            auto& item = m_Items.emplace_back();
+            item.m_Type = node.type();
+            item.m_Buffer.assign(node.data(), node.data() + node.size());
+            return false;
+        }
+
+
+        std::vector<Node> m_Items;
+    };
+
+    struct ByteStream
+    {
+        ByteBuffer m_Buffer;
+
+        void Write(uint8_t b)
+        {
+            m_Buffer.emplace_back(b);
+        }
+
+        void Write(const uint8_t* p, size_t n)
+        {
+            ::std::copy(p, p + n, ::std::back_inserter(m_Buffer));
+        }
+    };
+
+    void TestEthRawTx()
+    {
+        std::string_view rawTransactionHex = "f8690280825208943bb7488199ea33f05336729d0f57129a801fd0b98829a2241af62c000080820b27a00c390566ab8f69d5bd5d5960a0fc9077b43fdf63ab319d3c6bb64f30a4b33370a05e4d1042028151a9b90c319602312510dea758f3c2e41e91eccc085aaa27fc6d";
+        auto rawTransaction = from_hex(rawTransactionHex);
+        RlpVisitor v;
+        Rlp::Decode(rawTransaction.data(), rawTransaction.size(), v);
+
+        RlpVisitor v2;
+        Rlp::Decode(v.m_Items[0].m_Buffer.data(), (uint32_t)v.m_Items[0].m_Buffer.size(), v2);
+        WALLET_CHECK(v2.m_Items[0].m_Buffer == from_hex("02"));
+        WALLET_CHECK(v2.m_Items[1].m_Buffer.empty());
+        WALLET_CHECK(v2.m_Items[2].m_Buffer == from_hex("5208"));
+        WALLET_CHECK(v2.m_Items[3].m_Buffer == from_hex("3bb7488199ea33f05336729d0f57129a801fd0b9"));
+        WALLET_CHECK(v2.m_Items[4].m_Buffer == from_hex("29a2241af62c0000"));
+        WALLET_CHECK(v2.m_Items[5].m_Buffer.empty());
+        WALLET_CHECK(v2.m_Items[6].m_Buffer == from_hex("0b27"));
+        WALLET_CHECK(v2.m_Items[7].m_Buffer == from_hex("0c390566ab8f69d5bd5d5960a0fc9077b43fdf63ab319d3c6bb64f30a4b33370"));
+        WALLET_CHECK(v2.m_Items[8].m_Buffer == from_hex("5e4d1042028151a9b90c319602312510dea758f3c2e41e91eccc085aaa27fc6d"));
+        const auto& address = v2.m_Items[3].m_Buffer;
+        AmountBig::Type amount{ Blob(v2.m_Items[4].m_Buffer) };
+        address;
+        amount;
+
+        {
+            Rlp::Node tx
+            {
+                {Rlp::Node{v2.m_Items[0].m_Buffer} },
+            };
+
+            ByteStream bs;
+            tx.Write(bs);
+            WALLET_CHECK(bs.m_Buffer == from_hex("c102"));
+        }
+        {
+            Rlp::Node tx
+            {
+                Rlp::Node{v2.m_Items[0].m_Buffer},
+                Rlp::Node{v2.m_Items[1].m_Buffer},
+                Rlp::Node{v2.m_Items[2].m_Buffer},
+                Rlp::Node{v2.m_Items[3].m_Buffer},
+                Rlp::Node{v2.m_Items[4].m_Buffer},
+                Rlp::Node{v2.m_Items[5].m_Buffer},
+                Rlp::Node{v2.m_Items[6].m_Buffer},
+                Rlp::Node{v2.m_Items[7].m_Buffer},
+                Rlp::Node{v2.m_Items[8].m_Buffer}
+            };
+
+            ByteStream bs;
+            tx.Write(bs);
+            WALLET_CHECK(bs.m_Buffer == from_hex("f8690280825208943bb7488199ea33f05336729d0f57129a801fd0b98829a2241af62c000080820b27a00c390566ab8f69d5bd5d5960a0fc9077b43fdf63ab319d3c6bb64f30a4b33370a05e4d1042028151a9b90c319602312510dea758f3c2e41e91eccc085aaa27fc6d"));
+            //WALLET_CHECK(bs.m_Buffer == from_hex("e40280825208943bb7488199ea33f05336729d0f57129a801fd0b98829a2241af62c000080"));
+        }
+
+        {
+            Rlp::Node tx
+            {
+                Rlp::Node{v2.m_Items[0].m_Buffer},
+                Rlp::Node{v2.m_Items[1].m_Buffer},
+                Rlp::Node{v2.m_Items[2].m_Buffer},
+                Rlp::Node{v2.m_Items[3].m_Buffer},
+                Rlp::Node{v2.m_Items[4].m_Buffer},
+                Rlp::Node{v2.m_Items[5].m_Buffer},
+                Rlp::Node{1410},
+                //Rlp::Node(Rlp::Node::Type::String, nullptr, 0),
+                //Rlp::Node(Rlp::Node::Type::String, nullptr, 0),
+            };
+
+            ByteStream bs;
+            tx.Write(bs);
+            LOG_DEBUG() << to_hex(bs.m_Buffer.data(), bs.m_Buffer.size());
+           // WALLET_CHECK(bs.m_Buffer == from_hex("e40280825208943bb7488199ea33f05336729d0f57129a801fd0b98829a2241af62c000080"));
+
+            libbitcoin::recoverable_signature sig;
+            //sig.recovery_id = v2.m_Items[6]
+            std::copy(begin(v2.m_Items[7].m_Buffer), end(v2.m_Items[7].m_Buffer), next(begin(sig.signature), 0)); // R
+            std::copy(begin(v2.m_Items[8].m_Buffer), end(v2.m_Items[8].m_Buffer), next(begin(sig.signature), 32)); // S
+            
+            int i = 0;
+            for (const auto& c : v2.m_Items[6].m_Buffer) // V
+            {
+                i <<= 8;
+                i += c;
+            }
+            WALLET_CHECK(i == 0xb27);
+
+            i = i - 1410 * 2 - 35;
+            sig.recovery_id = uint8_t(i);
+
+            auto words = string_helpers::split("drum;number;north;fly;silk;recall;execute;season;december;foot;spirit;tennis", ';');
+            //auto address0 = beam::ethereum::GenerateEthereumAddress(, 0);
+            
+            auto privateKey = beam::ethereum::GeneratePrivateKey(words, 0);
+            libbitcoin::ec_compressed point;
+
+            libbitcoin::secret_to_public(point, privateKey);
+
+            libbitcoin::ec_compressed pub;
+            auto hash = ethash::keccak256(bs.m_Buffer.data(), bs.m_Buffer.size());
+            libbitcoin::hash_digest h;
+            std::copy(begin(hash.bytes), end(hash.bytes), h.begin());
+            WALLET_CHECK(libbitcoin::recover_public(pub, sig, h) == true);
+
+            //libbitcoin::ec_compressed pub2;
+            //std::copy(begin(address0), end(address0), pub2.begin());
+            //WALLET_CHECK(libbitcoin::verify_signature(point, h, sig.signature));
+            auto addr = ethash::keccak256(pub.data()+1, pub.size()-1);
+            //ByteBuffer bg(addr.bytes.)
+            LOG_DEBUG() << to_hex(addr.bytes + 12, 20);
+        }
+
+
+    }
+
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_WARNING; 
@@ -4033,6 +4450,8 @@ int main()
     wallet::g_AssetsEnabled = true;
 
     storage::HookErrors();
+
+    TestEthRawTx();
     TestThreadPool();
     //GenerateTreasury(100, 100, 100000000);
     TestTxList();
