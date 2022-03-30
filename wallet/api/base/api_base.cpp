@@ -14,10 +14,49 @@
 #include "api_errors_imp.h"
 #include "api_base.h"
 #include "utility/logger.h"
-#include <regex>
 
 namespace beam::wallet
 {
+    namespace
+    {
+        std::string CompactifyAddress(const std::string& str, size_t s)
+        {
+            const static std::string_view ellipsis = "...";
+            if (str.size() <= s)
+                return str;
+            if (s <= ellipsis.size())
+                return str.substr(0, s);
+
+            auto s2 = s - ellipsis.size();
+            auto h = (s2 / 2) + 1;
+            std::string res;
+            res.reserve(s);
+            res.append(str, 0, h);
+            res.append(ellipsis);
+            res.append(str, h, s - h - ellipsis.size());
+            return res;
+        }
+
+        void FilterRequest(json& root)
+        {
+            for (auto& item : root.items())
+            {
+                if (item.value().is_object())
+                {
+                    FilterRequest(item.value());
+                }
+                else if (item.value().is_string() && item.key() == "address")
+                {
+                    root[item.key()] = CompactifyAddress(item.value().get<std::string>(), 32);
+                }
+                else if (item.value().is_array() && item.key() == "contract")
+                {
+                    root[item.key()] = json::array();
+                }
+            }
+        }
+    }
+
     ApiBase::ApiBase(IWalletApiHandler& handler, const ApiInitData& initData)
         : _handler(handler)
         , _acl(initData.acl)
@@ -80,12 +119,6 @@ namespace beam::wallet
     {
         JsonRpcId rpcid;
         return callGuarded<ApiCallInfo>(rpcid, [this, &rpcid, data, size] () {
-            {
-                std::string s(data, size);
-                static std::regex keyRE(R"'(\"key\"\s*:\s*\"[\d\w]+\"\s*,?)'");
-                LOG_INFO() << "got " << std::regex_replace(s, keyRE, "");
-            }
-
             if (size == 0)
             {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Empty JSON request");
@@ -130,9 +163,7 @@ namespace beam::wallet
             return boost::none;
         }
 
-        LOG_DEBUG() << "parseAPIRequest. Method: " << pinfo->method << ", params: " << pinfo->params.dump();
-
-        return callGuarded<ParseResult>(pinfo->rpcid, [this, pinfo] () -> ParseResult {
+        return callGuarded<ParseResult>(pinfo->rpcid, [this, &pinfo] () -> ParseResult {
             const auto& minfo = _methods[pinfo->method];
             const auto finfo = minfo.parseFunc(pinfo->rpcid, pinfo->params);
 
@@ -143,15 +174,22 @@ namespace beam::wallet
 
     ApiSyncMode ApiBase::executeAPIRequest(const char* data, size_t size)
     {
-        const auto pinfo = parseCallInfo(data, size);
+        auto pinfo = parseCallInfo(data, size);
         if (pinfo == boost::none)
         {
+            LOG_WARNING() << "executeAPIRequest, parseCallInfo returned none for " << data;
             return ApiSyncMode::DoneSync;
         }
 
-        LOG_DEBUG() << "executeAPIRequest. Method: " << pinfo->method << ", params: " << pinfo->params.dump();
+        {
+            json messageCopy = pinfo->message;
+            FilterRequest(messageCopy);
 
-        const auto result = callGuarded<ApiSyncMode>(pinfo->rpcid, [this, pinfo] () -> ApiSyncMode {
+            const auto message = messageCopy.dump(1, '\t');
+            LOG_VERBOSE() << "executeAPIRequest:\n" << message;
+        }
+
+        const auto result = callGuarded<ApiSyncMode>(pinfo->rpcid, [this, &pinfo] () -> ApiSyncMode {
             const auto& minfo = _methods[pinfo->method];
 
             if (_acl)

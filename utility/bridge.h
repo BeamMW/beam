@@ -63,13 +63,16 @@ public:
     }
 
     template <typename F, typename ...Args>
-    void call_async(F&& func,  Args... args)
+    void call_async(F&& func, Args... args)
     {
         tx.send(
-            [func, args...](BridgeInterface& receiver_) mutable
-            {
-                (receiver_.*func)(std::forward<Args>(args)...);
-            }
+            [func, t{ std::make_tuple(std::forward<Args>(args)...) }](BridgeInterface& receiver_) mutable
+        {
+            std::apply([&receiver_, func](auto&&... args2)
+                {
+                    (receiver_.*func)(std::forward<Args>(args2)...);
+                }, std::move(t));
+        }
         );
     }
 

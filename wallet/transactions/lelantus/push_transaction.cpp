@@ -34,8 +34,45 @@ namespace beam::wallet::lelantus
 
     TxParameters PushTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
-        wallet::CheckSenderAddress(parameters, m_walletDB);
-        return wallet::ProcessReceiverAddress(parameters, m_walletDB, false);
+        auto walletDB = m_dbFunc();
+        wallet::CheckSenderAddress(parameters, walletDB);
+
+        auto receiverID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
+        if (receiverID)
+        {
+            auto vouchers = parameters.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
+            if (vouchers)
+            {
+                storage::SaveVouchers(*walletDB, *vouchers, *receiverID);
+            }
+        }
+
+        const auto& originalToken = parameters.GetParameter<std::string>(TxParameterID::OriginalToken);
+        if (originalToken)
+        {
+            auto addrType = parameters.GetParameter<TxAddressType>(TxParameterID::AddressType);
+            if (addrType && addrType == TxAddressType::PublicOffline)
+            {
+                auto publicToken = GeneratePublicToken(*walletDB, std::string());
+                if (*originalToken == publicToken)
+                {
+                    TxParameters temp{ parameters };
+                    temp.SetParameter(TxParameterID::IsSelfTx, true);
+                    return wallet::ProcessReceiverAddress(temp, walletDB, false);
+                }
+            }
+            else
+            {
+                auto addr = walletDB->getAddressByToken(*originalToken);
+                if (addr && addr->isOwn())
+                {
+                    TxParameters temp{ parameters };
+                    temp.SetParameter(TxParameterID::IsSelfTx, addr->isOwn());
+                    return wallet::ProcessReceiverAddress(temp, walletDB, false);
+                }
+            }
+        }
+        return wallet::ProcessReceiverAddress(parameters, walletDB, false);
     }
 
     PushTransaction::PushTransaction(const TxContext& context)
@@ -54,6 +91,18 @@ namespace beam::wallet::lelantus
         if (!m_TxBuilder)
             m_TxBuilder = std::make_shared<PushTxBuilder>(*this);
         PushTxBuilder& builder = *m_TxBuilder;
+
+        if (MaxHeight == builder.m_Height.m_Max) {
+            uint32_t lifetime = 0;
+            Block::SystemState::Full s;
+            if (GetParameter(TxParameterID::Lifetime, lifetime) && lifetime > 0 && GetTip(s)) {
+                builder.m_Height.m_Max = s.m_Height + lifetime;
+                LOG_DEBUG() << "Setup max height for PushTransaction = " << builder.m_Height.m_Max;
+                SetParameter(TxParameterID::MaxHeight, builder.m_Height.m_Max, GetSubTxID());
+            }
+        }
+
+        Height maxHeight = builder.m_Height.m_Max;
 
         if (builder.m_Coins.IsEmpty())
         {
@@ -90,7 +139,7 @@ namespace beam::wallet::lelantus
                 return;
             }
             UpdateTxDescription(TxStatus::Registering);
-            GetGateway().register_tx(GetTxID(), builder.m_pTransaction, GetSubTxID());
+            GetGateway().register_tx(GetTxID(), builder.m_pTransaction, nullptr, GetSubTxID());
             return;
         }
         else if (nRegistered == proto::TxStatus::LowFee)
@@ -106,7 +155,7 @@ namespace beam::wallet::lelantus
 
         if (!m_OutpHeight)
         {
-            m_OutpHeight = MaxHeight;
+            m_OutpHeight = maxHeight;
             GetGateway().get_proof_shielded_output(GetTxID(), builder.get_TxoStrict().m_Ticket.m_SerialPub, [this, weak = this->weak_from_this()](proto::ProofShieldedOutp& proof)
             {
                 auto thisHolder = weak.lock();
@@ -123,7 +172,7 @@ namespace beam::wallet::lelantus
             });
         }
 
-        if (MaxHeight == m_OutpHeight)
+        if (maxHeight == m_OutpHeight)
             return;
 
         Height h = 0;

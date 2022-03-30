@@ -37,6 +37,11 @@ jobs:
         # a pull request then we can checkout the head.
         fetch-depth: 2
 
+    - name: Submodule update
+      shell: bash
+      run: |
+        git submodule update --init --recursive --jobs 4    
+
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v1

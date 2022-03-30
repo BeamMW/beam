@@ -13,5 +13,5 @@ target_sources(assets
 target_compile_definitions(assets PUBLIC BEAM_CONFIDENTIAL_ASSETS_SUPPORT)
 target_link_libraries(assets 
     PUBLIC
-        wallet
+        wallet_core
 )

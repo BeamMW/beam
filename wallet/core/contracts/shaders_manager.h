@@ -18,42 +18,97 @@
 #include "bvm/ManagerStd.h"
 
 namespace beam::wallet {
+
+    struct ManagerStdInWallet
+        :public bvm2::ManagerStd
+    {
+        ManagerStdInWallet(WalletDB::Ptr, Wallet::Ptr);
+        virtual ~ManagerStdInWallet();
+
+        void set_Privilege(uint32_t);
+
+    protected:
+
+        WalletDB::Ptr m_pWalletDB;
+        Wallet::Ptr m_pWallet;
+        uint32_t m_Privilege;
+
+        struct SlotName;
+        struct Channel;
+
+        void TestCommAllowed() const;
+
+        bool SlotLoad(ECC::Hash::Value&, uint32_t iSlot) override;
+        void SlotSave(const ECC::Hash::Value&, uint32_t iSlot) override;
+        void SlotErase(uint32_t iSlot) override;
+        void Comm_CreateListener(Comm::Channel::Ptr&, const ECC::Hash::Value&) override;
+        void Comm_Send(const ECC::Point&, const Blob&) override;
+        void WriteStream(const Blob&, uint32_t iStream) override;
+    };
+
+
+
+
+
+
     class ShadersManager
         : public IShadersManager
-        , private beam::bvm2::ManagerStd
+        , private ManagerStdInWallet
     {
     public:
         ShadersManager(beam::wallet::Wallet::Ptr wallet,
                        beam::wallet::IWalletDB::Ptr walletDB,
-                       beam::proto::FlyClient::INetwork::Ptr nodeNetwork);
+                       beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
+                       std::string appid,
+                       std::string appname);
 
         bool IsDone() const override
         {
             return _done;
         }
 
-        void SetCurrentApp(const std::string& appid, const std::string& appname) override; // throws
-        void ReleaseCurrentApp(const std::string& appid) override; // throws
-        void CompileAppShader(const std::vector<uint8_t> &shader) override;// throws
-
-        void CallShaderAndStartTx(const std::string& args, unsigned method, DoneAllHandler doneHandler) override;
-        void CallShader(const std::string& args, unsigned method, DoneCallHandler) override;
+        void CallShaderAndStartTx(std::vector<uint8_t>&& shader, std::string&& args, unsigned method, uint32_t priority, uint32_t unique, DoneAllHandler doneHandler) override;
+        void CallShader(std::vector<uint8_t>&& shader, std::string&& args, unsigned method, uint32_t priority, uint32_t unique, DoneCallHandler) override;
         void ProcessTxData(const ByteBuffer& data, DoneTxHandler doneHandler) override;
 
     protected:
         void OnDone(const std::exception *pExc) override;
 
     private:
-        bool _done = true;
-        bool _async = false;
+        void nextRequest();
 
+        // this one throws
+        void compileAppShader(const std::vector<uint8_t> &shader);
+
+        bool _done = true;
+        bool _logResult = true;
         std::string _currentAppId;
         std::string _currentAppName;
 
-        beam::wallet::IWalletDB::Ptr _wdb;
         beam::wallet::Wallet::Ptr _wallet;
+        beam::io::AsyncEvent::Ptr _startEvent;
 
-        DoneAllHandler  _doneAll;
-        DoneCallHandler _doneCall;
+        struct Request {
+            uint32_t unique = 0;
+            uint32_t priority = 0;
+            uint32_t method = 0;
+            std::vector<uint8_t> shader;
+            std::string args;
+
+            DoneAllHandler doneAll;
+            DoneCallHandler doneCall;
+
+            bool operator< (const Request& rhs) const
+            {
+                return priority < rhs.priority;
+            }
+        };
+
+        void pushRequest(Request req);
+
+        struct RequestsQueue: std::priority_queue<Request> {
+            [[nodiscard]] auto begin() const { return c.begin(); }
+            [[nodiscard]] auto end() const { return c.end(); }
+        } _queue;
     };
 }

@@ -100,7 +100,7 @@ namespace ECC
 
 		uintBig m_Value; // valid range is [0 .. s_Order)
 
-		Scalar() {}
+		Scalar() = default;
 		template <typename T> explicit Scalar(const T& t) { *this = t; }
 
 		bool IsValid() const;
@@ -124,7 +124,7 @@ namespace ECC
 		uintBig	m_X; // valid range is [0 .. s_FieldOrder)
 		uint8_t m_Y; // Flag for Y. Currently specifies if it's odd
 
-		Point() {}
+		Point() = default;
 
         class Native;
         Point(const Native& t) { *this = t; }
@@ -192,7 +192,6 @@ namespace ECC
 		bool IsValidPartialInternal(const Config&, MultiMac& mm, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk, const Point::Native& noncePub) const;
 	};
 
-
 	struct Signature
 		:public SignatureBase
 	{
@@ -225,7 +224,7 @@ namespace ECC
 		struct Type
 			:public beam::FourCC
 		{
-			Type() {}
+			Type() = default;
 			Type(uint32_t x) :FourCC(x) {}
 
 			// definitions for common types, that are used in several places. But values can be arbitrary, not only for this list
@@ -250,7 +249,7 @@ namespace ECC
 			Type		m_Type;
 			Index		m_SubIdx; // currently set to the Kdf child index
 
-			ID() {}
+			ID() = default;
 			ID(Zero_) { ZeroObject(*this); }
 
 			ID(uint64_t nIdx, Type type, uint32_t nSubIdx = 0) // most common c'tor

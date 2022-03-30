@@ -54,15 +54,21 @@ if (MSVC)
 endif()
 
 add_library(utility STATIC ${UTILITY_SRC} ${IO_SRC})
-
 target_compile_features(utility PUBLIC cxx_std_17)
 
 if (NOT EMSCRIPTEN)
     add_library(cli STATIC ${CLI_SRC})
+
+    if(BEAM_IPFS_SUPPORT)
+        target_compile_definitions(cli PUBLIC BEAM_IPFS_SUPPORT)
+    endif()
+
     if(BEAM_LASER_SUPPORT)
         target_compile_definitions(cli PUBLIC BEAM_LASER_SUPPORT)
     endif()
 endif()
+
+
 if (UV_INTERNAL)
     target_link_libraries(utility uv_a)
 else()

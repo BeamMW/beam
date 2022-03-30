@@ -146,23 +146,11 @@ namespace detail
 	};
 
 
-    template<std::size_t F, typename T>
-    struct serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, F, T>
-    {
 		template< typename Archive, typename T2>
-		static void savePtr(Archive& ar, const std::unique_ptr<T2>& pPtr)
-		{
-			save(ar, *pPtr);
-		}
+		void savePtr(Archive& ar, const std::unique_ptr<T2>& pPtr);
 
 		template< typename Archive, typename T2>
-		static void loadPtr(Archive& ar, std::unique_ptr<T2>& pPtr)
-		{
-			pPtr = std::make_unique<T2>();
-			ar & *pPtr;
-		}
-
-
+		void loadPtr(Archive& ar, std::unique_ptr<T2>& pPtr);
 
         ///////////////////////////////////////////////////////////
         /// ECC serialization adapters
@@ -170,7 +158,7 @@ namespace detail
 
 		/// ECC::Point serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const ECC::Point& point)
+		Archive& save(Archive& ar, const ECC::Point& point)
 		{
 			ar
 				& point.m_X
@@ -179,7 +167,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, ECC::Point& point)
+		Archive& load(Archive& ar, ECC::Point& point)
 		{
 			ar
 				& point.m_X
@@ -189,7 +177,7 @@ namespace detail
 
 		/// ECC::Point::Storage serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::Point::Storage& point)
+        Archive& save(Archive& ar, const ECC::Point::Storage& point)
         {
             ar
                 & point.m_X
@@ -198,7 +186,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::Point::Storage& point)
+        Archive& load(Archive& ar, ECC::Point::Storage& point)
         {
             ar
                 & point.m_X
@@ -208,14 +196,14 @@ namespace detail
 
         /// ECC::uintBig serialization
         template<typename Archive, uint32_t nBytes_>
-        static Archive& save(Archive& ar, const beam::uintBig_t<nBytes_>& val)
+        Archive& save(Archive& ar, const beam::uintBig_t<nBytes_>& val)
         {
             ar & val.m_pData;
             return ar;
         }
 
         template<typename Archive, uint32_t nBytes_>
-        static Archive& load(Archive& ar, beam::uintBig_t<nBytes_>& val)
+        Archive& load(Archive& ar, beam::uintBig_t<nBytes_>& val)
         {
             ar & val.m_pData;
             return ar;
@@ -223,14 +211,14 @@ namespace detail
 
 		/// beam::FourCC serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::FourCC& val)
+		Archive& save(Archive& ar, const beam::FourCC& val)
 		{
 			ar & beam::uintBigFrom(val.V);
 			return ar;
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::FourCC& val)
+		Archive& load(Archive& ar, beam::FourCC& val)
 		{
 			beam::uintBigFor<uint32_t>::Type x;
 			ar & x;
@@ -240,7 +228,7 @@ namespace detail
 
 		/// ECC::Scalar serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::Scalar& scalar)
+        Archive& save(Archive& ar, const ECC::Scalar& scalar)
         {
 			assert(scalar.IsValid());
             ar & scalar.m_Value;
@@ -248,7 +236,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::Scalar& scalar)
+        Archive& load(Archive& ar, ECC::Scalar& scalar)
         {
             ar & scalar.m_Value;
 			scalar.TestValid(); // prevent ambiguity
@@ -258,7 +246,7 @@ namespace detail
 
 		/// ECC::Key::ID serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const ECC::Key::ID& kid)
+		Archive& save(Archive& ar, const ECC::Key::ID& kid)
 		{
 			ar
 				& kid.m_Idx
@@ -269,7 +257,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, ECC::Key::ID& kid)
+		Archive& load(Archive& ar, ECC::Key::ID& kid)
 		{
 			ar
 				& kid.m_Idx
@@ -281,7 +269,7 @@ namespace detail
 
 		/// ECC::Signature serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::Signature& val)
+        Archive& save(Archive& ar, const ECC::Signature& val)
         {
             ar
                 & val.m_NoncePub
@@ -292,7 +280,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::Signature& val)
+        Archive& load(Archive& ar, ECC::Signature& val)
         {
             ar
                 & val.m_NoncePub
@@ -304,7 +292,7 @@ namespace detail
 
 		/// ECC::Signature serialization
         template<typename Archive, uint32_t nG>
-        static Archive& save(Archive& ar, const ECC::SignatureGeneralized<nG>& val)
+        Archive& save(Archive& ar, const ECC::SignatureGeneralized<nG>& val)
         {
             ar & val.m_NoncePub;
 
@@ -315,7 +303,7 @@ namespace detail
         }
 
         template<typename Archive, uint32_t nG>
-        static Archive& load(Archive& ar, ECC::SignatureGeneralized<nG>& val)
+        Archive& load(Archive& ar, ECC::SignatureGeneralized<nG>& val)
         {
 			ar & val.m_NoncePub;
 
@@ -326,7 +314,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static void save_nobits(Archive& ar, const ECC::InnerProduct& v)
+		void save_nobits(Archive& ar, const ECC::InnerProduct& v)
 		{
 			for (size_t i = 0; i < _countof(v.m_pLR); i++)
 				for (size_t j = 0; j < _countof(v.m_pLR[i]); j++)
@@ -337,7 +325,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const ECC::InnerProduct& v)
+		Archive& save(Archive& ar, const ECC::InnerProduct& v)
 		{
 			save_nobits(ar, v);
 
@@ -351,7 +339,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static void load_nobits(Archive& ar, ECC::InnerProduct& v)
+		void load_nobits(Archive& ar, ECC::InnerProduct& v)
 		{
 			for (size_t i = 0; i < _countof(v.m_pLR); i++)
 				for (size_t j = 0; j < _countof(v.m_pLR[i]); j++)
@@ -362,7 +350,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, ECC::InnerProduct& v)
+		Archive& load(Archive& ar, ECC::InnerProduct& v)
 		{
 			load_nobits(ar, v);
 
@@ -375,7 +363,7 @@ namespace detail
 
         /// ECC::RangeProof::Confidential serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential& v, bool bRecoveryOnly = false)
+        Archive& save(Archive& ar, const ECC::RangeProof::Confidential& v, bool bRecoveryOnly = false)
         {
 			ar
 				& v.m_Part1.m_A.m_X
@@ -421,7 +409,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::RangeProof::Confidential& v, bool bRecoveryOnly = false)
+        Archive& load(Archive& ar, ECC::RangeProof::Confidential& v, bool bRecoveryOnly = false)
         {
 			ar
 				& v.m_Part1.m_A.m_X
@@ -471,7 +459,7 @@ namespace detail
 
         /// ECC::RangeProof::Confidential::Part2
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential::Part2& v)
+        Archive& save(Archive& ar, const ECC::RangeProof::Confidential::Part2& v)
         {
             ar
                 & v.m_T1
@@ -481,7 +469,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::RangeProof::Confidential::Part2& v)
+        Archive& load(Archive& ar, ECC::RangeProof::Confidential::Part2& v)
         {
             ar
                 & v.m_T1
@@ -492,7 +480,7 @@ namespace detail
 
         /// ECC::RangeProof::Confidential::Part3
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential::Part3& v)
+        Archive& save(Archive& ar, const ECC::RangeProof::Confidential::Part3& v)
         {
             ar
                 & v.m_TauX;
@@ -501,7 +489,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::RangeProof::Confidential::Part3& v)
+        Archive& load(Archive& ar, ECC::RangeProof::Confidential::Part3& v)
         {
             ar
                 & v.m_TauX;
@@ -511,7 +499,7 @@ namespace detail
 
         /// ECC::RangeProof::Confidential::MultiSig
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential::MultiSig& v)
+        Archive& save(Archive& ar, const ECC::RangeProof::Confidential::MultiSig& v)
         {
 			ar
 				& v.m_Part1.m_A
@@ -523,7 +511,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::RangeProof::Confidential::MultiSig& v)
+        Archive& load(Archive& ar, ECC::RangeProof::Confidential::MultiSig& v)
         {
 			ar
 				& v.m_Part1.m_A
@@ -536,7 +524,7 @@ namespace detail
 
         /// ECC::RangeProof::Public serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::RangeProof::Public& val, bool bRecoveryOnly = false)
+        Archive& save(Archive& ar, const ECC::RangeProof::Public& val, bool bRecoveryOnly = false)
         {
 			ar & val.m_Value;
 
@@ -556,7 +544,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::RangeProof::Public& val, bool bRecoveryOnly = false)
+        Archive& load(Archive& ar, ECC::RangeProof::Public& val, bool bRecoveryOnly = false)
         {
 			ar & val.m_Value;
 
@@ -585,7 +573,7 @@ namespace detail
 
         /// beam::Input serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const beam::Input& input)
+        Archive& save(Archive& ar, const beam::Input& input)
         {
 			uint8_t nFlags =
 				(input.m_Commitment.m_Y ? 1 : 0);
@@ -598,7 +586,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::Input& input)
+        Archive& load(Archive& ar, beam::Input& input)
         {
 			uint8_t nFlags;
 			ar
@@ -654,7 +642,7 @@ namespace detail
 
 		/// beam::Sigma::Proof
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Sigma::Proof& v, const beam::Sigma::Cfg& cfg)
+		Archive& save(Archive& ar, const beam::Sigma::Proof& v, const beam::Sigma::Cfg& cfg)
 		{
 			ar
 				& v.m_Part1.m_A.m_X
@@ -679,7 +667,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Sigma::Proof& v, const beam::Sigma::Cfg& cfg)
+		Archive& load(Archive& ar, beam::Sigma::Proof& v, const beam::Sigma::Cfg& cfg)
 		{
 			ar
 				& v.m_Part1.m_A.m_X
@@ -706,7 +694,7 @@ namespace detail
 			return ar;
 		}
 		template<typename Archive>
-		static void saveBits(MultibitVar<Archive>& mb, const beam::Sigma::Proof& v, const beam::Sigma::Cfg& cfg)
+		void saveBits(MultibitVar<Archive>& mb, const beam::Sigma::Proof& v, const beam::Sigma::Cfg& cfg)
 		{
 			mb.put(v.m_Part1.m_A.m_Y);
 			mb.put(v.m_Part1.m_B.m_Y);
@@ -718,7 +706,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static void loadBits(MultibitVar<Archive>& mb, beam::Sigma::Proof& v, const beam::Sigma::Cfg& cfg)
+		void loadBits(MultibitVar<Archive>& mb, beam::Sigma::Proof& v, const beam::Sigma::Cfg& cfg)
 		{
 			mb.get(v.m_Part1.m_A.m_Y);
 			mb.get(v.m_Part1.m_B.m_Y);
@@ -731,7 +719,7 @@ namespace detail
 
 		/// beam::Lelantus::Proof
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Lelantus::Proof& v)
+		Archive& save(Archive& ar, const beam::Lelantus::Proof& v)
 		{
 			ar
 				& v.m_Cfg.n
@@ -758,7 +746,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Lelantus::Proof& v)
+		Archive& load(Archive& ar, beam::Lelantus::Proof& v)
 		{
 			ar
 				& v.m_Cfg.n
@@ -784,7 +772,7 @@ namespace detail
 
 		/// beam::Asset::Proof
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Asset::Proof& v)
+		Archive& save(Archive& ar, const beam::Asset::Proof& v)
 		{
 			ar
 				& v.m_Begin
@@ -805,7 +793,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Asset::Proof& v)
+		Archive& load(Archive& ar, beam::Asset::Proof& v)
 		{
 			ar
 				& v.m_Begin
@@ -824,7 +812,7 @@ namespace detail
 		}
 		/// beam::ShieldedTxo::Ticket serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::ShieldedTxo::Ticket& x)
+		Archive& save(Archive& ar, const beam::ShieldedTxo::Ticket& x)
 		{
 			uint8_t nFlags =
 				(x.m_SerialPub.m_Y ? 1 : 0) |
@@ -841,7 +829,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::ShieldedTxo::Ticket& x)
+		Archive& load(Archive& ar, beam::ShieldedTxo::Ticket& x)
 		{
 			uint8_t nFlags;
 
@@ -860,7 +848,7 @@ namespace detail
 
 		/// beam::ShieldedTxo::Voucher serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::ShieldedTxo::Voucher& x)
+		Archive& save(Archive& ar, const beam::ShieldedTxo::Voucher& x)
 		{
 			ar
 				& x.m_Ticket
@@ -871,7 +859,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::ShieldedTxo::Voucher& x)
+		Archive& load(Archive& ar, beam::ShieldedTxo::Voucher& x)
 		{
 			ar
 				& x.m_Ticket
@@ -883,7 +871,7 @@ namespace detail
 
 		/// beam::ShieldedTxo serialization
 		template<typename Archive>
-        static Archive& save(Archive& ar, const beam::ShieldedTxo& val)
+        Archive& save(Archive& ar, const beam::ShieldedTxo& val)
         {
 			uint32_t nFlags =
 				(val.m_Commitment.m_Y ? 1 : 0) |
@@ -907,7 +895,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::ShieldedTxo& val)
+        Archive& load(Archive& ar, beam::ShieldedTxo& val)
         {
 			uint32_t nFlags;
 			ar
@@ -941,7 +929,7 @@ namespace detail
 
 		/// beam::ShieldedTxo::PublicGen serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::ShieldedTxo::PublicGen& x)
+		Archive& save(Archive& ar, const beam::ShieldedTxo::PublicGen& x)
 		{
 			ECC::NoLeak<PublicGenPacked> p;
 			if (x.ExportP(nullptr) != sizeof(p))
@@ -966,7 +954,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::ShieldedTxo::PublicGen& x)
+		Archive& load(Archive& ar, beam::ShieldedTxo::PublicGen& x)
 		{
 			ECC::NoLeak<PublicGenPacked> p;
 			uint8_t nFlags;
@@ -996,7 +984,7 @@ namespace detail
 
         /// beam::Lelantus::Cfg serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const beam::Lelantus::Cfg& cfg)
+        Archive& save(Archive& ar, const beam::Lelantus::Cfg& cfg)
         {
             ar
                 & cfg.n
@@ -1005,7 +993,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::Lelantus::Cfg& cfg)
+        Archive& load(Archive& ar, beam::Lelantus::Cfg& cfg)
         {
             ar
                 & cfg.n
@@ -1015,7 +1003,7 @@ namespace detail
 
 		/// beam::CoinID serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::CoinID& v)
+		Archive& save(Archive& ar, const beam::CoinID& v)
 		{
 			ar
 				& Cast::Down<beam::Key::ID>(v)
@@ -1025,7 +1013,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::CoinID& v)
+		Archive& load(Archive& ar, beam::CoinID& v)
 		{
 			ar
 				& Cast::Down<beam::Key::ID>(v)
@@ -1036,7 +1024,7 @@ namespace detail
 
 		/// beam::HeightRange serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::HeightRange& v)
+		Archive& save(Archive& ar, const beam::HeightRange& v)
 		{
 			beam::Height dh = v.m_Max - v.m_Min;
 			ar
@@ -1046,7 +1034,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::HeightRange& v)
+		Archive& load(Archive& ar, beam::HeightRange& v)
 		{
 			beam::Height dh;
 			ar
@@ -1059,7 +1047,7 @@ namespace detail
 
         /// beam::Output serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const beam::Output& output)
+        Archive& saveEx(Archive& ar, const beam::Output& output, const beam::Height* pRecoveryScheme)
         {
 			uint8_t nFlags2 = 0;
 
@@ -1070,30 +1058,51 @@ namespace detail
 				(output.m_pPublic ? 8 : 0) |
 				(output.m_Incubation ? 0x10 : 0) |
 				(output.m_pAsset ? 0x20 : 0) |
-				(output.m_RecoveryOnly ? 0x40 : 0) |
+				//(output.m_RecoveryOnly ? 0x40 : 0) |
 				(nFlags2 ? 0x80 : 0);
 
 			ar
 				& nFlags
 				& output.m_Commitment.m_X;
 
+			bool bRecoveryOnly = !!pRecoveryScheme;
+
 			if (output.m_pConfidential)
-				save(ar, *output.m_pConfidential, output.m_RecoveryOnly);
+				save(ar, *output.m_pConfidential, bRecoveryOnly);
 
 			if (output.m_pPublic)
-				save(ar, *output.m_pPublic, output.m_RecoveryOnly);
+				save(ar, *output.m_pPublic, bRecoveryOnly);
 
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
 
-			if ((0x20 & nFlags) && !output.m_RecoveryOnly)
-				savePtr(ar, output.m_pAsset);
+			if (0x20 & nFlags)
+			{
+				if (bRecoveryOnly)
+				{
+					if (*pRecoveryScheme >= beam::Rules::get().pForks[3].m_Height)
+						ar & output.m_pAsset->m_hGen;
+				} else
+					savePtr(ar, output.m_pAsset);
+			}
 
             return ar;
         }
 
+		template<typename Archive>
+		Archive& save(Archive& ar, const beam::Output& output)
+		{
+			return saveEx(ar, output, nullptr);
+		}
+
+		template<typename Archive>
+		Archive& saveRecovery(Archive& ar, const beam::Output& output, beam::Height hScheme)
+		{
+			return saveEx(ar, output, &hScheme);
+		}
+
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::Output& output)
+        Archive& loadEx(Archive& ar, beam::Output& output, const beam::Height* pRecoveryScheme)
         {
 			uint8_t nFlags;
 			ar
@@ -1102,25 +1111,39 @@ namespace detail
 
 			output.m_Commitment.m_Y = (1 & nFlags);
 			output.m_Coinbase = 0 != (2 & nFlags);
-			output.m_RecoveryOnly = 0 != (0x40 & nFlags);
+			//output.m_RecoveryOnly = 0 != (0x40 & nFlags);
+
+			bool bRecoveryOnly = !!pRecoveryScheme;
 
 			if (4 & nFlags)
 			{
 				output.m_pConfidential = std::make_unique<ECC::RangeProof::Confidential>();
-				load(ar, *output.m_pConfidential, output.m_RecoveryOnly);
+				load(ar, *output.m_pConfidential, bRecoveryOnly);
 			}
 
 			if (8 & nFlags)
 			{
 				output.m_pPublic = std::make_unique<ECC::RangeProof::Public>();
-				load(ar, *output.m_pPublic, output.m_RecoveryOnly);
+				load(ar, *output.m_pPublic, bRecoveryOnly);
 			}
 
 			if (0x10 & nFlags)
 				ar & output.m_Incubation;
 
-			if ((0x20 & nFlags) && !output.m_RecoveryOnly)
-				loadPtr(ar, output.m_pAsset);
+			if (0x20 & nFlags)
+			{
+				if (bRecoveryOnly)
+				{
+					if (*pRecoveryScheme >= beam::Rules::get().pForks[3].m_Height)
+					{
+						output.m_pAsset = std::make_unique<beam::Asset::Proof>();
+						ar & output.m_pAsset->m_hGen;
+					}
+				}
+				else
+					loadPtr(ar, output.m_pAsset);
+			}
+
 
 			if (0x80 & nFlags)
 			{
@@ -1131,9 +1154,21 @@ namespace detail
             return ar;
         }
 
+		template<typename Archive>
+		Archive& load(Archive& ar, beam::Output& output)
+		{
+			return loadEx(ar, output, nullptr);
+		}
+
+		template<typename Archive>
+		Archive& loadRecovery(Archive& ar, beam::Output& output, beam::Height hScheme)
+		{
+			return loadEx(ar, output, &hScheme);
+		}
+
 		/// beam::TxKernelStd::HashLock serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::TxKernelStd::HashLock& val)
+		Archive& save(Archive& ar, const beam::TxKernelStd::HashLock& val)
 		{
 			ar
 				& val.m_Value
@@ -1143,7 +1178,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::TxKernelStd::HashLock& val)
+		Archive& load(Archive& ar, beam::TxKernelStd::HashLock& val)
 		{
 			ar
 				& val.m_Value
@@ -1154,7 +1189,7 @@ namespace detail
 
 		/// beam::TxKernelStd::RelativeLock serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::TxKernelStd::RelativeLock& val)
+		Archive& save(Archive& ar, const beam::TxKernelStd::RelativeLock& val)
 		{
 			ar
 				& val.m_ID
@@ -1165,7 +1200,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::TxKernelStd::RelativeLock& val)
+		Archive& load(Archive& ar, beam::TxKernelStd::RelativeLock& val)
 		{
 			ar
 				& val.m_ID
@@ -1357,7 +1392,7 @@ namespace detail
 
         /// beam::TxKernelStd serialization
 		template<typename Archive>
-        static Archive& save(Archive& ar, const beam::TxKernelStd& val)
+        Archive& save(Archive& ar, const beam::TxKernelStd& val)
         {
 			uint8_t nFlags2 =
 				//(val.m_AssetEmission ? 1 : 0) |
@@ -1395,7 +1430,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static void load0(Archive& ar, beam::TxKernelStd& val, uint32_t nRecursion)
+        void load0(Archive& ar, beam::TxKernelStd& val, uint32_t nRecursion)
         {
 			uint8_t nFlags;
 			ar
@@ -1429,7 +1464,7 @@ namespace detail
 
         /// beam::TxKernelAssetControl serialization
 		template<typename Archive>
-        static Archive& saveBase(Archive& ar, const beam::TxKernelAssetControl& val)
+        Archive& saveBase(Archive& ar, const beam::TxKernelAssetControl& val)
         {
 			uint32_t nFlags =
 				ImplTxKernel::get_CommonFlags(val) |
@@ -1451,7 +1486,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static void load0Base(Archive& ar, beam::TxKernelAssetControl& val, uint32_t nRecursion)
+        void load0Base(Archive& ar, beam::TxKernelAssetControl& val, uint32_t nRecursion)
         {
 			uint32_t nFlags;
 			ar
@@ -1473,7 +1508,7 @@ namespace detail
 
         /// beam::TxKernelAssetEmit serialization
 		template<typename Archive>
-        static Archive& save(Archive& ar, const beam::TxKernelAssetEmit& val)
+        Archive& save(Archive& ar, const beam::TxKernelAssetEmit& val)
         {
 			saveBase(ar, val);
 			ar
@@ -1493,7 +1528,7 @@ namespace detail
 
 		/// beam::TxKernelAssetCreate serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::TxKernelAssetCreate& val)
+		Archive& save(Archive& ar, const beam::TxKernelAssetCreate& val)
 		{
 			saveBase(ar, val);
 			ar & val.m_MetaData;
@@ -1501,7 +1536,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static void load0(Archive& ar, beam::TxKernelAssetCreate& val, uint32_t nRecursion)
+		void load0(Archive& ar, beam::TxKernelAssetCreate& val, uint32_t nRecursion)
 		{
 			load0Base(ar, val, nRecursion);
 			ar & val.m_MetaData;
@@ -1509,7 +1544,7 @@ namespace detail
 
 		/// beam::TxKernelAssetDestroy serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::TxKernelAssetDestroy& val)
+		Archive& save(Archive& ar, const beam::TxKernelAssetDestroy& val)
 		{
 			saveBase(ar, val);
 			ar & val.m_AssetID;
@@ -1517,7 +1552,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static void load0(Archive& ar, beam::TxKernelAssetDestroy& val, uint32_t nRecursion)
+		void load0(Archive& ar, beam::TxKernelAssetDestroy& val, uint32_t nRecursion)
 		{
 			load0Base(ar, val, nRecursion);
 			ar & val.m_AssetID;
@@ -1525,7 +1560,7 @@ namespace detail
 
         /// beam::TxKernelShieldedOutput serialization
 		template<typename Archive>
-        static Archive& save(Archive& ar, const beam::TxKernelShieldedOutput& val)
+        Archive& save(Archive& ar, const beam::TxKernelShieldedOutput& val)
         {
 			uint32_t nFlags =
 				ImplTxKernel::get_CommonFlags(val) |
@@ -1542,7 +1577,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static void load0(Archive& ar, beam::TxKernelShieldedOutput& val, uint32_t nRecursion)
+        void load0(Archive& ar, beam::TxKernelShieldedOutput& val, uint32_t nRecursion)
         {
 			uint32_t nFlags;
 			ar
@@ -1558,7 +1593,7 @@ namespace detail
 
 		/// beam::TxKernelShieldedInput serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::TxKernelShieldedInput& val)
+		Archive& save(Archive& ar, const beam::TxKernelShieldedInput& val)
 		{
 			uint32_t nFlags =
 				ImplTxKernel::get_CommonFlags(val) |
@@ -1580,7 +1615,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static void load0(Archive& ar, beam::TxKernelShieldedInput& val, uint32_t nRecursion)
+		void load0(Archive& ar, beam::TxKernelShieldedInput& val, uint32_t nRecursion)
 		{
 			uint32_t nFlags;
 			ar
@@ -1600,13 +1635,14 @@ namespace detail
 
         /// beam::TxKernelContractControl serialization
 		template<typename Archive>
-        static Archive& saveBase(Archive& ar, const beam::TxKernelContractControl& val)
+        Archive& saveBase(Archive& ar, const beam::TxKernelContractControl& val)
         {
 			uint32_t nFlags =
 				ImplTxKernel::get_CommonFlags(val) |
 				(val.m_Commitment.m_Y ? 1 : 0) |
 				(val.m_Signature.m_NoncePub.m_Y ? 0x10 : 0) |
-				(val.m_CanEmbed ? 0x20 : 0);
+				(val.m_CanEmbed ? 0x20 : 0) |
+				(val.m_Dependent ? 0x80 : 0);
 
 			ar
 				& nFlags
@@ -1622,7 +1658,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static void load0Base(Archive& ar, beam::TxKernelContractControl& val, uint32_t nRecursion)
+        void load0Base(Archive& ar, beam::TxKernelContractControl& val, uint32_t nRecursion)
         {
 			uint32_t nFlags;
 			ar
@@ -1640,11 +1676,13 @@ namespace detail
 
 			if (0x20 & nFlags)
 				val.m_CanEmbed = true;
-        }
+			if (0x80 & nFlags)
+				val.m_Dependent = true;
+		}
 
 		/// beam::TxKernelContractCreate serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::TxKernelContractCreate& val)
+		Archive& save(Archive& ar, const beam::TxKernelContractCreate& val)
 		{
 			saveBase(ar, val);
 			ar
@@ -1653,7 +1691,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static void load0(Archive& ar, beam::TxKernelContractCreate& val, uint32_t nRecursion)
+		void load0(Archive& ar, beam::TxKernelContractCreate& val, uint32_t nRecursion)
 		{
 			load0Base(ar, val, nRecursion);
 			ar
@@ -1662,7 +1700,7 @@ namespace detail
 
 		/// beam::TxKernelContractInvoke serialization
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::TxKernelContractInvoke& val)
+		Archive& save(Archive& ar, const beam::TxKernelContractInvoke& val)
 		{
 			saveBase(ar, val);
 			ar
@@ -1672,7 +1710,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static void load0(Archive& ar, beam::TxKernelContractInvoke& val, uint32_t nRecursion)
+		void load0(Archive& ar, beam::TxKernelContractInvoke& val, uint32_t nRecursion)
 		{
 			load0Base(ar, val, nRecursion);
 			ar
@@ -1682,7 +1720,7 @@ namespace detail
 
         /// beam::Transaction serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const beam::TxBase& txb)
+        Archive& save(Archive& ar, const beam::TxBase& txb)
         {
             ar
 				& txb.m_Offset;
@@ -1691,7 +1729,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::TxBase& txb)
+        Archive& load(Archive& ar, beam::TxBase& txb)
         {
             ar
 				& txb.m_Offset;
@@ -1700,7 +1738,7 @@ namespace detail
         }
 
 		template <typename Archive, typename TPtr>
-		static void save_VecPtr(Archive& ar, const std::vector<TPtr>& v)
+		void save_VecPtr(Archive& ar, const std::vector<TPtr>& v)
 		{
 			uint32_t nSize = static_cast<uint32_t>(v.size());
 			ar & beam::uintBigFrom(nSize);
@@ -1710,7 +1748,7 @@ namespace detail
 		}
 
 		template <typename Archive, typename TPtr>
-		static void load_VecPtr(Archive& ar, std::vector<TPtr>& v)
+		void load_VecPtr(Archive& ar, std::vector<TPtr>& v)
 		{
 			beam::uintBigFor<uint32_t>::Type x;
 			ar & x;
@@ -1725,7 +1763,7 @@ namespace detail
 		}
 
         template<typename Archive>
-        static Archive& save(Archive& ar, const beam::TxVectors::Perishable& txv)
+        Archive& save(Archive& ar, const beam::TxVectors::Perishable& txv)
         {
 			save_VecPtr(ar, txv.m_vInputs);
 			save_VecPtr(ar, txv.m_vOutputs);
@@ -1733,7 +1771,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::TxVectors::Perishable& txv)
+        Archive& load(Archive& ar, beam::TxVectors::Perishable& txv)
         {
 			load_VecPtr(ar, txv.m_vInputs);
 			load_VecPtr(ar, txv.m_vOutputs);
@@ -1741,7 +1779,7 @@ namespace detail
         }
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::TxVectors::Eternal& txv)
+		Archive& save(Archive& ar, const beam::TxVectors::Eternal& txv)
 		{
 			uint32_t nSize = static_cast<uint32_t>(txv.m_vKernels.size());
 			bool bStd = !ImplTxKernel::HasNonStd(txv.m_vKernels);
@@ -1760,7 +1798,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::TxVectors::Eternal& txv)
+		Archive& load(Archive& ar, beam::TxVectors::Eternal& txv)
 		{
 			beam::uintBigFor<uint32_t>::Type x;
 			ar & x;
@@ -1783,7 +1821,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-        static Archive& save(Archive& ar, const beam::Transaction& tx)
+        Archive& save(Archive& ar, const beam::Transaction& tx)
         {
 			ar
 				& Cast::Down<beam::TxVectors::Perishable>(tx)
@@ -1794,7 +1832,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::Transaction& tx)
+        Archive& load(Archive& ar, beam::Transaction& tx)
         {
 			ar
 				& Cast::Down<beam::TxVectors::Perishable>(tx)
@@ -1805,7 +1843,7 @@ namespace detail
         }
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Block::PoW& pow)
+		Archive& save(Archive& ar, const beam::Block::PoW& pow)
 		{
 			ar
 				& pow.m_Indices
@@ -1816,7 +1854,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Block::PoW& pow)
+		Archive& load(Archive& ar, beam::Block::PoW& pow)
 		{
 			ar
 				& pow.m_Indices
@@ -1827,7 +1865,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-        static Archive& save(Archive& ar, const beam::Block::SystemState::ID& v)
+        Archive& save(Archive& ar, const beam::Block::SystemState::ID& v)
         {
             ar
 				& v.m_Height
@@ -1837,7 +1875,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::Block::SystemState::ID& v)
+        Archive& load(Archive& ar, beam::Block::SystemState::ID& v)
         {
 			ar
 				& v.m_Height
@@ -1847,7 +1885,7 @@ namespace detail
         }
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Block::SystemState::Sequence::Prefix& v)
+		Archive& save(Archive& ar, const beam::Block::SystemState::Sequence::Prefix& v)
 		{
 			ar
 				& v.m_Height
@@ -1858,7 +1896,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Block::SystemState::Sequence::Prefix& v)
+		Archive& load(Archive& ar, beam::Block::SystemState::Sequence::Prefix& v)
 		{
 			ar
 				& v.m_Height
@@ -1869,7 +1907,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Block::SystemState::Sequence::Element& v)
+		Archive& save(Archive& ar, const beam::Block::SystemState::Sequence::Element& v)
 		{
 			ar
 				& v.m_Kernels
@@ -1881,7 +1919,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Block::SystemState::Sequence::Element& v)
+		Archive& load(Archive& ar, beam::Block::SystemState::Sequence::Element& v)
 		{
 			ar
 				& v.m_Kernels
@@ -1893,7 +1931,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Block::SystemState::Full& v)
+		Archive& save(Archive& ar, const beam::Block::SystemState::Full& v)
 		{
 			save(ar, Cast::Down<beam::Block::SystemState::Sequence::Prefix>(v));
 			save(ar, Cast::Down<beam::Block::SystemState::Sequence::Element>(v));
@@ -1902,7 +1940,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Block::SystemState::Full& v)
+		Archive& load(Archive& ar, beam::Block::SystemState::Full& v)
 		{
 			load(ar, Cast::Down<beam::Block::SystemState::Sequence::Prefix>(v));
 			load(ar, Cast::Down<beam::Block::SystemState::Sequence::Element>(v));
@@ -1911,14 +1949,14 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Asset::Metadata& v)
+		Archive& save(Archive& ar, const beam::Asset::Metadata& v)
 		{
 			ar & v.m_Value;
 			return ar;
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Asset::Metadata& v)
+		Archive& load(Archive& ar, beam::Asset::Metadata& v)
 		{
 			ar & v.m_Value;
 			v.UpdateHash();
@@ -1926,7 +1964,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Asset::Info& v)
+		Archive& save(Archive& ar, const beam::Asset::Info& v)
 		{
 			ar
 				& v.m_Owner
@@ -1937,7 +1975,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Asset::Info& v)
+		Archive& load(Archive& ar, beam::Asset::Info& v)
 		{
 			ar
 				& v.m_Owner
@@ -1948,7 +1986,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Asset::Full& v)
+		Archive& save(Archive& ar, const beam::Asset::Full& v)
 		{
 			ar
 				& v.m_ID
@@ -1957,7 +1995,7 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Asset::Full& v)
+		Archive& load(Archive& ar, beam::Asset::Full& v)
 		{
 			ar
 				& v.m_ID
@@ -1966,21 +2004,21 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Block::BodyBase& bb)
+		Archive& save(Archive& ar, const beam::Block::BodyBase& bb)
 		{
 			ar & Cast::Down<beam::TxBase>(bb);
 			return ar;
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Block::BodyBase& bb)
+		Archive& load(Archive& ar, beam::Block::BodyBase& bb)
 		{
 			ar & Cast::Down<beam::TxBase>(bb);
 			return ar;
 		}
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::Block::Body& bb)
+		Archive& save(Archive& ar, const beam::Block::Body& bb)
 		{
 			ar & Cast::Down<beam::Block::BodyBase>(bb);
 			ar & Cast::Down<beam::TxVectors::Perishable>(bb);
@@ -1990,15 +2028,47 @@ namespace detail
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::Block::Body& bb)
+		Archive& load(Archive& ar, beam::Block::Body& bb)
 		{
 			ar & Cast::Down<beam::Block::BodyBase>(bb);
 			ar & Cast::Down<beam::TxVectors::Perishable>(bb);
 			ar & Cast::Down<beam::TxVectors::Eternal>(bb);
 
 			return ar;
+		}
+
+		template< typename Archive, typename T2>
+		void savePtr(Archive& ar, const std::unique_ptr<T2>& pPtr)
+		{
+			save(ar, *pPtr);
+		}
+
+		template< typename Archive, typename T2>
+		void loadPtr(Archive& ar, std::unique_ptr<T2>& pPtr)
+		{
+			pPtr = std::make_unique<T2>();
+			ar&* pPtr;
+		}
+
+
+    template<std::size_t F, typename T>
+    struct serializer<
+		type_prop::not_a_fundamental,
+		ser_method::use_internal_serializer, F, T>
+    {
+		template<typename Archive, typename T2>
+		static Archive& save(Archive& ar, const T2& x)
+		{
+			return detail::save(ar, x);
+		}
+
+		template<typename Archive, typename T2>
+		static Archive& load(Archive& ar, T2& x)
+		{
+			return detail::load(ar, x);
 		}
 	};
+
 
     template <std::size_t F>
     struct serializer<
@@ -2014,7 +2084,7 @@ namespace detail
 			ar & nType;
 
 			if (p)
-				serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, F, beam::TxKernel>::ImplTxKernel::save1(ar, *p, nType);
+				ImplTxKernel::save1(ar, *p, nType);
 
 			return ar;
 		}
@@ -2033,7 +2103,7 @@ namespace detail
 
 			if (nType)
 			{
-				serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, F, beam::TxKernel>::ImplTxKernel::load1(ar, pPtr, nType, 0);
+				ImplTxKernel::load1(ar, pPtr, nType, 0);
 				pPtr->UpdateID();
 			}
 			else
@@ -2091,7 +2161,7 @@ namespace detail
 	template <typename Archive>
 	void SaveKrn(Archive& ar, const beam::TxKernel& krn, bool bAssumeStd)
 	{
-		serializer<type_prop::not_a_fundamental, ser_method::use_internal_serializer, 0, beam::TxKernel>::ImplTxKernel::save2(ar, krn, bAssumeStd);
+		ImplTxKernel::save2(ar, krn, bAssumeStd);
 	}
 
 	template <typename Trg>

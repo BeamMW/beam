@@ -63,6 +63,8 @@ namespace
     {
         jobject tx = env->AllocObject(TxDescriptionClass);
 
+        std::string comment(txDescription.m_message.begin(), txDescription.m_message.end());
+
         setStringField(env, TxDescriptionClass, tx, "id", to_hex(txDescription.m_txId.data(), txDescription.m_txId.size()));
         setLongField(env, TxDescriptionClass, tx, "amount", txDescription.m_amount);
         setLongField(env, TxDescriptionClass, tx, "fee", txDescription.m_fee);
@@ -71,7 +73,7 @@ namespace
         setStringField(env, TxDescriptionClass, tx, "peerId", to_string(txDescription.m_peerId));
         setStringField(env, TxDescriptionClass, tx, "myId", to_string(txDescription.m_myId));
 
-        setStringField(env, TxDescriptionClass, tx, "message", string(txDescription.m_message.begin(), txDescription.m_message.end()));
+        setStringField(env, TxDescriptionClass, tx, "message", comment);
         setLongField(env, TxDescriptionClass, tx, "createTime", txDescription.m_createTime);
         setLongField(env, TxDescriptionClass, tx, "modifyTime", txDescription.m_modifyTime);
         setBooleanField(env, TxDescriptionClass, tx, "sender", txDescription.m_sender);
@@ -89,10 +91,85 @@ namespace
         setStringField(env, TxDescriptionClass, tx, "senderAddress", txDescription.getAddressFrom());
 
         setStringField(env, TxDescriptionClass, tx, "token", txDescription.getToken());
-
         setIntField(env, TxDescriptionClass, tx, "assetId", txDescription.m_assetId);
 
-        if(txDescription.m_txType == wallet::TxType::PushTransaction) {
+        // if (txDescription.m_txType == wallet::TxType::Simple) {
+        //     if (auto minConfirmations = txDescription.GetParameter<uint32_t>(beam::wallet::TxParameterID::MinConfirmations))
+        //     {
+        //         setIntField(env, TxDescriptionClass, tx, "minConfirmations", static_cast<jint>(*minConfirmations));
+        //     }
+        // }
+
+        //
+        // AppName & AppID can be not only in Contract transaction
+        // Apps can create usual transactions as well (at the time
+        // of writing of this comment TxType::Simple)
+        //
+        if(!txDescription.m_appName.empty())
+        {
+            setStringField(env, TxDescriptionClass, tx, "appName", txDescription.m_appName.c_str());
+            setBooleanField(env, TxDescriptionClass, tx, "isDapps", true);
+        }
+
+        if (!txDescription.m_appID.empty())
+        {
+            setStringField(env, TxDescriptionClass, tx, "appID", txDescription.m_appID.c_str());
+            setBooleanField(env, TxDescriptionClass, tx, "isDapps", true);
+        }
+
+        if (txDescription.m_txType == wallet::TxType::Contract)
+        {
+            setBooleanField(env, TxDescriptionClass, tx, "isDapps", true);
+
+            bvm2::ContractInvokeData vData;
+            Height h = txDescription.m_minHeight;
+
+            if(txDescription.GetParameter(TxParameterID::ContractDataPacked, vData))
+            {
+                if (!vData.empty())
+                {
+                    std::stringstream ss;
+                    ss << vData[0].m_Cid.str();
+                    
+                    if (vData.size() > 1)
+                    {
+                        ss << " +" << vData.size() - 1;
+                    }
+                    
+                    setStringField(env, TxDescriptionClass, tx, "contractCids", ss.str().c_str());
+                }
+                
+                auto contractFee = bvm2::getFullFee(vData, h);
+                auto contractSpend = bvm2::getFullSpend(vData);
+                
+                setLongField(env, TxDescriptionClass, tx, "fee", contractFee);
+
+
+                auto mainAmount = txDescription.m_amount;
+                for (const auto& info: contractSpend)
+                {
+                    auto amount = info.second;
+                    if (info.first == beam::Asset::s_BeamID)
+                    {
+                        if (amount < 0)
+                        {
+                            amount += contractFee;
+                        }
+                    }
+                    else 
+                    {
+                        setIntField(env, TxDescriptionClass, tx, "assetId", info.first);
+                    }
+                    
+                    mainAmount = mainAmount + amount;
+                }
+                
+
+                setBooleanField(env, TxDescriptionClass, tx, "sender", mainAmount <= 0);
+                setLongField(env, TxDescriptionClass, tx, "amount", mainAmount);
+            }
+        }
+        else if(txDescription.m_txType == wallet::TxType::PushTransaction) {
             auto token = txDescription.getToken();
             if (token.size() > 0) { //send
                 auto p = wallet::ParseParameters(token);
@@ -437,7 +514,7 @@ namespace
 }
 
 WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, Reactor::Ptr reactor)
-    : WalletClient(Rules::get() , walletDB, nodeAddr, reactor)
+    : WalletClient(Rules::get(), walletDB, nodeAddr, reactor)
 {    
 }
 
@@ -479,6 +556,12 @@ void WalletModel::onTxStatus(ChangeAction action, const std::vector<TxDescriptio
             const auto& item = items[i];
 
             jobject tx = fillTransactionData(env, item);
+            if (item.m_txType == wallet::TxType::Simple) {
+                if (auto minConfirmations = item.GetParameter<uint32_t>(beam::wallet::TxParameterID::MinConfirmations))
+                    {
+                        setStringField(env, TxDescriptionClass, tx, "minConfirmationsProgress", getConfirmationProgress(item, *minConfirmations));
+                    }
+            }
 
             env->SetObjectArrayElement(txItems, static_cast<jsize>(i), tx);
 
@@ -519,12 +602,13 @@ void WalletModel::onCoinsSelected(const CoinsSelectionInfo& selectionRes)
 
     JNIEnv* env = Android_JNI_getEnv();
 
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onCoinsSelected", "(JJJ)V");
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onCoinsSelected", "(JJJJ)V");
 
     env->CallStaticVoidMethod(WalletListenerClass, callback, 
                                                     selectionRes.m_explicitFee, 
-                                                    selectionRes.m_changeBeam, 
-                                                    selectionRes.m_minimalExplicitFee);
+                                                    selectionRes.m_changeAsset, 
+                                                    selectionRes.m_minimalExplicitFee,
+                                                    selectionRes.m_selectedSumAsset);
 }
 
 void WalletModel::onNormalCoinsChanged(ChangeAction action, const std::vector<Coin>& utxosVec)
@@ -835,6 +919,11 @@ void WalletModel::onShieldedCoinChanged(beam::wallet::ChangeAction action, const
 {
     LOG_DEBUG() << "onShieldedCoinChanged()";
 
+    for (const auto& coin : items)
+    {
+        shieldedCoins[coin.m_TxoID] = coin;
+    }
+
     JNIEnv* env = Android_JNI_getEnv();
 
     jobjectArray utxos = convertShieldedToJObject(env, items);
@@ -859,6 +948,31 @@ void WalletModel::callMyFunction()
 void WalletModel::doFunction(const std::function<void()>& func)
 {
     func();  
+}
+
+std::string WalletModel::getConfirmationProgress(beam::wallet::TxDescription transaction, uint32_t minConfirmations) 
+{
+    if (minConfirmations)
+    {
+        auto currHeight = this->getCurrentHeight();
+        if (currHeight && minConfirmations)
+        {
+            if (auto proofHeight = transaction.GetParameter<Height>(wallet::TxParameterID::KernelProofHeight); proofHeight)
+            {
+                std::stringstream ss;
+                auto blocksAfter = (currHeight - *proofHeight);
+                ss << (blocksAfter > minConfirmations ? minConfirmations : blocksAfter) << "/" << minConfirmations;
+                return ss.str();
+            }
+            else
+            {
+                std::stringstream ss;
+                ss << 0 << "/" << minConfirmations;
+                return ss.str();
+            }
+        }
+    }
+    return "unknown";
 }
 
 void WalletModel::onExportTxHistoryToCsv(const std::string& data) 

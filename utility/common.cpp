@@ -79,6 +79,17 @@ namespace beam
 
 #endif // WIN32
 
+	void utoa(char* sz, uint32_t n)
+	{
+		uint32_t nDigits = 1;
+		for (uint32_t x = n; ; nDigits++)
+			if (!(x /= 10))
+				break;
+
+		for (sz[nDigits] = 0; nDigits--; n /= 10)
+			sz[nDigits] = '0' + (n % 10);
+	}
+
 	Blob::Blob(const ByteBuffer& bb)
 	{
 		if ((n = (uint32_t)bb.size()) != 0)
@@ -139,7 +150,7 @@ namespace beam
 
 	ExecutorMT::ExecutorMT()
 	{
-		m_Threads = std::thread::hardware_concurrency();
+		m_Threads = MyThread::hardware_concurrency();
 	}
 
 	void ExecutorMT::set_Threads(uint32_t nThreads)
@@ -323,6 +334,52 @@ namespace beam
 
 		insert(*pItem);
 		return pItem;
+	}
+
+	BlobMap::Entry* BlobMap::Set::FindVarEx(const Blob& key, bool bExact, bool bBigger)
+	{
+		auto it = lower_bound(key, BlobMap::Set::Comparator());
+
+		if (end() == it)
+		{
+			// all elements are smaller than the key
+			if (bBigger)
+				return nullptr;
+
+			auto it2 = rbegin();
+			if (rend() == it2)
+				return nullptr;
+
+			return &(*it2);
+		}
+
+		assert(it->ToBlob() >= key);
+
+		if (bExact)
+		{
+			if (bBigger || (it->ToBlob() == key))
+				return &(*it); // ok
+		}
+
+		if (bBigger)
+		{
+			assert(!bExact);
+			if (it->ToBlob() == key)
+			{
+				++it;
+				if (end() == it)
+					return nullptr;
+			}
+		}
+		else
+		{
+			if (begin() == it)
+				return nullptr;
+			--it;
+
+		}
+
+		return &(*it);
 	}
 
 } // namespace beam

@@ -28,30 +28,6 @@ namespace beam::wallet
         m_broadcastGateway.registerListener(BroadcastContentType::SoftwareUpdates, this);
     }
 
-    bool AppUpdateInfoProvider::onMessage(uint64_t unused, ByteBuffer&& input)
-    {
-        try
-        {
-            BroadcastMsg res;
-            if (m_validator.processMessage(input, res))
-            {
-                VersionInfo updateInfo;
-                if (fromByteBuffer(res.m_content, updateInfo))
-                {
-                    ECC::Hash::Value hash;   // use hash like unique ID
-                    ECC::Hash::Processor() << Blob(res.m_content) >> hash;
-                    notifySubscribers(updateInfo, hash);
-                }
-            }
-        }
-        catch(...)
-        {
-            LOG_WARNING() << "broadcast message processing exception";
-            return false;
-        }
-        return true;
-    }
-
     bool AppUpdateInfoProvider::onMessage(uint64_t unused, BroadcastMsg&& msg)
     {
         if (m_validator.isSignatureValid(msg))

@@ -134,6 +134,11 @@ namespace beam
         const char* STRATUM_SECRETS_PATH = "stratum_secrets_path";
         const char* STRATUM_USE_TLS = "stratum_use_tls";
         const char* WEBSOCKET_PORT = "websocket_port";
+        const char* WEBSOCKET_SECRETS_PATH = "websocket_secrets_path";
+        const char* WEBSOCKET_USE_TLS = "websocket_use_tls";
+        const char* WEBSOCKET_KEY = "websocket_key";
+        const char* WEBSOCKET_CERT = "websocket_cert";
+        const char* WEBSOCKET_DH = "websocket_dh";
         const char* STORAGE = "storage";
         const char* WALLET_STORAGE = "wallet_path";
         const char* MINING_THREADS = "mining_threads";
@@ -295,6 +300,9 @@ namespace beam
         const char* API_USE_ACL  = "use_acl";
         const char* API_ACL_PATH = "acl_path";
         const char* API_VERSION  = "api_version";
+        const char* API_ENABLE_IPFS = "enable_ipfs";
+        const char* API_IPFS_STORAGE = "ipfs_storage";
+        const char* API_TCP_MAX_LINE = "tcp_max_line";
 
         // treasury
         const char* TR_OPCODE = "tr_op";
@@ -329,6 +337,9 @@ namespace beam
         const char* EXCHANGE_CURR     = "exch_curr";
         const char* EXCHANGE_RATE     = "exch_rate";
         const char* EXCHANGE_UNIT     = "exch_unit";
+        const char* VERIFIED          = "verified";
+        const char* PREDEFINED_ICON   = "predefined_icon";
+        const char* PREDEFINED_COLOR  = "predefined_color";
 
         // lelantus
         const char* MAX_PRIVACY_ADDRESS = "max_privacy";
@@ -338,12 +349,34 @@ namespace beam
         const char* SEND_OFFLINE        = "offline";
 
         // shaders
-        const char* SHADER_INVOKE       = "shader";
-        const char* SHADER_ARGS         = "shader_args";
+        const char* SHADER_INVOKE            = "shader";
+        const char* SHADER_ARGS              = "shader_args";
         const char* SHADER_BYTECODE_APP      = "shader_app_file";
         const char* SHADER_BYTECODE_CONTRACT = "shader_contract_file";
-    }
+        const char* SHADER_PRIVILEGE         = "shader_privilege";
 
+        // IPFS
+        #ifdef BEAM_IPFS_SUPPORT
+        const char* IPFS_ENABLE        = "enable_ipfs";
+        const char* IPFS_STORAGE       = "ipfs_repo";
+        const char* IPFS_LOW_WATER     = "ipfs_low_water";
+        const char* IPFS_HIGH_WATER    = "ipfs_high_water";
+        const char* IPFS_GRACE         = "ipfs_grace_period";
+        const char* IPFS_AUTO_RELAY    = "ipfs_auto_relay";
+        const char* IPFS_RELAY_HOP     = "ipfs_relay_hop";
+        const char* IPFS_BOOTSTRAP     = "ipfs_bootstrap";
+        const char* IPFS_SWARM_PORT    = "ipfs_swarm_port";
+        const char* IPFS_STORAGE_MAX   = "ipfs_storage_max";
+        const char* IPFS_API_PORT      = "ipfs_api_port";
+        const char* IPFS_GATEWAY_PORT  = "ipfs_gateway_port";
+        const char* IPFS_AUTONAT       = "ipfs_autonat";
+        const char* IPFS_AUTONAT_LIMIT = "ipfs_autonat_limit";
+        const char* IPFS_AUTONAT_PEER_LIMIT = "ipfs_autonat_peer_limit";
+        const char* IPFS_SWARM_KEY     = "ipfs_swarm_key";
+        const char* IPFS_ROUTING_TYPE  = "ipfs_routing_type";
+        const char* IPFS_RUN_GC        = "ipfs_run_gc";
+        #endif
+    }
 
     template <typename T> struct TypeCvt {
 
@@ -372,7 +405,7 @@ namespace beam
 
     pair<po::options_description, po::options_description> createOptionsDescription(int flags, const std::string& configFile)
     {
-        po::options_description general_options("General");
+        po::options_description general_options("General options");
         general_options.add_options()
             (cli::HELP_FULL, "list all available options and commands")
             (cli::VERSION_FULL, "print project version")
@@ -397,6 +430,11 @@ namespace beam
             (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
             (cli::STRATUM_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on startum server")
             (cli::WEBSOCKET_PORT, po::value<uint16_t>()->default_value(0), "port to start websocket server on, it allows to communicate with node from web browser")
+            (cli::WEBSOCKET_SECRETS_PATH, po::value<string>()->default_value("."), "path to websocket server api keys file, and tls certificate and private key")
+            (cli::WEBSOCKET_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on websocket server")
+            (cli::WEBSOCKET_KEY, po::value<string>()->default_value("wskey.pem"), "name of the private key file for websocket server")
+            (cli::WEBSOCKET_CERT, po::value<string>()->default_value("wscert.pem"), "name of the certificate file for websocket server")
+            (cli::WEBSOCKET_DH, po::value<string>()->default_value("wsdhparams.pem"), "name of the DH params file for websocket server")
             (cli::RESET_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication). Must do if the node is cloned")
             (cli::ERASE_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication) and stop before re-creating the new one.")
             (cli::PRINT_TXO, po::value<bool>()->default_value(false), "Print TXO movements (create/spend) recognized by the owner key.")
@@ -453,6 +491,7 @@ namespace beam
             (cli::PROXY_USE, po::value<bool>()->default_value(false), "use socks5 proxy server for node connection")
             (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "proxy server address")
             (cli::SHADER_ARGS, po::value<string>()->default_value(""), "Arguments to pass to the shader")
+            (cli::SHADER_PRIVILEGE, po::value<uint32_t>()->default_value(0), "shader privilege level")
             (cli::SHADER_BYTECODE_APP, po::value<string>()->default_value(""), "Path to the app shader file")
             (cli::SHADER_BYTECODE_CONTRACT, po::value<string>()->default_value(""), "Path to the shader file for the contract (if the contract is being-created)")
             (cli::MAX_PRIVACY_ADDRESS, po::bool_switch()->default_value(false), "generate max privacy transaction address")
@@ -512,7 +551,7 @@ namespace beam
             (cli::ASSET_METADATA,   po::value<string>(), "asset metadata")
             (cli::WITH_ASSETS,      po::bool_switch()->default_value(false), "enable confidential assets transactions");
 
-#ifdef BEAM_LASER_SUPPORT
+        #ifdef BEAM_LASER_SUPPORT
         po::options_description laser_options("Laser beam");
         laser_options.add_options()
             (cli::LASER_LIST, "print all opened lightning channel")
@@ -529,7 +568,7 @@ namespace beam
             (cli::LASER_TARGET_ADDR, po::value<string>(), "address of laser receiver")
             (cli::LASER_FEE, po::value<Nonnegative<Amount>>(), "transaction fee (in GROTH, 100,000,000 groth = 1 BEAM)")
             (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID");
-#endif  // BEAM_LASER_SUPPORT
+        #endif
 
         po::options_description options{ "OPTIONS" };
         po::options_description visible_options{ "OPTIONS" };
@@ -566,10 +605,10 @@ namespace beam
                 visible_options.add(wallet_assets_options);
             }
 
-#ifdef BEAM_LASER_SUPPORT
+            #ifdef BEAM_LASER_SUPPORT
             options.add(laser_options);
             visible_options.add(laser_options);
-#endif  // BEAM_LASER_SUPPORT
+            #endif
         }
 
         if (flags & UI_OPTIONS)
@@ -585,6 +624,64 @@ namespace beam
         visible_options.add(rules_options);
         return { options, visible_options };
     }
+
+    #ifdef BEAM_IPFS_SUPPORT
+    po::options_description createIPFSOptionsDesrition(bool enableByDefault, const asio_ipfs::config& defs)
+    {
+        po::options_description ipfs_options("IPFS support");
+        ipfs_options.add_options()
+            (cli::IPFS_ENABLE,             po::value<bool>()->default_value(enableByDefault)->implicit_value(enableByDefault), "enable IPFS support/launch IPFS node")
+            (cli::IPFS_STORAGE,            po::value<string>()->default_value(defs.repo_root), "IPFS repository path")
+            (cli::IPFS_LOW_WATER,          po::value<uint32_t>()->default_value(defs.low_water), "Swarm.ConnMgr.LowWater")
+            (cli::IPFS_HIGH_WATER,         po::value<uint32_t>()->default_value(defs.high_water), "Swarm.ConnMgr.HighWater")
+            (cli::IPFS_GRACE,              po::value<uint32_t>()->default_value(defs.grace_period), "Swarm.ConnMgr.GracePeriod as uint32 seconds")
+            (cli::IPFS_AUTO_RELAY,         po::value<bool>()->default_value(defs.auto_relay), "Swarm.EnableAutoRelay")
+            (cli::IPFS_RELAY_HOP,          po::value<bool>()->default_value(defs.relay_hop), "Swarm.EnableRelayHop")
+            (cli::IPFS_SWARM_PORT,         po::value<uint32_t>()->default_value(defs.swarm_port), "Addresses.Swarm port")
+            (cli::IPFS_STORAGE_MAX,        po::value<string>()->default_value(defs.storage_max), "Datastore.StorageMax")
+            (cli::IPFS_BOOTSTRAP,          po::value<std::vector<string>>()->multitoken(), "Bootstrap nodes multiaddr space separated list")
+            (cli::IPFS_API_PORT,           po::value<uint32_t>()->default_value(defs.api_port), "Addresses.API port")
+            (cli::IPFS_GATEWAY_PORT,       po::value<uint32_t>()->default_value(defs.gateway_port), "Addresses.Gateway port")
+            (cli::IPFS_AUTONAT,            po::value<bool>()->default_value(defs.autonat), "AutoNAT.ServiceMode as bool")
+            (cli::IPFS_AUTONAT_LIMIT,      po::value<uint32_t>()->default_value(defs.autonat_limit), "AutoNAT.Throttle.GlobalLimit")
+            (cli::IPFS_AUTONAT_PEER_LIMIT, po::value<uint32_t>()->default_value(defs.autonat_peer_limit), "AutoNAT.Throttle.PeerLimit")
+            (cli::IPFS_SWARM_KEY,          po::value<string>()->default_value(defs.swarm_key), "ipfs-repo/swarm.key file contents")
+            (cli::IPFS_ROUTING_TYPE,       po::value<string>()->default_value(defs.routing_type), "Routing.Type")
+            (cli::IPFS_RUN_GC,             po::value<bool>()->default_value(defs.run_gc), "Run IPFS periodic garbage collector");
+        return ipfs_options;
+    }
+
+    boost::optional<asio_ipfs::config> getIPFSConfig(const po::variables_map& vm, asio_ipfs::config defs)
+    {
+        if (!vm[cli::IPFS_ENABLE].as<bool>()) {
+            return boost::none;
+        }
+
+        asio_ipfs::config cfg = std::move(defs);
+        cfg.repo_root = vm[cli::IPFS_STORAGE].as<string>();
+        cfg.low_water = vm[cli::IPFS_LOW_WATER].as<uint32_t>();
+        cfg.low_water = vm[cli::IPFS_HIGH_WATER].as<uint32_t>();
+        cfg.grace_period = vm[cli::IPFS_GRACE].as<uint32_t>();
+        cfg.auto_relay = vm[cli::IPFS_AUTO_RELAY].as<bool>();
+        cfg.relay_hop = vm[cli::IPFS_RELAY_HOP].as<bool>();
+        cfg.swarm_port = vm[cli::IPFS_SWARM_PORT].as<uint32_t>();
+        cfg.storage_max = vm[cli::IPFS_STORAGE_MAX].as<string>();
+        cfg.api_port = vm[cli::IPFS_API_PORT].as<uint32_t>();
+        cfg.gateway_port = vm[cli::IPFS_GATEWAY_PORT].as<uint32_t>();
+        cfg.autonat = vm[cli::IPFS_AUTONAT].as<bool>();
+        cfg.autonat_limit = vm[cli::IPFS_AUTONAT_LIMIT].as<uint32_t>();
+        cfg.autonat_peer_limit = vm[cli::IPFS_AUTONAT_PEER_LIMIT].as<uint32_t>();
+        cfg.swarm_key = vm[cli::IPFS_SWARM_KEY].as<string>();
+        cfg.routing_type = vm[cli::IPFS_ROUTING_TYPE].as<string>();
+        cfg.run_gc = vm[cli::IPFS_RUN_GC].as<bool>();
+
+        if (vm.count(cli::IPFS_BOOTSTRAP)) {
+            cfg.bootstrap = vm[cli::IPFS_BOOTSTRAP].as<std::vector<string>>();
+        }
+
+        return cfg;
+    }
+    #endif
 
     po::options_description createRulesOptionsDescription()
     {
@@ -605,6 +702,7 @@ namespace beam
             macro(Height, Fork1, "Height of the 1st fork") \
             macro(Height, Fork2, "Height of the 2nd fork") \
             macro(Height, Fork3, "Height of the 3rd fork") \
+            macro(Height, Fork4, "Height of the 4th fork") \
             macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
             macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only") \
             macro(Height, MaxKernelValidityDH, "Max implicit kernel lifespan after HF2 (a.k.a. kernel visibility horizon)") \
@@ -630,6 +728,7 @@ namespace beam
         #define Fork1 pForks[1].m_Height
         #define Fork2 pForks[2].m_Height
         #define Fork3 pForks[3].m_Height
+        #define Fork4 pForks[4].m_Height
 
         #define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
 
@@ -641,24 +740,24 @@ namespace beam
         return rules_options;
     }
 
-    bool ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc)
+    boost::optional<std::string> ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc)
     {
         return ReadCfgFromFile(vm, desc, vm[cli::CONFIG_FILE_PATH].as<std::string>().c_str());
     }
 
-    bool ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc, const char* szFile)
+    boost::optional<std::string> ReadCfgFromFile(po::variables_map& vm, const po::options_description& desc, const char* szFile)
     {
         const auto fullPath = boost::filesystem::system_complete(szFile).string();
         std::ifstream cfg(fullPath);
         if (!cfg)
-            return false;
+            return boost::none;
 
-        LOG_INFO() << "Reading config from " << fullPath;
+        std::cout << "Reading config from " << fullPath << std::endl;
         po::store(po::parse_config_file(cfg, desc), vm);
-        return true;
+        return fullPath;
     }
 
-    bool ReadCfgFromFileCommon(po::variables_map& vm, const po::options_description& desc)
+    boost::optional<std::string> ReadCfgFromFileCommon(po::variables_map& vm, const po::options_description& desc)
     {
         return ReadCfgFromFile(vm, desc, "beam-common.cfg");
     }

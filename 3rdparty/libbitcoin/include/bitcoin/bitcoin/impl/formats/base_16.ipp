@@ -44,7 +44,7 @@ bool decode_base16(byte_array<Size>& out, const std::string &in)
 template <size_t Size>
 byte_array<(Size - 1) / 2> base16_literal(const char (&string)[Size])
 {
-    byte_array<(Size - 1) / 2> out;
+    byte_array<(Size - 1) / 2> out = {};
     DEBUG_ONLY(const auto success =) decode_base16_private(out.data(),
         out.size(), string);
     BITCOIN_ASSERT(success);

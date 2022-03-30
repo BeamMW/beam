@@ -85,7 +85,7 @@ namespace
             }
         }
 
-        #define MESSAGE_FUNC(strct, name, ...) virtual void onHandle##strct(const JsonRpcId& id, const strct& data) override { \
+        #define MESSAGE_FUNC(strct, name, ...) virtual void onHandle##strct(const JsonRpcId& id, strct&& data) override { \
                 WALLET_CHECK(!"error, onHandle should be never called"); };
 
         V6_API_METHODS(MESSAGE_FUNC)
@@ -368,7 +368,7 @@ namespace
         class ApiTest : public WalletApiTest
         {
         public:
-            void onHandleCreateAddress(const JsonRpcId& id, const CreateAddress& data) override
+            void onHandleCreateAddress(const JsonRpcId& id, CreateAddress&& data) override
             {
                 WALLET_CHECK(id > 0);
             }
@@ -406,7 +406,7 @@ namespace
         {
         public:
             ApiTest(): WalletApiTest(Fork::NoFork, ApiInitData()) {}
-            void onHandleCreateAddress(const JsonRpcId& id, const CreateAddress& data) override
+            void onHandleCreateAddress(const JsonRpcId& id, CreateAddress&& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.type == TokenType::RegularOldStyle);
@@ -429,7 +429,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onHandleGetUtxo(const JsonRpcId& id, const GetUtxo& data) override
+            void onHandleGetUtxo(const JsonRpcId& id, GetUtxo&& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.filter.assetId && *data.filter.assetId == 1);
@@ -454,7 +454,7 @@ namespace
                 coin.m_maturity = 60;
 				coin.m_confirmHeight = 60;
 				coin.m_status = Coin::Status::Available; // maturity is returned only for confirmed coins
-				ApiCoin::EmplaceCoin(getUtxo.coins, coin, 0);
+				ApiCoin::EmplaceCoin(getUtxo.coins, coin);
             }
 
             api.getResponse(123, getUtxo, res);
@@ -488,7 +488,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onHandleSend(const JsonRpcId& id, const Send& data) override
+            void onHandleSend(const JsonRpcId& id, Send&& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.value == 12342342);
@@ -531,14 +531,14 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onHandleIssue(const JsonRpcId& id, const Issue& data) override
+            void onHandleIssue(const JsonRpcId& id, Issue&& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.assetId > 0);
                 WALLET_CHECK(data.value > 0);
             }
 
-            void onHandleConsume(const JsonRpcId& id, const Consume& data) override
+            void onHandleConsume(const JsonRpcId& id, Consume&& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.assetId > 0);
@@ -570,7 +570,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onHandleTxAssetInfo(const JsonRpcId& id, const TxAssetInfo& data) override
+            void onHandleTxAssetInfo(const JsonRpcId& id, TxAssetInfo&& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.assetId);
@@ -604,7 +604,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onHandleGetAssetInfo(const JsonRpcId& id, const GetAssetInfo& data) override
+            void onHandleGetAssetInfo(const JsonRpcId& id, GetAssetInfo&& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.assetId > 0);
@@ -638,7 +638,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onHandleStatus(const JsonRpcId& id, const Status& data) override
+            void onHandleStatus(const JsonRpcId& id, Status&& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(to_hex(data.txId.data(), data.txId.size()) == "10c4b760c842433cb58339a0fafef3db");
@@ -672,7 +672,7 @@ namespace
                 WALLET_CHECK(!"invalid split api json!!!");
             }
 
-            void onHandleSplit(const JsonRpcId& id, const Split& data) override
+            void onHandleSplit(const JsonRpcId& id, Split&& data) override
             {
                 WALLET_CHECK(id > 0);
 
@@ -713,7 +713,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onHandleTxList(const JsonRpcId& id, const TxList& data) override
+            void onHandleTxList(const JsonRpcId& id, TxList&& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(*data.filter.status == TxStatus::Completed);
@@ -748,7 +748,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onHandleTxList(const JsonRpcId& id, const TxList& data) override
+            void onHandleTxList(const JsonRpcId& id, TxList&& data) override
             {
                 WALLET_CHECK(id > 0);
 
@@ -779,7 +779,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onHandleValidateAddress(const JsonRpcId& id, const ValidateAddress& data) override
+            void onHandleValidateAddress(const JsonRpcId& id, ValidateAddress&& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(CheckReceiverAddress(data.token) == _valid);
@@ -823,7 +823,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onHandleGenerateTxId(const JsonRpcId& id, const GenerateTxId& data) override
+            void onHandleGenerateTxId(const JsonRpcId& id, GenerateTxId&& data) override
             {
                 WALLET_CHECK(id > 0);
             }
@@ -860,7 +860,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onHandleExportPaymentProof(const JsonRpcId& id, const ExportPaymentProof& data) override
+            void onHandleExportPaymentProof(const JsonRpcId& id, ExportPaymentProof&& data) override
             {
                 WALLET_CHECK(id > 0);
             }
@@ -898,7 +898,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onHandleVerifyPaymentProof(const JsonRpcId& id, const VerifyPaymentProof& data) override
+            void onHandleVerifyPaymentProof(const JsonRpcId& id, VerifyPaymentProof&& data) override
             {
                 WALLET_CHECK(id > 0);
             }
@@ -944,7 +944,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onHandleCreateAddress(const JsonRpcId& id, const CreateAddress& data) override
+            void onHandleCreateAddress(const JsonRpcId& id, CreateAddress&& data) override
             {
                 WALLET_CHECK(id == _value);
             }
@@ -968,7 +968,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onHandleGetBalance(const JsonRpcId& id, const GetBalance& data) override
+            void onHandleGetBalance(const JsonRpcId& id, GetBalance&& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.coin == AtomicSwapCoin::Litecoin);
@@ -1013,7 +1013,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onHandleDecodeToken(const JsonRpcId& id, const DecodeToken& data) override
+            void onHandleDecodeToken(const JsonRpcId& id, DecodeToken&& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.token == _value);
@@ -1073,7 +1073,7 @@ namespace
                 cout << msg["error"] << endl;
             }
 
-            void onHandleOfferStatus(const JsonRpcId& id, const OfferStatus& data) override
+            void onHandleOfferStatus(const JsonRpcId& id, OfferStatus&& data) override
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(to_hex(data.txId.data(), data.txId.size()) == _value);
@@ -1617,7 +1617,7 @@ void testCalcChange()
             m_Failed = true;
         }
 
-        void onHandleCalcChange(const JsonRpcId& id, const CalcChange& data) override
+        void onHandleCalcChange(const JsonRpcId& id, CalcChange&& data) override
         {
             WALLET_CHECK(id == 4);
 

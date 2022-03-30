@@ -207,12 +207,14 @@ namespace beam::wallet
     struct Status
     {
         TxID txId;
+        bool withRates = false;
 
         struct Response
         {
             TxDescription tx;
-            Height txHeight;
+            Height txProofHeight;
             Height systemHeight;
+            bool withRates;
         };
     };
 
@@ -268,14 +270,16 @@ namespace beam::wallet
         #undef MACRO
 
         template<typename T>
-        static void EmplaceCoin(std::vector<ApiCoin>& to, const T& c, uint32_t cCnt)
+        static void EmplaceCoin(std::vector<ApiCoin>& to, const T& c)
         {
+            static_assert(std::is_same<Coin, T>::value || std::is_same<ShieldedCoin, T>::value);
+
             auto& t = to.emplace_back();
             t.id = c.toStringID();
             t.asset_id = c.getAssetID();
             t.amount = c.getAmount();
             t.type = c.getType();
-            t.maturity = c.get_Maturity(cCnt);
+            t.maturity = c.get_Maturity();
             t.createTxId = GetCoinCreateTxID(c);
             t.spentTxId = GetCoinSpentTxID(c);
             t.status = GetCoinStatus(c);
@@ -320,6 +324,7 @@ namespace beam::wallet
 
         uint32_t count = 0;
         uint32_t skip = 0;
+        bool withRates = false;
 
         struct Response
         {
@@ -402,6 +407,7 @@ namespace beam::wallet
         std::vector<uint8_t> contract;
         std::string args;
         bool createTx = true;
+        bool checkDone = true;
 
         struct Response
         {

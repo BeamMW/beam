@@ -31,7 +31,7 @@ namespace bvm2 {
 	{
 		namespace Env {
 			void Memcpy(void* pDst, const void* pSrc, uint32_t n) {
-				memcpy(pDst, pSrc, n);
+				memmove(pDst, pSrc, n);
 			}
 			void Memset(void* pDst, char c, uint32_t n) {
 				memset(pDst, c, n);
@@ -174,6 +174,8 @@ namespace bvm2 {
 		m_vHeap.clear();
 
 		m_DataProcessor.m_Map.Clear();
+		m_Secp.m_Point.m_Map.Clear();
+		m_Secp.m_Scalar.m_Map.Clear();
 	}
 
 	void ProcessorContract::InitStackPlus(uint32_t nStackBytes)
@@ -211,7 +213,7 @@ namespace bvm2 {
 		return hdr;
 	}
 
-	void ProcessorContract::CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs)
+	void ProcessorContract::CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext)
 	{
 		struct MyCheckpoint :public Wasm::Checkpoint
 		{
@@ -234,8 +236,12 @@ namespace bvm2 {
 		auto nRetAddr = get_Ip();
 
 		Wasm::Test(m_FarCalls.m_Stack.size() < Limits::FarCallDepth);
-		auto& x = *m_FarCalls.m_Stack.Create_back();
 
+		assert(!(bInheritContext && m_FarCalls.m_Stack.empty()));
+		FarCalls::Frame* pPrev = bInheritContext ? &m_FarCalls.m_Stack.back() : nullptr;
+
+		auto& x = *m_FarCalls.m_Stack.Create_back();
+		x.m_Local.m_Missing = 0;
 		x.m_Cid = cid;
 		x.m_FarRetAddr = nRetAddr;
 		x.m_StackBytesMax = m_Stack.m_BytesMax;
@@ -244,13 +250,14 @@ namespace bvm2 {
 		x.m_StackPosMin = m_Stack.m_PosMin;
 		m_Stack.m_PosMin = m_Stack.m_Pos;
 
-		VarKey vk;
-		SetVarKey(vk);
-		LoadVar(vk, x.m_Body);
+		LoadVar(cid, m_Code);
+		m_Code.Export(x.m_Body);
 
-		m_Code = x.m_Body;
 		const Header& hdr = ParseMod();
 		Wasm::Test(iMethod < ByteOrder::from_le(hdr.m_NumMethods));
+
+		if (bInheritContext)
+			x.m_Cid = pPrev->m_Cid;
 
 		m_Stack.Push(pArgs);
 		m_Stack.Push(0); // retaddr, set dummy for far call
@@ -261,27 +268,86 @@ namespace bvm2 {
 
 	void ProcessorContract::OnRet(Wasm::Word nRetAddr)
 	{
-		if (!nRetAddr)
+		auto& x = m_FarCalls.m_Stack.back();
+		if (x.m_Local.m_Missing)
+			x.m_Local.m_Missing--;
+		else
 		{
-			Wasm::Test(m_Stack.m_Pos == m_Stack.m_PosMin);
-
-			auto& x = m_FarCalls.m_Stack.back();
-			Wasm::Test(m_Stack.m_BytesCurrent == x.m_StackBytesRet);
-
-			nRetAddr = x.m_FarRetAddr;
-
-			m_Stack.m_PosMin = x.m_StackPosMin;
-			m_Stack.m_BytesMax = x.m_StackBytesMax;
-
-			m_FarCalls.m_Stack.Delete(x);
-			if (m_FarCalls.m_Stack.empty())
-				return; // finished
-
-			m_Code = m_FarCalls.m_Stack.back().m_Body;
-			ParseMod(); // restore code/data sections
+			if (!x.m_Local.m_v.empty())
+				x.m_Local.m_v.pop_back();
 		}
 
-		Processor::OnRet(nRetAddr);
+		if (nRetAddr)
+			Processor::OnRet(nRetAddr);
+		else
+			OnRetFar();
+	}
+
+	void ProcessorContract::OnRetFar()
+	{
+		Wasm::Test(m_Stack.m_Pos == m_Stack.m_PosMin);
+
+		auto& x = m_FarCalls.m_Stack.back();
+		Wasm::Test(m_Stack.m_BytesCurrent == x.m_StackBytesRet);
+
+		Wasm::Word nRetAddr = x.m_FarRetAddr;
+
+		m_Stack.m_PosMin = x.m_StackPosMin;
+		m_Stack.m_BytesMax = x.m_StackBytesMax;
+
+		m_FarCalls.m_Stack.Delete(x);
+
+		if (!m_FarCalls.m_Stack.empty())
+		{
+			m_Code = m_FarCalls.m_Stack.back().m_Body;
+			ParseMod(); // restore code/data sections
+
+			Processor::OnRet(nRetAddr);
+		}
+	}
+
+	void ProcessorContract::OnCall(Wasm::Word nAddr)
+	{
+		if (m_FarCalls.m_SaveLocal)
+		{
+			auto& x = m_FarCalls.m_Stack.back();
+			if (x.m_Local.m_v.size() < x.m_Local.s_MaxEntries)
+			{
+				bool bWasEmpty = x.m_Local.m_v.empty();
+
+				auto& fl = x.m_Local.m_v.emplace_back();
+				fl.m_Addr = nAddr;
+				fl.m_CallerIp = bWasEmpty ? x.m_FarRetAddr : get_Ip();
+			}
+			else
+				x.m_Local.m_Missing++;
+		}
+
+		Processor::OnCall(nAddr);
+	}
+
+	void ProcessorContract::DumpCallstack(std::ostream& os) const
+	{
+		Wasm::Word ip = get_Ip();
+
+		for (auto itF = m_FarCalls.m_Stack.rbegin(); m_FarCalls.m_Stack.rend() != itF; itF++)
+		{
+			const auto& fr = *itF;
+
+			bvm2::ShaderID sid;
+			bvm2::get_ShaderID(sid, fr.m_Body); // theoretically m_Body may be different, the contract code may modify itself. Never mind.
+
+			os << std::endl << "Cid=" << fr.m_Cid << ", Sid=" << sid;
+
+			for (uint32_t i = (uint32_t) fr.m_Local.m_v.size(); i--; )
+			{
+				const auto& x = fr.m_Local.m_v[i];
+
+				os << std::endl << "Ip=" << uintBigFrom(x.m_Addr) << "+" << uintBigFrom(ip - x.m_Addr);
+				ip = x.m_CallerIp;
+			}
+
+		}
 	}
 
 	uint32_t ProcessorContract::get_HeapLimit()
@@ -609,10 +675,15 @@ namespace bvm2 {
 #define PAR_ASSIGN(type, name) args.m_##name =
 #define PAR_DUMP(type, name) << "," #name "=" << LogFrom(m_##name.V)
 
+#ifdef WASM_INTERPRETER_DEBUG
+#	define WASM_LOG_EXTCALL(name) if (m_Dbg.m_ExtCall) *m_Dbg.m_pOut << "  " #name << std::endl;
+#else // WASM_INTERPRETER_DEBUG
+#	define WASM_LOG_EXTCALL(name)
+#endif // WASM_INTERPRETER_DEBUG
+
 #define THE_MACRO(id, ret, name) \
 		case id: { \
-			if (m_Dbg.m_ExtCall) \
-				*m_Dbg.m_pOut << "  " #name << std::endl; \
+			WASM_LOG_EXTCALL(name) \
 			struct Args :public Wasm::Checkpoint { \
 				BVMOp_##name(PAR_DECL, MACRO_NOP) \
 				RetType_##name Call(TProcessor& me) const { return me.OnMethod_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); } \
@@ -790,6 +861,16 @@ namespace bvm2 {
 #define BVM_METHOD_HOST_AUTO(name) BVM_METHOD_HOST(name)  { return BVM_METHOD_AUTO_INVOKE(name); }
 
 #define BVM_METHOD_VIA_HOST(name) BVM_METHOD(name) { return OnHost_##name(BVMOp_##name(BVM_METHOD_PAR_PASS_TO_HOST, MACRO_COMMA)); }
+
+	BVM_METHOD(Write)
+	{
+		OnHost_Write(get_AddrR(pData, nData), nData, iStream);
+	}
+	BVM_METHOD_HOST(Write)
+	{
+		if (nData)
+			WriteStream(Blob(pData, nData), iStream);
+	}
 
 	BVM_METHOD(Memcpy)
 	{
@@ -1144,7 +1225,7 @@ namespace bvm2 {
 	{
 		uint32_t ret = OnHost_LoadVar(get_AddrR(pKey, nKey), nKey, get_AddrW(pVal, nVal), nVal, nType);
 
-		DischargeUnits(Limits::Cost::LoadVar + Limits::Cost::LoadVarPerByte * std::min(nVal, ret));
+		DischargeUnits(Limits::Cost::LoadVar_For(std::min(nVal, ret)));
 
 		return ret;
 	}
@@ -1153,38 +1234,93 @@ namespace bvm2 {
 		VarKey vk;
 		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), false);
 
-		LoadVar(vk, static_cast<uint8_t*>(pVal), nVal);
-		return nVal;
+		Blob res;
+		LoadVar(vk.ToBlob(), res);
+
+		memcpy(pVal, res.p, std::min(nVal, res.n));
+		return res.n;
+	}
+
+	BVM_METHOD(LoadVarEx)
+	{
+		auto& nKey_ = get_AddrAsW<Wasm::Word>(nKey);
+		auto& nVal_ = get_AddrAsW<Wasm::Word>(nVal);
+
+		auto nKeySize = Wasm::from_wasm(nKey_);
+		auto nValSize = Wasm::from_wasm(nVal_);
+		auto nValSize0 = nValSize;
+
+		OnHost_LoadVarEx(get_AddrW(pKey, nKeyBufSize), nKeySize, nKeyBufSize, get_AddrW(pVal, nValSize), nValSize, nType, nSearchFlag);
+
+		DischargeUnits(Limits::Cost::LoadVar_For(std::min(nValSize, nValSize0)));
+
+		nKey_ = Wasm::to_wasm(nKeySize);
+		nVal_ = Wasm::to_wasm(nValSize);
+	}
+	BVM_METHOD_HOST(LoadVarEx)
+	{
+		Wasm::Test(IsPastHF4());
+
+		std::setmin(nKeyBufSize, Limits::VarKeySize);
+		Wasm::Test(nKey <= nKeyBufSize);
+
+		VarKey vk;
+		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), false);
+
+		Blob key = vk.ToBlob(), res;
+		LoadVarEx(key, res,
+			!!(Shaders::KeySearchFlags::Exact & nSearchFlag),
+			!!(Shaders::KeySearchFlags::Bigger & nSearchFlag));
+
+		if (key.n > ContractID::nBytes)
+		{
+			// make sure we're still in the context of the contract vars
+			auto pK = (const uint8_t*) key.p;
+			const auto& cid = m_FarCalls.m_Stack.back().m_Cid;
+
+			if (!memcmp(pK, cid.m_pData, cid.nBytes) && (nType == pK[cid.nBytes]))
+			{
+				nKey = key.n - (ContractID::nBytes + 1);
+				memcpy(pKey, pK + ContractID::nBytes + 1, std::min(nKey, nKeyBufSize));
+
+				memcpy(pVal, res.p, std::min(nVal, res.n));
+				nVal = res.n;
+				return;
+			}
+		}
+
+		nKey = 0;
+		nVal = 0;
 	}
 
 	BVM_METHOD(SaveVar)
 	{
-		DischargeUnits(Limits::Cost::SaveVar + Limits::Cost::SaveVarPerByte * nVal);
+		DischargeUnits(Limits::Cost::SaveVar_For(nVal));
 		return OnHost_SaveVar(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal, nType);
 	}
 	BVM_METHOD_HOST(SaveVar)
 	{
-		Wasm::Test(nVal <= Limits::VarSize);
+		TestVarSize(nVal);
 
 		VarKey vk;
 		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), true);
 
-		return SaveVar(vk, static_cast<const uint8_t*>(pVal), nVal);
+		return SaveVar(vk.ToBlob(), Blob(pVal, nVal));
 	}
 
 	BVM_METHOD(EmitLog)
 	{
-		DischargeUnits(Limits::Cost::Log + Limits::Cost::LogPerByte * nVal);
+		DischargeUnits(Limits::Cost::Log_For(nVal));
 		return OnHost_EmitLog(get_AddrR(pKey, nKey), nKey, get_AddrR(pVal, nVal), nVal, nType);
 	}
 	BVM_METHOD_HOST(EmitLog)
 	{
-		Wasm::Test(nVal <= Limits::VarSize);
+		TestVarSize(nVal);
 
 		VarKey vk;
 		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), true);
 
-		return OnLog(vk, Blob(pVal, nVal));
+		return OnLog(vk.ToBlob(), Blob(pVal, nVal));
 	}
 
 	BVM_METHOD(CallFar)
@@ -1217,18 +1353,14 @@ namespace bvm2 {
 
 				nCalleeStackMax = (pArgs & ~Wasm::MemoryType::Stack) + std::min(nArgs, nSize); // restrict callee from accessing anything beyond
 			}
+			else
+				pArgs = m_Stack.get_AlasSp();
 		}
 
-		CallFar(get_AddrAsR<ContractID>(cid), iMethod, pArgs);
+		auto nDepth = m_FarCalls.m_Stack.size(); // see if depth increases. If it doesn't - the call was hijacked, performed natively. No need to adjust m_BytesMax
+		CallFar(get_AddrAsR<ContractID>(cid), iMethod, pArgs, bInheritContext);
 
-		if (bInheritContext)
-		{
-			auto it = m_FarCalls.m_Stack.rbegin();
-			auto& fr0 = *it;
-			auto& fr1 = *(++it);
-			fr0.m_Cid = fr1.m_Cid;
-		}
-		else
+		if (!bInheritContext && (m_FarCalls.m_Stack.size() > nDepth))
 			m_Stack.m_BytesMax = nCalleeStackMax;
 	}
 	BVM_METHOD_HOST(CallFar)
@@ -1262,6 +1394,25 @@ namespace bvm2 {
 				break;
 			}
 		}
+	}
+
+	BVM_METHOD(UpdateShader)
+	{
+		OnHost_UpdateShader(get_AddrR(pVal, nVal), nVal);
+	}
+
+	BVM_METHOD_HOST(UpdateShader)
+	{
+		Wasm::Test(IsPastHF4());
+
+		TestVarSize(nVal);
+		DischargeUnits(Limits::Cost::UpdateShader_For(nVal));
+
+		const auto& cid = m_FarCalls.m_Stack.back().m_Cid;
+		AddRemoveShader(cid, nullptr, false);
+
+		Blob blob(pVal, nVal);
+		AddRemoveShader(cid, &blob, true);
 	}
 
 	BVM_METHOD(Halt)
@@ -1310,7 +1461,7 @@ namespace bvm2 {
 
 	BVM_METHOD(RefAdd)
 	{
-		DischargeUnits(Limits::Cost::SaveVar + Limits::Cost::LoadVar);
+		DischargeUnits(Limits::Cost::Refs);
 		return OnHost_RefAdd(get_AddrAsR<ContractID>(cid));
 	}
 	BVM_METHOD_HOST(RefAdd)
@@ -1320,7 +1471,7 @@ namespace bvm2 {
 
 	BVM_METHOD(RefRelease)
 	{
-		DischargeUnits(Limits::Cost::SaveVar + Limits::Cost::LoadVar);
+		DischargeUnits(Limits::Cost::Refs);
 		return OnHost_RefRelease(get_AddrAsR<ContractID>(cid));
 	}
 	BVM_METHOD_HOST(RefRelease)
@@ -1350,7 +1501,7 @@ namespace bvm2 {
 			ProcessorPlus_Contract::From(*this).HandleAmountOuter(Rules::get().CA.DepositForList, Zero, true);
 
 			SetAssetKey(av, ret);
-			SaveVar(av.m_vk, av.m_Owner.m_pData, av.m_Owner.nBytes);
+			SaveVar(av.m_vk.ToBlob(), av.m_Owner);
 		}
 
 		return ret;
@@ -1366,9 +1517,11 @@ namespace bvm2 {
 	{
 		SetAssetKey(av, aid);
 
-		uint32_t n = av.m_Owner.nBytes;
-		LoadVar(av.m_vk, av.m_Owner.m_pData, n);
-		Wasm::Test(av.m_Owner.nBytes == n);
+		Blob res;
+		LoadVar(av.m_vk.ToBlob(), res);
+
+		Wasm::Test(av.m_Owner.nBytes == res.n);
+		memcpy(av.m_Owner.m_pData, res.p, res.n);
 	}
 
 	BVM_METHOD(AssetEmit)
@@ -1406,7 +1559,7 @@ namespace bvm2 {
 		if (b)
 		{
 			HandleAmountOuter(Rules::get().CA.DepositForList, Zero, false);
-			SaveVar(av.m_vk, nullptr, 0);
+			SaveVar(av.m_vk.ToBlob(), Blob(nullptr, 0));
 		}
 
 		return !!b;
@@ -1518,6 +1671,11 @@ namespace bvm2 {
 			{
 				ECC::Hash::Processor(m_Hp) >> hv;
 			}
+			virtual void Clone(std::unique_ptr<Base>& pOut) const override
+			{
+				pOut = std::make_unique<Sha256>();
+				Cast::Up<Sha256>(*pOut).m_Hp = m_Hp;
+			}
 		};
 
 		struct Blake2b
@@ -1535,6 +1693,11 @@ namespace bvm2 {
 				auto s = m_B2b; // copy
 				return s.Read(p, n);
 			}
+			virtual void Clone(std::unique_ptr<Base>& pOut) const override
+			{
+				pOut = std::make_unique<Blake2b>();
+				Cast::Up<Blake2b>(*pOut).m_B2b = m_B2b;
+			}
 		};
 
 		template <uint32_t nBits>
@@ -1551,6 +1714,11 @@ namespace bvm2 {
 			virtual void Read(uintBig_t<nBits/8>& hv) override
 			{
 				m_State.Read(hv.m_pData);
+			}
+			virtual void Clone(std::unique_ptr<Base>& pOut) const override
+			{
+				pOut = std::make_unique<Keccak>();
+				Cast::Up<Keccak>(*pOut).m_State = m_State;
 			}
 		};
 
@@ -1580,6 +1748,13 @@ namespace bvm2 {
 		m_DataProcessor.m_Map.insert(*p.release());
 
 		return ret;
+	}
+
+	uint32_t Processor::CloneHash(const DataProcessor::Base& x)
+	{
+		std::unique_ptr<DataProcessor::Base> pHash;
+		x.Clone(pHash);
+		return AddHash(std::move(pHash));
 	}
 
 	BVM_METHOD(HashCreateSha256)
@@ -1667,6 +1842,19 @@ namespace bvm2 {
 	BVM_METHOD_HOST(HashFree)
 	{
 		m_DataProcessor.m_Map.Delete(m_DataProcessor.FindStrict(pHash));
+	}
+
+	BVM_METHOD(HashClone)
+	{
+		if (Kind::Contract == get_Kind())
+			Wasm::Test(IsPastHF4());
+
+		return CloneHash(m_DataProcessor.FindStrict(pHash));
+	}
+	BVM_METHOD_HOST(HashClone)
+	{
+		auto val = CloneHash(m_DataProcessor.FindStrict(pHash));
+		return val ? reinterpret_cast<HashObj*>(static_cast<size_t>(val)) : nullptr;
 	}
 
 	/////////////////////////////////////////////
@@ -2099,6 +2287,24 @@ namespace bvm2 {
 	//	Wasm::Test(pCallback);
 	//	return LoadAllVars(*pCallback);
 	//}
+	BVM_METHOD(SelectContext)
+	{
+		return OnHost_SelectContext(bDependent, nChargeNeeded);
+	}
+	BVM_METHOD_HOST(SelectContext)
+	{
+		bool b = !!bDependent;
+		if (MaxHeight != m_Context.m_Height)
+		{
+			bool b0 = !!m_Context.m_pParent;
+			if (b == b0)
+				return; // no change
+
+			m_Context.Reset();
+		}
+
+		SelectContext(b, nChargeNeeded);
+	}
 
 	BVM_METHOD(Vars_Enum)
 	{
@@ -2106,6 +2312,8 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(Vars_Enum)
 	{
+		EnsureContext();
+
 		IReadVars::Ptr pObj;
 		VarsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1), pObj);
 		if (!pObj)
@@ -2183,6 +2391,8 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(Logs_Enum)
 	{
+		EnsureContext();
+
 		IReadLogs::Ptr pObj;
 		LogsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1), pPosMin, pPosMax, pObj);
 		if (!pObj)
@@ -2245,6 +2455,8 @@ namespace bvm2 {
 
 	uint32_t ProcessorManager::VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof)
 	{
+		EnsureContext();
+
 		ByteBuffer val;
 		beam::Merkle::Proof proof;
 
@@ -2306,6 +2518,8 @@ namespace bvm2 {
 
 	uint32_t ProcessorManager::LogGetProofInternal(const HeightPos& hp, Wasm::Word& pProof)
 	{
+		EnsureContext();
+
 		ByteBuffer val;
 		beam::Merkle::Proof proof;
 
@@ -2359,15 +2573,33 @@ namespace bvm2 {
 		return nRet;
 	}
 
+	void ProcessorManager::DerivePkInternal(ECC::Point::Native& res, const Blob& b)
+	{
+		ECC::Hash::Value hv;
+		DeriveKeyPreimage(hv, b);
+
+		Wasm::Test(m_pPKdf != nullptr);
+		m_pPKdf->DerivePKeyG(res, hv);
+	}
+
 	BVM_METHOD(DerivePk)
 	{
 		return OnHost_DerivePk(get_AddrAsW<PubKey>(pubKey), get_AddrR(pID, nID), nID);
 	}
 	BVM_METHOD_HOST(DerivePk)
 	{
-		ECC::Hash::Value hv;
-		DeriveKeyPreimage(hv, Blob(pID, nID));
-		DerivePk(pubKey, hv);
+		ECC::Point::Native pt;
+		DerivePkInternal(pt, Blob(pID, nID));
+		pt.Export(pubKey);
+	}
+
+	BVM_METHOD(get_Pk)
+	{
+		DerivePkInternal(m_Secp.m_Point.FindStrict(res).m_Val, Blob(get_AddrR(pID, nID), nID));
+	}
+	BVM_METHOD_HOST(get_Pk)
+	{
+		DerivePkInternal(m_Secp.m_Point.FindStrict(Secp::Point::From(res)).m_Val, Blob(pID, nID));
 	}
 
 	void ProcessorManager::DeriveKeyPreimage(ECC::Hash::Value& hv, const Blob& b)
@@ -2376,6 +2608,122 @@ namespace bvm2 {
 			<< "bvm.m.key"
 			<< b
 			>> hv;
+	}
+
+	BVM_METHOD(get_PkEx)
+	{
+		ECC::Hash::Value hv;
+		DeriveKeyPreimage(hv, Blob(get_AddrR(pID, nID), nID));
+		get_DH_Internal(res, hv, gen);
+	}
+	BVM_METHOD_HOST(get_PkEx)
+	{
+		ECC::Hash::Value hv;
+		DeriveKeyPreimage(hv, Blob(pID, nID));
+		get_DH_Internal(Secp::Point::From(res), hv, Secp::Point::From(gen));
+	}
+
+	BVM_METHOD(get_SlotImage)
+	{
+		ECC::Hash::Value hv;
+		get_SlotPreimageInternal(hv, iSlot);
+
+		Wasm::Test(m_pPKdf != nullptr);
+		m_pPKdf->DerivePKeyG(m_Secp.m_Point.FindStrict(res).m_Val, hv);
+
+	}
+	BVM_METHOD_HOST_AUTO(get_SlotImage)
+
+	void ProcessorManager::get_DH_Internal(uint32_t res, const ECC::Hash::Value& hv, uint32_t gen)
+	{
+		Wasm::Test(m_pKdf != nullptr);
+		ECC::Scalar::Native sk;
+		m_pKdf->DeriveKey(sk, hv);
+
+		// careful: res and gen may not be distinct
+		ECC::Point::Native pt = m_Secp.m_Point.FindStrict(gen).m_Val * sk;
+		m_Secp.m_Point.FindStrict(res).m_Val = pt;
+	}
+
+	BVM_METHOD(get_SlotImageEx)
+	{
+		ECC::Hash::Value hv;
+		get_SlotPreimageInternal(hv, iSlot);
+
+		get_DH_Internal(res, hv, gen);
+	}
+	BVM_METHOD_HOST_AUTO(get_SlotImageEx)
+
+	BVM_METHOD(SlotInit)
+	{
+		OnHost_SlotInit(get_AddrR(pExtraSeed, nExtraSeed), nExtraSeed, iSlot);
+	}
+
+	BVM_METHOD_HOST(SlotInit)
+	{
+		Wasm::Test(iSlot < Shaders::s_NonceSlots);
+
+		ECC::Hash::Value hv;
+		SlotRenegerateInternal(hv, iSlot, pExtraSeed, nExtraSeed);
+	}
+
+	BVM_METHOD(get_BlindSk)
+	{
+		get_BlindSkInternal(res, mul, iSlot, Blob(get_AddrR(pID, nID), nID));
+	}
+	BVM_METHOD_HOST(get_BlindSk)
+	{
+		get_BlindSkInternal(Secp::Scalar::From(res), Secp::Scalar::From(mul), iSlot, Blob(pID, nID));
+	}
+
+	void ProcessorManager::get_SlotPreimageInternal(ECC::Hash::Value& hv, uint32_t iSlot)
+	{
+		Wasm::Test(iSlot < Shaders::s_NonceSlots);
+
+		if (!SlotLoad(hv, iSlot))
+			SlotRenegerateInternal(hv, iSlot, nullptr, 0);
+	}
+
+	void ProcessorManager::SlotRenegerateInternal(ECC::Hash::Value& hvRes, uint32_t iSlot, const void* pSeedExtra, uint32_t nSeedExtra)
+	{
+		ECC::GenRandom(hvRes);
+
+		if (nSeedExtra)
+		{
+			ECC::Hash::Processor()
+				<< "bvm.slot.seed"
+				<< Blob(pSeedExtra, nSeedExtra)
+				<< hvRes
+				>> hvRes;
+		}
+
+		SlotSave(hvRes, iSlot);
+	}
+
+	void ProcessorManager::get_Sk(ECC::Scalar::Native& sk, const ECC::Hash::Value& hv)
+	{
+		Wasm::Test(m_pKdf != nullptr);
+		m_pKdf->DeriveKey(sk, hv);
+	}
+
+	void ProcessorManager::get_BlindSkInternal(uint32_t iRes, uint32_t iMul, uint32_t iSlot, const Blob& b)
+	{
+		ECC::Hash::Value hv;
+		DeriveKeyPreimage(hv, b);
+
+		// careful, iRes, iMul don't have to be distinct
+		ECC::Scalar::Native sk;
+		get_Sk(sk, hv);
+
+		sk *= m_Secp.m_Scalar.FindStrict(iMul).m_Val;
+
+		get_SlotPreimageInternal(hv, iSlot);
+		SlotErase(iSlot); // important!
+
+		auto& res = m_Secp.m_Scalar.FindStrict(iRes).m_Val;
+
+		get_Sk(res, hv);
+		res += sk;
 	}
 
 	uint8_t* ProcessorManager::ResizeAux(uint32_t nSize)
@@ -2506,8 +2854,17 @@ namespace bvm2 {
 		}
 
 		uint32_t nSrcLen = static_cast<uint32_t>(pVal->size());
+		const char* str = pVal->c_str();
+		// ignore hex prefix "0x"
+		if (nSrcLen > 2 && str[0] == '0' && tolower(str[1]) == 'x')
+		{
+			const uint32_t nPrefixLen = 2;
+			nSrcLen -= nPrefixLen;
+			str += nPrefixLen;
+		}
+		
 		uint32_t nMax = nLen * 2;
-		uint32_t nRes = uintBigImpl::_Scan(reinterpret_cast<uint8_t*>(pOut), pVal->c_str(), std::min(nSrcLen, nMax));
+		uint32_t nRes = uintBigImpl::_Scan(reinterpret_cast<uint8_t*>(pOut), str, std::min(nSrcLen, nMax));
 
 		// if src len is bigger than the requested size - return the src size
 		// if parsed less than requested - return size parsed.
@@ -2545,7 +2902,7 @@ namespace bvm2 {
 		if (!pVal)
 			return 0;
 
-		*pOut = atoll(pVal->c_str());
+		*pOut = strtoull(pVal->c_str(), nullptr, 0);
 		return sizeof(*pOut); // ignore errors
 	}
 
@@ -2629,10 +2986,11 @@ namespace bvm2 {
 		};
 #pragma pack (pop)
 
-		auto* pSig_ = get_ArrayAddrAsR<SigRequest>(pSig, nSig);
+		const FundsChange* pFunds_ = get_ArrayAddrAsR<FundsChange>(pFunds, nFunds);
+		auto& v = GenerateKernel(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, iMethod, Blob(get_AddrR(pArg, nArg), nArg), pFunds_, nFunds, true, RealizeStr(szComment), nCharge);
 
-		std::vector<ECC::Hash::Value> vPreimages;
-		vPreimages.reserve(nSig);
+		auto* pSig_ = get_ArrayAddrAsR<SigRequest>(pSig, nSig);
+		v.m_vSig.reserve(nSig);
 
 		for (uint32_t i = 0; i < nSig; i++)
 		{
@@ -2640,32 +2998,219 @@ namespace bvm2 {
 			SigRequest x;
 			x.m_pID = Wasm::from_wasm(x_.m_pID);
 			x.m_nID = Wasm::from_wasm(x_.m_nID);
-			DeriveKeyPreimage(vPreimages.emplace_back(), Blob(get_AddrR(x.m_pID, x.m_nID), x.m_nID));
+			DeriveKeyPreimage(v.m_vSig.emplace_back(), Blob(get_AddrR(x.m_pID, x.m_nID), x.m_nID));
 		}
 
-		FundsChange* pFunds_ = Cast::NotConst(get_ArrayAddrAsR<FundsChange>(pFunds, nFunds));
-		for (uint32_t i = 0; i < nFunds; i++)
-			pFunds_[i].Convert<true>();
-
-		Wasm::Test(pCid || !iMethod); // only c'tor can be invoked without cid
-
-		GenerateKernel(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, iMethod, Blob(get_AddrR(pArg, nArg), nArg), pFunds_, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig, RealizeStr(szComment), nCharge);
-
-		for (uint32_t i = 0; i < nFunds; i++)
-			pFunds_[i].Convert<false>();
 	}
 	BVM_METHOD_HOST(GenerateKernel)
 	{
-		std::vector<ECC::Hash::Value> vPreimages;
-		vPreimages.reserve(nSig);
+		auto& v = GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, false, szComment, nCharge);
+
+		v.m_vSig.reserve(nSig);
 
 		for (uint32_t i = 0; i < nSig; i++)
 		{
 			const auto& x = pSig[i];
-			DeriveKeyPreimage(vPreimages.emplace_back(), Blob(x.m_pID, x.m_nID));
+			DeriveKeyPreimage(v.m_vSig.emplace_back(), Blob(x.m_pID, x.m_nID));
+		}
+	}
+
+	Height ProcessorManager::get_Height()
+	{
+		EnsureContext();
+		return m_Context.m_Height;
+	}
+
+	void ProcessorManager::EnsureContext()
+	{
+		if (MaxHeight == m_Context.m_Height)
+		{
+			SelectContext(false, 0);
+			Wasm::Test(MaxHeight != m_Context.m_Height);
+		}
+	}
+
+	ContractInvokeEntry& ProcessorManager::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, bool bCvtFunds, const char* szComment, uint32_t nCharge)
+	{
+		bool bFirst = m_vInvokeData.empty();
+		auto& v = m_vInvokeData.emplace_back();
+
+		if (iMethod)
+		{
+			Wasm::Test(pCid != nullptr); // only c'tor can be invoked without cid
+			v.m_Cid = *pCid;
+		}
+		else
+		{
+			v.m_Cid = Zero;
+			get_ContractShader(v.m_Data);
 		}
 
-		GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, vPreimages.empty() ? nullptr : &vPreimages.front(), nSig, szComment, nCharge);
+		v.m_iMethod = iMethod;
+		args.Export(v.m_Args);
+		v.m_sComment = szComment;
+		v.m_Charge = nCharge;
+		v.m_Flags = 0;
+
+		if (m_Context.m_pParent && bFirst)
+		{
+			v.m_Flags |= ContractInvokeEntry::Flags::Dependent;
+			v.m_ParentCtx.m_Height = m_Context.m_Height + 1;
+			v.m_ParentCtx.m_Hash = *m_Context.m_pParent;
+		}
+
+		for (uint32_t i = 0; i < nFunds; i++)
+		{
+			auto x = pFunds[i];
+			if (bCvtFunds)
+				x.Convert<false>();
+
+			AmountSigned val = x.m_Amount;
+			if (!x.m_Consume)
+				val = -val;
+
+			v.m_Spend.AddSpend(x.m_Aid, val);
+		}
+
+		return v;
+	}
+
+	void ProcessorManager::SetKernelAdv(Height hMin, Height hMax, const PubKey& ptFullBlind, const PubKey& ptFullNonce, const ECC::Scalar& skForeignSig, uint32_t iSlotBlind, uint32_t iSlotNonce, const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE)
+	{
+		assert(!m_vInvokeData.empty());
+		auto& v = m_vInvokeData.back();
+
+		v.m_Adv.m_Height.m_Min = hMin;
+		v.m_Adv.m_Height.m_Max = hMax;
+
+		v.m_Adv.m_Fee = v.get_FeeMin(hMin);
+		v.m_Flags |= ContractInvokeEntry::Flags::Adv;
+
+		Key::IKdf* pKdf = nullptr;
+		ECC::Hash::Value hvNonce;
+
+
+		if (!pE)
+		{
+			Wasm::Test(m_pKdf != nullptr);
+			pKdf = m_pKdf.get();
+
+			get_SlotPreimageInternal(v.m_Adv.m_hvSk, iSlotBlind);
+			SlotErase(iSlotBlind);
+
+			get_SlotPreimageInternal(hvNonce, iSlotNonce);
+			SlotErase(iSlotNonce);
+		}
+
+		v.GenerateAdv(pKdf, pE, ptFullBlind, ptFullNonce, &hvNonce, &skForeignSig, pSig, nSig);
+
+		if (pE)
+			m_vInvokeData.pop_back(); // no more needed
+	}
+
+	BVM_METHOD(GenerateKernelAdvanced)
+	{
+		const FundsChange* pFunds_ = get_ArrayAddrAsR<FundsChange>(pFunds, nFunds);
+		GenerateKernel(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, iMethod, Blob(get_AddrR(pArg, nArg), nArg), pFunds_, nFunds, true, RealizeStr(szComment), nCharge);
+
+		const PubKey* pSig_ = get_ArrayAddrAsR<PubKey>(pSig, nSig);
+		ECC::Scalar* pE = pChallenges ? get_ArrayAddrAsW<ECC::Scalar>(pChallenges, nSig) : nullptr;
+
+		SetKernelAdv(hMin, hMax,  get_AddrAsR<PubKey>(ptFullBlind), get_AddrAsR<PubKey>(ptFullNonce), get_AddrAsR<ECC::Scalar>(skForeignSig), iSlotBlind, iSlotNonce, pSig_, nSig, pE);
+	}
+
+	BVM_METHOD_HOST(GenerateKernelAdvanced)
+	{
+		GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, false, szComment, nCharge);
+		SetKernelAdv(hMin, hMax, ptFullBlind, ptFullNonce, skForeignSig, iSlotBlind, iSlotNonce, pSig, nSig, pChallenges);
+	}
+
+	BVM_METHOD(GenerateRandom)
+	{
+		OnHost_GenerateRandom(get_AddrW(pBuf, nSize), nSize);
+	}
+	BVM_METHOD_HOST(GenerateRandom)
+	{
+		ECC::GenRandom(pBuf, nSize);
+	}
+
+	BVM_METHOD(Comm_Listen)
+	{
+		OnHost_Comm_Listen(get_AddrR(pID, nID), nID, nCookie);
+	}
+	BVM_METHOD_HOST(Comm_Listen)
+	{
+		auto it = m_Comms.m_Map.find(nCookie, Comm::Channel::Comparator());
+		if (m_Comms.m_Map.end() == it)
+		{
+			if (nID)
+			{
+				ECC::Hash::Value hv;
+				DeriveKeyPreimage(hv, Blob(pID, nID));
+
+				Comm::Channel::Ptr pCh;
+				Comm_CreateListener(pCh, hv);
+
+				if (pCh)
+				{
+					pCh->m_Key = nCookie;
+					m_Comms.m_Map.insert(*pCh.release());
+				}
+			}
+		}
+		else
+		{
+			Wasm::Test(!nID);
+			m_Comms.m_Map.Delete(*it);
+		}
+	}
+	BVM_METHOD(Comm_Send)
+	{
+		OnHost_Comm_Send(get_AddrAsR<PubKey>(pkRemote), get_AddrR(pBuf, nSize), nSize);
+	}
+	BVM_METHOD_HOST(Comm_Send)
+	{
+		Comm_Send(pkRemote, Blob(pBuf, nSize));
+	}
+	BVM_METHOD(Comm_Read)
+	{
+		uint32_t* pCookie_ = pCookie ? &get_AddrAsW<uint32_t>(pCookie) : nullptr;
+		auto nRet = OnHost_Comm_Read(get_AddrW(pBuf, nSize), nSize, pCookie_, bKeep);
+
+		if (nRet && pCookie_)
+			*pCookie_ = Wasm::to_wasm(*pCookie_);
+
+		return nRet;
+	}
+	BVM_METHOD_HOST(Comm_Read)
+	{
+		if (m_Comms.m_Rcv.empty())
+			return 0;
+
+		auto& x = m_Comms.m_Rcv.front().get_ParentObj();
+
+		uint32_t nRet = static_cast<uint32_t>(x.m_Msg.size());
+		if (nRet)
+			memcpy(pBuf, &x.m_Msg.front(), std::min(nRet, nSize));
+
+		auto& c = *x.m_pChannel;
+		if (pCookie)
+			*pCookie = c.m_Key;
+
+		if (!bKeep)
+			c.m_List.Delete(x);
+
+		return nRet;
+	}
+
+	BVM_METHOD(Comm_WaitMsg)
+	{
+		return OnHost_Comm_WaitMsg(nTimeout_ms);
+	}
+	BVM_METHOD_HOST(Comm_WaitMsg)
+	{
+		if (m_Comms.m_Rcv.empty())
+			Comm_Wait(nTimeout_ms);
 	}
 
 #undef BVM_METHOD_BinaryVar
@@ -2679,19 +3224,22 @@ namespace bvm2 {
 
 	bool ProcessorContract::LoadFixedOrZero(const VarKey& vk, uint8_t* pVal, uint32_t n)
 	{
-		uint32_t n0 = n;
-		LoadVar(vk, pVal, n);
+		Blob res;
+		LoadVar(vk.ToBlob(), res);
 
-		if (n == n0)
+		if (n == res.n)
+		{
+			memcpy(pVal, res.p, n);
 			return true;
+		}
 
-		memset0(pVal, n0);
+		memset0(pVal, n);
 		return false;
 	}
 
 	uint32_t ProcessorContract::SaveNnz(const VarKey& vk, const uint8_t* pVal, uint32_t n)
 	{
-		return SaveVar(vk, pVal, memis0(pVal, n) ? 0 : n);
+		return SaveVar(vk.ToBlob(), Blob(pVal, memis0(pVal, n) ? 0 : n));
 	}
 
 	void ProcessorContract::HandleAmount(Amount amount, Asset::ID aid, bool bLock)
@@ -2786,10 +3334,10 @@ namespace bvm2 {
 			if (bAdd)
 			{
 				// make sure the target contract exists
-				uint32_t nData = 0;
-				LoadVar(vk2, nullptr, nData);
+				Blob res;
+				LoadVar(vk2.ToBlob(), res);
 
-				if (!nData)
+				if (!res.n)
 				{
 					HandleRefRaw(vk, false); // undo
 					return 0;
@@ -2844,6 +3392,62 @@ namespace bvm2 {
 		cfg.m_nKeys = static_cast<uint32_t>(m_vPks.size());
 
 		Wasm::Test(Cast::Down<ECC::SignatureBase>(sig).IsValid(cfg, hv, &sig.m_k, &m_vPks.front()));
+	}
+
+	/////////////////////////////////////////////
+	// Shader aux
+	void ProcessorContract::AddRemoveShader(const ContractID& cid, const Blob* pCode)
+	{
+		AddRemoveShader(cid, pCode, IsPastHF4());
+	}
+
+	void ProcessorContract::AddRemoveShader(const ContractID& cid, const Blob* pCode, bool bFireEvent)
+	{
+		ShaderID sid;
+
+		if (pCode)
+		{
+			SaveVar(cid, *pCode);
+			get_ShaderID(sid, *pCode);
+		}
+		else
+		{
+			Blob res;
+			LoadVar(cid, res);
+
+			get_ShaderID(sid, res);
+			SaveVar(cid, Blob(nullptr, 0));
+		}
+
+		ToggleSidEntry(sid, cid, !!pCode);
+
+		if (bFireEvent)
+		{
+			VarKey vk;
+			vk.Set(cid);
+
+			vk.Append(VarKey::Tag::ShaderChange, Blob(nullptr, 0));
+			OnLog(vk.ToBlob(), pCode ? Blob(sid) : Blob(nullptr, 0));
+		}
+	}
+
+	void ProcessorContract::ToggleSidEntry(const ShaderID& sid, const ContractID& cid, bool bSet)
+	{
+		uint8_t pKey[ContractID::nBytes * 2 + ShaderID::nBytes + 1];
+		memset0(pKey, ContractID::nBytes);
+		pKey[ContractID::nBytes] = VarKey::Tag::SidCid;
+		memcpy(pKey + ContractID::nBytes + 1, sid.m_pData, sid.nBytes);
+		memcpy(pKey + ContractID::nBytes + 1 + ShaderID::nBytes, cid.m_pData, cid.nBytes);
+
+		Blob blob(pKey, ContractID::nBytes * 2 + bvm2::ShaderID::nBytes + 1);
+
+		if (bSet)
+		{
+			auto h = uintBigFrom(get_Height() + 1);
+			SaveVar(blob, h);
+		}
+		else
+			SaveVar(blob, Blob(nullptr, 0));
 	}
 
 	/////////////////////////////////////////////

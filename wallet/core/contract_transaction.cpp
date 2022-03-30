@@ -66,28 +66,46 @@ namespace beam::wallet
     void ContractTransaction::UpdateImpl()
     {
         if (!m_TxBuilder)
-        {
             m_TxBuilder = std::make_shared<MyBuilder>(*this, kDefaultSubTxID);
-            std::setmax(m_TxBuilder->m_Fee, Transaction::FeeSettings::get(m_TxBuilder->m_Height.m_Min).get_DefaultStd());
-        }
+
         auto& builder = *m_TxBuilder;
 
         Key::IKdf::Ptr pKdf = get_MasterKdfStrict();
+
+        bvm2::ContractInvokeData vData;
+        GetParameter(TxParameterID::ContractDataPacked, vData, GetSubTxID());
+
+        const HeightHash* pParentCtx = nullptr;
+        for (uint32_t i = 0; i < vData.size(); i++)
+        {
+            const auto& cdata = vData[i];
+            if (bvm2::ContractInvokeEntry::Flags::Dependent & cdata.m_Flags)
+            {
+                pParentCtx = &cdata.m_ParentCtx;
+                break;
+            }
+        }
 
         auto s = GetState<State>();
         if (State::Initial == s)
         {
             UpdateTxDescription(TxStatus::InProgress);
 
-            Block::SystemState::Full sTip;
-            if (GetTip(sTip))
+            if (pParentCtx)
             {
-                builder.m_Height.m_Max = sTip.m_Height + kDefaultTxLifetime;
+                builder.m_Height = pParentCtx->m_Height;
+                SetParameter(TxParameterID::MinHeight, builder.m_Height.m_Min, GetSubTxID());
                 SetParameter(TxParameterID::MaxHeight, builder.m_Height.m_Max, GetSubTxID());
             }
-
-            bvm2::ContractInvokeData vData;
-            GetParameter(TxParameterID::ContractDataPacked, vData, GetSubTxID());
+            else
+            {
+                Block::SystemState::Full sTip;
+                if (GetTip(sTip))
+                {
+                    builder.m_Height.m_Max = sTip.m_Height + 20; // 20 blocks - standard contract tx life time
+                    SetParameter(TxParameterID::MaxHeight, builder.m_Height.m_Max, GetSubTxID());
+                }
+            }
 
             if (vData.empty())
                 throw TransactionFailedException(false, TxFailureReason::Unknown);
@@ -98,9 +116,15 @@ namespace beam::wallet
             {
                 const auto& cdata = vData[i];
 
-                Amount fee = cdata.get_FeeMin(builder.m_Height.m_Min);
-                if (!i)
-                    fee += builder.m_Fee;
+                Amount fee;
+                if (cdata.IsAdvanced())
+                    fee = cdata.m_Adv.m_Fee; // can't change!
+                else
+                {
+                    fee = cdata.get_FeeMin(builder.m_Height.m_Min);
+                    if (!i)
+                        std::setmax(fee, builder.m_Fee);
+                }
 
                 cdata.Generate(*builder.m_pTransaction, *pKdf, builder.m_Height, fee);
 
@@ -142,7 +166,7 @@ namespace beam::wallet
                 if (CheckExpired())
                     return;
 
-                GetGateway().register_tx(GetTxID(), builder.m_pTransaction);
+                GetGateway().register_tx(GetTxID(), builder.m_pTransaction, pParentCtx ? &pParentCtx->m_Hash : nullptr);
                 SetState(State::Registration);
                 return;
             }

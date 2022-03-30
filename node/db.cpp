@@ -1319,7 +1319,7 @@ void NodeDB::OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height h, bool b
 				rs.get(1, nFlags);
 				assert(StateFlags::Functional & nFlags);
 				assert(!(StateFlags::Reachable & nFlags) == b);
-				rows.push_back(RowAndFlags(rowid, nFlags));
+				rows.emplace_back(rowid, nFlags);
 			}
 		}
 
@@ -2983,6 +2983,17 @@ bool NodeDB::ContractDataFind(const Blob& key, Blob& data, Recordset& rs)
 bool NodeDB::ContractDataFindNext(Blob& key, Recordset& rs)
 {
 	rs.Reset(*this, Query::ContractDataFindNext, "SELECT " TblContracts_Key " FROM " TblContracts " WHERE " TblContracts_Key ">?");
+	rs.put(0, key);
+	if (!rs.Step())
+		return false;
+
+	rs.get(0, key);
+	return true;
+}
+
+bool NodeDB::ContractDataFindPrev(Blob& key, Recordset& rs)
+{
+	rs.Reset(*this, Query::ContractDataFindPrev, "SELECT " TblContracts_Key " FROM " TblContracts " WHERE " TblContracts_Key "<?");
 	rs.put(0, key);
 	if (!rs.Step())
 		return false;

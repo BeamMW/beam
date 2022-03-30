@@ -4,22 +4,13 @@ const client = new net.Socket();
 client.setEncoding('utf8')
 client.connect(10000, '127.0.0.1', function() {
 	console.log('Connected')
-	/*client.write(JSON.stringify(
-		{
-			jsonrpc: '2.0',
-			id: 'ev_subscribe',
-			method: 'addr_list',
-			params: {
-				//"asset_id": 1
-			}
-		}) + '\n')*/
 	client.write(JSON.stringify(
 		{
 			jsonrpc: '2.0',
 			id: 'get_utxo',
 			method: 'ev_subunsub',
 			params: {
-				'ev_utxos_changed': true
+				'ev_system_state': true
 			}
 		}) + '\n')
 })

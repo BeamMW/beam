@@ -17,6 +17,10 @@ add_subdirectory(sqlite)
 add_subdirectory(crypto/blake)
 add_subdirectory(libuv)
 
+if(BEAM_IPFS_SUPPORT)
+    add_subdirectory(asio-ipfs)
+endif()
+
 add_subdirectory(libelfin/dwarf)
 set(CPPDAP_BUILD_TESTS Off)
 set(CPPDAP_JSON_DIR nlohmann)

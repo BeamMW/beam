@@ -15,6 +15,7 @@
 #pragma once
 
 #include "wallet/core/base_transaction.h"
+#include <functional>
 
 namespace beam::wallet::lelantus
 {
@@ -28,25 +29,26 @@ namespace beam::wallet::lelantus
         class Creator : public BaseTransaction::Creator
         {
         public:
-            Creator(IWalletDB::Ptr walletDB) 
-                : m_walletDB(walletDB)
+            using DbProvider = std::function<IWalletDB::Ptr ()>;// lazy db provider func
+            Creator(DbProvider&& func)
+                : m_dbFunc(std::move(func))
                 {}
 
         private:
             BaseTransaction::Ptr Create(const TxContext& context) override;
 
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
-            IWalletDB::Ptr m_walletDB;
+
+            DbProvider m_dbFunc;
         };
 
-    public:
-        PushTransaction(const TxContext& context);
+        explicit PushTransaction(const TxContext& context);
 
     private:
         bool IsInSafety() const override;
         void UpdateImpl() override;
         void RollbackTx() override;
-    private:
+
         std::shared_ptr<PushTxBuilder> m_TxBuilder;
         TxoID m_OutpID = 0;
         Height m_OutpHeight = 0;

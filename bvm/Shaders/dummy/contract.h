@@ -106,6 +106,21 @@ namespace Dummy
         // followed by the proof
     };
 
+    struct MathTest2
+    {
+        static const uint32_t s_iMethod = 13;
+
+        MultiPrecision::UInt<5> m_Nom;
+        MultiPrecision::UInt<4> m_Denom;
+        MultiPrecision::UInt<5> m_Quotient;
+        MultiPrecision::UInt<5> m_Resid;
+    };
+
+    struct FindVarTest
+    {
+        static const uint32_t s_iMethod = 14;
+    };
+
 #pragma pack (pop)
 
 }

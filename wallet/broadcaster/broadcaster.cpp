@@ -23,6 +23,7 @@
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_msg_creator.h"
 #include "wallet/client/extensions/news_channels/interface.h"
+#include "wallet/core/strings_resources.h"
 
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
@@ -130,10 +131,31 @@ bool parseExchangeRateInfo(const std::string& from, const std::string& to, const
     return true;
 }
 
+bool parseVerificationInfo(Asset::ID aid, bool verified, const std::string& icon, const std::string& color, std::vector<VerificationInfo>& result)
+{
+    if (aid == beam::Asset::s_BeamID)
+    {
+        return false;
+    }
+
+    result = {{aid, verified, icon, color, getTimestamp()}};
+    return true;
+}
+
 ByteBuffer generateExchangeRates(const std::string& from, const std::string& to, const Amount& rate)
 {
     std::vector<ExchangeRate> result;
     if (parseExchangeRateInfo(from, to, rate, result))
+    {
+        return toByteBuffer(result);
+    }
+    return ByteBuffer();
+}
+
+ByteBuffer generateAssetVerification(Asset::ID aid, bool verified, const std::string& icon, const std::string& color)
+{
+    std::vector<VerificationInfo> result;
+    if (parseVerificationInfo(aid, verified, icon, color, result))
     {
         return toByteBuffer(result);
     }
@@ -162,6 +184,13 @@ namespace
             std::string  to;
             beam::Amount rate;
         } exchangeRate;
+
+        struct AssetVerification {
+            Nonnegative<Asset::ID> aid;
+            bool verified;
+            std::string predefinedIcon;
+            std::string predefinedColor;
+        } averify;
     };
 
     class MyFlyClient 
@@ -180,12 +209,33 @@ namespace
         Block::SystemState::HistoryMap m_Headers;
     };
 
+    struct MyNetwork final : public proto::FlyClient::NetworkStd
+    {
+        using proto::FlyClient::NetworkStd::NetworkStd;
+        void OnConnectionFailed(const proto::NodeConnection::DisconnectReason& reason) override
+        {
+            LOG_ERROR() << kErrorConnectionFailed << ", reason: " << reason;
+        };
+    };
+
+    struct MyTimestampHolder : ITimestampHolder
+    {
+        Timestamp GetTimestamp(BbsChannel channel) override
+        {
+            return 0;
+        }
+        void UpdateTimestamp(const proto::BbsMsg& msg) override
+        {
+
+        }
+    };
+
     class MyBbsSender
         : public IWalletMessageEndpoint
-        , private wallet::BbsSender
+        , private wallet::BbsProcessor
     {
     public:
-        using BbsSender::BbsSender;
+        using BbsProcessor::BbsProcessor;
 
         void Send(const WalletID& peerID, const SetTxParameter& msg) override
         {
@@ -194,7 +244,7 @@ namespace
         
         void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override
         {
-            BbsSender::Send(peerID, msg, 0);
+            BbsProcessor::Send(peerID, msg, 0);
         }
 
         void OnMessageSent(uint64_t id) override
@@ -288,7 +338,7 @@ namespace
         }
 
         MyFlyClient client;
-        auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(client);
+        auto nnet = std::make_shared<MyNetwork>(client);
 
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
         
@@ -309,9 +359,10 @@ namespace
         nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
         nnet->Connect();
 
-        MyBbsSender wnet(nnet);
+        auto tsHolder = std::make_shared<MyTimestampHolder>();
+        MyBbsSender wnet(nnet, tsHolder);
 
-        BroadcastRouter broadcastRouter(*nnet, wnet);
+        BroadcastRouter broadcastRouter(nnet, wnet, tsHolder);
 
         ECC::Scalar::Native key;
         if (!BroadcastMsgCreator::stringToPrivateKey(options.privateKey, key))
@@ -325,16 +376,24 @@ namespace
         WalletImplVerInfo walletVersionInfo;
         if (options.messageType == "update")
         {
-            bool res =
-                parseWalletUpdateInfo(options.walletUpdateInfo.version, options.walletUpdateInfo.walletType, walletVersionInfo);
-            if (res)
-                rawMessage = toByteBuffer(walletVersionInfo);
             contentType = BroadcastContentType::WalletUpdates;
+            if(parseWalletUpdateInfo(options.walletUpdateInfo.version, options.walletUpdateInfo.walletType, walletVersionInfo))
+            {
+                rawMessage = toByteBuffer(walletVersionInfo);
+            }
         }
         else if (options.messageType == "exchange")
         {
-            rawMessage = generateExchangeRates(options.exchangeRate.from, options.exchangeRate.to, options.exchangeRate.rate);
             contentType = BroadcastContentType::ExchangeRates;
+            rawMessage = generateExchangeRates(options.exchangeRate.from, options.exchangeRate.to, options.exchangeRate.rate);
+        }
+        else if (options.messageType == "averify")
+        {
+            contentType = BroadcastContentType::AssetVerification;
+            rawMessage  = generateAssetVerification(options.averify.aid.value,
+                                                    options.averify.verified,
+                                                    options.averify.predefinedIcon,
+                                                    options.averify.predefinedColor);
         }
         else
         {
@@ -371,7 +430,7 @@ namespace
     }
 }
 
-int main_impl(int argc, char* argv[])
+int main(int argc, char* argv[])
 {
     using namespace beam;
     namespace po = boost::program_options;
@@ -408,6 +467,10 @@ int main_impl(int argc, char* argv[])
 #endif // BITCOIN_CASH_SUPPORT)
                 (cli::EXCHANGE_RATE, po::value<Amount>(&options.exchangeRate.rate), "exchange rate in decimal format: 100,000,000 = 1 usd")
                 (cli::EXCHANGE_UNIT, po::value<std::string>(&options.exchangeRate.to)->default_value("usd"), "unit currency: 'btc', 'usd'")
+                (cli::ASSET_ID, po::value<Nonnegative<uint32_t>>(&options.averify.aid), "asset id")
+                (cli::VERIFIED, po::value<bool>(&options.averify.verified), "asset verification status")
+                (cli::PREDEFINED_ICON, po::value<std::string>(&options.averify.predefinedIcon), "predefined asset icon")
+                (cli::PREDEFINED_COLOR, po::value<std::string>(&options.averify.predefinedColor), "predefined asset color")
             ;
             
             desc.add(messageDesc);
@@ -476,28 +539,4 @@ int main_impl(int argc, char* argv[])
     }
 
     return 0;
-}
-
-int main(int argc, char* argv[]) {
-#ifdef _WIN32
-    return main_impl(argc, argv);
-#else
-    block_sigpipe();
-    auto f = std::async(
-        std::launch::async,
-        [argc, argv]() -> int {
-            // TODO: this hungs app on OSX
-            //lock_signals_in_this_thread();
-            int ret = main_impl(argc, argv);
-            kill(0, SIGINT);
-            return ret;
-        }
-    );
-
-    wait_for_termination(0);
-
-    if (reactor) reactor->stop();
-
-    return f.get();
-#endif
 }

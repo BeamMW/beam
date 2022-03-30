@@ -7,3 +7,4 @@ content-type: application/json-rpc
     "id" : 1,
     "method" : "get_version"
 }
+

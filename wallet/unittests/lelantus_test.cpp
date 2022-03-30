@@ -86,6 +86,95 @@ namespace
     }
 }
 
+void TestMaxPrivacyAndOffline()
+{
+    cout << "\nTest sequential maxPrivacy and offline transactions\n";
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    int completedCount = 2;
+    auto completeAction = [&mainReactor, &completedCount](auto)
+    {
+        --completedCount;
+        if (completedCount == 0)
+        {
+            mainReactor->stop();
+        }
+    };
+
+    auto senderWalletDB = createSenderWalletDB(0, 0, false, true);
+    auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
+    TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto receiverWalletDB = createReceiverWalletDB(false, true);
+    TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+
+    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=]() {return senderWalletDB; }));
+    receiver.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=]() {return receiverWalletDB; }));
+
+    TxID txID = {}, txID2 = {};
+    Node node;
+    NodeObserver observer([&]()
+    {
+        auto cursor = node.get_Processor().m_Cursor;
+        if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+        {
+            WalletAddress walletAddress;
+            receiver.m_WalletDB->createAddress(walletAddress);
+            receiver.m_WalletDB->saveAddress(walletAddress);
+            auto maxPrivacyToken = GenerateToken(TokenType::MaxPrivacy, walletAddress, receiver.m_WalletDB);
+            auto offlineToken = GenerateToken(TokenType::Offline, walletAddress, receiver.m_WalletDB, 1);
+
+            auto f = [&](const std::string& token, TxAddressType t)->TxID
+            {
+                auto p = ParseParameters(token);
+                WALLET_CHECK(p);
+                WALLET_CHECK(t == GetAddressType(token));
+                auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                    .SetParameter(TxParameterID::Amount, 18000000)
+                    .SetParameter(TxParameterID::Fee, 12000000);
+                LoadReceiverParams(*p, parameters, t);
+
+                return sender.m_Wallet->StartTransaction(parameters);
+            };
+
+            txID = f(maxPrivacyToken, TxAddressType::MaxPrivacy);
+            txID2 = f(offlineToken, TxAddressType::Offline);
+        }
+        else if (cursor.m_Sid.m_Height == 50)
+        {
+            mainReactor->stop();
+        }
+    });
+
+    InitOwnNodeToTest(node, binaryTreasury, &observer, receiver.m_WalletDB->get_MasterKdf(), 32125, 200);
+
+    mainReactor->run();
+
+    WALLET_CHECK(completedCount == 0);
+    {
+        auto txHistory = sender.m_WalletDB->getTxHistory(TxType::ALL);
+        WALLET_CHECK(txHistory.size() == 2);
+        WALLET_CHECK(txHistory[0].m_txType == TxType::PushTransaction && txHistory[0].m_status == TxStatus::Completed);
+        WALLET_CHECK(txHistory[1].m_txType == TxType::PushTransaction && txHistory[1].m_status == TxStatus::Completed);
+    }
+
+    {
+        auto txHistory = receiver.m_WalletDB->getTxHistory(TxType::ALL);
+        WALLET_CHECK(txHistory.size() == 2);
+        WALLET_CHECK(txHistory[0].m_txType == TxType::PushTransaction && txHistory[0].m_status == TxStatus::Completed);
+        WALLET_CHECK(txHistory[1].m_txType == TxType::PushTransaction && txHistory[1].m_status == TxStatus::Completed);
+
+        auto shieldedCoins = receiver.m_WalletDB->getShieldedCoins(Asset::Asset::s_BeamID);
+        WALLET_CHECK(shieldedCoins.size() == 2);
+        WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Value == 18000000);
+        WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Key.m_IsCreatedByViewer == true);
+        WALLET_CHECK(shieldedCoins[0].m_Status == ShieldedCoin::Status::Maturing);
+        WALLET_CHECK(shieldedCoins[1].m_CoinID.m_Value == 18000000);
+        WALLET_CHECK(shieldedCoins[1].m_CoinID.m_Key.m_IsCreatedByViewer == true);
+        WALLET_CHECK(shieldedCoins[1].m_Status == ShieldedCoin::Status::Available);
+    }
+}
+
 void TestTreasuryRestore()
 {
     cout << "\nTest tresury restore\n";
@@ -107,8 +196,8 @@ void TestTreasuryRestore()
     TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
     auto receiverWalletDB = createReceiverWalletDB(false, true);
     TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
-    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(senderWalletDB));
-    receiver.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(receiverWalletDB));
+    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=]() { return senderWalletDB; }));
+    receiver.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=]() { return receiverWalletDB; }));
 
     sender.m_Wallet->Rescan();
     Node node;
@@ -166,23 +255,23 @@ void TestTreasuryRestore()
         auto shieldedCoins = receiver.m_WalletDB->getShieldedCoins(Asset::Asset::s_BeamID);
         WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Value == 38000000);
         WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Key.m_IsCreatedByViewer == true);
-        WALLET_CHECK(shieldedCoins[0].m_Status == ShieldedCoin::Status::Available);
+
+        auto nStatus = shieldedCoins[0].m_Status;
+        cout << "@@@ coin status: " << static_cast<uint32_t>(nStatus) << std::endl;
+        WALLET_CHECK((ShieldedCoin::Status::Available == nStatus) || (ShieldedCoin::Status::Maturing == nStatus));
+        
     }
 }
 
-void TestUnlinkTx()
+void TestRestoreInterruption()
 {
-    cout << "\nTesting unlink funds transaction (push + pull)...\n";
+    cout << "\nTest restore interruption\n";
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    // save defaults
-    ScopedGlobalRules rules;
-    Rules::get().Shielded.m_ProofMax = { 2, 6 }; // 64
-    Rules::get().Shielded.m_ProofMin = { 2, 4 }; // 16
-
-    const int PushTxCount = 64;
-    int completedCount = PushTxCount + 1;
+    const int totalCoins = 100;
+    const int txNum = 20;
+    int completedCount = txNum;
     auto completeAction = [&mainReactor, &completedCount](auto)
     {
         --completedCount;
@@ -193,129 +282,150 @@ void TestUnlinkTx()
     };
 
     auto senderWalletDB = createSenderWalletDB(0, 0);
-    std::vector<Amount> amounts(PushTxCount, Amount(8000000000));
-    amounts.push_back(Amount(50000000));
-
+    AmountList amounts(totalCoins, Amount(50000000) );
     auto binaryTreasury = createTreasury(senderWalletDB, amounts);
     TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto receiverWalletDB = createReceiverWalletDB(false, true);
+    TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    receiver.m_Wallet->EnableBodyRequests(true);
 
-    sender.m_Wallet->RegisterTransactionType(TxType::UnlinkFunds, std::make_shared<lelantus::UnlinkFundsTransaction::Creator>());
-    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(senderWalletDB));
+    auto minerWalletDB = createSqliteWalletDB("minerWallet.db", false, true);
+    TestWalletRig miner(minerWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=]() { return senderWalletDB; }));
+    receiver.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=]() { return receiverWalletDB; }));
+    miner.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=]() { return minerWalletDB; }));
 
+    sender.m_Wallet->Rescan();
     Node node;
     NodeObserver observer([&]()
+    {
+        auto cursor = node.get_Processor().m_Cursor;
+        if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
         {
-            auto cursor = node.get_Processor().m_Cursor;
-            if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+            for (int i = 0; i < txNum; ++i)
             {
-                auto parameters = lelantus::CreateUnlinkFundsTransactionParameters(sender.m_WalletID)
-                    .SetParameter(TxParameterID::Amount, Amount(38000000))
-                    .SetParameter(TxParameterID::Fee, Amount(12000000));
+                WalletAddress walletAddress;
+                receiver.m_WalletDB->createAddress(walletAddress);
+                receiver.m_WalletDB->saveAddress(walletAddress);
+
+                auto vouchers = GenerateVoucherList(receiver.m_WalletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
+                auto newAddress = GenerateOfflineToken(walletAddress, 0, Asset::s_BeamID, vouchers, "");
+                auto p = ParseParameters(newAddress);
+                WALLET_CHECK(p);
+                auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                    .SetParameter(TxParameterID::Amount, 38000000)
+                    .SetParameter(TxParameterID::Fee, 12000000);
+
+                LoadReceiverParams(*p, parameters, TxAddressType::Offline);
 
                 sender.m_Wallet->StartTransaction(parameters);
             }
-            else if (cursor.m_Sid.m_Height == 20)
-            {
-                // fill the pool
-                for (int i = 0; i < PushTxCount; ++i)
-                {
-                    auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
-                        .SetParameter(TxParameterID::Amount, Amount(18000000))
-                        .SetParameter(TxParameterID::Fee, Amount(12000000));
+            
+        }
 
-                    sender.m_Wallet->StartTransaction(parameters);
-                }
-            }
-            else if (cursor.m_Sid.m_Height == 70)
-            {
-                mainReactor->stop();
-            }
-        });
-
-    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
-
-    mainReactor->run();
-
-    WALLET_CHECK(completedCount == 0);
-    auto txHistory = sender.m_WalletDB->getTxHistory(TxType::ALL);
-    auto it = std::find_if(txHistory.begin(), txHistory.end(), [](const auto& tx) {return  tx.m_txType == TxType::UnlinkFunds; });
-    WALLET_CHECK(it != txHistory.end());
-    const auto& tx = *it;
-    WALLET_CHECK(tx.m_txType == TxType::UnlinkFunds);
-    WALLET_CHECK(tx.m_status == TxStatus::Completed);
-    auto coins = sender.m_WalletDB->getCoinsCreatedByTx(tx.m_txId);
-    WALLET_CHECK(coins.size() == 1);
-    auto& coin = coins[0];
-    WALLET_CHECK(coin.m_ID.m_Value == 26000000);
-}
-
-void TestCancelUnlinkTx()
-{
-    cout << "\nTesting unlink funds transaction cancellation...\n";
-    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-    io::Reactor::Scope scope(*mainReactor);
-
-    // save defaults
-    ScopedGlobalRules rules;
-    Rules::get().Shielded.m_ProofMax = { 2, 6 }; // 64
-    Rules::get().Shielded.m_ProofMin = { 2, 4 }; // 16
-
-    int completedCount = 1;
-    auto completeAction = [&mainReactor, &completedCount](auto)
-    {
-        --completedCount;
-        if (completedCount == 0)
+        else if (cursor.m_Sid.m_Height == 40)
         {
             mainReactor->stop();
         }
-    };
-
-    auto senderWalletDB = createSenderWalletDB(0, 0);
-
-    auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
-    TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
-
-    sender.m_Wallet->RegisterTransactionType(TxType::UnlinkFunds, std::make_shared<lelantus::UnlinkFundsTransaction::Creator>());
-    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(senderWalletDB));
-
-    TxID txID = {0};
-    Node node;
-    NodeObserver observer([&]()
-        {
-            auto cursor = node.get_Processor().m_Cursor;
-            if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
-            {
-                auto parameters = lelantus::CreateUnlinkFundsTransactionParameters(sender.m_WalletID)
-                    .SetParameter(TxParameterID::Amount, Amount(38000000))
-                    .SetParameter(TxParameterID::Fee, Amount(12000000));
-
-                txID = sender.m_Wallet->StartTransaction(parameters);
-            }
-            else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 7)
-            {
-                sender.m_Wallet->CancelTransaction(txID);
-            }
-            else if (cursor.m_Sid.m_Height == 70)
-            {
-                mainReactor->stop();
-            }
-        });
-
-    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
+    });
+    
+    InitOwnNodeToTest(node, binaryTreasury, &observer, miner.m_WalletDB->get_OwnerKdf(), 32125, 200);
 
     mainReactor->run();
 
     WALLET_CHECK(completedCount == 0);
-    auto txHistory = sender.m_WalletDB->getTxHistory(TxType::ALL);
-    auto it = std::find_if(txHistory.begin(), txHistory.end(), [](const auto& tx) {return  tx.m_txType == TxType::UnlinkFunds; });
-    WALLET_CHECK(it != txHistory.end());
-    const auto& tx = *it;
-    WALLET_CHECK(tx.m_txType == TxType::UnlinkFunds);
-    WALLET_CHECK(tx.m_status == TxStatus::Completed);
-    auto coins = sender.m_WalletDB->getCoinsCreatedByTx(tx.m_txId);
-    WALLET_CHECK(coins.size() == 1);
-    auto& coin = coins[0];
-    WALLET_CHECK(coin.m_ID.m_Value == 26000000);
+    {
+        auto txHistory = sender.m_WalletDB->getTxHistory(TxType::ALL);
+        WALLET_CHECK(txHistory.size() == txNum);
+        WALLET_CHECK(std::all_of(txHistory.begin(), txHistory.end(), [](const auto& v) { return v.m_txType == TxType::PushTransaction && v.m_status == TxStatus::Completed; }));
+        auto coins = sender.GetCoins();
+        WALLET_CHECK(coins.size() == totalCoins);
+        std::sort(coins.begin(), coins.end(), [](const Coin& left, const Coin& right) {return left.m_ID.m_Value < right.m_ID.m_Value; });
+
+    }
+
+    {
+        auto txHistory = receiver.m_WalletDB->getTxHistory(TxType::ALL);
+        WALLET_CHECK(txHistory.size() == txNum);
+      
+    }
+
+
+    struct InterruptObserver : public wallet::IWalletObserver
+    {
+        void onSyncProgress(int done, int total) override
+        { 
+            if (done == total && total == 0)
+            {
+                std::cout << "Sync completed" << std::endl;
+                io::Reactor::get_Current().stop();
+                return;
+            }
+            int p = static_cast<int>((done * 100) / total);
+            if (p >= 50)
+            {
+                std::cout << "Interrupting on " << p << "%" << std::endl;
+                io::Reactor::get_Current().stop();
+            }
+        }
+    };
+
+    struct SyncObserver : public wallet::IWalletObserver
+    {
+        void onSyncProgress(int done, int total) override
+        {
+            if (done == total && total == 0)
+            {
+                std::cout << "Sync completed" << std::endl;
+                io::Reactor::get_Current().stop();
+            }
+        }
+    };
+
+    InterruptObserver ob;
+    receiver.m_Wallet->Subscribe(&ob);
+    receiver.m_Wallet->Rescan();
+    mainReactor->run();
+    receiver.m_Wallet->Unsubscribe(&ob);
+    SyncObserver ob2;
+    receiver.m_Wallet->Subscribe(&ob2);
+    std::cout << "Resuming..." << std::endl;
+    mainReactor->run();
+    receiver.m_Wallet->Unsubscribe(&ob2);
+    {
+        auto txHistory = receiver.m_WalletDB->getTxHistory(TxType::ALL);
+        WALLET_CHECK(txHistory.size() == txNum);
+        WALLET_CHECK(txHistory[0].m_txType == TxType::PushTransaction && txHistory[0].m_status == TxStatus::Completed);
+        auto shieldedCoins = receiver.m_WalletDB->getShieldedCoins(Asset::Asset::s_BeamID);
+        WALLET_CHECK(shieldedCoins.size() == txNum);
+        for (const auto& sc : shieldedCoins)
+        {
+            WALLET_CHECK(sc.m_CoinID.m_Value == 38000000);
+            WALLET_CHECK(sc.m_CoinID.m_Key.m_IsCreatedByViewer == true);
+            WALLET_CHECK(sc.m_Status == ShieldedCoin::Status::Available);
+        }
+    }
+    completedCount = 2;
+    receiver.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
+        .SetParameter(TxParameterID::MyID, receiver.m_WalletID)
+        .SetParameter(TxParameterID::PeerID, sender.m_WalletID)
+        .SetParameter(TxParameterID::Amount, Amount(txNum * 37000000))
+        .SetParameter(TxParameterID::Fee, Amount(1000000))
+        .SetParameter(TxParameterID::Lifetime, Height(200))
+        .SetParameter(TxParameterID::PeerResponseTime, Height(20)));
+
+    mainReactor->run();
+
+    {
+        auto txHistory = receiver.m_WalletDB->getTxHistory(TxType::ALL);
+        WALLET_CHECK(txHistory.size() == txNum+1);
+        auto it = std::find_if(txHistory.begin(), txHistory.end(), [](const auto& v) {return v.m_txType == TxType::Simple; });
+        WALLET_CHECK(it != txHistory.end());
+        WALLET_CHECK(it->m_status == TxStatus::Completed);
+        auto shieldedCoins = receiver.m_WalletDB->getShieldedCoins(Asset::Asset::s_BeamID);
+        WALLET_CHECK(shieldedCoins.size() == txNum);
+        WALLET_CHECK(std::all_of(shieldedCoins.begin(), shieldedCoins.end(), [](const auto& v) {return v.m_Status == ShieldedCoin::Status::Spent; }));
+    }
 }
 
 void TestSimpleTx()
@@ -338,7 +448,7 @@ void TestSimpleTx()
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
     TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
 
-    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(senderWalletDB));
+    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=](){return senderWalletDB;}));
     sender.m_Wallet->RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
 
     Node node;
@@ -420,7 +530,7 @@ void TestMaxPrivacyTx()
     auto receiverWalletDB = createReceiverWalletDB(false, true);
     TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
 
-    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(senderWalletDB));
+    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=](){return senderWalletDB;}));
 
     receiver.m_Wallet->RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
 
@@ -507,7 +617,7 @@ void TestPublicAddressTx()
     auto receiverWalletDB = createReceiverWalletDB(false, true);
     TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
 
-    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(senderWalletDB));
+    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=](){return senderWalletDB;}));
 
     receiver.m_Wallet->RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
 
@@ -592,7 +702,7 @@ void TestDirectAnonymousPayment()
     auto receiverWalletDB = createReceiverWalletDB(false, true);
     TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
 
-    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(senderWalletDB));
+    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=](){return senderWalletDB;}));
 
     receiver.m_Wallet->RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
     receiver.m_Wallet->EnableBodyRequests(true);
@@ -768,7 +878,7 @@ void TestManyTransactons()
     auto binaryTreasury = createTreasury(senderWalletDB, testAmount);
     TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
 
-    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(senderWalletDB));
+    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=](){return senderWalletDB;}));
 
     sender.m_Wallet->RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
 
@@ -893,7 +1003,7 @@ void TestShortWindow()
     TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
 
 
-    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(senderWalletDB));
+    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=](){return senderWalletDB;}));
 
     sender.m_Wallet->RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
 
@@ -1022,7 +1132,7 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
     auto binaryTreasury = createTreasury(senderWalletDB, { (txCount + 1) * kNominalCoin });
     TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
 
-    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(senderWalletDB));
+    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=](){return senderWalletDB;}));
 
     sender.m_Wallet->RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
 
@@ -1153,7 +1263,7 @@ void TestPushTxRollbackByLowFee()
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
     TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
 
-    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(senderWalletDB));
+    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=](){return senderWalletDB;}));
 
     sender.m_Wallet->RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
 
@@ -1215,7 +1325,7 @@ void TestPullTxRollbackByLowFee()
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
     TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
 
-    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(senderWalletDB));
+    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=](){return senderWalletDB;}));
 
     sender.m_Wallet->RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
 
@@ -1285,7 +1395,7 @@ void TestExpiredTxs()
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
     TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
 
-    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(senderWalletDB));
+    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=](){return senderWalletDB;}));
 
     sender.m_Wallet->RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
 
@@ -1359,6 +1469,85 @@ void TestExpiredTxs()
     WALLET_CHECK(completedPullTx->m_status == TxStatus::Completed);
 }
 
+void TestPushTxNoVoucherAtTime() {
+    cout << "\nTest rollback pushTx (reason: no voucher at max height).\n";
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    int completedCount = 2;
+    auto completeAction = [&mainReactor, &completedCount](auto)
+    {
+        --completedCount;
+        if (completedCount == 0)
+        {
+            mainReactor->stop();
+        }
+    };
+
+    auto senderWalletDB = createSenderWalletDB(0, 0, false, true);
+    auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
+    TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto receiverWalletDB = createReceiverWalletDB(false, true);
+    TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+
+    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=](){return senderWalletDB;}));
+
+    receiver.m_Wallet->RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
+    receiver.m_Wallet->EnableBodyRequests(true);
+
+    auto vouchers = GenerateVoucherList(receiver.m_WalletDB->get_KeyKeeper(), receiver.m_OwnID, 2);
+    Node node;
+    NodeObserver observer([&]()
+                          {
+                              auto cursor = node.get_Processor().m_Cursor;
+                              if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+                              {
+                                  auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                                          .SetParameter(TxParameterID::Amount, 18000000)
+                                          .SetParameter(TxParameterID::Fee, 12000000)
+                                          .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                                          .SetParameter(TxParameterID::Voucher, vouchers.front()) // preassing the voucher
+                                          .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
+                                          .SetParameter(TxParameterID::PeerOwnID, receiver.m_OwnID);
+
+                                  sender.m_Wallet->StartTransaction(parameters);
+                              }
+                              else if (cursor.m_Sid.m_Height == 20)
+                              {
+                                  // second attempt
+                                  auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                                          .SetParameter(TxParameterID::Amount, 18000000)
+                                          .SetParameter(TxParameterID::Fee, 12000000)
+                                          .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                                          .SetParameter(TxParameterID::Lifetime, static_cast<Height>(1))
+                                          .SetParameter(TxParameterID::Voucher, vouchers.front()) // attempt to reuse same voucher
+                                          .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
+                                          .SetParameter(TxParameterID::PeerOwnID, receiver.m_OwnID);
+
+                                  sender.m_Wallet->StartTransaction(parameters);
+                              }
+                              else if (cursor.m_Sid.m_Height == 50)
+                              {
+                                  mainReactor->stop();
+                              }
+                          });
+
+    InitOwnNodeToTest(node, binaryTreasury, &observer, sender.m_WalletDB->get_MasterKdf(), 32125, 200);
+
+    mainReactor->run();
+
+    auto txHistory = sender.m_WalletDB->getTxHistory(TxType::PushTransaction);
+    // check Tx params
+    WALLET_CHECK(txHistory.size() == 2);
+    std::sort(txHistory.begin(), txHistory.end(), [](const auto& left, const auto& right) {return left.m_status < right.m_status; });
+    WALLET_CHECK(txHistory[0].m_status == TxStatus::Completed);
+    WALLET_CHECK(txHistory[1].m_status == TxStatus::Failed);
+
+    txHistory = receiver.m_WalletDB->getTxHistory(TxType::PushTransaction);
+    WALLET_CHECK(txHistory.size() == 1);
+    WALLET_CHECK(txHistory[0].m_status == TxStatus::Completed);
+}
+
 void TestReextract()
 {
     cout << "\nTest re-extraction of the shieldedCoin\n";
@@ -1379,7 +1568,7 @@ void TestReextract()
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
     TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
 
-    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>(senderWalletDB));
+    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=](){return senderWalletDB;}));
 
     sender.m_Wallet->RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
 
@@ -1437,7 +1626,7 @@ void TestReextract()
 
 int main()
 {
-    int logLevel = LOG_LEVEL_WARNING;
+    int logLevel = LOG_LEVEL_DEBUG;
     auto logger = beam::Logger::create(logLevel, logLevel);
     Rules::get().FakePoW = true;
     Rules::get().pForks[1].m_Height = 6;
@@ -1447,13 +1636,14 @@ int main()
 
     auto testAll = []()
     {
-        //TestUnlinkTx();
-    //TestCancelUnlinkTx();
+        TestMaxPrivacyAndOffline();
+        TestRestoreInterruption();
         TestTreasuryRestore();
         TestSimpleTx();
         TestMaxPrivacyTx();
         TestPublicAddressTx();
         TestDirectAnonymousPayment();
+        TestPushTxNoVoucherAtTime();
         TestManyTransactons(20, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
         TestManyTransactons(40, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
         TestManyTransactons(100, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });

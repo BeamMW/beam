@@ -97,7 +97,7 @@ struct SharedBuffer : IOVec {
     SharedMem guard;
 
     /// Empty buffer
-    SharedBuffer() {}
+    SharedBuffer() = default;
 
     /// Creates a copy of data
     SharedBuffer(const void* _data, size_t _size) {

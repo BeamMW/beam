@@ -1,6 +1,7 @@
 #include "../common.h"
-#include "../app_common_impl.h"
 #include "contract.h"
+#include "../app_common_impl.h"
+#include "../app_comm.h"
 
 #define Vault_manager_create(macro)
 #define Vault_manager_view(macro)
@@ -21,12 +22,15 @@
     macro(manager, view_account)
 
 #define Vault_my_account_view(macro) macro(ContractID, cid)
+#define Vault_my_account_get_key(macro) macro(ContractID, cid)
 #define Vault_my_account_get_proof(macro) \
     macro(ContractID, cid) \
     macro(AssetID, aid)
 
 #define Vault_my_account_deposit(macro) \
     macro(ContractID, cid) \
+    macro(PubKey, pkForeign) \
+    macro(uint32_t, bCoSigner) \
     macro(Amount, amount) \
     macro(AssetID, aid)
 
@@ -38,6 +42,7 @@
 
 #define VaultRole_my_account(macro) \
     macro(my_account, view) \
+    macro(my_account, get_key) \
     macro(my_account, get_proof) \
     macro(my_account, deposit) \
     macro(my_account, withdraw)
@@ -187,6 +192,46 @@ void DeriveMyPk(PubKey& pubKey, const ContractID& cid)
     Env::DerivePk(pubKey, &myid, sizeof(myid));
 }
 
+struct MultiSigProto
+{
+#pragma pack (push, 1)
+    struct Msg1
+    {
+        Height m_hMin;
+        PubKey m_pkSignerNonce;
+        PubKey m_pkKrnBlind;
+    };
+
+    struct Msg2
+    {
+        PubKey m_pkFullNonce;
+        Secp_scalar_data m_kSig;
+    };
+#pragma pack (pop)
+
+    Msg1 m_Msg1;
+    Msg2 m_Msg2;
+
+    static const Height s_dh = 20;
+
+    static const uint32_t s_iSlotNonceKey = 0;
+    static const uint32_t s_iSlotKrnNonce = 1;
+    static const uint32_t s_iSlotKrnBlind = 2;
+
+
+    const ContractID* m_pCid;
+    const Vault::Request* m_pArg;
+    const FundsChange* m_pFc;
+
+    void InvokeKrn(const Secp_scalar_data& kSig, Secp_scalar_data* pE)
+    {
+        Env::GenerateKernelAdvanced(
+            m_pCid, Vault::Withdraw::s_iMethod, m_pArg, sizeof(*m_pArg), m_pFc, 1, &m_pArg->m_Account, 1, "withdraw from Vault", 0,
+            m_Msg1.m_hMin, m_Msg1.m_hMin + s_dh, m_Msg1.m_pkKrnBlind, m_Msg2.m_pkFullNonce, kSig, s_iSlotKrnBlind, s_iSlotKrnNonce, pE);
+    }
+};
+
+
 ON_METHOD(my_account, move)
 {
     if (!amount)
@@ -195,7 +240,29 @@ ON_METHOD(my_account, move)
     Vault::Request arg;
     arg.m_Amount = amount;
     arg.m_Aid = aid;
-    DeriveMyPk(arg.m_Account, cid);
+
+    MyAccountID myid;
+    _POD_(myid.m_Cid) = cid;
+
+    Env::KeyID kid(myid);
+    PubKey pkMy;
+
+    bool bIsMultisig = !_POD_(pkForeign).IsZero();
+    if (bIsMultisig)
+    {
+        Secp::Point p0, p1;
+
+        if (!p1.Import(pkForeign))
+            return OnError("bad foreign key");
+
+        kid.get_Pk(p0);
+        p0.Export(pkMy);
+
+        p0 += p1;
+        p0.Export(arg.m_Account);
+    }
+    else
+        kid.get_Pk(arg.m_Account);
 
     FundsChange fc;
     fc.m_Amount = arg.m_Amount;
@@ -206,25 +273,102 @@ ON_METHOD(my_account, move)
         Env::GenerateKernel(&cid, Vault::Deposit::s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "deposit to Vault", 0);
     else
     {
-        MyAccountID myid;
-        myid.m_Cid = cid;
+        if (bIsMultisig)
+        {
+            Comm::Channel cc(kid, pkForeign);
+            cc.m_Context
+                << 1U // proto version 
+                << cid
+                << Vault::Deposit::s_iMethod;
+            cc.m_Context.Write(&arg, sizeof(arg));
 
-        SigRequest sig;
-        sig.m_pID = &myid;
-        sig.m_nID = sizeof(myid);
+            MultiSigProto msp;
+            msp.m_pCid = &cid;
+            msp.m_pArg = &arg;
+            msp.m_pFc = &fc;
 
-        Env::GenerateKernel(&cid, Vault::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &sig, 1, "withdraw from Vault", 0);
+            Height h = Env::get_Height();
+
+            if (bCoSigner)
+            {
+                cc.m_Context << pkForeign;
+
+                Env::WriteStr("Waiting for signer", Stream::Out);
+                cc.Rcv_T(msp.m_Msg1);
+                if ((msp.m_Msg1.m_hMin + 10 < h) || (msp.m_Msg1.m_hMin >= h + 20))
+                    OnError("height insane");
+
+                Secp::Point p0, p1;
+                p0.Import(msp.m_Msg1.m_pkSignerNonce);
+                p1.FromSlot(msp.s_iSlotNonceKey);
+                p0 += p1;
+                p0.Export(msp.m_Msg2.m_pkFullNonce);
+
+                Secp_scalar_data e;
+                msp.InvokeKrn(e, &e);
+
+                Secp::Scalar s;
+                s.Import(e);
+                kid.get_Blind(s, s, msp.s_iSlotNonceKey);
+
+                s.Export(msp.m_Msg2.m_kSig);
+
+                // send result back
+                cc.Send_T(msp.m_Msg2);
+
+                Env::WriteStr("Negotiation is over", Stream::Out);
+            }
+            else
+            {
+                cc.m_Context << pkMy;
+
+                msp.m_Msg1.m_hMin = h + 1;
+
+                Secp::Point p0, p1;
+
+                p0.FromSlot(msp.s_iSlotKrnBlind);
+                p0.Export(msp.m_Msg1.m_pkKrnBlind);
+
+                p0.FromSlot(msp.s_iSlotKrnNonce);
+                p1.FromSlot(msp.s_iSlotNonceKey);
+                p0 += p1;
+                p0.Export(msp.m_Msg1.m_pkSignerNonce); // both kernel and our key
+
+                cc.Send_T(msp.m_Msg1);
+                Env::WriteStr("Waiting for co-signer", Stream::Out);
+                cc.Rcv_T(msp.m_Msg2);
+
+                Secp_scalar_data e;
+                msp.InvokeKrn(e, &e);
+
+                Secp::Scalar s0, s1;
+                s0.Import(msp.m_Msg2.m_kSig);
+
+                s1.Import(e);
+                kid.get_Blind(s1, s1, msp.s_iSlotNonceKey);
+
+                s0 += s1; // full key
+                s0.Export(e);
+
+                msp.InvokeKrn(e, nullptr);
+            }
+
+        }
+        else
+        {
+            Env::GenerateKernel(&cid, Vault::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &kid, 1, "withdraw from Vault", 0);
+        }
     }
 }
 
 ON_METHOD(my_account, deposit)
 {
-    On_my_account_move(1, cid, amount, aid);
+    On_my_account_move(1, cid, pkForeign, bCoSigner, amount, aid);
 }
 
 ON_METHOD(my_account, withdraw)
 {
-    On_my_account_move(0, cid, amount, aid);
+    On_my_account_move(0, cid, pkForeign, bCoSigner, amount, aid);
 }
 
 ON_METHOD(my_account, view)
@@ -232,6 +376,13 @@ ON_METHOD(my_account, view)
     PubKey pubKey;
     DeriveMyPk(pubKey, cid);
     DumpAccount(pubKey, cid);
+}
+
+ON_METHOD(my_account, get_key)
+{
+    PubKey pubKey;
+    DeriveMyPk(pubKey, cid);
+    Env::DocAddBlob_T("key", pubKey);
 }
 
 ON_METHOD(my_account, get_proof)

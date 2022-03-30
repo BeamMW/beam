@@ -117,7 +117,7 @@ namespace beam
 
 		ThreadPool(Context& ctx, size_t nTasks)
 		{
-			size_t numCores = std::thread::hardware_concurrency();
+			size_t numCores = MyThread::hardware_concurrency();
 			if (!numCores)
 				numCores = 1; //?
 			if (numCores > nTasks)
@@ -512,7 +512,7 @@ namespace beam
 
 		d.m_vGroups.reserve(map.size());
 
-		for (GroupMap::iterator it = map.begin(); map.end() != it; it++)
+		for (GroupMap::iterator it = map.begin(); map.end() != it; ++it)
 		{
 			Data::Group& gSrc = it->second;
 			if (!(gSrc.m_Value == Zero))

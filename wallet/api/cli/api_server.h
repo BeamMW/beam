@@ -371,14 +371,14 @@ namespace beam
                 return (ok && code == 200);
             }
 
-            HttpConnection::Ptr _connection;
-            IApiServer&         _server;
-            bool                _keepalive;
-            HttpMsgCreator      _msgCreator;
-            HttpMsgCreator      _packer;
-            io::SerializedMsg   _headers;
-            io::SerializedMsg   _body;
-            wallet::IWalletApi::Ptr     _walletApi;
+            HttpConnection::Ptr     _connection;
+            IApiServer&             _server;
+            bool                    _keepalive;
+            HttpMsgCreator          _msgCreator;
+            HttpMsgCreator          _packer;
+            io::SerializedMsg       _headers;
+            io::SerializedMsg       _body;
+            wallet::IWalletApi::Ptr _walletApi;
         };
 
         std::string        _apiVersion;

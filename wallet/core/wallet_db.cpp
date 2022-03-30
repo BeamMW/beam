@@ -102,6 +102,7 @@ namespace fs = std::filesystem;
 #define NOTIFICATIONS_NAME "notifications"
 #define EXCHANGE_RATES_NAME "exchangeRates"
 #define EXCHANGE_RATES_HISTORY_NAME "exchangeRatesHistory"
+#define VERIFICATION_NAME "assetsVerification"
 #define VOUCHERS_NAME "vouchers"
 #define COIN_CONFIRMATIONS_COUNT "confirmations_count"
 #define EVENTS_NAME "events"
@@ -200,6 +201,15 @@ namespace fs = std::filesystem;
     each(content,       content,        BLOB NOT NULL,      obj)
 
 #define NOTIFICATION_FIELDS ENUM_NOTIFICATION_FIELDS(LIST, COMMA, )
+
+#define ENUM_VERIFICATION_FIELDS(each, sep, obj) \
+    each(assetID,       assetID,        INTEGER,  obj) sep \
+    each(verified,      verified,       INTEGER,  obj) sep \
+    each(icon,          icon,           TEXT,     obj) sep \
+    each(color,         color,          TEXT,     obj) sep \
+    each(updateTime,    updateTime,     INTEGER,  obj)
+
+#define VERIFICATION_FIELDS ENUM_VERIFICATION_FIELDS(LIST, COMMA, )
 
 #define ENUM_EXCHANGE_RATES_FIELDS29(each, sep, obj) \
     each(currency,      currency,       INTEGER,            obj) sep \
@@ -982,7 +992,8 @@ namespace beam::wallet
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
 
-        const int DbVersion   = 31;
+        const int DbVersion   = 32;
+        const int DbVersion31 = 31;
         const int DbVersion30 = 30;
         const int DbVersion29 = 29;
         const int DbVersion28 = 28;
@@ -1059,9 +1070,9 @@ namespace beam::wallet
         }
     }
 
-    Height Coin::get_Maturity(Height offset/* = 0*/) const
+    Height Coin::get_Maturity() const
     {
-        return IsMaturityValid() ? m_maturity + offset : MaxHeight;
+        return IsMaturityValid() ? m_maturity + m_offset : MaxHeight;
     }
 
     bool Coin::operator==(const Coin& other) const
@@ -1153,6 +1164,11 @@ namespace beam::wallet
         return boost::optional<Coin::ID>();
     }
 
+    void Coin::setOffset(uint32_t offset)
+    {
+        m_offset = offset;
+    }
+
     bool WalletDB::isInitialized(const string& path)
     {
 #ifdef WIN32
@@ -1160,6 +1176,26 @@ namespace beam::wallet
 #else
         return fs::exists(path);
 #endif
+    }
+
+    namespace
+    {
+        void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password);
+    }
+
+    bool WalletDB::isValidPassword(const std::string& path, const SecString& password)
+    {
+        try 
+        {
+            sqlite3* db = nullptr;
+            OpenAndMigrateIfNeeded(path, &db, password);
+            return true;
+        }
+        catch (...)
+        {
+
+        }
+        return false;
     }
 
     namespace
@@ -1340,6 +1376,13 @@ namespace beam::wallet
         void CreateExchangeRatesTable(sqlite3* db)
         {
             const char* req = "CREATE TABLE " EXCHANGE_RATES_NAME " (" ENUM_EXCHANGE_RATES_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (cfrom, cto)) WITHOUT ROWID;";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
+
+        void CreateVerificationTable(sqlite3* db)
+        {
+            const char* req = "CREATE TABLE " VERIFICATION_NAME " (" ENUM_VERIFICATION_FIELDS(LIST_WITH_TYPES, COMMA, ) ", PRIMARY KEY (assetID, updateTime)) WITHOUT ROWID;";
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
         }
@@ -1674,13 +1717,22 @@ namespace beam::wallet
             }, TxListFilter());
         }
 
+        void MigrateFrom31(WalletDB* walletDB, sqlite3* db)
+        {
+            if (!IsTableCreated(walletDB, VERIFICATION_NAME))
+            {
+                CreateVerificationTable(db);
+            }
+        }
+
         void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password)
         {
             int ret = sqlite3_open_v2(path.c_str(), db, SQLITE_OPEN_READWRITE, nullptr);
             throwIfError(ret, *db);
             enterKey(*db, password);
             // try to decrypt
-            ret = sqlite3_exec(*db, "PRAGMA user_version;", nullptr, nullptr, nullptr);
+            auto checkKey = [&]() {return sqlite3_exec(*db, "SELECT count(*) FROM sqlite_master;", NULL, NULL, NULL); };
+            ret = checkKey();
             if (ret != SQLITE_OK)
             {
                 LOG_INFO() << "Applying PRAGMA cipher_migrate...";
@@ -1690,6 +1742,8 @@ namespace beam::wallet
                 throwIfError(ret, *db);
                 enterKey(*db, password);
                 ret = sqlite3_exec(*db, "PRAGMA cipher_migrate; ", nullptr, nullptr, nullptr);
+                throwIfError(ret, *db);
+                ret = checkKey();
                 throwIfError(ret, *db);
             }
         }
@@ -1791,6 +1845,7 @@ namespace beam::wallet
         CreateExchangeRatesHistoryTable(db);
         CreateEventsTable(db);
         CreateTxSummaryTable(db);
+        CreateVerificationTable(db);
     }
 
     std::shared_ptr<WalletDB> WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
@@ -2008,7 +2063,7 @@ namespace beam::wallet
         }
     }
 
-    IWalletDB::Ptr WalletDB::initNoKeepr(const std::string& path, const SecString& password, bool separateDBForPrivateData)
+    IWalletDB::Ptr WalletDB::initNoKeeper(const std::string& path, const SecString& password, bool separateDBForPrivateData)
     {
         return initBase(path, password, separateDBForPrivateData);
     }
@@ -2306,6 +2361,11 @@ namespace beam::wallet
                     LOG_INFO() << "Converting DB from format 30...";
                     MigrateTransactionsFrom30(walletDB.get(), walletDB->_db);
                     // no break
+
+                case DbVersion31:
+                    LOG_INFO() << "Converting DB from format 31...";
+                    MigrateFrom31(walletDB.get(), walletDB->_db);
+                    // no break
                     storage::setVar(*walletDB, Version, DbVersion);
 
                 case DbVersion:
@@ -2361,7 +2421,7 @@ namespace beam::wallet
                 ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
                 bool bHadOwnerKey = storage::getVar(*walletDB, OwnerKey, packedOwnerKey.V);
 
-                if (pKeyKeeper || !bHadOwnerKey)
+                if (pKeyKeeper)
                 {
                     walletDB->m_pKeyKeeper = pKeyKeeper;
                     walletDB->FromKeyKeeper();
@@ -2378,14 +2438,24 @@ namespace beam::wallet
                     else
                         walletDB->storeOwnerKey();
                 }
-                else
+                else if (bHadOwnerKey)
                 {
-                    assert(bHadOwnerKey);
                     // Read-only wallet.
                     walletDB->m_pKdfOwner = std::make_shared<ECC::HKdfPub>();
                     Cast::Up<ECC::HKdfPub>(*walletDB->m_pKdfOwner).Import(packedOwnerKey.V);
                 }
-
+                else // Headless wallet. Generate dummy owner kdf
+                {
+                    ECC::HKdf kdf;
+                    ECC::Scalar::Native sk;
+                    ECC::Scalar s;
+                    sk.GenRandomNnz();
+                    sk.Export(s);
+                    kdf.Generate(s.m_Value);
+                    auto pubKdf = std::make_shared<ECC::HKdfPub>();
+                    pubKdf->GenerateFrom(kdf);
+                    walletDB->m_pKdfOwner = pubKdf;
+                }
             }
         }
         walletDB->getVarRaw(COIN_CONFIRMATIONS_COUNT, &walletDB->m_coinConfirmationsOffset, sizeof(uint32_t));
@@ -2737,6 +2807,7 @@ namespace beam::wallet
 
         };
 
+        get_History().DeleteFrom(Rules::HeightGenesis); // clear all the history
         MyParser p(*this, gateway, prog);
         p.Init(get_OwnerKdf());
 
@@ -2747,7 +2818,7 @@ namespace beam::wallet
             Block::SystemState::Full sTip;
             get_History().get_Tip(sTip);
             storage::setNextEventHeight(*this, sTip.m_Height + 1); // next
-            storage::setNeedToRequestBodies(*this, true); // temporarilly enable body requests, to solve lag in blocks
+            storage::setNeedToRequestBodies(*this, true); // temporarily enable body requests, to solve lag in blocks
             return true;
         }
         return false;
@@ -2835,27 +2906,6 @@ namespace beam::wallet
     {
         storage::setVar(*this, kMaxPrivacyLockTimeLimitHours, val);
     }
-
-    void IWalletDB::addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator)
-    {
-        m_statusInterpreterCreators[txType] = interpreterCreator;
-    }
-
-    TxStatusInterpreter::Ptr IWalletDB::getStatusInterpreter(const TxParameters& txParams) const
-    {
-        if (auto txType = txParams.GetParameter<TxType>(TxParameterID::TransactionType); txType)
-        {
-            auto it = m_statusInterpreterCreators.find(*txType);
-            if (it != m_statusInterpreterCreators.end())
-            {
-                auto creator = it->second;
-                return creator(txParams);
-            }
-        }
-
-        return std::make_shared<TxStatusInterpreter>(txParams);
-    }
-
 
     void WalletDB::selectCoins2(Height h, Amount nTrg, Asset::ID aid, std::vector<Coin>& vSelStd, std::vector<ShieldedCoin>& vSelShielded, uint32_t nMaxShielded, bool bCanReturnLess)
     {
@@ -4663,6 +4713,51 @@ namespace beam::wallet
         }
     }
 
+    void WalletDB::saveVerification(const VerificationInfo& vi)
+    {
+        const char* selectReq = "SELECT * FROM " VERIFICATION_NAME " WHERE assetID=?1";
+        sqlite::Statement selectStm(this, selectReq);
+        selectStm.bind(1, vi.m_assetID);
+
+        if (selectStm.step())
+        {
+            const char* updateReq = "UPDATE " VERIFICATION_NAME " SET verified=?2, icon=?3, color=?4, updateTime=?5 WHERE assetID=?1;";
+            sqlite::Statement updateStm(this, updateReq);
+
+            updateStm.bind(1, vi.m_assetID);
+            updateStm.bind(2, vi.m_verified);
+            updateStm.bind(3, vi.m_icon);
+            updateStm.bind(4, vi.m_color);
+            updateStm.bind(5, vi.m_updateTime);
+            updateStm.step();
+        }
+        else
+        {
+            const char* insertReq = "INSERT INTO " VERIFICATION_NAME " (" ENUM_VERIFICATION_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_VERIFICATION_FIELDS(BIND_LIST, COMMA, ) ");";
+            sqlite::Statement stm(this, insertReq);
+            int colIdx = 0;
+            ENUM_VERIFICATION_FIELDS(STM_BIND_LIST, NOSEP, vi);
+            stm.step();
+        }
+    }
+
+    std::vector<VerificationInfo> WalletDB::getVerification() const
+    {
+        std::vector<VerificationInfo> res;
+
+        const char* req = "SELECT * FROM " VERIFICATION_NAME " ORDER BY assetID ASC;";
+        sqlite::Statement stm(this, req);
+
+        while (stm.step())
+        {
+            auto& vi = res.emplace_back();
+            int colIdx = 0;
+            ENUM_VERIFICATION_FIELDS(STM_GET_LIST, NOSEP, vi);
+        }
+
+        return res;
+    }
+
     std::vector<ExchangeRate> WalletDB::getLatestExchangeRates() const
     {
         ExchangeRates res;
@@ -5203,9 +5298,12 @@ namespace beam::wallet
             m_DbTransaction.reset();
 
 #ifdef __EMSCRIPTEN__
-            MAIN_THREAD_ASYNC_EM_ASM(
-                FS.syncfs(false, function() {});
-            );
+            if (get_MasterKdf()) // dont do sync for headless wallet
+            {
+                MAIN_THREAD_ASYNC_EM_ASM(
+                    FS.syncfs(false, function() {});
+                );
+            }
 #endif
         }
     }
@@ -5308,12 +5406,12 @@ namespace beam::wallet
         return messages;
     }
 
-    uint64_t WalletDB::saveWalletMessage(const OutgoingWalletMessage& message)
+    uint64_t WalletDB::saveWalletMessage(const WalletID& peerID, const Blob& msg)
     {
         const char* req = "INSERT INTO " WALLET_MESSAGE_NAME " (PeerID, Message) VALUES(?,?)";
         sqlite::Statement stm(this, req);
-        stm.bind(1, message.m_PeerID);
-        stm.bind(2, message.m_Message);
+        stm.bind(1, peerID);
+        stm.bind(2, msg);
 
         stm.step();
 
@@ -5340,7 +5438,7 @@ namespace beam::wallet
         return messages;
     }
 
-    uint64_t WalletDB::saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message)
+    uint64_t WalletDB::saveIncomingWalletMessage(BbsChannel channel, const Blob& message)
     {
         const char* req = "INSERT INTO " INCOMING_WALLET_MESSAGE_NAME " (Channel, Message) VALUES(?,?);";
         sqlite::Statement stm(this, req);
@@ -5741,7 +5839,14 @@ namespace beam::wallet
 
             if (c.m_confirmHeight != MaxHeight)
             {
-                if (hTop - walletDB.getCoinConfirmationsOffset() < c.m_maturity)
+                uint32_t minConfirmations = 0;
+                if (c.m_createTxId &&
+                    getTxParameter(walletDB, c.m_createTxId.get(), TxParameterID::MinConfirmations, minConfirmations))
+                {
+                    c.setOffset(minConfirmations);
+                }
+                
+                if (hTop < c.m_maturity + minConfirmations)
                 {
                     c.m_status = Coin::Status::Maturing;
                     return;
@@ -5801,7 +5906,7 @@ namespace beam::wallet
                     }
                 }
 
-                if (hTop - c.m_confirmHeight < walletDB.getCoinConfirmationsOffset())
+                if (hTop < c.m_confirmHeight)
                 {
                     c.m_Status = ShieldedCoin::Status::Maturing;
                     return;
@@ -5889,21 +5994,6 @@ namespace beam::wallet
             storage::setVar(db, s_szNextEvt, uintBigFor<Height>::Type(value));
         }
 
-        void updateCurrentStateWithTip(IWalletDB& db)
-        {
-            Block::SystemState::Full sTip;
-            db.get_History().get_Tip(sTip);
-
-            Block::SystemState::ID id;
-            if (sTip.m_Height)
-                sTip.get_ID(id);
-            else
-                ZeroObject(id);
-
-            db.setSystemStateID(id);
-            LOG_INFO() << "Current state is " << id;
-        }
-
         namespace
         {
             Timestamp RestoreCreationTime(const Block::SystemState::Full& tip, Height confirmHeight)
@@ -5951,6 +6041,10 @@ namespace beam::wallet
                 addressType = TxAddressType::PublicOffline;
             }
             storage::setTxParameter(db, txID, TxParameterID::AddressType, addressType, true);
+
+            bool isSelfTx = message->m_Flags & kIsSelfTxBit;
+            storage::setTxParameter(db, txID, TxParameterID::IsSelfTx, isSelfTx, true);
+            storage::setTxParameter(db, txID, TxParameterID::IsSender, isSelfTx, true);
 
             auto tx = db.getTx(txID);
             if (tx)
@@ -6847,6 +6941,11 @@ namespace beam::wallet
         };
 
         return Strings[m_Status];
+    }
+
+    void ShieldedCoin::setOffset(uint32_t offset)
+    {
+        m_offset = offset;
     }
 
     void ShieldedCoin::UnlinkStatus::Init(const ShieldedCoin& sc, TxoID nShieldedOuts)

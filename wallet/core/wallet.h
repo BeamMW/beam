@@ -88,6 +88,13 @@ namespace beam::wallet
         // @param connected - true if node has connected otherwise false
         virtual void onOwnedNode(const PeerID& id, bool connected) {}
     };
+
+    struct ISimpleSwapHandler
+    {
+        // Callback on DexSimpleSwapTx received from peer
+        virtual bool acceptIncomingDexSS(const SetTxParameter& msg) {return false;}
+        virtual void onDexTxCreated(const SetTxParameter& msg, BaseTransaction::Ptr) {}
+    };
     
     // Interface for wallet message consumer
     struct IWalletMessageConsumer
@@ -100,10 +107,15 @@ namespace beam::wallet
     // Used as a base for SBBS and Cold walelt endpoints
     struct IWalletMessageEndpoint
     {
+        struct IHandler {
+            virtual void OnMsg(const Blob&) = 0;
+        };
+
         using Ptr = std::shared_ptr<IWalletMessageEndpoint>;
         virtual void Send(const WalletID& peerID, const SetTxParameter& msg) = 0;
+        virtual void Send(const WalletID& peerID, const Blob&) {}
         virtual void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) = 0;
-        virtual void Listen(const WalletID&, const ECC::Scalar::Native& sk) {}
+        virtual void Listen(const WalletID&, const ECC::Scalar::Native& sk, IHandler* = nullptr) {}
         virtual void Unlisten(const WalletID&) {}
     };
 
@@ -122,13 +134,14 @@ namespace beam::wallet
         using TxCompletedAction = std::function<void(const TxID& tx_id)>;
         using UpdateCompletedAction = std::function<void()>;
         using TxVisitor = std::function<void (const TxID&, BaseTransaction::Ptr)>;
+        using OnSyncAction = std::function<void()>;
 
         Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction());
         virtual ~Wallet();
         void CleanupNetwork();
 
         void SetNodeEndpoint(proto::FlyClient::INetwork::Ptr nodeEndpoint);
-        proto::FlyClient::INetwork::Ptr GetNodeEndpoint();
+        proto::FlyClient::INetwork::Ptr GetNodeEndpoint() const;
         void AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint);
 
         // Rescans the blockchain from scratch
@@ -141,6 +154,9 @@ namespace beam::wallet
         {
             RegisterTransactionType(type, std::static_pointer_cast<BaseTransaction::Creator>(creator));
         }
+
+        // Puts new transaction in a list of active transactions.
+        // If the wallet is in sync it starts immediately, otherwise, it's queued
         TxID StartTransaction(const TxParameters& parameters);
         bool CanCancelTransaction(const TxID& txId) const;
         void CancelTransaction(const TxID& txId);
@@ -149,11 +165,16 @@ namespace beam::wallet
         
         void Subscribe(IWalletObserver* observer);
         void Unsubscribe(IWalletObserver* observer);
+        void Subscribe(ISimpleSwapHandler*);
+        void Unsubscribe(ISimpleSwapHandler*);
         void ResumeAllTransactions();
         void VisitActiveTransaction(const TxVisitor& visitor);
 
         bool IsWalletInSync() const;
         Height get_TipHeight() const;
+
+        // Performs action only if wallet is in sync, otherwise this action is queued.
+        void DoInSyncedWallet(OnSyncAction&& action); 
 
         // Count of active transactions which are not in safe state, negotiation are not finished or data is not sent to node
         size_t GetUnsafeActiveTransactionsCount() const;
@@ -163,11 +184,17 @@ namespace beam::wallet
         virtual void OnVouchersFrom(const WalletAddress&, const WalletID& myID, std::vector<ShieldedTxo::Voucher>&&);
         void RequestShieldedOutputsAt(Height h, std::function<void(Height, TxoID)>&& onRequestComplete);
         bool IsConnectedToOwnNode() const;
+        bool CanDetectCoins() const;
         void EnableBodyRequests(bool value);
         void assertThread() const; // throws if not in wallet thread
+        void markAppNotificationAsRead(const TxID& id);
+
+        const std::set<IWalletMessageEndpoint::Ptr>& get_MessageEndpoints() const {
+            return m_MessageEndpoints;
+        }
 
     protected:
-        void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
+        void SendTransactionToNode(const TxID& txId, const Transaction::Ptr&, const Merkle::Hash* pParentCtx, SubTxID subTxID);
     private:
         void ProcessTransaction(BaseTransaction::Ptr tx);
         void ResumeTransaction(const TxDescription& tx);
@@ -187,7 +214,7 @@ namespace beam::wallet
         void send_tx_params(const WalletID& peerID, const SetTxParameter&) override;
         void get_shielded_list(const TxID& txId, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback) override;
         void get_proof_shielded_output(const TxID& txId, const ECC::Point& serialPublic, ProofShildedOutputCallback&& callback) override;
-        void register_tx(const TxID& txId, Transaction::Ptr, SubTxID subTxID) override;
+        void register_tx(const TxID& txId, const Transaction::Ptr&, const Merkle::Hash* pParentCtx, SubTxID subTxID) override;
         void UpdateOnNextTip(const TxID&) override;
         void get_UniqueVoucher(const WalletID& peerID, const TxID& txID, boost::optional<ShieldedTxo::Voucher>&) override;
 
@@ -212,13 +239,16 @@ namespace beam::wallet
             IMPLEMENT_GET_PARENT_OBJ(Wallet, m_RequestHandler)
         } m_RequestHandler;
 
-        uint32_t SyncRemains() const;
+        size_t SyncRemains() const;
+        size_t GetSyncDone() const;
+        size_t GetSyncTotal() const;
         void CheckSyncDone();
         void getUtxoProof(const Coin&);
         void ReportSyncProgress();
         void NotifySyncProgress();
         void UpdateTransaction(const TxID& txID);
         void UpdateTransaction(BaseTransaction::Ptr tx);
+        void UpdateActiveTransaction(BaseTransaction::Ptr tx);
         void UpdateOnSynced(BaseTransaction::Ptr tx);
         void UpdateOnNextTip(BaseTransaction::Ptr tx);
         void SaveKnownState();
@@ -234,7 +264,7 @@ namespace beam::wallet
         void ProcessEventUtxo(const CoinID&, Height h, Height hMaturity, bool bAdd, const Output::User& user);
         void ProcessEventAsset(const proto::Event::AssetCtl& assetCtl, Height h);
         void SetEventsHeight(Height);
-        Height GetEventsHeightNext();
+        Height GetEventsHeightNext() const;
         void ProcessEventShieldedUtxo(const proto::Event::Shielded& shieldedEvt, Height h);
         void RequestStateSummary();
 
@@ -257,7 +287,6 @@ namespace beam::wallet
         void CacheCommitment(const ECC::Point& comm, Height maturity, bool add);
         void ResetCommitmentsCache();
         bool IsMobileNodeEnabled() const;
-
     private:
         std::thread::id _myThread;
 
@@ -275,7 +304,7 @@ namespace beam::wallet
         macro(Body) 
 
         struct AllTasks {
-#define THE_MACRO(type, msgOut, msgIn) struct type { static const bool b = false; };
+#define THE_MACRO(type) struct type { static const bool b = false; };
             REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
         };
@@ -438,9 +467,6 @@ namespace beam::wallet
         // List of currently active (incomplete) transactions
         std::map<TxID, BaseTransaction::Ptr> m_ActiveTransactions;
 
-        // List of transactions that are waiting for wallet to finish sync before tx update
-        std::unordered_set<BaseTransaction::Ptr> m_TransactionsToUpdate;
-
         // List of transactions that are waiting for the next tip (new block) to arrive
         std::unordered_set<BaseTransaction::Ptr> m_NextTipTransactionToUpdate;
 
@@ -451,10 +477,13 @@ namespace beam::wallet
         UpdateCompletedAction m_UpdateCompleted;
 
         // Number of tasks running during sync with Node
-        uint32_t m_LastSyncTotal;
+        size_t m_LastSyncTotal;
+        size_t m_RequestedBlocks = 0;
+        size_t m_BlocksDone = 0;
         uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;
+        ISimpleSwapHandler* m_ssHandler = nullptr;
 
         // Counter of running transaction updates. Used by Cold wallet
         int m_AsyncUpdateCounter = 0;
@@ -466,5 +495,9 @@ namespace beam::wallet
         bool m_IsTreasuryHandled = false;
         std::map<ECC::Point, Height> m_Commitments;
         bool m_IsCommitmentsCached = false;
+
+        // the queue of actions to be performed after wallet synchronization
+        using ActionQueue = std::queue<OnSyncAction>;
+        ActionQueue m_SyncActionsQueue;
     };
 }

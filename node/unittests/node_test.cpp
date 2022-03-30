@@ -1061,7 +1061,7 @@ namespace beam
 				HeightRange hr(np.m_Cursor.m_ID.m_Height + 1, MaxHeight);
 
 				uint32_t nBvmCharge = 0;
-				verify_test(proto::TxStatus::Ok == np.ValidateTxContextEx(*pTx, hr, false, nBvmCharge, nullptr));
+				verify_test(proto::TxStatus::Ok == np.ValidateTxContextEx(*pTx, hr, false, nBvmCharge, nullptr, nullptr, nullptr));
 
 				Transaction::Context::Params pars;
 				Transaction::Context ctx(pars);
@@ -1071,7 +1071,10 @@ namespace beam
 				Transaction::KeyType key;
 				pTx->get_Key(key);
 
-				np.m_TxPool.AddValidTx(std::move(pTx), ctx, key, 0);
+				TxPool::Stats stats;
+				stats.From(*pTx, ctx, 0, 0);
+
+				np.m_TxPool.AddValidTx(std::move(pTx), stats, key, TxPool::Fluff::State::Fluffed);
 			}
 
 			NodeProcessor::BlockContext bc(np.m_TxPool, 0, *np.m_Wallet.m_pKdf, *np.m_Wallet.m_pKdf);
@@ -1674,8 +1677,6 @@ namespace beam
 
 			virtual bool OnUtxo(Height h, const Output& outp) override
 			{
-				verify_test(outp.m_RecoveryOnly);
-
 				CoinID cid;
 				bool b1 = outp.Recover(h, *m_pOwner1, cid);
 				bool b2 = outp.Recover(h, *m_pOwner2, cid);
@@ -1799,7 +1800,7 @@ namespace beam
 				SetTimer(90 * 1000);
 				SendLogin();
 
-				Send(proto::GetExternalAddr(Zero));
+				Send(proto::GetExternalAddr());
 			}
 
 			virtual void OnMsg(proto::Authentication&& msg) override
@@ -1947,7 +1948,7 @@ namespace beam
 					sdp.m_Output.m_User.m_Sender = 165U;
 					sdp.m_Output.m_User.m_pMessage[0] = 243U;
 					sdp.m_Output.m_User.m_pMessage[1] = 2435U;
-					sdp.GenerateOutp(pKrn->m_Txo, h + 1, oracle);
+					sdp.GenerateOutp(pKrn->m_Txo, h + 1, oracle, true); // generate asset proof, though it's not CA
 
 					pKrn->MsgToID();
 
@@ -2399,19 +2400,6 @@ namespace beam
 				{
 				}
 
-				void GenerateKernel(const bvm2::ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) override
-				{
-					bvm2::ManagerStd::GenerateKernel(pCid, iMethod, args, pFunds, nFunds, pSig, nSig, szComment, nCharge);
-
-					if (!iMethod)
-					{
-						assert(!m_vInvokeData.empty());
-						const auto& item = m_vInvokeData.back();
-
-						bvm2::get_Cid(m_This.m_Contract.m_Cid, item.m_Data, item.m_Args);
-					}
-				}
-
 				void OnDone(const std::exception* pExc) override
 				{
 					m_Done = true;
@@ -2440,6 +2428,36 @@ namespace beam
 					IMPLEMENT_GET_PARENT_OBJ(MyManager, m_DelayedStart)
 
 				} m_DelayedStart;
+
+				std::map<uint32_t, ECC::Hash::Value> m_Slots;
+
+				bool SlotLoad(ECC::Hash::Value& hv, uint32_t iSlot) override
+				{
+					auto it = m_Slots.find(iSlot);
+					if (m_Slots.end() == it)
+						return false;
+
+					hv = it->second;
+					return true;
+				}
+
+				void SlotSave(const ECC::Hash::Value& hv, uint32_t iSlot) override
+				{
+					m_Slots[iSlot] = hv;
+				}
+
+				void SlotErase(uint32_t iSlot) override
+				{
+					auto it = m_Slots.find(iSlot);
+					if (m_Slots.end() != it)
+						m_Slots.erase(it);
+				}
+
+				void SelectContext(bool /* bDependent */, uint32_t /* nChargeNeeded */) override
+				{
+					m_Context.m_Height = m_This.m_vStates.empty() ? 0 : m_This.m_vStates.back().m_Height;
+				}
+
 			};
 
 			std::unique_ptr<MyManager> m_pMan;
@@ -2542,6 +2560,9 @@ namespace beam
 							const auto& cdata = proc.m_vInvokeData[i];
 							fm += cdata.m_Spend;
 							fm.AddSpend(0, cdata.get_FeeMin(hr.m_Min));
+
+							if (!cdata.m_iMethod)
+								bvm2::get_Cid(m_Contract.m_Cid, cdata.m_Data, cdata.m_Args);
 						}
 
 						AmountSigned valSpend = fm[0]; // including fees. Would be negative if we're receiving funds
@@ -2572,6 +2593,7 @@ namespace beam
 				MyManager& proc = *m_pMan;
 
 				proc.m_pPKdf = m_Wallet.m_pKdf;
+				proc.m_pKdf = m_Wallet.m_pKdf; // enable privileged mode!
 
 				bvm2::Compile(proc.m_BodyManager, "vault/app.wasm", bvm2::Processor::Kind::Manager);
 				bvm2::Compile(proc.m_BodyContract, "vault/contract.wasm", bvm2::Processor::Kind::Contract);
@@ -3082,16 +3104,20 @@ namespace beam
 		struct MyParser
 			:public beam::RecoveryInfo::IRecognizer
 		{
-			uint32_t m_Spent = 0;
 			uint32_t m_Utxos = 0;
+			uint32_t m_UtxosCA = 0;
 			uint32_t m_Assets = 0;
+			uint32_t m_ShieldedOuts = 0;
+			uint32_t m_ShieldedIns = 0;
 
 			typedef std::set<ECC::Point> PkSet;
 			PkSet m_SpendKeys;
 
-			virtual bool OnUtxoRecognized(Height, const Output&, CoinID&, const Output::User&) override
+			virtual bool OnUtxoRecognized(Height, const Output&, CoinID& cid, const Output::User&) override
 			{
 				m_Utxos++;
+				if (cid.m_AssetID)
+					m_UtxosCA++;
 				return true;
 			}
 
@@ -3099,13 +3125,14 @@ namespace beam
 			{
 				verify_test(m_SpendKeys.end() == m_SpendKeys.find(pars.m_Ticket.m_SpendPk));
 				m_SpendKeys.insert(pars.m_Ticket.m_SpendPk);
+				m_ShieldedOuts++;
 				return true;
 			}
 
 			virtual bool OnShieldedIn(const ShieldedTxo::DescriptionInp& din) override
 			{
 				if (m_SpendKeys.end() != m_SpendKeys.find(din.m_SpendPk))
-					m_Spent++;
+					m_ShieldedIns++;
 				return true;
 			}
 
@@ -3121,7 +3148,7 @@ namespace beam
 		p.Init(cl.m_Wallet.m_pKdf);
 		p.Proceed(beam::g_sz3); // check we can rebuild the Live consistently with shielded and assets
 
-		verify_test((p.m_SpendKeys.size() == 1) && (p.m_Spent == 1) && p.m_Utxos && p.m_Assets);
+		verify_test((p.m_SpendKeys.size() == 1) && p.m_Utxos && p.m_UtxosCA && p.m_Assets && p.m_ShieldedOuts && p.m_ShieldedIns);
 
 		auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
 		node.PrintTxos();
@@ -3183,11 +3210,10 @@ namespace beam
 
 	void RaiseHeightTo(Node& node, Height h)
 	{
-		TxPool::Fluff txPool;
-
 		while (node.get_Processor().m_Cursor.m_ID.m_Height < h)
 		{
-			NodeProcessor::BlockContext bc(txPool, 0, *node.m_Keys.m_pMiner, *node.m_Keys.m_pMiner);
+			NodeProcessor::BlockContext bc(node.m_TxPool, 0, *node.m_Keys.m_pMiner, *node.m_Keys.m_pMiner);
+			bc.m_pParent = node.m_TxDependent.m_pBest;
 			verify_test(node.get_Processor().GenerateNewBlock(bc));
 			node.get_Processor().OnState(bc.m_Hdr, PeerID());
 
@@ -3421,6 +3447,354 @@ namespace beam
 		}
 	}
 
+	struct Waiter
+	{
+		io::Timer::Ptr m_pTimer;
+		bool m_Ok;
+
+		void OnTimer()
+		{
+			m_Ok = false;
+			TestFailed("timeout", __LINE__);
+			StopSafe(false);
+		}
+
+		bool StopSafe(bool bRes)
+		{
+			if (!m_pTimer)
+				return false;
+
+			m_pTimer->cancel();
+			m_pTimer.reset();
+			io::Reactor::get_Current().stop();
+
+			m_Ok = bRes;
+			return true;
+		}
+
+		bool Wait()
+		{
+			m_Ok = true;
+			m_pTimer = io::Timer::create(io::Reactor::get_Current());
+			m_pTimer->start(2000000, false, [this]() { return (this->OnTimer)(); });
+
+			io::Reactor::get_Current().run();
+			StopSafe(false); // would propagate foreign stop
+
+			return m_Ok;
+		}
+	};
+
+	bool PerformRequestSync(proto::FlyClient::INetwork& net, proto::FlyClient::Request& r)
+	{
+		struct MyHandler
+			:public proto::FlyClient::Request::IHandler
+		{
+			Waiter m_W;
+
+			void OnComplete(proto::FlyClient::Request&) override
+			{
+				m_W.StopSafe(true);
+			}
+		};
+
+		MyHandler h;
+		net.PostRequest(r, h);
+
+		bool bRes = h.m_W.Wait();
+
+		r.m_pTrg = nullptr;
+		return bRes;
+	}
+
+	void TestDependentTxs()
+	{
+		io::Reactor::Ptr pReactor(io::Reactor::create());
+		io::Reactor::Scope scope(*pReactor);
+
+		struct MyFlyClient
+			:public proto::FlyClient
+		{
+			Block::SystemState::HistoryMap m_Hist;
+			Key::IKdf::Ptr m_pKdf;
+			Waiter* m_pW = nullptr;
+
+
+			Block::SystemState::IHistory& get_History() override
+			{
+				return m_Hist;
+			}
+
+			void OnNewTip() override
+			{
+				if (m_pW)
+				{
+					m_pW->StopSafe(true);
+					m_pW = nullptr;
+				}
+			}
+
+			void get_Kdf(Key::IKdf::Ptr& pOut) override {
+				pOut = m_pKdf;
+			}
+			void get_OwnerKdf(Key::IPKdf::Ptr& pOut) override {
+				pOut = m_pKdf;
+			}
+
+
+		};
+
+
+		MyFlyClient fc;
+		ECC::SetRandom(fc.m_pKdf);
+
+		Node node;
+		node.m_Cfg.m_sPathLocal = g_sz;
+		node.m_Cfg.m_Listen.port(g_Port);
+		node.m_Cfg.m_Listen.ip(INADDR_ANY);
+		node.m_Cfg.m_MiningThreads = 0;
+		node.m_Cfg.m_Treasury = g_Treasury;
+		node.m_Keys.SetSingleKey(fc.m_pKdf);
+		node.Initialize();
+		node.m_PostStartSynced = true;
+
+		RaiseHeightTo(node, 20);
+
+		Node node2;
+		node2.m_Cfg.m_sPathLocal = g_sz2;
+		node2.m_Cfg.m_MiningThreads = 0;
+		ECC::SetRandom(node2);
+
+		io::Address& addr = node2.m_Cfg.m_Connect.emplace_back();
+		addr.resolve("127.0.0.1");
+		addr.port(g_Port);
+		node2.Initialize();
+
+
+		auto pNet = std::make_shared<proto::FlyClient::NetworkStd>(fc);
+		pNet->m_Cfg.m_vNodes.push_back(addr);
+
+		pNet->Connect();
+
+		struct MyManager
+			:public bvm2::ManagerStd
+		{
+			Waiter* m_pW = nullptr;
+			bool m_Done;
+			bool m_Err;
+
+			std::list<CoinID> m_lstCoins;
+			std::vector<Merkle::Hash> m_vKrnIds;
+
+			void OnDone(const std::exception* pExc) override
+			{
+				m_Done = true;
+				m_Err = !!pExc;
+
+				if (m_pW)
+					m_pW->StopSafe(!m_Err);
+			}
+
+			void RunSync0(uint32_t iMethod)
+			{
+				m_Done = false;
+				m_Err = false;
+
+				StartRun(iMethod);
+			}
+
+			void RunSync1()
+			{
+				if (m_Done)
+					return;
+
+				{
+					Waiter wt;
+					m_pW = &wt;
+					wt.Wait();
+					m_pW = nullptr;
+				}
+
+				if (!m_Done)
+					// propagate it
+					io::Reactor::get_Current().stop();
+			}
+
+			void RunSync(uint32_t iMethod)
+			{
+				RunSync0(iMethod);
+				RunSync1();
+			}
+
+			Transaction::Ptr BuildTx()
+			{
+				Height hTx = m_Context.m_Height + 1;
+
+				auto pTx = std::make_shared<Transaction>();
+				pTx->m_Offset = Zero;
+
+				bvm2::FundsMap fm;
+
+				for (uint32_t i = 0; i < m_vInvokeData.size(); i++)
+				{
+					const auto& cdata = m_vInvokeData[i];
+
+					Amount fee;
+					if (cdata.IsAdvanced())
+						fee = cdata.m_Adv.m_Fee; // can't change!
+					else
+						fee = cdata.get_FeeMin(hTx);
+
+					cdata.Generate(*pTx, *m_pKdf, hTx, fee);
+
+					auto& krn = *pTx->m_vKernels.back();
+					m_vKrnIds.push_back(krn.m_Internal.m_ID);
+
+					fm += cdata.m_Spend;
+					fm[0] += fee;
+				}
+
+				ECC::Scalar::Native kOff(pTx->m_Offset);
+
+				auto valSpend = fm[0];
+				while (valSpend > 0)
+				{
+					if (m_lstCoins.empty())
+					{
+						TestFailed("no funds", __LINE__);
+						return nullptr;
+					}
+
+					CoinID cid = m_lstCoins.front();
+					m_lstCoins.pop_front();
+
+					Input::Ptr pInp = std::make_unique<Input>();
+
+					ECC::Scalar::Native sk;
+					CoinID::Worker(cid).Create(sk, pInp->m_Commitment, *m_pKdf);
+					pTx->m_vInputs.push_back(std::move(pInp));
+					kOff += sk;
+
+					valSpend -= cid.m_Value;
+				}
+
+				if (valSpend < 0)
+				{
+					Output::Ptr pOutp = std::make_unique<Output>();
+
+					CoinID cid(Zero);
+					cid.m_Type = Key::Type::Change;
+					cid.m_Value = -valSpend;
+					ECC::GenRandom(&cid.m_Idx, sizeof(cid.m_Idx));
+
+					m_lstCoins.push_front(cid); // reuse in the next tx
+
+					ECC::Scalar::Native sk;
+					pOutp->Create(hTx, sk, *m_pKdf, cid, *m_pKdf);
+
+					pTx->m_vOutputs.push_back(std::move(pOutp));
+					kOff += -sk;
+				}
+
+				pTx->m_Offset = kOff;
+				pTx->Normalize();
+				return pTx;
+			}
+
+			void BuildAndSend(proto::FlyClient::INetwork& net)
+			{
+				RunSync(1);
+				verify_test(!m_vInvokeData.empty());
+
+				proto::FlyClient::RequestTransaction::Ptr pReq(new proto::FlyClient::RequestTransaction);
+				pReq->m_Msg.m_Transaction = BuildTx();
+
+				if (m_Context.m_pParent)
+					pReq->m_Msg.m_Context = std::make_unique<Merkle::Hash>(*m_Context.m_pParent);
+
+				pReq->m_Msg.m_Fluff = true;
+
+				verify_test(beam::PerformRequestSync(*m_pNetwork, *pReq));
+				verify_test(proto::TxStatus::Ok == pReq->m_Res.m_Value);
+			}
+
+		} man;
+
+
+		{
+			proto::FlyClient::RequestEvents::Ptr pReq(new proto::FlyClient::RequestEvents);
+			verify_test(PerformRequestSync(*pNet, *pReq));
+
+			Block::SystemState::Full s;
+			fc.m_Hist.get_Tip(s);
+
+			struct MyParser :public proto::Event::IGroupParser
+			{
+				Height m_hMaxMaturity;
+				std::list<CoinID>* m_pCoins;
+
+				void OnEventType(proto::Event::Utxo& evt) override
+				{
+					if ((evt.m_Maturity <= m_hMaxMaturity) && !evt.m_Cid.m_AssetID)
+						m_pCoins->push_back(evt.m_Cid);
+				}
+			} p;
+
+			p.m_hMaxMaturity = s.m_Height;
+			p.m_pCoins = &man.m_lstCoins;
+			p.Proceed(pReq->m_Res.m_Events);
+
+			verify_test(!man.m_lstCoins.empty());
+		}
+
+		man.m_EnforceDependent = true;
+		man.m_pHist = &fc.m_Hist;
+		man.m_pNetwork = pNet;
+		man.m_pKdf = fc.m_pKdf;
+		man.m_pPKdf = fc.m_pKdf;
+
+		bvm2::Compile(man.m_BodyManager, "vault/app.wasm", bvm2::Processor::Kind::Manager);
+		bvm2::Compile(man.m_BodyContract, "vault/contract.wasm", bvm2::Processor::Kind::Contract);
+
+		// 1. Deploy
+
+		man.m_Args["role"] = "manager";
+		man.m_Args["action"] = "create";
+		man.BuildAndSend(*pNet);
+
+		bvm2::ContractID cid;
+		bvm2::get_Cid(cid, man.m_BodyContract, Blob(nullptr, 0));
+		man.set_ArgBlob("cid", cid);
+
+		// 2. Deposit
+		Amount valDeposit = 25 * Rules::Coin;
+
+		man.m_Args["role"] = "my_account";
+		man.m_Args["action"] = "deposit";
+		man.m_Args["amount"] = std::to_string(valDeposit);
+		man.BuildAndSend(*pNet);
+
+		// 3. Withdraw
+		valDeposit = 22 * Rules::Coin;
+
+		man.m_Args["action"] = "withdraw";
+		man.m_Args["amount"] = std::to_string(valDeposit);
+		man.BuildAndSend(*pNet);
+
+		RaiseHeightTo(node, 21);
+
+		// make sure everything's included in the block
+		for (uint32_t i = 0; i < man.m_vKrnIds.size(); i++)
+		{
+			const auto& hv = man.m_vKrnIds[i];
+
+			Height h = node.get_Processor().get_DB().FindKernel(hv);
+			verify_test(h == 21);
+		}
+	}
+
+
+
 }
 
 void TestAll()
@@ -3505,6 +3879,7 @@ void TestAll()
 	beam::Rules::get().MaxRollback = 100;
 	beam::Rules::get().pForks[2].m_Height = 17;
 	beam::Rules::get().pForks[3].m_Height = 17;
+	beam::Rules::get().pForks[4].m_Height = 17;
 	beam::Rules::get().CA.DepositForList = beam::Rules::Coin * 16;
 	beam::Rules::get().CA.LockPeriod = 2;
 	beam::Rules::get().Shielded.m_ProofMax = { 4, 6 }; // 4K
@@ -3565,6 +3940,13 @@ void TestAll()
 
 	beam::TestFlyClient();
 	beam::DeleteFile(beam::g_sz);
+
+	printf("Node <---> Dependent txs test...\n");
+	fflush(stdout);
+
+	beam::TestDependentTxs();
+	beam::DeleteFile(beam::g_sz);
+	beam::DeleteFile(beam::g_sz2);
 }
 
 int main()

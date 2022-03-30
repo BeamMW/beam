@@ -42,21 +42,6 @@ namespace
 
         MockBroadcastListener(OnMessage func) : m_callback(func) {};
 
-        virtual bool onMessage(uint64_t unused, ByteBuffer&& msg) override
-        {
-            BroadcastMsg bMsg;
-            if (fromByteBuffer(msg, bMsg))
-            {
-                m_callback(bMsg);
-                return true;
-            }
-            else
-            {
-                cout << "MockBroadcastListener message deserialization error" << endl;
-            }
-            return false;
-        };
-
         virtual bool onMessage(uint64_t unused, BroadcastMsg&& bMsg) override
         {
             m_callback(bMsg);
@@ -112,7 +97,7 @@ namespace
         ByteBuffer msg(MsgHeader::SIZE);
         MsgHeader header(0, // V0
                          0, // V1
-                         1, // V2
+                         2, // V2
                          static_cast<uint8_t>(type),
                          static_cast<uint8_t>(content.size()));
         header.write(msg.data());
@@ -126,8 +111,8 @@ namespace
     {
         cout << endl << "Test protocol parser stress" << endl;
 
-        MockBbsNetwork mockNetwork;
-        BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
+        auto mockNetwork = MockBbsNetwork::CreateInstance();
+        BroadcastRouter broadcastRouter(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
         
         BroadcastMsg testContent = { {'t','e','s','t'}, {'t','e','s','t'} };
 
@@ -144,13 +129,13 @@ namespace
         broadcastRouter.registerListener(testContentType, &testListener);
 
         WalletID dummyWid;
-        dummyWid.m_Channel = proto::Bbs::s_BtcSwapOffersChannel;
+        dummyWid.m_Channel = proto::Bbs::s_SwapOffersChannel;
         {
             cout << "Case: empty message" << endl;
             ByteBuffer emptyBuf;
 
             WALLET_CHECK_NO_THROW(
-                mockNetwork.SendRawMessage(dummyWid, emptyBuf)
+                mockNetwork->SendRawMessage(dummyWid, emptyBuf)
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -159,7 +144,7 @@ namespace
             ByteBuffer data(beam::MsgHeader::SIZE - 2, 't');
 
             WALLET_CHECK_NO_THROW(
-                mockNetwork.SendRawMessage(dummyWid, data)
+                mockNetwork->SendRawMessage(dummyWid, data)
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -170,7 +155,7 @@ namespace
             header.write(data.data());
                         
             WALLET_CHECK_NO_THROW(
-                mockNetwork.SendRawMessage(dummyWid, data)
+                mockNetwork->SendRawMessage(dummyWid, data)
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -180,7 +165,7 @@ namespace
             header.write(data.data());
                         
             WALLET_CHECK_NO_THROW(
-                mockNetwork.SendRawMessage(dummyWid, data)
+                mockNetwork->SendRawMessage(dummyWid, data)
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -191,7 +176,7 @@ namespace
             header.write(data.data());
             
             WALLET_CHECK_NO_THROW(
-                mockNetwork.SendRawMessage(dummyWid, data)
+                mockNetwork->SendRawMessage(dummyWid, data)
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -202,7 +187,7 @@ namespace
             header.write(data.data());
             
             WALLET_CHECK_NO_THROW(
-                mockNetwork.SendRawMessage(dummyWid, data)
+                mockNetwork->SendRawMessage(dummyWid, data)
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -214,7 +199,7 @@ namespace
             header.write(data.data());
             
             WALLET_CHECK_NO_THROW(
-                mockNetwork.SendRawMessage(dummyWid, data)
+                mockNetwork->SendRawMessage(dummyWid, data)
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -223,7 +208,7 @@ namespace
 
             auto msg = testMsgCreate(toByteBuffer(testContent), testContentType);
             WALLET_CHECK_NO_THROW(
-                mockNetwork.SendRawMessage(dummyWid, msg)
+                mockNetwork->SendRawMessage(dummyWid, msg)
             );
             WALLET_CHECK(correctMessagesCount == 1);
         }
@@ -239,8 +224,8 @@ namespace
         {
             std::cout << "Case: listening to network messages" << endl;
 
-            MockBbsNetwork mockNetwork;
-            BroadcastRouter broadcastRouter(mockNetwork, mockNetwork);
+            auto mockNetwork = MockBbsNetwork::CreateInstance();
+            BroadcastRouter broadcastRouter(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
             uint32_t executed = 0;
 
             const BroadcastMsg testSample = { {'s','w','a','p'}, {'s','w','a','p'} };
@@ -255,18 +240,18 @@ namespace
             broadcastRouter.registerListener(BroadcastContentType::SwapOffers, &testListener);
 
             WalletID dummyWid;
-            dummyWid.m_Channel = proto::Bbs::s_BtcSwapOffersChannel;
+            dummyWid.m_Channel = proto::Bbs::s_SwapOffersChannel;
             auto msgA = testMsgCreate(toByteBuffer(testSample), BroadcastContentType::SwapOffers);
-            mockNetwork.SendRawMessage(dummyWid, msgA);
+            mockNetwork->SendRawMessage(dummyWid, msgA);
 
             WALLET_CHECK(executed == 1);
         }
         {
             std::cout << "Case: broadcasting messages to network" << endl;
 
-            MockBbsNetwork mockNetwork;
-            BroadcastRouter broadcastRouterA(mockNetwork, mockNetwork);
-            BroadcastRouter broadcastRouterB(mockNetwork, mockNetwork);
+            auto mockNetwork = MockBbsNetwork::CreateInstance();
+            BroadcastRouter broadcastRouterA(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
+            BroadcastRouter broadcastRouterB(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
             uint32_t executed = 0;
             BroadcastMsg msgA = { {'m','s','g','A'}, {'s','i','g','n','A'} };
             BroadcastMsg msgB = { {'m','s','g','B'}, {'s','i','g','n','B'} };
@@ -332,7 +317,7 @@ namespace
         };
 
         // prepare messages and publisher keys
-        std::array<ByteBuffer, keyPairsArray.size()> messages;  // messages for test
+        std::array<BroadcastMsg, keyPairsArray.size()> messages;  // messages for test
         std::vector<PublicKey> publisherKeys;   // keys to load in NewsEndpoint
         for (size_t i = 0; i < keyPairsArray.size(); ++i)
         {
@@ -347,7 +332,7 @@ namespace
             signHandler.m_data = msg.m_content;
             if (to_sign) signHandler.Sign(privKey);
             msg.m_signature = toByteBuffer(signHandler.m_Signature);
-            messages[i] = toByteBuffer(msg);
+            messages[i] = msg;
         }
 
         WALLET_CHECK_NO_THROW(validator.setPublisherKeys(publisherKeys));
@@ -355,10 +340,8 @@ namespace
         // Push messages and check validation result
         for (size_t i = 0; i < messages.size(); ++i)
         {
-            const ByteBuffer& data = messages[i];
-            BroadcastMsg msg;
-            bool res = false;
-            WALLET_CHECK_NO_THROW(res = validator.processMessage(data, msg));
+            const auto& msg = messages[i];
+            bool res = validator.isSignatureValid(msg);
 
             auto [keyLoaded, msgSigned] = keyDistributionTable[i];
 
@@ -412,11 +395,7 @@ namespace
             SignatureHandler signHandler;
             signHandler.m_data = msg.m_content;
             msg.m_signature = toByteBuffer(signHandler.m_Signature);
-            ByteBuffer data = toByteBuffer(msg);
-
-            bool res = false;
-            WALLET_CHECK_NO_THROW(res = validator.processMessage(data, msg));
-            WALLET_CHECK(!res);
+            WALLET_CHECK(!validator.isSignatureValid(msg));
         }
         {
             cout << "Case: no keys loaded, correct message" << endl;
@@ -428,21 +407,16 @@ namespace
             msg.m_signature = signature;
             ByteBuffer data = toByteBuffer(msg);
 
-            bool res = false;
-            BroadcastMsg resMsg;
-            WALLET_CHECK_NO_THROW(res = validator.processMessage(data, resMsg));
-            WALLET_CHECK(!res);
+            WALLET_CHECK(!validator.isSignatureValid(msg));
 
             cout << "Case: key loaded, correct message" << endl;
             WALLET_CHECK_NO_THROW(validator.setPublisherKeys({pk}));
-            WALLET_CHECK_NO_THROW(res = validator.processMessage(data, resMsg));
-            WALLET_CHECK(res);
-            WALLET_CHECK(msg == resMsg);
+            WALLET_CHECK(validator.isSignatureValid(msg));
             
             cout << "Case: keys cleared" << endl;
 
             WALLET_CHECK_NO_THROW(validator.setPublisherKeys({}));
-            WALLET_CHECK(!validator.processMessage(data, resMsg));
+            WALLET_CHECK(!validator.isSignatureValid(msg));
         }
         {
             cout << "Case: new key loaded" << endl;
@@ -451,14 +425,9 @@ namespace
             msg.m_content = toByteBuffer(std::string("test message"));
             const auto& [pk, signature] = signData(msg.m_content, 159, walletDB);
             msg.m_signature = signature;
-            ByteBuffer data = toByteBuffer(msg);
 
             WALLET_CHECK_NO_THROW(validator.setPublisherKeys({pk}));
-            bool res = false;
-            BroadcastMsg resMsg;
-            WALLET_CHECK_NO_THROW(res = validator.processMessage(data, resMsg));
-            WALLET_CHECK(res);
-            WALLET_CHECK(msg == resMsg);
+            WALLET_CHECK(validator.isSignatureValid(msg));
         }
         cout << "Test end" << endl;
     }
@@ -493,11 +462,8 @@ namespace
         validator.setPublisherKeys({ pk });
 
         BroadcastMsg msg;
-        BroadcastMsg outMsg;
         WALLET_CHECK_NO_THROW(msg = BroadcastMsgCreator::createSignedMessage(toByteBuffer(std::string("hello")), sk));
-        bool res = validator.processMessage(toByteBuffer(msg), outMsg);
-        WALLET_CHECK(res);
-        WALLET_CHECK(msg == outMsg);
+        WALLET_CHECK(validator.isSignatureValid(msg));
     }
 
 } // namespace

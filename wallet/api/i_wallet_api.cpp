@@ -15,6 +15,7 @@
 #include "i_wallet_api.h"
 #include "v6_0/v6_api.h"
 #include "v6_1/v6_1_api.h"
+#include "v6_3/v6_3_api.h"
 
 namespace beam::wallet
 {
@@ -24,7 +25,7 @@ namespace beam::wallet
 
         uint32_t SApiVer2NApiVer(std::string sver)
         {
-            if (sver.empty() || sver == kVerCurrent)
+            if (sver == kVerCurrent)
             {
                 return ApiVerCurrent;
             }
@@ -36,6 +37,11 @@ namespace beam::wallet
 
     bool IWalletApi::ValidateAPIVersion(const std::string& sver)
     {
+        if (sver.empty())
+        {
+            return false;
+        }
+
         try
         {
             const auto version = SApiVer2NApiVer(sver);
@@ -60,11 +66,38 @@ namespace beam::wallet
         // MUST BE SAFE TO CALL FROM ANY THREAD
         switch (version)
         {
+        case ApiVer6_3:
+            {
+                auto api = new V63Api(handler, 6, 3, data);
+                auto ptr = IWalletApi::Ptr(api);
+                api->takeGuardPtr(ptr);
+                return ptr;
+            }
+
+        case ApiVer6_2:
+            {
+                // 6.2 Api is the same as 6.1
+                auto api = new V61Api(handler, 6, 2, data);
+                auto ptr = IWalletApi::Ptr(api);
+                api->takeGuardPtr(ptr);
+                return ptr;
+            }
+
         case ApiVer6_1:
-            return IWalletApi::Ptr(new V61Api(handler, 6, 1, data));
+            {
+                auto api = new V61Api(handler, 6, 1, data);
+                auto ptr = IWalletApi::Ptr(api);
+                api->takeGuardPtr(ptr);
+                return ptr;
+            }
 
         case ApiVer6_0:
-            return IWalletApi::Ptr(new V6Api(handler, data));
+            {
+                auto api = new V6Api(handler, data);
+                auto ptr = IWalletApi::Ptr(api);
+                api->takeGuardPtr(ptr);
+                return ptr;
+            }
 
         default:
             return nullptr;

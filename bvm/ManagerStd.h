@@ -21,7 +21,9 @@ namespace beam::bvm2 {
 	class ManagerStd
 		:public ProcessorManager
 	{
+	protected:
 		uint32_t m_Freeze = 0; // incremented when we're awaiting something
+		bool m_WaitingMsg;
 		void Unfreeze();
 		void OnUnfreezed();
 
@@ -36,19 +38,24 @@ namespace beam::bvm2 {
 
 		void RunSync();
 		bool PerformRequestSync(proto::FlyClient::Request&);
+		void Comm_OnNewMsg(const Blob&, Comm::Channel&);
+		void Comm_OnNewMsg();
+
+		io::Timer::Ptr m_pOnMsgTimer;
 
 	protected:
-		Height get_Height() override;
+		void SelectContext(bool bDependent, uint32_t nChargeNeeded) override;
 		bool get_HdrAt(Block::SystemState::Full&) override;
 		void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr&) override;
 		void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax, IReadLogs::Ptr&) override;
-		void DerivePk(ECC::Point& pubKey, const ECC::Hash::Value& hv) override;
-		void GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, const ECC::Hash::Value* pSig, uint32_t nSig, const char* szComment, uint32_t nCharge) override;
+		void get_ContractShader(ByteBuffer&) override;
 		bool get_SpecialParam(const char*, Blob&) override;
 		bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) override;
 		bool LogGetProof(const HeightPos&, beam::Merkle::Proof&) override;
+		void Comm_Wait(uint32_t nTimeout_ms) override;
 
 		virtual void OnDone(const std::exception* pExc) {}
+		virtual void OnReset();
 
 	public:
 
@@ -56,15 +63,14 @@ namespace beam::bvm2 {
 
 		// Params
 		proto::FlyClient::INetwork::Ptr m_pNetwork; // required for 'view' operations
-		Key::IPKdf::Ptr m_pPKdf; // required for user-related info (account-specific pubkeys, etc.)
 		Block::SystemState::IHistory* m_pHist = nullptr;
+		bool m_EnforceDependent = false;
 
 		ByteBuffer m_BodyManager; // always required
 		ByteBuffer m_BodyContract; // required if creating a new contract
 
 		// results
 		std::ostringstream m_Out;
-		ContractInvokeData m_vInvokeData;
 
 		void StartRun(uint32_t iMethod);
 	};

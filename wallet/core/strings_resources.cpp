@@ -187,8 +187,6 @@ namespace beam
     const char kCoinConfirmationsCount[] = "Count of confirmations before you can't spend coin is: %1%";
 
     // Tx history
-    const char kTxHistoryTableHead[] = "TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
-    const char kTxHistoryTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%   %7%  ";
     const char kTxHistoryColumnDatetTime[] = "datetime";
     const char kTxHistoryColumnHeight[] = "height";
     const char kTxHistoryColumnDirection[] = "direction";
@@ -216,10 +214,10 @@ namespace beam
     const char kNoAssetTxsInWallet[] = "You do not have any asset transactions in your wallet";
 
     // Tx Details
-    const char kTxDetailsFormat[] = "Transaction details:\n\n%1%Status:            %2%";
+    const char kTxDetailsFormat[] = "Transaction details:\n\n%1%Status:            %2%\n";
     const char kTxDetailsFailReason[] = "\nReason:            %1%";
 
-    const char kPpExportedFrom[] = "Exported form: %1%";
+    const char kPpExportedFrom[] = "Exported from: %1%";
     const char kSubKeyInfo[] = "Secret Subkey %1%: %2%";
     const char kOwnerKeyInfo[] = "Owner Viewer key: %1%";
     const char kDataExportedMessage[] = "Data has been successfully exported.";

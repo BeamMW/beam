@@ -21,6 +21,9 @@ namespace beam::wallet
         , _wallet(init.wallet)
         , _swaps(init.swaps)
         , _contracts(init.contracts)
+        #ifdef BEAM_IPFS_SUPPORT
+        , _ipfs(init.ipfs)
+        #endif
     {
         // MUST BE SAFE TO CALL FROM ANY THREAD
         _ttypesMap[TokenType::RegularOldStyle] = "regular";
@@ -109,6 +112,19 @@ namespace beam::wallet
         assertWalletThread();
         return _contracts;
     }
+
+    #ifdef BEAM_IPFS_SUPPORT
+    IPFSService::Ptr V6Api::getIPFS() const
+    {
+        if (_ipfs == nullptr)
+        {
+            throw jsonrpc_exception(ApiError::NotSupported);
+        }
+
+        assertWalletThread();
+        return _ipfs;
+    }
+    #endif
 
     void V6Api::assertWalletThread() const
     {

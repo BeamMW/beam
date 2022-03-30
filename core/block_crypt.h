@@ -26,6 +26,7 @@ namespace beam
 
 	const Height MaxHeight = std::numeric_limits<Height>::max();
 	const uint8_t MaxPrivacyAnonimitySetFractionsCount = 64;
+	const uint8_t kIsSelfTxBit = 0b00000001;
 
 	struct PeerID :public ECC::uintBig
 	{
@@ -34,7 +35,7 @@ namespace beam
 
 		bool ExportNnz(ECC::Point::Native&) const;
 		bool Import(const ECC::Point::Native&); // returns if the sign is preserved
-		void FromSk(ECC::Scalar::Native&); // will negate the scalar iff necessary
+		bool FromSk(ECC::Scalar::Native&); // will negate the scalar iff necessary. returns if the sign is preserved
 	};
 
 	typedef uint64_t BbsChannel;
@@ -111,10 +112,10 @@ namespace beam
 
     struct HeightPos
     {
-        Height m_Height;
-        uint32_t m_Pos;
+        Height m_Height = 0;
+        uint32_t m_Pos = 0;
 
-		HeightPos() {}
+		HeightPos() = default;
 		HeightPos(Height h, uint32_t pos = 0)
 			:m_Height(h)
 			,m_Pos(pos)
@@ -327,7 +328,7 @@ namespace beam
 		static void get_Emission(AmountBig::Type&, const HeightRange&);
 		static void get_Emission(AmountBig::Type&, const HeightRange&, Amount base);
 
-		HeightHash pForks[4];
+		HeightHash pForks[5];
 
 		const HeightHash& get_LastFork() const;
 		const HeightHash* FindFork(const Merkle::Hash&) const;
@@ -366,7 +367,7 @@ namespace beam
 
 		Asset::ID m_AssetID = 0;
 
-		CoinID() {}
+		CoinID() = default;
 		CoinID(Zero_)
 			:ID(Zero)
 			,m_Value(0)
@@ -521,16 +522,22 @@ namespace beam
 			static const uint32_t s_EntriesMax = 20; // if this is the size of the vector - the result is probably trunacted
 		};
 
-		Input() {}
-		Input(Input&& v)
+		Input() = default;
+		Input(const Input& v)
 			:TxElement(v)
+			, m_Internal(v.m_Internal)
 		{
-			m_Internal = v.m_Internal;
+		}
+		Input(Input&& v) noexcept
+			:TxElement(std::move(v))
+			,m_Internal(std::exchange(v.m_Internal, {}))
+		{
 		}
 
 		void AddStats(TxStats&) const;
 
-		void operator = (const Input&);
+		Input& operator = (const Input&);
+		Input& operator = (Input&&) noexcept;
 		COMPARISON_VIA_CMP
 	};
 
@@ -542,13 +549,18 @@ namespace beam
 		typedef std::unique_ptr<Output> Ptr;
 
 		bool		m_Coinbase;
-		bool		m_RecoveryOnly;
 		Height		m_Incubation; // # of blocks before it's mature
 
 		Output()
 			:m_Coinbase(false)
-			,m_RecoveryOnly(false)
 			,m_Incubation(0)
+		{
+		}
+
+		Output(const Output& o)
+			:TxElement(o)
+			,m_Coinbase(o.m_Coinbase)
+			,m_Incubation(o.m_Incubation)
 		{
 		}
 
@@ -612,7 +624,7 @@ namespace beam
 
 		void AddStats(TxStats&) const;
 
-		void operator = (const Output&);
+		Output& operator = (const Output&);
 		int cmp(const Output&) const;
 		COMPARISON_VIA_CMP
 
@@ -670,7 +682,7 @@ namespace beam
 		void Prepare(ECC::Oracle&, Height hScheme) const;
 		bool IsValid(ECC::Oracle&, Height hScheme, ECC::Point::Native& comm, ECC::Point::Native& ser) const;
 
-		void operator = (const ShieldedTxo&); // clone
+		ShieldedTxo& operator = (const ShieldedTxo&); // clone
 
 		struct PublicGen;
 		struct Viewer;
@@ -732,7 +744,12 @@ namespace beam
 				// if value less than 64 - allow extract coin from pool before anonymity set was reached
 				uint8_t m_MaxPrivacyMinAnonymitySet;
 				uint64_t m_ReceiverOwnID;
-				uint8_t m_Padding[sizeof(m_pMessage) - sizeof(TxID) - sizeof(uint8_t) - sizeof(uint64_t)];
+				uint8_t m_Flags;
+				uint8_t m_Padding[sizeof(m_pMessage)
+									- sizeof(TxID)
+									- sizeof(uint8_t)
+									- sizeof(uint64_t)
+									- sizeof(uint8_t)];
 			};
 #pragma pack (pop)
 			static PackedMessage* ToPackedMessage(User& user)
@@ -1067,11 +1084,13 @@ namespace beam
 		ECC::Signature m_Signature; // aggreagtedmulti-signature of the blinding factor + all the keys required by the contract
 
 		ByteBuffer m_Args;
+		bool m_Dependent = false;
 
 		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void AddStats(TxStats&) const override;
 
-		void Sign(const ECC::Scalar::Native*, uint32_t nKeys, const ECC::Point::Native& ptFunds);
+		void Prepare(ECC::Hash::Processor&, const Merkle::Hash* pParentCtx) const;
+		void Sign(const ECC::Scalar::Native*, uint32_t nKeys, const ECC::Point::Native& ptFunds, const Merkle::Hash* pParentCtx);
 
 	protected:
 		void CopyFrom(const TxKernelContractControl&);
@@ -1110,6 +1129,18 @@ namespace beam
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
+
+	struct DependentContext
+	{
+		static void get_Ancestor(Merkle::Hash& hvRes, const Merkle::Hash& hvParent, const Merkle::Hash& hvTx)
+		{
+			ECC::Hash::Processor()
+				<< "dep.tx"
+				<< hvParent
+				<< hvTx
+				>> hvRes;
+		}
+	};
 
 	struct TxBase
 	{
@@ -1625,6 +1656,7 @@ namespace beam
 		std::map<Asset::ID, AmountBig::Type> m_Map;
 
 		void Add(Amount val, Asset::ID, bool bSpend);
+		void Add(const AmountBig::Type&, Asset::ID);
 		void ToCommitment(ECC::Point::Native&) const;
 	};
 }

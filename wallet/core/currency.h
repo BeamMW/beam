@@ -21,17 +21,15 @@ namespace beam::wallet
 {
     struct Currency
     {
-        explicit Currency(const std::string& val)
-            : m_value(val)
+        explicit Currency(std::string val)
+            : m_value(std::move(val))
         {
         }
+
+        Currency(const Currency& rhs) = default;
 
         explicit Currency(beam::Asset::ID assetId);
-
-        Currency(const Currency& rhs)
-            : m_value(rhs.m_value)
-        {
-        }
+        [[nodiscard]] beam::Asset::ID toAssetID() const;
 
         Currency& operator=(const Currency& rhs)
         {
@@ -55,7 +53,6 @@ namespace beam::wallet
         }
 
         SERIALIZE(m_value);
-
         static const Currency& UNKNOWN();
         static const Currency& BEAM();
         static const Currency& USD();
@@ -69,7 +66,6 @@ namespace beam::wallet
         static const Currency& USDT();
         static const Currency& WBTC();
         static const Currency& BCH();
-
         std::string m_value;
     };
 }

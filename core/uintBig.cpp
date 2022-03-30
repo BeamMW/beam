@@ -35,9 +35,13 @@ namespace beam {
 
 	std::string uintBigImpl::_Str(const uint8_t* pDst, uint32_t nDst)
     {
-	    std::vector<char> buffer(nDst * 2 + 1);
-	    _Print(pDst, nDst, &buffer[0]);
-	    return std::string(&buffer[0]);
+		std::string sRes;
+		if (nDst)
+		{
+			sRes.resize(nDst * 2);
+			_Print(pDst, nDst, &sRes.front());
+		}
+	    return sRes;
     }
 
 	void uintBigImpl::_Print(const uint8_t* pDst, uint32_t nDst, std::ostream& s)

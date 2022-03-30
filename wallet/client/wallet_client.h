@@ -30,16 +30,29 @@
 #include "extensions/broadcast_gateway/interface.h"
 #include "extensions/broadcast_gateway/broadcast_msg_validator.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
-
+#include "extensions/news_channels/verification_provider.h"
 #include "extensions/dex_board/dex_board.h"
 #include "extensions/dex_board/dex_order.h"
+
+#ifdef BEAM_IPFS_SUPPORT
+#include "wallet/ipfs/ipfs.h"
+#else
+#include "wallet/ipfs/ipfs_config.h"
+#endif
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "extensions/offers_board/swap_offers_observer.h"
 #include "extensions/offers_board/swap_offer.h"
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+#endif
 
 #include <thread>
 #include <atomic>
+#include <functional>
+
+namespace beam
+{
+    class HttpClient;
+}
 
 namespace beam::wallet
 {
@@ -50,6 +63,8 @@ namespace beam::wallet
 #else
     constexpr char kBroadcastValidatorPublicKey[] = "db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec";
 #endif
+
+    constexpr char SEED_PARAM_NAME[] = "SavedSeed";
     struct WalletStatus
     {
         struct AssetStatus
@@ -95,10 +110,15 @@ namespace beam::wallet
         , private IExchangeRatesObserver
         , private INotificationsObserver
         , private DexBoard::IObserver
+        , private IVerificationObserver
     {
     public:
+
+        using OpenDBFunction = std::function<IWalletDB::Ptr()>;
+        WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor);
         WalletClient(const Rules& rules, IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor);
-        virtual ~WalletClient();
+        WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor); // lazy DB creation ctor
+        ~WalletClient() override;
 
         void start( std::map<Notification::Type,bool> activeNotifications,
                     bool withExchangeRates = false,
@@ -106,9 +126,15 @@ namespace beam::wallet
 
         IWalletModelAsync::Ptr getAsync();
         Wallet::Ptr getWallet(); // can return null
+        IWalletDB::Ptr getWalletDB();
+        NodeNetwork::Ptr getNodeNetwork(); // may return null
 
-        IShadersManager::Ptr getAppsShaders(const std::string& appid, const std::string& appname);
-        void releaseAppsShaders(const std::string& appid);
+        #ifdef BEAM_IPFS_SUPPORT
+        IPFSService::Ptr getIPFS();
+        IPFSService::Ptr IWThread_startIPFSNode();
+        #endif
+
+        IShadersManager::Ptr IWThread_createAppShaders(const std::string& appid, const std::string& appname);
 
         std::string getNodeAddress() const;
         std::string exportOwnerKey(const beam::SecString& pass) const;
@@ -122,7 +148,24 @@ namespace beam::wallet
         uint32_t getMarurityProgress(const ShieldedCoin& coin) const;
         uint16_t getMaturityHoursLeft(const ShieldedCoin& coin) const;
 
-        ByteBuffer generateVouchers(uint64_t ownID, size_t count) const;
+        std::set<beam::Asset::ID> getAssetsNZ() const;
+        beam::AmountBig::Type getAvailable(beam::Asset::ID) const;
+        beam::AmountBig::Type getAvailableRegular(beam::Asset::ID) const;
+        beam::AmountBig::Type getAvailableShielded(beam::Asset::ID) const;
+        beam::AmountBig::Type getReceiving(beam::Asset::ID) const;
+        beam::AmountBig::Type getReceivingIncoming(beam::Asset::ID) const;
+        beam::AmountBig::Type getReceivingChange(beam::Asset::ID) const;
+        beam::AmountBig::Type getSending(beam::Asset::ID) const;
+        beam::AmountBig::Type getMaturing(beam::Asset::ID) const;
+        beam::AmountBig::Type getMatutingMP(beam::Asset::ID) const;
+        beam::AmountBig::Type getShielded(beam::Asset::ID) const;
+        bool hasShielded(beam::Asset::ID) const;
+
+        beam::Height getCurrentHeight() const;
+        beam::Timestamp getCurrentHeightTimestamp() const;
+        beam::Timestamp getAverageBlockTime() const;
+        beam::Timestamp getLastBlockTime() const;
+        beam::Block::SystemState::ID getCurrentStateID() const;
 
         /// INodeConnectionObserver implementation
         void onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason&) override;
@@ -132,8 +175,6 @@ namespace beam::wallet
         // Call this before derived class is destructed to ensure
         // that no virtual function calls below will result in purecall
         void stopReactor(bool detachThread = false);
-
-        IWalletDB::Ptr getWalletDB();
 
         // use this function to post function call to client's main loop
         using MessageFunction = std::function<void()>;
@@ -168,21 +209,25 @@ namespace beam::wallet
         virtual void onPostFunctionToClientContext(MessageFunction&& func) {}
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
         virtual void onAssetInfo(Asset::ID assetId, const WalletAsset&) {}
-        virtual void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
         virtual void onStopped() {}
+        void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
 
         virtual Version getLibVersion() const;
         virtual uint32_t getClientRevision() const;
         void onExchangeRates(const ExchangeRates&) override {}
         void onNotificationsChanged(ChangeAction, const std::vector<Notification>&) override {}
+        void onVerificationInfo(const std::vector<VerificationInfo>&) override {}
+        virtual void onPublicAddress(const std::string& publicAddr) {}
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void onSwapOffersChanged(ChangeAction, const std::vector<SwapOffer>& offers) override {}
-#endif
-        virtual void onPublicAddress(const std::string& publicAddr) {};
+        #endif
+
+        #ifdef BEAM_IPFS_SUPPORT
+        virtual void onIPFSStatus(bool running, const std::string& error, unsigned int peercnt) {}
+        #endif
 
     private:
-
         void onAssetChanged(ChangeAction action, Asset::ID assetID) override;
         void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items) override;
         void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
@@ -197,19 +242,27 @@ namespace beam::wallet
         void startTransaction(TxParameters&& parameters) override;
         void syncWithNode() override;
         void calcChange(Amount amount, Amount fee, Asset::ID assetId) override;
-        void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded = false) override;
+        void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded) override;
         void selectCoins(Amount amount, Amount beforehandMinFee, Asset::ID assetId, bool isShielded, AsyncCallback<const CoinsSelectionInfo&>&& callback) override;
         void getWalletStatus() override;
         void getTransactions() override;
         void getTransactions(AsyncCallback<const std::vector<TxDescription>&>&& callback) override;
         void getAllUtxosStatus() override;
         void getAddresses(bool own) override;
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void getSwapOffers() override;
         void publishSwapOffer(const SwapOffer& offer) override;
         void loadSwapParams() override;
         void storeSwapParams(const beam::ByteBuffer& params) override;
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+        #endif
+
+        #ifdef BEAM_IPFS_SUPPORT
+        void setIPFSConfig(asio_ipfs::config&&) override;
+        void stopIPFSNode() override;
+        void startIPFSNode() override;
+        #endif
+
         void getDexOrders() override;
         void publishDexOrder(const DexOrder&) override;
         void acceptDexOrder(const DexOrderID&) override;
@@ -231,6 +284,11 @@ namespace beam::wallet
         void setNodeAddress(const std::string& addr) override;
         void changeWalletPassword(const SecString& password) override;
         void getNetworkStatus() override;
+
+        #ifdef BEAM_IPFS_SUPPORT
+        void getIPFSStatus() override;
+        #endif
+
         void rescan() override;
         void exportPaymentProof(const TxID& id) override;
         void checkNetworkAddress(const std::string& addr) override;
@@ -240,7 +298,11 @@ namespace beam::wallet
         void exportTxHistoryToCsv() override;
         void getAssetInfo(const Asset::ID) override;
         void makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<const boost::any&>&& resultCallback) override;
-        void callShader(const std::vector<uint8_t>& shader, const std::string& args, ShaderCallback&& cback) override;
+        void callShader(beam::ByteBuffer&& shader, std::string&& args, CallShaderCallback&& cback) override;
+        void callShader(std::string&& shaderFile, std::string&& args, CallShaderCallback&& cback) override;
+        void callShaderAndStartTx(beam::ByteBuffer&& shader, std::string&& args, CallShaderAndStartTxCallback&& cback) override;
+        void callShaderAndStartTx(std::string&& shaderFile, std::string&& args, CallShaderAndStartTxCallback&& cback) override;
+        void processShaderTxData(beam::ByteBuffer&& data, ProcessShaderTxDataCallback&& cback) override;
 
         void switchOnOffExchangeRates(bool isActive) override;
         void switchOnOffNotifications(Notification::Type type, bool isActive) override;
@@ -251,6 +313,7 @@ namespace beam::wallet
 
         void getExchangeRates() override;
         void getPublicAddress() override;
+        void getVerificationInfo() override;
 
         void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback) override;
 
@@ -260,6 +323,12 @@ namespace beam::wallet
         void setCoinConfirmationsOffset(uint32_t val) override;
         void getCoinConfirmationsOffset(AsyncCallback<uint32_t>&& callback) override;
 
+        void removeRawSeedPhrase() override;
+        void readRawSeedPhrase(AsyncCallback<const std::string&>&& callback) override;
+
+        void getAppsList(AppsListCallback&& callback) override;
+        void markAppNotificationAsRead(const TxID id) override;
+
         void enableBodyRequests(bool value) override;
 
         // implement IWalletDB::IRecoveryProgress
@@ -267,7 +336,7 @@ namespace beam::wallet
 
         WalletStatus getStatus() const;
         void updateStatus();
-        void updateClientState(WalletStatus&&);
+        void updateClientState(const WalletStatus&);
         void updateMaxPrivacyStats(const WalletStatus& status);
         void updateMaxPrivacyStatsImpl(const WalletStatus& status);
         void updateClientTxState();
@@ -288,7 +357,6 @@ namespace beam::wallet
         //
         IShadersManager::WeakPtr _appsShaders;   // this is used only for applications support
         IShadersManager::WeakPtr _clientShaders; // this is used internally in the wallet client (callShader method)
-        ShaderCallback _clientShadersCback;
 
         // Asset info can be requested multiple times for the same ID
         // We collect all such events and process them in bulk at
@@ -309,15 +377,26 @@ namespace beam::wallet
         std::weak_ptr<NodeNetwork> m_nodeNetwork;
         std::weak_ptr<IWalletMessageEndpoint> m_walletNetwork;
         std::weak_ptr<Wallet> m_wallet;
+
+        #ifdef BEAM_IPFS_SUPPORT
+        std::weak_ptr<IPFSService> m_ipfs;
+        boost::optional<asio_ipfs::config> m_ipfsConfig;
+        uint32_t m_ipfsPeerCnt = 0;
+        std::string m_ipfsError;
+        #endif
+
         // broadcasting via BBS
         std::weak_ptr<IBroadcastMsgGateway> m_broadcastRouter;
         std::weak_ptr<IBroadcastListener> m_updatesProvider;
         std::weak_ptr<IBroadcastListener> m_walletUpdatesProvider;
         std::weak_ptr<ExchangeRateProvider> m_exchangeRateProvider;
+        std::weak_ptr<VerificationProvider> m_verificationProvider;
         std::shared_ptr<NotificationCenter> m_notificationCenter;
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+        #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
         uint32_t m_connectedNodesCount;
         uint32_t m_trustedConnectionCount;
         boost::optional<ErrorType> m_walletError;
@@ -362,5 +441,9 @@ namespace beam::wallet
         std::vector<std::pair<beam::Height, beam::TxoID>> m_shieldedCountHistoryPart;
         beam::TxoID m_shieldedPer24h = 0;
         uint8_t m_mpLockTimeLimit = 0;
+        OpenDBFunction m_openDBFunc;
+        std::unique_ptr<HttpClient> m_httpClient;
+        beam::Timestamp m_averageBlockTime = 0;
+        beam::Timestamp m_lastBlockTime = 0;
     };
 }

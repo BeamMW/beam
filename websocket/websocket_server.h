@@ -13,38 +13,61 @@
 // limitations under the License.
 #pragma once
 
+#include "reactor.h"
+#include "utility/io/timer.h"
+#include "utility/thread.h"
+
 #include <functional>
 #include <string>
 #include <memory>
 #include <thread>
 #include <boost/asio/ip/tcp.hpp>
-#include "reactor.h"
-#include "utility/io/timer.h"
-#include "utility/thread.h"
+#include <boost/optional.hpp>
+#include <boost/asio/ssl.hpp>
 
-namespace beam::wallet {
+namespace boost::asio::ssl
+{
+    class context;
+}
+
+namespace beam
+{
     class WebSocketServer
     {
     public:
-        using SendFunc = std::function<void (const std::string&)>;
-        using CloseFunc = std::function<void (std::string&&)>;
+        using SendFunc = std::function<void(std::string&&)>;
+        using CloseFunc = std::function<void(std::string&&)>;
+
+        struct Options
+        {
+            uint16_t port = 0;
+            bool useTls = false;
+            std::string allowedOrigin;
+            std::string certificate;
+            std::string certificatePath;
+            std::string key;
+            std::string keyPath;
+            std::string dhParams;
+            std::string dhParamsPath;
+        };
 
         struct ClientHandler
         {
             using Ptr = std::shared_ptr<ClientHandler>;
-            virtual void ReactorThread_onWSDataReceived(const std::string&) = 0;
+            virtual void ReactorThread_onWSDataReceived(std::string&&) = 0;
             virtual ~ClientHandler() = default;
         };
 
-        WebSocketServer(SafeReactor::Ptr reactor, uint16_t port, std::string allowedOrigin);
+        WebSocketServer(SafeReactor::Ptr reactor, const Options& options);
         ~WebSocketServer();
 
     protected:
         virtual ClientHandler::Ptr ReactorThread_onNewWSClient(SendFunc, CloseFunc) = 0;
 
     private:
-        boost::asio::io_context       _ioc;
+        boost::asio::io_context    _ioc;
         std::shared_ptr<MyThread>  _iocThread;
-        std::string                   _allowedOrigin;
+        std::string                _allowedOrigin;
+        std::unique_ptr<boost::asio::ssl::context> _tlsContext;
     };
 }

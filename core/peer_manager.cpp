@@ -94,7 +94,7 @@ void PeerManager::Update()
 	m_TicksLast_ms = nTicks_ms;
 
 	// select recommended peers
-	for (ActiveList::iterator it = m_Active.begin(); m_Active.end() != it; it++)
+	for (ActiveList::iterator it = m_Active.begin(); m_Active.end() != it; ++it)
 	{
 		assert(it->m_Now);
 		it->m_Next = false; // not yet
@@ -102,11 +102,11 @@ void PeerManager::Update()
 
 	// 1st group
 	uint32_t nSelected = 0;
-	for (RawRatingSet::iterator it = m_Ratings.begin(); (nSelected < m_Cfg.m_DesiredHighest) && (m_Ratings.end() != it); it++)
+	for (RawRatingSet::iterator it = m_Ratings.begin(); (nSelected < m_Cfg.m_DesiredHighest) && (m_Ratings.end() != it); ++it)
 		ActivatePeerInternal(it->get_ParentObj(), nTicks_ms, nSelected);
 
 	// 2nd group
-	for (AdjustedRatingSet::iterator it = m_AdjustedRatings.begin(); (nSelected < m_Cfg.m_DesiredTotal) && (m_AdjustedRatings.end() != it); it++)
+	for (AdjustedRatingSet::iterator it = m_AdjustedRatings.begin(); (nSelected < m_Cfg.m_DesiredTotal) && (m_AdjustedRatings.end() != it); ++it)
 		ActivatePeerInternal(it->get_ParentObj(), nTicks_ms, nSelected);
 
 	ActivateMorePeers(nTicks_ms);

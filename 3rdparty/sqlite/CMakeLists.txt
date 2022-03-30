@@ -7,6 +7,9 @@ set(SQLITE_SRC
 add_library(sqlite STATIC ${SQLITE_SRC})
 
 target_compile_definitions(sqlite PUBLIC SQLITE_HAS_CODEC)
+if (EMSCRIPTEN)
+    target_compile_definitions(sqlite PUBLIC OMIT_MEMLOCK)
+endif()
 
 target_link_libraries(sqlite PRIVATE OpenSSL::Crypto)
 if(OPENSSL_USE_STATIC_LIBS AND MSVC)

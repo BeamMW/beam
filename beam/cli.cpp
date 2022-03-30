@@ -45,7 +45,7 @@ namespace
 	using namespace beam::wallet;
 
 	class WebClient
-		: public  WebSocketServer::ClientHandler  // We handle web socket client
+		: public WebSocketServer::ClientHandler  // We handle web socket client
 		, public std::enable_shared_from_this<WebClient>
 	{
 	public:
@@ -63,9 +63,9 @@ namespace
 			r.cancel_tcp_connect(uint64_t(this));
 		}
 	private:
-		void ReactorThread_onWSDataReceived(const std::string& data) override
+		void ReactorThread_onWSDataReceived(std::string&& data) override
 		{
-			m_DataQueue.push(data);
+			m_DataQueue.push(std::move(data));
 			if (m_Stream)
 			{
 				ProcessDataQueue();
@@ -89,8 +89,16 @@ namespace
 				LOG_DEBUG() << "Websocket proxy connected to the node";
 				m_Stream = std::move(newStream);
 				m_Stream->enable_read(
-					[this](io::ErrorCode what, void* data, size_t size) -> bool
+					[this](io::ErrorCode errorCode, void* data, size_t size) -> bool
 					{
+						if (errorCode != 0)
+						{
+							std::stringstream ss;
+							ss << "Websocket proxy failed to read, code=" << io::error_str(errorCode);
+							LOG_ERROR() << ss.str();
+							m_wsClose(ss.str());
+							return false;
+						}
 						m_wsSend(std::string((const char*)data, size));
 						return true;
 					});
@@ -100,7 +108,7 @@ namespace
 			{
 				std::stringstream ss;
 				ss << "Websocket proxy failed connected to the node: " << io::error_str(errorCode);
-				LOG_DEBUG() << ss.str();
+				LOG_ERROR() << ss.str();
 				m_wsClose(ss.str());
 			}
 		}
@@ -115,9 +123,8 @@ namespace
 	class WebSocketProxy : public WebSocketServer
 	{
 	public:
-		WebSocketProxy(SafeReactor::Ptr reactor, uint16_t port, uint16_t nodePort,
-			const std::string& allowedOrigin)
-			: WebSocketServer(std::move(reactor), port, allowedOrigin)
+		WebSocketProxy(SafeReactor::Ptr reactor, const Options& options, uint16_t nodePort)
+			: WebSocketServer(std::move(reactor), options)
 			, m_NodePort(nodePort)
 		{
 		}
@@ -137,13 +144,13 @@ namespace
 
 namespace
 {
-    void printHelp(const po::options_description& options)
-    {
-        cout << options << std::endl;
-    }
+	void printHelp(const po::options_description& options)
+	{
+		cout << options << std::endl;
+	}
 
-    bool ReadTreasury(ByteBuffer& bb, const string& sPath)
-    {
+	bool ReadTreasury(ByteBuffer& bb, const string& sPath)
+	{
 		if (sPath.empty())
 			return false;
 
@@ -157,25 +164,38 @@ namespace
 
 		bb.resize(f.get_Remaining());
 		return f.read(&bb.front(), nSize) == nSize;
-    }
+	}
 
 	void find_certificates(IExternalPOW::Options& o, const std::string& stratumDir, bool useTLS) {
 
 		boost::filesystem::path p(stratumDir);
 		p = boost::filesystem::canonical(p);
 
-        if (useTLS)
-        {
-		    static const std::string certFileName("stratum.crt");
-		    static const std::string keyFileName("stratum.key");
+		if (useTLS)
+		{
+			static const std::string certFileName("stratum.crt");
+			static const std::string keyFileName("stratum.key");
 
-		    o.privKeyFile = (p / keyFileName).string();
-		    o.certFile = (p / certFileName).string();
-        }
+			o.privKeyFile = (p / keyFileName).string();
+			o.certFile = (p / certFileName).string();
+		}
 
 		static const std::string apiKeysFileName("stratum.api.keys");
 		if (boost::filesystem::exists(p / apiKeysFileName))
 			o.apiKeysFile = (p / apiKeysFileName).string();
+	}
+
+	void FindWSCertificates(WebSocketServer::Options& o, const po::variables_map& vm)
+	{
+		boost::filesystem::path p(vm[cli::WEBSOCKET_SECRETS_PATH].as<string>());
+		p = boost::filesystem::canonical(p);
+
+		std::string certFileName(vm[cli::WEBSOCKET_CERT].as<string>());
+		std::string keyFileName(vm[cli::WEBSOCKET_KEY].as<string>());
+		std::string dhParamsName(vm[cli::WEBSOCKET_DH].as<string>());
+		o.keyPath = (p / keyFileName).string();
+		o.certificatePath = (p / certFileName).string();
+		o.dhParamsPath = (p / dhParamsName).string();
 	}
 
 	template<typename T>
@@ -196,7 +216,7 @@ namespace
 }
 
 #ifndef LOG_VERBOSE_ENABLED
-    #define LOG_VERBOSE_ENABLED 0
+	#define LOG_VERBOSE_ENABLED 0
 #endif
 
 io::Reactor::Ptr reactor;
@@ -207,35 +227,35 @@ class NodeObserver : public Node::IObserver
 {
 	Height m_Done0 = MaxHeight;
 public:
-    NodeObserver(Node& node) : m_pNode(&node)
-    {
-    }
+	NodeObserver(Node& node) : m_pNode(&node)
+	{
+	}
 
 private:
 
-    void OnSyncProgress() override
-    {
-        // make sure no overflow during conversion from SyncStatus to int,int.
-        Node::SyncStatus s = m_pNode->m_SyncStatus;
+	void OnSyncProgress() override
+	{
+		// make sure no overflow during conversion from SyncStatus to int,int.
+		Node::SyncStatus s = m_pNode->m_SyncStatus;
 
 		if (MaxHeight == m_Done0)
 			m_Done0 = s.m_Done;
 		s.ToRelative(m_Done0);
 
-        unsigned int nThreshold = static_cast<unsigned int>(std::numeric_limits<int>::max());
-        while (s.m_Total > nThreshold)
-        {
-            s.m_Total >>= 1;
-            s.m_Done >>= 1;
-        }
-        int p = static_cast<int>((s.m_Done * 100) / s.m_Total);
-        LOG_INFO() << "Updating node: " << p << "% (" << s.m_Done << "/" << s.m_Total << ")";
-    }
+		unsigned int nThreshold = static_cast<unsigned int>(std::numeric_limits<int>::max());
+		while (s.m_Total > nThreshold)
+		{
+			s.m_Total >>= 1;
+			s.m_Done >>= 1;
+		}
+		int p = static_cast<int>((s.m_Done * 100) / s.m_Total);
+		LOG_INFO() << "Updating node: " << p << "% (" << s.m_Done << "/" << s.m_Total << ")";
+	}
 
-    Node* m_pNode;
+	Node* m_pNode;
 };
 
-int main_impl(int argc, char* argv[])
+int main(int argc, char* argv[])
 {
 	beam::Crash::InstallHandler(NULL);
 
@@ -293,16 +313,16 @@ int main_impl(int argc, char* argv[])
 			clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, logCleanupPeriod);
 
 			Rules::get().UpdateChecksum();
-            LOG_INFO() << "Beam Node " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
+			LOG_INFO() << "Beam Node " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
 			LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 
 			auto port = vm[cli::PORT].as<uint16_t>();
 
-            if (!port)
-            {
-                LOG_ERROR() << "Port must be specified";
-                return -1;
-            }
+			if (!port)
+			{
+				LOG_ERROR() << "Port must be specified";
+				return -1;
+			}
 
 			{
 				SafeReactor::Ptr safeReactor = SafeReactor::create();
@@ -316,11 +336,12 @@ int main_impl(int argc, char* argv[])
 				std::unique_ptr<IExternalPOW> stratumServer;
 				auto stratumPort = vm[cli::STRATUM_PORT].as<uint16_t>();
 
-				if (stratumPort > 0) {
+				if (stratumPort > 0) 
+				{
 					IExternalPOW::Options powOptions;
-                    find_certificates(powOptions, vm[cli::STRATUM_SECRETS_PATH].as<string>(), vm[cli::STRATUM_USE_TLS].as<bool>());
-                    unsigned noncePrefixDigits = vm[cli::NONCEPREFIX_DIGITS].as<unsigned>();
-                    if (noncePrefixDigits > 6) noncePrefixDigits = 6;
+					find_certificates(powOptions, vm[cli::STRATUM_SECRETS_PATH].as<string>(), vm[cli::STRATUM_USE_TLS].as<bool>());
+					unsigned noncePrefixDigits = vm[cli::NONCEPREFIX_DIGITS].as<unsigned>();
+					if (noncePrefixDigits > 6) noncePrefixDigits = 6;
 					stratumServer = IExternalPOW::create(powOptions, *reactor, io::Address().port(stratumPort), noncePrefixDigits);
 				}
 
@@ -330,12 +351,19 @@ int main_impl(int argc, char* argv[])
 					std::unique_ptr<WebSocketProxy> webSocketProxy;
 					if (auto wsPort = vm[cli::WEBSOCKET_PORT].as<uint16_t>(); wsPort > 0)
 					{
-						webSocketProxy = std::make_unique<WebSocketProxy>(safeReactor, wsPort, port, "");
+						WebSocketServer::Options wsOptions;
+						wsOptions.port = wsPort;
+						wsOptions.useTls = vm[cli::WEBSOCKET_USE_TLS].as<bool>();
+						if (wsOptions.useTls)
+						{
+							FindWSCertificates(wsOptions, vm);
+						}
+						webSocketProxy = std::make_unique<WebSocketProxy>(safeReactor, wsOptions, port);
 					}
 
-                    NodeObserver observer(node);
+					NodeObserver observer(node);
 
-                    node.m_Cfg.m_Observer = &observer;
+					node.m_Cfg.m_Observer = &observer;
 
 					node.m_Cfg.m_Listen.port(port);
 					node.m_Cfg.m_Listen.ip(INADDR_ANY);
@@ -401,19 +429,19 @@ int main_impl(int argc, char* argv[])
 
 					for (size_t i = 0; i < vPeers.size(); i++)
 					{
-                        io::Address addr;
+						io::Address addr;
 
-                        if (addr.resolve(vPeers[i].c_str()))
-                        {
-						    if (!addr.port())
-						    {
+						if (addr.resolve(vPeers[i].c_str()))
+						{
+							if (!addr.port())
+							{
 								LOG_WARNING() << "No port is specified for \"" << vPeers[i] << "\", the default value is " << port;
-							    addr.port(port);
-						    }
+								addr.port(port);
+							}
 
-                            node.m_Cfg.m_Connect.push_back(addr);
-                        }
-                        else
+							node.m_Cfg.m_Connect.push_back(addr);
+						}
+						else
 						{
 							LOG_ERROR() << "unable to resolve: " << vPeers[i];
 						}
@@ -579,30 +607,5 @@ int main_impl(int argc, char* argv[])
 		std::cout << "Corruption: " << e.m_sErr << std::endl;
 	}
 
-    return 0;
+	return 0;
 }
-
-int main(int argc, char* argv[]) {
-#ifdef _WIN32
-    return main_impl(argc, argv);
-#else
-    block_sigpipe();
-    auto f = std::async(
-        std::launch::async,
-        [argc, argv]() -> int {
-            // TODO: this hungs app on OSX
-            //lock_signals_in_this_thread();
-            int ret = main_impl(argc, argv);
-            kill(0, SIGINT);
-            return ret;
-        }
-    );
-
-    wait_for_termination(0);
-
-    if (reactor) reactor->stop();
-
-    return f.get();
-#endif
-}
-

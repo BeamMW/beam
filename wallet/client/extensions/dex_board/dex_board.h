@@ -22,7 +22,7 @@ namespace beam::wallet {
     class WalletClient;
     class DexBoard
        : public IBroadcastListener
-       , public IWalletDbObserver
+       , public ISimpleSwapHandler
     {
     public:
         struct IObserver
@@ -36,7 +36,7 @@ namespace beam::wallet {
         [[nodiscard]] boost::optional<DexOrder> getOrder(const DexOrderID&) const;
 
         void publishOrder(const DexOrder&);
-        //void acceptOrder(const DexOrderID& id);
+        void acceptOrder(const DexOrderID& id);
 
         void Subscribe(IObserver* observer)
         {
@@ -55,8 +55,13 @@ namespace beam::wallet {
         //
         // IBroadcastListener
         //
-        bool onMessage(uint64_t, ByteBuffer&&) override;
         bool onMessage(uint64_t, BroadcastMsg&&) override;
+
+        //
+        // ISimpleSwapHandler
+        //
+        bool acceptIncomingDexSS(const SetTxParameter& msg) override;
+        void onDexTxCreated(const SetTxParameter& msg, BaseTransaction::Ptr) override;
 
         //
         // Serialization

@@ -16,23 +16,163 @@
 #include "utility/logger.h"
 
 namespace beam::wallet {
-    ShadersManager::ShadersManager(beam::wallet::Wallet::Ptr wallet,
-                                   beam::wallet::IWalletDB::Ptr walletDB,
-                                   beam::proto::FlyClient::INetwork::Ptr nodeNetwork)
-            : _wdb(walletDB)
-            , _wallet(wallet)
-    {
-        assert(walletDB);
-        assert(wallet);
 
-        m_pPKdf = _wdb->get_OwnerKdf();
-        m_pNetwork = std::move(nodeNetwork);
-        m_pHist = &_wdb->get_History();
+    struct ManagerStdInWallet::SlotName
+    {
+#define SLOT_PREFIX_NAME "app_sh_slot_"
+        char m_sz[_countof(SLOT_PREFIX_NAME) + 10];
+
+        SlotName(uint32_t iSlot)
+        {
+            memcpy(m_sz, SLOT_PREFIX_NAME, sizeof(SLOT_PREFIX_NAME) - sizeof(char));
+            beam::utoa(m_sz + _countof(SLOT_PREFIX_NAME) - 1, iSlot);
+        }
+    };
+
+    ManagerStdInWallet::ManagerStdInWallet(WalletDB::Ptr wdb, Wallet::Ptr pWallet)
+        :m_pWalletDB(std::move(wdb))
+        ,m_pWallet(std::move(pWallet))
+    {
+        assert(m_pWalletDB && m_pWallet);
+
+        m_pPKdf = m_pWalletDB->get_OwnerKdf();
+        m_pHist = &m_pWalletDB->get_History();
+
+        m_pNetwork = m_pWallet->GetNodeEndpoint();
+        assert(m_pNetwork);
     }
 
-    void ShadersManager::CompileAppShader(const std::vector<uint8_t> &shader)
+    ManagerStdInWallet::~ManagerStdInWallet()
     {
-        if (!IsDone())
+        m_Comms.m_Map.Clear(); // must be cleared before our d'tor ends, not in the base d'tor
+    }
+
+    void ManagerStdInWallet::set_Privilege(uint32_t n)
+    {
+        m_Privilege = n;
+        if (n)
+            m_pKdf = m_pWalletDB->get_MasterKdf();
+    }
+
+    bool ManagerStdInWallet::SlotLoad(ECC::Hash::Value& hv, uint32_t iSlot)
+    {
+        SlotName sn(iSlot);
+        return m_pWalletDB->getVarRaw(sn.m_sz, hv.m_pData, hv.nBytes);
+    }
+
+    void ManagerStdInWallet::SlotSave(const ECC::Hash::Value& hv, uint32_t iSlot)
+    {
+        SlotName sn(iSlot);
+        m_pWalletDB->setVarRaw(sn.m_sz, hv.m_pData, hv.nBytes);
+    }
+
+    void ManagerStdInWallet::SlotErase(uint32_t iSlot)
+    {
+        SlotName sn(iSlot);
+        m_pWalletDB->removeVarRaw(sn.m_sz);
+    }
+
+    struct ManagerStdInWallet::Channel
+        :public ManagerStd::Comm::Channel
+    {
+        ManagerStdInWallet* m_pThis = nullptr;
+        WalletID m_Wid;
+        uint8_t m_Y;
+
+        virtual ~Channel()
+        {
+            if (m_pThis)
+            {
+                for (auto& p : m_pThis->m_pWallet->get_MessageEndpoints())
+                    p->Unlisten(m_Wid);
+            }
+        }
+
+        struct Handler
+            :public IWalletMessageEndpoint::IHandler
+        {
+            void OnMsg(const Blob& msg) override
+            {
+                auto& c = get_ParentObj();
+                c.m_pThis->Comm_OnNewMsg(msg, c);
+            }
+
+            IMPLEMENT_GET_PARENT_OBJ(Channel, m_Handler)
+        } m_Handler;
+    };
+
+    void ManagerStdInWallet::TestCommAllowed() const
+    {
+        Wasm::Test(m_Privilege >= 2);
+    }
+
+    void ManagerStdInWallet::Comm_CreateListener(Comm::Channel::Ptr& pRes, const ECC::Hash::Value& hv)
+    {
+        TestCommAllowed();
+
+        ECC::Scalar::Native sk;
+        get_Sk(sk, hv); // would fail if not in privileged mode
+
+        auto pCh = std::make_unique<Channel>();
+        auto& c = *pCh;
+
+        c.m_Y = !c.m_Wid.m_Pk.FromSk(sk);
+        c.m_Wid.SetChannelFromPk();
+
+        c.m_pThis = this;
+
+        for (auto& p : m_pWallet->get_MessageEndpoints())
+            p->Listen(c.m_Wid, sk, &c.m_Handler);
+
+        pRes = std::move(pCh);
+    }
+
+    void ManagerStdInWallet::Comm_Send(const ECC::Point& pk, const Blob& msg)
+    {
+        TestCommAllowed();
+
+
+        WalletID wid;
+        wid.m_Pk = pk.m_X;
+        wid.SetChannelFromPk();
+
+        for (auto& p : m_pWallet->get_MessageEndpoints())
+            p->Send(wid, msg);
+    }
+
+    void ManagerStdInWallet::WriteStream(const Blob& b, uint32_t iStream)
+    {
+        const char* szPrefix = "";
+        switch (iStream)
+        {
+        case Shaders::Stream::Out: szPrefix = "App out: "; break;
+        case Shaders::Stream::Error: szPrefix = "App error: "; break;
+        default:
+            return;
+        }
+
+        std::cout << szPrefix;
+        std::cout.write((const char*) b.p, b.n);
+        std::cout << std::endl;
+    }
+
+    ShadersManager::ShadersManager(beam::wallet::Wallet::Ptr wallet,
+                                   beam::wallet::IWalletDB::Ptr walletDB,
+                                   beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
+                                   std::string appid,
+                                   std::string appname)
+        :ManagerStdInWallet(std::move(walletDB), wallet)
+        , _currentAppId(std::move(appid))
+        , _currentAppName(std::move(appname))
+        , _wallet(std::move(wallet))
+    {
+        assert(_wallet);
+        _logResult = appid.empty();
+    }
+
+    void ShadersManager::compileAppShader(const std::vector<uint8_t> &shader)
+    {
+        if (!_done)
         {
             assert(false);
             throw std::runtime_error("still in shader call");
@@ -51,58 +191,108 @@ namespace beam::wallet {
         beam::bvm2::Processor::Compile(resBuffer, shaderBlob, ManagerStd::Kind::Manager);
     }
 
-    void ShadersManager::CallShaderAndStartTx(const std::string &args, unsigned method, DoneAllHandler doneHandler)
+    void ShadersManager::pushRequest(Request newReq)
     {
-        if (!IsDone())
+        if (newReq.unique)
         {
-            return doneHandler(boost::none, boost::none, std::string("still in shader call"));
+            for (const auto &req: _queue)
+            {
+                if (req.unique == newReq.unique)
+                {
+                    return;
+                }
+            }
         }
-
-        if (m_BodyManager.empty())
-        {
-            return doneHandler(boost::none, boost::none, std::string("missing shader code"));
-        }
-
-        m_Args.clear();
-        if (!args.empty())
-        {
-            std::string temp = args;
-            AddArgs(&temp.front());
-        }
-
-        _done = false;
-        _async = false;
-        _doneAll = std::move(doneHandler);
-
-        StartRun(method);
-        _async = !_done;
+        _queue.push(std::move(newReq));
     }
 
-    void ShadersManager::CallShader(const std::string& args, unsigned method, DoneCallHandler doneHandler)
+    void ShadersManager::CallShaderAndStartTx(std::vector<uint8_t>&& shader, std::string&& args, unsigned method, uint32_t priority, uint32_t unique, DoneAllHandler doneHandler)
     {
-        if (!IsDone())
+        Request req;
+        req.shader   = std::move(shader);
+        req.args     = std::move(args);
+        req.method   = method;
+        req.doneAll  = std::move(doneHandler);
+        req.priority = priority;
+        req.unique   = unique;
+        pushRequest(std::move(req));
+
+        if (_done)
         {
-            return doneHandler(boost::none, boost::none, std::string("still in shader call"));
+            return nextRequest();
+        }
+
+        LOG_VERBOSE() << "shader call is still in progress, request " << args << " queued";
+    }
+
+    void ShadersManager::CallShader(std::vector<uint8_t>&& shader, std::string&& args, unsigned method, uint32_t priority, uint32_t unique, DoneCallHandler doneHandler)
+    {
+        Request req;
+        req.shader   = std::move(shader);
+        req.args     = std::move(args);
+        req.method   = method;
+        req.doneCall = std::move(doneHandler);
+        req.priority = priority;
+        req.unique   = unique;
+        pushRequest(std::move(req));
+
+        if (_done)
+        {
+            return nextRequest();
+        }
+
+        LOG_VERBOSE () << "shader call is still in progress, request " << args << " queued";
+    }
+
+    void ShadersManager::nextRequest()
+    {
+        if (_queue.empty())
+        {
+            return;
+        }
+
+        const auto& req = _queue.top();
+        if (!req.shader.empty())
+        {
+            try
+            {
+                compileAppShader(req.shader);
+            }
+            catch(std::exception& ex)
+            {
+                BOOST_SCOPE_EXIT_ALL(&, this) {
+                    _queue.pop();
+                };
+                return req.doneCall(boost::none, boost::none, std::string(ex.what()));
+            }
         }
 
         if (m_BodyManager.empty())
         {
-            return doneHandler(boost::none, boost::none, std::string("missing shader code"));
+            BOOST_SCOPE_EXIT_ALL(&, this) {
+                _queue.pop();
+            };
+            return req.doneCall(boost::none, boost::none, std::string("missing shader code"));
         }
 
         m_Args.clear();
-        if (!args.empty())
+        if (!req.args.empty())
         {
-            std::string temp = args;
+            std::string temp = req.args;
             AddArgs(&temp.front());
         }
 
         _done = false;
-        _async = false;
-        _doneCall = std::move(doneHandler);
+        _startEvent = io::AsyncEvent::create(io::Reactor::get_Current(),
+            [this, method = req.method]()
+            {
+                StartRun(method);
+            });
 
-        StartRun(method);
-        _async = !_done;
+        _wallet->DoInSyncedWallet([this]()
+            {
+                _startEvent->post();
+            });
     }
 
     void ShadersManager::ProcessTxData(const ByteBuffer& buffer, DoneTxHandler doneHandler)
@@ -153,12 +343,19 @@ namespace beam::wallet {
 
     void ShadersManager::OnDone(const std::exception *pExc)
     {
-        auto allHandler = _doneAll;
-        auto callHandler = _doneCall;
+        if (_queue.empty())
+        {
+            LOG_WARNING() << "Queue has been cleared before request completed";
+            return;
+        }
+
+        BOOST_SCOPE_EXIT_ALL(&, this) {
+            _queue.pop();
+            this->nextRequest();
+        };
 
         _done = true;
-        decltype(_doneAll)().swap(_doneAll);
-        decltype(_doneCall)().swap(_doneCall);
+        const auto& req = _queue.top();
 
         if (pExc != nullptr)
         {
@@ -173,28 +370,31 @@ namespace beam::wallet {
             }
 
             LOG_INFO() << "Shader Error: " << *error;
-            if (allHandler)
+            if (req.doneAll)
             {
-                return allHandler(boost::none, boost::none, error);
+                return req.doneAll(boost::none, boost::none, std::move(error));
             }
             else
             {
-                return callHandler(boost::none, boost::none, error);
+                return req.doneCall(boost::none, boost::none, std::move(error));
             }
         }
 
         boost::optional<std::string> result = m_Out.str();
-        LOG_INFO () << "Shader result: " << *result;
+        if (_logResult)
+        {
+            LOG_VERBOSE () << "Shader result: " << std::string_view(result ? *result : std::string()).substr(0, 200);
+        }
 
         if (m_vInvokeData.empty())
         {
-            if (allHandler)
+            if (req.doneAll)
             {
-                return allHandler(boost::none, result, boost::none);
+                return req.doneAll(boost::none, std::move(result), boost::none);
             }
             else
             {
-                return callHandler(boost::none, result, boost::none);
+                return req.doneCall(boost::none, std::move(result), boost::none);
             }
         }
 
@@ -202,57 +402,43 @@ namespace beam::wallet {
         {
             auto buffer = toByteBuffer(m_vInvokeData);
 
-            if (callHandler)
+            if (req.doneCall)
             {
-                return callHandler(buffer, result, boost::none);
+                return req.doneCall(std::move(buffer), std::move(result), boost::none);
             }
 
-            return ProcessTxData(buffer, [result, allHandler] (boost::optional<TxID> txid, boost::optional<std::string> error)
+            return ProcessTxData(buffer, [result=std::move(result), allHandler = std::move(req.doneAll)](const boost::optional<TxID>& txid, boost::optional<std::string>&& error) mutable
             {
-                return allHandler(std::move(txid), result, std::move(error));
+                return allHandler(txid, std::move(result), std::move(error));
             });
         }
         catch (std::runtime_error &err)
         {
             std::string error = err.what();
-            if (allHandler)
+            if (req.doneAll)
             {
-                return allHandler(boost::none, result, error);
+                return req.doneAll(boost::none, std::move(result), std::move(error));
             }
             else
             {
-                return callHandler(boost::none, result, error);
+                return req.doneCall(boost::none, std::move(result), std::move(error));
             }
         }
-    }
-
-    void ShadersManager::SetCurrentApp(const std::string& appid, const std::string& appname)
-    {
-        if (!_currentAppId.empty())
-        {
-            throw std::runtime_error("SetCurrentApp while another app is active");
-        }
-
-        _currentAppId = appid;
-        _currentAppName = appname;
-    }
-
-    void ShadersManager::ReleaseCurrentApp(const std::string& appid)
-    {
-        if (_currentAppId != appid)
-        {
-            throw std::runtime_error("Unexpected AppID in releaseAPP");
-        }
-
-        _currentAppId.clear();
-        _currentAppName.clear();
     }
 
     IShadersManager::Ptr IShadersManager::CreateInstance(
                 beam::wallet::Wallet::Ptr wallet,
                 beam::wallet::IWalletDB::Ptr wdb,
-                beam::proto::FlyClient::INetwork::Ptr nodeNetwork)
+                beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
+                std::string appid,
+                std::string appname)
     {
-        return std::make_shared<ShadersManager>(std::move(wallet), std::move(wdb), std::move(nodeNetwork));
+        return std::make_shared<ShadersManager>(
+                std::move(wallet),
+                std::move(wdb),
+                std::move(nodeNetwork),
+                std::move(appid),
+                std::move(appname)
+                );
     }
 }

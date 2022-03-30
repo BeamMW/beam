@@ -718,7 +718,10 @@ namespace beam::wallet
     bool BaseTxBuilder::HandlerInOuts::InputsShielded::OnList(BaseTxBuilder& b, proto::ShieldedList& msg)
     {
         if (msg.m_Items.size() > m_Count)
+        {
+            LOG_ERROR() << "ShieldedList message returned more coins than requested " << TRACE(msg.m_Items.size()) << TRACE(m_Count);
             return false;
+        }
 
         uint32_t nItems = static_cast<uint32_t>(msg.m_Items.size());
 
@@ -744,7 +747,10 @@ namespace beam::wallet
         if (nItems < m_N)
         {
             if (m_Wnd0 || (nItems <= m_Method.m_iIdx))
+            {
+                LOG_ERROR() << "ShieldedList message returned unexpected data " << TRACE(m_Wnd0) << TRACE(nItems) << TRACE(m_Method.m_iIdx);
                 return false;
+            }
 
             uint32_t nDelta = m_N - nItems;
             m_Lst.m_Skip = nDelta;
@@ -824,6 +830,7 @@ namespace beam::wallet
         TxBase::Context::Params pars;
         TxBase::Context ctx(pars);
         ctx.m_Height.m_Min = m_Height.m_Min;
+        // TODO:DEX set to false, other side will not see it!!!
         if (!m_pTransaction->IsValid(ctx))
             throw TransactionFailedException(false, TxFailureReason::InvalidTransaction);
     }
@@ -920,7 +927,7 @@ namespace beam::wallet
     // SimpleTxBuilder
 
     SimpleTxBuilder::SimpleTxBuilder(BaseTransaction& tx, SubTxID subTxID)
-        :BaseTxBuilder(tx, subTxID)
+        : BaseTxBuilder(tx, subTxID)
         , m_Lifetime(kDefaultTxLifetime)
     {
         GetParameter(TxParameterID::Amount, m_Amount);

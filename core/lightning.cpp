@@ -292,7 +292,7 @@ void Channel::UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut)
 	}
 
 	// set the data (carefully!)
-	for (Storage::Map::iterator it = dataIn.begin(); dataIn.end() != it; it++)
+	for (Storage::Map::iterator it = dataIn.begin(); dataIn.end() != it; ++it)
 	{
 		const uint32_t& code = it->first;
 
@@ -551,7 +551,7 @@ Channel::DataUpdate* Channel::SelectWithdrawalPath()
 {
 	// Select the termination path. Note: it may not be the most recent, because it may (theoretically) be not ready yet.
 	// Go from back to front, until we encounter a valid path
-	for (UpdateList::reverse_iterator it = m_lstUpdates.rbegin(); m_lstUpdates.rend() != it; it++)
+	for (UpdateList::reverse_iterator it = m_lstUpdates.rbegin(); m_lstUpdates.rend() != it; ++it)
 	{
 		DataUpdate& d = *it;
 		if (DataUpdate::Type::None != d.m_Type)

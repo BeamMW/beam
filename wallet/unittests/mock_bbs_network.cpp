@@ -24,20 +24,24 @@ using namespace beam;
 
 namespace
 {
-
 /**
  *  Implementation of test BBS network.
  */
 class MockBbsNetwork : public IWalletMessageEndpoint, public FlyClient::INetwork
 {
 public:
-    MockBbsNetwork() {};
+    MockBbsNetwork() = default;
+
+    static std::shared_ptr<MockBbsNetwork> CreateInstance()
+    {
+        return std::make_shared<MockBbsNetwork>();
+    }
 
     // INetwork
-    virtual void Connect() override {};
-    virtual void Disconnect() override {};
-    virtual void PostRequestInternal(FlyClient::Request&) override {};
-    virtual void BbsSubscribe(BbsChannel channel, Timestamp ts, FlyClient::IBbsReceiver* subscriber) override
+    void Connect() override {};
+    void Disconnect() override {};
+    void PostRequestInternal(FlyClient::Request&) override {};
+    void BbsSubscribe(BbsChannel channel, Timestamp ts, FlyClient::IBbsReceiver* subscriber) override
     {
         m_subscriptions[channel].push_back(std::make_pair(subscriber, ts));
     };
@@ -46,7 +50,7 @@ public:
     /**
      *  Redirects BBS messages to subscribers
      */
-    virtual void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override
+    void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override
     {
         beam::BbsChannel channel;
         peerID.m_Channel.Export(channel);
@@ -63,10 +67,26 @@ public:
             }
         }
     };
-    virtual void Send(const WalletID& peerID, const SetTxParameter& msg) override {};
+    void Send(const WalletID& peerID, const SetTxParameter& msg) override {};
 
 private:
     std::map<BbsChannel, std::vector<std::pair<FlyClient::IBbsReceiver*, Timestamp>>> m_subscriptions;
 };
 
+struct MockTimestampHolder : ITimestampHolder
+{
+    Timestamp GetTimestamp(BbsChannel channel) override
+    {
+        return 0;
+    }
+    void UpdateTimestamp(const proto::BbsMsg& msg) override
+    {
+
+    }
+
+    static ITimestampHolder::Ptr CreateInstance()
+    {
+        return std::make_shared<MockTimestampHolder>();
+    }
+};
 } // namespace

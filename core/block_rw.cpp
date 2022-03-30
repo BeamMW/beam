@@ -494,6 +494,7 @@ namespace beam
 		}
 
 		Finalyze();
+		OnProgress();
 		return true;
 	}
 
@@ -511,7 +512,7 @@ namespace beam
 				break;
 
 			Output outp;
-			m_Der & outp;
+			yas::detail::loadRecovery(m_Der, outp, h);
 
 			UtxoTree::Key::Data d;
 			d.m_Commitment = outp.m_Commitment;
@@ -558,7 +559,12 @@ namespace beam
 
 				assert(!txo.m_pAsset); // the asset proof itself is omitted.
 				if (Flags::HadAsset & nFlags)
+				{
 					txo.m_pAsset.reset(new Asset::Proof);
+
+					if (h >= Rules::get().pForks[3].m_Height)
+						m_Der & txo.m_pAsset->m_hGen;
+				}
 
 				ShieldedTxo::DescriptionOutp dOutp;
 				dOutp.m_Commitment = txo.m_Commitment;
@@ -601,6 +607,12 @@ namespace beam
 
 			if (ai.m_ID > Asset::s_MaxCount)
 				break;
+
+			if (ai.m_ID <= m_Assets.m_Count)
+				ThrowBadData();
+
+			while (ai.m_ID > m_Assets.m_Count + 1)
+				m_Assets.Append(Zero);
 
 			m_Der & Cast::Down<Asset::Info>(ai);
 

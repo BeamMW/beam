@@ -18,8 +18,7 @@
 #include <boost/filesystem.hpp>
 #include "wallet/core/wallet.h"
 #include "wallet/core/wallet_network.h"
-#include "bvm/bvm2.h"
-#include "bvm/ManagerStd.h"
+#include "wallet/core/contracts/shaders_manager.h"
 #include "core/fly_client.h"
 #include <memory>
 #include <inttypes.h>
@@ -115,11 +114,13 @@ namespace
     };
 
     struct MyManager
-        : public bvm2::ManagerStd
+        :public ManagerStdInWallet
     {
         bool m_Done = false;
         bool m_Err = false;
         bool m_Async = false;
+
+        using ManagerStdInWallet::ManagerStdInWallet;
 
         void OnDone(const std::exception* pExc) override
         {
@@ -162,10 +163,7 @@ namespace
         , const std::string& contractShader
         , std::string args)
     {
-        MyManager man;
-        man.m_pPKdf = walletDB->get_OwnerKdf();
-        man.m_pNetwork = wallet->GetNodeEndpoint();
-        man.m_pHist = &walletDB->get_History();
+        MyManager man(walletDB, wallet);
 
         if (appShader.empty())
             throw std::runtime_error("shader file not specified");

@@ -61,8 +61,8 @@ namespace beam::wallet
                 {"id", "ev_sync_progress"},
                 {"result",
                     {
-                        {"done", done},
-                        {"total", total}
+                        {"sync_requests_done", done},
+                        {"sync_requests_total", total}
                     }
                 }
             };
@@ -74,6 +74,11 @@ namespace beam::wallet
         {
             LOG_ERROR() << "V61Api::onSyncProgress failed: " << e.what();
         }
+    }
+
+    void V61Api::onOwnedNode(const PeerID& id, bool connected)
+    {
+        sendConnectionStatus();
     }
 
     void V61Api::onSystemStateChanged(const Block::SystemState::ID& stateID)
@@ -111,9 +116,11 @@ namespace beam::wallet
         WalletAssetMeta meta(info);
         auto pairs = meta.GetMetaMap();
 
-        res["metadata_kv"]  = !pairs.empty();
+        res["metadata_kv"]      = !pairs.empty();
         res["metadata_std_min"] = meta.isStd_v5_0();
-        res["metadata_std"] = meta.isStd();
+        res["metadata_v50"]     = meta.isStd_v5_0();
+        res["metadata_v60"]     = meta.isStd_v6_0();
+        res["metadata_std"]     = meta.isStd();
 
         if (!pairs.empty())
         {
@@ -229,6 +236,7 @@ namespace beam::wallet
     template<typename T>
     void V61Api::onCoinsChangedImp(ChangeAction action, const std::vector<T>& changed)
     {
+        static_assert(std::is_same<Coin, T>::value || std::is_same<ShieldedCoin, T>::value);
         try
         {
             if ((_evSubs & SubFlags::CoinsChanged) == 0)
@@ -236,7 +244,6 @@ namespace beam::wallet
                 return;
             }
 
-            const auto cCnt = getWalletDB()->getCoinConfirmationsOffset();
             const auto caEnabled = getCAEnabled();
             std::vector<ApiCoin> coins;
 
@@ -246,7 +253,8 @@ namespace beam::wallet
                 {
                     continue;
                 }
-                ApiCoin::EmplaceCoin(coins, c, cCnt);
+
+                ApiCoin::EmplaceCoin(coins, c);
             }
 
             onCoinsChangedImp(action, coins);
@@ -359,8 +367,9 @@ namespace beam::wallet
 
                 Status::Response &item = items.emplace_back();
                 item.tx = tx;
-                item.txHeight = storage::DeduceTxProofHeight(*walletDB, tx);
+                item.txProofHeight = storage::DeduceTxProofHeight(*walletDB, tx);
                 item.systemHeight = stateID.m_Height;
+                item.withRates = true;
             }
 
             // allow reset even if empty
@@ -375,5 +384,60 @@ namespace beam::wallet
         {
             LOG_ERROR() << "V61Api::onTransactionChanged failed: " << e.what();
         }
+    }
+
+    void V61Api::onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason& dr)
+    {
+        sendConnectionStatus();
+    }
+
+    void V61Api::onNodeConnectedStatusChanged(bool isNodeConnected)
+    {
+        sendConnectionStatus();
+    }
+
+    void V61Api::sendConnectionStatus()
+    {
+        if ((_evSubs & SubFlags::ConnectChanged) == 0)
+        {
+            return;
+        }
+        // THIS METHOD IS NOT GUARDED
+        try
+        {
+            _handler.sendAPIResponse(fillConnectionState());
+        }
+        catch (std::exception& e)
+        {
+            LOG_ERROR() << "V61Api::sendConnectionStatus failed: " << e.what();
+        }
+    }
+
+    json V61Api::fillConnectionState() const
+    {
+        if (!_network)
+        {
+            assert(false);
+            throw std::runtime_error("fillConnectionState is called while empty _network");
+        }
+
+        json msg = json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", "ev_connection_changed"},
+            {"result", {}}
+        };
+
+        auto& parent = msg["result"];
+        parent["node_connected"] = (_network->getConnections() > 0);
+        parent["own_node"] = getWallet()->IsConnectedToOwnNode();
+
+        const auto& error = _network->getLastError();
+        if (!error.empty())
+        { 
+            parent["last_connect_error"] = error;
+        }
+
+        return msg;
     }
 }

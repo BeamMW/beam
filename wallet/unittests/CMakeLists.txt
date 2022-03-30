@@ -7,13 +7,20 @@ set(TEST_SHADERS test_shader.cpp)
 add_library(wallet_test_node STATIC wallet_test_node.cpp)
 target_link_libraries(wallet_test_node PUBLIC node wallet)
 
+configure_file("../../bvm/Shaders/vault/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/vault/contract.wasm" COPYONLY)
+configure_file("../../bvm/Shaders/vault/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/vault/app.wasm" COPYONLY)
+configure_file("../../bvm/Shaders/upgradable2/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable2/contract.wasm" COPYONLY)
+configure_file("../../bvm/Shaders/upgradable2/Test/test_v0.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable2/Test/test_v0.wasm" COPYONLY)
+configure_file("../../bvm/Shaders/upgradable2/Test/test_v1.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable2/Test/test_v1.wasm" COPYONLY)
+configure_file("../../bvm/Shaders/upgradable2/Test/test_app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable2/Test/test_app.wasm" COPYONLY)
 
-add_test_snippet(wallet_test wallet node mnemonic wallet wallet_client wallet_api wallet_test_node)
-add_test_snippet(wallet_db_test wallet)
+
+add_test_snippet(wallet_test wallet node mnemonic wallet_client wallet_api wallet_test_node)
+add_test_snippet(wallet_db_test wallet_core)
 add_test_snippet(wallet_api_test wallet_api)
-add_test_snippet(wallet_assets_test core node wallet pow assets wallet_test_node)
+add_test_snippet(wallet_assets_test core node wallet_core pow assets wallet_test_node)
 add_test_snippet(news_channels_test wallet_client node)
-add_test_snippet(broadcasting_test wallet_client node)
+add_test_snippet(broadcasting_test broadcast_gateway node)
 
 if (BEAM_TEST_SHADERS)
     macro (add_shader shader )
@@ -52,7 +59,7 @@ endif()
 if (BEAM_ATOMIC_SWAP_SUPPORT)
     add_test_snippet(bitcoin_rpc_test swap)
     add_test_snippet(swap_test node swap http wallet_test_node)
-    add_test_snippet(swap_board_test wallet_client node)
+    add_test_snippet(swap_board_test swap_offers_board node)
     add_test_snippet(electrum_test swap)
     #add_test_snippet(ethereum_test swap)
 endif()
@@ -71,8 +78,17 @@ if (BEAM_LASER_SUPPORT)
 endif()
 
 if (BEAM_LELANTUS_SUPPORT)
-    add_test_snippet(lelantus_test lelantus wallet node wallet_test_node)
+    add_test_snippet(lelantus_test lelantus wallet_core node wallet_test_node)
+endif()
+
+if (BEAM_IPFS_SUPPORT AND WIN32)
+    # TODO: This if hacky AF and beacuse we place everything in different folders.
+    get_target_property(IPFS_DLL asio-ipfs IPFS_DLL)
+    add_custom_command(
+        TARGET wallet_test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy ${IPFS_DLL} ${CMAKE_CURRENT_BINARY_DIR}
+    )
 endif()
 
 #add_executable(offline offline.cpp)
-#target_link_libraries(offline node wallet)
+#target_link_libraries(offline node wallet_core)

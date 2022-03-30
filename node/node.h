@@ -135,9 +135,7 @@ struct Node
 		struct Dandelion
 		{
 			uint16_t m_FluffProbability = 0x1999; // normalized wrt 16 bit. Equals to 0.1
-			uint32_t m_TimeoutMin_ms = 20000;
-			uint32_t m_TimeoutMax_ms = 50000;
-			uint32_t m_dhStemConfirm = 5; // if stem tx is not mined within this number of blocks - it's auto-fluffed
+			uint32_t m_dhStemConfirm = 2; // if stem tx is not mined within this number of blocks (+1) - it's auto-fluffed
 
 			uint32_t m_AggregationTime_ms = 10000;
 			uint32_t m_OutputsMin = 5; // must be aggregated.
@@ -214,10 +212,14 @@ struct Node
 	bool DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>&, const proto::HdrPack&);
 	static bool DecodeAndCheckHdrsImpl(std::vector<Block::SystemState::Full>&, const proto::HdrPack&, ExecutorMT&);
 
-	uint8_t OnTransaction(Transaction::Ptr&&, const PeerID*, bool bFluff, std::ostream* pExtraInfo);
+	uint8_t OnTransaction(Transaction::Ptr&&, std::unique_ptr<Merkle::Hash>&&, const PeerID*, bool bFluff, std::ostream* pExtraInfo);
 
         // for step-by-step tests
 	void GenerateFakeBlocks(uint32_t n);
+
+	TxPool::Fluff m_TxPool;
+	TxPool::Dependent m_TxDependent;
+	std::map<Transaction::KeyType, uint8_t> m_TxReject; // spam
 
 private:
 
@@ -274,8 +276,6 @@ private:
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
-
-	TxPool::Fluff m_TxPool;
 
 	struct Peer;
 
@@ -377,6 +377,7 @@ private:
 		struct Element
 		{
 			Transaction::Ptr m_pTx;
+			std::unique_ptr<Merkle::Hash> m_pCtx;
 			PeerID m_Sender;
 			bool m_Fluff;
 		};
@@ -388,20 +389,22 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_TxDeferred)
 	} m_TxDeferred;
 
-	void OnTransactionDeferred(Transaction::Ptr&&, const PeerID*, bool bFluff);
+	void OnTransactionDeferred(Transaction::Ptr&&, std::unique_ptr<Merkle::Hash>&&, const PeerID*, bool bFluff);
 	uint8_t OnTransactionStem(Transaction::Ptr&&, std::ostream* pExtraInfo);
-	uint8_t OnTransactionFluff(Transaction::Ptr&&, std::ostream* pExtraInfo, const PeerID*, Dandelion::Element*);
-	void OnTransactionAggregated(Dandelion::Element&);
-	void OnTransactionWaitingConfirm(TxPool::Stem::Element&);
+	uint8_t OnTransactionFluff(Transaction::Ptr&&, std::ostream* pExtraInfo, const PeerID*, const TxPool::Stats*);
+	void OnTransactionFluff(TxPool::Fluff::Element&, const PeerID*);
+	uint8_t OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash& hvCtx, const PeerID* pSender, bool bFluff, std::ostream* pExtraInfo);
+	void OnTransactionAggregated(Transaction::Ptr&&, const TxPool::Stats&);
 	void PerformAggregation(Dandelion::Element&);
-	void AddDummyInputs(Transaction&);
+	void AddDummyInputs(Transaction&, TxPool::Stats&);
 	bool AddDummyInputRaw(Transaction& tx, const CoinID&);
 	bool AddDummyInputEx(Transaction& tx, const CoinID&);
-	void AddDummyOutputs(Transaction&, Amount feeReserve);
+	void AddDummyOutputs(Transaction&, TxPool::Stats&);
 	Height SampleDummySpentHeight();
 	void DeleteOutdated();
 
-	uint8_t ValidateTx(Transaction::Context&, const Transaction&, uint32_t& nSizeCorrection, Amount& feeReserve, std::ostream* pExtraInfo); // complete validation
+	uint8_t ValidateTx(TxPool::Stats&, const Transaction&, const Transaction::KeyType& keyTx, std::ostream* pExtraInfo, bool& bAlreadyRejected); // complete validation
+	uint8_t ValidateTx2(Transaction::Context&, const Transaction&, uint32_t& nBvmCharge, Amount& feeReserve, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo, Merkle::Hash* pNewCtx);
 	static bool CalculateFeeReserve(const TxStats&, const HeightRange&, const AmountBig::Type&, uint32_t nBvmCharge, Amount& feeReserve);
 	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
 	void LogTxStem(const Transaction&, const char* szTxt);
@@ -519,10 +522,16 @@ private:
 		beam::io::Address m_RemoteAddr; // for logging only
 
 		Block::SystemState::Full m_Tip;
-		uint32_t m_LoginFlags;
+
+		struct DependentContext
+		{
+			std::unique_ptr<Merkle::Hash> m_pQuery;
+			std::vector<Merkle::Hash> m_vSent;
+			Height m_hSent;
+		} m_Dependent;
 
 		uint64_t m_CursorBbs;
-		TxPool::Fluff::Element* m_pCursorTx;
+		TxPool::Fluff::Element::Send* m_pCursorTx;
 
 		TaskList m_lstTasks;
 		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
@@ -548,8 +557,9 @@ private:
 		void BroadcastBbs();
 		void BroadcastBbs(Bbs::Subscription&);
 		void MaybeSendSerif();
+		void MaybeSendDependent();
 		void OnChocking();
-		void SetTxCursor(TxPool::Fluff::Element*);
+		void SetTxCursor(TxPool::Fluff::Element::Send*);
 		bool GetBlock(proto::BodyBuffers&, const NodeDB::StateID&, const proto::GetBodyPack&, bool bActive);
 
 		bool IsChocking(size_t nExtra = 0);
@@ -561,7 +571,20 @@ private:
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
 		void ModifyRatingWrtData(size_t nSize);
 		void SendHdrs(NodeDB::StateID&, uint32_t nCount);
-		void SendTx(Transaction::Ptr& ptx, bool bFluff);
+		void SendTx(Transaction::Ptr& ptx, bool bFluff, const Merkle::Hash* pCtx = nullptr);
+
+		struct ISelector {
+			virtual bool IsValid(Peer&)= 0;
+		};
+
+		struct Selector_Stem :public ISelector {
+			static bool IsValid_(Peer& p) {
+				return !!(proto::LoginFlags::SpreadingTransactions & p.m_LoginFlags);
+			}
+			bool IsValid(Peer& p) override {
+				return IsValid_(p);
+			}
+		};
 
 		// proto::NodeConnection
 		virtual void OnConnectedSecure() override;
@@ -569,7 +592,7 @@ private:
 		virtual void GenerateSChannelNonce(ECC::Scalar::Native&) override; // Must be overridden to support SChannel
 		// login
 		virtual void SetupLogin(proto::Login&) override;
-		virtual void OnLogin(proto::Login&&) override;
+		virtual void OnLogin(proto::Login&&, uint32_t nFlagsPrev) override;
 		virtual Height get_MinPeerFork() override;
 		// messages
 		virtual void OnMsg(proto::Authentication&&) override;
@@ -614,6 +637,7 @@ private:
 		virtual void OnMsg(proto::GetContractVar&&) override;
 		virtual void OnMsg(proto::GetContractLogProof&&) override;
 		virtual void OnMsg(proto::GetShieldedOutputsAt&&) override;
+		virtual void OnMsg(proto::SetDependentContext&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
@@ -624,6 +648,9 @@ private:
 	void NextNonce(ECC::Scalar::Native&);
 
 	uint32_t RandomUInt32(uint32_t threshold);
+
+
+	Peer* SelectRandomPeer(Peer::ISelector&);
 
 	ECC::Scalar::Native m_MyPrivateID;
 	PeerID m_MyPublicID;
@@ -694,11 +721,13 @@ private:
 
 		void Initialize(IExternalPOW* externalPOW=nullptr);
 
+		void SoftRestart();
 		void OnRefresh(uint32_t iIdx);
 		void OnRefreshExternal();
 		void OnMined();
 		IExternalPOW::BlockFoundResult OnMinedExternal();
 		void OnFinalizerChanged(Peer*);
+		bool IsShouldMine(const NodeProcessor::GeneratedBlock&);
 
 		void HardAbortSafe();
 		bool Restart();
@@ -722,6 +751,8 @@ private:
 
 		io::Timer::Ptr m_pTimer;
 		bool m_bTimerPending = false;
+		uint32_t m_LastRestart_ms;
+		Amount m_FeesTrg = 0;
 		void OnTimer();
 		void SetTimer(uint32_t timeout_ms, bool bHard);
 

@@ -155,7 +155,7 @@ namespace beam::wallet
                       , public ISecondSideProvider
         {
         public:
-            Creator(IWalletDB::Ptr walletDB);
+            explicit Creator(IWalletDB::Ptr walletDB);
             void RegisterFactory(AtomicSwapCoin coinType, ISecondSideFactory::Ptr factory);
         private:
             BaseTransaction::Ptr Create(const TxContext& context) override;

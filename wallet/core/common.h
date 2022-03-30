@@ -26,6 +26,8 @@
 #include "wallet/core/dex.h"
 #include "utility/std_extension.h"
 
+#include <tuple>
+
 namespace beam::wallet
 {
 
@@ -68,7 +70,7 @@ namespace beam::wallet
         uintBigFor<BbsChannel>::Type m_Channel;
         PeerID m_Pk;
 
-        WalletID() {}
+        WalletID() = default;
         WalletID(Zero_)
             : m_Channel(Zero)
             , m_Pk(Zero)
@@ -330,6 +332,7 @@ namespace beam::wallet
     MACRO(PeerLockImage,                   115, Hash::Value) \
     MACRO(AssetMetadata,                   116, std::string)\
     MACRO(DexOrderID,                      117, DexOrderID) \
+    MACRO(ExternalDexOrderID,              118, DexOrderID) \
     MACRO(ExchangeRates,                   120, std::vector<ExchangeRate>) \
     MACRO(OriginalToken,                   121, std::string) \
     /* Lelantus */ \
@@ -338,8 +341,8 @@ namespace beam::wallet
     MACRO(ShieldedVoucherList,             124, ShieldedVoucherList) \
     MACRO(Voucher,                         125, ShieldedTxo::Voucher) \
     /* Version */ \
-    MACRO(ClientVersion,                   126, std::string) \
-    MACRO(LibraryVersion,                  127, std::string)\
+    MACRO(ClientVersion,                   126, ByteBuffer/*std::string*/) \
+    MACRO(LibraryVersion,                  127, ByteBuffer/*std::string*/) \
 
     // Ids of the transaction parameters
     enum class TxParameterID : uint8_t
@@ -362,6 +365,7 @@ namespace beam::wallet
         AssetConfirmedHeight = 135, // This is NOT the same as ProofHeight for kernel!
         AssetUnconfirmedHeight = 136,
         AssetInfoFull = 137,
+        MinConfirmations = 138, // Minimum confirmations count for simple transactions from settings
 
         Offset = 140,
 
@@ -407,6 +411,7 @@ namespace beam::wallet
         AddressType = 211,
         SavePeerAddress = 212, // allows to preserve and control the old behaviour of saving address 
         TransactionRegisteredInternal = 222, // used to overwrite previouse result
+        IsContractNotificationMarkedAsRead = 223,
         State = 255
     };
 
@@ -521,60 +526,13 @@ namespace beam::wallet
         PublicOffline
     };
 
-    class TxStatusInterpreter
-    {
-    public:
-        typedef std::shared_ptr<TxStatusInterpreter> Ptr;
-        using Creator = std::function<Ptr (const TxParameters& txParams)>;
+    std::tuple<TxStatus, bool, bool> ParseParamsForStatusInterpretation(const TxParameters& txParams);
+    std::string GetTxStatusStr(const TxParameters& txParams);
+    std::string GetSimpleTxStatusStr(const TxParameters& txParams);
+    std::string GetMaxAnonimityTxStatusStr(const TxParameters& txParams);
+    std::string GetAssetTxStatusStr(const TxParameters& txParams);
+    std::string GetContractTxStatusStr(const TxParameters& txParams);
 
-        explicit TxStatusInterpreter(const TxParameters& txParams);
-        virtual ~TxStatusInterpreter() = default;
-        [[nodiscard]] virtual std::string getStatus() const;
-
-    protected:
-        TxStatus m_status = TxStatus::Pending;
-        bool m_sender = false;
-        bool m_selfTx = false;
-        TxFailureReason m_failureReason = TxFailureReason::Unknown;
-    };
-
-    class SimpleTxStatusInterpreter : public TxStatusInterpreter
-    {
-    public:
-        explicit SimpleTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
-        [[nodiscard]] std::string getStatus() const override;
-    };
-
-    class MaxPrivacyTxStatusInterpreter : public TxStatusInterpreter
-    {
-    public:
-        explicit MaxPrivacyTxStatusInterpreter(const TxParameters& txParams);
-        ~MaxPrivacyTxStatusInterpreter() override = default;
-        [[nodiscard]] std::string getStatus() const override;
-    private:
-        TxAddressType m_addressType = TxAddressType::Unknown;
-    };
-
-    class AssetTxStatusInterpreter : public TxStatusInterpreter
-    {
-    public:
-        explicit AssetTxStatusInterpreter(const TxParameters& txParams);
-        ~AssetTxStatusInterpreter() override = default;
-        [[nodiscard]] std::string getStatus() const override;
-    protected:
-        wallet::TxType m_txType = wallet::TxType::AssetInfo;
-    };
-
-    class ContractTxStatusInterpreter : public TxStatusInterpreter
-    {
-    public:
-        explicit ContractTxStatusInterpreter(const TxParameters& txParams);
-        ~ContractTxStatusInterpreter() override = default;
-        [[nodiscard]] std::string getStatus() const override;
-    protected:
-        wallet::TxType m_txType = wallet::TxType::AssetInfo;
-    };
-    
     // Specifies key transaction parameters for interaction with Wallet Clients
     struct TxDescription : public TxParameters
     {
@@ -604,10 +562,6 @@ namespace beam::wallet
             , m_createTime{ createTime }
             , m_modifyTime{ createTime }
             , m_sender{ sender }
-            , m_selfTx{ false }
-            , m_status{ TxStatus::Pending }
-            , m_kernelID{ Zero }
-            , m_failureReason{ TxFailureReason::Unknown }
         {
         }
         explicit TxDescription(const TxParameters&);
@@ -617,7 +571,7 @@ namespace beam::wallet
         [[nodiscard]] bool canCancel() const;
         [[nodiscard]] bool canDelete() const;
         [[nodiscard]] std::string getTxTypeString() const;
-        [[nodiscard]] Amount getExchangeRate(const Currency& target) const;
+        [[nodiscard]] Amount getExchangeRate(const Currency& target, beam::Asset::ID assetId = beam::Asset::s_InvalidID) const;
         [[nodiscard]] std::string getToken() const;
         [[nodiscard]] std::string getSenderIdentity() const;
         [[nodiscard]] std::string getReceiverIdentity() const;
@@ -627,7 +581,7 @@ namespace beam::wallet
         [[nodiscard]] std::string getAddressFrom() const;
         [[nodiscard]] std::string getAddressTo() const;
 
-#define BEAM_TX_DESCRIPTION_INITIAL_PARAMS(macro) \
+        #define BEAM_TX_DESCRIPTION_INITIAL_PARAMS(macro) \
         macro(TxParameterID::TransactionType,   TxType,          m_txType,          wallet::TxType::Simple) \
         macro(TxParameterID::Amount,            Amount,          m_amount,          0) \
         macro(TxParameterID::Fee,               Amount,          m_fee,             0) \
@@ -644,15 +598,16 @@ namespace beam::wallet
         macro(TxParameterID::Status,            TxStatus,        m_status,          TxStatus::Pending) \
         macro(TxParameterID::KernelID,          Merkle::Hash,    m_kernelID,        Zero) \
         macro(TxParameterID::FailureReason,     TxFailureReason, m_failureReason,   TxFailureReason::Unknown) \
+        macro(TxParameterID::AppID,             std::string,     m_appID,           std::string()) \
+        macro(TxParameterID::AppName,           std::string,     m_appName,         std::string())
 
-    //private:
         TxID m_txId = {};
-
-#define MACRO(id, type, field, init) type field = init;
+        #define MACRO(id, type, field, init) type field = init;
         BEAM_TX_DESCRIPTION_INITIAL_PARAMS(MACRO)
-#undef MACRO
-
+        #undef MACRO
     };
+
+    std::string interpretStatus(const TxDescription& tx);
 
     // messages
     struct SetTxParameter
@@ -660,7 +615,7 @@ namespace beam::wallet
         WalletID m_From = Zero;
         TxID m_TxID;
 
-        TxType m_Type;
+        TxType m_Type = TxType::Simple;
 
         PackedTxParameters m_Parameters = {};
         
@@ -683,6 +638,17 @@ namespace beam::wallet
             const ByteBuffer& b = pit->second;
             fromByteBuffer(b, value);
             return true;
+        }
+
+        template <typename T>
+        T GetParameterOrDefault(TxParameterID paramID, const T& defval = T()) const
+        {
+            T val;
+            if (GetParameter(paramID, val))
+            {
+                return val;
+            }
+            return defval;
         }
 
         SERIALIZE(m_From, m_TxID, m_Type, m_Parameters);
@@ -718,7 +684,7 @@ namespace beam::wallet
         virtual ~INegotiatorGateway() {}
         virtual void on_tx_completed(const TxID& ) = 0;
         virtual void on_tx_failed(const TxID&) = 0;
-        virtual void register_tx(const TxID&, Transaction::Ptr, SubTxID subTxID = kDefaultSubTxID) = 0;
+        virtual void register_tx(const TxID&, const Transaction::Ptr&, const Merkle::Hash* pParentCtx = nullptr, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_asset(const TxID& txID, const Asset::ID assetId, SubTxID subTxID = kDefaultSubTxID) = 0;
@@ -762,18 +728,10 @@ namespace beam::wallet
     struct PaymentConfirmation : public ConfirmationBase
     {
         // I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
-        Amount m_Value;
+        Amount m_Value = 0;
         Asset::ID m_AssetID = Asset::s_InvalidID;
         ECC::Hash::Value m_KernelID;
         PeerID m_Sender;
-
-        void get_Hash(ECC::Hash::Value&) const override;
-    };
-    
-    struct SwapOfferConfirmation : public ConfirmationBase
-    {
-        // Identifies owner for swap offer modification
-        ByteBuffer m_offerData;
 
         void get_Hash(ECC::Hash::Value&) const override;
     };

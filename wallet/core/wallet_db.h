@@ -93,10 +93,14 @@ namespace beam::wallet
         uint64_t m_OBSOLETTEsessionId;   // Used in the API to lock coins for specific session (see https://github.com/BeamMW/beam/wiki/Beam-wallet-protocol-API#tx_split)
 
         bool IsMaturityValid() const; // is/was the UTXO confirmed?
-        Height get_Maturity(Height offset = 0) const; // would return MaxHeight unless the UTXO was confirmed
+        Height get_Maturity() const; // would return MaxHeight unless the UTXO was confirmed
         
         std::string getStatusString() const;
+        void setOffset(uint32_t offset);
         static boost::optional<Coin::ID> FromString(const std::string& str);
+
+    private:
+        uint32_t m_offset = 0;  // confirmations count to wait before can spend coin, not stored in db, copied from tx on DeduceStatus
     };
 
     using CoinIDList = std::vector<Coin::ID>;
@@ -207,9 +211,9 @@ namespace beam::wallet
     // Describes structure of generic transaction parameter
     struct TxParameter
     {
-        TxID m_txID;
+        TxID m_txID = {};
         int m_subTxID = static_cast<int>(kDefaultSubTxID);
-        int m_paramID;
+        int m_paramID = 0;
         ByteBuffer m_value;
     };
 
@@ -269,8 +273,8 @@ namespace beam::wallet
         Asset::ID getAssetID() const;
         std::string getType() const;
 
-        Height get_Maturity(Height offset) const {
-            return IsMaturityValid() ? m_confirmHeight + offset : MaxHeight;
+        Height get_Maturity() const {
+            return IsMaturityValid() ? m_confirmHeight + m_offset : MaxHeight;
         }
 
         ShieldedTxo::ID m_CoinID;
@@ -318,10 +322,12 @@ namespace beam::wallet
         };
 
         std::string getStatusString() const;
+        void setOffset(uint32_t offset);
         typedef std::pair<ShieldedCoin, UnlinkStatus> WithStatus;
         static void Sort(std::vector<WithStatus>&);
 
     private:
+    uint32_t m_offset = 0; // confirmations count to wait before can spend coin, not stored in db, copied from tx on DeduceStatus. 0 for Shielded coins
         static int32_t get_Reserve(uint32_t nEndRel, TxoID nShieldedOutsRel);
     };
 
@@ -334,7 +340,7 @@ namespace beam::wallet
     template<typename T>
     std::string GetCoinSpentTxID(const T& c)
     {
-        return c.m_createTxId.is_initialized() ? std::to_string(*c.m_createTxId) : "";
+        return c.m_spentTxId.is_initialized() ? std::to_string(*c.m_spentTxId) : "";
     }
 
     // Notifications for all collection changes
@@ -564,11 +570,11 @@ namespace beam::wallet
         // ///////////////////////////////
         // Message management
         virtual std::vector<OutgoingWalletMessage> getWalletMessages() const = 0;
-        virtual uint64_t saveWalletMessage(const OutgoingWalletMessage& message) = 0;
+        virtual uint64_t saveWalletMessage(const WalletID&, const Blob&) = 0;
         virtual void deleteWalletMessage(uint64_t id) = 0;
 
         virtual std::vector<IncomingWalletMessage> getIncomingWalletMessages() const = 0;
-        virtual uint64_t saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message) = 0;
+        virtual uint64_t saveIncomingWalletMessage(BbsChannel channel, const Blob& message) = 0;
         virtual void deleteIncomingWalletMessage(uint64_t id) = 0;
 
         // Assets management
@@ -589,6 +595,8 @@ namespace beam::wallet
         virtual void saveExchangeRate(const ExchangeRateAtPoint&) = 0;
         virtual boost::optional<ExchangeRateAtPoint> getExchangeRateNearPoint(const Currency& from, const Currency& to, uint64_t maxHeight) const = 0;
         virtual ExchangeRatesHistory getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const = 0;
+        virtual void saveVerification(const VerificationInfo&) = 0;
+        virtual std::vector<VerificationInfo> getVerification() const = 0;
 
         // Vouchers management
         virtual boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) = 0; // deletes voucher from DB
@@ -601,12 +609,8 @@ namespace beam::wallet
         virtual void visitEvents(Height min, const Blob& key, std::function<bool(Height, ByteBuffer&&)>&& func) const = 0;
         virtual void visitEvents(Height min, std::function<bool(Height, ByteBuffer&&)>&& func) const = 0;
 
-        void addStatusInterpreterCreator(TxType txType, TxStatusInterpreter::Creator interpreterCreator);
-        TxStatusInterpreter::Ptr getStatusInterpreter(const TxParameters& txParams) const;
-
        private:
            bool get_CommitmentSafe(ECC::Point& comm, const CoinID&, IPrivateKeyKeeper2*);
-           std::map<TxType, TxStatusInterpreter::Creator> m_statusInterpreterCreators;
     };
 
     namespace sqlite
@@ -619,9 +623,10 @@ namespace beam::wallet
     {
     public:
         static bool isInitialized(const std::string& path);
+        static bool isValidPassword(const std::string& path, const SecString& password);
         static Ptr  init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, bool separateDBForPrivateData = false);
         static Ptr  init(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&, bool separateDBForPrivateData = false);
-        static Ptr  initNoKeepr(const std::string& path, const SecString& password, bool separateDBForPrivateData = false);
+        static Ptr  initNoKeeper(const std::string& path, const SecString& password, bool separateDBForPrivateData = false);
         static Ptr  open(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&);
         static Ptr  open(const std::string& path, const SecString& password);
 
@@ -727,11 +732,11 @@ namespace beam::wallet
         void ShrinkHistory() override;
 
         std::vector<OutgoingWalletMessage> getWalletMessages() const override;
-        uint64_t saveWalletMessage(const OutgoingWalletMessage& message) override;
+        uint64_t saveWalletMessage(const WalletID&, const Blob&) override;
         void deleteWalletMessage(uint64_t id) override;
 
         std::vector<IncomingWalletMessage> getIncomingWalletMessages() const override;
-        uint64_t saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message) override;
+        uint64_t saveIncomingWalletMessage(BbsChannel channel, const Blob& message) override;
         void deleteIncomingWalletMessage(uint64_t id) override;
 
         void saveAsset(const Asset::Full& info, Height refreshHeight) override;
@@ -747,6 +752,8 @@ namespace beam::wallet
         virtual ExchangeRates getLatestExchangeRates() const override;
         virtual void saveExchangeRate(const ExchangeRate&) override;
         virtual void saveExchangeRate(const ExchangeRateAtPoint&) override;
+        void saveVerification(const VerificationInfo&) override;
+        std::vector<VerificationInfo> getVerification() const override;
 
         virtual boost::optional<ExchangeRateAtPoint> getExchangeRateNearPoint(const Currency& from, const Currency& to, uint64_t maxHeight) const override;
         virtual ExchangeRatesHistory getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const override;
@@ -1016,6 +1023,17 @@ namespace beam::wallet
             PaymentInfo();
 
             template <typename Archive>
+            static void serializeWid(Archive& ar, const WalletID& wid)
+            {
+                BbsChannel ch;
+                wid.m_Channel.Export(ch);
+
+                ar
+                    & ch
+                    & wid.m_Pk;
+            }
+
+            template <typename Archive>
             static void serializeWid(Archive& ar, WalletID& wid)
             {
                 BbsChannel ch;
@@ -1028,6 +1046,48 @@ namespace beam::wallet
                 wid.m_Channel = ch;
             }
 
+            //
+            // If you want to store something new just define new flag then
+            // set it if you want to write and add read/write block.
+            //
+            // This allows to read old proofs in new clients and also to produce
+            // proofs compatible with old clients (if possible, i.e. BEAM transactions
+            // do not need AssetID and we can keep an old format)
+            //
+            // Old client would be unable to read proofs if you would store anything below
+            //
+            enum ContentFlags
+            {
+                HasAssetID = 1 << 0
+            };
+
+            template <typename Archive>
+            void serialize(Archive& ar) const
+            {
+                serializeWid(ar, m_Sender);
+                serializeWid(ar, m_Receiver);
+                ar
+                    & m_Amount
+                    & m_KernelID
+                    & m_Signature;
+
+                uint32_t cflags = 0;
+                if (m_AssetID != Asset::s_InvalidID)
+                {
+                    cflags |= ContentFlags::HasAssetID;
+                }
+
+                if (cflags)
+                {
+                    ar & cflags;
+                }
+
+                if (cflags & ContentFlags::HasAssetID)
+                {
+                    ar & m_AssetID;
+                }
+            }
+
             template <typename Archive>
             void serialize(Archive& ar)
             {
@@ -1038,52 +1098,27 @@ namespace beam::wallet
                     & m_KernelID
                     & m_Signature;
 
-                //
-                // If you want to store something new just define new flag then
-                // set it if you want to write and add read/write block.
-                //
-                // This allows to read old proofs in new clients and also to produce
-                // proofs compatible with old clients (if possible, i.e. BEAM transactions
-                // do not need AssetID and we can keep an old format)
-                //
-                // Old client would be unable to read proofs if you would store anything below
-                //
-                enum ContentFlags
-                {
-                    HasAssetID = 1 << 0
-                };
-
                 uint32_t cflags = 0;
 
-                if (ar.is_readable())
+                try
                 {
-                    try
-                    {
-                        ar & cflags;
-                    }
-                    catch (const std::runtime_error &)
-                    {
-                        // old payment proof without flags and additional data
-                        // just ignore and continue
-                    }
+                    ar.peekch();
                 }
-                else
+                catch (const std::runtime_error &)
                 {
-                    if (m_AssetID != Asset::s_InvalidID)
-                    {
-                        cflags |= ContentFlags::HasAssetID;
-                    }
-
-                    if (cflags)
-                    {
-                        ar & cflags;
-                    }
+                    // old payment proof without flags and additional data
+                    return;
                 }
 
+                ar & cflags;
+                if (!cflags) throw std::runtime_error("Invalid data buffer");
                 if (cflags & ContentFlags::HasAssetID)
                 {
                     ar & m_AssetID;
+                    cflags = cflags & ~ContentFlags::HasAssetID;
                 }
+
+                if (cflags) throw std::runtime_error("Invalid data buffer");
             }
 
             bool IsValid() const;

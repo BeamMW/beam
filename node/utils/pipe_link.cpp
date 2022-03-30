@@ -774,7 +774,7 @@ bool Manager::LocalContext::SendContractTx(std::unique_ptr<TxKernelContractContr
             ptFunds = -ptFunds;
     }
 
-    pKrn->Sign(pKs, nKs, ptFunds);
+    pKrn->Sign(pKs, nKs, ptFunds, &m_Node.get_Processor().m_Cursor.m_Full.m_Prev);
     return SendTx(std::move(pKrn), sz, val, bSpend, skKrn);
 }
 
@@ -866,7 +866,7 @@ bool Manager::LocalContext::SendTx(TxKernel::Ptr&& pKrn, const char* sz, Amount 
 
     pTx->Normalize();
 
-    uint8_t nCode = m_Node.OnTransaction(std::move(pTx), nullptr, true, nullptr);
+    uint8_t nCode = m_Node.OnTransaction(std::move(pTx), nullptr, nullptr, true, nullptr);
     if (proto::TxStatus::Ok != nCode)
     {
         Print() << "Send tx failed (" << sz << "), Status=" << static_cast<uint32_t>(nCode);

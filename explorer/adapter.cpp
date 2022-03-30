@@ -267,7 +267,7 @@ public:
         _wallet->AddMessageEndpoint(wnet);
         _wallet->SetNodeEndpoint(nnet);
 
-        _broadcastRouter = std::make_shared<BroadcastRouter>(*nnet, *wnet);
+        _broadcastRouter = std::make_shared<BroadcastRouter>(nnet, *wnet, std::make_shared<BroadcastRouter::BbsTsHolder>(_walletDB));
         _exchangeRateProvider = std::make_shared<ExchangeRateProvider>(*_broadcastRouter, _walletDB);
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -406,6 +406,14 @@ private:
         struct ContractRichInfo {
             std::vector<NodeProcessor::ContractInvokeExtraInfo> m_vInfo;
             size_t m_iPos = 0;
+
+            const NodeProcessor::ContractInvokeExtraInfo* get_Next()
+            {
+                if (m_iPos >= m_vInfo.size())
+                    return nullptr;
+                    
+                return &m_vInfo[m_iPos++];
+            }
         };
 
         struct Writer
@@ -431,72 +439,46 @@ private:
                 }
             }
 
-            void OnContract(const bvm2::ContractID& cid, const bvm2::ShaderID* pSid, uint32_t iMethod, const TxKernelContractControl& krn, ContractRichInfo& cri)
+            void OnContract(const NodeProcessor::ContractInvokeExtraInfo& info)
             {
-                m_os << "Contract " << cid << ", ";
+                m_os << "Contract " << info.m_Cid << ", " << info.m_sParsed;
 
-                const NodeProcessor::ContractInvokeExtraInfo* pExInfo = nullptr;
-
-                if (cri.m_iPos < cri.m_vInfo.size())
+                for (auto it = info.m_FundsIO.m_Map.begin(); info.m_FundsIO.m_Map.end() != it; it++)
                 {
-                    pExInfo = &cri.m_vInfo.front() + cri.m_iPos;
-                    cri.m_iPos++;
+                    m_os << ", ";
+
+                    auto valBig = it->second;
+                    if (valBig.get_Msb())
+                    {
+                        valBig.Negate();
+                        m_os << "Spend";
+                    } else
+                        m_os << "Receive";
+
+                    auto aid = it->first;
+                    if (aid)
+                        m_os << " Asset-" << aid;
+
+                    // currently ignore val-big part
+                    m_os << " " << AmountBig::get_Lo(valBig);
                 }
 
-                if (pExInfo && !pExInfo->m_sParsed.empty())
-                    m_os << pExInfo->m_sParsed;
-                else
+                for (uint32_t iSig = 0; iSig < info.m_vSigs.size(); iSig++)
                 {
-                    if (pSid)
-                        m_os << "Create sid=" << *pSid;
-                    else
-                    {
-                        if (iMethod)
-                            m_os << "Method_" << iMethod;
-                        else
-                            m_os << "Destroy";
-                    }
+                    typedef uintBig_t<ECC::nBytes + 1> MyPoint;
+                    const auto& val = Cast::Reinterpret<MyPoint>(info.m_vSigs[iSig]);
 
-                    if (!krn.m_Args.empty())
-                    {
-                        m_os << ", Args=";
-                        uintBigImpl::_PrintFull(&krn.m_Args.front(), static_cast<uint32_t>(krn.m_Args.size()), m_os);
-                    }
+                    char sz[MyPoint::nTxtLen + 1];
+                    val.Print(sz);
+
+                    m_os << ", Sign " << sz;
                 }
 
-                if (pExInfo)
+                for (size_t i = 0; i < info.m_vNested.size(); i++)
                 {
-                    for (auto it = pExInfo->m_FundsIO.m_Map.begin(); pExInfo->m_FundsIO.m_Map.end() != it; it++)
-                    {
-                        m_os << ", ";
-
-                        auto valBig = it->second;
-                        if (valBig.get_Msb())
-                        {
-                            valBig.Negate();
-                            m_os << "Spend";
-                        } else
-                            m_os << "Receive";
-
-                        auto aid = it->first;
-                        if (aid)
-                            m_os << " Asset-" << aid;
-
-                        // currently ignore val-big part
-                        m_os << " " << AmountBig::get_Lo(valBig);
-                    }
-
-                    for (uint32_t iSig = 0; iSig < pExInfo->m_vSigs.size(); iSig++)
-                    {
-                        typedef uintBig_t<ECC::nBytes + 1> MyPoint;
-                        const auto& val = Cast::Reinterpret<MyPoint>(pExInfo->m_vSigs[iSig]);
-
-                        char sz[MyPoint::nTxtLen + 1];
-                        val.Print(sz);
-
-                        m_os << ", Sign " << sz;
-                    }
-
+                    m_os << ", [ ";
+                    OnContract(info.m_vNested[i]);
+                    m_os << " ]";
                 }
             }
         };
@@ -630,19 +612,39 @@ private:
 
                 void OnKrnEx(const TxKernelContractCreate& krn)
                 {
-                    bvm2::ShaderID sid;
-                    bvm2::get_ShaderID(sid, krn.m_Data);
-                    bvm2::ContractID cid;
-                    bvm2::get_CidViaSid(cid, sid, krn.m_Args);
-
                     m_Wr.Next();
-                    m_Wr.OnContract(cid, &sid, 0, krn, *m_pCri);
+
+                    auto pInfo = m_pCri->get_Next();
+                    if (pInfo)
+                        m_Wr.OnContract(*pInfo);
+                    else
+                    {
+                        NodeProcessor::ContractInvokeExtraInfo info;
+
+                        bvm2::ShaderID sid;
+                        bvm2::get_ShaderID(sid, krn.m_Data);
+                        bvm2::get_CidViaSid(info.m_Cid, sid, krn.m_Args);
+
+                        info.SetUnk(0, krn.m_Args, &sid);
+
+                        m_Wr.OnContract(info);
+                    }
                 }
 
                 void OnKrnEx(const TxKernelContractInvoke& krn)
                 {
                     m_Wr.Next();
-                    m_Wr.OnContract(krn.m_Cid, nullptr, krn.m_iMethod, krn, *m_pCri);
+
+                    auto pInfo = m_pCri->get_Next();
+                    if (pInfo)
+                        m_Wr.OnContract(*pInfo);
+                    else
+                    {
+                        NodeProcessor::ContractInvokeExtraInfo info;
+                        info.m_Cid = krn.m_Cid;
+                        info.SetUnk(krn.m_iMethod, krn.m_Args, nullptr);
+                        m_Wr.OnContract(info);
+                    }
                 }
 
             } wlk;

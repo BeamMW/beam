@@ -1,8 +1,10 @@
 #include "../common.h"
 #include "../upgradable/contract.h"
+#include "../upgradable2/contract.h"
 #include "../vault/contract.h"
 #include "../faucet/contract.h"
-#include "../demoXdao/contract.h"
+#include "../dao-core/contract.h"
+#include "../gallery/contract.h"
 
 void get_ShaderID(ShaderID& sid, void* pBuf, uint32_t nBuf)
 {
@@ -39,14 +41,12 @@ bool get_ShaderID(ShaderID& sid, const ContractID& cid)
 
 #define HandleContractsAll(macro) \
 	macro(Upgradable, Upgradable::s_SID) \
+	macro(Upgradable2, Upgradable2::s_SID) \
 	macro(Vault, Vault::s_SID) \
 	macro(Faucet, Faucet::s_SID) \
-	macro(demoXdao_0, DemoXdao::s_SID_0) \
-	macro(demoXdao_1, DemoXdao::s_SID_1) \
-	macro(demoXdao_2, DemoXdao::s_SID_2) \
-	macro(demoXdao_3, DemoXdao::s_SID_3) \
-	macro(demoXdao_4, DemoXdao::s_SID_4) \
-	macro(demoXdao_5, DemoXdao::s_SID)
+	macro(DaoCore, DaoCore::s_SID) \
+	macro(Gallery_0, Gallery::s_SID_0) \
+	macro(Gallery, Gallery::s_SID_1)
 
 
 struct ParserContext
@@ -63,7 +63,7 @@ struct ParserContext
 
 	ParserContext(const ShaderID& sid, const ContractID& cid)
 		:m_Sid(sid)
-		, m_Cid(cid)
+		,m_Cid(cid)
 	{
 	}
 
@@ -78,6 +78,8 @@ struct ParserContext
 	void WriteUnk();
 	bool WriteStdMethod();
 	void WriteUpgradeParams(const Upgradable::Next&);
+	void WriteUpgradeParams(const Upgradable2::Next&);
+	void WriteUpgradeParams(const ContractID&, Height);
 };
 
 void ParserContext::OnName(const char* sz)
@@ -208,22 +210,116 @@ void ParserContext::On_Upgradable()
 	}
 }
 
+void ParserContext::On_Upgradable2()
+{
+	// Get state, discover which cid actually operates the contract
+	Upgradable2::State us;
+	Upgradable2::Settings stg;
+
+	if (m_Method && !m_iMethod)
+	{
+		// c'tor, the state doesn't exist yet. Initial cid should be in the args
+		if (m_nArg < sizeof(Upgradable2::Create))
+			return;
+
+		const auto& arg = *(const Upgradable2::Create*) m_pArg;
+
+		_POD_(us.m_Active) = arg.m_Active;
+		_POD_(us.m_Next).SetZero();
+		_POD_(stg) = arg.m_Settings;
+	}
+	else
+	{
+		Env::Key_T<uint16_t> uk;
+		_POD_(uk.m_Prefix.m_Cid) = m_Cid;
+		uk.m_KeyInContract = Upgradable2::State::s_Key;
+
+		if (!Env::VarReader::Read_T(uk, us))
+			return;
+
+		uk.m_KeyInContract = Upgradable2::Settings::s_Key;
+		if (!Env::VarReader::Read_T(uk, stg))
+			return;
+	}
+
+	ShaderID sid;
+	if (!get_ShaderID(sid, us.m_Active.m_Cid))
+		return;
+
+	ParserContext pc2(sid, m_Cid);
+	pc2.m_Name = m_Name;
+	pc2.m_Method = m_Method;
+	pc2.m_State = m_State;
+	pc2.m_iMethod = m_iMethod;
+	pc2.m_pArg = m_pArg;
+	pc2.m_nArg = m_nArg;
+
+	bool bIsCtl = m_Method && (Upgradable2::Control::s_iMethod == m_iMethod);
+
+	if (bIsCtl)
+		pc2.m_Method = false;
+
+	if (m_Name)
+	{
+		Env::DocAddText("", "/");
+		if (!pc2.Parse())
+			pc2.WriteUnk();
+	}
+
+	if (bIsCtl)
+	{
+		if (m_nArg < sizeof(Upgradable2::Control::Base))
+			return; // don't care of partial result
+
+		const auto& ctl = *(const Upgradable2::Control::Base*) m_pArg;
+
+		switch (ctl.m_Type)
+		{
+		case Upgradable2::Control::ScheduleUpgrade::s_Type:
+			if (m_nArg >= sizeof(Upgradable2::Control::ScheduleUpgrade))
+			{
+				const auto& arg = Cast::Up<Upgradable2::Control::ScheduleUpgrade>(ctl);
+				Env::DocAddText("", "Schedule upgrade");
+				WriteUpgradeParams(arg.m_Next);
+			}
+			break;
+		}
+	}
+
+	if (m_State)
+	{
+		Env::DocAddNum("Num approvers ", stg.m_MinApprovers);
+		WriteUpgradeParams(us.m_Next);
+	}
+}
+
+
 void ParserContext::WriteUpgradeParams(const Upgradable::Next& us)
 {
-	if (!_POD_(us.m_cidNext).IsZero())
+	WriteUpgradeParams(us.m_cidNext, us.m_hNextActivate);
+}
+
+void ParserContext::WriteUpgradeParams(const Upgradable2::Next& us)
+{
+	WriteUpgradeParams(us.m_Cid, us.m_hTarget);
+}
+
+void ParserContext::WriteUpgradeParams(const ContractID& cid, Height h)
+{
+	if (!_POD_(cid).IsZero())
 	{
 		ShaderID sid;
-		if (!get_ShaderID(sid, us.m_cidNext))
+		if (!get_ShaderID(sid, cid))
 			return;
 
 		Env::DocAddText("", ", Next upgrade ");
 
-		ParserContext pc2(sid, us.m_cidNext);
+		ParserContext pc2(sid, cid);
 		if (!pc2.Parse())
 			pc2.WriteUnk();
 
 		Env::DocAddText("", ", hNext=");
-		Env::DocAddNum("", us.m_hNextActivate);
+		Env::DocAddNum("", h);
 	}
 }
 
@@ -284,44 +380,177 @@ void ParserContext::On_Faucet()
 	}
 }
 
-void ParserContext::On_demoXdao_0()
-{
-	On_demoXdao_1();
-}
-
-void ParserContext::On_demoXdao_1()
-{
-	On_demoXdao_2();
-}
-
-void ParserContext::On_demoXdao_2()
-{
-	On_demoXdao_3();
-}
-
-void ParserContext::On_demoXdao_3()
-{
-	On_demoXdao_4();
-}
-
-void ParserContext::On_demoXdao_4()
-{
-	On_demoXdao_5();
-}
-
-void ParserContext::On_demoXdao_5()
+void ParserContext::On_DaoCore()
 {
 	if (m_Method && !WriteStdMethod())
 	{
 		switch (m_iMethod)
 		{
-		case DemoXdao::GetPreallocated::s_iMethod: Env::DocAddText("", "GetPreallocated"); break;
-		case DemoXdao::UpdPosFarming::s_iMethod: Env::DocAddText("", "Farming Upd"); break;
+		case DaoCore::GetPreallocated::s_iMethod: Env::DocAddText("", "GetPreallocated"); break;
+		case DaoCore::UpdPosFarming::s_iMethod: Env::DocAddText("", "Farming Upd"); break;
 		}
 	}
 
-	if (Env::get_Height() == 117)
-		On_demoXdao_5();
+	if (m_State)
+	{
+		// TODO:
+	}
+}
+
+void WriteGalleryAdrID(Gallery::Masterpiece::ID id)
+{
+	Env::DocAddText("", ", art_id=");
+	Env::DocAddNum("", Utils::FromBE(id));
+}
+
+void WriteGalleryPrice(const Gallery::AmountWithAsset& x)
+{
+	if (x.m_Aid)
+	{
+		Env::DocAddText("", ", aid=");
+		Env::DocAddNum("", x.m_Aid);
+	}
+	Env::DocAddText("", ", amount=");
+	Env::DocAddNum("", x.m_Amount);
+}
+
+void ParserContext::On_Gallery_0()
+{
+	On_Gallery(); // same, we only added methods
+}
+
+void ParserContext::On_Gallery()
+{
+	if (m_Method && !WriteStdMethod())
+	{
+		switch (m_iMethod)
+		{
+		case Gallery::Method::AddExhibit::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::AddExhibit))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::AddExhibit*>(m_pArg);
+				Env::DocAddText("", "Method=AddArtwork");
+				Env::DocAddText("", ", pkUser=");
+				Env::DocAddBlob_T("", arg.m_pkArtist);
+			}
+			break;
+
+		case Gallery::Method::ManageArtist::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::ManageArtist))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::ManageArtist*>(m_pArg);
+
+				Env::DocAddText("", "Method=ManageArtist");
+				Env::DocAddText("", ", pkUser=");
+				Env::DocAddBlob_T("", arg.m_pkArtist);
+				
+				Env::DocAddText("", ", name=");
+	            Env::DocAddNum32("", arg.m_LabelLen);
+				
+			}
+			break;
+		
+		
+		case Gallery::Method::SetPrice::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::SetPrice))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::SetPrice*>(m_pArg);
+
+				Env::DocAddText("", "Method=SetPrice");
+				WriteGalleryAdrID(arg.m_ID);
+				WriteGalleryPrice(arg.m_Price);
+			}
+			break;
+
+		case Gallery::Method::Buy::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::Buy))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::Buy*>(m_pArg);
+
+				Env::DocAddText("", "Method=Buy");
+				WriteGalleryAdrID(arg.m_ID);
+				
+				Env::DocAddText("", ", pkUser=");
+	            Env::DocAddBlob_T("", arg.m_pkUser);
+	            
+	            Env::DocAddText("", ", hasAid=");
+	            Env::DocAddNum32("", arg.m_HasAid);
+				
+				Env::DocAddText("", ", payMax=");
+				Env::DocAddNum64("", arg.m_PayMax);
+			}
+			break;
+		
+		case Gallery::Method::Transfer::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::Transfer))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::Transfer*>(m_pArg);
+
+				Env::DocAddText("", "Method=Transfer");
+				WriteGalleryAdrID(arg.m_ID);
+				
+				Env::DocAddText("", ", newPkUser=");
+	            Env::DocAddBlob_T("", arg.m_pkNewOwner);
+			}
+			break;
+		
+			
+		case Gallery::Method::Withdraw::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::Withdraw))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::Withdraw*>(m_pArg);
+
+				Env::DocAddText("", "Method=Withdraw");
+				
+				// TODO roman
+				Env::DocAddText("", ", key=");
+	            Env::DocAddBlob_T("", arg.m_Key);
+	            
+	            Env::DocAddText("", ", value=");
+	            Env::DocAddNum64("", arg.m_Value);
+				
+			}
+			break;
+		
+		case Gallery::Method::AddVoteRewards::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::AddVoteRewards))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::AddVoteRewards*>(m_pArg);
+
+				Env::DocAddText("", "Method=AddVoteRewards");
+				
+				Env::DocAddText("", ", amount=");
+	            Env::DocAddNum64("", arg.m_Amount);
+			}
+			break;
+		
+		
+
+		case Gallery::Method::Vote::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::Vote))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::Vote*>(m_pArg);
+
+				Env::DocAddText("", "Method=Vote");
+				WriteGalleryAdrID(arg.m_ID.m_MasterpieceID);
+
+				Env::DocAddText("", ", impression=");
+				Env::DocAddNum("", arg.m_Impression.m_Value);
+			}
+			break;
+
+		case Gallery::Method::AdminDelete::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::AdminDelete))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::AdminDelete*>(m_pArg);
+
+				Env::DocAddText("", "Method=AdminDelete");
+				WriteGalleryAdrID(arg.m_ID);
+
+			}
+			break;
+		}
+	}
 
 	if (m_State)
 	{

@@ -16,12 +16,19 @@ target_link_libraries(bvm
         ethash
 )
 
+target_include_directories(bvm PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
 if (NOT BEAM_WALLET_CLIENT_LIBRARY)
     add_subdirectory(ethash_service)
 endif()
 
-add_subdirectory(sid_generator)
+if(NOT ANDROID AND NOT IOS AND NOT EMSCRIPTEN)
+##if (NOT BEAM_WALLET_CLIENT_LIBRARY OR BEAM_BVM_ONLY)
+    add_subdirectory(sid_generator)
+#endif()
+endif()
 
 if(BEAM_TESTS_ENABLED)
+    #add_subdirectory(Shaders/liquity)
     add_subdirectory(unittest)
 endif()

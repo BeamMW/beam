@@ -20,6 +20,7 @@
 #include "core/block_crypt.h"   // BbsChannel
 #include "core/fly_client.h"    // INetwork
 #include "wallet/core/wallet.h" // IWalletMessageEndpoint
+#include "wallet/core/wallet_network.h"
 
 #include "interface.h"
 
@@ -33,29 +34,35 @@ namespace beam
     class BroadcastRouter
         : public IBroadcastMsgGateway
         , IErrorHandler  // Error handling for Protocol
-        , proto::FlyClient::IBbsReceiver
+        , wallet::BbsProcessor
     {
     public:
-        BroadcastRouter(proto::FlyClient::INetwork&, wallet::IWalletMessageEndpoint&);
+
+        struct BbsTsHolder : public wallet::TimestampHolder
+        {
+            BbsTsHolder(wallet::IWalletDB::Ptr db);
+        };
+
+        BroadcastRouter(proto::FlyClient::INetwork::Ptr, wallet::IWalletMessageEndpoint&, wallet::ITimestampHolder::Ptr);
+        virtual ~BroadcastRouter();
 
         // IBroadcastMsgGateway
         void registerListener(BroadcastContentType, IBroadcastListener*) override;
         void unregisterListener(BroadcastContentType) override;
-        void sendRawMessage(BroadcastContentType type, const ByteBuffer&) override; // Used in SwapOffersBoard. Deprecated. TODO: after 2 fork should be made private.
         void sendMessage(BroadcastContentType type, const BroadcastMsg&) override;
 
-        // IBbsReceiver
-        void OnMsg(proto::BbsMsg&&) override;
+        // BbsProcessor
+        void OnMsg(const proto::BbsMsg&) override;
 
         // IErrorHandler
         void on_protocol_error(uint64_t fromStream, ProtocolError error) override;
         void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override; /// unused
 
-        static constexpr std::array<uint8_t, 3> m_ver_1 = { 0, 0, 1 };  // version used before 2nd fork: has custom deserialization and signature hash for SwapOffersBoard. TODO: dh remove after 2 fork.
         static constexpr std::array<uint8_t, 3> m_ver_2 = { 0, 0, 2 };  // verison after 2nd fork: will has common deserialization and signatures type for all BBS-based broadcasting.
-
+    protected:
+        void sendRawMessage(BroadcastContentType type, const ByteBuffer&) override;
     private:
-        static constexpr size_t m_maxMessageTypes = 5;
+        static constexpr size_t m_maxMessageTypes = 6;
         static constexpr size_t m_defaultMessageSize = 200;         // set experimentally
         static constexpr size_t m_minMessageSize = 1;
         static constexpr size_t m_maxMessageSize = 1024*1024*10;
@@ -67,15 +74,10 @@ namespace beam
         MsgType getMsgType(BroadcastContentType);
         BbsChannel getBbsChannel(BroadcastContentType);
 
-        proto::FlyClient::INetwork& m_bbsNetwork;
         wallet::IWalletMessageEndpoint& m_bbsMessageEndpoint;
 
-        Protocol m_protocol_old;    // TODO: dh remove after 2 fork. Used only with SwapOffersBoard
         Protocol m_protocol;
-        MsgReader m_msgReader_old;  // TODO: dh remove after 2 fork.
         MsgReader m_msgReader;
-        Timestamp m_lastTimestamp;
         std::map<BroadcastContentType, IBroadcastListener*> m_listeners;
     };
-
 } // namespace beam

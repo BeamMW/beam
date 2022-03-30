@@ -16,18 +16,20 @@
 namespace beam::wallet
 {
     #define V6_1_API_METHODS(macro) \
-        macro(EvSubUnsub,      "ev_subunsub",    API_READ_ACCESS, API_SYNC,  APPS_ALLOWED) \
-        macro(GetVersion,      "get_version",    API_READ_ACCESS, API_SYNC,  APPS_ALLOWED) \
-        macro(WalletStatusV61, "wallet_status",  API_READ_ACCESS, API_SYNC,  APPS_ALLOWED)
+        macro(EvSubUnsub,        "ev_subunsub",     API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) \
+        macro(GetVersion,        "get_version",     API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) \
+        macro(WalletStatusV61,   "wallet_status",   API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) \
+        macro(InvokeContractV61, "invoke_contract", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED)
 
     struct EvSubUnsub
     {
-        boost::optional<bool> syncProgress = boost::none;
-        boost::optional<bool> systemState  = boost::none;
-        boost::optional<bool> assetChanged = boost::none;
-        boost::optional<bool> utxosChanged = boost::none;
-        boost::optional<bool> addrsChanged = boost::none;
-        boost::optional<bool> txsChanged   = boost::none;
+        boost::optional<bool> syncProgress   = boost::none;
+        boost::optional<bool> systemState    = boost::none;
+        boost::optional<bool> assetChanged   = boost::none;
+        boost::optional<bool> utxosChanged   = boost::none;
+        boost::optional<bool> addrsChanged   = boost::none;
+        boost::optional<bool> txsChanged     = boost::none;
+        boost::optional<bool> connectChanged = boost::none;
 
         struct Response
         {
@@ -69,6 +71,22 @@ namespace beam::wallet
             Amount sending = 0;
             Amount maturing = 0;
             boost::optional<storage::Totals> totals = boost::none;
+        };
+    };
+
+    struct InvokeContractV61
+    {
+        std::vector<uint8_t> contract;
+        std::string args;
+        bool createTx = true;
+        uint32_t priority = 0;
+        uint32_t unique = 0;
+
+        struct Response
+        {
+            boost::optional<std::string> output;
+            boost::optional<beam::ByteBuffer> invokeData;
+            boost::optional<TxID> txid = TxID();
         };
     };
 }

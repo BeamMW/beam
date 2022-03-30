@@ -21,6 +21,7 @@ namespace beam::wallet
     class V61Api
         : public V6Api
         , public IWalletObserver
+        , public INodeConnectionObserver
     {
     public:
         // CTOR MUST BE SAFE TO CALL FROM ANY THREAD
@@ -36,6 +37,7 @@ namespace beam::wallet
         // IWalletObserver
         //
         void onSyncProgress(int done, int total) override;
+        void onOwnedNode(const PeerID& id, bool connected) override;
         void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
         void onAssetsChanged(ChangeAction action, const std::vector<Asset::ID>&);
         void onAssetChanged(ChangeAction action, beam::Asset::ID) override;
@@ -48,19 +50,32 @@ namespace beam::wallet
         void onCoinsChangedImp(ChangeAction action, const std::vector<T>& items);
 
         //
+        // INodeConnectionObserver
+        //
+        void onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason&) override;
+        void onNodeConnectedStatusChanged(bool isNodeConnected) override;
+
+        //
         // V6 behavior changes
         //
         void fillAssetInfo(json& parent, const WalletAsset& info) override;
 
     private:
+        void onHandleInvokeContractWithTX(const JsonRpcId &id, InvokeContractV61&& data);
+        void onHandleInvokeContractNoTX(const JsonRpcId &id, InvokeContractV61&& data);
+
+        void sendConnectionStatus();
+        json fillConnectionState() const;
+
         struct SubFlags {
             typedef uint32_t Type;
-            static const uint32_t SyncProgress = 1 << 0;
-            static const uint32_t SystemState  = 1 << 1;
-            static const uint32_t AssetChanged = 1 << 2;
-            static const uint32_t CoinsChanged = 1 << 3;
-            static const uint32_t AddrsChanged = 1 << 4;
-            static const uint32_t TXsChanged   = 1 << 5;
+            static const uint32_t SyncProgress   = 1 << 0;
+            static const uint32_t SystemState    = 1 << 1;
+            static const uint32_t AssetChanged   = 1 << 2;
+            static const uint32_t CoinsChanged   = 1 << 3;
+            static const uint32_t AddrsChanged   = 1 << 4;
+            static const uint32_t TXsChanged     = 1 << 5;
+            static const uint32_t ConnectChanged = 1 << 6;
         };
 
         bool _subscribedToListener = false;
@@ -69,5 +84,7 @@ namespace beam::wallet
         unsigned _apiVersionMajor;
         unsigned _apiVersionMinor;
         Wallet::Ptr _wallet;
+        NodeNetwork::Ptr _network;
+        std::string _disconnectReason;
     };
 }

@@ -334,7 +334,7 @@ namespace Negotiator {
 				Height* m_pLock = nullptr;
 			} m_Krn2;
 
-			CommonParam() { }
+			CommonParam() = default;
 		};
 
 		Multisig m_MSig; // msig1
@@ -410,7 +410,7 @@ namespace Negotiator {
 
 	protected:
 
-		ChannelWithdrawal() {}
+		ChannelWithdrawal() = default;
 
 		void get_Result(Result&);
 

@@ -57,6 +57,12 @@ struct Address {
         packed = ((uint64_t)ntohl(sa.sin_addr.s_addr) << 16) + ntohs(sa.sin_port);
     }
 
+    Address& operator=(const Address& a) {
+        if (*this != a)
+            packed = a.packed;
+        return *this;
+    }
+
     bool operator==(const Address& a) const {
         return packed == a.packed;
     }
