@@ -35,6 +35,9 @@
 #include "crypto/blake/sse/blake2.h"
 #endif
 
+#define BEAM_SHADERS_USE_STL
+#include "../Shaders/Eth.h"
+
 namespace Shaders {
 
 
@@ -48,7 +51,6 @@ namespace Shaders {
 #include "../Shaders/Math.h"
 #include "../Shaders/Sort.h"
 #include "../Shaders/BeamHeader.h"
-#include "../Shaders/Eth.h"
 
 #include "../Shaders/vault/contract.h"
 #include "../Shaders/oracle/contract.h"
@@ -3262,8 +3264,7 @@ namespace
 		// The list['cat', 'dog'] = [0xc8, 0x83, 'c', 'a', 't', 0x83, 'd', 'o', 'g']
 		{
 			auto cat = to_opaque("cat");
-			Rlp::Node nodes[] = {Rlp::Node(cat), Rlp::Node(dog)};
-			Rlp::Node list(nodes);
+			Rlp::Node list{ Rlp::Node(cat), Rlp::Node(dog) };
 
 			ByteStream bs;
 			list.Write(bs);

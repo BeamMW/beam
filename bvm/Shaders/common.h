@@ -35,6 +35,7 @@ typedef uint64_t Height;
 typedef uint64_t Amount;
 typedef uint32_t AssetID;
 typedef uint64_t Timestamp;
+typedef uint32_t size_t;
 
 #pragma pack (push, 1)
 

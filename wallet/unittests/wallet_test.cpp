@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#define HOST_BUILD
+
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
 #endif
@@ -59,6 +61,12 @@
 #include <initializer_list>
 #include "wallet/transactions/swaps/bridges/ethereum/common.h"
 #include "utility/string_helpers.h"
+
+#include "bvm/bvm2_impl.h"
+#include "utility/blobmap.h"
+
+#define BEAM_SHADERS_USE_STL
+#include "bvm/Shaders/Eth.h"
 
 using namespace beam;
 using namespace std;
@@ -4018,265 +4026,7 @@ void TestThreadPool()
 
 namespace
 {
-    namespace Rlp
-    {
-        class Node
-        {
-        public:
-            enum struct Type
-            {
-                List,
-                String,
-                Integer,
-            };
-
-            explicit Node(uint64_t n)
-                : m_Type(Type::Integer)
-                , m_nLen(0)
-                , m_Integer(n)
-            {
-            }
-
-            Node(std::initializer_list<Node> nodes)
-                : m_Type(Type::List)
-                , m_nLen(nodes.size())
-                , m_pC(nodes.begin())
-            {
-
-            }
-
-            Node(Type type, const uint8_t* data, size_t size)
-                : m_Type(type)
-                , m_nLen(size)
-                , m_pBuf(data)
-            {
-            }
-
-            template <size_t nBytes>
-            explicit Node(const std::array<uint8_t, nBytes>& hv)
-                : Node(Type::String, hv.data(), nBytes)
-            {
-                
-            }
-
-            explicit Node(const std::vector<uint8_t>& hv)
-                : Node(Type::String, hv.data(), hv.size())
-            {
-            }
-
-            static constexpr uint8_t get_BytesFor(uint64_t n)
-            {
-                uint8_t nLen = 0;
-                while (n)
-                {
-                    n >>= 8;
-                    nLen++;
-
-                }
-                return nLen;
-            }
-
-            Type type() const
-            {
-                return m_Type;
-            }
-
-            const uint8_t* data() const
-            {
-                return m_pBuf;
-            }
-
-            size_t size() const
-            {
-                return m_nLen;
-            }
-
-            void EnsureSizeBrutto() const
-            {
-                if (!m_SizeBrutto)
-                {
-                    struct SizeCounter
-                    {
-                        uint64_t m_Val = 0;
-                        void Write(uint8_t) { m_Val++; }
-                        void Write(const void*, size_t nLen) { m_Val += nLen; }
-                    } sc;
-
-                    Write(sc);
-                    m_SizeBrutto = sc.m_Val;
-                }
-            }
-
-            template <typename TStream>
-            static void WriteVarLen(TStream& s, uint64_t n, uint8_t nLen)
-            {
-                for (nLen <<= 3; nLen; )
-                {
-                    nLen -= 8;
-                    s.Write(static_cast<uint8_t>(n >> nLen));
-                }
-            }
-
-            template <typename TStream>
-            void WriteSize(TStream& s, uint8_t nBase, uint64_t n) const
-            {
-                if (n < 56)
-                    s.Write(nBase + static_cast<uint8_t>(n));
-                else
-                {
-                    uint8_t nLen = get_BytesFor(n);
-                    s.Write(nBase + 55 + nLen);
-                    WriteVarLen(s, n, nLen);
-                }
-            }
-
-            template <typename TStream>
-            void Write(TStream& s) const
-            {
-                switch (m_Type)
-                {
-                case Type::List:
-                {
-                    uint64_t nChildren = 0;
-
-                    for (uint32_t i = 0; i < m_nLen; i++)
-                    {
-                        m_pC[i].EnsureSizeBrutto();
-                        nChildren += m_pC[i].m_SizeBrutto;
-                    }
-
-                    WriteSize(s, 0xc0, nChildren);
-
-                    for (uint32_t i = 0; i < m_nLen; i++)
-                        m_pC[i].Write(s);
-
-                }
-                break;
-
-                case Type::String:
-                {
-                    if (m_nLen != 1 || m_pBuf[0] >= 0x80)
-                    {
-                        WriteSize(s, 0x80, m_nLen);
-                    }
-                    s.Write(m_pBuf, m_nLen);
-                }
-                break;
-
-                default:
-                    assert(false);
-                    // no break;
-
-                case Type::Integer:
-                {
-                    if (m_Integer && m_Integer < 0x80)
-                    {
-                        s.Write(static_cast<uint8_t>(m_Integer));
-                    }
-                    else
-                    {
-                        uint8_t nLen = get_BytesFor(m_Integer);
-                        WriteSize(s, 0x80, nLen);
-                        WriteVarLen(s, m_Integer, nLen);
-                    }
-                }
-                }
-            }
-
-        private:
-            Type m_Type;
-            mutable uint64_t m_SizeBrutto = 0; // cached
-            size_t m_nLen; // for strings and lists
-
-            union {
-                const Node* m_pC;
-                const uint8_t* m_pBuf;
-                uint64_t m_Integer;
-            };
-        };
-
-
-        template<typename Visitor>
-        bool Decode(const uint8_t* input, size_t size, Visitor& visitor)
-        {
-            size_t position = 0;
-            auto decodeInteger = [&](uint8_t bytes, uint32_t& length)
-            {
-                if (bytes > size - position)
-                    return false;
-                length = 0;
-                while (bytes--)
-                {
-                    length = input[position++] + length * 256;
-                }
-                return true;
-            };
-
-            while (position < size)
-            {
-                auto b = input[position++];
-                if (b <= 0x7f)  // single byte
-                {
-                    visitor.OnNode({ Node::Type::String, &input[position - 1], 1 });
-                }
-                else
-                {
-                    uint32_t length = 0;
-                    if (b <= 0xb7) // short string
-                    {
-                        length = b - 0x80;
-                        if (length > size - position)
-                            return false;
-                        DecodeString(input + position, length, visitor);
-                    }
-                    else if (b <= 0xbf) // long string
-                    {
-                        if (!decodeInteger(b - 0xb7, length) || length > size - position)
-                            return false;
-                        DecodeString(input + position, length, visitor);
-                    }
-                    else if (b <= 0xf7) // short list
-                    {
-                        length = b - 0xc0;
-                        if (length > size - position)
-                            return false;
-                        if (!DecodeList(input + position, length, visitor))
-                            return false;
-                    }
-                    else if (b <= 0xff) // long list
-                    {
-                        if (!decodeInteger(b - 0xf7, length) || length > size - position)
-                            return false;
-                        if (!DecodeList(input + position, length, visitor))
-                            return false;
-                    }
-                    else
-                    {
-                        return false;
-                    }
-                    position += length;
-                }
-            }
-            return true;
-        }
-
-        template <typename Visitor>
-        void DecodeString(const uint8_t* input, size_t size, Visitor& visitor)
-        {
-            visitor.OnNode(Rlp::Node(Node::Type::String, input, size));
-        }
-
-        template <typename Visitor>
-        bool DecodeList(const uint8_t* input, size_t size, Visitor& visitor)
-        {
-            if (visitor.OnNode(Rlp::Node(Node::Type::List, input, size)))
-            {
-                return Decode(input, size, visitor);
-            }
-            return true;
-        }
-    };
-
+    using Shaders::Eth::Rlp;
     struct RlpVisitor
     {
         struct Node

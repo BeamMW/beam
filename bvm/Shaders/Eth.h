@@ -14,6 +14,19 @@
 
 #pragma once
 
+#ifdef BEAM_SHADERS_USE_STL
+
+#include <array>
+#include <initializer_list>
+
+#endif // BEAM_SHADERS_USE_STL
+
+#ifdef HOST_BUILD
+#include "core/keccak.h"
+
+namespace Shaders {
+#endif
+
 #include "common.h"
 
 namespace Eth
@@ -64,7 +77,8 @@ namespace Eth
 	{
 		struct Node
 		{
-			enum struct Type {
+			enum struct Type
+			{
 				List,
 				String,
 				Integer,
@@ -97,6 +111,35 @@ namespace Eth
 			{
 			}
 
+#ifdef BEAM_SHADERS_USE_STL
+			Node(std::initializer_list<Node> nodes)
+				: m_Type(Type::List)
+				, m_nLen(static_cast<uint32_t>(nodes.size()))
+				, m_pC(nodes.begin())
+			{
+			}
+
+
+			template <size_t nBytes>
+			explicit Node(const std::array<uint8_t, nBytes>& hv)
+				: Node(Type::String, hv.data(), nBytes)
+			{
+
+			}
+
+			explicit Node(const std::vector<uint8_t>& hv)
+				: Node(Type::String, hv.data(), hv.size())
+			{
+			}
+#endif // BEAM_SHADERS_USE_STL
+
+			Node(Type type, const uint8_t* data, size_t size)
+				: m_Type(type)
+				, m_nLen(static_cast<uint32_t>(size))
+				, m_pBuf(data)
+			{
+			}
+
 			template <uint32_t N>
 			Node(const Node(&nodes)[N])
 				: m_Type(Type::List)
@@ -105,7 +148,7 @@ namespace Eth
 			{
 			}
 
-			template <uint32_t nBytes>
+            template <uint32_t nBytes>
 			void Set(const Opaque<nBytes>& hv)
 			{
 				m_Type = Type::String;
@@ -131,14 +174,30 @@ namespace Eth
 				return nLen;
 			}
 
+			Type type() const
+			{
+				return m_Type;
+			}
+
+			const uint8_t* data() const
+			{
+				return m_pBuf;
+			}
+
+			size_t size() const
+			{
+				return m_nLen;
+			}
+
 			void EnsureSizeBrutto() const
 			{
 				if (!m_SizeBrutto)
 				{
-					struct SizeCounter {
+					struct SizeCounter
+					{
 						uint64_t m_Val = 0;
 						void Write(uint8_t) { m_Val++; }
-						void Write(const void*, uint32_t nLen) { m_Val += nLen; }
+						void Write(const void*, size_t nLen) { m_Val += nLen; }
 					} sc;
 
 					Write(sc);
@@ -175,64 +234,64 @@ namespace Eth
 				switch (m_Type)
 				{
 				case Type::List:
+				{
+					uint64_t nChildren = 0;
+
+					for (uint32_t i = 0; i < m_nLen; i++)
 					{
-						uint64_t nChildren = 0;
-
-						for (uint32_t i = 0; i < m_nLen; i++)
-						{
-							m_pC[i].EnsureSizeBrutto();
-							nChildren += m_pC[i].m_SizeBrutto;
-						}
-
-						WriteSize(s, 0xc0, nChildren);
-
-						for (uint32_t i = 0; i < m_nLen; i++)
-							m_pC[i].Write(s);
-
+						m_pC[i].EnsureSizeBrutto();
+						nChildren += m_pC[i].m_SizeBrutto;
 					}
-					break;
+
+					WriteSize(s, 0xc0, nChildren);
+
+					for (uint32_t i = 0; i < m_nLen; i++)
+						m_pC[i].Write(s);
+
+				}
+				break;
 
 				case Type::String:
+				{
+					if (m_nLen != 1 || m_pBuf[0] >= 0x80)
 					{
-						if (m_nLen != 1 || m_pBuf[0] >= 0x80)
-						{
-							WriteSize(s, 0x80, m_nLen);
-						}
-						s.Write(m_pBuf, m_nLen);
+						WriteSize(s, 0x80, m_nLen);
 					}
-					break;
+					s.Write(m_pBuf, m_nLen);
+				}
+				break;
 
 				default:
 					assert(false);
 					// no break;
 
 				case Type::Integer:
+				{
+					if (m_Integer && m_Integer < 0x80)
 					{
-						if (m_Integer && m_Integer < 0x80)
-						{
-							s.Write(static_cast<uint8_t>(m_Integer));
-						}
-						else
-						{
-							uint8_t nLen = get_BytesFor(m_Integer);
-							WriteSize(s, 0x80, nLen);
-							WriteVarLen(s, m_Integer, nLen);
-						}
+						s.Write(static_cast<uint8_t>(m_Integer));
 					}
+					else
+					{
+						uint8_t nLen = get_BytesFor(m_Integer);
+						WriteSize(s, 0x80, nLen);
+						WriteVarLen(s, m_Integer, nLen);
+					}
+				}
 				}
 			}
 		};
 
 		template<typename Visitor>
-		static bool Decode(const uint8_t* input, uint32_t size, Visitor& visitor)
+		static bool Decode(const uint8_t* input, size_t size, Visitor& visitor)
 		{
-			uint32_t position = 0;
-			auto decodeInteger = [&](uint8_t nBytes, uint32_t& length)
+			size_t position = 0;
+			auto decodeInteger = [&](uint8_t bytes, size_t& length)
 			{
-				if (nBytes > size - position)
-					return false; 
+				if (bytes > size - position)
+					return false;
 				length = 0;
-				while (nBytes--)
+				while (bytes--)
 				{
 					length = input[position++] + length * 256;
 				}
@@ -244,11 +303,11 @@ namespace Eth
 				auto b = input[position++];
 				if (b <= 0x7f)  // single byte
 				{
-					visitor.OnNode(Rlp::Node(to_opaque(b)));
+					visitor.OnNode({ Node::Type::String, &input[position - 1], 1 });
 				}
 				else
 				{
-					uint32_t length = 0;
+					size_t length = 0;
 					if (b <= 0xb7) // short string
 					{
 						length = b - 0x80;
@@ -288,23 +347,15 @@ namespace Eth
 		}
 
 		template <typename Visitor>
-		static void DecodeString(const uint8_t* input, uint32_t size, Visitor& visitor)
+		static void DecodeString(const uint8_t* input, size_t size, Visitor& visitor)
 		{
-			Rlp::Node n;
-			n.m_Type = Rlp::Node::Type::String;
-			n.m_nLen = size;
-			n.m_pBuf = input;
-			visitor.OnNode(n);
+			visitor.OnNode(Rlp::Node(Node::Type::String, input, size));
 		}
 
 		template <typename Visitor>
-		static bool DecodeList(const uint8_t* input, uint32_t size, Visitor& visitor)
+		static bool DecodeList(const uint8_t* input, size_t size, Visitor& visitor)
 		{
-			Rlp::Node n;
-			n.m_Type = Rlp::Node::Type::List;
-			n.m_nLen = size;
-			n.m_pBuf = input;
-			if (visitor.OnNode(n))
+			if (visitor.OnNode(Rlp::Node(Node::Type::List, input, size)))
 			{
 				return Decode(input, size, visitor);
 			}
@@ -681,3 +732,7 @@ namespace Eth
 		return false;
 	}
 }
+
+#ifdef HOST_BUILD
+} // namespace Shaders
+#endif
