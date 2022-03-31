@@ -4362,7 +4362,6 @@ namespace
             ByteStream bs;
             tx.Write(bs);
             WALLET_CHECK(bs.m_Buffer == from_hex("f8690280825208943bb7488199ea33f05336729d0f57129a801fd0b98829a2241af62c000080820b27a00c390566ab8f69d5bd5d5960a0fc9077b43fdf63ab319d3c6bb64f30a4b33370a05e4d1042028151a9b90c319602312510dea758f3c2e41e91eccc085aaa27fc6d"));
-            //WALLET_CHECK(bs.m_Buffer == from_hex("e40280825208943bb7488199ea33f05336729d0f57129a801fd0b98829a2241af62c000080"));
         }
 
         {
@@ -4375,17 +4374,14 @@ namespace
                 Rlp::Node{v2.m_Items[4].m_Buffer},
                 Rlp::Node{v2.m_Items[5].m_Buffer},
                 Rlp::Node{1410},
-                //Rlp::Node(Rlp::Node::Type::String, nullptr, 0),
-                //Rlp::Node(Rlp::Node::Type::String, nullptr, 0),
+                Rlp::Node(Rlp::Node::Type::String, nullptr, 0),
+                Rlp::Node(Rlp::Node::Type::String, nullptr, 0),
             };
 
             ByteStream bs;
             tx.Write(bs);
-            LOG_DEBUG() << to_hex(bs.m_Buffer.data(), bs.m_Buffer.size());
-           // WALLET_CHECK(bs.m_Buffer == from_hex("e40280825208943bb7488199ea33f05336729d0f57129a801fd0b98829a2241af62c000080"));
 
             libbitcoin::recoverable_signature sig;
-            //sig.recovery_id = v2.m_Items[6]
             std::copy(begin(v2.m_Items[7].m_Buffer), end(v2.m_Items[7].m_Buffer), next(begin(sig.signature), 0)); // R
             std::copy(begin(v2.m_Items[8].m_Buffer), end(v2.m_Items[8].m_Buffer), next(begin(sig.signature), 32)); // S
             
@@ -4401,7 +4397,7 @@ namespace
             sig.recovery_id = uint8_t(i);
 
             auto words = string_helpers::split("drum;number;north;fly;silk;recall;execute;season;december;foot;spirit;tennis", ';');
-            //auto address0 = beam::ethereum::GenerateEthereumAddress(, 0);
+            auto address0 = beam::ethereum::GenerateEthereumAddress(words, 0);
             
             auto privateKey = beam::ethereum::GeneratePrivateKey(words, 0);
             libbitcoin::ec_compressed point;
@@ -4414,12 +4410,16 @@ namespace
             std::copy(begin(hash.bytes), end(hash.bytes), h.begin());
             WALLET_CHECK(libbitcoin::recover_public(pub, sig, h) == true);
 
-            //libbitcoin::ec_compressed pub2;
-            //std::copy(begin(address0), end(address0), pub2.begin());
-            //WALLET_CHECK(libbitcoin::verify_signature(point, h, sig.signature));
-            auto addr = ethash::keccak256(pub.data()+1, pub.size()-1);
-            //ByteBuffer bg(addr.bytes.)
-            LOG_DEBUG() << to_hex(addr.bytes + 12, 20);
+            libbitcoin::ec_uncompressed upub;
+            WALLET_CHECK(libbitcoin::decompress(upub, pub));
+
+            WALLET_CHECK(pub == point);
+
+            WALLET_CHECK(libbitcoin::verify_signature2(pub, h, sig.signature));
+            auto addr = ethash::keccak256(upub.data()+1, upub.size()-1);
+            std::array<uint8_t, 20> recoveredAddress;
+            std::copy_n(addr.bytes + 12, 20, recoveredAddress.begin());
+            WALLET_CHECK(recoveredAddress == address0);
         }
 
 

@@ -176,6 +176,10 @@ BC_API bool sign(ec_signature& out, const ec_secret& secret,
 BC_API bool verify_signature(const ec_compressed& point,
     const hash_digest& hash, const ec_signature& signature);
 
+/// Verify an EC signature using a compressed point. For Ethereum
+BC_API bool verify_signature2(const ec_compressed& point,
+    const hash_digest& hash, const ec_signature& signature);
+
 /// Verify an EC signature using an uncompressed point.
 BC_API bool verify_signature(const ec_uncompressed& point,
     const hash_digest& hash, const ec_signature& signature);

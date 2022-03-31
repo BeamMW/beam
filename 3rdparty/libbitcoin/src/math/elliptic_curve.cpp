@@ -119,6 +119,19 @@ bool verify_signature(const secp256k1_context* context,
     return secp256k1_ecdsa_verify(context, &normal, hash.data(), &point) == 1;
 }
 
+bool verify_signature2(const secp256k1_context* context,
+    const secp256k1_pubkey point, const hash_digest& hash,
+    const ec_signature& signature)
+{
+    secp256k1_ecdsa_signature sig;
+
+    if (!secp256k1_ecdsa_signature_parse_compact(context, &sig, signature.data())) {
+        return false;
+    }
+
+    return secp256k1_ecdsa_verify(context, &sig, hash.data(), &point);
+}
+
 // Add and multiply EC values
 // ----------------------------------------------------------------------------
 
@@ -330,6 +343,15 @@ bool verify_signature(const ec_compressed& point, const hash_digest& hash,
     const auto context = verification.context();
     return parse(context, pubkey, point) &&
         verify_signature(context, pubkey, hash, signature);
+}
+
+bool verify_signature2(const ec_compressed& point, const hash_digest& hash,
+    const ec_signature& signature)
+{
+    secp256k1_pubkey pubkey;
+    const auto context = verification.context();
+    return parse(context, pubkey, point) &&
+        verify_signature2(context, pubkey, hash, signature);
 }
 
 bool verify_signature(const ec_uncompressed& point, const hash_digest& hash,
