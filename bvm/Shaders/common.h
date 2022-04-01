@@ -39,9 +39,10 @@ typedef uint32_t size_t;
 
 #pragma pack (push, 1)
 
-template <uint32_t nBytes>
+template <uint32_t nBytes_>
 struct Opaque {
-    uint8_t m_p[nBytes];
+    static constexpr uint32_t nBytes = nBytes_;
+    uint8_t m_p[nBytes_];
 };
 
 struct Secp_point_data {
@@ -85,6 +86,30 @@ inline void ConvertOrd(T&) {}
 
 template <uint32_t nBytes>
 using Opaque = beam::uintBig_t<nBytes>;
+
+template <uint32_t N>
+constexpr uint8_t* begin(Opaque<N>& c)
+{
+    return c.m_pData;
+}
+
+template <uint32_t N>
+constexpr const uint8_t* begin(const Opaque<N>& c)
+{
+    return c.m_pData;
+}
+
+template <uint32_t N>
+constexpr uint8_t* end(Opaque<N>& c)
+{
+    return c.m_pData + c.nBytes;
+}
+
+template <uint32_t N>
+constexpr const uint8_t* end(const Opaque<N>& c)
+{
+    return c.m_pData + c.nBytes;
+}
 
 #endif // HOST_BUILD
 

@@ -66,6 +66,7 @@
 #include "utility/blobmap.h"
 
 #define BEAM_SHADERS_USE_STL
+#define BEAM_SHADERS_USE_LIBBITCOIN
 #include "bvm/Shaders/Eth.h"
 
 using namespace beam;
@@ -4026,26 +4027,26 @@ void TestThreadPool()
 
 namespace
 {
-    using Shaders::Eth::Rlp;
-    struct RlpVisitor
-    {
-        struct Node
-        {
-            Rlp::Node::Type m_Type;
-            ByteBuffer m_Buffer;
-        };
+    using namespace Shaders::Eth;
+    //struct RlpVisitor
+    //{
+    //    struct Node
+    //    {
+    //        Rlp::Node::Type m_Type;
+    //        ByteBuffer m_Buffer;
+    //    };
 
-        bool OnNode(const Rlp::Node& node)
-        {
-            auto& item = m_Items.emplace_back();
-            item.m_Type = node.type();
-            item.m_Buffer.assign(node.data(), node.data() + node.size());
-            return false;
-        }
+    //    bool OnNode(const Rlp::Node& node)
+    //    {
+    //        auto& item = m_Items.emplace_back();
+    //        item.m_Type = node.type();
+    //        item.m_Buffer.assign(node.data(), node.data() + node.size());
+    //        return false;
+    //    }
 
 
-        std::vector<Node> m_Items;
-    };
+    //    std::vector<Node> m_Items;
+    //};
 
     struct ByteStream
     {
@@ -4066,29 +4067,28 @@ namespace
     {
         std::string_view rawTransactionHex = "f8690280825208943bb7488199ea33f05336729d0f57129a801fd0b98829a2241af62c000080820b27a00c390566ab8f69d5bd5d5960a0fc9077b43fdf63ab319d3c6bb64f30a4b33370a05e4d1042028151a9b90c319602312510dea758f3c2e41e91eccc085aaa27fc6d";
         auto rawTransaction = from_hex(rawTransactionHex);
-        RlpVisitor v;
+        RlpVisitor v(1);
         Rlp::Decode(rawTransaction.data(), rawTransaction.size(), v);
+        WALLET_CHECK(v.ItemsCount() == 1);
 
-        RlpVisitor v2;
-        Rlp::Decode(v.m_Items[0].m_Buffer.data(), (uint32_t)v.m_Items[0].m_Buffer.size(), v2);
-        WALLET_CHECK(v2.m_Items[0].m_Buffer == from_hex("02"));
-        WALLET_CHECK(v2.m_Items[1].m_Buffer.empty());
-        WALLET_CHECK(v2.m_Items[2].m_Buffer == from_hex("5208"));
-        WALLET_CHECK(v2.m_Items[3].m_Buffer == from_hex("3bb7488199ea33f05336729d0f57129a801fd0b9"));
-        WALLET_CHECK(v2.m_Items[4].m_Buffer == from_hex("29a2241af62c0000"));
-        WALLET_CHECK(v2.m_Items[5].m_Buffer.empty());
-        WALLET_CHECK(v2.m_Items[6].m_Buffer == from_hex("0b27"));
-        WALLET_CHECK(v2.m_Items[7].m_Buffer == from_hex("0c390566ab8f69d5bd5d5960a0fc9077b43fdf63ab319d3c6bb64f30a4b33370"));
-        WALLET_CHECK(v2.m_Items[8].m_Buffer == from_hex("5e4d1042028151a9b90c319602312510dea758f3c2e41e91eccc085aaa27fc6d"));
-        const auto& address = v2.m_Items[3].m_Buffer;
-        AmountBig::Type amount{ Blob(v2.m_Items[4].m_Buffer) };
-        address;
-        amount;
+        RlpVisitor v2(1);
+        Rlp::Decode(v.GetItem(0).data(), (uint32_t)v.GetItem(0).size(), v2);
+        WALLET_CHECK(v2.ItemsCount() == 9);
+        
+        WALLET_CHECK(v2.GetItem(0) == from_hex("02")); // nonce
+        WALLET_CHECK(v2.GetItem(1).empty()); // gas price
+        WALLET_CHECK(v2.GetItem(2) == from_hex("5208")); // gas limit
+        WALLET_CHECK(v2.GetItem(3) == from_hex("3bb7488199ea33f05336729d0f57129a801fd0b9")); // recipient
+        WALLET_CHECK(v2.GetItem(4) == from_hex("29a2241af62c0000")); // value
+        WALLET_CHECK(v2.GetItem(5).empty()); // data
+        WALLET_CHECK(v2.GetItem(6) == from_hex("0b27")); // V
+        WALLET_CHECK(v2.GetItem(7) == from_hex("0c390566ab8f69d5bd5d5960a0fc9077b43fdf63ab319d3c6bb64f30a4b33370")); // R 
+        WALLET_CHECK(v2.GetItem(8) == from_hex("5e4d1042028151a9b90c319602312510dea758f3c2e41e91eccc085aaa27fc6d")); // S
 
         {
             Rlp::Node tx
             {
-                {Rlp::Node{v2.m_Items[0].m_Buffer} },
+                {Rlp::Node{v2.GetItem(0)}},
             };
 
             ByteStream bs;
@@ -4098,15 +4098,15 @@ namespace
         {
             Rlp::Node tx
             {
-                Rlp::Node{v2.m_Items[0].m_Buffer},
-                Rlp::Node{v2.m_Items[1].m_Buffer},
-                Rlp::Node{v2.m_Items[2].m_Buffer},
-                Rlp::Node{v2.m_Items[3].m_Buffer},
-                Rlp::Node{v2.m_Items[4].m_Buffer},
-                Rlp::Node{v2.m_Items[5].m_Buffer},
-                Rlp::Node{v2.m_Items[6].m_Buffer},
-                Rlp::Node{v2.m_Items[7].m_Buffer},
-                Rlp::Node{v2.m_Items[8].m_Buffer}
+                v2.GetItem(0),
+                v2.GetItem(1),
+                v2.GetItem(2),
+                v2.GetItem(3),
+                v2.GetItem(4),
+                v2.GetItem(5),
+                v2.GetItem(6),
+                v2.GetItem(7),
+                v2.GetItem(8)
             };
 
             ByteStream bs;
@@ -4117,12 +4117,12 @@ namespace
         {
             Rlp::Node tx
             {
-                Rlp::Node{v2.m_Items[0].m_Buffer},
-                Rlp::Node{v2.m_Items[1].m_Buffer},
-                Rlp::Node{v2.m_Items[2].m_Buffer},
-                Rlp::Node{v2.m_Items[3].m_Buffer},
-                Rlp::Node{v2.m_Items[4].m_Buffer},
-                Rlp::Node{v2.m_Items[5].m_Buffer},
+                v2.GetItem(0),
+                v2.GetItem(1),
+                v2.GetItem(2),
+                v2.GetItem(3),
+                v2.GetItem(4),
+                v2.GetItem(5),
                 Rlp::Node{1410},
                 Rlp::Node(Rlp::Node::Type::String, nullptr, 0),
                 Rlp::Node(Rlp::Node::Type::String, nullptr, 0),
@@ -4132,14 +4132,15 @@ namespace
             tx.Write(bs);
 
             libbitcoin::recoverable_signature sig;
-            std::copy(begin(v2.m_Items[7].m_Buffer), end(v2.m_Items[7].m_Buffer), next(begin(sig.signature), 0)); // R
-            std::copy(begin(v2.m_Items[8].m_Buffer), end(v2.m_Items[8].m_Buffer), next(begin(sig.signature), 32)); // S
+            std::copy(v2.GetItem(7).data(), v2.GetItem(7).data() + v2.GetItem(7).size(), next(begin(sig.signature), 0)); // R
+            std::copy(v2.GetItem(8).data(), v2.GetItem(8).data() + v2.GetItem(8).size(), next(begin(sig.signature), 32)); // S
             
             int i = 0;
-            for (const auto& c : v2.m_Items[6].m_Buffer) // V
+            const auto& n = v2.GetItem(6);
+            for (size_t j = 0; j < n.size(); ++j) // V
             {
                 i <<= 8;
-                i += c;
+                i += n.data()[j];
             }
             WALLET_CHECK(i == 0xb27);
 
@@ -4170,6 +4171,17 @@ namespace
             std::array<uint8_t, 20> recoveredAddress;
             std::copy_n(addr.bytes + 12, 20, recoveredAddress.begin());
             WALLET_CHECK(recoveredAddress == address0);
+            Shaders::Eth::Hash hash2;
+            Shaders::Eth::PublicKey pubKey;
+
+            Shaders::Eth::RawTransactionData txData;
+            WALLET_CHECK(Shaders::Eth::ExtractDataFromRawTransaction(txData, rawTransaction.data(), rawTransaction.size()));
+
+            WALLET_CHECK(Shaders::Eth::ExtractPubKetFromSignature(pubKey, txData.messageHash, txData.signature, txData.recoveryID));
+            WALLET_CHECK(pub == pubKey);
+            WALLET_CHECK(Shaders::Eth::VerifyTransactionSignature(pubKey, txData.messageHash, txData.signature));
+            WALLET_CHECK(Shaders::Eth::ToAddress(pubKey) == address0);
+            //WALLET_CHECK(Shaders::Eth::VerifyTransactionSignature(pubKey, hash2, rawTransaction.data(), rawTransaction.size()));
         }
 
 

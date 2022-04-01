@@ -18,11 +18,17 @@
 
 #include <array>
 #include <initializer_list>
+#include <algorithm>
+#include <iterator>
 
 #endif // BEAM_SHADERS_USE_STL
 
 #ifdef HOST_BUILD
 #include "core/keccak.h"
+
+	#ifdef BEAM_SHADERS_USE_LIBBITCOIN
+	#include "bitcoin/bitcoin/math/elliptic_curve.hpp"
+	#endif // BEAM_SHADERS_USE_LIBBITCOIN
 
 namespace Shaders {
 #endif
@@ -32,6 +38,7 @@ namespace Shaders {
 namespace Eth
 {
 	using Address = Opaque<20>;
+	using Hash = Opaque<32>;
 
 	void MemCopy(void* dest, const void* src, uint32_t n)
 	{
@@ -131,6 +138,14 @@ namespace Eth
 				: Node(Type::String, hv.data(), hv.size())
 			{
 			}
+
+			template<typename T>
+			bool operator==(T&& v) const
+			{
+				return m_Type == Type::String 
+					&& std::equal(begin(v), end(v), m_pBuf, m_pBuf + m_nLen);
+			}
+
 #endif // BEAM_SHADERS_USE_STL
 
 			Node(Type type, const uint8_t* data, size_t size)
@@ -187,6 +202,11 @@ namespace Eth
 			size_t size() const
 			{
 				return m_nLen;
+			}
+
+			bool empty() const
+			{
+				return m_nLen == 0;
 			}
 
 			void EnsureSizeBrutto() const
@@ -593,49 +613,52 @@ namespace Eth
 		return -1;
 	}
 
+	struct RlpVisitor
+	{
+		explicit RlpVisitor(uint8_t maxNested = 2)
+			: m_MaxNested(maxNested)
+		{}
+		bool OnNode(const Rlp::Node& node)
+		{
+			auto& item = m_Items.emplace_back();
+			item = node;
+			m_Nested++;
+			return m_Nested < m_MaxNested;
+		}
+
+		uint32_t ItemsCount() const
+		{
+#ifdef HOST_BUILD
+			return static_cast<uint32_t>(m_Items.size());
+#else // HOST_BUILD
+			return static_cast<uint32_t>(m_Items.m_Count);
+#endif // HOST_BUILD
+		}
+
+		const Rlp::Node& GetItem(uint32_t index) const
+		{
+#ifdef HOST_BUILD
+			return m_Items[index];
+#else // HOST_BUILD
+			return m_Items.m_p[index];
+#endif // HOST_BUILD
+		}
+
+		uint8_t m_Nested = 0;
+		uint8_t m_MaxNested = 2;
+#ifdef HOST_BUILD
+		std::vector<Rlp::Node> m_Items;
+#else // HOST_BUILD
+		Utils::Vector<Rlp::Node> m_Items;
+#endif // HOST_BUILD
+
+	};
+
 	bool VerifyEthProof(const uint8_t* trieKey, uint32_t trieKeySize,
 						const uint8_t* proof, uint32_t proofSize,
 						const HashValue& rootHash,
 						uint8_t** out, uint32_t& outSize)
 	{
-		struct RlpVisitor
-		{
-			bool OnNode(const Rlp::Node& node)
-			{
-				auto& item = m_Items.emplace_back();
-				item = node;
-				m_Nested++;
-				return m_Nested < m_MaxNested;
-			}
-
-			uint32_t ItemsCount() const
-			{
-#ifdef HOST_BUILD
-				return static_cast<uint32_t>(m_Items.size());
-#else // HOST_BUILD
-				return static_cast<uint32_t>(m_Items.m_Count);
-#endif // HOST_BUILD
-			}
-
-			const Rlp::Node& GetItem(uint32_t index) const
-			{
-#ifdef HOST_BUILD
-				return m_Items[index];
-#else // HOST_BUILD
-				return m_Items.m_p[index];
-#endif // HOST_BUILD
-			}
-			
-			uint8_t m_Nested = 0;
-			uint8_t m_MaxNested = 2;
-#ifdef HOST_BUILD
-			std::vector<Rlp::Node> m_Items;
-#else // HOST_BUILD
-			Utils::Vector<Rlp::Node> m_Items;
-#endif // HOST_BUILD
-			
-		};
-
 		RlpVisitor rootVisitor;
 		Rlp::Decode(proof, proofSize, rootVisitor);
 		const uint8_t* newExpectedRoot = reinterpret_cast<const uint8_t*>(&rootHash);
@@ -730,6 +753,149 @@ namespace Eth
 			}
 		}
 		return false;
+	}
+
+	using Signature = Opaque<64>;
+	using PublicKey = Opaque<33>;
+	using Amount = Opaque<16>;
+
+#ifdef BEAM_SHADERS_USE_STL
+	template<typename Cont, uint32_t N>
+	bool operator==(const Opaque<N>& o, const Cont& c)
+	{
+		return std::equal(begin(o), end(o), begin(c), end(c));
+	}
+
+	template<typename Cont, uint32_t N>
+	bool operator==(const Cont& c, const Opaque<N>& o)
+	{
+		return std::equal(begin(o), end(o), begin(c), end(c));
+	}
+#endif
+
+	struct RawTransactionData
+	{
+		Hash			messageHash;
+		Address			recipient;
+		Amount			amount;
+		Signature		signature;
+		uint8_t			recoveryID;
+	};
+
+	bool ExtractDataFromRawTransaction(RawTransactionData& txData, const uint8_t* data, size_t size)
+	{
+#ifdef BEAM_SHADERS_USE_STL
+		RlpVisitor rootVisitor(1);
+		Rlp::Decode(data, size, rootVisitor);
+
+		if (rootVisitor.ItemsCount() != 1)
+			return false;
+
+		RlpVisitor listVisitor(1);
+		Rlp::Decode(rootVisitor.GetItem(0).data(), rootVisitor.GetItem(0).size(), listVisitor);
+
+		if (listVisitor.ItemsCount() != 9)
+			return false;
+
+		auto myCopy = [&](const Rlp::Node& node, auto dest)
+		{
+			std::copy(node.data(), node.data() + node.size(), dest);
+		};
+
+
+		myCopy(listVisitor.GetItem(3), begin(txData.recipient));
+		myCopy(listVisitor.GetItem(4), std::next(begin(txData.amount), Amount::nBytes - listVisitor.GetItem(4).size()));
+
+		Rlp::Node tx =
+		{
+			listVisitor.GetItem(0), // nonce
+			listVisitor.GetItem(1), // gas price
+			listVisitor.GetItem(2), // gas limit
+			listVisitor.GetItem(3), // recipient(EOA, Contract Account)
+			listVisitor.GetItem(4), // value
+			listVisitor.GetItem(5), // data
+			Rlp::Node{1410},		// derived chain id, V
+			Rlp::Node(Rlp::Node::Type::String, nullptr, 0), // R 
+			Rlp::Node(Rlp::Node::Type::String, nullptr, 0), // S
+		};
+
+		Rlp::HashStream hs;
+		tx.Write(hs);
+		hs >> txData.messageHash;
+		myCopy(listVisitor.GetItem(7), std::next(begin(txData.signature), 0));		// R
+		myCopy(listVisitor.GetItem(8), std::next(begin(txData.signature), 32));		// S
+
+		int i = 0;
+		const auto& n = listVisitor.GetItem(6);
+		for (size_t j = 0; j < n.size(); ++j) // V
+		{
+			i <<= 8;
+			i += n.data()[j];
+		}
+
+		i = i - 1410 * 2 - 35;
+		txData.recoveryID = uint8_t(i);
+		return true;
+#else
+		return false;
+#endif
+	}
+
+	bool ExtractPubKetFromSignature(PublicKey& pubKey, const Hash& hash, const Signature& signature, uint8_t recoveryID)
+	{
+#if defined(HOST_BUILD) && defined(BEAM_SHADERS_USE_LIBBITCOIN)
+		libbitcoin::recoverable_signature recSig;
+		std::copy(begin(signature), end(signature), begin(recSig.signature));
+		recSig.recovery_id = recoveryID;
+
+		libbitcoin::ec_compressed pub;
+		libbitcoin::hash_digest h;
+		std::copy(begin(hash), end(hash), h.begin());
+		if (!libbitcoin::recover_public(pub, recSig, h))
+			return false;
+
+		std::copy(begin(pub), end(pub), begin(pubKey));
+		return true;
+#else
+		return false;
+#endif
+	}
+
+	Address ToAddress(const PublicKey& pubKey)
+	{
+		Address address;
+#if defined(HOST_BUILD) && defined(BEAM_SHADERS_USE_LIBBITCOIN)
+		libbitcoin::ec_compressed pub;
+		libbitcoin::ec_uncompressed upub;
+		std::copy(begin(pubKey), end(pubKey), begin(pub));
+		libbitcoin::decompress(upub, pub);
+		auto addr = ethash::keccak256(upub.data() + 1, upub.size() - 1);
+		std::array<uint8_t, 20> recoveredAddress;
+		std::copy_n(addr.bytes + 12, 20, recoveredAddress.begin());
+
+		Rlp::HashStream hs;
+		Hash pubHash;
+		hs.Write(upub.data() + 1, static_cast<uint32_t>(upub.size()) - 1);
+		hs >> pubHash;
+		std::copy_n(std::next(begin(pubHash), 12), Address::nBytes, begin(address));
+
+#endif
+		return address;
+	}
+
+	bool VerifyTransactionSignature(const PublicKey& pubKey, const Hash& hash, const Signature& signature)
+	{
+#if defined(HOST_BUILD) && defined(BEAM_SHADERS_USE_LIBBITCOIN)
+		libbitcoin::ec_compressed pub;
+		libbitcoin::ec_signature sig;
+		libbitcoin::hash_digest h;
+		std::copy(begin(pubKey), end(pubKey), begin(pub));
+		std::copy(begin(signature), end(signature), begin(sig));
+		std::copy(begin(hash), end(hash), begin(h));
+		return libbitcoin::verify_signature2(pub, h, sig);
+#else
+		return false;
+#endif
 	}
 }
 
