@@ -1001,6 +1001,7 @@ namespace Wasm {
 
 		void On_unreachable() {
 			m_p0 = nullptr;
+			m_Unreachable = true;
 		}
 
 		void On_end_block() {
