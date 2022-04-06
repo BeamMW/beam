@@ -844,22 +844,62 @@ namespace Eth
 
 	bool ExtractPubKeyFromSignature(PublicKey& pubKey, const Hash& hash, const Signature& signature, uint8_t recoveryID)
 	{
-#if defined(HOST_BUILD) && defined(BEAM_SHADERS_USE_LIBBITCOIN)
-		libbitcoin::recoverable_signature recSig;
-		std::copy(begin(signature), end(signature), begin(recSig.signature));
-		recSig.recovery_id = recoveryID;
-
-		libbitcoin::ec_compressed pub;
-		libbitcoin::hash_digest h;
-		std::copy(begin(hash), end(hash), h.begin());
-		if (!libbitcoin::recover_public(pub, recSig, h))
+		auto p = reinterpret_cast<const uint8_t*>(&signature);
+		Secp::Scalar r, s, m;
+		if (!r.Import(*reinterpret_cast<const Secp_scalar_data*>(p)) ||
+			!s.Import(*reinterpret_cast<const Secp_scalar_data*>(p + 32)) ||
+			!m.Import(*reinterpret_cast<const Secp_scalar_data*>(&hash)))
+		{
 			return false;
+		}
 
-		std::copy(begin(pub), end(pub), begin(pubKey));
+		PubKey tx;
+		Env::Memcpy(&tx.m_X, p, 32);
+		tx.m_Y = recoveryID & 1; // odd
+		
+		Secp::Point R, Q, p1;
+
+		if (!R.Import(tx))
+		{
+			return false;
+		}
+
+		Secp::Scalar rn, u1, u2;
+		Env::Secp_Scalar_inv(rn, r);
+		u1 = rn * m;
+		u1 = -u1;
+		u2 = rn * s;
+		Env::Secp_Point_mul_G(Q, u1);
+		Env::Secp_Point_mul(p1, R, u2);
+
+		Q += p1;
+		if (Q.IsZero())
+		{
+			return false;
+		}
+
+		Q.Export(tx);
+		auto p2 = reinterpret_cast<uint8_t*>(&pubKey);
+		Env::Memcpy(p2 + 1, &tx.m_X, 32);
+		p2[0] = tx.m_Y ? 0x03 : 0x02;
+
 		return true;
-#else
-		return false;
-#endif
+//#if defined(HOST_BUILD) && defined(BEAM_SHADERS_USE_LIBBITCOIN)
+//		libbitcoin::recoverable_signature recSig;
+//		std::copy(begin(signature), end(signature), begin(recSig.signature));
+//		recSig.recovery_id = recoveryID;
+//
+//		libbitcoin::ec_compressed pub;
+//		libbitcoin::hash_digest h;
+//		std::copy(begin(hash), end(hash), h.begin());
+//		if (!libbitcoin::recover_public(pub, recSig, h))
+//			return false;
+//
+//		std::copy(begin(pub), end(pub), begin(pubKey));
+//		return true;
+//#else
+//		return false;
+//#endif
 	}
 
 	Address ToAddress(const PublicKey& pubKey)
