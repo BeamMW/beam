@@ -61,6 +61,7 @@
 #include <initializer_list>
 #include "wallet/transactions/swaps/bridges/ethereum/common.h"
 #include "utility/string_helpers.h"
+#include "bvm/bvm2.h"
 
 #include "bvm/bvm2_impl.h"
 #include "utility/blobmap.h"
@@ -4025,28 +4026,41 @@ void TestThreadPool()
     TestThread<std::thread>();
 }
 
+struct MyProcessor : beam::bvm2::ProcessorContract
+{
+    
+};
+
+
+namespace Shaders::Env {
+
+    beam::bvm2::Processor* g_pEnv = nullptr;
+
+#define PAR_DECL(type, name) type name
+#define PAR_PASS(type, name) name
+#define MACRO_COMMA ,
+
+#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA)) { return Cast::Up<beam::bvm2::ProcessorPlusEnv>(g_pEnv)->OnHost_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); }
+        BVMOpsAll_Common(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA)) { return Cast::Up<beam::bvm2::ProcessorPlusEnv_Contract>(g_pEnv)->OnHost_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); }
+        BVMOpsAll_Contract(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(id, ret, name) ret name(BVMOp_##name(PAR_DECL, MACRO_COMMA)) { return Cast::Up<beam::bvm2::ProcessorPlusEnv_Manager>(g_pEnv)->OnHost_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); }
+        BVMOpsAll_Manager(THE_MACRO)
+#undef THE_MACRO
+
+#undef MACRO_COMMA
+#undef PAR_PASS
+#undef PAR_DECL
+
+} // namespace Env
+
 namespace
 {
     using namespace Shaders::Eth;
-    //struct RlpVisitor
-    //{
-    //    struct Node
-    //    {
-    //        Rlp::Node::Type m_Type;
-    //        ByteBuffer m_Buffer;
-    //    };
-
-    //    bool OnNode(const Rlp::Node& node)
-    //    {
-    //        auto& item = m_Items.emplace_back();
-    //        item.m_Type = node.type();
-    //        item.m_Buffer.assign(node.data(), node.data() + node.size());
-    //        return false;
-    //    }
-
-
-    //    std::vector<Node> m_Items;
-    //};
 
     struct ByteStream
     {
@@ -4065,6 +4079,8 @@ namespace
 
     void TestEthRawTx()
     {
+        bvm2::ProcessorContract proc;
+        Shaders::Env::g_pEnv = &proc;
         std::string_view rawTransactionHex = "f8690280825208943bb7488199ea33f05336729d0f57129a801fd0b98829a2241af62c000080820b27a00c390566ab8f69d5bd5d5960a0fc9077b43fdf63ab319d3c6bb64f30a4b33370a05e4d1042028151a9b90c319602312510dea758f3c2e41e91eccc085aaa27fc6d";
         auto rawTransaction = from_hex(rawTransactionHex);
         RlpVisitor v(1);
@@ -4177,7 +4193,7 @@ namespace
             Shaders::Eth::RawTransactionData txData;
             WALLET_CHECK(Shaders::Eth::ExtractDataFromRawTransaction(txData, rawTransaction.data(), rawTransaction.size()));
 
-            WALLET_CHECK(Shaders::Eth::ExtractPubKetFromSignature(pubKey, txData.messageHash, txData.signature, txData.recoveryID));
+            WALLET_CHECK(Shaders::Eth::ExtractPubKeyFromSignature(pubKey, txData.messageHash, txData.signature, txData.recoveryID));
             WALLET_CHECK(pub == pubKey);
             WALLET_CHECK(Shaders::Eth::VerifyTransactionSignature(pubKey, txData.messageHash, txData.signature));
             WALLET_CHECK(Shaders::Eth::ToAddress(pubKey) == address0);

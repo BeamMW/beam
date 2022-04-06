@@ -1782,7 +1782,7 @@ namespace bvm2 {
 
 	BVM_METHOD(HashCreateKeccak)
 	{
-		switch (nBits)
+		switch (nBits_)
 		{
 		case 256:
 			return AddHash(std::make_unique<DataProcessor::Instance::Keccak<256> >());
@@ -1797,7 +1797,7 @@ namespace bvm2 {
 
 	BVM_METHOD_HOST(HashCreateKeccak)
 	{
-		auto val = ProcessorPlus::From(*this).OnMethod_HashCreateKeccak(nBits);
+		auto val = ProcessorPlus::From(*this).OnMethod_HashCreateKeccak(nBits_);
 		return val ? reinterpret_cast<HashObj*>(static_cast<size_t>(val)) : nullptr;
 	}
 

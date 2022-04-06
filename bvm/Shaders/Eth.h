@@ -756,6 +756,7 @@ namespace Eth
 	}
 
 	using Signature = Opaque<64>;
+	using RecoverableSignature = Opaque<65>;
 	using PublicKey = Opaque<33>;
 	using Amount = Opaque<16>;
 
@@ -841,7 +842,7 @@ namespace Eth
 #endif
 	}
 
-	bool ExtractPubKetFromSignature(PublicKey& pubKey, const Hash& hash, const Signature& signature, uint8_t recoveryID)
+	bool ExtractPubKeyFromSignature(PublicKey& pubKey, const Hash& hash, const Signature& signature, uint8_t recoveryID)
 	{
 #if defined(HOST_BUILD) && defined(BEAM_SHADERS_USE_LIBBITCOIN)
 		libbitcoin::recoverable_signature recSig;
@@ -885,17 +886,61 @@ namespace Eth
 
 	bool VerifyTransactionSignature(const PublicKey& pubKey, const Hash& hash, const Signature& signature)
 	{
-#if defined(HOST_BUILD) && defined(BEAM_SHADERS_USE_LIBBITCOIN)
-		libbitcoin::ec_compressed pub;
-		libbitcoin::ec_signature sig;
-		libbitcoin::hash_digest h;
-		std::copy(begin(pubKey), end(pubKey), begin(pub));
-		std::copy(begin(signature), end(signature), begin(sig));
-		std::copy(begin(hash), end(hash), begin(h));
-		return libbitcoin::verify_signature2(pub, h, sig);
-#else
-		return false;
-#endif
+		const uint8_t* p = reinterpret_cast<const uint8_t*>(&pubKey);
+		if (p[0] != 0x02 && p[0] != 0x03)
+			return false;
+
+		PubKey pubCopy;
+		Env::Memcpy(&pubCopy.m_X, p + 1, 32);
+		pubCopy.m_Y = p[0] == 0x03; // odd
+
+		p = reinterpret_cast<const uint8_t*>(&signature);
+		Secp::Scalar r, s, m;
+		Secp::Point pub, p0, p1;
+		if (!r.Import(*reinterpret_cast<const Secp_scalar_data*>(p)) ||
+			!s.Import(*reinterpret_cast<const Secp_scalar_data*>(p + 32)) ||
+			!m.Import(*reinterpret_cast<const Secp_scalar_data*>(&hash)) || 
+			!pub.Import(pubCopy))
+			return false;
+
+		Secp::Scalar sn, u1, u2;
+
+		Env::Secp_Scalar_inv(sn, s);
+		u1 = sn * m;
+		u2 = sn * r;
+
+		Env::Secp_Point_mul_G(p0, u1);
+		Env::Secp_Point_mul(p1, pub, u2);
+		p0 += p1;  // u1 * G + u2 * Q
+
+		if (p0.IsZero())
+			return false;
+
+		PubKey k1;
+		p0.Export(k1);
+
+		Secp::Scalar t;
+		if (!t.Import(*reinterpret_cast<const Secp_scalar_data*>(&k1)))
+			return false;
+
+		r = -r;
+		t += r;
+		Secp_scalar_data tdata;
+		t.Export(tdata);
+		return Env::Memis0(&tdata, sizeof(tdata));
+
+//#if defined(HOST_BUILD) && defined(BEAM_SHADERS_USE_LIBBITCOIN)
+//		libbitcoin::ec_compressed pub2;
+//		libbitcoin::ec_signature sig;
+//		libbitcoin::hash_digest h;
+//		std::copy(begin(pubKey), end(pubKey), begin(pub2));
+//		std::copy(begin(signature), end(signature), begin(sig));
+//		std::copy(begin(hash), end(hash), begin(h));
+//		libbitcoin::verify_signature2(pub2, h, sig);
+//#else
+//
+//		//return false;
+//#endif
 	}
 }
 

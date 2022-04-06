@@ -60,7 +60,7 @@
 #define BVMOp_HashCreateSha256(macro, sep)
 
 #define BVMOp_HashCreateKeccak(macro, sep) \
-	macro(uint32_t, nBits)
+	macro(uint32_t, nBits_)
 
 #define BVMOp_HashCreateBlake2b(macro, sep) \
 	macro(const void*, pPersonal) sep \

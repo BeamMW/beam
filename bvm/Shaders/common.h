@@ -874,6 +874,15 @@ namespace Secp
         UnaryMinus(const T& x) :m_Src(x) {}
     };
 
+    template <typename T, typename Y>
+    struct Multiplication {
+        const T& m_Left;
+        const Y& m_Right;
+        Multiplication(const T& left, const Y& right)
+            : m_Left(left)
+            , m_Right(right) {}
+    };
+
     struct Scalar
     {
         Secp_scalar* m_p;
@@ -901,8 +910,16 @@ namespace Secp
             return UnaryMinus<Scalar>(*this);
         }
 
+        auto operator * (const Scalar& right) const {
+            return Multiplication(*this, right);
+        }
+
         void operator = (const UnaryMinus<Scalar>& x) {
             Env::Secp_Scalar_neg(*m_p, x.m_Src);
+        }
+
+        void operator = (const Multiplication<Scalar, Scalar>& x) {
+            Env::Secp_Scalar_mul(*m_p, x.m_Left, x.m_Right);
         }
 
     };

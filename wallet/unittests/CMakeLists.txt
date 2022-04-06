@@ -15,7 +15,7 @@ configure_file("../../bvm/Shaders/upgradable2/Test/test_v1.wasm" "${CMAKE_CURREN
 configure_file("../../bvm/Shaders/upgradable2/Test/test_app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable2/Test/test_app.wasm" COPYONLY)
 
 
-add_test_snippet(wallet_test wallet node mnemonic wallet_client wallet_api wallet_test_node ethash libbitcoin)
+add_test_snippet(wallet_test wallet node mnemonic wallet_client wallet_api wallet_test_node ethash libbitcoin bvm)
 add_test_snippet(wallet_db_test wallet_core)
 add_test_snippet(wallet_api_test wallet_api)
 add_test_snippet(wallet_assets_test core node wallet_core pow assets wallet_test_node)
