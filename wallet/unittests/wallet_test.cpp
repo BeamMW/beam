@@ -4197,7 +4197,11 @@ namespace
             WALLET_CHECK(pub == pubKey);
             WALLET_CHECK(Shaders::Eth::VerifyTransactionSignature(pubKey, txData.messageHash, txData.signature));
             WALLET_CHECK(Shaders::Eth::ToAddress(pubKey) == address0);
-            //WALLET_CHECK(Shaders::Eth::VerifyTransactionSignature(pubKey, hash2, rawTransaction.data(), rawTransaction.size()));
+            hash2.Scan("123456789"); // invalid hash
+            WALLET_CHECK(!Shaders::Eth::VerifyTransactionSignature(pubKey, hash2, txData.signature));
+            pubKey.Inc(); // invalid pub key
+            WALLET_CHECK(!Shaders::Eth::VerifyTransactionSignature(pubKey, txData.messageHash, txData.signature));
+
         }
 
 
