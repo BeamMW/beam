@@ -2018,6 +2018,20 @@ namespace bvm2 {
 		m_Secp.m_Point.FindStrict(Secp::Point::From(p)).m_Val.Export(pk);
 	}
 
+	BVM_METHOD(Secp_Point_ExportEx)
+	{
+		if (Kind::Contract == get_Kind())
+			Wasm::Test(IsPastHF4());
+
+		DischargeUnits(Limits::Cost::Secp_Point_Export);
+		m_Secp.m_Point.FindStrict(p).m_Val.Export(get_AddrAsW<ECC::Point::Storage>(res));
+	}
+
+	BVM_METHOD_HOST(Secp_Point_ExportEx)
+	{
+		m_Secp.m_Point.FindStrict(Secp::Point::From(p)).m_Val.Export(res);
+	}
+
 	BVM_METHOD(Secp_Point_neg)
 	{
 		m_Secp.m_Point.FindStrict(dst).m_Val = -m_Secp.m_Point.FindStrict(src).m_Val;
