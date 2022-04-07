@@ -32,7 +32,8 @@ namespace beam::wallet
         macro(GetTransactionCount,      "eth_getTransactionCount",      API_READ_ACCESS,    API_SYNC, APPS_ALLOWED) \
         macro(SendRawTransaction,       "eth_sendRawTransaction",       API_WRITE_ACCESS,   API_SYNC, APPS_ALLOWED) \
         macro(GetTransactionReceipt,    "eth_getTransactionReceipt",    API_READ_ACCESS,    API_SYNC, APPS_ALLOWED) \
-        macro(GetBlockByHash,           "eth_getBlockByHash",           API_READ_ACCESS,    API_SYNC, APPS_ALLOWED)
+        macro(GetBlockByHash,           "eth_getBlockByHash",           API_READ_ACCESS,    API_SYNC, APPS_ALLOWED) \
+        macro(Call,                     "eth_call",                     API_WRITE_ACCESS,   API_SYNC, APPS_ALLOWED) \
 
 
 
@@ -141,6 +142,12 @@ namespace beam::wallet
         };
     };
 
+    struct Call
+    {
+        struct Response
+        {
+        };
+    };
     
 
     ////////////////////

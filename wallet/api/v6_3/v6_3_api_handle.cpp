@@ -16,13 +16,13 @@
 #include "version.h"
 
 #include <string_view>
-#include "bitcoin/bitcoin/math/elliptic_curve.hpp"
 
 #include "utility/common.h"
 
+#include "bvm/bvm2_impl.h"
 
-//#define BEAM_SHADERS_USE_STL
-//#include "bvm/Shaders/Eth.h"
+#define BEAM_SHADERS_USE_STL
+#include "bvm/Shaders/Eth.h"
 
 
 namespace beam::wallet
@@ -98,7 +98,14 @@ namespace beam::wallet
 
     void V63Api::onHandleSendRawTransaction(const JsonRpcId& id, SendRawTransaction&& req)
     {
+        using namespace Shaders::Eth;
         SendRawTransaction::Response res;
+
+        RawTransactionData tx;
+        if (!ExtractDataFromRawTransaction(tx, req.rawTransaction.data(), req.rawTransaction.size()))
+        {
+            return sendError(id, ApiError::InvalidParamsJsonRpc, "Failed to extract transaction data");
+        }
 
 
         doResponse(id, res);
@@ -114,6 +121,12 @@ namespace beam::wallet
     {
         GetBlockByHash::Response res;
         res.number = get_TipHeight();
+        doResponse(id, res);
+    }
+
+    void V63Api::onHandleCall(const JsonRpcId& id, Call&& req)
+    {
+        Call::Response res;
         doResponse(id, res);
     }
 

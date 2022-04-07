@@ -311,7 +311,21 @@ namespace beam::wallet
 
     }
 
-    
+    std::pair<Call, IWalletApi::MethodInfo> V63Api::onParseCall(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        Call message;
+        return std::make_pair(message, MethodInfo());
+    }
+
+    void V63Api::getResponse(const JsonRpcId& id, const Call::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result", "0x" }
+        };
+    }
 
     /////////////////////////////
 

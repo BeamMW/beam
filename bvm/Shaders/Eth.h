@@ -776,11 +776,11 @@ namespace Eth
 
 	struct RawTransactionData
 	{
-		Hash			messageHash;
-		Address			recipient;
-		Amount			amount;
-		Signature		signature;
-		uint8_t			recoveryID;
+		Hash			messageHash = {0};
+		Address			recipient = {0};
+		Amount			amount = {0};
+		Signature		signature = {0};
+		uint8_t			recoveryID = {0};
 	};
 
 	bool ExtractDataFromRawTransaction(RawTransactionData& txData, const uint8_t* data, size_t size)
