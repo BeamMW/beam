@@ -67,7 +67,7 @@
 #include "utility/blobmap.h"
 
 #define BEAM_SHADERS_USE_STL
-#define BEAM_SHADERS_USE_LIBBITCOIN
+//#define BEAM_SHADERS_USE_LIBBITCOIN
 #include "bvm/Shaders/Eth.h"
 
 using namespace beam;
@@ -4077,6 +4077,19 @@ namespace
         }
     };
 
+    Address ToEthAddress(const PublicKey& pubKey)
+    {
+        using namespace Shaders;
+        Address address;
+        libbitcoin::ec_compressed pub;
+        libbitcoin::ec_uncompressed upub;
+        std::copy(begin(pubKey), end(pubKey), begin(pub));
+        libbitcoin::decompress(upub, pub);
+        auto addr = ethash::keccak256(upub.data() + 1, upub.size() - 1);
+        std::copy_n(addr.bytes + 12, Address::nBytes, begin(address));
+        return address;
+    }
+
     void TestEthRawTx()
     {
         bvm2::ProcessorContract proc;
@@ -4196,7 +4209,7 @@ namespace
             WALLET_CHECK(Shaders::Eth::ExtractPubKeyFromSignature(pubKey, txData.messageHash, txData.signature, txData.recoveryID));
             WALLET_CHECK(pub == pubKey);
             WALLET_CHECK(Shaders::Eth::VerifyTransactionSignature(pubKey, txData.messageHash, txData.signature));
-            WALLET_CHECK(Shaders::Eth::ToAddress(pubKey) == address0);
+            WALLET_CHECK(ToEthAddress(pubKey) == address0);
             hash2.Scan("123456789"); // invalid hash
             WALLET_CHECK(!Shaders::Eth::VerifyTransactionSignature(pubKey, hash2, txData.signature));
             pubKey.Inc(); // invalid pub key

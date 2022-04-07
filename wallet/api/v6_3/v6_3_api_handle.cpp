@@ -16,11 +16,12 @@
 #include "version.h"
 
 #include <string_view>
-
 #include "utility/common.h"
-
 #include "bvm/bvm2_impl.h"
 
+#include "bitcoin/bitcoin/math/elliptic_curve.hpp"
+#include <ethash/keccak.hpp>
+#define BEAM_SHADERS_USE_LIBBITCOIN
 #define BEAM_SHADERS_USE_STL
 #include "bvm/Shaders/Eth.h"
 

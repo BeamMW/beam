@@ -844,6 +844,20 @@ namespace Eth
 
 	bool ExtractPubKeyFromSignature(PublicKey& pubKey, const Hash& hash, const Signature& signature, uint8_t recoveryID)
 	{
+#if defined(HOST_BUILD) && defined(BEAM_SHADERS_USE_LIBBITCOIN)
+		libbitcoin::recoverable_signature recSig;
+		std::copy(begin(signature), end(signature), begin(recSig.signature));
+		recSig.recovery_id = recoveryID;
+
+		libbitcoin::ec_compressed pub;
+		libbitcoin::hash_digest h;
+		std::copy(begin(hash), end(hash), h.begin());
+		if (!libbitcoin::recover_public(pub, recSig, h))
+			return false;
+
+		std::copy(begin(pub), end(pub), begin(pubKey));
+		return true;
+#else
 		auto p = reinterpret_cast<const uint8_t*>(&signature);
 		Secp::Scalar r, s, m;
 		if (!r.Import(*reinterpret_cast<const Secp_scalar_data*>(p)) ||
@@ -856,7 +870,7 @@ namespace Eth
 		PubKey tx;
 		Env::Memcpy(&tx.m_X, p, 32);
 		tx.m_Y = recoveryID & 1; // odd
-		
+
 		Secp::Point R, Q, p1;
 
 		if (!R.Import(tx))
@@ -884,23 +898,9 @@ namespace Eth
 		p2[0] = tx.m_Y ? 0x03 : 0x02;
 
 		return true;
-//#if defined(HOST_BUILD) && defined(BEAM_SHADERS_USE_LIBBITCOIN)
-//		libbitcoin::recoverable_signature recSig;
-//		std::copy(begin(signature), end(signature), begin(recSig.signature));
-//		recSig.recovery_id = recoveryID;
-//
-//		libbitcoin::ec_compressed pub;
-//		libbitcoin::hash_digest h;
-//		std::copy(begin(hash), end(hash), h.begin());
-//		if (!libbitcoin::recover_public(pub, recSig, h))
-//			return false;
-//
-//		std::copy(begin(pub), end(pub), begin(pubKey));
-//		return true;
-//#else
-//		return false;
-//#endif
+#endif
 	}
+
 
 	Address ToAddress(const PublicKey& pubKey)
 	{
@@ -911,14 +911,7 @@ namespace Eth
 		std::copy(begin(pubKey), end(pubKey), begin(pub));
 		libbitcoin::decompress(upub, pub);
 		auto addr = ethash::keccak256(upub.data() + 1, upub.size() - 1);
-		std::array<uint8_t, 20> recoveredAddress;
-		std::copy_n(addr.bytes + 12, 20, recoveredAddress.begin());
-
-		Rlp::HashStream hs;
-		Hash pubHash;
-		hs.Write(upub.data() + 1, static_cast<uint32_t>(upub.size()) - 1);
-		hs >> pubHash;
-		std::copy_n(std::next(begin(pubHash), 12), Address::nBytes, begin(address));
+		std::copy_n(addr.bytes + 12, Address::nBytes, begin(address));
 
 #endif
 		return address;
@@ -926,6 +919,15 @@ namespace Eth
 
 	bool VerifyTransactionSignature(const PublicKey& pubKey, const Hash& hash, const Signature& signature)
 	{
+#if defined(HOST_BUILD) && defined(BEAM_SHADERS_USE_LIBBITCOIN)
+		libbitcoin::ec_compressed pub2;
+		libbitcoin::ec_signature sig;
+		libbitcoin::hash_digest h;
+		std::copy(begin(pubKey), end(pubKey), begin(pub2));
+		std::copy(begin(signature), end(signature), begin(sig));
+		std::copy(begin(hash), end(hash), begin(h));
+		return libbitcoin::verify_signature2(pub2, h, sig);
+#else
 		const uint8_t* p = reinterpret_cast<const uint8_t*>(&pubKey);
 		if (p[0] != 0x02 && p[0] != 0x03)
 			return false;
@@ -939,7 +941,7 @@ namespace Eth
 		Secp::Point pub, p0, p1;
 		if (!r.Import(*reinterpret_cast<const Secp_scalar_data*>(p)) ||
 			!s.Import(*reinterpret_cast<const Secp_scalar_data*>(p + 32)) ||
-			!m.Import(*reinterpret_cast<const Secp_scalar_data*>(&hash)) || 
+			!m.Import(*reinterpret_cast<const Secp_scalar_data*>(&hash)) ||
 			!pub.Import(pubCopy))
 			return false;
 
@@ -968,19 +970,7 @@ namespace Eth
 		Secp_scalar_data tdata;
 		t.Export(tdata);
 		return Env::Memis0(&tdata, sizeof(tdata));
-
-//#if defined(HOST_BUILD) && defined(BEAM_SHADERS_USE_LIBBITCOIN)
-//		libbitcoin::ec_compressed pub2;
-//		libbitcoin::ec_signature sig;
-//		libbitcoin::hash_digest h;
-//		std::copy(begin(pubKey), end(pubKey), begin(pub2));
-//		std::copy(begin(signature), end(signature), begin(sig));
-//		std::copy(begin(hash), end(hash), begin(h));
-//		libbitcoin::verify_signature2(pub2, h, sig);
-//#else
-//
-//		//return false;
-//#endif
+#endif
 	}
 }
 
