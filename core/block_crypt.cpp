@@ -2070,6 +2070,12 @@ namespace beam
 			<< (uint32_t) 5 // bvm version
 			// TODO: bvm contraints
 			>> pForks[3].m_Hash;
+
+		oracle
+			<< "fork4"
+			<< pForks[4].m_Height
+			// no more flexible parameters so far
+			>> pForks[4].m_Hash;
 	}
 
 	const HeightHash* Rules::FindFork(const Merkle::Hash& hv) const
