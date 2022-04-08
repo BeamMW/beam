@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "v6_3_api.h"
+#include "wallet/api/v6_1/v6_1_api.h"
 #include "version.h"
 
 namespace beam::wallet
@@ -314,16 +315,33 @@ namespace beam::wallet
     std::pair<Call, IWalletApi::MethodInfo> V63Api::onParseCall(const JsonRpcId& id, const nlohmann::json& params)
     {
         Call message;
-        return std::make_pair(message, MethodInfo());
+ 
+        std::string data = getMandatoryParam<NonEmptyString>(params[0], "data");
+        auto subcallInfo = parseCallInfo(data.data(), data.size());
+        
+        if (!subcallInfo || subcallInfo->method != "invoke_contract")
+        {
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Data is not API call");
+        }
+        
+        auto parseRes = onParseInvokeContractV61(subcallInfo->rpcid, subcallInfo->params);
+
+        message.subCall = parseRes.first;
+
+        return std::make_pair(message, parseRes.second);
     }
 
     void V63Api::getResponse(const JsonRpcId& id, const Call::Response& res, json& msg)
     {
+        json subRes;
+
+        V61Api::getResponse(id, res.response, subRes);
+
         msg = json
         {
             {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
-            {"result", "0x" }
+            {"result", subRes.dump()}
         };
     }
 

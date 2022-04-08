@@ -13,6 +13,10 @@
 // limitations under the License.
 #pragma once
 
+#include <boost/optional.hpp>
+#include "core/merkle.h"
+#include "wallet/core/wallet_db.h"
+
 namespace beam::wallet
 {
     #define V6_1_API_METHODS(macro) \

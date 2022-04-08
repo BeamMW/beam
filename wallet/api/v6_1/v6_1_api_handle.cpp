@@ -193,23 +193,29 @@ namespace beam::wallet
 
     void V61Api::onHandleInvokeContractV61(const JsonRpcId &id, InvokeContractV61&& data)
     {
+        onHandleInvokeContractV61(id, std::move(data), {});
+    }
+
+    void V61Api::onHandleInvokeContractV61(const JsonRpcId& id, InvokeContractV61&& data, InvokeCallback&& callback)
+    {
         LOG_VERBOSE() << "InvokeContract(id = " << id << ")";
         auto contracts = getContracts();
 
         if (data.createTx)
         {
-            onHandleInvokeContractWithTX(id, std::move(data));
+            onHandleInvokeContractWithTX(id, std::move(data), std::move(callback));
         }
         else
         {
-            onHandleInvokeContractNoTX(id, std::move(data));
+            onHandleInvokeContractNoTX(id, std::move(data), std::move(callback));
         }
     }
 
-    void V61Api::onHandleInvokeContractWithTX(const JsonRpcId &id, InvokeContractV61&& data)
+    void V61Api::onHandleInvokeContractWithTX(const JsonRpcId &id, InvokeContractV61&& data, InvokeCallback&& callback)
     {
         getContracts()->CallShaderAndStartTx(std::move(data.contract), std::move(data.args), data.args.empty() ? 0 : 1, data.priority, data.unique,
-        [this, id, wguard = _weakSelf](const boost::optional<TxID>& txid, boost::optional<std::string>&& result, boost::optional<std::string>&& error) {
+        [this, id, wguard = _weakSelf, callback = std::move(callback)]
+        (const boost::optional<TxID>& txid, boost::optional<std::string>&& result, boost::optional<std::string>&& error) mutable {
             auto guard = wguard.lock();
             if (!guard)
             {
@@ -233,13 +239,14 @@ namespace beam::wallet
             response.txid   = txid ? *txid : TxID();
 
             doResponse(id, response);
+            callback(std::move(response));
         });
     }
 
-    void V61Api::onHandleInvokeContractNoTX(const JsonRpcId &id, InvokeContractV61&& data)
+    void V61Api::onHandleInvokeContractNoTX(const JsonRpcId &id, InvokeContractV61&& data, InvokeCallback&& callback)
     {
         getContracts()->CallShader(std::move(data.contract), std::move(data.args), data.args.empty() ? 0 : 1, data.priority, data.unique,
-        [this, id, wguard = _weakSelf](boost::optional<ByteBuffer>&& data, boost::optional<std::string>&& output, boost::optional<std::string>&& error) {
+        [this, id, wguard = _weakSelf, callback = std::move(callback)](boost::optional<ByteBuffer>&& data, boost::optional<std::string>&& output, boost::optional<std::string>&& error) mutable {
             auto guard = wguard.lock();
             if (!guard)
             {
@@ -263,6 +270,7 @@ namespace beam::wallet
             response.invokeData = std::move(data);
 
             doResponse(id, response);
+            callback(std::move(response));
         });
     }
 }

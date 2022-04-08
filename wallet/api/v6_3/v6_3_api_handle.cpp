@@ -127,8 +127,12 @@ namespace beam::wallet
 
     void V63Api::onHandleCall(const JsonRpcId& id, Call&& req)
     {
-        Call::Response res;
-        doResponse(id, res);
+        onHandleInvokeContractV61(id, std::move(req.subCall), [this, id](auto&& response) 
+            {
+                Call::Response res;
+                res.response = std::move(response);
+                doResponse(id, res);
+            });
     }
 
     /////

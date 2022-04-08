@@ -60,9 +60,11 @@ namespace beam::wallet
         //
         void fillAssetInfo(json& parent, const WalletAsset& info) override;
 
+        using InvokeCallback = std::function<void(InvokeContractV61::Response&&)>;
+        void onHandleInvokeContractV61(const JsonRpcId& id, InvokeContractV61&& data, InvokeCallback&& callback);
     private:
-        void onHandleInvokeContractWithTX(const JsonRpcId &id, InvokeContractV61&& data);
-        void onHandleInvokeContractNoTX(const JsonRpcId &id, InvokeContractV61&& data);
+        void onHandleInvokeContractWithTX(const JsonRpcId &id, InvokeContractV61&& data, InvokeCallback&& callback);
+        void onHandleInvokeContractNoTX(const JsonRpcId &id, InvokeContractV61&& data, InvokeCallback&& callback);
 
         void sendConnectionStatus();
         json fillConnectionState() const;

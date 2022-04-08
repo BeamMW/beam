@@ -175,9 +175,10 @@ namespace beam::wallet
         IWalletApi::WeakPtr _weakSelf;
         IWalletApiHandler& _handler;
 
+        boost::optional<ApiCallInfo> parseCallInfo(const char* data, size_t size);
+
     private:
         static json formError(const JsonRpcId& id, ApiError code, const std::string& data = "");
-        boost::optional<ApiCallInfo> parseCallInfo(const char* data, size_t size);
 
         template<typename TRes>
         boost::optional<TRes> callGuarded(const JsonRpcId& rpcid, std::function<TRes (void)> func)
