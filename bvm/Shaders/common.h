@@ -35,7 +35,7 @@ typedef uint64_t Height;
 typedef uint64_t Amount;
 typedef uint32_t AssetID;
 typedef uint64_t Timestamp;
-typedef uint32_t size_t;
+typedef unsigned long size_t;
 
 #pragma pack (push, 1)
 
@@ -81,6 +81,30 @@ inline void ConvertOrd(T&) {}
 #ifndef assert
 #   define assert(expr) do {} while (false)
 #endif // assert
+
+template <uint32_t N>
+constexpr uint8_t* begin(Opaque<N>& c)
+{
+    return c.m_p;
+}
+
+template <uint32_t N>
+constexpr const uint8_t* begin(const Opaque<N>& c)
+{
+    return c.m_p;
+}
+
+template <uint32_t N>
+constexpr uint8_t* end(Opaque<N>& c)
+{
+    return c.m_p + c.nBytes;
+}
+
+template <uint32_t N>
+constexpr const uint8_t* end(const Opaque<N>& c)
+{
+    return c.m_p + c.nBytes;
+}
 
 #else // HOST_BUILD
 

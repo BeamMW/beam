@@ -20,6 +20,7 @@
 #include <initializer_list>
 #include <algorithm>
 #include <iterator>
+#include <vector>
 
 #endif // BEAM_SHADERS_USE_STL
 
