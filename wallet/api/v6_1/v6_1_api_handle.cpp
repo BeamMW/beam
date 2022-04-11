@@ -193,7 +193,7 @@ namespace beam::wallet
 
     void V61Api::onHandleInvokeContractV61(const JsonRpcId &id, InvokeContractV61&& data)
     {
-        onHandleInvokeContractV61(id, std::move(data), {});
+        onHandleInvokeContractV61(id, std::move(data), [this](const auto& id, const auto& response) { doResponse(id, response); });
     }
 
     void V61Api::onHandleInvokeContractV61(const JsonRpcId& id, InvokeContractV61&& data, InvokeCallback&& callback)
@@ -238,8 +238,7 @@ namespace beam::wallet
             response.output = result ? *result : "";
             response.txid   = txid ? *txid : TxID();
 
-            doResponse(id, response);
-            callback(std::move(response));
+            callback(id, response);
         });
     }
 
@@ -269,8 +268,7 @@ namespace beam::wallet
             response.output = std::move(output);
             response.invokeData = std::move(data);
 
-            doResponse(id, response);
-            callback(std::move(response));
+            callback(id, response);
         });
     }
 }

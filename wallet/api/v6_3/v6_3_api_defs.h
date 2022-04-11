@@ -32,7 +32,7 @@ namespace beam::wallet
         macro(EstimateGas,              "eth_estimateGas",              API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
         macro(GetCode,                  "eth_getCode",                  API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
         macro(GetTransactionCount,      "eth_getTransactionCount",      API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
-        macro(SendRawTransaction,       "eth_sendRawTransaction",       API_WRITE_ACCESS,   API_SYNC,  APPS_BLOCKED) \
+        macro(SendRawTransaction,       "eth_sendRawTransaction",       API_WRITE_ACCESS,   API_ASYNC, APPS_BLOCKED) \
         macro(GetTransactionReceipt,    "eth_getTransactionReceipt",    API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
         macro(GetBlockByHash,           "eth_getBlockByHash",           API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
         macro(Call,                     "eth_call",                     API_WRITE_ACCESS,   API_ASYNC, APPS_BLOCKED) \
@@ -119,7 +119,7 @@ namespace beam::wallet
 
     struct SendRawTransaction
     {
-        ByteBuffer rawTransaction;
+        InvokeContractV61 subCall;
         struct Response
         {
             ByteBuffer txHash;

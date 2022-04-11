@@ -781,6 +781,9 @@ namespace Eth
 		Amount			amount = {0};
 		Signature		signature = {0};
 		uint8_t			recoveryID = {0};
+#ifdef BEAM_SHADERS_USE_STL
+		std::vector<uint8_t> data;
+#endif
 	};
 
 	bool ExtractDataFromRawTransaction(RawTransactionData& txData, const uint8_t* data, size_t size)
@@ -806,6 +809,7 @@ namespace Eth
 
 		myCopy(listVisitor.GetItem(3), begin(txData.recipient));
 		myCopy(listVisitor.GetItem(4), std::next(begin(txData.amount), Amount::nBytes - listVisitor.GetItem(4).size()));
+		myCopy(listVisitor.GetItem(5), std::back_inserter(txData.data));
 
 		Rlp::Node tx =
 		{

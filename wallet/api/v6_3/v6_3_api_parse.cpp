@@ -11,9 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#define HOST_BUILD
 #include "v6_3_api.h"
 #include "wallet/api/v6_1/v6_1_api.h"
 #include "version.h"
+
+#define BEAM_SHADERS_USE_LIBBITCOIN
+#define BEAM_SHADERS_USE_STL
+#include "bvm/bvm2_impl.h"
+#include "bitcoin/bitcoin/math/elliptic_curve.hpp"
+#include <ethash/keccak.hpp>
+#include "bvm/Shaders/Eth.h"
 
 namespace beam::wallet
 {
@@ -214,11 +222,24 @@ namespace beam::wallet
 
     std::pair<SendRawTransaction, IWalletApi::MethodInfo> V63Api::onParseSendRawTransaction(const JsonRpcId& id, const nlohmann::json& params)
     {
+        using namespace Shaders::Eth;
         SendRawTransaction message;
         auto data = params[0].get<std::string>();
         auto pos = data.find_first_not_of("0x");
         data = data.substr(std::min(pos, data.size()));
-        message.rawTransaction = from_hex(data);
+        auto buf = from_hex(data);
+
+        RawTransactionData tx;
+        if (!ExtractDataFromRawTransaction(tx, buf.data(), buf.size()))
+        {
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Invalid transaction data");
+        }
+
+        message.subCall.createTx = true;
+        message.subCall.args.assign(reinterpret_cast<const char*>(tx.data.data()), tx.data.size());
+        message.subCall.args.append(",data=")
+                            .append(data);
+
         return std::make_pair(message, MethodInfo());
     }
 

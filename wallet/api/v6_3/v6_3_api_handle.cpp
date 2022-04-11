@@ -11,20 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#define HOST_BUILD
 #include "v6_3_api.h"
 #include "version.h"
 
 #include <string_view>
 #include "utility/common.h"
-#include "bvm/bvm2_impl.h"
-
-#include "bitcoin/bitcoin/math/elliptic_curve.hpp"
-#include <ethash/keccak.hpp>
-#define BEAM_SHADERS_USE_LIBBITCOIN
-#define BEAM_SHADERS_USE_STL
-#include "bvm/Shaders/Eth.h"
-
 
 namespace beam::wallet
 {
@@ -99,17 +90,12 @@ namespace beam::wallet
 
     void V63Api::onHandleSendRawTransaction(const JsonRpcId& id, SendRawTransaction&& req)
     {
-        using namespace Shaders::Eth;
-        SendRawTransaction::Response res;
-
-        RawTransactionData tx;
-        if (!ExtractDataFromRawTransaction(tx, req.rawTransaction.data(), req.rawTransaction.size()))
-        {
-            return sendError(id, ApiError::InvalidParamsJsonRpc, "Failed to extract transaction data");
-        }
-
-
-        doResponse(id, res);
+        onHandleInvokeContractV61(id, std::move(req.subCall), [this](const auto& id, const auto& response)
+            {
+                SendRawTransaction::Response res;
+                //res.response = std::move(response);
+                doResponse(id, res);
+            });
     }
 
     void V63Api::onHandleGetTransactionReceipt(const JsonRpcId& id, GetTransactionReceipt&& req)
@@ -127,7 +113,7 @@ namespace beam::wallet
 
     void V63Api::onHandleCall(const JsonRpcId& id, Call&& req)
     {
-        onHandleInvokeContractV61(id, std::move(req.subCall), [this, id](auto&& response) 
+        onHandleInvokeContractV61(id, std::move(req.subCall), [this](const auto& id, const auto& response) 
             {
                 Call::Response res;
                 res.response = std::move(response);
