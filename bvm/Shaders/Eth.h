@@ -809,8 +809,9 @@ namespace Eth
 
 		myCopy(listVisitor.GetItem(3), begin(txData.recipient));
 		myCopy(listVisitor.GetItem(4), std::next(begin(txData.amount), Amount::nBytes - listVisitor.GetItem(4).size()));
+#ifdef BEAM_SHADERS_USE_STL
 		myCopy(listVisitor.GetItem(5), std::back_inserter(txData.data));
-
+#endif
 		Rlp::Node tx =
 		{
 			listVisitor.GetItem(0), // nonce
