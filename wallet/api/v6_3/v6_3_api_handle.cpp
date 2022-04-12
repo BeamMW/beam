@@ -46,6 +46,7 @@ namespace beam::wallet
         storage::Totals allTotals(*walletDB, false);
         const auto& totals = allTotals.GetBeamTotals();
         auto b = totals.Avail;
+        b += AmountBig::Type(10'000'000'000UL);
         b += totals.AvailShielded;
         uintBig_t<sizeof(Amount)> m;
         m = 10'000'000'000UL;
