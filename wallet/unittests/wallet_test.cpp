@@ -4208,6 +4208,11 @@ namespace
 
             WALLET_CHECK(Shaders::Eth::ExtractPubKeyFromSignature(pubKey, txData.messageHash, txData.signature, txData.recoveryID));
             WALLET_CHECK(pub == pubKey);
+
+            Shaders::Secp_scalar_data accountY;
+            std::copy(next(begin(upub), 33), end(upub), accountY.m_Value.m_pData);
+            WALLET_CHECK(ToAddress(pubKey, accountY) == address0);
+
             WALLET_CHECK(Shaders::Eth::VerifyTransactionSignature(pubKey, txData.messageHash, txData.signature));
             WALLET_CHECK(ToEthAddress(pubKey) == address0);
             hash2.Scan("123456789"); // invalid hash

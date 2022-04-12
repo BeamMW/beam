@@ -923,6 +923,19 @@ namespace Eth
 		return address;
 	}
 
+	Address ToAddress(const PublicKey& pubKey, const Secp_scalar_data& keyY)
+	{
+		Address address;
+		Rlp::HashStream hs;
+		hs.Write(reinterpret_cast<const uint8_t*>(&pubKey) + 1, 32);
+		hs.Write(reinterpret_cast<const uint8_t*>(&keyY), 32);
+
+		Hash hash;
+		hs >> hash;
+		std::copy_n(std::next(begin(hash), 12), Address::nBytes, begin(address));
+		return address;
+	}
+
 	bool VerifyTransactionSignature(const PublicKey& pubKey, const Hash& hash, const Signature& signature)
 	{
 #if defined(HOST_BUILD) && defined(BEAM_SHADERS_USE_LIBBITCOIN)

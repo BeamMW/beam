@@ -143,9 +143,9 @@ namespace beam::wallet
                     {"stateRoot", "0xddc8b0234c2e0cad087c8b389aa7ef01f7d79b2570bccb77ce48648aa61c904d"},
                     {"timestamp", "0x55ba467c"},
                     {"totalDifficulty", "0x78ed983323d"},
-                    {"transactions", json::array()} ,
-                    {"transactionsRoot", "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"},
-                    {"uncles", json::array() }
+                    { "transactions", json::array() },
+                    { "transactionsRoot", "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421" },
+                    { "uncles", json::array() }
                 }
             }
 
@@ -239,6 +239,17 @@ namespace beam::wallet
         message.subCall.args.assign(reinterpret_cast<const char*>(tx.data.data()), tx.data.size());
         message.subCall.args.append(",data=")
                             .append(data);
+
+        Shaders::Eth::PublicKey pubKey;
+        libbitcoin::ec_uncompressed upub;
+        if (!ExtractPubKeyFromSignature(pubKey, tx.messageHash, tx.signature, tx.recoveryID) ||
+            !libbitcoin::decompress(upub, *reinterpret_cast<const libbitcoin::ec_compressed*>(&pubKey)))
+        {
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Failed to extract public key");
+        }
+
+        message.subCall.args.append(",accountY=")
+                            .append(to_hex(&upub[33], 32));
 
         return std::make_pair(message, MethodInfo());
     }
