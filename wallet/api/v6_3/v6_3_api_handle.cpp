@@ -16,6 +16,7 @@
 
 #include <string_view>
 #include "utility/common.h"
+#include "core/keccak.h"
 
 namespace beam::wallet
 {
@@ -94,7 +95,12 @@ namespace beam::wallet
         onHandleInvokeContractV61(id, std::move(req.subCall), [this](const auto& id, const auto& response)
             {
                 SendRawTransaction::Response res;
-                //res.response = std::move(response);
+                ECC::Hash::Value hv;
+                KeccakProcessor<256> hp;
+                hp.Write(&*response.txid, sizeof(TxID));
+                hp >> hv;
+
+                res.txHash.append("0x").append(hv.str());
                 doResponse(id, res);
             });
     }

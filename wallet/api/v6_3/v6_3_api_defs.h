@@ -122,7 +122,7 @@ namespace beam::wallet
         InvokeContractV61 subCall;
         struct Response
         {
-            ByteBuffer txHash;
+            std::string txHash;
         };
     };
 
