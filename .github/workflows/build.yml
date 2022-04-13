@@ -284,6 +284,13 @@ jobs:
         name: ${{env.PLATFORM_NAME}}-ethash-service${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
         path: artifacts/ethash-service*
         if-no-files-found: error
+        
+    - uses: shallwefootball/s3-upload-action@master
+      with:
+        aws_key_id: ${{ secrets.AWS_KEY_ID }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
+        aws_bucket: ${{ secrets.AWS_BUCKET }}/latest/
+        source_dir: 'artifacts/*'
 
 ###############################################################################
 # Upload windows pdb
@@ -294,7 +301,13 @@ jobs:
         name: pdb${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
         path: pdb
         if-no-files-found: error
-
+        
+    - uses: shallwefootball/s3-upload-action@master
+      with:
+        aws_key_id: ${{ secrets.AWS_KEY_ID }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
+        aws_bucket: ${{ secrets.AWS_BUCKET }}/latest/
+        source_dir: 'pdb'
 ###############################################################################
 # Build IOS
 ###############################################################################
@@ -385,6 +398,13 @@ jobs:
         path: ${{runner.workspace}}/results/beam-ios-combined
         if-no-files-found: error
 
+    - uses: shallwefootball/s3-upload-action@master
+      with:
+        aws_key_id: ${{ secrets.AWS_KEY_ID }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
+        aws_bucket: ${{ secrets.AWS_BUCKET }}/latest/mac/
+        source_dir: '${{runner.workspace}}/results/*'
+        
 ###############################################################################
 # Build ANDROID
 ###############################################################################
