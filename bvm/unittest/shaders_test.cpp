@@ -2146,6 +2146,9 @@ namespace bvm2 {
 			r.pForks[3].m_Height = 999999999;
 			r.pForks[3].m_Hash = Zero;
 
+			r.pForks[4].m_Height = MaxHeight;
+
+
 			beam::Block::SystemState::Full s;
 			s.m_Height = 903720;
 			s.m_Prev.Scan("62020e8ee408de5fdbd4c815e47ea098f5e30b84c788be566ac9425e9b07804d");
