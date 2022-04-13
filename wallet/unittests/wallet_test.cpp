@@ -4125,7 +4125,7 @@ namespace
             WALLET_CHECK(bs.m_Buffer == from_hex("c102"));
         }
         {
-            Rlp::Node tx
+            Rlp::Node nodes[] =
             {
                 v2.GetItem(0),
                 v2.GetItem(1),
@@ -4137,14 +4137,14 @@ namespace
                 v2.GetItem(7),
                 v2.GetItem(8)
             };
-
+            Rlp::Node tx(nodes);
             ByteStream bs;
             tx.Write(bs);
             WALLET_CHECK(bs.m_Buffer == from_hex("f8690280825208943bb7488199ea33f05336729d0f57129a801fd0b98829a2241af62c000080820b27a00c390566ab8f69d5bd5d5960a0fc9077b43fdf63ab319d3c6bb64f30a4b33370a05e4d1042028151a9b90c319602312510dea758f3c2e41e91eccc085aaa27fc6d"));
         }
 
         {
-            Rlp::Node tx
+            Rlp::Node nodes[] =
             {
                 v2.GetItem(0),
                 v2.GetItem(1),
@@ -4156,7 +4156,7 @@ namespace
                 Rlp::Node(Rlp::Node::Type::String, nullptr, 0),
                 Rlp::Node(Rlp::Node::Type::String, nullptr, 0),
             };
-
+            Rlp::Node tx(nodes);
             ByteStream bs;
             tx.Write(bs);
 

@@ -3264,7 +3264,8 @@ namespace
 		// The list['cat', 'dog'] = [0xc8, 0x83, 'c', 'a', 't', 0x83, 'd', 'o', 'g']
 		{
 			auto cat = to_opaque("cat");
-			Rlp::Node list{ Rlp::Node(cat), Rlp::Node(dog) };
+			Rlp::Node nodes[] = { Rlp::Node(cat), Rlp::Node(dog) };
+			Rlp::Node list{ nodes };
 
 			ByteStream bs;
 			list.Write(bs);

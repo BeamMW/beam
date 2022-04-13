@@ -17,7 +17,6 @@
 #ifdef BEAM_SHADERS_USE_STL
 
 #include <array>
-#include <initializer_list>
 #include <algorithm>
 #include <iterator>
 #include <vector>
@@ -120,13 +119,6 @@ namespace Eth
 			}
 
 #ifdef BEAM_SHADERS_USE_STL
-			Node(std::initializer_list<Node> nodes)
-				: m_Type(Type::List)
-				, m_nLen(static_cast<uint32_t>(nodes.size()))
-				, m_pC(nodes.begin())
-			{
-			}
-
 
 			template <size_t nBytes>
 			explicit Node(const std::array<uint8_t, nBytes>& hv)
@@ -813,7 +805,7 @@ namespace Eth
 #ifdef BEAM_SHADERS_USE_STL
 		myCopy(listVisitor.GetItem(5), std::back_inserter(txData.data));
 #endif
-		Rlp::Node tx =
+		Rlp::Node nodes[9] =
 		{
 			listVisitor.GetItem(0), // nonce
 			listVisitor.GetItem(1), // gas price
@@ -825,7 +817,7 @@ namespace Eth
 			Rlp::Node(Rlp::Node::Type::String, nullptr, 0), // R 
 			Rlp::Node(Rlp::Node::Type::String, nullptr, 0), // S
 		};
-
+		Rlp::Node tx(nodes);
 		Rlp::HashStream hs;
 		tx.Write(hs);
 		hs >> txData.messageHash;
