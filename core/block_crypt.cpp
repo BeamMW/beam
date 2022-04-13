@@ -1889,7 +1889,7 @@ namespace beam
 		pForks[4].m_Height = 515252;
 
 		// future forks
-		for (size_t i = 4; i < _countof(pForks); i++)
+		for (size_t i = 5; i < _countof(pForks); i++)
 			pForks[i].m_Height = MaxHeight;
 	}
 
