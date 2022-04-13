@@ -1886,7 +1886,7 @@ namespace beam
 		pForks[1].m_Height = 30;
 		pForks[2].m_Height = 30;
 		pForks[3].m_Height = 1500;
-		pForks[4].m_Height = 515252;
+		pForks[4].m_Height = 516700;
 
 		// future forks
 		for (size_t i = 5; i < _countof(pForks); i++)
