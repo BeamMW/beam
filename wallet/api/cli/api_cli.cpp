@@ -640,8 +640,8 @@ int main(int argc, char* argv[])
                 (cli::API_USE_TLS, po::value<bool>(&connectionOptions.tls.use)->default_value(false), "use TLS protocol")
                 (cli::API_TLS_CERT, po::value<std::string>(&connectionOptions.tls.certPath)->default_value("wallet_api.crt"), "path to TLS certificate")
                 (cli::API_TLS_KEY, po::value<std::string>(&connectionOptions.tls.keyPath)->default_value("wallet_api.key"), "path to TLS private key")
-                (cli::API_TLS_REQUEST_CERTIFICATE, po::value<bool>(&connectionOptions.tls.requestCertificate)->default_value("false"), "request client's certificate for verification")
-                (cli::API_TLS_REJECT_UNAUTHORIZED, po::value<bool>(&connectionOptions.tls.rejectUnauthorized)->default_value("true"), "server will reject any connection which is not authorized with the list of supplied CAs.")
+                (cli::API_TLS_REQUEST_CERTIFICATE, po::value<bool>(&connectionOptions.tls.requestCertificate)->default_value(false), "request client's certificate for verification")
+                (cli::API_TLS_REJECT_UNAUTHORIZED, po::value<bool>(&connectionOptions.tls.rejectUnauthorized)->default_value(true), "server will reject any connection which is not authorized with the list of supplied CAs.")
         ;
 
         desc.add(authDesc);
