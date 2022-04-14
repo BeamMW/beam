@@ -522,6 +522,7 @@ namespace beam::wallet
         // Transaction management
         virtual void visitTx(std::function<bool(const TxDescription&)> func, const TxListFilter& filter) const = 0;
         virtual std::vector<TxDescription> getTxHistory(wallet::TxType txType = wallet::TxType::Simple, uint64_t start = 0, int count = std::numeric_limits<int>::max()) const = 0;
+        virtual int getTxCount(wallet::TxType txType) const = 0;
         virtual boost::optional<TxDescription> getTx(const TxID& txId) const = 0;
         virtual void saveTx(const TxDescription& p) = 0;
         virtual void deleteTx(const TxID& txId) = 0;
@@ -691,6 +692,7 @@ namespace beam::wallet
 
         void visitTx(std::function<bool(const TxDescription&)> func, const TxListFilter& filter) const override;
         std::vector<TxDescription> getTxHistory(wallet::TxType txType, uint64_t start, int count) const override;
+        int getTxCount(wallet::TxType txType) const override;
         boost::optional<TxDescription> getTx(const TxID& txId) const override;
         void saveTx(const TxDescription& p) override;
         void deleteTx(const TxID& txId) override;
