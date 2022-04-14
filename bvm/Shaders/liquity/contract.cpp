@@ -396,6 +396,22 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
 
         fpLogic.Tok.m_Val = out.s;
         fpLogic.Col.m_Val = out.b;
+
+        if ((r.m_NewAmount < out.s) && g.m_Troves.m_iHead)
+        {
+            // ensure no pending liquidations
+            Global::Price price = g.get_Price();
+            Env::Halt_if(price.IsRecovery(g.m_Troves.m_Totals));
+
+            Trove::Key tk;
+            tk.m_iTrove = g.m_Troves.m_iHead;
+            Trove t;
+            Env::Halt_if(!Env::LoadVar_T(tk, t));
+
+            auto vals = g.m_RedistPool.get_UpdatedAmounts(t);
+            auto cr = price.ToCR(vals.get_Rcr());
+            Env::Halt_if((cr < Global::Price::get_k110()));
+        }
     }
 
     if (r.m_NewAmount)
@@ -495,6 +511,8 @@ BEAM_EXPORT void Method_9(Method::UpdProfitPool& r)
 BEAM_EXPORT void Method_10(Method::Redeem& r)
 {
     MyGlobal_LoadSave g;
+
+    Env::Halt_if(Env::get_Height() < g.m_Settings.m_hMinRedemptionHeight);
 
     Pair totals0 = g.m_Troves.m_Totals;
 

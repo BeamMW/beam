@@ -4,7 +4,7 @@
 
 namespace Liquity
 {
-    static const ShaderID s_SID = { 0x97,0x1f,0xf0,0x60,0x3d,0xcf,0x87,0x9f,0x86,0x4e,0x80,0xd0,0x76,0xc8,0xa0,0x5b,0x4f,0x4e,0x38,0xad,0xd5,0x6f,0xa4,0x6d,0xaf,0xa8,0xe6,0xa3,0xa6,0x42,0xdc,0xbb };
+    static const ShaderID s_SID = { 0x2e,0x91,0x2f,0x9d,0x48,0xa0,0x40,0x12,0x67,0x7f,0x57,0x4a,0x84,0xb2,0x2d,0x69,0x75,0x98,0x5b,0x6d,0x79,0x91,0xa1,0x96,0xbd,0x6c,0x14,0xf2,0xb9,0xde,0x15,0x7e };
 
 #pragma pack (push, 1)
 
@@ -139,6 +139,7 @@ namespace Liquity
         ContractID m_cidOracle;
         Amount m_TroveLiquidationReserve;
         AssetID m_AidProfit;
+        Height m_hMinRedemptionHeight;
     };
 
     struct Global
@@ -305,9 +306,11 @@ namespace Liquity
         {
             if (bRecovery)
             {
-                // Ban txs that don't increase the tcr. Also covers the case where the very 1st trove drives us into recovery
-                if (m_Troves.m_Totals.CmpRcr(totals0) <= 0)
-                    return true;
+                if (m_Troves.m_Totals.CmpRcr(totals0) < 0)
+                    return true; // Ban txs that decrease the tcr.
+
+                if (!totals0.Tok)
+                    return true; // The very 1st trove drives us into recovery
             }
 
             return price.IsBelow(t.m_Amounts, Price::get_k110());
@@ -340,11 +343,13 @@ namespace Liquity
         bool LiquidateTrove(Trove& t, const Pair& totals0, Liquidator& ctx, Amount& valSurplus)
         {
             assert(t.m_Amounts.Tok >= m_Settings.m_TroveLiquidationReserve);
+            bool bUseRedistPool = true;
 
             auto cr = ctx.m_Price.ToCR(t.m_Amounts.get_Rcr());
             if (cr > Global::Price::get_k100())
             {
-                if (cr >= Global::Price::get_k110())
+                bool bAboveMcr = (cr >= Global::Price::get_k110());
+                if (bAboveMcr)
                 {
                     if (!ctx.m_Price.IsRecovery(totals0)) // in recovery mode can liquidate the weakest
                         return false;
@@ -356,14 +361,22 @@ namespace Liquity
                         valSurplus = t.m_Amounts.Col - valColMax;
                         t.m_Amounts.Col = valColMax;
                     }
-
                 }
 
                 if (m_StabPool.LiquidatePartial(t))
                     ctx.m_Stab = true;
+
+                if (t.m_Amounts.Tok || t.m_Amounts.Col)
+                {
+                    if (bAboveMcr)
+                        return false;
+                }
+                else
+                    bUseRedistPool = false;
+
             }
 
-            if (t.m_Amounts.Tok || t.m_Amounts.Col)
+            if (bUseRedistPool)
             {
                 if (!m_RedistPool.Liquidate(t))
                     return false; // last trove?

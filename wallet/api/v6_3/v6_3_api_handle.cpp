@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "v6_3_api.h"
 #include "version.h"
+#include "bvm/bvm2.h"
 
 #include <string_view>
 #include "utility/common.h"
@@ -318,5 +319,61 @@ namespace beam::wallet
         #else
         sendError(id, ApiError::NotSupported);
         #endif
+    }
+
+    namespace
+    {
+        struct MyProcessor : bvm2::ProcessorManager
+        {
+            using ProcessorManager::DeriveKeyPreimage;
+        };
+
+        void GetMessageHash(ECC::Hash::Value& hv, const std::string& message)
+        {
+            std::stringstream ss;
+            ss << "beam.signed.message"
+                << message.size()
+                << message;
+
+            ECC::Hash::Processor()
+                << ss.str()
+                >> hv;
+        }
+    }
+
+    void V63Api::onHandleSignMessage(const JsonRpcId& id, SignMessage&& req)
+    {
+        SignMessage::Response resp;
+        ECC::Hash::Value hv;
+        MyProcessor::DeriveKeyPreimage(hv, Blob(req.keyMaterial));
+        auto db = getWalletDB();
+        auto pKdf = db->get_MasterKdf();
+        ECC::Scalar::Native sk;
+        pKdf->DeriveKey(sk, hv);
+
+        GetMessageHash(hv, req.message);
+
+        ECC::Signature sig;
+        sig.Sign(hv, sk);
+
+        Serializer s;
+        s & sig;
+
+        resp.signature = to_hex(s.buffer().first, s.buffer().second);
+        doResponse(id, resp);
+    }
+
+    void V63Api::onHandleVerifySignature(const JsonRpcId& id, VerifySignature&& req)
+    {
+        VerifySignature::Response resp;
+        ECC::Hash::Value hv;
+        GetMessageHash(hv, req.message);
+
+        Deserializer d;
+        ECC::Signature sig;
+        d.reset(req.signature);
+        d& sig;
+        resp.result = sig.IsValid(hv, req.publicKey);
+        doResponse(id, resp);
     }
 }

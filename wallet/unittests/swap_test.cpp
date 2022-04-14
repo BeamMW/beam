@@ -2075,6 +2075,7 @@ int main()
     Rules::get().pForks[1].m_Height = fork1Height;
     Rules::get().pForks[2].m_Height = fork1Height;
     Rules::get().pForks[3].m_Height = MaxHeight; // swap values currently specified in the test are insufficient for fees after HF3
+    Rules::get().pForks[4].m_Height = MaxHeight;
     Rules::get().UpdateChecksum();
 
     {

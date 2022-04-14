@@ -42,14 +42,13 @@ namespace beam::wallet::lelantus
             DbProvider m_dbFunc;
         };
 
-    public:
-        PushTransaction(const TxContext& context);
+        explicit PushTransaction(const TxContext& context);
 
     private:
         bool IsInSafety() const override;
         void UpdateImpl() override;
         void RollbackTx() override;
-    private:
+
         std::shared_ptr<PushTxBuilder> m_TxBuilder;
         TxoID m_OutpID = 0;
         Height m_OutpHeight = 0;

@@ -50,6 +50,11 @@ struct Secp_point_data {
     uint8_t m_Y;
 };
 
+struct Secp_point_dataEx {
+    Opaque<32> m_X;
+    Opaque<32> m_Y;
+};
+
 #pragma pack (pop)
 
 struct HeightPos

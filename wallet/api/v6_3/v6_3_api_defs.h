@@ -16,6 +16,7 @@
 #include <vector>
 #include <memory>
 #include <string>
+#include "core/ecc_native.h"
 #include "utility/common.h"
 
 #include "wallet/api/v6_1/v6_1_api_defs.h"
@@ -46,6 +47,9 @@ namespace beam::wallet
         macro(IPFSPin,   "ipfs_pin",   API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(IPFSUnpin, "ipfs_unpin", API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(IPFSGc,    "ipfs_gc",    API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
+        macro(IPFSGc,           "ipfs_gc",              API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
+        macro(SignMessage,      "sign_message",         API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) \
+        macro(VerifySignature,  "verify_signature",     API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) \
         ETH_API_METHODS(macro)
         // TODO:IPFS add ipfs_caps/ev_ipfs_state methods that returns all available capabilities and ipfs state
 
@@ -216,6 +220,27 @@ namespace beam::wallet
         uint32_t timeout = 0;
         struct Response
         {
+        };
+    };
+
+    struct SignMessage
+    {
+        std::vector<uint8_t> keyMaterial;
+        std::string message;
+        struct Response
+        {
+            std::string signature;
+        };
+    };
+
+    struct VerifySignature
+    {
+        ECC::Point::Native publicKey;
+        std::string message;
+        std::vector<uint8_t> signature;
+        struct Response
+        {
+            bool result;
         };
     };
 }

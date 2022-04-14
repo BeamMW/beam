@@ -137,7 +137,12 @@ ON_METHOD(manager, deploy_contract)
     if (!ManagerUpgadable2::FillDeployArgs(args, &args.m_Config.m_pkAdmin))
         return;
 
-    Env::GenerateKernel(nullptr, 0, &args, sizeof(args), nullptr, 0, nullptr, 0, "Deploy Gallery contract", 0);
+    const uint32_t nCharge =
+        ManagerUpgadable2::get_ChargeDeploy() +
+        Env::Cost::SaveVar_For(sizeof(Gallery::State)) +
+        Env::Cost::Cycle * 50;
+
+    Env::GenerateKernel(nullptr, 0, &args, sizeof(args), nullptr, 0, nullptr, 0, "Deploy Gallery contract", nCharge);
 }
 
 ON_METHOD(manager, schedule_upgrade)

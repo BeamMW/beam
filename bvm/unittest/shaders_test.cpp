@@ -1586,7 +1586,7 @@ namespace bvm2 {
 			man.m_pPKdf = ppKdf[i];
 
 			man.m_Args["action"] = "upd_stab";
-			man.m_Args["newVal"] = std::to_string(Rules::Coin * 750);
+			man.m_Args["newVal"] = std::to_string(Rules::Coin * 1750);
 
 			Shaders::Liquity::Method::UpdStabPool args;
 			verify_test(man.RunGuarded_T(args));
@@ -1644,6 +1644,17 @@ namespace bvm2 {
 			std::cout << "Trove liquidating" << std::endl;
 			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
+		}
+
+		std::cout << "Price recover" << std::endl;
+
+		{
+			Shaders::Oracle2::Method::Set args;
+			ZeroObject(args);
+			args.m_Value = 40; // otherwise we can't withdraw from stab pool
+
+			verify_test(RunGuarded_T(m_Oracle2.m_Cid, args.s_iMethod, args));
+
 		}
 
 		for (uint32_t i = 0; i < 2; i++)
@@ -2136,6 +2147,9 @@ namespace bvm2 {
 
 			r.pForks[3].m_Height = 999999999;
 			r.pForks[3].m_Hash = Zero;
+
+			r.pForks[4].m_Height = MaxHeight;
+
 
 			beam::Block::SystemState::Full s;
 			s.m_Height = 903720;

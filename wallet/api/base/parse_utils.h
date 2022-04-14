@@ -235,6 +235,33 @@ namespace beam::wallet
         return ValidTxID(result);
     }
 
+    BOOST_STRONG_TYPEDEF(ByteBuffer, ValidHexBuffer)
+
+    template<>
+    inline const char* type_name<ValidHexBuffer>()
+    {
+        return "valid hex encoded byte buffer";
+    }
+
+    template<>
+    inline bool type_check<ValidHexBuffer>(const json& j)
+    {
+        if (!type_check<NonEmptyString>(j))
+        {
+            return false;
+        }
+
+        bool isValid = false;
+        const auto buf = beam::from_hex(type_get<std::string>(j), &isValid);
+        return isValid && !buf.empty();
+    }
+
+    template<>
+    inline ValidHexBuffer type_get<ValidHexBuffer>(const json& j)
+    {
+        return ValidHexBuffer(beam::from_hex(type_get<std::string>(j)));
+    }
+
     BOOST_STRONG_TYPEDEF(json, JsonArray)
     inline void to_json(json& j, const JsonArray& p) {
         j = p.t;
