@@ -414,19 +414,16 @@ int uv__socket(int domain, int type, int protocol) {
   int sockfd;
   int err;
 
-  puts("uv__socket 417\n");
 #if defined(SOCK_NONBLOCK) && defined(SOCK_CLOEXEC)
   sockfd = socket(domain, type | SOCK_NONBLOCK | SOCK_CLOEXEC, protocol);
-  puts("uv__socket 420\n");
   if (sockfd != -1)
     return sockfd;
-  puts("uv__socket 423\n");
+
   if (errno != EINVAL)
     return UV__ERR(errno);
 #endif
-  puts("uv__socket 427\n");
+
   sockfd = socket(domain, type, protocol);
-  puts("uv__socket 429\n");
   if (sockfd == -1)
     return UV__ERR(errno);
 

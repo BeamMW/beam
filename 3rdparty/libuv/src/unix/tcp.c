@@ -72,7 +72,7 @@ static int maybe_new_socket(uv_tcp_t* handle, int domain, unsigned long flags) {
     handle->flags |= flags;
     return 0;
   }
-  puts("maybe_new_socket 75\n");
+
   if (uv__stream_fd(handle) != -1) {
 
     if (flags & UV_HANDLE_BOUND) {
@@ -82,13 +82,13 @@ static int maybe_new_socket(uv_tcp_t* handle, int domain, unsigned long flags) {
         handle->flags |= flags;
         return 0;
       }
-      puts("maybe_new_socket 85\n");
+      
       /* Query to see if tcp socket is bound. */
       slen = sizeof(saddr);
       memset(&saddr, 0, sizeof(saddr));
       if (getsockname(uv__stream_fd(handle), (struct sockaddr*) &saddr, &slen))
         return UV__ERR(errno);
-      puts("maybe_new_socket 91\n");
+
       if ((saddr.ss_family == AF_INET6 &&
           ((struct sockaddr_in6*) &saddr)->sin6_port != 0) ||
           (saddr.ss_family == AF_INET &&
@@ -97,7 +97,7 @@ static int maybe_new_socket(uv_tcp_t* handle, int domain, unsigned long flags) {
         handle->flags |= flags;
         return 0;
       }
-      puts("maybe_new_socket 100\n");
+
       /* Bind to arbitrary port */
       if (bind(uv__stream_fd(handle), (struct sockaddr*) &saddr, slen))
         return UV__ERR(errno);
@@ -155,19 +155,17 @@ int uv__tcp_bind(uv_tcp_t* tcp,
   /* Cannot set IPv6-only mode on non-IPv6 socket. */
   if ((flags & UV_TCP_IPV6ONLY) && addr->sa_family != AF_INET6)
     return UV_EINVAL;
-  puts("uv__tcp_bind 158\n");
+
   err = maybe_new_socket(tcp, addr->sa_family, 0);
   if (err)
     return err;
-  puts("uv__tcp_bind 162\n");
+
   on = 1;
 #ifndef __EMSCRIPTEN__
   if (setsockopt(tcp->io_watcher.fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)))
       return UV__ERR(errno);
 #endif // !__EMSCRIPTEN__
 
-  
-  puts("uv__tcp_bind 166\n");
 #ifndef __OpenBSD__
 #ifdef IPV6_V6ONLY
   if (addr->sa_family == AF_INET6) {
@@ -328,7 +326,7 @@ int uv_tcp_listen(uv_tcp_t* tcp, int backlog, uv_connection_cb cb) {
   static int single_accept = -1;
   unsigned long flags;
   int err;
-  puts("uv_tcp_listen 331\n");
+
   if (tcp->delayed_error)
     return tcp->delayed_error;
 
@@ -336,11 +334,11 @@ int uv_tcp_listen(uv_tcp_t* tcp, int backlog, uv_connection_cb cb) {
     const char* val = getenv("UV_TCP_SINGLE_ACCEPT");
     single_accept = (val != NULL && atoi(val) != 0);  /* Off by default. */
   }
-  puts("uv_tcp_listen 339\n");
+
   if (single_accept)
     tcp->flags |= UV_HANDLE_TCP_SINGLE_ACCEPT;
 
-  flags = 0; puts("uv_tcp_listen 343\n");
+  flags = 0;
 #if defined(__MVS__)
   /* on zOS the listen call does not bind automatically
      if the socket is unbound. Hence the manual binding to
@@ -351,17 +349,17 @@ int uv_tcp_listen(uv_tcp_t* tcp, int backlog, uv_connection_cb cb) {
   err = maybe_new_socket(tcp, AF_INET, flags);
   if (err)
     return err;
-  puts("uv_tcp_listen 354\n");
+
   if (listen(tcp->io_watcher.fd, backlog))
     return UV__ERR(errno);
-  puts("uv_tcp_listen 354\n");
+
   tcp->connection_cb = cb;
   tcp->flags |= UV_HANDLE_BOUND;
 
   /* Start listening for connections. */
   tcp->io_watcher.cb = uv__server_io;
   uv__io_start(tcp->loop, &tcp->io_watcher, POLLIN);
-  puts("uv_tcp_listen 354\n");
+
   return 0;
 }
 

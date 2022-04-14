@@ -647,7 +647,7 @@ done:
 
 int uv_listen(uv_stream_t* stream, int backlog, uv_connection_cb cb) {
   int err;
-  puts("uv_listen 650\n");
+
   switch (stream->type) {
   case UV_TCP:
     err = uv_tcp_listen((uv_tcp_t*)stream, backlog, cb);
@@ -660,7 +660,7 @@ int uv_listen(uv_stream_t* stream, int backlog, uv_connection_cb cb) {
   default:
     err = UV_EINVAL;
   }
-  puts("uv_listen 663\n");
+
   if (err == 0)
     uv__handle_start(stream);
 

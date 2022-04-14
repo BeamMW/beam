@@ -38,7 +38,7 @@ namespace beam::wallet
 
         bool ExtractPoint(ECC::Point::Native& point, const json& j)
         {
-            auto s = type_get<NonEmptyString>(j);
+            std::string s = type_get<NonEmptyString>(j);
             auto buf = from_hex(s);
             ECC::Point pt;
             Deserializer dr;
@@ -561,7 +561,7 @@ namespace beam::wallet
         SignMessage message;
         message.message = getMandatoryParam<NonEmptyString>(params, "message");
         auto km = getMandatoryParam<NonEmptyString>(params, "key_material");
-        message.keyMaterial = from_hex(km);
+        message.keyMaterial = from_hex_string(km);
         return std::make_pair(message, MethodInfo());
     }
 

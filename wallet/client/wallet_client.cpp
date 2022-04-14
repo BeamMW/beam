@@ -761,7 +761,7 @@ namespace beam::wallet
                 onBeforeMainLoop();
                 BOOST_SCOPE_EXIT_ALL(&, this) 
                 {
-                    onAfterMainLoop();;
+                    onAfterMainLoop();
                 };
                 m_reactor->run_ex([&wallet, &nodeNetwork](){
                     wallet->CleanupNetwork();
