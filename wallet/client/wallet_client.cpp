@@ -1429,7 +1429,7 @@ namespace beam::wallet
             onTransactionChanged(ChangeAction::Reset, vector<wallet::TxDescription>());
 
             auto iterationsCount = txCount / kOneTimeLoadTxCount + (txCount % kOneTimeLoadTxCount ? 1 : 0);
-            for(uint i = 0; i < iterationsCount; ++i) 
+            for(int i = 0; i < iterationsCount; ++i) 
                 onTransactionChanged(
                     ChangeAction::Updated, 
                     m_walletDB->getTxHistory(wallet::TxType::ALL,
