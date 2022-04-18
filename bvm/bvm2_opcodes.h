@@ -132,6 +132,10 @@
 	macro(const Secp_point&, p) sep \
 	macro(PubKey&, pk)
 
+#define BVMOp_Secp_Point_ExportEx(macro, sep) \
+	macro(const Secp_point&, p) sep \
+	macro(Secp_point_dataEx&, res)
+
 #define BVMOp_Secp_Point_neg(macro, sep) \
 	macro(Secp_point&, dst) sep \
 	macro(const Secp_point&, src)
@@ -499,6 +503,7 @@
 	macro(0x98, void     , Secp_Point_mul_G) \
 	macro(0x99, void     , Secp_Point_mul_J) \
 	macro(0x9A, void     , Secp_Point_mul_H) \
+	macro(0x9B, void     , Secp_Point_ExportEx) \
 	macro(0xB0, uint8_t  , VerifyBeamHashIII) \
 	macro(0xB1, int32_t  , fd_write) \
 
