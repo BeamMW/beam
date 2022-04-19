@@ -36,6 +36,30 @@ namespace beam::wallet
             return 0;
         }
 
+        template<typename T>
+        std::string ToHex(T& v)
+        {
+            std::stringstream ss;
+            ss << std::hex << std::showbase << v;
+            return ss.str();
+        }
+
+        template<typename T, typename ...Argv>
+        std::string ToHex(const T& v0, Argv... v)
+        {
+            std::stringstream ss;
+            ((ss << std::hex << std::showbase << v0 << std::noshowbase) << ... << v);
+            return ss.str();
+        }
+
+        ByteBuffer FromHex(std::string s)
+        {
+            std::string_view sv(s.data(), s.size());
+            auto pos = sv.find("0x");
+            sv.remove_prefix(pos == 0 ? 2 : 0);
+            return from_hex(sv);
+        }
+
         bool ExtractPoint(ECC::Point::Native& point, const json& j)
         {
             std::string s = type_get<NonEmptyString>(j);
@@ -110,13 +134,11 @@ namespace beam::wallet
 
     void V63Api::getResponse(const JsonRpcId& id, const BlockNumber::Response& res, json& msg)
     {
-        std::stringstream ss;
-        ss << std::hex << std::showbase << res.height;
         msg = json
         {
             {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
-            {"result", ss.str()}
+            {"result", ToHex(res.height)}
         };
     }
 
@@ -126,18 +148,21 @@ namespace beam::wallet
         message.address = params[0].get<std::string>();
         auto t = params[1].get<std::string>();
         message.tag = t;
+        message.subCall.createTx = false;
+        message.subCall.args.append("role=user,action=view_account,accountID=")
+                            .append(message.address.substr(2))
+                            .append(",cid=38a60c284e4c81f9c09e6a5b042ca4654730c6717768edada343bca4bf8cbdd7");
+
         return std::make_pair(message, MethodInfo());
     }
 
     void V63Api::getResponse(const JsonRpcId& id, const Balance::Response& res, json& msg)
     {
-        std::stringstream ss;
-        ss << std::hex << std::showbase << res.balanceHi << std::noshowbase << res.balanceLo;
         msg = json
         {
             {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
-            {"result", ss.str()}
+            {"result", ToHex(res.balanceHi, res.balanceLo)}
         };
     }
 
@@ -146,13 +171,20 @@ namespace beam::wallet
         BlockByNumber message;
         message.tag = params[0].get<std::string>();
         message.fullTxInfo = params[1].get<bool>();
+        auto b = from_hex(std::string_view(message.tag.data(), message.tag.size()).substr(2));
+        Height height = 0;
+        for (uint8_t c : b)
+        {
+            height <<= 8;
+            height += c;
+        }
+
+        message.subCall.blockHeight = height;
         return std::make_pair(message, MethodInfo());
     }
 
     void V63Api::getResponse(const JsonRpcId& id, const BlockByNumber::Response& res, json& msg)
     {
-        std::stringstream ss;
-        ss << std::hex << std::showbase << res.number;
         msg = json
         {
             {JsonRpcHeader, JsonRpcVersion},
@@ -163,12 +195,56 @@ namespace beam::wallet
                     {"extraData", "0x476574682f4c5649562f76312e302e302f6c696e75782f676f312e342e32"},
                     {"gasLimit", "0x1388"},
                     {"gasUsed", "0x0"},
-                    {"hash", "0xdc0818cf78f21a8e70579cb46a43643f78291264dda342ae31049421c82d21ae"},
+                    {"hash", "0x" + res.subResponce.blockHash},
                     {"logsBloom", "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"},
                     {"miner", "0xbb7b8287f3f0a933474a79eae42cbca977791171"},
                     {"mixHash", "0x4fffe9ae21f1c9e15207b1f472d5bbdd68c9595d461666602f2be20daf5e7843"},
                     {"nonce", "0x689056015818adbe"},
-                    {"number", ss.str()},
+                    {"number", ToHex(res.subResponce.height)},
+                    {"parentHash", "0xe99e022112df268087ea7eafaf4790497fd21dbeeb6bd7a1721df161a6657a54"},
+                    {"receiptsRoot", "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"},
+                    {"sha3Uncles", "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"},
+                    {"size", "0x220"},
+                    {"stateRoot", "0xddc8b0234c2e0cad087c8b389aa7ef01f7d79b2570bccb77ce48648aa61c904d"},
+                    {"timestamp", ToHex(res.subResponce.timestamp)},
+                    {"totalDifficulty", "0x78ed983323d"},
+                    { "transactions", json::array() },
+                    { "transactionsRoot", "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421" },
+                    { "uncles", json::array() }
+                }
+            }
+        };
+        for (const auto& tx : res.txHashes)
+        {
+            msg["result"]["transactions"].push_back(tx);
+        }
+    }
+
+    std::pair<GetBlockByHash, IWalletApi::MethodInfo> V63Api::onParseGetBlockByHash(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        GetBlockByHash message;
+        message.blockHash = FromHex(params[0].get<std::string>());
+        return std::make_pair(message, MethodInfo());
+    }
+
+    void V63Api::getResponse(const JsonRpcId& id, const GetBlockByHash::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result",
+                {
+                    {"difficulty", "0x4ea3f27bc"},
+                    {"extraData", "0x476574682f4c5649562f76312e302e302f6c696e75782f676f312e342e32"},
+                    {"gasLimit", "0x1388"},
+                    {"gasUsed", "0x0"},
+                    {"hash", "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b"},
+                    {"logsBloom", "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"},
+                    {"miner", "0xbb7b8287f3f0a933474a79eae42cbca977791171"},
+                    {"mixHash", "0x4fffe9ae21f1c9e15207b1f472d5bbdd68c9595d461666602f2be20daf5e7843"},
+                    {"nonce", "0x689056015818adbe"},
+                    {"number", ToHex(res.number)},
                     {"parentHash", "0xe99e022112df268087ea7eafaf4790497fd21dbeeb6bd7a1721df161a6657a54"},
                     {"receiptsRoot", "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"},
                     {"sha3Uncles", "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"},
@@ -176,12 +252,15 @@ namespace beam::wallet
                     {"stateRoot", "0xddc8b0234c2e0cad087c8b389aa7ef01f7d79b2570bccb77ce48648aa61c904d"},
                     {"timestamp", "0x55ba467c"},
                     {"totalDifficulty", "0x78ed983323d"},
-                    { "transactions", json::array() },
-                    { "transactionsRoot", "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421" },
-                    { "uncles", json::array() }
+                    {"transactions",
+                        {
+                            "0xe670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331"
+                        }
+                    } ,
+                    {"transactionsRoot", "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"},
+                    {"uncles", json::array() }
                 }
             }
-
         };
     }
 
@@ -258,8 +337,11 @@ namespace beam::wallet
         using namespace Shaders::Eth;
         SendRawTransaction message;
         auto data = params[0].get<std::string>();
-        auto pos = data.find_first_not_of("0x");
-        data = data.substr(std::min(pos, data.size()));
+        auto pos = data.find("0x");
+        if (pos == 0)
+        {
+            data = data.substr(2);
+        }
         auto buf = from_hex(data);
 
         RawTransactionData tx;
@@ -301,24 +383,36 @@ namespace beam::wallet
     std::pair<GetTransactionReceipt, IWalletApi::MethodInfo> V63Api::onParseGetTransactionReceipt(const JsonRpcId& id, const nlohmann::json& params)
     {
         GetTransactionReceipt message;
+        auto b = FromHex(params[0].get<std::string>());
+        std::copy_n(begin(b), sizeof(TxID), begin(message.txID));
         return std::make_pair(message, MethodInfo());
     }
 
     void V63Api::getResponse(const JsonRpcId& id, const GetTransactionReceipt::Response& res, json& msg)
     {
+        if (!res.tx)
+        {
+            msg = json
+            {
+                {JsonRpcHeader, JsonRpcVersion},
+                {"id", id},
+                {"result", "null"}
+            };
+            return;
+        }
         msg = json
         {
             {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", 
                 {
-                    {"transactionHash", "0xe670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331"},
+                    {"transactionHash", res.txHash},
                     {"transactionIndex", "0x1"}, // 1
-                    {"blockNumber", "0xb"}, // 11
-                    {"blockHash", "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b"},
+                    {"blockNumber", ToHex(res.subResponce.height)}, // 11
+                    {"blockHash", "0x" + res.subResponce.blockHash},
                     {"cumulativeGasUsed", "0x33bc"}, // 13244
                     {"gasUsed", "0x0"}, // 1244
-                    {"contractAddress", "0x3bb7488199eA33F05336729D0f57129A801Fd0b9"}, // or null, if none was created
+                    //{"contractAddress", "0x3bb7488199eA33F05336729D0f57129A801Fd0b9"}, // or null, if none was created
                     //{"logs : [{
                     //{"       // logs as returned by getFilterLogs, etc.
                     //{"   }, ...] ,
@@ -328,53 +422,6 @@ namespace beam::wallet
             }
 
         };
-    }
-
-    std::pair<GetBlockByHash, IWalletApi::MethodInfo> V63Api::onParseGetBlockByHash(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        GetBlockByHash message;
-        return std::make_pair(message, MethodInfo());
-    }
-
-    void V63Api::getResponse(const JsonRpcId& id, const GetBlockByHash::Response& res, json& msg)
-    {
-        std::stringstream ss;
-        ss << std::hex << std::showbase << res.number;
-        msg = json
-        {
-            {JsonRpcHeader, JsonRpcVersion},
-            {"id", id},
-            {"result",
-                {
-                    {"difficulty", "0x4ea3f27bc"},
-                    {"extraData", "0x476574682f4c5649562f76312e302e302f6c696e75782f676f312e342e32"},
-                    {"gasLimit", "0x1388"},
-                    {"gasUsed", "0x0"},
-                    {"hash", "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b"},
-                    {"logsBloom", "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"},
-                    {"miner", "0xbb7b8287f3f0a933474a79eae42cbca977791171"},
-                    {"mixHash", "0x4fffe9ae21f1c9e15207b1f472d5bbdd68c9595d461666602f2be20daf5e7843"},
-                    {"nonce", "0x689056015818adbe"},
-                    {"number", ss.str()},
-                    {"parentHash", "0xe99e022112df268087ea7eafaf4790497fd21dbeeb6bd7a1721df161a6657a54"},
-                    {"receiptsRoot", "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"},
-                    {"sha3Uncles", "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"},
-                    {"size", "0x220"},
-                    {"stateRoot", "0xddc8b0234c2e0cad087c8b389aa7ef01f7d79b2570bccb77ce48648aa61c904d"},
-                    {"timestamp", "0x55ba467c"},
-                    {"totalDifficulty", "0x78ed983323d"},
-                    {"transactions", 
-                        {
-                            "0xe670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331"
-                        }
-                    } ,
-                    {"transactionsRoot", "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"},
-                    {"uncles", json::array() }
-                }
-            }
-
-        };
-
     }
 
     std::pair<Call, IWalletApi::MethodInfo> V63Api::onParseCall(const JsonRpcId& id, const nlohmann::json& params)

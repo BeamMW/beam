@@ -35,7 +35,7 @@ namespace beam::wallet
             json msg; \
             getResponse(id, response, msg); \
             LOG_VERBOSE() << "Api call result for id " << id; \
-            LOG_VERBOSE() << "\tresponse: " << std::string_view(msg.dump()).substr(0, 200); \
+            LOG_VERBOSE() << "\tresponse: " << std::string_view(msg.dump(1, '\t')); \
             _handler.sendAPIResponse(msg); \
         }
 

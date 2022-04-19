@@ -950,9 +950,14 @@ namespace beam::wallet
 
     void V6Api::onHandleBlockDetails(const JsonRpcId& id, BlockDetails&& data)
     {
+        onHandleBlockDetails(id, std::move(data), {});
+    }
+
+    void V6Api::onHandleBlockDetails(const JsonRpcId& id, BlockDetails&& data, RequestHeaderMsg::Callback&& callback)
+    {
         LOG_DEBUG() << "BlockDetails(id = " << id << ")";
 
-        RequestHeaderMsg::Ptr request(new RequestHeaderMsg(id, _weakSelf, *this));
+        RequestHeaderMsg::Ptr request(new RequestHeaderMsg(id, _weakSelf, *this, std::move(callback)));
         request->m_Msg.m_Height = data.blockHeight;
 
         getWallet()->GetNodeEndpoint()->PostRequest(*request, *request);
@@ -1004,6 +1009,13 @@ namespace beam::wallet
         response.packedDifficulty = state.m_PoW.m_Difficulty.m_Packed;
         response.rulesHash = std::move(rulesHash);
 
-        _wapi.doResponse(headerRequest._id, response);
+        if (!_callback)
+        {
+            _wapi.doResponse(headerRequest._id, response);
+        }
+        else
+        {
+            _callback(headerRequest._id, response);
+        }
     }
 }

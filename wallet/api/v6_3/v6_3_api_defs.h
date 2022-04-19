@@ -19,6 +19,7 @@
 #include "core/ecc_native.h"
 #include "utility/common.h"
 
+#include "wallet/api/v6_0/v6_api_defs.h"
 #include "wallet/api/v6_1/v6_1_api_defs.h"
 
 namespace beam::wallet
@@ -27,14 +28,14 @@ namespace beam::wallet
         macro(ChainID,                  "eth_chainId",                  API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
         macro(NetVersion,               "net_version",                  API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
         macro(BlockNumber,              "eth_blockNumber",              API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
-        macro(Balance,                  "eth_getBalance",               API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
-        macro(BlockByNumber,            "eth_getBlockByNumber",         API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
+        macro(Balance,                  "eth_getBalance",               API_READ_ACCESS,    API_ASYNC, APPS_BLOCKED) \
+        macro(BlockByNumber,            "eth_getBlockByNumber",         API_READ_ACCESS,    API_ASYNC, APPS_BLOCKED) \
         macro(GasPrice,                 "eth_gasPrice",                 API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
         macro(EstimateGas,              "eth_estimateGas",              API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
         macro(GetCode,                  "eth_getCode",                  API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
         macro(GetTransactionCount,      "eth_getTransactionCount",      API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
         macro(SendRawTransaction,       "eth_sendRawTransaction",       API_WRITE_ACCESS,   API_ASYNC, APPS_BLOCKED) \
-        macro(GetTransactionReceipt,    "eth_getTransactionReceipt",    API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
+        macro(GetTransactionReceipt,    "eth_getTransactionReceipt",    API_READ_ACCESS,    API_ASYNC, APPS_BLOCKED) \
         macro(GetBlockByHash,           "eth_getBlockByHash",           API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
         macro(Call,                     "eth_call",                     API_WRITE_ACCESS,   API_ASYNC, APPS_BLOCKED) \
 
@@ -78,6 +79,7 @@ namespace beam::wallet
         std::string address;
         std::string tag;
         std::string block;
+        InvokeContractV61 subCall;
 
         struct Response
         {
@@ -90,10 +92,11 @@ namespace beam::wallet
     {
         std::string tag;
         bool fullTxInfo = false;
-
+        BlockDetails subCall;
         struct Response
         {
-            uint64_t number;
+            const BlockDetails::Response& subResponce;
+            std::vector<std::string> txHashes;
         };
     };
 
@@ -131,16 +134,19 @@ namespace beam::wallet
 
     struct GetTransactionReceipt
     {
+        TxID txID;
         struct Response
         {
-
+            boost::optional<TxDescription> tx;
+            std::string txHash;
+            BlockDetails::Response subResponce;
         };
     };
     
 
     struct GetBlockByHash
     {
-
+        ByteBuffer blockHash;
         struct Response
         {
             uint64_t number;

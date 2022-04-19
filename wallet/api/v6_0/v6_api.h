@@ -51,7 +51,6 @@ namespace beam::wallet
         virtual void fillAddresses(json& arr, const std::vector<WalletAddress>& items);
         virtual void fillCoins(json& arr, const std::vector<ApiCoin>& coins);
         virtual void fillTransactions(json& arr, const std::vector<Status::Response>& txs);
-
     private:
         void FillAddressData(const AddressData& data, WalletAddress& address);
         void doTxAlreadyExistsError(const JsonRpcId& id);
@@ -92,12 +91,14 @@ namespace beam::wallet
             , public proto::FlyClient::Request::IHandler
         {
             typedef boost::intrusive_ptr<RequestHeaderMsg> Ptr;
+            using Callback = std::function<void(const JsonRpcId& id, const BlockDetails::Response&)>;
             ~RequestHeaderMsg() override = default;
 
-            RequestHeaderMsg(JsonRpcId id, IWalletApi::WeakPtr guard, V6Api& wapi)
+            RequestHeaderMsg(JsonRpcId id, IWalletApi::WeakPtr guard, V6Api& wapi, Callback&& callback={})
                 : _id(std::move(id))
                 , _guard(std::move(guard))
                 , _wapi(wapi)
+                , _callback(callback)
             {}
 
             void OnComplete(proto::FlyClient::Request&) override;
@@ -106,8 +107,10 @@ namespace beam::wallet
             JsonRpcId _id;
             IWalletApi::WeakPtr _guard;
             V6Api& _wapi;
+            Callback _callback;
         };
-
         std::map<TokenType, std::string> _ttypesMap;
+    protected:
+        void onHandleBlockDetails(const JsonRpcId& id, BlockDetails&& data, RequestHeaderMsg::Callback&& callback);
     };
 }

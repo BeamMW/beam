@@ -21,6 +21,16 @@
 
 namespace beam::wallet
 {
+    namespace
+    {
+        std::string ToTxHash(const TxID& id)
+        {
+            std::string r;
+            std::string s = std::to_string(id);
+            r.append("0x").append(s).append(s);
+            return r;
+        }
+    }
     void V63Api::onHandleChainID(const JsonRpcId& id, ChainID&& req)
     {
         ChainID::Response res;
@@ -43,28 +53,51 @@ namespace beam::wallet
 
     void V63Api::onHandleBalance(const JsonRpcId& id, Balance&& req)
     {
-        Balance::Response res;
-        auto walletDB = getWalletDB();
-        storage::Totals allTotals(*walletDB, false);
-        const auto& totals = allTotals.GetBeamTotals();
-        auto b = totals.Avail;
-        b += AmountBig::Type(10'000'000'000UL);
-        b += totals.AvailShielded;
-        uintBig_t<sizeof(Amount)> m;
-        m = 10'000'000'000UL;
-        b = b * m ;
-        
-        res.balanceHi = AmountBig::get_Hi(b);
-        res.balanceLo = AmountBig::get_Lo(b);
+        onHandleInvokeContractV61(id, std::move(req.subCall), [this](const auto& id, const auto& response)
+            {
+                
+                Balance::Response res;
+                AmountBig::Type b;
 
-        doResponse(id, res);
+                if (response.output)
+                {
+                    json msg = json::parse(*response.output);
+                    if (msg["locked_beam"].is_string())
+                    {
+                        auto balanceStr = msg["locked_beam"].get<std::string>();
+                        b.Scan(balanceStr.data());
+                    }
+                }
+                uintBig_t<sizeof(Amount)> m;
+                m = 10'000'000'000UL;
+                b = b * m;
+
+                res.balanceHi = AmountBig::get_Hi(b);
+                res.balanceLo = AmountBig::get_Lo(b);
+
+                doResponse(id, res);
+            });
+
+
+        
     }
 
     void V63Api::onHandleBlockByNumber(const JsonRpcId& id, BlockByNumber&& req)
     {
-        BlockByNumber::Response res;
-        res.number = get_TipHeight();
-        doResponse(id, res);
+        onHandleBlockDetails(id, std::move(req.subCall), [this](const auto& id, const BlockDetails::Response& responce)
+            {
+                BlockByNumber::Response res{responce};
+                auto walletDB = getWalletDB();
+                TxListFilter filter;
+                filter.m_KernelProofHeight = responce.height;
+                walletDB->visitTx([&res](const TxDescription& tx)
+                    {
+                        res.txHashes.push_back(ToTxHash(*tx.GetTxID()));
+                        return true;
+                    }, filter);
+                doResponse(id, res);
+            });
+        
     }
 
     void V63Api::onHandleGasPrice(const JsonRpcId& id, GasPrice&& req)
@@ -96,25 +129,71 @@ namespace beam::wallet
         onHandleInvokeContractV61(id, std::move(req.subCall), [this](const auto& id, const auto& response)
             {
                 SendRawTransaction::Response res;
-                ECC::Hash::Value hv;
+                /*ECC::Hash::Value hv;
                 KeccakProcessor<256> hp;
                 hp.Write(&*response.txid, sizeof(TxID));
-                hp >> hv;
-
-                res.txHash.append("0x").append(hv.str());
+                hp >> hv;*/
+                res.txHash = ToTxHash(*response.txid);
                 doResponse(id, res);
             });
     }
 
     void V63Api::onHandleGetTransactionReceipt(const JsonRpcId& id, GetTransactionReceipt&& req)
     {
-        GetTransactionReceipt::Response res;
-        doResponse(id, res);
+        auto walletDB = getWalletDB();
+        auto tx = walletDB->getTx(req.txID);
+        if (!tx)
+        {
+            GetTransactionReceipt::Response res;
+            return doResponse(id, res);
+        }
+        auto blockNumber = tx->GetParameter<Height>(TxParameterID::KernelProofHeight);
+        if (!blockNumber)
+        {
+            GetTransactionReceipt::Response res;
+            return doResponse(id, res);
+        }
+        onHandleBlockDetails(id, BlockDetails{ *blockNumber }, [this, tx = std::move(tx)](const auto& id, const BlockDetails::Response& responce)
+            {
+                GetTransactionReceipt::Response res;
+                res.txHash = ToTxHash(tx->m_txId);
+                res.tx = std::move(tx);
+                res.subResponce = responce;
+                doResponse(id, res);
+            });
     }
 
     void V63Api::onHandleGetBlockByHash(const JsonRpcId& id, GetBlockByHash&& req)
     {
         GetBlockByHash::Response res;
+        auto walletDB = getWalletDB();
+
+        struct Walker :public Block::SystemState::IHistory::IWalker
+        {
+            Merkle::Hash m_hash;
+            Block::SystemState::Full m_state;
+
+            Walker(Merkle::Hash&& h)
+                : m_hash(std::move(h))
+            {
+            }
+            bool OnState(const Block::SystemState::Full& s) override
+            {
+                Merkle::Hash h;
+                s.get_Hash(h);
+
+                if (h == m_hash)
+                {
+                    m_state = s;
+                    return false;
+                }
+
+                return true;
+            }
+        } w(Merkle::Hash(res.blockHash));
+
+        walletDB->get_History().Enum(w, nullptr);
+
         res.number = get_TipHeight();
         doResponse(id, res);
     }
