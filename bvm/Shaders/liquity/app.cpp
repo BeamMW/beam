@@ -591,7 +591,10 @@ ON_METHOD(user, view)
     Env::DocAddNum("troves", g.m_ActiveTroves);
 
     if (g.PopMyTrove())
+    {
+        Env::DocGroup gr2("my_trove");
         g.DocAddTrove(*g.m_MyTrove.m_pT);
+    }
 
     if (g.m_MyTrove.m_Vault.Tok || g.m_MyTrove.m_Vault.Col)
         DocAddPair("surplus", g.m_MyTrove.m_Vault);
