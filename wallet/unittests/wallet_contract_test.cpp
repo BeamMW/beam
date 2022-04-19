@@ -37,6 +37,7 @@
 #include <filesystem>
 #include <boost/functional/hash.hpp>
 #include <stack>
+#include <optional>
 
 #ifdef _MSC_VER
 #define OS_WINDOWS 1
@@ -77,9 +78,9 @@ namespace
             const auto& sections = m_Compiler.m_CustomSections;
             auto it = std::find_if(sections.begin(), sections.end(),
                 [&](const auto& s)
-            {
-                return s.m_Name == name;
-            });
+                {
+                    return s.m_Name == name;
+                });
 
             if (it == sections.end())
                 return nullptr;
@@ -206,13 +207,16 @@ namespace
         return true;
     }
 
+    
+
     class MyDebugger
     {
     public:
-        MyDebugger(const std::string& contractPath)
+        MyDebugger(const std::string& shaderPath)
+            : m_ShaderName(boost::filesystem::path(shaderPath).filename().string())
         {
             // load symbols
-            m_Buffer = MyManager::Load(contractPath.c_str());
+            m_Buffer = MyManager::Load(shaderPath.c_str());
             ByteBuffer res;
             bvm2::Processor::Compile(m_Compiler, res, m_Buffer, bvm2::Processor::Kind::Contract);
             m_DebugInfo = std::make_unique<dwarf::dwarf>(std::make_shared<WasmLoader>(m_Compiler));
@@ -225,31 +229,37 @@ namespace
 
     protected:
 
-        bool FindPC(const dwarf::die& d, dwarf::taddr pc, std::vector<dwarf::die>* stack)
+        bool FindFunctionByPC(const dwarf::die& d, dwarf::taddr pc, std::vector<dwarf::die>& stack)
         {
             using namespace dwarf;
 
             // Scan children first to find most specific DIE
             bool found = false;
-            for (auto& child : d) {
-                found = FindPC(child, pc, stack);
+            for (auto& child : d)
+            {
+                found = FindFunctionByPC(child, pc, stack);
                 if (found)
                     break;
             }
-            switch (d.tag) {
+            switch (d.tag)
+            {
                 //case DW_TAG::variable:
                 //case DW_TAG::formal_parameter:
             case DW_TAG::subprogram:
             case DW_TAG::inlined_subroutine:
-                try {
-                    if (found || die_pc_range(d).contains(pc)) {
+                try
+                {
+                    if (found || die_pc_range(d).contains(pc))
+                    {
                         found = true;
-                        stack->push_back(d);
+                        stack.push_back(d);
                     }
                 }
-                catch (out_of_range&) {
+                catch (const out_of_range&)
+                {
                 }
-                catch (value_type_mismatch&) {
+                catch (const value_type_mismatch&)
+                {
                 }
                 break;
             default:
@@ -281,17 +291,49 @@ namespace
 
         }
 
+        struct FunctionInfo
+        {
+            dwarf::die m_Die;
+            dwarf::line_table::iterator m_Line;
+        };
+
+        std::optional<FunctionInfo> FindFunctionByPC(dwarf::taddr pc)
+        {
+            for (auto& cu : m_DebugInfo->compilation_units())
+            {
+                if (die_pc_range(cu.root()).contains(pc))
+                {
+                    // Map PC to a line
+                    auto& lt = cu.get_line_table();
+                    auto it = lt.find_address(pc);
+                    if (it == lt.end())
+                    {
+                        return {};
+                    }
+
+                    vector<dwarf::die> stack;
+                    if (FindFunctionByPC(cu.root(), pc, stack))
+                    {
+                        return FunctionInfo{ stack.back(), it };
+                    }
+                    break;
+                }
+            }
+            return {};
+        }
+
         bool LookupSourceLine(dwarf::taddr pc, std::vector<dwarf::die>& stack)
         {
             for (auto& cu : m_DebugInfo->compilation_units())
             {
-                if (die_pc_range(cu.root()).contains(pc)) {
+                if (die_pc_range(cu.root()).contains(pc))
+                {
                     // Map PC to a line
                     auto& lt = cu.get_line_table();
                     auto it = lt.find_address(pc);
                     if (it == lt.end())
                         return false;
-                    
+
                     if (m_CurrentLine)
                     {
                         if (*m_CurrentLine == it)
@@ -304,15 +346,11 @@ namespace
                     // Map PC to an object
                     // XXX Index/helper/something for looking up PCs
                     // XXX DW_AT_specification and DW_AT_abstract_origin
-                    //vector<dwarf::die> stack;
-
-                    if (FindPC(cu.root(), pc, &stack)) {
-                        //bool first = true;
-                        for (auto& d : stack) {
-                            //if (!first)
-                            //	printf("\nInlined in:\n");
-                            //first = false;
-                            DumpDIE(d);
+                    if (FindFunctionByPC(cu.root(), pc, stack))
+                    {
+                        for (auto& d : stack)
+                        {
+                             DumpDIE(d);
                         }
                         return true;
                     }
@@ -323,6 +361,7 @@ namespace
         }
 
     protected:
+        std::string m_ShaderName;
         ByteBuffer m_Buffer;
         Wasm::Compiler m_Compiler;
         std::unique_ptr<dwarf::dwarf> m_DebugInfo;
@@ -336,7 +375,7 @@ namespace
         TestLocalNode(const ByteBuffer& binaryTreasury
             , Key::IKdf::Ptr pKdf
             , uint16_t port = 32125
-            , const std::string& path = "c:\\Data\\Projects\\Beam\\beam-ee5.2RC\\wallet\\unittests\\mytest.db"
+            , const std::string& path = "mytest.db"
             , const std::vector<io::Address>& peers = {}
         )
         {
@@ -479,10 +518,10 @@ void TestNode()
         size_t c = 0;
 
         walletDB->visitCoins([&c](const auto& coin)
-        {
-            ++c;
-            return true;
-        });
+            {
+                ++c;
+                return true;
+            });
 
         WALLET_CHECK(c == count);
     };
@@ -602,11 +641,6 @@ namespace
             : MyDebugger(contractPath)
             , m_OnEvent(onEvent)
         {
-            auto& c = m_CallStack.emplace_back();
-            //c.m_FilePath = contractPath;
-            c.m_Line = 0;
-            c.m_Column = 0;
-            c.m_Name = "CallFar";
         }
 
         //
@@ -675,9 +709,9 @@ namespace
                 const auto& lineTable = cu.get_line_table();
                 auto it = std::find_if(lineTable.begin(), lineTable.end(),
                     [&](const auto& entry)
-                {
-                    return GetCanonicalPath(entry.file->path) == filePath && entry.line == line && entry.is_stmt;
-                });
+                    {
+                        return GetCanonicalPath(entry.file->path) == filePath && entry.line == line && entry.is_stmt;
+                    });
                 if (it != lineTable.end())
                 {
                     return true;
@@ -726,13 +760,20 @@ namespace
 
         std::string GetTypeName(const dwarf::die& d)
         {
+            using namespace dwarf;
             try
             {
-                if (d.has(dwarf::DW_AT::name))
+                switch (d.tag)
+                {
+                case DW_TAG::const_type:
+                    return "const " + GetTypeName(at_type(d));
+                case DW_TAG::pointer_type:
+                    return GetTypeName(at_type(d)) + "*";
+                case DW_TAG::reference_type:
+                    return GetTypeName(at_type(d)) + "&";
+                default:
                     return at_name(d);
-
-                if (d.has(dwarf::DW_AT::type))
-                    return GetTypeName(at_type(d));
+                }
             }
             catch (...)
             {
@@ -749,8 +790,12 @@ namespace
             case dwarf::DW_TAG::formal_parameter:
             {
                 auto& v = m_Variables.emplace_back();
-                v.name = at_name(d);
-                v.type = GetTypeName(at_type(d));
+                try
+                {
+                    v.name = at_name(d);
+                    v.type = GetTypeName(at_type(d));
+                }
+                catch (...) {}
             }
             break;
             case dwarf::DW_TAG::subprogram:
@@ -763,9 +808,55 @@ namespace
             }
         }
 
+        std::string to_string(const std::vector<Variable>& vars)
+        {
+            std::stringstream ss;
+            bool first = true;
+            for (const auto& v : vars)
+            {
+                if (first)
+                {
+                    first = false;
+                }
+                else
+                {
+                    ss << ", ";
+                }
+                ss << v.type;
+            }
+            return ss.str();
+        }
+
+        std::vector<Variable> GetFormalParameters(const dwarf::die& d)
+        {
+            std::vector<Variable> res;
+            using namespace dwarf;
+            switch (d.tag)
+            {
+            case DW_TAG::subprogram:
+            case DW_TAG::inlined_subroutine:
+                for (const auto& c : d)
+                {
+                    if (c.tag == DW_TAG::formal_parameter)
+                    {
+                        auto& v = res.emplace_back();
+                        try
+                        {
+                            v.name = at_name(c);
+                            v.type = GetTypeName(at_type(c));
+                        }
+                        catch (...) {}
+                    }
+                }
+                break;
+            }
+            return res;
+        }
+
         void DoDebug(const Wasm::Processor& proc)
         {
-            std::vector<dwarf::die> stack;
+            using namespace dwarf;
+            std::vector<die> stack;
             auto ip = proc.get_Ip();
             auto it = m_Compiler.m_IpMap.find(ip);
             if (it == m_Compiler.m_IpMap.end())
@@ -778,48 +869,42 @@ namespace
 
             if (LookupSourceLine(myIp, stack))
             {
-                const auto& c = *m_CurrentLine;
-                if (c->line == 0) // ignore
-                {
-                    return;
-                }
                 // Update current state
                 auto stackHeight = m_CallStack.size();
-                auto r = die_pc_range(stack.front());
-                if (r.begin()->low == myIp)
+                m_CallStack.clear();
+                auto callStack = proc.m_CallStack;
+                callStack.push_back(ip);
+                for (auto addr : callStack)
                 {
-                    if (m_PrevLine)
+                    auto& call = m_CallStack.emplace_back();
+                    auto it2 = m_Compiler.m_IpMap.find(addr);
+                    if (it2 != m_Compiler.m_IpMap.end())
                     {
-                        m_ReturnLines.push(m_PrevLine);
-                    }
-                    m_CallStack.emplace_back();
+                        if (auto funcInfo = FindFunctionByPC(it2->second); funcInfo)
+                        {
+                            const auto& c = funcInfo->m_Line;
+                            call.m_FilePath = GetCanonicalPath(c->file->path);
+                            call.m_Line = c->line;
+                            call.m_Column = c->column;
+
+                            auto& d = funcInfo->m_Die;
+                            if (d.has(DW_AT::name))
+                            {
+                                std::stringstream ss;
+                                ss << m_ShaderName << '!' << at_name(d) << "(" << to_string(GetFormalParameters(d)) << ") Line " << c->line;
+                                call.m_Name = ss.str();
+                            }
+                            else
+                            {
+                                call.m_Name = "[External Code]";
+                            }
+                            continue;
+                        }
+                    } 
+                    std::stringstream ss;
+                    ss << std::hex << std::setw(8) << std::setfill('0') << addr << "()";
+                    call.m_Name = ss.str();
                 }
-                else if (!m_ReturnLines.empty())
-                {
-                    // TODO: this is a hack, i'm not sure if it is correct
-                    const auto& t = *m_ReturnLines.top();
-
-                    if (t->file_index == c->file_index && t->line == c->line)
-                    {
-                        m_ReturnLines.pop();
-                        m_CallStack.pop_back();
-                    }
-                }
-
-                assert(!m_CallStack.empty());
-                auto& call = m_CallStack.back();
-
-                call.m_Name = c->get_description();
-                if (!stack.empty())
-                {
-                    auto& d = stack.back();
-                    auto name = at_name(d);
-                    call.m_Name = name + " " + call.m_Name;
-                }
-
-                call.m_FilePath = GetCanonicalPath(c->file->path);
-                call.m_Line = c->line;
-                call.m_Column = c->column;
 
                 // Update variables
                 m_Variables.clear();
@@ -843,7 +928,7 @@ namespace
             {
             case Action::Continue:
 
-                if (const auto& call = m_CallStack.back(); 
+                if (const auto& call = m_CallStack.back();
                     c->is_stmt && m_Breakpoints[call.m_FilePath].count(call.m_Line))
                 {
                     EmitEvent(Event::BreakpointHit);
@@ -872,7 +957,7 @@ namespace
                 m_NextAction = Action::SteppingIn;
                 break;
             case Action::SteppingIn:
-                
+
                 EmitEvent(Event::Stepped);
                 break;
             case Action::StepOut:
@@ -918,7 +1003,6 @@ namespace
 
         std::vector<Variable> m_Variables;
         std::vector<Call> m_CallStack;
-        std::stack<std::shared_ptr<dwarf::line_table::iterator>> m_ReturnLines;
         size_t m_StackHeight = 0;
 
         std::unordered_map<std::string, std::unordered_set<int64_t>> m_Breakpoints;
@@ -943,8 +1027,8 @@ void TestDebugger(int argc, char* argv[])
     // This ensures sequences of \r\n are not changed to \n.
     _setmode(_fileno(stdin), _O_BINARY);
     _setmode(_fileno(stdout), _O_BINARY);
-
-    ::MessageBoxA(NULL, "Waiting", "Waiting caption", MB_OK);
+    LPCSTR str = boost::filesystem::system_complete(boost::filesystem::current_path()).string().c_str();
+    ::MessageBoxA(NULL, str, "Waiting", MB_OK);
 #endif  // OS_WINDOWS
 
     std::shared_ptr<dap::Writer> log;
@@ -1016,24 +1100,24 @@ void TestDebugger(int argc, char* argv[])
     // Handle errors reported by the Session. These errors include protocol
     // parsing errors and receiving messages with no handler.
     session->onError([&](const char* msg)
-    {
-        if (log)
         {
-            dap::writef(log, "dap::Session error: %s\n", msg);
-            log->close();
-        }
-        terminate.Fire();
-    });
+            if (log)
+            {
+                dap::writef(log, "dap::Session error: %s\n", msg);
+                log->close();
+            }
+            terminate.Fire();
+        });
 
     // The Initialize request is the first message sent from the client and
     // the response reports debugger capabilities.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Initialize
     session->registerHandler([](const dap::InitializeRequest&)
-    {
-        dap::InitializeResponse response;
-        response.supportsConfigurationDoneRequest = true;
-        return response;
-    });
+        {
+            dap::InitializeResponse response;
+            response.supportsConfigurationDoneRequest = true;
+            return response;
+        });
 
     // When the Initialize response has been sent, we need to send the initialized
     // event.
@@ -1042,22 +1126,22 @@ void TestDebugger(int argc, char* argv[])
     // https://microsoft.github.io/debug-adapter-protocol/specification#Events_Initialized
     session->registerSentHandler(
         [&](const dap::ResponseOrError<dap::InitializeResponse>&)
-    {
-        session->send(dap::InitializedEvent());
-    });
+        {
+            session->send(dap::InitializedEvent());
+        });
 
     // The Threads request queries the debugger's list of active threads.
     // This example debugger only exposes a single thread.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Threads
     session->registerHandler([&](const dap::ThreadsRequest&)
-    {
-        dap::ThreadsResponse response;
-        dap::Thread thread;
-        thread.id = threadId;
-        thread.name = "TheThread";
-        response.threads.push_back(thread);
-        return response;
-    });
+        {
+            dap::ThreadsResponse response;
+            dap::Thread thread;
+            thread.id = threadId;
+            thread.name = "TheThread";
+            response.threads.push_back(thread);
+            return response;
+        });
 
     // The StackTrace request reports the stack frames (call stack) for a given
     // thread. This example debugger only exposes a single stack frame for the
@@ -1066,33 +1150,34 @@ void TestDebugger(int argc, char* argv[])
     session->registerHandler(
         [&](const dap::StackTraceRequest& request)
         -> dap::ResponseOrError<dap::StackTraceResponse>
-    {
-        if (request.threadId != threadId) {
-            return dap::Error("Unknown threadId '%d'", int(request.threadId));
-        }
-
-        auto callStack = debugger.GetCallStack();
-        std::reverse(callStack.begin(), callStack.end());
-        dap::StackTraceResponse response;
-        for (const auto& entry : callStack)
         {
-            dap::Source source;
-            //source.sourceReference = sourceReferenceId;
-            source.name = entry.m_Name;
-            source.path = entry.m_FilePath;
+            if (request.threadId != threadId)
+            {
+                return dap::Error("Unknown threadId '%d'", int(request.threadId));
+            }
 
-            dap::StackFrame frame;
-            frame.line = entry.m_Line;
-            frame.column = entry.m_Column;
-            frame.name = entry.m_Name;
-            frame.id = frameId;
-            frame.source = source;
+            auto callStack = debugger.GetCallStack();
+            std::reverse(callStack.begin(), callStack.end());
+            dap::StackTraceResponse response;
+            for (const auto& entry : callStack)
+            {
+                dap::Source source;
+                //source.sourceReference = sourceReferenceId;
+                source.name = entry.m_Name;
+                source.path = entry.m_FilePath;
+
+                dap::StackFrame frame;
+                frame.line = entry.m_Line;
+                frame.column = entry.m_Column;
+                frame.name = entry.m_Name;
+                frame.id = frameId;
+                frame.source = source;
 
 
-            response.stackFrames.push_back(frame);
-        }
-        return response;
-    });
+                response.stackFrames.push_back(frame);
+            }
+            return response;
+        });
 
     // The Scopes request reports all the scopes of the given stack frame.
     // This example debugger only exposes a single 'Locals' scope for the single
@@ -1100,21 +1185,21 @@ void TestDebugger(int argc, char* argv[])
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Scopes
     session->registerHandler([&](const dap::ScopesRequest& request)
         -> dap::ResponseOrError<dap::ScopesResponse>
-    {
-        if (request.frameId != frameId)
         {
-            return dap::Error("Unknown frameId '%d'", int(request.frameId));
-        }
+            if (request.frameId != frameId)
+            {
+                return dap::Error("Unknown frameId '%d'", int(request.frameId));
+            }
 
-        dap::Scope scope;
-        scope.name = "Locals";
-        scope.presentationHint = "locals";
-        scope.variablesReference = variablesReferenceId;
+            dap::Scope scope;
+            scope.name = "Locals";
+            scope.presentationHint = "locals";
+            scope.variablesReference = variablesReferenceId;
 
-        dap::ScopesResponse response;
-        response.scopes.push_back(scope);
-        return response;
-    });
+            dap::ScopesResponse response;
+            response.scopes.push_back(scope);
+            return response;
+        });
 
     // The Variables request reports all the variables for the given scope.
     // This example debugger only exposes a single 'GetCurrentLine' variable for the
@@ -1122,125 +1207,125 @@ void TestDebugger(int argc, char* argv[])
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Variables
     session->registerHandler([&](const dap::VariablesRequest& request)
         -> dap::ResponseOrError<dap::VariablesResponse>
-    {
-        if (request.variablesReference != variablesReferenceId)
         {
-            return dap::Error("Unknown variablesReference '%d'",
-                int(request.variablesReference));
-        }
+            if (request.variablesReference != variablesReferenceId)
+            {
+                return dap::Error("Unknown variablesReference '%d'",
+                    int(request.variablesReference));
+            }
 
-        dap::VariablesResponse response;
-        auto variables = debugger.GetVariables();
-        for (const auto& v : variables)
-        {
-            auto& newVar = response.variables.emplace_back();
-            newVar.name = v.name;
-            newVar.type = v.type;
-            newVar.value = "unknown";
-        }
+            dap::VariablesResponse response;
+            auto variables = debugger.GetVariables();
+            for (const auto& v : variables)
+            {
+                auto& newVar = response.variables.emplace_back();
+                newVar.name = v.name;
+                newVar.type = v.type;
+                newVar.value = "unknown";
+            }
 
-        return response;
-    });
+            return response;
+        });
 
     // The Pause request instructs the debugger to Pause execution of one or all
     // threads.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Pause
     session->registerHandler([&](const dap::PauseRequest&)
-    {
-        debugger.Pause();
-        return dap::PauseResponse();
-    });
+        {
+            debugger.Pause();
+            return dap::PauseResponse();
+        });
 
     // The Continue request instructs the debugger to resume execution of one or
     // all threads.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Continue
     session->registerHandler([&](const dap::ContinueRequest&)
-    {
-        debugger.Run();
-        return dap::ContinueResponse();
-    });
+        {
+            debugger.Run();
+            return dap::ContinueResponse();
+        });
 
     // The Next request instructs the debugger to single line step for a specific
     // thread.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Next
     session->registerHandler([&](const dap::NextRequest&)
-    {
-        debugger.StepForward();
-        return dap::NextResponse();
-    });
+        {
+            debugger.StepForward();
+            return dap::NextResponse();
+        });
 
     // The StepIn request instructs the debugger to step-in for a specific thread.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StepIn
     session->registerHandler([&](const dap::StepInRequest&)
-    {
-        // Step-in treated as step-over as there's only one stack frame.
-        debugger.StepIn();
-        return dap::StepInResponse();
-    });
+        {
+            // Step-in treated as step-over as there's only one stack frame.
+            debugger.StepIn();
+            return dap::StepInResponse();
+        });
 
     // The StepOut request instructs the debugger to step-out for a specific
     // thread.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StepOut
     session->registerHandler([&](const dap::StepOutRequest&)
-    {
-        // Step-out is not supported as there's only one stack frame.
-        debugger.StepOut();
-        return dap::StepOutResponse();
-    });
+        {
+            // Step-out is not supported as there's only one stack frame.
+            debugger.StepOut();
+            return dap::StepOutResponse();
+        });
 
     // The SetBreakpoints request instructs the debugger to clear and set a number
     // of line breakpoints for a specific source file.
     // This example debugger only exposes a single source file.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_SetBreakpoints
     session->registerHandler([&](const dap::SetBreakpointsRequest& request)
-    {
-        dap::SetBreakpointsResponse response;
-        auto breakpoints = request.breakpoints.value({});
-        if (request.source.path)
         {
-            auto path = GetCanonicalPath(*request.source.path);
-            debugger.ClearBreakpoints(path);
-            response.breakpoints.resize(breakpoints.size());
-            for (size_t i = 0; i < breakpoints.size(); i++) {
-                auto [id, verified] = debugger.AddBreakpoint(path, breakpoints[i].line);
-                response.breakpoints[i].id = id;
-                response.breakpoints[i].line = breakpoints[i].line;
-                response.breakpoints[i].column = breakpoints[i].column;
-                response.breakpoints[i].verified = verified;
+            dap::SetBreakpointsResponse response;
+            auto breakpoints = request.breakpoints.value({});
+            if (request.source.path)
+            {
+                auto path = GetCanonicalPath(*request.source.path);
+                debugger.ClearBreakpoints(path);
+                response.breakpoints.resize(breakpoints.size());
+                for (size_t i = 0; i < breakpoints.size(); i++) {
+                    auto [id, verified] = debugger.AddBreakpoint(path, breakpoints[i].line);
+                    response.breakpoints[i].id = id;
+                    response.breakpoints[i].line = breakpoints[i].line;
+                    response.breakpoints[i].column = breakpoints[i].column;
+                    response.breakpoints[i].verified = verified;
+                }
             }
-        }
-        else
-        {
-            response.breakpoints.resize(breakpoints.size());
-        }
+            else
+            {
+                response.breakpoints.resize(breakpoints.size());
+            }
 
-        return response;
-    });
+            return response;
+        });
 
     // The SetExceptionBreakpoints request configures the debugger's handling of
     // thrown exceptions.
     // This example debugger does not use any exceptions, so this is a no-op.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_SetExceptionBreakpoints
     session->registerHandler([&](const dap::SetExceptionBreakpointsRequest&)
-    {
-        return dap::SetExceptionBreakpointsResponse();
-    });
+        {
+            return dap::SetExceptionBreakpointsResponse();
+        });
 
     // The Source request retrieves the source code for a given source file.
     // This example debugger only exposes one synthetic source file.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Source
     session->registerHandler([&](const dap::SourceRequest& request)
         -> dap::ResponseOrError<dap::SourceResponse>
-    {
-        if (request.sourceReference != sourceReferenceId) {
-            return dap::Error("Unknown source reference '%d'",
-                int(request.sourceReference));
-        }
+        {
+            if (request.sourceReference != sourceReferenceId) {
+                return dap::Error("Unknown source reference '%d'",
+                    int(request.sourceReference));
+            }
 
-        dap::SourceResponse response;
-        response.content = "test";//sourceContent;
-        return response;
-    });
+            dap::SourceResponse response;
+            response.content = "test";//sourceContent;
+            return response;
+        });
 
     // The Launch request is made when the client instructs the debugger adapter
     // to start the debuggee. This request contains the launch arguments.
@@ -1248,30 +1333,30 @@ void TestDebugger(int argc, char* argv[])
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Launch
     session->registerHandler(
         [&](const dap::LaunchRequest& req)
-    {
-        req;
-        return dap::LaunchResponse();
-    });
+        {
+            req;
+            return dap::LaunchResponse();
+        });
 
     // Handler for disconnect requests
     session->registerHandler([&](const dap::DisconnectRequest& request)
-    {
-        if (request.terminateDebuggee.value(false))
         {
-            terminate.Fire();
-        }
-        return dap::DisconnectResponse();
-    });
+            if (request.terminateDebuggee.value(false))
+            {
+                terminate.Fire();
+            }
+            return dap::DisconnectResponse();
+        });
 
     // The ConfigurationDone request is made by the client once all configuration
     // requests have been made.
     // This example debugger uses this request to 'start' the debugger.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_ConfigurationDone
     session->registerHandler([&](const dap::ConfigurationDoneRequest&)
-    {
-        configured.Fire();
-        return dap::ConfigurationDoneResponse();
-    });
+        {
+            configured.Fire();
+            return dap::ConfigurationDoneResponse();
+        });
 
     // All the handlers we care about have now been registered.
     // We now bind the session to stdin and stdout to connect to the client.
@@ -1297,7 +1382,7 @@ void TestDebugger(int argc, char* argv[])
     threadStartedEvent.threadId = threadId;
     session->send(threadStartedEvent);
 
-    auto walletDB = createWalletDB("c:\\Data\\Projects\\Beam\\beam-ee5.2RC\\wallet\\unittests\\wallet.db", true);
+    auto walletDB = createWalletDB("wallet.db", true);
     auto binaryTreasury = createTreasury(walletDB, { 300'000'000'000UL, 300'000'000'000UL });
 
 

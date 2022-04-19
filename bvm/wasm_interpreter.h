@@ -359,6 +359,8 @@ namespace Wasm {
 #endif // WASM_INTERPRETER_DEBUG
 		} m_Stack;
 
+		std::vector<Word> m_CallStack;
+
 #ifdef WASM_INTERPRETER_DEBUG
 		struct Dbg
 		{

@@ -1957,6 +1957,7 @@ namespace Wasm {
 		Word nAddr = ReadAddr();
 		Word nRetAddr = get_Ip();
 		m_Stack.Push(nRetAddr);
+		m_CallStack.push_back(nRetAddr);
 		OnCall(nAddr);
 	}
 
@@ -1999,6 +2000,7 @@ namespace Wasm {
 
 		Word nRetAddr = get_Ip();
 		m_Stack.Push(nRetAddr);
+		m_CallStack.push_back(nRetAddr);
 		OnCall(nAddr);
 	}
 
@@ -2049,6 +2051,11 @@ namespace Wasm {
 
 
 		m_Stack.m_Pos = nPosRetDst + nRets;
+		if (!m_CallStack.empty())
+		{
+			Test(m_CallStack.back() == nRetAddr);
+			m_CallStack.pop_back();
+		}
 		OnRet(nRetAddr);
 	}
 
