@@ -612,6 +612,7 @@ namespace
         {
             std::string name;
             std::string type;
+            std::string value;
         };
 
         struct Call
@@ -771,6 +772,8 @@ namespace
                     return GetTypeName(at_type(d)) + "*";
                 case DW_TAG::reference_type:
                     return GetTypeName(at_type(d)) + "&";
+                case DW_TAG::rvalue_reference_type:
+                    return GetTypeName(at_type(d)) + "&&";
                 default:
                     return at_name(d);
                 }
@@ -782,24 +785,43 @@ namespace
             return {};
         }
 
+        struct MyContext : dwarf::expr_context
+        {
+            dwarf::taddr reg(unsigned regnum) override
+            {
+                return 0;
+            }
+        };
+
         void DumpVariables(const dwarf::die& d)
         {
+            using namespace dwarf;
             switch (d.tag)
             {
-            case dwarf::DW_TAG::variable:
-            case dwarf::DW_TAG::formal_parameter:
+            case DW_TAG::variable:
+            case DW_TAG::formal_parameter:
             {
                 auto& v = m_Variables.emplace_back();
                 try
                 {
-                    v.name = at_name(d);
+                    if (d.has(DW_AT::name))
+                    {
+                        v.name = at_name(d);
+                    }
                     v.type = GetTypeName(at_type(d));
+                    /*if (d.has(DW_AT::location))
+                    {
+                        auto expr = d[DW_AT::location].as_exprloc();
+                        MyContext ctx;
+                        auto res = expr.evaluate(&ctx);
+                        v.value = std::to_string(res.value);
+                    }*/
                 }
                 catch (...) {}
             }
             break;
-            case dwarf::DW_TAG::subprogram:
-            case dwarf::DW_TAG::inlined_subroutine:
+            case DW_TAG::subprogram:
+            case DW_TAG::inlined_subroutine:
                 for (const auto& c : d)
                 {
                     DumpVariables(c);
@@ -839,10 +861,17 @@ namespace
                 {
                     if (c.tag == DW_TAG::formal_parameter)
                     {
+                        if (c.has(DW_AT::artificial) && at_artificial(c) == true)
+                        {
+                            continue;
+                        }
                         auto& v = res.emplace_back();
                         try
                         {
-                            v.name = at_name(c);
+                            if (c.has(DW_AT::name))
+                            {
+                                v.name = at_name(c);
+                            }
                             v.type = GetTypeName(at_type(c));
                         }
                         catch (...) {}
@@ -888,6 +917,11 @@ namespace
                             call.m_Column = c->column;
 
                             auto& d = funcInfo->m_Die;
+                            if (d.has(DW_AT::specification))
+                            {
+                                d = at_specification(d);
+                            }
+
                             if (d.has(DW_AT::name))
                             {
                                 std::stringstream ss;
