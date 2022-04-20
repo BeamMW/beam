@@ -229,6 +229,65 @@ namespace
 
     protected:
 
+        bool FindFunctionByPC2(const dwarf::die& d, dwarf::taddr pc, std::vector<dwarf::die>& stack)
+        {
+            using namespace dwarf;
+
+            // Scan children first to find most specific DIE
+            bool found = false;
+            for (auto& child : d)
+            {
+                found = FindFunctionByPC2(child, pc, stack);
+                if (found)
+                {
+                    auto s = DumpDIE(child);
+                    s;
+                    break;
+                }
+            }
+            switch (d.tag)
+            {
+            case DW_TAG::subprogram:
+                try
+                {
+                    if (die_pc_range(d).contains(pc))
+                    {
+                        found = true;
+                        stack.push_back(d);
+                    }
+                }
+                catch (const out_of_range&)
+                {
+                }
+                catch (const value_type_mismatch&)
+                {
+                }
+                break;
+            case DW_TAG::inlined_subroutine:
+                try
+                {
+                    if (die_pc_range(d).contains(pc))
+                    {
+                        if (found && stack.back().tag == DW_TAG::inlined_subroutine || !found)
+                        {
+                            found = true;
+                            stack.push_back(d);
+                        }
+                    }
+                }
+                catch (const out_of_range&)
+                {
+                }
+                catch (const value_type_mismatch&)
+                {
+                }
+                break;
+            default:
+                break;
+            }
+            return found;
+        }
+
         bool FindFunctionByPC(const dwarf::die& d, dwarf::taddr pc, std::vector<dwarf::die>& stack)
         {
             using namespace dwarf;
@@ -239,12 +298,14 @@ namespace
             {
                 found = FindFunctionByPC(child, pc, stack);
                 if (found)
+                {
+                    auto s = DumpDIE(child);
+                    s;
                     break;
+                }
             }
             switch (d.tag)
             {
-                //case DW_TAG::variable:
-                //case DW_TAG::formal_parameter:
             case DW_TAG::subprogram:
             case DW_TAG::inlined_subroutine:
                 try
@@ -268,32 +329,32 @@ namespace
             return found;
         }
 
-        void DumpDIE(const dwarf::die& node, int intent = 0)
+        std::string DumpDIE(const dwarf::die& node, int intent = 0)
         {
-            //for (int i = 0; i < intent; ++i)
-            //	printf("      ");
-            //printf("<%" PRIx64 "> %s\n",
-            //	node.get_section_offset(),
-            //	to_string(node.tag).c_str());
-            //for (auto& attr : node.attributes())
-            //{
-            //	for (int i = 0; i < intent; ++i)
-            //		printf("      ");
+            std::stringstream ss;
+            for (int i = 0; i < intent; ++i)
+                ss << "      ";
+            ss << "<" << node.get_section_offset() << "> " 
+               << to_string(node.tag) << '\n';
+            
+            for (auto& attr : node.attributes())
+            {
+                for (int i = 0; i < intent; ++i)
+                    ss << "      ";
 
-            //	printf("      %s %s\n",
-            //		to_string(attr.first).c_str(),
-            //		to_string(attr.second).c_str());
-            //}
+                ss << "      " << to_string(attr.first) << " " 
+                   << to_string(attr.second) << '\n';
+            }
 
 
-            //for (const auto& child : node)
-            //	DumpDIE(child, intent + 1);
-
+            for (const auto& child : node)
+                ss << DumpDIE(child, intent + 1);
+            return ss.str();
         }
 
         struct FunctionInfo
         {
-            dwarf::die m_Die;
+            std::vector<dwarf::die> m_Dies;
             dwarf::line_table::iterator m_Line;
         };
 
@@ -312,9 +373,9 @@ namespace
                     }
 
                     vector<dwarf::die> stack;
-                    if (FindFunctionByPC(cu.root(), pc, stack))
+                    if (FindFunctionByPC2(cu.root(), pc, stack))
                     {
-                        return FunctionInfo{ stack.back(), it };
+                        return FunctionInfo{ std::move(stack), it };
                     }
                     break;
                 }
@@ -905,38 +966,64 @@ namespace
                 callStack.push_back(ip);
                 for (auto addr : callStack)
                 {
-                    auto& call = m_CallStack.emplace_back();
                     auto it2 = m_Compiler.m_IpMap.find(addr);
                     if (it2 != m_Compiler.m_IpMap.end())
                     {
                         if (auto funcInfo = FindFunctionByPC(it2->second); funcInfo)
                         {
                             const auto& c = funcInfo->m_Line;
-                            call.m_FilePath = GetCanonicalPath(c->file->path);
-                            call.m_Line = c->line;
-                            call.m_Column = c->column;
+                            uint64_t line = c->line;
+                            uint64_t column = c->column;
+                            std::string filePath = c->file->path;
+                            m_CallStack.resize(m_CallStack.size() + funcInfo->m_Dies.size());
+                            size_t i = m_CallStack.size() - 1;
+                            for (const auto& die : funcInfo->m_Dies)
+                            {
+                                auto& call = m_CallStack[i--];
+                                auto d = die;
+                                if (d.tag == DW_TAG::subprogram &&
+                                    d.has(DW_AT::specification))
+                                {
+                                    d = at_specification(d);
+                                }
+                                else if (d.tag == DW_TAG::inlined_subroutine)
+                                {
+                                    d = at_abstract_origin(d);
+                                }
 
-                            auto& d = funcInfo->m_Die;
-                            if (d.has(DW_AT::specification))
-                            {
-                                d = at_specification(d);
-                            }
-
-                            if (d.has(DW_AT::name))
-                            {
-                                std::stringstream ss;
-                                ss << m_ShaderName << '!' << at_name(d) << "(" << to_string(GetFormalParameters(d)) << ") Line " << c->line;
-                                call.m_Name = ss.str();
-                            }
-                            else
-                            {
-                                call.m_Name = "[External Code]";
+                                if (d.has(DW_AT::name))
+                                {
+                                    std::stringstream ss;
+                                    ss << m_ShaderName << '!' << at_name(d) << "(" << to_string(GetFormalParameters(d)) << ") Line " << line;
+                                    call.m_Name = ss.str();
+                                    call.m_FilePath = GetCanonicalPath(filePath);
+                                    call.m_Line = line;
+                                    call.m_Column = column;
+                                }
+                                else
+                                {
+                                    call.m_Name = "[External Code]";
+                                }
+                                if (die.tag == DW_TAG::inlined_subroutine)
+                                {
+                                    if (die.has(DW_AT::call_file))
+                                    {
+                                        auto fileIndex = (unsigned int)die[DW_AT::call_file].as_uconstant();
+                                        const auto& lineTable = dynamic_cast<const compilation_unit&>(die.get_unit()).get_line_table();
+                                        filePath = lineTable.get_file(fileIndex)->path;
+                                    }
+                                    if (die.has(DW_AT::call_line))
+                                        line = die[DW_AT::call_line].as_uconstant();
+                                    if (die.has(DW_AT::call_column))
+                                        column = die[DW_AT::call_column].as_uconstant();
+                                }
                             }
                             continue;
                         }
                     } 
                     std::stringstream ss;
                     ss << std::hex << std::setw(8) << std::setfill('0') << addr << "()";
+                    auto& call = m_CallStack.emplace_back();
                     call.m_Name = ss.str();
                 }
 
