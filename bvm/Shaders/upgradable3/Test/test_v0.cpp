@@ -23,7 +23,7 @@ uint32_t Upgradable3::get_CurrentVersion()
 }
 
 
-BEAM_EXPORT void Method_3(const Upgradable2::Test::SomeMethod& r)
+BEAM_EXPORT void Method_3(const Upgradable3::Test::SomeMethod& r)
 {
     Env::Halt_if(r.m_ExpectedVer != 0);
 }
