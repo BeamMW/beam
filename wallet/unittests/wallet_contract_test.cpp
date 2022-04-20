@@ -229,6 +229,12 @@ namespace
 
     protected:
 
+        bool ContainsPC(const dwarf::die& d, dwarf::taddr pc) const
+        {
+            using namespace dwarf;
+            return (d.has(DW_AT::low_pc) || d.has(DW_AT::ranges)) && die_pc_range(d).contains(pc);
+        }
+
         bool FindFunctionByPC2(const dwarf::die& d, dwarf::taddr pc, std::vector<dwarf::die>& stack)
         {
             using namespace dwarf;
@@ -250,7 +256,7 @@ namespace
             case DW_TAG::subprogram:
                 try
                 {
-                    if (die_pc_range(d).contains(pc))
+                    if (ContainsPC(d, pc))
                     {
                         found = true;
                         stack.push_back(d);
@@ -266,7 +272,7 @@ namespace
             case DW_TAG::inlined_subroutine:
                 try
                 {
-                    if (die_pc_range(d).contains(pc))
+                    if (ContainsPC(d, pc))
                     {
                         if (found && stack.back().tag == DW_TAG::inlined_subroutine || !found)
                         {
@@ -310,7 +316,7 @@ namespace
             case DW_TAG::inlined_subroutine:
                 try
                 {
-                    if (found || die_pc_range(d).contains(pc))
+                    if (found || ContainsPC(d, pc))
                     {
                         found = true;
                         stack.push_back(d);
@@ -362,7 +368,7 @@ namespace
         {
             for (auto& cu : m_DebugInfo->compilation_units())
             {
-                if (die_pc_range(cu.root()).contains(pc))
+                if (ContainsPC(cu.root(), pc))
                 {
                     // Map PC to a line
                     auto& lt = cu.get_line_table();
@@ -387,7 +393,7 @@ namespace
         {
             for (auto& cu : m_DebugInfo->compilation_units())
             {
-                if (die_pc_range(cu.root()).contains(pc))
+                if (ContainsPC(cu.root(), pc))
                 {
                     // Map PC to a line
                     auto& lt = cu.get_line_table();
@@ -676,12 +682,14 @@ namespace
             std::string value;
         };
 
-        struct Call
+        struct Frame
         {
             std::string m_Name;
             int64_t m_Line = 1;
             int64_t m_Column = 1;
             std::string m_FilePath;
+            int64_t m_ID;
+            dwarf::die m_Die;
         };
 
         enum class Action
@@ -801,16 +809,44 @@ namespace
             return m_CallStack.back().m_Column;
         }
 
-        std::vector<Debugger::Call> GetCallStack() const
+        std::vector<Debugger::Frame> GetCallStack() const
         {
             std::unique_lock lock(m_Mutex);
             return m_CallStack;
         }
 
-        std::vector<Variable> GetVariables()
+        const Frame* FindFrameByID(int64_t frameID) const
+        {
+            for (const auto& frame : m_CallStack)
+            {
+                if (frameID == frame.m_ID)
+                {
+                    return &frame;
+                }
+            }
+            return nullptr;
+        }
+
+        int64_t GetVariableReferenceID(int64_t frameID) const
         {
             std::unique_lock lock(m_Mutex);
-            return m_Variables;
+            auto f = FindFrameByID(frameID);
+            if (f)
+            {
+                return f->m_ID;
+            }
+            return -1;
+        }
+
+        std::optional<std::vector<Variable>> GetVariables(int64_t id) const
+        {
+            std::unique_lock lock(m_Mutex);
+            auto f = FindFrameByID(id);
+            if (!f)
+            {
+                return {};
+            }
+            return LoadVariables(f->m_Die);
         }
 
         const std::string& GetFilePath() const
@@ -820,7 +856,7 @@ namespace
             return m_CallStack.back().m_FilePath;
         }
 
-        std::string GetTypeName(const dwarf::die& d)
+        std::string GetTypeName(const dwarf::die& d) const
         {
             using namespace dwarf;
             try
@@ -854,41 +890,42 @@ namespace
             }
         };
 
-        void DumpVariables(const dwarf::die& d)
+        std::vector<Variable> LoadVariables(const dwarf::die& d) const
         {
+            std::vector<Variable> res;
             using namespace dwarf;
             switch (d.tag)
             {
-            case DW_TAG::variable:
-            case DW_TAG::formal_parameter:
-            {
-                auto& v = m_Variables.emplace_back();
-                try
-                {
-                    if (d.has(DW_AT::name))
-                    {
-                        v.name = at_name(d);
-                    }
-                    v.type = GetTypeName(at_type(d));
-                    /*if (d.has(DW_AT::location))
-                    {
-                        auto expr = d[DW_AT::location].as_exprloc();
-                        MyContext ctx;
-                        auto res = expr.evaluate(&ctx);
-                        v.value = std::to_string(res.value);
-                    }*/
-                }
-                catch (...) {}
-            }
-            break;
             case DW_TAG::subprogram:
             case DW_TAG::inlined_subroutine:
                 for (const auto& c : d)
                 {
-                    DumpVariables(c);
+                    if (c.tag == DW_TAG::formal_parameter ||
+                        c.tag == DW_TAG::variable)
+                    {
+                        auto& v = res.emplace_back();
+                        try
+                        {
+                            if (c.has(DW_AT::name))
+                            {
+                                v.name = at_name(c);
+                            }
+                            v.type = GetTypeName(at_type(c));
+                            v.value = "unknown";
+                            /*if (d.has(DW_AT::location))
+                            {
+                                auto expr = d[DW_AT::location].as_exprloc();
+                                MyContext ctx;
+                                auto res = expr.evaluate(&ctx);
+                                v.value = std::to_string(res.value);
+                            }*/
+                        }
+                        catch (...) {}
+                    }
                 }
                 break;
             }
+            return res;
         }
 
         std::string to_string(const std::vector<Variable>& vars)
@@ -979,7 +1016,8 @@ namespace
                             size_t i = m_CallStack.size() - 1;
                             for (const auto& die : funcInfo->m_Dies)
                             {
-                                auto& call = m_CallStack[i--];
+                                auto& frame = m_CallStack[i--];
+                                frame.m_Die = die;
                                 auto d = die;
                                 if (d.tag == DW_TAG::subprogram &&
                                     d.has(DW_AT::specification))
@@ -995,14 +1033,15 @@ namespace
                                 {
                                     std::stringstream ss;
                                     ss << m_ShaderName << '!' << at_name(d) << "(" << to_string(GetFormalParameters(d)) << ") Line " << line;
-                                    call.m_Name = ss.str();
-                                    call.m_FilePath = GetCanonicalPath(filePath);
-                                    call.m_Line = line;
-                                    call.m_Column = column;
+                                    frame.m_Name = ss.str();
+                                    frame.m_FilePath = GetCanonicalPath(filePath);
+                                    frame.m_Line = line;
+                                    frame.m_Column = column;
+                                    frame.m_ID = it2->second;
                                 }
                                 else
                                 {
-                                    call.m_Name = "[External Code]";
+                                    frame.m_Name = "[External Code]";
                                 }
                                 if (die.tag == DW_TAG::inlined_subroutine)
                                 {
@@ -1023,15 +1062,8 @@ namespace
                     } 
                     std::stringstream ss;
                     ss << std::hex << std::setw(8) << std::setfill('0') << addr << "()";
-                    auto& call = m_CallStack.emplace_back();
-                    call.m_Name = ss.str();
-                }
-
-                // Update variables
-                m_Variables.clear();
-                for (auto& d : stack)
-                {
-                    DumpVariables(d);
+                    auto& frame = m_CallStack.emplace_back();
+                    frame.m_Name = ss.str();
                 }
 
                 // Process user's action
@@ -1122,8 +1154,7 @@ namespace
         std::condition_variable m_BvmEvent;
         std::condition_variable m_DapEvent;
 
-        std::vector<Variable> m_Variables;
-        std::vector<Call> m_CallStack;
+        std::vector<Frame> m_CallStack;
         size_t m_StackHeight = 0;
 
         std::unordered_map<std::string, std::unordered_set<int64_t>> m_Breakpoints;
@@ -1291,9 +1322,8 @@ void TestDebugger(int argc, char* argv[])
                 frame.line = entry.m_Line;
                 frame.column = entry.m_Column;
                 frame.name = entry.m_Name;
-                frame.id = frameId;
+                frame.id = entry.m_ID;
                 frame.source = source;
-
 
                 response.stackFrames.push_back(frame);
             }
@@ -1307,17 +1337,18 @@ void TestDebugger(int argc, char* argv[])
     session->registerHandler([&](const dap::ScopesRequest& request)
         -> dap::ResponseOrError<dap::ScopesResponse>
         {
-            if (request.frameId != frameId)
+            auto id = debugger.GetVariableReferenceID(request.frameId);
+            if (request.frameId == -1)
             {
                 return dap::Error("Unknown frameId '%d'", int(request.frameId));
             }
 
+            dap::ScopesResponse response;
+
             dap::Scope scope;
             scope.name = "Locals";
             scope.presentationHint = "locals";
-            scope.variablesReference = variablesReferenceId;
-
-            dap::ScopesResponse response;
+            scope.variablesReference = id;
             response.scopes.push_back(scope);
             return response;
         });
@@ -1329,20 +1360,20 @@ void TestDebugger(int argc, char* argv[])
     session->registerHandler([&](const dap::VariablesRequest& request)
         -> dap::ResponseOrError<dap::VariablesResponse>
         {
-            if (request.variablesReference != variablesReferenceId)
+            auto variables = debugger.GetVariables(request.variablesReference);
+            if (!variables)
             {
                 return dap::Error("Unknown variablesReference '%d'",
                     int(request.variablesReference));
             }
 
             dap::VariablesResponse response;
-            auto variables = debugger.GetVariables();
-            for (const auto& v : variables)
+            for (const auto& v : *variables)
             {
                 auto& newVar = response.variables.emplace_back();
                 newVar.name = v.name;
                 newVar.type = v.type;
-                newVar.value = "unknown";
+                newVar.value = v.value;
             }
 
             return response;
