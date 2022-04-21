@@ -688,6 +688,7 @@ namespace
             int64_t m_Line = 1;
             int64_t m_Column = 1;
             std::string m_FilePath;
+            dwarf::taddr m_FrameBase;
             int64_t m_ID;
             dwarf::die m_Die;
         };
@@ -846,7 +847,7 @@ namespace
             {
                 return {};
             }
-            return LoadVariables(f->m_Die);
+            return LoadVariables(*f);
         }
 
         const std::string& GetFilePath() const
@@ -884,21 +885,29 @@ namespace
 
         struct MyContext : dwarf::expr_context
         {
+            dwarf::taddr m_fb;
+            MyContext(dwarf::taddr fb) 
+                : m_fb(fb)
+            {}
+            dwarf::taddr fbreg() override
+            {
+                return m_fb;
+            }
             dwarf::taddr reg(unsigned regnum) override
             {
                 return 0;
             }
         };
 
-        std::vector<Variable> LoadVariables(const dwarf::die& d) const
+        std::vector<Variable> LoadVariables(const Frame& frame) const
         {
             std::vector<Variable> res;
             using namespace dwarf;
-            switch (d.tag)
+            switch (frame.m_Die.tag)
             {
             case DW_TAG::subprogram:
             case DW_TAG::inlined_subroutine:
-                for (const auto& c : d)
+                for (const auto& c : frame.m_Die)
                 {
                     if (c.tag == DW_TAG::formal_parameter ||
                         c.tag == DW_TAG::variable)
@@ -910,15 +919,22 @@ namespace
                             {
                                 v.name = at_name(c);
                             }
-                            v.type = GetTypeName(at_type(c));
+                            auto type = at_type(c);
+                            v.type = GetTypeName(type);
                             v.value = "unknown";
-                            /*if (d.has(DW_AT::location))
+                            if (c.has(DW_AT::location))
                             {
-                                auto expr = d[DW_AT::location].as_exprloc();
-                                MyContext ctx;
-                                auto res = expr.evaluate(&ctx);
-                                v.value = std::to_string(res.value);
-                            }*/
+                                auto expr = c[DW_AT::location].as_exprloc();
+                                MyContext ctx(frame.m_FrameBase);
+                                auto val = expr.evaluate(&ctx, 0);
+                                if (type.has(DW_AT::byte_size) && type.has(DW_AT::encoding))
+                                {
+                                    auto size = at_byte_size(type, &ctx);
+                                    size;
+                                }
+
+                                v.value = std::to_string(Wasm::from_wasm(*reinterpret_cast<int32_t*>(val.value)));
+                            }
                         }
                         catch (...) {}
                     }
@@ -999,7 +1015,13 @@ namespace
                 // Update current state
                 auto stackHeight = m_CallStack.size();
                 m_CallStack.clear();
-                auto callStack = proc.m_CallStack;
+                std::vector<taddr> callStack;
+                callStack.reserve(proc.m_CallStack.size());
+                for (auto p : proc.m_CallStack)
+                {
+                    callStack.push_back(proc.m_Stack.m_pPtr[p]);
+                }
+
                 callStack.push_back(ip);
                 for (auto addr : callStack)
                 {
@@ -1017,6 +1039,18 @@ namespace
                             for (const auto& die : funcInfo->m_Dies)
                             {
                                 auto& frame = m_CallStack[i--];
+                                auto addressPos = (i < proc.m_CallStack.size()) ? proc.m_CallStack[i] : 0;
+                                if (proc.m_Stack.m_Pos <= addressPos)
+                                {
+                                    return;
+                                }
+                                auto framePos = proc.m_Stack.m_pPtr[addressPos + 1];
+                                if ((framePos & Wasm::MemoryType::Mask) != Wasm::MemoryType::Stack)
+                                {
+                                    return;
+                                }
+                                framePos &= ~Wasm::MemoryType::Mask;
+                                auto frameBase = reinterpret_cast<uint8_t*>(proc.m_Stack.m_pPtr) + framePos;
                                 frame.m_Die = die;
                                 auto d = die;
                                 if (d.tag == DW_TAG::subprogram &&
@@ -1038,6 +1072,7 @@ namespace
                                     frame.m_Line = line;
                                     frame.m_Column = column;
                                     frame.m_ID = it2->second;
+                                    frame.m_FrameBase = reinterpret_cast<taddr>(frameBase);
                                 }
                                 else
                                 {
