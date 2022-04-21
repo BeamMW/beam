@@ -4115,9 +4115,10 @@ namespace
         WALLET_CHECK(v2.GetItem(8) == from_hex("5e4d1042028151a9b90c319602312510dea758f3c2e41e91eccc085aaa27fc6d")); // S
 
         {
+            Rlp::Node nodes[] = {v2.GetItem(0)};
             Rlp::Node tx
             {
-                {Rlp::Node{v2.GetItem(0)}},
+                nodes
             };
 
             ByteStream bs;
