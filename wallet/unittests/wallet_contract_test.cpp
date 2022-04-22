@@ -924,16 +924,21 @@ namespace
                             v.value = "unknown";
                             if (c.has(DW_AT::location))
                             {
-                                auto expr = c[DW_AT::location].as_exprloc();
-                                MyContext ctx(frame.m_FrameBase);
-                                auto val = expr.evaluate(&ctx, 0);
-                                if (type.has(DW_AT::byte_size) && type.has(DW_AT::encoding))
+                                auto loc = c[DW_AT::location];
+                                if (loc.get_type() == value::type::exprloc)
                                 {
-                                    auto size = at_byte_size(type, &ctx);
-                                    size;
-                                }
+                                    auto expr = loc.as_exprloc();
+                                    MyContext ctx(frame.m_FrameBase);
+                                    auto val = expr.evaluate(&ctx, 0);
+                                    if (type.has(DW_AT::byte_size) && type.has(DW_AT::encoding))
+                                    {
+                                        auto size = at_byte_size(type, &ctx);
+                                        size;
+                                    }
 
-                                v.value = std::to_string(Wasm::from_wasm(*reinterpret_cast<int32_t*>(val.value)));
+                                    v.value = std::to_string(Wasm::from_wasm(*reinterpret_cast<int32_t*>(val.value)));
+                                }
+                                
                             }
                         }
                         catch (...) {}
