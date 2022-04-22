@@ -909,7 +909,7 @@ namespace
             return -1;
         }
 
-        std::optional<std::vector<Variable>> GetVariables(int64_t id) const
+        std::optional<std::vector<Variable>> GetVariables(int64_t id, bool hex) const
         {
             std::unique_lock lock(m_Mutex);
             auto f = FindFrameByID(id);
@@ -917,7 +917,7 @@ namespace
             {
                 return {};
             }
-            return LoadVariables(*f);
+            return LoadVariables(*f, hex);
         }
 
         const std::string& GetFilePath() const
@@ -969,7 +969,7 @@ namespace
             }
         };
 
-        std::vector<Variable> LoadVariables(const Frame& frame) const
+        std::vector<Variable> LoadVariables(const Frame& frame, bool hex) const
         {
             std::vector<Variable> res;
             using namespace dwarf;
@@ -1006,7 +1006,13 @@ namespace
                                         size;
                                     }
 
-                                    v.value = std::to_string(Wasm::from_wasm(*reinterpret_cast<int32_t*>(val.value)));
+                                    std::stringstream ss;
+                                    if (hex)
+                                    {
+                                        ss << "0x" << std::hex << std::setw(8) << std::setfill('0');
+                                    }
+                                    ss << Wasm::from_wasm(*reinterpret_cast<int32_t*>(val.value));
+                                    v.value = ss.str();
                                 }
                                 
                             }
@@ -1477,7 +1483,8 @@ void TestDebugger(int argc, char* argv[])
     session->registerHandler([&](const dap::VariablesRequest& request)
         -> dap::ResponseOrError<dap::VariablesResponse>
         {
-            auto variables = debugger.GetVariables(request.variablesReference);
+            bool hex = request.format && request.format->hex;
+            auto variables = debugger.GetVariables(request.variablesReference, hex);
             if (!variables)
             {
                 return dap::Error("Unknown variablesReference '%d'",
