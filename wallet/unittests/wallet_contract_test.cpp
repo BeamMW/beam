@@ -129,9 +129,9 @@ namespace
             m_Err = !!pExc;
 
             if (pExc)
-                std::cout << "Shader exec error: " << pExc->what() << std::endl;
+                std::clog << "Shader exec error: " << pExc->what() << std::endl;
             else
-                std::cout << "Shader output: " << m_Out.str() << std::endl;
+                std::clog << "Shader output: " << m_Out.str() << std::endl;
 
             if (m_Async)
                 io::Reactor::get_Current().stop();
@@ -180,7 +180,7 @@ namespace
         if (!args.empty())
             man.AddArgs(&args.front());
 
-        std::cout << "Executing shader..." << std::endl;
+        std::clog << "Executing shader..." << std::endl;
 
         man.StartRun(man.m_Args.empty() ? 0 : 1); // scheme if no args
 
@@ -684,13 +684,16 @@ namespace
 
         struct Frame
         {
+            bool m_HasInfo = false;
             std::string m_Name;
             int64_t m_Line = 1;
             int64_t m_Column = 1;
             std::string m_FilePath;
             dwarf::taddr m_FrameBase;
+            dwarf::taddr m_Address;
             int64_t m_ID;
             dwarf::die m_Die;
+            std::vector<Variable> m_Parameters;
         };
 
         enum class Action
@@ -762,14 +765,14 @@ namespace
         }
 
         // Sets a new breakpoint on the given line.
-        std::pair<size_t, bool> AddBreakpoint(const std::string& filePath, int64_t line)
+        std::pair<int32_t, bool> AddBreakpoint(const std::string& filePath, int64_t line)
         {
             std::unique_lock lock(m_Mutex);
             std::string filePathC = GetCanonicalPath(filePath);
             m_Breakpoints[filePathC].emplace(line);
             size_t id = std::hash<std::string>{}(filePathC);
             boost::hash_combine(id, line);
-            return { id, CanSetBreakpoint(filePath, line) };
+            return { static_cast<int32_t>(id), CanSetBreakpoint(filePath, line) };
         }
 
         bool CanSetBreakpoint(const std::string& filePath, int64_t line)
@@ -814,6 +817,73 @@ namespace
         {
             std::unique_lock lock(m_Mutex);
             return m_CallStack;
+        }
+
+        std::string GetStackTraceName(const Frame& frame, const dap::optional<dap::StackFrameFormat>& format)
+        {
+            std::stringstream ss;
+
+            bool showModules = (format && format->module && *format->module) || !format;
+            bool showTypes = (format && format->parameterTypes && *format->parameterTypes) || !format;
+            bool showNames = format&& format->parameterNames&&* format->parameterNames;
+            bool showValues = format&& format->parameterValues&&* format->parameterValues;
+            bool showParameters = (format && format->parameters && *format->parameters) || !format;
+            bool showLines = (format && format->line && *format->line) || !format;
+
+            if (showModules)
+            {
+                ss << m_ShaderName << '!';
+            }
+
+            if (frame.m_HasInfo)
+            {
+                ss << frame.m_Name;
+                if (showParameters)
+                {
+                    ss << '(';
+                    bool first = true;
+                    for (const auto& p : frame.m_Parameters)
+                    {
+                        if (first)
+                        {
+                            first = false;
+                        }
+                        else
+                        {
+                            ss << ", ";
+                        }
+                        if (showTypes)
+                        {
+                            ss << p.type;
+                        }
+                        if (showNames)
+                        {
+                            if (showTypes)
+                                ss << ' ';
+
+                            ss << p.name;
+                        }
+                        if (showValues)
+                        {
+                            if (showNames)
+                                ss << '=';
+
+                            ss << p.value;
+                        }
+                    }
+                    ss << ')';
+                }
+
+                if (showLines)
+                {
+                    ss << " Line " << frame.m_Line;
+                }
+            }
+            else
+            {
+                ss << std::hex << std::setw(8) << std::setfill('0') << frame.m_Address;
+            }
+            return ss.str();
         }
 
         const Frame* FindFrameByID(int64_t frameID) const
@@ -1056,6 +1126,7 @@ namespace
                                 }
                                 framePos &= ~Wasm::MemoryType::Mask;
                                 auto frameBase = reinterpret_cast<uint8_t*>(proc.m_Stack.m_pPtr) + framePos;
+                                frame.m_Address = addr;
                                 frame.m_Die = die;
                                 auto d = die;
                                 if (d.tag == DW_TAG::subprogram &&
@@ -1070,13 +1141,13 @@ namespace
 
                                 if (d.has(DW_AT::name))
                                 {
-                                    std::stringstream ss;
-                                    ss << m_ShaderName << '!' << at_name(d) << "(" << to_string(GetFormalParameters(d)) << ") Line " << line;
-                                    frame.m_Name = ss.str();
+                                    frame.m_HasInfo = true;
+                                    frame.m_Name = at_name(d);
                                     frame.m_FilePath = GetCanonicalPath(filePath);
                                     frame.m_Line = line;
                                     frame.m_Column = column;
                                     frame.m_ID = it2->second;
+                                    frame.m_Parameters = GetFormalParameters(d);
                                     frame.m_FrameBase = reinterpret_cast<taddr>(frameBase);
                                 }
                                 else
@@ -1104,6 +1175,7 @@ namespace
                     ss << std::hex << std::setw(8) << std::setfill('0') << addr << "()";
                     auto& frame = m_CallStack.emplace_back();
                     frame.m_Name = ss.str();
+                    frame.m_Address = addr;
                 }
 
                 // Process user's action
@@ -1271,7 +1343,7 @@ void TestDebugger(int argc, char* argv[])
         {
             // The debugger has been suspended. Inform the client.
             dap::StoppedEvent event;
-            event.reason = "Pause";
+            event.reason = "pause";
             event.threadId = threadId;
             session->send(event);
             break;
@@ -1304,10 +1376,11 @@ void TestDebugger(int argc, char* argv[])
     // The Initialize request is the first message sent from the client and
     // the response reports debugger capabilities.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Initialize
-    session->registerHandler([](const dap::InitializeRequest&)
+    session->registerHandler([](const dap::InitializeRequest& request)
         {
             dap::InitializeResponse response;
             response.supportsConfigurationDoneRequest = true;
+            response.supportsValueFormattingOptions = true;
             return response;
         });
 
@@ -1347,25 +1420,29 @@ void TestDebugger(int argc, char* argv[])
             {
                 return dap::Error("Unknown threadId '%d'", int(request.threadId));
             }
-
+            
             auto callStack = debugger.GetCallStack();
             std::reverse(callStack.begin(), callStack.end());
+
+            size_t startFrame = request.startFrame ? *request.startFrame : 0;
+            size_t endFrame = request.levels ? std::min(callStack.size(), static_cast<size_t>(*request.levels) + startFrame) : callStack.size();
+
             dap::StackTraceResponse response;
-            for (const auto& entry : callStack)
+            for (; startFrame < endFrame; ++startFrame)
             {
+                const auto& entry = callStack[startFrame];
                 dap::Source source;
-                //source.sourceReference = sourceReferenceId;
-                source.name = entry.m_Name;
+                if (entry.m_FilePath.empty())
+                    source.name = entry.m_Name;
                 source.path = entry.m_FilePath;
 
-                dap::StackFrame frame;
+                auto& frame = response.stackFrames.emplace_back();
                 frame.line = entry.m_Line;
                 frame.column = entry.m_Column;
-                frame.name = entry.m_Name;
+
+                frame.name = debugger.GetStackTraceName(entry, request.format);
                 frame.id = entry.m_ID;
                 frame.source = source;
-
-                response.stackFrames.push_back(frame);
             }
             return response;
         });
@@ -1478,7 +1555,8 @@ void TestDebugger(int argc, char* argv[])
                 auto path = GetCanonicalPath(*request.source.path);
                 debugger.ClearBreakpoints(path);
                 response.breakpoints.resize(breakpoints.size());
-                for (size_t i = 0; i < breakpoints.size(); i++) {
+                for (size_t i = 0; i < breakpoints.size(); i++)
+                {
                     auto [id, verified] = debugger.AddBreakpoint(path, breakpoints[i].line);
                     response.breakpoints[i].id = id;
                     response.breakpoints[i].line = breakpoints[i].line;
@@ -1509,7 +1587,8 @@ void TestDebugger(int argc, char* argv[])
     session->registerHandler([&](const dap::SourceRequest& request)
         -> dap::ResponseOrError<dap::SourceResponse>
         {
-            if (request.sourceReference != sourceReferenceId) {
+            if (request.sourceReference != sourceReferenceId)
+            {
                 return dap::Error("Unknown source reference '%d'",
                     int(request.sourceReference));
             }
@@ -1619,7 +1698,7 @@ void TestDebugger(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
-    const auto logLevel = LOG_LEVEL_DEBUG;
+    const auto logLevel = LOG_LEVEL_ERROR;
     const auto logger = beam::Logger::create(logLevel, logLevel);
     io::Reactor::Ptr reactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*reactor);
