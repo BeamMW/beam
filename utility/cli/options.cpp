@@ -367,8 +367,8 @@ namespace beam
         const char* IPFS_BOOTSTRAP     = "ipfs_bootstrap";
         const char* IPFS_SWARM_PORT    = "ipfs_swarm_port";
         const char* IPFS_STORAGE_MAX   = "ipfs_storage_max";
-        const char* IPFS_API_PORT      = "ipfs_api_port";
-        const char* IPFS_GATEWAY_PORT  = "ipfs_gateway_port";
+        const char* IPFS_API_ADDR      = "ipfs_api_addr";
+        const char* IPFS_GATEWAY_ADDR  = "ipfs_gateway_addr";
         const char* IPFS_AUTONAT       = "ipfs_autonat";
         const char* IPFS_AUTONAT_LIMIT = "ipfs_autonat_limit";
         const char* IPFS_AUTONAT_PEER_LIMIT = "ipfs_autonat_peer_limit";
@@ -640,8 +640,8 @@ namespace beam
             (cli::IPFS_SWARM_PORT,         po::value<uint32_t>()->default_value(defs.swarm_port), "Addresses.Swarm port")
             (cli::IPFS_STORAGE_MAX,        po::value<string>()->default_value(defs.storage_max), "Datastore.StorageMax")
             (cli::IPFS_BOOTSTRAP,          po::value<std::vector<string>>()->multitoken(), "Bootstrap nodes multiaddr space separated list")
-            (cli::IPFS_API_PORT,           po::value<uint32_t>()->default_value(defs.api_port), "Addresses.API port")
-            (cli::IPFS_GATEWAY_PORT,       po::value<uint32_t>()->default_value(defs.gateway_port), "Addresses.Gateway port")
+            (cli::IPFS_API_ADDR,           po::value<string>()->default_value(defs.api_address), "Addresses.API address")
+            (cli::IPFS_GATEWAY_ADDR,       po::value<string>()->default_value(defs.gateway_address), "Addresses.Gateway address")
             (cli::IPFS_AUTONAT,            po::value<bool>()->default_value(defs.autonat), "AutoNAT.ServiceMode as bool")
             (cli::IPFS_AUTONAT_LIMIT,      po::value<uint32_t>()->default_value(defs.autonat_limit), "AutoNAT.Throttle.GlobalLimit")
             (cli::IPFS_AUTONAT_PEER_LIMIT, po::value<uint32_t>()->default_value(defs.autonat_peer_limit), "AutoNAT.Throttle.PeerLimit")
@@ -666,8 +666,8 @@ namespace beam
         cfg.relay_hop = vm[cli::IPFS_RELAY_HOP].as<bool>();
         cfg.swarm_port = vm[cli::IPFS_SWARM_PORT].as<uint32_t>();
         cfg.storage_max = vm[cli::IPFS_STORAGE_MAX].as<string>();
-        cfg.api_port = vm[cli::IPFS_API_PORT].as<uint32_t>();
-        cfg.gateway_port = vm[cli::IPFS_GATEWAY_PORT].as<uint32_t>();
+        cfg.api_address = vm[cli::IPFS_API_ADDR].as<string>();
+        cfg.gateway_address = vm[cli::IPFS_GATEWAY_ADDR].as<string>();
         cfg.autonat = vm[cli::IPFS_AUTONAT].as<bool>();
         cfg.autonat_limit = vm[cli::IPFS_AUTONAT_LIMIT].as<uint32_t>();
         cfg.autonat_peer_limit = vm[cli::IPFS_AUTONAT_PEER_LIMIT].as<uint32_t>();
