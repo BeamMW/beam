@@ -35,7 +35,7 @@ namespace beam
     class WebSocketServer
     {
     public:
-        using SendFunc = std::function<void(const std::string&)>;
+        using SendFunc = std::function<void(std::string&&)>;
         using CloseFunc = std::function<void(std::string&&)>;
 
         struct Options
@@ -54,7 +54,7 @@ namespace beam
         struct ClientHandler
         {
             using Ptr = std::shared_ptr<ClientHandler>;
-            virtual void ReactorThread_onWSDataReceived(const std::string&) = 0;
+            virtual void ReactorThread_onWSDataReceived(std::string&&) = 0;
             virtual ~ClientHandler() = default;
         };
 

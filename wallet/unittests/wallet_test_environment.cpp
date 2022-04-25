@@ -34,7 +34,7 @@ struct EmptyTestGateway : wallet::INegotiatorGateway
     void OnAsyncFinished() override {}
     void on_tx_completed(const TxID&) override {}
     void on_tx_failed(const TxID&) override {}
-    void register_tx(const TxID&, Transaction::Ptr, wallet::SubTxID) override {}
+    void register_tx(const TxID&, const Transaction::Ptr&, const Merkle::Hash*, wallet::SubTxID) override {}
     void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID subTxID) override {}
     void confirm_asset(const TxID&, const PeerID&, SubTxID subTxID) override {}
     void confirm_asset(const TxID&, const Asset::ID, SubTxID subTxID) override {}
@@ -304,7 +304,7 @@ struct TestGateway : wallet::INegotiatorGateway
         cout << __FUNCTION__ << "\n";
     }
 
-    void register_tx(const TxID&, Transaction::Ptr, wallet::SubTxID) override
+    void register_tx(const TxID&, const Transaction::Ptr&, const Merkle::Hash*, wallet::SubTxID) override
     {
         cout << "sent tx registration request\n";
     }
@@ -377,13 +377,13 @@ public:
         m_Buffer.reserve(s);
     }
 private:
-    void register_tx(const TxID& txID, Transaction::Ptr tx, SubTxID subTxID = kDefaultSubTxID) override
+    void register_tx(const TxID& txID, const Transaction::Ptr& tx, const Merkle::Hash* pParentCtx, SubTxID subTxID = kDefaultSubTxID) override
     {
         m_FlushTimer->cancel();
         m_FlushTimer->start(1000, false, [this]() {FlushBuffer(); });
         if (m_Buffer.capacity() == 0)
         {
-            Wallet::SendTransactionToNode(txID, tx, subTxID);
+            Wallet::SendTransactionToNode(txID, tx, pParentCtx, subTxID);
             return;
         }
         
@@ -406,7 +406,7 @@ private:
     {
         for (const auto& t : m_Buffer)
         {
-            Wallet::SendTransactionToNode(std::get<0>(t), std::get<1>(t), std::get<2>(t));
+            Wallet::SendTransactionToNode(std::get<0>(t), std::get<1>(t), nullptr, std::get<2>(t));
         }
         m_Buffer.clear();
     }
@@ -1177,8 +1177,7 @@ private:
 
         void OnMsg(proto::Ping&& msg) override
         {
-            proto::Pong msgOut(Zero);
-            Send(msgOut);
+            Send(proto::Pong());
         }
 
         void OnMsg(proto::GetStateSummary&& msg) override

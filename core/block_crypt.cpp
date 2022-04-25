@@ -1365,6 +1365,7 @@ namespace beam
 		m_Commitment = v.m_Commitment;
 		m_Signature = v.m_Signature;
 		m_Args = v.m_Args;
+		m_Dependent = v.m_Dependent;
 	}
 
 	void TxKernelContractControl::HashSelfForMsg(ECC::Hash::Processor& hp) const
@@ -1380,7 +1381,18 @@ namespace beam
 		hp.Serialize(m_Signature);
 	}
 
-	void TxKernelContractControl::Sign(const ECC::Scalar::Native* pK, uint32_t nKeys, const ECC::Point::Native& ptFunds)
+	void TxKernelContractControl::Prepare(ECC::Hash::Processor& hp, const Merkle::Hash* pParentCtx) const
+	{
+		hp << m_Msg;
+		if (m_Dependent)
+		{
+			assert(pParentCtx);
+			if (m_Height.m_Min >= Rules::get().pForks[4].m_Height)
+				hp << *pParentCtx;
+		}
+	}
+
+	void TxKernelContractControl::Sign(const ECC::Scalar::Native* pK, uint32_t nKeys, const ECC::Point::Native& ptFunds, const Merkle::Hash* pParentCtx)
 	{
 		assert(nKeys);
 		ECC::Point::Native pt = ECC::Context::get().G * pK[nKeys - 1];
@@ -1390,7 +1402,7 @@ namespace beam
 		UpdateMsg();
 
 		ECC::Hash::Processor hp;
-		hp << m_Msg;
+		Prepare(hp, pParentCtx);
 
 		for (uint32_t i = 0; i + 1 < nKeys; i++)
 		{
@@ -1874,9 +1886,10 @@ namespace beam
 		pForks[1].m_Height = 270910; // testnet fork
 		pForks[2].m_Height = 690000;
         pForks[3].m_Height = 1135300;
+        pForks[4].m_Height = 1646000;
 
 		// future forks
-		for (size_t i = 4; i < _countof(pForks); i++)
+		for (size_t i = 5; i < _countof(pForks); i++)
 			pForks[i].m_Height = MaxHeight;
 	}
 

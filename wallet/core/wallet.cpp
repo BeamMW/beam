@@ -250,7 +250,7 @@ namespace beam::wallet
         m_NodeEndpoint = std::move(nodeEndpoint);
     }
 
-    proto::FlyClient::INetwork::Ptr  Wallet::GetNodeEndpoint()
+    proto::FlyClient::INetwork::Ptr  Wallet::GetNodeEndpoint() const
     {
         return m_NodeEndpoint;
     }
@@ -381,6 +381,21 @@ namespace beam::wallet
         return s.m_Height;
     }
 
+    void Wallet::DoInSyncedWallet(OnSyncAction&& action)
+    {
+        bool bSynced = !SyncRemains() && IsNodeInSync();
+
+        if (bSynced)
+        {
+            AsyncContextHolder holder(*this);
+            action();
+        }
+        else
+        {
+            m_SyncActionsQueue.push(std::move(action));
+        }
+    }
+
     size_t Wallet::GetUnsafeActiveTransactionsCount() const
     {
         return std::count_if(m_ActiveTransactions.begin(), m_ActiveTransactions.end(), [](const auto& p)
@@ -424,7 +439,7 @@ namespace beam::wallet
             pGuard.swap(it->second);
             m_ActiveTransactions.erase(it);
             m_NextTipTransactionToUpdate.erase(pGuard);
-            m_TransactionsToUpdate.erase(pGuard);
+
             pGuard->FreeResources();
         }
 
@@ -976,22 +991,24 @@ namespace beam::wallet
 
     void Wallet::UpdateTransaction(BaseTransaction::Ptr tx)
     {
-        bool bSynced = !SyncRemains() && IsNodeInSync();
+        DoInSyncedWallet([this, tx]() { UpdateActiveTransaction(tx); });
+    }
 
-        if (bSynced)
+    void Wallet::UpdateActiveTransaction(BaseTransaction::Ptr tx)
+    {
+        auto it = m_ActiveTransactions.find(tx->GetTxID());
+        if (it != m_ActiveTransactions.end())
         {
-            AsyncContextHolder holder(*this);
             tx->Update();
-        }
-        else
-        {
-            UpdateOnSynced(tx);
         }
     }
 
     void Wallet::UpdateOnSynced(BaseTransaction::Ptr tx)
     {
-        m_TransactionsToUpdate.insert(tx);
+        m_SyncActionsQueue.push([this, tx]()
+        {
+             UpdateActiveTransaction(tx);
+        });
     }
 
     void Wallet::UpdateOnNextTip(BaseTransaction::Ptr tx)
@@ -1059,7 +1076,7 @@ namespace beam::wallet
         if (!req.m_Res.m_Proof.empty())
         {
             const auto& info  = req.m_Res.m_Info;
-            const auto height = m_WalletDB->getCurrentHeight();
+            const auto height = sTip.m_Height;
 
             m_WalletDB->saveAsset(info, height);
             LOG_INFO() << msgPrefix << (msgPrefix.empty() ? "" : " ") << "Received proof for Asset with ID " << info.m_ID;
@@ -1965,29 +1982,32 @@ namespace beam::wallet
             return;
         }
 
-        std::unordered_set<BaseTransaction::Ptr> txSet;
-        txSet.swap(m_TransactionsToUpdate);
+        ActionQueue actionQueue;
+        actionQueue.swap(m_SyncActionsQueue);
 
-        if (!txSet.empty())
+        if (!actionQueue.empty())
         {
             AsyncContextHolder async(*this);
-            for (auto it = txSet.begin(); txSet.end() != it; it++)
+            while (!actionQueue.empty())
             {
-                BaseTransaction::Ptr pTx = *it;
-                if (m_ActiveTransactions.find(pTx->GetTxID()) != m_ActiveTransactions.end())
-                    pTx->Update();
+                auto& action = actionQueue.front();
+                action();
+                actionQueue.pop();
             }
         }
 
         std::set<beam::Asset::ID> assets;
-        m_WalletDB->visitCoins([&assets] (const Coin& c) -> bool {
-            if (c.m_ID.m_AssetID) {
+        m_WalletDB->visitCoins([&assets] (const Coin& c) -> bool
+        {
+            if (c.m_ID.m_AssetID)
+            {
                 assets.insert(c.m_ID.m_AssetID);
             }
             return true;
         });
 
-        m_WalletDB->visitAssets([&assets] (const WalletAsset& asset) -> bool {
+        m_WalletDB->visitAssets([&assets] (const WalletAsset& asset) -> bool
+        {
            assets.erase(asset.m_ID);
            return true;
         });
@@ -2026,7 +2046,7 @@ namespace beam::wallet
         NotifySyncProgress();
     }
 
-    void Wallet::SendTransactionToNode(const TxID& txId, Transaction::Ptr data, SubTxID subTxID)
+    void Wallet::SendTransactionToNode(const TxID& txId, const Transaction::Ptr& data, const Merkle::Hash* pParentCtx, SubTxID subTxID)
     {
         LOG_DEBUG() << txId << "[" << subTxID << "]" << " sending tx for registration";
 
@@ -2040,14 +2060,17 @@ namespace beam::wallet
         MyRequestTransaction::Ptr pReq(new MyRequestTransaction);
         pReq->m_TxID = txId;
         pReq->m_SubTxID = subTxID;
-        pReq->m_Msg.m_Transaction = std::move(data);
+        pReq->m_Msg.m_Transaction = data;
+
+        if (pParentCtx)
+            pReq->m_Msg.m_Context = std::make_unique<Merkle::Hash>(*pParentCtx);
 
         PostReqUnique(*pReq);
     }
 
-    void Wallet::register_tx(const TxID& txId, Transaction::Ptr data, SubTxID subTxID)
+    void Wallet::register_tx(const TxID& txId, const Transaction::Ptr& data, const Merkle::Hash* pParentCtx, SubTxID subTxID)
     {
-        SendTransactionToNode(txId, data, subTxID);
+        SendTransactionToNode(txId, data, pParentCtx, subTxID);
     }
 
     void Wallet::Subscribe(IWalletObserver* observer)

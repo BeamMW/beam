@@ -597,7 +597,7 @@ void NodeConnection::OnMsg(SChannelInitiate&& msg)
 
     SecureConnect(); // unless already sent
 
-    SChannelReady msgOut(Zero);
+    SChannelReady msgOut;
     Send(msgOut); // activating new cipher.
 
     m_Protocol.m_RemoteNonce = msg.m_NoncePub;
@@ -605,7 +605,7 @@ void NodeConnection::OnMsg(SChannelInitiate&& msg)
 
     m_Protocol.m_Mode = ProtocolPlus::Mode::Outgoing;
 
-	Send(proto::GetTime(Zero)); // in the next proto - better to send the time right away, instead of asking for it
+	Send(proto::GetTime()); // in the next proto - better to send the time right away, instead of asking for it
 
 	OnConnectedSecure();
 }
@@ -928,7 +928,7 @@ void NodeConnection::OnMsg(Bye&& msg)
 
 void NodeConnection::OnMsg(Ping&& msg)
 {
-	Send(Pong(Zero));
+	Send(Pong());
 }
 
 void NodeConnection::OnMsg(GetTime&& msg)

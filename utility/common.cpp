@@ -150,7 +150,13 @@ namespace beam
 
 	ExecutorMT::ExecutorMT()
 	{
+#if defined(EMSCRIPTEN)
+		m_Threads = 2;
+#else
+
 		m_Threads = MyThread::hardware_concurrency();
+#endif
+		
 	}
 
 	void ExecutorMT::set_Threads(uint32_t nThreads)
@@ -334,6 +340,52 @@ namespace beam
 
 		insert(*pItem);
 		return pItem;
+	}
+
+	BlobMap::Entry* BlobMap::Set::FindVarEx(const Blob& key, bool bExact, bool bBigger)
+	{
+		auto it = lower_bound(key, BlobMap::Set::Comparator());
+
+		if (end() == it)
+		{
+			// all elements are smaller than the key
+			if (bBigger)
+				return nullptr;
+
+			auto it2 = rbegin();
+			if (rend() == it2)
+				return nullptr;
+
+			return &(*it2);
+		}
+
+		assert(it->ToBlob() >= key);
+
+		if (bExact)
+		{
+			if (bBigger || (it->ToBlob() == key))
+				return &(*it); // ok
+		}
+
+		if (bBigger)
+		{
+			assert(!bExact);
+			if (it->ToBlob() == key)
+			{
+				++it;
+				if (end() == it)
+					return nullptr;
+			}
+		}
+		else
+		{
+			if (begin() == it)
+				return nullptr;
+			--it;
+
+		}
+
+		return &(*it);
 	}
 
 } // namespace beam

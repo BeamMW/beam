@@ -224,7 +224,7 @@ std::vector<std::string> generateReceivingAddresses
 
     for (uint32_t index = 0; index < amount; index++)
     {
-        addresses.push_back(bitcoin::getElectrumAddress(masterKey, index, addressVersion));
+        addresses.emplace_back(bitcoin::getElectrumAddress(masterKey, index, addressVersion));
     }
     return addresses;
 }
@@ -245,7 +245,7 @@ std::vector<std::string> generateChangeAddresses
 
     for (uint32_t index = 0; index < amount; index++)
     {
-        addresses.push_back(bitcoin::getElectrumAddress(masterKey, index, addressVersion));
+        addresses.emplace_back(bitcoin::getElectrumAddress(masterKey, index, addressVersion));
     }
     return addresses;
 }

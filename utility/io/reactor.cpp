@@ -22,7 +22,7 @@
 #include <stdlib.h>
 
 #ifndef WIN32
-#include <signal.h>
+#include <csignal>
 #endif // WIN32
 
 #ifndef LOG_VERBOSE_ENABLED
@@ -409,7 +409,6 @@ Reactor::~Reactor() {
 
     // run one cycle to release all closing handles
     uv_run(&_loop, UV_RUN_NOWAIT);
-
     if (uv_loop_close(&_loop) == UV_EBUSY) {
         LOG_DEBUG() << "closing unclosed handles";
         uv_walk(
@@ -742,7 +741,7 @@ Reactor& Reactor::get_Current()
 	return *s_pReactor;
 }
 
-Reactor* Reactor::GracefulIntHandler::s_pAppReactor = NULL;
+Reactor* volatile Reactor::GracefulIntHandler::s_pAppReactor = nullptr;
 
 Reactor::GracefulIntHandler::GracefulIntHandler(Reactor& r)
 {
@@ -764,7 +763,7 @@ Reactor::GracefulIntHandler::~GracefulIntHandler()
 	SetHandler(false);
 #endif // WIN32
 
-	s_pAppReactor = NULL;
+	s_pAppReactor = nullptr;
 }
 
 #ifdef WIN32
@@ -796,6 +795,8 @@ void Reactor::GracefulIntHandler::SetHandler(bool bSet)
 void Reactor::GracefulIntHandler::Handler(int sig)
 {
 	if (sig != SIGPIPE /*&& sig != SIGHUP*/) {
+        // According to https://www.gnu.org/software/libc/manual/html_node/Atomic-Types.html
+        // we can assume that pointers are atomics
         assert(s_pAppReactor);
         s_pAppReactor->stop();
     }

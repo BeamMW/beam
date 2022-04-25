@@ -25,123 +25,177 @@ void save_VecPtr(Archive& ar, const std::vector<TPtr>& v)
 		ar & *v[i];
 }
 
-void TxPool::Profit::SetSize(const Transaction& tx, uint32_t nCorrection)
+void TxPool::Stats::SetSize(const Transaction& tx)
 {
-	m_nSize = (uint32_t) tx.get_Reader().get_SizeNetto();
-	m_nSizeCorrected = m_nSize + nCorrection;
+	m_Size = (uint32_t)tx.get_Reader().get_SizeNetto();
 }
 
-uint32_t TxPool::Profit::get_Correction() const
+void TxPool::Stats::From(const Transaction& tx, const Transaction::Context& ctx, Amount feeReserve, uint32_t nSizeCorrection)
 {
-	uint32_t ret;
-	m_nSizeCorrected.Export(ret);
-	return ret - m_nSize;
+	assert(!AmountBig::get_Hi(ctx.m_Stats.m_Fee)); // ignore such txs atm
+	m_Fee = AmountBig::get_Lo(ctx.m_Stats.m_Fee);
+	m_FeeReserve = feeReserve;
+	m_Hr = ctx.m_Height;
+
+	SetSize(tx);
+	m_SizeCorrection = nSizeCorrection;
 }
 
 bool TxPool::Profit::operator < (const Profit& t) const
 {
 	// handle overflow. To be precise need to use big-int (96-bit) arithmetics
-	//	return m_Fee * t.m_nSize > t.m_Fee * m_nSize;
 
 	return
-		(m_Fee * t.m_nSizeCorrected) >
-		(t.m_Fee * m_nSizeCorrected);
+		(uintBigFrom(m_Stats.m_Fee) * uintBigFrom(t.m_Stats.m_Size + t.m_Stats.m_SizeCorrection)) >
+		(uintBigFrom(t.m_Stats.m_Fee) * uintBigFrom(m_Stats.m_Size + m_Stats.m_SizeCorrection));
 }
 
 /////////////////////////////
 // Fluff
-TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx, const Transaction::KeyType& key, uint32_t nSizeCorrection)
+TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Stats& stats, const Transaction::KeyType& key, State s, Height hLst /* = 0 */)
 {
 	assert(pValue);
 
 	Element* p = new Element;
 	p->m_pValue = std::move(pValue);
-	p->m_Height	= ctx.m_Height;
-	p->m_Profit.m_Fee = ctx.m_Stats.m_Fee;
-	p->m_Profit.SetSize(*p->m_pValue, nSizeCorrection);
+	p->m_Profit.m_Stats = stats;
 	p->m_Tx.m_Key = key;
-	p->m_Outdated.m_Height = MaxHeight;
-	assert(!p->IsOutdated());
+	p->m_Hist.m_Height = hLst;
 
-	InternalInsert(*p);
+	p->m_State = s;
 
-	p->m_Queue.m_Refs = 1;
-	m_Queue.push_back(p->m_Queue);
+	Features f0 = { false };
+	SetState(*p, f0, Features::get(s));
 
 	return p;
 }
 
-void TxPool::Fluff::SetOutdated(Element& x, Height h)
+TxPool::Fluff::Features TxPool::Fluff::Features::get(State s)
 {
-	InternalErase(x);
-	x.m_Outdated.m_Height = h;
-	InternalInsert(x);
+	Features ret = { false };
+	switch (s)
+	{
+	case State::Fluffed:
+		ret.m_TxSet = true;
+		ret.m_SendAndProfit = true;
+		break;
+
+	case State::PreFluffed:
+		ret.m_TxSet = true;
+		ret.m_WaitFluff = true;
+		break;
+
+	case State::Outdated:
+		ret.m_Outdated = true;
+		break;
+
+	default: // suppress warning
+		break;
+	}
+
+	return ret;
 }
 
-void TxPool::Fluff::InternalInsert(Element& x)
+void TxPool::Fluff::SetState(Element& x, State s)
 {
-	if (x.IsOutdated())
-		m_setOutdated.insert(x.m_Outdated);
-	else
+	auto f0 = Features::get(x.m_State);
+	auto f = Features::get(s);
+
+	x.m_State = s;
+	SetState(x, f0, f);
+}
+
+void TxPool::Fluff::SetState(Element& x, Features f0, Features f)
+{
+	if (f.m_SendAndProfit != f0.m_SendAndProfit)
 	{
-		m_setTxs.insert(x.m_Tx);
-		m_setProfit.insert(x.m_Profit);
+		if (f.m_SendAndProfit)
+		{
+			assert(!x.m_pSend);
+
+			x.m_pSend = new Element::Send;
+			x.m_pSend->m_Refs = 1;
+			x.m_pSend->m_pThis = &x;
+			m_SendQueue.push_back(*x.m_pSend);
+
+			m_setProfit.insert(x.m_Profit);
+		}
+		else
+		{
+			assert(x.m_pSend && (&x == x.m_pSend->m_pThis));
+
+			x.m_pSend->m_pThis = nullptr;
+			Release(*x.m_pSend);
+			x.m_pSend = nullptr;
+
+			m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
+		}
+	}
+
+	if (f.m_TxSet != f0.m_TxSet)
+	{
+		if (f.m_TxSet)
+			m_setTxs.insert(x.m_Tx);
+		else
+			m_setTxs.erase(TxSet::s_iterator_to(x.m_Tx));
+	}
+
+	SetStateHistOut(x, m_lstOutdated, f0.m_Outdated, f.m_Outdated);
+	SetStateHistOut(x, m_lstWaitFluff, f0.m_WaitFluff, f.m_WaitFluff);
+	SetStateHistIn(x, m_lstOutdated, f0.m_Outdated, f.m_Outdated);
+	SetStateHistIn(x, m_lstWaitFluff, f0.m_WaitFluff, f.m_WaitFluff);
+}
+
+void TxPool::Fluff::SetStateHistIn(Element& x, HistList& lst, bool b0, bool b)
+{
+	if (b && !b0)
+	{
+		assert(lst.empty() || (lst.back().m_Height <= x.m_Hist.m_Height)); // order must be preserved
+		lst.push_back(x.m_Hist);
 	}
 }
 
-void TxPool::Fluff::InternalErase(Element& x)
+void TxPool::Fluff::SetStateHistOut(Element& x, HistList& lst, bool b0, bool b)
 {
-	if (x.IsOutdated())
-		m_setOutdated.erase(OutdatedSet::s_iterator_to(x.m_Outdated));
-	else
-	{
-		m_setTxs.erase(TxSet::s_iterator_to(x.m_Tx));
-		m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
-	}
+	if (b0 && !b)
+		lst.erase(HistList::s_iterator_to(x.m_Hist));
 }
 
 void TxPool::Fluff::Delete(Element& x)
 {
-	assert(x.m_pValue);
-	x.m_pValue.reset();
-	DeleteEmpty(x);
+	auto f0 = Features::get(x.m_State);
+	Features f = { false };
+	SetState(x, f0, f);
+
+	delete &x;
 }
 
-void TxPool::Fluff::DeleteEmpty(Element& x)
+void TxPool::Fluff::Release(Element::Send& x)
 {
-	assert(!x.m_pValue);
-	InternalErase(x);
-	Release(x);
-}
-
-void TxPool::Fluff::Release(Element& x)
-{
-	assert(x.m_Queue.m_Refs);
-	if (!--x.m_Queue.m_Refs)
+	assert(x.m_Refs);
+	if (!--x.m_Refs)
 	{
-		assert(!x.m_pValue);
-		m_Queue.erase(Queue::s_iterator_to(x.m_Queue));
+		assert(!x.m_pThis);
+		m_SendQueue.erase(SendQueue::s_iterator_to(x));
 		delete &x;
 	}
 }
 
 void TxPool::Fluff::Clear()
 {
-	while (!m_setProfit.empty())
-		Delete(m_setProfit.begin()->get_ParentObj());
+	while (!m_setTxs.empty())
+		Delete(m_setTxs.begin()->get_ParentObj());
 
-	while (!m_setOutdated.empty())
-		Delete(m_setOutdated.begin()->get_ParentObj());
+	while (!m_lstOutdated.empty())
+		Delete(m_lstOutdated.begin()->get_ParentObj());
 }
 
 /////////////////////////////
 // Stem
 bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 {
-	assert(trg.m_bAggregating && src.m_bAggregating);
-
-	HeightRange hr = trg.m_Height;
-	hr.Intersect(src.m_Height);
+	HeightRange hr = trg.m_Profit.m_Stats.m_Hr;
+	hr.Intersect(src.m_Profit.m_Stats.m_Hr);
 	if (hr.IsEmpty())
 		return false;
 
@@ -160,26 +214,25 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 //	assert(txNew.IsValid(ctx));
 //#endif // _DEBUG
 
-	auto fees = trg.m_Profit.m_Fee;
-	fees += src.m_Profit.m_Fee;
+	auto fees = trg.m_Profit.m_Stats.m_Fee;
+	fees += src.m_Profit.m_Stats.m_Fee;
 	Amount feeReserve = 0;
 	if (!ValidateTxContext(txNew, hr, fees, feeReserve))
 		return false; // conflicting txs, can't merge
 
-	trg.m_Profit.m_Fee += fees;
-	trg.m_Profit.SetSize(txNew, trg.m_Profit.get_Correction() + src.m_Profit.get_Correction());
 
-	Delete(src);
-	DeleteKrn(trg);
+	trg.m_Profit.m_Stats.m_Fee += src.m_Profit.m_Stats.m_Fee;
+	trg.m_Profit.m_Stats.m_FeeReserve = feeReserve;
+	trg.m_Profit.m_Stats.m_Hr = hr;
+	trg.m_Profit.m_Stats.SetSize(txNew);
+	trg.m_Profit.m_Stats.m_SizeCorrection += src.m_Profit.m_Stats.m_SizeCorrection;
 
 	trg.m_pValue->m_vInputs.swap(txNew.m_vInputs);
 	trg.m_pValue->m_vOutputs.swap(txNew.m_vOutputs);
 	trg.m_pValue->m_vKernels.swap(txNew.m_vKernels);
 	trg.m_pValue->m_Offset = txNew.m_Offset;
-	trg.m_FeeReserve = feeReserve;
-	trg.m_Height = hr;
 
-	InsertKrn(trg);
+	Delete(src);
 
 	return true;
 }
@@ -204,54 +257,18 @@ void TxPool::Stem::DeleteRaw(Element& x)
 {
 	DeleteTimer(x);
 	DeleteAggr(x);
-	DeleteKrn(x);
-	DeleteConfirm(x);
 
 	delete &x;
 }
 
-void TxPool::Stem::DeleteKrn(Element& x)
-{
-	for (size_t i = 0; i < x.m_vKrn.size(); i++)
-		m_setKrns.erase(KrnSet::s_iterator_to(x.m_vKrn[i]));
-	x.m_vKrn.clear();
-}
-
 void TxPool::Stem::InsertAggr(Element& x)
 {
-	if (!x.m_bAggregating)
-	{
-		x.m_bAggregating = true;
-		m_setProfit.insert(x.m_Profit);
-	}
+	m_setProfit.insert(x.m_Profit);
 }
 
 void TxPool::Stem::DeleteAggr(Element& x)
 {
-	if (x.m_bAggregating)
-	{
-		m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
-		x.m_bAggregating = false;
-	}
-}
-
-void TxPool::Stem::InsertConfirm(Element& x, Height h)
-{
-	DeleteConfirm(x);
-	if (MaxHeight != h)
-	{
-		x.m_Confirm.m_Height = h;
-		m_lstConfirm.push_back(x.m_Confirm);
-	}
-}
-
-void TxPool::Stem::DeleteConfirm(Element& x)
-{
-	if (MaxHeight != x.m_Confirm.m_Height)
-	{
-		m_lstConfirm.erase(ConfirmList::s_iterator_to(x.m_Confirm));
-		x.m_Confirm.m_Height = MaxHeight;
-	}
+	m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
 }
 
 void TxPool::Stem::DeleteTimer(Element& x)
@@ -263,24 +280,10 @@ void TxPool::Stem::DeleteTimer(Element& x)
 	}
 }
 
-void TxPool::Stem::InsertKrn(Element& x)
-{
-	const Transaction& tx = *x.m_pValue;
-	x.m_vKrn.resize(tx.m_vKernels.size());
-
-	for (size_t i = 0; i < x.m_vKrn.size(); i++)
-	{
-		Element::Kernel& n = x.m_vKrn[i];
-		n.m_pKrn = tx.m_vKernels[i].get();
-		m_setKrns.insert(n);
-		n.m_pThis = &x;
-	}
-}
-
 void TxPool::Stem::Clear()
 {
-	while (!m_setKrns.empty())
-		DeleteRaw(*m_setKrns.begin()->m_pThis);
+	while (!m_setProfit.empty())
+		DeleteRaw(m_setProfit.begin()->get_ParentObj());
 
 	KillTimer();
 }
@@ -376,8 +379,12 @@ TxPool::Dependent::Element* TxPool::Dependent::AddValidTx(Transaction::Ptr&& pVa
 	m_setTxs.insert(p->m_Tx);
 
 	p->m_Size = (uint32_t) p->m_pValue->get_Reader().get_SizeNetto();
+	p->m_Depth = 1;
 	if (pParent)
+	{
 		p->m_Size += pParent->m_Size;
+		p->m_Depth += pParent->m_Depth;
+	}
 
 	const Amount feeMax = static_cast<Amount>(-1);
 	auto& fee = ctx.m_Stats.m_Fee;

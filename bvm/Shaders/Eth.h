@@ -497,7 +497,7 @@ namespace Eth
 	{
 		assert(nibblesLength != pathLength);
 		// to nibbles
-		for (uint8_t i = 0; i < pathLength; i++)
+		for (uint32_t i = 0; i < pathLength; i++)
 		{
 			nibbles[i * 2] = path[i] >> 4;
 			nibbles[i * 2 + 1] = path[i] & 15;

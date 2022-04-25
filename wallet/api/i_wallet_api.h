@@ -20,6 +20,8 @@
 #include <nlohmann/json.hpp>
 #include "utility/logger.h"
 #include "wallet/core/contracts/i_shaders_manager.h"
+#include "wallet/core/node_network.h"
+#include "wallet/ipfs/ipfs.h"
 #include "base/api_errors.h"
 #include "i_swaps_provider.h"
 #include "sync_mode.h"
@@ -31,9 +33,10 @@ namespace beam::wallet
     const uint32_t ApiVer6_0     = 60;
     const uint32_t ApiVer6_1     = 61;
     const uint32_t ApiVer6_2     = 62;
-    const uint32_t ApiVerCurrent = ApiVer6_2;
+    const uint32_t ApiVer6_3     = 63;
+    const uint32_t ApiVerCurrent = ApiVer6_3;
     const uint32_t ApiVerMin     = ApiVer6_0;
-    const uint32_t ApiVerMax     = ApiVer6_2;
+    const uint32_t ApiVerMax     = ApiVer6_3;
 
     class IWalletApiHandler
     {
@@ -58,6 +61,10 @@ namespace beam::wallet
         ISwapsProvider::Ptr swaps;
         IWalletDB::Ptr walletDB;
         Wallet::Ptr wallet;
+        NodeNetwork::Ptr nodeNetwork;
+        #ifdef BEAM_IPFS_SUPPORT
+        IPFSService::Ptr ipfs;
+        #endif
     };
 
     class IWalletApi

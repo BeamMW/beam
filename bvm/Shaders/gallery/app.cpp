@@ -50,10 +50,12 @@
 
 #define Gallery_artist_view(macro) macro(ContractID, cid)
 #define Gallery_artist_get_key(macro) macro(ContractID, cid)
+#define Gallery_artist_get_key_material(macro) macro(ContractID, cid)
 
 #define GalleryRole_artist(macro) \
     macro(artist, view) \
     macro(artist, get_key) \
+    macro(artist, get_key_material) \
 
 #define Gallery_user_view_item(macro) \
     macro(ContractID, cid) \
@@ -606,6 +608,14 @@ ON_METHOD(artist, get_key)
     km.Get(pk);
 
     Env::DocAddBlob_T("key", pk);
+}
+
+ON_METHOD(artist, get_key_material)
+{
+    KeyMaterial::Owner km;
+    km.SetCid(cid);
+
+    Env::DocAddBlob("key_material", &km, sizeof(km));
 }
 
 bool ReadItem(const ContractID& cid, Gallery::Masterpiece::ID id, Gallery::Masterpiece& m)

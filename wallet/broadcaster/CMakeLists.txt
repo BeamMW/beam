@@ -13,7 +13,8 @@ endif()
 
 target_link_libraries(${TARGET_NAME}
     PRIVATE
-        wallet_client
+        broadcast_gateway
+        news_channels
         cli
         mnemonic
 )

@@ -88,7 +88,11 @@ namespace beam
 #endif // __LITTLE_ENDIAN__
 
 			// for big/little endian the to/from flag doesn't matter
-			return (bNativeLE == bLE) ? x : bswap(x);
+			// return x;
+			if constexpr (bNativeLE == bLE)
+				return x;
+			else
+				return bswap(x);
 		}
 
 		template <typename T> inline T to_le(T x) { return Convert<T, true, true>(x); }

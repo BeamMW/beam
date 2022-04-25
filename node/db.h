@@ -190,6 +190,7 @@ public:
 
 			ContractDataFind,
 			ContractDataFindNext,
+			ContractDataFindPrev,
 			ContractDataInsert,
 			ContractDataUpdate,
 			ContractDataDel,
@@ -693,6 +694,7 @@ public:
 
 	bool ContractDataFind(const Blob& key, Blob&, Recordset&);
 	bool ContractDataFindNext(Blob& key, Recordset&); // key in-out
+	bool ContractDataFindPrev(Blob& key, Recordset&); // key in-out
 	void ContractDataInsert(const Blob& key, const Blob&);
 	void ContractDataUpdate(const Blob& key, const Blob&);
 	void ContractDataDel(const Blob& key);

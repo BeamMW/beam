@@ -62,7 +62,7 @@
 
 #include "utils.h"
 
-#include <boost/assert.hpp> 
+#include <boost/assert.hpp>
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
@@ -120,34 +120,15 @@ namespace beam
 
 namespace
 {
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-    class CliSwapTxStatusInterpreter: public TxStatusInterpreter
-    {
-      public:
-        explicit CliSwapTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams)
-        {
-            if (auto value = txParams.GetParameter<AtomicSwapTransaction::State>(wallet::TxParameterID::State); value)
-                m_state = *value;
-        }
-
-        ~CliSwapTxStatusInterpreter() override = default;
-
-        [[nodiscard]] std::string getStatus() const override
-        {
-            return wallet::getSwapTxStatus(m_state);
-        }
-      private:
-        wallet::AtomicSwapTransaction::State m_state = wallet::AtomicSwapTransaction::State::Initial;
-    };
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
     std::string interpretStatusCliImpl(const beam::wallet::TxDescription& tx)
     {
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        AtomicSwapTransaction::State state = wallet::AtomicSwapTransaction::State::Initial;
         if (tx.m_txType == TxType::AtomicSwap)
         {
-            auto statusInterpreter = std::make_unique<CliSwapTxStatusInterpreter>(tx);
-            return statusInterpreter->getStatus();
+            if (auto value = tx.GetParameter<AtomicSwapTransaction::State>(wallet::TxParameterID::State); value)
+                state = *value;
+            return wallet::getSwapTxStatus(state);
         }
         else
         {
@@ -670,7 +651,7 @@ namespace
                          const IWalletDB::Ptr& walletDB,
                          const std::string& defaultComment = "")
     {
-        auto comment = defaultComment.empty() 
+        auto comment = defaultComment.empty()
             ? vm[cli::NEW_ADDRESS_COMMENT].as<string>()
             : defaultComment;
         auto expiration = vm[cli::EXPIRATION_TIME].as<string>();
@@ -757,7 +738,7 @@ namespace
             LOG_ERROR() << kErrorSeedPhraseFail;
             return -1;
         }
-        
+
         auto walletDB = WalletDB::init(walletPath, pass, walletSeed);
         if (walletDB)
         {
@@ -830,7 +811,7 @@ namespace
             }
         }
 
-        try 
+        try
         {
             address.m_Address = GenerateToken(type, address, walletDB, offlineCount);
             walletDB->saveAddress(address);
@@ -840,7 +821,7 @@ namespace
         {
             std::cerr << ex.what();
         }
-        
+
         return 0;
     }
 
@@ -1629,9 +1610,9 @@ namespace
             LOG_ERROR() << kErrorTxIdParamReqired;
             return res;
         }
-        
+
         auto txIdVec = from_hex(txIdStr);
-        
+
         if (txIdVec.size() >= 16)
         {
             res.emplace();
@@ -2200,11 +2181,12 @@ namespace
                 {
                     const TxDescription& desc = *tx;
                     const auto info = walletDB->findAsset(desc.m_assetId);
-                    if (AmountBig::get_Hi(info->m_Value))
+                    Amount maxTxAmount = std::numeric_limits<AmountSigned>::max();
+                    if (AmountBig::get_Hi(info->m_Value) || AmountBig::get_Lo(info->m_Value) > maxTxAmount)
                     {
-                        auto maxTxValue = PrintableAmount(std::numeric_limits<Amount>::max(), false, info->m_ID);
-                        cout << "Warning. Total amount of asset would be larger that can be sent in one transaction (" 
-                             << maxTxValue << "). You would be forced to send using several transactions."
+                        auto maxTxValue = PrintableAmount(maxTxAmount, true, info->m_ID);
+                        cout << "Warning. Total amount of asset would be larger that can be sent in one transaction "
+                             << maxTxValue << ". You would be forced to send using several transactions."
                              << endl;
                     }
                 }
@@ -2352,7 +2334,16 @@ namespace
 
                 std::cout << "Executing shader..." << std::endl;
 
-                man.StartRun(man.m_Args.empty() ? 0 : 1); // scheme if no args
+                auto startedEvent = io::AsyncEvent::create(io::Reactor::get_Current(),
+                    [&man]()
+                    {
+                        man.StartRun(man.m_Args.empty() ? 0 : 1); // scheme if no args
+                    });
+
+                wallet->DoInSyncedWallet([startedEvent]()
+                    {
+                        startedEvent->post();
+                    });
 
                 if (!man.m_Done)
                 {
@@ -2376,6 +2367,21 @@ namespace
                 const auto spend   = bvm2::getFullSpend(man.m_vInvokeData);
 
                 std::cout << "Creating new contract invocation tx on behalf of the shader" << std::endl;
+                if (man.m_Args["action"] == "create")
+                {
+                    bvm2::ShaderID sid;
+                    bvm2::get_ShaderID(sid, Blob(man.m_BodyContract));
+                    for (auto& invokeEntry : man.m_vInvokeData)
+                    {
+                        bvm2::ContractID cid;
+                        bvm2::get_CidViaSid(cid, sid, Blob(invokeEntry.m_Args));
+                        std::cout << "Contract ID: " << cid.str() << std::endl;
+                    }
+                }
+                else if(man.m_Args["action"] == "destroy" && !man.m_Args["cid"].empty())
+                {
+                    std::cout << "Contract ID: " << man.m_Args["cid"] << std::endl;
+                }
                 std::cout << "\tComment: " << comment;
 
                 for (const auto& info: spend)
@@ -2417,7 +2423,7 @@ namespace
                 return 0;
             });
     }
-    
+
     int Rescan(const po::variables_map& vm)
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
@@ -2554,7 +2560,7 @@ namespace
         {
             auto walletDB = OpenDataBase(vm);
             auto swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
-            
+
             ShowSwapSettings(vm, walletDB, swapCoin);
             return 0;
         }
@@ -2649,7 +2655,7 @@ namespace
             Wallet::TxCompletedAction(),
             Wallet::UpdateCompletedAction());
         auto nnet = CreateNetwork(*wallet, vm);
-        
+
         if (!nnet)
         {
             return -1;
@@ -2737,7 +2743,7 @@ io::Reactor::Ptr reactor;
 
 static const unsigned LOG_ROTATION_PERIOD_SEC = 3*60*60; // 3 hours
 
-int main_impl(int argc, char* argv[])
+int main(int argc, char* argv[])
 {
     beam::Crash::InstallHandler(NULL);
     const Command commands[] =
@@ -2775,7 +2781,7 @@ int main_impl(int argc, char* argv[])
         {cli::GET_ADDRESS,            GetAddress,                   "generate transaction address for a specific receiver (identifiable by SBBS address or wallet's signature)"},
         {cli::SET_CONFIRMATIONS_COUNT, SetConfirmationsCount,       "set count of confirmations before you can't spend coin"},
         {cli::GET_CONFIRMATIONS_COUNT, GetConfirmationsCount,       "get count of confirmations before you can't spend coin"},
-#ifdef BEAM_LASER_SUPPORT   
+#ifdef BEAM_LASER_SUPPORT
         {cli::LASER,                HandleLaser,                    "laser beam command"},
 #endif  // BEAM_LASER_SUPPORT
         {cli::ASSET_ISSUE,          IssueAsset,                     "issue new confidential asset"},
@@ -2931,30 +2937,4 @@ int main_impl(int argc, char* argv[])
     }
 
     return 0;
-}
-
-int main(int argc, char* argv[]) {
-#ifdef _WIN32
-    return main_impl(argc, argv);
-#else
-    block_sigpipe();
-    auto f = std::async(
-        std::launch::async,
-        [argc, argv]() -> int {
-            // TODO: this hungs app on OSX
-            //lock_signals_in_this_thread();
-            int ret = main_impl(argc, argv);
-            std::cout << std::flush;
-            std::cerr << std::flush;
-            kill(0, SIGINT);
-            return ret;
-        }
-    );
-
-    wait_for_termination(0);
-
-    if (reactor) reactor->stop();
-
-    return f.get();
-#endif
 }

@@ -45,6 +45,8 @@ namespace beam
     class WebsocketSession
     {
     public:
+        static inline size_t counter = 0;
+
         // Take ownership of the socket
         explicit WebsocketSession(boost::beast::multi_buffer&& buffer, SafeReactor::Ptr reactor, HandlerCreator creator)
             : _buffer(buffer)
@@ -52,12 +54,13 @@ namespace beam
             , _creator(std::move(creator))
         {
             LOG_DEBUG() << "WebsocketSession created";
+            ++counter;
         }
 
         ~WebsocketSession()
         {
             LOG_DEBUG() << "WebsocketSession destroyed";
-
+            --counter;
             // Client handler must be destroyed in the Loop thread
             // Transfer ownership and register destroy request
             _reactor->callAsync([handler = std::move(_handler)]() mutable
@@ -115,7 +118,7 @@ namespace beam
             //    any response in this case anyway
             //
             std::weak_ptr<WebsocketSession> wp = GetDerived().shared_from_this();
-            _reactor->callAsync([data, creator = _creator, wp]()
+            _reactor->callAsync([data = std::move(data), creator = _creator, wp]() mutable
             {
                 if (auto sp = wp.lock())
                 {
@@ -128,15 +131,15 @@ namespace beam
                         // the next would discover it and skip.
                         // There would be no race conditions as well
                         sp->_handler = creator(
-                            [wp](const std::string& data)
+                            [wp](std::string&& data)
                             { // SendFunc
                                 if (auto sp = wp.lock())
                                 {
                                     boost::asio::post(
                                         sp->GetDerived().GetStream().get_executor(),
-                                        [sp, data]()
+                                        [sp, data=std::move(data)]() mutable
                                         {
-                                            sp->do_write(data);
+                                            sp->do_write(std::move(data));
                                         });
                                 }
                             },
@@ -159,7 +162,7 @@ namespace beam
                                 }
                             });
                     }
-                    sp->_handler->ReactorThread_onWSDataReceived(data);
+                    sp->_handler->ReactorThread_onWSDataReceived(std::move(data));
                 }
             });
         }
@@ -198,12 +201,12 @@ namespace beam
             do_read();
         }
 
-        void do_write(const std::string& msg)
+        void do_write(std::string&& msg)
         {
             std::string* contents = nullptr;
 
             {
-                _writeQueue.push(msg);
+                _writeQueue.push(std::move(msg));
 
                 if (_writeQueue.size() > 1)
                     return;

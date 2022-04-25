@@ -22,6 +22,7 @@ namespace Shaders {
 
     typedef ECC::Point PubKey;
 	typedef ECC::Point Secp_point_data;
+	typedef ECC::Point::Storage Secp_point_dataEx;
 	typedef ECC::Scalar Secp_scalar_data;
     typedef beam::Asset::ID AssetID;
     typedef ECC::uintBig ContractID;
@@ -50,6 +51,7 @@ namespace bvm2 {
 
 	using Shaders::PubKey;
 	using Shaders::Secp_point_data;
+	using Shaders::Secp_point_dataEx;
 	using Shaders::Secp_scalar_data;
 	using Shaders::AssetID;
 	using Shaders::ContractID;
@@ -378,6 +380,11 @@ namespace bvm2 {
 		virtual uint32_t SaveVar(const Blob&, const Blob& val) { return 0; }
 		virtual uint32_t OnLog(const Blob&, const Blob& val) { return 0; }
 
+		virtual void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) {
+			key.n = 0;
+			res.n = 0;
+		}
+
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) { return 0; }
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }
 		virtual bool AssetDestroy(Asset::ID, const PeerID&) { return false; }
@@ -472,6 +479,7 @@ namespace bvm2 {
 
 		virtual void InvokeExt(uint32_t) override;
 		virtual uint32_t get_HeapLimit() override;
+		virtual Height get_Height() override;
 
 		struct IReadVars
 			:public intrusive::set_base_hook<uint32_t>
@@ -514,6 +522,21 @@ namespace bvm2 {
 		virtual bool SlotLoad(ECC::Hash::Value&, uint32_t iSlot) { return false; }
 		virtual void SlotSave(const ECC::Hash::Value&, uint32_t iSlot) { }
 		virtual void SlotErase(uint32_t iSlot) { }
+
+		virtual void SelectContext(bool bDependent, uint32_t nChargeNeeded) = 0;
+
+		void EnsureContext();
+
+		struct Context {
+			Height m_Height = MaxHeight;
+			std::unique_ptr<beam::Merkle::Hash> m_pParent;
+
+			void Reset() {
+				m_Height = MaxHeight;
+				m_pParent.reset();
+			}
+
+		} m_Context;
 
 		struct Comm
 		{

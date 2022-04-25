@@ -83,6 +83,15 @@ namespace
         }
         return false;
     }
+
+    beam::wallet::TxFailureReason GetFailtureReason(const beam::wallet::TxParameters& txParams)
+    {
+        beam::wallet::TxFailureReason failureReason = beam::wallet::TxFailureReason::Unknown;
+        if (auto value = txParams.GetParameter<beam::wallet::TxFailureReason>(beam::wallet::TxParameterID::FailureReason); value)
+            failureReason = *value;
+
+        return failureReason;
+    }
 }
 
 namespace std
@@ -698,41 +707,42 @@ namespace beam::wallet
         return true;
     }
 
-    TxStatusInterpreter::TxStatusInterpreter(const TxParameters& txParams)
+    std::tuple<TxStatus, bool, bool> ParseParamsForStatusInterpretation(const TxParameters& txParams)
     {
+        TxStatus status = TxStatus::Pending;
+        bool sender = false;
+        bool selfTx = false;
+
         if (auto value = txParams.GetParameter<wallet::TxStatus>(TxParameterID::Status); value)
-        {
-            m_status = *value;
-            if (m_status == TxStatus::Failed)
-            {
-                if (auto value2 = txParams.GetParameter<TxFailureReason>(TxParameterID::FailureReason); value2)
-                    m_failureReason = *value2;
-            }
-        }
+            status = *value;
 
         if (auto value = txParams.GetParameter<bool>(TxParameterID::IsSender); value)
-            m_sender = *value;
+            sender = *value;
 
         if (auto value = txParams.GetParameter<bool>(TxParameterID::IsSelfTx); value)
-            m_selfTx = *value;
+            selfTx = *value;
+
+        return std::make_tuple(status, sender, selfTx);
     }
 
-    std::string TxStatusInterpreter::getStatus() const
+    std::string GetTxStatusStr(const TxParameters& txParams)
     {
-        switch (m_status)
+        auto [status, sender, selfTx] = ParseParamsForStatusInterpretation(txParams);
+
+        switch (status)
         {
             case TxStatus::Pending:
                 return "pending";
             case TxStatus::InProgress:
-                return m_selfTx  ? "self sending" : (m_sender ? "waiting for receiver" : "waiting for sender");
+                return selfTx  ? "self sending" : (sender ? "waiting for receiver" : "waiting for sender");
             case TxStatus::Registering: 
-                return m_selfTx ? "self sending" : (m_sender ? "sending" : "receiving" );
-            case TxStatus::Failed: 
-                return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed";
+                return selfTx ? "self sending" : (sender ? "sending" : "receiving" );
+            case TxStatus::Failed:
+                return TxFailureReason::TransactionExpired == GetFailtureReason(txParams) ? "expired" : "failed";
             case TxStatus::Canceled:
                 return "cancelled";
             case TxStatus::Completed:
-                return m_selfTx ? "completed" : (m_sender ? "sent" : "received");
+                return selfTx ? "completed" : (sender ? "sent" : "received");
             case TxStatus::Confirming:
                 return "confirming";
             default:
@@ -741,81 +751,83 @@ namespace beam::wallet
         }
     }
 
-    std::string SimpleTxStatusInterpreter::getStatus() const
+    std::string GetSimpleTxStatusStr(const TxParameters& txParams)
     {
-        switch (m_status)
+        auto [status, sender, selfTx] = ParseParamsForStatusInterpretation(txParams);
+
+        switch (status)
         {
         case TxStatus::InProgress:
-            return m_selfTx ? "sending to own address" : (m_sender ? "waiting for receiver" : "waiting for sender");
+            return selfTx ? "sending to own address" : (sender ? "waiting for receiver" : "waiting for sender");
         case TxStatus::Registering:
-            return m_selfTx ? "sending to own address" : "in progress";
+            return selfTx ? "sending to own address" : "in progress";
         case TxStatus::Completed:
-            return m_selfTx ? "sent to own address" : (m_sender ? "sent" : "received");
+            return selfTx ? "sent to own address" : (sender ? "sent" : "received");
         default:
             break;
         }
-        return TxStatusInterpreter::getStatus();
+        return GetTxStatusStr(txParams);
     }
 
-    MaxPrivacyTxStatusInterpreter::MaxPrivacyTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams)
+    std::string GetMaxAnonimityTxStatusStr(const TxParameters& txParams)
     {
+        TxAddressType addressType = TxAddressType::Unknown;
         auto storedType = txParams.GetParameter<TxAddressType>(TxParameterID::AddressType);
         if (storedType)
         {
-            m_addressType = *storedType;
+            addressType = *storedType;
         }
         else
         {
             TxDescription tx_desc(txParams);
-            m_addressType = tx_desc.m_sender ? GetAddressType(tx_desc) : TxAddressType::Unknown;
+            addressType = tx_desc.m_sender ? GetAddressType(tx_desc) : TxAddressType::Unknown;
         }
-    };
 
-    std::string MaxPrivacyTxStatusInterpreter::getStatus() const
-    {
-        switch (m_addressType)
+        auto [status, sender, selfTx] = ParseParamsForStatusInterpretation(txParams);
+
+        switch (addressType)
         {
             case TxAddressType::MaxPrivacy:
-                switch (m_status)
+                switch (status)
                 {
                 case TxStatus::Registering:
-                    return m_selfTx ? "sending maximum anonymity to own address" : "in progress maximum anonymity";
+                    return selfTx ? "sending maximum anonymity to own address" : "in progress maximum anonymity";
                 case TxStatus::Failed:
-                    return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed maximum anonymity";
+                    return TxFailureReason::TransactionExpired == GetFailtureReason(txParams) ? "expired" : "failed maximum anonymity";
                 case TxStatus::Canceled:
                     return "canceled maximum anonymity";
                 case TxStatus::Completed:
-                    return m_selfTx ? "sent maximum anonymity to own address" : (m_sender ? "sent maximum anonymity" : "received maximum anonymity");
+                    return selfTx ? "sent maximum anonymity to own address" : (sender ? "sent maximum anonymity" : "received maximum anonymity");
                 default:
                     break;
                 }
                 break;
             case TxAddressType::Offline:
-                switch (m_status)
+                switch (status)
                 {
                 case TxStatus::Registering:
-                    return m_selfTx ? "sending offline to own address" : "in progress offline";
+                    return selfTx ? "sending offline to own address" : "in progress offline";
                 case TxStatus::Failed:
-                    return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed offline";
+                    return TxFailureReason::TransactionExpired == GetFailtureReason(txParams) ? "expired" : "failed offline";
                 case TxStatus::Canceled:
                     return "canceled offline";
                 case TxStatus::Completed:
-                    return m_selfTx ? "sent offline to own address" : (m_sender ? "sent offline" : "received offline");
+                    return selfTx ? "sent offline to own address" : (sender ? "sent offline" : "received offline");
                 default:
                     break;
                 }
                 break;
             case TxAddressType::PublicOffline:
-                switch (m_status)
+                switch (status)
                 {
                 case TxStatus::Registering:
-                    return m_selfTx ? "sending offline to own address" : "in progress public offline";
+                    return selfTx ? "sending public offline to own address" : "in progress public offline";
                 case TxStatus::Failed:
-                    return TxFailureReason::TransactionExpired == m_failureReason ? "expired" : "failed public offline";
+                    return TxFailureReason::TransactionExpired == GetFailtureReason(txParams) ? "expired" : "failed public offline";
                 case TxStatus::Canceled:
                     return "canceled public offline";
                 case TxStatus::Completed:
-                    return m_selfTx ? "sent offline to own address" : (m_sender ? "sent public offline" : "received public offline");
+                    return selfTx ? "sent public offline to own address" : (sender ? "sent public offline" : "received public offline");
                 default:
                     break;
                 }
@@ -824,21 +836,23 @@ namespace beam::wallet
                 break;
         }
 
-        return TxStatusInterpreter::getStatus();
+        return GetTxStatusStr(txParams);
     }
 
-    AssetTxStatusInterpreter::AssetTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams)
+    std::string GetAssetTxStatusStr(const TxParameters& txParams)
     {
+        wallet::TxType txType = wallet::TxType::AssetInfo;
         if (auto value = txParams.GetParameter<TxType>(TxParameterID::TransactionType); value)
-            m_txType = *value;
-    }
+            txType = *value;
 
-    std::string AssetTxStatusInterpreter::getStatus() const
-    {
-        if (m_status == TxStatus::InProgress && m_txType == TxType::AssetInfo) return "getting info";
-        if (m_status == TxStatus::Completed)
+        TxStatus status = TxStatus::Pending;
+        if (auto value = txParams.GetParameter<wallet::TxStatus>(TxParameterID::Status); value)
+            status = *value;
+
+        if (status == TxStatus::InProgress && txType == TxType::AssetInfo) return "getting info";
+        if (status == TxStatus::Completed)
         {
-            switch (m_txType)
+            switch (txType)
             {
                 case TxType::AssetIssue: return "asset issued";
                 case TxType::AssetConsume: return "asset consumed";
@@ -849,60 +863,50 @@ namespace beam::wallet
             }
         }
 
-        return TxStatusInterpreter::getStatus();
+        return GetTxStatusStr(txParams);
     }
 
-    ContractTxStatusInterpreter::ContractTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams)
+    std::string GetContractTxStatusStr(const TxParameters& txParams)
     {
-        if (auto value = txParams.GetParameter<TxType>(TxParameterID::TransactionType); value)
-            m_txType = *value;
-    }
+        TxStatus status = TxStatus::Pending;
+        if (auto value = txParams.GetParameter<wallet::TxStatus>(TxParameterID::Status); value)
+            status = *value;
 
-    std::string ContractTxStatusInterpreter::getStatus() const
-    {
-        switch (m_status)
+        switch (status)
         {
-        case TxStatus::InProgress:
-        case TxStatus::Registering:
-            return "in progress";
-        case TxStatus::Completed:
-            return "completed";
-        default:
-            break;
+            case TxStatus::InProgress:
+            case TxStatus::Registering:
+                return "in progress";
+            case TxStatus::Completed:
+                return "completed";
+            default:
+                break;
         }
-        return TxStatusInterpreter::getStatus();
+        return GetTxStatusStr(txParams);
     }
 
     std::string interpretStatus(const TxDescription& tx)
     {
-        std::unique_ptr<beam::wallet::TxStatusInterpreter> statusInterpreter;
-        if (tx.m_txType == wallet::TxType::Simple)
+        switch (tx.m_txType)
         {
-            statusInterpreter = std::make_unique<beam::wallet::SimpleTxStatusInterpreter>(tx);
+            case wallet::TxType::Simple:
+                return GetSimpleTxStatusStr(tx);
+            case wallet::TxType::AssetIssue:
+            case wallet::TxType::AssetConsume:
+            case wallet::TxType::AssetReg:
+            case wallet::TxType::AssetUnreg:
+            case wallet::TxType::AssetInfo:
+                return GetAssetTxStatusStr(tx);
+            case wallet::TxType::PushTransaction:
+                return GetMaxAnonimityTxStatusStr(tx);
+            case wallet::TxType::Contract:
+                return GetContractTxStatusStr(tx);
+            case wallet::TxType::DexSimpleSwap:
+                return GetSimpleTxStatusStr(tx);
+            default:
+                BOOST_ASSERT_MSG(false, kErrorUnknownTxType);
+                return "unknown";
         }
-        else if (tx.m_txType == wallet::TxType::PushTransaction)
-        {
-            statusInterpreter = std::make_unique<beam::wallet::MaxPrivacyTxStatusInterpreter>(tx);
-        }
-        else if (tx.m_txType >= wallet::TxType::AssetIssue && tx.m_txType <= wallet::TxType::AssetInfo)
-        {
-            statusInterpreter = std::make_unique<beam::wallet::AssetTxStatusInterpreter>(tx);
-        }
-        else if (tx.m_txType == wallet::TxType::Contract)
-        {
-            statusInterpreter = std::make_unique<beam::wallet::ContractTxStatusInterpreter>(tx);
-        }
-        else if (tx.m_txType == wallet::TxType::DexSimpleSwap)
-        {
-            statusInterpreter = std::make_unique<beam::wallet::SimpleTxStatusInterpreter>(tx);
-        }
-        else
-        {
-            BOOST_ASSERT_MSG(false, kErrorUnknownTxType);
-            return "unknown";
-        }
-
-        return statusInterpreter->getStatus();
     }
 
     TxDescription::TxDescription(const TxParameters& p)
@@ -919,13 +923,11 @@ namespace beam::wallet
             m_txId = *txId;
         }
 
-#define MACRO(id, type, field, init) \
+        #define MACRO(id, type, field, init) \
         if (auto value = parameters.GetParameter<type>(id); value) \
             field = *value; 
         BEAM_TX_DESCRIPTION_INITIAL_PARAMS(MACRO)
-
-#undef MACRO
-
+        #undef MACRO
     }
 
     bool TxDescription::canResume() const

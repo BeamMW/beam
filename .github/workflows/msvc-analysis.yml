@@ -19,6 +19,7 @@ on:
 env:
   # Path to the CMake build directory.
   build: '${{ github.workspace }}/build'
+  config: 'Debug'
 
 jobs:
   analyze:
@@ -28,27 +29,32 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-
-      - name: Configure CMake
+        
+      - name: Create build environment CMake
+        shell: bash
         run: |
           git clone --depth=1 https://github.com/BeamMW/libs.git c:/beam-libs
-          echo "OPENSSL_ROOT_DIR=c:\beam-libs\openssl" >> $GITHUB_ENV
-          git clone https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git c:/boost_prebuild
-          echo "BOOST_ROOT=c:\boost_prebuild" >> $GITHUB_ENV
-          cmake -B ${{ env.build }}
+          echo "OPENSSL_ROOT_DIR=c:/beam-libs/openssl" >> $GITHUB_ENV
+          git clone https://github.com/BeamMW/boost_prebuild_windows-2019.git c:/boost_prebuild
+          echo "BOOST_ROOT=c:/boost_prebuild" >> $GITHUB_ENV
+
+      - name: Configure CMake
+        shell: bash
+        run: cmake -A x64 -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=On -B ./build -DCMAKE_BUILD_TYPE=${{ env.config }}
 
       # Build is not required unless generated source files are used
       # - name: Build CMake
       #   run: cmake --build ${{ env.build }}
 
       - name: Initialize MSVC Code Analysis
-        uses: microsoft/msvc-code-analysis-action@502db28262ba134c9a621d5a509b9f7e696c99b6
+        uses: microsoft/msvc-code-analysis-action@main
         # Provide a unique ID to access the sarif output path
         id: run-analysis
         with:
           cmakeBuildDirectory: ${{ env.build }}
+          buildConfiguration: ${{ env.config }}
           # Ruleset file that will determine what checks will be run
-          ruleset: NativeRecommendRules.ruleset
+          ruleset: NativeRecommendedRules.ruleset
 
       # Upload SARIF file to GitHub Code Scanning Alerts
       - name: Upload SARIF to GitHub

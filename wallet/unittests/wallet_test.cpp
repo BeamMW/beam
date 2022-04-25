@@ -204,7 +204,7 @@ namespace
         sw.start();
         for (int i = 0; i < 100; ++i)
         {
-            api.onHandleTxList(1, message);
+            api.onHandleTxList(1, TxList(message));
             api.TestTxListResSize(10);
             api.m_Messages.clear();
         }
@@ -213,43 +213,43 @@ namespace
 
         message.count = 10;
         message.skip = 0;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(10);
         api.m_Messages.clear();
 
         message.count = 100;
         message.skip = 0;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(64);
         api.m_Messages.clear();
 
         message.count = 100;
         message.skip = 10;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(54);
         api.m_Messages.clear();
 
         message.count = 10;
         message.skip = 10;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(10);
         api.m_Messages.clear();
 
         message.count = 10;
         message.skip = 63;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(1);
         api.m_Messages.clear();
 
         message.count = 10;
         message.skip = 64;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(0);
         api.m_Messages.clear();
 
         message.count = 10;
         message.skip = 65;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(0);
         api.m_Messages.clear();
 
@@ -278,7 +278,7 @@ namespace
             message2.filter.status = wallet::TxStatus::Completed;
             message2.filter.height = p.second;
 
-            api.onHandleTxList(1, message2);
+            api.onHandleTxList(1, std::move(message2));
             api.TestTxListResSize(1);
             api.TestTxListResHeight(p.second);
 
@@ -3556,8 +3556,8 @@ void TestAddressVersions()
 {
     cout << "\nTesting tokens versions...\n";
 
-    std::string clientVersion = "Beam UI 7.0.1313.2362";
-    std::string libraryVersion = "7.0.1316";
+    std::string clientVersion = "Beam UI 9.0.1313.2362";
+    std::string libraryVersion = "9.0.1316";
 
     auto testFunc = [&]()
     {
@@ -3568,14 +3568,14 @@ void TestAddressVersions()
         bool failed = true;
         ProcessLibraryVersion(params, [&](const auto& version, const auto& myVersion)
         {
-            WALLET_CHECK(version == "7.0.1316");
+            WALLET_CHECK(version == "9.0.1316");
             failed = false;
         });
         WALLET_CHECK(!failed);
         failed = true;
-        ProcessClientVersion(params, "Beam UI", "6.0.13163.2372", "7.0.1313", [&](const auto& version, const auto& myVersion)
+        ProcessClientVersion(params, "Beam UI", "6.0.13163.2372", "9.0.1313", [&](const auto& version, const auto& myVersion)
         {
-            WALLET_CHECK(version == "7.0.1313.2362");
+            WALLET_CHECK(version == "9.0.1313.2362");
             failed = false;
         });
         WALLET_CHECK(!failed);
@@ -3597,7 +3597,7 @@ void TestAddressVersions()
 
     testFunc();
 
-    ByteBuffer buf = toByteBuffer(Version{ 7, 0, 1316 });
+    ByteBuffer buf = toByteBuffer(Version{ 9, 0, 1316 });
     std::string{ buf.begin(), buf.end() }.swap(libraryVersion);
 
     buf = toByteBuffer(ClientVersion{ 2362U });
@@ -4027,6 +4027,7 @@ int main()
 	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
     Rules::get().pForks[2].m_Height = MaxHeight;
     Rules::get().pForks[3].m_Height = MaxHeight;
+    Rules::get().pForks[4].m_Height = MaxHeight;
     //Rules::get().DA.MaxAhead_s = 90;// 60 * 1;
     Rules::get().UpdateChecksum();
 

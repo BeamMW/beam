@@ -16,7 +16,9 @@
 
 #ifndef HOST_BUILD
 
+#ifndef _MSC_VER
 #pragma clang section bss = "disable_bss_for_global_zeroinitialized_vars_use_standard_data_section"
+#endif
 
 // Common ord types
 typedef unsigned char uint8_t;
@@ -42,8 +44,13 @@ struct Opaque {
 };
 
 struct Secp_point_data {
-    Opaque<32> X;
-    uint8_t Y;
+    Opaque<32> m_X;
+    uint8_t m_Y;
+};
+
+struct Secp_point_dataEx {
+    Opaque<32> m_X;
+    Opaque<32> m_Y;
 };
 
 #pragma pack (pop)
@@ -68,7 +75,11 @@ inline void ConvertOrd(T&) {}
 #   define _countof(x) (sizeof(x) / sizeof((x)[0]))
 #endif // _countof
 
+#ifndef _MSC_VER
 #   define BEAM_EXPORT __attribute__( ( visibility( "default" ) ) ) extern "C"
+#else
+#   define BEAM_EXPORT extern "C"
+#endif
 
 #ifndef assert
 #   define assert(expr) do {} while (false)
@@ -419,6 +430,10 @@ namespace std {
 
 #endif // HOST_BUILD
 
+#if defined(_MSC_VER) && !defined(HOST_BUILD)
+#include <stdlib.h>
+#endif
+
 namespace Utils {
 
     template <typename T> struct BlobOf
@@ -473,15 +488,27 @@ namespace Utils {
     }
 
     inline uint16_t FromBE(uint16_t x) {
+#ifdef _MSC_VER
+        return _byteswap_ushort(x);
+#else
         return __builtin_bswap16(x);
+#endif
     }
 
     inline uint32_t FromBE(uint32_t x) {
+#ifdef _MSC_VER
+        return _byteswap_ulong(x);
+#else
         return __builtin_bswap32(x);
+#endif
     }
 
     inline uint64_t FromBE(uint64_t x) {
+#ifdef _MSC_VER
+        return _byteswap_uint64(x);
+#else
         return __builtin_bswap64(x);
+#endif
     }
 
     template <typename T>
@@ -530,6 +557,21 @@ namespace Utils {
         }
     };
 
+    namespace details {
+
+        template <uint64_t x> struct Number {
+            template <uint32_t nRadix> struct Radix {
+                static const uint32_t nDigits = 1 + Number<x / nRadix>::template Radix<nRadix>::nDigits;
+            };
+        };
+
+        template <> struct Number<0> {
+            template <uint32_t nRadix> struct Radix {
+                static const uint32_t nDigits = 0;
+            };
+        };
+    }
+
     struct String
     {
         template <uint32_t nRadix>
@@ -542,21 +584,22 @@ namespace Utils {
                     if (!(val0 /= nRadix))
                         break;
 
-                uint32_t retVal = nDigs;
+                Print(sz, val, nDigs);
+                return nDigs;
+            }
 
+            static void Print(char* sz, uint64_t val, uint32_t nDigs)
+            {
                 for (sz[nDigs] = 0; ; val /= nRadix)
                 {
                     sz[--nDigs] = '0' + (val % nRadix);
                     if (!nDigs)
                         break;
                 }
-
-                return retVal;
             }
 
             template <uint64_t x> struct Digits {
-                static const uint32_t N_Raw = x ? (1 + Digits<x / nRadix>::N_Raw) : 0;
-                static const uint32_t N = N_Raw ? N_Raw : 1;
+                static const uint32_t N = x ? details::Number<x>::template Radix<nRadix>::nDigits : 1;
             };
 
             template <typename T> struct DigitsMax {

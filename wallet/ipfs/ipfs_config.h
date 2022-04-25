@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+// Copyright 2020 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,9 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "v6_2_api.h"
-#include "version.h"
+#pragma once
 
-namespace beam::wallet
-{
-}
+#ifdef BEAM_IPFS_SUPPORT
+#include <asio-ipfs/include/ipfs_config.h>
+#endif

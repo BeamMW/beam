@@ -169,6 +169,10 @@ namespace proto {
 #define BeamNodeMsg_SetDependentContext(macro) \
     macro(std::unique_ptr<Merkle::Hash>, Context)
 
+#define BeamNodeMsg_DependentContextChanged(macro) \
+    macro(std::vector<Merkle::Hash>, vCtxs) \
+    macro(uint32_t, PrefixDepth)
+
 #define BeamNodeMsg_Bye(macro) \
     macro(uint8_t, Reason)
 
@@ -355,6 +359,7 @@ namespace proto {
     macro(0x49, NewTransaction) \
     /* dependent context and txs */ \
     macro(0x4a, SetDependentContext) \
+    macro(0x4b, DependentContextChanged) \
     /* bbs */ \
     macro(0x39, BbsHaveMsg) \
     macro(0x3a, BbsGetMsg) \
@@ -398,19 +403,10 @@ namespace proto {
             static void set(uint32_t& nFlags, uint32_t nExt);
             static uint32_t get(uint32_t nFlags);
         };
-	};
 
-    struct DependentContext
-    {
-        static void get_Ancestor(Merkle::Hash& hvRes, const Merkle::Hash& hvParent, const Merkle::Hash& hvTx)
-        {
-            ECC::Hash::Processor()
-                << "dep.tx"
-                << hvParent
-                << hvTx
-                >> hvRes;
-        }
-    };
+        static const uint32_t WantDependentState     = 0x10000; // Please send me dependent state updates
+        static_assert(!(WantDependentState  & Extension::Msk));
+	};
 
     struct IDType
     {
@@ -624,7 +620,8 @@ namespace proto {
         static const uint8_t ContractFailNode = ContractFailLast; // non-existing contract invoked, duplicate contract created, contract d'tor left garbage
 
         static const uint8_t DependentNoParent = 0x48;
-        static const uint8_t DependentNotBest = 0x48; // tx is ok, but looses to a competing tx
+        static const uint8_t DependentNotBest = 0x49; // tx is ok, but looses to a competing tx
+        static const uint8_t DependentNoNewCtx = 0x4a; // duplicated new context. Probably means tx kernel was not marked as dependent
     };
 
 
@@ -639,9 +636,8 @@ namespace proto {
         static const uint8_t s_Code = code; \
         BeamNodeMsg_##msg(THE_MACRO2) \
         template <typename Archive> void serialize(Archive& ar) { ar BeamNodeMsg_##msg(THE_MACRO3); } \
-        msg(Zero_ = Zero) { BeamNodeMsg_##msg(THE_MACRO4) } /* default c'tor, zero-init everything */ \
+        msg() { BeamNodeMsg_##msg(THE_MACRO4) } /* default c'tor, zero-init everything */ \
         msg(Uninitialized_) { } /* don't init members */ \
-        msg(BeamNodeMsg_##msg(THE_MACRO5) Unused_ = Unused) { BeamNodeMsg_##msg(THE_MACRO6) } /* explicit init */ \
     }; \
     struct msg##_NoInit :public msg { \
         msg##_NoInit() :msg(Uninitialized) {} \
@@ -807,6 +803,7 @@ namespace proto {
         bool IsLive() const;
         bool IsSecureIn() const;
         bool IsSecureOut() const;
+        bool IsLoginSent() const { return m_RulesCfgSent; } // at least once
 
         const Connection* get_Connection() { return m_Connection.get(); }
 

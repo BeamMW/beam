@@ -42,8 +42,8 @@ namespace
     class RLPStream
     {
     public:
-        RLPStream() {}
-        ~RLPStream() {}
+        RLPStream() = default;
+        ~RLPStream() = default;
 
         // Append given datum to the byte stream.
         RLPStream& append(unsigned value) { return append(ECC::uintBig(value)); }

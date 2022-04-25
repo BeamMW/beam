@@ -11,13 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
 
 #include <boost/optional.hpp>
 #include <boost/program_options.hpp>
 #include "utility/logger.h"
 #include "wallet/core/secstring.h"
+
+#ifdef BEAM_IPFS_SUPPORT
+#include <asio-ipfs/include/ipfs_config.h>
+#endif
 
 namespace beam
 {
@@ -202,6 +205,7 @@ namespace beam
         extern const char* API_USE_ACL;
         extern const char* API_ACL_PATH;
         extern const char* API_VERSION;
+        extern const char* API_TCP_MAX_LINE;
 
         // treasury
         extern const char* TR_OPCODE;
@@ -253,6 +257,28 @@ namespace beam
         extern const char* SHADER_BYTECODE_APP;
         extern const char* SHADER_BYTECODE_CONTRACT;
         extern const char* SHADER_PRIVILEGE;
+
+        // IPFS
+        #ifdef BEAM_IPFS_SUPPORT
+        extern const char* IPFS_ENABLE;
+        extern const char* IPFS_STORAGE;
+        extern const char* IPFS_LOW_WATER;
+        extern const char* IPFS_HIGH_WATER;
+        extern const char* IPFS_GRACE;
+        extern const char* IPFS_AUTO_RELAY;
+        extern const char* IPFS_RELAY_HOP;
+        extern const char* IPFS_BOOTSTRAP;
+        extern const char* IPFS_SWARM_PORT;
+        extern const char* IPFS_STORAGE_MAX;
+        extern const char* IPFS_API_ADDR;
+        extern const char* IPFS_GATEWAY_ADDR;
+        extern const char* IPFS_AUTONAT;
+        extern const char* IPFS_AUTONAT_LIMIT;
+        extern const char* IPFS_AUTONAT_PEER_LIMIT;
+        extern const char* IPFS_SWARM_KEY;
+        extern const char* IPFS_ROUTING_TYPE;
+        extern const char* IPFS_RUN_GC;
+        #endif
     }
 
     enum OptionsFlag : int
@@ -261,13 +287,16 @@ namespace beam
         NODE_OPTIONS    = 1 << 1,
         WALLET_OPTIONS  = 1 << 2,
         UI_OPTIONS      = 1 << 3,
-
         ALL_OPTIONS     = GENERAL_OPTIONS | NODE_OPTIONS | WALLET_OPTIONS | UI_OPTIONS
     };
 
     std::pair<po::options_description, po::options_description> createOptionsDescription(int flags = ALL_OPTIONS, const std::string& configFile = {});
-
     po::options_description createRulesOptionsDescription();
+
+    #ifdef BEAM_IPFS_SUPPORT
+    po::options_description createIPFSOptionsDesrition(bool enableByDefault, const asio_ipfs::config& defaults);
+    boost::optional<asio_ipfs::config> getIPFSConfig(const po::variables_map& vm, asio_ipfs::config defaults); // boost::none if IPFS is not enabled
+    #endif
 
     po::variables_map getOptions(int argc, char* argv[], const po::options_description& options, bool walletOptions = false);
 

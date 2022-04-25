@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.13)
 cmake_policy(SET CMP0074 NEW)
 
-set(VERSION_MAJOR 6)
-set(VERSION_MINOR 2 )
+set(VERSION_MAJOR 7)
+set(VERSION_MINOR 0 )
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
@@ -200,10 +200,24 @@ if(SWAP_MAINNET)
 endif()
 
 option(BEAM_ATOMIC_SWAP_SUPPORT "Build wallet with atomic swap support" ON)
+message("BEAM_ATOMIC_SWAP_SUPPORT is ${BEAM_ATOMIC_SWAP_SUPPORT}")
+
 option(BEAM_LELANTUS_SUPPORT "Build wallet with lelantus support" ON)
+message("BEAM_LELANTUS_SUPPORT is ${BEAM_LELANTUS_SUPPORT}")
+
 option(BEAM_LASER_SUPPORT "Build wallet with laser support" ON)
+message("BEAM_LASER_SUPPORT is ${BEAM_LASER_SUPPORT}")
+
 option(BEAM_CONFIDENTIAL_ASSETS_SUPPORT "Build wallet with confidential assets support" ON)
+message("BEAM_CONFIDENTIAL_ASSETS_SUPPORT is ${BEAM_CONFIDENTIAL_ASSETS_SUPPORT}")
+
+option(BEAM_IPFS_SUPPORT "Build wallet with IPFS support" ON)
+message("BEAM_IPFS_SUPPORT is ${BEAM_IPFS_SUPPORT}")
+
 option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
+message("BEAM_HW_WALLET is ${BEAM_HW_WALLET}")
+
+
 
 if(BEAM_HW_WALLET)
 
@@ -264,10 +278,22 @@ if(MSVC)
     endif()
 else()
     if(NOT ANDROID AND NOT IOS AND NOT EMSCRIPTEN)
-        if(ARCH_NATIVE)
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
+        if(APPLE)
+            execute_process(COMMAND uname -m OUTPUT_VARIABLE arch OUTPUT_STRIP_TRAILING_WHITESPACE)
+            if ("${arch}" STREQUAL "arm64")
+                set(APPLE_M1 TRUE)
+            endif()
+        endif()
+
+        if(APPLE_M1)
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=apple-m1")
         else()
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=core2")
+            if(ARCH_NATIVE)
+                set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
+            else()
+                set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=core2")
+                
+            endif()
         endif()
     endif()
 
@@ -277,7 +303,7 @@ else()
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
     if (EMSCRIPTEN)
-        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s USE_PTHREADS=1 -s DISABLE_EXCEPTION_CATCHING=0 -s USE_BOOST_HEADERS=1 ")
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -s USE_PTHREADS=1 -s DISABLE_EXCEPTION_CATCHING=0 -s USE_BOOST_HEADERS=1 ")
         set(BEAM_WEB_WALLET_THREADS_NUM 5)
         add_definitions(-DBEAM_WEB_WALLET_THREADS_NUM=${BEAM_WEB_WALLET_THREADS_NUM})
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-command-line-argument") # mostly in 3rd-party libs
@@ -304,7 +330,7 @@ endif()
 
 #Boost
 if (NOT EMSCRIPTEN)
-    set(BEAM_BOOST_COMPONENTS system filesystem program_options thread regex log locale date_time)
+    set(BEAM_BOOST_COMPONENTS system filesystem program_options thread regex log locale date_time coroutine)
 endif()
 function(CreateBoostComponentTargets listOfComponents root libPrefix libSuffix)
     add_library(Boost::boost INTERFACE IMPORTED)

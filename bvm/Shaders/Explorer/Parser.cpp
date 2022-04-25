@@ -4,6 +4,7 @@
 #include "../vault/contract.h"
 #include "../faucet/contract.h"
 #include "../dao-core/contract.h"
+#include "../gallery/contract.h"
 
 void get_ShaderID(ShaderID& sid, void* pBuf, uint32_t nBuf)
 {
@@ -43,7 +44,9 @@ bool get_ShaderID(ShaderID& sid, const ContractID& cid)
 	macro(Upgradable2, Upgradable2::s_SID) \
 	macro(Vault, Vault::s_SID) \
 	macro(Faucet, Faucet::s_SID) \
-	macro(DaoCore, DaoCore::s_SID)
+	macro(DaoCore, DaoCore::s_SID) \
+	macro(Gallery_0, Gallery::s_SID_0) \
+	macro(Gallery, Gallery::s_SID_1)
 
 
 struct ParserContext
@@ -60,7 +63,7 @@ struct ParserContext
 
 	ParserContext(const ShaderID& sid, const ContractID& cid)
 		:m_Sid(sid)
-		, m_Cid(cid)
+		,m_Cid(cid)
 	{
 	}
 
@@ -385,6 +388,167 @@ void ParserContext::On_DaoCore()
 		{
 		case DaoCore::GetPreallocated::s_iMethod: Env::DocAddText("", "GetPreallocated"); break;
 		case DaoCore::UpdPosFarming::s_iMethod: Env::DocAddText("", "Farming Upd"); break;
+		}
+	}
+
+	if (m_State)
+	{
+		// TODO:
+	}
+}
+
+void WriteGalleryAdrID(Gallery::Masterpiece::ID id)
+{
+	Env::DocAddText("", ", art_id=");
+	Env::DocAddNum("", Utils::FromBE(id));
+}
+
+void WriteGalleryPrice(const Gallery::AmountWithAsset& x)
+{
+	if (x.m_Aid)
+	{
+		Env::DocAddText("", ", aid=");
+		Env::DocAddNum("", x.m_Aid);
+	}
+	Env::DocAddText("", ", amount=");
+	Env::DocAddNum("", x.m_Amount);
+}
+
+void ParserContext::On_Gallery_0()
+{
+	On_Gallery(); // same, we only added methods
+}
+
+void ParserContext::On_Gallery()
+{
+	if (m_Method && !WriteStdMethod())
+	{
+		switch (m_iMethod)
+		{
+		case Gallery::Method::AddExhibit::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::AddExhibit))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::AddExhibit*>(m_pArg);
+				Env::DocAddText("", "Method=AddArtwork");
+				Env::DocAddText("", ", pkUser=");
+				Env::DocAddBlob_T("", arg.m_pkArtist);
+			}
+			break;
+
+		case Gallery::Method::ManageArtist::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::ManageArtist))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::ManageArtist*>(m_pArg);
+
+				Env::DocAddText("", "Method=ManageArtist");
+				Env::DocAddText("", ", pkUser=");
+				Env::DocAddBlob_T("", arg.m_pkArtist);
+				
+				Env::DocAddText("", ", name=");
+	            Env::DocAddNum32("", arg.m_LabelLen);
+				
+			}
+			break;
+		
+		
+		case Gallery::Method::SetPrice::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::SetPrice))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::SetPrice*>(m_pArg);
+
+				Env::DocAddText("", "Method=SetPrice");
+				WriteGalleryAdrID(arg.m_ID);
+				WriteGalleryPrice(arg.m_Price);
+			}
+			break;
+
+		case Gallery::Method::Buy::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::Buy))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::Buy*>(m_pArg);
+
+				Env::DocAddText("", "Method=Buy");
+				WriteGalleryAdrID(arg.m_ID);
+				
+				Env::DocAddText("", ", pkUser=");
+	            Env::DocAddBlob_T("", arg.m_pkUser);
+	            
+	            Env::DocAddText("", ", hasAid=");
+	            Env::DocAddNum32("", arg.m_HasAid);
+				
+				Env::DocAddText("", ", payMax=");
+				Env::DocAddNum64("", arg.m_PayMax);
+			}
+			break;
+		
+		case Gallery::Method::Transfer::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::Transfer))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::Transfer*>(m_pArg);
+
+				Env::DocAddText("", "Method=Transfer");
+				WriteGalleryAdrID(arg.m_ID);
+				
+				Env::DocAddText("", ", newPkUser=");
+	            Env::DocAddBlob_T("", arg.m_pkNewOwner);
+			}
+			break;
+		
+			
+		case Gallery::Method::Withdraw::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::Withdraw))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::Withdraw*>(m_pArg);
+
+				Env::DocAddText("", "Method=Withdraw");
+				
+				// TODO roman
+				Env::DocAddText("", ", key=");
+	            Env::DocAddBlob_T("", arg.m_Key);
+	            
+	            Env::DocAddText("", ", value=");
+	            Env::DocAddNum64("", arg.m_Value);
+				
+			}
+			break;
+		
+		case Gallery::Method::AddVoteRewards::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::AddVoteRewards))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::AddVoteRewards*>(m_pArg);
+
+				Env::DocAddText("", "Method=AddVoteRewards");
+				
+				Env::DocAddText("", ", amount=");
+	            Env::DocAddNum64("", arg.m_Amount);
+			}
+			break;
+		
+		
+
+		case Gallery::Method::Vote::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::Vote))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::Vote*>(m_pArg);
+
+				Env::DocAddText("", "Method=Vote");
+				WriteGalleryAdrID(arg.m_ID.m_MasterpieceID);
+
+				Env::DocAddText("", ", impression=");
+				Env::DocAddNum("", arg.m_Impression.m_Value);
+			}
+			break;
+
+		case Gallery::Method::AdminDelete::s_iMethod:
+			if (m_nArg >= sizeof(Gallery::Method::AdminDelete))
+			{
+				const auto& arg = *reinterpret_cast<const Gallery::Method::AdminDelete*>(m_pArg);
+
+				Env::DocAddText("", "Method=AdminDelete");
+				WriteGalleryAdrID(arg.m_ID);
+
+			}
+			break;
 		}
 	}
 

@@ -71,6 +71,7 @@ namespace BlobMap {
 
 		Entry* Find(const Blob&);
 		Entry* Create(const Blob&);
+		Entry* FindVarEx(const Blob&, bool bExact, bool bBigger);
 	};
 
 } // namespace BlobMap

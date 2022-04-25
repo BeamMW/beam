@@ -22,9 +22,9 @@ namespace beam::wallet
     class IShadersManager
     {
     public:
-        typedef std::function <void (boost::optional<TxID> txid, boost::optional<std::string> output, boost::optional<std::string> error)> DoneAllHandler;
-        typedef std::function <void (boost::optional<ByteBuffer> data, boost::optional<std::string> output, boost::optional<std::string> error)> DoneCallHandler;
-        typedef std::function <void (boost::optional<TxID> txid, boost::optional<std::string> error)> DoneTxHandler;
+        typedef std::function <void (const boost::optional<TxID>& txid, boost::optional<std::string>&& output, boost::optional<std::string>&& error)> DoneAllHandler;
+        typedef std::function <void (boost::optional<ByteBuffer>&& data, boost::optional<std::string>&& output, boost::optional<std::string>&& error)> DoneCallHandler;
+        typedef std::function <void (const boost::optional<TxID>& txid, boost::optional<std::string>&& error)> DoneTxHandler;
 
         typedef std::shared_ptr<IShadersManager> Ptr;
         typedef std::weak_ptr<IShadersManager> WeakPtr;
@@ -41,8 +41,8 @@ namespace beam::wallet
         // CallShaderAndStartTx - call shader & automatically create transaction if necessary
         // CallShader - only make call and return tx data, doesn't create any transactions
         // ProcessTxData - process data returned by CallShader
-        virtual void CallShaderAndStartTx(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, uint32_t priority, uint32_t unique, DoneAllHandler doneHandler) = 0;
-        virtual void CallShader(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, uint32_t priority, uint32_t unique, DoneCallHandler) = 0;
+        virtual void CallShaderAndStartTx(std::vector<uint8_t>&& shader, std::string&& args, unsigned method, uint32_t priority, uint32_t unique, DoneAllHandler doneHandler) = 0;
+        virtual void CallShader(std::vector<uint8_t>&& shader, std::string&& args, unsigned method, uint32_t priority, uint32_t unique, DoneCallHandler) = 0;
         virtual void ProcessTxData(const ByteBuffer& data, DoneTxHandler doneHandler) = 0;
         [[nodiscard]] virtual  bool IsDone() const = 0;
     };

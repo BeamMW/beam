@@ -22,31 +22,42 @@ namespace beam {
 
 struct TxPool
 {
+	struct Stats
+	{
+		Amount m_Fee;
+		Amount m_FeeReserve;
+		uint32_t m_Size;
+		uint32_t m_SizeCorrection;
+		HeightRange m_Hr;
+
+		void From(const Transaction&, const Transaction::Context&, Amount feeReserve, uint32_t nSizeCorrection);
+		void SetSize(const Transaction&);
+	};
+
 	struct Profit
 		:public boost::intrusive::set_base_hook<>
 	{
-		AmountBig::Type m_Fee; // since a tx may include multiple kernels - theoretically fee may be huge (though highly unlikely)
-		uint32_t m_nSize;
-		uintBigFor<uint32_t>::Type m_nSizeCorrected;
-
-		void SetSize(const Transaction&, uint32_t nCorrection);
-		uint32_t get_Correction() const;
+		Stats m_Stats;
 
 		bool operator < (const Profit& t) const;
 	};
 
 	struct Fluff
 	{
+		enum State {
+			PreFluffed,
+			Fluffed,
+			Outdated,
+		};
+
 		struct Element
 		{
 			Transaction::Ptr m_pValue;
+			State m_State;
 
 			struct Tx
-				:public boost::intrusive::set_base_hook<>
+				:public intrusive::set_base_hook<Transaction::KeyType>
 			{
-				Transaction::KeyType m_Key;
-
-				bool operator < (const Tx& t) const { return m_Key < t.m_Key; }
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Tx)
 			} m_Tx;
 
@@ -56,58 +67,64 @@ struct TxPool
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Profit)
 			} m_Profit;
 
-			HeightRange m_Height;
-
-			struct Outdated
-				:public boost::intrusive::set_base_hook<>
-			{
-				Height m_Height;
-
-				bool operator < (const Outdated& t) const { return m_Height < t.m_Height; }
-				IMPLEMENT_GET_PARENT_OBJ(Element, m_Outdated)
-			} m_Outdated;
-
-			struct Queue
+			struct Hist
 				:public boost::intrusive::list_base_hook<>
 			{
-				uint32_t m_Refs = 0;
-				IMPLEMENT_GET_PARENT_OBJ(Element, m_Queue)
-			} m_Queue;
+				Height m_Height;
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Hist)
+			} m_Hist;
 
-			bool IsOutdated() const { return MaxHeight != m_Outdated.m_Height; }
+			struct Send
+				:public boost::intrusive::list_base_hook<>
+			{
+				Element* m_pThis;
+				uint32_t m_Refs = 0;
+			};
+			Send* m_pSend = nullptr;
 		};
 
 		typedef boost::intrusive::multiset<Element::Tx> TxSet;
 		typedef boost::intrusive::multiset<Element::Profit> ProfitSet;
-		typedef boost::intrusive::multiset<Element::Outdated> OutdatedSet;
-		typedef boost::intrusive::list<Element::Queue> Queue;
+		typedef boost::intrusive::list<Element::Hist> HistList;
+		typedef boost::intrusive::list<Element::Send> SendQueue;
 
 		TxSet m_setTxs;
 		ProfitSet m_setProfit;
-		OutdatedSet m_setOutdated;
-		Queue m_Queue;
+		SendQueue m_SendQueue;
+		HistList m_lstOutdated;
+		HistList m_lstWaitFluff;
 
-		Element* AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&, uint32_t nSizeCorrection);
-		void SetOutdated(Element&, Height);
+		Element* AddValidTx(Transaction::Ptr&&, const Stats&, const Transaction::KeyType&, State, Height hLst = 0);
+		void SetState(Element&, State);
 		void Delete(Element&);
-		void DeleteEmpty(Element&);
-		void Release(Element&);
+		void Release(Element::Send&);
 		void Clear();
 
 		~Fluff() { Clear(); }
 
 	private:
-		void InternalInsert(Element&);
-		void InternalErase(Element&);
+
+		struct Features
+		{
+			bool m_SendAndProfit;
+			bool m_TxSet;
+			bool m_WaitFluff;
+			bool m_Outdated;
+
+			static Features get(State);
+		};
+
+		void SetState(Element&, Features f0, Features f);
+		static void SetStateHistIn(Element&, HistList&, bool b0, bool b);
+		static void SetStateHistOut(Element&, HistList&, bool b0, bool b);
+
 	};
 
 	struct Stem
 	{
-
 		struct Element
 		{
 			Transaction::Ptr m_pValue;
-			bool m_bAggregating; // if set - the tx isn't broadcasted yet, and inserted in the 'Profit' set
 
 			struct Time
 				:public boost::intrusive::set_base_hook<>
@@ -125,46 +142,20 @@ struct TxPool
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Profit)
 			} m_Profit;
 
-			struct Kernel
-				:public boost::intrusive::set_base_hook<>
-			{
-				Element* m_pThis;
-				const TxKernel* m_pKrn;
-				bool operator < (const Kernel& t) const { return m_pKrn->m_Internal.m_ID < t.m_pKrn->m_Internal.m_ID; }
-			};
-
-			struct Confirm
-				:public boost::intrusive::list_base_hook<>
-			{
-				Height m_Height = MaxHeight;
-				IMPLEMENT_GET_PARENT_OBJ(Element, m_Confirm)
-			} m_Confirm;
-
-			HeightRange m_Height;
-			Amount m_FeeReserve;
-
-			std::vector<Kernel> m_vKrn;
+			Stats m_Stats;
 		};
 
-		typedef boost::intrusive::multiset<Element::Kernel> KrnSet;
 		typedef boost::intrusive::multiset<Element::Time> TimeSet;
 		typedef boost::intrusive::multiset<Element::Profit> ProfitSet;
-		typedef boost::intrusive::list<Element::Confirm> ConfirmList;
 
-		KrnSet m_setKrns;
 		TimeSet m_setTime;
 		ProfitSet m_setProfit;
-		ConfirmList m_lstConfirm;
 
 		void Delete(Element&);
 		void Clear();
-		void InsertKrn(Element&);
-		void DeleteKrn(Element&);
 		void InsertAggr(Element&);
 		void DeleteAggr(Element&);
 		void DeleteTimer(Element&);
-		void InsertConfirm(Element&, Height);
-		void DeleteConfirm(Element&);
 
 		bool TryMerge(Element& trg, Element& src);
 
@@ -196,6 +187,7 @@ struct TxPool
 			Amount m_Fee;
 			uint32_t m_BvmCharge;
 			uint32_t m_Size;
+			uint32_t m_Depth;
 
 			struct Tx
 				:public intrusive::set_base_hook<Transaction::KeyType>
@@ -208,6 +200,8 @@ struct TxPool
 			{
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Context)
 			} m_Context;
+
+			bool m_Fluff = false;
 		};
 
 		typedef boost::intrusive::multiset<Element::Tx> TxSet;

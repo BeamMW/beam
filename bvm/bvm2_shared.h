@@ -142,6 +142,12 @@ struct KeyTag
 	static const uint8_t SidCid = 16; // Key={00...00}tag{sid}{cid}, Value=BigEndian(createHeight)
 };
 
+struct KeySearchFlags
+{
+	static const uint8_t Exact = 1;
+	static const uint8_t Bigger = 2;
+};
+
 namespace Merkle
 {
 	struct Node

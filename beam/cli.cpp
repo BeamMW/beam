@@ -63,9 +63,9 @@ namespace
 			r.cancel_tcp_connect(uint64_t(this));
 		}
 	private:
-		void ReactorThread_onWSDataReceived(const std::string& data) override
+		void ReactorThread_onWSDataReceived(std::string&& data) override
 		{
-			m_DataQueue.push(data);
+			m_DataQueue.push(std::move(data));
 			if (m_Stream)
 			{
 				ProcessDataQueue();
@@ -89,8 +89,16 @@ namespace
 				LOG_DEBUG() << "Websocket proxy connected to the node";
 				m_Stream = std::move(newStream);
 				m_Stream->enable_read(
-					[this](io::ErrorCode what, void* data, size_t size) -> bool
+					[this](io::ErrorCode errorCode, void* data, size_t size) -> bool
 					{
+						if (errorCode != 0)
+						{
+							std::stringstream ss;
+							ss << "Websocket proxy failed to read, code=" << io::error_str(errorCode);
+							LOG_ERROR() << ss.str();
+							m_wsClose(ss.str());
+							return false;
+						}
 						m_wsSend(std::string((const char*)data, size));
 						return true;
 					});
@@ -100,7 +108,7 @@ namespace
 			{
 				std::stringstream ss;
 				ss << "Websocket proxy failed connected to the node: " << io::error_str(errorCode);
-				LOG_DEBUG() << ss.str();
+				LOG_ERROR() << ss.str();
 				m_wsClose(ss.str());
 			}
 		}
@@ -247,7 +255,7 @@ private:
 	Node* m_pNode;
 };
 
-int main_impl(int argc, char* argv[])
+int main(int argc, char* argv[])
 {
 	beam::Crash::InstallHandler(NULL);
 
@@ -601,28 +609,3 @@ int main_impl(int argc, char* argv[])
 
 	return 0;
 }
-
-int main(int argc, char* argv[]) {
-#ifdef _WIN32
-	return main_impl(argc, argv);
-#else
-	block_sigpipe();
-	auto f = std::async(
-		std::launch::async,
-		[argc, argv]() -> int {
-			// TODO: this hungs app on OSX
-			//lock_signals_in_this_thread();
-			int ret = main_impl(argc, argv);
-			kill(0, SIGINT);
-			return ret;
-		}
-	);
-
-	wait_for_termination(0);
-
-	if (reactor) reactor->stop();
-
-	return f.get();
-#endif
-}
-

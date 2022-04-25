@@ -1,12 +1,14 @@
 ﻿#include "wallet/unittests/test_helpers.h"
 #include "utility/logger.h"
 #include "websocket/websocket_server.h"
+#include "websocket/sessions.h"
 
 #include <boost/beast/core.hpp>
 #include <boost/beast/ssl.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/spawn.hpp>
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -213,8 +215,8 @@ namespace
         }
         catch (std::exception const& e)
         {
-            WALLET_CHECK(false);
             std::cerr << "Error: " << e.what() << std::endl;
+            WALLET_CHECK(false);
         }
         catch (...)
         {
@@ -225,7 +227,7 @@ namespace
         return WALLET_CHECK_RESULT;
     }
 
-    int SendSecureMessage(std::string host, const std::string& port, const std::string& text, std::function<void()> cb)
+    int SendSecureMessage(std::string host, const std::string& port, const std::string& text, size_t connectionNum, std::function<void()> cb)
     {
         try
         {
@@ -241,52 +243,72 @@ namespace
 
             // These objects perform our I/O
             tcp::resolver resolver{ ioc };
-            websocket::stream<beast::ssl_stream<tcp::socket>> ws{ ioc, ctx };
 
             // Look up the domain name
             auto const results = resolver.resolve(host, port);
 
-            // Make the connection on the IP address we get from a lookup
-            net::connect(ws.next_layer().next_layer(), results.begin(), results.end());
 
-            // Perform the SSL handshake
-            ws.next_layer().handshake(ssl::stream_base::client);
-
-
-            // Set a decorator to change the User-Agent of the handshake
-            ws.set_option(websocket::stream_base::decorator(
-                [](websocket::request_type& req)
+            std::vector<websocket::stream<beast::ssl_stream<tcp::socket>>> wsockets;
+            size_t count = connectionNum;
+            wsockets.reserve(count);
+            for (; count > 0; --count)
             {
-                req.set(http::field::user_agent,
-                    std::string(BOOST_BEAST_VERSION_STRING) +
-                    " websocket-client-coro");
-            }));
+                auto& ws = wsockets.emplace_back(ioc, ctx);
+                // Make the connection on the IP address we get from a lookup
+                net::connect(ws.next_layer().next_layer(), results.begin(), results.end());
 
-            // Perform the websocket handshake
-            ws.handshake(host, "/");
+                // Perform the SSL handshake
+                ws.next_layer().handshake(ssl::stream_base::client);
 
-            // Send the message
-            ws.write(net::buffer(std::string(text)));
+                // Set a decorator to change the User-Agent of the handshake
+                ws.set_option(websocket::stream_base::decorator(
+                    [](websocket::request_type& req)
+                    {
+                        req.set(http::field::user_agent,
+                            std::string(BOOST_BEAST_VERSION_STRING) +
+                            " websocket-client");
+                    }));
 
-            // This buffer will hold the incoming message
-            beast::flat_buffer buffer;
+                // Perform the websocket handshake
+                ws.handshake(host, "/");
+            }
 
-            // Read a message into our buffer
-            ws.read(buffer);
+            for (int j = 0; j < 2; ++j)
+            {
+                for (auto& ws : wsockets)
+                {
+                    for (int i = 0; i < 2; ++i)
+                    {
+                        // create test message
+                        std::stringstream ss;
+                        ss << text << i;
+                        auto testMessage = ss.str();
+                        // Send the message
+                        ws.write(net::buffer(testMessage));
 
-            // Close the WebSocket connection
-            ws.close(websocket::close_code::normal);
+                        // This buffer will hold the incoming message
+                        beast::flat_buffer buffer;
 
-            std::stringstream ss;
-            ss << beast::make_printable(buffer.data());
-            WALLET_CHECK(ss.str() == "test messagetest message");
+                        // Read a message into our buffer
+                        ws.read(buffer);
+
+                        std::stringstream ss2;
+                        ss2 << beast::make_printable(buffer.data());
+                        WALLET_CHECK(ss2.str() == testMessage + testMessage);
+                    }
+                }
+            }
             
-
+            for (auto& ws : wsockets)
+            {
+                // Close the WebSocket connection
+                ws.close(websocket::close_code::normal);
+            }
         }
         catch (std::exception const& e)
         {
-            WALLET_CHECK(false);
             std::cerr << "Error: " << e.what() << std::endl;
+            WALLET_CHECK(false);
         }
         catch (...)
         {
@@ -296,6 +318,158 @@ namespace
         cb();
         return WALLET_CHECK_RESULT;
     }
+
+    void fail(beast::error_code ec, char const* what)
+    {
+        std::cerr << what << ": " << ec.message() << "\n";
+
+        WALLET_CHECK(false);
+    }
+
+    void do_session(
+        std::string host,
+        std::string const& port,
+        std::string const& text,
+        net::io_context& ioc,
+        ssl::context& ctx,
+        net::yield_context yield)
+    {
+        beast::error_code ec;
+
+        // These objects perform our I/O
+        tcp::resolver resolver(ioc);
+        websocket::stream<
+            beast::ssl_stream<beast::tcp_stream>> ws(ioc, ctx);
+
+        // Look up the domain name
+        auto const results = resolver.async_resolve(host, port, yield[ec]);
+        if (ec)
+            return fail(ec, "resolve");
+
+        // Set a timeout on the operation
+        beast::get_lowest_layer(ws).expires_after(std::chrono::seconds(30));
+
+        // Make the connection on the IP address we get from a lookup
+        auto ep = beast::get_lowest_layer(ws).async_connect(results, yield[ec]);
+        if (ec)
+            return fail(ec, "connect");
+
+        // Update the host_ string. This will provide the value of the
+        // Host HTTP header during the WebSocket handshake.
+        // See https://tools.ietf.org/html/rfc7230#section-5.4
+        host += ':' + std::to_string(ep.port());
+
+        // Set a timeout on the operation
+        beast::get_lowest_layer(ws).expires_after(std::chrono::seconds(30));
+
+        // Set a decorator to change the User-Agent of the handshake
+        ws.set_option(websocket::stream_base::decorator(
+            [](websocket::request_type& req)
+            {
+                req.set(http::field::user_agent,
+                    std::string(BOOST_BEAST_VERSION_STRING) +
+                    " websocket-client-coro");
+            }));
+
+        // Perform the SSL handshake
+        ws.next_layer().async_handshake(ssl::stream_base::client, yield[ec]);
+        if (ec)
+            return fail(ec, "ssl_handshake");
+
+        // Turn off the timeout on the tcp_stream, because
+        // the websocket stream has its own timeout system.
+        beast::get_lowest_layer(ws).expires_never();
+
+        // Set suggested timeout settings for the websocket
+        ws.set_option(
+            websocket::stream_base::timeout::suggested(
+                beast::role_type::client));
+
+        // Perform the websocket handshake
+        ws.async_handshake(host, "/", yield[ec]);
+        if (ec)
+            return fail(ec, "handshake");
+
+        for (int i = 0; i < 1000; ++i)
+        {
+            // create test message
+            std::stringstream ss;
+            ss << text << i;
+            auto testMessage = ss.str();
+            // Send the message
+            ws.async_write(net::buffer(testMessage), yield[ec]);
+            if (ec)
+                return fail(ec, "write");
+
+            // This buffer will hold the incoming message
+            beast::flat_buffer buffer;
+
+            // Read a message into our buffer
+            ws.async_read(buffer, yield[ec]);
+            if (ec)
+                return fail(ec, "read");
+
+            std::stringstream ss2;
+            ss2 << beast::make_printable(buffer.data());
+            auto t = ss2.str();
+            WALLET_CHECK(std::equal(t.begin(), t.begin()+ testMessage.size(), testMessage.begin(), testMessage.end()));
+            WALLET_CHECK(std::equal(t.begin() + testMessage.size(), t.end(), testMessage.begin(), testMessage.end()));
+        }
+
+
+        // Close the WebSocket connection
+        ws.async_close(websocket::close_code::normal, yield[ec]);
+        if (ec)
+            return fail(ec, "close");
+
+        // If we get here then the connection is closed gracefully
+    }
+
+
+    int SendSecureMessage2(std::string host, const std::string& port, const std::string& text, size_t connectionNum, std::function<void()> cb)
+    {
+        std::cout << "Client started..." << std::endl;
+        try
+        {
+            // The io_context is required for all I/O
+            net::io_context ioc;
+
+            // The SSL context is required, and holds certificates
+            ssl::context ctx{ ssl::context::tlsv13_client };
+
+            // This holds the root certificate used for verification
+            boost::system::error_code ec;
+            LoadRootCertificates(ctx, ec);
+
+            for (size_t i = 0; i < connectionNum; ++i)
+            {
+                boost::asio::spawn(ioc, std::bind(
+                    &do_session,
+                    std::string(host),
+                    std::string(port),
+                    std::string(text),
+                    std::ref(ioc),
+                    std::ref(ctx),
+                    std::placeholders::_1));
+            }
+            ioc.run();
+        }
+        catch (std::exception const& e)
+        {
+            std::cerr << "Error: " << e.what() << std::endl;
+            WALLET_CHECK(false);
+        }
+        catch (...)
+        {
+            WALLET_CHECK(false);
+            // std::cerr << "Error: " << e. << std::endl;
+        }
+        cb();
+        std::cout << "Client done" << std::endl;
+        return WALLET_CHECK_RESULT;
+    }
+
+
 
     template<typename H>
     class MyWebSocketServer : public WebSocketServer
@@ -329,7 +503,7 @@ namespace
                 MyClientHandler(WebSocketServer::SendFunc wsSend, WebSocketServer::CloseFunc wsClose)
                     : m_wsSend(wsSend)
                 {}
-                void ReactorThread_onWSDataReceived(const std::string& message) override
+                void ReactorThread_onWSDataReceived(std::string&& message) override
                 {
                     std::cout << "Message: " << message << std::endl;
                     WALLET_CHECK(message == "test message");
@@ -353,9 +527,9 @@ namespace
         }
     }
 
-    void SecureWebsocketTest()
+    void SecureWebsocketTest(size_t clientCount = 1, size_t connections=10)
     {
-        std::cout << "Secure Web Socket test" << std::endl;
+        std::cout << "Secure Web Socket test [" << clientCount<< "," << connections << "]" <<std::endl;
 
         try
         {
@@ -366,10 +540,10 @@ namespace
                 MyClientHandler(WebSocketServer::SendFunc wsSend, WebSocketServer::CloseFunc wsClose)
                     : m_wsSend(wsSend)
                 {}
-                void ReactorThread_onWSDataReceived(const std::string& message) override
+                void ReactorThread_onWSDataReceived(std::string&& message) override
                 {
-                    std::cout << "Secure Message: " << message << std::endl;
-                    WALLET_CHECK(message == "test message");
+                    //std::cout << "Secure Message: " << message << std::endl;
+                    //WALLET_CHECK(message == "test message");
                     m_wsSend(message + message);
                 }
             };
@@ -378,25 +552,48 @@ namespace
             io::Reactor::Ptr reactor = safeReactor->ptr();
             io::Reactor::Scope scope(*reactor);
 
-            size_t count = 2;
-            auto cb = [&count, reactor]()
+            size_t count = clientCount *3;
+            auto timer = io::Timer::create(*reactor);
+            auto cb = [&count, reactor, &timer]()
             {
+                //std::cout << count << std::endl;
                 if (--count == 0)
                 {
-                    reactor->stop();
+                    if (WebsocketSession<SecureWebsocketSession>::counter == 0)
+                    {
+                        reactor->stop();
+                    }
+                    else
+                    {
+                        timer->start(10000, false, [reactor]() {reactor->stop(); });
+                    }
                 }
             };
 
             WebSocketServer::Options options;
-            options.port = 8200;
+            options.port = 8202;
             options.useTls = true;
             LoadServerCertificate(options);
             MyWebSocketServer<MyClientHandler> server(safeReactor, options);
-            std::thread t1(SendSecureMessage, "127.0.0.1", "8200", "test message", cb);
-            std::thread t2(SendMessage, "127.0.0.1", "8200", "test message", cb);
+            std::vector<std::thread> threads;
+            threads.reserve(count);
+            std::string message = "test message";
+            message.resize(500000);
+            std::generate(message.begin(), message.end(), []() { return 'a'; });// (std::string::value_type)std::rand();  });
+            for (size_t i = 0; i < clientCount; ++i)
+            {
+                threads.emplace_back(SendSecureMessage2, "127.0.0.1", "8202", message, connections, cb);
+                threads.emplace_back(SendSecureMessage, "127.0.0.1", "8202", "test message", 2, cb);
+                threads.emplace_back(SendMessage, "127.0.0.1", "8202", "test message", cb);
+            }
             reactor->run();
-            t1.join();
-            t2.join();
+
+            for (auto& t : threads)
+            {
+                t.join();
+            }
+            std::cout << "counter: " << WebsocketSession<SecureWebsocketSession>::counter << std::endl;
+            WALLET_CHECK(WebsocketSession<SecureWebsocketSession>::counter == 0);
         }
         catch (...)
         {
@@ -412,8 +609,8 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
 
     PlainWebsocketTest();
-    SecureWebsocketTest();
-
+    //SecureWebsocketTest();
+    SecureWebsocketTest(1, 1);
 
     return WALLET_CHECK_RESULT;
 }
