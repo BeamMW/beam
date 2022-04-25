@@ -174,12 +174,6 @@
 	macro(const void*, pSol) sep \
 	macro(uint32_t, nSol)
 
-#define BVMOp_fd_write(macro, sep) \
-	macro(uint32_t, fd) sep \
-	macro(void*, iovs) sep \
-	macro(uint32_t, iovs_len) sep \
-	macro(uint32_t, nwritten) 
-
 #define BVMOp_LoadVar(macro, sep) \
 	macro(const void*, pKey) sep \
 	macro(uint32_t, nKey) sep \
@@ -505,8 +499,6 @@
 	macro(0x9A, void     , Secp_Point_mul_H) \
 	macro(0x9B, void     , Secp_Point_ExportEx) \
 	macro(0xB0, uint8_t  , VerifyBeamHashIII) \
-	macro(0xB1, int32_t  , fd_write) \
-
 
 #define BVMOpsAll_Contract(macro) \
 	macro(0x20, uint32_t , LoadVar) \

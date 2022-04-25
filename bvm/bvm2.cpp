@@ -517,6 +517,7 @@ namespace bvm2 {
 		res = std::move(c.m_Result);
 	}
 
+
 	/////////////////////////////////////////////
 	// Redirection of calls
 
@@ -755,7 +756,7 @@ namespace bvm2 {
 	{
 		auto& x = c.m_ImportFuncs[iFunction];
 
-		if (!STR_MATCH(x.m_sMod, "env") && std::string_view(x.m_sMod.p, x.m_sMod.n).find("wasi") != 0)
+		if (!STR_MATCH(x.m_sMod, "env"))
 			Wasm::Fail(); // imports from other modules are not supported
 
 		const auto& tp = c.m_Types[x.m_TypeIdx];
@@ -817,7 +818,7 @@ namespace bvm2 {
 		if (!c.m_Globals.empty())
 		{
 			// we don't support globals, but it could be the stack pointer if the module wasn't built as a "shared" lib.
-			//Wasm::Test(!bStackPtrImported && (1 == c.m_Globals.size()));
+			Wasm::Test(!bStackPtrImported && (1 == c.m_Globals.size()));
 
 			auto& g0 = c.m_Globals.front();
 			TestStackPtr(g0);
@@ -2130,15 +2131,6 @@ namespace bvm2 {
 		return !!Impl::BeamHashIII::Verify(pInp, nInp, pNonce, nNonce, (const uint8_t*) pSol, nSol);
 	}
 
-	BVM_METHOD(fd_write)
-	{
-		return static_cast<int32_t>(0);
-	}
-	BVM_METHOD_HOST(fd_write)
-	{
-		return static_cast<int32_t>(0);
-	}
-
 //	BVM_METHOD(get_EthMixHash)
 //	{
 //		DischargeUnits(Limits::Cost::EthMixHash);
@@ -2227,6 +2219,7 @@ namespace bvm2 {
 //
 //		return 1;
 //	}
+
 
 	//BVM_METHOD(LoadVarEx)
 	//{
