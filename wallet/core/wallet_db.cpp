@@ -3845,24 +3845,7 @@ namespace beam::wallet
     vector<TxDescription> WalletDB::getTxHistory(wallet::TxType txType, uint64_t start, int count) const
     {
         // TODO this is temporary solution
-        int txCount = 0;
-        {
-            std::string req = "SELECT COUNT(DISTINCT txID) FROM " TX_PARAMS_NAME " WHERE paramID = ?1";
-            req += (txType != wallet::TxType::ALL) ? " AND value = ?2 ;" : " ;";
-
-            sqlite::Statement stm(this, req.c_str());
-            stm.bind(1, wallet::TxParameterID::TransactionType);
-
-            ByteBuffer typeBlob;
-            if (txType != wallet::TxType::ALL)
-            {
-                typeBlob = toByteBuffer(txType);
-                stm.bind(2, typeBlob);
-            }
-
-            stm.step();
-            stm.get(0, txCount);
-        }
+        int txCount = getTxCount(txType);
 
         vector<TxDescription> res;
         if (txCount > 0)
@@ -3907,7 +3890,31 @@ namespace beam::wallet
 
         return res;
     }
-    
+
+    int WalletDB::getTxCount(wallet::TxType txType) const
+    {
+        int txCount = 0;
+
+        std::string req = "SELECT COUNT(DISTINCT txID) FROM " TX_PARAMS_NAME " WHERE paramID = ?1";
+        req += (txType != wallet::TxType::ALL) ? " AND value = ?2 ;" : " ;";
+
+        sqlite::Statement stm(this, req.c_str());
+        stm.bind(1, wallet::TxParameterID::TransactionType);
+
+        ByteBuffer typeBlob;
+        if (txType != wallet::TxType::ALL)
+        {
+            typeBlob = toByteBuffer(txType);
+            stm.bind(2, typeBlob);
+        }
+
+        stm.step();
+        stm.get(0, txCount);
+
+
+        return txCount;
+    }
+
     boost::optional<TxDescription> WalletDB::getTx(const TxID& txId) const
     {
         // load only simple TX that supported by TxDescription

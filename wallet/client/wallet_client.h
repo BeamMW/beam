@@ -250,6 +250,7 @@ namespace beam::wallet
         void getWalletStatus() override;
         void getTransactions() override;
         void getTransactions(AsyncCallback<const std::vector<TxDescription>&>&& callback) override;
+        void getTransactionsSmoothly() override;
         void getAllUtxosStatus() override;
         void getAddresses(bool own) override;
 
