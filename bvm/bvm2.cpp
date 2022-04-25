@@ -252,6 +252,7 @@ namespace bvm2 {
 
 		LoadVar(cid, m_Code);
 		m_Code.Export(x.m_Body);
+		m_Code = x.m_Body; // important! Use our local copy to access the code
 
 		const Header& hdr = ParseMod();
 		Wasm::Test(iMethod < ByteOrder::from_le(hdr.m_NumMethods));
