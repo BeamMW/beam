@@ -77,9 +77,20 @@ namespace beam::wallet
 
                 doResponse(id, res);
             });
+    }
 
-
-        
+    std::vector<std::string> V63Api::GetTxByHeight(Height h) const
+    {
+        auto walletDB = getWalletDB();
+        TxListFilter filter;
+        filter.m_KernelProofHeight = h;
+        std::vector<std::string> res;
+        walletDB->visitTx([&res](const TxDescription& tx)
+            {
+                res.push_back(ToTxHash(*tx.GetTxID()));
+                return true;
+            }, filter);
+        return res;
     }
 
     void V63Api::onHandleBlockByNumber(const JsonRpcId& id, BlockByNumber&& req)
@@ -87,14 +98,7 @@ namespace beam::wallet
         onHandleBlockDetails(id, std::move(req.subCall), [this](const auto& id, const BlockDetails::Response& responce)
             {
                 BlockByNumber::Response res{responce};
-                auto walletDB = getWalletDB();
-                TxListFilter filter;
-                filter.m_KernelProofHeight = responce.height;
-                walletDB->visitTx([&res](const TxDescription& tx)
-                    {
-                        res.txHashes.push_back(ToTxHash(*tx.GetTxID()));
-                        return true;
-                    }, filter);
+                res.txHashes = GetTxByHeight(responce.height);
                 doResponse(id, res);
             });
         
@@ -165,16 +169,15 @@ namespace beam::wallet
 
     void V63Api::onHandleGetBlockByHash(const JsonRpcId& id, GetBlockByHash&& req)
     {
-        GetBlockByHash::Response res;
         auto walletDB = getWalletDB();
 
         struct Walker :public Block::SystemState::IHistory::IWalker
         {
-            Merkle::Hash m_hash;
-            Block::SystemState::Full m_state;
+            Merkle::Hash m_Hash;
+            boost::optional<Block::SystemState::Full> m_State;
 
             Walker(Merkle::Hash&& h)
-                : m_hash(std::move(h))
+                : m_Hash(std::move(h))
             {
             }
             bool OnState(const Block::SystemState::Full& s) override
@@ -182,19 +185,26 @@ namespace beam::wallet
                 Merkle::Hash h;
                 s.get_Hash(h);
 
-                if (h == m_hash)
+                if (h == m_Hash)
                 {
-                    m_state = s;
+                    m_State = s;
                     return false;
                 }
 
                 return true;
             }
-        } w(Merkle::Hash(res.blockHash));
+        } w(Merkle::Hash(Blob(req.blockHash)));
 
         walletDB->get_History().Enum(w, nullptr);
-
-        res.number = get_TipHeight();
+        if (!w.m_State)
+        {
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Failed to find a block with given hash");
+        }
+        GetBlockByHash::Response res;
+        res.subResponce.blockHash = w.m_Hash.str();
+        res.subResponce.height = w.m_State->m_Height;
+        res.subResponce.timestamp = w.m_State->m_TimeStamp;
+        res.txHashes = GetTxByHeight(w.m_State->m_Height);
         doResponse(id, res);
     }
 

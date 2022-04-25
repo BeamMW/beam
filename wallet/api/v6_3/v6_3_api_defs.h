@@ -149,7 +149,8 @@ namespace beam::wallet
         ByteBuffer blockHash;
         struct Response
         {
-            uint64_t number;
+            BlockDetails::Response subResponce;
+            std::vector<std::string> txHashes;
         };
     };
 
