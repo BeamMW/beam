@@ -3556,8 +3556,8 @@ void TestAddressVersions()
 {
     cout << "\nTesting tokens versions...\n";
 
-    std::string clientVersion = "Beam UI 7.0.1313.2362";
-    std::string libraryVersion = "7.0.1316";
+    std::string clientVersion = "Beam UI 9.0.1313.2362";
+    std::string libraryVersion = "9.0.1316";
 
     auto testFunc = [&]()
     {
@@ -3568,14 +3568,14 @@ void TestAddressVersions()
         bool failed = true;
         ProcessLibraryVersion(params, [&](const auto& version, const auto& myVersion)
         {
-            WALLET_CHECK(version == "7.0.1316");
+            WALLET_CHECK(version == "9.0.1316");
             failed = false;
         });
         WALLET_CHECK(!failed);
         failed = true;
-        ProcessClientVersion(params, "Beam UI", "6.0.13163.2372", "7.0.1313", [&](const auto& version, const auto& myVersion)
+        ProcessClientVersion(params, "Beam UI", "6.0.13163.2372", "9.0.1313", [&](const auto& version, const auto& myVersion)
         {
-            WALLET_CHECK(version == "7.0.1313.2362");
+            WALLET_CHECK(version == "9.0.1313.2362");
             failed = false;
         });
         WALLET_CHECK(!failed);
@@ -3597,7 +3597,7 @@ void TestAddressVersions()
 
     testFunc();
 
-    ByteBuffer buf = toByteBuffer(Version{ 7, 0, 1316 });
+    ByteBuffer buf = toByteBuffer(Version{ 9, 0, 1316 });
     std::string{ buf.begin(), buf.end() }.swap(libraryVersion);
 
     buf = toByteBuffer(ClientVersion{ 2362U });
