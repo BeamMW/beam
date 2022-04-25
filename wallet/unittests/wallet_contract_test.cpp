@@ -20,6 +20,7 @@
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/contracts/shaders_manager.h"
 #include "core/fly_client.h"
+#include "utilstrencodings.h"
 #include <memory>
 #include <inttypes.h>
 #undef small
@@ -1183,13 +1184,20 @@ namespace
                     frame.m_Name = ss.str();
                     frame.m_Address = addr;
                 }
-
+                m_Processor = &proc;
                 // Process user's action
                 ProcessAction(stackHeight);
                 // Wait for the next user's action
                 m_DapEvent.wait(lock, [this] {return m_NextAction != Action::NoAction; });
                 // Continue execution
             }
+        }
+
+        std::vector<uint8_t> ReadMemory(Wasm::Word offset, Wasm::Word count)
+        {
+            std::vector<uint8_t> data;
+
+            return data;
         }
 
         void ProcessAction(size_t stackHeight)
@@ -1267,6 +1275,8 @@ namespace
     private:
         EventHandler m_OnEvent;
         mutable  std::mutex m_Mutex;
+
+        const Wasm::Processor* m_Processor = nullptr;
 
         Action m_NextAction = Action::Pause;
         std::condition_variable m_BvmEvent;
@@ -1387,6 +1397,8 @@ void TestDebugger(int argc, char* argv[])
             dap::InitializeResponse response;
             response.supportsConfigurationDoneRequest = true;
             response.supportsValueFormattingOptions = true;
+            response.supportsReadMemoryRequest = true;
+            response.supportsEvaluateForHovers = false;
             return response;
         });
 
@@ -1636,6 +1648,30 @@ void TestDebugger(int argc, char* argv[])
             return dap::ConfigurationDoneResponse();
         });
 
+    // Reads bytes from memory at the provided location.
+    // Clients should only call this request if the capability ‘supportsReadMemoryRequest’ is true.
+    // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_ReadMemory
+    session->registerHandler([&](const dap::ReadMemoryRequest& request)
+        {
+            dap::ReadMemoryResponse response;
+            auto b = debugger.ReadMemory(Wasm::Word(*request.offset), Wasm::Word(request.count));
+            response.data = EncodeBase64(b.data(), b.size());
+            //request.offset
+            //response.
+            return response;
+        });
+
+    //// Reads bytes from memory at the provided location.
+    //// Clients should only call this request if the capability ‘supportsReadMemoryRequest’ is true.
+    //// https://microsoft.github.io/debug-adapter-protocol/specification#Requests_ReadMemory
+    session->registerHandler([&](const dap::EvaluateRequest& request)
+        {
+            dap::EvaluateResponse response;
+            response.result = "tesy resul evauatse";
+            response.memoryReference = "0x000";
+            return response;
+        });
+    
     // All the handlers we care about have now been registered.
     // We now bind the session to stdin and stdout to connect to the client.
     // After the call to bind() we should start receiving requests, starting with
