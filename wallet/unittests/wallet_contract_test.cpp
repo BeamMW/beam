@@ -35,10 +35,10 @@
 #include <cstdio>
 #include <mutex>
 #include <unordered_set>
-#include <filesystem>
 #include <boost/functional/hash.hpp>
 #include <stack>
 #include <optional>
+#include <iomanip>
 
 #ifdef _MSC_VER
 #define OS_WINDOWS 1
@@ -55,6 +55,7 @@ WALLET_TEST_INIT
 
 using namespace beam;
 using namespace beam::wallet;
+namespace fs = boost::filesystem;
 
 void DoDebug(const Wasm::Processor& proc);
 
@@ -62,7 +63,7 @@ namespace
 {
     std::string GetCanonicalPath(const std::string& p)
     {
-        return std::filesystem::canonical(p).string();
+        return fs::canonical(p).string();
     }
 
     class WasmLoader : public dwarf::loader
@@ -214,7 +215,7 @@ namespace
     {
     public:
         MyDebugger(const std::string& shaderPath)
-            : m_ShaderName(boost::filesystem::path(shaderPath).filename().string())
+            : m_ShaderName(fs::path(shaderPath).filename().string())
         {
             // load symbols
             m_Buffer = MyManager::Load(shaderPath.c_str());
@@ -436,7 +437,6 @@ namespace
         std::shared_ptr<dwarf::line_table::iterator> m_CurrentLine;
         std::shared_ptr<dwarf::line_table::iterator> m_PrevLine;
     };
-
     class TestLocalNode : private Node::IObserver
     {
     public:
@@ -450,7 +450,7 @@ namespace
             m_Node.m_Cfg.m_Treasury = binaryTreasury;
             ECC::Hash::Processor() << Blob(m_Node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
 
-            boost::filesystem::remove(path);
+            fs::remove(path);
             m_Node.m_Cfg.m_sPathLocal = path;
             m_Node.m_Cfg.m_Listen.port(port);
             m_Node.m_Cfg.m_Listen.ip(INADDR_ANY);
@@ -1319,7 +1319,7 @@ void TestDebugger(int argc, char* argv[])
     std::vector<char> buf;
     buf.resize(len);
     GetCurrentDirectoryA(len, buf.data());
-  //  LPCSTR str = boost::filesystem::system_complete(boost::filesystem::current_path()).string().c_str();
+  //  LPCSTR str = fs::system_complete(fs::current_path()).string().c_str();
     ::MessageBoxA(NULL, buf.data(), "Waiting", MB_OK);
 #endif  // OS_WINDOWS
 
