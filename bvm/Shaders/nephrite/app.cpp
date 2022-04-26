@@ -1,21 +1,19 @@
 #include "../common.h"
 #include "../app_common_impl.h"
 #include "contract.h"
-#include "../upgradable2/contract.h"
-#include "../upgradable2/app_common_impl.h"
+#include "../upgradable3/app_common_impl.h"
 
 #define Nephrite_manager_view(macro)
 #define Nephrite_manager_view_params(macro) macro(ContractID, cid)
 #define Nephrite_manager_view_all(macro) macro(ContractID, cid)
 #define Nephrite_manager_my_admin_key(macro)
-#define Nephrite_manager_schedule_upgrade(macro) Upgradable2_schedule_upgrade(macro)
-#define Nephrite_manager_replace_admin(macro) Upgradable2_replace_admin(macro)
-#define Nephrite_manager_set_min_approvers(macro) Upgradable2_set_min_approvers(macro)
+#define Nephrite_manager_schedule_upgrade(macro) Upgradable3_schedule_upgrade(macro)
+#define Nephrite_manager_replace_admin(macro) Upgradable3_replace_admin(macro)
+#define Nephrite_manager_set_min_approvers(macro) Upgradable3_set_min_approvers(macro)
 #define Nephrite_manager_explicit_upgrade(macro) macro(ContractID, cid)
-#define Nephrite_manager_deploy_version(macro)
 
-#define Nephrite_manager_deploy_contract(macro) \
-    Upgradable2_deploy(macro) \
+#define Nephrite_manager_deploy(macro) \
+    Upgradable3_deploy(macro) \
     macro(ContractID, cidOracle) \
     macro(Amount, troveLiquidationReserve) \
     macro(AssetID, aidProfit) \
@@ -24,8 +22,7 @@
 
 #define NephriteRole_manager(macro) \
     macro(manager, view) \
-    macro(manager, deploy_version) \
-    macro(manager, deploy_contract) \
+    macro(manager, deploy) \
     macro(manager, schedule_upgrade) \
     macro(manager, explicit_upgrade) \
     macro(manager, replace_admin) \
@@ -104,7 +101,7 @@ void OnError(const char* sz)
     Env::DocAddText("error", sz);
 }
 
-const char g_szAdminSeed[] = "upgr2-liquity";
+const char g_szAdminSeed[] = "upgr3-nephrite";
 
 struct AdminKeyID :public Env::KeyID {
     AdminKeyID() :Env::KeyID(g_szAdminSeed, sizeof(g_szAdminSeed)) {}
@@ -181,27 +178,17 @@ ON_METHOD(manager, view)
         Nephrite::s_SID,
     };
 
-    ContractID pVerCid[_countof(s_pSid)];
-    Height pVerDeploy[_countof(s_pSid)];
-
-    ManagerUpgadable2::Walker wlk;
-    wlk.m_VerInfo.m_Count = _countof(s_pSid);
-    wlk.m_VerInfo.s_pSid = s_pSid;
-    wlk.m_VerInfo.m_pCid = pVerCid;
-    wlk.m_VerInfo.m_pHeight = pVerDeploy;
+    Upgradable3::Manager::VerInfo vi;
+    vi.m_pSid = s_pSid;
+    vi.m_Versions = _countof(s_pSid);
 
     AdminKeyID kid;
-    wlk.ViewAll(&kid);
-}
-
-ON_METHOD(manager, deploy_version)
-{
-    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy Nephrite bytecode", 0);
+    vi.DumpAll(&kid);
 }
 
 static const Amount g_DepositCA = 3000 * g_Beam2Groth; // 3K beams
 
-ON_METHOD(manager, deploy_contract)
+ON_METHOD(manager, deploy)
 {
     FundsChange fc;
     fc.m_Aid = 0; // asset id
@@ -212,26 +199,22 @@ ON_METHOD(manager, deploy_contract)
     PubKey pk;
     kid.get_Pk(pk);
 
-#pragma pack (push, 1)
-    struct Arg :public Upgradable2::Create {
-        Nephrite::Method::Create m_Inner;
-    } arg;
-#pragma pack (pop)
+    Nephrite::Method::Create arg;
 
-    if (!ManagerUpgadable2::FillDeployArgs(arg, &pk))
+    if (!Upgradable3::Manager::FillDeployArgs(arg.m_Upgradable, &pk))
         return;
 
     if (!troveLiquidationReserve)
         return OnError("trove Liquidation Reserve should not be zero");
 
-    auto& s = arg.m_Inner.m_Settings; // alias
+    auto& s = arg.m_Settings; // alias
     s.m_AidProfit = aidProfit;
     s.m_TroveLiquidationReserve = troveLiquidationReserve;
     _POD_(s.m_cidOracle) = cidOracle;
     s.m_hMinRedemptionHeight = Env::get_Height() + hInitialPeriod;
 
     const uint32_t nCharge =
-        ManagerUpgadable2::get_ChargeDeploy() +
+        Upgradable3::Manager::get_ChargeDeploy() +
         Env::Cost::AssetManage +
         Env::Cost::Refs +
         Env::Cost::SaveVar_For(sizeof(Nephrite::Global)) +
@@ -243,24 +226,24 @@ ON_METHOD(manager, deploy_contract)
 ON_METHOD(manager, schedule_upgrade)
 {
     AdminKeyID kid;
-    ManagerUpgadable2::MultiSigRitual::Perform_ScheduleUpgrade(cid, kid, cidVersion, hTarget);
+    Upgradable3::Manager::MultiSigRitual::Perform_ScheduleUpgrade(cid, kid, hTarget);
 }
 
 ON_METHOD(manager, explicit_upgrade)
 {
-    ManagerUpgadable2::MultiSigRitual::Perform_ExplicitUpgrade(cid);
+    Upgradable3::Manager::MultiSigRitual::Perform_ExplicitUpgrade(cid);
 }
 
 ON_METHOD(manager, replace_admin)
 {
     AdminKeyID kid;
-    ManagerUpgadable2::MultiSigRitual::Perform_ReplaceAdmin(cid, kid, iAdmin, pk);
+    Upgradable3::Manager::MultiSigRitual::Perform_ReplaceAdmin(cid, kid, iAdmin, pk);
 }
 
 ON_METHOD(manager, set_min_approvers)
 {
     AdminKeyID kid;
-    ManagerUpgadable2::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
+    Upgradable3::Manager::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
 }
 
 struct AppGlobal
@@ -696,7 +679,7 @@ namespace Charge
     uint32_t StdCall_RO()
     {
         return
-            ManagerUpgadable2::get_ChargeInvoke() +
+            Env::Cost::CallFar +
             Env::Cost::LoadVar_For(sizeof(Global));
     }
 
