@@ -2,10 +2,10 @@
 #include "../contract_impl.h"
 #include "test.h"
 
-BEAM_EXPORT void Ctor(const Upgradable3::Settings& r)
+BEAM_EXPORT void Ctor(const Upgradable3::Test::Method::Create& r)
 {
-    r.TestNumApprovers();
-    r.Save();
+    r.m_Stgs.TestNumApprovers();
+    r.m_Stgs.Save();
 }
 
 BEAM_EXPORT void Dtor(void* pArg)
@@ -23,7 +23,7 @@ uint32_t Upgradable3::get_CurrentVersion()
 }
 
 
-BEAM_EXPORT void Method_3(const Upgradable3::Test::SomeMethod& r)
+BEAM_EXPORT void Method_3(const Upgradable3::Test::Method::Some& r)
 {
     Env::Halt_if(r.m_ExpectedVer != 0);
 }
