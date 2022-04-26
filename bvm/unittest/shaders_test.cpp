@@ -65,7 +65,7 @@ namespace Shaders {
 #include "../Shaders/dao-core/contract.h"
 #include "../Shaders/dao-vote/contract.h"
 #include "../Shaders/aphorize/contract.h"
-#include "../Shaders/liquity/contract.h"
+#include "../Shaders/nephrite/contract.h"
 #include "../Shaders/amm/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
@@ -386,8 +386,8 @@ namespace Shaders {
 	}
 
 #include "../Shaders/dao-vote/contract.cpp" // already within namespace
-#include "../Shaders/liquity/contract.cpp" // already within namespace
-//#include "../Shaders/liquity/app.cpp"
+#include "../Shaders/nephrite/contract.cpp" // already within namespace
+//#include "../Shaders/nephrite/app.cpp"
 #include "../Shaders/amm/contract.cpp" // already within namespace
 //#include "../Shaders/amm/app.cpp"
 #include "../Shaders/upgradable2/app_common_impl.h"
@@ -959,7 +959,7 @@ namespace bvm2 {
 		AddCode(m_DaoCore, "dao-core/contract.wasm");
 		AddCode(m_DaoVote, "dao-vote/contract.wasm");
 		AddCode(m_Aphorize, "aphorize/contract.wasm");
-		AddCode(m_Liquity, "liquity/contract.wasm");
+		AddCode(m_Liquity, "nephrite/contract.wasm");
 		AddCode(m_Mintor, "mintor/contract.wasm");
 		AddCode(m_Amm, "amm/contract.wasm");
 
@@ -1503,7 +1503,7 @@ namespace bvm2 {
 		man.InitMem();
 
 		ByteBuffer bufApp;
-		MyProcessor::AddCodeEx(bufApp, "liquity/app.wasm", Processor::Kind::Manager);
+		MyProcessor::AddCodeEx(bufApp, "nephrite/app.wasm", Processor::Kind::Manager);
 		man.m_Code = bufApp;
 
 		{
