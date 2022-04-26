@@ -217,6 +217,8 @@ message("BEAM_IPFS_SUPPORT is ${BEAM_IPFS_SUPPORT}")
 option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
 message("BEAM_HW_WALLET is ${BEAM_HW_WALLET}")
 
+option(BEAM_ETH_API_EMULATION "Build wallet with eth API support" OFF)
+message("BEAM_ETH_API_EMULATION is ${BEAM_ETH_API_EMULATION}")
 
 
 if(BEAM_HW_WALLET)

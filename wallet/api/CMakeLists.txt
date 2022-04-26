@@ -70,6 +70,10 @@ if (NOT BEAM_WALLET_CLIENT_LIBRARY)
         target_sources(${WALLET_API_NAME} PRIVATE cli/api_cli_swap.cpp)
     endif()
 
+    if (BEAM_ETH_API_EMULATION)
+        target_compile_definitions(wallet_api PUBLIC BEAM_ETH_API_EMULATION)
+    endif()
+
     target_link_libraries(${WALLET_API_NAME}
         PRIVATE
             wallet_api

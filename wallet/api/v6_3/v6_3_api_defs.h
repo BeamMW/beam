@@ -17,13 +17,17 @@
 #include <memory>
 #include <string>
 #include "core/ecc_native.h"
+
+#ifdef BEAM_ETH_API_EMULATION
 #include "utility/common.h"
 
 #include "wallet/api/v6_0/v6_api_defs.h"
 #include "wallet/api/v6_1/v6_1_api_defs.h"
+#endif
 
 namespace beam::wallet
 {
+#ifdef BEAM_ETH_API_EMULATION
     #define ETH_API_METHODS(macro) \
         macro(ChainID,                  "eth_chainId",                  API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
         macro(NetVersion,               "net_version",                  API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
@@ -37,8 +41,10 @@ namespace beam::wallet
         macro(SendRawTransaction,       "eth_sendRawTransaction",       API_WRITE_ACCESS,   API_ASYNC, APPS_BLOCKED) \
         macro(GetTransactionReceipt,    "eth_getTransactionReceipt",    API_READ_ACCESS,    API_ASYNC, APPS_BLOCKED) \
         macro(GetBlockByHash,           "eth_getBlockByHash",           API_READ_ACCESS,    API_SYNC,  APPS_BLOCKED) \
-        macro(Call,                     "eth_call",                     API_WRITE_ACCESS,   API_ASYNC, APPS_BLOCKED) \
-
+        macro(Call,                     "eth_call",                     API_WRITE_ACCESS,   API_ASYNC, APPS_BLOCKED) 
+#else
+    #define ETH_API_METHODS(macro)
+#endif
 
 
     #define V6_3_API_METHODS(macro) \
@@ -53,7 +59,7 @@ namespace beam::wallet
         ETH_API_METHODS(macro)
         // TODO:IPFS add ipfs_caps/ev_ipfs_state methods that returns all available capabilities and ipfs state
 
-
+#ifdef BEAM_ETH_API_EMULATION
     struct ChainID
     {
         struct Response
@@ -164,7 +170,7 @@ namespace beam::wallet
     };
     
 
-    ////////////////////
+#endif // BEAM_ETH_API_EMULATION
 
     struct IPFSAdd
     {

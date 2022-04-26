@@ -28,7 +28,9 @@ namespace beam::wallet
         V6_3_API_METHODS(BEAM_API_RESPONSE_FUNC)
         V6_3_API_METHODS(BEAM_API_HANDLE_FUNC)
     private:
+#ifdef BEAM_ETH_API_EMULATION
         void FillBlockResponse(const JsonRpcId& id, const BlockDetails::Response& res, const std::vector<std::string>& txHashes, json& msg) const;
         std::vector<std::string> GetTxByHeight(Height h) const;
+#endif
     };
 }

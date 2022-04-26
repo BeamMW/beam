@@ -42,7 +42,7 @@ if(EMSCRIPTEN)
                    -s SAFE_HEAP=0 \
                    -s SOCKET_DEBUG=0 \
                    -s DISABLE_EXCEPTION_CATCHING=0 \
-                   -s VERBOSE=1 \
+                   -s VERBOSE=0 \
                    -s PROXY_POSIX_SOCKETS=0 \
                    -s PROXY_TO_PTHREAD=0 \
                    -s USE_PTHREADS=1 \

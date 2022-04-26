@@ -16,6 +16,8 @@
 #include "wallet/api/v6_1/v6_1_api.h"
 #include "version.h"
 
+#ifdef BEAM_ETH_API_EMULATION
+
 #define BEAM_SHADERS_USE_LIBBITCOIN
 #define BEAM_SHADERS_USE_STL
 #include "bvm/bvm2_impl.h"
@@ -23,41 +25,19 @@
 #include <ethash/keccak.hpp>
 #include "bvm/Shaders/Eth.h"
 
+#endif // BEAM_ETH_API_EMULATION
+
 namespace beam::wallet
 {
     namespace
     {
         uint32_t parseTimeout(V63Api& api, const nlohmann::json& params)
         {
-            if(auto otimeout = api.getOptionalParam<uint32_t>(params, "timeout"))
+            if (auto otimeout = api.getOptionalParam<uint32_t>(params, "timeout"))
             {
                 return *otimeout;
             }
             return 0;
-        }
-
-        template<typename T>
-        std::string ToHex(T& v)
-        {
-            std::stringstream ss;
-            ss << std::hex << std::showbase << v;
-            return ss.str();
-        }
-
-        template<typename T, typename ...Argv>
-        std::string ToHex(const T& v0, Argv... v)
-        {
-            std::stringstream ss;
-            ((ss << std::hex << std::showbase << v0 << std::noshowbase) << ... << v);
-            return ss.str();
-        }
-
-        ByteBuffer FromHex(std::string s)
-        {
-            std::string_view sv(s.data(), s.size());
-            auto pos = sv.find("0x");
-            sv.remove_prefix(pos == 0 ? 2 : 0);
-            return from_hex(sv);
         }
 
         bool ExtractPoint(ECC::Point::Native& point, const json& j)
@@ -92,6 +72,34 @@ namespace beam::wallet
         ECC::Point::Native pt;
         ExtractPoint(pt, j);
         return pt;
+    }
+
+#ifdef BEAM_ETH_API_EMULATION
+    namespace
+    {
+        template<typename T>
+        std::string ToHex(T& v)
+        {
+            std::stringstream ss;
+            ss << std::hex << std::showbase << v;
+            return ss.str();
+        }
+
+        template<typename T, typename ...Argv>
+        std::string ToHex(const T& v0, Argv... v)
+        {
+            std::stringstream ss;
+            ((ss << std::hex << std::showbase << v0 << std::noshowbase) << ... << v);
+            return ss.str();
+        }
+
+        ByteBuffer FromHex(std::string s)
+        {
+            std::string_view sv(s.data(), s.size());
+            auto pos = sv.find("0x");
+            sv.remove_prefix(pos == 0 ? 2 : 0);
+            return from_hex(sv);
+        }
     }
 
     std::pair<ChainID, IWalletApi::MethodInfo> V63Api::onParseChainID(const JsonRpcId& id, const nlohmann::json& params)
@@ -430,8 +438,7 @@ namespace beam::wallet
         };
     }
 
-    /////////////////////////////
-
+#endif // BEAM_ETH_API_EMULATION
 
     std::pair<IPFSAdd, IWalletApi::MethodInfo> V63Api::onParseIPFSAdd(const JsonRpcId& id, const nlohmann::json& params)
     {

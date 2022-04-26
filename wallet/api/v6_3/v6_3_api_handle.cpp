@@ -15,12 +15,14 @@
 #include "version.h"
 #include "bvm/bvm2.h"
 
+#ifdef BEAM_ETH_API_EMULATION
 #include <string_view>
 #include "utility/common.h"
-#include "core/keccak.h"
+#endif
 
 namespace beam::wallet
 {
+#ifdef BEAM_ETH_API_EMULATION
     namespace
     {
         std::string ToTxHash(const TxID& id)
@@ -218,8 +220,7 @@ namespace beam::wallet
             });
     }
 
-    /////
-
+#endif // BEAM_ETH_API_EMULATION
 
     void V63Api::onHandleIPFSAdd(const JsonRpcId &id, IPFSAdd&& req)
     {
