@@ -294,28 +294,28 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Len);
 	}
 
-	template <bool bToShader> void Convert(Liquity::Method::BaseTx& x) {
+	template <bool bToShader> void Convert(Nephrite::Method::BaseTx& x) {
 		ConvertOrd<bToShader>(x.m_Flow.Tok.m_Val);
 		ConvertOrd<bToShader>(x.m_Flow.Col.m_Val);
 	}
-	template <bool bToShader> void Convert(Liquity::Method::Create& x) {
+	template <bool bToShader> void Convert(Nephrite::Method::Create& x) {
 		ConvertOrd<bToShader>(x.m_Settings.m_TroveLiquidationReserve);
 	}
-	template <bool bToShader> void Convert(Liquity::Method::TroveOpen& x) {
-		Convert<bToShader>(Cast::Down<Liquity::Method::BaseTx>(x));
+	template <bool bToShader> void Convert(Nephrite::Method::TroveOpen& x) {
+		Convert<bToShader>(Cast::Down<Nephrite::Method::BaseTx>(x));
 		ConvertOrd<bToShader>(x.m_Amounts.Tok);
 		ConvertOrd<bToShader>(x.m_Amounts.Col);
 	}
-	template <bool bToShader> void Convert(Liquity::Method::TroveModify& x) {
-		Convert<bToShader>(Cast::Down<Liquity::Method::BaseTx>(x));
+	template <bool bToShader> void Convert(Nephrite::Method::TroveModify& x) {
+		Convert<bToShader>(Cast::Down<Nephrite::Method::BaseTx>(x));
 		ConvertOrd<bToShader>(x.m_Amounts.Tok);
 		ConvertOrd<bToShader>(x.m_Amounts.Col);
 	}
-	template <bool bToShader> void Convert(Liquity::Method::UpdStabPool& x) {
-		Convert<bToShader>(Cast::Down<Liquity::Method::BaseTx>(x));
+	template <bool bToShader> void Convert(Nephrite::Method::UpdStabPool& x) {
+		Convert<bToShader>(Cast::Down<Nephrite::Method::BaseTx>(x));
 		ConvertOrd<bToShader>(x.m_NewAmount);
 	}
-	template <bool bToShader> void Convert(Liquity::Method::Liquidate& x) {
+	template <bool bToShader> void Convert(Nephrite::Method::Liquidate& x) {
 		ConvertOrd<bToShader>(x.m_Count);
 	}
 	template <bool bToShader> void Convert(Mintor::Method::Base& x) {
@@ -504,7 +504,7 @@ namespace bvm2 {
 		ContractWrap m_DaoCore;
 		ContractWrap m_DaoVote;
 		ContractWrap m_Aphorize;
-		ContractWrap m_Liquity;
+		ContractWrap m_Nephrite;
 		ContractWrap m_Mintor;
 		ContractWrap m_Amm;
 
@@ -708,17 +708,17 @@ namespace bvm2 {
 				//}
 			}
 /*
-			if (cid == m_Liquity.m_Cid)
+			if (cid == m_Nephrite.m_Cid)
 			{
 				TempFrame f(*this, cid);
 				switch (iMethod)
 				{
-				case 0: Shaders::Liquity::Ctor(CastArg<Shaders::Liquity::Method::Create>(pArgs)); return;
-				case 3: Shaders::Liquity::Method_3(CastArg<Shaders::Liquity::Method::TroveOpen>(pArgs)); return;
-				case 4: Shaders::Liquity::Method_4(CastArg<Shaders::Liquity::Method::TroveClose>(pArgs)); return;
-				case 7: Shaders::Liquity::Method_7(CastArg<Shaders::Liquity::Method::UpdStabPool>(pArgs)); return;
-				case 8: Shaders::Liquity::Method_8(CastArg<Shaders::Liquity::Method::Liquidate>(pArgs)); return;
-				case 10: Shaders::Liquity::Method_10(CastArg<Shaders::Liquity::Method::Redeem>(pArgs)); return;
+				case 0: Shaders::Nephrite::Ctor(CastArg<Shaders::Nephrite::Method::Create>(pArgs)); return;
+				case 3: Shaders::Nephrite::Method_3(CastArg<Shaders::Nephrite::Method::TroveOpen>(pArgs)); return;
+				case 4: Shaders::Nephrite::Method_4(CastArg<Shaders::Nephrite::Method::TroveClose>(pArgs)); return;
+				case 7: Shaders::Nephrite::Method_7(CastArg<Shaders::Nephrite::Method::UpdStabPool>(pArgs)); return;
+				case 8: Shaders::Nephrite::Method_8(CastArg<Shaders::Nephrite::Method::Liquidate>(pArgs)); return;
+				case 10: Shaders::Nephrite::Method_10(CastArg<Shaders::Nephrite::Method::Redeem>(pArgs)); return;
 				}
 			}
 */
@@ -749,7 +749,7 @@ namespace bvm2 {
 		void TestDaoCore();
 		void TestDaoVote();
 		void TestAphorize();
-		void TestLiquity();
+		void TestNephrite();
 		void TestMintor();
 		void TestAmm();
 
@@ -959,7 +959,7 @@ namespace bvm2 {
 		AddCode(m_DaoCore, "dao-core/contract.wasm");
 		AddCode(m_DaoVote, "dao-vote/contract.wasm");
 		AddCode(m_Aphorize, "aphorize/contract.wasm");
-		AddCode(m_Liquity, "nephrite/contract.wasm");
+		AddCode(m_Nephrite, "nephrite/contract.wasm");
 		AddCode(m_Mintor, "mintor/contract.wasm");
 		AddCode(m_Amm, "amm/contract.wasm");
 
@@ -967,7 +967,7 @@ namespace bvm2 {
 
 		TestVault();
 		TestAphorize();
-		TestLiquity();
+		TestNephrite();
 		TestMintor();
 		TestAmm();
 		TestFaucet();
@@ -1100,18 +1100,18 @@ namespace bvm2 {
 		return (x >= x0) ? Val2Num(x - x0) : -Val2Num(x0 - x);
 	}
 
-	struct LiquityContext
+	struct NephriteContext
 	{
 		MyProcessor& m_Proc;
-		LiquityContext(MyProcessor& proc) :m_Proc(proc) {}
+		NephriteContext(MyProcessor& proc) :m_Proc(proc) {}
 
-		typedef Shaders::Liquity::Balance Balance;
-		typedef Shaders::Liquity::Pair Pair;
+		typedef Shaders::Nephrite::Balance Balance;
+		typedef Shaders::Nephrite::Pair Pair;
 
 		Pair get_Balance(const PubKey& pk)
 		{
 			Shaders::Env::Key_T<Balance::Key> key;
-			key.m_Prefix.m_Cid = m_Proc.m_Liquity.m_Cid;
+			key.m_Prefix.m_Cid = m_Proc.m_Nephrite.m_Cid;
 			key.m_KeyInContract.m_Pk = pk;
 
 			Blob b;
@@ -1139,7 +1139,7 @@ namespace bvm2 {
 				,m_Tag(nTag)
 			{
 				Shaders::Env::Key_T<uint8_t> key;
-				key.m_Prefix.m_Cid = m_Proc.m_Liquity.m_Cid;
+				key.m_Prefix.m_Cid = m_Proc.m_Nephrite.m_Cid;
 				key.m_KeyInContract = nTag;
 				m_it = m_Proc.m_Vars.lower_bound(Blob(&key, sizeof(key)), BlobMap::Set::Comparator());
 			}
@@ -1184,7 +1184,7 @@ namespace bvm2 {
 
 		void PrintBankExcess()
 		{
-			for (KeyWalker_T<Balance::Key, Balance> wlk(m_Proc, Shaders::Liquity::Tags::s_Balance); ; )
+			for (KeyWalker_T<Balance::Key, Balance> wlk(m_Proc, Shaders::Nephrite::Tags::s_Balance); ; )
 			{
 				//auto it = wlk.m_it;
 				if (!wlk.MoveNext())
@@ -1224,10 +1224,10 @@ namespace bvm2 {
 			m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&vals, sizeof(vals)));
 		}
 
-		bool InvokeBase(Shaders::Liquity::Method::BaseTx& args, uint32_t nSizeArgs, uint32_t iMethod, const PubKey& pkUser, bool bShouldUseVault)
+		bool InvokeBase(Shaders::Nephrite::Method::BaseTx& args, uint32_t nSizeArgs, uint32_t iMethod, const PubKey& pkUser, bool bShouldUseVault)
 		{
 			Shaders::Env::Key_T<Balance::Key> key;
-			key.m_Prefix.m_Cid = m_Proc.m_Liquity.m_Cid;
+			key.m_Prefix.m_Cid = m_Proc.m_Nephrite.m_Cid;
 			key.m_KeyInContract.m_Pk = pkUser;
 
 			Pair vals = ReadBalance(key);
@@ -1249,10 +1249,10 @@ namespace bvm2 {
 				SetBalance(key, vals);
 			}
 
-			Shaders::Liquity::FlowPair fp = args.m_Flow;
+			Shaders::Nephrite::FlowPair fp = args.m_Flow;
 			ZeroObject(args.m_Flow);
 
-			if (!m_Proc.RunGuarded(m_Proc.m_Liquity.m_Cid, iMethod, Blob(&args, nSizeArgs), nullptr))
+			if (!m_Proc.RunGuarded(m_Proc.m_Nephrite.m_Cid, iMethod, Blob(&args, nSizeArgs), nullptr))
 				return false;
 
 			// verify the init-guess flow was correct
@@ -1283,7 +1283,7 @@ namespace bvm2 {
 
 		void AddPoolTotals(Pair& res, uint8_t nTag)
 		{
-			for (KeyWalker_T<Shaders::Liquity::EpochKey, Shaders::HomogenousPool::Epoch> wlk(m_Proc, nTag); wlk.MoveNext(); )
+			for (KeyWalker_T<Shaders::Nephrite::EpochKey, Shaders::HomogenousPool::Epoch> wlk(m_Proc, nTag); wlk.MoveNext(); )
 			{
 				res.Tok += wlk.m_pVal->m_Balance.s;
 				res.Col += wlk.m_pVal->m_Balance.b;
@@ -1300,11 +1300,11 @@ namespace bvm2 {
 				,m_Tag(nTag)
 			{}
 
-			typedef Shaders::Env::Key_T<Shaders::Liquity::EpochKey> Key;
+			typedef Shaders::Env::Key_T<Shaders::Nephrite::EpochKey> Key;
 
 			Key get_Key(uint32_t iEpoch) const {
 				Key k;
-				k.m_Prefix.m_Cid = m_Proc.m_Liquity.m_Cid;
+				k.m_Prefix.m_Cid = m_Proc.m_Nephrite.m_Cid;
 				k.m_KeyInContract.m_Tag = m_Tag;
 				k.m_KeyInContract.m_iEpoch = iEpoch;
 				return k;
@@ -1329,7 +1329,7 @@ namespace bvm2 {
 			}
 		};
 
-		static double ToDouble(Shaders::Liquity::Float x)
+		static double ToDouble(Shaders::Nephrite::Float x)
 		{
 			if (x.IsZero())
 				return 0;
@@ -1337,7 +1337,7 @@ namespace bvm2 {
 			return ldexp(x.m_Num, x.m_Order);
 		}
 
-		struct Entry :public Shaders::Liquity::Trove
+		struct Entry :public Shaders::Nephrite::Trove
 		{
 			Entry()
 			{
@@ -1345,7 +1345,7 @@ namespace bvm2 {
 			}
 
 			uint32_t m_iTrove;
-			Shaders::Liquity::Float m_Rcr;
+			Shaders::Nephrite::Float m_Rcr;
 			bool operator < (const Entry& x) const
 			{
 				if (m_Rcr.IsZero())
@@ -1358,7 +1358,7 @@ namespace bvm2 {
 		};
 
 		std::vector<Entry> m_Troves;
-		uint32_t FindPrev(const Shaders::Liquity::Pair& vals, size_t i0 = 0) const
+		uint32_t FindPrev(const Shaders::Nephrite::Pair& vals, size_t i0 = 0) const
 		{
 			auto rcr = vals.get_Rcr();
 			for (size_t i = m_Troves.size(); i-- > i0; )
@@ -1373,11 +1373,11 @@ namespace bvm2 {
 
 		void PrintAll()
 		{
-			Shaders::Liquity::Global g;
+			Shaders::Nephrite::Global g;
 			{
 				Shaders::Env::Key_T<uint8_t> key;
-				key.m_Prefix.m_Cid = m_Proc.m_Liquity.m_Cid;
-				key.m_KeyInContract = Shaders::Liquity::Tags::s_State;
+				key.m_Prefix.m_Cid = m_Proc.m_Nephrite.m_Cid;
+				key.m_KeyInContract = Shaders::Nephrite::Tags::s_State;
 
 				Blob b;
 				m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
@@ -1391,12 +1391,12 @@ namespace bvm2 {
 
 			totalStab.Tok = g.m_StabPool.get_TotalSell();
 			totalStab.Col = g.m_StabPool.m_Active.m_Balance.b + g.m_StabPool.m_Draining.m_Balance.b;
-			AddPoolTotals(totalStab, Shaders::Liquity::Tags::s_Epoch_Stable);
+			AddPoolTotals(totalStab, Shaders::Nephrite::Tags::s_Epoch_Stable);
 
 			totalRedist.Tok = g.m_RedistPool.get_TotalSell();
 			totalRedist.Col = g.m_RedistPool.m_Active.m_Balance.b;
 
-			Shaders::Liquity::Global::Price price;
+			Shaders::Nephrite::Global::Price price;
 			{
 				Shaders::Env::Key_T<uint8_t> key;
 				key.m_Prefix.m_Cid = g.m_Settings.m_cidOracle;
@@ -1427,13 +1427,13 @@ namespace bvm2 {
 			m_Troves.resize(g.m_Troves.m_iLastCreated);
 
 			uint32_t nActiveTroves = 0;
-			for (KeyWalker_T<Shaders::Liquity::Trove::Key, Shaders::Liquity::Trove> wlk(m_Proc, Shaders::Liquity::Tags::s_Trove); wlk.MoveNext(); )
+			for (KeyWalker_T<Shaders::Nephrite::Trove::Key, Shaders::Nephrite::Trove> wlk(m_Proc, Shaders::Nephrite::Tags::s_Trove); wlk.MoveNext(); )
 			{
 				auto iTrove = wlk.m_pKey->m_KeyInContract.m_iTrove; // not stored in BE form
 				verify_test(iTrove <= g.m_Troves.m_iLastCreated);
 
 				auto& x = m_Troves[iTrove - 1];
-				Cast::Down<Shaders::Liquity::Trove>(x) = *wlk.m_pVal;
+				Cast::Down<Shaders::Nephrite::Trove>(x) = *wlk.m_pVal;
 
 				totalCol += x.m_Amounts.Col; // before accounting for redist
 
@@ -1447,7 +1447,7 @@ namespace bvm2 {
 			verify_test(g.m_Troves.m_Totals.Col == totalCol);
 
 			// check troves order
-			Shaders::Liquity::Float rcrPrev;
+			Shaders::Nephrite::Float rcrPrev;
 			rcrPrev.Set0();
 			uint32_t nCount = 0;
 			for (uint32_t iTrove = g.m_Troves.m_iHead; iTrove; nCount++)
@@ -1476,7 +1476,7 @@ namespace bvm2 {
 			}
 
 
-			for (KeyWalker_T<Shaders::Liquity::ProfitPoolEntry::Key, Shaders::Liquity::ProfitPoolEntry> wlk(m_Proc, Shaders::Liquity::Tags::s_ProfitPool); wlk.MoveNext(); )
+			for (KeyWalker_T<Shaders::Nephrite::ProfitPoolEntry::Key, Shaders::Nephrite::ProfitPoolEntry> wlk(m_Proc, Shaders::Nephrite::Tags::s_ProfitPool); wlk.MoveNext(); )
 			{
 				const auto& e = *wlk.m_pVal;
 				auto e1 = e; // copy
@@ -1494,9 +1494,9 @@ namespace bvm2 {
 
 	};
 
-	void MyProcessor::TestLiquity()
+	void MyProcessor::TestNephrite()
 	{
-		VERIFY_ID(Shaders::Liquity::s_SID, m_Liquity.m_Sid);
+		VERIFY_ID(Shaders::Nephrite::s_SID, m_Nephrite.m_Sid);
 		VERIFY_ID(Shaders::Oracle2::s_SID, m_Oracle2.m_Sid);
 
 		MyManager man(*this);
@@ -1516,7 +1516,7 @@ namespace bvm2 {
 		}
 
 		{
-			Shaders::Liquity::Method::Create args;
+			Shaders::Nephrite::Method::Create args;
 			ZeroObject(args);
 			args.m_Settings.m_cidOracle = m_Oracle2.m_Cid;
 			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 5;
@@ -1524,19 +1524,19 @@ namespace bvm2 {
 
 			m_FarCalls.m_Stack.Create_back()->m_Body = m_Dummy.m_Code; // add dummy frame, any valid shader is ok
 
-			verify_test(ContractCreate_T(m_Liquity.m_Cid, m_Liquity.m_Code, args));
+			verify_test(ContractCreate_T(m_Nephrite.m_Cid, m_Nephrite.m_Code, args));
 
 			m_FarCalls.m_Stack.Clear();
 		}
 
-		LiquityContext lc(*this);
+		NephriteContext lc(*this);
 
 		const uint32_t s_Users = 5;
 
 		Key::IKdf::Ptr ppKdf[s_Users];
 		PubKey pPk[s_Users];
 
-		man.set_ArgBlob("cid", m_Liquity.m_Cid);
+		man.set_ArgBlob("cid", m_Nephrite.m_Cid);
 		man.m_Args["role"] = "user";
 
 		for (uint32_t i = 0; i < s_Users; i++)
@@ -1549,7 +1549,7 @@ namespace bvm2 {
 				man.m_Args["action"] = "upd_profit";
 				man.m_Args["newVal"] = std::to_string(Rules::Coin * (5 + i));
 
-				Shaders::Liquity::Method::UpdProfitPool arg1;
+				Shaders::Nephrite::Method::UpdProfitPool arg1;
 				verify_test(man.RunGuarded_T(arg1));
 
 				verify_test(lc.InvokeTxUser(arg1, false));
@@ -1565,7 +1565,7 @@ namespace bvm2 {
 			man.m_Args["tok"] = std::to_string(Rules::Coin * 1000);
 			man.m_Args["col"] = std::to_string(col);
 
-			Shaders::Liquity::Method::TroveOpen args;
+			Shaders::Nephrite::Method::TroveOpen args;
 			verify_test(man.RunGuarded_T(args));
 
 			pPk[i] = args.m_pkUser;
@@ -1586,7 +1586,7 @@ namespace bvm2 {
 			man.m_Args["action"] = "upd_stab";
 			man.m_Args["newVal"] = std::to_string(Rules::Coin * 1750);
 
-			Shaders::Liquity::Method::UpdStabPool args;
+			Shaders::Nephrite::Method::UpdStabPool args;
 			verify_test(man.RunGuarded_T(args));
 
 			verify_test(lc.InvokeTxUser(args, false));
@@ -1603,7 +1603,7 @@ namespace bvm2 {
 			man.m_Args["action"] = "redeem";
 			man.m_Args["val"] = std::to_string(Rules::Coin * (iCycle ? 1200 : 350));
 
-			Shaders::Liquity::Method::Redeem args;
+			Shaders::Nephrite::Method::Redeem args;
 			verify_test(man.RunGuarded_T(args));
 
 			verify_test(lc.InvokeTxUser(args));
@@ -1634,7 +1634,7 @@ namespace bvm2 {
 			man.m_Args["action"] = "liquidate";
 			man.m_Args["nMaxTroves"] = "1";
 
-			Shaders::Liquity::Method::Liquidate args;
+			Shaders::Nephrite::Method::Liquidate args;
 			verify_test(man.RunGuarded_T(args));
 
 			verify_test(lc.InvokeTxUser(args));
@@ -1662,7 +1662,7 @@ namespace bvm2 {
 			man.m_Args["action"] = "upd_stab";
 			man.m_Args["newVal"] = "0";
 
-			Shaders::Liquity::Method::UpdStabPool args;
+			Shaders::Nephrite::Method::UpdStabPool args;
 			verify_test(man.RunGuarded_T(args));
 
 			verify_test(lc.InvokeTxUser(args, false));
@@ -1684,7 +1684,7 @@ namespace bvm2 {
 			man.m_Args["col"] = "0";
 
 
-			Shaders::Liquity::Method::TroveClose args;
+			Shaders::Nephrite::Method::TroveClose args;
 			verify_test(man.RunGuarded_T(args));
 
 			verify_test(lc.InvokeTx(args, pPk[iTrove - 1]));
@@ -1701,7 +1701,7 @@ namespace bvm2 {
 			man.m_Args["action"] = "upd_profit";
 			man.m_Args["newVal"] = "0";
 
-			Shaders::Liquity::Method::UpdProfitPool arg1;
+			Shaders::Nephrite::Method::UpdProfitPool arg1;
 			verify_test(man.RunGuarded_T(arg1));
 
 			verify_test(lc.InvokeTxUser(arg1, false));

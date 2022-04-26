@@ -4,22 +4,22 @@
 #include "../upgradable2/contract.h"
 #include "../upgradable2/app_common_impl.h"
 
-#define Liquity_manager_deploy_version(macro)
-#define Liquity_manager_view(macro)
-#define Liquity_manager_my_admin_key(macro)
-#define Liquity_manager_deploy_contract(macro) \
+#define Nephrite_manager_deploy_version(macro)
+#define Nephrite_manager_view(macro)
+#define Nephrite_manager_my_admin_key(macro)
+#define Nephrite_manager_deploy_contract(macro) \
     Upgradable2_deploy(macro) \
     macro(ContractID, cidOracle) \
     macro(Amount, troveLiquidationReserve) \
     macro(AssetID, aidProfit) \
     macro(uint32_t, hInitialPeriod)
 
-#define Liquity_manager_schedule_upgrade(macro) Upgradable2_schedule_upgrade(macro)
-#define Liquity_manager_explicit_upgrade(macro) macro(ContractID, cid)
-#define Liquity_manager_replace_admin(macro) Upgradable2_replace_admin(macro)
-#define Liquity_manager_set_min_approvers(macro) Upgradable2_set_min_approvers(macro)
+#define Nephrite_manager_schedule_upgrade(macro) Upgradable2_schedule_upgrade(macro)
+#define Nephrite_manager_explicit_upgrade(macro) macro(ContractID, cid)
+#define Nephrite_manager_replace_admin(macro) Upgradable2_replace_admin(macro)
+#define Nephrite_manager_set_min_approvers(macro) Upgradable2_set_min_approvers(macro)
 
-#define LiquityRole_manager(macro) \
+#define NephriteRole_manager(macro) \
     macro(manager, deploy_version) \
     macro(manager, view) \
     macro(manager, deploy_contract) \
@@ -29,7 +29,7 @@
     macro(manager, set_min_approvers) \
     macro(manager, my_admin_key) \
 
-#define LiquityRoles_All(macro) \
+#define NephriteRoles_All(macro) \
     macro(manager)
 
 BEAM_EXPORT void Method_0()
@@ -40,10 +40,10 @@ BEAM_EXPORT void Method_0()
     {   Env::DocGroup gr("roles");
 
 #define THE_FIELD(type, name) Env::DocAddText(#name, #type);
-#define THE_METHOD(role, name) { Env::DocGroup grMethod(#name);  Liquity_##role##_##name(THE_FIELD) }
-#define THE_ROLE(name) { Env::DocGroup grRole(#name); LiquityRole_##name(THE_METHOD) }
+#define THE_METHOD(role, name) { Env::DocGroup grMethod(#name);  Nephrite_##role##_##name(THE_FIELD) }
+#define THE_ROLE(name) { Env::DocGroup grRole(#name); NephriteRole_##name(THE_METHOD) }
         
-        LiquityRoles_All(THE_ROLE)
+        NephriteRoles_All(THE_ROLE)
 #undef THE_ROLE
 #undef THE_METHOD
 #undef THE_FIELD
@@ -51,7 +51,7 @@ BEAM_EXPORT void Method_0()
 }
 
 #define THE_FIELD(type, name) const type& name,
-#define ON_METHOD(role, name) void On_##role##_##name(Liquity_##role##_##name(THE_FIELD) int unused = 0)
+#define ON_METHOD(role, name) void On_##role##_##name(Nephrite_##role##_##name(THE_FIELD) int unused = 0)
 
 void OnError(const char* sz)
 {
@@ -67,7 +67,7 @@ struct MyKeyID :public Env::KeyID {
 ON_METHOD(manager, view)
 {
     static const ShaderID s_pSid[] = {
-        Liquity::s_SID,
+        Nephrite::s_SID,
     };
 
     ContractID pVerCid[_countof(s_pSid)];
@@ -85,7 +85,7 @@ ON_METHOD(manager, view)
 
 ON_METHOD(manager, deploy_version)
 {
-    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy Liquity bytecode", 0);
+    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy Nephrite bytecode", 0);
 }
 
 static const Amount g_DepositCA = 3000 * g_Beam2Groth; // 3K beams
@@ -103,7 +103,7 @@ ON_METHOD(manager, deploy_contract)
 
 #pragma pack (push, 1)
     struct Arg :public Upgradable2::Create {
-        Liquity::Method::Create m_Inner;
+        Nephrite::Method::Create m_Inner;
     } arg;
 #pragma pack (pop)
 
@@ -123,10 +123,10 @@ ON_METHOD(manager, deploy_contract)
         ManagerUpgadable2::get_ChargeDeploy() +
         Env::Cost::AssetManage +
         Env::Cost::Refs +
-        Env::Cost::SaveVar_For(sizeof(Liquity::Global)) +
+        Env::Cost::SaveVar_For(sizeof(Nephrite::Global)) +
         Env::Cost::Cycle * 300;
 
-    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deploy Liquity contract", nCharge);
+    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deploy Nephrite contract", nCharge);
 }
 
 ON_METHOD(manager, schedule_upgrade)
@@ -201,18 +201,18 @@ BEAM_EXPORT void Method_1()
 
 #define THE_METHOD(role, name) \
         if (!Env::Strcmp(szAction, #name)) { \
-            Liquity_##role##_##name(PAR_READ) \
-            On_##role##_##name(Liquity_##role##_##name(PAR_PASS) 0); \
+            Nephrite_##role##_##name(PAR_READ) \
+            On_##role##_##name(Nephrite_##role##_##name(PAR_PASS) 0); \
             return; \
         }
 
 #define THE_ROLE(name) \
     if (!Env::Strcmp(szRole, #name)) { \
-        LiquityRole_##name(THE_METHOD) \
+        NephriteRole_##name(THE_METHOD) \
         return OnError("invalid Action"); \
     }
 
-    LiquityRoles_All(THE_ROLE)
+    NephriteRoles_All(THE_ROLE)
 
 #undef THE_ROLE
 #undef THE_METHOD
