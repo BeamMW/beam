@@ -81,7 +81,7 @@ BEAM_EXPORT void Method_2(const Ctl::Base& r_)
     case Ctl::ScheduleUpgrade::s_Type:
         {
             auto& r = Cast::Up<Ctl::ScheduleUpgrade>(rs_);
-            Env::Halt_if(r.m_Next.m_hTarget < Env::get_Height() + stg.m_hMinUpgadeDelay);
+            Env::Halt_if(r.m_Next.m_hTarget < Env::get_Height() + stg.m_hMinUpgradeDelay);
 
             NextVersion::Key nvk;
             Env::SaveVar(&nvk, sizeof(nvk), &r.m_Next, sizeof(r.m_Next) + r.m_SizeShader, KeyTag::Internal);
