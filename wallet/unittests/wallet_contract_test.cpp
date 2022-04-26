@@ -275,7 +275,7 @@ namespace
                 {
                     if (ContainsPC(d, pc))
                     {
-                        if (found && stack.back().tag == DW_TAG::inlined_subroutine || !found)
+                        if ((found && stack.back().tag == DW_TAG::inlined_subroutine) || !found)
                         {
                             found = true;
                             stack.push_back(d);
@@ -442,8 +442,8 @@ namespace
     public:
         TestLocalNode(const ByteBuffer& binaryTreasury
             , Key::IKdf::Ptr pKdf
-            , uint16_t port = 32125
             , const std::string& path = "mytest.db"
+            , uint16_t port = 32125
             , const std::vector<io::Address>& peers = {}
         )
         {
@@ -567,7 +567,7 @@ void TestNode()
     auto walletDB2 = createWalletDB("wallet2.db", true);
 
     TestLocalNode nodeA{ binaryTreasury, walletDB->get_MasterKdf() };
-    TestLocalNode nodeB{ binaryTreasury, walletDB2->get_MasterKdf(), 32126, "mytest2.db", {io::Address::localhost().port(32125)} };
+    TestLocalNode nodeB{ binaryTreasury, walletDB2->get_MasterKdf(), "mytest2.db", 32126, {io::Address::localhost().port(32125)} };
 
     nodeA.GenerateBlocks(10);
     nodeB.GenerateBlocks(15);
@@ -712,7 +712,7 @@ namespace
 
         using EventHandler = std::function<void(Event, const std::string&)>;
 
-        Debugger::Debugger(const EventHandler& onEvent, const std::string& contractPath)
+        Debugger(const EventHandler& onEvent, const std::string& contractPath)
             : MyDebugger(contractPath)
             , m_OnEvent(onEvent)
         {
@@ -782,6 +782,7 @@ namespace
             for (const auto& cu : m_DebugInfo->compilation_units())
             {
                 const auto& lineTable = cu.get_line_table();
+                static_assert(std::is_same_v<std::iterator_traits<dwarf::line_table::iterator>::iterator_category, std::forward_iterator_tag> == true);
                 auto it = std::find_if(lineTable.begin(), lineTable.end(),
                     [&](const auto& entry)
                     {
@@ -1022,6 +1023,8 @@ namespace
                     }
                 }
                 break;
+            default:
+                break;
             }
             return res;
         }
@@ -1073,6 +1076,8 @@ namespace
                         catch (...) {}
                     }
                 }
+                break;
+            default:
                 break;
             }
             return res;
@@ -1254,6 +1259,8 @@ namespace
                     EmitEvent(Event::Stepped);
                 }
                 break;
+            case Action::NoAction:
+                break;
             }
         }
 
@@ -1294,21 +1301,26 @@ void TestDebugger(int argc, char* argv[])
     if (argc < 3)
         return;
 
-    std::string contractPath = argv[1];
-    std::string appPath = argv[2];
+    std::string rootPath = argv[1];
+    std::string contractPath = rootPath + argv[2];
+    std::string appPath = rootPath + argv[3];
 
     std::string args;
-    if (argc > 3)
+    if (argc > 4)
     {
-        args = argv[3];
+        args = argv[4];
     }
 #ifdef OS_WINDOWS
     // Change stdin & stdout from text mode to binary mode.
     // This ensures sequences of \r\n are not changed to \n.
     _setmode(_fileno(stdin), _O_BINARY);
     _setmode(_fileno(stdout), _O_BINARY);
-    LPCSTR str = boost::filesystem::system_complete(boost::filesystem::current_path()).string().c_str();
-    ::MessageBoxA(NULL, str, "Waiting", MB_OK);
+    auto len = GetCurrentDirectoryA(0, nullptr);
+    std::vector<char> buf;
+    buf.resize(len);
+    GetCurrentDirectoryA(len, buf.data());
+  //  LPCSTR str = boost::filesystem::system_complete(boost::filesystem::current_path()).string().c_str();
+    ::MessageBoxA(NULL, buf.data(), "Waiting", MB_OK);
 #endif  // OS_WINDOWS
 
     std::shared_ptr<dap::Writer> log;
@@ -1324,8 +1336,6 @@ void TestDebugger(int argc, char* argv[])
     // These numbers have no meaning, and just need to remain constant for the
     // duration of the service.
     const dap::integer threadId = 100;
-    const dap::integer frameId = 200;
-    const dap::integer variablesReferenceId = 300;
     const dap::integer sourceReferenceId = 400;
 
     // Signal events
@@ -1397,7 +1407,7 @@ void TestDebugger(int argc, char* argv[])
             dap::InitializeResponse response;
             response.supportsConfigurationDoneRequest = true;
             response.supportsValueFormattingOptions = true;
-            response.supportsReadMemoryRequest = true;
+            //response.supportsReadMemoryRequest = true;
             response.supportsEvaluateForHovers = false;
             return response;
         });
@@ -1442,7 +1452,7 @@ void TestDebugger(int argc, char* argv[])
             auto callStack = debugger.GetCallStack();
             std::reverse(callStack.begin(), callStack.end());
 
-            size_t startFrame = request.startFrame ? *request.startFrame : 0;
+            size_t startFrame = request.startFrame ? size_t(*request.startFrame) : 0;
             size_t endFrame = request.levels ? std::min(callStack.size(), static_cast<size_t>(*request.levels) + startFrame) : callStack.size();
 
             dap::StackTraceResponse response;
@@ -1654,10 +1664,10 @@ void TestDebugger(int argc, char* argv[])
     session->registerHandler([&](const dap::ReadMemoryRequest& request)
         {
             dap::ReadMemoryResponse response;
-            auto b = debugger.ReadMemory(Wasm::Word(*request.offset), Wasm::Word(request.count));
-            response.data = EncodeBase64(b.data(), b.size());
-            //request.offset
-            //response.
+            //auto b = debugger.ReadMemory(Wasm::Word(*request.offset), Wasm::Word(request.count));
+            //response.data = EncodeBase64(b.data(), b.size());
+            ////request.offset
+            ////response.
             return response;
         });
 
@@ -1696,11 +1706,11 @@ void TestDebugger(int argc, char* argv[])
     threadStartedEvent.threadId = threadId;
     session->send(threadStartedEvent);
 
-    auto walletDB = createWalletDB("wallet.db", true);
+    auto walletDB = createWalletDB(rootPath + "wallet.db", true);
     auto binaryTreasury = createTreasury(walletDB, { 300'000'000'000UL, 300'000'000'000UL });
 
 
-    TestLocalNode nodeA{ binaryTreasury, walletDB->get_MasterKdf() };
+    TestLocalNode nodeA{ binaryTreasury, walletDB->get_MasterKdf(), rootPath + "node.db" };
     auto w = std::make_shared<Wallet>(walletDB);
     MyWalletObserver observer;
     ScopedSubscriber<wallet::IWalletObserver, wallet::Wallet> ws(&observer, w);

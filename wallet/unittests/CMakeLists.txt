@@ -44,12 +44,12 @@ if (BEAM_TEST_SHADERS)
                         )
     endmacro()
 
-    add_shader(test_contract)
-    add_shader(test_app)
+    #add_shader(test_contract)
+    #add_shader(test_app)
 
     add_test_snippet(wallet_contract_test wallet_test_node dwarf cppdap)
-    add_dependencies(wallet_contract_test
-        test_contract_target test_app_target)
+    #add_dependencies(wallet_contract_test
+    #    test_contract_target test_app_target)
 endif()
 
 if(BEAM_HW_WALLET)
