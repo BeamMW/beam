@@ -33,10 +33,10 @@ namespace beam::wallet
     const uint32_t ApiVer6_0     = 60;
     const uint32_t ApiVer6_1     = 61;
     const uint32_t ApiVer6_2     = 62;
-    const uint32_t ApiVer6_3     = 63;
-    const uint32_t ApiVerCurrent = ApiVer6_3;
+    const uint32_t ApiVer7_0     = 70;
+    const uint32_t ApiVerCurrent = ApiVer7_0;
+    const uint32_t ApiVerMax     = ApiVer7_0;
     const uint32_t ApiVerMin     = ApiVer6_0;
-    const uint32_t ApiVerMax     = ApiVer6_3;
 
     class IWalletApiHandler
     {
