@@ -425,6 +425,9 @@ int main(int argc, char* argv[])
 						}
 					}
 
+					if (vm.count(cli::MINER_JOB_LATENCY))
+						node.m_Cfg.m_Timeout.m_MiningSoftRestart_ms = vm[cli::MINER_JOB_LATENCY].as<uint32_t>();
+
 					std::vector<std::string> vPeers = getCfgPeers(vm);
 
 					for (size_t i = 0; i < vPeers.size(); i++)
