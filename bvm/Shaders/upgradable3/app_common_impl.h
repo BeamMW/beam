@@ -140,6 +140,93 @@ struct Manager
 			Env::Cost::Cycle * 150;
 	}
 
+
+	static void DumpAll(const ShaderID* pSid, uint32_t nVersions, const Env::KeyID* pAdminKid)
+	{
+		PubKey pkAdmin;
+		if (pAdminKid)
+			pAdminKid->get_Pk(pkAdmin);
+
+		Env::DocArray gr0("contracts");
+
+		for (uint32_t iVer = 0; iVer < nVersions; iVer++)
+		{
+			WalkerContracts wlk;
+			for (wlk.Enum(pSid[iVer]); wlk.MoveNext(); )
+			{
+				Env::DocGroup gr1("");
+
+				const auto& cid = wlk.m_Key.m_KeyInContract.m_Cid;
+
+				Env::DocAddBlob_T("cid", cid);
+				Env::DocAddNum("Height", wlk.m_Height);
+				Env::DocAddNum("version", iVer);
+
+				{
+					Env::DocArray gr2("version_history");
+
+					Env::KeyPrefix kVer;
+					_POD_(kVer.m_Cid) = cid;
+					kVer.m_Tag = KeyTag::ShaderChange;
+					ShaderID sid;
+
+					for (Env::LogReader rVer(kVer, kVer); rVer.MoveNext_T(kVer, sid); )
+					{
+						Env::DocGroup gr3("");
+						Env::DocAddNum("Height", rVer.m_Pos.m_Height);
+
+						for (uint32_t iVerPrev = 0; ; iVerPrev++)
+						{
+							if (nVersions == iVerPrev)
+							{
+								Env::DocAddBlob_T("version_sid", sid);
+								break;
+							}
+
+							if (_POD_(sid) == pSid[iVerPrev])
+							{
+								Env::DocAddNum("version", iVerPrev);
+								break;
+							}
+						}
+					}
+				}
+
+				{
+					SettingsPlus stg;
+					if (stg.Read(cid))
+					{
+						Env::DocAddNum("min_upgrade_delay", stg.m_hMinUpgadeDelay);
+						Env::DocAddNum("min_approvers", stg.m_MinApprovers);
+
+						{
+							Env::DocArray gr0("admins");
+
+							for (uint32_t i = 0; i < stg.s_AdminsMax; i++)
+							{
+								const auto& pk = stg.m_pAdmin[i];
+								if (!_POD_(pk).IsZero())
+								{
+									Env::DocGroup gr1("");
+									Env::DocAddNum("id", i);
+									Env::DocAddBlob_T("pk", pk);
+								}
+							}
+						}
+
+						if (pAdminKid)
+						{
+							uint32_t iAdmin = stg.FindAdmin(pkAdmin);
+							if (iAdmin)
+								Env::DocAddNum("iAdmin", iAdmin - 1);
+						}
+					}
+				}
+			}
+		}
+	}
+
+
 	struct MultiSigRitual
 	{
 	#pragma pack (push, 1)
