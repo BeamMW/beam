@@ -3,7 +3,7 @@
 #include "../Math.h"
 #include "contract.h"
 
-namespace Liquity {
+namespace Nephrite {
 
 struct EpochStorage
 {
@@ -321,7 +321,7 @@ BEAM_EXPORT void Ctor(const Method::Create& r)
     g.m_StabPool.Init();
     g.m_RedistPool.Reset();
 
-    static const char szMeta[] = "STD:SCH_VER=1;N=Liquity Token;SN=Liqt;UN=LIQT;NTHUN=GROTHL";
+    static const char szMeta[] = "STD:SCH_VER=1;N=Nephrite Token;SN=Liqt;UN=LIQT;NTHUN=GROTHL";
     g.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
     Env::Halt_if(!g.m_Aid);
 
@@ -547,4 +547,4 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
 }
 
 
-} // namespace Liquity
+} // namespace Nephrite

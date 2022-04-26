@@ -4,31 +4,31 @@
 #include "../upgradable2/contract.h"
 #include "../upgradable2/app_common_impl.h"
 
-#define Liquity_manager_view(macro)
-#define Liquity_manager_view_params(macro) macro(ContractID, cid)
-#define Liquity_manager_view_all(macro) macro(ContractID, cid)
-#define Liquity_manager_my_admin_key(macro)
-#define Liquity_manager_explicit_upgrade(macro) macro(ContractID, cid)
+#define Nephrite_manager_view(macro)
+#define Nephrite_manager_view_params(macro) macro(ContractID, cid)
+#define Nephrite_manager_view_all(macro) macro(ContractID, cid)
+#define Nephrite_manager_my_admin_key(macro)
+#define Nephrite_manager_explicit_upgrade(macro) macro(ContractID, cid)
 
-#define LiquityRole_manager(macro) \
+#define NephriteRole_manager(macro) \
     macro(manager, view) \
     macro(manager, explicit_upgrade) \
     macro(manager, view_params) \
     macro(manager, view_all) \
     macro(manager, my_admin_key) \
 
-#define Liquity_user_view(macro) macro(ContractID, cid)
-#define Liquity_user_withdraw_surplus(macro) macro(ContractID, cid)
+#define Nephrite_user_view(macro) macro(ContractID, cid)
+#define Nephrite_user_withdraw_surplus(macro) macro(ContractID, cid)
 
-#define Liquity_user_upd_stab(macro) \
+#define Nephrite_user_upd_stab(macro) \
     macro(ContractID, cid) \
     macro(Amount, newVal) \
 
-#define Liquity_user_upd_profit(macro) \
+#define Nephrite_user_upd_profit(macro) \
     macro(ContractID, cid) \
     macro(Amount, newVal) \
 
-#define Liquity_user_trove_modify(macro) \
+#define Nephrite_user_trove_modify(macro) \
     macro(ContractID, cid) \
     macro(Amount, tok) \
     macro(Amount, col) \
@@ -36,17 +36,17 @@
     macro(uint32_t, opCol) \
     macro(uint32_t, bPredictOnly)
 
-#define Liquity_user_liquidate(macro) \
+#define Nephrite_user_liquidate(macro) \
     macro(ContractID, cid) \
     macro(uint32_t, nMaxTroves) \
     macro(uint32_t, bPredictOnly)
 
-#define Liquity_user_redeem(macro) \
+#define Nephrite_user_redeem(macro) \
     macro(ContractID, cid) \
     macro(Amount, val) \
     macro(uint32_t, bPredictOnly)
 
-#define LiquityRole_user(macro) \
+#define NephriteRole_user(macro) \
     macro(user, view) \
     macro(user, withdraw_surplus) \
     macro(user, upd_stab) \
@@ -55,11 +55,11 @@
     macro(user, liquidate) \
     macro(user, redeem)
 
-#define LiquityRoles_All(macro) \
+#define NephriteRoles_All(macro) \
     macro(manager) \
     macro(user)
 
-namespace Liquity {
+namespace Nephrite {
 
 BEAM_EXPORT void Method_0()
 {
@@ -69,10 +69,10 @@ BEAM_EXPORT void Method_0()
     {   Env::DocGroup gr("roles");
 
 #define THE_FIELD(type, name) Env::DocAddText(#name, #type);
-#define THE_METHOD(role, name) { Env::DocGroup grMethod(#name);  Liquity_##role##_##name(THE_FIELD) }
-#define THE_ROLE(name) { Env::DocGroup grRole(#name); LiquityRole_##name(THE_METHOD) }
+#define THE_METHOD(role, name) { Env::DocGroup grMethod(#name);  Nephrite_##role##_##name(THE_FIELD) }
+#define THE_ROLE(name) { Env::DocGroup grRole(#name); NephriteRole_##name(THE_METHOD) }
         
-        LiquityRoles_All(THE_ROLE)
+        NephriteRoles_All(THE_ROLE)
 #undef THE_ROLE
 #undef THE_METHOD
 #undef THE_FIELD
@@ -80,7 +80,7 @@ BEAM_EXPORT void Method_0()
 }
 
 #define THE_FIELD(type, name) const type& name,
-#define ON_METHOD(role, name) void On_##role##_##name(Liquity_##role##_##name(THE_FIELD) int unused = 0)
+#define ON_METHOD(role, name) void On_##role##_##name(Nephrite_##role##_##name(THE_FIELD) int unused = 0)
 
 void OnError(const char* sz)
 {
@@ -161,7 +161,7 @@ void DocAddPerc(const char* sz, Float x)
 ON_METHOD(manager, view)
 {
     static const ShaderID s_pSid[] = {
-        Liquity::s_SID,
+        Nephrite::s_SID,
     };
 
     ContractID pVerCid[_countof(s_pSid)];
@@ -1191,18 +1191,18 @@ BEAM_EXPORT void Method_1()
 
 #define THE_METHOD(role, name) \
         if (!Env::Strcmp(szAction, #name)) { \
-            Liquity_##role##_##name(PAR_READ) \
-            On_##role##_##name(Liquity_##role##_##name(PAR_PASS) 0); \
+            Nephrite_##role##_##name(PAR_READ) \
+            On_##role##_##name(Nephrite_##role##_##name(PAR_PASS) 0); \
             return; \
         }
 
 #define THE_ROLE(name) \
     if (!Env::Strcmp(szRole, #name)) { \
-        LiquityRole_##name(THE_METHOD) \
+        NephriteRole_##name(THE_METHOD) \
         return OnError("invalid Action"); \
     }
 
-    LiquityRoles_All(THE_ROLE)
+    NephriteRoles_All(THE_ROLE)
 
 #undef THE_ROLE
 #undef THE_METHOD
@@ -1212,4 +1212,4 @@ BEAM_EXPORT void Method_1()
     OnError("unknown Role");
 }
 
-} // namespace Liquity
+} // namespace Nephrite
