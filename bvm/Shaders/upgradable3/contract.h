@@ -14,7 +14,7 @@ namespace Upgradable3
             uint8_t m_Sub = 0x01;
         };
 
-        Height m_hMinUpgadeDelay;
+        Height m_hMinUpgradeDelay;
         uint32_t m_MinApprovers;
 
         static const uint32_t s_AdminsMax = 32;

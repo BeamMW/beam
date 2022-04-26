@@ -91,7 +91,7 @@ struct Manager
 
 	static bool FillDeployArgs(Settings& arg, const PubKey* pKeyMy)
 	{
-		Env::DocGet("hUpgradeDelay", arg.m_hMinUpgadeDelay);
+		Env::DocGet("hUpgradeDelay", arg.m_hMinUpgradeDelay);
 		Env::DocGet("nMinApprovers", arg.m_MinApprovers);
 
 #define ARG_NAME_PREFIX "admin-"
@@ -196,7 +196,7 @@ struct Manager
 					SettingsPlus stg;
 					if (stg.Read(cid))
 					{
-						Env::DocAddNum("min_upgrade_delay", stg.m_hMinUpgadeDelay);
+							Env::DocAddNum("min_upgrade_delay", stg.m_hMinUpgradeDelay);
 						Env::DocAddNum("min_approvers", stg.m_MinApprovers);
 
 						{
