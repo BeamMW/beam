@@ -8,11 +8,28 @@
 #define Nephrite_manager_view_params(macro) macro(ContractID, cid)
 #define Nephrite_manager_view_all(macro) macro(ContractID, cid)
 #define Nephrite_manager_my_admin_key(macro)
+#define Nephrite_manager_schedule_upgrade(macro) Upgradable2_schedule_upgrade(macro)
+#define Nephrite_manager_replace_admin(macro) Upgradable2_replace_admin(macro)
+#define Nephrite_manager_set_min_approvers(macro) Upgradable2_set_min_approvers(macro)
 #define Nephrite_manager_explicit_upgrade(macro) macro(ContractID, cid)
+#define Nephrite_manager_deploy_version(macro)
+
+#define Nephrite_manager_deploy_contract(macro) \
+    Upgradable2_deploy(macro) \
+    macro(ContractID, cidOracle) \
+    macro(Amount, troveLiquidationReserve) \
+    macro(AssetID, aidProfit) \
+    macro(uint32_t, hInitialPeriod)
+
 
 #define NephriteRole_manager(macro) \
     macro(manager, view) \
+    macro(manager, deploy_version) \
+    macro(manager, deploy_contract) \
+    macro(manager, schedule_upgrade) \
     macro(manager, explicit_upgrade) \
+    macro(manager, replace_admin) \
+    macro(manager, set_min_approvers) \
     macro(manager, view_params) \
     macro(manager, view_all) \
     macro(manager, my_admin_key) \
@@ -177,9 +194,73 @@ ON_METHOD(manager, view)
     wlk.ViewAll(&kid);
 }
 
+ON_METHOD(manager, deploy_version)
+{
+    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy Nephrite bytecode", 0);
+}
+
+static const Amount g_DepositCA = 3000 * g_Beam2Groth; // 3K beams
+
+ON_METHOD(manager, deploy_contract)
+{
+    FundsChange fc;
+    fc.m_Aid = 0; // asset id
+    fc.m_Amount = g_DepositCA; // amount of the input or output
+    fc.m_Consume = 1; // contract consumes funds (i.e input, in this case)
+
+    AdminKeyID kid;
+    PubKey pk;
+    kid.get_Pk(pk);
+
+#pragma pack (push, 1)
+    struct Arg :public Upgradable2::Create {
+        Nephrite::Method::Create m_Inner;
+    } arg;
+#pragma pack (pop)
+
+    if (!ManagerUpgadable2::FillDeployArgs(arg, &pk))
+        return;
+
+    if (!troveLiquidationReserve)
+        return OnError("trove Liquidation Reserve should not be zero");
+
+    auto& s = arg.m_Inner.m_Settings; // alias
+    s.m_AidProfit = aidProfit;
+    s.m_TroveLiquidationReserve = troveLiquidationReserve;
+    _POD_(s.m_cidOracle) = cidOracle;
+    s.m_hMinRedemptionHeight = Env::get_Height() + hInitialPeriod;
+
+    const uint32_t nCharge =
+        ManagerUpgadable2::get_ChargeDeploy() +
+        Env::Cost::AssetManage +
+        Env::Cost::Refs +
+        Env::Cost::SaveVar_For(sizeof(Nephrite::Global)) +
+        Env::Cost::Cycle * 300;
+
+    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deploy Nephrite contract", nCharge);
+}
+
+ON_METHOD(manager, schedule_upgrade)
+{
+    AdminKeyID kid;
+    ManagerUpgadable2::MultiSigRitual::Perform_ScheduleUpgrade(cid, kid, cidVersion, hTarget);
+}
+
 ON_METHOD(manager, explicit_upgrade)
 {
     ManagerUpgadable2::MultiSigRitual::Perform_ExplicitUpgrade(cid);
+}
+
+ON_METHOD(manager, replace_admin)
+{
+    AdminKeyID kid;
+    ManagerUpgadable2::MultiSigRitual::Perform_ReplaceAdmin(cid, kid, iAdmin, pk);
+}
+
+ON_METHOD(manager, set_min_approvers)
+{
+    AdminKeyID kid;
+    ManagerUpgadable2::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
 }
 
 struct AppGlobal
