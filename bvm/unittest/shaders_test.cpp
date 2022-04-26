@@ -902,7 +902,7 @@ namespace bvm2 {
 			if (x.m_Args.size() != nArgs)
 				return false;
 
-			m_Charge = x.m_Charge - Shaders::ManagerUpgadable2::get_ChargeInvoke() + bvm2::Limits::Cost::CallFar;
+			m_Charge = x.m_Charge;
 
 			memcpy(pArgs, &x.m_Args.front(), nArgs);
 			return true;
@@ -1521,6 +1521,7 @@ namespace bvm2 {
 			args.m_Settings.m_cidOracle = m_Oracle2.m_Cid;
 			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 5;
 			args.m_Settings.m_AidProfit = 77;
+			args.m_Upgradable.m_MinApprovers = 1; // 0 is illegal atm
 
 			m_FarCalls.m_Stack.Create_back()->m_Body = m_Dummy.m_Code; // add dummy frame, any valid shader is ok
 

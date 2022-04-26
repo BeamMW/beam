@@ -2,6 +2,8 @@
 #include "../common.h"
 #include "../Math.h"
 #include "contract.h"
+#include "../upgradable3/contract_impl.h"
+
 
 namespace Nephrite {
 
@@ -311,8 +313,8 @@ struct MyGlobal_LoadSave
 
 BEAM_EXPORT void Ctor(const Method::Create& r)
 {
-    if (Env::get_CallDepth() == 1)
-        return;
+    r.m_Upgradable.TestNumApprovers();
+    r.m_Upgradable.Save();
 
     MyGlobal g;
     _POD_(g).SetZero();
@@ -332,17 +334,6 @@ BEAM_EXPORT void Ctor(const Method::Create& r)
 
 BEAM_EXPORT void Dtor(void*)
 {
-}
-
-BEAM_EXPORT void Method_2(void*)
-{
-    // called on upgrade
-    //
-    // Make sure it's invoked appropriately
-    //ContractID cid0, cid1;
-    //Env::get_CallerCid(0, cid0);
-    //Env::get_CallerCid(1, cid1);
-    //Env::Halt_if(_POD_(cid0) != cid1);
 }
 
 BEAM_EXPORT void Method_3(const Method::TroveOpen& r)
@@ -548,3 +539,16 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
 
 
 } // namespace Nephrite
+
+namespace Upgradable3 {
+
+    uint32_t get_CurrentVersion()
+    {
+        return 0;
+    }
+
+    void OnUpgraded(uint32_t nPrevVersion)
+    {
+        Env::Halt();
+    }
+}
