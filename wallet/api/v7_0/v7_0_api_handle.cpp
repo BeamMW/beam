@@ -11,13 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "v6_3_api.h"
+#include "v7_0_api.h"
 #include "version.h"
 #include "bvm/bvm2.h"
 
 namespace beam::wallet
 {
-    void V63Api::onHandleIPFSAdd(const JsonRpcId &id, IPFSAdd&& req)
+    void V70Api::onHandleIPFSAdd(const JsonRpcId &id, IPFSAdd&& req)
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
@@ -49,7 +49,7 @@ namespace beam::wallet
         #endif
     }
 
-    void V63Api::onHandleIPFSHash(const JsonRpcId &id, IPFSHash&& req)
+    void V70Api::onHandleIPFSHash(const JsonRpcId &id, IPFSHash&& req)
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
@@ -81,7 +81,7 @@ namespace beam::wallet
         #endif
     }
 
-    void V63Api::onHandleIPFSGet(const JsonRpcId &id, IPFSGet&& req)
+    void V70Api::onHandleIPFSGet(const JsonRpcId &id, IPFSGet&& req)
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
@@ -113,7 +113,7 @@ namespace beam::wallet
         #endif
     }
 
-    void V63Api::onHandleIPFSPin(const JsonRpcId &id, IPFSPin&& req)
+    void V70Api::onHandleIPFSPin(const JsonRpcId &id, IPFSPin&& req)
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
@@ -144,7 +144,7 @@ namespace beam::wallet
         #endif
     }
 
-    void V63Api::onHandleIPFSUnpin(const JsonRpcId &id, IPFSUnpin&& req)
+    void V70Api::onHandleIPFSUnpin(const JsonRpcId &id, IPFSUnpin&& req)
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
@@ -175,7 +175,7 @@ namespace beam::wallet
         #endif
     }
 
-    void V63Api::onHandleIPFSGc(const JsonRpcId &id, IPFSGc&& req)
+    void V70Api::onHandleIPFSGc(const JsonRpcId &id, IPFSGc&& req)
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
@@ -226,7 +226,7 @@ namespace beam::wallet
         }
     }
 
-    void V63Api::onHandleSignMessage(const JsonRpcId& id, SignMessage&& req)
+    void V70Api::onHandleSignMessage(const JsonRpcId& id, SignMessage&& req)
     {
         SignMessage::Response resp;
         ECC::Hash::Value hv;
@@ -248,7 +248,7 @@ namespace beam::wallet
         doResponse(id, resp);
     }
 
-    void V63Api::onHandleVerifySignature(const JsonRpcId& id, VerifySignature&& req)
+    void V70Api::onHandleVerifySignature(const JsonRpcId& id, VerifySignature&& req)
     {
         VerifySignature::Response resp;
         ECC::Hash::Value hv;
