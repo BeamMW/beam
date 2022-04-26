@@ -6,11 +6,13 @@
 #define UpgrTest_manager_deploy(macro) Upgradable3_deploy(macro)
 
 #define UpgrTest_manager_schedule_upgrade(macro) Upgradable3_schedule_upgrade(macro)
+#define UpgrTest_manager_explicit_upgrade(macro) macro(ContractID, cid)
 
 #define UpgrTestRole_manager(macro) \
     macro(manager, view) \
     macro(manager, deploy) \
     macro(manager, schedule_upgrade) \
+    macro(manager, explicit_upgrade) \
     macro(manager, my_admin_key)
 
 #define UpgrTestRoles_All(macro) \
@@ -80,6 +82,12 @@ ON_METHOD(manager, schedule_upgrade)
 {
     MyKeyID kid;
     Upgradable3::Manager::MultiSigRitual::Perform_ScheduleUpgrade(cid, kid, hTarget);
+}
+
+ON_METHOD(manager, explicit_upgrade)
+{
+    MyKeyID kid;
+    Upgradable3::Manager::MultiSigRitual::Perform_ExplicitUpgrade(cid);
 }
 
 ON_METHOD(manager, my_admin_key)

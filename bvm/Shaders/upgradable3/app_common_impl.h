@@ -241,7 +241,7 @@ struct Manager
 						uint32_t nKey = sizeof(k), nVal = 0;
 						if (r.MoveNext(&k, nKey, nullptr, nVal, 0) && (nVal >= sizeof(NextVersion)))
 						{
-							Env::DocArray gr2("scheduled");
+							Env::DocGroup gr2("scheduled");
 
 							auto* pVal = (NextVersion*) Env::Heap_Alloc(nVal);
 							r.MoveNext(&k, nKey, pVal, nVal, 1);
