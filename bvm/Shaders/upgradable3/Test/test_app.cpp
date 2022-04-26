@@ -55,9 +55,12 @@ ON_METHOD(manager, view)
         Upgradable3::Test::s_SID_1 // latest version
     };
 
+    Upgradable3::Manager::VerInfo vi;
+    vi.m_pSid = s_pSid;
+    vi.m_Versions = _countof(s_pSid);
     MyKeyID kid;
 
-    Upgradable3::Manager::DumpAll(s_pSid, _countof(s_pSid), &kid);
+    vi.DumpAll(&kid);
 }
 
 ON_METHOD(manager, deploy)
