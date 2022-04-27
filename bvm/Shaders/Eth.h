@@ -924,7 +924,7 @@ namespace Eth
 
 		Hash hash;
 		hs >> hash;
-		MemCopy(&address, &hash + 12, Address::nBytes);
+		MemCopy(&address, reinterpret_cast<const uint8_t*>(&hash) + 12, Address::nBytes);
 		return address;
 	}
 
