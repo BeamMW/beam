@@ -361,8 +361,12 @@ namespace beam::wallet {
             {
                 m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
                 m_Miner.m_Shutdown = false;
+#if defined(EMSCRIPTEN)
+                uint32_t nThreads = 3;
+#else
 
                 uint32_t nThreads = MyThread::hardware_concurrency();
+#endif
                 nThreads = (nThreads > 1) ? (nThreads - 1) : 1; // leave at least 1 vacant core for other things
                 m_Miner.m_vThreads.resize(nThreads);
 

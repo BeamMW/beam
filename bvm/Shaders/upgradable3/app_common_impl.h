@@ -91,7 +91,7 @@ struct Manager
 
 	static bool FillDeployArgs(Settings& arg, const PubKey* pKeyMy)
 	{
-		Env::DocGet("hUpgradeDelay", arg.m_hMinUpgadeDelay);
+		Env::DocGet("hUpgradeDelay", arg.m_hMinUpgradeDelay);
 		Env::DocGet("nMinApprovers", arg.m_MinApprovers);
 
 #define ARG_NAME_PREFIX "admin-"
@@ -139,6 +139,136 @@ struct Manager
 			Env::Cost::MemOpPerByte * (sizeof(Settings)) +
 			Env::Cost::Cycle * 150;
 	}
+
+
+	struct VerInfo
+	{
+		const ShaderID* m_pSid;
+		uint32_t m_Versions;
+
+		void DocAddVer(const ShaderID& sid) const
+		{
+			for (uint32_t iVer = 0; ; iVer++)
+			{
+				if (m_Versions == iVer)
+				{
+					Env::DocAddBlob_T("version_sid", sid);
+					break;
+				}
+
+				if (_POD_(sid) == m_pSid[iVer])
+				{
+					Env::DocAddNum("version", iVer);
+					break;
+				}
+			}
+		}
+
+		void DumpAll(const Env::KeyID* pAdminKid) const
+		{
+			PubKey pkAdmin;
+			if (pAdminKid)
+				pAdminKid->get_Pk(pkAdmin);
+
+			Env::DocArray gr0("contracts");
+
+			for (uint32_t iVer = 0; iVer < m_Versions; iVer++)
+			{
+				WalkerContracts wlk;
+				for (wlk.Enum(m_pSid[iVer]); wlk.MoveNext(); )
+				{
+					Env::DocGroup gr1("");
+
+					const auto& cid = wlk.m_Key.m_KeyInContract.m_Cid;
+
+					Env::DocAddBlob_T("cid", cid);
+					Env::DocAddNum("Height", wlk.m_Height);
+					Env::DocAddNum("version", iVer);
+
+					{
+						Env::DocArray gr2("version_history");
+
+						Env::KeyPrefix kVer;
+						_POD_(kVer.m_Cid) = cid;
+						kVer.m_Tag = KeyTag::ShaderChange;
+						ShaderID sid;
+
+						for (Env::LogReader rVer(kVer, kVer); rVer.MoveNext_T(kVer, sid); )
+						{
+							Env::DocGroup gr3("");
+							Env::DocAddNum("Height", rVer.m_Pos.m_Height);
+
+							DocAddVer(sid);
+						}
+					}
+
+					{
+						SettingsPlus stg;
+						if (stg.Read(cid))
+						{
+							Env::DocAddNum("min_upgrade_delay", stg.m_hMinUpgradeDelay);
+							Env::DocAddNum("min_approvers", stg.m_MinApprovers);
+
+							{
+								Env::DocArray gr2("admins");
+
+								for (uint32_t i = 0; i < stg.s_AdminsMax; i++)
+								{
+									const auto& pk = stg.m_pAdmin[i];
+									if (!_POD_(pk).IsZero())
+									{
+										Env::DocGroup gr3("");
+										Env::DocAddNum("id", i);
+										Env::DocAddBlob_T("pk", pk);
+									}
+								}
+							}
+
+							if (pAdminKid)
+							{
+								uint32_t iAdmin = stg.FindAdmin(pkAdmin);
+								if (iAdmin)
+									Env::DocAddNum("iAdmin", iAdmin - 1);
+							}
+						}
+					}
+
+					{
+						Env::Key_T<NextVersion::Key> k;
+						_POD_(k.m_Prefix.m_Cid) = cid;
+
+						Env::VarReader r(k, k);
+						uint32_t nKey = sizeof(k), nVal = 0;
+						if (r.MoveNext(&k, nKey, nullptr, nVal, 0) && (nVal >= sizeof(NextVersion)))
+						{
+							Env::DocGroup gr2("scheduled");
+
+							auto* pVal = (NextVersion*) Env::Heap_Alloc(nVal);
+							r.MoveNext(&k, nKey, pVal, nVal, 1);
+
+							Env::DocAddNum("hTarget", pVal->m_hTarget);
+
+							uint32_t nShaderSize = nVal - sizeof(NextVersion);
+
+							HashProcessor::Sha256 hp;
+							hp
+								<< "bvm.shader.id"
+								<< nShaderSize;
+
+							hp.Write(pVal + 1, nShaderSize);
+
+							ShaderID sid;
+							hp >> sid;
+
+							Env::Heap_Free(pVal);
+
+							DocAddVer(sid);
+						}
+					}
+				}
+			}
+		}
+	};
 
 	struct MultiSigRitual
 	{
@@ -415,10 +545,12 @@ struct Manager
 			uint32_t nSizeArgs = sizeof(Method::Control::ScheduleUpgrade) + nShaderSize;
 			auto* pArgs = (Method::Control::ScheduleUpgrade*) Env::Heap_Alloc(nSizeArgs);
 			auto& arg = *pArgs;
+			arg.m_Type = arg.s_Type;
 
 			Env::DocGetBlob(szShaderVarName, pArgs + 1, nShaderSize);
 
 			arg.m_Next.m_hTarget = hTarget;
+			arg.m_SizeShader = nShaderSize;
 
 			MultiSigRitual msp;
 			msp.m_szComment = "Upgradable3 schedule upgrade";

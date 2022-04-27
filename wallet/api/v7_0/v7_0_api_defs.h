@@ -20,7 +20,7 @@
 
 namespace beam::wallet
 {
-    #define V6_3_API_METHODS(macro) \
+    #define V7_0_API_METHODS(macro) \
         macro(IPFSAdd,          "ipfs_add",             API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(IPFSHash,         "ipfs_hash",            API_READ_ACCESS,  API_ASYNC, APPS_ALLOWED) \
         macro(IPFSGet,          "ipfs_get",             API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \

@@ -95,6 +95,7 @@ namespace beam
         extern const char* OWNER_KEY;
         extern const char* KEY_MINE;  // deprecated
         extern const char* MINER_KEY;
+        extern const char* MINER_JOB_LATENCY;
         extern const char* BBS_ENABLE;
         extern const char* NEW_ADDRESS;
         extern const char* GET_ADDRESS;
@@ -270,8 +271,8 @@ namespace beam
         extern const char* IPFS_BOOTSTRAP;
         extern const char* IPFS_SWARM_PORT;
         extern const char* IPFS_STORAGE_MAX;
-        extern const char* IPFS_API_PORT;
-        extern const char* IPFS_GATEWAY_PORT;
+        extern const char* IPFS_API_ADDR;
+        extern const char* IPFS_GATEWAY_ADDR;
         extern const char* IPFS_AUTONAT;
         extern const char* IPFS_AUTONAT_LIMIT;
         extern const char* IPFS_AUTONAT_PEER_LIMIT;
