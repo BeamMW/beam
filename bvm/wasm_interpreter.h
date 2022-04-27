@@ -361,6 +361,12 @@ namespace Wasm {
 
 		std::vector<Word> m_CallStack;
 
+		void PushReturnAddress(Word retAddr)
+		{
+			m_CallStack.push_back(m_Stack.m_Pos);
+			m_Stack.Push(retAddr);
+		}
+
 #ifdef WASM_INTERPRETER_DEBUG
 		struct Dbg
 		{
@@ -379,9 +385,6 @@ namespace Wasm {
 		}
 
 		Word get_Ip() const;
-		bool IsBeforeCall() const;
-		bool IsBeforeRet() const;
-		Word get_MyIp() const;
 		void Jmp(uint32_t ip);
 
 		Word ReadTable(Word iItem) const;

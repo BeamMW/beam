@@ -1734,25 +1734,6 @@ namespace Wasm {
 		return static_cast<Word>(m_Instruction.m_p0 - (const uint8_t*)m_Code.p);
 	}
 
-	bool Processor::IsBeforeCall() const
-	{
-		auto i = *reinterpret_cast<const Instruction*>(m_Instruction.m_p0);
-		return i == Instruction::call
-			//|| i == Instruction::call_ext
-			|| i == Instruction::call_indirect;
-	}
-
-	bool Processor::IsBeforeRet() const
-	{
-		auto i = *reinterpret_cast<const Instruction*>(m_Instruction.m_p0);
-		return i == Instruction::ret;
-	}
-
-	Word Processor::get_MyIp() const
-	{
-		return static_cast<Word>(m_Instruction.m_p0 - (const uint8_t*)m_Data.p);
-	}
-
 	uint8_t* Processor::get_AddrExVar(uint32_t nOffset, uint32_t& nSizeOut, bool bW) const
 	{
 		CheckpointTxt cp("mem/probe");
@@ -1956,8 +1937,7 @@ namespace Wasm {
 	{
 		Word nAddr = ReadAddr();
 		Word nRetAddr = get_Ip();
-		m_CallStack.push_back(m_Stack.m_Pos);
-		m_Stack.Push(nRetAddr);
+		PushReturnAddress(nRetAddr);
 		OnCall(nAddr);
 	}
 
@@ -1999,8 +1979,7 @@ namespace Wasm {
 		Word nAddr = ReadTable(iFunc);
 
 		Word nRetAddr = get_Ip();
-		m_CallStack.push_back(m_Stack.m_Pos);
-		m_Stack.Push(nRetAddr);
+		PushReturnAddress(nRetAddr);
 		OnCall(nAddr);
 	}
 
@@ -2046,16 +2025,15 @@ namespace Wasm {
 
 		Word nRetAddr = m_Stack.m_pPtr[nPosAddr];
 
+		Test(!m_CallStack.empty());
+		Test(m_Stack.m_pPtr[m_CallStack.back()] == nRetAddr);
+		m_CallStack.pop_back();
+
 		for (uint32_t i = 0; i < nRets; i++)
 			m_Stack.m_pPtr[nPosRetDst + i] = m_Stack.m_pPtr[nPosRetSrc + i];
 
-
 		m_Stack.m_Pos = nPosRetDst + nRets;
-		if (!m_CallStack.empty())
-		{
-			Test(m_Stack.m_pPtr[m_CallStack.back()] == nRetAddr);
-			m_CallStack.pop_back();
-		}
+
 		OnRet(nRetAddr);
 	}
 

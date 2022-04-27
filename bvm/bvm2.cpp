@@ -261,7 +261,7 @@ namespace bvm2 {
 			x.m_Cid = pPrev->m_Cid;
 
 		m_Stack.Push(pArgs);
-		m_Stack.Push(0); // retaddr, set dummy for far call
+		PushReturnAddress(0); // retaddr, set dummy for far call
 
 		uint32_t nAddr = ByteOrder::from_le(hdr.m_pMethod[iMethod]);
 		OnCall(nAddr);
@@ -2981,7 +2981,7 @@ namespace bvm2 {
 
 	void ProcessorManager::Call(Wasm::Word addr, Wasm::Word retAddr)
 	{
-		m_Stack.Push(retAddr);
+		PushReturnAddress(retAddr);
 		OnCall(addr);
 	}
 
