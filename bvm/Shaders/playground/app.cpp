@@ -6,33 +6,10 @@ void OnError(const char* sz)
     Env::DocAddText("error", sz);
 }
 
-bool get_Sid(ShaderID& sid)
-{
-    static const char szName[] = "contract.shader";
-    uint32_t nSize = Env::DocGetBlob(szName, nullptr, 0);
-    if (!nSize)
-        return 0;
-
-    void* p = Env::StackAlloc(nSize);
-    Env::DocGetBlob(szName, p, nSize);
-
-    HashProcessor::Sha256 hp;
-    hp
-        << "bvm.shader.id"
-        << nSize;
-
-    hp.Write(p, nSize);
-    hp >> sid;
-
-    Env::StackFree(nSize); // no necessary, unless the compiler will inline this func
-
-    return true;
-}
-
 BEAM_EXPORT void Method_0()
 {
     ShaderID sid;
-    if (!get_Sid(sid))
+    if (!Utils::get_ShaderID_FromArg(sid))
         return OnError("contract shader must be specified");
 
     Env::DocAddBlob_T("sid", sid);
@@ -68,12 +45,7 @@ BEAM_EXPORT void Method_0()
 
         Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "create playground contract", 0);
 
-        HashProcessor::Sha256 hp;
-        hp
-            << "bvm.cid"
-            << sid
-            << 0U // args size
-            >> cid;
+        Utils::get_Cid(cid, sid, nullptr, 0);
     }
 
     uint32_t nRun = 0;

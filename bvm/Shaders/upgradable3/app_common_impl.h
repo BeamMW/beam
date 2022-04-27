@@ -248,17 +248,8 @@ struct Manager
 
 							Env::DocAddNum("hTarget", pVal->m_hTarget);
 
-							uint32_t nShaderSize = nVal - sizeof(NextVersion);
-
-							HashProcessor::Sha256 hp;
-							hp
-								<< "bvm.shader.id"
-								<< nShaderSize;
-
-							hp.Write(pVal + 1, nShaderSize);
-
 							ShaderID sid;
-							hp >> sid;
+							Utils::get_ShaderID(sid, pVal + 1, nVal - sizeof(NextVersion));
 
 							Env::Heap_Free(pVal);
 
