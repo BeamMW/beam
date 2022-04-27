@@ -39,6 +39,7 @@
 #include <stack>
 #include <optional>
 #include <iomanip>
+#include <algorithm>
 
 #ifdef _MSC_VER
 #define OS_WINDOWS 1
@@ -61,9 +62,14 @@ void DoDebug(const Wasm::Processor& proc);
 
 namespace
 {
-    std::string GetCanonicalPath(const std::string& p)
+    std::string FixPath(const std::string& p)
     {
-        return fs::canonical(p).string();
+        std::string res = fs::system_complete(p).make_preferred().string();
+#ifdef OS_WINDOWS
+        std::transform(begin(res), end(res), begin(res), [](unsigned char c) { return std::tolower(c); });
+#endif // OS_WINDOWS
+
+        return res;
     }
 
     class WasmLoader : public dwarf::loader
@@ -769,15 +775,16 @@ namespace
         std::pair<int32_t, bool> AddBreakpoint(const std::string& filePath, int64_t line)
         {
             std::unique_lock lock(m_Mutex);
-            std::string filePathC = GetCanonicalPath(filePath);
+            std::string filePathC = FixPath(filePath);
             m_Breakpoints[filePathC].emplace(line);
             size_t id = std::hash<std::string>{}(filePathC);
             boost::hash_combine(id, line);
-            return { static_cast<int32_t>(id), CanSetBreakpoint(filePath, line) };
+            return { static_cast<int32_t>(id), CanSetBreakpoint(filePathC, line) };
         }
 
         bool CanSetBreakpoint(const std::string& filePath, int64_t line)
         {
+            fs::path path(filePath);
             // TODO: avoid linear search
             for (const auto& cu : m_DebugInfo->compilation_units())
             {
@@ -786,7 +793,7 @@ namespace
                 auto it = std::find_if(lineTable.begin(), lineTable.end(),
                     [&](const auto& entry)
                     {
-                        return GetCanonicalPath(entry.file->path) == filePath && entry.line == line && entry.is_stmt;
+                        return entry.line == line && entry.is_stmt && fs::equivalent(path, fs::path(entry.file->path));
                     });
                 if (it != lineTable.end())
                 {
@@ -1155,7 +1162,7 @@ namespace
                                 {
                                     frame.m_HasInfo = true;
                                     frame.m_Name = at_name(d);
-                                    frame.m_FilePath = GetCanonicalPath(filePath);
+                                    frame.m_FilePath = FixPath(filePath);
                                     frame.m_Line = line;
                                     frame.m_Column = column;
                                     frame.m_ID = it2->second;
@@ -1581,7 +1588,7 @@ void TestDebugger(int argc, char* argv[])
             auto breakpoints = request.breakpoints.value({});
             if (request.source.path)
             {
-                auto path = GetCanonicalPath(*request.source.path);
+                auto path = FixPath(*request.source.path);
                 debugger.ClearBreakpoints(path);
                 response.breakpoints.resize(breakpoints.size());
                 for (size_t i = 0; i < breakpoints.size(); i++)
