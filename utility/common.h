@@ -184,7 +184,7 @@ namespace beam
 		Blob() = default;
 		Blob(const void* p_, uint32_t n_) :p(p_), n(n_) {}
 		Blob(const ByteBuffer& bb);
-		template <uint32_t nBytes_>
+		template <size_t nBytes_>
 		Blob(const std::array<uint8_t, nBytes_>& x) : p(x.data()), n(static_cast<uint32_t>(x.size())) {}
 
 

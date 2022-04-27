@@ -753,7 +753,7 @@ namespace Eth
 	using PublicKey = Opaque<33>;
 	using Amount = Opaque<16>;
 
-#ifdef BEAM_SHADERS_USE_STL
+#if defined(BEAM_SHADERS_USE_STL) && !defined(HOST_BUILD)
 	template<typename Cont, uint32_t N>
 	bool operator==(const Opaque<N>& o, const Cont& c)
 	{
@@ -924,7 +924,7 @@ namespace Eth
 
 		Hash hash;
 		hs >> hash;
-		std::copy_n(std::next(begin(hash), 12), Address::nBytes, begin(address));
+		MemCopy(&address, &hash + 12, Address::nBytes);
 		return address;
 	}
 

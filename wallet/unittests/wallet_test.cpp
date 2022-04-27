@@ -4203,19 +4203,21 @@ namespace
             WALLET_CHECK(recoveredAddress == address0);
             Shaders::Eth::Hash hash2;
             Shaders::Eth::PublicKey pubKey;
+            Shaders::Eth::PublicKey pubKeyOrig{ Blob(pub) };
+            Shaders::Eth::Address addressOrig{ Blob(address0) };
 
             Shaders::Eth::RawTransactionData txData;
             WALLET_CHECK(Shaders::Eth::ExtractDataFromRawTransaction(txData, rawTransaction.data(), rawTransaction.size()));
 
             WALLET_CHECK(Shaders::Eth::ExtractPubKeyFromSignature(pubKey, txData.messageHash, txData.signature, txData.recoveryID));
-            WALLET_CHECK(pub == pubKey);
+            WALLET_CHECK(pubKey == pubKeyOrig);
 
             Shaders::Secp_scalar_data accountY;
             std::copy(next(begin(upub), 33), end(upub), accountY.m_Value.m_pData);
-            WALLET_CHECK(ToAddress(pubKey, accountY) == address0);
+            WALLET_CHECK(ToAddress(pubKey, accountY) == addressOrig);
 
             WALLET_CHECK(Shaders::Eth::VerifyTransactionSignature(pubKey, txData.messageHash, txData.signature));
-            WALLET_CHECK(ToEthAddress(pubKey) == address0);
+            WALLET_CHECK(ToEthAddress(pubKey) == addressOrig);
             hash2.Scan("123456789"); // invalid hash
             WALLET_CHECK(!Shaders::Eth::VerifyTransactionSignature(pubKey, hash2, txData.signature));
             pubKey.Inc(); // invalid pub key
