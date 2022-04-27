@@ -171,19 +171,16 @@ void DocAddPerc(const char* sz, Float x)
     DocAddFloat(sz, x * Float(100), 3);
 }
 
+const ShaderID g_pSid[] = {
+    Nephrite::s_SID,
+};
+
+const Upgradable3::Manager::VerInfo g_VerInfo = { g_pSid, _countof(g_pSid) };
 
 ON_METHOD(manager, view)
 {
-    static const ShaderID s_pSid[] = {
-        Nephrite::s_SID,
-    };
-
-    Upgradable3::Manager::VerInfo vi;
-    vi.m_pSid = s_pSid;
-    vi.m_Versions = _countof(s_pSid);
-
     AdminKeyID kid;
-    vi.DumpAll(&kid);
+    g_VerInfo.DumpAll(&kid);
 }
 
 static const Amount g_DepositCA = 3000 * g_Beam2Groth; // 3K beams
@@ -201,7 +198,7 @@ ON_METHOD(manager, deploy)
 
     Nephrite::Method::Create arg;
 
-    if (!Upgradable3::Manager::FillDeployArgs(arg.m_Upgradable, &pk))
+    if (!g_VerInfo.FillDeployArgs(arg.m_Upgradable, &pk))
         return;
 
     if (!troveLiquidationReserve)
@@ -226,7 +223,7 @@ ON_METHOD(manager, deploy)
 ON_METHOD(manager, schedule_upgrade)
 {
     AdminKeyID kid;
-    Upgradable3::Manager::MultiSigRitual::Perform_ScheduleUpgrade(cid, kid, hTarget);
+    g_VerInfo.ScheduleUpgrade(cid, kid, hTarget);
 }
 
 ON_METHOD(manager, explicit_upgrade)
