@@ -1517,18 +1517,19 @@ namespace beam::wallet
         {
             MyRequestBodyPack::Ptr pReq(new MyRequestBodyPack);
 
-            pReq->m_Msg.m_FlagP = proto::BodyBuffers::Recovery1;
-            pReq->m_Msg.m_FlagE = proto::BodyBuffers::Full;
+            proto::GetBodyPack& msg = pReq->m_Msg;
+            msg.m_FlagP = proto::BodyBuffers::Recovery1;
+            msg.m_FlagE = proto::BodyBuffers::Full;
 
             newTip.get_ID(pReq->m_Msg.m_Top);
 
             Height r = Rules::get().MaxRollback;
             Height count = std::min(newTip.m_Height - currentHeight, r * 2);
             pReq->m_StartHeight = startHeight;
-            pReq->m_Msg.m_CountExtra = hCountExtra;
-            pReq->m_Msg.m_Height0 = currentHeight;
-            pReq->m_Msg.m_HorizonLo1 = newTip.m_Height - count;
-            pReq->m_Msg.m_HorizonHi1 = newTip.m_Height;
+            msg.m_CountExtra = hCountExtra;
+            msg.m_Height0 = currentHeight;
+            msg.m_HorizonLo1 = newTip.m_Height - count;
+            msg.m_HorizonHi1 = newTip.m_Height;
 
             PostReqUnique(*pReq);
         }

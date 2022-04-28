@@ -118,7 +118,7 @@ namespace std
     string to_string(const beam::wallet::PrintableAmount& amount)
     {
         cpp_int intval;
-        import_bits(intval, amount.m_value.m_pData, amount.m_value.m_pData + decltype(amount.m_value)::nBytes);
+        import_bits(intval, amount.m_value.m_pData, amount.m_value.m_pData + std::decay_t<decltype(amount.m_value)>::nBytes);
 
         std::string unitName = amount.m_coinName;
         if(unitName.empty())

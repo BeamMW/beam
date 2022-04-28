@@ -39,7 +39,7 @@ void Interpret(Hash& hash, const Node& n)
 
 void Interpret(Hash& hash, const Proof& p)
 {
-	for (Proof::const_iterator it = p.begin(); p.end() != it; it++)
+	for (Proof::const_iterator it = p.begin(); p.end() != it; ++it)
 		Interpret(hash, *it);
 }
 

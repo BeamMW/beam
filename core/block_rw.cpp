@@ -245,7 +245,7 @@ namespace beam
 		MacValue& mv = reinterpret_cast<MacValue&>(bb.at(0));
 		MacValue mvOrg = mv;
 
-		XCrypt(mv, static_cast<uint32_t>(bb.size()) - sizeof(mv), false);
+		XCrypt(mv, static_cast<uint32_t>(bb.size() - sizeof(mv)), false);
 
 		if ((mv != mvOrg) || (bb[sizeof(MacValue)] != nCode))
 			return false;

@@ -66,7 +66,7 @@ namespace beam::wallet
     {
         if (bConnected)
         {
-            m_disconnectReason = "";
+            m_disconnectReason.clear();
             ++m_connections;
         }
         else
