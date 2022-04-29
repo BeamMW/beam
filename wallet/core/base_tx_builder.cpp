@@ -217,7 +217,7 @@ namespace beam::wallet
                 nNeedInputs++; // although there's no dificiency in def asset, assume it may arise due to involuntary fees
 
             // go by asset type in reverse order, to reach the def asset last
-            for (auto it = m_Map.rbegin(); m_Map.rend() != it; it++)
+            for (auto it = m_Map.rbegin(); m_Map.rend() != it; ++it)
             {
                 AmountSigned& val = it->second.m_Value;
                 if (val >= 0)
