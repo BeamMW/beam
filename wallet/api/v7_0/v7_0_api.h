@@ -12,21 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #pragma once
-#include "v6_3_api_defs.h"
+#include "v7_0_api_defs.h"
 #include "wallet/api/v6_1/v6_1_api.h"
 
 namespace beam::wallet
 {
-    class V63Api: public V61Api
+    class V70Api: public V61Api
     {
     public:
         // CTOR MUST BE SAFE TO CALL FROM ANY THREAD
-        V63Api(IWalletApiHandler& handler, unsigned long avMajor, unsigned long avMinor, const ApiInitData& init);
-        ~V63Api() override = default;
+        V70Api(IWalletApiHandler& handler, unsigned long avMajor, unsigned long avMinor, const ApiInitData& init);
+        ~V70Api() override = default;
 
-        V6_3_API_METHODS(BEAM_API_PARSE_FUNC)
-        V6_3_API_METHODS(BEAM_API_RESPONSE_FUNC)
-        V6_3_API_METHODS(BEAM_API_HANDLE_FUNC)
+        V7_0_API_METHODS(BEAM_API_PARSE_FUNC)
+        V7_0_API_METHODS(BEAM_API_RESPONSE_FUNC)
+        V7_0_API_METHODS(BEAM_API_HANDLE_FUNC)
     private:
 #ifdef BEAM_ETH_API_EMULATION
         void FillBlockResponse(const JsonRpcId& id, const BlockDetails::Response& res, const std::vector<std::string>& txHashes, json& msg) const;

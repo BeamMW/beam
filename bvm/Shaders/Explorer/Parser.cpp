@@ -1,42 +1,11 @@
 #include "../common.h"
+#include "../app_common_impl.h"
 #include "../upgradable/contract.h"
 #include "../upgradable2/contract.h"
 #include "../vault/contract.h"
 #include "../faucet/contract.h"
 #include "../dao-core/contract.h"
 #include "../gallery/contract.h"
-
-void get_ShaderID(ShaderID& sid, void* pBuf, uint32_t nBuf)
-{
-	static const char szName[] = "contract.shader";
-
-	HashProcessor::Sha256 hp;
-	hp
-		<< "bvm.shader.id"
-		<< nBuf;
-
-	hp.Write(pBuf, nBuf);
-	hp >> sid;
-}
-
-bool get_ShaderID(ShaderID& sid, const ContractID& cid)
-{
-	Env::VarReader r(cid, cid);
-
-	uint32_t nKey = 0, nVal = 0;
-	if (!r.MoveNext(nullptr, nKey, nullptr, nVal, 0))
-		return false;
-
-	void* pVal = Env::Heap_Alloc(nVal);
-
-	nKey = 0;
-	r.MoveNext(nullptr, nKey, pVal, nVal, 1);
-
-	get_ShaderID(sid, pVal, nVal);
-
-	Env::Heap_Free(pVal);
-	return true;
-}
 
 
 #define HandleContractsAll(macro) \
@@ -168,7 +137,7 @@ void ParserContext::On_Upgradable()
 	}
 
 	ShaderID sid;
-	if (!get_ShaderID(sid, us.m_Cid))
+	if (!Utils::get_ShaderID_FromContract(sid, us.m_Cid))
 		return;
 
 	ParserContext pc2(sid, m_Cid);
@@ -243,7 +212,7 @@ void ParserContext::On_Upgradable2()
 	}
 
 	ShaderID sid;
-	if (!get_ShaderID(sid, us.m_Active.m_Cid))
+	if (!Utils::get_ShaderID_FromContract(sid, us.m_Active.m_Cid))
 		return;
 
 	ParserContext pc2(sid, m_Cid);
@@ -309,7 +278,7 @@ void ParserContext::WriteUpgradeParams(const ContractID& cid, Height h)
 	if (!_POD_(cid).IsZero())
 	{
 		ShaderID sid;
-		if (!get_ShaderID(sid, cid))
+		if (!Utils::get_ShaderID_FromContract(sid, cid))
 			return;
 
 		Env::DocAddText("", ", Next upgrade ");

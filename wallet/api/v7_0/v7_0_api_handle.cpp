@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "v6_3_api.h"
+#include "v7_0_api.h"
 #include "version.h"
 #include "bvm/bvm2.h"
 
@@ -33,19 +33,20 @@ namespace beam::wallet
             return r;
         }
     }
-    void V63Api::onHandleChainID(const JsonRpcId& id, ChainID&& req)
+
+    void V70Api::onHandleChainID(const JsonRpcId& id, ChainID&& req)
     {
         ChainID::Response res;
         doResponse(id, res);
     }
 
-    void V63Api::onHandleNetVersion(const JsonRpcId& id, NetVersion&& req)
+    void V70Api::onHandleNetVersion(const JsonRpcId& id, NetVersion&& req)
     {
         NetVersion::Response res;
         doResponse(id, res);
     }
 
-    void V63Api::onHandleBlockNumber(const JsonRpcId& id, BlockNumber&& req)
+    void V70Api::onHandleBlockNumber(const JsonRpcId& id, BlockNumber&& req)
     {
         BlockNumber::Response res;
 
@@ -53,7 +54,7 @@ namespace beam::wallet
         doResponse(id, res);
     }
 
-    void V63Api::onHandleBalance(const JsonRpcId& id, Balance&& req)
+    void V70Api::onHandleBalance(const JsonRpcId& id, Balance&& req)
     {
         onHandleInvokeContractV61(id, std::move(req.subCall), [this](const auto& id, const auto& response)
             {
@@ -81,7 +82,7 @@ namespace beam::wallet
             });
     }
 
-    std::vector<std::string> V63Api::GetTxByHeight(Height h) const
+    std::vector<std::string> V70Api::GetTxByHeight(Height h) const
     {
         auto walletDB = getWalletDB();
         TxListFilter filter;
@@ -95,7 +96,7 @@ namespace beam::wallet
         return res;
     }
 
-    void V63Api::onHandleBlockByNumber(const JsonRpcId& id, BlockByNumber&& req)
+    void V70Api::onHandleBlockByNumber(const JsonRpcId& id, BlockByNumber&& req)
     {
         onHandleBlockDetails(id, std::move(req.subCall), [this](const auto& id, const BlockDetails::Response& responce)
             {
@@ -106,31 +107,31 @@ namespace beam::wallet
         
     }
 
-    void V63Api::onHandleGasPrice(const JsonRpcId& id, GasPrice&& req)
+    void V70Api::onHandleGasPrice(const JsonRpcId& id, GasPrice&& req)
     {
         GasPrice::Response res;
         doResponse(id, res);
     }
 
-    void V63Api::onHandleEstimateGas(const JsonRpcId& id, EstimateGas&& req)
+    void V70Api::onHandleEstimateGas(const JsonRpcId& id, EstimateGas&& req)
     {
         EstimateGas::Response res;
         doResponse(id, res);
     }
 
-    void V63Api::onHandleGetCode(const JsonRpcId& id, GetCode&& req)
+    void V70Api::onHandleGetCode(const JsonRpcId& id, GetCode&& req)
     {
         GetCode::Response res;
         doResponse(id, res);
     }
 
-    void V63Api::onHandleGetTransactionCount(const JsonRpcId& id, GetTransactionCount&& req)
+    void V70Api::onHandleGetTransactionCount(const JsonRpcId& id, GetTransactionCount&& req)
     {
         GetTransactionCount::Response res;
         doResponse(id, res);
     }
 
-    void V63Api::onHandleSendRawTransaction(const JsonRpcId& id, SendRawTransaction&& req)
+    void V70Api::onHandleSendRawTransaction(const JsonRpcId& id, SendRawTransaction&& req)
     {
         onHandleInvokeContractV61(id, std::move(req.subCall), [this](const auto& id, const auto& response)
             {
@@ -144,7 +145,7 @@ namespace beam::wallet
             });
     }
 
-    void V63Api::onHandleGetTransactionReceipt(const JsonRpcId& id, GetTransactionReceipt&& req)
+    void V70Api::onHandleGetTransactionReceipt(const JsonRpcId& id, GetTransactionReceipt&& req)
     {
         auto walletDB = getWalletDB();
         auto tx = walletDB->getTx(req.txID);
@@ -169,7 +170,7 @@ namespace beam::wallet
             });
     }
 
-    void V63Api::onHandleGetBlockByHash(const JsonRpcId& id, GetBlockByHash&& req)
+    void V70Api::onHandleGetBlockByHash(const JsonRpcId& id, GetBlockByHash&& req)
     {
         auto walletDB = getWalletDB();
 
@@ -210,7 +211,7 @@ namespace beam::wallet
         doResponse(id, res);
     }
 
-    void V63Api::onHandleCall(const JsonRpcId& id, Call&& req)
+    void V70Api::onHandleCall(const JsonRpcId& id, Call&& req)
     {
         onHandleInvokeContractV61(id, std::move(req.subCall), [this](const auto& id, const auto& response) 
             {
@@ -222,7 +223,7 @@ namespace beam::wallet
 
 #endif // BEAM_ETH_API_EMULATION
 
-    void V63Api::onHandleIPFSAdd(const JsonRpcId &id, IPFSAdd&& req)
+    void V70Api::onHandleIPFSAdd(const JsonRpcId &id, IPFSAdd&& req)
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
@@ -254,7 +255,7 @@ namespace beam::wallet
         #endif
     }
 
-    void V63Api::onHandleIPFSHash(const JsonRpcId &id, IPFSHash&& req)
+    void V70Api::onHandleIPFSHash(const JsonRpcId &id, IPFSHash&& req)
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
@@ -286,7 +287,7 @@ namespace beam::wallet
         #endif
     }
 
-    void V63Api::onHandleIPFSGet(const JsonRpcId &id, IPFSGet&& req)
+    void V70Api::onHandleIPFSGet(const JsonRpcId &id, IPFSGet&& req)
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
@@ -318,7 +319,7 @@ namespace beam::wallet
         #endif
     }
 
-    void V63Api::onHandleIPFSPin(const JsonRpcId &id, IPFSPin&& req)
+    void V70Api::onHandleIPFSPin(const JsonRpcId &id, IPFSPin&& req)
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
@@ -349,7 +350,7 @@ namespace beam::wallet
         #endif
     }
 
-    void V63Api::onHandleIPFSUnpin(const JsonRpcId &id, IPFSUnpin&& req)
+    void V70Api::onHandleIPFSUnpin(const JsonRpcId &id, IPFSUnpin&& req)
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
@@ -380,7 +381,7 @@ namespace beam::wallet
         #endif
     }
 
-    void V63Api::onHandleIPFSGc(const JsonRpcId &id, IPFSGc&& req)
+    void V70Api::onHandleIPFSGc(const JsonRpcId &id, IPFSGc&& req)
     {
         #ifdef BEAM_IPFS_SUPPORT
         auto ipfs = getIPFS();
@@ -431,7 +432,7 @@ namespace beam::wallet
         }
     }
 
-    void V63Api::onHandleSignMessage(const JsonRpcId& id, SignMessage&& req)
+    void V70Api::onHandleSignMessage(const JsonRpcId& id, SignMessage&& req)
     {
         SignMessage::Response resp;
         ECC::Hash::Value hv;
@@ -453,7 +454,7 @@ namespace beam::wallet
         doResponse(id, resp);
     }
 
-    void V63Api::onHandleVerifySignature(const JsonRpcId& id, VerifySignature&& req)
+    void V70Api::onHandleVerifySignature(const JsonRpcId& id, VerifySignature&& req)
     {
         VerifySignature::Response resp;
         ECC::Hash::Value hv;

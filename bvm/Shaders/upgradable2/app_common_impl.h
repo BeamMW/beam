@@ -188,11 +188,7 @@ struct ManagerUpgadable2
 					auto& cid = m_pCid[i];
 					const auto& sid = s_pSid[i];
 
-					HashProcessor::Sha256()
-						<< "bvm.cid"
-						<< sid
-						<< static_cast<uint32_t>(0)
-						>> cid;
+					Utils::get_Cid(cid, sid, nullptr, 0);
 
 					_POD_(key.m_KeyInContract.m_Sid) = sid;
 					_POD_(key.m_KeyInContract.m_Cid) = cid;

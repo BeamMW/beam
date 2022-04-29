@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #define HOST_BUILD
-#include "v6_3_api.h"
+#include "v7_0_api.h"
 #include "wallet/api/v6_1/v6_1_api.h"
 #include "version.h"
 
@@ -31,7 +31,7 @@ namespace beam::wallet
 {
     namespace
     {
-        uint32_t parseTimeout(V63Api& api, const nlohmann::json& params)
+        uint32_t parseTimeout(V70Api& api, const nlohmann::json& params)
         {
             if (auto otimeout = api.getOptionalParam<uint32_t>(params, "timeout"))
             {
@@ -102,13 +102,13 @@ namespace beam::wallet
         }
     }
 
-    std::pair<ChainID, IWalletApi::MethodInfo> V63Api::onParseChainID(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<ChainID, IWalletApi::MethodInfo> V70Api::onParseChainID(const JsonRpcId& id, const nlohmann::json& params)
     {
         ChainID message;
         return std::make_pair(message, MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const ChainID::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const ChainID::Response& res, json& msg)
     {
         msg = json
         {
@@ -118,13 +118,13 @@ namespace beam::wallet
         };
     }
 
-    std::pair<NetVersion, IWalletApi::MethodInfo> V63Api::onParseNetVersion(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<NetVersion, IWalletApi::MethodInfo> V70Api::onParseNetVersion(const JsonRpcId& id, const nlohmann::json& params)
     {
         NetVersion message;
         return std::make_pair(message, MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const NetVersion::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const NetVersion::Response& res, json& msg)
     {
         msg = json
         {
@@ -134,13 +134,13 @@ namespace beam::wallet
         };
     }
 
-    std::pair<BlockNumber, IWalletApi::MethodInfo> V63Api::onParseBlockNumber(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<BlockNumber, IWalletApi::MethodInfo> V70Api::onParseBlockNumber(const JsonRpcId& id, const nlohmann::json& params)
     {
         BlockNumber message;
         return std::make_pair(message, MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const BlockNumber::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const BlockNumber::Response& res, json& msg)
     {
         msg = json
         {
@@ -150,7 +150,7 @@ namespace beam::wallet
         };
     }
 
-    std::pair<Balance, IWalletApi::MethodInfo> V63Api::onParseBalance(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<Balance, IWalletApi::MethodInfo> V70Api::onParseBalance(const JsonRpcId& id, const nlohmann::json& params)
     {
         Balance message;
         message.address = params[0].get<std::string>();
@@ -164,7 +164,7 @@ namespace beam::wallet
         return std::make_pair(message, MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const Balance::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const Balance::Response& res, json& msg)
     {
         msg = json
         {
@@ -174,7 +174,7 @@ namespace beam::wallet
         };
     }
 
-    std::pair<BlockByNumber, IWalletApi::MethodInfo> V63Api::onParseBlockByNumber(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<BlockByNumber, IWalletApi::MethodInfo> V70Api::onParseBlockByNumber(const JsonRpcId& id, const nlohmann::json& params)
     {
         BlockByNumber message;
         message.tag = params[0].get<std::string>();
@@ -191,19 +191,19 @@ namespace beam::wallet
         return std::make_pair(message, MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const BlockByNumber::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const BlockByNumber::Response& res, json& msg)
     {
         FillBlockResponse(id, res.subResponce, res.txHashes, msg);
     }
 
-    std::pair<GetBlockByHash, IWalletApi::MethodInfo> V63Api::onParseGetBlockByHash(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<GetBlockByHash, IWalletApi::MethodInfo> V70Api::onParseGetBlockByHash(const JsonRpcId& id, const nlohmann::json& params)
     {
         GetBlockByHash message;
         message.blockHash = FromHex(params[0].get<std::string>());
         return std::make_pair(message, MethodInfo());
     }
 
-    void V63Api::FillBlockResponse(const JsonRpcId& id, const BlockDetails::Response& res, const std::vector<std::string>& txHashes, json& msg) const
+    void V70Api::FillBlockResponse(const JsonRpcId& id, const BlockDetails::Response& res, const std::vector<std::string>& txHashes, json& msg) const
     {
         msg = json
         {
@@ -240,18 +240,18 @@ namespace beam::wallet
         }
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const GetBlockByHash::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const GetBlockByHash::Response& res, json& msg)
     {
         FillBlockResponse(id, res.subResponce, res.txHashes, msg);
     }
 
-    std::pair<GasPrice, IWalletApi::MethodInfo> V63Api::onParseGasPrice(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<GasPrice, IWalletApi::MethodInfo> V70Api::onParseGasPrice(const JsonRpcId& id, const nlohmann::json& params)
     {
         GasPrice message;
         return std::make_pair(message, MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const GasPrice::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const GasPrice::Response& res, json& msg)
     {
         msg = json
         {
@@ -262,13 +262,13 @@ namespace beam::wallet
         };
     }
 
-    std::pair<EstimateGas, IWalletApi::MethodInfo> V63Api::onParseEstimateGas(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<EstimateGas, IWalletApi::MethodInfo> V70Api::onParseEstimateGas(const JsonRpcId& id, const nlohmann::json& params)
     {
         EstimateGas message;
         return std::make_pair(message, MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const EstimateGas::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const EstimateGas::Response& res, json& msg)
     {
         msg = json
         {
@@ -279,13 +279,13 @@ namespace beam::wallet
         };
     }
 
-    std::pair<GetCode, IWalletApi::MethodInfo> V63Api::onParseGetCode(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<GetCode, IWalletApi::MethodInfo> V70Api::onParseGetCode(const JsonRpcId& id, const nlohmann::json& params)
     {
         GetCode message;
         return std::make_pair(message, MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const GetCode::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const GetCode::Response& res, json& msg)
     {
         msg = json
         {
@@ -296,13 +296,13 @@ namespace beam::wallet
         };
     }
 
-    std::pair<GetTransactionCount, IWalletApi::MethodInfo> V63Api::onParseGetTransactionCount(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<GetTransactionCount, IWalletApi::MethodInfo> V70Api::onParseGetTransactionCount(const JsonRpcId& id, const nlohmann::json& params)
     {
         GetTransactionCount message;
         return std::make_pair(message, MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const GetTransactionCount::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const GetTransactionCount::Response& res, json& msg)
     {
         msg = json
         {
@@ -313,7 +313,7 @@ namespace beam::wallet
         };
     }
 
-    std::pair<SendRawTransaction, IWalletApi::MethodInfo> V63Api::onParseSendRawTransaction(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<SendRawTransaction, IWalletApi::MethodInfo> V70Api::onParseSendRawTransaction(const JsonRpcId& id, const nlohmann::json& params)
     {
         using namespace Shaders::Eth;
         SendRawTransaction message;
@@ -350,7 +350,7 @@ namespace beam::wallet
         return std::make_pair(message, MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const SendRawTransaction::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const SendRawTransaction::Response& res, json& msg)
     {
         msg = json
         {
@@ -361,7 +361,7 @@ namespace beam::wallet
         };
     }
 
-    std::pair<GetTransactionReceipt, IWalletApi::MethodInfo> V63Api::onParseGetTransactionReceipt(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<GetTransactionReceipt, IWalletApi::MethodInfo> V70Api::onParseGetTransactionReceipt(const JsonRpcId& id, const nlohmann::json& params)
     {
         GetTransactionReceipt message;
         auto b = FromHex(params[0].get<std::string>());
@@ -369,7 +369,7 @@ namespace beam::wallet
         return std::make_pair(message, MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const GetTransactionReceipt::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const GetTransactionReceipt::Response& res, json& msg)
     {
         if (!res.tx)
         {
@@ -405,7 +405,7 @@ namespace beam::wallet
         };
     }
 
-    std::pair<Call, IWalletApi::MethodInfo> V63Api::onParseCall(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<Call, IWalletApi::MethodInfo> V70Api::onParseCall(const JsonRpcId& id, const nlohmann::json& params)
     {
         Call message;
  
@@ -424,7 +424,7 @@ namespace beam::wallet
         return std::make_pair(message, parseRes.second);
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const Call::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const Call::Response& res, json& msg)
     {
         json subRes;
 
@@ -440,7 +440,7 @@ namespace beam::wallet
 
 #endif // BEAM_ETH_API_EMULATION
 
-    std::pair<IPFSAdd, IWalletApi::MethodInfo> V63Api::onParseIPFSAdd(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<IPFSAdd, IWalletApi::MethodInfo> V70Api::onParseIPFSAdd(const JsonRpcId& id, const nlohmann::json& params)
     {
         IPFSAdd message;
         message.timeout = parseTimeout(*this, params);
@@ -456,7 +456,7 @@ namespace beam::wallet
         return std::make_pair(std::move(message), MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const IPFSAdd::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const IPFSAdd::Response& res, json& msg)
     {
         msg = json
         {
@@ -471,7 +471,7 @@ namespace beam::wallet
         };
     }
 
-    std::pair<IPFSHash, IWalletApi::MethodInfo> V63Api::onParseIPFSHash(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<IPFSHash, IWalletApi::MethodInfo> V70Api::onParseIPFSHash(const JsonRpcId& id, const nlohmann::json& params)
     {
         IPFSHash message;
         message.timeout = parseTimeout(*this, params);
@@ -482,7 +482,7 @@ namespace beam::wallet
         return std::make_pair(std::move(message), MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const IPFSHash::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const IPFSHash::Response& res, json& msg)
     {
         msg = json
             {
@@ -496,7 +496,7 @@ namespace beam::wallet
             };
     }
 
-    std::pair<IPFSGet, IWalletApi::MethodInfo> V63Api::onParseIPFSGet(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<IPFSGet, IWalletApi::MethodInfo> V70Api::onParseIPFSGet(const JsonRpcId& id, const nlohmann::json& params)
     {
         IPFSGet message;
         message.timeout = parseTimeout(*this, params);
@@ -504,7 +504,7 @@ namespace beam::wallet
         return std::make_pair(std::move(message), MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const IPFSGet::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const IPFSGet::Response& res, json& msg)
     {
         msg = json
         {
@@ -519,7 +519,7 @@ namespace beam::wallet
         };
     }
 
-    std::pair<IPFSPin, IWalletApi::MethodInfo> V63Api::onParseIPFSPin(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<IPFSPin, IWalletApi::MethodInfo> V70Api::onParseIPFSPin(const JsonRpcId& id, const nlohmann::json& params)
     {
         IPFSPin message;
         message.timeout = parseTimeout(*this, params);
@@ -527,7 +527,7 @@ namespace beam::wallet
         return std::make_pair(std::move(message), MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const IPFSPin::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const IPFSPin::Response& res, json& msg)
     {
         msg = json
             {
@@ -541,14 +541,14 @@ namespace beam::wallet
             };
     }
 
-    std::pair<IPFSUnpin, IWalletApi::MethodInfo> V63Api::onParseIPFSUnpin(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<IPFSUnpin, IWalletApi::MethodInfo> V70Api::onParseIPFSUnpin(const JsonRpcId& id, const nlohmann::json& params)
     {
         IPFSUnpin message;
         message.hash = getMandatoryParam<NonEmptyString>(params, "hash");
         return std::make_pair(std::move(message), MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const IPFSUnpin::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const IPFSUnpin::Response& res, json& msg)
     {
         msg = json
         {
@@ -562,14 +562,14 @@ namespace beam::wallet
         };
     }
 
-    std::pair<IPFSGc, IWalletApi::MethodInfo> V63Api::onParseIPFSGc(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<IPFSGc, IWalletApi::MethodInfo> V70Api::onParseIPFSGc(const JsonRpcId& id, const nlohmann::json& params)
     {
         IPFSGc message;
         message.timeout = parseTimeout(*this, params);
         return std::make_pair(message, MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const IPFSGc::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const IPFSGc::Response& res, json& msg)
     {
         msg = json
         {
@@ -583,7 +583,7 @@ namespace beam::wallet
         };
     }
 
-    std::pair<SignMessage, IWalletApi::MethodInfo> V63Api::onParseSignMessage(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<SignMessage, IWalletApi::MethodInfo> V70Api::onParseSignMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
         SignMessage message;
         message.message = getMandatoryParam<NonEmptyString>(params, "message");
@@ -592,7 +592,7 @@ namespace beam::wallet
         return std::make_pair(message, MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const SignMessage::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const SignMessage::Response& res, json& msg)
     {
         msg = json
         {
@@ -606,7 +606,7 @@ namespace beam::wallet
         };
     }
 
-    std::pair<VerifySignature, IWalletApi::MethodInfo> V63Api::onParseVerifySignature(const JsonRpcId& id, const nlohmann::json& params)
+    std::pair<VerifySignature, IWalletApi::MethodInfo> V70Api::onParseVerifySignature(const JsonRpcId& id, const nlohmann::json& params)
     {
         VerifySignature message;
         message.message = getMandatoryParam<NonEmptyString>(params, "message");
@@ -616,7 +616,7 @@ namespace beam::wallet
         return std::make_pair(message, MethodInfo());
     }
 
-    void V63Api::getResponse(const JsonRpcId& id, const VerifySignature::Response& res, json& msg)
+    void V70Api::getResponse(const JsonRpcId& id, const VerifySignature::Response& res, json& msg)
     {
         msg = json
         {

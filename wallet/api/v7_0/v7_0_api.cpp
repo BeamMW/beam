@@ -11,14 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "v6_3_api.h"
+#include "v7_0_api.h"
 
 namespace beam::wallet
 {
-    V63Api::V63Api(IWalletApiHandler &handler, unsigned long avMajor, unsigned long avMinor, const ApiInitData &init)
+    V70Api::V70Api(IWalletApiHandler &handler, unsigned long avMajor, unsigned long avMinor, const ApiInitData &init)
             : V61Api(handler, avMajor, avMinor, init)
     {
         // MUST BE SAFE TO CALL FROM ANY THREAD
-        V6_3_API_METHODS(BEAM_API_REG_METHOD)
+        V7_0_API_METHODS(BEAM_API_REG_METHOD)
     }
 }
