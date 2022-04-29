@@ -67,7 +67,8 @@ struct Manager
 
 #define Upgradable3_deploy(macro) \
     macro(Height, hUpgradeDelay) \
-    macro(uint32_t, nMinApprovers)
+    macro(uint32_t, nMinApprovers) \
+	macro(uint32_t, bSkipVerifyVer)
 
 #define Upgradable3_multisig_args(macro) \
     macro(uint32_t, iSender) \
@@ -76,7 +77,8 @@ struct Manager
 #define Upgradable3_schedule_upgrade(macro) \
     macro(ContractID, cid) \
     macro(Height, hTarget) \
-    Upgradable3_multisig_args(macro)
+	macro(uint32_t, bSkipVerifyVer) \
+	Upgradable3_multisig_args(macro)
 
 #define Upgradable3_replace_admin(macro) \
     macro(ContractID, cid) \
@@ -89,47 +91,6 @@ struct Manager
     macro(uint32_t, newVal) \
     Upgradable3_multisig_args(macro)
 
-	static bool FillDeployArgs(Settings& arg, const PubKey* pKeyMy)
-	{
-		Env::DocGet("hUpgradeDelay", arg.m_hMinUpgradeDelay);
-		Env::DocGet("nMinApprovers", arg.m_MinApprovers);
-
-#define ARG_NAME_PREFIX "admin-"
-		char szBuf[_countof(ARG_NAME_PREFIX) + Utils::String::Decimal::Digits<Settings::s_AdminsMax>::N] = ARG_NAME_PREFIX;
-
-		uint32_t iFree = arg.s_AdminsMax;
-
-		for (uint32_t i = 0; i < Settings::s_AdminsMax; i++)
-		{
-			Utils::String::Decimal::Print(szBuf + _countof(ARG_NAME_PREFIX) - 1, i);
-			auto& pk = arg.m_pAdmin[i];
-
-			if (Env::DocGet(szBuf, pk)) // sets zero if not specified
-			{
-				if (pKeyMy && (_POD_(pk) == *pKeyMy))
-					pKeyMy = nullptr; // included
-			}
-			else
-				iFree = std::min(iFree, i);
-		}
-#undef ARG_NAME_PREFIX
-
-		if (pKeyMy)
-		{
-			if (iFree >= arg.s_AdminsMax)
-			{
-				OnError("cannot include self key");
-				return false;
-			}
-
-			_POD_(arg.m_pAdmin[iFree]) = *pKeyMy;
-		}
-
-		if (!Cast::Up<SettingsPlus>(arg).TestValid())
-			return false;
-
-		return true;
-	}
 
 	static uint32_t get_ChargeDeploy()
 	{
@@ -141,134 +102,41 @@ struct Manager
 	}
 
 
-	struct VerInfo
+
+	struct VerInfoBase
 	{
 		const ShaderID* m_pSid;
 		uint32_t m_Versions;
 
-		void DocAddVer(const ShaderID& sid) const
+		uint32_t FindVer(const ShaderID& sid) const
 		{
-			for (uint32_t iVer = 0; ; iVer++)
-			{
-				if (m_Versions == iVer)
-				{
-					Env::DocAddBlob_T("version_sid", sid);
-					break;
-				}
-
+			uint32_t iVer = 0;
+			for ( ; iVer < m_Versions; iVer++)
 				if (_POD_(sid) == m_pSid[iVer])
-				{
-					Env::DocAddNum("version", iVer);
 					break;
-				}
-			}
+
+			return iVer;
 		}
 
-		void DumpAll(const Env::KeyID* pAdminKid) const
+		static bool ShouldVerifyVersion()
 		{
-			PubKey pkAdmin;
-			if (pAdminKid)
-				pAdminKid->get_Pk(pkAdmin);
+			uint32_t bSkipVerifyVer = 0;
+			Env::DocGet("bSkipVerifyVer", bSkipVerifyVer);
+			return !bSkipVerifyVer;
+		}
 
-			Env::DocArray gr0("contracts");
+		bool VerifyVersion(const ShaderID& sid) const
+		{
+			auto iVer = FindVer(sid);
+			if (iVer < m_Versions)
+				return true;
 
-			for (uint32_t iVer = 0; iVer < m_Versions; iVer++)
-			{
-				WalkerContracts wlk;
-				for (wlk.Enum(m_pSid[iVer]); wlk.MoveNext(); )
-				{
-					Env::DocGroup gr1("");
-
-					const auto& cid = wlk.m_Key.m_KeyInContract.m_Cid;
-
-					Env::DocAddBlob_T("cid", cid);
-					Env::DocAddNum("Height", wlk.m_Height);
-					Env::DocAddNum("version", iVer);
-
-					{
-						Env::DocArray gr2("version_history");
-
-						Env::KeyPrefix kVer;
-						_POD_(kVer.m_Cid) = cid;
-						kVer.m_Tag = KeyTag::ShaderChange;
-						ShaderID sid;
-
-						for (Env::LogReader rVer(kVer, kVer); rVer.MoveNext_T(kVer, sid); )
-						{
-							Env::DocGroup gr3("");
-							Env::DocAddNum("Height", rVer.m_Pos.m_Height);
-
-							DocAddVer(sid);
-						}
-					}
-
-					{
-						SettingsPlus stg;
-						if (stg.Read(cid))
-						{
-							Env::DocAddNum("min_upgrade_delay", stg.m_hMinUpgradeDelay);
-							Env::DocAddNum("min_approvers", stg.m_MinApprovers);
-
-							{
-								Env::DocArray gr2("admins");
-
-								for (uint32_t i = 0; i < stg.s_AdminsMax; i++)
-								{
-									const auto& pk = stg.m_pAdmin[i];
-									if (!_POD_(pk).IsZero())
-									{
-										Env::DocGroup gr3("");
-										Env::DocAddNum("id", i);
-										Env::DocAddBlob_T("pk", pk);
-									}
-								}
-							}
-
-							if (pAdminKid)
-							{
-								uint32_t iAdmin = stg.FindAdmin(pkAdmin);
-								if (iAdmin)
-									Env::DocAddNum("iAdmin", iAdmin - 1);
-							}
-						}
-					}
-
-					{
-						Env::Key_T<NextVersion::Key> k;
-						_POD_(k.m_Prefix.m_Cid) = cid;
-
-						Env::VarReader r(k, k);
-						uint32_t nKey = sizeof(k), nVal = 0;
-						if (r.MoveNext(&k, nKey, nullptr, nVal, 0) && (nVal >= sizeof(NextVersion)))
-						{
-							Env::DocGroup gr2("scheduled");
-
-							auto* pVal = (NextVersion*) Env::Heap_Alloc(nVal);
-							r.MoveNext(&k, nKey, pVal, nVal, 1);
-
-							Env::DocAddNum("hTarget", pVal->m_hTarget);
-
-							uint32_t nShaderSize = nVal - sizeof(NextVersion);
-
-							HashProcessor::Sha256 hp;
-							hp
-								<< "bvm.shader.id"
-								<< nShaderSize;
-
-							hp.Write(pVal + 1, nShaderSize);
-
-							ShaderID sid;
-							hp >> sid;
-
-							Env::Heap_Free(pVal);
-
-							DocAddVer(sid);
-						}
-					}
-				}
-			}
+			OnError("unrecognized version");
+			return false;
 		}
 	};
+
+
 
 	struct MultiSigRitual
 	{
@@ -531,7 +399,7 @@ struct Manager
 			Perform(stg);
 		}
 
-		static bool Perform_ScheduleUpgrade(const ContractID& cid, const Env::KeyID& kid, Height hTarget)
+		static bool Perform_ScheduleUpgrade(const VerInfoBase& vi, const ContractID& cid, const Env::KeyID& kid, Height hTarget)
 		{
 			const char* szShaderVarName = "contract.shader";
 
@@ -548,6 +416,15 @@ struct Manager
 			arg.m_Type = arg.s_Type;
 
 			Env::DocGetBlob(szShaderVarName, pArgs + 1, nShaderSize);
+
+			if (VerInfo::ShouldVerifyVersion())
+			{
+				ShaderID sid;
+				Utils::get_ShaderID(sid, pArgs + 1, nShaderSize);
+				if (!vi.VerifyVersion(sid))
+					return false;
+			}
+
 
 			arg.m_Next.m_hTarget = hTarget;
 			arg.m_SizeShader = nShaderSize;
@@ -633,6 +510,170 @@ struct Manager
 
 			Method::Control::ExplicitUpgrade arg;
 			Env::GenerateKernel(&cid, Method::Control::s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Upgradable3 explicit upgrade", nChargeExtra);
+		}
+	};
+
+
+	struct VerInfo :public VerInfoBase
+	{
+		void DocAddVer(const ShaderID& sid) const
+		{
+			uint32_t iVer = FindVer(sid);
+			if (m_Versions == iVer)
+				Env::DocAddBlob_T("version_sid", sid);
+			else
+				Env::DocAddNum("version", iVer);
+		}
+
+		void DumpAll(const Env::KeyID* pAdminKid) const
+		{
+			PubKey pkAdmin;
+			if (pAdminKid)
+				pAdminKid->get_Pk(pkAdmin);
+
+			Env::DocArray gr0("contracts");
+
+			for (uint32_t iVer = 0; iVer < m_Versions; iVer++)
+			{
+				WalkerContracts wlk;
+				for (wlk.Enum(m_pSid[iVer]); wlk.MoveNext(); )
+				{
+					Env::DocGroup gr1("");
+
+					const auto& cid = wlk.m_Key.m_KeyInContract.m_Cid;
+
+					Env::DocAddBlob_T("cid", cid);
+					Env::DocAddNum("Height", wlk.m_Height);
+					Env::DocAddNum("version", iVer);
+
+					{
+						Env::DocArray gr2("version_history");
+
+						Env::KeyPrefix kVer;
+						_POD_(kVer.m_Cid) = cid;
+						kVer.m_Tag = KeyTag::ShaderChange;
+						ShaderID sid;
+
+						for (Env::LogReader rVer(kVer, kVer); rVer.MoveNext_T(kVer, sid); )
+						{
+							Env::DocGroup gr3("");
+							Env::DocAddNum("Height", rVer.m_Pos.m_Height);
+
+							DocAddVer(sid);
+						}
+					}
+
+					{
+						SettingsPlus stg;
+						if (stg.Read(cid))
+						{
+							Env::DocAddNum("min_upgrade_delay", stg.m_hMinUpgradeDelay);
+							Env::DocAddNum("min_approvers", stg.m_MinApprovers);
+
+							{
+								Env::DocArray gr2("admins");
+
+								for (uint32_t i = 0; i < stg.s_AdminsMax; i++)
+								{
+									const auto& pk = stg.m_pAdmin[i];
+									if (!_POD_(pk).IsZero())
+									{
+										Env::DocGroup gr3("");
+										Env::DocAddNum("id", i);
+										Env::DocAddBlob_T("pk", pk);
+									}
+								}
+							}
+
+							if (pAdminKid)
+							{
+								uint32_t iAdmin = stg.FindAdmin(pkAdmin);
+								if (iAdmin)
+									Env::DocAddNum("iAdmin", iAdmin - 1);
+							}
+						}
+					}
+
+					{
+						Env::Key_T<NextVersion::Key> k;
+						_POD_(k.m_Prefix.m_Cid) = cid;
+
+						Env::VarReader r(k, k);
+						uint32_t nKey = sizeof(k), nVal = 0;
+						if (r.MoveNext(&k, nKey, nullptr, nVal, 0) && (nVal >= sizeof(NextVersion)))
+						{
+							Env::DocGroup gr2("scheduled");
+
+							auto* pVal = (NextVersion*) Env::Heap_Alloc(nVal);
+							r.MoveNext(&k, nKey, pVal, nVal, 1);
+
+							Env::DocAddNum("hTarget", pVal->m_hTarget);
+
+							ShaderID sid;
+							Utils::get_ShaderID(sid, pVal + 1, nVal - sizeof(NextVersion));
+
+							Env::Heap_Free(pVal);
+
+							DocAddVer(sid);
+						}
+					}
+				}
+			}
+		}
+
+		bool FillDeployArgs(Settings& arg, const PubKey* pKeyMy) const
+		{
+			if (ShouldVerifyVersion())
+			{
+				ShaderID sid;
+				Utils::get_ShaderID_FromArg(sid);
+				if (!VerifyVersion(sid))
+					return false;
+			}
+
+			Env::DocGet("hUpgradeDelay", arg.m_hMinUpgradeDelay);
+			Env::DocGet("nMinApprovers", arg.m_MinApprovers);
+
+#define ARG_NAME_PREFIX "admin-"
+			char szBuf[_countof(ARG_NAME_PREFIX) + Utils::String::Decimal::Digits<Settings::s_AdminsMax>::N] = ARG_NAME_PREFIX;
+
+			uint32_t iFree = arg.s_AdminsMax;
+
+			for (uint32_t i = 0; i < Settings::s_AdminsMax; i++)
+			{
+				Utils::String::Decimal::Print(szBuf + _countof(ARG_NAME_PREFIX) - 1, i);
+				auto& pk = arg.m_pAdmin[i];
+
+				if (Env::DocGet(szBuf, pk)) // sets zero if not specified
+				{
+					if (pKeyMy && (_POD_(pk) == *pKeyMy))
+						pKeyMy = nullptr; // included
+				}
+				else
+					iFree = std::min(iFree, i);
+			}
+#undef ARG_NAME_PREFIX
+
+			if (pKeyMy)
+			{
+				if (iFree >= arg.s_AdminsMax)
+				{
+					OnError("cannot include self key");
+					return false;
+				}
+
+				_POD_(arg.m_pAdmin[iFree]) = *pKeyMy;
+			}
+
+			if (!Cast::Up<SettingsPlus>(arg).TestValid())
+				return false;
+
+			return true;
+		}
+
+		bool ScheduleUpgrade(const ContractID& cid, const Env::KeyID& kid, Height hTarget) const
+		{
+			return Manager::MultiSigRitual::Perform_ScheduleUpgrade(*this, cid, kid, hTarget);
 		}
 	};
 

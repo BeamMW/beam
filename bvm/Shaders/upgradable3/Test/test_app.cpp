@@ -50,19 +50,18 @@ struct MyKeyID :public Env::KeyID {
     MyKeyID() :Env::KeyID(&g_szAdminSeed, sizeof(g_szAdminSeed)) {}
 };
 
+const ShaderID g_pSid[] = {
+    Upgradable3::Test::s_SID_0,
+    Upgradable3::Test::s_SID_1
+};
+
+const Upgradable3::Manager::VerInfo g_VerInfo = { g_pSid, _countof(g_pSid) };
+
+
 ON_METHOD(manager, view)
 {
-    static const ShaderID s_pSid[] = {
-        Upgradable3::Test::s_SID_0,
-        Upgradable3::Test::s_SID_1 // latest version
-    };
-
-    Upgradable3::Manager::VerInfo vi;
-    vi.m_pSid = s_pSid;
-    vi.m_Versions = _countof(s_pSid);
     MyKeyID kid;
-
-    vi.DumpAll(&kid);
+    g_VerInfo.DumpAll(&kid);
 }
 
 ON_METHOD(manager, deploy)
@@ -72,7 +71,7 @@ ON_METHOD(manager, deploy)
     kid.get_Pk(pk);
 
     Upgradable3::Test::Method::Create arg;
-    if (!Upgradable3::Manager::FillDeployArgs(arg.m_Stgs, &pk))
+    if (!g_VerInfo.FillDeployArgs(arg.m_Stgs, &pk))
         return;
 
     Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Deploy test contract", Upgradable3::Manager::get_ChargeDeploy());
@@ -81,7 +80,7 @@ ON_METHOD(manager, deploy)
 ON_METHOD(manager, schedule_upgrade)
 {
     MyKeyID kid;
-    Upgradable3::Manager::MultiSigRitual::Perform_ScheduleUpgrade(cid, kid, hTarget);
+    Upgradable3::Manager::MultiSigRitual::Perform_ScheduleUpgrade(g_VerInfo, cid, kid, hTarget);
 }
 
 ON_METHOD(manager, explicit_upgrade)
