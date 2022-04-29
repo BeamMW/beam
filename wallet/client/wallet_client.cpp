@@ -438,7 +438,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getAppsList, std::move(callback));
     }
 
-    void markAppNotificationAsRead(const TxID id) override
+    void markAppNotificationAsRead(const TxID& id) override
     {
         call_async(&IWalletModelAsync::markAppNotificationAsRead, id);
     }
@@ -1100,12 +1100,6 @@ namespace beam::wallet
     {
         const auto& status = m_status.GetStatus(id);
         return status.maturingMP;
-    }
-
-    beam::AmountBig::Type WalletClient::getShielded(beam::Asset::ID id) const
-    {
-        const auto& status = m_status.GetStatus(id);
-        return status.shielded;
     }
 
     bool WalletClient::hasShielded(beam::Asset::ID id) const
@@ -2132,7 +2126,7 @@ namespace beam::wallet
         m_httpClient->send_request(request);
     }
 
-    void WalletClient::markAppNotificationAsRead(const TxID id)
+    void WalletClient::markAppNotificationAsRead(const TxID& id)
     {
         auto w = m_wallet.lock();
         if (w)
@@ -2507,7 +2501,7 @@ namespace beam::wallet
                 }
 
                 postFunctionToClientContext(
-                    [txid = std::move(txid), res = std::move(result), err = std::move(error), cb = std::move(cb)] () {
+                    [txid, res = std::move(result), err = std::move(error), cb = std::move(cb)] () {
                         cb(err ? *err : "", res ? *res : "", txid ? *txid: TxID());
                     });
         });
@@ -2606,7 +2600,7 @@ namespace beam::wallet
                 }
 
                 postFunctionToClientContext(
-                    [txid = std::move(txid), err = std::move(error), cb = std::move(cb)] () {
+                    [txid, err = std::move(error), cb = std::move(cb)] () {
                         cb(err ? *err : "", txid ? *txid : TxID());
                     });
         });
