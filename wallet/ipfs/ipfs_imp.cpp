@@ -82,7 +82,7 @@ namespace beam::wallet::imp
                     if (config.bootstrap.empty())
                     {
                         #if defined(BEAM_TESTNET)
-                        config.bootstrap.emplace_back("/dns4/eu-node01.testnet.beam.mw/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
+                        config.bootstrap.emplace_back("/dns4/eu-node01.testnet.beam.mw/tcp/38041/p2p/12D3KooWFEa2QaN5t3oTGurg1Fz5BkoE3ueHV18WxjHCXY16hHYM");
                         #elif defined(BEAM_MAINNET)
                             #error ("Define Mainnet IPFS bootstrap")
                         #else
@@ -92,7 +92,7 @@ namespace beam::wallet::imp
 
                     if (config.peering.empty()) {
                         #if defined(BEAM_TESTNET)
-                        config.bootstrap.emplace_back("/dns4/eu-node01.testnet.beam.mw/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
+                        config.bootstrap.emplace_back("/dns4/eu-node01.testnet.beam.mw/tcp/38041/p2p/12D3KooWFEa2QaN5t3oTGurg1Fz5BkoE3ueHV18WxjHCXY16hHYM");
                         #elif defined(BEAM_MAINNET)
                         #error ("Define Mainnet IPFS peering")
                         #else
