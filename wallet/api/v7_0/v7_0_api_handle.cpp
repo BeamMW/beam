@@ -29,6 +29,7 @@ namespace beam::wallet
         {
             std::string r;
             std::string s = std::to_string(id);
+            // we simply double transaction ID to conform the eth requirements
             r.append("0x").append(s).append(s);
             return r;
         }
@@ -136,10 +137,6 @@ namespace beam::wallet
         onHandleInvokeContractV61(id, std::move(req.subCall), [this](const auto& id, const auto& response)
             {
                 SendRawTransaction::Response res;
-                /*ECC::Hash::Value hv;
-                KeccakProcessor<256> hp;
-                hp.Write(&*response.txid, sizeof(TxID));
-                hp >> hv;*/
                 res.txHash = ToTxHash(*response.txid);
                 doResponse(id, res);
             });
