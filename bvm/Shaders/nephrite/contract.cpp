@@ -544,11 +544,11 @@ namespace Upgradable3 {
 
     uint32_t get_CurrentVersion()
     {
-        return 0;
+        return 1;
     }
 
     void OnUpgraded(uint32_t nPrevVersion)
     {
-        Env::Halt();
+        Env::Halt_if(nPrevVersion != 0);
     }
 }
