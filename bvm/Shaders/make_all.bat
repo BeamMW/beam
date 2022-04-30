@@ -11,7 +11,6 @@ call make_shader dao-core-testnet/app
 call make_shader dao-core-testnet/app-admin
 call make_shader dao-core-testnet/contract
 call make_shader dao-vote/app
-call make_shader dao-vote/app-admin
 call make_shader dao-vote/contract
 call make_shader dummy/contract
 call make_shader Explorer/Parser

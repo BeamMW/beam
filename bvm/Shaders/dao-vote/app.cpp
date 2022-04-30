@@ -1,15 +1,23 @@
 #include "../common.h"
 #include "../app_common_impl.h"
 #include "contract.h"
-#include "../upgradable2/contract.h"
-#include "../upgradable2/app_common_impl.h"
 #include "../Math.h"
+#include "../upgradable3/app_common_impl.h"
+
+#define DaoVote_manager_deploy(macro) \
+    Upgradable3_deploy(macro) \
+    macro(AssetID, aidVote) \
+    macro(Height, hEpochDuration)
 
 #define DaoVote_manager_view(macro)
 #define DaoVote_manager_view_params(macro) macro(ContractID, cid)
 #define DaoVote_manager_my_admin_key(macro)
-#define DaoVote_manager_explicit_upgrade(macro) macro(ContractID, cid)
 #define DaoVote_manager_view_totals(macro) macro(ContractID, cid)
+
+#define DaoVote_manager_schedule_upgrade(macro) Upgradable3_schedule_upgrade(macro)
+#define DaoVote_manager_replace_admin(macro) Upgradable3_replace_admin(macro)
+#define DaoVote_manager_set_min_approvers(macro) Upgradable3_set_min_approvers(macro)
+#define DaoVote_manager_explicit_upgrade(macro) macro(ContractID, cid)
 
 #define DaoVote_manager_view_proposals(macro) \
     macro(ContractID, cid) \
@@ -38,7 +46,11 @@
 
 #define DaoVoteRole_manager(macro) \
     macro(manager, view) \
+    macro(manager, deploy) \
+    macro(manager, schedule_upgrade) \
     macro(manager, explicit_upgrade) \
+    macro(manager, replace_admin) \
+    macro(manager, set_min_approvers) \
     macro(manager, view_params) \
     macro(manager, view_proposals) \
     macro(manager, view_proposal) \
@@ -116,28 +128,60 @@ struct UserKeyID :public Env::KeyID {
     }
 };
 
+const ShaderID g_pSid[] = {
+    DaoVote::s_SID,
+};
+
+const Upgradable3::Manager::VerInfo g_VerInfo = { g_pSid, _countof(g_pSid) };
+
 ON_METHOD(manager, view)
 {
-    static const ShaderID s_pSid[] = {
-        DaoVote::s_SID,
-    };
-
-    ContractID pVerCid[_countof(s_pSid)];
-    Height pVerDeploy[_countof(s_pSid)];
-
-    ManagerUpgadable2::Walker wlk;
-    wlk.m_VerInfo.m_Count = _countof(s_pSid);
-    wlk.m_VerInfo.s_pSid = s_pSid;
-    wlk.m_VerInfo.m_pCid = pVerCid;
-    wlk.m_VerInfo.m_pHeight = pVerDeploy;
-
     AdminKeyID kid;
-    wlk.ViewAll(&kid);
+    g_VerInfo.DumpAll(&kid);
+}
+
+ON_METHOD(manager, deploy)
+{
+    AdminKeyID kid;
+
+    Method::Create args;
+    kid.get_Pk(args.m_Cfg.m_pkAdmin);
+
+    if (!g_VerInfo.FillDeployArgs(args.m_Upgradable, &args.m_Cfg.m_pkAdmin))
+        return;
+
+    args.m_Cfg.m_Aid = aidVote;
+    args.m_Cfg.m_hEpochDuration = hEpochDuration;
+
+    const uint32_t nCharge =
+        Upgradable3::Manager::get_ChargeDeploy() +
+        Env::Cost::SaveVar_For(sizeof(DaoVote::State)) +
+        Env::Cost::Cycle * 50;
+
+    Env::GenerateKernel(nullptr, 0, &args, sizeof(args), nullptr, 0, nullptr, 0, "Deploy DaoVote contract", nCharge);
+}
+
+ON_METHOD(manager, schedule_upgrade)
+{
+    AdminKeyID kid;
+    g_VerInfo.ScheduleUpgrade(cid, kid, hTarget);
 }
 
 ON_METHOD(manager, explicit_upgrade)
 {
-    ManagerUpgadable2::MultiSigRitual::Perform_ExplicitUpgrade(cid);
+    Upgradable3::Manager::MultiSigRitual::Perform_ExplicitUpgrade(cid);
+}
+
+ON_METHOD(manager, replace_admin)
+{
+    AdminKeyID kid;
+    Upgradable3::Manager::MultiSigRitual::Perform_ReplaceAdmin(cid, kid, iAdmin, pk);
+}
+
+ON_METHOD(manager, set_min_approvers)
+{
+    AdminKeyID kid;
+    Upgradable3::Manager::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
 }
 
 struct MyState
@@ -152,7 +196,7 @@ struct MyState
         if (Env::VarReader::Read_T(key, Cast::Down<State>(*this)))
         {
             m_Charge =
-                ManagerUpgadable2::get_ChargeInvoke() +
+                Env::Cost::CallFar +
                 Env::Cost::LoadVar_For(sizeof(State));
             return true;
         }
@@ -365,7 +409,7 @@ ON_METHOD(manager, set_moderator)
     _POD_(args.m_pk) = pk;
 
     uint32_t nCharge =
-        ManagerUpgadable2::get_ChargeInvoke() +
+        Env::Cost::CallFar +
         Env::Cost::AddSig +
         Env::Cost::LoadVar_For(sizeof(Moderator)) +
         Env::Cost::SaveVar_For(sizeof(Moderator)) +
