@@ -172,6 +172,7 @@ void DocAddPerc(const char* sz, Float x)
 }
 
 const ShaderID g_pSid[] = {
+    Nephrite::s_SID_0,
     Nephrite::s_SID,
 };
 
