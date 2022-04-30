@@ -438,8 +438,7 @@ struct Manager
 			msp.m_Kid = kid;
 
 			msp.m_Charge +=
-				Env::Cost::LoadVar_For(sizeof(Settings)) +
-				Env::Cost::SaveVar_For(sizeof(Settings));
+				Env::Cost::SaveVar_For(nShaderSize + sizeof(NextVersion));
 
 			msp.Perform();
 
