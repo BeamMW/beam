@@ -2,6 +2,7 @@
 #include "../common.h"
 #include "../Math.h"
 #include "contract.h"
+#include "../upgradable3/contract_impl.h"
 
 namespace DaoVote {
 
@@ -275,24 +276,19 @@ struct MyUser
 
 BEAM_EXPORT void Ctor(const Method::Create& r)
 {
-    if (Env::get_CallDepth() > 1)
-    {
-        MyState s;
-        _POD_(s).SetZero();
-        _POD_(s.m_Cfg) = r.m_Cfg;
-        s.m_hStart = Env::get_Height();
-        s.Save();
-    }
+    r.m_Upgradable.TestNumApprovers();
+    r.m_Upgradable.Save();
+
+    MyState s;
+    _POD_(s).SetZero();
+    _POD_(s.m_Cfg) = r.m_Cfg;
+    s.m_hStart = Env::get_Height();
+    s.Save();
 }
 
 BEAM_EXPORT void Dtor(void*)
 {
     // N/A
-}
-
-BEAM_EXPORT void Method_2(void*)
-{
-    // to be called on update
 }
 
 BEAM_EXPORT void Method_3(const Method::AddProposal& r)
@@ -478,3 +474,16 @@ BEAM_EXPORT void Method_8(Method::SetModerator& r)
 }
 
 } // namespace DaoVote
+
+namespace Upgradable3 {
+
+    uint32_t get_CurrentVersion()
+    {
+        return 0;
+    }
+
+    void OnUpgraded(uint32_t nPrevVersion)
+    {
+        Env::Halt();
+    }
+}

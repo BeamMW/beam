@@ -385,8 +385,8 @@ namespace Shaders {
 #include "../Shaders/aphorize/contract.cpp"
 	}
 
-#include "../Shaders/dao-vote/contract.cpp" // already within namespace
-#include "../Shaders/nephrite/contract.cpp" // already within namespace
+//#include "../Shaders/dao-vote/contract.cpp" // already within namespace
+//#include "../Shaders/nephrite/contract.cpp" // already within namespace
 //#include "../Shaders/nephrite/app.cpp"
 #include "../Shaders/amm/contract.cpp" // already within namespace
 //#include "../Shaders/amm/app.cpp"
@@ -3107,6 +3107,7 @@ namespace bvm2 {
 		{
 			Shaders::DaoVote::Method::Create args;
 			ZeroObject(args);
+			args.m_Upgradable.m_MinApprovers = 1;
 			args.m_Cfg.m_Aid = 22;
 			args.m_Cfg.m_hEpochDuration = 50;
 
