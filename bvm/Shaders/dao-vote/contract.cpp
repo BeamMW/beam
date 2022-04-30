@@ -266,7 +266,7 @@ struct MyUser
 
         // init epoch
         m_iEpoch = s.m_Current.m_iEpoch;
-        m_iProposal0 = s.m_iLastProposal;
+        m_iProposal0 = s.get_Proposal0();
 
         Env::Memset(m_pVotes, s_NoVote, sizeof(*m_pVotes) * s.m_Current.m_Proposals);
     }
