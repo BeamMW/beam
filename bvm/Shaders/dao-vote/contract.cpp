@@ -350,6 +350,7 @@ BEAM_EXPORT void Method_4(const Method::MoveFunds& r)
             Amount val0 = u.m_Stake;
             Strict::Sub(u.m_Stake, delta);
 
+            // TODO: don't do this if the user just changed epoch (should be no active votes)
             s.AdjustVotes(u, u.m_pVotes, val0);
         }
 
