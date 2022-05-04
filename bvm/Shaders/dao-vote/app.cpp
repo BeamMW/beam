@@ -635,6 +635,14 @@ struct MyUser
                 m_iDividendEpoch = 0;
             }
 
+            if (m_Votes)
+            {
+                m_Charge +=
+                    Env::Cost::Log_For(sizeof(Events::UserVote) + nSizeVotes) +
+                    Env::Cost::MemOpPerByte * nSizeVotes +
+                    Env::Cost::Cycle * 200;
+            }
+
             m_iEpoch = s.m_Current.m_iEpoch;
             m_Stake += m_StakeNext;
             m_StakeNext = 0;
@@ -754,16 +762,18 @@ ON_METHOD(user, move_funds)
         u.m_Charge +
         Env::Cost::AddSig +
         Env::Cost::FundsLock +
-        Env::Cost::LoadVar_For(sizeof(User) + u.m_Votes) +
         Env::Cost::SaveVar_For(sizeof(User) + u.m_Votes);
 
-    if (u.m_Votes && !bLock && (amount > u.m_StakeNext))
+    // TODO: use u.m_Votes instead, after we fix the contract logic
+    uint32_t nVotesAsSeenByContract = s.m_Current.m_Proposals;
+
+    if (nVotesAsSeenByContract && !bLock && (amount > u.m_StakeNext))
     {
         const Amount perProp =
             Env::Cost::LoadVar_For(sizeof(ProposalMax)) +
             Env::Cost::SaveVar_For(sizeof(ProposalMax));
 
-        nCharge += perProp * u.m_Votes;
+        nCharge += perProp * nVotesAsSeenByContract;
     }
 
     auto* pFc = Env::StackAlloc_T<FundsChange>(u.m_Dividend.m_Assets + 1);
