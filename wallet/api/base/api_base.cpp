@@ -177,7 +177,7 @@ namespace beam::wallet
         auto pinfo = parseCallInfo(data, size);
         if (pinfo == boost::none)
         {
-            LOG_WARNING() << "executeAPIRequest, parseCallInfo returned none for " << data;
+            LOG_WARNING() << "executeAPIRequest, parseCallInfo returned none for " << std::string_view(data, size);
             return ApiSyncMode::DoneSync;
         }
 
