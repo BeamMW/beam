@@ -129,7 +129,8 @@ struct UserKeyID :public Env::KeyID {
 };
 
 const ShaderID g_pSid[] = {
-    DaoVote::s_SID,
+    DaoVote::s_SID_0,
+    DaoVote::s_SID_1,
 };
 
 const Upgradable3::Manager::VerInfo g_VerInfo = { g_pSid, _countof(g_pSid) };
@@ -652,6 +653,37 @@ struct MyUser
         return true;
     }
 
+    void AddChargeVotes(const ContractID& cid, const MyState& s, const uint8_t* p1, bool bStakeChanged)
+    {
+        m_Charge += Env::Cost::Cycle * 100;
+
+        Env::Key_T<Proposal::Key> pk;
+        _POD_(pk.m_Prefix.m_Cid) = cid;
+        pk.m_KeyInContract.m_ID = s.get_Proposal0();
+
+        for (uint32_t i = 0; i < s.m_Current.m_Proposals; i++)
+        {
+            m_Charge += Env::Cost::Cycle * 50;
+            ++pk.m_KeyInContract.m_ID;
+
+            auto n0 = m_pVotes[i];
+            auto n1 = p1[i];
+
+            if (n0 == n1)
+            {
+                if (!bStakeChanged)
+                    continue;
+                if (User::s_NoVote == n1)
+                    continue;
+            }
+
+            m_Charge +=
+                Env::Cost::Cycle * 50 +
+                Env::Cost::LoadVar_For(sizeof(ProposalMax)) +
+                Env::Cost::SaveVar_For(sizeof(ProposalMax));
+        }
+    }
+
     uint32_t PrepareTx(FundsChange* pFc) const
     {
         for (uint32_t i = 0; i < m_Dividend.m_Assets; i++)
@@ -757,24 +789,15 @@ ON_METHOD(user, move_funds)
     UserKeyID kid(cid);
     kid.get_Pk(args.m_pkUser);
 
+    if (!bLock && amount < u.m_StakeNext)
+        u.AddChargeVotes(cid, s, u.m_pVotes, true);
+
     uint32_t nCharge =
         s.m_Charge +
         u.m_Charge +
         Env::Cost::AddSig +
         Env::Cost::FundsLock +
         Env::Cost::SaveVar_For(sizeof(User) + u.m_Votes);
-
-    // TODO: use u.m_Votes instead, after we fix the contract logic
-    uint32_t nVotesAsSeenByContract = s.m_Current.m_Proposals;
-
-    if (nVotesAsSeenByContract && !bLock && (amount > u.m_StakeNext))
-    {
-        const Amount perProp =
-            Env::Cost::LoadVar_For(sizeof(ProposalMax)) +
-            Env::Cost::SaveVar_For(sizeof(ProposalMax));
-
-        nCharge += perProp * nVotesAsSeenByContract;
-    }
 
     auto* pFc = Env::StackAlloc_T<FundsChange>(u.m_Dividend.m_Assets + 1);
     nCharge += u.PrepareTx(pFc + 1);
@@ -833,19 +856,14 @@ ON_METHOD(user, vote)
         args.m_pVote[i] = (uint8_t) nVote;
     }
 
-    const Amount perProp =
-        Env::Cost::LoadVar_For(sizeof(ProposalMax)) +
-        Env::Cost::SaveVar_For(sizeof(ProposalMax));
+    u.AddChargeVotes(cid, s, args.m_pVote, false);
 
     uint32_t nCharge =
         s.m_Charge +
         u.m_Charge +
         Env::Cost::AddSig +
         Env::Cost::LoadVar_For(sizeof(User) + u.m_Votes) +
-        Env::Cost::SaveVar_For(sizeof(User) + s.m_Current.m_Proposals) +
-        perProp * s.m_Current.m_Proposals;
-
-
+        Env::Cost::SaveVar_For(sizeof(User) + s.m_Current.m_Proposals);
 
     auto* pFc = Env::StackAlloc_T<FundsChange>(u.m_Dividend.m_Assets);
     nCharge += u.PrepareTx(pFc);

@@ -127,7 +127,6 @@ struct MyState_AutoSave
         p.m_Key.m_ID = get_Proposal0();
 
         Amount v1 = u.m_Stake;
-        bool bTrySkip = (v0 == v1);
         bool bAllVoted = true;
 
         for (uint32_t i = 0; i < m_Current.m_Proposals; i++)
@@ -140,8 +139,13 @@ struct MyState_AutoSave
             if (User::s_NoVote == n1)
                 bAllVoted = false;
 
-            if (bTrySkip && (n0 == n1))
-                continue;
+            if (n0 == n1)
+            {
+                if (v0 == v1)
+                    continue;
+                if (User::s_NoVote == n1)
+                    continue;
+            }
 
             p.Load();
             if (User::s_NoVote != n0)
@@ -350,7 +354,6 @@ BEAM_EXPORT void Method_4(const Method::MoveFunds& r)
             Amount val0 = u.m_Stake;
             Strict::Sub(u.m_Stake, delta);
 
-            // TODO: don't do this if the user just changed epoch (should be no active votes)
             s.AdjustVotes(u, u.m_pVotes, val0);
         }
 
