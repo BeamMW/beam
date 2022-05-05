@@ -197,6 +197,12 @@ namespace Wasm {
 			} m_Locals;
 
 			Reader m_Expression;
+
+			struct DbgEntry {
+				uint8_t m_Opcode;
+				uint32_t m_Pos;
+			};
+			//std::vector<DbgEntry> m_Dbg;
 		};
 
 		std::vector<PerFunction> m_Functions;
