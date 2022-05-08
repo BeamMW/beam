@@ -470,6 +470,7 @@ namespace bvm2 {
 		void SlotRenegerateInternal(ECC::Hash::Value& hvRes, uint32_t iSlot, const void* pSeedExtra, uint32_t nSeedExtra);
 		void get_Sk(ECC::Scalar::Native&, const ECC::Hash::Value&);
 		void get_BlindSkInternal(uint32_t iRes, uint32_t iMul, uint32_t iSlot, const Blob&);
+		void get_DhSkInternal(uint32_t iRes, uint32_t iGen, const Blob&);
 
 		ContractInvokeEntry& GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, bool bCvtFunds, const char* szComment, uint32_t nCharge);
 		void SetKernelAdv(Height hMin, Height hMax, const PubKey& ptFullBlind, const PubKey& ptFullNonce, const ECC::Scalar& skForeignSig, uint32_t iSlotBlind, uint32_t iSlotNonce, const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE);
