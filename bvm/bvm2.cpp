@@ -2677,14 +2677,6 @@ namespace bvm2 {
 	{
 		get_BlindSkInternal(Secp::Scalar::From(res), Secp::Scalar::From(mul), iSlot, Blob(pID, nID));
 	}
-	BVM_METHOD(get_DhSk)
-	{
-		get_DhSkInternal(res, gen, Blob(get_AddrR(pID, nID), nID));
-	}
-	BVM_METHOD_HOST(get_DhSk)
-	{
-		get_DhSkInternal(Secp::Point::From(res), Secp::Point::From(gen), Blob(pID, nID));
-	}
 
 	void ProcessorManager::get_SlotPreimageInternal(ECC::Hash::Value& hv, uint32_t iSlot)
 	{
@@ -2734,18 +2726,6 @@ namespace bvm2 {
 
 		get_Sk(res, hv);
 		res += sk;
-	}
-
-	void ProcessorManager::get_DhSkInternal(uint32_t iRes, uint32_t iGen, const Blob& b)
-	{
-		ECC::Hash::Value hv;
-		DeriveKeyPreimage(hv, b);
-
-		ECC::Scalar::Native sk;
-		get_Sk(sk, hv);
-
-		// careful, iRes, gen don't have to be distinct
-		m_Secp.m_Point.FindStrict(iRes).m_Val = m_Secp.m_Point.FindStrict(iGen).m_Val * sk;
 	}
 
 	uint8_t* ProcessorManager::ResizeAux(uint32_t nSize)

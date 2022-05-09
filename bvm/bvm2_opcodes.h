@@ -414,12 +414,6 @@
 	macro(const Secp_scalar&, mul) sep \
 	macro(uint32_t, iSlot)
 
-#define BVMOp_get_DhSk(macro, sep) \
-	macro(Secp_point&, res) sep \
-	macro(const Secp_point&, gen) sep \
-	macro(const void*, pID) sep \
-	macro(uint32_t, nID)
-
 #define BVMOp_GenerateKernelAdvanced(macro, sep) \
 	macro(const ContractID*, pCid) sep \
 	macro(uint32_t, iMethod) sep \
@@ -553,7 +547,6 @@
 	macro(0xA2, void     , SlotInit) \
 	macro(0xA3, void     , get_Pk) \
 	macro(0xA4, void     , get_BlindSk) \
-	macro(0xA8, void     , get_DhSk) \
 	macro(0xA5, void     , GenerateKernelAdvanced) \
 	macro(0xA6, void     , get_SlotImageEx) \
 	macro(0xA7, void     , get_PkEx) \
