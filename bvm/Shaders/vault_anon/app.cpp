@@ -130,7 +130,7 @@ void DumpAccounts(Env::Key_T<Account::Key>& k0, const Env::Key_T<Account::Key>& 
     for (Env::VarReader r(k0, k1); ; )
     {
         char szTitle[Account::s_TitleLenMax + 1];
-        uint32_t nKey = sizeof(nKey), nVal = Account::s_TitleLenMax;
+        uint32_t nKey = sizeof(k0), nVal = Account::s_TitleLenMax;
 
         if (!r.MoveNext(&k0, nKey, szTitle, nVal, 0))
             break;
