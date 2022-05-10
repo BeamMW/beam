@@ -49,5 +49,7 @@ call make_shader upgradable3/Test/test_v0
 call make_shader upgradable3/Test/test_v1
 call make_shader vault/app
 call make_shader vault/contract
+call make_shader vault_anon/app
+call make_shader vault_anon/contract
 call make_shader voting/app
 call make_shader voting/contract
