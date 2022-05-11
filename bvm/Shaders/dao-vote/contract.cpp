@@ -2,6 +2,7 @@
 #include "../common.h"
 #include "../Math.h"
 #include "contract.h"
+#include "../upgradable3/contract_impl.h"
 
 namespace DaoVote {
 
@@ -126,7 +127,6 @@ struct MyState_AutoSave
         p.m_Key.m_ID = get_Proposal0();
 
         Amount v1 = u.m_Stake;
-        bool bTrySkip = (v0 == v1);
         bool bAllVoted = true;
 
         for (uint32_t i = 0; i < m_Current.m_Proposals; i++)
@@ -139,8 +139,13 @@ struct MyState_AutoSave
             if (User::s_NoVote == n1)
                 bAllVoted = false;
 
-            if (bTrySkip && (n0 == n1))
-                continue;
+            if (n0 == n1)
+            {
+                if (v0 == v1)
+                    continue;
+                if (User::s_NoVote == n1)
+                    continue;
+            }
 
             p.Load();
             if (User::s_NoVote != n0)
@@ -266,7 +271,7 @@ struct MyUser
 
         // init epoch
         m_iEpoch = s.m_Current.m_iEpoch;
-        m_iProposal0 = s.m_iLastProposal;
+        m_iProposal0 = s.get_Proposal0();
 
         Env::Memset(m_pVotes, s_NoVote, sizeof(*m_pVotes) * s.m_Current.m_Proposals);
     }
@@ -275,24 +280,19 @@ struct MyUser
 
 BEAM_EXPORT void Ctor(const Method::Create& r)
 {
-    if (Env::get_CallDepth() > 1)
-    {
-        MyState s;
-        _POD_(s).SetZero();
-        _POD_(s.m_Cfg) = r.m_Cfg;
-        s.m_hStart = Env::get_Height();
-        s.Save();
-    }
+    r.m_Upgradable.TestNumApprovers();
+    r.m_Upgradable.Save();
+
+    MyState s;
+    _POD_(s).SetZero();
+    _POD_(s.m_Cfg) = r.m_Cfg;
+    s.m_hStart = Env::get_Height();
+    s.Save();
 }
 
 BEAM_EXPORT void Dtor(void*)
 {
     // N/A
-}
-
-BEAM_EXPORT void Method_2(void*)
-{
-    // to be called on update
 }
 
 BEAM_EXPORT void Method_3(const Method::AddProposal& r)
@@ -478,3 +478,16 @@ BEAM_EXPORT void Method_8(Method::SetModerator& r)
 }
 
 } // namespace DaoVote
+
+namespace Upgradable3 {
+
+    uint32_t get_CurrentVersion()
+    {
+        return 1;
+    }
+
+    void OnUpgraded(uint32_t nPrevVersion)
+    {
+        Env::Halt_if(nPrevVersion != 0);
+    }
+}

@@ -1,34 +1,48 @@
 #include "../common.h"
 #include "../app_common_impl.h"
 #include "contract.h"
-#include "../upgradable2/contract.h"
-#include "../upgradable2/app_common_impl.h"
+#include "../upgradable3/app_common_impl.h"
 
-#define Liquity_manager_view(macro)
-#define Liquity_manager_view_params(macro) macro(ContractID, cid)
-#define Liquity_manager_view_all(macro) macro(ContractID, cid)
-#define Liquity_manager_my_admin_key(macro)
-#define Liquity_manager_explicit_upgrade(macro) macro(ContractID, cid)
+#define Nephrite_manager_view(macro)
+#define Nephrite_manager_view_params(macro) macro(ContractID, cid)
+#define Nephrite_manager_view_all(macro) macro(ContractID, cid)
+#define Nephrite_manager_my_admin_key(macro)
+#define Nephrite_manager_schedule_upgrade(macro) Upgradable3_schedule_upgrade(macro)
+#define Nephrite_manager_replace_admin(macro) Upgradable3_replace_admin(macro)
+#define Nephrite_manager_set_min_approvers(macro) Upgradable3_set_min_approvers(macro)
+#define Nephrite_manager_explicit_upgrade(macro) macro(ContractID, cid)
 
-#define LiquityRole_manager(macro) \
+#define Nephrite_manager_deploy(macro) \
+    Upgradable3_deploy(macro) \
+    macro(ContractID, cidOracle) \
+    macro(Amount, troveLiquidationReserve) \
+    macro(AssetID, aidProfit) \
+    macro(uint32_t, hInitialPeriod)
+
+
+#define NephriteRole_manager(macro) \
     macro(manager, view) \
+    macro(manager, deploy) \
+    macro(manager, schedule_upgrade) \
     macro(manager, explicit_upgrade) \
+    macro(manager, replace_admin) \
+    macro(manager, set_min_approvers) \
     macro(manager, view_params) \
     macro(manager, view_all) \
     macro(manager, my_admin_key) \
 
-#define Liquity_user_view(macro) macro(ContractID, cid)
-#define Liquity_user_withdraw_surplus(macro) macro(ContractID, cid)
+#define Nephrite_user_view(macro) macro(ContractID, cid)
+#define Nephrite_user_withdraw_surplus(macro) macro(ContractID, cid)
 
-#define Liquity_user_upd_stab(macro) \
+#define Nephrite_user_upd_stab(macro) \
     macro(ContractID, cid) \
     macro(Amount, newVal) \
 
-#define Liquity_user_upd_profit(macro) \
+#define Nephrite_user_upd_profit(macro) \
     macro(ContractID, cid) \
     macro(Amount, newVal) \
 
-#define Liquity_user_trove_modify(macro) \
+#define Nephrite_user_trove_modify(macro) \
     macro(ContractID, cid) \
     macro(Amount, tok) \
     macro(Amount, col) \
@@ -36,17 +50,17 @@
     macro(uint32_t, opCol) \
     macro(uint32_t, bPredictOnly)
 
-#define Liquity_user_liquidate(macro) \
+#define Nephrite_user_liquidate(macro) \
     macro(ContractID, cid) \
     macro(uint32_t, nMaxTroves) \
     macro(uint32_t, bPredictOnly)
 
-#define Liquity_user_redeem(macro) \
+#define Nephrite_user_redeem(macro) \
     macro(ContractID, cid) \
     macro(Amount, val) \
     macro(uint32_t, bPredictOnly)
 
-#define LiquityRole_user(macro) \
+#define NephriteRole_user(macro) \
     macro(user, view) \
     macro(user, withdraw_surplus) \
     macro(user, upd_stab) \
@@ -55,11 +69,11 @@
     macro(user, liquidate) \
     macro(user, redeem)
 
-#define LiquityRoles_All(macro) \
+#define NephriteRoles_All(macro) \
     macro(manager) \
     macro(user)
 
-namespace Liquity {
+namespace Nephrite {
 
 BEAM_EXPORT void Method_0()
 {
@@ -69,10 +83,10 @@ BEAM_EXPORT void Method_0()
     {   Env::DocGroup gr("roles");
 
 #define THE_FIELD(type, name) Env::DocAddText(#name, #type);
-#define THE_METHOD(role, name) { Env::DocGroup grMethod(#name);  Liquity_##role##_##name(THE_FIELD) }
-#define THE_ROLE(name) { Env::DocGroup grRole(#name); LiquityRole_##name(THE_METHOD) }
+#define THE_METHOD(role, name) { Env::DocGroup grMethod(#name);  Nephrite_##role##_##name(THE_FIELD) }
+#define THE_ROLE(name) { Env::DocGroup grRole(#name); NephriteRole_##name(THE_METHOD) }
         
-        LiquityRoles_All(THE_ROLE)
+        NephriteRoles_All(THE_ROLE)
 #undef THE_ROLE
 #undef THE_METHOD
 #undef THE_FIELD
@@ -80,14 +94,14 @@ BEAM_EXPORT void Method_0()
 }
 
 #define THE_FIELD(type, name) const type& name,
-#define ON_METHOD(role, name) void On_##role##_##name(Liquity_##role##_##name(THE_FIELD) int unused = 0)
+#define ON_METHOD(role, name) void On_##role##_##name(Nephrite_##role##_##name(THE_FIELD) int unused = 0)
 
 void OnError(const char* sz)
 {
     Env::DocAddText("error", sz);
 }
 
-const char g_szAdminSeed[] = "upgr2-liquity";
+const char g_szAdminSeed[] = "upgr3-nephrite";
 
 struct AdminKeyID :public Env::KeyID {
     AdminKeyID() :Env::KeyID(g_szAdminSeed, sizeof(g_szAdminSeed)) {}
@@ -157,29 +171,77 @@ void DocAddPerc(const char* sz, Float x)
     DocAddFloat(sz, x * Float(100), 3);
 }
 
+const ShaderID g_pSid[] = {
+    Nephrite::s_SID_0,
+    Nephrite::s_SID,
+};
+
+const Upgradable3::Manager::VerInfo g_VerInfo = { g_pSid, _countof(g_pSid) };
 
 ON_METHOD(manager, view)
 {
-    static const ShaderID s_pSid[] = {
-        Liquity::s_SID,
-    };
+    AdminKeyID kid;
+    g_VerInfo.DumpAll(&kid);
+}
 
-    ContractID pVerCid[_countof(s_pSid)];
-    Height pVerDeploy[_countof(s_pSid)];
+static const Amount g_DepositCA = 3000 * g_Beam2Groth; // 3K beams
 
-    ManagerUpgadable2::Walker wlk;
-    wlk.m_VerInfo.m_Count = _countof(s_pSid);
-    wlk.m_VerInfo.s_pSid = s_pSid;
-    wlk.m_VerInfo.m_pCid = pVerCid;
-    wlk.m_VerInfo.m_pHeight = pVerDeploy;
+ON_METHOD(manager, deploy)
+{
+    FundsChange fc;
+    fc.m_Aid = 0; // asset id
+    fc.m_Amount = g_DepositCA; // amount of the input or output
+    fc.m_Consume = 1; // contract consumes funds (i.e input, in this case)
 
     AdminKeyID kid;
-    wlk.ViewAll(&kid);
+    PubKey pk;
+    kid.get_Pk(pk);
+
+    Nephrite::Method::Create arg;
+
+    if (!g_VerInfo.FillDeployArgs(arg.m_Upgradable, &pk))
+        return;
+
+    if (!troveLiquidationReserve)
+        return OnError("trove Liquidation Reserve should not be zero");
+
+    auto& s = arg.m_Settings; // alias
+    s.m_AidProfit = aidProfit;
+    s.m_TroveLiquidationReserve = troveLiquidationReserve;
+    _POD_(s.m_cidOracle) = cidOracle;
+    s.m_hMinRedemptionHeight = Env::get_Height() + hInitialPeriod;
+
+    const uint32_t nCharge =
+        Upgradable3::Manager::get_ChargeDeploy() +
+        Env::Cost::AssetManage +
+        Env::Cost::Refs +
+        Env::Cost::SaveVar_For(sizeof(Nephrite::Global)) +
+        Env::Cost::Cycle * 300;
+
+    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deploy Nephrite contract", nCharge);
+}
+
+ON_METHOD(manager, schedule_upgrade)
+{
+    AdminKeyID kid;
+    g_VerInfo.ScheduleUpgrade(cid, kid, hTarget);
 }
 
 ON_METHOD(manager, explicit_upgrade)
 {
-    ManagerUpgadable2::MultiSigRitual::Perform_ExplicitUpgrade(cid);
+    Upgradable3::Manager::MultiSigRitual::Perform_ExplicitUpgrade(cid);
+}
+
+ON_METHOD(manager, replace_admin)
+{
+    AdminKeyID kid;
+    Upgradable3::Manager::MultiSigRitual::Perform_ReplaceAdmin(cid, kid, iAdmin, pk);
+}
+
+ON_METHOD(manager, set_min_approvers)
+{
+    AdminKeyID kid;
+    Upgradable3::Manager::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
 }
 
 struct AppGlobal
@@ -615,7 +677,7 @@ namespace Charge
     uint32_t StdCall_RO()
     {
         return
-            ManagerUpgadable2::get_ChargeInvoke() +
+            Env::Cost::CallFar +
             Env::Cost::LoadVar_For(sizeof(Global));
     }
 
@@ -1191,18 +1253,18 @@ BEAM_EXPORT void Method_1()
 
 #define THE_METHOD(role, name) \
         if (!Env::Strcmp(szAction, #name)) { \
-            Liquity_##role##_##name(PAR_READ) \
-            On_##role##_##name(Liquity_##role##_##name(PAR_PASS) 0); \
+            Nephrite_##role##_##name(PAR_READ) \
+            On_##role##_##name(Nephrite_##role##_##name(PAR_PASS) 0); \
             return; \
         }
 
 #define THE_ROLE(name) \
     if (!Env::Strcmp(szRole, #name)) { \
-        LiquityRole_##name(THE_METHOD) \
+        NephriteRole_##name(THE_METHOD) \
         return OnError("invalid Action"); \
     }
 
-    LiquityRoles_All(THE_ROLE)
+    NephriteRoles_All(THE_ROLE)
 
 #undef THE_ROLE
 #undef THE_METHOD
@@ -1212,4 +1274,4 @@ BEAM_EXPORT void Method_1()
     OnError("unknown Role");
 }
 
-} // namespace Liquity
+} // namespace Nephrite

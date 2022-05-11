@@ -1,17 +1,18 @@
 #pragma once
 #include "pool.h"
 #include "../oracle2/contract.h"
+#include "../upgradable3/contract.h"
 
-namespace Liquity
+namespace Nephrite
 {
-    static const ShaderID s_SID = { 0x2e,0x91,0x2f,0x9d,0x48,0xa0,0x40,0x12,0x67,0x7f,0x57,0x4a,0x84,0xb2,0x2d,0x69,0x75,0x98,0x5b,0x6d,0x79,0x91,0xa1,0x96,0xbd,0x6c,0x14,0xf2,0xb9,0xde,0x15,0x7e };
+    static const ShaderID s_SID_0 = { 0xb9,0x40,0x01,0xde,0xfa,0xda,0xc8,0xe4,0x83,0xc4,0xab,0x9c,0x3b,0xca,0x81,0x58,0x75,0xac,0x17,0xd4,0x3f,0x7f,0x11,0x93,0xed,0x09,0x6d,0xf4,0xb9,0xc9,0x02,0x19 };
+    static const ShaderID s_SID   = { 0x81,0x44,0xad,0xae,0xd6,0x87,0x4d,0x62,0xca,0x79,0xec,0x4e,0x82,0x71,0x9c,0x33,0x78,0x7a,0x71,0x67,0xfe,0xc9,0xae,0x90,0xd7,0xca,0xe6,0x44,0x8d,0x5c,0x9d,0xd7 };
 
 #pragma pack (push, 1)
 
     struct Tags
     {
         static const uint8_t s_State = 0;
-        // don't use taag=1 for multiple data entries, it's used by Upgradable2
         static const uint8_t s_Epoch_Stable = 3;
         static const uint8_t s_Balance = 4;
         static const uint8_t s_StabPool = 5;
@@ -278,6 +279,13 @@ namespace Liquity
                 return val;
             }
 
+            static Float get_k100eps()
+            {
+                Float val = 65864;
+                val.m_Order -= 16; // 65864/2^16 = (approx) 100.5%
+                return val;
+            }
+
             static Float get_k100()
             {
                 return Float(1u);
@@ -394,11 +402,21 @@ namespace Liquity
             Price m_Price;
             FlowPair m_fpLogic;
             Amount m_TokRemaining;
+            bool m_CrTested = false;
         };
 
         bool RedeemTrove(Trove& t, Redeemer& ctx) const
         {
             assert(ctx.m_TokRemaining && (t.m_Amounts.Tok >= m_Settings.m_TroveLiquidationReserve));
+
+            if (!ctx.m_CrTested)
+            {
+                ctx.m_CrTested = true;
+
+                auto cr = ctx.m_Price.ToCR(t.m_Amounts.get_Rcr());
+                if (cr < Price::get_k100eps())
+                    return false;
+            }
 
             Amount valTok = t.m_Amounts.Tok - m_Settings.m_TroveLiquidationReserve;
 
@@ -407,8 +425,7 @@ namespace Liquity
                 valTok = ctx.m_TokRemaining;
 
             Amount valCol = ctx.m_Price.T2C(valTok);
-            if (t.m_Amounts.Col < valCol)
-                return false; // undercollateralized, must be liquidated, not redeemed
+            assert(t.m_Amounts.Col >= valCol);
 
             t.m_Amounts.Col -= valCol;
             if (bFullRedeem)
@@ -493,6 +510,8 @@ namespace Liquity
         struct Create
         {
             static const uint32_t s_iMethod = 0;
+
+            Upgradable3::Settings m_Upgradable;
             Settings m_Settings;
         };
 
