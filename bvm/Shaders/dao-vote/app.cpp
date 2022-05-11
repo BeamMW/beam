@@ -470,6 +470,7 @@ ON_METHOD(manager, view_totals)
     MyState s;
     if (!s.Load(cid))
         return;
+    s.MaybeNextEpoch();
 
     Env::Key_T<User::Key> k0, k1;
     _POD_(k0.m_Prefix.m_Cid) = cid;
@@ -570,10 +571,19 @@ struct MyUser
     uint32_t m_Votes = 0;
     uint32_t m_Charge = 0;
 
+    struct Prev
+    {
+        uint32_t m_Votes;
+        //uint32_t m_iEpoch;
+        Amount m_Stake;
+    } m_Prev;
+
     MyDividend m_Dividend;
 
     bool Load(const ContractID& cid, const MyState& s)
     {
+        _POD_(m_Prev).SetZero();
+
         m_Charge = Env::Cost::LoadVar;
         m_Dividend.m_Assets = 0;
 
@@ -643,6 +653,10 @@ struct MyUser
                     Env::Cost::MemOpPerByte * nSizeVotes +
                     Env::Cost::Cycle * 200;
             }
+
+            m_Prev.m_Votes = m_Votes;
+            m_Prev.m_Stake = m_Stake;
+            //m_Prev.m_iEpoch = m_iEpoch;
 
             m_iEpoch = s.m_Current.m_iEpoch;
             m_Stake += m_StakeNext;
@@ -735,6 +749,14 @@ ON_METHOD(user, view)
         u.m_Dividend.Write();
 }
 
+void PrintUserVotes(Proposal::ID id1, Amount stake, const uint8_t* pVotes, uint32_t nVotes)
+{
+    Env::DocGroup gr1("");
+    Env::DocAddNum("id1", id1);
+    Env::DocAddNum("stake", stake);
+    PrintVotesArr("votes", pVotes, nVotes);
+}
+
 ON_METHOD(user, view_votes)
 {
     UserKeyID kid(cid);
@@ -759,14 +781,21 @@ ON_METHOD(user, view_votes)
         if (!r.MoveNext(&k0, nKey, &uv, nVal, 0))
             break;
 
-        Env::DocGroup gr1("");
-        Env::DocAddNum("id1", Utils::FromBE(k0.m_KeyInContract.m_ID_0_be));
-        Env::DocAddNum("stake", uv.m_Stake);
-        PrintVotesArr("votes", uv.m_pVotes, nVal - sizeof(Events::UserVote));
+        PrintUserVotes(Utils::FromBE(k0.m_KeyInContract.m_ID_0_be), uv.m_Stake, uv.m_pVotes, nVal - sizeof(Events::UserVote));
 
         if (++i == nMaxCount)
             break;
     }
+
+    MyState s;
+    if (!s.Load(cid))
+        return;
+    s.MaybeNextEpoch();
+
+    MyUser u;
+    u.Load(cid, s);
+    if (u.m_Prev.m_Votes)
+        PrintUserVotes(u.m_iProposal0, u.m_Prev.m_Stake, u.m_pVotes, u.m_Prev.m_Votes);
 }
 
 ON_METHOD(user, move_funds)
