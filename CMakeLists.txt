@@ -217,6 +217,8 @@ message("BEAM_IPFS_SUPPORT is ${BEAM_IPFS_SUPPORT}")
 option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
 message("BEAM_HW_WALLET is ${BEAM_HW_WALLET}")
 
+option(BEAM_SHADER_DEBUGGER_SUPPORT "Build core with shader debugger support" OFF)
+message("BEAM_SHADER_DEBUGGER_SUPPORT is ${BEAM_SHADER_DEBUGGER_SUPPORT}")
 
 
 if(BEAM_HW_WALLET)

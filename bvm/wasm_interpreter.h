@@ -214,6 +214,8 @@ namespace Wasm {
 
 		std::vector<GlobalVar> m_Globals;
 
+#ifdef BEAM_SHADER_DEBUGGER_SUPPORT
+
 		struct CustomSection
 		{
 			std::string m_Name;
@@ -230,6 +232,9 @@ namespace Wasm {
 			}
 		};
 		std::vector<CustomSection> m_CustomSections;
+		const uint8_t* m_CodeStart = nullptr;
+		std::map<size_t, size_t> m_IpMap;
+#endif // BEAM_SHADER_DEBUGGER_SUPPORT
 
 		struct PerExport {
 			Vec<char> m_sName;
@@ -261,9 +266,6 @@ namespace Wasm {
 		// Time to set the external bindings, create a header, etc.
 
 		void Build();
-
-		const uint8_t* m_CodeStart = nullptr;
-		std::map<size_t, size_t> m_IpMap;
 	};
 
 	struct MemoryType {
@@ -370,13 +372,21 @@ namespace Wasm {
 #endif // WASM_INTERPRETER_DEBUG
 		} m_Stack;
 
+#ifdef BEAM_SHADER_DEBUGGER_SUPPORT
 		std::vector<Word> m_CallStack;
+		std::function<void(const Processor&)> m_DebuggerHook;
 
 		void PushReturnAddress(Word retAddr)
 		{
 			m_CallStack.push_back(m_Stack.m_Pos);
 			m_Stack.Push(retAddr);
 		}
+#else
+        void PushReturnAddress(Word retAddr)
+		{
+			m_Stack.Push(retAddr);
+		}
+#endif // BEAM_SHADER_DEBUGGER_SUPPORT
 
 #ifdef WASM_INTERPRETER_DEBUG
 		struct Dbg
@@ -387,8 +397,6 @@ namespace Wasm {
 			bool m_ExtCall = false;
 		} m_Dbg;
 #endif // WASM_INTERPRETER_DEBUG
-
-		std::function<void(const Processor&)> m_DebuggerHook;
 
 		Processor()
 			:m_Instruction(Reader::Mode::Emulate_x86)

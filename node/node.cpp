@@ -877,6 +877,7 @@ Height Node::Processor::get_MaxAutoRollback()
     return h;
 }
 
+#ifdef BEAM_SHADER_DEBUGGER_SUPPORT
 void Node::Processor::OnDebugHook(const Wasm::Processor& proc)
 {
     auto& node = get_ParentObj();
@@ -884,6 +885,7 @@ void Node::Processor::OnDebugHook(const Wasm::Processor& proc)
     if (node.m_Cfg.m_Observer)
         node.m_Cfg.m_Observer->OnDebugHook(proc);
 }
+#endif // BEAM_SHADER_DEBUGGER_SUPPORT
 
 void Node::Processor::OnEvent(Height h, const proto::Event::Base& evt)
 {

@@ -28,6 +28,10 @@ if(NOT ANDROID AND NOT IOS AND NOT EMSCRIPTEN)
 #endif()
 endif()
 
+if (BEAM_SHADER_DEBUGGER_SUPPORT)
+    target_compile_definitions(bvm PUBLIC BEAM_SHADER_DEBUGGER_SUPPORT)
+endif()
+
 if(BEAM_TESTS_ENABLED)
     add_subdirectory(unittest)
 endif()

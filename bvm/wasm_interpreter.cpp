@@ -367,8 +367,13 @@ namespace Wasm {
 	struct CompilerPlus
 		:public Compiler
 	{
+#ifdef BEAM_SHADER_DEBUGGER_SUPPORT
+#define WasmParserAdditionalSections(macro) macro(0, Custom)
+#else
+#define WasmParserAdditionalSections(macro)
+#endif // BEAM_SHADER_DEBUGGER_SUPPORT
+
 #define WasmParserSections(macro) \
-		macro(0, Custom) \
 		macro(1, Type) \
 		macro(2, Import) \
 		macro(3, Funcs) \
@@ -379,6 +384,7 @@ namespace Wasm {
 		macro(10, Code) \
 		macro(11, Data) \
 		macro(12, DataCount) \
+		WasmParserAdditionalSections(macro)
 
 #define THE_MACRO(id, name) void OnSection_##name(Reader&);
 		WasmParserSections(THE_MACRO)
@@ -442,7 +448,7 @@ namespace Wasm {
 
 		m_Labels.m_Items.resize(m_Functions.size()); // function labels
 	}
-
+#ifdef BEAM_SHADER_DEBUGGER_SUPPORT
 	void CompilerPlus::OnSection_Custom(Reader& inp)
 	{
 		auto nCount = inp.Read<uint32_t>();
@@ -454,6 +460,7 @@ namespace Wasm {
 		
 		inp.m_p0 = inp.m_p1; // ignore for a while
 	}
+#endif // BEAM_SHADER_DEBUGGER_SUPPORT
 
 	void CompilerPlus::OnSection_Type(Reader& inp)
 	{
@@ -1301,10 +1308,12 @@ namespace Wasm {
 		auto& func = m_This.m_Functions[m_iFunc];
 		m_Code = func.m_Expression;
 
+#ifdef BEAM_SHADER_DEBUGGER_SUPPORT
 		if (m_iFunc == 0)
 		{
 			m_This.m_CodeStart = m_Code.m_p0;
 		}
+#endif // BEAM_SHADER_DEBUGGER_SUPPORT
 
 		const auto& tp = m_This.m_Types[func.m_TypeIdx];
 		BlockOpen(tp);
@@ -1324,10 +1333,11 @@ namespace Wasm {
 		for ( ; !m_Blocks.empty(); cp.m_Line++)
 		{
 			m_p0 = m_Code.m_p0;
-
+#ifdef BEAM_SHADER_DEBUGGER_SUPPORT
 			size_t originalIp = m_Code.m_p0 - m_This.m_CodeStart;
 			size_t newIp = m_This.m_Result.size();
 			m_This.m_IpMap.emplace(newIp, originalIp);
+#endif // BEAM_SHADER_DEBUGGER_SUPPORT
 
 			I nInstruction = (I) m_Code.Read1();
 
@@ -1666,9 +1676,10 @@ namespace Wasm {
 				}
 			} cp;
 			cp.m_Ip = get_Ip();
-
+#ifdef BEAM_SHADER_DEBUGGER_SUPPORT
 			if (m_DebuggerHook)
 				m_DebuggerHook(*this);
+#endif // BEAM_SHADER_DEBUGGER_SUPPORT
 
 			typedef Instruction I;
 			I nInstruction = (I) m_Instruction.Read1();
@@ -2029,15 +2040,16 @@ namespace Wasm {
 
 		Word nRetAddr = m_Stack.m_pPtr[nPosAddr];
 
+#ifdef BEAM_SHADER_DEBUGGER_SUPPORT
 		Test(!m_CallStack.empty());
 		Test(m_Stack.m_pPtr[m_CallStack.back()] == nRetAddr);
 		m_CallStack.pop_back();
+#endif // BEAM_SHADER_DEBUGGER_SUPPORT
 
 		for (uint32_t i = 0; i < nRets; i++)
 			m_Stack.m_pPtr[nPosRetDst + i] = m_Stack.m_pPtr[nPosRetSrc + i];
 
 		m_Stack.m_Pos = nPosRetDst + nRets;
-
 		OnRet(nRetAddr);
 	}
 

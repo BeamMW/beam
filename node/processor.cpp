@@ -4516,7 +4516,9 @@ NodeProcessor::BlockInterpretCtx::BvmProcessor::BvmProcessor(BlockInterpretCtx& 
 	:m_Bic(bic)
 	,m_Proc(proc)
 {
+#ifdef BEAM_SHADER_DEBUGGER_SUPPORT
 	m_DebuggerHook = [this](const auto& p) { m_Proc.OnDebugHook(p); };
+#endif // BEAM_SHADER_DEBUGGER_SUPPORT
 	if (bic.m_Fwd)
 	{
 		BlockInterpretCtx::Ser ser(bic);

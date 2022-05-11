@@ -27,7 +27,9 @@
 
 namespace beam
 {
-	namespace Wasm { struct Processor; }
+#ifdef BEAM_SHADER_DEBUGGER_SUPPORT
+namespace Wasm { struct Processor; }
+#endif // BEAM_SHADER_DEBUGGER_SUPPORT
 struct Node
 {
 	static const uint16_t s_PortDefault = 31744; // whatever
@@ -38,8 +40,9 @@ struct Node
 		virtual void OnStateChanged() {}
 		virtual void OnRolledBack(const Block::SystemState::ID& id) {};
 		virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {};
+#ifdef BEAM_SHADER_DEBUGGER_SUPPORT
 		virtual void OnDebugHook(const Wasm::Processor& proc) {};
-
+#endif // BEAM_SHADER_DEBUGGER_SUPPORT
         enum Error
         {
 			Unknown,
@@ -238,7 +241,9 @@ private:
 		void OnDummy(const CoinID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
 		Height get_MaxAutoRollback() override;
+#ifdef BEAM_SHADER_DEBUGGER_SUPPORT
 		void OnDebugHook(const Wasm::Processor&) override;
+#endif // BEAM_SHADER_DEBUGGER_SUPPORT
 		void Stop();
 
 		struct MyExecutorMT

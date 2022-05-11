@@ -21,7 +21,7 @@ if(BEAM_IPFS_SUPPORT)
     add_subdirectory(asio-ipfs)
 endif()
 
-if(NOT ANDROID AND NOT IOS AND NOT EMSCRIPTEN)
+if(BEAM_SHADER_DEBUGGER_SUPPORT)
     add_subdirectory(libelfin/dwarf)
     set(CPPDAP_BUILD_TESTS Off)
     set(CPPDAP_JSON_DIR nlohmann)

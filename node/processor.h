@@ -25,7 +25,9 @@
 #include "txpool.h"
 
 namespace beam {
-	namespace Wasm { struct Processor; }
+#ifdef BEAM_SHADER_DEBUGGER_SUPPORT
+namespace Wasm { struct Processor; }
+#endif // BEAM_SHADER_DEBUGGER_SUPPORT
 class NodeProcessor
 {
 	struct DB
@@ -539,8 +541,9 @@ public:
 	virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {}
 	virtual void OnFastSyncSucceeded() {}
 	virtual Height get_MaxAutoRollback();
+#ifdef BEAM_SHADER_DEBUGGER_SUPPORT
 	virtual void OnDebugHook(const Wasm::Processor&) {};
-
+#endif // BEAM_SHADER_DEBUGGER_SUPPORT
 	struct MyExecutor
 		:public Executor
 	{
