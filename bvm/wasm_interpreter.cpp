@@ -1331,6 +1331,10 @@ namespace Wasm {
 
 			I nInstruction = (I) m_Code.Read1();
 
+			//auto& de = func.m_Dbg.emplace_back();
+			//de.m_Opcode = (uint8_t)nInstruction;
+			//de.m_Pos = (uint32_t) m_This.m_Result.size();
+
 			switch (nInstruction)
 			{
 #define THE_MACRO(id, name) \

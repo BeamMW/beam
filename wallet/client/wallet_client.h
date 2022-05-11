@@ -158,7 +158,6 @@ namespace beam::wallet
         beam::AmountBig::Type getSending(beam::Asset::ID) const;
         beam::AmountBig::Type getMaturing(beam::Asset::ID) const;
         beam::AmountBig::Type getMatutingMP(beam::Asset::ID) const;
-        beam::AmountBig::Type getShielded(beam::Asset::ID) const;
         bool hasShielded(beam::Asset::ID) const;
 
         beam::Height getCurrentHeight() const;
@@ -328,7 +327,7 @@ namespace beam::wallet
         void readRawSeedPhrase(AsyncCallback<const std::string&>&& callback) override;
 
         void getAppsList(AppsListCallback&& callback) override;
-        void markAppNotificationAsRead(const TxID id) override;
+        void markAppNotificationAsRead(const TxID& id) override;
 
         void enableBodyRequests(bool value) override;
 

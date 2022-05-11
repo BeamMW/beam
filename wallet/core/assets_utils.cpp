@@ -188,43 +188,43 @@ namespace beam::wallet {
     std::string WalletAssetMeta::GetShortDesc() const
     {
         const auto it = _values.find(OPT_SDESC_KEY);
-        return it != _values.end() ? it->second : std::string("");
+        return it != _values.end() ? it->second : std::string();
     }
 
     std::string WalletAssetMeta::GetLongDesc() const
     {
         const auto it = _values.find(OPT_LDESC_KEY);
-        return it != _values.end() ? it->second : std::string("");
+        return it != _values.end() ? it->second : std::string();
     }
 
     std::string WalletAssetMeta::GetName() const
     {
         const auto it = _values.find(NAME_KEY);
-        return it != _values.end() ? it->second : std::string("");
+        return it != _values.end() ? it->second : std::string();
     }
 
     std::string WalletAssetMeta::GetShortName() const
     {
         const auto it = _values.find(SHORT_NAME_KEY);
-        return it != _values.end() ? it->second : std::string("");
+        return it != _values.end() ? it->second : std::string();
     }
 
     std::string WalletAssetMeta::GetSiteUrl() const
     {
         const auto it = _values.find(OPT_SITE_URL);
-        return it != _values.end() ? it->second : std::string("");
+        return it != _values.end() ? it->second : std::string();
     }
 
     std::string WalletAssetMeta::GetPaperUrl() const
     {
         const auto it = _values.find(OPT_PAPER_URL);
-        return it != _values.end() ? it->second : std::string("");
+        return it != _values.end() ? it->second : std::string();
     }
 
     std::string WalletAssetMeta::GetColor() const
     {
         const auto it = _values.find(OPT_COLOR);
-        return it != _values.end() ? it->second : std::string("");
+        return it != _values.end() ? it->second : std::string();
     }
 
     unsigned WalletAssetMeta::GetSchemaVersion() const

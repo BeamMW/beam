@@ -438,8 +438,7 @@ struct Manager
 			msp.m_Kid = kid;
 
 			msp.m_Charge +=
-				Env::Cost::LoadVar_For(sizeof(Settings)) +
-				Env::Cost::SaveVar_For(sizeof(Settings));
+				Env::Cost::SaveVar_For(nShaderSize + sizeof(NextVersion));
 
 			msp.Perform();
 
@@ -504,9 +503,11 @@ struct Manager
 				Env::Cost::CallFar * 2 +
 				Env::Cost::LoadVar +
 				Env::Cost::LoadVar_For(nVal) +
+				Env::Cost::HeapOp * 2 +
+				Env::Cost::MemOpPerByte * nVal +
 				Env::Cost::SaveVar +
 				Env::Cost::UpdateShader_For(nVal - sizeof(nv)) +
-				Env::Cost::Cycle * 500; // other stuff
+				Env::Cost::Cycle * 1000; // other stuff
 
 			Method::Control::ExplicitUpgrade arg;
 			Env::GenerateKernel(&cid, Method::Control::s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Upgradable3 explicit upgrade", nChargeExtra);
