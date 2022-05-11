@@ -221,9 +221,10 @@ namespace beam::wallet
     void BaseTransaction::RollbackTx()
     {
         LOG_INFO() << m_Context << " Transaction failed. Rollback...";
-        m_Context.GetWalletDB()->restoreCoinsSpentByTx(GetTxID());
-        m_Context.GetWalletDB()->deleteCoinsCreatedByTx(GetTxID());
-        m_Context.GetWalletDB()->restoreShieldedCoinsSpentByTx(GetTxID());
+        auto db = m_Context.GetWalletDB();
+        db->restoreCoinsSpentByTx(GetTxID());
+        db->deleteCoinsCreatedByTx(GetTxID());
+        db->restoreShieldedCoinsSpentByTx(GetTxID());
     }
 
     INegotiatorGateway& BaseTransaction::GetGateway() const

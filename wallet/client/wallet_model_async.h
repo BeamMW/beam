@@ -135,7 +135,7 @@ namespace beam::wallet
 
         using AppsListCallback = AsyncCallback<bool, const std::string&>;
         virtual void getAppsList(AppsListCallback&& callback) = 0;
-        virtual void markAppNotificationAsRead(const TxID id) = 0;
+        virtual void markAppNotificationAsRead(const TxID& id) = 0;
 
         virtual void enableBodyRequests(bool value) = 0;
         virtual ~IWalletModelAsync() = default;

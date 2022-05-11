@@ -669,7 +669,7 @@ namespace beam
 
 	void TxKernel::HashNested(ECC::Hash::Processor& hp) const
 	{
-		for (auto it = m_vNested.begin(); ; it++)
+		for (auto it = m_vNested.begin(); ; ++it)
 		{
 			bool bBreak = (m_vNested.end() == it);
 			hp << bBreak;
@@ -716,7 +716,7 @@ namespace beam
 		HashNested(hp);
 		hp >> m_Internal.m_ID;
 
-		for (auto it = m_vNested.begin(); m_vNested.end() != it; it++)
+		for (auto it = m_vNested.begin(); m_vNested.end() != it; ++it)
 		{
 			const TxKernel& v = *(*it);
 			if (v.m_Internal.m_HasNonStd)
@@ -749,7 +749,7 @@ namespace beam
 			ECC::Point::Native excNested(Zero);
 
 			const TxKernel* p0Krn = nullptr;
-			for (auto it = m_vNested.begin(); m_vNested.end() != it; it++)
+			for (auto it = m_vNested.begin(); m_vNested.end() != it; ++it)
 			{
 				const TxKernel& v = *(*it);
 
@@ -821,7 +821,7 @@ namespace beam
 		s.m_Kernels++;
 		s.m_Fee += uintBigFrom(m_Fee);
 
-		for (auto it = m_vNested.begin(); m_vNested.end() != it; it++)
+		for (auto it = m_vNested.begin(); m_vNested.end() != it; ++it)
 			(*it)->AddStats(s);
 	}
 
@@ -857,7 +857,7 @@ namespace beam
 		auto it0 = m_vNested.begin();
 		auto it1 = v.m_vNested.begin();
 
-		for ( ; m_vNested.end() != it0; it0++, it1++)
+		for ( ; m_vNested.end() != it0; ++it0, ++it1)
 		{
 			if (v.m_vNested.end() == it1)
 				return 1;

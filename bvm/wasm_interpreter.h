@@ -168,6 +168,11 @@ namespace Wasm {
 		struct GlobalVar {
 			uint8_t m_Type;
 			uint8_t m_IsVariable;
+
+			bool CanBeStackPtr() const
+			{
+				return m_IsVariable && (Wasm::TypeCode::i32 == m_Type);
+			}
 		};
 
 		struct PerImportGlobal

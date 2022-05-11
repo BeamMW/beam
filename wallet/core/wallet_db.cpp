@@ -3620,13 +3620,12 @@ namespace beam::wallet
 
     boost::optional<ShieldedCoin> WalletDB::getShieldedCoin(const TxID& txId) const
     {
-        ShieldedStatusCtx ssc(*this);
-
         sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE createTxId=?1 OR spentTxId=?1;");
         stm.bind(1, txId);
 
         if (stm.step())
         {
+            ShieldedStatusCtx ssc(*this);
             ShieldedCoin coin;
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
@@ -3639,13 +3638,12 @@ namespace beam::wallet
 
     boost::optional<ShieldedCoin> WalletDB::getShieldedCoin(TxoID id) const
     {
-        ShieldedStatusCtx ssc(*this);
-
         sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE ID = ?;");
         stm.bind(1, id);
 
         if (stm.step())
         {
+            ShieldedStatusCtx ssc(*this);
             ShieldedCoin coin;
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
@@ -3658,13 +3656,12 @@ namespace beam::wallet
 
     boost::optional<ShieldedCoin> WalletDB::getShieldedCoin(const ShieldedTxo::BaseKey& key) const
     {
-        ShieldedStatusCtx ssc(*this);
-
         sqlite::Statement stm(this, "SELECT " SHIELDED_COIN_FIELDS " FROM " SHIELDED_COINS_NAME " WHERE Key = ?;");
         stm.bind(1, key);
 
         if (stm.step())
         {
+            ShieldedStatusCtx ssc(*this);
             ShieldedCoin coin;
             int colIdx = 0;
             ENUM_SHIELDED_COIN_FIELDS(STM_GET_LIST, NOSEP, coin);
@@ -7173,9 +7170,10 @@ namespace beam::wallet
 
         case TokenType::Offline:
             {
-                auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address.m_OwnID, offlineCount ? *offlineCount : 10);
+                size_t count = offlineCount.get_value_or(10);
+                auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address.m_OwnID, count);
                 auto token = GenerateOfflineToken(address, 0, 0, vouchers, "");
-                LOG_INFO() << "Generated offline address: " << token << ", vouchers count " << *offlineCount;
+                LOG_INFO() << "Generated offline address: " << token << ", vouchers count " << count;
                 return token;
             }
 

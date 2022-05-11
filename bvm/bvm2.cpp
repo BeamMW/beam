@@ -743,7 +743,7 @@ namespace bvm2 {
 
 	void TestStackPtr(const Wasm::Compiler::GlobalVar& x)
 	{
-		Wasm::Test(x.m_IsVariable && (Wasm::TypeCode::i32 == x.m_Type));
+		Wasm::Test(x.CanBeStackPtr());
 	}
 
 	void Processor::ResolveBinding(Wasm::Compiler& c, uint32_t iFunction, Kind kind)
@@ -812,17 +812,25 @@ namespace bvm2 {
 		if (!c.m_Globals.empty())
 		{
 			// we don't support globals, but it could be the stack pointer if the module wasn't built as a "shared" lib.
-			Wasm::Test(!bStackPtrImported && (1 == c.m_Globals.size()));
+			Wasm::Test(!bStackPtrImported && (1 <= c.m_Globals.size()));
 
-			auto& g0 = c.m_Globals.front();
-			TestStackPtr(g0);
+			for (auto& g : c.m_Globals)
+			{
+				// work-around
+				auto& x = c.m_ImportGlobals.emplace_back();
+				ZeroObject(x);
+				if (!bStackPtrImported && g.CanBeStackPtr())
+				{
+					x.m_Binding = static_cast<uint32_t>(Wasm::VariableType::StackPointer);
+					bStackPtrImported = true;
+				}
+				else
+				{
+					x.m_Binding = static_cast<uint32_t>(-1); // invalidate all other globals, we don't support them, compilation fails if we try to use them
+				}
 
-			// work-around
-			auto& x = c.m_ImportGlobals.emplace_back();
-			ZeroObject(x);
-			x.m_Binding = static_cast<uint32_t>(Wasm::VariableType::StackPointer);
-
-			Cast::Down<Wasm::Compiler::GlobalVar>(x) = g0;
+				Cast::Down<Wasm::Compiler::GlobalVar>(x) = g;
+			}
 			c.m_Globals.clear();
 		}
 

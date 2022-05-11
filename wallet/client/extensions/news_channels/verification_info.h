@@ -21,8 +21,8 @@ namespace beam::wallet
 {
     struct VerificationInfo
     {
-        beam::Asset::ID m_assetID;
-        bool m_verified;
+        beam::Asset::ID m_assetID = 0;
+        bool m_verified = false;
         std::string m_icon;
         std::string m_color;
         Timestamp m_updateTime = 0;
