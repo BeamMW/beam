@@ -33,11 +33,11 @@ class PendingWrites;
 class SslStream;
 
 struct TlsConfig {
-    bool connect = false;
-    bool rejectUnauthorized = true;
+    bool connect;
+    bool rejectUnauthorized;
     std::string host;
-    TlsConfig(bool use = false, bool reject = true, const std::string& h = std::string())
-        : connect(false)
+    TlsConfig(bool c = false, bool reject = true, const std::string& h = std::string())
+        : connect(c)
         , rejectUnauthorized(reject)
         , host(h)
     {
