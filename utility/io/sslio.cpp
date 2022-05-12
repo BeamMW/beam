@@ -45,13 +45,13 @@ int verify_client(int preverify_ok, X509_STORE_CTX* x509_ctx)
 void ssl_info(const SSL* ssl, int where, int ret)
 {
     const char* str;
-    int w;
-
-    w = where & ~SSL_ST_MASK;
-
-    if (w & SSL_ST_CONNECT) str = "SSL_connect";
-    else if (w & SSL_ST_ACCEPT) str = "SSL_accept";
-    else str = "undefined";
+    int w = where & ~SSL_ST_MASK;
+    if (w & SSL_ST_CONNECT)
+        str = "SSL_connect";
+    else if (w & SSL_ST_ACCEPT)
+        str = "SSL_accept";
+    else
+        str = "undefined";
     std::stringstream ss;
     if (where & SSL_CB_LOOP)
     {
@@ -71,6 +71,7 @@ void ssl_info(const SSL* ssl, int where, int ret)
             ss << str << ":failed in "<< SSL_state_string_long(ssl);
         else if (ret < 0)
         {
+            ret = SSL_get_error(ssl, ret);
             ss << str << ":error in " << SSL_state_string_long(ssl)
                 << ":" <<
                 SSL_alert_type_string_long(ret) << ":" <<
@@ -78,7 +79,7 @@ void ssl_info(const SSL* ssl, int where, int ret)
         }
     }
 
-    LOG_DEBUG() << TRACE(ssl) << "  " << ss.str();
+    LOG_VERBOSE() << TRACE(ssl) << "  " << ss.str();
 }
 
 struct SSLInitializer {
@@ -118,7 +119,7 @@ SSL_CTX* init_ctx(bool isServer) {
         IO_EXCEPTION(EC_SSL_ERROR);
     }
 
-    //SSL_CTX_set_info_callback(ctx, ssl_info);
+    SSL_CTX_set_info_callback(ctx, ssl_info);
 
     return ctx;
 }
@@ -139,9 +140,6 @@ bool load_system_certificate_authority(SSL_CTX* ctx)
             int i = X509_STORE_add_cert(store, x509);
             if (i == 0) {
                 LOG_ERROR() << "Failed to add certificate from system store";
-            }
-            else if (i == 1) {
-                LOG_VERBOSE() << "Loaded certificate from system store";
             }
             X509_free(x509);
         }
