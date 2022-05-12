@@ -36,6 +36,13 @@ struct TlsConfig {
     bool connect = false;
     bool rejectUnauthorized = true;
     std::string host;
+    TlsConfig(bool use = false, bool reject = true, const std::string& h = std::string())
+        : connect(false)
+        , rejectUnauthorized(reject)
+        , host(h)
+    {
+
+    }
 };
 
 class Reactor : public std::enable_shared_from_this<Reactor> {

@@ -42,7 +42,7 @@ namespace {
             HttpClient client(*reactor, tls);
 
             HttpClient::Request request;
-            request.address(a).connectTimeoutMsec(2000).pathAndQuery("/").headers(headers).numHeaders(1)
+            request.address(a).connectTimeoutMsec(12000).pathAndQuery("/").headers(headers).numHeaders(1)
                 .callback(
                     [&expected, &nErrors](uint64_t id, const HttpMsgReader::Message& msg) -> bool {
                         LOG_DEBUG() << "response from " << id;
@@ -58,7 +58,9 @@ namespace {
                             if (body) {
                                 LOG_DEBUG() << std::string_view((const char*)body, sz);
                             }
-                            if (it->second != io::EC_OK || sz == 0) ++nErrors;
+                            if (it->second != io::EC_OK || sz == 0) {
+                                ++nErrors;
+                            } 
                         } else {
                             if (it->second != msg.connectionError) {
                                 ++nErrors;
@@ -69,24 +71,32 @@ namespace {
                     }
                 );
 
-            auto res = client.send_request(request);
-            if (!res) ++nErrors;
-            else expected[*res] = io::EC_OK;
+            auto res = client.send_request(request, tls);
+            if (!res)
+                ++nErrors;
+            else
+                expected[*res] = io::EC_OK;
 
             uint64_t cancelID = 0;
             res = client.send_request(request);
-            if (!res) ++nErrors;
-            else cancelID = *res;
+            if (!res)
+                ++nErrors;
+            else
+                cancelID = *res;
 
             request.address(io::Address::localhost().port(666));
             res = client.send_request(request);
-            if (!res) ++nErrors;
-            else expected[*res] = io::EC_ECONNREFUSED;
+            if (!res)
+                ++nErrors;
+            else
+                expected[*res] = io::EC_ECONNREFUSED;
 
             request.address(a.port(666));
             res = client.send_request(request);
-            if (!res) ++nErrors;
-            else expected[*res] = io::EC_ETIMEDOUT;
+            if (!res)
+                ++nErrors;
+            else
+                expected[*res] = io::EC_ETIMEDOUT;
 
             io::Timer::Ptr timer = io::Timer::create(*reactor);
             int x = 30;
@@ -120,6 +130,6 @@ int main() {
     auto res = http_client_test(false);
     res += http_client_test(true);
     LOG_DEBUG() << TRACE(res);
-    return res == 4 ? 0 : -1;
+    return res;
 }
 

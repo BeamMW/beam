@@ -144,7 +144,7 @@ public:
 
 private:
     void on_timer() {
-        if (!_reactor.tcp_connect(io::Address::localhost().port(PORT), 333, BIND_THIS_MEMFN(on_connected), 1000, { _ssl, false })) {
+        if (!_reactor.tcp_connect(io::Address::localhost().port(PORT), 333, BIND_THIS_MEMFN(on_connected), 1000, io::TlsConfig(_ssl, false))) {
             LOG_ERROR() << "Connect failed";
             g_stopEvent();
         }

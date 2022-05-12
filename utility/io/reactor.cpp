@@ -62,7 +62,7 @@ public:
         return _connectRequests.count(tag) == 0;
     }
 
-    Result tcp_connect(uv_tcp_t* handle, Address address, uint64_t tag, const Callback& callback, int timeoutMsec, const TlsConfig& tlsCfg = {}) {
+    Result tcp_connect(uv_tcp_t* handle, Address address, uint64_t tag, const Callback& callback, int timeoutMsec, const TlsConfig& tlsCfg = TlsConfig{}) {
         assert(is_tag_free(tag));
 
         if (timeoutMsec >= 0) {
@@ -88,8 +88,9 @@ public:
         new(&cr->callback) Callback(callback);
         cr->isTls = tlsCfg.connect;
         cr->rejectUnauthorized = tlsCfg.connect ? tlsCfg.rejectUnauthorized : false;
-        cr->host = tlsCfg.host;
-
+        if (tlsCfg.connect) {
+            cr->host = tlsCfg.host;
+        }
         _connectRequests[tag] = cr;
 
         sockaddr_in addr;
