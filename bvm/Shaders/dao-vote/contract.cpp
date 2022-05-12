@@ -45,7 +45,7 @@ struct MyState
         m_Current.m_Proposals = m_Next.m_Proposals;
         m_Next.m_Proposals = 0;
 
-        if (m_Current.m_DividendStake)
+        if (m_Current.m_Stats.m_StakeVoted)
         {
             if (m_Current.m_iDividendEpoch)
             {
@@ -53,13 +53,13 @@ struct MyState
                 d.m_Key.m_iEpoch = m_Current.m_iDividendEpoch;
 
                 d.Load();
-                d.m_Stake = m_Current.m_DividendStake;
+                d.m_Stake = m_Current.m_Stats.m_StakeVoted;
                 d.Save();
 
                 m_Current.m_iDividendEpoch = 0;
             }
 
-            m_Current.m_DividendStake = 0;
+            m_Current.m_Stats.m_StakeVoted = 0;
         }
 
         if (!m_Current.m_iDividendEpoch)
@@ -67,6 +67,9 @@ struct MyState
             m_Current.m_iDividendEpoch = m_Next.m_iDividendEpoch;
             m_Next.m_iDividendEpoch = 0;
         }
+
+        Strict::Add(m_Current.m_Stats.m_StakeActive, m_Next.m_StakePassive);
+        m_Next.m_StakePassive = 0;
 
         return true;
     }
@@ -114,11 +117,11 @@ struct MyState_AutoSave
 
     void AdjustVotes(UserMax& u, const uint8_t* p1, Amount v0)
     {
-        Amount s0 = m_Current.m_DividendStake;
+        Amount s0 = m_Current.m_Stats.m_StakeVoted;
         if (u.m_iDividendEpoch)
         {
-            assert(m_Current.m_DividendStake >= v0);
-            m_Current.m_DividendStake -= v0;
+            assert(m_Current.m_Stats.m_StakeVoted >= v0);
+            m_Current.m_Stats.m_StakeVoted -= v0;
 
             u.m_iDividendEpoch = 0;
         }
@@ -158,7 +161,7 @@ struct MyState_AutoSave
             if (User::s_NoVote != n1)
             {
                 Env::Halt_if(n1 >= p.m_Variants);
-                Strict::Add(p.m_pVariant[n1], v1);
+                p.m_pVariant[n1] += v1;
             }
 
             n0 = n1;
@@ -169,10 +172,12 @@ struct MyState_AutoSave
         if (bAllVoted && m_Current.m_iDividendEpoch)
         {
             u.m_iDividendEpoch = m_Current.m_iDividendEpoch;
-            Strict::Add(m_Current.m_DividendStake, v1);
+            m_Current.m_Stats.m_StakeVoted += v1;
         }
 
-        if (s0 != m_Current.m_DividendStake)
+        assert(m_Current.m_Stats.m_StakeVoted <= m_Current.m_Stats.m_StakeActive);
+
+        if (s0 != m_Current.m_Stats.m_StakeVoted)
             m_Dirty = true;
     }
 };
@@ -187,7 +192,7 @@ struct MyUser
         Env::SaveVar(&m_Key, sizeof(m_Key), this, sizeof(User) + sizeof(*m_pVotes) * s.m_Current.m_Proposals, KeyTag::Internal);
     }
 
-    void TakeDividends()
+    void TakeDividends() const
     {
         if (!m_Stake)
             return;
@@ -261,9 +266,8 @@ struct MyUser
                 m_iDividendEpoch = 0;
             }
 
-            Strict::Add(m_Stake, m_StakeNext);
+            m_Stake += m_StakeNext;
             m_StakeNext = 0;
-
         }
         else
             // new user
@@ -333,26 +337,38 @@ BEAM_EXPORT void Method_3(const Method::AddProposal& r)
 BEAM_EXPORT void Method_4(const Method::MoveFunds& r)
 {
     MyState_AutoSave s;
+    s.m_Dirty = true;
 
     MyUser u;
     u.LoadPlus(s, r.m_pkUser);
 
     if (r.m_Lock)
     {
-        Strict::Add(u.m_StakeNext, r.m_Amount);
+        Strict::Add(s.m_Next.m_StakePassive, r.m_Amount);
+        u.m_StakeNext += r.m_Amount;
         Env::FundsLock(s.m_Cfg.m_Aid, r.m_Amount);
     }
     else
     {
         if (u.m_StakeNext >= r.m_Amount)
+        {
             u.m_StakeNext -= r.m_Amount;
+            assert(s.m_Next.m_StakePassive >= r.m_Amount);
+            s.m_Next.m_StakePassive -= r.m_Amount;
+        }
         else
         {
             Amount delta = r.m_Amount - u.m_StakeNext;
+
+            assert(s.m_Next.m_StakePassive >= u.m_StakeNext);
+            s.m_Next.m_StakePassive -= u.m_StakeNext;
             u.m_StakeNext = 0;
 
             Amount val0 = u.m_Stake;
             Strict::Sub(u.m_Stake, delta);
+
+            assert(s.m_Current.m_Stats.m_StakeActive >= delta);
+            s.m_Current.m_Stats.m_StakeActive -= delta;
 
             s.AdjustVotes(u, u.m_pVotes, val0);
         }

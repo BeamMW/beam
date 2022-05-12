@@ -51,6 +51,12 @@ namespace DaoVote
         // followed by variants
     };
 
+    struct EpochStats
+    {
+        Amount m_StakeActive;
+        Amount m_StakeVoted;
+    };
+
     struct ProposalMax
         :public Proposal
     {
@@ -101,12 +107,13 @@ namespace DaoVote
             uint32_t m_iEpoch;
             uint32_t m_Proposals;
             uint32_t m_iDividendEpoch; // set to 0 if no reward
-            Amount m_DividendStake; // not necessarily equal to the total voting stake, can be less.
+            EpochStats m_Stats;
         } m_Current;
 
         struct Next {
             uint32_t m_Proposals;
             uint32_t m_iDividendEpoch;
+            Amount m_StakePassive;
         } m_Next;
     };
 
