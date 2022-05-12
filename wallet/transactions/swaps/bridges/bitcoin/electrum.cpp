@@ -604,6 +604,7 @@ namespace beam::bitcoin
         auto settings = m_settingsProvider.GetSettings();
         //LOG_INFO() << request;
         io::Address address;
+        std::string host;
         {
             auto electrumSettings = settings.GetElectrumConnectionOptions();
             
@@ -616,8 +617,8 @@ namespace beam::bitcoin
                 m_settingsProvider.SetSettings(settings);
             }
 
-
-            if (!address.resolve(electrumSettings.m_address.c_str()))
+            host = electrumSettings.m_address;
+            if (!address.resolve(host.c_str()))
             {
                 tryToChangeAddress();
 
@@ -796,9 +797,10 @@ namespace beam::bitcoin
                 connection.m_callback(error, result, currentId);
                 m_connections.erase(currentId);
             }
-        }, 2000, true
-        // TODO move this to the settings
-        , false);
+        }, 2000, 
+           { true, false, host }
+            // TODO move this to the settings
+        );
 
         if (result)
             return;

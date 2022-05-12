@@ -56,14 +56,19 @@ public:
     /// NOTE: Called from another thread.
     void stop();
 
+    struct TlsConfig {
+        bool connect = false;
+        bool rejectUnauthorized = true;
+        std::string host;
+    };
+
     using ConnectCallback = std::function<void(uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode errorCode)>;
     Result tcp_connect(
         Address address,
         uint64_t tag,
         const ConnectCallback& callback,
         int timeoutMsec=-1,
-        bool tlsConnect=false,
-        bool tlsRejectUnauthorized = true,
+        const TlsConfig& tlsCfg = {},
         Address bindTo=Address()
     );
 

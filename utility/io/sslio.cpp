@@ -53,12 +53,10 @@ void ssl_info(const SSL* ssl, int where, int ret)
     else
         str = "undefined";
     std::stringstream ss;
-    if (where & SSL_CB_LOOP)
-    {
+    if (where & SSL_CB_LOOP) {
         ss <<  str<< ":" <<  SSL_state_string_long(ssl);
     }
-    else if (where & SSL_CB_ALERT)
-    {
+    else if (where & SSL_CB_ALERT) {
         str = (where & SSL_CB_READ) ? "read" : "write";
         ss << "SSL3 alert " <<
             str << ":" <<
@@ -67,15 +65,10 @@ void ssl_info(const SSL* ssl, int where, int ret)
     }
     else if (where & SSL_CB_EXIT)
     {
-        if (ret == 0)
+        if (ret == 0) {
             ss << str << ":failed in "<< SSL_state_string_long(ssl);
-        else if (ret < 0)
-        {
-            ret = SSL_get_error(ssl, ret);
-            ss << str << ":error in " << SSL_state_string_long(ssl)
-                << ":" <<
-                SSL_alert_type_string_long(ret) << ":" <<
-                SSL_alert_desc_string_long(ret);
+        } else if (ret < 0) {
+            ss << str << ":error in " << SSL_state_string_long(ssl);
         }
     }
 
@@ -86,7 +79,6 @@ struct SSLInitializer {
     SSLInitializer() {
         SSL_library_init();
         SSL_load_error_strings();
-        ERR_load_BIO_strings();
         OpenSSL_add_all_algorithms();
         ERR_load_crypto_strings();
         ok = true;

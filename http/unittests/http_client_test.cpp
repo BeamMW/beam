@@ -30,7 +30,7 @@ namespace {
 
             std::map<uint64_t, io::ErrorCode> expected;
 
-            static const char DOMAIN_NAME[] = "apps-testnet.beam.mw";// "example.com";
+            static const char DOMAIN_NAME[] = "example.com";
             io::Address a;
             a.resolve(DOMAIN_NAME);
             a.port(tls ? 443 : 80);
@@ -120,6 +120,6 @@ int main() {
     auto res = http_client_test(false);
     res += http_client_test(true);
     LOG_DEBUG() << TRACE(res);
-    return res == 2 ? 0 : -1;
+    return res == 4 ? 0 : -1;
 }
 

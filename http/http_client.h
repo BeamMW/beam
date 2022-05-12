@@ -16,6 +16,7 @@
 
 #include "http/http_connection.h"
 #include "http/http_msg_creator.h"
+#include <string_view>
 
 namespace beam {
 
@@ -52,6 +53,21 @@ public:
         SET_PARAM(numHeaders)
         SET_PARAM(contentType)
 #undef SET_PARAM
+
+        const char* host() const {
+            constexpr std::string_view h{ "Host" };
+            for (size_t i = 0; i < numHeaders_; ++i) {
+                const HeaderPair& p = headers_[i];
+                assert(p.head);
+                if (!p.is_number) {
+                    assert(p.content_str);
+                    if (h == p.head) {
+                        return p.content_str;
+                    }
+                }
+            }
+            return nullptr;
+        }
 
         Request& body(const void* data, size_t size) {
             body_.clear();
