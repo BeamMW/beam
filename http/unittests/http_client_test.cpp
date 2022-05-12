@@ -20,7 +20,7 @@
 using namespace beam;
 
 namespace {
-    int http_client_test() {
+    int http_client_test(bool tls) {
         int nErrors = 0;
 
         io::Reactor::Ptr reactor;
@@ -33,13 +33,13 @@ namespace {
             static const char DOMAIN_NAME[] = "example.com";
             io::Address a;
             a.resolve(DOMAIN_NAME);
-            a.port(80);
+            a.port(tls ? 443 : 80);
 
             static const HeaderPair headers[] = {
                 {"Host", DOMAIN_NAME }
             };
 
-            HttpClient client(*reactor);
+            HttpClient client(*reactor, tls);
 
             HttpClient::Request request;
             request.address(a).connectTimeoutMsec(2000).pathAndQuery("/").headers(headers).numHeaders(1)
@@ -53,11 +53,11 @@ namespace {
                         }
                         if (msg.what == HttpMsgReader::http_message) {
                             size_t sz=0;
-                            /*const void* body =*/ msg.msg->get_body(sz);
+                            const void* body = msg.msg->get_body(sz);
                             LOG_DEBUG() << "received " << sz << " bytes";
-                            //if (body) {
-                            //    LOG_DEBUG() << std::string((const char*)body, sz);
-                            //}
+                            if (body) {
+                                LOG_DEBUG() << std::string_view((const char*)body, sz);
+                            }
                             if (it->second != io::EC_OK || sz == 0) ++nErrors;
                         } else {
                             if (it->second != msg.connectionError) {
@@ -117,6 +117,9 @@ int main() {
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
-    return http_client_test();
+    auto res = http_client_test(false);
+    res += http_client_test(true);
+    LOG_DEBUG() << TRACE(res);
+    return res == 2 ? 0 : -1;
 }
 
