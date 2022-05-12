@@ -798,7 +798,7 @@ namespace beam::bitcoin
                 m_connections.erase(currentId);
             }
         }, 2000, 
-           { true, false, host }
+           io::TlsConfig(true, false, host)
             // TODO move this to the settings
         );
 

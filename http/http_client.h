@@ -54,7 +54,7 @@ public:
         SET_PARAM(contentType)
 #undef SET_PARAM
 
-        const char* host() const {
+        std::string host() const {
             constexpr std::string_view h{ "Host" };
             for (size_t i = 0; i < numHeaders_; ++i) {
                 const HeaderPair& p = headers_[i];
@@ -66,7 +66,7 @@ public:
                     }
                 }
             }
-            return nullptr;
+            return {};
         }
 
         Request& body(const void* data, size_t size) {

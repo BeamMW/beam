@@ -694,7 +694,7 @@ Result Reactor::tcp_connect_with_proxy(
 
     ConnectCallback on_tcp_connect = _proxyConnector->
         create_connection(tag, destAddr, callback, timeoutMsec, tlsConnect);
-    Result res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, proxyAddr, tag, on_tcp_connect, timeoutMsec, {false});
+    Result res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, proxyAddr, tag, on_tcp_connect, timeoutMsec, io::TlsConfig(false));
     if (!res) {
         async_close(h);
     }

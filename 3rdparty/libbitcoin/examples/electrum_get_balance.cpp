@@ -110,7 +110,7 @@ int main() {
         address.resolve("testnet1.bauerj.eu");
         address.port(50002);
 
-        reactor->tcp_connect(address, tag_ok, on_connected, 2000, { true });
+        reactor->tcp_connect(address, tag_ok, on_connected, 2000, io::TlsConfig(true));
         reactor->run();
     }
     catch (const std::exception& e) {

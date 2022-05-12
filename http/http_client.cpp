@@ -82,7 +82,7 @@ expected<uint64_t, io::ErrorCode> HttpClient::send_request(const HttpClient::Req
     } else if (newConnection) {
         int timeout = (request.connectTimeoutMsec_ > 0) ? int(request.connectTimeoutMsec_) : -1;
         auto tag = uint64_t(ctx);
-        result = _reactor.tcp_connect(request.address_, tag, BIND_THIS_MEMFN(on_connected), timeout, { _ssl || tls, false, request.host()});
+        result = _reactor.tcp_connect(request.address_, tag, BIND_THIS_MEMFN(on_connected), timeout, io::TlsConfig(_ssl || tls, false, request.host()));
         if (result) {
             _pendingConnections[tag] = id;
         }
