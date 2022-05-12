@@ -40,6 +40,13 @@ struct MyState
         if (m_Current.m_iEpoch == iEpoch)
             return false;
 
+        if (m_Current.m_iEpoch)
+        {
+            EpochStats::Key esk;
+            esk.m_iEpoch = m_Current.m_iEpoch;
+            Env::SaveVar_T(esk, m_Current.m_Stats);
+        }
+
         m_Current.m_iEpoch = iEpoch;
 
         m_Current.m_Proposals = m_Next.m_Proposals;
@@ -87,9 +94,16 @@ struct MyProposal
     Proposal::Key m_Key;
     uint32_t m_Variants;
 
-    void Load() {
+    bool Load()
+    {
         uint32_t nSize = Env::LoadVar(&m_Key, sizeof(m_Key), this, sizeof(ProposalMax), KeyTag::Internal);
-        m_Variants = nSize / sizeof(*m_pVariant);
+        if (!nSize)
+            return false;
+
+        assert(nSize >= sizeof(Proposal));
+        m_Variants = (nSize - sizeof(Proposal)) / sizeof(*m_pVariant);
+
+        return true;
     }
 
     void Save() {
@@ -317,6 +331,7 @@ BEAM_EXPORT void Method_3(const Method::AddProposal& r)
     s.LoadUpd_NoSave();
 
     MyProposal p;
+    p.m_iEpoch = s.m_Current.m_iEpoch + 1;
     p.m_Variants = r.m_Data.m_Variants;
     Env::Memset(p.m_pVariant, 0, sizeof(*p.m_pVariant) * p.m_Variants);
 
@@ -450,27 +465,44 @@ BEAM_EXPORT void Method_7(Method::GetResults& r)
     MyState s;
     s.Load();
 
-    r.m_Finished = 0;
-
-    if (r.m_ID > s.m_iLastProposal)
-        r.m_Variants = 0;
+    auto id = r.m_ID;
+    if (id > s.m_iLastProposal)
+    {
+        _POD_(r).SetZero();
+        r.m_ID = id;
+    }
     else
     {
         MyProposal p;
-        p.m_Key.m_ID = r.m_ID;
+        p.m_Key.m_ID = id;
         p.Load();
 
-        uint32_t nVars = std::min(r.m_Variants, p.m_Variants);
         r.m_Variants = p.m_Variants;
 
-        Env::Memcpy(&r + 1, p.m_pVariant, sizeof(*p.m_pVariant) * nVars);
+        uint32_t nVars = std::min(r.m_Variants, p.m_Variants);
+        Env::Memcpy(&r.m_Res, &p, sizeof(Proposal) + sizeof(*p.m_pVariant) * nVars);
 
-        uint32_t nUnfinished = s.m_Next.m_Proposals;
-        if (s.get_Epoch() == s.m_Current.m_iEpoch)
-            nUnfinished += s.m_Current.m_Proposals;
+        if (p.m_iEpoch < s.m_Current.m_iEpoch)
+        {
+            r.m_Status = Proposal::Status::Done;
 
-        if (r.m_ID <= s.m_iLastProposal - nUnfinished)
-            r.m_Finished = 1;
+            EpochStats::Key esk;
+            esk.m_iEpoch = p.m_iEpoch;
+            Env::LoadVar_T(esk, r.m_Stats);
+        }
+        else
+        {
+            r.m_Stats = s.m_Current.m_Stats;
+
+            if (p.m_iEpoch != s.m_Current.m_iEpoch)
+            {
+                assert(p.m_iEpoch == s.m_Current.m_iEpoch + 1);
+                r.m_Stats.m_StakeVoted = 0;
+                r.m_Status = Proposal::Status::NotStarted;
+            }
+            else
+                r.m_Status = Proposal::Status::InProgress;
+        }
     }
 }
 
