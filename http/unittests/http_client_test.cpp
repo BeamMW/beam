@@ -42,7 +42,7 @@ namespace {
             HttpClient client(*reactor, tls);
 
             HttpClient::Request request;
-            request.address(a).connectTimeoutMsec(12000).pathAndQuery("/").headers(headers).numHeaders(1)
+            request.address(a).connectTimeoutMsec(2000).pathAndQuery("/").headers(headers).numHeaders(1)
                 .callback(
                     [&expected, &nErrors](uint64_t id, const HttpMsgReader::Message& msg) -> bool {
                         LOG_DEBUG() << "response from " << id;
@@ -84,25 +84,25 @@ namespace {
             else
                 cancelID = *res;
 
-            request.address(io::Address::localhost().port(666));
+            request.address(io::Address::localhost().port(666)).connectTimeoutMsec(4000);
             res = client.send_request(request);
             if (!res)
                 ++nErrors;
             else
                 expected[*res] = io::EC_ECONNREFUSED;
 
-            request.address(a.port(666));
+            request.address(a.port(666)).connectTimeoutMsec(2000);
             res = client.send_request(request);
             if (!res)
                 ++nErrors;
             else
-                expected[*res] = io::EC_ETIMEDOUT;
+                expected[*res] = io::EC_ECONNRESET;
 
             io::Timer::Ptr timer = io::Timer::create(*reactor);
-            int x = 30;
+            int x = 600;
             timer->start(0, false, [&]{
                 client.cancel_request(cancelID);
-                timer->start(100, true, [&]{
+                timer->start(200, true, [&]{
                     if (--x == 0 || expected.empty()) {
                         reactor->stop();
                     }
