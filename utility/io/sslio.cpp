@@ -123,6 +123,35 @@ SSL_CTX* init_ctx(bool isServer) {
     return ctx;
 }
 
+bool load_system_certificate_authority(SSL_CTX* ctx)
+{
+#ifdef WIN32
+    PCCERT_CONTEXT pContext = nullptr;
+    X509_STORE* store = SSL_CTX_get_cert_store(ctx);
+
+    HCERTSTORE hStore = CertOpenSystemStoreW(NULL, L"CA");
+    if (!hStore)
+        return false;
+
+    while ((pContext = CertEnumCertificatesInStore(hStore, pContext)) != nullptr) {
+        X509* x509 = d2i_X509(nullptr, (const unsigned char**)&pContext->pbCertEncoded, pContext->cbCertEncoded);
+        if (x509) {
+            int i = X509_STORE_add_cert(store, x509);
+            if (i == 0) {
+                LOG_ERROR() << "Failed to add certificate from system store";
+            }
+            else if (i == 1) {
+                LOG_VERBOSE() << "Loaded certificate from system store";
+            }
+            X509_free(x509);
+        }
+    }
+
+    CertCloseStore(hStore, 0);
+#endif //WIN32
+    return true;
+}
+
 void setup_certificate(SSL_CTX* ctx, const char* certFileName, const char* privKeyFileName)
 {
     if (certFileName && privKeyFileName)
@@ -180,7 +209,7 @@ SSLContext::Ptr SSLContext::create_server_ctx(const char* certFileName, const ch
 
 SSLContext::Ptr SSLContext::create_client_context(const char* certFileName, const char* privKeyFileName, bool rejectUnauthorized) {
     SSL_CTX* ctx = init_ctx(false);
-
+    load_system_certificate_authority(ctx);
     setup_certificate(ctx, certFileName, privKeyFileName);
 
     int verifyMode = (rejectUnauthorized == false) ?

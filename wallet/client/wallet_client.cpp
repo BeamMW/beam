@@ -2123,6 +2123,11 @@ namespace beam::wallet
             return false;
         });
 
+        if (!m_httpClient)
+        {
+            m_httpClient = std::make_unique<HttpClient>(*m_reactor, scheme == "https");
+        }
+
         m_httpClient->send_request(request);
     }
 
