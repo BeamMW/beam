@@ -2036,11 +2036,6 @@ namespace beam::wallet
 
     void WalletClient::getAppsList(AppsListCallback&& callback)
     {
-        if (!m_httpClient)
-        {
-            m_httpClient = std::make_unique<HttpClient>(*m_reactor);
-        }
-
         io::Address address;
 
         constexpr auto url = getAppsUrl();
@@ -2125,10 +2120,10 @@ namespace beam::wallet
 
         if (!m_httpClient)
         {
-            m_httpClient = std::make_unique<HttpClient>(*m_reactor, scheme == "https");
+            m_httpClient = std::make_unique<HttpClient>(*m_reactor);
         }
 
-        m_httpClient->send_request(request);
+        m_httpClient->send_request(request, scheme == "https");
     }
 
     void WalletClient::markAppNotificationAsRead(const TxID& id)

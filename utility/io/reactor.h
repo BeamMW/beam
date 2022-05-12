@@ -32,6 +32,12 @@ class TcpShutdowns;
 class PendingWrites;
 class SslStream;
 
+struct TlsConfig {
+    bool connect = false;
+    bool rejectUnauthorized = true;
+    std::string host;
+};
+
 class Reactor : public std::enable_shared_from_this<Reactor> {
 public:
     Reactor(const Reactor&) = delete;
@@ -56,19 +62,13 @@ public:
     /// NOTE: Called from another thread.
     void stop();
 
-    struct TlsConfig {
-        bool connect = false;
-        bool rejectUnauthorized = true;
-        std::string host;
-    };
-
     using ConnectCallback = std::function<void(uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode errorCode)>;
     Result tcp_connect(
         Address address,
         uint64_t tag,
         const ConnectCallback& callback,
         int timeoutMsec=-1,
-        const TlsConfig& tlsCfg = {},
+        const TlsConfig& tlsCfg = TlsConfig(),
         Address bindTo=Address()
     );
 

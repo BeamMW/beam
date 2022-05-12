@@ -62,7 +62,7 @@ public:
         return _connectRequests.count(tag) == 0;
     }
 
-    Result tcp_connect(uv_tcp_t* handle, Address address, uint64_t tag, const Callback& callback, int timeoutMsec, const Reactor::TlsConfig& tlsCfg = {}) {
+    Result tcp_connect(uv_tcp_t* handle, Address address, uint64_t tag, const Callback& callback, int timeoutMsec, const TlsConfig& tlsCfg = {}) {
         assert(is_tag_free(tag));
 
         if (timeoutMsec >= 0) {

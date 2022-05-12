@@ -111,7 +111,7 @@ public:
     ~HttpClient();
 
     /// Sends request asynchronously, Returns connection ID (>0) or error
-    expected<uint64_t, io::ErrorCode> send_request(const Request& request);
+    expected<uint64_t, io::ErrorCode> send_request(const Request& request, bool tls = false);
 
     /// Cancels request, MUST be called if the caller goes out of scope
     void cancel_request(uint64_t id);
