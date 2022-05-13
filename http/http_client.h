@@ -16,6 +16,7 @@
 
 #include "http/http_connection.h"
 #include "http/http_msg_creator.h"
+#include <string_view>
 
 namespace beam {
 
@@ -52,6 +53,21 @@ public:
         SET_PARAM(numHeaders)
         SET_PARAM(contentType)
 #undef SET_PARAM
+
+        std::string host() const {
+            constexpr std::string_view h{ "Host" };
+            for (size_t i = 0; i < numHeaders_; ++i) {
+                const HeaderPair& p = headers_[i];
+                assert(p.head);
+                if (!p.is_number) {
+                    assert(p.content_str);
+                    if (h == p.head) {
+                        return p.content_str;
+                    }
+                }
+            }
+            return {};
+        }
 
         Request& body(const void* data, size_t size) {
             body_.clear();
@@ -95,7 +111,7 @@ public:
     ~HttpClient();
 
     /// Sends request asynchronously, Returns connection ID (>0) or error
-    expected<uint64_t, io::ErrorCode> send_request(const Request& request);
+    expected<uint64_t, io::ErrorCode> send_request(const Request& request, bool tls = false);
 
     /// Cancels request, MUST be called if the caller goes out of scope
     void cancel_request(uint64_t id);

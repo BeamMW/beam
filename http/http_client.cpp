@@ -35,7 +35,7 @@ HttpClient::~HttpClient() {
     }
 }
 
-expected<uint64_t, io::ErrorCode> HttpClient::send_request(const HttpClient::Request& request) {
+expected<uint64_t, io::ErrorCode> HttpClient::send_request(const HttpClient::Request& request, bool tls) {
     if (!request.validate()) return make_unexpected(io::EC_EINVAL);
     Ctx* ctx = 0;
     uint64_t id = 0;
@@ -82,7 +82,7 @@ expected<uint64_t, io::ErrorCode> HttpClient::send_request(const HttpClient::Req
     } else if (newConnection) {
         int timeout = (request.connectTimeoutMsec_ > 0) ? int(request.connectTimeoutMsec_) : -1;
         auto tag = uint64_t(ctx);
-        result = _reactor.tcp_connect(request.address_, tag, BIND_THIS_MEMFN(on_connected), timeout, _ssl, false);
+        result = _reactor.tcp_connect(request.address_, tag, BIND_THIS_MEMFN(on_connected), timeout, io::TlsConfig(_ssl || tls, false, request.host()));
         if (result) {
             _pendingConnections[tag] = id;
         }

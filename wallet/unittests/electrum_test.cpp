@@ -188,7 +188,7 @@ void testConnection()
         if (!res) {
             LOG_ERROR() << error_str(res.error());
         }
-    }, 2000, true, false);
+    }, 2000, { true, false });
 
     timer->start(5000, false, [&]() {
         mainReactor->stop();
