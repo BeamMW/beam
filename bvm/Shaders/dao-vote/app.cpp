@@ -543,7 +543,7 @@ ON_METHOD(manager, view_proposal)
 
     uint32_t nVariants = nVal / sizeof(*p.m_pVariant);
 
-    Env::DocArray gr0("result");
+    Env::DocGroup gr0("result");
 
     Amount total = 0;
     {
