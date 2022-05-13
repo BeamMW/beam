@@ -177,7 +177,7 @@ private:
 
     void on_reconnect() {
         LOG_INFO() << "connecting to " << _serverAddress;
-        if (!_reactor.tcp_connect(_serverAddress, 1, BIND_THIS_MEMFN(on_connected), 10000, _tls)) {
+        if (!_reactor.tcp_connect(_serverAddress, 1, BIND_THIS_MEMFN(on_connected), 10000, io::TlsConfig(_tls))) {
             LOG_ERROR() << "connect attempt failed, rescheduling";
             _timer->start(RECONNECT_TIMEOUT, false, BIND_THIS_MEMFN(on_reconnect));
         }

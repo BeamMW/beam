@@ -20,7 +20,7 @@
 using namespace beam;
 
 namespace {
-    int http_client_test() {
+    int http_client_test(bool tls) {
         int nErrors = 0;
 
         io::Reactor::Ptr reactor;
@@ -33,13 +33,13 @@ namespace {
             static const char DOMAIN_NAME[] = "example.com";
             io::Address a;
             a.resolve(DOMAIN_NAME);
-            a.port(80);
+            a.port(tls ? 443 : 80);
 
             static const HeaderPair headers[] = {
                 {"Host", DOMAIN_NAME }
             };
 
-            HttpClient client(*reactor);
+            HttpClient client(*reactor, tls);
 
             HttpClient::Request request;
             request.address(a).connectTimeoutMsec(2000).pathAndQuery("/").headers(headers).numHeaders(1)
@@ -53,14 +53,17 @@ namespace {
                         }
                         if (msg.what == HttpMsgReader::http_message) {
                             size_t sz=0;
-                            /*const void* body =*/ msg.msg->get_body(sz);
+                            const void* body = msg.msg->get_body(sz);
                             LOG_DEBUG() << "received " << sz << " bytes";
-                            //if (body) {
-                            //    LOG_DEBUG() << std::string((const char*)body, sz);
-                            //}
-                            if (it->second != io::EC_OK || sz == 0) ++nErrors;
+                            if (body) {
+                                LOG_DEBUG() << std::string_view((const char*)body, sz);
+                            }
+                            if (it->second != io::EC_OK || sz == 0) {
+                                ++nErrors;
+                            } 
                         } else {
                             if (it->second != msg.connectionError) {
+                                LOG_DEBUG() << "Invalid error, expected:" << it->second << ", received: " << msg.connectionError;
                                 ++nErrors;
                             }
                         }
@@ -69,30 +72,38 @@ namespace {
                     }
                 );
 
-            auto res = client.send_request(request);
-            if (!res) ++nErrors;
-            else expected[*res] = io::EC_OK;
+            auto res = client.send_request(request, tls);
+            if (!res)
+                ++nErrors;
+            else
+                expected[*res] = io::EC_OK;
 
             uint64_t cancelID = 0;
             res = client.send_request(request);
-            if (!res) ++nErrors;
-            else cancelID = *res;
+            if (!res)
+                ++nErrors;
+            else
+                cancelID = *res;
 
-            request.address(io::Address::localhost().port(666));
+            request.address(io::Address::localhost().port(666)).connectTimeoutMsec(4000);
             res = client.send_request(request);
-            if (!res) ++nErrors;
-            else expected[*res] = io::EC_ECONNREFUSED;
+            if (!res)
+                ++nErrors;
+            else
+                expected[*res] = io::EC_ECONNREFUSED;
 
-            request.address(a.port(666));
+            request.address(a.port(666)).connectTimeoutMsec(2000);
             res = client.send_request(request);
-            if (!res) ++nErrors;
-            else expected[*res] = io::EC_ETIMEDOUT;
+            if (!res)
+                ++nErrors;
+            else
+                expected[*res] = io::EC_ECONNRESET;
 
             io::Timer::Ptr timer = io::Timer::create(*reactor);
-            int x = 30;
+            int x = 600;
             timer->start(0, false, [&]{
                 client.cancel_request(cancelID);
-                timer->start(100, true, [&]{
+                timer->start(200, true, [&]{
                     if (--x == 0 || expected.empty()) {
                         reactor->stop();
                     }
@@ -117,6 +128,9 @@ int main() {
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
-    return http_client_test();
+    auto res = http_client_test(false);
+    http_client_test(true);
+    LOG_DEBUG() << TRACE(res);
+    return res;
 }
 

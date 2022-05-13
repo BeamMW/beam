@@ -62,7 +62,7 @@ public:
         return _connectRequests.count(tag) == 0;
     }
 
-    Result tcp_connect(uv_tcp_t* handle, Address address, uint64_t tag, const Callback& callback, int timeoutMsec, bool isTls, bool rejectUnauthorized = true) {
+    Result tcp_connect(uv_tcp_t* handle, Address address, uint64_t tag, const Callback& callback, int timeoutMsec, const TlsConfig& tlsCfg) {
         assert(is_tag_free(tag));
 
         if (timeoutMsec >= 0) {
@@ -86,9 +86,11 @@ public:
         cr->data = this;
         cr->tag = tag;
         new(&cr->callback) Callback(callback);
-        cr->isTls = isTls;
-        cr->rejectUnauthorized = isTls ? rejectUnauthorized : false;
-
+        cr->isTls = tlsCfg.connect;
+        cr->rejectUnauthorized = tlsCfg.connect ? tlsCfg.rejectUnauthorized : false;
+        if (tlsCfg.connect && !tlsCfg.host.empty()) {
+            cr->host = tlsCfg.host;
+        }
         _connectRequests[tag] = cr;
 
         sockaddr_in addr;
@@ -106,7 +108,7 @@ public:
                 if (errorCode == UV_ECANCELED) {
                     tcpConnectors->_cancelledConnectRequests.erase(cr);
                 } else {
-                    tcpConnectors->connect_callback(cr->tag, (uv_handle_t*)request->handle, cr->callback, cr->isTls, cr->rejectUnauthorized, (ErrorCode)errorCode);
+                    tcpConnectors->connect_callback(cr->tag, (uv_handle_t*)request->handle, cr, (ErrorCode)errorCode);
                 }
                 cr->callback.~Callback();
                 tcpConnectors->_connectRequestsPool.release(cr);
@@ -146,6 +148,7 @@ private:
         Callback callback;
         bool isTls;
         bool rejectUnauthorized; // reject tls connection if server certification failed
+        std::string host;
     };
     
     bool create_ssl_context(bool rejectUnauthorized) {
@@ -159,7 +162,7 @@ private:
         return true;
     }
 
-    void connect_callback(uint64_t tag, uv_handle_t* h, const Callback& callback, bool isTls, bool rejectUnauthorized, ErrorCode errorCode) {
+    void connect_callback(uint64_t tag, uv_handle_t* h, const ConnectRequest* cr, ErrorCode errorCode) {
         if (_connectRequests.count(tag) == 0) {
             _reactor.async_close(h);
             return;
@@ -168,11 +171,15 @@ private:
         TcpStream::Ptr stream;
         if (errorCode == 0) {
             TcpStream* streamPtr = 0;
-            if (isTls) {
-                if (!create_ssl_context(rejectUnauthorized)) {
+            if (cr->isTls) {
+                if (!create_ssl_context(cr->rejectUnauthorized)) {
                     errorCode = EC_SSL_ERROR;
                 } else {
-                    streamPtr = new SslStream(_sslContext);
+                    auto* sslStream = new SslStream(_sslContext);
+                    if (!cr->host.empty()) {
+                        sslStream->set_host_name(cr->host.c_str());
+                    }
+                    streamPtr = sslStream;
                 }
             } else {
                 streamPtr = new TcpStream();
@@ -187,7 +194,7 @@ private:
         _connectRequests.erase(tag);
         if (_connectTimer) _connectTimer->cancel(tag);
 
-        callback(tag, std::move(stream), errorCode);
+        cr->callback(tag, std::move(stream), errorCode);
     }
 
     void connect_timeout_callback(uint64_t tag) {
@@ -617,8 +624,7 @@ Result Reactor::tcp_connect(
     uint64_t tag,
     const ConnectCallback& callback,
     int timeoutMsec,
-    bool tlsConnect,
-    bool tlsRejectUnauthorized,
+    const TlsConfig& tlsCfg,
     Address bindTo
 ) {
     assert(callback);
@@ -647,7 +653,7 @@ Result Reactor::tcp_connect(
         }
     }
 
-    Result res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, address, tag, callback, timeoutMsec, tlsConnect, tlsRejectUnauthorized);
+    Result res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, address, tag, callback, timeoutMsec, tlsCfg);
     if (!res) {
         async_close(h);
     }
@@ -688,7 +694,7 @@ Result Reactor::tcp_connect_with_proxy(
 
     ConnectCallback on_tcp_connect = _proxyConnector->
         create_connection(tag, destAddr, callback, timeoutMsec, tlsConnect);
-    Result res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, proxyAddr, tag, on_tcp_connect, timeoutMsec, false);
+    Result res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, proxyAddr, tag, on_tcp_connect, timeoutMsec, io::TlsConfig(false));
     if (!res) {
         async_close(h);
     }

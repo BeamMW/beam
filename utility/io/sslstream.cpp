@@ -39,6 +39,11 @@ void SslStream::shutdown() {
     TcpStream::shutdown();
 }
 
+void SslStream::set_host_name(const char* host)
+{
+    SSL_set_tlsext_host_name(_ssl.native_handle(), host);
+}
+
 bool SslStream::on_read(ErrorCode ec, void *data, size_t size) {
     if (ec == EC_OK) {
         Result res = _ssl.on_encrypted_data_from_stream(data, size);
