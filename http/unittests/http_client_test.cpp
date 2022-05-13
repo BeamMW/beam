@@ -129,7 +129,7 @@ int main() {
 #endif
     auto logger = Logger::create(logLevel, logLevel);
     auto res = http_client_test(false);
-    http_client_test(true);
+    res += http_client_test(true);
     LOG_DEBUG() << TRACE(res);
     return res;
 }
