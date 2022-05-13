@@ -63,6 +63,7 @@ namespace {
                             } 
                         } else {
                             if (it->second != msg.connectionError) {
+                                LOG_DEBUG() << "Invalid error, expected:" << it->second << ", received: " << msg.connectionError;
                                 ++nErrors;
                             }
                         }
@@ -128,7 +129,7 @@ int main() {
 #endif
     auto logger = Logger::create(logLevel, logLevel);
     auto res = http_client_test(false);
-    res += http_client_test(true);
+    http_client_test(true);
     LOG_DEBUG() << TRACE(res);
     return res;
 }
