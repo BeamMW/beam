@@ -97,7 +97,7 @@ namespace {
             if (!res)
                 ++nErrors;
             else
-                expected[*res] = io::EC_ECONNRESET;
+                expected[*res] = io::EC_ETIMEDOUT;
 
             io::Timer::Ptr timer = io::Timer::create(*reactor);
             int x = 600;
