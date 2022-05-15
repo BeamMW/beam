@@ -107,7 +107,7 @@ struct MyProposal
     }
 
     void Save() {
-        Env::SaveVar(&m_Key, sizeof(m_Key), this, sizeof(*m_pVariant) * m_Variants, KeyTag::Internal);
+        Env::SaveVar(&m_Key, sizeof(m_Key), this, sizeof(Proposal) + sizeof(*m_pVariant) * m_Variants, KeyTag::Internal);
     }
 };
 
@@ -531,11 +531,11 @@ namespace Upgradable3 {
 
     uint32_t get_CurrentVersion()
     {
-        return 1;
+        return 2;
     }
 
     void OnUpgraded(uint32_t nPrevVersion)
     {
-        Env::Halt_if(nPrevVersion != 0);
+        Env::Halt_if(nPrevVersion != 1);
     }
 }

@@ -130,6 +130,7 @@ struct UserKeyID :public Env::KeyID {
 
 const ShaderID g_pSid[] = {
     DaoVote::s_SID_0,
+    DaoVote::s_SID_1,
 };
 
 const Upgradable3::Manager::VerInfo g_VerInfo = { g_pSid, _countof(g_pSid) };
