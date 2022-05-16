@@ -839,7 +839,7 @@ ON_METHOD(user, move_funds)
     UserKeyID kid(cid);
     kid.get_Pk(args.m_pkUser);
 
-    if (!bLock && amount < u.m_StakeNext)
+    if (!bLock && amount > u.m_StakeNext)
         u.AddChargeVotes(cid, s, u.m_pVotes, true);
 
     uint32_t nCharge =
