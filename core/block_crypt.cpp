@@ -1886,7 +1886,7 @@ namespace beam
 		pForks[1].m_Height = 270910; // testnet fork
 		pForks[2].m_Height = 690000;
         pForks[3].m_Height = 1135300;
-        pForks[4].m_Height = 1666000;
+        pForks[4].m_Height = 1670000;
 
 		// future forks
 		for (size_t i = 5; i < _countof(pForks); i++)
