@@ -1273,7 +1273,7 @@ namespace beam::wallet
     	uint8_t nRegistered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered, subTxID))
         {
-            GetGateway().register_tx(GetTxID(), transaction, subTxID);
+            GetGateway().register_tx(GetTxID(), transaction, nullptr, subTxID);
             return false;
         }
 

@@ -13,9 +13,9 @@ if(EMSCRIPTEN)
         wasm_beamapi.h
         wasm_beamapi.cpp)
     target_link_libraries(${TARGET_NAME} PRIVATE 
-        wallet_client
+        wallet_client_no_ipfs
         mnemonic
-        wallet_api
+        wallet_api_no_ipfs
     )
     if (BEAM_MAINNET)
         set(BEAM_NETWORK_NAME "mainnet")

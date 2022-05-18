@@ -23,6 +23,7 @@
 #include "extensions/export/tx_history_to_csv.h"
 #include "extensions/news_channels/wallet_updates_provider.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
+#include "utility/fsutils.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
@@ -44,6 +45,7 @@ constexpr size_t kCollectorBufferSize = 50;
 constexpr size_t kShieldedPer24hFilterSize = 20;
 constexpr size_t kShieldedPer24hFilterBlocksForUpdate = 144;
 constexpr size_t kShieldedCountHistoryWindowSize = kShieldedPer24hFilterSize << 1;
+constexpr int kOneTimeLoadTxCount = 100;
 
 using WalletSubscriber = ScopedSubscriber<wallet::IWalletObserver, wallet::Wallet>;
 
@@ -105,6 +107,12 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         typedef void(IWalletModelAsync::* MethodType)(AsyncCallback<const std::vector<TxDescription>&>&&);
         call_async((MethodType)&IWalletModelAsync::getTransactions, callback);
+    }
+
+    void getTransactionsSmoothly() override
+    {
+        typedef void(IWalletModelAsync::* MethodType)();
+        call_async((MethodType)&IWalletModelAsync::getTransactionsSmoothly);
     }
 
     void getAllUtxosStatus() override
@@ -239,6 +247,23 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::setNodeAddress, addr);
     }
 
+    #ifdef BEAM_IPFS_SUPPORT
+    void setIPFSConfig(asio_ipfs::config&& cfg) override
+    {
+        call_async(&IWalletModelAsync::setIPFSConfig, std::move(cfg));
+    }
+
+    void stopIPFSNode() override
+    {
+        call_async(&IWalletModelAsync::stopIPFSNode);
+    }
+
+    void startIPFSNode() override
+    {
+        call_async(&IWalletModelAsync::startIPFSNode);
+    }
+    #endif
+
     void changeWalletPassword(const SecString& pass) override
     {
         // TODO: should be investigated, don't know how to "move" SecString into lambda
@@ -251,6 +276,13 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::getNetworkStatus);
     }
+
+    #ifdef BEAM_IPFS_SUPPORT
+    void getIPFSStatus() override
+    {
+        call_async(&IWalletModelAsync::getIPFSStatus);
+    }
+    #endif
 
     void rescan() override
     {
@@ -342,9 +374,33 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::makeIWTCall, std::move(function), std::move(resultCallback));
     }
 
-    void callShader(const std::vector<uint8_t>& shader, const std::string& args, ShaderCallback&& cback) override
+    void callShader(std::vector<uint8_t>&& shader, std::string&& args, CallShaderCallback&& cback) override
     {
-        call_async(&IWalletModelAsync::callShader, shader, args, cback);
+        typedef void(IWalletModelAsync::* MethodType)(std::vector<uint8_t>&&, std::string&&, CallShaderCallback&&);
+        call_async((MethodType)&IWalletModelAsync::callShader, std::move(shader), std::move(args), std::move(cback));
+    }
+
+    void callShader(std::string&& shaderFile, std::string&& args, CallShaderCallback&& cback) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(std::string&&, std::string&&, CallShaderCallback&&);
+        call_async((MethodType)&IWalletModelAsync::callShader, std::move(shaderFile), std::move(args), std::move(cback));
+    }
+
+    void callShaderAndStartTx(beam::ByteBuffer&& shader, std::string&& args, CallShaderAndStartTxCallback&& cback) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(std::vector<uint8_t>&&, std::string&&, CallShaderAndStartTxCallback&&);
+        call_async((MethodType)&IWalletModelAsync::callShaderAndStartTx, std::move(shader), std::move(args), std::move(cback));
+    }
+
+    void callShaderAndStartTx(std::string&& shaderFile, std::string&& args, CallShaderAndStartTxCallback&& cback) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(std::string&&, std::string&&, CallShaderAndStartTxCallback&&);
+        call_async((MethodType)&IWalletModelAsync::callShaderAndStartTx, std::move(shaderFile), std::move(args), std::move(cback));
+    }
+
+    void processShaderTxData(beam::ByteBuffer&& data, ProcessShaderTxDataCallback&& cback) override
+    {
+        call_async(&IWalletModelAsync::processShaderTxData, std::move(data), std::move(cback));
     }
 
     void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override
@@ -382,7 +438,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getAppsList, std::move(callback));
     }
 
-    void markAppNotificationAsRead(const TxID id) override
+    void markAppNotificationAsRead(const TxID& id) override
     {
         call_async(&IWalletModelAsync::markAppNotificationAsRead, id);
     }
@@ -658,6 +714,50 @@ namespace beam::wallet
                 */
 
                 //
+                // IPFS
+                //
+                #ifdef BEAM_IPFS_SUPPORT
+                struct IPFSHandler : public IPFSService::Handler {
+                    explicit IPFSHandler(WalletClient *wc)
+                            : _wc(wc) {
+                    }
+
+                    void AnyThread_pushToClient(std::function<void()> &&action) override {
+                        _wc->postFunctionToClientContext(std::move(action));
+                    }
+
+                    void AnyThread_onStatus(const std::string& error, uint32_t peercnt) override {
+                        _wc->getAsync()->makeIWTCall([this, error, peercnt]() -> boost::any {
+                            if (error.empty()) {
+                                LOG_INFO() << "IPFS Status: peercnt " << peercnt;
+                            } else {
+                                LOG_INFO() << "IPFS Status: peercnt " << peercnt << ", error: " << error;
+                            }
+                            _wc->m_ipfsError = error;
+                            _wc->m_ipfsPeerCnt = static_cast<unsigned int>(peercnt);
+                            _wc->getIPFSStatus();
+                            return boost::none;
+                        }, [](const boost::any&) {
+                            // client thread
+                        });
+                    }
+
+                private:
+                    WalletClient *_wc;
+                };
+
+                std::shared_ptr<IPFSHandler> ipfsHandler;
+                std::shared_ptr<IPFSService> ipfsService;
+
+                LOG_INFO() << "IPFS Service is enabled.";
+                ipfsHandler = std::make_shared<IPFSHandler>(this);
+                ipfsService = IPFSService::AnyThread_create(ipfsHandler);
+                m_ipfs = ipfsService;
+                #else
+                LOG_INFO () << "IPFS Service is disabled.";
+                #endif
+
+                //
                 // Shaders
                 //
                 auto clientShaders = IShadersManager::CreateInstance(wallet, m_walletDB, nodeNetwork, "", "");
@@ -668,6 +768,22 @@ namespace beam::wallet
                     wallet->CleanupNetwork();
                     nodeNetwork->Disconnect();
                 });
+
+                #ifdef BEAM_IPFS_SUPPORT
+                // IPFS service might be not started, so need to check
+                if (ipfsService) 
+                {
+                    if (ipfsService->AnyThread_running()) {
+                        ipfsService->ServiceThread_stop();
+                    }
+
+                    assert(ipfsService.use_count() == 1);
+                    ipfsService.reset();
+                }
+                #endif
+
+                wallet->CleanupNetwork();
+                nodeNetwork->Disconnect();
 
                 assert(clientShaders.use_count() == 1);
                 clientShaders.reset();
@@ -709,6 +825,101 @@ namespace beam::wallet
         auto sp = m_wallet.lock();
         return sp;
     }
+
+    NodeNetwork::Ptr WalletClient::getNodeNetwork()
+    {
+        auto sp = m_nodeNetwork.lock();
+        return sp;
+    }
+
+    #ifdef BEAM_IPFS_SUPPORT
+    IPFSService::Ptr WalletClient::getIPFS()
+    {
+        auto sp = m_ipfs.lock();
+        if(!sp || !sp->AnyThread_running())
+        {
+            assert(false);
+            throw std::runtime_error("IPFS Service is not running");
+        }
+        return sp;
+    }
+
+    IPFSService::Ptr WalletClient::IWThread_startIPFSNode()
+    {
+        if (!m_ipfsConfig)
+        {
+            assert(false);
+            throw std::runtime_error("IPFS config is not provided");
+        }
+
+        auto sp = m_ipfs.lock();
+        if (!sp)
+        {
+            assert(false);
+            throw std::runtime_error("IPFS service is not created");
+        }
+
+        if (!sp->AnyThread_running())
+        {
+            // throws
+            sp->ServiceThread_start(*m_ipfsConfig);
+        }
+
+        return sp;
+    }
+
+    void WalletClient::setIPFSConfig(asio_ipfs::config&& cfg)
+    {
+        //
+        // if service is already running restart with new settings
+        // otherwise we just store settings for future use
+        //
+        m_ipfsConfig = std::move(cfg);
+
+        auto sp = m_ipfs.lock();
+        if (!sp)
+        {
+            assert(false);
+            throw std::runtime_error("IPFS service is not created");
+        }
+
+        if (sp->AnyThread_running())
+        {
+            sp->ServiceThread_stop();
+            sp->ServiceThread_start(*m_ipfsConfig);
+        }
+    }
+
+    void WalletClient::stopIPFSNode()
+    {
+        auto sp = m_ipfs.lock();
+        if (!sp)
+        {
+            assert(false);
+            throw std::runtime_error("IPFS service is not created");
+        }
+
+        if (sp->AnyThread_running()) {
+            sp->ServiceThread_stop();
+        }
+    }
+
+    void WalletClient::startIPFSNode()
+    {
+        try
+        {
+            IWThread_startIPFSNode();
+        }
+        catch(std::runtime_error& err)
+        {
+            auto errmsg = std::string("Failed to start IPFS service. ") + err.what();
+            LOG_ERROR() << errmsg;
+            m_ipfsError = errmsg;
+            m_ipfsPeerCnt = 0;
+            getIPFSStatus();
+        }
+    }
+    #endif
 
     IShadersManager::Ptr WalletClient::IWThread_createAppShaders(const std::string& appid, const std::string& appname)
     {
@@ -889,12 +1100,6 @@ namespace beam::wallet
     {
         const auto& status = m_status.GetStatus(id);
         return status.maturingMP;
-    }
-
-    beam::AmountBig::Type WalletClient::getShielded(beam::Asset::ID id) const
-    {
-        const auto& status = m_status.GetStatus(id);
-        return status.shielded;
     }
 
     bool WalletClient::hasShielded(beam::Asset::ID id) const
@@ -1208,6 +1413,27 @@ namespace beam::wallet
         {
             cb(res);
         });
+    }
+
+    void WalletClient::getTransactionsSmoothly()
+    {
+        auto txCount = m_walletDB->getTxCount(wallet::TxType::ALL);
+        if (txCount > kOneTimeLoadTxCount)
+        {
+            onTransactionChanged(ChangeAction::Reset, vector<wallet::TxDescription>());
+
+            auto iterationsCount = txCount / kOneTimeLoadTxCount + (txCount % kOneTimeLoadTxCount ? 1 : 0);
+            for(int i = 0; i < iterationsCount; ++i) 
+                onTransactionChanged(
+                    ChangeAction::Updated, 
+                    m_walletDB->getTxHistory(wallet::TxType::ALL,
+                                             i * kOneTimeLoadTxCount,
+                                             i * kOneTimeLoadTxCount + kOneTimeLoadTxCount));
+        } 
+        else
+        {
+            getTransactions();
+        }
     }
 
     void WalletClient::getAllUtxosStatus()
@@ -1589,6 +1815,25 @@ namespace beam::wallet
         onNodeConnectionChanged(isConnected());
     }
 
+    #ifdef BEAM_IPFS_SUPPORT
+    void WalletClient::getIPFSStatus()
+    {
+        auto sp = m_ipfs.lock();
+        if (!sp) {
+            onIPFSStatus(false, std::string(), 0);
+            return;
+        }
+
+        auto running = sp->AnyThread_running();
+        if (running && m_ipfsPeerCnt == 0 && m_ipfsError.empty()) {
+            onIPFSStatus(running, "IPFS node is not connected to peers", m_ipfsPeerCnt);
+            return;
+        }
+
+        onIPFSStatus(running, m_ipfsError, m_ipfsPeerCnt);
+    }
+    #endif
+
     void WalletClient::rescan()
     {
         try
@@ -1791,11 +2036,6 @@ namespace beam::wallet
 
     void WalletClient::getAppsList(AppsListCallback&& callback)
     {
-        if (!m_httpClient)
-        {
-            m_httpClient = std::make_unique<HttpClient>(*m_reactor);
-        }
-
         io::Address address;
 
         constexpr auto url = getAppsUrl();
@@ -1817,7 +2057,10 @@ namespace beam::wallet
         {
             LOG_ERROR() << "Unable to resolve address: " << host;
 
-            callback(false , "");
+            postFunctionToClientContext([cb = std::move(callback)]()
+            {
+                cb(false, "");
+            });
             return;
         }
         if (address.port() == 0)
@@ -1841,7 +2084,7 @@ namespace beam::wallet
             .numHeaders(headers.size())
             .method("GET");
 
-        request.callback([callback](uint64_t id, const HttpMsgReader::Message& msg) -> bool
+        request.callback([this, cb = std::move(callback)](uint64_t id, const HttpMsgReader::Message& msg) -> bool
         {
             bool isOk = false;
             std::string response;
@@ -1867,14 +2110,23 @@ namespace beam::wallet
             {
                 LOG_ERROR() << "Failed to load application list reason: " << msg.what;
             }
-            callback(isOk, response);
+
+            postFunctionToClientContext([isOk, res = std::move(response), callback = std::move(cb)]()
+            {
+                callback(isOk, res);
+            });
             return false;
         });
 
-        m_httpClient->send_request(request);
+        if (!m_httpClient)
+        {
+            m_httpClient = std::make_unique<HttpClient>(*m_reactor);
+        }
+
+        m_httpClient->send_request(request, scheme == "https");
     }
 
-    void WalletClient::markAppNotificationAsRead(const TxID id)
+    void WalletClient::markAppNotificationAsRead(const TxID& id)
     {
         auto w = m_wallet.lock();
         if (w)
@@ -2219,7 +2471,7 @@ namespace beam::wallet
         });
     }
 
-    void WalletClient::callShader(const std::vector<uint8_t>& shader, const std::string& args, ShaderCallback&& cback)
+    void WalletClient::callShaderAndStartTx(beam::ByteBuffer&& shader, std::string&& args, CallShaderAndStartTxCallback&& cback)
     {
         auto smgr = _clientShaders.lock();
         if (!smgr)
@@ -2231,37 +2483,125 @@ namespace beam::wallet
             return;
         }
 
-        if (_clientShadersCback || !smgr->IsDone()) {
+        smgr->CallShaderAndStartTx(std::move(shader), std::move(args), args.empty() ? 0 : 1, 0, 0,
+            [this, cb = std::move(cback), shaders = _clientShaders]
+            (const boost::optional<TxID>& txid, boost::optional<std::string>&& result, boost::optional<std::string>&& error) {
+                auto smgr = _clientShaders.lock();
+                if (!smgr)
+                {
+                    LOG_WARNING () << "onShaderDone but empty manager. This can happen if node changed.";
+                    return;
+                }
+
+                if (!cb)
+                {
+                    assert(false);
+                    LOG_ERROR() << "onShaderDone but empty callback";
+                    return;
+                }
+
+                postFunctionToClientContext(
+                    [txid, res = std::move(result), err = std::move(error), cb = std::move(cb)] () {
+                        cb(err ? *err : "", res ? *res : "", txid ? *txid: TxID());
+                    });
+        });
+    }
+
+    void WalletClient::callShaderAndStartTx(std::string&& shaderFile, std::string&& args, CallShaderAndStartTxCallback&& cback)
+    {
+        try
+        {
+            callShaderAndStartTx(fsutils::fread(shaderFile), std::move(args), std::move(cback));
+        }
+        catch (std::runtime_error& err)
+        {
+            postFunctionToClientContext([errorMsg = std::string(err.what()), cb = std::move(cback)]() {
+                cb(errorMsg, "", TxID());
+            });
+        }
+    }
+
+    void WalletClient::callShader(beam::ByteBuffer&& shader, std::string&& args, CallShaderCallback&& cback)
+    {
+        auto smgr = _clientShaders.lock();
+        if (!smgr)
+        {
+            assert(false);
             postFunctionToClientContext([cb = std::move(cback)]() {
-                cb("previous call is not finished", "", TxID());
+                cb("unexpected: m_wallet is null", "", beam::ByteBuffer());
             });
             return;
         }
 
-        _clientShadersCback = std::move(cback);
-        smgr->CallShaderAndStartTx(shader, args, args.empty() ? 0 : 1, 0, 0,
-        [this, shaders = _clientShaders] (const boost::optional<TxID>& txid, boost::optional<std::string>&& result, boost::optional<std::string>&& error) {
-            auto smgr = _clientShaders.lock();
-            if (!smgr)
-            {
-                LOG_WARNING () << "onShaderDone but empty manager. This can happen if node changed.";
-                return;
-            }
+        smgr->CallShader(std::move(shader), std::move(args), args.empty() ? 0 : 1, 0, 0,
+            [this, cb = std::move(cback), shaders = _clientShaders]
+            (boost::optional<ByteBuffer>&& data, boost::optional<std::string>&& output, boost::optional<std::string>&& error) {
+                auto smgr = _clientShaders.lock();
+                if (!smgr)
+                {
+                    LOG_WARNING() << "onShaderDone but empty manager. This can happen if node changed.";
+                    return;
+                }
 
-            if (!_clientShadersCback)
-            {
-                assert(false);
-                LOG_ERROR() << "onShaderDone but empty callback";
-                return;
-            }
+                if (!cb)
+                {
+                    assert(false);
+                    LOG_ERROR() << "onShaderDone but empty callback";
+                    return;
+                }
 
-            postFunctionToClientContext([
-                    txid = std::move(txid),
-                    res = std::move(result),
-                    err = std::move(error),
-                    cb = std::move(_clientShadersCback)
-                    ] () {
-                        cb(err ? *err : "", res ? *res : "", txid ? *txid: TxID());
+                postFunctionToClientContext(
+                    [data = std::move(data), res = std::move(output), err = std::move(error), cb = std::move(cb)] () {
+                        cb(err ? *err : "", res ? *res : "", data ? *data : beam::ByteBuffer());
+                    });
+        });
+    }
+
+    void WalletClient::callShader(std::string&& shaderFile, std::string&& args, CallShaderCallback&& cback)
+    {
+        try
+        {
+            callShader(fsutils::fread(shaderFile), std::move(args), std::move(cback));
+        }
+        catch (std::runtime_error& err)
+        {
+            postFunctionToClientContext([errorMsg = std::string(err.what()), cb = std::move(cback)]() {
+                cb(errorMsg, "", {});
+            });
+        }
+    }
+
+    void WalletClient::processShaderTxData(beam::ByteBuffer&& data, ProcessShaderTxDataCallback&& cback)
+    {
+        auto smgr = _clientShaders.lock();
+        if (!smgr)
+        {
+            assert(false);
+            postFunctionToClientContext([cb = std::move(cback)]() {
+                cb("unexpected: m_wallet is null", TxID());
+            });
+            return;
+        }
+
+        smgr->ProcessTxData(data,
+            [this, cb = std::move(cback), shaders = _clientShaders] (const boost::optional<TxID>& txid, boost::optional<std::string>&& error) {
+                auto smgr = _clientShaders.lock();
+                if (!smgr)
+                {
+                    LOG_WARNING() << "onShaderDone but empty manager. This can happen if node changed.";
+                    return;
+                }
+
+                if (!cb)
+                {
+                    assert(false);
+                    LOG_ERROR() << "onShaderDone but empty callback";
+                    return;
+                }
+
+                postFunctionToClientContext(
+                    [txid, err = std::move(error), cb = std::move(cb)] () {
+                        cb(err ? *err : "", txid ? *txid : TxID());
                     });
         });
     }

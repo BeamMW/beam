@@ -23,12 +23,13 @@ namespace beam::wallet
 
     struct EvSubUnsub
     {
-        boost::optional<bool> syncProgress = boost::none;
-        boost::optional<bool> systemState  = boost::none;
-        boost::optional<bool> assetChanged = boost::none;
-        boost::optional<bool> utxosChanged = boost::none;
-        boost::optional<bool> addrsChanged = boost::none;
-        boost::optional<bool> txsChanged   = boost::none;
+        boost::optional<bool> syncProgress   = boost::none;
+        boost::optional<bool> systemState    = boost::none;
+        boost::optional<bool> assetChanged   = boost::none;
+        boost::optional<bool> utxosChanged   = boost::none;
+        boost::optional<bool> addrsChanged   = boost::none;
+        boost::optional<bool> txsChanged     = boost::none;
+        boost::optional<bool> connectChanged = boost::none;
 
         struct Response
         {

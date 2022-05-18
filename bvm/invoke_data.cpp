@@ -47,6 +47,9 @@ namespace beam::bvm2 {
 			krn.m_Height = hr;
 		}
 
+		if (Flags::Dependent & m_Flags)
+			krn.m_Dependent = true;
+
 		FundsChangeMap fcm;
 		for (auto it = m_Spend.begin(); m_Spend.end() != it; it++)
 		{
@@ -78,7 +81,7 @@ namespace beam::bvm2 {
 		krn.UpdateMsg();
 
 		ECC::Hash::Processor hp;
-		hp << krn.m_Msg;
+		krn.Prepare(hp, &m_ParentCtx.m_Hash);
 
 		for (uint32_t i = 0; i < nPks; i++)
 			hp << pPks[i];
@@ -165,7 +168,7 @@ namespace beam::bvm2 {
 			kdf.DeriveKey(skKrn, hv);
 			sk = skKrn;
 
-			krn.Sign(&vSk.front(), static_cast<uint32_t>(vSk.size()), ptFunds);
+			krn.Sign(&vSk.front(), static_cast<uint32_t>(vSk.size()), ptFunds, &m_ParentCtx.m_Hash);
 		}
 
 		tx.m_vKernels.push_back(std::move(pKrn));

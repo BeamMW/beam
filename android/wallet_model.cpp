@@ -100,22 +100,30 @@ namespace
         //     }
         // }
 
-        if (txDescription.m_txType == wallet::TxType::Contract) {
+        //
+        // AppName & AppID can be not only in Contract transaction
+        // Apps can create usual transactions as well (at the time
+        // of writing of this comment TxType::Simple)
+        //
+        if(!txDescription.m_appName.empty())
+        {
+            setStringField(env, TxDescriptionClass, tx, "appName", txDescription.m_appName.c_str());
+            setBooleanField(env, TxDescriptionClass, tx, "isDapps", true);
+        }
+
+        if (!txDescription.m_appID.empty())
+        {
+            setStringField(env, TxDescriptionClass, tx, "appID", txDescription.m_appID.c_str());
+            setBooleanField(env, TxDescriptionClass, tx, "isDapps", true);
+        }
+
+        if (txDescription.m_txType == wallet::TxType::Contract)
+        {
             setBooleanField(env, TxDescriptionClass, tx, "isDapps", true);
 
             bvm2::ContractInvokeData vData;
             Height h = txDescription.m_minHeight;
 
-            if (auto strdesc = txDescription.GetParameter<std::string>(beam::wallet::TxParameterID::AppName))
-            {
-                setStringField(env, TxDescriptionClass, tx, "appName", strdesc->c_str());
-            }
-            
-            if (auto strid = txDescription.GetParameter<std::string>(beam::wallet::TxParameterID::AppID))
-            {
-                setStringField(env, TxDescriptionClass, tx, "appID", strid->c_str());
-            }
-            
             if(txDescription.GetParameter(TxParameterID::ContractDataPacked, vData))
             {
                 if (!vData.empty())
@@ -506,7 +514,7 @@ namespace
 }
 
 WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, Reactor::Ptr reactor)
-    : WalletClient(Rules::get() , walletDB, nodeAddr, reactor)
+    : WalletClient(Rules::get(), walletDB, nodeAddr, reactor)
 {    
 }
 

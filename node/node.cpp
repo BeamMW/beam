@@ -577,7 +577,7 @@ void Node::DeleteOutdated()
 		Transaction& tx = *x.m_pValue;
 
         uint32_t nBvmCharge = 0;
-        if (proto::TxStatus::Ok != m_Processor.ValidateTxContextEx(tx, x.m_Profit.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr))
+        if (proto::TxStatus::Ok != m_Processor.ValidateTxContextEx(tx, x.m_Profit.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr, nullptr))
         {
             x.m_Hist.m_Height = m_Processor.m_Cursor.m_ID.m_Height;
             m_TxPool.SetState(x, TxPool::Fluff::State::Outdated);
@@ -589,7 +589,7 @@ void Node::DeleteOutdated()
         TxPool::Stem::Element& x = (it++)->get_ParentObj();
 
         uint32_t nBvmCharge = 0;
-        uint8_t nStatus = m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Profit.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr);
+        uint8_t nStatus = m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Profit.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr, nullptr);
         if (proto::TxStatus::Ok != nStatus)
         {
             LogTxStem(*x.m_pValue, "out-1");
@@ -610,7 +610,7 @@ void Node::DeleteOutdated()
             auto& x = c.get_ParentObj();
 
             uint32_t nBvmCharge = 0;
-            uint8_t nStatus = m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Profit.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr);
+            uint8_t nStatus = m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Profit.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr, nullptr);
             if (proto::TxStatus::Ok == nStatus)
             {
                 LogTxStem(*x.m_pValue, "auto-fluffing");
@@ -1780,10 +1780,7 @@ void Node::Peer::OnMsg(proto::GetHdr&& msg)
         m_This.m_Processor.get_DB().get_State(rowid, msgHdr.m_Description);
         Send(msgHdr);
     } else
-    {
-        proto::DataMissing msgMiss(Zero);
-        Send(msgMiss);
-    }
+        Send(proto::DataMissing());
 }
 
 void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
@@ -1847,7 +1844,7 @@ void Node::Peer::SendHdrs(NodeDB::StateID& sid, uint32_t nCount)
         }
     }
 
-    Send(proto::DataMissing(Zero));
+    Send(proto::DataMissing());
 }
 
 bool Node::DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>& v, const proto::HdrPack& msg)
@@ -1858,7 +1855,7 @@ bool Node::DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>& v, const pr
     // PoW verification is heavy for big packs. Do it in parallel
     Executor::Scope scope(m_Processor.m_ExecutorMT);
 
-    proto::details::ExtraData<proto::HdrPack> ex;
+    proto::FlyClient::Data::DecodedHdrPack ex;
     if (!ex.DecodeAndCheck(msg))
         return false;
 
@@ -1990,8 +1987,7 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
         }
     }
 
-    proto::DataMissing msgMiss(Zero);
-    Send(msgMiss);
+    Send(proto::DataMissing());
 }
 
 bool Node::Peer::GetBlock(proto::BodyBuffers& out, const NodeDB::StateID& sid, const proto::GetBodyPack& msg, bool bActive)
@@ -2249,7 +2245,7 @@ uint8_t Node::ValidateTx(TxPool::Stats& stats, const Transaction& tx, const Tran
     uint32_t nBvmCharge = 0;
     Amount feeReserve = 0;
 
-    uint8_t nRet = ValidateTx2(ctx, tx, nBvmCharge, feeReserve, nullptr, pExtraInfo);
+    uint8_t nRet = ValidateTx2(ctx, tx, nBvmCharge, feeReserve, nullptr, pExtraInfo, nullptr);
     if (proto::TxStatus::Ok == nRet)
     {
         if (AmountBig::get_Hi(ctx.m_Stats.m_Fee))
@@ -2270,7 +2266,7 @@ uint8_t Node::ValidateTx(TxPool::Stats& stats, const Transaction& tx, const Tran
     return nRet;
 }
 
-uint8_t Node::ValidateTx2(Transaction::Context& ctx, const Transaction& tx, uint32_t& nBvmCharge, Amount& feeReserve, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo)
+uint8_t Node::ValidateTx2(Transaction::Context& ctx, const Transaction& tx, uint32_t& nBvmCharge, Amount& feeReserve, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo, Merkle::Hash* pNewCtx)
 {
     ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
 
@@ -2281,7 +2277,7 @@ uint8_t Node::ValidateTx2(Transaction::Context& ctx, const Transaction& tx, uint
         return proto::TxStatus::Invalid;
     }
 
-    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false, nBvmCharge, pParent, pExtraInfo);
+    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false, nBvmCharge, pParent, pExtraInfo, pNewCtx);
     if (proto::TxStatus::Ok != nCode)
         return nCode;
 
@@ -2886,23 +2882,68 @@ uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash&
         Transaction::Context ctx(pars);
         uint32_t nBvmCharge = 0;
         Amount feeReserve = 0;
-        uint8_t nRes = ValidateTx2(ctx, *pTx, nBvmCharge, feeReserve, pParent, pExtraInfo);
+        Merkle::Hash hvCtxNew;
+        uint8_t nRes = ValidateTx2(ctx, *pTx, nBvmCharge, feeReserve, pParent, pExtraInfo, &hvCtxNew);
 
         if (proto::TxStatus::Ok != nRes)
             return nRes;
 
-        Merkle::Hash hvCtxNew;
-        proto::DependentContext::get_Ancestor(hvCtxNew, hvCtx, keyTx); // TODO - this should be kernelIDs
-
+        if (m_TxDependent.m_setContexts.find(hvCtxNew, TxPool::Dependent::Element::Context::Comparator()) != m_TxDependent.m_setContexts.end())
+            return proto::TxStatus::DependentNotBest;
+        
         pElem = m_TxDependent.AddValidTx(std::move(pTx), ctx, keyTx, hvCtxNew, pParent);
         pElem->m_BvmCharge = nBvmCharge;
         if (pParent)
             pElem->m_BvmCharge += pParent->m_BvmCharge;
     }
 
-    // TODO: broadcast it w.r.t. fluff/stem
+    struct MySelector :public Peer::ISelector {
+        static bool IsValid_(Peer& p) {
+            return Peer::Selector_Stem::IsValid_(p) && (p.get_Ext() >= 9);
+        }
+        bool IsValid(Peer& p) override {
+            return IsValid_(p);
+        }
+    };
 
-    return (m_TxDependent.m_pBest == pElem) ? proto::TxStatus::Ok : proto::TxStatus::DependentNotBest;
+    if (!bFluff)
+    {
+        MySelector sel;
+
+        Peer* pNext = SelectRandomPeer(sel);
+        if (pNext)
+            pNext->SendTx(pElem->m_pValue, false, &hvCtx);
+        else
+            bFluff = true;
+    }
+
+    bool bNewBest = (m_TxDependent.m_pBest == pElem);
+
+    if (bFluff && !pElem->m_Fluff)
+    {
+        pElem->m_Fluff = true;
+
+        for (PeerList::iterator it2 = m_lstPeers.begin(); m_lstPeers.end() != it2; ++it2)
+        {
+            Peer& peer = *it2;
+            if (bNewBest)
+                peer.MaybeSendDependent();
+
+            if (pSender && peer.m_pInfo && (peer.m_pInfo->m_ID.m_Key == *pSender))
+                continue;
+            if (!MySelector::IsValid_(peer)/* || peer.IsChocking()*/)
+                continue;
+
+            // save time, send the full tx
+            peer.SendTx(pElem->m_pValue, true, &hvCtx);
+        }
+
+    }
+
+    if (bNewBest)
+        m_Miner.SoftRestart();
+
+    return bNewBest ? proto::TxStatus::Ok : proto::TxStatus::DependentNotBest;
 }
 
 void Node::Dandelion::OnTimedOut(Element& x)
@@ -2917,7 +2958,7 @@ void Node::Dandelion::OnTimedOut(Element& x)
 bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr, const AmountBig::Type& fees, Amount& feeReserve)
 {
     uint32_t nBvmCharge = 0;
-    if (proto::TxStatus::Ok != get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true, nBvmCharge, nullptr, nullptr))
+    if (proto::TxStatus::Ok != get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true, nBvmCharge, nullptr, nullptr, nullptr))
         return false;
 
     TxStats s;
@@ -2965,6 +3006,7 @@ void Node::Peer::OnLogin(proto::Login&& msg, uint32_t nFlagsPrev)
 	}
 
     MaybeSendSerif();
+    MaybeSendDependent();
 
 	if (b != ShouldFinalizeMining()) {
 		// stupid compiler insists on parentheses!
@@ -2992,7 +3034,7 @@ void Node::Peer::OnChocking()
 	if (!(Flags::Chocking & m_Flags))
 	{
 		m_Flags |= Flags::Chocking;
-		Send(proto::Ping(Zero));
+		Send(proto::Ping());
 	}
 }
 
@@ -3013,6 +3055,8 @@ void Node::Peer::BroadcastTxs()
 {
 	if (!(proto::LoginFlags::SpreadingTransactions & m_LoginFlags))
 		return;
+
+    // TODO: send dependent txs
 
 	if (IsChocking())
 		return;
@@ -3090,6 +3134,52 @@ void Node::Peer::MaybeSendSerif()
     m_Flags |= Flags::SerifSent;
 }
 
+void Node::Peer::MaybeSendDependent()
+{
+    auto& vec = m_Dependent.m_vSent; // alias
+    if (m_Dependent.m_hSent != m_This.m_Processor.m_Cursor.m_Full.m_Height)
+    {
+        m_Dependent.m_hSent = m_This.m_Processor.m_Cursor.m_Full.m_Height;
+        vec.clear();
+    }
+
+    if (!(proto::LoginFlags::WantDependentState & m_LoginFlags))
+        return;
+
+    auto* pTop = m_This.m_TxDependent.m_pBest;
+    if (!pTop)
+        return;
+
+    proto::DependentContextChanged msg;
+    for (msg.m_PrefixDepth = std::min(pTop->m_Depth, (uint32_t) vec.size()); msg.m_PrefixDepth; msg.m_PrefixDepth--, pTop = pTop->m_pParent)
+        if (vec[msg.m_PrefixDepth - 1] == pTop->m_Context.m_Key)
+            break;
+
+    vec.resize(msg.m_PrefixDepth);
+
+    pTop = m_This.m_TxDependent.m_pBest;
+    if (pTop->m_Depth == msg.m_PrefixDepth)
+        return; // no change
+
+    assert(vec.size() < pTop->m_Depth);
+    vec.resize(pTop->m_Depth);
+    msg.m_vCtxs.resize(vec.size() - msg.m_PrefixDepth);
+
+    for (uint32_t i = pTop->m_Depth; ; pTop = pTop->m_pParent)
+    {
+        const auto& hv = pTop->m_Context.m_Key;
+        vec[--i] = hv;
+
+        uint32_t i2 = i - msg.m_PrefixDepth;
+        msg.m_vCtxs[i2] = hv;
+
+        if (!i2)
+            break;
+    }
+
+    Send(msg);
+}
+
 void Node::Peer::OnMsg(proto::HaveTransaction&& msg)
 {
     TxPool::Fluff::Element::Tx key;
@@ -3132,11 +3222,15 @@ void Node::Peer::OnMsg(proto::GetTransaction&& msg)
     SendTx(it->get_ParentObj().m_pValue, true);
 }
 
-void Node::Peer::SendTx(Transaction::Ptr& ptx, bool bFluff)
+void Node::Peer::SendTx(Transaction::Ptr& ptx, bool bFluff, const Merkle::Hash* pCtx /* = nullptr */)
 {
-    proto::NewTransaction msg;
+    struct MyMsg :public proto::NewTransaction {
+        ~MyMsg() {
+            m_Context.release();
+        }
+    } msg;
     msg.m_Fluff = bFluff;
-
+    msg.m_Context.reset(Cast::NotConst(pCtx)); // fictive
     TemporarySwap scope(msg.m_Transaction, ptx);
 
     Send(msg);
@@ -3889,7 +3983,7 @@ void Node::Peer::OnMsg(proto::ContractVarsEnum&& msg)
 
     Wrk wrk(*this, msg);
 
-    m_This.m_Processor.ExecInDependentContext(wrk, n_pDependentContext.get(), m_This.m_TxDependent);
+    m_This.m_Processor.ExecInDependentContext(wrk, m_Dependent.m_pQuery.get(), m_This.m_TxDependent);
 
     Send(wrk.m_Out);
 }
@@ -3957,7 +4051,7 @@ void Node::Peer::OnMsg(proto::ContractLogsEnum&& msg)
 
     Wrk wrk(*this, msg);
 
-    m_This.m_Processor.ExecInDependentContext(wrk, n_pDependentContext.get(), m_This.m_TxDependent);
+    m_This.m_Processor.ExecInDependentContext(wrk, m_Dependent.m_pQuery.get(), m_This.m_TxDependent);
 
     Send(wrk.m_Out);
 }
@@ -4011,7 +4105,7 @@ void Node::Peer::OnMsg(proto::GetContractLogProof&& msg)
 
 void Node::Peer::OnMsg(proto::SetDependentContext&& msg)
 {
-    n_pDependentContext = std::move(msg.m_Context);
+    m_Dependent.m_pQuery = std::move(msg.m_Context);
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)

@@ -18,6 +18,7 @@ namespace Shaders
 {
 	using PubKey = ECC::Point;
 	using Secp_point_data = ECC::Point;
+	using Secp_point_dataEx = ECC::Point::Storage;
 	using Secp_scalar_data = ECC::Scalar;
 	using AssetID = beam::Asset::ID;
 	using ContractID = ECC::uintBig;

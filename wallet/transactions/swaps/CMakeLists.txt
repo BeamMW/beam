@@ -50,7 +50,7 @@ if(BITCOIN_CASH_SUPPORT)
 endif()
 
 add_library(swap STATIC ${SWAP_SRC})
-target_link_libraries(swap PUBLIC wallet libbitcoin ethash PRIVATE http)
+target_link_libraries(swap PUBLIC wallet_core libbitcoin ethash PRIVATE http)
 target_compile_definitions(swap PUBLIC BEAM_ATOMIC_SWAP_SUPPORT)
 target_include_directories(swap PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 

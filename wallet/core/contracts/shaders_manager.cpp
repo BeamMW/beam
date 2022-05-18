@@ -206,11 +206,11 @@ namespace beam::wallet {
         _queue.push(std::move(newReq));
     }
 
-    void ShadersManager::CallShaderAndStartTx(const std::vector<uint8_t>& shader, const std::string &args, unsigned method, uint32_t priority, uint32_t unique, DoneAllHandler doneHandler)
+    void ShadersManager::CallShaderAndStartTx(std::vector<uint8_t>&& shader, std::string&& args, unsigned method, uint32_t priority, uint32_t unique, DoneAllHandler doneHandler)
     {
         Request req;
-        req.shader   = shader;
-        req.args     = args;
+        req.shader   = std::move(shader);
+        req.args     = std::move(args);
         req.method   = method;
         req.doneAll  = std::move(doneHandler);
         req.priority = priority;
@@ -225,11 +225,11 @@ namespace beam::wallet {
         LOG_VERBOSE() << "shader call is still in progress, request " << args << " queued";
     }
 
-    void ShadersManager::CallShader(const std::vector<uint8_t>& shader, const std::string& args, unsigned method, uint32_t priority, uint32_t unique, DoneCallHandler doneHandler)
+    void ShadersManager::CallShader(std::vector<uint8_t>&& shader, std::string&& args, unsigned method, uint32_t priority, uint32_t unique, DoneCallHandler doneHandler)
     {
         Request req;
-        req.shader   = shader;
-        req.args     = args;
+        req.shader   = std::move(shader);
+        req.args     = std::move(args);
         req.method   = method;
         req.doneCall = std::move(doneHandler);
         req.priority = priority;
@@ -283,7 +283,16 @@ namespace beam::wallet {
         }
 
         _done = false;
-        StartRun(req.method);
+        _startEvent = io::AsyncEvent::create(io::Reactor::get_Current(),
+            [this, method = req.method]()
+            {
+                StartRun(method);
+            });
+
+        _wallet->DoInSyncedWallet([this]()
+            {
+                _startEvent->post();
+            });
     }
 
     void ShadersManager::ProcessTxData(const ByteBuffer& buffer, DoneTxHandler doneHandler)
@@ -346,7 +355,7 @@ namespace beam::wallet {
         };
 
         _done = true;
-        const auto req = _queue.top();
+        const auto& req = _queue.top();
 
         if (pExc != nullptr)
         {

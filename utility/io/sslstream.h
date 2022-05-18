@@ -32,6 +32,9 @@ public:
     /// Shutdowns write side, waits for pending write requests to complete, but on reactor's side
     void shutdown() override;
 
+    /// Set SNI hostname (many hosts need this to handshake successfully)
+    void set_host_name(const char* host);
+
 private:
     friend class SslServer;
     friend class Reactor;

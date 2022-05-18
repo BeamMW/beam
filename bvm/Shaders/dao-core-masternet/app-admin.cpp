@@ -101,7 +101,17 @@ ON_METHOD(manager, deploy_contract)
     if (!ManagerUpgadable2::FillDeployArgs(arg, &pk))
         return;
 
-    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deploy DaoCore contract", 0);
+    const uint32_t nPreallocAccounts = 40; // actually around 30, but no matter
+
+    uint32_t nCharge =
+        ManagerUpgadable2::get_ChargeDeploy() +
+        Env::Cost::SaveVar_For(sizeof(DaoCore::State)) +
+        Env::Cost::AssetManage +
+        Env::Cost::AssetEmit +
+        Env::Cost::Cycle * 50 +
+        (Env::Cost::SaveVar_For(50) + Env::Cost::Cycle * 20) * nPreallocAccounts;
+
+    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deploy DaoCore contract", nCharge);
 }
 
 ON_METHOD(manager, schedule_upgrade)

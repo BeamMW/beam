@@ -23,7 +23,7 @@ namespace beam::wallet
 {
 	class Wallet;
 
-    bool ReadAmount(const po::variables_map& vm, Amount& amount, const Amount& limit = std::numeric_limits<Amount>::max(), Asset::ID assetId = Asset::s_BeamID);
+    bool ReadAmount(const po::variables_map& vm, Amount& amount, const Amount& limit = std::numeric_limits<AmountSigned>::max(), Asset::ID assetId = Asset::s_BeamID);
     bool ReadFee(const po::variables_map& vm, Amount& fee, const Wallet&, bool hasShieldedOutputs = false);
     bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params);
     bool LoadBaseParamsForTX(const po::variables_map& vm, const Wallet&, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool skipReceiverWalletID = false);

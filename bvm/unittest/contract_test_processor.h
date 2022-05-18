@@ -105,6 +105,22 @@ namespace beam::bvm2
 				res.n = 0;
 		}
 
+		virtual void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) override
+		{
+			auto pE = m_Vars.FindVarEx(key, bExact, bBigger);
+			if (pE)
+			{
+				key = pE->ToBlob();
+				res = pE->m_Data;
+			}
+			else
+			{
+				key.n = 0;
+				res.n = 0;
+			}
+		}
+
+
 		struct Action_Var
 			:public Action
 		{

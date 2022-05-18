@@ -17,6 +17,9 @@ add_subdirectory(sqlite)
 add_subdirectory(crypto/blake)
 add_subdirectory(libuv)
 
+if(BEAM_IPFS_SUPPORT)
+    add_subdirectory(asio-ipfs)
+endif()
 
 #add_library(3rdparty INTERFACE IMPORTED GLOBAL)
 #set_target_properties(3rdparty PROPERTIES

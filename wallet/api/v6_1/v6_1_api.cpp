@@ -25,14 +25,21 @@ namespace beam::wallet
         ss << avMajor << "." << avMinor;
         _apiVersion = ss.str();
         _wallet = init.wallet;
+        _network = init.nodeNetwork;
+        assert(_network);
         V6_1_API_METHODS(BEAM_API_REG_METHOD)
     }
 
     V61Api::~V61Api()
     {
-        if (_subscribedToListener && _wallet)
+        if (_subscribedToListener)
         {
-            _wallet->Unsubscribe(this);
+            if (_wallet)
+                _wallet->Unsubscribe(this);
+
+            if (_network)
+                _network->Unsubscribe(this);
+
             _subscribedToListener = false;
         }
     }

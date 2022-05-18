@@ -252,6 +252,7 @@ namespace bvm2 {
 
 		LoadVar(cid, m_Code);
 		m_Code.Export(x.m_Body);
+		m_Code = x.m_Body; // important! Use our local copy to access the code
 
 		const Header& hdr = ParseMod();
 		Wasm::Test(iMethod < ByteOrder::from_le(hdr.m_NumMethods));
@@ -742,7 +743,7 @@ namespace bvm2 {
 
 	void TestStackPtr(const Wasm::Compiler::GlobalVar& x)
 	{
-		Wasm::Test(x.m_IsVariable && (Wasm::TypeCode::i32 == x.m_Type));
+		Wasm::Test(x.CanBeStackPtr());
 	}
 
 	void Processor::ResolveBinding(Wasm::Compiler& c, uint32_t iFunction, Kind kind)
@@ -811,17 +812,25 @@ namespace bvm2 {
 		if (!c.m_Globals.empty())
 		{
 			// we don't support globals, but it could be the stack pointer if the module wasn't built as a "shared" lib.
-			Wasm::Test(!bStackPtrImported && (1 == c.m_Globals.size()));
+			Wasm::Test(!bStackPtrImported && (1 <= c.m_Globals.size()));
 
-			auto& g0 = c.m_Globals.front();
-			TestStackPtr(g0);
+			for (auto& g : c.m_Globals)
+			{
+				// work-around
+				auto& x = c.m_ImportGlobals.emplace_back();
+				ZeroObject(x);
+				if (!bStackPtrImported && g.CanBeStackPtr())
+				{
+					x.m_Binding = static_cast<uint32_t>(Wasm::VariableType::StackPointer);
+					bStackPtrImported = true;
+				}
+				else
+				{
+					x.m_Binding = static_cast<uint32_t>(-1); // invalidate all other globals, we don't support them, compilation fails if we try to use them
+				}
 
-			// work-around
-			auto& x = c.m_ImportGlobals.emplace_back();
-			ZeroObject(x);
-			x.m_Binding = static_cast<uint32_t>(Wasm::VariableType::StackPointer);
-
-			Cast::Down<Wasm::Compiler::GlobalVar>(x) = g0;
+				Cast::Down<Wasm::Compiler::GlobalVar>(x) = g;
+			}
 			c.m_Globals.clear();
 		}
 
@@ -1234,6 +1243,58 @@ namespace bvm2 {
 
 		memcpy(pVal, res.p, std::min(nVal, res.n));
 		return res.n;
+	}
+
+	BVM_METHOD(LoadVarEx)
+	{
+		auto& nKey_ = get_AddrAsW<Wasm::Word>(nKey);
+		auto& nVal_ = get_AddrAsW<Wasm::Word>(nVal);
+
+		auto nKeySize = Wasm::from_wasm(nKey_);
+		auto nValSize = Wasm::from_wasm(nVal_);
+		auto nValSize0 = nValSize;
+
+		OnHost_LoadVarEx(get_AddrW(pKey, nKeyBufSize), nKeySize, nKeyBufSize, get_AddrW(pVal, nValSize), nValSize, nType, nSearchFlag);
+
+		DischargeUnits(Limits::Cost::LoadVar_For(std::min(nValSize, nValSize0)));
+
+		nKey_ = Wasm::to_wasm(nKeySize);
+		nVal_ = Wasm::to_wasm(nValSize);
+	}
+	BVM_METHOD_HOST(LoadVarEx)
+	{
+		Wasm::Test(IsPastHF4());
+
+		std::setmin(nKeyBufSize, Limits::VarKeySize);
+		Wasm::Test(nKey <= nKeyBufSize);
+
+		VarKey vk;
+		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), false);
+
+		Blob key = vk.ToBlob(), res;
+		LoadVarEx(key, res,
+			!!(Shaders::KeySearchFlags::Exact & nSearchFlag),
+			!!(Shaders::KeySearchFlags::Bigger & nSearchFlag));
+
+		if (key.n > ContractID::nBytes)
+		{
+			// make sure we're still in the context of the contract vars
+			auto pK = (const uint8_t*) key.p;
+			const auto& cid = m_FarCalls.m_Stack.back().m_Cid;
+
+			if (!memcmp(pK, cid.m_pData, cid.nBytes) && (nType == pK[cid.nBytes]))
+			{
+				nKey = key.n - (ContractID::nBytes + 1);
+				memcpy(pKey, pK + ContractID::nBytes + 1, std::min(nKey, nKeyBufSize));
+
+				memcpy(pVal, res.p, std::min(nVal, res.n));
+				nVal = res.n;
+				return;
+			}
+		}
+
+		nKey = 0;
+		nVal = 0;
 	}
 
 	BVM_METHOD(SaveVar)
@@ -1966,6 +2027,20 @@ namespace bvm2 {
 		m_Secp.m_Point.FindStrict(Secp::Point::From(p)).m_Val.Export(pk);
 	}
 
+	BVM_METHOD(Secp_Point_ExportEx)
+	{
+		if (Kind::Contract == get_Kind())
+			Wasm::Test(IsPastHF4());
+
+		DischargeUnits(Limits::Cost::Secp_Point_Export);
+		m_Secp.m_Point.FindStrict(p).m_Val.Export(get_AddrAsW<ECC::Point::Storage>(res));
+	}
+
+	BVM_METHOD_HOST(Secp_Point_ExportEx)
+	{
+		m_Secp.m_Point.FindStrict(Secp::Point::From(p)).m_Val.Export(res);
+	}
+
 	BVM_METHOD(Secp_Point_neg)
 	{
 		m_Secp.m_Point.FindStrict(dst).m_Val = -m_Secp.m_Point.FindStrict(src).m_Val;
@@ -2222,6 +2297,24 @@ namespace bvm2 {
 	//	Wasm::Test(pCallback);
 	//	return LoadAllVars(*pCallback);
 	//}
+	BVM_METHOD(SelectContext)
+	{
+		return OnHost_SelectContext(bDependent, nChargeNeeded);
+	}
+	BVM_METHOD_HOST(SelectContext)
+	{
+		bool b = !!bDependent;
+		if (MaxHeight != m_Context.m_Height)
+		{
+			bool b0 = !!m_Context.m_pParent;
+			if (b == b0)
+				return; // no change
+
+			m_Context.Reset();
+		}
+
+		SelectContext(b, nChargeNeeded);
+	}
 
 	BVM_METHOD(Vars_Enum)
 	{
@@ -2229,6 +2322,8 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(Vars_Enum)
 	{
+		EnsureContext();
+
 		IReadVars::Ptr pObj;
 		VarsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1), pObj);
 		if (!pObj)
@@ -2306,6 +2401,8 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(Logs_Enum)
 	{
+		EnsureContext();
+
 		IReadLogs::Ptr pObj;
 		LogsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1), pPosMin, pPosMax, pObj);
 		if (!pObj)
@@ -2368,6 +2465,8 @@ namespace bvm2 {
 
 	uint32_t ProcessorManager::VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof)
 	{
+		EnsureContext();
+
 		ByteBuffer val;
 		beam::Merkle::Proof proof;
 
@@ -2429,6 +2528,8 @@ namespace bvm2 {
 
 	uint32_t ProcessorManager::LogGetProofInternal(const HeightPos& hp, Wasm::Word& pProof)
 	{
+		EnsureContext();
+
 		ByteBuffer val;
 		beam::Merkle::Proof proof;
 
@@ -2924,10 +3025,24 @@ namespace bvm2 {
 		}
 	}
 
+	Height ProcessorManager::get_Height()
+	{
+		EnsureContext();
+		return m_Context.m_Height;
+	}
+
+	void ProcessorManager::EnsureContext()
+	{
+		if (MaxHeight == m_Context.m_Height)
+		{
+			SelectContext(false, 0);
+			Wasm::Test(MaxHeight != m_Context.m_Height);
+		}
+	}
+
 	ContractInvokeEntry& ProcessorManager::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, bool bCvtFunds, const char* szComment, uint32_t nCharge)
 	{
-		Wasm::Test(nCharge != ContractInvokeEntry::s_ChargeAdv);
-
+		bool bFirst = m_vInvokeData.empty();
 		auto& v = m_vInvokeData.emplace_back();
 
 		if (iMethod)
@@ -2945,6 +3060,14 @@ namespace bvm2 {
 		args.Export(v.m_Args);
 		v.m_sComment = szComment;
 		v.m_Charge = nCharge;
+		v.m_Flags = 0;
+
+		if (m_Context.m_pParent && bFirst)
+		{
+			v.m_Flags |= ContractInvokeEntry::Flags::Dependent;
+			v.m_ParentCtx.m_Height = m_Context.m_Height + 1;
+			v.m_ParentCtx.m_Hash = *m_Context.m_pParent;
+		}
 
 		for (uint32_t i = 0; i < nFunds; i++)
 		{
@@ -2971,7 +3094,7 @@ namespace bvm2 {
 		v.m_Adv.m_Height.m_Max = hMax;
 
 		v.m_Adv.m_Fee = v.get_FeeMin(hMin);
-		v.m_Charge = v.s_ChargeAdv;
+		v.m_Flags |= ContractInvokeEntry::Flags::Adv;
 
 		Key::IKdf* pKdf = nullptr;
 		ECC::Hash::Value hvNonce;

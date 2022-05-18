@@ -2,24 +2,25 @@
 #include "../common.h"
 #include "../Math.h"
 #include "contract.h"
+#include "../upgradable3/contract_impl.h"
 
-namespace Liquity {
 
-template <uint8_t nTag>
+namespace Nephrite {
+
 struct EpochStorage
 {
     static EpochKey get_Key(uint32_t iEpoch) {
         EpochKey k;
-        k.m_Tag = nTag;
+        k.m_Tag = Tags::s_Epoch_Stable;
         k.m_iEpoch = iEpoch;
         return k;
     }
 
-    static void Load(uint32_t iEpoch, ExchangePool::Epoch& e) {
+    static void Load(uint32_t iEpoch, HomogenousPool::Epoch& e) {
         Env::LoadVar_T(get_Key(iEpoch), e);
     }
 
-    static void Save(uint32_t iEpoch, const ExchangePool::Epoch& e) {
+    static void Save(uint32_t iEpoch, const HomogenousPool::Epoch& e) {
         Env::SaveVar_T(get_Key(iEpoch), e);
     }
 
@@ -145,8 +146,7 @@ struct MyGlobal
         tk.m_iTrove = iTrove;
         Env::Halt_if(!Env::LoadVar_T(tk, t));
 
-        EpochStorage<Tags::s_Epoch_Redist> stor;
-        m_RedistPool.Remove(t, stor);
+        m_RedistPool.Remove(t);
 
         // just for more safety. Theoretically strict isn't necessary
         Strict::Sub(m_Troves.m_Totals.Tok, t.m_Amounts.Tok);
@@ -168,8 +168,7 @@ struct MyGlobal
     {
         Env::Halt_if(!Env::LoadVar_T(tk, t));
 
-        EpochStorage<Tags::s_Epoch_Redist> stor;
-        auto vals = m_RedistPool.get_UpdatedAmounts(t, stor);
+        auto vals = m_RedistPool.get_UpdatedAmounts(t);
 
         return vals.CmpRcr(tRef.m_Amounts);
     }
@@ -264,32 +263,13 @@ struct MyGlobal
 
             // check cr
             Price price = get_Price();
-            Float trcr = m_Troves.m_Totals.get_Rcr();
 
-            bool bRecovery = price.IsBelow150(trcr);
-            if (bRecovery)
+            bool bRecovery = IsRecovery(price);
+            Env::Halt_if(IsTroveUpdInvalid(t, totals0, price, bRecovery));
+
+            Amount feeCol = get_BorrowFee(m_Troves.m_Totals.Tok, totals0.Tok, bRecovery, price);
+            if (feeCol)
             {
-                // recovery mode.
-                Env::Halt_if(!totals0.Tok); // the very first trove, should not drive us into recovery
-                Env::Halt_if(totals0.get_Rcr() > trcr); // Ban txs that further decreese the tcr
-            }
-            else
-                Env::Halt_if(price.IsBelow110(t.m_Amounts.get_Rcr()));
-
-            // during recovery borrowing fee is OFF
-            if ((m_Troves.m_Totals.Tok > totals0.Tok) && !m_ProfitPool.IsEmpty() && !bRecovery)
-            {
-
-                Amount valMinted = m_Troves.m_Totals.Tok - totals0.Tok;
-                Amount feeTokMin = valMinted / 200; // 0.5 percent
-                Amount feeTokMax = valMinted / 20; // 5 percent
-
-                m_BaseRate.Decay();
-                Amount feeTok = feeTokMin + m_BaseRate.m_k * Float(valMinted);
-                feeTok = std::min(feeTok, feeTokMax);
-
-                Amount feeCol = price.T2C(feeTok);
-
                 m_ProfitPool.AddValue(feeCol, 0);
                 fpLogic.Col.Add(feeCol, 1);
             }
@@ -305,7 +285,7 @@ struct MyGlobal
         Env::CallFar_T(m_Settings.m_cidOracle, args, 0);
 
         Global::Price ret;
-        ret.m_Value = args.m_Val;
+        ret.m_Value = args.m_Value;
         return ret;
     }
 };
@@ -333,14 +313,17 @@ struct MyGlobal_LoadSave
 
 BEAM_EXPORT void Ctor(const Method::Create& r)
 {
+    r.m_Upgradable.TestNumApprovers();
+    r.m_Upgradable.Save();
+
     MyGlobal g;
     _POD_(g).SetZero();
 
     _POD_(g.m_Settings) = r.m_Settings;
     g.m_StabPool.Init();
-    g.m_RedistPool.Init();
+    g.m_RedistPool.Reset();
 
-    static const char szMeta[] = "STD:SCH_VER=1;N=Liquity Token;SN=Liqt;UN=LIQT;NTHUN=GROTHL";
+    static const char szMeta[] = "STD:SCH_VER=1;N=Nephrite Token;SN=Liqt;UN=LIQT;NTHUN=GROTHL";
     g.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
     Env::Halt_if(!g.m_Aid);
 
@@ -351,11 +334,6 @@ BEAM_EXPORT void Ctor(const Method::Create& r)
 
 BEAM_EXPORT void Dtor(void*)
 {
-}
-
-BEAM_EXPORT void Method_2(void*)
-{
-    // called on upgrade
 }
 
 BEAM_EXPORT void Method_3(const Method::TroveOpen& r)
@@ -402,13 +380,29 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
     {
         Env::Halt_if(spe.m_hLastModify == h);
 
-        EpochStorage<Tags::s_Epoch_Stable> stor;
+        EpochStorage stor;
 
         HomogenousPool::Pair out;
         g.m_StabPool.UserDel(spe.m_User, out, stor);
 
         fpLogic.Tok.m_Val = out.s;
         fpLogic.Col.m_Val = out.b;
+
+        if ((r.m_NewAmount < out.s) && g.m_Troves.m_iHead)
+        {
+            // ensure no pending liquidations
+            Global::Price price = g.get_Price();
+            Env::Halt_if(price.IsRecovery(g.m_Troves.m_Totals));
+
+            Trove::Key tk;
+            tk.m_iTrove = g.m_Troves.m_iHead;
+            Trove t;
+            Env::Halt_if(!Env::LoadVar_T(tk, t));
+
+            auto vals = g.m_RedistPool.get_UpdatedAmounts(t);
+            auto cr = price.ToCR(vals.get_Rcr());
+            Env::Halt_if((cr < Global::Price::get_k110()));
+        }
     }
 
     if (r.m_NewAmount)
@@ -430,75 +424,34 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
 {
     MyGlobal_LoadSave g;
 
-    FlowPair fpLogic;
-    _POD_(fpLogic).SetZero();
+    Global::Liquidator ctx;
+    ctx.m_Price = g.get_Price();
+    _POD_(ctx.m_fpLogic).SetZero();
     Pair totals0 = g.m_Troves.m_Totals;
 
-    auto price = g.get_Price();
-
-    bool bStab = false, bRedist = false;
     Trove::Key tk;
 
     for (uint32_t i = 0; i < r.m_Count; i++)
     {
+        Pair totals1 = g.m_Troves.m_Totals;
         Trove t;
         tk.m_iTrove = g.TrovePop(0, t);
         Env::DelVar_T(tk);
 
-        auto cr = price.ToCR(t.m_Amounts.get_Rcr());
+        Amount valSurplus = 0;
+        Env::Halt_if(!g.LiquidateTrove(t, totals1, ctx, valSurplus));
 
-        assert(t.m_Amounts.Tok >= g.m_Settings.m_TroveLiquidationReserve);
-
-        fpLogic.Tok.Add(g.m_Settings.m_TroveLiquidationReserve, 0); // goes to the liquidator
-
-        if (cr > Global::Price::get_k100())
-        {
-            if (cr >= Global::Price::get_k110())
-            {
-                bool bRecovery =
-                    g.m_Troves.m_Totals.Tok &&
-                    price.IsBelow150(g.m_Troves.m_Totals.get_Rcr());
-
-                Env::Halt_if(!(bRecovery && (cr < Global::Price::get_k150()))); // in recovery mode can liquidate up to cr == 1.5
-
-                Amount valColMax = price.T2C(Float(t.m_Amounts.Tok) * Global::Price::get_k110());
-                assert(valColMax <= t.m_Amounts.Col);
-                if (valColMax < t.m_Amounts.Col) // should always be true, just for more safety
-                {
-                    g.ExtractSurplusCol(t.m_Amounts.Col - valColMax, t);
-                    t.m_Amounts.Col = valColMax;
-                }
-
-            }
-
-            if (g.m_StabPool.LiquidatePartial(t))
-                bStab = true;
-        }
-
-        if (t.m_Amounts.Tok || t.m_Amounts.Col)
-        {
-            bRedist = true;
-            Env::Halt_if(!g.m_RedistPool.Liquidate(t));
-
-            Strict::Add(g.m_Troves.m_Totals.Tok, t.m_Amounts.Tok);
-            Strict::Add(g.m_Troves.m_Totals.Col, t.m_Amounts.Col);
-        }
-
+        if (valSurplus)
+            g.ExtractSurplusCol(valSurplus, t);
     }
 
-    if (bStab)
+    if (ctx.m_Stab)
     {
-        EpochStorage<Tags::s_Epoch_Stable> stor;
+        EpochStorage stor;
         g.m_StabPool.OnPostTrade(stor);
     }
 
-    if (bRedist)
-    {
-        EpochStorage<Tags::s_Epoch_Redist> stor;
-        g.m_RedistPool.OnPostTrade(stor);
-    }
-
-    g.AdjustAll(r, totals0, fpLogic, r.m_pkUser);
+    g.AdjustAll(r, totals0, ctx.m_fpLogic, r.m_pkUser);
 }
 
 BEAM_EXPORT void Method_9(Method::UpdProfitPool& r)
@@ -550,71 +503,52 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
 {
     MyGlobal_LoadSave g;
 
-    Pair totals0 = g.m_Troves.m_Totals;
-    FlowPair fpLogic;
-    _POD_(fpLogic).SetZero();
+    Env::Halt_if(Env::get_Height() < g.m_Settings.m_hMinRedemptionHeight);
 
-    auto price = g.get_Price();
+    Pair totals0 = g.m_Troves.m_Totals;
+
+    Global::Redeemer ctx;
+    ctx.m_Price = g.get_Price();
+    _POD_(ctx.m_fpLogic).SetZero();
 
     Trove::Key tk;
 
-    for (Amount valRemaining = r.m_Amount; valRemaining; )
+    for (ctx.m_TokRemaining = r.m_Amount; ctx.m_TokRemaining; )
     {
         Trove t;
         tk.m_iTrove = g.TrovePop(0, t);
 
-        assert(t.m_Amounts.Tok >= g.m_Settings.m_TroveLiquidationReserve);
-        Amount valTok = t.m_Amounts.Tok - g.m_Settings.m_TroveLiquidationReserve;
+        Env::Halt_if(!g.RedeemTrove(t, ctx));
 
-        bool bFullRedeem = (valRemaining >= valTok);
-        if (!bFullRedeem)
-            valTok = valRemaining;
-
-        Amount valCol = price.T2C(valTok);
-        Amount valColSurplus = t.m_Amounts.Col;
-        Strict::Sub(valColSurplus, valCol); // would fail if undercollateralized
-
-        if (bFullRedeem)
+        if (t.m_Amounts.Tok)
+            g.TrovePush(tk.m_iTrove, t, r.m_iPrev1);
+        else
         {
             // close trove
             Env::DelVar_T(tk);
-
-            g.ExtractSurplusCol(valColSurplus, t);
+            g.ExtractSurplusCol(t.m_Amounts.Col, t);
         }
-        else
-        {
-            t.m_Amounts.Tok -= valTok;
-            t.m_Amounts.Col = valColSurplus;
-
-            g.TrovePush(tk.m_iTrove, t, r.m_iPrev1);
-        }
-
-
-        fpLogic.Tok.Add(valTok, 1);
-        fpLogic.Col.Add(valCol, 0);
-
-        valRemaining -= valTok;
     }
 
-    if (!g.m_ProfitPool.IsEmpty() && fpLogic.Tok.m_Val)
-    {
-        Amount feeBase = fpLogic.Col.m_Val / 200; // redemption fee floor is 0.5 percent
-
-        // update dynamic redeem ratio 
-        g.m_BaseRate.Decay();
-        Float kDrainRatio = Float(fpLogic.Tok.m_Val) / Float(fpLogic.Tok.m_Val + g.m_Troves.m_Totals.Tok);
-        g.m_BaseRate.m_k = g.m_BaseRate.m_k + kDrainRatio;
-
-        
-        Amount fee = feeBase + g.m_BaseRate.m_k * Float(fpLogic.Col.m_Val);
-        fee = std::min(fee, fpLogic.Col.m_Val); // fee can go as high as 100 percents
-
-        Strict::Sub(fpLogic.Col.m_Val, fee);
+    Amount fee = g.AddRedeemFee(ctx);
+    if (fee)
         g.m_ProfitPool.AddValue(fee, 0);
-    }
 
-    g.AdjustAll(r, totals0, fpLogic, r.m_pkUser);
+    g.AdjustAll(r, totals0, ctx.m_fpLogic, r.m_pkUser);
 }
 
 
-} // namespace Liquity
+} // namespace Nephrite
+
+namespace Upgradable3 {
+
+    uint32_t get_CurrentVersion()
+    {
+        return 1;
+    }
+
+    void OnUpgraded(uint32_t nPrevVersion)
+    {
+        Env::Halt_if(nPrevVersion != 0);
+    }
+}

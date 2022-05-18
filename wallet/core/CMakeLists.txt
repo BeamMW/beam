@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.13)
 
-add_library(wallet STATIC)
+add_library(wallet_core STATIC)
 
-target_sources(wallet
+target_sources(wallet_core
     PRIVATE
         common.cpp
         common_utils.cpp
@@ -23,6 +23,8 @@ target_sources(wallet
         currency.cpp
         assets_utils.cpp
         dex.cpp
+        private_key_keeper.cpp
+        contracts/shaders_manager.cpp
     PUBLIC
         common.h
         default_peers.h
@@ -32,11 +34,9 @@ target_sources(wallet
         simple_transaction.h
         base_transaction.h
         private_key_keeper.h
-        private_key_keeper.cpp
-        contracts/shaders_manager.cpp
 )
 
-target_link_libraries(wallet 
+target_link_libraries(wallet_core
     PUBLIC
         core
         keykeeper
@@ -46,19 +46,16 @@ target_link_libraries(wallet
         sqlite
 )
 
-target_compile_features(wallet PUBLIC cxx_std_17)
+target_compile_features(wallet_core PUBLIC cxx_std_17)
 
 
 if (NOT ANDROID AND NOT IOS)
 
     if(BEAM_HW_WALLET)
-        target_compile_definitions(wallet PUBLIC BEAM_HW_WALLET)
+        target_compile_definitions(wallet_core PUBLIC BEAM_HW_WALLET)
     endif()
 
     if(BEAM_LASER_SUPPORT)
-        target_compile_definitions(wallet PUBLIC BEAM_LASER_SUPPORT)
+        target_compile_definitions(wallet_core PUBLIC BEAM_LASER_SUPPORT)
     endif()
-
-    #add_subdirectory(unittests)
-
 endif()

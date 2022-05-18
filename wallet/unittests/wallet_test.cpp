@@ -204,7 +204,7 @@ namespace
         sw.start();
         for (int i = 0; i < 100; ++i)
         {
-            api.onHandleTxList(1, message);
+            api.onHandleTxList(1, TxList(message));
             api.TestTxListResSize(10);
             api.m_Messages.clear();
         }
@@ -213,43 +213,43 @@ namespace
 
         message.count = 10;
         message.skip = 0;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(10);
         api.m_Messages.clear();
 
         message.count = 100;
         message.skip = 0;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(64);
         api.m_Messages.clear();
 
         message.count = 100;
         message.skip = 10;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(54);
         api.m_Messages.clear();
 
         message.count = 10;
         message.skip = 10;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(10);
         api.m_Messages.clear();
 
         message.count = 10;
         message.skip = 63;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(1);
         api.m_Messages.clear();
 
         message.count = 10;
         message.skip = 64;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(0);
         api.m_Messages.clear();
 
         message.count = 10;
         message.skip = 65;
-        api.onHandleTxList(1, message);
+        api.onHandleTxList(1, TxList(message));
         api.TestTxListResSize(0);
         api.m_Messages.clear();
 
@@ -278,7 +278,7 @@ namespace
             message2.filter.status = wallet::TxStatus::Completed;
             message2.filter.height = p.second;
 
-            api.onHandleTxList(1, message2);
+            api.onHandleTxList(1, std::move(message2));
             api.TestTxListResSize(1);
             api.TestTxListResHeight(p.second);
 
@@ -2153,6 +2153,213 @@ namespace
         WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"next_version\":", sTmp));
     }
 
+
+    void TestAppShader3()
+    {
+        printf("Testing upgradable3...\n");
+
+        io::Reactor::Ptr mainReactor(io::Reactor::create());
+        io::Reactor::Scope scope(*mainReactor);
+
+        string nodePath = "node.db";
+        if (boost::filesystem::exists(nodePath))
+            boost::filesystem::remove(nodePath);
+
+        int completedCount = 0;
+
+        //auto timer = io::Timer::create(io::Reactor::get_Current());
+        auto f = [&completedCount, mainReactor](auto txID)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+              //  timer->cancel();
+                mainReactor->stop();
+            }
+        };
+
+        constexpr uint32_t nPeers = 5;
+        constexpr uint32_t iSender = 3;
+        wallet::IWalletDB::Ptr pDb[nPeers];
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            std::string sPath = std::string("sender_") + std::to_string(i) + "wallet.db";
+            pDb[i] = createSqliteWalletDB(sPath, false, true);
+        }
+
+        auto treasury = createTreasury(pDb[iSender], AmountList{Rules::Coin * 300000});
+
+        auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
+        {
+            InitNodeToTest(node, treasury, nullptr, port, 3000, path, peers, miningNode);
+            io::Address address;
+            address.resolve("127.0.0.1");
+            address.port(port);
+            return address;
+        };
+
+
+        Node node;
+        auto nodeAddress = nodeCreator(node, treasury, 32125, "node.db");
+
+        std::unique_ptr<TestWalletRig> pRig[nPeers];
+        std::unique_ptr<MyManager> pMan[nPeers];
+
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            pRig[i] = std::make_unique<TestWalletRig>(pDb[i], f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
+            pMan[i] = std::make_unique<MyManager>(pDb[i], pRig[i]->m_Wallet);
+            pMan[i]->set_Privilege(2);
+
+            if (i)
+                pMan[i]->m_BodyManager = pMan[0]->m_BodyManager;
+            else
+                MyManager::Compile(pMan[i]->m_BodyManager, "upgradable3/Test/test_app.wasm", MyManager::Kind::Manager);
+        }
+
+        printf("collecting keys...\n");
+
+        std::string pAdminKey[nPeers];
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            pMan[i]->m_Args["role"] = "manager";
+            pMan[i]->m_Args["action"] = "my_admin_key";
+            pMan[i]->RunSync(1);
+            WALLET_CHECK(pMan[i]->m_Done && !pMan[i]->m_Err);
+
+            WALLET_CHECK(pMan[i]->get_OutpStr("\"admin_key\": \"", pAdminKey[i], sizeof(ECC::Point) * 2));
+        }
+
+
+        printf("Deploying v0\n");
+
+        MyManager::Compile(pMan[iSender]->m_BodyContract, "upgradable3/Test/test_v0.wasm", MyManager::Kind::Contract);
+        pMan[iSender]->m_Args["role"] = "manager";
+        pMan[iSender]->m_Args["action"] = "deploy";
+        pMan[iSender]->m_Args["hUpgradeDelay"] = "1";
+        pMan[iSender]->m_Args["nMinApprovers"] = std::to_string(nPeers);
+
+        for (uint32_t i = 0; i < nPeers; i++)
+            pMan[iSender]->m_Args[std::string("admin-") + std::to_string(i)] = pAdminKey[i];
+
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+
+        printf("reading cid and version...\n");
+
+        pMan[iSender]->m_Args["action"] = "view";
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        std::string sTmp, sCid, sVer;
+        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"contracts\":", sTmp));
+        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"cid\": \"", sCid, bvm2::ContractID::nTxtLen));
+        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"version\": ", sVer, 1));
+        WALLET_CHECK(sVer == "0");
+
+        printf("scheduling upgrade...\n");
+
+        MyManager::Compile(pMan[iSender]->m_BodyContract, "upgradable3/Test/test_v1.wasm", MyManager::Kind::Contract);
+
+        Height hTarget = node.get_Processor().m_Cursor.m_Full.m_Height + 15;
+
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            pMan[i]->m_Args["action"] = "schedule_upgrade";
+            pMan[i]->m_Args["cid"] = sCid;
+            pMan[i]->m_Args["hTarget"] = std::to_string(hTarget);
+            pMan[i]->m_Args["iSender"] = std::to_string(iSender);
+            pMan[i]->m_Args["approve_mask"] = std::to_string((1U << nPeers) - 1);
+
+            if (iSender == i)
+            {
+                pMan[i]->RunSync0(1);
+                WALLET_CHECK(!pMan[i]->m_Done);
+            }
+        }
+
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            if (iSender != i)
+            {
+                pMan[i]->m_BodyContract = pMan[iSender]->m_BodyContract;
+                pMan[i]->RunSync0(1);
+                WALLET_CHECK(!pMan[i]->m_Done);
+            }
+        }
+
+        pMan[iSender]->RunSync1(); // wait synchronously
+
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+        printf("checking state...\n");
+
+        pMan[iSender]->m_Args["action"] = "view";
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"contracts\":", sTmp));
+        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"version\": ", sVer, 1));
+        WALLET_CHECK(sVer == "0");
+
+        printf("waiting for upgrade height...\n");
+
+        if (node.get_Processor().m_Cursor.m_Full.m_Height < hTarget)
+        {
+            struct MyObserver :public Node::IObserver
+            {
+                Node& m_Node;
+                Height m_hTarget;
+
+                MyObserver(Node& n) :m_Node(n)
+                {
+                    m_Node.m_Cfg.m_Observer = this;
+                }
+
+                ~MyObserver()
+                {
+                    m_Node.m_Cfg.m_Observer = nullptr;
+                }
+
+                void OnSyncProgress() override {}
+
+                void OnStateChanged() override {
+                    if (m_Node.get_Processor().m_Cursor.m_Full.m_Height >= m_hTarget)
+                        io::Reactor::get_Current().stop();
+                }
+
+            };
+
+            MyObserver obs(node);
+            obs.m_hTarget = hTarget;
+            io::Reactor::get_Current().run();
+        }
+
+        printf("upgrading...\n");
+
+        pMan[iSender]->m_Args["action"] = "explicit_upgrade";
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+        printf("checking state...\n");
+
+        pMan[iSender]->m_Args["action"] = "view";
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"contracts\":", sTmp));
+        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"version\": ", sVer, 1));
+        WALLET_CHECK(sVer == "1");
+
+
+    }
+
+
     struct MyZeroInit {
         static void Do(std::string&) {}
         static void Do(beam::ShieldedTxo::PublicGen& pg)
@@ -3556,8 +3763,8 @@ void TestAddressVersions()
 {
     cout << "\nTesting tokens versions...\n";
 
-    std::string clientVersion = "Beam UI 7.0.1313.2362";
-    std::string libraryVersion = "7.0.1316";
+    std::string clientVersion = "Beam UI 9.0.1313.2362";
+    std::string libraryVersion = "9.0.1316";
 
     auto testFunc = [&]()
     {
@@ -3568,14 +3775,14 @@ void TestAddressVersions()
         bool failed = true;
         ProcessLibraryVersion(params, [&](const auto& version, const auto& myVersion)
         {
-            WALLET_CHECK(version == "7.0.1316");
+            WALLET_CHECK(version == "9.0.1316");
             failed = false;
         });
         WALLET_CHECK(!failed);
         failed = true;
-        ProcessClientVersion(params, "Beam UI", "6.0.13163.2372", "7.0.1313", [&](const auto& version, const auto& myVersion)
+        ProcessClientVersion(params, "Beam UI", "6.0.13163.2372", "9.0.1313", [&](const auto& version, const auto& myVersion)
         {
-            WALLET_CHECK(version == "7.0.1313.2362");
+            WALLET_CHECK(version == "9.0.1313.2362");
             failed = false;
         });
         WALLET_CHECK(!failed);
@@ -3597,7 +3804,7 @@ void TestAddressVersions()
 
     testFunc();
 
-    ByteBuffer buf = toByteBuffer(Version{ 7, 0, 1316 });
+    ByteBuffer buf = toByteBuffer(Version{ 9, 0, 1316 });
     std::string{ buf.begin(), buf.end() }.swap(libraryVersion);
 
     buf = toByteBuffer(ClientVersion{ 2362U });
@@ -4027,6 +4234,7 @@ int main()
 	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
     Rules::get().pForks[2].m_Height = MaxHeight;
     Rules::get().pForks[3].m_Height = MaxHeight;
+    Rules::get().pForks[4].m_Height = MaxHeight;
     //Rules::get().DA.MaxAhead_s = 90;// 60 * 1;
     Rules::get().UpdateChecksum();
 
@@ -4093,12 +4301,15 @@ int main()
     Rules::get().pForks[1].m_Height = 1;
     Rules::get().pForks[2].m_Height = 1;
     Rules::get().pForks[3].m_Height = 1;
+    Rules::get().pForks[4].m_Height = 1;
     Rules::get().UpdateChecksum();
     TestAppShader1();
     TestAppShader2();
+    TestAppShader3();
     Rules::get().pForks[1].m_Height = 20;
     Rules::get().pForks[2].m_Height = 20;
     Rules::get().pForks[3].m_Height = 20;
+    Rules::get().pForks[4].m_Height = 20;
     Rules::get().UpdateChecksum();
 
     TestSendingShielded();

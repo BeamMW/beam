@@ -45,20 +45,18 @@ int verify_client(int preverify_ok, X509_STORE_CTX* x509_ctx)
 void ssl_info(const SSL* ssl, int where, int ret)
 {
     const char* str;
-    int w;
-
-    w = where & ~SSL_ST_MASK;
-
-    if (w & SSL_ST_CONNECT) str = "SSL_connect";
-    else if (w & SSL_ST_ACCEPT) str = "SSL_accept";
-    else str = "undefined";
+    int w = where & ~SSL_ST_MASK;
+    if (w & SSL_ST_CONNECT)
+        str = "SSL_connect";
+    else if (w & SSL_ST_ACCEPT)
+        str = "SSL_accept";
+    else
+        str = "undefined";
     std::stringstream ss;
-    if (where & SSL_CB_LOOP)
-    {
+    if (where & SSL_CB_LOOP) {
         ss <<  str<< ":" <<  SSL_state_string_long(ssl);
     }
-    else if (where & SSL_CB_ALERT)
-    {
+    else if (where & SSL_CB_ALERT) {
         str = (where & SSL_CB_READ) ? "read" : "write";
         ss << "SSL3 alert " <<
             str << ":" <<
@@ -67,25 +65,20 @@ void ssl_info(const SSL* ssl, int where, int ret)
     }
     else if (where & SSL_CB_EXIT)
     {
-        if (ret == 0)
+        if (ret == 0) {
             ss << str << ":failed in "<< SSL_state_string_long(ssl);
-        else if (ret < 0)
-        {
-            ss << str << ":error in " << SSL_state_string_long(ssl)
-                << ":" <<
-                SSL_alert_type_string_long(ret) << ":" <<
-                SSL_alert_desc_string_long(ret);
+        } else if (ret < 0) {
+            ss << str << ":error in " << SSL_state_string_long(ssl);
         }
     }
 
-    LOG_DEBUG() << TRACE(ssl) << "  " << ss.str();
+    LOG_VERBOSE() << TRACE(ssl) << "  " << ss.str();
 }
 
 struct SSLInitializer {
     SSLInitializer() {
         SSL_library_init();
         SSL_load_error_strings();
-        ERR_load_BIO_strings();
         OpenSSL_add_all_algorithms();
         ERR_load_crypto_strings();
         ok = true;
@@ -118,9 +111,35 @@ SSL_CTX* init_ctx(bool isServer) {
         IO_EXCEPTION(EC_SSL_ERROR);
     }
 
-    //SSL_CTX_set_info_callback(ctx, ssl_info);
+    SSL_CTX_set_info_callback(ctx, ssl_info);
 
     return ctx;
+}
+
+bool load_system_certificate_authority(SSL_CTX* ctx)
+{
+#ifdef WIN32
+    PCCERT_CONTEXT pContext = nullptr;
+    X509_STORE* store = SSL_CTX_get_cert_store(ctx);
+
+    HCERTSTORE hStore = CertOpenSystemStoreW(NULL, L"CA");
+    if (!hStore)
+        return false;
+
+    while ((pContext = CertEnumCertificatesInStore(hStore, pContext)) != nullptr) {
+        X509* x509 = d2i_X509(nullptr, (const unsigned char**)&pContext->pbCertEncoded, pContext->cbCertEncoded);
+        if (x509) {
+            int i = X509_STORE_add_cert(store, x509);
+            if (i == 0) {
+                LOG_ERROR() << "Failed to add certificate from system store";
+            }
+            X509_free(x509);
+        }
+    }
+
+    CertCloseStore(hStore, 0);
+#endif //WIN32
+    return true;
 }
 
 void setup_certificate(SSL_CTX* ctx, const char* certFileName, const char* privKeyFileName)
@@ -180,7 +199,7 @@ SSLContext::Ptr SSLContext::create_server_ctx(const char* certFileName, const ch
 
 SSLContext::Ptr SSLContext::create_client_context(const char* certFileName, const char* privKeyFileName, bool rejectUnauthorized) {
     SSL_CTX* ctx = init_ctx(false);
-
+    load_system_certificate_authority(ctx);
     setup_certificate(ctx, certFileName, privKeyFileName);
 
     int verifyMode = (rejectUnauthorized == false) ?

@@ -65,6 +65,11 @@ public:
 
     ~SSLIO();
 
+    SSL* native_handle() 
+    {
+        return _ssl;
+    }
+
     /// Encrypted data received from stream. Returns whether to proceed
     Result on_encrypted_data_from_stream(const void* data, size_t size);
 

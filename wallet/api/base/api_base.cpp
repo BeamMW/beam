@@ -14,7 +14,6 @@
 #include "api_errors_imp.h"
 #include "api_base.h"
 #include "utility/logger.h"
-#include <regex>
 
 namespace beam::wallet
 {
@@ -164,7 +163,7 @@ namespace beam::wallet
             return boost::none;
         }
 
-        return callGuarded<ParseResult>(pinfo->rpcid, [this, pinfo] () -> ParseResult {
+        return callGuarded<ParseResult>(pinfo->rpcid, [this, &pinfo] () -> ParseResult {
             const auto& minfo = _methods[pinfo->method];
             const auto finfo = minfo.parseFunc(pinfo->rpcid, pinfo->params);
 
@@ -175,22 +174,22 @@ namespace beam::wallet
 
     ApiSyncMode ApiBase::executeAPIRequest(const char* data, size_t size)
     {
-        const auto pinfo = parseCallInfo(data, size);
+        auto pinfo = parseCallInfo(data, size);
         if (pinfo == boost::none)
         {
-            LOG_WARNING() << "executeAPIRequest, parseCallInfo returned none for " << data;
+            LOG_WARNING() << "executeAPIRequest, parseCallInfo returned none for " << std::string_view(data, size);
             return ApiSyncMode::DoneSync;
         }
 
         {
             json messageCopy = pinfo->message;
             FilterRequest(messageCopy);
-             
+
             const auto message = messageCopy.dump(1, '\t');
             LOG_VERBOSE() << "executeAPIRequest:\n" << message;
         }
 
-        const auto result = callGuarded<ApiSyncMode>(pinfo->rpcid, [this, pinfo] () -> ApiSyncMode {
+        const auto result = callGuarded<ApiSyncMode>(pinfo->rpcid, [this, &pinfo] () -> ApiSyncMode {
             const auto& minfo = _methods[pinfo->method];
 
             if (_acl)

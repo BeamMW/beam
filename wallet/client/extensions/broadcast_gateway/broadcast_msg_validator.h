@@ -28,7 +28,7 @@ namespace beam::wallet
         using PublicKey = PeerID;
 
     public:
-        BroadcastMsgValidator() {};
+        BroadcastMsgValidator() = default;
 
         void setPublisherKeys(const std::vector<PublicKey>& keys);
 

@@ -26,6 +26,8 @@
 #include "wallet/core/dex.h"
 #include "utility/std_extension.h"
 
+#include <tuple>
+
 namespace beam::wallet
 {
 
@@ -103,7 +105,7 @@ namespace beam::wallet
     struct PrintableAmount
     {
         explicit PrintableAmount(
-            const AmountBig::Type amount,
+            const AmountBig::Type& amount,
             bool showPoint = false,
             Asset::ID assetID = Asset::s_BeamID,
             std::string coinName = std::string(),
@@ -116,7 +118,7 @@ namespace beam::wallet
             , m_grothName(std::move(grothName))
         {}
 
-        const AmountBig::Type m_value;
+        const AmountBig::Type& m_value;
         bool m_showPoint;
         Asset::ID m_assetID;
         std::string m_coinName;
@@ -524,59 +526,12 @@ namespace beam::wallet
         PublicOffline
     };
 
-    class TxStatusInterpreter
-    {
-    public:
-        typedef std::shared_ptr<TxStatusInterpreter> Ptr;
-        using Creator = std::function<Ptr (const TxParameters& txParams)>;
-
-        explicit TxStatusInterpreter(const TxParameters& txParams);
-        virtual ~TxStatusInterpreter() = default;
-        [[nodiscard]] virtual std::string getStatus() const;
-
-    protected:
-        TxStatus m_status = TxStatus::Pending;
-        bool m_sender = false;
-        bool m_selfTx = false;
-        TxFailureReason m_failureReason = TxFailureReason::Unknown;
-    };
-
-    class SimpleTxStatusInterpreter : public TxStatusInterpreter
-    {
-    public:
-        explicit SimpleTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
-        [[nodiscard]] std::string getStatus() const override;
-    };
-
-    class MaxPrivacyTxStatusInterpreter : public TxStatusInterpreter
-    {
-    public:
-        explicit MaxPrivacyTxStatusInterpreter(const TxParameters& txParams);
-        ~MaxPrivacyTxStatusInterpreter() override = default;
-        [[nodiscard]] std::string getStatus() const override;
-    private:
-        TxAddressType m_addressType = TxAddressType::Unknown;
-    };
-
-    class AssetTxStatusInterpreter : public TxStatusInterpreter
-    {
-    public:
-        explicit AssetTxStatusInterpreter(const TxParameters& txParams);
-        ~AssetTxStatusInterpreter() override = default;
-        [[nodiscard]] std::string getStatus() const override;
-    protected:
-        wallet::TxType m_txType = wallet::TxType::AssetInfo;
-    };
-
-    class ContractTxStatusInterpreter : public TxStatusInterpreter
-    {
-    public:
-        explicit ContractTxStatusInterpreter(const TxParameters& txParams);
-        ~ContractTxStatusInterpreter() override = default;
-        [[nodiscard]] std::string getStatus() const override;
-    protected:
-        wallet::TxType m_txType = wallet::TxType::AssetInfo;
-    };
+    std::tuple<TxStatus, bool, bool> ParseParamsForStatusInterpretation(const TxParameters& txParams);
+    std::string GetTxStatusStr(const TxParameters& txParams);
+    std::string GetSimpleTxStatusStr(const TxParameters& txParams);
+    std::string GetMaxAnonimityTxStatusStr(const TxParameters& txParams);
+    std::string GetAssetTxStatusStr(const TxParameters& txParams);
+    std::string GetContractTxStatusStr(const TxParameters& txParams);
 
     // Specifies key transaction parameters for interaction with Wallet Clients
     struct TxDescription : public TxParameters
@@ -607,10 +562,6 @@ namespace beam::wallet
             , m_createTime{ createTime }
             , m_modifyTime{ createTime }
             , m_sender{ sender }
-            , m_selfTx{ false }
-            , m_status{ TxStatus::Pending }
-            , m_kernelID{ Zero }
-            , m_failureReason{ TxFailureReason::Unknown }
         {
         }
         explicit TxDescription(const TxParameters&);
@@ -630,7 +581,7 @@ namespace beam::wallet
         [[nodiscard]] std::string getAddressFrom() const;
         [[nodiscard]] std::string getAddressTo() const;
 
-#define BEAM_TX_DESCRIPTION_INITIAL_PARAMS(macro) \
+        #define BEAM_TX_DESCRIPTION_INITIAL_PARAMS(macro) \
         macro(TxParameterID::TransactionType,   TxType,          m_txType,          wallet::TxType::Simple) \
         macro(TxParameterID::Amount,            Amount,          m_amount,          0) \
         macro(TxParameterID::Fee,               Amount,          m_fee,             0) \
@@ -647,14 +598,13 @@ namespace beam::wallet
         macro(TxParameterID::Status,            TxStatus,        m_status,          TxStatus::Pending) \
         macro(TxParameterID::KernelID,          Merkle::Hash,    m_kernelID,        Zero) \
         macro(TxParameterID::FailureReason,     TxFailureReason, m_failureReason,   TxFailureReason::Unknown) \
+        macro(TxParameterID::AppID,             std::string,     m_appID,           std::string()) \
+        macro(TxParameterID::AppName,           std::string,     m_appName,         std::string())
 
-    //private:
         TxID m_txId = {};
-
-#define MACRO(id, type, field, init) type field = init;
+        #define MACRO(id, type, field, init) type field = init;
         BEAM_TX_DESCRIPTION_INITIAL_PARAMS(MACRO)
-#undef MACRO
-
+        #undef MACRO
     };
 
     std::string interpretStatus(const TxDescription& tx);
@@ -663,7 +613,7 @@ namespace beam::wallet
     struct SetTxParameter
     {
         WalletID m_From = Zero;
-        TxID m_TxID;
+        TxID m_TxID = {};
 
         TxType m_Type = TxType::Simple;
 
@@ -734,7 +684,7 @@ namespace beam::wallet
         virtual ~INegotiatorGateway() {}
         virtual void on_tx_completed(const TxID& ) = 0;
         virtual void on_tx_failed(const TxID&) = 0;
-        virtual void register_tx(const TxID&, Transaction::Ptr, SubTxID subTxID = kDefaultSubTxID) = 0;
+        virtual void register_tx(const TxID&, const Transaction::Ptr&, const Merkle::Hash* pParentCtx = nullptr, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void confirm_asset(const TxID& txID, const Asset::ID assetId, SubTxID subTxID = kDefaultSubTxID) = 0;

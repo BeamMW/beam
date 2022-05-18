@@ -402,7 +402,7 @@ private:
 	void DeleteOutdated();
 
 	uint8_t ValidateTx(TxPool::Stats&, const Transaction&, const Transaction::KeyType& keyTx, std::ostream* pExtraInfo, bool& bAlreadyRejected); // complete validation
-	uint8_t ValidateTx2(Transaction::Context&, const Transaction&, uint32_t& nBvmCharge, Amount& feeReserve, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo); // complete validation
+	uint8_t ValidateTx2(Transaction::Context&, const Transaction&, uint32_t& nBvmCharge, Amount& feeReserve, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo, Merkle::Hash* pNewCtx);
 	static bool CalculateFeeReserve(const TxStats&, const HeightRange&, const AmountBig::Type&, uint32_t nBvmCharge, Amount& feeReserve);
 	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
 	void LogTxStem(const Transaction&, const char* szTxt);
@@ -521,7 +521,12 @@ private:
 
 		Block::SystemState::Full m_Tip;
 
-		std::unique_ptr<Merkle::Hash> n_pDependentContext;
+		struct DependentContext
+		{
+			std::unique_ptr<Merkle::Hash> m_pQuery;
+			std::vector<Merkle::Hash> m_vSent;
+			Height m_hSent;
+		} m_Dependent;
 
 		uint64_t m_CursorBbs;
 		TxPool::Fluff::Element::Send* m_pCursorTx;
@@ -550,6 +555,7 @@ private:
 		void BroadcastBbs();
 		void BroadcastBbs(Bbs::Subscription&);
 		void MaybeSendSerif();
+		void MaybeSendDependent();
 		void OnChocking();
 		void SetTxCursor(TxPool::Fluff::Element::Send*);
 		bool GetBlock(proto::BodyBuffers&, const NodeDB::StateID&, const proto::GetBodyPack&, bool bActive);
@@ -563,7 +569,7 @@ private:
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
 		void ModifyRatingWrtData(size_t nSize);
 		void SendHdrs(NodeDB::StateID&, uint32_t nCount);
-		void SendTx(Transaction::Ptr& ptx, bool bFluff);
+		void SendTx(Transaction::Ptr& ptx, bool bFluff, const Merkle::Hash* pCtx = nullptr);
 
 		struct ISelector {
 			virtual bool IsValid(Peer&)= 0;

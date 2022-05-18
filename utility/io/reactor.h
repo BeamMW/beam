@@ -32,6 +32,19 @@ class TcpShutdowns;
 class PendingWrites;
 class SslStream;
 
+struct TlsConfig {
+    bool connect;
+    bool rejectUnauthorized;
+    std::string host;
+    TlsConfig(bool c = false, bool reject = true, const std::string& h = std::string())
+        : connect(c)
+        , rejectUnauthorized(reject)
+        , host(h)
+    {
+
+    }
+};
+
 class Reactor : public std::enable_shared_from_this<Reactor> {
 public:
     Reactor(const Reactor&) = delete;
@@ -62,8 +75,7 @@ public:
         uint64_t tag,
         const ConnectCallback& callback,
         int timeoutMsec=-1,
-        bool tlsConnect=false,
-        bool tlsRejectUnauthorized = true,
+        const TlsConfig& tlsCfg = TlsConfig(),
         Address bindTo=Address()
     );
 
@@ -95,7 +107,7 @@ public:
 
 	class GracefulIntHandler
 	{
-		static Reactor* s_pAppReactor;
+		static Reactor* volatile s_pAppReactor;
 
 #ifdef WIN32
 		static BOOL WINAPI Handler(DWORD dwCtrlType);

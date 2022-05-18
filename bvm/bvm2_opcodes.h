@@ -132,6 +132,10 @@
 	macro(const Secp_point&, p) sep \
 	macro(PubKey&, pk)
 
+#define BVMOp_Secp_Point_ExportEx(macro, sep) \
+	macro(const Secp_point&, p) sep \
+	macro(Secp_point_dataEx&, res)
+
 #define BVMOp_Secp_Point_neg(macro, sep) \
 	macro(Secp_point&, dst) sep \
 	macro(const Secp_point&, src)
@@ -176,6 +180,15 @@
 	macro(void*, pVal) sep \
 	macro(uint32_t, nVal) sep \
 	macro(uint8_t, nType)
+
+#define BVMOp_LoadVarEx(macro, sep) \
+	macro(void*, pKey) sep \
+	macro(uint32_t&, nKey) sep \
+	macro(uint32_t, nKeyBufSize) sep \
+	macro(void*, pVal) sep \
+	macro(uint32_t&, nVal) sep \
+	macro(uint8_t, nType) sep \
+	macro(uint8_t, nSearchFlag)
 
 #define BVMOp_SaveVar(macro, sep) \
 	macro(const void*, pKey) sep \
@@ -250,6 +263,10 @@
 #define BVMOp_get_RulesCfg(macro, sep) \
 	macro(Height, h) sep \
 	macro(HashValue&, res)
+
+#define BVMOp_SelectContext(macro, sep) \
+	macro(uint8_t, bDependent) sep \
+	macro(uint32_t, nChargeNeeded)
 
 #define BVMOp_Vars_Enum(macro, sep) \
 	macro(const void*, pKey0) sep \
@@ -480,6 +497,7 @@
 	macro(0x98, void     , Secp_Point_mul_G) \
 	macro(0x99, void     , Secp_Point_mul_J) \
 	macro(0x9A, void     , Secp_Point_mul_H) \
+	macro(0x9B, void     , Secp_Point_ExportEx) \
 	macro(0xB0, uint8_t  , VerifyBeamHashIII) \
 
 #define BVMOpsAll_Contract(macro) \
@@ -490,6 +508,7 @@
 	macro(0x24, uint32_t , get_CallDepth) \
 	macro(0x25, void     , get_CallerCid) \
 	macro(0x26, void     , UpdateShader) \
+	macro(0x27, void     , LoadVarEx) \
 	macro(0x29, void     , AddSig) \
 	macro(0x30, void     , FundsLock) \
 	macro(0x31, void     , FundsUnlock) \
@@ -500,6 +519,7 @@
 	macro(0x3A, uint8_t  , AssetDestroy) \
 
 #define BVMOpsAll_Manager(macro) \
+	macro(0x50, void     , SelectContext) \
 	macro(0x51, uint32_t , Vars_Enum) \
 	macro(0x52, uint8_t  , Vars_MoveNext) \
 	macro(0x53, void     , Vars_Close) \

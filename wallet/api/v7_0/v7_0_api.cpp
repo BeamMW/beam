@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+// Copyright 2020 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,9 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "v6_2_api.h"
-#include "version.h"
+#include "v7_0_api.h"
 
 namespace beam::wallet
 {
+    V70Api::V70Api(IWalletApiHandler &handler, unsigned long avMajor, unsigned long avMinor, const ApiInitData &init)
+            : V61Api(handler, avMajor, avMinor, init)
+    {
+        // MUST BE SAFE TO CALL FROM ANY THREAD
+        V7_0_API_METHODS(BEAM_API_REG_METHOD)
+    }
 }

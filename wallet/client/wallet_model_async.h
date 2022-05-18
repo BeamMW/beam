@@ -11,20 +11,22 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
 
 #include "wallet/core/common_utils.h"
 #include "wallet/core/common.h"
 #include "boost/any.hpp"
+#ifdef BEAM_IPFS_SUPPORT
+#include <asio-ipfs/include/ipfs_config.h>
+#endif
 
 namespace beam::wallet
 {
     class DexOrder;
     struct DexOrderID;
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     struct SwapOffer;
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+    #endif
     struct IWalletModelAsync
     {
         using Ptr = std::shared_ptr<IWalletModelAsync>;
@@ -39,6 +41,7 @@ namespace beam::wallet
         virtual void getWalletStatus() = 0;
         virtual void getTransactions() = 0;
         virtual void getTransactions(AsyncCallback<const std::vector<TxDescription>&>&&) = 0;
+        virtual void getTransactionsSmoothly() = 0;
         virtual void getAllUtxosStatus() = 0;
         virtual void cancelTx(const TxID& id) = 0;
         virtual void deleteTx(const TxID& id) = 0;
@@ -46,12 +49,19 @@ namespace beam::wallet
         virtual void saveAddress(const WalletAddress& address) = 0;
         virtual void generateNewAddress() = 0;
         virtual void generateNewAddress(AsyncCallback<const WalletAddress&>&& callback) = 0;
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         virtual void loadSwapParams() = 0;
         virtual void storeSwapParams(const beam::ByteBuffer& params) = 0;
         virtual void getSwapOffers() = 0;
         virtual void publishSwapOffer(const SwapOffer& offer) = 0;
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+        #endif
+
+        #ifdef BEAM_IPFS_SUPPORT
+        virtual void setIPFSConfig(asio_ipfs::config&&) = 0;
+        virtual void stopIPFSNode() = 0;
+        virtual void startIPFSNode() = 0;
+        #endif
 
         virtual void getDexOrders() = 0;
         virtual void publishDexOrder(const DexOrder&) = 0;
@@ -70,6 +80,10 @@ namespace beam::wallet
         virtual void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) = 0;
         virtual void setNodeAddress(const std::string& addr) = 0;
         virtual void changeWalletPassword(const beam::SecString& password) = 0;
+
+        #ifdef BEAM_IPFS_SUPPORT
+        virtual void getIPFSStatus() = 0;
+        #endif
 
         virtual void getNetworkStatus() = 0;
         virtual void rescan() = 0;
@@ -96,9 +110,19 @@ namespace beam::wallet
         virtual void getAssetInfo(Asset::ID) = 0;
         virtual void makeIWTCall(std::function<boost::any()>&& function, AsyncCallback<const boost::any&>&& resultCallback) = 0;
 
+        // error (if any), shader output (if any), invokeData (if any)
+        typedef AsyncCallback<const std::string&, const std::string&, const beam::ByteBuffer&> CallShaderCallback;
+        virtual void callShader(beam::ByteBuffer&& shader, std::string&& args, CallShaderCallback&& cback) = 0;
+        virtual void callShader(std::string&& shaderFile, std::string&& args, CallShaderCallback&& cback) = 0;
+
         // error (if any), shader output (if any), txid (if any)
-        typedef AsyncCallback<const std::string&, const std::string&, const TxID&> ShaderCallback;
-        virtual void callShader(const std::vector<uint8_t>& shader, const std::string& args, ShaderCallback&& cback) = 0;
+        typedef AsyncCallback<const std::string&, const std::string&, const TxID&> CallShaderAndStartTxCallback;
+        virtual void callShaderAndStartTx(beam::ByteBuffer&& shader, std::string&& args, CallShaderAndStartTxCallback&& cback) = 0;
+        virtual void callShaderAndStartTx(std::string&& shaderFile, std::string&& args, CallShaderAndStartTxCallback&& cback) = 0;
+
+        // error (if any), txid (if any)
+        typedef AsyncCallback<const std::string&, const TxID&> ProcessShaderTxDataCallback;
+        virtual void processShaderTxData(beam::ByteBuffer&& data, ProcessShaderTxDataCallback&& cback) = 0;
 
         virtual void setMaxPrivacyLockTimeLimitHours(uint8_t limit) = 0;
         virtual void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) = 0;
@@ -111,7 +135,7 @@ namespace beam::wallet
 
         using AppsListCallback = AsyncCallback<bool, const std::string&>;
         virtual void getAppsList(AppsListCallback&& callback) = 0;
-        virtual void markAppNotificationAsRead(const TxID id) = 0;
+        virtual void markAppNotificationAsRead(const TxID& id) = 0;
 
         virtual void enableBodyRequests(bool value) = 0;
         virtual ~IWalletModelAsync() = default;

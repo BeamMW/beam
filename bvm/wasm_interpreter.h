@@ -168,6 +168,11 @@ namespace Wasm {
 		struct GlobalVar {
 			uint8_t m_Type;
 			uint8_t m_IsVariable;
+
+			bool CanBeStackPtr() const
+			{
+				return m_IsVariable && (Wasm::TypeCode::i32 == m_Type);
+			}
 		};
 
 		struct PerImportGlobal
@@ -197,6 +202,12 @@ namespace Wasm {
 			} m_Locals;
 
 			Reader m_Expression;
+
+			struct DbgEntry {
+				uint8_t m_Opcode;
+				uint32_t m_Pos;
+			};
+			//std::vector<DbgEntry> m_Dbg;
 		};
 
 		std::vector<PerFunction> m_Functions;
@@ -257,6 +268,8 @@ namespace Wasm {
 		Word m_prData0;
 		Blob m_LinearMem;
 		Reader m_Instruction;
+
+        virtual ~Processor() = default;
 
 		struct Stack
 		{

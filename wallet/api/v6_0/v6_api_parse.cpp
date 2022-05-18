@@ -21,6 +21,18 @@
 #include "wallet/transactions/swaps/swap_tx_description.h"
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
 
+namespace
+{
+    std::string GetApiTxStatusStr(const beam::wallet::TxParameters& txParams)
+    {
+        auto [status, sender, selfTx] = beam::wallet::ParseParamsForStatusInterpretation(txParams);
+
+        if (status == beam::wallet::TxStatus::Registering)
+                        return selfTx ? "self sending" : (sender ? "sending" : "receiving");
+        return beam::wallet::GetTxStatusStr(txParams);
+    }
+}  // namespace
+
 namespace beam::wallet
 {
     CoinIDList readCoinsParameter(const JsonRpcId& id, const json& params)
@@ -145,59 +157,37 @@ namespace beam::wallet
         json& msg,
         Height txProofHeight,
         Height systemHeight,
-        bool showIdentities = false)
+        bool withRates)
     {
-        std::unique_ptr<TxStatusInterpreter> statusInterpreter = nullptr;
+        std::string statusStr = "unknown";
         if (tx.m_txType == TxType::Simple)
         {
-            struct ApiTxStatusInterpreter : public TxStatusInterpreter
-            {
-                explicit ApiTxStatusInterpreter(const TxParameters& txParams) : TxStatusInterpreter(txParams) {};
-                ~ApiTxStatusInterpreter() override = default;
-
-                [[nodiscard]] std::string getStatus() const override
-                {
-                    if (m_status == TxStatus::Registering)
-                        return m_selfTx ? "self sending" : (m_sender ? "sending" : "receiving");
-                    return TxStatusInterpreter::getStatus();
-                }
-            };
-
-            statusInterpreter = std::make_unique<ApiTxStatusInterpreter>(tx);
+            statusStr = beam::wallet::GetTxStatusStr(tx);
         }
         else if (tx.m_txType >= TxType::AssetIssue && tx.m_txType <= TxType::AssetInfo)
         {
-            struct ApiAssetTxStatusInterpreter : public AssetTxStatusInterpreter
-            {
-                explicit ApiAssetTxStatusInterpreter(const TxParameters& txParams) : AssetTxStatusInterpreter(txParams) {};
-                [[nodiscard]] std::string getStatus() const override
-                {
-                    if (m_status == TxStatus::Registering)
-                        return m_selfTx ? "self sending" : (m_sender ? "sending" : "receiving");
-                    return AssetTxStatusInterpreter::getStatus();
-                }
-            };
-            statusInterpreter = std::make_unique<AssetTxStatusInterpreter>(tx);
+            statusStr = beam::wallet::GetAssetTxStatusStr(tx);
         }
         else if (tx.m_txType == TxType::PushTransaction)
         {
-            statusInterpreter = std::make_unique<MaxPrivacyTxStatusInterpreter>(tx);
+            statusStr = beam::wallet::GetMaxAnonimityTxStatusStr(tx);
         }
         else if (tx.m_txType == TxType::AtomicSwap)
         {
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-            statusInterpreter = std::make_unique<SwapTxStatusInterpreter>(tx);
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
+            #ifdef BEAM_ATOMIC_SWAP_SUPPORT
+            statusStr = beam::wallet::GetSwapTxStatusStr(tx);
+            #endif // BEAM_ATOMIC_SWAP_SUPPORT
         }
         else if (tx.m_txType == TxType::Contract)
         {
-            statusInterpreter = std::make_unique<ContractTxStatusInterpreter>(tx);
+            statusStr = beam::wallet::GetContractTxStatusStr(tx);
         }
+
         msg = json
         {
             {"txId", std::to_string(tx.m_txId)},
             {"status", tx.m_status},
-            {"status_string", statusInterpreter ? statusInterpreter->getStatus() : "unknown"},
+            {"status_string", statusStr},
             {"sender", tx.getAddressFrom()},
             {"receiver", tx.getAddressTo()},
             {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
@@ -205,6 +195,34 @@ namespace beam::wallet
             {"tx_type", tx.m_txType},
             {"tx_type_string", tx.getTxTypeString()}
         };
+
+        if (tx.m_txType == TxType::PushTransaction)
+        {
+            auto storedType = tx.GetParameter<TxAddressType>(TxParameterID::AddressType);
+            if (storedType)
+            {
+                auto c = [](TxAddressType t)
+                {
+                    switch (t)
+                    {
+                    case TxAddressType::MaxPrivacy:
+                        return "max_privacy";
+                    case TxAddressType::PublicOffline:
+                        return "public_offline";
+                    case TxAddressType::Offline:
+                    default:
+                        return "offline";
+                    }
+                };
+                msg["address_type"] = c(*storedType);
+            }
+        }
+
+        if (!tx.m_appName.empty() || !tx.m_appID.empty())
+        {
+            msg["appname"] = tx.m_appName;
+            msg["appid"] = tx.m_appID;
+        }
 
         if (tx.m_txType != TxType::Contract)
         {
@@ -285,29 +303,59 @@ namespace beam::wallet
             }
         }
 
-        if (showIdentities)
+        auto senderIdentity = tx.getSenderIdentity();
+        auto receiverIdentity = tx.getReceiverIdentity();
+        if (!senderIdentity.empty() && !receiverIdentity.empty())
         {
-            auto senderIdentity = tx.getSenderIdentity();
-            auto receiverIdentity = tx.getReceiverIdentity();
-            if (!senderIdentity.empty() && !receiverIdentity.empty())
-            {
-                msg["sender_identity"] = senderIdentity;
-                msg["receiver_identity"] = receiverIdentity;
-            }
+            msg["sender_identity"] = senderIdentity;
+            msg["receiver_identity"] = receiverIdentity;
         }
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         if (tx.m_txType == TxType::AtomicSwap)
         {
             AddSwapTxDetailsToJson(tx, msg);
         }
-#endif // BEAM_ATOMIC_SWAP_SUPPORT
+        #endif // BEAM_ATOMIC_SWAP_SUPPORT
+
+        if (withRates)
+        {
+            msg["rates"] = json::array();
+            auto& jrates = msg["rates"];
+
+            auto rates = tx.GetParameter<std::vector<ExchangeRate>>(TxParameterID::ExchangeRates);
+            if (rates)
+            {
+                for (auto& rate: *rates)
+                {
+                    auto jrate = json
+                    {
+                        {"rate", rate.m_rate},
+                        {"rate_str", std::to_string(rate.m_rate)}
+                    };
+
+                    if (auto aidf = rate.m_from.toAssetID(); aidf != beam::Asset::s_MaxCount) {
+                        jrate["from"] = aidf;
+                    } else {
+                        jrate["from"] = rate.m_from.m_value;
+                    }
+
+                    if (auto aidt = rate.m_to.toAssetID(); aidt != beam::Asset::s_MaxCount) {
+                        jrate["to"] = aidt;
+                    } else {
+                        jrate["to"] = rate.m_to.m_value;
+                    }
+
+                    jrates.emplace_back(std::move(jrate));
+                }
+            }
+        }
     }
 
-    Amount V6Api::getBeamFeeParam(const json& params, const std::string& name) const
+    Amount V6Api::getBeamFeeParam(const json& params, const std::string& name, bool hasShieldedOutputs) const
     {
         auto &fs = Transaction::FeeSettings::get(get_TipHeight());
-        return getBeamFeeParam(params, name, fs.get_DefaultStd());
+        return getBeamFeeParam(params, name, hasShieldedOutputs ? fs.get_DefaultShieldedOut() : fs.get_DefaultStd());
     }
 
     Amount V6Api::getBeamFeeParam(const json& params, const std::string& name, Amount feeMin) const
@@ -494,7 +542,10 @@ namespace beam::wallet
             // To trigger an offline tx flag should be provided
             if (auto offline = getOptionalParam<bool>(params, "offline"); !offline || !(*offline))
             {
-                send.addressType  = TxAddressType::Regular;
+                send.addressType = TxAddressType::Regular;
+            }
+            else
+            {
                 info.spendOffline = true;
             }
         }
@@ -526,7 +577,7 @@ namespace beam::wallet
             send.tokenFrom = fromParam;
         }
 
-        send.fee = getBeamFeeParam(params, "fee");
+        send.fee = getBeamFeeParam(params, "fee", info.spendOffline);
         info.fee = send.fee;
 
         if (auto comment = getOptionalParam<std::string>(params, "comment"))
@@ -545,6 +596,10 @@ namespace beam::wallet
     {
         Status status = {};
         status.txId = getMandatoryParam<ValidTxID>(params, "txId");
+
+        auto rates = getOptionalParam<bool>(params, "rates");
+        status.withRates = rates && *rates;
+
         return std::make_pair(status, MethodInfo());
     }
 
@@ -754,6 +809,9 @@ namespace beam::wallet
         {
             txList.skip = *skip;
         }
+
+        auto rates = getOptionalParam<bool>(params, "rates");
+        txList.withRates = rates && *rates;
 
         return std::make_pair(txList, MethodInfo());
     }
@@ -1220,7 +1278,7 @@ namespace beam::wallet
             {"result", {}}
         };
 
-        GetStatusResponseJson(res.tx, msg["result"], res.txProofHeight, res.systemHeight, true);
+        GetStatusResponseJson(res.tx, msg["result"], res.txProofHeight, res.systemHeight, res.withRates);
     }
 
     void V6Api::getResponse(const JsonRpcId& id, const Split::Response& res, json& msg)
@@ -1257,18 +1315,18 @@ namespace beam::wallet
         };
     }
 
-    void V6Api::fillTransactions(json& arr, const std::vector<Status::Response> txs)
+    void V6Api::fillTransactions(json& arr, const std::vector<Status::Response>& txs)
     {
         for (const auto& resItem : txs)
         {
-            json item = {};
+            arr.emplace_back();
+            json& item = arr.back();
             GetStatusResponseJson(
                 resItem.tx,
                 item,
                 resItem.txProofHeight,
                 resItem.systemHeight,
-                true);
-            arr.push_back(item);
+                resItem.withRates);
         }
     }
 
@@ -1324,7 +1382,7 @@ namespace beam::wallet
                 auto incoming = totals.Incoming; incoming += totals.IncomingShielded;
                 jtotals["receiving_str"] = std::to_string(incoming);
 
-                if (totals.Incoming <= kMaxAllowedInt)
+                if (incoming <= kMaxAllowedInt)
                 {
                     jtotals["receiving"] = AmountBig::get_Lo(incoming);
                 }
@@ -1332,7 +1390,7 @@ namespace beam::wallet
                 auto outgoing = totals.Outgoing; outgoing += totals.OutgoingShielded;
                 jtotals["sending_str"] = std::to_string(outgoing);
 
-                if (totals.Outgoing <= kMaxAllowedInt)
+                if (outgoing <= kMaxAllowedInt)
                 {
                     jtotals["sending"] = AmountBig::get_Lo(outgoing);
                 }
@@ -1340,7 +1398,7 @@ namespace beam::wallet
                 auto maturing = totals.Maturing; maturing += totals.MaturingShielded;
                 jtotals["maturing_str"] = std::to_string(maturing);
 
-                if (totals.Maturing <= kMaxAllowedInt)
+                if (maturing <= kMaxAllowedInt)
                 {
                     jtotals["maturing"] = AmountBig::get_Lo(maturing);
                 }

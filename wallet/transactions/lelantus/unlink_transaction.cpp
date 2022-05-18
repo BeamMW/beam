@@ -51,9 +51,9 @@ namespace beam::wallet::lelantus
                 m_Root.GetGateway().on_tx_failed(txID);
             }
 
-            void register_tx(const TxID& txID, Transaction::Ptr tx, SubTxID subTxID) override
+            void register_tx(const TxID& txID, const Transaction::Ptr& tx, const Merkle::Hash* pParentCtx, SubTxID subTxID) override
             {
-                m_Root.GetGateway().register_tx(txID, tx, subTxID);
+                m_Root.GetGateway().register_tx(txID, tx, pParentCtx, subTxID);
             }
 
             void confirm_kernel(const TxID& txID, const Merkle::Hash& kernelID, SubTxID subTxID) override

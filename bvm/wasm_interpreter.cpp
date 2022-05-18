@@ -715,7 +715,7 @@ namespace Wasm {
 		struct Block
 		{
 			PerType m_Type;
-			size_t m_OperandsAtExit;
+			std::vector<uint8_t> m_OperandsAtExit;
 			uint32_t m_iLabel;
 			bool m_Loop = false;
 		};
@@ -767,18 +767,21 @@ namespace Wasm {
 		void BlockOpen(const PerType& tp)
 		{
 			auto& b = m_Blocks.emplace_back();
-			b.m_OperandsAtExit = m_Operands.size();
+			size_t nOperandsAtExit = m_Operands.size();
 
 			if (1 != m_Blocks.size())
 			{
 				TestOperands(tp.m_Args); // for most outer function block the args are not on the stack
-				b.m_OperandsAtExit -= tp.m_Args.n;
+				nOperandsAtExit -= tp.m_Args.n;
 
 				b.m_iLabel = static_cast<uint32_t>(m_This.m_Labels.m_Items.size());
 				m_This.m_Labels.m_Items.push_back(0);
 			}
 
-			b.m_OperandsAtExit += tp.m_Rets.n;
+			b.m_OperandsAtExit.resize(nOperandsAtExit + tp.m_Rets.n);
+			std::copy(m_Operands.begin(), m_Operands.begin() + nOperandsAtExit, b.m_OperandsAtExit.begin());
+			std::copy(tp.m_Rets.p, tp.m_Rets.p + tp.m_Rets.n, b.m_OperandsAtExit.begin() + nOperandsAtExit);
+
 			b.m_Type = tp;
 		}
 
@@ -794,8 +797,7 @@ namespace Wasm {
 
 		void TestBlockCanClose(const Block& b)
 		{
-			Test(m_Operands.size() == b.m_OperandsAtExit);
-			TestOperands(b.m_Type.m_Rets);
+			Test(m_Operands == b.m_OperandsAtExit);
 		}
 
 		void UpdTopBlockLabel()
@@ -840,12 +842,18 @@ namespace Wasm {
 
 			if (m_Unreachable)
 			{
-				// sometimes the compiler won't bother to restore stack operands past unconditional return. Ignore this.
-				while (m_Operands.size() > b.m_OperandsAtExit)
-					Pop();
-			}
+				if (m_Operands != b.m_OperandsAtExit)
+				{
+					// sometimes the compiler won't bother to restore stack operands past unconditional return. Ignore this.
+					m_Operands.swap(b.m_OperandsAtExit); // sometimes the compiler won't bother to restore stack operands past unconditional return. Ignore this.
 
-			TestBlockCanClose(b);
+					m_WordsOperands = 0;
+					for (size_t i = 0; i < m_Operands.size(); i++)
+						m_WordsOperands += Type::Words(m_Operands[i]);
+				}
+			}
+			else
+				TestBlockCanClose(b);
 
 			if (1 == m_Blocks.size())
 				WriteRet(); // end of function
@@ -879,7 +887,7 @@ namespace Wasm {
 			auto iBlock = m_Blocks.size() - (nLabel + 1);
 			auto& b = m_Blocks[iBlock];
 
-			size_t nOperands = b.m_OperandsAtExit;
+			size_t nOperands = b.m_OperandsAtExit.size();
 			if (b.m_Loop)
 			{
 				assert(iBlock); // function block can't be loop
@@ -1001,6 +1009,7 @@ namespace Wasm {
 
 		void On_unreachable() {
 			m_p0 = nullptr;
+			m_Unreachable = true;
 		}
 
 		void On_end_block() {
@@ -1300,6 +1309,10 @@ namespace Wasm {
 			m_p0 = m_Code.m_p0;
 
 			I nInstruction = (I) m_Code.Read1();
+
+			//auto& de = func.m_Dbg.emplace_back();
+			//de.m_Opcode = (uint8_t)nInstruction;
+			//de.m_Pos = (uint32_t) m_This.m_Result.size();
 
 			switch (nInstruction)
 			{

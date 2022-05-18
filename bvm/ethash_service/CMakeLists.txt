@@ -12,10 +12,9 @@ target_link_libraries(ethash_utils
         p2p
     )
 
-
 add_executable(ethash-service ethash_service.cpp)
 target_link_libraries(ethash-service 
     PRIVATE
-        wallet_api
+        wallet_api_no_ipfs
         ethash_utils
 )

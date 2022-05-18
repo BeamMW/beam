@@ -77,20 +77,6 @@ if(BEAM_LASER_SUPPORT)
     target_link_libraries(${TARGET_NAME} PRIVATE laser)
 endif()
 
-if(BEAM_ATOMIC_SWAP_SUPPORT)
-    target_link_libraries(${TARGET_NAME} PRIVATE swap)
-endif()
-
-if(BEAM_LELANTUS_SUPPORT)
-    target_compile_definitions(${TARGET_NAME} PRIVATE BEAM_LELANTUS_SUPPORT)
-    target_link_libraries(${TARGET_NAME} PRIVATE lelantus)
-endif()
-
-if(BEAM_CONFIDENTIAL_ASSETS_SUPPORT)
-    target_link_libraries(${TARGET_NAME} PRIVATE assets)
-    target_link_libraries(${TARGET_NAME} PRIVATE dex)
-endif()
-
 if (BEAM_SIGN_PACKAGE AND WIN32)
     add_custom_command(
         TARGET ${TARGET_NAME} POST_BUILD

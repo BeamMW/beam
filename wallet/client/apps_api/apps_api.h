@@ -74,6 +74,7 @@ namespace beam::wallet
                        std::string version,
                        std::string appid,
                        std::string appname,
+                       bool ipfsnode,
                        std::function<void (Ptr)> cback)
         {
             if (client == nullptr)
@@ -82,12 +83,38 @@ namespace beam::wallet
                 throw std::runtime_error("no client provided");
             }
 
+            struct IWTResult
+            {
+                #ifdef BEAM_IPFS_SUPPORT
+                IPFSService::Ptr ipfs;
+                #endif
+                IShadersManager::Ptr shaders;
+            };
+
             client->getAsync()->makeIWTCall(
-                [client, appid, appname]() -> boost::any {
+                [client, appid, appname, ipfsnode]() -> boost::any {
                     //
-                    // THIS IS REACTOR THREAD
+                    // THIS IS WALLET CLIENT REACTOR THREAD
                     //
-                    return client->IWThread_createAppShaders(appid, appname);
+                    IWTResult result;
+                    bool hasIPFSNode = false;
+
+                    #ifdef BEAM_IPFS_SUPPORT
+                    if (ipfsnode) {
+                        result.ipfs = client->IWThread_startIPFSNode();
+                        hasIPFSNode = true;
+                    }
+                    #else
+                    ipfsnode;
+                    #endif
+
+                    if (!hasIPFSNode) {
+                        LOG_INFO() << "IPFS Node is not running. IPFS would not be available for the '"
+                                   << appname << "' DApp";
+                    }
+
+                    result.shaders = client->IWThread_createAppShaders(appid, appname);
+                    return result;
                 },
                 [client, cback=std::move(cback), version, appid, appname](boost::any aptr) {
                     //
@@ -99,13 +126,18 @@ namespace beam::wallet
                     wapi->_weakSelf = wapi;
 
                     ApiInitData data;
-                    auto shaders   = boost::any_cast<IShadersManager::Ptr>(aptr);
-                    data.contracts = std::move(shaders);
-                    data.swaps     = nullptr;
-                    data.wallet    = client->getWallet();
-                    data.walletDB  = client->getWalletDB();
-                    data.appId     = appid;
-                    data.appName   = appname;
+                    auto iwtres      = boost::any_cast<IWTResult>(aptr);
+                    data.contracts   = std::move(iwtres.shaders);
+                    data.swaps       = nullptr;
+                    data.wallet      = client->getWallet();
+                    data.walletDB    = client->getWalletDB();
+                    data.appId       = appid;
+                    data.appName     = appname;
+                    data.nodeNetwork = client->getNodeNetwork();
+
+                    #ifdef BEAM_IPFS_SUPPORT
+                    data.ipfs = std::move(iwtres.ipfs);
+                    #endif
 
                     wapi->_walletAPI = IWalletApi::CreateInstance(version, *wapi->_walletAPIProxy, data);
                     cback(std::move(wapi));

@@ -2350,6 +2350,8 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_SkipDefinition = false; // no need to calculate the full definition (i.e. not generating/interpreting a block), MMR updates and etc. can be omitted
 	bool m_LimitExceeded = false;
 	bool m_TxValidation = false; // tx or block
+	bool m_DependentCtxSet = false;
+	bool m_SkipInOuts = false;
 	uint8_t m_TxStatus = proto::TxStatus::Unspecified;
 	std::ostream* m_pTxErrorInfo = nullptr;
 
@@ -2362,6 +2364,8 @@ struct NodeProcessor::BlockInterpretCtx
 	std::vector<Merkle::Hash> m_vLogs;
 
 	ByteBuffer m_Rollback;
+
+	Merkle::Hash m_hvDependentCtx;
 
 	struct Ser
 		:public Serializer
@@ -2412,6 +2416,7 @@ struct NodeProcessor::BlockInterpretCtx
 		BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& db);
 
 		virtual void LoadVar(const Blob& key, Blob& res) override;
+		virtual void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) override;
 		virtual uint32_t SaveVar(const Blob& key, const Blob&) override;
 		virtual uint32_t OnLog(const Blob& key, const Blob& val) override;
 
@@ -2422,6 +2427,7 @@ struct NodeProcessor::BlockInterpretCtx
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) override;
 		virtual bool AssetDestroy(Asset::ID, const PeerID&) override;
 
+		BlobMap::Entry* FindVarEx(const Blob& key, bool bExact, bool bBigger);
 		bool EnsureNoVars(const bvm2::ContractID&);
 		static bool IsOwnedVar(const bvm2::ContractID&, const Blob& key);
 
@@ -3335,44 +3341,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::EnsureNoVars(const bvm2::ContractID& cid)
 {
-	// pass 1. Ensure no vars in DB
 	Blob key(cid);
-	while (true)
-	{
-		NodeDB::Recordset rs;
-		if (!m_Proc.m_DB.ContractDataFindNext(key, rs) || !IsOwnedVar(cid, key))
-			break; // ok
 
-		if (m_Bic.m_Temporary)
-		{
-			// actual DB data is intact, make sure cached data is erased
-			auto* pE = m_Bic.m_ContractVars.Find(key);
-			if (pE && pE->m_Data.empty())
-			{
-				key = pE->ToBlob(); // this buf will survive the next iteration
-				continue; // ok
-			}
-		}
-
-		// not all variables have been removed.
-		return false;
-	}
-
-	if (m_Bic.m_Temporary)
-	{
-		// pass 2. make sure no unsaved variables too
-		for (auto it = m_Bic.m_ContractVars.lower_bound(Blob(cid), BlobMap::Set::Comparator()); m_Bic.m_ContractVars.end() != it; ++it)
-		{
-			const auto& e = *it;
-			if (!IsOwnedVar(cid, e.ToBlob()))
-				break; // ok
-
-			if (!e.m_Data.empty())
-				return false;
-		}
-	}
-
-	return true;
+	auto* pE = FindVarEx(key, true, true);
+	return !(pE && IsOwnedVar(cid, pE->ToBlob()));
 }
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::IsOwnedVar(const bvm2::ContractID& cid, const Blob& key)
@@ -4102,6 +4074,8 @@ bool NodeProcessor::ExecInDependentContext(IWorker& wrk, const Merkle::Hash* pCt
 			bic.m_Temporary = true;
 			bic.m_TxValidation = true;
 			bic.m_SkipDefinition = true;
+			bic.m_AlreadyValidated = true;
+			bic.m_SkipInOuts = true;
 
 			DependentContextSwitch dcs(*this, bic);
 			if (!dcs.Apply(&itCtx->get_ParentObj()))
@@ -4117,6 +4091,9 @@ bool NodeProcessor::ExecInDependentContext(IWorker& wrk, const Merkle::Hash* pCt
 
 bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 {
+	if (bic.m_SkipInOuts)
+		return true;
+
 	UtxoTree::Cursor cu;
 	UtxoTree::MyLeaf* p;
 	UtxoTree::Key::Data d;
@@ -4192,9 +4169,14 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 
 bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 {
+	if (bic.m_SkipInOuts)
+		return true;
+
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
-	d.m_Maturity = v.get_MinMaturity(bic.m_Height);
+	d.m_Maturity = bic.m_SkipDefinition ?
+		(bic.m_Height - 1) : // allow this output to be spent in exactly this block. Won't happen in normal blocks (matching in/outs are not allowed), but ok when assembling a block, before cut-through
+		v.get_MinMaturity(bic.m_Height);
 
 	UtxoTree::Key key;
 	key = d;
@@ -4356,17 +4338,43 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 
 bool NodeProcessor::HandleKernelTypeAny(const TxKernel& krn, BlockInterpretCtx& bic)
 {
-	switch (krn.get_Subtype())
+	auto eType = krn.get_Subtype();
+
+	bool bContextChange = !krn.m_CanEmbed && (TxKernel::Subtype::Std != eType);
+	if (bContextChange && !bic.m_Fwd && bic.m_Temporary)
+	{
+		BlockInterpretCtx::Der der(bic);
+		der & bic.m_hvDependentCtx;
+	}
+
+	switch (eType)
 	{
 #define THE_MACRO(id, name) \
 	case TxKernel::Subtype::name: \
-		return HandleKernelType(Cast::Up<TxKernel##name>(krn), bic); \
+		if (!HandleKernelType(Cast::Up<TxKernel##name>(krn), bic)) \
+			return false; \
+		break; 
 
 	BeamKernelsAll(THE_MACRO)
 #undef THE_MACRO
+
+	default:
+		assert(false); // should not happen!
 	}
 
-	assert(false); // should not happen!
+	if (bContextChange && bic.m_Fwd)
+	{
+		const auto& hvPrev = bic.m_DependentCtxSet ? bic.m_hvDependentCtx : m_Cursor.m_Full.m_Prev;
+		if (bic.m_Temporary)
+		{
+			BlockInterpretCtx::Ser ser(bic);
+			ser & hvPrev;
+		}
+
+		DependentContext::get_Ancestor(bic.m_hvDependentCtx, hvPrev, krn.m_Internal.m_ID);
+		bic.m_DependentCtxSet = true;
+	}
+
 	return true;
 }
 
@@ -4461,7 +4469,8 @@ void NodeProcessor::BlockInterpretCtx::Der::SetBwd(ByteBuffer& buf, uint32_t nPo
 	size_t nVal = buf.size() - nPortion;
 	reset(&buf.front() + nVal, nPortion);
 
-	buf.resize(nVal); // it's safe to call resize() while the buffer is being used, coz std::vector does NOT reallocate on shrink
+	if (nVal < buf.size()) // to avoid stringop-overflow warning
+		buf.resize(nVal); // it's safe to call resize() while the buffer is being used, coz std::vector does NOT reallocate on shrink
 }
 
 bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key, const Blob* pVal)
@@ -4542,7 +4551,9 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 
 		if (!m_Bic.m_AlreadyValidated)
 		{
-			hp << krn.m_Msg;
+			const auto& hvCtx = m_Bic.m_DependentCtxSet ? m_Bic.m_hvDependentCtx : m_Proc.m_Cursor.m_Full.m_Prev;
+			krn.Prepare(hp, &hvCtx);
+
 			m_pSigValidate = &hp;
 		}
 
@@ -4611,8 +4622,8 @@ struct NodeProcessor::ProcessorInfoParser
 	ByteBuffer m_bufParser;
 	std::ostringstream m_os;
 
-	Height get_Height() override {
-		return m_Height;
+	void SelectContext(bool /* bDependent */, uint32_t /* nChargeNeeded */) override {
+		m_Context.m_Height = m_Height;
 	}
 	bool get_HdrAt(Block::SystemState::Full& s) override
 	{
@@ -4812,6 +4823,59 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const Blob& key, Bl
 {
 	auto& e = m_Bic.get_ContractVar(key, m_Proc.m_DB);
 	res = e.m_Data;
+}
+
+BlobMap::Entry* NodeProcessor::BlockInterpretCtx::BvmProcessor::FindVarEx(const Blob& key, bool bExact, bool bBigger)
+{
+	auto* pE = &m_Bic.get_ContractVar(key, m_Proc.m_DB);
+	if (pE->m_Data.empty() || !bExact)
+	{
+		while (true)
+		{
+			NodeDB::Recordset rs;
+			Blob keyDB = pE->ToBlob();
+			bool bNextDB = bBigger ?
+				m_Proc.m_DB.ContractDataFindNext(keyDB, rs) :
+				m_Proc.m_DB.ContractDataFindPrev(keyDB, rs);
+
+			if (bNextDB)
+				m_Bic.get_ContractVar(keyDB, m_Proc.m_DB);
+
+			auto it = BlobMap::Set::s_iterator_to(*pE);
+			if (bBigger)
+			{
+				++it;
+				if (m_Bic.m_ContractVars.end() == it)
+					return nullptr;
+			}
+			else
+			{
+				if (m_Bic.m_ContractVars.begin() == it)
+					return nullptr;
+				--it;
+			}
+
+			pE = &(*it);
+			if (!pE->m_Data.empty())
+				break;
+		}
+	}
+	return pE;
+}
+
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger)
+{
+	auto* pE = FindVarEx(key, bExact, bBigger);
+	if (pE)
+	{
+		key = pE->ToBlob();
+		res = pE->m_Data;
+	}
+	else
+	{
+		key.n = 0;
+		res.n = 0;
+	}
 }
 
 uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, const Blob& data)
@@ -5779,7 +5843,7 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return thw.first;
 }
 
-uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRange& hr, bool bShieldedTested, uint32_t& nBvmCharge, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo)
+uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRange& hr, bool bShieldedTested, uint32_t& nBvmCharge, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo, Merkle::Hash* pCtxNew)
 {
 	Height h = m_Cursor.m_ID.m_Height + 1;
 
@@ -5797,6 +5861,7 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 	bic.m_TxValidation = true;
 	bic.m_SkipDefinition = true;
 	bic.m_pTxErrorInfo = pExtraInfo;
+	bic.m_AlreadyValidated = true;
 
 	DependentContextSwitch dcs(*this, bic);
 	if (!dcs.Apply(pParent))
@@ -5804,6 +5869,9 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 		LOG_WARNING() << "can't switch dependent context"; // normally should not happen
 		return proto::TxStatus::DependentNoParent;
 	}
+
+	bool bNewVal = false;
+	TemporarySwap ts(bic.m_AlreadyValidated, bNewVal);
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
 
@@ -5830,6 +5898,9 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 
 	size_t n = 0;
 	bool bOk = HandleElementVecFwd(tx.m_vKernels, bic, n);
+
+	if (bOk && pCtxNew)
+		*pCtxNew = bic.m_DependentCtxSet ? bic.m_hvDependentCtx : m_Cursor.m_Full.m_Prev;
 
 	nBvmCharge -= bic.m_ChargePerBlock;
 

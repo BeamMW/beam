@@ -512,7 +512,7 @@ namespace beam
 
 		d.m_vGroups.reserve(map.size());
 
-		for (GroupMap::iterator it = map.begin(); map.end() != it; it++)
+		for (GroupMap::iterator it = map.begin(); map.end() != it; ++it)
 		{
 			Data::Group& gSrc = it->second;
 			if (!(gSrc.m_Value == Zero))

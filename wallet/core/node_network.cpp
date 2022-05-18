@@ -64,6 +64,15 @@ namespace beam::wallet
 
     void NodeNetwork::OnNodeConnected(bool bConnected)
     {
+        if (bConnected)
+        {
+            m_disconnectReason.clear();
+            ++m_connections;
+        }
+        else
+        {
+            --m_connections;
+        }
         for (const auto observer : m_observers)
         {
             observer->onNodeConnectedStatusChanged(bConnected);
@@ -72,6 +81,9 @@ namespace beam::wallet
 
     void NodeNetwork::OnConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
     {
+        std::stringstream ss;
+        ss << reason;
+        m_disconnectReason = ss.str();
         for (const auto observer : m_observers)
         {
             observer->onNodeConnectionFailed(reason);
@@ -100,6 +112,16 @@ namespace beam::wallet
             return true;
         }
         return false;
+    }
+
+    const std::string& NodeNetwork::getLastError() const
+    {
+        return m_disconnectReason;
+    }
+
+    size_t NodeNetwork::getConnections() const
+    {
+        return m_connections;
     }
 
     void NodeNetwork::Subscribe(INodeConnectionObserver* observer)

@@ -379,8 +379,12 @@ TxPool::Dependent::Element* TxPool::Dependent::AddValidTx(Transaction::Ptr&& pVa
 	m_setTxs.insert(p->m_Tx);
 
 	p->m_Size = (uint32_t) p->m_pValue->get_Reader().get_SizeNetto();
+	p->m_Depth = 1;
 	if (pParent)
+	{
 		p->m_Size += pParent->m_Size;
+		p->m_Depth += pParent->m_Depth;
+	}
 
 	const Amount feeMax = static_cast<Amount>(-1);
 	auto& fee = ctx.m_Stats.m_Fee;

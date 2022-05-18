@@ -122,7 +122,7 @@ namespace beam::wallet
         {
             GetAsyncAcontext().OnAsyncStarted();
             m_EventToUpdate = io::AsyncEvent::create(io::Reactor::get_Current(), [this, weak = this->weak_from_this()]()
-            { 
+            {
                 auto eventHolder = m_EventToUpdate;
                 if (auto tx = weak.lock())
                 {
@@ -221,9 +221,10 @@ namespace beam::wallet
     void BaseTransaction::RollbackTx()
     {
         LOG_INFO() << m_Context << " Transaction failed. Rollback...";
-        m_Context.GetWalletDB()->restoreCoinsSpentByTx(GetTxID());
-        m_Context.GetWalletDB()->deleteCoinsCreatedByTx(GetTxID());
-        m_Context.GetWalletDB()->restoreShieldedCoinsSpentByTx(GetTxID());
+        auto db = m_Context.GetWalletDB();
+        db->restoreCoinsSpentByTx(GetTxID());
+        db->deleteCoinsCreatedByTx(GetTxID());
+        db->restoreShieldedCoinsSpentByTx(GetTxID());
     }
 
     INegotiatorGateway& BaseTransaction::GetGateway() const
@@ -265,7 +266,8 @@ namespace beam::wallet
         uint8_t nRegistered = proto::TxStatus::Unspecified;
         Merkle::Hash kernelID;
         bool isSender = GetMandatoryParameter<bool>(TxParameterID::IsSender);
-        if ((!GetParameter(TxParameterID::TransactionRegistered, nRegistered) && isSender)
+        GetParameter(TxParameterID::TransactionRegistered, nRegistered);
+        if ((nRegistered != proto::TxStatus::Ok && isSender)
             || !GetParameter(TxParameterID::KernelID, kernelID))
         {
             Block::SystemState::Full state;
@@ -275,6 +277,7 @@ namespace beam::wallet
                 OnFailed(TxFailureReason::TransactionExpired);
                 return true;
             }
+            return false;
         }
         else
         {
@@ -310,7 +313,7 @@ namespace beam::wallet
                     reason = TxFailureReason::AssetsDisabledReceiver;
                 }
             }
-                
+
             OnFailed(reason);
             return true;
         }
@@ -485,9 +488,9 @@ namespace beam::wallet
         WalletID peerID;
         if (GetParameter(TxParameterID::MyID, msg.m_From)
             && GetParameter(TxParameterID::PeerID, peerID))
-        { 
+        {
             PeerID secureWalletID = Zero, peerWalletID = Zero;
-            if (GetParameter(TxParameterID::MyWalletIdentity, secureWalletID) 
+            if (GetParameter(TxParameterID::MyWalletIdentity, secureWalletID)
              && GetParameter(TxParameterID::PeerWalletIdentity, peerWalletID))
             {
                 msg.AddParameter(TxParameterID::PeerWalletIdentity, secureWalletID);

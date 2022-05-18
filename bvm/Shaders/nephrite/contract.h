@@ -1,17 +1,18 @@
 #pragma once
 #include "pool.h"
+#include "../oracle2/contract.h"
+#include "../upgradable3/contract.h"
 
-namespace Liquity
+namespace Nephrite
 {
-    static const ShaderID s_SID = { 0x15,0xac,0x21,0x69,0xa6,0x40,0x1a,0x2a,0x3c,0x27,0xed,0xcf,0xb5,0x49,0x6c,0xae,0xcd,0x3e,0x91,0xe9,0x48,0x7b,0xa6,0xe2,0x87,0xd0,0x1c,0x9d,0xe4,0x35,0xe7,0x66 };
+    static const ShaderID s_SID_0 = { 0xb9,0x40,0x01,0xde,0xfa,0xda,0xc8,0xe4,0x83,0xc4,0xab,0x9c,0x3b,0xca,0x81,0x58,0x75,0xac,0x17,0xd4,0x3f,0x7f,0x11,0x93,0xed,0x09,0x6d,0xf4,0xb9,0xc9,0x02,0x19 };
+    static const ShaderID s_SID   = { 0x81,0x44,0xad,0xae,0xd6,0x87,0x4d,0x62,0xca,0x79,0xec,0x4e,0x82,0x71,0x9c,0x33,0x78,0x7a,0x71,0x67,0xfe,0xc9,0xae,0x90,0xd7,0xca,0xe6,0x44,0x8d,0x5c,0x9d,0xd7 };
 
 #pragma pack (push, 1)
 
     struct Tags
     {
         static const uint8_t s_State = 0;
-        // don't use taag=1 for multiple data entries, it's used by Upgradable2
-        static const uint8_t s_Epoch_Redist = 2;
         static const uint8_t s_Epoch_Stable = 3;
         static const uint8_t s_Balance = 4;
         static const uint8_t s_StabPool = 5;
@@ -139,6 +140,7 @@ namespace Liquity
         ContractID m_cidOracle;
         Amount m_TroveLiquidationReserve;
         AssetID m_AidProfit;
+        Height m_hMinRedemptionHeight;
     };
 
     struct Global
@@ -164,13 +166,10 @@ namespace Liquity
 
             bool IsUnchanged(const Trove& t) const
             {
-                return
-                    (t.m_RedistUser.m_iEpoch == m_iActive) &&
-                    (t.m_RedistUser.m_Sigma0 == m_Active.m_Sigma);
+                return (t.m_RedistUser.m_Sigma0 == m_Active.m_Sigma);
             }
 
-            template <class Storage>
-            void Remove(Trove& t, Storage& stor)
+            void Remove(Trove& t)
             {
                 // try to avoid recalculations if nothing changed, to prevent inaccuracies
                 //
@@ -182,20 +181,19 @@ namespace Liquity
                 }
                 else
                 {
-                    Pair out;
-                    UserDel(t.m_RedistUser, out, stor);
+                    HomogenousPool::Pair out;
+                    UserDel(t.m_RedistUser, out);
                     UpdAmountsPostRemove(t.m_Amounts, out);
                 }
             }
 
-            template <class Storage>
-            Liquity::Pair get_UpdatedAmounts(const Trove& t, Storage& stor) const
+            Pair get_UpdatedAmounts(const Trove& t) const
             {
                 auto ret = t.m_Amounts;
                 if (!IsUnchanged(t))
                 {
-                    Pair out;
-                    Cast::NotConst(*this).UserDel<true>(Cast::NotConst(t.m_RedistUser), out, stor);
+                    HomogenousPool::Pair out;
+                    t.m_RedistUser.DelRO_(m_Active, out);
                     UpdAmountsPostRemove(ret, out);
                 }
                 return ret;
@@ -206,7 +204,7 @@ namespace Liquity
                 if (!get_TotalSell())
                     return false; // empty
 
-                Pair p;
+                HomogenousPool::Pair p;
                 p.s = t.m_Amounts.Tok;
                 p.b = t.m_Amounts.Col;
                 Trade(p);
@@ -215,7 +213,7 @@ namespace Liquity
             }
 
         private:
-            static void UpdAmountsPostRemove(Liquity::Pair& vals, const Pair& out)
+            static void UpdAmountsPostRemove(Pair& vals, const HomogenousPool::Pair& out)
             {
                 vals.Tok = out.s;
                 vals.Col += out.b;
@@ -228,7 +226,7 @@ namespace Liquity
         {
             bool LiquidatePartial(Trove& t)
             {
-                Pair p;
+                HomogenousPool::Pair p;
                 p.s = get_TotalSell();
                 if (!p.s)
                     return false;
@@ -281,39 +279,193 @@ namespace Liquity
                 return val;
             }
 
+            static Float get_k100eps()
+            {
+                Float val = 65864;
+                val.m_Order -= 16; // 65864/2^16 = (approx) 100.5%
+                return val;
+            }
+
             static Float get_k100()
             {
                 return Float(1u);
             }
 
-            bool IsBelow150(Float rcr) const
+            bool IsBelow(const Pair& p, Float k) const
             {
-                return ToCR(rcr) < get_k150();
+                // theoretical formula: p.Col / p.Tok * m_Value < k
+                // rewrite it as: p.Col * m_Value < p.Tok * k
+                return C2T(p.Col) < (Float(p.Tok) * k);
             }
 
-            bool IsBelow110(Float rcr) const
+            bool IsRecovery(const Pair& totals) const
             {
-                return ToCR(rcr) < get_k110();
+                return IsBelow(totals, Price::get_k150());
             }
 
-            bool IsBelow100(Float rcr) const
-            {
-                return ToCR(rcr) < get_k100();
-            }
         };
-/*
-        Amount get_LiquidationRewardReduce(Float cr) const
+
+        bool IsRecovery(const Price& price) const
         {
-            Amount half = m_Settings.m_TroveLiquidationReserve / 2;
-
-            // icr == 0 - full reward
-            // icr == threshold - reward is reduced to half
-
-            Amount ret = Float(half) * cr / Price::get_k110();
-
-            return std::min(ret, half);
+            return price.IsRecovery(m_Troves.m_Totals);
         }
-*/
+
+        bool IsTroveUpdInvalid(const Trove& t, const Pair& totals0, const Price& price, bool bRecovery) const
+        {
+            if (bRecovery)
+            {
+                if (m_Troves.m_Totals.CmpRcr(totals0) < 0)
+                    return true; // Ban txs that decrease the tcr.
+
+                if (!totals0.Tok)
+                    return true; // The very 1st trove drives us into recovery
+            }
+
+            return price.IsBelow(t.m_Amounts, Price::get_k110());
+        }
+
+        Amount get_BorrowFee(Amount tok, Amount tok0, bool bRecovery, const Price& price)
+        {
+            // during recovery borrowing fee is OFF
+            if (bRecovery || (tok <= tok0) || m_ProfitPool.IsEmpty())
+                return 0;
+
+            Amount valMinted = tok - tok0;
+            Amount feeTokMin = valMinted / 200; // 0.5 percent
+            Amount feeTokMax = valMinted / 20; // 5 percent
+
+            m_BaseRate.Decay();
+            Amount feeTok = feeTokMin + m_BaseRate.m_k * Float(valMinted);
+            feeTok = std::min(feeTok, feeTokMax);
+
+            return price.T2C(feeTok);
+        }
+
+        struct Liquidator
+        {
+            Price m_Price;
+            FlowPair m_fpLogic;
+            bool m_Stab = false;
+        };
+
+        bool LiquidateTrove(Trove& t, const Pair& totals0, Liquidator& ctx, Amount& valSurplus)
+        {
+            assert(t.m_Amounts.Tok >= m_Settings.m_TroveLiquidationReserve);
+            bool bUseRedistPool = true;
+
+            auto cr = ctx.m_Price.ToCR(t.m_Amounts.get_Rcr());
+            if (cr > Global::Price::get_k100())
+            {
+                bool bAboveMcr = (cr >= Global::Price::get_k110());
+                if (bAboveMcr)
+                {
+                    if (!ctx.m_Price.IsRecovery(totals0)) // in recovery mode can liquidate the weakest
+                        return false;
+
+                    Amount valColMax = ctx.m_Price.T2C(Float(t.m_Amounts.Tok) * Price::get_k110());
+                    assert(valColMax <= t.m_Amounts.Col);
+                    if (valColMax < t.m_Amounts.Col) // should always be true, just for more safety
+                    {
+                        valSurplus = t.m_Amounts.Col - valColMax;
+                        t.m_Amounts.Col = valColMax;
+                    }
+                }
+
+                if (m_StabPool.LiquidatePartial(t))
+                    ctx.m_Stab = true;
+
+                if (t.m_Amounts.Tok || t.m_Amounts.Col)
+                {
+                    if (bAboveMcr)
+                        return false;
+                }
+                else
+                    bUseRedistPool = false;
+
+            }
+
+            if (bUseRedistPool)
+            {
+                if (!m_RedistPool.Liquidate(t))
+                    return false; // last trove?
+
+                Strict::Add(m_Troves.m_Totals.Tok, t.m_Amounts.Tok);
+                Strict::Add(m_Troves.m_Totals.Col, t.m_Amounts.Col);
+            }
+
+            ctx.m_fpLogic.Tok.Add(m_Settings.m_TroveLiquidationReserve, 0); // goes to the liquidator
+            return true;
+        }
+
+        struct Redeemer
+        {
+            Price m_Price;
+            FlowPair m_fpLogic;
+            Amount m_TokRemaining;
+            bool m_CrTested = false;
+        };
+
+        bool RedeemTrove(Trove& t, Redeemer& ctx) const
+        {
+            assert(ctx.m_TokRemaining && (t.m_Amounts.Tok >= m_Settings.m_TroveLiquidationReserve));
+
+            if (!ctx.m_CrTested)
+            {
+                ctx.m_CrTested = true;
+
+                auto cr = ctx.m_Price.ToCR(t.m_Amounts.get_Rcr());
+                if (cr < Price::get_k100eps())
+                    return false;
+            }
+
+            Amount valTok = t.m_Amounts.Tok - m_Settings.m_TroveLiquidationReserve;
+
+            bool bFullRedeem = (ctx.m_TokRemaining >= valTok);
+            if (!bFullRedeem)
+                valTok = ctx.m_TokRemaining;
+
+            Amount valCol = ctx.m_Price.T2C(valTok);
+            assert(t.m_Amounts.Col >= valCol);
+
+            t.m_Amounts.Col -= valCol;
+            if (bFullRedeem)
+            {
+                t.m_Amounts.Tok = 0;
+                ctx.m_TokRemaining -= valTok;
+            }
+            else
+            {
+                t.m_Amounts.Tok -= valTok;
+                ctx.m_TokRemaining = 0;
+            }
+
+            ctx.m_fpLogic.Tok.Add(valTok, 1);
+            ctx.m_fpLogic.Col.Add(valCol, 0);
+            
+            return true;
+        }
+
+        Amount AddRedeemFee(Redeemer& ctx)
+        {
+            if (m_ProfitPool.IsEmpty() || !ctx.m_fpLogic.Tok.m_Val)
+                return 0;
+
+            Amount feeBase = ctx.m_fpLogic.Col.m_Val / 200; // redemption fee floor is 0.5 percent
+
+            // update dynamic redeem ratio 
+            m_BaseRate.Decay();
+            Float kDrainRatio = Float(ctx.m_fpLogic.Tok.m_Val) / Float(ctx.m_fpLogic.Tok.m_Val + m_Troves.m_Totals.Tok);
+            m_BaseRate.m_k = m_BaseRate.m_k + kDrainRatio;
+
+
+            Amount fee = feeBase + m_BaseRate.m_k * Float(ctx.m_fpLogic.Col.m_Val);
+            fee = std::min(fee, ctx.m_fpLogic.Col.m_Val); // fee can go as high as 100 percents
+
+            ctx.m_fpLogic.Col.m_Val -= fee;
+            return fee;
+        }
+
+
         struct BaseRate
         {
             Float m_k;
@@ -353,15 +505,13 @@ namespace Liquity
 
     namespace Method
     {
-        struct OracleGet
-        {
-            static const uint32_t s_iMethod = 3;
-            Float m_Val;
-        };
+        typedef Oracle2::Method::Get OracleGet;
 
         struct Create
         {
             static const uint32_t s_iMethod = 0;
+
+            Upgradable3::Settings m_Upgradable;
             Settings m_Settings;
         };
 
@@ -411,7 +561,6 @@ namespace Liquity
         {
             static const uint32_t s_iMethod = 8;
             uint32_t m_Count;
-            Trove::ID m_iPrev1;
         };
 
         struct UpdProfitPool :public BaseTxUser

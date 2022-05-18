@@ -10,5 +10,5 @@ target_sources(dex
 target_compile_definitions(dex PUBLIC BEAM_CONFIDENTIAL_ASSETS_SUPPORT)
 target_link_libraries(dex
     PUBLIC
-        wallet
+        wallet_core
 )
