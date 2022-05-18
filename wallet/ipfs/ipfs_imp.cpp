@@ -86,7 +86,7 @@ namespace beam::wallet::imp
                         config.bootstrap.emplace_back("/dns4/eu-node02.testnet.beam.mw/tcp/38041/p2p/12D3KooWPrfHKa3Sc7qF96biwqy1JPRVDxoVhbxFtnfnbZQXVw8e");
                         config.bootstrap.emplace_back("/dns4/eu-node03.testnet.beam.mw/tcp/38041/p2p/12D3KooWF1oX1FP3chGQgzosCdNqBwSb37BPhM2fQJYiYMtGpHXt");
                         #elif defined(BEAM_MAINNET)
-                            #error ("Define Mainnet IPFS bootstrap")
+                            //#error ("Define Mainnet IPFS bootstrap")
                         #else
                         config.bootstrap.emplace_back("/ip4/3.19.141.112/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
                         #endif
@@ -98,7 +98,7 @@ namespace beam::wallet::imp
                         config.bootstrap.emplace_back("/dns4/eu-node02.testnet.beam.mw/tcp/38041/p2p/12D3KooWPrfHKa3Sc7qF96biwqy1JPRVDxoVhbxFtnfnbZQXVw8e");
                         config.bootstrap.emplace_back("/dns4/eu-node03.testnet.beam.mw/tcp/38041/p2p/12D3KooWF1oX1FP3chGQgzosCdNqBwSb37BPhM2fQJYiYMtGpHXt");
                         #elif defined(BEAM_MAINNET)
-                        #error ("Define Mainnet IPFS peering")
+                        //#error ("Define Mainnet IPFS peering")
                         #else
                         config.peering.emplace_back("/ip4/3.19.141.112/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
                         #endif
