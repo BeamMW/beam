@@ -3657,8 +3657,12 @@ void TestKeyKeeper(IPrivateKeyKeeper2::Ptr externalKeyKeeper = {}, size_t index 
 
 void TestArgumentParsing()
 {
+    struct MyProcessor : bvm2::ProcessorManager
     {
-        bvm2::ProcessorManager p;
+        virtual void SelectContext(bool bDependent, uint32_t nChargeNeeded) override {}
+    };
+    {
+        MyProcessor p;
         p.AddArgs(" role=manager, action    =destroy_contract, cid = 2dd39c06ede9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d , name=\"my \"trt,ywy\" name\", te_t = \"saa ,  \"    ");
         WALLET_CHECK(p.m_Args.size() == 5);
         WALLET_CHECK(p.m_Args["role"] == "manager");
@@ -3668,7 +3672,7 @@ void TestArgumentParsing()
         WALLET_CHECK(p.m_Args["te_t"] == "saa ,  ");
     }
     {
-        bvm2::ProcessorManager p;
+        MyProcessor p;
         p.AddArgs("role=manager,action=destroy_contract,cid=2dd39c06ede9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d,name=\"my \"trt,ywy\" name\",te_t = \"saa ,  \"    ");
         WALLET_CHECK(p.m_Args.size() == 5);
         WALLET_CHECK(p.m_Args["role"] == "manager");
@@ -3678,13 +3682,13 @@ void TestArgumentParsing()
         WALLET_CHECK(p.m_Args["te_t"] == "saa ,  ");
     }
     {
-        bvm2::ProcessorManager p;
+        MyProcessor p;
         p.AddArgs("");
         WALLET_CHECK(p.m_Args.size() == 0);
     }
 
     {
-        bvm2::ProcessorManager p;
+        MyProcessor p;
         p.AddArgs("r54ole=manager,act ion=destroy_contract,cid=2dd39c06e653563 543536 76 76��������������;;;;';'df;;.,,,,,,de9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d,na ");
         WALLET_CHECK(p.m_Args.size() == 2);
         WALLET_CHECK(p.m_Args["r54ole"] == "manager");
@@ -3692,7 +3696,7 @@ void TestArgumentParsing()
     }
 
     {
-        bvm2::ProcessorManager p;
+        MyProcessor p;
         p.AddArgs("r54ole=manager,act ion=destroy_contract,cid=2dd39c06e653563   ");
         WALLET_CHECK(p.m_Args.size() == 3);
         WALLET_CHECK(p.m_Args["r54ole"] == "manager");
@@ -3701,7 +3705,7 @@ void TestArgumentParsing()
     }
 
     {
-        bvm2::ProcessorManager p;
+        MyProcessor p;
         p.AddArgs("data=\"role=manager,action=destroy_contract,cid=2dd39c06e653563    \"");
         WALLET_CHECK(p.m_Args.size() == 1);
         WALLET_CHECK(p.m_Args["data"] == "role=manager,action=destroy_contract,cid=2dd39c06e653563    ");

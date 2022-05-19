@@ -3486,7 +3486,7 @@ namespace bvm2 {
 
 	uint32_t ProcessorManager::AddArgs(const std::string& commaSeparatedPairs)
 	{
-		static const std::regex expr("\\s*([\\w\\d_]+)\\s*=\\s*(([\\w\\d_]+)|\"(.*?)\")\\s*(,|$)");
+		static const std::regex expr(R"raw(\s*([\w\d_]+)\s*=\s*(([\w\d_]+)|"(.*?)")\s*(,|$))raw");
 		std::cmatch groups;
 		const char* s = commaSeparatedPairs.c_str();
 		uint32_t ret = 0;
