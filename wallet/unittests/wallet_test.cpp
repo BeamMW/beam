@@ -3663,7 +3663,7 @@ void TestArgumentParsing()
     };
     {
         MyProcessor p;
-        p.AddArgs(" role=manager, action    =destroy_contract, cid = 2dd39c06ede9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d , name=\"my \"trt,ywy\" name\", te_t = \"saa ,  \"    ");
+        p.AddArgs(R"( role=manager, action    =destroy_contract, cid = 2dd39c06ede9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d , name="my \"trt,ywy\" name", te_t = "saa ,  "    )");
         WALLET_CHECK(p.m_Args.size() == 5);
         WALLET_CHECK(p.m_Args["role"] == "manager");
         WALLET_CHECK(p.m_Args["action"] == "destroy_contract");
@@ -3673,13 +3673,23 @@ void TestArgumentParsing()
     }
     {
         MyProcessor p;
-        p.AddArgs("role=manager,action=destroy_contract,cid=2dd39c06ede9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d,name=\"my \"trt,ywy\" name\",te_t = \"saa ,  \"    ");
+        p.AddArgs(R"(role=manager,action=destroy_contract,cid=2dd39c06ede9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d,name="my \"trt,ywy\" name",te_t = "saa ,  "    )");
         WALLET_CHECK(p.m_Args.size() == 5);
         WALLET_CHECK(p.m_Args["role"] == "manager");
         WALLET_CHECK(p.m_Args["action"] == "destroy_contract");
         WALLET_CHECK(p.m_Args["cid"] == "2dd39c06ede9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d");
         WALLET_CHECK(p.m_Args["name"] == "my \"trt,ywy\" name");
         WALLET_CHECK(p.m_Args["te_t"] == "saa ,  ");
+    }
+
+    {
+        MyProcessor p;
+        p.AddArgs(R"e(role=manager,action=destroy_contract,data="{\"name\": \"Otton I\", \"age\":  12}")e");
+        WALLET_CHECK(p.m_Args.size() == 3);
+        WALLET_CHECK(p.m_Args["role"] == "manager");
+        WALLET_CHECK(p.m_Args["action"] == "destroy_contract");
+        WALLET_CHECK(p.m_Args["data"] == "{\"name\": \"Otton I\", \"age\":  12}");
+
     }
     {
         MyProcessor p;

@@ -16,6 +16,7 @@
 #include "bvm2_impl.h"
 #include <sstream>
 #include <regex>
+#include <boost/algorithm/string/replace.hpp>
 
 #if defined(__ANDROID__) || !defined(BEAM_USE_AVX)
 #include "crypto/blake/ref/blake2.h"
@@ -3486,7 +3487,7 @@ namespace bvm2 {
 
 	uint32_t ProcessorManager::AddArgs(const std::string& commaSeparatedPairs)
 	{
-		static const std::regex expr(R"raw(\s*([\w\d_]+)\s*=\s*(([\w\d_]+)|"(.*?)")\s*(,|$))raw");
+		static const std::regex expr(R"raw(\s*([\w\d_]+)\s*=\s*(([\w\d_]+)|"(.*?[^\\])")\s*(,|$))raw");
 		std::cmatch groups;
 		const char* s = commaSeparatedPairs.c_str();
 		uint32_t ret = 0;
@@ -3503,6 +3504,7 @@ namespace bvm2 {
 				else if (groups[4].matched)
 				{
 					value.assign(groups[4].first, groups[4].second);
+					boost::algorithm::replace_all(value, "\\\"", "\"");
 				}
 
 				m_Args.emplace(std::move(key), std::move(value));
