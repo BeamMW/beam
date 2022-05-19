@@ -48,13 +48,13 @@ ON_METHOD(manager, get_Sid)
     char szBuf[sizeof(sid) * 5];
     char* sz = szBuf;
 
-    for (uint32_t i = 0; ; i++)
+    for (uint32_t i = 0; ; )
     {
         sz[0] = '0';
         sz[1] = 'x';
         Utils::String::Decimal::Print(sz + 2, sid.m_p[i], 2);
 
-        if (i == sizeof(sid))
+        if (++i == sizeof(sid))
             break;
 
         sz[4] = ',';
