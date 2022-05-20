@@ -22,7 +22,7 @@ struct MyAccount
     {
         Env::Halt_if(tx.m_SizeCustom > sizeof(m_Key.m_pCustom));
         m_KeySize = sizeof(Account::Key0) + tx.m_SizeCustom;
-        Env::Memcpy(&m_Key, &tx.m_Key, m_KeySize);
+        Env::Memcpy(&Cast::Down<KeyBase>(m_Key), &tx.m_Key, m_KeySize - sizeof(KeyPrefix));
 
         if (Env::LoadVar(&m_Key, m_KeySize, &m_Amount, sizeof(m_Amount), KeyTag::Internal) != sizeof(m_Amount))
             m_Amount = 0;
