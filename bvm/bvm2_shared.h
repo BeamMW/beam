@@ -140,6 +140,8 @@ struct KeyTag
 
 	// Synthetic tags, not really contract vars
 	static const uint8_t SidCid = 16; // Key={00...00}tag{sid}{cid}, Value=BigEndian(createHeight)
+
+	static const uint32_t s_MaxSize = 256;
 };
 
 struct KeySearchFlags

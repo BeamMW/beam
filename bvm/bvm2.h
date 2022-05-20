@@ -82,7 +82,7 @@ namespace bvm2 {
 	struct Limits
 	{
 		static const uint32_t FarCallDepth = 32;
-		static const uint32_t VarKeySize = 256;
+		static const uint32_t VarKeySize = Shaders::KeyTag::s_MaxSize;
 		static const uint32_t VarSize_0 = 0x2000; // 8K
 		static const uint32_t VarSize_4 = 0x100000; // 1MB, past HF4
 
