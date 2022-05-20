@@ -52,7 +52,7 @@ ON_METHOD(manager, get_Sid)
     {
         sz[0] = '0';
         sz[1] = 'x';
-        Utils::String::Decimal::Print(sz + 2, sid.m_p[i], 2);
+        Utils::String::Hex::Print(sz + 2, sid.m_p[i], 2);
 
         if (++i == sizeof(sid))
             break;

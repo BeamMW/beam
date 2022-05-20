@@ -577,6 +577,18 @@ namespace Utils {
         template <uint32_t nRadix>
         struct Radix
         {
+            static char ToChar(uint64_t val)
+            {
+                val %= nRadix;
+                if constexpr (nRadix <= 10)
+                    return '0' + val;
+                else
+                {
+                    static_assert(nRadix <= 0x10);
+                    return ((val < 10) ? '0' : ('a' - 0xa)) + val;
+                }
+            }
+
             static uint32_t Print(char* sz, uint64_t val)
             {
                 uint32_t nDigs = 1;
@@ -592,7 +604,7 @@ namespace Utils {
             {
                 for (sz[nDigs] = 0; ; val /= nRadix)
                 {
-                    sz[--nDigs] = '0' + (val % nRadix);
+                    sz[--nDigs] = ToChar(val);
                     if (!nDigs)
                         break;
                 }
@@ -608,6 +620,7 @@ namespace Utils {
         };
 
         typedef Radix<10> Decimal;
+        typedef Radix<0x10> Hex;
     };
 
 } // namespace Utils
