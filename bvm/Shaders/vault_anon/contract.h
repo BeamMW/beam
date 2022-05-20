@@ -2,62 +2,57 @@
 
 namespace VaultAnon
 {
-    static const ShaderID s_SID   = { 0x20,0x62,0x26,0xea,0x8c,0x6c,0x01,0x2b,0xae,0xbf,0x49,0xdb,0xb2,0x69,0x6e,0x41,0x05,0x10,0x05,0x4c,0x21,0x26,0xe1,0x46,0xe4,0xad,0xc7,0xca,0xf6,0xde,0x70,0x13 };
+    static const ShaderID s_SID   = { 0x15,0x52,0x75,0x63,0x50,0x86,0x27,0x38,0x40,0x35,0x04,0x23,0x55,0x49,0x16,0x17,0x33,0x23,0x40,0x94,0x59,0x17,0x06,0x36,0x10,0x96,0x36,0x53,0x82,0x61,0x21,0x43 };
 
 #pragma pack (push, 1)
 
     struct Tags
     {
-        static const uint8_t s_Account = 3;
-        static const uint8_t s_Deposit = 4;
+        static const uint8_t s_Account = 1;
     };
 
     struct Account
     {
-        struct Key {
+        struct KeyPrefix {
             uint8_t m_Tag = Tags::s_Account;
-            PubKey m_Pk;
         };
 
-        static const uint8_t s_TitleLenMax = 100;
-        // title?
-    };
-
-    struct Deposit
-    {
-
-        struct Key {
-            uint8_t m_Tag = Tags::s_Deposit;
-            PubKey m_SpendKey;
+        struct KeyBase {
+            PubKey m_pkOwner;
+            AssetID m_Aid;
+            // custom data
         };
 
-        PubKey m_SenderKey;
-        AssetID m_Aid;
+        struct Key0
+            :public KeyPrefix
+            ,public KeyBase
+        {
+            // custom data
+        };
+
+        struct KeyMax :public Key0 {
+            uint8_t m_pCustom[KeyTag::s_MaxSize - sizeof(Key0)];
+        };
+
         Amount m_Amount;
     };
 
     namespace Method
     {
-        struct SetAccount
+        struct BaseTx
         {
+            Amount m_Amount;
+            uint32_t m_SizeCustom;
+            Account::KeyBase m_Key;
+            // custom data
+        };
+
+        struct Deposit :public BaseTx {
             static const uint32_t s_iMethod = 2;
-
-            PubKey m_Pk;
-            uint8_t m_TitleLen;
         };
 
-        struct Send
-        {
+        struct Withdraw :public BaseTx {
             static const uint32_t s_iMethod = 3;
-
-            PubKey m_SpendKey;
-            Deposit m_Deposit;
-        };
-
-        struct Receive
-        {
-            static const uint32_t s_iMethod = 4;
-            PubKey m_SpendKey;
         };
 
     } // namespace Method

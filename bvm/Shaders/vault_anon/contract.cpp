@@ -1,8 +1,7 @@
 ////////////////////////
 #include "../common.h"
 #include "contract.h"
-
-
+#include "../Math.h"
 namespace VaultAnon {
 
 BEAM_EXPORT void Ctor(void*)
@@ -13,43 +12,54 @@ BEAM_EXPORT void Dtor(void*)
 {
 }
 
-BEAM_EXPORT void Method_2(const Method::SetAccount& r)
+struct MyAccount
+    :public Account
 {
-    Account::Key k;
-    _POD_(k.m_Pk) = r.m_Pk;
-    Env::AddSig(r.m_Pk);
+    KeyMax m_Key;
+    uint32_t m_KeySize;
 
-    if (r.m_TitleLen)
+    void Load(const Method::BaseTx& tx)
     {
-        Env::Halt_if(r.m_TitleLen > Account::s_TitleLenMax);
-        Env::SaveVar(&k, sizeof(k), &r + 1, r.m_TitleLen, KeyTag::Internal);
+        Env::Halt_if(tx.m_SizeCustom > sizeof(m_Key.m_pCustom));
+        m_KeySize = sizeof(Account::Key0) + tx.m_SizeCustom;
+        Env::Memcpy(&m_Key, &tx.m_Key, m_KeySize);
+
+        if (Env::LoadVar(&m_Key, m_KeySize, &m_Amount, sizeof(m_Amount), KeyTag::Internal) != sizeof(m_Amount))
+            m_Amount = 0;
     }
-    else
-        Env::Halt_if(!Env::DelVar_T(k));
-}
 
-BEAM_EXPORT void Method_3(const Method::Send& r)
+    void Save()
+    {
+        if (m_Amount)
+            Env::SaveVar(&m_Key, m_KeySize, &m_Amount, sizeof(m_Amount), KeyTag::Internal);
+        else
+            Env::SaveVar(&m_Key, m_KeySize, nullptr, 0, KeyTag::Internal);
+    }
+};
+
+BEAM_EXPORT void Method_2(const Method::Deposit& r)
 {
-    Deposit::Key k;
-    _POD_(k.m_SpendKey) = r.m_SpendKey;
+    MyAccount x;
+    x.Load(r);
 
-    Env::Halt_if(Env::SaveVar_T(k, r.m_Deposit)); // fail if exists
+    Strict::Add(x.m_Amount, r.m_Amount);
 
-    Env::FundsLock(r.m_Deposit.m_Aid, r.m_Deposit.m_Amount);
+    x.Save();
+
+    Env::FundsLock(r.m_Key.m_Aid, r.m_Amount);
 }
 
-BEAM_EXPORT void Method_4(const Method::Receive& r)
+BEAM_EXPORT void Method_3(const Method::Withdraw& r)
 {
-    Deposit::Key k;
-    _POD_(k.m_SpendKey) = r.m_SpendKey;
-    Env::AddSig(r.m_SpendKey);
+    MyAccount x;
+    x.Load(r);
 
-    Deposit d;
-    Env::Halt_if(!Env::LoadVar_T(k, d));
-    Env::DelVar_T(k);
+    Strict::Sub(x.m_Amount, r.m_Amount);
 
-    Env::FundsUnlock(d.m_Aid, d.m_Amount);
+    x.Save();
+
+    Env::FundsUnlock(r.m_Key.m_Aid, r.m_Amount);
+    Env::AddSig(r.m_Key.m_pkOwner);
 }
 
-
-} // namespace Nephrite
+} // namespace VaultAnon

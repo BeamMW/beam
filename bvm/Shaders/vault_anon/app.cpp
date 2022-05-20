@@ -6,37 +6,42 @@
 #define VaultAnon_manager_deploy(macro)
 #define VaultAnon_manager_view_account(macro) \
     macro(ContractID, cid) \
-    macro(PubKey, pk)
-
-#define VaultAnon_manager_view_deposit(macro) \
-    macro(ContractID, cid) \
-    macro(PubKey, pkSpend)
+    macro(PubKey, pkOwner)
 
 #define VaultAnonRole_manager(macro) \
     macro(manager, view) \
     macro(manager, deploy) \
-    macro(manager, view_account) \
-    macro(manager, view_deposit)
+    macro(manager, view_account)
 
-#define VaultAnon_user_view(macro) macro(ContractID, cid)
+#define VaultAnon_user_view_raw(macro) macro(ContractID, cid)
+#define VaultAnon_user_view_anon(macro) macro(ContractID, cid)
 #define VaultAnon_user_my_key(macro) macro(ContractID, cid)
-#define VaultAnon_user_set_account(macro) macro(ContractID, cid)
-#define VaultAnon_user_send(macro) \
+
+#define VaultAnon_user_send_raw(macro) \
     macro(ContractID, cid) \
-    macro(PubKey, pkAccount) \
+    macro(PubKey, pkOwner) \
     macro(AssetID, aid) \
     macro(Amount, amount)
 
-#define VaultAnon_user_receive(macro) \
+#define VaultAnon_user_send_anon(macro) VaultAnon_user_send_raw(macro)
+
+#define VaultAnon_user_receive_raw(macro) \
     macro(ContractID, cid) \
-    macro(PubKey, pkSpend)
+    macro(AssetID, aid) \
+    macro(Amount, amount)
+
+#define VaultAnon_user_receive_anon(macro) \
+    VaultAnon_user_receive_raw(macro) \
+    macro(PubKey, pkOwner)
 
 #define VaultAnonRole_user(macro) \
-    macro(user, view) \
+    macro(user, view_raw) \
+    macro(user, view_anon) \
     macro(user, my_key) \
-    macro(user, set_account) \
-    macro(user, send) \
-    macro(user, receive)
+    macro(user, send_raw) \
+    macro(user, send_anon) \
+    macro(user, receive_raw) \
+    macro(user, receive_anon)
 
 #define VaultAnonRoles_All(macro) \
     macro(manager) \
@@ -96,24 +101,102 @@ void get_DH_Key(Secp::Scalar& res, const Secp::Point& ptShared)
     ImportScalar(res, pk.m_X);
 }
 
-bool get_DH_Key_My(Secp::Scalar& res, const PubKey& pkSender, const PubKey& pkSpend, const Secp::Point& ptMy, const ContractID& cid)
+struct AnonScanner
 {
-    Secp::Point pt;
-    if (!pt.Import(pkSender))
+    Secp::Point m_ptMy;
+    Secp::Scalar m_sk;
+
+    void Init(const ContractID& cid)
+    {
+        MyKeyID(cid).get_Pk(m_ptMy);
+    }
+
+    bool Recognize(const PubKey& pkSender, const PubKey& pkSpend, const ContractID& cid)
+    {
+        Secp::Point pt;
+        if (!pt.Import(pkSender))
+            return false;
+
+        MyKeyID kid(cid);
+        Env::get_PkEx(pt, pt, kid.m_pID, kid.m_nID);
+
+        get_DH_Key(m_sk, pt);
+        Env::Secp_Point_mul_G(pt, m_sk);
+
+        pt += m_ptMy; // should be spend key
+
+        PubKey pk;
+        pt.Export(pk);
+        return _POD_(pk) == pkSpend;
+    }
+};
+
+struct AccountReader
+{
+    Amount m_Amount;
+    Env::Key_T<Account::KeyMax> m_Key;
+    uint32_t m_SizeCustom;
+
+    AccountReader(const ContractID& cid)
+    {
+        _POD_(m_Key.m_Prefix.m_Cid) = cid;
+        _POD_(m_Key.m_KeyInContract).SetObject(0xff);
+    }
+
+    bool MoveNext(Env::VarReader& r)
+    {
+        while (true)
+        {
+            uint32_t nKey = sizeof(m_Key), nVal = sizeof(m_Amount);
+
+            if (!r.MoveNext(&m_Key, nKey, &m_Amount, nVal, 0))
+                return false;
+
+            if ((sizeof(m_Amount) == nVal) && (nKey >= sizeof(Env::Key_T<Account::Key0>)))
+            {
+                m_SizeCustom = nKey - sizeof(Env::Key_T<Account::Key0>);
+                break;
+            }
+        }
+        return true;
+    }
+
+    bool Recognize(AnonScanner& as) const
+    {
+        if (m_SizeCustom < sizeof(PubKey))
+            return false;
+
+        return as.Recognize(get_PkSender(), m_Key.m_KeyInContract.m_pkOwner, m_Key.m_Prefix.m_Cid);
+    }
+
+    const PubKey& get_PkSender() const
+    {
+        static_assert(sizeof(PubKey) <= sizeof(m_Key.m_KeyInContract.m_pCustom));
+        return *(PubKey*) m_Key.m_KeyInContract.m_pCustom;
+    }
+
+    bool ReadMy(AssetID aid, const PubKey& pkOwner, AnonScanner* pAs)
+    {
+        Env::Key_T<Account::Key0> k0;
+        _POD_(k0.m_Prefix.m_Cid) = m_Key.m_Prefix.m_Cid;
+        _POD_(k0.m_KeyInContract.m_pkOwner) = pkOwner;
+        k0.m_KeyInContract.m_Aid = aid;
+
+        _POD_(m_Key.m_KeyInContract.m_pkOwner) = pkOwner;
+        m_Key.m_KeyInContract.m_Aid = aid;
+
+        for (Env::VarReader r(k0, m_Key); MoveNext(r); )
+        {
+            if (!pAs)
+                return true;
+
+            if (Recognize(*pAs))
+                return true;
+        }
+
         return false;
-
-    MyKeyID kid(cid);
-    Env::get_PkEx(pt, pt, kid.m_pID, kid.m_nID);
-
-    get_DH_Key(res, pt);
-    Env::Secp_Point_mul_G(pt, res);
-
-    pt += ptMy; // should be spend key
-
-    PubKey pk;
-    pt.Export(pk);
-    return _POD_(pk) == pkSpend;
-}
+    }
+};
 
 ON_METHOD(manager, view)
 {
@@ -125,108 +208,57 @@ ON_METHOD(manager, deploy)
     Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy VaultAnon contract", 0);
 }
 
-void DumpAccounts(Env::Key_T<Account::Key>& k0, const Env::Key_T<Account::Key>& k1, const char* szGr)
+void ViewAccounts(const ContractID& cid, const PubKey* pOwner, bool bAnonOwned)
 {
-    for (Env::VarReader r(k0, k1); ; )
+    AnonScanner as;
+    if (bAnonOwned)
+        as.Init(cid);
+
+    Env::Key_T<Account::Key0> k0;
+    _POD_(k0.m_Prefix.m_Cid) = cid;
+    _POD_(k0.m_KeyInContract).SetZero();
+
+    AccountReader ar(cid);
+
+    if (pOwner)
     {
-        char szTitle[Account::s_TitleLenMax + 1];
-        uint32_t nKey = sizeof(k0), nVal = Account::s_TitleLenMax;
+        _POD_(k0.m_KeyInContract.m_pkOwner) = *pOwner;
+        _POD_(ar.m_Key.m_KeyInContract.m_pkOwner) = *pOwner;
+    }
 
-        if (!r.MoveNext(&k0, nKey, szTitle, nVal, 0))
-            break;
+    Env::DocArray gr("accounts");
 
-        Env::DocGroup gr(szGr);
+    for (Env::VarReader r(k0, ar.m_Key); ar.MoveNext(r); )
+    {
+        if (bAnonOwned && !ar.Recognize(as))
+            continue;
 
-        Env::DocAddBlob_T("key", k0.m_KeyInContract.m_Pk);
-        
-        szTitle[nVal] = 0;
-        Env::DocAddText("title", szTitle);
+        Env::DocGroup gr("");
 
+        if (!pOwner)
+            Env::DocAddBlob_T("pk", ar.m_Key.m_KeyInContract.m_pkOwner);
+
+        Env::DocAddNum("aid", ar.m_Key.m_KeyInContract.m_Aid);
+        Env::DocAddNum("amount", ar.m_Amount);
+        Env::DocAddBlob("custom", ar.m_Key.m_KeyInContract.m_pCustom, ar.m_SizeCustom);
     }
 }
 
 ON_METHOD(manager, view_account)
 {
-    Env::Key_T<Account::Key> k0;
-    _POD_(k0.m_Prefix.m_Cid) = cid;
-    _POD_(k0.m_KeyInContract.m_Pk) = pk;
-
-    if (_POD_(pk).IsZero())
-    {
-        Env::Key_T<Account::Key> k1;
-        _POD_(k1.m_Prefix.m_Cid) = cid;
-        _POD_(k1.m_KeyInContract.m_Pk).SetObject(0xff);
-
-        Env::DocArray gr("accounts");
-
-        DumpAccounts(k0, k1, "");
-    }
-    else
-        DumpAccounts(k0, k0, "account");
+    ViewAccounts(cid, _POD_(pkOwner).IsZero() ? nullptr : &pkOwner, false);
 }
 
-void DumpDeposit(const PubKey& pkSpend, const Deposit& d, const char* szGr)
-{
-    Env::DocGroup gr(szGr);
-
-    Env::DocAddBlob_T("key", pkSpend);
-    Env::DocAddNum("aid", d.m_Aid);
-    Env::DocAddNum("amount", d.m_Amount);
-}
-
-void DumpDeposits(Env::Key_T<Deposit::Key>& k0, const Env::Key_T<Deposit::Key>& k1, const char* szGr, bool bOwned)
-{
-    Secp::Point ptMy;
-    Secp::Scalar sk;
-    if (bOwned)
-        MyKeyID(k0.m_Prefix.m_Cid).get_Pk(ptMy);
-
-    Deposit d;
-    for (Env::VarReader r(k0, k1); r.MoveNext_T(k0, d); )
-    {
-        if (bOwned && !get_DH_Key_My(sk, d.m_SenderKey, k0.m_KeyInContract.m_SpendKey, ptMy, k0.m_Prefix.m_Cid))
-            continue;
-
-        DumpDeposit(k0.m_KeyInContract.m_SpendKey, d, szGr);
-    }
-}
-
-void DumpDeposits(const ContractID& cid, const PubKey& pkSpend, bool bOwned)
-{
-    Env::Key_T<Deposit::Key> k0;
-    _POD_(k0.m_Prefix.m_Cid) = cid;
-    _POD_(k0.m_KeyInContract.m_SpendKey) = pkSpend;
-
-    if (_POD_(pkSpend).IsZero())
-    {
-        Env::Key_T<Deposit::Key> k1;
-        _POD_(k1.m_Prefix.m_Cid) = cid;
-        _POD_(k1.m_KeyInContract.m_SpendKey).SetObject(0xff);
-
-        Env::DocArray gr0("deposits");
-
-        DumpDeposits(k0, k1, "", bOwned);
-    }
-    else
-        DumpDeposits(k0, k0, "deposit", bOwned);
-}
-
-ON_METHOD(manager, view_deposit)
-{
-    DumpDeposits(cid, pkSpend, false);
-}
-
-ON_METHOD(user, view)
+ON_METHOD(user, view_raw)
 {
     PubKey pk;
     MyKeyID(cid).get_Pk(pk);
+    ViewAccounts(cid, &pk, false);
+}
 
-    Env::DocGroup gr("user");
-
-    On_manager_view_account(cid, pk);
-
-    _POD_(pk).SetZero();
-    DumpDeposits(cid, pk, true);
+ON_METHOD(user, view_anon)
+{
+    ViewAccounts(cid, nullptr, true);
 }
 
 ON_METHOD(user, my_key)
@@ -238,40 +270,41 @@ ON_METHOD(user, my_key)
     Env::DocAddBlob_T("key", pk);
 }
 
-ON_METHOD(user, set_account)
-{
 #pragma pack (push, 1)
-    struct Arg
-        :public Method::SetAccount
+struct AnonTx :public Method::BaseTx
+{
+    PubKey m_pkSender;
+    AnonTx()
     {
-        char m_szTitle[Account::s_TitleLenMax];
-    } arg;
+        m_SizeCustom = sizeof(m_pkSender);
+    }
+};
 #pragma pack (pop)
 
-    const char* szComment;
-    uint32_t nRes = Env::DocGetText("title", arg.m_szTitle, Account::s_TitleLenMax);
+ON_METHOD(user, send_raw)
+{
+    if (_POD_(pkOwner).IsZero())
+        return OnError("account not specified");
+    if (!amount)
+        return OnError("amount not specified");
 
-    if (nRes > 1)
-    {
-        szComment = "vault_anon set account";
-        arg.m_TitleLen = nRes - 1;
-    }
-    else
-    {
-        arg.m_TitleLen = 0;
-        szComment = "vault_anon delete account";
-    }
+    Method::Deposit arg;
+    _POD_(arg.m_Key.m_pkOwner) = pkOwner;
+    arg.m_Key.m_Aid = aid;
+    arg.m_Amount = amount;
+    arg.m_SizeCustom = 0;
 
-    MyKeyID kid(cid);
-    kid.get_Pk(arg.m_Pk);
+    FundsChange fc;
+    fc.m_Aid = aid;
+    fc.m_Amount = amount;
+    fc.m_Consume = 1;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(Method::SetAccount) + arg.m_TitleLen, nullptr, 0, &kid, 1, szComment, 0);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "vault_anon send raw", 0);
 }
 
-
-ON_METHOD(user, send)
+ON_METHOD(user, send_anon)
 {
-    if (_POD_(pkAccount).IsZero())
+    if (_POD_(pkOwner).IsZero())
         return OnError("account not specified");
     if (!amount)
         return OnError("amount not specified");
@@ -288,11 +321,12 @@ ON_METHOD(user, send)
     Secp::Point pt;
     Env::Secp_Point_mul_G(pt, sk);
 
-    Method::Send arg;
-    pt.Export(arg.m_Deposit.m_SenderKey);
+
+    AnonTx arg;
+    pt.Export(arg.m_pkSender);
 
     // obtain DH shared secret
-    if (!pt.Import(pkAccount))
+    if (!pt.Import(pkOwner))
         return OnError("invalid account key");
 
     Secp::Point ptDh;
@@ -304,43 +338,78 @@ ON_METHOD(user, send)
 
     // spend key
     pt += ptDh;
-    pt.Export(arg.m_SpendKey);
+    pt.Export(arg.m_Key.m_pkOwner);
 
-    arg.m_Deposit.m_Aid = aid;
-    arg.m_Deposit.m_Amount = amount;
+    arg.m_Key.m_Aid = aid;
+    arg.m_Amount = amount;
 
     FundsChange fc;
     fc.m_Aid = aid;
     fc.m_Amount = amount;
     fc.m_Consume = 1;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "vault_anon send", 0);
+    Env::GenerateKernel(&cid, Method::Deposit::s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "vault_anon send anon", 0);
 }
 
-ON_METHOD(user, receive)
+ON_METHOD(user, receive_raw)
 {
-    Env::Key_T<Deposit::Key> key;
-    _POD_(key.m_Prefix.m_Cid) = cid;
-    _POD_(key.m_KeyInContract.m_SpendKey) = pkSpend;
-
-    Deposit d;
-    if (!Env::VarReader::Read_T(key, d))
-        return OnError("deposit not found");
-
+    Method::Withdraw arg;
     MyKeyID kid(cid);
-    Secp::Point ptMy;
-    kid.get_Pk(ptMy);
+    kid.get_Pk(arg.m_Key.m_pkOwner);
 
-    Secp::Scalar sk;
-    if (!get_DH_Key_My(sk, d.m_SenderKey, pkSpend, ptMy, cid))
-        return OnError("deposit is not owned");
+    AccountReader ar(cid);
+    if (!ar.ReadMy(aid, arg.m_Key.m_pkOwner, nullptr))
+        return OnError("no funds");
 
-    Method::Receive arg;
-    _POD_(arg.m_SpendKey) = pkSpend;
+    arg.m_Key.m_Aid = aid;
+    arg.m_Amount = amount;
+    arg.m_SizeCustom = 0;
+
+    assert(ar.m_Amount);
+    if (arg.m_Amount)
+    {
+        if (arg.m_Amount > ar.m_Amount)
+            return OnError("insufficient funds");
+    }
+    else
+        arg.m_Amount = ar.m_Amount; // withdraw all
 
     FundsChange fc;
-    fc.m_Aid = d.m_Aid;
-    fc.m_Amount = d.m_Amount;
+    fc.m_Aid = aid;
+    fc.m_Amount = arg.m_Amount;
+    fc.m_Consume = 0;
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &kid, 1, "vault_anon receive raw", 0);
+}
+
+ON_METHOD(user, receive_anon)
+{
+    AnonScanner as;
+    as.Init(cid);
+
+    AccountReader ar(cid);
+    if (!ar.ReadMy(aid, pkOwner, &as))
+        return OnError("not detected");
+
+    AnonTx arg;
+    arg.m_Amount = amount;
+    _POD_(arg.m_pkSender) = ar.get_PkSender(); // TODO - there can be more custom data, should just be appended
+
+    assert(ar.m_Amount);
+    if (arg.m_Amount)
+    {
+        if (arg.m_Amount > ar.m_Amount)
+            return OnError("insufficient funds");
+    }
+    else
+        arg.m_Amount = ar.m_Amount; // withdraw all
+
+    _POD_(arg.m_Key.m_pkOwner) = pkOwner;
+    arg.m_Key.m_Aid = aid;
+
+    FundsChange fc;
+    fc.m_Aid = aid;
+    fc.m_Amount = arg.m_Amount;
     fc.m_Consume = 0;
 
     static const uint32_t s_KrnBlind = 0, s_KrnNonce = 1, s_MyNonce = 2;
@@ -361,17 +430,18 @@ ON_METHOD(user, receive)
 
     // obtain challenge
     Secp_scalar_data skSig;
-    Env::GenerateKernelAdvanced(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &pkSpend, 1, "", 0, h0, h1, pkKrnBlind, pkFullNonce, skSig, s_KrnBlind, s_KrnNonce, &skSig);
+    Env::GenerateKernelAdvanced(&cid, Method::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &pkOwner, 1, "", 0, h0, h1, pkKrnBlind, pkFullNonce, skSig, s_KrnBlind, s_KrnNonce, &skSig);
 
+    MyKeyID kid(cid);
     Secp::Scalar e, skRes;
     e.Import(skSig);
     kid.get_Blind(skRes, e, s_MyNonce);
 
-    Env::Secp_Scalar_mul(sk, sk, e);
-    skRes += sk;
+    Env::Secp_Scalar_mul(as.m_sk, as.m_sk, e);
+    skRes += as.m_sk;
     skRes.Export(skSig);
 
-    Env::GenerateKernelAdvanced(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &pkSpend, 1, "vault_anon receive", 0, h0, h1, pkKrnBlind, pkFullNonce, skSig, s_KrnBlind, s_KrnNonce, nullptr);
+    Env::GenerateKernelAdvanced(&cid, Method::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &pkOwner, 1, "vault_anon receive", 0, h0, h1, pkKrnBlind, pkFullNonce, skSig, s_KrnBlind, s_KrnNonce, nullptr);
 }
 
 #undef ON_METHOD
