@@ -113,6 +113,8 @@ SSL_CTX* init_ctx(bool isServer) {
 
     SSL_CTX_set_info_callback(ctx, ssl_info);
 
+    SSL_CTX_set_options(ctx, SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
+
     return ctx;
 }
 
