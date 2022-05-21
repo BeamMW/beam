@@ -88,9 +88,7 @@ public:
         new(&cr->callback) Callback(callback);
         cr->isTls = tlsCfg.connect;
         cr->rejectUnauthorized = tlsCfg.connect ? tlsCfg.rejectUnauthorized : false;
-        if (tlsCfg.connect && !tlsCfg.host.empty()) {
-            cr->host = tlsCfg.host;
-        }
+        new (&cr->host) std::string(tlsCfg.host);
         _connectRequests[tag] = cr;
 
         sockaddr_in addr;
