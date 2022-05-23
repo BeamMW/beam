@@ -868,7 +868,23 @@ namespace beam::wallet
         return sp;
     }
 
-    void WalletClient::setIPFSConfig(asio_ipfs::config&& cfg)
+    void WalletClient::startIPFSNode()
+    {
+        try
+        {
+            IWThread_startIPFSNode();
+        }
+        catch(std::runtime_error& err)
+        {
+            auto errmsg = std::string("Failed to start IPFS service. ") + err.what();
+            LOG_ERROR() << errmsg;
+            m_ipfsError = errmsg;
+            m_ipfsPeerCnt = 0;
+            getIPFSStatus();
+        }
+    }
+
+    void WalletClient::IWThread_setIPFSConfig(asio_ipfs::config&& cfg)
     {
         //
         // if service is already running restart with new settings
@@ -890,25 +906,11 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::stopIPFSNode()
-    {
-        auto sp = m_ipfs.lock();
-        if (!sp)
-        {
-            assert(false);
-            throw std::runtime_error("IPFS service is not created");
-        }
-
-        if (sp->AnyThread_running()) {
-            sp->ServiceThread_stop();
-        }
-    }
-
-    void WalletClient::startIPFSNode()
+    void WalletClient::setIPFSConfig(asio_ipfs::config&& cfg)
     {
         try
         {
-            IWThread_startIPFSNode();
+            IWThread_setIPFSConfig(std::move(cfg));
         }
         catch(std::runtime_error& err)
         {
@@ -919,7 +921,38 @@ namespace beam::wallet
             getIPFSStatus();
         }
     }
-    #endif
+
+    void WalletClient::IWThread_stopIPFSNode()
+    {
+        auto sp = m_ipfs.lock();
+        if (!sp)
+        {
+            assert(false);
+            throw std::runtime_error("IPFS service is not created");
+        }
+
+        if (sp->AnyThread_running()) 
+        {
+            sp->ServiceThread_stop();
+        }
+    }
+
+    void WalletClient::stopIPFSNode()
+    {
+        try
+        {
+            IWThread_stopIPFSNode();
+        }
+        catch(std::runtime_error& err)
+        {
+            auto errmsg = std::string("Failed to start IPFS service. ") + err.what();
+            LOG_ERROR() << errmsg;
+            m_ipfsError = errmsg;
+            m_ipfsPeerCnt = 0;
+            getIPFSStatus();
+        }
+    }
+    #endif //BEAM_IPFS_SUPPORT
 
     IShadersManager::Ptr WalletClient::IWThread_createAppShaders(const std::string& appid, const std::string& appname)
     {

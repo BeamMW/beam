@@ -101,8 +101,16 @@ namespace beam::wallet
 
                     #ifdef BEAM_IPFS_SUPPORT
                     if (ipfsnode) {
-                        result.ipfs = client->IWThread_startIPFSNode();
-                        hasIPFSNode = true;
+                        try
+                        {
+                            result.ipfs = client->IWThread_startIPFSNode();
+                            hasIPFSNode = true;
+                        }
+                        catch(const std::runtime_error& err)
+                        {
+                            assert(false);
+                            LOG_ERROR() << "Failed to start IPFS node" << err.what();
+                        }
                     }
                     #else
                     ipfsnode;
