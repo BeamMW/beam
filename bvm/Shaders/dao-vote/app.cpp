@@ -764,6 +764,8 @@ ON_METHOD(user, view)
 
     Env::DocAddNum("stake_active", u.m_Stake);
     Env::DocAddNum("stake_passive", u.m_StakeNext);
+    Env::DocAddNum("iEpoch", u.m_iEpoch);
+    Env::DocAddNum("voteCounter", u.m_VoteCounter);
 
     if (u.m_Votes)
         PrintVotesArr("current_votes", u.m_pVotes, u.m_Votes);
