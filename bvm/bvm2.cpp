@@ -15,6 +15,7 @@
 #define _CRT_SECURE_NO_WARNINGS // sprintf
 #include "bvm2_impl.h"
 #include <sstream>
+#include <iomanip>
 #include <regex>
 #include <boost/algorithm/string/replace.hpp>
 
@@ -2967,25 +2968,33 @@ namespace bvm2 {
 	{
 		while (true)
 		{
-			char ch = *sz++;
-			switch (ch)
-			{
-			case 0:
-				return;
+            //
+            // All Unicode characters may be placed within the quotation marks except for the characters
+            // that must be escaped: quotation mark, reverse solidus, and the control characters (U+0000 through U+001F)
+			//
+            char ch = *sz++;
+            if (ch == 0) {
+                return;
+            }
 
-			case '\b': *m_pOut << "\\b"; break;
-			case '\f': *m_pOut << "\\f"; break;
-			case '\n': *m_pOut << "\\n"; break;
-			case '\r': *m_pOut << "\\r"; break;
-			case '\t': *m_pOut << "\\t"; break;
-			case '"': *m_pOut << "\\\""; break;
-			case '\\': *m_pOut << "\\\\"; break;
-
-			default:
-				*m_pOut << ch;
-			}
+            if (ch <= 0x1F)
+            {
+                const auto flags = m_pOut->flags();
+                *m_pOut << "\\u" << std::setfill('0') << std::setw(4) << std::hex << static_cast<int>(ch);
+                m_pOut->flags(flags);
+            }
+            else if (ch == '"' || ch == '\\')
+            {
+                *m_pOut << '\\' << ch;
+            }
+            else
+            {
+                *m_pOut << ch;
+            }
 		}
 	}
+
+
 
 	void ProcessorManager::DocOnNext()
 	{
