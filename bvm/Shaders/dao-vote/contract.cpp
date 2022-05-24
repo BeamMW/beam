@@ -282,6 +282,7 @@ struct MyUser
 
             m_Stake += m_StakeNext;
             m_StakeNext = 0;
+            m_VoteCounter = 0;
         }
         else
             // new user
@@ -409,10 +410,11 @@ BEAM_EXPORT void Method_5(const Method::Vote& r)
     u.LoadPlus(s, r.m_pkUser);
 
     Amount val = u.m_Stake;
-    Env::Halt_if(!val);
+    Env::Halt_if(!val || (u.m_VoteCounter > r.m_VoteCounter));
 
     s.AdjustVotes(u, reinterpret_cast<const uint8_t*>(&r + 1), val);
 
+    u.m_VoteCounter = r.m_VoteCounter;
     u.Save(s);
 
     Env::AddSig(r.m_pkUser);

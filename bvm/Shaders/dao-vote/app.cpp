@@ -63,7 +63,9 @@
 
 #define DaoVote_user_my_key(macro) macro(ContractID, cid)
 #define DaoVote_user_view(macro) macro(ContractID, cid)
-#define DaoVote_user_vote(macro) macro(ContractID, cid)
+#define DaoVote_user_vote(macro) \
+    macro(ContractID, cid) \
+    macro(uint32_t, voteCounter)
 
 #define DaoVote_user_view_votes(macro) \
     macro(ContractID, cid) \
@@ -129,8 +131,7 @@ struct UserKeyID :public Env::KeyID {
 };
 
 const ShaderID g_pSid[] = {
-    DaoVote::s_SID_0,
-    DaoVote::s_SID_1,
+    DaoVote::s_SID,
 };
 
 const Upgradable3::Manager::VerInfo g_VerInfo = { g_pSid, _countof(g_pSid) };
@@ -683,6 +684,7 @@ struct MyUser
             m_Stake += m_StakeNext;
             m_StakeNext = 0;
             m_Votes = 0;
+            m_VoteCounter = 0;
         }
 
         return true;
@@ -762,6 +764,8 @@ ON_METHOD(user, view)
 
     Env::DocAddNum("stake_active", u.m_Stake);
     Env::DocAddNum("stake_passive", u.m_StakeNext);
+    Env::DocAddNum("iEpoch", u.m_iEpoch);
+    Env::DocAddNum("voteCounter", u.m_VoteCounter);
 
     if (u.m_Votes)
         PrintVotesArr("current_votes", u.m_pVotes, u.m_Votes);
@@ -908,6 +912,8 @@ ON_METHOD(user, vote)
 
         args.m_pVote[i] = (uint8_t) nVote;
     }
+
+    args.m_VoteCounter = std::max(voteCounter, u.m_VoteCounter);
 
     u.AddChargeVotes(cid, s, args.m_pVote, false);
 

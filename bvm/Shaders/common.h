@@ -581,11 +581,11 @@ namespace Utils {
             {
                 val %= nRadix;
                 if constexpr (nRadix <= 10)
-                    return '0' + val;
+                    return '0' + (uint8_t) val;
                 else
                 {
                     static_assert(nRadix <= 0x10);
-                    return ((val < 10) ? '0' : ('a' - 0xa)) + val;
+                    return ((val < 10) ? '0' : ('a' - 0xa)) + (uint8_t) val;
                 }
             }
 
