@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <atomic>
+#include <utility>
 
 #include "io/reactor.h"
 #include "io/asyncevent.h"
@@ -166,13 +167,13 @@ void block_sigpipe() {
 std::future<void> do_thread_async(Functor&& functor, CompletionCallback&& callback)
 {
     auto completedEvent = io::AsyncEvent::create(io::Reactor::get_Current(),
-        [callback = move(callback)]()
+        [callback = std::move(callback)]()
     {
         callback();
     });
 
     return async(launch::async,
-        [functor = move(functor), completedEvent]()
+        [functor = std::move(functor), completedEvent]()
     {
         functor();
         completedEvent->post();

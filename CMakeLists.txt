@@ -303,7 +303,12 @@ else()
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
     if (EMSCRIPTEN)
-        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -s USE_PTHREADS=1 -s DISABLE_EXCEPTION_CATCHING=0 -s USE_BOOST_HEADERS=1 ")
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -s USE_PTHREADS=1 \
+                                                     -s WASM_WORKERS=0 \
+                                                     -s DISABLE_EXCEPTION_CATCHING=0 \
+                                                     -s USE_BOOST_HEADERS=1 \
+                                                     -Wno-unqualified-std-cast-call \
+                                                     -Wno-unused-but-set-variable")
         set(BEAM_WEB_WALLET_THREADS_NUM 5)
         add_definitions(-DBEAM_WEB_WALLET_THREADS_NUM=${BEAM_WEB_WALLET_THREADS_NUM})
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-command-line-argument") # mostly in 3rd-party libs
