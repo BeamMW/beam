@@ -23,8 +23,7 @@
 #include "utilstrencodings.h"
 #include <memory>
 #include <inttypes.h>
-#undef small
-#include "3rdparty/libelfin/dwarf/dwarf++.hh"
+
 
 #undef TRUE
 #include "dap/io.h"
@@ -40,6 +39,8 @@
 #include <optional>
 #include <iomanip>
 #include <algorithm>
+
+#include "debugger/shader_debugger.h"
 
 #ifdef _MSC_VER
 #define OS_WINDOWS 1
@@ -58,8 +59,6 @@ using namespace beam;
 using namespace beam::wallet;
 namespace fs = boost::filesystem;
 
-void DoDebug(const Wasm::Processor& proc);
-
 namespace
 {
     std::string FixPath(const std::string& p)
@@ -70,6 +69,73 @@ namespace
 #endif // OS_WINDOWS
 
         return res;
+    }
+
+    std::string GetStackTraceName(const std::string& module, const ShaderDebugger::Frame& frame, const dap::optional<dap::StackFrameFormat>& format)
+    {
+        std::stringstream ss;
+
+        bool showModules = (format && format->module && *format->module) || !format;
+        bool showTypes = (format && format->parameterTypes && *format->parameterTypes) || !format;
+        bool showNames = format && format->parameterNames && *format->parameterNames;
+        bool showValues = format && format->parameterValues && *format->parameterValues;
+        bool showParameters = (format && format->parameters && *format->parameters) || !format;
+        bool showLines = (format && format->line && *format->line) || !format;
+
+        if (showModules)
+        {
+            ss << module << '!';
+        }
+
+        if (frame.m_HasInfo)
+        {
+            ss << frame.m_Name;
+            if (showParameters)
+            {
+                ss << '(';
+                bool first = true;
+                for (const auto& p : frame.m_Parameters)
+                {
+                    if (first)
+                    {
+                        first = false;
+                    }
+                    else
+                    {
+                        ss << ", ";
+                    }
+                    if (showTypes)
+                    {
+                        ss << p.type;
+                    }
+                    if (showNames)
+                    {
+                        if (showTypes)
+                            ss << ' ';
+
+                        ss << p.name;
+                    }
+                    if (showValues)
+                    {
+                        if (showNames)
+                            ss << '=';
+
+                        ss << p.value;
+                    }
+                }
+                ss << ')';
+            }
+
+            if (showLines)
+            {
+                ss << " Line " << frame.m_Line;
+            }
+        }
+        else
+        {
+            ss << std::hex << std::setw(8) << std::setfill('0') << frame.m_Address;
+        }
+        return ss.str();
     }
 
     class WasmLoader : public dwarf::loader
@@ -487,7 +553,7 @@ namespace
             io::Reactor::get_Current().run();
         }
 
-        void SetDebugger(MyDebugger* d)
+        void SetDebugger(ShaderDebugger* d)
         {
             m_Debugger = d;
         }
@@ -562,7 +628,7 @@ namespace
         bool m_InSync = true;
         bool m_PendingBlocks = false;
         bool m_StopAfter = false;
-        MyDebugger* m_Debugger = nullptr;
+        ShaderDebugger* m_Debugger = nullptr;
     };
 }
 
@@ -611,7 +677,7 @@ void TestContract()
     std::string contractPath = "test_contract.wasm";
     //std::string contractPath = "shader.wasm";//"test_contract.wasm";
 
-    MyDebugger debugger(contractPath);
+    ShaderDebugger debugger(contractPath, [] (auto, const auto&) {});
 
     TestLocalNode nodeA{ binaryTreasury, walletDB->get_MasterKdf() };
     auto w = std::make_shared<Wallet>(walletDB);
@@ -1350,11 +1416,11 @@ void TestDebugger(int argc, char* argv[])
     Event terminate;
 
     // Event handlers from the Debugger.
-    auto onDebuggerEvent = [&](Debugger::Event onEvent, const std::string& s)
+    auto onDebuggerEvent = [&](ShaderDebugger::Event onEvent, const std::string& s)
     {
         switch (onEvent)
         {
-        case Debugger::Event::Stepped:
+        case ShaderDebugger::Event::Stepped:
         {
             // The debugger has single-line stepped. Inform the client.
             dap::StoppedEvent event;
@@ -1363,7 +1429,7 @@ void TestDebugger(int argc, char* argv[])
             session->send(event);
             break;
         }
-        case Debugger::Event::BreakpointHit:
+        case ShaderDebugger::Event::BreakpointHit:
         {
             // The debugger has hit a breakpoint. Inform the client.
             dap::StoppedEvent event;
@@ -1372,7 +1438,7 @@ void TestDebugger(int argc, char* argv[])
             session->send(event);
             break;
         }
-        case Debugger::Event::Paused:
+        case ShaderDebugger::Event::Paused:
         {
             // The debugger has been suspended. Inform the client.
             dap::StoppedEvent event;
@@ -1381,7 +1447,7 @@ void TestDebugger(int argc, char* argv[])
             session->send(event);
             break;
         }
-        case Debugger::Event::Output:
+        case ShaderDebugger::Event::Output:
         {
             dap::OutputEvent event;
             event.output = s;
@@ -1392,7 +1458,7 @@ void TestDebugger(int argc, char* argv[])
     };
 
     // Construct the debugger.
-    Debugger debugger(onDebuggerEvent, contractPath);
+    ShaderDebugger debugger(contractPath, onDebuggerEvent);
 
     // Handle errors reported by the Session. These errors include protocol
     // parsing errors and receiving messages with no handler.
@@ -1475,7 +1541,7 @@ void TestDebugger(int argc, char* argv[])
                 frame.line = entry.m_Line;
                 frame.column = entry.m_Column;
 
-                frame.name = debugger.GetStackTraceName(entry, request.format);
+                frame.name = GetStackTraceName("module", entry, request.format);
                 frame.id = entry.m_ID;
                 frame.source = source;
             }
@@ -1756,6 +1822,40 @@ void TestDebugger(int argc, char* argv[])
 
 }
 
+void PrintInfo(const char* path, int line)
+{
+    struct InfoDebuger : MyDebugger 
+    {
+        using MyDebugger::MyDebugger;
+
+        void PrintLine(int line)
+        {
+            auto it = m_Compiler.m_IpMap.find(line);
+            if (it == m_Compiler.m_IpMap.end())
+            {
+                return;
+            }
+            auto myIp = it->second;
+            std::vector<dwarf::die> stack;
+            if (LookupSourceLine(myIp, stack))
+            {
+                auto funcInfo = FindFunctionByPC(myIp);
+                const auto& c = funcInfo->m_Line;
+                std::cout << "Line:\t" << c->line
+                          << "\nColumn:\t"  << c->column 
+                          << "\nPath:\t" << c->file->path << std::endl;
+
+                std::cout << DumpDIE(stack[0]) << std::endl;
+                
+                
+
+            }
+        }
+    };    
+    InfoDebuger debugger(path);
+    debugger.PrintLine(line);
+}
+
 int main(int argc, char* argv[])
 {
     const auto logLevel = LOG_LEVEL_ERROR;
@@ -1770,6 +1870,12 @@ int main(int argc, char* argv[])
     Rules::get().pForks[3].m_Height = 1;
     Rules::get().UpdateChecksum();
 
+    if (strcmp(argv[1], "print-info") == 0)
+    {
+        int ip = strtol(argv[3], nullptr, 10);
+        PrintInfo(argv[2], ip);
+        return 0;
+    }
     TestDebugger(argc, argv);
 
     //TestContract();

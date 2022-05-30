@@ -15,6 +15,7 @@
 #include "shader_debugger.h"
 #include "utility/logger.h"
 #include <boost/filesystem.hpp>
+#include <boost/functional/hash.hpp>
 #include <iomanip>
 
 using namespace beam;
@@ -74,9 +75,9 @@ namespace
 
 namespace beam
 {
-    ShaderDebugger::ShaderDebugger(const std::string& shaderPath, EventHandler&& onEvent)
+    ShaderDebugger::ShaderDebugger(const std::string& shaderPath, const EventHandler& onEvent)
         : m_ShaderName(fs::path(shaderPath).filename().string())
-        , m_OnEvent(std::move(onEvent))
+        , m_OnEvent(onEvent)
     {
         // load symbols
         auto buffer = LoadShader(shaderPath);

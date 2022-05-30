@@ -75,7 +75,7 @@ namespace beam
 
         using EventHandler = std::function<void(Event, const std::string&)>;
 
-        ShaderDebugger(const std::string& shaderPath, EventHandler&& onEvent);
+        ShaderDebugger(const std::string& shaderPath, const EventHandler& onEvent);
         void DoDebug(const Wasm::Processor& proc);
 
         //

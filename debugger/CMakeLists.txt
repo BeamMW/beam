@@ -13,4 +13,20 @@ target_link_libraries(shader_debugger
     PUBLIC
         dwarf
         node
+        Boost::boost
+)
+
+add_library(dap_client STATIC)
+
+target_sources(dap_client 
+    PRIVATE
+        dap_client.cpp
+    PUBLIC
+        dap_client.h
+)
+
+target_link_libraries(dap_client
+    PUBLIC
+        cppdap
+        shader_debugger
 )
