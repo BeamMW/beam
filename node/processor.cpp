@@ -5708,7 +5708,7 @@ Difficulty NodeProcessor::get_NextDifficulty()
 {
 	const Rules& r = Rules::get(); // alias
 
-	if (!m_Cursor.m_Sid.m_Row)
+	if (!m_Cursor.m_Sid.m_Row || r.FakePoW)
 		return r.DA.Difficulty0; // 1st block
 
 	THW thw0, thw1;
