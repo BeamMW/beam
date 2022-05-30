@@ -2449,6 +2449,13 @@ namespace
                 WALLET_CHECK(!p.empty());
             }
             {
+                auto p = ConvertTokenToJson("9DfkirZYqjTSuHBGYKxb3ifi8QPEM6xcQewGQVuyKgfMB4cGAfsZLaXNSSMk9DULVwdiQu8mcATtxZcwk6hnb27EJgmhCueJErQeLcfFdvF4n72dbcy5H7MNfr67fukF1bdMt2sNV93seDPZikFsNPxub7XbWumW5pa5Ce93oyFZ4WACeiFid3GbMdkC5418MNzhhWujqjExPmhxvK7YxUZeHQKJ71583mia5rbSTXYZBMHCmkoP2wYjpakt2g7dHMgLVUbpj6MRxsyGNBEecBL8889HVxVxpzyy44BvbxeVD6mdxHWVmntNhjEYnUfnvF65bkNgzSwpTMuKaiDQiHyX7oBJexUHkwVdUsSQcXHrAfaeKZx14e2BcZv9CfG8HB37zA93Gxb3atux6XXQXU8uyJanr9G66fCbw2LFzCPBKMeDanPU21ts25KMMtb6V5JebcLiJfeiMqbwmJ");
+                json obj = json::parse(p);
+                
+                auto t = obj["params"]["PeerID"].get<std::string>();
+                WALLET_CHECK(t == "3c59d8d635a3971b7c55b26010a280921356f007329770a5e6955d83740b6ed6de1");
+            }
+            {
                 // don't save uninitialized variables
                 TxParameters allParams;
 #define MACRO(name, index, type) { \
@@ -4335,20 +4342,20 @@ int main()
     wallet::g_AssetsEnabled = true;
 
     storage::HookErrors();
-    TestArgumentParsing();
-    TestThreadPool();
-    //GenerateTreasury(100, 100, 100000000);
-    TestTxList();
-    TestKeyKeeper();
+    //TestArgumentParsing();
+    //TestThreadPool();
+    ////GenerateTreasury(100, 100, 100000000);
+    //TestTxList();
+    //TestKeyKeeper();
 
-    TestVouchers();
+    //TestVouchers();
 
-    TestAddressGeneration();
-    TestAddressVersions();
+    //TestAddressGeneration();
+    //TestAddressVersions();
 
-    //TestBbsDecrypt();
+    ////TestBbsDecrypt();
 
-    TestConvertions();
+    //TestConvertions();
     TestTxParameters();
     
     TestClient();
