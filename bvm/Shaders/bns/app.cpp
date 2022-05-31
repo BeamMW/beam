@@ -115,13 +115,44 @@ ON_METHOD(manager, view_account)
     DumpDomains(cid, _POD_(pk).IsZero() ? nullptr : &pk);
 }
 
+uint32_t ReadName(char* sz)
+{
+    uint32_t nSize = Env::DocGetText("name", sz, Domain::s_MaxLen + 1);
+    if (!nSize)
+    {
+        OnError("name not specified");
+        return 0;
+    }
+
+    uint32_t nLen = nSize - 1;
+    if (nLen < Domain::s_MinLen)
+    {
+        OnError("name too short");
+        return 0;
+    }
+
+    if (nLen > Domain::s_MaxLen)
+    {
+        OnError("name too long");
+        return 0;
+    }
+
+    for (uint32_t i = 0; i < nLen; i++)
+        if (!Domain::IsValidChar(sz[i]))
+        {
+            OnError("name is invalid");
+            return 0;
+        }
+
+    return nSize;
+}
+
 ON_METHOD(manager, view_name)
 {
     Env::Key_T<KeyMaxPlus> key;
-
-    uint32_t nSize = Env::DocGetText("name", key.m_KeyInContract.m_sz, Domain::s_MaxLen + 1);
+    uint32_t nSize = ReadName(key.m_KeyInContract.m_sz);
     if (!nSize)
-        return OnError("name not specified");
+        return;
 
     nSize += sizeof(Env::KeyPrefix);
 

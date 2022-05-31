@@ -50,10 +50,11 @@ void ChargePrice(uint8_t nNameLen)
 
 BEAM_EXPORT void Method_2(const Method::Register& r)
 {
+    Height h = Env::get_Height();
     MyDomain d(r.m_NameLen);
     if (d.Load())
         // make sure it's expired
-        Env::Halt_if(Env::get_Height() < d.m_hExpire + Domain::s_PeriodHold);
+        Env::Halt_if(h < d.m_hExpire + Domain::s_PeriodHold);
     else
     {
         // check name
@@ -62,7 +63,7 @@ BEAM_EXPORT void Method_2(const Method::Register& r)
     }
 
     ChargePrice(r.m_NameLen);
-    d.m_hExpire = Env::get_Height() + Domain::s_PeriodValidity;
+    d.m_hExpire = h + Domain::s_PeriodValidity;
     _POD_(d.m_pkOwner) = r.m_pkOwner;
 
     d.Save();
