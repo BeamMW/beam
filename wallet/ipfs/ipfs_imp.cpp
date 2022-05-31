@@ -94,6 +94,10 @@ namespace beam::wallet::imp
                         config.bootstrap.emplace_back("/ip4/3.19.141.112/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
                         #endif
                     }
+                    else
+                    {
+                        LOG_INFO() << "IPFS: non-default bootstrap is provided";
+                    }
 
                     if (config.peering.empty()) {
                         #if defined(BEAM_TESTNET)
@@ -108,6 +112,28 @@ namespace beam::wallet::imp
                         #else
                         config.peering.emplace_back("/ip4/3.19.141.112/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
                         #endif
+                    }
+                    else
+                    {
+                        LOG_INFO() << "IPFS: non-default peering is provided";
+                    }
+
+                    if (config.swarm_key.empty())
+                    {
+                        #if defined(BEAM_TESTNET)
+                        config.swarm_key = "/key/swarm/psk/1.0.0/\n/base16/\n1191aea7c9f99f679f477411d9d44f1ea0fdf5b42d995966b14a9000432f8c4a"
+                        LOG_INFO() << "IPFS: default TESTNET swarm key would be used " << config.swarm_key;
+                        #elif defined(BEAM_MAINNET)
+                        config.swarm_key = "/key/swarm/psk/1.0.0/\n/base16/\n1fabcf9eb018710a93a85214809b91a78b8ef5c49f84a5f72da3dff587b0aed5";
+                        LOG_INFO() << "IPFS: default MAINNET swarm key would be used " << config.swarm_key;
+                        #else
+                        config.swarm_key = "/key/swarm/psk/1.0.0/\n/base16/\n18502580a0f94a74eeb1bdd651e4235d0d9139b7baf3555716bc919619bb8ac4";
+                        LOG_INFO() << "IPFS: default MASTERNET swarm key would be used " << config.swarm_key;
+                        #endif
+                    }
+                    else
+                    {
+                        LOG_INFO() << "IPFS: non-default swarm_key is provided " << config.swarm_key;
                     }
 
                     asio_ipfs::node::StateCB scb = [this](const std::string& error, uint32_t pcnt) {
