@@ -85,14 +85,21 @@ namespace beam::wallet::imp
                         config.bootstrap.emplace_back("/dns4/eu-node01.testnet.beam.mw/tcp/38041/p2p/12D3KooWFEa2QaN5t3oTGurg1Fz5BkoE3ueHV18WxjHCXY16hHYM");
                         config.bootstrap.emplace_back("/dns4/eu-node02.testnet.beam.mw/tcp/38041/p2p/12D3KooWPrfHKa3Sc7qF96biwqy1JPRVDxoVhbxFtnfnbZQXVw8e");
                         config.bootstrap.emplace_back("/dns4/eu-node03.testnet.beam.mw/tcp/38041/p2p/12D3KooWF1oX1FP3chGQgzosCdNqBwSb37BPhM2fQJYiYMtGpHXt");
+                        LOG_INFO() << "Default TESTNET IPFS bootstrap is used";
                         #elif defined(BEAM_MAINNET)
                         config.bootstrap.emplace_back("/dns4/eu-node01.mainnet.beam.mw/tcp/38041/p2p/12D3KooWJFduasQPYWhw4SsoFPmnJ1PXfmHYaA9qYKvn4JKM2hND");
                         config.bootstrap.emplace_back("/dns4/eu-node02.mainnet.beam.mw/tcp/38041/p2p/12D3KooWCjmtegxdSkkfutWqty39dwhEhYDWCDj6KCizDtft3sqc");
                         config.bootstrap.emplace_back("/dns4/eu-node03.mainnet.beam.mw/tcp/38041/p2p/12D3KooWL5c6JHHkfYLzBjcuot27eyKVhhczvvY617v1cy7QVUHt");
                         config.bootstrap.emplace_back("/dns4/eu-node04.mainnet.beam.mw/tcp/38041/p2p/12D3KooWHpgKQYXJMKXQZuwbuRoFK28cQLiVjCVFxhSpFX9XHNWZ");
+                        LOG_INFO() << "Default MAINNET IPFS bootstrap is used";
                         #else
                         config.bootstrap.emplace_back("/ip4/3.19.141.112/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
+                        LOG_INFO() << "Default MASTERNET IPFS bootstrap is used";
                         #endif
+                    }
+                    else
+                    {
+                        LOG_INFO() << "Custom IPFS bootstrap is provided";
                     }
 
                     if (config.peering.empty()) {
@@ -100,14 +107,39 @@ namespace beam::wallet::imp
                         config.peering.emplace_back("/dns4/eu-node01.testnet.beam.mw/tcp/38041/p2p/12D3KooWFEa2QaN5t3oTGurg1Fz5BkoE3ueHV18WxjHCXY16hHYM");
                         config.peering.emplace_back("/dns4/eu-node02.testnet.beam.mw/tcp/38041/p2p/12D3KooWPrfHKa3Sc7qF96biwqy1JPRVDxoVhbxFtnfnbZQXVw8e");
                         config.peering.emplace_back("/dns4/eu-node03.testnet.beam.mw/tcp/38041/p2p/12D3KooWF1oX1FP3chGQgzosCdNqBwSb37BPhM2fQJYiYMtGpHXt");
+                        LOG_INFO() << "Default TESTNET IPFS peering is used";
                         #elif defined(BEAM_MAINNET)
                         config.peering.emplace_back("/dns4/eu-node01.mainnet.beam.mw/tcp/38041/p2p/12D3KooWJFduasQPYWhw4SsoFPmnJ1PXfmHYaA9qYKvn4JKM2hND");
                         config.peering.emplace_back("/dns4/eu-node02.mainnet.beam.mw/tcp/38041/p2p/12D3KooWCjmtegxdSkkfutWqty39dwhEhYDWCDj6KCizDtft3sqc");
                         config.peering.emplace_back("/dns4/eu-node03.mainnet.beam.mw/tcp/38041/p2p/12D3KooWL5c6JHHkfYLzBjcuot27eyKVhhczvvY617v1cy7QVUHt");
                         config.peering.emplace_back("/dns4/eu-node04.mainnet.beam.mw/tcp/38041/p2p/12D3KooWHpgKQYXJMKXQZuwbuRoFK28cQLiVjCVFxhSpFX9XHNWZ");
+                        LOG_INFO() << "Default MAINNET IPFS peering is used";
                         #else
                         config.peering.emplace_back("/ip4/3.19.141.112/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
+                        LOG_INFO() << "Default MASTERNET IPFS peering is used";
                         #endif
+                    }
+                    else
+                    {
+                        LOG_INFO() << "Custom IPFS peering is provided";
+                    }
+
+                    if (config.swarm_key.empty())
+                    {
+                        #if defined(BEAM_TESTNET)
+                        config.swarm_key = "/key/swarm/psk/1.0.0/\n/base16/\n1191aea7c9f99f679f477411d9d44f1ea0fdf5b42d995966b14a9000432f8c4a"
+                        LOG_INFO() << "Default TESTNET IPFS swarm key would be used";
+                        #elif defined(BEAM_MAINNET)
+                        config.swarm_key = "/key/swarm/psk/1.0.0/\n/base16/\n1fabcf9eb018710a93a85214809b91a78b8ef5c49f84a5f72da3dff587b0aed5";
+                        LOG_INFO() << "Default MAINNET IPFS swarm key would be used";
+                        #else
+                        config.swarm_key = "/key/swarm/psk/1.0.0/\n/base16/\n18502580a0f94a74eeb1bdd651e4235d0d9139b7baf3555716bc919619bb8ac4";
+                        LOG_INFO() << "Default IPFS MASTERNET swarm key would be used";
+                        #endif
+                    }
+                    else
+                    {
+                        LOG_INFO() << "Custom IPFS swarm_key is provided: " << config.swarm_key;
                     }
 
                     asio_ipfs::node::StateCB scb = [this](const std::string& error, uint32_t pcnt) {
