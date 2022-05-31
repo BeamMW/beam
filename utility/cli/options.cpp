@@ -642,16 +642,17 @@ namespace beam
             (cli::IPFS_RELAY_HOP,          po::value<bool>()->default_value(defs.relay_hop), "Swarm.EnableRelayHop")
             (cli::IPFS_SWARM_PORT,         po::value<uint32_t>()->default_value(defs.swarm_port), "Addresses.Swarm port")
             (cli::IPFS_STORAGE_MAX,        po::value<string>()->default_value(defs.storage_max), "Datastore.StorageMax")
-            (cli::IPFS_BOOTSTRAP,          po::value<std::vector<string>>()->multitoken(), "Bootstrap nodes multiaddr space separated list")
-            (cli::IPFS_PEERING,            po::value<std::vector<string>>()->multitoken(), "Peering nodes multiaddr space separated list")
             (cli::IPFS_API_ADDR,           po::value<string>()->default_value(defs.api_address), "Addresses.API address")
             (cli::IPFS_GATEWAY_ADDR,       po::value<string>()->default_value(defs.gateway_address), "Addresses.Gateway address")
             (cli::IPFS_AUTONAT,            po::value<bool>()->default_value(defs.autonat), "AutoNAT.ServiceMode as bool")
             (cli::IPFS_AUTONAT_LIMIT,      po::value<uint32_t>()->default_value(defs.autonat_limit), "AutoNAT.Throttle.GlobalLimit")
             (cli::IPFS_AUTONAT_PEER_LIMIT, po::value<uint32_t>()->default_value(defs.autonat_peer_limit), "AutoNAT.Throttle.PeerLimit")
-            (cli::IPFS_SWARM_KEY,          po::value<string>()->default_value(defs.swarm_key), "ipfs-repo/swarm.key file contents")
             (cli::IPFS_ROUTING_TYPE,       po::value<string>()->default_value(defs.routing_type), "Routing.Type")
-            (cli::IPFS_RUN_GC,             po::value<bool>()->default_value(defs.run_gc), "Run IPFS periodic garbage collector");
+            (cli::IPFS_RUN_GC,             po::value<bool>()->default_value(defs.run_gc), "Run IPFS periodic garbage collector")
+            // no defaults
+            (cli::IPFS_BOOTSTRAP,          po::value<std::vector<string>>()->multitoken(), "Bootstrap nodes multiaddr space separated list")
+            (cli::IPFS_PEERING,            po::value<std::vector<string>>()->multitoken(), "Peering nodes multiaddr space separated list")
+            (cli::IPFS_SWARM_KEY,          po::value<string>(), "ipfs-repo/swarm.key file contents");
         return ipfs_options;
     }
 
@@ -675,9 +676,12 @@ namespace beam
         cfg.autonat = vm[cli::IPFS_AUTONAT].as<bool>();
         cfg.autonat_limit = vm[cli::IPFS_AUTONAT_LIMIT].as<uint32_t>();
         cfg.autonat_peer_limit = vm[cli::IPFS_AUTONAT_PEER_LIMIT].as<uint32_t>();
-        cfg.swarm_key = vm[cli::IPFS_SWARM_KEY].as<string>();
         cfg.routing_type = vm[cli::IPFS_ROUTING_TYPE].as<string>();
         cfg.run_gc = vm[cli::IPFS_RUN_GC].as<bool>();
+
+        if (vm.count(cli::IPFS_SWARM_KEY)) {
+            cfg.swarm_key = vm[cli::IPFS_SWARM_KEY].as<string>();
+        }
 
         if (vm.count(cli::IPFS_BOOTSTRAP)) {
             cfg.bootstrap = vm[cli::IPFS_BOOTSTRAP].as<std::vector<string>>();
