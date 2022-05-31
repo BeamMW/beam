@@ -366,6 +366,7 @@ namespace beam
         const char* IPFS_AUTO_RELAY    = "ipfs_auto_relay";
         const char* IPFS_RELAY_HOP     = "ipfs_relay_hop";
         const char* IPFS_BOOTSTRAP     = "ipfs_bootstrap";
+        const char* IPFS_PEERING       = "ipfs_peering";
         const char* IPFS_SWARM_PORT    = "ipfs_swarm_port";
         const char* IPFS_STORAGE_MAX   = "ipfs_storage_max";
         const char* IPFS_API_ADDR      = "ipfs_api_addr";
@@ -642,6 +643,7 @@ namespace beam
             (cli::IPFS_SWARM_PORT,         po::value<uint32_t>()->default_value(defs.swarm_port), "Addresses.Swarm port")
             (cli::IPFS_STORAGE_MAX,        po::value<string>()->default_value(defs.storage_max), "Datastore.StorageMax")
             (cli::IPFS_BOOTSTRAP,          po::value<std::vector<string>>()->multitoken(), "Bootstrap nodes multiaddr space separated list")
+            (cli::IPFS_PEERING,            po::value<std::vector<string>>()->multitoken(), "Peering nodes multiaddr space separated list")
             (cli::IPFS_API_ADDR,           po::value<string>()->default_value(defs.api_address), "Addresses.API address")
             (cli::IPFS_GATEWAY_ADDR,       po::value<string>()->default_value(defs.gateway_address), "Addresses.Gateway address")
             (cli::IPFS_AUTONAT,            po::value<bool>()->default_value(defs.autonat), "AutoNAT.ServiceMode as bool")
@@ -679,6 +681,11 @@ namespace beam
 
         if (vm.count(cli::IPFS_BOOTSTRAP)) {
             cfg.bootstrap = vm[cli::IPFS_BOOTSTRAP].as<std::vector<string>>();
+            cfg.peering   = vm[cli::IPFS_BOOTSTRAP].as<std::vector<string>>();
+        }
+
+        if (vm.count(cli::IPFS_PEERING)) {
+            cfg.peering = vm[cli::IPFS_PEERING].as<std::vector<string>>();
         }
 
         return cfg;
