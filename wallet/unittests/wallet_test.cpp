@@ -4342,20 +4342,20 @@ int main()
     wallet::g_AssetsEnabled = true;
 
     storage::HookErrors();
-    //TestArgumentParsing();
-    //TestThreadPool();
-    ////GenerateTreasury(100, 100, 100000000);
-    //TestTxList();
-    //TestKeyKeeper();
+    TestArgumentParsing();
+    TestThreadPool();
+    //GenerateTreasury(100, 100, 100000000);
+    TestTxList();
+    TestKeyKeeper();
 
-    //TestVouchers();
+    TestVouchers();
 
-    //TestAddressGeneration();
-    //TestAddressVersions();
+    TestAddressGeneration();
+    TestAddressVersions();
 
-    ////TestBbsDecrypt();
+    //TestBbsDecrypt();
 
-    //TestConvertions();
+    TestConvertions();
     TestTxParameters();
     
     TestClient();

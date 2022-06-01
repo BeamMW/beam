@@ -4451,7 +4451,7 @@ void Node::Miner::StartMining(Task::Ptr&& pTask)
         }
         else
         {
-            pTask->m_pStop.reset(new volatile bool);
+            pTask->m_pStop.reset(new bool);
             *pTask->m_pStop = false;
         }
 
