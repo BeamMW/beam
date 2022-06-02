@@ -1,6 +1,7 @@
 #include "../common.h"
 #include "../app_common_impl.h"
 #include "contract.h"
+#include "../vault_anon/app_impl.h"
 
 #define NameService_manager_view(macro)
 #define NameService_manager_deploy(macro)
@@ -16,8 +17,13 @@
     macro(manager, view_account) \
     macro(manager, view_name)
 
-#define NameService_user_my_key(macro) macro(ContractID, cid) macro(ContractID, cidVault)
+#define NameService_user_my_key(macro) macro(ContractID, cid)
 #define NameService_user_view(macro) macro(ContractID, cid) macro(ContractID, cidVault)
+#define NameService_user_domain_register(macro) macro(ContractID, cid)
+#define NameService_user_domain_extend(macro) macro(ContractID, cid)
+#define NameService_user_domain_set_owner(macro) \
+    macro(ContractID, cid) \
+    macro(PubKey, pkOwner)
 
 #define NameServiceRole_user(macro) \
     macro(user, my_key) \
@@ -71,23 +77,23 @@ void DumpName(const Domain& d)
     Env::DocAddBlob_T("hExpire", d.m_hExpire);
 }
 
-#pragma pack (push, 1)
-struct KeyMaxPlus :public Domain::KeyMax {
-    char m_chExtra;
-};
-#pragma pack (pop)
-
 void DumpDomains(const ContractID& cid, const PubKey* pPk)
 {
     Env::Key_T<Domain::Key0> k0;
     _POD_(k0.m_Prefix.m_Cid) = cid;
     _POD_(k0.m_KeyInContract.m_sz).SetZero();
 
+#pragma pack (push, 1)
+    struct KeyMaxPlus :public Domain::KeyMax {
+        char m_chExtra;
+    };
+#pragma pack (pop)
+
     Env::Key_T<KeyMaxPlus> k1;
     _POD_(k1.m_Prefix.m_Cid) = cid;
     Env::Memset(k1.m_KeyInContract.m_sz, 0xff, Domain::s_MaxLen);
 
-    Env::DocArray gr0("res");
+    Env::DocArray gr0("domains");
 
     for (Env::VarReader r(k0, k1); ; )
     {
@@ -115,72 +121,131 @@ ON_METHOD(manager, view_account)
     DumpDomains(cid, _POD_(pk).IsZero() ? nullptr : &pk);
 }
 
-uint32_t ReadName(char* sz)
+struct MyKeyID :public Env::KeyID
 {
-    uint32_t nSize = Env::DocGetText("name", sz, Domain::s_MaxLen + 1);
-    if (!nSize)
+    MyKeyID(const ContractID& cid) {
+        m_pID = &cid;
+        m_nID = sizeof(cid);
+    }
+};
+
+struct DomainName
+{
+    char m_sz[Domain::s_MaxLen + 1];
+    uint32_t m_Len;
+
+    void ReadName()
     {
-        OnError("name not specified");
-        return 0;
+        m_Len = 0;
+
+        uint32_t nSize = Env::DocGetText("name", m_sz, Domain::s_MaxLen + 1);
+        if (!nSize)
+            return OnError("name not specified");
+
+        uint32_t nLen = nSize - 1;
+        if (nLen < Domain::s_MinLen)
+            return OnError("name too short");
+
+        if (nLen > Domain::s_MaxLen)
+            return OnError("name too long");
+
+        for (uint32_t i = 0; i < nLen; i++)
+            if (!Domain::IsValidChar(m_sz[i]))
+                return OnError("name is invalid");
+
+        m_Len = nLen;
     }
 
-    uint32_t nLen = nSize - 1;
-    if (nLen < Domain::s_MinLen)
+    bool Read(const ContractID& cid, Domain& d)
     {
-        OnError("name too short");
-        return 0;
+        Env::Key_T<Domain::KeyMax> key;
+        _POD_(key.m_Prefix.m_Cid) = cid;
+        Env::Memcpy(key.m_KeyInContract.m_sz, m_sz, m_Len);
+
+        uint32_t nSize = sizeof(Env::KeyPrefix) + 1 + m_Len;
+
+        Env::VarReader r(&key, nSize, &key, nSize);
+        uint32_t nKey = 0, nVal = sizeof(d);
+        return r.MoveNext(nullptr, nKey, &d, nVal, 0);
     }
 
-    if (nLen > Domain::s_MaxLen)
+    bool ReadFromName(const ContractID& cid, Domain& d)
     {
-        OnError("name too long");
-        return 0;
+        ReadName();
+        if (!m_Len)
+            return false;
+
+        if (Read(cid, d))
+            return true;
+
+        OnError("not registered");
+        return false;
     }
 
-    for (uint32_t i = 0; i < nLen; i++)
-        if (!Domain::IsValidChar(sz[i]))
+    bool ReadOwned(const ContractID& cid, Domain& d)
+    {
+        if (!ReadFromName(cid, d))
+            return false;
+
+        PubKey pk;
+        MyKeyID(cid).get_Pk(pk);
+        if (_POD_(pk) == d.m_pkOwner)
+            return true;
+
+        OnError("owned by other");
+        return false;
+    }
+
+#pragma pack (push, 1)
+    template <typename TMethod>
+    struct Method
+        :public TMethod
+    {
+        char m_sz[Domain::s_MaxLen];
+
+        void From(const DomainName& dn)
         {
-            OnError("name is invalid");
-            return 0;
+            TMethod::m_NameLen = dn.m_Len;
+            Env::Memcpy(m_sz, dn.m_sz, dn.m_Len);
         }
 
-    return nSize;
-}
+        uint32_t get_Size() const
+        {
+            return sizeof(TMethod) + TMethod::m_NameLen;
+        }
+    };
+#pragma pack (pop)
+
+};
+
 
 ON_METHOD(manager, view_name)
 {
-    Env::Key_T<KeyMaxPlus> key;
-    uint32_t nSize = ReadName(key.m_KeyInContract.m_sz);
-    if (!nSize)
+    DomainName dn;
+    dn.ReadName();
+    if (!dn.m_Len)
         return;
 
-    nSize += sizeof(Env::KeyPrefix);
-
-    Env::VarReader r(&key, nSize, &key, nSize);
     Domain d;
-    uint32_t nKey = 0, nVal = sizeof(d);
-    if (r.MoveNext(nullptr, nKey, &d, nVal, 0))
+    if (dn.Read(cid, d))
     {
         Env::DocGroup gr("res");
         DumpName(d);
     }
 }
 
-struct MyKeyID :public Env::KeyID
-{
-    MyKeyID(const ContractID& cidVault) {
-        m_pID = &cidVault;
-        m_nID = sizeof(cidVault);
-    }
-};
-
-
 ON_METHOD(user, view)
 {
+    MyKeyID kid(cid);
     PubKey pk;
-    MyKeyID(cidVault).get_Pk(pk);
+    kid.get_Pk(pk);
+
+    Env::DocArray gr("res");
 
     DumpDomains(cid, &pk);
+
+    VaultAnon::OnUser_view_raw(cidVault, kid);
+    VaultAnon::OnUser_view_anon(cidVault, kid);
 }
 
 ON_METHOD(user, my_key)
@@ -190,6 +255,74 @@ ON_METHOD(user, my_key)
 
     Env::DocGroup gr("res");
     Env::DocAddBlob_T("key", pk);
+}
+
+ON_METHOD(user, domain_register)
+{
+    DomainName dn;
+    dn.ReadName();
+    if (!dn.m_Len)
+        return;
+
+    DomainName::Method<Method::Register> arg;
+    arg.From(dn);
+
+    MyKeyID kid(cid);
+    kid.get_Pk(arg.m_pkOwner);
+
+    Domain d;
+    if (dn.Read(cid, d))
+    {
+        if (_POD_(arg.m_pkOwner) == d.m_pkOwner)
+            return OnError("already owned by me");
+
+        if (!d.IsExpired(Env::get_Height() + 1))
+            return OnError("owned by other");
+    }
+
+    FundsChange fc;
+    fc.m_Aid = 0;
+    fc.m_Consume = 1;
+    fc.m_Amount = Domain::get_Price(dn.m_Len);
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "bans register domain", 0);
+}
+
+ON_METHOD(user, domain_extend)
+{
+    Domain d;
+    DomainName dn;
+    if (!dn.ReadOwned(cid, d))
+        return;
+
+    DomainName::Method<Method::Extend> arg;
+    arg.From(dn);
+
+    FundsChange fc;
+    fc.m_Aid = 0;
+    fc.m_Consume = 1;
+    fc.m_Amount = Domain::get_Price(dn.m_Len);
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "bans extend domain", 0);
+}
+
+ON_METHOD(user, domain_set_owner)
+{
+    Domain d;
+    DomainName dn;
+    if (!dn.ReadOwned(cid, d))
+        return;
+
+    DomainName::Method<Method::SetOwner> arg;
+    arg.From(dn);
+
+    if (_POD_(pkOwner).IsZero())
+        return OnError("new owner not set");
+
+    _POD_(arg.m_pkNewOwner) = pkOwner;
+
+    MyKeyID kid(cid);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), nullptr, 0, &kid, 1, "bans domain set owner", 0);
 }
 
 #undef ON_METHOD
