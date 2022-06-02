@@ -3702,6 +3702,22 @@ void TestArgumentParsing()
         WALLET_CHECK(p.m_Args["action"] == "create");
         WALLET_CHECK(p.m_Args["metadata"] == "STD:SCH_VER=1;N=bU_Coin;SN=bU;UN=bU;NTHUN=AGROTH");
     }
+    {
+        std::string largeData;
+        constexpr size_t maxSize = 1'000'000;
+        largeData.reserve(maxSize);
+        largeData.append("data=");
+        for (size_t i = largeData.size(); i < maxSize; ++i)
+        {
+            largeData.push_back('A');
+        }
+        MyProcessor p;
+        p.AddArgs(largeData);
+        WALLET_CHECK(p.m_Args.size() == 1);
+        const std::string& data = p.m_Args["data"];
+        WALLET_CHECK(std::all_of(data.cbegin(), data.cend(), [](char c) { return c == 'A'; }) == true);
+
+    }
 
 
     {
