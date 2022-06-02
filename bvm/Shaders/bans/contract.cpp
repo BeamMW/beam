@@ -40,12 +40,7 @@ struct MyDomain
 
 void ChargePrice(uint8_t nNameLen)
 {
-    Amount amount =
-        (nNameLen <= 3) ? Domain::s_Price3 :
-        (nNameLen <= 4) ? Domain::s_Price4 :
-        Domain::s_Price5;
-
-    Env::FundsLock(0, amount);
+    Env::FundsLock(0, Domain::get_Price(nNameLen));
 }
 
 BEAM_EXPORT void Method_2(const Method::Register& r)
@@ -53,8 +48,7 @@ BEAM_EXPORT void Method_2(const Method::Register& r)
     Height h = Env::get_Height();
     MyDomain d(r.m_NameLen);
     if (d.Load())
-        // make sure it's expired
-        Env::Halt_if(h < d.m_hExpire + Domain::s_PeriodHold);
+        Env::Halt_if(!d.IsExpired(h));
     else
     {
         // check name
@@ -72,7 +66,7 @@ BEAM_EXPORT void Method_2(const Method::Register& r)
 BEAM_EXPORT void Method_3(const Method::SetOwner& r)
 {
     MyDomain d(r.m_NameLen);
-    Env::Halt_if(!d.Load());
+    Env::Halt_if(!d.Load() || d.IsExpired(Env::get_Height()));
 
     Env::AddSig(d.m_pkOwner);
     _POD_(d.m_pkOwner) = r.m_pkNewOwner;
