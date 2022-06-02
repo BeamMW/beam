@@ -66,6 +66,7 @@ struct AccountReader
     {
         _POD_(m_Key.m_Prefix.m_Cid) = cid;
         _POD_(m_Key.m_KeyInContract).SetObject(0xff);
+        m_Key.m_KeyInContract.m_Tag = Tags::s_Account;
     }
 
     bool MoveNext(Env::VarReader& r)
@@ -128,6 +129,7 @@ void ViewAccounts(const ContractID& cid, const PubKey* pOwner, AnonScanner* pAno
     Env::Key_T<Account::Key0> k0;
     _POD_(k0.m_Prefix.m_Cid) = cid;
     _POD_(k0.m_KeyInContract).SetZero();
+    k0.m_KeyInContract.m_Tag = Tags::s_Account;
 
     AccountReader ar(cid);
 
