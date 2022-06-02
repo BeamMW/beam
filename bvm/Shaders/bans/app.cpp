@@ -11,7 +11,7 @@
     macro(AssetID, aid) \
     macro(Amount, amount)
 
-#define NameService_manager_view_account(macro) \
+#define NameService_manager_view_domain(macro) \
     macro(ContractID, cid) \
     macro(PubKey, pk)
 
@@ -20,8 +20,9 @@
 #define NameServiceRole_manager(macro) \
     macro(manager, view) \
     macro(manager, deploy) \
-    macro(manager, view_account) \
-    macro(manager, view_name)
+    macro(manager, view_domain) \
+    macro(manager, view_name) \
+    macro(manager, pay)
 
 #define NameService_user_my_key(macro) macro(ContractID, cid)
 #define NameService_user_view(macro) macro(ContractID, cid) macro(ContractID, cidVault)
@@ -50,6 +51,12 @@
     macro(manager) \
     macro(user)
 
+
+void OnError(const char* sz)
+{
+    Env::DocAddText("error", sz);
+}
+
 namespace NameService {
 
 BEAM_EXPORT void Method_0()
@@ -73,11 +80,6 @@ BEAM_EXPORT void Method_0()
 #define THE_FIELD(type, name) const type& name,
 #define ON_METHOD(role, name) void On_##role##_##name(NameService_##role##_##name(THE_FIELD) int unused = 0)
 
-void OnError(const char* sz)
-{
-    Env::DocAddText("error", sz);
-}
-
 ON_METHOD(manager, view)
 {
     EnumAndDumpContracts(s_SID);
@@ -91,7 +93,7 @@ ON_METHOD(manager, deploy)
 void DumpName(const Domain& d)
 {
     Env::DocAddBlob_T("key", d.m_pkOwner);
-    Env::DocAddBlob_T("hExpire", d.m_hExpire);
+    Env::DocAddNum("hExpire", d.m_hExpire);
 }
 
 void DumpDomains(const ContractID& cid, const PubKey* pPk)
@@ -133,7 +135,7 @@ void DumpDomains(const ContractID& cid, const PubKey* pPk)
     }
 }
 
-ON_METHOD(manager, view_account)
+ON_METHOD(manager, view_domain)
 {
     DumpDomains(cid, _POD_(pk).IsZero() ? nullptr : &pk);
 }
@@ -270,7 +272,7 @@ ON_METHOD(user, view)
     PubKey pk;
     kid.get_Pk(pk);
 
-    Env::DocArray gr("res");
+    Env::DocGroup gr("res");
 
     DumpDomains(cid, &pk);
 
