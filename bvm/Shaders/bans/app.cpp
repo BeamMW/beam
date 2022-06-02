@@ -5,6 +5,12 @@
 
 #define NameService_manager_view(macro)
 #define NameService_manager_deploy(macro)
+#define NameService_manager_pay(macro) \
+    macro(ContractID, cid) \
+    macro(ContractID, cidVault) \
+    macro(AssetID, aid) \
+    macro(Amount, amount)
+
 #define NameService_manager_view_account(macro) \
     macro(ContractID, cid) \
     macro(PubKey, pk)
@@ -25,9 +31,20 @@
     macro(ContractID, cid) \
     macro(PubKey, pkOwner)
 
+#define NameService_user_receive(macro) \
+    macro(ContractID, cid) \
+    macro(ContractID, cidVault) \
+    macro(PubKey, pkOwner) \
+    macro(AssetID, aid) \
+    macro(Amount, amount)
+
 #define NameServiceRole_user(macro) \
     macro(user, my_key) \
-    macro(user, view)
+    macro(user, view) \
+    macro(user, domain_register) \
+    macro(user, domain_extend) \
+    macro(user, domain_set_owner) \
+    macro(user, receive)
 
 #define NameServiceRoles_All(macro) \
     macro(manager) \
@@ -234,6 +251,19 @@ ON_METHOD(manager, view_name)
     }
 }
 
+ON_METHOD(manager, pay)
+{
+    Domain d;
+    DomainName dn;
+    if (!dn.ReadFromName(cid, d))
+        return;
+
+    if (d.IsExpired(Env::get_Height() + 1))
+        return OnError("domain expired");
+
+    VaultAnon::OnUser_send_anon(cidVault, d.m_pkOwner, aid, amount);
+}
+
 ON_METHOD(user, view)
 {
     MyKeyID kid(cid);
@@ -323,6 +353,11 @@ ON_METHOD(user, domain_set_owner)
 
     MyKeyID kid(cid);
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), nullptr, 0, &kid, 1, "bans domain set owner", 0);
+}
+
+ON_METHOD(user, receive)
+{
+    VaultAnon::OnUser_receive_anon(cidVault, MyKeyID(cid), pkOwner, aid, amount);
 }
 
 #undef ON_METHOD
