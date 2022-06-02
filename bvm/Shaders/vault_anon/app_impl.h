@@ -123,7 +123,7 @@ struct AccountReader
     }
 };
 
-void ViewAccounts(const ContractID& cid, const PubKey* pOwner, AnonScanner* pAnon)
+void ViewAccounts(const ContractID& cid, const PubKey* pOwner, AnonScanner* pAnon, const char* szArr)
 {
     Env::Key_T<Account::Key0> k0;
     _POD_(k0.m_Prefix.m_Cid) = cid;
@@ -137,7 +137,7 @@ void ViewAccounts(const ContractID& cid, const PubKey* pOwner, AnonScanner* pAno
         _POD_(ar.m_Key.m_KeyInContract.m_pkOwner) = *pOwner;
     }
 
-    Env::DocArray gr("accounts");
+    Env::DocArray gr(szArr);
 
     for (Env::VarReader r(k0, ar.m_Key); ar.MoveNext(r); )
     {
@@ -159,13 +159,13 @@ void OnUser_view_raw(const ContractID& cid, const Env::KeyID& kid)
 {
     PubKey pk;
     kid.get_Pk(pk);
-    ViewAccounts(cid, &pk, nullptr);
+    ViewAccounts(cid, &pk, nullptr, "raw");
 }
 
 void OnUser_view_anon(const ContractID& cid, const Env::KeyID& kid)
 {
     AnonScanner as(kid);
-    ViewAccounts(cid, nullptr, &as);
+    ViewAccounts(cid, nullptr, &as, "anon");
 }
 
 #pragma pack (push, 1)

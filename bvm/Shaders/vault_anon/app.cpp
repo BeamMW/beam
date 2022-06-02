@@ -96,7 +96,7 @@ ON_METHOD(manager, deploy)
 
 ON_METHOD(manager, view_account)
 {
-    ViewAccounts(cid, _POD_(pkOwner).IsZero() ? nullptr : &pkOwner, nullptr);
+    ViewAccounts(cid, _POD_(pkOwner).IsZero() ? nullptr : &pkOwner, nullptr, "accounts");
 }
 
 ON_METHOD(user, view_raw)
