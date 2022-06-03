@@ -3704,7 +3704,7 @@ void TestArgumentParsing()
     }
     {
         std::string largeData;
-        constexpr size_t maxSize = 1'000'000;
+        constexpr size_t maxSize = 2'000'000;
         largeData.reserve(maxSize);
         largeData.append("data=");
         for (size_t i = largeData.size(); i < maxSize; ++i)
@@ -3716,7 +3716,6 @@ void TestArgumentParsing()
         WALLET_CHECK(p.m_Args.size() == 1);
         const std::string& data = p.m_Args["data"];
         WALLET_CHECK(std::all_of(data.cbegin(), data.cend(), [](char c) { return c == 'A'; }) == true);
-
     }
 
 
@@ -3749,9 +3748,10 @@ void TestArgumentParsing()
     {
         MyProcessor p;
         p.AddArgs("r54ole=manager,act ion=destroy_contract,cid=2dd39c06e653563 543536 76 76��������������;;;;';'df;;.,,,,,,de9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d,na ");
-        WALLET_CHECK(p.m_Args.size() == 2);
+        WALLET_CHECK(p.m_Args.size() == 3);
         WALLET_CHECK(p.m_Args["r54ole"] == "manager");
         WALLET_CHECK(p.m_Args["ion"] == "destroy_contract");
+        WALLET_CHECK(p.m_Args["cid"] == "2dd39c06e653563");
     }
 
     {
