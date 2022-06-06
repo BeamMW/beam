@@ -466,6 +466,7 @@ endif()
 #RE2 begin
 
 include(FetchContent)
+set(RE2_BUILD_TESTING OFF)
 FetchContent_Declare(
         re2
         GIT_REPOSITORY https://github.com/google/re2
