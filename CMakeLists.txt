@@ -174,6 +174,8 @@ option(SWAP_MAINNET "Use mainnet blockchain when perform atomic swaps" FALSE)
 #set(BEAM_TESTNET TRUE CACHE INTERNAL "")
 # uncomment next line for mainnet
 #set(BEAM_MAINNET TRUE CACHE INTERNAL "")
+# uncomment next line for mainnet
+#set(BEAM_DAPPNET TRUE CACHE INTERNAL "")
 
 # uncomment next line for swap mainnet
 #set(SWAP_MAINNET TRUE)
@@ -183,6 +185,13 @@ if(BEAM_TESTNET)
     add_definitions(-DBEAM_TESTNET)
     set(BEAM_SUFFIX_LOWER_CASE "testnet" CACHE INTERNAL "")
     set(BEAM_SUFFIX_UPPER_CASE "Testnet" CACHE INTERNAL "")
+    set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}" CACHE INTERNAL "")
+    set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}" CACHE INTERNAL "")
+elseif(BEAM_DAPPNET)
+    target_compile_definitions(beam INTERFACE -DBEAM_DAPPNET)
+    add_definitions(-DBEAM_DAPPNET)
+    set(BEAM_SUFFIX_LOWER_CASE "dappnet" CACHE INTERNAL "")
+    set(BEAM_SUFFIX_UPPER_CASE "Dappnet" CACHE INTERNAL "")
     set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}" CACHE INTERNAL "")
     set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}" CACHE INTERNAL "")
 elseif(BEAM_MAINNET)
