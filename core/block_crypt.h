@@ -290,7 +290,7 @@ namespace beam
 		size_t MaxBodySize = 0x100000; // 1MB
 
 		bool AllowPublicUtxos = false;
-		bool FakePoW = false;
+		bool FakePoW = true; // dappnet
 
 		Height MaxKernelValidityDH = 1440 * 30; // past Fork2
 		// if kernel has higher lifetime - its max height is implicitly decreased
