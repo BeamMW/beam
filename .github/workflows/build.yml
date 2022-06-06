@@ -5,7 +5,7 @@ on: [push]
 env:
   BUILD_TYPE: Release
   BUILD_CONFIG: RelWithDebInfo
-  BEAM_TARGET_SUFFIX: -masternet
+  BEAM_TARGET_SUFFIX: -dappnet
 
 jobs:
 ###############################################################################
