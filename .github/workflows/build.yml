@@ -5,6 +5,7 @@ on: [push]
 env:
   BUILD_TYPE: Release
   BUILD_CONFIG: RelWithDebInfo
+  BEAM_TARGET_SUFFIX: -masternet
 
 jobs:
 ###############################################################################
@@ -99,7 +100,6 @@ jobs:
       shell: bash
       run: |
         echo "BEAM_VERSION=$(cat beam_version.gen)" >> $GITHUB_ENV
-        echo "BEAM_TARGET_SUFFIX=-masternet" >> $GITHUB_ENV
         rm beam_version.gen
 
 ###############################################################################
@@ -340,7 +340,6 @@ jobs:
     - name: Save version info
       run: |
         echo "BEAM_VERSION=$(cat beam_version.gen)" >> $GITHUB_ENV
-        echo "BEAM_TARGET_SUFFIX=-masternet" >> $GITHUB_ENV
         rm beam_version.gen
 
 ###############################################################################
@@ -433,7 +432,6 @@ jobs:
     - name: Save version info
       run: |
         echo "BEAM_VERSION=$(cat beam_version.gen)" >> $GITHUB_ENV
-        echo "BEAM_TARGET_SUFFIX=-masternet" >> $GITHUB_ENV
         rm beam_version.gen
 
 ###############################################################################
@@ -550,7 +548,6 @@ jobs:
     - name: Save version info
       run: |
         echo "BEAM_VERSION=$(cat beam_version.gen)" >> $GITHUB_ENV
-        echo "BEAM_TARGET_SUFFIX=-masternet" >> $GITHUB_ENV
         rm beam_version.gen
 
 ###############################################################################
