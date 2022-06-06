@@ -3702,7 +3702,7 @@ void TestArgumentParsing()
         WALLET_CHECK(p.m_Args["action"] == "create");
         WALLET_CHECK(p.m_Args["metadata"] == "STD:SCH_VER=1;N=bU_Coin;SN=bU;UN=bU;NTHUN=AGROTH");
     }
-#ifndef __GNUG__
+#if 0
     {
         std::string largeData;
         constexpr size_t maxSize = 2'000'000;
