@@ -3745,7 +3745,7 @@ void TestArgumentParsing()
         }
         MyProcessor p;
         p.AddArgs(largeData);
-        WALLET_CHECK(p.m_Args.size() == 0);
+        WALLET_CHECK(p.m_Args.empty());
     }
 #endif
     {
@@ -3771,7 +3771,7 @@ void TestArgumentParsing()
     {
         MyProcessor p;
         p.AddArgs("");
-        WALLET_CHECK(p.m_Args.size() == 0);
+        WALLET_CHECK(p.m_Args.empty());
     }
 
     {

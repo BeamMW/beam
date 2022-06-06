@@ -16,7 +16,8 @@
 #include "bvm2_impl.h"
 #include <sstream>
 #include <iomanip>
-#include <regex>
+#include <string>
+#include <re2/re2.h>
 #include <boost/algorithm/string/replace.hpp>
 
 #if defined(__ANDROID__) || !defined(BEAM_USE_AVX)
@@ -3496,35 +3497,27 @@ namespace bvm2 {
 
 	uint32_t ProcessorManager::AddArgs(const std::string& commaSeparatedPairs)
 	{
-		static const std::regex expr(R"raw(\s*([\w\d_]+)\s*=\s*(([^," ]+)|"(.*?[^\\])")\s*)raw");
-		std::cmatch groups;
-		const char* s = commaSeparatedPairs.c_str();
-		uint32_t ret = 0;
-		while (std::regex_search(s, groups, expr))
-		{
-			if (groups.size() > 0)
-			{
-				std::string key{ groups[1].first, groups[1].second };
-				std::string value;
-				if (groups[3].matched)
-				{
-					value.assign(groups[3].first, groups[3].second);
-				}
-				else if (groups[4].matched)
-				{
-					value.assign(groups[4].first, groups[4].second);
-					boost::algorithm::replace_all(value, "\\\"", "\"");
-				}
+        	uint32_t ret = 0;
+        	re2::StringPiece input(commaSeparatedPairs);
+        	std::string key;
+        	std::string value1;
+        	std::string value2;
+        	std::string value3;
+        	while (RE2::FindAndConsume(&input, R"raw(\s*([\w\d_]+)\s*=\s*(([^," ]+)|"(.*?[^\\])")\s*)raw", &key, &value1, &value2, &value3))
+        	{
+        		std::string value;
+        		if (!value2.empty())
+        		{
+        			value = std::move(value2);
+        		}
+        		else if (!value3.empty())
+        		{
+        			value = std::move(value3);
+        			boost::algorithm::replace_all(value, "\\\"", "\"");
+        		}
 
-				m_Args.emplace(std::move(key), std::move(value));
-				++ret;
-			}
-			s = groups.suffix().first;
-			while (*s && (std::isspace(*s) || *s == ','))
-			{
-				++s;
-			}
-		}
+        		m_Args.emplace(std::move(key), std::move(value));
+        	}
 		return ret;
 	}
 

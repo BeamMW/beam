@@ -463,6 +463,18 @@ endif()
 
 #OpenSSL end
 
+#RE2 begin
+
+include(FetchContent)
+FetchContent_Declare(
+        re2
+        GIT_REPOSITORY https://github.com/google/re2
+        GIT_TAG 2022-06-01
+)
+FetchContent_MakeAvailable(re2)
+
+#RE2 end
+
 target_compile_definitions(beam INTERFACE -DBC_STATIC)
 add_definitions(-DBC_STATIC)
 
