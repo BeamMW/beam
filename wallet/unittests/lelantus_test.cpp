@@ -1631,7 +1631,7 @@ int main()
     Rules::get().FakePoW = true;
     Rules::get().pForks[1].m_Height = 6;
     Rules::get().pForks[2].m_Height = 12;
-    Rules::get().pForks[3].m_Height = 800;
+    Rules::get().pForks[3].m_Height = 100;
     Rules::get().UpdateChecksum();
 
     auto testAll = []()
