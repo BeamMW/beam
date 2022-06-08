@@ -134,7 +134,7 @@ namespace beam::wallet::imp
                     if (config.swarm_key.empty())
                     {
                         #ifdef BEAM_DAPPNET
-                        config.swarm_key = "/key/swarm/psk/1.0.0/\n/base16/\nbf2f20636d7cd1c58c7ae6234ea056f6a673ffad71ec08af37405c4f3cbf9928"
+                        config.swarm_key = "/key/swarm/psk/1.0.0/\n/base16/\nbf2f20636d7cd1c58c7ae6234ea056f6a673ffad71ec08af37405c4f3cbf9928";
                         LOG_INFO() << "Default DAPPNET IPFS swarm key would be used";
                         #elif defined(BEAM_TESTNET)
                         config.swarm_key = "/key/swarm/psk/1.0.0/\n/base16/\n1191aea7c9f99f679f477411d9d44f1ea0fdf5b42d995966b14a9000432f8c4a"
