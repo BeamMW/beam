@@ -33,7 +33,7 @@ struct MyPool
         m_Assets = (nSize - sizeof(Pool0)) / sizeof(PerAsset);
     }
 
-    void Save()
+    ~MyPool()
     {
         auto key = Tags::s_Pool;
         Env::SaveVar(&key, sizeof(key), this, sizeof(Pool0) + m_Assets * sizeof(PerAsset), KeyTag::Internal);
@@ -63,17 +63,20 @@ BEAM_EXPORT void Method_4(const Method::UserUpdate& r)
         u.Remove(p, nAssets);
     }
     else
-    {
-        u.m_Weight = 0;
-        Env::Memset(u.m_p, 0, sizeof(User0::PerAsset) * p.m_Assets);
-    }
+        Env::Memset(&u, 0, sizeof(User0) + sizeof(User0::PerAsset) * p.m_Assets);
 
     if (u.m_Weight > r.m_NewStaking)
+    {
+        Env::Halt_if(Env::get_Height() == u.m_hLastDeposit);
         Env::FundsUnlock(p.m_aidStaking, u.m_Weight - r.m_NewStaking);
+    }
     else
     {
         if (r.m_NewStaking > u.m_Weight)
+        {
+            u.m_hLastDeposit = Env::get_Height();
             Env::FundsLock(p.m_aidStaking, r.m_NewStaking - u.m_Weight);
+        }
     }
 
     u.m_Weight = r.m_NewStaking;
