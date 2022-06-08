@@ -82,6 +82,8 @@ namespace beam::wallet::imp
                     if (config.bootstrap.empty())
                     {
                         #ifdef BEAM_DAPPNET
+                        config.bootstrap.emplace_back("/ip4/3.16.160.95/tcp/38041/p2p/12D3KooWEFuqCDtMx5TQkQ4zHd4q38Ad4iE9zuCw6qGffah9WjEo");
+                        LOG_INFO() << "Default DAPPNET IPFS bootstrap is used";
                         #elif defined(BEAM_TESTNET)
                         config.bootstrap.emplace_back("/dns4/eu-node01.testnet.beam.mw/tcp/38041/p2p/12D3KooWFEa2QaN5t3oTGurg1Fz5BkoE3ueHV18WxjHCXY16hHYM");
                         config.bootstrap.emplace_back("/dns4/eu-node02.testnet.beam.mw/tcp/38041/p2p/12D3KooWPrfHKa3Sc7qF96biwqy1JPRVDxoVhbxFtnfnbZQXVw8e");
@@ -106,6 +108,8 @@ namespace beam::wallet::imp
                     if (config.peering.empty())
                     {
                         #ifdef BEAM_DAPPNET
+                        config.bootstrap.emplace_back("/ip4/3.16.160.95/tcp/38041/p2p/12D3KooWEFuqCDtMx5TQkQ4zHd4q38Ad4iE9zuCw6qGffah9WjEo");
+                        LOG_INFO() << "Default DAPPNET IPFS bootstrap is used";
                         #elif defined(BEAM_TESTNET)
                         config.peering.emplace_back("/dns4/eu-node01.testnet.beam.mw/tcp/38041/p2p/12D3KooWFEa2QaN5t3oTGurg1Fz5BkoE3ueHV18WxjHCXY16hHYM");
                         config.peering.emplace_back("/dns4/eu-node02.testnet.beam.mw/tcp/38041/p2p/12D3KooWPrfHKa3Sc7qF96biwqy1JPRVDxoVhbxFtnfnbZQXVw8e");
