@@ -1,5 +1,7 @@
 call make_shader amm/app
 call make_shader amm/contract
+call make_shader bans/app
+call make_shader bans/contract
 call make_shader aphorize/contract
 call make_shader dao-core/app
 call make_shader dao-core/app-admin
