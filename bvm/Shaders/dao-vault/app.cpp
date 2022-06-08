@@ -84,11 +84,7 @@ struct UserKeyID :public Env::KeyID {
     }
 };
 
-const ShaderID g_pSid[] = {
-    DaoVault::s_SID,
-};
-
-const Upgradable3::Manager::VerInfo g_VerInfo = { g_pSid, _countof(g_pSid) };
+const Upgradable3::Manager::VerInfo g_VerInfo = { s_pSID, _countof(s_pSID) };
 
 ON_METHOD(manager, view)
 {

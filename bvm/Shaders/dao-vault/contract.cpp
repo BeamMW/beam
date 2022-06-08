@@ -122,13 +122,18 @@ BEAM_EXPORT void Method_4(const Method::UserUpdate& r)
 
 namespace Upgradable3 {
 
+    const uint32_t g_CurrentVersion = _countof(DaoVault::s_pSID) - 1;
+
     uint32_t get_CurrentVersion()
     {
-        return 0;
+        return g_CurrentVersion;
     }
 
     void OnUpgraded(uint32_t nPrevVersion)
     {
-        Env::Halt();
+        if constexpr (g_CurrentVersion)
+            Env::Halt_if(nPrevVersion != g_CurrentVersion - 1);
+        else
+            Env::Halt();
     }
 }
