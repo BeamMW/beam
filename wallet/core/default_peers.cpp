@@ -33,9 +33,9 @@ namespace beam
             "us-node02.beamx.beam.mw:8100",
             "us-node03.beamx.beam.mw:8100"
 #elif defined(BEAM_DAPPNET)
-            "us-node01.dappnet.beam.mw:8100",
-            "us-node02.dappnet.beam.mw:8100",
-            "us-node03.dappnet.beam.mw:8100"
+            "eu-node01.dappnet.beam.mw:8100",
+            "eu-node02.dappnet.beam.mw:8100",
+            "eu-node03.dappnet.beam.mw:8100"
 #else
             "eu-node01.masternet.beam.mw:8100",
             "eu-node02.masternet.beam.mw:8100",
