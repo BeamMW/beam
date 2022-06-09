@@ -172,9 +172,10 @@ struct HomogenousPool
 
     };
 
-    template <Mode m>
     struct SingleEpoch
     {
+        typedef Mode Mode;
+
         Epoch<1> m_Active;
 
         Amount get_TotalSell() const {
@@ -205,6 +206,7 @@ struct HomogenousPool
             }
         }
 
+        template <Mode m>
         void Trade(Amount valS, Amount valB)
         {
             assert(valS);
@@ -213,9 +215,10 @@ struct HomogenousPool
     };
 
 
-    template <Mode m>
     struct MultiEpoch
     {
+        typedef Mode Mode;
+
         Epoch<1> m_Active;
         Epoch<1> m_Draining;
 
@@ -281,6 +284,7 @@ struct HomogenousPool
             }
         }
 
+        template <Mode m>
         void Trade(Amount valS, Amount valB)
         {
             assert(valS);
@@ -306,7 +310,6 @@ struct HomogenousPool
         template <class Storage>
         void OnPostTrade(Storage& stor)
         {
-            static_assert(Mode::Burn == m);
             static_assert(Scale::s_Initial > Scale::s_Threshold * 2); // this means that order==0 is also covered
 
             if (m_Active.m_kScale.m_Order < (int32_t) (Scale::s_Initial - Scale::s_Threshold))
@@ -337,8 +340,8 @@ struct HomogenousPool
     };
 };
 
-typedef HomogenousPool::MultiEpoch<HomogenousPool::Mode::Burn> ExchangePool;
-typedef HomogenousPool::SingleEpoch<HomogenousPool::Mode::Grow> DistributionPool;
+typedef HomogenousPool::MultiEpoch ExchangePool;
+typedef HomogenousPool::SingleEpoch DistributionPool;
 
 template <typename TWeight, typename TValue, uint32_t nDims>
 struct StaticPool

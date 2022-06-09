@@ -205,7 +205,7 @@ namespace Nephrite
                 if (!get_TotalSell())
                     return false; // empty
 
-                Trade(t.m_Amounts.Tok, t.m_Amounts.Col);
+                Trade<Mode::Grow>(t.m_Amounts.Tok, t.m_Amounts.Col);
 
                 return true;
             }
@@ -246,7 +246,7 @@ namespace Nephrite
                     t.m_Amounts.Col -= valB; 
                 }
 
-                Trade(valS, valB);
+                Trade<Mode::Burn>(valS, valB);
                 return true;
             }
 
