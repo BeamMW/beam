@@ -6,7 +6,7 @@
 namespace Nephrite
 {
     static const ShaderID s_pSID[] = {
-        { 0xdf,0xe0,0x08,0xbc,0xad,0x6d,0x62,0x3d,0xbd,0x7a,0x23,0x23,0xe4,0x6a,0x01,0xe3,0x02,0x82,0x4e,0x7c,0x67,0x2c,0x8d,0x33,0x31,0x40,0xfc,0x7a,0x24,0x1f,0xd3,0x2f }
+        { 0xe7,0x4e,0x33,0xc5,0xad,0xb7,0x3c,0x68,0xf5,0x3c,0xbd,0x3c,0x2b,0x60,0x78,0xc1,0xa2,0xe2,0x75,0x7a,0xb5,0xa9,0x2b,0x47,0xbd,0xad,0xd4,0x53,0xea,0x70,0x8a,0xef }
     };
 
 #pragma pack (push, 1)
@@ -17,7 +17,6 @@ namespace Nephrite
         static const uint8_t s_Epoch_Stable = 3;
         static const uint8_t s_Balance = 4;
         static const uint8_t s_StabPool = 5;
-        static const uint8_t s_ProfitPool = 6;
         static const uint8_t s_Trove = 7;
     };
 
@@ -79,7 +78,6 @@ namespace Nephrite
 
     typedef Pair_T<Flow> FlowPair;
 
-    typedef StaticPool<Amount, Amount, 1> ProfitPool;
     typedef HomogenousPool::MultiEpoch<2> ExchangePool;
     typedef HomogenousPool::SingleEpoch<1> RedistPoolBase;
 
@@ -110,18 +108,6 @@ namespace Nephrite
         Height m_hLastModify;
     };
 
-    struct ProfitPoolEntry
-    {
-        struct Key
-        {
-            uint8_t m_Tag = Tags::s_ProfitPool;
-            PubKey m_pkUser;
-        };
-
-        ProfitPool::User m_User;
-        Height m_hLastModify;
-    };
-
     struct Trove
     {
         typedef uint32_t ID;
@@ -143,7 +129,7 @@ namespace Nephrite
         ContractID m_cidOracle;
         ContractID m_cidDaoVault;
         Amount m_TroveLiquidationReserve;
-        AssetID m_AidProfit;
+        AssetID m_AidGov;
         Height m_hMinRedemptionHeight;
     };
 
@@ -279,8 +265,6 @@ namespace Nephrite
 
         } m_StabPool;
 
-        ProfitPool m_ProfitPool;
-
         struct Price
         {
             Float m_Value; // 1 col == 1 tok * m_Value
@@ -353,7 +337,7 @@ namespace Nephrite
         Amount get_BorrowFee(Amount tok, Amount tok0, bool bRecovery, const Price& price)
         {
             // during recovery borrowing fee is OFF
-            if (bRecovery || (tok <= tok0) || m_ProfitPool.IsEmpty())
+            if (bRecovery || (tok <= tok0))
                 return 0;
 
             Amount valMinted = tok - tok0;
@@ -473,7 +457,7 @@ namespace Nephrite
 
         Amount AddRedeemFee(Redeemer& ctx)
         {
-            if (m_ProfitPool.IsEmpty() || !ctx.m_fpLogic.Tok.m_Val)
+            if (!ctx.m_fpLogic.Tok.m_Val)
                 return 0;
 
             Amount feeBase = ctx.m_fpLogic.Col.m_Val / 200; // redemption fee floor is 0.5 percent
@@ -586,12 +570,6 @@ namespace Nephrite
         {
             static const uint32_t s_iMethod = 8;
             uint32_t m_Count;
-        };
-
-        struct UpdProfitPool :public BaseTxUser
-        {
-            static const uint32_t s_iMethod = 9;
-            Amount m_NewAmount;
         };
 
         struct Redeem :public BaseTxUser

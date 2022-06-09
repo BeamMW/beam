@@ -19,7 +19,7 @@
     macro(ContractID, cidOracle) \
     macro(ContractID, cidDaoVault) \
     macro(Amount, troveLiquidationReserve) \
-    macro(AssetID, aidProfit) \
+    macro(AssetID, aidGov) \
     macro(uint32_t, hInitialPeriod)
 
 
@@ -39,10 +39,6 @@
 #define Nephrite_user_withdraw_surplus(macro) macro(ContractID, cid)
 
 #define Nephrite_user_upd_stab(macro) \
-    macro(ContractID, cid) \
-    macro(Amount, newVal) \
-
-#define Nephrite_user_upd_profit(macro) \
     macro(ContractID, cid) \
     macro(Amount, newVal) \
 
@@ -68,7 +64,6 @@
     macro(user, view) \
     macro(user, withdraw_surplus) \
     macro(user, upd_stab) \
-    macro(user, upd_profit) \
     macro(user, trove_modify) \
     macro(user, liquidate) \
     macro(user, redeem)
@@ -140,9 +135,6 @@ struct MyKeyID :public Env::KeyID
         m_Blob.m_Magic = FourCC<'s', 't', 'a', 'b'>::V;
     }
 
-    void set_Profit() {
-        m_Blob.m_Magic = FourCC<'p', 'f', 't', '$'>::V;
-    }
 };
 
 void DocAddPairInternal(const Pair& p)
@@ -209,7 +201,7 @@ ON_METHOD(manager, deploy)
         return OnError("trove Liquidation Reserve should not be zero");
 
     auto& s = arg.m_Settings; // alias
-    s.m_AidProfit = aidProfit;
+    s.m_AidGov = aidGov;
     s.m_TroveLiquidationReserve = troveLiquidationReserve;
     _POD_(s.m_cidOracle) = cidOracle;
     _POD_(s.m_cidDaoVault) = cidDaoVault;
@@ -349,13 +341,6 @@ struct AppGlobalPlus
         Amount m_Gov;
         uint32_t m_Charge;
     } m_MyStab;
-
-    struct MyProfit
-    {
-        PubKey m_Pk;
-        Amount m_Beam;
-        Amount m_Gov;
-    } m_MyProfit;
 
     Trove& get_T(Trove::ID iTrove)
     {
@@ -528,25 +513,6 @@ struct AppGlobalPlus
 
     Amount m_Fee = 0;
 
-    bool PopMyProfit()
-    {
-        m_Kid.set_Profit();
-        m_Kid.get_Pk(m_MyProfit.m_Pk);
-
-        Env::Key_T<ProfitPoolEntry::Key> k;
-        k.m_Prefix.m_Cid = m_Kid.m_Blob.m_Cid;
-        _POD_(k.m_KeyInContract.m_pkUser) = m_MyProfit.m_Pk;
-
-        ProfitPoolEntry e;
-        if (!Env::VarReader::Read_T(k, e))
-            return false;
-
-        m_MyProfit.m_Gov = e.m_User.m_Weight;
-        m_ProfitPool.Remove(&m_MyProfit.m_Beam, e.m_User);
-
-        return true;
-    }
-
     static void Flow2Fc(FundsChange& fc, const Flow& f, AssetID aid)
     {
         fc.m_Amount = f.m_Val;
@@ -608,7 +574,7 @@ ON_METHOD(manager, view_params)
 
     Env::DocAddBlob_T("oracle", g.m_Settings.m_cidOracle);
     Env::DocAddNum("aidTok", g.m_Aid);
-    Env::DocAddNum("aidGov", g.m_Settings.m_AidProfit);
+    Env::DocAddNum("aidGov", g.m_Settings.m_AidGov);
     Env::DocAddNum("redemptionHeight", g.m_Settings.m_hMinRedemptionHeight);
     Env::DocAddNum("liq_reserve", g.m_Settings.m_TroveLiquidationReserve);
     Env::DocAddNum("troves_created", g.m_Troves.m_iLastCreated);
@@ -622,8 +588,6 @@ ON_METHOD(manager, view_params)
         Env::DocAddNum("gov", g.m_StabPool.m_Reward.m_Remaining);
         Env::DocAddNum("hEnd", g.m_StabPool.m_Reward.m_hEnd);
     }
-
-    Env::DocAddNum("gov_pool", g.m_ProfitPool.m_Weight);
 
     AppGlobal::MyPrice price;
     if (price.Load(g))
@@ -680,7 +644,7 @@ ON_METHOD(manager, add_stab_reward)
     args.m_Amount = amount;
 
     FundsChange fc;
-    fc.m_Aid = g.m_Settings.m_AidProfit;
+    fc.m_Aid = g.m_Settings.m_AidGov;
     fc.m_Amount = amount;
     fc.m_Consume = 1;
 
@@ -710,13 +674,6 @@ ON_METHOD(user, view)
         Env::DocGroup gr1("stab");
         DocAddPairInternal(g.m_MyStab.m_Amounts);
         Env::DocAddNum("gov", g.m_MyStab.m_Gov);
-    }
-
-    if (g.PopMyProfit())
-    {
-        Env::DocGroup gr1("profit");
-        Env::DocAddNum("gov", g.m_MyProfit.m_Gov);
-        Env::DocAddNum("beam", g.m_MyProfit.m_Beam);
     }
 }
 
@@ -889,7 +846,7 @@ ON_METHOD(user, upd_stab)
     FundsChange pFc[3];
     g.Flow2Fc(pFc, args.m_Flow);
 
-    pFc[2].m_Aid = g.m_Settings.m_AidProfit;
+    pFc[2].m_Aid = g.m_Settings.m_AidGov;
     pFc[2].m_Amount = g.m_MyStab.m_Gov;
     pFc[2].m_Consume = 0;
 
@@ -913,49 +870,6 @@ ON_METHOD(user, upd_stab)
     }
 
     Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "update stab pool", nCharge);
-}
-
-ON_METHOD(user, upd_profit)
-{
-    AppGlobalPlus g(cid);
-    if (!g.Load(cid)) // skip loading all troves
-        return;
-
-    Method::UpdProfitPool args;
-    args.m_NewAmount = newVal;
-
-    _POD_(args.m_Flow).SetZero();
-    Flow fGov;
-    fGov.m_Spend = 0;
-    
-    if (g.PopMyProfit())
-    {
-        args.m_Flow.Col.m_Val = g.m_MyProfit.m_Beam;
-        fGov.m_Val = g.m_MyProfit.m_Gov;
-    } else
-        fGov.m_Val = 0;
-
-    fGov.Add(newVal, 1);
-
-    if (!args.m_Flow.Col.m_Val && !fGov.m_Val)
-        return OnError("no change");
-
-    _POD_(args.m_pkUser) = g.m_MyProfit.m_Pk;
-
-    FundsChange pFc[2];
-    g.Flow2Fc(pFc[0], args.m_Flow.Col, 0);
-    g.Flow2Fc(pFc[1], fGov, g.m_Settings.m_AidProfit);
-
-    const uint32_t nCharge =
-        Charge::StdCall() +
-        Charge::BankAccess() +
-        Charge::Funds(args) +
-        Env::Cost::LoadVar_For(sizeof(ProfitPoolEntry)) +
-        Env::Cost::SaveVar_For(sizeof(ProfitPoolEntry)) +
-        (fGov.m_Val ? Env::Cost::FundsLock : 0) +
-        Env::Cost::Cycle * 500; // should cover the ProfitPool op. In contrast to other pools, it's simpler, and no additional I/O
-
-    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "update profit pool", nCharge);
 }
 
 bool AdjustVal(Amount& dst, Amount src, uint32_t op)

@@ -416,7 +416,7 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
         }
 
         if (out.m_pBuy[1])
-            Env::FundsUnlock(g.m_Settings.m_AidProfit, out.m_pBuy[1]);
+            Env::FundsUnlock(g.m_Settings.m_AidGov, out.m_pBuy[1]);
     }
 
     if (r.m_NewAmount)
@@ -468,49 +468,8 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
     g.AdjustAll(r, totals0, ctx.m_fpLogic, r.m_pkUser);
 }
 
-BEAM_EXPORT void Method_9(Method::UpdProfitPool& r)
+BEAM_EXPORT void Method_9(void*)
 {
-    MyGlobal_LoadSave g;
-
-    ProfitPoolEntry::Key pk;
-    _POD_(pk.m_pkUser) = r.m_pkUser;
-
-    FlowPair fpLogic;
-    _POD_(fpLogic).SetZero();
-
-    Height h = Env::get_Height();
-
-    ProfitPoolEntry pe;
-    if (!Env::LoadVar_T(pk, pe))
-        _POD_(pe).SetZero();
-    else
-    {
-        Env::Halt_if(pe.m_hLastModify == h);
-
-        Amount valOut;
-        g.m_ProfitPool.Remove(&valOut, pe.m_User);
-        fpLogic.Col.m_Val = valOut;
-    }
-
-    if (r.m_NewAmount > pe.m_User.m_Weight)
-        Env::FundsLock(g.m_Settings.m_AidProfit, r.m_NewAmount - pe.m_User.m_Weight);
-
-    if (pe.m_User.m_Weight > r.m_NewAmount)
-        Env::FundsUnlock(g.m_Settings.m_AidProfit, pe.m_User.m_Weight - r.m_NewAmount);
-
-    if (r.m_NewAmount)
-    {
-        pe.m_User.m_Weight = r.m_NewAmount;
-        g.m_ProfitPool.Add(pe.m_User);
-
-        pe.m_hLastModify = h;
-        Env::SaveVar_T(pk, pe);
-    }
-    else
-        Env::DelVar_T(pk);
-
-    g.AdjustTxFunds(r);
-    g.AdjustTxBank(fpLogic, r, r.m_pkUser);
 }
 
 BEAM_EXPORT void Method_10(Method::Redeem& r)
@@ -564,7 +523,7 @@ BEAM_EXPORT void Method_11(Method::AddStabPoolReward& r)
     }
 
     Strict::Add(x.m_Remaining, r.m_Amount);
-    Env::FundsLock(g.m_Settings.m_AidProfit, r.m_Amount);
+    Env::FundsLock(g.m_Settings.m_AidGov, r.m_Amount);
 }
 
 } // namespace Nephrite
