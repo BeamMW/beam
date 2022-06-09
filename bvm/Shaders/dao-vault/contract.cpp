@@ -92,26 +92,31 @@ BEAM_EXPORT void Method_4(const Method::UserUpdate& r)
         pWithdraw = nullptr;
     }
 
-    for (uint32_t i = 0; i < nCount; i++)
+    for (uint32_t i = 0; i < p.m_Assets; i++)
     {
         auto& x = u.m_p[i];
-        Amount val;
 
-        if (pWithdraw)
+        if (i < r.m_WithdrawCount)
         {
-            val = pWithdraw[i];
-            Strict::Sub(x.m_Value, val);
+            Amount val;
 
-            if (x.m_Value)
-                bEmpty = false;
-        }
-        else
-        {
-            val = x.m_Value;
-            x.m_Value = 0;
+            if (pWithdraw)
+            {
+                val = pWithdraw[i];
+                Strict::Sub(x.m_Value, val);
+            }
+            else
+            {
+                val = x.m_Value;
+                x.m_Value = 0;
+            }
+
+            if (val)
+                Env::FundsUnlock(p.m_p[i].m_Aid, val);
         }
 
-        Env::FundsUnlock(p.m_p[i].m_Aid, val);
+        if (x.m_Value)
+            bEmpty = false;
     }
 
 
