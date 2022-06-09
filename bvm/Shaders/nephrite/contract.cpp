@@ -542,13 +542,18 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
 
 namespace Upgradable3 {
 
+    const uint32_t g_CurrentVersion = _countof(Nephrite::s_pSID) - 1;
+
     uint32_t get_CurrentVersion()
     {
-        return 1;
+        return g_CurrentVersion;
     }
 
     void OnUpgraded(uint32_t nPrevVersion)
     {
-        Env::Halt_if(nPrevVersion != 0);
+        if constexpr (g_CurrentVersion)
+            Env::Halt_if(nPrevVersion != g_CurrentVersion - 1);
+        else
+            Env::Halt();
     }
 }

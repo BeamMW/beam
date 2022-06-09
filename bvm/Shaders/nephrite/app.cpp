@@ -171,12 +171,7 @@ void DocAddPerc(const char* sz, Float x)
     DocAddFloat(sz, x * Float(100), 3);
 }
 
-const ShaderID g_pSid[] = {
-    Nephrite::s_SID_0,
-    Nephrite::s_SID,
-};
-
-const Upgradable3::Manager::VerInfo g_VerInfo = { g_pSid, _countof(g_pSid) };
+const Upgradable3::Manager::VerInfo g_VerInfo = { s_pSID, _countof(s_pSID) };
 
 ON_METHOD(manager, view)
 {

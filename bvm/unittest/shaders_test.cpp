@@ -1496,7 +1496,7 @@ namespace bvm2 {
 
 	void MyProcessor::TestNephrite()
 	{
-		VERIFY_ID(Shaders::Nephrite::s_SID, m_Nephrite.m_Sid);
+		VERIFY_ID(Shaders::Nephrite::s_pSID[_countof(Shaders::Nephrite::s_pSID) - 1], m_Nephrite.m_Sid);
 		VERIFY_ID(Shaders::Oracle2::s_SID, m_Oracle2.m_Sid);
 
 		MyManager man(*this);
