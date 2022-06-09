@@ -80,6 +80,7 @@ namespace Nephrite
     typedef Pair_T<Flow> FlowPair;
 
     typedef StaticPool<Amount, Amount, 1> ProfitPool;
+    typedef HomogenousPool::MultiEpoch<1> ExchangePool;
 
     struct Balance
     {
@@ -158,7 +159,7 @@ namespace Nephrite
         } m_Troves;
 
         struct RedistPool
-            :public DistributionPool
+            :public HomogenousPool::SingleEpoch<1>
         {
             void Add(Trove& t)
             {
@@ -205,7 +206,7 @@ namespace Nephrite
                 if (!get_TotalSell())
                     return false; // empty
 
-                Trade<Mode::Grow>(t.m_Amounts.Tok, t.m_Amounts.Col);
+                Trade<Mode::Grow, 0>(t.m_Amounts.Tok, t.m_Amounts.Col);
 
                 return true;
             }
@@ -246,7 +247,7 @@ namespace Nephrite
                     t.m_Amounts.Col -= valB; 
                 }
 
-                Trade<Mode::Burn>(valS, valB);
+                Trade<Mode::Burn, 0>(valS, valB);
                 return true;
             }
 

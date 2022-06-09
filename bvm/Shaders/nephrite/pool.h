@@ -172,11 +172,12 @@ struct HomogenousPool
 
     };
 
+    template <uint32_t nDims>
     struct SingleEpoch
     {
         typedef Mode Mode;
 
-        Epoch<1> m_Active;
+        Epoch<nDims> m_Active;
 
         Amount get_TotalSell() const {
             return m_Active.m_Sell;
@@ -188,7 +189,7 @@ struct HomogenousPool
             m_Active.m_kScale = 1u;
         }
 
-        typedef Epoch<1>::User User;
+        typedef typename Epoch<nDims>::User User;
 
         void UserAdd(User& u, Amount valSell)
         {
@@ -196,9 +197,9 @@ struct HomogenousPool
         }
 
         template <bool bReadOnly = false>
-        void UserDel(User& u, User::Out& out)
+        void UserDel(User& u, typename User::Out& out)
         {
-            u.Del_<bReadOnly>(m_Active, out);
+            u.template Del_<bReadOnly>(m_Active, out);
             if constexpr (!bReadOnly)
             {
                 if (!m_Active.m_Users)
@@ -206,21 +207,21 @@ struct HomogenousPool
             }
         }
 
-        template <Mode m>
+        template <Mode m, uint32_t iDim>
         void Trade(Amount valS, Amount valB)
         {
             assert(valS);
-            m_Active.Trade_<m, 0>(valS, valB);
+            m_Active.template Trade_<m, iDim>(valS, valB);
         }
     };
 
-
+    template <uint32_t nDims>
     struct MultiEpoch
     {
         typedef Mode Mode;
 
-        Epoch<1> m_Active;
-        Epoch<1> m_Draining;
+        Epoch<nDims> m_Active;
+        Epoch<nDims> m_Draining;
 
         Amount get_TotalSell() const {
             // won't overflow, we test for overflow when user joins
@@ -237,7 +238,7 @@ struct HomogenousPool
         }
 
         struct User
-            :public Epoch<1>::User
+            :public Epoch<nDims>::User
         {
             uint32_t m_iEpoch;
         };
@@ -268,7 +269,7 @@ struct HomogenousPool
                     u.template Del_<bReadOnly>(m_Draining, out);
                 else
                 {
-                    Epoch<1> e;
+                    Epoch<nDims> e;
                     stor.Load(u.m_iEpoch, e);
 
                     u.template Del_<bReadOnly>(e, out);
@@ -284,7 +285,7 @@ struct HomogenousPool
             }
         }
 
-        template <Mode m>
+        template <Mode m, uint32_t iDim>
         void Trade(Amount valS, Amount valB)
         {
             assert(valS);
@@ -300,11 +301,11 @@ struct HomogenousPool
                 Amount s0 = Float(valS) * kRatio;
                 Amount b0 = Float(valB) * kRatio;
 
-                m_Active.Trade_<m, 0>(s0, b0);
-                m_Draining.Trade_<m, 0>(valS - s0, valB - b0);
+                m_Active.template Trade_<m, iDim>(s0, b0);
+                m_Draining.template Trade_<m, iDim>(valS - s0, valB - b0);
             }
             else
-                m_Active.Trade_<m, 0>(valS, valB);
+                m_Active.template Trade_<m, iDim>(valS, valB);
         }
 
         template <class Storage>
@@ -339,9 +340,6 @@ struct HomogenousPool
         }
     };
 };
-
-typedef HomogenousPool::MultiEpoch ExchangePool;
-typedef HomogenousPool::SingleEpoch DistributionPool;
 
 template <typename TWeight, typename TValue, uint32_t nDims>
 struct StaticPool
