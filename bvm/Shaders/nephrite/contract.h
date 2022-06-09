@@ -81,6 +81,7 @@ namespace Nephrite
 
     typedef StaticPool<Amount, Amount, 1> ProfitPool;
     typedef HomogenousPool::MultiEpoch<1> ExchangePool;
+    typedef HomogenousPool::SingleEpoch<1> RedistPoolBase;
 
     struct Balance
     {
@@ -133,7 +134,7 @@ namespace Nephrite
 
         PubKey m_pkOwner;
         Pair m_Amounts;
-        ExchangePool::User m_RedistUser; // accumulates enforced liquidations
+        RedistPoolBase::User m_RedistUser; // accumulates enforced liquidations
         ID m_iNext;
     };
 
@@ -159,7 +160,7 @@ namespace Nephrite
         } m_Troves;
 
         struct RedistPool
-            :public HomogenousPool::SingleEpoch<1>
+            :public RedistPoolBase
         {
             void Add(Trove& t)
             {
