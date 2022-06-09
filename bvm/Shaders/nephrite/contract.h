@@ -6,7 +6,7 @@
 namespace Nephrite
 {
     static const ShaderID s_pSID[] = {
-        { 0xc2,0x74,0x67,0x4a,0xd1,0x24,0xaf,0x56,0xdf,0xcd,0x57,0x91,0x34,0x5e,0x6e,0x1a,0x39,0x50,0x10,0x0d,0xc1,0x98,0x11,0x7e,0x6f,0x4c,0x5f,0xd2,0x40,0xca,0xff,0xaa }
+        { 0x7b,0x3c,0x66,0x20,0x2e,0x0a,0xea,0x86,0x6e,0x3c,0xb2,0x54,0x8e,0xdb,0xbb,0x4f,0x3d,0x4e,0x7f,0xa9,0x1f,0x77,0xea,0x07,0x51,0x75,0x8c,0x20,0xe9,0xc0,0x13,0x95 }
     };
 
 #pragma pack (push, 1)
@@ -205,10 +205,7 @@ namespace Nephrite
                 if (!get_TotalSell())
                     return false; // empty
 
-                HomogenousPool::Pair p;
-                p.s = t.m_Amounts.Tok;
-                p.b = t.m_Amounts.Col;
-                Trade(p);
+                Trade(t.m_Amounts.Tok, t.m_Amounts.Col);
 
                 return true;
             }
@@ -227,28 +224,29 @@ namespace Nephrite
         {
             bool LiquidatePartial(Trove& t)
             {
-                HomogenousPool::Pair p;
-                p.s = get_TotalSell();
-                if (!p.s)
+                Amount valS = get_TotalSell();
+                if (!valS)
                     return false;
 
-                if (p.s >= t.m_Amounts.Tok)
+                Amount valB;
+
+                if (valS >= t.m_Amounts.Tok)
                 {
-                    p.s = t.m_Amounts.Tok;
-                    p.b = t.m_Amounts.Col;
+                    valS = t.m_Amounts.Tok;
+                    valB = t.m_Amounts.Col;
                     _POD_(t.m_Amounts).SetZero();
                 }
                 else
                 {
-                    p.b = t.m_Amounts.get_Rcr() * Float(p.s);
-                    assert(p.b <= t.m_Amounts.Col);
-                    p.b = std::min(p.b, t.m_Amounts.Col); // for more safety, but should be ok
+                    valB = t.m_Amounts.get_Rcr() * Float(valS);
+                    assert(valB <= t.m_Amounts.Col);
+                    valB = std::min(valB, t.m_Amounts.Col); // for more safety, but should be ok
 
-                    t.m_Amounts.Tok -= p.s;
-                    t.m_Amounts.Col -= p.b; 
+                    t.m_Amounts.Tok -= valS;
+                    t.m_Amounts.Col -= valB; 
                 }
 
-                Trade(p);
+                Trade(valS, valB);
                 return true;
             }
 

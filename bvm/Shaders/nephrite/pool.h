@@ -23,40 +23,11 @@ struct HomogenousPool
         return x + half;
     }
 
-    struct Pair
-    {
-        Amount s;
-        Amount b;
-
-        Pair get_Fraction(const Float& kRatio) const
-        {
-            Pair p;
-            p.s = Float(s) * kRatio;
-            p.b = Float(b) * kRatio;
-            return p;
-        }
-
-        Pair get_Fraction(Amount w1, Amount wTotal) const
-        {
-            assert(wTotal);
-            return get_Fraction(Float(w1) / Float(wTotal));
-        }
-
-        Pair operator - (const Pair& p) const
-        {
-            Pair ret;
-            ret.s = s - p.s;
-            ret.b = b - p.b;
-            return ret;
-        }
-    };
-
     enum Mode {
         Neutral, // s doesn't change during the trade (i.e. farming)
         Burn, // s is decreased during the trade (i.e. exchange, s burns-out)
         Grow, // s grows during the trade (i.e. redistribution)
     };
-
 
     struct Epoch0
     {
@@ -71,35 +42,35 @@ struct HomogenousPool
         };
 
         template <Mode m>
-        void Trade0_(const Pair& d, Dim& dim)
+        void Trade0_(Amount valS, Amount valB, Dim& dim)
         {
             if (!m_Sell)
             {
-                assert(!d.s && !d.b);
+                assert(!valS && !valB);
                 return;
             }
 
             Float kScale_div_s = m_kScale / Float(m_Sell);
 
-            if (d.b)
+            if (valB)
             {
                 // dSigma = m_kScale * db / s
-                dim.m_Sigma = dim.m_Sigma + kScale_div_s * Float(d.b);
+                dim.m_Sigma = dim.m_Sigma + kScale_div_s * Float(valB);
 
-                Strict::Add(dim.m_Buy, d.b);
+                Strict::Add(dim.m_Buy, valB);
             }
 
-            if (d.s)
+            if (valS)
             {
                 if constexpr (Mode::Burn == m)
                 {
-                    assert(m_Sell >= d.s);
-                    m_Sell -= d.s;
+                    assert(m_Sell >= valS);
+                    m_Sell -= valS;
                 }
                 else
                 {
                     if constexpr (Mode::Grow == m)
-                        Strict::Add(m_Sell, d.s);
+                        Strict::Add(m_Sell, valS);
                 }
 
                 if constexpr (Mode::Neutral != m)
@@ -139,10 +110,10 @@ struct HomogenousPool
         Dim m_pDim[nDims];
 
         template <Mode m, uint32_t iDim>
-        void Trade_(const Pair& d)
+        void Trade_(Amount valS, Amount valB)
         {
             static_assert(iDim < nDims);
-            Trade0_<m>(d, m_pDim[iDim]);
+            Trade0_<m>(valS, valB, m_pDim[iDim]);
         }
 
         struct User
@@ -234,10 +205,10 @@ struct HomogenousPool
             }
         }
 
-        void Trade(const Pair& d)
+        void Trade(Amount valS, Amount valB)
         {
-            assert(d.s);
-            m_Active.Trade_<m, 0>(d);
+            assert(valS);
+            m_Active.Trade_<m, 0>(valS, valB);
         }
     };
 
@@ -310,25 +281,26 @@ struct HomogenousPool
             }
         }
 
-        void Trade(const Pair& d)
+        void Trade(Amount valS, Amount valB)
         {
-            assert(d.s);
+            assert(valS);
 
             // Active epoch must always be valid
             // Account for draining epoch iff not empty
             if (m_Draining.m_Sell)
             {
                 Amount totalSell = get_TotalSell();
-                assert(d.s <= totalSell);
+                assert(valS <= totalSell);
 
-                Pair d0 = d.get_Fraction(m_Active.m_Sell, totalSell);
-                m_Active.Trade_<m, 0>(d0);
+                Float kRatio = Float(m_Active.m_Sell) / Float(totalSell);
+                Amount s0 = Float(valS) * kRatio;
+                Amount b0 = Float(valB) * kRatio;
 
-                d0 = d - d0;
-                m_Draining.Trade_<m, 0>(d0);
+                m_Active.Trade_<m, 0>(s0, b0);
+                m_Draining.Trade_<m, 0>(valS - s0, valB - b0);
             }
             else
-                m_Active.Trade_<m, 0>(d);
+                m_Active.Trade_<m, 0>(valS, valB);
         }
 
         template <class Storage>
