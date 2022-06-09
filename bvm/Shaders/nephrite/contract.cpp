@@ -374,6 +374,7 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
     _POD_(fpLogic).SetZero();
 
     Height h = Env::get_Height();
+    g.m_StabPool.AddReward(h);
 
     StabPoolEntry spe;
     if (!Env::LoadVar_T(spk, spe))
@@ -405,6 +406,9 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
             auto cr = price.ToCR(vals.get_Rcr());
             Env::Halt_if((cr < Global::Price::get_k110()));
         }
+
+        if (out.m_pBuy[1])
+            Env::FundsUnlock(g.m_Settings.m_AidProfit, out.m_pBuy[1]);
     }
 
     if (r.m_NewAmount)
@@ -539,6 +543,21 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
     g.AdjustAll(r, totals0, ctx.m_fpLogic, r.m_pkUser);
 }
 
+BEAM_EXPORT void Method_11(Method::AddStabPoolReward& r)
+{
+    MyGlobal_LoadSave g;
+    auto& x = g.m_StabPool.m_Reward; // alias
+
+    Height h = Env::get_Height();
+    if (h >= x.m_hEnd)
+    {
+        x.m_hLast = h;
+        x.m_hEnd = h + 1440 + 365 * 2; // 2 years
+    }
+
+    Strict::Add(x.m_Remaining, r.m_Amount);
+    Env::FundsLock(g.m_Settings.m_AidProfit, r.m_Amount);
+}
 
 } // namespace Nephrite
 

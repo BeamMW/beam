@@ -6,7 +6,7 @@
 namespace Nephrite
 {
     static const ShaderID s_pSID[] = {
-        { 0x7b,0x3c,0x66,0x20,0x2e,0x0a,0xea,0x86,0x6e,0x3c,0xb2,0x54,0x8e,0xdb,0xbb,0x4f,0x3d,0x4e,0x7f,0xa9,0x1f,0x77,0xea,0x07,0x51,0x75,0x8c,0x20,0xe9,0xc0,0x13,0x95 }
+        { 0x77,0xac,0xa3,0xef,0xa8,0x9d,0x5c,0xd3,0x8d,0xa3,0x02,0xc8,0x89,0x8e,0xe3,0xd2,0x28,0xd2,0xbe,0x5c,0x72,0x92,0x1c,0xa1,0xba,0x66,0x43,0xa1,0xe1,0x55,0x99,0x8e }
     };
 
 #pragma pack (push, 1)
@@ -80,7 +80,7 @@ namespace Nephrite
     typedef Pair_T<Flow> FlowPair;
 
     typedef StaticPool<Amount, Amount, 1> ProfitPool;
-    typedef HomogenousPool::MultiEpoch<1> ExchangePool;
+    typedef HomogenousPool::MultiEpoch<2> ExchangePool;
     typedef HomogenousPool::SingleEpoch<1> RedistPoolBase;
 
     struct Balance
@@ -224,6 +224,30 @@ namespace Nephrite
         struct StabilityPool
             :public ExchangePool
         {
+            struct Reward
+            {
+                Height m_hLast;
+                Height m_hEnd;
+                Amount m_Remaining;
+            } m_Reward;
+
+            bool AddReward(Height h)
+            {
+                if (!m_Reward.m_Remaining || (h <= m_Reward.m_hLast) || !get_TotalSell())
+                    return false;
+
+                Amount valAdd = m_Reward.m_Remaining;
+                if (h < m_Reward.m_hEnd)
+                {
+                    auto k = Float(h - m_Reward.m_hLast) / Float(m_Reward.m_hEnd - m_Reward.m_hLast);
+                    Amount val = HomogenousPool::Round(Float(valAdd) * k);
+                    valAdd = std::min(valAdd, val);
+                }
+
+                Trade<Mode::Neutral, 1>(0, valAdd);
+                return true;
+            }
+
             bool LiquidatePartial(Trove& t)
             {
                 Amount valS = get_TotalSell();
@@ -575,6 +599,12 @@ namespace Nephrite
             static const uint32_t s_iMethod = 10;
             Amount m_Amount;
             Trove::ID m_iPrev1;
+        };
+
+        struct AddStabPoolReward
+        {
+            static const uint32_t s_iMethod = 11;
+            Amount m_Amount;
         };
 
     } // namespace Method

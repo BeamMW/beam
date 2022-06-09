@@ -11,6 +11,7 @@
 #define Nephrite_manager_replace_admin(macro) Upgradable3_replace_admin(macro)
 #define Nephrite_manager_set_min_approvers(macro) Upgradable3_set_min_approvers(macro)
 #define Nephrite_manager_explicit_upgrade(macro) macro(ContractID, cid)
+#define Nephrite_manager_add_stab_reward(macro) macro(ContractID, cid) macro(Amount, amount)
 
 #define Nephrite_manager_deploy(macro) \
     Upgradable3_deploy(macro) \
@@ -30,6 +31,7 @@
     macro(manager, view_params) \
     macro(manager, view_all) \
     macro(manager, my_admin_key) \
+    macro(manager, add_stab_reward) \
 
 #define Nephrite_user_view(macro) macro(ContractID, cid)
 #define Nephrite_user_withdraw_surplus(macro) macro(ContractID, cid)
@@ -141,12 +143,16 @@ struct MyKeyID :public Env::KeyID
     }
 };
 
+void DocAddPairInternal(const Pair& p)
+{
+    Env::DocAddNum("tok", p.Tok);
+    Env::DocAddNum("col", p.Col);
+}
+
 void DocAddPair(const char* sz, const Pair& p)
 {
     Env::DocGroup gr(sz);
-
-    Env::DocAddNum("tok", p.Tok);
-    Env::DocAddNum("col", p.Col);
+    DocAddPairInternal(p);
 }
 
 void DocAddFloat(const char* sz, Float x, uint32_t nDigsAfterDot)
@@ -337,6 +343,7 @@ struct AppGlobalPlus
     {
         PubKey m_Pk;
         Pair m_Amounts;
+        Amount m_Gov;
         uint32_t m_Charge;
     } m_MyStab;
 
@@ -499,6 +506,7 @@ struct AppGlobalPlus
         if (!Env::VarReader::Read_T(k, e))
         {
             m_MyStab.m_Charge = 0;
+            m_MyStab.m_Gov = 0;
             return false;
         }
 
@@ -509,6 +517,7 @@ struct AppGlobalPlus
 
         m_MyStab.m_Amounts.Tok = out.m_Sell;
         m_MyStab.m_Amounts.Col = out.m_pBuy[0];
+        m_MyStab.m_Gov = out.m_pBuy[1];
         m_MyStab.m_Charge = stor.m_Charge;
 
         return true;
@@ -585,6 +594,8 @@ ON_METHOD(manager, view_params)
     if (!g.Load(cid))
         return;
 
+    g.m_StabPool.AddReward(Env::get_Height());
+
     Env::DocGroup gr("params");
 
     Env::DocAddBlob_T("oracle", g.m_Settings.m_cidOracle);
@@ -595,7 +606,15 @@ ON_METHOD(manager, view_params)
     Env::DocAddNum("troves_created", g.m_Troves.m_iLastCreated);
     DocAddPair("totals", g.m_Troves.m_Totals);
     DocAddPerc("baserate", g.m_BaseRate.m_k);
-    Env::DocAddNum("stab_pool", g.m_StabPool.get_TotalSell());
+    {
+        Env::DocGroup gr1("stab_pool");
+        Env::DocAddNum("tok", g.m_StabPool.get_TotalSell());
+
+        Env::DocGroup gr2("reward");
+        Env::DocAddNum("gov", g.m_StabPool.m_Reward.m_Remaining);
+        Env::DocAddNum("hEnd", g.m_StabPool.m_Reward.m_hEnd);
+    }
+
     Env::DocAddNum("gov_pool", g.m_ProfitPool.m_Weight);
 
     AppGlobal::MyPrice price;
@@ -640,6 +659,26 @@ ON_METHOD(manager, my_admin_key)
     Env::DocAddBlob_T("admin_key", pk);
 }
 
+ON_METHOD(manager, add_stab_reward)
+{
+    if (!amount)
+        return OnError("amount not specified");
+
+    AppGlobalPlus g(cid);
+    if (!g.LoadPlus())
+        return;
+
+    Method::AddStabPoolReward args;
+    args.m_Amount = amount;
+
+    FundsChange fc;
+    fc.m_Aid = g.m_Settings.m_AidProfit;
+    fc.m_Amount = amount;
+    fc.m_Consume = 1;
+
+    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), &fc, 1, nullptr, 0, "Nephrite  add stab reward", 0);
+}
+
 ON_METHOD(user, view)
 {
     AppGlobalPlus g(cid);
@@ -659,7 +698,11 @@ ON_METHOD(user, view)
         DocAddPair("surplus", g.m_MyTrove.m_Vault);
 
     if (g.PopMyStab())
-        DocAddPair("stab", g.m_MyStab.m_Amounts);
+    {
+        Env::DocGroup gr1("stab");
+        DocAddPairInternal(g.m_MyStab.m_Amounts);
+        Env::DocAddNum("gov", g.m_MyStab.m_Gov);
+    }
 
     if (g.PopMyProfit())
     {
@@ -808,6 +851,8 @@ ON_METHOD(user, upd_stab)
     if (!g.Load(cid)) // skip loading all troves
         return;
 
+    g.m_StabPool.AddReward(Env::get_Height() + 1);
+
     Method::UpdStabPool args;
     _POD_(args.m_Flow).SetZero();
 
@@ -825,8 +870,12 @@ ON_METHOD(user, upd_stab)
     args.m_NewAmount = newVal;
     _POD_(args.m_pkUser) = g.m_MyStab.m_Pk;
 
-    FundsChange pFc[2];
+    FundsChange pFc[3];
     g.Flow2Fc(pFc, args.m_Flow);
+
+    pFc[2].m_Aid = g.m_Settings.m_AidProfit;
+    pFc[2].m_Amount = g.m_MyStab.m_Gov;
+    pFc[2].m_Consume = 0;
 
     uint32_t nCharge =
         Charge::StdCall() +
@@ -834,7 +883,7 @@ ON_METHOD(user, upd_stab)
         Charge::Funds(args) +
         Env::Cost::LoadVar_For(sizeof(StabPoolEntry)) +
         Env::Cost::SaveVar_For(sizeof(StabPoolEntry)) +
-        Charge::StabPoolOp0 +
+        Charge::StabPoolOp0 * 2 + // account for reward calculation
         g.m_MyStab.m_Charge +
         Env::Cost::Cycle * 100;
 
