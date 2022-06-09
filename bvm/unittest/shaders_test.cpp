@@ -1290,45 +1290,6 @@ namespace bvm2 {
 			}
 		}
 
-		struct EpochStorage
-		{
-			MyProcessor& m_Proc;
-			uint8_t m_Tag;
-
-			EpochStorage(MyProcessor& proc, uint8_t nTag)
-				:m_Proc(proc)
-				,m_Tag(nTag)
-			{}
-
-			typedef Shaders::Env::Key_T<Shaders::Nephrite::EpochKey> Key;
-
-			Key get_Key(uint32_t iEpoch) const {
-				Key k;
-				k.m_Prefix.m_Cid = m_Proc.m_Nephrite.m_Cid;
-				k.m_KeyInContract.m_Tag = m_Tag;
-				k.m_KeyInContract.m_iEpoch = iEpoch;
-				return k;
-			}
-
-			void Load(uint32_t iEpoch, Shaders::HomogenousPool::Epoch& e) const
-			{
-				auto k = get_Key(iEpoch);
-				Blob out;
-				m_Proc.LoadVar(Blob(&k, sizeof(k)), out);
-
-				verify_test(sizeof(e) == out.n);
-				memcpy(&e, out.p, out.n);
-			}
-
-			static void Save(uint32_t iEpoch, const Shaders::HomogenousPool::Epoch& e) {
-				// ignore
-			}
-
-			static void Del(uint32_t iEpoch) {
-				// ignore
-			}
-		};
-
 		static double ToDouble(Shaders::Nephrite::Float x)
 		{
 			if (x.IsZero())
