@@ -478,8 +478,8 @@ include(FetchContent)
 set(RE2_BUILD_TESTING OFF)
 FetchContent_Declare(
         re2
-        GIT_REPOSITORY https://github.com/google/re2
-        GIT_TAG 2022-06-01
+        GIT_REPOSITORY https://github.com/BeamMW/re2
+        GIT_TAG 2022-06-09
 )
 FetchContent_MakeAvailable(re2)
 
