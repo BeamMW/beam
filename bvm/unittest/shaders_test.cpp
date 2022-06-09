@@ -64,6 +64,7 @@ namespace Shaders {
 #include "../Shaders/voting/contract.h"
 #include "../Shaders/dao-core/contract.h"
 #include "../Shaders/dao-vote/contract.h"
+#include "../Shaders/dao-vault/contract.h"
 #include "../Shaders/aphorize/contract.h"
 #include "../Shaders/nephrite/contract.h"
 #include "../Shaders/amm/contract.h"
@@ -286,6 +287,10 @@ namespace Shaders {
 	template <bool bToShader> void Convert(DaoVote::Method::SetModerator& x) {
 	}
 
+	template <bool bToShader> void Convert(DaoVault::Method::Create& x) {
+		ConvertOrd<bToShader>(x.m_aidStaking);
+	}
+
 	template <bool bToShader> void Convert(Aphorize::Create& x) {
 		ConvertOrd<bToShader>(x.m_Cfg.m_hPeriod);
 		ConvertOrd<bToShader>(x.m_Cfg.m_PriceSubmit);
@@ -504,6 +509,7 @@ namespace bvm2 {
 		ContractWrap m_DaoCore;
 		ContractWrap m_DaoVote;
 		ContractWrap m_Aphorize;
+		ContractWrap m_DaoVault;
 		ContractWrap m_Nephrite;
 		ContractWrap m_Mintor;
 		ContractWrap m_Amm;
@@ -959,6 +965,7 @@ namespace bvm2 {
 		AddCode(m_DaoCore, "dao-core/contract.wasm");
 		AddCode(m_DaoVote, "dao-vote/contract.wasm");
 		AddCode(m_Aphorize, "aphorize/contract.wasm");
+		AddCode(m_DaoVault, "dao-vault/contract.wasm");
 		AddCode(m_Nephrite, "nephrite/contract.wasm");
 		AddCode(m_Mintor, "mintor/contract.wasm");
 		AddCode(m_Amm, "amm/contract.wasm");
@@ -1474,6 +1481,17 @@ namespace bvm2 {
 		MyProcessor::AddCodeEx(bufApp, "nephrite/app.wasm", Processor::Kind::Manager);
 		man.m_Code = bufApp;
 
+		const AssetID aidGov = 77;
+		{
+			Shaders::DaoVault::Method::Create args;
+			ZeroObject(args);
+			args.m_aidStaking = aidGov;
+			args.m_Upgradable.m_MinApprovers = 1;
+
+			verify_test(ContractCreate_T(m_DaoVault.m_Cid, m_DaoVault.m_Code, args));
+
+		}
+
 		{
 			Shaders::Oracle2::Method::Create<1> args;
 			ZeroObject(args);
@@ -1487,8 +1505,9 @@ namespace bvm2 {
 			Shaders::Nephrite::Method::Create args;
 			ZeroObject(args);
 			args.m_Settings.m_cidOracle = m_Oracle2.m_Cid;
+			args.m_Settings.m_cidDaoVault = m_DaoVault.m_Cid;
 			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 5;
-			args.m_Settings.m_AidProfit = 77;
+			args.m_Settings.m_AidProfit = aidGov;
 			args.m_Upgradable.m_MinApprovers = 1; // 0 is illegal atm
 
 			m_FarCalls.m_Stack.Create_back()->m_Body = m_Dummy.m_Code; // add dummy frame, any valid shader is ok

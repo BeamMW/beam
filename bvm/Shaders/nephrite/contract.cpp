@@ -3,6 +3,7 @@
 #include "../Math.h"
 #include "contract.h"
 #include "../upgradable3/contract_impl.h"
+#include "../dao-vault/contract.h"
 
 
 namespace Nephrite {
@@ -100,6 +101,15 @@ struct MyGlobal
             else
                 Env::FundsUnlock(aid, f.m_Val);
         }
+    }
+
+    void SendProfit(Amount val)
+    {
+        DaoVault::Method::Deposit args;
+        args.m_Amount = val;
+        args.m_Aid = 0;
+
+        Env::CallFar_T(m_Settings.m_cidDaoVault, args);
     }
 
     void AdjustTxFunds(const Method::BaseTx& r) const
@@ -271,10 +281,7 @@ struct MyGlobal
 
             Amount feeCol = get_BorrowFee(m_Troves.m_Totals.Tok, totals0.Tok, bRecovery, price);
             if (feeCol)
-            {
-                m_ProfitPool.AddValue(feeCol, 0);
-                fpLogic.Col.Add(feeCol, 1);
-            }
+                SendProfit(feeCol);
         }
 
 
@@ -330,6 +337,7 @@ BEAM_EXPORT void Ctor(const Method::Create& r)
     Env::Halt_if(!g.m_Aid);
 
     Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidOracle));
+    Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidDaoVault));
 
     g.Save();
 }
@@ -538,7 +546,7 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
 
     Amount fee = g.AddRedeemFee(ctx);
     if (fee)
-        g.m_ProfitPool.AddValue(fee, 0);
+        g.SendProfit(fee);
 
     g.AdjustAll(r, totals0, ctx.m_fpLogic, r.m_pkUser);
 }

@@ -2,6 +2,7 @@
 #include "../app_common_impl.h"
 #include "contract.h"
 #include "../upgradable3/app_common_impl.h"
+#include "../dao-vault/contract.h"
 
 #define Nephrite_manager_view(macro)
 #define Nephrite_manager_view_params(macro) macro(ContractID, cid)
@@ -16,6 +17,7 @@
 #define Nephrite_manager_deploy(macro) \
     Upgradable3_deploy(macro) \
     macro(ContractID, cidOracle) \
+    macro(ContractID, cidDaoVault) \
     macro(Amount, troveLiquidationReserve) \
     macro(AssetID, aidProfit) \
     macro(uint32_t, hInitialPeriod)
@@ -210,6 +212,7 @@ ON_METHOD(manager, deploy)
     s.m_AidProfit = aidProfit;
     s.m_TroveLiquidationReserve = troveLiquidationReserve;
     _POD_(s.m_cidOracle) = cidOracle;
+    _POD_(s.m_cidDaoVault) = cidDaoVault;
     s.m_hMinRedemptionHeight = Env::get_Height() + hInitialPeriod;
 
     const uint32_t nCharge =
@@ -523,6 +526,8 @@ struct AppGlobalPlus
         return true;
     }
 
+    Amount m_Fee = 0;
+
     bool PopMyProfit()
     {
         m_Kid.set_Profit();
@@ -552,7 +557,10 @@ struct AppGlobalPlus
     void Flow2Fc(FundsChange* pFc, const FlowPair& fp)
     {
         Flow2Fc(pFc[0], fp.Tok, m_Aid);
-        Flow2Fc(pFc[1], fp.Col, 0);
+
+        Flow f = fp.Col;
+        f.Add(m_Fee, 1);
+        Flow2Fc(pFc[1], f, 0);
     }
 
     void UseVault(Method::BaseTx& tx)
@@ -800,8 +808,16 @@ namespace Charge
 
     }
 
-    static const uint32_t BorrowFee =
-        Env::Cost::Cycle * 1000;
+    static const uint32_t get_BorrowFee()
+    {
+        const uint32_t nSizeVaultPoolApprox = sizeof(DaoVault::Pool0) + sizeof(DaoVault::Pool0::PerAsset) * 10; // probably would be less
+        return
+            Env::Cost::Cycle * 5000 +
+            Env::Cost::CallFar +
+            Env::Cost::LoadVar_For(nSizeVaultPoolApprox) +
+            Env::Cost::SaveVar_For(nSizeVaultPoolApprox) +
+            Env::Cost::FundsLock;
+    }
 
     static const uint32_t StabPoolOp0 =
         Env::Cost::Cycle * 1000;
@@ -1029,12 +1045,9 @@ ON_METHOD(user, trove_modify)
 
         g.OnTroveMove(txb, 0);
 
-        Amount fee = g.get_BorrowFee(t.m_Amounts.Tok, tok0, bRecovery, g.m_Price);
-        if (fee)
-        {
-            txb.m_Flow.Col.Add(fee, 1);
-            nCharge += Charge::BorrowFee;
-        }
+        g.m_Fee = g.get_BorrowFee(t.m_Amounts.Tok, tok0, bRecovery, g.m_Price);
+        if (g.m_Fee)
+            nCharge += Charge::get_BorrowFee();
 
         nCharge +=
             Charge::Price() +
@@ -1071,8 +1084,8 @@ ON_METHOD(user, trove_modify)
             Env::DocGroup gr("prediction");
             g.DocAddTrove(t);
 
-            if (fee)
-                Env::DocAddNum("fee", fee);
+            if (g.m_Fee)
+                Env::DocAddNum("fee", g.m_Fee);
         }
 
     }
@@ -1248,13 +1261,13 @@ ON_METHOD(user, redeem)
         }
     }
 
-    Amount fee = g.AddRedeemFee(ctx);
+    g.m_Fee = g.AddRedeemFee(ctx);
 
     {
         Env::DocGroup gr("prediction");
         Env::DocAddNum("tok", ctx.m_fpLogic.Tok.m_Val);
-        Env::DocAddNum("col", ctx.m_fpLogic.Col.m_Val + fee);
-        Env::DocAddNum("fee", fee);
+        Env::DocAddNum("col", ctx.m_fpLogic.Col.m_Val);
+        Env::DocAddNum("fee", g.m_Fee);
     }
 
     if (!bPredictOnly)
@@ -1272,7 +1285,7 @@ ON_METHOD(user, redeem)
 
         nCharge +=
             Charge::Funds(args) +
-            Charge::BorrowFee +
+            Charge::get_BorrowFee() +
             Env::Cost::AssetEmit; // comission
 
         Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "redeem", nCharge);
