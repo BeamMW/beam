@@ -16,11 +16,13 @@ struct EpochStorage
         return k;
     }
 
-    static void Load(uint32_t iEpoch, HomogenousPool::Epoch& e) {
+    template <uint32_t nDims>
+    static void Load(uint32_t iEpoch, HomogenousPool::Epoch<nDims>& e) {
         Env::LoadVar_T(get_Key(iEpoch), e);
     }
 
-    static void Save(uint32_t iEpoch, const HomogenousPool::Epoch& e) {
+    template <uint32_t nDims>
+    static void Save(uint32_t iEpoch, const HomogenousPool::Epoch<nDims>& e) {
         Env::SaveVar_T(get_Key(iEpoch), e);
     }
 
@@ -382,13 +384,13 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
 
         EpochStorage stor;
 
-        HomogenousPool::Pair out;
+        Global::StabilityPool::User::Out out;
         g.m_StabPool.UserDel(spe.m_User, out, stor);
 
-        fpLogic.Tok.m_Val = out.s;
-        fpLogic.Col.m_Val = out.b;
+        fpLogic.Tok.m_Val = out.m_Sell;
+        fpLogic.Col.m_Val = out.m_pBuy[0];
 
-        if ((r.m_NewAmount < out.s) && g.m_Troves.m_iHead)
+        if ((r.m_NewAmount < out.m_Sell) && g.m_Troves.m_iHead)
         {
             // ensure no pending liquidations
             Global::Price price = g.get_Price();

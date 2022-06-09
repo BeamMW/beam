@@ -1281,13 +1281,19 @@ namespace bvm2 {
 			return InvokeBase(args, sizeof(args), args.s_iMethod, args.m_pkUser, bShouldUseVault);
 		}
 
-		void AddPoolTotals(Pair& res, uint8_t nTag)
+		template <uint32_t nDims>
+		static void AddEpochTotals(Amount& vSell, Amount* pBuy, const Shaders::HomogenousPool::Epoch<nDims>& e)
 		{
-			for (KeyWalker_T<Shaders::Nephrite::EpochKey, Shaders::HomogenousPool::Epoch> wlk(m_Proc, nTag); wlk.MoveNext(); )
-			{
-				res.Tok += wlk.m_pVal->m_Balance.s;
-				res.Col += wlk.m_pVal->m_Balance.b;
-			}
+			vSell += e.m_Sell;
+			for (uint32_t i = 0; i < nDims; i++)
+				pBuy[i] += e.m_pDim[i].m_Buy;
+		}
+
+		template <uint32_t nDims>
+		void AddPoolTotals(Amount& vSell, Amount* pBuy, uint8_t nTag)
+		{
+			for (KeyWalker_T<Shaders::Nephrite::EpochKey, Shaders::HomogenousPool::Epoch<nDims> > wlk(m_Proc, nTag); wlk.MoveNext(); )
+				AddEpochTotals(vSell, pBuy, *wlk.m_pVal);
 		}
 
 		static double ToDouble(Shaders::Nephrite::Float x)
@@ -1350,12 +1356,13 @@ namespace bvm2 {
 
 			Pair totalStab, totalRedist;
 
-			totalStab.Tok = g.m_StabPool.get_TotalSell();
-			totalStab.Col = g.m_StabPool.m_Active.m_Balance.b + g.m_StabPool.m_Draining.m_Balance.b;
-			AddPoolTotals(totalStab, Shaders::Nephrite::Tags::s_Epoch_Stable);
+			ZeroObject(totalStab);
+			AddEpochTotals(totalStab.Tok, &totalStab.Col, g.m_StabPool.m_Active);
+			AddEpochTotals(totalStab.Tok, &totalStab.Col, g.m_StabPool.m_Draining);
+			AddPoolTotals<1>(totalStab.Tok, &totalStab.Col, Shaders::Nephrite::Tags::s_Epoch_Stable);
 
-			totalRedist.Tok = g.m_RedistPool.get_TotalSell();
-			totalRedist.Col = g.m_RedistPool.m_Active.m_Balance.b;
+			ZeroObject(totalRedist);
+			AddEpochTotals(totalRedist.Tok, &totalRedist.Col, g.m_RedistPool.m_Active);
 
 			Shaders::Nephrite::Global::Price price;
 			{

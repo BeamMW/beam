@@ -297,9 +297,10 @@ struct AppGlobalPlus
         const ContractID& m_Cid;
         EpochStorage(const ContractID& cid) :m_Cid(cid) {}
 
-        void Load(uint32_t iEpoch, HomogenousPool::Epoch& e)
+        template <uint32_t nDims>
+        void Load(uint32_t iEpoch, HomogenousPool::Epoch<nDims>& e)
         {
-            m_Charge += Env::Cost::LoadVar_For(sizeof(HomogenousPool::Epoch));
+            m_Charge += Env::Cost::LoadVar_For(sizeof(HomogenousPool::Epoch<nDims>));
 
             Env::Key_T<EpochKey> k;
             _POD_(k.m_Prefix.m_Cid) = m_Cid;
@@ -309,8 +310,9 @@ struct AppGlobalPlus
             Env::Halt_if(!Env::VarReader::Read_T(k, e));
         }
 
-        void Save(uint32_t iEpoch, const HomogenousPool::Epoch& e) {
-            m_Charge += Env::Cost::SaveVar_For(sizeof(HomogenousPool::Epoch));
+        template <uint32_t nDims>
+        void Save(uint32_t iEpoch, const HomogenousPool::Epoch<nDims>& e) {
+            m_Charge += Env::Cost::SaveVar_For(sizeof(HomogenousPool::Epoch<nDims>));
         }
         void Del(uint32_t iEpoch) {
             m_Charge += Env::Cost::SaveVar;
@@ -502,11 +504,11 @@ struct AppGlobalPlus
 
         EpochStorage stor(m_Kid.m_Blob.m_Cid);
 
-        HomogenousPool::Pair out;
+        StabilityPool::User::Out out;
         m_StabPool.UserDel(e.m_User, out, stor);
 
-        m_MyStab.m_Amounts.Tok = out.s;
-        m_MyStab.m_Amounts.Col = out.b;
+        m_MyStab.m_Amounts.Tok = out.m_Sell;
+        m_MyStab.m_Amounts.Col = out.m_pBuy[0];
         m_MyStab.m_Charge = stor.m_Charge;
 
         return true;
@@ -1066,10 +1068,10 @@ ON_METHOD(user, liquidate)
     uint32_t nCount = 0;
     bool bSelf = false;
 
-    Float& sStab = g.m_StabPool.m_Active.m_Sigma; // alias
-    Float& sRedist = g.m_RedistPool.m_Active.m_Sigma;
-    Float s0Stab = sStab;
-    Float s0Redist = sRedist;
+    Amount& sStab = g.m_StabPool.m_Active.m_Sell; // alias
+    Amount& sRedist = g.m_RedistPool.m_Active.m_Sell;
+    Amount s0Stab = sStab;
+    Amount s0Redist = sRedist;
 
     while (g.m_Troves.m_iHead)
     {

@@ -167,7 +167,7 @@ namespace Nephrite
 
             bool IsUnchanged(const Trove& t) const
             {
-                return (t.m_RedistUser.m_Sigma0 == m_Active.m_Sigma);
+                return m_Active.IsUnchanged(t.m_RedistUser);
             }
 
             void Remove(Trove& t)
@@ -177,12 +177,12 @@ namespace Nephrite
                 // // should not overflow, all values are bounded by totals.
                 if (IsUnchanged(t))
                 {
-                    m_Active.m_Balance.s -= t.m_Amounts.Tok; // silent removal
+                    m_Active.m_Sell -= t.m_Amounts.Tok; // silent removal
                     m_Active.m_Users--;
                 }
                 else
                 {
-                    HomogenousPool::Pair out;
+                    User::Out out;
                     UserDel(t.m_RedistUser, out);
                     UpdAmountsPostRemove(t.m_Amounts, out);
                 }
@@ -193,7 +193,7 @@ namespace Nephrite
                 auto ret = t.m_Amounts;
                 if (!IsUnchanged(t))
                 {
-                    HomogenousPool::Pair out;
+                    User::Out out;
                     t.m_RedistUser.DelRO_(m_Active, out);
                     UpdAmountsPostRemove(ret, out);
                 }
@@ -214,10 +214,10 @@ namespace Nephrite
             }
 
         private:
-            static void UpdAmountsPostRemove(Pair& vals, const HomogenousPool::Pair& out)
+            static void UpdAmountsPostRemove(Pair& vals, const User::Out& out)
             {
-                vals.Tok = out.s;
-                vals.Col += out.b;
+                vals.Tok = out.m_Sell;
+                vals.Col += out.m_pBuy[0];
             }
 
         } m_RedistPool;
