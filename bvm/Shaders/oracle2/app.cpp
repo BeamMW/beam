@@ -1,5 +1,6 @@
 #include "../common.h"
 #include "../app_common_impl.h"
+#include "../app_comm.h"
 #include "contract.h"
 
 #define Oracle2_manager_create(macro) macro(uint64_t, initialVal_n)
@@ -97,7 +98,13 @@ ON_METHOD(manager, create)
             break;
     }
 
-    Env::GenerateKernel(nullptr, arg.s_iMethod, &arg, sizeof(Method::Create<0>) + sizeof(arg.m_pPk[0]) * arg.m_Providers, nullptr, 0, nullptr, 0, "create Oracle2 contract", 0);
+    const uint32_t nCharge =
+        Env::Cost::CallFar +
+        Env::Cost::SaveVar_For(sizeof(Median)) +
+        Env::Cost::SaveVar_For(sizeof(StateFull)) +
+        Env::Cost::Cycle * (200 + 200 * StateFull::s_ProvsMax);
+
+    Env::GenerateKernel(nullptr, arg.s_iMethod, &arg, sizeof(Method::Create<0>) + sizeof(arg.m_pPk[0]) * arg.m_Providers, nullptr, 0, nullptr, 0, "create Oracle2 contract", nCharge);
 }
 
 struct MyState
@@ -214,8 +221,16 @@ ON_METHOD(provider, set)
     arg.m_iProvider = s.m_iProv;
     arg.m_Value = MultiPrecision::Float(val_n) / get_Norm_n();
 
+    const uint32_t nCharge =
+        Env::Cost::CallFar +
+        Env::Cost::LoadVar_For(sizeof(StateFull)) +
+        Env::Cost::SaveVar_For(sizeof(StateFull)) +
+        Env::Cost::AddSig +
+        Env::Cost::SaveVar_For(sizeof(Median)) +
+        Env::Cost::Cycle * (1500 + 500 * StateFull::s_ProvsMax);
+
     ProviderKeyID kid;
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, &kid, 1, "Oracle2 set val", 0);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, &kid, 1, "Oracle2 set val", nCharge);
 }
 
 
