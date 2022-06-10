@@ -468,11 +468,7 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
     g.AdjustAll(r, totals0, ctx.m_fpLogic, r.m_pkUser);
 }
 
-BEAM_EXPORT void Method_9(void*)
-{
-}
-
-BEAM_EXPORT void Method_10(Method::Redeem& r)
+BEAM_EXPORT void Method_9(Method::Redeem& r)
 {
     MyGlobal_LoadSave g;
 
@@ -510,7 +506,7 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
     g.AdjustAll(r, totals0, ctx.m_fpLogic, r.m_pkUser);
 }
 
-BEAM_EXPORT void Method_11(Method::AddStabPoolReward& r)
+BEAM_EXPORT void Method_10(Method::AddStabPoolReward& r)
 {
     MyGlobal_LoadSave g;
     auto& x = g.m_StabPool.m_Reward; // alias
