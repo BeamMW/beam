@@ -47,12 +47,12 @@ struct MyGlobal
         Env::SaveVar_T(key, *this);
     }
 
-    static void AdjustStrict(Amount& x, Amount val, uint8_t bAdd)
+    static void AdjustStrict(Amount& x, const Flow& f)
     {
-        if (bAdd)
-            Strict::Add(x, val);
+        if (f.m_Spend)
+            Strict::Add(x, f.m_Val);
         else
-            Strict::Sub(x, val);
+            Strict::Sub(x, f.m_Val);
     }
 
     static void AdjustBank(const FlowPair& fp, const PubKey& pk)
@@ -72,8 +72,8 @@ struct MyGlobal
             if (!Env::LoadVar_T(kub, ub))
                 _POD_(ub).SetZero();
 
-            AdjustStrict(ub.m_Amounts.Tok, fp.Tok.m_Val, fp.Tok.m_Spend);
-            AdjustStrict(ub.m_Amounts.Col, fp.Col.m_Val, fp.Col.m_Spend);
+            AdjustStrict(ub.m_Amounts.Tok, fp.Tok);
+            AdjustStrict(ub.m_Amounts.Col, fp.Col);
 
             if (ub.m_Amounts.Tok || ub.m_Amounts.Col)
                 Env::SaveVar_T(kub, ub);
