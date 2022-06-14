@@ -1233,8 +1233,13 @@ namespace bvm2 {
 
 		void SetBalance(const Shaders::Env::Key_T<Balance::Key>& key, const Pair& vals)
 		{
-			static_assert(sizeof(vals) == sizeof(Balance));
-			m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&vals, sizeof(vals)));
+			Balance ub;
+			ZeroObject(ub);
+
+			static_assert(sizeof(vals) == sizeof(ub.m_Amounts));
+			memcpy(&ub.m_Amounts, &vals, sizeof(vals));
+
+			m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&ub, sizeof(ub)));
 		}
 
 		bool InvokeBase(Shaders::Nephrite::Method::BaseTx& args, uint32_t nSizeArgs, uint32_t iMethod, const PubKey& pkUser, bool bShouldUseVault)
@@ -1607,7 +1612,7 @@ namespace bvm2 {
 			Shaders::Nephrite::Method::UpdStabPool args;
 			verify_test(man.RunGuarded_T(args));
 
-			verify_test(lc.InvokeTxUser(args, false));
+			verify_test(lc.InvokeTxUser(args));
 
 			std::cout << "Stab" << i << ": Put=" << Val2Num(args.m_NewAmount) << std::endl;
 			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
@@ -1683,7 +1688,7 @@ namespace bvm2 {
 			Shaders::Nephrite::Method::UpdStabPool args;
 			verify_test(man.RunGuarded_T(args));
 
-			verify_test(lc.InvokeTxUser(args, false));
+			verify_test(lc.InvokeTxUser(args));
 
 			std::cout << "Stab" << i << " all out" << std::endl;
 			std::cout << "Estimated charge: " << man.m_Charge << std::endl;

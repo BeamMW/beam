@@ -55,15 +55,18 @@ struct MyGlobal
             Strict::Sub(x, f.m_Val);
     }
 
-    static void AdjustBank(const FlowPair& fp, const PubKey& pk)
+    static void AdjustBank(const FlowPair& fp, const PubKey& pk, const Flow* pGov = nullptr)
     {
         Env::AddSig(pk);
-        AdjustBankNoSig(fp, pk);
+        AdjustBankNoSig(fp, pk, pGov);
     }
 
-    static void AdjustBankNoSig(const FlowPair& fp, const PubKey& pk)
+    static void AdjustBankNoSig(const FlowPair& fp, const PubKey& pk, const Flow* pGov = nullptr)
     {
-        if (fp.Tok.m_Val || fp.Col.m_Val)
+        if (pGov && !pGov->m_Val)
+            pGov = nullptr;
+
+        if (fp.Tok.m_Val || fp.Col.m_Val || pGov)
         {
             Balance::Key kub;
             _POD_(kub.m_Pk) = pk;
@@ -75,7 +78,10 @@ struct MyGlobal
             AdjustStrict(ub.m_Amounts.Tok, fp.Tok);
             AdjustStrict(ub.m_Amounts.Col, fp.Col);
 
-            if (ub.m_Amounts.Tok || ub.m_Amounts.Col)
+            if (pGov)
+                AdjustStrict(ub.m_Gov, *pGov);
+
+            if (ub.m_Amounts.Tok || ub.m_Amounts.Col || ub.m_Gov)
                 Env::SaveVar_T(kub, ub);
             else
                 Env::DelVar_T(kub);
@@ -118,13 +124,13 @@ struct MyGlobal
         AdjustTxFunds(r.m_Flow.Col, 0);
     }
 
-    void AdjustTxBank(const FlowPair& fpLogic, const Method::BaseTx& r, const PubKey& pk)
+    void AdjustTxBank(const FlowPair& fpLogic, const Method::BaseTx& r, const PubKey& pk, const Flow* pGov = nullptr)
     {
         FlowPair fpDelta = r.m_Flow;
         fpDelta.Tok -= fpLogic.Tok;
         fpDelta.Col -= fpLogic.Col;
 
-        AdjustBank(fpDelta, pk);
+        AdjustBank(fpDelta, pk, pGov);
     }
 
     void AdjustAll(const Method::BaseTx& r, const Pair& totals0, const FlowPair& fpLogic, const PubKey& pk)
@@ -367,8 +373,14 @@ BEAM_EXPORT void Method_5(Method::TroveModify& r)
 BEAM_EXPORT void Method_6(const Method::FundsAccess& r)
 {
     MyGlobal_Load g;
+
+    Flow fGov;
+    fGov.m_Spend = 0;
+    fGov.m_Val = r.m_GovPull;
+    g.AdjustTxFunds(fGov, g.m_Settings.m_AidGov);
+
     g.AdjustTxFunds(r);
-    g.AdjustBank(r.m_Flow, r.m_pkUser); // will invoke AddSig
+    g.AdjustBank(r.m_Flow, r.m_pkUser, &fGov); // will invoke AddSig
 }
 
 BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
@@ -380,6 +392,11 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
 
     FlowPair fpLogic;
     _POD_(fpLogic).SetZero();
+
+    Flow fGov;
+    fGov.m_Spend = 0;
+    fGov.m_Val = r.m_GovPull;
+    g.AdjustTxFunds(fGov, g.m_Settings.m_AidGov);
 
     Height h = Env::get_Height();
     g.m_StabPool.AddReward(h);
@@ -415,8 +432,7 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
             Env::Halt_if((cr < Global::Price::get_k110()));
         }
 
-        if (out.m_pBuy[1])
-            Env::FundsUnlock(g.m_Settings.m_AidGov, out.m_pBuy[1]);
+        fGov.Add(out.m_pBuy[1], 1);
     }
 
     if (r.m_NewAmount)
@@ -431,7 +447,7 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
         Env::DelVar_T(spk);
 
     g.AdjustTxFunds(r);
-    g.AdjustTxBank(fpLogic, r, r.m_pkUser);
+    g.AdjustTxBank(fpLogic, r, r.m_pkUser, &fGov);
 }
 
 BEAM_EXPORT void Method_8(Method::Liquidate& r)

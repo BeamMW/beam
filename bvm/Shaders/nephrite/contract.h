@@ -6,7 +6,7 @@
 namespace Nephrite
 {
     static const ShaderID s_pSID[] = {
-        { 0x14,0xf1,0x8d,0x0b,0xe4,0x0c,0xf9,0x10,0xec,0xb7,0xc4,0xd7,0xfd,0x36,0xed,0x70,0x9d,0x89,0xbd,0xc2,0x29,0xd0,0xf4,0xeb,0x55,0x25,0x25,0x8f,0x99,0x6b,0xf6,0x68 }
+        { 0x1a,0x3e,0x23,0xf0,0x9d,0xf9,0xb3,0x01,0x05,0x08,0x38,0xe6,0xda,0x92,0x6b,0xec,0xd9,0x20,0x67,0xbc,0x50,0xc7,0x1b,0x14,0x2f,0x37,0x7b,0x97,0xcb,0x03,0x03,0xfb }
     };
 
 #pragma pack (push, 1)
@@ -89,6 +89,7 @@ namespace Nephrite
         };
 
         Pair m_Amounts;
+        Amount m_Gov;
     };
 
     struct EpochKey {
@@ -532,6 +533,10 @@ namespace Nephrite
             PubKey m_pkUser;
         };
 
+        struct BaseTxUserGov :public BaseTxUser {
+            Amount m_GovPull;
+        };
+
         struct BaseTxTrove :public BaseTx {
             Trove::ID m_iPrev0;
         };
@@ -555,12 +560,12 @@ namespace Nephrite
             Trove::ID m_iPrev1;
         };
 
-        struct FundsAccess :public BaseTxUser
+        struct FundsAccess :public BaseTxUserGov
         {
             static const uint32_t s_iMethod = 6;
         };
 
-        struct UpdStabPool :public BaseTxUser
+        struct UpdStabPool :public BaseTxUserGov
         {
             static const uint32_t s_iMethod = 7;
             Amount m_NewAmount;

@@ -560,6 +560,16 @@ struct AppGlobalPlus
         tx.m_iPrev0 = m_MyTrove.m_iPrev0;
     }
 
+    void PrepareTroveTxGov(Method::BaseTxUserGov& tx, FundsChange* pFc)
+    {
+        PrepareTroveTx(tx, pFc);
+
+        tx.m_GovPull += m_Balance.m_Gov;
+        pFc[2].m_Amount = m_Balance.m_Gov;
+        pFc[2].m_Aid = m_Settings.m_AidGov;
+        pFc[2].m_Consume = 0;
+    }
+
     void OnTroveMove(Method::BaseTx& tx, uint8_t bPop)
     {
         const Pair& tVals = m_MyTrove.m_pT->m_Amounts;
@@ -664,6 +674,7 @@ void PrintSurplus(const char* szName, const AppGlobalPlus& g)
     {
         Env::DocGroup gr(szName);
         DocAddPairInternal(g.m_Balance.m_Amounts);
+        Env::DocAddNum("gov", g.m_Balance.m_Gov);
     }
 }
 
@@ -727,6 +738,13 @@ namespace Charge
     {
         return Env::Cost::FundsLock * ((!!tx.m_Flow.Tok.m_Val) + (!!tx.m_Flow.Col.m_Val));
     }
+
+    static uint32_t Funds(const Method::BaseTxUserGov& tx)
+    {
+        auto ret = Funds(Cast::Down<Method::BaseTx>(tx));
+        return tx.m_GovPull ? (ret + Env::Cost::FundsLock) : ret;
+    }
+
 
     static const uint32_t RedistPoolOp =
         Env::Cost::Cycle * 1000;
@@ -816,12 +834,14 @@ ON_METHOD(user, withdraw_surplus)
         OnError("no surplus");
 
     const auto& v = g.m_Balance.m_Amounts;
+    assert(v.Col || v.Tok || g.m_Balance.m_Gov);
 
     Method::FundsAccess args;
     _POD_(args.m_Flow).SetZero();
+    args.m_GovPull = 0;
 
-    FundsChange pFc[2];
-    g.PrepareTroveTx(args, pFc);
+    FundsChange pFc[3];
+    g.PrepareTroveTxGov(args, pFc);
 
     const uint32_t nCharge =
         Charge::StdCall_RO() + // load global, but no modify/save
@@ -855,14 +875,10 @@ ON_METHOD(user, upd_stab)
         return OnError("no change");
 
     args.m_NewAmount = newVal;
+    args.m_GovPull = g.m_MyStab.m_Gov;
 
     FundsChange pFc[3];
-    g.Flow2Fc(pFc, args.m_Flow);
-
-    pFc[2].m_Aid = g.m_Settings.m_AidGov;
-    pFc[2].m_Amount = g.m_MyStab.m_Gov;
-    pFc[2].m_Consume = 0;
-    g.PrepareTroveTx(args, pFc);
+    g.PrepareTroveTxGov(args, pFc);
 
     uint32_t nCharge =
         Charge::StdCall() +
