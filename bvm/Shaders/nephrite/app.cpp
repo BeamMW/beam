@@ -330,13 +330,13 @@ struct AppGlobalPlus
         Trove::ID m_iT;
         Trove::ID m_iPrev0;
         uint32_t m_Index;
-        Pair m_Vault;
-        PubKey m_Pk;
     } m_MyTrove;
+
+    Balance m_Balance;
+    PubKey m_Pk;
 
     struct MyStab
     {
-        PubKey m_Pk;
         Pair m_Amounts;
         Amount m_Gov;
         uint32_t m_Charge;
@@ -397,23 +397,29 @@ struct AppGlobalPlus
         DocAddPerc("cr", m_Price.ToCR(t.m_Amounts.get_Rcr()));
     }
 
-    bool ReadVault()
+    bool ReadBalance()
     {
-        m_Kid.set_Trove();
-        m_Kid.get_Pk(m_MyTrove.m_Pk);
+        m_Kid.get_Pk(m_Pk);
 
         Env::Key_T<Balance::Key> k;
         k.m_Prefix.m_Cid = m_Kid.m_Blob.m_Cid;
-        _POD_(k.m_KeyInContract.m_Pk) = m_MyTrove.m_Pk;
+        _POD_(k.m_KeyInContract.m_Pk) = m_Pk;
 
-        Balance x;
-        bool bFound = Env::VarReader::Read_T(k, x);
+        bool bFound = Env::VarReader::Read_T(k, m_Balance);
+        if (!bFound)
+            _POD_(m_Balance).SetZero();
 
-        if (bFound)
-            m_MyTrove.m_Vault = x.m_Amounts;
-        else
-            _POD_(m_MyTrove.m_Vault).SetZero();
         return bFound;
+    }
+
+    bool ReadBalanceAny()
+    {
+        m_Kid.set_Trove();
+        if (ReadBalance())
+            return true;
+
+        m_Kid.set_Stab();
+        return ReadBalance();
     }
 
     void PopTrove(Trove::ID iPrev, Trove& t)
@@ -433,13 +439,14 @@ struct AppGlobalPlus
     {
         assert(!m_MyTrove.m_pT);
 
-        ReadVault();
+        m_Kid.set_Trove();
+        ReadBalance();
 
         m_MyTrove.m_iPrev0 = 0;
         for (m_MyTrove.m_iT = m_Troves.m_iHead; m_MyTrove.m_iT; m_MyTrove.m_Index++)
         {
             Trove& t = get_T(m_MyTrove.m_iT);
-            if (_POD_(m_MyTrove.m_Pk) == t.m_pkOwner)
+            if (_POD_(m_Pk) == t.m_pkOwner)
             {
                 PopTrove(m_MyTrove.m_iPrev0, t);
 
@@ -484,11 +491,11 @@ struct AppGlobalPlus
     bool PopMyStab()
     {
         m_Kid.set_Stab();
-        m_Kid.get_Pk(m_MyStab.m_Pk);
+        ReadBalance();
 
         Env::Key_T<StabPoolEntry::Key> k;
         k.m_Prefix.m_Cid = m_Kid.m_Blob.m_Cid;
-        _POD_(k.m_KeyInContract.m_pkUser) = m_MyStab.m_Pk;
+        _POD_(k.m_KeyInContract.m_pkUser) = m_Pk;
 
         StabPoolEntry e;
         if (!Env::VarReader::Read_T(k, e))
@@ -529,27 +536,27 @@ struct AppGlobalPlus
         Flow2Fc(pFc[1], f, 0);
     }
 
-    void UseVault(Method::BaseTx& tx)
+    void UseBalance(Method::BaseTx& tx)
     {
-        tx.m_Flow.Tok.Add(m_MyTrove.m_Vault.Tok, 0);
-        tx.m_Flow.Col.Add(m_MyTrove.m_Vault.Col, 0);
+        tx.m_Flow.Tok.Add(m_Balance.m_Amounts.Tok, 0);
+        tx.m_Flow.Col.Add(m_Balance.m_Amounts.Col, 0);
     }
 
-    void PrepareVaultTx(Method::BaseTx& tx, FundsChange* pFc)
+    void PrepareBalanceTx(Method::BaseTx& tx, FundsChange* pFc)
     {
-        UseVault(tx);
+        UseBalance(tx);
         Flow2Fc(pFc, tx.m_Flow);
     }
 
     void PrepareTroveTx(Method::BaseTxUser& tx, FundsChange* pFc)
     {
-        PrepareVaultTx(tx, pFc);
-        _POD_(tx.m_pkUser) = m_MyTrove.m_Pk;
+        PrepareBalanceTx(tx, pFc);
+        _POD_(tx.m_pkUser) = m_Pk;
     }
 
     void PrepareTroveTx(Method::BaseTxTrove& tx, FundsChange* pFc)
     {
-        PrepareVaultTx(tx, pFc);
+        PrepareBalanceTx(tx, pFc);
         tx.m_iPrev0 = m_MyTrove.m_iPrev0;
     }
 
@@ -651,6 +658,15 @@ ON_METHOD(manager, add_stab_reward)
     Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), &fc, 1, nullptr, 0, "Nephrite  add stab reward", 0);
 }
 
+void PrintSurplus(const char* szName, const AppGlobalPlus& g)
+{
+    if (g.m_Balance.m_Amounts.Tok || g.m_Balance.m_Amounts.Col || g.m_Balance.m_Gov)
+    {
+        Env::DocGroup gr(szName);
+        DocAddPairInternal(g.m_Balance.m_Amounts);
+    }
+}
+
 ON_METHOD(user, view)
 {
     AppGlobalPlus g(cid);
@@ -665,9 +681,7 @@ ON_METHOD(user, view)
         Env::DocGroup gr2("my_trove");
         g.DocAddTrove(*g.m_MyTrove.m_pT);
     }
-
-    if (g.m_MyTrove.m_Vault.Tok || g.m_MyTrove.m_Vault.Col)
-        DocAddPair("surplus", g.m_MyTrove.m_Vault);
+    PrintSurplus("surplus-t", g);
 
     if (g.PopMyStab())
     {
@@ -675,6 +689,7 @@ ON_METHOD(user, view)
         DocAddPairInternal(g.m_MyStab.m_Amounts);
         Env::DocAddNum("gov", g.m_MyStab.m_Gov);
     }
+    PrintSurplus("surplus_s", g);
 }
 
 namespace Charge
@@ -797,11 +812,10 @@ ON_METHOD(user, withdraw_surplus)
     if (!g.Load(cid)) // skip loading all troves
         return;
 
-    if (!g.ReadVault())
+    if (!g.ReadBalanceAny())
         OnError("no surplus");
 
-    const auto& v = g.m_MyTrove.m_Vault;
-    assert(v.Col || v.Tok);
+    const auto& v = g.m_Balance.m_Amounts;
 
     Method::FundsAccess args;
     _POD_(args.m_Flow).SetZero();
@@ -841,7 +855,6 @@ ON_METHOD(user, upd_stab)
         return OnError("no change");
 
     args.m_NewAmount = newVal;
-    _POD_(args.m_pkUser) = g.m_MyStab.m_Pk;
 
     FundsChange pFc[3];
     g.Flow2Fc(pFc, args.m_Flow);
@@ -849,6 +862,7 @@ ON_METHOD(user, upd_stab)
     pFc[2].m_Aid = g.m_Settings.m_AidGov;
     pFc[2].m_Amount = g.m_MyStab.m_Gov;
     pFc[2].m_Consume = 0;
+    g.PrepareTroveTx(args, pFc);
 
     uint32_t nCharge =
         Charge::StdCall() +
@@ -1029,7 +1043,17 @@ ON_METHOD(user, liquidate)
     if (!g.LoadPlus())
         return;
 
-    g.ReadVault();
+    g.m_Kid.set_Trove();
+    bool bHaveBalance = g.ReadBalance();
+
+    PubKey pkMy;
+    _POD_(pkMy) = g.m_Pk;
+
+    if (!bHaveBalance)
+    {
+        g.m_Kid.set_Stab();
+        g.ReadBalance();
+    }
 
     Global::Liquidator ctx;
     ctx.m_Price = g.m_Price;
@@ -1083,7 +1107,7 @@ ON_METHOD(user, liquidate)
                 Env::Cost::Cycle * 500; // surplus calculation
         }
 
-        if (_POD_(g.m_MyTrove.m_Pk) == t.m_pkOwner)
+        if (_POD_(pkMy) == t.m_pkOwner)
             bSelf = true;
 
         if (nMaxTroves == ++nCount) // if nMaxTroves is 0 then unlimited
@@ -1132,7 +1156,7 @@ ON_METHOD(user, redeem)
     if (!g.LoadPlus())
         return;
 
-    g.ReadVault();
+    g.ReadBalanceAny();
 
     uint32_t nCharge =
         Charge::StdCall() +
