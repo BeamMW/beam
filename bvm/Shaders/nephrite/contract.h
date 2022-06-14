@@ -5,8 +5,9 @@
 
 namespace Nephrite
 {
-    static const ShaderID s_SID_0 = { 0xb9,0x40,0x01,0xde,0xfa,0xda,0xc8,0xe4,0x83,0xc4,0xab,0x9c,0x3b,0xca,0x81,0x58,0x75,0xac,0x17,0xd4,0x3f,0x7f,0x11,0x93,0xed,0x09,0x6d,0xf4,0xb9,0xc9,0x02,0x19 };
-    static const ShaderID s_SID   = { 0x81,0x44,0xad,0xae,0xd6,0x87,0x4d,0x62,0xca,0x79,0xec,0x4e,0x82,0x71,0x9c,0x33,0x78,0x7a,0x71,0x67,0xfe,0xc9,0xae,0x90,0xd7,0xca,0xe6,0x44,0x8d,0x5c,0x9d,0xd7 };
+    static const ShaderID s_pSID[] = {
+        { 0x14,0xf1,0x8d,0x0b,0xe4,0x0c,0xf9,0x10,0xec,0xb7,0xc4,0xd7,0xfd,0x36,0xed,0x70,0x9d,0x89,0xbd,0xc2,0x29,0xd0,0xf4,0xeb,0x55,0x25,0x25,0x8f,0x99,0x6b,0xf6,0x68 }
+    };
 
 #pragma pack (push, 1)
 
@@ -16,7 +17,6 @@ namespace Nephrite
         static const uint8_t s_Epoch_Stable = 3;
         static const uint8_t s_Balance = 4;
         static const uint8_t s_StabPool = 5;
-        static const uint8_t s_ProfitPool = 6;
         static const uint8_t s_Trove = 7;
     };
 
@@ -78,7 +78,8 @@ namespace Nephrite
 
     typedef Pair_T<Flow> FlowPair;
 
-    typedef StaticPool<Amount, Amount, 1> ProfitPool;
+    typedef HomogenousPool::MultiEpoch<2> ExchangePool;
+    typedef HomogenousPool::SingleEpoch<1> RedistPoolBase;
 
     struct Balance
     {
@@ -107,18 +108,6 @@ namespace Nephrite
         Height m_hLastModify;
     };
 
-    struct ProfitPoolEntry
-    {
-        struct Key
-        {
-            uint8_t m_Tag = Tags::s_ProfitPool;
-            PubKey m_pkUser;
-        };
-
-        ProfitPool::User m_User;
-        Height m_hLastModify;
-    };
-
     struct Trove
     {
         typedef uint32_t ID;
@@ -131,15 +120,16 @@ namespace Nephrite
 
         PubKey m_pkOwner;
         Pair m_Amounts;
-        ExchangePool::User m_RedistUser; // accumulates enforced liquidations
+        RedistPoolBase::User m_RedistUser; // accumulates enforced liquidations
         ID m_iNext;
     };
 
     struct Settings
     {
         ContractID m_cidOracle;
+        ContractID m_cidDaoVault;
         Amount m_TroveLiquidationReserve;
-        AssetID m_AidProfit;
+        AssetID m_AidGov;
         Height m_hMinRedemptionHeight;
     };
 
@@ -157,7 +147,7 @@ namespace Nephrite
         } m_Troves;
 
         struct RedistPool
-            :public DistributionPool
+            :public RedistPoolBase
         {
             void Add(Trove& t)
             {
@@ -166,7 +156,7 @@ namespace Nephrite
 
             bool IsUnchanged(const Trove& t) const
             {
-                return (t.m_RedistUser.m_Sigma0 == m_Active.m_Sigma);
+                return m_Active.IsUnchanged(t.m_RedistUser);
             }
 
             void Remove(Trove& t)
@@ -176,12 +166,12 @@ namespace Nephrite
                 // // should not overflow, all values are bounded by totals.
                 if (IsUnchanged(t))
                 {
-                    m_Active.m_Balance.s -= t.m_Amounts.Tok; // silent removal
+                    m_Active.m_Sell -= t.m_Amounts.Tok; // silent removal
                     m_Active.m_Users--;
                 }
                 else
                 {
-                    HomogenousPool::Pair out;
+                    User::Out out;
                     UserDel(t.m_RedistUser, out);
                     UpdAmountsPostRemove(t.m_Amounts, out);
                 }
@@ -192,7 +182,7 @@ namespace Nephrite
                 auto ret = t.m_Amounts;
                 if (!IsUnchanged(t))
                 {
-                    HomogenousPool::Pair out;
+                    User::Out out;
                     t.m_RedistUser.DelRO_(m_Active, out);
                     UpdAmountsPostRemove(ret, out);
                 }
@@ -204,19 +194,16 @@ namespace Nephrite
                 if (!get_TotalSell())
                     return false; // empty
 
-                HomogenousPool::Pair p;
-                p.s = t.m_Amounts.Tok;
-                p.b = t.m_Amounts.Col;
-                Trade(p);
+                Trade<Mode::Grow, 0>(t.m_Amounts.Tok, t.m_Amounts.Col);
 
                 return true;
             }
 
         private:
-            static void UpdAmountsPostRemove(Pair& vals, const HomogenousPool::Pair& out)
+            static void UpdAmountsPostRemove(Pair& vals, const User::Out& out)
             {
-                vals.Tok = out.s;
-                vals.Col += out.b;
+                vals.Tok = out.m_Sell;
+                vals.Col += out.m_pBuy[0];
             }
 
         } m_RedistPool;
@@ -224,36 +211,59 @@ namespace Nephrite
         struct StabilityPool
             :public ExchangePool
         {
-            bool LiquidatePartial(Trove& t)
+            struct Reward
             {
-                HomogenousPool::Pair p;
-                p.s = get_TotalSell();
-                if (!p.s)
+                Height m_hLast;
+                Height m_hEnd;
+                Amount m_Remaining;
+            } m_Reward;
+
+            bool AddReward(Height h)
+            {
+                if (!m_Reward.m_Remaining || (h <= m_Reward.m_hLast) || !get_TotalSell())
                     return false;
 
-                if (p.s >= t.m_Amounts.Tok)
+                Amount valAdd = m_Reward.m_Remaining;
+                if (h < m_Reward.m_hEnd)
                 {
-                    p.s = t.m_Amounts.Tok;
-                    p.b = t.m_Amounts.Col;
+                    auto k = Float(h - m_Reward.m_hLast) / Float(m_Reward.m_hEnd - m_Reward.m_hLast);
+                    Amount val = HomogenousPool::Round(Float(valAdd) * k);
+                    valAdd = std::min(valAdd, val);
+                }
+
+                Trade<Mode::Neutral, 1>(0, valAdd);
+                return true;
+            }
+
+            bool LiquidatePartial(Trove& t)
+            {
+                Amount valS = get_TotalSell();
+                if (!valS)
+                    return false;
+
+                Amount valB;
+
+                if (valS >= t.m_Amounts.Tok)
+                {
+                    valS = t.m_Amounts.Tok;
+                    valB = t.m_Amounts.Col;
                     _POD_(t.m_Amounts).SetZero();
                 }
                 else
                 {
-                    p.b = t.m_Amounts.get_Rcr() * Float(p.s);
-                    assert(p.b <= t.m_Amounts.Col);
-                    p.b = std::min(p.b, t.m_Amounts.Col); // for more safety, but should be ok
+                    valB = t.m_Amounts.get_Rcr() * Float(valS);
+                    assert(valB <= t.m_Amounts.Col);
+                    valB = std::min(valB, t.m_Amounts.Col); // for more safety, but should be ok
 
-                    t.m_Amounts.Tok -= p.s;
-                    t.m_Amounts.Col -= p.b; 
+                    t.m_Amounts.Tok -= valS;
+                    t.m_Amounts.Col -= valB; 
                 }
 
-                Trade(p);
+                Trade<Mode::Burn, 0>(valS, valB);
                 return true;
             }
 
         } m_StabPool;
-
-        ProfitPool m_ProfitPool;
 
         struct Price
         {
@@ -327,7 +337,7 @@ namespace Nephrite
         Amount get_BorrowFee(Amount tok, Amount tok0, bool bRecovery, const Price& price)
         {
             // during recovery borrowing fee is OFF
-            if (bRecovery || (tok <= tok0) || m_ProfitPool.IsEmpty())
+            if (bRecovery || (tok <= tok0))
                 return 0;
 
             Amount valMinted = tok - tok0;
@@ -447,7 +457,7 @@ namespace Nephrite
 
         Amount AddRedeemFee(Redeemer& ctx)
         {
-            if (m_ProfitPool.IsEmpty() || !ctx.m_fpLogic.Tok.m_Val)
+            if (!ctx.m_fpLogic.Tok.m_Val)
                 return 0;
 
             Amount feeBase = ctx.m_fpLogic.Col.m_Val / 200; // redemption fee floor is 0.5 percent
@@ -461,7 +471,6 @@ namespace Nephrite
             Amount fee = feeBase + m_BaseRate.m_k * Float(ctx.m_fpLogic.Col.m_Val);
             fee = std::min(fee, ctx.m_fpLogic.Col.m_Val); // fee can go as high as 100 percents
 
-            ctx.m_fpLogic.Col.m_Val -= fee;
             return fee;
         }
 
@@ -563,17 +572,17 @@ namespace Nephrite
             uint32_t m_Count;
         };
 
-        struct UpdProfitPool :public BaseTxUser
+        struct Redeem :public BaseTxUser
         {
             static const uint32_t s_iMethod = 9;
-            Amount m_NewAmount;
+            Amount m_Amount;
+            Trove::ID m_iPrev1;
         };
 
-        struct Redeem :public BaseTxUser
+        struct AddStabPoolReward
         {
             static const uint32_t s_iMethod = 10;
             Amount m_Amount;
-            Trove::ID m_iPrev1;
         };
 
     } // namespace Method

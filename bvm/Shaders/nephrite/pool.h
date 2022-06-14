@@ -23,98 +23,74 @@ struct HomogenousPool
         return x + half;
     }
 
-    struct Pair
-    {
-        Amount s;
-        Amount b;
-
-        Pair get_Fraction(const Float& kRatio) const
-        {
-            Pair p;
-            p.s = Float(s) * kRatio;
-            p.b = Float(b) * kRatio;
-            return p;
-        }
-
-        Pair get_Fraction(Amount w1, Amount wTotal) const
-        {
-            assert(wTotal);
-            return get_Fraction(Float(w1) / Float(wTotal));
-        }
-
-        Pair operator - (const Pair& p) const
-        {
-            Pair ret;
-            ret.s = s - p.s;
-            ret.b = b - p.b;
-            return ret;
-        }
-    };
-
     enum Mode {
         Neutral, // s doesn't change during the trade (i.e. farming)
         Burn, // s is decreased during the trade (i.e. exchange, s burns-out)
         Grow, // s grows during the trade (i.e. redistribution)
     };
 
-    struct Epoch
+    struct Epoch0
     {
         uint32_t m_Users;
-        Pair m_Balance;
-        Float m_Sigma;
+        Amount m_Sell;
         Float m_kScale;
 
-        template <Mode m>
-        void Trade_(const Pair& d)
+        struct Dim
         {
-            if (!m_Balance.s)
+            Amount m_Buy;
+            Float m_Sigma;
+        };
+
+        template <Mode m>
+        void Trade0_(Amount valS, Amount valB, Dim& dim)
+        {
+            if (!m_Sell)
             {
-                assert(!d.s && !d.b);
+                assert(!valS && !valB);
                 return;
             }
 
-            Float kScale_div_s = m_kScale / Float(m_Balance.s);
+            Float kScale_div_s = m_kScale / Float(m_Sell);
 
-            if (d.b)
+            if (valB)
             {
                 // dSigma = m_kScale * db / s
-                m_Sigma = m_Sigma + kScale_div_s * Float(d.b);
+                dim.m_Sigma = dim.m_Sigma + kScale_div_s * Float(valB);
 
-                Strict::Add(m_Balance.b, d.b);
+                Strict::Add(dim.m_Buy, valB);
             }
 
-            if (d.s)
+            if (valS)
             {
                 if constexpr (Mode::Burn == m)
                 {
-                    assert(m_Balance.s >= d.s);
-                    m_Balance.s -= d.s;
+                    assert(m_Sell >= valS);
+                    m_Sell -= valS;
                 }
                 else
                 {
                     if constexpr (Mode::Grow == m)
-                        Strict::Add(m_Balance.s, d.s);
+                        Strict::Add(m_Sell, valS);
                 }
 
                 if constexpr (Mode::Neutral != m)
                     // m_kScale *= sNew / sOld;
-                    m_kScale = kScale_div_s * Float(m_Balance.s);
+                    m_kScale = kScale_div_s * Float(m_Sell);
             }
         }
 
-        struct User
+        struct User0
         {
             Float m_Sigma0;
             Float m_SellScaled;
 
-            void Add_(Epoch& e, Amount valSell)
+            void Add0_(Epoch0& e, Amount valSell)
             {
                 assert(valSell);
-                m_Sigma0 = e.m_Sigma;
 
                 m_SellScaled = Float(valSell) / e.m_kScale;
 
-                Strict::Add(e.m_Balance.s, valSell);
+                Strict::Add(e.m_Sell, valSell);
                 e.m_Users++; // won't overflow, 4bln isn't feasible
             }
 
@@ -123,41 +99,88 @@ struct HomogenousPool
                 Amount res = Round(m_SellScaled * x);
                 return std::min(res, threshold);
             }
+        };
+    };
 
-            void DelRO_(const Epoch& e, Pair& out) const
+
+    template <uint32_t nDims>
+    struct Epoch
+        :public Epoch0
+    {
+        Dim m_pDim[nDims];
+
+        template <Mode m, uint32_t iDim>
+        void Trade_(Amount valS, Amount valB)
+        {
+            static_assert(iDim < nDims);
+            Trade0_<m>(valS, valB, m_pDim[iDim]);
+        }
+
+        struct User
+            :public User0
+        {
+            Float m_pSigma0[nDims];
+
+            struct Out
+            {
+                Amount m_Sell;
+                Amount m_pBuy[nDims];
+            };
+
+            void Add_(Epoch& e, Amount valSell)
+            {
+                Add0_(e, valSell);
+
+                for (uint32_t i = 0; i < nDims; i++)
+                    m_pSigma0[i] = e.m_pDim[i].m_Sigma;
+            }
+
+            void DelRO_(const Epoch& e, Out& v) const
             {
                 assert(e.m_Users);
+                bool bLast = (1 == e.m_Users);
 
-                if (1 == e.m_Users)
-                    out = e.m_Balance;
-                else
-                {
-                    out.s = CalcComponent_(e.m_Balance.s, e.m_kScale);
-                    out.b = CalcComponent_(e.m_Balance.b, e.m_Sigma - m_Sigma0);
-                }
+                v.m_Sell = bLast ? e.m_Sell : CalcComponent_(e.m_Sell, e.m_kScale);
+
+                for (uint32_t i = 0; i < nDims; i++)
+                    v.m_pBuy[i] = bLast ? e.m_pDim[i].m_Buy : CalcComponent_(e.m_pDim[i].m_Buy, e.m_pDim[i].m_Sigma - m_pSigma0[i]);
             }
 
             template <bool bReadOnly>
-            void Del_(Epoch& e, Pair& out) const
+            void Del_(Epoch& e, Out& v) const
             {
-                DelRO_(e, out);
+                DelRO_(e, v);
 
                 if constexpr (!bReadOnly)
                 {
                     e.m_Users--;
-                    e.m_Balance = e.m_Balance - out;
+                    e.m_Sell -= v.m_Sell;
+
+                    for (uint32_t i = 0; i < nDims; i++)
+                        e.m_pDim[i].m_Buy -= v.m_pBuy[i];
                 }
             }
         };
+
+        bool IsUnchanged(const User& u) const
+        {
+            for (uint32_t i = 0; i < nDims; i++)
+                if (u.m_pSigma0[i] != m_pDim[i].m_Sigma)
+                    return false;
+            return true;
+        }
+
     };
 
-    template <Mode m>
+    template <uint32_t nDims>
     struct SingleEpoch
     {
-        Epoch m_Active;
+        typedef Mode Mode;
+
+        Epoch<nDims> m_Active;
 
         Amount get_TotalSell() const {
-            return m_Active.m_Balance.s;
+            return m_Active.m_Sell;
         }
 
         void Reset()
@@ -166,7 +189,7 @@ struct HomogenousPool
             m_Active.m_kScale = 1u;
         }
 
-        typedef Epoch::User User;
+        typedef typename Epoch<nDims>::User User;
 
         void UserAdd(User& u, Amount valSell)
         {
@@ -174,9 +197,9 @@ struct HomogenousPool
         }
 
         template <bool bReadOnly = false>
-        void UserDel(User& u, Pair& out)
+        void UserDel(User& u, typename User::Out& out)
         {
-            u.Del_<bReadOnly>(m_Active, out);
+            u.template Del_<bReadOnly>(m_Active, out);
             if constexpr (!bReadOnly)
             {
                 if (!m_Active.m_Users)
@@ -184,23 +207,25 @@ struct HomogenousPool
             }
         }
 
-        void Trade(const Pair& d)
+        template <Mode m, uint32_t iDim>
+        void Trade(Amount valS, Amount valB)
         {
-            assert(d.s);
-            m_Active.Trade_<m>(d);
+            assert(valS);
+            m_Active.template Trade_<m, iDim>(valS, valB);
         }
     };
 
-
-    template <Mode m>
+    template <uint32_t nDims>
     struct MultiEpoch
     {
-        Epoch m_Active;
-        Epoch m_Draining;
+        typedef Mode Mode;
+
+        Epoch<nDims> m_Active;
+        Epoch<nDims> m_Draining;
 
         Amount get_TotalSell() const {
             // won't overflow, we test for overflow when user joins
-            return m_Active.m_Balance.s + m_Draining.m_Balance.s;
+            return m_Active.m_Sell + m_Draining.m_Sell;
         }
 
         uint32_t m_iActive;
@@ -213,7 +238,7 @@ struct HomogenousPool
         }
 
         struct User
-            :public Epoch::User
+            :public Epoch<nDims>::User
         {
             uint32_t m_iEpoch;
         };
@@ -223,11 +248,11 @@ struct HomogenousPool
             u.m_iEpoch = m_iActive;
             u.Add_(m_Active, valSell);
 
-            Env::Halt_if(get_TotalSell() < m_Active.m_Balance.s); // overflow test
+            Env::Halt_if(get_TotalSell() < m_Active.m_Sell); // overflow test
         }
 
         template <bool bReadOnly = false, class Storage>
-        void UserDel(User& u, Pair& out, Storage& stor)
+        void UserDel(User& u, typename User::Out& out, Storage& stor)
         {
             if (u.m_iEpoch == m_iActive)
             {
@@ -244,7 +269,7 @@ struct HomogenousPool
                     u.template Del_<bReadOnly>(m_Draining, out);
                 else
                 {
-                    Epoch e;
+                    Epoch<nDims> e;
                     stor.Load(u.m_iEpoch, e);
 
                     u.template Del_<bReadOnly>(e, out);
@@ -260,31 +285,32 @@ struct HomogenousPool
             }
         }
 
-        void Trade(const Pair& d)
+        template <Mode m, uint32_t iDim>
+        void Trade(Amount valS, Amount valB)
         {
-            assert(d.s);
+            assert(valS);
 
             // Active epoch must always be valid
             // Account for draining epoch iff not empty
-            if (m_Draining.m_Balance.s)
+            if (m_Draining.m_Sell)
             {
                 Amount totalSell = get_TotalSell();
-                assert(d.s <= totalSell);
+                assert(valS <= totalSell);
 
-                Pair d0 = d.get_Fraction(m_Active.m_Balance.s, totalSell);
-                m_Active.Trade_<m>(d0);
+                Float kRatio = Float(m_Active.m_Sell) / Float(totalSell);
+                Amount s0 = Float(valS) * kRatio;
+                Amount b0 = Float(valB) * kRatio;
 
-                d0 = d - d0;
-                m_Draining.Trade_<m>(d0);
+                m_Active.template Trade_<m, iDim>(s0, b0);
+                m_Draining.template Trade_<m, iDim>(valS - s0, valB - b0);
             }
             else
-                m_Active.Trade_<m>(d);
+                m_Active.template Trade_<m, iDim>(valS, valB);
         }
 
         template <class Storage>
         void OnPostTrade(Storage& stor)
         {
-            static_assert(Mode::Burn == m);
             static_assert(Scale::s_Initial > Scale::s_Threshold * 2); // this means that order==0 is also covered
 
             if (m_Active.m_kScale.m_Order < (int32_t) (Scale::s_Initial - Scale::s_Threshold))
@@ -314,9 +340,6 @@ struct HomogenousPool
         }
     };
 };
-
-typedef HomogenousPool::MultiEpoch<HomogenousPool::Mode::Burn> ExchangePool;
-typedef HomogenousPool::SingleEpoch<HomogenousPool::Mode::Grow> DistributionPool;
 
 template <typename TWeight, typename TValue, uint32_t nDims>
 struct StaticPool

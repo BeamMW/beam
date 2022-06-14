@@ -3,6 +3,7 @@
 #include "../Math.h"
 #include "contract.h"
 #include "../upgradable3/contract_impl.h"
+#include "../dao-vault/contract.h"
 
 
 namespace Nephrite {
@@ -16,11 +17,13 @@ struct EpochStorage
         return k;
     }
 
-    static void Load(uint32_t iEpoch, HomogenousPool::Epoch& e) {
+    template <uint32_t nDims>
+    static void Load(uint32_t iEpoch, HomogenousPool::Epoch<nDims>& e) {
         Env::LoadVar_T(get_Key(iEpoch), e);
     }
 
-    static void Save(uint32_t iEpoch, const HomogenousPool::Epoch& e) {
+    template <uint32_t nDims>
+    static void Save(uint32_t iEpoch, const HomogenousPool::Epoch<nDims>& e) {
         Env::SaveVar_T(get_Key(iEpoch), e);
     }
 
@@ -98,6 +101,15 @@ struct MyGlobal
             else
                 Env::FundsUnlock(aid, f.m_Val);
         }
+    }
+
+    void SendProfit(Amount val)
+    {
+        DaoVault::Method::Deposit args;
+        args.m_Amount = val;
+        args.m_Aid = 0;
+
+        Env::CallFar_T(m_Settings.m_cidDaoVault, args);
     }
 
     void AdjustTxFunds(const Method::BaseTx& r) const
@@ -269,10 +281,7 @@ struct MyGlobal
 
             Amount feeCol = get_BorrowFee(m_Troves.m_Totals.Tok, totals0.Tok, bRecovery, price);
             if (feeCol)
-            {
-                m_ProfitPool.AddValue(feeCol, 0);
-                fpLogic.Col.Add(feeCol, 1);
-            }
+                SendProfit(feeCol);
         }
 
 
@@ -328,6 +337,7 @@ BEAM_EXPORT void Ctor(const Method::Create& r)
     Env::Halt_if(!g.m_Aid);
 
     Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidOracle));
+    Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidDaoVault));
 
     g.Save();
 }
@@ -372,6 +382,7 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
     _POD_(fpLogic).SetZero();
 
     Height h = Env::get_Height();
+    g.m_StabPool.AddReward(h);
 
     StabPoolEntry spe;
     if (!Env::LoadVar_T(spk, spe))
@@ -382,13 +393,13 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
 
         EpochStorage stor;
 
-        HomogenousPool::Pair out;
+        Global::StabilityPool::User::Out out;
         g.m_StabPool.UserDel(spe.m_User, out, stor);
 
-        fpLogic.Tok.m_Val = out.s;
-        fpLogic.Col.m_Val = out.b;
+        fpLogic.Tok.m_Val = out.m_Sell;
+        fpLogic.Col.m_Val = out.m_pBuy[0];
 
-        if ((r.m_NewAmount < out.s) && g.m_Troves.m_iHead)
+        if ((r.m_NewAmount < out.m_Sell) && g.m_Troves.m_iHead)
         {
             // ensure no pending liquidations
             Global::Price price = g.get_Price();
@@ -403,6 +414,9 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
             auto cr = price.ToCR(vals.get_Rcr());
             Env::Halt_if((cr < Global::Price::get_k110()));
         }
+
+        if (out.m_pBuy[1])
+            Env::FundsUnlock(g.m_Settings.m_AidGov, out.m_pBuy[1]);
     }
 
     if (r.m_NewAmount)
@@ -454,52 +468,7 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
     g.AdjustAll(r, totals0, ctx.m_fpLogic, r.m_pkUser);
 }
 
-BEAM_EXPORT void Method_9(Method::UpdProfitPool& r)
-{
-    MyGlobal_LoadSave g;
-
-    ProfitPoolEntry::Key pk;
-    _POD_(pk.m_pkUser) = r.m_pkUser;
-
-    FlowPair fpLogic;
-    _POD_(fpLogic).SetZero();
-
-    Height h = Env::get_Height();
-
-    ProfitPoolEntry pe;
-    if (!Env::LoadVar_T(pk, pe))
-        _POD_(pe).SetZero();
-    else
-    {
-        Env::Halt_if(pe.m_hLastModify == h);
-
-        Amount valOut;
-        g.m_ProfitPool.Remove(&valOut, pe.m_User);
-        fpLogic.Col.m_Val = valOut;
-    }
-
-    if (r.m_NewAmount > pe.m_User.m_Weight)
-        Env::FundsLock(g.m_Settings.m_AidProfit, r.m_NewAmount - pe.m_User.m_Weight);
-
-    if (pe.m_User.m_Weight > r.m_NewAmount)
-        Env::FundsUnlock(g.m_Settings.m_AidProfit, pe.m_User.m_Weight - r.m_NewAmount);
-
-    if (r.m_NewAmount)
-    {
-        pe.m_User.m_Weight = r.m_NewAmount;
-        g.m_ProfitPool.Add(pe.m_User);
-
-        pe.m_hLastModify = h;
-        Env::SaveVar_T(pk, pe);
-    }
-    else
-        Env::DelVar_T(pk);
-
-    g.AdjustTxFunds(r);
-    g.AdjustTxBank(fpLogic, r, r.m_pkUser);
-}
-
-BEAM_EXPORT void Method_10(Method::Redeem& r)
+BEAM_EXPORT void Method_9(Method::Redeem& r)
 {
     MyGlobal_LoadSave g;
 
@@ -532,23 +501,43 @@ BEAM_EXPORT void Method_10(Method::Redeem& r)
 
     Amount fee = g.AddRedeemFee(ctx);
     if (fee)
-        g.m_ProfitPool.AddValue(fee, 0);
+        g.SendProfit(fee);
 
     g.AdjustAll(r, totals0, ctx.m_fpLogic, r.m_pkUser);
 }
 
+BEAM_EXPORT void Method_10(Method::AddStabPoolReward& r)
+{
+    MyGlobal_LoadSave g;
+    auto& x = g.m_StabPool.m_Reward; // alias
+
+    Height h = Env::get_Height();
+    if (h >= x.m_hEnd)
+    {
+        x.m_hLast = h;
+        x.m_hEnd = h + 1440 + 365 * 2; // 2 years
+    }
+
+    Strict::Add(x.m_Remaining, r.m_Amount);
+    Env::FundsLock(g.m_Settings.m_AidGov, r.m_Amount);
+}
 
 } // namespace Nephrite
 
 namespace Upgradable3 {
 
+    const uint32_t g_CurrentVersion = _countof(Nephrite::s_pSID) - 1;
+
     uint32_t get_CurrentVersion()
     {
-        return 1;
+        return g_CurrentVersion;
     }
 
     void OnUpgraded(uint32_t nPrevVersion)
     {
-        Env::Halt_if(nPrevVersion != 0);
+        if constexpr (g_CurrentVersion)
+            Env::Halt_if(nPrevVersion != g_CurrentVersion - 1);
+        else
+            Env::Halt();
     }
 }

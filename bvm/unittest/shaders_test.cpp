@@ -64,6 +64,7 @@ namespace Shaders {
 #include "../Shaders/voting/contract.h"
 #include "../Shaders/dao-core/contract.h"
 #include "../Shaders/dao-vote/contract.h"
+#include "../Shaders/dao-vault/contract.h"
 #include "../Shaders/aphorize/contract.h"
 #include "../Shaders/nephrite/contract.h"
 #include "../Shaders/amm/contract.h"
@@ -286,6 +287,14 @@ namespace Shaders {
 	template <bool bToShader> void Convert(DaoVote::Method::SetModerator& x) {
 	}
 
+	template <bool bToShader> void Convert(DaoVault::Method::Create& x) {
+		ConvertOrd<bToShader>(x.m_aidStaking);
+	}
+	template <bool bToShader> void Convert(DaoVault::Method::UserUpdate& x) {
+		ConvertOrd<bToShader>(x.m_NewStaking);
+		ConvertOrd<bToShader>(x.m_WithdrawCount);
+	}
+
 	template <bool bToShader> void Convert(Aphorize::Create& x) {
 		ConvertOrd<bToShader>(x.m_Cfg.m_hPeriod);
 		ConvertOrd<bToShader>(x.m_Cfg.m_PriceSubmit);
@@ -504,6 +513,7 @@ namespace bvm2 {
 		ContractWrap m_DaoCore;
 		ContractWrap m_DaoVote;
 		ContractWrap m_Aphorize;
+		ContractWrap m_DaoVault;
 		ContractWrap m_Nephrite;
 		ContractWrap m_Mintor;
 		ContractWrap m_Amm;
@@ -959,6 +969,7 @@ namespace bvm2 {
 		AddCode(m_DaoCore, "dao-core/contract.wasm");
 		AddCode(m_DaoVote, "dao-vote/contract.wasm");
 		AddCode(m_Aphorize, "aphorize/contract.wasm");
+		AddCode(m_DaoVault, "dao-vault/contract.wasm");
 		AddCode(m_Nephrite, "nephrite/contract.wasm");
 		AddCode(m_Mintor, "mintor/contract.wasm");
 		AddCode(m_Amm, "amm/contract.wasm");
@@ -1133,13 +1144,14 @@ namespace bvm2 {
 			MyProcessor& m_Proc;
 			BlobMap::Set::iterator m_it;
 			uint8_t m_Tag;
+			Blob m_Data;
 
-			KeyWalker(MyProcessor& proc, uint8_t nTag)
+			KeyWalker(MyProcessor& proc, const ContractID& cid, uint8_t nTag)
 				:m_Proc(proc)
 				,m_Tag(nTag)
 			{
 				Shaders::Env::Key_T<uint8_t> key;
-				key.m_Prefix.m_Cid = m_Proc.m_Nephrite.m_Cid;
+				key.m_Prefix.m_Cid = cid;
 				key.m_KeyInContract = nTag;
 				m_it = m_Proc.m_Vars.lower_bound(Blob(&key, sizeof(key)), BlobMap::Set::Comparator());
 			}
@@ -1159,7 +1171,8 @@ namespace bvm2 {
 				if (!pKey || (pKey->m_KeyInContract.m_Tag != m_Tag))
 					return false;
 
-				pVal = FromBlob<TValue>(m_it->m_Data);
+				m_Data = m_it->m_Data;
+				pVal = FromBlob<TValue>(m_Data);
 				if (!pVal)
 					return false;
 
@@ -1184,7 +1197,7 @@ namespace bvm2 {
 
 		void PrintBankExcess()
 		{
-			for (KeyWalker_T<Balance::Key, Balance> wlk(m_Proc, Shaders::Nephrite::Tags::s_Balance); ; )
+			for (KeyWalker_T<Balance::Key, Balance> wlk(m_Proc, m_Proc.m_Nephrite.m_Cid, Shaders::Nephrite::Tags::s_Balance); ; )
 			{
 				//auto it = wlk.m_it;
 				if (!wlk.MoveNext())
@@ -1281,53 +1294,20 @@ namespace bvm2 {
 			return InvokeBase(args, sizeof(args), args.s_iMethod, args.m_pkUser, bShouldUseVault);
 		}
 
-		void AddPoolTotals(Pair& res, uint8_t nTag)
+		template <uint32_t nDims>
+		static void AddEpochTotals(Amount& vSell, Amount* pBuy, const Shaders::HomogenousPool::Epoch<nDims>& e)
 		{
-			for (KeyWalker_T<Shaders::Nephrite::EpochKey, Shaders::HomogenousPool::Epoch> wlk(m_Proc, nTag); wlk.MoveNext(); )
-			{
-				res.Tok += wlk.m_pVal->m_Balance.s;
-				res.Col += wlk.m_pVal->m_Balance.b;
-			}
+			vSell += e.m_Sell;
+			for (uint32_t i = 0; i < nDims; i++)
+				pBuy[i] += e.m_pDim[i].m_Buy;
 		}
 
-		struct EpochStorage
+		template <uint32_t nDims>
+		void AddPoolTotals(Amount& vSell, Amount* pBuy, uint8_t nTag)
 		{
-			MyProcessor& m_Proc;
-			uint8_t m_Tag;
-
-			EpochStorage(MyProcessor& proc, uint8_t nTag)
-				:m_Proc(proc)
-				,m_Tag(nTag)
-			{}
-
-			typedef Shaders::Env::Key_T<Shaders::Nephrite::EpochKey> Key;
-
-			Key get_Key(uint32_t iEpoch) const {
-				Key k;
-				k.m_Prefix.m_Cid = m_Proc.m_Nephrite.m_Cid;
-				k.m_KeyInContract.m_Tag = m_Tag;
-				k.m_KeyInContract.m_iEpoch = iEpoch;
-				return k;
-			}
-
-			void Load(uint32_t iEpoch, Shaders::HomogenousPool::Epoch& e) const
-			{
-				auto k = get_Key(iEpoch);
-				Blob out;
-				m_Proc.LoadVar(Blob(&k, sizeof(k)), out);
-
-				verify_test(sizeof(e) == out.n);
-				memcpy(&e, out.p, out.n);
-			}
-
-			static void Save(uint32_t iEpoch, const Shaders::HomogenousPool::Epoch& e) {
-				// ignore
-			}
-
-			static void Del(uint32_t iEpoch) {
-				// ignore
-			}
-		};
+			for (KeyWalker_T<Shaders::Nephrite::EpochKey, Shaders::HomogenousPool::Epoch<nDims> > wlk(m_Proc, m_Proc.m_Nephrite.m_Cid, nTag); wlk.MoveNext(); )
+				AddEpochTotals(vSell, pBuy, *wlk.m_pVal);
+		}
 
 		static double ToDouble(Shaders::Nephrite::Float x)
 		{
@@ -1389,12 +1369,13 @@ namespace bvm2 {
 
 			Pair totalStab, totalRedist;
 
-			totalStab.Tok = g.m_StabPool.get_TotalSell();
-			totalStab.Col = g.m_StabPool.m_Active.m_Balance.b + g.m_StabPool.m_Draining.m_Balance.b;
-			AddPoolTotals(totalStab, Shaders::Nephrite::Tags::s_Epoch_Stable);
+			ZeroObject(totalStab);
+			AddEpochTotals(totalStab.Tok, &totalStab.Col, g.m_StabPool.m_Active);
+			AddEpochTotals(totalStab.Tok, &totalStab.Col, g.m_StabPool.m_Draining);
+			AddPoolTotals<1>(totalStab.Tok, &totalStab.Col, Shaders::Nephrite::Tags::s_Epoch_Stable);
 
-			totalRedist.Tok = g.m_RedistPool.get_TotalSell();
-			totalRedist.Col = g.m_RedistPool.m_Active.m_Balance.b;
+			ZeroObject(totalRedist);
+			AddEpochTotals(totalRedist.Tok, &totalRedist.Col, g.m_RedistPool.m_Active);
 
 			Shaders::Nephrite::Global::Price price;
 			{
@@ -1412,8 +1393,28 @@ namespace bvm2 {
 			std::cout << "TCR = " << (ToDouble(price.ToCR(g.m_Troves.m_Totals.get_Rcr())) * 100.) << "" << std::endl;
 			std::cout << "RedistPool Tok=" << Val2Num(totalRedist.Tok) << ", Col=" << Val2Num(totalRedist.Col) << std::endl;
 			std::cout << "StabPool Tok=" << Val2Num(totalStab.Tok) << ", Col=" << Val2Num(totalStab.Col) << std::endl;
-			std::cout << "ProfitPool X-Tok=" << Val2Num(g.m_ProfitPool.m_Weight) << ", Col=" << Val2Num(*g.m_ProfitPool.m_pValue) << std::endl;
 			std::cout << "kRate = " << ToDouble(g.m_BaseRate.m_k) * 100. << "%" << std::endl;
+
+			Shaders::DaoVault::PoolMaxPlus profitPool;
+			ZeroObject(profitPool);
+
+			{
+				Shaders::Env::Key_T<uint8_t> key;
+				key.m_Prefix.m_Cid = g.m_Settings.m_cidDaoVault;
+				key.m_KeyInContract = Shaders::DaoVault::Tags::s_Pool;
+
+				Blob b;
+				m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
+				verify_test(b.n >= sizeof(Shaders::DaoVault::Pool0));
+
+				memcpy(&profitPool, b.p, b.n);
+
+				profitPool.m_Assets = (b.n - sizeof(Shaders::DaoVault::Pool0)) / sizeof(Shaders::DaoVault::Pool0::PerAsset);
+				Amount valReward = profitPool.m_Assets ? profitPool.m_p[0].m_Amount : 0;
+				
+
+				std::cout << "ProfitPool Gov=" << Val2Num(profitPool.m_Weight) << ", Col=" << Val2Num(valReward) << std::endl;
+			}
 
 			verify_test(g.m_Troves.m_Totals.Tok == totalRedist.Tok); // all troves must participate in the RedistPool
 
@@ -1427,7 +1428,7 @@ namespace bvm2 {
 			m_Troves.resize(g.m_Troves.m_iLastCreated);
 
 			uint32_t nActiveTroves = 0;
-			for (KeyWalker_T<Shaders::Nephrite::Trove::Key, Shaders::Nephrite::Trove> wlk(m_Proc, Shaders::Nephrite::Tags::s_Trove); wlk.MoveNext(); )
+			for (KeyWalker_T<Shaders::Nephrite::Trove::Key, Shaders::Nephrite::Trove> wlk(m_Proc, m_Proc.m_Nephrite.m_Cid, Shaders::Nephrite::Tags::s_Trove); wlk.MoveNext(); )
 			{
 				auto iTrove = wlk.m_pKey->m_KeyInContract.m_iTrove; // not stored in BE form
 				verify_test(iTrove <= g.m_Troves.m_iLastCreated);
@@ -1476,28 +1477,33 @@ namespace bvm2 {
 			}
 
 
-			for (KeyWalker_T<Shaders::Nephrite::ProfitPoolEntry::Key, Shaders::Nephrite::ProfitPoolEntry> wlk(m_Proc, Shaders::Nephrite::Tags::s_ProfitPool); wlk.MoveNext(); )
+			for (KeyWalker_T<Shaders::DaoVault::User0::Key, Shaders::DaoVault::User0> wlk(m_Proc, m_Proc.m_DaoVault.m_Cid, Shaders::DaoVault::Tags::s_User); wlk.MoveNext(); )
 			{
 				const auto& e = *wlk.m_pVal;
-				auto e1 = e; // copy
 
-				Amount val = 0;
-				g.m_ProfitPool.Remove(&val, e1.m_User);
+				Shaders::DaoVault::UserMax u;
+				ZeroObject(u);
 
-				std::cout << "\tUser=" << wlk.m_pKey->m_KeyInContract.m_pkUser << ", Stake=" << Val2Num(e.m_User.m_Weight) << ", Gain=" << Val2Num(val) << std::endl;
+				memcpy(&u, &e, wlk.m_Data.n);
+				uint32_t nAssetsPrev = (wlk.m_Data.n - sizeof(e)) / sizeof(Shaders::DaoVault::User0::PerAsset);
+
+				u.Remove(profitPool, nAssetsPrev);
+
+				std::cout << "\tUser=" << wlk.m_pKey->m_KeyInContract.m_pk << ", Stake=" << Val2Num(u.m_Weight) << ", Gain=" << Val2Num(u.m_p[0].m_Value) << std::endl;
 
 
 			}
 
-			verify_test(!g.m_ProfitPool.m_Weight);
+			verify_test(!profitPool.m_Weight);
 		}
 
 	};
 
 	void MyProcessor::TestNephrite()
 	{
-		VERIFY_ID(Shaders::Nephrite::s_SID, m_Nephrite.m_Sid);
+		VERIFY_ID(Shaders::Nephrite::s_pSID[_countof(Shaders::Nephrite::s_pSID) - 1], m_Nephrite.m_Sid);
 		VERIFY_ID(Shaders::Oracle2::s_SID, m_Oracle2.m_Sid);
+		VERIFY_ID(Shaders::DaoVault::s_pSID[_countof(Shaders::DaoVault::s_pSID) - 1], m_DaoVault.m_Sid);
 
 		MyManager man(*this);
 		man.InitMem();
@@ -1505,6 +1511,17 @@ namespace bvm2 {
 		ByteBuffer bufApp;
 		MyProcessor::AddCodeEx(bufApp, "nephrite/app.wasm", Processor::Kind::Manager);
 		man.m_Code = bufApp;
+
+		const AssetID aidGov = 77;
+		{
+			Shaders::DaoVault::Method::Create args;
+			ZeroObject(args);
+			args.m_aidStaking = aidGov;
+			args.m_Upgradable.m_MinApprovers = 1;
+
+			verify_test(ContractCreate_T(m_DaoVault.m_Cid, m_DaoVault.m_Code, args));
+
+		}
 
 		{
 			Shaders::Oracle2::Method::Create<1> args;
@@ -1519,8 +1536,9 @@ namespace bvm2 {
 			Shaders::Nephrite::Method::Create args;
 			ZeroObject(args);
 			args.m_Settings.m_cidOracle = m_Oracle2.m_Cid;
+			args.m_Settings.m_cidDaoVault = m_DaoVault.m_Cid;
 			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 5;
-			args.m_Settings.m_AidProfit = 77;
+			args.m_Settings.m_AidGov = aidGov;
 			args.m_Upgradable.m_MinApprovers = 1; // 0 is illegal atm
 
 			m_FarCalls.m_Stack.Create_back()->m_Body = m_Dummy.m_Code; // add dummy frame, any valid shader is ok
@@ -1547,15 +1565,14 @@ namespace bvm2 {
 
 			if (i < 2)
 			{
-				man.m_Args["action"] = "upd_profit";
-				man.m_Args["newVal"] = std::to_string(Rules::Coin * (5 + i));
+				Shaders::DaoVault::Method::UserUpdate args;
+				ZeroObject(args);
+				args.m_pkUser.m_X = i;
+				args.m_NewStaking = Rules::Coin * (5 + i);
 
-				Shaders::Nephrite::Method::UpdProfitPool arg1;
-				verify_test(man.RunGuarded_T(arg1));
-
-				verify_test(lc.InvokeTxUser(arg1, false));
 				std::cout << "Deposit to profit pool" << std::endl;
-				std::cout << "Estimated charge: " << man.m_Charge << std::endl;
+
+				verify_test(RunGuarded_T(m_DaoVault.m_Cid, args.s_iMethod, args));
 			}
 
 			Amount col = Rules::Coin * (35 + i * 5); // should be enough for 150% tcr
@@ -1697,18 +1714,16 @@ namespace bvm2 {
 
 		for (uint32_t i = 0; i < 2; i++)
 		{
-			man.m_pPKdf = ppKdf[i];
-
-			man.m_Args["action"] = "upd_profit";
-			man.m_Args["newVal"] = "0";
-
-			Shaders::Nephrite::Method::UpdProfitPool arg1;
-			verify_test(man.RunGuarded_T(arg1));
-
-			verify_test(lc.InvokeTxUser(arg1, false));
+			Shaders::DaoVault::Method::UserUpdate args;
+			ZeroObject(args);
+			args.m_pkUser.m_X = i;
+			args.m_NewStaking = 0;
+			args.m_WithdrawCount = static_cast<uint32_t>(-1);
 
 			std::cout << "profit withdraw" << std::endl;
-			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
+
+			verify_test(RunGuarded_T(m_DaoVault.m_Cid, args.s_iMethod, args));
+
 			lc.PrintAll();
 		}
 	}
