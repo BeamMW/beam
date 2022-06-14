@@ -294,6 +294,10 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_NewStaking);
 		ConvertOrd<bToShader>(x.m_WithdrawCount);
 	}
+	template <bool bToShader> void Convert(DaoVault::Method::Deposit& x) {
+		ConvertOrd<bToShader>(x.m_Amount);
+		ConvertOrd<bToShader>(x.m_Aid);
+	}
 
 	template <bool bToShader> void Convert(Aphorize::Create& x) {
 		ConvertOrd<bToShader>(x.m_Cfg.m_hPeriod);
@@ -395,6 +399,7 @@ namespace Shaders {
 	}
 
 //#include "../Shaders/dao-vote/contract.cpp" // already within namespace
+//#include "../Shaders/dao-vault/contract.cpp" // already within namespace
 //#include "../Shaders/nephrite/contract.cpp" // already within namespace
 //#include "../Shaders/nephrite/app.cpp"
 #include "../Shaders/amm/contract.cpp" // already within namespace
@@ -728,7 +733,7 @@ namespace bvm2 {
 				case 4: Shaders::Nephrite::Method_4(CastArg<Shaders::Nephrite::Method::TroveClose>(pArgs)); return;
 				case 7: Shaders::Nephrite::Method_7(CastArg<Shaders::Nephrite::Method::UpdStabPool>(pArgs)); return;
 				case 8: Shaders::Nephrite::Method_8(CastArg<Shaders::Nephrite::Method::Liquidate>(pArgs)); return;
-				case 10: Shaders::Nephrite::Method_10(CastArg<Shaders::Nephrite::Method::Redeem>(pArgs)); return;
+				case 9: Shaders::Nephrite::Method_9(CastArg<Shaders::Nephrite::Method::Redeem>(pArgs)); return;
 				}
 			}
 */
