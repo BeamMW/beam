@@ -40,6 +40,8 @@ call make_shader perpetual/contract
 call make_shader pipe/contract
 call make_shader playground/app
 call make_shader playground/contract
+call make_shader profit_pool/app
+call make_shader profit_pool/contract
 call make_shader roulette/app
 call make_shader roulette/contract
 call make_shader sidechain/contract

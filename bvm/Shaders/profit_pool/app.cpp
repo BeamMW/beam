@@ -70,7 +70,7 @@ void OnError(const char* sz)
     Env::DocAddText("error", sz);
 }
 
-const char g_szAdminSeed[] = "upgr3-dao-vault";
+const char g_szAdminSeed[] = "upgr3-profit-pool";
 
 struct AdminKeyID :public Env::KeyID {
     AdminKeyID() :Env::KeyID(&g_szAdminSeed, sizeof(g_szAdminSeed)) {}
