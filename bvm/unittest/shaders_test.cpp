@@ -501,6 +501,7 @@ namespace bvm2 {
 			ByteBuffer m_Code;
 			ShaderID m_Sid;
 			ContractID m_Cid;
+			Wasm::Compiler::DebugInfo m_DbgInfo;
 		};
 
 		ContractWrap m_Vault;
@@ -525,7 +526,7 @@ namespace bvm2 {
 
 		void AddCode(ContractWrap& cw, const char* sz)
 		{
-			ContractTestProcessor::AddCode(cw.m_Code, sz);
+			AddCodeEx(cw.m_Code, sz, Kind::Contract, &cw.m_DbgInfo);
 			get_ShaderID(cw.m_Sid, cw.m_Code);
 		}
 

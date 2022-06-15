@@ -463,7 +463,7 @@ namespace beam::bvm2
 			return RunGuarded(cid, 1, cvt, nullptr);
 		}
 
-		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind)
+		static void AddCodeEx(ByteBuffer& res, const char* sz, Kind kind, Wasm::Compiler::DebugInfo* pDbgInfo = nullptr)
 		{
 			std::FStream fs;
 			fs.Open(sz, true, true);
@@ -472,12 +472,7 @@ namespace beam::bvm2
 			if (!res.empty())
 				fs.read(&res.front(), res.size());
 
-			Processor::Compile(res, res, kind);
-		}
-
-		void AddCode(ByteBuffer& res, const char* sz)
-		{
-			AddCodeEx(res, sz, Kind::Contract);
+			Processor::Compile(res, res, kind, pDbgInfo);
 		}
 
 		template <typename T>
