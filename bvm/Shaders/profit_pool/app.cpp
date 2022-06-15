@@ -3,20 +3,20 @@
 #include "contract.h"
 #include "../upgradable3/app_common_impl.h"
 
-#define DaoVault_manager_deploy(macro) \
+#define ProfitPool_manager_deploy(macro) \
     Upgradable3_deploy(macro) \
     macro(AssetID, aidStaking)
 
-#define DaoVault_manager_view(macro)
-#define DaoVault_manager_view_params(macro) macro(ContractID, cid)
-#define DaoVault_manager_my_admin_key(macro)
+#define ProfitPool_manager_view(macro)
+#define ProfitPool_manager_view_params(macro) macro(ContractID, cid)
+#define ProfitPool_manager_my_admin_key(macro)
 
-#define DaoVault_manager_schedule_upgrade(macro) Upgradable3_schedule_upgrade(macro)
-#define DaoVault_manager_replace_admin(macro) Upgradable3_replace_admin(macro)
-#define DaoVault_manager_set_min_approvers(macro) Upgradable3_set_min_approvers(macro)
-#define DaoVault_manager_explicit_upgrade(macro) macro(ContractID, cid)
+#define ProfitPool_manager_schedule_upgrade(macro) Upgradable3_schedule_upgrade(macro)
+#define ProfitPool_manager_replace_admin(macro) Upgradable3_replace_admin(macro)
+#define ProfitPool_manager_set_min_approvers(macro) Upgradable3_set_min_approvers(macro)
+#define ProfitPool_manager_explicit_upgrade(macro) macro(ContractID, cid)
 
-#define DaoVaultRole_manager(macro) \
+#define ProfitPoolRole_manager(macro) \
     macro(manager, view) \
     macro(manager, deploy) \
     macro(manager, schedule_upgrade) \
@@ -26,19 +26,19 @@
     macro(manager, view_params) \
     macro(manager, my_admin_key)
 
-#define DaoVault_user_my_key(macro) macro(ContractID, cid)
-#define DaoVault_user_view(macro) macro(ContractID, cid)
+#define ProfitPool_user_my_key(macro) macro(ContractID, cid)
+#define ProfitPool_user_view(macro) macro(ContractID, cid)
 
-#define DaoVault_user_update(macro) \
+#define ProfitPool_user_update(macro) \
     macro(ContractID, cid) \
     macro(Amount, newStake)
 
-#define DaoVaultRole_user(macro) \
+#define ProfitPoolRole_user(macro) \
     macro(user, my_key) \
     macro(user, view) \
     macro(user, update)
 
-#define DaoVaultRoles_All(macro) \
+#define ProfitPoolRoles_All(macro) \
     macro(manager) \
     macro(user)
 
@@ -50,10 +50,10 @@ BEAM_EXPORT void Method_0()
     {   Env::DocGroup gr("roles");
 
 #define THE_FIELD(type, name) Env::DocAddText(#name, #type);
-#define THE_METHOD(role, name) { Env::DocGroup grMethod(#name);  DaoVault_##role##_##name(THE_FIELD) }
-#define THE_ROLE(name) { Env::DocGroup grRole(#name); DaoVaultRole_##name(THE_METHOD) }
+#define THE_METHOD(role, name) { Env::DocGroup grMethod(#name);  ProfitPool_##role##_##name(THE_FIELD) }
+#define THE_ROLE(name) { Env::DocGroup grRole(#name); ProfitPoolRole_##name(THE_METHOD) }
         
-        DaoVaultRoles_All(THE_ROLE)
+        ProfitPoolRoles_All(THE_ROLE)
 #undef THE_ROLE
 #undef THE_METHOD
 #undef THE_FIELD
@@ -61,9 +61,9 @@ BEAM_EXPORT void Method_0()
 }
 
 #define THE_FIELD(type, name) const type& name,
-#define ON_METHOD(role, name) void On_##role##_##name(DaoVault_##role##_##name(THE_FIELD) int unused = 0)
+#define ON_METHOD(role, name) void On_##role##_##name(ProfitPool_##role##_##name(THE_FIELD) int unused = 0)
 
-namespace DaoVault {
+namespace ProfitPool {
 
 void OnError(const char* sz)
 {
@@ -105,10 +105,10 @@ ON_METHOD(manager, deploy)
 
     const uint32_t nCharge =
         Upgradable3::Manager::get_ChargeDeploy() +
-        Env::Cost::SaveVar_For(sizeof(DaoVault::Pool0)) +
+        Env::Cost::SaveVar_For(sizeof(ProfitPool::Pool0)) +
         Env::Cost::Cycle * 50;
 
-    Env::GenerateKernel(nullptr, 0, &args, sizeof(args), nullptr, 0, nullptr, 0, "Deploy DaoVault contract", nCharge);
+    Env::GenerateKernel(nullptr, 0, &args, sizeof(args), nullptr, 0, nullptr, 0, "Deploy ProfitPool contract", nCharge);
 }
 
 ON_METHOD(manager, schedule_upgrade)
@@ -315,7 +315,7 @@ ON_METHOD(user, update)
 
     UserKeyID kid(cid);
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, nFc, &kid, 1, "DaoVault user update", nCharge);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, nFc, &kid, 1, "ProfitPool user update", nCharge);
 }
 
 #undef ON_METHOD
@@ -340,18 +340,18 @@ BEAM_EXPORT void Method_1()
 
 #define THE_METHOD(role, name) \
         if (!Env::Strcmp(szAction, #name)) { \
-            DaoVault_##role##_##name(PAR_READ) \
-            On_##role##_##name(DaoVault_##role##_##name(PAR_PASS) 0); \
+            ProfitPool_##role##_##name(PAR_READ) \
+            On_##role##_##name(ProfitPool_##role##_##name(PAR_PASS) 0); \
             return; \
         }
 
 #define THE_ROLE(name) \
     if (!Env::Strcmp(szRole, #name)) { \
-        DaoVaultRole_##name(THE_METHOD) \
+        ProfitPoolRole_##name(THE_METHOD) \
         return OnError("invalid Action"); \
     }
 
-    DaoVaultRoles_All(THE_ROLE)
+    ProfitPoolRoles_All(THE_ROLE)
 
 #undef THE_ROLE
 #undef THE_METHOD
@@ -361,4 +361,4 @@ BEAM_EXPORT void Method_1()
     OnError("unknown Role");
 }
 
-} // namespace DaoVault
+} // namespace ProfitPool

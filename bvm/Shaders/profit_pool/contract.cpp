@@ -3,7 +3,7 @@
 #include "contract.h"
 #include "../upgradable3/contract_impl.h"
 
-namespace DaoVault {
+namespace ProfitPool {
 
 BEAM_EXPORT void Ctor(const Method::Create& r)
 {
@@ -126,11 +126,11 @@ BEAM_EXPORT void Method_4(const Method::UserUpdate& r)
         Env::SaveVar(&uk, sizeof(uk), &u, sizeof(User0) + p.m_Assets * sizeof(User0::PerAsset), KeyTag::Internal);
 }
 
-} // namespace DaoVault
+} // namespace ProfitPool
 
 namespace Upgradable3 {
 
-    const uint32_t g_CurrentVersion = _countof(DaoVault::s_pSID) - 1;
+    const uint32_t g_CurrentVersion = _countof(ProfitPool::s_pSID) - 1;
 
     uint32_t get_CurrentVersion()
     {
