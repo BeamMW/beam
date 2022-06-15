@@ -288,11 +288,8 @@ namespace Shaders {
 	}
 
 	template <bool bToShader> void Convert(DaoVault::Method::Create& x) {
-		ConvertOrd<bToShader>(x.m_aidStaking);
-	}
-	template <bool bToShader> void Convert(DaoVault::Method::UserUpdate& x) {
-		ConvertOrd<bToShader>(x.m_NewStaking);
-		ConvertOrd<bToShader>(x.m_WithdrawCount);
+		ConvertOrd<bToShader>(x.m_Upgradable.m_hMinUpgradeDelay);
+		ConvertOrd<bToShader>(x.m_Upgradable.m_MinApprovers);
 	}
 	template <bool bToShader> void Convert(DaoVault::Method::Deposit& x) {
 		ConvertOrd<bToShader>(x.m_Amount);
@@ -1406,25 +1403,20 @@ namespace bvm2 {
 			std::cout << "StabPool Tok=" << Val2Num(totalStab.Tok) << ", Col=" << Val2Num(totalStab.Col) << std::endl;
 			std::cout << "kRate = " << ToDouble(g.m_BaseRate.m_k) * 100. << "%" << std::endl;
 
-			Shaders::DaoVault::PoolMaxPlus profitPool;
-			ZeroObject(profitPool);
-
 			{
-				Shaders::Env::Key_T<uint8_t> key;
+				Shaders::Env::Key_T<uintBigFor<AssetID>::Type> key;
 				key.m_Prefix.m_Cid = g.m_Settings.m_cidDaoVault;
-				key.m_KeyInContract = Shaders::DaoVault::Tags::s_Pool;
-
+				key.m_Prefix.m_Tag = Shaders::KeyTag::LockedAmount;
 				Blob b;
+				Amount valCol = 0;
+
+				key.m_KeyInContract = 0u;
 				m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
-				verify_test(b.n >= sizeof(Shaders::DaoVault::Pool0));
 
-				memcpy(&profitPool, b.p, b.n);
+				if (sizeof(AmountBig::Type) == b.n)
+					valCol = AmountBig::get_Lo(*((AmountBig::Type*)b.p));
 
-				profitPool.m_Assets = (b.n - sizeof(Shaders::DaoVault::Pool0)) / sizeof(Shaders::DaoVault::Pool0::PerAsset);
-				Amount valReward = profitPool.m_Assets ? profitPool.m_p[0].m_Amount : 0;
-				
-
-				std::cout << "ProfitPool Gov=" << Val2Num(profitPool.m_Weight) << ", Col=" << Val2Num(valReward) << std::endl;
+				std::cout << "Dao-vault , Col=" << Val2Num(valCol) << std::endl;
 			}
 
 			verify_test(g.m_Troves.m_Totals.Tok == totalRedist.Tok); // all troves must participate in the RedistPool
@@ -1487,25 +1479,6 @@ namespace bvm2 {
 					<< ", CR = " << (ToDouble(price.ToCR(x.m_Rcr)) * 100.) << "" << std::endl;
 			}
 
-
-			for (KeyWalker_T<Shaders::DaoVault::User0::Key, Shaders::DaoVault::User0> wlk(m_Proc, m_Proc.m_DaoVault.m_Cid, Shaders::DaoVault::Tags::s_User); wlk.MoveNext(); )
-			{
-				const auto& e = *wlk.m_pVal;
-
-				Shaders::DaoVault::UserMax u;
-				ZeroObject(u);
-
-				memcpy(&u, &e, wlk.m_Data.n);
-				uint32_t nAssetsPrev = (wlk.m_Data.n - sizeof(e)) / sizeof(Shaders::DaoVault::User0::PerAsset);
-
-				u.Remove(profitPool, nAssetsPrev);
-
-				std::cout << "\tUser=" << wlk.m_pKey->m_KeyInContract.m_pk << ", Stake=" << Val2Num(u.m_Weight) << ", Gain=" << Val2Num(u.m_p[0].m_Value) << std::endl;
-
-
-			}
-
-			verify_test(!profitPool.m_Weight);
 		}
 
 	};
@@ -1527,7 +1500,6 @@ namespace bvm2 {
 		{
 			Shaders::DaoVault::Method::Create args;
 			ZeroObject(args);
-			args.m_aidStaking = aidGov;
 			args.m_Upgradable.m_MinApprovers = 1;
 
 			verify_test(ContractCreate_T(m_DaoVault.m_Cid, m_DaoVault.m_Code, args));
@@ -1573,7 +1545,7 @@ namespace bvm2 {
 		{
 			ECC::SetRandom(ppKdf[i]);
 			man.m_pPKdf = ppKdf[i];
-
+/*
 			if (i < 2)
 			{
 				Shaders::DaoVault::Method::UserUpdate args;
@@ -1585,7 +1557,7 @@ namespace bvm2 {
 
 				verify_test(RunGuarded_T(m_DaoVault.m_Cid, args.s_iMethod, args));
 			}
-
+*/
 			Amount col = Rules::Coin * (35 + i * 5); // should be enough for 150% tcr
 			if (1 & i)
 				col -= Rules::Coin * 7; // play with order
@@ -1722,7 +1694,7 @@ namespace bvm2 {
 			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
-
+/*
 		for (uint32_t i = 0; i < 2; i++)
 		{
 			Shaders::DaoVault::Method::UserUpdate args;
@@ -1737,6 +1709,7 @@ namespace bvm2 {
 
 			lc.PrintAll();
 		}
+*/
 	}
 
 	void MyProcessor::TestMintor()
