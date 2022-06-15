@@ -27,6 +27,8 @@ namespace Upgradable3
         }
 
         void Save() const;
+        void Load();
+        void TestAdminSigs(uint32_t nApproveMask) const;
     };
 
     struct NextVersion
