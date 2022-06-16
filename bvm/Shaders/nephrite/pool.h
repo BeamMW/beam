@@ -175,7 +175,7 @@ struct HomogenousPool
     template <uint32_t nDims>
     struct SingleEpoch
     {
-        typedef Mode Mode;
+        typedef HomogenousPool::Mode Mode;
 
         Epoch<nDims> m_Active;
 
@@ -218,7 +218,7 @@ struct HomogenousPool
     template <uint32_t nDims>
     struct MultiEpoch
     {
-        typedef Mode Mode;
+        typedef HomogenousPool::Mode Mode;
 
         Epoch<nDims> m_Active;
         Epoch<nDims> m_Draining;
