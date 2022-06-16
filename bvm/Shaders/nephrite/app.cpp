@@ -800,12 +800,9 @@ namespace Charge
 
     static const uint32_t get_BorrowFee()
     {
-        const uint32_t nSizeVaultPoolApprox = sizeof(DaoVault::Pool0) + sizeof(DaoVault::Pool0::PerAsset) * 10; // probably would be less
         return
-            Env::Cost::Cycle * 5000 +
+            Env::Cost::Cycle * 100 +
             Env::Cost::CallFar +
-            Env::Cost::LoadVar_For(nSizeVaultPoolApprox) +
-            Env::Cost::SaveVar_For(nSizeVaultPoolApprox) +
             Env::Cost::FundsLock;
     }
 
