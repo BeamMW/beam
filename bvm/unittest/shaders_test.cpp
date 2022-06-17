@@ -174,11 +174,12 @@ namespace Shaders {
 		ConvertOrd<bToShader>((uint32_t&) x.m_Order);
 	}
 
-	template <bool bToShader, uint32_t nProvs> void Convert(Oracle2::Method::Create<nProvs>& x) {
-		ConvertOrd<bToShader>(x.m_Providers);
-		Convert<bToShader>(x.m_InitialValue);
+	template <bool bToShader> void Convert(Oracle2::Method::Create& x) {
 	}
-	template <bool bToShader> void Convert(Oracle2::Method::Set& x) {
+	template <bool bToShader> void Convert(Oracle2::Method::ProviderAdd& x) {
+		ConvertOrd<bToShader>(x.m_ApproveMask);
+	}
+	template <bool bToShader> void Convert(Oracle2::Method::FeedData& x) {
 		ConvertOrd<bToShader>(x.m_iProvider);
 		Convert<bToShader>(x.m_Value);
 	}
@@ -563,19 +564,19 @@ namespace bvm2 {
 				//case 3: Shaders::Oracle::Method_3(CastArg<Shaders::Oracle::Get>(pArgs)); return;
 				//}
 			}
-
+/*
 			if (cid == m_Oracle2.m_Cid)
 			{
-				//TempFrame f(*this, cid);
-				//switch (iMethod)
-				//{
-				//case 0: Shaders::Oracle2::Ctor(CastArg<Shaders::Oracle2::Method::Create<0> >(pArgs)); return;
-				//case 1: Shaders::Oracle2::Dtor(nullptr); return;
-				//case 3: Shaders::Oracle2::Method_3(CastArg<Shaders::Oracle2::Method::Get>(pArgs)); return;
-				//case 4: Shaders::Oracle2::Method_4(CastArg<Shaders::Oracle2::Method::Set>(pArgs)); return;
-				//}
+				TempFrame f(*this, cid);
+				switch (iMethod)
+				{
+				case 0: Shaders::Oracle2::Ctor(CastArg<Shaders::Oracle2::Method::Create>(pArgs)); return;
+				case 3: Shaders::Oracle2::Method_3(CastArg<Shaders::Oracle2::Method::Get>(pArgs)); return;
+				case 4: Shaders::Oracle2::Method_4(CastArg<Shaders::Oracle2::Method::FeedData>(pArgs)); return;
+				case 5: Shaders::Oracle2::Method_6(CastArg<Shaders::Oracle2::Method::ProviderAdd>(pArgs)); return;
+				}
 			}
-
+*/
 			if (cid == m_StableCoin.m_Cid)
 			{
 				//TempFrame f(*this, cid);
@@ -1393,8 +1394,8 @@ namespace bvm2 {
 
 				Blob b;
 				m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
-				verify_test(sizeof(price.m_Value) == b.n);
-				memcpy(&price.m_Value, b.p, sizeof(price.m_Value));
+				verify_test(sizeof(Shaders::Oracle2::Median) == b.n);
+				price.m_Value = ((Shaders::Oracle2::Median*) b.p)->m_Res;
 			}
 
 			std::cout << "Totals Tok=" << Val2Num(g.m_Troves.m_Totals.Tok) << ", Col=" << Val2Num(g.m_Troves.m_Totals.Col) << std::endl;
@@ -1485,8 +1486,10 @@ namespace bvm2 {
 
 	void MyProcessor::TestNephrite()
 	{
+		m_Height++;
+
 		VERIFY_ID(Shaders::Nephrite::s_pSID[_countof(Shaders::Nephrite::s_pSID) - 1], m_Nephrite.m_Sid);
-		VERIFY_ID(Shaders::Oracle2::s_SID, m_Oracle2.m_Sid);
+		VERIFY_ID(Shaders::Oracle2::s_pSID[_countof(Shaders::Oracle2::s_pSID) - 1], m_Oracle2.m_Sid);
 		VERIFY_ID(Shaders::DaoVault::s_pSID[_countof(Shaders::DaoVault::s_pSID) - 1], m_DaoVault.m_Sid);
 
 		MyManager man(*this);
@@ -1507,13 +1510,28 @@ namespace bvm2 {
 		}
 
 		{
-			Shaders::Oracle2::Method::Create<1> args;
+			Shaders::Oracle2::Method::Create args;
 			ZeroObject(args);
-			args.m_Providers = 1;
-			args.m_InitialValue = 45; // to the moon!
-
+			args.m_Upgradable.m_MinApprovers = 1;
+			args.m_Settings.m_MinProviders = 1;
+			args.m_Settings.m_hValidity = 40000;
 			verify_test(ContractCreate_T(m_Oracle2.m_Cid, m_Oracle2.m_Code, args));
 		}
+
+		{
+			Shaders::Oracle2::Method::ProviderAdd args;
+			ZeroObject(args);
+			args.m_ApproveMask = 1;
+			verify_test(RunGuarded_T(m_Oracle2.m_Cid, args.s_iMethod, args));
+		}
+
+		{
+			Shaders::Oracle2::Method::FeedData args;
+			ZeroObject(args);
+			args.m_Value = 45; // to the moon!
+			verify_test(RunGuarded_T(m_Oracle2.m_Cid, args.s_iMethod, args));
+		}
+
 
 		{
 			Shaders::Nephrite::Method::Create args;
@@ -1615,12 +1633,10 @@ namespace bvm2 {
 		}
 
 		{
-			Shaders::Oracle2::Method::Set args;
+			Shaders::Oracle2::Method::FeedData args;
 			ZeroObject(args);
-			args.m_Value = 25; // price drop. Some would be liquidated vs stabpool, others via redistpool
-
+			args.m_Value = 25; // price drop
 			verify_test(RunGuarded_T(m_Oracle2.m_Cid, args.s_iMethod, args));
-
 		}
 
 		m_Height += 10;
@@ -1648,12 +1664,10 @@ namespace bvm2 {
 		std::cout << "Price recover" << std::endl;
 
 		{
-			Shaders::Oracle2::Method::Set args;
+			Shaders::Oracle2::Method::FeedData args;
 			ZeroObject(args);
 			args.m_Value = 40; // otherwise we can't withdraw from stab pool
-
 			verify_test(RunGuarded_T(m_Oracle2.m_Cid, args.s_iMethod, args));
-
 		}
 
 		for (uint32_t i = 0; i < 2; i++)
