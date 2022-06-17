@@ -441,7 +441,7 @@ namespace bvm2 {
 
 		m_Charge -= n;
 	}
-	void Processor::Compile(ByteBuffer& res, const Blob& src, Kind kind)
+	void Processor::Compile(ByteBuffer& res, const Blob& src, Kind kind, Wasm::Compiler::DebugInfo* pDbgInfo /* = nullptr */)
 	{
 		Wasm::CheckpointTxt cp("Wasm/compile");
 
@@ -450,6 +450,7 @@ namespace bvm2 {
 		inp.m_p1 = inp.m_p0 + src.n;
 
 		Wasm::Compiler c;
+		c.m_pDebugInfo = pDbgInfo;
 		c.Parse(inp);
 
 		ResolveBindings(c, kind);

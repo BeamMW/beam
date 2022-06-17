@@ -10,7 +10,29 @@ void Settings::Save() const
     Env::SaveVar_T(key, *this);
 }
 
+void Settings::Load()
+{
+    Key key;
+    /*Env::Halt_if(!*/Env::LoadVar_T(key, *this)/*)*/;
+}
+
 typedef Method::Control Ctl;
+
+void Settings::TestAdminSigs(uint32_t nApproveMask) const
+{
+    uint32_t nSigned = 0;
+
+    for (uint32_t iAdmin = 0; iAdmin < s_AdminsMax; iAdmin++, nApproveMask >>= 1)
+    {
+        if (1 & nApproveMask)
+        {
+            Env::AddSig(m_pAdmin[iAdmin]);
+            nSigned++;
+        }
+    }
+
+    Env::Halt_if(nSigned < m_MinApprovers);
+}
 
 BEAM_EXPORT void Method_2(const Ctl::Base& r_)
 {
@@ -62,19 +84,7 @@ BEAM_EXPORT void Method_2(const Ctl::Base& r_)
     Settings::Key stgk;
     /*Env::Halt_if(!*/Env::LoadVar_T(stgk, stg)/*)*/;
 
-    uint32_t nMask = rs_.m_ApproveMask;
-    uint32_t nSigned = 0;
-
-    for (uint32_t iAdmin = 0; iAdmin < stg.s_AdminsMax; iAdmin++, nMask >>= 1)
-    {
-        if (1 & nMask)
-        {
-            Env::AddSig(stg.m_pAdmin[iAdmin]);
-            nSigned++;
-        }
-    }
-
-    Env::Halt_if(nSigned < stg.m_MinApprovers);
+    stg.TestAdminSigs(rs_.m_ApproveMask);
 
     switch (r_.m_Type)
     {

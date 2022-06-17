@@ -368,6 +368,7 @@ namespace Wasm {
 		:public Compiler
 	{
 #define WasmParserSections(macro) \
+		macro(0, Custom) \
 		macro(1, Type) \
 		macro(2, Import) \
 		macro(3, Funcs) \
@@ -442,6 +443,42 @@ namespace Wasm {
 		m_Labels.m_Items.resize(m_Functions.size()); // function labels
 	}
 
+#define STR_MATCH(vec, txt) ((vec.n == sizeof(txt)-1) && !memcmp(vec.p, txt, sizeof(txt)-1))
+
+	void CompilerPlus::OnSection_Custom(Reader& inp)
+	{
+		Vec<char> sName;
+		sName.Read(inp);
+
+		if (STR_MATCH(sName, "name"))
+		{
+			auto nType = inp.Read1();
+			auto nSize = inp.Read<uint32_t>();
+
+			Reader r;
+			r.m_p0 = inp.Consume(nSize);
+			r.m_p1 = r.m_p0 + nSize;
+
+			if (1 == nType)
+			{
+				// function names
+				auto nCount = r.Read<uint32_t>();
+				for (uint32_t i = 0; i < nCount; i++)
+				{
+					auto iFunc = r.Read<uint32_t>();
+					sName.Read(r);
+
+					// the convention looks to be: first all the imported names, then the internal
+					iFunc -= (uint32_t) m_ImportFuncs.size();
+
+					if (iFunc < m_Functions.size())
+						m_Functions[iFunc].m_sName = sName;
+				}
+			}
+		}
+
+		inp.m_p0 = inp.m_p1; // skip the rest
+	}
 
 	void CompilerPlus::OnSection_Type(Reader& inp)
 	{
@@ -537,6 +574,7 @@ namespace Wasm {
 		{
 			auto& x = m_Functions[i];
 			ZeroObject(x.m_Expression);
+			ZeroObject(x.m_sName);
 
 			x.m_TypeIdx = inp.Read<uint32_t>();
 			Test(x.m_TypeIdx < m_Types.size());
@@ -1249,6 +1287,9 @@ namespace Wasm {
 	{
 		CheckpointTxt cp("wasm/Compiler/build");
 
+		if (m_pDebugInfo)
+			m_pDebugInfo->m_vFuncs.resize(m_Functions.size());
+
 		for (uint32_t i = 0; i < m_Functions.size(); i++)
 		{
 			Context ctx(*this);
@@ -1287,6 +1328,14 @@ namespace Wasm {
 		cp.m_iFunc = m_iFunc;
 
 		auto& func = m_This.m_Functions[m_iFunc];
+
+		auto* pDbg = m_This.m_pDebugInfo ? &m_This.m_pDebugInfo->m_vFuncs[m_iFunc] : nullptr;
+		if (pDbg)
+		{
+			pDbg->m_sName.assign(func.m_sName.p, func.m_sName.n);
+			pDbg->m_Pos = (uint32_t) m_This.m_Result.size();
+		}
+
 		m_Code = func.m_Expression;
 
 		const auto& tp = m_This.m_Types[func.m_TypeIdx];
@@ -1310,9 +1359,12 @@ namespace Wasm {
 
 			I nInstruction = (I) m_Code.Read1();
 
-			//auto& de = func.m_Dbg.emplace_back();
-			//de.m_Opcode = (uint8_t)nInstruction;
-			//de.m_Pos = (uint32_t) m_This.m_Result.size();
+			if (pDbg)
+			{
+				auto& de = pDbg->m_vOps.emplace_back();
+				de.m_Opcode = (uint8_t) nInstruction;
+				de.m_Pos = (uint32_t) m_This.m_Result.size();
+			}
 
 			switch (nInstruction)
 			{

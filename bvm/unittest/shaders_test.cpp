@@ -174,11 +174,12 @@ namespace Shaders {
 		ConvertOrd<bToShader>((uint32_t&) x.m_Order);
 	}
 
-	template <bool bToShader, uint32_t nProvs> void Convert(Oracle2::Method::Create<nProvs>& x) {
-		ConvertOrd<bToShader>(x.m_Providers);
-		Convert<bToShader>(x.m_InitialValue);
+	template <bool bToShader> void Convert(Oracle2::Method::Create& x) {
 	}
-	template <bool bToShader> void Convert(Oracle2::Method::Set& x) {
+	template <bool bToShader> void Convert(Oracle2::Method::ProviderAdd& x) {
+		ConvertOrd<bToShader>(x.m_ApproveMask);
+	}
+	template <bool bToShader> void Convert(Oracle2::Method::FeedData& x) {
 		ConvertOrd<bToShader>(x.m_iProvider);
 		Convert<bToShader>(x.m_Value);
 	}
@@ -288,11 +289,12 @@ namespace Shaders {
 	}
 
 	template <bool bToShader> void Convert(DaoVault::Method::Create& x) {
-		ConvertOrd<bToShader>(x.m_aidStaking);
+		ConvertOrd<bToShader>(x.m_Upgradable.m_hMinUpgradeDelay);
+		ConvertOrd<bToShader>(x.m_Upgradable.m_MinApprovers);
 	}
-	template <bool bToShader> void Convert(DaoVault::Method::UserUpdate& x) {
-		ConvertOrd<bToShader>(x.m_NewStaking);
-		ConvertOrd<bToShader>(x.m_WithdrawCount);
+	template <bool bToShader> void Convert(DaoVault::Method::Deposit& x) {
+		ConvertOrd<bToShader>(x.m_Amount);
+		ConvertOrd<bToShader>(x.m_Aid);
 	}
 
 	template <bool bToShader> void Convert(Aphorize::Create& x) {
@@ -395,6 +397,7 @@ namespace Shaders {
 	}
 
 //#include "../Shaders/dao-vote/contract.cpp" // already within namespace
+//#include "../Shaders/dao-vault/contract.cpp" // already within namespace
 //#include "../Shaders/nephrite/contract.cpp" // already within namespace
 //#include "../Shaders/nephrite/app.cpp"
 #include "../Shaders/amm/contract.cpp" // already within namespace
@@ -496,6 +499,7 @@ namespace bvm2 {
 			ByteBuffer m_Code;
 			ShaderID m_Sid;
 			ContractID m_Cid;
+			Wasm::Compiler::DebugInfo m_DbgInfo;
 		};
 
 		ContractWrap m_Vault;
@@ -520,7 +524,7 @@ namespace bvm2 {
 
 		void AddCode(ContractWrap& cw, const char* sz)
 		{
-			ContractTestProcessor::AddCode(cw.m_Code, sz);
+			AddCodeEx(cw.m_Code, sz, Kind::Contract, &cw.m_DbgInfo);
 			get_ShaderID(cw.m_Sid, cw.m_Code);
 		}
 
@@ -560,19 +564,19 @@ namespace bvm2 {
 				//case 3: Shaders::Oracle::Method_3(CastArg<Shaders::Oracle::Get>(pArgs)); return;
 				//}
 			}
-
+/*
 			if (cid == m_Oracle2.m_Cid)
 			{
-				//TempFrame f(*this, cid);
-				//switch (iMethod)
-				//{
-				//case 0: Shaders::Oracle2::Ctor(CastArg<Shaders::Oracle2::Method::Create<0> >(pArgs)); return;
-				//case 1: Shaders::Oracle2::Dtor(nullptr); return;
-				//case 3: Shaders::Oracle2::Method_3(CastArg<Shaders::Oracle2::Method::Get>(pArgs)); return;
-				//case 4: Shaders::Oracle2::Method_4(CastArg<Shaders::Oracle2::Method::Set>(pArgs)); return;
-				//}
+				TempFrame f(*this, cid);
+				switch (iMethod)
+				{
+				case 0: Shaders::Oracle2::Ctor(CastArg<Shaders::Oracle2::Method::Create>(pArgs)); return;
+				case 3: Shaders::Oracle2::Method_3(CastArg<Shaders::Oracle2::Method::Get>(pArgs)); return;
+				case 4: Shaders::Oracle2::Method_4(CastArg<Shaders::Oracle2::Method::FeedData>(pArgs)); return;
+				case 5: Shaders::Oracle2::Method_6(CastArg<Shaders::Oracle2::Method::ProviderAdd>(pArgs)); return;
+				}
 			}
-
+*/
 			if (cid == m_StableCoin.m_Cid)
 			{
 				//TempFrame f(*this, cid);
@@ -728,7 +732,7 @@ namespace bvm2 {
 				case 4: Shaders::Nephrite::Method_4(CastArg<Shaders::Nephrite::Method::TroveClose>(pArgs)); return;
 				case 7: Shaders::Nephrite::Method_7(CastArg<Shaders::Nephrite::Method::UpdStabPool>(pArgs)); return;
 				case 8: Shaders::Nephrite::Method_8(CastArg<Shaders::Nephrite::Method::Liquidate>(pArgs)); return;
-				case 10: Shaders::Nephrite::Method_10(CastArg<Shaders::Nephrite::Method::Redeem>(pArgs)); return;
+				case 9: Shaders::Nephrite::Method_9(CastArg<Shaders::Nephrite::Method::Redeem>(pArgs)); return;
 				}
 			}
 */
@@ -1233,8 +1237,13 @@ namespace bvm2 {
 
 		void SetBalance(const Shaders::Env::Key_T<Balance::Key>& key, const Pair& vals)
 		{
-			static_assert(sizeof(vals) == sizeof(Balance));
-			m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&vals, sizeof(vals)));
+			Balance ub;
+			ZeroObject(ub);
+
+			static_assert(sizeof(vals) == sizeof(ub.m_Amounts));
+			memcpy(&ub.m_Amounts, &vals, sizeof(vals));
+
+			m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&ub, sizeof(ub)));
 		}
 
 		bool InvokeBase(Shaders::Nephrite::Method::BaseTx& args, uint32_t nSizeArgs, uint32_t iMethod, const PubKey& pkUser, bool bShouldUseVault)
@@ -1385,8 +1394,8 @@ namespace bvm2 {
 
 				Blob b;
 				m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
-				verify_test(sizeof(price.m_Value) == b.n);
-				memcpy(&price.m_Value, b.p, sizeof(price.m_Value));
+				verify_test(sizeof(Shaders::Oracle2::Median) == b.n);
+				price.m_Value = ((Shaders::Oracle2::Median*) b.p)->m_Res;
 			}
 
 			std::cout << "Totals Tok=" << Val2Num(g.m_Troves.m_Totals.Tok) << ", Col=" << Val2Num(g.m_Troves.m_Totals.Col) << std::endl;
@@ -1395,25 +1404,20 @@ namespace bvm2 {
 			std::cout << "StabPool Tok=" << Val2Num(totalStab.Tok) << ", Col=" << Val2Num(totalStab.Col) << std::endl;
 			std::cout << "kRate = " << ToDouble(g.m_BaseRate.m_k) * 100. << "%" << std::endl;
 
-			Shaders::DaoVault::PoolMaxPlus profitPool;
-			ZeroObject(profitPool);
-
 			{
-				Shaders::Env::Key_T<uint8_t> key;
+				Shaders::Env::Key_T<uintBigFor<AssetID>::Type> key;
 				key.m_Prefix.m_Cid = g.m_Settings.m_cidDaoVault;
-				key.m_KeyInContract = Shaders::DaoVault::Tags::s_Pool;
-
+				key.m_Prefix.m_Tag = Shaders::KeyTag::LockedAmount;
 				Blob b;
+				Amount valCol = 0;
+
+				key.m_KeyInContract = 0u;
 				m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
-				verify_test(b.n >= sizeof(Shaders::DaoVault::Pool0));
 
-				memcpy(&profitPool, b.p, b.n);
+				if (sizeof(AmountBig::Type) == b.n)
+					valCol = AmountBig::get_Lo(*((AmountBig::Type*)b.p));
 
-				profitPool.m_Assets = (b.n - sizeof(Shaders::DaoVault::Pool0)) / sizeof(Shaders::DaoVault::Pool0::PerAsset);
-				Amount valReward = profitPool.m_Assets ? profitPool.m_p[0].m_Amount : 0;
-				
-
-				std::cout << "ProfitPool Gov=" << Val2Num(profitPool.m_Weight) << ", Col=" << Val2Num(valReward) << std::endl;
+				std::cout << "Dao-vault , Col=" << Val2Num(valCol) << std::endl;
 			}
 
 			verify_test(g.m_Troves.m_Totals.Tok == totalRedist.Tok); // all troves must participate in the RedistPool
@@ -1476,33 +1480,16 @@ namespace bvm2 {
 					<< ", CR = " << (ToDouble(price.ToCR(x.m_Rcr)) * 100.) << "" << std::endl;
 			}
 
-
-			for (KeyWalker_T<Shaders::DaoVault::User0::Key, Shaders::DaoVault::User0> wlk(m_Proc, m_Proc.m_DaoVault.m_Cid, Shaders::DaoVault::Tags::s_User); wlk.MoveNext(); )
-			{
-				const auto& e = *wlk.m_pVal;
-
-				Shaders::DaoVault::UserMax u;
-				ZeroObject(u);
-
-				memcpy(&u, &e, wlk.m_Data.n);
-				uint32_t nAssetsPrev = (wlk.m_Data.n - sizeof(e)) / sizeof(Shaders::DaoVault::User0::PerAsset);
-
-				u.Remove(profitPool, nAssetsPrev);
-
-				std::cout << "\tUser=" << wlk.m_pKey->m_KeyInContract.m_pk << ", Stake=" << Val2Num(u.m_Weight) << ", Gain=" << Val2Num(u.m_p[0].m_Value) << std::endl;
-
-
-			}
-
-			verify_test(!profitPool.m_Weight);
 		}
 
 	};
 
 	void MyProcessor::TestNephrite()
 	{
+		m_Height++;
+
 		VERIFY_ID(Shaders::Nephrite::s_pSID[_countof(Shaders::Nephrite::s_pSID) - 1], m_Nephrite.m_Sid);
-		VERIFY_ID(Shaders::Oracle2::s_SID, m_Oracle2.m_Sid);
+		VERIFY_ID(Shaders::Oracle2::s_pSID[_countof(Shaders::Oracle2::s_pSID) - 1], m_Oracle2.m_Sid);
 		VERIFY_ID(Shaders::DaoVault::s_pSID[_countof(Shaders::DaoVault::s_pSID) - 1], m_DaoVault.m_Sid);
 
 		MyManager man(*this);
@@ -1516,7 +1503,6 @@ namespace bvm2 {
 		{
 			Shaders::DaoVault::Method::Create args;
 			ZeroObject(args);
-			args.m_aidStaking = aidGov;
 			args.m_Upgradable.m_MinApprovers = 1;
 
 			verify_test(ContractCreate_T(m_DaoVault.m_Cid, m_DaoVault.m_Code, args));
@@ -1524,13 +1510,28 @@ namespace bvm2 {
 		}
 
 		{
-			Shaders::Oracle2::Method::Create<1> args;
+			Shaders::Oracle2::Method::Create args;
 			ZeroObject(args);
-			args.m_Providers = 1;
-			args.m_InitialValue = 45; // to the moon!
-
+			args.m_Upgradable.m_MinApprovers = 1;
+			args.m_Settings.m_MinProviders = 1;
+			args.m_Settings.m_hValidity = 40000;
 			verify_test(ContractCreate_T(m_Oracle2.m_Cid, m_Oracle2.m_Code, args));
 		}
+
+		{
+			Shaders::Oracle2::Method::ProviderAdd args;
+			ZeroObject(args);
+			args.m_ApproveMask = 1;
+			verify_test(RunGuarded_T(m_Oracle2.m_Cid, args.s_iMethod, args));
+		}
+
+		{
+			Shaders::Oracle2::Method::FeedData args;
+			ZeroObject(args);
+			args.m_Value = 45; // to the moon!
+			verify_test(RunGuarded_T(m_Oracle2.m_Cid, args.s_iMethod, args));
+		}
+
 
 		{
 			Shaders::Nephrite::Method::Create args;
@@ -1562,7 +1563,7 @@ namespace bvm2 {
 		{
 			ECC::SetRandom(ppKdf[i]);
 			man.m_pPKdf = ppKdf[i];
-
+/*
 			if (i < 2)
 			{
 				Shaders::DaoVault::Method::UserUpdate args;
@@ -1574,7 +1575,7 @@ namespace bvm2 {
 
 				verify_test(RunGuarded_T(m_DaoVault.m_Cid, args.s_iMethod, args));
 			}
-
+*/
 			Amount col = Rules::Coin * (35 + i * 5); // should be enough for 150% tcr
 			if (1 & i)
 				col -= Rules::Coin * 7; // play with order
@@ -1607,7 +1608,7 @@ namespace bvm2 {
 			Shaders::Nephrite::Method::UpdStabPool args;
 			verify_test(man.RunGuarded_T(args));
 
-			verify_test(lc.InvokeTxUser(args, false));
+			verify_test(lc.InvokeTxUser(args));
 
 			std::cout << "Stab" << i << ": Put=" << Val2Num(args.m_NewAmount) << std::endl;
 			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
@@ -1632,12 +1633,10 @@ namespace bvm2 {
 		}
 
 		{
-			Shaders::Oracle2::Method::Set args;
+			Shaders::Oracle2::Method::FeedData args;
 			ZeroObject(args);
-			args.m_Value = 25; // price drop. Some would be liquidated vs stabpool, others via redistpool
-
+			args.m_Value = 25; // price drop
 			verify_test(RunGuarded_T(m_Oracle2.m_Cid, args.s_iMethod, args));
-
 		}
 
 		m_Height += 10;
@@ -1665,12 +1664,10 @@ namespace bvm2 {
 		std::cout << "Price recover" << std::endl;
 
 		{
-			Shaders::Oracle2::Method::Set args;
+			Shaders::Oracle2::Method::FeedData args;
 			ZeroObject(args);
 			args.m_Value = 40; // otherwise we can't withdraw from stab pool
-
 			verify_test(RunGuarded_T(m_Oracle2.m_Cid, args.s_iMethod, args));
-
 		}
 
 		for (uint32_t i = 0; i < 2; i++)
@@ -1683,7 +1680,7 @@ namespace bvm2 {
 			Shaders::Nephrite::Method::UpdStabPool args;
 			verify_test(man.RunGuarded_T(args));
 
-			verify_test(lc.InvokeTxUser(args, false));
+			verify_test(lc.InvokeTxUser(args));
 
 			std::cout << "Stab" << i << " all out" << std::endl;
 			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
@@ -1711,7 +1708,7 @@ namespace bvm2 {
 			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
-
+/*
 		for (uint32_t i = 0; i < 2; i++)
 		{
 			Shaders::DaoVault::Method::UserUpdate args;
@@ -1726,6 +1723,7 @@ namespace bvm2 {
 
 			lc.PrintAll();
 		}
+*/
 	}
 
 	void MyProcessor::TestMintor()

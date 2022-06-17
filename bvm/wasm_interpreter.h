@@ -182,6 +182,25 @@ namespace Wasm {
 		};
 		std::vector<PerImportGlobal> m_ImportGlobals;
 
+		struct DebugInfo
+		{
+			struct Entry {
+				uint8_t m_Opcode;
+				uint32_t m_Pos;
+			};
+
+			struct Function
+			{
+				std::string m_sName;
+				uint32_t m_Pos;
+				std::vector<Entry> m_vOps;
+			};
+
+			std::vector<Function> m_vFuncs;
+		};
+
+		DebugInfo* m_pDebugInfo = nullptr;
+
 		struct PerFunction
 		{
 			uint32_t m_TypeIdx;
@@ -202,12 +221,7 @@ namespace Wasm {
 			} m_Locals;
 
 			Reader m_Expression;
-
-			struct DbgEntry {
-				uint8_t m_Opcode;
-				uint32_t m_Pos;
-			};
-			//std::vector<DbgEntry> m_Dbg;
+			Vec<char> m_sName;
 		};
 
 		std::vector<PerFunction> m_Functions;
