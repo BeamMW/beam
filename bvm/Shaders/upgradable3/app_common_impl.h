@@ -171,12 +171,14 @@ struct Manager
 		Env::KeyID m_Kid;
 		const ContractID* m_pCid = nullptr;
 		uint32_t m_iMethod;
-		void* m_pArg;
+		const void* m_pArg;
 		uint32_t m_nArg;
 		const char* m_szComment;
 		PubKey m_pPks[Settings::s_AdminsMax];
 		Secp_scalar_data m_pE[Settings::s_AdminsMax];
 		uint32_t m_nPks;
+		const FundsChange* m_pFc = nullptr;
+		uint32_t m_nFc = 0;
 
 		uint32_t m_Charge =
 			Env::Cost::CallFar +
@@ -186,7 +188,7 @@ struct Manager
 		void InvokeKrn(const Secp_scalar_data& kSig, Secp_scalar_data* pE)
 		{
 			Env::GenerateKernelAdvanced(
-				m_pCid, m_iMethod, m_pArg, m_nArg, nullptr, 0, m_pPks, m_nPks, m_szComment, m_Charge,
+				m_pCid, m_iMethod, m_pArg, m_nArg, m_pFc, m_nFc, m_pPks, m_nPks, m_szComment, m_Charge,
 				m_Msg2.m_hMin, m_Msg2.m_hMin + s_dh, m_Msg2.m_pkKrnBlind, m_Msg2.m_pkFullNonce, kSig, s_iSlotKrnBlind, s_iSlotKrnNonce, pE);
 		}
 
