@@ -518,8 +518,6 @@ struct AppGlobalPlus
         return true;
     }
 
-    Amount m_Fee = 0;
-
     static void Flow2Fc(FundsChange& fc, const Flow& f, AssetID aid)
     {
         fc.m_Amount = f.m_Val;
@@ -530,10 +528,7 @@ struct AppGlobalPlus
     void Flow2Fc(FundsChange* pFc, const FlowPair& fp)
     {
         Flow2Fc(pFc[0], fp.Tok, m_Aid);
-
-        Flow f = fp.Col;
-        f.Add(m_Fee, 1);
-        Flow2Fc(pFc[1], f, 0);
+        Flow2Fc(pFc[1], fp.Col, 0);
     }
 
     void UseBalance(Method::BaseTx& tx)
@@ -798,7 +793,7 @@ namespace Charge
 
     }
 
-    static const uint32_t get_BorrowFee()
+    static const uint32_t get_SendProfit()
     {
         return
             Env::Cost::Cycle * 100 +
@@ -986,9 +981,12 @@ ON_METHOD(user, trove_modify)
 
         g.OnTroveMove(txb, 0);
 
-        g.m_Fee = g.get_BorrowFee(t.m_Amounts.Tok, tok0, bRecovery, g.m_Price);
-        if (g.m_Fee)
-            nCharge += Charge::get_BorrowFee();
+        Amount fee = g.get_BorrowFee(t.m_Amounts.Tok, tok0, bRecovery, g.m_Price);
+        if (fee)
+        {
+            nCharge += Charge::get_SendProfit();
+            txb.m_Flow.Col.Add(fee, 1);
+        }
 
         nCharge +=
             Charge::Price() +
@@ -1025,8 +1023,8 @@ ON_METHOD(user, trove_modify)
             Env::DocGroup gr("prediction");
             g.DocAddTrove(t);
 
-            if (g.m_Fee)
-                Env::DocAddNum("fee", g.m_Fee);
+            if (fee)
+                Env::DocAddNum("fee", fee);
         }
 
     }
@@ -1212,13 +1210,19 @@ ON_METHOD(user, redeem)
         }
     }
 
-    g.m_Fee = g.AddRedeemFee(ctx);
+    Amount fee = g.AddRedeemFee(ctx);
 
     {
         Env::DocGroup gr("prediction");
         Env::DocAddNum("tok", ctx.m_fpLogic.Tok.m_Val);
         Env::DocAddNum("col", ctx.m_fpLogic.Col.m_Val);
-        Env::DocAddNum("fee", g.m_Fee);
+        Env::DocAddNum("fee", fee);
+    }
+
+    if (fee)
+    {
+        ctx.m_fpLogic.Col.Add(fee, 1);
+        nCharge += Charge::get_SendProfit();
     }
 
     if (!bPredictOnly)
@@ -1236,7 +1240,6 @@ ON_METHOD(user, redeem)
 
         nCharge +=
             Charge::Funds(args) +
-            Charge::get_BorrowFee() +
             Env::Cost::AssetEmit; // comission
 
         Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "redeem", nCharge);

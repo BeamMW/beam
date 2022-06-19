@@ -287,7 +287,10 @@ struct MyGlobal
 
             Amount feeCol = get_BorrowFee(m_Troves.m_Totals.Tok, totals0.Tok, bRecovery, price);
             if (feeCol)
+            {
                 SendProfit(feeCol);
+                fpLogic.Col.Add(feeCol, 1);
+            }
         }
 
 
@@ -517,7 +520,10 @@ BEAM_EXPORT void Method_9(Method::Redeem& r)
 
     Amount fee = g.AddRedeemFee(ctx);
     if (fee)
+    {
         g.SendProfit(fee);
+        ctx.m_fpLogic.Col.Add(fee, 1);
+    }
 
     g.AdjustAll(r, totals0, ctx.m_fpLogic, r.m_pkUser);
 }
