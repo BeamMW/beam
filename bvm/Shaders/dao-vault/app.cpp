@@ -18,6 +18,8 @@
     macro(AssetID, aid) \
     macro(Amount, amount)
 
+#define DaoVault_manager_deposit(macro)DaoVault_manager_withdraw(macro)\
+
 #define DaoVaultRole_manager(macro) \
     macro(manager, view) \
     macro(manager, deploy) \
@@ -27,6 +29,7 @@
     macro(manager, set_min_approvers) \
     macro(manager, view_funds) \
     macro(manager, my_admin_key) \
+    macro(manager, deposit) \
     macro(manager, withdraw)
 
 #define DaoVaultRoles_All(macro) \
@@ -97,6 +100,24 @@ ON_METHOD(manager, deploy)
 
     Env::GenerateKernel(nullptr, 0, &args, sizeof(args), nullptr, 0, nullptr, 0, "Deploy DaoVault contract", nCharge);
 }
+
+ON_METHOD(manager, deposit)
+{
+    if (!amount)
+        return OnError("amount not specified");
+
+    Method::Deposit arg;
+    arg.m_Aid = aid;
+    arg.m_Amount = amount;
+
+    FundsChange fc;
+    fc.m_Aid = aid;
+    fc.m_Amount = amount;
+    fc.m_Consume = 1;
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deposit to DaoVault", 0);
+}
+
 
 ON_METHOD(manager, withdraw)
 {
