@@ -107,6 +107,11 @@ ON_METHOD(manager, withdraw)
     arg.m_Aid = aid;
     arg.m_Amount = amount;
 
+    FundsChange fc;
+    fc.m_Aid = aid;
+    fc.m_Amount = amount;
+    fc.m_Consume = 0;
+
     Upgradable3::Manager::MultiSigRitual msp;
     msp.m_szComment = "DaoVault withdraw";
     msp.m_iMethod = arg.s_iMethod;
@@ -114,6 +119,9 @@ ON_METHOD(manager, withdraw)
     msp.m_pCid = &cid;
     msp.m_Kid = AdminKeyID();
     msp.m_Charge += Env::Cost::FundsLock;
+    msp.m_pFc = &fc;
+    msp.m_nFc = 1;
+
     msp.Perform(arg);
 }
 
