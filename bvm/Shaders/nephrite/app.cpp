@@ -981,11 +981,11 @@ ON_METHOD(user, trove_modify)
 
         g.OnTroveMove(txb, 0);
 
-        Amount fee = g.get_BorrowFee(t.m_Amounts.Tok, tok0, bRecovery, g.m_Price);
+        Amount fee = g.get_BorrowFee(t.m_Amounts.Tok, tok0, bRecovery);
         if (fee)
         {
             nCharge += Charge::get_SendProfit();
-            txb.m_Flow.Col.Add(fee, 1);
+            txb.m_Flow.Tok.Add(fee, 1);
         }
 
         nCharge +=

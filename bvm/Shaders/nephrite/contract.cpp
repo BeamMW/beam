@@ -109,13 +109,18 @@ struct MyGlobal
         }
     }
 
-    void SendProfit(Amount val)
+    void SendProfit(Amount val, AssetID aid, Flow& fLogic)
     {
-        DaoVault::Method::Deposit args;
-        args.m_Amount = val;
-        args.m_Aid = 0;
+        if (val)
+        {
+            DaoVault::Method::Deposit args;
+            args.m_Amount = val;
+            args.m_Aid = aid;
 
-        Env::CallFar_T(m_Settings.m_cidDaoVault, args);
+            Env::CallFar_T(m_Settings.m_cidDaoVault, args);
+
+            fLogic.Add(val, 1);
+        }
     }
 
     void AdjustTxFunds(const Method::BaseTx& r) const
@@ -285,12 +290,8 @@ struct MyGlobal
             bool bRecovery = IsRecovery(price);
             Env::Halt_if(IsTroveUpdInvalid(t, totals0, price, bRecovery));
 
-            Amount feeCol = get_BorrowFee(m_Troves.m_Totals.Tok, totals0.Tok, bRecovery, price);
-            if (feeCol)
-            {
-                SendProfit(feeCol);
-                fpLogic.Col.Add(feeCol, 1);
-            }
+            Amount feeTok = get_BorrowFee(m_Troves.m_Totals.Tok, totals0.Tok, bRecovery);
+            SendProfit(feeTok, m_Aid, fpLogic.Tok);
         }
 
 
@@ -519,11 +520,7 @@ BEAM_EXPORT void Method_9(Method::Redeem& r)
     }
 
     Amount fee = g.AddRedeemFee(ctx);
-    if (fee)
-    {
-        g.SendProfit(fee);
-        ctx.m_fpLogic.Col.Add(fee, 1);
-    }
+    g.SendProfit(fee, 0, ctx.m_fpLogic.Col);
 
     g.AdjustAll(r, totals0, ctx.m_fpLogic, r.m_pkUser);
 }

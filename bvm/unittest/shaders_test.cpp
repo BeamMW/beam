@@ -1409,7 +1409,7 @@ namespace bvm2 {
 				key.m_Prefix.m_Cid = g.m_Settings.m_cidDaoVault;
 				key.m_Prefix.m_Tag = Shaders::KeyTag::LockedAmount;
 				Blob b;
-				Amount valCol = 0;
+				Amount valCol = 0, valTok = 0;
 
 				key.m_KeyInContract = 0u;
 				m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
@@ -1417,7 +1417,13 @@ namespace bvm2 {
 				if (sizeof(AmountBig::Type) == b.n)
 					valCol = AmountBig::get_Lo(*((AmountBig::Type*)b.p));
 
-				std::cout << "Dao-vault , Col=" << Val2Num(valCol) << std::endl;
+				key.m_KeyInContract = g.m_Aid;
+				m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
+
+				if (sizeof(AmountBig::Type) == b.n)
+					valTok = AmountBig::get_Lo(*((AmountBig::Type*)b.p));
+
+				std::cout << "Dao-vault , Col=" << Val2Num(valCol) << ", Tok=" << Val2Num(valTok) << std::endl;
 			}
 
 			verify_test(g.m_Troves.m_Totals.Tok == totalRedist.Tok); // all troves must participate in the RedistPool
