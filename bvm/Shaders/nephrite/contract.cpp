@@ -109,7 +109,7 @@ struct MyGlobal
         }
     }
 
-    void SendProfit(Amount val, AssetID aid, Flow& fLogic)
+    void SendProfit(Amount val, AssetID aid, Flow& fFlow)
     {
         if (val)
         {
@@ -119,7 +119,7 @@ struct MyGlobal
 
             Env::CallFar_T(m_Settings.m_cidDaoVault, args);
 
-            fLogic.Add(val, 1);
+            fFlow.Add(val, 0);
         }
     }
 
@@ -238,7 +238,7 @@ struct MyGlobal
         Env::SaveVar_T(tk, t);
     }
 
-    void TroveModify(Trove::ID iPrev0, Trove::ID iPrev1, const Pair* pNewVals, const PubKey* pPk, const Method::BaseTx& r)
+    void TroveModify(Trove::ID iPrev0, Trove::ID iPrev1, const Pair* pNewVals, const PubKey* pPk, Method::BaseTx& r)
     {
         bool bOpen = !!pPk;
         bool bClose = !pNewVals;
@@ -291,7 +291,7 @@ struct MyGlobal
             Env::Halt_if(IsTroveUpdInvalid(t, totals0, price, bRecovery));
 
             Amount feeTok = get_BorrowFee(m_Troves.m_Totals.Tok, totals0.Tok, bRecovery);
-            SendProfit(feeTok, m_Aid, fpLogic.Tok);
+            SendProfit(feeTok, m_Aid, r.m_Flow.Tok);
         }
 
 
@@ -356,13 +356,13 @@ BEAM_EXPORT void Dtor(void*)
 {
 }
 
-BEAM_EXPORT void Method_3(const Method::TroveOpen& r)
+BEAM_EXPORT void Method_3(Method::TroveOpen& r)
 {
     MyGlobal_LoadSave g;
     g.TroveModify(0, r.m_iPrev1, &r.m_Amounts, &r.m_pkUser, r);
 }
 
-BEAM_EXPORT void Method_4(const Method::TroveClose& r)
+BEAM_EXPORT void Method_4(Method::TroveClose& r)
 {
     MyGlobal_LoadSave g;
     g.TroveModify(r.m_iPrev0, 0, nullptr, nullptr, r);
@@ -520,7 +520,7 @@ BEAM_EXPORT void Method_9(Method::Redeem& r)
     }
 
     Amount fee = g.AddRedeemFee(ctx);
-    g.SendProfit(fee, 0, ctx.m_fpLogic.Col);
+    g.SendProfit(fee, 0, r.m_Flow.Col);
 
     g.AdjustAll(r, totals0, ctx.m_fpLogic, r.m_pkUser);
 }
