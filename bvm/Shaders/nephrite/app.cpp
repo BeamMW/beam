@@ -245,7 +245,7 @@ struct AppGlobal
 {
     bool Load(const ContractID& cid)
     {
-        //Env::SelectContext(1, 0); // dependent ctx
+        Env::SelectContext(1, 0); // dependent ctx
 
         Env::Key_T<uint8_t> key;
         _POD_(key.m_Prefix.m_Cid) = cid;
