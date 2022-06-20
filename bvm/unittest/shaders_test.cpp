@@ -1110,11 +1110,6 @@ namespace bvm2 {
 		return res * 1e-8;
 	}
 
-	double Val2NumDiff(Amount x, Amount x0)
-	{
-		return (x >= x0) ? Val2Num(x - x0) : -Val2Num(x0 - x);
-	}
-
 	struct NephriteContext
 	{
 		MyProcessor& m_Proc;
@@ -1122,6 +1117,12 @@ namespace bvm2 {
 
 		typedef Shaders::Nephrite::Balance Balance;
 		typedef Shaders::Nephrite::Pair Pair;
+
+		static double Flow2Num(Shaders::Nephrite::Flow f)
+		{
+			double res = Val2Num(f.m_Val);
+			return f.m_Spend ? -res : res;
+		}
 
 		Pair get_Balance(const PubKey& pk)
 		{
@@ -1139,9 +1140,6 @@ namespace bvm2 {
 			ZeroObject(vals);
 			return vals;
 		}
-
-		static const Amount s_TstReserveTok = Rules::Coin * 1000000077ull;
-		static const Amount s_TstReserveCol = Rules::Coin * 1000000033ull;
 
 		struct KeyWalker
 		{
@@ -1208,42 +1206,36 @@ namespace bvm2 {
 					break;
 
 				auto& vals = wlk.m_pVal->m_Amounts;
-				if ((vals.Tok != s_TstReserveTok) || (vals.Col != s_TstReserveCol))
+				if (vals.Tok || vals.Col)
 				{
 					std::cout << "\tUser=" << wlk.m_pKey->m_KeyInContract.m_Pk
-						<< ", Tok=" << Val2NumDiff(vals.Tok, s_TstReserveTok)
-						<< ", Col=" << Val2NumDiff(vals.Col, s_TstReserveCol)
+						<< ", Tok=" << Val2Num(vals.Tok)
+						<< ", Col=" << Val2Num(vals.Col)
 						<< std::endl;
 
-					vals.Tok = s_TstReserveTok;
-					vals.Col = s_TstReserveCol;
+					vals.Tok = 0;
+					vals.Col = 0;
 				}
 
 				//m_Proc.m_Vars.erase(it);
 			}
 		}
 
-		Pair ReadBalance(const Shaders::Env::Key_T<Balance::Key>& key)
+		Balance ReadBalance(const Shaders::Env::Key_T<Balance::Key>& key)
 		{
 			Blob blVal;
 			m_Proc.LoadVar(Blob(&key, sizeof(key)), blVal);
 			if (sizeof(Balance) == blVal.n)
-				return Cast::Reinterpret<Balance*>(blVal.p)->m_Amounts;
+				return *Cast::Reinterpret<Balance*>(blVal.p);
 
-			Pair p;
-			p.Tok = p.Col = 0;
-			return p;
+			Balance x;
+			ZeroObject(x);
+			return x;
 		}
 
-		void SetBalance(const Shaders::Env::Key_T<Balance::Key>& key, const Pair& vals)
+		void SetBalance(const Shaders::Env::Key_T<Balance::Key>& key, const Balance& x)
 		{
-			Balance ub;
-			ZeroObject(ub);
-
-			static_assert(sizeof(vals) == sizeof(ub.m_Amounts));
-			memcpy(&ub.m_Amounts, &vals, sizeof(vals));
-
-			m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&ub, sizeof(ub)));
+			m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&x, sizeof(x)));
 		}
 
 		bool InvokeBase(Shaders::Nephrite::Method::BaseTx& args, uint32_t nSizeArgs, uint32_t iMethod, const PubKey& pkUser, bool bShouldUseVault)
@@ -1252,40 +1244,29 @@ namespace bvm2 {
 			key.m_Prefix.m_Cid = m_Proc.m_Nephrite.m_Cid;
 			key.m_KeyInContract.m_Pk = pkUser;
 
-			Pair vals = ReadBalance(key);
-			if (vals.Tok || vals.Col)
-			{
-				verify_test(s_TstReserveTok == vals.Tok);
-				verify_test(s_TstReserveCol == vals.Col);
+			Balance ub0 = ReadBalance(key);
 
-				if (bShouldUseVault)
-				{
-					args.m_Flow.Tok.Add(s_TstReserveTok, 1);
-					args.m_Flow.Col.Add(s_TstReserveCol, 1);
-				}
-			}
-			else
-			{
-				vals.Tok = s_TstReserveTok;
-				vals.Col = s_TstReserveCol;
-				SetBalance(key, vals);
-			}
+			std::cout << "\tUser=" << pkUser
+				<< ", Tok=" << Flow2Num(args.m_Flow.Tok)
+				<< ", Col=" << Flow2Num(args.m_Flow.Col)
+				<< std::endl;
 
-			Shaders::Nephrite::FlowPair fp = args.m_Flow;
-			ZeroObject(args.m_Flow);
+			// do not add anything, test the contract locked amounts are ok.
+			// Change the following lines to test the bank usage instead
+			const Amount valTok = 0;
+			const Amount valCol = 0;
+
+			args.m_Flow.Tok.Add(valTok, 1);
+			args.m_Flow.Col.Add(valCol, 1);
 
 			if (!m_Proc.RunGuarded(m_Proc.m_Nephrite.m_Cid, iMethod, Blob(&args, nSizeArgs), nullptr))
 				return false;
 
-			// verify the init-guess flow was correct
-			fp.Tok.Add(s_TstReserveTok, 0);
-			fp.Col.Add(s_TstReserveCol, 0);
-
-			vals = ReadBalance(key);
-			fp.Tok.Add(vals.Tok, 1);
-			fp.Col.Add(vals.Col, 1);
-
-			verify_test(!fp.Tok.m_Val && !fp.Col.m_Val);
+			// verify the init-guess
+			Balance ub1 = ReadBalance(key);
+			verify_test(ub1.m_Amounts.Tok == ub0.m_Amounts.Tok + valTok);
+			verify_test(ub1.m_Amounts.Col == ub0.m_Amounts.Col + valCol);
+			SetBalance(key, ub0);
 
 			PrintBankExcess();
 			return true;
