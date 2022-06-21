@@ -3852,7 +3852,6 @@ void TestArgumentParsing()
         WALLET_CHECK(p.m_Args["action"] == "create");
         WALLET_CHECK(p.m_Args["metadata"] == "STD:SCH_VER=1;N=bU_Coin;SN=bU;UN=bU;NTHUN=AGROTH");
     }
-#if 0
     {
         std::string largeData;
         constexpr size_t maxSize = 2'000'000;
@@ -3895,9 +3894,8 @@ void TestArgumentParsing()
         }
         MyProcessor p;
         p.AddArgs(largeData);
-        WALLET_CHECK(p.m_Args.size() == 0);
+        WALLET_CHECK(p.m_Args.empty());
     }
-#endif
     {
         MyProcessor p;
         p.AddArgs(R"(role=manager,action=destroy_contract,cid=2dd39c06ede9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d,name="my \"trt,ywy\" name",te_t = "saa ,  "    )");
@@ -3921,7 +3919,7 @@ void TestArgumentParsing()
     {
         MyProcessor p;
         p.AddArgs("");
-        WALLET_CHECK(p.m_Args.size() == 0);
+        WALLET_CHECK(p.m_Args.empty());
     }
 
     {
@@ -3947,6 +3945,28 @@ void TestArgumentParsing()
         p.AddArgs("data=\"role=manager,action=destroy_contract,cid=2dd39c06e653563    \"");
         WALLET_CHECK(p.m_Args.size() == 1);
         WALLET_CHECK(p.m_Args["data"] == "role=manager,action=destroy_contract,cid=2dd39c06e653563    ");
+    }
+
+    { // Separate only by comma
+        MyProcessor p;
+        p.AddArgs(R"(action = create   	  metadata = aaaa)");
+        WALLET_CHECK(p.m_Args.size() == 1);
+        WALLET_CHECK(p.m_Args["action"] == "create");
+    }
+
+    { // Separate only by comma
+        MyProcessor p;
+        p.AddArgs(R"(action = create   ;    metadata = aaaa)");
+        WALLET_CHECK(p.m_Args.size() == 1);
+        WALLET_CHECK(p.m_Args["action"] == "create");
+    }
+
+    { // Separate only by comma
+        MyProcessor p;
+        p.AddArgs(R"(action = create   ,    metadata = aaaa)");
+        WALLET_CHECK(p.m_Args.size() == 2);
+        WALLET_CHECK(p.m_Args["action"] == "create");
+        WALLET_CHECK(p.m_Args["metadata"] == "aaaa");
     }
 }
 
