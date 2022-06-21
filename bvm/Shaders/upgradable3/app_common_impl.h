@@ -171,12 +171,14 @@ struct Manager
 		Env::KeyID m_Kid;
 		const ContractID* m_pCid = nullptr;
 		uint32_t m_iMethod;
-		Method::Control::Signed* m_pArg;
+		const void* m_pArg;
 		uint32_t m_nArg;
 		const char* m_szComment;
 		PubKey m_pPks[Settings::s_AdminsMax];
 		Secp_scalar_data m_pE[Settings::s_AdminsMax];
 		uint32_t m_nPks;
+		const FundsChange* m_pFc = nullptr;
+		uint32_t m_nFc = 0;
 
 		uint32_t m_Charge =
 			Env::Cost::CallFar +
@@ -186,7 +188,7 @@ struct Manager
 		void InvokeKrn(const Secp_scalar_data& kSig, Secp_scalar_data* pE)
 		{
 			Env::GenerateKernelAdvanced(
-				m_pCid, m_iMethod, m_pArg, m_nArg, nullptr, 0, m_pPks, m_nPks, m_szComment, m_Charge,
+				m_pCid, m_iMethod, m_pArg, m_nArg, m_pFc, m_nFc, m_pPks, m_nPks, m_szComment, m_Charge,
 				m_Msg2.m_hMin, m_Msg2.m_hMin + s_dh, m_Msg2.m_pkKrnBlind, m_Msg2.m_pkFullNonce, kSig, s_iSlotKrnBlind, s_iSlotKrnNonce, pE);
 		}
 
@@ -205,9 +207,14 @@ struct Manager
 			return !!(1 & (msk >> i));
 		}
 
-		void Perform(const Settings& stg)
+		void PerformInternal(uint32_t& msk)
 		{
-			uint32_t msk = 0, iSender = 0;
+			SettingsPlus stg;
+			if (!stg.Read(*m_pCid))
+				return OnError("no settings");
+
+			msk = 0;
+			uint32_t iSender = 0;
 			Env::DocGet("approve_mask", msk);
 			Env::DocGet("iSender", iSender);
 
@@ -221,8 +228,6 @@ struct Manager
 
 			m_nPks = 0;
 			uint32_t iAdmin = 0, iAdminKeyIdx = 0;
-
-			m_pArg->m_ApproveMask = msk;
 
 			for (uint32_t i = 0; i < stg.s_AdminsMax; i++)
 			{
@@ -390,13 +395,11 @@ struct Manager
 			}
 		}
 
-		void Perform()
+		template <typename TArg>
+		void Perform(TArg& arg)
 		{
-			SettingsPlus stg;
-			if (!stg.Read(*m_pCid))
-				return OnError("no settings");
-
-			Perform(stg);
+			m_pArg = &arg;
+			PerformInternal(arg.m_ApproveMask);
 		}
 
 		static bool Perform_ScheduleUpgrade(const VerInfoBase& vi, const ContractID& cid, const Env::KeyID& kid, Height hTarget)
@@ -432,7 +435,6 @@ struct Manager
 			MultiSigRitual msp;
 			msp.m_szComment = "Upgradable3 schedule upgrade";
 			msp.m_iMethod = Method::Control::s_iMethod;
-			msp.m_pArg = &arg;
 			msp.m_nArg = nSizeArgs;
 			msp.m_pCid = &cid;
 			msp.m_Kid = kid;
@@ -440,7 +442,7 @@ struct Manager
 			msp.m_Charge +=
 				Env::Cost::SaveVar_For(nShaderSize + sizeof(NextVersion));
 
-			msp.Perform();
+			msp.Perform(arg);
 
 			Env::Heap_Free(pArgs);
 			return true;
@@ -455,7 +457,6 @@ struct Manager
 			MultiSigRitual msp;
 			msp.m_szComment = "Upgradable3 replace admin";
 			msp.m_iMethod = Method::Control::s_iMethod;
-			msp.m_pArg = &arg;
 			msp.m_nArg = sizeof(arg);
 			msp.m_pCid = &cid;
 			msp.m_Kid = kid;
@@ -463,7 +464,7 @@ struct Manager
 			msp.m_Charge +=
 				Env::Cost::SaveVar_For(sizeof(Settings));
 
-			msp.Perform();
+			msp.Perform(arg);
 		}
 
 		static void Perform_SetApprovers(const ContractID& cid, const Env::KeyID& kid, uint32_t newVal)
@@ -474,7 +475,6 @@ struct Manager
 			MultiSigRitual msp;
 			msp.m_szComment = "Upgradable3 change num approvers";
 			msp.m_iMethod = Method::Control::s_iMethod;
-			msp.m_pArg = &arg;
 			msp.m_nArg = sizeof(arg);
 			msp.m_pCid = &cid;
 			msp.m_Kid = kid;
@@ -482,7 +482,7 @@ struct Manager
 			msp.m_Charge +=
 				Env::Cost::SaveVar_For(sizeof(Settings));
 
-			msp.Perform();
+			msp.Perform(arg);
 		}
 
 		static void Perform_ExplicitUpgrade(const ContractID& cid, uint32_t nChargeExtra = 0)

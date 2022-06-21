@@ -3,18 +3,22 @@
 #include "contract.h"
 #include "../upgradable3/app_common_impl.h"
 
-#define DaoVault_manager_deploy(macro) \
-    Upgradable3_deploy(macro) \
-    macro(AssetID, aidStaking)
-
+#define DaoVault_manager_deploy(macro) Upgradable3_deploy(macro)
 #define DaoVault_manager_view(macro)
-#define DaoVault_manager_view_params(macro) macro(ContractID, cid)
+#define DaoVault_manager_view_funds(macro) macro(ContractID, cid)
 #define DaoVault_manager_my_admin_key(macro)
 
 #define DaoVault_manager_schedule_upgrade(macro) Upgradable3_schedule_upgrade(macro)
 #define DaoVault_manager_replace_admin(macro) Upgradable3_replace_admin(macro)
 #define DaoVault_manager_set_min_approvers(macro) Upgradable3_set_min_approvers(macro)
 #define DaoVault_manager_explicit_upgrade(macro) macro(ContractID, cid)
+
+#define DaoVault_manager_withdraw(macro) \
+    macro(ContractID, cid) \
+    macro(AssetID, aid) \
+    macro(Amount, amount)
+
+#define DaoVault_manager_deposit(macro)DaoVault_manager_withdraw(macro)\
 
 #define DaoVaultRole_manager(macro) \
     macro(manager, view) \
@@ -23,24 +27,13 @@
     macro(manager, explicit_upgrade) \
     macro(manager, replace_admin) \
     macro(manager, set_min_approvers) \
-    macro(manager, view_params) \
-    macro(manager, my_admin_key)
-
-#define DaoVault_user_my_key(macro) macro(ContractID, cid)
-#define DaoVault_user_view(macro) macro(ContractID, cid)
-
-#define DaoVault_user_update(macro) \
-    macro(ContractID, cid) \
-    macro(Amount, newStake)
-
-#define DaoVaultRole_user(macro) \
-    macro(user, my_key) \
-    macro(user, view) \
-    macro(user, update)
+    macro(manager, view_funds) \
+    macro(manager, my_admin_key) \
+    macro(manager, deposit) \
+    macro(manager, withdraw)
 
 #define DaoVaultRoles_All(macro) \
-    macro(manager) \
-    macro(user)
+    macro(manager)
 
 BEAM_EXPORT void Method_0()
 {
@@ -95,8 +88,6 @@ ON_METHOD(manager, view)
 ON_METHOD(manager, deploy)
 {
     Method::Create args;
-    args.m_aidStaking = aidStaking;
-
     PubKey pkMy;
     AdminKeyID().get_Pk(pkMy);
 
@@ -105,10 +96,54 @@ ON_METHOD(manager, deploy)
 
     const uint32_t nCharge =
         Upgradable3::Manager::get_ChargeDeploy() +
-        Env::Cost::SaveVar_For(sizeof(DaoVault::Pool0)) +
         Env::Cost::Cycle * 50;
 
     Env::GenerateKernel(nullptr, 0, &args, sizeof(args), nullptr, 0, nullptr, 0, "Deploy DaoVault contract", nCharge);
+}
+
+ON_METHOD(manager, deposit)
+{
+    if (!amount)
+        return OnError("amount not specified");
+
+    Method::Deposit arg;
+    arg.m_Aid = aid;
+    arg.m_Amount = amount;
+
+    FundsChange fc;
+    fc.m_Aid = aid;
+    fc.m_Amount = amount;
+    fc.m_Consume = 1;
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deposit to DaoVault", 0);
+}
+
+
+ON_METHOD(manager, withdraw)
+{
+    if (!amount)
+        return OnError("amount not specified");
+
+    Method::Withdraw arg;
+    arg.m_Aid = aid;
+    arg.m_Amount = amount;
+
+    FundsChange fc;
+    fc.m_Aid = aid;
+    fc.m_Amount = amount;
+    fc.m_Consume = 0;
+
+    Upgradable3::Manager::MultiSigRitual msp;
+    msp.m_szComment = "DaoVault withdraw";
+    msp.m_iMethod = arg.s_iMethod;
+    msp.m_nArg = sizeof(arg);
+    msp.m_pCid = &cid;
+    msp.m_Kid = AdminKeyID();
+    msp.m_Charge += Env::Cost::FundsLock;
+    msp.m_pFc = &fc;
+    msp.m_nFc = 1;
+
+    msp.Perform(arg);
 }
 
 ON_METHOD(manager, schedule_upgrade)
@@ -134,57 +169,17 @@ ON_METHOD(manager, set_min_approvers)
     Upgradable3::Manager::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
 }
 
-
-struct MyPool
-    :public PoolMaxPlus
+ON_METHOD(manager, view_funds)
 {
-    bool Load(const ContractID& cid)
+    Env::DocArray gr("res");
+
+    WalkerFunds wlk;
+    for (wlk.Enum(cid); wlk.MoveNext(); )
     {
-        Env::Key_T<uint8_t> key;
-        _POD_(key.m_Prefix.m_Cid) = cid;
-        key.m_KeyInContract = Tags::s_Pool;
+        Env::DocGroup gr1("");
 
-        Env::VarReader r(key, key);
-        uint32_t nKey = 0, nVal = sizeof(PoolMax);
-        if (!r.MoveNext(nullptr, nKey, this, nVal, 0))
-        {
-            OnError("no state");
-            return false;
-        }
-
-        m_Assets = (nVal - sizeof(Pool0)) / sizeof(PerAsset);
-        return true;
-    }
-};
-
-void WriteAidAmount(AssetID aid, Amount amount)
-{
-    Env::DocAddNum("aid", aid);
-    Env::DocAddNum("amount", amount);
-}
-
-ON_METHOD(manager, view_params)
-{
-    MyPool p;
-    if (!p.Load(cid))
-        return;
-
-    Env::DocGroup gr("params");
-    Env::DocAddNum("aidStake", p.m_aidStaking);
-    Env::DocAddNum("amountStake", p.m_Weight);
-
-    {
-        Env::DocArray gr1("assets");
-
-        for (uint32_t i = 0; i < p.m_Assets; i++)
-        {
-            const auto& x = p.m_p[i];
-            if (!x.m_Amount)
-                continue;
-
-            Env::DocGroup gr2("");
-            WriteAidAmount(x.m_Aid, x.m_Amount);
-        }
+        Env::DocAddNum("aid", wlk.m_Aid);
+        Env::DocAddNum("amount", wlk.m_Val.m_Lo);
     }
 }
 
@@ -193,129 +188,6 @@ ON_METHOD(manager, my_admin_key)
     PubKey pk;
     AdminKeyID().get_Pk(pk);
     Env::DocAddBlob_T("admin_key", pk);
-}
-
-ON_METHOD(user, my_key)
-{
-    PubKey pk;
-    UserKeyID(cid).get_Pk(pk);
-    Env::DocAddBlob_T("key", pk);
-}
-
-struct MyUser
-    :public UserMax
-{
-    Env::Key_T<User0::Key> m_Key; // contains user pk, good to save
-
-    bool Load(const ContractID& cid, MyPool& p)
-    {
-        _POD_(m_Key.m_Prefix.m_Cid) = cid;
-        UserKeyID(cid).get_Pk(m_Key.m_KeyInContract.m_pk);
-
-        Env::VarReader r(m_Key, m_Key);
-        uint32_t nKey = 0, nVal = sizeof(UserMax);
-        if (!r.MoveNext(nullptr, nKey, this, nVal, 0))
-            return false;
-
-        uint32_t nAssets = (nVal - sizeof(User0)) / sizeof(PerAsset);
-        Remove(p, nAssets);
-
-        return true;
-    }
-};
-
-ON_METHOD(user, view)
-{
-    MyPool p;
-    if (!p.Load(cid))
-        return;
-
-    Env::DocGroup gr("res");
-
-    MyUser u;
-    if (!u.Load(cid, p))
-        return;
-
-    Env::DocAddNum("stake", u.m_Weight);
-
-    {
-        Env::DocArray gr1("avail");
-
-        for (uint32_t i = 0; i < p.m_Assets; i++)
-        {
-            auto val = u.m_p[i].m_Value;
-            if (!val)
-                continue;
-
-            Env::DocGroup gr2("");
-            WriteAidAmount(p.m_p[i].m_Aid, val);
-        }
-    }
-}
-
-ON_METHOD(user, update)
-{
-    MyPool p;
-    if (!p.Load(cid))
-        return;
-
-    Env::DocGroup gr("res");
-
-    MyUser u;
-    if (!u.Load(cid, p))
-        _POD_(Cast::Down<UserMax>(u)).SetZero();
-
-    FundsChange pFc[Pool0::s_AssetsMax + 1];
-    uint32_t nFc = 0;
-    for (uint32_t i = 0; i < p.m_Assets; i++)
-    {
-        auto val = u.m_p[i].m_Value;
-        if (val)
-        {
-            pFc[nFc].m_Amount = val;
-            pFc[nFc].m_Aid = p.m_p[i].m_Aid;
-            pFc[nFc].m_Consume = 0;
-            nFc++;
-        }
-    }
-
-    if (newStake != u.m_Weight)
-    {
-        if (newStake > u.m_Weight)
-        {
-            pFc[nFc].m_Amount = newStake - u.m_Weight;
-            pFc[nFc].m_Consume = 1;
-        }
-        else
-        {
-            pFc[nFc].m_Amount = u.m_Weight - newStake;
-            pFc[nFc].m_Consume = 0;
-        }
-        nFc++;
-    }
-
-    if (!nFc)
-        return OnError("no change");
-
-    Method::UserUpdate arg;
-    _POD_(arg.m_pkUser) = u.m_Key.m_KeyInContract.m_pk;
-    arg.m_NewStaking = newStake;
-    arg.m_WithdrawCount = static_cast<uint32_t>(-1);
-
-    const uint32_t nCharge =
-        Env::Cost::CallFar +
-        Env::Cost::LoadVar_For(sizeof(Pool0) + p.m_Assets * sizeof(Pool0::PerAsset)) +
-        Env::Cost::SaveVar_For(sizeof(Pool0) + p.m_Assets * sizeof(Pool0::PerAsset)) +
-        Env::Cost::LoadVar_For(sizeof(User0) + p.m_Assets * sizeof(User0::PerAsset)) +
-        Env::Cost::SaveVar_For(sizeof(User0) + p.m_Assets * sizeof(User0::PerAsset)) +
-        Env::Cost::AddSig +
-        Env::Cost::FundsLock * nFc +
-        Env::Cost::Cycle * 1000 * p.m_Assets +
-        Env::Cost::Cycle * 500;
-
-    UserKeyID kid(cid);
-
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, nFc, &kid, 1, "DaoVault user update", nCharge);
 }
 
 #undef ON_METHOD

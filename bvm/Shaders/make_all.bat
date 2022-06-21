@@ -14,6 +14,8 @@ call make_shader dao-core-testnet/app-admin
 call make_shader dao-core-testnet/contract
 call make_shader dao-vote/app
 call make_shader dao-vote/contract
+call make_shader dao-vault/app
+call make_shader dao-vault/contract
 call make_shader dummy/app
 call make_shader dummy/contract
 call make_shader Explorer/Parser
@@ -38,6 +40,8 @@ call make_shader perpetual/contract
 call make_shader pipe/contract
 call make_shader playground/app
 call make_shader playground/contract
+call make_shader profit_pool/app
+call make_shader profit_pool/contract
 call make_shader roulette/app
 call make_shader roulette/contract
 call make_shader sidechain/contract

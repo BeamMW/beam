@@ -16,6 +16,8 @@ configure_file("../../bvm/Shaders/upgradable2/Test/test_app.wasm" "${CMAKE_CURRE
 configure_file("../../bvm/Shaders/upgradable3/Test/test_v0.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable3/Test/test_v0.wasm" COPYONLY)
 configure_file("../../bvm/Shaders/upgradable3/Test/test_v1.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable3/Test/test_v1.wasm" COPYONLY)
 configure_file("../../bvm/Shaders/upgradable3/Test/test_app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable3/Test/test_app.wasm" COPYONLY)
+configure_file("../../bvm/Shaders/dao-vault/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/dao-vault/app.wasm" COPYONLY)
+configure_file("../../bvm/Shaders/dao-vault/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/dao-vault/contract.wasm" COPYONLY)
 
 
 add_test_snippet(wallet_test wallet node mnemonic wallet_client wallet_api wallet_test_node)

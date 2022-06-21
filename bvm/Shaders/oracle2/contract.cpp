@@ -1,9 +1,9 @@
 ////////////////////////
 // Oracle shader
 #include "../common.h"
-#include "../Sort.h"
-#include "../Math.h"
 #include "contract.h"
+#include "../upgradable3/contract_impl.h"
+#include "../Sort.h"
 
 namespace Oracle2 {
 
@@ -14,141 +14,218 @@ struct MyMedian
         Env::LoadVar_T((uint8_t) Tags::s_Median, *this);
     }
 
-    void Save() {
+    void Save() const {
         Env::SaveVar_T((uint8_t) Tags::s_Median, *this);
     }
 };
 
 
-struct MyStateFull
-    :public StateFull
+struct MyState
+    :public StateMax
 {
     uint32_t m_Provs;
-
-    MyStateFull() {
-        Load();
-    }
-
-    MyStateFull(bool) {} // skip auto-load
 
     void Load()
     {
         uint8_t k = Tags::s_StateFull;
-        uint32_t nSize = Env::LoadVar(&k, sizeof(k), m_pE, sizeof(m_pE), KeyTag::Internal);
-        m_Provs = nSize / sizeof(Entry);
+        uint32_t nSize = Env::LoadVar(&k, sizeof(k), this, sizeof(StateMax), KeyTag::Internal);
+
+        assert(nSize >= sizeof(State0));
+        m_Provs = (nSize - sizeof(State0)) / sizeof(Entry);
     }
 
-    void Save()
+    void Save() const
     {
         uint8_t k = Tags::s_StateFull;
-        Env::SaveVar(&k, sizeof(k), m_pE, sizeof(Entry) * m_Provs, KeyTag::Internal);
+        Env::SaveVar(&k, sizeof(k), this, sizeof(State0) + sizeof(Entry) * m_Provs, KeyTag::Internal);
     }
 
-    void Assign(uint32_t iPos, uint32_t iProv, ValueType val)
+    bool Calculate(Median& res, Height h) const
     {
-        m_pE[iPos].m_Val = val;
-        m_pE[iPos].m_iProv = iProv;
-        m_pE[iProv].m_iPos = iPos;
+        h = (h > m_Settings.m_hValidity) ? (h - m_Settings.m_hValidity) : 0;
+        uint32_t nValid = 0;
+
+        struct HI
+        {
+            Height m_h;
+            uint32_t m_Idx;
+            bool operator < (const HI& x) const { return m_h < x.m_h; }
+        };
+
+        HI pArr[s_ProvsMax];
+
+        {
+            HI pAux[s_ProvsMax];
+
+            for (uint32_t i = 0; i < m_Provs; i++)
+            {
+                const auto& e = m_pE[i];
+                if (e.m_hUpdated > h)
+                {
+                    pArr[nValid].m_h = e.m_hUpdated;
+                    pArr[nValid].m_Idx = i;
+                    nValid++;
+                }
+            }
+
+            auto nThreshold = m_Settings.m_MinProviders - 1; // will overflow if m_MinProviders is 0, which is ok
+            if (nValid <= nThreshold)
+                return false;
+
+            auto* pSorted = MergeSort<HI>::Do(pArr, pAux, nValid); // worst validity height at the beginning
+            res.m_hEnd = pSorted[nValid - m_Settings.m_MinProviders].m_h + m_Settings.m_hValidity;
+        }
+
+        {
+            ValueType pVals[s_ProvsMax], pAux[s_ProvsMax];
+
+            for (uint32_t i = 0; i < nValid; i++)
+            {
+                auto iProv = pArr[i].m_Idx;
+                pVals[i] = m_pE[iProv].m_Val;
+            }
+
+            auto* pSorted = MergeSort<ValueType>::Do(pVals, pAux, nValid); // worst validity height at the beginning
+
+            uint32_t iMid = nValid / 2;
+            res.m_Res = pSorted[iMid];
+            if (!(1 & nValid))
+            {
+                // even number
+                res.m_Res = res.m_Res + pSorted[iMid - 1];
+                res.m_Res.m_Order--;
+            }
+        }
+
+        return true;
+    }
+
+    void OnChanged() const
+    {
+        Save();
+
+        MyMedian med;
+
+        if (!Calculate(med, Env::get_Height()))
+            _POD_(med).SetZero();
+
+        med.Save();
+    }
+
+};
+
+struct MyState_AutoUpd
+    :public MyState
+{
+    MyState_AutoUpd() {
+        Load();
+    }
+
+    ~MyState_AutoUpd() {
+        OnChanged();
     }
 };
 
-
-BEAM_EXPORT void Ctor(const Method::Create<0>& r)
+BEAM_EXPORT void Ctor(const Method::Create& r)
 {
+    r.m_Upgradable.TestNumApprovers();
+    r.m_Upgradable.Save();
+
     MyMedian med;
-    med.m_Res = r.m_InitialValue;
+    _POD_(med).SetZero();
     med.Save();
 
-    MyStateFull s(false);
-    s.m_Provs = r.m_Providers;
-    Env::Halt_if(!s.m_Provs || (s.m_Provs > StateFull::s_ProvsMax));
-
-    for (uint32_t i = 0; i < s.m_Provs; i++)
-    {
-        auto& e = s.m_pE[i];
-        _POD_(e.m_Pk) = r.m_pPk[i];
-        s.Assign(i, i, r.m_InitialValue);
-    }
+    MyState s;
+    _POD_(s.m_Settings) = r.m_Settings;
+    s.m_Provs = 0;
 
     s.Save();
 }
 
 BEAM_EXPORT void Dtor(void*)
 {
-    Env::DelVar_T((uint8_t) Tags::s_Median);
-
-    // all providers must authorize the destruction
-    MyStateFull s;
-
-    for (uint32_t i = 0; i < s.m_Provs; i++)
-        Env::AddSig(s.m_pE[i].m_Pk);
-
-    Env::DelVar_T((uint8_t) Tags::s_StateFull);
-}
-
-BEAM_EXPORT void Method_2(void*)
-{
-    // to be called on update
 }
 
 BEAM_EXPORT void Method_3(Method::Get& r)
 {
     MyMedian med;
     med.Load();
+    Env::Halt_if(med.m_hEnd < Env::get_Height());
     r.m_Value = med.m_Res;
 }
 
-BEAM_EXPORT void Method_4(const Method::Set& r)
+BEAM_EXPORT void Method_4(const Method::FeedData& r)
 {
-    MyStateFull s;
+    MyState_AutoUpd s;
 
     Env::Halt_if(r.m_iProvider >= s.m_Provs); // are you a valid provider?
     Env::AddSig(s.m_pE[r.m_iProvider].m_Pk); // please authorize
 
-    auto iPos = s.m_pE[r.m_iProvider].m_iPos;
+    auto& e = s.m_pE[r.m_iProvider];
+    e.m_Val = r.m_Value;
+    e.m_hUpdated = Env::get_Height();
+}
 
-    int i = r.m_Value.cmp(s.m_pE[iPos].m_Val);
-    if (!i)
-        return; // unchanged
+void TestAdminSigs(const Method::Signed& r)
+{
+    Upgradable3::Settings stg;
+    stg.Load();
+    stg.TestAdminSigs(r.m_ApproveMask);
+}
 
-    // update the val, move positions to keep the array sorted
-    while (true)
-    {
-        uint32_t iPosNext = (i > 0) ? (iPos + 1) : (iPos - 1);
-        if (iPosNext >= s.m_Provs)
-            break; // covers both cases
+BEAM_EXPORT void Method_5(const Method::SetSettings& r)
+{
+    TestAdminSigs(r);
 
-        ValueType vNext = s.m_pE[iPosNext].m_Val;
-        int i2 = r.m_Value.cmp(vNext);
-        if (i != i2)
-            break;
+    MyState_AutoUpd s;
+    _POD_(s.m_Settings) = r.m_Settings;
+}
 
-        auto iProv = s.m_pE[iPosNext].m_iProv;
-        assert(s.m_pE[iProv].m_iPos == iPosNext);
+BEAM_EXPORT void Method_6(const Method::ProviderAdd& r)
+{
+    TestAdminSigs(r);
 
-        s.Assign(iPos, iProv, vNext);
+    MyState_AutoUpd s;
 
-        iPos = iPosNext;
-    }
+    Env::Halt_if(s.m_Provs == s.s_ProvsMax);
+    auto& e = s.m_pE[s.m_Provs];
+    s.m_Provs++;
 
-    s.Assign(iPos, r.m_iProvider, r.m_Value);
+    _POD_(e.m_Pk) = r.m_pk;
+    e.m_Val.Set0();
+    e.m_hUpdated = 0;
+}
 
-    // update median
-    uint32_t iMid = s.m_Provs / 2;
+BEAM_EXPORT void Method_7(const Method::ProviderDel& r)
+{
+    TestAdminSigs(r);
 
-    MyMedian med;
-    med.m_Res = s.m_pE[iMid].m_Val;
+    MyState_AutoUpd s;
 
-    if (!(s.m_Provs & 1))
-    {
-        // for even take average
-        med.m_Res = med.m_Res + s.m_pE[iMid - 1].m_Val;
-        med.m_Res.m_Order--;
-    }
+    Env::Halt_if(r.m_iProvider >= s.m_Provs);
 
-    med.Save();
-    s.Save();
+    // delete it
+    s.m_Provs--;
+    Env::Memcpy(s.m_pE + r.m_iProvider, s.m_pE + r.m_iProvider + 1, sizeof(State0::Entry) * (s.m_Provs - r.m_iProvider)); // it's actually memmove
 }
 
 
 } // namespace Oracle2
+
+namespace Upgradable3 {
+
+    const uint32_t g_CurrentVersion = _countof(Oracle2::s_pSID) - 1;
+
+    uint32_t get_CurrentVersion()
+    {
+        return g_CurrentVersion;
+    }
+
+    void OnUpgraded(uint32_t nPrevVersion)
+    {
+        if constexpr (g_CurrentVersion)
+            Env::Halt_if(nPrevVersion != g_CurrentVersion - 1);
+        else
+            Env::Halt();
+    }
+}

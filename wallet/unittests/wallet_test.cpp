@@ -2356,10 +2356,160 @@ namespace
         WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"contracts\":", sTmp));
         WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"version\": ", sVer, 1));
         WALLET_CHECK(sVer == "1");
-
-
     }
 
+
+    void TestAppShader4()
+    {
+        printf("Testing dao-vault...\n");
+
+        io::Reactor::Ptr mainReactor(io::Reactor::create());
+        io::Reactor::Scope scope(*mainReactor);
+
+        string nodePath = "node.db";
+        if (boost::filesystem::exists(nodePath))
+            boost::filesystem::remove(nodePath);
+
+        int completedCount = 0;
+
+        //auto timer = io::Timer::create(io::Reactor::get_Current());
+        auto f = [&completedCount, mainReactor](auto txID)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+              //  timer->cancel();
+                mainReactor->stop();
+            }
+        };
+
+        constexpr uint32_t nPeers = 5;
+        constexpr uint32_t iSender = 3;
+        wallet::IWalletDB::Ptr pDb[nPeers];
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            std::string sPath = std::string("sender_") + std::to_string(i) + "wallet.db";
+            pDb[i] = createSqliteWalletDB(sPath, false, true);
+        }
+
+        auto treasury = createTreasury(pDb[iSender], AmountList{Rules::Coin * 300000});
+
+        auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
+        {
+            InitNodeToTest(node, treasury, nullptr, port, 3000, path, peers, miningNode);
+            io::Address address;
+            address.resolve("127.0.0.1");
+            address.port(port);
+            return address;
+        };
+
+
+        Node node;
+        auto nodeAddress = nodeCreator(node, treasury, 32125, "node.db");
+
+        std::unique_ptr<TestWalletRig> pRig[nPeers];
+        std::unique_ptr<MyManager> pMan[nPeers];
+
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            pRig[i] = std::make_unique<TestWalletRig>(pDb[i], f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
+            pMan[i] = std::make_unique<MyManager>(pDb[i], pRig[i]->m_Wallet);
+            pMan[i]->set_Privilege(2);
+
+            if (i)
+                pMan[i]->m_BodyManager = pMan[0]->m_BodyManager;
+            else
+                MyManager::Compile(pMan[i]->m_BodyManager, "dao-vault/app.wasm", MyManager::Kind::Manager);
+        }
+
+        printf("collecting keys...\n");
+
+        std::string pAdminKey[nPeers];
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            pMan[i]->m_Args["role"] = "manager";
+            pMan[i]->m_Args["action"] = "my_admin_key";
+            pMan[i]->RunSync(1);
+            WALLET_CHECK(pMan[i]->m_Done && !pMan[i]->m_Err);
+
+            WALLET_CHECK(pMan[i]->get_OutpStr("\"admin_key\": \"", pAdminKey[i], sizeof(ECC::Point) * 2));
+        }
+
+
+        printf("Deploying dao-vault\n");
+
+        MyManager::Compile(pMan[iSender]->m_BodyContract, "dao-vault/contract.wasm", MyManager::Kind::Contract);
+        pMan[iSender]->m_Args["role"] = "manager";
+        pMan[iSender]->m_Args["action"] = "deploy";
+        pMan[iSender]->m_Args["hUpgradeDelay"] = "1";
+        pMan[iSender]->m_Args["nMinApprovers"] = std::to_string(nPeers);
+
+        for (uint32_t i = 0; i < nPeers; i++)
+            pMan[iSender]->m_Args[std::string("admin-") + std::to_string(i)] = pAdminKey[i];
+
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+
+        printf("reading cid...\n");
+
+        pMan[iSender]->m_Args["action"] = "view";
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        std::string sTmp, sCid;
+        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"contracts\":", sTmp));
+        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"cid\": \"", sCid, bvm2::ContractID::nTxtLen));
+
+        const Amount amount = Rules::Coin * 100;
+
+
+        printf("depositing...\n");
+
+        pMan[iSender]->m_Args["cid"] = sCid;
+        pMan[iSender]->m_Args["action"] = "deposit";
+        pMan[iSender]->m_Args["amount"] = std::to_string(amount);
+
+        pMan[iSender]->RunSync(1);
+
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+
+        printf("withdrawing...\n");
+
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            pMan[i]->m_Args["cid"] = sCid;
+            pMan[i]->m_Args["action"] = "withdraw";
+            pMan[i]->m_Args["amount"] = std::to_string(amount);
+            pMan[i]->m_Args["iSender"] = std::to_string(iSender);
+            pMan[i]->m_Args["approve_mask"] = std::to_string((1U << nPeers) - 1);
+
+            if (iSender == i)
+            {
+                pMan[i]->RunSync0(1);
+                WALLET_CHECK(!pMan[i]->m_Done);
+            }
+        }
+
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            if (iSender != i)
+            {
+                pMan[i]->m_BodyContract = pMan[iSender]->m_BodyContract;
+                pMan[i]->RunSync0(1);
+                WALLET_CHECK(!pMan[i]->m_Done);
+            }
+        }
+
+        pMan[iSender]->RunSync1(); // wait synchronously
+
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+    }
 
     struct MyZeroInit {
         static void Do(std::string&) {}
@@ -4453,6 +4603,7 @@ int main()
     TestAppShader1();
     TestAppShader2();
     TestAppShader3();
+    TestAppShader4();
     Rules::get().pForks[1].m_Height = 20;
     Rules::get().pForks[2].m_Height = 20;
     Rules::get().pForks[3].m_Height = 20;
