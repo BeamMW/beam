@@ -2152,6 +2152,123 @@ namespace
         WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
 
         WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"next_version\":", sTmp));
+
+
+
+
+        printf("Testing migration to upgradable3...\n");
+        printf("Deploying upgradable2 cocoon\n");
+
+        MyManager::Compile(pMan[iSender]->m_BodyContract, "upgradable3/Test/test_v0_migrate.wasm", MyManager::Kind::Contract);
+        pMan[iSender]->m_Args["action"] = "deploy_version";
+
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+        bvm2::ShaderID sidCocoon;
+        bvm2::get_ShaderID(sidCocoon, pMan[iSender]->m_BodyContract);
+        bvm2::ContractID cidCocoon;
+        bvm2::get_CidViaSid(cidCocoon, sidCocoon, Blob(nullptr, 0));
+        std::string sCidCocoon = cidCocoon.str();
+
+
+        printf("scheduling upgrade...\n");
+
+        Height hTarget = node.get_Processor().m_Cursor.m_Full.m_Height + 20;
+
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            pMan[i]->m_Args["action"] = "schedule_upgrade";
+            pMan[i]->m_Args["cidVersion"] = sCidCocoon;
+            pMan[i]->m_Args["hTarget"] = std::to_string(hTarget);
+
+            if (iSender == i)
+            {
+                pMan[i]->RunSync0(1);
+                WALLET_CHECK(!pMan[i]->m_Done);
+            }
+        }
+
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            if (iSender != i)
+            {
+                pMan[i]->RunSync0(1);
+                WALLET_CHECK(!pMan[i]->m_Done);
+            }
+        }
+
+        pMan[iSender]->RunSync1(); // wait synchronously
+
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+        printf("checking state...\n");
+
+        pMan[iSender]->m_Args["action"] = "view";
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        // scheduled version would be unrecognizable, never mind this.
+
+
+        printf("waiting for upgrade height...\n");
+
+        if (node.get_Processor().m_Cursor.m_Full.m_Height < hTarget)
+        {
+            struct MyObserver :public Node::IObserver
+            {
+                Node& m_Node;
+                Height m_hTarget;
+
+                MyObserver(Node& n) :m_Node(n)
+                {
+                    m_Node.m_Cfg.m_Observer = this;
+                }
+
+                ~MyObserver()
+                {
+                    m_Node.m_Cfg.m_Observer = nullptr;
+                }
+
+                void OnSyncProgress() override {}
+
+                void OnStateChanged() override {
+                    if (m_Node.get_Processor().m_Cursor.m_Full.m_Height >= m_hTarget)
+                        io::Reactor::get_Current().stop();
+                }
+
+            };
+
+            MyObserver obs(node);
+            obs.m_hTarget = hTarget;
+            io::Reactor::get_Current().run();
+        }
+
+        printf("triggering upgrade...\n");
+
+        pMan[iSender]->m_Args["action"] = "explicit_upgrade";
+
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+
+        printf("checking status...\n");
+
+        MyManager::Compile(pMan[iSender]->m_BodyManager, "upgradable3/Test/test_app.wasm", MyManager::Kind::Manager);
+
+        pMan[iSender]->m_Args["action"] = "view";
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"contracts\":", sTmp));
+        std::string sVer;
+        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"version\": ", sVer, 1));
+        WALLET_CHECK(sVer == "0");
     }
 
 

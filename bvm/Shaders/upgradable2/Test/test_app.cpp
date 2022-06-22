@@ -8,12 +8,14 @@
 #define UpgrTest_manager_deploy_contract(macro) Upgradable2_deploy(macro)
 
 #define UpgrTest_manager_schedule_upgrade(macro) Upgradable2_schedule_upgrade(macro)
+#define UpgrTest_manager_explicit_upgrade(macro) macro(ContractID, cid)
 
 #define UpgrTestRole_manager(macro) \
     macro(manager, deploy_version) \
     macro(manager, view) \
     macro(manager, deploy_contract) \
     macro(manager, schedule_upgrade) \
+    macro(manager, explicit_upgrade) \
     macro(manager, view_params) \
     macro(manager, my_admin_key)
 
@@ -99,6 +101,18 @@ ON_METHOD(manager, schedule_upgrade)
 {
     MyKeyID kid;
     ManagerUpgadable2::MultiSigRitual::Perform_ScheduleUpgrade(cid, kid, cidVersion, hTarget);
+}
+
+ON_METHOD(manager, explicit_upgrade)
+{
+    const uint32_t nChargeExtra =
+        Env::Cost::LoadVar_For(sizeof(Upgradable2::Settings)) +
+        Env::Cost::LoadVar_For(sizeof(Upgradable2::State)) +
+        Env::Cost::SaveVar * 2 + // delete vars of Upgradable2
+        Env::Cost::SaveVar_For(sizeof(Upgradable2::State)) +
+        Env::Cost::UpdateShader_For(2000);
+
+    ManagerUpgadable2::MultiSigRitual::Perform_ExplicitUpgrade(cid, nChargeExtra);
 }
 
 Amount get_ContractLocked(AssetID aid, const ContractID& cid)

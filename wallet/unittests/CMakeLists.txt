@@ -14,6 +14,7 @@ configure_file("../../bvm/Shaders/upgradable2/Test/test_v0.wasm" "${CMAKE_CURREN
 configure_file("../../bvm/Shaders/upgradable2/Test/test_v1.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable2/Test/test_v1.wasm" COPYONLY)
 configure_file("../../bvm/Shaders/upgradable2/Test/test_app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable2/Test/test_app.wasm" COPYONLY)
 configure_file("../../bvm/Shaders/upgradable3/Test/test_v0.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable3/Test/test_v0.wasm" COPYONLY)
+configure_file("../../bvm/Shaders/upgradable3/Test/test_v0_migrate.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable3/Test/test_v0_migrate.wasm" COPYONLY)
 configure_file("../../bvm/Shaders/upgradable3/Test/test_v1.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable3/Test/test_v1.wasm" COPYONLY)
 configure_file("../../bvm/Shaders/upgradable3/Test/test_app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable3/Test/test_app.wasm" COPYONLY)
 configure_file("../../bvm/Shaders/dao-vault/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/dao-vault/app.wasm" COPYONLY)
