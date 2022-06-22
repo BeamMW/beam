@@ -210,9 +210,10 @@ ON_METHOD(manager, deploy)
     const uint32_t nCharge =
         Upgradable3::Manager::get_ChargeDeploy() +
         Env::Cost::AssetManage +
-        Env::Cost::Refs +
+        Env::Cost::Refs * 2 +
         Env::Cost::SaveVar_For(sizeof(Nephrite::Global)) +
-        Env::Cost::Cycle * 300;
+        Env::Cost::MemOpPerByte * sizeof(Nephrite::Global) +
+        Env::Cost::Cycle * 1000;
 
     Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deploy Nephrite contract", nCharge);
 }
