@@ -956,6 +956,29 @@ namespace bvm2 {
 		}
 	};
 
+	void SaveAsHex(const char* szFilePath, const Blob& b)
+	{
+		std::FStream fs;
+		fs.Open(szFilePath, false, true);
+
+		char szBuf[0x10];
+		szBuf[0] = '0';
+		szBuf[1] = 'x';
+		szBuf[5] = '\n';
+
+		for (uint32_t i = 0; i < b.n; )
+		{
+			uintBigImpl::_Print(reinterpret_cast<const uint8_t*>(b.p) + i, 1, szBuf + 2);
+			szBuf[4] = ',';
+			uint32_t nLen = 5;
+
+			if (!(++i & 0x1f))
+				nLen = 6;
+
+			fs.write(szBuf, nLen);
+		}
+	}
+
 	void MyProcessor::TestAll()
 	{
 		AddCode(m_Vault, "vault/contract.wasm");
