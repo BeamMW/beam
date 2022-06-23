@@ -2,6 +2,7 @@
 #include "../common.h"
 #include "contract.h"
 #include "../dao-vault/contract.h"
+#include "../vault_anon/contract.h"
 
 namespace NameService {
 
@@ -42,15 +43,22 @@ struct MyDomain
     }
 };
 
+struct MySettings :public Settings
+{
+    MySettings()
+    {
+        Env::LoadVar_T((uint8_t) Tags::s_Settings, *this);
+    }
+};
+
 void SendProfit(Amount val)
 {
-    Settings s;
-    Env::LoadVar_T((uint8_t) Tags::s_Settings, s);
-
     DaoVault::Method::Deposit arg;
     arg.m_Aid = 0;
     arg.m_Amount = val;
-    Env::CallFar_T(s.m_cidDaoVault, arg);
+
+    MySettings stg;
+    Env::CallFar_T(stg.m_cidDaoVault, arg);
 }
 
 void ChargePrice(uint8_t nNameLen)
@@ -70,6 +78,8 @@ BEAM_EXPORT void Method_2(const Method::Register& r)
         for (uint32_t i = 0; i < r.m_NameLen; i++)
             Env::Halt_if(!d.IsValidChar(d.m_Key.m_sz[i]));
     }
+
+    _POD_(Cast::Down<Domain>(d)).SetZero();
 
     ChargePrice(r.m_NameLen);
     d.m_hExpire = h + Domain::s_PeriodValidity;
@@ -108,5 +118,39 @@ BEAM_EXPORT void Method_4(const Method::Extend& r)
     d.Save();
 }
 
+BEAM_EXPORT void Method_5(const Method::SetPrice& r)
+{
+    MyDomain d(r.m_NameLen);
+    Env::Halt_if(!d.Load() || d.IsExpired(Env::get_Height()));
+
+    Env::AddSig(d.m_pkOwner);
+    d.m_Price = r.m_Price;
+
+    d.Save();
+}
+
+BEAM_EXPORT void Method_6(const Method::Buy& r)
+{
+    MyDomain d(r.m_NameLen);
+    Env::Halt_if(!d.Load() || d.IsExpired(Env::get_Height()));
+
+    Env::Halt_if(!d.m_Price.m_Amount); // should be for sale
+
+    {
+        VaultAnon::Method::Deposit arg;
+        arg.m_SizeCustom = 0;
+        arg.m_Amount = d.m_Price.m_Amount;
+        arg.m_Key.m_Aid = d.m_Price.m_Aid;
+        _POD_(arg.m_Key.m_pkOwner) = d.m_pkOwner;
+
+        MySettings stg;
+        Env::CallFar_T(stg.m_cidVault, arg);
+    }
+
+    _POD_(d.m_Price).SetZero();
+    _POD_(d.m_pkOwner) = r.m_pkNewOwner;
+
+    d.Save();
+}
 
 } // namespace NameService

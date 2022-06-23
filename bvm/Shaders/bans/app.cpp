@@ -38,6 +38,13 @@
     macro(ContractID, cid) \
     macro(PubKey, pkOwner)
 
+#define NameService_user_domain_set_price(macro) \
+    macro(ContractID, cid) \
+    macro(AssetID, aid) \
+    macro(Amount, amount)
+
+#define NameService_user_domain_buy(macro) macro(ContractID, cid) \
+
 #define NameService_user_receive(macro) \
     macro(ContractID, cid) \
     macro(PubKey, pkOwner) \
@@ -50,6 +57,8 @@
     macro(user, domain_register) \
     macro(user, domain_extend) \
     macro(user, domain_set_owner) \
+    macro(user, domain_set_price) \
+    macro(user, domain_buy) \
     macro(user, receive)
 
 #define NameServiceRoles_All(macro) \
@@ -432,6 +441,53 @@ ON_METHOD(user, domain_set_owner)
 
     MyKeyID kid(cid);
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), nullptr, 0, &kid, 1, "bans domain set owner", nCharge);
+}
+
+ON_METHOD(user, domain_set_price)
+{
+    Domain d;
+    DomainName dn;
+    if (!dn.ReadOwned(cid, d))
+        return;
+
+    if ((d.m_Price.m_Aid == aid) && (d.m_Price.m_Amount == amount))
+        return OnError("no change");
+
+    DomainName::Method<Method::SetPrice> arg;
+    arg.From(dn);
+
+    arg.m_Price.m_Aid = aid;
+    arg.m_Price.m_Amount = amount;
+
+    const uint32_t nCharge =
+        Cost::get_InvokeDomainChange() +
+        Env::Cost::AddSig +
+        Env::Cost::Cycle * 300;
+
+    MyKeyID kid(cid);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), nullptr, 0, &kid, 1, "bans domain set price", nCharge);
+}
+
+ON_METHOD(user, domain_buy)
+{
+    Domain d;
+    DomainName dn;
+    if (!dn.ReadFromName(cid, d))
+        return;
+
+    if (!d.m_Price.m_Amount)
+        return OnError("not for sale");
+
+    DomainName::Method<Method::Buy> arg;
+    arg.From(dn);
+    MyKeyID(cid).get_Pk(arg.m_pkNewOwner);
+
+    FundsChange fc;
+    fc.m_Aid = d.m_Price.m_Aid;
+    fc.m_Amount = d.m_Price.m_Amount;
+    fc.m_Consume = 1;
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "bans domain buy", Cost::get_InvokeDomainReg());
 }
 
 ON_METHOD(user, receive)

@@ -2,7 +2,7 @@
 
 namespace NameService
 {
-    static const ShaderID s_SID   = { 0x45,0xfd,0xa9,0xe1,0x4f,0xa7,0x1b,0x0d,0x45,0x1c,0x7c,0xc9,0x62,0x50,0x24,0x68,0x2a,0xab,0x54,0x22,0x62,0xf7,0x3b,0x84,0x0c,0xef,0x73,0x17,0xfa,0xa1,0x44,0x1c };
+    static const ShaderID s_SID   = { 0x49,0x54,0x75,0x1b,0x58,0x39,0x20,0x83,0xb5,0x41,0x20,0x3f,0xd1,0x72,0x29,0xec,0x20,0x87,0x25,0x9c,0x19,0x50,0x9f,0xb6,0x89,0x3f,0x4c,0x63,0xc5,0xcb,0x94,0xb2 };
 
 #pragma pack (push, 1)
 
@@ -16,6 +16,12 @@ namespace NameService
     {
         ContractID m_cidDaoVault;
         ContractID m_cidVault;
+    };
+
+    struct Price
+    {
+        AssetID m_Aid;
+        Amount m_Amount;
     };
 
     struct Domain
@@ -50,6 +56,7 @@ namespace NameService
 
         PubKey m_pkOwner;
         Height m_hExpire;
+        Price m_Price;
 
         bool IsExpired(Height h) const
         {
@@ -104,6 +111,22 @@ namespace NameService
         struct Extend
         {
             static const uint32_t s_iMethod = 4;
+            uint8_t m_NameLen;
+            // followed by name
+        };
+
+        struct SetPrice
+        {
+            static const uint32_t s_iMethod = 5;
+            Price m_Price;
+            uint8_t m_NameLen;
+            // followed by name
+        };
+
+        struct Buy
+        {
+            static const uint32_t s_iMethod = 6;
+            PubKey m_pkNewOwner;
             uint8_t m_NameLen;
             // followed by name
         };
