@@ -69,6 +69,8 @@ namespace NameService
 
         static const Height s_PeriodValidity = 1440 * 365;
         static const Height s_PeriodHold = 1440 * 90;
+
+        static const Height s_PeriodValidityMax = s_PeriodValidity * 5;
     };
 
 

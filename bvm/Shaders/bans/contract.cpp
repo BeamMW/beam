@@ -101,6 +101,9 @@ BEAM_EXPORT void Method_4(const Method::Extend& r)
     d.m_hExpire += Domain::s_PeriodValidity;
     ChargePrice(r.m_NameLen);
 
+    Env::Halt_if(d.m_hExpire - h > Domain::s_PeriodValidityMax);
+
+
     d.Save();
 }
 

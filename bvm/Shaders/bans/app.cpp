@@ -27,7 +27,10 @@
 #define NameService_user_my_key(macro) macro(ContractID, cid)
 #define NameService_user_view(macro) macro(ContractID, cid) macro(ContractID, cidVault)
 #define NameService_user_domain_register(macro) macro(ContractID, cid)
-#define NameService_user_domain_extend(macro) macro(ContractID, cid)
+#define NameService_user_domain_extend(macro) \
+    macro(ContractID, cid) \
+    macro(uint32_t, nPeriods)
+
 #define NameService_user_domain_set_owner(macro) \
     macro(ContractID, cid) \
     macro(PubKey, pkOwner)
@@ -289,6 +292,16 @@ ON_METHOD(user, my_key)
     Env::DocAddBlob_T("key", pk);
 }
 
+uint32_t get_ChargeInvokeDomainOpProfit()
+{
+    return
+        Env::Cost::CallFar * 2 +
+        Env::Cost::LoadVar_For(sizeof(Domain)) +
+        Env::Cost::SaveVar_For(sizeof(Domain)) +
+        Env::Cost::FundsLock +
+        Env::Cost::Cycle * 500;
+}
+
 ON_METHOD(user, domain_register)
 {
     DomainName dn;
@@ -317,7 +330,7 @@ ON_METHOD(user, domain_register)
     fc.m_Consume = 1;
     fc.m_Amount = Domain::get_Price(dn.m_Len);
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "bans register domain", 0);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "bans register domain", get_ChargeInvokeDomainOpProfit());
 }
 
 ON_METHOD(user, domain_extend)
@@ -335,7 +348,19 @@ ON_METHOD(user, domain_extend)
     fc.m_Consume = 1;
     fc.m_Amount = Domain::get_Price(dn.m_Len);
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "bans extend domain", 0);
+    // predict expiration height, and max number of allowed extend periods
+    Height h = Env::get_Height() + 1;
+    d.m_hExpire = std::max(h, d.m_hExpire);
+
+    Height hMax = h + Domain::s_PeriodValidityMax;
+    uint32_t nNumMax = (d.m_hExpire < hMax) ? (hMax - d.m_hExpire) / Domain::s_PeriodValidity : 0;
+
+    auto num = std::max<uint32_t>(nPeriods, 1);
+    if (nNumMax > num)
+        return OnError("validity period too long");
+
+    while (num--)
+        Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "bans extend domain", get_ChargeInvokeDomainOpProfit());
 }
 
 ON_METHOD(user, domain_set_owner)
