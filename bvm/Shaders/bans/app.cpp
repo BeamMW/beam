@@ -4,7 +4,10 @@
 #include "../vault_anon/app_impl.h"
 
 #define NameService_manager_view(macro)
-#define NameService_manager_deploy(macro)
+
+#define NameService_manager_deploy(macro) \
+    macro(ContractID, cidDaoVault) \
+
 #define NameService_manager_pay(macro) \
     macro(ContractID, cid) \
     macro(ContractID, cidVault) \
@@ -90,6 +93,8 @@ ON_METHOD(manager, view)
 
 ON_METHOD(manager, deploy)
 {
+    Method::Create arg;
+    _POD_(arg.m_Settings.m_cidDaoVault) = cidDaoVault;
     Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy NameService contract", 0);
 }
 
