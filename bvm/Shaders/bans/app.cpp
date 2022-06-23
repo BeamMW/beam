@@ -118,6 +118,13 @@ void DumpName(const Domain& d)
 {
     Env::DocAddBlob_T("key", d.m_pkOwner);
     Env::DocAddNum("hExpire", d.m_hExpire);
+
+    if (d.m_Price.m_Amount)
+    {
+        Env::DocGroup gr("price");
+        Env::DocAddNum("aid", d.m_Price.m_Aid);
+        Env::DocAddNum("amount", d.m_Price.m_Amount);
+    }
 }
 
 void DumpDomains(const ContractID& cid, const PubKey* pPk)
