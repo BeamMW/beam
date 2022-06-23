@@ -1,11 +1,14 @@
 ////////////////////////
 #include "../common.h"
 #include "contract.h"
+#include "../dao-vault/contract.h"
 
 namespace NameService {
 
-BEAM_EXPORT void Ctor(void*)
+BEAM_EXPORT void Ctor(const Method::Create& r)
 {
+    Env::Halt_if(!Env::RefAdd(r.m_Settings.m_cidDaoVault));
+    Env::SaveVar_T((uint8_t) Tags::s_Settings, r.m_Settings);
 }
 
 BEAM_EXPORT void Dtor(void*)
@@ -38,9 +41,20 @@ struct MyDomain
     }
 };
 
+void SendProfit(Amount val)
+{
+    Settings s;
+    Env::LoadVar_T((uint8_t) Tags::s_Settings, s);
+
+    DaoVault::Method::Deposit arg;
+    arg.m_Aid = 0;
+    arg.m_Amount = val;
+    Env::CallFar_T(s.m_cidDaoVault, arg);
+}
+
 void ChargePrice(uint8_t nNameLen)
 {
-    Env::FundsLock(0, Domain::get_Price(nNameLen));
+    SendProfit(Domain::get_Price(nNameLen));
 }
 
 BEAM_EXPORT void Method_2(const Method::Register& r)

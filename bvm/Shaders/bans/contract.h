@@ -8,7 +8,13 @@ namespace NameService
 
     struct Tags
     {
+        static const uint8_t s_Settings = 0;
         static const uint8_t s_Domain = 1;
+    };
+
+    struct Settings
+    {
+        ContractID m_cidDaoVault;
     };
 
     struct Domain
@@ -68,6 +74,12 @@ namespace NameService
 
     namespace Method
     {
+        struct Create
+        {
+            static const uint32_t s_iMethod = 0;
+            Settings m_Settings;
+        };
+
         struct Register
         {
             static const uint32_t s_iMethod = 2;
