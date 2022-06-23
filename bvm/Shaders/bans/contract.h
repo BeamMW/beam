@@ -15,6 +15,7 @@ namespace NameService
     struct Settings
     {
         ContractID m_cidDaoVault;
+        ContractID m_cidVault;
     };
 
     struct Domain

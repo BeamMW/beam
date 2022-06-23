@@ -7,10 +7,10 @@
 
 #define NameService_manager_deploy(macro) \
     macro(ContractID, cidDaoVault) \
+    macro(ContractID, cidVault)
 
 #define NameService_manager_pay(macro) \
     macro(ContractID, cid) \
-    macro(ContractID, cidVault) \
     macro(AssetID, aid) \
     macro(Amount, amount)
 
@@ -28,7 +28,7 @@
     macro(manager, pay)
 
 #define NameService_user_my_key(macro) macro(ContractID, cid)
-#define NameService_user_view(macro) macro(ContractID, cid) macro(ContractID, cidVault)
+#define NameService_user_view(macro) macro(ContractID, cid)
 #define NameService_user_domain_register(macro) macro(ContractID, cid)
 #define NameService_user_domain_extend(macro) \
     macro(ContractID, cid) \
@@ -40,7 +40,6 @@
 
 #define NameService_user_receive(macro) \
     macro(ContractID, cid) \
-    macro(ContractID, cidVault) \
     macro(PubKey, pkOwner) \
     macro(AssetID, aid) \
     macro(Amount, amount)
@@ -95,6 +94,7 @@ ON_METHOD(manager, deploy)
 {
     Method::Create arg;
     _POD_(arg.m_Settings.m_cidDaoVault) = cidDaoVault;
+    _POD_(arg.m_Settings.m_cidVault) = cidVault;
     Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy NameService contract", 0);
 }
 
@@ -245,6 +245,22 @@ struct DomainName
 
 };
 
+struct MySettings
+    :public Settings
+{
+    bool Read(const ContractID& cid)
+    {
+        Env::Key_T<uint8_t> key;
+        _POD_(key.m_Prefix.m_Cid) = cid;
+        key.m_KeyInContract = Tags::s_Settings;
+
+        if (Env::VarReader::Read_T(key, *this))
+            return true;
+
+        OnError("state not found");
+        return false;
+    }
+};
 
 ON_METHOD(manager, view_name)
 {
@@ -263,6 +279,10 @@ ON_METHOD(manager, view_name)
 
 ON_METHOD(manager, pay)
 {
+    MySettings stg;
+    if (!stg.Read(cid))
+        return;
+
     Domain d;
     DomainName dn;
     if (!dn.ReadFromName(cid, d))
@@ -271,11 +291,15 @@ ON_METHOD(manager, pay)
     if (d.IsExpired(Env::get_Height() + 1))
         return OnError("domain expired");
 
-    VaultAnon::OnUser_send_anon(cidVault, d.m_pkOwner, aid, amount);
+    VaultAnon::OnUser_send_anon(stg.m_cidVault, d.m_pkOwner, aid, amount);
 }
 
 ON_METHOD(user, view)
 {
+    MySettings stg;
+    if (!stg.Read(cid))
+        return;
+
     MyKeyID kid(cid);
     PubKey pk;
     kid.get_Pk(pk);
@@ -284,8 +308,8 @@ ON_METHOD(user, view)
 
     DumpDomains(cid, &pk);
 
-    VaultAnon::OnUser_view_raw(cidVault, kid);
-    VaultAnon::OnUser_view_anon(cidVault, kid);
+    VaultAnon::OnUser_view_raw(stg.m_cidVault, kid);
+    VaultAnon::OnUser_view_anon(stg.m_cidVault, kid);
 }
 
 ON_METHOD(user, my_key)
@@ -389,7 +413,11 @@ ON_METHOD(user, domain_set_owner)
 
 ON_METHOD(user, receive)
 {
-    VaultAnon::OnUser_receive_anon(cidVault, MyKeyID(cid), pkOwner, aid, amount);
+    MySettings stg;
+    if (!stg.Read(cid))
+        return;
+
+    VaultAnon::OnUser_receive_anon(stg.m_cidVault, MyKeyID(cid), pkOwner, aid, amount);
 }
 
 #undef ON_METHOD

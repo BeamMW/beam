@@ -8,6 +8,7 @@ namespace NameService {
 BEAM_EXPORT void Ctor(const Method::Create& r)
 {
     Env::Halt_if(!Env::RefAdd(r.m_Settings.m_cidDaoVault));
+    Env::Halt_if(!Env::RefAdd(r.m_Settings.m_cidVault));
     Env::SaveVar_T((uint8_t) Tags::s_Settings, r.m_Settings);
 }
 
