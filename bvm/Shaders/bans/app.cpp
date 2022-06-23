@@ -95,7 +95,14 @@ ON_METHOD(manager, deploy)
     Method::Create arg;
     _POD_(arg.m_Settings.m_cidDaoVault) = cidDaoVault;
     _POD_(arg.m_Settings.m_cidVault) = cidVault;
-    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy NameService contract", 0);
+
+    const uint32_t nCharge =
+        Env::Cost::CallFar +
+        Env::Cost::SaveVar_For(sizeof(Settings)) +
+        Env::Cost::Refs * 2 +
+        Env::Cost::Cycle * 200;
+
+    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy NameService contract", nCharge);
 }
 
 void DumpName(const Domain& d)
@@ -321,14 +328,25 @@ ON_METHOD(user, my_key)
     Env::DocAddBlob_T("key", pk);
 }
 
-uint32_t get_ChargeInvokeDomainOpProfit()
+namespace Cost
 {
-    return
-        Env::Cost::CallFar * 2 +
-        Env::Cost::LoadVar_For(sizeof(Domain)) +
-        Env::Cost::SaveVar_For(sizeof(Domain)) +
-        Env::Cost::FundsLock +
-        Env::Cost::Cycle * 500;
+    uint32_t get_InvokeDomainChange()
+    {
+        return
+            Env::Cost::CallFar +
+            Env::Cost::LoadVar_For(sizeof(Domain)) +
+            Env::Cost::SaveVar_For(sizeof(Domain));
+    }
+
+    uint32_t get_InvokeDomainReg()
+    {
+        return
+            get_InvokeDomainChange() +
+            Env::Cost::LoadVar_For(sizeof(Settings)) +
+            Env::Cost::CallFar +
+            Env::Cost::FundsLock +
+            Env::Cost::Cycle * 500;
+    }
 }
 
 ON_METHOD(user, domain_register)
@@ -359,7 +377,7 @@ ON_METHOD(user, domain_register)
     fc.m_Consume = 1;
     fc.m_Amount = Domain::get_Price(dn.m_Len);
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "bans register domain", get_ChargeInvokeDomainOpProfit());
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "bans register domain", Cost::get_InvokeDomainReg());
 }
 
 ON_METHOD(user, domain_extend)
@@ -389,7 +407,7 @@ ON_METHOD(user, domain_extend)
         return OnError("validity period too long");
 
     while (num--)
-        Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "bans extend domain", get_ChargeInvokeDomainOpProfit());
+        Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "bans extend domain", Cost::get_InvokeDomainReg());
 }
 
 ON_METHOD(user, domain_set_owner)
@@ -407,8 +425,13 @@ ON_METHOD(user, domain_set_owner)
 
     _POD_(arg.m_pkNewOwner) = pkOwner;
 
+    const uint32_t nCharge =
+        Cost::get_InvokeDomainChange() +
+        Env::Cost::AddSig +
+        Env::Cost::Cycle * 300;
+
     MyKeyID kid(cid);
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), nullptr, 0, &kid, 1, "bans domain set owner", 0);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), nullptr, 0, &kid, 1, "bans domain set owner", nCharge);
 }
 
 ON_METHOD(user, receive)
