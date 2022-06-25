@@ -3,6 +3,7 @@
 #include "contract.h"
 #include "../upgradable3/app_common_impl.h"
 #include "../dao-vault/contract.h"
+#include "../oracle2/contract.h"
 
 #define Nephrite_manager_view(macro)
 #define Nephrite_manager_view_params(macro) macro(ContractID, cid)

@@ -4,6 +4,7 @@
 #include "contract.h"
 #include "../upgradable3/contract_impl.h"
 #include "../dao-vault/contract.h"
+#include "../oracle2/contract.h"
 
 
 namespace Nephrite {
@@ -300,8 +301,9 @@ struct MyGlobal
 
     Global::Price get_Price()
     {
-        Method::OracleGet args;
+        Oracle2::Method::Get args;
         Env::CallFar_T(m_Settings.m_cidOracle, args, 0);
+        Env::Halt_if(!args.m_IsValid);
 
         Global::Price ret;
         ret.m_Value = args.m_Value;

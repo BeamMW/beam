@@ -150,8 +150,12 @@ BEAM_EXPORT void Method_3(Method::Get& r)
 {
     MyMedian med;
     med.Load();
-    Env::Halt_if(med.m_hEnd < Env::get_Height());
-    r.m_Value = med.m_Res;
+
+    r.m_IsValid = (med.m_hEnd >= Env::get_Height());
+    if (r.m_IsValid)
+        r.m_Value = med.m_Res;
+    else
+        r.m_Value.Set0();
 }
 
 BEAM_EXPORT void Method_4(const Method::FeedData& r)
