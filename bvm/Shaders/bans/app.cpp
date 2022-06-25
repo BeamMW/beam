@@ -111,7 +111,7 @@ ON_METHOD(manager, deploy)
         Env::Cost::Refs * 2 +
         Env::Cost::Cycle * 200;
 
-    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy NameService contract", nCharge);
+    Env::GenerateKernel(nullptr, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Deploy NameService contract", nCharge);
 }
 
 void DumpName(const Domain& d)
