@@ -29,7 +29,10 @@
 
 #define NameService_user_my_key(macro) macro(ContractID, cid)
 #define NameService_user_view(macro) macro(ContractID, cid)
-#define NameService_user_domain_register(macro) macro(ContractID, cid)
+#define NameService_user_domain_register(macro) \
+    macro(ContractID, cid) \
+    macro(uint32_t, nPeriods)
+
 #define NameService_user_domain_extend(macro) \
     macro(ContractID, cid) \
     macro(uint32_t, nPeriods)
@@ -388,10 +391,16 @@ ON_METHOD(user, domain_register)
             return OnError("owned by other");
     }
 
+    auto num = std::max<uint32_t>(nPeriods, 1);
+    if (Domain::s_PeriodValidity * num > Domain::s_PeriodValidityMax)
+        return OnError("validity period too long");
+
+    arg.m_Periods = num;
+
     FundsChange fc;
     fc.m_Aid = 0;
     fc.m_Consume = 1;
-    fc.m_Amount = Domain::get_Price(dn.m_Len);
+    fc.m_Amount = Domain::get_Price(dn.m_Len) * num;
 
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "bans register domain", Cost::get_InvokeDomainReg());
 }
@@ -402,14 +411,6 @@ ON_METHOD(user, domain_extend)
     DomainName dn;
     if (!dn.ReadOwned(cid, d))
         return;
-
-    DomainName::Method<Method::Extend> arg;
-    arg.From(dn);
-
-    FundsChange fc;
-    fc.m_Aid = 0;
-    fc.m_Consume = 1;
-    fc.m_Amount = Domain::get_Price(dn.m_Len);
 
     // predict expiration height, and max number of allowed extend periods
     Height h = Env::get_Height() + 1;
@@ -422,8 +423,16 @@ ON_METHOD(user, domain_extend)
     if (nNumMax > num)
         return OnError("validity period too long");
 
-    while (num--)
-        Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "bans extend domain", Cost::get_InvokeDomainReg());
+    DomainName::Method<Method::Extend> arg;
+    arg.From(dn);
+    arg.m_Periods = num;
+
+    FundsChange fc;
+    fc.m_Aid = 0;
+    fc.m_Consume = 1;
+    fc.m_Amount = Domain::get_Price(dn.m_Len) * num;
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "bans extend domain", Cost::get_InvokeDomainReg());
 }
 
 ON_METHOD(user, domain_set_owner)

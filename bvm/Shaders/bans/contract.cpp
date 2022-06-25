@@ -17,6 +17,8 @@ BEAM_EXPORT void Dtor(void*)
 {
 }
 
+void SendProfit(Amount val);
+
 struct MyDomain
     :public Domain
 {
@@ -41,6 +43,22 @@ struct MyDomain
     {
         return Env::SaveVar(&m_Key, m_KeyLen, &Cast::Down<Domain>(*this), sizeof(Domain), KeyTag::Internal) == sizeof(Domain);
     }
+
+    void Extend(uint8_t nPeriods, uint32_t nNameLen)
+    {
+        if (!nPeriods)
+            nPeriods = 1;
+
+        Height h = Env::get_Height();
+        if (m_hExpire < h)
+            m_hExpire = h;
+
+        m_hExpire += s_PeriodValidity * nPeriods; // can't overflow
+        Env::Halt_if(m_hExpire > h + s_PeriodValidityMax);
+
+        Amount val = Domain::get_Price(nNameLen);
+        SendProfit(val * nPeriods);
+    }
 };
 
 struct MySettings :public Settings
@@ -61,11 +79,6 @@ void SendProfit(Amount val)
     Env::CallFar_T(stg.m_cidDaoVault, arg);
 }
 
-void ChargePrice(uint8_t nNameLen)
-{
-    SendProfit(Domain::get_Price(nNameLen));
-}
-
 BEAM_EXPORT void Method_2(const Method::Register& r)
 {
     Height h = Env::get_Height();
@@ -80,10 +93,9 @@ BEAM_EXPORT void Method_2(const Method::Register& r)
     }
 
     _POD_(Cast::Down<Domain>(d)).SetZero();
-
-    ChargePrice(r.m_NameLen);
-    d.m_hExpire = h + Domain::s_PeriodValidity;
     _POD_(d.m_pkOwner) = r.m_pkOwner;
+
+    d.Extend(r.m_Periods, r.m_NameLen);
 
     d.Save();
 }
@@ -105,15 +117,7 @@ BEAM_EXPORT void Method_4(const Method::Extend& r)
     MyDomain d(r.m_NameLen);
     Env::Halt_if(!d.Load());
 
-    Height h = Env::get_Height();
-    if (d.m_hExpire < h)
-        d.m_hExpire = h;
-
-    d.m_hExpire += Domain::s_PeriodValidity;
-    ChargePrice(r.m_NameLen);
-
-    Env::Halt_if(d.m_hExpire - h > Domain::s_PeriodValidityMax);
-
+    d.Extend(r.m_Periods, r.m_NameLen);
 
     d.Save();
 }
