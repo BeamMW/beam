@@ -270,19 +270,35 @@ struct AppGlobal
     struct MyPrice
         :public Price
     {
-        bool Load(const AppGlobal& g)
+        bool LoadInternal(const Env::Key_T<uint8_t>& key)
+        {
+            Oracle2::Median med;
+
+            if (!Env::VarReader::Read_T(key, med) ||
+                (med.m_hEnd < Env::get_Height() + 1))
+                return false;
+
+            m_Value = med.m_Res;
+            return true;
+        }
+
+        uint32_t Load(const AppGlobal& g)
         {
             Env::Key_T<uint8_t> key;
             _POD_(key.m_Prefix.m_Cid) = g.m_Settings.m_cidOracle1;
             key.m_KeyInContract = Oracle2::Tags::s_Median;
 
-            Oracle2::Median med;
+            if (LoadInternal(key))
+                return 1;
 
-            if (!Env::VarReader::Read_T(key, med))
-                return false;
+            if (_POD_(g.m_Settings.m_cidOracle1) != g.m_Settings.m_cidOracle2)
+            {
+                _POD_(key.m_Prefix.m_Cid) = g.m_Settings.m_cidOracle2;
+                if (LoadInternal(key))
+                    return 2;
+            }
 
-            m_Value = med.m_Res;
-            return true;
+            return 0;
         }
     };
 };
@@ -295,6 +311,7 @@ struct AppGlobalPlus
     AppGlobalPlus(const ContractID& cid) :m_Kid(cid) {}
 
     MyPrice m_Price;
+    uint32_t m_PriceOracle = 0;
 
     struct EpochStorage
     {
@@ -381,13 +398,17 @@ struct AppGlobalPlus
         }
     }
 
+    void LoadPrice()
+    {
+        m_PriceOracle = m_Price.Load(*this);
+    }
+
     bool LoadPlus()
     {
         if (!Load(m_Kid.m_Blob.m_Cid))
             return false;
 
-        if (!m_Price.Load(*this))
-            return false;
+        LoadPrice();
 
         if (m_Troves.m_iLastCreated)
             LoadAllTroves();
@@ -395,10 +416,20 @@ struct AppGlobalPlus
         return true;
     }
 
+    bool TestHaveValidPrice()
+    {
+        if (m_PriceOracle)
+            return true;
+
+        OnError("no valid price");
+        return false;
+    }
+
     void DocAddTrove(const Trove& t)
     {
         DocAddPair("amounts", t.m_Amounts);
-        DocAddPerc("cr", m_Price.ToCR(t.m_Amounts.get_Rcr()));
+        if (m_PriceOracle)
+            DocAddPerc("cr", m_Price.ToCR(t.m_Amounts.get_Rcr()));
     }
 
     bool ReadBalance()
@@ -607,7 +638,10 @@ ON_METHOD(manager, view_params)
     }
 
     AppGlobal::MyPrice price;
-    if (price.Load(g))
+    uint32_t iOracle = price.Load(g);
+    Env::DocAddNum("oracle_state", iOracle);
+
+    if (iOracle)
     {
         DocAddFloat("price", price.m_Value, 4);
 
@@ -889,6 +923,10 @@ ON_METHOD(user, upd_stab)
 
     if (newVal < g.m_MyStab.m_Amounts.Tok && g.m_Troves.m_iHead)
     {
+        g.LoadPrice();
+        if (!g.TestHaveValidPrice())
+            return;
+
         // verification that 1st trove can't be liquidated
         nCharge +=
             Charge::Price() +
@@ -971,10 +1009,10 @@ ON_METHOD(user, trove_modify)
     if (t.m_Amounts.Tok || t.m_Amounts.Col)
     {
         if (t.m_Amounts.Tok < g.m_Settings.m_TroveLiquidationReserve)
-        {
-            OnError("min tok required");
+            return OnError("min tok required");
+
+        if (!g.TestHaveValidPrice())
             return;
-        }
 
         auto totals0 = g.m_Troves.m_Totals;
         auto iPrev1 = g.PushMyTrove();
@@ -1057,6 +1095,9 @@ ON_METHOD(user, liquidate)
 {
     AppGlobalPlus g(cid);
     if (!g.LoadPlus())
+        return;
+
+    if (!g.TestHaveValidPrice())
         return;
 
     g.m_Kid.set_Trove();
@@ -1170,6 +1211,9 @@ ON_METHOD(user, redeem)
 {
     AppGlobalPlus g(cid);
     if (!g.LoadPlus())
+        return;
+
+    if (!g.TestHaveValidPrice())
         return;
 
     g.ReadBalanceAny();
