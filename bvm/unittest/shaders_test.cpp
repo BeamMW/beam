@@ -1393,7 +1393,7 @@ namespace bvm2 {
 			Shaders::Nephrite::Global::Price price;
 			{
 				Shaders::Env::Key_T<uint8_t> key;
-				key.m_Prefix.m_Cid = g.m_Settings.m_cidOracle;
+				key.m_Prefix.m_Cid = g.m_Settings.m_cidOracle1;
 				key.m_KeyInContract = Shaders::Oracle2::Tags::s_Median;
 
 				Blob b;
@@ -1546,8 +1546,9 @@ namespace bvm2 {
 		{
 			Shaders::Nephrite::Method::Create args;
 			ZeroObject(args);
-			args.m_Settings.m_cidOracle = m_Oracle2.m_Cid;
 			args.m_Settings.m_cidDaoVault = m_DaoVault.m_Cid;
+			args.m_Settings.m_cidOracle1 = m_Oracle2.m_Cid;
+			args.m_Settings.m_cidOracle2 = m_Oracle2.m_Cid;
 			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 5;
 			args.m_Settings.m_AidGov = aidGov;
 			args.m_Upgradable.m_MinApprovers = 1; // 0 is illegal atm

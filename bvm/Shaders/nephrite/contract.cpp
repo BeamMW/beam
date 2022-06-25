@@ -302,8 +302,12 @@ struct MyGlobal
     Global::Price get_Price()
     {
         Oracle2::Method::Get args;
-        Env::CallFar_T(m_Settings.m_cidOracle, args, 0);
-        Env::Halt_if(!args.m_IsValid);
+        Env::CallFar_T(m_Settings.m_cidOracle1, args);
+        if (!args.m_IsValid)
+        {
+            Env::CallFar_T(m_Settings.m_cidOracle2, args);
+            Env::Halt_if(!args.m_IsValid);
+        }
 
         Global::Price ret;
         ret.m_Value = args.m_Value;
@@ -348,8 +352,9 @@ BEAM_EXPORT void Ctor(const Method::Create& r)
     g.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
     Env::Halt_if(!g.m_Aid);
 
-    Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidOracle));
     Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidDaoVault));
+    Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidOracle1));
+    Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidOracle2));
 
     g.Save();
 }

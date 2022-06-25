@@ -17,8 +17,9 @@
 
 #define Nephrite_manager_deploy(macro) \
     Upgradable3_deploy(macro) \
-    macro(ContractID, cidOracle) \
     macro(ContractID, cidDaoVault) \
+    macro(ContractID, cidOracle1) \
+    macro(ContractID, cidOracle2) \
     macro(Amount, troveLiquidationReserve) \
     macro(AssetID, aidGov) \
     macro(uint32_t, hInitialPeriod)
@@ -204,14 +205,15 @@ ON_METHOD(manager, deploy)
     auto& s = arg.m_Settings; // alias
     s.m_AidGov = aidGov;
     s.m_TroveLiquidationReserve = troveLiquidationReserve;
-    _POD_(s.m_cidOracle) = cidOracle;
     _POD_(s.m_cidDaoVault) = cidDaoVault;
+    _POD_(s.m_cidOracle1) = cidOracle1;
+    _POD_(s.m_cidOracle2) = _POD_(cidOracle2).IsZero() ? cidOracle1 : cidOracle2;
     s.m_hMinRedemptionHeight = Env::get_Height() + hInitialPeriod;
 
     const uint32_t nCharge =
         Upgradable3::Manager::get_ChargeDeploy() +
         Env::Cost::AssetManage +
-        Env::Cost::Refs * 2 +
+        Env::Cost::Refs * 3 +
         Env::Cost::SaveVar_For(sizeof(Nephrite::Global)) +
         Env::Cost::MemOpPerByte * sizeof(Nephrite::Global) +
         Env::Cost::Cycle * 1000;
@@ -271,7 +273,7 @@ struct AppGlobal
         bool Load(const AppGlobal& g)
         {
             Env::Key_T<uint8_t> key;
-            _POD_(key.m_Prefix.m_Cid) = g.m_Settings.m_cidOracle;
+            _POD_(key.m_Prefix.m_Cid) = g.m_Settings.m_cidOracle1;
             key.m_KeyInContract = Oracle2::Tags::s_Median;
 
             Oracle2::Median med;
@@ -586,7 +588,8 @@ ON_METHOD(manager, view_params)
 
     Env::DocGroup gr("params");
 
-    Env::DocAddBlob_T("oracle", g.m_Settings.m_cidOracle);
+    Env::DocAddBlob_T("oracle1", g.m_Settings.m_cidOracle1);
+    Env::DocAddBlob_T("oracle2", g.m_Settings.m_cidOracle2);
     Env::DocAddNum("aidTok", g.m_Aid);
     Env::DocAddNum("aidGov", g.m_Settings.m_AidGov);
     Env::DocAddNum("redemptionHeight", g.m_Settings.m_hMinRedemptionHeight);
