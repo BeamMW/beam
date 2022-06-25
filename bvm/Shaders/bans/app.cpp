@@ -420,7 +420,7 @@ ON_METHOD(user, domain_extend)
     uint32_t nNumMax = (d.m_hExpire < hMax) ? (hMax - d.m_hExpire) / Domain::s_PeriodValidity : 0;
 
     auto num = std::max<uint32_t>(nPeriods, 1);
-    if (nNumMax > num)
+    if (num > nNumMax)
         return OnError("validity period too long");
 
     DomainName::Method<Method::Extend> arg;
