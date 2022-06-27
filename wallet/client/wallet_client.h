@@ -152,6 +152,7 @@ namespace beam::wallet
         uint32_t getMarurityProgress(const ShieldedCoin& coin) const;
         uint16_t getMaturityHoursLeft(const ShieldedCoin& coin) const;
 
+        std::set<beam::Asset::ID> getAssetsFull() const;
         std::set<beam::Asset::ID> getAssetsNZ() const;
         beam::AmountBig::Type getAvailable(beam::Asset::ID) const;
         beam::AmountBig::Type getAvailableRegular(beam::Asset::ID) const;

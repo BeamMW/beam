@@ -1073,6 +1073,16 @@ namespace beam::wallet
         return m_rules;
     }
 
+    std::set<beam::Asset::ID> WalletClient::getAssetsFull() const
+    {
+        std::set<beam::Asset::ID> assets;
+
+        for (const auto& status : m_status.all)
+            assets.insert(status.first);
+
+        return assets;
+    }
+
     std::set<beam::Asset::ID> WalletClient::getAssetsNZ() const
     {
         std::set<beam::Asset::ID> assets;
