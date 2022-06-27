@@ -299,15 +299,20 @@ struct MyGlobal
         AdjustAll(r, totals0, fpLogic, t.m_pkOwner); // will invoke AddSig
     }
 
+    static bool get_PriceInternal(Oracle2::Method::Get& args, const ContractID& cidOracle)
+    {
+        Env::CallFar_T(cidOracle, args);
+        // ban zero price. Our floating point division-by-zero may be exploited
+        return args.m_IsValid && !args.m_Value.IsZero();
+    }
+
     Global::Price get_Price()
     {
         Oracle2::Method::Get args;
-        Env::CallFar_T(m_Settings.m_cidOracle1, args);
-        if (!args.m_IsValid)
-        {
-            Env::CallFar_T(m_Settings.m_cidOracle2, args);
-            Env::Halt_if(!args.m_IsValid);
-        }
+        Env::Halt_if(
+            !get_PriceInternal(args, m_Settings.m_cidOracle1) &&
+            !get_PriceInternal(args, m_Settings.m_cidOracle2)
+        );
 
         Global::Price ret;
         ret.m_Value = args.m_Value;

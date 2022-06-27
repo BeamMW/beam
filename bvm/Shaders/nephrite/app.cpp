@@ -278,6 +278,9 @@ struct AppGlobal
                 (med.m_hEnd < Env::get_Height() + 1))
                 return false;
 
+            if (med.m_Res.IsZero())
+                return false; // ban zero price
+
             m_Value = med.m_Res;
             return true;
         }
