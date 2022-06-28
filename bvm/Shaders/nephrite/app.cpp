@@ -598,7 +598,7 @@ struct AppGlobalPlus
         PrepareTroveTx(tx, pFc);
 
         tx.m_GovPull += m_Balance.m_Gov;
-        pFc[2].m_Amount = m_Balance.m_Gov;
+        pFc[2].m_Amount = tx.m_GovPull;
         pFc[2].m_Aid = m_Settings.m_AidGov;
         pFc[2].m_Consume = 0;
     }
