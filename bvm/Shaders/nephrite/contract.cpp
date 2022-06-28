@@ -303,7 +303,7 @@ struct MyGlobal
     {
         Env::CallFar_T(cidOracle, args);
         // ban zero price. Our floating point division-by-zero may be exploited
-        return args.m_IsValid && !args.m_Value.IsZero();
+        return args.m_IsValid && Price::IsSane(args.m_Value);
     }
 
     Global::Price get_Price()
