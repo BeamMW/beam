@@ -278,8 +278,8 @@ struct AppGlobal
                 (med.m_hEnd < Env::get_Height() + 1))
                 return false;
 
-            if (med.m_Res.IsZero())
-                return false; // ban zero price
+            if (!Price::IsSane(med.m_Res))
+                return false;
 
             m_Value = med.m_Res;
             return true;
@@ -598,7 +598,7 @@ struct AppGlobalPlus
         PrepareTroveTx(tx, pFc);
 
         tx.m_GovPull += m_Balance.m_Gov;
-        pFc[2].m_Amount = m_Balance.m_Gov;
+        pFc[2].m_Amount = tx.m_GovPull;
         pFc[2].m_Aid = m_Settings.m_AidGov;
         pFc[2].m_Consume = 0;
     }

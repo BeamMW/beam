@@ -41,7 +41,7 @@ namespace
 using namespace beam;
 using namespace beam::wallet;
 
-constexpr size_t kCollectorBufferSize = 50;
+constexpr size_t kCollectorBufferSize = 100;
 constexpr size_t kShieldedPer24hFilterSize = 20;
 constexpr size_t kShieldedPer24hFilterBlocksForUpdate = 144;
 constexpr size_t kShieldedCountHistoryWindowSize = kShieldedPer24hFilterSize << 1;
@@ -1461,23 +1461,23 @@ namespace beam::wallet
 
     void WalletClient::getTransactionsSmoothly()
     {
-        auto txCount = m_walletDB->getTxCount(wallet::TxType::ALL);
-        if (txCount > kOneTimeLoadTxCount)
-        {
-            onTransactionChanged(ChangeAction::Reset, vector<wallet::TxDescription>());
+        //auto txCount = m_walletDB->getTxCount(wallet::TxType::ALL);
+        //if (txCount > kOneTimeLoadTxCount)
+        //{
+        //    onTransactionChanged(ChangeAction::Reset, vector<wallet::TxDescription>());
 
-            auto iterationsCount = txCount / kOneTimeLoadTxCount + (txCount % kOneTimeLoadTxCount ? 1 : 0);
-            for(int i = 0; i < iterationsCount; ++i) 
-                onTransactionChanged(
-                    ChangeAction::Updated, 
-                    m_walletDB->getTxHistory(wallet::TxType::ALL,
-                                             i * kOneTimeLoadTxCount,
-                                             i * kOneTimeLoadTxCount + kOneTimeLoadTxCount));
-        } 
-        else
-        {
+        //    auto iterationsCount = txCount / kOneTimeLoadTxCount + (txCount % kOneTimeLoadTxCount ? 1 : 0);
+        //    for(int i = 0; i < iterationsCount; ++i) 
+        //        onTransactionChanged(
+        //            ChangeAction::Added, 
+        //            m_walletDB->getTxHistory(wallet::TxType::ALL,
+        //                                     i * kOneTimeLoadTxCount,
+        //                                     i * kOneTimeLoadTxCount + kOneTimeLoadTxCount));
+        //} 
+        //else
+        //{
             getTransactions();
-        }
+        //}
     }
 
     void WalletClient::getAllUtxosStatus()

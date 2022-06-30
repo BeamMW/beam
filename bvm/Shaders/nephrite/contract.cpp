@@ -303,7 +303,7 @@ struct MyGlobal
     {
         Env::CallFar_T(cidOracle, args);
         // ban zero price. Our floating point division-by-zero may be exploited
-        return args.m_IsValid && !args.m_Value.IsZero();
+        return args.m_IsValid && Price::IsSane(args.m_Value);
     }
 
     Global::Price get_Price()
@@ -353,7 +353,7 @@ BEAM_EXPORT void Ctor(const Method::Create& r)
     g.m_StabPool.Init();
     g.m_RedistPool.Reset();
 
-    static const char szMeta[] = "STD:SCH_VER=1;N=Nephrite Token;SN=Liqt;UN=LIQT;NTHUN=GROTHL";
+    static const char szMeta[] = "STD:SCH_VER=1;N=Nephrite Token;SN=Liqt;UN=NPH;NTHUN=GROTHN";
     g.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
     Env::Halt_if(!g.m_Aid);
 

@@ -755,6 +755,18 @@ namespace MultiPrecision
             return !m_Num;
         }
 
+		bool IsNormalizedNnz() const
+		{
+			return !!(s_HiBit & m_Num);
+		}
+
+		bool IsOrderWithin(int32_t nMin, int32_t nMax) const
+		{
+			uint32_t d = m_Order - nMin + s_Bits;
+			uint32_t r = nMax - nMin;
+			return (d <= r);
+		}
+
         void Normalize()
         {
             // call explicitly only if manipulating directly
