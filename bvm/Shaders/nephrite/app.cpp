@@ -263,6 +263,8 @@ struct AppGlobal
 
         m_BaseRate.Decay();
 
+        m_StabPool.AddReward(Env::get_Height());
+
         return true;
 
     }
@@ -275,7 +277,7 @@ struct AppGlobal
             Oracle2::Median med;
 
             if (!Env::VarReader::Read_T(key, med) ||
-                (med.m_hEnd < Env::get_Height() + 1))
+                (med.m_hEnd < Env::get_Height()))
                 return false;
 
             if (!Price::IsSane(med.m_Res))
@@ -618,8 +620,6 @@ ON_METHOD(manager, view_params)
     if (!g.Load(cid))
         return;
 
-    g.m_StabPool.AddReward(Env::get_Height());
-
     Env::DocGroup gr("params");
 
     Env::DocAddBlob_T("oracle1", g.m_Settings.m_cidOracle1);
@@ -891,8 +891,6 @@ ON_METHOD(user, upd_stab)
     AppGlobalPlus g(cid);
     if (!g.Load(cid)) // skip loading all troves
         return;
-
-    g.m_StabPool.AddReward(Env::get_Height() + 1);
 
     Method::UpdStabPool args;
     _POD_(args.m_Flow).SetZero();
