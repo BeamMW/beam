@@ -23,6 +23,7 @@ namespace beam::wallet {
     class DexBoard
        : public IBroadcastListener
        , public ISimpleSwapHandler
+       , public IWalletDbObserver
     {
     public:
         struct IObserver

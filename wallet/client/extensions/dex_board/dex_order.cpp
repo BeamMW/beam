@@ -61,8 +61,8 @@ namespace beam::wallet
                  uint64_t   sbbsKeyIdx,
                  DexMarket  market,
                  DexMarketSide side,
-                 Amount     size,
-                 Amount     price,
+                 Amount     assetFirst,
+                 Amount     assetSecond,
                  Timestamp  expiration)
         : version(kCurrentOfferVer)
         , orderID(orderId)
@@ -70,12 +70,12 @@ namespace beam::wallet
         , sbbsKeyIDX(sbbsKeyIdx)
         , market(std::move(market))
         , side(side)
-        , origSize(size)
-        , origPrice(price)
-        , remainingSize(size)
+        , m_assetFirst(assetFirst)
+        , m_assetSecond(assetSecond)
         , isMine(true)
         , expireTime(expiration)
     {
+        remainingSize = getISendAmount();
     }
 
     uint32_t DexOrder::getVersion() const
@@ -157,11 +157,11 @@ namespace beam::wallet
     {
         if (isMine)
         {
-            return  side == DexMarketSide::Sell ? origSize : origSize * origPrice / Rules::Coin;
+            return side == DexMarketSide::Sell ? m_assetFirst : m_assetSecond;
         }
         else
         {
-             return  side == DexMarketSide::Sell ? origSize * origPrice / Rules::Coin : origSize;
+            return side == DexMarketSide::Sell ? m_assetSecond : m_assetFirst;
         }
     }
 
@@ -169,11 +169,11 @@ namespace beam::wallet
     {
         if (isMine)
         {
-            return side == DexMarketSide::Sell ? origSize * origPrice / Rules::Coin : origSize;
+            return side == DexMarketSide::Sell ? m_assetSecond : m_assetFirst;
         }
         else
         {
-            return side == DexMarketSide::Sell ? origSize : origSize * origPrice / Rules::Coin;
+            return side == DexMarketSide::Sell ? m_assetFirst : m_assetSecond;
         }
     }
 
@@ -223,11 +223,18 @@ namespace beam::wallet
 
     Amount DexOrder::getPrice() const
     {
-        return origPrice;
+        if (isMine)
+        {
+            return side == DexMarketSide::Sell ? m_assetSecond / m_assetFirst * Rules::Coin : m_assetFirst / m_assetSecond * Rules::Coin;
+        }
+        else
+        {
+            return side == DexMarketSide::Sell ? m_assetFirst / m_assetSecond * Rules::Coin : m_assetSecond / m_assetFirst * Rules::Coin;
+        }
     }
 
     Amount DexOrder::getSize() const
     {
-        return origSize;
+        return getISendAmount();
     }
 }

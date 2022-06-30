@@ -703,7 +703,7 @@ namespace beam::wallet
                 //
                 // DEX
                 //
-                /*
+
                 auto dexBoard = make_shared<DexBoard>(*broadcastRouter, this->getAsync(), *m_walletDB);
                 auto dexWDBSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(dexBoard.get()), m_walletDB);
 
@@ -711,7 +711,7 @@ namespace beam::wallet
                 auto dexBoardSubscriber = make_unique<DexBoardSubscriber>(static_cast<DexBoard::IObserver*>(this), dexBoard);
 
                 _dex = dexBoard;
-                */
+
 
                 //
                 // IPFS
@@ -1076,9 +1076,10 @@ namespace beam::wallet
     std::set<beam::Asset::ID> WalletClient::getAssetsFull() const
     {
         std::set<beam::Asset::ID> assets;
+        // assets.insert(Asset::s_BeamID);
 
-        for (const auto& status : m_status.all)
-            assets.insert(status.first);
+        // for (const auto& status : m_status.all)
+        //     assets.insert(status.first);
 
         return assets;
     }
@@ -2115,7 +2116,7 @@ namespace beam::wallet
             else if (scheme == "https")
                 address.port(443);
         }
-;
+
         std::vector<HeaderPair> headers;
         headers.push_back({ "Content-Type", "application/json" });
         headers.push_back({ "Host", host.c_str() });

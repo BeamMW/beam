@@ -27,7 +27,7 @@ namespace beam::wallet
     class DexOrder
     {
     public:
-        SERIALIZE(version, orderID, sbbsID, sbbsKeyIDX, market.first, market.second, side, origSize, origPrice, remainingSize, expireTime);
+        SERIALIZE(version, orderID, sbbsID, sbbsKeyIDX, market.first, market.second, side, m_assetFirst, m_assetSecond, remainingSize, expireTime);
         static uint32_t getCurrentVersion();
 
         DexOrder() = default;
@@ -37,8 +37,8 @@ namespace beam::wallet
                  uint64_t      sbbsKeyIdx,
                  DexMarket     market,
                  DexMarketSide side,
-                 Amount        size,
-                 Amount        price,
+                 Amount        assetFirst,
+                 Amount        m_assetSecond,
                  Timestamp     expiration);
 
         bool operator==(const DexOrder& other) const
@@ -79,9 +79,9 @@ namespace beam::wallet
         DexMarket     market;
         DexMarketSide side;
 
-        Amount  origSize = 0;
-        Amount  origPrice = 0;
-        Amount  remainingSize = 0;
+        Amount m_assetFirst = 0;
+        Amount m_assetSecond = 0;
+        Amount remainingSize = 0;
 
         bool       isMine     = false;
         Timestamp  expireTime = 0;
