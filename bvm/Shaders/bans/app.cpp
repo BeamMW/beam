@@ -19,9 +19,11 @@
     macro(PubKey, pk)
 
 #define NameService_manager_view_name(macro) macro(ContractID, cid)
+#define NameService_manager_view_params(macro) macro(ContractID, cid)
 
 #define NameServiceRole_manager(macro) \
     macro(manager, view) \
+    macro(manager, view_params) \
     macro(manager, deploy) \
     macro(manager, view_domain) \
     macro(manager, view_name) \
@@ -288,6 +290,18 @@ struct MySettings
     }
 };
 
+ON_METHOD(manager, view_params)
+{
+    MySettings stg;
+    if (!stg.Read(cid))
+        return;
+
+    Env::DocGroup gr("res");
+
+    Env::DocAddBlob_T("vault", stg.m_cidVault);
+    Env::DocAddBlob_T("dao-vault", stg.m_cidDaoVault);
+}
+
 ON_METHOD(manager, view_name)
 {
     DomainName dn;
@@ -512,7 +526,10 @@ ON_METHOD(user, receive)
     if (!stg.Read(cid))
         return;
 
-    VaultAnon::OnUser_receive_anon(stg.m_cidVault, MyKeyID(cid), pkOwner, aid, amount);
+    if (_POD_(pkOwner).IsZero())
+        VaultAnon::OnUser_receive_raw(stg.m_cidVault, MyKeyID(cid), aid, amount);
+    else
+        VaultAnon::OnUser_receive_anon(stg.m_cidVault, MyKeyID(cid), pkOwner, aid, amount);
 }
 
 #undef ON_METHOD
