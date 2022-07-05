@@ -34,7 +34,8 @@ namespace beam::wallet
                 beam::wallet::IWalletDB::Ptr wdb,
                 beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
                 std::string appid,
-                std::string appname);
+                std::string appname,
+                uint32_t privilegeLvl);
 
         virtual ~IShadersManager() = default;
 

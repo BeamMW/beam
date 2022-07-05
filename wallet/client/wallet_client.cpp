@@ -760,7 +760,7 @@ namespace beam::wallet
                 //
                 // Shaders
                 //
-                auto clientShaders = IShadersManager::CreateInstance(wallet, m_walletDB, nodeNetwork, "", "");
+                auto clientShaders = IShadersManager::CreateInstance(wallet, m_walletDB, nodeNetwork, "", "", 0);
                 _clientShaders = clientShaders;
 
                 nodeNetwork->tryToConnect();
@@ -954,12 +954,12 @@ namespace beam::wallet
     }
     #endif //BEAM_IPFS_SUPPORT
 
-    IShadersManager::Ptr WalletClient::IWThread_createAppShaders(const std::string& appid, const std::string& appname)
+    IShadersManager::Ptr WalletClient::IWThread_createAppShaders(const std::string& appid, const std::string& appname, uint32_t privilegeLvl)
     {
         auto wallet = m_wallet.lock();
         auto network = m_nodeNetwork.lock();
         assert(wallet && network);
-        return IShadersManager::CreateInstance(wallet, m_walletDB, network, appid, appname);
+        return IShadersManager::CreateInstance(wallet, m_walletDB, network, appid, appname, privilegeLvl);
     }
 
     std::string WalletClient::getNodeAddress() const
