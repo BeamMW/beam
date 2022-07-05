@@ -47,7 +47,6 @@ namespace beam::wallet
             , _client(nullptr)
         {
             _walletAPIProxy = std::make_shared<ApiHandlerProxy>();
-            LOG_INFO () << "AppsApi created for " << _appName << ", " << _appId;
         }
 
         ~AppsApi() override
@@ -125,7 +124,7 @@ namespace beam::wallet
                     result.shaders = client->IWThread_createAppShaders(appid, appname, privilegeLvl);
                     return result;
                 },
-                [client, cback=std::move(cback), version, appid, appname](boost::any aptr) {
+                [client, cback=std::move(cback), version, appid, appname, privilegeLvl](boost::any aptr) {
                     //
                     // THIS IS UI THREAD
                     //
@@ -149,6 +148,7 @@ namespace beam::wallet
                     #endif
 
                     wapi->_walletAPI = IWalletApi::CreateInstance(version, *wapi->_walletAPIProxy, data);
+                    LOG_INFO () << "AppsApi created for " << appid << ", " << appname << ", privileges " << privilegeLvl;
                     cback(std::move(wapi));
                 }
             );
