@@ -74,6 +74,7 @@ namespace beam::wallet
                        std::string version,
                        std::string appid,
                        std::string appname,
+                       uint32_t privilegeLvl,
                        bool ipfsnode,
                        std::function<void (Ptr)> cback)
         {
@@ -92,7 +93,7 @@ namespace beam::wallet
             };
 
             client->getAsync()->makeIWTCall(
-                [client, appid, appname, ipfsnode]() -> boost::any {
+                [client, appid, appname, privilegeLvl, ipfsnode]() -> boost::any {
                     //
                     // THIS IS WALLET CLIENT REACTOR THREAD
                     //
@@ -121,7 +122,7 @@ namespace beam::wallet
                                    << appname << "' DApp";
                     }
 
-                    result.shaders = client->IWThread_createAppShaders(appid, appname);
+                    result.shaders = client->IWThread_createAppShaders(appid, appname, privilegeLvl);
                     return result;
                 },
                 [client, cback=std::move(cback), version, appid, appname](boost::any aptr) {
