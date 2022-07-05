@@ -138,7 +138,7 @@ namespace beam::wallet
         void IWThread_stopIPFSNode(); // throws on fail;
         #endif
 
-        IShadersManager::Ptr IWThread_createAppShaders(const std::string& appid, const std::string& appname);
+        IShadersManager::Ptr IWThread_createAppShaders(const std::string& appid, const std::string& appname, uint32_t privilegeLvl);
 
         std::string getNodeAddress() const;
         std::string exportOwnerKey(const beam::SecString& pass) const;
