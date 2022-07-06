@@ -300,6 +300,7 @@ namespace bvm2 {
 		};
 
 		virtual Kind get_Kind() = 0;
+		virtual bool IsSuspended() { return false; }
 
 		static void Compile(ByteBuffer&, const Blob&, Kind);
 
@@ -525,7 +526,7 @@ namespace bvm2 {
 
 		virtual void SelectContext(bool bDependent, uint32_t nChargeNeeded) = 0;
 
-		void EnsureContext();
+		bool EnsureContext();
 
 		struct Context {
 			Height m_Height = MaxHeight;
@@ -618,6 +619,8 @@ namespace bvm2 {
 		void Call(Wasm::Word addr);
 		void Call(Wasm::Word addr, Wasm::Word retAddr);
 		void CallMethod(uint32_t iMethod);
+
+		void RunOnce();
 	};
 
 

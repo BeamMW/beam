@@ -574,7 +574,9 @@ namespace bvm2 {
 	template <typename TRes> struct Caller {
 		template <typename TArgs, typename TProcessor>
 		static void Call(TProcessor& me, const TArgs& args) {
-			me.m_Stack.template Push<TRes>(args.Call(me));
+			auto ret = args.Call(me);
+			if (!me.IsSuspended())
+				me.m_Stack.template Push<TRes>(ret);
 		}
 	};
 	template <> struct Caller<void> {
@@ -2347,7 +2349,8 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(Vars_Enum)
 	{
-		EnsureContext();
+		if (!EnsureContext())
+			return 0;
 
 		IReadVars::Ptr pObj;
 		VarsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1), pObj);
@@ -2426,7 +2429,8 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(Logs_Enum)
 	{
-		EnsureContext();
+		if (!EnsureContext())
+			return 0;
 
 		IReadLogs::Ptr pObj;
 		LogsEnum(Blob(pKey0, nKey0), Blob(pKey1, nKey1), pPosMin, pPosMax, pObj);
@@ -2490,7 +2494,8 @@ namespace bvm2 {
 
 	uint32_t ProcessorManager::VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof)
 	{
-		EnsureContext();
+		if (!EnsureContext())
+			return 0;
 
 		ByteBuffer val;
 		beam::Merkle::Proof proof;
@@ -2553,7 +2558,8 @@ namespace bvm2 {
 
 	uint32_t ProcessorManager::LogGetProofInternal(const HeightPos& hp, Wasm::Word& pProof)
 	{
-		EnsureContext();
+		if (!EnsureContext())
+			return 0;
 
 		ByteBuffer val;
 		beam::Merkle::Proof proof;
@@ -3022,6 +3028,9 @@ namespace bvm2 {
 
 	BVM_METHOD(GenerateKernel)
 	{
+		if (!EnsureContext())
+			return;
+
 #pragma pack (push, 1)
 		struct SigRequest {
 			Wasm::Word m_pID;
@@ -3047,6 +3056,9 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(GenerateKernel)
 	{
+		if (!EnsureContext())
+			return;
+
 		auto& v = GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, false, szComment, nCharge);
 
 		v.m_vSig.reserve(nSig);
@@ -3058,19 +3070,39 @@ namespace bvm2 {
 		}
 	}
 
+	void ProcessorManager::RunOnce()
+	{
+		assert(!IsSuspended());
+		auto nIp = get_Ip();
+		auto nSp = m_Stack.m_Pos;
+
+		Processor::RunOnce();
+
+		if (IsSuspended())
+		{
+			Jmp(nIp); // restore
+			m_Stack.m_Pos = nSp;
+		}
+	}
+
 	Height ProcessorManager::get_Height()
 	{
 		EnsureContext();
 		return m_Context.m_Height;
 	}
 
-	void ProcessorManager::EnsureContext()
+	bool ProcessorManager::EnsureContext()
 	{
-		if (MaxHeight == m_Context.m_Height)
-		{
-			SelectContext(false, 0);
-			Wasm::Test(MaxHeight != m_Context.m_Height);
-		}
+		if (MaxHeight != m_Context.m_Height)
+			return true;
+
+		SelectContext(false, 0);
+
+		if (MaxHeight != m_Context.m_Height)
+			return true;
+
+		Wasm::Test(IsSuspended());
+		return false;
 	}
 
 	ContractInvokeEntry& ProcessorManager::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, bool bCvtFunds, const char* szComment, uint32_t nCharge)
@@ -3153,6 +3185,9 @@ namespace bvm2 {
 
 	BVM_METHOD(GenerateKernelAdvanced)
 	{
+		if (!EnsureContext())
+			return;
+
 		const FundsChange* pFunds_ = get_ArrayAddrAsR<FundsChange>(pFunds, nFunds);
 		GenerateKernel(pCid ? &get_AddrAsR<ContractID>(pCid) : nullptr, iMethod, Blob(get_AddrR(pArg, nArg), nArg), pFunds_, nFunds, true, RealizeStr(szComment), nCharge);
 
@@ -3164,6 +3199,9 @@ namespace bvm2 {
 
 	BVM_METHOD_HOST(GenerateKernelAdvanced)
 	{
+		if (!EnsureContext())
+			return;
+
 		GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, false, szComment, nCharge);
 		SetKernelAdv(hMin, hMax, ptFullBlind, ptFullNonce, skForeignSig, iSlotBlind, iSlotNonce, pSig, nSig, pChallenges);
 	}
