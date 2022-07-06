@@ -23,12 +23,19 @@ namespace bvm2 {
 		m_pOut = &m_Out;
 	}
 
-	void ManagerStd::Unfreeze()
+
+	bool ManagerStd::IsSuspended()
 	{
-		assert(m_Freeze);
-		if (!--m_Freeze)
-			m_UnfreezeEvt.start();
-			//OnUnfreezed();
+		return m_Pending.m_pBlocker != nullptr;
+	}
+
+	void ManagerStd::Pending::OnDone(IBase& x)
+	{
+		if (&x == m_pBlocker)
+		{
+			m_pBlocker = nullptr;
+			get_ParentObj().m_UnfreezeEvt.start();
+		}
 	}
 
 	void ManagerStd::OnUnfreezed()
@@ -47,53 +54,67 @@ namespace bvm2 {
 		get_ParentObj().OnUnfreezed();
 	}
 
+	void ManagerStd::SetParentContext(std::unique_ptr<beam::Merkle::Hash>& pTrg) const
+	{
+		assert(!pTrg);
+		if (m_Context.m_pParent)
+			pTrg = std::make_unique<beam::Merkle::Hash>(*m_Context.m_pParent);
+	}
 
 	struct ManagerStd::RemoteRead
 	{
-		static void SetContext(std::unique_ptr<beam::Merkle::Hash>& pTrg, const std::unique_ptr<beam::Merkle::Hash>& pSrc)
+		struct Handler
+			:public Pending::IBase
+			,public proto::FlyClient::Request::IHandler
 		{
-			assert(!pTrg);
-			if (pSrc)
-				pTrg = std::make_unique<beam::Merkle::Hash>(*pSrc);
-		}
-
-		struct Base
-			:public proto::FlyClient::Request::IHandler
-		{
-			ManagerStd* m_pThis;
+			ManagerStd& m_This;
 			proto::FlyClient::Request::Ptr m_pRequest;
 
-			~Base() { Abort(); }
-
-			void Post()
+			Handler(ManagerStd& x)
+				:m_This(x)
 			{
-				assert(m_pRequest);
-				Wasm::Test(m_pThis->m_pNetwork != nullptr);
-
-				m_pThis->m_Freeze++;
-				m_pThis->m_pNetwork->PostRequest(*m_pRequest, *this);
 			}
 
-			void Abort()
+			~Handler()
 			{
-				if (m_pRequest) {
+				if (m_pRequest)
+				{
 					m_pRequest->m_pTrg = nullptr;
 					m_pRequest.reset();
 				}
 			}
 
+			void Post()
+			{
+				assert(m_pRequest);
+				Wasm::Test(m_This.m_pNetwork != nullptr);
+				m_This.m_pNetwork->PostRequest(*m_pRequest, *this);
+			}
+
+			bool CheckDone()
+			{
+				if (!m_pRequest->m_pTrg)
+					return true;
+
+				m_This.m_Pending.m_pBlocker = this;
+				return false;
+			}
+
 			virtual void OnComplete(proto::FlyClient::Request&)
 			{
-				assert(m_pRequest && m_pRequest->m_pTrg);
-				m_pThis->Unfreeze();
+				assert(m_pRequest && (this == m_pRequest->m_pTrg));
+				m_pRequest->m_pTrg = nullptr;
+				m_This.m_Pending.OnDone(*this);
 			}
 		};
 
 		struct Vars
-			:public Base
+			:public Handler
 			,public IReadVars
 		{
-			size_t m_Consumed;
+			using Handler::Handler;
+
+			size_t m_Consumed = 0;
 			ByteBuffer m_Buf;
 
 			virtual bool MoveNext() override
@@ -101,17 +122,17 @@ namespace bvm2 {
 				assert(m_pRequest);
 				auto& r = Cast::Up<proto::FlyClient::RequestContractVars>(*m_pRequest);
 
-				if (r.m_pTrg)
+				if (m_Consumed == m_Buf.size())
 				{
-					r.m_pTrg = nullptr;
+					if (!CheckDone())
+						return false;
+
+					if (r.m_Res.m_Result.empty())
+						return false;
+
 					m_Consumed = 0;
 					m_Buf = std::move(r.m_Res.m_Result);
-					if (m_Buf.empty())
-						r.m_Res.m_bMore = false;
 				}
-
-				if (m_Consumed == m_Buf.size())
-					return false;
 
 				auto* pBuf = &m_Buf.front();
 
@@ -151,10 +172,12 @@ namespace bvm2 {
 
 
 		struct Logs
-			:public Base
+			:public Handler
 			,public IReadLogs
 		{
-			size_t m_Consumed;
+			using Handler::Handler;
+
+			size_t m_Consumed = 0;
 			ByteBuffer m_Buf;
 
 			virtual bool MoveNext() override
@@ -162,17 +185,16 @@ namespace bvm2 {
 				assert(m_pRequest);
 				auto& r = Cast::Up<proto::FlyClient::RequestContractLogs>(*m_pRequest);
 
-				if (r.m_pTrg)
+				if (m_Consumed == m_Buf.size())
 				{
-					r.m_pTrg = nullptr;
+					if (!CheckDone())
+						return false;
+					if (r.m_Res.m_Result.empty())
+						return false;
+
 					m_Consumed = 0;
 					m_Buf = std::move(r.m_Res.m_Result);
-					if (m_Buf.empty())
-						r.m_Res.m_bMore = false;
 				}
-
-				if (m_Consumed == m_Buf.size())
-					return false;
 
 				auto* pBuf = &m_Buf.front();
 
@@ -220,11 +242,31 @@ namespace bvm2 {
 
 	};
 
+	void ManagerStd::PerformSingleRequest(proto::FlyClient::Request& r)
+	{
+		auto p = std::make_unique<RemoteRead::Handler>(*this);
+		p->m_pRequest = &r;
+		p->Post();
+
+		p->CheckDone();
+		m_Pending.m_pSingleRequest = std::move(p);
+	}
+
+	proto::FlyClient::Request::Ptr ManagerStd::GetResSingleRequest()
+	{
+		assert(m_Pending.m_pSingleRequest);
+		auto& h = Cast::Up<RemoteRead::Handler>(*m_Pending.m_pSingleRequest);
+
+		assert(h.m_pRequest);
+		auto pRet = h.m_pRequest; // for more safety don't use std::move(), let the Handler cancel the Request if it's still pending (though that shouldn't happen)
+
+		m_Pending.m_pSingleRequest.reset();
+		return pRet;
+	}
 
 	void ManagerStd::VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr& pOut)
 	{
-		auto p = std::make_unique<RemoteRead::Vars>();
-		p->m_pThis = this;
+		auto p = std::make_unique<RemoteRead::Vars>(*this);
 
 		boost::intrusive_ptr<proto::FlyClient::RequestContractVars> pReq(new proto::FlyClient::RequestContractVars);
 		auto& r = *pReq;
@@ -232,7 +274,7 @@ namespace bvm2 {
 		kMin.Export(r.m_Msg.m_KeyMin);
 		kMax.Export(r.m_Msg.m_KeyMax);
 
-		RemoteRead::SetContext(r.m_pCtx, m_Context.m_pParent);
+		SetParentContext(r.m_pCtx);
 		p->m_pRequest = std::move(pReq);
 		p->Post();
 
@@ -241,8 +283,7 @@ namespace bvm2 {
 
 	void ManagerStd::LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax, IReadLogs::Ptr& pOut)
 	{
-		auto p = std::make_unique<RemoteRead::Logs>();
-		p->m_pThis = this;
+		auto p = std::make_unique<RemoteRead::Logs>(*this);
 
 		boost::intrusive_ptr<proto::FlyClient::RequestContractLogs> pReq(new proto::FlyClient::RequestContractLogs);
 		auto& r = *pReq;
@@ -258,7 +299,7 @@ namespace bvm2 {
 		else
 			r.m_Msg.m_PosMax.m_Height = MaxHeight;
 
-		RemoteRead::SetContext(r.m_pCtx, m_Context.m_pParent);
+		SetParentContext(r.m_pCtx);
 		p->m_pRequest = std::move(pReq);
 		p->Post();
 
@@ -268,116 +309,119 @@ namespace bvm2 {
 
 	void ManagerStd::SelectContext(bool bDependent, uint32_t /* nChargeNeeded */)
 	{
-		if (m_EnforceDependent)
-			bDependent = true;
-
-		proto::FlyClient::RequestEnsureSync::Ptr pReq(new proto::FlyClient::RequestEnsureSync);
-		pReq->m_IsDependent = bDependent;
-		Wasm::Test(PerformRequestSync(*pReq));
-
-		Wasm::Test(m_pHist);
-
-		Block::SystemState::Full s;
-		m_pHist->get_Tip(s); // zero-inits if no tip
-
-		m_Context.m_Height = s.m_Height;
-
-		if (bDependent)
+		if (!m_Pending.m_pSingleRequest)
 		{
-			uint32_t n = 0;
-			const auto* pV = m_pNetwork->get_DependentState(n);
-			const auto& hvCtx = n ? pV[n - 1] : s.m_Prev;
-			m_Context.m_pParent = std::make_unique<beam::Merkle::Hash>(hvCtx);
+			if (m_EnforceDependent)
+				bDependent = true;
+
+			proto::FlyClient::RequestEnsureSync::Ptr pReq(new proto::FlyClient::RequestEnsureSync);
+			pReq->m_IsDependent = bDependent;
+
+			PerformSingleRequest(*pReq);
 		}
-	}
 
-	bool ManagerStd::PerformRequestSync(proto::FlyClient::Request& r)
-	{
-		Wasm::Test(m_pNetwork != nullptr);
-
-		struct MyHandler
-			:public proto::FlyClient::Request::IHandler
+		if (!IsSuspended())
 		{
-			proto::FlyClient::Request* m_pReq = nullptr;
+			auto pReq = GetResSingleRequest();
+			auto& r = pReq->As<proto::FlyClient::RequestEnsureSync>();
 
-			~MyHandler() {
-				m_pReq->m_pTrg = nullptr;
-			}
+			Wasm::Test(m_pHist);
 
-			virtual void OnComplete(proto::FlyClient::Request&) override
+			Block::SystemState::Full s;
+			m_pHist->get_Tip(s); // zero-inits if no tip
+
+			m_Context.m_Height = s.m_Height;
+
+			if (r.m_IsDependent)
 			{
-				m_pReq->m_pTrg = nullptr;
-				io::Reactor::get_Current().stop();
+				uint32_t n = 0;
+				const auto* pV = m_pNetwork->get_DependentState(n);
+				const auto& hvCtx = n ? pV[n - 1] : s.m_Prev;
+				m_Context.m_pParent = std::make_unique<beam::Merkle::Hash>(hvCtx);
 			}
-
-		} myHandler;
-
-		myHandler.m_pReq = &r;
-		m_pNetwork->PostRequest(r, myHandler);
-
-		io::Reactor::get_Current().run();
-
-		if (!r.m_pTrg)
-			return true;
-
-		// propagate the stop
-		io::Reactor::get_Current().stop();
-		return false;
+		}
 	}
 
 	bool ManagerStd::get_HdrAt(Block::SystemState::Full& s)
 	{
-		Wasm::Test(m_pHist);
+		if (!m_Pending.m_pSingleRequest)
+		{
+			Wasm::Test(m_pHist);
 
-		Height h = s.m_Height;
-		if (m_pHist->get_At(s, h))
-			return true;
+			Height h = s.m_Height;
+			if (m_pHist->get_At(s, h))
+				return true;
 
-		proto::FlyClient::RequestEnumHdrs::Ptr pReq(new proto::FlyClient::RequestEnumHdrs);
-		auto& r = *pReq;
-		r.m_Msg.m_Height = h;
+			proto::FlyClient::RequestEnumHdrs::Ptr pReq(new proto::FlyClient::RequestEnumHdrs);
+			pReq->m_Msg.m_Height = h;
 
-		if (!PerformRequestSync(r))
-			return false;
+			PerformSingleRequest(*pReq);
+		}
 
-		if (1 != r.m_vStates.size())
-			return false;
+		if (!IsSuspended())
+		{
+			auto pReq = GetResSingleRequest();
+			auto& r = pReq->As<proto::FlyClient::RequestEnumHdrs>();
 
-		s = std::move(r.m_vStates.front());
-		return true;
+			if (1 == r.m_vStates.size())
+			{
+				s = std::move(r.m_vStates.front());
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	bool ManagerStd::VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof& proof)
 	{
-		proto::FlyClient::RequestContractVar::Ptr pReq(new proto::FlyClient::RequestContractVar);
-		auto& r = *pReq;
-		key.Export(r.m_Msg.m_Key);
+		if (!m_Pending.m_pSingleRequest)
+		{
+			proto::FlyClient::RequestContractVar::Ptr pReq(new proto::FlyClient::RequestContractVar);
+			key.Export(pReq->m_Msg.m_Key);
 
-		if (!PerformRequestSync(r))
-			return false;
+			PerformSingleRequest(*pReq);
+		}
 
-		if (r.m_Res.m_Proof.empty())
-			return false;
+		if (!IsSuspended())
+		{
+			auto pReq = GetResSingleRequest();
+			auto& r = pReq->As<proto::FlyClient::RequestContractVar>();
 
-		r.m_Res.m_Value.swap(val);
-		r.m_Res.m_Proof.swap(proof);
-		return true;
+			if (!r.m_Res.m_Proof.empty())
+			{
+				r.m_Res.m_Value.swap(val);
+				r.m_Res.m_Proof.swap(proof);
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	bool ManagerStd::LogGetProof(const HeightPos& hp, beam::Merkle::Proof& proof)
 	{
-		proto::FlyClient::RequestContractLogProof::Ptr pReq(new proto::FlyClient::RequestContractLogProof);
-		auto& r = *pReq;
-		r.m_Msg.m_Pos = hp;
+		if (!m_Pending.m_pSingleRequest)
+		{
+			proto::FlyClient::RequestContractLogProof::Ptr pReq(new proto::FlyClient::RequestContractLogProof);
+			pReq->m_Msg.m_Pos = hp;
 
-		if (!PerformRequestSync(r))
-			return false;
+			PerformSingleRequest(*pReq);
+		}
 
-		if (r.m_Res.m_Proof.empty())
-			return false;
+		if (!IsSuspended())
+		{
+			auto pReq = GetResSingleRequest();
+			auto& r = pReq->As<proto::FlyClient::RequestContractLogProof>();
 
-		r.m_Res.m_Proof.swap(proof);
-		return true;
+			if (!r.m_Res.m_Proof.empty())
+			{
+				r.m_Res.m_Proof.swap(proof);
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	void ManagerStd::OnReset()
@@ -393,8 +437,11 @@ namespace bvm2 {
 		m_mapReadVars.Clear();
 		m_mapReadLogs.Clear();
 
-		m_Freeze = 0;
-		m_WaitingMsg = false;
+		m_UnfreezeEvt.cancel();
+
+		m_Pending.m_pSingleRequest.reset();
+		m_Pending.m_pCommMsg.reset();
+		m_Pending.m_pBlocker = nullptr;
 	}
 
 	void ManagerStd::StartRun(uint32_t iMethod)
@@ -418,19 +465,23 @@ namespace bvm2 {
 	{
 		assert(m_Comms.m_Rcv.empty());
 
-		if (m_WaitingMsg)
-			return; // shouldn't happen, but anyway
+		struct PendingCommMsg
+			:public Pending::IBase
+		{
+			virtual ~PendingCommMsg() {} // auto
+			io::Timer::Ptr m_pTimer;
+		};
 
-		m_Freeze++;
-		m_WaitingMsg = true;
+		auto p = std::make_unique<PendingCommMsg>();
 
 		if (static_cast<uint32_t>(-1) != nTimeout_ms)
 		{
-			if (!m_pOnMsgTimer)
-				m_pOnMsgTimer = io::Timer::create(io::Reactor::get_Current());
-
-			m_pOnMsgTimer->start(nTimeout_ms, false, [this]() { Comm_OnNewMsg(); });
+			p->m_pTimer = io::Timer::create(io::Reactor::get_Current());
+			p->m_pTimer->start(nTimeout_ms, false, [this]() { Comm_OnNewMsg(); });
 		}
+
+		m_Pending.m_pCommMsg = std::move(p);
+		m_Pending.m_pBlocker = m_Pending.m_pCommMsg.get();
 
 	}
 
@@ -452,13 +503,10 @@ namespace bvm2 {
 
 	void ManagerStd::Comm_OnNewMsg()
 	{
-		if (m_WaitingMsg)
+		if (m_Pending.m_pCommMsg)
 		{
-			m_WaitingMsg = false;
-			Unfreeze();
-
-			if (m_pOnMsgTimer)
-				m_pOnMsgTimer->cancel();
+			m_Pending.OnDone(*m_Pending.m_pCommMsg);
+			m_Pending.m_pCommMsg.reset();
 		}
 	}
 
@@ -466,7 +514,7 @@ namespace bvm2 {
 	{
 		while (!IsDone())
 		{
-			if (m_Freeze)
+			if (IsSuspended())
 				return;
 
 			RunOnce();
