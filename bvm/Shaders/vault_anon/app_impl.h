@@ -6,6 +6,7 @@ void OnError(const char* sz);
 
 namespace VaultAnon {
 
+static const uint32_t s_MaxMsgSize = Account::s_CustomMaxSize - sizeof(PubKey);
 
 void ImportScalar(Secp::Scalar& res, HashValue& hv)
 {
@@ -18,17 +19,43 @@ void ImportScalar(Secp::Scalar& res, HashValue& hv)
     }
 }
 
-void get_DH_Key(Secp::Scalar& res, const Secp::Point& ptShared)
+void get_DH_Key(Secp::Scalar& res, PubKey& pkShared, const Secp::Point& ptShared)
 {
-    PubKey pk;
-    ptShared.Export(pk);
-    ImportScalar(res, pk.m_X);
+    ptShared.Export(pkShared);
+    ImportScalar(res, pkShared.m_X);
+}
+
+void XcodeMsg(const PubKey& pkShared, uint8_t* pMsg, uint32_t nMsg)
+{
+    if (!nMsg)
+        return;
+
+    HashProcessor::Sha256 hp;
+    hp << pkShared.m_X;
+
+    while (true)
+    {
+        HashValue hv;
+        hp >> hv;
+
+        for (auto i = std::min<uint32_t>(sizeof(hv), nMsg); i--; )
+            pMsg[i] ^= hv.m_p[i];
+
+        if (nMsg <= sizeof(hv))
+            break;
+
+        pMsg += sizeof(hv);
+        nMsg -= sizeof(hv);
+
+        hp << hv;
+    }
 }
 
 struct AnonScanner
 {
     Secp::Point m_ptMy;
     Secp::Scalar m_sk;
+    PubKey m_pkShared;
     Env::KeyID m_Kid;
 
     AnonScanner(const Env::KeyID& kid)
@@ -45,7 +72,7 @@ struct AnonScanner
 
         Env::get_PkEx(pt, pt, m_Kid.m_pID, m_Kid.m_nID);
 
-        get_DH_Key(m_sk, pt);
+        get_DH_Key(m_sk, m_pkShared, pt);
         Env::Secp_Point_mul_G(pt, m_sk);
 
         pt += m_ptMy; // should be spend key
@@ -124,7 +151,12 @@ struct AccountReader
     }
 };
 
-void ViewAccounts(const ContractID& cid, const PubKey* pOwner, AnonScanner* pAnon, const char* szArr)
+struct IMsgPrinter
+{
+    virtual void Print(const PubKey* pAnonSender, const uint8_t* pMsg, uint32_t nMsg) {}
+};
+
+void ViewAccounts(const ContractID& cid, const PubKey* pOwner, AnonScanner* pAnon, const char* szArr, IMsgPrinter& prnt)
 {
     Env::Key_T<Account::Key0> k0;
     _POD_(k0.m_Prefix.m_Cid) = cid;
@@ -153,31 +185,45 @@ void ViewAccounts(const ContractID& cid, const PubKey* pOwner, AnonScanner* pAno
 
         Env::DocAddNum("aid", ar.m_Key.m_KeyInContract.m_Aid);
         Env::DocAddNum("amount", ar.m_Amount);
-        Env::DocAddBlob("custom", ar.m_Key.m_KeyInContract.m_pCustom, ar.m_SizeCustom);
+
+        if (pAnon)
+        {
+            uint8_t* pMsg = ar.m_Key.m_KeyInContract.m_pCustom + sizeof(PubKey);
+            uint32_t nMsg = ar.m_SizeCustom - sizeof(PubKey);
+
+            XcodeMsg(pAnon->m_pkShared, pMsg, nMsg);
+
+            prnt.Print(&ar.get_PkSender(), pMsg, nMsg);
+        }
+        else
+            prnt.Print(nullptr, ar.m_Key.m_KeyInContract.m_pCustom, ar.m_SizeCustom);
     }
 }
 
-void OnUser_view_raw(const ContractID& cid, const Env::KeyID& kid)
+void OnUser_view_raw(const ContractID& cid, const Env::KeyID& kid, IMsgPrinter& prnt)
 {
     PubKey pk;
     kid.get_Pk(pk);
-    ViewAccounts(cid, &pk, nullptr, "raw");
+    ViewAccounts(cid, &pk, nullptr, "raw", prnt);
 }
 
-void OnUser_view_anon(const ContractID& cid, const Env::KeyID& kid)
+void OnUser_view_anon(const ContractID& cid, const Env::KeyID& kid, IMsgPrinter& prnt)
 {
     AnonScanner as(kid);
-    ViewAccounts(cid, nullptr, &as, "anon");
+    ViewAccounts(cid, nullptr, &as, "anon", prnt);
 }
 
 #pragma pack (push, 1)
 struct AnonTx :public Method::BaseTx
 {
     PubKey m_pkSender;
-    AnonTx()
+    uint8_t m_pMsg[s_MaxMsgSize];
+
+    uint32_t get_Size() const
     {
-        m_SizeCustom = sizeof(m_pkSender);
+        return sizeof(Method::BaseTx) + m_SizeCustom;
     }
+
 };
 #pragma pack (pop)
 
@@ -202,12 +248,17 @@ void OnUser_send_raw(const ContractID& cid, const PubKey& pkOwner, AssetID aid, 
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "vault_anon send raw", 0);
 }
 
-void OnUser_send_anon(const ContractID& cid, const PubKey& pkOwner, AssetID aid, Amount amount)
+void OnUser_send_anon(const ContractID& cid, const PubKey& pkOwner, AssetID aid, Amount amount, const void* pMsg, uint32_t nMsg)
 {
     if (_POD_(pkOwner).IsZero())
         return OnError("account not specified");
     if (!amount)
         return OnError("amount not specified");
+    if (nMsg > s_MaxMsgSize)
+    {
+        Env::DocAddNum("nMsg", nMsg);
+        return OnError("message too long");
+    }
 
     // derive random key
     Secp::Scalar sk;
@@ -233,7 +284,8 @@ void OnUser_send_anon(const ContractID& cid, const PubKey& pkOwner, AssetID aid,
     Env::Secp_Point_mul(ptDh, pt, sk);
 
     // derive DH key
-    get_DH_Key(sk, ptDh);
+    PubKey pkShared;
+    get_DH_Key(sk, pkShared, ptDh);
     Env::Secp_Point_mul_G(ptDh, sk);
 
     // spend key
@@ -243,12 +295,16 @@ void OnUser_send_anon(const ContractID& cid, const PubKey& pkOwner, AssetID aid,
     arg.m_Key.m_Aid = aid;
     arg.m_Amount = amount;
 
+    Env::Memcpy(arg.m_pMsg, pMsg, nMsg);
+    XcodeMsg(pkShared, arg.m_pMsg, nMsg);
+    arg.m_SizeCustom = sizeof(arg.m_pkSender) + nMsg;
+
     FundsChange fc;
     fc.m_Aid = aid;
     fc.m_Amount = amount;
     fc.m_Consume = 1;
 
-    Env::GenerateKernel(&cid, Method::Deposit::s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "vault_anon send anon", 0);
+    Env::GenerateKernel(&cid, Method::Deposit::s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "vault_anon send anon", 0);
 }
 
 void OnUser_receive_raw(const ContractID& cid, const Env::KeyID& kid, AssetID aid, Amount amount)
@@ -291,7 +347,8 @@ void OnUser_receive_anon(const ContractID& cid, const Env::KeyID& kid, const Pub
 
     AnonTx arg;
     arg.m_Amount = amount;
-    _POD_(arg.m_pkSender) = ar.get_PkSender(); // TODO - there can be more custom data, should just be appended
+    Env::Memcpy(&arg.m_pkSender, ar.m_Key.m_KeyInContract.m_pCustom, ar.m_SizeCustom);
+    arg.m_SizeCustom = ar.m_SizeCustom;
 
     assert(ar.m_Amount);
     if (arg.m_Amount)
@@ -328,7 +385,7 @@ void OnUser_receive_anon(const ContractID& cid, const Env::KeyID& kid, const Pub
 
     // obtain challenge
     Secp_scalar_data skSig;
-    Env::GenerateKernelAdvanced(&cid, Method::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &pkOwner, 1, "", 0, h0, h1, pkKrnBlind, pkFullNonce, skSig, s_KrnBlind, s_KrnNonce, &skSig);
+    Env::GenerateKernelAdvanced(&cid, Method::Withdraw::s_iMethod, &arg, arg.get_Size(), &fc, 1, &pkOwner, 1, "", 0, h0, h1, pkKrnBlind, pkFullNonce, skSig, s_KrnBlind, s_KrnNonce, &skSig);
 
     Secp::Scalar e, skRes;
     e.Import(skSig);
@@ -338,7 +395,7 @@ void OnUser_receive_anon(const ContractID& cid, const Env::KeyID& kid, const Pub
     skRes += as.m_sk;
     skRes.Export(skSig);
 
-    Env::GenerateKernelAdvanced(&cid, Method::Withdraw::s_iMethod, &arg, sizeof(arg), &fc, 1, &pkOwner, 1, "vault_anon receive", 0, h0, h1, pkKrnBlind, pkFullNonce, skSig, s_KrnBlind, s_KrnNonce, nullptr);
+    Env::GenerateKernelAdvanced(&cid, Method::Withdraw::s_iMethod, &arg, arg.get_Size(), &fc, 1, &pkOwner, 1, "vault_anon receive", 0, h0, h1, pkKrnBlind, pkFullNonce, skSig, s_KrnBlind, s_KrnNonce, nullptr);
 }
 
 

@@ -30,8 +30,10 @@ namespace VaultAnon
             // custom data
         };
 
+        static const uint32_t s_CustomMaxSize = KeyTag::s_MaxSize - sizeof(Key0);
+
         struct KeyMax :public Key0 {
-            uint8_t m_pCustom[KeyTag::s_MaxSize - sizeof(Key0)];
+            uint8_t m_pCustom[s_CustomMaxSize];
         };
 
         Amount m_Amount;

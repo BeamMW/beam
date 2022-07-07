@@ -331,7 +331,8 @@ ON_METHOD(manager, pay)
     if (d.IsExpired(Env::get_Height() + 1))
         return OnError("domain expired");
 
-    VaultAnon::OnUser_send_anon(stg.m_cidVault, d.m_pkOwner, aid, amount);
+    Env::Memset(dn.m_sz + dn.m_Len, 0, Domain::s_MaxLen - dn.m_Len);
+    VaultAnon::OnUser_send_anon(stg.m_cidVault, d.m_pkOwner, aid, amount, dn.m_sz, Domain::s_MaxLen);
 }
 
 ON_METHOD(user, view)
@@ -348,8 +349,26 @@ ON_METHOD(user, view)
 
     DumpDomains(cid, &pk);
 
-    VaultAnon::OnUser_view_raw(stg.m_cidVault, kid);
-    VaultAnon::OnUser_view_anon(stg.m_cidVault, kid);
+    struct MsgPrinter
+        :public VaultAnon::IMsgPrinter
+    {
+        void Print(const PubKey* pAnonSender, const uint8_t* pMsg, uint32_t nMsg) override
+        {
+            if (pAnonSender && nMsg)
+            {
+                nMsg = std::min(nMsg, Domain::s_MaxLen);
+
+                char szBuf[Domain::s_MaxLen + 1];
+                Env::Memcpy(szBuf, pMsg, nMsg);
+                szBuf[nMsg] = 0;
+
+                Env::DocAddText("domain", szBuf);
+            }
+        }
+    } prnt;
+
+    VaultAnon::OnUser_view_raw(stg.m_cidVault, kid, prnt);
+    VaultAnon::OnUser_view_anon(stg.m_cidVault, kid, prnt);
 }
 
 ON_METHOD(user, my_key)
