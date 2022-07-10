@@ -93,20 +93,33 @@ ON_METHOD(manager, deploy)
     Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy VaultAnon contract", 0);
 }
 
+struct MyAccountsPrinter
+    :public WalkerAccounts_Print
+{
+    void PrintMsg(bool bIsAnon, const uint8_t* pMsg, uint32_t nMsg) override
+    {
+        if (nMsg)
+            Env::DocAddBlob("custom", pMsg, nMsg);
+    }
+};
 
 ON_METHOD(manager, view_account)
 {
-    ViewAccounts(cid, _POD_(pkOwner).IsZero() ? nullptr : &pkOwner, nullptr, "accounts");
+    Env::DocArray gr("accounts");
+    MyAccountsPrinter wlk;
+    wlk.Proceed(cid, _POD_(pkOwner).IsZero() ? nullptr : &pkOwner, nullptr);
 }
 
 ON_METHOD(user, view_raw)
 {
-    OnUser_view_raw(cid, MyKeyID(cid));
+    MyAccountsPrinter prnt;
+    OnUser_view_raw(cid, MyKeyID(cid), prnt);
 }
 
 ON_METHOD(user, view_anon)
 {
-    OnUser_view_anon(cid, MyKeyID(cid));
+    MyAccountsPrinter prnt;
+    OnUser_view_anon(cid, MyKeyID(cid), prnt);
 }
 
 ON_METHOD(user, my_key)
@@ -125,7 +138,12 @@ ON_METHOD(user, send_raw)
 
 ON_METHOD(user, send_anon)
 {
-    OnUser_send_anon(cid, pkOwner, aid, amount);
+    uint8_t pMsg[s_MaxMsgSize];
+    auto nMsg = Env::DocGetBlob("msg", pMsg, sizeof(pMsg));
+    if (nMsg > sizeof(pMsg))
+        return OnError("msg too long");
+
+    OnUser_send_anon(cid, pkOwner, aid, amount, pMsg, nMsg);
 }
 
 ON_METHOD(user, receive_raw)

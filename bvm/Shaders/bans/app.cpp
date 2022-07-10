@@ -19,9 +19,11 @@
     macro(PubKey, pk)
 
 #define NameService_manager_view_name(macro) macro(ContractID, cid)
+#define NameService_manager_view_params(macro) macro(ContractID, cid)
 
 #define NameServiceRole_manager(macro) \
     macro(manager, view) \
+    macro(manager, view_params) \
     macro(manager, deploy) \
     macro(manager, view_domain) \
     macro(manager, view_name) \
@@ -54,6 +56,8 @@
     macro(AssetID, aid) \
     macro(Amount, amount)
 
+#define NameService_user_receive_all(macro) macro(ContractID, cid)
+
 #define NameServiceRole_user(macro) \
     macro(user, my_key) \
     macro(user, view) \
@@ -62,7 +66,8 @@
     macro(user, domain_set_owner) \
     macro(user, domain_set_price) \
     macro(user, domain_buy) \
-    macro(user, receive)
+    macro(user, receive) \
+    macro(user, receive_all)
 
 #define NameServiceRoles_All(macro) \
     macro(manager) \
@@ -288,6 +293,18 @@ struct MySettings
     }
 };
 
+ON_METHOD(manager, view_params)
+{
+    MySettings stg;
+    if (!stg.Read(cid))
+        return;
+
+    Env::DocGroup gr("res");
+
+    Env::DocAddBlob_T("vault", stg.m_cidVault);
+    Env::DocAddBlob_T("dao-vault", stg.m_cidDaoVault);
+}
+
 ON_METHOD(manager, view_name)
 {
     DomainName dn;
@@ -317,7 +334,8 @@ ON_METHOD(manager, pay)
     if (d.IsExpired(Env::get_Height() + 1))
         return OnError("domain expired");
 
-    VaultAnon::OnUser_send_anon(stg.m_cidVault, d.m_pkOwner, aid, amount);
+    Env::Memset(dn.m_sz + dn.m_Len, 0, Domain::s_MaxLen - dn.m_Len);
+    VaultAnon::OnUser_send_anon(stg.m_cidVault, d.m_pkOwner, aid, amount, dn.m_sz, Domain::s_MaxLen);
 }
 
 ON_METHOD(user, view)
@@ -334,8 +352,26 @@ ON_METHOD(user, view)
 
     DumpDomains(cid, &pk);
 
-    VaultAnon::OnUser_view_raw(stg.m_cidVault, kid);
-    VaultAnon::OnUser_view_anon(stg.m_cidVault, kid);
+    struct MyAccountsPrinter
+        :public VaultAnon::WalkerAccounts_Print
+    {
+        void PrintMsg(bool bIsAnon, const uint8_t* pMsg, uint32_t nMsg) override
+        {
+            if (bIsAnon && nMsg)
+            {
+                nMsg = std::min(nMsg, Domain::s_MaxLen);
+
+                char szBuf[Domain::s_MaxLen + 1];
+                Env::Memcpy(szBuf, pMsg, nMsg);
+                szBuf[nMsg] = 0;
+
+                Env::DocAddText("domain", szBuf);
+            }
+        }
+    } prnt;
+
+    VaultAnon::OnUser_view_raw(stg.m_cidVault, kid, prnt);
+    VaultAnon::OnUser_view_anon(stg.m_cidVault, kid, prnt);
 }
 
 ON_METHOD(user, my_key)
@@ -512,7 +548,21 @@ ON_METHOD(user, receive)
     if (!stg.Read(cid))
         return;
 
-    VaultAnon::OnUser_receive_anon(stg.m_cidVault, MyKeyID(cid), pkOwner, aid, amount);
+    if (_POD_(pkOwner).IsZero())
+        VaultAnon::OnUser_receive_raw(stg.m_cidVault, MyKeyID(cid), aid, amount);
+    else
+        VaultAnon::OnUser_receive_anon(stg.m_cidVault, MyKeyID(cid), pkOwner, aid, amount);
+}
+
+ON_METHOD(user, receive_all)
+{
+    MySettings stg;
+    if (!stg.Read(cid))
+        return;
+
+    const uint32_t nMaxOps = 30;
+    if (!VaultAnon::OnUser_receive_All(stg.m_cidVault, MyKeyID(cid), nMaxOps))
+        OnError("nothing to withdraw");
 }
 
 #undef ON_METHOD

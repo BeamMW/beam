@@ -46,11 +46,6 @@ namespace beam::wallet {
         void WriteStream(const Blob&, uint32_t iStream) override;
     };
 
-
-
-
-
-
     class ShadersManager
         : public IShadersManager
         , private ManagerStdInWallet
@@ -60,7 +55,8 @@ namespace beam::wallet {
                        beam::wallet::IWalletDB::Ptr walletDB,
                        beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
                        std::string appid,
-                       std::string appname);
+                       std::string appname,
+                       uint32_t privilegeLvl);
 
         bool IsDone() const override
         {

@@ -470,6 +470,8 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
 {
     MyGlobal_LoadSave g;
 
+    g.m_StabPool.AddReward(Env::get_Height());
+
     Global::Liquidator ctx;
     ctx.m_Price = g.get_Price();
     _POD_(ctx.m_fpLogic).SetZero();

@@ -36,7 +36,23 @@ struct ParserContext
 	{
 	}
 
-	void OnName(const char* sz);
+	void OnName(const char* sz)
+	{
+		if (m_Name)
+			Env::DocAddText("name", sz);
+	}
+
+	void OnMethod(const char* sz)
+	{
+		assert(m_Method);
+		Env::DocAddText("method", sz);
+	}
+
+	struct GroupArgs :public Env::DocGroup {
+		GroupArgs() :Env::DocGroup("params") {}
+	};
+
+	void OnUpgradableSubtype(const ShaderID& sid) { Env::DocAddBlob_T("subtype", sid); }
 
 #define THE_MACRO(name, sid) void On_##name();
 	HandleContractsAll(THE_MACRO)
@@ -44,27 +60,30 @@ struct ParserContext
 
 	bool Parse();
 
-	void WriteUnk();
-	bool WriteStdMethod();
 	void WriteUpgradeParams(const Upgradable::Next&);
 	void WriteUpgradeParams(const Upgradable2::Next&);
 	void WriteUpgradeParams(const ContractID&, Height);
+	void WriteUpgradeAdminsMask(uint32_t nApproveMask);
 };
-
-void ParserContext::OnName(const char* sz)
-{
-	if (m_Name)
-		Env::DocAddText("", sz);
-	if (m_Method)
-		Env::DocAddText("", "/");
-}
 
 bool ParserContext::Parse()
 {
+	if (m_Method)
+	{
+		switch (m_iMethod)
+		{
+		case 0:
+			OnMethod("Create");
+			break;
+
+		case 1:
+			OnMethod("Destroy");
+		}
+	}
+
 #define THE_MACRO(name, sid) \
 	if (_POD_(m_Sid) == sid) \
 	{ \
-		OnName(#name); \
 		On_##name(); \
 		return true; \
 	}
@@ -73,41 +92,6 @@ bool ParserContext::Parse()
 #undef THE_MACRO
 
 	return false;
-}
-
-bool ParserContext::WriteStdMethod()
-{
-	assert(m_Method);
-	switch (m_iMethod)
-	{
-	case 0: Env::DocAddText("", "Create"); break;
-	case 1: Env::DocAddText("", "Destroy"); break;
-	default:
-		return false;
-	}
-	return true;
-}
-
-void ParserContext::WriteUnk()
-{
-	if (m_Name)
-	{
-		Env::DocAddText("", "sid=");
-		Env::DocAddBlob_T("", m_Sid);
-	}
-
-	if (m_Method)
-	{
-		Env::DocAddText("", "/");
-		if (!WriteStdMethod())
-		{
-			Env::DocAddText("", "Method=");
-			Env::DocAddNum("", m_iMethod);
-		}
-
-		Env::DocAddText("", ", Args=");
-		Env::DocAddBlob("", m_pArg, m_nArg);
-	}
 }
 
 void ParserContext::On_Upgradable()
@@ -153,11 +137,12 @@ void ParserContext::On_Upgradable()
 	if (bIsUpgrade)
 		pc2.m_Method = false;
 
-	if (m_Name)
+	bool bParsed = pc2.Parse();
+
+	if (m_Name && !bParsed)
 	{
-		Env::DocAddText("", "/");
-		if (!pc2.Parse())
-			pc2.WriteUnk();
+		OnName("upgradable");
+		OnUpgradableSubtype(sid);
 	}
 
 	if (bIsUpgrade)
@@ -165,16 +150,16 @@ void ParserContext::On_Upgradable()
 		if (m_nArg < sizeof(Upgradable::ScheduleUpgrade))
 			return; // don't care of partial result
 
-		const auto& arg = *(const Upgradable::ScheduleUpgrade*) m_pArg;
+		OnMethod("Schedule upgrade");
 
-		Env::DocAddText("", "Schedule upgrade");
-		WriteUpgradeParams(arg);
+		GroupArgs gr;
+		WriteUpgradeParams(*(const Upgradable::ScheduleUpgrade*) m_pArg);
 	}
 
 	if (m_State)
 	{
-		Env::DocAddText("", "Upgrade Owner=");
-		Env::DocAddBlob_T("", us.m_Pk);
+		Env::DocGroup gr("upgradable");
+		Env::DocAddBlob_T("owner", us.m_Pk);
 		WriteUpgradeParams(us);
 	}
 }
@@ -224,15 +209,15 @@ void ParserContext::On_Upgradable2()
 	pc2.m_nArg = m_nArg;
 
 	bool bIsCtl = m_Method && (Upgradable2::Control::s_iMethod == m_iMethod);
-
 	if (bIsCtl)
 		pc2.m_Method = false;
 
-	if (m_Name)
+	bool bParsed = pc2.Parse();
+
+	if (m_Name && !bParsed)
 	{
-		Env::DocAddText("", "/");
-		if (!pc2.Parse())
-			pc2.WriteUnk();
+		OnName("upgradable2");
+		OnUpgradableSubtype(sid);
 	}
 
 	if (bIsCtl)
@@ -244,12 +229,49 @@ void ParserContext::On_Upgradable2()
 
 		switch (ctl.m_Type)
 		{
+		case Upgradable2::Control::ExplicitUpgrade::s_Type:
+			OnMethod("explicit upgrade");
+			break;
+
 		case Upgradable2::Control::ScheduleUpgrade::s_Type:
 			if (m_nArg >= sizeof(Upgradable2::Control::ScheduleUpgrade))
 			{
+				OnMethod("Schedule upgrade");
+
+				GroupArgs gr;
 				const auto& arg = Cast::Up<Upgradable2::Control::ScheduleUpgrade>(ctl);
-				Env::DocAddText("", "Schedule upgrade");
+
+				WriteUpgradeAdminsMask(arg.m_ApproveMask);
 				WriteUpgradeParams(arg.m_Next);
+			}
+			break;
+
+		case Upgradable2::Control::ReplaceAdmin::s_Type:
+			if (m_nArg >= sizeof(Upgradable2::Control::ReplaceAdmin))
+			{
+				OnMethod("replace admin");
+
+				GroupArgs gr;
+				const auto& arg = Cast::Up<Upgradable2::Control::ReplaceAdmin>(ctl);
+
+				WriteUpgradeAdminsMask(arg.m_ApproveMask);
+
+				Env::DocAddBlob_T("iAdmin", arg.m_iAdmin);
+				Env::DocAddBlob_T("pk", arg.m_Pk);
+			}
+			break;
+
+		case Upgradable2::Control::SetApprovers::s_Type:
+			if (m_nArg >= sizeof(Upgradable2::Control::SetApprovers))
+			{
+				OnMethod("set min approvers");
+
+				GroupArgs gr;
+				const auto& arg = Cast::Up<Upgradable2::Control::SetApprovers>(ctl);
+
+				WriteUpgradeAdminsMask(arg.m_ApproveMask);
+
+				Env::DocAddBlob_T("num", arg.m_NewVal);
 			}
 			break;
 		}
@@ -257,11 +279,11 @@ void ParserContext::On_Upgradable2()
 
 	if (m_State)
 	{
+		Env::DocGroup gr("upgradable2");
 		Env::DocAddNum("Num approvers ", stg.m_MinApprovers);
 		WriteUpgradeParams(us.m_Next);
 	}
 }
-
 
 void ParserContext::WriteUpgradeParams(const Upgradable::Next& us)
 {
@@ -273,6 +295,15 @@ void ParserContext::WriteUpgradeParams(const Upgradable2::Next& us)
 	WriteUpgradeParams(us.m_Cid, us.m_hTarget);
 }
 
+void ParserContext::WriteUpgradeAdminsMask(uint32_t nApproveMask)
+{
+	const uint32_t nDigs = Utils::String::Hex::DigitsMax<uint32_t>::N;
+	char szBuf[nDigs + 1];
+	Utils::String::Hex::Print(szBuf, nApproveMask, nDigs);
+
+	Env::DocAddText("approve-mask", szBuf);
+}
+
 void ParserContext::WriteUpgradeParams(const ContractID& cid, Height h)
 {
 	if (!_POD_(cid).IsZero())
@@ -281,36 +312,37 @@ void ParserContext::WriteUpgradeParams(const ContractID& cid, Height h)
 		if (!Utils::get_ShaderID_FromContract(sid, cid))
 			return;
 
-		Env::DocAddText("", ", Next upgrade ");
+		Env::DocGroup gr("next upgrade");
+
+		Env::DocAddNum("height", h);
 
 		ParserContext pc2(sid, cid);
 		if (!pc2.Parse())
-			pc2.WriteUnk();
-
-		Env::DocAddText("", ", hNext=");
-		Env::DocAddNum("", h);
+			OnUpgradableSubtype(sid);
 	}
 }
 
 void ParserContext::On_Vault()
 {
-	if (m_Method && !WriteStdMethod())
+	OnName("Vault");
+
+	if (m_Method)
 	{
 		switch (m_iMethod)
 		{
 		case Vault::Deposit::s_iMethod:
-			Env::DocAddText("", "Deposit");
+			OnMethod("Deposit");
 			if (m_nArg >= sizeof(Vault::Deposit))
 			{
+				GroupArgs gr;
 				const auto& arg = *(const Vault::Deposit*) m_pArg;
-				Env::DocAddText("", ", User=");
-				Env::DocAddBlob_T("", arg.m_Account);
+				Env::DocAddBlob_T("User", arg.m_Account);
 			}
 			break;
 
 		case Vault::Withdraw::s_iMethod:
+			OnMethod("Withdraw");
 			// no need to include the account, it's visible in the sigs list
-			Env::DocAddText("", "Withdraw");
 			break;
 		}
 	}
@@ -323,23 +355,25 @@ void ParserContext::On_Vault()
 
 void ParserContext::On_Faucet()
 {
+	OnName("Faucet");
+
 	if (m_Method)
 	{
-		WriteStdMethod();
-
 		switch (m_iMethod)
 		{
 		case 0:
 			if (m_nArg >= sizeof(Faucet::Params))
 			{
+				GroupArgs gr;
+
 				auto& pars = *(Faucet::Params*) m_pArg;
-				Env::DocAddNum(", Backlog period: ", pars.m_BacklogPeriod);
-				Env::DocAddNum(", Max withdraw: ", pars.m_MaxWithdraw);
+				Env::DocAddNum("Backlog period", pars.m_BacklogPeriod);
+				Env::DocAddNum("Max withdraw", pars.m_MaxWithdraw);
 			}
 			break;
 
-		case Faucet::Deposit::s_iMethod: Env::DocAddText("", "deposit"); break;
-		case Faucet::Withdraw::s_iMethod: Env::DocAddText("", "withdraw"); break;
+		case Faucet::Deposit::s_iMethod: OnMethod("deposit"); break;
+		case Faucet::Withdraw::s_iMethod: OnMethod("withdraw"); break;
 		}
 	}
 
@@ -351,12 +385,14 @@ void ParserContext::On_Faucet()
 
 void ParserContext::On_DaoCore()
 {
-	if (m_Method && !WriteStdMethod())
+	OnName("Dao-Core");
+
+	if (m_Method)
 	{
 		switch (m_iMethod)
 		{
-		case DaoCore::GetPreallocated::s_iMethod: Env::DocAddText("", "GetPreallocated"); break;
-		case DaoCore::UpdPosFarming::s_iMethod: Env::DocAddText("", "Farming Upd"); break;
+		case DaoCore::GetPreallocated::s_iMethod: OnMethod("Get Preallocated"); break;
+		case DaoCore::UpdPosFarming::s_iMethod: OnMethod("Farming Upd"); break;
 		}
 	}
 
@@ -368,19 +404,26 @@ void ParserContext::On_DaoCore()
 
 void WriteGalleryAdrID(Gallery::Masterpiece::ID id)
 {
-	Env::DocAddText("", ", art_id=");
-	Env::DocAddNum("", Utils::FromBE(id));
+	Env::DocAddNum("art_id", Utils::FromBE(id));
 }
 
 void WriteGalleryPrice(const Gallery::AmountWithAsset& x)
 {
 	if (x.m_Aid)
-	{
-		Env::DocAddText("", ", aid=");
-		Env::DocAddNum("", x.m_Aid);
-	}
-	Env::DocAddText("", ", amount=");
-	Env::DocAddNum("", x.m_Amount);
+		Env::DocAddNum("aid", x.m_Aid);
+	Env::DocAddNum("amount", x.m_Amount);
+}
+
+template <uint32_t nMaxLen>
+void DocAddTextLen(const char* szID, const void* szValue, uint32_t nLen)
+{
+	char szBuf[nMaxLen + 1];
+	nLen = std::min(nLen, nMaxLen);
+
+	Env::Memcpy(szBuf, szValue, nLen);
+	szBuf[nLen] = 0;
+
+	Env::DocAddText(szID, szBuf);
 }
 
 void ParserContext::On_Gallery_0()
@@ -390,32 +433,34 @@ void ParserContext::On_Gallery_0()
 
 void ParserContext::On_Gallery()
 {
-	if (m_Method && !WriteStdMethod())
+	OnName("Gallery");
+
+	if (m_Method)
 	{
 		switch (m_iMethod)
 		{
 		case Gallery::Method::AddExhibit::s_iMethod:
 			if (m_nArg >= sizeof(Gallery::Method::AddExhibit))
 			{
+				OnMethod("AddExhibit");
+				GroupArgs gr;
+
 				const auto& arg = *reinterpret_cast<const Gallery::Method::AddExhibit*>(m_pArg);
-				Env::DocAddText("", "Method=AddArtwork");
-				Env::DocAddText("", ", pkUser=");
-				Env::DocAddBlob_T("", arg.m_pkArtist);
+				Env::DocAddBlob_T("pkUser", arg.m_pkArtist);
+				Env::DocAddNum("size", arg.m_Size);
 			}
 			break;
 
 		case Gallery::Method::ManageArtist::s_iMethod:
 			if (m_nArg >= sizeof(Gallery::Method::ManageArtist))
 			{
-				const auto& arg = *reinterpret_cast<const Gallery::Method::ManageArtist*>(m_pArg);
+				OnMethod("ManageArtist");
+				GroupArgs gr;
 
-				Env::DocAddText("", "Method=ManageArtist");
-				Env::DocAddText("", ", pkUser=");
-				Env::DocAddBlob_T("", arg.m_pkArtist);
-				
-				Env::DocAddText("", ", name=");
-	            Env::DocAddNum32("", arg.m_LabelLen);
-				
+				const auto& arg = *reinterpret_cast<const Gallery::Method::ManageArtist*>(m_pArg);
+				Env::DocAddBlob_T("pkUser", arg.m_pkArtist);
+				DocAddTextLen<Gallery::Artist::s_LabelMaxLen>("name", &arg + 1, arg.m_LabelLen);
+			
 			}
 			break;
 		
@@ -423,9 +468,11 @@ void ParserContext::On_Gallery()
 		case Gallery::Method::SetPrice::s_iMethod:
 			if (m_nArg >= sizeof(Gallery::Method::SetPrice))
 			{
+				OnMethod("SetPrice");
+				GroupArgs gr;
+
 				const auto& arg = *reinterpret_cast<const Gallery::Method::SetPrice*>(m_pArg);
 
-				Env::DocAddText("", "Method=SetPrice");
 				WriteGalleryAdrID(arg.m_ID);
 				WriteGalleryPrice(arg.m_Price);
 			}
@@ -434,32 +481,30 @@ void ParserContext::On_Gallery()
 		case Gallery::Method::Buy::s_iMethod:
 			if (m_nArg >= sizeof(Gallery::Method::Buy))
 			{
+				OnMethod("Buy");
+				GroupArgs gr;
+
 				const auto& arg = *reinterpret_cast<const Gallery::Method::Buy*>(m_pArg);
 
-				Env::DocAddText("", "Method=Buy");
 				WriteGalleryAdrID(arg.m_ID);
 				
-				Env::DocAddText("", ", pkUser=");
-	            Env::DocAddBlob_T("", arg.m_pkUser);
-	            
-	            Env::DocAddText("", ", hasAid=");
-	            Env::DocAddNum32("", arg.m_HasAid);
-				
-				Env::DocAddText("", ", payMax=");
-				Env::DocAddNum64("", arg.m_PayMax);
+	            Env::DocAddBlob_T("pkUser", arg.m_pkUser);
+	            Env::DocAddNum32("hasAid", arg.m_HasAid);
+				Env::DocAddNum64("payMax", arg.m_PayMax);
 			}
 			break;
 		
 		case Gallery::Method::Transfer::s_iMethod:
 			if (m_nArg >= sizeof(Gallery::Method::Transfer))
 			{
+				OnMethod("Transfer");
+				GroupArgs gr;
+
 				const auto& arg = *reinterpret_cast<const Gallery::Method::Transfer*>(m_pArg);
 
-				Env::DocAddText("", "Method=Transfer");
 				WriteGalleryAdrID(arg.m_ID);
-				
-				Env::DocAddText("", ", newPkUser=");
-	            Env::DocAddBlob_T("", arg.m_pkNewOwner);
+			
+	            Env::DocAddBlob_T("newPkUser", arg.m_pkNewOwner);
 			}
 			break;
 		
@@ -467,29 +512,26 @@ void ParserContext::On_Gallery()
 		case Gallery::Method::Withdraw::s_iMethod:
 			if (m_nArg >= sizeof(Gallery::Method::Withdraw))
 			{
-				const auto& arg = *reinterpret_cast<const Gallery::Method::Withdraw*>(m_pArg);
+				OnMethod("Withdraw");
+				GroupArgs gr;
 
-				Env::DocAddText("", "Method=Withdraw");
+				const auto& arg = *reinterpret_cast<const Gallery::Method::Withdraw*>(m_pArg);
 				
 				// TODO roman
-				Env::DocAddText("", ", key=");
-	            Env::DocAddBlob_T("", arg.m_Key);
-	            
-	            Env::DocAddText("", ", value=");
-	            Env::DocAddNum64("", arg.m_Value);
-				
+	            Env::DocAddBlob_T("key", arg.m_Key);
+	            Env::DocAddNum64("value", arg.m_Value);
 			}
 			break;
 		
 		case Gallery::Method::AddVoteRewards::s_iMethod:
 			if (m_nArg >= sizeof(Gallery::Method::AddVoteRewards))
 			{
+				OnMethod("AddVoteRewards");
+				GroupArgs gr;
+
 				const auto& arg = *reinterpret_cast<const Gallery::Method::AddVoteRewards*>(m_pArg);
 
-				Env::DocAddText("", "Method=AddVoteRewards");
-				
-				Env::DocAddText("", ", amount=");
-	            Env::DocAddNum64("", arg.m_Amount);
+	            Env::DocAddNum("amount", arg.m_Amount);
 			}
 			break;
 		
@@ -498,22 +540,23 @@ void ParserContext::On_Gallery()
 		case Gallery::Method::Vote::s_iMethod:
 			if (m_nArg >= sizeof(Gallery::Method::Vote))
 			{
+				OnMethod("Vote");
+				GroupArgs gr;
+
 				const auto& arg = *reinterpret_cast<const Gallery::Method::Vote*>(m_pArg);
 
-				Env::DocAddText("", "Method=Vote");
 				WriteGalleryAdrID(arg.m_ID.m_MasterpieceID);
-
-				Env::DocAddText("", ", impression=");
-				Env::DocAddNum("", arg.m_Impression.m_Value);
+				Env::DocAddNum("impression", arg.m_Impression.m_Value);
 			}
 			break;
 
 		case Gallery::Method::AdminDelete::s_iMethod:
 			if (m_nArg >= sizeof(Gallery::Method::AdminDelete))
 			{
-				const auto& arg = *reinterpret_cast<const Gallery::Method::AdminDelete*>(m_pArg);
+				OnMethod("AdminDelete");
+				GroupArgs gr;
 
-				Env::DocAddText("", "Method=AdminDelete");
+				const auto& arg = *reinterpret_cast<const Gallery::Method::AdminDelete*>(m_pArg);
 				WriteGalleryAdrID(arg.m_ID);
 
 			}
