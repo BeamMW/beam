@@ -412,17 +412,24 @@ public:
 		std::vector<ECC::Point> m_vSigs; // excluding nested
 		std::vector<ContractInvokeExtraInfo> m_vNested;
 		std::string m_sParsed;
+		uint32_t m_iMethod;
+		ByteBuffer m_Args;
+		boost::optional<ECC::uintBig> m_Sid;
 
 		void SetUnk(uint32_t iMethod, const Blob& args, const ECC::uintBig* pSid);
+
 
 		template <typename Archive>
 		void serialize(Archive& ar)
 		{
 			ar
 				& m_Cid
+				& m_Sid
 				& m_FundsIO.m_Map
 				& m_vSigs
 				& m_vNested
+				& m_iMethod
+				& m_Args
 				& m_sParsed;
 		}
 	};
