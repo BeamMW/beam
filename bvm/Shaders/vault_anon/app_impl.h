@@ -151,79 +151,117 @@ struct AccountReader
     }
 };
 
-struct IMsgPrinter
+
+struct WalkerAccounts
 {
-    virtual void Print(const PubKey* pAnonSender, const uint8_t* pMsg, uint32_t nMsg) {}
-};
-
-void ViewAccounts(const ContractID& cid, const PubKey* pOwner, AnonScanner* pAnon, const char* szArr, IMsgPrinter& prnt)
-{
-    Env::Key_T<Account::Key0> k0;
-    _POD_(k0.m_Prefix.m_Cid) = cid;
-    _POD_(k0.m_KeyInContract).SetZero();
-    k0.m_KeyInContract.m_Tag = Tags::s_Account;
-
-    AccountReader ar(cid);
-
-    if (pOwner)
+    virtual bool OnAccount(const PubKey& pkOwner, AssetID, Amount, bool bIsAnon, const uint8_t* pMsg, uint32_t nMsg)
     {
-        _POD_(k0.m_KeyInContract.m_pkOwner) = *pOwner;
-        _POD_(ar.m_Key.m_KeyInContract.m_pkOwner) = *pOwner;
+        return true;
     }
 
-    Env::DocArray gr(szArr);
-
-    for (Env::VarReader r(k0, ar.m_Key); ar.MoveNext(r); )
+    virtual bool OnAccount(AccountReader& ar, const AnonScanner* pAnon)
     {
-        if (pAnon && !ar.Recognize(*pAnon))
-            continue;
-
-        Env::DocGroup gr("");
-
-        if (!pOwner)
-            Env::DocAddBlob_T("pk", ar.m_Key.m_KeyInContract.m_pkOwner);
-
-        Env::DocAddNum("aid", ar.m_Key.m_KeyInContract.m_Aid);
-        Env::DocAddNum("amount", ar.m_Amount);
+        uint8_t* pMsg = ar.m_Key.m_KeyInContract.m_pCustom;
+        uint32_t nMsg = ar.m_SizeCustom;
 
         if (pAnon)
         {
-            uint8_t* pMsg = ar.m_Key.m_KeyInContract.m_pCustom + sizeof(PubKey);
-            uint32_t nMsg = ar.m_SizeCustom - sizeof(PubKey);
-
+            pMsg += sizeof(PubKey);
+            nMsg -= sizeof(PubKey);
             XcodeMsg(pAnon->m_pkShared, pMsg, nMsg);
-
-            prnt.Print(&ar.get_PkSender(), pMsg, nMsg);
         }
-        else
-            prnt.Print(nullptr, ar.m_Key.m_KeyInContract.m_pCustom, ar.m_SizeCustom);
-    }
-}
 
-void OnUser_view_raw(const ContractID& cid, const Env::KeyID& kid, IMsgPrinter& prnt)
+        return OnAccount(
+            ar.m_Key.m_KeyInContract.m_pkOwner,
+            ar.m_Key.m_KeyInContract.m_Aid,
+            ar.m_Amount,
+            !!pAnon,
+            pMsg,
+            nMsg);
+    }
+
+    bool Proceed(const ContractID& cid, const PubKey* pOwner, AnonScanner* pAnon)
+    {
+        Env::Key_T<Account::Key0> k0;
+        _POD_(k0.m_Prefix.m_Cid) = cid;
+        _POD_(k0.m_KeyInContract).SetZero();
+        k0.m_KeyInContract.m_Tag = Tags::s_Account;
+
+        AccountReader ar(cid);
+
+        if (pOwner)
+        {
+            _POD_(k0.m_KeyInContract.m_pkOwner) = *pOwner;
+            _POD_(ar.m_Key.m_KeyInContract.m_pkOwner) = *pOwner;
+        }
+
+        for (Env::VarReader r(k0, ar.m_Key); ar.MoveNext(r); )
+        {
+            if (pAnon && !ar.Recognize(*pAnon))
+                continue;
+
+            if (!OnAccount(ar, pAnon))
+                return false;
+        }
+
+        return true;
+    }
+};
+
+struct WalkerAccounts_Print
+    :public WalkerAccounts
+{
+    bool OnAccount(const PubKey& pkOwner, AssetID aid, Amount amount, bool bIsAnon, const uint8_t* pMsg, uint32_t nMsg) override
+    {
+        Env::DocGroup gr("");
+
+        if (bIsAnon)
+            Env::DocAddBlob_T("pk", pkOwner);
+
+        Env::DocAddNum("aid", aid);
+        Env::DocAddNum("amount", amount);
+
+        PrintMsg(bIsAnon, pMsg, nMsg);
+
+        return true;
+    }
+
+    virtual void PrintMsg(bool bIsAnon, const uint8_t* pMsg, uint32_t nMsg) {}
+};
+
+void OnUser_view_raw(const ContractID& cid, const Env::KeyID& kid, WalkerAccounts_Print& wlk)
 {
     PubKey pk;
     kid.get_Pk(pk);
-    ViewAccounts(cid, &pk, nullptr, "raw", prnt);
+    Env::DocArray gr("raw");
+    wlk.Proceed(cid, &pk, nullptr);
 }
 
-void OnUser_view_anon(const ContractID& cid, const Env::KeyID& kid, IMsgPrinter& prnt)
+void OnUser_view_anon(const ContractID& cid, const Env::KeyID& kid, WalkerAccounts_Print& wlk)
 {
     AnonScanner as(kid);
-    ViewAccounts(cid, nullptr, &as, "anon", prnt);
+    Env::DocArray gr("anon");
+    wlk.Proceed(cid, nullptr, &as);
 }
 
 #pragma pack (push, 1)
-struct AnonTx :public Method::BaseTx
+struct AnyTx :public Method::BaseTx
 {
-    PubKey m_pkSender;
-    uint8_t m_pMsg[s_MaxMsgSize];
-
     uint32_t get_Size() const
     {
         return sizeof(Method::BaseTx) + m_SizeCustom;
     }
+};
 
+struct RawTx :public AnyTx
+{
+    uint8_t m_pMsg[Account::s_CustomMaxSize];
+};
+
+struct AnonTx :public AnyTx
+{
+    PubKey m_pkSender;
+    uint8_t m_pMsg[s_MaxMsgSize];
 };
 #pragma pack (pop)
 
@@ -307,63 +345,59 @@ void OnUser_send_anon(const ContractID& cid, const PubKey& pkOwner, AssetID aid,
     Env::GenerateKernel(&cid, Method::Deposit::s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "vault_anon send anon", 0);
 }
 
-void OnUser_receive_raw(const ContractID& cid, const Env::KeyID& kid, AssetID aid, Amount amount)
+void OnUser_receive_internal_raw(const AccountReader& ar, const Env::KeyID& kid)
 {
-    Method::Withdraw arg;
-    kid.get_Pk(arg.m_Key.m_pkOwner);
-
-    AccountReader ar(cid);
-    if (!ar.ReadMy(aid, arg.m_Key.m_pkOwner, nullptr))
-        return OnError("no funds");
-
-    arg.m_Key.m_Aid = aid;
-    arg.m_Amount = amount;
-    arg.m_SizeCustom = 0;
-
     assert(ar.m_Amount);
-    if (arg.m_Amount)
-    {
-        if (arg.m_Amount > ar.m_Amount)
-            return OnError("insufficient funds");
-    }
-    else
-        arg.m_Amount = ar.m_Amount; // withdraw all
+
+    RawTx arg;
+    arg.m_SizeCustom = ar.m_SizeCustom;
+    arg.m_Amount = ar.m_Amount;
+    arg.m_Key.m_Aid = ar.m_Key.m_KeyInContract.m_Aid;
+    _POD_(arg.m_Key.m_pkOwner) = ar.m_Key.m_KeyInContract.m_pkOwner;
+    Env::Memcpy(arg.m_pMsg, ar.m_Key.m_KeyInContract.m_pCustom, ar.m_SizeCustom);
 
     FundsChange fc;
-    fc.m_Aid = aid;
+    fc.m_Aid = arg.m_Key.m_Aid;
     fc.m_Amount = arg.m_Amount;
     fc.m_Consume = 0;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &kid, 1, "vault_anon receive raw", 0);
+    Env::GenerateKernel(&ar.m_Key.m_Prefix.m_Cid, Method::Withdraw::s_iMethod, &arg, arg.get_Size(), &fc, 1, &kid, 1, "vault_anon receive raw", 0);
 }
 
-void OnUser_receive_anon(const ContractID& cid, const Env::KeyID& kid, const PubKey& pkOwner, AssetID aid, Amount amount)
+void OnUser_receive_raw(const ContractID& cid, const Env::KeyID& kid, AssetID aid, Amount amount)
 {
-    AnonScanner as(kid);
+    PubKey pkOwner;
+    kid.get_Pk(pkOwner);
 
     AccountReader ar(cid);
-    if (!ar.ReadMy(aid, pkOwner, &as))
-        return OnError("not detected");
-
-    AnonTx arg;
-    arg.m_Amount = amount;
-    Env::Memcpy(&arg.m_pkSender, ar.m_Key.m_KeyInContract.m_pCustom, ar.m_SizeCustom);
-    arg.m_SizeCustom = ar.m_SizeCustom;
+    if (!ar.ReadMy(aid, pkOwner, nullptr))
+        return OnError("no funds");
 
     assert(ar.m_Amount);
-    if (arg.m_Amount)
+    if (amount)
     {
-        if (arg.m_Amount > ar.m_Amount)
+        if (amount > ar.m_Amount)
             return OnError("insufficient funds");
     }
     else
-        arg.m_Amount = ar.m_Amount; // withdraw all
+        amount = ar.m_Amount; // withdraw all
 
-    _POD_(arg.m_Key.m_pkOwner) = pkOwner;
-    arg.m_Key.m_Aid = aid;
+    OnUser_receive_internal_raw(ar, kid);
+}
+
+void OnUser_receive_internal_anon(const AccountReader& ar, const AnonScanner& as, const Env::KeyID& kid)
+{
+    assert(ar.m_Amount);
+
+    AnonTx arg;
+    arg.m_Key.m_Aid = ar.m_Key.m_KeyInContract.m_Aid;
+    arg.m_Amount = ar.m_Amount;
+    _POD_(arg.m_Key.m_pkOwner) = ar.m_Key.m_KeyInContract.m_pkOwner;
+    Env::Memcpy(&arg.m_pkSender, ar.m_Key.m_KeyInContract.m_pCustom, ar.m_SizeCustom);
+    arg.m_SizeCustom = ar.m_SizeCustom;
 
     FundsChange fc;
-    fc.m_Aid = aid;
+    fc.m_Aid = arg.m_Key.m_Aid;
     fc.m_Amount = arg.m_Amount;
     fc.m_Consume = 0;
 
@@ -385,7 +419,7 @@ void OnUser_receive_anon(const ContractID& cid, const Env::KeyID& kid, const Pub
 
     // obtain challenge
     Secp_scalar_data skSig;
-    Env::GenerateKernelAdvanced(&cid, Method::Withdraw::s_iMethod, &arg, arg.get_Size(), &fc, 1, &pkOwner, 1, "", 0, h0, h1, pkKrnBlind, pkFullNonce, skSig, s_KrnBlind, s_KrnNonce, &skSig);
+    Env::GenerateKernelAdvanced(&ar.m_Key.m_Prefix.m_Cid, Method::Withdraw::s_iMethod, &arg, arg.get_Size(), &fc, 1, &arg.m_Key.m_pkOwner, 1, "", 0, h0, h1, pkKrnBlind, pkFullNonce, skSig, s_KrnBlind, s_KrnNonce, &skSig);
 
     Secp::Scalar e, skRes;
     e.Import(skSig);
@@ -395,8 +429,66 @@ void OnUser_receive_anon(const ContractID& cid, const Env::KeyID& kid, const Pub
     skRes += as.m_sk;
     skRes.Export(skSig);
 
-    Env::GenerateKernelAdvanced(&cid, Method::Withdraw::s_iMethod, &arg, arg.get_Size(), &fc, 1, &pkOwner, 1, "vault_anon receive", 0, h0, h1, pkKrnBlind, pkFullNonce, skSig, s_KrnBlind, s_KrnNonce, nullptr);
+    Env::GenerateKernelAdvanced(&ar.m_Key.m_Prefix.m_Cid, Method::Withdraw::s_iMethod, &arg, arg.get_Size(), &fc, 1, &arg.m_Key.m_pkOwner, 1, "vault_anon receive", 0, h0, h1, pkKrnBlind, pkFullNonce, skSig, s_KrnBlind, s_KrnNonce, nullptr);
 }
 
+void OnUser_receive_anon(const ContractID& cid, const Env::KeyID& kid, const PubKey& pkOwner, AssetID aid, Amount amount)
+{
+    AnonScanner as(kid);
+
+    AccountReader ar(cid);
+    if (!ar.ReadMy(aid, pkOwner, &as))
+        return OnError("not detected");
+
+    assert(ar.m_Amount);
+    if (amount)
+    {
+        if (amount > ar.m_Amount)
+            return OnError("insufficient funds");
+    }
+    else
+        amount = ar.m_Amount; // withdraw all
+
+    OnUser_receive_internal_anon(ar, as, kid);
+}
+
+uint32_t OnUser_receive_All(const ContractID& cid, const Env::KeyID& kid, uint32_t nMaxOps)
+{
+    struct MyWalker
+        :public WalkerAccounts
+    {
+        Env::KeyID m_Kid;
+        uint32_t m_Remaining;
+
+        bool OnAccount(AccountReader& ar, const AnonScanner* pAnon) override
+        {
+            if (pAnon)
+                OnUser_receive_internal_anon(ar, *pAnon, m_Kid);
+            else
+                OnUser_receive_internal_raw(ar, m_Kid);
+
+            return (--m_Remaining) > 0;
+        }
+    };
+
+    MyWalker wlk;
+    wlk.m_Kid = kid;
+    wlk.m_Remaining = nMaxOps;
+
+    if (wlk.m_Remaining)
+    {
+        PubKey pkOwner;
+        kid.get_Pk(pkOwner);
+        wlk.Proceed(cid, &pkOwner, nullptr);
+    }
+
+    if (wlk.m_Remaining)
+    {
+        AnonScanner as(kid);
+        wlk.Proceed(cid, nullptr, &as);
+    }
+
+    return nMaxOps - wlk.m_Remaining;
+}
 
 } // namespace VaultAnon

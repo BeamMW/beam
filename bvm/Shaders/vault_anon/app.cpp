@@ -93,32 +93,32 @@ ON_METHOD(manager, deploy)
     Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy VaultAnon contract", 0);
 }
 
-struct MsgPrinter
-    :public IMsgPrinter
+struct MyAccountsPrinter
+    :public WalkerAccounts_Print
 {
-    void Print(const PubKey* pAnonSender, const uint8_t* pMsg, uint32_t nMsg) override
+    void PrintMsg(bool bIsAnon, const uint8_t* pMsg, uint32_t nMsg) override
     {
         if (nMsg)
             Env::DocAddBlob("custom", pMsg, nMsg);
     }
 };
 
-
 ON_METHOD(manager, view_account)
 {
-    MsgPrinter prnt;
-    ViewAccounts(cid, _POD_(pkOwner).IsZero() ? nullptr : &pkOwner, nullptr, "accounts", prnt);
+    Env::DocArray gr("accounts");
+    MyAccountsPrinter wlk;
+    wlk.Proceed(cid, _POD_(pkOwner).IsZero() ? nullptr : &pkOwner, nullptr);
 }
 
 ON_METHOD(user, view_raw)
 {
-    MsgPrinter prnt;
+    MyAccountsPrinter prnt;
     OnUser_view_raw(cid, MyKeyID(cid), prnt);
 }
 
 ON_METHOD(user, view_anon)
 {
-    MsgPrinter prnt;
+    MyAccountsPrinter prnt;
     OnUser_view_anon(cid, MyKeyID(cid), prnt);
 }
 

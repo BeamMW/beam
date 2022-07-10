@@ -56,6 +56,8 @@
     macro(AssetID, aid) \
     macro(Amount, amount)
 
+#define NameService_user_receive_all(macro) macro(ContractID, cid)
+
 #define NameServiceRole_user(macro) \
     macro(user, my_key) \
     macro(user, view) \
@@ -64,7 +66,8 @@
     macro(user, domain_set_owner) \
     macro(user, domain_set_price) \
     macro(user, domain_buy) \
-    macro(user, receive)
+    macro(user, receive) \
+    macro(user, receive_all)
 
 #define NameServiceRoles_All(macro) \
     macro(manager) \
@@ -349,12 +352,12 @@ ON_METHOD(user, view)
 
     DumpDomains(cid, &pk);
 
-    struct MsgPrinter
-        :public VaultAnon::IMsgPrinter
+    struct MyAccountsPrinter
+        :public VaultAnon::WalkerAccounts_Print
     {
-        void Print(const PubKey* pAnonSender, const uint8_t* pMsg, uint32_t nMsg) override
+        void PrintMsg(bool bIsAnon, const uint8_t* pMsg, uint32_t nMsg) override
         {
-            if (pAnonSender && nMsg)
+            if (bIsAnon && nMsg)
             {
                 nMsg = std::min(nMsg, Domain::s_MaxLen);
 
@@ -549,6 +552,17 @@ ON_METHOD(user, receive)
         VaultAnon::OnUser_receive_raw(stg.m_cidVault, MyKeyID(cid), aid, amount);
     else
         VaultAnon::OnUser_receive_anon(stg.m_cidVault, MyKeyID(cid), pkOwner, aid, amount);
+}
+
+ON_METHOD(user, receive_all)
+{
+    MySettings stg;
+    if (!stg.Read(cid))
+        return;
+
+    const uint32_t nMaxOps = 30;
+    if (!VaultAnon::OnUser_receive_All(stg.m_cidVault, MyKeyID(cid), nMaxOps))
+        OnError("nothing to withdraw");
 }
 
 #undef ON_METHOD
