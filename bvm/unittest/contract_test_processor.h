@@ -335,7 +335,7 @@ namespace beam::bvm2
 			size_t nFrames = m_FarCalls.m_Stack.size();
 
 			Wasm::Word nSp = m_Stack.get_AlasSp();
-			CallFar(cid, iMethod, nSp, bInheritContext);
+			CallFar(cid, iMethod, nSp, nArgs, bInheritContext);
 
 			bool bWasm = false;
 			for (; m_FarCalls.m_Stack.size() > nFrames; m_Cycles++)

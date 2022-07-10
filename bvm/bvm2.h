@@ -438,7 +438,7 @@ namespace bvm2 {
 
 		uint32_t m_Charge = Limits::BlockCharge;
 
-		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext); // can override to invoke host code instead of interpretator (for debugging)
+		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint8_t bInheritContext); // can override to invoke host code instead of interpretator (for debugging)
 	};
 
 
