@@ -67,6 +67,7 @@ namespace beam::wallet
 #endif
 
     constexpr char SEED_PARAM_NAME[] = "SavedSeed";
+    constexpr char ASSET_SWAP_PARAMS_NAME[] = "LastAssetSwapParams";
     struct WalletStatus
     {
         struct AssetStatus
@@ -197,6 +198,7 @@ namespace beam::wallet
         virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) {}
         virtual void onGetAddress(const WalletID& token, const boost::optional<WalletAddress>& address, size_t offlinePayments) {}
         virtual void onSwapParamsLoaded(const beam::ByteBuffer& params) {}
+        virtual void onAssetSwapParamsLoaded(const beam::ByteBuffer& params) {}
         virtual void onNewAddressFailed() {}
         virtual void onNodeConnectionChanged(bool isNodeConnected) {}
         virtual void onWalletError(ErrorType error) {}
@@ -261,6 +263,9 @@ namespace beam::wallet
         void loadSwapParams() override;
         void storeSwapParams(const beam::ByteBuffer& params) override;
         #endif
+
+        void loadAssetSwapParams() override;
+        void storeAssetSwapParams(const beam::ByteBuffer& params) override;
 
         #ifdef BEAM_IPFS_SUPPORT
         void setIPFSConfig(asio_ipfs::config&&) override;

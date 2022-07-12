@@ -161,6 +161,17 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::storeSwapParams, params);
     }
 #endif
+
+    void loadAssetSwapParams() override
+    {
+        call_async(&IWalletModelAsync::loadAssetSwapParams);
+    }
+
+    void storeAssetSwapParams(const beam::ByteBuffer& params) override
+    {
+        call_async(&IWalletModelAsync::storeAssetSwapParams, params);
+    }
+
     void cancelTx(const wallet::TxID& id) override
     {
         call_async(&IWalletModelAsync::cancelTx, id);
@@ -1579,6 +1590,18 @@ namespace beam::wallet
         m_walletDB->setVarRaw(SWAP_PARAMS_NAME, params.data(), params.size());
     }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+    void WalletClient::loadAssetSwapParams()
+    {
+        ByteBuffer params;
+        m_walletDB->getBlob(ASSET_SWAP_PARAMS_NAME, params);
+        onAssetSwapParamsLoaded(params);
+    }
+
+    void WalletClient::storeAssetSwapParams(const ByteBuffer& params)
+    {
+        m_walletDB->setVarRaw(ASSET_SWAP_PARAMS_NAME, params.data(), params.size());
+    }
 
     void WalletClient::cancelTx(const TxID& id)
     {

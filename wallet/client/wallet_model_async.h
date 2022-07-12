@@ -57,6 +57,9 @@ namespace beam::wallet
         virtual void publishSwapOffer(const SwapOffer& offer) = 0;
         #endif
 
+        virtual void loadAssetSwapParams() = 0;
+        virtual void storeAssetSwapParams(const beam::ByteBuffer& params) = 0;
+
         #ifdef BEAM_IPFS_SUPPORT
         virtual void setIPFSConfig(asio_ipfs::config&&) = 0;
         virtual void stopIPFSNode() = 0;
