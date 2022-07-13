@@ -588,8 +588,8 @@ ON_METHOD(user, receive_list)
     MyKeyID key(cid);
 
     const uint32_t nMaxOps = 999;
-    auto fKey = MakeFieldIndex<nMaxOps>("key");
-    auto fAid = MakeFieldIndex<nMaxOps>("aid");
+    auto fKey = MakeFieldIndex<nMaxOps>("key_");
+    auto fAid = MakeFieldIndex<nMaxOps>("aid_");
 
     for (uint32_t i = 1; i < nMaxOps; i++)
     {
