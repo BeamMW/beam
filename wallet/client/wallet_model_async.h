@@ -23,6 +23,7 @@
 namespace beam::wallet
 {
     class DexOrder;
+    class AssetSwapOrder;
     struct DexOrderID;
     #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     struct SwapOffer;
@@ -69,6 +70,10 @@ namespace beam::wallet
         virtual void getDexOrders() = 0;
         virtual void publishDexOrder(const DexOrder&) = 0;
         virtual void acceptDexOrder(const DexOrderID&) = 0;
+
+        virtual void getAssetSwapOrders() = 0;
+        virtual void publishAssetSwapOrder(const AssetSwapOrder&) = 0;
+        virtual void acceptAssetSwapOrder(const DexOrderID&) = 0;
 
         virtual void deleteAddress(const WalletID& addr) = 0;
         virtual void updateAddress(const WalletID& addr, const std::string& name, WalletAddress::ExpirationStatus expirationStatus) = 0;

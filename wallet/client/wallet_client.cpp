@@ -140,6 +140,22 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
      {
         call_async(&IWalletModelAsync::acceptDexOrder, orderId);
      }
+
+    void getAssetSwapOrders() override
+    {
+        call_async(&IWalletModelAsync::getAssetSwapOrders);
+    }
+
+    void publishAssetSwapOrder(const AssetSwapOrder& order) override
+    {
+        call_async(&IWalletModelAsync::publishAssetSwapOrder, order);
+    }
+
+    void acceptAssetSwapOrder(const DexOrderID& orderId) override
+    {
+        call_async(&IWalletModelAsync::acceptAssetSwapOrder, orderId);
+    }
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT    
     void getSwapOffers() override
     {
@@ -1548,6 +1564,25 @@ namespace beam::wallet
 
         assert(false);
         LOG_WARNING() << "WalletClient::acceptDexOrder but DEX is not available";
+    }
+
+    void WalletClient::getAssetSwapOrders()
+    {
+
+    }
+
+    void WalletClient::publishAssetSwapOrder(const AssetSwapOrder& order)
+    {
+        if (auto dex = _dex.lock())
+        {
+            dex->publishOrder(order);
+            return;
+        }
+    }
+
+    void WalletClient::acceptAssetSwapOrder(const DexOrderID&)
+    {
+
     }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT

@@ -75,7 +75,7 @@ namespace beam::wallet
         , isMine(true)
         , expireTime(expiration)
     {
-        remainingSize = getISendAmount();
+        // remainingSize = getISendAmount();
     }
 
     uint32_t DexOrder::getVersion() const
@@ -89,14 +89,14 @@ namespace beam::wallet
         return expireTime <= now;
     }
 
-    bool DexOrder::IsCompleted() const
-    {
-        return remainingSize == 0;
-    }
+    // bool DexOrder::IsCompleted() const
+    // {
+    //     return remainingSize == 0;
+    // }
 
     bool DexOrder::CanAccept() const
     {
-        return !isMine && !IsExpired() && !IsCompleted();
+        return !isMine && !IsExpired() /*&& !IsCompleted()*/;
     }
 
     void DexOrder::LogInfo() const

@@ -14,6 +14,7 @@
 #pragma once
 
 #include "dex_order.h"
+#include "asset_swap_order.h"
 #include "wallet/client/extensions/broadcast_gateway/interface.h"
 #include "wallet/core/wallet.h"
 #include "wallet/client/wallet_model_async.h"
@@ -29,6 +30,7 @@ namespace beam::wallet {
         struct IObserver
         {
             virtual void onDexOrdersChanged(ChangeAction action, const std::vector<DexOrder>& orders) = 0;
+            virtual void onDexOrdersChanged(ChangeAction action, const std::vector<AssetSwapOrder>& orders) = 0;
         };
 
         DexBoard(IBroadcastMsgGateway& gateway, IWalletModelAsync::Ptr wallet, IWalletDB& wdb);
@@ -37,6 +39,7 @@ namespace beam::wallet {
         [[nodiscard]] boost::optional<DexOrder> getOrder(const DexOrderID&) const;
 
         void publishOrder(const DexOrder&);
+        void publishOrder(const AssetSwapOrder&);
         void acceptOrder(const DexOrderID& id);
 
         void Subscribe(IObserver* observer)
@@ -57,6 +60,8 @@ namespace beam::wallet {
         // IBroadcastListener
         //
         bool onMessage(uint64_t, BroadcastMsg&&) override;
+        bool handleDex(const boost::optional<DexOrder>&);
+        bool handleAssetSwap(const boost::optional<AssetSwapOrder>&);
 
         //
         // ISimpleSwapHandler
@@ -68,17 +73,21 @@ namespace beam::wallet {
         // Serialization
         //
         BroadcastMsg createMessage(const DexOrder&);
+        BroadcastMsg createMessage(const AssetSwapOrder&);
         boost::optional<DexOrder> parseMessage(const BroadcastMsg& msg);
+        boost::optional<AssetSwapOrder> parseAssetSwapMessage(const BroadcastMsg& msg);
 
         //
         // Subscribers
         //
         void notifyObservers(ChangeAction action, const std::vector<DexOrder>&) const;
+        void notifyObservers(ChangeAction action, const std::vector<AssetSwapOrder>&) const;
         std::vector<IObserver*> _observers;
 
         IBroadcastMsgGateway& _gateway;
         IWalletModelAsync::Ptr _wallet;
         IWalletDB& _wdb;
         std::map<DexOrderID, DexOrder> _orders;
+        std::map<DexOrderID, AssetSwapOrder> _assetOrders;
     };
 }

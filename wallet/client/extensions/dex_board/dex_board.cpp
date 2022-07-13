@@ -80,14 +80,31 @@ namespace beam::wallet {
         _gateway.sendMessage(BroadcastContentType::DexOffers, message);
     }
 
+    void DexBoard::publishOrder(const AssetSwapOrder &offer)
+    {
+        auto message = createMessage(offer);
+        _gateway.sendMessage(BroadcastContentType::DexOffers, message);
+    }
+
     bool DexBoard::onMessage(uint64_t, BroadcastMsg&& msg)
     {
-        auto order = parseMessage(msg);
+        auto order = parseAssetSwapMessage(msg);
         if (!order)
         {
-            return false;
+            auto dexOrder = parseMessage(msg);
+            if (!dexOrder)
+            {
+                return false;
+            }
+
+            return handleDex(dexOrder);
         }
 
+        return handleAssetSwap(order);
+    }
+
+    bool DexBoard::handleDex(const boost::optional<DexOrder>& order)
+    {
         LOG_INFO() << "DexBoard oder message received: ";
         order->LogInfo();
 
@@ -108,7 +125,23 @@ namespace beam::wallet {
         return true;
     }
 
+    bool DexBoard::handleAssetSwap(const boost::optional<AssetSwapOrder>&)
+    {
+        return true;
+    }
+
     BroadcastMsg DexBoard::createMessage(const DexOrder& order)
+    {
+        const auto pkdf = _wdb.get_SbbsKdf();
+
+        auto sk = order.derivePrivateKey(pkdf);
+        auto buffer = toByteBuffer(order);
+        auto message = BroadcastMsgCreator::createSignedMessage(buffer, sk);
+
+        return message;
+    }
+
+    BroadcastMsg DexBoard::createMessage(const AssetSwapOrder& order)
     {
         const auto pkdf = _wdb.get_SbbsKdf();
 
@@ -132,9 +165,42 @@ namespace beam::wallet {
             LOG_WARNING() << "DexBoard parse error: " << err.what();
             return boost::none;
         }
+        catch(...)
+        {
+            LOG_WARNING() << "DexBoard message type parse error";
+            return boost::none;
+        }
+    }
+
+    boost::optional<AssetSwapOrder> DexBoard::parseAssetSwapMessage(const BroadcastMsg& msg)
+    {
+        try
+        {
+            const auto pkdf = _wdb.get_SbbsKdf();
+            AssetSwapOrder order(msg.m_content, msg.m_signature, pkdf);
+            return order;
+        }
+        catch(std::runtime_error& err)
+        {
+            LOG_WARNING() << "DexBoard parse error: " << err.what();
+            return boost::none;
+        }
+        catch(...)
+        {
+            LOG_WARNING() << "DexBoard message type parse error";
+            return boost::none;
+        }
     }
 
     void DexBoard::notifyObservers(ChangeAction action, const std::vector<DexOrder>& orders) const
+    {
+        for (const auto obs : _observers)
+        {
+            obs->onDexOrdersChanged(action, orders);
+        }
+    }
+
+    void DexBoard::notifyObservers(ChangeAction action, const std::vector<AssetSwapOrder>& orders) const
     {
         for (const auto obs : _observers)
         {

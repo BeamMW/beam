@@ -5,9 +5,11 @@ target_sources(dex_board
     PUBLIC
         dex_order.h
         dex_board.h
+        asset_swap_order.h
     PRIVATE
         dex_order.cpp
         dex_board.cpp
+        asset_swap_order.cpp
 )
 
 target_link_libraries(dex_board 
