@@ -556,29 +556,6 @@ ON_METHOD(user, receive)
         VaultAnon::OnUser_receive_anon(stg.m_cidVault, MyKeyID(cid), pkOwner, aid, amount);
 }
 
-template <uint32_t nStrSize, uint32_t nMaxIndex>
-struct FieldWithIndex
-{
-    char m_sz[nStrSize + Utils::String::Decimal::Digits<nMaxIndex>::N];
-
-    FieldWithIndex(const char(&sz)[nStrSize])
-    {
-        Env::Memcpy(m_sz, sz, nStrSize);
-    }
-
-    void Set(uint32_t iIdx)
-    {
-        assert(iIdx <= nMaxIndex);
-        Utils::String::Decimal::Print(m_sz + nStrSize - 1, iIdx);
-    }
-};
-
-template <uint32_t nMaxIndex, uint32_t nStrSize>
-FieldWithIndex<nStrSize, nMaxIndex> MakeFieldIndex(const char(&sz)[nStrSize])
-{
-    return FieldWithIndex<nStrSize, nMaxIndex>(sz);
-}
-
 ON_METHOD(user, receive_list)
 {
     MySettings stg;
@@ -588,8 +565,8 @@ ON_METHOD(user, receive_list)
     MyKeyID key(cid);
 
     const uint32_t nMaxOps = 999;
-    auto fKey = MakeFieldIndex<nMaxOps>("key_");
-    auto fAid = MakeFieldIndex<nMaxOps>("aid_");
+    auto fKey = Utils::MakeFieldIndex<nMaxOps>("key_");
+    auto fAid = Utils::MakeFieldIndex<nMaxOps>("aid_");
 
     for (uint32_t i = 1; i < nMaxOps; i++)
     {
