@@ -110,17 +110,16 @@ struct ManagerUpgadable2
 		Env::DocGet("hUpgradeDelay", arg.m_Settings.m_hMinUpgadeDelay);
 		Env::DocGet("nMinApprovers", arg.m_Settings.m_MinApprovers);
 
-#define ARG_NAME_PREFIX "admin-"
-		char szBuf[_countof(ARG_NAME_PREFIX) + Utils::String::Decimal::Digits<Settings::s_AdminsMax>::N] = ARG_NAME_PREFIX;
+		auto fAdmin = Utils::MakeFieldIndex<Settings::s_AdminsMax>("admin_");
 
 		uint32_t iFree = arg.m_Settings.s_AdminsMax;
 
 		for (uint32_t i = 0; i < Settings::s_AdminsMax; i++)
 		{
-			Utils::String::Decimal::Print(szBuf + _countof(ARG_NAME_PREFIX) - 1, i);
+			fAdmin.Set(i);
 			auto& pk = arg.m_Settings.m_pAdmin[i];
 
-			if (Env::DocGet(szBuf, pk)) // sets zero if not specified
+			if (Env::DocGet(fAdmin.m_sz, pk)) // sets zero if not specified
 			{
 				if (pKeyMy && (_POD_(pk) == *pKeyMy))
 					pKeyMy = nullptr; // included
