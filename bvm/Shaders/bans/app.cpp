@@ -56,6 +56,7 @@
     macro(AssetID, aid) \
     macro(Amount, amount)
 
+#define NameService_user_receive_list(macro) macro(ContractID, cid)
 #define NameService_user_receive_all(macro) macro(ContractID, cid)
 
 #define NameServiceRole_user(macro) \
@@ -67,6 +68,7 @@
     macro(user, domain_set_price) \
     macro(user, domain_buy) \
     macro(user, receive) \
+    macro(user, receive_list) \
     macro(user, receive_all)
 
 #define NameServiceRoles_All(macro) \
@@ -552,6 +554,61 @@ ON_METHOD(user, receive)
         VaultAnon::OnUser_receive_raw(stg.m_cidVault, MyKeyID(cid), aid, amount);
     else
         VaultAnon::OnUser_receive_anon(stg.m_cidVault, MyKeyID(cid), pkOwner, aid, amount);
+}
+
+template <uint32_t nStrSize, uint32_t nMaxIndex>
+struct FieldWithIndex
+{
+    char m_sz[nStrSize + Utils::String::Decimal::Digits<nMaxIndex>::N];
+
+    FieldWithIndex(const char(&sz)[nStrSize])
+    {
+        Env::Memcpy(m_sz, sz, nStrSize);
+    }
+
+    void Set(uint32_t iIdx)
+    {
+        assert(iIdx <= nMaxIndex);
+        Utils::String::Decimal::Print(m_sz + nStrSize - 1, iIdx);
+    }
+};
+
+template <uint32_t nMaxIndex, uint32_t nStrSize>
+FieldWithIndex<nStrSize, nMaxIndex> MakeFieldIndex(const char(&sz)[nStrSize])
+{
+    return FieldWithIndex<nStrSize, nMaxIndex>(sz);
+}
+
+ON_METHOD(user, receive_list)
+{
+    MySettings stg;
+    if (!stg.Read(cid))
+        return;
+
+    MyKeyID key(cid);
+
+    const uint32_t nMaxOps = 999;
+    auto fKey = MakeFieldIndex<nMaxOps>("key-");
+    auto fAid = MakeFieldIndex<nMaxOps>("aid-");
+
+    for (uint32_t i = 1; i < nMaxOps; i++)
+    {
+        fKey.Set(i);
+        fAid.Set(i);
+
+        PubKey pkOwner;
+        if (!Env::DocGet(fKey.m_sz, pkOwner))
+            break;
+
+        AssetID aid = 0;
+        Env::DocGet(fAid.m_sz, aid);
+
+        if (_POD_(pkOwner).IsZero())
+            VaultAnon::OnUser_receive_raw(stg.m_cidVault, key, aid, 0);
+        else
+            VaultAnon::OnUser_receive_anon(stg.m_cidVault, key, pkOwner, aid, 0);
+    }
+#undef KEY_PREFIX
 }
 
 ON_METHOD(user, receive_all)
