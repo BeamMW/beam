@@ -2443,7 +2443,7 @@ struct NodeProcessor::BlockInterpretCtx
 
 		void ParseExtraInfo(ContractInvokeExtraInfo&, const bvm2::ShaderID&, uint32_t iMethod, const Blob& args);
 
-		virtual void CallFar(const bvm2::ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext) override;
+		virtual void CallFar(const bvm2::ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint8_t bInheritContext) override;
 		virtual void OnRet(Wasm::Word nRetAddr) override;
 	};
 
@@ -4545,7 +4545,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 				Wasm::Reader::Mode::Restrict :
 				Wasm::Reader::Mode::Emulate_x86;
 
-		CallFar(cid, iMethod, m_Stack.get_AlasSp(), 0);
+		CallFar(cid, iMethod, m_Stack.get_AlasSp(), (uint32_t) krn.m_Args.size(), 0);
 
 		ECC::Hash::Processor hp;
 
@@ -4725,7 +4725,6 @@ struct NodeProcessor::ProcessorInfoParser
 		m_Code = m_bufParser;
 
 		m_pOut = &m_os;
-		m_RawText = true;
 		return true;
 	}
 
@@ -5215,9 +5214,9 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 	}
 }
 
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::CallFar(const bvm2::ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext)
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::CallFar(const bvm2::ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint8_t bInheritContext)
 {
-	bvm2::ProcessorContract::CallFar(cid, iMethod, pArgs, bInheritContext);
+	bvm2::ProcessorContract::CallFar(cid, iMethod, pArgs, nArgs, bInheritContext);
 
 	if (m_Bic.m_pvC)
 	{
@@ -5242,7 +5241,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::CallFar(const bvm2::Contrac
 		Blob args;
 		if (nArgsOffs < m_Stack.m_BytesMax)
 		{
-			args.n = m_Stack.m_BytesMax - nArgsOffs;
+			args.n = bInheritContext ?  (m_Stack.m_BytesMax - nArgsOffs) : nArgs;
 			args.p = reinterpret_cast<uint8_t*>(m_Stack.m_pPtr) + nArgsOffs;
 		}
 		else
@@ -5253,42 +5252,23 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::CallFar(const bvm2::Contrac
 
 		ParseExtraInfo(x, sid, iMethod, args);
 
-		if (x.m_sParsed.empty())
-		{
-			if (m_FarCalls.m_Stack.size() > 1)
-				args.n = 0; // skip args, we don't know the size, only the high bound. No need to print all this.
-			x.SetUnk(iMethod, args, &sid);
-		}
+		// skip args for inherited-context calls, we don't know the size, only the high bound. No need to save all this.
+		if (bInheritContext)
+			args.n = 0;
+
+		x.SetUnk(iMethod, args, &sid);
 	}
 }
 
 void NodeProcessor::ContractInvokeExtraInfo::SetUnk(uint32_t iMethod, const Blob& args, const ECC::uintBig* pSid)
 {
-	std::ostringstream os;
-
-	switch (iMethod)
+	m_iMethod = iMethod;
+	if (m_sParsed.empty())
 	{
-	case 0:
-		os << "Create";
+		args.Export(m_Args);
 		if (pSid)
-			os << ", Sid=" << *pSid;
-		break;
-
-	case 1:
-		os << "Destroy";
-		break;
-
-	default:
-		os << "Method_" << iMethod;
+			m_Sid.reset(*pSid);
 	}
-
-	if (args.n)
-	{
-		os << ", Args=";
-		uintBigImpl::_PrintFull(reinterpret_cast<const uint8_t*>(args.p), args.n, os);
-	}
-
-	m_sParsed = os.str();
 }
 
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::OnRet(Wasm::Word nRetAddr)

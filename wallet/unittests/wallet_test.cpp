@@ -2096,7 +2096,7 @@ namespace
         pMan[iSender]->m_Args["nMinApprovers"] = std::to_string(nPeers);
 
         for (uint32_t i = 0; i < nPeers; i++)
-            pMan[iSender]->m_Args[std::string("admin-") + std::to_string(i)] = pAdminKey[i];
+            pMan[iSender]->m_Args[std::string("admin_") + std::to_string(i)] = pAdminKey[i];
 
         pMan[iSender]->RunSync(1);
         WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
@@ -2358,7 +2358,7 @@ namespace
         pMan[iSender]->m_Args["nMinApprovers"] = std::to_string(nPeers);
 
         for (uint32_t i = 0; i < nPeers; i++)
-            pMan[iSender]->m_Args[std::string("admin-") + std::to_string(i)] = pAdminKey[i];
+            pMan[iSender]->m_Args[std::string("admin_") + std::to_string(i)] = pAdminKey[i];
 
         pMan[iSender]->RunSync(1);
         WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
@@ -2562,7 +2562,7 @@ namespace
         pMan[iSender]->m_Args["nMinApprovers"] = std::to_string(nPeers);
 
         for (uint32_t i = 0; i < nPeers; i++)
-            pMan[iSender]->m_Args[std::string("admin-") + std::to_string(i)] = pAdminKey[i];
+            pMan[iSender]->m_Args[std::string("admin_") + std::to_string(i)] = pAdminKey[i];
 
         pMan[iSender]->RunSync(1);
         WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);

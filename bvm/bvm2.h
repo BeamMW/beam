@@ -438,7 +438,7 @@ namespace bvm2 {
 
 		uint32_t m_Charge = Limits::BlockCharge;
 
-		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext); // can override to invoke host code instead of interpretator (for debugging)
+		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint8_t bInheritContext); // can override to invoke host code instead of interpretator (for debugging)
 	};
 
 
@@ -599,7 +599,6 @@ namespace bvm2 {
 
 		std::ostream* m_pOut;
 		bool m_NeedComma = false;
-		bool m_RawText = false; // don't perform json-style decoration
 
 		Key::IPKdf::Ptr m_pPKdf; // required for user-related info (account-specific pubkeys, etc.)
 
