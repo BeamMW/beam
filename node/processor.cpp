@@ -2445,6 +2445,8 @@ struct NodeProcessor::BlockInterpretCtx
 
 		virtual void CallFar(const bvm2::ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint8_t bInheritContext) override;
 		virtual void OnRet(Wasm::Word nRetAddr) override;
+
+		uint32_t m_iCurrentInvokeExtraInfo = 0;
 	};
 
 	uint32_t m_ChargePerBlock = bvm2::Limits::BlockCharge;
@@ -2471,6 +2473,8 @@ struct NodeProcessor::BlockInterpretCtx
 	}
 
 	void EnsureAssetsUsed(NodeDB&);
+
+	void AddKrnInfo(Serializer&, NodeDB& db);
 
 	static uint64_t get_AssetEvtIdx(uint32_t nKrnIdx, uint32_t nSubIdx) {
 		return (static_cast<uint64_t>(nKrnIdx) << 32) | nSubIdx;
@@ -2919,14 +2923,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 		cf.Do(*this, sid.m_Height);
 
-		if (!vC.empty())
-		{
-			ser.reset();
-			ser & vC;
-
-			SerializeBuffer sb = ser.buffer();
-			m_DB.KrnInfoInsert(sid.m_Height, Blob(sb.first, static_cast<uint32_t>(sb.second)));
-		}
+		if (bic.m_pvC)
+			bic.AddKrnInfo(ser, m_DB);
 	}
 	else
 	{
@@ -4424,6 +4422,30 @@ void NodeProcessor::BlockInterpretCtx::EnsureAssetsUsed(NodeDB& db)
 		m_AssetsUsed = static_cast<Asset::ID>(db.ParamIntGetDef(NodeDB::ParamID::AssetsCountUsed));
 }
 
+void NodeProcessor::BlockInterpretCtx::AddKrnInfo(Serializer& ser, NodeDB& db)
+{
+	assert(m_pvC);
+	auto& vC = *m_pvC;
+
+	for (uint32_t i = 0; i < vC.size(); i++)
+	{
+		const auto& info = vC[i];
+
+		NodeDB::KrnInfo::Entry x;
+		x.m_Pos.m_Height = m_Height;
+		x.m_Pos.m_Pos = i + 1;
+		x.m_Cid = info.m_Cid;
+
+		ser.reset();
+		ser & info;
+
+		SerializeBuffer sb = ser.buffer();
+		x.m_Val = Blob(sb.first, static_cast<uint32_t>(sb.second));
+
+		db.KrnInfoInsert(x);
+	}
+}
+
 void NodeProcessor::BlockInterpretCtx::AssetEvtInsert(NodeDB& db, NodeDB::AssetEvt& evt, uint32_t nSubIdx)
 {
 	evt.m_Height = m_Height;
@@ -5220,15 +5242,12 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::CallFar(const bvm2::Contrac
 
 	if (m_Bic.m_pvC)
 	{
-		auto* pVec = m_Bic.m_pvC;
+		auto& vec = *m_Bic.m_pvC; // alias
+		ContractInvokeExtraInfo& x = vec.emplace_back();
 
-		for (uint32_t i = 1; i < m_FarCalls.m_Stack.size(); i++)
-		{
-			assert(!pVec->empty());
-			pVec = &pVec->back().m_vNested;
-		}
-
-		ContractInvokeExtraInfo& x = pVec->emplace_back();
+		x.m_iParent = m_iCurrentInvokeExtraInfo;
+		m_iCurrentInvokeExtraInfo = static_cast<uint32_t>(m_FarCalls.m_Stack.size());
+		x.m_NumNested = 0;
 
 		m_pvSigs = &x.m_vSigs;
 		m_FundsIO.m_Map.swap(x.m_FundsIO.m_Map);
@@ -5260,7 +5279,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::CallFar(const bvm2::Contrac
 	}
 }
 
-void NodeProcessor::ContractInvokeExtraInfo::SetUnk(uint32_t iMethod, const Blob& args, const ECC::uintBig* pSid)
+void NodeProcessor::ContractInvokeExtraInfoBase::SetUnk(uint32_t iMethod, const Blob& args, const ECC::uintBig* pSid)
 {
 	m_iMethod = iMethod;
 	if (m_sParsed.empty())
@@ -5277,21 +5296,15 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::OnRet(Wasm::Word nRetAddr)
 
 	if (m_Bic.m_pvC && !nRetAddr)
 	{
-		std::vector<ContractInvokeExtraInfo>* pVcPrev = nullptr;
+		auto& vec = *m_Bic.m_pvC; // alias
 
-		auto* pVec = m_Bic.m_pvC;
-		assert(pVec);
+		assert(m_iCurrentInvokeExtraInfo <= vec.size());
+		auto& x = vec[m_iCurrentInvokeExtraInfo - 1];
 
-		for (uint32_t i = 0; i < m_FarCalls.m_Stack.size(); i++)
-		{
-			pVcPrev = pVec;
-
-			assert(!pVec->empty());
-			pVec = &pVec->back().m_vNested;
-		}
-
-		assert(!pVec->empty());
-		ContractInvokeExtraInfo& x = pVec->back();
+		m_iCurrentInvokeExtraInfo = x.m_iParent;
+		ContractInvokeExtraInfo* pParent = x.m_iParent ? &vec[x.m_iParent - 1] : nullptr;
+		if (pParent)
+			pParent->m_NumNested += x.m_NumNested + 1;
 
 		if (x.m_FundsIO.m_Map.empty())
 			x.m_FundsIO = m_FundsIO; // save it
@@ -5304,7 +5317,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::OnRet(Wasm::Word nRetAddr)
 				m_FundsIO.Add(it->second, it->first);
 		}
 
-		m_pvSigs = pVcPrev ? &pVcPrev->back().m_vSigs : nullptr;
+		m_pvSigs = pParent ? &pParent->m_vSigs : nullptr;
 	}
 }
 
@@ -6396,11 +6409,14 @@ bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, std::vector<Output
 		ToInputWithMaturity(inp, *pOutp, false);
 	}
 
-	bbE.clear();
-	if (m_DB.KrnInfoGet(sid.m_Height, bbE))
+	NodeDB::KrnInfo::Walker wlk;
+	for (m_DB.KrnInfoEnum(wlk, sid.m_Height); wlk.MoveNext(); )
 	{
-		der.reset(bbE);
-		der & vC;
+		auto& info = vC.emplace_back();
+		info.m_Cid = wlk.m_Entry.m_Cid;
+
+		der.reset(wlk.m_Entry.m_Val.p, wlk.m_Entry.m_Val.n);
+		der & info;
 	}
 
 	return true;
@@ -6848,6 +6864,7 @@ void NodeProcessor::RebuildNonStd()
 	{
 		NodeProcessor& m_This;
 		BlockInterpretCtx* m_pBic = nullptr;
+		bool m_RichKrnInfo;
 		KrnWalkerRebuild(NodeProcessor& p) :m_This(p) {}
 
 		ByteBuffer m_Rollback;
@@ -6859,7 +6876,8 @@ void NodeProcessor::RebuildNonStd()
 			BlockInterpretCtx::ChangesFlush cf(m_This);
 
 			std::vector<ContractInvokeExtraInfo> vC;
-			m_pBic->m_pvC = &vC;
+			if (m_RichKrnInfo)
+				m_pBic->m_pvC = &vC;
 
 			bic.m_AlreadyValidated = true;
 			bic.EnsureAssetsUsed(m_This.get_DB());
@@ -6873,14 +6891,14 @@ void NodeProcessor::RebuildNonStd()
 
 			cf.Do(m_This, m_Height);
 
-			if (!vC.empty())
+			if (m_RichKrnInfo)
 			{
 				Serializer ser;
 				ser.swap_buf(m_Rollback);
-				ser & vC;
-				ser.swap_buf(m_Rollback);
 
-				m_This.m_DB.KrnInfoInsert(m_Height, m_Rollback);
+				bic.AddKrnInfo(ser, m_This.m_DB);
+
+				ser.swap_buf(m_Rollback);
 
 				m_Rollback.clear();
 			}
@@ -6899,6 +6917,9 @@ void NodeProcessor::RebuildNonStd()
 		}
 
 	} wlk(*this);
+
+	wlk.m_RichKrnInfo = !!m_DB.ParamIntGetDef(NodeDB::ParamID::RichContractInfo);
+
 
 	EnumKernels(wlk, HeightRange(Rules::get().pForks[2].m_Height, m_Cursor.m_ID.m_Height));
 }

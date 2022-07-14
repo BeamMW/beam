@@ -127,6 +127,7 @@ namespace beam {
 #define TblCache_LastHit		"Hit"
 
 #define TblKrnInfo				"KrnInfo"
+#define TblKrnInfo_Pos			"Pos"
 #define TblKrnInfo_Key			"Key"
 #define TblKrnInfo_Data			"Data"
 
@@ -365,7 +366,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 30;
+	const uint64_t nVersionTop = 31;
 
 
 	Transaction t(*this);
@@ -431,8 +432,12 @@ void NodeDB::Open(const char* szPath)
 			// no break;
 
 		case 29: // Block interpretation nKrnIdx fixed to match KrnWalker's
+			ExecQuick("DROP TABLE IF EXISTS " TblKrnInfo);
+			// no break;
+
+		case 30: // Block interpretation nKrnIdx fixed to match KrnWalker's
 			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
-			CreateTables29();
+			CreateTables30();
 
 			// no break;
 
@@ -560,7 +565,7 @@ void NodeDB::Create()
 	CreateTables23();
 	CreateTables27();
 	CreateTables28();
-	CreateTables29();
+	CreateTables30();
 }
 
 void NodeDB::CreateTables20()
@@ -631,11 +636,15 @@ void NodeDB::CreateTables28()
 	ExecQuick("CREATE INDEX [Idx" TblCache "_Hit" "] ON [" TblCache "] ([" TblCache_LastHit "]);");
 }
 
-void NodeDB::CreateTables29()
+void NodeDB::CreateTables30()
 {
 	ExecQuick("CREATE TABLE [" TblKrnInfo "] ("
-		"[" TblKrnInfo_Key		"] INTEGER NOT NULL PRIMARY KEY,"
-		"[" TblKrnInfo_Data		"] BLOB NOT NULL)");
+		"[" TblKrnInfo_Pos		"] BLOB NOT NULL PRIMARY KEY,"
+		"[" TblKrnInfo_Key		"] BLOB NOT NULL,"
+		"[" TblKrnInfo_Data		"] BLOB NOT NULL"
+		") WITHOUT ROWID");
+
+	ExecQuick("CREATE INDEX [Idx" TblKrnInfo "_Key" "] ON [" TblKrnInfo "] ([" TblKrnInfo_Key "],[" TblKrnInfo_Pos "]);");
 }
 
 void NodeDB::Vacuum()
@@ -3128,37 +3137,58 @@ bool NodeDB::ContractLog::Walker::MoveNext()
 	return true;
 }
 
-void NodeDB::KrnInfoInsert(Height h, const Blob& b)
+void NodeDB::KrnInfoInsert(const KrnInfo::Entry& x)
 {
-	Recordset rs(*this, Query::KrnInfoInsert, "INSERT INTO " TblKrnInfo " (" TblKrnInfo_Key "," TblKrnInfo_Data ") VALUES(?,?)");
-	rs.put(0, h);
-	rs.put(1, b);
+	Recordset rs(*this, Query::KrnInfoInsert, "INSERT INTO " TblKrnInfo " (" TblKrnInfo_Pos "," TblKrnInfo_Key "," TblKrnInfo_Data ") VALUES(?,?,?)");
+
+	HeightPosPacked buf;
+	buf.put(rs, 0, x.m_Pos);
+
+	rs.put(1, x.m_Cid);
+	rs.put(2, x.m_Val);
+
 	rs.Step();
-}
-
-bool NodeDB::KrnInfoGet(Height h, ByteBuffer& buf)
-{
-	Recordset rs(*this, Query::KrnInfoGet, "SELECT " TblKrnInfo_Data " FROM " TblKrnInfo " WHERE " TblKrnInfo_Key "=?");
-	rs.put(0, h);
-	if (!rs.Step())
-	{
-		buf.clear();
-		return false;
-	}
-
-	rs.get(0, buf);
-	return true;
+	TestChanged1Row();
 }
 
 void NodeDB::KrnInfoDel(const HeightRange& hr)
 {
-	if (!hr.IsEmpty())
-	{
-		Recordset rs(*this, Query::KrnInfoDel, "DELETE FROM " TblKrnInfo " WHERE " TblKrnInfo_Key ">=? AND " TblKrnInfo_Key "<=?");
-		rs.put(0, hr.m_Min);
-		rs.put(1, hr.m_Max);
-		rs.Step();
-	}
+	Recordset rs(*this, Query::KrnInfoDel, "DELETE FROM " TblKrnInfo " WHERE " TblKrnInfo_Pos " BETWEEN ? AND ?");
+
+	HeightPos posMin(hr.m_Min), posMax(hr.m_Max, static_cast<uint32_t>(-1));
+	HeightPosPacked bufMin, bufMax;
+	bufMin.put(rs, 0, posMin);
+	bufMax.put(rs, 1, posMax);
+
+	rs.Step();
+}
+
+void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, Height h)
+{
+	wlk.m_Rs.Reset(*this, Query::KrnInfoEnumH, "SELECT * FROM " TblKrnInfo " WHERE " TblKrnInfo_Pos " BETWEEN ? AND ? ORDER BY " TblKrnInfo_Pos);
+
+	HeightPos posMin(h), posMax(h, static_cast<uint32_t>(-1));
+	wlk.m_bufMin.put(wlk.m_Rs, 0, posMin);
+	wlk.m_bufMax.put(wlk.m_Rs, 1, posMax);
+}
+
+void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, const KrnInfo::Cid& cid, Height hMax)
+{
+	wlk.m_Rs.Reset(*this, Query::KrnInfoEnumCid, "SELECT * FROM " TblKrnInfo
+		" WHERE (" TblKrnInfo "=?) AND (" TblKrnInfo_Pos "<=?) ORDER BY " TblContractLogs_Pos " DESC");
+	wlk.m_Rs.put(0, cid);
+	wlk.m_bufMax.put(wlk.m_Rs, 1, HeightPos(hMax, static_cast<uint32_t>(-1)));
+}
+
+bool NodeDB::KrnInfo::Walker::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+
+	HeightPosPacked::get(m_Rs, 0, m_Entry.m_Pos);
+	m_Rs.get_As(1, m_Entry.m_Cid);
+	m_Rs.get(2, m_Entry.m_Val);
+	return true;
 }
 
 } // namespace beam
