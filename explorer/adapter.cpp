@@ -474,10 +474,14 @@ private:
                     m_os << ", Sign " << sz;
                 }
 
-                for (size_t i = 0; i < info.m_vNested.size(); i++)
+                for (uint32_t iNested = 0; iNested < info.m_NumNested; )
                 {
+                    
+                    const auto& infoNested = (&info)[++iNested];
+                    iNested += infoNested.m_NumNested;
+
                     m_os << ", [ ";
-                    OnContract(info.m_vNested[i]);
+                    OnContract(infoNested);
                     m_os << " ]";
                 }
             }
@@ -620,6 +624,8 @@ private:
                     else
                     {
                         NodeProcessor::ContractInvokeExtraInfo info;
+                        info.m_NumNested = 0;
+                        info.m_iParent = 0;
 
                         bvm2::ShaderID sid;
                         bvm2::get_ShaderID(sid, krn.m_Data);
