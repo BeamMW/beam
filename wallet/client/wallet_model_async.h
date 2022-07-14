@@ -58,9 +58,6 @@ namespace beam::wallet
         virtual void publishSwapOffer(const SwapOffer& offer) = 0;
         #endif
 
-        virtual void loadAssetSwapParams() = 0;
-        virtual void storeAssetSwapParams(const beam::ByteBuffer& params) = 0;
-
         #ifdef BEAM_IPFS_SUPPORT
         virtual void setIPFSConfig(asio_ipfs::config&&) = 0;
         virtual void stopIPFSNode() = 0;
@@ -70,10 +67,6 @@ namespace beam::wallet
         virtual void getDexOrders() = 0;
         virtual void publishDexOrder(const DexOrder&) = 0;
         virtual void acceptDexOrder(const DexOrderID&) = 0;
-
-        virtual void getAssetSwapOrders() = 0;
-        virtual void publishAssetSwapOrder(const AssetSwapOrder&) = 0;
-        virtual void acceptAssetSwapOrder(const DexOrderID&) = 0;
 
         virtual void deleteAddress(const WalletID& addr) = 0;
         virtual void updateAddress(const WalletID& addr, const std::string& name, WalletAddress::ExpirationStatus expirationStatus) = 0;
@@ -88,6 +81,12 @@ namespace beam::wallet
         virtual void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) = 0;
         virtual void setNodeAddress(const std::string& addr) = 0;
         virtual void changeWalletPassword(const beam::SecString& password) = 0;
+
+        virtual void loadAssetSwapParams() = 0;
+        virtual void storeAssetSwapParams(const beam::ByteBuffer& params) = 0;
+        virtual void getAssetSwapOrders() = 0;
+        virtual void publishAssetSwapOrder(const AssetSwapOrder&) = 0;
+        virtual void acceptAssetSwapOrder(const DexOrderID&) = 0;
 
         #ifdef BEAM_IPFS_SUPPORT
         virtual void getIPFSStatus() = 0;

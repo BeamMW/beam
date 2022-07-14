@@ -218,7 +218,7 @@ namespace beam::wallet
         virtual void onAssetInfo(Asset::ID assetId, const WalletAsset&) {}
         virtual void onStopped() {}
         void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
-        void onDexOrdersChanged(ChangeAction, const std::vector<AssetSwapOrder>&) override {}
+        void onAssetSwapOrdersChanged(ChangeAction, const std::vector<AssetSwapOrder>&) override {}
 
         virtual Version getLibVersion() const;
         virtual uint32_t getClientRevision() const;
@@ -266,9 +266,6 @@ namespace beam::wallet
         void storeSwapParams(const beam::ByteBuffer& params) override;
         #endif
 
-        void loadAssetSwapParams() override;
-        void storeAssetSwapParams(const beam::ByteBuffer& params) override;
-
         #ifdef BEAM_IPFS_SUPPORT
         void setIPFSConfig(asio_ipfs::config&&) override;
         void stopIPFSNode() override;
@@ -278,9 +275,6 @@ namespace beam::wallet
         void getDexOrders() override;
         void publishDexOrder(const DexOrder&) override;
         void acceptDexOrder(const DexOrderID&) override;
-        void getAssetSwapOrders() override;
-        void publishAssetSwapOrder(const AssetSwapOrder&) override;
-        void acceptAssetSwapOrder(const DexOrderID&) override;
         void cancelTx(const TxID& id) override;
         void deleteTx(const TxID& id) override;
         void getCoinsByTx(const TxID& txId) override;
@@ -299,6 +293,12 @@ namespace beam::wallet
         void setNodeAddress(const std::string& addr) override;
         void changeWalletPassword(const SecString& password) override;
         void getNetworkStatus() override;
+
+        void loadAssetSwapParams() override;
+        void storeAssetSwapParams(const beam::ByteBuffer& params) override;
+        void getAssetSwapOrders() override;
+        void publishAssetSwapOrder(const AssetSwapOrder&) override;
+        void acceptAssetSwapOrder(const DexOrderID&) override;
 
         #ifdef BEAM_IPFS_SUPPORT
         void getIPFSStatus() override;

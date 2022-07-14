@@ -30,13 +30,16 @@ namespace beam::wallet {
         struct IObserver
         {
             virtual void onDexOrdersChanged(ChangeAction action, const std::vector<DexOrder>& orders) = 0;
-            virtual void onDexOrdersChanged(ChangeAction action, const std::vector<AssetSwapOrder>& orders) = 0;
+            virtual void onAssetSwapOrdersChanged(ChangeAction action, const std::vector<AssetSwapOrder>& orders) = 0;
         };
 
         DexBoard(IBroadcastMsgGateway& gateway, IWalletModelAsync::Ptr wallet, IWalletDB& wdb);
 
         [[nodiscard]] std::vector<DexOrder> getOrders() const;
         [[nodiscard]] boost::optional<DexOrder> getOrder(const DexOrderID&) const;
+
+        [[nodiscard]] std::vector<AssetSwapOrder> getAssetSwapOrders() const;
+        [[nodiscard]] boost::optional<AssetSwapOrder> getAssetSwapOrder(const DexOrderID&) const;
 
         void publishOrder(const DexOrder&);
         void publishOrder(const AssetSwapOrder&);
@@ -56,12 +59,12 @@ namespace beam::wallet {
         }
 
     private:
+        bool handleDex(const boost::optional<DexOrder>&);
+        bool handleAssetSwap(const boost::optional<AssetSwapOrder>&);
         //
         // IBroadcastListener
         //
         bool onMessage(uint64_t, BroadcastMsg&&) override;
-        bool handleDex(const boost::optional<DexOrder>&);
-        bool handleAssetSwap(const boost::optional<AssetSwapOrder>&);
 
         //
         // ISimpleSwapHandler

@@ -1566,25 +1566,6 @@ namespace beam::wallet
         LOG_WARNING() << "WalletClient::acceptDexOrder but DEX is not available";
     }
 
-    void WalletClient::getAssetSwapOrders()
-    {
-
-    }
-
-    void WalletClient::publishAssetSwapOrder(const AssetSwapOrder& order)
-    {
-        if (auto dex = _dex.lock())
-        {
-            dex->publishOrder(order);
-            return;
-        }
-    }
-
-    void WalletClient::acceptAssetSwapOrder(const DexOrderID&)
-    {
-
-    }
-
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     void WalletClient::getSwapOffers()
     {
@@ -1625,18 +1606,6 @@ namespace beam::wallet
         m_walletDB->setVarRaw(SWAP_PARAMS_NAME, params.data(), params.size());
     }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
-    void WalletClient::loadAssetSwapParams()
-    {
-        ByteBuffer params;
-        m_walletDB->getBlob(ASSET_SWAP_PARAMS_NAME, params);
-        onAssetSwapParamsLoaded(params);
-    }
-
-    void WalletClient::storeAssetSwapParams(const ByteBuffer& params)
-    {
-        m_walletDB->setVarRaw(ASSET_SWAP_PARAMS_NAME, params.data(), params.size());
-    }
 
     void WalletClient::cancelTx(const TxID& id)
     {
@@ -1915,6 +1884,40 @@ namespace beam::wallet
         }
 
         onNodeConnectionChanged(isConnected());
+    }
+
+    void WalletClient::loadAssetSwapParams()
+    {
+        ByteBuffer params;
+        m_walletDB->getBlob(ASSET_SWAP_PARAMS_NAME, params);
+        onAssetSwapParamsLoaded(params);
+    }
+
+    void WalletClient::storeAssetSwapParams(const ByteBuffer& params)
+    {
+        m_walletDB->setVarRaw(ASSET_SWAP_PARAMS_NAME, params.data(), params.size());
+    }
+
+    void WalletClient::getAssetSwapOrders()
+    {
+        if (auto dex = _dex.lock())
+        {
+            onAssetSwapOrdersChanged(ChangeAction::Reset, dex->getAssetSwapOrders());
+        }
+    }
+
+    void WalletClient::publishAssetSwapOrder(const AssetSwapOrder& order)
+    {
+        if (auto dex = _dex.lock())
+        {
+            dex->publishOrder(order);
+            return;
+        }
+    }
+
+    void WalletClient::acceptAssetSwapOrder(const DexOrderID&)
+    {
+
     }
 
     #ifdef BEAM_IPFS_SUPPORT
