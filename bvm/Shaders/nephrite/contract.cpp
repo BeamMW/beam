@@ -548,7 +548,7 @@ BEAM_EXPORT void Method_10(Method::AddStabPoolReward& r)
     if (h >= x.m_hEnd)
     {
         x.m_hLast = h;
-        x.m_hEnd = h + 1440 + 365 * 2; // 2 years
+        x.m_hEnd = h + 1440 * 365 * 2; // 2 years
     }
 
     Strict::Add(x.m_Remaining, r.m_Amount);
