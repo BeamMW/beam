@@ -713,17 +713,18 @@ public:
 
 	void StreamsDelAll(StreamType::Enum t0, StreamType::Enum t1);
 
-	struct ContractLog
-	{
 #pragma pack (push, 1)
-		struct PosPacked {
-			uintBigFor<Height>::Type m_Height;
-			uintBigFor<uint32_t>::Type m_Idx;
-		};
+	struct HeightPosPacked
+	{
+		uintBigFor<Height>::Type m_Height;
+		uintBigFor<uint32_t>::Type m_Idx;
+		void put(NodeDB::Recordset& rs, int iCol, const HeightPos& pos);
+		static void get(NodeDB::Recordset& rs, int iCol, HeightPos& pos);
+	};
 #pragma pack (pop)
 
-		typedef const ECC::Hash::Value Cid;
-
+	struct ContractLog
+	{
 		struct Entry
 		{
 			HeightPos m_Pos;
@@ -733,7 +734,7 @@ public:
 
 		struct Walker
 		{
-			PosPacked m_bufMin, m_bufMax;
+			HeightPosPacked m_bufMin, m_bufMax;
 
 			Recordset m_Rs;
 			Entry m_Entry;

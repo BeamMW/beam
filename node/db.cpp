@@ -3059,20 +3059,26 @@ bool NodeDB::WalkerContractData::MoveNext()
 	return true;
 }
 
-void put_ContractLogPos(NodeDB::Recordset& rs, int iCol, const HeightPos& pos, NodeDB::ContractLog::PosPacked& buf)
+void NodeDB::HeightPosPacked::put(NodeDB::Recordset& rs, int iCol, const HeightPos& pos)
 {
-	buf.m_Height = pos.m_Height;
-	buf.m_Idx = pos.m_Pos;
+	m_Height = pos.m_Height;
+	m_Idx = pos.m_Pos;
+	rs.put(iCol, Blob(this, sizeof(*this)));
+}
 
-	rs.put(iCol, Blob(&buf, sizeof(buf)));
+void NodeDB::HeightPosPacked::get(NodeDB::Recordset& rs, int iCol, HeightPos& pos)
+{
+	const auto& x = rs.get_As<HeightPosPacked>(iCol);
+	x.m_Height.Export(pos.m_Height);
+	x.m_Idx.Export(pos.m_Pos);
 }
 
 void NodeDB::ContractLogInsert(const ContractLog::Entry& x)
 {
 	Recordset rs(*this, Query::ContractLogInsert, "INSERT INTO " TblContractLogs " (" TblContractLogs_Pos "," TblContractLogs_Key "," TblContractLogs_Data ") VALUES(?,?,?)");
 
-	ContractLog::PosPacked buf;
-	put_ContractLogPos(rs, 0, x.m_Pos, buf);
+	HeightPosPacked buf;
+	buf.put(rs, 0, x.m_Pos);
 
 	rs.put(1, x.m_Key);
 	rs.put(2, x.m_Val);
@@ -3085,9 +3091,9 @@ void NodeDB::ContractLogDel(const HeightPos& posMin, const HeightPos& posMax)
 {
 	Recordset rs(*this, Query::ContractLogDel, "DELETE FROM " TblContractLogs " WHERE " TblContractLogs_Pos " BETWEEN ? AND ?");
 
-	NodeDB::ContractLog::PosPacked bufMin, bufMax;
-	put_ContractLogPos(rs, 0, posMin, bufMin);
-	put_ContractLogPos(rs, 1, posMax, bufMax);
+	HeightPosPacked bufMin, bufMax;
+	bufMin.put(rs, 0, posMin);
+	bufMax.put(rs, 1, posMax);
 
 	rs.Step();
 }
@@ -3096,8 +3102,8 @@ void NodeDB::ContractLogEnum(ContractLog::Walker& wlk, const HeightPos& posMin, 
 {
 	wlk.m_Rs.Reset(*this, Query::ContractLogEnum, "SELECT * FROM " TblContractLogs " WHERE " TblContractLogs_Pos " BETWEEN ? AND ? ORDER BY " TblContractLogs_Pos);
 
-	put_ContractLogPos(wlk.m_Rs, 0, posMin, wlk.m_bufMin);
-	put_ContractLogPos(wlk.m_Rs, 1, posMax, wlk.m_bufMax);
+	wlk.m_bufMin.put(wlk.m_Rs, 0, posMin);
+	wlk.m_bufMax.put(wlk.m_Rs, 1, posMax);
 }
 
 void NodeDB::ContractLogEnum(ContractLog::Walker& wlk, const Blob& keyMin, const Blob& keyMax, const HeightPos& posMin, const HeightPos& posMax)
@@ -3107,8 +3113,8 @@ void NodeDB::ContractLogEnum(ContractLog::Walker& wlk, const Blob& keyMin, const
 	wlk.m_Rs.put(0, keyMin);
 	wlk.m_Rs.put(1, keyMax);
 
-	put_ContractLogPos(wlk.m_Rs, 2, posMin, wlk.m_bufMin);
-	put_ContractLogPos(wlk.m_Rs, 3, posMax, wlk.m_bufMax);
+	wlk.m_bufMin.put(wlk.m_Rs, 2, posMin);
+	wlk.m_bufMax.put(wlk.m_Rs, 3, posMax);
 }
 
 bool NodeDB::ContractLog::Walker::MoveNext()
@@ -3116,10 +3122,7 @@ bool NodeDB::ContractLog::Walker::MoveNext()
 	if (!m_Rs.Step())
 		return false;
 
-	const auto& pos = m_Rs.get_As<PosPacked>(0);
-	pos.m_Height.Export(m_Entry.m_Pos.m_Height);
-	pos.m_Idx.Export(m_Entry.m_Pos.m_Pos);
-
+	HeightPosPacked::get(m_Rs, 0, m_Entry.m_Pos);
 	m_Rs.get(1, m_Entry.m_Key);
 	m_Rs.get(2, m_Entry.m_Val);
 	return true;
