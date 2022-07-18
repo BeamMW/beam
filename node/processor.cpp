@@ -5246,7 +5246,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::CallFar(const bvm2::Contrac
 		ContractInvokeExtraInfo& x = vec.emplace_back();
 
 		x.m_iParent = m_iCurrentInvokeExtraInfo;
-		m_iCurrentInvokeExtraInfo = static_cast<uint32_t>(m_FarCalls.m_Stack.size());
+		m_iCurrentInvokeExtraInfo = static_cast<uint32_t>(vec.size());
 		x.m_NumNested = 0;
 
 		m_pvSigs = &x.m_vSigs;
@@ -6864,7 +6864,7 @@ void NodeProcessor::RebuildNonStd()
 	{
 		NodeProcessor& m_This;
 		BlockInterpretCtx* m_pBic = nullptr;
-		bool m_RichKrnInfo;
+		std::vector<ContractInvokeExtraInfo>* m_pvC = nullptr;
 		KrnWalkerRebuild(NodeProcessor& p) :m_This(p) {}
 
 		ByteBuffer m_Rollback;
@@ -6875,10 +6875,7 @@ void NodeProcessor::RebuildNonStd()
 			m_pBic = &bic;
 			BlockInterpretCtx::ChangesFlush cf(m_This);
 
-			std::vector<ContractInvokeExtraInfo> vC;
-			if (m_RichKrnInfo)
-				m_pBic->m_pvC = &vC;
-
+			m_pBic->m_pvC = m_pvC;
 			bic.m_AlreadyValidated = true;
 			bic.EnsureAssetsUsed(m_This.get_DB());
 			bic.SetAssetHi(m_This);
@@ -6891,7 +6888,7 @@ void NodeProcessor::RebuildNonStd()
 
 			cf.Do(m_This, m_Height);
 
-			if (m_RichKrnInfo)
+			if (m_pvC)
 			{
 				Serializer ser;
 				ser.swap_buf(m_Rollback);
@@ -6901,6 +6898,7 @@ void NodeProcessor::RebuildNonStd()
 				ser.swap_buf(m_Rollback);
 
 				m_Rollback.clear();
+				m_pvC->clear();
 			}
 
 			return true;
@@ -6918,8 +6916,8 @@ void NodeProcessor::RebuildNonStd()
 
 	} wlk(*this);
 
-	wlk.m_RichKrnInfo = !!m_DB.ParamIntGetDef(NodeDB::ParamID::RichContractInfo);
-
+	std::vector<ContractInvokeExtraInfo> vC;
+	wlk.m_pvC = m_DB.ParamIntGetDef(NodeDB::ParamID::RichContractInfo) ? &vC : nullptr;
 
 	EnumKernels(wlk, HeightRange(Rules::get().pForks[2].m_Height, m_Cursor.m_ID.m_Height));
 }
