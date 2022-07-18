@@ -16,6 +16,11 @@
 #include "utility/logger.h"
 #include "core/common.h"
 
+namespace {
+    const char kBeamAssetSName[] = "BEAM";
+    const char kUnknownAssetSName[] = "UNKNOWN";
+}
+
 namespace beam::wallet
 {
 
@@ -78,7 +83,7 @@ uint32_t AssetSwapOrder::getVersion() const
     return _version;
 }
 
-bool AssetSwapOrder::IsExpired() const
+bool AssetSwapOrder::isExpired() const
 {
     const auto now = beam::getTimestamp();
     return _expireTime <= now;
@@ -94,7 +99,7 @@ const WalletID& AssetSwapOrder::getSBBSID() const
     return _sbbsID;
 }
 
-bool AssetSwapOrder::IsMine() const
+bool AssetSwapOrder::isMine() const
 {
     return _isMine;
 }
@@ -126,12 +131,12 @@ Asset::ID AssetSwapOrder::getSecondAssetId() const
 
 std::string AssetSwapOrder::getFirstAssetSname() const
 {
-    return _assetSnameFirst;
+    return _assetSnameFirst.empty() ? (_assetIdFirst == Asset::s_BeamID ? kBeamAssetSName : kUnknownAssetSName) : _assetSnameFirst;
 }
 
 std::string AssetSwapOrder::getSecondAssetSname() const
 {
-    return _assetSnameSecond;
+    return _assetSnameSecond.empty() ? (_assetIdSecond == Asset::s_BeamID ? kBeamAssetSName : kUnknownAssetSName) : _assetSnameSecond;
 }
 
 ECC::Scalar::Native AssetSwapOrder::derivePrivateKey(beam::Key::IKdf::Ptr pkdf) const
@@ -161,6 +166,36 @@ PeerID AssetSwapOrder::derivePublicKey(beam::Key::IKdf::Ptr pkdf) const
     pubKey.FromSk(privKey);
 
     return pubKey;
+}
+
+Amount AssetSwapOrder::getSendAmount() const
+{
+    return isMine() ? getFirstAmount() : getSecondAmount();
+}
+
+Amount AssetSwapOrder::getReceiveAmount() const
+{
+    return isMine() ? getSecondAmount() : getFirstAmount();
+}
+
+Asset::ID AssetSwapOrder::getSendAssetId() const
+{
+    return isMine() ? getFirstAssetId() : getSecondAssetId();
+}
+
+Asset::ID AssetSwapOrder::getReceiveAssetId() const
+{
+    return isMine() ? getSecondAssetId() : getFirstAssetId();
+}
+
+std::string AssetSwapOrder::getSendAssetSName() const
+{
+    return isMine() ? getFirstAssetSname() : getSecondAssetSname();
+}
+
+std::string AssetSwapOrder::getReceiveAssetSName() const
+{
+    return isMine() ? getSecondAssetSname() : getFirstAssetSname();
 }
 
 }  // namespace beam::wallet

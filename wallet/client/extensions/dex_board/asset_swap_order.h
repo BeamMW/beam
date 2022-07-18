@@ -42,8 +42,8 @@ namespace beam::wallet
         }
 
         [[nodiscard]] uint32_t getVersion() const;
-        [[nodiscard]] bool IsMine() const;
-        [[nodiscard]] bool IsExpired() const;
+        [[nodiscard]] bool isMine() const;
+        [[nodiscard]] bool isExpired() const;
         [[nodiscard]] const DexOrderID& getID() const;
         [[nodiscard]] const WalletID& getSBBSID() const;
         [[nodiscard]] Timestamp getExpiration() const;
@@ -56,6 +56,13 @@ namespace beam::wallet
 
         [[nodiscard]] ECC::Scalar::Native derivePrivateKey(beam::Key::IKdf::Ptr) const;
         [[nodiscard]] PeerID derivePublicKey(beam::Key::IKdf::Ptr) const;
+
+        Amount getSendAmount() const;
+        Amount getReceiveAmount() const;
+        Asset::ID getSendAssetId() const;
+        Asset::ID getReceiveAssetId() const;
+        std::string getSendAssetSName() const;
+        std::string getReceiveAssetSName() const;
 
     private:
         uint32_t      _version = 1;
