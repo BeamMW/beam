@@ -62,7 +62,7 @@ AssetSwapOrder::AssetSwapOrder(DexOrderID    orderId,
                                Asset::ID     assetIdSecond,
                                Amount        assetAmountSecond,
                                std::string   assetSnameSecond,
-                               Timestamp     expiration)
+                               uint32_t      expiration)
     : _version(kCurrentOfferVer)
     , _orderID(orderId)
     , _sbbsID(sbbsId)
@@ -74,7 +74,8 @@ AssetSwapOrder::AssetSwapOrder(DexOrderID    orderId,
     , _assetAmountFirst(assetAmountFirst)
     , _assetAmountSecond(assetAmountSecond)
     , _isMine(true)
-    , _expireTime(expiration)
+    , _createTime(getTimestamp())
+    , _expireTime(_createTime + expiration)
 {
 }
 
@@ -85,7 +86,7 @@ uint32_t AssetSwapOrder::getVersion() const
 
 bool AssetSwapOrder::isExpired() const
 {
-    const auto now = beam::getTimestamp();
+    const auto now = getTimestamp();
     return _expireTime <= now;
 }
 
@@ -102,6 +103,11 @@ const WalletID& AssetSwapOrder::getSBBSID() const
 bool AssetSwapOrder::isMine() const
 {
     return _isMine;
+}
+
+Timestamp AssetSwapOrder::getCreation() const
+{
+    return _createTime;
 }
 
 Timestamp AssetSwapOrder::getExpiration() const

@@ -19,8 +19,8 @@ namespace beam::wallet
     class AssetSwapOrder
     {
     public:
-        SERIALIZE(_version, _orderID, _sbbsID, _sbbsKeyIDX, _assetIdFirst, _assetIdSecond, _assetSnameFirst, _assetSnameSecond, _assetAmountFirst, _assetAmountSecond, _expireTime, _isCompleted);
-        static const uint32_t kCurrentOfferVer = 8;
+        SERIALIZE(_version, _orderID, _sbbsID, _sbbsKeyIDX, _assetIdFirst, _assetIdSecond, _assetSnameFirst, _assetSnameSecond, _assetAmountFirst, _assetAmountSecond, _createTime, _expireTime, _isCompleted);
+        static const uint32_t kCurrentOfferVer = 9;
         static uint32_t getCurrentVersion() { return kCurrentOfferVer;}
 
         AssetSwapOrder() = default;
@@ -34,7 +34,7 @@ namespace beam::wallet
                        Asset::ID     assetIdSecond,
                        Amount        assetAmountSecond,
                        std::string   assetSnameSecond,
-                       Timestamp     expiration);
+                       uint32_t      expiration);
 
         bool operator==(const AssetSwapOrder& other) const
         {
@@ -46,6 +46,7 @@ namespace beam::wallet
         [[nodiscard]] bool isExpired() const;
         [[nodiscard]] const DexOrderID& getID() const;
         [[nodiscard]] const WalletID& getSBBSID() const;
+        [[nodiscard]] Timestamp getCreation() const;
         [[nodiscard]] Timestamp getExpiration() const;
         [[nodiscard]] Amount getFirstAmount() const;
         [[nodiscard]] Amount getSecondAmount() const;
@@ -78,6 +79,7 @@ namespace beam::wallet
         Amount        _assetAmountSecond = 0;
 
         bool          _isMine     = false;
+        Timestamp     _createTime = 0;
         Timestamp     _expireTime = 0;
         bool          _isCompleted = false;
     };
