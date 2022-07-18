@@ -186,9 +186,9 @@ namespace bvm2 {
 		InitBase(Limits::StackSize + nStackBytes);
 	}
 
-	void ProcessorManager::InitMem()
+	void ProcessorManager::InitMem(uint32_t nStackBytesExtra /* = 0 */)
 	{
-		InitBase(0x20000); // 128K
+		InitBase(0x20000 + nStackBytesExtra); // 128K
 
 		ZeroObject(m_AuxAlloc);
 		m_NeedComma = false;

@@ -614,7 +614,7 @@ namespace bvm2 {
 
 		bool IsDone() const { return m_Instruction.m_p0 == (const uint8_t*)m_Code.p; }
 
-		void InitMem();
+		void InitMem(uint32_t nStackBytesExtra = 0);
 		void Call(Wasm::Word addr);
 		void Call(Wasm::Word addr, Wasm::Word retAddr);
 		void CallMethod(uint32_t iMethod);
