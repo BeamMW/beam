@@ -208,7 +208,8 @@ public:
 			ShieldedStatisticDel,
 
 			KrnInfoInsert,
-			KrnInfoGet,
+			KrnInfoEnumH,
+			KrnInfoEnumCid,
 			KrnInfoDel,
 
 			Dbg0,
@@ -713,17 +714,18 @@ public:
 
 	void StreamsDelAll(StreamType::Enum t0, StreamType::Enum t1);
 
-	struct ContractLog
-	{
 #pragma pack (push, 1)
-		struct PosPacked {
-			uintBigFor<Height>::Type m_Height;
-			uintBigFor<uint32_t>::Type m_Idx;
-		};
+	struct HeightPosPacked
+	{
+		uintBigFor<Height>::Type m_Height;
+		uintBigFor<uint32_t>::Type m_Idx;
+		void put(NodeDB::Recordset& rs, int iCol, const HeightPos& pos);
+		static void get(NodeDB::Recordset& rs, int iCol, HeightPos& pos);
+	};
 #pragma pack (pop)
 
-		typedef const ECC::Hash::Value Cid;
-
+	struct ContractLog
+	{
 		struct Entry
 		{
 			HeightPos m_Pos;
@@ -733,7 +735,7 @@ public:
 
 		struct Walker
 		{
-			PosPacked m_bufMin, m_bufMax;
+			HeightPosPacked m_bufMin, m_bufMax;
 
 			Recordset m_Rs;
 			Entry m_Entry;
@@ -746,9 +748,31 @@ public:
 	void ContractLogEnum(ContractLog::Walker&, const HeightPos& posMin, const HeightPos& posMax);
 	void ContractLogEnum(ContractLog::Walker&, const Blob& keyMin, const Blob& keyMax, const HeightPos& posMin, const HeightPos& posMax);
 
-	void KrnInfoInsert(Height, const Blob&);
-	bool KrnInfoGet(Height, ByteBuffer&);
+	struct KrnInfo
+	{
+		typedef ECC::Hash::Value Cid;
+
+		struct Entry
+		{
+			HeightPos m_Pos;
+			Cid m_Cid;
+			Blob m_Val;
+		};
+
+		struct Walker
+		{
+			HeightPosPacked m_bufMin, m_bufMax;
+			Recordset m_Rs;
+			Entry m_Entry;
+			bool MoveNext();
+		};
+	};
+
+
+	void KrnInfoInsert(const KrnInfo::Entry&);
 	void KrnInfoDel(const HeightRange&);
+	void KrnInfoEnum(KrnInfo::Walker&, Height);
+	void KrnInfoEnum(KrnInfo::Walker&, const KrnInfo::Cid&, Height hMax);
 
 	void TestChanged1Row();
 
@@ -781,7 +805,7 @@ private:
 	void CreateTables23();
 	void CreateTables27();
 	void CreateTables28();
-	void CreateTables29();
+	void CreateTables30();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);

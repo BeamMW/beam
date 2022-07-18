@@ -404,13 +404,12 @@ public:
 	void SaveSyncData();
 	void LogSyncData();
 
-	struct ContractInvokeExtraInfo
+	struct ContractInvokeExtraInfoBase
 	{
-		ECC::uintBig m_Cid;
-
 		FundsChangeMap m_FundsIO; // including nested
 		std::vector<ECC::Point> m_vSigs; // excluding nested
-		std::vector<ContractInvokeExtraInfo> m_vNested;
+		uint32_t m_iParent; // including sub-nested
+		uint32_t m_NumNested;
 		std::string m_sParsed;
 		uint32_t m_iMethod;
 		ByteBuffer m_Args;
@@ -418,20 +417,25 @@ public:
 
 		void SetUnk(uint32_t iMethod, const Blob& args, const ECC::uintBig* pSid);
 
-
 		template <typename Archive>
 		void serialize(Archive& ar)
 		{
 			ar
-				& m_Cid
 				& m_Sid
 				& m_FundsIO.m_Map
 				& m_vSigs
-				& m_vNested
+				& m_iParent
+				& m_NumNested
 				& m_iMethod
 				& m_Args
 				& m_sParsed;
 		}
+	};
+
+	struct ContractInvokeExtraInfo
+		:public ContractInvokeExtraInfoBase
+	{
+		ECC::uintBig m_Cid;
 	};
 
 	bool ExtractBlockWithExtra(Block::Body&, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID&, std::vector<ContractInvokeExtraInfo>&);
