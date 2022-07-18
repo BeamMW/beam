@@ -4737,13 +4737,13 @@ struct NodeProcessor::ProcessorInfoParser
 		m_Height = p.m_Cursor.m_Full.m_Height;
 	}
 
-	bool Init()
+	bool Init(uint32_t nStackBytesExtra)
 	{
 		m_Proc.m_DB.ParamGet(NodeDB::ParamID::RichContractParser, nullptr, nullptr, &m_bufParser);
 		if (m_bufParser.empty())
 			return false;
 
-		InitMem();
+		InitMem(nStackBytesExtra);
 		m_Code = m_bufParser;
 
 		m_pOut = &m_os;
@@ -4782,7 +4782,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ParseExtraInfo(ContractInvo
 		ProcessorInfoParser proc(m_Proc);
 		proc.m_Height = m_Bic.m_Height - 1;
 
-		if (!proc.Init())
+		if (!proc.Init(m_Stack.AlignUp(args.n)))
 			return;
 
 		proc.m_Stack.PushAlias(args);
@@ -4809,7 +4809,7 @@ void NodeProcessor::get_ContractDescr(const ECC::uintBig& sid, const ECC::uintBi
 	try
 	{
 		ProcessorInfoParser proc(*this);
-		if (!proc.Init())
+		if (!proc.Init(0))
 			return;
 
 		proc.PushArgBoth(sid);
