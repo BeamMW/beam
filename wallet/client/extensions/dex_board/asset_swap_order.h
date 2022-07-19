@@ -16,7 +16,7 @@
 
 namespace beam::wallet
 {
-    const uint kAssetSwapOrderRatePrecission = 9;
+    const uint8_t kAssetSwapOrderRatePrecission = 9;
     class AssetSwapOrder
     {
     public:
