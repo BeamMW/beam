@@ -418,79 +418,172 @@ private:
 
         struct Writer
         {
-            std::ostringstream m_os;
-            bool m_Empty = true;
+            json m_json;
 
-            void Next()
+            template <uint32_t nBytes>
+            static void AddHex(json& j, const char* szName, const uintBig_t<nBytes>& val)
             {
-                if (m_Empty)
-                    m_Empty = false;
-                else
-                    m_os << ", ";
+                char sz[uintBig_t<nBytes>::nTxtLen + 1];
+                val.Print(sz);
+                j[szName] = sz;
+            }
+
+            static void AddPt(json& j, const char* szName, const ECC::Point& pt)
+            {
+                typedef uintBig_t<ECC::nBytes + 1> MyPoint;
+                AddHex(j, szName, Cast::Reinterpret<MyPoint>(pt));
+            }
+
+            void AddCommitment(const ECC::Point& pt)
+            {
+                AddPt(m_json, "commitment", pt);
+            }
+
+            Writer()
+            {
+                m_json = json::object();
             }
 
             void OnAsset(const Asset::Proof* pProof)
             {
                 if (pProof)
                 {
-                    Next();
                     auto t0 = pProof->m_Begin;
-                    m_os << "Asset [" << t0 << "-" << t0 + Rules::get().CA.m_ProofCfg.get_N() - 1 << "]";
+
+                    m_json.push_back(
+                        { "Asset",
+                            {
+                                {"min", t0},
+                                {"max", t0 + Rules::get().CA.m_ProofCfg.get_N() - 1},
+                            },
+                        }
+                    );
                 }
             }
 
             void OnContract(const NodeProcessor::ContractInvokeExtraInfo& info)
             {
-                m_os << "Contract " << info.m_Cid << ", " << info.m_sParsed;
+                json j2 = json::object();
+                m_json.swap(j2);
 
-                for (auto it = info.m_FundsIO.m_Map.begin(); info.m_FundsIO.m_Map.end() != it; it++)
+                OnContractInternal(info);
+
+                m_json.swap(j2);
+                m_json["contract"] = std::move(j2);
+            }
+
+            void OnContractInternal(const NodeProcessor::ContractInvokeExtraInfo& info)
+            {
+                if (!info.m_sParsed.empty())
                 {
-                    m_os << ", ";
+                    std::string sFormed;
+                    sFormed.reserve(info.m_sParsed.size() + 2);
+                    sFormed += '{';
+                    sFormed += info.m_sParsed;
+                    sFormed += '}';
 
-                    auto valBig = it->second;
-                    if (valBig.get_Msb())
+                    m_json = json::parse(sFormed);
+                }
+
+                AddHex(m_json, "cid", info.m_Cid);
+
+                if (info.m_sParsed.empty())
+                {
+                    if (info.m_Sid.has_value())
+                        AddHex(m_json, "sid", *info.m_Sid);
+
+                    m_json["iMethod"] = info.m_iMethod;
+
+                    if (!info.m_Args.empty())
                     {
-                        valBig.Negate();
-                        m_os << "Spend";
-                    } else
-                        m_os << "Receive";
-
-                    auto aid = it->first;
-                    if (aid)
-                        m_os << " Asset-" << aid;
-
-                    // currently ignore val-big part
-                    m_os << " " << AmountBig::get_Lo(valBig);
+                        std::string sBuf;
+                        sBuf.resize(info.m_Args.size() * 2);
+                        uintBigImpl::_Print(&info.m_Args.front(), (uint32_t)info.m_Args.size(), &sBuf.front());
+                        m_json["args"] = std::move(sBuf);
+                    }
                 }
 
-                for (uint32_t iSig = 0; iSig < info.m_vSigs.size(); iSig++)
+                if (!info.m_FundsIO.m_Map.empty())
                 {
-                    typedef uintBig_t<ECC::nBytes + 1> MyPoint;
-                    const auto& val = Cast::Reinterpret<MyPoint>(info.m_vSigs[iSig]);
+                    json jF = json::array();
 
-                    char sz[MyPoint::nTxtLen + 1];
-                    val.Print(sz);
+                    for (auto it = info.m_FundsIO.m_Map.begin(); info.m_FundsIO.m_Map.end() != it; it++)
+                    {
+                        json jItem = json::object();
 
-                    m_os << ", Sign " << sz;
+                        const char* szAction;
+                        auto valBig = it->second;
+                        if (valBig.get_Msb())
+                        {
+                            valBig.Negate();
+                            szAction = "Spend";
+                        }
+                        else
+                            szAction = "Receive";
+
+                        jItem["action"] = szAction;
+                        jItem["val"] = AmountBig::get_Lo(valBig);
+
+                        auto valHi = AmountBig::get_Hi(valBig);
+                        if (valHi)
+                            jItem["valHi"] = valHi;
+
+                        auto aid = it->first;
+                        if (aid)
+                            jItem["aid"] = aid;
+
+
+                        jF.push_back(std::move(jItem));
+                    }
+
+                    m_json["funds"] = std::move(jF);
                 }
 
-                for (uint32_t iNested = 0; iNested < info.m_NumNested; )
+                if (!info.m_vSigs.empty())
                 {
-                    
-                    const auto& infoNested = (&info)[++iNested];
-                    iNested += infoNested.m_NumNested;
+                    json jS = json::array();
 
-                    m_os << ", [ ";
-                    OnContract(infoNested);
-                    m_os << " ]";
+                    for (uint32_t iSig = 0; iSig < info.m_vSigs.size(); iSig++)
+                    {
+                        json jItem = json::object();
+
+                        AddPt(jItem, "pk", info.m_vSigs[iSig]);
+
+                        jS.push_back(std::move(jItem));
+
+                    }
+
+                    m_json["sigs"] = std::move(jS);
+                }
+
+
+                if (info.m_NumNested)
+                {
+                    json j2 = json::array();
+
+                    for (uint32_t iNested = 0; iNested < info.m_NumNested; )
+                    {
+                        const auto& infoNested = (&info)[++iNested];
+                        iNested += infoNested.m_NumNested;
+
+                        json j3 = json::object();
+                        m_json.swap(j3);
+
+                        OnContractInternal(infoNested);
+
+                        m_json.swap(j3);
+                        j2.push_back(std::move(j3));
+                    }
+
+                    m_json["nested"] = std::move(j2);
                 }
             }
         };
 
-        static std::string get(const Asset::Metadata& md)
+        static std::string FmtMD(const Asset::Metadata& md)
         {
             std::string sMetadata;
-            const ByteBuffer& bb = md.m_Value; // alias
+/*            const ByteBuffer& bb = md.m_Value; // alias
             sMetadata.reserve(bb.size());
             for (size_t i = 0; i < bb.size(); i++)
             {
@@ -499,108 +592,110 @@ private:
                     ch = '?';
                 sMetadata.push_back(ch);
             }
-
+*/
+            md.get_String(sMetadata);
             return sMetadata;
         }
 
-        static std::string get(const Output& outp, Height h, Height hMaturity)
+        static json get(const Output& outp, Height h, Height hMaturity)
         {
             Writer w;
+            w.AddCommitment(outp.m_Commitment);
 
             if (outp.m_Coinbase)
-            {
-                w.Next();
-                w.m_os << "Coinbase";
-            }
+                w.m_json["type"] = "Coinbase";
 
             if (outp.m_pPublic)
-            {
-                w.Next();
-                w.m_os << "Value=" << outp.m_pPublic->m_Value;
-            }
+                w.m_json["Value"] = outp.m_pPublic->m_Value;
 
             if (outp.m_Incubation)
-            {
-                w.Next();
-                w.m_os << "Incubation +" << outp.m_Incubation;
-            }
+                w.m_json["Incubation"] = outp.m_Incubation;
 
             if (hMaturity != h)
-            {
-                w.Next();
-                w.m_os << "Maturity=" << hMaturity;
-            }
+                w.m_json["Maturity"] = hMaturity;
 
             w.OnAsset(outp.m_pAsset.get());
 
-            return w.m_os.str();
+            return std::move(w.m_json);
         }
 
-        static std::string get(const TxKernel& krn, Amount& fee, ContractRichInfo& cri)
+        static json get(const TxKernel& krn, Amount& fee, ContractRichInfo& cri)
         {
             struct MyWalker
-                :public TxKernel::IWalker
             {
                 Writer m_Wr;
-                Amount m_Fee = 0;
                 ContractRichInfo* m_pCri;
 
-                virtual bool OnKrn(const TxKernel& krn) override
+                void OnKrn(const TxKernel& krn)
                 {
-                    m_Fee += krn.m_Fee;
-
                     switch (krn.get_Subtype())
                     {
 #define THE_MACRO(id, name) case id: OnKrnEx(Cast::Up<TxKernel##name>(krn)); break;
                         BeamKernelsAll(THE_MACRO)
 #undef THE_MACRO
                     }
-
-                    return true;
                 }
 
                 void OnKrnEx(const TxKernelStd& krn)
                 {
                     if (krn.m_pRelativeLock)
                     {
-                        m_Wr.Next();
-                        m_Wr.m_os << "Rel.Lock ID=" << krn.m_pRelativeLock->m_ID << " H=" << krn.m_pRelativeLock->m_LockHeight;
+                        json j = json::object();
+                        Writer::AddHex(j, "ID", krn.m_pRelativeLock->m_ID);
+                        j["height"] = krn.m_pRelativeLock->m_LockHeight;
+                        m_Wr.m_json["Rel.Lock"] = std::move(j);
                     }
 
                     if (krn.m_pHashLock)
                     {
-                        m_Wr.Next();
-                        m_Wr.m_os << "Hash.Lock Preimage=" << krn.m_pHashLock->m_Value;
+                        json j = json::object();
+                        Writer::AddHex(j, "Preimage", krn.m_pHashLock->m_Value);
+                        m_Wr.m_json["Hash.Lock"] = std::move(j);
                     }
                 }
 
                 void OnKrnEx(const TxKernelAssetCreate& krn)
                 {
-                    m_Wr.Next();
-                    m_Wr.m_os << "Asset.Create MD.Hash=" << krn.m_MetaData.m_Hash;
+                    json j = json::object();
+                    j["MD"] = FmtMD(krn.m_MetaData);
+                    Writer::AddHex(j, "MD.Hash", krn.m_MetaData.m_Hash);
+                    m_Wr.m_json["Asset.Create"] = std::move(j);
                 }
 
                 void OnKrnEx(const TxKernelAssetDestroy& krn)
                 {
-                    m_Wr.Next();
-                    m_Wr.m_os << "Asset.Destroy ID=" << krn.m_AssetID;
+                    json j = json::object();
+                    j["ID"] = krn.m_AssetID;
+                    m_Wr.m_json["Asset.Destroy"] = std::move(j);
                 }
 
                 void OnKrnEx(const TxKernelAssetEmit& krn)
                 {
-                    m_Wr.Next();
-                    m_Wr.m_os << "Asset.Emit ID=" << krn.m_AssetID << " Value=" << krn.m_Value;
+                    json j = json::object();
+                    j["ID"] = krn.m_AssetID;
+                    j["Value"] = krn.m_Value;
+                    m_Wr.m_json["Asset.Emit"] = std::move(j);
                 }
 
                 void OnKrnEx(const TxKernelShieldedOutput& krn)
                 {
-                    m_Wr.Next();
-                    m_Wr.m_os << "Shielded.Out";
+                    json j = json::object();
+
+                    m_Wr.m_json.swap(j);
                     m_Wr.OnAsset(krn.m_Txo.m_pAsset.get());
+                    m_Wr.m_json.swap(j);
+
+                    m_Wr.m_json["Shielded.Out"] = std::move(j);
                 }
 
                 void OnKrnEx(const TxKernelShieldedInput& krn)
                 {
+                    json j = json::object();
+
+                    m_Wr.m_json.swap(j);
+                    m_Wr.OnAsset(krn.m_pAsset.get());
+                    m_Wr.m_json.swap(j);
+
                     uint32_t n = krn.m_SpendProof.m_Cfg.get_N();
 
                     TxoID id0 = krn.m_WindowEnd;
@@ -609,15 +704,14 @@ private:
                     else
                         id0 = 0;
 
-                    m_Wr.Next();
-                    m_Wr.m_os << "Shielded.In Set=[" << id0 << "-" << krn.m_WindowEnd - 1 << "]";
-                    m_Wr.OnAsset(krn.m_pAsset.get());
+                    j["min"] = id0;
+                    j["max"] = krn.m_WindowEnd - 1;
+
+                    m_Wr.m_json["Shielded.In"] = std::move(j);
                 }
 
                 void OnKrnEx(const TxKernelContractCreate& krn)
                 {
-                    m_Wr.Next();
-
                     auto pInfo = m_pCri->get_Next();
                     if (pInfo)
                         m_Wr.OnContract(*pInfo);
@@ -639,8 +733,6 @@ private:
 
                 void OnKrnEx(const TxKernelContractInvoke& krn)
                 {
-                    m_Wr.Next();
-
                     auto pInfo = m_pCri->get_Next();
                     if (pInfo)
                         m_Wr.OnContract(*pInfo);
@@ -656,16 +748,28 @@ private:
             } wlk;
             wlk.m_pCri = &cri;
 
+            Writer::AddHex(wlk.m_Wr.m_json, "id", krn.m_Internal.m_ID);
+            wlk.m_Wr.m_json["minHeight"] = krn.m_Height.m_Min;
+            wlk.m_Wr.m_json["maxHeight"] = krn.m_Height.m_Max;
+
+            fee += krn.m_Fee;
+
+            wlk.OnKrn(krn);
+
             if (!krn.m_vNested.empty())
             {
-                wlk.m_Wr.Next();
-                wlk.m_Wr.m_os << "Composite";
+                json j2 = json::array();
+
+                for (uint32_t i = 0; i < krn.m_vNested.size(); i++)
+                {
+                    json j3 = get(*krn.m_vNested[i], fee, cri);
+                    j2.push_back(std::move(j3));
+                }
+
+                wlk.m_Wr.m_json["nested"] = std::move(j2);
             }
 
-            wlk.Process(krn);
-            fee = wlk.m_Fee;
-
-            return wlk.m_Wr.m_os.str();
+            return std::move(wlk.m_Wr.m_json);
         }
     };
 
@@ -898,40 +1002,24 @@ private:
 
                 Height hCreate = inp.m_Internal.m_Maturity - outp.get_MinMaturity(0);
 
-                inputs.push_back(
-                json{
-                    {"commitment", uint256_to_hex(buf, outp.m_Commitment.m_X)},
-                    {"height",   hCreate},
-                    {"extra",  ExtraInfo::get(outp, hCreate, inp.m_Internal.m_Maturity)}
-                }
-                );
+                json jItem = ExtraInfo::get(outp, hCreate, inp.m_Internal.m_Maturity);
+                jItem["height"] = hCreate;
+
+                inputs.push_back(std::move(jItem));
             }
 
             json outputs = json::array();
-            for (const auto &v : block.m_vOutputs) {
-                outputs.push_back(
-                json{
-                    {"commitment", uint256_to_hex(buf, v->m_Commitment.m_X)},
-                    {"extra",  ExtraInfo::get(*v, height, v->get_MinMaturity(height))}
-                }
-                );
-            }
+            for (const auto &v : block.m_vOutputs)
+                outputs.push_back(ExtraInfo::get(*v, height, v->get_MinMaturity(height)));
 
             json kernels = json::array();
             for (const auto &v : block.m_vKernels) {
 
                 Amount fee = 0;
-                std::string sExtra = ExtraInfo::get(*v, fee, cri);
+                json j = ExtraInfo::get(*v, fee, cri);
+                j["fee"] = fee;
 
-                kernels.push_back(
-                    json{
-                        {"id", hash_to_hex(buf, v->m_Internal.m_ID)},
-                        {"minHeight", v->m_Height.m_Min},
-                        {"maxHeight", v->m_Height.m_Max},
-                        {"fee", fee},
-                        {"extra",  sExtra}
-                    }
-                );
+                kernels.push_back(std::move(j));
             }
 
             json assets = json::array();
@@ -947,7 +1035,7 @@ private:
                     assets.push_back(
                         json{
                             {"id", ai.m_ID},
-                            {"metadata", ExtraInfo::get(ai.m_Metadata)},
+                            {"metadata", ExtraInfo::FmtMD(ai.m_Metadata)},
                             {"metahash", hash_to_hex(buf, ai.m_Metadata.m_Hash)},
                             {"owner", hash_to_hex(buf, ai.m_Owner)},
                             {"value_lo", AmountBig::get_Lo(ai.m_Value)},
