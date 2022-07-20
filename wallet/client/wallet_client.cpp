@@ -146,6 +146,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getAssetSwapOrders);
     }
 
+    void getAssetSwapOrder(const DexOrderID& orderId) override
+    {
+        call_async(&IWalletModelAsync::getAssetSwapOrder, orderId);
+    }
+
     void publishAssetSwapOrder(const AssetSwapOrder& order) override
     {
         call_async(&IWalletModelAsync::publishAssetSwapOrder, order);
@@ -1906,16 +1911,27 @@ namespace beam::wallet
         }
     }
 
+    void WalletClient::getAssetSwapOrder(const DexOrderID& orderId)
+    {
+        if (auto dex = _dex.lock())
+        {
+            auto order = dex->getAssetSwapOrder(orderId);
+            if (order)
+            {
+                onFindAssetSwapOrder(*order);
+            }
+        }
+    }
+
     void WalletClient::publishAssetSwapOrder(const AssetSwapOrder& order)
     {
         if (auto dex = _dex.lock())
         {
             dex->publishOrder(order);
-            return;
         }
     }
 
-    void WalletClient::acceptAssetSwapOrder(const DexOrderID&)
+    void WalletClient::acceptAssetSwapOrder(const DexOrderID& orderId)
     {
 
     }

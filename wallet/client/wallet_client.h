@@ -219,6 +219,7 @@ namespace beam::wallet
         virtual void onStopped() {}
         void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
         void onAssetSwapOrdersChanged(ChangeAction, const std::vector<AssetSwapOrder>&) override {}
+        void onFindAssetSwapOrder(const AssetSwapOrder&) override {}
 
         virtual Version getLibVersion() const;
         virtual uint32_t getClientRevision() const;
@@ -297,6 +298,7 @@ namespace beam::wallet
         void loadAssetSwapParams() override;
         void storeAssetSwapParams(const beam::ByteBuffer& params) override;
         void getAssetSwapOrders() override;
+        void getAssetSwapOrder(const DexOrderID&) override;
         void publishAssetSwapOrder(const AssetSwapOrder&) override;
         void acceptAssetSwapOrder(const DexOrderID&) override;
 

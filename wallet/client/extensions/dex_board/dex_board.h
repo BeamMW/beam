@@ -31,6 +31,7 @@ namespace beam::wallet {
         {
             virtual void onDexOrdersChanged(ChangeAction action, const std::vector<DexOrder>& orders) = 0;
             virtual void onAssetSwapOrdersChanged(ChangeAction action, const std::vector<AssetSwapOrder>& orders) = 0;
+            virtual void onFindAssetSwapOrder(const AssetSwapOrder& order) = 0;
         };
 
         DexBoard(IBroadcastMsgGateway& gateway, IWalletModelAsync::Ptr wallet, IWalletDB& wdb);

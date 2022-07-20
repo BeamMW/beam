@@ -85,6 +85,7 @@ namespace beam::wallet
         virtual void loadAssetSwapParams() = 0;
         virtual void storeAssetSwapParams(const beam::ByteBuffer& params) = 0;
         virtual void getAssetSwapOrders() = 0;
+        virtual void getAssetSwapOrder(const DexOrderID&) = 0;
         virtual void publishAssetSwapOrder(const AssetSwapOrder&) = 0;
         virtual void acceptAssetSwapOrder(const DexOrderID&) = 0;
 
