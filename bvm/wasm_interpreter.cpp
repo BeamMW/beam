@@ -439,8 +439,6 @@ namespace Wasm {
 			if (!bIgnoreOrder)
 				nPrevSection = nSection;
 		}
-
-		m_Labels.m_Items.resize(m_Functions.size()); // function labels
 	}
 
 #define STR_MATCH(vec, txt) ((vec.n == sizeof(txt)-1) && !memcmp(vec.p, txt, sizeof(txt)-1))
@@ -652,7 +650,7 @@ namespace Wasm {
 			Test(1 == nOffset); // seems irrelevant
 
 			auto nFuncs = inp.Read<uint32_t>();
-			m_IndirectFuncs.resize(nFuncs);
+			m_IndirectFuncs.m_vec.resize(nFuncs);
 
 			for (uint32_t iFunc = 0; iFunc < nFuncs; iFunc++)
 			{
@@ -660,7 +658,7 @@ namespace Wasm {
 				val -= static_cast<uint32_t>(m_ImportFuncs.size());
 				Test(val < m_Functions.size());
 
-				m_IndirectFuncs[iFunc] = val;
+				m_IndirectFuncs.m_vec[iFunc] = val;
 			}
 		}
 	}
@@ -749,6 +747,7 @@ namespace Wasm {
 		const uint8_t* m_p0;
 		uint32_t m_iFunc = 0;
 		Reader m_Code;
+		bool m_BuildDependency;
 
 		struct Block
 		{
@@ -1151,6 +1150,12 @@ namespace Wasm {
 				Push(tp.m_Rets.p[i]);
 		}
 
+		void OnDep(uint32_t iTrg)
+		{
+			if (m_BuildDependency)
+				m_This.m_Functions[m_iFunc].m_Dep.m_Set.insert(iTrg);
+		}
+
 		void On_call()
 		{
 			auto iFunc = m_Code.Read<uint32_t>();
@@ -1160,6 +1165,8 @@ namespace Wasm {
 			{
 				iFunc -= static_cast<uint32_t>(m_This.m_ImportFuncs.size());
 				Test(iFunc < m_This.m_Functions.size());
+
+				OnDep(iFunc);
 			}
 
 			uint32_t iTypeIdx = bImported ? m_This.m_ImportFuncs[iFunc].m_TypeIdx : m_This.m_Functions[iFunc].m_TypeIdx;
@@ -1196,6 +1203,8 @@ namespace Wasm {
 			m_p0 = nullptr; // don't write
 
 			WriteRes(Instruction::call_indirect);
+
+			OnDep(Dependency::s_IdxIndirect);
 		}
 
 		void CompileFunc();
@@ -1281,29 +1290,55 @@ namespace Wasm {
 		}
 	}
 
-
-
 	void Compiler::Build()
 	{
 		CheckpointTxt cp("wasm/Compiler/build");
 
+		auto n0 = m_Result.size();
+
+		BuildPass(false);
+
+		uint32_t nNumIncluded = CalcDependencies();
+		uint32_t nNumMax = static_cast<uint32_t>(m_Functions.size());
+		if (!m_IndirectFuncs.m_vec.empty())
+			nNumMax++;
+
+		if (nNumIncluded < nNumMax)
+		{
+			m_Result.resize(n0);
+			BuildPass(true);
+		}
+	}
+
+	void Compiler::BuildPass(bool bDependentOnly)
+	{
 		if (m_pDebugInfo)
-			m_pDebugInfo->m_vFuncs.resize(m_Functions.size());
+		{
+			m_pDebugInfo->m_vFuncs.clear();
+			m_pDebugInfo->m_vFuncs.reserve(m_Functions.size());
+		}
+
+		m_Labels.m_Items.resize(m_Functions.size()); // function labels
+		m_Labels.m_Targets.clear();
 
 		for (uint32_t i = 0; i < m_Functions.size(); i++)
 		{
 			Context ctx(*this);
 			m_Labels.m_Items[i] = static_cast<uint32_t>(m_Result.size());
 			ctx.m_iFunc = i;
+			ctx.m_BuildDependency = !bDependentOnly;
 			ctx.CompileFunc();
 		}
 
 		m_cmplTable0 = static_cast<uint32_t>(m_Result.size());
 
-		for (uint32_t i = 0; i < m_IndirectFuncs.size(); i++)
+		if (!bDependentOnly || m_IndirectFuncs.m_Dep.m_Include)
 		{
-			m_Result.resize(m_Result.size() + sizeof(Word));
-			to_wasm(&m_Result.back() - (sizeof(Word) - 1), m_Labels.m_Items[m_IndirectFuncs[i]]);
+			for (uint32_t i = 0; i < m_IndirectFuncs.m_vec.size(); i++)
+			{
+				m_Result.resize(m_Result.size() + sizeof(Word));
+				to_wasm(&m_Result.back() - (sizeof(Word) - 1), m_Labels.m_Items[m_IndirectFuncs.m_vec[i]]);
+			}
 		}
 
 		for (uint32_t i = 0; i < m_Labels.m_Targets.size(); i++)
@@ -1314,6 +1349,41 @@ namespace Wasm {
 		}
 	}
 
+	uint32_t Compiler::CalcDependencies()
+	{
+		std::vector<uint32_t> vec;
+		vec.reserve(m_Functions.size() + 1);
+
+		for (uint32_t i = 0; i < m_Functions.size(); i++)
+		{
+			auto& func = m_Functions[i];
+			if (func.m_Dep.m_Include)
+				vec.push_back(i);
+		}
+
+		if (m_IndirectFuncs.m_Dep.m_Include)
+			vec.push_back(Dependency::s_IdxIndirect);
+
+		for (uint32_t i = 0; i < vec.size(); i++)
+		{
+			auto iIdx = vec[i];
+			auto& dep = (Dependency::s_IdxIndirect == iIdx) ? m_IndirectFuncs.m_Dep : m_Functions[iIdx].m_Dep;
+			assert(dep.m_Include);
+
+			for (auto it = dep.m_Set.begin(); dep.m_Set.end() != it; it++)
+			{
+				auto iIdx2 = *it;
+				auto& dep2 = (Dependency::s_IdxIndirect == iIdx2) ? m_IndirectFuncs.m_Dep : m_Functions[iIdx2].m_Dep;
+				if (!dep2.m_Include)
+				{
+					dep2.m_Include = true;
+					vec.push_back(iIdx2);
+				}
+			}
+		}
+
+		return static_cast<uint32_t>(vec.size());
+	}
 
 	void Compiler::Context::CompileFunc()
 	{
@@ -1329,11 +1399,15 @@ namespace Wasm {
 
 		auto& func = m_This.m_Functions[m_iFunc];
 
-		auto* pDbg = m_This.m_pDebugInfo ? &m_This.m_pDebugInfo->m_vFuncs[m_iFunc] : nullptr;
-		if (pDbg)
+		if (!m_BuildDependency && !func.m_Dep.m_Include)
+			return; // skip it
+
+		DebugInfo::Function* pDbg = nullptr;
+		if (m_This.m_pDebugInfo)
 		{
+			pDbg = &m_This.m_pDebugInfo->m_vFuncs.emplace_back();
 			pDbg->m_sName.assign(func.m_sName.p, func.m_sName.n);
-			pDbg->m_Pos = (uint32_t) m_This.m_Result.size();
+			pDbg->m_Pos = (uint32_t)m_This.m_Result.size();
 		}
 
 		m_Code = func.m_Expression;

@@ -18,6 +18,7 @@
 #include "../utility/byteorder.h"
 
 #include <limits>
+#include <set>
 
 namespace beam {
 namespace Wasm {
@@ -152,7 +153,20 @@ namespace Wasm {
 
 		std::vector<PerType> m_Types;
 
-		std::vector<uint32_t> m_IndirectFuncs;
+		struct Dependency
+		{
+			typedef std::set<uint32_t> Set;
+			Set m_Set;
+			bool m_Include = false;
+
+			static const uint32_t s_IdxIndirect = static_cast<uint32_t>(-1);
+		};
+
+		struct IndirectFunds
+		{
+			std::vector<uint32_t> m_vec;
+			Dependency m_Dep;
+		} m_IndirectFuncs;
 
 		struct PerImport {
 			Vec<char> m_sMod;
@@ -222,6 +236,7 @@ namespace Wasm {
 
 			Reader m_Expression;
 			Vec<char> m_sName;
+			Dependency m_Dep;
 		};
 
 		std::vector<PerFunction> m_Functions;
@@ -257,7 +272,9 @@ namespace Wasm {
 		void Parse(const Reader&); // parses the wasm file info, sets labels for local functions. No compilation yet.
 		// Time to set the external bindings, create a header, etc.
 
+		void BuildPass(bool bDependentOnly);
 		void Build();
+		uint32_t CalcDependencies();
 	};
 
 	struct MemoryType {

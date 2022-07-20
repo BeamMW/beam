@@ -477,6 +477,12 @@ namespace bvm2 {
 		Wasm::Test(nNumMethods >= Header::s_MethodsMin);
 		Wasm::Test(hdrMap.rbegin()->first == nNumMethods - 1); // should be no gaps
 
+		for (auto it = hdrMap.begin(); hdrMap.end() != it; it++)
+		{
+			uint32_t iFunc = it->second;
+			c.m_Functions[iFunc].m_Dep.m_Include = true;
+		}
+
 		// header
 		uint32_t nSizeHdr = sizeof(Header) + sizeof(Wasm::Word) * (nNumMethods - Header::s_MethodsMin);
 		c.m_Result.resize(nSizeHdr);
