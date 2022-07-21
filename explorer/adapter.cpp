@@ -463,27 +463,16 @@ private:
 
             void OnContract(const NodeProcessor::ContractInvokeExtraInfo& info)
             {
-                json j2 = json::object();
-                m_json.swap(j2);
+                Writer wr2;
+                wr2.OnContractInternal(info);
 
-                OnContractInternal(info);
-
-                m_json.swap(j2);
-                m_json["contract"] = std::move(j2);
+                m_json["contract"] = std::move(wr2.m_json);
             }
 
             void OnContractInternal(const NodeProcessor::ContractInvokeExtraInfo& info)
             {
                 if (!info.m_sParsed.empty())
-                {
-                    std::string sFormed;
-                    sFormed.reserve(info.m_sParsed.size() + 2);
-                    sFormed += '{';
-                    sFormed += info.m_sParsed;
-                    sFormed += '}';
-
-                    m_json = json::parse(sFormed);
-                }
+                    m_json = json::parse(info.m_sParsed);
 
                 AddHex(m_json, "cid", info.m_Cid);
 
@@ -566,13 +555,10 @@ private:
                         const auto& infoNested = (&info)[++iNested];
                         iNested += infoNested.m_NumNested;
 
-                        json j3 = json::object();
-                        m_json.swap(j3);
+                        Writer wr3;
+                        wr3.OnContractInternal(infoNested);
 
-                        OnContractInternal(infoNested);
-
-                        m_json.swap(j3);
-                        j2.push_back(std::move(j3));
+                        j2.push_back(std::move(wr3.m_json));
                     }
 
                     m_json["nested"] = std::move(j2);
@@ -679,22 +665,16 @@ private:
 
                 void OnKrnEx(const TxKernelShieldedOutput& krn)
                 {
-                    json j = json::object();
+                    Writer wr2;
+                    wr2.OnAsset(krn.m_Txo.m_pAsset.get());
 
-                    m_Wr.m_json.swap(j);
-                    m_Wr.OnAsset(krn.m_Txo.m_pAsset.get());
-                    m_Wr.m_json.swap(j);
-
-                    m_Wr.m_json["Shielded.Out"] = std::move(j);
+                    m_Wr.m_json["Shielded.Out"] = std::move(wr2.m_json);
                 }
 
                 void OnKrnEx(const TxKernelShieldedInput& krn)
                 {
-                    json j = json::object();
-
-                    m_Wr.m_json.swap(j);
-                    m_Wr.OnAsset(krn.m_pAsset.get());
-                    m_Wr.m_json.swap(j);
+                    Writer wr2;
+                    wr2.OnAsset(krn.m_pAsset.get());
 
                     uint32_t n = krn.m_SpendProof.m_Cfg.get_N();
 
@@ -704,10 +684,10 @@ private:
                     else
                         id0 = 0;
 
-                    j["min"] = id0;
-                    j["max"] = krn.m_WindowEnd - 1;
+                    wr2.m_json["min"] = id0;
+                    wr2.m_json["max"] = krn.m_WindowEnd - 1;
 
-                    m_Wr.m_json["Shielded.In"] = std::move(j);
+                    m_Wr.m_json["Shielded.In"] = std::move(wr2.m_json);
                 }
 
                 void OnKrnEx(const TxKernelContractCreate& krn)
