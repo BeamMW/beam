@@ -975,7 +975,7 @@ private:
                 if (sizeof(bvm2::ShaderID) == wlk.m_Entry.m_Val.n)
                 {
                     const auto& sid = *(const bvm2::ShaderID*) wlk.m_Entry.m_Val.p;
-                    get_ContractDescr(wr2, sid, cid, false);
+                    get_ContractDescr(wr2, sid, cid, false); // assume it's safe, parser won't enumerate logs.
                 }
                 else
                     wr2.m_json["name"] = "destroyed";
@@ -988,7 +988,93 @@ private:
             wr.m_json["versions"] = std::move(jVersions);
         }
 
+        {
+            json jCalls = json::array();
+
+            std::vector<NodeProcessor::ContractInvokeExtraInfo> vInfo;
+
+            NodeDB::KrnInfo::Walker wlk;
+            for (_nodeBackend.get_DB().KrnInfoEnum(wlk, cid, MaxHeight); wlk.MoveNext(); )
+            {
+                vInfo.clear();
+                auto* pInfo = &ReadKrnInfo(vInfo, wlk);
+
+                const auto& pos = wlk.m_Entry.m_Pos;
+
+                ExtraInfo::Writer wr2;
+                wr2.m_json["height"] = pos.m_Height;
+
+                uint32_t nNumNested = pInfo->m_NumNested;
+                if (nNumNested)
+                {
+                    vInfo.reserve(nNumNested + 1);
+
+                    NodeDB::KrnInfo::Walker wlk2;
+                    for (_nodeBackend.get_DB().KrnInfoEnum(wlk2, HeightPos(pos.m_Height, pos.m_Pos + 1), HeightPos(pos.m_Height, pos.m_Pos + nNumNested)); wlk2.MoveNext(); )
+                        ReadKrnInfo(vInfo, wlk2);
+
+                    if (vInfo.size() != nNumNested + 1)
+                    {
+                        CorruptionException exc;
+                        exc.m_sErr = "KrnInfo";
+                        throw exc;
+                    }
+
+                    pInfo = &vInfo.front();
+                }
+
+                wr2.OnContract(*pInfo);
+
+                uint32_t iParent = pInfo->m_iParent;
+                if (iParent)
+                {
+                    json jParent = json::array();
+
+                    while (true)
+                    {
+                        NodeDB::KrnInfo::Walker wlk2;
+                        _nodeBackend.get_DB().KrnInfoEnum(wlk2, HeightPos(pos.m_Height, iParent), HeightPos(pos.m_Height, iParent));
+                        if (!wlk2.MoveNext())
+                            break; // shouldn't happen
+
+                        vInfo.clear();
+                        pInfo = &ReadKrnInfo(vInfo, wlk2);
+
+                        pInfo->m_NumNested = 0;
+
+                        ExtraInfo::Writer wr3;
+                        wr3.OnContractInternal(*pInfo);
+
+                        jParent.push_back(std::move(wr3.m_json));
+
+                        iParent = pInfo->m_iParent;
+                        if (!iParent)
+                            break;
+                    }
+
+                    wr2.m_json["parent"] = std::move(jParent);
+                }
+
+                jCalls.push_back(std::move(wr2.m_json));
+            }
+
+            wr.m_json["calls"] = std::move(jCalls);
+
+        }
+
         out = std::move(wr.m_json);
+    }
+
+    static NodeProcessor::ContractInvokeExtraInfo& ReadKrnInfo(std::vector<NodeProcessor::ContractInvokeExtraInfo>& vec, NodeDB::KrnInfo::Walker& wlk)
+    {
+        auto& info = vec.emplace_back();
+
+        Deserializer der;
+        der.reset(wlk.m_Entry.m_Val.p, wlk.m_Entry.m_Val.n);
+        der & info;
+
+        info.m_Cid = wlk.m_Entry.m_Cid;
+        return info;
     }
 
     bool get_contracts(io::SerializedMsg& out) override
