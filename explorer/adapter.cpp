@@ -478,6 +478,11 @@ private:
                 m_json = json::object();
             }
 
+            Writer(json&& x)
+            {
+                m_json = std::move(x);
+            }
+
             void OnAsset(const Asset::Proof* pProof)
             {
                 if (pProof)
@@ -775,6 +780,14 @@ private:
         }
     };
 
+    json get_ContractDescr(const bvm2::ShaderID& sid, const bvm2::ContractID& cid, bool bFullState)
+    {
+        std::string sExtra;
+        _nodeBackend.get_ContractDescr(sid, cid, sExtra, bFullState);
+
+        return sExtra.empty() ? json::object() : json::parse(sExtra);
+    }
+
     void get_ContractList(json& out)
     {
 #pragma pack (push, 1)
@@ -815,24 +828,18 @@ private:
         }
 
         out = json::array();
-        char buf[80];
 
         for (size_t i = 0; i < vIDs.size(); i++)
         {
             const auto& x = vIDs[i];
 
-            std::string sExtra;
-            _nodeBackend.get_ContractDescr(x.first.m_Sid, x.first.m_Cid, sExtra, false);
+            ExtraInfo::Writer wr(get_ContractDescr(x.first.m_Sid, x.first.m_Cid, false));
+            wr.AddCid(x.first.m_Cid);
+            wr.AddSid(x.first.m_Sid);
+            wr.m_json["height"] = x.second;
 
-            out.push_back(
-                json{
-                    {"sid", uint256_to_hex(buf, x.first.m_Sid)},
-                    {"cid", uint256_to_hex(buf, x.first.m_Cid)},
-                    {"extra", sExtra },
-                    {"height",   x.second}
-                }
-            );
 
+            out.push_back(std::move(wr.m_json));
         }
 
     }
@@ -880,13 +887,11 @@ private:
 
                 const auto& val = *reinterpret_cast<const AmountBig::Type*>(wlk.m_Val.p);
 
+                ExtraInfo::Writer wr;
+                wr.AddAid(aid);
+                wr.AddValBig("value", val);
 
-                jFunds.push_back(
-                    json{
-                        {"aid", aid},
-                        {"value", AmountBig::get_Lo(val)}
-                    }
-                );
+                jFunds.push_back(std::move(wr.m_json));
             }
         }
 
@@ -923,24 +928,20 @@ private:
                 std::string sMeta;
                 ai.m_Metadata.get_String(sMeta);
 
-                jAssets.push_back(
-                    json{
-                        {"aid", ai.m_ID },
-                        {"value", AmountBig::get_Lo(ai.m_Value)},
-                        {"metadata", sMeta }
-                    }
-                );
+                ExtraInfo::Writer wr;
+                wr.AddAid(ai.m_ID);
+                wr.AddValBig("value", ai.m_Value);
+                wr.m_json["metadata"] = std::move(sMeta);
+
+                jAssets.push_back(std::move(wr.m_json));
             }
         }
 
-        std::string sExtra;
-        _nodeBackend.get_ContractDescr(sid, cid, sExtra, true);
+        ExtraInfo::Writer wr(get_ContractDescr(sid, cid, true));
+        wr.m_json["funds"] = std::move(jFunds);
+        wr.m_json["assets"] = std::move(jAssets);
 
-        out = json{
-            {"funds", jFunds},
-            {"assets", jAssets},
-            {"extra", sExtra }
-        };
+        out = std::move(wr.m_json);
 
         return true;
     }
