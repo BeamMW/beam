@@ -47,7 +47,7 @@ struct IAdapter {
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     virtual bool get_contracts(io::SerializedMsg& out) = 0;
-    virtual bool get_contract_details(io::SerializedMsg& out, const ByteBuffer& id) = 0;
+    virtual bool get_contract_details(io::SerializedMsg& out, const Blob& id) = 0;
 };
 
 IAdapter::Ptr create_adapter(Node& node);

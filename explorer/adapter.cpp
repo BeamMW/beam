@@ -945,9 +945,6 @@ private:
                 if (!_nodeBackend.get_DB().AssetGetSafe(ai))
                     ai.m_Value = Zero;
 
-                std::string sMeta;
-                ai.m_Metadata.get_String(sMeta);
-
                 ExtraInfo::Writer wr2;
                 wr2.AddAssetInfo(ai);
 
@@ -1002,13 +999,13 @@ private:
         return json2Msg(j, out);
     }
     
-    bool get_contract_details(io::SerializedMsg& out, const ByteBuffer& id) override
+    bool get_contract_details(io::SerializedMsg& out, const Blob& id) override
     {
-        if (id.size() != bvm2::ContractID::nBytes)
+        if (id.n != bvm2::ContractID::nBytes)
             return false;
 
         json j;
-        get_ContractState(j, reinterpret_cast<const bvm2::ContractID&>(id.front()));
+        get_ContractState(j, *reinterpret_cast<const bvm2::ContractID*>(id.p));
 
         return json2Msg(j, out);
     }
