@@ -421,22 +421,56 @@ private:
             json m_json;
 
             template <uint32_t nBytes>
-            static void AddHex(json& j, const char* szName, const uintBig_t<nBytes>& val)
+            void AddHex(const char* szName, const uintBig_t<nBytes>& val)
             {
                 char sz[uintBig_t<nBytes>::nTxtLen + 1];
                 val.Print(sz);
-                j[szName] = sz;
+                m_json[szName] = sz;
             }
 
-            static void AddPt(json& j, const char* szName, const ECC::Point& pt)
+            void AddPt(const char* szName, const ECC::Point& pt)
             {
                 typedef uintBig_t<ECC::nBytes + 1> MyPoint;
-                AddHex(j, szName, Cast::Reinterpret<MyPoint>(pt));
+                AddHex(szName, Cast::Reinterpret<MyPoint>(pt));
             }
 
             void AddCommitment(const ECC::Point& pt)
             {
-                AddPt(m_json, "commitment", pt);
+                AddPt("commitment", pt);
+            }
+
+            template <typename T>
+            void AddMinMax(const T& vMin, const T& vMax)
+            {
+                m_json["min"] = vMin;
+                m_json["max"] = vMax;
+            }
+
+            void AddCid(const bvm2::ContractID& cid)
+            {
+                AddHex("cid", cid);
+            }
+
+            void AddSid(const bvm2::ShaderID& sid)
+            {
+                AddHex("sid", sid);
+            }
+
+            void AddAid(Asset::ID aid)
+            {
+                m_json["aid"] = aid;
+            }
+
+            void AddValBig(const char* szName, const AmountBig::Type& x)
+            {
+                if (!AmountBig::get_Hi(x))
+                    m_json[szName] = AmountBig::get_Lo(x);
+                else
+                {
+                    char sz[AmountBig::Type::nTxtLen10Max + 1];
+                    x.PrintDecimal(sz);
+                    m_json[szName] = sz;
+                }
             }
 
             Writer()
@@ -450,14 +484,9 @@ private:
                 {
                     auto t0 = pProof->m_Begin;
 
-                    m_json.push_back(
-                        { "Asset",
-                            {
-                                {"min", t0},
-                                {"max", t0 + Rules::get().CA.m_ProofCfg.get_N() - 1},
-                            },
-                        }
-                    );
+                    Writer wr;
+                    wr.AddMinMax(t0, t0 + Rules::get().CA.m_ProofCfg.get_N() - 1);
+                    m_json["Asset"] = std::move(wr.m_json);
                 }
             }
 
@@ -474,12 +503,12 @@ private:
                 if (!info.m_sParsed.empty())
                     m_json = json::parse(info.m_sParsed);
 
-                AddHex(m_json, "cid", info.m_Cid);
+                AddCid(info.m_Cid);
 
                 if (info.m_sParsed.empty())
                 {
                     if (info.m_Sid.has_value())
-                        AddHex(m_json, "sid", *info.m_Sid);
+                        AddSid(*info.m_Sid);
 
                     m_json["iMethod"] = info.m_iMethod;
 
@@ -498,7 +527,7 @@ private:
 
                     for (auto it = info.m_FundsIO.m_Map.begin(); info.m_FundsIO.m_Map.end() != it; it++)
                     {
-                        json jItem = json::object();
+                        Writer wr;
 
                         const char* szAction;
                         auto valBig = it->second;
@@ -510,19 +539,15 @@ private:
                         else
                             szAction = "Receive";
 
-                        jItem["action"] = szAction;
-                        jItem["val"] = AmountBig::get_Lo(valBig);
-
-                        auto valHi = AmountBig::get_Hi(valBig);
-                        if (valHi)
-                            jItem["valHi"] = valHi;
+                        wr.m_json["action"] = szAction;
+                        wr.AddValBig("val", valBig);
 
                         auto aid = it->first;
                         if (aid)
-                            jItem["aid"] = aid;
+                            wr.AddAid(aid);
 
 
-                        jF.push_back(std::move(jItem));
+                        jF.push_back(std::move(wr.m_json));
                     }
 
                     m_json["funds"] = std::move(jF);
@@ -534,11 +559,9 @@ private:
 
                     for (uint32_t iSig = 0; iSig < info.m_vSigs.size(); iSig++)
                     {
-                        json jItem = json::object();
-
-                        AddPt(jItem, "pk", info.m_vSigs[iSig]);
-
-                        jS.push_back(std::move(jItem));
+                        Writer wr;
+                        wr.AddPt("pk", info.m_vSigs[iSig]);
+                        jS.push_back(std::move(wr.m_json));
 
                     }
 
@@ -626,41 +649,41 @@ private:
                 {
                     if (krn.m_pRelativeLock)
                     {
-                        json j = json::object();
-                        Writer::AddHex(j, "ID", krn.m_pRelativeLock->m_ID);
-                        j["height"] = krn.m_pRelativeLock->m_LockHeight;
-                        m_Wr.m_json["Rel.Lock"] = std::move(j);
+                        Writer wr;
+                        wr.AddHex("ID", krn.m_pRelativeLock->m_ID);
+                        wr.m_json["height"] = krn.m_pRelativeLock->m_LockHeight;
+                        m_Wr.m_json["Rel.Lock"] = std::move(wr.m_json);
                     }
 
                     if (krn.m_pHashLock)
                     {
-                        json j = json::object();
-                        Writer::AddHex(j, "Preimage", krn.m_pHashLock->m_Value);
-                        m_Wr.m_json["Hash.Lock"] = std::move(j);
+                        Writer wr;
+                        wr.AddHex("Preimage", krn.m_pHashLock->m_Value);
+                        m_Wr.m_json["Hash.Lock"] = std::move(wr.m_json);
                     }
                 }
 
                 void OnKrnEx(const TxKernelAssetCreate& krn)
                 {
-                    json j = json::object();
-                    j["MD"] = FmtMD(krn.m_MetaData);
-                    Writer::AddHex(j, "MD.Hash", krn.m_MetaData.m_Hash);
-                    m_Wr.m_json["Asset.Create"] = std::move(j);
+                    Writer wr;
+                    wr.m_json["MD"] = FmtMD(krn.m_MetaData);
+                    wr.AddHex("MD.Hash", krn.m_MetaData.m_Hash);
+                    m_Wr.m_json["Asset.Create"] = std::move(wr.m_json);
                 }
 
                 void OnKrnEx(const TxKernelAssetDestroy& krn)
                 {
-                    json j = json::object();
-                    j["ID"] = krn.m_AssetID;
-                    m_Wr.m_json["Asset.Destroy"] = std::move(j);
+                    Writer wr;
+                    wr.AddAid(krn.m_AssetID);
+                    m_Wr.m_json["Asset.Destroy"] = std::move(wr.m_json);
                 }
 
                 void OnKrnEx(const TxKernelAssetEmit& krn)
                 {
-                    json j = json::object();
-                    j["ID"] = krn.m_AssetID;
-                    j["Value"] = krn.m_Value;
-                    m_Wr.m_json["Asset.Emit"] = std::move(j);
+                    Writer wr;
+                    wr.AddAid(krn.m_AssetID);
+                    wr.m_json["Value"] = krn.m_Value;
+                    m_Wr.m_json["Asset.Emit"] = std::move(wr.m_json);
                 }
 
                 void OnKrnEx(const TxKernelShieldedOutput& krn)
@@ -684,8 +707,7 @@ private:
                     else
                         id0 = 0;
 
-                    wr2.m_json["min"] = id0;
-                    wr2.m_json["max"] = krn.m_WindowEnd - 1;
+                    wr2.AddMinMax(id0, krn.m_WindowEnd - 1);
 
                     m_Wr.m_json["Shielded.In"] = std::move(wr2.m_json);
                 }
@@ -728,7 +750,7 @@ private:
             } wlk;
             wlk.m_pCri = &cri;
 
-            Writer::AddHex(wlk.m_Wr.m_json, "id", krn.m_Internal.m_ID);
+            wlk.m_Wr.AddHex("id", krn.m_Internal.m_ID);
             wlk.m_Wr.m_json["minHeight"] = krn.m_Height.m_Min;
             wlk.m_Wr.m_json["maxHeight"] = krn.m_Height.m_Max;
 
