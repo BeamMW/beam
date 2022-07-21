@@ -88,7 +88,6 @@ bool ParserContext::Parse()
 #define THE_MACRO(name, sid) \
 	if (_POD_(m_Sid) == sid) \
 	{ \
-		Env::DocGroup gr(""); \
 		OnStdMethod(); \
 		On_##name(); \
 		return true; \
@@ -571,6 +570,8 @@ void ParserContext::On_Gallery_2()
 
 BEAM_EXPORT void Method_0(const ShaderID& sid, const ContractID& cid, uint32_t iMethod, const void* pArg, uint32_t nArg)
 {
+	Env::DocGroup gr("");
+
 	ParserContext pc(sid, cid);
 	pc.m_Method = true;
 	pc.m_iMethod = iMethod;
@@ -582,12 +583,16 @@ BEAM_EXPORT void Method_0(const ShaderID& sid, const ContractID& cid, uint32_t i
 
 BEAM_EXPORT void Method_1(const ShaderID& sid, const ContractID& cid)
 {
+	Env::DocGroup gr("");
+
 	ParserContext pc(sid, cid);
 	pc.Parse();
 }
 
 BEAM_EXPORT void Method_2(const ShaderID& sid, const ContractID& cid)
 {
+	Env::DocGroup gr("");
+
 	ParserContext pc(sid, cid);
 	pc.m_Name = false;
 	pc.m_State = true;

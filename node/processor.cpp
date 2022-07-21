@@ -4755,7 +4755,10 @@ struct NodeProcessor::ProcessorInfoParser
 		while (!IsDone())
 			RunOnce();
 
-		return m_os.str();
+		auto ret = m_os.str();
+		if (2 == ret.size())
+			ret.clear(); // remove empty group
+		return ret;
 	}
 
 	template <typename T>
