@@ -37,7 +37,7 @@ void WebAPICreator::createApi(WalletModel::Ptr walletModel, const std::string& v
     const auto appid = beam::wallet::GenerateAppID(appName, appUrl);
     auto guard = this;
     
-    AppsApiUI::ClientThread_Create(walletModel.get(), version, appid, appName, false,
+    AppsApiUI::ClientThread_Create(walletModel.get(), version, appid, appName, 0, false,
                                    [this, guard, version, appName, appid] (AppsApiUI::Ptr api) {
         if (guard)
         {
