@@ -440,7 +440,7 @@ ON_METHOD(user, domain_register)
     fc.m_Consume = 1;
     fc.m_Amount = Domain::get_Price(dn.m_Len) * num;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "bans register domain", Cost::get_InvokeDomainReg());
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "BANS register domain", Cost::get_InvokeDomainReg());
 }
 
 ON_METHOD(user, domain_extend)
@@ -470,7 +470,7 @@ ON_METHOD(user, domain_extend)
     fc.m_Consume = 1;
     fc.m_Amount = Domain::get_Price(dn.m_Len) * num;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "bans extend domain", Cost::get_InvokeDomainReg());
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "BANS extend domain", Cost::get_InvokeDomainReg());
 }
 
 ON_METHOD(user, domain_set_owner)
@@ -494,7 +494,7 @@ ON_METHOD(user, domain_set_owner)
         Env::Cost::Cycle * 300;
 
     MyKeyID kid(cid);
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), nullptr, 0, &kid, 1, "bans domain set owner", nCharge);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), nullptr, 0, &kid, 1, "BANS domain set owner", nCharge);
 }
 
 ON_METHOD(user, domain_set_price)
@@ -519,7 +519,7 @@ ON_METHOD(user, domain_set_price)
         Env::Cost::Cycle * 300;
 
     MyKeyID kid(cid);
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), nullptr, 0, &kid, 1, "bans domain set price", nCharge);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), nullptr, 0, &kid, 1, "BANS domain set price", nCharge);
 }
 
 ON_METHOD(user, domain_buy)
@@ -541,7 +541,7 @@ ON_METHOD(user, domain_buy)
     fc.m_Amount = d.m_Price.m_Amount;
     fc.m_Consume = 1;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "bans domain buy", Cost::get_InvokeDomainReg());
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, arg.get_Size(), &fc, 1, nullptr, 0, "BANS domain buy", Cost::get_InvokeDomainReg());
 }
 
 ON_METHOD(user, receive)
