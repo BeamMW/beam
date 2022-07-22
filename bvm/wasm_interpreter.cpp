@@ -1362,7 +1362,7 @@ namespace Wasm {
 		}
 
 		if (m_IndirectFuncs.m_Dep.m_Include)
-			vec.push_back(Dependency::s_IdxIndirect);
+			vec.push_back((uint32_t) Dependency::s_IdxIndirect); // pass by value. gcc will omit s_IdxIndirect, If passed by reference - linker error
 
 		for (uint32_t i = 0; i < vec.size(); i++)
 		{
