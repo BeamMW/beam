@@ -742,6 +742,9 @@ namespace beam::wallet
                 using DexBoardSubscriber = ScopedSubscriber<DexBoard::IObserver, DexBoard>;
                 auto dexBoardSubscriber = make_unique<DexBoardSubscriber>(static_cast<DexBoard::IObserver*>(this), dexBoard);
 
+                using DexWalletSubscriber = ScopedSubscriber<wallet::ISimpleSwapHandler, wallet::Wallet>;
+                auto dexWalletSubscriber = make_unique<DexWalletSubscriber>(static_cast<ISimpleSwapHandler*>(dexBoard.get()), wallet);
+
                 _dex = dexBoard;
 
 
