@@ -13,7 +13,7 @@
 // limitations under the License.
 #pragma once
 
-#include "asset_swap_order.h"
+#include "dex_order.h"
 #include "wallet/client/extensions/broadcast_gateway/interface.h"
 #include "wallet/core/wallet.h"
 // #include "wallet/core/dex.h"
@@ -29,16 +29,16 @@ namespace beam::wallet {
     public:
         struct IObserver
         {
-            virtual void onAssetSwapOrdersChanged(ChangeAction action, const std::vector<AssetSwapOrder>& orders) = 0;
-            virtual void onFindAssetSwapOrder(const AssetSwapOrder& order) = 0;
+            virtual void onDexOrdersChanged(ChangeAction action, const std::vector<DexOrder>& orders) = 0;
+            virtual void onFindDexOrder(const DexOrder& order) = 0;
         };
 
         DexBoard(IBroadcastMsgGateway& gateway, IWalletModelAsync::Ptr wallet, IWalletDB& wdb);
 
-        [[nodiscard]] std::vector<AssetSwapOrder> getAssetSwapOrders() const;
-        [[nodiscard]] boost::optional<AssetSwapOrder> getAssetSwapOrder(const DexOrderID&) const;
+        [[nodiscard]] std::vector<DexOrder> getDexOrders() const;
+        [[nodiscard]] boost::optional<DexOrder> getDexOrder(const DexOrderID&) const;
 
-        void publishOrder(const AssetSwapOrder&);
+        void publishOrder(const DexOrder&);
         void acceptOrder(const DexOrderID& id);
 
         void Subscribe(IObserver* observer)
@@ -55,7 +55,7 @@ namespace beam::wallet {
         }
 
     private:
-        bool handleAssetSwap(const boost::optional<AssetSwapOrder>&);
+        bool handleDexOrder(const boost::optional<DexOrder>&);
         //
         // IBroadcastListener
         //
@@ -70,18 +70,18 @@ namespace beam::wallet {
         //
         // Serialization
         //
-        BroadcastMsg createMessage(const AssetSwapOrder&);
-        boost::optional<AssetSwapOrder> parseAssetSwapMessage(const BroadcastMsg& msg);
+        BroadcastMsg createMessage(const DexOrder&);
+        boost::optional<DexOrder> parseAssetSwapMessage(const BroadcastMsg& msg);
 
         //
         // Subscribers
         //
-        void notifyObservers(ChangeAction action, const std::vector<AssetSwapOrder>&) const;
+        void notifyObservers(ChangeAction action, const std::vector<DexOrder>&) const;
         std::vector<IObserver*> _observers;
 
         IBroadcastMsgGateway& _gateway;
         IWalletModelAsync::Ptr _wallet;
         IWalletDB& _wdb;
-        std::map<DexOrderID, AssetSwapOrder> _assetOrders;
+        std::map<DexOrderID, DexOrder> _orders;
     };
 }

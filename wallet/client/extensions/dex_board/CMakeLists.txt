@@ -4,10 +4,10 @@ add_library(dex_board STATIC)
 target_sources(dex_board
     PUBLIC
         dex_board.h
-        asset_swap_order.h
+        dex_order.h
     PRIVATE
         dex_board.cpp
-        asset_swap_order.cpp
+        dex_order.cpp
 )
 
 target_link_libraries(dex_board 

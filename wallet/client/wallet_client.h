@@ -32,7 +32,7 @@
 #include "extensions/news_channels/exchange_rate_provider.h"
 #include "extensions/news_channels/verification_provider.h"
 #include "extensions/dex_board/dex_board.h"
-#include "extensions/dex_board/asset_swap_order.h"
+#include "extensions/dex_board/dex_order.h"
 
 #ifdef BEAM_IPFS_SUPPORT
 #include "wallet/ipfs/ipfs.h"
@@ -216,8 +216,9 @@ namespace beam::wallet
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
         virtual void onAssetInfo(Asset::ID assetId, const WalletAsset&) {}
         virtual void onStopped() {}
-        void onAssetSwapOrdersChanged(ChangeAction, const std::vector<AssetSwapOrder>&) override {}
-        void onFindAssetSwapOrder(const AssetSwapOrder&) override {}
+
+        void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
+        void onFindDexOrder(const DexOrder&) override {}
 
         virtual Version getLibVersion() const;
         virtual uint32_t getClientRevision() const;
@@ -289,12 +290,12 @@ namespace beam::wallet
         void changeWalletPassword(const SecString& password) override;
         void getNetworkStatus() override;
 
-        void loadAssetSwapParams() override;
-        void storeAssetSwapParams(const beam::ByteBuffer& params) override;
-        void getAssetSwapOrders() override;
-        void getAssetSwapOrder(const DexOrderID&) override;
-        void publishAssetSwapOrder(const AssetSwapOrder&) override;
-        void acceptAssetSwapOrder(const DexOrderID&) override;
+        void loadDexOrderParams() override;
+        void storeDexOrderParams(const beam::ByteBuffer& params) override;
+        void getDexOrders() override;
+        void getDexOrder(const DexOrderID&) override;
+        void publishDexOrder(const DexOrder&) override;
+        void acceptDexOrder(const DexOrderID&) override;
 
         #ifdef BEAM_IPFS_SUPPORT
         void getIPFSStatus() override;

@@ -26,12 +26,12 @@ namespace beam::wallet {
         _gateway.registerListener(BroadcastContentType::DexOffers, this);
     }
 
-    std::vector<AssetSwapOrder> DexBoard::getAssetSwapOrders() const
+    std::vector<DexOrder> DexBoard::getDexOrders() const
     {
-        std::vector<AssetSwapOrder> result;
-        result.reserve(_assetOrders.size());
+        std::vector<DexOrder> result;
+        result.reserve(_orders.size());
 
-        for (auto pair: _assetOrders)
+        for (auto pair: _orders)
         {
             result.push_back(pair.second);
         }
@@ -39,36 +39,36 @@ namespace beam::wallet {
         return result;
     }
 
-    boost::optional<AssetSwapOrder> DexBoard::getAssetSwapOrder(const DexOrderID& orderId) const
+    boost::optional<DexOrder> DexBoard::getDexOrder(const DexOrderID& orderId) const
     {
-        const auto it = _assetOrders.find(orderId);
-        if (it != _assetOrders.end())
+        const auto it = _orders.find(orderId);
+        if (it != _orders.end())
         {
             return it->second;
         }
         return boost::none;
     }
 
-    void DexBoard::publishOrder(const AssetSwapOrder &offer)
+    void DexBoard::publishOrder(const DexOrder &offer)
     {
         auto message = createMessage(offer);
         _gateway.sendMessage(BroadcastContentType::DexOffers, message);
     }
 
-    bool DexBoard::handleAssetSwap(const boost::optional<AssetSwapOrder>& order)
+    bool DexBoard::handleDexOrder(const boost::optional<DexOrder>& order)
     {
         LOG_INFO() << "DexBoard oder message received";
 
-        auto it = _assetOrders.find(order->getID());
-        _assetOrders[order->getID()] = *order;
+        auto it = _orders.find(order->getID());
+        _orders[order->getID()] = *order;
 
-        if (it == _assetOrders.end())
+        if (it == _orders.end())
         {
-            notifyObservers(ChangeAction::Added, std::vector<AssetSwapOrder>{ *order });
+            notifyObservers(ChangeAction::Added, std::vector<DexOrder>{ *order });
         }
         else
         {
-            notifyObservers(ChangeAction::Updated, std::vector<AssetSwapOrder>{ *order });
+            notifyObservers(ChangeAction::Updated, std::vector<DexOrder>{ *order });
         }
 
         return true;
@@ -77,10 +77,10 @@ namespace beam::wallet {
     bool DexBoard::onMessage(uint64_t, BroadcastMsg&& msg)
     {
         auto order = parseAssetSwapMessage(msg);
-        return order ? handleAssetSwap(order) : false;
+        return order ? handleDexOrder(order) : false;
     }
 
-    BroadcastMsg DexBoard::createMessage(const AssetSwapOrder& order)
+    BroadcastMsg DexBoard::createMessage(const DexOrder& order)
     {
         const auto pkdf = _wdb.get_SbbsKdf();
 
@@ -91,12 +91,12 @@ namespace beam::wallet {
         return message;
     }
 
-    boost::optional<AssetSwapOrder> DexBoard::parseAssetSwapMessage(const BroadcastMsg& msg)
+    boost::optional<DexOrder> DexBoard::parseAssetSwapMessage(const BroadcastMsg& msg)
     {
         try
         {
             const auto pkdf = _wdb.get_SbbsKdf();
-            AssetSwapOrder order(msg.m_content, msg.m_signature, pkdf);
+            DexOrder order(msg.m_content, msg.m_signature, pkdf);
             return order;
         }
         catch(std::runtime_error& err)
@@ -111,11 +111,11 @@ namespace beam::wallet {
         }
     }
 
-    void DexBoard::notifyObservers(ChangeAction action, const std::vector<AssetSwapOrder>& orders) const
+    void DexBoard::notifyObservers(ChangeAction action, const std::vector<DexOrder>& orders) const
     {
         for (const auto obs : _observers)
         {
-            obs->onAssetSwapOrdersChanged(action, orders);
+            obs->onDexOrdersChanged(action, orders);
         }
     }
 

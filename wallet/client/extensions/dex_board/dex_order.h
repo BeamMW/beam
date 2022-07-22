@@ -16,28 +16,28 @@
 
 namespace beam::wallet
 {
-    const uint8_t kAssetSwapOrderRatePrecission = 9;
-    class AssetSwapOrder
+    const uint8_t kDexOrderRatePrecission = 9;
+    class DexOrder
     {
     public:
         SERIALIZE(_version, _orderID, _sbbsID, _sbbsKeyIDX, _assetIdFirst, _assetIdSecond, _assetSnameFirst, _assetSnameSecond, _assetAmountFirst, _assetAmountSecond, _createTime, _expireTime, _isCompleted);
         static const uint32_t kCurrentOfferVer = 9;
         static uint32_t getCurrentVersion() { return kCurrentOfferVer;}
 
-        AssetSwapOrder() = default;
-        AssetSwapOrder(const ByteBuffer& buffer, const ByteBuffer& signature, beam::Key::IKdf::Ptr);
-        AssetSwapOrder(DexOrderID    orderId,
-                       WalletID      sbbsId,
-                       uint64_t      sbbsKeyIdx,
-                       Asset::ID     assetIdFirst,
-                       Amount        assetAmountFirst,
-                       std::string   assetSnameFirst,
-                       Asset::ID     assetIdSecond,
-                       Amount        assetAmountSecond,
-                       std::string   assetSnameSecond,
-                       uint32_t      expiration);
+        DexOrder() = default;
+        DexOrder(const ByteBuffer& buffer, const ByteBuffer& signature, beam::Key::IKdf::Ptr);
+        DexOrder(DexOrderID    orderId,
+                 WalletID      sbbsId,
+                 uint64_t      sbbsKeyIdx,
+                 Asset::ID     assetIdFirst,
+                 Amount        assetAmountFirst,
+                 std::string   assetSnameFirst,
+                 Asset::ID     assetIdSecond,
+                 Amount        assetAmountSecond,
+                 std::string   assetSnameSecond,
+                 uint32_t      expiration);
 
-        bool operator==(const AssetSwapOrder& other) const
+        bool operator==(const DexOrder& other) const
         {
             return _orderID == other._orderID;
         }

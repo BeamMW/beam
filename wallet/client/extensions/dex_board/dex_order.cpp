@@ -12,7 +12,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "asset_swap_order.h"
+#include "dex_order.h"
 #include "utility/logger.h"
 #include "core/common.h"
 
@@ -24,16 +24,16 @@ namespace {
 namespace beam::wallet
 {
 
-AssetSwapOrder::AssetSwapOrder(const ByteBuffer& buffer, const ByteBuffer& signature, beam::Key::IKdf::Ptr pkdf)
+DexOrder::DexOrder(const ByteBuffer& buffer, const ByteBuffer& signature, beam::Key::IKdf::Ptr pkdf)
 {
     if (!fromByteBuffer(buffer, *this))
     {
-        throw std::runtime_error("AssetSwapOrder::AssetSwapOrder failed to parse order body");
+        throw std::runtime_error("DexOrder::DexOrder failed to parse order body");
     }
 
-    if (_version != AssetSwapOrder::getCurrentVersion())
+    if (_version != DexOrder::getCurrentVersion())
     {
-        throw std::runtime_error("AssetSwapOrder::AssetSwapOrder obsolete order version");
+        throw std::runtime_error("DexOrder::DexOrder obsolete order version");
     }
 
     SignatureHandler sig;
@@ -41,28 +41,28 @@ AssetSwapOrder::AssetSwapOrder(const ByteBuffer& buffer, const ByteBuffer& signa
 
     if (!fromByteBuffer(signature, sig.m_Signature))
     {
-        throw std::runtime_error("AssetSwapOrder::AssetSwapOrder failed to parse signature");
+        throw std::runtime_error("DexOrder::DexOrder failed to parse signature");
     }
 
     if (!sig.IsValid(_sbbsID.m_Pk))
     {
-        throw std::runtime_error("AssetSwapOrder::AssetSwapOrder failed to verify signature");
+        throw std::runtime_error("DexOrder::DexOrder failed to verify signature");
     }
 
     auto pubkey = derivePublicKey(pkdf);
     _isMine = pubkey == _sbbsID.m_Pk;
 }
 
-AssetSwapOrder::AssetSwapOrder(DexOrderID    orderId,
-                               WalletID      sbbsId,
-                               uint64_t      sbbsKeyIdx,
-                               Asset::ID     assetIdFirst,
-                               Amount        assetAmountFirst,
-                               std::string   assetSnameFirst,
-                               Asset::ID     assetIdSecond,
-                               Amount        assetAmountSecond,
-                               std::string   assetSnameSecond,
-                               uint32_t      expiration)
+DexOrder::DexOrder(DexOrderID    orderId,
+                            WalletID      sbbsId,
+                            uint64_t      sbbsKeyIdx,
+                            Asset::ID     assetIdFirst,
+                            Amount        assetAmountFirst,
+                            std::string   assetSnameFirst,
+                            Asset::ID     assetIdSecond,
+                            Amount        assetAmountSecond,
+                            std::string   assetSnameSecond,
+                            uint32_t      expiration)
     : _version(kCurrentOfferVer)
     , _orderID(orderId)
     , _sbbsID(sbbsId)
@@ -79,73 +79,73 @@ AssetSwapOrder::AssetSwapOrder(DexOrderID    orderId,
 {
 }
 
-uint32_t AssetSwapOrder::getVersion() const
+uint32_t DexOrder::getVersion() const
 {
     return _version;
 }
 
-bool AssetSwapOrder::isExpired() const
+bool DexOrder::isExpired() const
 {
     const auto now = getTimestamp();
     return _expireTime <= now;
 }
 
-const DexOrderID& AssetSwapOrder::getID() const
+const DexOrderID& DexOrder::getID() const
 {
     return _orderID;
 }
 
-const WalletID& AssetSwapOrder::getSBBSID() const
+const WalletID& DexOrder::getSBBSID() const
 {
     return _sbbsID;
 }
 
-bool AssetSwapOrder::isMine() const
+bool DexOrder::isMine() const
 {
     return _isMine;
 }
 
-Timestamp AssetSwapOrder::getCreation() const
+Timestamp DexOrder::getCreation() const
 {
     return _createTime;
 }
 
-Timestamp AssetSwapOrder::getExpiration() const
+Timestamp DexOrder::getExpiration() const
 {
     return _expireTime;
 }
 
-Amount AssetSwapOrder::getFirstAmount() const
+Amount DexOrder::getFirstAmount() const
 {
     return _assetAmountFirst;
 }
 
-Amount AssetSwapOrder::getSecondAmount() const
+Amount DexOrder::getSecondAmount() const
 {
     return _assetAmountSecond;
 }
 
-Asset::ID AssetSwapOrder::getFirstAssetId() const
+Asset::ID DexOrder::getFirstAssetId() const
 {
     return _assetIdFirst;
 }
 
-Asset::ID AssetSwapOrder::getSecondAssetId() const
+Asset::ID DexOrder::getSecondAssetId() const
 {
     return _assetIdSecond;
 }
 
-std::string AssetSwapOrder::getFirstAssetSname() const
+std::string DexOrder::getFirstAssetSname() const
 {
     return _assetSnameFirst.empty() ? (_assetIdFirst == Asset::s_BeamID ? kBeamAssetSName : kUnknownAssetSName) : _assetSnameFirst;
 }
 
-std::string AssetSwapOrder::getSecondAssetSname() const
+std::string DexOrder::getSecondAssetSname() const
 {
     return _assetSnameSecond.empty() ? (_assetIdSecond == Asset::s_BeamID ? kBeamAssetSName : kUnknownAssetSName) : _assetSnameSecond;
 }
 
-ECC::Scalar::Native AssetSwapOrder::derivePrivateKey(beam::Key::IKdf::Ptr pkdf) const
+ECC::Scalar::Native DexOrder::derivePrivateKey(beam::Key::IKdf::Ptr pkdf) const
 {
     if (!pkdf)
     {
@@ -164,7 +164,7 @@ ECC::Scalar::Native AssetSwapOrder::derivePrivateKey(beam::Key::IKdf::Ptr pkdf) 
     return sk;
 }
 
-PeerID AssetSwapOrder::derivePublicKey(beam::Key::IKdf::Ptr pkdf) const
+PeerID DexOrder::derivePublicKey(beam::Key::IKdf::Ptr pkdf) const
 {
     auto privKey = derivePrivateKey(std::move(pkdf));
 
@@ -174,32 +174,32 @@ PeerID AssetSwapOrder::derivePublicKey(beam::Key::IKdf::Ptr pkdf) const
     return pubKey;
 }
 
-Amount AssetSwapOrder::getSendAmount() const
+Amount DexOrder::getSendAmount() const
 {
     return isMine() ? getFirstAmount() : getSecondAmount();
 }
 
-Amount AssetSwapOrder::getReceiveAmount() const
+Amount DexOrder::getReceiveAmount() const
 {
     return isMine() ? getSecondAmount() : getFirstAmount();
 }
 
-Asset::ID AssetSwapOrder::getSendAssetId() const
+Asset::ID DexOrder::getSendAssetId() const
 {
     return isMine() ? getFirstAssetId() : getSecondAssetId();
 }
 
-Asset::ID AssetSwapOrder::getReceiveAssetId() const
+Asset::ID DexOrder::getReceiveAssetId() const
 {
     return isMine() ? getSecondAssetId() : getFirstAssetId();
 }
 
-std::string AssetSwapOrder::getSendAssetSName() const
+std::string DexOrder::getSendAssetSName() const
 {
     return isMine() ? getFirstAssetSname() : getSecondAssetSname();
 }
 
-std::string AssetSwapOrder::getReceiveAssetSName() const
+std::string DexOrder::getReceiveAssetSName() const
 {
     return isMine() ? getSecondAssetSname() : getFirstAssetSname();
 }

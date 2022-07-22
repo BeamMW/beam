@@ -126,24 +126,24 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async((MethodType)&IWalletModelAsync::getAddresses, own);
     }
 
-    void getAssetSwapOrders() override
+    void getDexOrders() override
     {
-        call_async(&IWalletModelAsync::getAssetSwapOrders);
+        call_async(&IWalletModelAsync::getDexOrders);
     }
 
-    void getAssetSwapOrder(const DexOrderID& orderId) override
+    void getDexOrder(const DexOrderID& orderId) override
     {
-        call_async(&IWalletModelAsync::getAssetSwapOrder, orderId);
+        call_async(&IWalletModelAsync::getDexOrder, orderId);
     }
 
-    void publishAssetSwapOrder(const AssetSwapOrder& order) override
+    void publishDexOrder(const DexOrder& order) override
     {
-        call_async(&IWalletModelAsync::publishAssetSwapOrder, order);
+        call_async(&IWalletModelAsync::publishDexOrder, order);
     }
 
-    void acceptAssetSwapOrder(const DexOrderID& orderId) override
+    void acceptDexOrder(const DexOrderID& orderId) override
     {
-        call_async(&IWalletModelAsync::acceptAssetSwapOrder, orderId);
+        call_async(&IWalletModelAsync::acceptDexOrder, orderId);
     }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT    
@@ -168,14 +168,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     }
 #endif
 
-    void loadAssetSwapParams() override
+    void loadDexOrderParams() override
     {
-        call_async(&IWalletModelAsync::loadAssetSwapParams);
+        call_async(&IWalletModelAsync::loadDexOrderParams);
     }
 
-    void storeAssetSwapParams(const beam::ByteBuffer& params) override
+    void storeDexOrderParams(const beam::ByteBuffer& params) override
     {
-        call_async(&IWalletModelAsync::storeAssetSwapParams, params);
+        call_async(&IWalletModelAsync::storeDexOrderParams, params);
     }
 
     void cancelTx(const wallet::TxID& id) override
@@ -1847,39 +1847,39 @@ namespace beam::wallet
         onNodeConnectionChanged(isConnected());
     }
 
-    void WalletClient::loadAssetSwapParams()
+    void WalletClient::loadDexOrderParams()
     {
         ByteBuffer params;
         m_walletDB->getBlob(ASSET_SWAP_PARAMS_NAME, params);
         onAssetSwapParamsLoaded(params);
     }
 
-    void WalletClient::storeAssetSwapParams(const ByteBuffer& params)
+    void WalletClient::storeDexOrderParams(const ByteBuffer& params)
     {
         m_walletDB->setVarRaw(ASSET_SWAP_PARAMS_NAME, params.data(), params.size());
     }
 
-    void WalletClient::getAssetSwapOrders()
+    void WalletClient::getDexOrders()
     {
         if (auto dex = _dex.lock())
         {
-            onAssetSwapOrdersChanged(ChangeAction::Reset, dex->getAssetSwapOrders());
+            onDexOrdersChanged(ChangeAction::Reset, dex->getDexOrders());
         }
     }
 
-    void WalletClient::getAssetSwapOrder(const DexOrderID& orderId)
+    void WalletClient::getDexOrder(const DexOrderID& orderId)
     {
         if (auto dex = _dex.lock())
         {
-            auto order = dex->getAssetSwapOrder(orderId);
+            auto order = dex->getDexOrder(orderId);
             if (order)
             {
-                onFindAssetSwapOrder(*order);
+                onFindDexOrder(*order);
             }
         }
     }
 
-    void WalletClient::publishAssetSwapOrder(const AssetSwapOrder& order)
+    void WalletClient::publishDexOrder(const DexOrder& order)
     {
         if (auto dex = _dex.lock())
         {
@@ -1887,7 +1887,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::acceptAssetSwapOrder(const DexOrderID& orderId)
+    void WalletClient::acceptDexOrder(const DexOrderID& orderId)
     {
 
     }
