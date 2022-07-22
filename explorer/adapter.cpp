@@ -509,18 +509,28 @@ private:
                 m_json["contract"] = std::move(wr2.m_json);
             }
 
+            void ParseSafe(const std::string& s)
+            {
+                if (!s.empty())
+                {
+                    m_json = json::parse(s, nullptr, false); // won't throw exc
+
+                    if (!m_json.is_object())
+                        m_json = json::object();
+                }
+            }
+
             void OnContractInternal(const NodeProcessor::ContractInvokeExtraInfo& info)
             {
-                if (!info.m_sParsed.empty())
-                    m_json = json::parse(info.m_sParsed);
+                ParseSafe(info.m_sParsed);
 
                 AddCid(info.m_Cid);
 
-                if (info.m_sParsed.empty())
-                {
-                    if (info.m_Sid.has_value())
-                        AddSid(*info.m_Sid);
+                if (info.m_Sid.has_value())
+                    AddSidIfNoName(*info.m_Sid);
 
+                if (m_json.find("method") == m_json.end())
+                {
                     m_json["iMethod"] = info.m_iMethod;
 
                     if (!info.m_Args.empty())
@@ -793,8 +803,7 @@ private:
         std::string sExtra;
         _nodeBackend.get_ContractDescr(sid, cid, sExtra, bFullState);
 
-        if (!sExtra.empty())
-            wr.m_json = json::parse(sExtra);
+        wr.ParseSafe(sExtra);
 
         wr.AddSidIfNoName(sid);
     }
