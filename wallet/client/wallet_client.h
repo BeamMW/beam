@@ -32,7 +32,6 @@
 #include "extensions/news_channels/exchange_rate_provider.h"
 #include "extensions/news_channels/verification_provider.h"
 #include "extensions/dex_board/dex_board.h"
-#include "extensions/dex_board/dex_order.h"
 #include "extensions/dex_board/asset_swap_order.h"
 
 #ifdef BEAM_IPFS_SUPPORT
@@ -217,7 +216,6 @@ namespace beam::wallet
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
         virtual void onAssetInfo(Asset::ID assetId, const WalletAsset&) {}
         virtual void onStopped() {}
-        void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
         void onAssetSwapOrdersChanged(ChangeAction, const std::vector<AssetSwapOrder>&) override {}
         void onFindAssetSwapOrder(const AssetSwapOrder&) override {}
 
@@ -272,10 +270,6 @@ namespace beam::wallet
         void stopIPFSNode() override;
         void startIPFSNode() override;
         #endif
-
-        void getDexOrders() override;
-        void publishDexOrder(const DexOrder&) override;
-        void acceptDexOrder(const DexOrderID&) override;
         void cancelTx(const TxID& id) override;
         void deleteTx(const TxID& id) override;
         void getCoinsByTx(const TxID& txId) override;

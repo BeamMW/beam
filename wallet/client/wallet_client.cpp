@@ -126,21 +126,6 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async((MethodType)&IWalletModelAsync::getAddresses, own);
     }
 
-     void getDexOrders() override
-     {
-        call_async(&IWalletModelAsync::getDexOrders);
-     }
-
-     void publishDexOrder(const DexOrder& order) override
-     {
-        call_async(&IWalletModelAsync::publishDexOrder, order);
-     }
-
-     void acceptDexOrder(const DexOrderID& orderId) override
-     {
-        call_async(&IWalletModelAsync::acceptDexOrder, orderId);
-     }
-
     void getAssetSwapOrders() override
     {
         call_async(&IWalletModelAsync::getAssetSwapOrders);
@@ -1540,38 +1525,6 @@ namespace beam::wallet
     void WalletClient::getAddresses(bool own)
     {
         onAddresses(own, m_walletDB->getAddresses(own));
-    }
-
-    void WalletClient::getDexOrders()
-    {
-        if (auto dex = _dex.lock())
-        {
-            onDexOrdersChanged(ChangeAction::Reset, dex->getOrders());
-        }
-    }
-
-    void WalletClient::publishDexOrder(const DexOrder& order)
-    {
-        if (auto dex = _dex.lock())
-        {
-            dex->publishOrder(order);
-            return;
-        }
-
-        assert(false);
-        LOG_WARNING() << "WalletClient::publishDexOrder but DEX is not available";
-    }
-
-    void WalletClient::acceptDexOrder(const DexOrderID& orderId)
-    {
-        if (auto dex = _dex.lock())
-        {
-            dex->acceptOrder(orderId);
-            return;
-        }
-
-        assert(false);
-        LOG_WARNING() << "WalletClient::acceptDexOrder but DEX is not available";
     }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT

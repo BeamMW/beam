@@ -3,11 +3,9 @@ cmake_minimum_required(VERSION 3.13)
 add_library(dex_board STATIC)
 target_sources(dex_board
     PUBLIC
-        dex_order.h
         dex_board.h
         asset_swap_order.h
     PRIVATE
-        dex_order.cpp
         dex_board.cpp
         asset_swap_order.cpp
 )
