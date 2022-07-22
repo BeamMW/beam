@@ -3165,9 +3165,13 @@ void NodeDB::KrnInfoDel(const HeightRange& hr)
 
 void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, Height h)
 {
+	KrnInfoEnum(wlk, HeightPos(h), HeightPos(h, static_cast<uint32_t>(-1)));
+}
+
+void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, const HeightPos& posMin, const HeightPos& posMax)
+{
 	wlk.m_Rs.Reset(*this, Query::KrnInfoEnumH, "SELECT * FROM " TblKrnInfo " WHERE " TblKrnInfo_Pos " BETWEEN ? AND ? ORDER BY " TblKrnInfo_Pos);
 
-	HeightPos posMin(h), posMax(h, static_cast<uint32_t>(-1));
 	wlk.m_bufMin.put(wlk.m_Rs, 0, posMin);
 	wlk.m_bufMax.put(wlk.m_Rs, 1, posMax);
 }
@@ -3175,7 +3179,7 @@ void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, Height h)
 void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, const KrnInfo::Cid& cid, Height hMax)
 {
 	wlk.m_Rs.Reset(*this, Query::KrnInfoEnumCid, "SELECT * FROM " TblKrnInfo
-		" WHERE (" TblKrnInfo "=?) AND (" TblKrnInfo_Pos "<=?) ORDER BY " TblContractLogs_Pos " DESC");
+		" WHERE (" TblKrnInfo_Key "=?) AND (" TblKrnInfo_Pos "<=?) ORDER BY " TblContractLogs_Pos " DESC");
 	wlk.m_Rs.put(0, cid);
 	wlk.m_bufMax.put(wlk.m_Rs, 1, HeightPos(hMax, static_cast<uint32_t>(-1)));
 }

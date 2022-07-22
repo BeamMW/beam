@@ -772,6 +772,7 @@ public:
 	void KrnInfoInsert(const KrnInfo::Entry&);
 	void KrnInfoDel(const HeightRange&);
 	void KrnInfoEnum(KrnInfo::Walker&, Height);
+	void KrnInfoEnum(KrnInfo::Walker&, const HeightPos&, const HeightPos&);
 	void KrnInfoEnum(KrnInfo::Walker&, const KrnInfo::Cid&, Height hMax);
 
 	void TestChanged1Row();
