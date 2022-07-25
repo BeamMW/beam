@@ -165,6 +165,8 @@ namespace beam
         extern const char* BLOCK_DETAILS;
         extern const char* BLOCK_HEIGHT;
         extern const char* CONFIG_FILE_PATH;
+        extern const char* REQUEST_BODIES;
+        extern const char* IMPORT_RECOVERY;
         // ethereum
         extern const char* ETHEREUM_SEED;
         extern const char* INFURA_PROJECT_ID;

@@ -259,6 +259,8 @@ namespace beam
         const char* BLOCK_DETAILS = "block_details";
         const char* BLOCK_HEIGHT = "block_height";
         const char* CONFIG_FILE_PATH = "config_file";
+        const char* REQUEST_BODIES = "request_bodies";
+        const char* IMPORT_RECOVERY = "import_recovery";
 
         // ethereum
         const char* ETHEREUM_SEED = "ethereum_seed";
@@ -501,7 +503,8 @@ namespace beam
             (cli::OFFLINE_COUNT, po::value<Positive<uint32_t>>(), "generate offline transaction address with given number of payments")
             (cli::PUBLIC_OFFLINE, po::bool_switch()->default_value(false), "generate an offline public address for donates (less secure, but more convenient)")
             (cli::SEND_OFFLINE, po::bool_switch()->default_value(false), "send an offline payment (offline transaction)")
-            (cli::BLOCK_HEIGHT, po::value<Nonnegative<Height>>(), "block height");
+            (cli::BLOCK_HEIGHT, po::value<Nonnegative<Height>>(), "block height")
+            (cli::REQUEST_BODIES, po::value<bool>()->default_value(false), "request and parse block bodies on the wallet side");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()

@@ -604,6 +604,7 @@ int main(int argc, char* argv[])
 
         uint32_t logCleanupPeriod;
         bool enableLelantus = false;
+        bool enableBodyRequests = false;
     } options;
     ConnectionOptions connectionOptions;
 
@@ -627,6 +628,7 @@ int main(int argc, char* argv[])
             (cli::FILE_LOG_LEVEL,   po::value<std::string>(), "set file log level [error|warning|info(default)|debug|verbose]")
             (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
             (cli::API_TCP_MAX_LINE, po::value<size_t>(&connectionOptions.maxLineSize)->default_value(65536), "max line size in TCP mode")
+            (cli::REQUEST_BODIES,   po::value<bool>()->default_value(&options.enableBodyRequests), "request and parse block bodies on the wallet side")
         ;
 
         po::options_description authDesc("User authorization options");
@@ -807,6 +809,7 @@ int main(int argc, char* argv[])
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
         auto wallet = std::make_shared<Wallet>(walletDB);
+        wallet->EnableBodyRequests(options.enableBodyRequests);
 
         auto nnet = std::make_shared<NodeNetwork>(*wallet);
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
