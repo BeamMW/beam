@@ -1,11 +1,18 @@
 #include "../common.h"
 #include "../app_common_impl.h"
 #include "contract.h"
+#include "../upgradable3/app_common_impl.h"
 #include "../vault_anon/app_impl.h"
+
+#define NameService_manager_schedule_upgrade(macro) Upgradable3_schedule_upgrade(macro)
+#define NameService_manager_replace_admin(macro) Upgradable3_replace_admin(macro)
+#define NameService_manager_set_min_approvers(macro) Upgradable3_set_min_approvers(macro)
+#define NameService_manager_explicit_upgrade(macro) macro(ContractID, cid)
 
 #define NameService_manager_view(macro)
 
 #define NameService_manager_deploy(macro) \
+	Upgradable3_deploy(macro) \
     macro(ContractID, cidDaoVault) \
     macro(ContractID, cidVault)
 
@@ -25,6 +32,10 @@
     macro(manager, view) \
     macro(manager, view_params) \
     macro(manager, deploy) \
+	macro(manager, schedule_upgrade) \
+	macro(manager, replace_admin) \
+	macro(manager, set_min_approvers) \
+	macro(manager, explicit_upgrade) \
     macro(manager, view_domain) \
     macro(manager, view_name) \
     macro(manager, pay)
@@ -104,24 +115,64 @@ BEAM_EXPORT void Method_0()
 #define THE_FIELD(type, name) const type& name,
 #define ON_METHOD(role, name) void On_##role##_##name(NameService_##role##_##name(THE_FIELD) int unused = 0)
 
+
+const char g_szAdminSeed[] = "upgr3-bans";
+
+struct AdminKeyID :public Env::KeyID {
+	AdminKeyID() :Env::KeyID(g_szAdminSeed, sizeof(g_szAdminSeed)) {}
+};
+
+const Upgradable3::Manager::VerInfo g_VerInfo = { s_pSID, _countof(s_pSID) };
+
 ON_METHOD(manager, view)
 {
-    EnumAndDumpContracts(s_SID);
+	AdminKeyID kid;
+	g_VerInfo.DumpAll(&kid);
 }
 
 ON_METHOD(manager, deploy)
 {
+	AdminKeyID kid;
+	PubKey pk;
+	kid.get_Pk(pk);
+
     Method::Create arg;
+	if (!g_VerInfo.FillDeployArgs(arg.m_Upgradable, &pk))
+		return;
+
     _POD_(arg.m_Settings.m_cidDaoVault) = cidDaoVault;
     _POD_(arg.m_Settings.m_cidVault) = cidVault;
 
     const uint32_t nCharge =
-        Env::Cost::CallFar +
+		Upgradable3::Manager::get_ChargeDeploy() +
         Env::Cost::SaveVar_For(sizeof(Settings)) +
         Env::Cost::Refs * 2 +
         Env::Cost::Cycle * 200;
 
     Env::GenerateKernel(nullptr, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Deploy NameService contract", nCharge);
+}
+
+ON_METHOD(manager, schedule_upgrade)
+{
+	AdminKeyID kid;
+	g_VerInfo.ScheduleUpgrade(cid, kid, hTarget);
+}
+
+ON_METHOD(manager, explicit_upgrade)
+{
+	Upgradable3::Manager::MultiSigRitual::Perform_ExplicitUpgrade(cid);
+}
+
+ON_METHOD(manager, replace_admin)
+{
+	AdminKeyID kid;
+	Upgradable3::Manager::MultiSigRitual::Perform_ReplaceAdmin(cid, kid, iAdmin, pk);
+}
+
+ON_METHOD(manager, set_min_approvers)
+{
+	AdminKeyID kid;
+	Upgradable3::Manager::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
 }
 
 void DumpName(const Domain& d)

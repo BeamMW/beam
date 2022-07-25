@@ -1,6 +1,7 @@
 ////////////////////////
 #include "../common.h"
 #include "contract.h"
+#include "../upgradable3/contract_impl.h"
 #include "../dao-vault/contract.h"
 #include "../vault_anon/contract.h"
 
@@ -8,6 +9,9 @@ namespace NameService {
 
 BEAM_EXPORT void Ctor(const Method::Create& r)
 {
+	r.m_Upgradable.TestNumApprovers();
+	r.m_Upgradable.Save();
+
     Env::Halt_if(!Env::RefAdd(r.m_Settings.m_cidDaoVault));
     Env::Halt_if(!Env::RefAdd(r.m_Settings.m_cidVault));
     Env::SaveVar_T((uint8_t) Tags::s_Settings, r.m_Settings);
@@ -79,27 +83,6 @@ void SendProfit(Amount val)
     Env::CallFar_T(stg.m_cidDaoVault, arg);
 }
 
-BEAM_EXPORT void Method_2(const Method::Register& r)
-{
-    Height h = Env::get_Height();
-    MyDomain d(r.m_NameLen);
-    if (d.Load())
-        Env::Halt_if(!d.IsExpired(h));
-    else
-    {
-        // check name
-        for (uint32_t i = 0; i < r.m_NameLen; i++)
-            Env::Halt_if(!d.IsValidChar(d.m_Key.m_sz[i]));
-    }
-
-    _POD_(Cast::Down<Domain>(d)).SetZero();
-    _POD_(d.m_pkOwner) = r.m_pkOwner;
-
-    d.Extend(r.m_Periods, r.m_NameLen);
-
-    d.Save();
-}
-
 BEAM_EXPORT void Method_3(const Method::SetOwner& r)
 {
     MyDomain d(r.m_NameLen);
@@ -157,4 +140,44 @@ BEAM_EXPORT void Method_6(const Method::Buy& r)
     d.Save();
 }
 
+BEAM_EXPORT void Method_7(const Method::Register& r)
+{
+    Height h = Env::get_Height();
+
+	MyDomain d(r.m_NameLen);
+    if (d.Load())
+        Env::Halt_if(!d.IsExpired(h));
+    else
+    {
+        // check name
+        for (uint32_t i = 0; i < r.m_NameLen; i++)
+            Env::Halt_if(!d.IsValidChar(d.m_Key.m_sz[i]));
+    }
+
+    _POD_(Cast::Down<Domain>(d)).SetZero();
+    _POD_(d.m_pkOwner) = r.m_pkOwner;
+
+    d.Extend(r.m_Periods, r.m_NameLen);
+
+    d.Save();
+}
+
 } // namespace NameService
+
+namespace Upgradable3 {
+
+    const uint32_t g_CurrentVersion = _countof(NameService::s_pSID) - 1;
+
+    uint32_t get_CurrentVersion()
+    {
+        return g_CurrentVersion;
+    }
+
+    void OnUpgraded(uint32_t nPrevVersion)
+    {
+        if constexpr (g_CurrentVersion)
+            Env::Halt_if(nPrevVersion != g_CurrentVersion - 1);
+        else
+            Env::Halt();
+    }
+}

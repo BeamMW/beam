@@ -1,8 +1,11 @@
 #pragma once
+#include "../upgradable3/contract.h"
 
 namespace NameService
 {
-    static const ShaderID s_SID   = { 0xe6,0x5c,0xc3,0x5c,0x7c,0xbf,0x10,0x5b,0xa2,0x8d,0x38,0x3d,0x26,0x30,0x8e,0x0b,0xcf,0x0d,0xab,0xf2,0x04,0x28,0xe6,0x60,0x25,0x12,0xa0,0x44,0x37,0x81,0x34,0xbe };
+	static const ShaderID s_pSID[] = {
+		{ 0x19,0xa1,0xbb,0xc6,0xc2,0x90,0xc6,0x83,0xd7,0xa7,0x35,0x30,0x2c,0x63,0xc1,0xa9,0x37,0xeb,0x65,0x21,0xbc,0x1e,0xd3,0x36,0x9c,0xe6,0x39,0x05,0x24,0x28,0x30,0x5e },
+	};
 
 #pragma pack (push, 1)
 
@@ -87,17 +90,8 @@ namespace NameService
         struct Create
         {
             static const uint32_t s_iMethod = 0;
-            Settings m_Settings;
-        };
-
-        struct Register
-        {
-            static const uint32_t s_iMethod = 2;
-
-            PubKey m_pkOwner;
-            uint8_t m_Periods;
-            uint8_t m_NameLen;
-            // followed by name
+			Upgradable3::Settings m_Upgradable;
+			Settings m_Settings;
         };
 
         struct SetOwner
@@ -129,6 +123,16 @@ namespace NameService
         {
             static const uint32_t s_iMethod = 6;
             PubKey m_pkNewOwner;
+            uint8_t m_NameLen;
+            // followed by name
+        };
+
+        struct Register
+        {
+            static const uint32_t s_iMethod = 7;
+
+            PubKey m_pkOwner;
+            uint8_t m_Periods;
             uint8_t m_NameLen;
             // followed by name
         };
