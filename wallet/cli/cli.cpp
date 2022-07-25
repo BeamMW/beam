@@ -2151,7 +2151,7 @@ namespace
 
 #endif  // BEAM_LASER_SUPPORT
 
-    int DoWalletFunc(const po::variables_map& vm, std::function<int (const po::variables_map&, Wallet::Ptr, IWalletDB::Ptr, boost::optional<TxID>&)> func)
+    int DoWalletFunc(const po::variables_map& vm, std::function<int(const po::variables_map&, Wallet::Ptr, IWalletDB::Ptr, boost::optional<TxID>&)> func)
     {
         LOG_INFO() << kStartMessage;
         auto walletDB = OpenDataBase(vm);
@@ -2184,8 +2184,8 @@ namespace
                     {
                         auto maxTxValue = PrintableAmount(maxTxAmount, true, info->m_ID);
                         cout << "Warning. Total amount of asset would be larger that can be sent in one transaction "
-                             << maxTxValue << ". You would be forced to send using several transactions."
-                             << endl;
+                            << maxTxValue << ". You would be forced to send using several transactions."
+                            << endl;
                     }
                 }
 
@@ -2194,8 +2194,8 @@ namespace
         }
 
         auto wallet = std::make_shared<Wallet>(walletDB,
-                      std::move(txCompletedAction),
-                      Wallet::UpdateCompletedAction());
+            std::move(txCompletedAction),
+            Wallet::UpdateCompletedAction());
         {
             wallet::AsyncContextHolder holder(*wallet);
 
@@ -2207,11 +2207,15 @@ namespace
             RegisterSwapTxCreators(wallet, walletDB);
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 #ifdef BEAM_CONFIDENTIAL_ASSETS_SUPPORT
-           if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
+            if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
             {
                 RegisterAllAssetCreators(*wallet);
             }
 #endif  // BEAM_CONFIDENTIAL_ASSETS_SUPPORT
+            if (vm.count(cli::REQUEST_BODIES) && vm[cli::REQUEST_BODIES].as<bool>())
+            {
+                wallet->EnableBodyRequests(true);
+            }
             wallet->ResumeAllTransactions();
 
             auto nnet = CreateNetwork(*wallet, vm);
@@ -2742,6 +2746,33 @@ namespace
 
         return 0;
     }
+
+    int ImportRecovery(const po::variables_map& vm)
+    {
+        if (vm[cli::IMPORT_EXPORT_PATH].defaulted())
+        {
+            LOG_ERROR() << kErrorFileLocationParamReqired;
+            return -1;
+        }
+
+        struct MyProgress : IWalletDB::IRecoveryProgress
+        {
+            virtual bool OnProgress(uint64_t done, uint64_t total)
+            {
+                size_t percent = done * 100 / total;
+                std::cout << "\rImporting recovery data: " << percent << "% (" << done << "/" << total << ")";
+                std::cout.flush();
+                return true; 
+            }
+        };
+        auto path = vm[cli::IMPORT_EXPORT_PATH].as<string>();
+        return DoWalletFunc(vm, [&path](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
+            {
+                MyProgress progress;
+                walletDB->ImportRecovery(path, *wallet, progress);
+                return 1;
+            });
+    }
 }  // namespace
 
 io::Reactor::Ptr reactor;
@@ -2775,6 +2806,7 @@ int main(int argc, char* argv[])
         {cli::EXPORT_DATA,          ExportWalletData,               "export wallet data (UTXO, transactions, addresses) to a JSON file"},
         {cli::IMPORT_DATA,          ImportWalletData,               "import wallet data from a JSON file"},
         {cli::BLOCK_DETAILS,        ShowBlockDetails,               "print information about specified block"},
+        {cli::IMPORT_RECOVERY,      ImportRecovery,                 "import block data from recovery file"},
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         {cli::SWAP_INIT,            InitSwap,                       "initialize atomic swap"},
         {cli::SWAP_ACCEPT,          AcceptSwap,                     "accept atomic swap offer"},
