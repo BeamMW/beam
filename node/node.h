@@ -179,7 +179,7 @@ struct Node
 	~Node();
 	void Initialize(IExternalPOW* externalPOW=nullptr);
 
-	NodeProcessor& get_Processor() { return m_Processor; } // for tests only!
+	NodeProcessor& get_Processor() { return m_Processor; }
 
 	struct SyncStatus
 	{

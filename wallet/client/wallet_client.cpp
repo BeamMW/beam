@@ -146,6 +146,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::acceptDexOrder, orderId);
     }
 
+    void setAssetsFullList(const std::set<beam::Asset::ID>& assets) override
+    {
+        call_async(&IWalletModelAsync::setAssetsFullList, assets);
+    }
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT    
     void getSwapOffers() override
     {
@@ -1095,13 +1100,7 @@ namespace beam::wallet
 
     std::set<beam::Asset::ID> WalletClient::getAssetsFull() const
     {
-        std::set<beam::Asset::ID> assets;
-        // assets.insert(Asset::s_BeamID);
-
-        // for (const auto& status : m_status.all)
-        //     assets.insert(status.first);
-
-        return assets;
+        return m_assetsFullList;
     }
 
     std::set<beam::Asset::ID> WalletClient::getAssetsNZ() const
@@ -1890,6 +1889,11 @@ namespace beam::wallet
     void WalletClient::acceptDexOrder(const DexOrderID& orderId)
     {
 
+    }
+
+    void WalletClient::setAssetsFullList(const std::set<beam::Asset::ID>& assets)
+    {
+        m_assetsFullList = assets;
     }
 
     #ifdef BEAM_IPFS_SUPPORT

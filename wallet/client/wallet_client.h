@@ -296,6 +296,7 @@ namespace beam::wallet
         void getDexOrder(const DexOrderID&) override;
         void publishDexOrder(const DexOrder&) override;
         void acceptDexOrder(const DexOrderID&) override;
+        void setAssetsFullList(const std::set<beam::Asset::ID>& assets) override;
 
         #ifdef BEAM_IPFS_SUPPORT
         void getIPFSStatus() override;
@@ -457,5 +458,6 @@ namespace beam::wallet
         std::unique_ptr<HttpClient> m_httpClient;
         beam::Timestamp m_averageBlockTime = 0;
         beam::Timestamp m_lastBlockTime = 0;
+        std::set<Asset::ID> m_assetsFullList;
     };
 }

@@ -168,3 +168,8 @@ void NodeModel::onNodeThreadFinished()
 
     env->CallStaticVoidMethod(WalletListenerClass, callback);
 }
+
+void NodeModel::onAllKnownAssetsChanged(const std::set<beam::Asset::ID>& assets)
+{
+
+}

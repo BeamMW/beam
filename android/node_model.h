@@ -54,6 +54,7 @@ protected:
     bool getPeersPersistent() const override;
 
     void onNodeThreadFinished() override;
+    void onAllKnownAssetsChanged(const std::set<beam::Asset::ID>& assets) override;
 
 private:
     beam::NodeClient m_nodeClient;
