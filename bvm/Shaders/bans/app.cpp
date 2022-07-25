@@ -3,7 +3,6 @@
 #include "contract.h"
 #include "../upgradable3/app_common_impl.h"
 #include "../vault_anon/app_impl.h"
-#include "../oracle2/contract.h"
 
 #define NameService_manager_schedule_upgrade(macro) Upgradable3_schedule_upgrade(macro)
 #define NameService_manager_replace_admin(macro) Upgradable3_replace_admin(macro)
@@ -370,7 +369,7 @@ struct MySettings
 			return false;
 		}
 
-		trg = med.m_Res * MultiPrecision::Float(valTok);
+        trg = Domain::get_PriceBeams(valTok, med.m_Res);
 		return true;
 	}
 

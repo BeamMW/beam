@@ -4,7 +4,6 @@
 #include "../upgradable3/contract_impl.h"
 #include "../dao-vault/contract.h"
 #include "../vault_anon/contract.h"
-#include "../oracle2/contract.h"
 
 namespace NameService {
 
@@ -38,7 +37,7 @@ struct MySettings :public Settings
 
 		DaoVault::Method::Deposit arg;
 		arg.m_Aid = 0;
-		arg.m_Amount = argsPrice.m_Value * MultiPrecision::Float(valTok);
+		arg.m_Amount = Domain::get_PriceBeams(valTok, argsPrice.m_Value);
 
 		Env::CallFar_T(m_cidDaoVault, arg);
 	}
