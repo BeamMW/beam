@@ -47,7 +47,6 @@ namespace beam::wallet
             , _client(nullptr)
         {
             _walletAPIProxy = std::make_shared<ApiHandlerProxy>();
-            LOG_INFO () << "AppsApi created for " << _appName << ", " << _appId;
         }
 
         ~AppsApi() override
@@ -74,6 +73,7 @@ namespace beam::wallet
                        std::string version,
                        std::string appid,
                        std::string appname,
+                       uint32_t privilegeLvl,
                        bool ipfsnode,
                        std::function<void (Ptr)> cback)
         {
@@ -92,7 +92,7 @@ namespace beam::wallet
             };
 
             client->getAsync()->makeIWTCall(
-                [client, appid, appname, ipfsnode]() -> boost::any {
+                [client, appid, appname, privilegeLvl, ipfsnode]() -> boost::any {
                     //
                     // THIS IS WALLET CLIENT REACTOR THREAD
                     //
@@ -101,8 +101,16 @@ namespace beam::wallet
 
                     #ifdef BEAM_IPFS_SUPPORT
                     if (ipfsnode) {
-                        result.ipfs = client->IWThread_startIPFSNode();
-                        hasIPFSNode = true;
+                        try
+                        {
+                            result.ipfs = client->IWThread_startIPFSNode();
+                            hasIPFSNode = true;
+                        }
+                        catch(const std::runtime_error& err)
+                        {
+                            assert(false);
+                            LOG_ERROR() << "Failed to start IPFS node" << err.what();
+                        }
                     }
                     #else
                     ipfsnode;
@@ -113,10 +121,10 @@ namespace beam::wallet
                                    << appname << "' DApp";
                     }
 
-                    result.shaders = client->IWThread_createAppShaders(appid, appname);
+                    result.shaders = client->IWThread_createAppShaders(appid, appname, privilegeLvl);
                     return result;
                 },
-                [client, cback=std::move(cback), version, appid, appname](boost::any aptr) {
+                [client, cback=std::move(cback), version, appid, appname, privilegeLvl](boost::any aptr) {
                     //
                     // THIS IS UI THREAD
                     //
@@ -140,6 +148,7 @@ namespace beam::wallet
                     #endif
 
                     wapi->_walletAPI = IWalletApi::CreateInstance(version, *wapi->_walletAPIProxy, data);
+                    LOG_INFO () << "AppsApi created for " << appid << ", " << appname << ", privileges " << privilegeLvl;
                     cback(std::move(wapi));
                 }
             );

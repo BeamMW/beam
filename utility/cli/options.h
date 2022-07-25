@@ -269,6 +269,7 @@ namespace beam
         extern const char* IPFS_AUTO_RELAY;
         extern const char* IPFS_RELAY_HOP;
         extern const char* IPFS_BOOTSTRAP;
+        extern const char* IPFS_PEERING;
         extern const char* IPFS_SWARM_PORT;
         extern const char* IPFS_STORAGE_MAX;
         extern const char* IPFS_API_ADDR;

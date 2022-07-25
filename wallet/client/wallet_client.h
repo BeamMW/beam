@@ -131,10 +131,12 @@ namespace beam::wallet
 
         #ifdef BEAM_IPFS_SUPPORT
         IPFSService::Ptr getIPFS();
-        IPFSService::Ptr IWThread_startIPFSNode();
+        IPFSService::Ptr IWThread_startIPFSNode(); // throws on fail
+        void IWThread_setIPFSConfig(asio_ipfs::config&&); // throws on fail;
+        void IWThread_stopIPFSNode(); // throws on fail;
         #endif
 
-        IShadersManager::Ptr IWThread_createAppShaders(const std::string& appid, const std::string& appname);
+        IShadersManager::Ptr IWThread_createAppShaders(const std::string& appid, const std::string& appname, uint32_t privilegeLvl);
 
         std::string getNodeAddress() const;
         std::string exportOwnerKey(const beam::SecString& pass) const;

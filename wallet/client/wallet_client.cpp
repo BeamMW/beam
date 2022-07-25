@@ -41,7 +41,7 @@ namespace
 using namespace beam;
 using namespace beam::wallet;
 
-constexpr size_t kCollectorBufferSize = 50;
+constexpr size_t kCollectorBufferSize = 100;
 constexpr size_t kShieldedPer24hFilterSize = 20;
 constexpr size_t kShieldedPer24hFilterBlocksForUpdate = 144;
 constexpr size_t kShieldedCountHistoryWindowSize = kShieldedPer24hFilterSize << 1;
@@ -760,7 +760,7 @@ namespace beam::wallet
                 //
                 // Shaders
                 //
-                auto clientShaders = IShadersManager::CreateInstance(wallet, m_walletDB, nodeNetwork, "", "");
+                auto clientShaders = IShadersManager::CreateInstance(wallet, m_walletDB, nodeNetwork, "", "", 0);
                 _clientShaders = clientShaders;
 
                 nodeNetwork->tryToConnect();
@@ -868,7 +868,23 @@ namespace beam::wallet
         return sp;
     }
 
-    void WalletClient::setIPFSConfig(asio_ipfs::config&& cfg)
+    void WalletClient::startIPFSNode()
+    {
+        try
+        {
+            IWThread_startIPFSNode();
+        }
+        catch(std::runtime_error& err)
+        {
+            auto errmsg = std::string("Failed to start IPFS service. ") + err.what();
+            LOG_ERROR() << errmsg;
+            m_ipfsError = errmsg;
+            m_ipfsPeerCnt = 0;
+            getIPFSStatus();
+        }
+    }
+
+    void WalletClient::IWThread_setIPFSConfig(asio_ipfs::config&& cfg)
     {
         //
         // if service is already running restart with new settings
@@ -890,25 +906,11 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::stopIPFSNode()
-    {
-        auto sp = m_ipfs.lock();
-        if (!sp)
-        {
-            assert(false);
-            throw std::runtime_error("IPFS service is not created");
-        }
-
-        if (sp->AnyThread_running()) {
-            sp->ServiceThread_stop();
-        }
-    }
-
-    void WalletClient::startIPFSNode()
+    void WalletClient::setIPFSConfig(asio_ipfs::config&& cfg)
     {
         try
         {
-            IWThread_startIPFSNode();
+            IWThread_setIPFSConfig(std::move(cfg));
         }
         catch(std::runtime_error& err)
         {
@@ -919,14 +921,45 @@ namespace beam::wallet
             getIPFSStatus();
         }
     }
-    #endif
 
-    IShadersManager::Ptr WalletClient::IWThread_createAppShaders(const std::string& appid, const std::string& appname)
+    void WalletClient::IWThread_stopIPFSNode()
+    {
+        auto sp = m_ipfs.lock();
+        if (!sp)
+        {
+            assert(false);
+            throw std::runtime_error("IPFS service is not created");
+        }
+
+        if (sp->AnyThread_running()) 
+        {
+            sp->ServiceThread_stop();
+        }
+    }
+
+    void WalletClient::stopIPFSNode()
+    {
+        try
+        {
+            IWThread_stopIPFSNode();
+        }
+        catch(std::runtime_error& err)
+        {
+            auto errmsg = std::string("Failed to start IPFS service. ") + err.what();
+            LOG_ERROR() << errmsg;
+            m_ipfsError = errmsg;
+            m_ipfsPeerCnt = 0;
+            getIPFSStatus();
+        }
+    }
+    #endif //BEAM_IPFS_SUPPORT
+
+    IShadersManager::Ptr WalletClient::IWThread_createAppShaders(const std::string& appid, const std::string& appname, uint32_t privilegeLvl)
     {
         auto wallet = m_wallet.lock();
         auto network = m_nodeNetwork.lock();
         assert(wallet && network);
-        return IShadersManager::CreateInstance(wallet, m_walletDB, network, appid, appname);
+        return IShadersManager::CreateInstance(wallet, m_walletDB, network, appid, appname, privilegeLvl);
     }
 
     std::string WalletClient::getNodeAddress() const
@@ -1417,23 +1450,23 @@ namespace beam::wallet
 
     void WalletClient::getTransactionsSmoothly()
     {
-        auto txCount = m_walletDB->getTxCount(wallet::TxType::ALL);
-        if (txCount > kOneTimeLoadTxCount)
-        {
-            onTransactionChanged(ChangeAction::Reset, vector<wallet::TxDescription>());
+        //auto txCount = m_walletDB->getTxCount(wallet::TxType::ALL);
+        //if (txCount > kOneTimeLoadTxCount)
+        //{
+        //    onTransactionChanged(ChangeAction::Reset, vector<wallet::TxDescription>());
 
-            auto iterationsCount = txCount / kOneTimeLoadTxCount + (txCount % kOneTimeLoadTxCount ? 1 : 0);
-            for(int i = 0; i < iterationsCount; ++i) 
-                onTransactionChanged(
-                    ChangeAction::Updated, 
-                    m_walletDB->getTxHistory(wallet::TxType::ALL,
-                                             i * kOneTimeLoadTxCount,
-                                             i * kOneTimeLoadTxCount + kOneTimeLoadTxCount));
-        } 
-        else
-        {
+        //    auto iterationsCount = txCount / kOneTimeLoadTxCount + (txCount % kOneTimeLoadTxCount ? 1 : 0);
+        //    for(int i = 0; i < iterationsCount; ++i) 
+        //        onTransactionChanged(
+        //            ChangeAction::Added, 
+        //            m_walletDB->getTxHistory(wallet::TxType::ALL,
+        //                                     i * kOneTimeLoadTxCount,
+        //                                     i * kOneTimeLoadTxCount + kOneTimeLoadTxCount));
+        //} 
+        //else
+        //{
             getTransactions();
-        }
+        //}
     }
 
     void WalletClient::getAllUtxosStatus()

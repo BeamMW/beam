@@ -160,14 +160,16 @@ namespace beam::wallet {
                                    beam::wallet::IWalletDB::Ptr walletDB,
                                    beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
                                    std::string appid,
-                                   std::string appname)
-        :ManagerStdInWallet(std::move(walletDB), wallet)
+                                   std::string appname,
+                                   uint32_t privilegeLvl)
+        : ManagerStdInWallet(std::move(walletDB), wallet)
         , _currentAppId(std::move(appid))
         , _currentAppName(std::move(appname))
         , _wallet(std::move(wallet))
     {
         assert(_wallet);
         _logResult = appid.empty();
+        set_Privilege(privilegeLvl);
     }
 
     void ShadersManager::compileAppShader(const std::vector<uint8_t> &shader)
@@ -278,8 +280,7 @@ namespace beam::wallet {
         m_Args.clear();
         if (!req.args.empty())
         {
-            std::string temp = req.args;
-            AddArgs(&temp.front());
+            AddArgs(req.args);
         }
 
         _done = false;
@@ -431,14 +432,16 @@ namespace beam::wallet {
                 beam::wallet::IWalletDB::Ptr wdb,
                 beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
                 std::string appid,
-                std::string appname)
+                std::string appname,
+                uint32_t privilegeLvl)
     {
         return std::make_shared<ShadersManager>(
                 std::move(wallet),
                 std::move(wdb),
                 std::move(nodeNetwork),
                 std::move(appid),
-                std::move(appname)
-                );
+                std::move(appname),
+                privilegeLvl
+            );
     }
 }

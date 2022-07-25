@@ -15,6 +15,9 @@
 #define _CRT_SECURE_NO_WARNINGS // sprintf
 #include "bvm2_impl.h"
 #include <sstream>
+#include <iomanip>
+#include <regex>
+#include <boost/algorithm/string/replace.hpp>
 
 #if defined(__ANDROID__) || !defined(BEAM_USE_AVX)
 #include "crypto/blake/ref/blake2.h"
@@ -2945,25 +2948,33 @@ namespace bvm2 {
 	{
 		while (true)
 		{
-			char ch = *sz++;
-			switch (ch)
-			{
-			case 0:
-				return;
+            //
+            // All Unicode characters may be placed within the quotation marks except for the characters
+            // that must be escaped: quotation mark, reverse solidus, and the control characters (U+0000 through U+001F)
+			//
+            char ch = *sz++;
+            if (ch == 0) {
+                return;
+            }
 
-			case '\b': *m_pOut << "\\b"; break;
-			case '\f': *m_pOut << "\\f"; break;
-			case '\n': *m_pOut << "\\n"; break;
-			case '\r': *m_pOut << "\\r"; break;
-			case '\t': *m_pOut << "\\t"; break;
-			case '"': *m_pOut << "\\\""; break;
-			case '\\': *m_pOut << "\\\\"; break;
-
-			default:
-				*m_pOut << ch;
-			}
+            if (ch <= 0x1F)
+            {
+                const auto flags = m_pOut->flags();
+                *m_pOut << "\\u" << std::setfill('0') << std::setw(4) << std::hex << static_cast<int>(ch);
+                m_pOut->flags(flags);
+            }
+            else if (ch == '"' || ch == '\\')
+            {
+                *m_pOut << '\\' << ch;
+            }
+            else
+            {
+                *m_pOut << ch;
+            }
 		}
 	}
+
+
 
 	void ProcessorManager::DocOnNext()
 	{
@@ -3483,34 +3494,33 @@ namespace bvm2 {
 		return 0x800000; // 8MB
 	}
 
-	uint32_t ProcessorManager::AddArgs(char* szCommaSeparatedPairs)
+	uint32_t ProcessorManager::AddArgs(const std::string& commaSeparatedPairs)
 	{
+		static const std::regex expr(R"raw(\s*([\w\d_]+)\s*=\s*(([^," ]+)|"(.*?[^\\])")\s*(,|$))raw");
+		std::cmatch groups;
+		const char* s = commaSeparatedPairs.c_str();
 		uint32_t ret = 0;
-		for (size_t nLen = strlen(szCommaSeparatedPairs); nLen; )
+		while (std::regex_search(s, groups, expr))
 		{
-			char* szMid = (char*) memchr(szCommaSeparatedPairs, ',', nLen);
-
-			size_t nLen1;
-			if (szMid)
+			if (groups.size() > 0)
 			{
-				nLen1 = (szMid - szCommaSeparatedPairs) + 1;
-				*szMid = 0;
-			}
-			else
-				nLen1 = nLen;
+				std::string key{ groups[1].first, groups[1].second };
+				std::string value;
+				if (groups[3].matched)
+				{
+					value.assign(groups[3].first, groups[3].second);
+				}
+				else if (groups[4].matched)
+				{
+					value.assign(groups[4].first, groups[4].second);
+					boost::algorithm::replace_all(value, "\\\"", "\"");
+				}
 
-			szMid = (char*) memchr(szCommaSeparatedPairs, '=', nLen1);
-			if (szMid)
-			{
-				*szMid = 0;
-				m_Args[szCommaSeparatedPairs] = szMid + 1;
-				ret++;
+				m_Args.emplace(std::move(key), std::move(value));
+				++ret;
 			}
-
-			szCommaSeparatedPairs += nLen1;
-			nLen -= nLen1;
+			s = groups.suffix().first;
 		}
-
 		return ret;
 	}
 
