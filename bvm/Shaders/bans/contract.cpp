@@ -4,6 +4,7 @@
 #include "../upgradable3/contract_impl.h"
 #include "../dao-vault/contract.h"
 #include "../vault_anon/contract.h"
+#include "../oracle2/contract.h"
 
 namespace NameService {
 
@@ -14,6 +15,7 @@ BEAM_EXPORT void Ctor(const Method::Create& r)
 
     Env::Halt_if(!Env::RefAdd(r.m_Settings.m_cidDaoVault));
     Env::Halt_if(!Env::RefAdd(r.m_Settings.m_cidVault));
+    Env::Halt_if(!Env::RefAdd(r.m_Settings.m_cidOracle));
     Env::SaveVar_T((uint8_t) Tags::s_Settings, r.m_Settings);
 }
 
@@ -21,7 +23,26 @@ BEAM_EXPORT void Dtor(void*)
 {
 }
 
-void SendProfit(Amount val);
+struct MySettings :public Settings
+{
+	MySettings()
+	{
+		Env::LoadVar_T((uint8_t) Tags::s_Settings, *this);
+	}
+
+	void SendProfitTok(Amount valTok) const
+	{
+		Oracle2::Method::Get argsPrice;
+		Env::CallFar_T(m_cidOracle, argsPrice);
+		Env::Halt_if(!argsPrice.m_IsValid);
+
+		DaoVault::Method::Deposit arg;
+		arg.m_Aid = 0;
+		arg.m_Amount = argsPrice.m_Value * MultiPrecision::Float(valTok);
+
+		Env::CallFar_T(m_cidDaoVault, arg);
+	}
+};
 
 struct MyDomain
     :public Domain
@@ -48,7 +69,7 @@ struct MyDomain
         return Env::SaveVar(&m_Key, m_KeyLen, &Cast::Down<Domain>(*this), sizeof(Domain), KeyTag::Internal) == sizeof(Domain);
     }
 
-    void Extend(uint8_t nPeriods, uint32_t nNameLen)
+    void Extend(const MySettings& stg, uint8_t nPeriods, uint32_t nNameLen)
     {
         if (!nPeriods)
             nPeriods = 1;
@@ -60,28 +81,10 @@ struct MyDomain
         m_hExpire += s_PeriodValidity * nPeriods; // can't overflow
         Env::Halt_if(m_hExpire > h + s_PeriodValidityMax);
 
-        Amount val = Domain::get_Price(nNameLen);
-        SendProfit(val * nPeriods);
+        Amount val = Domain::get_PriceTok(nNameLen);
+		stg.SendProfitTok(val * nPeriods);
     }
 };
-
-struct MySettings :public Settings
-{
-    MySettings()
-    {
-        Env::LoadVar_T((uint8_t) Tags::s_Settings, *this);
-    }
-};
-
-void SendProfit(Amount val)
-{
-    DaoVault::Method::Deposit arg;
-    arg.m_Aid = 0;
-    arg.m_Amount = val;
-
-    MySettings stg;
-    Env::CallFar_T(stg.m_cidDaoVault, arg);
-}
 
 BEAM_EXPORT void Method_3(const Method::SetOwner& r)
 {
@@ -100,7 +103,8 @@ BEAM_EXPORT void Method_4(const Method::Extend& r)
     MyDomain d(r.m_NameLen);
     Env::Halt_if(!d.Load());
 
-    d.Extend(r.m_Periods, r.m_NameLen);
+	MySettings stg;
+	d.Extend(stg, r.m_Periods, r.m_NameLen);
 
     d.Save();
 }
@@ -143,6 +147,7 @@ BEAM_EXPORT void Method_6(const Method::Buy& r)
 BEAM_EXPORT void Method_7(const Method::Register& r)
 {
     Height h = Env::get_Height();
+	MySettings stg;
 
 	MyDomain d(r.m_NameLen);
     if (d.Load())
@@ -157,7 +162,7 @@ BEAM_EXPORT void Method_7(const Method::Register& r)
     _POD_(Cast::Down<Domain>(d)).SetZero();
     _POD_(d.m_pkOwner) = r.m_pkOwner;
 
-    d.Extend(r.m_Periods, r.m_NameLen);
+    d.Extend(stg, r.m_Periods, r.m_NameLen);
 
     d.Save();
 }

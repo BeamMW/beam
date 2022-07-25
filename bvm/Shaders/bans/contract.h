@@ -4,7 +4,7 @@
 namespace NameService
 {
 	static const ShaderID s_pSID[] = {
-		{ 0x19,0xa1,0xbb,0xc6,0xc2,0x90,0xc6,0x83,0xd7,0xa7,0x35,0x30,0x2c,0x63,0xc1,0xa9,0x37,0xeb,0x65,0x21,0xbc,0x1e,0xd3,0x36,0x9c,0xe6,0x39,0x05,0x24,0x28,0x30,0x5e },
+		{ 0xcc,0x82,0x95,0x4e,0x02,0x34,0x4e,0x78,0x9c,0xdf,0x2a,0xe7,0x4a,0xef,0xd9,0x1c,0xcc,0xf2,0xdf,0x15,0xa3,0xc2,0x5a,0xea,0x13,0x13,0x1f,0x95,0x66,0xa1,0x7b,0x77 },
 	};
 
 #pragma pack (push, 1)
@@ -19,6 +19,7 @@ namespace NameService
     {
         ContractID m_cidDaoVault;
         ContractID m_cidVault;
+		ContractID m_cidOracle;
     };
 
     struct Price
@@ -66,16 +67,16 @@ namespace NameService
             return m_hExpire + s_PeriodHold <= h;
         }
 
-        static const Amount s_Price3 = g_Beam2Groth * 640;
-        static const Amount s_Price4 = g_Beam2Groth * 16;
-        static const Amount s_Price5 = g_Beam2Groth * 5;
+        static const Amount s_PriceTok3 = g_Beam2Groth * 320;
+        static const Amount s_PriceTok4 = g_Beam2Groth * 120;
+        static const Amount s_PriceTok5 = g_Beam2Groth * 10;
 
-        static Amount get_Price(uint32_t nNameLen)
+        static Amount get_PriceTok(uint32_t nNameLen)
         {
             return
-                (nNameLen <= 3) ? s_Price3 :
-                (nNameLen <= 4) ? s_Price4 :
-                s_Price5;
+                (nNameLen <= 3) ? s_PriceTok3 :
+                (nNameLen <= 4) ? s_PriceTok4 :
+                s_PriceTok5;
         }
 
         static const Height s_PeriodValidity = 1440 * 365;
