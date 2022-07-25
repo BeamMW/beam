@@ -147,9 +147,10 @@ BEAM_EXPORT void Method_6(const Method::Buy& r)
 BEAM_EXPORT void Method_7(const Method::Register& r)
 {
     Height h = Env::get_Height();
-	MySettings stg;
+    MySettings stg;
+    Env::Halt_if(h < stg.m_h0);
 
-	MyDomain d(r.m_NameLen);
+    MyDomain d(r.m_NameLen);
     if (d.Load())
         Env::Halt_if(!d.IsExpired(h));
     else

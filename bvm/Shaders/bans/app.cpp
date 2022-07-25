@@ -16,7 +16,8 @@
 	Upgradable3_deploy(macro) \
     macro(ContractID, cidDaoVault) \
     macro(ContractID, cidVault) \
-    macro(ContractID, cidOracle)
+    macro(ContractID, cidOracle) \
+    macro(Height, h0)
 
 #define NameService_manager_pay(macro) \
     macro(ContractID, cid) \
@@ -144,7 +145,8 @@ ON_METHOD(manager, deploy)
 
     _POD_(arg.m_Settings.m_cidDaoVault) = cidDaoVault;
     _POD_(arg.m_Settings.m_cidVault) = cidVault;
-	_POD_(arg.m_Settings.m_cidOracle) = cidOracle;
+    _POD_(arg.m_Settings.m_cidOracle) = cidOracle;
+    arg.m_Settings.m_h0 = h0;
 
     const uint32_t nCharge =
 		Upgradable3::Manager::get_ChargeDeploy() +
@@ -409,6 +411,8 @@ ON_METHOD(manager, view_params)
 	Oracle2::Median med;
 	if (stg.get_PriceInternal(med))
 		DocAddFloat("price", med.m_Res, 5);
+
+    Env::DocAddNum("h0", stg.m_h0);
 }
 
 ON_METHOD(manager, view_name)
