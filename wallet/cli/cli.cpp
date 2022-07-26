@@ -2756,6 +2756,7 @@ namespace
             {
                 size_t percent = done * 100 / total;
                 std::cout << "\rImporting recovery data: " << percent << "% (" << done << "/" << total << ")";
+                std::cout.flush();
                 return true; 
             }
         };
