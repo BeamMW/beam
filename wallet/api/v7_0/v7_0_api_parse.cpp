@@ -227,27 +227,6 @@ namespace beam::wallet
         };
     }
 
-    std::pair<DeriveID, IWalletApi::MethodInfo> V70Api::onParseDeriveID(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        DeriveID message;
-        message.tag = getMandatoryParam<NonEmptyString>(params, "tag");
-        return std::make_pair(std::move(message), MethodInfo());
-    }
-
-    void V70Api::getResponse(const JsonRpcId& id, const DeriveID::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHeader, JsonRpcVersion},
-            {"id", id},
-            {"result",
-                {
-                    {"hash", res.hash}
-                }
-            }
-        };
-    }
-
     std::pair<VerifySignature, IWalletApi::MethodInfo> V70Api::onParseVerifySignature(const JsonRpcId& id, const nlohmann::json& params)
     {
         VerifySignature message;

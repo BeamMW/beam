@@ -28,7 +28,6 @@ namespace beam::wallet
         macro(IPFSUnpin,        "ipfs_unpin",           API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(IPFSGc,           "ipfs_gc",              API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(SignMessage,      "sign_message",         API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) \
-        macro(DeriveID,         "derive_id",            API_READ_ACCESS,  API_ASYNC, APPS_ALLOWED) \
         macro(VerifySignature,  "verify_signature",     API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) 
         // TODO:IPFS add ipfs_caps/ev_ipfs_state methods that returns all available capabilities and ipfs state
 
@@ -102,15 +101,6 @@ namespace beam::wallet
         struct Response
         {
             std::string signature;
-        };
-    };
-
-    struct DeriveID
-    {
-        std::string tag;
-        struct Response
-        {
-            std::string hash;
         };
     };
 
