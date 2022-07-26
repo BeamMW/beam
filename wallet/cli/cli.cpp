@@ -2759,11 +2759,10 @@ namespace
                 return true; 
             }
         };
-
-        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
+        auto path = vm[cli::IMPORT_EXPORT_PATH].as<string>();
+        return DoWalletFunc(vm, [&path](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
             {
                 MyProgress progress;
-                auto path = vm[cli::IMPORT_EXPORT_PATH].as<string>();
                 return walletDB->ImportRecovery(path, *wallet, progress) ? 0 : -1;
             });
     }
