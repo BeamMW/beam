@@ -248,6 +248,26 @@ namespace beam::wallet
         doResponse(id, resp);
     }
 
+    void V70Api::onHandleDeriveID(const JsonRpcId& id, DeriveID&& req)
+    {
+        ECC::Scalar s;
+        ECC::Hash::Processor()
+            << "api.unique"
+            << Blob(req.tag.c_str(), (uint32_t) req.tag.size())
+            >> s.m_Value;
+
+        auto pKdf = getWalletDB()->get_OwnerKdf();
+        ECC::Scalar::Native sk;
+        pKdf->DerivePKey(sk, s.m_Value);
+        s = sk;
+
+        DeriveID::Response resp;
+        resp.hash.resize(s.m_Value.nTxtLen);
+        s.m_Value.Print(&resp.hash.front());
+
+        doResponse(id, resp);
+    }
+
     void V70Api::onHandleVerifySignature(const JsonRpcId& id, VerifySignature&& req)
     {
         VerifySignature::Response resp;
