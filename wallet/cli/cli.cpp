@@ -2765,7 +2765,7 @@ namespace
             {
                 MyProgress progress;
                 walletDB->ImportRecovery(path, *wallet, progress);
-                return 0;
+                return 1;
             });
     }
 }  // namespace
