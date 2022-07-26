@@ -628,7 +628,7 @@ int main(int argc, char* argv[])
             (cli::FILE_LOG_LEVEL,   po::value<std::string>(), "set file log level [error|warning|info(default)|debug|verbose]")
             (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
             (cli::API_TCP_MAX_LINE, po::value<size_t>(&connectionOptions.maxLineSize)->default_value(65536), "max line size in TCP mode")
-            (cli::REQUEST_BODIES,   po::value<bool>()->default_value(&options.enableBodyRequests), "request and parse block bodies on the wallet side")
+            (cli::REQUEST_BODIES,   po::bool_switch()->default_value(&options.enableBodyRequests), "request and parse block bodies on the wallet side")
         ;
 
         po::options_description authDesc("User authorization options");
