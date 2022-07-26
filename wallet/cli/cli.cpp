@@ -2764,7 +2764,8 @@ namespace
         return DoWalletFunc(vm, [&path](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
             {
                 MyProgress progress;
-                return walletDB->ImportRecovery(path, *wallet, progress) ? 0 : -1;
+                walletDB->ImportRecovery(path, *wallet, progress);
+                return 0;
             });
     }
 }  // namespace
