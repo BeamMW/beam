@@ -336,7 +336,7 @@ namespace beam
                 {
                     auto& processor = m_node.get_Processor();
                     auto currentHeight = processor.m_Cursor.m_ID.m_Height;
-                    std::set<beam::Asset::ID> assets;
+                    std::set<beam::Asset::ID> assets = {Asset::s_BeamID};
                     Asset::Full ai;
                     for (ai.m_ID = 1; ; ai.m_ID++)
                     {
