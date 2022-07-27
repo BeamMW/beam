@@ -2156,6 +2156,51 @@ namespace Wasm {
 		Jmp(nRetAddr);
 	}
 
+	void Processor::DebugCallstack::OnCall(Wasm::Word nAddr, Wasm::Word nRetAddr)
+	{
+		if (m_v.size() < s_MaxEntries)
+		{
+			auto& fl = m_v.emplace_back();
+			fl.m_Addr = nAddr;
+			fl.m_CallerIp = nRetAddr;
+		}
+		else
+			m_Missing++;
+	}
+
+	void Processor::DebugCallstack::OnRet()
+	{
+		if (m_Missing)
+			m_Missing--;
+		else
+		{
+			if (!m_v.empty())
+				m_v.pop_back();
+		}
+	}
+
+	void Processor::DebugCallstack::Dump(std::ostream& os, Wasm::Word& ip, const Wasm::Compiler::DebugInfo* pDbgInfo) const
+	{
+		for (uint32_t i = (uint32_t) m_v.size(); i--; )
+		{
+			const auto& x = m_v[i];
+
+			os << std::endl << "Ip=" << uintBigFrom(x.m_Addr) << "+" << uintBigFrom(ip - x.m_Addr);
+
+			if (pDbgInfo)
+			{
+				auto* pF = pDbgInfo->Find(ip);
+				if (pF)
+				{
+					size_t iL = pF->Find(ip);
+					if (iL < pF->m_vOps.size())
+						os << std::endl << "\tFunc = " << pF->m_sName << ", Line = " << iL;
+				}
+			}
+
+			ip = x.m_CallerIp;
+		}
+	}
 
 
 

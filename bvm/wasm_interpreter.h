@@ -302,6 +302,24 @@ namespace Wasm {
 
         virtual ~Processor() = default;
 
+		struct DebugCallstack
+		{
+			struct Entry {
+				Wasm::Word m_CallerIp;
+				Wasm::Word m_Addr;
+			};
+
+			static const uint32_t s_MaxEntries = 256;
+
+			std::vector<Entry> m_v;
+			uint32_t m_Missing = 0;
+
+			void OnCall(Wasm::Word nAddr, Wasm::Word nRetAddr);
+			void OnRet();
+			void Dump(std::ostream& os, Wasm::Word& ip, const Wasm::Compiler::DebugInfo*) const;
+
+		};
+
 		struct Stack
 		{
 			Word* m_pPtr;

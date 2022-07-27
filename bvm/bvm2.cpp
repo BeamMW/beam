@@ -182,40 +182,6 @@ namespace bvm2 {
 		m_Secp.m_Scalar.m_Map.Clear();
 	}
 
-	void Processor::DebugCallstack::OnCall(Wasm::Word nAddr, Wasm::Word nRetAddr)
-	{
-		if (m_v.size() < s_MaxEntries)
-		{
-			auto& fl = m_v.emplace_back();
-			fl.m_Addr = nAddr;
-			fl.m_CallerIp = nRetAddr;
-		}
-		else
-			m_Missing++;
-	}
-
-	void Processor::DebugCallstack::OnRet()
-	{
-		if (m_Missing)
-			m_Missing--;
-		else
-		{
-			if (!m_v.empty())
-				m_v.pop_back();
-		}
-	}
-
-	void Processor::DebugCallstack::Dump(std::ostream& os, Wasm::Word& ip) const
-	{
-		for (uint32_t i = (uint32_t) m_v.size(); i--; )
-		{
-			const auto& x = m_v[i];
-
-			os << std::endl << "Ip=" << uintBigFrom(x.m_Addr) << "+" << uintBigFrom(ip - x.m_Addr);
-			ip = x.m_CallerIp;
-		}
-	}
-
 	void ProcessorContract::InitStackPlus(uint32_t nStackBytes)
 	{
 		InitBase(Limits::StackSize + nStackBytes);
