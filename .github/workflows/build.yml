@@ -409,7 +409,7 @@ jobs:
       run: |
         git clone --depth=1 https://github.com/BeamMW/boost-android.git ${{runner.workspace}}/dependencies/boost_1_68-android
         git clone --depth=1 https://github.com/BeamMW/openssl-android.git ${{runner.workspace}}/dependencies/Prebuilt-OpenSSL-Android
-        echo "ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk-bundle" >> $GITHUB_ENV
+        echo "ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> $GITHUB_ENV
         ls /usr/local/lib/android/sdk
         echo "BOOST_ROOT_ANDROID=${{runner.workspace}}/dependencies/boost_1_68-android" >> $GITHUB_ENV
         echo "OPENSSL_ROOT_DIR_ANDROID=${{runner.workspace}}/dependencies/Prebuilt-OpenSSL-Android" >> $GITHUB_ENV
