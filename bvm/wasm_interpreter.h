@@ -208,9 +208,13 @@ namespace Wasm {
 				std::string m_sName;
 				uint32_t m_Pos;
 				std::vector<Entry> m_vOps;
+
+				size_t Find(Wasm::Word nAddr) const;
 			};
 
 			std::vector<Function> m_vFuncs;
+
+			const Function* Find(Wasm::Word nAddr) const;
 		};
 
 		DebugInfo* m_pDebugInfo = nullptr;

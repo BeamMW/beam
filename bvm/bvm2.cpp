@@ -331,7 +331,7 @@ namespace bvm2 {
 
 			os << std::endl << "Cid=" << fr.m_Cid << ", Sid=" << sid;
 
-			fr.m_Debug.Dump(os, ip);
+			fr.m_Debug.Dump(os, ip, get_DbgInfo(sid));
 		}
 	}
 
@@ -3549,10 +3549,10 @@ namespace bvm2 {
 		return ret;
 	}
 
-	void ProcessorManager::DumpCallstack(std::ostream& os) const
+	void ProcessorManager::DumpCallstack(std::ostream& os, const Wasm::Compiler::DebugInfo* pDbgInfo /* = nullptr */) const
 	{
 		Wasm::Word ip = get_Ip();
-		m_DbgCallstack.Dump(os, ip);
+		m_DbgCallstack.Dump(os, ip, pDbgInfo);
 	}
 
 	void ProcessorManager::OnCall(Wasm::Word nAddr)

@@ -345,6 +345,8 @@ namespace bvm2 {
 
 		void DumpCallstack(std::ostream& os) const;
 
+		virtual const Wasm::Compiler::DebugInfo* get_DbgInfo(const ShaderID& sid) const { return nullptr; }
+
 		bool LoadFixedOrZero(const VarKey&, uint8_t* pVal, uint32_t);
 		uint32_t SaveNnz(const VarKey&, const uint8_t* pVal, uint32_t);
 
@@ -614,7 +616,7 @@ namespace bvm2 {
 
 		void RunOnce();
 
-		void DumpCallstack(std::ostream& os) const;
+		void DumpCallstack(std::ostream& os, const Wasm::Compiler::DebugInfo* pDbgInfo = nullptr) const;
 	};
 
 

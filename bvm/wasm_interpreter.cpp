@@ -1290,6 +1290,64 @@ namespace Wasm {
 		}
 	}
 
+	template <typename TObject, typename TCmp>
+	size_t FindPastMatch(const TCmp& comparator, const TObject* p0, size_t n)
+	{
+		size_t n0 = 0;
+		while (n0 < n)
+		{
+			size_t mid = (n0 + n) / 2;
+
+			if (comparator.IsMatch(p0[mid]))
+				n0 = mid + 1;
+			else
+				n = mid;
+		}
+
+		return n0;
+	}
+
+	const Compiler::DebugInfo::Function* Compiler::DebugInfo::Find(Wasm::Word nAddr) const
+	{
+		if (!m_vFuncs.empty())
+		{
+			struct MyCmp
+			{
+				Wasm::Word m_Addr;
+				bool IsMatch(const Function& f) const {
+					return f.m_Pos <= m_Addr;
+				}
+			};
+
+			MyCmp myCmp;
+			myCmp.m_Addr = nAddr;
+
+			auto idx = FindPastMatch(myCmp, &m_vFuncs.front(), m_vFuncs.size());
+			if (idx)
+				return &m_vFuncs[idx - 1];
+		}
+		return nullptr;
+	}
+
+	size_t Compiler::DebugInfo::Function::Find(Wasm::Word nAddr) const
+	{
+		if (m_vOps.empty())
+			return 0;
+
+		struct MyCmp
+		{
+			Wasm::Word m_Pos;
+			bool IsMatch(const Entry& e) const {
+				return e.m_Pos < m_Pos;
+			}
+		};
+
+		MyCmp myCmp;
+		myCmp.m_Pos = nAddr - m_Pos; // relative addr
+
+		return FindPastMatch(myCmp, &m_vOps.front(), m_vOps.size());
+	}
+
 	void Compiler::Build()
 	{
 		CheckpointTxt cp("wasm/Compiler/build");
