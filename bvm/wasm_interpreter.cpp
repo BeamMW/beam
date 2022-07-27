@@ -1413,7 +1413,7 @@ namespace Wasm {
 		{
 			pDbg = &m_This.m_pDebugInfo->m_vFuncs.emplace_back();
 			pDbg->m_sName.assign(func.m_sName.p, func.m_sName.n);
-			pDbg->m_Pos = (uint32_t)m_This.m_Result.size();
+			pDbg->m_Pos = (uint32_t) m_This.m_Result.size();
 		}
 
 		m_Code = func.m_Expression;
@@ -1444,6 +1444,7 @@ namespace Wasm {
 				auto& de = pDbg->m_vOps.emplace_back();
 				de.m_Opcode = (uint8_t) nInstruction;
 				de.m_Pos = (uint32_t) m_This.m_Result.size();
+				de.m_Pos -= pDbg->m_Pos; // to rel
 			}
 
 			switch (nInstruction)
