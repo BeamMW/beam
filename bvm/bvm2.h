@@ -597,6 +597,11 @@ namespace bvm2 {
 
 		} m_Comms;
 
+		DebugCallstack m_DbgCallstack;
+
+		virtual void OnCall(Wasm::Word nAddr) override;
+		virtual void OnRet(Wasm::Word nRetAddr) override;
+
 		virtual void Comm_CreateListener(Comm::Channel::Ptr&, const ECC::Hash::Value&) {}
 		virtual void Comm_Send(const ECC::Point&, const Blob&) {}
 		virtual void Comm_Wait(uint32_t nTimeout_ms) { Wasm::Fail(); }
@@ -605,9 +610,9 @@ namespace bvm2 {
 
 		std::ostream* m_pOut;
 		bool m_NeedComma = false;
+		bool m_Debug = false;
 
 		Key::IPKdf::Ptr m_pPKdf; // required for user-related info (account-specific pubkeys, etc.)
-
 		Key::IKdf::Ptr m_pKdf; // gives more access to the keys. Set only when app runs in a privileged mode
 
 		ContractInvokeData m_vInvokeData;
@@ -626,6 +631,8 @@ namespace bvm2 {
 		void CallMethod(uint32_t iMethod);
 
 		void RunOnce();
+
+		void DumpCallstack(std::ostream& os) const;
 	};
 
 

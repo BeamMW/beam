@@ -3583,5 +3583,30 @@ namespace bvm2 {
 		return ret;
 	}
 
+	void ProcessorManager::DumpCallstack(std::ostream& os) const
+	{
+		Wasm::Word ip = get_Ip();
+		m_DbgCallstack.Dump(os, ip);
+	}
+
+	void ProcessorManager::OnCall(Wasm::Word nAddr)
+	{
+		if (m_Debug)
+		{
+			Wasm::Word nRetAddr = m_DbgCallstack.m_v.empty() ? 0 : get_Ip();
+			m_DbgCallstack.OnCall(nAddr, nRetAddr);
+		}
+
+		Processor::OnCall(nAddr);
+	}
+
+	void ProcessorManager::OnRet(Wasm::Word nRetAddr)
+	{
+		if (m_Debug)
+			m_DbgCallstack.OnRet();
+
+		Processor::OnRet(nRetAddr);
+	}
+
 } // namespace bvm2
 } // namespace beam
