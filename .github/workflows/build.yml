@@ -15,8 +15,7 @@ jobs:
     strategy:
       matrix:
         # os: [macos-11]
-        os: [macos-10.15, ubuntu-18.04, windows-2019]
-        #os: [macos-10.15, ubuntu-16.04, ubuntu-18.04, ubuntu-20.04, windows-2019]
+        os: [macos-11, ubuntu-18.04, windows-2019]
 
     steps:
     - uses: actions/checkout@v2
@@ -32,8 +31,8 @@ jobs:
 # Create Build Environment
 ###############################################################################
 
-    - name: Create Build Environment [macos-10.15]
-      if: matrix.os == 'macos-10.15'
+    - name: Create Build Environment [macos-11]
+      if: matrix.os == 'macos-11'
       run: |
         echo $GITHUB_WORKSPACE
         echo "OPENSSL_ROOT_DIR=/usr/local/opt/openssl@1.1" >> $GITHUB_ENV
@@ -65,18 +64,26 @@ jobs:
         echo "BOOST_ROOT=c:\boost_prebuild" >> $GITHUB_ENV
 
     - name: Download boost [ubuntu && macos]
-      if: matrix.os != 'windows-2019'
+      if: matrix.os != 'windows-2019' && matrix.os != 'macos-11'
       shell: bash
       run: |
         git clone --depth=1 https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git ${{runner.workspace}}/boost_prebuild
         echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include" >> $GITHUB_ENV
         echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/" >> $GITHUB_ENV
 
+    - name: Download boost [macos]
+      if: matrix.os == 'macos-11'
+      shell: bash
+      run: |
+        git clone --depth=1 https://github.com/BeamMW/boost_prebuild_macos-10.15.git ${{runner.workspace}}/boost_prebuild
+        echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include" >> $GITHUB_ENV
+        echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/" >> $GITHUB_ENV
+
 ###############################################################################
 # Configure CMake
 ###############################################################################
-    - name: Configure CMake [macos-10.15]
-      if: matrix.os == 'macos-10.15'
+    - name: Configure CMake [macos-11]
+      if: matrix.os == 'macos-11'
       run: |
         # git apply 3rdparty/protobuf-patch.diff
         cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
@@ -105,8 +112,8 @@ jobs:
 ###############################################################################
 # Build
 ###############################################################################
-    - name: Build [macos-10.15]
-      if: matrix.os == 'macos-10.15'
+    - name: Build [macos-11]
+      if: matrix.os == 'macos-11'
       run: cmake --build . --parallel --config $BUILD_TYPE
 
     - name: Build [ununtu all]
@@ -122,8 +129,8 @@ jobs:
 ###############################################################################
 # Test
 ###############################################################################
-    - name: Test [macos-10.15]
-      if: matrix.os == 'macos-10.15'
+    - name: Test [macos-11]
+      if: matrix.os == 'macos-11'
       continue-on-error: false
       run: ctest -C $BUILD_TYPE --verbose
 
@@ -142,14 +149,14 @@ jobs:
 ###############################################################################
 # Collect artifacts
 ###############################################################################
-    - name: Import Code-Signing Certificates [macos-10.15]
-      if: matrix.os == 'macos-10.15'
+    - name: Import Code-Signing Certificates [macos-11]
+      if: matrix.os == 'macos-11'
       uses: Apple-Actions/import-codesign-certs@v1
       with:
         p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
         p12-password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
-    - name: Sign the mac binaries [macos-10.15]
-      if: matrix.os == 'macos-10.15'
+    - name: Sign the mac binaries [macos-11]
+      if: matrix.os == 'macos-11'
       run: |
         codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp beam/beam-node${{env.BEAM_TARGET_SUFFIX}}
         codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/cli/beam-wallet${{env.BEAM_TARGET_SUFFIX}}
@@ -168,8 +175,8 @@ jobs:
         sha256sum wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}} > wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
         sha256sum bvm/ethash_service/ethash-service > bvm/ethash_service/ethash-service-checksum.txt
 
-    - name: Checksum [macos-10.15]
-      if: matrix.os == 'macos-10.15'
+    - name: Checksum [macos-11]
+      if: matrix.os == 'macos-11'
       run: |
         shasum -a 256 beam/beam-node${{env.BEAM_TARGET_SUFFIX}} > beam/beam-node${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
         shasum -a 256 wallet/cli/beam-wallet${{env.BEAM_TARGET_SUFFIX}} > wallet/cli/beam-wallet${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
@@ -178,7 +185,7 @@ jobs:
         shasum -a 256 wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}} > wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
         shasum -a 256 bvm/ethash_service/ethash-service > bvm/ethash_service/ethash-service-checksum.txt
 
-    - name: Collect [macos-10.15 && ununtu all]
+    - name: Collect [macos-11 && ununtu all]
       shell: bash
       if: matrix.os != 'windows-2019'
       run: |
@@ -230,8 +237,8 @@ jobs:
         certUtil -hashfile artifacts/ethash-service.exe SHA256 > artifacts/ethash-service-checksum.txt
         certUtil -hashfile artifacts/ipfs-bindings.dll SHA256 > artifacts/ipfs-bindings-checksum.txt
 
-    - name: OS name [macos-10.15]
-      if: matrix.os == 'macos-10.15'
+    - name: OS name [macos-11]
+      if: matrix.os == 'macos-11'
       run: echo "PLATFORM_NAME=mac" >> $GITHUB_ENV
 
     - name: OS name [ununtu all]
@@ -299,7 +306,7 @@ jobs:
 # Build IOS
 ###############################################################################
   build_ios:
-    runs-on: macos-10.15
+    runs-on: macos-11
     #if: ${{false}}
 
     steps:
