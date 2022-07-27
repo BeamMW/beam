@@ -410,6 +410,7 @@ jobs:
         git clone --depth=1 https://github.com/BeamMW/boost-android.git ${{runner.workspace}}/dependencies/boost_1_68-android
         git clone --depth=1 https://github.com/BeamMW/openssl-android.git ${{runner.workspace}}/dependencies/Prebuilt-OpenSSL-Android
         echo "ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk-bundle" >> $GITHUB_ENV
+        ls /usr/local/lib/android/sdk
         echo "BOOST_ROOT_ANDROID=${{runner.workspace}}/dependencies/boost_1_68-android" >> $GITHUB_ENV
         echo "OPENSSL_ROOT_DIR_ANDROID=${{runner.workspace}}/dependencies/Prebuilt-OpenSSL-Android" >> $GITHUB_ENV
 
@@ -418,15 +419,15 @@ jobs:
 ###############################################################################
     - name: Configure CMake
       run: |
-        export PATH=${{env.ANDROID_HOME}}:$PATH
-        cmake -DCMAKE_TOOLCHAIN_FILE=${{env.ANDROID_HOME}}/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=${{env.ANDROID_SDK_VERSION}} -DANDROID_ABI=${{env.ANDROID_ABI}} -DBEAM_IPFS_SUPPORT=Off -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} .
+        export PATH=${{env.ANDROID_NDK_HOME}}:$PATH
+        cmake -DCMAKE_TOOLCHAIN_FILE=${{env.ANDROID_NDK_HOME}}/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=${{env.ANDROID_SDK_VERSION}} -DANDROID_ABI=${{env.ANDROID_ABI}} -DBEAM_IPFS_SUPPORT=Off -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} .
 
 ###############################################################################
 # Build
 ###############################################################################
     - name: Build
       run: |
-        export PATH=${{env.ANDROID_HOME}}:$PATH
+        export PATH=${{env.ANDROID_NDK_HOME}}:$PATH
         make wallet-jni -j$(nproc)
 
     - name: Save version info
