@@ -395,7 +395,7 @@ jobs:
         abi: [x86, x86_64, armeabi-v7a, arm64-v8a]
     env:
       ANDROID_ABI: ${{matrix.abi}}
-      ANDROID_SDK_VERSION: 23
+      ANDROID_SDK_VERSION: 25
 
     steps:
     - uses: actions/checkout@v2
