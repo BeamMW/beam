@@ -182,6 +182,40 @@ namespace bvm2 {
 		m_Secp.m_Scalar.m_Map.Clear();
 	}
 
+	void Processor::DebugCallstack::OnCall(Wasm::Word nAddr, Wasm::Word nRetAddr)
+	{
+		if (m_v.size() < s_MaxEntries)
+		{
+			auto& fl = m_v.emplace_back();
+			fl.m_Addr = nAddr;
+			fl.m_CallerIp = nRetAddr;
+		}
+		else
+			m_Missing++;
+	}
+
+	void Processor::DebugCallstack::OnRet()
+	{
+		if (m_Missing)
+			m_Missing--;
+		else
+		{
+			if (!m_v.empty())
+				m_v.pop_back();
+		}
+	}
+
+	void Processor::DebugCallstack::Dump(std::ostream& os, Wasm::Word& ip) const
+	{
+		for (uint32_t i = (uint32_t) m_v.size(); i--; )
+		{
+			const auto& x = m_v[i];
+
+			os << std::endl << "Ip=" << uintBigFrom(x.m_Addr) << "+" << uintBigFrom(ip - x.m_Addr);
+			ip = x.m_CallerIp;
+		}
+	}
+
 	void ProcessorContract::InitStackPlus(uint32_t nStackBytes)
 	{
 		InitBase(Limits::StackSize + nStackBytes);
@@ -245,7 +279,6 @@ namespace bvm2 {
 		FarCalls::Frame* pPrev = bInheritContext ? &m_FarCalls.m_Stack.back() : nullptr;
 
 		auto& x = *m_FarCalls.m_Stack.Create_back();
-		x.m_Local.m_Missing = 0;
 		x.m_Cid = cid;
 		x.m_FarRetAddr = nRetAddr;
 		x.m_StackBytesMax = m_Stack.m_BytesMax;
@@ -274,13 +307,9 @@ namespace bvm2 {
 	void ProcessorContract::OnRet(Wasm::Word nRetAddr)
 	{
 		auto& x = m_FarCalls.m_Stack.back();
-		if (x.m_Local.m_Missing)
-			x.m_Local.m_Missing--;
-		else
-		{
-			if (!x.m_Local.m_v.empty())
-				x.m_Local.m_v.pop_back();
-		}
+
+		if (m_FarCalls.m_SaveLocal)
+			x.m_Debug.OnRet();
 
 		if (nRetAddr)
 			Processor::OnRet(nRetAddr);
@@ -316,16 +345,8 @@ namespace bvm2 {
 		if (m_FarCalls.m_SaveLocal)
 		{
 			auto& x = m_FarCalls.m_Stack.back();
-			if (x.m_Local.m_v.size() < x.m_Local.s_MaxEntries)
-			{
-				bool bWasEmpty = x.m_Local.m_v.empty();
-
-				auto& fl = x.m_Local.m_v.emplace_back();
-				fl.m_Addr = nAddr;
-				fl.m_CallerIp = bWasEmpty ? x.m_FarRetAddr : get_Ip();
-			}
-			else
-				x.m_Local.m_Missing++;
+			Wasm::Word nRetAddr = x.m_Debug.m_v.empty() ? x.m_FarRetAddr : get_Ip();
+			x.m_Debug.OnCall(nAddr, nRetAddr);
 		}
 
 		Processor::OnCall(nAddr);
@@ -344,14 +365,7 @@ namespace bvm2 {
 
 			os << std::endl << "Cid=" << fr.m_Cid << ", Sid=" << sid;
 
-			for (uint32_t i = (uint32_t) fr.m_Local.m_v.size(); i--; )
-			{
-				const auto& x = fr.m_Local.m_v[i];
-
-				os << std::endl << "Ip=" << uintBigFrom(x.m_Addr) << "+" << uintBigFrom(ip - x.m_Addr);
-				ip = x.m_CallerIp;
-			}
-
+			fr.m_Debug.Dump(os, ip);
 		}
 	}
 

@@ -290,6 +290,24 @@ namespace bvm2 {
 			return get_Height() + 1 >= Rules::get().pForks[4].m_Height;
 		}
 
+		struct DebugCallstack
+		{
+			struct Entry {
+				Wasm::Word m_CallerIp;
+				Wasm::Word m_Addr;
+			};
+
+			static const uint32_t s_MaxEntries = 256;
+
+			std::vector<Entry> m_v;
+			uint32_t m_Missing = 0;
+
+			void OnCall(Wasm::Word nAddr, Wasm::Word nRetAddr);
+			void OnRet();
+			void Dump(std::ostream& os, Wasm::Word& ip) const;
+
+		};
+
 	public:
 
 		enum struct Kind {
@@ -334,19 +352,7 @@ namespace bvm2 {
 				Wasm::Word m_StackBytesMax;
 				Wasm::Word m_StackBytesRet;
 
-				struct Local
-				{
-					struct Entry {
-						Wasm::Word m_CallerIp;
-						Wasm::Word m_Addr;
-					};
-
-					static const uint32_t s_MaxEntries = 256;
-
-					std::vector<Entry> m_v;
-					uint32_t m_Missing;
-
-				} m_Local;
+				DebugCallstack m_Debug;
 			};
 
 			intrusive::list_autoclear<Frame> m_Stack;
