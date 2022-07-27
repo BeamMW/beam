@@ -22,7 +22,6 @@ namespace beam::wallet
         ECC::Scalar s;
         ECC::Hash::Processor()
             << "api.unique"
-            << getAppId()
             << Blob(req.tag.c_str(), (uint32_t) req.tag.size())
             >> s.m_Value;
 
