@@ -1298,12 +1298,10 @@ namespace Wasm {
 
 		BuildPass(false);
 
-		uint32_t nNumIncluded = CalcDependencies();
-		uint32_t nNumMax = static_cast<uint32_t>(m_Functions.size());
-		if (!m_IndirectFuncs.m_vec.empty())
-			nNumMax++;
+		uint32_t nIncluded = 0, nTotal = 0;
+		CalcDependencies(nIncluded, nTotal);
 
-		if (nNumIncluded < nNumMax)
+		if (nIncluded < nTotal)
 		{
 			m_Result.resize(n0);
 			BuildPass(true);
@@ -1349,7 +1347,7 @@ namespace Wasm {
 		}
 	}
 
-	uint32_t Compiler::CalcDependencies()
+	void Compiler::CalcDependencies(uint32_t& nIncluded, uint32_t& nTotal)
 	{
 		std::vector<uint32_t> vec;
 		vec.reserve(m_Functions.size() + 1);
@@ -1361,8 +1359,11 @@ namespace Wasm {
 				vec.push_back(i);
 		}
 
+		nTotal += (uint32_t) m_Functions.size();
+
 		if (!m_IndirectFuncs.m_vec.empty())
 		{
+			nTotal++;
 			for (uint32_t i = 0; i < m_IndirectFuncs.m_vec.size(); i++)
 				m_IndirectFuncs.m_Dep.m_Set.insert(m_IndirectFuncs.m_vec[i]);
 		}
@@ -1371,6 +1372,8 @@ namespace Wasm {
 
 		for (uint32_t i = 0; i < vec.size(); i++)
 		{
+			nIncluded++;
+
 			auto iIdx = vec[i];
 			auto& dep = (Dependency::s_IdxIndirect == iIdx) ? m_IndirectFuncs.m_Dep : m_Functions[iIdx].m_Dep;
 			assert(dep.m_Include);
@@ -1386,8 +1389,6 @@ namespace Wasm {
 				}
 			}
 		}
-
-		return static_cast<uint32_t>(vec.size());
 	}
 
 	void Compiler::Context::CompileFunc()

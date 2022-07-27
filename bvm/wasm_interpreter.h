@@ -274,7 +274,7 @@ namespace Wasm {
 
 		void BuildPass(bool bDependentOnly);
 		void Build();
-		uint32_t CalcDependencies();
+		void CalcDependencies(uint32_t& nIncluded, uint32_t& nTotal);
 	};
 
 	struct MemoryType {
