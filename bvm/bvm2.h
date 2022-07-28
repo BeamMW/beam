@@ -334,19 +334,7 @@ namespace bvm2 {
 				Wasm::Word m_StackBytesMax;
 				Wasm::Word m_StackBytesRet;
 
-				struct Local
-				{
-					struct Entry {
-						Wasm::Word m_CallerIp;
-						Wasm::Word m_Addr;
-					};
-
-					static const uint32_t s_MaxEntries = 256;
-
-					std::vector<Entry> m_v;
-					uint32_t m_Missing;
-
-				} m_Local;
+				DebugCallstack m_Debug;
 			};
 
 			intrusive::list_autoclear<Frame> m_Stack;
@@ -356,6 +344,8 @@ namespace bvm2 {
 		} m_FarCalls;
 
 		void DumpCallstack(std::ostream& os) const;
+
+		virtual const Wasm::Compiler::DebugInfo* get_DbgInfo(const ShaderID& sid) const { return nullptr; }
 
 		bool LoadFixedOrZero(const VarKey&, uint8_t* pVal, uint32_t);
 		uint32_t SaveNnz(const VarKey&, const uint8_t* pVal, uint32_t);
@@ -591,6 +581,11 @@ namespace bvm2 {
 
 		} m_Comms;
 
+		DebugCallstack m_DbgCallstack;
+
+		virtual void OnCall(Wasm::Word nAddr) override;
+		virtual void OnRet(Wasm::Word nRetAddr) override;
+
 		virtual void Comm_CreateListener(Comm::Channel::Ptr&, const ECC::Hash::Value&) {}
 		virtual void Comm_Send(const ECC::Point&, const Blob&) {}
 		virtual void Comm_Wait(uint32_t nTimeout_ms) { Wasm::Fail(); }
@@ -599,9 +594,9 @@ namespace bvm2 {
 
 		std::ostream* m_pOut;
 		bool m_NeedComma = false;
+		bool m_Debug = false;
 
 		Key::IPKdf::Ptr m_pPKdf; // required for user-related info (account-specific pubkeys, etc.)
-
 		Key::IKdf::Ptr m_pKdf; // gives more access to the keys. Set only when app runs in a privileged mode
 
 		ContractInvokeData m_vInvokeData;
@@ -620,6 +615,8 @@ namespace bvm2 {
 		void CallMethod(uint32_t iMethod);
 
 		void RunOnce();
+
+		void DumpCallstack(std::ostream& os, const Wasm::Compiler::DebugInfo* pDbgInfo = nullptr) const;
 	};
 
 

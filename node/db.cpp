@@ -432,11 +432,12 @@ void NodeDB::Open(const char* szPath)
 			// no break;
 
 		case 29: // Block interpretation nKrnIdx fixed to match KrnWalker's
-			ExecQuick("DROP TABLE IF EXISTS " TblKrnInfo);
 			// no break;
 
 		case 30: // Block interpretation nKrnIdx fixed to match KrnWalker's
 			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
+
+			ExecQuick("DROP TABLE IF EXISTS " TblKrnInfo);
 			CreateTables30();
 
 			// no break;

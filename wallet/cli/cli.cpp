@@ -2287,13 +2287,19 @@ namespace
 
                     using ManagerStdInWallet::ManagerStdInWallet;
 
+                    Wasm::Compiler::DebugInfo m_DbgInfo;
+
 				    void OnDone(const std::exception* pExc) override
 				    {
 					    m_Done = true;
 					    m_Err = !!pExc;
 
                         if (pExc)
+                        {
                             std::cout << "Shader exec error: " << pExc->what() << std::endl;
+                            if (m_Debug)
+                                DumpCallstack(std::cout, &m_DbgInfo);
+                        }
                         else
                             std::cout << "Shader output: " << m_Out.str() << std::endl;
 
@@ -2301,7 +2307,7 @@ namespace
                             io::Reactor::get_Current().stop();
 				    }
 
-                    static void Compile(ByteBuffer& res, const char* sz, Kind kind)
+                    static void Compile(ByteBuffer& res, const char* sz, Kind kind, Wasm::Compiler::DebugInfo* pDbgInfo = nullptr)
                     {
                         std::FStream fs;
                         fs.Open(sz, true, true);
@@ -2310,17 +2316,18 @@ namespace
                         if (!res.empty())
                             fs.read(&res.front(), res.size());
 
-                        bvm2::Processor::Compile(res, res, kind);
+                        bvm2::Processor::Compile(res, res, kind, pDbgInfo);
                     }
                 };
 
                 MyManager man(walletDB, wallet);
+                man.m_Debug = vm[cli::SHADER_DEBUG].as<bool>();
 
                 auto sVal = vm[cli::SHADER_BYTECODE_APP].as<string>();
                 if (sVal.empty())
                     throw std::runtime_error("shader file not specified");
 
-                MyManager::Compile(man.m_BodyManager, sVal.c_str(), MyManager::Kind::Manager);
+                MyManager::Compile(man.m_BodyManager, sVal.c_str(), MyManager::Kind::Manager, man.m_Debug ? &man.m_DbgInfo : nullptr);
 
                 sVal = vm[cli::SHADER_BYTECODE_CONTRACT].as<string>();
                 if (!sVal.empty())

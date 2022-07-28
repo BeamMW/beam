@@ -208,9 +208,13 @@ namespace Wasm {
 				std::string m_sName;
 				uint32_t m_Pos;
 				std::vector<Entry> m_vOps;
+
+				size_t Find(Wasm::Word nAddr) const;
 			};
 
 			std::vector<Function> m_vFuncs;
+
+			const Function* Find(Wasm::Word nAddr) const;
 		};
 
 		DebugInfo* m_pDebugInfo = nullptr;
@@ -274,7 +278,7 @@ namespace Wasm {
 
 		void BuildPass(bool bDependentOnly);
 		void Build();
-		uint32_t CalcDependencies();
+		void CalcDependencies(uint32_t& nIncluded, uint32_t& nTotal);
 	};
 
 	struct MemoryType {
@@ -301,6 +305,24 @@ namespace Wasm {
 		Reader m_Instruction;
 
         virtual ~Processor() = default;
+
+		struct DebugCallstack
+		{
+			struct Entry {
+				Wasm::Word m_CallerIp;
+				Wasm::Word m_Addr;
+			};
+
+			static const uint32_t s_MaxEntries = 256;
+
+			std::vector<Entry> m_v;
+			uint32_t m_Missing = 0;
+
+			void OnCall(Wasm::Word nAddr, Wasm::Word nRetAddr);
+			void OnRet();
+			void Dump(std::ostream& os, Wasm::Word& ip, const Wasm::Compiler::DebugInfo*) const;
+
+		};
 
 		struct Stack
 		{

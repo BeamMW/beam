@@ -93,7 +93,7 @@ jobs:
           if-no-files-found: error
 
   build_osx:
-    runs-on: macos-10.15
+    runs-on: macos-11
     steps:
       - name: Create Build Environment
         shell: bash
@@ -103,9 +103,9 @@ jobs:
       - name: Download
         shell: bash
         run: |
-          wget -q https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/boost_1_75_0.tar.gz
-          tar -xvf boost_1_75_0.tar.gz > /dev/null
-          mv ./boost_1_75_0 ${{runner.workspace}}/boost
+          wget -q https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.tar.gz
+          tar -xvf boost_1_78_0.tar.gz > /dev/null
+          mv ./boost_1_78_0 ${{runner.workspace}}/boost
 
       - name: Bootstrap
         shell: bash
@@ -127,11 +127,10 @@ jobs:
 
       - name: Pack
         shell: bash
-        run:
-          tar -zcvf boost_prebuild.tar.gz ${{runner.workspace}}/boost_prebuild
+        run: tar -zcvf boost_prebuild.tar.gz ${{runner.workspace}}/boost_prebuild
 
       - uses: actions/upload-artifact@v2
         with:
-          name: boost_prebuild_macos-10.15
+          name: boost_prebuild_macos-11
           path: boost_prebuild.tar.gz
           if-no-files-found: error

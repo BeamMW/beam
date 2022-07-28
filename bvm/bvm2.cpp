@@ -245,7 +245,6 @@ namespace bvm2 {
 		FarCalls::Frame* pPrev = bInheritContext ? &m_FarCalls.m_Stack.back() : nullptr;
 
 		auto& x = *m_FarCalls.m_Stack.Create_back();
-		x.m_Local.m_Missing = 0;
 		x.m_Cid = cid;
 		x.m_FarRetAddr = nRetAddr;
 		x.m_StackBytesMax = m_Stack.m_BytesMax;
@@ -274,13 +273,9 @@ namespace bvm2 {
 	void ProcessorContract::OnRet(Wasm::Word nRetAddr)
 	{
 		auto& x = m_FarCalls.m_Stack.back();
-		if (x.m_Local.m_Missing)
-			x.m_Local.m_Missing--;
-		else
-		{
-			if (!x.m_Local.m_v.empty())
-				x.m_Local.m_v.pop_back();
-		}
+
+		if (m_FarCalls.m_SaveLocal)
+			x.m_Debug.OnRet();
 
 		if (nRetAddr)
 			Processor::OnRet(nRetAddr);
@@ -316,16 +311,8 @@ namespace bvm2 {
 		if (m_FarCalls.m_SaveLocal)
 		{
 			auto& x = m_FarCalls.m_Stack.back();
-			if (x.m_Local.m_v.size() < x.m_Local.s_MaxEntries)
-			{
-				bool bWasEmpty = x.m_Local.m_v.empty();
-
-				auto& fl = x.m_Local.m_v.emplace_back();
-				fl.m_Addr = nAddr;
-				fl.m_CallerIp = bWasEmpty ? x.m_FarRetAddr : get_Ip();
-			}
-			else
-				x.m_Local.m_Missing++;
+			Wasm::Word nRetAddr = x.m_Debug.m_v.empty() ? x.m_FarRetAddr : get_Ip();
+			x.m_Debug.OnCall(nAddr, nRetAddr);
 		}
 
 		Processor::OnCall(nAddr);
@@ -344,14 +331,7 @@ namespace bvm2 {
 
 			os << std::endl << "Cid=" << fr.m_Cid << ", Sid=" << sid;
 
-			for (uint32_t i = (uint32_t) fr.m_Local.m_v.size(); i--; )
-			{
-				const auto& x = fr.m_Local.m_v[i];
-
-				os << std::endl << "Ip=" << uintBigFrom(x.m_Addr) << "+" << uintBigFrom(ip - x.m_Addr);
-				ip = x.m_CallerIp;
-			}
-
+			fr.m_Debug.Dump(os, ip, get_DbgInfo(sid));
 		}
 	}
 
@@ -677,6 +657,26 @@ namespace bvm2 {
 
 	uint32_t LogFrom(uint8_t x) {
 		return x;
+	}
+
+	// test there're no collisions
+	void NeverCalled_VerifyNoIdCollisions(uint32_t nBinding)
+	{
+#define THE_MACRO(id, ret, name) case id:
+
+		// must ensure no ID collisions within Common, Contract, Manager, and also combined {Common, Contract} and {Common, Manager}
+		// It's not necessary that {Common, Contract, Manager} all be unique (we can assign same ID to a method in Contract and other method in Manager), but we prefer to avoid this too
+		// This is to ease in the future the promotion of a method from Contract/Manager into Common
+
+		switch (nBinding)
+		{
+		BVMOpsAll_Common(THE_MACRO)
+		BVMOpsAll_Contract(THE_MACRO)
+		BVMOpsAll_Manager(THE_MACRO)
+			break;
+		}
+
+#undef THE_MACRO
 	}
 
 #define PAR_PASS(type, name) m_##name.V
@@ -3051,6 +3051,20 @@ namespace bvm2 {
 		}
 	}
 
+	BVM_METHOD(GetApiVersion)
+	{
+		return Shaders::ApiVersion::Current;
+	}
+
+	BVM_METHOD_HOST_AUTO(GetApiVersion)
+
+	BVM_METHOD(SetApiVersion)
+	{
+		Wasm::Test(Shaders::ApiVersion::Current == nVer);
+	}
+
+	BVM_METHOD_HOST_AUTO(SetApiVersion)
+
 	void ProcessorManager::RunOnce()
 	{
 		assert(!IsSuspended());
@@ -3567,6 +3581,31 @@ namespace bvm2 {
                 	input.remove_prefix(newBegin);
         	}
 		return ret;
+	}
+
+	void ProcessorManager::DumpCallstack(std::ostream& os, const Wasm::Compiler::DebugInfo* pDbgInfo /* = nullptr */) const
+	{
+		Wasm::Word ip = get_Ip();
+		m_DbgCallstack.Dump(os, ip, pDbgInfo);
+	}
+
+	void ProcessorManager::OnCall(Wasm::Word nAddr)
+	{
+		if (m_Debug)
+		{
+			Wasm::Word nRetAddr = m_DbgCallstack.m_v.empty() ? 0 : get_Ip();
+			m_DbgCallstack.OnCall(nAddr, nRetAddr);
+		}
+
+		Processor::OnCall(nAddr);
+	}
+
+	void ProcessorManager::OnRet(Wasm::Word nRetAddr)
+	{
+		if (m_Debug)
+			m_DbgCallstack.OnRet();
+
+		Processor::OnRet(nRetAddr);
 	}
 
 } // namespace bvm2

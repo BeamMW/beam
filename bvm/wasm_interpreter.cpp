@@ -1290,6 +1290,64 @@ namespace Wasm {
 		}
 	}
 
+	template <typename TObject, typename TCmp>
+	size_t FindPastMatch(const TCmp& comparator, const TObject* p0, size_t n)
+	{
+		size_t n0 = 0;
+		while (n0 < n)
+		{
+			size_t mid = (n0 + n) / 2;
+
+			if (comparator.IsMatch(p0[mid]))
+				n0 = mid + 1;
+			else
+				n = mid;
+		}
+
+		return n0;
+	}
+
+	const Compiler::DebugInfo::Function* Compiler::DebugInfo::Find(Wasm::Word nAddr) const
+	{
+		if (!m_vFuncs.empty())
+		{
+			struct MyCmp
+			{
+				Wasm::Word m_Addr;
+				bool IsMatch(const Function& f) const {
+					return f.m_Pos <= m_Addr;
+				}
+			};
+
+			MyCmp myCmp;
+			myCmp.m_Addr = nAddr;
+
+			auto idx = FindPastMatch(myCmp, &m_vFuncs.front(), m_vFuncs.size());
+			if (idx)
+				return &m_vFuncs[idx - 1];
+		}
+		return nullptr;
+	}
+
+	size_t Compiler::DebugInfo::Function::Find(Wasm::Word nAddr) const
+	{
+		if (m_vOps.empty())
+			return 0;
+
+		struct MyCmp
+		{
+			Wasm::Word m_Pos;
+			bool IsMatch(const Entry& e) const {
+				return e.m_Pos < m_Pos;
+			}
+		};
+
+		MyCmp myCmp;
+		myCmp.m_Pos = nAddr - m_Pos; // relative addr
+
+		return FindPastMatch(myCmp, &m_vOps.front(), m_vOps.size());
+	}
+
 	void Compiler::Build()
 	{
 		CheckpointTxt cp("wasm/Compiler/build");
@@ -1298,12 +1356,10 @@ namespace Wasm {
 
 		BuildPass(false);
 
-		uint32_t nNumIncluded = CalcDependencies();
-		uint32_t nNumMax = static_cast<uint32_t>(m_Functions.size());
-		if (!m_IndirectFuncs.m_vec.empty())
-			nNumMax++;
+		uint32_t nIncluded = 0, nTotal = 0;
+		CalcDependencies(nIncluded, nTotal);
 
-		if (nNumIncluded < nNumMax)
+		if (nIncluded < nTotal)
 		{
 			m_Result.resize(n0);
 			BuildPass(true);
@@ -1349,7 +1405,7 @@ namespace Wasm {
 		}
 	}
 
-	uint32_t Compiler::CalcDependencies()
+	void Compiler::CalcDependencies(uint32_t& nIncluded, uint32_t& nTotal)
 	{
 		std::vector<uint32_t> vec;
 		vec.reserve(m_Functions.size() + 1);
@@ -1361,11 +1417,21 @@ namespace Wasm {
 				vec.push_back(i);
 		}
 
-		if (m_IndirectFuncs.m_Dep.m_Include)
-			vec.push_back((uint32_t) Dependency::s_IdxIndirect); // pass by value. gcc will omit s_IdxIndirect, If passed by reference - linker error
+		nTotal += (uint32_t) m_Functions.size();
+
+		if (!m_IndirectFuncs.m_vec.empty())
+		{
+			nTotal++;
+			for (uint32_t i = 0; i < m_IndirectFuncs.m_vec.size(); i++)
+				m_IndirectFuncs.m_Dep.m_Set.insert(m_IndirectFuncs.m_vec[i]);
+		}
+
+		assert(!m_IndirectFuncs.m_Dep.m_Include);
 
 		for (uint32_t i = 0; i < vec.size(); i++)
 		{
+			nIncluded++;
+
 			auto iIdx = vec[i];
 			auto& dep = (Dependency::s_IdxIndirect == iIdx) ? m_IndirectFuncs.m_Dep : m_Functions[iIdx].m_Dep;
 			assert(dep.m_Include);
@@ -1381,8 +1447,6 @@ namespace Wasm {
 				}
 			}
 		}
-
-		return static_cast<uint32_t>(vec.size());
 	}
 
 	void Compiler::Context::CompileFunc()
@@ -1407,7 +1471,7 @@ namespace Wasm {
 		{
 			pDbg = &m_This.m_pDebugInfo->m_vFuncs.emplace_back();
 			pDbg->m_sName.assign(func.m_sName.p, func.m_sName.n);
-			pDbg->m_Pos = (uint32_t)m_This.m_Result.size();
+			pDbg->m_Pos = (uint32_t) m_This.m_Result.size();
 		}
 
 		m_Code = func.m_Expression;
@@ -1438,6 +1502,7 @@ namespace Wasm {
 				auto& de = pDbg->m_vOps.emplace_back();
 				de.m_Opcode = (uint8_t) nInstruction;
 				de.m_Pos = (uint32_t) m_This.m_Result.size();
+				de.m_Pos -= pDbg->m_Pos; // to rel
 			}
 
 			switch (nInstruction)
@@ -2149,6 +2214,51 @@ namespace Wasm {
 		Jmp(nRetAddr);
 	}
 
+	void Processor::DebugCallstack::OnCall(Wasm::Word nAddr, Wasm::Word nRetAddr)
+	{
+		if (m_v.size() < s_MaxEntries)
+		{
+			auto& fl = m_v.emplace_back();
+			fl.m_Addr = nAddr;
+			fl.m_CallerIp = nRetAddr;
+		}
+		else
+			m_Missing++;
+	}
+
+	void Processor::DebugCallstack::OnRet()
+	{
+		if (m_Missing)
+			m_Missing--;
+		else
+		{
+			if (!m_v.empty())
+				m_v.pop_back();
+		}
+	}
+
+	void Processor::DebugCallstack::Dump(std::ostream& os, Wasm::Word& ip, const Wasm::Compiler::DebugInfo* pDbgInfo) const
+	{
+		for (uint32_t i = (uint32_t) m_v.size(); i--; )
+		{
+			const auto& x = m_v[i];
+
+			os << std::endl << "Ip=" << uintBigFrom(x.m_Addr) << "+" << uintBigFrom(ip - x.m_Addr);
+
+			if (pDbgInfo)
+			{
+				auto* pF = pDbgInfo->Find(ip);
+				if (pF)
+				{
+					size_t iL = pF->Find(ip);
+					if (iL < pF->m_vOps.size())
+						os << std::endl << "\tFunc = " << pF->m_sName << ", Line = " << iL;
+				}
+			}
+
+			ip = x.m_CallerIp;
+		}
+	}
 
 
 

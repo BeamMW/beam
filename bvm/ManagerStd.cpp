@@ -442,6 +442,8 @@ namespace bvm2 {
 		m_Pending.m_pSingleRequest.reset();
 		m_Pending.m_pCommMsg.reset();
 		m_Pending.m_pBlocker = nullptr;
+
+		m_DbgCallstack = DebugCallstack();
 	}
 
 	void ManagerStd::StartRun(uint32_t iMethod)
