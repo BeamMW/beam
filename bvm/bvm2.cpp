@@ -659,6 +659,26 @@ namespace bvm2 {
 		return x;
 	}
 
+	// test there're no collisions
+	void NeverCalled_VerifyNoIdCollisions(uint32_t nBinding)
+	{
+#define THE_MACRO(id, ret, name) case id:
+
+		// must ensure no ID collisions within Common, Contract, Manager, and also combined {Common, Contract} and {Common, Manager}
+		// It's not necessary that {Common, Contract, Manager} all be unique (we can assign same ID to a method in Contract and other method in Manager), but we prefer to avoid this too
+		// This is to ease in the future the promotion of a method from Contract/Manager into Common
+
+		switch (nBinding)
+		{
+		BVMOpsAll_Common(THE_MACRO)
+		BVMOpsAll_Contract(THE_MACRO)
+		BVMOpsAll_Manager(THE_MACRO)
+			break;
+		}
+
+#undef THE_MACRO
+	}
+
 #define PAR_PASS(type, name) m_##name.V
 #define PAR_DECL(type, name) ParamWrap<type> m_##name;
 #define PAR_ASSIGN(type, name) args.m_##name =
