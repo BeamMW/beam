@@ -3076,6 +3076,20 @@ namespace bvm2 {
 		}
 	}
 
+	BVM_METHOD(GetApiVersion)
+	{
+		return Shaders::ApiVersion::Current;
+	}
+
+	BVM_METHOD_HOST_AUTO(GetApiVersion)
+
+	BVM_METHOD(SetApiVersion)
+	{
+		Wasm::Test(Shaders::ApiVersion::Current == nVer);
+	}
+
+	BVM_METHOD_HOST_AUTO(SetApiVersion)
+
 	void ProcessorManager::RunOnce()
 	{
 		assert(!IsSuspended());

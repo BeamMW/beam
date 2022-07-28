@@ -381,6 +381,11 @@
 	macro(const char*, szComment) sep \
 	macro(uint32_t, nCharge)
 
+#define BVMOp_GetApiVersion(macro, sep) \
+
+#define BVMOp_SetApiVersion(macro, sep) \
+	macro(uint32_t, nVer)
+
 #define BVMOp_GenerateRandom(macro, sep) \
 	macro(void*, pBuf) sep \
 	macro(uint32_t, nSize)
@@ -546,6 +551,8 @@
 	macro(0x6B, uint8_t  , DocGetNum64) \
 	macro(0x6C, uint32_t , DocGetBlob) \
 	macro(0x70, void     , GenerateKernel) \
+	macro(0x78, uint32_t , GetApiVersion) \
+	macro(0x79, void     , SetApiVersion) \
 	macro(0xA0, void     , GenerateRandom) \
 	macro(0xA1, void     , get_SlotImage) \
 	macro(0xA2, void     , SlotInit) \
