@@ -550,9 +550,9 @@
 	macro(0xA5, void     , GenerateKernelAdvanced) \
 	macro(0xA6, void     , get_SlotImageEx) \
 	macro(0xA7, void     , get_PkEx) \
-	macro(0xB0, void     , Comm_Listen) \
 	macro(0xB1, void     , Comm_Send) \
 	macro(0xB2, uint32_t , Comm_Read) \
 	macro(0xB3, void     , Comm_WaitMsg) \
+	macro(0xB4, void     , Comm_Listen) \
 
 #define EXTRA_LINE_BEFORE_EOF_SO_THAT_THE_STUPID_COMPILER_WONT_COMPLAIN_ABOUT_BACKSLASH_ON_PREVIOUS_LINE
