@@ -296,7 +296,6 @@ namespace beam::wallet
         void getDexOrder(const DexOrderID&) override;
         void publishDexOrder(const DexOrder&) override;
         void acceptDexOrder(const DexOrderID&) override;
-        void setAssetsFullList(const std::set<beam::Asset::ID>& assets) override;
 
         #ifdef BEAM_IPFS_SUPPORT
         void getIPFSStatus() override;
@@ -348,6 +347,7 @@ namespace beam::wallet
         bool OnProgress(uint64_t done, uint64_t total) override;
 
         WalletStatus getStatus() const;
+        void loadFullAssetsList();
         void updateStatus();
         void updateClientState(const WalletStatus&);
         void updateMaxPrivacyStats(const WalletStatus& status);

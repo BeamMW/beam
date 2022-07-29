@@ -146,11 +146,6 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::acceptDexOrder, orderId);
     }
 
-    void setAssetsFullList(const std::set<beam::Asset::ID>& assets) override
-    {
-        call_async(&IWalletModelAsync::setAssetsFullList, assets);
-    }
-
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT    
     void getSwapOffers() override
     {
@@ -1891,11 +1886,6 @@ namespace beam::wallet
 
     }
 
-    void WalletClient::setAssetsFullList(const std::set<beam::Asset::ID>& assets)
-    {
-        m_assetsFullList = assets;
-    }
-
     #ifdef BEAM_IPFS_SUPPORT
     void WalletClient::getIPFSStatus()
     {
@@ -2274,6 +2264,34 @@ namespace beam::wallet
         return status;
     }
 
+    void WalletClient::loadFullAssetsList()
+    {
+        auto wallet = m_wallet.lock();
+        if (wallet)
+        {
+            auto h = m_status.stateID.m_Height;
+            wallet->RequestAssetsListAt(h, [this](ByteBuffer assetsBuffer)
+            {
+                std::vector<Asset::ID> assets;
+                size_t assetsCount = assetsBuffer.size() / sizeof(Asset::ID);
+                assets.resize(assetsCount);
+                memcpy(assets.data(), assetsBuffer.data(), assetsBuffer.size());
+
+                std::set<Asset::ID> assetsFullList;
+                for (auto asset : assets)
+                {
+                    assetsFullList.insert(asset);
+                    getAssetInfo(asset);
+                }
+
+                postFunctionToClientContext([this, assetsFullList]()
+                {
+                    m_assetsFullList = assetsFullList;
+                });
+            });
+        }
+    }
+
     void WalletClient::onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
     {
         // reason -> ErrorType
@@ -2330,6 +2348,7 @@ namespace beam::wallet
                 m_currentHeight = currentHeight;
                 m_unsafeActiveTxCount = count;
                 m_mpLockTimeLimit = limit;
+                loadFullAssetsList();
             });
 
             auto currentHeight = w->get_TipHeight();

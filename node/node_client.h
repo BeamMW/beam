@@ -44,7 +44,6 @@ namespace beam
         virtual bool getPeersPersistent() const = 0;
 
         virtual void onNodeThreadFinished() = 0;
-        virtual void onAllKnownAssetsChanged(const std::set<beam::Asset::ID>& assets) = 0;
     };
 
     class NodeClient
@@ -79,6 +78,5 @@ namespace beam
         Key::IKdf::Ptr m_pKdf;
         Key::IPKdf::Ptr m_ownerKey;
         io::Timer::Ptr m_timer;
-        std::set<beam::Asset::ID> m_allKnownAssets;
     };
 }

@@ -183,6 +183,7 @@ namespace beam::wallet
         void RequestVouchersFrom(const WalletID& peerID, const WalletID& myID, uint32_t nCount = 1);
         virtual void OnVouchersFrom(const WalletAddress&, const WalletID& myID, std::vector<ShieldedTxo::Voucher>&&);
         void RequestShieldedOutputsAt(Height h, std::function<void(Height, TxoID)>&& onRequestComplete);
+        void RequestAssetsListAt(Height h, std::function<void(ByteBuffer)>&& onRequestComplete);
         bool IsConnectedToOwnNode() const;
         bool CanDetectCoins() const;
         void EnableBodyRequests(bool value);
@@ -360,6 +361,11 @@ namespace beam::wallet
             {
                 Height m_Height = MaxHeight;
             };
+
+            struct AssetsListAt
+            {
+                std::function<void(ByteBuffer)> m_callback;
+            };
         };
 
 #define REQUEST_Cmp_less_Single { return false; }
@@ -416,7 +422,8 @@ namespace beam::wallet
 	macro(StateSummary) \
 	macro(ShieldedOutputsAt) \
     macro(BodyPack) \
-    macro(Body)
+    macro(Body) \
+    macro(AssetsListAt)
 
 
     WalletFlyClientRequests_All(THE_MACRO)

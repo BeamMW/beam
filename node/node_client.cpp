@@ -332,28 +332,6 @@ namespace beam
                     m_model.m_observer->onSyncProgressUpdated(static_cast<int>(s.m_Done), static_cast<int>(s.m_Total));
                 }
 
-                void OnStateChanged() override 
-                {
-                    auto& processor = m_node.get_Processor();
-                    auto currentHeight = processor.m_Cursor.m_ID.m_Height;
-                    std::set<beam::Asset::ID> assets = {Asset::s_BeamID};
-                    Asset::Full ai;
-                    for (ai.m_ID = 1; ; ai.m_ID++)
-                    {
-                        int ret = processor.get_AssetAt(ai, currentHeight);
-                        if (!ret)
-                            break;
-
-                        if (ret > 0)
-                        {
-                            assets.insert(ai.m_ID);
-                        }
-                    }
-
-                    m_model.m_allKnownAssets = assets;
-                    m_model.m_observer->onAllKnownAssetsChanged(m_model.m_allKnownAssets);
-                }
-
                 void OnSyncError(Node::IObserver::Error error) override
                 {
                     m_model.m_observer->onSyncError(error);

@@ -462,6 +462,7 @@ namespace beam::wallet
     WALLET_REQUEST_Single(ShieldedOutputsAt)
     WALLET_REQUEST_Single(BodyPack)
     WALLET_REQUEST_Single(Body)
+    WALLET_REQUEST_Single(AssetsListAt)
 
 
     bool Wallet::MyRequestUtxo::operator < (const MyRequestUtxo& x) const
@@ -1192,6 +1193,11 @@ namespace beam::wallet
     void Wallet::OnRequestComplete(MyRequestShieldedOutputsAt& r)
     {
         r.m_callback(r.m_Msg.m_Height, r.m_Res.m_ShieldedOuts);
+    }
+
+    void Wallet::OnRequestComplete(MyRequestAssetsListAt& r)
+    {
+        r.m_callback(r.m_Res.m_AssetsList);
     }
 
     struct Wallet::RecognizerHandler : NodeProcessor::Recognizer::IHandler
@@ -2336,6 +2342,14 @@ namespace beam::wallet
     void Wallet::RequestShieldedOutputsAt(Height h, std::function<void(Height, TxoID)>&& onRequestComplete)
     {
         MyRequestShieldedOutputsAt::Ptr pVal(new MyRequestShieldedOutputsAt);
+        pVal->m_Msg.m_Height = h;
+        pVal->m_callback = std::move(onRequestComplete);
+        PostReqUnique(*pVal);
+    }
+
+    void Wallet::RequestAssetsListAt(Height h, std::function<void(ByteBuffer)>&& onRequestComplete)
+    {
+        MyRequestAssetsListAt::Ptr pVal(new MyRequestAssetsListAt);
         pVal->m_Msg.m_Height = h;
         pVal->m_callback = std::move(onRequestComplete);
         PostReqUnique(*pVal);

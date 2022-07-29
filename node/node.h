@@ -179,7 +179,7 @@ struct Node
 	~Node();
 	void Initialize(IExternalPOW* externalPOW=nullptr);
 
-	NodeProcessor& get_Processor() { return m_Processor; }
+	NodeProcessor& get_Processor() { return m_Processor; } // for tests only!
 
 	struct SyncStatus
 	{
@@ -636,6 +636,7 @@ private:
 		virtual void OnMsg(proto::GetContractLogProof&&) override;
 		virtual void OnMsg(proto::GetShieldedOutputsAt&&) override;
 		virtual void OnMsg(proto::SetDependentContext&&) override;
+		virtual void OnMsg(proto::GetAssetsListAt&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
