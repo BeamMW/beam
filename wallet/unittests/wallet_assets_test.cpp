@@ -188,7 +188,6 @@ void TestAssets() {
     //
     runTest("assets flag is false", [&] {
         return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetReg)
-            .SetParameter(TxParameterID::Amount, beam::Amount(0))
             .SetParameter(TxParameterID::Fee, beam::Amount(100))
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
     });
@@ -203,7 +202,6 @@ void TestAssets() {
     // not enough beam
     runTest("register, not enough BEAM", [&] {
         return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetReg)
-            .SetParameter(TxParameterID::Amount, Rules::get().CA.DepositForList)
             .SetParameter(TxParameterID::Fee, beam::Amount(100))
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
     });
@@ -220,16 +218,6 @@ void TestAssets() {
     }, 2, false);
     LOG_INFO() << "Now owner has " << PrintableAmount(storage::Totals(*ownerDB, false).GetBeamTotals().Avail);
 
-    // amount too small
-    runTest("register, amount is too small", [&] {
-        return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetReg)
-            .SetParameter(TxParameterID::Amount, beam::Amount(0))
-            .SetParameter(TxParameterID::Fee, beam::Amount(100))
-            .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
-    });
-    WALLET_CHECK(tx.m_status        == TxStatus::Failed);
-    WALLET_CHECK(tx.m_failureReason == TxFailureReason::RegisterAmountTooSmall);
-
     // fee too small
     // TODO: Uncomment when we'll create base builder that checks fees. Now it is assumed to be checked by the CLI
     //
@@ -245,7 +233,6 @@ void TestAssets() {
     // missing meta
     runTest("register, missing meta", [&] {
         return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetReg)
-            .SetParameter(TxParameterID::Amount, beam::Amount(Rules::get().CA.DepositForList))
             .SetParameter(TxParameterID::Fee, beam::Amount(100)));
     });
     WALLET_CHECK(tx.m_status        == TxStatus::Failed);
@@ -254,7 +241,6 @@ void TestAssets() {
     // empty meta
     runTest("register, empty meta", [&] {
         return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetReg)
-            .SetParameter(TxParameterID::Amount, beam::Amount(Rules::get().CA.DepositForList))
             .SetParameter(TxParameterID::Fee, beam::Amount(100))
             .SetParameter(TxParameterID::AssetMetadata, ""));
     });
@@ -269,14 +255,12 @@ void TestAssets() {
 
     runTest("register asset #1", [&] {
         return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetReg)
-            .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
     });
 
     currBM -= deposit + fee;
     WALLET_CHECK(tx.m_status      == TxStatus::Completed);
-    WALLET_CHECK(tx.m_amount      == deposit);
     WALLET_CHECK(tx.m_fee         == fee);
     WALLET_CHECK(tx.m_assetId     == ASSET1_ID);
     WALLET_CHECK(tx.m_peerId      == Zero);
@@ -287,7 +271,6 @@ void TestAssets() {
     // second time register the same asset
     runTest("register asset #1 second time", [&] {
         return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetReg)
-            .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
     });
@@ -300,7 +283,6 @@ void TestAssets() {
     // successfully register asset #2
     runTest("register asset #2", [&] {
         return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetReg)
-            .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET2_META));
     });
@@ -308,7 +290,6 @@ void TestAssets() {
     currBM -= deposit + fee;
     checkOwnerTotals(currBM, currA1, currA2);
     WALLET_CHECK(tx.m_status      == TxStatus::Completed);
-    WALLET_CHECK(tx.m_amount      == deposit);
     WALLET_CHECK(tx.m_fee         == fee);
     WALLET_CHECK(tx.m_assetId     == ASSET2_ID);
     WALLET_CHECK(tx.m_peerId      == Zero);
@@ -546,7 +527,6 @@ void TestAssets() {
     // unregister used asset
     runTest("unregister used asset", [&] {
         return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetUnreg)
-            .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
     });
@@ -614,7 +594,6 @@ void TestAssets() {
     // unregister locked asset
     runTest("unregister locked asset", [&] {
         return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetUnreg)
-            .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET2_META));
     });
@@ -632,7 +611,6 @@ void TestAssets() {
     currBM += deposit - fee;
     runTest("unregister asset #1", [&] {
         return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetUnreg)
-            .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET1_META));
     });
@@ -645,7 +623,6 @@ void TestAssets() {
     currBM += deposit - fee;
     runTest("unregister asset #2", [&] {
         return owner.m_Wallet->StartTransaction(CreateTransactionParameters(TxType::AssetUnreg)
-            .SetParameter(TxParameterID::Amount, deposit)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetMetadata, ASSET2_META));
     });

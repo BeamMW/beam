@@ -174,7 +174,7 @@ namespace beam::wallet
     MACRO(AssetConfirmFailed,            32, "Failed to receive asset confirmation") \
     MACRO(AssetInUse,                    33, "Asset is still in use (issued amount > 0)") \
     MACRO(AssetLocked,                   34, "Asset is still locked") \
-    MACRO(RegisterAmountTooSmall,        35, "Asset registration fee is too small") \
+    /*MACRO(RegisterAmountTooSmall,        35, "Asset registration fee is too small")*/ \
     MACRO(ICAmountTooBig,                36, "Cannot issue/consume more than MAX_INT64 asset groth in one transaction") \
     MACRO(NotEnoughDataForProof,         37, "Some mandatory data for payment proof is missing") \
     MACRO(NoMasterKey,                   38, "Master key is needed for this transaction, but unavailable") \
