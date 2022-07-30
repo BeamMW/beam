@@ -336,6 +336,7 @@ namespace beam
 		Height get_ForkMaxHeightSafe(uint32_t iFork) const;
 		void DisableForksFrom(uint32_t);
 		std::string get_SignatureStr() const;
+		Amount get_DepositForCA(Height hScheme) const;
 
 	private:
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
