@@ -2147,7 +2147,7 @@ namespace bvm2 {
 			r.pForks[3].m_Height = 999999999;
 			r.pForks[3].m_Hash = Zero;
 
-			r.pForks[4].m_Height = MaxHeight;
+			r.DisableForksFrom(4);
 
 
 			beam::Block::SystemState::Full s;
