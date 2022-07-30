@@ -2132,6 +2132,11 @@ namespace beam
 			pForks[i].m_Height = MaxHeight;
 	}
 
+	Amount Rules::get_DepositForCA(Height /* hScheme */) const
+	{
+		return CA.DepositForList;
+	}
+
 	std::string Rules::get_SignatureStr() const
 	{
 		std::ostringstream os;

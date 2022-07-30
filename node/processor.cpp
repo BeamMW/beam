@@ -2423,9 +2423,9 @@ struct NodeProcessor::BlockInterpretCtx
 		virtual Height get_Height() override;
 		virtual bool get_HdrAt(Block::SystemState::Full&) override;
 
-		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) override;
+		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&, Amount& valDeposit) override;
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) override;
-		virtual bool AssetDestroy(Asset::ID, const PeerID&) override;
+		virtual bool AssetDestroy(Asset::ID, const PeerID&, Amount& valDeposit) override;
 
 		BlobMap::Entry* FindVarEx(const Blob& key, bool bExact, bool bBigger);
 		bool EnsureNoVars(const bvm2::ContractID&);
@@ -5073,7 +5073,7 @@ bool NodeProcessor::get_HdrAt(Block::SystemState::Full& s)
 	return true;
 }
 
-Asset::ID NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetCreate(const Asset::Metadata& md, const PeerID& pidOwner)
+Asset::ID NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetCreate(const Asset::Metadata& md, const PeerID& pidOwner, Amount& valDeposit)
 {
 	Asset::ID aid = 0;
 	if (!m_Proc.HandleAssetCreate(pidOwner, md, m_Bic, aid, m_AssetEvtSubIdx))
@@ -5084,6 +5084,8 @@ Asset::ID NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetCreate(const Asse
 	ser & nTag;
 
 	m_AssetEvtSubIdx++;
+
+	valDeposit = Rules::get().get_DepositForCA(m_Bic.m_Height);
 
 	assert(aid);
 	return aid;
@@ -5104,7 +5106,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetEmit(Asset::ID aid, co
 	return true;
 }
 
-bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDestroy(Asset::ID aid, const PeerID& pidOwner)
+bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDestroy(Asset::ID aid, const PeerID& pidOwner, Amount& valDeposit)
 {
 	if (!m_Proc.HandleAssetDestroy(pidOwner, m_Bic, aid, m_AssetEvtSubIdx))
 		return false;
@@ -5114,6 +5116,8 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDestroy(Asset::ID aid,
 	ser & nTag;
 	ser & aid;
 	ser & pidOwner;
+
+	valDeposit = Rules::get().get_DepositForCA(m_Bic.m_Height);
 
 	m_AssetEvtSubIdx++;
 	return true;
