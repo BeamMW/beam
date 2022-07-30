@@ -66,11 +66,6 @@ namespace beam::wallet
         MyBuilder(AssetRegisterTransaction& tx)
             :Builder(tx, kDefaultSubTxID)
         {
-            const auto amount = GetParameterStrict<Amount>(TxParameterID::Amount);
-            if (amount < Rules::get().CA.DepositForList)
-            {
-                throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::RegisterAmountTooSmall);
-            }
         }
 
         void Sign()
