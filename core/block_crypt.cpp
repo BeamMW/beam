@@ -1888,9 +1888,7 @@ namespace beam
 		pForks[3].m_Height = 1500;
 		pForks[4].m_Height = 516700;
 
-		// future forks
-		for (size_t i = 5; i < _countof(pForks); i++)
-			pForks[i].m_Height = MaxHeight;
+		DisableForksFrom(5); // future forks
 	}
 
 	Amount Rules::get_EmissionEx(Height h, Height& hEnd, Amount base) const
@@ -2126,6 +2124,12 @@ namespace beam
 		}
 
 		return pForks[i];
+	}
+
+	void Rules::DisableForksFrom(uint32_t i)
+	{
+		for (; i < _countof(pForks); i++)
+			pForks[i].m_Height = MaxHeight;
 	}
 
 	std::string Rules::get_SignatureStr() const

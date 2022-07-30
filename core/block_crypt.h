@@ -334,6 +334,7 @@ namespace beam
 		const HeightHash* FindFork(const Merkle::Hash&) const;
 		uint32_t FindFork(Height) const;
 		Height get_ForkMaxHeightSafe(uint32_t iFork) const;
+		void DisableForksFrom(uint32_t);
 		std::string get_SignatureStr() const;
 
 	private:
