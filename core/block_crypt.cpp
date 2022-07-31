@@ -1126,7 +1126,7 @@ namespace beam
 		if (m_MetaData.m_Value.size() > Asset::Info::s_MetadataMaxSize)
 			return false;
 
-		ECC::Point::Native pt = ECC::Context::get().H * Rules::get().CA.DepositForList;
+		ECC::Point::Native pt = ECC::Context::get().H * Rules::get().get_DepositForCA(hScheme);
 		exc += pt;
 
 		return true;
@@ -1165,7 +1165,7 @@ namespace beam
 		if (!TxKernelAssetControl::IsValidAssetCtl(hScheme, exc, pParent))
 			return false;
 
-		ECC::Point::Native pt = ECC::Context::get().H * Rules::get().CA.DepositForList;
+		ECC::Point::Native pt = ECC::Context::get().H * Rules::get().get_DepositForCA(hScheme);
 
 		pt = -pt;
 		exc += pt;
@@ -1887,8 +1887,9 @@ namespace beam
 		pForks[2].m_Height = 30;
 		pForks[3].m_Height = 1500;
 		pForks[4].m_Height = 516700;
+		pForks[5].m_Height = 1920000;
 
-		DisableForksFrom(5); // future forks
+		DisableForksFrom(6); // future forks
 	}
 
 	Amount Rules::get_EmissionEx(Height h, Height& hEnd, Amount base) const
@@ -2055,7 +2056,7 @@ namespace beam
 			<< Shielded.m_ProofMin.M
 			<< Shielded.MaxWindowBacklog
 			<< CA.Enabled
-			<< CA.DepositForList
+			<< CA.DepositForList2
 			<< CA.LockPeriod
 			<< CA.m_ProofCfg.n
 			<< CA.m_ProofCfg.M
@@ -2075,6 +2076,12 @@ namespace beam
 			<< pForks[4].m_Height
 			// no more flexible parameters so far
 			>> pForks[4].m_Hash;
+
+		oracle
+			<< "fork5"
+			<< pForks[5].m_Height
+			<< CA.DepositForList5
+			>> pForks[5].m_Hash;
 	}
 
 	const HeightHash* Rules::FindFork(const Merkle::Hash& hv) const
@@ -2132,9 +2139,9 @@ namespace beam
 			pForks[i].m_Height = MaxHeight;
 	}
 
-	Amount Rules::get_DepositForCA(Height /* hScheme */) const
+	Amount Rules::get_DepositForCA(Height hScheme) const
 	{
-		return CA.DepositForList;
+		return (hScheme >= pForks[5].m_Height) ? CA.DepositForList5 : CA.DepositForList2;
 	}
 
 	std::string Rules::get_SignatureStr() const

@@ -280,7 +280,8 @@ namespace beam
 
 		struct {
 			bool Enabled = true;
-			Amount DepositForList = Coin * 3000;
+			Amount DepositForList2 = Coin * 3000; // after HF2
+			Amount DepositForList5 = Coin * 10; // after HF5
 			Height LockPeriod = 1440; // how long it's locked (can't be destroyed) after it was completely burned
 			Sigma::Cfg m_ProofCfg = { 4, 3 }; // 4^3 = 64
 		} CA;
@@ -328,7 +329,7 @@ namespace beam
 		static void get_Emission(AmountBig::Type&, const HeightRange&);
 		static void get_Emission(AmountBig::Type&, const HeightRange&, Amount base);
 
-		HeightHash pForks[5];
+		HeightHash pForks[6];
 
 		const HeightHash& get_LastFork() const;
 		const HeightHash* FindFork(const Merkle::Hash&) const;
