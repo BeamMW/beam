@@ -91,10 +91,12 @@ namespace beam::wallet
 
         auto& builder = *_builder;
 
+        Amount valDeposit = Rules::get().get_DepositForCA(builder.m_Height.m_Min);
+
         if (builder.m_Coins.IsEmpty())
         {
             BaseTxBuilder::Balance bb(builder);
-            bb.m_Map[0].m_Value -= (Rules::get().CA.DepositForList + builder.m_Fee);
+            bb.m_Map[0].m_Value -= (valDeposit + builder.m_Fee);
             bb.CompleteBalance();
 
             builder.SaveCoins();
@@ -112,7 +114,7 @@ namespace beam::wallet
             builder.Sign();
 
             LOG_INFO() << GetTxID() << " Registering asset with the owner ID " << builder.m_pKrn->CastTo_AssetCreate().m_Owner
-                << ". Cost is " << PrintableAmount(Rules::get().CA.DepositForList, false)
+                << ". Cost is " << PrintableAmount(valDeposit, false)
                 << ". Fee is " << PrintableAmount(builder.m_Fee, false);
         }
 

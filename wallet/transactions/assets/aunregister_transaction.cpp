@@ -89,12 +89,14 @@ namespace beam::wallet
             _builder = std::make_shared<MyBuilder>(*this, kDefaultSubTxID);
         auto& builder = *_builder;
 
+        Amount valDeposit = Rules::get().get_DepositForCA(builder.m_Height.m_Min);
+
         if (GetState<State>() == State::Initial)
         {
             LOG_INFO()
                 << GetTxID()
                 << " Unregistering asset with the owner id " << builder.m_pidAsset
-                << ". Refund amount is " << PrintableAmount(Rules::get().CA.DepositForList, false);
+                << ". Refund amount is " << PrintableAmount(valDeposit, false);
 
             UpdateTxDescription(TxStatus::InProgress);
         }
@@ -143,7 +145,7 @@ namespace beam::wallet
             }
 
             BaseTxBuilder::Balance bb(builder);
-            bb.m_Map[0].m_Value += Rules::get().CA.DepositForList - builder.m_Fee;
+            bb.m_Map[0].m_Value += valDeposit - builder.m_Fee;
             bb.CompleteBalance();
 
             builder.SaveCoins();

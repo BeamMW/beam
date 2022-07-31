@@ -127,9 +127,9 @@ void TestAssets() {
     const auto mined = AmountBig::get_Lo(totals.GetBeamTotals().Avail);
     LOG_INFO() << "Beam mined " << PrintableAmount(mined);
 
-    const auto deposit = Rules::get().CA.DepositForList;
+    const auto deposit = Rules::get().CA.DepositForList2;
     const auto fee = Amount(100);
-    const auto initial = Rules::get().CA.DepositForList * 2 + fee * 40; // 40 should be enough;
+    const auto initial = Rules::get().CA.DepositForList2 * 2 + fee * 40; // 40 should be enough;
 
     LOG_INFO() << "Beam necessary for test " << PrintableAmount(initial);
     WALLET_CHECK(initial <= mined);
@@ -646,7 +646,7 @@ int main () {
 
     rules.CA.Enabled          = true;
     rules.CA.LockPeriod       = 20;
-    rules.CA.DepositForList   = rules.Coin * 1000;
+    rules.CA.DepositForList2  = rules.Coin * 1000;
     rules.MaxRollback         = 20;
     rules.FakePoW             = true;
     rules.pForks[1].m_Height  = 5;
