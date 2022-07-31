@@ -1028,7 +1028,11 @@ namespace beam
 		typedef std::unique_ptr<TxKernelAssetDestroy> Ptr;
 
 		Asset::ID m_AssetID;
+		Amount m_Deposit = 0;
         TxKernelAssetDestroy(): m_AssetID(Asset::s_InvalidID) {}
+
+		bool IsCustomDeposit() const;
+		Amount get_Deposit() const;
 
 		virtual ~TxKernelAssetDestroy() {}
 		virtual Subtype::Enum get_Subtype() const override;

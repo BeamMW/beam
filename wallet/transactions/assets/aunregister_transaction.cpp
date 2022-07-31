@@ -60,13 +60,16 @@ namespace beam::wallet
     {
         using Builder::Builder;
 
-        void Sign()
+        void Sign(Amount valDeposit)
         {
             if (m_pKrn)
                 return;
 
             std::unique_ptr<TxKernelAssetDestroy> pKrn = std::make_unique<TxKernelAssetDestroy>();
             pKrn->m_AssetID = m_Tx.GetMandatoryParameter<Asset::ID>(TxParameterID::AssetID);
+
+            if (m_Height.m_Min >= Rules::get().pForks[5].m_Height)
+                pKrn->m_Deposit = valDeposit;
 
             AddKernel(std::move(pKrn));
             FinalyzeTx();
@@ -156,7 +159,7 @@ namespace beam::wallet
             return;
 
         if (!builder.m_pKrn)
-            builder.Sign();
+            builder.Sign(valDeposit);
 
         auto registered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegistered, registered))
