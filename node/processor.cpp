@@ -3532,10 +3532,11 @@ void NodeProcessor::InternalAssetDel(Asset::ID nAssetID, bool bMmr)
 bool NodeProcessor::HandleKernelType(const TxKernelAssetCreate& krn, BlockInterpretCtx& bic)
 {
 	Asset::ID aid;
-	return HandleAssetCreate(krn.m_Owner, krn.m_MetaData, bic, aid);
+	Amount valDeposit;
+	return HandleAssetCreate(krn.m_Owner, krn.m_MetaData, bic, aid, valDeposit);
 }
 
-bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metadata& md, BlockInterpretCtx& bic, Asset::ID& aid, uint32_t nSubIdx)
+bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metadata& md, BlockInterpretCtx& bic, Asset::ID& aid, Amount& valDeposit, uint32_t nSubIdx)
 {
 	if (!bic.m_AlreadyValidated)
 	{
@@ -3564,6 +3565,7 @@ bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metad
 		ai.m_ID = 0; // auto
 		ai.m_Owner = pidOwner;
 		ai.m_LockHeight = bic.m_Height;
+		ai.m_Deposit = valDeposit = Rules::get().get_DepositForCA(bic.m_Height);
 
 		ai.m_Metadata.m_Hash = md.m_Hash;
 
@@ -3609,12 +3611,14 @@ bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metad
 
 bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInterpretCtx& bic)
 {
-	if (krn.IsCustomDeposit() && krn.m_Deposit != Rules::get().get_DepositForCA(bic.m_Height))
+	Amount valDeposit = krn.get_Deposit();
+	if (!HandleAssetDestroy(krn.m_Owner, bic, krn.m_AssetID, valDeposit, true))
 		return false;
-	return HandleAssetDestroy(krn.m_Owner, bic, krn.m_AssetID);
+
+	return true;
 }
 
-bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, uint32_t nSubIdx)
+bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx)
 {
 	if (!bic.m_AlreadyValidated)
 		bic.EnsureAssetsUsed(m_DB);
@@ -3637,6 +3641,9 @@ bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, BlockInterpretCtx
 			if (ai.m_LockHeight + Rules::get().CA.LockPeriod > bic.m_Height)
 				return false;
 
+			if (bDepositCheck && (valDeposit != ai.m_Deposit))
+				return false;
+
 			assert(bic.m_AssetsUsed);
 			bic.m_AssetsUsed--;
 		}
@@ -3648,6 +3655,13 @@ bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, BlockInterpretCtx
 		ser
 			& ai.m_Metadata
 			& ai.m_LockHeight;
+
+		if (bic.m_Height >= Rules::get().pForks[5].m_Height)
+			ser & ai.m_Deposit;
+		else
+			assert(Rules::get().CA.DepositForList2 == ai.m_Deposit);
+
+		valDeposit = ai.m_Deposit;
 
 		if (!bic.m_Temporary)
 		{
@@ -3667,6 +3681,11 @@ bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, BlockInterpretCtx
 		der
 			& ai.m_Metadata
 			& ai.m_LockHeight;
+
+		if (bic.m_Height >= Rules::get().pForks[5].m_Height)
+			der & ai.m_Deposit;
+		else
+			ai.m_Deposit = Rules::get().CA.DepositForList2;
 
 		InternalAssetAdd(ai, !bic.m_SkipDefinition);
 
@@ -5078,7 +5097,7 @@ bool NodeProcessor::get_HdrAt(Block::SystemState::Full& s)
 Asset::ID NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetCreate(const Asset::Metadata& md, const PeerID& pidOwner, Amount& valDeposit)
 {
 	Asset::ID aid = 0;
-	if (!m_Proc.HandleAssetCreate(pidOwner, md, m_Bic, aid, m_AssetEvtSubIdx))
+	if (!m_Proc.HandleAssetCreate(pidOwner, md, m_Bic, aid, valDeposit, m_AssetEvtSubIdx))
 		return 0;
 
 	BlockInterpretCtx::Ser ser(m_Bic);
@@ -5086,8 +5105,6 @@ Asset::ID NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetCreate(const Asse
 	ser & nTag;
 
 	m_AssetEvtSubIdx++;
-
-	valDeposit = Rules::get().get_DepositForCA(m_Bic.m_Height);
 
 	assert(aid);
 	return aid;
@@ -5110,7 +5127,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetEmit(Asset::ID aid, co
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDestroy(Asset::ID aid, const PeerID& pidOwner, Amount& valDeposit)
 {
-	if (!m_Proc.HandleAssetDestroy(pidOwner, m_Bic, aid, m_AssetEvtSubIdx))
+	if (!m_Proc.HandleAssetDestroy(pidOwner, m_Bic, aid, valDeposit, false, m_AssetEvtSubIdx))
 		return false;
 
 	BlockInterpretCtx::Ser ser(m_Bic);
@@ -5118,8 +5135,6 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDestroy(Asset::ID aid,
 	ser & nTag;
 	ser & aid;
 	ser & pidOwner;
-
-	valDeposit = Rules::get().get_DepositForCA(m_Bic.m_Height);
 
 	m_AssetEvtSubIdx++;
 	return true;
@@ -5146,8 +5161,9 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 				Asset::ID aid = 0;
 				PeerID pidOwner;
 				Asset::Metadata md;
+				Amount valDeposit;
 
-				if (!m_Proc.HandleAssetCreate(pidOwner, md, m_Bic, aid))
+				if (!m_Proc.HandleAssetCreate(pidOwner, md, m_Bic, aid, valDeposit))
 					return OnCorrupted();
 			}
 			break;
@@ -5178,7 +5194,8 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 			der & aid;
 			der & pidOwner;
 
-			if (!m_Proc.HandleAssetDestroy(pidOwner, m_Bic, aid))
+			Amount valDeposit;
+			if (!m_Proc.HandleAssetDestroy(pidOwner, m_Bic, aid, valDeposit, false))
 				return OnCorrupted();
 		}
 		break;
