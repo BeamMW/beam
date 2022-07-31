@@ -100,6 +100,7 @@ namespace beam {
 #define TblAssets_Owner			"Owner"
 #define TblAssets_Value			"Value"
 #define TblAssets_Data			"MetaData"
+#define TblAssets_Deposit		"Deposit"
 #define TblAssets_LockHeight	"LockHeight"
 
 #define TblAssetEvts			"AssetsEvents"
@@ -366,7 +367,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 31;
+	const uint64_t nVersionTop = 32;
 
 
 	Transaction t(*this);
@@ -436,12 +437,18 @@ void NodeDB::Open(const char* szPath)
 			// no break;
 
 		case 30: // Block interpretation nKrnIdx fixed to match KrnWalker's
-			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
+			ExecQuick("DROP TABLE IF EXISTS " TblKrnInfo);
 			CreateTables30();
 
 			// no break;
 
+		case 31:
+			ExecQuick("DROP TABLE IF EXISTS " TblAssets);
+			CreateTables31();
+
+			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
 			ParamIntSet(ParamID::DbVer, nVersionTop);
+			// no break;
 
 		case nVersionTop:
 			break;
@@ -566,6 +573,7 @@ void NodeDB::Create()
 	CreateTables27();
 	CreateTables28();
 	CreateTables30();
+	CreateTables31();
 }
 
 void NodeDB::CreateTables20()
@@ -577,15 +585,6 @@ void NodeDB::CreateTables20()
 	ExecQuick("CREATE TABLE [" TblUnique "] ("
 		"[" TblUnique_Key			"] BLOB NOT NULL PRIMARY KEY,"
 		"[" TblUnique_Value			"] BLOB) WITHOUT ROWID");
-
-	ExecQuick("CREATE TABLE [" TblAssets "] ("
-		"[" TblAssets_ID			"] INTEGER NOT NULL PRIMARY KEY,"
-		"[" TblAssets_Owner			"] BLOB,"
-		"[" TblAssets_Data			"] BLOB,"
-		"[" TblAssets_LockHeight	"] INTEGER,"
-		"[" TblAssets_Value			"] BLOB)");
-
-	ExecQuick("CREATE INDEX [Idx" TblAssets "Own] ON [" TblAssets "] ([" TblAssets_Owner "])");
 }
 
 void NodeDB::CreateTables21()
@@ -645,6 +644,19 @@ void NodeDB::CreateTables30()
 		") WITHOUT ROWID");
 
 	ExecQuick("CREATE INDEX [Idx" TblKrnInfo "_Key" "] ON [" TblKrnInfo "] ([" TblKrnInfo_Key "],[" TblKrnInfo_Pos "]);");
+}
+
+void NodeDB::CreateTables31()
+{
+	ExecQuick("CREATE TABLE [" TblAssets "] ("
+		"[" TblAssets_ID			"] INTEGER NOT NULL PRIMARY KEY,"
+		"[" TblAssets_Owner			"] BLOB,"
+		"[" TblAssets_Data			"] BLOB,"
+		"[" TblAssets_Deposit		"] INTEGER,"
+		"[" TblAssets_LockHeight	"] INTEGER,"
+		"[" TblAssets_Value			"] BLOB)");
+
+	ExecQuick("CREATE INDEX [Idx" TblAssets "Own] ON [" TblAssets "] ([" TblAssets_Owner "])");
 }
 
 void NodeDB::Vacuum()
@@ -2715,15 +2727,16 @@ void NodeDB::AssetDeleteRaw(Asset::ID id)
 
 void NodeDB::AssetInsertRaw(Asset::ID id, const Asset::Full* pAi)
 {
-	Recordset rs(*this, Query::AssetAdd, "INSERT INTO " TblAssets "(" TblAssets_ID "," TblAssets_Owner "," TblAssets_Data "," TblAssets_Value "," TblAssets_LockHeight ") VALUES(?,?,?,?,?)");
+	Recordset rs(*this, Query::AssetAdd, "INSERT INTO " TblAssets "(" TblAssets_ID "," TblAssets_Owner "," TblAssets_Data "," TblAssets_Deposit "," TblAssets_Value "," TblAssets_LockHeight ") VALUES(?,?,?,?,?,?)");
 	rs.put(0, id);
 
 	if (pAi)
 	{
 		rs.put(1, pAi->m_Owner);
 		rs.put(2, Blob(pAi->m_Metadata.m_Value));
-		rs.put_As(3, pAi->m_Value);
-		rs.put(4, pAi->m_LockHeight);
+		rs.put(3, pAi->m_Deposit);
+		rs.put_As(4, pAi->m_Value);
+		rs.put(5, pAi->m_LockHeight);
 	}
 
 	rs.Step();
@@ -2810,7 +2823,7 @@ void NodeDB::AssetsDelAll()
 
 bool NodeDB::AssetGetSafe(Asset::Full& ai)
 {
-	Recordset rs(*this, Query::AssetGet, "SELECT " TblAssets_Value "," TblAssets_Owner "," TblAssets_Data "," TblAssets_LockHeight " FROM " TblAssets " WHERE " TblAssets_ID "=?");
+	Recordset rs(*this, Query::AssetGet, "SELECT " TblAssets_Value "," TblAssets_Owner "," TblAssets_Data "," TblAssets_Deposit "," TblAssets_LockHeight " FROM " TblAssets " WHERE " TblAssets_ID "=?");
 	rs.put(0, ai.m_ID);
 	if (!rs.Step())
 		return false;
@@ -2818,7 +2831,8 @@ bool NodeDB::AssetGetSafe(Asset::Full& ai)
 	rs.get_As(0, ai.m_Value);
 	rs.get_As(1, ai.m_Owner);
 	rs.get(2, ai.m_Metadata.m_Value);
-	rs.get(3, ai.m_LockHeight);
+	rs.get(3, ai.m_Deposit);
+	rs.get(4, ai.m_LockHeight);
 
 	ai.m_Metadata.UpdateHash();
 

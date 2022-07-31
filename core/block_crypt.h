@@ -167,6 +167,7 @@ namespace beam
 			AmountBig::Type m_Value = Zero;
 			PeerID m_Owner = Zero;
 			Height m_LockHeight = 0; // last emitted/burned change height. if emitted atm - when was latest 1st emission. If burned atm - what was last burn.
+			Amount m_Deposit = 0;
 			Metadata m_Metadata;
 			static const uint32_t s_MetadataMaxSize = 1024 * 16; // 16K
 
