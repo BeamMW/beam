@@ -1548,6 +1548,8 @@ namespace detail
 		{
 			saveBase(ar, val);
 			ar & val.m_AssetID;
+			if (val.IsCustomDeposit())
+				ar & val.m_Deposit;
 			return ar;
 		}
 
@@ -1556,6 +1558,8 @@ namespace detail
 		{
 			load0Base(ar, val, nRecursion);
 			ar & val.m_AssetID;
+			if (val.IsCustomDeposit())
+				ar & val.m_Deposit;
 		}
 
         /// beam::TxKernelShieldedOutput serialization

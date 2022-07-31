@@ -1158,6 +1158,19 @@ namespace beam
 	{
 		TxKernelAssetControl::HashSelfForMsg(hp);
 		hp << m_AssetID;
+
+		if (IsCustomDeposit())
+			hp << m_Deposit;
+	}
+
+	bool TxKernelAssetDestroy::IsCustomDeposit() const
+	{
+		return (m_Height.m_Min >= Rules::get().pForks[5].m_Height);
+	}
+
+	Amount TxKernelAssetDestroy::get_Deposit() const
+	{
+		return IsCustomDeposit() ? m_Deposit : Rules::get().CA.DepositForList2;
 	}
 
 	bool TxKernelAssetDestroy::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
@@ -1165,7 +1178,7 @@ namespace beam
 		if (!TxKernelAssetControl::IsValidAssetCtl(hScheme, exc, pParent))
 			return false;
 
-		ECC::Point::Native pt = ECC::Context::get().H * Rules::get().get_DepositForCA(hScheme);
+		ECC::Point::Native pt = ECC::Context::get().H * get_Deposit();
 
 		pt = -pt;
 		exc += pt;

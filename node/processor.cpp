@@ -3611,6 +3611,8 @@ bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metad
 
 bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInterpretCtx& bic)
 {
+	if (krn.IsCustomDeposit() && krn.m_Deposit != Rules::get().get_DepositForCA(bic.m_Height))
+		return false;
 	return HandleAssetDestroy(krn.m_Owner, bic, krn.m_AssetID);
 }
 
