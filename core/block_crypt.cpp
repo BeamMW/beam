@@ -1193,6 +1193,7 @@ namespace beam
 
 		v.CopyFrom(*this);
 		v.m_AssetID = m_AssetID;
+		v.m_Deposit = m_Deposit;
 	}
 
 	/////////////
