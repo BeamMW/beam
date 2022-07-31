@@ -980,9 +980,9 @@ namespace beam
 
 		void get_Sk(ECC::Scalar::Native&, Key::IKdf&); // pseudo-random sk for this kernel
 
-		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 	protected:
 		void CopyFrom(const TxKernelAssetControl&);
+		bool IsValidAssetCtl(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent) const;
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
 		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
 	};

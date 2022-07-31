@@ -1002,7 +1002,7 @@ namespace beam
 		hp.Serialize(m_Signature);
 	}
 
-	bool TxKernelAssetControl::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	bool TxKernelAssetControl::IsValidAssetCtl(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent) const
 	{
 		if (!IsValidBase(hScheme, exc, pParent))
 			return false;
@@ -1081,7 +1081,7 @@ namespace beam
 
 	bool TxKernelAssetEmit::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
-		if (!TxKernelAssetControl::IsValid(hScheme, exc, pParent))
+		if (!TxKernelAssetControl::IsValidAssetCtl(hScheme, exc, pParent))
 			return false;
 
 		if (!m_Value || !m_AssetID)
@@ -1120,7 +1120,7 @@ namespace beam
 	// TxKernelAssetCreate
 	bool TxKernelAssetCreate::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
-		if (!TxKernelAssetControl::IsValid(hScheme, exc, pParent))
+		if (!TxKernelAssetControl::IsValidAssetCtl(hScheme, exc, pParent))
 			return false;
 
 		if (m_MetaData.m_Value.size() > Asset::Info::s_MetadataMaxSize)
@@ -1162,7 +1162,7 @@ namespace beam
 
 	bool TxKernelAssetDestroy::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
-		if (!TxKernelAssetControl::IsValid(hScheme, exc, pParent))
+		if (!TxKernelAssetControl::IsValidAssetCtl(hScheme, exc, pParent))
 			return false;
 
 		ECC::Point::Native pt = ECC::Context::get().H * Rules::get().CA.DepositForList;
