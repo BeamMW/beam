@@ -3207,6 +3207,7 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelAssetCreate& v, Height h
 	TemporarySwap<ByteBuffer> ts(Cast::NotConst(v).m_MetaData.m_Value, evt.m_Info.m_Metadata.m_Value);
 	evt.m_Info.m_Owner = v.m_Owner;
 	evt.m_Info.m_Value = Zero;
+	evt.m_Info.m_Deposit = Rules::get().get_DepositForCA(h);
 
 	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt, key);
 }
@@ -3236,6 +3237,7 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelAssetEmit& v, Height h, 
 
 	evt.m_Info.m_Value = adp.m_Amount;
 	adp.m_LockHeight.Export(evt.m_Info.m_LockHeight);
+	evt.m_Info.m_Deposit = Rules::get().CA.DepositForList2; // not used anyway
 
 	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
 }
@@ -3251,6 +3253,7 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelAssetDestroy& v, Height 
 
 	evt.m_Info.m_Owner = v.m_Owner;
 	evt.m_Info.m_Value = Zero;
+	evt.m_Info.m_Deposit = v.get_Deposit();
 
 	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
 }
@@ -6967,6 +6970,8 @@ int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)
 	if (!ai.m_Metadata.m_Value.empty())
 		memcpy(&ai.m_Metadata.m_Value.front(), pAcip + 1, ai.m_Metadata.m_Value.size());
 	ai.m_Metadata.UpdateHash();
+
+	ai.m_Deposit = Rules::get().get_DepositForCA(wlk.m_Height);
 
 	typedef std::pair<Height, uint64_t> HeightAndIndex;
 	HeightAndIndex hiCreate(wlk.m_Height, wlk.m_Index);

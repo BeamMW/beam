@@ -1970,11 +1970,23 @@ namespace detail
 		template<typename Archive>
 		Archive& save(Archive& ar, const beam::Asset::Info& v)
 		{
+			bool bDef = v.IsDefDeposit();
+			beam::Height h = bDef ? v.m_LockHeight : beam::MaxHeight;
 			ar
 				& v.m_Owner
 				& v.m_Value
-				& v.m_LockHeight
+				& h
 				& v.m_Metadata;
+
+			if (!bDef)
+			{
+				uint32_t nFlags = 1; // reserve other flags for future use
+				ar
+					& nFlags
+					& v.m_LockHeight
+					& v.m_Deposit;
+			}
+
 			return ar;
 		}
 
@@ -1986,6 +1998,20 @@ namespace detail
 				& v.m_Value
 				& v.m_LockHeight
 				& v.m_Metadata;
+
+			v.m_Deposit = beam::Rules::get().CA.DepositForList2;
+
+			if (beam::MaxHeight == v.m_LockHeight)
+			{
+				uint32_t nFlags;
+				ar
+					& nFlags
+					& v.m_LockHeight;
+
+				if (1 & nFlags)
+					ar & v.m_Deposit;
+			}
+
 			return ar;
 		}
 
