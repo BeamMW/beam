@@ -2663,20 +2663,6 @@ namespace beam
 		m_Offset = offs;
 	}
 
-	bool Block::BodyBase::IsValid(const HeightRange& hr, TxBase::IReader&& r) const
-	{
-		if ((hr.m_Min < Rules::HeightGenesis) || hr.IsEmpty())
-			return false;
-
-		TxBase::Context::Params pars;
-		TxBase::Context ctx(pars);
-		ctx.m_Height = hr;
-
-		return
-			ctx.ValidateAndSummarize(*this, std::move(r)) &&
-			ctx.IsValidBlock();
-	}
-
 	/////////////
 	// SystemState::IHistory
 	bool Block::SystemState::IHistory::get_Tip(Full& s)

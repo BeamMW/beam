@@ -1454,15 +1454,6 @@ namespace beam
 		{
 			void ZeroInit();
 
-			// Test the following:
-			//		Validity of all the components, and overall arithmetics, whereas explicit fees are already collected by extra UTXO(s) put by the miner
-			//		All components are specified in a lexicographical order, to conceal the actual transaction graph
-			//		Liquidity of the components wrt height and maturity policies
-			// Not tested by this function (but should be tested by nodes!)
-			//		Existence of all the input UTXOs
-			//		Existence of the coinbase non-confidential output UTXO, with the sum amount equal to the new coin emission.
-			bool IsValid(const HeightRange&, TxBase::IReader&&) const;
-
 			struct IMacroReader
 				:public IReader
 			{
@@ -1486,10 +1477,6 @@ namespace beam
 			:public BodyBase
 			,public TxVectors::Full
 		{
-			bool IsValid(const HeightRange& hr) const
-			{
-				return BodyBase::IsValid(hr, get_Reader());
-			}
 		};
 
 		struct ChainWorkProof;
