@@ -175,6 +175,7 @@ namespace beam
 			bool IsEmpty() const;
 			bool IsValid() const;
 			bool Recognize(Key::IPKdf&) const;
+			bool IsDefDeposit() const;
 		};
 
 		struct Full

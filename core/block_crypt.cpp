@@ -2915,16 +2915,30 @@ namespace beam
 	    return m_Owner != Zero && m_LockHeight != Zero;
     }
 
+	bool Asset::Info::IsDefDeposit() const
+	{
+		return (Rules::get().CA.DepositForList2 == m_Deposit);
+	}
+
 	void Asset::Full::get_Hash(ECC::Hash::Value& hv) const
 	{
-		ECC::Hash::Processor()
+		ECC::Hash::Processor hp;
+		hp
 			<< "B.Asset.V1"
 			<< m_ID
 			<< m_Value
 			<< m_Owner
 			<< m_LockHeight
-			<< m_Metadata.m_Hash
-			>> hv;
+			<< m_Metadata.m_Hash;
+
+		if (!IsDefDeposit())
+		{
+			hp
+				<< "deposit"
+				<< m_Deposit;
+		}
+
+		hp >> hv;
 	}
 
 	void Asset::Metadata::Reset()
