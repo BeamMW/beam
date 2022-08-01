@@ -282,7 +282,7 @@ namespace beam
 
 		struct {
 			bool Enabled = true;
-			Amount DepositForList2 = Coin * 3000; // after HF2
+			Amount DepositForList2 = Coin * 1000; // after HF2
 			Amount DepositForList5 = Coin * 10; // after HF5
 			Height LockPeriod = 1440; // how long it's locked (can't be destroyed) after it was completely burned
 			Sigma::Cfg m_ProofCfg = { 4, 3 }; // 4^3 = 64
@@ -322,7 +322,7 @@ namespace beam
 		{
 			uint32_t v0 = 15; // 15 for masternet and testnet, 14 for mainnet
 			uint32_t v2 = 2;
-			bool IsTestnet = false; // true for testnet, false for masternet and mainnet
+			bool IsTestnet = true; // true for testnet, false for masternet and mainnet
 		} Magic;
 
 		void UpdateChecksum();
