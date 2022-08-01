@@ -376,9 +376,9 @@ namespace bvm2 {
 			res.n = 0;
 		}
 
-		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) { return 0; }
+		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&, Amount& valDeposit) { return 0; }
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }
-		virtual bool AssetDestroy(Asset::ID, const PeerID&) { return false; }
+		virtual bool AssetDestroy(Asset::ID, const PeerID&, Amount& valDeposit) { return false; }
 
 		void HandleAmount(Amount, Asset::ID, bool bLock);
 		void HandleAmountInner(Amount, Asset::ID, bool bLock);

@@ -652,12 +652,13 @@ private:
             return std::move(w.m_json);
         }
 
-        static json get(const TxKernel& krn, Amount& fee, ContractRichInfo& cri)
+        static json get(const TxKernel& krn, Amount& fee, ContractRichInfo& cri, Height h)
         {
             struct MyWalker
             {
                 Writer m_Wr;
                 ContractRichInfo* m_pCri;
+                Height m_Height;
 
                 void OnKrn(const TxKernel& krn)
                 {
@@ -691,6 +692,7 @@ private:
                 {
                     Writer wr;
                     wr.AddMetadata(krn.m_MetaData);
+                    wr.m_json["Deposit"] = Rules::get().get_DepositForCA(m_Height);
                     m_Wr.m_json["Asset.Create"] = std::move(wr.m_json);
                 }
 
@@ -698,6 +700,7 @@ private:
                 {
                     Writer wr;
                     wr.AddAid(krn.m_AssetID);
+                    wr.m_json["Deposit"] = krn.get_Deposit();
                     m_Wr.m_json["Asset.Destroy"] = std::move(wr.m_json);
                 }
 
@@ -772,6 +775,7 @@ private:
 
             } wlk;
             wlk.m_pCri = &cri;
+            wlk.m_Height = h;
 
             wlk.m_Wr.AddHex("id", krn.m_Internal.m_ID);
             wlk.m_Wr.m_json["minHeight"] = krn.m_Height.m_Min;
@@ -787,7 +791,7 @@ private:
 
                 for (uint32_t i = 0; i < krn.m_vNested.size(); i++)
                 {
-                    json j3 = get(*krn.m_vNested[i], fee, cri);
+                    json j3 = get(*krn.m_vNested[i], fee, cri, h);
                     j2.push_back(std::move(j3));
                 }
 
@@ -1158,7 +1162,7 @@ private:
             for (const auto &v : block.m_vKernels) {
 
                 Amount fee = 0;
-                json j = ExtraInfo::get(*v, fee, cri);
+                json j = ExtraInfo::get(*v, fee, cri, height);
                 j["fee"] = fee;
 
                 kernels.push_back(std::move(j));

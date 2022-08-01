@@ -191,7 +191,7 @@ namespace beam::bvm2
 		typedef std::map<Asset::ID, AssetData> AssetMap;
 		AssetMap m_Assets;
 
-		virtual Asset::ID AssetCreate(const Asset::Metadata& md, const PeerID& pid) override
+		virtual Asset::ID AssetCreate(const Asset::Metadata& md, const PeerID& pid, Amount& valDeposit) override
 		{
 			Asset::ID aid = AssetCreate2(md, pid);
 			if (aid)
@@ -211,6 +211,8 @@ namespace beam::bvm2
 				auto pUndo = std::make_unique<MyAction>();
 				pUndo->m_Aid = aid;
 				m_lstUndo.push_back(*pUndo.release());
+
+				valDeposit = Rules::get().get_DepositForCA(m_Height + 1);
 			}
 
 			return aid;
@@ -270,7 +272,7 @@ namespace beam::bvm2
 			return true;
 		}
 
-		virtual bool AssetDestroy(Asset::ID aid, const PeerID& pid) override
+		virtual bool AssetDestroy(Asset::ID aid, const PeerID& pid, Amount& valDeposit) override
 		{
 			bool bRet = AssetDestroy2(aid, pid);
 			if (bRet)
@@ -292,6 +294,8 @@ namespace beam::bvm2
 				pUndo->m_Aid = aid;
 				pUndo->m_Pid = pid;
 				m_lstUndo.push_back(*pUndo.release());
+
+				valDeposit = Rules::get().get_DepositForCA(m_Height + 1);
 			}
 
 			return bRet;

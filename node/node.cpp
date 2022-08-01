@@ -3469,6 +3469,7 @@ void Node::Peer::OnMsg(proto::GetProofShieldedInp&& msg)
 void Node::Peer::OnMsg(proto::GetProofAsset&& msg)
 {
     proto::ProofAsset msgOut;
+    msgOut.m_Info.m_Deposit = Rules::get().CA.DepositForList2; // for backward compatibility, if asset not found - older deserialization should work
 
     Processor& p = m_This.m_Processor;
     if (!p.IsFastSync())

@@ -1512,10 +1512,11 @@ namespace bvm2 {
 		AssetVar av;
 		get_AssetOwner(av.m_Owner, m_FarCalls.m_Stack.back().m_Cid, md);
 
-		Asset::ID ret = AssetCreate(md, av.m_Owner);
+		Amount valDeposit;
+		Asset::ID ret = AssetCreate(md, av.m_Owner, valDeposit);
 		if (ret)
 		{
-			ProcessorPlus_Contract::From(*this).HandleAmountOuter(Rules::get().CA.DepositForList, Zero, true);
+			ProcessorPlus_Contract::From(*this).HandleAmountOuter(valDeposit, Zero, true);
 
 			SetAssetKey(av, ret);
 			SaveVar(av.m_vk.ToBlob(), av.m_Owner);
@@ -1572,10 +1573,11 @@ namespace bvm2 {
 		AssetVar av;
 		get_AssetStrict(av, aid);
 
-		bool b = AssetDestroy(aid, av.m_Owner);
+		Amount valDeposit;
+		bool b = AssetDestroy(aid, av.m_Owner, valDeposit);
 		if (b)
 		{
-			HandleAmountOuter(Rules::get().CA.DepositForList, Zero, false);
+			HandleAmountOuter(valDeposit, Zero, false);
 			SaveVar(av.m_vk.ToBlob(), Blob(nullptr, 0));
 		}
 
