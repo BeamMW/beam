@@ -4326,10 +4326,7 @@ int main()
 
     Rules::get().FakePoW = true;
 	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
-    Rules::get().pForks[2].m_Height = MaxHeight;
-    Rules::get().pForks[3].m_Height = MaxHeight;
-    Rules::get().pForks[4].m_Height = MaxHeight;
-    //Rules::get().DA.MaxAhead_s = 90;// 60 * 1;
+    Rules::get().DisableForksFrom(2);
     Rules::get().UpdateChecksum();
 
     wallet::g_AssetsEnabled = true;

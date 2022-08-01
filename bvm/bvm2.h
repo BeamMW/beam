@@ -300,6 +300,7 @@ namespace bvm2 {
 		};
 
 		virtual Kind get_Kind() = 0;
+		virtual bool IsSuspended() { return false; }
 
 		static void Compile(ByteBuffer&, const Blob&, Kind);
 
@@ -385,9 +386,9 @@ namespace bvm2 {
 			res.n = 0;
 		}
 
-		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) { return 0; }
+		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&, Amount& valDeposit) { return 0; }
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }
-		virtual bool AssetDestroy(Asset::ID, const PeerID&) { return false; }
+		virtual bool AssetDestroy(Asset::ID, const PeerID&, Amount& valDeposit) { return false; }
 
 		void HandleAmount(Amount, Asset::ID, bool bLock);
 		void HandleAmountInner(Amount, Asset::ID, bool bLock);
@@ -437,7 +438,7 @@ namespace bvm2 {
 
 		uint32_t m_Charge = Limits::BlockCharge;
 
-		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext); // can override to invoke host code instead of interpretator (for debugging)
+		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint8_t bInheritContext); // can override to invoke host code instead of interpretator (for debugging)
 	};
 
 
@@ -525,7 +526,7 @@ namespace bvm2 {
 
 		virtual void SelectContext(bool bDependent, uint32_t nChargeNeeded) = 0;
 
-		void EnsureContext();
+		bool EnsureContext();
 
 		struct Context {
 			Height m_Height = MaxHeight;
@@ -598,7 +599,6 @@ namespace bvm2 {
 
 		std::ostream* m_pOut;
 		bool m_NeedComma = false;
-		bool m_RawText = false; // don't perform json-style decoration
 
 		Key::IPKdf::Ptr m_pPKdf; // required for user-related info (account-specific pubkeys, etc.)
 
@@ -614,10 +614,12 @@ namespace bvm2 {
 
 		bool IsDone() const { return m_Instruction.m_p0 == (const uint8_t*)m_Code.p; }
 
-		void InitMem();
+		void InitMem(uint32_t nStackBytesExtra = 0);
 		void Call(Wasm::Word addr);
 		void Call(Wasm::Word addr, Wasm::Word retAddr);
 		void CallMethod(uint32_t iMethod);
+
+		void RunOnce();
 	};
 
 

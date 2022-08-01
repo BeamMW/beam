@@ -1002,7 +1002,7 @@ namespace beam
 		hp.Serialize(m_Signature);
 	}
 
-	bool TxKernelAssetControl::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	bool TxKernelAssetControl::IsValidAssetCtl(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent) const
 	{
 		if (!IsValidBase(hScheme, exc, pParent))
 			return false;
@@ -1081,7 +1081,7 @@ namespace beam
 
 	bool TxKernelAssetEmit::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
-		if (!TxKernelAssetControl::IsValid(hScheme, exc, pParent))
+		if (!TxKernelAssetControl::IsValidAssetCtl(hScheme, exc, pParent))
 			return false;
 
 		if (!m_Value || !m_AssetID)
@@ -1120,13 +1120,13 @@ namespace beam
 	// TxKernelAssetCreate
 	bool TxKernelAssetCreate::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
-		if (!TxKernelAssetControl::IsValid(hScheme, exc, pParent))
+		if (!TxKernelAssetControl::IsValidAssetCtl(hScheme, exc, pParent))
 			return false;
 
 		if (m_MetaData.m_Value.size() > Asset::Info::s_MetadataMaxSize)
 			return false;
 
-		ECC::Point::Native pt = ECC::Context::get().H * Rules::get().CA.DepositForList;
+		ECC::Point::Native pt = ECC::Context::get().H * Rules::get().get_DepositForCA(hScheme);
 		exc += pt;
 
 		return true;
@@ -1158,14 +1158,27 @@ namespace beam
 	{
 		TxKernelAssetControl::HashSelfForMsg(hp);
 		hp << m_AssetID;
+
+		if (IsCustomDeposit())
+			hp << m_Deposit;
+	}
+
+	bool TxKernelAssetDestroy::IsCustomDeposit() const
+	{
+		return (m_Height.m_Min >= Rules::get().pForks[5].m_Height);
+	}
+
+	Amount TxKernelAssetDestroy::get_Deposit() const
+	{
+		return IsCustomDeposit() ? m_Deposit : Rules::get().CA.DepositForList2;
 	}
 
 	bool TxKernelAssetDestroy::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
-		if (!TxKernelAssetControl::IsValid(hScheme, exc, pParent))
+		if (!TxKernelAssetControl::IsValidAssetCtl(hScheme, exc, pParent))
 			return false;
 
-		ECC::Point::Native pt = ECC::Context::get().H * Rules::get().CA.DepositForList;
+		ECC::Point::Native pt = ECC::Context::get().H * get_Deposit();
 
 		pt = -pt;
 		exc += pt;
@@ -1180,6 +1193,7 @@ namespace beam
 
 		v.CopyFrom(*this);
 		v.m_AssetID = m_AssetID;
+		v.m_Deposit = m_Deposit;
 	}
 
 	/////////////
@@ -1871,6 +1885,7 @@ namespace beam
 			0xfb, 0x83, 0xd9, 0x06, 0xf4, 0xac, 0x7d, 0xce,
 			0x99, 0x7d, 0x4a, 0xc5, 0xd4, 0x71, 0xd7, 0xb4,
 			0x6f, 0x99, 0x77, 0x6e, 0x7a, 0xbd, 0x2e, 0xc9
+
 		};
 
 		Prehistoric = {
@@ -1885,12 +1900,11 @@ namespace beam
 
 		pForks[1].m_Height = 270910; // testnet fork
 		pForks[2].m_Height = 690000;
-        pForks[3].m_Height = 1135300;
-        pForks[4].m_Height = 1670000;
+		pForks[3].m_Height = 1135300;
+		pForks[4].m_Height = 1670000;
+		pForks[5].m_Height = 1780000;
 
-		// future forks
-		for (size_t i = 5; i < _countof(pForks); i++)
-			pForks[i].m_Height = MaxHeight;
+		DisableForksFrom(6); // future forks
 	}
 
 	Amount Rules::get_EmissionEx(Height h, Height& hEnd, Amount base) const
@@ -2057,7 +2071,7 @@ namespace beam
 			<< Shielded.m_ProofMin.M
 			<< Shielded.MaxWindowBacklog
 			<< CA.Enabled
-			<< CA.DepositForList
+			<< CA.DepositForList2
 			<< CA.LockPeriod
 			<< CA.m_ProofCfg.n
 			<< CA.m_ProofCfg.M
@@ -2077,6 +2091,12 @@ namespace beam
 			<< pForks[4].m_Height
 			// no more flexible parameters so far
 			>> pForks[4].m_Hash;
+
+		oracle
+			<< "fork5"
+			<< pForks[5].m_Height
+			<< CA.DepositForList5
+			>> pForks[5].m_Hash;
 	}
 
 	const HeightHash* Rules::FindFork(const Merkle::Hash& hv) const
@@ -2126,6 +2146,17 @@ namespace beam
 		}
 
 		return pForks[i];
+	}
+
+	void Rules::DisableForksFrom(uint32_t i)
+	{
+		for (; i < _countof(pForks); i++)
+			pForks[i].m_Height = MaxHeight;
+	}
+
+	Amount Rules::get_DepositForCA(Height hScheme) const
+	{
+		return (hScheme >= pForks[5].m_Height) ? CA.DepositForList5 : CA.DepositForList2;
 	}
 
 	std::string Rules::get_SignatureStr() const
@@ -2491,13 +2522,13 @@ namespace beam
 
 		if (m_Height < Rules::get().pForks[3].m_Height)
 		{
-		struct MyVerifier
-			:public ProofVerifier
-		{
-			virtual bool get_Utxos(Merkle::Hash&) override {
-				return true;
-			}
-		} v;
+			struct MyVerifier
+				:public ProofVerifier
+			{
+				virtual bool get_Utxos(Merkle::Hash&) override {
+					return true;
+				}
+			} v;
 
 			return v.Verify(*this, hv, p.m_Proof);
 		}
@@ -2652,20 +2683,6 @@ namespace beam
 		ECC::Scalar::Native offs(m_Offset);
 		offs += next.m_Offset;
 		m_Offset = offs;
-	}
-
-	bool Block::BodyBase::IsValid(const HeightRange& hr, TxBase::IReader&& r) const
-	{
-		if ((hr.m_Min < Rules::HeightGenesis) || hr.IsEmpty())
-			return false;
-
-		TxBase::Context::Params pars;
-		TxBase::Context ctx(pars);
-		ctx.m_Height = hr;
-
-		return
-			ctx.ValidateAndSummarize(*this, std::move(r)) &&
-			ctx.IsValidBlock();
 	}
 
 	/////////////
@@ -2900,16 +2917,30 @@ namespace beam
 	    return m_Owner != Zero && m_LockHeight != Zero;
     }
 
+	bool Asset::Info::IsDefDeposit() const
+	{
+		return (Rules::get().CA.DepositForList2 == m_Deposit);
+	}
+
 	void Asset::Full::get_Hash(ECC::Hash::Value& hv) const
 	{
-		ECC::Hash::Processor()
+		ECC::Hash::Processor hp;
+		hp
 			<< "B.Asset.V1"
 			<< m_ID
 			<< m_Value
 			<< m_Owner
 			<< m_LockHeight
-			<< m_Metadata.m_Hash
-			>> hv;
+			<< m_Metadata.m_Hash;
+
+		if (!IsDefDeposit())
+		{
+			hp
+				<< "deposit"
+				<< m_Deposit;
+		}
+
+		hp >> hv;
 	}
 
 	void Asset::Metadata::Reset()

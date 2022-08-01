@@ -2044,7 +2044,6 @@ namespace
         }
 
         auto params = CreateTransactionParameters(TxType::AssetReg)
-                        .SetParameter(TxParameterID::Amount, Rules::get().CA.DepositForList)
                         .SetParameter(TxParameterID::Fee, fee)
                         .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
                         .SetParameter(TxParameterID::AssetMetadata, strMeta);
@@ -2077,7 +2076,6 @@ namespace
         }
 
         auto params = CreateTransactionParameters(TxType::AssetUnreg)
-                        .SetParameter(TxParameterID::Amount, Rules::get().CA.DepositForList)
                         .SetParameter(TxParameterID::Fee, fee)
                         .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
                         .SetParameter(TxParameterID::AssetMetadata, meta);
