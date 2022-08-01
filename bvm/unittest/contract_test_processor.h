@@ -187,78 +187,44 @@ namespace beam::bvm2
 		struct AssetData {
 			Amount m_Amount;
 			PeerID m_Pid;
+			Amount m_Deposit;
 		};
 		typedef std::map<Asset::ID, AssetData> AssetMap;
 		AssetMap m_Assets;
 
 		virtual Asset::ID AssetCreate(const Asset::Metadata& md, const PeerID& pid, Amount& valDeposit) override
 		{
-			Asset::ID aid = AssetCreate2(md, pid);
-			if (aid)
+			Asset::ID aid = 1;
+			while (m_Assets.find(aid) != m_Assets.end())
+				aid++;
+
+			valDeposit = Rules::get().get_DepositForCA(m_Height + 1);
+
+			auto& val = m_Assets[aid];
+			val.m_Amount = 0;
+			val.m_Pid = pid;
+			val.m_Deposit = valDeposit;
+
+			struct MyAction
+				:public Action
 			{
-				struct MyAction
-					:public Action
-				{
-					Asset::ID m_Aid;
+				Asset::ID m_Aid;
 
-					virtual void Undo(ContractTestProcessor& p) override {
-						auto it = p.m_Assets.find(m_Aid);
-						verify_test(p.m_Assets.end() != it);
-						p.m_Assets.erase(it);
-					}
-				};
+				virtual void Undo(ContractTestProcessor& p) override {
+					auto it = p.m_Assets.find(m_Aid);
+					verify_test(p.m_Assets.end() != it);
+					p.m_Assets.erase(it);
+				}
+			};
 
-				auto pUndo = std::make_unique<MyAction>();
-				pUndo->m_Aid = aid;
-				m_lstUndo.push_back(*pUndo.release());
-
-				valDeposit = Rules::get().get_DepositForCA(m_Height + 1);
-			}
+			auto pUndo = std::make_unique<MyAction>();
+			pUndo->m_Aid = aid;
+			m_lstUndo.push_back(*pUndo.release());
 
 			return aid;
 		}
 
-		Asset::ID AssetCreate2(const Asset::Metadata&, const PeerID& pid)
-		{
-			Asset::ID ret = 1;
-			while (m_Assets.find(ret) != m_Assets.end())
-				ret++;
-
-			auto& val = m_Assets[ret];
-			val.m_Amount = 0;
-			val.m_Pid = pid;
-
-			return ret;
-		}
-
 		virtual bool AssetEmit(Asset::ID aid, const PeerID& pid, AmountSigned val) override
-		{
-			bool bRet = AssetEmit2(aid, pid, val);
-			if (bRet)
-			{
-				struct MyAction
-					:public Action
-				{
-					Asset::ID m_Aid;
-					AmountSigned m_Val;
-
-					virtual void Undo(ContractTestProcessor& p) override {
-						auto it = p.m_Assets.find(m_Aid);
-						verify_test(p.m_Assets.end() != it);
-						it->second.m_Amount -= m_Val;;
-					}
-				};
-
-				auto pUndo = std::make_unique<MyAction>();
-				pUndo->m_Aid = aid;
-				pUndo->m_Val = val;
-				m_lstUndo.push_back(*pUndo.release());
-			}
-
-			return bRet;
-		}
-
-		bool AssetEmit2(Asset::ID aid, const PeerID& pid, AmountSigned val)
 		{
 			auto it = m_Assets.find(aid);
 			if (m_Assets.end() == it)
@@ -269,39 +235,29 @@ namespace beam::bvm2
 				return false;
 
 			x.m_Amount += val; // don't care about overflow
+
+			struct MyAction
+				:public Action
+			{
+				Asset::ID m_Aid;
+				AmountSigned m_Val;
+
+				virtual void Undo(ContractTestProcessor& p) override {
+					auto it = p.m_Assets.find(m_Aid);
+					verify_test(p.m_Assets.end() != it);
+					it->second.m_Amount -= m_Val;;
+				}
+			};
+
+			auto pUndo = std::make_unique<MyAction>();
+			pUndo->m_Aid = aid;
+			pUndo->m_Val = val;
+			m_lstUndo.push_back(*pUndo.release());
+
 			return true;
 		}
 
 		virtual bool AssetDestroy(Asset::ID aid, const PeerID& pid, Amount& valDeposit) override
-		{
-			bool bRet = AssetDestroy2(aid, pid);
-			if (bRet)
-			{
-				struct MyAction
-					:public Action
-				{
-					Asset::ID m_Aid;
-					PeerID m_Pid;
-
-					virtual void Undo(ContractTestProcessor& p) override {
-						auto& x = p.m_Assets[m_Aid];
-						x.m_Amount = 0;
-						x.m_Pid = m_Pid;
-					}
-				};
-
-				auto pUndo = std::make_unique<MyAction>();
-				pUndo->m_Aid = aid;
-				pUndo->m_Pid = pid;
-				m_lstUndo.push_back(*pUndo.release());
-
-				valDeposit = Rules::get().get_DepositForCA(m_Height + 1);
-			}
-
-			return bRet;
-		}
-
-		bool AssetDestroy2(Asset::ID aid, const PeerID& pid)
 		{
 			auto it = m_Assets.find(aid);
 			if (m_Assets.end() == it)
@@ -314,7 +270,32 @@ namespace beam::bvm2
 			if (x.m_Amount)
 				return false;
 
+			valDeposit = x.m_Deposit;
 			m_Assets.erase(it);
+
+			struct MyAction
+				:public Action
+			{
+				Asset::ID m_Aid;
+				PeerID m_Pid;
+				Amount m_Deposit;
+
+				virtual void Undo(ContractTestProcessor& p) override {
+					auto& x = p.m_Assets[m_Aid];
+					x.m_Amount = 0;
+					x.m_Pid = m_Pid;
+					x.m_Deposit = m_Deposit;
+				}
+			};
+
+			auto pUndo = std::make_unique<MyAction>();
+			pUndo->m_Aid = aid;
+			pUndo->m_Pid = pid;
+			pUndo->m_Deposit = valDeposit;
+			m_lstUndo.push_back(*pUndo.release());
+
+			valDeposit = Rules::get().get_DepositForCA(m_Height + 1);
+
 			return true;
 		}
 
