@@ -3,9 +3,9 @@
 inline constexpr unsigned VERSION_MAJOR = @VERSION_MAJOR@;
 inline constexpr unsigned VERSION_MINOR = @VERSION_MINOR@;
 inline constexpr unsigned VERSION_REVISION = @VERSION_REVISION@;
-inline constexpr std::string_view GIT_COMMIT_HASH = "@GIT_COMMIT_HASH@";
-inline constexpr std::string_view PROJECT_VERSION = "@PROJECT_VERSION@";
-inline constexpr std::string_view BRANCH_NAME = "@BRANCH_NAME@";
+inline const std::string GIT_COMMIT_HASH = "@GIT_COMMIT_HASH@";
+inline const std::string PROJECT_VERSION = "@PROJECT_VERSION@";
+inline const std::string BRANCH_NAME = "@BRANCH_NAME@";
 
 #ifndef BEAM_LIB_VERSION
 #define BEAM_LIB_VERSION "@PROJECT_VERSION@"
