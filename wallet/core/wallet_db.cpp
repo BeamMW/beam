@@ -169,7 +169,7 @@ namespace fs = std::filesystem;
 
 #define LASER_CHANNEL_FIELDS ENUM_LASER_CHANNEL_FIELDS(LIST, COMMA, )
 
-#define ENUM_ASSET_FIELDS_0(each, sep, obj) \
+#define ENUM_ASSET_FIELDS(each, sep, obj) \
     each(ID,             ID,            INTEGER NOT NULL PRIMARY KEY,  obj) sep \
     each(Value,          Value,         BLOB,              obj) sep \
     each(Owner,          Owner,         BLOB NOT NULL,     obj) sep \
@@ -177,10 +177,6 @@ namespace fs = std::filesystem;
     each(Metadata,       Metadata,      BLOB,              obj) sep \
     each(RefreshHeight,  RefreshHeight, INTEGER NOT NULL,  obj) sep \
     each(IsOwned,        IsOwned,       INTEGER,           obj)
-
-#define ENUM_ASSET_FIELDS(each, sep, obj) \
-    ENUM_ASSET_FIELDS_0(each, sep, obj) sep \
-    each(Deposit,        Deposit,       INTEGER,           obj)
 
 #define ASSET_FIELDS ENUM_ASSET_FIELDS(LIST, COMMA, )
 
@@ -996,8 +992,7 @@ namespace beam::wallet
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
 
-        const int DbVersion   = 33;
-        const int DbVersion32 = 32;
+        const int DbVersion   = 32;
         const int DbVersion31 = 31;
         const int DbVersion30 = 30;
         const int DbVersion29 = 29;
@@ -1351,7 +1346,7 @@ namespace beam::wallet
 
             // migration
             {
-                const char* req = "INSERT INTO " ASSETS_NAME " (" ENUM_ASSET_FIELDS_0(LIST, COMMA, ) ") SELECT " ENUM_ASSET_FIELDS_0(LIST, COMMA, ) " FROM " ASSETS_NAME "_del;";
+                const char* req = "INSERT INTO " ASSETS_NAME " (" ENUM_ASSET_FIELDS(LIST, COMMA, ) ") SELECT " ENUM_ASSET_FIELDS(LIST, COMMA, ) " FROM " ASSETS_NAME "_del;";
                 int ret = sqlite3_exec(db, req, NULL, NULL, NULL);
                 throwIfError(ret, db);
             }
@@ -1727,19 +1722,6 @@ namespace beam::wallet
             if (!IsTableCreated(walletDB, VERIFICATION_NAME))
             {
                 CreateVerificationTable(db);
-            }
-        }
-
-        void MigrateFrom32(sqlite3* db)
-        {
-            assert(db != nullptr);
-
-            // assets table changed: added Deposit column
-            // move old data to temp table
-            {
-                const char* req = "ALTER TABLE " ASSETS_NAME " ADD COLUMN Deposit INTEGER;";
-                int ret = sqlite3_exec(db, req, NULL, NULL, NULL);
-                throwIfError(ret, db);
             }
         }
 
@@ -2383,12 +2365,6 @@ namespace beam::wallet
                 case DbVersion31:
                     LOG_INFO() << "Converting DB from format 31...";
                     MigrateFrom31(walletDB.get(), walletDB->_db);
-                    // no break
-
-                case DbVersion32:
-                    LOG_INFO() << "Converting DB from format 32...";
-                    MigrateFrom32(walletDB->_db);
-
                     // no break
                     storage::setVar(*walletDB, Version, DbVersion);
 
@@ -4366,7 +4342,7 @@ namespace beam::wallet
         sqlite::Statement stmFind(this, find);
         stmFind.bind(1, info.m_ID);
 
-        const char* update = "UPDATE " ASSETS_NAME " SET Value=?2, Owner=?3, LockHeight=?4, Metadata=?5, RefreshHeight=?6, Deposit=?7 WHERE ID=?1;";
+        const char* update = "UPDATE " ASSETS_NAME " SET Value=?2, Owner=?3, LockHeight=?4, Metadata=?5, RefreshHeight=?6 WHERE ID=?1;";
         const char* insert = "INSERT INTO " ASSETS_NAME " (" ENUM_ASSET_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ASSET_FIELDS(BIND_LIST, COMMA, ) ");";
         const bool  found  = stmFind.step();
 
@@ -4378,14 +4354,11 @@ namespace beam::wallet
         stm.bind(5, info.m_Metadata.m_Value);
         stm.bind(6, refreshHeight);
 
-        if (found)
-            stm.bind(7, info.m_Deposit);
-        else
+        if (!found)
         {
             // By default we do not mark new assets as owned
             // For owned assets this value is set to the owner index by the 'AssetRegister' transaction
             stm.bind(7, 0);
-            stm.bind(8, info.m_Deposit);
         }
 
         stm.step();
@@ -4469,11 +4442,6 @@ namespace beam::wallet
         stmFind.get(5, asset.m_RefreshHeight);
         assert(asset.m_RefreshHeight != 0);
         stmFind.get(6, asset.m_IsOwned);
-
-        if (stmFind.IsNull(7))
-            asset.m_Deposit = Rules::get().CA.DepositForList2; // assume it's legacy
-        else
-            stmFind.get(7, asset.m_Deposit);
 
         return asset;
     }
