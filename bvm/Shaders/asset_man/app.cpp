@@ -145,7 +145,7 @@ ON_METHOD(manager, asset_destroy)
         return;
 
     MyFunds fc(depositBeams);
-    fc.m_Consume = 1;
+    fc.m_Consume = 0;
 
     Method::AssetUnreg arg;
     arg.m_Aid = aid;
