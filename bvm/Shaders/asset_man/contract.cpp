@@ -11,10 +11,9 @@ BEAM_EXPORT void Dtor(const void*)
 {
 }
 
-BEAM_EXPORT void Method_2(const void*)
+BEAM_EXPORT void Method_2(const Method::AssetReg& r)
 {
-    static const char szMeta[] = "STD:SCH_VER=1;N=AssetMan contract token;SN=Amt;UN=AMT;NTHUN=GROTH";
-    auto aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
+    auto aid = Env::AssetCreate(&r + 1, r.m_SizeMetadata);
     Env::Halt_if(!aid);
 }
 

@@ -136,7 +136,19 @@ ON_METHOD(manager, asset_create)
     MyFunds fc(depositBeams);
     fc.m_Consume = 1;
 
-    Env::GenerateKernel(&cid, Method::AssetReg::s_iMethod, nullptr, 0, &fc, 1, nullptr, 0, "AssetMan asset register", get_StdCharge());
+#pragma pack (push, 1)
+    struct Arg
+        :public Method::AssetReg
+    {
+        uint8_t m_pMeta[16];
+    };
+#pragma pack (pop)
+
+    Arg arg;
+    arg.m_SizeMetadata = sizeof(arg.m_pMeta);
+    Env::GenerateRandom(arg.m_pMeta, sizeof(arg.m_pMeta));
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, nullptr, 0, &fc, 1, nullptr, 0, "AssetMan asset register", get_StdCharge());
 }
 
 ON_METHOD(manager, asset_destroy)
