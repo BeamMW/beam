@@ -103,8 +103,8 @@ ON_METHOD(manager, view_assets)
 
     Env::DocArray gr("assets");
 
-    PubKey pkOwner;
-    for (Env::VarReader r(k0, k1); r.MoveNext_T(k0, pkOwner); )
+    HashValue idOwner;
+    for (Env::VarReader r(k0, k1); r.MoveNext_T(k0, idOwner); )
     {
         Env::DocGroup gr1("");
         Env::DocAddNum("aid", Utils::FromBE(k0.m_KeyInContract));
