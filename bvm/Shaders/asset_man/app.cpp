@@ -148,7 +148,7 @@ ON_METHOD(manager, asset_create)
     arg.m_SizeMetadata = sizeof(arg.m_pMeta);
     Env::GenerateRandom(arg.m_pMeta, sizeof(arg.m_pMeta));
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, nullptr, 0, &fc, 1, nullptr, 0, "AssetMan asset register", get_StdCharge());
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "AssetMan asset register", get_StdCharge());
 }
 
 ON_METHOD(manager, asset_destroy)
