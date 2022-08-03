@@ -120,6 +120,14 @@ struct MyFunds :public FundsChange
     }
 };
 
+uint32_t get_StdCharge()
+{
+    return
+        Env::Cost::CallFar +
+        Env::Cost::AssetManage +
+        Env::Cost::Cycle * 50;
+}
+
 ON_METHOD(manager, asset_create)
 {
     if (!VerifyCid(cid))
@@ -128,7 +136,7 @@ ON_METHOD(manager, asset_create)
     MyFunds fc(depositBeams);
     fc.m_Consume = 1;
 
-    Env::GenerateKernel(&cid, Method::AssetReg::s_iMethod, nullptr, 0, &fc, 1, nullptr, 0, "AssetMan asset register", 0);
+    Env::GenerateKernel(&cid, Method::AssetReg::s_iMethod, nullptr, 0, &fc, 1, nullptr, 0, "AssetMan asset register", get_StdCharge());
 }
 
 ON_METHOD(manager, asset_destroy)
@@ -142,7 +150,7 @@ ON_METHOD(manager, asset_destroy)
     Method::AssetUnreg arg;
     arg.m_Aid = aid;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "AssetMan asset unregister", 0);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "AssetMan asset unregister", get_StdCharge());
 }
 
 #undef ON_METHOD
