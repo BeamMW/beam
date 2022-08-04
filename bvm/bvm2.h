@@ -285,9 +285,15 @@ namespace bvm2 {
 
 		const HeightPos* FromWasmOpt(Wasm::Word pPos, HeightPos& buf);
 
+		bool IsPastFork(uint32_t iFork)
+		{
+			assert(iFork < _countof(Rules::get().pForks));
+			return get_Height() + 1 >= Rules::get().pForks[iFork].m_Height;
+		}
+
 		bool IsPastHF4() {
 			// current height does not include the current being-interpreted block
-			return get_Height() + 1 >= Rules::get().pForks[4].m_Height;
+			return IsPastFork(4);
 		}
 
 	public:

@@ -264,6 +264,9 @@
 	macro(Height, h) sep \
 	macro(HashValue&, res)
 
+#define BVMOp_get_ForkHeight(macro, sep) \
+	macro(uint32_t, iFork)
+
 #define BVMOp_SelectContext(macro, sep) \
 	macro(uint8_t, bDependent) sep \
 	macro(uint32_t, nChargeNeeded)
@@ -479,6 +482,7 @@
 	macro(0x41, void     , get_HdrInfo) \
 	macro(0x42, void     , get_HdrFull) \
 	macro(0x43, Height   , get_RulesCfg) \
+	macro(0x44, Height   , get_ForkHeight) \
 	macro(0x48, HashObj* , HashCreateSha256) \
 	macro(0x49, HashObj* , HashCreateBlake2b) \
 	macro(0x4A, HashObj* , HashCreateKeccak) \

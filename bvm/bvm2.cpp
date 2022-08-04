@@ -1650,6 +1650,17 @@ namespace bvm2 {
 		return r.pForks[iFork].m_Height;
 	}
 
+	BVM_METHOD(get_ForkHeight)
+	{
+		if (Kind::Contract == get_Kind())
+			Wasm::Test(IsPastFork(5));
+
+		const Rules& r = Rules::get();
+		return (iFork >= _countof(r.pForks)) ? MaxHeight : r.pForks[iFork].m_Height;
+	}
+
+	BVM_METHOD_HOST_AUTO(get_ForkHeight)
+
 	struct Processor::DataProcessor::Instance
 	{
 		template <uint32_t nBytes>
