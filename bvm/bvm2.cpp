@@ -1662,6 +1662,17 @@ namespace bvm2 {
 		return r.pForks[iFork].m_Height;
 	}
 
+	BVM_METHOD(get_ForkHeight)
+	{
+		if (Kind::Contract == get_Kind())
+			Wasm::Test(IsPastFork(5));
+
+		const Rules& r = Rules::get();
+		return (iFork >= _countof(r.pForks)) ? MaxHeight : r.pForks[iFork].m_Height;
+	}
+
+	BVM_METHOD_HOST_AUTO(get_ForkHeight)
+
 	struct Processor::DataProcessor::Instance
 	{
 		template <uint32_t nBytes>
@@ -3064,6 +3075,20 @@ namespace bvm2 {
 			DeriveKeyPreimage(v.m_vSig.emplace_back(), Blob(x.m_pID, x.m_nID));
 		}
 	}
+
+	BVM_METHOD(GetApiVersion)
+	{
+		return Shaders::ApiVersion::Current;
+	}
+
+	BVM_METHOD_HOST_AUTO(GetApiVersion)
+
+	BVM_METHOD(SetApiVersion)
+	{
+		Wasm::Test(Shaders::ApiVersion::Current == nVer);
+	}
+
+	BVM_METHOD_HOST_AUTO(SetApiVersion)
 
 	void ProcessorManager::RunOnce()
 	{
