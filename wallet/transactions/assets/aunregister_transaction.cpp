@@ -60,13 +60,16 @@ namespace beam::wallet
     {
         using Builder::Builder;
 
-        void Sign()
+        void Sign(Amount valDeposit)
         {
             if (m_pKrn)
                 return;
 
             std::unique_ptr<TxKernelAssetDestroy> pKrn = std::make_unique<TxKernelAssetDestroy>();
             pKrn->m_AssetID = m_Tx.GetMandatoryParameter<Asset::ID>(TxParameterID::AssetID);
+
+            if (m_Height.m_Min >= Rules::get().pForks[5].m_Height)
+                pKrn->m_Deposit = valDeposit;
 
             AddKernel(std::move(pKrn));
             FinalyzeTx();
@@ -89,12 +92,21 @@ namespace beam::wallet
             _builder = std::make_shared<MyBuilder>(*this, kDefaultSubTxID);
         auto& builder = *_builder;
 
+        auto pInfo = GetWalletDB()->findAsset(builder.m_pidAsset);
+        if (!pInfo)
+        {
+            OnFailed(TxFailureReason::NoAssetInfo);
+            return;
+        }
+
+        WalletAsset& wa = *pInfo;
+
         if (GetState<State>() == State::Initial)
         {
             LOG_INFO()
                 << GetTxID()
                 << " Unregistering asset with the owner id " << builder.m_pidAsset
-                << ". Refund amount is " << PrintableAmount(Rules::get().CA.DepositForList, false);
+                << ". Refund amount is " << PrintableAmount(wa.m_Deposit, false);
 
             UpdateTxDescription(TxStatus::InProgress);
         }
@@ -119,14 +131,6 @@ namespace beam::wallet
                 return;
             }
 
-            auto pInfo = GetWalletDB()->findAsset(builder.m_pidAsset);
-            if (!pInfo)
-            {
-                OnFailed(TxFailureReason::NoAssetInfo);
-                return;
-            }
-
-            WalletAsset& wa = *pInfo;
             SetParameter(TxParameterID::AssetID, wa.m_ID);
 
             if (wa.m_Value != Zero)
@@ -143,7 +147,7 @@ namespace beam::wallet
             }
 
             BaseTxBuilder::Balance bb(builder);
-            bb.m_Map[0].m_Value += Rules::get().CA.DepositForList - builder.m_Fee;
+            bb.m_Map[0].m_Value += wa.m_Deposit - builder.m_Fee;
             bb.CompleteBalance();
 
             builder.SaveCoins();
@@ -154,7 +158,7 @@ namespace beam::wallet
             return;
 
         if (!builder.m_pKrn)
-            builder.Sign();
+            builder.Sign(pInfo->m_Deposit);
 
         auto registered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegistered, registered))

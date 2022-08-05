@@ -2307,13 +2307,13 @@ namespace beam
 				if (m_Assets.m_hCreated)
 					return false;
 
-				const Amount nFee = 330;
-				Amount nLock = Rules::get().CA.DepositForList;
-				if (val < nLock + nFee)
-					return false;
-
 				const Block::SystemState::Full& s = m_vStates.back();
 				if (s.m_Height + 1 < Rules::get().pForks[2].m_Height)
+					return false;
+
+				const Amount nFee = 330;
+				Amount nLock = Rules::get().get_DepositForCA(s.m_Height + 1);
+				if (val < nLock + nFee)
 					return false;
 
 				val -= nLock + nFee;
@@ -3880,7 +3880,7 @@ void TestAll()
 	beam::Rules::get().pForks[2].m_Height = 17;
 	beam::Rules::get().pForks[3].m_Height = 17;
 	beam::Rules::get().pForks[4].m_Height = 17;
-	beam::Rules::get().CA.DepositForList = beam::Rules::Coin * 16;
+	beam::Rules::get().CA.DepositForList2 = beam::Rules::Coin * 16;
 	beam::Rules::get().CA.LockPeriod = 2;
 	beam::Rules::get().Shielded.m_ProofMax = { 4, 6 }; // 4K
 	beam::Rules::get().Shielded.m_ProofMin = { 4, 5 }; // 1K

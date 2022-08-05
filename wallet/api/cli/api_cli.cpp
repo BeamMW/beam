@@ -305,7 +305,7 @@ namespace
                 _walletData->walletDB    = _walletDB;
                 _walletData->wallet      = _wallet;
                 _walletData->acl         = _acl;
-                _walletData->contracts   = IShadersManager::CreateInstance(_wallet, _walletDB, _network, "", "");
+                _walletData->contracts   = IShadersManager::CreateInstance(_wallet, _walletDB, _network, "", "", 0);
                 _walletData->nodeNetwork = _network;
 
                 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
