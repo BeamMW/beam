@@ -39,7 +39,7 @@ namespace beam::wallet {
         [[nodiscard]] boost::optional<DexOrder> getDexOrder(const DexOrderID&) const;
 
         void publishOrder(const DexOrder&);
-        void acceptOrder(const DexOrderID& id);
+        void cancelDexOrder(const DexOrderID& id);
 
         void Subscribe(IObserver* observer)
         {
@@ -66,6 +66,12 @@ namespace beam::wallet {
         //
         bool acceptIncomingDexSS(const SetTxParameter& msg) override;
         void onDexTxCreated(const SetTxParameter& msg, BaseTransaction::Ptr) override;
+
+
+        //
+        // IWalletDbObserver
+        //
+        void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
 
         //
         // Serialization

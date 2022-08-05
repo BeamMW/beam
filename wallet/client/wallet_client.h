@@ -295,7 +295,7 @@ namespace beam::wallet
         void getDexOrders() override;
         void getDexOrder(const DexOrderID&) override;
         void publishDexOrder(const DexOrder&) override;
-        void acceptDexOrder(const DexOrderID&) override;
+        void cancelDexOrder(const DexOrderID&) override;
 
         #ifdef BEAM_IPFS_SUPPORT
         void getIPFSStatus() override;

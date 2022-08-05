@@ -55,20 +55,43 @@ namespace beam::wallet {
         _gateway.sendMessage(BroadcastContentType::DexOffers, message);
     }
 
+    void DexBoard::cancelDexOrder(const DexOrderID& id)
+    {
+        auto it = _orders.find(id);
+        if(it == _orders.end() || !it->second.isMine()) return;
+
+        it->second.cancel();
+        notifyObservers(ChangeAction::Removed, std::vector<DexOrder>{ it->second });
+        publishOrder(it->second);
+    }
+
     bool DexBoard::handleDexOrder(const boost::optional<DexOrder>& order)
     {
+        if (!order) return false;
         LOG_INFO() << "DexBoard oder message received";
 
         auto it = _orders.find(order->getID());
-        _orders[order->getID()] = *order;
 
         if (it == _orders.end())
         {
-            notifyObservers(ChangeAction::Added, std::vector<DexOrder>{ *order });
+            if (!order->isCanceled())
+            {
+                _orders[order->getID()] = *order;
+                notifyObservers(ChangeAction::Added, std::vector<DexOrder>{ *order });
+            }
         }
         else
         {
-            notifyObservers(ChangeAction::Updated, std::vector<DexOrder>{ *order });
+            if (order->isCanceled())
+            {
+                notifyObservers(ChangeAction::Removed, std::vector<DexOrder>{ *order });
+                _orders.erase(it);
+            }
+            else
+            {
+                notifyObservers(ChangeAction::Updated, std::vector<DexOrder>{ *order });
+                _orders[order->getID()] = *order;
+            }
         }
 
         return true;
@@ -129,5 +152,10 @@ namespace beam::wallet {
     void DexBoard::onDexTxCreated(const SetTxParameter& msg, BaseTransaction::Ptr)
     {
         // TODO:DEX associate with the real order
+    }
+
+    void DexBoard::onSystemStateChanged(const Block::SystemState::ID& stateID)
+    {
+        
     }
 }

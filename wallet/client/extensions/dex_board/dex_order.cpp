@@ -145,6 +145,11 @@ std::string DexOrder::getSecondAssetSname() const
     return _assetSnameSecond.empty() ? (_assetIdSecond == Asset::s_BeamID ? kBeamAssetSName : kUnknownAssetSName) : _assetSnameSecond;
 }
 
+bool DexOrder::isCanceled() const
+{
+    return _isCanceled;
+}
+
 ECC::Scalar::Native DexOrder::derivePrivateKey(beam::Key::IKdf::Ptr pkdf) const
 {
     if (!pkdf)
@@ -202,6 +207,11 @@ std::string DexOrder::getSendAssetSName() const
 std::string DexOrder::getReceiveAssetSName() const
 {
     return isMine() ? getSecondAssetSname() : getFirstAssetSname();
+}
+
+void DexOrder::cancel()
+{
+    _isCanceled = true;
 }
 
 }  // namespace beam::wallet

@@ -141,9 +141,9 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::publishDexOrder, order);
     }
 
-    void acceptDexOrder(const DexOrderID& orderId) override
+    void cancelDexOrder(const DexOrderID& orderId) override
     {
-        call_async(&IWalletModelAsync::acceptDexOrder, orderId);
+        call_async(&IWalletModelAsync::cancelDexOrder, orderId);
     }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT    
@@ -1881,9 +1881,12 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::acceptDexOrder(const DexOrderID& orderId)
+    void WalletClient::cancelDexOrder(const DexOrderID& orderId)
     {
-
+        if (auto dex = _dex.lock())
+        {
+            dex->cancelDexOrder(orderId);
+        }
     }
 
     #ifdef BEAM_IPFS_SUPPORT
