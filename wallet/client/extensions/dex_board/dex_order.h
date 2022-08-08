@@ -26,6 +26,7 @@ namespace beam::wallet
 
         DexOrder() = default;
         DexOrder(const ByteBuffer& buffer, const ByteBuffer& signature, beam::Key::IKdf::Ptr);
+        DexOrder(const ByteBuffer& buffer, bool isMine);
         DexOrder(DexOrderID    orderId,
                  WalletID      sbbsId,
                  uint64_t      sbbsKeyIdx,

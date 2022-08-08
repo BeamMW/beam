@@ -23,6 +23,11 @@ namespace beam::wallet {
         , _wallet(std::move(wallet))
         , _wdb(wdb)
     {
+        auto offers = _wdb.loadDexOffers();
+        for (const auto& offer: offers)
+        {
+            _orders[offer.getID()] = offer;
+        }
         _gateway.registerListener(BroadcastContentType::DexOffers, this);
     }
 
@@ -68,15 +73,14 @@ namespace beam::wallet {
     bool DexBoard::handleDexOrder(const boost::optional<DexOrder>& order)
     {
         if (!order) return false;
-        LOG_INFO() << "DexBoard oder message received";
 
         auto it = _orders.find(order->getID());
-
         if (it == _orders.end())
         {
             if (!order->isCanceled())
             {
                 _orders[order->getID()] = *order;
+                _wdb.saveDexOffer(*order);
                 notifyObservers(ChangeAction::Added, std::vector<DexOrder>{ *order });
             }
         }
@@ -85,12 +89,13 @@ namespace beam::wallet {
             if (order->isCanceled())
             {
                 notifyObservers(ChangeAction::Removed, std::vector<DexOrder>{ *order });
+                _wdb.dropDexOffer(order->getID());
                 _orders.erase(it);
             }
             else
             {
-                notifyObservers(ChangeAction::Updated, std::vector<DexOrder>{ *order });
                 _orders[order->getID()] = *order;
+                notifyObservers(ChangeAction::Updated, std::vector<DexOrder>{ *order });
             }
         }
 

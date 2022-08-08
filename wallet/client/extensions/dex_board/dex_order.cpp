@@ -53,16 +53,26 @@ DexOrder::DexOrder(const ByteBuffer& buffer, const ByteBuffer& signature, beam::
     _isMine = pubkey == _sbbsID.m_Pk;
 }
 
+DexOrder::DexOrder(const ByteBuffer& buffer, bool isMine)
+{
+    if (!fromByteBuffer(buffer, *this))
+    {
+        throw std::runtime_error("DexOrder::DexOrder failed to parse order body");
+    }
+
+    _isMine = isMine;
+}
+
 DexOrder::DexOrder(DexOrderID    orderId,
-                            WalletID      sbbsId,
-                            uint64_t      sbbsKeyIdx,
-                            Asset::ID     assetIdFirst,
-                            Amount        assetAmountFirst,
-                            std::string   assetSnameFirst,
-                            Asset::ID     assetIdSecond,
-                            Amount        assetAmountSecond,
-                            std::string   assetSnameSecond,
-                            uint32_t      expiration)
+                   WalletID      sbbsId,
+                   uint64_t      sbbsKeyIdx,
+                   Asset::ID     assetIdFirst,
+                   Amount        assetAmountFirst,
+                   std::string   assetSnameFirst,
+                   Asset::ID     assetIdSecond,
+                   Amount        assetAmountSecond,
+                   std::string   assetSnameSecond,
+                   uint32_t      expiration)
     : _version(kCurrentOfferVer)
     , _orderID(orderId)
     , _sbbsID(sbbsId)
