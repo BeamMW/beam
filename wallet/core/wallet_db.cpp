@@ -4516,7 +4516,7 @@ namespace beam::wallet
         return findAsset(assetID);
     }
 
-    std::vector<DexOrder> WalletDB::loadDexOffers()
+    std::vector<std::pair<ByteBuffer, bool>> WalletDB::loadDexOffers()
     {
         sqlite::Statement countStm(this, "SELECT COUNT(*) FROM " DEX_OFFERS_NAME ";");
         countStm.step();
@@ -4524,7 +4524,7 @@ namespace beam::wallet
         uint64_t count;
         countStm.get(0, count);
 
-        std::vector<DexOrder> offers;
+        std::vector<std::pair<ByteBuffer, bool>> offers;
         offers.reserve(count);
 
         const char* selectReq = "SELECT * FROM " DEX_OFFERS_NAME ";";
@@ -4544,10 +4544,9 @@ namespace beam::wallet
         return offers;
     }
 
-    void WalletDB::saveDexOffer(const DexOrder& offer)
+    void WalletDB::saveDexOffer(const DexOrderID& offerId, const ByteBuffer& offer, bool isMine)
     {
-        const auto& id = offer.getID();
-        const auto& idStr = id.to_string();
+        const auto& idStr = offerId.to_string();
         LOG_DEBUG() << "Save offer: " << idStr;
         const char* selectReq = "SELECT * FROM " DEX_OFFERS_NAME " WHERE id=?1;";
         sqlite::Statement stm2(this, selectReq);
@@ -4559,8 +4558,8 @@ namespace beam::wallet
             sqlite::Statement stm(this, updateReq);
 
             stm.bind(1, idStr);
-            stm.bind(2, toByteBuffer(offer));
-            stm.bind(3, offer.isMine());
+            stm.bind(2, offer);
+            stm.bind(3, isMine);
 
             stm.step();
         }
@@ -4570,8 +4569,8 @@ namespace beam::wallet
             sqlite::Statement stm(this, insertReq);
 
             stm.bind(1, idStr);
-            stm.bind(2, toByteBuffer(offer));
-            stm.bind(3, offer.isMine());
+            stm.bind(2, offer);
+            stm.bind(3, isMine);
 
             stm.step();
         }

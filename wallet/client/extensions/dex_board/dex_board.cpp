@@ -23,9 +23,10 @@ namespace beam::wallet {
         , _wallet(std::move(wallet))
         , _wdb(wdb)
     {
-        auto offers = _wdb.loadDexOffers();
-        for (const auto& offer: offers)
+        auto offersRaw = _wdb.loadDexOffers();
+        for (const auto& offerRaw: offersRaw)
         {
+            DexOrder offer(offerRaw.first, offerRaw.second);
             _orders[offer.getID()] = offer;
         }
         _gateway.registerListener(BroadcastContentType::DexOffers, this);
@@ -80,7 +81,7 @@ namespace beam::wallet {
             if (!order->isCanceled())
             {
                 _orders[order->getID()] = *order;
-                _wdb.saveDexOffer(*order);
+                _wdb.saveDexOffer(order->getID(), toByteBuffer(*order), order->isMine());
                 notifyObservers(ChangeAction::Added, std::vector<DexOrder>{ *order });
             }
         }
