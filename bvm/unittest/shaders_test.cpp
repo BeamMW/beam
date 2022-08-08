@@ -525,7 +525,7 @@ namespace bvm2 {
 		} m_Eth;
 
 
-		virtual void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext) override
+		virtual void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint8_t bInheritContext) override
 		{
 			if (cid == m_Vault.m_Cid)
 			{
@@ -732,7 +732,7 @@ namespace bvm2 {
 				}
 			}
 */
-			ProcessorContract::CallFar(cid, iMethod, pArgs, bInheritContext);
+			ProcessorContract::CallFar(cid, iMethod, pArgs, nArgs, bInheritContext);
 		}
 
 		void TestVault();
@@ -2147,7 +2147,7 @@ namespace bvm2 {
 			r.pForks[3].m_Height = 999999999;
 			r.pForks[3].m_Hash = Zero;
 
-			r.pForks[4].m_Height = MaxHeight;
+			r.DisableForksFrom(4);
 
 
 			beam::Block::SystemState::Full s;

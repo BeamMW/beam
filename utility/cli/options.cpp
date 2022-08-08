@@ -716,7 +716,8 @@ namespace beam
             macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only") \
             macro(Height, MaxKernelValidityDH, "Max implicit kernel lifespan after HF2 (a.k.a. kernel visibility horizon)") \
             macro(bool, CA.Enabled, "Enable/disable CA (confidential assets)") \
-            macro(Amount, CA.DepositForList, "Deposit for new CA allocation") \
+            macro(Amount, CA.DepositForList2, "Deposit for new CA allocation since HF2") \
+            macro(Amount, CA.DepositForList5, "Deposit for new CA allocation since HF5") \
             macro(Height, CA.LockPeriod, "Lock height for deposit after the CA is completely burned") \
             macro(uint32_t, CA.m_ProofCfg.n, "Asset type anonymity set size n (n^M)") \
             macro(uint32_t, CA.m_ProofCfg.M, "Asset type anonymity set size M (n^M)") \
