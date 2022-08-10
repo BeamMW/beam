@@ -69,6 +69,8 @@ namespace beam::wallet
         std::string getReceiveAssetSName() const;
 
         void cancel();
+        bool isAccepted() const;
+        void setAccepted(bool value);
 
     private:
         uint32_t      _version = 2;

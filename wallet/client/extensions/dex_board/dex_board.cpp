@@ -27,8 +27,12 @@ namespace beam::wallet {
         for (const auto& offerRaw: offersRaw)
         {
             DexOrder offer(offerRaw.first, offerRaw.second);
-            _orders[offer.getID()] = offer;
+            if (!offer.isExpired())
+                _orders[offer.getID()] = offer;
+            else
+                _wdb.dropDexOffer(offer.getID());
         }
+
         _gateway.registerListener(BroadcastContentType::DexOffers, this);
     }
 
@@ -67,7 +71,7 @@ namespace beam::wallet {
         if(it == _orders.end() || !it->second.isMine()) return;
 
         it->second.cancel();
-        notifyObservers(ChangeAction::Removed, std::vector<DexOrder>{ it->second });
+        // notifyObservers(ChangeAction::Removed, std::vector<DexOrder>{ it->second });
         publishOrder(it->second);
     }
 
@@ -78,7 +82,7 @@ namespace beam::wallet {
         auto it = _orders.find(order->getID());
         if (it == _orders.end())
         {
-            if (!order->isCanceled())
+            if (!order->isCanceled() && !order->isExpired())
             {
                 _orders[order->getID()] = *order;
                 _wdb.saveDexOffer(order->getID(), toByteBuffer(*order), order->isMine());
@@ -87,7 +91,7 @@ namespace beam::wallet {
         }
         else
         {
-            if (order->isCanceled())
+            if (order->isCanceled() || order->isAccepted())
             {
                 notifyObservers(ChangeAction::Removed, std::vector<DexOrder>{ *order });
                 _wdb.dropDexOffer(order->getID());
@@ -150,18 +154,51 @@ namespace beam::wallet {
 
     bool DexBoard::acceptIncomingDexSS(const SetTxParameter& msg)
     {
-        // TODO:DEX perform real check
-        // always true is only for tests
+        DexOrderID id;
+        msg.GetParameter(TxParameterID::ExternalDexOrderID, id);
+
+        auto it = _orders.find(id);
+        if (it == _orders.end()) return false;
+
+        if (!it->second.isMine()
+            || it->second.isExpired()
+            || it->second.isCanceled()
+            || it->second.isAccepted()) return false;
+
+        it->second.setAccepted(true);
+
         return true;
     }
 
-    void DexBoard::onDexTxCreated(const SetTxParameter& msg, BaseTransaction::Ptr)
+    void DexBoard::onDexTxCreated(const SetTxParameter& msg, BaseTransaction::Ptr tx)
     {
-        // TODO:DEX associate with the real order
+        DexOrderID id;
+        msg.GetParameter(TxParameterID::ExternalDexOrderID, id);
+
+        auto it = _orders.find(id);
+        if (it == _orders.end()) return;
+
+        if (it->second.isAccepted())
+            publishOrder(it->second);
     }
 
     void DexBoard::onSystemStateChanged(const Block::SystemState::ID& stateID)
     {
-        
+        std::vector<DexOrderID> notActualOffers;
+        for (const auto& it: _orders)
+        {
+            const auto& offer = it.second;
+            if (offer.isExpired())
+            {
+                notActualOffers.emplace_back(it.first);
+                notifyObservers(ChangeAction::Removed, std::vector<DexOrder>{ it.second });
+                _wdb.dropDexOffer(it.first);
+            }
+        }
+
+        for (auto idForRemove: notActualOffers)
+        {
+            _orders.erase(idForRemove);
+        }
     }
 }

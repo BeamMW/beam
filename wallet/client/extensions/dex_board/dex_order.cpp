@@ -97,7 +97,7 @@ uint32_t DexOrder::getVersion() const
 bool DexOrder::isExpired() const
 {
     const auto now = getTimestamp();
-    return _expireTime <= now;
+    return _expireTime < now;
 }
 
 const DexOrderID& DexOrder::getID() const
@@ -222,6 +222,17 @@ std::string DexOrder::getReceiveAssetSName() const
 void DexOrder::cancel()
 {
     _isCanceled = true;
+}
+
+bool DexOrder::isAccepted() const
+{
+    return _isAccepted;
+}
+
+void DexOrder::setAccepted(bool value)
+{
+    if (_isMine)
+        _isAccepted = value;
 }
 
 }  // namespace beam::wallet
