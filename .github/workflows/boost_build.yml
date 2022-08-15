@@ -123,7 +123,7 @@ jobs:
         shell: bash
         run: |
           cd ${{runner.workspace}}/boost
-          ./b2 install --prefix=${{runner.workspace}}/boost_prebuild
+          ./b2 install --prefix=${{runner.workspace}}/boost_prebuild cxxstd=14
 
       - name: Pack
         shell: bash
