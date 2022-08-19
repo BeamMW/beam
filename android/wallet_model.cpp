@@ -683,6 +683,11 @@ void WalletModel::onSwapParamsLoaded(const beam::ByteBuffer& params)
     // TODO
 }
 
+void WalletModel::onAssetSwapParamsLoaded(const beam::ByteBuffer& params)
+{
+    LOG_DEBUG() << "onAssetSwapParamsLoaded()";
+}
+
 void WalletModel::onNewAddressFailed()
 {
 

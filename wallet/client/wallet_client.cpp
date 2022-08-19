@@ -1844,8 +1844,8 @@ namespace beam::wallet
     void WalletClient::loadDexOrderParams()
     {
         ByteBuffer params;
-        m_walletDB->getBlob(ASSET_SWAP_PARAMS_NAME, params);
-        onAssetSwapParamsLoaded(params);
+        if (m_walletDB->getBlob(ASSET_SWAP_PARAMS_NAME, params))
+            onAssetSwapParamsLoaded(params);
     }
 
     void WalletClient::storeDexOrderParams(const ByteBuffer& params)
