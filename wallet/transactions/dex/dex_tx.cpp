@@ -20,6 +20,7 @@ namespace beam::wallet
     TxParameters CreateDexTransactionParams(
             const DexOrderID& dexOrderID,
             const WalletID& peerID,
+            const WalletID& myID,
             Asset::ID coinMy,
             Amount amountMy,
             Asset::ID coinPeer,
@@ -31,6 +32,7 @@ namespace beam::wallet
 
         return CreateTransactionParameters(TxType::DexSimpleSwap, txId)
             .SetParameter(TxParameterID::PeerID, peerID)
+            .SetParameter(TxParameterID::MyID, myID)
             .SetParameter(TxParameterID::DexOrderID, dexOrderID)
             .SetParameter(TxParameterID::SavePeerAddress, false)
             .SetParameter(TxParameterID::DexReceiveAsset, coinPeer)
