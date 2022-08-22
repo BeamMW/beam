@@ -117,13 +117,21 @@ jobs:
         shell: bash
         run: |
           cd ${{runner.workspace}}/boost
-          ./b2 --target=static
+          ./b2 cxxstd=14 toolset=clang-darwin target-os=darwin architecture=arm abi=aapcs cxxflags="-arch arm64" cflags="-arch arm64" linkflags="-arch arm64" --target=static --without-iostreams
+          mkdir -p arm64 && cp stage/lib/*.a arm64 && cp stage/lib/*.dylib arm64
+          ./b2 cxxstd=14 toolset=clang-darwin target-os=darwin architecture=x86 cxxflags="-arch x86_64" cflags="-arch x86_64" linkflags="-arch x86_64" abi=sysv binary-format=mach-o --target=static --without-iostreams
+          mkdir x86_64 && cp stage/lib/*.a x86_64 && cp stage/lib/*.dylib x86_64
 
       - name: Install
         shell: bash
         run: |
           cd ${{runner.workspace}}/boost
-          ./b2 install --prefix=${{runner.workspace}}/boost_prebuild cxxstd=14
+          mkdir ${{runner.workspace}}/boost_prebuild/include/
+          mkdir ${{runner.workspace}}/boost_prebuild/lib/
+          cp -R ./boost ${{runner.workspace}}/boost_prebuild/include/
+          for dylib in arm64/*; do 
+            lipo -create -arch arm64 $dylib -arch x86_64 x86_64/$(basename $dylib) -output ${{runner.workspace}}/boost_prebuild/lib/$(basename $dylib);
+          done
 
       - name: Pack
         shell: bash
