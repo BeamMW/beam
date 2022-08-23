@@ -41,16 +41,25 @@ namespace beam::bvm2 {
 			Amount m_Fee;
 			ECC::Signature m_Sig;
 			ECC::Hash::Value m_hvSk;
+			ECC::Point m_Commitment;
+			std::vector<ECC::Point> m_vCosigners;
 
 		} m_Adv;
 
 		struct Flags {
 			static const uint8_t Adv = 1;
 			static const uint8_t Dependent = 2;
+			static const uint8_t HasPeers = 4;
+			static const uint8_t RoleCosigner = 8;
+			static const uint8_t HasCommitment = 0x10;
 		};
 
 		bool IsAdvanced() const {
 			return !!(Flags::Adv & m_Flags);
+		}
+
+		bool IsCoSigner() const {
+			return !!(Flags::RoleCosigner & m_Flags);
 		}
 
 		FundsMap m_Spend; // ins - outs, not including fee
@@ -100,11 +109,18 @@ namespace beam::bvm2 {
 
 			if (Flags::Dependent & m_Flags)
 				ar & m_ParentCtx;
+
+			if (Flags::HasPeers & m_Flags)
+				ar & m_Adv.m_vCosigners;
+
+			if (Flags::HasCommitment & m_Flags)
+				ar & m_Adv.m_Commitment;
 		}
 
 		void Generate(Transaction&, Key::IKdf&, const HeightRange& hr, Amount fee) const;
 
-		void GenerateAdv(Key::IKdf*, ECC::Scalar* pE, const ECC::Point& ptFullBlind, const ECC::Point& ptFullNonce, const ECC::Hash::Value* phvNonce, const ECC::Scalar* pForeignSig, const ECC::Point* pPks, uint32_t nPks);
+		void GenerateAdv(Key::IKdf*, ECC::Scalar* pE, const ECC::Point& ptFullBlind, const ECC::Point& ptFullNonce, const ECC::Hash::Value* phvNonce, const ECC::Scalar* pForeignSig,
+			const ECC::Point* pPks, uint32_t nPks, uint8_t nFlags, const ECC::Point* pForeign, uint32_t nForeign);
 
 
 		[[nodiscard]] Amount get_FeeMin(Height) const;

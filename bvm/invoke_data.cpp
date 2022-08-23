@@ -65,7 +65,8 @@ namespace beam::bvm2 {
 		fcm.ToCommitment(ptFunds);
 	}
 
-	void ContractInvokeEntry::GenerateAdv(Key::IKdf* pKdf, ECC::Scalar* pE, const ECC::Point& ptFullBlind, const ECC::Point& ptFullNonce, const ECC::Hash::Value* phvNonce, const ECC::Scalar* pForeignSig, const ECC::Point* pPks, uint32_t nPks)
+	void ContractInvokeEntry::GenerateAdv(Key::IKdf* pKdf, ECC::Scalar* pE, const ECC::Point& ptFullBlind, const ECC::Point& ptFullNonce, const ECC::Hash::Value* phvNonce, const ECC::Scalar* pForeignSig,
+		const ECC::Point* pPks, uint32_t nPks, uint8_t nFlags, const ECC::Point* pForeign, uint32_t nForeign)
 	{
 		std::unique_ptr<TxKernelContractControl> pKrn;
 		ECC::Point::Native ptFunds;
@@ -73,10 +74,15 @@ namespace beam::bvm2 {
 
 		auto& krn = *pKrn;
 
-		ECC::Point::Native pt;
-		pt.Import(ptFullBlind);
-		pt += ptFunds;
-		krn.m_Commitment = pt;
+		if (Shaders::KernelFlag::FullCommitment & nFlags)
+			krn.m_Commitment = ptFullBlind;
+		else
+		{
+			ECC::Point::Native pt;
+			pt.Import(ptFullBlind);
+			pt += ptFunds;
+			krn.m_Commitment = pt;
+		}
 
 		krn.UpdateMsg();
 
@@ -124,6 +130,21 @@ namespace beam::bvm2 {
 
 			skSig = -skSig; // our formula is sig.ptNonce + Pk[i]*e[i] + G*sig.k == 0
 			m_Adv.m_Sig.m_k = skSig;
+
+			if (nForeign)
+			{
+				m_Flags |= Flags::HasPeers;
+				m_Adv.m_vCosigners.assign(pForeign, pForeign + nForeign);
+
+				if (Shaders::KernelFlag::CoSigner & nFlags)
+					m_Flags |= Flags::RoleCosigner;
+			}
+
+			if (IsAdvanced())
+			{
+				m_Flags |= Flags::HasCommitment;
+				m_Adv.m_Commitment = krn.m_Commitment;
+			}
 		}
 
 	}
@@ -141,10 +162,15 @@ namespace beam::bvm2 {
 		{
 			kdf.DeriveKey(sk, m_Adv.m_hvSk);
 
-			ECC::Point::Native pt = ECC::Context::get().G * sk;
-			pt += ptFunds;
-			krn.m_Commitment = pt;
-
+			if (Flags::HasCommitment & m_Flags)
+				krn.m_Commitment = m_Adv.m_Commitment;
+			else
+			{
+				// legacy
+				ECC::Point::Native pt = ECC::Context::get().G * sk;
+				pt += ptFunds;
+				krn.m_Commitment = pt;
+			}
 			krn.m_Signature = m_Adv.m_Sig; // signed already
 
 			krn.UpdateID();

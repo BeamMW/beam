@@ -873,7 +873,7 @@ namespace bvm2 {
 #define BVM_METHOD_PAR_PASS_TO_HOST(type, name) ProcessorPlus::From(*this).ToHost<type>(name)
 #define BVM_METHOD(name) ProcessorFromMethod::name##_Type::RetType_##name ProcessorFromMethod::name##_Type::OnMethod_##name(BVMOp_##name(BVM_METHOD_PAR_DECL, MACRO_COMMA))
 #define BVM_METHOD_HOST(name) ProcessorFromMethod::name##_Type::RetTypeHost_##name ProcessorFromMethod::name##_TypeEnv::OnHost_##name(BVMOp_##name(BVM_METHOD_PAR_DECL_HOST, MACRO_COMMA))
-
+#define BVM_METHOD_PAR_PASS(type, name) name
 #define BVM_METHOD_AUTO_INVOKE(name) ProcessorFromMethod::name##_Type::From(*this).OnMethod_##name(BVMOp_##name(BVM_METHOD_PAR_PASS_TO_METHOD, MACRO_COMMA));
 #define BVM_METHOD_HOST_AUTO(name) BVM_METHOD_HOST(name)  { return BVM_METHOD_AUTO_INVOKE(name); }
 
@@ -3158,7 +3158,8 @@ namespace bvm2 {
 		return v;
 	}
 
-	void ProcessorManager::SetKernelAdv(Height hMin, Height hMax, const PubKey& ptFullBlind, const PubKey& ptFullNonce, const ECC::Scalar& skForeignSig, uint32_t iSlotBlind, uint32_t iSlotNonce, const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE)
+	void ProcessorManager::SetKernelAdv(Height hMin, Height hMax, const PubKey& ptFullBlind, const PubKey& ptFullNonce, const ECC::Scalar& skForeignSig, uint32_t iSlotBlind, uint32_t iSlotNonce,
+		const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE, uint8_t nFlags, const PubKey* pForeign, uint32_t nForeign)
 	{
 		assert(!m_vInvokeData.empty());
 		auto& v = m_vInvokeData.back();
@@ -3185,13 +3186,23 @@ namespace bvm2 {
 			SlotErase(iSlotNonce);
 		}
 
-		v.GenerateAdv(pKdf, pE, ptFullBlind, ptFullNonce, &hvNonce, &skForeignSig, pSig, nSig);
+		v.GenerateAdv(pKdf, pE, ptFullBlind, ptFullNonce, &hvNonce, &skForeignSig, pSig, nSig,  nFlags, pForeign, nForeign);
 
 		if (pE)
 			m_vInvokeData.pop_back(); // no more needed
 	}
 
 	BVM_METHOD(GenerateKernelAdvanced)
+	{
+		OnMethod_GenerateKernelAdvanced2(BVMOp_GenerateKernelAdvanced(BVM_METHOD_PAR_PASS, MACRO_COMMA), 0, 0, 0);
+	}
+
+	BVM_METHOD_HOST(GenerateKernelAdvanced)
+	{
+		OnHost_GenerateKernelAdvanced2(BVMOp_GenerateKernelAdvanced(BVM_METHOD_PAR_PASS, MACRO_COMMA), 0, nullptr, 0);
+	}
+
+	BVM_METHOD(GenerateKernelAdvanced2)
 	{
 		if (!EnsureContext())
 			return;
@@ -3202,16 +3213,16 @@ namespace bvm2 {
 		const PubKey* pSig_ = get_ArrayAddrAsR<PubKey>(pSig, nSig);
 		ECC::Scalar* pE = pChallenges ? get_ArrayAddrAsW<ECC::Scalar>(pChallenges, nSig) : nullptr;
 
-		SetKernelAdv(hMin, hMax,  get_AddrAsR<PubKey>(ptFullBlind), get_AddrAsR<PubKey>(ptFullNonce), get_AddrAsR<ECC::Scalar>(skForeignSig), iSlotBlind, iSlotNonce, pSig_, nSig, pE);
+		SetKernelAdv(hMin, hMax,  get_AddrAsR<PubKey>(ptFullBlind), get_AddrAsR<PubKey>(ptFullNonce), get_AddrAsR<ECC::Scalar>(skForeignSig), iSlotBlind, iSlotNonce, pSig_, nSig, pE, nFlags, get_ArrayAddrAsW<ECC::Point>(pForeign, nForeign), nForeign);
 	}
 
-	BVM_METHOD_HOST(GenerateKernelAdvanced)
+	BVM_METHOD_HOST(GenerateKernelAdvanced2)
 	{
 		if (!EnsureContext())
 			return;
 
 		GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, false, szComment, nCharge);
-		SetKernelAdv(hMin, hMax, ptFullBlind, ptFullNonce, skForeignSig, iSlotBlind, iSlotNonce, pSig, nSig, pChallenges);
+		SetKernelAdv(hMin, hMax, ptFullBlind, ptFullNonce, skForeignSig, iSlotBlind, iSlotNonce, pSig, nSig, pChallenges, nFlags, pForeign, nForeign);
 	}
 
 	BVM_METHOD(GenerateRandom)
