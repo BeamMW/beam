@@ -113,6 +113,8 @@ jobs:
         run: |
           cd ${{runner.workspace}}/boost
           ./bootstrap.sh
+          cd ${{runner.workspace}}/boost_arm
+          ./bootstrap.sh
 
       - name: Build
         shell: bash
