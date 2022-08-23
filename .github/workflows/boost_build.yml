@@ -132,7 +132,7 @@ jobs:
           # cd ${{runner.workspace}}/boost_arm
           # ./b2 install --prefix=${{runner.workspace}}/boost_prebuild_arm
           cd ${{runner.workspace}}/boost
-          ./b2 install --prefix=${{runner.workspace}}/boost_prebuild_x86_64
+          ./b2 install --prefix=${{runner.workspace}}/boost_prebuild cxxstd=14
           # mkdir ${{runner.workspace}}/boost_prebuild/include/
           # mkdir ${{runner.workspace}}/boost_prebuild/lib/
           # cp -R ./boost ${{runner.workspace}}/boost_prebuild/include/
@@ -140,7 +140,7 @@ jobs:
 
       - name: Pack
         shell: bash
-        run: tar -zcvf boost_prebuild.tar.gz ${{runner.workspace}}/boost_prebuild_x86_64
+        run: tar -zcvf boost_prebuild.tar.gz ${{runner.workspace}}/boost_prebuild
 
       - uses: actions/upload-artifact@v2
         with:
