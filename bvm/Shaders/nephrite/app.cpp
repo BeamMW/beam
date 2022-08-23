@@ -903,7 +903,7 @@ ON_METHOD(user, upd_stab)
 
     args.m_Flow.Tok.Add(newVal, 1);
 
-    if (!args.m_Flow.Tok.m_Val && !args.m_Flow.Col.m_Val)
+    if (!args.m_Flow.Tok.m_Val && !args.m_Flow.Col.m_Val && !g.m_MyStab.m_Gov)
         return OnError("no change");
 
     args.m_NewAmount = newVal;
