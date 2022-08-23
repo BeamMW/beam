@@ -122,8 +122,8 @@ jobs:
           cd ${{runner.workspace}}/boost_arm
           ./b2 cxxstd=14 toolset=clang-darwin target-os=darwin architecture=arm abi=aapcs cxxflags="-arch arm64" cflags="-arch arm64" linkflags="-arch arm64" --target=static --without-iostreams
           # mkdir -p arm64 && cp stage/lib/*.a arm64 && cp stage/lib/*.dylib arm64
-          cd ${{runner.workspace}}/boost
-          ./b2 cxxstd=14 toolset=clang-darwin target-os=darwin architecture=x86 cxxflags="-arch x86_64" cflags="-arch x86_64" linkflags="-arch x86_64" abi=sysv binary-format=mach-o --target=static --without-iostreams
+          # cd ${{runner.workspace}}/boost
+          # ./b2 cxxstd=14 toolset=clang-darwin target-os=darwin architecture=x86 cxxflags="-arch x86_64" cflags="-arch x86_64" linkflags="-arch x86_64" abi=sysv binary-format=mach-o --target=static --without-iostreams
           # mkdir x86_64 && cp stage/lib/*.a x86_64 && cp stage/lib/*.dylib x86_64
 
       - name: Install
@@ -131,16 +131,16 @@ jobs:
         run: |
           cd ${{runner.workspace}}/boost_arm
           ./b2 install --prefix=${{runner.workspace}}/boost_prebuild_arm
-          cd ${{runner.workspace}}/boost
-          ./b2 install --prefix=${{runner.workspace}}/boost_prebuild_x86_64
-          mkdir ${{runner.workspace}}/boost_prebuild/include/
-          mkdir ${{runner.workspace}}/boost_prebuild/lib/
-          cp -R ./boost ${{runner.workspace}}/boost_prebuild/include/
-          find ${{runner.workspace}}/boost_prebuild_arm/lib -type f -print0 | while IFS= read -r -d $'\0' file; do lipo -create -output ${{runner.workspace}}/boost_prebuild/lib/$(basename "$file") "$file" ${{runner.workspace}}/boost_prebuild_x86_64/lib/$(basename "$file"); done;
+          # cd ${{runner.workspace}}/boost
+          # ./b2 install --prefix=${{runner.workspace}}/boost_prebuild_x86_64
+          # mkdir ${{runner.workspace}}/boost_prebuild/include/
+          # mkdir ${{runner.workspace}}/boost_prebuild/lib/
+          # cp -R ./boost ${{runner.workspace}}/boost_prebuild/include/
+          # find ${{runner.workspace}}/boost_prebuild_arm/lib -type f -print0 | while IFS= read -r -d $'\0' file; do lipo -create -output ${{runner.workspace}}/boost_prebuild/lib/$(basename "$file") "$file" ${{runner.workspace}}/boost_prebuild_x86_64/lib/$(basename "$file"); done;
 
       - name: Pack
         shell: bash
-        run: tar -zcvf boost_prebuild.tar.gz ${{runner.workspace}}/boost_prebuild
+        run: tar -zcvf boost_prebuild.tar.gz ${{runner.workspace}}/boost_prebuild_arm
 
       - uses: actions/upload-artifact@v2
         with:
