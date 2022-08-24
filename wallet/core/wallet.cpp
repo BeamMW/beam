@@ -704,16 +704,33 @@ namespace beam::wallet
         pReq->m_OwnAddr.m_Pk.FromSk(nonce);
         pReq->m_OwnAddr.SetChannelFromPk();
 
-        for (auto& p : get_ParentObj().m_MessageEndpoints)
-            p->Listen(pReq->m_OwnAddr, nonce);
+        get_ParentObj().Listen(pReq->m_OwnAddr, nonce);
 
         return pReq;
     }
 
+    void Wallet::Listen(const WalletID& wid, const ECC::Scalar::Native& sk, IHandler* pH)
+    {
+        for (auto& p : m_MessageEndpoints)
+            p->Listen(wid, sk, pH);
+    }
+
+    void Wallet::Unlisten(const WalletID& wid)
+    {
+        for (auto& p : m_MessageEndpoints)
+            p->Unlisten(wid);
+    }
+
+    void Wallet::Send(const WalletID& peerID, const Blob& b)
+    {
+        for (auto& p : m_MessageEndpoints)
+            Cast::Down<IRawCommGateway>(*p).Send(peerID, b);
+    }
+
+
     void Wallet::VoucherManager::Delete(Request& r)
     {
-        for (auto& p : get_ParentObj().m_MessageEndpoints)
-            p->Unlisten(r.m_OwnAddr);
+        get_ParentObj().Unlisten(r.m_OwnAddr);
 
         m_setTrg.erase(Request::Target::Set::s_iterator_to(r.m_Target));
         delete &r;

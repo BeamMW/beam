@@ -677,7 +677,20 @@ namespace beam::wallet
         IAsyncContext& m_Context;
     };
 
-    struct INegotiatorGateway : IAsyncContext
+    struct IRawCommGateway
+    {
+        struct IHandler {
+            virtual void OnMsg(const Blob&) = 0;
+        };
+
+        virtual void Listen(const WalletID&, const ECC::Scalar::Native& sk, IHandler* = nullptr) {}
+        virtual void Unlisten(const WalletID&) {}
+        virtual void Send(const WalletID& peerID, const Blob&) {}
+    };
+
+    struct INegotiatorGateway
+        :public IAsyncContext
+        ,public IRawCommGateway
     {
         using ShieldedListCallback = std::function<void(TxoID, uint32_t, proto::ShieldedList&)>;
         using ProofShildedOutputCallback = std::function<void(proto::ProofShieldedOutp&)>;
