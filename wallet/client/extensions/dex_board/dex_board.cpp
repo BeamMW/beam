@@ -26,11 +26,18 @@ namespace beam::wallet {
         auto offersRaw = _wdb.loadDexOffers();
         for (const auto& offerRaw: offersRaw)
         {
-            DexOrder offer(offerRaw.first, offerRaw.second);
-            if (!offer.isExpired())
-                _orders[offer.getID()] = offer;
-            else
-                _wdb.dropDexOffer(offer.getID());
+            try
+            {
+                DexOrder offer(offerRaw.first, offerRaw.second);
+                if (!offer.isExpired())
+                    _orders[offer.getID()] = offer;
+                else
+                    _wdb.dropDexOffer(offer.getID());
+            }
+            catch(...)
+            {
+                LOG_WARNING() << "DexBoard load order error";
+            }
         }
 
         _gateway.registerListener(BroadcastContentType::DexOffers, this);
@@ -71,7 +78,6 @@ namespace beam::wallet {
         if(it == _orders.end() || !it->second.isMine()) return;
 
         it->second.cancel();
-        // notifyObservers(ChangeAction::Removed, std::vector<DexOrder>{ it->second });
         publishOrder(it->second);
     }
 
