@@ -73,7 +73,7 @@ namespace beam::wallet
         void setAccepted(bool value);
 
     private:
-        uint32_t      _version = 2;
+        uint32_t      _version;
         DexOrderID    _orderID;      // UUID
         WalletID      _sbbsID;       // here wallet listens for order processing
         uint64_t      _sbbsKeyIDX = 0; // index used to generate SBBS key, to identify OUR orders
