@@ -1624,6 +1624,186 @@ void TestReextract()
     WALLET_CHECK(secondPullTx->m_failureReason == TxFailureReason::NoInputs);
 }
 
+void TestShieldedRecovery(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::Cfg{ 4,3 }, Lelantus::Cfg minCfg = Lelantus::Cfg{ 4,2 })
+{
+    cout << "\nTestShieldedRecovery " << txCount << " pushTx's and " << txCount << " pullTx's, Cfg: n = " << cfg.n << " M = " << cfg.M << " , minCfg: n = " << minCfg.n << " M = " << minCfg.M << "\n";
+
+    // save defaults
+    ScopedGlobalRules rules;
+
+    Rules::get().Shielded.m_ProofMax = cfg;
+    Rules::get().Shielded.m_ProofMin = minCfg;
+    Rules::get().Shielded.MaxWindowBacklog = cfg.get_N() + 200;
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    const uint32_t pushTxCount = txCount;
+    const uint32_t pullTxCount = txCount / 2;
+    Height pullTxsStartHeight = Rules::get().pForks[2].m_Height + 15;
+
+    uint32_t nTxsPending = 0;
+    auto completeAction = [&nTxsPending](auto)
+    {
+        assert(nTxsPending);
+        --nTxsPending;
+    };
+
+    bool bTxPush = false;
+    constexpr Amount kCoinAmount = 40000000;
+    constexpr Amount kFee = 20000000;
+    constexpr Amount kNominalCoin = kCoinAmount + kFee;
+    AmountList testAmount(txCount * 2, kNominalCoin);
+
+    // 1) init wallets
+    auto minerWalletDB = createSqliteWalletDB("minerWallet.db", false, true);
+    TestWalletRig miner(minerWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    auto receiverWalletDB = createReceiverWalletDB(false, true);
+    TestWalletRig receiver(receiverWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+    receiver.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=]() { return receiverWalletDB; }));
+    receiver.m_Wallet->RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
+    receiver.m_Wallet->EnableBodyRequests(true);
+
+    auto senderWalletDB = createSenderWalletDB(0, 0);
+    // 2) generate coins
+    auto binaryTreasury = createTreasury(senderWalletDB, testAmount);
+    TestWalletRig sender(senderWalletDB, completeAction, TestWalletRig::RegularWithoutPoWBbs);
+
+    sender.m_Wallet->RegisterTransactionType(TxType::PushTransaction, std::make_shared<lelantus::PushTransaction::Creator>([=]() {return senderWalletDB; }));
+    sender.m_Wallet->RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
+
+    Node node;
+    NodeObserver observer([&]()
+        {
+            const auto& cursor = node.get_Processor().m_Cursor;
+            if (nTxsPending && cursor.m_Sid.m_Height <= 200)
+                return;
+
+            // insert pushTxCount coins to shielded pool
+            if (!bTxPush)
+            {
+                if (cursor.m_Sid.m_Height >= Rules::get().pForks[2].m_Height + 3)
+                {
+                    bTxPush = true;
+                    // 3) create shielded coins
+                    for (size_t i = 0; i < pushTxCount; i++)
+                    {
+                        auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                            .SetParameter(TxParameterID::Amount, kCoinAmount)
+                            .SetParameter(TxParameterID::Fee, kFee);
+
+                        nTxsPending++;
+                        sender.m_Wallet->StartTransaction(parameters);
+                    }
+                }
+                return;
+            }
+
+            if (bTxPush && !nTxsPending)
+            {
+                mainReactor->stop();
+            }
+        });
+
+    InitOwnNodeToTest(node, binaryTreasury, &observer, miner.m_WalletDB->get_MasterKdf(), 32125, 200);
+
+    mainReactor->run();
+
+    // 4) node - create recovery.bin
+    node.GenerateRecoveryInfo("recovery.bin");
+
+    auto shieldedCoins = sender.m_WalletDB->getShieldedCoins(Asset::Asset::s_BeamID);
+    WALLET_CHECK(shieldedCoins.size() == txCount);
+
+    // 5) spend some shielded coins
+    bool bCanRunTx = false;
+    NodeObserver secondObserver([&]()
+        {
+            const auto& cursor = node.get_Processor().m_Cursor;
+            if (nTxsPending && cursor.m_Sid.m_Height <= 200)
+                return;
+
+            if (bCanRunTx)
+            {
+                if (cursor.m_Sid.m_Height >= pullTxsStartHeight)
+                {
+                    bCanRunTx = false;
+
+                    for (uint32_t i = 0; i < pullTxCount; ++i)
+                    {
+                        WalletAddress walletAddress;
+                        receiver.m_WalletDB->createAddress(walletAddress);
+                        receiver.m_WalletDB->saveAddress(walletAddress);
+
+                        auto vouchers = GenerateVoucherList(receiver.m_WalletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
+                        auto newAddress = GenerateToken(TokenType::MaxPrivacy, walletAddress, receiver.m_WalletDB);
+                        auto p = ParseParameters(newAddress);
+                        WALLET_CHECK(p);
+                        auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                            .SetParameter(TxParameterID::Amount, kCoinAmount)
+                            .SetParameter(TxParameterID::Fee, kFee);
+
+                        LoadReceiverParams(*p, parameters, TxAddressType::MaxPrivacy);
+
+                        nTxsPending++;
+                        sender.m_Wallet->StartTransaction(parameters);
+                    }
+                }
+                return;
+            }
+            
+            if (!bCanRunTx && !nTxsPending)
+            {
+                mainReactor->stop();
+            }
+        });
+
+    node.m_Cfg.m_Observer = &secondObserver;
+    bCanRunTx = true;
+    mainReactor->run();
+
+    auto pullTxHistory = receiver.m_WalletDB->getTxHistory(TxType::ALL);
+    WALLET_CHECK(pullTxHistory.size() == pullTxCount);
+    WALLET_CHECK(std::all_of(pullTxHistory.begin(), pullTxHistory.end(),
+        [](const auto& tx) { return tx.m_status == TxStatus::Completed; }));
+
+    shieldedCoins = sender.m_WalletDB->getShieldedCoins(Asset::Asset::s_BeamID);
+    auto spentShieldedCount = std::count_if(shieldedCoins.cbegin(), shieldedCoins.cend(),
+        [](const auto& coin) {return coin.m_Status == ShieldedCoin::Spent; });
+    auto totals = storage::Totals(*sender.m_WalletDB, false).GetBeamTotals();
+
+    // 6) restore wallet from recovery.bin
+    struct WalletObserver : public wallet::IWalletObserver
+    {
+        void onSyncProgress(int done, int total) override
+        {
+            if (done == total && total == 0)
+            {
+                std::cout << "Sync completed" << std::endl;
+                io::Reactor::get_Current().stop();
+            }
+        }
+    };
+
+    WalletObserver ob;
+    sender.m_Wallet->EnableBodyRequests(true);
+    sender.m_Wallet->Subscribe(&ob);
+    sender.m_WalletDB->ImportRecovery("recovery.bin", *sender.m_Wallet.get());
+    sender.m_Wallet->Rescan();
+
+    node.m_Cfg.m_Observer = nullptr;
+    mainReactor->run();
+
+    // 7) check balance
+    auto currentTotals = storage::Totals(*sender.m_WalletDB, false).GetBeamTotals();
+    auto currentShieldedCoins = sender.m_WalletDB->getShieldedCoins(Asset::Asset::s_BeamID);
+    auto currentSpentShieldedCount = std::count_if(currentShieldedCoins.cbegin(), currentShieldedCoins.cend(),
+        [](const auto& coin) {return coin.m_Status == ShieldedCoin::Spent; });
+    WALLET_CHECK(currentSpentShieldedCount == spentShieldedCount);
+    WALLET_CHECK(totals.Avail == currentTotals.Avail);
+    WALLET_CHECK(totals.AvailShielded == currentTotals.AvailShielded);
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -1659,6 +1839,14 @@ int main()
 
         //TestReextract();
 
+        //TestShieldedRecovery(10, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
+        //TestShieldedRecovery(20, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
+        //TestShieldedRecovery(30, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
+        //TestShieldedRecovery(40, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
+        //TestShieldedRecovery(50, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
+        //TestShieldedRecovery(60, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
+        //TestShieldedRecovery(70, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
+        //TestShieldedRecovery(80, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
     };
     //testAll();
     Rules::get().pForks[3].m_Height = 12;
