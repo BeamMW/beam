@@ -105,7 +105,7 @@ jobs:
         run: |
           wget -q https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.tar.gz
           tar -xvf boost_1_78_0.tar.gz > /dev/null
-          cp -R ./boost_1_78_0 ${{runner.workspace}}/boost_arm
+          # cp -R ./boost_1_78_0 ${{runner.workspace}}/boost_arm
           mv ./boost_1_78_0 ${{runner.workspace}}/boost
 
       - name: Bootstrap
@@ -113,8 +113,8 @@ jobs:
         run: |
           cd ${{runner.workspace}}/boost
           ./bootstrap.sh
-          cd ${{runner.workspace}}/boost_arm
-          ./bootstrap.sh
+          # cd ${{runner.workspace}}/boost_arm
+          # ./bootstrap.sh
 
       - name: Build
         shell: bash
@@ -130,7 +130,7 @@ jobs:
         shell: bash
         run: |
           # cd ${{runner.workspace}}/boost_arm
-          # ./b2 install --prefix=${{runner.workspace}}/boost_prebuild_arm
+          # ./b2 install --prefix=${{runner.workspace}}/boost_prebuild_arm cxxstd=14
           cd ${{runner.workspace}}/boost
           ./b2 install --prefix=${{runner.workspace}}/boost_prebuild cxxstd=14
           # mkdir ${{runner.workspace}}/boost_prebuild/include/
