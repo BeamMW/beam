@@ -1795,19 +1795,27 @@ namespace
             RunSync1();
         }
 
-        bool DoTx(int& completedCount)
+        bool StartTx(int& completedCount, TxID& txid)
         {
             if (m_vInvokeData.empty())
                 return false;
 
-            auto txID = m_pWallet->StartTransaction(
+            txid = m_pWallet->StartTransaction(
                 CreateTransactionParameters(TxType::Contract)
                 .SetParameter(TxParameterID::ContractDataPacked, m_vInvokeData));
 
             completedCount++;
-            io::Reactor::get_Current().run();
+            return true;
+        }
 
-            auto pTx = m_pWalletDB->getTx(txID);
+        bool DoTx(int& completedCount)
+        {
+            TxID txid;
+            if (!StartTx(completedCount, txid))
+                return false;
+
+            io::Reactor::get_Current().run();
+            auto pTx = m_pWalletDB->getTx(txid);
             return (pTx->m_status == wallet::TxStatus::Completed);
         }
 
@@ -1954,8 +1962,10 @@ namespace
 
         manSender.m_Args["action"] = "withdraw";
         manSender.m_Args["amount"] = "370000";
+        manSender.m_Args["amountCoSigner"] = "100";
         manReceiver.m_Args["action"] = "withdraw";
         manReceiver.m_Args["amount"] = "370000";
+        manReceiver.m_Args["amountCoSigner"] = "100";
         manReceiver.m_Args["pkForeign"] = sKeySender;
         manReceiver.m_Args["bCoSigner"] = "1";
 
@@ -1970,7 +1980,15 @@ namespace
         WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
         WALLET_CHECK(manReceiver.m_Done && !manReceiver.m_Err);
 
-        WALLET_CHECK(manSender.DoTx(completedCount));
+        TxID txS, txR;
+        WALLET_CHECK(manSender.StartTx(completedCount, txS));
+        WALLET_CHECK(manReceiver.StartTx(completedCount, txR));
+
+        io::Reactor::get_Current().run();
+        WALLET_CHECK(!completedCount);
+
+        WALLET_CHECK(dbSender->getTx(txS)->m_status == wallet::TxStatus::Completed);
+        WALLET_CHECK(dbReceiver->getTx(txR)->m_status == wallet::TxStatus::Completed);
 
     }
 

@@ -34,11 +34,13 @@
     macro(Amount, amount) \
     macro(AssetID, aid)
 
-#define Vault_my_account_withdraw(macro) Vault_my_account_deposit(macro)
+#define Vault_my_account_withdraw(macro) \
+    Vault_my_account_deposit(macro) \
+    macro(Amount, amountCoSigner)
 
 #define Vault_my_account_move(macro) \
     macro(uint8_t, isDeposit) \
-    Vault_my_account_deposit(macro)
+    Vault_my_account_withdraw(macro)
 
 #define VaultRole_my_account(macro) \
     macro(my_account, view) \
@@ -205,12 +207,14 @@ struct MultiSigProto
     struct Msg2
     {
         PubKey m_pkFullNonce;
+        PubKey m_pkKrnBlind;
         Secp_scalar_data m_kSig;
     };
 #pragma pack (pop)
 
     Msg1 m_Msg1;
     Msg2 m_Msg2;
+    PubKey m_pkFullCommitment;
 
     static const Height s_dh = 20;
 
@@ -218,16 +222,41 @@ struct MultiSigProto
     static const uint32_t s_iSlotKrnNonce = 1;
     static const uint32_t s_iSlotKrnBlind = 2;
 
-
     const ContractID* m_pCid;
     const Vault::Request* m_pArg;
     const FundsChange* m_pFc;
 
-    void InvokeKrn(const Secp_scalar_data& kSig, Secp_scalar_data* pE)
+    void InvokeKrn(const Secp_scalar_data& kSig, Secp_scalar_data* pE, bool bCoSigner)
     {
-        Env::GenerateKernelAdvanced(
+        uint8_t nFlags = KernelFlag::FullCommitment;
+        const PubKey* pPeer;
+        if (bCoSigner)
+        {
+            nFlags |= KernelFlag::CoSigner;
+            pPeer = &m_Msg1.m_pkKrnBlind;
+        }
+        else
+            pPeer = &m_Msg2.m_pkKrnBlind;
+
+        Env::GenerateKernelAdvanced2(
             m_pCid, Vault::Withdraw::s_iMethod, m_pArg, sizeof(*m_pArg), m_pFc, 1, &m_pArg->m_Account, 1, "withdraw from Vault", 0,
-            m_Msg1.m_hMin, m_Msg1.m_hMin + s_dh, m_Msg1.m_pkKrnBlind, m_Msg2.m_pkFullNonce, kSig, s_iSlotKrnBlind, s_iSlotKrnNonce, pE);
+            m_Msg1.m_hMin, m_Msg1.m_hMin + s_dh, m_pkFullCommitment, m_Msg2.m_pkFullNonce, kSig, s_iSlotKrnBlind, s_iSlotKrnNonce, pE, nFlags, pPeer, 1);
+    }
+
+    void SetCommitment(const Secp::Point& ptMy, const PubKey& pkForeign)
+    {
+        Secp::Point pt;
+        pt.Import(pkForeign);
+        pt += ptMy;
+
+        Secp::Scalar s;
+        Env::Secp_Scalar_set(s, m_pArg->m_Amount);
+        Secp::Point pt2;
+        Env::Secp_Point_mul_H(pt2, s, m_pArg->m_Aid);
+        pt2 = -pt2;
+
+        pt += pt2;
+        pt.Export(m_pkFullCommitment);
     }
 };
 
@@ -269,6 +298,9 @@ ON_METHOD(my_account, move)
     fc.m_Aid = arg.m_Aid;
     fc.m_Consume = isDeposit;
 
+    if (bIsMultisig)
+        fc.m_Amount = bCoSigner ? amountCoSigner : (arg.m_Amount - amountCoSigner);
+
     if (isDeposit)
         Env::GenerateKernel(&cid, Vault::Deposit::s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "deposit to Vault", 0);
     else
@@ -277,9 +309,10 @@ ON_METHOD(my_account, move)
         {
             Comm::Channel cc(kid, pkForeign);
             cc.m_Context
-                << 1U // proto version 
+                << 2U // proto version 
                 << cid
-                << Vault::Deposit::s_iMethod;
+                << Vault::Deposit::s_iMethod
+                << amountCoSigner;
             cc.m_Context.Write(&arg, sizeof(arg));
 
             MultiSigProto msp;
@@ -288,6 +321,12 @@ ON_METHOD(my_account, move)
             msp.m_pFc = &fc;
 
             Height h = Env::get_Height();
+
+            Secp::Point p0, p1;
+            p0.FromSlot(msp.s_iSlotNonceKey);
+            p1.FromSlot(msp.s_iSlotKrnNonce); // total nonce
+            p0 += p1;
+            p1.FromSlot(msp.s_iSlotKrnBlind); // blinding factor
 
             if (bCoSigner)
             {
@@ -298,14 +337,16 @@ ON_METHOD(my_account, move)
                 if ((msp.m_Msg1.m_hMin + 10 < h) || (msp.m_Msg1.m_hMin >= h + 20))
                     OnError("height insane");
 
-                Secp::Point p0, p1;
-                p0.Import(msp.m_Msg1.m_pkSignerNonce);
-                p1.FromSlot(msp.s_iSlotNonceKey);
-                p0 += p1;
-                p0.Export(msp.m_Msg2.m_pkFullNonce);
+                Secp::Point p2;
+                p2.Import(msp.m_Msg1.m_pkSignerNonce);
+                p2 += p0;
+                p2.Export(msp.m_Msg2.m_pkFullNonce);
+
+                p1.Export(msp.m_Msg2.m_pkKrnBlind);
+                msp.SetCommitment(p1, msp.m_Msg1.m_pkKrnBlind);
 
                 Secp_scalar_data e;
-                msp.InvokeKrn(e, &e);
+                msp.InvokeKrn(e, &e, true);
 
                 Secp::Scalar s;
                 s.Import(e);
@@ -316,6 +357,8 @@ ON_METHOD(my_account, move)
                 // send result back
                 cc.Send_T(msp.m_Msg2);
 
+                _POD_(e).SetZero();
+                msp.InvokeKrn(e, nullptr, true);
                 Env::WriteStr("Negotiation is over", Stream::Out);
             }
             else
@@ -324,22 +367,17 @@ ON_METHOD(my_account, move)
 
                 msp.m_Msg1.m_hMin = h + 1;
 
-                Secp::Point p0, p1;
-
-                p0.FromSlot(msp.s_iSlotKrnBlind);
-                p0.Export(msp.m_Msg1.m_pkKrnBlind);
-
-                p0.FromSlot(msp.s_iSlotKrnNonce);
-                p1.FromSlot(msp.s_iSlotNonceKey);
-                p0 += p1;
-                p0.Export(msp.m_Msg1.m_pkSignerNonce); // both kernel and our key
+                p0.Export(msp.m_Msg1.m_pkSignerNonce);
+                p1.Export(msp.m_Msg1.m_pkKrnBlind);
 
                 cc.Send_T(msp.m_Msg1);
                 Env::WriteStr("Waiting for co-signer", Stream::Out);
                 cc.Rcv_T(msp.m_Msg2);
 
+                msp.SetCommitment(p1, msp.m_Msg2.m_pkKrnBlind);
+
                 Secp_scalar_data e;
-                msp.InvokeKrn(e, &e);
+                msp.InvokeKrn(e, &e, false);
 
                 Secp::Scalar s0, s1;
                 s0.Import(msp.m_Msg2.m_kSig);
@@ -350,7 +388,7 @@ ON_METHOD(my_account, move)
                 s0 += s1; // full key
                 s0.Export(e);
 
-                msp.InvokeKrn(e, nullptr);
+                msp.InvokeKrn(e, nullptr, false);
             }
 
         }
@@ -363,12 +401,12 @@ ON_METHOD(my_account, move)
 
 ON_METHOD(my_account, deposit)
 {
-    On_my_account_move(1, cid, pkForeign, bCoSigner, amount, aid);
+    On_my_account_move(1, cid, pkForeign, bCoSigner, amount, aid, 0);
 }
 
 ON_METHOD(my_account, withdraw)
 {
-    On_my_account_move(0, cid, pkForeign, bCoSigner, amount, aid);
+    On_my_account_move(0, cid, pkForeign, bCoSigner, amount, aid, amountCoSigner);
 }
 
 ON_METHOD(my_account, view)
