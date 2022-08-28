@@ -64,7 +64,7 @@ namespace beam::wallet
                 m_TxFromPeer.m_Offset = Zero;
             }
 
-            ~Channel()
+            virtual ~Channel()
             {
                 m_pThis->m_Tx.GetGateway().Unlisten(m_WidMy);
             }
