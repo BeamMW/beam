@@ -30,6 +30,7 @@ namespace beam::wallet
             Registration,
             KernelConfirmation,
             OutputsConfirmation,
+            Negotiating,
         };
 
         class Creator : public BaseTransaction::Creator
