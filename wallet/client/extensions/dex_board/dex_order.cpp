@@ -60,6 +60,11 @@ DexOrder::DexOrder(const ByteBuffer& buffer, bool isMine)
         throw std::runtime_error("DexOrder::DexOrder failed to parse order body");
     }
 
+    if (_version != DexOrder::getCurrentVersion())
+    {
+        throw std::runtime_error("DexOrder::DexOrder obsolete order version");
+    }
+
     _isMine = isMine;
 }
 
