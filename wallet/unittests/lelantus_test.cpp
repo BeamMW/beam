@@ -1770,6 +1770,7 @@ void TestShieldedRecovery(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::
     shieldedCoins = sender.m_WalletDB->getShieldedCoins(Asset::Asset::s_BeamID);
     auto spentShieldedCount = std::count_if(shieldedCoins.cbegin(), shieldedCoins.cend(),
         [](const auto& coin) {return coin.m_Status == ShieldedCoin::Spent; });
+    WALLET_CHECK(spentShieldedCount > 0);
     auto totals = storage::Totals(*sender.m_WalletDB, false).GetBeamTotals();
 
     // 6) restore wallet from recovery.bin
@@ -1839,9 +1840,6 @@ int main()
 
         //TestReextract();
 
-        //TestShieldedRecovery(10, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
-        //TestShieldedRecovery(20, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
-        //TestShieldedRecovery(30, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
         //TestShieldedRecovery(40, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
         //TestShieldedRecovery(50, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
         //TestShieldedRecovery(60, Lelantus::Cfg{ 2, 5 }, Lelantus::Cfg{ 2, 3 });
