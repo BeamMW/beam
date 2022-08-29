@@ -300,7 +300,7 @@ namespace beam::wallet {
                 throw std::runtime_error("failed to deserialize invoke data");
             }
 
-            std::string sComment = bvm2::getFullComment(invokeData);
+            std::string sComment = invokeData.get_FullComment();
             ByteBuffer msg(sComment.begin(), sComment.end());
 
             if (_currentAppId.empty() && _currentAppName.empty())
@@ -381,7 +381,7 @@ namespace beam::wallet {
             LOG_VERBOSE () << "Shader result: " << std::string_view(result ? *result : std::string()).substr(0, 200);
         }
 
-        if (m_vInvokeData.empty())
+        if (m_InvokeData.m_vec.empty())
         {
             if (req.doneAll)
             {
@@ -395,7 +395,7 @@ namespace beam::wallet {
 
         try
         {
-            auto buffer = toByteBuffer(m_vInvokeData);
+            auto buffer = toByteBuffer(m_InvokeData);
 
             if (req.doneCall)
             {

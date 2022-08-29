@@ -3115,8 +3115,8 @@ namespace bvm2 {
 
 	ContractInvokeEntry& ProcessorManager::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, bool bCvtFunds, const char* szComment, uint32_t nCharge)
 	{
-		bool bFirst = m_vInvokeData.empty();
-		auto& v = m_vInvokeData.emplace_back();
+		bool bFirst = m_InvokeData.m_vec.empty();
+		auto& v = m_InvokeData.m_vec.emplace_back();
 
 		if (iMethod)
 		{
@@ -3161,8 +3161,8 @@ namespace bvm2 {
 	void ProcessorManager::SetKernelAdv(Height hMin, Height hMax, const PubKey& ptFullBlind, const PubKey& ptFullNonce, const ECC::Scalar& skForeignSig, uint32_t iSlotBlind, uint32_t iSlotNonce,
 		const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE, uint8_t nFlags, const PubKey* pForeign, uint32_t nForeign)
 	{
-		assert(!m_vInvokeData.empty());
-		auto& v = m_vInvokeData.back();
+		assert(!m_InvokeData.m_vec.empty());
+		auto& v = m_InvokeData.m_vec.back();
 
 		v.m_Adv.m_Height.m_Min = hMin;
 		v.m_Adv.m_Height.m_Max = hMax;

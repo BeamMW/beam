@@ -1797,12 +1797,12 @@ namespace
 
         bool StartTx(int& completedCount, TxID& txid)
         {
-            if (m_vInvokeData.empty())
+            if (m_InvokeData.m_vec.empty())
                 return false;
 
             txid = m_pWallet->StartTransaction(
                 CreateTransactionParameters(TxType::Contract)
-                .SetParameter(TxParameterID::ContractDataPacked, m_vInvokeData));
+                .SetParameter(TxParameterID::ContractDataPacked, m_InvokeData.m_vec));
 
             completedCount++;
             return true;
@@ -3426,7 +3426,7 @@ namespace
         TestNode node;
 
         bvm2::ContractInvokeData vData;
-        bvm2::ContractInvokeEntry& cdata = vData.emplace_back();
+        bvm2::ContractInvokeEntry& cdata = vData.m_vec.emplace_back();
 
         cdata.m_Cid = 746U;
         cdata.m_iMethod = 6;

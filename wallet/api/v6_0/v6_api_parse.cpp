@@ -248,11 +248,11 @@ namespace beam::wallet
             beam::bvm2::ContractInvokeData vData;
             if (tx.GetParameter(TxParameterID::ContractDataPacked, vData))
             {
-                msg["fee"] = bvm2::getFullFee(vData, txProofHeight ? txProofHeight : tx.m_minHeight);
+                msg["fee"] = vData.get_FullFee(txProofHeight ? txProofHeight : tx.m_minHeight);
 
                 bool isIncome = true;
                 bool isFeeOnly = true;
-                for (const auto& data : vData)
+                for (const auto& data : vData.m_vec)
                 {
                     auto amounts = json::array();
                     for(const auto& info: data.m_Spend)
@@ -899,7 +899,7 @@ namespace beam::wallet
         }
 
         LOG_INFO() << "onParseProcessInvokeData";
-        for (const auto& entry: realData)
+        for (const auto& entry: realData.m_vec)
         {
             LOG_INFO() << "\tCid: "     << entry.m_Cid;
             LOG_INFO() << "\tMethod: "  << entry.m_iMethod;
@@ -914,11 +914,11 @@ namespace beam::wallet
 
         MethodInfo info;
         info.spendOffline = false;
-        info.comment = beam::bvm2::getFullComment(realData);
-        info.fee = beam::bvm2::getFullFee(realData, getWallet()->get_TipHeight());
+        info.comment = realData.get_FullComment();
+        info.fee = realData.get_FullFee(getWallet()->get_TipHeight());
         info.confirm_comment = getOptionalParam<std::string>(params, "confirm_comment");
 
-        const auto fullSpend = beam::bvm2::getFullSpend(realData);
+        const auto fullSpend = realData.get_FullSpend();
         for (const auto& spend: fullSpend)
         {
             if (spend.second < 0)

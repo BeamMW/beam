@@ -430,7 +430,7 @@ namespace bvm2 {
 		m_Code = m_BodyManager;
 		m_Out.str("");
 		m_Out.clear();
-		decltype(m_vInvokeData)().swap(m_vInvokeData);
+		decltype(m_InvokeData.m_vec)().swap(m_InvokeData.m_vec);
 		m_Comms.Clear();
 		m_Context.Reset();
 

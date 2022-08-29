@@ -278,34 +278,37 @@ namespace beam::bvm2 {
 			AddSpend(it->first, it->second);
 	}
 
-	std::string getFullComment(const ContractInvokeData& data)
+	std::string ContractInvokeData::get_FullComment() const
     {
         std::string comment;
-        for (size_t i = 0; i < data.size(); i++)
+        for (size_t i = 0; i < m_vec.size(); i++)
         {
-            if (i) comment += "; ";
-            comment += data[i].m_sComment;
+            if (i)
+				comment += "; ";
+
+            comment += m_vec[i].m_sComment;
         }
         return comment;
     }
 
-    beam::Amount getFullFee(const ContractInvokeData& data, Height h)
+    beam::Amount ContractInvokeData::get_FullFee(Height h) const
     {
         Amount fee = 0;
-        for (const auto& cdata: data)
-        {
-            fee += cdata.get_FeeMin(h);
-        }
+		for (const auto& cdata : m_vec)
+		{
+			fee += cdata.IsAdvanced() ?
+				cdata.m_Adv.m_Fee : // can't change!
+				cdata.get_FeeMin(h);
+		}
         return fee;
     }
 
-    bvm2::FundsMap getFullSpend(const ContractInvokeData& data)
+    bvm2::FundsMap ContractInvokeData::get_FullSpend() const
     {
         bvm2::FundsMap fm;
-        for (const auto& cdata: data)
-        {
+        for (const auto& cdata: m_vec)
             fm += cdata.m_Spend;
-        }
+
         return fm;
     }
 }

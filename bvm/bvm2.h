@@ -606,7 +606,7 @@ namespace bvm2 {
 		Key::IPKdf::Ptr m_pPKdf; // required for user-related info (account-specific pubkeys, etc.)
 		Key::IKdf::Ptr m_pKdf; // gives more access to the keys. Set only when app runs in a privileged mode
 
-		ContractInvokeData m_vInvokeData;
+		ContractInvokeData m_InvokeData;
 
 		std::map<std::string, std::string> m_Args;
 		void set_ArgBlob(const char* sz, const Blob&);

@@ -132,9 +132,23 @@ namespace beam::bvm2 {
 		void get_SigPreimage(ECC::Hash::Value&, const ECC::Hash::Value& krnMsg) const;
 	};
 
-	typedef std::vector<ContractInvokeEntry> ContractInvokeData;
+	struct ContractInvokeData
+	{
+		std::vector<ContractInvokeEntry> m_vec;
+		// for multisig
+		std::vector<ECC::Point> m_vPeers;
+		ECC::Hash::Value m_hvKey;
+		bool m_IsSender = true;
 
-	std::string getFullComment(const ContractInvokeData&);
-	beam::Amount getFullFee(const ContractInvokeData&, Height);
-	bvm2::FundsMap getFullSpend(const ContractInvokeData&);
+		std::string get_FullComment() const;
+		beam::Amount get_FullFee(Height) const;
+		bvm2::FundsMap get_FullSpend() const;
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar & m_vec;
+
+		}
+	};
 }

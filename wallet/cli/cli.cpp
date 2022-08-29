@@ -2363,20 +2363,20 @@ namespace
                     }
                 }
 
-                if (man.m_Err || man.m_vInvokeData.empty())
+                if (man.m_Err || man.m_InvokeData.m_vec.empty())
                     return 1;
 
                 const auto height  = wallet->get_TipHeight();
-                const auto fee     = bvm2::getFullFee(man.m_vInvokeData, height);
-                const auto comment = bvm2::getFullComment(man.m_vInvokeData);
-                const auto spend   = bvm2::getFullSpend(man.m_vInvokeData);
+                const auto fee     = man.m_InvokeData.get_FullFee(height);
+                const auto comment = man.m_InvokeData.get_FullComment();
+                const auto spend   = man.m_InvokeData.get_FullSpend();
 
                 std::cout << "Creating new contract invocation tx on behalf of the shader" << std::endl;
                 if (man.m_Args["action"] == "create")
                 {
                     bvm2::ShaderID sid;
                     bvm2::get_ShaderID(sid, Blob(man.m_BodyContract));
-                    for (auto& invokeEntry : man.m_vInvokeData)
+                    for (auto& invokeEntry : man.m_InvokeData.m_vec)
                     {
                         bvm2::ContractID cid;
                         bvm2::get_CidViaSid(cid, sid, Blob(invokeEntry.m_Args));
@@ -2413,7 +2413,7 @@ namespace
                 ByteBuffer msg(comment.begin(), comment.end());
                 currentTxID = wallet->StartTransaction(
                     CreateTransactionParameters(TxType::Contract)
-                    .SetParameter(TxParameterID::ContractDataPacked, man.m_vInvokeData)
+                    .SetParameter(TxParameterID::ContractDataPacked, man.m_InvokeData)
                     .SetParameter(TxParameterID::Message, msg)
                 );
 

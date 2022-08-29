@@ -928,7 +928,7 @@ namespace bvm2 {
 			if (!RunGuarded(1))
 				return false;
 
-			auto vInv = std::move(m_vInvokeData);
+			auto vInv = std::move(m_InvokeData.m_vec);
 
 			if (vInv.size() != 1)
 				return false;

@@ -183,13 +183,13 @@ namespace beam::wallet
         Key::IKdf::Ptr pKdf = get_MasterKdfStrict();
 
         bvm2::ContractInvokeData vData;
-        GetParameter(TxParameterID::ContractDataPacked, vData, GetSubTxID());
+        GetParameter(TxParameterID::ContractDataPacked, vData.m_vec, GetSubTxID());
 
         if (!builder.m_ChannelsOpened)
         {
-            for (uint32_t i = 0; i < vData.size(); i++)
+            for (uint32_t i = 0; i < vData.m_vec.size(); i++)
             {
-                const auto& cdata = vData[i];
+                const auto& cdata = vData.m_vec[i];
                 for (uint32_t iC = 0; iC < cdata.m_Adv.m_vCosigners.size(); iC++)
                 {
                     bool b = cdata.IsCoSigner();
@@ -231,9 +231,9 @@ namespace beam::wallet
         }
 
         const HeightHash* pParentCtx = nullptr;
-        for (uint32_t i = 0; i < vData.size(); i++)
+        for (uint32_t i = 0; i < vData.m_vec.size(); i++)
         {
-            const auto& cdata = vData[i];
+            const auto& cdata = vData.m_vec[i];
             if (bvm2::ContractInvokeEntry::Flags::Dependent & cdata.m_Flags)
             {
                 pParentCtx = &cdata.m_ParentCtx;
@@ -262,14 +262,14 @@ namespace beam::wallet
                 }
             }
 
-            if (vData.empty())
+            if (vData.m_vec.empty())
                 throw TransactionFailedException(false, TxFailureReason::Unknown);
 
             bvm2::FundsMap fm;
 
-            for (uint32_t i = 0; i < vData.size(); i++)
+            for (uint32_t i = 0; i < vData.m_vec.size(); i++)
             {
-                const auto& cdata = vData[i];
+                const auto& cdata = vData.m_vec[i];
 
                 Amount fee;
                 if (cdata.IsAdvanced())
@@ -321,9 +321,9 @@ namespace beam::wallet
 
             auto it = builder.m_lstChannels.begin();
 
-            for (uint32_t i = 0; i < vData.size(); i++)
+            for (uint32_t i = 0; i < vData.m_vec.size(); i++)
             {
-                const auto& cdata = vData[i];
+                const auto& cdata = vData.m_vec[i];
                 if (cdata.m_Adv.m_vCosigners.empty())
                     continue;
                 assert(cdata.IsAdvanced());
@@ -402,9 +402,9 @@ namespace beam::wallet
                     // time to send my tx part. Exclude the multisig kernels
                     std::vector<TxKernel::Ptr> v1, v2;
 
-                    for (uint32_t i = 0; i < vData.size(); i++)
+                    for (uint32_t i = 0; i < vData.m_vec.size(); i++)
                     {
-                        const auto& cdata = vData[i];
+                        const auto& cdata = vData.m_vec[i];
                         bool bMultisig = !cdata.m_Adv.m_vCosigners.empty();
                         (bMultisig ? v1 : v2).push_back(std::move(builder.m_pTransaction->m_vKernels[i]));
                     }
@@ -420,9 +420,9 @@ namespace beam::wallet
 
                     uint32_t n1 = 0, n2 = 0;
 
-                    for (uint32_t i = 0; i < vData.size(); i++)
+                    for (uint32_t i = 0; i < vData.m_vec.size(); i++)
                     {
-                        const auto& cdata = vData[i];
+                        const auto& cdata = vData.m_vec[i];
                         bool bMultisig = !cdata.m_Adv.m_vCosigners.empty();
 
                         auto& pKrn = bMultisig ? v1[n1++] : v2[n2++];
@@ -436,9 +436,9 @@ namespace beam::wallet
 
                 if (bStillNegotiating && !bWaitingK)
                 {
-                    for (uint32_t i = 0; i < vData.size(); i++)
+                    for (uint32_t i = 0; i < vData.m_vec.size(); i++)
                     {
-                        const auto& cdata = vData[i];
+                        const auto& cdata = vData.m_vec[i];
                         for (uint32_t iC = 0; iC < cdata.m_Adv.m_vCosigners.size(); iC++)
                         {
                             auto& krn0 = *builder.m_pTransaction->m_vKernels[i];
