@@ -175,7 +175,7 @@ struct ApiVersion
 struct KernelFlag
 {
 	static const uint8_t FullCommitment = 1; // the ptFullBlind is actually full commitment
-	static const uint8_t CoSigner = 2;
+	static const uint8_t MultiSigned = 2;
 };
 
 #pragma pack (pop)

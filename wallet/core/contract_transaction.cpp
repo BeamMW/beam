@@ -46,22 +46,33 @@ namespace beam::wallet
     {
         using BaseTxBuilder::BaseTxBuilder;
 
-        bool m_ChannelsOpened = false;
-        bool m_IsCoSigner = false;
+        bvm2::ContractInvokeData m_Data;
+        const HeightHash* m_pParentCtx = nullptr;
+        uint32_t m_TxMask = 0;
+
+        static void Fail(const char* sz = nullptr)
+        {
+            throw TransactionFailedException(false, TxFailureReason::Unknown, sz);
+        }
+
+        struct SigState
+        {
+            TxKernelContractControl* m_pKrn;
+            uint32_t m_RcvMask = 0;
+            bool m_Sent = false;
+        };
+
+        std::vector<SigState> m_vSigs;
 
         struct Channel
-            :public boost::intrusive::list_base_hook<>
-            ,public IRawCommGateway::IHandler
+            :public IRawCommGateway::IHandler
         {
             MyBuilder* m_pThis;
             WalletID m_WidMy;
             WalletID m_WidPeer;
-            uint32_t m_Stage = 0;
-            Transaction m_TxFromPeer;
 
             Channel()
             {
-                m_TxFromPeer.m_Offset = Zero;
             }
 
             virtual ~Channel()
@@ -69,25 +80,9 @@ namespace beam::wallet
                 m_pThis->m_Tx.GetGateway().Unlisten(m_WidMy);
             }
 
-            bool IsEmptyInOutKrn() const
+            uint32_t get_Idx() const
             {
-                return m_TxFromPeer.m_vInputs.empty() && m_TxFromPeer.m_vOutputs.empty() && m_TxFromPeer.m_vKernels.empty();
-            }
-
-            bool IsEmptyOffset() const
-            {
-                return m_TxFromPeer.m_Offset.m_Value == Zero;
-            }
-
-            bool ReadSig(ECC::Scalar& out)
-            {
-                if (!IsEmptyInOutKrn() || IsEmptyOffset())
-                    return false;
-
-                out = m_TxFromPeer.m_Offset;
-                m_TxFromPeer.m_Offset = Zero;
-
-                return true;
+                return static_cast<uint32_t>(this - &m_pThis->m_vChannels.front());
             }
 
             static void DeriveSharedSk(ECC::Scalar::Native& skOut, const ECC::Scalar::Native& skMy, const ECC::Point::Native& ptForeign)
@@ -107,8 +102,7 @@ namespace beam::wallet
                 {
                     Deserializer der;
                     der.reset(d.p, d.n);
-
-                    der & m_TxFromPeer;
+                    m_pThis->OnMsg(der, get_Idx());
 
                     m_pThis->m_Tx.UpdateAsync();
                 }
@@ -118,24 +112,68 @@ namespace beam::wallet
                 }
             }
 
-            void SendTx(const Transaction& tx)
+            void Send(Serializer& ser)
             {
-                Serializer ser;
-                ser& tx;
                 auto res = ser.buffer();
-
                 m_pThis->m_Tx.GetGateway().Send(m_WidPeer, Blob(res.first, (uint32_t)res.second));
             }
 
-            void SendSig(const ECC::Scalar& k)
+            void SendSig(const ECC::Scalar& k, uint32_t iSig)
             {
-                Transaction tx;
-                tx.m_Offset = k;
-                SendTx(tx);
+                Serializer ser;
+                ser
+                    & iSig
+                    & k;
+
+                Send(ser);
             }
         };
 
-        intrusive::list_autoclear<Channel> m_lstChannels;
+        std::vector<Channel> m_vChannels;
+
+        void OnMsg(Deserializer& der, uint32_t iCh)
+        {
+            uint32_t msk = 1u << iCh;
+            uint32_t iSig = 0;
+            der & iSig;
+
+            if (iSig < m_vSigs.size())
+            {
+                auto& st = m_vSigs[iSig];
+                if (st.m_RcvMask & msk)
+                    Fail();
+
+                ECC::Scalar val;
+                der & val;
+
+                if (m_Data.m_IsSender)
+                    // partial sig
+                    AddScalar(st.m_pKrn->m_Signature.m_k, val);
+                else
+                    st.m_pKrn->m_Signature.m_k = val; // final sig
+
+                st.m_RcvMask |= msk;
+            }
+            else
+            {
+                if (!m_Data.m_IsSender)
+                    Fail();
+
+                // tx part
+                if (m_TxMask & msk)
+                    Fail();
+                m_TxMask |= msk;
+
+                Transaction tx;
+                der & tx;
+
+                MoveVectorInto(m_pTransaction->m_vInputs, tx.m_vInputs);
+                MoveVectorInto(m_pTransaction->m_vOutputs, tx.m_vOutputs);
+                MoveVectorInto(m_pTransaction->m_vKernels, tx.m_vKernels);
+                AddScalar(m_pTransaction->m_Offset, tx.m_Offset);
+            }
+        }
+
 
         void AddCoinOffsets(const Key::IKdf::Ptr& pKdf)
         {
@@ -175,80 +213,37 @@ namespace beam::wallet
 
     void ContractTransaction::UpdateImpl()
     {
-        if (!m_TxBuilder)
-            m_TxBuilder = std::make_shared<MyBuilder>(*this, kDefaultSubTxID);
-
-        auto& builder = *m_TxBuilder;
-
         Key::IKdf::Ptr pKdf = get_MasterKdfStrict();
 
-        bvm2::ContractInvokeData vData;
-        GetParameter(TxParameterID::ContractDataPacked, vData.m_vec, GetSubTxID());
-
-        if (!builder.m_ChannelsOpened)
+        if (!m_TxBuilder)
         {
-            for (uint32_t i = 0; i < vData.m_vec.size(); i++)
+            m_TxBuilder = std::make_shared<MyBuilder>(*this, kDefaultSubTxID);
+            auto& builder = *m_TxBuilder;
+
+            GetParameter(TxParameterID::ContractDataPacked, builder.m_Data, GetSubTxID());
+
+            for (const auto& cdata : builder.m_Data.m_vec)
             {
-                const auto& cdata = vData.m_vec[i];
-                for (uint32_t iC = 0; iC < cdata.m_Adv.m_vCosigners.size(); iC++)
+                if (bvm2::ContractInvokeEntry::Flags::Dependent & cdata.m_Flags)
                 {
-                    bool b = cdata.IsCoSigner();
-                    if (builder.m_lstChannels.empty())
-                        builder.m_IsCoSigner = b;
-                    else
-                    {
-                        if (builder.m_IsCoSigner != b)
-                            throw TransactionFailedException(false, TxFailureReason::Unknown);
-                    }
-
-                    auto* pC = builder.m_lstChannels.Create_back();
-                    pC->m_pThis = &builder;
-
-                    ECC::Scalar::Native sk;
-                    pKdf->DeriveKey(sk, cdata.m_Adv.m_hvSk);
-
-                    ECC::Point::Native pt;
-                    if (!pt.ImportNnz(cdata.m_Adv.m_vCosigners[iC]))
-                        throw TransactionFailedException(false, TxFailureReason::Unknown);
-
-                    ECC::Scalar::Native sk2;
-                    pC->DeriveSharedSk(sk2, sk, pt);
-
-                    sk = sk * sk2;
-                    pt = pt * sk2;
-
-                    pC->m_WidMy.m_Pk.FromSk(sk);
-                    pC->m_WidMy.SetChannelFromPk();
-
-                    pC->m_WidPeer.m_Pk.Import(pt);
-                    pC->m_WidPeer.SetChannelFromPk();
-
-                    GetGateway().Listen(pC->m_WidMy, sk, pC);
+                    builder.m_pParentCtx = &cdata.m_ParentCtx;
+                    break;
                 }
             }
-
-            builder.m_ChannelsOpened = true;
         }
 
-        const HeightHash* pParentCtx = nullptr;
-        for (uint32_t i = 0; i < vData.m_vec.size(); i++)
-        {
-            const auto& cdata = vData.m_vec[i];
-            if (bvm2::ContractInvokeEntry::Flags::Dependent & cdata.m_Flags)
-            {
-                pParentCtx = &cdata.m_ParentCtx;
-                break;
-            }
-        }
+        auto& builder = *m_TxBuilder;
+        auto& vData = builder.m_Data;
+
 
         auto s = GetState<State>();
         if (State::Initial == s)
         {
             UpdateTxDescription(TxStatus::InProgress);
 
-            if (pParentCtx)
+            if (builder.m_pParentCtx)
             {
-                builder.m_Height = pParentCtx->m_Height;
+                builder.m_Height = builder.m_pParentCtx->m_Height;
                 SetParameter(TxParameterID::MinHeight, builder.m_Height.m_Min, GetSubTxID());
                 SetParameter(TxParameterID::MaxHeight, builder.m_Height.m_Max, GetSubTxID());
             }
@@ -263,7 +258,7 @@ namespace beam::wallet
             }
 
             if (vData.m_vec.empty())
-                throw TransactionFailedException(false, TxFailureReason::Unknown);
+                builder.Fail();
 
             bvm2::FundsMap fm;
 
@@ -285,7 +280,7 @@ namespace beam::wallet
 
                 fm += cdata.m_Spend;
 
-                if (!builder.m_IsCoSigner)
+                if (vData.m_IsSender)
                     fm[0] += fee;
             }
 
@@ -303,179 +298,152 @@ namespace beam::wallet
             SetState(s);
         }
 
+        if (builder.m_vSigs.empty() && vData.HasMultiSig())
+        {
+            if (vData.m_vPeers.empty())
+                builder.Fail("no peers");
+
+            builder.m_vChannels.reserve(vData.m_vPeers.size());
+
+            ECC::Scalar::Native skMy;
+            pKdf->DeriveKey(skMy, vData.m_hvKey);
+
+            for (const auto& pk : vData.m_vPeers)
+            {
+                auto& c = builder.m_vChannels.emplace_back();
+                c.m_pThis = &builder;
+
+                ECC::Point::Native pt;
+                if (!pt.ImportNnz(pk))
+                    builder.Fail("bad peer");
+
+                ECC::Scalar::Native sk, skMul;
+                c.DeriveSharedSk(skMul, skMy, pt);
+
+                sk = skMy * skMul;
+                pt = pt * skMul;
+
+                c.m_WidMy.m_Pk.FromSk(sk);
+                c.m_WidMy.SetChannelFromPk();
+
+                c.m_WidPeer.m_Pk.Import(pt);
+                c.m_WidPeer.SetChannelFromPk();
+
+                GetGateway().Listen(c.m_WidMy, sk, &c);
+            }
+
+            for (uint32_t i = 0; i < vData.m_vec.size(); i++)
+            {
+                const auto& cdata = vData.m_vec[i];
+                if (!cdata.IsMultisigned())
+                    continue;
+
+                auto& st = builder.m_vSigs.emplace_back();
+                st.m_pKrn = &Cast::Up<TxKernelContractControl>(*builder.m_pTransaction->m_vKernels[i]);
+            }
+        }
+
         if (State::GeneratingCoins == s)
         {
             builder.GenerateInOuts();
             if (builder.IsGeneratingInOuts())
                 return;
 
-            s = builder.m_lstChannels.empty() ?  State::Registration : State::Negotiating;
+            s = builder.m_vSigs.empty() ?  State::Registration : State::Negotiating;
             SetState(s);
         }
 
         if (State::Negotiating == s)
         {
             bool bStillNegotiating = false;
-            bool bTxDirty = false;
-            bool bWaitingK = false;
 
-            auto it = builder.m_lstChannels.begin();
+            uint32_t msk = (1u << builder.m_vChannels.size()) - 1;
 
-            for (uint32_t i = 0; i < vData.m_vec.size(); i++)
+            for (uint32_t iSig = 0; iSig < builder.m_vSigs.size(); iSig++)
             {
-                const auto& cdata = vData.m_vec[i];
-                if (cdata.m_Adv.m_vCosigners.empty())
-                    continue;
-                assert(cdata.IsAdvanced());
+                auto& st = builder.m_vSigs[iSig];
+                bool bSomeMissing = (st.m_RcvMask != msk);
+                if (bSomeMissing)
+                    bStillNegotiating = true;
 
-                for (uint32_t iC = 0; iC < cdata.m_Adv.m_vCosigners.size(); iC++)
+                if (!st.m_Sent)
                 {
-                    assert(builder.m_pTransaction && (i < builder.m_pTransaction->m_vKernels.size()));
-                    auto& krn0 = *builder.m_pTransaction->m_vKernels[i];
-                    auto& krn = Cast::Up<TxKernelContractControl>(krn0);
-
-                    assert(builder.m_lstChannels.end() != it);
-                    auto& ch = *it++;
-
-                    if (builder.m_IsCoSigner)
+                    if (vData.m_IsSender)
                     {
-                        if (!ch.m_Stage)
-                        {
-                            // send my sig
-                            ch.SendSig(krn.m_Signature.m_k);
-                            bTxDirty = true;
-                            ch.m_Stage = 1;
-                        }
+                        if (bSomeMissing)
+                            continue; // not ready yet
 
-                        if ((1 == ch.m_Stage) && ch.ReadSig(krn.m_Signature.m_k))
-                        {
-                            krn.UpdateID();
-                            // TODO test sig
-
-                            bTxDirty = true;
-                            ch.m_Stage = 2;
-                        }
-
-                        if (ch.m_Stage < 2)
-                            bStillNegotiating = true;
+                        st.m_pKrn->UpdateID();
+                        // TODO test sig!
                     }
-                    else
-                    {
-                        if (!ch.m_Stage)
-                        {
-                            ECC::Scalar k;
-                            if (ch.ReadSig(k))
-                            {
-                                bTxDirty = true;
-                                ch.m_Stage = 1;
 
-                                MyBuilder::AddScalar(krn.m_Signature.m_k, k);
-                            }
-                            else
-                                bWaitingK = true;
-                        }
+                    for (auto& ch : builder.m_vChannels)
+                        ch.SendSig(st.m_pKrn->m_Signature.m_k, iSig);
 
-                        if ((2 == ch.m_Stage) && !(ch.IsEmptyInOutKrn() && ch.IsEmptyOffset()))
-                        {
-                            // add to our tx
-                            MyBuilder::MoveVectorInto(builder.m_pTransaction->m_vInputs, ch.m_TxFromPeer.m_vInputs);
-                            MyBuilder::MoveVectorInto(builder.m_pTransaction->m_vOutputs, ch.m_TxFromPeer.m_vOutputs);
-                            MyBuilder::MoveVectorInto(builder.m_pTransaction->m_vKernels, ch.m_TxFromPeer.m_vKernels);
-                            MyBuilder::AddScalar(builder.m_pTransaction->m_Offset, ch.m_TxFromPeer.m_Offset);
-                            ch.m_TxFromPeer.m_Offset.m_Value = Zero;
-
-                            ch.m_Stage = 3;
-                            bTxDirty = true;
-                        }
-
-                        if (ch.m_Stage < 3)
-                            bStillNegotiating = true;
-
-                    }
+                    st.m_Sent = true;
                 }
             }
 
-            if (builder.m_IsCoSigner)
+            if (!bStillNegotiating && (builder.m_TxMask != msk))
             {
-                if (!bStillNegotiating)
+                if (vData.m_IsSender)
+                    bStillNegotiating = true;
+                else
                 {
+                    for (const auto& st : builder.m_vSigs)
+                    {
+                        st.m_pKrn->UpdateID();
+                        // TODO test sig!
+                    }
+
+                    Serializer ser;
+
                     // time to send my tx part. Exclude the multisig kernels
-                    std::vector<TxKernel::Ptr> v1, v2;
-
-                    for (uint32_t i = 0; i < vData.m_vec.size(); i++)
                     {
-                        const auto& cdata = vData.m_vec[i];
-                        bool bMultisig = !cdata.m_Adv.m_vCosigners.empty();
-                        (bMultisig ? v1 : v2).push_back(std::move(builder.m_pTransaction->m_vKernels[i]));
-                    }
-                    builder.m_pTransaction->m_vKernels = std::move(v2);
+                        std::vector<TxKernel::Ptr> v1, v2;
 
-                    for (it = builder.m_lstChannels.begin(); builder.m_lstChannels.end() != it; )
-                    {
-                        auto& ch = *it++;
-                        ch.SendTx(*builder.m_pTransaction);
-                    }
-
-                    builder.m_pTransaction->m_vKernels.swap(v2);
-
-                    uint32_t n1 = 0, n2 = 0;
-
-                    for (uint32_t i = 0; i < vData.m_vec.size(); i++)
-                    {
-                        const auto& cdata = vData.m_vec[i];
-                        bool bMultisig = !cdata.m_Adv.m_vCosigners.empty();
-
-                        auto& pKrn = bMultisig ? v1[n1++] : v2[n2++];
-                        builder.m_pTransaction->m_vKernels.push_back(std::move(pKrn));
-                    }
-                }
-            }
-            else
-            {
-                it = builder.m_lstChannels.begin();
-
-                if (bStillNegotiating && !bWaitingK)
-                {
-                    for (uint32_t i = 0; i < vData.m_vec.size(); i++)
-                    {
-                        const auto& cdata = vData.m_vec[i];
-                        for (uint32_t iC = 0; iC < cdata.m_Adv.m_vCosigners.size(); iC++)
+                        for (uint32_t i = 0; i < vData.m_vec.size(); i++)
                         {
-                            auto& krn0 = *builder.m_pTransaction->m_vKernels[i];
-                            auto& krn = Cast::Up<TxKernelContractControl>(krn0);
-                            auto& ch = *it++;
+                            bool bMultisig = vData.m_vec[i].IsMultisigned();
+                            (bMultisig ? v1 : v2).push_back(std::move(builder.m_pTransaction->m_vKernels[i]));
+                        }
+                        builder.m_pTransaction->m_vKernels = std::move(v2);
 
-                            if (1 == ch.m_Stage)
-                            {
-                                ch.m_Stage = 2;
-                                bTxDirty = true;
+                        ser
+                            & builder.m_vSigs.size()
+                            & *builder.m_pTransaction;
 
-                                krn.UpdateID();
-                                // TODO test sig
+                        builder.m_pTransaction->m_vKernels.swap(v2);
 
-                                ch.SendSig(krn.m_Signature.m_k);
-                            }
+                        uint32_t n1 = 0, n2 = 0;
+                        for (uint32_t i = 0; i < vData.m_vec.size(); i++)
+                        {
+                            bool bMultisig = vData.m_vec[i].IsMultisigned();
+                            auto& pKrn = bMultisig ? v1[n1++] : v2[n2++];
+                            builder.m_pTransaction->m_vKernels.push_back(std::move(pKrn));
                         }
                     }
 
+                    for (auto& ch : builder.m_vChannels)
+                        ch.Send(ser);
 
+                    builder.m_TxMask = msk;
                 }
             }
-
-            if (bTxDirty)
-                builder.OnSigned();
 
             if (bStillNegotiating)
                 return;
 
-            if (!builder.m_IsCoSigner)
+            builder.OnSigned();
+
+            if (vData.m_IsSender)
                 builder.FinalyzeTx();
 
             s = Registration;
             SetState(s);
         }
 
-        if (!builder.m_IsCoSigner)
+        if (vData.m_IsSender)
         {
             // We're the tx owner
             uint8_t nRegistered = proto::TxStatus::Unspecified;
@@ -484,7 +452,7 @@ namespace beam::wallet
                 if (CheckExpired())
                     return;
 
-                GetGateway().register_tx(GetTxID(), builder.m_pTransaction, pParentCtx ? &pParentCtx->m_Hash : nullptr);
+                GetGateway().register_tx(GetTxID(), builder.m_pTransaction, builder.m_pParentCtx ? &builder.m_pParentCtx->m_Hash : nullptr);
                 SetState(State::Registration);
                 return;
             }

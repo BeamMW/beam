@@ -470,7 +470,7 @@ namespace bvm2 {
 
 		ContractInvokeEntry& GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, bool bCvtFunds, const char* szComment, uint32_t nCharge);
 		void SetKernelAdv(Height hMin, Height hMax, const PubKey& ptFullBlind, const PubKey& ptFullNonce, const ECC::Scalar& skForeignSig, uint32_t iSlotBlind, uint32_t iSlotNonce,
-			const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE, uint8_t nFlags, const PubKey* pForeign, uint32_t nForeign);
+			const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE, uint8_t nFlags);
 
 		uint32_t VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof);
 		uint32_t LogGetProofInternal(const HeightPos&, Wasm::Word& pProof);

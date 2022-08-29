@@ -1802,7 +1802,7 @@ namespace
 
             txid = m_pWallet->StartTransaction(
                 CreateTransactionParameters(TxType::Contract)
-                .SetParameter(TxParameterID::ContractDataPacked, m_InvokeData.m_vec));
+                .SetParameter(TxParameterID::ContractDataPacked, m_InvokeData));
 
             completedCount++;
             return true;

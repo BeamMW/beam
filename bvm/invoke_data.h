@@ -42,15 +42,14 @@ namespace beam::bvm2 {
 			ECC::Signature m_Sig;
 			ECC::Hash::Value m_hvSk;
 			ECC::Point m_Commitment;
-			std::vector<ECC::Point> m_vCosigners;
+			ECC::Scalar m_e;
 
 		} m_Adv;
 
 		struct Flags {
 			static const uint8_t Adv = 1;
 			static const uint8_t Dependent = 2;
-			static const uint8_t HasPeers = 4;
-			static const uint8_t RoleCosigner = 8;
+			static const uint8_t Multisigned = 8;
 			static const uint8_t HasCommitment = 0x10;
 		};
 
@@ -58,8 +57,8 @@ namespace beam::bvm2 {
 			return !!(Flags::Adv & m_Flags);
 		}
 
-		bool IsCoSigner() const {
-			return !!(Flags::RoleCosigner & m_Flags);
+		bool IsMultisigned() const {
+			return !!(Flags::Multisigned & m_Flags);
 		}
 
 		FundsMap m_Spend; // ins - outs, not including fee
@@ -110,17 +109,17 @@ namespace beam::bvm2 {
 			if (Flags::Dependent & m_Flags)
 				ar & m_ParentCtx;
 
-			if (Flags::HasPeers & m_Flags)
-				ar & m_Adv.m_vCosigners;
-
 			if (Flags::HasCommitment & m_Flags)
 				ar & m_Adv.m_Commitment;
+
+			if (Flags::Multisigned & m_Flags)
+				ar & m_Adv.m_e;
 		}
 
 		void Generate(Transaction&, Key::IKdf&, const HeightRange& hr, Amount fee) const;
 
 		void GenerateAdv(Key::IKdf*, ECC::Scalar* pE, const ECC::Point& ptFullBlind, const ECC::Point& ptFullNonce, const ECC::Hash::Value* phvNonce, const ECC::Scalar* pForeignSig,
-			const ECC::Point* pPks, uint32_t nPks, uint8_t nFlags, const ECC::Point* pForeign, uint32_t nForeign);
+			const ECC::Point* pPks, uint32_t nPks, uint8_t nFlags);
 
 
 		[[nodiscard]] Amount get_FeeMin(Height) const;
@@ -140,6 +139,7 @@ namespace beam::bvm2 {
 		ECC::Hash::Value m_hvKey;
 		bool m_IsSender = true;
 
+		bool HasMultiSig() const;
 		std::string get_FullComment() const;
 		beam::Amount get_FullFee(Height) const;
 		bvm2::FundsMap get_FullSpend() const;
@@ -149,6 +149,13 @@ namespace beam::bvm2 {
 		{
 			ar & m_vec;
 
+			if (HasMultiSig())
+			{
+				ar
+					& m_IsSender
+					& m_hvKey
+					& m_vPeers;
+			}
 		}
 	};
 }

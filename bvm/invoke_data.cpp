@@ -66,7 +66,7 @@ namespace beam::bvm2 {
 	}
 
 	void ContractInvokeEntry::GenerateAdv(Key::IKdf* pKdf, ECC::Scalar* pE, const ECC::Point& ptFullBlind, const ECC::Point& ptFullNonce, const ECC::Hash::Value* phvNonce, const ECC::Scalar* pForeignSig,
-		const ECC::Point* pPks, uint32_t nPks, uint8_t nFlags, const ECC::Point* pForeign, uint32_t nForeign)
+		const ECC::Point* pPks, uint32_t nPks, uint8_t nFlags)
 	{
 		std::unique_ptr<TxKernelContractControl> pKrn;
 		ECC::Point::Native ptFunds;
@@ -117,6 +117,8 @@ namespace beam::bvm2 {
 		{
 			assert(phvNonce && pForeignSig);
 
+			m_Adv.m_e = skSig; // challenge
+
 			ECC::Scalar::Native skNonce, sk;
 
 			pKdf->DeriveKey(skNonce, *phvNonce);
@@ -131,19 +133,13 @@ namespace beam::bvm2 {
 			skSig = -skSig; // our formula is sig.ptNonce + Pk[i]*e[i] + G*sig.k == 0
 			m_Adv.m_Sig.m_k = skSig;
 
-			if (nForeign)
-			{
-				m_Flags |= Flags::HasPeers;
-				m_Adv.m_vCosigners.assign(pForeign, pForeign + nForeign);
-
-				if (Shaders::KernelFlag::CoSigner & nFlags)
-					m_Flags |= Flags::RoleCosigner;
-			}
-
 			if (IsAdvanced())
 			{
 				m_Flags |= Flags::HasCommitment;
 				m_Adv.m_Commitment = krn.m_Commitment;
+
+				if (Shaders::KernelFlag::MultiSigned & nFlags)
+					m_Flags |= Flags::Multisigned;
 			}
 		}
 
@@ -276,6 +272,14 @@ namespace beam::bvm2 {
 	{
 		for (auto it = x.begin(); x.end() != it; it++)
 			AddSpend(it->first, it->second);
+	}
+
+	bool ContractInvokeData::HasMultiSig() const
+	{
+		for (const auto& cdata : m_vec)
+			if (cdata.IsMultisigned())
+				return true;
+		return false;
 	}
 
 	std::string ContractInvokeData::get_FullComment() const

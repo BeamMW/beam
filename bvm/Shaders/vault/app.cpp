@@ -228,19 +228,9 @@ struct MultiSigProto
 
     void InvokeKrn(const Secp_scalar_data& kSig, Secp_scalar_data* pE, bool bCoSigner)
     {
-        uint8_t nFlags = KernelFlag::FullCommitment;
-        const PubKey* pPeer;
-        if (bCoSigner)
-        {
-            nFlags |= KernelFlag::CoSigner;
-            pPeer = &m_Msg1.m_pkKrnBlind;
-        }
-        else
-            pPeer = &m_Msg2.m_pkKrnBlind;
-
         Env::GenerateKernelAdvanced2(
             m_pCid, Vault::Withdraw::s_iMethod, m_pArg, sizeof(*m_pArg), m_pFc, 1, &m_pArg->m_Account, 1, "withdraw from Vault", 0,
-            m_Msg1.m_hMin, m_Msg1.m_hMin + s_dh, m_pkFullCommitment, m_Msg2.m_pkFullNonce, kSig, s_iSlotKrnBlind, s_iSlotKrnNonce, pE, nFlags, pPeer, 1);
+            m_Msg1.m_hMin, m_Msg1.m_hMin + s_dh, m_pkFullCommitment, m_Msg2.m_pkFullNonce, kSig, s_iSlotKrnBlind, s_iSlotKrnNonce, pE, KernelFlag::FullCommitment | KernelFlag::MultiSigned);
     }
 
     void SetCommitment(const Secp::Point& ptMy, const PubKey& pkForeign)
@@ -345,6 +335,8 @@ ON_METHOD(my_account, move)
                 p1.Export(msp.m_Msg2.m_pkKrnBlind);
                 msp.SetCommitment(p1, msp.m_Msg1.m_pkKrnBlind);
 
+                Env::SetTxPeers(msp.s_iSlotKrnBlind, 0, &msp.m_Msg1.m_pkKrnBlind, 1);
+
                 Secp_scalar_data e;
                 msp.InvokeKrn(e, &e, true);
 
@@ -375,6 +367,8 @@ ON_METHOD(my_account, move)
                 cc.Rcv_T(msp.m_Msg2);
 
                 msp.SetCommitment(p1, msp.m_Msg2.m_pkKrnBlind);
+
+                Env::SetTxPeers(msp.s_iSlotKrnBlind, 1, &msp.m_Msg2.m_pkKrnBlind, 1);
 
                 Secp_scalar_data e;
                 msp.InvokeKrn(e, &e, false);

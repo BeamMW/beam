@@ -461,9 +461,13 @@
 	macro(uint32_t, iSlotBlind) sep \
 	macro(uint32_t, iSlotNonce) sep \
 	macro(Secp_scalar_data*, pChallenges) sep \
-	macro(uint8_t, nFlags) sep \
-	macro(const PubKey*, pForeign) sep \
-	macro(uint32_t, nForeign)
+	macro(uint8_t, nFlags)
+
+#define BVMOp_SetTxPeers(macro, sep) \
+	macro(uint32_t, iSlotMyID) sep \
+	macro(uint8_t, bIsSender) sep \
+	macro(const PubKey*, pPeers) sep \
+	macro(uint32_t, nPeers)
 
 #define BVMOp_Comm_Listen(macro, sep) \
 	macro(const void*, pID) sep \
@@ -585,6 +589,7 @@
 	macro(0xA6, void     , get_SlotImageEx) \
 	macro(0xA7, void     , get_PkEx) \
 	macro(0xA8, void     , GenerateKernelAdvanced2) \
+	macro(0xA9, void     , SetTxPeers) \
 	macro(0xB1, void     , Comm_Send) \
 	macro(0xB2, uint32_t , Comm_Read) \
 	macro(0xB3, void     , Comm_WaitMsg) \
