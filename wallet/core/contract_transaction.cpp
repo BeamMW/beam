@@ -260,7 +260,7 @@ namespace beam::wallet
             if (vData.m_vec.empty())
                 builder.Fail();
 
-            bvm2::FundsMap fm;
+            bvm2::FundsMap fm = vData.get_FullSpend();
 
             for (uint32_t i = 0; i < vData.m_vec.size(); i++)
             {
@@ -277,8 +277,6 @@ namespace beam::wallet
                 }
 
                 cdata.Generate(*builder.m_pTransaction, *pKdf, builder.m_Height, fee);
-
-                fm += cdata.m_Spend;
 
                 if (vData.m_IsSender)
                     fm[0] += fee;

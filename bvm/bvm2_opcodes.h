@@ -442,32 +442,16 @@
 	macro(uint32_t, iSlotNonce) sep \
 	macro(Secp_scalar_data*, pChallenges)
 
-#define BVMOp_GenerateKernelAdvanced2(macro, sep) \
-	macro(const ContractID*, pCid) sep \
-	macro(uint32_t, iMethod) sep \
-	macro(const void*, pArg) sep \
-	macro(uint32_t, nArg) sep \
-	macro(const FundsChange*, pFunds) sep \
-	macro(uint32_t, nFunds) sep \
-	macro(const PubKey*, pSig) sep \
-	macro(uint32_t, nSig) sep \
-	macro(const char*, szComment) sep \
-	macro(uint32_t, nCharge) sep \
-	macro(Height, hMin) sep \
-	macro(Height, hMax) sep \
-	macro(const PubKey&, ptFullBlind) sep \
-	macro(const PubKey&, ptFullNonce) sep \
-	macro(const Secp_scalar_data&, skForeignSig) sep \
-	macro(uint32_t, iSlotBlind) sep \
-	macro(uint32_t, iSlotNonce) sep \
-	macro(Secp_scalar_data*, pChallenges) sep \
-	macro(uint8_t, nFlags)
-
-#define BVMOp_SetTxPeers(macro, sep) \
-	macro(uint32_t, iSlotMyID) sep \
+#define BVMOp_SetMultisignedTx(macro, sep) \
+	macro(const void*, pID) sep \
+	macro(uint32_t, nID) sep \
 	macro(uint8_t, bIsSender) sep \
 	macro(const PubKey*, pPeers) sep \
-	macro(uint32_t, nPeers)
+	macro(uint32_t, nPeers) sep \
+	macro(const bool*, pIsMultisigned) sep \
+	macro(uint32_t, nIsMultisigned) sep \
+	macro(const FundsChange*, pFundsExtra) sep \
+	macro(uint32_t, nFundsExtra)
 
 #define BVMOp_Comm_Listen(macro, sep) \
 	macro(const void*, pID) sep \
@@ -588,8 +572,7 @@
 	macro(0xA5, void     , GenerateKernelAdvanced) \
 	macro(0xA6, void     , get_SlotImageEx) \
 	macro(0xA7, void     , get_PkEx) \
-	macro(0xA8, void     , GenerateKernelAdvanced2) \
-	macro(0xA9, void     , SetTxPeers) \
+	macro(0xA9, void     , SetMultisignedTx) \
 	macro(0xB1, void     , Comm_Send) \
 	macro(0xB2, uint32_t , Comm_Read) \
 	macro(0xB3, void     , Comm_WaitMsg) \

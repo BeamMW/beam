@@ -214,7 +214,7 @@ struct MultiSigProto
 
     Msg1 m_Msg1;
     Msg2 m_Msg2;
-    PubKey m_pkFullCommitment;
+    PubKey m_pkFullBlind;
 
     static const Height s_dh = 20;
 
@@ -228,25 +228,17 @@ struct MultiSigProto
 
     void InvokeKrn(const Secp_scalar_data& kSig, Secp_scalar_data* pE, bool bCoSigner)
     {
-        Env::GenerateKernelAdvanced2(
+        Env::GenerateKernelAdvanced(
             m_pCid, Vault::Withdraw::s_iMethod, m_pArg, sizeof(*m_pArg), m_pFc, 1, &m_pArg->m_Account, 1, "withdraw from Vault", 0,
-            m_Msg1.m_hMin, m_Msg1.m_hMin + s_dh, m_pkFullCommitment, m_Msg2.m_pkFullNonce, kSig, s_iSlotKrnBlind, s_iSlotKrnNonce, pE, KernelFlag::FullCommitment | KernelFlag::MultiSigned);
+            m_Msg1.m_hMin, m_Msg1.m_hMin + s_dh, m_pkFullBlind, m_Msg2.m_pkFullNonce, kSig, s_iSlotKrnBlind, s_iSlotKrnNonce, pE);
     }
 
-    void SetCommitment(const Secp::Point& ptMy, const PubKey& pkForeign)
+    void SetBlindingFactor(const Secp::Point& ptMy, const PubKey& pkForeign)
     {
         Secp::Point pt;
         pt.Import(pkForeign);
         pt += ptMy;
-
-        Secp::Scalar s;
-        Env::Secp_Scalar_set(s, m_pArg->m_Amount);
-        Secp::Point pt2;
-        Env::Secp_Point_mul_H(pt2, s, m_pArg->m_Aid);
-        pt2 = -pt2;
-
-        pt += pt2;
-        pt.Export(m_pkFullCommitment);
+        pt.Export(m_pkFullBlind);
     }
 };
 
@@ -287,9 +279,6 @@ ON_METHOD(my_account, move)
     fc.m_Amount = arg.m_Amount;
     fc.m_Aid = arg.m_Aid;
     fc.m_Consume = isDeposit;
-
-    if (bIsMultisig)
-        fc.m_Amount = bCoSigner ? amountCoSigner : (arg.m_Amount - amountCoSigner);
 
     if (isDeposit)
         Env::GenerateKernel(&cid, Vault::Deposit::s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "deposit to Vault", 0);
@@ -333,9 +322,7 @@ ON_METHOD(my_account, move)
                 p2.Export(msp.m_Msg2.m_pkFullNonce);
 
                 p1.Export(msp.m_Msg2.m_pkKrnBlind);
-                msp.SetCommitment(p1, msp.m_Msg1.m_pkKrnBlind);
-
-                Env::SetTxPeers(msp.s_iSlotKrnBlind, 0, &msp.m_Msg1.m_pkKrnBlind, 1);
+                msp.SetBlindingFactor(p1, msp.m_Msg1.m_pkKrnBlind);
 
                 Secp_scalar_data e;
                 msp.InvokeKrn(e, &e, true);
@@ -352,6 +339,8 @@ ON_METHOD(my_account, move)
                 _POD_(e).SetZero();
                 msp.InvokeKrn(e, nullptr, true);
                 Env::WriteStr("Negotiation is over", Stream::Out);
+
+                fc.m_Amount -= amountCoSigner;
             }
             else
             {
@@ -366,9 +355,7 @@ ON_METHOD(my_account, move)
                 Env::WriteStr("Waiting for co-signer", Stream::Out);
                 cc.Rcv_T(msp.m_Msg2);
 
-                msp.SetCommitment(p1, msp.m_Msg2.m_pkKrnBlind);
-
-                Env::SetTxPeers(msp.s_iSlotKrnBlind, 1, &msp.m_Msg2.m_pkKrnBlind, 1);
+                msp.SetBlindingFactor(p1, msp.m_Msg2.m_pkKrnBlind);
 
                 Secp_scalar_data e;
                 msp.InvokeKrn(e, &e, false);
@@ -383,7 +370,13 @@ ON_METHOD(my_account, move)
                 s0.Export(e);
 
                 msp.InvokeKrn(e, nullptr, false);
+
+                fc.m_Amount = amountCoSigner;
             }
+
+            fc.m_Consume = 1;
+            bool bVal = true;
+            Env::SetMultisignedTx(kid.m_pID, kid.m_nID, !bCoSigner, &pkForeign, 1, &bVal, 1, &fc, 1);
 
         }
         else

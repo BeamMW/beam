@@ -3142,6 +3142,13 @@ namespace bvm2 {
 			v.m_ParentCtx.m_Hash = *m_Context.m_pParent;
 		}
 
+		SetFunds(v.m_Spend, pFunds, nFunds, bCvtFunds);
+
+		return v;
+	}
+
+	void ProcessorManager::SetFunds(FundsMap& fm, const Shaders::FundsChange* pFunds, uint32_t nFunds, bool bCvtFunds)
+	{
 		for (uint32_t i = 0; i < nFunds; i++)
 		{
 			auto x = pFunds[i];
@@ -3152,14 +3159,37 @@ namespace bvm2 {
 			if (!x.m_Consume)
 				val = -val;
 
-			v.m_Spend.AddSpend(x.m_Aid, val);
+			fm.AddSpend(x.m_Aid, val);
+		}
+	}
+
+	void ProcessorManager::SetMultisignedTx(const void* pID, uint32_t nID, uint8_t bIsSender, const PubKey* pPeers, uint32_t nPeers,
+		const bool* pIsMultisigned, uint32_t nIsMultisigned, const Shaders::FundsChange* pFunds, uint32_t nFunds, bool bCvtFunds)
+	{
+		Wasm::Test(bIsSender || (1 == nPeers)); // co-signer must specify the sender as its only peer
+
+		m_InvokeData.m_IsSender = !!bIsSender;
+		m_InvokeData.m_vPeers.assign(pPeers, pPeers + nPeers);
+
+		DeriveKeyPreimage(m_InvokeData.m_hvKey, Blob(pID, nID));
+
+		Wasm::Test(nIsMultisigned <= m_InvokeData.m_vec.size());
+		for (uint32_t i = 0; i < nIsMultisigned; i++)
+		{
+			if (!pIsMultisigned[i])
+				continue;
+
+			auto& v = m_InvokeData.m_vec[i];
+			Wasm::Test(v.IsAdvanced());
+			v.m_Flags |= ContractInvokeEntry::Flags::Multisigned;
 		}
 
-		return v;
+		m_InvokeData.m_SpendExtra.clear();
+		SetFunds(m_InvokeData.m_SpendExtra, pFunds, nFunds, bCvtFunds);
 	}
 
 	void ProcessorManager::SetKernelAdv(Height hMin, Height hMax, const PubKey& ptFullBlind, const PubKey& ptFullNonce, const ECC::Scalar& skForeignSig, uint32_t iSlotBlind, uint32_t iSlotNonce,
-		const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE, uint8_t nFlags)
+		const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE)
 	{
 		assert(!m_InvokeData.m_vec.empty());
 		auto& v = m_InvokeData.m_vec.back();
@@ -3186,23 +3216,13 @@ namespace bvm2 {
 			SlotErase(iSlotNonce);
 		}
 
-		v.GenerateAdv(pKdf, pE, ptFullBlind, ptFullNonce, &hvNonce, &skForeignSig, pSig, nSig,  nFlags);
+		v.GenerateAdv(pKdf, pE, ptFullBlind, ptFullNonce, &hvNonce, &skForeignSig, pSig, nSig);
 
 		if (pE)
 			m_InvokeData.m_vec.pop_back(); // no more needed
 	}
 
 	BVM_METHOD(GenerateKernelAdvanced)
-	{
-		OnMethod_GenerateKernelAdvanced2(BVMOp_GenerateKernelAdvanced(BVM_METHOD_PAR_PASS, MACRO_COMMA), 0);
-	}
-
-	BVM_METHOD_HOST(GenerateKernelAdvanced)
-	{
-		OnHost_GenerateKernelAdvanced2(BVMOp_GenerateKernelAdvanced(BVM_METHOD_PAR_PASS, MACRO_COMMA), 0);
-	}
-
-	BVM_METHOD(GenerateKernelAdvanced2)
 	{
 		if (!EnsureContext())
 			return;
@@ -3213,30 +3233,27 @@ namespace bvm2 {
 		const PubKey* pSig_ = get_ArrayAddrAsR<PubKey>(pSig, nSig);
 		ECC::Scalar* pE = pChallenges ? get_ArrayAddrAsW<ECC::Scalar>(pChallenges, nSig) : nullptr;
 
-		SetKernelAdv(hMin, hMax,  get_AddrAsR<PubKey>(ptFullBlind), get_AddrAsR<PubKey>(ptFullNonce), get_AddrAsR<ECC::Scalar>(skForeignSig), iSlotBlind, iSlotNonce, pSig_, nSig, pE, nFlags);
+		SetKernelAdv(hMin, hMax,  get_AddrAsR<PubKey>(ptFullBlind), get_AddrAsR<PubKey>(ptFullNonce), get_AddrAsR<ECC::Scalar>(skForeignSig), iSlotBlind, iSlotNonce, pSig_, nSig, pE);
 	}
 
-	BVM_METHOD_HOST(GenerateKernelAdvanced2)
+	BVM_METHOD_HOST(GenerateKernelAdvanced)
 	{
 		if (!EnsureContext())
 			return;
 
 		GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, false, szComment, nCharge);
-		SetKernelAdv(hMin, hMax, ptFullBlind, ptFullNonce, skForeignSig, iSlotBlind, iSlotNonce, pSig, nSig, pChallenges, nFlags);
+		SetKernelAdv(hMin, hMax, ptFullBlind, ptFullNonce, skForeignSig, iSlotBlind, iSlotNonce, pSig, nSig, pChallenges);
 	}
 
-	BVM_METHOD(SetTxPeers)
+	BVM_METHOD(SetMultisignedTx)
 	{
-		OnHost_SetTxPeers(iSlotMyID, bIsSender, get_ArrayAddrAsR<ECC::Point>(pPeers, nPeers), nPeers);
+		SetMultisignedTx(get_AddrR(pID, nID), nID, bIsSender, get_ArrayAddrAsR<ECC::Point>(pPeers, nPeers), nPeers,
+			get_ArrayAddrAsR<bool>(pIsMultisigned, nIsMultisigned), nIsMultisigned, get_ArrayAddrAsR<FundsChange>(pFundsExtra, nFundsExtra), nFundsExtra, true);
 	}
 
-	BVM_METHOD_HOST(SetTxPeers)
+	BVM_METHOD_HOST(SetMultisignedTx)
 	{
-		Wasm::Test(bIsSender || (1 == nPeers)); // co-signer must specify the sender as its only peer
-
-		m_InvokeData.m_IsSender = !!bIsSender;
-		m_InvokeData.m_vPeers.assign(pPeers, pPeers + nPeers);
-		get_SlotPreimageInternal(m_InvokeData.m_hvKey, iSlotMyID);
+		SetMultisignedTx(pID, nID, bIsSender, pPeers, nPeers, pIsMultisigned, nIsMultisigned, pFundsExtra, nFundsExtra, false);
 	}
 
 	BVM_METHOD(GenerateRandom)

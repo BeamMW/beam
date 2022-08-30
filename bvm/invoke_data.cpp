@@ -66,7 +66,7 @@ namespace beam::bvm2 {
 	}
 
 	void ContractInvokeEntry::GenerateAdv(Key::IKdf* pKdf, ECC::Scalar* pE, const ECC::Point& ptFullBlind, const ECC::Point& ptFullNonce, const ECC::Hash::Value* phvNonce, const ECC::Scalar* pForeignSig,
-		const ECC::Point* pPks, uint32_t nPks, uint8_t nFlags)
+		const ECC::Point* pPks, uint32_t nPks)
 	{
 		std::unique_ptr<TxKernelContractControl> pKrn;
 		ECC::Point::Native ptFunds;
@@ -74,9 +74,6 @@ namespace beam::bvm2 {
 
 		auto& krn = *pKrn;
 
-		if (Shaders::KernelFlag::FullCommitment & nFlags)
-			krn.m_Commitment = ptFullBlind;
-		else
 		{
 			ECC::Point::Native pt;
 			pt.Import(ptFullBlind);
@@ -137,9 +134,6 @@ namespace beam::bvm2 {
 			{
 				m_Flags |= Flags::HasCommitment;
 				m_Adv.m_Commitment = krn.m_Commitment;
-
-				if (Shaders::KernelFlag::MultiSigned & nFlags)
-					m_Flags |= Flags::Multisigned;
 			}
 		}
 
@@ -309,10 +303,18 @@ namespace beam::bvm2 {
 
     bvm2::FundsMap ContractInvokeData::get_FullSpend() const
     {
-        bvm2::FundsMap fm;
+        bvm2::FundsMap fm = m_SpendExtra;
         for (const auto& cdata: m_vec)
             fm += cdata.m_Spend;
 
         return fm;
     }
+
+	void ContractInvokeData::Reset()
+	{
+		m_vec.clear();
+		m_vPeers.clear();
+		m_SpendExtra.clear();
+		m_IsSender = true;
+	}
 }

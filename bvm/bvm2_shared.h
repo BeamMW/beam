@@ -172,10 +172,4 @@ struct ApiVersion
 	static const uint32_t Current = 1;
 };
 
-struct KernelFlag
-{
-	static const uint8_t FullCommitment = 1; // the ptFullBlind is actually full commitment
-	static const uint8_t MultiSigned = 2;
-};
-
 #pragma pack (pop)

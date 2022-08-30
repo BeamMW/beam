@@ -119,7 +119,7 @@ namespace beam::bvm2 {
 		void Generate(Transaction&, Key::IKdf&, const HeightRange& hr, Amount fee) const;
 
 		void GenerateAdv(Key::IKdf*, ECC::Scalar* pE, const ECC::Point& ptFullBlind, const ECC::Point& ptFullNonce, const ECC::Hash::Value* phvNonce, const ECC::Scalar* pForeignSig,
-			const ECC::Point* pPks, uint32_t nPks, uint8_t nFlags);
+			const ECC::Point* pPks, uint32_t nPks);
 
 
 		[[nodiscard]] Amount get_FeeMin(Height) const;
@@ -136,6 +136,7 @@ namespace beam::bvm2 {
 		std::vector<ContractInvokeEntry> m_vec;
 		// for multisig
 		std::vector<ECC::Point> m_vPeers;
+		FundsMap m_SpendExtra;
 		ECC::Hash::Value m_hvKey;
 		bool m_IsSender = true;
 
@@ -154,8 +155,12 @@ namespace beam::bvm2 {
 				ar
 					& m_IsSender
 					& m_hvKey
-					& m_vPeers;
+					& m_vPeers
+					& Cast::Down< std::map<Asset::ID, AmountSigned> >(m_SpendExtra);
 			}
 		}
+
+		void Reset();
+
 	};
 }
