@@ -74,10 +74,10 @@ namespace beam::bvm2 {
 
 		auto& krn = *pKrn;
 
+		ECC::Point::Native ptBlind;
+		ptBlind.Import(ptFullBlind);
 		{
-			ECC::Point::Native pt;
-			pt.Import(ptFullBlind);
-			pt += ptFunds;
+			ECC::Point::Native pt = ptBlind + ptFunds;
 			krn.m_Commitment = pt;
 		}
 
@@ -99,6 +99,8 @@ namespace beam::bvm2 {
 		m_Adv.m_Sig.Expose(oracle, hv);
 
 		ECC::Scalar::Native skSig;
+		ECC::Point::Native ptSigImage;
+		bool bNeedSigImage = IsAdvanced() && pKdf && !pE;
 
 		for (uint32_t i = 0; ; i++)
 		{
@@ -108,13 +110,28 @@ namespace beam::bvm2 {
 
 			if (pE)
 				pE[i] = skSig;
+
+			if (bNeedSigImage)
+			{
+				ECC::Point::Native pt;
+				pt.Import(pPks[i]);
+				ptSigImage += pt * skSig;
+			}
 		}
 
 		if (pKdf)
 		{
 			assert(phvNonce && pForeignSig);
 
-			m_Adv.m_e = skSig; // challenge
+			if (bNeedSigImage)
+			{
+				ptSigImage += ptBlind * skSig;
+
+				ptBlind.Import(ptFullNonce);
+				ptSigImage += ptBlind;
+
+				ptSigImage.Export(m_Adv.m_SigImage);
+			}
 
 			ECC::Scalar::Native skNonce, sk;
 

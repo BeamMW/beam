@@ -42,7 +42,7 @@ namespace beam::bvm2 {
 			ECC::Signature m_Sig;
 			ECC::Hash::Value m_hvSk;
 			ECC::Point m_Commitment;
-			ECC::Scalar m_e;
+			ECC::Point m_SigImage;
 
 		} m_Adv;
 
@@ -113,7 +113,7 @@ namespace beam::bvm2 {
 				ar & m_Adv.m_Commitment;
 
 			if (Flags::Multisigned & m_Flags)
-				ar & m_Adv.m_e;
+				ar & m_Adv.m_SigImage;
 		}
 
 		void Generate(Transaction&, Key::IKdf&, const HeightRange& hr, Amount fee) const;

@@ -190,6 +190,29 @@ namespace beam::wallet
             SaveInOuts();
         }
 
+        void TestSigs()
+        {
+            for (uint32_t i = 0; i < m_Data.m_vec.size(); i++)
+            {
+                const auto& cdata = m_Data.m_vec[i];
+                if (!cdata.IsMultisigned())
+                    continue;
+
+                auto& krn = Cast::Up<TxKernelContractControl>(*m_pTransaction->m_vKernels[i]);
+
+                ECC::Point::Native pt1 = ECC::Context::get().G * ECC::Scalar::Native(krn.m_Signature.m_k);
+                ECC::Point::Native pt2;
+                pt2.Import(cdata.m_Adv.m_SigImage);
+
+                pt2 += pt1;
+                if (pt2 != Zero)
+                    Fail("incorrect multisig");
+
+                if (!m_vSigs.empty())
+                    krn.UpdateID(); // signature was modified due to the negotiation
+            }
+        }
+
         static void AddScalar(ECC::Scalar& dst, const ECC::Scalar& src)
         {
             ECC::Scalar::Native k(dst);
@@ -347,7 +370,14 @@ namespace beam::wallet
             if (builder.IsGeneratingInOuts())
                 return;
 
-            s = builder.m_vSigs.empty() ?  State::Registration : State::Negotiating;
+            if (builder.m_vSigs.empty())
+            {
+                builder.TestSigs();
+                s = State::Registration;
+            }
+            else
+                s = State::Negotiating;
+
             SetState(s);
         }
 
@@ -366,14 +396,8 @@ namespace beam::wallet
 
                 if (!st.m_Sent)
                 {
-                    if (vData.m_IsSender)
-                    {
-                        if (bSomeMissing)
-                            continue; // not ready yet
-
-                        st.m_pKrn->UpdateID();
-                        // TODO test sig!
-                    }
+                    if (vData.m_IsSender && bSomeMissing)
+                        continue; // not ready yet
 
                     for (auto& ch : builder.m_vChannels)
                         ch.SendSig(st.m_pKrn->m_Signature.m_k, iSig);
@@ -388,11 +412,7 @@ namespace beam::wallet
                     bStillNegotiating = true;
                 else
                 {
-                    for (const auto& st : builder.m_vSigs)
-                    {
-                        st.m_pKrn->UpdateID();
-                        // TODO test sig!
-                    }
+                    builder.TestSigs();
 
                     Serializer ser;
 
@@ -435,7 +455,10 @@ namespace beam::wallet
             builder.OnSigned();
 
             if (vData.m_IsSender)
+            {
+                builder.TestSigs();
                 builder.FinalyzeTx();
+            }
 
             s = Registration;
             SetState(s);
