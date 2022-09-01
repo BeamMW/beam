@@ -15,8 +15,6 @@
 #include "bufferchain.h"
 #include <assert.h>
 
-#include "utility/logger.h"
-
 namespace beam { namespace io {
 
 void BufferChain::append(const void* data, size_t len, SharedMem guard, bool tryToJoin) {
