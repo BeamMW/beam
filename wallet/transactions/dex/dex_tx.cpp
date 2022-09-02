@@ -25,11 +25,9 @@ namespace beam::wallet
             Amount amountMy,
             Asset::ID coinPeer,
             Amount amountPeer,
+            Amount fee,
             const boost::optional<TxID>& txId)
     {
-        // TODO:DEX set more correctly
-        Amount minFee = 100000;
-
         return CreateTransactionParameters(TxType::DexSimpleSwap, txId)
             .SetParameter(TxParameterID::PeerID, peerID)
             .SetParameter(TxParameterID::MyID, myID)
@@ -39,7 +37,7 @@ namespace beam::wallet
             .SetParameter(TxParameterID::DexReceiveAmount, amountPeer)
             .SetParameter(TxParameterID::Amount, amountMy)
             .SetParameter(TxParameterID::AssetID, coinMy)
-            .SetParameter(TxParameterID::Fee, minFee);
+            .SetParameter(TxParameterID::Fee, fee);
     }
 
     DexTransaction::Creator::Creator(IWalletDB::Ptr wdb)

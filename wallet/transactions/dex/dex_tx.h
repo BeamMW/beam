@@ -28,6 +28,7 @@ namespace beam::wallet
             Amount amountMy,
             Asset::ID coinPeer,
             Amount amountPeer,
+            Amount fee,
             const boost::optional<TxID>& txId = boost::none
     );
 
