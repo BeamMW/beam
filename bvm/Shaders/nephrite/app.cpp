@@ -153,11 +153,12 @@ void DocAddPair(const char* sz, const Pair& p)
 
 void DocAddFloat(const char* sz, Float x, uint32_t nDigsAfterDot)
 {
-    uint64_t norm = 1;
+    uint64_t norm = 2;
     for (uint32_t i = 0; i < nDigsAfterDot; i++)
         norm *= 10;
 
     uint64_t val = x * Float(norm);
+    val = (val + 1) / 2;
 
     char szBuf[Utils::String::Decimal::DigitsMax<uint64_t>::N + 2]; // dot + 0-term
     uint32_t nPos = Utils::String::Decimal::Print(szBuf, val / norm);
