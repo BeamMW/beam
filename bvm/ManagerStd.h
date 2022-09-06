@@ -22,9 +22,25 @@ namespace beam::bvm2 {
 		:public ProcessorManager
 	{
 	protected:
-		uint32_t m_Freeze = 0; // incremented when we're awaiting something
-		bool m_WaitingMsg;
-		void Unfreeze();
+
+		struct Pending
+		{
+			struct IBase
+			{
+				virtual ~IBase() {}
+				typedef std::unique_ptr<IBase> Ptr;
+			};
+
+			IBase* m_pBlocker = nullptr;
+
+			IBase::Ptr m_pSingleRequest;
+			IBase::Ptr m_pCommMsg;
+
+			void OnDone(IBase&);
+
+			IMPLEMENT_GET_PARENT_OBJ(ManagerStd, m_Pending)
+		} m_Pending;
+
 		void OnUnfreezed();
 
 		struct UnfreezeEvt
@@ -36,12 +52,13 @@ namespace beam::bvm2 {
 
 		struct RemoteRead;
 
+		void SetParentContext(std::unique_ptr<beam::Merkle::Hash>& pTrg) const;
+		void PerformSingleRequest(proto::FlyClient::Request& r);
+		proto::FlyClient::Request::Ptr GetResSingleRequest();
+
 		void RunSync();
-		bool PerformRequestSync(proto::FlyClient::Request&);
 		void Comm_OnNewMsg(const Blob&, Comm::Channel&);
 		void Comm_OnNewMsg();
-
-		io::Timer::Ptr m_pOnMsgTimer;
 
 	protected:
 		void SelectContext(bool bDependent, uint32_t nChargeNeeded) override;
@@ -56,6 +73,7 @@ namespace beam::bvm2 {
 
 		virtual void OnDone(const std::exception* pExc) {}
 		virtual void OnReset();
+		virtual bool IsSuspended() override;
 
 	public:
 

@@ -1,14 +1,33 @@
 #pragma once
+#include "../upgradable3/contract.h"
+#include "../oracle2/contract.h"
 
 namespace NameService
 {
-    static const ShaderID s_SID   = { 0x45,0xfd,0xa9,0xe1,0x4f,0xa7,0x1b,0x0d,0x45,0x1c,0x7c,0xc9,0x62,0x50,0x24,0x68,0x2a,0xab,0x54,0x22,0x62,0xf7,0x3b,0x84,0x0c,0xef,0x73,0x17,0xfa,0xa1,0x44,0x1c };
+    static const ShaderID s_pSID[] = {
+        { 0x96,0x87,0x6e,0x38,0x58,0x53,0x96,0xe8,0xba,0x72,0x5c,0x42,0x2f,0x29,0x13,0x0b,0xfa,0x0b,0x83,0x4c,0x64,0xa8,0x39,0xac,0x2c,0xa1,0xc0,0xa2,0x6d,0xdb,0x4b,0xae },
+    };
 
 #pragma pack (push, 1)
 
     struct Tags
     {
+        static const uint8_t s_Settings = 0;
         static const uint8_t s_Domain = 1;
+    };
+
+    struct Settings
+    {
+        ContractID m_cidDaoVault;
+        ContractID m_cidVault;
+        ContractID m_cidOracle;
+        Height m_h0;
+    };
+
+    struct Price
+    {
+        AssetID m_Aid;
+        Amount m_Amount;
     };
 
     struct Domain
@@ -43,38 +62,44 @@ namespace NameService
 
         PubKey m_pkOwner;
         Height m_hExpire;
+        Price m_Price;
 
         bool IsExpired(Height h) const
         {
             return m_hExpire + s_PeriodHold <= h;
         }
 
-        static const Amount s_Price3 = g_Beam2Groth * 640;
-        static const Amount s_Price4 = g_Beam2Groth * 16;
-        static const Amount s_Price5 = g_Beam2Groth * 5;
+        static const Amount s_PriceTok3 = g_Beam2Groth * 320;
+        static const Amount s_PriceTok4 = g_Beam2Groth * 120;
+        static const Amount s_PriceTok5 = g_Beam2Groth * 10;
 
-        static Amount get_Price(uint32_t nNameLen)
+        static Amount get_PriceTok(uint32_t nNameLen)
         {
             return
-                (nNameLen <= 3) ? s_Price3 :
-                (nNameLen <= 4) ? s_Price4 :
-                s_Price5;
+                (nNameLen <= 3) ? s_PriceTok3 :
+                (nNameLen <= 4) ? s_PriceTok4 :
+                s_PriceTok5;
+        }
+
+        static Amount get_PriceBeams(Amount priceTok, const Oracle2::ValueType& rate)
+        {
+            return MultiPrecision::Float(priceTok) / rate;
         }
 
         static const Height s_PeriodValidity = 1440 * 365;
+        static const Height s_PeriodValidityMax = s_PeriodValidity * 50;
         static const Height s_PeriodHold = 1440 * 90;
+
     };
 
 
     namespace Method
     {
-        struct Register
+        struct Create
         {
-            static const uint32_t s_iMethod = 2;
-
-            PubKey m_pkOwner;
-            uint8_t m_NameLen;
-            // followed by name
+            static const uint32_t s_iMethod = 0;
+			Upgradable3::Settings m_Upgradable;
+			Settings m_Settings;
         };
 
         struct SetOwner
@@ -89,6 +114,33 @@ namespace NameService
         struct Extend
         {
             static const uint32_t s_iMethod = 4;
+            uint8_t m_Periods;
+            uint8_t m_NameLen;
+            // followed by name
+        };
+
+        struct SetPrice
+        {
+            static const uint32_t s_iMethod = 5;
+            Price m_Price;
+            uint8_t m_NameLen;
+            // followed by name
+        };
+
+        struct Buy
+        {
+            static const uint32_t s_iMethod = 6;
+            PubKey m_pkNewOwner;
+            uint8_t m_NameLen;
+            // followed by name
+        };
+
+        struct Register
+        {
+            static const uint32_t s_iMethod = 7;
+
+            PubKey m_pkOwner;
+            uint8_t m_Periods;
             uint8_t m_NameLen;
             // followed by name
         };

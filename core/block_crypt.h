@@ -167,6 +167,7 @@ namespace beam
 			AmountBig::Type m_Value = Zero;
 			PeerID m_Owner = Zero;
 			Height m_LockHeight = 0; // last emitted/burned change height. if emitted atm - when was latest 1st emission. If burned atm - what was last burn.
+			Amount m_Deposit = 0;
 			Metadata m_Metadata;
 			static const uint32_t s_MetadataMaxSize = 1024 * 16; // 16K
 
@@ -174,6 +175,7 @@ namespace beam
 			bool IsEmpty() const;
 			bool IsValid() const;
 			bool Recognize(Key::IPKdf&) const;
+			bool IsDefDeposit() const;
 		};
 
 		struct Full
@@ -280,7 +282,8 @@ namespace beam
 
 		struct {
 			bool Enabled = true;
-			Amount DepositForList = Coin * 3000;
+			Amount DepositForList2 = Coin * 3000; // after HF2
+			Amount DepositForList5 = Coin * 10; // after HF5
 			Height LockPeriod = 1440; // how long it's locked (can't be destroyed) after it was completely burned
 			Sigma::Cfg m_ProofCfg = { 4, 3 }; // 4^3 = 64
 		} CA;
@@ -328,13 +331,15 @@ namespace beam
 		static void get_Emission(AmountBig::Type&, const HeightRange&);
 		static void get_Emission(AmountBig::Type&, const HeightRange&, Amount base);
 
-		HeightHash pForks[5];
+		HeightHash pForks[6];
 
 		const HeightHash& get_LastFork() const;
 		const HeightHash* FindFork(const Merkle::Hash&) const;
 		uint32_t FindFork(Height) const;
 		Height get_ForkMaxHeightSafe(uint32_t iFork) const;
+		void DisableForksFrom(uint32_t);
 		std::string get_SignatureStr() const;
+		Amount get_DepositForCA(Height hScheme) const;
 
 	private:
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
@@ -978,9 +983,9 @@ namespace beam
 
 		void get_Sk(ECC::Scalar::Native&, Key::IKdf&); // pseudo-random sk for this kernel
 
-		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 	protected:
 		void CopyFrom(const TxKernelAssetControl&);
+		bool IsValidAssetCtl(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent) const;
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
 		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
 	};
@@ -1025,7 +1030,11 @@ namespace beam
 		typedef std::unique_ptr<TxKernelAssetDestroy> Ptr;
 
 		Asset::ID m_AssetID;
+		Amount m_Deposit = 0;
         TxKernelAssetDestroy(): m_AssetID(Asset::s_InvalidID) {}
+
+		bool IsCustomDeposit() const;
+		Amount get_Deposit() const;
 
 		virtual ~TxKernelAssetDestroy() {}
 		virtual Subtype::Enum get_Subtype() const override;
@@ -1452,15 +1461,6 @@ namespace beam
 		{
 			void ZeroInit();
 
-			// Test the following:
-			//		Validity of all the components, and overall arithmetics, whereas explicit fees are already collected by extra UTXO(s) put by the miner
-			//		All components are specified in a lexicographical order, to conceal the actual transaction graph
-			//		Liquidity of the components wrt height and maturity policies
-			// Not tested by this function (but should be tested by nodes!)
-			//		Existence of all the input UTXOs
-			//		Existence of the coinbase non-confidential output UTXO, with the sum amount equal to the new coin emission.
-			bool IsValid(const HeightRange&, TxBase::IReader&&) const;
-
 			struct IMacroReader
 				:public IReader
 			{
@@ -1484,10 +1484,6 @@ namespace beam
 			:public BodyBase
 			,public TxVectors::Full
 		{
-			bool IsValid(const HeightRange& hr) const
-			{
-				return BodyBase::IsValid(hr, get_Reader());
-			}
 		};
 
 		struct ChainWorkProof;

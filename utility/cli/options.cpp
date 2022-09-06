@@ -357,6 +357,7 @@ namespace beam
         const char* SHADER_BYTECODE_APP      = "shader_app_file";
         const char* SHADER_BYTECODE_CONTRACT = "shader_contract_file";
         const char* SHADER_PRIVILEGE         = "shader_privilege";
+        const char* SHADER_DEBUG             = "shader_debug";
 
         // IPFS
         #ifdef BEAM_IPFS_SUPPORT
@@ -497,6 +498,7 @@ namespace beam
             (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "proxy server address")
             (cli::SHADER_ARGS, po::value<string>()->default_value(""), "Arguments to pass to the shader")
             (cli::SHADER_PRIVILEGE, po::value<uint32_t>()->default_value(0), "shader privilege level")
+            (cli::SHADER_DEBUG, po::value<bool>()->default_value(false), "shader debug")
             (cli::SHADER_BYTECODE_APP, po::value<string>()->default_value(""), "Path to the app shader file")
             (cli::SHADER_BYTECODE_CONTRACT, po::value<string>()->default_value(""), "Path to the shader file for the contract (if the contract is being-created)")
             (cli::MAX_PRIVACY_ADDRESS, po::bool_switch()->default_value(false), "generate max privacy transaction address")
@@ -719,11 +721,13 @@ namespace beam
             macro(Height, Fork2, "Height of the 2nd fork") \
             macro(Height, Fork3, "Height of the 3rd fork") \
             macro(Height, Fork4, "Height of the 4th fork") \
+            macro(Height, Fork5, "Height of the 5th fork") \
             macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
             macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only") \
             macro(Height, MaxKernelValidityDH, "Max implicit kernel lifespan after HF2 (a.k.a. kernel visibility horizon)") \
             macro(bool, CA.Enabled, "Enable/disable CA (confidential assets)") \
-            macro(Amount, CA.DepositForList, "Deposit for new CA allocation") \
+            macro(Amount, CA.DepositForList2, "Deposit for new CA allocation since HF2") \
+            macro(Amount, CA.DepositForList5, "Deposit for new CA allocation since HF5") \
             macro(Height, CA.LockPeriod, "Lock height for deposit after the CA is completely burned") \
             macro(uint32_t, CA.m_ProofCfg.n, "Asset type anonymity set size n (n^M)") \
             macro(uint32_t, CA.m_ProofCfg.M, "Asset type anonymity set size M (n^M)") \
@@ -745,6 +749,7 @@ namespace beam
         #define Fork2 pForks[2].m_Height
         #define Fork3 pForks[3].m_Height
         #define Fork4 pForks[4].m_Height
+        #define Fork5 pForks[5].m_Height
 
         #define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
 

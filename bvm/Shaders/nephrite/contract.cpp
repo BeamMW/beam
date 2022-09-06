@@ -4,6 +4,7 @@
 #include "contract.h"
 #include "../upgradable3/contract_impl.h"
 #include "../dao-vault/contract.h"
+#include "../oracle2/contract.h"
 
 
 namespace Nephrite {
@@ -298,10 +299,20 @@ struct MyGlobal
         AdjustAll(r, totals0, fpLogic, t.m_pkOwner); // will invoke AddSig
     }
 
+    static bool get_PriceInternal(Oracle2::Method::Get& args, const ContractID& cidOracle)
+    {
+        Env::CallFar_T(cidOracle, args);
+        // ban zero price. Our floating point division-by-zero may be exploited
+        return args.m_IsValid && Price::IsSane(args.m_Value);
+    }
+
     Global::Price get_Price()
     {
-        Method::OracleGet args;
-        Env::CallFar_T(m_Settings.m_cidOracle, args, 0);
+        Oracle2::Method::Get args;
+        Env::Halt_if(
+            !get_PriceInternal(args, m_Settings.m_cidOracle1) &&
+            !get_PriceInternal(args, m_Settings.m_cidOracle2)
+        );
 
         Global::Price ret;
         ret.m_Value = args.m_Value;
@@ -342,12 +353,13 @@ BEAM_EXPORT void Ctor(const Method::Create& r)
     g.m_StabPool.Init();
     g.m_RedistPool.Reset();
 
-    static const char szMeta[] = "STD:SCH_VER=1;N=Nephrite Token;SN=Liqt;UN=LIQT;NTHUN=GROTHL";
+    static const char szMeta[] = "STD:SCH_VER=1;N=Nephrite Token;SN=Nph;UN=NPH;NTHUN=GROTHN";
     g.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
     Env::Halt_if(!g.m_Aid);
 
-    Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidOracle));
     Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidDaoVault));
+    Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidOracle1));
+    Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidOracle2));
 
     g.Save();
 }
@@ -458,6 +470,8 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
 {
     MyGlobal_LoadSave g;
 
+    g.m_StabPool.AddReward(Env::get_Height());
+
     Global::Liquidator ctx;
     ctx.m_Price = g.get_Price();
     _POD_(ctx.m_fpLogic).SetZero();
@@ -534,7 +548,7 @@ BEAM_EXPORT void Method_10(Method::AddStabPoolReward& r)
     if (h >= x.m_hEnd)
     {
         x.m_hLast = h;
-        x.m_hEnd = h + 1440 + 365 * 2; // 2 years
+        x.m_hEnd = h + 1440 * 365 * 2; // 2 years
     }
 
     Strict::Add(x.m_Remaining, r.m_Amount);

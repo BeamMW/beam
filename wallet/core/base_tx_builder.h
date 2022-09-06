@@ -84,6 +84,8 @@ namespace beam::wallet
         };
 
         void SaveCoins();
+        void SaveInOuts();
+        void SaveKernel();
 
         void VerifyTx(); // throws exc if invalid
 
@@ -178,7 +180,6 @@ namespace beam::wallet
         }
 
         struct HandlerInOuts;
-        void SaveInOuts();
 
         void AddOffset(const ECC::Scalar&);
         void AddOffset(const ECC::Scalar::Native&);
@@ -187,7 +188,6 @@ namespace beam::wallet
         static bool Aggregate(ECC::Point&, ECC::Point::Native&, const ECC::Point&);
 
         void AddKernel(TxKernel::Ptr&&);
-        void SaveKernel();
         void SaveKernelID();
 
         void SetStatus(Status::Type);

@@ -23,20 +23,22 @@ namespace beam::wallet {
     class DexBoard
        : public IBroadcastListener
        , public ISimpleSwapHandler
+       , public IWalletDbObserver
     {
     public:
         struct IObserver
         {
             virtual void onDexOrdersChanged(ChangeAction action, const std::vector<DexOrder>& orders) = 0;
+            virtual void onFindDexOrder(const DexOrder& order) = 0;
         };
 
         DexBoard(IBroadcastMsgGateway& gateway, IWalletModelAsync::Ptr wallet, IWalletDB& wdb);
 
-        [[nodiscard]] std::vector<DexOrder> getOrders() const;
-        [[nodiscard]] boost::optional<DexOrder> getOrder(const DexOrderID&) const;
+        [[nodiscard]] std::vector<DexOrder> getDexOrders() const;
+        [[nodiscard]] boost::optional<DexOrder> getDexOrder(const DexOrderID&) const;
 
         void publishOrder(const DexOrder&);
-        void acceptOrder(const DexOrderID& id);
+        void cancelDexOrder(const DexOrderID& id);
 
         void Subscribe(IObserver* observer)
         {
@@ -52,6 +54,7 @@ namespace beam::wallet {
         }
 
     private:
+        bool handleDexOrder(const boost::optional<DexOrder>&);
         //
         // IBroadcastListener
         //
@@ -63,11 +66,17 @@ namespace beam::wallet {
         bool acceptIncomingDexSS(const SetTxParameter& msg) override;
         void onDexTxCreated(const SetTxParameter& msg, BaseTransaction::Ptr) override;
 
+
+        //
+        // IWalletDbObserver
+        //
+        void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
+
         //
         // Serialization
         //
         BroadcastMsg createMessage(const DexOrder&);
-        boost::optional<DexOrder> parseMessage(const BroadcastMsg& msg);
+        boost::optional<DexOrder> parseAssetSwapMessage(const BroadcastMsg& msg);
 
         //
         // Subscribers

@@ -67,6 +67,7 @@ namespace beam::wallet
 #endif
 
     constexpr char SEED_PARAM_NAME[] = "SavedSeed";
+    constexpr char ASSET_SWAP_PARAMS_NAME[] = "LastAssetSwapParams";
     struct WalletStatus
     {
         struct AssetStatus
@@ -152,6 +153,7 @@ namespace beam::wallet
         uint32_t getMarurityProgress(const ShieldedCoin& coin) const;
         uint16_t getMaturityHoursLeft(const ShieldedCoin& coin) const;
 
+        std::set<beam::Asset::ID> getAssetsFull() const;
         std::set<beam::Asset::ID> getAssetsNZ() const;
         beam::AmountBig::Type getAvailable(beam::Asset::ID) const;
         beam::AmountBig::Type getAvailableRegular(beam::Asset::ID) const;
@@ -196,6 +198,7 @@ namespace beam::wallet
         virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) {}
         virtual void onGetAddress(const WalletID& token, const boost::optional<WalletAddress>& address, size_t offlinePayments) {}
         virtual void onSwapParamsLoaded(const beam::ByteBuffer& params) {}
+        virtual void onAssetSwapParamsLoaded(const beam::ByteBuffer& params) {}
         virtual void onNewAddressFailed() {}
         virtual void onNodeConnectionChanged(bool isNodeConnected) {}
         virtual void onWalletError(ErrorType error) {}
@@ -213,7 +216,9 @@ namespace beam::wallet
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
         virtual void onAssetInfo(Asset::ID assetId, const WalletAsset&) {}
         virtual void onStopped() {}
+
         void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
+        void onFindDexOrder(const DexOrder&) override {}
 
         virtual Version getLibVersion() const;
         virtual uint32_t getClientRevision() const;
@@ -266,10 +271,6 @@ namespace beam::wallet
         void stopIPFSNode() override;
         void startIPFSNode() override;
         #endif
-
-        void getDexOrders() override;
-        void publishDexOrder(const DexOrder&) override;
-        void acceptDexOrder(const DexOrderID&) override;
         void cancelTx(const TxID& id) override;
         void deleteTx(const TxID& id) override;
         void getCoinsByTx(const TxID& txId) override;
@@ -288,6 +289,13 @@ namespace beam::wallet
         void setNodeAddress(const std::string& addr) override;
         void changeWalletPassword(const SecString& password) override;
         void getNetworkStatus() override;
+
+        void loadDexOrderParams() override;
+        void storeDexOrderParams(const beam::ByteBuffer& params) override;
+        void getDexOrders() override;
+        void getDexOrder(const DexOrderID&) override;
+        void publishDexOrder(const DexOrder&) override;
+        void cancelDexOrder(const DexOrderID&) override;
 
         #ifdef BEAM_IPFS_SUPPORT
         void getIPFSStatus() override;
@@ -339,6 +347,7 @@ namespace beam::wallet
         bool OnProgress(uint64_t done, uint64_t total) override;
 
         WalletStatus getStatus() const;
+        void loadFullAssetsList();
         void updateStatus();
         void updateClientState(const WalletStatus&);
         void updateMaxPrivacyStats(const WalletStatus& status);
@@ -449,5 +458,6 @@ namespace beam::wallet
         std::unique_ptr<HttpClient> m_httpClient;
         beam::Timestamp m_averageBlockTime = 0;
         beam::Timestamp m_lastBlockTime = 0;
+        std::set<Asset::ID> m_assetsFullList = {Asset::s_BeamID};
     };
 }

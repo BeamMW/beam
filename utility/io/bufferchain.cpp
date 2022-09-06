@@ -20,9 +20,10 @@ namespace beam { namespace io {
 void BufferChain::append(const void* data, size_t len, SharedMem guard, bool tryToJoin) {
     if (len == 0) return;
     _totalSize += len;
-    if (tryToJoin && _totalSize != len) {
 
-        assert(_iovecs.size() > 0 && _guards.size() == _iovecs.size());
+    if (tryToJoin && _totalSize != len) {
+        if (_iovecs.empty() || _guards.size() != _iovecs.size())
+            return;
 
         IOVec& iov = _iovecs.back();
         const void* ptr = guard.get();

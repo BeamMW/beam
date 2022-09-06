@@ -11,9 +11,12 @@ set(SOURCES
     v6_1/v6_1_api_handle.cpp
     v6_1/v6_1_api_parse.cpp
     v6_1/v6_1_api_notify.cpp
-        v7_0/v7_0_api.cpp
-        v7_0/v7_0_api_handle.cpp
-        v7_0/v7_0_api_parse.cpp
+    v7_0/v7_0_api.cpp
+    v7_0/v7_0_api_handle.cpp
+    v7_0/v7_0_api_parse.cpp
+    v7_1/v7_1_api.cpp
+    v7_1/v7_1_api_handle.cpp
+    v7_1/v7_1_api_parse.cpp
 )
 
 add_library(wallet_api STATIC

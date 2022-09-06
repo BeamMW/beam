@@ -1795,19 +1795,27 @@ namespace
             RunSync1();
         }
 
-        bool DoTx(int& completedCount)
+        bool StartTx(int& completedCount, TxID& txid)
         {
-            if (m_vInvokeData.empty())
+            if (m_InvokeData.m_vec.empty())
                 return false;
 
-            auto txID = m_pWallet->StartTransaction(
+            txid = m_pWallet->StartTransaction(
                 CreateTransactionParameters(TxType::Contract)
-                .SetParameter(TxParameterID::ContractDataPacked, m_vInvokeData));
+                .SetParameter(TxParameterID::ContractDataPacked, m_InvokeData));
 
             completedCount++;
-            io::Reactor::get_Current().run();
+            return true;
+        }
 
-            auto pTx = m_pWalletDB->getTx(txID);
+        bool DoTx(int& completedCount)
+        {
+            TxID txid;
+            if (!StartTx(completedCount, txid))
+                return false;
+
+            io::Reactor::get_Current().run();
+            auto pTx = m_pWalletDB->getTx(txid);
             return (pTx->m_status == wallet::TxStatus::Completed);
         }
 
@@ -1954,8 +1962,10 @@ namespace
 
         manSender.m_Args["action"] = "withdraw";
         manSender.m_Args["amount"] = "370000";
+        manSender.m_Args["amountCoSigner"] = "100";
         manReceiver.m_Args["action"] = "withdraw";
         manReceiver.m_Args["amount"] = "370000";
+        manReceiver.m_Args["amountCoSigner"] = "100";
         manReceiver.m_Args["pkForeign"] = sKeySender;
         manReceiver.m_Args["bCoSigner"] = "1";
 
@@ -1970,7 +1980,15 @@ namespace
         WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
         WALLET_CHECK(manReceiver.m_Done && !manReceiver.m_Err);
 
-        WALLET_CHECK(manSender.DoTx(completedCount));
+        TxID txS, txR;
+        WALLET_CHECK(manSender.StartTx(completedCount, txS));
+        WALLET_CHECK(manReceiver.StartTx(completedCount, txR));
+
+        io::Reactor::get_Current().run();
+        WALLET_CHECK(!completedCount);
+
+        WALLET_CHECK(dbSender->getTx(txS)->m_status == wallet::TxStatus::Completed);
+        WALLET_CHECK(dbReceiver->getTx(txR)->m_status == wallet::TxStatus::Completed);
 
     }
 
@@ -2096,7 +2114,7 @@ namespace
         pMan[iSender]->m_Args["nMinApprovers"] = std::to_string(nPeers);
 
         for (uint32_t i = 0; i < nPeers; i++)
-            pMan[iSender]->m_Args[std::string("admin-") + std::to_string(i)] = pAdminKey[i];
+            pMan[iSender]->m_Args[std::string("admin_") + std::to_string(i)] = pAdminKey[i];
 
         pMan[iSender]->RunSync(1);
         WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
@@ -2152,6 +2170,123 @@ namespace
         WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
 
         WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"next_version\":", sTmp));
+
+
+
+
+        printf("Testing migration to upgradable3...\n");
+        printf("Deploying upgradable2 cocoon\n");
+
+        MyManager::Compile(pMan[iSender]->m_BodyContract, "upgradable3/Test/test_v0_migrate.wasm", MyManager::Kind::Contract);
+        pMan[iSender]->m_Args["action"] = "deploy_version";
+
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+        bvm2::ShaderID sidCocoon;
+        bvm2::get_ShaderID(sidCocoon, pMan[iSender]->m_BodyContract);
+        bvm2::ContractID cidCocoon;
+        bvm2::get_CidViaSid(cidCocoon, sidCocoon, Blob(nullptr, 0));
+        std::string sCidCocoon = cidCocoon.str();
+
+
+        printf("scheduling upgrade...\n");
+
+        Height hTarget = node.get_Processor().m_Cursor.m_Full.m_Height + 20;
+
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            pMan[i]->m_Args["action"] = "schedule_upgrade";
+            pMan[i]->m_Args["cidVersion"] = sCidCocoon;
+            pMan[i]->m_Args["hTarget"] = std::to_string(hTarget);
+
+            if (iSender == i)
+            {
+                pMan[i]->RunSync0(1);
+                WALLET_CHECK(!pMan[i]->m_Done);
+            }
+        }
+
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            if (iSender != i)
+            {
+                pMan[i]->RunSync0(1);
+                WALLET_CHECK(!pMan[i]->m_Done);
+            }
+        }
+
+        pMan[iSender]->RunSync1(); // wait synchronously
+
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+        printf("checking state...\n");
+
+        pMan[iSender]->m_Args["action"] = "view";
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        // scheduled version would be unrecognizable, never mind this.
+
+
+        printf("waiting for upgrade height...\n");
+
+        if (node.get_Processor().m_Cursor.m_Full.m_Height < hTarget)
+        {
+            struct MyObserver :public Node::IObserver
+            {
+                Node& m_Node;
+                Height m_hTarget;
+
+                MyObserver(Node& n) :m_Node(n)
+                {
+                    m_Node.m_Cfg.m_Observer = this;
+                }
+
+                ~MyObserver()
+                {
+                    m_Node.m_Cfg.m_Observer = nullptr;
+                }
+
+                void OnSyncProgress() override {}
+
+                void OnStateChanged() override {
+                    if (m_Node.get_Processor().m_Cursor.m_Full.m_Height >= m_hTarget)
+                        io::Reactor::get_Current().stop();
+                }
+
+            };
+
+            MyObserver obs(node);
+            obs.m_hTarget = hTarget;
+            io::Reactor::get_Current().run();
+        }
+
+        printf("triggering upgrade...\n");
+
+        pMan[iSender]->m_Args["action"] = "explicit_upgrade";
+
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+
+        printf("checking status...\n");
+
+        MyManager::Compile(pMan[iSender]->m_BodyManager, "upgradable3/Test/test_app.wasm", MyManager::Kind::Manager);
+
+        pMan[iSender]->m_Args["action"] = "view";
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"contracts\":", sTmp));
+        std::string sVer;
+        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"version\": ", sVer, 1));
+        WALLET_CHECK(sVer == "0");
     }
 
 
@@ -2241,7 +2376,7 @@ namespace
         pMan[iSender]->m_Args["nMinApprovers"] = std::to_string(nPeers);
 
         for (uint32_t i = 0; i < nPeers; i++)
-            pMan[iSender]->m_Args[std::string("admin-") + std::to_string(i)] = pAdminKey[i];
+            pMan[iSender]->m_Args[std::string("admin_") + std::to_string(i)] = pAdminKey[i];
 
         pMan[iSender]->RunSync(1);
         WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
@@ -2445,7 +2580,7 @@ namespace
         pMan[iSender]->m_Args["nMinApprovers"] = std::to_string(nPeers);
 
         for (uint32_t i = 0; i < nPeers; i++)
-            pMan[iSender]->m_Args[std::string("admin-") + std::to_string(i)] = pAdminKey[i];
+            pMan[iSender]->m_Args[std::string("admin_") + std::to_string(i)] = pAdminKey[i];
 
         pMan[iSender]->RunSync(1);
         WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
@@ -3291,7 +3426,7 @@ namespace
         TestNode node;
 
         bvm2::ContractInvokeData vData;
-        bvm2::ContractInvokeEntry& cdata = vData.emplace_back();
+        bvm2::ContractInvokeEntry& cdata = vData.m_vec.emplace_back();
 
         cdata.m_Cid = 746U;
         cdata.m_iMethod = 6;
@@ -4548,10 +4683,7 @@ int main()
 
     Rules::get().FakePoW = true;
 	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
-    Rules::get().pForks[2].m_Height = MaxHeight;
-    Rules::get().pForks[3].m_Height = MaxHeight;
-    Rules::get().pForks[4].m_Height = MaxHeight;
-    //Rules::get().DA.MaxAhead_s = 90;// 60 * 1;
+    Rules::get().DisableForksFrom(2);
     Rules::get().UpdateChecksum();
 
     wallet::g_AssetsEnabled = true;

@@ -22,7 +22,7 @@
 
 namespace beam::wallet
 {
-    class DexOrder;
+    class  DexOrder;
     struct DexOrderID;
     #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     struct SwapOffer;
@@ -63,10 +63,6 @@ namespace beam::wallet
         virtual void startIPFSNode() = 0;
         #endif
 
-        virtual void getDexOrders() = 0;
-        virtual void publishDexOrder(const DexOrder&) = 0;
-        virtual void acceptDexOrder(const DexOrderID&) = 0;
-
         virtual void deleteAddress(const WalletID& addr) = 0;
         virtual void updateAddress(const WalletID& addr, const std::string& name, WalletAddress::ExpirationStatus expirationStatus) = 0;
         virtual void updateAddress(const WalletID& addr, const std::string& name, beam::Timestamp expiration) = 0;
@@ -80,6 +76,13 @@ namespace beam::wallet
         virtual void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) = 0;
         virtual void setNodeAddress(const std::string& addr) = 0;
         virtual void changeWalletPassword(const beam::SecString& password) = 0;
+
+        virtual void loadDexOrderParams() = 0;
+        virtual void storeDexOrderParams(const beam::ByteBuffer& params) = 0;
+        virtual void getDexOrders() = 0;
+        virtual void getDexOrder(const DexOrderID&) = 0;
+        virtual void publishDexOrder(const DexOrder&) = 0;
+        virtual void cancelDexOrder(const DexOrderID&) = 0;
 
         #ifdef BEAM_IPFS_SUPPORT
         virtual void getIPFSStatus() = 0;

@@ -897,17 +897,14 @@ ON_METHOD(user, vote)
     UserKeyID kid(cid);
     kid.get_Pk(args.m_pkUser);
 
-    static const char s_szPrefix[] = "vote_";
-    char szBuf[_countof(s_szPrefix) + Utils::String::Decimal::Digits<Proposal::s_ProposalsPerEpochMax>::N];
-    Env::Memcpy(szBuf, s_szPrefix, sizeof(s_szPrefix) - sizeof(char));
+    auto fVote = Utils::MakeFieldIndex<Proposal::s_ProposalsPerEpochMax + 1>("vote_");
 
     for (uint32_t i = 0; i < s.m_Current.m_Proposals; i++)
     {
-        uint32_t nPrintLen = Utils::String::Decimal::Print(szBuf + _countof(s_szPrefix) - 1, i + 1);
-        szBuf[_countof(s_szPrefix) - 1 + nPrintLen] = 0;
+        fVote.Set(i + 1);
 
         uint32_t nVote = 0;
-        if (!Env::DocGet(szBuf, nVote))
+        if (!Env::DocGet(fVote.m_sz, nVote))
             return OnError("vote missing");
 
         args.m_pVote[i] = (uint8_t) nVote;

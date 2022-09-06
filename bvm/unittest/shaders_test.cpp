@@ -522,10 +522,20 @@ namespace bvm2 {
 		ContractWrap m_Mintor;
 		ContractWrap m_Amm;
 
+		std::map<ShaderID, const Wasm::Compiler::DebugInfo*> m_mapDbgInfo;
+
 		void AddCode(ContractWrap& cw, const char* sz)
 		{
 			AddCodeEx(cw.m_Code, sz, Kind::Contract, &cw.m_DbgInfo);
 			get_ShaderID(cw.m_Sid, cw.m_Code);
+
+			m_mapDbgInfo[cw.m_Sid] = &cw.m_DbgInfo;
+		}
+
+		const Wasm::Compiler::DebugInfo* get_DbgInfo(const ShaderID& sid) const override
+		{
+			auto it = m_mapDbgInfo.find(sid);
+			return (m_mapDbgInfo.end() == it) ? nullptr : it->second;
 		}
 
 		ContractID m_cidMirrorCoin2;
@@ -539,7 +549,7 @@ namespace bvm2 {
 		} m_Eth;
 
 
-		virtual void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext) override
+		virtual void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint8_t bInheritContext) override
 		{
 			if (cid == m_Vault.m_Cid)
 			{
@@ -746,7 +756,7 @@ namespace bvm2 {
 				}
 			}
 */
-			ProcessorContract::CallFar(cid, iMethod, pArgs, bInheritContext);
+			ProcessorContract::CallFar(cid, iMethod, pArgs, nArgs, bInheritContext);
 		}
 
 		void TestVault();
@@ -789,10 +799,19 @@ namespace bvm2 {
 		std::ostringstream m_Out;
 		uint32_t m_Charge;
 
+		ByteBuffer m_bufCode;
+		Wasm::Compiler::DebugInfo m_DbgInfo;
+
 		MyManager(MyProcessor& proc)
 			:m_Proc(proc)
 		{
 			m_pOut = &m_Out;
+		}
+
+		void SetCode(const char* szPath)
+		{
+			MyProcessor::AddCodeEx(m_bufCode, szPath, Kind::Manager, &m_DbgInfo);
+			m_Code = m_bufCode;
 		}
 
 		struct VarEnumCtx
@@ -898,6 +917,8 @@ namespace bvm2 {
 				std::cout << "*** Shader Execution failed. Undoing changes" << std::endl;
 				std::cout << e.what() << std::endl;
 				ret = false;
+
+				DumpCallstack(std::cout, &m_DbgInfo);
 			}
 			return ret;
 		}
@@ -907,7 +928,7 @@ namespace bvm2 {
 			if (!RunGuarded(1))
 				return false;
 
-			auto vInv = std::move(m_vInvokeData);
+			auto vInv = std::move(m_InvokeData.m_vec);
 
 			if (vInv.size() != 1)
 				return false;
@@ -955,6 +976,29 @@ namespace bvm2 {
 			*p = 0;
 		}
 	};
+
+	void SaveAsHex(const char* szFilePath, const Blob& b)
+	{
+		std::FStream fs;
+		fs.Open(szFilePath, false, true);
+
+		char szBuf[0x10];
+		szBuf[0] = '0';
+		szBuf[1] = 'x';
+		szBuf[5] = '\n';
+
+		for (uint32_t i = 0; i < b.n; )
+		{
+			uintBigImpl::_Print(reinterpret_cast<const uint8_t*>(b.p) + i, 1, szBuf + 2);
+			szBuf[4] = ',';
+			uint32_t nLen = 5;
+
+			if (!(++i & 0x1f))
+				nLen = 6;
+
+			fs.write(szBuf, nLen);
+		}
+	}
 
 	void MyProcessor::TestAll()
 	{
@@ -1370,7 +1414,7 @@ namespace bvm2 {
 			Shaders::Nephrite::Global::Price price;
 			{
 				Shaders::Env::Key_T<uint8_t> key;
-				key.m_Prefix.m_Cid = g.m_Settings.m_cidOracle;
+				key.m_Prefix.m_Cid = g.m_Settings.m_cidOracle1;
 				key.m_KeyInContract = Shaders::Oracle2::Tags::s_Median;
 
 				Blob b;
@@ -1482,9 +1526,7 @@ namespace bvm2 {
 		MyManager man(*this);
 		man.InitMem();
 
-		ByteBuffer bufApp;
-		MyProcessor::AddCodeEx(bufApp, "nephrite/app.wasm", Processor::Kind::Manager);
-		man.m_Code = bufApp;
+		man.SetCode("nephrite/app.wasm");
 
 		const AssetID aidGov = 77;
 		{
@@ -1523,8 +1565,9 @@ namespace bvm2 {
 		{
 			Shaders::Nephrite::Method::Create args;
 			ZeroObject(args);
-			args.m_Settings.m_cidOracle = m_Oracle2.m_Cid;
 			args.m_Settings.m_cidDaoVault = m_DaoVault.m_Cid;
+			args.m_Settings.m_cidOracle1 = m_Oracle2.m_Cid;
+			args.m_Settings.m_cidOracle2 = m_Oracle2.m_Cid;
 			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 5;
 			args.m_Settings.m_AidGov = aidGov;
 			args.m_Upgradable.m_MinApprovers = 1; // 0 is illegal atm
@@ -2147,7 +2190,7 @@ namespace bvm2 {
 			r.pForks[3].m_Height = 999999999;
 			r.pForks[3].m_Hash = Zero;
 
-			r.pForks[4].m_Height = MaxHeight;
+			r.DisableForksFrom(4);
 
 
 			beam::Block::SystemState::Full s;
@@ -3770,10 +3813,7 @@ int main()
 		MyManager man(proc);
 		man.InitMem();
 		man.TestHeap();
-
-		ByteBuffer buf;
-		MyProcessor::AddCodeEx(buf, "vault/app.wasm", Processor::Kind::Manager);
-		man.m_Code = buf;
+		man.SetCode("vault/app.wasm");
 
 		man.RunGuarded(0); // get scheme
 

@@ -41,7 +41,7 @@ namespace
 using namespace beam;
 using namespace beam::wallet;
 
-constexpr size_t kCollectorBufferSize = 50;
+constexpr size_t kCollectorBufferSize = 100;
 constexpr size_t kShieldedPer24hFilterSize = 20;
 constexpr size_t kShieldedPer24hFilterBlocksForUpdate = 144;
 constexpr size_t kShieldedCountHistoryWindowSize = kShieldedPer24hFilterSize << 1;
@@ -126,20 +126,26 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async((MethodType)&IWalletModelAsync::getAddresses, own);
     }
 
-     void getDexOrders() override
-     {
+    void getDexOrders() override
+    {
         call_async(&IWalletModelAsync::getDexOrders);
-     }
+    }
 
-     void publishDexOrder(const DexOrder& order) override
-     {
+    void getDexOrder(const DexOrderID& orderId) override
+    {
+        call_async(&IWalletModelAsync::getDexOrder, orderId);
+    }
+
+    void publishDexOrder(const DexOrder& order) override
+    {
         call_async(&IWalletModelAsync::publishDexOrder, order);
-     }
+    }
 
-     void acceptDexOrder(const DexOrderID& orderId) override
-     {
-        call_async(&IWalletModelAsync::acceptDexOrder, orderId);
-     }
+    void cancelDexOrder(const DexOrderID& orderId) override
+    {
+        call_async(&IWalletModelAsync::cancelDexOrder, orderId);
+    }
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT    
     void getSwapOffers() override
     {
@@ -161,6 +167,17 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::storeSwapParams, params);
     }
 #endif
+
+    void loadDexOrderParams() override
+    {
+        call_async(&IWalletModelAsync::loadDexOrderParams);
+    }
+
+    void storeDexOrderParams(const beam::ByteBuffer& params) override
+    {
+        call_async(&IWalletModelAsync::storeDexOrderParams, params);
+    }
+
     void cancelTx(const wallet::TxID& id) override
     {
         call_async(&IWalletModelAsync::cancelTx, id);
@@ -703,15 +720,18 @@ namespace beam::wallet
                 //
                 // DEX
                 //
-                /*
+
                 auto dexBoard = make_shared<DexBoard>(*broadcastRouter, this->getAsync(), *m_walletDB);
                 auto dexWDBSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(dexBoard.get()), m_walletDB);
 
                 using DexBoardSubscriber = ScopedSubscriber<DexBoard::IObserver, DexBoard>;
                 auto dexBoardSubscriber = make_unique<DexBoardSubscriber>(static_cast<DexBoard::IObserver*>(this), dexBoard);
 
+                using DexWalletSubscriber = ScopedSubscriber<wallet::ISimpleSwapHandler, wallet::Wallet>;
+                auto dexWalletSubscriber = make_unique<DexWalletSubscriber>(static_cast<ISimpleSwapHandler*>(dexBoard.get()), wallet);
+
                 _dex = dexBoard;
-                */
+
 
                 //
                 // IPFS
@@ -1071,6 +1091,11 @@ namespace beam::wallet
     const Rules& WalletClient::getRules() const
     {
         return m_rules;
+    }
+
+    std::set<beam::Asset::ID> WalletClient::getAssetsFull() const
+    {
+        return m_assetsFullList;
     }
 
     std::set<beam::Asset::ID> WalletClient::getAssetsNZ() const
@@ -1450,23 +1475,23 @@ namespace beam::wallet
 
     void WalletClient::getTransactionsSmoothly()
     {
-        auto txCount = m_walletDB->getTxCount(wallet::TxType::ALL);
-        if (txCount > kOneTimeLoadTxCount)
-        {
-            onTransactionChanged(ChangeAction::Reset, vector<wallet::TxDescription>());
+        //auto txCount = m_walletDB->getTxCount(wallet::TxType::ALL);
+        //if (txCount > kOneTimeLoadTxCount)
+        //{
+        //    onTransactionChanged(ChangeAction::Reset, vector<wallet::TxDescription>());
 
-            auto iterationsCount = txCount / kOneTimeLoadTxCount + (txCount % kOneTimeLoadTxCount ? 1 : 0);
-            for(int i = 0; i < iterationsCount; ++i) 
-                onTransactionChanged(
-                    ChangeAction::Updated, 
-                    m_walletDB->getTxHistory(wallet::TxType::ALL,
-                                             i * kOneTimeLoadTxCount,
-                                             i * kOneTimeLoadTxCount + kOneTimeLoadTxCount));
-        } 
-        else
-        {
+        //    auto iterationsCount = txCount / kOneTimeLoadTxCount + (txCount % kOneTimeLoadTxCount ? 1 : 0);
+        //    for(int i = 0; i < iterationsCount; ++i) 
+        //        onTransactionChanged(
+        //            ChangeAction::Added, 
+        //            m_walletDB->getTxHistory(wallet::TxType::ALL,
+        //                                     i * kOneTimeLoadTxCount,
+        //                                     i * kOneTimeLoadTxCount + kOneTimeLoadTxCount));
+        //} 
+        //else
+        //{
             getTransactions();
-        }
+        //}
     }
 
     void WalletClient::getAllUtxosStatus()
@@ -1494,38 +1519,6 @@ namespace beam::wallet
     void WalletClient::getAddresses(bool own)
     {
         onAddresses(own, m_walletDB->getAddresses(own));
-    }
-
-    void WalletClient::getDexOrders()
-    {
-        if (auto dex = _dex.lock())
-        {
-            onDexOrdersChanged(ChangeAction::Reset, dex->getOrders());
-        }
-    }
-
-    void WalletClient::publishDexOrder(const DexOrder& order)
-    {
-        if (auto dex = _dex.lock())
-        {
-            dex->publishOrder(order);
-            return;
-        }
-
-        assert(false);
-        LOG_WARNING() << "WalletClient::publishDexOrder but DEX is not available";
-    }
-
-    void WalletClient::acceptDexOrder(const DexOrderID& orderId)
-    {
-        if (auto dex = _dex.lock())
-        {
-            dex->acceptOrder(orderId);
-            return;
-        }
-
-        assert(false);
-        LOG_WARNING() << "WalletClient::acceptDexOrder but DEX is not available";
     }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -1848,6 +1841,54 @@ namespace beam::wallet
         onNodeConnectionChanged(isConnected());
     }
 
+    void WalletClient::loadDexOrderParams()
+    {
+        ByteBuffer params;
+        if (m_walletDB->getBlob(ASSET_SWAP_PARAMS_NAME, params))
+            onAssetSwapParamsLoaded(params);
+    }
+
+    void WalletClient::storeDexOrderParams(const ByteBuffer& params)
+    {
+        m_walletDB->setVarRaw(ASSET_SWAP_PARAMS_NAME, params.data(), params.size());
+    }
+
+    void WalletClient::getDexOrders()
+    {
+        if (auto dex = _dex.lock())
+        {
+            onDexOrdersChanged(ChangeAction::Reset, dex->getDexOrders());
+        }
+    }
+
+    void WalletClient::getDexOrder(const DexOrderID& orderId)
+    {
+        if (auto dex = _dex.lock())
+        {
+            auto order = dex->getDexOrder(orderId);
+            if (order)
+            {
+                onFindDexOrder(*order);
+            }
+        }
+    }
+
+    void WalletClient::publishDexOrder(const DexOrder& order)
+    {
+        if (auto dex = _dex.lock())
+        {
+            dex->publishOrder(order);
+        }
+    }
+
+    void WalletClient::cancelDexOrder(const DexOrderID& orderId)
+    {
+        if (auto dex = _dex.lock())
+        {
+            dex->cancelDexOrder(orderId);
+        }
+    }
+
     #ifdef BEAM_IPFS_SUPPORT
     void WalletClient::getIPFSStatus()
     {
@@ -2105,7 +2146,7 @@ namespace beam::wallet
             else if (scheme == "https")
                 address.port(443);
         }
-;
+
         std::vector<HeaderPair> headers;
         headers.push_back({ "Content-Type", "application/json" });
         headers.push_back({ "Host", host.c_str() });
@@ -2226,6 +2267,34 @@ namespace beam::wallet
         return status;
     }
 
+    void WalletClient::loadFullAssetsList()
+    {
+        auto wallet = m_wallet.lock();
+        if (wallet)
+        {
+            auto h = m_status.stateID.m_Height;
+            wallet->RequestAssetsListAt(h, [this](ByteBuffer assetsBuffer)
+            {
+                std::vector<Asset::ID> assets;
+                size_t assetsCount = assetsBuffer.size() / sizeof(Asset::ID);
+                assets.resize(assetsCount);
+                memcpy(assets.data(), assetsBuffer.data(), assetsBuffer.size());
+
+                std::set<Asset::ID> assetsFullList;
+                for (auto asset : assets)
+                {
+                    assetsFullList.insert(asset);
+                    getAssetInfo(asset);
+                }
+
+                postFunctionToClientContext([this, assetsFullList]()
+                {
+                    m_assetsFullList = assetsFullList;
+                });
+            });
+        }
+    }
+
     void WalletClient::onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
     {
         // reason -> ErrorType
@@ -2282,6 +2351,7 @@ namespace beam::wallet
                 m_currentHeight = currentHeight;
                 m_unsafeActiveTxCount = count;
                 m_mpLockTimeLimit = limit;
+                loadFullAssetsList();
             });
 
             auto currentHeight = w->get_TipHeight();

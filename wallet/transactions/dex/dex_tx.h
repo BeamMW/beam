@@ -23,10 +23,12 @@ namespace beam::wallet
     TxParameters CreateDexTransactionParams(
             const DexOrderID& dexOrderID,
             const WalletID& peerID,
+            const WalletID& myID,
             Asset::ID coinMy,
             Amount amountMy,
             Asset::ID coinPeer,
             Amount amountPeer,
+            Amount fee,
             const boost::optional<TxID>& txId = boost::none
     );
 

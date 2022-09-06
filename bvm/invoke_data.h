@@ -41,16 +41,24 @@ namespace beam::bvm2 {
 			Amount m_Fee;
 			ECC::Signature m_Sig;
 			ECC::Hash::Value m_hvSk;
+			ECC::Point m_Commitment;
+			ECC::Point m_SigImage;
 
 		} m_Adv;
 
 		struct Flags {
 			static const uint8_t Adv = 1;
 			static const uint8_t Dependent = 2;
+			static const uint8_t Multisigned = 8;
+			static const uint8_t HasCommitment = 0x10;
 		};
 
 		bool IsAdvanced() const {
 			return !!(Flags::Adv & m_Flags);
+		}
+
+		bool IsMultisigned() const {
+			return !!(Flags::Multisigned & m_Flags);
 		}
 
 		FundsMap m_Spend; // ins - outs, not including fee
@@ -100,11 +108,18 @@ namespace beam::bvm2 {
 
 			if (Flags::Dependent & m_Flags)
 				ar & m_ParentCtx;
+
+			if (Flags::HasCommitment & m_Flags)
+				ar & m_Adv.m_Commitment;
+
+			if (Flags::Multisigned & m_Flags)
+				ar & m_Adv.m_SigImage;
 		}
 
 		void Generate(Transaction&, Key::IKdf&, const HeightRange& hr, Amount fee) const;
 
-		void GenerateAdv(Key::IKdf*, ECC::Scalar* pE, const ECC::Point& ptFullBlind, const ECC::Point& ptFullNonce, const ECC::Hash::Value* phvNonce, const ECC::Scalar* pForeignSig, const ECC::Point* pPks, uint32_t nPks);
+		void GenerateAdv(Key::IKdf*, ECC::Scalar* pE, const ECC::Point& ptFullBlind, const ECC::Point& ptFullNonce, const ECC::Hash::Value* phvNonce, const ECC::Scalar* pForeignSig,
+			const ECC::Point* pPks, uint32_t nPks);
 
 
 		[[nodiscard]] Amount get_FeeMin(Height) const;
@@ -116,9 +131,36 @@ namespace beam::bvm2 {
 		void get_SigPreimage(ECC::Hash::Value&, const ECC::Hash::Value& krnMsg) const;
 	};
 
-	typedef std::vector<ContractInvokeEntry> ContractInvokeData;
+	struct ContractInvokeData
+	{
+		std::vector<ContractInvokeEntry> m_vec;
+		// for multisig
+		std::vector<ECC::Point> m_vPeers;
+		FundsMap m_SpendExtra;
+		ECC::Hash::Value m_hvKey;
+		bool m_IsSender = true;
 
-	std::string getFullComment(const ContractInvokeData&);
-	beam::Amount getFullFee(const ContractInvokeData&, Height);
-	bvm2::FundsMap getFullSpend(const ContractInvokeData&);
+		bool HasMultiSig() const;
+		std::string get_FullComment() const;
+		beam::Amount get_FullFee(Height) const;
+		bvm2::FundsMap get_FullSpend() const;
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar & m_vec;
+
+			if (HasMultiSig())
+			{
+				ar
+					& m_IsSender
+					& m_hvKey
+					& m_vPeers
+					& Cast::Down< std::map<Asset::ID, AmountSigned> >(m_SpendExtra);
+			}
+		}
+
+		void Reset();
+
+	};
 }

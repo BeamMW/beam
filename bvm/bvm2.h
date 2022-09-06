@@ -285,9 +285,15 @@ namespace bvm2 {
 
 		const HeightPos* FromWasmOpt(Wasm::Word pPos, HeightPos& buf);
 
+		bool IsPastFork(uint32_t iFork)
+		{
+			assert(iFork < _countof(Rules::get().pForks));
+			return get_Height() + 1 >= Rules::get().pForks[iFork].m_Height;
+		}
+
 		bool IsPastHF4() {
 			// current height does not include the current being-interpreted block
-			return get_Height() + 1 >= Rules::get().pForks[4].m_Height;
+			return IsPastFork(4);
 		}
 
 	public:
@@ -300,6 +306,7 @@ namespace bvm2 {
 		};
 
 		virtual Kind get_Kind() = 0;
+		virtual bool IsSuspended() { return false; }
 
 		static void Compile(ByteBuffer&, const Blob&, Kind, Wasm::Compiler::DebugInfo* = nullptr);
 
@@ -333,19 +340,7 @@ namespace bvm2 {
 				Wasm::Word m_StackBytesMax;
 				Wasm::Word m_StackBytesRet;
 
-				struct Local
-				{
-					struct Entry {
-						Wasm::Word m_CallerIp;
-						Wasm::Word m_Addr;
-					};
-
-					static const uint32_t s_MaxEntries = 256;
-
-					std::vector<Entry> m_v;
-					uint32_t m_Missing;
-
-				} m_Local;
+				DebugCallstack m_Debug;
 			};
 
 			intrusive::list_autoclear<Frame> m_Stack;
@@ -355,6 +350,8 @@ namespace bvm2 {
 		} m_FarCalls;
 
 		void DumpCallstack(std::ostream& os) const;
+
+		virtual const Wasm::Compiler::DebugInfo* get_DbgInfo(const ShaderID& sid) const { return nullptr; }
 
 		bool LoadFixedOrZero(const VarKey&, uint8_t* pVal, uint32_t);
 		uint32_t SaveNnz(const VarKey&, const uint8_t* pVal, uint32_t);
@@ -385,9 +382,9 @@ namespace bvm2 {
 			res.n = 0;
 		}
 
-		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&) { return 0; }
+		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&, Amount& valDeposit) { return 0; }
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }
-		virtual bool AssetDestroy(Asset::ID, const PeerID&) { return false; }
+		virtual bool AssetDestroy(Asset::ID, const PeerID&, Amount& valDeposit) { return false; }
 
 		void HandleAmount(Amount, Asset::ID, bool bLock);
 		void HandleAmountInner(Amount, Asset::ID, bool bLock);
@@ -437,7 +434,7 @@ namespace bvm2 {
 
 		uint32_t m_Charge = Limits::BlockCharge;
 
-		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint8_t bInheritContext); // can override to invoke host code instead of interpretator (for debugging)
+		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint8_t bInheritContext); // can override to invoke host code instead of interpretator (for debugging)
 	};
 
 
@@ -472,7 +469,11 @@ namespace bvm2 {
 		void get_BlindSkInternal(uint32_t iRes, uint32_t iMul, uint32_t iSlot, const Blob&);
 
 		ContractInvokeEntry& GenerateKernel(const ContractID*, uint32_t iMethod, const Blob& args, const Shaders::FundsChange*, uint32_t nFunds, bool bCvtFunds, const char* szComment, uint32_t nCharge);
-		void SetKernelAdv(Height hMin, Height hMax, const PubKey& ptFullBlind, const PubKey& ptFullNonce, const ECC::Scalar& skForeignSig, uint32_t iSlotBlind, uint32_t iSlotNonce, const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE);
+		void SetKernelAdv(Height hMin, Height hMax, const PubKey& ptFullBlind, const PubKey& ptFullNonce, const ECC::Scalar& skForeignSig, uint32_t iSlotBlind, uint32_t iSlotNonce,
+			const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE);
+		static void SetFunds(FundsMap&, const Shaders::FundsChange*, uint32_t nFunds, bool bCvtFunds);
+		void SetMultisignedTx(const void* pID, uint32_t nID, uint8_t bIsSender, const PubKey* pPeers, uint32_t nPeers,
+			const bool* pIsMultisigned, uint32_t nIsMultisigned, const Shaders::FundsChange*, uint32_t nFunds, bool bCvtFunds);
 
 		uint32_t VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof);
 		uint32_t LogGetProofInternal(const HeightPos&, Wasm::Word& pProof);
@@ -525,7 +526,7 @@ namespace bvm2 {
 
 		virtual void SelectContext(bool bDependent, uint32_t nChargeNeeded) = 0;
 
-		void EnsureContext();
+		bool EnsureContext();
 
 		struct Context {
 			Height m_Height = MaxHeight;
@@ -590,6 +591,11 @@ namespace bvm2 {
 
 		} m_Comms;
 
+		DebugCallstack m_DbgCallstack;
+
+		virtual void OnCall(Wasm::Word nAddr) override;
+		virtual void OnRet(Wasm::Word nRetAddr) override;
+
 		virtual void Comm_CreateListener(Comm::Channel::Ptr&, const ECC::Hash::Value&) {}
 		virtual void Comm_Send(const ECC::Point&, const Blob&) {}
 		virtual void Comm_Wait(uint32_t nTimeout_ms) { Wasm::Fail(); }
@@ -598,13 +604,12 @@ namespace bvm2 {
 
 		std::ostream* m_pOut;
 		bool m_NeedComma = false;
-		bool m_RawText = false; // don't perform json-style decoration
+		bool m_Debug = false;
 
 		Key::IPKdf::Ptr m_pPKdf; // required for user-related info (account-specific pubkeys, etc.)
-
 		Key::IKdf::Ptr m_pKdf; // gives more access to the keys. Set only when app runs in a privileged mode
 
-		ContractInvokeData m_vInvokeData;
+		ContractInvokeData m_InvokeData;
 
 		std::map<std::string, std::string> m_Args;
 		void set_ArgBlob(const char* sz, const Blob&);
@@ -614,10 +619,14 @@ namespace bvm2 {
 
 		bool IsDone() const { return m_Instruction.m_p0 == (const uint8_t*)m_Code.p; }
 
-		void InitMem();
+		void InitMem(uint32_t nStackBytesExtra = 0);
 		void Call(Wasm::Word addr);
 		void Call(Wasm::Word addr, Wasm::Word retAddr);
 		void CallMethod(uint32_t iMethod);
+
+		void RunOnce();
+
+		void DumpCallstack(std::ostream& os, const Wasm::Compiler::DebugInfo* pDbgInfo = nullptr) const;
 	};
 
 

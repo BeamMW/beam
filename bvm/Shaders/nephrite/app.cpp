@@ -3,6 +3,7 @@
 #include "contract.h"
 #include "../upgradable3/app_common_impl.h"
 #include "../dao-vault/contract.h"
+#include "../oracle2/contract.h"
 
 #define Nephrite_manager_view(macro)
 #define Nephrite_manager_view_params(macro) macro(ContractID, cid)
@@ -16,8 +17,9 @@
 
 #define Nephrite_manager_deploy(macro) \
     Upgradable3_deploy(macro) \
-    macro(ContractID, cidOracle) \
     macro(ContractID, cidDaoVault) \
+    macro(ContractID, cidOracle1) \
+    macro(ContractID, cidOracle2) \
     macro(Amount, troveLiquidationReserve) \
     macro(AssetID, aidGov) \
     macro(uint32_t, hInitialPeriod)
@@ -203,16 +205,18 @@ ON_METHOD(manager, deploy)
     auto& s = arg.m_Settings; // alias
     s.m_AidGov = aidGov;
     s.m_TroveLiquidationReserve = troveLiquidationReserve;
-    _POD_(s.m_cidOracle) = cidOracle;
     _POD_(s.m_cidDaoVault) = cidDaoVault;
+    _POD_(s.m_cidOracle1) = cidOracle1;
+    _POD_(s.m_cidOracle2) = _POD_(cidOracle2).IsZero() ? cidOracle1 : cidOracle2;
     s.m_hMinRedemptionHeight = Env::get_Height() + hInitialPeriod;
 
     const uint32_t nCharge =
         Upgradable3::Manager::get_ChargeDeploy() +
         Env::Cost::AssetManage +
-        Env::Cost::Refs +
+        Env::Cost::Refs * 3 +
         Env::Cost::SaveVar_For(sizeof(Nephrite::Global)) +
-        Env::Cost::Cycle * 300;
+        Env::Cost::MemOpPerByte * sizeof(Nephrite::Global) +
+        Env::Cost::Cycle * 1000;
 
     Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deploy Nephrite contract", nCharge);
 }
@@ -259,6 +263,8 @@ struct AppGlobal
 
         m_BaseRate.Decay();
 
+        m_StabPool.AddReward(Env::get_Height());
+
         return true;
 
     }
@@ -266,19 +272,38 @@ struct AppGlobal
     struct MyPrice
         :public Price
     {
-        bool Load(const AppGlobal& g)
+        bool LoadInternal(const Env::Key_T<uint8_t>& key)
         {
-            Env::Key_T<uint8_t> key;
-            _POD_(key.m_Prefix.m_Cid) = g.m_Settings.m_cidOracle;
-            key.m_KeyInContract = Oracle2::Tags::s_Median;
-
             Oracle2::Median med;
 
-            if (!Env::VarReader::Read_T(key, med))
+            if (!Env::VarReader::Read_T(key, med) ||
+                (med.m_hEnd < Env::get_Height()))
+                return false;
+
+            if (!Price::IsSane(med.m_Res))
                 return false;
 
             m_Value = med.m_Res;
             return true;
+        }
+
+        uint32_t Load(const AppGlobal& g)
+        {
+            Env::Key_T<uint8_t> key;
+            _POD_(key.m_Prefix.m_Cid) = g.m_Settings.m_cidOracle1;
+            key.m_KeyInContract = Oracle2::Tags::s_Median;
+
+            if (LoadInternal(key))
+                return 1;
+
+            if (_POD_(g.m_Settings.m_cidOracle1) != g.m_Settings.m_cidOracle2)
+            {
+                _POD_(key.m_Prefix.m_Cid) = g.m_Settings.m_cidOracle2;
+                if (LoadInternal(key))
+                    return 2;
+            }
+
+            return 0;
         }
     };
 };
@@ -291,6 +316,7 @@ struct AppGlobalPlus
     AppGlobalPlus(const ContractID& cid) :m_Kid(cid) {}
 
     MyPrice m_Price;
+    uint32_t m_PriceOracle = 0;
 
     struct EpochStorage
     {
@@ -377,13 +403,17 @@ struct AppGlobalPlus
         }
     }
 
+    void LoadPrice()
+    {
+        m_PriceOracle = m_Price.Load(*this);
+    }
+
     bool LoadPlus()
     {
         if (!Load(m_Kid.m_Blob.m_Cid))
             return false;
 
-        if (!m_Price.Load(*this))
-            return false;
+        LoadPrice();
 
         if (m_Troves.m_iLastCreated)
             LoadAllTroves();
@@ -391,10 +421,20 @@ struct AppGlobalPlus
         return true;
     }
 
+    bool TestHaveValidPrice()
+    {
+        if (m_PriceOracle)
+            return true;
+
+        OnError("no valid price");
+        return false;
+    }
+
     void DocAddTrove(const Trove& t)
     {
         DocAddPair("amounts", t.m_Amounts);
-        DocAddPerc("cr", m_Price.ToCR(t.m_Amounts.get_Rcr()));
+        if (m_PriceOracle)
+            DocAddPerc("cr", m_Price.ToCR(t.m_Amounts.get_Rcr()));
     }
 
     bool ReadBalance()
@@ -560,7 +600,7 @@ struct AppGlobalPlus
         PrepareTroveTx(tx, pFc);
 
         tx.m_GovPull += m_Balance.m_Gov;
-        pFc[2].m_Amount = m_Balance.m_Gov;
+        pFc[2].m_Amount = tx.m_GovPull;
         pFc[2].m_Aid = m_Settings.m_AidGov;
         pFc[2].m_Consume = 0;
     }
@@ -580,11 +620,10 @@ ON_METHOD(manager, view_params)
     if (!g.Load(cid))
         return;
 
-    g.m_StabPool.AddReward(Env::get_Height());
-
     Env::DocGroup gr("params");
 
-    Env::DocAddBlob_T("oracle", g.m_Settings.m_cidOracle);
+    Env::DocAddBlob_T("oracle1", g.m_Settings.m_cidOracle1);
+    Env::DocAddBlob_T("oracle2", g.m_Settings.m_cidOracle2);
     Env::DocAddNum("aidTok", g.m_Aid);
     Env::DocAddNum("aidGov", g.m_Settings.m_AidGov);
     Env::DocAddNum("redemptionHeight", g.m_Settings.m_hMinRedemptionHeight);
@@ -602,7 +641,10 @@ ON_METHOD(manager, view_params)
     }
 
     AppGlobal::MyPrice price;
-    if (price.Load(g))
+    uint32_t iOracle = price.Load(g);
+    Env::DocAddNum("oracle_state", iOracle);
+
+    if (iOracle)
     {
         DocAddFloat("price", price.m_Value, 4);
 
@@ -850,8 +892,6 @@ ON_METHOD(user, upd_stab)
     if (!g.Load(cid)) // skip loading all troves
         return;
 
-    g.m_StabPool.AddReward(Env::get_Height() + 1);
-
     Method::UpdStabPool args;
     _POD_(args.m_Flow).SetZero();
 
@@ -863,7 +903,7 @@ ON_METHOD(user, upd_stab)
 
     args.m_Flow.Tok.Add(newVal, 1);
 
-    if (!args.m_Flow.Tok.m_Val && !args.m_Flow.Col.m_Val)
+    if (!args.m_Flow.Tok.m_Val && !args.m_Flow.Col.m_Val && !g.m_MyStab.m_Gov)
         return OnError("no change");
 
     args.m_NewAmount = newVal;
@@ -884,6 +924,10 @@ ON_METHOD(user, upd_stab)
 
     if (newVal < g.m_MyStab.m_Amounts.Tok && g.m_Troves.m_iHead)
     {
+        g.LoadPrice();
+        if (!g.TestHaveValidPrice())
+            return;
+
         // verification that 1st trove can't be liquidated
         nCharge +=
             Charge::Price() +
@@ -966,10 +1010,10 @@ ON_METHOD(user, trove_modify)
     if (t.m_Amounts.Tok || t.m_Amounts.Col)
     {
         if (t.m_Amounts.Tok < g.m_Settings.m_TroveLiquidationReserve)
-        {
-            OnError("min tok required");
+            return OnError("min tok required");
+
+        if (!g.TestHaveValidPrice())
             return;
-        }
 
         auto totals0 = g.m_Troves.m_Totals;
         auto iPrev1 = g.PushMyTrove();
@@ -1052,6 +1096,9 @@ ON_METHOD(user, liquidate)
 {
     AppGlobalPlus g(cid);
     if (!g.LoadPlus())
+        return;
+
+    if (!g.TestHaveValidPrice())
         return;
 
     g.m_Kid.set_Trove();
@@ -1165,6 +1212,9 @@ ON_METHOD(user, redeem)
 {
     AppGlobalPlus g(cid);
     if (!g.LoadPlus())
+        return;
+
+    if (!g.TestHaveValidPrice())
         return;
 
     g.ReadBalanceAny();

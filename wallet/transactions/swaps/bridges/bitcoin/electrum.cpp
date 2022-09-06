@@ -806,6 +806,10 @@ namespace beam::bitcoin
             return;
 
         LOG_ERROR() << "error in Electrum::sendRequest: code = " << io::error_descr(result.error());
+
+        Error error{ IOError, std::string("error in Electrum::sendRequest: code = ") + io::error_descr(result.error()) };
+        json tmp;
+        callback(error, tmp, 0);
     }
 
     std::vector<libbitcoin::wallet::ec_private> Electrum::generatePrivateKeyList() const

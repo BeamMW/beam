@@ -1,12 +1,11 @@
 #pragma once
 #include "pool.h"
-#include "../oracle2/contract.h"
 #include "../upgradable3/contract.h"
 
 namespace Nephrite
 {
     static const ShaderID s_pSID[] = {
-        { 0xea,0x32,0xb3,0x34,0xad,0x64,0xe0,0xbd,0x10,0x33,0xaf,0xb4,0x61,0xd2,0x22,0x89,0xdd,0x4a,0x1f,0xa5,0x5c,0xe5,0x70,0xf1,0x10,0xdb,0x80,0xf5,0x69,0xd8,0xa1,0x9f }
+        { 0x96,0x37,0xf2,0x8f,0x51,0x29,0x59,0x97,0xee,0xd8,0x41,0xb9,0x9a,0xd6,0x1d,0x2a,0xff,0xfd,0x1a,0xb7,0x25,0xe4,0xfa,0xd0,0x48,0x42,0x6f,0x3f,0xe5,0x9d,0x8e,0xb6 }
     };
 
 #pragma pack (push, 1)
@@ -127,8 +126,9 @@ namespace Nephrite
 
     struct Settings
     {
-        ContractID m_cidOracle;
         ContractID m_cidDaoVault;
+        ContractID m_cidOracle1;
+        ContractID m_cidOracle2;
         Amount m_TroveLiquidationReserve;
         AssetID m_AidGov;
         Height m_hMinRedemptionHeight;
@@ -230,9 +230,14 @@ namespace Nephrite
                     auto k = Float(h - m_Reward.m_hLast) / Float(m_Reward.m_hEnd - m_Reward.m_hLast);
                     Amount val = HomogenousPool::Round(Float(valAdd) * k);
                     valAdd = std::min(valAdd, val);
+                    m_Reward.m_Remaining -= valAdd;
                 }
+                else
+                    m_Reward.m_Remaining = 0;
 
                 Trade<Mode::Neutral, 1>(0, valAdd);
+                m_Reward.m_hLast = h;
+
                 return true;
             }
 
@@ -301,6 +306,14 @@ namespace Nephrite
             {
                 return Float(1u);
             }
+
+            static bool IsSane(Float val)
+            {
+                // ban values for which our arithmetics is prone to overflow or other artifacts
+                return
+                    val.IsNormalizedNnz() &&
+                    val.IsOrderWithin(-500, 500);
+                }
 
             bool IsBelow(const Pair& p, Float k) const
             {
@@ -513,8 +526,6 @@ namespace Nephrite
 
     namespace Method
     {
-        typedef Oracle2::Method::Get OracleGet;
-
         struct Create
         {
             static const uint32_t s_iMethod = 0;

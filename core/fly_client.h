@@ -43,7 +43,8 @@ namespace proto {
 		macro(ContractLogProof) \
 		macro(ShieldedOutputsAt) \
 		macro(BodyPack) \
-		macro(Body)
+		macro(Body) \
+		macro(AssetsListAt)
 
 
 #define REQUEST_TYPES_Std(macro) \
@@ -61,7 +62,8 @@ namespace proto {
         macro(ContractLogProof,  GetContractLogProof,  ContractLogProof) \
         macro(ShieldedOutputsAt, GetShieldedOutputsAt, ShieldedOutputsAt) \
         macro(BodyPack,          GetBodyPack,          BodyPack) \
-        macro(Body,              GetBodyPack,          Body)
+        macro(Body,              GetBodyPack,          Body) \
+        macro(AssetsListAt,      GetAssetsListAt,      AssetsListAt) \
 
 
 		class Request
