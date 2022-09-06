@@ -1901,7 +1901,7 @@ namespace beam
 		pForks[2].m_Height = 30;
 		pForks[3].m_Height = 100;
 		pForks[4].m_Height = 100;
-		pForks[5].m_Height = 334009;
+		pForks[5].m_Height = 599999;
 
 		DisableForksFrom(6); // future forks
 	}
