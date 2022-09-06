@@ -650,6 +650,23 @@ ON_METHOD(manager, view_params)
 
         if (g.m_Troves.m_Totals.Tok)
             DocAddPerc("tcr", price.ToCR(g.m_Troves.m_Totals.get_Rcr()));
+
+        Float kHalf = Float(1u) / Float(200u);
+        Float k = kHalf + g.m_BaseRate.m_k;
+
+        {
+            Float kMax(1u); // 100%
+            DocAddPerc("redeem_rate", (k < kMax) ? k : kMax);
+        }
+
+        const char* szIss = "issue_rate";
+        if (g.IsRecovery(price))
+            Env::DocAddNum(szIss, 0u);
+        else
+        {
+            Float kMax = kHalf * Float(10u); // 5%
+            DocAddPerc(szIss, (k < kMax) ? k : kMax);
+        }
     }
 }
 
