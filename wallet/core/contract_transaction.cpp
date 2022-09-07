@@ -373,6 +373,7 @@ namespace beam::wallet
             if (builder.m_vSigs.empty())
             {
                 builder.TestSigs();
+                builder.FinalyzeTx();
                 s = State::Registration;
             }
             else
