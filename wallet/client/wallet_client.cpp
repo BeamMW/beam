@@ -2351,9 +2351,8 @@ namespace beam::wallet
                 m_currentHeight = currentHeight;
                 m_unsafeActiveTxCount = count;
                 m_mpLockTimeLimit = limit;
-                loadFullAssetsList();
             });
-
+            loadFullAssetsList();
             auto currentHeight = w->get_TipHeight();
 
             struct Walker :public Block::SystemState::IHistory::IWalker
