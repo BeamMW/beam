@@ -2044,7 +2044,6 @@ namespace
         }
 
         auto params = CreateTransactionParameters(TxType::AssetReg)
-                        .SetParameter(TxParameterID::Amount, Rules::get().CA.DepositForList)
                         .SetParameter(TxParameterID::Fee, fee)
                         .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
                         .SetParameter(TxParameterID::AssetMetadata, strMeta);
@@ -2077,7 +2076,6 @@ namespace
         }
 
         auto params = CreateTransactionParameters(TxType::AssetUnreg)
-                        .SetParameter(TxParameterID::Amount, Rules::get().CA.DepositForList)
                         .SetParameter(TxParameterID::Fee, fee)
                         .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
                         .SetParameter(TxParameterID::AssetMetadata, meta);
@@ -2153,7 +2151,7 @@ namespace
 
 #endif  // BEAM_LASER_SUPPORT
 
-    int DoWalletFunc(const po::variables_map& vm, std::function<int (const po::variables_map&, Wallet::Ptr, IWalletDB::Ptr, boost::optional<TxID>&)> func)
+    int DoWalletFunc(const po::variables_map& vm, std::function<int(const po::variables_map&, Wallet::Ptr, IWalletDB::Ptr, boost::optional<TxID>&)> func)
     {
         LOG_INFO() << kStartMessage;
         auto walletDB = OpenDataBase(vm);
@@ -2186,8 +2184,8 @@ namespace
                     {
                         auto maxTxValue = PrintableAmount(maxTxAmount, true, info->m_ID);
                         cout << "Warning. Total amount of asset would be larger that can be sent in one transaction "
-                             << maxTxValue << ". You would be forced to send using several transactions."
-                             << endl;
+                            << maxTxValue << ". You would be forced to send using several transactions."
+                            << endl;
                     }
                 }
 
@@ -2196,8 +2194,8 @@ namespace
         }
 
         auto wallet = std::make_shared<Wallet>(walletDB,
-                      std::move(txCompletedAction),
-                      Wallet::UpdateCompletedAction());
+            std::move(txCompletedAction),
+            Wallet::UpdateCompletedAction());
         {
             wallet::AsyncContextHolder holder(*wallet);
 
@@ -2209,11 +2207,15 @@ namespace
             RegisterSwapTxCreators(wallet, walletDB);
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 #ifdef BEAM_CONFIDENTIAL_ASSETS_SUPPORT
-           if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
+            if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
             {
                 RegisterAllAssetCreators(*wallet);
             }
 #endif  // BEAM_CONFIDENTIAL_ASSETS_SUPPORT
+            if (vm.count(cli::REQUEST_BODIES) && vm[cli::REQUEST_BODIES].as<bool>())
+            {
+                wallet->EnableBodyRequests(true);
+            }
             wallet->ResumeAllTransactions();
 
             auto nnet = CreateNetwork(*wallet, vm);
@@ -2287,13 +2289,19 @@ namespace
 
                     using ManagerStdInWallet::ManagerStdInWallet;
 
+                    Wasm::Compiler::DebugInfo m_DbgInfo;
+
 				    void OnDone(const std::exception* pExc) override
 				    {
 					    m_Done = true;
 					    m_Err = !!pExc;
 
                         if (pExc)
+                        {
                             std::cout << "Shader exec error: " << pExc->what() << std::endl;
+                            if (m_Debug)
+                                DumpCallstack(std::cout, &m_DbgInfo);
+                        }
                         else
                             std::cout << "Shader output: " << m_Out.str() << std::endl;
 
@@ -2301,7 +2309,7 @@ namespace
                             io::Reactor::get_Current().stop();
 				    }
 
-                    static void Compile(ByteBuffer& res, const char* sz, Kind kind)
+                    static void Compile(ByteBuffer& res, const char* sz, Kind kind, Wasm::Compiler::DebugInfo* pDbgInfo = nullptr)
                     {
                         std::FStream fs;
                         fs.Open(sz, true, true);
@@ -2310,17 +2318,18 @@ namespace
                         if (!res.empty())
                             fs.read(&res.front(), res.size());
 
-                        bvm2::Processor::Compile(res, res, kind);
+                        bvm2::Processor::Compile(res, res, kind, pDbgInfo);
                     }
                 };
 
                 MyManager man(walletDB, wallet);
+                man.m_Debug = vm[cli::SHADER_DEBUG].as<bool>();
 
                 auto sVal = vm[cli::SHADER_BYTECODE_APP].as<string>();
                 if (sVal.empty())
                     throw std::runtime_error("shader file not specified");
 
-                MyManager::Compile(man.m_BodyManager, sVal.c_str(), MyManager::Kind::Manager);
+                MyManager::Compile(man.m_BodyManager, sVal.c_str(), MyManager::Kind::Manager, man.m_Debug ? &man.m_DbgInfo : nullptr);
 
                 sVal = vm[cli::SHADER_BYTECODE_CONTRACT].as<string>();
                 if (!sVal.empty())
@@ -2358,20 +2367,20 @@ namespace
                     }
                 }
 
-                if (man.m_Err || man.m_vInvokeData.empty())
+                if (man.m_Err || man.m_InvokeData.m_vec.empty())
                     return 1;
 
                 const auto height  = wallet->get_TipHeight();
-                const auto fee     = bvm2::getFullFee(man.m_vInvokeData, height);
-                const auto comment = bvm2::getFullComment(man.m_vInvokeData);
-                const auto spend   = bvm2::getFullSpend(man.m_vInvokeData);
+                const auto fee     = man.m_InvokeData.get_FullFee(height);
+                const auto comment = man.m_InvokeData.get_FullComment();
+                const auto spend   = man.m_InvokeData.get_FullSpend();
 
                 std::cout << "Creating new contract invocation tx on behalf of the shader" << std::endl;
                 if (man.m_Args["action"] == "create")
                 {
                     bvm2::ShaderID sid;
                     bvm2::get_ShaderID(sid, Blob(man.m_BodyContract));
-                    for (auto& invokeEntry : man.m_vInvokeData)
+                    for (auto& invokeEntry : man.m_InvokeData.m_vec)
                     {
                         bvm2::ContractID cid;
                         bvm2::get_CidViaSid(cid, sid, Blob(invokeEntry.m_Args));
@@ -2408,7 +2417,7 @@ namespace
                 ByteBuffer msg(comment.begin(), comment.end());
                 currentTxID = wallet->StartTransaction(
                     CreateTransactionParameters(TxType::Contract)
-                    .SetParameter(TxParameterID::ContractDataPacked, man.m_vInvokeData)
+                    .SetParameter(TxParameterID::ContractDataPacked, man.m_InvokeData)
                     .SetParameter(TxParameterID::Message, msg)
                 );
 
@@ -2737,6 +2746,33 @@ namespace
 
         return 0;
     }
+
+    int ImportRecovery(const po::variables_map& vm)
+    {
+        if (vm[cli::IMPORT_EXPORT_PATH].defaulted())
+        {
+            LOG_ERROR() << kErrorFileLocationParamReqired;
+            return -1;
+        }
+
+        struct MyProgress : IWalletDB::IRecoveryProgress
+        {
+            virtual bool OnProgress(uint64_t done, uint64_t total)
+            {
+                size_t percent = done * 100 / total;
+                std::cout << "\rImporting recovery data: " << percent << "% (" << done << "/" << total << ")";
+                std::cout.flush();
+                return true; 
+            }
+        };
+        auto path = vm[cli::IMPORT_EXPORT_PATH].as<string>();
+        return DoWalletFunc(vm, [&path](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
+            {
+                MyProgress progress;
+                walletDB->ImportRecovery(path, *wallet, progress);
+                return 1;
+            });
+    }
 }  // namespace
 
 io::Reactor::Ptr reactor;
@@ -2770,6 +2806,7 @@ int main(int argc, char* argv[])
         {cli::EXPORT_DATA,          ExportWalletData,               "export wallet data (UTXO, transactions, addresses) to a JSON file"},
         {cli::IMPORT_DATA,          ImportWalletData,               "import wallet data from a JSON file"},
         {cli::BLOCK_DETAILS,        ShowBlockDetails,               "print information about specified block"},
+        {cli::IMPORT_RECOVERY,      ImportRecovery,                 "import block data from recovery file"},
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         {cli::SWAP_INIT,            InitSwap,                       "initialize atomic swap"},
         {cli::SWAP_ACCEPT,          AcceptSwap,                     "accept atomic swap offer"},

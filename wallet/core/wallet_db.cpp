@@ -107,6 +107,7 @@ namespace fs = std::filesystem;
 #define COIN_CONFIRMATIONS_COUNT "confirmations_count"
 #define EVENTS_NAME "events"
 #define TX_SUMMARY_NAME "tx_summary"
+#define DEX_OFFERS_NAME "dex_offers"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(name,  name,  TEXT UNIQUE, obj) sep \
@@ -169,7 +170,7 @@ namespace fs = std::filesystem;
 
 #define LASER_CHANNEL_FIELDS ENUM_LASER_CHANNEL_FIELDS(LIST, COMMA, )
 
-#define ENUM_ASSET_FIELDS(each, sep, obj) \
+#define ENUM_ASSET_FIELDS_0(each, sep, obj) \
     each(ID,             ID,            INTEGER NOT NULL PRIMARY KEY,  obj) sep \
     each(Value,          Value,         BLOB,              obj) sep \
     each(Owner,          Owner,         BLOB NOT NULL,     obj) sep \
@@ -177,6 +178,10 @@ namespace fs = std::filesystem;
     each(Metadata,       Metadata,      BLOB,              obj) sep \
     each(RefreshHeight,  RefreshHeight, INTEGER NOT NULL,  obj) sep \
     each(IsOwned,        IsOwned,       INTEGER,           obj)
+
+#define ENUM_ASSET_FIELDS(each, sep, obj) \
+    ENUM_ASSET_FIELDS_0(each, sep, obj) sep \
+    each(Deposit,        Deposit,       INTEGER,           obj)
 
 #define ASSET_FIELDS ENUM_ASSET_FIELDS(LIST, COMMA, )
 
@@ -259,6 +264,13 @@ namespace fs = std::filesystem;
     each(Key,     Key,    BLOB NOT NULL, obj)
 
 #define EVENTS_FIELDS ENUM_EVENTS_FIELDS(LIST, COMMA, )
+
+#define ENUM_DEX_OFFERS_FIELDS(each, sep, obj) \
+    each(id,               id,             TEXT NOT NULL PRIMARY KEY, obj) sep \
+    each(data,             data,           BLOB, obj) sep \
+    each(isMine,           isMine,         INTEGER, obj)
+
+#define DEX_OFFERS_FIELDS ENUM_DEX_OFFERS_FIELDS(LIST, COMMA, )
 
 #define ENUM_TX_SUMMARY_FIELDS(each) \
     each(CreateTime, Timestamp) \
@@ -992,7 +1004,9 @@ namespace beam::wallet
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
 
-        const int DbVersion   = 32;
+        const int DbVersion   = 34;
+        const int DbVersion33 = 33;
+        const int DbVersion32 = 32;
         const int DbVersion31 = 31;
         const int DbVersion30 = 30;
         const int DbVersion29 = 29;
@@ -1346,7 +1360,7 @@ namespace beam::wallet
 
             // migration
             {
-                const char* req = "INSERT INTO " ASSETS_NAME " (" ENUM_ASSET_FIELDS(LIST, COMMA, ) ") SELECT " ENUM_ASSET_FIELDS(LIST, COMMA, ) " FROM " ASSETS_NAME "_del;";
+                const char* req = "INSERT INTO " ASSETS_NAME " (" ENUM_ASSET_FIELDS_0(LIST, COMMA, ) ") SELECT " ENUM_ASSET_FIELDS_0(LIST, COMMA, ) " FROM " ASSETS_NAME "_del;";
                 int ret = sqlite3_exec(db, req, NULL, NULL, NULL);
                 throwIfError(ret, db);
             }
@@ -1454,6 +1468,13 @@ namespace beam::wallet
         void AddVouchersFlagsColumn(sqlite3* db)
         {
             const char* req = "ALTER TABLE " VOUCHERS_NAME " ADD Flags INTEGER NULL;";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
+
+        void CreateDexOffersTable(sqlite3* db)
+        {
+            const char* req = "CREATE TABLE " DEX_OFFERS_NAME " (" ENUM_DEX_OFFERS_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
         }
@@ -1725,6 +1746,19 @@ namespace beam::wallet
             }
         }
 
+        void MigrateFrom32(sqlite3* db)
+        {
+            assert(db != nullptr);
+
+            // assets table changed: added Deposit column
+            // move old data to temp table
+            {
+                const char* req = "ALTER TABLE " ASSETS_NAME " ADD COLUMN Deposit INTEGER;";
+                int ret = sqlite3_exec(db, req, NULL, NULL, NULL);
+                throwIfError(ret, db);
+            }
+        }
+
         void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password)
         {
             int ret = sqlite3_open_v2(path.c_str(), db, SQLITE_OPEN_READWRITE, nullptr);
@@ -1846,6 +1880,7 @@ namespace beam::wallet
         CreateEventsTable(db);
         CreateTxSummaryTable(db);
         CreateVerificationTable(db);
+        CreateDexOffersTable(db);
     }
 
     std::shared_ptr<WalletDB> WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
@@ -2365,6 +2400,16 @@ namespace beam::wallet
                 case DbVersion31:
                     LOG_INFO() << "Converting DB from format 31...";
                     MigrateFrom31(walletDB.get(), walletDB->_db);
+                    // no break
+
+                case DbVersion32:
+                    LOG_INFO() << "Converting DB from format 32...";
+                    MigrateFrom32(walletDB->_db);
+
+                case DbVersion33:
+                    LOG_INFO() << "Converting DB from format 33...";
+                    CreateDexOffersTable(walletDB->_db);
+
                     // no break
                     storage::setVar(*walletDB, Version, DbVersion);
 
@@ -4342,7 +4387,7 @@ namespace beam::wallet
         sqlite::Statement stmFind(this, find);
         stmFind.bind(1, info.m_ID);
 
-        const char* update = "UPDATE " ASSETS_NAME " SET Value=?2, Owner=?3, LockHeight=?4, Metadata=?5, RefreshHeight=?6 WHERE ID=?1;";
+        const char* update = "UPDATE " ASSETS_NAME " SET Value=?2, Owner=?3, LockHeight=?4, Metadata=?5, RefreshHeight=?6, Deposit=?7 WHERE ID=?1;";
         const char* insert = "INSERT INTO " ASSETS_NAME " (" ENUM_ASSET_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ASSET_FIELDS(BIND_LIST, COMMA, ) ");";
         const bool  found  = stmFind.step();
 
@@ -4354,11 +4399,14 @@ namespace beam::wallet
         stm.bind(5, info.m_Metadata.m_Value);
         stm.bind(6, refreshHeight);
 
-        if (!found)
+        if (found)
+            stm.bind(7, info.m_Deposit);
+        else
         {
             // By default we do not mark new assets as owned
             // For owned assets this value is set to the owner index by the 'AssetRegister' transaction
             stm.bind(7, 0);
+            stm.bind(8, info.m_Deposit);
         }
 
         stm.step();
@@ -4443,6 +4491,11 @@ namespace beam::wallet
         assert(asset.m_RefreshHeight != 0);
         stmFind.get(6, asset.m_IsOwned);
 
+        if (stmFind.IsNull(7))
+            asset.m_Deposit = Rules::get().CA.DepositForList2; // assume it's legacy
+        else
+            stmFind.get(7, asset.m_Deposit);
+
         return asset;
     }
 
@@ -4461,6 +4514,77 @@ namespace beam::wallet
         stmFind.get(0, assetID);
 
         return findAsset(assetID);
+    }
+
+    std::vector<std::pair<ByteBuffer, bool>> WalletDB::loadDexOffers()
+    {
+        sqlite::Statement countStm(this, "SELECT COUNT(*) FROM " DEX_OFFERS_NAME ";");
+        countStm.step();
+        
+        uint64_t count;
+        countStm.get(0, count);
+
+        std::vector<std::pair<ByteBuffer, bool>> offers;
+        offers.reserve(count);
+
+        const char* selectReq = "SELECT * FROM " DEX_OFFERS_NAME ";";
+        sqlite::Statement stm(this, selectReq);
+
+
+        while (stm.step())
+        {
+            ByteBuffer buffer;
+            stm.get(1, buffer);
+            bool isMine = false;
+            stm.get(2, isMine);
+
+            offers.emplace_back(buffer, isMine);
+        }
+
+        return offers;
+    }
+
+    void WalletDB::saveDexOffer(const DexOrderID& offerId, const ByteBuffer& offer, bool isMine)
+    {
+        const auto& idStr = offerId.to_string();
+        LOG_DEBUG() << "Save offer: " << idStr;
+        const char* selectReq = "SELECT * FROM " DEX_OFFERS_NAME " WHERE id=?1;";
+        sqlite::Statement stm2(this, selectReq);
+        stm2.bind(1, idStr);
+
+        if (stm2.step())
+        {
+            const char* updateReq = "UPDATE " DEX_OFFERS_NAME " SET data=?2, isMine=?3 WHERE id=?1;";
+            sqlite::Statement stm(this, updateReq);
+
+            stm.bind(1, idStr);
+            stm.bind(2, offer);
+            stm.bind(3, isMine);
+
+            stm.step();
+        }
+        else
+        {
+            const char* insertReq = "INSERT INTO " DEX_OFFERS_NAME " (" ENUM_DEX_OFFERS_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_DEX_OFFERS_FIELDS(BIND_LIST, COMMA, ) ");";
+            sqlite::Statement stm(this, insertReq);
+
+            stm.bind(1, idStr);
+            stm.bind(2, offer);
+            stm.bind(3, isMine);
+
+            stm.step();
+        }
+    }
+
+    void WalletDB::dropDexOffer(const DexOrderID& offerId)
+    {
+        const auto& idStr = offerId.to_string();
+        LOG_DEBUG() << "Delete offer: " << idStr;
+        const char* dropReq = "DELETE FROM " DEX_OFFERS_NAME " WHERE id=?1;";
+        sqlite::Statement stm(this, dropReq);
+        stm.bind(1, idStr);
+
+        stm.step();
     }
 
     void WalletDB::rollbackAssets(Height minHeight)

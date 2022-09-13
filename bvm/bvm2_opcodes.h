@@ -264,6 +264,9 @@
 	macro(Height, h) sep \
 	macro(HashValue&, res)
 
+#define BVMOp_get_ForkHeight(macro, sep) \
+	macro(uint32_t, iFork)
+
 #define BVMOp_SelectContext(macro, sep) \
 	macro(uint8_t, bDependent) sep \
 	macro(uint32_t, nChargeNeeded)
@@ -378,6 +381,11 @@
 	macro(const char*, szComment) sep \
 	macro(uint32_t, nCharge)
 
+#define BVMOp_GetApiVersion(macro, sep) \
+
+#define BVMOp_SetApiVersion(macro, sep) \
+	macro(uint32_t, nVer)
+
 #define BVMOp_GenerateRandom(macro, sep) \
 	macro(void*, pBuf) sep \
 	macro(uint32_t, nSize)
@@ -434,6 +442,17 @@
 	macro(uint32_t, iSlotNonce) sep \
 	macro(Secp_scalar_data*, pChallenges)
 
+#define BVMOp_SetMultisignedTx(macro, sep) \
+	macro(const void*, pID) sep \
+	macro(uint32_t, nID) sep \
+	macro(uint8_t, bIsSender) sep \
+	macro(const PubKey*, pPeers) sep \
+	macro(uint32_t, nPeers) sep \
+	macro(const bool*, pIsMultisigned) sep \
+	macro(uint32_t, nIsMultisigned) sep \
+	macro(const FundsChange*, pFundsExtra) sep \
+	macro(uint32_t, nFundsExtra)
+
 #define BVMOp_Comm_Listen(macro, sep) \
 	macro(const void*, pID) sep \
 	macro(uint32_t, nID) sep \
@@ -474,6 +493,7 @@
 	macro(0x41, void     , get_HdrInfo) \
 	macro(0x42, void     , get_HdrFull) \
 	macro(0x43, Height   , get_RulesCfg) \
+	macro(0x44, Height   , get_ForkHeight) \
 	macro(0x48, HashObj* , HashCreateSha256) \
 	macro(0x49, HashObj* , HashCreateBlake2b) \
 	macro(0x4A, HashObj* , HashCreateKeccak) \
@@ -542,6 +562,8 @@
 	macro(0x6B, uint8_t  , DocGetNum64) \
 	macro(0x6C, uint32_t , DocGetBlob) \
 	macro(0x70, void     , GenerateKernel) \
+	macro(0x78, uint32_t , GetApiVersion) \
+	macro(0x79, void     , SetApiVersion) \
 	macro(0xA0, void     , GenerateRandom) \
 	macro(0xA1, void     , get_SlotImage) \
 	macro(0xA2, void     , SlotInit) \
@@ -550,9 +572,10 @@
 	macro(0xA5, void     , GenerateKernelAdvanced) \
 	macro(0xA6, void     , get_SlotImageEx) \
 	macro(0xA7, void     , get_PkEx) \
-	macro(0xB0, void     , Comm_Listen) \
+	macro(0xA9, void     , SetMultisignedTx) \
 	macro(0xB1, void     , Comm_Send) \
 	macro(0xB2, uint32_t , Comm_Read) \
 	macro(0xB3, void     , Comm_WaitMsg) \
+	macro(0xB4, void     , Comm_Listen) \
 
 #define EXTRA_LINE_BEFORE_EOF_SO_THAT_THE_STUPID_COMPILER_WONT_COMPLAIN_ABOUT_BACKSLASH_ON_PREVIOUS_LINE

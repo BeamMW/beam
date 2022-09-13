@@ -2073,8 +2073,7 @@ int main()
     beam::Height fork1Height = 10;
     Rules::get().pForks[1].m_Height = fork1Height;
     Rules::get().pForks[2].m_Height = fork1Height;
-    Rules::get().pForks[3].m_Height = MaxHeight; // swap values currently specified in the test are insufficient for fees after HF3
-    Rules::get().pForks[4].m_Height = MaxHeight;
+    Rules::get().DisableForksFrom(3); // swap values currently specified in the test are insufficient for fees after HF3
     Rules::get().UpdateChecksum();
 
     TestSwapTransaction(true, fork1Height);

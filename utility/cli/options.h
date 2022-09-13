@@ -165,6 +165,8 @@ namespace beam
         extern const char* BLOCK_DETAILS;
         extern const char* BLOCK_HEIGHT;
         extern const char* CONFIG_FILE_PATH;
+        extern const char* REQUEST_BODIES;
+        extern const char* IMPORT_RECOVERY;
         // ethereum
         extern const char* ETHEREUM_SEED;
         extern const char* INFURA_PROJECT_ID;
@@ -258,6 +260,7 @@ namespace beam
         extern const char* SHADER_BYTECODE_APP;
         extern const char* SHADER_BYTECODE_CONTRACT;
         extern const char* SHADER_PRIVILEGE;
+        extern const char* SHADER_DEBUG;
 
         // IPFS
         #ifdef BEAM_IPFS_SUPPORT

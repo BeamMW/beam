@@ -274,8 +274,13 @@ bool Server::send_contract_details(const HttpConnection::Ptr& conn) {
         return send(conn, 404, "not found");
 
     ByteBuffer id;
+    _currentUrl.get_hex_arg("id", id);
 
-    if (!_currentUrl.get_hex_arg("id", id) || !_backend.get_contract_details(_body, id))
+    beam::Height hMin = _currentUrl.get_int_arg("hMin", 0);
+    beam::Height hMax = _currentUrl.get_int_arg("hMax", -1);
+    uint32_t nMaxTxs = (uint32_t) _currentUrl.get_int_arg("nMaxTxs", static_cast<uint32_t>(-1));
+
+    if (!_backend.get_contract_details(_body, id, hMin, hMax, nMaxTxs))
         return send(conn, 500, "Internal error #2");
 
     return send(conn, 200, "OK");

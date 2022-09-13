@@ -353,7 +353,7 @@ BEAM_EXPORT void Ctor(const Method::Create& r)
     g.m_StabPool.Init();
     g.m_RedistPool.Reset();
 
-    static const char szMeta[] = "STD:SCH_VER=1;N=Nephrite Token;SN=Liqt;UN=NPH;NTHUN=GROTHN";
+    static const char szMeta[] = "STD:SCH_VER=1;N=Nephrite Token;SN=Nph;UN=NPH;NTHUN=GROTHN";
     g.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
     Env::Halt_if(!g.m_Aid);
 
@@ -548,7 +548,7 @@ BEAM_EXPORT void Method_10(Method::AddStabPoolReward& r)
     if (h >= x.m_hEnd)
     {
         x.m_hLast = h;
-        x.m_hEnd = h + 1440 + 365 * 2; // 2 years
+        x.m_hEnd = h + 1440 * 365 * 2; // 2 years
     }
 
     Strict::Add(x.m_Remaining, r.m_Amount);

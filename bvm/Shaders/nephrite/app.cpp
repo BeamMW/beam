@@ -157,7 +157,8 @@ void DocAddFloat(const char* sz, Float x, uint32_t nDigsAfterDot)
     for (uint32_t i = 0; i < nDigsAfterDot; i++)
         norm *= 10;
 
-    uint64_t val = x * Float(norm);
+    uint64_t val = x * Float(norm * 2);
+    val = (val + 1) / 2;
 
     char szBuf[Utils::String::Decimal::DigitsMax<uint64_t>::N + 2]; // dot + 0-term
     uint32_t nPos = Utils::String::Decimal::Print(szBuf, val / norm);
@@ -650,6 +651,23 @@ ON_METHOD(manager, view_params)
 
         if (g.m_Troves.m_Totals.Tok)
             DocAddPerc("tcr", price.ToCR(g.m_Troves.m_Totals.get_Rcr()));
+
+        Float kHalf = Float(1u) / Float(200u);
+        Float k = kHalf + g.m_BaseRate.m_k;
+
+        {
+            Float kMax(1u); // 100%
+            DocAddPerc("redeem_rate", (k < kMax) ? k : kMax);
+        }
+
+        const char* szIss = "issue_rate";
+        if (g.IsRecovery(price))
+            Env::DocAddNum(szIss, 0u);
+        else
+        {
+            Float kMax = kHalf * Float(10u); // 5%
+            DocAddPerc(szIss, (k < kMax) ? k : kMax);
+        }
     }
 }
 
@@ -903,7 +921,7 @@ ON_METHOD(user, upd_stab)
 
     args.m_Flow.Tok.Add(newVal, 1);
 
-    if (!args.m_Flow.Tok.m_Val && !args.m_Flow.Col.m_Val)
+    if (!args.m_Flow.Tok.m_Val && !args.m_Flow.Col.m_Val && !g.m_MyStab.m_Gov)
         return OnError("no change");
 
     args.m_NewAmount = newVal;

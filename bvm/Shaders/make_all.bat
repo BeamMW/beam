@@ -1,5 +1,7 @@
 call make_shader amm/app
 call make_shader amm/contract
+call make_shader asset_man/app
+call make_shader asset_man/contract
 call make_shader bans/app
 call make_shader bans/contract
 call make_shader aphorize/contract
@@ -54,6 +56,7 @@ call make_shader upgradable2/Test/test_v1
 call make_shader upgradable3/Test/test_app
 call make_shader upgradable3/Test/test_v0
 call make_shader upgradable3/Test/test_v1
+call make_shader upgradable3/Test/test_v0_migrate
 call make_shader vault/app
 call make_shader vault/contract
 call make_shader vault_anon/app

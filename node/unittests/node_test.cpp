@@ -2307,13 +2307,13 @@ namespace beam
 				if (m_Assets.m_hCreated)
 					return false;
 
-				const Amount nFee = 330;
-				Amount nLock = Rules::get().CA.DepositForList;
-				if (val < nLock + nFee)
-					return false;
-
 				const Block::SystemState::Full& s = m_vStates.back();
 				if (s.m_Height + 1 < Rules::get().pForks[2].m_Height)
+					return false;
+
+				const Amount nFee = 330;
+				Amount nLock = Rules::get().get_DepositForCA(s.m_Height + 1);
+				if (val < nLock + nFee)
 					return false;
 
 				val -= nLock + nFee;
@@ -2548,16 +2548,16 @@ namespace beam
 					if (!proc.m_Done)
 						return false; // pending
 
-					if (!proc.m_vInvokeData.empty())
+					if (!proc.m_InvokeData.m_vec.empty())
 					{
 						bvm2::FundsMap fm;
 
 						HeightRange hr;
 						hr.m_Min = s.m_Height + 1;
 
-						for (uint32_t i = 0; i < proc.m_vInvokeData.size(); i++)
+						for (uint32_t i = 0; i < proc.m_InvokeData.m_vec.size(); i++)
 						{
-							const auto& cdata = proc.m_vInvokeData[i];
+							const auto& cdata = proc.m_InvokeData.m_vec[i];
 							fm += cdata.m_Spend;
 							fm.AddSpend(0, cdata.get_FeeMin(hr.m_Min));
 
@@ -2569,9 +2569,9 @@ namespace beam
 						if (valSpend > static_cast<AmountSigned>(val))
 							return false; // not enough funds
 
-						for (uint32_t i = 0; i < proc.m_vInvokeData.size(); i++)
+						for (uint32_t i = 0; i < proc.m_InvokeData.m_vec.size(); i++)
 						{
-							const auto& x = proc.m_vInvokeData[i];
+							const auto& x = proc.m_InvokeData.m_vec[i];
 							x.Generate(*msg.m_Transaction, *m_Wallet.m_pKdf, hr, x.get_FeeMin(hr.m_Min));
 						}
 
@@ -3635,9 +3635,9 @@ namespace beam
 
 				bvm2::FundsMap fm;
 
-				for (uint32_t i = 0; i < m_vInvokeData.size(); i++)
+				for (uint32_t i = 0; i < m_InvokeData.m_vec.size(); i++)
 				{
-					const auto& cdata = m_vInvokeData[i];
+					const auto& cdata = m_InvokeData.m_vec[i];
 
 					Amount fee;
 					if (cdata.IsAdvanced())
@@ -3704,7 +3704,7 @@ namespace beam
 			void BuildAndSend(proto::FlyClient::INetwork& net)
 			{
 				RunSync(1);
-				verify_test(!m_vInvokeData.empty());
+				verify_test(!m_InvokeData.m_vec.empty());
 
 				proto::FlyClient::RequestTransaction::Ptr pReq(new proto::FlyClient::RequestTransaction);
 				pReq->m_Msg.m_Transaction = BuildTx();
@@ -3880,7 +3880,7 @@ void TestAll()
 	beam::Rules::get().pForks[2].m_Height = 17;
 	beam::Rules::get().pForks[3].m_Height = 17;
 	beam::Rules::get().pForks[4].m_Height = 17;
-	beam::Rules::get().CA.DepositForList = beam::Rules::Coin * 16;
+	beam::Rules::get().CA.DepositForList2 = beam::Rules::Coin * 16;
 	beam::Rules::get().CA.LockPeriod = 2;
 	beam::Rules::get().Shielded.m_ProofMax = { 4, 6 }; // 4K
 	beam::Rules::get().Shielded.m_ProofMin = { 4, 5 }; // 1K

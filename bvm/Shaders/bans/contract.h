@@ -1,8 +1,12 @@
 #pragma once
+#include "../upgradable3/contract.h"
+#include "../oracle2/contract.h"
 
 namespace NameService
 {
-    static const ShaderID s_SID   = { 0xe6,0x5c,0xc3,0x5c,0x7c,0xbf,0x10,0x5b,0xa2,0x8d,0x38,0x3d,0x26,0x30,0x8e,0x0b,0xcf,0x0d,0xab,0xf2,0x04,0x28,0xe6,0x60,0x25,0x12,0xa0,0x44,0x37,0x81,0x34,0xbe };
+    static const ShaderID s_pSID[] = {
+        { 0x96,0x87,0x6e,0x38,0x58,0x53,0x96,0xe8,0xba,0x72,0x5c,0x42,0x2f,0x29,0x13,0x0b,0xfa,0x0b,0x83,0x4c,0x64,0xa8,0x39,0xac,0x2c,0xa1,0xc0,0xa2,0x6d,0xdb,0x4b,0xae },
+    };
 
 #pragma pack (push, 1)
 
@@ -16,6 +20,8 @@ namespace NameService
     {
         ContractID m_cidDaoVault;
         ContractID m_cidVault;
+        ContractID m_cidOracle;
+        Height m_h0;
     };
 
     struct Price
@@ -63,16 +69,21 @@ namespace NameService
             return m_hExpire + s_PeriodHold <= h;
         }
 
-        static const Amount s_Price3 = g_Beam2Groth * 640;
-        static const Amount s_Price4 = g_Beam2Groth * 16;
-        static const Amount s_Price5 = g_Beam2Groth * 5;
+        static const Amount s_PriceTok3 = g_Beam2Groth * 320;
+        static const Amount s_PriceTok4 = g_Beam2Groth * 120;
+        static const Amount s_PriceTok5 = g_Beam2Groth * 10;
 
-        static Amount get_Price(uint32_t nNameLen)
+        static Amount get_PriceTok(uint32_t nNameLen)
         {
             return
-                (nNameLen <= 3) ? s_Price3 :
-                (nNameLen <= 4) ? s_Price4 :
-                s_Price5;
+                (nNameLen <= 3) ? s_PriceTok3 :
+                (nNameLen <= 4) ? s_PriceTok4 :
+                s_PriceTok5;
+        }
+
+        static Amount get_PriceBeams(Amount priceTok, const Oracle2::ValueType& rate)
+        {
+            return MultiPrecision::Float(priceTok) / rate;
         }
 
         static const Height s_PeriodValidity = 1440 * 365;
@@ -87,17 +98,8 @@ namespace NameService
         struct Create
         {
             static const uint32_t s_iMethod = 0;
-            Settings m_Settings;
-        };
-
-        struct Register
-        {
-            static const uint32_t s_iMethod = 2;
-
-            PubKey m_pkOwner;
-            uint8_t m_Periods;
-            uint8_t m_NameLen;
-            // followed by name
+			Upgradable3::Settings m_Upgradable;
+			Settings m_Settings;
         };
 
         struct SetOwner
@@ -129,6 +131,16 @@ namespace NameService
         {
             static const uint32_t s_iMethod = 6;
             PubKey m_pkNewOwner;
+            uint8_t m_NameLen;
+            // followed by name
+        };
+
+        struct Register
+        {
+            static const uint32_t s_iMethod = 7;
+
+            PubKey m_pkOwner;
+            uint8_t m_Periods;
             uint8_t m_NameLen;
             // followed by name
         };

@@ -100,6 +100,7 @@ namespace beam {
 #define TblAssets_Owner			"Owner"
 #define TblAssets_Value			"Value"
 #define TblAssets_Data			"MetaData"
+#define TblAssets_Deposit		"Deposit"
 #define TblAssets_LockHeight	"LockHeight"
 
 #define TblAssetEvts			"AssetsEvents"
@@ -127,6 +128,7 @@ namespace beam {
 #define TblCache_LastHit		"Hit"
 
 #define TblKrnInfo				"KrnInfo"
+#define TblKrnInfo_Pos			"Pos"
 #define TblKrnInfo_Key			"Key"
 #define TblKrnInfo_Data			"Data"
 
@@ -365,7 +367,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 30;
+	const uint64_t nVersionTop = 32;
 
 
 	Transaction t(*this);
@@ -431,12 +433,21 @@ void NodeDB::Open(const char* szPath)
 			// no break;
 
 		case 29: // Block interpretation nKrnIdx fixed to match KrnWalker's
-			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
-			CreateTables29();
+			// no break;
+
+		case 30: // Block interpretation nKrnIdx fixed to match KrnWalker's
+			ExecQuick("DROP TABLE IF EXISTS " TblKrnInfo);
+			CreateTables30();
 
 			// no break;
 
+		case 31:
+			ExecQuick("DROP TABLE IF EXISTS " TblAssets);
+			CreateTables31();
+
+			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
 			ParamIntSet(ParamID::DbVer, nVersionTop);
+			// no break;
 
 		case nVersionTop:
 			break;
@@ -560,7 +571,8 @@ void NodeDB::Create()
 	CreateTables23();
 	CreateTables27();
 	CreateTables28();
-	CreateTables29();
+	CreateTables30();
+	CreateTables31();
 }
 
 void NodeDB::CreateTables20()
@@ -572,15 +584,6 @@ void NodeDB::CreateTables20()
 	ExecQuick("CREATE TABLE [" TblUnique "] ("
 		"[" TblUnique_Key			"] BLOB NOT NULL PRIMARY KEY,"
 		"[" TblUnique_Value			"] BLOB) WITHOUT ROWID");
-
-	ExecQuick("CREATE TABLE [" TblAssets "] ("
-		"[" TblAssets_ID			"] INTEGER NOT NULL PRIMARY KEY,"
-		"[" TblAssets_Owner			"] BLOB,"
-		"[" TblAssets_Data			"] BLOB,"
-		"[" TblAssets_LockHeight	"] INTEGER,"
-		"[" TblAssets_Value			"] BLOB)");
-
-	ExecQuick("CREATE INDEX [Idx" TblAssets "Own] ON [" TblAssets "] ([" TblAssets_Owner "])");
 }
 
 void NodeDB::CreateTables21()
@@ -631,11 +634,28 @@ void NodeDB::CreateTables28()
 	ExecQuick("CREATE INDEX [Idx" TblCache "_Hit" "] ON [" TblCache "] ([" TblCache_LastHit "]);");
 }
 
-void NodeDB::CreateTables29()
+void NodeDB::CreateTables30()
 {
 	ExecQuick("CREATE TABLE [" TblKrnInfo "] ("
-		"[" TblKrnInfo_Key		"] INTEGER NOT NULL PRIMARY KEY,"
-		"[" TblKrnInfo_Data		"] BLOB NOT NULL)");
+		"[" TblKrnInfo_Pos		"] BLOB NOT NULL PRIMARY KEY,"
+		"[" TblKrnInfo_Key		"] BLOB NOT NULL,"
+		"[" TblKrnInfo_Data		"] BLOB NOT NULL"
+		") WITHOUT ROWID");
+
+	ExecQuick("CREATE INDEX [Idx" TblKrnInfo "_Key" "] ON [" TblKrnInfo "] ([" TblKrnInfo_Key "],[" TblKrnInfo_Pos "]);");
+}
+
+void NodeDB::CreateTables31()
+{
+	ExecQuick("CREATE TABLE [" TblAssets "] ("
+		"[" TblAssets_ID			"] INTEGER NOT NULL PRIMARY KEY,"
+		"[" TblAssets_Owner			"] BLOB,"
+		"[" TblAssets_Data			"] BLOB,"
+		"[" TblAssets_Deposit		"] INTEGER,"
+		"[" TblAssets_LockHeight	"] INTEGER,"
+		"[" TblAssets_Value			"] BLOB)");
+
+	ExecQuick("CREATE INDEX [Idx" TblAssets "Own] ON [" TblAssets "] ([" TblAssets_Owner "])");
 }
 
 void NodeDB::Vacuum()
@@ -2706,15 +2726,16 @@ void NodeDB::AssetDeleteRaw(Asset::ID id)
 
 void NodeDB::AssetInsertRaw(Asset::ID id, const Asset::Full* pAi)
 {
-	Recordset rs(*this, Query::AssetAdd, "INSERT INTO " TblAssets "(" TblAssets_ID "," TblAssets_Owner "," TblAssets_Data "," TblAssets_Value "," TblAssets_LockHeight ") VALUES(?,?,?,?,?)");
+	Recordset rs(*this, Query::AssetAdd, "INSERT INTO " TblAssets "(" TblAssets_ID "," TblAssets_Owner "," TblAssets_Data "," TblAssets_Deposit "," TblAssets_Value "," TblAssets_LockHeight ") VALUES(?,?,?,?,?,?)");
 	rs.put(0, id);
 
 	if (pAi)
 	{
 		rs.put(1, pAi->m_Owner);
 		rs.put(2, Blob(pAi->m_Metadata.m_Value));
-		rs.put_As(3, pAi->m_Value);
-		rs.put(4, pAi->m_LockHeight);
+		rs.put(3, pAi->m_Deposit);
+		rs.put_As(4, pAi->m_Value);
+		rs.put(5, pAi->m_LockHeight);
 	}
 
 	rs.Step();
@@ -2801,7 +2822,7 @@ void NodeDB::AssetsDelAll()
 
 bool NodeDB::AssetGetSafe(Asset::Full& ai)
 {
-	Recordset rs(*this, Query::AssetGet, "SELECT " TblAssets_Value "," TblAssets_Owner "," TblAssets_Data "," TblAssets_LockHeight " FROM " TblAssets " WHERE " TblAssets_ID "=?");
+	Recordset rs(*this, Query::AssetGet, "SELECT " TblAssets_Value "," TblAssets_Owner "," TblAssets_Data "," TblAssets_Deposit "," TblAssets_LockHeight " FROM " TblAssets " WHERE " TblAssets_ID "=?");
 	rs.put(0, ai.m_ID);
 	if (!rs.Step())
 		return false;
@@ -2809,7 +2830,8 @@ bool NodeDB::AssetGetSafe(Asset::Full& ai)
 	rs.get_As(0, ai.m_Value);
 	rs.get_As(1, ai.m_Owner);
 	rs.get(2, ai.m_Metadata.m_Value);
-	rs.get(3, ai.m_LockHeight);
+	rs.get(3, ai.m_Deposit);
+	rs.get(4, ai.m_LockHeight);
 
 	ai.m_Metadata.UpdateHash();
 
@@ -3059,20 +3081,26 @@ bool NodeDB::WalkerContractData::MoveNext()
 	return true;
 }
 
-void put_ContractLogPos(NodeDB::Recordset& rs, int iCol, const HeightPos& pos, NodeDB::ContractLog::PosPacked& buf)
+void NodeDB::HeightPosPacked::put(NodeDB::Recordset& rs, int iCol, const HeightPos& pos)
 {
-	buf.m_Height = pos.m_Height;
-	buf.m_Idx = pos.m_Pos;
+	m_Height = pos.m_Height;
+	m_Idx = pos.m_Pos;
+	rs.put(iCol, Blob(this, sizeof(*this)));
+}
 
-	rs.put(iCol, Blob(&buf, sizeof(buf)));
+void NodeDB::HeightPosPacked::get(NodeDB::Recordset& rs, int iCol, HeightPos& pos)
+{
+	const auto& x = rs.get_As<HeightPosPacked>(iCol);
+	x.m_Height.Export(pos.m_Height);
+	x.m_Idx.Export(pos.m_Pos);
 }
 
 void NodeDB::ContractLogInsert(const ContractLog::Entry& x)
 {
 	Recordset rs(*this, Query::ContractLogInsert, "INSERT INTO " TblContractLogs " (" TblContractLogs_Pos "," TblContractLogs_Key "," TblContractLogs_Data ") VALUES(?,?,?)");
 
-	ContractLog::PosPacked buf;
-	put_ContractLogPos(rs, 0, x.m_Pos, buf);
+	HeightPosPacked buf;
+	buf.put(rs, 0, x.m_Pos);
 
 	rs.put(1, x.m_Key);
 	rs.put(2, x.m_Val);
@@ -3085,9 +3113,9 @@ void NodeDB::ContractLogDel(const HeightPos& posMin, const HeightPos& posMax)
 {
 	Recordset rs(*this, Query::ContractLogDel, "DELETE FROM " TblContractLogs " WHERE " TblContractLogs_Pos " BETWEEN ? AND ?");
 
-	NodeDB::ContractLog::PosPacked bufMin, bufMax;
-	put_ContractLogPos(rs, 0, posMin, bufMin);
-	put_ContractLogPos(rs, 1, posMax, bufMax);
+	HeightPosPacked bufMin, bufMax;
+	bufMin.put(rs, 0, posMin);
+	bufMax.put(rs, 1, posMax);
 
 	rs.Step();
 }
@@ -3096,8 +3124,8 @@ void NodeDB::ContractLogEnum(ContractLog::Walker& wlk, const HeightPos& posMin, 
 {
 	wlk.m_Rs.Reset(*this, Query::ContractLogEnum, "SELECT * FROM " TblContractLogs " WHERE " TblContractLogs_Pos " BETWEEN ? AND ? ORDER BY " TblContractLogs_Pos);
 
-	put_ContractLogPos(wlk.m_Rs, 0, posMin, wlk.m_bufMin);
-	put_ContractLogPos(wlk.m_Rs, 1, posMax, wlk.m_bufMax);
+	wlk.m_bufMin.put(wlk.m_Rs, 0, posMin);
+	wlk.m_bufMax.put(wlk.m_Rs, 1, posMax);
 }
 
 void NodeDB::ContractLogEnum(ContractLog::Walker& wlk, const Blob& keyMin, const Blob& keyMax, const HeightPos& posMin, const HeightPos& posMax)
@@ -3107,8 +3135,8 @@ void NodeDB::ContractLogEnum(ContractLog::Walker& wlk, const Blob& keyMin, const
 	wlk.m_Rs.put(0, keyMin);
 	wlk.m_Rs.put(1, keyMax);
 
-	put_ContractLogPos(wlk.m_Rs, 2, posMin, wlk.m_bufMin);
-	put_ContractLogPos(wlk.m_Rs, 3, posMax, wlk.m_bufMax);
+	wlk.m_bufMin.put(wlk.m_Rs, 2, posMin);
+	wlk.m_bufMax.put(wlk.m_Rs, 3, posMax);
 }
 
 bool NodeDB::ContractLog::Walker::MoveNext()
@@ -3116,46 +3144,68 @@ bool NodeDB::ContractLog::Walker::MoveNext()
 	if (!m_Rs.Step())
 		return false;
 
-	const auto& pos = m_Rs.get_As<PosPacked>(0);
-	pos.m_Height.Export(m_Entry.m_Pos.m_Height);
-	pos.m_Idx.Export(m_Entry.m_Pos.m_Pos);
-
+	HeightPosPacked::get(m_Rs, 0, m_Entry.m_Pos);
 	m_Rs.get(1, m_Entry.m_Key);
 	m_Rs.get(2, m_Entry.m_Val);
 	return true;
 }
 
-void NodeDB::KrnInfoInsert(Height h, const Blob& b)
+void NodeDB::KrnInfoInsert(const KrnInfo::Entry& x)
 {
-	Recordset rs(*this, Query::KrnInfoInsert, "INSERT INTO " TblKrnInfo " (" TblKrnInfo_Key "," TblKrnInfo_Data ") VALUES(?,?)");
-	rs.put(0, h);
-	rs.put(1, b);
+	Recordset rs(*this, Query::KrnInfoInsert, "INSERT INTO " TblKrnInfo " (" TblKrnInfo_Pos "," TblKrnInfo_Key "," TblKrnInfo_Data ") VALUES(?,?,?)");
+
+	HeightPosPacked buf;
+	buf.put(rs, 0, x.m_Pos);
+
+	rs.put(1, x.m_Cid);
+	rs.put(2, x.m_Val);
+
 	rs.Step();
-}
-
-bool NodeDB::KrnInfoGet(Height h, ByteBuffer& buf)
-{
-	Recordset rs(*this, Query::KrnInfoGet, "SELECT " TblKrnInfo_Data " FROM " TblKrnInfo " WHERE " TblKrnInfo_Key "=?");
-	rs.put(0, h);
-	if (!rs.Step())
-	{
-		buf.clear();
-		return false;
-	}
-
-	rs.get(0, buf);
-	return true;
+	TestChanged1Row();
 }
 
 void NodeDB::KrnInfoDel(const HeightRange& hr)
 {
-	if (!hr.IsEmpty())
-	{
-		Recordset rs(*this, Query::KrnInfoDel, "DELETE FROM " TblKrnInfo " WHERE " TblKrnInfo_Key ">=? AND " TblKrnInfo_Key "<=?");
-		rs.put(0, hr.m_Min);
-		rs.put(1, hr.m_Max);
-		rs.Step();
-	}
+	Recordset rs(*this, Query::KrnInfoDel, "DELETE FROM " TblKrnInfo " WHERE " TblKrnInfo_Pos " BETWEEN ? AND ?");
+
+	HeightPos posMin(hr.m_Min), posMax(hr.m_Max, static_cast<uint32_t>(-1));
+	HeightPosPacked bufMin, bufMax;
+	bufMin.put(rs, 0, posMin);
+	bufMax.put(rs, 1, posMax);
+
+	rs.Step();
+}
+
+void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, Height h)
+{
+	KrnInfoEnum(wlk, HeightPos(h), HeightPos(h, static_cast<uint32_t>(-1)));
+}
+
+void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, const HeightPos& posMin, const HeightPos& posMax)
+{
+	wlk.m_Rs.Reset(*this, Query::KrnInfoEnumH, "SELECT * FROM " TblKrnInfo " WHERE " TblKrnInfo_Pos " BETWEEN ? AND ? ORDER BY " TblKrnInfo_Pos);
+
+	wlk.m_bufMin.put(wlk.m_Rs, 0, posMin);
+	wlk.m_bufMax.put(wlk.m_Rs, 1, posMax);
+}
+
+void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, const KrnInfo::Cid& cid, Height hMax)
+{
+	wlk.m_Rs.Reset(*this, Query::KrnInfoEnumCid, "SELECT * FROM " TblKrnInfo
+		" WHERE (" TblKrnInfo_Key "=?) AND (" TblKrnInfo_Pos "<=?) ORDER BY " TblContractLogs_Pos " DESC");
+	wlk.m_Rs.put(0, cid);
+	wlk.m_bufMax.put(wlk.m_Rs, 1, HeightPos(hMax, static_cast<uint32_t>(-1)));
+}
+
+bool NodeDB::KrnInfo::Walker::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+
+	HeightPosPacked::get(m_Rs, 0, m_Entry.m_Pos);
+	m_Rs.get_As(1, m_Entry.m_Cid);
+	m_Rs.get(2, m_Entry.m_Val);
+	return true;
 }
 
 } // namespace beam

@@ -65,7 +65,8 @@ namespace beam::bvm2 {
 		fcm.ToCommitment(ptFunds);
 	}
 
-	void ContractInvokeEntry::GenerateAdv(Key::IKdf* pKdf, ECC::Scalar* pE, const ECC::Point& ptFullBlind, const ECC::Point& ptFullNonce, const ECC::Hash::Value* phvNonce, const ECC::Scalar* pForeignSig, const ECC::Point* pPks, uint32_t nPks)
+	void ContractInvokeEntry::GenerateAdv(Key::IKdf* pKdf, ECC::Scalar* pE, const ECC::Point& ptFullBlind, const ECC::Point& ptFullNonce, const ECC::Hash::Value* phvNonce, const ECC::Scalar* pForeignSig,
+		const ECC::Point* pPks, uint32_t nPks)
 	{
 		std::unique_ptr<TxKernelContractControl> pKrn;
 		ECC::Point::Native ptFunds;
@@ -73,10 +74,12 @@ namespace beam::bvm2 {
 
 		auto& krn = *pKrn;
 
-		ECC::Point::Native pt;
-		pt.Import(ptFullBlind);
-		pt += ptFunds;
-		krn.m_Commitment = pt;
+		ECC::Point::Native ptBlind;
+		ptBlind.Import(ptFullBlind);
+		{
+			ECC::Point::Native pt = ptBlind + ptFunds;
+			krn.m_Commitment = pt;
+		}
 
 		krn.UpdateMsg();
 
@@ -96,6 +99,8 @@ namespace beam::bvm2 {
 		m_Adv.m_Sig.Expose(oracle, hv);
 
 		ECC::Scalar::Native skSig;
+		ECC::Point::Native ptSigImage;
+		bool bNeedSigImage = IsAdvanced() && pKdf && !pE;
 
 		for (uint32_t i = 0; ; i++)
 		{
@@ -105,11 +110,28 @@ namespace beam::bvm2 {
 
 			if (pE)
 				pE[i] = skSig;
+
+			if (bNeedSigImage)
+			{
+				ECC::Point::Native pt;
+				pt.Import(pPks[i]);
+				ptSigImage += pt * skSig;
+			}
 		}
 
 		if (pKdf)
 		{
 			assert(phvNonce && pForeignSig);
+
+			if (bNeedSigImage)
+			{
+				ptSigImage += ptBlind * skSig;
+
+				ptBlind.Import(ptFullNonce);
+				ptSigImage += ptBlind;
+
+				ptSigImage.Export(m_Adv.m_SigImage);
+			}
 
 			ECC::Scalar::Native skNonce, sk;
 
@@ -124,6 +146,12 @@ namespace beam::bvm2 {
 
 			skSig = -skSig; // our formula is sig.ptNonce + Pk[i]*e[i] + G*sig.k == 0
 			m_Adv.m_Sig.m_k = skSig;
+
+			if (IsAdvanced())
+			{
+				m_Flags |= Flags::HasCommitment;
+				m_Adv.m_Commitment = krn.m_Commitment;
+			}
 		}
 
 	}
@@ -141,10 +169,15 @@ namespace beam::bvm2 {
 		{
 			kdf.DeriveKey(sk, m_Adv.m_hvSk);
 
-			ECC::Point::Native pt = ECC::Context::get().G * sk;
-			pt += ptFunds;
-			krn.m_Commitment = pt;
-
+			if (Flags::HasCommitment & m_Flags)
+				krn.m_Commitment = m_Adv.m_Commitment;
+			else
+			{
+				// legacy
+				ECC::Point::Native pt = ECC::Context::get().G * sk;
+				pt += ptFunds;
+				krn.m_Commitment = pt;
+			}
 			krn.m_Signature = m_Adv.m_Sig; // signed already
 
 			krn.UpdateID();
@@ -252,34 +285,53 @@ namespace beam::bvm2 {
 			AddSpend(it->first, it->second);
 	}
 
-	std::string getFullComment(const ContractInvokeData& data)
+	bool ContractInvokeData::HasMultiSig() const
+	{
+		for (const auto& cdata : m_vec)
+			if (cdata.IsMultisigned())
+				return true;
+		return false;
+	}
+
+	std::string ContractInvokeData::get_FullComment() const
     {
         std::string comment;
-        for (size_t i = 0; i < data.size(); i++)
+        for (size_t i = 0; i < m_vec.size(); i++)
         {
-            if (i) comment += "; ";
-            comment += data[i].m_sComment;
+            if (i)
+				comment += "; ";
+
+            comment += m_vec[i].m_sComment;
         }
         return comment;
     }
 
-    beam::Amount getFullFee(const ContractInvokeData& data, Height h)
+    beam::Amount ContractInvokeData::get_FullFee(Height h) const
     {
         Amount fee = 0;
-        for (const auto& cdata: data)
-        {
-            fee += cdata.get_FeeMin(h);
-        }
+		for (const auto& cdata : m_vec)
+		{
+			fee += cdata.IsAdvanced() ?
+				cdata.m_Adv.m_Fee : // can't change!
+				cdata.get_FeeMin(h);
+		}
         return fee;
     }
 
-    bvm2::FundsMap getFullSpend(const ContractInvokeData& data)
+    bvm2::FundsMap ContractInvokeData::get_FullSpend() const
     {
-        bvm2::FundsMap fm;
-        for (const auto& cdata: data)
-        {
+        bvm2::FundsMap fm = m_SpendExtra;
+        for (const auto& cdata: m_vec)
             fm += cdata.m_Spend;
-        }
+
         return fm;
     }
+
+	void ContractInvokeData::Reset()
+	{
+		m_vec.clear();
+		m_vPeers.clear();
+		m_SpendExtra.clear();
+		m_IsSender = true;
+	}
 }

@@ -14,8 +14,9 @@
 	macro(Vault, Vault::s_SID) \
 	macro(Faucet, Faucet::s_SID) \
 	macro(DaoCore, DaoCore::s_SID) \
-	macro(Gallery_0, Gallery::s_SID_0) \
-	macro(Gallery, Gallery::s_SID_1)
+	macro(Gallery_0, Gallery::s_pSID[0]) \
+	macro(Gallery_1, Gallery::s_pSID[1]) \
+	macro(Gallery_2, Gallery::s_pSID[2])
 
 
 struct ParserContext
@@ -40,6 +41,22 @@ struct ParserContext
 	{
 		if (m_Name)
 			Env::DocAddText("name", sz);
+	}
+
+	void OnStdMethod()
+	{
+		if (m_Method)
+		{
+			switch (m_iMethod)
+			{
+			case 0:
+				OnMethod("Create");
+				break;
+
+			case 1:
+				OnMethod("Destroy");
+			}
+		}
 	}
 
 	void OnMethod(const char* sz)
@@ -68,22 +85,10 @@ struct ParserContext
 
 bool ParserContext::Parse()
 {
-	if (m_Method)
-	{
-		switch (m_iMethod)
-		{
-		case 0:
-			OnMethod("Create");
-			break;
-
-		case 1:
-			OnMethod("Destroy");
-		}
-	}
-
 #define THE_MACRO(name, sid) \
 	if (_POD_(m_Sid) == sid) \
 	{ \
+		OnStdMethod(); \
 		On_##name(); \
 		return true; \
 	}
@@ -97,55 +102,55 @@ bool ParserContext::Parse()
 void ParserContext::On_Upgradable()
 {
 	// Get state, discover which cid actually operates the contract
-	Upgradable::State us;
-
-	if (m_Method && !m_iMethod)
+	if (m_Name || m_State)
 	{
-		// c'tor, the state doesn't exist yet. Initial cid should be in the args
-		if (m_nArg < sizeof(Upgradable::Create))
+		Upgradable::State us;
+
+		if (m_Method && !m_iMethod)
+		{
+			// c'tor, the state doesn't exist yet. Initial cid should be in the args
+			if (m_nArg < sizeof(Upgradable::Create))
+				return;
+
+			const auto& arg = *(const Upgradable::Create*)m_pArg;
+
+			_POD_(Cast::Down<Upgradable::Current>(us)) = arg;
+			_POD_(Cast::Down<Upgradable::Next>(us)).SetZero();
+		}
+		else
+		{
+			Env::Key_T<uint8_t> uk;
+			_POD_(uk.m_Prefix.m_Cid) = m_Cid;
+			uk.m_KeyInContract = Upgradable::State::s_Key;
+
+			if (!Env::VarReader::Read_T(uk, us))
+				return;
+		}
+
+		ShaderID sid;
+		if (!Utils::get_ShaderID_FromContract(sid, us.m_Cid))
 			return;
 
-		const auto& arg = *(const Upgradable::Create*) m_pArg;
+		ParserContext pc2(sid, m_Cid);
+		pc2.m_Name = m_Name;
+		pc2.m_State = m_State;
 
-		_POD_(Cast::Down<Upgradable::Current>(us)) = arg;
-		_POD_(Cast::Down<Upgradable::Next>(us)).SetZero();
-	}
-	else
-	{
-		Env::Key_T<uint8_t> uk;
-		_POD_(uk.m_Prefix.m_Cid) = m_Cid;
-		uk.m_KeyInContract = Upgradable::State::s_Key;
+		bool bParsed = pc2.Parse();
+		if (m_Name && !bParsed)
+		{
+			OnName("upgradable");
+			OnUpgradableSubtype(sid);
+		}
 
-		if (!Env::VarReader::Read_T(uk, us))
-			return;
-	}
-
-	ShaderID sid;
-	if (!Utils::get_ShaderID_FromContract(sid, us.m_Cid))
-		return;
-
-	ParserContext pc2(sid, m_Cid);
-	pc2.m_Name = m_Name;
-	pc2.m_Method = m_Method;
-	pc2.m_State = m_State;
-	pc2.m_iMethod = m_iMethod;
-	pc2.m_pArg = m_pArg;
-	pc2.m_nArg = m_nArg;
-
-	bool bIsUpgrade = m_Method && (Upgradable::ScheduleUpgrade::s_iMethod == m_iMethod);
-
-	if (bIsUpgrade)
-		pc2.m_Method = false;
-
-	bool bParsed = pc2.Parse();
-
-	if (m_Name && !bParsed)
-	{
-		OnName("upgradable");
-		OnUpgradableSubtype(sid);
+		if (m_State)
+		{
+			Env::DocGroup gr("upgradable");
+			Env::DocAddBlob_T("owner", us.m_Pk);
+			WriteUpgradeParams(us);
+		}
 	}
 
-	if (bIsUpgrade)
+	if (m_Method && (Upgradable::ScheduleUpgrade::s_iMethod == m_iMethod))
 	{
 		if (m_nArg < sizeof(Upgradable::ScheduleUpgrade))
 			return; // don't care of partial result
@@ -156,71 +161,66 @@ void ParserContext::On_Upgradable()
 		WriteUpgradeParams(*(const Upgradable::ScheduleUpgrade*) m_pArg);
 	}
 
-	if (m_State)
-	{
-		Env::DocGroup gr("upgradable");
-		Env::DocAddBlob_T("owner", us.m_Pk);
-		WriteUpgradeParams(us);
-	}
 }
 
 void ParserContext::On_Upgradable2()
 {
 	// Get state, discover which cid actually operates the contract
-	Upgradable2::State us;
-	Upgradable2::Settings stg;
 
-	if (m_Method && !m_iMethod)
+	if (m_Name || m_State)
 	{
-		// c'tor, the state doesn't exist yet. Initial cid should be in the args
-		if (m_nArg < sizeof(Upgradable2::Create))
+		Upgradable2::State us;
+		Upgradable2::Settings stg;
+		if (m_Method && !m_iMethod)
+		{
+			// c'tor, the state doesn't exist yet. Initial cid should be in the args
+			if (m_nArg < sizeof(Upgradable2::Create))
+				return;
+
+			const auto& arg = *(const Upgradable2::Create*)m_pArg;
+
+			_POD_(us.m_Active) = arg.m_Active;
+			_POD_(us.m_Next).SetZero();
+			_POD_(stg) = arg.m_Settings;
+		}
+		else
+		{
+			Env::Key_T<uint16_t> uk;
+			_POD_(uk.m_Prefix.m_Cid) = m_Cid;
+			uk.m_KeyInContract = Upgradable2::State::s_Key;
+
+			if (!Env::VarReader::Read_T(uk, us))
+				return;
+
+			uk.m_KeyInContract = Upgradable2::Settings::s_Key;
+			if (!Env::VarReader::Read_T(uk, stg))
+				return;
+		}
+
+		ShaderID sid;
+		if (!Utils::get_ShaderID_FromContract(sid, us.m_Active.m_Cid))
 			return;
 
-		const auto& arg = *(const Upgradable2::Create*) m_pArg;
+		ParserContext pc2(sid, m_Cid);
+		pc2.m_Name = m_Name;
+		pc2.m_State = m_State;
 
-		_POD_(us.m_Active) = arg.m_Active;
-		_POD_(us.m_Next).SetZero();
-		_POD_(stg) = arg.m_Settings;
-	}
-	else
-	{
-		Env::Key_T<uint16_t> uk;
-		_POD_(uk.m_Prefix.m_Cid) = m_Cid;
-		uk.m_KeyInContract = Upgradable2::State::s_Key;
+		bool bParsed = pc2.Parse();
+		if (m_Name && !bParsed)
+		{
+			OnName("upgradable2");
+			OnUpgradableSubtype(sid);
+		}
 
-		if (!Env::VarReader::Read_T(uk, us))
-			return;
-
-		uk.m_KeyInContract = Upgradable2::Settings::s_Key;
-		if (!Env::VarReader::Read_T(uk, stg))
-			return;
-	}
-
-	ShaderID sid;
-	if (!Utils::get_ShaderID_FromContract(sid, us.m_Active.m_Cid))
-		return;
-
-	ParserContext pc2(sid, m_Cid);
-	pc2.m_Name = m_Name;
-	pc2.m_Method = m_Method;
-	pc2.m_State = m_State;
-	pc2.m_iMethod = m_iMethod;
-	pc2.m_pArg = m_pArg;
-	pc2.m_nArg = m_nArg;
-
-	bool bIsCtl = m_Method && (Upgradable2::Control::s_iMethod == m_iMethod);
-	if (bIsCtl)
-		pc2.m_Method = false;
-
-	bool bParsed = pc2.Parse();
-
-	if (m_Name && !bParsed)
-	{
-		OnName("upgradable2");
-		OnUpgradableSubtype(sid);
+		if (m_State)
+		{
+			Env::DocGroup gr("upgradable2");
+			Env::DocAddNum("Num approvers ", stg.m_MinApprovers);
+			WriteUpgradeParams(us.m_Next);
+		}
 	}
 
-	if (bIsCtl)
+	if (m_Method && (Upgradable2::Control::s_iMethod == m_iMethod))
 	{
 		if (m_nArg < sizeof(Upgradable2::Control::Base))
 			return; // don't care of partial result
@@ -275,13 +275,6 @@ void ParserContext::On_Upgradable2()
 			}
 			break;
 		}
-	}
-
-	if (m_State)
-	{
-		Env::DocGroup gr("upgradable2");
-		Env::DocAddNum("Num approvers ", stg.m_MinApprovers);
-		WriteUpgradeParams(us.m_Next);
 	}
 }
 
@@ -428,10 +421,15 @@ void DocAddTextLen(const char* szID, const void* szValue, uint32_t nLen)
 
 void ParserContext::On_Gallery_0()
 {
-	On_Gallery(); // same, we only added methods
+	On_Gallery_2(); // same, we only added methods
 }
 
-void ParserContext::On_Gallery()
+void ParserContext::On_Gallery_1()
+{
+	On_Gallery_2();
+}
+
+void ParserContext::On_Gallery_2()
 {
 	OnName("Gallery");
 
@@ -572,6 +570,8 @@ void ParserContext::On_Gallery()
 
 BEAM_EXPORT void Method_0(const ShaderID& sid, const ContractID& cid, uint32_t iMethod, const void* pArg, uint32_t nArg)
 {
+	Env::DocGroup gr("");
+
 	ParserContext pc(sid, cid);
 	pc.m_Method = true;
 	pc.m_iMethod = iMethod;
@@ -583,12 +583,16 @@ BEAM_EXPORT void Method_0(const ShaderID& sid, const ContractID& cid, uint32_t i
 
 BEAM_EXPORT void Method_1(const ShaderID& sid, const ContractID& cid)
 {
+	Env::DocGroup gr("");
+
 	ParserContext pc(sid, cid);
 	pc.Parse();
 }
 
 BEAM_EXPORT void Method_2(const ShaderID& sid, const ContractID& cid)
 {
+	Env::DocGroup gr("");
+
 	ParserContext pc(sid, cid);
 	pc.m_Name = false;
 	pc.m_State = true;

@@ -126,12 +126,12 @@ namespace
             }
         }
 
-        if (man.m_Err || man.m_vInvokeData.empty())
+        if (man.m_Err || man.m_InvokeData.empty())
             return false;
 
         wallet->StartTransaction(
             CreateTransactionParameters(TxType::Contract)
-            .SetParameter(TxParameterID::ContractDataPacked, man.m_vInvokeData)
+            .SetParameter(TxParameterID::ContractDataPacked, man.m_InvokeData)
         );
         return true;
     }
