@@ -36,10 +36,9 @@ if(EMSCRIPTEN)
     set_target_properties(${TARGET_NAME}
         PROPERTIES COMPILE_FLAGS "-s PROXY_TO_PTHREAD=0 \
                                   -s USE_PTHREADS=1 \
-                                  -s WASM_WORKERS=0 \
                                   -s DISABLE_EXCEPTION_CATCHING=0 \
                                   -s STRICT=0"
-        LINK_FLAGS " \
+        LINK_FLAGS "--js-transform 'python ${CMAKE_CURRENT_SOURCE_DIR}/fix-client.py'\
                    --bind --no-entry -v \
                    -s FORCE_FILESYSTEM=1 \
                    -s WEBSOCKET_URL=wss:// \
@@ -52,7 +51,6 @@ if(EMSCRIPTEN)
                    -s DISABLE_EXCEPTION_CATCHING=0 \
                    -s VERBOSE=1 \
                    -s USE_PTHREADS=1 \
-                   -s WASM_WORKERS=0 \
                    -s WASM=1 \
                    -s ERROR_ON_UNDEFINED_SYMBOLS=1 \
                    -s MODULARIZE=1 \
