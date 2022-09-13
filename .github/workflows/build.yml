@@ -1,6 +1,6 @@
 name: Build
 
-on: [push, workflow_dispatch]
+on: [push]
 
 env:
   BUILD_TYPE: Release
