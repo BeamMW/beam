@@ -868,7 +868,7 @@ private:
 
     }
 
-    void get_ContractState(json& out, const bvm2::ContractID& cid)
+    void get_ContractState(json& out, const bvm2::ContractID& cid, const HeightRange& hr, uint32_t nMaxTxs)
     {
         bool bExists = false;
 
@@ -1006,13 +1006,27 @@ private:
 
             std::vector<NodeProcessor::ContractInvokeExtraInfo> vInfo;
 
+            uint32_t nCount = 0;
+            Height hLast = MaxHeight;
+
             NodeDB::KrnInfo::Walker wlk;
-            for (_nodeBackend.get_DB().KrnInfoEnum(wlk, cid, MaxHeight); wlk.MoveNext(); )
+            for (_nodeBackend.get_DB().KrnInfoEnum(wlk, cid, hr.m_Max); wlk.MoveNext(); nCount++)
             {
+                const auto& pos = wlk.m_Entry.m_Pos;
+
+                if (hLast != pos.m_Height)
+                {
+                    if (pos.m_Height < hr.m_Min)
+                        break;
+                    if (nCount >= nMaxTxs)
+                        break;
+
+                    hLast = pos.m_Height;
+                }
+
                 vInfo.clear();
                 auto* pInfo = &ReadKrnInfo(vInfo, wlk);
 
-                const auto& pos = wlk.m_Entry.m_Pos;
 
                 ExtraInfo::Writer wr2;
                 wr2.m_json["height"] = pos.m_Height;
@@ -1098,13 +1112,13 @@ private:
         return json2Msg(j, out);
     }
     
-    bool get_contract_details(io::SerializedMsg& out, const Blob& id) override
+    bool get_contract_details(io::SerializedMsg& out, const Blob& id, Height hMin, Height hMax, uint32_t nMaxTxs) override
     {
         if (id.n != bvm2::ContractID::nBytes)
             return false;
 
         json j;
-        get_ContractState(j, *reinterpret_cast<const bvm2::ContractID*>(id.p));
+        get_ContractState(j, *reinterpret_cast<const bvm2::ContractID*>(id.p), HeightRange(hMin, hMax), nMaxTxs);
 
         return json2Msg(j, out);
     }
