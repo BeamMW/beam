@@ -242,6 +242,7 @@ private:
 
     static void ProcessMessageOnMainThread(int pThis)
     {
+        AssertMainThread();
         std::unique_ptr<WeakPtr> wp(reinterpret_cast<WeakPtr*>(pThis));
         while (true)
         {
@@ -533,6 +534,7 @@ public:
 
     void StopWallet(val handler = val::null())
     {
+        LOG_DEBUG() << "Stopping wallet...";
         AssertMainThread();
         if (!m_Client)
         {
@@ -856,11 +858,19 @@ public:
 
     static void DeleteWallet(const std::string& dbName)
     {
+        LOG_DEBUG() << "Delete wallet...";
         AssertMainThread();
         EnsureFSMounted();
         try
         {
             fs::remove(dbName);
+            EM_ASM
+            (
+                FS.syncfs(false, function()
+                {
+                    console.log("wallet deleted!");
+                });
+            );
         }
         catch (const std::exception& ex)
         {

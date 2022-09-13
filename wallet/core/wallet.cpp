@@ -166,8 +166,8 @@ namespace beam::wallet
     
     Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
         : m_WalletDB{ walletDB }
-        , m_TxCompletedAction{ move(action) }
-        , m_UpdateCompleted{ move(updateCompleted) }
+        , m_TxCompletedAction{ std::move(action) }
+        , m_UpdateCompleted{ std::move(updateCompleted) }
         , m_LastSyncTotal(0)
         , m_OwnedNodesOnline(0)
     {
@@ -309,7 +309,7 @@ namespace beam::wallet
 
     void Wallet::RegisterTransactionType(TxType type, BaseTransaction::Creator::Ptr creator)
     {
-        m_TxCreators[type] = move(creator);
+        m_TxCreators[type] = std::move(creator);
     }
 
     TxID Wallet::StartTransaction(const TxParameters& parameters)

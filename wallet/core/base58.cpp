@@ -107,6 +107,6 @@ namespace beam::wallet
             }
             indices[i] = static_cast<uint8_t>(distance(alphabet.begin(), it));
         }
-        return Convert(move(indices), 58, 256);
+        return Convert(std::move(indices), 58, 256);
     }
 }

@@ -138,7 +138,7 @@ namespace beam::wallet
             }
         }
 
-        m_Tx.SendTxParametersStrict(move(msg));
+        m_Tx.SendTxParametersStrict(std::move(msg));
     }
 
     bool SimpleTransaction::IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const

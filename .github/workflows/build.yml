@@ -306,6 +306,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Submodule update
+        shell: bash
+        run: |
+          git submodule update --init --recursive --jobs 4 -- "3rdparty/re2"
+
+
       ###############################################################################
       # Create Build Environment
       ###############################################################################
@@ -401,6 +407,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Submodule update
+        shell: bash
+        run: |
+          git submodule update --init --recursive --jobs 4 -- "3rdparty/re2"
+
       ###############################################################################
       # Create Build Environment
       ###############################################################################
@@ -457,6 +468,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Submodule update
+        shell: bash
+        run: |
+          git submodule update --init --recursive --jobs 4 -- "3rdparty/re2"
       ###############################################################################
       # Create Build Environment
       ###############################################################################
@@ -512,6 +527,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Submodule update
+        shell: bash
+        run: |
+          git submodule update --init --recursive --jobs 4 -- "3rdparty/re2"
       ###############################################################################
       # Create Build Environment
       ###############################################################################
