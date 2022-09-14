@@ -31,8 +31,10 @@
 #include "extensions/broadcast_gateway/broadcast_msg_validator.h"
 #include "extensions/news_channels/exchange_rate_provider.h"
 #include "extensions/news_channels/verification_provider.h"
+#ifdef BEAM_ASSET_SWAP_SUPPORT
 #include "extensions/dex_board/dex_board.h"
 #include "extensions/dex_board/dex_order.h"
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
 #ifdef BEAM_IPFS_SUPPORT
 #include "wallet/ipfs/ipfs.h"
@@ -67,7 +69,9 @@ namespace beam::wallet
 #endif
 
     constexpr char SEED_PARAM_NAME[] = "SavedSeed";
+#ifdef BEAM_ASSET_SWAP_SUPPORT
     constexpr char ASSET_SWAP_PARAMS_NAME[] = "LastAssetSwapParams";
+#endif  // BEAM_ASSET_SWAP_SUPPORT
     struct WalletStatus
     {
         struct AssetStatus
@@ -112,7 +116,9 @@ namespace beam::wallet
         , private INodeConnectionObserver
         , private IExchangeRatesObserver
         , private INotificationsObserver
+#ifdef BEAM_ASSET_SWAP_SUPPORT
         , private DexBoard::IObserver
+#endif  // BEAM_ASSET_SWAP_SUPPORT
         , private IVerificationObserver
     {
     public:
@@ -217,8 +223,10 @@ namespace beam::wallet
         virtual void onAssetInfo(Asset::ID assetId, const WalletAsset&) {}
         virtual void onStopped() {}
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
         void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
         void onFindDexOrder(const DexOrder&) override {}
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
         virtual Version getLibVersion() const;
         virtual uint32_t getClientRevision() const;
@@ -290,12 +298,14 @@ namespace beam::wallet
         void changeWalletPassword(const SecString& password) override;
         void getNetworkStatus() override;
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
         void loadDexOrderParams() override;
         void storeDexOrderParams(const beam::ByteBuffer& params) override;
         void getDexOrders() override;
         void getDexOrder(const DexOrderID&) override;
         void publishDexOrder(const DexOrder&) override;
         void cancelDexOrder(const DexOrderID&) override;
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
         #ifdef BEAM_IPFS_SUPPORT
         void getIPFSStatus() override;
@@ -363,7 +373,9 @@ namespace beam::wallet
         //
         // Dex
         //
+#ifdef BEAM_ASSET_SWAP_SUPPORT
         std::weak_ptr<DexBoard> _dex;
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
         //
         // Shaders support

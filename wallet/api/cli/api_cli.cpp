@@ -51,6 +51,10 @@
 #include "wallet/ipfs/ipfs_async.h"
 #endif
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+#include "wallet/client/extensions/dex_board/dex_board.h"
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
 #include "wallet/core/contracts/i_shaders_manager.h"
 #include "nlohmann/json.hpp"
@@ -144,6 +148,9 @@ namespace
 
     class WalletApiServer
         : public IWalletApiServer
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        , private beam::wallet::DexBoard::IObserver
+#endif  // BEAM_ASSET_SWAP_SUPPORT
     {
     public:
         WalletApiServer(const std::string& apiVersion, IWalletDB::Ptr walletDB,
@@ -252,7 +259,30 @@ namespace
         }
         #endif
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        void initDexFeature(proto::FlyClient::INetwork::Ptr nnet, IWalletMessageEndpoint& wnet)
+        {
+            _broadcastRouter = std::make_shared<BroadcastRouter>(
+                nnet, wnet, std::make_shared<BroadcastRouter::BbsTsHolder>(_walletDB));
+
+            auto dexBoard = std::make_shared<beam::wallet::DexBoard>(*_broadcastRouter, *_walletDB);
+
+            _dexWDBSubscriber = std::make_unique<WalletDbSubscriber>(
+                static_cast<IWalletDbObserver*>(dexBoard.get()), _walletDB);
+            _dexBoardSubscriber = std::make_unique<DexBoardSubscriber>(
+                static_cast<beam::wallet::DexBoard::IObserver*>(this), dexBoard);
+            _dexWalletSubscriber = std::make_unique<DexWalletSubscriber>(
+                static_cast<ISimpleSwapHandler*>(dexBoard.get()), _wallet);
+
+            _dex = dexBoard;
+        }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
     protected:
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
+        void onFindDexOrder(const DexOrder&) override {}
+#endif  // BEAM_ASSET_SWAP_SUPPORT
         void start()
         {
             LOG_INFO() << "Start server on " << _bindAddress;
@@ -314,6 +344,10 @@ namespace
 
                 #ifdef BEAM_IPFS_SUPPORT
                 _walletData->ipfs = _ipfs;
+                #endif
+
+                #ifdef BEAM_ASSET_SWAP_SUPPORT
+                _walletData->dexBoard = _dex;
                 #endif
             }
 
@@ -582,6 +616,21 @@ namespace
         std::vector<uint64_t> _pendingToClose;
         ApiACL _acl;
         std::vector<uint32_t> _whitelist;
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        std::shared_ptr<BroadcastRouter> _broadcastRouter;
+
+        using WalletDbSubscriber = ScopedSubscriber<IWalletDbObserver, IWalletDB>;
+        std::unique_ptr<WalletDbSubscriber> _dexWDBSubscriber;
+
+        using DexBoardSubscriber = ScopedSubscriber<beam::wallet::DexBoard::IObserver, DexBoard>;
+        std::unique_ptr<DexBoardSubscriber> _dexBoardSubscriber;
+
+        using DexWalletSubscriber = ScopedSubscriber<wallet::ISimpleSwapHandler, wallet::Wallet>;
+        std::unique_ptr<DexWalletSubscriber> _dexWalletSubscriber;
+
+        beam::wallet::DexBoard::Ptr _dex;
+#endif  // BEAM_ASSET_SWAP_SUPPORT
     };
 }
 
@@ -864,6 +913,10 @@ int main(int argc, char* argv[])
         if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
         {
             RegisterAllAssetCreators(*wallet);
+            
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+            server.initDexFeature(nnet, *wnet);
+#endif  // BEAM_ASSET_SWAP_SUPPORT
         }
 
         if (options.enableLelantus)

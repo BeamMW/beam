@@ -26,6 +26,10 @@
 #include "i_swaps_provider.h"
 #include "sync_mode.h"
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+#include "wallet/client/extensions/dex_board/dex_board.h"
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
 namespace beam::wallet
 {
     using json = nlohmann::json;
@@ -35,8 +39,9 @@ namespace beam::wallet
     const uint32_t ApiVer6_2     = 62;
     const uint32_t ApiVer7_0     = 70;
     const uint32_t ApiVer7_1     = 71;
-    const uint32_t ApiVerCurrent = ApiVer7_1;
-    const uint32_t ApiVerMax     = ApiVer7_1;
+    const uint32_t ApiVer7_2     = 72;
+    const uint32_t ApiVerCurrent = ApiVer7_2;
+    const uint32_t ApiVerMax     = ApiVer7_2;
     const uint32_t ApiVerMin     = ApiVer6_0;
 
     class IWalletApiHandler
@@ -65,6 +70,10 @@ namespace beam::wallet
         NodeNetwork::Ptr nodeNetwork;
         #ifdef BEAM_IPFS_SUPPORT
         IPFSService::Ptr ipfs;
+        #endif
+
+        #ifdef BEAM_ASSET_SWAP_SUPPORT
+        beam::wallet::DexBoard::Ptr dexBoard;
         #endif
     };
 

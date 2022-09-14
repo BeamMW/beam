@@ -14,7 +14,9 @@
 
 #include "wallet_client.h"
 #include "wallet/core/simple_transaction.h"
+#ifdef BEAM_ASSET_SWAP_SUPPORT
 #include "wallet/transactions/dex/dex_tx.h"
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 #include "utility/log_rotation.h"
 #include "http/http_client.h"
 #include "core/block_rw.h"
@@ -126,6 +128,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async((MethodType)&IWalletModelAsync::getAddresses, own);
     }
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
     void getDexOrders() override
     {
         call_async(&IWalletModelAsync::getDexOrders);
@@ -145,6 +148,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::cancelDexOrder, orderId);
     }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT    
     void getSwapOffers() override
@@ -168,6 +172,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     }
 #endif
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
     void loadDexOrderParams() override
     {
         call_async(&IWalletModelAsync::loadDexOrderParams);
@@ -177,6 +182,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::storeDexOrderParams, params);
     }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
     void cancelTx(const wallet::TxID& id) override
     {
@@ -720,8 +726,8 @@ namespace beam::wallet
                 //
                 // DEX
                 //
-
-                auto dexBoard = make_shared<DexBoard>(*broadcastRouter, this->getAsync(), *m_walletDB);
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+                auto dexBoard = make_shared<DexBoard>(*broadcastRouter, *m_walletDB);
                 auto dexWDBSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(dexBoard.get()), m_walletDB);
 
                 using DexBoardSubscriber = ScopedSubscriber<DexBoard::IObserver, DexBoard>;
@@ -731,6 +737,7 @@ namespace beam::wallet
                 auto dexWalletSubscriber = make_unique<DexWalletSubscriber>(static_cast<ISimpleSwapHandler*>(dexBoard.get()), wallet);
 
                 _dex = dexBoard;
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
 
                 //
@@ -1841,6 +1848,7 @@ namespace beam::wallet
         onNodeConnectionChanged(isConnected());
     }
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
     void WalletClient::loadDexOrderParams()
     {
         ByteBuffer params;
@@ -1888,6 +1896,7 @@ namespace beam::wallet
             dex->cancelDexOrder(orderId);
         }
     }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
     #ifdef BEAM_IPFS_SUPPORT
     void WalletClient::getIPFSStatus()

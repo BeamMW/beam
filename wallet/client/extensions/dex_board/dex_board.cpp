@@ -18,9 +18,8 @@
 
 namespace beam::wallet {
 
-    DexBoard::DexBoard(IBroadcastMsgGateway& gateway, IWalletModelAsync::Ptr wallet, IWalletDB& wdb)
+    DexBoard::DexBoard(IBroadcastMsgGateway& gateway, IWalletDB& wdb)
         : _gateway(gateway)
-        , _wallet(std::move(wallet))
         , _wdb(wdb)
     {
         auto offersRaw = _wdb.loadDexOffers();

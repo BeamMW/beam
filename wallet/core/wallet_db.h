@@ -36,7 +36,9 @@
 #include "wallet/client/extensions/notifications/notification.h"
 #include "wallet/client/extensions/news_channels/interface.h"
 #include "wallet/core/assets_utils.h"
+#ifdef BEAM_ASSET_SWAP_SUPPORT
 #include "wallet/core/dex.h"
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
 #include <string>
 
@@ -587,8 +589,10 @@ namespace beam::wallet
         virtual boost::optional<WalletAsset> findAsset(Asset::ID) const = 0;
         virtual boost::optional<WalletAsset> findAsset(const PeerID&) const = 0;
         virtual std::vector<std::pair<ByteBuffer, bool>> loadDexOffers() = 0;
+#ifdef BEAM_ASSET_SWAP_SUPPORT
         virtual void saveDexOffer(const DexOrderID& offerId, const ByteBuffer& offer, bool isMine) = 0;
         virtual void dropDexOffer(const DexOrderID& offerId) = 0;
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
         // Notifications management
         virtual std::vector<Notification> getNotifications() const = 0;
@@ -752,8 +756,11 @@ namespace beam::wallet
         boost::optional<WalletAsset> findAsset(Asset::ID) const override;
         boost::optional<WalletAsset> findAsset(const PeerID&) const override;
         std::vector<std::pair<ByteBuffer, bool>> loadDexOffers() override;
+#ifdef BEAM_ASSET_SWAP_SUPPORT
         void saveDexOffer(const DexOrderID& offerId, const ByteBuffer& offer, bool isMine) override;
         void dropDexOffer(const DexOrderID& offerId) override;
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
 
         std::vector<Notification> getNotifications() const override;
         void saveNotification(const Notification&) override;

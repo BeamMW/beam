@@ -20,19 +20,22 @@
 
 namespace beam::wallet {
     class WalletClient;
-    class DexBoard
+    class 
+    
+    DexBoard
        : public IBroadcastListener
        , public ISimpleSwapHandler
        , public IWalletDbObserver
     {
     public:
+        using Ptr = std::shared_ptr<DexBoard>;
         struct IObserver
         {
             virtual void onDexOrdersChanged(ChangeAction action, const std::vector<DexOrder>& orders) = 0;
             virtual void onFindDexOrder(const DexOrder& order) = 0;
         };
 
-        DexBoard(IBroadcastMsgGateway& gateway, IWalletModelAsync::Ptr wallet, IWalletDB& wdb);
+        DexBoard(IBroadcastMsgGateway& gateway, IWalletDB& wdb);
 
         [[nodiscard]] std::vector<DexOrder> getDexOrders() const;
         [[nodiscard]] boost::optional<DexOrder> getDexOrder(const DexOrderID&) const;
@@ -85,7 +88,6 @@ namespace beam::wallet {
         std::vector<IObserver*> _observers;
 
         IBroadcastMsgGateway& _gateway;
-        IWalletModelAsync::Ptr _wallet;
         IWalletDB& _wdb;
         std::map<DexOrderID, DexOrder> _orders;
     };

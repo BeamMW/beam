@@ -14,11 +14,11 @@ endif()
 
 if(BEAM_CONFIDENTIAL_ASSETS_SUPPORT)
     add_subdirectory(assets)
-    add_subdirectory(dex)
-    target_link_libraries(transactions 
-        INTERFACE 
-            assets
-            dex
-    )
+    if(BEAM_ASSET_SWAP_SUPPORT)
+        add_subdirectory(dex)
+        target_link_libraries(transactions INTERFACE assets dex)
+    else()
+        target_link_libraries(transactions INTERFACE assets)
+    endif()
 endif()
 

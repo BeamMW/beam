@@ -223,6 +223,9 @@ message("BEAM_CONFIDENTIAL_ASSETS_SUPPORT is ${BEAM_CONFIDENTIAL_ASSETS_SUPPORT}
 option(BEAM_IPFS_SUPPORT "Build wallet with IPFS support" ON)
 message("BEAM_IPFS_SUPPORT is ${BEAM_IPFS_SUPPORT}")
 
+option(BEAM_ASSET_SWAP_SUPPORT "Build wallet with DEX support" ON)
+message("BEAM_ASSET_SWAP_SUPPORT is ${BEAM_ASSET_SWAP_SUPPORT}")
+
 option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
 message("BEAM_HW_WALLET is ${BEAM_HW_WALLET}")
 
