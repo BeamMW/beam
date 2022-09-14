@@ -29,7 +29,7 @@ namespace beam::wallet {
         }
     };
 
-    ManagerStdInWallet::ManagerStdInWallet(WalletDB::Ptr wdb, Wallet::Ptr pWallet)
+    ManagerStdInWallet::ManagerStdInWallet(IWalletDB::Ptr wdb, Wallet::Ptr pWallet)
         :m_pWalletDB(std::move(wdb))
         ,m_pWallet(std::move(pWallet))
     {

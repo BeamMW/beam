@@ -316,10 +316,8 @@ else()
 
     if (EMSCRIPTEN)
         set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -s USE_PTHREADS=1 \
-                                                     -s WASM_WORKERS=0 \
                                                      -s DISABLE_EXCEPTION_CATCHING=0 \
                                                      -s USE_BOOST_HEADERS=1 \
-                                                     -Wno-unqualified-std-cast-call \
                                                      -Wno-unused-but-set-variable")
         set(BEAM_WEB_WALLET_THREADS_NUM 5)
         add_definitions(-DBEAM_WEB_WALLET_THREADS_NUM=${BEAM_WEB_WALLET_THREADS_NUM})
@@ -477,14 +475,9 @@ endif()
 
 #RE2 begin
 
-include(FetchContent)
 set(RE2_BUILD_TESTING OFF)
-FetchContent_Declare(
-        re2
-        GIT_REPOSITORY https://github.com/BeamMW/re2
-        GIT_TAG 2022-06-14
-)
-FetchContent_MakeAvailable(re2)
+add_subdirectory(${PROJECT_SOURCE_DIR}/3rdparty/re2)
+include_directories(${PROJECT_SOURCE_DIR}/3rdparty/re2/re2)
 
 #RE2 end
 

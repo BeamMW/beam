@@ -69,7 +69,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 
     void startTransaction(TxParameters&& parameters) override
     {
-        call_async(&IWalletModelAsync::startTransaction, move(parameters));
+        call_async(&IWalletModelAsync::startTransaction, std::move(parameters));
     }
 
     void syncWithNode() override
@@ -570,7 +570,7 @@ namespace beam::wallet
 
     void WalletClient::postFunctionToClientContext(MessageFunction&& func)
     {
-        onPostFunctionToClientContext(move(func));
+        onPostFunctionToClientContext(std::move(func));
     }
     //
     // UI thread. Methods below should be called from main thread

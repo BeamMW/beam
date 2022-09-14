@@ -435,7 +435,7 @@ namespace beam::wallet
 
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::FailureReason, reason);
-        SendTxParameters(move(msg));
+        SendTxParameters(std::move(msg));
     }
 
     IWalletDB::Ptr BaseTransaction::GetWalletDB() const
