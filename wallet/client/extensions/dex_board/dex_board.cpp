@@ -42,6 +42,8 @@ namespace beam::wallet {
         _gateway.registerListener(BroadcastContentType::DexOffers, this);
     }
 
+    DexBoard::~DexBoard() {}
+
     std::vector<DexOrder> DexBoard::getDexOrders() const
     {
         std::vector<DexOrder> result;
