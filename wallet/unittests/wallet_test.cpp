@@ -3349,7 +3349,7 @@ namespace
             stringstream ss;
             ss << "sender_" << i << ".db";
             auto t = make_unique<TestWalletRig>(createSenderWalletDBWithSeed(ss.str(), true), f, TestWalletRig::Type::Regular, false, 0);
-            wallets.push_back(move(t));
+            wallets.push_back(std::move(t));
         }
         
         TestWalletRig receiver(createReceiverWalletDB(), f);
@@ -4102,6 +4102,56 @@ void TestArgumentParsing()
         WALLET_CHECK(p.m_Args.size() == 2);
         WALLET_CHECK(p.m_Args["action"] == "create");
         WALLET_CHECK(p.m_Args["metadata"] == "aaaa");
+    }
+
+    {
+      MyProcessor p;
+      p.AddArgs("action = \"some very\nlarge\ntext\nwith\na lot\nof\tlines\"");
+      WALLET_CHECK(p.m_Args.size() == 1);
+      WALLET_CHECK(p.m_Args["action"] == "some very\nlarge\ntext\nwith\na lot\nof\tlines");
+    }
+
+    {
+      MyProcessor p;
+      p.AddArgs("action = \"some very\nlarge\ntext\nwith\na lot\nof\tlines\"   ,     metadata = aaa");
+      WALLET_CHECK(p.m_Args.size() == 2);
+      WALLET_CHECK(p.m_Args["action"] == "some very\nlarge\ntext\nwith\na lot\nof\tlines");
+      WALLET_CHECK(p.m_Args["metadata"] == "aaa");
+    }
+
+
+    {
+      MyProcessor p;
+      p.AddArgs(R"(data="some very
+large
+text
+with
+a lot
+of	lines",role=manager,action=destroy_contract,cid=2dd39c06ede9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d,name="my \"trt,ywy\" name",te_t = "saa ,  "    )");
+      WALLET_CHECK(p.m_Args.size() == 6);
+      WALLET_CHECK(p.m_Args["data"] == "some very\nlarge\ntext\nwith\na lot\nof\tlines");
+      WALLET_CHECK(p.m_Args["role"] == "manager");
+      WALLET_CHECK(p.m_Args["action"] == "destroy_contract");
+      WALLET_CHECK(p.m_Args["cid"] == "2dd39c06ede9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d");
+      WALLET_CHECK(p.m_Args["name"] == "my \"trt,ywy\" name");
+      WALLET_CHECK(p.m_Args["te_t"] == "saa ,  ");
+    }
+
+
+    {
+      MyProcessor p;
+      p.AddArgs(R"e(lines_data="some very
+large
+text
+with
+a lot
+of	lines",role=manager,action=destroy_contract,data="{\"name\": \"Otton I\", \"age\":  12}")e");
+      WALLET_CHECK(p.m_Args.size() == 4);
+      WALLET_CHECK(p.m_Args["lines_data"] == "some very\nlarge\ntext\nwith\na lot\nof\tlines");
+      WALLET_CHECK(p.m_Args["role"] == "manager");
+      WALLET_CHECK(p.m_Args["action"] == "destroy_contract");
+      WALLET_CHECK(p.m_Args["data"] == "{\"name\": \"Otton I\", \"age\":  12}");
+
     }
 }
 

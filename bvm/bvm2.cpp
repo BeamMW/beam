@@ -3606,14 +3606,15 @@ namespace bvm2 {
 
 	uint32_t ProcessorManager::AddArgs(const std::string& commaSeparatedPairs)
 	{
-        	static const RE2 regex(R"raw(\s*([\w\d_]+)\s*=\s*(([^," ]+)|"(.*?[^\\])")\s*)raw");
+        	static const RE2 regex(R"raw(\s*([\w\d_]+)\s*=\s*(([^," ]+)|"((.|\s)*?[^\\])")\s*)raw");
         	uint32_t ret = 0;
         	re2::StringPiece input(commaSeparatedPairs);
         	std::string key;
         	std::string value1;
         	std::string value2;
         	std::string value3;
-        	while (RE2::FindAndConsume(&input, regex, &key, &value1, &value2, &value3))
+                std::string value4;
+        	while (RE2::FindAndConsume(&input, regex, &key, &value1, &value2, &value3, &value4))
         	{
         		std::string value;
         		if (!value2.empty())
