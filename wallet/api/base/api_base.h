@@ -118,21 +118,7 @@ namespace beam::wallet
         // getOptional... throws only if type constraints are violated
         //
         template<typename T>
-        static boost::optional<T> getOptionalParam(const json& params, const std::string& name)
-        {
-            if(auto raw = getOptionalParam<const json&>(params, name))
-            {
-                if (type_check<T>(*raw))
-                {
-                    return type_get<T>(*raw);
-                }
-
-                auto tname = type_name<T>();
-                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter '" + name + "' must be a " + tname + ".");
-            }
-
-            return boost::none;
-        }
+        static boost::optional<T> getOptionalParam(const json& params, const std::string& name);
 
         static bool hasParam(const json &params, const std::string &name);
 
@@ -237,8 +223,28 @@ namespace beam::wallet
 
     // boost::optional<json> is not defined intentionally, use const json& instead
     template<>
-    boost::optional<json> ApiBase::getOptionalParam<json>(const json &params, const std::string &name);
+    boost::optional<json> ApiBase::getOptionalParam<json>(const json& params, const std::string& name);
 
     template<>
-    boost::optional<const json&> ApiBase::getOptionalParam<const json&>(const json &params, const std::string &name);
+    boost::optional<const json&> ApiBase::getOptionalParam<const json&>(const json& params, const std::string& name);
+
+    //
+    // getOptional... throws only if type constraints are violated
+    //
+    template<typename T>
+    static boost::optional<T> ApiBase::getOptionalParam(const json& params, const std::string& name)
+    {
+        if (auto raw = getOptionalParam<const json&>(params, name))
+        {
+            if (type_check<T>(*raw))
+            {
+                return type_get<T>(*raw);
+            }
+
+            auto tname = type_name<T>();
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter '" + name + "' must be a " + tname + ".");
+        }
+
+        return boost::none;
+    }
 }
