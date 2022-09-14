@@ -232,7 +232,7 @@ namespace beam::wallet
     // getOptional... throws only if type constraints are violated
     //
     template<typename T>
-    static boost::optional<T> ApiBase::getOptionalParam(const json& params, const std::string& name)
+    boost::optional<T> ApiBase::getOptionalParam(const json& params, const std::string& name)
     {
         if (auto raw = getOptionalParam<const json&>(params, name))
         {
