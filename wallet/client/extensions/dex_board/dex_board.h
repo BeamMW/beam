@@ -36,7 +36,7 @@ namespace beam::wallet {
         };
 
         DexBoard(IBroadcastMsgGateway& gateway, IWalletDB& wdb);
-        ~DexBoard();
+        virtual ~DexBoard();
 
         [[nodiscard]] std::vector<DexOrder> getDexOrders() const;
         [[nodiscard]] boost::optional<DexOrder> getDexOrder(const DexOrderID&) const;
