@@ -51,6 +51,7 @@
     macro(uint32_t, opTok) \
     macro(uint32_t, opCol) \
     macro(uint32_t, tcr_mperc) \
+    macro(uint32_t, bAutoTok) \
     macro(uint32_t, bPredictOnly)
 
 #define Nephrite_user_liquidate(macro) \
@@ -1028,8 +1029,6 @@ ON_METHOD(user, trove_modify)
 
     if (t.m_Amounts.Tok || t.m_Amounts.Col)
     {
-        if (t.m_Amounts.Tok < g.m_Settings.m_TroveLiquidationReserve)
-            return OnError("min tok required");
 
         if (!g.TestHaveValidPrice())
             return;
@@ -1039,12 +1038,23 @@ ON_METHOD(user, trove_modify)
             Float fTrg(tcr_mperc);
             fTrg = fTrg / Float(100000); // to fraction
 
-            Float fCol = g.m_Price.T2C(t.m_Amounts.Tok) * fTrg;
-            t.m_Amounts.Col = fCol; // round to a smaller side
+            if (bAutoTok)
+            {
+                Float fTok = g.m_Price.C2T(t.m_Amounts.Col) / fTrg;
+                t.m_Amounts.Tok = fTok; // round to a smaller side
+            }
+            else
+            {
+                Float fCol = g.m_Price.T2C(t.m_Amounts.Tok) * fTrg;
+                t.m_Amounts.Col = fCol; // round to a smaller side
 
-            if (Float(t.m_Amounts.Col) < fCol)
-                t.m_Amounts.Col++;
+                if (Float(t.m_Amounts.Col) < fCol)
+                    t.m_Amounts.Col++;
+            }
         }
+
+        if (t.m_Amounts.Tok < g.m_Settings.m_TroveLiquidationReserve)
+            return OnError("min tok required");
 
         auto totals0 = g.m_Troves.m_Totals;
         auto iPrev1 = g.PushMyTrove();
