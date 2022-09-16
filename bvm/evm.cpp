@@ -111,10 +111,10 @@ void EvmProcessor::InitVars()
 	macro(0x13, sgt) \
 	macro(0x14, eq) \
 	macro(0x15, iszero) \
-	macro(0x16, and) \
-	macro(0x17, or) \
-	macro(0x18, xor) \
-	macro(0x19, not) \
+	macro(0x16, And) \
+	macro(0x17, Or) \
+	macro(0x18, Xor) \
+	macro(0x19, Not) \
 	macro(0x1a, byte) \
 	macro(0x1b, shl) \
 	macro(0x1c, shr) \
@@ -130,7 +130,7 @@ void EvmProcessor::InitVars()
 	macro(0x56, jump) \
 	macro(0x57, jumpi) \
 	macro(0x5b, jumpdest) \
-	macro(0xf3, retrn) \
+	macro(0xf3, Return) \
 	macro(0xfd, revert) \
 
 struct EvmProcessorPlus :public EvmProcessor
@@ -367,7 +367,7 @@ OnOpcode(iszero)
 	w = bZero;
 }
 
-OnOpcode(and)
+OnOpcode(And)
 {
 	auto& w1 = m_Stack.Pop();
 	auto& w2 = m_Stack.get_At(0);
@@ -376,7 +376,7 @@ OnOpcode(and)
 		w2.m_pData[i] &= w1.m_pData[i];
 }
 
-OnOpcode(or)
+OnOpcode(Or)
 {
 	auto& w1 = m_Stack.Pop();
 	auto& w2 = m_Stack.get_At(0);
@@ -385,7 +385,7 @@ OnOpcode(or)
 		w2.m_pData[i] |= w1.m_pData[i];
 }
 
-OnOpcode(xor)
+OnOpcode(Xor)
 {
 	auto& w1 = m_Stack.Pop();
 	auto& w2 = m_Stack.get_At(0);
@@ -394,7 +394,7 @@ OnOpcode(xor)
 		w2.m_pData[i] ^= w1.m_pData[i];
 }
 
-OnOpcode(not)
+OnOpcode(Not)
 {
 	auto& w = m_Stack.get_At(0);
 	w.Inv();
@@ -560,7 +560,7 @@ void EvmProcessorPlus::SaveRetval()
 	m_RetVal.p = m_Memory.get_Addr(w1, m_RetVal.n);
 }
 
-OnOpcode(retrn)
+OnOpcode(Return)
 {
 	SaveRetval();
 	m_State = State::Done;
