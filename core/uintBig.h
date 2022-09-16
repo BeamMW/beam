@@ -55,8 +55,16 @@ namespace beam
 			assert(nDst >= nBytesX + nOffsetBytes);
 			nDst -= (nOffsetBytes + nBytesX);
 
-			for (uint32_t i = nBytesX; i--; x >>= 8)
-				pDst[nDst + i] = (uint8_t) x;
+			if constexpr (sizeof(T) > 1) // compiler doesn't like uint8_t shifted by 8 bits
+			{
+				for (uint32_t i = nBytesX; i--; x >>= 8)
+					pDst[nDst + i] = (uint8_t) x;
+			}
+			else
+			{
+				assert(1 == nBytesX);
+				pDst[nDst] = (uint8_t) x;
+			}
 		}
 
 		template <typename T>
