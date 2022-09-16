@@ -40,6 +40,15 @@ uint32_t EvmProcessor::WtoU32(const Word& w)
 	return ret;
 }
 
+uint64_t EvmProcessor::WtoU64(const Word& w)
+{
+	uint64_t ret;
+	Test(memis0(w.m_pData, w.nBytes - sizeof(ret)));
+
+	w.ExportWord<sizeof(Word) / sizeof(ret) - 1>(ret);
+	return ret;
+}
+
 uint32_t EvmProcessor::Memory::get_Order(uint32_t n)
 {
 	uint32_t ret = 0;
@@ -84,21 +93,36 @@ void EvmProcessor::InitVars()
 {
 	ZeroObject(m_Code);
 	ZeroObject(m_RetVal);
-	m_Finished = false;
+	ZeroObject(m_Args);
+	m_State = State::Running;
 }
 
 
 #define EvmOpcodes_All(macro) \
+	macro(0x01, add) \
+	macro(0x03, sub) \
+	macro(0x10, lt) \
+	macro(0x11, gt) \
+	macro(0x12, slt) \
+	macro(0x13, sgt) \
+	macro(0x14, eq) \
+	macro(0x1b, shl) \
+	macro(0x1c, shr) \
 	macro(0x15, iszero) \
 	macro(0x34, callvalue) \
+	macro(0x35, calldataload) \
+	macro(0x36, calldatasize) \
 	macro(0x39, codecopy) \
 	macro(0x50, pop) \
+	macro(0x51, mload) \
 	macro(0x52, mstore) \
+	macro(0x54, sload) \
+	macro(0x55, sstore) \
 	macro(0x56, jump) \
 	macro(0x57, jumpi) \
 	macro(0x5b, jumpdest) \
-	macro(0x80, dup1) \
 	macro(0xf3, retrn) \
+	macro(0xfd, revert) \
 
 struct EvmProcessorPlus :public EvmProcessor
 {
@@ -120,6 +144,27 @@ struct EvmProcessorPlus :public EvmProcessor
 	void PushN(uint32_t n);
 	void DupN(uint32_t n);
 	void SwapN(uint32_t n);
+	void SaveRetval();
+
+	template <bool bPadLeft>
+	static void AssignPartial(Word&, const uint8_t* p, uint32_t n);
+
+	static bool IsNeg(const Word& w) {
+		return !!(0x80 & *w.m_pData);
+	}
+
+	template <bool bSigned>
+	static int CmpW(const Word& w1, const Word& w2)
+	{
+		if constexpr (bSigned)
+		{
+			bool b1 = IsNeg(w1);
+			if (IsNeg(w2) != b1)
+				return b1 ? -1 : 1;
+		}
+
+		return w1.cmp(w2);
+	}
 };
 
 void EvmProcessorPlus::LogOpCode(const char* sz)
@@ -134,6 +179,8 @@ void EvmProcessor::RunOnce()
 
 void EvmProcessorPlus::RunOnce()
 {
+	assert(State::Running == m_State);
+
 	auto nCode = m_Code.Read1();
 
 	switch (nCode)
@@ -148,15 +195,18 @@ void EvmProcessorPlus::RunOnce()
 		{
 		case 0x6:
 		case 0x7: // 0x60 - 0x7f
+			LogOpCode("push");
 			PushN(nCode - 0x5f);
 			break;
 
 		case 0x8: // 0x80 - 0x8f
+			LogOpCode("dup");
 			DupN(nCode - 0x7f);
 			break;
 
 		case 0x9: // 0x90 - 0x9f
-			SwapN(nCode - 0x7f);
+			LogOpCode("swap");
+			SwapN(nCode - 0x8f);
 			break;
 
 		default:
@@ -168,6 +218,88 @@ void EvmProcessorPlus::RunOnce()
 
 #define OnOpcode(name) void EvmProcessorPlus::On_##name()
 
+OnOpcode(add)
+{
+	auto& w1 = m_Stack.Pop();
+	auto& w2 = m_Stack.get_At(0);
+
+	w2 += w1;
+}
+
+OnOpcode(sub)
+{
+	auto& w1 = m_Stack.Pop();
+	auto& w2 = m_Stack.get_At(0);
+
+	// w2 = w1 - w2;
+	w2.Negate();
+	w2 += w1;
+
+}
+
+OnOpcode(lt)
+{
+	auto& w1 = m_Stack.Pop();
+	auto& w2 = m_Stack.get_At(0);
+
+	uint8_t b = CmpW<false>(w1, w2) < 0;
+	w2 = b;
+}
+
+OnOpcode(gt)
+{
+	auto& w1 = m_Stack.Pop();
+	auto& w2 = m_Stack.get_At(0);
+
+	uint8_t b = CmpW<false>(w1, w2) > 0;
+	w2 = b;
+}
+
+OnOpcode(slt)
+{
+	auto& w1 = m_Stack.Pop();
+	auto& w2 = m_Stack.get_At(0);
+
+	uint8_t b = CmpW<true>(w1, w2) < 0;
+	w2 = b;
+}
+
+OnOpcode(sgt)
+{
+	auto& w1 = m_Stack.Pop();
+	auto& w2 = m_Stack.get_At(0);
+
+	uint8_t b = CmpW<true>(w1, w2) > 0;
+	w2 = b;
+}
+
+OnOpcode(eq)
+{
+	auto& w1 = m_Stack.Pop();
+	auto& w2 = m_Stack.get_At(0);
+
+	uint8_t b = !!(w1 == w2);
+	w2 = b;
+}
+
+OnOpcode(shl)
+{
+	auto& w1 = m_Stack.Pop();
+	auto& w2 = m_Stack.get_At(0);
+
+	auto x = w2;
+	x.ShiftLeft(WtoU32(w1), w2);
+}
+
+OnOpcode(shr)
+{
+	auto& w1 = m_Stack.Pop();
+	auto& w2 = m_Stack.get_At(0);
+
+	auto x = w2;
+	x.ShiftRight(WtoU32(w1), w2);
+}
+
 OnOpcode(iszero)
 {
 	auto& w = m_Stack.get_At(0);
@@ -177,8 +309,23 @@ OnOpcode(iszero)
 
 OnOpcode(callvalue)
 {
-	auto& w = m_Stack.Push();
-	get_CallValue(w);
+	m_Stack.Push() = m_Args.m_CallValue;
+}
+
+OnOpcode(calldataload)
+{
+	auto& w1 = m_Stack.get_At(0);
+	auto nOffs = WtoU32(w1);
+
+	Test(nOffs <= m_Args.m_Buf.n);
+	uint32_t nSize = std::min(32u, m_Args.m_Buf.n - nOffs);
+
+	AssignPartial<false>(w1, ((const uint8_t*) m_Args.m_Buf.p) + nOffs, nSize);
+}
+
+OnOpcode(calldatasize)
+{
+	m_Stack.Push() = m_Args.m_Buf.n;
 }
 
 OnOpcode(codecopy)
@@ -203,6 +350,14 @@ OnOpcode(pop)
 	m_Stack.Pop();
 }
 
+OnOpcode(mload)
+{
+	Word& w = m_Stack.get_At(0);
+
+	auto* pSrc = m_Memory.get_Addr(w, sizeof(Word));
+	memcpy(w.m_pData, pSrc, sizeof(Word));
+}
+
 OnOpcode(mstore)
 {
 	const Word& w1 = m_Stack.Pop();
@@ -210,6 +365,22 @@ OnOpcode(mstore)
 
 	auto* pDst = m_Memory.get_Addr(w1, sizeof(Word));
 	memcpy(pDst, w2.m_pData, sizeof(Word));
+}
+
+OnOpcode(sload)
+{
+	Word& w = m_Stack.get_At(0);
+
+	if (!SLoad(WtoU64(w), w))
+		w = Zero;
+}
+
+OnOpcode(sstore)
+{
+	const Word& w1 = m_Stack.Pop();
+	const Word& w2 = m_Stack.Pop();
+
+	SStore(WtoU64(w1), w2);
 }
 
 void EvmProcessorPlus::Jump(const Word& w)
@@ -242,14 +413,25 @@ OnOpcode(jumpdest)
 }
 
 
+template <bool bPadLeft>
+void EvmProcessorPlus::AssignPartial(Word& w, const uint8_t* p, uint32_t n)
+{
+	assert(n <= w.nBytes);
+	auto* pDst = w.m_pData;
+	auto* pPad = pDst;
+
+	uint32_t nPad = w.nBytes - n;
+	(bPadLeft ? pDst : pPad) += nPad;
+
+	memset0(pPad, nPad);
+	memcpy(pDst, p, n);
+}
+
 void EvmProcessorPlus::PushN(uint32_t n)
 {
 	auto pSrc = m_Code.Consume(n);
 	auto& wDst = m_Stack.Push();
-
-	assert(n <= wDst.nBytes);
-	memset0(wDst.m_pData, wDst.nBytes - n);
-	memcpy(wDst.m_pData + wDst.nBytes - n, pSrc, n);
+	AssignPartial<true>(wDst, pSrc, n);
 }
 
 void EvmProcessorPlus::DupN(uint32_t n)
@@ -260,25 +442,31 @@ void EvmProcessorPlus::DupN(uint32_t n)
 
 void EvmProcessorPlus::SwapN(uint32_t n)
 {
-	auto& w1 = m_Stack.Push();
+	auto& w1 = m_Stack.get_At(0);
 	auto& w2 = m_Stack.get_At(n);
 
 	std::swap(w1, w2);
 }
 
-OnOpcode(dup1) {
-	DupN(1);
-}
-
-OnOpcode(retrn)
+void EvmProcessorPlus::SaveRetval()
 {
 	auto& w1 = m_Stack.Pop();
 	auto& w2 = m_Stack.Pop();
 
 	m_RetVal.n = WtoU32(w2);
 	m_RetVal.p = m_Memory.get_Addr(w1, m_RetVal.n);
+}
 
-	m_Finished = true;
+OnOpcode(retrn)
+{
+	SaveRetval();
+	m_State = State::Done;
+}
+
+OnOpcode(revert)
+{
+	SaveRetval();
+	m_State = State::Failed;
 }
 
 } // namespace beam
