@@ -28,13 +28,13 @@ V72Api::V72Api(IWalletApiHandler& handler, unsigned long avMajor, unsigned long 
 #ifdef BEAM_ASSET_SWAP_SUPPORT
 DexBoard::Ptr V72Api::getDexBoard() const
 {
-if (_dexBoard == nullptr)
-{
-    throw jsonrpc_exception(ApiError::NoSwapsError);
-}
+    if (_dexBoard == nullptr)
+    {
+        throw jsonrpc_exception(ApiError::NoSwapsError);
+    }
 
-assertWalletThread();
-return _dexBoard;
+    assertWalletThread();
+    return _dexBoard;
 }
 #endif  // BEAM_ASSET_SWAP_SUPPORT
 }
