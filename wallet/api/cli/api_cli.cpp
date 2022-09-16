@@ -53,6 +53,8 @@
 
 #ifdef BEAM_ASSET_SWAP_SUPPORT
 #include "wallet/client/extensions/dex_board/dex_board.h"
+#include "wallet/transactions/dex/dex_tx_builder.h"
+#include "wallet/transactions/dex/dex_tx.h"
 #endif  // BEAM_ASSET_SWAP_SUPPORT
 
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
@@ -277,20 +279,6 @@ namespace
             _dex = dexBoard;
         }
 #endif  // BEAM_ASSET_SWAP_SUPPORT
-
-        void onGetAssetsFullList(ByteBuffer assetsBuffer)
-        {
-            std::vector<Asset::ID> assets;
-            size_t assetsCount = assetsBuffer.size() / sizeof(Asset::ID);
-            assets.resize(assetsCount);
-            memcpy(assets.data(), assetsBuffer.data(), assetsBuffer.size());
-
-            for (auto asset : assets)
-            {
-                _assetsFullList.insert(asset);
-                _wallet->ConfirmAsset(asset);
-            }
-        }
 
     protected:
 #ifdef BEAM_ASSET_SWAP_SUPPORT
@@ -929,14 +917,9 @@ int main(int argc, char* argv[])
         if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
         {
             RegisterAllAssetCreators(*wallet);
-            wallet->RequestAssetsListAt(
-                walletDB->getCurrentHeight(),
-                [&server](ByteBuffer assetsBuffer) 
-                {
-                    server.onGetAssetsFullList(assetsBuffer);
-                });
 
 #ifdef BEAM_ASSET_SWAP_SUPPORT
+            wallet->RegisterTransactionType(TxType::DexSimpleSwap, std::make_shared<DexTransaction::Creator>(walletDB));
             server.initDexFeature(nnet, *wnet);
 #endif  // BEAM_ASSET_SWAP_SUPPORT
         }

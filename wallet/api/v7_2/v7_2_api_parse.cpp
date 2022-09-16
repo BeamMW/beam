@@ -110,5 +110,39 @@ void V72Api::getResponse(const JsonRpcId& id, const AssetsSwapCancel::Response& 
     };
 }
 
+std::pair<AssetsSwapAccept, IWalletApi::MethodInfo> V72Api::onParseAssetsSwapAccept(const JsonRpcId& id, const nlohmann::json& params)
+{
+    AssetsSwapAccept message;
+    message.offerId = getMandatoryParam<std::string>(params, "offer_id");
+    auto comment = getOptionalParam<std::string>(params, "comment");
+    if (comment)
+        message.comment = *comment;
+    return std::make_pair(std::move(message), MethodInfo());
+}
+
+void V72Api::getResponse(const JsonRpcId& id, const AssetsSwapAccept::Response& res, json& msg)
+{
+    const auto& order = res.order;
+
+    msg = json
+    {
+        {JsonRpcHeader, JsonRpcVersion},
+        {"id", id},
+        {"tx_id", std::to_string(res.txId)},
+        {"offer", {
+            {"id", order.getID().to_string()},
+            {"sendAmount", order.getSendAmount()},
+            {"sendCurrencyName", order.getSendAssetSName()},
+            {"sendAssetId", order.getSendAssetId()},
+            {"receiveAmount", order.getReceiveAmount()},
+            {"receiveCurrencyName", order.getReceiveAssetSName()},
+            {"receiveAssetId", order.getReceiveAssetId()},
+            {"create_time", order.getCreation()},
+            {"expire_time", order.getExpiration()},
+            {"isMy", order.isMine()}
+        }}
+    };
+}
+
 #endif  // BEAM_ASSET_SWAP_SUPPORT
 }

@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "v7_2_api.h"
-#include "version.h"
-#include "bvm/bvm2.h"
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+#include "wallet/transactions/dex/dex_tx.h"
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
 namespace beam::wallet
 {
@@ -125,5 +126,84 @@ void V72Api::onHandleAssetsSwapCancel(const JsonRpcId& id, AssetsSwapCancel&& re
 
     doResponse(id, resp);
 }
+
+void V72Api::onHandleAssetsSwapAccept(const JsonRpcId& id, AssetsSwapAccept&& req)
+{
+
+    beam::wallet::DexOrderID dexOrderId;
+    if (!dexOrderId.FromHex(req.offerId))
+    {
+        throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "offer_id is malformed");
+    }
+
+    auto dexBoard = getDexBoard();
+    auto order = dexBoard->getDexOrder(dexOrderId);
+    if (!order)
+    {
+        throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "offer with offer_id not found");
+    }
+
+    if (order->isMine())
+    {
+        throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "offer with offer_id is your offer");
+    }
+
+    Asset::ID sendAsset = order->getSendAssetId();
+    const auto& walletDB = getWalletDB();
+    if (sendAsset)
+    {
+        auto sendAssetInfo = walletDB->findAsset(sendAsset);
+        if (!sendAssetInfo)
+        {
+            throw jsonrpc_exception(ApiError::AssetSwapNotEnoughtFunds);
+        }
+    }
+
+    Asset::ID receiveAsset = order->getReceiveAssetId();
+    if (receiveAsset)
+    {
+        auto receiveAssetInfo = walletDB->findAsset(receiveAsset);
+        if (!receiveAssetInfo)
+        {
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Unknown receive asset id in order");
+        }
+    }
+
+    Amount fee = 100000;
+    CoinsSelectionInfo csi;
+    csi.m_requestedSum = order->getSendAmount();
+    csi.m_assetID = sendAsset;
+    csi.m_explicitFee = fee;
+    csi.Calculate(walletDB->getCurrentHeight(), walletDB, false);
+
+    if (!csi.m_isEnought)
+    {
+        throw jsonrpc_exception(ApiError::AssetSwapNotEnoughtFunds);
+    }
+
+    WalletAddress myAddress;
+    walletDB->createAddress(myAddress);
+    myAddress.m_label = req.comment;
+    myAddress.m_duration = beam::wallet::WalletAddress::AddressExpirationAuto;
+    walletDB->saveAddress(myAddress);
+
+    auto params = beam::wallet::CreateDexTransactionParams(
+                    dexOrderId,
+                    order->getSBBSID(),
+                    myAddress.m_walletID,
+                    sendAsset,
+                    order->getSendAmount(),
+                    receiveAsset,
+                    order->getReceiveAmount(),
+                    fee
+                    );
+
+    AssetsSwapAccept::Response resp;
+    resp.txId = getWallet()->StartTransaction(params);
+    resp.order = *order;
+
+    doResponse(id, resp);
+}
+
 #endif  // BEAM_ASSET_SWAP_SUPPORT
 }

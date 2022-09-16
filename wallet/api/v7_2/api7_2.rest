@@ -8,6 +8,19 @@ content-type: application/json-rpc
     "method" : "assets_swap_offers_list"
 }
 
+### get_asset_info
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "get_asset_info",
+    "params": {
+         "asset_id": 5
+    }
+}
+
 ### assets_swap_create
 POST http://127.0.0.1:10000/api/wallet HTTP/1.1
 content-type: application/json-rpc
@@ -65,7 +78,48 @@ content-type: application/json-rpc
     "id" : 1,
     "method" : "assets_swap_cancel",
     "params": {
-        "offer_id": "68b1befd105e40d3b783ed98e237ccf4"
+        "offer_id": "8dfe63a4e20340c9a602c0eae7b19620"
     }
 }
 
+### assets_swap_accept
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc" : "2.0",
+    "id" : 1,
+    "method" : "assets_swap_accept",
+    "params": {
+        "offer_id": "b44b045119124f15bd8ebf5cc99dec20",
+        "comment": "api1"
+    }
+}
+
+### assets_swap_accept_1
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc" : "2.0",
+    "id" : 1,
+    "method" : "assets_swap_accept",
+    "params": {
+        "offer_id": "44925c7d0b1c46aca734dc055f161895"
+    }
+}
+
+### tx_status
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc":"2.0", 
+    "id": 4,
+    "method":"tx_status", 
+    "params":
+    {
+        "txId" : "45491c4680d14418af95ea18f12db10b" 
+    }
+}
