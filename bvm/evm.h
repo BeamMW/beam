@@ -25,6 +25,7 @@ namespace beam {
 		static void Test(bool b);
 
 		static uint32_t WtoU32(const Word& w);
+		static uint64_t WtoU64(const Word& w);
 
 		struct Stack
 		{
@@ -94,14 +95,6 @@ namespace beam {
 
 		} m_Code;
 
-		void RunOnce();
-
-
-		void get_CallValue(Word& w)
-		{
-			w = Zero;
-		}
-
 		EvmProcessor()
 		{
 			InitVars();
@@ -109,8 +102,36 @@ namespace beam {
 
 		void Reset();
 
-		bool m_Finished;
+		enum struct State {
+			Running,
+			Done,
+			Failed,
+		};
+
+		State m_State;
 		Blob m_RetVal;
+
+		struct Args
+		{
+			Blob m_Buf;
+			Word m_CallValue;
+		} m_Args;
+
+		bool ShouldRun() const
+		{
+			return State::Running == m_State;
+		}
+
+#pragma pack (push, 1)
+		struct Method {
+			uintBigFor<uint32_t>::Type m_MethodHash;
+		};
+#pragma pack (pop)
+
+		void RunOnce();
+
+		virtual void SStore(const Word& key, const Word&) = 0;
+		virtual bool SLoad(const Word& key, Word&) = 0;
 
 	private:
 
