@@ -8,3 +8,38 @@ content-type: application/json-rpc
     "method" : "assets_swap_offers_list"
 }
 
+### assets_swap_create
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc" : "2.0",
+    "id" : 1,
+    "method" : "assets_swap_create",
+    "params": {
+        "send_amount": 100000000,
+        "send_asset_id": 5,
+        "receive_amount": 100000000,
+        "receive_asset_id": 0,
+        "minutes_before_expire": 30,
+        "comment": "api1"
+    }
+}
+
+### assets_swap_create_1
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc" : "2.0",
+    "id" : 1,
+    "method" : "assets_swap_create",
+    "params": {
+        "send_amount": 100000000,
+        "send_asset_id": 5,
+        "receive_amount": 100000000,
+        "receive_asset_id": 0,
+        "minutes_before_expire": 30
+    }
+}
+

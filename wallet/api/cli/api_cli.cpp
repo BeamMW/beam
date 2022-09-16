@@ -278,6 +278,20 @@ namespace
         }
 #endif  // BEAM_ASSET_SWAP_SUPPORT
 
+        void onGetAssetsFullList(ByteBuffer assetsBuffer)
+        {
+            std::vector<Asset::ID> assets;
+            size_t assetsCount = assetsBuffer.size() / sizeof(Asset::ID);
+            assets.resize(assetsCount);
+            memcpy(assets.data(), assetsBuffer.data(), assetsBuffer.size());
+
+            for (auto asset : assets)
+            {
+                _assetsFullList.insert(asset);
+                _wallet->ConfirmAsset(asset);
+            }
+        }
+
     protected:
 #ifdef BEAM_ASSET_SWAP_SUPPORT
         void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
@@ -617,6 +631,8 @@ namespace
         ApiACL _acl;
         std::vector<uint32_t> _whitelist;
 
+        std::set<Asset::ID> _assetsFullList = {Asset::s_BeamID};
+
 #ifdef BEAM_ASSET_SWAP_SUPPORT
         std::shared_ptr<BroadcastRouter> _broadcastRouter;
 
@@ -885,7 +901,7 @@ int main(int argc, char* argv[])
         nnet->Connect();
 
         auto wnet = std::make_shared<WalletNetworkViaBbs>(*wallet, nnet, walletDB);
-		wallet->AddMessageEndpoint(wnet);
+        wallet->AddMessageEndpoint(wnet);
         wallet->SetNodeEndpoint(nnet);
 
         WalletApiServer server(options.apiVersion, walletDB, wallet, nnet, *reactor, listenTo, connectionOptions, acl, whitelist);
@@ -913,7 +929,13 @@ int main(int argc, char* argv[])
         if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
         {
             RegisterAllAssetCreators(*wallet);
-            
+            wallet->RequestAssetsListAt(
+                walletDB->getCurrentHeight(),
+                [&server](ByteBuffer assetsBuffer) 
+                {
+                    server.onGetAssetsFullList(assetsBuffer);
+                });
+
 #ifdef BEAM_ASSET_SWAP_SUPPORT
             server.initDexFeature(nnet, *wnet);
 #endif  // BEAM_ASSET_SWAP_SUPPORT

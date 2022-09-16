@@ -25,5 +25,76 @@ namespace beam::wallet
 
         doResponse(id, resp);
     }
+
+    void V72Api::onHandleAssetsSwapCreate(const JsonRpcId& id, AssetsSwapCreate&& req)
+    {
+        auto walletDB = getWalletDB();
+
+        std::string sendAssetUnitName = "BEAM";
+        if (req.sendAsset)
+        {
+            auto sendAssetInfo = walletDB->findAsset(req.sendAsset);
+            if (!sendAssetInfo)
+            {
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Unknown asset id - send_asset_id");
+            }
+            const auto &sendAssetMeta = WalletAssetMeta(*sendAssetInfo);
+            sendAssetUnitName = sendAssetMeta.GetUnitName();
+        }
+
+        std::string receiveAssetUnitName = "BEAM";
+        if (req.receiveAsset)
+        {
+            auto receiveAssetInfo = walletDB->findAsset(req.receiveAsset);
+            if (!receiveAssetInfo)
+            {
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Unknown asset id - receive_asset_id");
+            }
+            const auto &receiveAssetMeta = WalletAssetMeta(*receiveAssetInfo);
+            receiveAssetUnitName = receiveAssetMeta.GetUnitName();
+        }
+
+        CoinsSelectionInfo csi;
+        csi.m_requestedSum = req.sendAmount;
+        csi.m_assetID = req.sendAsset;
+        csi.m_explicitFee = 0;
+        csi.Calculate(walletDB->getCurrentHeight(), walletDB, false);
+
+        if (!csi.m_isEnought)
+        {
+            throw jsonrpc_exception(ApiError::AssetSwapNotEnoughtFunds);
+        }
+
+        if (req.expireMinutes < 30 || req.expireMinutes > 720)
+        {
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "minutes_before_expire must be > 30 and < 720");
+        }
+
+        WalletAddress receiverAddress;
+        walletDB->createAddress(receiverAddress);
+        receiverAddress.m_label = req.comment;
+        receiverAddress.m_duration = beam::wallet::WalletAddress::AddressExpirationAuto;
+        walletDB->saveAddress(receiverAddress);
+
+        beam::wallet::DexOrder orderObj(
+            beam::wallet::DexOrderID::generate(),
+            receiverAddress.m_walletID,
+            receiverAddress.m_OwnID,
+            req.sendAsset,
+            req.sendAmount,
+            sendAssetUnitName,
+            req.receiveAsset,
+            req.receiveAmount,
+            receiveAssetUnitName,
+            req.expireMinutes * 60
+        );
+
+        getDexBoard()->publishOrder(orderObj);
+
+        AssetsSwapCreate::Response resp;
+        resp.order = orderObj;
+
+        doResponse(id, resp);
+    }
 #endif  // BEAM_ASSET_SWAP_SUPPORT
 }

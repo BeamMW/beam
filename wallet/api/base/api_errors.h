@@ -29,7 +29,7 @@ namespace beam::wallet
     macro(-32007, PaymentProofExportError,   "Cannot export payment proof")         \
     macro(-32008, SwapFailToParseToken,      "Invalid swap token.")                 \
     macro(-32009, SwapFailToAcceptOwn,       "Can't accept own swap offer.")        \
-    macro(-32010, SwapNotEnoughtBeams,       "Not enough BEAM.")                   \
+    macro(-32010, SwapNotEnoughtBeams,       "Not enough BEAM.")                    \
     macro(-32011, SwapFailToConnect,         "Doesn't have an active connection.")  \
     macro(-32012, DatabaseError,             "Database error")                      \
     macro(-32013, DatabaseNotFound,          "Database not found")                  \
@@ -42,6 +42,7 @@ namespace beam::wallet
     macro(-32020, NotAllowedError,           "Call is not allowed")                 \
     macro(-32021, UserRejected,              "Call is rejected by user")            \
     macro(-32022, IPFSError,                 "IPFS call failed")                    \
+    macro(-32023, AssetSwapNotEnoughtFunds,  "Not enough funds to send.")           \
 
     enum ApiError
     {
