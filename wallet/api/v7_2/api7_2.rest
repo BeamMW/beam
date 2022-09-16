@@ -43,3 +43,29 @@ content-type: application/json-rpc
     }
 }
 
+### assets_swap_cancel
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc" : "2.0",
+    "id" : 1,
+    "method" : "assets_swap_cancel",
+    "params": {
+        "offer_id": "100000000"
+    }
+}
+
+### assets_swap_cancel_1
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc" : "2.0",
+    "id" : 1,
+    "method" : "assets_swap_cancel",
+    "params": {
+        "offer_id": "68b1befd105e40d3b783ed98e237ccf4"
+    }
+}
+

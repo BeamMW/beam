@@ -93,5 +93,22 @@ void V72Api::getResponse(const JsonRpcId& id, const AssetsSwapCreate::Response& 
     };
 }
 
+std::pair<AssetsSwapCancel, IWalletApi::MethodInfo> V72Api::onParseAssetsSwapCancel(const JsonRpcId& id, const nlohmann::json& params)
+{
+    AssetsSwapCancel message;
+    message.offerId = getMandatoryParam<std::string>(params, "offer_id");
+    return std::make_pair(std::move(message), MethodInfo());
+}
+
+void V72Api::getResponse(const JsonRpcId& id, const AssetsSwapCancel::Response& res, json& msg)
+{
+    msg = json
+    {
+        {JsonRpcHeader, JsonRpcVersion},
+        {"id", id},
+        {"offer", res.offerId.to_string()}
+    };
+}
+
 #endif  // BEAM_ASSET_SWAP_SUPPORT
 }
