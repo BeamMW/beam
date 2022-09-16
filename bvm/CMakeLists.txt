@@ -5,6 +5,7 @@ set(BVM_SRC
     bvm2.cpp
     invoke_data.cpp
     ManagerStd.cpp
+    evm.cpp
 # ~etc
 )
 
