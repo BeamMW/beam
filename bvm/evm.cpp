@@ -99,16 +99,25 @@ void EvmProcessor::InitVars()
 
 
 #define EvmOpcodes_All(macro) \
+	macro(0x00, stop) \
 	macro(0x01, add) \
+	macro(0x02, mul) \
 	macro(0x03, sub) \
+	macro(0x04, div) \
+	macro(0x05, sdiv) \
 	macro(0x10, lt) \
 	macro(0x11, gt) \
 	macro(0x12, slt) \
 	macro(0x13, sgt) \
 	macro(0x14, eq) \
+	macro(0x15, iszero) \
+	macro(0x16, and) \
+	macro(0x17, or) \
+	macro(0x18, xor) \
+	macro(0x19, not) \
+	macro(0x1a, byte) \
 	macro(0x1b, shl) \
 	macro(0x1c, shr) \
-	macro(0x15, iszero) \
 	macro(0x34, callvalue) \
 	macro(0x35, calldataload) \
 	macro(0x36, calldatasize) \
@@ -218,12 +227,25 @@ void EvmProcessorPlus::RunOnce()
 
 #define OnOpcode(name) void EvmProcessorPlus::On_##name()
 
+OnOpcode(stop)
+{
+	m_State = State::Done;
+}
+
 OnOpcode(add)
 {
 	auto& w1 = m_Stack.Pop();
 	auto& w2 = m_Stack.get_At(0);
 
 	w2 += w1;
+}
+
+OnOpcode(mul)
+{
+	auto& w1 = m_Stack.Pop();
+	auto& w2 = m_Stack.get_At(0);
+
+	w2 = w1 * w2;
 }
 
 OnOpcode(sub)
@@ -234,6 +256,44 @@ OnOpcode(sub)
 	// w2 = w1 - w2;
 	w2.Negate();
 	w2 += w1;
+
+}
+
+OnOpcode(div)
+{
+	auto& w1 = m_Stack.Pop();
+	auto& w2 = m_Stack.get_At(0);
+
+	// w2 = w1 / w2;
+	auto x = w2;
+	Test(x != Zero);
+
+	w2.SetDiv(w1, x);
+
+}
+
+OnOpcode(sdiv)
+{
+	auto& w1 = m_Stack.Pop();
+	auto& w2 = m_Stack.get_At(0);
+
+	// w2 = w1 / w2;
+	auto x = w2;
+	Test(x != Zero);
+
+	bool bNeg = IsNeg(w1);
+	if (bNeg)
+		w1.Negate();
+
+	if (IsNeg(x))
+	{
+		bNeg = !bNeg;
+		x.Negate();
+	}
+
+	w2.SetDiv(w1, x);
+	if (bNeg)
+		w2.Negate();
 
 }
 
@@ -305,6 +365,49 @@ OnOpcode(iszero)
 	auto& w = m_Stack.get_At(0);
 	uint8_t bZero = !!(w == Zero);
 	w = bZero;
+}
+
+OnOpcode(and)
+{
+	auto& w1 = m_Stack.Pop();
+	auto& w2 = m_Stack.get_At(0);
+
+	for (uint32_t i = 0; i < Word::nBytes; i++)
+		w2.m_pData[i] &= w1.m_pData[i];
+}
+
+OnOpcode(or)
+{
+	auto& w1 = m_Stack.Pop();
+	auto& w2 = m_Stack.get_At(0);
+
+	for (uint32_t i = 0; i < Word::nBytes; i++)
+		w2.m_pData[i] |= w1.m_pData[i];
+}
+
+OnOpcode(xor)
+{
+	auto& w1 = m_Stack.Pop();
+	auto& w2 = m_Stack.get_At(0);
+
+	for (uint32_t i = 0; i < Word::nBytes; i++)
+		w2.m_pData[i] ^= w1.m_pData[i];
+}
+
+OnOpcode(not)
+{
+	auto& w = m_Stack.get_At(0);
+	w.Inv();
+}
+
+OnOpcode(byte)
+{
+	auto& w1 = m_Stack.Pop();
+	auto& w2 = m_Stack.get_At(0);
+
+	auto nByte = WtoU32(w1);
+	Test(nByte < w2.nBytes);
+	w2 = w2.m_pData[nByte];
 }
 
 OnOpcode(callvalue)
