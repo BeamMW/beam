@@ -97,27 +97,32 @@ void EvmProcessor::InitVars()
 	m_State = State::Running;
 }
 
-
-#define EvmOpcodes_All(macro) \
-	macro(0x00, stop) \
+#define EvmOpcodes_Binary(macro) \
 	macro(0x01, add) \
 	macro(0x02, mul) \
 	macro(0x03, sub) \
 	macro(0x04, div) \
 	macro(0x05, sdiv) \
+	macro(0x0a, exp) \
 	macro(0x10, lt) \
 	macro(0x11, gt) \
 	macro(0x12, slt) \
 	macro(0x13, sgt) \
 	macro(0x14, eq) \
-	macro(0x15, iszero) \
 	macro(0x16, And) \
 	macro(0x17, Or) \
 	macro(0x18, Xor) \
-	macro(0x19, Not) \
 	macro(0x1a, byte) \
 	macro(0x1b, shl) \
 	macro(0x1c, shr) \
+	macro(0x1d, sar) \
+
+#define EvmOpcodes_Unary(macro) \
+	macro(0x15, iszero) \
+	macro(0x19, Not) \
+
+#define EvmOpcodes_Custom(macro) \
+	macro(0x00, stop) \
 	macro(0x34, callvalue) \
 	macro(0x35, calldataload) \
 	macro(0x36, calldatasize) \
@@ -133,10 +138,38 @@ void EvmProcessor::InitVars()
 	macro(0xf3, Return) \
 	macro(0xfd, revert) \
 
+#define EvmOpcodes_All(macro) \
+	EvmOpcodes_Binary(macro) \
+	EvmOpcodes_Unary(macro) \
+	EvmOpcodes_Custom(macro) \
+
 struct EvmProcessorPlus :public EvmProcessor
 {
 #define THE_MACRO(code, name) void On_##name();
-	EvmOpcodes_All(THE_MACRO)
+	EvmOpcodes_Custom(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(code, name) \
+	void OnBinary_##name(Word& a, Word& b); \
+	void On_##name() \
+	{ \
+		auto& w1 = m_Stack.Pop(); \
+		auto& w2 = m_Stack.get_At(0); \
+		OnBinary_##name(w1, w2); \
+	}
+
+	EvmOpcodes_Binary(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(code, name) \
+	void OnUnary_##name(Word& a); \
+	void On_##name() \
+	{ \
+		auto& w = m_Stack.get_At(0); \
+		OnUnary_##name(w); \
+	}
+
+	EvmOpcodes_Unary(THE_MACRO)
 #undef THE_MACRO
 
 	struct Opcode {
@@ -173,6 +206,12 @@ struct EvmProcessorPlus :public EvmProcessor
 		}
 
 		return w1.cmp(w2);
+	}
+
+	static void SetBool(Word& w, bool b)
+	{
+		uint8_t val = !!b;
+		w = val;
 	}
 };
 
@@ -226,64 +265,49 @@ void EvmProcessorPlus::RunOnce()
 }
 
 #define OnOpcode(name) void EvmProcessorPlus::On_##name()
+#define OnOpcodeBinary(name) void EvmProcessorPlus::OnBinary_##name(Word& a, Word& b)
+#define OnOpcodeUnary(name) void EvmProcessorPlus::OnUnary_##name(Word& a)
 
 OnOpcode(stop)
 {
 	m_State = State::Done;
 }
 
-OnOpcode(add)
+OnOpcodeBinary(add)
 {
-	auto& w1 = m_Stack.Pop();
-	auto& w2 = m_Stack.get_At(0);
-
-	w2 += w1;
+	b += a;
 }
 
-OnOpcode(mul)
+OnOpcodeBinary(mul)
 {
-	auto& w1 = m_Stack.Pop();
-	auto& w2 = m_Stack.get_At(0);
-
-	w2 = w1 * w2;
+	b = a * b;
 }
 
-OnOpcode(sub)
+OnOpcodeBinary(sub)
 {
-	auto& w1 = m_Stack.Pop();
-	auto& w2 = m_Stack.get_At(0);
-
-	// w2 = w1 - w2;
-	w2.Negate();
-	w2 += w1;
-
+	// b = a - b;
+	b.Negate();
+	b += a;
 }
 
-OnOpcode(div)
+OnOpcodeBinary(div)
 {
-	auto& w1 = m_Stack.Pop();
-	auto& w2 = m_Stack.get_At(0);
-
-	// w2 = w1 / w2;
-	auto x = w2;
+	// b = a / b;
+	auto x = b;
 	Test(x != Zero);
 
-	w2.SetDiv(w1, x);
-
+	b.SetDiv(a, x);
 }
 
-OnOpcode(sdiv)
+OnOpcodeBinary(sdiv)
 {
-	auto& w1 = m_Stack.Pop();
-	auto& w2 = m_Stack.get_At(0);
-
-	// w2 = w1 / w2;
-	auto x = w2;
+	// b = a / b;
+	auto x = b;
 	Test(x != Zero);
 
-	bool bNeg = IsNeg(w1);
+	bool bNeg = IsNeg(a);
 	if (bNeg)
-		w1.Negate();
+		a.Negate();
 
 	if (IsNeg(x))
 	{
@@ -291,123 +315,128 @@ OnOpcode(sdiv)
 		x.Negate();
 	}
 
-	w2.SetDiv(w1, x);
+	b.SetDiv(a, x);
 	if (bNeg)
-		w2.Negate();
-
+		b.Negate();
 }
 
-OnOpcode(lt)
+OnOpcodeBinary(exp)
 {
-	auto& w1 = m_Stack.Pop();
-	auto& w2 = m_Stack.get_At(0);
+	// b = a ^ b
+	auto n = b;
+	b = 1u;
 
-	uint8_t b = CmpW<false>(w1, w2) < 0;
-	w2 = b;
+	// double-and-add
+	for (uint32_t nBit = n.nBits - 1; ; )
+	{
+		if (1u & (n.m_pData[nBit >> 3] >> (7 & nBit)))
+			b = b * a;
+
+		if (!nBit--)
+			break;
+
+		a = a * a;
+	}
 }
 
-OnOpcode(gt)
+OnOpcodeBinary(lt)
 {
-	auto& w1 = m_Stack.Pop();
-	auto& w2 = m_Stack.get_At(0);
-
-	uint8_t b = CmpW<false>(w1, w2) > 0;
-	w2 = b;
+	SetBool(b, CmpW<false>(a, b) < 0);
 }
 
-OnOpcode(slt)
+OnOpcodeBinary(gt)
 {
-	auto& w1 = m_Stack.Pop();
-	auto& w2 = m_Stack.get_At(0);
-
-	uint8_t b = CmpW<true>(w1, w2) < 0;
-	w2 = b;
+	SetBool(b, CmpW<false>(a, b) > 0);
 }
 
-OnOpcode(sgt)
+OnOpcodeBinary(slt)
 {
-	auto& w1 = m_Stack.Pop();
-	auto& w2 = m_Stack.get_At(0);
-
-	uint8_t b = CmpW<true>(w1, w2) > 0;
-	w2 = b;
+	SetBool(b, CmpW<true>(a, b) < 0);
 }
 
-OnOpcode(eq)
+OnOpcodeBinary(sgt)
 {
-	auto& w1 = m_Stack.Pop();
-	auto& w2 = m_Stack.get_At(0);
-
-	uint8_t b = !!(w1 == w2);
-	w2 = b;
+	SetBool(b, CmpW<true>(a, b) < 0);
 }
 
-OnOpcode(shl)
+OnOpcodeBinary(eq)
 {
-	auto& w1 = m_Stack.Pop();
-	auto& w2 = m_Stack.get_At(0);
-
-	auto x = w2;
-	x.ShiftLeft(WtoU32(w1), w2);
+	SetBool(b, a == b);
 }
 
-OnOpcode(shr)
+OnOpcodeBinary(shl)
 {
-	auto& w1 = m_Stack.Pop();
-	auto& w2 = m_Stack.get_At(0);
-
-	auto x = w2;
-	x.ShiftRight(WtoU32(w1), w2);
+	auto x = b;
+	auto n = WtoU32(a);
+	Test(n < x.nBits);
+	x.ShiftLeft(n, b);
 }
 
-OnOpcode(iszero)
+OnOpcodeBinary(shr)
 {
-	auto& w = m_Stack.get_At(0);
-	uint8_t bZero = !!(w == Zero);
-	w = bZero;
+	auto x = b;
+	auto n = WtoU32(a);
+	Test(n < x.nBits);
+	x.ShiftRight(n, b);
 }
 
-OnOpcode(And)
+OnOpcodeBinary(sar)
 {
-	auto& w1 = m_Stack.Pop();
-	auto& w2 = m_Stack.get_At(0);
+	auto x = b;
+	auto n = WtoU32(a);
+	Test(n < x.nBits);
 
+	bool bNeg = IsNeg(x);
+
+	x.ShiftRight(n, b);
+
+	if (bNeg)
+	{
+		uint32_t nBytes = n >> 3;
+		memset(b.m_pData, 0xff, nBytes);
+
+		n &= 7;
+		if (n)
+		{
+			uint8_t val = 0xff << (8 - n);
+			b.m_pData[nBytes] |= val;
+		}
+	}
+}
+
+OnOpcodeUnary(iszero)
+{
+	SetBool(a, a == Zero);
+}
+
+OnOpcodeBinary(And)
+{
 	for (uint32_t i = 0; i < Word::nBytes; i++)
-		w2.m_pData[i] &= w1.m_pData[i];
+		b.m_pData[i] &= a.m_pData[i];
 }
 
-OnOpcode(Or)
+OnOpcodeBinary(Or)
 {
-	auto& w1 = m_Stack.Pop();
-	auto& w2 = m_Stack.get_At(0);
-
 	for (uint32_t i = 0; i < Word::nBytes; i++)
-		w2.m_pData[i] |= w1.m_pData[i];
+		b.m_pData[i] |= a.m_pData[i];
 }
 
-OnOpcode(Xor)
+OnOpcodeBinary(Xor)
 {
-	auto& w1 = m_Stack.Pop();
-	auto& w2 = m_Stack.get_At(0);
-
 	for (uint32_t i = 0; i < Word::nBytes; i++)
-		w2.m_pData[i] ^= w1.m_pData[i];
+		b.m_pData[i] ^= a.m_pData[i];
 }
 
-OnOpcode(Not)
+OnOpcodeUnary(Not)
 {
-	auto& w = m_Stack.get_At(0);
-	w.Inv();
+	a.Inv();
 }
 
-OnOpcode(byte)
+OnOpcodeBinary(byte)
 {
-	auto& w1 = m_Stack.Pop();
-	auto& w2 = m_Stack.get_At(0);
-
-	auto nByte = WtoU32(w1);
-	Test(nByte < w2.nBytes);
-	w2 = w2.m_pData[nByte];
+	auto nByte = WtoU32(a);
+	Test(nByte < b.nBytes);
+	b = b.m_pData[nByte];
 }
 
 OnOpcode(callvalue)
