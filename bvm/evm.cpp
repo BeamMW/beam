@@ -14,6 +14,7 @@
 
 #define _CRT_SECURE_NO_WARNINGS // sprintf
 #include "evm.h"
+#include "../core/keccak.h"
 //#include <sstream>
 //#include <iomanip>
 //#include <string>
@@ -116,6 +117,7 @@ void EvmProcessor::InitVars()
 	macro(0x1b, shl) \
 	macro(0x1c, shr) \
 	macro(0x1d, sar) \
+	macro(0x20, sha3) \
 
 #define EvmOpcodes_Unary(macro) \
 	macro(0x15, iszero) \
@@ -126,14 +128,17 @@ void EvmProcessor::InitVars()
 	macro(0x34, callvalue) \
 	macro(0x35, calldataload) \
 	macro(0x36, calldatasize) \
+	macro(0x38, codesize) \
 	macro(0x39, codecopy) \
 	macro(0x50, pop) \
 	macro(0x51, mload) \
 	macro(0x52, mstore) \
+	macro(0x53, mstore8) \
 	macro(0x54, sload) \
 	macro(0x55, sstore) \
 	macro(0x56, jump) \
 	macro(0x57, jumpi) \
+	macro(0x58, pc) \
 	macro(0x5b, jumpdest) \
 	macro(0xf3, Return) \
 	macro(0xfd, revert) \
@@ -404,6 +409,16 @@ OnOpcodeBinary(sar)
 	}
 }
 
+OnOpcodeBinary(sha3)
+{
+	auto nSize = WtoU32(b);
+	auto pSrc = m_Memory.get_Addr(a, nSize);
+
+	KeccakProcessor<256> hp;
+	hp.Write(pSrc, nSize);
+	hp.Read(b.m_pData);
+}
+
 OnOpcodeUnary(iszero)
 {
 	SetBool(a, a == Zero);
@@ -460,6 +475,11 @@ OnOpcode(calldatasize)
 	m_Stack.Push() = m_Args.m_Buf.n;
 }
 
+OnOpcode(codesize)
+{
+	m_Stack.Push() = m_Code.m_n;
+}
+
 OnOpcode(codecopy)
 {
 	auto& w1 = m_Stack.Pop();
@@ -497,6 +517,15 @@ OnOpcode(mstore)
 
 	auto* pDst = m_Memory.get_Addr(w1, sizeof(Word));
 	memcpy(pDst, w2.m_pData, sizeof(Word));
+}
+
+OnOpcode(mstore8)
+{
+	const Word& w1 = m_Stack.Pop();
+	const Word& w2 = m_Stack.Pop();
+
+	auto* pDst = m_Memory.get_Addr(w1, 1);
+	*pDst = w2.m_pData[w2.nBytes - 1];
 }
 
 OnOpcode(sload)
@@ -537,6 +566,11 @@ OnOpcode(jumpi)
 
 	if (w2 != Zero)
 		Jump(w1);
+}
+
+OnOpcode(pc)
+{
+	m_Stack.Push() = m_Code.m_Ip;
 }
 
 OnOpcode(jumpdest)
