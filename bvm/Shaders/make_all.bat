@@ -4,6 +4,8 @@ call make_shader asset_man/app
 call make_shader asset_man/contract
 call make_shader bans/app
 call make_shader bans/contract
+call make_shader blackhole/app
+call make_shader blackhole/contract
 call make_shader aphorize/contract
 call make_shader dao-core/app
 call make_shader dao-core/app-admin
