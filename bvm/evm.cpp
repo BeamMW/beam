@@ -87,7 +87,7 @@ void EvmProcessor::Method::SetSelector(const Blob& b)
 {
 	Word w;
 	HashOf(w, b);
-	static_assert(w.nBytes >= m_Selector.nBytes);
+	assert(w.nBytes >= m_Selector.nBytes);
 	memcpy(m_Selector.m_pData, w.m_pData, w.nBytes);
 }
 
