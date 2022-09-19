@@ -1,4 +1,5 @@
 add_test_snippet(shaders_test bvm ethash_utils)
+add_test_snippet(evm_test bvm)
 add_test_snippet(doc_test bvm)
 
 configure_file("../Shaders/vault/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/vault/contract.wasm" COPYONLY)
