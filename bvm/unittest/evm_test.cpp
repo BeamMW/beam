@@ -68,6 +68,25 @@ namespace beam
 	void EvmTest()
 	{
 		// storage example
+
+/*
+		pragma solidity >=0.7.0 <0.9.0;
+
+		contract Storage {
+
+			uint256 m_Num;
+
+			function add(uint num) public returns (uint256) {
+				uint256 val = m_Num;
+				val += num;
+				m_Num = val;
+				return val;
+				//m_Num += num;
+				//return m_Num;
+			}
+		}
+*/
+
 		static const char szCode[] = "608060405234801561001057600080fd5b5060da8061001f6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c80631003e2d214602d575b600080fd5b603c60383660046066565b604e565b60405190815260200160405180910390f35b60008054605a8382607e565b60008190559392505050565b600060208284031215607757600080fd5b5035919050565b80820180821115609e57634e487b7160e01b600052601160045260246000fd5b9291505056fea26469706673582212207663ee6b0b30fe36e38ed6d65e28b6b9dbc407ec0e21a3a4c8213814e8bcf62864736f6c63430008110033";
 
 		// owner example
@@ -128,13 +147,6 @@ namespace beam
 		ByteBuffer bufCode;
 		evm.m_RetVal.Export(bufCode);
 
-		evm.Reset();
-		if (!bufCode.empty())
-		{
-			evm.m_Code.m_p = &bufCode.front();
-			evm.m_Code.m_n = (uint32_t) bufCode.size();
-		}
-
 #pragma pack (push, 1)
 		struct MyMethod
 			:public EvmProcessor::Method
@@ -143,16 +155,38 @@ namespace beam
 		} myArg;
 #pragma pack (pop)
 
-		myArg.SetSelector("add(uint256)");
-		myArg.m_MyValue = 19u;
+		uint64_t valExpected = 0;
+		for (uint32_t i = 0; i < 10; i++)
+		{
+			evm.Reset();
+			if (!bufCode.empty())
+			{
+				evm.m_Code.m_p = &bufCode.front();
+				evm.m_Code.m_n = (uint32_t)bufCode.size();
+			}
 
-		evm.m_Args.m_Buf.p = &myArg;
-		evm.m_Args.m_Buf.n = sizeof(myArg);
-		evm.m_Args.m_Caller = wOwner;
-		evm.m_Gas = 1000000000ULL;
+			uint32_t valAdd = (i + 5) * 19;
+			valExpected += valAdd;
 
-		while (evm.ShouldRun())
-			evm.RunOnce();
+			myArg.SetSelector("add(uint256)");
+			myArg.m_MyValue = valAdd;
+
+			evm.m_Args.m_Buf.p = &myArg;
+			evm.m_Args.m_Buf.n = sizeof(myArg);
+			evm.m_Args.m_Caller = wOwner;
+			evm.m_Gas = 1000000000ULL;
+
+			while (evm.ShouldRun())
+				evm.RunOnce();
+
+			verify_test(EvmProcessor::State::Done == evm.m_State);
+
+			verify_test(sizeof(EvmProcessor::Word) == evm.m_RetVal.n);
+			const auto& wRes = *(const EvmProcessor::Word*) evm.m_RetVal.p;
+
+			verify_test(EvmProcessor::Word(valExpected) == wRes);
+
+		}
 	}
 
 } // namespace beam
