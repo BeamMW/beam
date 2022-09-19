@@ -114,8 +114,11 @@ namespace beam {
 		struct Args
 		{
 			Blob m_Buf;
-			Word m_CallValue;
+			Word m_CallValue; // amonth of eth to be received by the caller?
+			Word m_Caller;
 		} m_Args;
+
+		uint64_t m_Gas;
 
 		bool ShouldRun() const
 		{
