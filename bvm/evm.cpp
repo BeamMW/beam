@@ -83,6 +83,22 @@ uint8_t* EvmProcessor::Memory::get_Addr(const Word& wAddr, uint32_t nSize)
 	return &m_v.front() + n0;
 }
 
+void EvmProcessor::Method::SetSelector(const Blob& b)
+{
+	Word w;
+	HashOf(w, b);
+	static_assert(w.nBytes >= m_Selector.nBytes);
+	memcpy(m_Selector.m_pData, w.m_pData, w.nBytes);
+}
+
+void EvmProcessor::Method::SetSelector(const char* szSignature)
+{
+	Blob blob;
+	blob.p = szSignature;
+	blob.n = (uint32_t) strlen(szSignature);
+	SetSelector(blob);
+}
+
 void EvmProcessor::Reset()
 {
 	InitVars();
@@ -144,6 +160,7 @@ void EvmProcessor::InitVars()
 	macro(0x5a, gas, 2) \
 	macro(0x5b, jumpdest, 1) \
 	macro(0xf3, Return, 0) \
+	macro(0xfa, staticcall, 40) \
 	macro(0xfd, revert, 0) \
 
 #define EvmOpcodes_All(macro) \
@@ -195,6 +212,7 @@ struct EvmProcessorPlus :public EvmProcessor
 	void PushN(uint32_t n);
 	void DupN(uint32_t n);
 	void SwapN(uint32_t n);
+	void LogN(uint32_t n);
 	void SaveRetval();
 
 	template <bool bPadLeft>
@@ -279,6 +297,17 @@ void EvmProcessorPlus::RunOnce()
 			LogOpCode("swap");
 			DrainGas(3);
 			SwapN(nCode - 0x8f);
+			break;
+
+		case 0xa: // 0xa0 - 0xaf
+			{
+				uint8_t nLog = nCode - 0xa0;
+				Test(nLog <= 4);
+
+				LogOpCode("log");
+				DrainGas(375 * (nLog + 1));
+				LogN(nLog);
+			}
 			break;
 
 		default:
@@ -428,14 +457,20 @@ OnOpcodeBinary(sar)
 	}
 }
 
+void EvmProcessor::HashOf(Word& w, const Blob& b)
+{
+	KeccakProcessor<Word::nBits> hp;
+	hp.Write(b.p, b.n);
+	hp.Read(w.m_pData);
+}
+
 OnOpcodeBinary(sha3)
 {
-	auto nSize = WtoU32(b);
-	auto pSrc = m_Memory.get_Addr(a, nSize);
+	Blob blob;
+	blob.n = WtoU32(b);
+	blob.p = m_Memory.get_Addr(a, blob.n);
 
-	KeccakProcessor<256> hp;
-	hp.Write(pSrc, nSize);
-	hp.Read(b.m_pData);
+	HashOf(b, blob);
 }
 
 OnOpcodeUnary(iszero)
@@ -624,6 +659,8 @@ void EvmProcessorPlus::AssignPartial(Word& w, const uint8_t* p, uint32_t n)
 
 void EvmProcessorPlus::PushN(uint32_t n)
 {
+	printf("\t\tn=%u\n", n);
+
 	auto pSrc = m_Code.Consume(n);
 	auto& wDst = m_Stack.Push();
 	AssignPartial<true>(wDst, pSrc, n);
@@ -643,6 +680,19 @@ void EvmProcessorPlus::SwapN(uint32_t n)
 	std::swap(w1, w2);
 }
 
+void EvmProcessorPlus::LogN(uint32_t n)
+{
+	auto& wAddr = m_Stack.Pop();
+	auto nSize = WtoU32(m_Stack.Pop());
+	auto* pSrc = m_Memory.get_Addr(wAddr, nSize);
+
+	while (n--)
+		m_Stack.Pop(); // topic
+
+	pSrc;
+
+}
+
 void EvmProcessorPlus::SaveRetval()
 {
 	auto& w1 = m_Stack.Pop();
@@ -656,6 +706,27 @@ OnOpcode(Return)
 {
 	SaveRetval();
 	m_State = State::Done;
+}
+
+OnOpcode(staticcall)
+{
+	auto nGas = WtoU64(m_Stack.Pop());
+	auto& wAddr = m_Stack.Pop();
+
+	auto& wArgsAddr = m_Stack.Pop();
+	auto nArgsSize = WtoU32(m_Stack.Pop());
+	auto* pArgs = m_Memory.get_Addr(wArgsAddr, nArgsSize);
+
+	auto& wResAddr = m_Stack.Pop();
+	auto nResSize = WtoU32(m_Stack.Pop());
+	auto* pRes = m_Memory.get_Addr(wResAddr, nResSize);
+
+	wAddr;
+	nGas;
+	pArgs;
+	pRes;
+
+	m_Stack.Push() = 1u; // success!
 }
 
 OnOpcode(revert)
