@@ -96,52 +96,55 @@ void EvmProcessor::InitVars()
 	ZeroObject(m_RetVal);
 	ZeroObject(m_Args);
 	m_State = State::Running;
+	m_Gas = 0;
 }
 
 #define EvmOpcodes_Binary(macro) \
-	macro(0x01, add) \
-	macro(0x02, mul) \
-	macro(0x03, sub) \
-	macro(0x04, div) \
-	macro(0x05, sdiv) \
-	macro(0x0a, exp) \
-	macro(0x10, lt) \
-	macro(0x11, gt) \
-	macro(0x12, slt) \
-	macro(0x13, sgt) \
-	macro(0x14, eq) \
-	macro(0x16, And) \
-	macro(0x17, Or) \
-	macro(0x18, Xor) \
-	macro(0x1a, byte) \
-	macro(0x1b, shl) \
-	macro(0x1c, shr) \
-	macro(0x1d, sar) \
-	macro(0x20, sha3) \
+	macro(0x01, add, 3) \
+	macro(0x02, mul, 5) \
+	macro(0x03, sub, 3) \
+	macro(0x04, div, 5) \
+	macro(0x05, sdiv, 5) \
+	macro(0x0a, exp, 10) \
+	macro(0x10, lt, 3) \
+	macro(0x11, gt, 3) \
+	macro(0x12, slt, 3) \
+	macro(0x13, sgt, 3) \
+	macro(0x14, eq, 3) \
+	macro(0x16, And, 3) \
+	macro(0x17, Or, 3) \
+	macro(0x18, Xor, 3) \
+	macro(0x1a, byte, 3) \
+	macro(0x1b, shl, 3) \
+	macro(0x1c, shr, 3) \
+	macro(0x1d, sar, 3) \
+	macro(0x20, sha3, 30) \
 
 #define EvmOpcodes_Unary(macro) \
-	macro(0x15, iszero) \
-	macro(0x19, Not) \
+	macro(0x15, iszero, 3) \
+	macro(0x19, Not, 3) \
 
 #define EvmOpcodes_Custom(macro) \
-	macro(0x00, stop) \
-	macro(0x34, callvalue) \
-	macro(0x35, calldataload) \
-	macro(0x36, calldatasize) \
-	macro(0x38, codesize) \
-	macro(0x39, codecopy) \
-	macro(0x50, pop) \
-	macro(0x51, mload) \
-	macro(0x52, mstore) \
-	macro(0x53, mstore8) \
-	macro(0x54, sload) \
-	macro(0x55, sstore) \
-	macro(0x56, jump) \
-	macro(0x57, jumpi) \
-	macro(0x58, pc) \
-	macro(0x5b, jumpdest) \
-	macro(0xf3, Return) \
-	macro(0xfd, revert) \
+	macro(0x00, stop, 0) \
+	macro(0x33, caller, 2) \
+	macro(0x34, callvalue, 2) \
+	macro(0x35, calldataload, 3) \
+	macro(0x36, calldatasize, 2) \
+	macro(0x38, codesize, 2) \
+	macro(0x39, codecopy, 3) \
+	macro(0x50, pop, 2) \
+	macro(0x51, mload, 3) \
+	macro(0x52, mstore, 3) \
+	macro(0x53, mstore8, 3) \
+	macro(0x54, sload, 800) \
+	macro(0x55, sstore, 20000) \
+	macro(0x56, jump, 8) \
+	macro(0x57, jumpi, 10) \
+	macro(0x58, pc, 2) \
+	macro(0x5a, gas, 2) \
+	macro(0x5b, jumpdest, 1) \
+	macro(0xf3, Return, 0) \
+	macro(0xfd, revert, 0) \
 
 #define EvmOpcodes_All(macro) \
 	EvmOpcodes_Binary(macro) \
@@ -150,11 +153,11 @@ void EvmProcessor::InitVars()
 
 struct EvmProcessorPlus :public EvmProcessor
 {
-#define THE_MACRO(code, name) void On_##name();
+#define THE_MACRO(code, name, gas) void On_##name();
 	EvmOpcodes_Custom(THE_MACRO)
 #undef THE_MACRO
 
-#define THE_MACRO(code, name) \
+#define THE_MACRO(code, name, gas) \
 	void OnBinary_##name(Word& a, Word& b); \
 	void On_##name() \
 	{ \
@@ -166,7 +169,7 @@ struct EvmProcessorPlus :public EvmProcessor
 	EvmOpcodes_Binary(THE_MACRO)
 #undef THE_MACRO
 
-#define THE_MACRO(code, name) \
+#define THE_MACRO(code, name, gas) \
 	void OnUnary_##name(Word& a); \
 	void On_##name() \
 	{ \
@@ -178,7 +181,7 @@ struct EvmProcessorPlus :public EvmProcessor
 #undef THE_MACRO
 
 	struct Opcode {
-#define THE_MACRO(code, name) static const uint8_t name = code;
+#define THE_MACRO(code, name, gas) static const uint8_t name = code;
 		EvmOpcodes_All(THE_MACRO)
 #undef THE_MACRO
 	};
@@ -186,6 +189,7 @@ struct EvmProcessorPlus :public EvmProcessor
 	void RunOnce();
 
 	void LogOpCode(const char* sz);
+	void DrainGas(uint32_t);
 
 	void Jump(const Word&);
 	void PushN(uint32_t n);
@@ -225,6 +229,12 @@ void EvmProcessorPlus::LogOpCode(const char* sz)
 	printf("\t%08x, %s\n", m_Code.m_Ip - 1, sz);
 }
 
+void EvmProcessorPlus::DrainGas(uint32_t n)
+{
+	Test(m_Gas >= n);
+	m_Gas -= n;
+}
+
 void EvmProcessor::RunOnce()
 {
 	Cast::Up<EvmProcessorPlus>(*this).RunOnce();
@@ -238,7 +248,13 @@ void EvmProcessorPlus::RunOnce()
 
 	switch (nCode)
 	{
-#define THE_MACRO(code, name) case code: LogOpCode(#name); On_##name(); break;
+#define THE_MACRO(code, name, gas) \
+	case code: \
+		LogOpCode(#name); \
+		DrainGas(gas); \
+		On_##name(); \
+		break;
+
 		EvmOpcodes_All(THE_MACRO)
 #undef THE_MACRO
 
@@ -249,16 +265,19 @@ void EvmProcessorPlus::RunOnce()
 		case 0x6:
 		case 0x7: // 0x60 - 0x7f
 			LogOpCode("push");
+			DrainGas(3);
 			PushN(nCode - 0x5f);
 			break;
 
 		case 0x8: // 0x80 - 0x8f
 			LogOpCode("dup");
+			DrainGas(3);
 			DupN(nCode - 0x7f);
 			break;
 
 		case 0x9: // 0x90 - 0x9f
 			LogOpCode("swap");
+			DrainGas(3);
 			SwapN(nCode - 0x8f);
 			break;
 
@@ -454,6 +473,11 @@ OnOpcodeBinary(byte)
 	b = b.m_pData[nByte];
 }
 
+OnOpcode(caller)
+{
+	m_Stack.Push() = m_Args.m_Caller;
+}
+
 OnOpcode(callvalue)
 {
 	m_Stack.Push() = m_Args.m_CallValue;
@@ -571,6 +595,11 @@ OnOpcode(jumpi)
 OnOpcode(pc)
 {
 	m_Stack.Push() = m_Code.m_Ip;
+}
+
+OnOpcode(gas)
+{
+	m_Stack.Push() = m_Gas;
 }
 
 OnOpcode(jumpdest)
