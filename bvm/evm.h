@@ -27,6 +27,8 @@ namespace beam {
 		static uint32_t WtoU32(const Word& w);
 		static uint64_t WtoU64(const Word& w);
 
+		static void HashOf(Word&, const Blob&);
+
 		struct Stack
 		{
 			std::vector<Word> m_v;
@@ -127,7 +129,9 @@ namespace beam {
 
 #pragma pack (push, 1)
 		struct Method {
-			uintBigFor<uint32_t>::Type m_MethodHash;
+			uintBigFor<uint32_t>::Type m_Selector;
+			void SetSelector(const Blob&);
+			void SetSelector(const char*);
 		};
 #pragma pack (pop)
 
