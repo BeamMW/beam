@@ -1335,6 +1335,7 @@ namespace
                     const auto rasset  = tx.GetParameter<Asset::ID>(TxParameterID::DexReceiveAsset);
                     const auto ramount = tx.GetParameter<Amount>(TxParameterID::DexReceiveAmount);
                     auto [unitNameSecond, nthNameSekond] = GetAssetNames(walletDB, *rasset);
+                    boost::ignore_unused(nthNameSekond);
                     const auto amountSecondHeader = boost::format(kAssetTxHistoryColumnAmount) %  unitNameSecond;
                     std::string amountSecond = to_string(PrintableAmount(*ramount, true));
                     cout << std::string(4, ' ') << amountSecondHeader << ": " << amountSecond << std::endl;
@@ -1551,6 +1552,7 @@ namespace
                         const auto rasset  = tx.GetParameter<Asset::ID>(TxParameterID::DexReceiveAsset);
                         const auto ramount = tx.GetParameter<Amount>(TxParameterID::DexReceiveAmount);
                         auto [unitNameSecond, nthNameSekond] = GetAssetNames(walletDB, *rasset);
+                        boost::ignore_unused(nthNameSekond);
                         const auto amountSecondHeader = boost::format(kAssetTxHistoryColumnAmount) %  unitNameSecond;
                         std::string amountSecond = to_string(PrintableAmount(*ramount, true));
                         cout << std::string(4, ' ') << amountSecondHeader << ": " << amountSecond << std::endl;
