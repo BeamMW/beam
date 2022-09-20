@@ -31,6 +31,11 @@ void V72Api::onHandleAssetsSwapCreate(const JsonRpcId& id, AssetsSwapCreate&& re
 {
     auto walletDB = getWalletDB();
 
+    if (req.receiveAsset == req.sendAsset)
+    {
+        throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Send and receive assets ID can't be identical.");
+    }
+
     std::string sendAssetUnitName = "BEAM";
     if (req.sendAsset)
     {
