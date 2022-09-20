@@ -1226,6 +1226,9 @@ namespace
             auto txUnreg   = walletDB->getTxHistory(TxType::AssetUnreg);
             auto txInfo    = walletDB->getTxHistory(TxType::AssetInfo);
             auto txMaxPriv = walletDB->getTxHistory(TxType::PushTransaction);
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+            auto txAssetsSwaps = walletDB->getTxHistory(TxType::DexSimpleSwap);
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
             if (assetId != Asset::s_InvalidID)
             {
@@ -1239,6 +1242,9 @@ namespace
             txHistory.insert(txHistory.end(), txUnreg.begin(), txUnreg.end());
             txHistory.insert(txHistory.end(), txInfo.begin(), txInfo.end());
             txHistory.insert(txHistory.end(), txMaxPriv.begin(), txMaxPriv.end());
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+            txHistory.insert(txHistory.end(), txAssetsSwaps.begin(), txAssetsSwaps.end());
+#endif  // BEAM_ASSET_SWAP_SUPPORT
         }
 
         std::sort(txHistory.begin(), txHistory.end(), [](const TxDescription& a, const TxDescription& b) -> bool {
@@ -1315,8 +1321,25 @@ namespace
 
                 cout << std::string(4, ' ') << kTxHistoryColumnDatetTime << ": " << tstamp << std::endl;
                 cout << std::string(4, ' ') <<  kTxHistoryColumnHeight << ": " << static_cast<int64_t>(height) << std::endl;
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+                if (tx.m_txType == TxType::DexSimpleSwap)
+                {
+                    cout << std::string(4, ' ') << "asset swap: true" << std::endl;
+                }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
                 cout << std::string(4, ' ') << kTxHistoryColumnDirection << ": " << direction << std::endl;
                 cout << std::string(4, ' ') << amountHeader << ": " << amount << std::endl;
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+                if (tx.m_txType == TxType::DexSimpleSwap)
+                {
+                    const auto rasset  = tx.GetParameter<Asset::ID>(TxParameterID::DexReceiveAsset);
+                    const auto ramount = tx.GetParameter<Amount>(TxParameterID::DexReceiveAmount);
+                    auto [unitNameSecond, nthNameSekond] = GetAssetNames(walletDB, *rasset);
+                    const auto amountSecondHeader = boost::format(kAssetTxHistoryColumnAmount) %  unitNameSecond;
+                    std::string amountSecond = to_string(PrintableAmount(*ramount, true));
+                    cout << std::string(4, ' ') << amountSecondHeader << ": " << amountSecond << std::endl;
+                }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
                 cout << std::string(4, ' ') <<  kTxHistoryColumnStatus << ": " << interpretStatusCliImpl(tx) << std::endl;
                 cout << std::string(4, ' ') << kTxHistoryColumnId << ": " << txid << std::endl;
                 if (!kernelId.empty())
@@ -1477,7 +1500,11 @@ namespace
 
             if (vm.count(cli::TX_HISTORY))
             {
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+                std::array<TxType, 4> types = { TxType::Simple, TxType::PushTransaction, TxType::Contract, TxType::DexSimpleSwap };
+#else
                 std::array<TxType, 3> types = { TxType::Simple, TxType::PushTransaction, TxType::Contract };
+#endif  // BEAM_ASSET_SWAP_SUPPORT
                 for (auto type : types)
                 {
                     auto v = walletDB->getTxHistory(type);
@@ -1510,9 +1537,26 @@ namespace
                     const auto token     = tx.getToken();
 
                     cout << std::string(4, ' ') << kTxHistoryColumnDatetTime << ": " << tstamp << std::endl;
+                    #ifdef BEAM_ASSET_SWAP_SUPPORT
+                    if (tx.m_txType == TxType::DexSimpleSwap)
+                    {
+                        cout << std::string(4, ' ') << "asset swap: true" << std::endl;
+                    }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
                     cout << std::string(4, ' ') << kTxHistoryColumnDirection << ": " << direction << std::endl;
                     cout << std::string(4, ' ') << kTxHistoryColumnAmount << ": " << amount << std::endl;
-                    cout << std::string(4, ' ') <<  kTxHistoryColumnStatus << ": " << interpretStatusCliImpl(tx) << std::endl;
+                    #ifdef BEAM_ASSET_SWAP_SUPPORT
+                    if (tx.m_txType == TxType::DexSimpleSwap)
+                    {
+                        const auto rasset  = tx.GetParameter<Asset::ID>(TxParameterID::DexReceiveAsset);
+                        const auto ramount = tx.GetParameter<Amount>(TxParameterID::DexReceiveAmount);
+                        auto [unitNameSecond, nthNameSekond] = GetAssetNames(walletDB, *rasset);
+                        const auto amountSecondHeader = boost::format(kAssetTxHistoryColumnAmount) %  unitNameSecond;
+                        std::string amountSecond = to_string(PrintableAmount(*ramount, true));
+                        cout << std::string(4, ' ') << amountSecondHeader << ": " << amountSecond << std::endl;
+                    }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+                    cout << std::string(4, ' ') << kTxHistoryColumnStatus << ": " << interpretStatusCliImpl(tx) << std::endl;
                     cout << std::string(4, ' ') << kTxHistoryColumnId << ": " << txid << std::endl;
                     if (!krnid.empty())
                         cout << std::string(4, ' ') << kTxHistoryColumnKernelId << ": " << krnid << std::endl;
