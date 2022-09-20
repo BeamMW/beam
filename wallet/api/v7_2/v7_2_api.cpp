@@ -30,7 +30,7 @@ DexBoard::Ptr V72Api::getDexBoard() const
 {
     if (_dexBoard == nullptr)
     {
-        throw jsonrpc_exception(ApiError::NoSwapsError);
+        throw jsonrpc_exception(ApiError::NoAssetsSwapsError);
     }
 
     assertWalletThread();

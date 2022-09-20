@@ -123,3 +123,15 @@ content-type: application/json-rpc
         "txId" : "45491c4680d14418af95ea18f12db10b" 
     }
 }
+
+### tx_list
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "tx_list",
+    "params": {}
+}

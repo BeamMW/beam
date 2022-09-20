@@ -43,6 +43,7 @@ namespace beam::wallet
     macro(-32021, UserRejected,              "Call is rejected by user")            \
     macro(-32022, IPFSError,                 "IPFS call failed")                    \
     macro(-32023, AssetSwapNotEnoughtFunds,  "Not enough funds to send.")           \
+    macro(-32024, NoAssetsSwapsError,        "Assets Swaps are not enabled")               \
 
     enum ApiError
     {
