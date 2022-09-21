@@ -50,39 +50,6 @@ uint64_t EvmProcessor::WtoU64(const Word& w)
 	return ret;
 }
 
-uint32_t EvmProcessor::Memory::get_Order(uint32_t n)
-{
-	uint32_t ret = 0;
-	for (; n; ret++)
-		n >>= 1;
-	return ret;
-}
-
-uint8_t* EvmProcessor::Memory::get_Addr(const Word& wAddr, uint32_t nSize)
-{
-	if (!nSize)
-		return nullptr;
-
-	uint32_t n0 = WtoU32(wAddr);
-	uint32_t n1 = n0 + nSize;
-	Test(n1 >= n0);
-
-	if (n1 > m_v.size())
-	{
-		Test(n1 <= m_Max);
-
-		uint32_t nOrder = get_Order(n1);
-		nOrder = std::max(nOrder, 10u); // 2^10 = 1024
-
-		if ((n1 - 1) >> (nOrder - 1))
-			nOrder++;
-
-		m_v.resize((uint32_t)(1u << nOrder));
-	}
-
-	return &m_v.front() + n0;
-}
-
 void EvmProcessor::Method::SetSelector(const Blob& b)
 {
 	Word w;
@@ -206,7 +173,10 @@ struct EvmProcessorPlus :public EvmProcessor
 	void RunOnce();
 
 	void LogOpCode(const char* sz);
-	void DrainGas(uint32_t);
+	void DrainGas(uint64_t);
+
+	uint8_t* get_Memory(const Word& wAddr, uint32_t nSize);
+	static uint64_t get_MemoryCost(uint32_t nSize);
 
 	void Jump(const Word&);
 	void PushN(uint32_t n);
@@ -247,10 +217,39 @@ void EvmProcessorPlus::LogOpCode(const char* sz)
 	printf("\t%08x, %s\n", m_Code.m_Ip - 1, sz);
 }
 
-void EvmProcessorPlus::DrainGas(uint32_t n)
+void EvmProcessorPlus::DrainGas(uint64_t n)
 {
 	Test(m_Gas >= n);
 	m_Gas -= n;
+}
+
+uint8_t* EvmProcessorPlus::get_Memory(const Word& wAddr, uint32_t nSize)
+{
+	if (!nSize)
+		return nullptr;
+
+	uint32_t n0 = WtoU32(wAddr);
+	uint32_t n1 = n0 + nSize;
+	Test(n1 >= n0);
+
+	uint32_t nSize0 = static_cast<uint32_t>(m_Memory.m_v.size());
+	if (n1 > nSize0)
+	{
+		DrainGas(get_MemoryCost(n1) - get_MemoryCost(nSize0));
+		m_Memory.m_v.resize(n1);
+	}
+
+	return &m_Memory.m_v.front() + n0;
+}
+
+uint64_t EvmProcessorPlus::get_MemoryCost(uint32_t nSize)
+{
+	// cost := a * 3 + floor(a^2 / 512)
+	uint64_t a = nSize / Word::nBytes;
+	if (nSize % Word::nBytes)
+		a++;
+
+	return (a * 3) + (a * a / 512);
 }
 
 void EvmProcessor::RunOnce()
@@ -468,7 +467,7 @@ OnOpcodeBinary(sha3)
 {
 	Blob blob;
 	blob.n = WtoU32(b);
-	blob.p = m_Memory.get_Addr(a, blob.n);
+	blob.p = get_Memory(a, blob.n);
 
 	HashOf(b, blob);
 }
@@ -551,7 +550,7 @@ OnOpcode(codecopy)
 	m_Code.TestAccess(nAddrSrc, nSize); // access code pointer
 	const auto* pSrc = m_Code.m_p + nAddrSrc;
 
-	auto* pDst = m_Memory.get_Addr(w1, nSize);
+	auto* pDst = get_Memory(w1, nSize);
 
 	memcpy(pDst, pSrc, nSize);
 }
@@ -565,7 +564,7 @@ OnOpcode(mload)
 {
 	Word& w = m_Stack.get_At(0);
 
-	auto* pSrc = m_Memory.get_Addr(w, sizeof(Word));
+	auto* pSrc = get_Memory(w, sizeof(Word));
 	memcpy(w.m_pData, pSrc, sizeof(Word));
 }
 
@@ -574,7 +573,7 @@ OnOpcode(mstore)
 	const Word& w1 = m_Stack.Pop();
 	const Word& w2 = m_Stack.Pop();
 
-	auto* pDst = m_Memory.get_Addr(w1, sizeof(Word));
+	auto* pDst = get_Memory(w1, sizeof(Word));
 	memcpy(pDst, w2.m_pData, sizeof(Word));
 }
 
@@ -583,7 +582,7 @@ OnOpcode(mstore8)
 	const Word& w1 = m_Stack.Pop();
 	const Word& w2 = m_Stack.Pop();
 
-	auto* pDst = m_Memory.get_Addr(w1, 1);
+	auto* pDst = get_Memory(w1, 1);
 	*pDst = w2.m_pData[w2.nBytes - 1];
 }
 
@@ -684,7 +683,7 @@ void EvmProcessorPlus::LogN(uint32_t n)
 {
 	auto& wAddr = m_Stack.Pop();
 	auto nSize = WtoU32(m_Stack.Pop());
-	auto* pSrc = m_Memory.get_Addr(wAddr, nSize);
+	auto* pSrc = get_Memory(wAddr, nSize);
 
 	while (n--)
 		m_Stack.Pop(); // topic
@@ -699,7 +698,7 @@ void EvmProcessorPlus::SaveRetval()
 	auto& w2 = m_Stack.Pop();
 
 	m_RetVal.n = WtoU32(w2);
-	m_RetVal.p = m_Memory.get_Addr(w1, m_RetVal.n);
+	m_RetVal.p = get_Memory(w1, m_RetVal.n);
 }
 
 OnOpcode(Return)
@@ -715,11 +714,11 @@ OnOpcode(staticcall)
 
 	auto& wArgsAddr = m_Stack.Pop();
 	auto nArgsSize = WtoU32(m_Stack.Pop());
-	auto* pArgs = m_Memory.get_Addr(wArgsAddr, nArgsSize);
+	auto* pArgs = get_Memory(wArgsAddr, nArgsSize);
 
 	auto& wResAddr = m_Stack.Pop();
 	auto nResSize = WtoU32(m_Stack.Pop());
-	auto* pRes = m_Memory.get_Addr(wResAddr, nResSize);
+	auto* pRes = get_Memory(wResAddr, nResSize);
 
 	wAddr;
 	nGas;

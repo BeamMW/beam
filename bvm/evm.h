@@ -35,6 +35,7 @@ namespace beam {
 
 			Word& Push()
 			{
+				Test(m_v.size() < 1024);
 				return m_v.emplace_back();
 			}
 
@@ -56,12 +57,6 @@ namespace beam {
 		struct Memory
 		{
 			std::vector<uint8_t> m_v;
-			const uint32_t m_Max = 0x1000000; // 16MB
-
-			static uint32_t get_Order(uint32_t n);
-
-			uint8_t* get_Addr(const Word& wAddr, uint32_t nSize);
-
 		} m_Memory;
 
 		struct Code
