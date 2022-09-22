@@ -174,13 +174,19 @@ namespace beam::wallet
         }
         else if (tx.m_txType == TxType::AtomicSwap)
         {
-            #ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
             statusStr = beam::wallet::GetSwapTxStatusStr(tx);
-            #endif // BEAM_ATOMIC_SWAP_SUPPORT
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
         }
         else if (tx.m_txType == TxType::Contract)
         {
             statusStr = beam::wallet::GetContractTxStatusStr(tx);
+        }
+        else if (tx.m_txType == TxType::DexSimpleSwap)
+        {
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+            statusStr = beam::wallet::GetSimpleTxStatusStr(tx);
+#endif // BEAM_ASSET_SWAP_SUPPORT
         }
 
         msg = json
@@ -278,6 +284,16 @@ namespace beam::wallet
                 msg["income"] = isFeeOnly ? false : isIncome;
             }
         }
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        if (tx.m_txType == TxType::DexSimpleSwap)
+        {
+            msg["receive_asset"] = *(tx.GetParameter<Asset::ID>(TxParameterID::DexReceiveAsset));
+            msg["receive_amount"] = *(tx.GetParameter<Amount>(TxParameterID::DexReceiveAmount));
+            msg["send_asset"] = tx.m_assetId;
+            msg["send_amount"] = tx.m_amount;
+        }
+#endif // BEAM_ASSET_SWAP_SUPPORT
 
         if (txProofHeight > 0)
         {

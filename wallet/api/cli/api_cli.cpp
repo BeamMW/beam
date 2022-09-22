@@ -53,6 +53,8 @@
 
 #ifdef BEAM_ASSET_SWAP_SUPPORT
 #include "wallet/client/extensions/dex_board/dex_board.h"
+#include "wallet/transactions/dex/dex_tx_builder.h"
+#include "wallet/transactions/dex/dex_tx.h"
 #endif  // BEAM_ASSET_SWAP_SUPPORT
 
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
@@ -617,6 +619,8 @@ namespace
         ApiACL _acl;
         std::vector<uint32_t> _whitelist;
 
+        std::set<Asset::ID> _assetsFullList = {Asset::s_BeamID};
+
 #ifdef BEAM_ASSET_SWAP_SUPPORT
         std::shared_ptr<BroadcastRouter> _broadcastRouter;
 
@@ -885,7 +889,7 @@ int main(int argc, char* argv[])
         nnet->Connect();
 
         auto wnet = std::make_shared<WalletNetworkViaBbs>(*wallet, nnet, walletDB);
-		wallet->AddMessageEndpoint(wnet);
+        wallet->AddMessageEndpoint(wnet);
         wallet->SetNodeEndpoint(nnet);
 
         WalletApiServer server(options.apiVersion, walletDB, wallet, nnet, *reactor, listenTo, connectionOptions, acl, whitelist);
@@ -913,8 +917,9 @@ int main(int argc, char* argv[])
         if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
         {
             RegisterAllAssetCreators(*wallet);
-            
+
 #ifdef BEAM_ASSET_SWAP_SUPPORT
+            wallet->RegisterTransactionType(TxType::DexSimpleSwap, std::make_shared<DexTransaction::Creator>(walletDB));
             server.initDexFeature(nnet, *wnet);
 #endif  // BEAM_ASSET_SWAP_SUPPORT
         }

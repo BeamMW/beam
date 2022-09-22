@@ -24,7 +24,10 @@ namespace beam::wallet
 
 #ifdef BEAM_ASSET_SWAP_SUPPORT
     #define V7_2_ASSETS_SWAP_METHODS(macro) \
-        macro(AssetsSwapOffersList, "assets_swap_offers_list", API_READ_ACCESS, API_SYNC, APPS_BLOCKED)
+        macro(AssetsSwapOffersList, "assets_swap_offers_list", API_READ_ACCESS,  API_SYNC, APPS_BLOCKED) \
+        macro(AssetsSwapCreate,     "assets_swap_create",      API_WRITE_ACCESS, API_SYNC, APPS_BLOCKED) \
+        macro(AssetsSwapCancel,     "assets_swap_cancel",      API_WRITE_ACCESS, API_SYNC, APPS_BLOCKED) \
+        macro(AssetsSwapAccept,     "assets_swap_accept",      API_WRITE_ACCESS, API_SYNC, APPS_BLOCKED)
 #else  // !BEAM_ASSET_SWAP_SUPPORT
     #define V7_2_ASSETS_SWAP_METHODS(macro)
 #endif  // BEAM_ASSET_SWAP_SUPPORT
@@ -40,5 +43,41 @@ namespace beam::wallet
             std::vector<DexOrder> orders;
         };
     };
+
+    struct AssetsSwapCreate
+    {
+        Amount           sendAmount;
+        beam::Asset::ID  sendAsset = 0;
+        Amount           receiveAmount;
+        beam::Asset::ID  receiveAsset = 0;
+        uint32_t         expireMinutes = 0;
+        std::string      comment;
+
+        struct Response
+        {
+            DexOrder order;
+        };
+    };
+
+    struct AssetsSwapCancel
+    {
+        std::string offerId;
+        struct Response
+        {
+            beam::wallet::DexOrderID offerId;
+        };
+    };
+
+    struct AssetsSwapAccept
+    {
+        std::string offerId;
+        std::string comment;
+        struct Response
+        {
+            TxID txId;
+            DexOrder order;
+        };
+    };
+
 #endif  // BEAM_ASSET_SWAP_SUPPORT
 }
