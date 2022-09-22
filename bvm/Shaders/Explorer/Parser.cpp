@@ -2,10 +2,12 @@
 #include "../app_common_impl.h"
 #include "../upgradable/contract.h"
 #include "../upgradable2/contract.h"
+#include "../upgradable3/contract.h"
 #include "../vault/contract.h"
 #include "../faucet/contract.h"
 #include "../dao-core/contract.h"
 #include "../gallery/contract.h"
+#include "../nephrite/contract.h"
 
 template <uint32_t nMaxLen>
 void DocAddTextLen(const char* szID, const void* szValue, uint32_t nLen)
@@ -71,7 +73,8 @@ void DocAddCid(const char* sz, const ContractID& cid)
 	macro(DaoCore, DaoCore::s_SID) \
 	macro(Gallery_0, Gallery::s_pSID[0]) \
 	macro(Gallery_1, Gallery::s_pSID[1]) \
-	macro(Gallery_2, Gallery::s_pSID[2])
+	macro(Gallery_2, Gallery::s_pSID[2]) \
+	macro(Nephrite, Nephrite::s_pSID[0]) \
 
 
 struct ParserContext
@@ -135,7 +138,11 @@ struct ParserContext
 	void WriteUpgradeParams(const Upgradable::Next&);
 	void WriteUpgradeParams(const Upgradable2::Next&);
 	void WriteUpgradeParams(const ContractID&, Height);
+	void WriteUpgradeSettings(const Upgradable3::Settings&);
+	void WriteUpgradeSettingsInternal(const Upgradable3::Settings&);
+	void WriteUpgrade3State();
 	void WriteUpgradeAdminsMask(uint32_t nApproveMask);
+	void WriteNephriteSettings(const Nephrite::Settings&);
 };
 
 bool ParserContext::Parse()
@@ -367,6 +374,90 @@ void ParserContext::WriteUpgradeParams(const ContractID& cid, Height h)
 		ParserContext pc2(sid, cid);
 		if (!pc2.Parse())
 			OnUpgradableSubtype(sid);
+	}
+}
+
+void ParserContext::WriteUpgradeSettings(const Upgradable3::Settings& stg)
+{
+	Env::DocGroup gr("Upgradable3");
+	WriteUpgradeSettingsInternal(stg);
+}
+
+void ParserContext::WriteUpgradeSettingsInternal(const Upgradable3::Settings& stg)
+{
+	Env::DocAddNum("Delay", stg.m_hMinUpgradeDelay);
+	Env::DocAddNum("Min approvers", stg.m_MinApprovers);
+
+	{
+		Env::DocGroup gr1("Admins");
+		DocSetType("table");
+
+		{
+			Env::DocArray gr2("fields");
+			DocAddTableField("Index", nullptr);
+			DocAddTableField("Key", nullptr);
+		}
+
+		{
+			Env::DocArray gr2("value");
+
+			for (uint32_t i = 0; i < _countof(stg.m_pAdmin); i++)
+			{
+				const auto& pk = stg.m_pAdmin[i];
+				if (_POD_(pk).IsZero())
+					continue;
+
+				Env::DocArray gr3("");
+
+				Env::DocAddNum("", i);
+				DocAddPk("", pk);
+			}
+		}
+
+	}
+}
+
+void ParserContext::WriteUpgrade3State()
+{
+	Env::DocGroup gr("Upgradable3");
+
+	{
+		Env::Key_T<Upgradable3::Settings::Key> sk;
+		_POD_(sk.m_Prefix.m_Cid) = m_Cid;
+
+		Upgradable3::Settings stg;
+		if (Env::VarReader::Read_T(sk, stg))
+		{
+			Env::DocGroup gr1("Settings");
+			WriteUpgradeSettingsInternal(stg);
+		}
+	}
+
+	{
+		Env::Key_T<Upgradable3::NextVersion::Key> vk;
+		_POD_(vk.m_Prefix.m_Cid) = m_Cid;
+
+		Env::VarReader r(vk, vk);
+		uint32_t nKey = 0, nVal = 0;
+		if (r.MoveNext(nullptr, nKey, nullptr, nVal, 0) && (nVal >= sizeof(Upgradable3::NextVersion)))
+		{
+			auto* pVal = (Upgradable3::NextVersion*) Env::Heap_Alloc(nVal);
+
+			nKey = 0;
+			r.MoveNext(nullptr, nKey, pVal, nVal, 1);
+
+			Env::DocGroup gr1("Schedule upgrade");
+			DocAddHeight("Height", pVal->m_hTarget);
+
+			ShaderID sid;
+			Utils::get_ShaderID(sid, pVal + 1, nVal - sizeof(Upgradable3::NextVersion));
+
+			ParserContext pc2(sid, m_Cid);
+			if (!pc2.Parse())
+				OnUpgradableSubtype(pc2.m_Sid);
+
+			Env::Heap_Free(pVal);
+		}
 	}
 }
 
@@ -611,6 +702,96 @@ void ParserContext::On_Gallery_2()
 		// TODO:
 	}
 }
+
+void ParserContext::WriteNephriteSettings(const Nephrite::Settings& stg)
+{
+	DocAddCid("oracle", stg.m_cidOracle1);
+	DocAddCid("oracle-backup", stg.m_cidOracle2);
+	DocAddCid("Dao-Vault", stg.m_cidDaoVault);
+	DocAddAmount("Liquidation Reserve", stg.m_TroveLiquidationReserve);
+	DocAddHeight("Min Redemption Height", stg.m_hMinRedemptionHeight);
+	DocAddAid("Gov Token", stg.m_AidGov);
+}
+
+void ParserContext::On_Nephrite()
+{
+	OnName("Nephrite");
+
+	if (m_Method)
+	{
+		switch (m_iMethod)
+		{
+		case Nephrite::Method::Create::s_iMethod:
+			if (m_nArg >= sizeof(Nephrite::Method::Create))
+			{
+				const auto& arg = *reinterpret_cast<const Nephrite::Method::Create*>(m_pArg);
+
+				WriteNephriteSettings(arg.m_Settings);
+				WriteUpgradeSettings(arg.m_Upgradable);
+			}
+			break;
+
+		case Nephrite::Method::TroveOpen::s_iMethod:
+			if (m_nArg >= sizeof(Nephrite::Method::TroveOpen))
+			{
+				OnMethod("TroveOpen");
+				GroupArgs gr;
+
+				const auto& arg = *reinterpret_cast<const Nephrite::Method::TroveOpen*>(m_pArg);
+
+				DocAddPk("User", arg.m_pkUser);
+				DocAddAmount("Col", arg.m_Amounts.Col);
+				DocAddAmount("Tok", arg.m_Amounts.Tok);
+		
+			}
+			break;
+		
+		case Nephrite::Method::TroveClose::s_iMethod:
+			if (m_nArg >= sizeof(Nephrite::Method::TroveClose))
+			{
+				OnMethod("TroveClose");
+				GroupArgs gr;
+
+				// const auto& arg = *reinterpret_cast<const Nephrite::Method::TroveClose*>(m_pArg);
+				// TODO
+			}
+			break;
+
+		}
+	}
+
+	if (m_State)
+	{
+		Env::DocGroup gr("State");
+
+		WriteUpgrade3State();
+
+		Env::Key_T<uint8_t> k;
+		_POD_(k.m_Prefix.m_Cid) = m_Cid;
+		k.m_KeyInContract = Nephrite::Tags::s_State;
+
+		Nephrite::Global g;
+		if (Env::VarReader::Read_T(k, g))
+		{
+			{
+				Env::DocGroup gr2("Settings");
+				WriteNephriteSettings(g.m_Settings);
+			}
+
+			DocAddAid("Token", g.m_Aid);
+			Env::DocAddNum("Troves created", g.m_Troves.m_iLastCreated);
+
+			{
+				Env::DocGroup gr2("Totals");
+				DocAddAmount("Col", g.m_Troves.m_Totals.Col);
+				DocAddAmount("Tok", g.m_Troves.m_Totals.Tok);
+			}
+
+		}
+	}
+
+}
+
 
 BEAM_EXPORT void Method_0(const ShaderID& sid, const ContractID& cid, uint32_t iMethod, const void* pArg, uint32_t nArg)
 {
