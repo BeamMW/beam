@@ -7,6 +7,61 @@
 #include "../dao-core/contract.h"
 #include "../gallery/contract.h"
 
+template <uint32_t nMaxLen>
+void DocAddTextLen(const char* szID, const void* szValue, uint32_t nLen)
+{
+	char szBuf[nMaxLen + 1];
+	nLen = std::min(nLen, nMaxLen);
+
+	Env::Memcpy(szBuf, szValue, nLen);
+	szBuf[nLen] = 0;
+
+	Env::DocAddText(szID, szBuf);
+}
+
+void DocAddPk(const char* sz, const PubKey& pk)
+{
+	Env::DocAddBlob_T(sz, pk);
+}
+
+void DocAddHeight(const char* sz, Height h)
+{
+	Env::DocAddNum(sz, h);
+}
+
+void DocSetType(const char* sz)
+{
+	Env::DocAddText("type", sz);
+}
+
+void DocAddTableField(const char* szName, const char* szType)
+{
+	Env::DocGroup gr("");
+	Env::DocAddText("name", szName);
+	if (szType)
+		DocSetType(szType);
+}
+
+void DocAddAmount(const char* sz, Amount x)
+{
+	Env::DocGroup gr(sz);
+	DocSetType("amount");
+	Env::DocAddNum("value", x);
+}
+
+void DocAddAid(const char* sz, AssetID aid)
+{
+	Env::DocGroup gr(sz);
+	DocSetType("aid");
+	Env::DocAddNum("value", aid);
+}
+
+void DocAddCid(const char* sz, const ContractID& cid)
+{
+	Env::DocGroup gr(sz);
+	DocSetType("cid");
+	Env::DocAddBlob_T("value", cid);
+}
 
 #define HandleContractsAll(macro) \
 	macro(Upgradable, Upgradable::s_SID) \
@@ -145,7 +200,7 @@ void ParserContext::On_Upgradable()
 		if (m_State)
 		{
 			Env::DocGroup gr("upgradable");
-			Env::DocAddBlob_T("owner", us.m_Pk);
+			DocAddPk("owner", us.m_Pk);
 			WriteUpgradeParams(us);
 		}
 	}
@@ -215,7 +270,7 @@ void ParserContext::On_Upgradable2()
 		if (m_State)
 		{
 			Env::DocGroup gr("upgradable2");
-			Env::DocAddNum("Num approvers ", stg.m_MinApprovers);
+			Env::DocAddNum("Num approvers", stg.m_MinApprovers);
 			WriteUpgradeParams(us.m_Next);
 		}
 	}
@@ -256,8 +311,8 @@ void ParserContext::On_Upgradable2()
 
 				WriteUpgradeAdminsMask(arg.m_ApproveMask);
 
-				Env::DocAddBlob_T("iAdmin", arg.m_iAdmin);
-				Env::DocAddBlob_T("pk", arg.m_Pk);
+				Env::DocAddNum("iAdmin", arg.m_iAdmin);
+				DocAddPk("pk", arg.m_Pk);
 			}
 			break;
 
@@ -271,7 +326,7 @@ void ParserContext::On_Upgradable2()
 
 				WriteUpgradeAdminsMask(arg.m_ApproveMask);
 
-				Env::DocAddBlob_T("num", arg.m_NewVal);
+				Env::DocAddNum("num", arg.m_NewVal);
 			}
 			break;
 		}
@@ -307,7 +362,7 @@ void ParserContext::WriteUpgradeParams(const ContractID& cid, Height h)
 
 		Env::DocGroup gr("next upgrade");
 
-		Env::DocAddNum("height", h);
+		DocAddHeight("height", h);
 
 		ParserContext pc2(sid, cid);
 		if (!pc2.Parse())
@@ -329,7 +384,7 @@ void ParserContext::On_Vault()
 			{
 				GroupArgs gr;
 				const auto& arg = *(const Vault::Deposit*) m_pArg;
-				Env::DocAddBlob_T("User", arg.m_Account);
+				DocAddPk("User", arg.m_Account);
 			}
 			break;
 
@@ -361,7 +416,7 @@ void ParserContext::On_Faucet()
 
 				auto& pars = *(Faucet::Params*) m_pArg;
 				Env::DocAddNum("Backlog period", pars.m_BacklogPeriod);
-				Env::DocAddNum("Max withdraw", pars.m_MaxWithdraw);
+				DocAddAmount("Max withdraw", pars.m_MaxWithdraw);
 			}
 			break;
 
@@ -403,20 +458,8 @@ void WriteGalleryAdrID(Gallery::Masterpiece::ID id)
 void WriteGalleryPrice(const Gallery::AmountWithAsset& x)
 {
 	if (x.m_Aid)
-		Env::DocAddNum("aid", x.m_Aid);
-	Env::DocAddNum("amount", x.m_Amount);
-}
-
-template <uint32_t nMaxLen>
-void DocAddTextLen(const char* szID, const void* szValue, uint32_t nLen)
-{
-	char szBuf[nMaxLen + 1];
-	nLen = std::min(nLen, nMaxLen);
-
-	Env::Memcpy(szBuf, szValue, nLen);
-	szBuf[nLen] = 0;
-
-	Env::DocAddText(szID, szBuf);
+		DocAddAid("aid", x.m_Aid);
+	DocAddAmount("amount", x.m_Amount);
 }
 
 void ParserContext::On_Gallery_0()
@@ -444,7 +487,7 @@ void ParserContext::On_Gallery_2()
 				GroupArgs gr;
 
 				const auto& arg = *reinterpret_cast<const Gallery::Method::AddExhibit*>(m_pArg);
-				Env::DocAddBlob_T("pkUser", arg.m_pkArtist);
+				DocAddPk("pkUser", arg.m_pkArtist);
 				Env::DocAddNum("size", arg.m_Size);
 			}
 			break;
@@ -456,7 +499,7 @@ void ParserContext::On_Gallery_2()
 				GroupArgs gr;
 
 				const auto& arg = *reinterpret_cast<const Gallery::Method::ManageArtist*>(m_pArg);
-				Env::DocAddBlob_T("pkUser", arg.m_pkArtist);
+				DocAddPk("pkUser", arg.m_pkArtist);
 				DocAddTextLen<Gallery::Artist::s_LabelMaxLen>("name", &arg + 1, arg.m_LabelLen);
 			
 			}
@@ -486,9 +529,9 @@ void ParserContext::On_Gallery_2()
 
 				WriteGalleryAdrID(arg.m_ID);
 				
-	            Env::DocAddBlob_T("pkUser", arg.m_pkUser);
+	            DocAddPk("pkUser", arg.m_pkUser);
 	            Env::DocAddNum32("hasAid", arg.m_HasAid);
-				Env::DocAddNum64("payMax", arg.m_PayMax);
+				DocAddAmount("payMax", arg.m_PayMax);
 			}
 			break;
 		
@@ -502,7 +545,7 @@ void ParserContext::On_Gallery_2()
 
 				WriteGalleryAdrID(arg.m_ID);
 			
-	            Env::DocAddBlob_T("newPkUser", arg.m_pkNewOwner);
+	            DocAddPk("newPkUser", arg.m_pkNewOwner);
 			}
 			break;
 		
@@ -517,7 +560,8 @@ void ParserContext::On_Gallery_2()
 				
 				// TODO roman
 	            Env::DocAddBlob_T("key", arg.m_Key);
-	            Env::DocAddNum64("value", arg.m_Value);
+				DocAddAid("aid", arg.m_Key.m_Aid);
+	            DocAddAmount("value", arg.m_Value);
 			}
 			break;
 		
@@ -529,7 +573,7 @@ void ParserContext::On_Gallery_2()
 
 				const auto& arg = *reinterpret_cast<const Gallery::Method::AddVoteRewards*>(m_pArg);
 
-	            Env::DocAddNum("amount", arg.m_Amount);
+	            DocAddAmount("amount", arg.m_Amount);
 			}
 			break;
 		
