@@ -8,6 +8,7 @@
 #include "../dao-core/contract.h"
 #include "../gallery/contract.h"
 #include "../nephrite/contract.h"
+#include "../oracle2/contract.h"
 
 template <uint32_t nMaxLen>
 void DocAddTextLen(const char* szID, const void* szValue, uint32_t nLen)
@@ -65,6 +66,29 @@ void DocAddCid(const char* sz, const ContractID& cid)
 	Env::DocAddBlob_T("value", cid);
 }
 
+void DocAddFloat(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot = 5)
+{
+	uint64_t norm = 1;
+	for (uint32_t i = 0; i < nDigsAfterDot; i++)
+		norm *= 10;
+
+	uint64_t val = x * MultiPrecision::Float(norm * 2);
+	val = (val + 1) / 2;
+
+	char szBuf[Utils::String::Decimal::DigitsMax<uint64_t>::N + 2]; // dot + 0-term
+	uint32_t nPos = Utils::String::Decimal::Print(szBuf, val / norm);
+	szBuf[nPos++] = '.';
+	Utils::String::Decimal::Print(szBuf + nPos, val % norm, nDigsAfterDot);
+
+	Env::DocAddText(sz, szBuf);
+}
+
+void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot = 3)
+{
+	DocAddFloat(sz, x * MultiPrecision::Float(100), 3);
+}
+
+
 #define HandleContractsAll(macro) \
 	macro(Upgradable, Upgradable::s_SID) \
 	macro(Upgradable2, Upgradable2::s_SID) \
@@ -74,6 +98,7 @@ void DocAddCid(const char* sz, const ContractID& cid)
 	macro(Gallery_0, Gallery::s_pSID[0]) \
 	macro(Gallery_1, Gallery::s_pSID[1]) \
 	macro(Gallery_2, Gallery::s_pSID[2]) \
+	macro(Oracle2, Oracle2::s_pSID[0]) \
 	macro(Nephrite, Nephrite::s_pSID[0]) \
 
 
@@ -127,7 +152,7 @@ struct ParserContext
 		GroupArgs() :Env::DocGroup("params") {}
 	};
 
-	void OnUpgradableSubtype(const ShaderID& sid) { Env::DocAddBlob_T("subtype", sid); }
+	static void OnUpgradableSubtype(const ShaderID& sid) { Env::DocAddBlob_T("subtype", sid); }
 
 #define THE_MACRO(name, sid) void On_##name();
 	HandleContractsAll(THE_MACRO)
@@ -135,14 +160,16 @@ struct ParserContext
 
 	bool Parse();
 
-	void WriteUpgradeParams(const Upgradable::Next&);
-	void WriteUpgradeParams(const Upgradable2::Next&);
-	void WriteUpgradeParams(const ContractID&, Height);
-	void WriteUpgradeSettings(const Upgradable3::Settings&);
-	void WriteUpgradeSettingsInternal(const Upgradable3::Settings&);
+	static void WriteUpgradeParams(const Upgradable::Next&);
+	static void WriteUpgradeParams(const Upgradable2::Next&);
+	static void WriteUpgradeParams(const ContractID&, Height);
+	static void WriteUpgradeSettings(const Upgradable3::Settings&);
+	static void WriteUpgradeSettingsInternal(const Upgradable3::Settings&);
 	void WriteUpgrade3State();
-	void WriteUpgradeAdminsMask(uint32_t nApproveMask);
-	void WriteNephriteSettings(const Nephrite::Settings&);
+	static void WriteUpgradeAdminsMask(uint32_t nApproveMask);
+	static 	void WriteNephriteSettings(const Nephrite::Settings&);
+	static void WriteOracle2Settings(const Oracle2::Settings&);
+	static bool get_Oracle2Median(MultiPrecision::Float&, const ContractID& cid);
 };
 
 bool ParserContext::Parse()
@@ -410,7 +437,7 @@ void ParserContext::WriteUpgradeSettingsInternal(const Upgradable3::Settings& st
 				Env::DocArray gr3("");
 
 				Env::DocAddNum("", i);
-				DocAddPk("", pk);
+				Env::DocAddBlob_T("", pk);
 			}
 		}
 
@@ -724,6 +751,8 @@ void ParserContext::On_Nephrite()
 		case Nephrite::Method::Create::s_iMethod:
 			if (m_nArg >= sizeof(Nephrite::Method::Create))
 			{
+				GroupArgs gr;
+
 				const auto& arg = *reinterpret_cast<const Nephrite::Method::Create*>(m_pArg);
 
 				WriteNephriteSettings(arg.m_Settings);
@@ -787,7 +816,174 @@ void ParserContext::On_Nephrite()
 				DocAddAmount("Tok", g.m_Troves.m_Totals.Tok);
 			}
 
+			Nephrite::Global::Price price;
+			const char* szPriceSource;
+			bool bHavePrice = true;
+
+			if (get_Oracle2Median(price.m_Value, g.m_Settings.m_cidOracle1) && price.IsSane(price.m_Value))
+				szPriceSource = "Main Oracle";
+			else
+			{
+				if (get_Oracle2Median(price.m_Value, g.m_Settings.m_cidOracle2) && price.IsSane(price.m_Value))
+					szPriceSource = "Backup Oracle";
+				else
+				{
+					szPriceSource = "Unavailable";;
+					bHavePrice = false;
+				}
+			}
+
+			Env::DocAddText("Price feed", szPriceSource);
+			if (bHavePrice)
+			{
+				DocAddFloat("Price", price.m_Value);
+
+				if (g.m_Troves.m_iHead)
+				{
+					DocAddPerc("TCR", price.ToCR(g.m_Troves.m_Totals.get_Rcr()));
+					Env::DocAddText("Recovery mode", g.IsRecovery(price) ? "Yes" : "No");
+				}
+			}
+
+			{
+				Env::DocGroup gr2("Troves");
+				DocSetType("table");
+
+				{
+					Env::DocArray gr3("fields");
+					DocAddTableField("Number", nullptr);
+					DocAddTableField("Key", nullptr);
+					DocAddTableField("Col", "amount");
+					DocAddTableField("Tok", "amount");
+					DocAddTableField("ICR", nullptr);
+				}
+
+				{
+					Utils::Vector<Nephrite::Trove> vec;
+					vec.Prepare(g.m_Troves.m_iLastCreated);
+
+					{
+						Env::Key_T<Nephrite::Trove::Key> tk0, tk1;
+						_POD_(tk0.m_Prefix.m_Cid) = m_Cid;
+						_POD_(tk1.m_Prefix.m_Cid) = m_Cid;
+						tk0.m_KeyInContract.m_iTrove = 0;
+						tk1.m_KeyInContract.m_iTrove = (Nephrite::Trove::ID) -1;
+
+						for (Env::VarReader r(tk0, tk1); ; )
+						{
+							Nephrite::Trove t;
+							if (!r.MoveNext_T(tk0, t))
+								break;
+
+							vec.Prepare(tk0.m_KeyInContract.m_iTrove);
+							_POD_(vec.m_p[tk0.m_KeyInContract.m_iTrove - 1]) = t;
+						}
+					}
+
+
+
+					Env::DocArray gr3("value");
+					for (auto iTrove = g.m_Troves.m_iHead; iTrove; )
+					{
+						const Nephrite::Trove& t = vec.m_p[iTrove - 1];
+
+						Env::DocArray gr4("");
+
+						Env::DocAddNum("", iTrove);
+						Env::DocAddBlob_T("", t.m_pkOwner);
+						Env::DocAddNum("", t.m_Amounts.Col);
+						Env::DocAddNum("", t.m_Amounts.Tok);
+
+						if (bHavePrice)
+							DocAddPerc("", price.ToCR(t.m_Amounts.get_Rcr()));
+						else
+							Env::DocAddText("", "");
+
+						iTrove = t.m_iNext;
+					}
+				}
+
+			}
+
 		}
+	}
+
+}
+
+void ParserContext::WriteOracle2Settings(const Oracle2::Settings& stg)
+{
+	Env::DocAddNum("Validity Period", stg.m_hValidity);
+	Env::DocAddNum("Min Providers", stg.m_MinProviders);
+}
+
+bool ParserContext::get_Oracle2Median(MultiPrecision::Float& ret, const ContractID& cid)
+{
+	Env::Key_T<uint8_t> key;
+	_POD_(key.m_Prefix.m_Cid) = cid;
+	key.m_KeyInContract = Oracle2::Tags::s_Median;
+
+	Oracle2::Median med;
+	if (!Env::VarReader::Read_T(key, med))
+		return false;
+
+	if (med.m_hEnd < Env::get_Height())
+		return false;
+
+	ret = med.m_Res;
+	return true;
+}
+
+void ParserContext::On_Oracle2()
+{
+	OnName("Oracle2");
+
+	if (m_Method)
+	{
+		switch (m_iMethod)
+		{
+		case Oracle2::Method::Create::s_iMethod:
+			if (m_nArg >= sizeof(Oracle2::Method::Create))
+			{
+				GroupArgs gr;
+
+				const auto& arg = *reinterpret_cast<const Oracle2::Method::Create*>(m_pArg);
+
+				WriteOracle2Settings(arg.m_Settings);
+				WriteUpgradeSettings(arg.m_Upgradable);
+			}
+			break;
+
+		case Oracle2::Method::Get::s_iMethod:
+			if (m_nArg >= sizeof(Oracle2::Method::Get))
+			{
+				OnMethod("Get");
+				GroupArgs gr;
+			}
+			break;
+		
+		case Oracle2::Method::FeedData::s_iMethod:
+			if (m_nArg >= sizeof(Oracle2::Method::FeedData))
+			{
+				OnMethod("FeedData");
+				GroupArgs gr;
+
+				const auto& arg = *reinterpret_cast<const Oracle2::Method::FeedData*>(m_pArg);
+				Env::DocAddNum("iProvider", arg.m_iProvider);
+				DocAddFloat("Value", arg.m_Value);
+			}
+			break;
+
+
+		}
+	}
+
+	if (m_State)
+	{
+		Env::DocGroup gr("State");
+
+		WriteUpgrade3State();
+
+		// TODO
 	}
 
 }
