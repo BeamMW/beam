@@ -456,10 +456,14 @@ private:
                 AddHex("sid", sid);
             }
 
-            void AddSidIfNoName(const bvm2::ShaderID& sid)
+            void EnsureHasKind(const bvm2::ShaderID& sid)
             {
-                if (m_json.find("name") == m_json.end())
-                    AddSid(sid);
+                if (m_json.find("kind") == m_json.end())
+                {
+                    Writer wr2;
+                    wr2.AddSid(sid);
+                    m_json["kind"] = std::move(wr2.m_json);
+                }
             }
 
             void AddAid(Asset::ID aid)
@@ -470,12 +474,22 @@ private:
             void AddValBig(const char* szName, const AmountBig::Type& x)
             {
                 if (!AmountBig::get_Hi(x))
-                    m_json[szName] = AmountBig::get_Lo(x);
+                {
+                    auto valLo = AmountBig::get_Lo(x);
+                    if (szName)
+                        m_json[szName] = valLo;
+                    else
+                        m_json.push_back(valLo);
+                }
                 else
                 {
                     char sz[AmountBig::Type::nTxtLen10Max + 1];
                     x.PrintDecimal(sz);
-                    m_json[szName] = sz;
+
+                    if (szName)
+                        m_json[szName] = sz;
+                    else
+                        m_json.push_back(sz);
                 }
             }
 
@@ -527,7 +541,7 @@ private:
                 AddCid(info.m_Cid);
 
                 if (info.m_Sid.has_value())
-                    AddSidIfNoName(*info.m_Sid);
+                    EnsureHasKind(*info.m_Sid);
 
                 if (m_json.find("method") == m_json.end())
                 {
@@ -809,7 +823,7 @@ private:
 
         wr.ParseSafe(sExtra);
 
-        wr.AddSidIfNoName(sid);
+        wr.EnsureHasKind(sid);
     }
 
     void get_ContractList(json& out)
@@ -889,7 +903,7 @@ private:
 
         if (bExists)
         {
-            json jFunds = json::array();
+            json jArr = json::array();
 
 #pragma pack (push, 1)
             struct KeyFund
@@ -917,19 +931,32 @@ private:
 
                 const auto& val = *reinterpret_cast<const AmountBig::Type*>(wlk.m_Val.p);
 
-                ExtraInfo::Writer wr2;
-                wr2.AddAid(aid);
-                wr2.AddValBig("value", val);
 
-                jFunds.push_back(std::move(wr2.m_json));
+
+                ExtraInfo::Writer wr2(json::array());
+                wr2.m_json.push_back(aid);
+                wr2.AddValBig(nullptr, val);
+
+                jArr.push_back(std::move(wr2.m_json));
             }
 
-            wr.m_json["funds"] = std::move(jFunds);
+
+            json jTbl = json::object();
+            jTbl["type"] = "table";
+
+            jTbl["fields"] = json::array({
+                { "Asset ID", "aid" },
+                { "Amount",  "amount" },
+            });
+
+            jTbl["value"] = std::move(jArr);
+
+            wr.m_json["Locked Funds"] = std::move(jTbl);
         }
 
         if (bExists)
         {
-            json jAssets = json::array();
+            json jArr = json::array();
 
 #pragma pack (push, 1)
             struct KeyAsset
@@ -958,17 +985,34 @@ private:
                 if (!_nodeBackend.get_DB().AssetGetSafe(ai))
                     ai.m_Value = Zero;
 
-                ExtraInfo::Writer wr2;
-                wr2.AddAssetInfo(ai);
+                ExtraInfo::Writer wr2(json::array());
+                wr2.m_json.push_back(ai.m_ID);
 
-                jAssets.push_back(std::move(wr2.m_json));
+                std::string sMeta;
+                ai.m_Metadata.get_String(sMeta);
+                wr2.m_json.push_back(std::move(sMeta));
+
+                wr2.AddValBig(nullptr, ai.m_Value);
+
+                jArr.push_back(std::move(wr2.m_json));
             }
 
-            wr.m_json["assets"] = std::move(jAssets);
+            json jTbl = json::object();
+            jTbl["type"] = "table";
+
+            jTbl["fields"] = json::array({
+                { "Asset ID", "aid" },
+                { "Metadata", "" },
+                { "Emission",  "amount" },
+            });
+
+            jTbl["value"] = std::move(jArr);
+
+            wr.m_json["Owned assets"] = std::move(jTbl);
         }
 
         {
-            json jVersions = json::array();
+            json jArr = json::array();
 
 #pragma pack (push, 1)
             struct KeyVer
@@ -984,21 +1028,39 @@ private:
             NodeDB::ContractLog::Walker wlk;
             for (_nodeBackend.get_DB().ContractLogEnum(wlk, Blob(&key, sizeof(key)), Blob(&key, sizeof(key)), HeightPos(0), HeightPos(MaxHeight)); wlk.MoveNext(); )
             {
-                ExtraInfo::Writer wr2;
+                std::string sName;
+
+                json jEntry = json::array();
+                jEntry.push_back(wlk.m_Entry.m_Pos.m_Height);
+
                 if (sizeof(bvm2::ShaderID) == wlk.m_Entry.m_Val.n)
                 {
-                    const auto& sid = *(const bvm2::ShaderID*) wlk.m_Entry.m_Val.p;
+                    const auto& sid = *(const bvm2::ShaderID*)wlk.m_Entry.m_Val.p;
+
+                    ExtraInfo::Writer wr2;
                     get_ContractDescr(wr2, sid, cid, false); // assume it's safe, parser won't enumerate logs.
+
+                    auto it = wr2.m_json.find("kind");
+                    if (wr2.m_json.end() != it)
+                        jEntry = std::move(*it);
                 }
                 else
-                    wr2.m_json["name"] = "destroyed";
+                    jEntry.push_back("Destroyed");
 
-                wr2.m_json["height"] = wlk.m_Entry.m_Pos.m_Height;
-
-                jVersions.push_back(std::move(wr2.m_json));
+                jArr.push_back(std::move(jEntry));
             }
 
-            wr.m_json["versions"] = std::move(jVersions);
+            json jTbl = json::object();
+            jTbl["type"] = "table";
+
+            jTbl["fields"] = json::array({
+                { "Height", "height" },
+                { "Version",  "" },
+            });
+
+            jTbl["value"] = std::move(jArr);
+
+            wr.m_json["Version History"] = std::move(jTbl);
         }
 
         {
