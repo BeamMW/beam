@@ -114,6 +114,12 @@ struct ParserContext
 	bool m_Method = false;
 	bool m_State = false;
 
+	template <typename T>
+	const T* get_ArgsAs() const
+	{
+		return (m_nArg < sizeof(T)) ? nullptr : (const T*) m_pArg;
+	}
+
 	ParserContext(const ShaderID& sid, const ContractID& cid)
 		:m_Sid(sid)
 		,m_Cid(cid)
@@ -162,10 +168,12 @@ struct ParserContext
 
 	static void WriteUpgradeParams(const Upgradable::Next&);
 	static void WriteUpgradeParams(const Upgradable2::Next&);
+	void WriteUpgradeParams(const Upgradable3::NextVersion&, uint32_t nSizeShader);
 	static void WriteUpgradeParams(const ContractID&, Height);
 	static void WriteUpgradeSettings(const Upgradable3::Settings&);
 	static void WriteUpgradeSettingsInternal(const Upgradable3::Settings&);
 	void WriteUpgrade3State();
+	void OnUpgrade3Method();
 	static void WriteUpgradeAdminsMask(uint32_t nApproveMask);
 	static 	void WriteNephriteSettings(const Nephrite::Settings&);
 	static void WriteOracle2Settings(const Oracle2::Settings&);
@@ -198,12 +206,11 @@ void ParserContext::On_Upgradable()
 		if (m_Method && !m_iMethod)
 		{
 			// c'tor, the state doesn't exist yet. Initial cid should be in the args
-			if (m_nArg < sizeof(Upgradable::Create))
+			auto pArg = get_ArgsAs<Upgradable::Create>();
+			if (!pArg)
 				return;
 
-			const auto& arg = *(const Upgradable::Create*)m_pArg;
-
-			_POD_(Cast::Down<Upgradable::Current>(us)) = arg;
+			_POD_(Cast::Down<Upgradable::Current>(us)) = *pArg;
 			_POD_(Cast::Down<Upgradable::Next>(us)).SetZero();
 		}
 		else
@@ -241,13 +248,14 @@ void ParserContext::On_Upgradable()
 
 	if (m_Method && (Upgradable::ScheduleUpgrade::s_iMethod == m_iMethod))
 	{
-		if (m_nArg < sizeof(Upgradable::ScheduleUpgrade))
+		auto pArg = get_ArgsAs<Upgradable::ScheduleUpgrade>();
+		if (!pArg)
 			return; // don't care of partial result
 
 		OnMethod("Schedule upgrade");
 
 		GroupArgs gr;
-		WriteUpgradeParams(*(const Upgradable::ScheduleUpgrade*) m_pArg);
+		WriteUpgradeParams(*pArg);
 	}
 
 }
@@ -263,14 +271,13 @@ void ParserContext::On_Upgradable2()
 		if (m_Method && !m_iMethod)
 		{
 			// c'tor, the state doesn't exist yet. Initial cid should be in the args
-			if (m_nArg < sizeof(Upgradable2::Create))
+			auto pArg = get_ArgsAs<Upgradable2::Create>();
+			if (!pArg)
 				return;
 
-			const auto& arg = *(const Upgradable2::Create*)m_pArg;
-
-			_POD_(us.m_Active) = arg.m_Active;
+			_POD_(us.m_Active) = pArg->m_Active;
 			_POD_(us.m_Next).SetZero();
-			_POD_(stg) = arg.m_Settings;
+			_POD_(stg) = pArg->m_Settings;
 		}
 		else
 		{
@@ -311,56 +318,61 @@ void ParserContext::On_Upgradable2()
 
 	if (m_Method && (Upgradable2::Control::s_iMethod == m_iMethod))
 	{
-		if (m_nArg < sizeof(Upgradable2::Control::Base))
+		auto pCtl = get_ArgsAs<Upgradable2::Control::Base>();
+		if (!pCtl)
 			return; // don't care of partial result
 
-		const auto& ctl = *(const Upgradable2::Control::Base*) m_pArg;
-
-		switch (ctl.m_Type)
+		switch (pCtl->m_Type)
 		{
 		case Upgradable2::Control::ExplicitUpgrade::s_Type:
 			OnMethod("explicit upgrade");
 			break;
 
 		case Upgradable2::Control::ScheduleUpgrade::s_Type:
-			if (m_nArg >= sizeof(Upgradable2::Control::ScheduleUpgrade))
 			{
-				OnMethod("Schedule upgrade");
+				auto pArg = get_ArgsAs<Upgradable2::Control::ScheduleUpgrade>();
+				if (pArg)
+				{
+					OnMethod("Schedule upgrade");
 
-				GroupArgs gr;
-				const auto& arg = Cast::Up<Upgradable2::Control::ScheduleUpgrade>(ctl);
+					GroupArgs gr;
 
-				WriteUpgradeAdminsMask(arg.m_ApproveMask);
-				WriteUpgradeParams(arg.m_Next);
+					WriteUpgradeAdminsMask(pArg->m_ApproveMask);
+					WriteUpgradeParams(pArg->m_Next);
+				}
 			}
 			break;
 
 		case Upgradable2::Control::ReplaceAdmin::s_Type:
-			if (m_nArg >= sizeof(Upgradable2::Control::ReplaceAdmin))
 			{
-				OnMethod("replace admin");
+				auto pArg = get_ArgsAs<Upgradable2::Control::ReplaceAdmin>();
+				if (pArg)
+				{
+					OnMethod("replace admin");
 
-				GroupArgs gr;
-				const auto& arg = Cast::Up<Upgradable2::Control::ReplaceAdmin>(ctl);
+					GroupArgs gr;
 
-				WriteUpgradeAdminsMask(arg.m_ApproveMask);
+					WriteUpgradeAdminsMask(pArg->m_ApproveMask);
 
-				Env::DocAddNum("iAdmin", arg.m_iAdmin);
-				DocAddPk("pk", arg.m_Pk);
+					Env::DocAddNum("iAdmin", pArg->m_iAdmin);
+					DocAddPk("pk", pArg->m_Pk);
+				}
 			}
 			break;
 
 		case Upgradable2::Control::SetApprovers::s_Type:
-			if (m_nArg >= sizeof(Upgradable2::Control::SetApprovers))
 			{
-				OnMethod("set min approvers");
+				auto pArg = get_ArgsAs<Upgradable2::Control::SetApprovers>();
+				if (pArg)
+				{
+					OnMethod("set min approvers");
 
-				GroupArgs gr;
-				const auto& arg = Cast::Up<Upgradable2::Control::SetApprovers>(ctl);
+					GroupArgs gr;
 
-				WriteUpgradeAdminsMask(arg.m_ApproveMask);
+					WriteUpgradeAdminsMask(pArg->m_ApproveMask);
 
-				Env::DocAddNum("num", arg.m_NewVal);
+					Env::DocAddNum("num", pArg->m_NewVal);
+				}
 			}
 			break;
 		}
@@ -379,11 +391,22 @@ void ParserContext::WriteUpgradeParams(const Upgradable2::Next& us)
 
 void ParserContext::WriteUpgradeAdminsMask(uint32_t nApproveMask)
 {
-	const uint32_t nDigs = Utils::String::Hex::DigitsMax<uint32_t>::N;
-	char szBuf[nDigs + 1];
-	Utils::String::Hex::Print(szBuf, nApproveMask, nDigs);
+	//const uint32_t nDigs = Utils::String::Hex::DigitsMax<uint32_t>::N;
+	//char szBuf[nDigs + 1];
+	//Utils::String::Hex::Print(szBuf, nApproveMask, nDigs);
 
-	Env::DocAddText("approve-mask", szBuf);
+	//Env::DocAddText("approve-mask", szBuf);
+
+	Env::DocGroup gr("Approvers");
+
+	for (uint32_t i = 0; i < (sizeof(nApproveMask) << 3); i++)
+	{
+		uint32_t msk = 1u << i;
+		if (!(nApproveMask & msk))
+			continue;
+
+		Env::DocAddNum("", i + 1);
+	}
 }
 
 void ParserContext::WriteUpgradeParams(const ContractID& cid, Height h)
@@ -402,6 +425,18 @@ void ParserContext::WriteUpgradeParams(const ContractID& cid, Height h)
 		if (!pc2.Parse())
 			OnUpgradableSubtype(sid);
 	}
+}
+
+void ParserContext::WriteUpgradeParams(const Upgradable3::NextVersion& x, uint32_t nSizeShader)
+{
+	DocAddHeight("height", x.m_hTarget);
+
+	ShaderID sid;
+	Utils::get_ShaderID(sid, &x + 1, nSizeShader);
+
+	ParserContext pc2(sid, m_Cid);
+	if (!pc2.Parse())
+		OnUpgradableSubtype(pc2.m_Sid);
 }
 
 void ParserContext::WriteUpgradeSettings(const Upgradable3::Settings& stg)
@@ -474,18 +509,90 @@ void ParserContext::WriteUpgrade3State()
 			r.MoveNext(nullptr, nKey, pVal, nVal, 1);
 
 			Env::DocGroup gr1("Schedule upgrade");
-			DocAddHeight("Height", pVal->m_hTarget);
 
-			ShaderID sid;
-			Utils::get_ShaderID(sid, pVal + 1, nVal - sizeof(Upgradable3::NextVersion));
-
-			ParserContext pc2(sid, m_Cid);
-			if (!pc2.Parse())
-				OnUpgradableSubtype(pc2.m_Sid);
+			WriteUpgradeParams(*pVal, nVal - sizeof(Upgradable3::NextVersion));
 
 			Env::Heap_Free(pVal);
 		}
 	}
+}
+
+void ParserContext::OnUpgrade3Method()
+{
+	using namespace Upgradable3;
+
+	assert(m_Method == (Method::Control::s_iMethod == m_iMethod));
+
+	auto pCtl = get_ArgsAs<Method::Control::Base>();
+	if (!pCtl)
+		return;
+
+	switch (pCtl->m_Type)
+	{
+	case Method::Control::ExplicitUpgrade::s_Type:
+		OnMethod("explicit upgrade");
+		break;
+
+	case Method::Control::OnUpgraded::s_Type:
+		{
+			auto pArg = get_ArgsAs<Method::Control::OnUpgraded>();
+			if (pArg)
+			{
+				OnMethod("On Upgraded");
+				GroupArgs gr;
+
+				Env::DocAddNum("Prev version", pArg->m_PrevVersion);
+			}
+		}
+		break;
+
+	case Method::Control::ScheduleUpgrade::s_Type:
+		{
+			auto pArg = get_ArgsAs<Method::Control::ScheduleUpgrade>();
+			if (pArg)
+			{
+				OnMethod("Schedule upgrade");
+				GroupArgs gr;
+
+				WriteUpgradeAdminsMask(pArg->m_ApproveMask);
+
+				if (pArg->m_SizeShader <= m_nArg - sizeof(*pArg))
+					WriteUpgradeParams(pArg->m_Next, pArg->m_SizeShader);
+			}
+		}
+		break;
+
+	case Method::Control::ReplaceAdmin::s_Type:
+		{
+			auto pArg = get_ArgsAs<Method::Control::ReplaceAdmin>();
+			if (pArg)
+			{
+				OnMethod("replace admin");
+				GroupArgs gr;
+
+				WriteUpgradeAdminsMask(pArg->m_ApproveMask);
+
+				Env::DocAddNum("iAdmin", pArg->m_iAdmin);
+				DocAddPk("pk", pArg->m_Pk);
+			}
+		}
+		break;
+
+	case Method::Control::SetApprovers::s_Type:
+		{
+			auto pArg = get_ArgsAs<Upgradable2::Control::SetApprovers>();
+			if (pArg)
+			{
+				OnMethod("set min approvers");
+				GroupArgs gr;
+
+				WriteUpgradeAdminsMask(pArg->m_ApproveMask);
+				Env::DocAddNum("num", pArg->m_NewVal);
+			}
+		}
+		break;
+	}
+
 }
 
 void ParserContext::On_Vault()
@@ -497,12 +604,14 @@ void ParserContext::On_Vault()
 		switch (m_iMethod)
 		{
 		case Vault::Deposit::s_iMethod:
-			OnMethod("Deposit");
-			if (m_nArg >= sizeof(Vault::Deposit))
 			{
-				GroupArgs gr;
-				const auto& arg = *(const Vault::Deposit*) m_pArg;
-				DocAddPk("User", arg.m_Account);
+				auto pArg = get_ArgsAs<Vault::Deposit>();
+				if (pArg)
+				{
+					OnMethod("Deposit");
+					GroupArgs gr;
+					DocAddPk("User", pArg->m_Account);
+				}
 			}
 			break;
 
@@ -528,13 +637,15 @@ void ParserContext::On_Faucet()
 		switch (m_iMethod)
 		{
 		case 0:
-			if (m_nArg >= sizeof(Faucet::Params))
 			{
-				GroupArgs gr;
+				auto pArg = get_ArgsAs<Faucet::Params>();
+				if (pArg)
+				{
+					GroupArgs gr;
 
-				auto& pars = *(Faucet::Params*) m_pArg;
-				Env::DocAddNum("Backlog period", pars.m_BacklogPeriod);
-				DocAddAmount("Max withdraw", pars.m_MaxWithdraw);
+					Env::DocAddNum("Backlog period", pArg->m_BacklogPeriod);
+					DocAddAmount("Max withdraw", pArg->m_MaxWithdraw);
+				}
 			}
 			break;
 
@@ -758,6 +869,10 @@ void ParserContext::On_Nephrite()
 				WriteNephriteSettings(arg.m_Settings);
 				WriteUpgradeSettings(arg.m_Upgradable);
 			}
+			break;
+
+		case Upgradable3::Method::Control::s_iMethod:
+			OnUpgrade3Method();
 			break;
 
 		case Nephrite::Method::TroveOpen::s_iMethod:
