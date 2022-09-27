@@ -655,12 +655,14 @@ private:
 
                         if (val.get_Msb())
                         {
-                            sz[0] = '-';
                             val.Negate();
-                            val.PrintDecimal(sz + 1);
+                            val.PrintDecimal(sz);
                         }
                         else
-                            val.PrintDecimal(sz);
+                        {
+                            sz[0] = '-';
+                            val.PrintDecimal(sz + 1);
+                        }
 
                         json jEntry = json::array();
                         jEntry.push_back(it->first);

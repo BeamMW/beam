@@ -9,6 +9,7 @@
 #include "../gallery/contract.h"
 #include "../nephrite/contract.h"
 #include "../oracle2/contract.h"
+#include "../dao-vault/contract.h"
 
 template <uint32_t nMaxLen>
 void DocAddTextLen(const char* szID, const void* szValue, uint32_t nLen)
@@ -100,6 +101,7 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	macro(Gallery_2, Gallery::s_pSID[2]) \
 	macro(Oracle2, Oracle2::s_pSID[0]) \
 	macro(Nephrite, Nephrite::s_pSID[0]) \
+	macro(DaoVault, DaoVault::s_pSID[0]) \
 
 
 struct ParserContext
@@ -1325,11 +1327,72 @@ void ParserContext::On_Oracle2()
 					Env::DocAddText("Median", "");
 			}
 		}
-
-		// TODO
 	}
 
 }
+
+void ParserContext::On_DaoVault()
+{
+	OnName("Dao-Vault");
+
+	if (m_Method)
+	{
+		switch (m_iMethod)
+		{
+		case DaoVault::Method::Create::s_iMethod:
+			{
+				auto pArg = get_ArgsAs<DaoVault::Method::Create>();
+				if (pArg)
+				{
+					GroupArgs gr;
+
+					WriteUpgradeSettings(pArg->m_Upgradable);
+				}
+			}
+			break;
+
+		case Upgradable3::Method::Control::s_iMethod:
+			OnUpgrade3Method();
+			break;
+
+		case DaoVault::Method::Deposit::s_iMethod:
+			{
+				auto pArg = get_ArgsAs<DaoVault::Method::Deposit>();
+				if (pArg)
+				{
+					OnMethod("Deposit");
+					GroupArgs gr;
+
+					DocAddAid("Aid", pArg->m_Aid);
+					DocAddAmount("Amount", pArg->m_Amount);
+				}
+			}
+			break;
+		
+		case DaoVault::Method::Withdraw::s_iMethod:
+			{
+				auto pArg = get_ArgsAs<DaoVault::Method::Withdraw>();
+				if (pArg)
+				{
+					OnMethod("Withdraw");
+					GroupArgs gr;
+
+					DocAddAid("Aid", pArg->m_Aid);
+					DocAddAmount("Amount", pArg->m_Amount);
+					WriteUpgradeAdminsMask(pArg->m_ApproveMask);
+				}
+			}
+			break;
+		}
+	}
+
+	if (m_State)
+	{
+		Env::DocGroup gr("State");
+		WriteUpgrade3State();
+	}
+}
+
 
 
 BEAM_EXPORT void Method_0(const ShaderID& sid, const ContractID& cid, uint32_t iMethod, const void* pArg, uint32_t nArg)
