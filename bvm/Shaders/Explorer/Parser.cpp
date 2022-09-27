@@ -408,7 +408,7 @@ void ParserContext::WriteUpgradeAdminsMask(uint32_t nApproveMask)
 
 	//Env::DocAddText("approve-mask", szBuf);
 
-	Env::DocGroup gr("Approvers");
+	Env::DocArray gr("Approvers");
 
 	for (uint32_t i = 0; i < (sizeof(nApproveMask) << 3); i++)
 	{
@@ -1182,7 +1182,14 @@ void ParserContext::On_Oracle2()
 				if (pArg)
 				{
 					OnMethod("Get");
+
 					GroupArgs gr;
+
+					MultiPrecision::Float val;
+					if (get_Oracle2Median(val, m_Cid))
+						DocAddFloat("Result", val);
+					else
+						Env::DocAddText("Result", "NaN");
 				}
 			}
 			break;
@@ -1201,6 +1208,47 @@ void ParserContext::On_Oracle2()
 			}
 			break;
 
+		case Oracle2::Method::SetSettings::s_iMethod:
+			{
+				auto pArg = get_ArgsAs<Oracle2::Method::SetSettings>();
+				if (pArg)
+				{
+					OnMethod("SetSettings");
+					GroupArgs gr;
+
+					WriteOracle2Settings(pArg->m_Settings);
+					WriteUpgradeAdminsMask(pArg->m_ApproveMask);
+				}
+			}
+			break;
+
+		case Oracle2::Method::ProviderAdd::s_iMethod:
+			{
+				auto pArg = get_ArgsAs<Oracle2::Method::ProviderAdd>();
+				if (pArg)
+				{
+					OnMethod("ProviderAdd");
+					GroupArgs gr;
+
+					DocAddPk("pk", pArg->m_pk);
+					WriteUpgradeAdminsMask(pArg->m_ApproveMask);
+				}
+			}
+			break;
+
+		case Oracle2::Method::ProviderDel::s_iMethod:
+			{
+				auto pArg = get_ArgsAs<Oracle2::Method::ProviderDel>();
+				if (pArg)
+				{
+					OnMethod("ProviderDel");
+					GroupArgs gr;
+
+					Env::DocAddNum("iProvider", pArg->m_iProvider);
+					WriteUpgradeAdminsMask(pArg->m_ApproveMask);
+				}
+			}
+			break;
 
 		}
 	}
@@ -1209,7 +1257,74 @@ void ParserContext::On_Oracle2()
 	{
 		Env::DocGroup gr("State");
 
-		WriteUpgrade3State();
+		Oracle2::StateMax g;
+		uint32_t nProvs = 0;
+
+		Env::Key_T<uint8_t> key;
+		_POD_(key.m_Prefix.m_Cid) = m_Cid;
+		key.m_KeyInContract = Oracle2::Tags::s_StateFull;
+
+		{
+			Env::VarReader r(key, key);
+			uint32_t nKey = 0, nVal = sizeof(g);
+			if (!r.MoveNext(nullptr, nKey, &g, nVal, 0))
+				return;
+
+			nProvs = (nVal - sizeof(Oracle2::State0)) / sizeof(Oracle2::State0::Entry); // don't care about overflow
+			if (nProvs > g.s_ProvsMax)
+				return;
+		}
+
+		{
+			Env::DocGroup gr1("Settings");
+
+			WriteUpgrade3State();
+			WriteOracle2Settings(g.m_Settings);
+		}
+
+		{
+			Env::DocGroup gr1("Feeds");
+			DocSetType("table");
+
+			{
+				Env::DocArray gr2("fields");
+				DocAddTableField("Index", "");
+				DocAddTableField("Key", "");
+				DocAddTableField("Last Value", "");
+				DocAddTableField("Last Height", "height");
+			}
+
+			{
+				Env::DocArray gr2("value");
+
+				for (uint32_t i = 0; i < nProvs; i++)
+				{
+					const auto& x = g.m_pE[i];
+					if (_POD_(x.m_Pk).IsZero())
+						continue;
+
+					Env::DocArray gr3("");
+
+					Env::DocAddNum("", i);
+					Env::DocAddBlob_T("", x.m_Pk);
+					DocAddFloat("", x.m_Val);
+					Env::DocAddNum("", x.m_hUpdated);
+				}
+			}
+		}
+
+		{
+			key.m_KeyInContract = Oracle2::Tags::s_Median;
+			Oracle2::Median med;
+			if (Env::VarReader::Read_T(key, med))
+			{
+				bool bValid = (med.m_hEnd >= Env::get_Height());
+				if (bValid)
+					DocAddFloat("Median", med.m_Res);
+				else
+					Env::DocAddText("Median", "");
+			}
+		}
 
 		// TODO
 	}

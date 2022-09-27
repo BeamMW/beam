@@ -416,6 +416,24 @@ private:
             }
         };
 
+        static void FundsToExclusive(NodeProcessor::ContractInvokeExtraInfo& info)
+        {
+            for (uint32_t iNested = 0; iNested < info.m_NumNested; )
+            {
+                auto& infoNested = (&info)[++iNested];
+                iNested += infoNested.m_NumNested;
+
+                FundsToExclusive(infoNested);
+
+                for (auto it = infoNested.m_FundsIO.m_Map.begin(); infoNested.m_FundsIO.m_Map.end() != it; it++)
+                {
+                    auto val = it->second;
+                    val.Negate();
+                    info.m_FundsIO.Add(val, it->first);
+                }
+            }
+        }
+
         struct Writer
         {
             json m_json;
@@ -425,7 +443,11 @@ private:
             {
                 char sz[uintBig_t<nBytes>::nTxtLen + 1];
                 val.Print(sz);
-                m_json[szName] = sz;
+
+                if (szName)
+                    m_json[szName] = sz;
+                else
+                    m_json.push_back(sz);
             }
 
             void AddPt(const char* szName, const ECC::Point& pt)
@@ -517,10 +539,24 @@ private:
 
             void OnContract(const NodeProcessor::ContractInvokeExtraInfo& info)
             {
-                Writer wr2;
-                wr2.OnContractInternal(info);
+                Writer wrArr(json::array());
+                wrArr.OnContractInternal(info, nullptr, 0, 0);
 
-                m_json["contract"] = std::move(wr2.m_json);
+                json jTbl = json::object();
+                jTbl["type"] = "table";
+
+                jTbl["fields"] = json::array({
+                    { "Cid", "cid" },
+                    { "Kind", "" },
+                    { "Method", "" },
+                    { "Arguments",  "" },
+                    { "Funds",  "" },
+                    { "Keys",  "" },
+                    });
+
+                jTbl["value"] = std::move(wrArr.m_json);
+
+                m_json["Contract"] = std::move(jTbl);
             }
 
             void ParseSafe(const std::string& s)
@@ -534,93 +570,169 @@ private:
                 }
             }
 
-            void OnContractInternal(const NodeProcessor::ContractInvokeExtraInfo& info)
+            void OnContractInternalRaw(const NodeProcessor::ContractInvokeExtraInfo& info, const bvm2::ContractID* pDefCid, uint32_t nIndent, Height h)
             {
-                ParseSafe(info.m_sParsed);
+                Writer wrSrc;
+                wrSrc.ParseSafe(info.m_sParsed);
 
-                AddCid(info.m_Cid);
-
-                if (info.m_Sid.has_value())
-                    EnsureHasKind(*info.m_Sid);
-
-                if (m_json.find("method") == m_json.end())
+                if (pDefCid)
                 {
-                    m_json["iMethod"] = info.m_iMethod;
+                    // Height
+                    if (nIndent)
+                        m_json.push_back("");
+                    else
+                        m_json.push_back(h);
+                }
 
-                    if (!info.m_Args.empty())
+                // Cid, Kind
+                if (pDefCid && (info.m_Cid == *pDefCid))
+                {
+                    m_json.push_back("");
+                    m_json.push_back("");
+                }
+                else
+                {
+                    AddHex(nullptr, info.m_Cid);
+
+                    auto it = wrSrc.m_json.find("kind");
+                    if (wrSrc.m_json.end() == it)
                     {
-                        std::string sBuf;
-                        sBuf.resize(info.m_Args.size() * 2);
-                        uintBigImpl::_Print(&info.m_Args.front(), (uint32_t)info.m_Args.size(), &sBuf.front());
-                        m_json["args"] = std::move(sBuf);
+                        if (info.m_Sid)
+                            AddHex(nullptr, *info.m_Sid);
+                        else
+                            m_json.push_back("");
+                    }
+                    else
+                        m_json.push_back(std::move(*it));
+                }
+
+                // Method, Arguments
+                {
+                    auto it = wrSrc.m_json.find("method");
+                    if (wrSrc.m_json.end() == it)
+                    {
+                        // as blob
+                        switch (info.m_iMethod)
+                        {
+                        case 0: m_json.push_back("Create"); break;
+                        case 1: m_json.push_back("Destroy"); break;
+                        default: m_json.push_back(info.m_iMethod);
+                        }
+
+                        std::string sArgs;
+                        if (!info.m_Args.empty())
+                        {
+                            sArgs.resize(info.m_Args.size() * 2);
+                            uintBigImpl::_Print(&info.m_Args.front(), (uint32_t) info.m_Args.size(), &sArgs.front());
+                        }
+
+                        m_json.push_back(std::move(sArgs));
+                    }
+                    else
+                    {
+                        m_json.push_back(std::move(*it));
+
+                        it = wrSrc.m_json.find("params");
+                        if (wrSrc.m_json.end() == it)
+                            m_json.push_back("");
+                        else
+                            m_json.push_back(std::move(*it));
                     }
                 }
+
+                // Funds.
+                if (!info.m_iParent)
+                    FundsToExclusive(Cast::NotConst(info));
 
                 if (!info.m_FundsIO.m_Map.empty())
                 {
-                    json jF = json::array();
+                    json jArr = json::array();
 
                     for (auto it = info.m_FundsIO.m_Map.begin(); info.m_FundsIO.m_Map.end() != it; it++)
                     {
-                        Writer wr;
+                        auto val = it->second;
+                        char sz[AmountBig::Type::nTxtLen10Max + 2];
 
-                        const char* szAction;
-                        auto valBig = it->second;
-                        if (valBig.get_Msb())
+                        if (val.get_Msb())
                         {
-                            valBig.Negate();
-                            szAction = "Spend";
+                            sz[0] = '-';
+                            val.Negate();
+                            val.PrintDecimal(sz + 1);
                         }
                         else
-                            szAction = "Receive";
+                            val.PrintDecimal(sz);
 
-                        wr.m_json["action"] = szAction;
-                        wr.AddValBig("val", valBig);
+                        json jEntry = json::array();
+                        jEntry.push_back(it->first);
+                        jEntry.push_back(sz);
 
-                        auto aid = it->first;
-                        if (aid)
-                            wr.AddAid(aid);
-
-
-                        jF.push_back(std::move(wr.m_json));
+                        jArr.push_back(std::move(jEntry));
                     }
 
-                    m_json["funds"] = std::move(jF);
-                }
 
+                    json jTbl = json::object();
+                    jTbl["type"] = "table";
+
+                    jTbl["fields"] = json::array({
+                        { "Asset ID", "aid" },
+                        { "Amount",  "amount" },
+                        });
+
+
+                    jTbl["value"] = std::move(jArr);
+
+                    m_json.push_back(std::move(jTbl));
+                }
+                else
+                    m_json.push_back("");
+
+
+                // Keys
                 if (!info.m_vSigs.empty())
                 {
                     json jS = json::array();
 
                     for (uint32_t iSig = 0; iSig < info.m_vSigs.size(); iSig++)
                     {
-                        Writer wr;
-                        wr.AddPt("pk", info.m_vSigs[iSig]);
-                        jS.push_back(std::move(wr.m_json));
+                        Writer wr2(json::array());
+                        wr2.AddPt(nullptr, info.m_vSigs[iSig]);
+                        jS.push_back(std::move(wr2.m_json));
 
                     }
 
-                    m_json["sigs"] = std::move(jS);
+                    m_json.push_back(std::move(jS));
                 }
+                else
+                    m_json.push_back("");
 
+            }
+
+            void OnContractInternal(const NodeProcessor::ContractInvokeExtraInfo& info, const bvm2::ContractID* pDefCid, uint32_t nIndent, Height h)
+            {
+                Writer wr(json::array());
+                wr.OnContractInternalRaw(info, pDefCid, nIndent, h);
 
                 if (info.m_NumNested)
                 {
-                    json j2 = json::array();
+                    json jGr = json::object();
+                    jGr["p"] = std::move(wr.m_json);
 
+                    Writer wrNested(json::array());
                     for (uint32_t iNested = 0; iNested < info.m_NumNested; )
                     {
                         const auto& infoNested = (&info)[++iNested];
                         iNested += infoNested.m_NumNested;
 
-                        Writer wr3;
-                        wr3.OnContractInternal(infoNested);
-
-                        j2.push_back(std::move(wr3.m_json));
+                        wrNested.OnContractInternal(infoNested, pDefCid, nIndent + 1, h);
                     }
 
-                    m_json["nested"] = std::move(j2);
+                    jGr["n"] = std::move(wrNested.m_json);
+
+                    m_json.push_back(std::move(jGr));
                 }
+                else
+                    m_json.push_back(std::move(wr.m_json));
+
             }
 
             void AddMetadata(const Asset::Metadata& md)
@@ -882,6 +994,13 @@ private:
 
     }
 
+    static void OnKrnInfoCorrupted()
+    {
+        CorruptionException exc;
+        exc.m_sErr = "KrnInfo";
+        throw exc;
+    }
+
     void get_ContractState(json& out, const bvm2::ContractID& cid, const HeightRange& hr, uint32_t nMaxTxs)
     {
         bool bExists = false;
@@ -1042,7 +1161,7 @@ private:
 
                     auto it = wr2.m_json.find("kind");
                     if (wr2.m_json.end() != it)
-                        jEntry = std::move(*it);
+                        jEntry.push_back(std::move(*it));
                 }
                 else
                     jEntry.push_back("Destroyed");
@@ -1064,91 +1183,87 @@ private:
         }
 
         {
-            json jCalls = json::array();
+            ExtraInfo::Writer wrArr(json::array());
 
             std::vector<NodeProcessor::ContractInvokeExtraInfo> vInfo;
 
             uint32_t nCount = 0;
-            Height hLast = MaxHeight;
+            HeightPos hpLast = { 0 };
 
             NodeDB::KrnInfo::Walker wlk;
             for (_nodeBackend.get_DB().KrnInfoEnum(wlk, cid, hr.m_Max); wlk.MoveNext(); nCount++)
             {
-                const auto& pos = wlk.m_Entry.m_Pos;
-
-                if (hLast != pos.m_Height)
+                if (hpLast.m_Height != wlk.m_Entry.m_Pos.m_Height)
                 {
-                    if (pos.m_Height < hr.m_Min)
+                    if (wlk.m_Entry.m_Pos.m_Height < hr.m_Min)
                         break;
                     if (nCount >= nMaxTxs)
                         break;
 
-                    hLast = pos.m_Height;
+                    hpLast.m_Height = wlk.m_Entry.m_Pos.m_Height;
+                    hpLast.m_Pos = 0;
                 }
+                else
+                {
+                    if (hpLast.m_Pos >= wlk.m_Entry.m_Pos.m_Pos)
+                        continue; // already processed
+                }
+
+                hpLast.m_Pos = wlk.m_Entry.m_Pos.m_Pos;
 
                 vInfo.clear();
                 auto* pInfo = &ReadKrnInfo(vInfo, wlk);
 
+                // read the whole block, including parent and all its nested
+                while (pInfo->m_iParent)
+                {
+                    NodeDB::KrnInfo::Walker wlk2;
+                    hpLast.m_Pos = pInfo->m_iParent;
+                    _nodeBackend.get_DB().KrnInfoEnum(wlk2, hpLast, hpLast);
+                    if (!wlk2.MoveNext())
+                        OnKrnInfoCorrupted();
 
-                ExtraInfo::Writer wr2;
-                wr2.m_json["height"] = pos.m_Height;
+                    vInfo.clear();
+                    pInfo = &ReadKrnInfo(vInfo, wlk2);
+                }
 
                 uint32_t nNumNested = pInfo->m_NumNested;
-                if (nNumNested)
+                if (pInfo->m_NumNested)
                 {
                     vInfo.reserve(nNumNested + 1);
 
                     NodeDB::KrnInfo::Walker wlk2;
-                    for (_nodeBackend.get_DB().KrnInfoEnum(wlk2, HeightPos(pos.m_Height, pos.m_Pos + 1), HeightPos(pos.m_Height, pos.m_Pos + nNumNested)); wlk2.MoveNext(); )
+                    for (_nodeBackend.get_DB().KrnInfoEnum(wlk2, HeightPos(hpLast.m_Height, hpLast.m_Pos + 1), HeightPos(hpLast.m_Height, hpLast.m_Pos + nNumNested)); wlk2.MoveNext(); )
                         ReadKrnInfo(vInfo, wlk2);
 
                     if (vInfo.size() != nNumNested + 1)
-                    {
-                        CorruptionException exc;
-                        exc.m_sErr = "KrnInfo";
-                        throw exc;
-                    }
+                        OnKrnInfoCorrupted();
 
                     pInfo = &vInfo.front();
+                    hpLast.m_Pos += nNumNested;
                 }
 
-                wr2.OnContract(*pInfo);
-
-                uint32_t iParent = pInfo->m_iParent;
-                if (iParent)
-                {
-                    json jParent = json::array();
-
-                    while (true)
-                    {
-                        NodeDB::KrnInfo::Walker wlk2;
-                        _nodeBackend.get_DB().KrnInfoEnum(wlk2, HeightPos(pos.m_Height, iParent), HeightPos(pos.m_Height, iParent));
-                        if (!wlk2.MoveNext())
-                            break; // shouldn't happen
-
-                        vInfo.clear();
-                        pInfo = &ReadKrnInfo(vInfo, wlk2);
-
-                        pInfo->m_NumNested = 0;
-
-                        ExtraInfo::Writer wr3;
-                        wr3.OnContractInternal(*pInfo);
-
-                        jParent.push_back(std::move(wr3.m_json));
-
-                        iParent = pInfo->m_iParent;
-                        if (!iParent)
-                            break;
-                    }
-
-                    wr2.m_json["parent"] = std::move(jParent);
-                }
-
-                jCalls.push_back(std::move(wr2.m_json));
+                wrArr.OnContractInternal(*pInfo, &cid, 0, hpLast.m_Height);
             }
 
-            wr.m_json["calls"] = std::move(jCalls);
+            {
+                json jTbl = json::object();
+                jTbl["type"] = "table";
 
+                jTbl["fields"] = json::array({
+                    { "Height", "height" },
+                    { "Cid", "cid" },
+                    { "Kind", "" },
+                    { "Method", "" },
+                    { "Arguments",  "" },
+                    { "Funds",  "" },
+                    { "Keys",  "" },
+                });
+
+                jTbl["value"] = std::move(std::move(wrArr.m_json));
+
+                wr.m_json["Calls history"] = std::move(jTbl);
+            }
         }
 
         out = std::move(wr.m_json);
