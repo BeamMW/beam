@@ -4684,6 +4684,7 @@ struct NodeProcessor::ProcessorInfoParser
 			:public IReadVars
 		{
 			NodeDB::WalkerContractData m_Wlk;
+			ByteBuffer m_Buf1, m_Buf2;
 
 			bool MoveNext() override
 			{
@@ -4699,7 +4700,10 @@ struct NodeProcessor::ProcessorInfoParser
 		pOut = std::make_unique<Context>();
 		auto& x = Cast::Up<Context>(*pOut);
 
-		m_Proc.m_DB.ContractDataEnum(x.m_Wlk, kMin, kMax);
+		kMin.Export(x.m_Buf1);
+		kMax.Export(x.m_Buf2);
+
+		m_Proc.m_DB.ContractDataEnum(x.m_Wlk, x.m_Buf1, x.m_Buf2);
 	}
 
 	void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax, IReadLogs::Ptr& pOut) override
@@ -4708,6 +4712,7 @@ struct NodeProcessor::ProcessorInfoParser
 			:public IReadLogs
 		{
 			NodeDB::ContractLog::Walker m_Wlk;
+			ByteBuffer m_Buf1, m_Buf2;
 
 			bool MoveNext() override
 			{
@@ -4738,7 +4743,11 @@ struct NodeProcessor::ProcessorInfoParser
 		}
 
 		if (kMin.n && kMax.n)
-			m_Proc.m_DB.ContractLogEnum(x.m_Wlk, kMin, kMax, *pPosMin, *pPosMax);
+		{
+			kMin.Export(x.m_Buf1);
+			kMax.Export(x.m_Buf2);
+			m_Proc.m_DB.ContractLogEnum(x.m_Wlk, x.m_Buf1, x.m_Buf2, *pPosMin, *pPosMax);
+		}
 		else
 			m_Proc.m_DB.ContractLogEnum(x.m_Wlk, *pPosMin, *pPosMax);
 	}
