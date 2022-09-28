@@ -404,7 +404,7 @@ namespace Env {
 
 } // namespace Env
 
-#ifndef HOST_BUILD
+#if !defined(HOST_BUILD) && !defined(BEAM_SHADER_USE_STL)
 
 namespace std {
     

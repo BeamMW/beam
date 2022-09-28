@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include "common.h"
+
 namespace Env {
 #include "../bvm2_cost.h"
 } // namespace Env
