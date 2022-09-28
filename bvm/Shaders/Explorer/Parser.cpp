@@ -4,12 +4,14 @@
 #include "../upgradable2/contract.h"
 #include "../upgradable3/contract.h"
 #include "../vault/contract.h"
+#include "../vault_anon/contract.h"
 #include "../faucet/contract.h"
 #include "../dao-core/contract.h"
 #include "../gallery/contract.h"
 #include "../nephrite/contract.h"
 #include "../oracle2/contract.h"
 #include "../dao-vault/contract.h"
+#include "../bans/contract.h"
 
 template <uint32_t nMaxLen>
 void DocAddTextLen(const char* szID, const void* szValue, uint32_t nLen)
@@ -60,6 +62,13 @@ void DocAddAid(const char* sz, AssetID aid)
 	Env::DocAddNum("value", aid);
 }
 
+void DocAddAidAmount(const char* sz, AssetID aid, Amount amount)
+{
+	Env::DocArray gr(sz);
+	DocAddAid("", aid);
+	DocAddAmount("", amount);
+}
+
 void DocAddCid(const char* sz, const ContractID& cid)
 {
 	Env::DocGroup gr(sz);
@@ -94,6 +103,7 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	macro(Upgradable, Upgradable::s_SID) \
 	macro(Upgradable2, Upgradable2::s_SID) \
 	macro(Vault, Vault::s_SID) \
+	macro(VaultAnon, VaultAnon::s_SID) \
 	macro(Faucet, Faucet::s_SID) \
 	macro(DaoCore, DaoCore::s_SID) \
 	macro(Gallery_0, Gallery::s_pSID[0]) \
@@ -102,6 +112,7 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	macro(Oracle2, Oracle2::s_pSID[0]) \
 	macro(Nephrite, Nephrite::s_pSID[0]) \
 	macro(DaoVault, DaoVault::s_pSID[0]) \
+	macro(Bans, NameService::s_pSID[0]) \
 
 
 struct ParserContext
@@ -190,9 +201,15 @@ struct ParserContext
 	void WriteUpgrade3State();
 	void OnUpgrade3Method();
 	static void WriteUpgradeAdminsMask(uint32_t nApproveMask);
-	static 	void WriteNephriteSettings(const Nephrite::Settings&);
+	static void WriteNephriteSettings(const Nephrite::Settings&);
 	static void WriteOracle2Settings(const Oracle2::Settings&);
 	static bool get_Oracle2Median(MultiPrecision::Float&, const ContractID& cid);
+	static void WriteBansSettings(const NameService::Settings&);
+	template <typename T>
+	void DocSetBansName_T(const T& x) {
+		DocSetBansNameEx(&x + 1, x.m_NameLen);
+	}
+	void DocSetBansNameEx(const void* p, uint32_t nLen);
 };
 
 bool ParserContext::Parse()
@@ -643,6 +660,40 @@ void ParserContext::On_Vault()
 	}
 }
 
+void ParserContext::On_VaultAnon()
+{
+	OnName("Vault-Anon");
+
+	if (m_Method)
+	{
+		switch (m_iMethod)
+		{
+		case VaultAnon::Method::Deposit::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<VaultAnon::Method::Deposit>();
+			if (pArg)
+			{
+				OnMethod("Deposit");
+				GroupArgs gr;
+
+				DocAddPk("User", pArg->m_Key.m_pkOwner);
+			}
+		}
+		break;
+
+		case VaultAnon::Method::Withdraw::s_iMethod:
+			OnMethod("Withdraw");
+			// no need to include the account, it's visible in the sigs list
+			break;
+		}
+	}
+
+	if (m_State)
+	{
+		// TODO: write all accounts
+	}
+}
+
 void ParserContext::On_Faucet()
 {
 	OnName("Faucet");
@@ -701,9 +752,7 @@ void WriteGalleryAdrID(Gallery::Masterpiece::ID id)
 
 void WriteGalleryPrice(const Gallery::AmountWithAsset& x)
 {
-	if (x.m_Aid)
-		DocAddAid("aid", x.m_Aid);
-	DocAddAmount("amount", x.m_Amount);
+	DocAddAidAmount("Price", x.m_Aid, x.m_Amount);
 }
 
 void ParserContext::On_Gallery_0()
@@ -809,8 +858,7 @@ void ParserContext::On_Gallery_2()
 
 					// TODO roman
 					Env::DocAddBlob_T("key", pArg->m_Key);
-					DocAddAid("aid", pArg->m_Key.m_Aid);
-					DocAddAmount("value", pArg->m_Value);
+					DocAddAidAmount("Value", pArg->m_Key.m_Aid, pArg->m_Value);
 				}
 			}
 			break;
@@ -1363,8 +1411,7 @@ void ParserContext::On_DaoVault()
 					OnMethod("Deposit");
 					GroupArgs gr;
 
-					DocAddAid("Aid", pArg->m_Aid);
-					DocAddAmount("Amount", pArg->m_Amount);
+					DocAddAidAmount("Value", pArg->m_Aid, pArg->m_Amount);
 				}
 			}
 			break;
@@ -1377,8 +1424,7 @@ void ParserContext::On_DaoVault()
 					OnMethod("Withdraw");
 					GroupArgs gr;
 
-					DocAddAid("Aid", pArg->m_Aid);
-					DocAddAmount("Amount", pArg->m_Amount);
+					DocAddAidAmount("Value", pArg->m_Aid, pArg->m_Amount);
 					WriteUpgradeAdminsMask(pArg->m_ApproveMask);
 				}
 			}
@@ -1391,6 +1437,230 @@ void ParserContext::On_DaoVault()
 		Env::DocGroup gr("State");
 		WriteUpgrade3State();
 	}
+}
+
+void ParserContext::WriteBansSettings(const NameService::Settings& stg)
+{
+	DocAddCid("Price oracle", stg.m_cidOracle);
+	DocAddCid("Dao-Vault", stg.m_cidDaoVault);
+	DocAddCid("Anon-Vault", stg.m_cidVault);
+	DocAddHeight("Activation height", stg.m_h0);
+}
+
+void ParserContext::DocSetBansNameEx(const void* p, uint32_t nLen)
+{
+	if (nLen > NameService::Domain::s_MaxLen)
+		return;
+
+	uint32_t n0 = ((const uint8_t*) p) - ((const uint8_t*) m_pArg);
+	if (n0 + nLen > m_nArg)
+		return;
+
+	char sz[NameService::Domain::s_MaxLen + 1];
+	Env::Memcpy(sz, p, nLen);
+	sz[nLen] = 0;
+
+	Env::DocAddText("name", sz);
+}
+
+void ParserContext::On_Bans()
+{
+	OnName("Bans");
+
+	if (m_Method)
+	{
+		switch (m_iMethod)
+		{
+		case NameService::Method::Create::s_iMethod:
+			{
+				auto pArg = get_ArgsAs<NameService::Method::Create>();
+				if (pArg)
+				{
+					GroupArgs gr;
+
+					WriteBansSettings(pArg->m_Settings);
+					WriteUpgradeSettings(pArg->m_Upgradable);
+				}
+			}
+			break;
+
+		case Upgradable3::Method::Control::s_iMethod:
+			OnUpgrade3Method();
+			break;
+
+		case NameService::Method::SetOwner::s_iMethod:
+			{
+				auto pArg = get_ArgsAs<NameService::Method::SetOwner>();
+				if (pArg)
+				{
+					OnMethod("Set Owner");
+					GroupArgs gr;
+
+					DocSetBansName_T(*pArg);
+					DocAddPk("New owner", pArg->m_pkNewOwner);
+				}
+			}
+			break;
+		
+		case NameService::Method::Extend::s_iMethod:
+			{
+				auto pArg = get_ArgsAs<NameService::Method::Extend>();
+				if (pArg)
+				{
+					OnMethod("Extend period");
+					GroupArgs gr;
+
+					DocSetBansName_T(*pArg);
+					Env::DocAddNum32("Periods", pArg->m_Periods);
+				}
+			}
+			break;
+
+		case NameService::Method::SetPrice::s_iMethod:
+			{
+				auto pArg = get_ArgsAs<NameService::Method::SetPrice>();
+				if (pArg)
+				{
+					OnMethod(pArg->m_Price.m_Amount ? "Set Price" : "Remove Price");
+					GroupArgs gr;
+
+					DocSetBansName_T(*pArg);
+
+					if (pArg->m_Price.m_Amount)
+						DocAddAidAmount("Price", pArg->m_Price.m_Aid, pArg->m_Price.m_Amount);
+				}
+			}
+			break;
+
+		case NameService::Method::Buy::s_iMethod:
+			{
+				auto pArg = get_ArgsAs<NameService::Method::Buy>();
+				if (pArg)
+				{
+					OnMethod("Buy");
+					GroupArgs gr;
+
+					DocSetBansName_T(*pArg);
+					DocAddPk("New owner", pArg->m_pkNewOwner);
+
+				}
+			}
+			break;
+
+		case NameService::Method::Register::s_iMethod:
+			{
+				auto pArg = get_ArgsAs<NameService::Method::Register>();
+				if (pArg)
+				{
+					OnMethod("Register");
+					GroupArgs gr;
+
+					DocSetBansName_T(*pArg);
+					DocAddPk("Owner", pArg->m_pkOwner);
+					Env::DocAddNum32("Periods", pArg->m_Periods);
+				}
+			}
+			break;
+
+		}
+	}
+
+	if (m_State)
+	{
+		Env::DocGroup gr("State");
+
+		WriteUpgrade3State();
+
+		Env::Key_T<uint8_t> k;
+		_POD_(k.m_Prefix.m_Cid) = m_Cid;
+		k.m_KeyInContract = NameService::Tags::s_Settings;
+
+		NameService::Settings s;
+		if (Env::VarReader::Read_T(k, s))
+		{
+			{
+				Env::DocGroup gr2("Settings");
+				WriteBansSettings(s);
+			}
+
+			{
+				Env::DocGroup gr2("Domains");
+				DocSetType("table");
+
+				{
+					Env::DocArray gr3("fields");
+					DocAddTableField("Name", "");
+					DocAddTableField("Owner", "");
+					DocAddTableField("Expiration height", "height");
+					DocAddTableField("Status", "");
+					DocAddTableField("Sell price", "");
+				}
+
+				uint32_t nTotalRows = 0;
+
+				{
+
+					Env::DocArray gr3("value");
+
+					Env::Key_T<NameService::Domain::Key0> k0;
+					_POD_(k0.m_Prefix.m_Cid) = m_Cid;
+					_POD_(k0.m_KeyInContract.m_sz).SetZero();
+
+#pragma pack (push, 1)
+					struct KeyPlus {
+						Env::Key_T<NameService::Domain::KeyMax> k;
+						char m_chTerm; // 1 more byte, to place 0-terminator
+					} k1;
+#pragma pack (pop)
+
+					_POD_(k1.k.m_Prefix.m_Cid) = m_Cid;
+					Env::Memset(k1.k.m_KeyInContract.m_sz, 0xff, NameService::Domain::s_MaxLen);
+
+					Height h = Env::get_Height();
+					for (Env::VarReader r(k0, k1.k); ; )
+					{
+						NameService::Domain d;
+						uint32_t nKey = sizeof(k1.k), nVal = sizeof(d);
+						if (!r.MoveNext(&k1.k, nKey, &d, nVal, 0))
+							break;
+
+						nTotalRows++;
+
+						if (sizeof(d) != nVal)
+							continue;
+
+						nKey -= (sizeof(k0) - NameService::Domain::s_MinLen);
+						if (nKey > NameService::Domain::s_MaxLen)
+							continue;
+
+						k1.k.m_KeyInContract.m_sz[nKey] = 0;
+
+						Env::DocArray gr4("");
+
+						Env::DocAddText("", k1.k.m_KeyInContract.m_sz);
+						DocAddPk("", d.m_pkOwner);
+						DocAddHeight("", d.m_hExpire);
+
+						const char* szStatus =
+							(d.m_hExpire > h) ? "" :
+							(d.m_hExpire + NameService::Domain::s_PeriodHold > h) ? "On Hold" :
+							"Expired";
+						Env::DocAddText("", szStatus);
+
+						if (d.m_Price.m_Amount)
+							DocAddAidAmount("", d.m_Price.m_Aid, d.m_Price.m_Amount);
+						else
+							Env::DocAddText("", "");
+					}
+				}
+
+				Env::DocAddNum("Total rows", nTotalRows);
+
+			}
+
+		}
+	}
+
 }
 
 
