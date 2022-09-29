@@ -484,7 +484,7 @@ void ParserContext::WriteUpgradeSettingsInternal(const Upgradable3::Settings& st
 	{
 		Env::DocGroup gr1("Admins");
 		DocSetType("table");
-		Env::DocArray gr2("rows");
+		Env::DocArray gr2("value");
 
 		{
 			Env::DocArray gr3("");
@@ -1107,7 +1107,7 @@ void ParserContext::On_Nephrite()
 				Env::DocGroup gr2("Troves");
 
 				DocSetType("table");
-				Env::DocArray gr3("rows");
+				Env::DocArray gr3("value");
 
 				{
 					Env::DocArray gr4("");
@@ -1330,7 +1330,7 @@ void ParserContext::On_Oracle2()
 		{
 			Env::DocGroup gr1("Feeds");
 			DocSetType("table");
-			Env::DocArray gr2("rows");
+			Env::DocArray gr2("value");
 
 			{
 				Env::DocArray gr3("");
@@ -1401,9 +1401,9 @@ void ParserContext::On_DaoVault()
 				if (pArg)
 				{
 					OnMethod("Deposit");
-					GroupArgs gr;
+					//GroupArgs gr;
 
-					DocAddAidAmount("Value", pArg->m_Aid, pArg->m_Amount);
+					//DocAddAidAmount("Value", pArg->m_Aid, pArg->m_Amount);
 				}
 			}
 			break;
@@ -1414,9 +1414,9 @@ void ParserContext::On_DaoVault()
 				if (pArg)
 				{
 					OnMethod("Withdraw");
-					GroupArgs gr;
+					//GroupArgs gr;
 
-					DocAddAidAmount("Value", pArg->m_Aid, pArg->m_Amount);
+					//DocAddAidAmount("Value", pArg->m_Aid, pArg->m_Amount);
 					WriteUpgradeAdminsMask(pArg->m_ApproveMask);
 				}
 			}
@@ -1578,7 +1578,7 @@ void ParserContext::On_Bans()
 			{
 				Env::DocGroup gr2("Domains");
 				DocSetType("table");
-				Env::DocArray gr3("rows");
+				Env::DocArray gr3("value");
 
 				{
 					Env::DocArray gr4("");

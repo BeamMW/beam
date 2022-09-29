@@ -418,6 +418,12 @@ private:
         AssignField(json, szName, std::move(sz));
     }
 
+    static void AssignField(json& json, const char* szName, const ECC::Point& pt)
+    {
+        typedef uintBig_t<ECC::nBytes + 1> MyPoint;
+        AssignField<MyPoint::nBytes>(json, szName, std::move(Cast::Reinterpret<MyPoint>(pt)));
+    }
+
     template <typename T>
     static json MakeTypeObj(const char* szType, T&& val)
     {
@@ -434,10 +440,7 @@ private:
 
     static json MakeTable(json&& jRows)
     {
-        return json{
-            {"type", "table"},
-            {"rows", std::move(jRows)}
-        };
+        return MakeTypeObj("table", std::move(jRows));
     }
 
     static json MakeObjAid(Asset::ID aid)
@@ -511,24 +514,12 @@ private:
             template <uint32_t nBytes>
             void AddHex(const char* szName, const uintBig_t<nBytes>& val)
             {
-                char sz[uintBig_t<nBytes>::nTxtLen + 1];
-                val.Print(sz);
-
-                if (szName)
-                    m_json[szName] = sz;
-                else
-                    m_json.push_back(sz);
-            }
-
-            void AddPt(const char* szName, const ECC::Point& pt)
-            {
-                typedef uintBig_t<ECC::nBytes + 1> MyPoint;
-                AddHex(szName, Cast::Reinterpret<MyPoint>(pt));
+                AssignField(m_json, szName, std::move(val));
             }
 
             void AddCommitment(const ECC::Point& pt)
             {
-                AddPt("commitment", pt);
+                AssignField(m_json, "commitment", pt);
             }
 
             template <typename T>
@@ -739,10 +730,9 @@ private:
 
                     for (uint32_t iSig = 0; iSig < info.m_vSigs.size(); iSig++)
                     {
-                        Writer wr2(json::array());
-                        wr2.AddPt(nullptr, info.m_vSigs[iSig]);
-                        jArr.push_back(std::move(wr2.m_json));
-
+                        json jEntry = json::array();
+                        AssignField(jEntry, nullptr, info.m_vSigs[iSig]);
+                        jArr.push_back(std::move(jEntry));
                     }
 
                     m_json.push_back(MakeTable(std::move(jArr)));
