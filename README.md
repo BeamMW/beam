@@ -11,7 +11,6 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 
 
 [Download latest version](http://beam.mw/downloads)
-**Eager Electron 5.1.9898
 
 
 ### JOIN OUR COMMUNITIES ON TELEGRAM
@@ -71,7 +70,7 @@ years.
 
 ### Roadmap
 
-See Beam Roadmap for 2020 on https://beam.mw
+See Beam Roadmap here: https://beam.mw/#roadmap
 
 ### Community projects
 
