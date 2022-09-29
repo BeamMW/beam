@@ -430,7 +430,7 @@ private:
         json j;
         j["type"] = szType;
         AssignField(j, "value", std::move(val));
-        return std::move(j);
+        return j;
     }
 
     static json MakeTableHdr(const char* szName)
