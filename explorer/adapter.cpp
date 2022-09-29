@@ -401,6 +401,76 @@ private:
         return true;
     }
 
+    template <typename T>
+    static void AssignField(json& json, const char* szName, T&& val)
+    {
+        if (szName)
+            json[szName] = std::move(val);
+        else
+            json.push_back(std::move(val));
+    }
+
+    template <uint32_t nBytes>
+    static void AssignField(json& json, const char* szName, const uintBig_t<nBytes>&& val)
+    {
+        char sz[uintBig_t<nBytes>::nTxtLen + 1];
+        val.Print(sz);
+        AssignField(json, szName, std::move(sz));
+    }
+
+    template <typename T>
+    static json MakeTypeObj(const char* szType, T&& val)
+    {
+        json j;
+        j["type"] = szType;
+        AssignField(j, "value", std::move(val));
+        return std::move(j);
+    }
+
+    static json MakeTableHdr(const char* szName)
+    {
+        return MakeTypeObj("th", szName);
+    }
+
+    static json MakeTable(json&& jRows)
+    {
+        return json{
+            {"type", "table"},
+            {"rows", std::move(jRows)}
+        };
+    }
+
+    static json MakeObjAid(Asset::ID aid)
+    {
+        return MakeTypeObj("aid", aid);
+    }
+
+    static json MakeObjAmount(const Amount x)
+    {
+        return MakeTypeObj("amount", x);
+    }
+
+    static json MakeObjAmount(const AmountBig::Type& x)
+    {
+        if (!AmountBig::get_Hi(x))
+            return MakeObjAmount(AmountBig::get_Lo(x));
+
+        char sz[AmountBig::Type::nTxtLen10Max + 2];
+
+        if (x.get_Msb())
+        {
+            auto x2 = x;
+            x2.Negate();
+
+            sz[0] = '-';
+            x2.PrintDecimal(sz + 1);
+        }
+        else
+            x.PrintDecimal(sz);
+
+        return MakeTypeObj("amount", sz);
+    }
+
     struct ExtraInfo
     {
         struct ContractRichInfo {
@@ -540,23 +610,19 @@ private:
             void OnContract(const NodeProcessor::ContractInvokeExtraInfo& info)
             {
                 Writer wrArr(json::array());
+                wrArr.m_json.push_back(json::array({
+                    MakeTableHdr("Cid"),
+                    MakeTableHdr("Kind"),
+                    MakeTableHdr("Method"),
+                    MakeTableHdr("Arguments"),
+                    MakeTableHdr("Funds"),
+                    MakeTableHdr("Keys")
+                    }));
+
+                
                 wrArr.OnContractInternal(info, nullptr, 0, 0);
 
-                json jTbl = json::object();
-                jTbl["type"] = "table";
-
-                jTbl["fields"] = json::array({
-                    { "Cid", "cid" },
-                    { "Kind", "" },
-                    { "Method", "" },
-                    { "Arguments",  "" },
-                    { "Funds",  "" },
-                    { "Keys",  "" },
-                    });
-
-                jTbl["value"] = std::move(wrArr.m_json);
-
-                m_json["Contract"] = std::move(jTbl);
+                m_json["Contract"] = MakeTable(std::move(wrArr.m_json));
             }
 
             void ParseSafe(const std::string& s)
@@ -592,7 +658,7 @@ private:
                 }
                 else
                 {
-                    AddHex(nullptr, info.m_Cid);
+                    m_json.push_back(MakeTypeObj("cid", info.m_Cid));
 
                     auto it = wrSrc.m_json.find("kind");
                     if (wrSrc.m_json.end() == it)
@@ -651,39 +717,16 @@ private:
                     for (auto it = info.m_FundsIO.m_Map.begin(); info.m_FundsIO.m_Map.end() != it; it++)
                     {
                         auto val = it->second;
-                        char sz[AmountBig::Type::nTxtLen10Max + 2];
-
-                        if (val.get_Msb())
-                        {
-                            val.Negate();
-                            val.PrintDecimal(sz);
-                        }
-                        else
-                        {
-                            sz[0] = '-';
-                            val.PrintDecimal(sz + 1);
-                        }
+                        val.Negate();
 
                         json jEntry = json::array();
-                        jEntry.push_back(it->first);
-                        jEntry.push_back(sz);
+                        jEntry.push_back(MakeObjAid(it->first));
+                        jEntry.push_back(MakeObjAmount(val));
 
                         jArr.push_back(std::move(jEntry));
                     }
 
-
-                    json jTbl = json::object();
-                    jTbl["type"] = "table";
-
-                    jTbl["fields"] = json::array({
-                        { "Asset ID", "aid" },
-                        { "Amount",  "amount" },
-                        });
-
-
-                    jTbl["value"] = std::move(jArr);
-
-                    m_json.push_back(std::move(jTbl));
+                    m_json.push_back(MakeTable(std::move(jArr)));
                 }
                 else
                     m_json.push_back("");
@@ -692,17 +735,17 @@ private:
                 // Keys
                 if (!info.m_vSigs.empty())
                 {
-                    json jS = json::array();
+                    json jArr = json::array();
 
                     for (uint32_t iSig = 0; iSig < info.m_vSigs.size(); iSig++)
                     {
                         Writer wr2(json::array());
                         wr2.AddPt(nullptr, info.m_vSigs[iSig]);
-                        jS.push_back(std::move(wr2.m_json));
+                        jArr.push_back(std::move(wr2.m_json));
 
                     }
 
-                    m_json.push_back(std::move(jS));
+                    m_json.push_back(MakeTable(std::move(jArr)));
                 }
                 else
                     m_json.push_back("");
@@ -716,21 +759,18 @@ private:
 
                 if (info.m_NumNested)
                 {
-                    json jGr = json::object();
-                    jGr["p"] = std::move(wr.m_json);
+                    Writer wrGroup(json::array());
+                    wrGroup.m_json.push_back(std::move(wr.m_json));
 
-                    Writer wrNested(json::array());
                     for (uint32_t iNested = 0; iNested < info.m_NumNested; )
                     {
                         const auto& infoNested = (&info)[++iNested];
                         iNested += infoNested.m_NumNested;
 
-                        wrNested.OnContractInternal(infoNested, pDefCid, nIndent + 1, h);
+                        wrGroup.OnContractInternal(infoNested, pDefCid, nIndent + 1, h);
                     }
 
-                    jGr["n"] = std::move(wrNested.m_json);
-
-                    m_json.push_back(std::move(jGr));
+                    m_json.push_back(MakeTypeObj("group", std::move(wrGroup.m_json)));
                 }
                 else
                     m_json.push_back(std::move(wr.m_json));
@@ -1025,6 +1065,10 @@ private:
         if (bExists)
         {
             json jArr = json::array();
+            jArr.push_back(json::array({
+                MakeTableHdr("Asset ID"),
+                MakeTableHdr("Amount")
+            }));
 
 #pragma pack (push, 1)
             struct KeyFund
@@ -1052,32 +1096,24 @@ private:
 
                 const auto& val = *reinterpret_cast<const AmountBig::Type*>(wlk.m_Val.p);
 
+                json jEntry = json::array();
+                jEntry.push_back(MakeObjAid(aid));
+                jEntry.push_back(MakeObjAmount(val));
 
-
-                ExtraInfo::Writer wr2(json::array());
-                wr2.m_json.push_back(aid);
-                wr2.AddValBig(nullptr, val);
-
-                jArr.push_back(std::move(wr2.m_json));
+                jArr.push_back(std::move(jEntry));
             }
 
-
-            json jTbl = json::object();
-            jTbl["type"] = "table";
-
-            jTbl["fields"] = json::array({
-                { "Asset ID", "aid" },
-                { "Amount",  "amount" },
-            });
-
-            jTbl["value"] = std::move(jArr);
-
-            wr.m_json["Locked Funds"] = std::move(jTbl);
+            wr.m_json["Locked Funds"] = MakeTable(std::move(jArr));
         }
 
         if (bExists)
         {
             json jArr = json::array();
+            jArr.push_back(json::array({
+                MakeTableHdr("Asset ID"),
+                MakeTableHdr("Metadata"),
+                MakeTableHdr("Emission")
+            }));
 
 #pragma pack (push, 1)
             struct KeyAsset
@@ -1106,34 +1142,27 @@ private:
                 if (!_nodeBackend.get_DB().AssetGetSafe(ai))
                     ai.m_Value = Zero;
 
-                ExtraInfo::Writer wr2(json::array());
-                wr2.m_json.push_back(ai.m_ID);
+                json jEntry = json::array();
+                jEntry.push_back(MakeObjAid(ai.m_ID));
+                {
+                    std::string sMeta;
+                    ai.m_Metadata.get_String(sMeta);
+                    jEntry.push_back(std::move(sMeta));
+                }
+                jEntry.push_back(MakeObjAmount(ai.m_Value));
 
-                std::string sMeta;
-                ai.m_Metadata.get_String(sMeta);
-                wr2.m_json.push_back(std::move(sMeta));
-
-                wr2.AddValBig(nullptr, ai.m_Value);
-
-                jArr.push_back(std::move(wr2.m_json));
+                jArr.push_back(std::move(jEntry));
             }
 
-            json jTbl = json::object();
-            jTbl["type"] = "table";
-
-            jTbl["fields"] = json::array({
-                { "Asset ID", "aid" },
-                { "Metadata", "" },
-                { "Emission",  "amount" },
-            });
-
-            jTbl["value"] = std::move(jArr);
-
-            wr.m_json["Owned assets"] = std::move(jTbl);
+            wr.m_json["Owned assets"] = MakeTable(std::move(jArr));
         }
 
         {
             json jArr = json::array();
+            jArr.push_back(json::array({
+                MakeTableHdr("Height"),
+                MakeTableHdr("Version")
+                }));
 
 #pragma pack (push, 1)
             struct KeyVer
@@ -1166,26 +1195,25 @@ private:
                         jEntry.push_back(std::move(*it));
                 }
                 else
-                    jEntry.push_back("Destroyed");
+                    jEntry.push_back("End of life");
 
                 jArr.push_back(std::move(jEntry));
             }
 
-            json jTbl = json::object();
-            jTbl["type"] = "table";
-
-            jTbl["fields"] = json::array({
-                { "Height", "height" },
-                { "Version",  "" },
-            });
-
-            jTbl["value"] = std::move(jArr);
-
-            wr.m_json["Version History"] = std::move(jTbl);
+            wr.m_json["Version History"] = MakeTable(std::move(jArr));
         }
 
         {
             ExtraInfo::Writer wrArr(json::array());
+            wrArr.m_json.push_back(json::array({
+                MakeTableHdr("Height"),
+                MakeTableHdr("Cid"),
+                MakeTableHdr("Kind"),
+                MakeTableHdr("Method"),
+                MakeTableHdr("Arguments"),
+                MakeTableHdr("Funds"),
+                MakeTableHdr("Keys")
+                }));
 
             std::vector<NodeProcessor::ContractInvokeExtraInfo> vInfo;
 
@@ -1203,11 +1231,10 @@ private:
                         break;
 
                     hpLast.m_Height = wlk.m_Entry.m_Pos.m_Height;
-                    hpLast.m_Pos = 0;
                 }
                 else
                 {
-                    if (hpLast.m_Pos >= wlk.m_Entry.m_Pos.m_Pos)
+                    if (hpLast.m_Pos <= wlk.m_Entry.m_Pos.m_Pos)
                         continue; // already processed
                 }
 
@@ -1248,24 +1275,7 @@ private:
                 wrArr.OnContractInternal(*pInfo, &cid, 0, hpLast.m_Height);
             }
 
-            {
-                json jTbl = json::object();
-                jTbl["type"] = "table";
-
-                jTbl["fields"] = json::array({
-                    { "Height", "height" },
-                    { "Cid", "cid" },
-                    { "Kind", "" },
-                    { "Method", "" },
-                    { "Arguments",  "" },
-                    { "Funds",  "" },
-                    { "Keys",  "" },
-                });
-
-                jTbl["value"] = std::move(std::move(wrArr.m_json));
-
-                wr.m_json["Calls history"] = std::move(jTbl);
-            }
+            wr.m_json["Calls history"] = MakeTable(std::move(wrArr.m_json));
         }
 
         out = std::move(wr.m_json);

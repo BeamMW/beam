@@ -40,12 +40,11 @@ void DocSetType(const char* sz)
 	Env::DocAddText("type", sz);
 }
 
-void DocAddTableField(const char* szName, const char* szType)
+void DocAddTableHeader(const char* sz)
 {
-	Env::DocArray gr("");
-
-	Env::DocAddText("", szName);
-	Env::DocAddText("", szType);
+	Env::DocGroup gr("");
+	DocSetType("th");
+	Env::DocAddText("value", sz);
 }
 
 void DocAddAmount(const char* sz, Amount x)
@@ -485,27 +484,24 @@ void ParserContext::WriteUpgradeSettingsInternal(const Upgradable3::Settings& st
 	{
 		Env::DocGroup gr1("Admins");
 		DocSetType("table");
+		Env::DocArray gr2("rows");
 
 		{
-			Env::DocArray gr2("fields");
-			DocAddTableField("Index", "");
-			DocAddTableField("Key", "");
+			Env::DocArray gr3("");
+			DocAddTableHeader("Index");
+			DocAddTableHeader("Key");
 		}
 
+		for (uint32_t i = 0; i < _countof(stg.m_pAdmin); i++)
 		{
-			Env::DocArray gr2("value");
+			const auto& pk = stg.m_pAdmin[i];
+			if (_POD_(pk).IsZero())
+				continue;
 
-			for (uint32_t i = 0; i < _countof(stg.m_pAdmin); i++)
-			{
-				const auto& pk = stg.m_pAdmin[i];
-				if (_POD_(pk).IsZero())
-					continue;
+			Env::DocArray gr3("");
 
-				Env::DocArray gr3("");
-
-				Env::DocAddNum("", i);
-				Env::DocAddBlob_T("", pk);
-			}
+			Env::DocAddNum("", i);
+			Env::DocAddBlob_T("", pk);
 		}
 
 	}
@@ -1109,59 +1105,58 @@ void ParserContext::On_Nephrite()
 
 			{
 				Env::DocGroup gr2("Troves");
+
 				DocSetType("table");
+				Env::DocArray gr3("rows");
 
 				{
-					Env::DocArray gr3("fields");
-					DocAddTableField("Number", "");
-					DocAddTableField("Key", "");
-					DocAddTableField("Col", "amount");
-					DocAddTableField("Tok", "amount");
-					DocAddTableField("ICR", "");
+					Env::DocArray gr4("");
+					DocAddTableHeader("Number");
+					DocAddTableHeader("Key");
+					DocAddTableHeader("Col");
+					DocAddTableHeader("Tok");
+					DocAddTableHeader("ICR");
 				}
 
+				Utils::Vector<Nephrite::Trove> vec;
+				vec.Prepare(g.m_Troves.m_iLastCreated);
+
 				{
-					Utils::Vector<Nephrite::Trove> vec;
-					vec.Prepare(g.m_Troves.m_iLastCreated);
+					Env::Key_T<Nephrite::Trove::Key> tk0, tk1;
+					_POD_(tk0.m_Prefix.m_Cid) = m_Cid;
+					_POD_(tk1.m_Prefix.m_Cid) = m_Cid;
+					tk0.m_KeyInContract.m_iTrove = 0;
+					tk1.m_KeyInContract.m_iTrove = (Nephrite::Trove::ID) -1;
 
+					for (Env::VarReader r(tk0, tk1); ; )
 					{
-						Env::Key_T<Nephrite::Trove::Key> tk0, tk1;
-						_POD_(tk0.m_Prefix.m_Cid) = m_Cid;
-						_POD_(tk1.m_Prefix.m_Cid) = m_Cid;
-						tk0.m_KeyInContract.m_iTrove = 0;
-						tk1.m_KeyInContract.m_iTrove = (Nephrite::Trove::ID) -1;
+						Nephrite::Trove t;
+						if (!r.MoveNext_T(tk0, t))
+							break;
 
-						for (Env::VarReader r(tk0, tk1); ; )
-						{
-							Nephrite::Trove t;
-							if (!r.MoveNext_T(tk0, t))
-								break;
-
-							vec.Prepare(tk0.m_KeyInContract.m_iTrove);
-							_POD_(vec.m_p[tk0.m_KeyInContract.m_iTrove - 1]) = t;
-						}
+						vec.Prepare(tk0.m_KeyInContract.m_iTrove);
+						_POD_(vec.m_p[tk0.m_KeyInContract.m_iTrove - 1]) = t;
 					}
+				}
 
-					Env::DocArray gr3("value");
-					for (auto iTrove = g.m_Troves.m_iHead; iTrove; )
-					{
-						Nephrite::Trove& t = vec.m_p[iTrove - 1];
-						g.m_RedistPool.Remove(t);
+				for (auto iTrove = g.m_Troves.m_iHead; iTrove; )
+				{
+					Nephrite::Trove& t = vec.m_p[iTrove - 1];
+					g.m_RedistPool.Remove(t);
 
-						Env::DocArray gr4("");
+					Env::DocArray gr4("");
 
-						Env::DocAddNum("", iTrove);
-						Env::DocAddBlob_T("", t.m_pkOwner);
-						Env::DocAddNum("", t.m_Amounts.Col);
-						Env::DocAddNum("", t.m_Amounts.Tok);
+					Env::DocAddNum("", iTrove);
+					DocAddPk("", t.m_pkOwner);
+					DocAddAmount("", t.m_Amounts.Col);
+					DocAddAmount("", t.m_Amounts.Tok);
 
-						if (bHavePrice)
-							DocAddPerc("", price.ToCR(t.m_Amounts.get_Rcr()));
-						else
-							Env::DocAddText("", "");
+					if (bHavePrice)
+						DocAddPerc("", price.ToCR(t.m_Amounts.get_Rcr()));
+					else
+						Env::DocAddText("", "");
 
-						iTrove = t.m_iNext;
-					}
+					iTrove = t.m_iNext;
 				}
 
 			}
@@ -1335,31 +1330,28 @@ void ParserContext::On_Oracle2()
 		{
 			Env::DocGroup gr1("Feeds");
 			DocSetType("table");
+			Env::DocArray gr2("rows");
 
 			{
-				Env::DocArray gr2("fields");
-				DocAddTableField("Index", "");
-				DocAddTableField("Key", "");
-				DocAddTableField("Last Value", "");
-				DocAddTableField("Last Height", "height");
+				Env::DocArray gr3("");
+				DocAddTableHeader("Index");
+				DocAddTableHeader("Key");
+				DocAddTableHeader("Last Value");
+				DocAddTableHeader("Last Height");
 			}
 
+			for (uint32_t i = 0; i < nProvs; i++)
 			{
-				Env::DocArray gr2("value");
+				const auto& x = g.m_pE[i];
+				if (_POD_(x.m_Pk).IsZero())
+					continue;
 
-				for (uint32_t i = 0; i < nProvs; i++)
-				{
-					const auto& x = g.m_pE[i];
-					if (_POD_(x.m_Pk).IsZero())
-						continue;
+				Env::DocArray gr3("");
 
-					Env::DocArray gr3("");
-
-					Env::DocAddNum("", i);
-					Env::DocAddBlob_T("", x.m_Pk);
-					DocAddFloat("", x.m_Val);
-					Env::DocAddNum("", x.m_hUpdated);
-				}
+				Env::DocAddNum("", i);
+				DocAddPk("", x.m_Pk);
+				DocAddFloat("", x.m_Val);
+				DocAddHeight("", x.m_hUpdated);
 			}
 		}
 
@@ -1586,75 +1578,65 @@ void ParserContext::On_Bans()
 			{
 				Env::DocGroup gr2("Domains");
 				DocSetType("table");
+				Env::DocArray gr3("rows");
 
 				{
-					Env::DocArray gr3("fields");
-					DocAddTableField("Name", "");
-					DocAddTableField("Owner", "");
-					DocAddTableField("Expiration height", "height");
-					DocAddTableField("Status", "");
-					DocAddTableField("Sell price", "");
+					Env::DocArray gr4("");
+					DocAddTableHeader("Name");
+					DocAddTableHeader("Owner");
+					DocAddTableHeader("Expiration height");
+					DocAddTableHeader("Status");
+					DocAddTableHeader("Sell price");
 				}
 
-				uint32_t nTotalRows = 0;
-
-				{
-
-					Env::DocArray gr3("value");
-
-					Env::Key_T<NameService::Domain::Key0> k0;
-					_POD_(k0.m_Prefix.m_Cid) = m_Cid;
-					_POD_(k0.m_KeyInContract.m_sz).SetZero();
+				Env::Key_T<NameService::Domain::Key0> k0;
+				_POD_(k0.m_Prefix.m_Cid) = m_Cid;
+				_POD_(k0.m_KeyInContract.m_sz).SetZero();
 
 #pragma pack (push, 1)
-					struct KeyPlus {
-						Env::Key_T<NameService::Domain::KeyMax> k;
-						char m_chTerm; // 1 more byte, to place 0-terminator
-					} k1;
+				struct KeyPlus {
+					Env::Key_T<NameService::Domain::KeyMax> k;
+					char m_chTerm; // 1 more byte, to place 0-terminator
+				} k1;
 #pragma pack (pop)
 
-					_POD_(k1.k.m_Prefix.m_Cid) = m_Cid;
-					Env::Memset(k1.k.m_KeyInContract.m_sz, 0xff, NameService::Domain::s_MaxLen);
+				_POD_(k1.k.m_Prefix.m_Cid) = m_Cid;
+				Env::Memset(k1.k.m_KeyInContract.m_sz, 0xff, NameService::Domain::s_MaxLen);
 
-					Height h = Env::get_Height();
-					for (Env::VarReader r(k0, k1.k); ; )
-					{
-						NameService::Domain d;
-						uint32_t nKey = sizeof(k1.k), nVal = sizeof(d);
-						if (!r.MoveNext(&k1.k, nKey, &d, nVal, 0))
-							break;
+				Height h = Env::get_Height();
+				for (Env::VarReader r(k0, k1.k); ; )
+				{
+					NameService::Domain d;
+					uint32_t nKey = sizeof(k1.k), nVal = sizeof(d);
+					if (!r.MoveNext(&k1.k, nKey, &d, nVal, 0))
+						break;
 
-						nTotalRows++;
+					if (sizeof(d) != nVal)
+						continue;
 
-						if (sizeof(d) != nVal)
-							continue;
+					nKey -= (sizeof(k0) - NameService::Domain::s_MinLen);
+					if (nKey > NameService::Domain::s_MaxLen)
+						continue;
 
-						nKey -= (sizeof(k0) - NameService::Domain::s_MinLen);
-						if (nKey > NameService::Domain::s_MaxLen)
-							continue;
+					k1.k.m_KeyInContract.m_sz[nKey] = 0;
 
-						k1.k.m_KeyInContract.m_sz[nKey] = 0;
+					Env::DocArray gr4("");
 
-						Env::DocArray gr4("");
+					Env::DocAddText("", k1.k.m_KeyInContract.m_sz);
+					DocAddPk("", d.m_pkOwner);
+					DocAddHeight("", d.m_hExpire);
 
-						Env::DocAddText("", k1.k.m_KeyInContract.m_sz);
-						DocAddPk("", d.m_pkOwner);
-						DocAddHeight("", d.m_hExpire);
+					const char* szStatus =
+						(d.m_hExpire > h) ? "" :
+						(d.m_hExpire + NameService::Domain::s_PeriodHold > h) ? "On Hold" :
+						"Expired";
+					Env::DocAddText("", szStatus);
 
-						const char* szStatus =
-							(d.m_hExpire > h) ? "" :
-							(d.m_hExpire + NameService::Domain::s_PeriodHold > h) ? "On Hold" :
-							"Expired";
-						Env::DocAddText("", szStatus);
-
-						if (d.m_Price.m_Amount)
-							DocAddAidAmount("", d.m_Price.m_Aid, d.m_Price.m_Amount);
-						else
-							Env::DocAddText("", "");
-					}
+					if (d.m_Price.m_Amount)
+						DocAddAidAmount("", d.m_Price.m_Aid, d.m_Price.m_Amount);
+					else
+						Env::DocAddText("", "");
 				}
-
-				Env::DocAddNum("Total rows", nTotalRows);
 
 			}
 
