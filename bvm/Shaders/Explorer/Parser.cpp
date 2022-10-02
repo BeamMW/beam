@@ -12,6 +12,13 @@
 #include "../oracle2/contract.h"
 #include "../dao-vault/contract.h"
 #include "../bans/contract.h"
+#include "../dao-core/contract.h"
+namespace Masternet {
+#include "../dao-core-masternet/contract.h"
+}
+namespace Testnet {
+#include "../dao-core-testnet/contract.h"
+}
 
 template <uint32_t nMaxLen>
 void DocAddTextLen(const char* szID, const void* szValue, uint32_t nLen)
@@ -98,21 +105,26 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 }
 
 
-#define HandleContractsAll(macro) \
-	macro(Upgradable, Upgradable::s_SID) \
-	macro(Upgradable2, Upgradable2::s_SID) \
+#define HandleContractsStd(macro) \
 	macro(Vault, Vault::s_SID) \
 	macro(VaultAnon, VaultAnon::s_SID) \
 	macro(Faucet, Faucet::s_SID) \
-	macro(DaoCore, DaoCore::s_SID) \
-	macro(Gallery_0, Gallery::s_pSID[0]) \
-	macro(Gallery_1, Gallery::s_pSID[1]) \
-	macro(Gallery_2, Gallery::s_pSID[2]) \
 	macro(Oracle2, Oracle2::s_pSID[0]) \
 	macro(Nephrite, Nephrite::s_pSID[0]) \
 	macro(DaoVault, DaoVault::s_pSID[0]) \
 	macro(Bans, NameService::s_pSID[0]) \
 
+#define HandleContractsWrappers(macro) \
+	macro(Upgradable, Upgradable::s_SID) \
+	macro(Upgradable2, Upgradable2::s_SID) \
+
+#define HandleContractsWrapped(macro) \
+	macro(DaoCore, DaoCore::s_SID) \
+	macro(DaoCore_Masternet, Masternet::DaoCore::s_SID) \
+	macro(DaoCore_Testnet, Testnet::DaoCore::s_SID) \
+	macro(Gallery_0, Gallery::s_pSID[0]) \
+	macro(Gallery_1, Gallery::s_pSID[1]) \
+	macro(Gallery_2, Gallery::s_pSID[2]) \
 
 struct ParserContext
 {
@@ -122,10 +134,8 @@ struct ParserContext
 	const void* m_pArg;
 	uint32_t m_nArg;
 
-	//bool m_Name = true;
 	bool m_Method = false;
 	bool m_State = false;
-	bool m_Nested = false;
 
 	template <typename T>
 	const T* get_ArgsAs() const
@@ -139,37 +149,17 @@ struct ParserContext
 	{
 	}
 
-	void OnName(const char* sz)
+	static void OnName(const char* sz)
 	{
-		//if (m_Name)
-			Env::DocAddText("kind", sz);
+		Env::DocAddText("kind", sz);
 	}
 
-	void OnNameUpgradable(const char* sz, const ShaderID& sid)
+	static void OnNameUpgradable(const char* sz, const ShaderID& sid)
 	{
-		//if (m_Name)
-		{
-			Env::DocGroup gr("kind");
-			if (sz)
-				Env::DocAddText("Wrapper", sz);
-			Env::DocAddBlob_T("subtype", sid);
-		}
-	}
-
-	void OnStdMethod()
-	{
-		if (m_Method)
-		{
-			switch (m_iMethod)
-			{
-			case 0:
-				OnMethod("Create");
-				break;
-
-			case 1:
-				OnMethod("Destroy");
-			}
-		}
+		Env::DocGroup gr("kind");
+		if (sz)
+			Env::DocAddText("Wrapper", sz);
+		Env::DocAddBlob_T("subtype", sid);
 	}
 
 	void OnMethod(const char* sz)
@@ -182,13 +172,59 @@ struct ParserContext
 		GroupArgs() :Env::DocGroup("params") {}
 	};
 
+#define THE_MACRO(name, sid) \
+	void OnMethod_##name(); \
+	void OnState_##name();
+	HandleContractsStd(THE_MACRO)
+	HandleContractsWrapped(THE_MACRO)
+#undef THE_MACRO
+
 #define THE_MACRO(name, sid) void On_##name();
-	HandleContractsAll(THE_MACRO)
+	HandleContractsWrappers(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(name, sid) \
+	void On_##name() \
+	{ \
+		OnName(#name); \
+		if (m_Method) \
+			OnMethod_##name(); \
+		if (m_State) \
+		{ \
+			Env::DocGroup gr("State"); \
+			OnState_##name(); \
+		} \
+	}
+
+	HandleContractsStd(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(name, sid) \
+	void On_##name() \
+	{ \
+		OnName("Impl-" #name); \
+		if (m_Method) \
+			OnMethod_##name(); \
+	}
+
+	HandleContractsWrapped(THE_MACRO)
 #undef THE_MACRO
 
 	bool Parse();
 
-	bool ParseNestedUpgradable(const ShaderID&);
+	struct Wrapped
+	{
+		enum Enum {
+#define THE_MACRO(name, sid) name,
+			HandleContractsWrapped(THE_MACRO)
+#undef THE_MACRO
+			count
+		};
+
+		static Enum Recognize(const ShaderID&);
+	};
+
+	void get_WrappedState(Wrapped::Enum);
 
 	static void WriteUpgradeParams(const Upgradable::Next&);
 	static void WriteUpgradeParams(const Upgradable2::Next&);
@@ -213,74 +249,115 @@ struct ParserContext
 
 bool ParserContext::Parse()
 {
+	if (m_Method)
+	{
+		switch (m_iMethod)
+		{
+		case 0:
+			OnMethod("Create");
+			break;
+
+		case 1:
+			OnMethod("Destroy");
+		}
+	}
+
 #define THE_MACRO(name, sid) \
 	if (_POD_(m_Sid) == sid) \
 	{ \
-		OnStdMethod(); \
 		On_##name(); \
 		return true; \
 	}
 
-	HandleContractsAll(THE_MACRO)
+	HandleContractsStd(THE_MACRO)
+	HandleContractsWrappers(THE_MACRO)
+	HandleContractsWrapped(THE_MACRO)
 #undef THE_MACRO
 
 	return false;
 }
 
-bool ParserContext::ParseNestedUpgradable(const ShaderID& sid)
+ParserContext::Wrapped::Enum ParserContext::Wrapped::Recognize(const ShaderID& sidArg)
 {
-	if (m_Nested)
-		return false;
+#define THE_MACRO(name, sid) \
+	if (_POD_(sidArg) == sid) \
+	{ \
+		OnName(#name); \
+		return Wrapped::name; \
+	}
 
-	ParserContext pc2(sid, m_Cid);
-	//pc2.m_Name = m_Name;
-	pc2.m_State = m_State;
-	pc2.m_Nested = true;
+	HandleContractsWrapped(THE_MACRO)
+#undef THE_MACRO
 
-	return pc2.Parse();
+	return Wrapped::count;
 }
+
+void ParserContext::get_WrappedState(Wrapped::Enum e)
+{
+	switch (e)
+	{
+#define THE_MACRO(name, sid) \
+	case Wrapped::name: \
+		OnState_##name(); \
+		return;
+
+		HandleContractsWrapped(THE_MACRO)
+#undef THE_MACRO
+
+	default:
+		return; // suppress warning
+	}
+}
+
 
 void ParserContext::On_Upgradable()
 {
 	// Get state, discover which cid actually operates the contract
-	//if (m_Name || m_State)
+	Upgradable::State us;
+
+	if (m_Method && !m_iMethod)
 	{
-		Upgradable::State us;
-
-		if (m_Method && !m_iMethod)
-		{
-			// c'tor, the state doesn't exist yet. Initial cid should be in the args
-			auto pArg = get_ArgsAs<Upgradable::Create>();
-			if (!pArg)
-				return;
-
-			_POD_(Cast::Down<Upgradable::Current>(us)) = *pArg;
-			_POD_(Cast::Down<Upgradable::Next>(us)).SetZero();
-		}
-		else
-		{
-			Env::Key_T<uint8_t> uk;
-			_POD_(uk.m_Prefix.m_Cid) = m_Cid;
-			uk.m_KeyInContract = Upgradable::State::s_Key;
-
-			if (!Env::VarReader::Read_T(uk, us))
-				return;
-		}
-
-		ShaderID sid;
-		if (!Utils::get_ShaderID_FromContract(sid, us.m_Cid))
+		// c'tor, the state doesn't exist yet. Initial cid should be in the args
+		auto pArg = get_ArgsAs<Upgradable::Create>();
+		if (!pArg)
 			return;
 
-		bool bParsed = ParseNestedUpgradable(sid);
-		if (!bParsed)
-			OnNameUpgradable("upgradable", sid);
+		_POD_(Cast::Down<Upgradable::Current>(us)) = *pArg;
+		_POD_(Cast::Down<Upgradable::Next>(us)).SetZero();
 
-		if (m_State)
+		GroupArgs gr;
+		DocAddPk("owner", us.m_Pk);
+	}
+	else
+	{
+		Env::Key_T<uint8_t> uk;
+		_POD_(uk.m_Prefix.m_Cid) = m_Cid;
+		uk.m_KeyInContract = Upgradable::State::s_Key;
+
+		if (!Env::VarReader::Read_T(uk, us))
+			return;
+	}
+
+	ShaderID sid;
+	if (!Utils::get_ShaderID_FromContract(sid, us.m_Cid))
+		return;
+
+	auto eType = Wrapped::Recognize(sid);
+	if (Wrapped::count == eType)
+		OnNameUpgradable("upgradable", sid);
+
+	if (m_State)
+	{
+		Env::DocGroup gr("State");
+
+		get_WrappedState(eType);
+
 		{
 			Env::DocGroup gr("upgradable");
 			DocAddPk("owner", us.m_Pk);
 			WriteUpgradeParams(us);
 		}
+
 	}
 
 	if (m_Method && (Upgradable::ScheduleUpgrade::s_iMethod == m_iMethod))
@@ -294,55 +371,63 @@ void ParserContext::On_Upgradable()
 		GroupArgs gr;
 		WriteUpgradeParams(*pArg);
 	}
-
 }
 
 void ParserContext::On_Upgradable2()
 {
 	// Get state, discover which cid actually operates the contract
 
-	//if (m_Name || m_State)
+	Upgradable2::State us;
+	Upgradable2::Settings stg;
+	if (m_Method && !m_iMethod)
 	{
-		Upgradable2::State us;
-		Upgradable2::Settings stg;
-		if (m_Method && !m_iMethod)
-		{
-			// c'tor, the state doesn't exist yet. Initial cid should be in the args
-			auto pArg = get_ArgsAs<Upgradable2::Create>();
-			if (!pArg)
-				return;
-
-			_POD_(us.m_Active) = pArg->m_Active;
-			_POD_(us.m_Next).SetZero();
-			_POD_(stg) = pArg->m_Settings;
-		}
-		else
-		{
-			Env::Key_T<uint16_t> uk;
-			_POD_(uk.m_Prefix.m_Cid) = m_Cid;
-			uk.m_KeyInContract = Upgradable2::State::s_Key;
-
-			if (!Env::VarReader::Read_T(uk, us))
-				return;
-
-			uk.m_KeyInContract = Upgradable2::Settings::s_Key;
-			if (!Env::VarReader::Read_T(uk, stg))
-				return;
-		}
-
-		ShaderID sid;
-		if (!Utils::get_ShaderID_FromContract(sid, us.m_Active.m_Cid))
+		// c'tor, the state doesn't exist yet. Initial cid should be in the args
+		auto pArg = get_ArgsAs<Upgradable2::Create>();
+		if (!pArg)
 			return;
-		bool bParsed = ParseNestedUpgradable(sid);
-		if (!bParsed)
-			OnNameUpgradable("upgradable2", sid);
 
-		if (m_State)
+		_POD_(us.m_Active) = pArg->m_Active;
+		_POD_(us.m_Next).SetZero();
+		_POD_(stg) = pArg->m_Settings;
+
+		GroupArgs gr;
+		Env::DocAddNum("Num approvers", stg.m_MinApprovers);
+		WriteUpgradeParams(us.m_Next);
+	}
+	else
+	{
+		Env::Key_T<uint16_t> uk;
+		_POD_(uk.m_Prefix.m_Cid) = m_Cid;
+		uk.m_KeyInContract = Upgradable2::State::s_Key;
+
+		if (!Env::VarReader::Read_T(uk, us))
+			return;
+
+		uk.m_KeyInContract = Upgradable2::Settings::s_Key;
+		if (!Env::VarReader::Read_T(uk, stg))
+			return;
+	}
+
+	ShaderID sid;
+	if (!Utils::get_ShaderID_FromContract(sid, us.m_Active.m_Cid))
+		return;
+
+	auto eType = Wrapped::Recognize(sid);
+	if (Wrapped::count == eType)
+		OnNameUpgradable("upgradable2", sid);
+
+	if (m_State)
+	{
+		Env::DocGroup gr("State");
+
+		get_WrappedState(eType);
+
 		{
 			Env::DocGroup gr("upgradable2");
 			Env::DocAddNum("Num approvers", stg.m_MinApprovers);
 			WriteUpgradeParams(us.m_Next);
 		}
+
 	}
 
 	if (m_Method && (Upgradable2::Control::s_iMethod == m_iMethod))
@@ -623,106 +708,88 @@ void ParserContext::OnUpgrade3Method()
 
 }
 
-void ParserContext::On_Vault()
+void ParserContext::OnMethod_Vault()
 {
-	OnName("Vault");
-
-	if (m_Method)
+	switch (m_iMethod)
 	{
-		switch (m_iMethod)
+	case Vault::Deposit::s_iMethod:
 		{
-		case Vault::Deposit::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<Vault::Deposit>();
-				if (pArg)
-				{
-					OnMethod("Deposit");
-					GroupArgs gr;
-					DocAddPk("User", pArg->m_Account);
-				}
-			}
-			break;
-
-		case Vault::Withdraw::s_iMethod:
-			OnMethod("Withdraw");
-			// no need to include the account, it's visible in the sigs list
-			break;
-		}
-	}
-
-	if (m_State)
-	{
-		// TODO: write all accounts
-	}
-}
-
-void ParserContext::On_VaultAnon()
-{
-	OnName("Vault-Anon");
-
-	if (m_Method)
-	{
-		switch (m_iMethod)
-		{
-		case VaultAnon::Method::Deposit::s_iMethod:
-		{
-			auto pArg = get_ArgsAs<VaultAnon::Method::Deposit>();
+			auto pArg = get_ArgsAs<Vault::Deposit>();
 			if (pArg)
 			{
 				OnMethod("Deposit");
 				GroupArgs gr;
-
-				DocAddPk("User", pArg->m_Key.m_pkOwner);
+				DocAddPk("User", pArg->m_Account);
 			}
 		}
 		break;
 
-		case VaultAnon::Method::Withdraw::s_iMethod:
-			OnMethod("Withdraw");
-			// no need to include the account, it's visible in the sigs list
-			break;
-		}
-	}
-
-	if (m_State)
-	{
-		// TODO: write all accounts
+	case Vault::Withdraw::s_iMethod:
+		OnMethod("Withdraw");
+		// no need to include the account, it's visible in the sigs list
+		break;
 	}
 }
 
-void ParserContext::On_Faucet()
+void ParserContext::OnState_Vault()
 {
-	OnName("Faucet");
+}
 
-	if (m_Method)
+void ParserContext::OnMethod_VaultAnon()
+{
+	switch (m_iMethod)
 	{
-		switch (m_iMethod)
+	case VaultAnon::Method::Deposit::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<VaultAnon::Method::Deposit>();
+		if (pArg)
 		{
-		case 0:
-			{
-				auto pArg = get_ArgsAs<Faucet::Params>();
-				if (pArg)
-				{
-					GroupArgs gr;
+			OnMethod("Deposit");
+			GroupArgs gr;
 
-					Env::DocAddNum("Backlog period", pArg->m_BacklogPeriod);
-					DocAddAmount("Max withdraw", pArg->m_MaxWithdraw);
-				}
-			}
-			break;
-
-		case Faucet::Deposit::s_iMethod: OnMethod("deposit"); break;
-		case Faucet::Withdraw::s_iMethod: OnMethod("withdraw"); break;
+			DocAddPk("User", pArg->m_Key.m_pkOwner);
 		}
 	}
+	break;
 
-	if (m_State)
-	{
-		// TODO: write all accounts
+	case VaultAnon::Method::Withdraw::s_iMethod:
+		OnMethod("Withdraw");
+		// no need to include the account, it's visible in the sigs list
+		break;
 	}
 }
 
-void ParserContext::On_DaoCore()
+void ParserContext::OnState_VaultAnon()
+{
+}
+
+void ParserContext::OnMethod_Faucet()
+{
+	switch (m_iMethod)
+	{
+	case 0:
+		{
+			auto pArg = get_ArgsAs<Faucet::Params>();
+			if (pArg)
+			{
+				GroupArgs gr;
+
+				Env::DocAddNum("Backlog period", pArg->m_BacklogPeriod);
+				DocAddAmount("Max withdraw", pArg->m_MaxWithdraw);
+			}
+		}
+		break;
+
+	case Faucet::Deposit::s_iMethod: OnMethod("deposit"); break;
+	case Faucet::Withdraw::s_iMethod: OnMethod("withdraw"); break;
+	}
+}
+
+void ParserContext::OnState_Faucet()
+{
+}
+
+void ParserContext::OnMethod_DaoCore()
 {
 	OnName("Dao-Core");
 
@@ -734,11 +801,25 @@ void ParserContext::On_DaoCore()
 		case DaoCore::UpdPosFarming::s_iMethod: OnMethod("Farming Upd"); break;
 		}
 	}
+}
 
-	if (m_State)
-	{
-		// TODO:
-	}
+void ParserContext::OnMethod_DaoCore_Masternet() {
+	OnMethod_DaoCore();
+}
+void ParserContext::OnMethod_DaoCore_Testnet() {
+	OnMethod_DaoCore();
+}
+
+
+void ParserContext::OnState_DaoCore()
+{
+}
+
+void ParserContext::OnState_DaoCore_Masternet() {
+	OnState_DaoCore();
+}
+void ParserContext::OnState_DaoCore_Testnet() {
+	OnState_DaoCore();
 }
 
 void WriteGalleryAdrID(Gallery::Masterpiece::ID id)
@@ -751,161 +832,165 @@ void WriteGalleryPrice(const Gallery::AmountWithAsset& x)
 	DocAddAidAmount("Price", x.m_Aid, x.m_Amount);
 }
 
-void ParserContext::On_Gallery_0()
+void ParserContext::OnMethod_Gallery_0()
 {
 	On_Gallery_2(); // same, we only added methods
 }
 
-void ParserContext::On_Gallery_1()
+void ParserContext::OnMethod_Gallery_1()
 {
 	On_Gallery_2();
 }
 
-void ParserContext::On_Gallery_2()
+void ParserContext::OnMethod_Gallery_2()
 {
-	OnName("Gallery");
-
-	if (m_Method)
+	switch (m_iMethod)
 	{
-		switch (m_iMethod)
+	case Gallery::Method::AddExhibit::s_iMethod:
 		{
-		case Gallery::Method::AddExhibit::s_iMethod:
+			auto pArg = get_ArgsAs<Gallery::Method::AddExhibit>();
+			if (pArg)
 			{
-				auto pArg = get_ArgsAs<Gallery::Method::AddExhibit>();
-				if (pArg)
-				{
-					OnMethod("AddExhibit");
-					GroupArgs gr;
+				OnMethod("AddExhibit");
+				GroupArgs gr;
 
-					DocAddPk("pkUser", pArg->m_pkArtist);
-					Env::DocAddNum("size", pArg->m_Size);
-				}
+				DocAddPk("pkUser", pArg->m_pkArtist);
+				Env::DocAddNum("size", pArg->m_Size);
 			}
-			break;
+		}
+		break;
 
-		case Gallery::Method::ManageArtist::s_iMethod:
+	case Gallery::Method::ManageArtist::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Gallery::Method::ManageArtist>();
+			if (pArg)
 			{
-				auto pArg = get_ArgsAs<Gallery::Method::ManageArtist>();
-				if (pArg)
-				{
-					OnMethod("ManageArtist");
-					GroupArgs gr;
+				OnMethod("ManageArtist");
+				GroupArgs gr;
 
-					DocAddPk("pkUser", pArg->m_pkArtist);
-					DocAddTextLen<Gallery::Artist::s_LabelMaxLen>("name", pArg + 1, pArg->m_LabelLen);
-				}
+				DocAddPk("pkUser", pArg->m_pkArtist);
+				DocAddTextLen<Gallery::Artist::s_LabelMaxLen>("name", pArg + 1, pArg->m_LabelLen);
 			}
-			break;
+		}
+		break;
 		
 		
-		case Gallery::Method::SetPrice::s_iMethod:
+	case Gallery::Method::SetPrice::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Gallery::Method::SetPrice>();
+			if (pArg)
 			{
-				auto pArg = get_ArgsAs<Gallery::Method::SetPrice>();
-				if (pArg)
-				{
-					OnMethod("SetPrice");
-					GroupArgs gr;
+				OnMethod("SetPrice");
+				GroupArgs gr;
 
-					WriteGalleryAdrID(pArg->m_ID);
-					WriteGalleryPrice(pArg->m_Price);
-				}
+				WriteGalleryAdrID(pArg->m_ID);
+				WriteGalleryPrice(pArg->m_Price);
 			}
-			break;
+		}
+		break;
 
-		case Gallery::Method::Buy::s_iMethod:
+	case Gallery::Method::Buy::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Gallery::Method::Buy>();
+			if (pArg)
 			{
-				auto pArg = get_ArgsAs<Gallery::Method::Buy>();
-				if (pArg)
-				{
-					OnMethod("Buy");
-					GroupArgs gr;
+				OnMethod("Buy");
+				GroupArgs gr;
 
-					WriteGalleryAdrID(pArg->m_ID);
+				WriteGalleryAdrID(pArg->m_ID);
 
-					DocAddPk("pkUser", pArg->m_pkUser);
-					Env::DocAddNum32("hasAid", pArg->m_HasAid);
-					DocAddAmount("payMax", pArg->m_PayMax);
-				}
+				DocAddPk("pkUser", pArg->m_pkUser);
+				Env::DocAddNum32("hasAid", pArg->m_HasAid);
+				DocAddAmount("payMax", pArg->m_PayMax);
 			}
-			break;
+		}
+		break;
 		
-		case Gallery::Method::Transfer::s_iMethod:
+	case Gallery::Method::Transfer::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Gallery::Method::Transfer>();
+			if (pArg)
 			{
-				auto pArg = get_ArgsAs<Gallery::Method::Transfer>();
-				if (pArg)
-				{
-					OnMethod("Transfer");
-					GroupArgs gr;
+				OnMethod("Transfer");
+				GroupArgs gr;
 
-					WriteGalleryAdrID(pArg->m_ID);
-					DocAddPk("newPkUser", pArg->m_pkNewOwner);
-				}
+				WriteGalleryAdrID(pArg->m_ID);
+				DocAddPk("newPkUser", pArg->m_pkNewOwner);
 			}
-			break;
+		}
+		break;
 		
 			
-		case Gallery::Method::Withdraw::s_iMethod:
+	case Gallery::Method::Withdraw::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Gallery::Method::Withdraw>();
+			if (pArg)
 			{
-				auto pArg = get_ArgsAs<Gallery::Method::Withdraw>();
-				if (pArg)
-				{
-					OnMethod("Withdraw");
-					GroupArgs gr;
+				OnMethod("Withdraw");
+				GroupArgs gr;
 
-					// TODO roman
-					Env::DocAddBlob_T("key", pArg->m_Key);
-					DocAddAidAmount("Value", pArg->m_Key.m_Aid, pArg->m_Value);
-				}
+				// TODO roman
+				Env::DocAddBlob_T("key", pArg->m_Key);
+				DocAddAidAmount("Value", pArg->m_Key.m_Aid, pArg->m_Value);
 			}
-			break;
-		
-		case Gallery::Method::AddVoteRewards::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<Gallery::Method::AddVoteRewards>();
-				if (pArg)
-				{
-					OnMethod("AddVoteRewards");
-					GroupArgs gr;
-
-					DocAddAmount("amount", pArg->m_Amount);
-				}
-			}
-			break;
-		
-		case Gallery::Method::Vote::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<Gallery::Method::Vote>();
-				if (pArg)
-				{
-					OnMethod("Vote");
-					GroupArgs gr;
-
-					WriteGalleryAdrID(pArg->m_ID.m_MasterpieceID);
-					Env::DocAddNum("impression", pArg->m_Impression.m_Value);
-				}
-			}
-			break;
-
-		case Gallery::Method::AdminDelete::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<Gallery::Method::AdminDelete>();
-				if (pArg)
-				{
-					OnMethod("AdminDelete");
-					GroupArgs gr;
-
-					WriteGalleryAdrID(pArg->m_ID);
-				}
-			}
-			break;
 		}
-	}
+		break;
+		
+	case Gallery::Method::AddVoteRewards::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Gallery::Method::AddVoteRewards>();
+			if (pArg)
+			{
+				OnMethod("AddVoteRewards");
+				GroupArgs gr;
 
-	if (m_State)
-	{
-		// TODO:
+				DocAddAmount("amount", pArg->m_Amount);
+			}
+		}
+		break;
+		
+	case Gallery::Method::Vote::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Gallery::Method::Vote>();
+			if (pArg)
+			{
+				OnMethod("Vote");
+				GroupArgs gr;
+
+				WriteGalleryAdrID(pArg->m_ID.m_MasterpieceID);
+				Env::DocAddNum("impression", pArg->m_Impression.m_Value);
+			}
+		}
+		break;
+
+	case Gallery::Method::AdminDelete::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Gallery::Method::AdminDelete>();
+			if (pArg)
+			{
+				OnMethod("AdminDelete");
+				GroupArgs gr;
+
+				WriteGalleryAdrID(pArg->m_ID);
+			}
+		}
+		break;
 	}
 }
+
+void ParserContext::OnState_Gallery_0()
+{
+	OnState_Gallery_2();
+}
+void ParserContext::OnState_Gallery_1()
+{
+	OnState_Gallery_2();
+}
+void ParserContext::OnState_Gallery_2()
+{
+	OnState_Gallery_2();
+}
+
 
 void ParserContext::WriteNephriteSettings(const Nephrite::Settings& stg)
 {
@@ -917,264 +1002,256 @@ void ParserContext::WriteNephriteSettings(const Nephrite::Settings& stg)
 	DocAddAid("Gov Token", stg.m_AidGov);
 }
 
-void ParserContext::On_Nephrite()
+void ParserContext::OnMethod_Nephrite()
 {
-	OnName("Nephrite");
-
-	if (m_Method)
+	switch (m_iMethod)
 	{
-		switch (m_iMethod)
+	case Nephrite::Method::Create::s_iMethod:
 		{
-		case Nephrite::Method::Create::s_iMethod:
+			auto pArg = get_ArgsAs<Nephrite::Method::Create>();
+			if (pArg)
 			{
-				auto pArg = get_ArgsAs<Nephrite::Method::Create>();
-				if (pArg)
-				{
-					GroupArgs gr;
+				GroupArgs gr;
 
-					WriteNephriteSettings(pArg->m_Settings);
-					WriteUpgradeSettings(pArg->m_Upgradable);
-				}
+				WriteNephriteSettings(pArg->m_Settings);
+				WriteUpgradeSettings(pArg->m_Upgradable);
 			}
-			break;
+		}
+		break;
 
-		case Upgradable3::Method::Control::s_iMethod:
-			OnUpgrade3Method();
-			break;
+	case Upgradable3::Method::Control::s_iMethod:
+		OnUpgrade3Method();
+		break;
 
-		case Nephrite::Method::TroveOpen::s_iMethod:
+	case Nephrite::Method::TroveOpen::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Nephrite::Method::TroveOpen>();
+			if (pArg)
 			{
-				auto pArg = get_ArgsAs<Nephrite::Method::TroveOpen>();
-				if (pArg)
-				{
-					OnMethod("Trove Open");
-					GroupArgs gr;
+				OnMethod("Trove Open");
+				GroupArgs gr;
 
-					DocAddPk("User", pArg->m_pkUser);
-					DocAddAmount("Col", pArg->m_Amounts.Col);
-					DocAddAmount("Tok", pArg->m_Amounts.Tok);
-				}
+				DocAddPk("User", pArg->m_pkUser);
+				DocAddAmount("Col", pArg->m_Amounts.Col);
+				DocAddAmount("Tok", pArg->m_Amounts.Tok);
 			}
-			break;
+		}
+		break;
 		
-		case Nephrite::Method::TroveClose::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<Nephrite::Method::TroveClose>();
-				if (pArg)
-				{
-					OnMethod("Trove Close");
-					GroupArgs gr;
-				}
-			}
-			break;
-
-		case Nephrite::Method::TroveModify::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<Nephrite::Method::TroveModify>();
-				if (pArg)
-				{
-					OnMethod("Trove Modify");
-					GroupArgs gr;
-
-					DocAddAmount("Col", pArg->m_Amounts.Col);
-					DocAddAmount("Tok", pArg->m_Amounts.Tok);
-				}
-			}
-			break;
-
-		case Nephrite::Method::FundsAccess::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<Nephrite::Method::FundsAccess>();
-				if (pArg)
-				{
-					OnMethod("Funds Access");
-					GroupArgs gr;
-				}
-			}
-			break;
-
-		case Nephrite::Method::UpdStabPool::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<Nephrite::Method::UpdStabPool>();
-				if (pArg)
-				{
-					OnMethod("Stability Pool update");
-					GroupArgs gr;
-
-					DocAddAmount("New Amount", pArg->m_NewAmount);
-				}
-			}
-			break;
-
-		case Nephrite::Method::Liquidate::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<Nephrite::Method::Liquidate>();
-				if (pArg)
-				{
-					OnMethod("Liquidate troves");
-					GroupArgs gr;
-
-					DocAddAmount("Count", pArg->m_Count);
-				}
-			}
-			break;
-
-		case Nephrite::Method::Redeem::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<Nephrite::Method::Redeem>();
-				if (pArg)
-				{
-					OnMethod("Redeem");
-					GroupArgs gr;
-
-					DocAddAmount("Amount", pArg->m_Amount);
-				}
-			}
-			break;
-
-		case Nephrite::Method::AddStabPoolReward::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<Nephrite::Method::AddStabPoolReward>();
-				if (pArg)
-				{
-					OnMethod("Add Stability Pool Reward");
-					GroupArgs gr;
-
-					DocAddAmount("Amount", pArg->m_Amount);
-				}
-			}
-			break;
-		}
-	}
-
-	if (m_State)
-	{
-		Env::DocGroup gr("State");
-
-		WriteUpgrade3State();
-
-		Env::Key_T<uint8_t> k;
-		_POD_(k.m_Prefix.m_Cid) = m_Cid;
-		k.m_KeyInContract = Nephrite::Tags::s_State;
-
-		Nephrite::Global g;
-		if (Env::VarReader::Read_T(k, g))
+	case Nephrite::Method::TroveClose::s_iMethod:
 		{
+			auto pArg = get_ArgsAs<Nephrite::Method::TroveClose>();
+			if (pArg)
 			{
-				Env::DocGroup gr2("Settings");
-				WriteNephriteSettings(g.m_Settings);
+				OnMethod("Trove Close");
+				GroupArgs gr;
 			}
+		}
+		break;
 
-			DocAddAid("Token", g.m_Aid);
-			Env::DocAddNum("Troves created", g.m_Troves.m_iLastCreated);
-
+	case Nephrite::Method::TroveModify::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Nephrite::Method::TroveModify>();
+			if (pArg)
 			{
-				Env::DocGroup gr2("Totals");
-				DocAddAmount("Col", g.m_Troves.m_Totals.Col);
-				DocAddAmount("Tok", g.m_Troves.m_Totals.Tok);
+				OnMethod("Trove Modify");
+				GroupArgs gr;
+
+				DocAddAmount("Col", pArg->m_Amounts.Col);
+				DocAddAmount("Tok", pArg->m_Amounts.Tok);
 			}
+		}
+		break;
 
-			Nephrite::Global::Price price;
-			const char* szPriceSource;
-			bool bHavePrice = true;
-
-			if (get_Oracle2Median(price.m_Value, g.m_Settings.m_cidOracle1) && price.IsSane(price.m_Value))
-				szPriceSource = "Main Oracle";
-			else
+	case Nephrite::Method::FundsAccess::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Nephrite::Method::FundsAccess>();
+			if (pArg)
 			{
-				if (get_Oracle2Median(price.m_Value, g.m_Settings.m_cidOracle2) && price.IsSane(price.m_Value))
-					szPriceSource = "Backup Oracle";
-				else
-				{
-					szPriceSource = "Unavailable";;
-					bHavePrice = false;
-				}
+				OnMethod("Funds Access");
+				GroupArgs gr;
 			}
+		}
+		break;
 
-			Env::DocAddText("Price feed", szPriceSource);
-			if (bHavePrice)
+	case Nephrite::Method::UpdStabPool::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Nephrite::Method::UpdStabPool>();
+			if (pArg)
 			{
-				DocAddFloat("Price", price.m_Value);
+				OnMethod("Stability Pool update");
+				GroupArgs gr;
 
-				if (g.m_Troves.m_iHead)
-				{
-					DocAddPerc("TCR", price.ToCR(g.m_Troves.m_Totals.get_Rcr()));
-					Env::DocAddText("Recovery mode", g.IsRecovery(price) ? "Yes" : "No");
-				}
+				DocAddAmount("New Amount", pArg->m_NewAmount);
 			}
+		}
+		break;
 
+	case Nephrite::Method::Liquidate::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Nephrite::Method::Liquidate>();
+			if (pArg)
 			{
-				Env::DocGroup gr2("Troves");
+				OnMethod("Liquidate troves");
+				GroupArgs gr;
 
-				DocSetType("table");
-				Env::DocArray gr3("value");
-
-				{
-					Env::DocArray gr4("");
-					DocAddTableHeader("Number");
-					DocAddTableHeader("Key");
-					DocAddTableHeader("Col");
-					DocAddTableHeader("Tok");
-					DocAddTableHeader("ICR");
-				}
-
-				Utils::Vector<Nephrite::Trove> vec;
-				vec.Prepare(g.m_Troves.m_iLastCreated);
-
-				{
-					Env::Key_T<Nephrite::Trove::Key> tk0, tk1;
-					_POD_(tk0.m_Prefix.m_Cid) = m_Cid;
-					_POD_(tk1.m_Prefix.m_Cid) = m_Cid;
-					tk0.m_KeyInContract.m_iTrove = 0;
-					tk1.m_KeyInContract.m_iTrove = (Nephrite::Trove::ID) -1;
-
-					for (Env::VarReader r(tk0, tk1); ; )
-					{
-						Nephrite::Trove t;
-						if (!r.MoveNext_T(tk0, t))
-							break;
-
-						vec.Prepare(tk0.m_KeyInContract.m_iTrove);
-						_POD_(vec.m_p[tk0.m_KeyInContract.m_iTrove - 1]) = t;
-					}
-				}
-
-				for (auto iTrove = g.m_Troves.m_iHead; iTrove; )
-				{
-					Nephrite::Trove& t = vec.m_p[iTrove - 1];
-					g.m_RedistPool.Remove(t);
-
-					Env::DocArray gr4("");
-
-					Env::DocAddNum("", iTrove);
-					DocAddPk("", t.m_pkOwner);
-					DocAddAmount("", t.m_Amounts.Col);
-					DocAddAmount("", t.m_Amounts.Tok);
-
-					if (bHavePrice)
-						DocAddPerc("", price.ToCR(t.m_Amounts.get_Rcr()));
-					else
-						Env::DocAddText("", "");
-
-					iTrove = t.m_iNext;
-				}
-
+				DocAddAmount("Count", pArg->m_Count);
 			}
+		}
+		break;
 
-			g.m_StabPool.AddReward(Env::get_Height());
-
+	case Nephrite::Method::Redeem::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Nephrite::Method::Redeem>();
+			if (pArg)
 			{
-				Env::DocGroup gr2("Stability pool");
+				OnMethod("Redeem");
+				GroupArgs gr;
 
-				DocAddAmount("Tok", g.m_StabPool.get_TotalSell());
-				DocAddAmount("Col", g.m_StabPool.m_Active.m_pDim[0].m_Buy + g.m_StabPool.m_Draining.m_pDim[0].m_Buy);
-				DocAddAmount("BeamX", g.m_StabPool.m_Active.m_pDim[1].m_Buy + g.m_StabPool.m_Draining.m_pDim[1].m_Buy);
+				DocAddAmount("Amount", pArg->m_Amount);
 			}
+		}
+		break;
 
-			DocAddAmount("BeamX reward remaining", g.m_StabPool.m_Reward.m_Remaining);
+	case Nephrite::Method::AddStabPoolReward::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Nephrite::Method::AddStabPoolReward>();
+			if (pArg)
+			{
+				OnMethod("Add Stability Pool Reward");
+				GroupArgs gr;
+
+				DocAddAmount("Amount", pArg->m_Amount);
+			}
+		}
+		break;
+	}
+}
+
+void ParserContext::OnState_Nephrite()
+{
+	WriteUpgrade3State();
+
+	Env::Key_T<uint8_t> k;
+	_POD_(k.m_Prefix.m_Cid) = m_Cid;
+	k.m_KeyInContract = Nephrite::Tags::s_State;
+
+	Nephrite::Global g;
+	if (!Env::VarReader::Read_T(k, g))
+		return;
+
+	{
+		Env::DocGroup gr2("Settings");
+		WriteNephriteSettings(g.m_Settings);
+	}
+
+	DocAddAid("Token", g.m_Aid);
+	Env::DocAddNum("Troves created", g.m_Troves.m_iLastCreated);
+
+	{
+		Env::DocGroup gr2("Totals");
+		DocAddAmount("Col", g.m_Troves.m_Totals.Col);
+		DocAddAmount("Tok", g.m_Troves.m_Totals.Tok);
+	}
+
+	Nephrite::Global::Price price;
+	const char* szPriceSource;
+	bool bHavePrice = true;
+
+	if (get_Oracle2Median(price.m_Value, g.m_Settings.m_cidOracle1) && price.IsSane(price.m_Value))
+		szPriceSource = "Main Oracle";
+	else
+	{
+		if (get_Oracle2Median(price.m_Value, g.m_Settings.m_cidOracle2) && price.IsSane(price.m_Value))
+			szPriceSource = "Backup Oracle";
+		else
+		{
+			szPriceSource = "Unavailable";;
+			bHavePrice = false;
 		}
 	}
 
+	Env::DocAddText("Price feed", szPriceSource);
+	if (bHavePrice)
+	{
+		DocAddFloat("Price", price.m_Value);
+
+		if (g.m_Troves.m_iHead)
+		{
+			DocAddPerc("TCR", price.ToCR(g.m_Troves.m_Totals.get_Rcr()));
+			Env::DocAddText("Recovery mode", g.IsRecovery(price) ? "Yes" : "No");
+		}
+	}
+
+	{
+		Env::DocGroup gr2("Troves");
+
+		DocSetType("table");
+		Env::DocArray gr3("value");
+
+		{
+			Env::DocArray gr4("");
+			DocAddTableHeader("Number");
+			DocAddTableHeader("Key");
+			DocAddTableHeader("Col");
+			DocAddTableHeader("Tok");
+			DocAddTableHeader("ICR");
+		}
+
+		Utils::Vector<Nephrite::Trove> vec;
+		vec.Prepare(g.m_Troves.m_iLastCreated);
+
+		{
+			Env::Key_T<Nephrite::Trove::Key> tk0, tk1;
+			_POD_(tk0.m_Prefix.m_Cid) = m_Cid;
+			_POD_(tk1.m_Prefix.m_Cid) = m_Cid;
+			tk0.m_KeyInContract.m_iTrove = 0;
+			tk1.m_KeyInContract.m_iTrove = (Nephrite::Trove::ID) -1;
+
+			for (Env::VarReader r(tk0, tk1); ; )
+			{
+				Nephrite::Trove t;
+				if (!r.MoveNext_T(tk0, t))
+					break;
+
+				vec.Prepare(tk0.m_KeyInContract.m_iTrove);
+				_POD_(vec.m_p[tk0.m_KeyInContract.m_iTrove - 1]) = t;
+			}
+		}
+
+		for (auto iTrove = g.m_Troves.m_iHead; iTrove; )
+		{
+			Nephrite::Trove& t = vec.m_p[iTrove - 1];
+			g.m_RedistPool.Remove(t);
+
+			Env::DocArray gr4("");
+
+			Env::DocAddNum("", iTrove);
+			DocAddPk("", t.m_pkOwner);
+			DocAddAmount("", t.m_Amounts.Col);
+			DocAddAmount("", t.m_Amounts.Tok);
+
+			if (bHavePrice)
+				DocAddPerc("", price.ToCR(t.m_Amounts.get_Rcr()));
+			else
+				Env::DocAddText("", "");
+
+			iTrove = t.m_iNext;
+		}
+
+	}
+
+	g.m_StabPool.AddReward(Env::get_Height());
+
+	{
+		Env::DocGroup gr2("Stability pool");
+
+		DocAddAmount("Tok", g.m_StabPool.get_TotalSell());
+		DocAddAmount("Col", g.m_StabPool.m_Active.m_pDim[0].m_Buy + g.m_StabPool.m_Draining.m_pDim[0].m_Buy);
+		DocAddAmount("BeamX", g.m_StabPool.m_Active.m_pDim[1].m_Buy + g.m_StabPool.m_Draining.m_pDim[1].m_Buy);
+	}
+
+	DocAddAmount("BeamX reward remaining", g.m_StabPool.m_Reward.m_Remaining);
 }
 
 void ParserContext::WriteOracle2Settings(const Oracle2::Settings& stg)
@@ -1200,235 +1277,221 @@ bool ParserContext::get_Oracle2Median(MultiPrecision::Float& ret, const Contract
 	return true;
 }
 
-void ParserContext::On_Oracle2()
+void ParserContext::OnMethod_Oracle2()
 {
-	OnName("Oracle2");
-
-	if (m_Method)
+	switch (m_iMethod)
 	{
-		switch (m_iMethod)
+	case Oracle2::Method::Create::s_iMethod:
 		{
-		case Oracle2::Method::Create::s_iMethod:
+			auto pArg = get_ArgsAs<Oracle2::Method::Create>();
+			if (pArg)
 			{
-				auto pArg = get_ArgsAs<Oracle2::Method::Create>();
-				if (pArg)
-				{
-					GroupArgs gr;
+				GroupArgs gr;
 
-					WriteOracle2Settings(pArg->m_Settings);
-					WriteUpgradeSettings(pArg->m_Upgradable);
-				}
-			}
-			break;
-
-		case Oracle2::Method::Get::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<Oracle2::Method::Get>();
-				if (pArg)
-				{
-					OnMethod("Get");
-
-					GroupArgs gr;
-
-					MultiPrecision::Float val;
-					if (get_Oracle2Median(val, m_Cid))
-						DocAddFloat("Result", val);
-					else
-						Env::DocAddText("Result", "NaN");
-				}
-			}
-			break;
-		
-		case Oracle2::Method::FeedData::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<Oracle2::Method::FeedData>();
-				if (pArg)
-				{
-					OnMethod("FeedData");
-					GroupArgs gr;
-
-					Env::DocAddNum("iProvider", pArg->m_iProvider);
-					DocAddFloat("Value", pArg->m_Value);
-				}
-			}
-			break;
-
-		case Oracle2::Method::SetSettings::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<Oracle2::Method::SetSettings>();
-				if (pArg)
-				{
-					OnMethod("SetSettings");
-					GroupArgs gr;
-
-					WriteOracle2Settings(pArg->m_Settings);
-					WriteUpgradeAdminsMask(pArg->m_ApproveMask);
-				}
-			}
-			break;
-
-		case Oracle2::Method::ProviderAdd::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<Oracle2::Method::ProviderAdd>();
-				if (pArg)
-				{
-					OnMethod("ProviderAdd");
-					GroupArgs gr;
-
-					DocAddPk("pk", pArg->m_pk);
-					WriteUpgradeAdminsMask(pArg->m_ApproveMask);
-				}
-			}
-			break;
-
-		case Oracle2::Method::ProviderDel::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<Oracle2::Method::ProviderDel>();
-				if (pArg)
-				{
-					OnMethod("ProviderDel");
-					GroupArgs gr;
-
-					Env::DocAddNum("iProvider", pArg->m_iProvider);
-					WriteUpgradeAdminsMask(pArg->m_ApproveMask);
-				}
-			}
-			break;
-
-		}
-	}
-
-	if (m_State)
-	{
-		Env::DocGroup gr("State");
-
-		Oracle2::StateMax g;
-		uint32_t nProvs = 0;
-
-		Env::Key_T<uint8_t> key;
-		_POD_(key.m_Prefix.m_Cid) = m_Cid;
-		key.m_KeyInContract = Oracle2::Tags::s_StateFull;
-
-		{
-			Env::VarReader r(key, key);
-			uint32_t nKey = 0, nVal = sizeof(g);
-			if (!r.MoveNext(nullptr, nKey, &g, nVal, 0))
-				return;
-
-			nProvs = (nVal - sizeof(Oracle2::State0)) / sizeof(Oracle2::State0::Entry); // don't care about overflow
-			if (nProvs > g.s_ProvsMax)
-				return;
-		}
-
-		{
-			Env::DocGroup gr1("Settings");
-
-			WriteUpgrade3State();
-			WriteOracle2Settings(g.m_Settings);
-		}
-
-		{
-			Env::DocGroup gr1("Feeds");
-			DocSetType("table");
-			Env::DocArray gr2("value");
-
-			{
-				Env::DocArray gr3("");
-				DocAddTableHeader("Index");
-				DocAddTableHeader("Key");
-				DocAddTableHeader("Last Value");
-				DocAddTableHeader("Last Height");
-			}
-
-			for (uint32_t i = 0; i < nProvs; i++)
-			{
-				const auto& x = g.m_pE[i];
-				if (_POD_(x.m_Pk).IsZero())
-					continue;
-
-				Env::DocArray gr3("");
-
-				Env::DocAddNum("", i);
-				DocAddPk("", x.m_Pk);
-				DocAddFloat("", x.m_Val);
-				DocAddHeight("", x.m_hUpdated);
+				WriteOracle2Settings(pArg->m_Settings);
+				WriteUpgradeSettings(pArg->m_Upgradable);
 			}
 		}
+		break;
 
+	case Oracle2::Method::Get::s_iMethod:
 		{
-			key.m_KeyInContract = Oracle2::Tags::s_Median;
-			Oracle2::Median med;
-			if (Env::VarReader::Read_T(key, med))
+			auto pArg = get_ArgsAs<Oracle2::Method::Get>();
+			if (pArg)
 			{
-				bool bValid = (med.m_hEnd >= Env::get_Height());
-				if (bValid)
-					DocAddFloat("Median", med.m_Res);
+				OnMethod("Get");
+
+				GroupArgs gr;
+
+				MultiPrecision::Float val;
+				if (get_Oracle2Median(val, m_Cid))
+					DocAddFloat("Result", val);
 				else
-					Env::DocAddText("Median", "");
+					Env::DocAddText("Result", "NaN");
 			}
 		}
-	}
+		break;
+		
+	case Oracle2::Method::FeedData::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Oracle2::Method::FeedData>();
+			if (pArg)
+			{
+				OnMethod("FeedData");
+				GroupArgs gr;
 
+				Env::DocAddNum("iProvider", pArg->m_iProvider);
+				DocAddFloat("Value", pArg->m_Value);
+			}
+		}
+		break;
+
+	case Oracle2::Method::SetSettings::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Oracle2::Method::SetSettings>();
+			if (pArg)
+			{
+				OnMethod("SetSettings");
+				GroupArgs gr;
+
+				WriteOracle2Settings(pArg->m_Settings);
+				WriteUpgradeAdminsMask(pArg->m_ApproveMask);
+			}
+		}
+		break;
+
+	case Oracle2::Method::ProviderAdd::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Oracle2::Method::ProviderAdd>();
+			if (pArg)
+			{
+				OnMethod("ProviderAdd");
+				GroupArgs gr;
+
+				DocAddPk("pk", pArg->m_pk);
+				WriteUpgradeAdminsMask(pArg->m_ApproveMask);
+			}
+		}
+		break;
+
+	case Oracle2::Method::ProviderDel::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Oracle2::Method::ProviderDel>();
+			if (pArg)
+			{
+				OnMethod("ProviderDel");
+				GroupArgs gr;
+
+				Env::DocAddNum("iProvider", pArg->m_iProvider);
+				WriteUpgradeAdminsMask(pArg->m_ApproveMask);
+			}
+		}
+		break;
+
+	}
 }
 
-void ParserContext::On_DaoVault()
+void ParserContext::OnState_Oracle2()
 {
-	OnName("Dao-Vault");
+	Oracle2::StateMax g;
+	uint32_t nProvs = 0;
 
-	if (m_Method)
+	Env::Key_T<uint8_t> key;
+	_POD_(key.m_Prefix.m_Cid) = m_Cid;
+	key.m_KeyInContract = Oracle2::Tags::s_StateFull;
+
 	{
-		switch (m_iMethod)
+		Env::VarReader r(key, key);
+		uint32_t nKey = 0, nVal = sizeof(g);
+		if (!r.MoveNext(nullptr, nKey, &g, nVal, 0))
+			return;
+
+		nProvs = (nVal - sizeof(Oracle2::State0)) / sizeof(Oracle2::State0::Entry); // don't care about overflow
+		if (nProvs > g.s_ProvsMax)
+			return;
+	}
+
+	{
+		Env::DocGroup gr1("Settings");
+
+		WriteUpgrade3State();
+		WriteOracle2Settings(g.m_Settings);
+	}
+
+	{
+		Env::DocGroup gr1("Feeds");
+		DocSetType("table");
+		Env::DocArray gr2("value");
+
 		{
-		case DaoVault::Method::Create::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<DaoVault::Method::Create>();
-				if (pArg)
-				{
-					GroupArgs gr;
+			Env::DocArray gr3("");
+			DocAddTableHeader("Index");
+			DocAddTableHeader("Key");
+			DocAddTableHeader("Last Value");
+			DocAddTableHeader("Last Height");
+		}
 
-					WriteUpgradeSettings(pArg->m_Upgradable);
-				}
-			}
-			break;
+		for (uint32_t i = 0; i < nProvs; i++)
+		{
+			const auto& x = g.m_pE[i];
+			if (_POD_(x.m_Pk).IsZero())
+				continue;
 
-		case Upgradable3::Method::Control::s_iMethod:
-			OnUpgrade3Method();
-			break;
+			Env::DocArray gr3("");
 
-		case DaoVault::Method::Deposit::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<DaoVault::Method::Deposit>();
-				if (pArg)
-				{
-					OnMethod("Deposit");
-					//GroupArgs gr;
-
-					//DocAddAidAmount("Value", pArg->m_Aid, pArg->m_Amount);
-				}
-			}
-			break;
-		
-		case DaoVault::Method::Withdraw::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<DaoVault::Method::Withdraw>();
-				if (pArg)
-				{
-					OnMethod("Withdraw");
-					//GroupArgs gr;
-
-					//DocAddAidAmount("Value", pArg->m_Aid, pArg->m_Amount);
-					WriteUpgradeAdminsMask(pArg->m_ApproveMask);
-				}
-			}
-			break;
+			Env::DocAddNum("", i);
+			DocAddPk("", x.m_Pk);
+			DocAddFloat("", x.m_Val);
+			DocAddHeight("", x.m_hUpdated);
 		}
 	}
 
-	if (m_State)
 	{
-		Env::DocGroup gr("State");
-		WriteUpgrade3State();
+		key.m_KeyInContract = Oracle2::Tags::s_Median;
+		Oracle2::Median med;
+		if (Env::VarReader::Read_T(key, med))
+		{
+			bool bValid = (med.m_hEnd >= Env::get_Height());
+			if (bValid)
+				DocAddFloat("Median", med.m_Res);
+			else
+				Env::DocAddText("Median", "");
+		}
 	}
+}
+
+void ParserContext::OnMethod_DaoVault()
+{
+	switch (m_iMethod)
+	{
+	case DaoVault::Method::Create::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<DaoVault::Method::Create>();
+			if (pArg)
+			{
+				GroupArgs gr;
+
+				WriteUpgradeSettings(pArg->m_Upgradable);
+			}
+		}
+		break;
+
+	case Upgradable3::Method::Control::s_iMethod:
+		OnUpgrade3Method();
+		break;
+
+	case DaoVault::Method::Deposit::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<DaoVault::Method::Deposit>();
+			if (pArg)
+			{
+				OnMethod("Deposit");
+				//GroupArgs gr;
+
+				//DocAddAidAmount("Value", pArg->m_Aid, pArg->m_Amount);
+			}
+		}
+		break;
+		
+	case DaoVault::Method::Withdraw::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<DaoVault::Method::Withdraw>();
+			if (pArg)
+			{
+				OnMethod("Withdraw");
+				//GroupArgs gr;
+
+				//DocAddAidAmount("Value", pArg->m_Aid, pArg->m_Amount);
+				WriteUpgradeAdminsMask(pArg->m_ApproveMask);
+			}
+		}
+		break;
+	}
+}
+
+void ParserContext::OnState_DaoVault()
+{
+	WriteUpgrade3State();
 }
 
 void ParserContext::WriteBansSettings(const NameService::Settings& stg)
@@ -1455,192 +1518,184 @@ void ParserContext::DocSetBansNameEx(const void* p, uint32_t nLen)
 	Env::DocAddText("name", sz);
 }
 
-void ParserContext::On_Bans()
+void ParserContext::OnMethod_Bans()
 {
-	OnName("Bans");
-
-	if (m_Method)
+	switch (m_iMethod)
 	{
-		switch (m_iMethod)
+	case NameService::Method::Create::s_iMethod:
 		{
-		case NameService::Method::Create::s_iMethod:
+			auto pArg = get_ArgsAs<NameService::Method::Create>();
+			if (pArg)
 			{
-				auto pArg = get_ArgsAs<NameService::Method::Create>();
-				if (pArg)
-				{
-					GroupArgs gr;
+				GroupArgs gr;
 
-					WriteBansSettings(pArg->m_Settings);
-					WriteUpgradeSettings(pArg->m_Upgradable);
-				}
+				WriteBansSettings(pArg->m_Settings);
+				WriteUpgradeSettings(pArg->m_Upgradable);
 			}
-			break;
-
-		case Upgradable3::Method::Control::s_iMethod:
-			OnUpgrade3Method();
-			break;
-
-		case NameService::Method::SetOwner::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<NameService::Method::SetOwner>();
-				if (pArg)
-				{
-					OnMethod("Set Owner");
-					GroupArgs gr;
-
-					DocSetBansName_T(*pArg);
-					DocAddPk("New owner", pArg->m_pkNewOwner);
-				}
-			}
-			break;
-		
-		case NameService::Method::Extend::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<NameService::Method::Extend>();
-				if (pArg)
-				{
-					OnMethod("Extend period");
-					GroupArgs gr;
-
-					DocSetBansName_T(*pArg);
-					Env::DocAddNum32("Periods", pArg->m_Periods);
-				}
-			}
-			break;
-
-		case NameService::Method::SetPrice::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<NameService::Method::SetPrice>();
-				if (pArg)
-				{
-					OnMethod(pArg->m_Price.m_Amount ? "Set Price" : "Remove Price");
-					GroupArgs gr;
-
-					DocSetBansName_T(*pArg);
-
-					if (pArg->m_Price.m_Amount)
-						DocAddAidAmount("Price", pArg->m_Price.m_Aid, pArg->m_Price.m_Amount);
-				}
-			}
-			break;
-
-		case NameService::Method::Buy::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<NameService::Method::Buy>();
-				if (pArg)
-				{
-					OnMethod("Buy");
-					GroupArgs gr;
-
-					DocSetBansName_T(*pArg);
-					DocAddPk("New owner", pArg->m_pkNewOwner);
-
-				}
-			}
-			break;
-
-		case NameService::Method::Register::s_iMethod:
-			{
-				auto pArg = get_ArgsAs<NameService::Method::Register>();
-				if (pArg)
-				{
-					OnMethod("Register");
-					GroupArgs gr;
-
-					DocSetBansName_T(*pArg);
-					DocAddPk("Owner", pArg->m_pkOwner);
-					Env::DocAddNum32("Periods", pArg->m_Periods);
-				}
-			}
-			break;
-
 		}
+		break;
+
+	case Upgradable3::Method::Control::s_iMethod:
+		OnUpgrade3Method();
+		break;
+
+	case NameService::Method::SetOwner::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<NameService::Method::SetOwner>();
+			if (pArg)
+			{
+				OnMethod("Set Owner");
+				GroupArgs gr;
+
+				DocSetBansName_T(*pArg);
+				DocAddPk("New owner", pArg->m_pkNewOwner);
+			}
+		}
+		break;
+		
+	case NameService::Method::Extend::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<NameService::Method::Extend>();
+			if (pArg)
+			{
+				OnMethod("Extend period");
+				GroupArgs gr;
+
+				DocSetBansName_T(*pArg);
+				Env::DocAddNum32("Periods", pArg->m_Periods);
+			}
+		}
+		break;
+
+	case NameService::Method::SetPrice::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<NameService::Method::SetPrice>();
+			if (pArg)
+			{
+				OnMethod(pArg->m_Price.m_Amount ? "Set Price" : "Remove Price");
+				GroupArgs gr;
+
+				DocSetBansName_T(*pArg);
+
+				if (pArg->m_Price.m_Amount)
+					DocAddAidAmount("Price", pArg->m_Price.m_Aid, pArg->m_Price.m_Amount);
+			}
+		}
+		break;
+
+	case NameService::Method::Buy::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<NameService::Method::Buy>();
+			if (pArg)
+			{
+				OnMethod("Buy");
+				GroupArgs gr;
+
+				DocSetBansName_T(*pArg);
+				DocAddPk("New owner", pArg->m_pkNewOwner);
+
+			}
+		}
+		break;
+
+	case NameService::Method::Register::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<NameService::Method::Register>();
+			if (pArg)
+			{
+				OnMethod("Register");
+				GroupArgs gr;
+
+				DocSetBansName_T(*pArg);
+				DocAddPk("Owner", pArg->m_pkOwner);
+				Env::DocAddNum32("Periods", pArg->m_Periods);
+			}
+		}
+		break;
+
+	}
+}
+
+void ParserContext::OnState_Bans()
+{
+	WriteUpgrade3State();
+
+	Env::Key_T<uint8_t> k;
+	_POD_(k.m_Prefix.m_Cid) = m_Cid;
+	k.m_KeyInContract = NameService::Tags::s_Settings;
+
+	NameService::Settings s;
+	if (!Env::VarReader::Read_T(k, s))
+		return;
+
+	{
+		Env::DocGroup gr2("Settings");
+		WriteBansSettings(s);
 	}
 
-	if (m_State)
 	{
-		Env::DocGroup gr("State");
+		Env::DocGroup gr2("Domains");
+		DocSetType("table");
+		Env::DocArray gr3("value");
 
-		WriteUpgrade3State();
-
-		Env::Key_T<uint8_t> k;
-		_POD_(k.m_Prefix.m_Cid) = m_Cid;
-		k.m_KeyInContract = NameService::Tags::s_Settings;
-
-		NameService::Settings s;
-		if (Env::VarReader::Read_T(k, s))
 		{
-			{
-				Env::DocGroup gr2("Settings");
-				WriteBansSettings(s);
-			}
+			Env::DocArray gr4("");
+			DocAddTableHeader("Name");
+			DocAddTableHeader("Owner");
+			DocAddTableHeader("Expiration height");
+			DocAddTableHeader("Status");
+			DocAddTableHeader("Sell price");
+		}
 
-			{
-				Env::DocGroup gr2("Domains");
-				DocSetType("table");
-				Env::DocArray gr3("value");
-
-				{
-					Env::DocArray gr4("");
-					DocAddTableHeader("Name");
-					DocAddTableHeader("Owner");
-					DocAddTableHeader("Expiration height");
-					DocAddTableHeader("Status");
-					DocAddTableHeader("Sell price");
-				}
-
-				Env::Key_T<NameService::Domain::Key0> k0;
-				_POD_(k0.m_Prefix.m_Cid) = m_Cid;
-				_POD_(k0.m_KeyInContract.m_sz).SetZero();
+		Env::Key_T<NameService::Domain::Key0> k0;
+		_POD_(k0.m_Prefix.m_Cid) = m_Cid;
+		_POD_(k0.m_KeyInContract.m_sz).SetZero();
 
 #pragma pack (push, 1)
-				struct KeyPlus {
-					Env::Key_T<NameService::Domain::KeyMax> k;
-					char m_chTerm; // 1 more byte, to place 0-terminator
-				} k1;
+		struct KeyPlus {
+			Env::Key_T<NameService::Domain::KeyMax> k;
+			char m_chTerm; // 1 more byte, to place 0-terminator
+		} k1;
 #pragma pack (pop)
 
-				_POD_(k1.k.m_Prefix.m_Cid) = m_Cid;
-				Env::Memset(k1.k.m_KeyInContract.m_sz, 0xff, NameService::Domain::s_MaxLen);
+		_POD_(k1.k.m_Prefix.m_Cid) = m_Cid;
+		Env::Memset(k1.k.m_KeyInContract.m_sz, 0xff, NameService::Domain::s_MaxLen);
 
-				Height h = Env::get_Height();
-				for (Env::VarReader r(k0, k1.k); ; )
-				{
-					NameService::Domain d;
-					uint32_t nKey = sizeof(k1.k), nVal = sizeof(d);
-					if (!r.MoveNext(&k1.k, nKey, &d, nVal, 0))
-						break;
+		Height h = Env::get_Height();
+		for (Env::VarReader r(k0, k1.k); ; )
+		{
+			NameService::Domain d;
+			uint32_t nKey = sizeof(k1.k), nVal = sizeof(d);
+			if (!r.MoveNext(&k1.k, nKey, &d, nVal, 0))
+				break;
 
-					if (sizeof(d) != nVal)
-						continue;
+			if (sizeof(d) != nVal)
+				continue;
 
-					nKey -= (sizeof(k0) - NameService::Domain::s_MinLen);
-					if (nKey > NameService::Domain::s_MaxLen)
-						continue;
+			nKey -= (sizeof(k0) - NameService::Domain::s_MinLen);
+			if (nKey > NameService::Domain::s_MaxLen)
+				continue;
 
-					k1.k.m_KeyInContract.m_sz[nKey] = 0;
+			k1.k.m_KeyInContract.m_sz[nKey] = 0;
 
-					Env::DocArray gr4("");
+			Env::DocArray gr4("");
 
-					Env::DocAddText("", k1.k.m_KeyInContract.m_sz);
-					DocAddPk("", d.m_pkOwner);
-					DocAddHeight("", d.m_hExpire);
+			Env::DocAddText("", k1.k.m_KeyInContract.m_sz);
+			DocAddPk("", d.m_pkOwner);
+			DocAddHeight("", d.m_hExpire);
 
-					const char* szStatus =
-						(d.m_hExpire > h) ? "" :
-						(d.m_hExpire + NameService::Domain::s_PeriodHold > h) ? "On Hold" :
-						"Expired";
-					Env::DocAddText("", szStatus);
+			const char* szStatus =
+				(d.m_hExpire > h) ? "" :
+				(d.m_hExpire + NameService::Domain::s_PeriodHold > h) ? "On Hold" :
+				"Expired";
+			Env::DocAddText("", szStatus);
 
-					if (d.m_Price.m_Amount)
-						DocAddAidAmount("", d.m_Price.m_Aid, d.m_Price.m_Amount);
-					else
-						Env::DocAddText("", "");
-				}
-
-			}
-
+			if (d.m_Price.m_Amount)
+				DocAddAidAmount("", d.m_Price.m_Aid, d.m_Price.m_Amount);
+			else
+				Env::DocAddText("", "");
 		}
+
 	}
 
 }
