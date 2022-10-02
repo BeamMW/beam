@@ -231,6 +231,7 @@ struct ParserContext
 	void WriteUpgradeParams(const Upgradable3::NextVersion&, uint32_t nSizeShader);
 	static void WriteUpgradeParams(const ContractID&, Height);
 	void WriteUpgradeParams(Height, const ShaderID&);
+	static void WriteUpgradeSettings(const Upgradable2::Settings&);
 	static void WriteUpgradeSettings(const Upgradable3::Settings&);
 	static void WriteUpgradeSettingsInternal(const Upgradable3::Settings&);
 	void WriteUpgrade3State();
@@ -360,16 +361,26 @@ void ParserContext::On_Upgradable()
 
 	}
 
-	if (m_Method && (Upgradable::ScheduleUpgrade::s_iMethod == m_iMethod))
+	if (m_Method)
 	{
-		auto pArg = get_ArgsAs<Upgradable::ScheduleUpgrade>();
-		if (!pArg)
-			return; // don't care of partial result
+		switch (m_iMethod)
+		{
+		case Upgradable::ScheduleUpgrade::s_iMethod:
+			{
+				auto pArg = get_ArgsAs<Upgradable::ScheduleUpgrade>();
+				if (!pArg)
+					return; // don't care of partial result
 
-		OnMethod("Schedule upgrade");
+				OnMethod("Schedule upgrade");
 
-		GroupArgs gr;
-		WriteUpgradeParams(*pArg);
+				GroupArgs gr;
+				WriteUpgradeParams(*pArg);
+			}
+			break;
+
+		default:
+			OnMethod("Passthrough");
+		}
 	}
 }
 
@@ -391,8 +402,7 @@ void ParserContext::On_Upgradable2()
 		_POD_(stg) = pArg->m_Settings;
 
 		GroupArgs gr;
-		Env::DocAddNum("Num approvers", stg.m_MinApprovers);
-		WriteUpgradeParams(us.m_Next);
+		WriteUpgradeSettings(stg);
 	}
 	else
 	{
@@ -424,14 +434,20 @@ void ParserContext::On_Upgradable2()
 
 		{
 			Env::DocGroup gr("upgradable2");
-			Env::DocAddNum("Num approvers", stg.m_MinApprovers);
+			WriteUpgradeSettings(stg);
 			WriteUpgradeParams(us.m_Next);
 		}
 
 	}
 
-	if (m_Method && (Upgradable2::Control::s_iMethod == m_iMethod))
+	if (m_Method)
 	{
+		if (Upgradable2::Control::s_iMethod != m_iMethod)
+		{
+			OnMethod("Passthrough");
+			return;
+		}
+
 		auto pCtl = get_ArgsAs<Upgradable2::Control::Base>();
 		if (!pCtl)
 			return; // don't care of partial result
@@ -553,6 +569,11 @@ void ParserContext::WriteUpgradeParams(const Upgradable3::NextVersion& x, uint32
 	Utils::get_ShaderID(sid, &x + 1, nSizeShader);
 
 	WriteUpgradeParams(x.m_hTarget, sid);
+}
+
+void ParserContext::WriteUpgradeSettings(const Upgradable2::Settings& stg)
+{
+	WriteUpgradeSettingsInternal(Cast::Reinterpret<Upgradable3::Settings>(stg));
 }
 
 void ParserContext::WriteUpgradeSettings(const Upgradable3::Settings& stg)
