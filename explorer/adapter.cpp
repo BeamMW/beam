@@ -534,21 +534,6 @@ private:
                 AddHex("cid", cid);
             }
 
-            void AddSid(const bvm2::ShaderID& sid)
-            {
-                AddHex("sid", sid);
-            }
-
-            void EnsureHasKind(const bvm2::ShaderID& sid)
-            {
-                if (m_json.find("kind") == m_json.end())
-                {
-                    Writer wr2;
-                    wr2.AddSid(sid);
-                    m_json["kind"] = std::move(wr2.m_json);
-                }
-            }
-
             void AddAid(Asset::ID aid)
             {
                 m_json["aid"] = aid;
@@ -960,6 +945,81 @@ private:
         }
     };
 
+    void get_LockedFunds(json& jArr, const bvm2::ContractID& cid)
+    {
+#pragma pack (push, 1)
+        struct KeyFund
+        {
+            bvm2::ContractID m_Cid;
+            uint8_t m_Tag = Shaders::KeyTag::LockedAmount;
+            uintBigFor<Asset::ID>::Type m_Aid;
+        };
+#pragma pack (pop)
+
+        KeyFund k0, k1;
+        k0.m_Cid = cid;
+        k0.m_Aid = Zero;
+        k1.m_Cid = cid;
+        k1.m_Aid = static_cast<Asset::ID>(-1);
+
+        NodeDB::WalkerContractData wlk;
+        for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
+        {
+            if ((sizeof(KeyFund) != wlk.m_Key.n) || (sizeof(AmountBig::Type) != wlk.m_Val.n))
+                continue;
+
+            Asset::ID aid;
+            reinterpret_cast<const KeyFund*>(wlk.m_Key.p)->m_Aid.Export(aid);
+
+            json jEntry = json::array();
+            jEntry.push_back(MakeObjAid(aid));
+            jEntry.push_back(MakeObjAmount(*reinterpret_cast<const AmountBig::Type*>(wlk.m_Val.p)));
+
+            jArr.push_back(std::move(jEntry));
+        }
+    }
+
+    void get_OwnedAssets(json& jArr, const bvm2::ContractID& cid)
+    {
+#pragma pack (push, 1)
+        struct KeyAsset
+        {
+            bvm2::ContractID m_Cid;
+            uint8_t m_Tag = Shaders::KeyTag::OwnedAsset;
+            uintBigFor<Asset::ID>::Type m_Aid;
+        };
+#pragma pack (pop)
+
+        KeyAsset k0, k1;
+        k0.m_Cid = cid;
+        k0.m_Aid = Zero;
+        k1.m_Cid = cid;
+        k1.m_Aid = static_cast<Asset::ID>(-1);
+
+        NodeDB::WalkerContractData wlk;
+        for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
+        {
+            if (sizeof(KeyAsset) != wlk.m_Key.n)
+                continue;
+
+            Asset::Full ai;
+            reinterpret_cast<const KeyAsset*>(wlk.m_Key.p)->m_Aid.Export(ai.m_ID);
+
+            if (!_nodeBackend.get_DB().AssetGetSafe(ai))
+                ai.m_Value = Zero;
+
+            std::string sMeta;
+            ai.m_Metadata.get_String(sMeta);
+
+            json jEntry = json::array();
+            jEntry.push_back(MakeObjAid(ai.m_ID));
+            jEntry.push_back(std::move(sMeta));
+            jEntry.push_back(MakeObjAmount(ai.m_Value));
+
+            jArr.push_back(std::move(jEntry));
+        }
+    }
+
     void get_ContractDescr(ExtraInfo::Writer& wr, const bvm2::ShaderID& sid, const bvm2::ContractID& cid, bool bFullState)
     {
         std::string sExtra;
@@ -967,7 +1027,9 @@ private:
 
         wr.ParseSafe(sExtra);
 
-        wr.EnsureHasKind(sid);
+        if (wr.m_json.find("kind") == wr.m_json.end())
+            AssignField(wr.m_json, "kind", std::move(sid));
+
     }
 
     void get_ContractList(json& out)
@@ -1010,20 +1072,50 @@ private:
         }
 
         out = json::array();
+        out.push_back(json::array({
+            MakeTableHdr("Cid"),
+            MakeTableHdr("Kind"),
+            MakeTableHdr("Deploy Height"),
+            MakeTableHdr("Locked Funds"),
+            MakeTableHdr("Owned Assets"),
+        }));
 
-        for (size_t i = 0; i < vIDs.size(); i++)
+        for (const auto& x : vIDs)
         {
-            const auto& x = vIDs[i];
+            json jItem = json::array();
+            jItem.push_back(MakeTypeObj("cid", x.first.m_Cid));
 
-            ExtraInfo::Writer wr;
-            get_ContractDescr(wr, x.first.m_Sid, x.first.m_Cid, false);
-            wr.AddCid(x.first.m_Cid);
-            wr.m_json["height"] = x.second;
+            {
+                ExtraInfo::Writer wr;
+                get_ContractDescr(wr, x.first.m_Sid, x.first.m_Cid, false);
 
+                auto it = wr.m_json.find("kind");
+                assert(wr.m_json.end() != it);
+                jItem.push_back(std::move(*it));
+            }
 
-            out.push_back(std::move(wr.m_json));
+            jItem.push_back(x.second);
+
+            {
+                json jArr = json::array();
+                get_LockedFunds(jArr, x.first.m_Cid);
+                if (jArr.empty())
+                    jItem.push_back("");
+                else
+                    jItem.push_back(MakeTable(std::move(jArr)));
+            }
+
+            {
+                json jArr = json::array();
+                get_OwnedAssets(jArr, x.first.m_Cid);
+                if (jArr.empty())
+                    jItem.push_back("");
+                else
+                    jItem.push_back(MakeTable(std::move(jArr)));
+            }
+
+            out.push_back(std::move(jItem));
         }
-
     }
 
     static void OnKrnInfoCorrupted()
@@ -1058,40 +1150,9 @@ private:
             jArr.push_back(json::array({
                 MakeTableHdr("Asset ID"),
                 MakeTableHdr("Amount")
-            }));
+                }));
 
-#pragma pack (push, 1)
-            struct KeyFund
-            {
-                bvm2::ContractID m_Cid;
-                uint8_t m_Tag = Shaders::KeyTag::LockedAmount;
-                uintBigFor<Asset::ID>::Type m_Aid;
-            };
-#pragma pack (pop)
-
-            KeyFund k0, k1;
-            k0.m_Cid = cid;
-            k0.m_Aid = Zero;
-            k1.m_Cid = cid;
-            k1.m_Aid = static_cast<Asset::ID>(-1);
-
-            NodeDB::WalkerContractData wlk;
-            for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
-            {
-                if ((sizeof(KeyFund) != wlk.m_Key.n) || (sizeof(AmountBig::Type) != wlk.m_Val.n))
-                    continue;
-
-                Asset::ID aid;
-                reinterpret_cast<const KeyFund*>(wlk.m_Key.p)->m_Aid.Export(aid);
-
-                const auto& val = *reinterpret_cast<const AmountBig::Type*>(wlk.m_Val.p);
-
-                json jEntry = json::array();
-                jEntry.push_back(MakeObjAid(aid));
-                jEntry.push_back(MakeObjAmount(val));
-
-                jArr.push_back(std::move(jEntry));
-            }
+            get_LockedFunds(jArr, cid);
 
             wr.m_json["Locked Funds"] = MakeTable(std::move(jArr));
         }
@@ -1099,50 +1160,14 @@ private:
         if (bExists)
         {
             json jArr = json::array();
+
             jArr.push_back(json::array({
                 MakeTableHdr("Asset ID"),
                 MakeTableHdr("Metadata"),
                 MakeTableHdr("Emission")
             }));
 
-#pragma pack (push, 1)
-            struct KeyAsset
-            {
-                bvm2::ContractID m_Cid;
-                uint8_t m_Tag = Shaders::KeyTag::OwnedAsset;
-                uintBigFor<Asset::ID>::Type m_Aid;
-            };
-#pragma pack (pop)
-
-            KeyAsset k0, k1;
-            k0.m_Cid = cid;
-            k0.m_Aid = Zero;
-            k1.m_Cid = cid;
-            k1.m_Aid = static_cast<Asset::ID>(-1);
-
-            NodeDB::WalkerContractData wlk;
-            for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
-            {
-                if (sizeof(KeyAsset) != wlk.m_Key.n)
-                    continue;
-
-                Asset::Full ai;
-                reinterpret_cast<const KeyAsset*>(wlk.m_Key.p)->m_Aid.Export(ai.m_ID);
-
-                if (!_nodeBackend.get_DB().AssetGetSafe(ai))
-                    ai.m_Value = Zero;
-
-                json jEntry = json::array();
-                jEntry.push_back(MakeObjAid(ai.m_ID));
-                {
-                    std::string sMeta;
-                    ai.m_Metadata.get_String(sMeta);
-                    jEntry.push_back(std::move(sMeta));
-                }
-                jEntry.push_back(MakeObjAmount(ai.m_Value));
-
-                jArr.push_back(std::move(jEntry));
-            }
+            get_OwnedAssets(jArr, cid);
 
             wr.m_json["Owned assets"] = MakeTable(std::move(jArr));
         }
