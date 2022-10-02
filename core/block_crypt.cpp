@@ -2168,10 +2168,7 @@ namespace beam
 			if (MaxHeight == x.m_Height)
 				break; // skip those
 
-			if (i)
-				os << ", ";
-
-			os << x;
+			os << "\n\t" << x;
 		}
 
 		return os.str();
