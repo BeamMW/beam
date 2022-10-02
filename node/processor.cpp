@@ -1898,14 +1898,19 @@ struct LongActionPlus
 		assert(hTrg > h);
 		auto dh = hTrg - h;
 		if (dh < 1000)
+		{
+			m_Logging = false;
 			return;
+		}
 
+		m_Logging = true;
 		m_La.Reset(sz, dh);
 	}
 
 	void OnProgress(Height h, Height hTrg)
 	{
-		m_La.OnProgress(m_La.m_Total + h - hTrg);
+		if (m_Logging)
+			m_La.OnProgress(m_La.m_Total + h - hTrg);
 	}
 };
 
