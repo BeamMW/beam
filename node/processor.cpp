@@ -1897,7 +1897,7 @@ struct LongActionPlus
 	{
 		assert(hTrg > h);
 		auto dh = hTrg - h;
-		if (dh < 1000)
+		if (dh < 10000)
 		{
 			m_Logging = false;
 			return;
