@@ -17,6 +17,7 @@
 #include <sstream>
 #include "block_crypt.h"
 #include "serialization_adapters.h"
+#include "../utility/logger.h"
 
 namespace beam
 {
@@ -2168,10 +2169,7 @@ namespace beam
 			if (MaxHeight == x.m_Height)
 				break; // skip those
 
-			if (i)
-				os << ", ";
-
-			os << x;
+			os << "\n\t" << x;
 		}
 
 		return os.str();
@@ -2863,6 +2861,37 @@ namespace beam
 	{
 		uint32_t ret = GetTime_ms();
 		return ret ? ret : 1;
+	}
+
+	void LongAction::Reset(const char* sz, uint64_t nTotal)
+	{
+		m_Total = nTotal;
+		m_Last_ms = GetTime_ms();
+		LOG_INFO() << sz;
+	}
+
+	void LongAction::OnProgress(uint64_t pos)
+	{
+		uint32_t dt_ms = GetTime_ms() - m_Last_ms;
+
+		const uint32_t nWindow_ms = 10000; // 10 sec
+		uint32_t n = dt_ms / nWindow_ms;
+		if (n)
+		{
+			m_Last_ms += n * nWindow_ms;
+
+			uint32_t nDone = 0;
+
+			if (m_Total)
+			{
+				if (pos >= m_Total)
+					nDone = 100;
+				else
+					nDone = (uint32_t) (pos * 100ull / m_Total);
+			}
+
+			LOG_INFO() << "\t" << nDone << "%...";
+		}
 	}
 
 	/////////////

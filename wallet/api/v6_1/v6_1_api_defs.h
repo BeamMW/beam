@@ -52,6 +52,7 @@ namespace beam::wallet
 
             std::string beamCommitHash;
             std::string beamBranchName;
+            std::string beamNetworkName;
         };
     };
 

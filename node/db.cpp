@@ -2882,7 +2882,7 @@ void NodeDB::MigrateFrom18()
 		}
 	}
 
-	LOG_INFO() << "Migrating inputs...";
+	LongAction la("Migrating inputs...", ParamIntGetDef(ParamID::CursorHeight));
 
 	ExecQuick("ALTER TABLE " TblStates " ADD COLUMN "  "[" TblStates_Inputs	"] BLOB");
 
@@ -2909,6 +2909,7 @@ void NodeDB::MigrateFrom18()
 			break;
 
 		h = wlk.m_SpendHeight;
+		la.OnProgress(h);
 
 		// extract input from output (which may be naked already)
 		if (wlk.m_Value.n < sizeof(ECC::Point))
@@ -2928,12 +2929,13 @@ void NodeDB::MigrateFrom18()
 
 void NodeDB::MigrateFrom20()
 {
-	LOG_INFO() << "Rebuilding states MMR...";
+	StateID sid;
+	get_Cursor(sid);
+
+	LongAction la("Rebuilding states MMR...", sid.m_Height);
 
 	ExecQuick("UPDATE " TblStates " SET " TblStates_Rollback "=NULL"); // was used for states MMR. Prepare it for the new use
 
-	StateID sid;
-	get_Cursor(sid);
 
 	StatesMmr smmr(*this);
 	for (Height h = Rules::HeightGenesis; h < sid.m_Height; h++)
@@ -2942,6 +2944,7 @@ void NodeDB::MigrateFrom20()
 		smmr.LoadStateHash(hv, h); // there's a more effective way to select hashes of all active states. But it's just a migration.
 		smmr.Append(hv);
 
+		la.OnProgress(h);
 	}
 }
 
