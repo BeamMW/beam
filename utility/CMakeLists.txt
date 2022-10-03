@@ -66,6 +66,10 @@ if (NOT EMSCRIPTEN)
     if(BEAM_LASER_SUPPORT)
         target_compile_definitions(cli PUBLIC BEAM_LASER_SUPPORT)
     endif()
+
+    if(BEAM_ASSET_SWAP_SUPPORT)
+        target_compile_definitions(cli PUBLIC BEAM_ASSET_SWAP_SUPPORT)
+    endif()
 endif()
 
 

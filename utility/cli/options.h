@@ -284,6 +284,22 @@ namespace beam
         extern const char* IPFS_ROUTING_TYPE;
         extern const char* IPFS_RUN_GC;
         #endif
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        extern const char* ASSETS_SWAP_LIST;
+        extern const char* ASSETS_SWAP_CREATE;
+        extern const char* ASSETS_SWAP_CANCEL;
+        extern const char* ASSETS_SWAP_ACCEPT;
+
+        extern const char* ASSETS_SWAP_SEND_AMOUNT;
+        extern const char* ASSETS_SWAP_SEND_ASSET_ID;
+        extern const char* ASSETS_SWAP_RECEIVE_AMOUNT;
+        extern const char* ASSETS_SWAP_RECEIVE_ASSET_ID;
+        extern const char* ASSETS_SWAP_EXPIRATION;
+        extern const char* ASSETS_SWAP_COMMENT;
+
+        extern const char* ASSETS_SWAP_OFFER_ID;
+#endif  // BEAM_ASSET_SWAP_SUPPORT
     }
 
     enum OptionsFlag : int
