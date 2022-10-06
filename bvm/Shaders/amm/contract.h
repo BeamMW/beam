@@ -1,10 +1,13 @@
 #pragma once
 #include "../Math.h"
 #include "../mintor/contract.h"
+#include "../upgradable3/contract.h"
 
 namespace Amm
 {
-    static const ShaderID s_SID = { 0x88,0x41,0x2e,0x05,0xbc,0x31,0xbd,0x8d,0x1d,0x73,0x9f,0x6d,0x2b,0x28,0x33,0x61,0xcb,0x53,0x21,0xca,0x44,0xc6,0x1e,0x05,0xca,0x5d,0x19,0x5b,0xd0,0xb9,0xde,0xb1 };
+    static const ShaderID s_pSID[] = {
+        { 0x6e,0x1d,0x85,0xb3,0xdd,0x54,0xfc,0xfa,0x05,0xd8,0x54,0x80,0x19,0x23,0x23,0xe1,0x34,0xdb,0x98,0x65,0x21,0x62,0xcf,0x3b,0xbd,0x4b,0x9c,0x52,0x34,0x36,0xf4,0xff },
+    };
 
 #pragma pack (push, 1)
 
@@ -171,6 +174,12 @@ namespace Amm
 
     namespace Method
     {
+        struct Create
+        {
+            static const uint32_t s_iMethod = 0;
+            Upgradable3::Settings m_Upgradable;
+        };
+
         struct PoolUserInvoke
         {
             Pool::ID m_Pid;
@@ -179,19 +188,19 @@ namespace Amm
 
         struct AddLiquidity :public PoolUserInvoke
         {
-            static const uint32_t s_iMethod = 2;
+            static const uint32_t s_iMethod = 3;
             Amounts m_Amounts;
         };
 
         struct Withdraw :public PoolUserInvoke
         {
-            static const uint32_t s_iMethod = 3;
+            static const uint32_t s_iMethod = 4;
             Amount m_Ctl;
         };
 
         struct Trade :public PoolUserInvoke
         {
-            static const uint32_t s_iMethod = 4;
+            static const uint32_t s_iMethod = 5;
             Amount m_Buy1;
         };
     }

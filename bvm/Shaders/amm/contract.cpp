@@ -2,18 +2,25 @@
 #include "../common.h"
 #include "../Math.h"
 #include "contract.h"
+#include "../upgradable3/contract_impl.h"
 
 namespace Amm {
 
 
-BEAM_EXPORT void Ctor(const void*)
+BEAM_EXPORT void Ctor(const Method::Create& r)
 {
     Env::Halt_if(!Env::RefAdd(Mintor::s_CID));
+
+    r.m_Upgradable.TestNumApprovers();
+    r.m_Upgradable.Save();
 }
 
 BEAM_EXPORT void Dtor(void*)
 {
     Env::Halt_if(!Env::RefRelease(Mintor::s_CID));
+
+    Upgradable3::Settings::Key key;
+    Env::DelVar_T(key);
 }
 
 
@@ -62,7 +69,7 @@ void PoolCtlMove(const Pool& p, const PubKey& pk, Amount val, uint8_t bMint)
     Env::CallFar_T(Mintor::s_CID, arg);
 }
 
-BEAM_EXPORT void Method_2(const Method::AddLiquidity& r)
+BEAM_EXPORT void Method_3(const Method::AddLiquidity& r)
 {
     Pool::Key key;
     key.m_ID = r.m_Pid;
@@ -112,7 +119,7 @@ BEAM_EXPORT void Method_2(const Method::AddLiquidity& r)
     PoolCtlMove(p, r.m_pk, dCtl, 1);
 }
 
-BEAM_EXPORT void Method_3(const Method::Withdraw& r)
+BEAM_EXPORT void Method_4(const Method::Withdraw& r)
 {
     Pool::Key key;
     key.m_ID = r.m_Pid;
@@ -131,7 +138,7 @@ BEAM_EXPORT void Method_3(const Method::Withdraw& r)
     PoolCtlMove(p, r.m_pk, r.m_Ctl, 0);
 }
 
-BEAM_EXPORT void Method_4(const Method::Trade& r)
+BEAM_EXPORT void Method_5(const Method::Trade& r)
 {
     Pool::Key key;
     bool bReverse = (r.m_Pid.m_Aid1 > r.m_Pid.m_Aid2);
@@ -160,3 +167,21 @@ BEAM_EXPORT void Method_4(const Method::Trade& r)
 }
 
 } // namespace Amm
+
+namespace Upgradable3 {
+
+    const uint32_t g_CurrentVersion = _countof(Amm::s_pSID) - 1;
+
+    uint32_t get_CurrentVersion()
+    {
+        return g_CurrentVersion;
+    }
+
+    void OnUpgraded(uint32_t nPrevVersion)
+    {
+        if constexpr (g_CurrentVersion)
+            Env::Halt_if(nPrevVersion != g_CurrentVersion - 1);
+        else
+            Env::Halt();
+    }
+}

@@ -400,7 +400,7 @@ namespace Shaders {
 //#include "../Shaders/dao-vault/contract.cpp" // already within namespace
 //#include "../Shaders/nephrite/contract.cpp" // already within namespace
 //#include "../Shaders/nephrite/app.cpp"
-#include "../Shaders/amm/contract.cpp" // already within namespace
+//#include "../Shaders/amm/contract.cpp" // already within namespace
 //#include "../Shaders/amm/app.cpp"
 #include "../Shaders/upgradable2/app_common_impl.h"
 
@@ -1770,7 +1770,7 @@ namespace bvm2 {
 
 	void MyProcessor::TestAmm()
 	{
-		VERIFY_ID(Shaders::Amm::s_SID, m_Amm.m_Sid);
+		VERIFY_ID(Shaders::Amm::s_pSID[_countof(Shaders::Amm::s_pSID) - 1], m_Amm.m_Sid);
 	}
 
 	namespace IndexDecoder

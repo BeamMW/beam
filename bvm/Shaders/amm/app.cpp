@@ -1,8 +1,14 @@
 #include "../common.h"
 #include "../app_common_impl.h"
+#include "../upgradable3/app_common_impl.h"
 #include "contract.h"
 
-#define Amm_admin_create(macro)
+#define Amm_admin_schedule_upgrade(macro) Upgradable3_schedule_upgrade(macro)
+#define Amm_admin_replace_admin(macro) Upgradable3_replace_admin(macro)
+#define Amm_admin_set_min_approvers(macro) Upgradable3_set_min_approvers(macro)
+#define Amm_admin_explicit_upgrade(macro) macro(ContractID, cid)
+
+#define Amm_admin_deploy(macro) Upgradable3_deploy(macro)
 #define Amm_admin_view(macro)
 #define Amm_admin_destroy(macro) macro(ContractID, cid)
 #define Amm_admin_pools_view(macro) macro(ContractID, cid)
@@ -16,8 +22,12 @@
 
 #define AmmRole_admin(macro) \
     macro(admin, view) \
-    macro(admin, create) \
     macro(admin, destroy) \
+    macro(admin, deploy) \
+	macro(admin, schedule_upgrade) \
+	macro(admin, replace_admin) \
+	macro(admin, set_min_approvers) \
+	macro(admin, explicit_upgrade) \
     macro(admin, pool_view) \
     macro(admin, pools_view) \
 
@@ -80,19 +90,64 @@ void OnError(const char* sz)
     Env::DocAddText("error", sz);
 }
 
+const char g_szAdminSeed[] = "upgr3-amm";
+
+struct AdminKeyID :public Env::KeyID {
+    AdminKeyID() :Env::KeyID(g_szAdminSeed, sizeof(g_szAdminSeed)) {}
+};
+
+const Upgradable3::Manager::VerInfo g_VerInfo = { s_pSID, _countof(s_pSID) };
+
 ON_METHOD(admin, view)
 {
-    EnumAndDumpContracts(s_SID);
+    AdminKeyID kid;
+    g_VerInfo.DumpAll(&kid);
 }
 
-ON_METHOD(admin, create)
+ON_METHOD(admin, deploy)
 {
-    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "create Amm contract", 0);
+    AdminKeyID kid;
+    PubKey pk;
+    kid.get_Pk(pk);
+
+    Method::Create arg;
+    if (!g_VerInfo.FillDeployArgs(arg.m_Upgradable, &pk))
+        return;
+
+    const uint32_t nCharge =
+        Upgradable3::Manager::get_ChargeDeploy() +
+        Env::Cost::Refs +
+        Env::Cost::Cycle * 20;
+
+    Env::GenerateKernel(nullptr, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Deploy Amm contract", nCharge);
 }
 
 ON_METHOD(admin, destroy)
 {
     Env::GenerateKernel(&cid, 1, nullptr, 0, nullptr, 0, nullptr, 0, "destroy Amm contract", 0);
+}
+
+ON_METHOD(admin, schedule_upgrade)
+{
+    AdminKeyID kid;
+    g_VerInfo.ScheduleUpgrade(cid, kid, hTarget);
+}
+
+ON_METHOD(admin, explicit_upgrade)
+{
+    Upgradable3::Manager::MultiSigRitual::Perform_ExplicitUpgrade(cid);
+}
+
+ON_METHOD(admin, replace_admin)
+{
+    AdminKeyID kid;
+    Upgradable3::Manager::MultiSigRitual::Perform_ReplaceAdmin(cid, kid, iAdmin, pk);
+}
+
+ON_METHOD(admin, set_min_approvers)
+{
+    AdminKeyID kid;
+    Upgradable3::Manager::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
 }
 
 bool SetKey(Pool::ID& pid, bool& bReverse, AssetID aid1, AssetID aid2)
