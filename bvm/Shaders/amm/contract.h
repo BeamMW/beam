@@ -6,7 +6,7 @@
 namespace Amm
 {
     static const ShaderID s_pSID[] = {
-        { 0x6e,0x1d,0x85,0xb3,0xdd,0x54,0xfc,0xfa,0x05,0xd8,0x54,0x80,0x19,0x23,0x23,0xe1,0x34,0xdb,0x98,0x65,0x21,0x62,0xcf,0x3b,0xbd,0x4b,0x9c,0x52,0x34,0x36,0xf4,0xff },
+        { 0x37,0xdf,0x46,0x81,0xc0,0xf0,0xb8,0x2e,0xc6,0x7a,0xed,0xec,0xfa,0xa3,0xce,0x23,0xff,0x74,0xbc,0x68,0x7e,0xff,0x6d,0xe1,0x28,0x34,0xa2,0x8d,0x62,0xe4,0x63,0xeb },
     };
 
 #pragma pack (push, 1)
@@ -43,16 +43,19 @@ namespace Amm
         {
             AssertValid();
 
-            // Ensure the liquiduty is added according to the current proportion: da/db == a/b, or a*db == b*da
+            // Ensure the liquidity is added according to the current proportion: da/db == a/b, or a*db == b*da
             //
             // due to round-off errors we allow slight deviations.
-            // if da/db > a/b, then da/(db+1) <= (a+1)/b, and vice-versa. Means:
+            // if da/db > a/b, then da/(db+1) < a/b, and vice-versa. Means:
             //
-            // b*da <= (a+1)*(db+1) = a*db + (a + db + 1)
-            // a*db <= (b+1)*(da+1) = b*da + (b + da + 1)
+            // b*da < a*(db+1) = a*db + a
+            // a*db < b*(da+1) = b*da + b
 
-            auto adb = MultiPrecision::From(m_Tok1) * MultiPrecision::From(d.m_Tok2);
-            auto bda = MultiPrecision::From(m_Tok2) * MultiPrecision::From(d.m_Tok1);
+            auto a = MultiPrecision::From(m_Tok1);
+            auto b = MultiPrecision::From(m_Tok2);
+
+            auto adb = a * MultiPrecision::From(d.m_Tok2);
+            auto bda = b * MultiPrecision::From(d.m_Tok1);
 
             int n = adb.cmp(bda);
             if (n)
@@ -60,13 +63,13 @@ namespace Amm
                 if (n > 0)
                 {
                     // a*db > b*da, da/db < a/b
-                    if (adb > bda + MultiPrecision::From(m_Tok2 + d.m_Tok1 + 1)) // don't care about overflow
+                    if (adb >= bda + b) // don't care about overflow
                         return -1; // da/db too small
                 }
                 else
                 {
                     // b*da > a*db, da/db > a/b
-                    if (bda > adb + MultiPrecision::From(m_Tok1 + d.m_Tok2 + 1))
+                    if (bda >= adb + a)
                         return 1; // da/db too large
                 }
             }
