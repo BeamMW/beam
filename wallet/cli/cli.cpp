@@ -2924,13 +2924,19 @@ namespace
             return -1;
         }
 
+        if (receiveAssetId == sendAssetId)
+        {
+            cout << "Send and receive assets ID can't be identical.";
+            return -1;
+        }
+
         if (auto it = vm.find(cli::ASSETS_SWAP_SEND_AMOUNT); it == vm.end())
         {
             cout << "You must provide send amount";
             return -1;
         }
 
-        auto sendAmount = vm[cli::ASSETS_SWAP_SEND_AMOUNT].as<NonnegativeFloatingPoint<double>>().value;
+        auto sendAmount = vm[cli::ASSETS_SWAP_SEND_AMOUNT].as<Positive<double>>().value;
         sendAmount *= Rules::Coin;
         Amount sendAmountGroth = static_cast<Amount>(std::round(sendAmount));
 
@@ -2940,7 +2946,7 @@ namespace
             return -1;
         }
 
-        auto receiveAmount = vm[cli::ASSETS_SWAP_RECEIVE_AMOUNT].as<NonnegativeFloatingPoint<double>>().value;
+        auto receiveAmount = vm[cli::ASSETS_SWAP_RECEIVE_AMOUNT].as<Positive<double>>().value;
         receiveAmount *= Rules::Coin;
         Amount receiveAmountGroth = static_cast<ECC::Amount>(std::round(receiveAmount));
 

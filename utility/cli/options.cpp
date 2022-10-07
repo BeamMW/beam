@@ -584,8 +584,8 @@ namespace beam
             (cli::ASSETS_SWAP_ACCEPT, "accept asset swap offer, arg - offer id")
             (cli::ASSETS_SWAP_SEND_ASSET_ID, po::value<Nonnegative<uint32_t>>(), "send asset ID")
             (cli::ASSETS_SWAP_RECEIVE_ASSET_ID, po::value<Nonnegative<uint32_t>>(), "receive asset ID")
-            (cli::ASSETS_SWAP_SEND_AMOUNT, po::value<NonnegativeFloatingPoint<double>>(), "amount to send")
-            (cli::ASSETS_SWAP_RECEIVE_AMOUNT, po::value<NonnegativeFloatingPoint<double>>(), "amount to receive")
+            (cli::ASSETS_SWAP_SEND_AMOUNT, po::value<Positive<double>>(), "amount to send")
+            (cli::ASSETS_SWAP_RECEIVE_AMOUNT, po::value<Positive<double>>(), "amount to receive")
             (cli::ASSETS_SWAP_EXPIRATION, po::value<uint32_t>()->default_value(30), "expiration time in minutes")
             (cli::ASSETS_SWAP_COMMENT, po::value<string>()->default_value(""), "comment")
             (cli::ASSETS_SWAP_OFFER_ID, po::value<string>()->default_value(""), "offer id");
