@@ -1,12 +1,11 @@
 #pragma once
 #include "../Math.h"
-#include "../mintor/contract.h"
 #include "../upgradable3/contract.h"
 
 namespace Amm
 {
     static const ShaderID s_pSID[] = {
-        { 0x37,0xdf,0x46,0x81,0xc0,0xf0,0xb8,0x2e,0xc6,0x7a,0xed,0xec,0xfa,0xa3,0xce,0x23,0xff,0x74,0xbc,0x68,0x7e,0xff,0x6d,0xe1,0x28,0x34,0xa2,0x8d,0x62,0xe4,0x63,0xeb },
+        { 0x2d,0xd9,0x5c,0xa8,0xfd,0xb6,0x4a,0x3a,0x81,0x7c,0x0f,0xff,0x8c,0x00,0x70,0x32,0x19,0x2e,0x6d,0x0d,0x59,0x63,0xd6,0x4b,0x5e,0x8c,0x9f,0xec,0x40,0x40,0xbb,0x9a },
     };
 
 #pragma pack (push, 1)
@@ -75,6 +74,12 @@ namespace Amm
             }
 
             return 0; // da/db is in range
+        }
+
+        void AddInitial(const Amounts& d)
+        {
+            Cast::Down<Amounts>(*this) = d;
+            m_Ctl = std::min(m_Tok1, m_Tok2);
         }
 
         static Amount ToAmount(const Float& f)
@@ -161,8 +166,6 @@ namespace Amm
             AssetID m_Aid1;
             AssetID m_Aid2;
             // must be well-ordered
-
-            static const AssetID s_Token = 0x80000000;
         };
 
         struct Key
@@ -171,8 +174,9 @@ namespace Amm
             ID m_ID;
         };
 
-        Mintor::Token::ID m_tidCtl;
         Totals m_Totals;
+        AssetID m_aidCtl;
+        PubKey m_pkCreator;
     };
 
     namespace Method
@@ -183,27 +187,36 @@ namespace Amm
             Upgradable3::Settings m_Upgradable;
         };
 
-        struct PoolUserInvoke
-        {
+        struct PoolInvoke {
             Pool::ID m_Pid;
-            PubKey m_pk;
         };
 
-        struct AddLiquidity :public PoolUserInvoke
+        struct PoolCreate :public PoolInvoke
         {
             static const uint32_t s_iMethod = 3;
+            PubKey m_pkCreator;
+        };
+
+        struct PoolDestroy :public PoolInvoke
+        {
+            static const uint32_t s_iMethod = 4;
+        };
+
+        struct AddLiquidity :public PoolInvoke
+        {
+            static const uint32_t s_iMethod = 5;
             Amounts m_Amounts;
         };
 
-        struct Withdraw :public PoolUserInvoke
+        struct Withdraw :public PoolInvoke
         {
-            static const uint32_t s_iMethod = 4;
+            static const uint32_t s_iMethod = 6;
             Amount m_Ctl;
         };
 
-        struct Trade :public PoolUserInvoke
+        struct Trade :public PoolInvoke
         {
-            static const uint32_t s_iMethod = 5;
+            static const uint32_t s_iMethod = 7;
             Amount m_Buy1;
         };
     }
