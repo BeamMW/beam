@@ -441,7 +441,13 @@ ON_METHOD(user, pool_create)
     fc.m_Consume = 1;
     fc.m_Amount = g_Beam2Groth * 10;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Amm create pool", 0);
+    const uint32_t nCharge =
+        Env::Cost::CallFar +
+        Env::Cost::AssetManage +
+        Env::Cost::SaveVar_For(sizeof(Pool)) +
+        Env::Cost::Cycle * 200;
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Amm create pool", nCharge);
 }
 
 
@@ -471,7 +477,15 @@ ON_METHOD(user, pool_destroy)
 
     Env::KeyID kid(ukm);
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &kid, 1, "Amm destroy pool", 0);
+    const uint32_t nCharge =
+        Env::Cost::CallFar +
+        Env::Cost::AssetManage +
+        Env::Cost::LoadVar_For(sizeof(Pool)) +
+        Env::Cost::SaveVar +
+        Env::Cost::AddSig +
+        Env::Cost::Cycle * 200;
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &kid, 1, "Amm destroy pool", nCharge);
 }
 
 ON_METHOD(user, add_liquidity)
@@ -485,6 +499,7 @@ ON_METHOD(user, add_liquidity)
     arg.m_Amounts.m_Tok2 = val2;
 
     PoolsWalker pw;
+    pw.Enum(cid, arg.m_Pid);
     if (!pw.MoveMustExist())
         return;
 
