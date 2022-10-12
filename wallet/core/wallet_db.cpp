@@ -107,6 +107,7 @@ namespace fs = std::filesystem;
 #define COIN_CONFIRMATIONS_COUNT "confirmations_count"
 #define EVENTS_NAME "events"
 #define TX_SUMMARY_NAME "tx_summary"
+#define DEX_OFFERS_NAME "dex_offers"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(name,  name,  TEXT UNIQUE, obj) sep \
@@ -263,6 +264,13 @@ namespace fs = std::filesystem;
     each(Key,     Key,    BLOB NOT NULL, obj)
 
 #define EVENTS_FIELDS ENUM_EVENTS_FIELDS(LIST, COMMA, )
+
+#define ENUM_DEX_OFFERS_FIELDS(each, sep, obj) \
+    each(id,               id,             TEXT NOT NULL PRIMARY KEY, obj) sep \
+    each(data,             data,           BLOB, obj) sep \
+    each(isMine,           isMine,         INTEGER, obj)
+
+#define DEX_OFFERS_FIELDS ENUM_DEX_OFFERS_FIELDS(LIST, COMMA, )
 
 #define ENUM_TX_SUMMARY_FIELDS(each) \
     each(CreateTime, Timestamp) \
@@ -996,7 +1004,8 @@ namespace beam::wallet
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
 
-        const int DbVersion   = 33;
+        const int DbVersion   = 34;
+        const int DbVersion33 = 33;
         const int DbVersion32 = 32;
         const int DbVersion31 = 31;
         const int DbVersion30 = 30;
@@ -1463,6 +1472,13 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
+        void CreateDexOffersTable(sqlite3* db)
+        {
+            const char* req = "CREATE TABLE " DEX_OFFERS_NAME " (" ENUM_DEX_OFFERS_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
+
         void MigrateAddressesFrom24(WalletDB* walletDB, sqlite3* db, const std::string& tableName)
         {
             // move old data to temp table
@@ -1864,6 +1880,7 @@ namespace beam::wallet
         CreateEventsTable(db);
         CreateTxSummaryTable(db);
         CreateVerificationTable(db);
+        CreateDexOffersTable(db);
     }
 
     std::shared_ptr<WalletDB> WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
@@ -2388,6 +2405,10 @@ namespace beam::wallet
                 case DbVersion32:
                     LOG_INFO() << "Converting DB from format 32...";
                     MigrateFrom32(walletDB->_db);
+
+                case DbVersion33:
+                    LOG_INFO() << "Converting DB from format 33...";
+                    CreateDexOffersTable(walletDB->_db);
 
                     // no break
                     storage::setVar(*walletDB, Version, DbVersion);
@@ -4494,6 +4515,79 @@ namespace beam::wallet
 
         return findAsset(assetID);
     }
+
+    std::vector<std::pair<ByteBuffer, bool>> WalletDB::loadDexOffers()
+    {
+        sqlite::Statement countStm(this, "SELECT COUNT(*) FROM " DEX_OFFERS_NAME ";");
+        countStm.step();
+        
+        uint64_t count;
+        countStm.get(0, count);
+
+        std::vector<std::pair<ByteBuffer, bool>> offers;
+        offers.reserve(count);
+
+        const char* selectReq = "SELECT * FROM " DEX_OFFERS_NAME ";";
+        sqlite::Statement stm(this, selectReq);
+
+
+        while (stm.step())
+        {
+            ByteBuffer buffer;
+            stm.get(1, buffer);
+            bool isMine = false;
+            stm.get(2, isMine);
+
+            offers.emplace_back(buffer, isMine);
+        }
+
+        return offers;
+    }
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+    void WalletDB::saveDexOffer(const DexOrderID& offerId, const ByteBuffer& offer, bool isMine)
+    {
+        const auto& idStr = offerId.to_string();
+        LOG_DEBUG() << "Save offer: " << idStr;
+        const char* selectReq = "SELECT * FROM " DEX_OFFERS_NAME " WHERE id=?1;";
+        sqlite::Statement stm2(this, selectReq);
+        stm2.bind(1, idStr);
+
+        if (stm2.step())
+        {
+            const char* updateReq = "UPDATE " DEX_OFFERS_NAME " SET data=?2, isMine=?3 WHERE id=?1;";
+            sqlite::Statement stm(this, updateReq);
+
+            stm.bind(1, idStr);
+            stm.bind(2, offer);
+            stm.bind(3, isMine);
+
+            stm.step();
+        }
+        else
+        {
+            const char* insertReq = "INSERT INTO " DEX_OFFERS_NAME " (" ENUM_DEX_OFFERS_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_DEX_OFFERS_FIELDS(BIND_LIST, COMMA, ) ");";
+            sqlite::Statement stm(this, insertReq);
+
+            stm.bind(1, idStr);
+            stm.bind(2, offer);
+            stm.bind(3, isMine);
+
+            stm.step();
+        }
+    }
+
+    void WalletDB::dropDexOffer(const DexOrderID& offerId)
+    {
+        const auto& idStr = offerId.to_string();
+        LOG_DEBUG() << "Delete offer: " << idStr;
+        const char* dropReq = "DELETE FROM " DEX_OFFERS_NAME " WHERE id=?1;";
+        sqlite::Statement stm(this, dropReq);
+        stm.bind(1, idStr);
+
+        stm.step();
+    }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
     void WalletDB::rollbackAssets(Height minHeight)
     {

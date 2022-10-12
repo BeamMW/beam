@@ -636,6 +636,7 @@ private:
 		virtual void OnMsg(proto::GetContractLogProof&&) override;
 		virtual void OnMsg(proto::GetShieldedOutputsAt&&) override;
 		virtual void OnMsg(proto::SetDependentContext&&) override;
+		virtual void OnMsg(proto::GetAssetsListAt&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;

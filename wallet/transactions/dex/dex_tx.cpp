@@ -20,24 +20,24 @@ namespace beam::wallet
     TxParameters CreateDexTransactionParams(
             const DexOrderID& dexOrderID,
             const WalletID& peerID,
+            const WalletID& myID,
             Asset::ID coinMy,
             Amount amountMy,
             Asset::ID coinPeer,
             Amount amountPeer,
+            Amount fee,
             const boost::optional<TxID>& txId)
     {
-        // TODO:DEX set more correctly
-        Amount minFee = 100000;
-
         return CreateTransactionParameters(TxType::DexSimpleSwap, txId)
             .SetParameter(TxParameterID::PeerID, peerID)
+            .SetParameter(TxParameterID::MyID, myID)
             .SetParameter(TxParameterID::DexOrderID, dexOrderID)
             .SetParameter(TxParameterID::SavePeerAddress, false)
             .SetParameter(TxParameterID::DexReceiveAsset, coinPeer)
             .SetParameter(TxParameterID::DexReceiveAmount, amountPeer)
             .SetParameter(TxParameterID::Amount, amountMy)
             .SetParameter(TxParameterID::AssetID, coinMy)
-            .SetParameter(TxParameterID::Fee, minFee);
+            .SetParameter(TxParameterID::Fee, fee);
     }
 
     DexTransaction::Creator::Creator(IWalletDB::Ptr wdb)

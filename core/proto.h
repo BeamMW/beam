@@ -258,6 +258,12 @@ namespace proto {
 #define BeamNodeMsg_ShieldedOutputsAt(macro) \
     macro(TxoID, ShieldedOuts)
 
+#define BeamNodeMsg_GetAssetsListAt(macro) \
+    macro(Height, Height)
+
+#define BeamNodeMsg_AssetsListAt(macro) \
+    macro(ByteBuffer, AssetsList)
+
 #define BeamNodeMsg_ContractVarsEnum(macro) \
     macro(ByteBuffer, KeyMin) \
     macro(ByteBuffer, KeyMax) \
@@ -370,7 +376,9 @@ namespace proto {
     macro(0x45, GetStateSummary) \
     macro(0x46, StateSummary) \
     macro(0x47, GetShieldedOutputsAt) \
-    macro(0x48, ShieldedOutputsAt)
+    macro(0x48, ShieldedOutputsAt) \
+    macro(0x4c, GetAssetsListAt) \
+    macro(0x4d, AssetsListAt)
 
 
     struct LoginFlags {

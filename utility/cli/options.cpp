@@ -259,6 +259,8 @@ namespace beam
         const char* BLOCK_DETAILS = "block_details";
         const char* BLOCK_HEIGHT = "block_height";
         const char* CONFIG_FILE_PATH = "config_file";
+        const char* REQUEST_BODIES = "request_bodies";
+        const char* IMPORT_RECOVERY = "import_recovery";
 
         // ethereum
         const char* ETHEREUM_SEED = "ethereum_seed";
@@ -355,6 +357,7 @@ namespace beam
         const char* SHADER_BYTECODE_APP      = "shader_app_file";
         const char* SHADER_BYTECODE_CONTRACT = "shader_contract_file";
         const char* SHADER_PRIVILEGE         = "shader_privilege";
+        const char* SHADER_DEBUG             = "shader_debug";
 
         // IPFS
         #ifdef BEAM_IPFS_SUPPORT
@@ -378,6 +381,22 @@ namespace beam
         const char* IPFS_ROUTING_TYPE  = "ipfs_routing_type";
         const char* IPFS_RUN_GC        = "ipfs_run_gc";
         #endif
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        const char* ASSETS_SWAP_LIST   = "assets_swap_list";
+        const char* ASSETS_SWAP_CREATE = "asset_swap_create";
+        const char* ASSETS_SWAP_CANCEL = "asset_swap_cancel";
+        const char* ASSETS_SWAP_ACCEPT = "asset_swap_accept";
+
+        const char* ASSETS_SWAP_SEND_AMOUNT = "send_amount";
+        const char* ASSETS_SWAP_SEND_ASSET_ID = "send_asset_id";
+        const char* ASSETS_SWAP_RECEIVE_AMOUNT = "receive_amount";
+        const char* ASSETS_SWAP_RECEIVE_ASSET_ID = "receive_asset_id";
+        const char* ASSETS_SWAP_EXPIRATION = "minutes_before_expire";
+        const char* ASSETS_SWAP_COMMENT = "asset_swap_comment";
+
+        const char* ASSETS_SWAP_OFFER_ID = "offer_id";
+#endif  // BEAM_ASSET_SWAP_SUPPORT
     }
 
     template <typename T> struct TypeCvt {
@@ -495,13 +514,15 @@ namespace beam
             (cli::PROXY_ADDRESS, po::value<string>()->default_value("127.0.0.1:9150"), "proxy server address")
             (cli::SHADER_ARGS, po::value<string>()->default_value(""), "Arguments to pass to the shader")
             (cli::SHADER_PRIVILEGE, po::value<uint32_t>()->default_value(0), "shader privilege level")
+            (cli::SHADER_DEBUG, po::value<bool>()->default_value(false), "shader debug")
             (cli::SHADER_BYTECODE_APP, po::value<string>()->default_value(""), "Path to the app shader file")
             (cli::SHADER_BYTECODE_CONTRACT, po::value<string>()->default_value(""), "Path to the shader file for the contract (if the contract is being-created)")
             (cli::MAX_PRIVACY_ADDRESS, po::bool_switch()->default_value(false), "generate max privacy transaction address")
             (cli::OFFLINE_COUNT, po::value<Positive<uint32_t>>(), "generate offline transaction address with given number of payments")
             (cli::PUBLIC_OFFLINE, po::bool_switch()->default_value(false), "generate an offline public address for donates (less secure, but more convenient)")
             (cli::SEND_OFFLINE, po::bool_switch()->default_value(false), "send an offline payment (offline transaction)")
-            (cli::BLOCK_HEIGHT, po::value<Nonnegative<Height>>(), "block height");
+            (cli::BLOCK_HEIGHT, po::value<Nonnegative<Height>>(), "block height")
+            (cli::REQUEST_BODIES, po::value<bool>()->default_value(false), "request and parse block bodies on the wallet side");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()
@@ -553,6 +574,23 @@ namespace beam
             (cli::ASSET_ID,         po::value<Positive<uint32_t>>(), "asset ID")
             (cli::ASSET_METADATA,   po::value<string>(), "asset metadata")
             (cli::WITH_ASSETS,      po::bool_switch()->default_value(false), "enable confidential assets transactions");
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        po::options_description assets_swap_options("Assets swap");
+        assets_swap_options.add_options()
+            (cli::ASSETS_SWAP_LIST, "view available assets swap list")
+            (cli::ASSETS_SWAP_CREATE, "create asset swap offer")
+            (cli::ASSETS_SWAP_CANCEL, "cancel asset swap offer, arg - offer id")
+            (cli::ASSETS_SWAP_ACCEPT, "accept asset swap offer, arg - offer id")
+            (cli::ASSETS_SWAP_SEND_ASSET_ID, po::value<Nonnegative<uint32_t>>(), "send asset ID")
+            (cli::ASSETS_SWAP_RECEIVE_ASSET_ID, po::value<Nonnegative<uint32_t>>(), "receive asset ID")
+            (cli::ASSETS_SWAP_SEND_AMOUNT, po::value<Positive<double>>(), "amount to send")
+            (cli::ASSETS_SWAP_RECEIVE_AMOUNT, po::value<Positive<double>>(), "amount to receive")
+            (cli::ASSETS_SWAP_EXPIRATION, po::value<uint32_t>()->default_value(30), "expiration time in minutes")
+            (cli::ASSETS_SWAP_COMMENT, po::value<string>()->default_value(""), "comment")
+            (cli::ASSETS_SWAP_OFFER_ID, po::value<string>()->default_value(""), "offer id");
+
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
         #ifdef BEAM_LASER_SUPPORT
         po::options_description laser_options("Laser beam");
@@ -606,6 +644,10 @@ namespace beam
             if(Rules::get().CA.Enabled)
             {
                 visible_options.add(wallet_assets_options);
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+                options.add(assets_swap_options);
+                visible_options.add(assets_swap_options);
+#endif  // BEAM_ASSET_SWAP_SUPPORT
             }
 
             #ifdef BEAM_LASER_SUPPORT

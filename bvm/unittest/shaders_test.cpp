@@ -64,6 +64,7 @@ namespace Shaders {
 #include "../Shaders/voting/contract.h"
 #include "../Shaders/dao-core/contract.h"
 #include "../Shaders/dao-vote/contract.h"
+#include "../Shaders/dao-vault/contract.h"
 #include "../Shaders/aphorize/contract.h"
 #include "../Shaders/nephrite/contract.h"
 #include "../Shaders/amm/contract.h"
@@ -173,11 +174,12 @@ namespace Shaders {
 		ConvertOrd<bToShader>((uint32_t&) x.m_Order);
 	}
 
-	template <bool bToShader, uint32_t nProvs> void Convert(Oracle2::Method::Create<nProvs>& x) {
-		ConvertOrd<bToShader>(x.m_Providers);
-		Convert<bToShader>(x.m_InitialValue);
+	template <bool bToShader> void Convert(Oracle2::Method::Create& x) {
 	}
-	template <bool bToShader> void Convert(Oracle2::Method::Set& x) {
+	template <bool bToShader> void Convert(Oracle2::Method::ProviderAdd& x) {
+		ConvertOrd<bToShader>(x.m_ApproveMask);
+	}
+	template <bool bToShader> void Convert(Oracle2::Method::FeedData& x) {
 		ConvertOrd<bToShader>(x.m_iProvider);
 		Convert<bToShader>(x.m_Value);
 	}
@@ -286,6 +288,15 @@ namespace Shaders {
 	template <bool bToShader> void Convert(DaoVote::Method::SetModerator& x) {
 	}
 
+	template <bool bToShader> void Convert(DaoVault::Method::Create& x) {
+		ConvertOrd<bToShader>(x.m_Upgradable.m_hMinUpgradeDelay);
+		ConvertOrd<bToShader>(x.m_Upgradable.m_MinApprovers);
+	}
+	template <bool bToShader> void Convert(DaoVault::Method::Deposit& x) {
+		ConvertOrd<bToShader>(x.m_Amount);
+		ConvertOrd<bToShader>(x.m_Aid);
+	}
+
 	template <bool bToShader> void Convert(Aphorize::Create& x) {
 		ConvertOrd<bToShader>(x.m_Cfg.m_hPeriod);
 		ConvertOrd<bToShader>(x.m_Cfg.m_PriceSubmit);
@@ -386,6 +397,7 @@ namespace Shaders {
 	}
 
 //#include "../Shaders/dao-vote/contract.cpp" // already within namespace
+//#include "../Shaders/dao-vault/contract.cpp" // already within namespace
 //#include "../Shaders/nephrite/contract.cpp" // already within namespace
 //#include "../Shaders/nephrite/app.cpp"
 #include "../Shaders/amm/contract.cpp" // already within namespace
@@ -487,6 +499,7 @@ namespace bvm2 {
 			ByteBuffer m_Code;
 			ShaderID m_Sid;
 			ContractID m_Cid;
+			Wasm::Compiler::DebugInfo m_DbgInfo;
 		};
 
 		ContractWrap m_Vault;
@@ -504,14 +517,25 @@ namespace bvm2 {
 		ContractWrap m_DaoCore;
 		ContractWrap m_DaoVote;
 		ContractWrap m_Aphorize;
+		ContractWrap m_DaoVault;
 		ContractWrap m_Nephrite;
 		ContractWrap m_Mintor;
 		ContractWrap m_Amm;
 
+		std::map<ShaderID, const Wasm::Compiler::DebugInfo*> m_mapDbgInfo;
+
 		void AddCode(ContractWrap& cw, const char* sz)
 		{
-			ContractTestProcessor::AddCode(cw.m_Code, sz);
+			AddCodeEx(cw.m_Code, sz, Kind::Contract, &cw.m_DbgInfo);
 			get_ShaderID(cw.m_Sid, cw.m_Code);
+
+			m_mapDbgInfo[cw.m_Sid] = &cw.m_DbgInfo;
+		}
+
+		const Wasm::Compiler::DebugInfo* get_DbgInfo(const ShaderID& sid) const override
+		{
+			auto it = m_mapDbgInfo.find(sid);
+			return (m_mapDbgInfo.end() == it) ? nullptr : it->second;
 		}
 
 		ContractID m_cidMirrorCoin2;
@@ -550,19 +574,19 @@ namespace bvm2 {
 				//case 3: Shaders::Oracle::Method_3(CastArg<Shaders::Oracle::Get>(pArgs)); return;
 				//}
 			}
-
+/*
 			if (cid == m_Oracle2.m_Cid)
 			{
-				//TempFrame f(*this, cid);
-				//switch (iMethod)
-				//{
-				//case 0: Shaders::Oracle2::Ctor(CastArg<Shaders::Oracle2::Method::Create<0> >(pArgs)); return;
-				//case 1: Shaders::Oracle2::Dtor(nullptr); return;
-				//case 3: Shaders::Oracle2::Method_3(CastArg<Shaders::Oracle2::Method::Get>(pArgs)); return;
-				//case 4: Shaders::Oracle2::Method_4(CastArg<Shaders::Oracle2::Method::Set>(pArgs)); return;
-				//}
+				TempFrame f(*this, cid);
+				switch (iMethod)
+				{
+				case 0: Shaders::Oracle2::Ctor(CastArg<Shaders::Oracle2::Method::Create>(pArgs)); return;
+				case 3: Shaders::Oracle2::Method_3(CastArg<Shaders::Oracle2::Method::Get>(pArgs)); return;
+				case 4: Shaders::Oracle2::Method_4(CastArg<Shaders::Oracle2::Method::FeedData>(pArgs)); return;
+				case 5: Shaders::Oracle2::Method_6(CastArg<Shaders::Oracle2::Method::ProviderAdd>(pArgs)); return;
+				}
 			}
-
+*/
 			if (cid == m_StableCoin.m_Cid)
 			{
 				//TempFrame f(*this, cid);
@@ -718,7 +742,7 @@ namespace bvm2 {
 				case 4: Shaders::Nephrite::Method_4(CastArg<Shaders::Nephrite::Method::TroveClose>(pArgs)); return;
 				case 7: Shaders::Nephrite::Method_7(CastArg<Shaders::Nephrite::Method::UpdStabPool>(pArgs)); return;
 				case 8: Shaders::Nephrite::Method_8(CastArg<Shaders::Nephrite::Method::Liquidate>(pArgs)); return;
-				case 10: Shaders::Nephrite::Method_10(CastArg<Shaders::Nephrite::Method::Redeem>(pArgs)); return;
+				case 9: Shaders::Nephrite::Method_9(CastArg<Shaders::Nephrite::Method::Redeem>(pArgs)); return;
 				}
 			}
 */
@@ -775,10 +799,19 @@ namespace bvm2 {
 		std::ostringstream m_Out;
 		uint32_t m_Charge;
 
+		ByteBuffer m_bufCode;
+		Wasm::Compiler::DebugInfo m_DbgInfo;
+
 		MyManager(MyProcessor& proc)
 			:m_Proc(proc)
 		{
 			m_pOut = &m_Out;
+		}
+
+		void SetCode(const char* szPath)
+		{
+			MyProcessor::AddCodeEx(m_bufCode, szPath, Kind::Manager, &m_DbgInfo);
+			m_Code = m_bufCode;
 		}
 
 		struct VarEnumCtx
@@ -884,6 +917,8 @@ namespace bvm2 {
 				std::cout << "*** Shader Execution failed. Undoing changes" << std::endl;
 				std::cout << e.what() << std::endl;
 				ret = false;
+
+				DumpCallstack(std::cout, &m_DbgInfo);
 			}
 			return ret;
 		}
@@ -893,7 +928,7 @@ namespace bvm2 {
 			if (!RunGuarded(1))
 				return false;
 
-			auto vInv = std::move(m_vInvokeData);
+			auto vInv = std::move(m_InvokeData.m_vec);
 
 			if (vInv.size() != 1)
 				return false;
@@ -942,6 +977,29 @@ namespace bvm2 {
 		}
 	};
 
+	void SaveAsHex(const char* szFilePath, const Blob& b)
+	{
+		std::FStream fs;
+		fs.Open(szFilePath, false, true);
+
+		char szBuf[0x10];
+		szBuf[0] = '0';
+		szBuf[1] = 'x';
+		szBuf[5] = '\n';
+
+		for (uint32_t i = 0; i < b.n; )
+		{
+			uintBigImpl::_Print(reinterpret_cast<const uint8_t*>(b.p) + i, 1, szBuf + 2);
+			szBuf[4] = ',';
+			uint32_t nLen = 5;
+
+			if (!(++i & 0x1f))
+				nLen = 6;
+
+			fs.write(szBuf, nLen);
+		}
+	}
+
 	void MyProcessor::TestAll()
 	{
 		AddCode(m_Vault, "vault/contract.wasm");
@@ -959,6 +1017,7 @@ namespace bvm2 {
 		AddCode(m_DaoCore, "dao-core/contract.wasm");
 		AddCode(m_DaoVote, "dao-vote/contract.wasm");
 		AddCode(m_Aphorize, "aphorize/contract.wasm");
+		AddCode(m_DaoVault, "dao-vault/contract.wasm");
 		AddCode(m_Nephrite, "nephrite/contract.wasm");
 		AddCode(m_Mintor, "mintor/contract.wasm");
 		AddCode(m_Amm, "amm/contract.wasm");
@@ -1095,11 +1154,6 @@ namespace bvm2 {
 		return res * 1e-8;
 	}
 
-	double Val2NumDiff(Amount x, Amount x0)
-	{
-		return (x >= x0) ? Val2Num(x - x0) : -Val2Num(x0 - x);
-	}
-
 	struct NephriteContext
 	{
 		MyProcessor& m_Proc;
@@ -1107,6 +1161,12 @@ namespace bvm2 {
 
 		typedef Shaders::Nephrite::Balance Balance;
 		typedef Shaders::Nephrite::Pair Pair;
+
+		static double Flow2Num(Shaders::Nephrite::Flow f)
+		{
+			double res = Val2Num(f.m_Val);
+			return f.m_Spend ? -res : res;
+		}
 
 		Pair get_Balance(const PubKey& pk)
 		{
@@ -1125,21 +1185,19 @@ namespace bvm2 {
 			return vals;
 		}
 
-		static const Amount s_TstReserveTok = Rules::Coin * 1000000077ull;
-		static const Amount s_TstReserveCol = Rules::Coin * 1000000033ull;
-
 		struct KeyWalker
 		{
 			MyProcessor& m_Proc;
 			BlobMap::Set::iterator m_it;
 			uint8_t m_Tag;
+			Blob m_Data;
 
-			KeyWalker(MyProcessor& proc, uint8_t nTag)
+			KeyWalker(MyProcessor& proc, const ContractID& cid, uint8_t nTag)
 				:m_Proc(proc)
 				,m_Tag(nTag)
 			{
 				Shaders::Env::Key_T<uint8_t> key;
-				key.m_Prefix.m_Cid = m_Proc.m_Nephrite.m_Cid;
+				key.m_Prefix.m_Cid = cid;
 				key.m_KeyInContract = nTag;
 				m_it = m_Proc.m_Vars.lower_bound(Blob(&key, sizeof(key)), BlobMap::Set::Comparator());
 			}
@@ -1159,7 +1217,8 @@ namespace bvm2 {
 				if (!pKey || (pKey->m_KeyInContract.m_Tag != m_Tag))
 					return false;
 
-				pVal = FromBlob<TValue>(m_it->m_Data);
+				m_Data = m_it->m_Data;
+				pVal = FromBlob<TValue>(m_Data);
 				if (!pVal)
 					return false;
 
@@ -1184,44 +1243,43 @@ namespace bvm2 {
 
 		void PrintBankExcess()
 		{
-			for (KeyWalker_T<Balance::Key, Balance> wlk(m_Proc, Shaders::Nephrite::Tags::s_Balance); ; )
+			for (KeyWalker_T<Balance::Key, Balance> wlk(m_Proc, m_Proc.m_Nephrite.m_Cid, Shaders::Nephrite::Tags::s_Balance); ; )
 			{
 				//auto it = wlk.m_it;
 				if (!wlk.MoveNext())
 					break;
 
 				auto& vals = wlk.m_pVal->m_Amounts;
-				if ((vals.Tok != s_TstReserveTok) || (vals.Col != s_TstReserveCol))
+				if (vals.Tok || vals.Col)
 				{
 					std::cout << "\tUser=" << wlk.m_pKey->m_KeyInContract.m_Pk
-						<< ", Tok=" << Val2NumDiff(vals.Tok, s_TstReserveTok)
-						<< ", Col=" << Val2NumDiff(vals.Col, s_TstReserveCol)
+						<< ", Tok=" << Val2Num(vals.Tok)
+						<< ", Col=" << Val2Num(vals.Col)
 						<< std::endl;
 
-					vals.Tok = s_TstReserveTok;
-					vals.Col = s_TstReserveCol;
+					vals.Tok = 0;
+					vals.Col = 0;
 				}
 
 				//m_Proc.m_Vars.erase(it);
 			}
 		}
 
-		Pair ReadBalance(const Shaders::Env::Key_T<Balance::Key>& key)
+		Balance ReadBalance(const Shaders::Env::Key_T<Balance::Key>& key)
 		{
 			Blob blVal;
 			m_Proc.LoadVar(Blob(&key, sizeof(key)), blVal);
 			if (sizeof(Balance) == blVal.n)
-				return Cast::Reinterpret<Balance*>(blVal.p)->m_Amounts;
+				return *Cast::Reinterpret<Balance*>(blVal.p);
 
-			Pair p;
-			p.Tok = p.Col = 0;
-			return p;
+			Balance x;
+			ZeroObject(x);
+			return x;
 		}
 
-		void SetBalance(const Shaders::Env::Key_T<Balance::Key>& key, const Pair& vals)
+		void SetBalance(const Shaders::Env::Key_T<Balance::Key>& key, const Balance& x)
 		{
-			static_assert(sizeof(vals) == sizeof(Balance));
-			m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&vals, sizeof(vals)));
+			m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&x, sizeof(x)));
 		}
 
 		bool InvokeBase(Shaders::Nephrite::Method::BaseTx& args, uint32_t nSizeArgs, uint32_t iMethod, const PubKey& pkUser, bool bShouldUseVault)
@@ -1230,40 +1288,29 @@ namespace bvm2 {
 			key.m_Prefix.m_Cid = m_Proc.m_Nephrite.m_Cid;
 			key.m_KeyInContract.m_Pk = pkUser;
 
-			Pair vals = ReadBalance(key);
-			if (vals.Tok || vals.Col)
-			{
-				verify_test(s_TstReserveTok == vals.Tok);
-				verify_test(s_TstReserveCol == vals.Col);
+			Balance ub0 = ReadBalance(key);
 
-				if (bShouldUseVault)
-				{
-					args.m_Flow.Tok.Add(s_TstReserveTok, 1);
-					args.m_Flow.Col.Add(s_TstReserveCol, 1);
-				}
-			}
-			else
-			{
-				vals.Tok = s_TstReserveTok;
-				vals.Col = s_TstReserveCol;
-				SetBalance(key, vals);
-			}
+			std::cout << "\tUser=" << pkUser
+				<< ", Tok=" << Flow2Num(args.m_Flow.Tok)
+				<< ", Col=" << Flow2Num(args.m_Flow.Col)
+				<< std::endl;
 
-			Shaders::Nephrite::FlowPair fp = args.m_Flow;
-			ZeroObject(args.m_Flow);
+			// do not add anything, test the contract locked amounts are ok.
+			// Change the following lines to test the bank usage instead
+			const Amount valTok = 0;
+			const Amount valCol = 0;
+
+			args.m_Flow.Tok.Add(valTok, 1);
+			args.m_Flow.Col.Add(valCol, 1);
 
 			if (!m_Proc.RunGuarded(m_Proc.m_Nephrite.m_Cid, iMethod, Blob(&args, nSizeArgs), nullptr))
 				return false;
 
-			// verify the init-guess flow was correct
-			fp.Tok.Add(s_TstReserveTok, 0);
-			fp.Col.Add(s_TstReserveCol, 0);
-
-			vals = ReadBalance(key);
-			fp.Tok.Add(vals.Tok, 1);
-			fp.Col.Add(vals.Col, 1);
-
-			verify_test(!fp.Tok.m_Val && !fp.Col.m_Val);
+			// verify the init-guess
+			Balance ub1 = ReadBalance(key);
+			verify_test(ub1.m_Amounts.Tok == ub0.m_Amounts.Tok + valTok);
+			verify_test(ub1.m_Amounts.Col == ub0.m_Amounts.Col + valCol);
+			SetBalance(key, ub0);
 
 			PrintBankExcess();
 			return true;
@@ -1281,53 +1328,20 @@ namespace bvm2 {
 			return InvokeBase(args, sizeof(args), args.s_iMethod, args.m_pkUser, bShouldUseVault);
 		}
 
-		void AddPoolTotals(Pair& res, uint8_t nTag)
+		template <uint32_t nDims>
+		static void AddEpochTotals(Amount& vSell, Amount* pBuy, const Shaders::HomogenousPool::Epoch<nDims>& e)
 		{
-			for (KeyWalker_T<Shaders::Nephrite::EpochKey, Shaders::HomogenousPool::Epoch> wlk(m_Proc, nTag); wlk.MoveNext(); )
-			{
-				res.Tok += wlk.m_pVal->m_Balance.s;
-				res.Col += wlk.m_pVal->m_Balance.b;
-			}
+			vSell += e.m_Sell;
+			for (uint32_t i = 0; i < nDims; i++)
+				pBuy[i] += e.m_pDim[i].m_Buy;
 		}
 
-		struct EpochStorage
+		template <uint32_t nDims>
+		void AddPoolTotals(Amount& vSell, Amount* pBuy, uint8_t nTag)
 		{
-			MyProcessor& m_Proc;
-			uint8_t m_Tag;
-
-			EpochStorage(MyProcessor& proc, uint8_t nTag)
-				:m_Proc(proc)
-				,m_Tag(nTag)
-			{}
-
-			typedef Shaders::Env::Key_T<Shaders::Nephrite::EpochKey> Key;
-
-			Key get_Key(uint32_t iEpoch) const {
-				Key k;
-				k.m_Prefix.m_Cid = m_Proc.m_Nephrite.m_Cid;
-				k.m_KeyInContract.m_Tag = m_Tag;
-				k.m_KeyInContract.m_iEpoch = iEpoch;
-				return k;
-			}
-
-			void Load(uint32_t iEpoch, Shaders::HomogenousPool::Epoch& e) const
-			{
-				auto k = get_Key(iEpoch);
-				Blob out;
-				m_Proc.LoadVar(Blob(&k, sizeof(k)), out);
-
-				verify_test(sizeof(e) == out.n);
-				memcpy(&e, out.p, out.n);
-			}
-
-			static void Save(uint32_t iEpoch, const Shaders::HomogenousPool::Epoch& e) {
-				// ignore
-			}
-
-			static void Del(uint32_t iEpoch) {
-				// ignore
-			}
-		};
+			for (KeyWalker_T<Shaders::Nephrite::EpochKey, Shaders::HomogenousPool::Epoch<nDims> > wlk(m_Proc, m_Proc.m_Nephrite.m_Cid, nTag); wlk.MoveNext(); )
+				AddEpochTotals(vSell, pBuy, *wlk.m_pVal);
+		}
 
 		static double ToDouble(Shaders::Nephrite::Float x)
 		{
@@ -1389,31 +1403,53 @@ namespace bvm2 {
 
 			Pair totalStab, totalRedist;
 
-			totalStab.Tok = g.m_StabPool.get_TotalSell();
-			totalStab.Col = g.m_StabPool.m_Active.m_Balance.b + g.m_StabPool.m_Draining.m_Balance.b;
-			AddPoolTotals(totalStab, Shaders::Nephrite::Tags::s_Epoch_Stable);
+			ZeroObject(totalStab);
+			AddEpochTotals(totalStab.Tok, &totalStab.Col, g.m_StabPool.m_Active);
+			AddEpochTotals(totalStab.Tok, &totalStab.Col, g.m_StabPool.m_Draining);
+			AddPoolTotals<1>(totalStab.Tok, &totalStab.Col, Shaders::Nephrite::Tags::s_Epoch_Stable);
 
-			totalRedist.Tok = g.m_RedistPool.get_TotalSell();
-			totalRedist.Col = g.m_RedistPool.m_Active.m_Balance.b;
+			ZeroObject(totalRedist);
+			AddEpochTotals(totalRedist.Tok, &totalRedist.Col, g.m_RedistPool.m_Active);
 
 			Shaders::Nephrite::Global::Price price;
 			{
 				Shaders::Env::Key_T<uint8_t> key;
-				key.m_Prefix.m_Cid = g.m_Settings.m_cidOracle;
+				key.m_Prefix.m_Cid = g.m_Settings.m_cidOracle1;
 				key.m_KeyInContract = Shaders::Oracle2::Tags::s_Median;
 
 				Blob b;
 				m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
-				verify_test(sizeof(price.m_Value) == b.n);
-				memcpy(&price.m_Value, b.p, sizeof(price.m_Value));
+				verify_test(sizeof(Shaders::Oracle2::Median) == b.n);
+				price.m_Value = ((Shaders::Oracle2::Median*) b.p)->m_Res;
 			}
 
 			std::cout << "Totals Tok=" << Val2Num(g.m_Troves.m_Totals.Tok) << ", Col=" << Val2Num(g.m_Troves.m_Totals.Col) << std::endl;
 			std::cout << "TCR = " << (ToDouble(price.ToCR(g.m_Troves.m_Totals.get_Rcr())) * 100.) << "" << std::endl;
 			std::cout << "RedistPool Tok=" << Val2Num(totalRedist.Tok) << ", Col=" << Val2Num(totalRedist.Col) << std::endl;
 			std::cout << "StabPool Tok=" << Val2Num(totalStab.Tok) << ", Col=" << Val2Num(totalStab.Col) << std::endl;
-			std::cout << "ProfitPool X-Tok=" << Val2Num(g.m_ProfitPool.m_Weight) << ", Col=" << Val2Num(*g.m_ProfitPool.m_pValue) << std::endl;
 			std::cout << "kRate = " << ToDouble(g.m_BaseRate.m_k) * 100. << "%" << std::endl;
+
+			{
+				Shaders::Env::Key_T<uintBigFor<AssetID>::Type> key;
+				key.m_Prefix.m_Cid = g.m_Settings.m_cidDaoVault;
+				key.m_Prefix.m_Tag = Shaders::KeyTag::LockedAmount;
+				Blob b;
+				Amount valCol = 0, valTok = 0;
+
+				key.m_KeyInContract = 0u;
+				m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
+
+				if (sizeof(AmountBig::Type) == b.n)
+					valCol = AmountBig::get_Lo(*((AmountBig::Type*)b.p));
+
+				key.m_KeyInContract = g.m_Aid;
+				m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
+
+				if (sizeof(AmountBig::Type) == b.n)
+					valTok = AmountBig::get_Lo(*((AmountBig::Type*)b.p));
+
+				std::cout << "Dao-vault , Col=" << Val2Num(valCol) << ", Tok=" << Val2Num(valTok) << std::endl;
+			}
 
 			verify_test(g.m_Troves.m_Totals.Tok == totalRedist.Tok); // all troves must participate in the RedistPool
 
@@ -1427,7 +1463,7 @@ namespace bvm2 {
 			m_Troves.resize(g.m_Troves.m_iLastCreated);
 
 			uint32_t nActiveTroves = 0;
-			for (KeyWalker_T<Shaders::Nephrite::Trove::Key, Shaders::Nephrite::Trove> wlk(m_Proc, Shaders::Nephrite::Tags::s_Trove); wlk.MoveNext(); )
+			for (KeyWalker_T<Shaders::Nephrite::Trove::Key, Shaders::Nephrite::Trove> wlk(m_Proc, m_Proc.m_Nephrite.m_Cid, Shaders::Nephrite::Tags::s_Trove); wlk.MoveNext(); )
 			{
 				auto iTrove = wlk.m_pKey->m_KeyInContract.m_iTrove; // not stored in BE form
 				verify_test(iTrove <= g.m_Troves.m_iLastCreated);
@@ -1475,52 +1511,65 @@ namespace bvm2 {
 					<< ", CR = " << (ToDouble(price.ToCR(x.m_Rcr)) * 100.) << "" << std::endl;
 			}
 
-
-			for (KeyWalker_T<Shaders::Nephrite::ProfitPoolEntry::Key, Shaders::Nephrite::ProfitPoolEntry> wlk(m_Proc, Shaders::Nephrite::Tags::s_ProfitPool); wlk.MoveNext(); )
-			{
-				const auto& e = *wlk.m_pVal;
-				auto e1 = e; // copy
-
-				Amount val = 0;
-				g.m_ProfitPool.Remove(&val, e1.m_User);
-
-				std::cout << "\tUser=" << wlk.m_pKey->m_KeyInContract.m_pkUser << ", Stake=" << Val2Num(e.m_User.m_Weight) << ", Gain=" << Val2Num(val) << std::endl;
-
-
-			}
-
-			verify_test(!g.m_ProfitPool.m_Weight);
 		}
 
 	};
 
 	void MyProcessor::TestNephrite()
 	{
-		VERIFY_ID(Shaders::Nephrite::s_SID, m_Nephrite.m_Sid);
-		VERIFY_ID(Shaders::Oracle2::s_SID, m_Oracle2.m_Sid);
+		m_Height++;
+
+		VERIFY_ID(Shaders::Nephrite::s_pSID[_countof(Shaders::Nephrite::s_pSID) - 1], m_Nephrite.m_Sid);
+		VERIFY_ID(Shaders::Oracle2::s_pSID[_countof(Shaders::Oracle2::s_pSID) - 1], m_Oracle2.m_Sid);
+		VERIFY_ID(Shaders::DaoVault::s_pSID[_countof(Shaders::DaoVault::s_pSID) - 1], m_DaoVault.m_Sid);
 
 		MyManager man(*this);
 		man.InitMem();
 
-		ByteBuffer bufApp;
-		MyProcessor::AddCodeEx(bufApp, "nephrite/app.wasm", Processor::Kind::Manager);
-		man.m_Code = bufApp;
+		man.SetCode("nephrite/app.wasm");
+
+		const AssetID aidGov = 77;
+		{
+			Shaders::DaoVault::Method::Create args;
+			ZeroObject(args);
+			args.m_Upgradable.m_MinApprovers = 1;
+
+			verify_test(ContractCreate_T(m_DaoVault.m_Cid, m_DaoVault.m_Code, args));
+
+		}
 
 		{
-			Shaders::Oracle2::Method::Create<1> args;
+			Shaders::Oracle2::Method::Create args;
 			ZeroObject(args);
-			args.m_Providers = 1;
-			args.m_InitialValue = 45; // to the moon!
-
+			args.m_Upgradable.m_MinApprovers = 1;
+			args.m_Settings.m_MinProviders = 1;
+			args.m_Settings.m_hValidity = 40000;
 			verify_test(ContractCreate_T(m_Oracle2.m_Cid, m_Oracle2.m_Code, args));
 		}
 
 		{
+			Shaders::Oracle2::Method::ProviderAdd args;
+			ZeroObject(args);
+			args.m_ApproveMask = 1;
+			verify_test(RunGuarded_T(m_Oracle2.m_Cid, args.s_iMethod, args));
+		}
+
+		{
+			Shaders::Oracle2::Method::FeedData args;
+			ZeroObject(args);
+			args.m_Value = 45; // to the moon!
+			verify_test(RunGuarded_T(m_Oracle2.m_Cid, args.s_iMethod, args));
+		}
+
+
+		{
 			Shaders::Nephrite::Method::Create args;
 			ZeroObject(args);
-			args.m_Settings.m_cidOracle = m_Oracle2.m_Cid;
+			args.m_Settings.m_cidDaoVault = m_DaoVault.m_Cid;
+			args.m_Settings.m_cidOracle1 = m_Oracle2.m_Cid;
+			args.m_Settings.m_cidOracle2 = m_Oracle2.m_Cid;
 			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 5;
-			args.m_Settings.m_AidProfit = 77;
+			args.m_Settings.m_AidGov = aidGov;
 			args.m_Upgradable.m_MinApprovers = 1; // 0 is illegal atm
 
 			m_FarCalls.m_Stack.Create_back()->m_Body = m_Dummy.m_Code; // add dummy frame, any valid shader is ok
@@ -1544,20 +1593,19 @@ namespace bvm2 {
 		{
 			ECC::SetRandom(ppKdf[i]);
 			man.m_pPKdf = ppKdf[i];
-
+/*
 			if (i < 2)
 			{
-				man.m_Args["action"] = "upd_profit";
-				man.m_Args["newVal"] = std::to_string(Rules::Coin * (5 + i));
+				Shaders::DaoVault::Method::UserUpdate args;
+				ZeroObject(args);
+				args.m_pkUser.m_X = i;
+				args.m_NewStaking = Rules::Coin * (5 + i);
 
-				Shaders::Nephrite::Method::UpdProfitPool arg1;
-				verify_test(man.RunGuarded_T(arg1));
-
-				verify_test(lc.InvokeTxUser(arg1, false));
 				std::cout << "Deposit to profit pool" << std::endl;
-				std::cout << "Estimated charge: " << man.m_Charge << std::endl;
-			}
 
+				verify_test(RunGuarded_T(m_DaoVault.m_Cid, args.s_iMethod, args));
+			}
+*/
 			Amount col = Rules::Coin * (35 + i * 5); // should be enough for 150% tcr
 			if (1 & i)
 				col -= Rules::Coin * 7; // play with order
@@ -1590,7 +1638,7 @@ namespace bvm2 {
 			Shaders::Nephrite::Method::UpdStabPool args;
 			verify_test(man.RunGuarded_T(args));
 
-			verify_test(lc.InvokeTxUser(args, false));
+			verify_test(lc.InvokeTxUser(args));
 
 			std::cout << "Stab" << i << ": Put=" << Val2Num(args.m_NewAmount) << std::endl;
 			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
@@ -1615,12 +1663,10 @@ namespace bvm2 {
 		}
 
 		{
-			Shaders::Oracle2::Method::Set args;
+			Shaders::Oracle2::Method::FeedData args;
 			ZeroObject(args);
-			args.m_Value = 25; // price drop. Some would be liquidated vs stabpool, others via redistpool
-
+			args.m_Value = 25; // price drop
 			verify_test(RunGuarded_T(m_Oracle2.m_Cid, args.s_iMethod, args));
-
 		}
 
 		m_Height += 10;
@@ -1648,12 +1694,10 @@ namespace bvm2 {
 		std::cout << "Price recover" << std::endl;
 
 		{
-			Shaders::Oracle2::Method::Set args;
+			Shaders::Oracle2::Method::FeedData args;
 			ZeroObject(args);
 			args.m_Value = 40; // otherwise we can't withdraw from stab pool
-
 			verify_test(RunGuarded_T(m_Oracle2.m_Cid, args.s_iMethod, args));
-
 		}
 
 		for (uint32_t i = 0; i < 2; i++)
@@ -1666,7 +1710,7 @@ namespace bvm2 {
 			Shaders::Nephrite::Method::UpdStabPool args;
 			verify_test(man.RunGuarded_T(args));
 
-			verify_test(lc.InvokeTxUser(args, false));
+			verify_test(lc.InvokeTxUser(args));
 
 			std::cout << "Stab" << i << " all out" << std::endl;
 			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
@@ -1694,23 +1738,22 @@ namespace bvm2 {
 			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
-
+/*
 		for (uint32_t i = 0; i < 2; i++)
 		{
-			man.m_pPKdf = ppKdf[i];
-
-			man.m_Args["action"] = "upd_profit";
-			man.m_Args["newVal"] = "0";
-
-			Shaders::Nephrite::Method::UpdProfitPool arg1;
-			verify_test(man.RunGuarded_T(arg1));
-
-			verify_test(lc.InvokeTxUser(arg1, false));
+			Shaders::DaoVault::Method::UserUpdate args;
+			ZeroObject(args);
+			args.m_pkUser.m_X = i;
+			args.m_NewStaking = 0;
+			args.m_WithdrawCount = static_cast<uint32_t>(-1);
 
 			std::cout << "profit withdraw" << std::endl;
-			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
+
+			verify_test(RunGuarded_T(m_DaoVault.m_Cid, args.s_iMethod, args));
+
 			lc.PrintAll();
 		}
+*/
 	}
 
 	void MyProcessor::TestMintor()
@@ -3770,10 +3813,7 @@ int main()
 		MyManager man(proc);
 		man.InitMem();
 		man.TestHeap();
-
-		ByteBuffer buf;
-		MyProcessor::AddCodeEx(buf, "vault/app.wasm", Processor::Kind::Manager);
-		man.m_Code = buf;
+		man.SetCode("vault/app.wasm");
 
 		man.RunGuarded(0); // get scheme
 

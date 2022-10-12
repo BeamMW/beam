@@ -635,6 +635,7 @@ public:
 
 	struct ITxoWalker
 	{
+		LongAction* m_pLa = nullptr;
 		// override at least one of those
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate);
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&);
@@ -671,6 +672,7 @@ public:
 	{
 		virtual bool ProcessHeight(const std::vector<TxKernel::Ptr>& v) { return Process(v); }
 		Height m_Height;
+		LongAction* m_pLa = nullptr;
 	};
 
 	bool EnumKernels(IKrnWalker&, const HeightRange&);

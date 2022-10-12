@@ -3,10 +3,7 @@
 
 namespace DaoVote
 {
-    static const ShaderID s_SID_0 = { 0x66,0x31,0x58,0xda,0x3f,0xae,0xe9,0xbc,0x7b,0x1c,0x1e,0xa9,0x45,0x96,0x3c,0x51,0x3e,0x89,0xbe,0xae,0xb7,0x10,0xe2,0x39,0x65,0x7a,0x5c,0x78,0xa4,0xc0,0xa4,0x4d };
-    static const ShaderID s_SID_1 = { 0x81,0xbe,0x59,0xc8,0x46,0x3f,0x4b,0xb9,0x52,0x22,0xe0,0xb0,0x7e,0x71,0x6d,0xc6,0x25,0xb4,0xac,0x72,0xbd,0x3e,0x1b,0x1b,0xf4,0xba,0x56,0x9e,0x49,0x40,0x1a,0x79 };
-
-    static const ShaderID& s_SID = s_SID_1; // current version
+    static const ShaderID s_SID = { 0x48,0xd4,0x6c,0xd3,0xf7,0x30,0x43,0xad,0x3b,0x44,0x99,0xb9,0x55,0xd1,0x5c,0x3d,0xeb,0xb3,0x2d,0x16,0x8d,0xe9,0xed,0x04,0xfc,0x22,0xd1,0x3f,0x3f,0xce,0x34,0x04 };
 
 #pragma pack (push, 1)
 
@@ -17,6 +14,7 @@ namespace DaoVote
         static const uint8_t s_User = 3;
         static const uint8_t s_Dividend = 4;
         static const uint8_t s_Moderator = 5;
+        static const uint8_t s_EpochStats = 6;
     };
 
     struct Cfg
@@ -48,7 +46,26 @@ namespace DaoVote
         static const uint32_t s_VariantsMax = 64;
         static const uint32_t s_ProposalsPerEpochMax = 50;
 
+        struct Status {
+            static const uint8_t Done = 1;
+            static const uint8_t InProgress = 2;
+            static const uint8_t NotStarted = 3;
+        };
+
+        uint32_t m_iEpoch;
+
         // followed by variants
+    };
+
+    struct EpochStats
+    {
+        struct Key {
+            uint8_t m_Tag = Tags::s_EpochStats;
+            uint32_t m_iEpoch;
+        };
+
+        Amount m_StakeActive;
+        Amount m_StakeVoted;
     };
 
     struct ProposalMax
@@ -101,12 +118,13 @@ namespace DaoVote
             uint32_t m_iEpoch;
             uint32_t m_Proposals;
             uint32_t m_iDividendEpoch; // set to 0 if no reward
-            Amount m_DividendStake; // not necessarily equal to the total voting stake, can be less.
+            EpochStats m_Stats;
         } m_Current;
 
         struct Next {
             uint32_t m_Proposals;
             uint32_t m_iDividendEpoch;
+            Amount m_StakePassive;
         } m_Next;
     };
 
@@ -120,6 +138,7 @@ namespace DaoVote
         uint32_t m_iEpoch;
         Proposal::ID m_iProposal0;
         uint32_t m_iDividendEpoch;
+        uint32_t m_VoteCounter;
         Amount m_Stake;
         Amount m_StakeNext;
 
@@ -209,6 +228,7 @@ namespace DaoVote
             static const uint32_t s_iMethod = 5;
             PubKey m_pkUser;
             uint32_t m_iEpoch;
+            uint32_t m_VoteCounter;
             // followed by appropriate vote per proposal
         };
 
@@ -223,7 +243,9 @@ namespace DaoVote
             static const uint32_t s_iMethod = 7;
             Proposal::ID m_ID;
             uint32_t m_Variants; // in/out
-            uint8_t m_Finished;
+            uint8_t m_Status; 
+            EpochStats m_Stats;
+            Proposal m_Res;
             // followed by variants
         };
 

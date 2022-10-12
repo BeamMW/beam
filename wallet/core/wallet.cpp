@@ -166,8 +166,8 @@ namespace beam::wallet
     
     Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
         : m_WalletDB{ walletDB }
-        , m_TxCompletedAction{ move(action) }
-        , m_UpdateCompleted{ move(updateCompleted) }
+        , m_TxCompletedAction{ std::move(action) }
+        , m_UpdateCompleted{ std::move(updateCompleted) }
         , m_LastSyncTotal(0)
         , m_OwnedNodesOnline(0)
     {
@@ -309,7 +309,7 @@ namespace beam::wallet
 
     void Wallet::RegisterTransactionType(TxType type, BaseTransaction::Creator::Ptr creator)
     {
-        m_TxCreators[type] = move(creator);
+        m_TxCreators[type] = std::move(creator);
     }
 
     TxID Wallet::StartTransaction(const TxParameters& parameters)
@@ -462,6 +462,7 @@ namespace beam::wallet
     WALLET_REQUEST_Single(ShieldedOutputsAt)
     WALLET_REQUEST_Single(BodyPack)
     WALLET_REQUEST_Single(Body)
+    WALLET_REQUEST_Single(AssetsListAt)
 
 
     bool Wallet::MyRequestUtxo::operator < (const MyRequestUtxo& x) const
@@ -703,16 +704,33 @@ namespace beam::wallet
         pReq->m_OwnAddr.m_Pk.FromSk(nonce);
         pReq->m_OwnAddr.SetChannelFromPk();
 
-        for (auto& p : get_ParentObj().m_MessageEndpoints)
-            p->Listen(pReq->m_OwnAddr, nonce);
+        get_ParentObj().Listen(pReq->m_OwnAddr, nonce);
 
         return pReq;
     }
 
+    void Wallet::Listen(const WalletID& wid, const ECC::Scalar::Native& sk, IHandler* pH)
+    {
+        for (auto& p : m_MessageEndpoints)
+            p->Listen(wid, sk, pH);
+    }
+
+    void Wallet::Unlisten(const WalletID& wid)
+    {
+        for (auto& p : m_MessageEndpoints)
+            p->Unlisten(wid);
+    }
+
+    void Wallet::Send(const WalletID& peerID, const Blob& b)
+    {
+        for (auto& p : m_MessageEndpoints)
+            Cast::Down<IRawCommGateway>(*p).Send(peerID, b);
+    }
+
+
     void Wallet::VoucherManager::Delete(Request& r)
     {
-        for (auto& p : get_ParentObj().m_MessageEndpoints)
-            p->Unlisten(r.m_OwnAddr);
+        get_ParentObj().Unlisten(r.m_OwnAddr);
 
         m_setTrg.erase(Request::Target::Set::s_iterator_to(r.m_Target));
         delete &r;
@@ -1192,6 +1210,11 @@ namespace beam::wallet
     void Wallet::OnRequestComplete(MyRequestShieldedOutputsAt& r)
     {
         r.m_callback(r.m_Msg.m_Height, r.m_Res.m_ShieldedOuts);
+    }
+
+    void Wallet::OnRequestComplete(MyRequestAssetsListAt& r)
+    {
+        r.m_callback(r.m_Res.m_AssetsList);
     }
 
     struct Wallet::RecognizerHandler : NodeProcessor::Recognizer::IHandler
@@ -2336,6 +2359,14 @@ namespace beam::wallet
     void Wallet::RequestShieldedOutputsAt(Height h, std::function<void(Height, TxoID)>&& onRequestComplete)
     {
         MyRequestShieldedOutputsAt::Ptr pVal(new MyRequestShieldedOutputsAt);
+        pVal->m_Msg.m_Height = h;
+        pVal->m_callback = std::move(onRequestComplete);
+        PostReqUnique(*pVal);
+    }
+
+    void Wallet::RequestAssetsListAt(Height h, std::function<void(ByteBuffer)>&& onRequestComplete)
+    {
+        MyRequestAssetsListAt::Ptr pVal(new MyRequestAssetsListAt);
         pVal->m_Msg.m_Height = h;
         pVal->m_callback = std::move(onRequestComplete);
         PostReqUnique(*pVal);

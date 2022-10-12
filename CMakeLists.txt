@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 cmake_policy(SET CMP0074 NEW)
 
 set(VERSION_MAJOR 7)
-set(VERSION_MINOR 1 )
+set(VERSION_MINOR 2 )
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
@@ -174,6 +174,8 @@ option(SWAP_MAINNET "Use mainnet blockchain when perform atomic swaps" FALSE)
 set(BEAM_TESTNET TRUE CACHE INTERNAL "")
 # uncomment next line for mainnet
 #set(BEAM_MAINNET TRUE CACHE INTERNAL "")
+# uncomment next line for mainnet
+#set(BEAM_DAPPNET TRUE CACHE INTERNAL "")
 
 # uncomment next line for swap mainnet
 #set(SWAP_MAINNET TRUE)
@@ -183,6 +185,13 @@ if(BEAM_TESTNET)
     add_definitions(-DBEAM_TESTNET)
     set(BEAM_SUFFIX_LOWER_CASE "testnet" CACHE INTERNAL "")
     set(BEAM_SUFFIX_UPPER_CASE "Testnet" CACHE INTERNAL "")
+    set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}" CACHE INTERNAL "")
+    set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}" CACHE INTERNAL "")
+elseif(BEAM_DAPPNET)
+    target_compile_definitions(beam INTERFACE -DBEAM_DAPPNET)
+    add_definitions(-DBEAM_DAPPNET)
+    set(BEAM_SUFFIX_LOWER_CASE "dappnet" CACHE INTERNAL "")
+    set(BEAM_SUFFIX_UPPER_CASE "Dappnet" CACHE INTERNAL "")
     set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}" CACHE INTERNAL "")
     set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}" CACHE INTERNAL "")
 elseif(BEAM_MAINNET)
@@ -213,6 +222,9 @@ message("BEAM_CONFIDENTIAL_ASSETS_SUPPORT is ${BEAM_CONFIDENTIAL_ASSETS_SUPPORT}
 
 option(BEAM_IPFS_SUPPORT "Build wallet with IPFS support" ON)
 message("BEAM_IPFS_SUPPORT is ${BEAM_IPFS_SUPPORT}")
+
+option(BEAM_ASSET_SWAP_SUPPORT "Build wallet with DEX support" ON)
+message("BEAM_ASSET_SWAP_SUPPORT is ${BEAM_ASSET_SWAP_SUPPORT}")
 
 option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
 message("BEAM_HW_WALLET is ${BEAM_HW_WALLET}")
@@ -303,7 +315,10 @@ else()
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
     if (EMSCRIPTEN)
-        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -s USE_PTHREADS=1 -s DISABLE_EXCEPTION_CATCHING=0 -s USE_BOOST_HEADERS=1 ")
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -s USE_PTHREADS=1 \
+                                                     -s DISABLE_EXCEPTION_CATCHING=0 \
+                                                     -s USE_BOOST_HEADERS=1 \
+                                                     -Wno-unused-but-set-variable")
         set(BEAM_WEB_WALLET_THREADS_NUM 5)
         add_definitions(-DBEAM_WEB_WALLET_THREADS_NUM=${BEAM_WEB_WALLET_THREADS_NUM})
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-command-line-argument") # mostly in 3rd-party libs
@@ -361,6 +376,7 @@ if(IOS)
     set(BEAM_WALLET_CLIENT_LIBRARY TRUE)
     set(BEAM_TESTS_ENABLED FALSE)
     set(BEAM_ATOMIC_SWAP_SUPPORT OFF)
+    set(BEAM_ASSET_SWAP_SUPPORT OFF)
     set(BEAM_LASER_SUPPORT OFF)
     add_compile_definitions(BOOST_NO_AUTO_PTR)
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
@@ -370,6 +386,7 @@ elseif(ANDROID)
     set(BEAM_WALLET_CLIENT_LIBRARY TRUE)
     set(BEAM_TESTS_ENABLED FALSE)
     set(BEAM_ATOMIC_SWAP_SUPPORT OFF)
+    set(BEAM_ASSET_SWAP_SUPPORT OFF)
     set(BEAM_LASER_SUPPORT OFF)
     add_compile_definitions(BOOST_ERROR_CODE_HEADER_ONLY)
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
@@ -457,6 +474,14 @@ else()
 endif()
 
 #OpenSSL end
+
+#RE2 begin
+
+set(RE2_BUILD_TESTING OFF)
+add_subdirectory(${PROJECT_SOURCE_DIR}/3rdparty/re2)
+include_directories(${PROJECT_SOURCE_DIR}/3rdparty/re2/re2)
+
+#RE2 end
 
 target_compile_definitions(beam INTERFACE -DBC_STATIC)
 add_definitions(-DBC_STATIC)

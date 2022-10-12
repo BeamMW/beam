@@ -1,4 +1,4 @@
-// Copyright 2019 The Beam Team
+// Copyright 2022 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,74 +16,80 @@
 
 namespace beam::wallet
 {
-    typedef std::pair<Asset::ID, Asset::ID> DexMarket;
-
-    enum class DexMarketSide: uint32_t
-    {
-        Sell,
-        Buy
-    };
-
+    const uint8_t kDexOrderRatePrecission = 9;
     class DexOrder
     {
     public:
-        SERIALIZE(version, orderID, sbbsID, sbbsKeyIDX, market.first, market.second, side, origSize, origPrice, remainingSize, expireTime);
-        static uint32_t getCurrentVersion();
+        SERIALIZE(_version, _orderID, _sbbsID, _sbbsKeyIDX, _assetIdFirst, _assetIdSecond, _assetSnameFirst, _assetSnameSecond, _assetAmountFirst, _assetAmountSecond, _createTime, _expireTime, _isCompleted, _isCanceled, _isAccepted);
+        static const uint32_t kCurrentOfferVer = 1;
+        static uint32_t getCurrentVersion() { return kCurrentOfferVer;}
 
         DexOrder() = default;
         DexOrder(const ByteBuffer& buffer, const ByteBuffer& signature, beam::Key::IKdf::Ptr);
+        DexOrder(const ByteBuffer& buffer, bool isMine);
         DexOrder(DexOrderID    orderId,
                  WalletID      sbbsId,
                  uint64_t      sbbsKeyIdx,
-                 DexMarket     market,
-                 DexMarketSide side,
-                 Amount        size,
-                 Amount        price,
-                 Timestamp     expiration);
+                 Asset::ID     assetIdFirst,
+                 Amount        assetAmountFirst,
+                 std::string   assetSnameFirst,
+                 Asset::ID     assetIdSecond,
+                 Amount        assetAmountSecond,
+                 std::string   assetSnameSecond,
+                 uint32_t      expiration);
 
         bool operator==(const DexOrder& other) const
         {
-            return orderID == other.orderID;
+            return _orderID == other._orderID;
         }
 
         [[nodiscard]] uint32_t getVersion() const;
-        [[nodiscard]] bool IsMine() const;
-        [[nodiscard]] bool IsExpired() const;
-        [[nodiscard]] bool IsCompleted() const;
-        [[nodiscard]] bool CanAccept() const;
+        [[nodiscard]] bool isMine() const;
+        [[nodiscard]] bool isExpired() const;
         [[nodiscard]] const DexOrderID& getID() const;
         [[nodiscard]] const WalletID& getSBBSID() const;
+        [[nodiscard]] Timestamp getCreation() const;
         [[nodiscard]] Timestamp getExpiration() const;
-        [[nodiscard]] DexMarketSide getSide() const;
-        [[nodiscard]] Amount getPrice() const;
-        [[nodiscard]] Amount getSize() const;
-
-        //
-        // These are to easily create transactions
-        //
-        [[nodiscard]] Asset::ID getISendCoin() const;
-        [[nodiscard]] Asset::ID getIReceiveCoin() const;
-        [[nodiscard]] Amount getISendAmount() const;
-        [[nodiscard]] Amount getIReceiveAmount() const;
-
-        void LogInfo() const;
+        [[nodiscard]] Amount getFirstAmount() const;
+        [[nodiscard]] Amount getSecondAmount() const;
+        [[nodiscard]] Asset::ID getFirstAssetId() const;
+        [[nodiscard]] Asset::ID getSecondAssetId() const;
+        [[nodiscard]] std::string getFirstAssetSname() const;
+        [[nodiscard]] std::string getSecondAssetSname() const;
+        [[nodiscard]] bool isCanceled() const;
 
         [[nodiscard]] ECC::Scalar::Native derivePrivateKey(beam::Key::IKdf::Ptr) const;
         [[nodiscard]] PeerID derivePublicKey(beam::Key::IKdf::Ptr) const;
 
+        Amount getSendAmount() const;
+        Amount getReceiveAmount() const;
+        Asset::ID getSendAssetId() const;
+        Asset::ID getReceiveAssetId() const;
+        std::string getSendAssetSName() const;
+        std::string getReceiveAssetSName() const;
+
+        void cancel();
+        bool isAccepted() const;
+        void setAccepted(bool value);
+
     private:
-        uint32_t      version = 0;
-        DexOrderID    orderID;      // UUID
-        WalletID      sbbsID;       // here wallet listens for order processing
-        uint64_t      sbbsKeyIDX = 0; // index used to generate SBBS key, to identify OUR orders
-        DexMarket     market;
-        DexMarketSide side;
+        uint32_t      _version;
+        DexOrderID    _orderID;      // UUID
+        WalletID      _sbbsID;       // here wallet listens for order processing
+        uint64_t      _sbbsKeyIDX = 0; // index used to generate SBBS key, to identify OUR orders
 
-        Amount  origSize = 0;
-        Amount  origPrice = 0;
-        Amount  remainingSize = 0;
+        Asset::ID     _assetIdFirst = 0;
+        Asset::ID     _assetIdSecond = 0;
+        std::string   _assetSnameFirst;
+        std::string   _assetSnameSecond;
+        Amount        _assetAmountFirst = 0;
+        Amount        _assetAmountSecond = 0;
 
-        bool       isMine     = false;
-        Timestamp  expireTime = 0;
+        bool          _isMine     = false;
+        Timestamp     _createTime = 0;
+        Timestamp     _expireTime = 0;
+        bool          _isCompleted = false;
+        bool          _isCanceled = false;
+        bool          _isAccepted = false;
     };
 }

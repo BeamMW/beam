@@ -194,7 +194,7 @@ private:
             std::unique_lock lock(m_Mutex);
             m_Messages.push(std::move(func));
         }
-        auto thisWeakPtr = std::make_unique<WeakPtr>(shared_from_this());
+        auto thisWeakPtr = std::make_unique<WeakPtr>(weak_from_this());
         emscripten_async_run_in_main_runtime_thread(
             EM_FUNC_SIG_VI,
             &WalletClient2::ProcessMessageOnMainThread,
@@ -203,7 +203,7 @@ private:
 
     void onStopped() override
     {
-        WalletClient2::WeakPtr wp = shared_from_this();
+        WalletClient2::WeakPtr wp = weak_from_this();
         Assert(wp.use_count() == 1);
         postFunctionToClientContext([sp = shared_from_this(), wp]() mutable
         {
@@ -242,23 +242,20 @@ private:
 
     static void ProcessMessageOnMainThread(int pThis)
     {
+        AssertMainThread();
         std::unique_ptr<WeakPtr> wp(reinterpret_cast<WeakPtr*>(pThis));
-        assert(wp->use_count() == 1);
         while (true)
         {
             MessageFunction func;
             if (auto sp = wp->lock())
             {
-                assert(wp->use_count() == 2);
+                std::unique_lock lock(sp->m_Mutex);
+                if (sp->m_Messages.empty())
                 {
-                    std::unique_lock lock(sp->m_Mutex);
-                    if (sp->m_Messages.empty())
-                    {
-                        return;
-                    }
-                    func = std::move(sp->m_Messages.front());
-                    sp->m_Messages.pop();
+                    return;
                 }
+                func = std::move(sp->m_Messages.front());
+                sp->m_Messages.pop();
             }
             else
             {
@@ -537,6 +534,7 @@ public:
 
     void StopWallet(val handler = val::null())
     {
+        LOG_DEBUG() << "Stopping wallet...";
         AssertMainThread();
         if (!m_Client)
         {
@@ -860,11 +858,19 @@ public:
 
     static void DeleteWallet(const std::string& dbName)
     {
+        LOG_DEBUG() << "Delete wallet...";
         AssertMainThread();
         EnsureFSMounted();
         try
         {
             fs::remove(dbName);
+            EM_ASM
+            (
+                FS.syncfs(false, function()
+                {
+                    console.log("wallet deleted!");
+                });
+            );
         }
         catch (const std::exception& ex)
         {

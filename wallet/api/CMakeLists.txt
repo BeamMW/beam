@@ -11,9 +11,15 @@ set(SOURCES
     v6_1/v6_1_api_handle.cpp
     v6_1/v6_1_api_parse.cpp
     v6_1/v6_1_api_notify.cpp
-        v7_0/v7_0_api.cpp
-        v7_0/v7_0_api_handle.cpp
-        v7_0/v7_0_api_parse.cpp
+    v7_0/v7_0_api.cpp
+    v7_0/v7_0_api_handle.cpp
+    v7_0/v7_0_api_parse.cpp
+    v7_1/v7_1_api.cpp
+    v7_1/v7_1_api_handle.cpp
+    v7_1/v7_1_api_parse.cpp
+    v7_2/v7_2_api.cpp
+    v7_2/v7_2_api_handle.cpp
+    v7_2/v7_2_api_parse.cpp
 )
 
 add_library(wallet_api STATIC
@@ -59,6 +65,10 @@ target_link_libraries(wallet_api_no_ipfs
 
 if(BEAM_IPFS_SUPPORT)
     target_link_libraries(wallet_api PUBLIC wallet_ipfs)
+endif()
+
+if(BEAM_ASSET_SWAP_SUPPORT)
+    target_link_libraries(wallet_api PUBLIC client_extensions)
 endif()
 
 if (NOT BEAM_WALLET_CLIENT_LIBRARY)

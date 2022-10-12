@@ -51,6 +51,12 @@
 #include "wallet/ipfs/ipfs_async.h"
 #endif
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+#include "wallet/client/extensions/dex_board/dex_board.h"
+#include "wallet/transactions/dex/dex_tx_builder.h"
+#include "wallet/transactions/dex/dex_tx.h"
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
 #include "wallet/transactions/lelantus/lelantus_reg_creators.h"
 #include "wallet/core/contracts/i_shaders_manager.h"
 #include "nlohmann/json.hpp"
@@ -144,6 +150,9 @@ namespace
 
     class WalletApiServer
         : public IWalletApiServer
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        , private beam::wallet::DexBoard::IObserver
+#endif  // BEAM_ASSET_SWAP_SUPPORT
     {
     public:
         WalletApiServer(const std::string& apiVersion, IWalletDB::Ptr walletDB,
@@ -252,7 +261,30 @@ namespace
         }
         #endif
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        void initDexFeature(proto::FlyClient::INetwork::Ptr nnet, IWalletMessageEndpoint& wnet)
+        {
+            _broadcastRouter = std::make_shared<BroadcastRouter>(
+                nnet, wnet, std::make_shared<BroadcastRouter::BbsTsHolder>(_walletDB));
+
+            auto dexBoard = std::make_shared<beam::wallet::DexBoard>(*_broadcastRouter, *_walletDB);
+
+            _dexWDBSubscriber = std::make_unique<WalletDbSubscriber>(
+                static_cast<IWalletDbObserver*>(dexBoard.get()), _walletDB);
+            _dexBoardSubscriber = std::make_unique<DexBoardSubscriber>(
+                static_cast<beam::wallet::DexBoard::IObserver*>(this), dexBoard);
+            _dexWalletSubscriber = std::make_unique<DexWalletSubscriber>(
+                static_cast<ISimpleSwapHandler*>(dexBoard.get()), _wallet);
+
+            _dex = dexBoard;
+        }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
     protected:
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
+        void onFindDexOrder(const DexOrder&) override {}
+#endif  // BEAM_ASSET_SWAP_SUPPORT
         void start()
         {
             LOG_INFO() << "Start server on " << _bindAddress;
@@ -314,6 +346,10 @@ namespace
 
                 #ifdef BEAM_IPFS_SUPPORT
                 _walletData->ipfs = _ipfs;
+                #endif
+
+                #ifdef BEAM_ASSET_SWAP_SUPPORT
+                _walletData->dexBoard = _dex;
                 #endif
             }
 
@@ -582,6 +618,23 @@ namespace
         std::vector<uint64_t> _pendingToClose;
         ApiACL _acl;
         std::vector<uint32_t> _whitelist;
+
+        std::set<Asset::ID> _assetsFullList = {Asset::s_BeamID};
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        std::shared_ptr<BroadcastRouter> _broadcastRouter;
+
+        using WalletDbSubscriber = ScopedSubscriber<IWalletDbObserver, IWalletDB>;
+        std::unique_ptr<WalletDbSubscriber> _dexWDBSubscriber;
+
+        using DexBoardSubscriber = ScopedSubscriber<beam::wallet::DexBoard::IObserver, DexBoard>;
+        std::unique_ptr<DexBoardSubscriber> _dexBoardSubscriber;
+
+        using DexWalletSubscriber = ScopedSubscriber<wallet::ISimpleSwapHandler, wallet::Wallet>;
+        std::unique_ptr<DexWalletSubscriber> _dexWalletSubscriber;
+
+        beam::wallet::DexBoard::Ptr _dex;
+#endif  // BEAM_ASSET_SWAP_SUPPORT
     };
 }
 
@@ -604,6 +657,7 @@ int main(int argc, char* argv[])
 
         uint32_t logCleanupPeriod;
         bool enableLelantus = false;
+        bool enableBodyRequests = false;
     } options;
     ConnectionOptions connectionOptions;
 
@@ -627,6 +681,7 @@ int main(int argc, char* argv[])
             (cli::FILE_LOG_LEVEL,   po::value<std::string>(), "set file log level [error|warning|info(default)|debug|verbose]")
             (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
             (cli::API_TCP_MAX_LINE, po::value<size_t>(&connectionOptions.maxLineSize)->default_value(65536), "max line size in TCP mode")
+            (cli::REQUEST_BODIES,   po::value<bool>(&options.enableBodyRequests)->default_value(false), "request and parse block bodies on the wallet side")
         ;
 
         po::options_description authDesc("User authorization options");
@@ -807,6 +862,7 @@ int main(int argc, char* argv[])
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
         auto wallet = std::make_shared<Wallet>(walletDB);
+        wallet->EnableBodyRequests(options.enableBodyRequests);
 
         auto nnet = std::make_shared<NodeNetwork>(*wallet);
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
@@ -833,7 +889,7 @@ int main(int argc, char* argv[])
         nnet->Connect();
 
         auto wnet = std::make_shared<WalletNetworkViaBbs>(*wallet, nnet, walletDB);
-		wallet->AddMessageEndpoint(wnet);
+        wallet->AddMessageEndpoint(wnet);
         wallet->SetNodeEndpoint(nnet);
 
         WalletApiServer server(options.apiVersion, walletDB, wallet, nnet, *reactor, listenTo, connectionOptions, acl, whitelist);
@@ -861,6 +917,11 @@ int main(int argc, char* argv[])
         if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
         {
             RegisterAllAssetCreators(*wallet);
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+            wallet->RegisterTransactionType(TxType::DexSimpleSwap, std::make_shared<DexTransaction::Creator>(walletDB));
+            server.initDexFeature(nnet, *wnet);
+#endif  // BEAM_ASSET_SWAP_SUPPORT
         }
 
         if (options.enableLelantus)

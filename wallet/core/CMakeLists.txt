@@ -58,4 +58,8 @@ if (NOT ANDROID AND NOT IOS)
     if(BEAM_LASER_SUPPORT)
         target_compile_definitions(wallet_core PUBLIC BEAM_LASER_SUPPORT)
     endif()
+
+    if(BEAM_ASSET_SWAP_SUPPORT)
+        target_compile_definitions(wallet_core PUBLIC BEAM_ASSET_SWAP_SUPPORT)
+    endif()
 endif()

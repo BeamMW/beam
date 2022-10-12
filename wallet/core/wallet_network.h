@@ -59,7 +59,7 @@ namespace beam::wallet
         void AddOwnAddress(const WalletAddress& address);
         void DeleteOwnAddress(const WalletID&);
     protected:
-        void ProcessMessage(BbsChannel channel, const ByteBuffer& msg);
+        void ProcessMessage(const proto::BbsMsg& msg);
         void Subscribe();
         void Unsubscribe();
         virtual void OnChannelAdded(BbsChannel channel) {};
@@ -160,15 +160,15 @@ namespace beam::wallet
         , public BbsProcessor
     {
         IWalletDB::Ptr m_WalletDB;
-
-        void OnMsg(const proto::BbsMsg&) override;
     public:
         WalletNetworkViaBbs(IWalletMessageConsumer&, proto::FlyClient::INetwork::Ptr, const IWalletDB::Ptr&);
         virtual ~WalletNetworkViaBbs();
     private:
+        // BaseMessageEndpoint
         void OnChannelAdded(BbsChannel channel) override;
         void OnChannelDeleted(BbsChannel channel) override;
         void OnMessageSent(uint64_t messageID) override;
+        void OnMsg(const proto::BbsMsg&) override;
         // IWalletMessageEndpoint
         void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override;
         void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;

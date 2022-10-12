@@ -697,7 +697,7 @@ int BeamCrypto_CoinID_getSchemeAndSubkey(const BeamCrypto_CoinID* p, uint8_t* pS
 	return 1;
 }
 
-#define HASH_WRITE_STR(hash, str) secp256k1_sha256_write(&(hash), str, sizeof(str))
+#define HASH_WRITE_STR(hash, str) secp256k1_sha256_write(&(hash), (const unsigned char*)str, sizeof(str))
 
 void secp256k1_sha256_write_Num(secp256k1_sha256_t* pSha, uint64_t val)
 {
@@ -810,13 +810,13 @@ void BeamCrypto_Kdf_Init(BeamCrypto_Kdf* p, const BeamCrypto_UintBig* pSeed)
 	static const char szCtx1[] = "gen";
 	static const char szCtx2[] = "coF";
 
-	ng1.m_pContext = szCtx1;
+	ng1.m_pContext = (const uint8_t*)szCtx1;
 	ng1.m_nContext = sizeof(szCtx1);
 
 	BeamCrypto_NonceGenerator_NextOkm(&ng1);
 	p->m_Secret = ng1.m_Okm;
 
-	ng2.m_pContext = szCtx2;
+	ng2.m_pContext = (const uint8_t*)szCtx2;
 	ng2.m_nContext = sizeof(szCtx2);
 	BeamCrypto_NonceGenerator_NextScalar(&ng2, &p->m_kCoFactor);
 

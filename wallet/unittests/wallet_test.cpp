@@ -1795,19 +1795,27 @@ namespace
             RunSync1();
         }
 
-        bool DoTx(int& completedCount)
+        bool StartTx(int& completedCount, TxID& txid)
         {
-            if (m_vInvokeData.empty())
+            if (m_InvokeData.m_vec.empty())
                 return false;
 
-            auto txID = m_pWallet->StartTransaction(
+            txid = m_pWallet->StartTransaction(
                 CreateTransactionParameters(TxType::Contract)
-                .SetParameter(TxParameterID::ContractDataPacked, m_vInvokeData));
+                .SetParameter(TxParameterID::ContractDataPacked, m_InvokeData));
 
             completedCount++;
-            io::Reactor::get_Current().run();
+            return true;
+        }
 
-            auto pTx = m_pWalletDB->getTx(txID);
+        bool DoTx(int& completedCount)
+        {
+            TxID txid;
+            if (!StartTx(completedCount, txid))
+                return false;
+
+            io::Reactor::get_Current().run();
+            auto pTx = m_pWalletDB->getTx(txid);
             return (pTx->m_status == wallet::TxStatus::Completed);
         }
 
@@ -1954,8 +1962,10 @@ namespace
 
         manSender.m_Args["action"] = "withdraw";
         manSender.m_Args["amount"] = "370000";
+        manSender.m_Args["amountCoSigner"] = "100";
         manReceiver.m_Args["action"] = "withdraw";
         manReceiver.m_Args["amount"] = "370000";
+        manReceiver.m_Args["amountCoSigner"] = "100";
         manReceiver.m_Args["pkForeign"] = sKeySender;
         manReceiver.m_Args["bCoSigner"] = "1";
 
@@ -1970,7 +1980,15 @@ namespace
         WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
         WALLET_CHECK(manReceiver.m_Done && !manReceiver.m_Err);
 
-        WALLET_CHECK(manSender.DoTx(completedCount));
+        TxID txS, txR;
+        WALLET_CHECK(manSender.StartTx(completedCount, txS));
+        WALLET_CHECK(manReceiver.StartTx(completedCount, txR));
+
+        io::Reactor::get_Current().run();
+        WALLET_CHECK(!completedCount);
+
+        WALLET_CHECK(dbSender->getTx(txS)->m_status == wallet::TxStatus::Completed);
+        WALLET_CHECK(dbReceiver->getTx(txR)->m_status == wallet::TxStatus::Completed);
 
     }
 
@@ -2096,7 +2114,7 @@ namespace
         pMan[iSender]->m_Args["nMinApprovers"] = std::to_string(nPeers);
 
         for (uint32_t i = 0; i < nPeers; i++)
-            pMan[iSender]->m_Args[std::string("admin-") + std::to_string(i)] = pAdminKey[i];
+            pMan[iSender]->m_Args[std::string("admin_") + std::to_string(i)] = pAdminKey[i];
 
         pMan[iSender]->RunSync(1);
         WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
@@ -2152,6 +2170,123 @@ namespace
         WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
 
         WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"next_version\":", sTmp));
+
+
+
+
+        printf("Testing migration to upgradable3...\n");
+        printf("Deploying upgradable2 cocoon\n");
+
+        MyManager::Compile(pMan[iSender]->m_BodyContract, "upgradable3/Test/test_v0_migrate.wasm", MyManager::Kind::Contract);
+        pMan[iSender]->m_Args["action"] = "deploy_version";
+
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+        bvm2::ShaderID sidCocoon;
+        bvm2::get_ShaderID(sidCocoon, pMan[iSender]->m_BodyContract);
+        bvm2::ContractID cidCocoon;
+        bvm2::get_CidViaSid(cidCocoon, sidCocoon, Blob(nullptr, 0));
+        std::string sCidCocoon = cidCocoon.str();
+
+
+        printf("scheduling upgrade...\n");
+
+        Height hTarget = node.get_Processor().m_Cursor.m_Full.m_Height + 20;
+
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            pMan[i]->m_Args["action"] = "schedule_upgrade";
+            pMan[i]->m_Args["cidVersion"] = sCidCocoon;
+            pMan[i]->m_Args["hTarget"] = std::to_string(hTarget);
+
+            if (iSender == i)
+            {
+                pMan[i]->RunSync0(1);
+                WALLET_CHECK(!pMan[i]->m_Done);
+            }
+        }
+
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            if (iSender != i)
+            {
+                pMan[i]->RunSync0(1);
+                WALLET_CHECK(!pMan[i]->m_Done);
+            }
+        }
+
+        pMan[iSender]->RunSync1(); // wait synchronously
+
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+        printf("checking state...\n");
+
+        pMan[iSender]->m_Args["action"] = "view";
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        // scheduled version would be unrecognizable, never mind this.
+
+
+        printf("waiting for upgrade height...\n");
+
+        if (node.get_Processor().m_Cursor.m_Full.m_Height < hTarget)
+        {
+            struct MyObserver :public Node::IObserver
+            {
+                Node& m_Node;
+                Height m_hTarget;
+
+                MyObserver(Node& n) :m_Node(n)
+                {
+                    m_Node.m_Cfg.m_Observer = this;
+                }
+
+                ~MyObserver()
+                {
+                    m_Node.m_Cfg.m_Observer = nullptr;
+                }
+
+                void OnSyncProgress() override {}
+
+                void OnStateChanged() override {
+                    if (m_Node.get_Processor().m_Cursor.m_Full.m_Height >= m_hTarget)
+                        io::Reactor::get_Current().stop();
+                }
+
+            };
+
+            MyObserver obs(node);
+            obs.m_hTarget = hTarget;
+            io::Reactor::get_Current().run();
+        }
+
+        printf("triggering upgrade...\n");
+
+        pMan[iSender]->m_Args["action"] = "explicit_upgrade";
+
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+
+        printf("checking status...\n");
+
+        MyManager::Compile(pMan[iSender]->m_BodyManager, "upgradable3/Test/test_app.wasm", MyManager::Kind::Manager);
+
+        pMan[iSender]->m_Args["action"] = "view";
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"contracts\":", sTmp));
+        std::string sVer;
+        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"version\": ", sVer, 1));
+        WALLET_CHECK(sVer == "0");
     }
 
 
@@ -2241,7 +2376,7 @@ namespace
         pMan[iSender]->m_Args["nMinApprovers"] = std::to_string(nPeers);
 
         for (uint32_t i = 0; i < nPeers; i++)
-            pMan[iSender]->m_Args[std::string("admin-") + std::to_string(i)] = pAdminKey[i];
+            pMan[iSender]->m_Args[std::string("admin_") + std::to_string(i)] = pAdminKey[i];
 
         pMan[iSender]->RunSync(1);
         WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
@@ -2356,10 +2491,160 @@ namespace
         WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"contracts\":", sTmp));
         WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"version\": ", sVer, 1));
         WALLET_CHECK(sVer == "1");
-
-
     }
 
+
+    void TestAppShader4()
+    {
+        printf("Testing dao-vault...\n");
+
+        io::Reactor::Ptr mainReactor(io::Reactor::create());
+        io::Reactor::Scope scope(*mainReactor);
+
+        string nodePath = "node.db";
+        if (boost::filesystem::exists(nodePath))
+            boost::filesystem::remove(nodePath);
+
+        int completedCount = 0;
+
+        //auto timer = io::Timer::create(io::Reactor::get_Current());
+        auto f = [&completedCount, mainReactor](auto txID)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+              //  timer->cancel();
+                mainReactor->stop();
+            }
+        };
+
+        constexpr uint32_t nPeers = 5;
+        constexpr uint32_t iSender = 3;
+        wallet::IWalletDB::Ptr pDb[nPeers];
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            std::string sPath = std::string("sender_") + std::to_string(i) + "wallet.db";
+            pDb[i] = createSqliteWalletDB(sPath, false, true);
+        }
+
+        auto treasury = createTreasury(pDb[iSender], AmountList{Rules::Coin * 300000});
+
+        auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
+        {
+            InitNodeToTest(node, treasury, nullptr, port, 3000, path, peers, miningNode);
+            io::Address address;
+            address.resolve("127.0.0.1");
+            address.port(port);
+            return address;
+        };
+
+
+        Node node;
+        auto nodeAddress = nodeCreator(node, treasury, 32125, "node.db");
+
+        std::unique_ptr<TestWalletRig> pRig[nPeers];
+        std::unique_ptr<MyManager> pMan[nPeers];
+
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            pRig[i] = std::make_unique<TestWalletRig>(pDb[i], f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
+            pMan[i] = std::make_unique<MyManager>(pDb[i], pRig[i]->m_Wallet);
+            pMan[i]->set_Privilege(2);
+
+            if (i)
+                pMan[i]->m_BodyManager = pMan[0]->m_BodyManager;
+            else
+                MyManager::Compile(pMan[i]->m_BodyManager, "dao-vault/app.wasm", MyManager::Kind::Manager);
+        }
+
+        printf("collecting keys...\n");
+
+        std::string pAdminKey[nPeers];
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            pMan[i]->m_Args["role"] = "manager";
+            pMan[i]->m_Args["action"] = "my_admin_key";
+            pMan[i]->RunSync(1);
+            WALLET_CHECK(pMan[i]->m_Done && !pMan[i]->m_Err);
+
+            WALLET_CHECK(pMan[i]->get_OutpStr("\"admin_key\": \"", pAdminKey[i], sizeof(ECC::Point) * 2));
+        }
+
+
+        printf("Deploying dao-vault\n");
+
+        MyManager::Compile(pMan[iSender]->m_BodyContract, "dao-vault/contract.wasm", MyManager::Kind::Contract);
+        pMan[iSender]->m_Args["role"] = "manager";
+        pMan[iSender]->m_Args["action"] = "deploy";
+        pMan[iSender]->m_Args["hUpgradeDelay"] = "1";
+        pMan[iSender]->m_Args["nMinApprovers"] = std::to_string(nPeers);
+
+        for (uint32_t i = 0; i < nPeers; i++)
+            pMan[iSender]->m_Args[std::string("admin_") + std::to_string(i)] = pAdminKey[i];
+
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+
+        printf("reading cid...\n");
+
+        pMan[iSender]->m_Args["action"] = "view";
+        pMan[iSender]->RunSync(1);
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+
+        std::string sTmp, sCid;
+        WALLET_CHECK(MyManager::get_OutpStrEx(pMan[iSender]->m_Out.str(), "\"contracts\":", sTmp));
+        WALLET_CHECK(MyManager::get_OutpStrEx(sTmp, "\"cid\": \"", sCid, bvm2::ContractID::nTxtLen));
+
+        const Amount amount = Rules::Coin * 100;
+
+
+        printf("depositing...\n");
+
+        pMan[iSender]->m_Args["cid"] = sCid;
+        pMan[iSender]->m_Args["action"] = "deposit";
+        pMan[iSender]->m_Args["amount"] = std::to_string(amount);
+
+        pMan[iSender]->RunSync(1);
+
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+
+
+        printf("withdrawing...\n");
+
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            pMan[i]->m_Args["cid"] = sCid;
+            pMan[i]->m_Args["action"] = "withdraw";
+            pMan[i]->m_Args["amount"] = std::to_string(amount);
+            pMan[i]->m_Args["iSender"] = std::to_string(iSender);
+            pMan[i]->m_Args["approve_mask"] = std::to_string((1U << nPeers) - 1);
+
+            if (iSender == i)
+            {
+                pMan[i]->RunSync0(1);
+                WALLET_CHECK(!pMan[i]->m_Done);
+            }
+        }
+
+        for (uint32_t i = 0; i < nPeers; i++)
+        {
+            if (iSender != i)
+            {
+                pMan[i]->m_BodyContract = pMan[iSender]->m_BodyContract;
+                pMan[i]->RunSync0(1);
+                WALLET_CHECK(!pMan[i]->m_Done);
+            }
+        }
+
+        pMan[iSender]->RunSync1(); // wait synchronously
+
+        WALLET_CHECK(pMan[iSender]->m_Done && !pMan[iSender]->m_Err);
+        WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
+    }
 
     struct MyZeroInit {
         static void Do(std::string&) {}
@@ -2447,6 +2732,13 @@ namespace
                 WALLET_CHECK(CheckReceiverAddress(addr));
                 auto p = ConvertTokenToJson(addr);
                 WALLET_CHECK(!p.empty());
+            }
+            {
+                auto p = ConvertTokenToJson("9DfkirZYqjTSuHBGYKxb3ifi8QPEM6xcQewGQVuyKgfMB4cGAfsZLaXNSSMk9DULVwdiQu8mcATtxZcwk6hnb27EJgmhCueJErQeLcfFdvF4n72dbcy5H7MNfr67fukF1bdMt2sNV93seDPZikFsNPxub7XbWumW5pa5Ce93oyFZ4WACeiFid3GbMdkC5418MNzhhWujqjExPmhxvK7YxUZeHQKJ71583mia5rbSTXYZBMHCmkoP2wYjpakt2g7dHMgLVUbpj6MRxsyGNBEecBL8889HVxVxpzyy44BvbxeVD6mdxHWVmntNhjEYnUfnvF65bkNgzSwpTMuKaiDQiHyX7oBJexUHkwVdUsSQcXHrAfaeKZx14e2BcZv9CfG8HB37zA93Gxb3atux6XXQXU8uyJanr9G66fCbw2LFzCPBKMeDanPU21ts25KMMtb6V5JebcLiJfeiMqbwmJ");
+                json obj = json::parse(p);
+                
+                auto t = obj["params"]["PeerID"].get<std::string>();
+                WALLET_CHECK(t == "3c59d8d635a3971b7c55b26010a280921356f007329770a5e6955d83740b6ed6de1");
             }
             {
                 // don't save uninitialized variables
@@ -3057,7 +3349,7 @@ namespace
             stringstream ss;
             ss << "sender_" << i << ".db";
             auto t = make_unique<TestWalletRig>(createSenderWalletDBWithSeed(ss.str(), true), f, TestWalletRig::Type::Regular, false, 0);
-            wallets.push_back(move(t));
+            wallets.push_back(std::move(t));
         }
         
         TestWalletRig receiver(createReceiverWalletDB(), f);
@@ -3134,7 +3426,7 @@ namespace
         TestNode node;
 
         bvm2::ContractInvokeData vData;
-        bvm2::ContractInvokeEntry& cdata = vData.emplace_back();
+        bvm2::ContractInvokeEntry& cdata = vData.m_vec.emplace_back();
 
         cdata.m_Cid = 746U;
         cdata.m_iMethod = 6;
@@ -3695,8 +3987,50 @@ void TestArgumentParsing()
         WALLET_CHECK(p.m_Args["action"] == "create");
         WALLET_CHECK(p.m_Args["metadata"] == "STD:SCH_VER=1;N=bU_Coin;SN=bU;UN=bU;NTHUN=AGROTH");
     }
-
-
+    {
+        std::string largeData;
+        constexpr size_t maxSize = 2'000'000;
+        largeData.reserve(maxSize);
+        largeData.append("data=");
+        for (size_t i = largeData.size(); i < maxSize; ++i)
+        {
+            largeData.push_back('A');
+        }
+        MyProcessor p;
+        p.AddArgs(largeData);
+        WALLET_CHECK(p.m_Args.size() == 1);
+        const std::string& data = p.m_Args["data"];
+        WALLET_CHECK(std::all_of(data.cbegin(), data.cend(), [](char c) { return c == 'A'; }) == true);
+    }
+    {
+        std::string largeData;
+        constexpr size_t maxSize = 2'000'000;
+        largeData.reserve(maxSize);
+        largeData.append("data=\"");
+        for (size_t i = largeData.size(); i < maxSize; ++i)
+        {
+            largeData.push_back('A');
+        }
+        largeData.push_back('\"');
+        MyProcessor p;
+        p.AddArgs(largeData);
+        WALLET_CHECK(p.m_Args.size() == 1);
+        const std::string& data = p.m_Args["data"];
+        WALLET_CHECK(std::all_of(data.cbegin(), data.cend(), [](char c) { return c == 'A'; }) == true);
+    }
+    {
+        std::string largeData;
+        constexpr size_t maxSize = 2'000'000;
+        largeData.reserve(maxSize);
+        largeData.append("data=\"");
+        for (size_t i = largeData.size(); i < maxSize; ++i)
+        {
+            largeData.push_back('A');
+        }
+        MyProcessor p;
+        p.AddArgs(largeData);
+        WALLET_CHECK(p.m_Args.empty());
+    }
     {
         MyProcessor p;
         p.AddArgs(R"(role=manager,action=destroy_contract,cid=2dd39c06ede9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d,name="my \"trt,ywy\" name",te_t = "saa ,  "    )");
@@ -3720,15 +4054,16 @@ void TestArgumentParsing()
     {
         MyProcessor p;
         p.AddArgs("");
-        WALLET_CHECK(p.m_Args.size() == 0);
+        WALLET_CHECK(p.m_Args.empty());
     }
 
     {
         MyProcessor p;
         p.AddArgs("r54ole=manager,act ion=destroy_contract,cid=2dd39c06e653563 543536 76 76��������������;;;;';'df;;.,,,,,,de9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d,na ");
-        WALLET_CHECK(p.m_Args.size() == 2);
+        WALLET_CHECK(p.m_Args.size() == 3);
         WALLET_CHECK(p.m_Args["r54ole"] == "manager");
         WALLET_CHECK(p.m_Args["ion"] == "destroy_contract");
+        WALLET_CHECK(p.m_Args["cid"] == "2dd39c06e653563");
     }
 
     {
@@ -3745,6 +4080,78 @@ void TestArgumentParsing()
         p.AddArgs("data=\"role=manager,action=destroy_contract,cid=2dd39c06e653563    \"");
         WALLET_CHECK(p.m_Args.size() == 1);
         WALLET_CHECK(p.m_Args["data"] == "role=manager,action=destroy_contract,cid=2dd39c06e653563    ");
+    }
+
+    { // Separate only by comma
+        MyProcessor p;
+        p.AddArgs(R"(action = create   	  metadata = aaaa)");
+        WALLET_CHECK(p.m_Args.size() == 1);
+        WALLET_CHECK(p.m_Args["action"] == "create");
+    }
+
+    { // Separate only by comma
+        MyProcessor p;
+        p.AddArgs(R"(action = create   ;    metadata = aaaa)");
+        WALLET_CHECK(p.m_Args.size() == 1);
+        WALLET_CHECK(p.m_Args["action"] == "create");
+    }
+
+    { // Separate only by comma
+        MyProcessor p;
+        p.AddArgs(R"(action = create   ,    metadata = aaaa)");
+        WALLET_CHECK(p.m_Args.size() == 2);
+        WALLET_CHECK(p.m_Args["action"] == "create");
+        WALLET_CHECK(p.m_Args["metadata"] == "aaaa");
+    }
+
+    {
+      MyProcessor p;
+      p.AddArgs("action = \"some very\nlarge\ntext\nwith\na lot\nof\tlines\"");
+      WALLET_CHECK(p.m_Args.size() == 1);
+      WALLET_CHECK(p.m_Args["action"] == "some very\nlarge\ntext\nwith\na lot\nof\tlines");
+    }
+
+    {
+      MyProcessor p;
+      p.AddArgs("action = \"some very\nlarge\ntext\nwith\na lot\nof\tlines\"   ,     metadata = aaa");
+      WALLET_CHECK(p.m_Args.size() == 2);
+      WALLET_CHECK(p.m_Args["action"] == "some very\nlarge\ntext\nwith\na lot\nof\tlines");
+      WALLET_CHECK(p.m_Args["metadata"] == "aaa");
+    }
+
+
+    {
+      MyProcessor p;
+      p.AddArgs(R"(data="some very
+large
+text
+with
+a lot
+of	lines",role=manager,action=destroy_contract,cid=2dd39c06ede9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d,name="my \"trt,ywy\" name",te_t = "saa ,  "    )");
+      WALLET_CHECK(p.m_Args.size() == 6);
+      WALLET_CHECK(p.m_Args["data"] == "some very\nlarge\ntext\nwith\na lot\nof\tlines");
+      WALLET_CHECK(p.m_Args["role"] == "manager");
+      WALLET_CHECK(p.m_Args["action"] == "destroy_contract");
+      WALLET_CHECK(p.m_Args["cid"] == "2dd39c06ede9c97e944b8393a7efb2d0b04d1ffc4a6d97a95f0111cff2d");
+      WALLET_CHECK(p.m_Args["name"] == "my \"trt,ywy\" name");
+      WALLET_CHECK(p.m_Args["te_t"] == "saa ,  ");
+    }
+
+
+    {
+      MyProcessor p;
+      p.AddArgs(R"e(lines_data="some very
+large
+text
+with
+a lot
+of	lines",role=manager,action=destroy_contract,data="{\"name\": \"Otton I\", \"age\":  12}")e");
+      WALLET_CHECK(p.m_Args.size() == 4);
+      WALLET_CHECK(p.m_Args["lines_data"] == "some very\nlarge\ntext\nwith\na lot\nof\tlines");
+      WALLET_CHECK(p.m_Args["role"] == "manager");
+      WALLET_CHECK(p.m_Args["action"] == "destroy_contract");
+      WALLET_CHECK(p.m_Args["data"] == "{\"name\": \"Otton I\", \"age\":  12}");
+
     }
 }
 
@@ -4398,6 +4805,7 @@ int main()
     TestAppShader1();
     TestAppShader2();
     TestAppShader3();
+    TestAppShader4();
     Rules::get().pForks[1].m_Height = 20;
     Rules::get().pForks[2].m_Height = 20;
     Rules::get().pForks[3].m_Height = 20;
