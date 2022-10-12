@@ -372,6 +372,7 @@ namespace bvm2 {
 		virtual void OnRet(Wasm::Word nRetAddr) override;
 		virtual uint32_t get_HeapLimit() override;
 		virtual void DischargeUnits(uint32_t size) override;
+		virtual uint32_t get_WasmVersion() override;
 
 		virtual void LoadVar(const Blob&, Blob& res) { res.n = 0; } // res is temporary
 		virtual uint32_t SaveVar(const Blob&, const Blob& val) { return 0; }
