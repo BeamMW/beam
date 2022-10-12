@@ -68,6 +68,7 @@ namespace Shaders {
 #include "../Shaders/aphorize/contract.h"
 #include "../Shaders/nephrite/contract.h"
 #include "../Shaders/amm/contract.h"
+#include "../Shaders/mintor/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
