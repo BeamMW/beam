@@ -162,7 +162,7 @@ struct ParserContext
 	{
 		Env::Memcpy(szBuf, sz, nNameLen);
 		Env::Memcpy(szBuf + nNameLen, VER_TXT, sizeof(VER_TXT) - 1);
-		Utils::String::Decimal::Print(szBuf + nNameLen + _countof(VER_TXT) - 1, nNameLen);
+		Utils::String::Decimal::Print(szBuf + nNameLen + _countof(VER_TXT) - 1, iVer);
 
 		OnName(szBuf);
 	}
