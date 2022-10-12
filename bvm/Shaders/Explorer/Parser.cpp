@@ -109,10 +109,12 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	macro(Vault, Vault::s_SID) \
 	macro(VaultAnon, VaultAnon::s_SID) \
 	macro(Faucet, Faucet::s_SID) \
-	macro(Oracle2, Oracle2::s_pSID[0]) \
-	macro(Nephrite, Nephrite::s_pSID[0]) \
-	macro(DaoVault, DaoVault::s_pSID[0]) \
-	macro(Bans, NameService::s_pSID[0]) \
+
+#define HandleContractsVer(macro) \
+	macro(Oracle2, Oracle2::s_pSID) \
+	macro(Nephrite, Nephrite::s_pSID) \
+	macro(DaoVault, DaoVault::s_pSID) \
+	macro(Bans, NameService::s_pSID) \
 
 #define HandleContractsWrappers(macro) \
 	macro(Upgradable, Upgradable::s_SID) \
@@ -154,6 +156,24 @@ struct ParserContext
 		Env::DocAddText("kind", sz);
 	}
 
+#define VER_TXT " v"
+
+	static void OnNameVer2(const char* sz, uint32_t iVer, char* szBuf, uint32_t nNameLen)
+	{
+		Env::Memcpy(szBuf, sz, nNameLen);
+		Env::Memcpy(szBuf + nNameLen, VER_TXT, sizeof(VER_TXT) - 1);
+		Utils::String::Decimal::Print(szBuf + nNameLen + _countof(VER_TXT) - 1, nNameLen);
+
+		OnName(szBuf);
+	}
+
+	template <uint32_t nNameLen>
+	static void OnNameVer(const char* sz, uint32_t iVer)
+	{
+		char szBuf[nNameLen + Utils::String::Decimal::DigitsMax<uint32_t>::N + _countof(VER_TXT)];
+		OnNameVer2(sz, iVer, szBuf, nNameLen);
+	}
+
 	static void OnNameUpgradable(const char* sz, const ShaderID& sid)
 	{
 		Env::DocGroup gr("kind");
@@ -176,11 +196,17 @@ struct ParserContext
 	void OnMethod_##name(); \
 	void OnState_##name();
 	HandleContractsStd(THE_MACRO)
-	HandleContractsWrapped(THE_MACRO)
+		HandleContractsWrapped(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(name, psid) \
+	void OnMethod_##name(uint32_t iVer); \
+	void OnState_##name(uint32_t iVer);
+		HandleContractsVer(THE_MACRO)
 #undef THE_MACRO
 
 #define THE_MACRO(name, sid) void On_##name();
-	HandleContractsWrappers(THE_MACRO)
+		HandleContractsWrappers(THE_MACRO)
 #undef THE_MACRO
 
 #define THE_MACRO(name, sid) \
@@ -196,7 +222,23 @@ struct ParserContext
 		} \
 	}
 
-	HandleContractsStd(THE_MACRO)
+		HandleContractsStd(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(name, psid) \
+	void On_##name(uint32_t iVer) \
+	{ \
+		OnNameVer<_countof(#name) - 1>(#name, iVer); \
+		if (m_Method) \
+			OnMethod_##name(iVer); \
+		if (m_State) \
+		{ \
+			Env::DocGroup gr("State"); \
+			OnState_##name(iVer); \
+		} \
+	}
+
+	HandleContractsVer(THE_MACRO)
 #undef THE_MACRO
 
 #define THE_MACRO(name, sid) \
@@ -273,6 +315,17 @@ bool ParserContext::Parse()
 	HandleContractsStd(THE_MACRO)
 	HandleContractsWrappers(THE_MACRO)
 	HandleContractsWrapped(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(name, psid) \
+	for (uint32_t i = 0; i < _countof(psid); i++) \
+		if (_POD_(m_Sid) == psid[i]) \
+		{ \
+			On_##name(i); \
+			return true; \
+		}
+
+	HandleContractsVer(THE_MACRO)
 #undef THE_MACRO
 
 	return false;
@@ -1023,7 +1076,7 @@ void ParserContext::WriteNephriteSettings(const Nephrite::Settings& stg)
 	DocAddAid("Gov Token", stg.m_AidGov);
 }
 
-void ParserContext::OnMethod_Nephrite()
+void ParserContext::OnMethod_Nephrite(uint32_t /* iVer */)
 {
 	switch (m_iMethod)
 	{
@@ -1149,7 +1202,7 @@ void ParserContext::OnMethod_Nephrite()
 	}
 }
 
-void ParserContext::OnState_Nephrite()
+void ParserContext::OnState_Nephrite(uint32_t /* iVer */)
 {
 	WriteUpgrade3State();
 
@@ -1298,7 +1351,7 @@ bool ParserContext::get_Oracle2Median(MultiPrecision::Float& ret, const Contract
 	return true;
 }
 
-void ParserContext::OnMethod_Oracle2()
+void ParserContext::OnMethod_Oracle2(uint32_t /* iVer */)
 {
 	switch (m_iMethod)
 	{
@@ -1392,7 +1445,7 @@ void ParserContext::OnMethod_Oracle2()
 	}
 }
 
-void ParserContext::OnState_Oracle2()
+void ParserContext::OnState_Oracle2(uint32_t /* iVer */)
 {
 	Oracle2::StateMax g;
 	uint32_t nProvs = 0;
@@ -1461,7 +1514,7 @@ void ParserContext::OnState_Oracle2()
 	}
 }
 
-void ParserContext::OnMethod_DaoVault()
+void ParserContext::OnMethod_DaoVault(uint32_t /* iVer */)
 {
 	switch (m_iMethod)
 	{
@@ -1510,7 +1563,7 @@ void ParserContext::OnMethod_DaoVault()
 	}
 }
 
-void ParserContext::OnState_DaoVault()
+void ParserContext::OnState_DaoVault(uint32_t /* iVer */)
 {
 	WriteUpgrade3State();
 }
@@ -1539,7 +1592,7 @@ void ParserContext::DocSetBansNameEx(const void* p, uint32_t nLen)
 	Env::DocAddText("name", sz);
 }
 
-void ParserContext::OnMethod_Bans()
+void ParserContext::OnMethod_Bans(uint32_t /* iVer */)
 {
 	switch (m_iMethod)
 	{
@@ -1637,7 +1690,7 @@ void ParserContext::OnMethod_Bans()
 	}
 }
 
-void ParserContext::OnState_Bans()
+void ParserContext::OnState_Bans(uint32_t /* iVer */)
 {
 	WriteUpgrade3State();
 
