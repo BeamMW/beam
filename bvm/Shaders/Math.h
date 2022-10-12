@@ -734,10 +734,43 @@ namespace MultiPrecision
             Normalize();
         }
 
-        uint64_t Get() const
+		static Float get_1()
+		{
+			Float x;
+			x.m_Num = s_HiBit;
+			x.m_Order = -(s_Bits - 1);
+			return x;
+		}
+
+		static Float get_Half()
+		{
+			Float x;
+			x.m_Num = s_HiBit;
+			x.m_Order = -s_Bits;
+			return x;
+		}
+
+		static Float get_1_minus_eps()
+		{
+			Float x;
+			x.m_Num = static_cast<uint64_t>(-1);
+			x.m_Order = -s_Bits;
+			return x;
+		}
+
+		template <typename T>
+        bool RoundDown(T& ret) const
         {
-			if (m_Order > 0)
-				return static_cast<uint64_t>(-1); // overflow/inf
+			static_assert(sizeof(T) <= sizeof(m_Num));
+
+			constexpr int32_t nOrderMax = static_cast<int32_t>((sizeof(T) * 8) - s_Bits);
+			static_assert(nOrderMax <= 0);
+
+			if (m_Order > nOrderMax)
+			{
+				ret = static_cast<uint64_t>(-1); // overflow/inf
+				return false; // overflow
+			}
 
             uint32_t ord = -m_Order;
 			if (ord >= s_Bits)
@@ -745,15 +778,35 @@ namespace MultiPrecision
 #if BVM_TARGET_HF < 6
 				Env::get_Height(); // this is workaround!
 #endif
-				return 0;
-			}
+				ret = 0;
+			} else
+				ret = static_cast<T>(m_Num >> ord);
 
-            return m_Num >> ord;
+			return true;
         }
 
-        operator uint64_t () const {
-            return Get();
-        }
+		template <typename T>
+		bool Round(T& ret) const {
+			return (*this + get_Half()).RoundDown(ret);
+		}
+
+		template <typename T>
+		bool RoundUp(T& ret) const {
+			return (*this + get_1_minus_eps()).RoundDown(ret);
+		}
+
+		// legacy functions. To be removed
+		uint64_t Get() const
+		{
+			uint64_t ret;
+			RoundDown(ret);
+			return ret;
+		}
+
+		operator uint64_t () const
+		{
+			return Get();
+		}
 
         bool IsZero() const
         {
