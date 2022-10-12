@@ -14,7 +14,9 @@
 
 #include "wallet_client.h"
 #include "wallet/core/simple_transaction.h"
+#ifdef BEAM_ASSET_SWAP_SUPPORT
 #include "wallet/transactions/dex/dex_tx.h"
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 #include "utility/log_rotation.h"
 #include "http/http_client.h"
 #include "core/block_rw.h"
@@ -67,7 +69,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 
     void startTransaction(TxParameters&& parameters) override
     {
-        call_async(&IWalletModelAsync::startTransaction, move(parameters));
+        call_async(&IWalletModelAsync::startTransaction, std::move(parameters));
     }
 
     void syncWithNode() override
@@ -126,20 +128,28 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async((MethodType)&IWalletModelAsync::getAddresses, own);
     }
 
-     void getDexOrders() override
-     {
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+    void getDexOrders() override
+    {
         call_async(&IWalletModelAsync::getDexOrders);
-     }
+    }
 
-     void publishDexOrder(const DexOrder& order) override
-     {
+    void getDexOrder(const DexOrderID& orderId) override
+    {
+        call_async(&IWalletModelAsync::getDexOrder, orderId);
+    }
+
+    void publishDexOrder(const DexOrder& order) override
+    {
         call_async(&IWalletModelAsync::publishDexOrder, order);
-     }
+    }
 
-     void acceptDexOrder(const DexOrderID& orderId) override
-     {
-        call_async(&IWalletModelAsync::acceptDexOrder, orderId);
-     }
+    void cancelDexOrder(const DexOrderID& orderId) override
+    {
+        call_async(&IWalletModelAsync::cancelDexOrder, orderId);
+    }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT    
     void getSwapOffers() override
     {
@@ -161,6 +171,19 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::storeSwapParams, params);
     }
 #endif
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+    void loadDexOrderParams() override
+    {
+        call_async(&IWalletModelAsync::loadDexOrderParams);
+    }
+
+    void storeDexOrderParams(const beam::ByteBuffer& params) override
+    {
+        call_async(&IWalletModelAsync::storeDexOrderParams, params);
+    }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
     void cancelTx(const wallet::TxID& id) override
     {
         call_async(&IWalletModelAsync::cancelTx, id);
@@ -547,7 +570,7 @@ namespace beam::wallet
 
     void WalletClient::postFunctionToClientContext(MessageFunction&& func)
     {
-        onPostFunctionToClientContext(move(func));
+        onPostFunctionToClientContext(std::move(func));
     }
     //
     // UI thread. Methods below should be called from main thread
@@ -703,15 +726,19 @@ namespace beam::wallet
                 //
                 // DEX
                 //
-                /*
-                auto dexBoard = make_shared<DexBoard>(*broadcastRouter, this->getAsync(), *m_walletDB);
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+                auto dexBoard = make_shared<DexBoard>(*broadcastRouter, *m_walletDB);
                 auto dexWDBSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(dexBoard.get()), m_walletDB);
 
                 using DexBoardSubscriber = ScopedSubscriber<DexBoard::IObserver, DexBoard>;
                 auto dexBoardSubscriber = make_unique<DexBoardSubscriber>(static_cast<DexBoard::IObserver*>(this), dexBoard);
 
+                using DexWalletSubscriber = ScopedSubscriber<wallet::ISimpleSwapHandler, wallet::Wallet>;
+                auto dexWalletSubscriber = make_unique<DexWalletSubscriber>(static_cast<ISimpleSwapHandler*>(dexBoard.get()), wallet);
+
                 _dex = dexBoard;
-                */
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
 
                 //
                 // IPFS
@@ -1071,6 +1098,11 @@ namespace beam::wallet
     const Rules& WalletClient::getRules() const
     {
         return m_rules;
+    }
+
+    std::set<beam::Asset::ID> WalletClient::getAssetsFull() const
+    {
+        return m_assetsFullList;
     }
 
     std::set<beam::Asset::ID> WalletClient::getAssetsNZ() const
@@ -1496,38 +1528,6 @@ namespace beam::wallet
         onAddresses(own, m_walletDB->getAddresses(own));
     }
 
-    void WalletClient::getDexOrders()
-    {
-        if (auto dex = _dex.lock())
-        {
-            onDexOrdersChanged(ChangeAction::Reset, dex->getOrders());
-        }
-    }
-
-    void WalletClient::publishDexOrder(const DexOrder& order)
-    {
-        if (auto dex = _dex.lock())
-        {
-            dex->publishOrder(order);
-            return;
-        }
-
-        assert(false);
-        LOG_WARNING() << "WalletClient::publishDexOrder but DEX is not available";
-    }
-
-    void WalletClient::acceptDexOrder(const DexOrderID& orderId)
-    {
-        if (auto dex = _dex.lock())
-        {
-            dex->acceptOrder(orderId);
-            return;
-        }
-
-        assert(false);
-        LOG_WARNING() << "WalletClient::acceptDexOrder but DEX is not available";
-    }
-
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     void WalletClient::getSwapOffers()
     {
@@ -1848,6 +1848,56 @@ namespace beam::wallet
         onNodeConnectionChanged(isConnected());
     }
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+    void WalletClient::loadDexOrderParams()
+    {
+        ByteBuffer params;
+        if (m_walletDB->getBlob(ASSET_SWAP_PARAMS_NAME, params))
+            onAssetSwapParamsLoaded(params);
+    }
+
+    void WalletClient::storeDexOrderParams(const ByteBuffer& params)
+    {
+        m_walletDB->setVarRaw(ASSET_SWAP_PARAMS_NAME, params.data(), params.size());
+    }
+
+    void WalletClient::getDexOrders()
+    {
+        if (auto dex = _dex.lock())
+        {
+            onDexOrdersChanged(ChangeAction::Reset, dex->getDexOrders());
+        }
+    }
+
+    void WalletClient::getDexOrder(const DexOrderID& orderId)
+    {
+        if (auto dex = _dex.lock())
+        {
+            auto order = dex->getDexOrder(orderId);
+            if (order)
+            {
+                onFindDexOrder(*order);
+            }
+        }
+    }
+
+    void WalletClient::publishDexOrder(const DexOrder& order)
+    {
+        if (auto dex = _dex.lock())
+        {
+            dex->publishOrder(order);
+        }
+    }
+
+    void WalletClient::cancelDexOrder(const DexOrderID& orderId)
+    {
+        if (auto dex = _dex.lock())
+        {
+            dex->cancelDexOrder(orderId);
+        }
+    }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
     #ifdef BEAM_IPFS_SUPPORT
     void WalletClient::getIPFSStatus()
     {
@@ -2061,6 +2111,8 @@ namespace beam::wallet
             return "https://apps-testnet.beam.mw/appslist.json";
 #elif defined(BEAM_MAINNET)
             return "https://apps.beam.mw/appslist.json";
+#elif defined(BEAM_DAPPNET)
+            return "https://apps-dappnet.beam.mw/app/appslist.json";
 #else
             return "http://3.19.141.112/app/appslist.json";
 #endif
@@ -2103,7 +2155,7 @@ namespace beam::wallet
             else if (scheme == "https")
                 address.port(443);
         }
-;
+
         std::vector<HeaderPair> headers;
         headers.push_back({ "Content-Type", "application/json" });
         headers.push_back({ "Host", host.c_str() });
@@ -2224,6 +2276,34 @@ namespace beam::wallet
         return status;
     }
 
+    void WalletClient::loadFullAssetsList()
+    {
+        auto wallet = m_wallet.lock();
+        if (wallet)
+        {
+            auto h = m_status.stateID.m_Height;
+            wallet->RequestAssetsListAt(h, [this](ByteBuffer assetsBuffer)
+            {
+                std::vector<Asset::ID> assets;
+                size_t assetsCount = assetsBuffer.size() / sizeof(Asset::ID);
+                assets.resize(assetsCount);
+                memcpy(assets.data(), assetsBuffer.data(), assetsBuffer.size());
+
+                std::set<Asset::ID> assetsFullList;
+                for (auto asset : assets)
+                {
+                    assetsFullList.insert(asset);
+                    getAssetInfo(asset);
+                }
+
+                postFunctionToClientContext([this, assetsFullList]()
+                {
+                    m_assetsFullList = assetsFullList;
+                });
+            });
+        }
+    }
+
     void WalletClient::onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
     {
         // reason -> ErrorType
@@ -2281,7 +2361,7 @@ namespace beam::wallet
                 m_unsafeActiveTxCount = count;
                 m_mpLockTimeLimit = limit;
             });
-
+            loadFullAssetsList();
             auto currentHeight = w->get_TipHeight();
 
             struct Walker :public Block::SystemState::IHistory::IWalker

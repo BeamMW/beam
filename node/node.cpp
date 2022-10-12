@@ -3935,6 +3935,34 @@ void Node::Peer::OnMsg(proto::GetShieldedOutputsAt&& msg)
     Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::GetAssetsListAt&& msg)
+{
+    auto& processor = m_This.m_Processor;
+    auto height = msg.m_Height;
+
+    if(processor.m_Cursor.m_ID.m_Height < height) return;
+    
+    std::vector<Asset::ID> assets = {Asset::s_BeamID};
+    Asset::Full ai;
+    for (ai.m_ID = 1; ; ai.m_ID++)
+    {
+        int ret = processor.get_AssetAt(ai, height);
+        if (!ret)
+            break;
+
+        if (ret > 0)
+        {
+            assets.push_back(ai.m_ID);
+        }
+    }
+
+    proto::AssetsListAt msgOut;
+    size_t assetsBufferSize = sizeof(Asset::ID) * assets.size();
+    msgOut.m_AssetsList.resize(assetsBufferSize);
+    memcpy(msgOut.m_AssetsList.data(), assets.data(), assetsBufferSize);
+    Send(msgOut);
+}
+
 void Node::Peer::OnMsg(proto::ContractVarsEnum&& msg)
 {
     struct Wrk
@@ -4452,7 +4480,7 @@ void Node::Miner::StartMining(Task::Ptr&& pTask)
         }
         else
         {
-            pTask->m_pStop.reset(new volatile bool);
+            pTask->m_pStop.reset(new bool);
             *pTask->m_pStop = false;
         }
 

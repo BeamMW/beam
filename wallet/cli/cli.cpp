@@ -62,6 +62,10 @@
 
 #include "utils.h"
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+#include "assets_swap.h"
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
 #include <boost/assert.hpp>
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -1226,6 +1230,9 @@ namespace
             auto txUnreg   = walletDB->getTxHistory(TxType::AssetUnreg);
             auto txInfo    = walletDB->getTxHistory(TxType::AssetInfo);
             auto txMaxPriv = walletDB->getTxHistory(TxType::PushTransaction);
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+            auto txAssetsSwaps = walletDB->getTxHistory(TxType::DexSimpleSwap);
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
             if (assetId != Asset::s_InvalidID)
             {
@@ -1239,6 +1246,9 @@ namespace
             txHistory.insert(txHistory.end(), txUnreg.begin(), txUnreg.end());
             txHistory.insert(txHistory.end(), txInfo.begin(), txInfo.end());
             txHistory.insert(txHistory.end(), txMaxPriv.begin(), txMaxPriv.end());
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+            txHistory.insert(txHistory.end(), txAssetsSwaps.begin(), txAssetsSwaps.end());
+#endif  // BEAM_ASSET_SWAP_SUPPORT
         }
 
         std::sort(txHistory.begin(), txHistory.end(), [](const TxDescription& a, const TxDescription& b) -> bool {
@@ -1315,8 +1325,26 @@ namespace
 
                 cout << std::string(4, ' ') << kTxHistoryColumnDatetTime << ": " << tstamp << std::endl;
                 cout << std::string(4, ' ') <<  kTxHistoryColumnHeight << ": " << static_cast<int64_t>(height) << std::endl;
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+                if (tx.m_txType == TxType::DexSimpleSwap)
+                {
+                    cout << std::string(4, ' ') << "asset swap: true" << std::endl;
+                }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
                 cout << std::string(4, ' ') << kTxHistoryColumnDirection << ": " << direction << std::endl;
                 cout << std::string(4, ' ') << amountHeader << ": " << amount << std::endl;
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+                if (tx.m_txType == TxType::DexSimpleSwap)
+                {
+                    const auto rasset  = tx.GetParameter<Asset::ID>(TxParameterID::DexReceiveAsset);
+                    const auto ramount = tx.GetParameter<Amount>(TxParameterID::DexReceiveAmount);
+                    auto [unitNameSecond, nthNameSekond] = GetAssetNames(walletDB, *rasset);
+                    boost::ignore_unused(nthNameSekond);
+                    const auto amountSecondHeader = boost::format(kAssetTxHistoryColumnAmount) %  unitNameSecond;
+                    std::string amountSecond = to_string(PrintableAmount(*ramount, true));
+                    cout << std::string(4, ' ') << amountSecondHeader << ": " << amountSecond << std::endl;
+                }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
                 cout << std::string(4, ' ') <<  kTxHistoryColumnStatus << ": " << interpretStatusCliImpl(tx) << std::endl;
                 cout << std::string(4, ' ') << kTxHistoryColumnId << ": " << txid << std::endl;
                 if (!kernelId.empty())
@@ -1477,7 +1505,11 @@ namespace
 
             if (vm.count(cli::TX_HISTORY))
             {
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+                std::array<TxType, 4> types = { TxType::Simple, TxType::PushTransaction, TxType::Contract, TxType::DexSimpleSwap };
+#else
                 std::array<TxType, 3> types = { TxType::Simple, TxType::PushTransaction, TxType::Contract };
+#endif  // BEAM_ASSET_SWAP_SUPPORT
                 for (auto type : types)
                 {
                     auto v = walletDB->getTxHistory(type);
@@ -1510,9 +1542,27 @@ namespace
                     const auto token     = tx.getToken();
 
                     cout << std::string(4, ' ') << kTxHistoryColumnDatetTime << ": " << tstamp << std::endl;
+                    #ifdef BEAM_ASSET_SWAP_SUPPORT
+                    if (tx.m_txType == TxType::DexSimpleSwap)
+                    {
+                        cout << std::string(4, ' ') << "asset swap: true" << std::endl;
+                    }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
                     cout << std::string(4, ' ') << kTxHistoryColumnDirection << ": " << direction << std::endl;
                     cout << std::string(4, ' ') << kTxHistoryColumnAmount << ": " << amount << std::endl;
-                    cout << std::string(4, ' ') <<  kTxHistoryColumnStatus << ": " << interpretStatusCliImpl(tx) << std::endl;
+                    #ifdef BEAM_ASSET_SWAP_SUPPORT
+                    if (tx.m_txType == TxType::DexSimpleSwap)
+                    {
+                        const auto rasset  = tx.GetParameter<Asset::ID>(TxParameterID::DexReceiveAsset);
+                        const auto ramount = tx.GetParameter<Amount>(TxParameterID::DexReceiveAmount);
+                        auto [unitNameSecond, nthNameSekond] = GetAssetNames(walletDB, *rasset);
+                        boost::ignore_unused(nthNameSekond);
+                        const auto amountSecondHeader = boost::format(kAssetTxHistoryColumnAmount) %  unitNameSecond;
+                        std::string amountSecond = to_string(PrintableAmount(*ramount, true));
+                        cout << std::string(4, ' ') << amountSecondHeader << ": " << amountSecond << std::endl;
+                    }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+                    cout << std::string(4, ' ') << kTxHistoryColumnStatus << ": " << interpretStatusCliImpl(tx) << std::endl;
                     cout << std::string(4, ' ') << kTxHistoryColumnId << ": " << txid << std::endl;
                     if (!krnid.empty())
                         cout << std::string(4, ' ') << kTxHistoryColumnKernelId << ": " << krnid << std::endl;
@@ -2151,7 +2201,14 @@ namespace
 
 #endif  // BEAM_LASER_SUPPORT
 
-    int DoWalletFunc(const po::variables_map& vm, std::function<int (const po::variables_map&, Wallet::Ptr, IWalletDB::Ptr, boost::optional<TxID>&)> func)
+    int DoWalletFunc(
+        const po::variables_map& vm
+        , std::function<int(const po::variables_map&, Wallet::Ptr, IWalletDB::Ptr, boost::optional<TxID>&)> func
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        , std::function<int(const po::variables_map&, Wallet::Ptr, IWalletDB::Ptr, DexBoard::Ptr)> func2 =
+            [] (const po::variables_map& vm, Wallet::Ptr wallet, IWalletDB::Ptr walletDB, DexBoard::Ptr dex) {return 0;}
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+        )
     {
         LOG_INFO() << kStartMessage;
         auto walletDB = OpenDataBase(vm);
@@ -2184,8 +2241,8 @@ namespace
                     {
                         auto maxTxValue = PrintableAmount(maxTxAmount, true, info->m_ID);
                         cout << "Warning. Total amount of asset would be larger that can be sent in one transaction "
-                             << maxTxValue << ". You would be forced to send using several transactions."
-                             << endl;
+                            << maxTxValue << ". You would be forced to send using several transactions."
+                            << endl;
                     }
                 }
 
@@ -2193,9 +2250,12 @@ namespace
             };
         }
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        AssetsSwapCliHandler assetsSwapHandler;
+#endif  // BEAM_ASSET_SWAP_SUPPORT
         auto wallet = std::make_shared<Wallet>(walletDB,
-                      std::move(txCompletedAction),
-                      Wallet::UpdateCompletedAction());
+            std::move(txCompletedAction),
+            Wallet::UpdateCompletedAction());
         {
             wallet::AsyncContextHolder holder(*wallet);
 
@@ -2207,11 +2267,19 @@ namespace
             RegisterSwapTxCreators(wallet, walletDB);
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 #ifdef BEAM_CONFIDENTIAL_ASSETS_SUPPORT
-           if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
+            if (Rules::get().CA.Enabled && wallet::g_AssetsEnabled)
             {
                 RegisterAllAssetCreators(*wallet);
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+                wallet->RegisterTransactionType(
+                    TxType::DexSimpleSwap, std::make_shared<DexTransaction::Creator>(walletDB));
+#endif  // BEAM_ASSET_SWAP_SUPPORT
             }
 #endif  // BEAM_CONFIDENTIAL_ASSETS_SUPPORT
+            if (vm.count(cli::REQUEST_BODIES) && vm[cli::REQUEST_BODIES].as<bool>())
+            {
+                wallet->EnableBodyRequests(true);
+            }
             wallet->ResumeAllTransactions();
 
             auto nnet = CreateNetwork(*wallet, vm);
@@ -2219,14 +2287,27 @@ namespace
             {
                 return -1;
             }
-            wallet->AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(*wallet, nnet, walletDB));
+
+            auto wnet = make_shared<WalletNetworkViaBbs>(*wallet, nnet, walletDB);
+            wallet->AddMessageEndpoint(wnet);
             wallet->SetNodeEndpoint(nnet);
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+            assetsSwapHandler.init(wallet, walletDB, nnet, *wnet);
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
             int res = func(vm, wallet, walletDB, currentTxID);
             if (res != 0)
             {
                 return res;
             }
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+            res = func2(vm, wallet, walletDB, assetsSwapHandler.getDex());
+            if (res != 0)
+            {
+                return res;
+            }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
         }
         io::Reactor::get_Current().run();
         return 0;
@@ -2285,13 +2366,19 @@ namespace
 
                     using ManagerStdInWallet::ManagerStdInWallet;
 
+                    Wasm::Compiler::DebugInfo m_DbgInfo;
+
 				    void OnDone(const std::exception* pExc) override
 				    {
 					    m_Done = true;
 					    m_Err = !!pExc;
 
                         if (pExc)
+                        {
                             std::cout << "Shader exec error: " << pExc->what() << std::endl;
+                            if (m_Debug)
+                                DumpCallstack(std::cout, &m_DbgInfo);
+                        }
                         else
                             std::cout << "Shader output: " << m_Out.str() << std::endl;
 
@@ -2299,7 +2386,7 @@ namespace
                             io::Reactor::get_Current().stop();
 				    }
 
-                    static void Compile(ByteBuffer& res, const char* sz, Kind kind)
+                    static void Compile(ByteBuffer& res, const char* sz, Kind kind, Wasm::Compiler::DebugInfo* pDbgInfo = nullptr)
                     {
                         std::FStream fs;
                         fs.Open(sz, true, true);
@@ -2308,17 +2395,18 @@ namespace
                         if (!res.empty())
                             fs.read(&res.front(), res.size());
 
-                        bvm2::Processor::Compile(res, res, kind);
+                        bvm2::Processor::Compile(res, res, kind, pDbgInfo);
                     }
                 };
 
                 MyManager man(walletDB, wallet);
+                man.m_Debug = vm[cli::SHADER_DEBUG].as<bool>();
 
                 auto sVal = vm[cli::SHADER_BYTECODE_APP].as<string>();
                 if (sVal.empty())
                     throw std::runtime_error("shader file not specified");
 
-                MyManager::Compile(man.m_BodyManager, sVal.c_str(), MyManager::Kind::Manager);
+                MyManager::Compile(man.m_BodyManager, sVal.c_str(), MyManager::Kind::Manager, man.m_Debug ? &man.m_DbgInfo : nullptr);
 
                 sVal = vm[cli::SHADER_BYTECODE_CONTRACT].as<string>();
                 if (!sVal.empty())
@@ -2356,20 +2444,20 @@ namespace
                     }
                 }
 
-                if (man.m_Err || man.m_vInvokeData.empty())
+                if (man.m_Err || man.m_InvokeData.m_vec.empty())
                     return 1;
 
                 const auto height  = wallet->get_TipHeight();
-                const auto fee     = bvm2::getFullFee(man.m_vInvokeData, height);
-                const auto comment = bvm2::getFullComment(man.m_vInvokeData);
-                const auto spend   = bvm2::getFullSpend(man.m_vInvokeData);
+                const auto fee     = man.m_InvokeData.get_FullFee(height);
+                const auto comment = man.m_InvokeData.get_FullComment();
+                const auto spend   = man.m_InvokeData.get_FullSpend();
 
                 std::cout << "Creating new contract invocation tx on behalf of the shader" << std::endl;
                 if (man.m_Args["action"] == "create")
                 {
                     bvm2::ShaderID sid;
                     bvm2::get_ShaderID(sid, Blob(man.m_BodyContract));
-                    for (auto& invokeEntry : man.m_vInvokeData)
+                    for (auto& invokeEntry : man.m_InvokeData.m_vec)
                     {
                         bvm2::ContractID cid;
                         bvm2::get_CidViaSid(cid, sid, Blob(invokeEntry.m_Args));
@@ -2406,7 +2494,7 @@ namespace
                 ByteBuffer msg(comment.begin(), comment.end());
                 currentTxID = wallet->StartTransaction(
                     CreateTransactionParameters(TxType::Contract)
-                    .SetParameter(TxParameterID::ContractDataPacked, man.m_vInvokeData)
+                    .SetParameter(TxParameterID::ContractDataPacked, man.m_InvokeData)
                     .SetParameter(TxParameterID::Message, msg)
                 );
 
@@ -2735,6 +2823,371 @@ namespace
 
         return 0;
     }
+
+    int ImportRecovery(const po::variables_map& vm)
+    {
+        if (vm[cli::IMPORT_EXPORT_PATH].defaulted())
+        {
+            LOG_ERROR() << kErrorFileLocationParamReqired;
+            return -1;
+        }
+
+        struct MyProgress : IWalletDB::IRecoveryProgress
+        {
+            virtual bool OnProgress(uint64_t done, uint64_t total)
+            {
+                size_t percent = done * 100 / total;
+                std::cout << "\rImporting recovery data: " << percent << "% (" << done << "/" << total << ")";
+                std::cout.flush();
+                return true; 
+            }
+        };
+        auto path = vm[cli::IMPORT_EXPORT_PATH].as<string>();
+        return DoWalletFunc(vm, [&path](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
+            {
+                MyProgress progress;
+                walletDB->ImportRecovery(path, *wallet, progress);
+                return 1;
+            });
+    }
+
+    int AssetsSwapList(const po::variables_map& vm)
+    {
+        CheckAssetsAllowed(vm);
+
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
+        {
+            return 0;
+        },
+        [](auto&& vm, auto&& wallet, auto&& walletDB, DexBoard::Ptr dex)
+        {
+            auto orders = dex->getDexOrders();
+
+            const array<uint8_t, 10> columnWidths{ {32, 18, 13, 10, 18, 16, 10, 13, 15, 6} };
+            cout << boost::format(kAssetsSwapTableHead)
+                % boost::io::group(left, setw(columnWidths[0]), kAssetsSwapID)
+                % boost::io::group(right, setw(columnWidths[1]), kAssetsSwapSendAmount)
+                % boost::io::group(right, setw(columnWidths[2]), kAssetsSwapSendAssetID)
+                % boost::io::group(left, setw(columnWidths[3]), kAssetsSwapSendAssetName)
+                % boost::io::group(right, setw(columnWidths[4]), kAssetsSwapReceiveAmount)
+                % boost::io::group(right, setw(columnWidths[5]), kAssetsSwapReceiveAssetID)
+                % boost::io::group(left, setw(columnWidths[6]), kAssetsSwapReceiveAssetName)
+                % boost::io::group(right, setw(columnWidths[7]), kAssetsSwapCreation)
+                % boost::io::group(right, setw(columnWidths[8]), kAssetsSwapExpiration)
+                % boost::io::group(left, setw(columnWidths[9]), kAssetsSwapIsMine)
+                << std::endl;
+
+            for (auto order : orders)
+            {
+                cout << boost::format(kAssetsSwapTableFormat)
+                    % boost::io::group(left,setw(columnWidths[0]), order.getID().to_string())
+                    % boost::io::group(right,setw(columnWidths[1]), order.getSendAmount())
+                    % boost::io::group(right,setw(columnWidths[2]), order.getSendAssetId())
+                    % boost::io::group(left, setw(columnWidths[3]), order.getSendAssetSName())
+                    % boost::io::group(right, setw(columnWidths[4]), order.getReceiveAmount())
+                    % boost::io::group(right, setw(columnWidths[5]), order.getReceiveAssetId())
+                    % boost::io::group(left,setw(columnWidths[6]), order.getReceiveAssetSName())
+                    % boost::io::group(right,setw(columnWidths[7]), order.getCreation())
+                    % boost::io::group(right,setw(columnWidths[8]), order.getExpiration())
+                    % boost::io::group(left, setw(columnWidths[9]), order.isMine() ? "true" : "false")
+                  << std::endl;
+            }
+            return 1;
+        });
+
+        return 1;
+    }
+
+    int AssetSwapCreate(const po::variables_map& vm)
+    {
+        CheckAssetsAllowed(vm);
+
+        auto sendAssetId = Asset::s_InvalidID;
+        if (auto it = vm.find(cli::ASSETS_SWAP_SEND_ASSET_ID); it != vm.end())
+        {
+            sendAssetId = vm[cli::ASSETS_SWAP_SEND_ASSET_ID].as<Nonnegative<uint32_t>>().value;
+        }
+        else
+        {
+            cout << "You must provide send asset id";
+            return -1;
+        }
+
+        auto receiveAssetId = Asset::s_InvalidID;
+        if (auto it = vm.find(cli::ASSETS_SWAP_RECEIVE_ASSET_ID); it != vm.end())
+        {
+            receiveAssetId = vm[cli::ASSETS_SWAP_RECEIVE_ASSET_ID].as<Nonnegative<uint32_t>>().value;
+        }
+        else
+        {
+            cout << "You must provide receive asset id";
+            return -1;
+        }
+
+        if (receiveAssetId == sendAssetId)
+        {
+            cout << "Send and receive assets ID can't be identical.";
+            return -1;
+        }
+
+        if (auto it = vm.find(cli::ASSETS_SWAP_SEND_AMOUNT); it == vm.end())
+        {
+            cout << "You must provide send amount";
+            return -1;
+        }
+
+        auto sendAmount = vm[cli::ASSETS_SWAP_SEND_AMOUNT].as<Positive<double>>().value;
+        sendAmount *= Rules::Coin;
+        Amount sendAmountGroth = static_cast<Amount>(std::round(sendAmount));
+
+        if (auto it = vm.find(cli::ASSETS_SWAP_RECEIVE_AMOUNT); it == vm.end())
+        {
+            cout << "You must provide receive amount";
+            return -1;
+        }
+
+        auto receiveAmount = vm[cli::ASSETS_SWAP_RECEIVE_AMOUNT].as<Positive<double>>().value;
+        receiveAmount *= Rules::Coin;
+        Amount receiveAmountGroth = static_cast<ECC::Amount>(std::round(receiveAmount));
+
+        unsigned expirationMinutes = vm[cli::ASSETS_SWAP_EXPIRATION].as<uint32_t>();
+
+        if (expirationMinutes < 30 || expirationMinutes > 720)
+        {
+            cout << "minutes_before_expire must be > 30 and < 720";
+            return -1;
+        }
+
+        auto comment = vm[cli::ASSETS_SWAP_COMMENT].as<string>();
+
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
+        {
+            return 0;
+        },
+        [sendAssetId, receiveAssetId, sendAmountGroth,
+         receiveAmountGroth, expirationMinutes, comment](auto&& vm, auto&& wallet, auto&& walletDB, DexBoard::Ptr dex)
+        {
+            std::string sendAssetUnitName = "BEAM";
+            if (sendAssetId)
+            {
+                auto sendAssetInfo = walletDB->findAsset(sendAssetId);
+                if (!sendAssetInfo)
+                {
+                    cout << "ERROR: Unknown asset id - " << cli::ASSETS_SWAP_SEND_ASSET_ID;
+                }
+                const auto &sendAssetMeta = WalletAssetMeta(*sendAssetInfo);
+                sendAssetUnitName = sendAssetMeta.GetUnitName();
+            }
+
+            std::string receiveAssetUnitName = "BEAM";
+            if (receiveAssetId)
+            {
+                auto receiveAssetInfo = walletDB->findAsset(receiveAssetId);
+                if (!receiveAssetInfo)
+                {
+                    cout << "ERROR: Unknown asset id - " << cli::ASSETS_SWAP_RECEIVE_ASSET_ID;
+                }
+                const auto &receiveAssetMeta = WalletAssetMeta(*receiveAssetInfo);
+                receiveAssetUnitName = receiveAssetMeta.GetUnitName();
+            }
+
+            WalletAddress receiverAddress;
+            walletDB->createAddress(receiverAddress);
+            receiverAddress.m_label = comment;
+            receiverAddress.m_duration = beam::wallet::WalletAddress::AddressExpirationAuto;
+            walletDB->saveAddress(receiverAddress);
+
+            DexOrder orderObj(
+                DexOrderID::generate(),
+                receiverAddress.m_walletID,
+                receiverAddress.m_OwnID,
+                sendAssetId,
+                sendAmountGroth,
+                sendAssetUnitName,
+                receiveAssetId,
+                receiveAmountGroth,
+                receiveAssetUnitName,
+                expirationMinutes * 60
+            );
+
+            dex->publishOrder(orderObj);
+
+            cout << "Order created with ID: " << orderObj.getID() << std::endl
+                 << "Waiting for order appruv" << std::endl;;
+
+            return 0;
+        });
+
+        return 1;
+    }
+
+    int AssetSwapCancel(const po::variables_map& vm)
+    {
+        CheckAssetsAllowed(vm);
+
+        std::string offerIdStr;
+        DexOrderID offerId;
+        if (auto it = vm.find(cli::ASSETS_SWAP_OFFER_ID); it != vm.end())
+        {
+            offerIdStr = vm[cli::ASSETS_SWAP_OFFER_ID].as<string>();
+            if (offerIdStr.empty())
+            {
+                cout << cli::ASSETS_SWAP_OFFER_ID << " is empty.";
+                return -1;
+            }
+
+            if (!offerId.FromHex(offerIdStr))
+            {
+                cout << cli::ASSETS_SWAP_OFFER_ID << " is malformed";
+                return -1;
+            }
+        }
+        else
+        {
+            cout << cli::ASSETS_SWAP_OFFER_ID << " is not provided";
+            return -1;
+        }
+
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
+        {
+            return 0;
+        },
+        [offerId, offerIdStr](auto&& vm, auto&& wallet, auto&& walletDB, DexBoard::Ptr dex)
+        {
+            auto order = dex->getDexOrder(offerId);
+            if (!order)
+            {
+                cout << "offer with " << cli::ASSETS_SWAP_OFFER_ID << ":" << offerIdStr << "is not found";
+                return -1;
+            }
+
+            if (!order->isMine())
+            {
+                cout << "offer with " << cli::ASSETS_SWAP_OFFER_ID << ":" << offerIdStr << "is not your offer";
+                return -1;
+            }
+
+            order->cancel();
+            dex->publishOrder(*order);
+
+            cout << "offer with " << cli::ASSETS_SWAP_OFFER_ID << ":" << offerIdStr << " cancelled" << std::endl;
+            
+            return 0;
+        });
+
+        return 1;
+    }
+
+    int AssetSwapAccept(const po::variables_map& vm)
+    {
+        CheckAssetsAllowed(vm);
+
+        std::string offerIdStr;
+        DexOrderID offerId;
+        if (auto it = vm.find(cli::ASSETS_SWAP_OFFER_ID); it != vm.end())
+        {
+            offerIdStr = vm[cli::ASSETS_SWAP_OFFER_ID].as<string>();
+            if (offerIdStr.empty())
+            {
+                cout << cli::ASSETS_SWAP_OFFER_ID << " is empty.";
+                return -1;
+            }
+
+            if (!offerId.FromHex(offerIdStr))
+            {
+                cout << cli::ASSETS_SWAP_OFFER_ID << " is malformed";
+                return -1;
+            }
+        }
+        else
+        {
+            cout << cli::ASSETS_SWAP_OFFER_ID << " is not provided";
+            return -1;
+        }
+
+        auto comment = vm[cli::ASSETS_SWAP_COMMENT].as<string>();
+
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
+        {
+            return 0;
+        },
+        [offerId, offerIdStr, comment](auto&& vm, auto&& wallet, auto&& walletDB, DexBoard::Ptr dex)
+        {
+            auto order = dex->getDexOrder(offerId);
+            if (!order)
+            {
+                cout << "offer with " << cli::ASSETS_SWAP_OFFER_ID << ":" << offerIdStr << "is not found";
+                return -1;
+            }
+
+            if (order->isMine())
+            {
+                cout << "offer with " << cli::ASSETS_SWAP_OFFER_ID << ":" << offerIdStr << "is your offer";
+                return -1;
+            }
+
+            Asset::ID sendAsset = order->getSendAssetId();
+            if (sendAsset)
+            {
+                auto sendAssetInfo = walletDB->findAsset(sendAsset);
+                if (!sendAssetInfo)
+                {
+                    cout << "Not enough funds to send for " << cli::ASSETS_SWAP_OFFER_ID << ":" << offerIdStr;
+                    return -1;
+                }
+            }
+
+            Asset::ID receiveAsset = order->getReceiveAssetId();
+            if (receiveAsset)
+            {
+                auto receiveAssetInfo = walletDB->findAsset(receiveAsset);
+                if (!receiveAssetInfo)
+                {
+                    cout << "Unknown receive asset id in order " << cli::ASSETS_SWAP_OFFER_ID << ":" << offerIdStr;
+                    return -1;
+                }
+            }
+
+            Amount fee = 100000;
+            CoinsSelectionInfo csi;
+            csi.m_requestedSum = order->getSendAmount();
+            csi.m_assetID = sendAsset;
+            csi.m_explicitFee = fee;
+            csi.Calculate(walletDB->getCurrentHeight(), walletDB, false);
+
+            if (!csi.m_isEnought)
+            {
+                cout << "Not enough funds to send for " << cli::ASSETS_SWAP_OFFER_ID << ":" << offerIdStr;
+                return -1;
+            }
+
+            WalletAddress myAddress;
+            walletDB->createAddress(myAddress);
+            myAddress.m_label = comment;
+            myAddress.m_duration = beam::wallet::WalletAddress::AddressExpirationAuto;
+            walletDB->saveAddress(myAddress);
+
+            auto params = beam::wallet::CreateDexTransactionParams(
+                            offerId,
+                            order->getSBBSID(),
+                            myAddress.m_walletID,
+                            sendAsset,
+                            order->getSendAmount(),
+                            receiveAsset,
+                            order->getReceiveAmount(),
+                            fee
+                            );
+
+            
+            auto txId = wallet->StartTransaction(params);
+            
+            cout << "Asset swap for offer id: " << offerIdStr << " started" << std::endl
+                 << "TxId: " << txId << std::endl;
+            return 0;
+        });
+
+        return 1;
+    }
 }  // namespace
 
 io::Reactor::Ptr reactor;
@@ -2768,6 +3221,7 @@ int main(int argc, char* argv[])
         {cli::EXPORT_DATA,          ExportWalletData,               "export wallet data (UTXO, transactions, addresses) to a JSON file"},
         {cli::IMPORT_DATA,          ImportWalletData,               "import wallet data from a JSON file"},
         {cli::BLOCK_DETAILS,        ShowBlockDetails,               "print information about specified block"},
+        {cli::IMPORT_RECOVERY,      ImportRecovery,                 "import block data from recovery file"},
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         {cli::SWAP_INIT,            InitSwap,                       "initialize atomic swap"},
         {cli::SWAP_ACCEPT,          AcceptSwap,                     "accept atomic swap offer"},
@@ -2787,6 +3241,12 @@ int main(int argc, char* argv[])
         {cli::ASSET_REGISTER,       RegisterAsset,                  "register new asset with the blockchain"},
         {cli::ASSET_UNREGISTER,     UnregisterAsset,                "unregister asset from the blockchain"},
         {cli::ASSET_INFO,           GetAssetInfo,                   "print confidential asset information from a node"},
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        {cli::ASSETS_SWAP_LIST,     AssetsSwapList,                 "view available assets swap list"},
+        {cli::ASSETS_SWAP_CREATE,   AssetSwapCreate,                "create asset swap"},
+        {cli::ASSETS_SWAP_CANCEL,   AssetSwapCancel,                "cancel asset swap"},
+        {cli::ASSETS_SWAP_ACCEPT,   AssetSwapAccept,                "accept asset swap"},
+#endif  // BEAM_ASSET_SWAP_SUPPORT
     };
 
     try

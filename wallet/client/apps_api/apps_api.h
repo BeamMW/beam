@@ -109,7 +109,7 @@ namespace beam::wallet
                         catch(const std::runtime_error& err)
                         {
                             assert(false);
-                            LOG_ERROR() << "Failed to start IPFS node" << err.what();
+                            LOG_ERROR() << "Failed to start IPFS node: " << err.what();
                         }
                     }
                     #else

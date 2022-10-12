@@ -53,6 +53,20 @@ namespace beam
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
 
+	struct LongAction
+	{
+		uint32_t m_Last_ms;
+		uint64_t m_Total;
+
+		LongAction(const char* sz, uint64_t nTotal) {
+			Reset(sz, nTotal);
+		}
+		LongAction() {}
+
+		void Reset(const char*, uint64_t nTotal);
+		void OnProgress(uint64_t pos);
+	};
+
 	void HeightAdd(Height& trg, Height val); // saturates if overflow
 
 	struct HeightRange

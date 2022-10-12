@@ -165,6 +165,8 @@ namespace beam
         extern const char* BLOCK_DETAILS;
         extern const char* BLOCK_HEIGHT;
         extern const char* CONFIG_FILE_PATH;
+        extern const char* REQUEST_BODIES;
+        extern const char* IMPORT_RECOVERY;
         // ethereum
         extern const char* ETHEREUM_SEED;
         extern const char* INFURA_PROJECT_ID;
@@ -258,6 +260,7 @@ namespace beam
         extern const char* SHADER_BYTECODE_APP;
         extern const char* SHADER_BYTECODE_CONTRACT;
         extern const char* SHADER_PRIVILEGE;
+        extern const char* SHADER_DEBUG;
 
         // IPFS
         #ifdef BEAM_IPFS_SUPPORT
@@ -281,6 +284,22 @@ namespace beam
         extern const char* IPFS_ROUTING_TYPE;
         extern const char* IPFS_RUN_GC;
         #endif
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        extern const char* ASSETS_SWAP_LIST;
+        extern const char* ASSETS_SWAP_CREATE;
+        extern const char* ASSETS_SWAP_CANCEL;
+        extern const char* ASSETS_SWAP_ACCEPT;
+
+        extern const char* ASSETS_SWAP_SEND_AMOUNT;
+        extern const char* ASSETS_SWAP_SEND_ASSET_ID;
+        extern const char* ASSETS_SWAP_RECEIVE_AMOUNT;
+        extern const char* ASSETS_SWAP_RECEIVE_ASSET_ID;
+        extern const char* ASSETS_SWAP_EXPIRATION;
+        extern const char* ASSETS_SWAP_COMMENT;
+
+        extern const char* ASSETS_SWAP_OFFER_ID;
+#endif  // BEAM_ASSET_SWAP_SUPPORT
     }
 
     enum OptionsFlag : int

@@ -126,21 +126,21 @@ namespace
 
             if(txDescription.GetParameter(TxParameterID::ContractDataPacked, vData))
             {
-                if (!vData.empty())
+                if (!vData.m_vec.empty())
                 {
                     std::stringstream ss;
-                    ss << vData[0].m_Cid.str();
+                    ss << vData.m_vec[0].m_Cid.str();
                     
-                    if (vData.size() > 1)
+                    if (vData.m_vec.size() > 1)
                     {
-                        ss << " +" << vData.size() - 1;
+                        ss << " +" << vData.m_vec.size() - 1;
                     }
                     
                     setStringField(env, TxDescriptionClass, tx, "contractCids", ss.str().c_str());
                 }
                 
-                auto contractFee = bvm2::getFullFee(vData, h);
-                auto contractSpend = bvm2::getFullSpend(vData);
+                auto contractFee = vData.get_FullFee(h);
+                auto contractSpend = vData.get_FullSpend();
                 
                 setLongField(env, TxDescriptionClass, tx, "fee", contractFee);
 
@@ -681,6 +681,11 @@ void WalletModel::onSwapParamsLoaded(const beam::ByteBuffer& params)
     LOG_DEBUG() << "onSwapParamsLoaded()";
 
     // TODO
+}
+
+void WalletModel::onAssetSwapParamsLoaded(const beam::ByteBuffer& params)
+{
+    LOG_DEBUG() << "onAssetSwapParamsLoaded()";
 }
 
 void WalletModel::onNewAddressFailed()

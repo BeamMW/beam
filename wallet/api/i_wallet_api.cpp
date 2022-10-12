@@ -16,6 +16,8 @@
 #include "v6_0/v6_api.h"
 #include "v6_1/v6_1_api.h"
 #include "v7_0/v7_0_api.h"
+#include "v7_1/v7_1_api.h"
+#include "v7_2/v7_2_api.h"
 
 namespace beam::wallet
 {
@@ -66,7 +68,23 @@ namespace beam::wallet
         // MUST BE SAFE TO CALL FROM ANY THREAD
         switch (version)
         {
-        case ApiVer7_0:
+            case ApiVer7_2:
+            {
+                auto api = new V72Api(handler, 7, 2, data);
+                auto ptr = IWalletApi::Ptr(api);
+                api->takeGuardPtr(ptr);
+                return ptr;
+            }
+
+            case ApiVer7_1:
+            {
+                auto api = new V71Api(handler, 7, 1, data);
+                auto ptr = IWalletApi::Ptr(api);
+                api->takeGuardPtr(ptr);
+                return ptr;
+            }
+
+            case ApiVer7_0:
             {
                 auto api = new V70Api(handler, 7, 0, data);
                 auto ptr = IWalletApi::Ptr(api);
@@ -74,7 +92,7 @@ namespace beam::wallet
                 return ptr;
             }
 
-        case ApiVer6_2:
+            case ApiVer6_2:
             {
                 // 6.2 Api is the same as 6.1
                 auto api = new V61Api(handler, 6, 2, data);
@@ -83,7 +101,7 @@ namespace beam::wallet
                 return ptr;
             }
 
-        case ApiVer6_1:
+            case ApiVer6_1:
             {
                 auto api = new V61Api(handler, 6, 1, data);
                 auto ptr = IWalletApi::Ptr(api);
@@ -91,7 +109,7 @@ namespace beam::wallet
                 return ptr;
             }
 
-        case ApiVer6_0:
+            case ApiVer6_0:
             {
                 auto api = new V6Api(handler, data);
                 auto ptr = IWalletApi::Ptr(api);
@@ -99,8 +117,8 @@ namespace beam::wallet
                 return ptr;
             }
 
-        default:
-            return nullptr;
+            default:
+                return nullptr;
         }
     }
 }

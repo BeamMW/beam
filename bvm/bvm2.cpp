@@ -16,7 +16,8 @@
 #include "bvm2_impl.h"
 #include <sstream>
 #include <iomanip>
-#include <regex>
+#include <string>
+#include <re2/re2.h>
 #include <boost/algorithm/string/replace.hpp>
 
 #if defined(__ANDROID__) || !defined(BEAM_USE_AVX)
@@ -244,7 +245,6 @@ namespace bvm2 {
 		FarCalls::Frame* pPrev = bInheritContext ? &m_FarCalls.m_Stack.back() : nullptr;
 
 		auto& x = *m_FarCalls.m_Stack.Create_back();
-		x.m_Local.m_Missing = 0;
 		x.m_Cid = cid;
 		x.m_FarRetAddr = nRetAddr;
 		x.m_StackBytesMax = m_Stack.m_BytesMax;
@@ -273,13 +273,9 @@ namespace bvm2 {
 	void ProcessorContract::OnRet(Wasm::Word nRetAddr)
 	{
 		auto& x = m_FarCalls.m_Stack.back();
-		if (x.m_Local.m_Missing)
-			x.m_Local.m_Missing--;
-		else
-		{
-			if (!x.m_Local.m_v.empty())
-				x.m_Local.m_v.pop_back();
-		}
+
+		if (m_FarCalls.m_SaveLocal)
+			x.m_Debug.OnRet();
 
 		if (nRetAddr)
 			Processor::OnRet(nRetAddr);
@@ -315,16 +311,8 @@ namespace bvm2 {
 		if (m_FarCalls.m_SaveLocal)
 		{
 			auto& x = m_FarCalls.m_Stack.back();
-			if (x.m_Local.m_v.size() < x.m_Local.s_MaxEntries)
-			{
-				bool bWasEmpty = x.m_Local.m_v.empty();
-
-				auto& fl = x.m_Local.m_v.emplace_back();
-				fl.m_Addr = nAddr;
-				fl.m_CallerIp = bWasEmpty ? x.m_FarRetAddr : get_Ip();
-			}
-			else
-				x.m_Local.m_Missing++;
+			Wasm::Word nRetAddr = x.m_Debug.m_v.empty() ? x.m_FarRetAddr : get_Ip();
+			x.m_Debug.OnCall(nAddr, nRetAddr);
 		}
 
 		Processor::OnCall(nAddr);
@@ -343,14 +331,7 @@ namespace bvm2 {
 
 			os << std::endl << "Cid=" << fr.m_Cid << ", Sid=" << sid;
 
-			for (uint32_t i = (uint32_t) fr.m_Local.m_v.size(); i--; )
-			{
-				const auto& x = fr.m_Local.m_v[i];
-
-				os << std::endl << "Ip=" << uintBigFrom(x.m_Addr) << "+" << uintBigFrom(ip - x.m_Addr);
-				ip = x.m_CallerIp;
-			}
-
+			fr.m_Debug.Dump(os, ip, get_DbgInfo(sid));
 		}
 	}
 
@@ -440,7 +421,7 @@ namespace bvm2 {
 
 		m_Charge -= n;
 	}
-	void Processor::Compile(ByteBuffer& res, const Blob& src, Kind kind)
+	void Processor::Compile(ByteBuffer& res, const Blob& src, Kind kind, Wasm::Compiler::DebugInfo* pDbgInfo /* = nullptr */)
 	{
 		Wasm::CheckpointTxt cp("Wasm/compile");
 
@@ -449,6 +430,7 @@ namespace bvm2 {
 		inp.m_p1 = inp.m_p0 + src.n;
 
 		Wasm::Compiler c;
+		c.m_pDebugInfo = pDbgInfo;
 		c.Parse(inp);
 
 		ResolveBindings(c, kind);
@@ -474,6 +456,12 @@ namespace bvm2 {
 
 		Wasm::Test(nNumMethods >= Header::s_MethodsMin);
 		Wasm::Test(hdrMap.rbegin()->first == nNumMethods - 1); // should be no gaps
+
+		for (auto it = hdrMap.begin(); hdrMap.end() != it; it++)
+		{
+			uint32_t iFunc = it->second;
+			c.m_Functions[iFunc].m_Dep.m_Include = true;
+		}
 
 		// header
 		uint32_t nSizeHdr = sizeof(Header) + sizeof(Wasm::Word) * (nNumMethods - Header::s_MethodsMin);
@@ -885,7 +873,7 @@ namespace bvm2 {
 #define BVM_METHOD_PAR_PASS_TO_HOST(type, name) ProcessorPlus::From(*this).ToHost<type>(name)
 #define BVM_METHOD(name) ProcessorFromMethod::name##_Type::RetType_##name ProcessorFromMethod::name##_Type::OnMethod_##name(BVMOp_##name(BVM_METHOD_PAR_DECL, MACRO_COMMA))
 #define BVM_METHOD_HOST(name) ProcessorFromMethod::name##_Type::RetTypeHost_##name ProcessorFromMethod::name##_TypeEnv::OnHost_##name(BVMOp_##name(BVM_METHOD_PAR_DECL_HOST, MACRO_COMMA))
-
+#define BVM_METHOD_PAR_PASS(type, name) name
 #define BVM_METHOD_AUTO_INVOKE(name) ProcessorFromMethod::name##_Type::From(*this).OnMethod_##name(BVMOp_##name(BVM_METHOD_PAR_PASS_TO_METHOD, MACRO_COMMA));
 #define BVM_METHOD_HOST_AUTO(name) BVM_METHOD_HOST(name)  { return BVM_METHOD_AUTO_INVOKE(name); }
 
@@ -3127,8 +3115,8 @@ namespace bvm2 {
 
 	ContractInvokeEntry& ProcessorManager::GenerateKernel(const ContractID* pCid, uint32_t iMethod, const Blob& args, const Shaders::FundsChange* pFunds, uint32_t nFunds, bool bCvtFunds, const char* szComment, uint32_t nCharge)
 	{
-		bool bFirst = m_vInvokeData.empty();
-		auto& v = m_vInvokeData.emplace_back();
+		bool bFirst = m_InvokeData.m_vec.empty();
+		auto& v = m_InvokeData.m_vec.emplace_back();
 
 		if (iMethod)
 		{
@@ -3154,6 +3142,13 @@ namespace bvm2 {
 			v.m_ParentCtx.m_Hash = *m_Context.m_pParent;
 		}
 
+		SetFunds(v.m_Spend, pFunds, nFunds, bCvtFunds);
+
+		return v;
+	}
+
+	void ProcessorManager::SetFunds(FundsMap& fm, const Shaders::FundsChange* pFunds, uint32_t nFunds, bool bCvtFunds)
+	{
 		for (uint32_t i = 0; i < nFunds; i++)
 		{
 			auto x = pFunds[i];
@@ -3164,16 +3159,40 @@ namespace bvm2 {
 			if (!x.m_Consume)
 				val = -val;
 
-			v.m_Spend.AddSpend(x.m_Aid, val);
+			fm.AddSpend(x.m_Aid, val);
 		}
-
-		return v;
 	}
 
-	void ProcessorManager::SetKernelAdv(Height hMin, Height hMax, const PubKey& ptFullBlind, const PubKey& ptFullNonce, const ECC::Scalar& skForeignSig, uint32_t iSlotBlind, uint32_t iSlotNonce, const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE)
+	void ProcessorManager::SetMultisignedTx(const void* pID, uint32_t nID, uint8_t bIsSender, const PubKey* pPeers, uint32_t nPeers,
+		const bool* pIsMultisigned, uint32_t nIsMultisigned, const Shaders::FundsChange* pFunds, uint32_t nFunds, bool bCvtFunds)
 	{
-		assert(!m_vInvokeData.empty());
-		auto& v = m_vInvokeData.back();
+		Wasm::Test(bIsSender || (1 == nPeers)); // co-signer must specify the sender as its only peer
+
+		m_InvokeData.m_IsSender = !!bIsSender;
+		m_InvokeData.m_vPeers.assign(pPeers, pPeers + nPeers);
+
+		DeriveKeyPreimage(m_InvokeData.m_hvKey, Blob(pID, nID));
+
+		Wasm::Test(nIsMultisigned <= m_InvokeData.m_vec.size());
+		for (uint32_t i = 0; i < nIsMultisigned; i++)
+		{
+			if (!pIsMultisigned[i])
+				continue;
+
+			auto& v = m_InvokeData.m_vec[i];
+			Wasm::Test(v.IsAdvanced());
+			v.m_Flags |= ContractInvokeEntry::Flags::Multisigned;
+		}
+
+		m_InvokeData.m_SpendExtra.clear();
+		SetFunds(m_InvokeData.m_SpendExtra, pFunds, nFunds, bCvtFunds);
+	}
+
+	void ProcessorManager::SetKernelAdv(Height hMin, Height hMax, const PubKey& ptFullBlind, const PubKey& ptFullNonce, const ECC::Scalar& skForeignSig, uint32_t iSlotBlind, uint32_t iSlotNonce,
+		const PubKey* pSig, uint32_t nSig, ECC::Scalar* pE)
+	{
+		assert(!m_InvokeData.m_vec.empty());
+		auto& v = m_InvokeData.m_vec.back();
 
 		v.m_Adv.m_Height.m_Min = hMin;
 		v.m_Adv.m_Height.m_Max = hMax;
@@ -3200,7 +3219,7 @@ namespace bvm2 {
 		v.GenerateAdv(pKdf, pE, ptFullBlind, ptFullNonce, &hvNonce, &skForeignSig, pSig, nSig);
 
 		if (pE)
-			m_vInvokeData.pop_back(); // no more needed
+			m_InvokeData.m_vec.pop_back(); // no more needed
 	}
 
 	BVM_METHOD(GenerateKernelAdvanced)
@@ -3224,6 +3243,17 @@ namespace bvm2 {
 
 		GenerateKernel(pCid, iMethod, Blob(pArg, nArg), pFunds, nFunds, false, szComment, nCharge);
 		SetKernelAdv(hMin, hMax, ptFullBlind, ptFullNonce, skForeignSig, iSlotBlind, iSlotNonce, pSig, nSig, pChallenges);
+	}
+
+	BVM_METHOD(SetMultisignedTx)
+	{
+		SetMultisignedTx(get_AddrR(pID, nID), nID, bIsSender, get_ArrayAddrAsR<ECC::Point>(pPeers, nPeers), nPeers,
+			get_ArrayAddrAsR<bool>(pIsMultisigned, nIsMultisigned), nIsMultisigned, get_ArrayAddrAsR<FundsChange>(pFundsExtra, nFundsExtra), nFundsExtra, true);
+	}
+
+	BVM_METHOD_HOST(SetMultisignedTx)
+	{
+		SetMultisignedTx(pID, nID, bIsSender, pPeers, nPeers, pIsMultisigned, nIsMultisigned, pFundsExtra, nFundsExtra, false);
 	}
 
 	BVM_METHOD(GenerateRandom)
@@ -3576,32 +3606,62 @@ namespace bvm2 {
 
 	uint32_t ProcessorManager::AddArgs(const std::string& commaSeparatedPairs)
 	{
-		static const std::regex expr(R"raw(\s*([\w\d_]+)\s*=\s*(([^," ]+)|"(.*?[^\\])")\s*(,|$))raw");
-		std::cmatch groups;
-		const char* s = commaSeparatedPairs.c_str();
-		uint32_t ret = 0;
-		while (std::regex_search(s, groups, expr))
-		{
-			if (groups.size() > 0)
-			{
-				std::string key{ groups[1].first, groups[1].second };
-				std::string value;
-				if (groups[3].matched)
-				{
-					value.assign(groups[3].first, groups[3].second);
-				}
-				else if (groups[4].matched)
-				{
-					value.assign(groups[4].first, groups[4].second);
-					boost::algorithm::replace_all(value, "\\\"", "\"");
-				}
+        	static const RE2 regex(R"raw(\s*([\w\d_]+)\s*=\s*(([^," ]+)|"((.|\s)*?[^\\])")\s*)raw");
+        	uint32_t ret = 0;
+        	re2::StringPiece input(commaSeparatedPairs);
+        	std::string key;
+        	std::string value1;
+        	std::string value2;
+        	std::string value3;
+                std::string value4;
+        	while (RE2::FindAndConsume(&input, regex, &key, &value1, &value2, &value3, &value4))
+        	{
+        		std::string value;
+        		if (!value2.empty())
+        		{
+        			value = std::move(value2);
+        		}
+        		else if (!value3.empty())
+        		{
+        			value = std::move(value3);
+        			boost::algorithm::replace_all(value, "\\\"", "\"");
+        		}
 
-				m_Args.emplace(std::move(key), std::move(value));
-				++ret;
-			}
-			s = groups.suffix().first;
-		}
+        		m_Args.emplace(std::move(key), std::move(value));
+                	++ret;
+                	size_t newBegin = 0;
+                	while ((newBegin < input.size()) && input[newBegin] != ',')
+                	{
+                		++newBegin;
+                	}
+                	input.remove_prefix(newBegin);
+        	}
 		return ret;
+	}
+
+	void ProcessorManager::DumpCallstack(std::ostream& os, const Wasm::Compiler::DebugInfo* pDbgInfo /* = nullptr */) const
+	{
+		Wasm::Word ip = get_Ip();
+		m_DbgCallstack.Dump(os, ip, pDbgInfo);
+	}
+
+	void ProcessorManager::OnCall(Wasm::Word nAddr)
+	{
+		if (m_Debug)
+		{
+			Wasm::Word nRetAddr = m_DbgCallstack.m_v.empty() ? 0 : get_Ip();
+			m_DbgCallstack.OnCall(nAddr, nRetAddr);
+		}
+
+		Processor::OnCall(nAddr);
+	}
+
+	void ProcessorManager::OnRet(Wasm::Word nRetAddr)
+	{
+		if (m_Debug)
+			m_DbgCallstack.OnRet();
+
+		Processor::OnRet(nRetAddr);
 	}
 
 } // namespace bvm2

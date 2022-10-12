@@ -2,6 +2,8 @@
 #include "../app_common_impl.h"
 #include "contract.h"
 #include "../upgradable3/app_common_impl.h"
+#include "../dao-vault/contract.h"
+#include "../oracle2/contract.h"
 
 #define Nephrite_manager_view(macro)
 #define Nephrite_manager_view_params(macro) macro(ContractID, cid)
@@ -11,12 +13,15 @@
 #define Nephrite_manager_replace_admin(macro) Upgradable3_replace_admin(macro)
 #define Nephrite_manager_set_min_approvers(macro) Upgradable3_set_min_approvers(macro)
 #define Nephrite_manager_explicit_upgrade(macro) macro(ContractID, cid)
+#define Nephrite_manager_add_stab_reward(macro) macro(ContractID, cid) macro(Amount, amount)
 
 #define Nephrite_manager_deploy(macro) \
     Upgradable3_deploy(macro) \
-    macro(ContractID, cidOracle) \
+    macro(ContractID, cidDaoVault) \
+    macro(ContractID, cidOracle1) \
+    macro(ContractID, cidOracle2) \
     macro(Amount, troveLiquidationReserve) \
-    macro(AssetID, aidProfit) \
+    macro(AssetID, aidGov) \
     macro(uint32_t, hInitialPeriod)
 
 
@@ -30,15 +35,12 @@
     macro(manager, view_params) \
     macro(manager, view_all) \
     macro(manager, my_admin_key) \
+    macro(manager, add_stab_reward) \
 
 #define Nephrite_user_view(macro) macro(ContractID, cid)
 #define Nephrite_user_withdraw_surplus(macro) macro(ContractID, cid)
 
 #define Nephrite_user_upd_stab(macro) \
-    macro(ContractID, cid) \
-    macro(Amount, newVal) \
-
-#define Nephrite_user_upd_profit(macro) \
     macro(ContractID, cid) \
     macro(Amount, newVal) \
 
@@ -48,6 +50,8 @@
     macro(Amount, col) \
     macro(uint32_t, opTok) \
     macro(uint32_t, opCol) \
+    macro(uint32_t, tcr_mperc) \
+    macro(uint32_t, bAutoTok) \
     macro(uint32_t, bPredictOnly)
 
 #define Nephrite_user_liquidate(macro) \
@@ -64,7 +68,6 @@
     macro(user, view) \
     macro(user, withdraw_surplus) \
     macro(user, upd_stab) \
-    macro(user, upd_profit) \
     macro(user, trove_modify) \
     macro(user, liquidate) \
     macro(user, redeem)
@@ -136,17 +139,18 @@ struct MyKeyID :public Env::KeyID
         m_Blob.m_Magic = FourCC<'s', 't', 'a', 'b'>::V;
     }
 
-    void set_Profit() {
-        m_Blob.m_Magic = FourCC<'p', 'f', 't', '$'>::V;
-    }
 };
+
+void DocAddPairInternal(const Pair& p)
+{
+    Env::DocAddNum("tok", p.Tok);
+    Env::DocAddNum("col", p.Col);
+}
 
 void DocAddPair(const char* sz, const Pair& p)
 {
     Env::DocGroup gr(sz);
-
-    Env::DocAddNum("tok", p.Tok);
-    Env::DocAddNum("col", p.Col);
+    DocAddPairInternal(p);
 }
 
 void DocAddFloat(const char* sz, Float x, uint32_t nDigsAfterDot)
@@ -155,7 +159,8 @@ void DocAddFloat(const char* sz, Float x, uint32_t nDigsAfterDot)
     for (uint32_t i = 0; i < nDigsAfterDot; i++)
         norm *= 10;
 
-    uint64_t val = x * Float(norm);
+    uint64_t val = x * Float(norm * 2);
+    val = (val + 1) / 2;
 
     char szBuf[Utils::String::Decimal::DigitsMax<uint64_t>::N + 2]; // dot + 0-term
     uint32_t nPos = Utils::String::Decimal::Print(szBuf, val / norm);
@@ -171,12 +176,7 @@ void DocAddPerc(const char* sz, Float x)
     DocAddFloat(sz, x * Float(100), 3);
 }
 
-const ShaderID g_pSid[] = {
-    Nephrite::s_SID_0,
-    Nephrite::s_SID,
-};
-
-const Upgradable3::Manager::VerInfo g_VerInfo = { g_pSid, _countof(g_pSid) };
+const Upgradable3::Manager::VerInfo g_VerInfo = { s_pSID, _countof(s_pSID) };
 
 ON_METHOD(manager, view)
 {
@@ -206,17 +206,20 @@ ON_METHOD(manager, deploy)
         return OnError("trove Liquidation Reserve should not be zero");
 
     auto& s = arg.m_Settings; // alias
-    s.m_AidProfit = aidProfit;
+    s.m_AidGov = aidGov;
     s.m_TroveLiquidationReserve = troveLiquidationReserve;
-    _POD_(s.m_cidOracle) = cidOracle;
+    _POD_(s.m_cidDaoVault) = cidDaoVault;
+    _POD_(s.m_cidOracle1) = cidOracle1;
+    _POD_(s.m_cidOracle2) = _POD_(cidOracle2).IsZero() ? cidOracle1 : cidOracle2;
     s.m_hMinRedemptionHeight = Env::get_Height() + hInitialPeriod;
 
     const uint32_t nCharge =
         Upgradable3::Manager::get_ChargeDeploy() +
         Env::Cost::AssetManage +
-        Env::Cost::Refs +
+        Env::Cost::Refs * 3 +
         Env::Cost::SaveVar_For(sizeof(Nephrite::Global)) +
-        Env::Cost::Cycle * 300;
+        Env::Cost::MemOpPerByte * sizeof(Nephrite::Global) +
+        Env::Cost::Cycle * 1000;
 
     Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deploy Nephrite contract", nCharge);
 }
@@ -249,7 +252,7 @@ struct AppGlobal
 {
     bool Load(const ContractID& cid)
     {
-        //Env::SelectContext(1, 0); // dependent ctx
+        Env::SelectContext(1, 0); // dependent ctx
 
         Env::Key_T<uint8_t> key;
         _POD_(key.m_Prefix.m_Cid) = cid;
@@ -263,6 +266,8 @@ struct AppGlobal
 
         m_BaseRate.Decay();
 
+        m_StabPool.AddReward(Env::get_Height());
+
         return true;
 
     }
@@ -270,19 +275,38 @@ struct AppGlobal
     struct MyPrice
         :public Price
     {
-        bool Load(const AppGlobal& g)
+        bool LoadInternal(const Env::Key_T<uint8_t>& key)
         {
-            Env::Key_T<uint8_t> key;
-            _POD_(key.m_Prefix.m_Cid) = g.m_Settings.m_cidOracle;
-            key.m_KeyInContract = Oracle2::Tags::s_Median;
-
             Oracle2::Median med;
 
-            if (!Env::VarReader::Read_T(key, med))
+            if (!Env::VarReader::Read_T(key, med) ||
+                (med.m_hEnd < Env::get_Height()))
+                return false;
+
+            if (!Price::IsSane(med.m_Res))
                 return false;
 
             m_Value = med.m_Res;
             return true;
+        }
+
+        uint32_t Load(const AppGlobal& g)
+        {
+            Env::Key_T<uint8_t> key;
+            _POD_(key.m_Prefix.m_Cid) = g.m_Settings.m_cidOracle1;
+            key.m_KeyInContract = Oracle2::Tags::s_Median;
+
+            if (LoadInternal(key))
+                return 1;
+
+            if (_POD_(g.m_Settings.m_cidOracle1) != g.m_Settings.m_cidOracle2)
+            {
+                _POD_(key.m_Prefix.m_Cid) = g.m_Settings.m_cidOracle2;
+                if (LoadInternal(key))
+                    return 2;
+            }
+
+            return 0;
         }
     };
 };
@@ -295,6 +319,7 @@ struct AppGlobalPlus
     AppGlobalPlus(const ContractID& cid) :m_Kid(cid) {}
 
     MyPrice m_Price;
+    uint32_t m_PriceOracle = 0;
 
     struct EpochStorage
     {
@@ -302,9 +327,10 @@ struct AppGlobalPlus
         const ContractID& m_Cid;
         EpochStorage(const ContractID& cid) :m_Cid(cid) {}
 
-        void Load(uint32_t iEpoch, HomogenousPool::Epoch& e)
+        template <uint32_t nDims>
+        void Load(uint32_t iEpoch, HomogenousPool::Epoch<nDims>& e)
         {
-            m_Charge += Env::Cost::LoadVar_For(sizeof(HomogenousPool::Epoch));
+            m_Charge += Env::Cost::LoadVar_For(sizeof(HomogenousPool::Epoch<nDims>));
 
             Env::Key_T<EpochKey> k;
             _POD_(k.m_Prefix.m_Cid) = m_Cid;
@@ -314,8 +340,9 @@ struct AppGlobalPlus
             Env::Halt_if(!Env::VarReader::Read_T(k, e));
         }
 
-        void Save(uint32_t iEpoch, const HomogenousPool::Epoch& e) {
-            m_Charge += Env::Cost::SaveVar_For(sizeof(HomogenousPool::Epoch));
+        template <uint32_t nDims>
+        void Save(uint32_t iEpoch, const HomogenousPool::Epoch<nDims>& e) {
+            m_Charge += Env::Cost::SaveVar_For(sizeof(HomogenousPool::Epoch<nDims>));
         }
         void Del(uint32_t iEpoch) {
             m_Charge += Env::Cost::SaveVar;
@@ -332,23 +359,17 @@ struct AppGlobalPlus
         Trove::ID m_iT;
         Trove::ID m_iPrev0;
         uint32_t m_Index;
-        Pair m_Vault;
-        PubKey m_Pk;
     } m_MyTrove;
+
+    Balance m_Balance;
+    PubKey m_Pk;
 
     struct MyStab
     {
-        PubKey m_Pk;
         Pair m_Amounts;
+        Amount m_Gov;
         uint32_t m_Charge;
     } m_MyStab;
-
-    struct MyProfit
-    {
-        PubKey m_Pk;
-        Amount m_Beam;
-        Amount m_Gov;
-    } m_MyProfit;
 
     Trove& get_T(Trove::ID iTrove)
     {
@@ -385,13 +406,17 @@ struct AppGlobalPlus
         }
     }
 
+    void LoadPrice()
+    {
+        m_PriceOracle = m_Price.Load(*this);
+    }
+
     bool LoadPlus()
     {
         if (!Load(m_Kid.m_Blob.m_Cid))
             return false;
 
-        if (!m_Price.Load(*this))
-            return false;
+        LoadPrice();
 
         if (m_Troves.m_iLastCreated)
             LoadAllTroves();
@@ -399,29 +424,45 @@ struct AppGlobalPlus
         return true;
     }
 
+    bool TestHaveValidPrice()
+    {
+        if (m_PriceOracle)
+            return true;
+
+        OnError("no valid price");
+        return false;
+    }
+
     void DocAddTrove(const Trove& t)
     {
         DocAddPair("amounts", t.m_Amounts);
-        DocAddPerc("cr", m_Price.ToCR(t.m_Amounts.get_Rcr()));
+        if (m_PriceOracle)
+            DocAddPerc("cr", m_Price.ToCR(t.m_Amounts.get_Rcr()));
     }
 
-    bool ReadVault()
+    bool ReadBalance()
     {
-        m_Kid.set_Trove();
-        m_Kid.get_Pk(m_MyTrove.m_Pk);
+        m_Kid.get_Pk(m_Pk);
 
         Env::Key_T<Balance::Key> k;
         k.m_Prefix.m_Cid = m_Kid.m_Blob.m_Cid;
-        _POD_(k.m_KeyInContract.m_Pk) = m_MyTrove.m_Pk;
+        _POD_(k.m_KeyInContract.m_Pk) = m_Pk;
 
-        Balance x;
-        bool bFound = Env::VarReader::Read_T(k, x);
+        bool bFound = Env::VarReader::Read_T(k, m_Balance);
+        if (!bFound)
+            _POD_(m_Balance).SetZero();
 
-        if (bFound)
-            m_MyTrove.m_Vault = x.m_Amounts;
-        else
-            _POD_(m_MyTrove.m_Vault).SetZero();
         return bFound;
+    }
+
+    bool ReadBalanceAny()
+    {
+        m_Kid.set_Trove();
+        if (ReadBalance())
+            return true;
+
+        m_Kid.set_Stab();
+        return ReadBalance();
     }
 
     void PopTrove(Trove::ID iPrev, Trove& t)
@@ -441,13 +482,14 @@ struct AppGlobalPlus
     {
         assert(!m_MyTrove.m_pT);
 
-        ReadVault();
+        m_Kid.set_Trove();
+        ReadBalance();
 
         m_MyTrove.m_iPrev0 = 0;
         for (m_MyTrove.m_iT = m_Troves.m_iHead; m_MyTrove.m_iT; m_MyTrove.m_Index++)
         {
             Trove& t = get_T(m_MyTrove.m_iT);
-            if (_POD_(m_MyTrove.m_Pk) == t.m_pkOwner)
+            if (_POD_(m_Pk) == t.m_pkOwner)
             {
                 PopTrove(m_MyTrove.m_iPrev0, t);
 
@@ -492,46 +534,29 @@ struct AppGlobalPlus
     bool PopMyStab()
     {
         m_Kid.set_Stab();
-        m_Kid.get_Pk(m_MyStab.m_Pk);
+        ReadBalance();
 
         Env::Key_T<StabPoolEntry::Key> k;
         k.m_Prefix.m_Cid = m_Kid.m_Blob.m_Cid;
-        _POD_(k.m_KeyInContract.m_pkUser) = m_MyStab.m_Pk;
+        _POD_(k.m_KeyInContract.m_pkUser) = m_Pk;
 
         StabPoolEntry e;
         if (!Env::VarReader::Read_T(k, e))
         {
             m_MyStab.m_Charge = 0;
+            m_MyStab.m_Gov = 0;
             return false;
         }
 
         EpochStorage stor(m_Kid.m_Blob.m_Cid);
 
-        HomogenousPool::Pair out;
+        StabilityPool::User::Out out;
         m_StabPool.UserDel(e.m_User, out, stor);
 
-        m_MyStab.m_Amounts.Tok = out.s;
-        m_MyStab.m_Amounts.Col = out.b;
+        m_MyStab.m_Amounts.Tok = out.m_Sell;
+        m_MyStab.m_Amounts.Col = out.m_pBuy[0];
+        m_MyStab.m_Gov = out.m_pBuy[1];
         m_MyStab.m_Charge = stor.m_Charge;
-
-        return true;
-    }
-
-    bool PopMyProfit()
-    {
-        m_Kid.set_Profit();
-        m_Kid.get_Pk(m_MyProfit.m_Pk);
-
-        Env::Key_T<ProfitPoolEntry::Key> k;
-        k.m_Prefix.m_Cid = m_Kid.m_Blob.m_Cid;
-        _POD_(k.m_KeyInContract.m_pkUser) = m_MyProfit.m_Pk;
-
-        ProfitPoolEntry e;
-        if (!Env::VarReader::Read_T(k, e))
-            return false;
-
-        m_MyProfit.m_Gov = e.m_User.m_Weight;
-        m_ProfitPool.Remove(&m_MyProfit.m_Beam, e.m_User);
 
         return true;
     }
@@ -549,28 +574,38 @@ struct AppGlobalPlus
         Flow2Fc(pFc[1], fp.Col, 0);
     }
 
-    void UseVault(Method::BaseTx& tx)
+    void UseBalance(Method::BaseTx& tx)
     {
-        tx.m_Flow.Tok.Add(m_MyTrove.m_Vault.Tok, 0);
-        tx.m_Flow.Col.Add(m_MyTrove.m_Vault.Col, 0);
+        tx.m_Flow.Tok.Add(m_Balance.m_Amounts.Tok, 0);
+        tx.m_Flow.Col.Add(m_Balance.m_Amounts.Col, 0);
     }
 
-    void PrepareVaultTx(Method::BaseTx& tx, FundsChange* pFc)
+    void PrepareBalanceTx(Method::BaseTx& tx, FundsChange* pFc)
     {
-        UseVault(tx);
+        UseBalance(tx);
         Flow2Fc(pFc, tx.m_Flow);
     }
 
     void PrepareTroveTx(Method::BaseTxUser& tx, FundsChange* pFc)
     {
-        PrepareVaultTx(tx, pFc);
-        _POD_(tx.m_pkUser) = m_MyTrove.m_Pk;
+        PrepareBalanceTx(tx, pFc);
+        _POD_(tx.m_pkUser) = m_Pk;
     }
 
     void PrepareTroveTx(Method::BaseTxTrove& tx, FundsChange* pFc)
     {
-        PrepareVaultTx(tx, pFc);
+        PrepareBalanceTx(tx, pFc);
         tx.m_iPrev0 = m_MyTrove.m_iPrev0;
+    }
+
+    void PrepareTroveTxGov(Method::BaseTxUserGov& tx, FundsChange* pFc)
+    {
+        PrepareTroveTx(tx, pFc);
+
+        tx.m_GovPull += m_Balance.m_Gov;
+        pFc[2].m_Amount = tx.m_GovPull;
+        pFc[2].m_Aid = m_Settings.m_AidGov;
+        pFc[2].m_Consume = 0;
     }
 
     void OnTroveMove(Method::BaseTx& tx, uint8_t bPop)
@@ -590,24 +625,51 @@ ON_METHOD(manager, view_params)
 
     Env::DocGroup gr("params");
 
-    Env::DocAddBlob_T("oracle", g.m_Settings.m_cidOracle);
+    Env::DocAddBlob_T("oracle1", g.m_Settings.m_cidOracle1);
+    Env::DocAddBlob_T("oracle2", g.m_Settings.m_cidOracle2);
     Env::DocAddNum("aidTok", g.m_Aid);
-    Env::DocAddNum("aidGov", g.m_Settings.m_AidProfit);
+    Env::DocAddNum("aidGov", g.m_Settings.m_AidGov);
     Env::DocAddNum("redemptionHeight", g.m_Settings.m_hMinRedemptionHeight);
     Env::DocAddNum("liq_reserve", g.m_Settings.m_TroveLiquidationReserve);
     Env::DocAddNum("troves_created", g.m_Troves.m_iLastCreated);
     DocAddPair("totals", g.m_Troves.m_Totals);
     DocAddPerc("baserate", g.m_BaseRate.m_k);
-    Env::DocAddNum("stab_pool", g.m_StabPool.get_TotalSell());
-    Env::DocAddNum("gov_pool", g.m_ProfitPool.m_Weight);
+    {
+        Env::DocGroup gr1("stab_pool");
+        Env::DocAddNum("tok", g.m_StabPool.get_TotalSell());
+
+        Env::DocGroup gr2("reward");
+        Env::DocAddNum("gov", g.m_StabPool.m_Reward.m_Remaining);
+        Env::DocAddNum("hEnd", g.m_StabPool.m_Reward.m_hEnd);
+    }
 
     AppGlobal::MyPrice price;
-    if (price.Load(g))
+    uint32_t iOracle = price.Load(g);
+    Env::DocAddNum("oracle_state", iOracle);
+
+    if (iOracle)
     {
         DocAddFloat("price", price.m_Value, 4);
 
         if (g.m_Troves.m_Totals.Tok)
             DocAddPerc("tcr", price.ToCR(g.m_Troves.m_Totals.get_Rcr()));
+
+        Float kHalf = Float(1u) / Float(200u);
+        Float k = kHalf + g.m_BaseRate.m_k;
+
+        {
+            Float kMax(1u); // 100%
+            DocAddPerc("redeem_rate", (k < kMax) ? k : kMax);
+        }
+
+        const char* szIss = "issue_rate";
+        if (g.IsRecovery(price))
+            Env::DocAddNum(szIss, 0u);
+        else
+        {
+            Float kMax = kHalf * Float(10u); // 5%
+            DocAddPerc(szIss, (k < kMax) ? k : kMax);
+        }
     }
 }
 
@@ -643,6 +705,36 @@ ON_METHOD(manager, my_admin_key)
     Env::DocAddBlob_T("admin_key", pk);
 }
 
+ON_METHOD(manager, add_stab_reward)
+{
+    if (!amount)
+        return OnError("amount not specified");
+
+    AppGlobalPlus g(cid);
+    if (!g.LoadPlus())
+        return;
+
+    Method::AddStabPoolReward args;
+    args.m_Amount = amount;
+
+    FundsChange fc;
+    fc.m_Aid = g.m_Settings.m_AidGov;
+    fc.m_Amount = amount;
+    fc.m_Consume = 1;
+
+    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), &fc, 1, nullptr, 0, "Nephrite  add stab reward", 0);
+}
+
+void PrintSurplus(const char* szName, const AppGlobalPlus& g)
+{
+    if (g.m_Balance.m_Amounts.Tok || g.m_Balance.m_Amounts.Col || g.m_Balance.m_Gov)
+    {
+        Env::DocGroup gr(szName);
+        DocAddPairInternal(g.m_Balance.m_Amounts);
+        Env::DocAddNum("gov", g.m_Balance.m_Gov);
+    }
+}
+
 ON_METHOD(user, view)
 {
     AppGlobalPlus g(cid);
@@ -657,19 +749,15 @@ ON_METHOD(user, view)
         Env::DocGroup gr2("my_trove");
         g.DocAddTrove(*g.m_MyTrove.m_pT);
     }
-
-    if (g.m_MyTrove.m_Vault.Tok || g.m_MyTrove.m_Vault.Col)
-        DocAddPair("surplus", g.m_MyTrove.m_Vault);
+    PrintSurplus("surplus-t", g);
 
     if (g.PopMyStab())
-        DocAddPair("stab", g.m_MyStab.m_Amounts);
-
-    if (g.PopMyProfit())
     {
-        Env::DocGroup gr1("profit");
-        Env::DocAddNum("gov", g.m_MyProfit.m_Gov);
-        Env::DocAddNum("beam", g.m_MyProfit.m_Beam);
+        Env::DocGroup gr1("stab");
+        DocAddPairInternal(g.m_MyStab.m_Amounts);
+        Env::DocAddNum("gov", g.m_MyStab.m_Gov);
     }
+    PrintSurplus("surplus_s", g);
 }
 
 namespace Charge
@@ -707,6 +795,13 @@ namespace Charge
     {
         return Env::Cost::FundsLock * ((!!tx.m_Flow.Tok.m_Val) + (!!tx.m_Flow.Col.m_Val));
     }
+
+    static uint32_t Funds(const Method::BaseTxUserGov& tx)
+    {
+        auto ret = Funds(Cast::Down<Method::BaseTx>(tx));
+        return tx.m_GovPull ? (ret + Env::Cost::FundsLock) : ret;
+    }
+
 
     static const uint32_t RedistPoolOp =
         Env::Cost::Cycle * 1000;
@@ -760,8 +855,13 @@ namespace Charge
 
     }
 
-    static const uint32_t BorrowFee =
-        Env::Cost::Cycle * 1000;
+    static const uint32_t get_SendProfit()
+    {
+        return
+            Env::Cost::Cycle * 100 +
+            Env::Cost::CallFar +
+            Env::Cost::FundsLock;
+    }
 
     static const uint32_t StabPoolOp0 =
         Env::Cost::Cycle * 1000;
@@ -784,17 +884,18 @@ ON_METHOD(user, withdraw_surplus)
     if (!g.Load(cid)) // skip loading all troves
         return;
 
-    if (!g.ReadVault())
+    if (!g.ReadBalanceAny())
         OnError("no surplus");
 
-    const auto& v = g.m_MyTrove.m_Vault;
-    assert(v.Col || v.Tok);
+    const auto& v = g.m_Balance.m_Amounts;
+    assert(v.Col || v.Tok || g.m_Balance.m_Gov);
 
     Method::FundsAccess args;
     _POD_(args.m_Flow).SetZero();
+    args.m_GovPull = 0;
 
-    FundsChange pFc[2];
-    g.PrepareTroveTx(args, pFc);
+    FundsChange pFc[3];
+    g.PrepareTroveTxGov(args, pFc);
 
     const uint32_t nCharge =
         Charge::StdCall_RO() + // load global, but no modify/save
@@ -822,14 +923,14 @@ ON_METHOD(user, upd_stab)
 
     args.m_Flow.Tok.Add(newVal, 1);
 
-    if (!args.m_Flow.Tok.m_Val && !args.m_Flow.Col.m_Val)
+    if (!args.m_Flow.Tok.m_Val && !args.m_Flow.Col.m_Val && !g.m_MyStab.m_Gov)
         return OnError("no change");
 
     args.m_NewAmount = newVal;
-    _POD_(args.m_pkUser) = g.m_MyStab.m_Pk;
+    args.m_GovPull = g.m_MyStab.m_Gov;
 
-    FundsChange pFc[2];
-    g.Flow2Fc(pFc, args.m_Flow);
+    FundsChange pFc[3];
+    g.PrepareTroveTxGov(args, pFc);
 
     uint32_t nCharge =
         Charge::StdCall() +
@@ -837,12 +938,16 @@ ON_METHOD(user, upd_stab)
         Charge::Funds(args) +
         Env::Cost::LoadVar_For(sizeof(StabPoolEntry)) +
         Env::Cost::SaveVar_For(sizeof(StabPoolEntry)) +
-        Charge::StabPoolOp0 +
+        Charge::StabPoolOp0 * 2 + // account for reward calculation
         g.m_MyStab.m_Charge +
         Env::Cost::Cycle * 100;
 
     if (newVal < g.m_MyStab.m_Amounts.Tok && g.m_Troves.m_iHead)
     {
+        g.LoadPrice();
+        if (!g.TestHaveValidPrice())
+            return;
+
         // verification that 1st trove can't be liquidated
         nCharge +=
             Charge::Price() +
@@ -851,49 +956,6 @@ ON_METHOD(user, upd_stab)
     }
 
     Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "update stab pool", nCharge);
-}
-
-ON_METHOD(user, upd_profit)
-{
-    AppGlobalPlus g(cid);
-    if (!g.Load(cid)) // skip loading all troves
-        return;
-
-    Method::UpdProfitPool args;
-    args.m_NewAmount = newVal;
-
-    _POD_(args.m_Flow).SetZero();
-    Flow fGov;
-    fGov.m_Spend = 0;
-    
-    if (g.PopMyProfit())
-    {
-        args.m_Flow.Col.m_Val = g.m_MyProfit.m_Beam;
-        fGov.m_Val = g.m_MyProfit.m_Gov;
-    } else
-        fGov.m_Val = 0;
-
-    fGov.Add(newVal, 1);
-
-    if (!args.m_Flow.Col.m_Val && !fGov.m_Val)
-        return OnError("no change");
-
-    _POD_(args.m_pkUser) = g.m_MyProfit.m_Pk;
-
-    FundsChange pFc[2];
-    g.Flow2Fc(pFc[0], args.m_Flow.Col, 0);
-    g.Flow2Fc(pFc[1], fGov, g.m_Settings.m_AidProfit);
-
-    const uint32_t nCharge =
-        Charge::StdCall() +
-        Charge::BankAccess() +
-        Charge::Funds(args) +
-        Env::Cost::LoadVar_For(sizeof(ProfitPoolEntry)) +
-        Env::Cost::SaveVar_For(sizeof(ProfitPoolEntry)) +
-        (fGov.m_Val ? Env::Cost::FundsLock : 0) +
-        Env::Cost::Cycle * 500; // should cover the ProfitPool op. In contrast to other pools, it's simpler, and no additional I/O
-
-    Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "update profit pool", nCharge);
 }
 
 bool AdjustVal(Amount& dst, Amount src, uint32_t op)
@@ -967,11 +1029,32 @@ ON_METHOD(user, trove_modify)
 
     if (t.m_Amounts.Tok || t.m_Amounts.Col)
     {
-        if (t.m_Amounts.Tok < g.m_Settings.m_TroveLiquidationReserve)
-        {
-            OnError("min tok required");
+
+        if (!g.TestHaveValidPrice())
             return;
+
+        if (tcr_mperc)
+        {
+            Float fTrg(tcr_mperc);
+            fTrg = fTrg / Float(100000); // to fraction
+
+            if (bAutoTok)
+            {
+                Float fTok = g.m_Price.C2T(t.m_Amounts.Col) / fTrg;
+                t.m_Amounts.Tok = fTok; // round to a smaller side
+            }
+            else
+            {
+                Float fCol = g.m_Price.T2C(t.m_Amounts.Tok) * fTrg;
+                t.m_Amounts.Col = fCol; // round to a smaller side
+
+                if (Float(t.m_Amounts.Col) < fCol)
+                    t.m_Amounts.Col++;
+            }
         }
+
+        if (t.m_Amounts.Tok < g.m_Settings.m_TroveLiquidationReserve)
+            return OnError("min tok required");
 
         auto totals0 = g.m_Troves.m_Totals;
         auto iPrev1 = g.PushMyTrove();
@@ -983,11 +1066,11 @@ ON_METHOD(user, trove_modify)
 
         g.OnTroveMove(txb, 0);
 
-        Amount fee = g.get_BorrowFee(t.m_Amounts.Tok, tok0, bRecovery, g.m_Price);
+        Amount fee = g.get_BorrowFee(t.m_Amounts.Tok, tok0, bRecovery);
         if (fee)
         {
-            txb.m_Flow.Col.Add(fee, 1);
-            nCharge += Charge::BorrowFee;
+            nCharge += Charge::get_SendProfit();
+            txb.m_Flow.Tok.Add(fee, 1);
         }
 
         nCharge +=
@@ -1056,7 +1139,20 @@ ON_METHOD(user, liquidate)
     if (!g.LoadPlus())
         return;
 
-    g.ReadVault();
+    if (!g.TestHaveValidPrice())
+        return;
+
+    g.m_Kid.set_Trove();
+    bool bHaveBalance = g.ReadBalance();
+
+    PubKey pkMy;
+    _POD_(pkMy) = g.m_Pk;
+
+    if (!bHaveBalance)
+    {
+        g.m_Kid.set_Stab();
+        g.ReadBalance();
+    }
 
     Global::Liquidator ctx;
     ctx.m_Price = g.m_Price;
@@ -1071,10 +1167,10 @@ ON_METHOD(user, liquidate)
     uint32_t nCount = 0;
     bool bSelf = false;
 
-    Float& sStab = g.m_StabPool.m_Active.m_Sigma; // alias
-    Float& sRedist = g.m_RedistPool.m_Active.m_Sigma;
-    Float s0Stab = sStab;
-    Float s0Redist = sRedist;
+    Amount& sStab = g.m_StabPool.m_Active.m_Sell; // alias
+    Amount& sRedist = g.m_RedistPool.m_Active.m_Sell;
+    Amount s0Stab = sStab;
+    Amount s0Redist = sRedist;
 
     while (g.m_Troves.m_iHead)
     {
@@ -1110,7 +1206,7 @@ ON_METHOD(user, liquidate)
                 Env::Cost::Cycle * 500; // surplus calculation
         }
 
-        if (_POD_(g.m_MyTrove.m_Pk) == t.m_pkOwner)
+        if (_POD_(pkMy) == t.m_pkOwner)
             bSelf = true;
 
         if (nMaxTroves == ++nCount) // if nMaxTroves is 0 then unlimited
@@ -1159,7 +1255,10 @@ ON_METHOD(user, redeem)
     if (!g.LoadPlus())
         return;
 
-    g.ReadVault();
+    if (!g.TestHaveValidPrice())
+        return;
+
+    g.ReadBalanceAny();
 
     uint32_t nCharge =
         Charge::StdCall() +
@@ -1207,8 +1306,14 @@ ON_METHOD(user, redeem)
     {
         Env::DocGroup gr("prediction");
         Env::DocAddNum("tok", ctx.m_fpLogic.Tok.m_Val);
-        Env::DocAddNum("col", ctx.m_fpLogic.Col.m_Val + fee);
+        Env::DocAddNum("col", ctx.m_fpLogic.Col.m_Val);
         Env::DocAddNum("fee", fee);
+    }
+
+    if (fee)
+    {
+        ctx.m_fpLogic.Col.Add(fee, 1);
+        nCharge += Charge::get_SendProfit();
     }
 
     if (!bPredictOnly)
@@ -1226,7 +1331,6 @@ ON_METHOD(user, redeem)
 
         nCharge +=
             Charge::Funds(args) +
-            Charge::BorrowFee +
             Env::Cost::AssetEmit; // comission
 
         Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "redeem", nCharge);

@@ -1,5 +1,11 @@
 call make_shader amm/app
 call make_shader amm/contract
+call make_shader asset_man/app
+call make_shader asset_man/contract
+call make_shader bans/app
+call make_shader bans/contract
+call make_shader blackhole/app
+call make_shader blackhole/contract
 call make_shader aphorize/contract
 call make_shader dao-core/app
 call make_shader dao-core/app-admin
@@ -12,6 +18,9 @@ call make_shader dao-core-testnet/app-admin
 call make_shader dao-core-testnet/contract
 call make_shader dao-vote/app
 call make_shader dao-vote/contract
+call make_shader dao-vault/app
+call make_shader dao-vault/contract
+call make_shader dummy/app
 call make_shader dummy/contract
 call make_shader Explorer/Parser
 call make_shader faucet/app
@@ -35,6 +44,8 @@ call make_shader perpetual/contract
 call make_shader pipe/contract
 call make_shader playground/app
 call make_shader playground/contract
+call make_shader profit_pool/app
+call make_shader profit_pool/contract
 call make_shader roulette/app
 call make_shader roulette/contract
 call make_shader sidechain/contract
@@ -47,7 +58,10 @@ call make_shader upgradable2/Test/test_v1
 call make_shader upgradable3/Test/test_app
 call make_shader upgradable3/Test/test_v0
 call make_shader upgradable3/Test/test_v1
+call make_shader upgradable3/Test/test_v0_migrate
 call make_shader vault/app
 call make_shader vault/contract
+call make_shader vault_anon/app
+call make_shader vault_anon/contract
 call make_shader voting/app
 call make_shader voting/contract

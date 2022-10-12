@@ -6,12 +6,19 @@ set(TARGET_NAME wasm-client)
 if(EMSCRIPTEN)
     set(CMAKE_CXX_STANDARD 17)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-value -pthread -Wno-pthreads-mem-growth -Wno-deprecated-declarations -Wcast-align")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-value \
+                                            -pthread \
+                                            -Wno-pthreads-mem-growth \
+                                            -Wno-deprecated-declarations \
+                                            -Wcast-align \
+                                            -Wno-unused-but-set-variable \
+                                            -Wno-limited-postlink-optimizations")
     add_executable(${TARGET_NAME}
         common.cpp
         wasmclient.cpp
         wasm_beamapi.h
-        wasm_beamapi.cpp)
+        wasm_beamapi.cpp
+    )
     target_link_libraries(${TARGET_NAME} PRIVATE 
         wallet_client_no_ipfs
         mnemonic
@@ -27,11 +34,11 @@ if(EMSCRIPTEN)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/README.md" "${CMAKE_CURRENT_BINARY_DIR}/README.md" COPYONLY)
 
     set_target_properties(${TARGET_NAME}
-        PROPERTIES COMPILE_FLAGS "-s PROXY_TO_PTHREAD=1 \
+        PROPERTIES COMPILE_FLAGS "-s PROXY_TO_PTHREAD=0 \
                                   -s USE_PTHREADS=1 \
                                   -s DISABLE_EXCEPTION_CATCHING=0 \
                                   -s STRICT=0"
-        LINK_FLAGS "--js-transform 'python ${CMAKE_CURRENT_SOURCE_DIR}/fix-client.py' \
+        LINK_FLAGS "--js-transform 'python ${CMAKE_CURRENT_SOURCE_DIR}/fix-client.py'\
                    --bind --no-entry -v \
                    -s FORCE_FILESYSTEM=1 \
                    -s WEBSOCKET_URL=wss:// \
@@ -50,6 +57,7 @@ if(EMSCRIPTEN)
                    -s ALLOW_BLOCKING_ON_MAIN_THREAD=0 \
                    -s INITIAL_MEMORY=100MB \
                    -s ALLOW_MEMORY_GROWTH=0 \
+                   -s DYNAMIC_EXECUTION=0 \
                    -s USE_BOOST_HEADERS=1 \
                    -s ASSERTIONS=1 \
                    -s PTHREAD_POOL_SIZE='window.navigator.hardwareConcurrency < ${BEAM_WEB_WALLET_THREADS_NUM} ? \

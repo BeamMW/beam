@@ -40,12 +40,19 @@ struct MyState
         if (m_Current.m_iEpoch == iEpoch)
             return false;
 
+        if (m_Current.m_iEpoch)
+        {
+            EpochStats::Key esk;
+            esk.m_iEpoch = m_Current.m_iEpoch;
+            Env::SaveVar_T(esk, m_Current.m_Stats);
+        }
+
         m_Current.m_iEpoch = iEpoch;
 
         m_Current.m_Proposals = m_Next.m_Proposals;
         m_Next.m_Proposals = 0;
 
-        if (m_Current.m_DividendStake)
+        if (m_Current.m_Stats.m_StakeVoted)
         {
             if (m_Current.m_iDividendEpoch)
             {
@@ -53,13 +60,13 @@ struct MyState
                 d.m_Key.m_iEpoch = m_Current.m_iDividendEpoch;
 
                 d.Load();
-                d.m_Stake = m_Current.m_DividendStake;
+                d.m_Stake = m_Current.m_Stats.m_StakeVoted;
                 d.Save();
 
                 m_Current.m_iDividendEpoch = 0;
             }
 
-            m_Current.m_DividendStake = 0;
+            m_Current.m_Stats.m_StakeVoted = 0;
         }
 
         if (!m_Current.m_iDividendEpoch)
@@ -67,6 +74,9 @@ struct MyState
             m_Current.m_iDividendEpoch = m_Next.m_iDividendEpoch;
             m_Next.m_iDividendEpoch = 0;
         }
+
+        Strict::Add(m_Current.m_Stats.m_StakeActive, m_Next.m_StakePassive);
+        m_Next.m_StakePassive = 0;
 
         return true;
     }
@@ -84,13 +94,20 @@ struct MyProposal
     Proposal::Key m_Key;
     uint32_t m_Variants;
 
-    void Load() {
+    bool Load()
+    {
         uint32_t nSize = Env::LoadVar(&m_Key, sizeof(m_Key), this, sizeof(ProposalMax), KeyTag::Internal);
-        m_Variants = nSize / sizeof(*m_pVariant);
+        if (!nSize)
+            return false;
+
+        assert(nSize >= sizeof(Proposal));
+        m_Variants = (nSize - sizeof(Proposal)) / sizeof(*m_pVariant);
+
+        return true;
     }
 
     void Save() {
-        Env::SaveVar(&m_Key, sizeof(m_Key), this, sizeof(*m_pVariant) * m_Variants, KeyTag::Internal);
+        Env::SaveVar(&m_Key, sizeof(m_Key), this, sizeof(Proposal) + sizeof(*m_pVariant) * m_Variants, KeyTag::Internal);
     }
 };
 
@@ -114,11 +131,11 @@ struct MyState_AutoSave
 
     void AdjustVotes(UserMax& u, const uint8_t* p1, Amount v0)
     {
-        Amount s0 = m_Current.m_DividendStake;
+        Amount s0 = m_Current.m_Stats.m_StakeVoted;
         if (u.m_iDividendEpoch)
         {
-            assert(m_Current.m_DividendStake >= v0);
-            m_Current.m_DividendStake -= v0;
+            assert(m_Current.m_Stats.m_StakeVoted >= v0);
+            m_Current.m_Stats.m_StakeVoted -= v0;
 
             u.m_iDividendEpoch = 0;
         }
@@ -158,7 +175,7 @@ struct MyState_AutoSave
             if (User::s_NoVote != n1)
             {
                 Env::Halt_if(n1 >= p.m_Variants);
-                Strict::Add(p.m_pVariant[n1], v1);
+                p.m_pVariant[n1] += v1;
             }
 
             n0 = n1;
@@ -169,10 +186,12 @@ struct MyState_AutoSave
         if (bAllVoted && m_Current.m_iDividendEpoch)
         {
             u.m_iDividendEpoch = m_Current.m_iDividendEpoch;
-            Strict::Add(m_Current.m_DividendStake, v1);
+            m_Current.m_Stats.m_StakeVoted += v1;
         }
 
-        if (s0 != m_Current.m_DividendStake)
+        assert(m_Current.m_Stats.m_StakeVoted <= m_Current.m_Stats.m_StakeActive);
+
+        if (s0 != m_Current.m_Stats.m_StakeVoted)
             m_Dirty = true;
     }
 };
@@ -187,7 +206,7 @@ struct MyUser
         Env::SaveVar(&m_Key, sizeof(m_Key), this, sizeof(User) + sizeof(*m_pVotes) * s.m_Current.m_Proposals, KeyTag::Internal);
     }
 
-    void TakeDividends()
+    void TakeDividends() const
     {
         if (!m_Stake)
             return;
@@ -261,9 +280,9 @@ struct MyUser
                 m_iDividendEpoch = 0;
             }
 
-            Strict::Add(m_Stake, m_StakeNext);
+            m_Stake += m_StakeNext;
             m_StakeNext = 0;
-
+            m_VoteCounter = 0;
         }
         else
             // new user
@@ -313,6 +332,7 @@ BEAM_EXPORT void Method_3(const Method::AddProposal& r)
     s.LoadUpd_NoSave();
 
     MyProposal p;
+    p.m_iEpoch = s.m_Current.m_iEpoch + 1;
     p.m_Variants = r.m_Data.m_Variants;
     Env::Memset(p.m_pVariant, 0, sizeof(*p.m_pVariant) * p.m_Variants);
 
@@ -333,26 +353,38 @@ BEAM_EXPORT void Method_3(const Method::AddProposal& r)
 BEAM_EXPORT void Method_4(const Method::MoveFunds& r)
 {
     MyState_AutoSave s;
+    s.m_Dirty = true;
 
     MyUser u;
     u.LoadPlus(s, r.m_pkUser);
 
     if (r.m_Lock)
     {
-        Strict::Add(u.m_StakeNext, r.m_Amount);
+        Strict::Add(s.m_Next.m_StakePassive, r.m_Amount);
+        u.m_StakeNext += r.m_Amount;
         Env::FundsLock(s.m_Cfg.m_Aid, r.m_Amount);
     }
     else
     {
         if (u.m_StakeNext >= r.m_Amount)
+        {
             u.m_StakeNext -= r.m_Amount;
+            assert(s.m_Next.m_StakePassive >= r.m_Amount);
+            s.m_Next.m_StakePassive -= r.m_Amount;
+        }
         else
         {
             Amount delta = r.m_Amount - u.m_StakeNext;
+
+            assert(s.m_Next.m_StakePassive >= u.m_StakeNext);
+            s.m_Next.m_StakePassive -= u.m_StakeNext;
             u.m_StakeNext = 0;
 
             Amount val0 = u.m_Stake;
             Strict::Sub(u.m_Stake, delta);
+
+            assert(s.m_Current.m_Stats.m_StakeActive >= delta);
+            s.m_Current.m_Stats.m_StakeActive -= delta;
 
             s.AdjustVotes(u, u.m_pVotes, val0);
         }
@@ -378,10 +410,11 @@ BEAM_EXPORT void Method_5(const Method::Vote& r)
     u.LoadPlus(s, r.m_pkUser);
 
     Amount val = u.m_Stake;
-    Env::Halt_if(!val);
+    Env::Halt_if(!val || (u.m_VoteCounter > r.m_VoteCounter));
 
     s.AdjustVotes(u, reinterpret_cast<const uint8_t*>(&r + 1), val);
 
+    u.m_VoteCounter = r.m_VoteCounter;
     u.Save(s);
 
     Env::AddSig(r.m_pkUser);
@@ -434,27 +467,44 @@ BEAM_EXPORT void Method_7(Method::GetResults& r)
     MyState s;
     s.Load();
 
-    r.m_Finished = 0;
-
-    if (r.m_ID > s.m_iLastProposal)
-        r.m_Variants = 0;
+    auto id = r.m_ID;
+    if (id > s.m_iLastProposal)
+    {
+        _POD_(r).SetZero();
+        r.m_ID = id;
+    }
     else
     {
         MyProposal p;
-        p.m_Key.m_ID = r.m_ID;
+        p.m_Key.m_ID = id;
         p.Load();
 
-        uint32_t nVars = std::min(r.m_Variants, p.m_Variants);
         r.m_Variants = p.m_Variants;
 
-        Env::Memcpy(&r + 1, p.m_pVariant, sizeof(*p.m_pVariant) * nVars);
+        uint32_t nVars = std::min(r.m_Variants, p.m_Variants);
+        Env::Memcpy(&r.m_Res, &p, sizeof(Proposal) + sizeof(*p.m_pVariant) * nVars);
 
-        uint32_t nUnfinished = s.m_Next.m_Proposals;
-        if (s.get_Epoch() == s.m_Current.m_iEpoch)
-            nUnfinished += s.m_Current.m_Proposals;
+        if (p.m_iEpoch < s.m_Current.m_iEpoch)
+        {
+            r.m_Status = Proposal::Status::Done;
 
-        if (r.m_ID <= s.m_iLastProposal - nUnfinished)
-            r.m_Finished = 1;
+            EpochStats::Key esk;
+            esk.m_iEpoch = p.m_iEpoch;
+            Env::LoadVar_T(esk, r.m_Stats);
+        }
+        else
+        {
+            r.m_Stats = s.m_Current.m_Stats;
+
+            if (p.m_iEpoch != s.m_Current.m_iEpoch)
+            {
+                assert(p.m_iEpoch == s.m_Current.m_iEpoch + 1);
+                r.m_Stats.m_StakeVoted = 0;
+                r.m_Status = Proposal::Status::NotStarted;
+            }
+            else
+                r.m_Status = Proposal::Status::InProgress;
+        }
     }
 }
 
@@ -483,11 +533,11 @@ namespace Upgradable3 {
 
     uint32_t get_CurrentVersion()
     {
-        return 1;
+        return 2;
     }
 
     void OnUpgraded(uint32_t nPrevVersion)
     {
-        Env::Halt_if(nPrevVersion != 0);
+        Env::Halt_if(nPrevVersion != 1);
     }
 }

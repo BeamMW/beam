@@ -22,14 +22,14 @@ namespace beam::wallet {
     struct ManagerStdInWallet
         :public bvm2::ManagerStd
     {
-        ManagerStdInWallet(WalletDB::Ptr, Wallet::Ptr);
+        ManagerStdInWallet(IWalletDB::Ptr, Wallet::Ptr);
         virtual ~ManagerStdInWallet();
 
         void set_Privilege(uint32_t);
 
     protected:
 
-        WalletDB::Ptr m_pWalletDB;
+        IWalletDB::Ptr m_pWalletDB;
         Wallet::Ptr m_pWallet;
         uint32_t m_Privilege;
 

@@ -106,17 +106,11 @@ namespace beam::wallet
     // Interface for sending wallet to wallet messages
     // Used as a base for SBBS and Cold walelt endpoints
     struct IWalletMessageEndpoint
+        :public IRawCommGateway
     {
-        struct IHandler {
-            virtual void OnMsg(const Blob&) = 0;
-        };
-
         using Ptr = std::shared_ptr<IWalletMessageEndpoint>;
         virtual void Send(const WalletID& peerID, const SetTxParameter& msg) = 0;
-        virtual void Send(const WalletID& peerID, const Blob&) {}
         virtual void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) = 0;
-        virtual void Listen(const WalletID&, const ECC::Scalar::Native& sk, IHandler* = nullptr) {}
-        virtual void Unlisten(const WalletID&) {}
     };
 
     inline constexpr char FallbackPeers[] = "FallbackPeers";
@@ -183,6 +177,7 @@ namespace beam::wallet
         void RequestVouchersFrom(const WalletID& peerID, const WalletID& myID, uint32_t nCount = 1);
         virtual void OnVouchersFrom(const WalletAddress&, const WalletID& myID, std::vector<ShieldedTxo::Voucher>&&);
         void RequestShieldedOutputsAt(Height h, std::function<void(Height, TxoID)>&& onRequestComplete);
+        void RequestAssetsListAt(Height h, std::function<void(ByteBuffer)>&& onRequestComplete);
         bool IsConnectedToOwnNode() const;
         bool CanDetectCoins() const;
         void EnableBodyRequests(bool value);
@@ -192,6 +187,11 @@ namespace beam::wallet
         const std::set<IWalletMessageEndpoint::Ptr>& get_MessageEndpoints() const {
             return m_MessageEndpoints;
         }
+
+        // IRawCommGateway
+        void Listen(const WalletID&, const ECC::Scalar::Native& sk, IHandler* = nullptr) override;
+        void Unlisten(const WalletID&) override;
+        void Send(const WalletID& peerID, const Blob&) override;
 
     protected:
         void SendTransactionToNode(const TxID& txId, const Transaction::Ptr&, const Merkle::Hash* pParentCtx, SubTxID subTxID);
@@ -360,6 +360,11 @@ namespace beam::wallet
             {
                 Height m_Height = MaxHeight;
             };
+
+            struct AssetsListAt
+            {
+                std::function<void(ByteBuffer)> m_callback;
+            };
         };
 
 #define REQUEST_Cmp_less_Single { return false; }
@@ -416,7 +421,8 @@ namespace beam::wallet
 	macro(StateSummary) \
 	macro(ShieldedOutputsAt) \
     macro(BodyPack) \
-    macro(Body)
+    macro(Body) \
+    macro(AssetsListAt)
 
 
     WalletFlyClientRequests_All(THE_MACRO)

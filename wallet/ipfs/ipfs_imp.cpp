@@ -81,7 +81,10 @@ namespace beam::wallet::imp
                 {
                     if (config.bootstrap.empty())
                     {
-                        #if defined(BEAM_TESTNET)
+                        #ifdef BEAM_DAPPNET
+                        config.bootstrap.emplace_back("/ip4/3.16.160.95/tcp/38041/p2p/12D3KooWEFuqCDtMx5TQkQ4zHd4q38Ad4iE9zuCw6qGffah9WjEo");
+                        LOG_INFO() << "Default DAPPNET IPFS bootstrap is used";
+                        #elif defined(BEAM_TESTNET)
                         config.bootstrap.emplace_back("/dns4/eu-node01.testnet.beam.mw/tcp/38041/p2p/12D3KooWFEa2QaN5t3oTGurg1Fz5BkoE3ueHV18WxjHCXY16hHYM");
                         config.bootstrap.emplace_back("/dns4/eu-node02.testnet.beam.mw/tcp/38041/p2p/12D3KooWPrfHKa3Sc7qF96biwqy1JPRVDxoVhbxFtnfnbZQXVw8e");
                         config.bootstrap.emplace_back("/dns4/eu-node03.testnet.beam.mw/tcp/38041/p2p/12D3KooWF1oX1FP3chGQgzosCdNqBwSb37BPhM2fQJYiYMtGpHXt");
@@ -102,8 +105,12 @@ namespace beam::wallet::imp
                         LOG_INFO() << "Custom IPFS bootstrap is provided";
                     }
 
-                    if (config.peering.empty()) {
-                        #if defined(BEAM_TESTNET)
+                    if (config.peering.empty())
+                    {
+                        #ifdef BEAM_DAPPNET
+                        config.peering.emplace_back("/ip4/3.16.160.95/tcp/38041/p2p/12D3KooWEFuqCDtMx5TQkQ4zHd4q38Ad4iE9zuCw6qGffah9WjEo");
+                        LOG_INFO() << "Default DAPPNET IPFS peering is used";
+                        #elif defined(BEAM_TESTNET)
                         config.peering.emplace_back("/dns4/eu-node01.testnet.beam.mw/tcp/38041/p2p/12D3KooWFEa2QaN5t3oTGurg1Fz5BkoE3ueHV18WxjHCXY16hHYM");
                         config.peering.emplace_back("/dns4/eu-node02.testnet.beam.mw/tcp/38041/p2p/12D3KooWPrfHKa3Sc7qF96biwqy1JPRVDxoVhbxFtnfnbZQXVw8e");
                         config.peering.emplace_back("/dns4/eu-node03.testnet.beam.mw/tcp/38041/p2p/12D3KooWF1oX1FP3chGQgzosCdNqBwSb37BPhM2fQJYiYMtGpHXt");
@@ -126,7 +133,10 @@ namespace beam::wallet::imp
 
                     if (config.swarm_key.empty())
                     {
-                        #if defined(BEAM_TESTNET)
+                        #ifdef BEAM_DAPPNET
+                        config.swarm_key = "/key/swarm/psk/1.0.0/\n/base16/\nbf2f20636d7cd1c58c7ae6234ea056f6a673ffad71ec08af37405c4f3cbf9928";
+                        LOG_INFO() << "Default DAPPNET IPFS swarm key would be used";
+                        #elif defined(BEAM_TESTNET)
                         config.swarm_key = "/key/swarm/psk/1.0.0/\n/base16/\n1191aea7c9f99f679f477411d9d44f1ea0fdf5b42d995966b14a9000432f8c4a";
                         LOG_INFO() << "Default TESTNET IPFS swarm key would be used";
                         #elif defined(BEAM_MAINNET)

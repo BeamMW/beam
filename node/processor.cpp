@@ -303,7 +303,6 @@ void NodeProcessor::InitializeMapped(const char* sz)
 		InitMapping(sz, true);
 	}
 
-	LOG_INFO() << "Rebuilding mapped image...";
 	InitializeUtxos();
 
 	NodeDB::WalkerContractData wlk;
@@ -1889,10 +1888,38 @@ Height NodeProcessor::PruneOld()
 	return hRet;
 }
 
+struct LongActionPlus
+{
+	LongAction m_La;
+	bool m_Logging;
+
+	LongActionPlus(const char* sz, Height h, Height hTrg)
+	{
+		assert(hTrg > h);
+		auto dh = hTrg - h;
+		if (dh < 10000)
+		{
+			m_Logging = false;
+			return;
+		}
+
+		m_Logging = true;
+		m_La.Reset(sz, dh);
+	}
+
+	void OnProgress(Height h, Height hTrg)
+	{
+		if (m_Logging)
+			m_La.OnProgress(m_La.m_Total + h - hTrg);
+	}
+};
+
 Height NodeProcessor::RaiseFossil(Height hTrg)
 {
 	if (hTrg <= m_Extra.m_Fossil)
 		return 0;
+
+	LongActionPlus la("Raising Fossil...", m_Extra.m_Fossil, hTrg);
 
 	Height hRet = 0;
 
@@ -1913,6 +1940,7 @@ Height NodeProcessor::RaiseFossil(Height hTrg)
 
 			hRet++;
 		}
+		la.OnProgress(m_Extra.m_Fossil, hTrg);
 
 	}
 
@@ -1924,6 +1952,8 @@ Height NodeProcessor::RaiseTxoLo(Height hTrg)
 {
 	if (hTrg <= m_Extra.m_TxoLo)
 		return 0;
+
+	LongActionPlus la("Raising TxoLo...", m_Extra.m_TxoLo, hTrg);
 
 	Height hRet = 0;
 	std::vector<NodeDB::StateInput> v;
@@ -1952,6 +1982,8 @@ Height NodeProcessor::RaiseTxoLo(Height hTrg)
 		hRet += (v.size() - iRes);
 
 		m_DB.set_StateInputs(rowid, &v.front(), iRes);
+
+		la.OnProgress(m_Extra.m_TxoLo, hTrg);
 	}
 
 	m_Extra.m_TxoLo = hTrg;
@@ -1964,6 +1996,9 @@ Height NodeProcessor::RaiseTxoHi(Height hTrg)
 {
 	if (hTrg <= m_Extra.m_TxoHi)
 		return 0;
+
+	LongActionPlus la("Raising TxoHi...", m_Extra.m_TxoHi, hTrg);
+
 
 	Height hRet = 0;
 	std::vector<NodeDB::StateInput> v;
@@ -1990,6 +2025,8 @@ Height NodeProcessor::RaiseTxoHi(Height hTrg)
 			m_DB.TxoSetValue(id, wlk.m_Value);
 			hRet++;
 		}
+
+		la.OnProgress(m_Extra.m_TxoHi, hTrg);
 	}
 
 	m_DB.ParamIntSet(NodeDB::ParamID::HeightTxoHi, m_Extra.m_TxoHi);
@@ -3421,9 +3458,11 @@ void NodeProcessor::RescanOwnedTxos()
 
 	if (vk.m_pMw)
 	{
-		LOG_INFO() << "Rescanning owned Txos...";
+		LongAction la("Rescanning owned Txos...", 0);
 
 		TxoRecover wlk(*vk.m_pMw, *this, rec);
+		wlk.m_pLa = &la;
+
 		EnumTxos(wlk);
 
 		LOG_INFO() << "Recovered " << wlk.m_Unspent << "/" << wlk.m_Total << " unspent/total Txos";
@@ -3435,8 +3474,6 @@ void NodeProcessor::RescanOwnedTxos()
 
 	if (!vk.IsEmpty())
 	{
-		LOG_INFO() << "Rescanning shielded Txos...";
-
 		// shielded items
 		Height h0 = Rules::get().pForks[2].m_Height;
 		if (m_Cursor.m_Sid.m_Height >= h0)
@@ -3444,14 +3481,15 @@ void NodeProcessor::RescanOwnedTxos()
 			TxoID nOuts = m_Extra.m_ShieldedOutputs;
 			m_Extra.m_ShieldedOutputs = 0;
 
+			LongAction la("Rescanning shielded Txos...", 0);
+
 			KrnWalkerRecognize wlkKrn(rec.m_Recognizer);
+			wlkKrn.m_pLa = &la;
 			EnumKernels(wlkKrn, HeightRange(h0, m_Cursor.m_Sid.m_Height));
 
 			assert(m_Extra.m_ShieldedOutputs == nOuts);
 			nOuts; // supporess unused var warning in release
 		}
-
-		LOG_INFO() << "Shielded scan complete";
 	}
 }
 
@@ -4684,6 +4722,7 @@ struct NodeProcessor::ProcessorInfoParser
 			:public IReadVars
 		{
 			NodeDB::WalkerContractData m_Wlk;
+			ByteBuffer m_Buf1, m_Buf2;
 
 			bool MoveNext() override
 			{
@@ -4699,7 +4738,10 @@ struct NodeProcessor::ProcessorInfoParser
 		pOut = std::make_unique<Context>();
 		auto& x = Cast::Up<Context>(*pOut);
 
-		m_Proc.m_DB.ContractDataEnum(x.m_Wlk, kMin, kMax);
+		kMin.Export(x.m_Buf1);
+		kMax.Export(x.m_Buf2);
+
+		m_Proc.m_DB.ContractDataEnum(x.m_Wlk, x.m_Buf1, x.m_Buf2);
 	}
 
 	void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax, IReadLogs::Ptr& pOut) override
@@ -4708,6 +4750,7 @@ struct NodeProcessor::ProcessorInfoParser
 			:public IReadLogs
 		{
 			NodeDB::ContractLog::Walker m_Wlk;
+			ByteBuffer m_Buf1, m_Buf2;
 
 			bool MoveNext() override
 			{
@@ -4738,7 +4781,11 @@ struct NodeProcessor::ProcessorInfoParser
 		}
 
 		if (kMin.n && kMax.n)
-			m_Proc.m_DB.ContractLogEnum(x.m_Wlk, kMin, kMax, *pPosMin, *pPosMax);
+		{
+			kMin.Export(x.m_Buf1);
+			kMax.Export(x.m_Buf2);
+			m_Proc.m_DB.ContractLogEnum(x.m_Wlk, x.m_Buf1, x.m_Buf2, *pPosMin, *pPosMax);
+		}
 		else
 			m_Proc.m_DB.ContractLogEnum(x.m_Wlk, *pPosMin, *pPosMax);
 	}
@@ -4779,7 +4826,10 @@ struct NodeProcessor::ProcessorInfoParser
 		while (!IsDone())
 			RunOnce();
 
-		return m_os.str();
+		auto ret = m_os.str();
+		if (2 == ret.size())
+			ret.clear(); // remove empty group
+		return ret;
 	}
 
 	template <typename T>
@@ -5727,7 +5777,7 @@ Difficulty NodeProcessor::get_NextDifficulty()
 {
 	const Rules& r = Rules::get(); // alias
 
-	if (!m_Cursor.m_Sid.m_Row)
+	if (!m_Cursor.m_Sid.m_Row || r.FakePoW)
 		return r.DA.Difficulty0; // 1st block
 
 	THW thw0, thw1;
@@ -6489,6 +6539,9 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 		return true;
 	assert(hr.m_Max <= m_Cursor.m_ID.m_Height);
 
+	if (wlkTxo.m_pLa)
+		wlkTxo.m_pLa->m_Total = hr.m_Max - hr.m_Min + 1;
+
 	TxoID id1 = get_TxosBefore(hr.m_Min);
 	Height h = hr.m_Min - 1; // don't care about overflow
 
@@ -6508,6 +6561,9 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 				id1 = FindHeightByTxoID(h, wlk.m_ID);
 				assert(wlk.m_ID < id1);
 			}
+
+			if (wlkTxo.m_pLa)
+				wlkTxo.m_pLa->OnProgress(h - hr.m_Min);
 		}
 
 		if (!wlkTxo.OnTxo(wlk, h))
@@ -6523,6 +6579,9 @@ bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
 		return true;
 	assert(hr.m_Max <= m_Cursor.m_ID.m_Height);
 
+	if (wlkKrn.m_pLa)
+		wlkKrn.m_pLa->m_Total = hr.m_Max - hr.m_Min + 1;
+
 	TxVectors::Eternal txve;
 
 	for (wlkKrn.m_Height = hr.m_Min; wlkKrn.m_Height <= hr.m_Max; wlkKrn.m_Height++)
@@ -6533,6 +6592,9 @@ bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
 		wlkKrn.m_nKrnIdx = 0;
 		if (!wlkKrn.ProcessHeight(txve.m_vKernels))
 			return false;
+
+		if (wlkKrn.m_pLa)
+			wlkKrn.m_pLa->OnProgress(wlkKrn.m_Height - hr.m_Min + 1);
 	}
 
 	return true;
@@ -6597,13 +6659,12 @@ void NodeProcessor::InitializeUtxos()
 	struct Walker
 		:public ITxoWalker_UnspentNaked
 	{
-		TxoID m_TxosTotal = 0;
 		NodeProcessor& m_This;
 		Walker(NodeProcessor& x) :m_This(x) {}
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate) override
 		{
-			m_This.InitializeUtxosProgress(wlk.m_ID, m_TxosTotal);
+			m_This.InitializeUtxosProgress(wlk.m_ID, m_pLa->m_Total);
 			return ITxoWalker_UnspentNaked::OnTxo(wlk, hCreate);
 		}
 
@@ -6618,8 +6679,11 @@ void NodeProcessor::InitializeUtxos()
 		}
 	};
 
+	LongAction la("Rebuilding mapped image...", 0);
+
 	Walker wlk(*this);
-	wlk.m_TxosTotal = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
+	wlk.m_pLa = &la;
+
 	EnumTxos(wlk);
 }
 
@@ -6866,7 +6930,7 @@ void NodeProcessor::RecentStates::Push(uint64_t rowID, const Block::SystemState:
 
 void NodeProcessor::RebuildNonStd()
 {
-	LOG_INFO() << "Rebuilding non-std data...";
+	LongAction la("Rebuilding non-std data...", m_Cursor.m_Full.m_Height);
 
 	// Delete all asset info, contracts, shielded, and replay everything
 	m_Mapped.m_Contract.Clear();
@@ -6945,6 +7009,7 @@ void NodeProcessor::RebuildNonStd()
 	std::vector<ContractInvokeExtraInfo> vC;
 	wlk.m_pvC = m_DB.ParamIntGetDef(NodeDB::ParamID::RichContractInfo) ? &vC : nullptr;
 
+	wlk.m_pLa = &la;
 	EnumKernels(wlk, HeightRange(Rules::get().pForks[2].m_Height, m_Cursor.m_ID.m_Height));
 }
 

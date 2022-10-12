@@ -93,17 +93,12 @@ namespace KeyMaterial
 
 ON_METHOD(manager, view)
 {
-    static const ShaderID s_pSid[] = {
-        Gallery::s_SID_0,
-        Gallery::s_SID_1,
-    };
-
-    ContractID pVerCid[_countof(s_pSid)];
-    Height pVerDeploy[_countof(s_pSid)];
+    ContractID pVerCid[_countof(Gallery::s_pSID)];
+    Height pVerDeploy[_countof(Gallery::s_pSID)];
 
     ManagerUpgadable2::Walker wlk;
-    wlk.m_VerInfo.m_Count = _countof(s_pSid);
-    wlk.m_VerInfo.s_pSid = s_pSid;
+    wlk.m_VerInfo.m_Count = _countof(Gallery::s_pSID);
+    wlk.m_VerInfo.s_pSid = Gallery::s_pSID;
     wlk.m_VerInfo.m_pCid = pVerCid;
     wlk.m_VerInfo.m_pHeight = pVerDeploy;
 

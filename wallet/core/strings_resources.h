@@ -275,4 +275,20 @@ namespace beam
     // lelantus
     extern const char kErrorShieldedIDMissing[];
     extern const char kErrorWindowBeginMissing[];
+
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+    extern const char kAssetsSwapTableHead[];
+    extern const char kAssetsSwapTableFormat[];
+    extern const char kAssetsSwapID[];
+    extern const char kAssetsSwapSendAmount[];
+    extern const char kAssetsSwapSendAssetID[];
+    extern const char kAssetsSwapSendAssetName[];
+    extern const char kAssetsSwapReceiveAmount[];
+    extern const char kAssetsSwapReceiveAssetID[];
+    extern const char kAssetsSwapReceiveAssetName[];
+    extern const char kAssetsSwapCreation[];
+    extern const char kAssetsSwapExpiration[];
+    extern const char kAssetsSwapIsMine[];
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 }

@@ -29,7 +29,7 @@ namespace beam::wallet {
         }
     };
 
-    ManagerStdInWallet::ManagerStdInWallet(WalletDB::Ptr wdb, Wallet::Ptr pWallet)
+    ManagerStdInWallet::ManagerStdInWallet(IWalletDB::Ptr wdb, Wallet::Ptr pWallet)
         :m_pWalletDB(std::move(wdb))
         ,m_pWallet(std::move(pWallet))
     {
@@ -82,14 +82,11 @@ namespace beam::wallet {
         virtual ~Channel()
         {
             if (m_pThis)
-            {
-                for (auto& p : m_pThis->m_pWallet->get_MessageEndpoints())
-                    p->Unlisten(m_Wid);
-            }
+                m_pThis->m_pWallet->Unlisten(m_Wid);
         }
 
         struct Handler
-            :public IWalletMessageEndpoint::IHandler
+            :public IRawCommGateway::IHandler
         {
             void OnMsg(const Blob& msg) override
             {
@@ -120,9 +117,7 @@ namespace beam::wallet {
         c.m_Wid.SetChannelFromPk();
 
         c.m_pThis = this;
-
-        for (auto& p : m_pWallet->get_MessageEndpoints())
-            p->Listen(c.m_Wid, sk, &c.m_Handler);
+        m_pWallet->Listen(c.m_Wid, sk, &c.m_Handler);
 
         pRes = std::move(pCh);
     }
@@ -136,8 +131,7 @@ namespace beam::wallet {
         wid.m_Pk = pk.m_X;
         wid.SetChannelFromPk();
 
-        for (auto& p : m_pWallet->get_MessageEndpoints())
-            p->Send(wid, msg);
+        m_pWallet->Send(wid, msg);
     }
 
     void ManagerStdInWallet::WriteStream(const Blob& b, uint32_t iStream)
@@ -306,7 +300,7 @@ namespace beam::wallet {
                 throw std::runtime_error("failed to deserialize invoke data");
             }
 
-            std::string sComment = bvm2::getFullComment(invokeData);
+            std::string sComment = invokeData.get_FullComment();
             ByteBuffer msg(sComment.begin(), sComment.end());
 
             if (_currentAppId.empty() && _currentAppName.empty())
@@ -387,7 +381,7 @@ namespace beam::wallet {
             LOG_VERBOSE () << "Shader result: " << std::string_view(result ? *result : std::string()).substr(0, 200);
         }
 
-        if (m_vInvokeData.empty())
+        if (m_InvokeData.m_vec.empty())
         {
             if (req.doneAll)
             {
@@ -401,7 +395,7 @@ namespace beam::wallet {
 
         try
         {
-            auto buffer = toByteBuffer(m_vInvokeData);
+            auto buffer = toByteBuffer(m_InvokeData);
 
             if (req.doneCall)
             {

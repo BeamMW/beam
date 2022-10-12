@@ -50,6 +50,7 @@ private:
     void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr) override;
     void onGetAddress(const beam::wallet::WalletID& addr, const boost::optional<beam::wallet::WalletAddress>& address, size_t offlinePayments) override;
     void onSwapParamsLoaded(const beam::ByteBuffer& params) override;
+    void onAssetSwapParamsLoaded(const beam::ByteBuffer& params) override;
     void onNewAddressFailed() override;
     void onNodeConnectionChanged(bool isNodeConnected) override;
     void onWalletError(beam::wallet::ErrorType error) override;

@@ -93,7 +93,7 @@ jobs:
           if-no-files-found: error
 
   build_osx:
-    runs-on: macos-10.15
+    runs-on: macos-11
     steps:
       - name: Create Build Environment
         shell: bash
@@ -103,35 +103,47 @@ jobs:
       - name: Download
         shell: bash
         run: |
-          wget -q https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/boost_1_75_0.tar.gz
-          tar -xvf boost_1_75_0.tar.gz > /dev/null
-          mv ./boost_1_75_0 ${{runner.workspace}}/boost
+          wget -q https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.tar.gz
+          tar -xvf boost_1_78_0.tar.gz > /dev/null
+          # cp -R ./boost_1_78_0 ${{runner.workspace}}/boost_arm
+          mv ./boost_1_78_0 ${{runner.workspace}}/boost
 
       - name: Bootstrap
         shell: bash
         run: |
           cd ${{runner.workspace}}/boost
           ./bootstrap.sh
+          # cd ${{runner.workspace}}/boost_arm
+          # ./bootstrap.sh
 
       - name: Build
         shell: bash
         run: |
+          # cd ${{runner.workspace}}/boost_arm
+          # ./b2 cxxstd=14 toolset=clang-darwin target-os=darwin architecture=arm abi=aapcs cxxflags="-arch arm64" cflags="-arch arm64" linkflags="-arch arm64" --target=static --without-iostreams
+          # mkdir -p arm64 && cp stage/lib/*.a arm64 && cp stage/lib/*.dylib arm64
           cd ${{runner.workspace}}/boost
-          ./b2 --target=static
+          ./b2 cxxstd=14 toolset=clang-darwin target-os=darwin architecture=x86 cxxflags="-arch x86_64" cflags="-arch x86_64" linkflags="-arch x86_64" abi=sysv binary-format=mach-o --target=static --without-iostreams
+          # mkdir x86_64 && cp stage/lib/*.a x86_64 && cp stage/lib/*.dylib x86_64
 
       - name: Install
         shell: bash
         run: |
+          # cd ${{runner.workspace}}/boost_arm
+          # ./b2 install --prefix=${{runner.workspace}}/boost_prebuild_arm cxxstd=14
           cd ${{runner.workspace}}/boost
-          ./b2 install --prefix=${{runner.workspace}}/boost_prebuild
+          ./b2 install --prefix=${{runner.workspace}}/boost_prebuild cxxstd=14
+          # mkdir ${{runner.workspace}}/boost_prebuild/include/
+          # mkdir ${{runner.workspace}}/boost_prebuild/lib/
+          # cp -R ./boost ${{runner.workspace}}/boost_prebuild/include/
+          # find ${{runner.workspace}}/boost_prebuild_arm/lib -type f -print0 | while IFS= read -r -d $'\0' file; do lipo -create -output ${{runner.workspace}}/boost_prebuild/lib/$(basename "$file") "$file" ${{runner.workspace}}/boost_prebuild_x86_64/lib/$(basename "$file"); done;
 
       - name: Pack
         shell: bash
-        run:
-          tar -zcvf boost_prebuild.tar.gz ${{runner.workspace}}/boost_prebuild
+        run: tar -zcvf boost_prebuild.tar.gz ${{runner.workspace}}/boost_prebuild
 
       - uses: actions/upload-artifact@v2
         with:
-          name: boost_prebuild_macos-10.15
+          name: boost_prebuild_macos-11
           path: boost_prebuild.tar.gz
           if-no-files-found: error

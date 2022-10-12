@@ -88,7 +88,7 @@ void WasmAppApi::AnyThread_sendApiResponse(std::string&& result)
         throw std::runtime_error("m_postToClient missing");
     }
 
-    WeakPtr wp = shared_from_this();
+    WeakPtr wp = weak_from_this();
     std::function<void (void)> execInCT = [this, wp, result=std::move(result)]()
     {
         if (auto sp = wp.lock())

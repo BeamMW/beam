@@ -63,7 +63,9 @@
 
 #define DaoVote_user_my_key(macro) macro(ContractID, cid)
 #define DaoVote_user_view(macro) macro(ContractID, cid)
-#define DaoVote_user_vote(macro) macro(ContractID, cid)
+#define DaoVote_user_vote(macro) \
+    macro(ContractID, cid) \
+    macro(uint32_t, voteCounter)
 
 #define DaoVote_user_view_votes(macro) \
     macro(ContractID, cid) \
@@ -129,8 +131,7 @@ struct UserKeyID :public Env::KeyID {
 };
 
 const ShaderID g_pSid[] = {
-    DaoVote::s_SID_0,
-    DaoVote::s_SID_1,
+    DaoVote::s_SID,
 };
 
 const Upgradable3::Manager::VerInfo g_VerInfo = { g_pSid, _countof(g_pSid) };
@@ -221,6 +222,9 @@ struct MyState
 
         m_Charge += Env::Cost::SaveVar_For(sizeof(State));
 
+        if (m_Current.m_iEpoch)
+            m_Charge += Env::Cost::SaveVar_For(sizeof(EpochStats));
+
         m_Current.m_iEpoch = iEpoch;
 
         m_Current.m_Proposals = m_Next.m_Proposals;
@@ -228,7 +232,7 @@ struct MyState
 
         _POD_(m_PrevDividend).SetZero();
 
-        if (m_Current.m_DividendStake)
+        if (m_Current.m_Stats.m_StakeVoted)
         {
             if (m_Current.m_iDividendEpoch)
             {
@@ -237,12 +241,12 @@ struct MyState
                     Env::Cost::SaveVar_For(sizeof(DividendMax));
 
                 m_PrevDividend.m_iEpoch = m_Current.m_iDividendEpoch;
-                m_PrevDividend.m_Stake = m_Current.m_DividendStake;
+                m_PrevDividend.m_Stake = m_Current.m_Stats.m_StakeVoted;
 
                 m_Current.m_iDividendEpoch = 0;
             }
 
-            m_Current.m_DividendStake = 0;
+            m_Current.m_Stats.m_StakeVoted = 0;
         }
 
         if (!m_Current.m_iDividendEpoch)
@@ -250,6 +254,9 @@ struct MyState
             m_Current.m_iDividendEpoch = m_Next.m_iDividendEpoch;
             m_Next.m_iDividendEpoch = 0;
         }
+
+        m_Current.m_Stats.m_StakeActive += m_Next.m_StakePassive;
+        m_Next.m_StakePassive = 0;
 
         return true;
     }
@@ -300,6 +307,18 @@ void WriteDividend(const ContractID& cid, uint32_t iDividendEpoch)
     d.Write();
 }
 
+void PrintStake(const EpochStats& es)
+{
+    Env::DocAddNum("stake_active", es.m_StakeActive);
+    Env::DocAddNum("stake_voted", es.m_StakeVoted);
+}
+
+void PrintStake(const State& s)
+{
+    PrintStake(s.m_Current.m_Stats);
+    Env::DocAddNum("stake_passive", s.m_Next.m_StakePassive);
+}
+
 ON_METHOD(manager, view_params)
 {
     MyState s;
@@ -325,6 +344,7 @@ ON_METHOD(manager, view_params)
         Env::DocGroup gr("current");
         Env::DocAddNum("iEpoch", s.m_Current.m_iEpoch);
         Env::DocAddNum("proposals", s.m_Current.m_Proposals);
+        PrintStake(s);
 
         WriteDividend(cid, s.m_Current.m_iDividendEpoch);
     }
@@ -470,35 +490,11 @@ ON_METHOD(manager, view_totals)
     MyState s;
     if (!s.Load(cid))
         return;
-
-    Env::Key_T<User::Key> k0, k1;
-    _POD_(k0.m_Prefix.m_Cid) = cid;
-    _POD_(k1.m_Prefix.m_Cid) = cid;
-    _POD_(k0.m_KeyInContract.m_pk).SetZero();
-    _POD_(k1.m_KeyInContract.m_pk).SetObject(0xff);
-
-    Amount valActive = 0, valPassive = 0;
-
-    for (Env::VarReader r(k0, k1); ; )
-    {
-        UserMax u;
-        uint32_t nKey = sizeof(k0);
-        uint32_t nVal = sizeof(u);
-
-        if (!r.MoveNext(&k0, nKey, &u, nVal, 0))
-            break;
-
-        valActive += u.m_Stake;
-
-        bool bUpdated = (s.m_Current.m_iEpoch == u.m_iEpoch);
-        (bUpdated ? valPassive : valActive) += u.m_StakeNext;
-
-    }
+    s.MaybeNextEpoch();
 
     Env::DocGroup gr("res");
 
-    Env::DocAddNum("stake_active", valActive);
-    Env::DocAddNum("stake_passive", valPassive);
+    PrintStake(s);
 }
 
 ON_METHOD(manager, add_dividend)
@@ -532,6 +528,10 @@ ON_METHOD(manager, add_dividend)
 
 ON_METHOD(manager, view_proposal)
 {
+    MyState s;
+    if (!s.Load(cid))
+        return;
+
     Env::Key_T<Proposal::Key> key;
     _POD_(key.m_Prefix.m_Cid) = cid;
     key.m_KeyInContract.m_ID = id;
@@ -545,6 +545,8 @@ ON_METHOD(manager, view_proposal)
 
     uint32_t nVariants = nVal / sizeof(*p.m_pVariant);
 
+    Env::DocGroup gr0("result");
+
     Amount total = 0;
     {
         Env::DocArray gr("variants");
@@ -555,6 +557,27 @@ ON_METHOD(manager, view_proposal)
         }
     }
     Env::DocAddNum("total", total);
+    Env::DocAddNum("iEpoch", p.m_iEpoch);
+
+    EpochStats es;
+    if (p.m_iEpoch < s.m_Current.m_iEpoch)
+    {
+        Env::Key_T<EpochStats::Key> esk;
+        _POD_(esk.m_Prefix.m_Cid) = cid;
+        esk.m_KeyInContract.m_iEpoch = p.m_iEpoch;
+        Env::VarReader::Read_T(esk, es);
+    }
+    else
+    {
+        es = s.m_Current.m_Stats;
+        if (p.m_iEpoch != s.m_Current.m_iEpoch)
+        {
+            assert(p.m_iEpoch == s.m_Current.m_iEpoch + 1);
+            es.m_StakeVoted = 0;
+        }
+    }
+
+    PrintStake(es);
 }
 
 ON_METHOD(user, my_key)
@@ -570,10 +593,19 @@ struct MyUser
     uint32_t m_Votes = 0;
     uint32_t m_Charge = 0;
 
+    struct Prev
+    {
+        uint32_t m_Votes;
+        //uint32_t m_iEpoch;
+        Amount m_Stake;
+    } m_Prev;
+
     MyDividend m_Dividend;
 
     bool Load(const ContractID& cid, const MyState& s)
     {
+        _POD_(m_Prev).SetZero();
+
         m_Charge = Env::Cost::LoadVar;
         m_Dividend.m_Assets = 0;
 
@@ -644,10 +676,15 @@ struct MyUser
                     Env::Cost::Cycle * 200;
             }
 
+            m_Prev.m_Votes = m_Votes;
+            m_Prev.m_Stake = m_Stake;
+            //m_Prev.m_iEpoch = m_iEpoch;
+
             m_iEpoch = s.m_Current.m_iEpoch;
             m_Stake += m_StakeNext;
             m_StakeNext = 0;
             m_Votes = 0;
+            m_VoteCounter = 0;
         }
 
         return true;
@@ -727,12 +764,22 @@ ON_METHOD(user, view)
 
     Env::DocAddNum("stake_active", u.m_Stake);
     Env::DocAddNum("stake_passive", u.m_StakeNext);
+    Env::DocAddNum("iEpoch", u.m_iEpoch);
+    Env::DocAddNum("voteCounter", u.m_VoteCounter);
 
     if (u.m_Votes)
         PrintVotesArr("current_votes", u.m_pVotes, u.m_Votes);
 
     if (u.m_Dividend.m_Assets)
         u.m_Dividend.Write();
+}
+
+void PrintUserVotes(Proposal::ID id1, Amount stake, const uint8_t* pVotes, uint32_t nVotes)
+{
+    Env::DocGroup gr1("");
+    Env::DocAddNum("id1", id1);
+    Env::DocAddNum("stake", stake);
+    PrintVotesArr("votes", pVotes, nVotes);
 }
 
 ON_METHOD(user, view_votes)
@@ -759,14 +806,21 @@ ON_METHOD(user, view_votes)
         if (!r.MoveNext(&k0, nKey, &uv, nVal, 0))
             break;
 
-        Env::DocGroup gr1("");
-        Env::DocAddNum("id1", Utils::FromBE(k0.m_KeyInContract.m_ID_0_be));
-        Env::DocAddNum("stake", uv.m_Stake);
-        PrintVotesArr("votes", uv.m_pVotes, nVal - sizeof(Events::UserVote));
+        PrintUserVotes(Utils::FromBE(k0.m_KeyInContract.m_ID_0_be), uv.m_Stake, uv.m_pVotes, nVal - sizeof(Events::UserVote));
 
         if (++i == nMaxCount)
             break;
     }
+
+    MyState s;
+    if (!s.Load(cid))
+        return;
+    s.MaybeNextEpoch();
+
+    MyUser u;
+    u.Load(cid, s);
+    if (u.m_Prev.m_Votes)
+        PrintUserVotes(u.m_iProposal0, u.m_Prev.m_Stake, u.m_pVotes, u.m_Prev.m_Votes);
 }
 
 ON_METHOD(user, move_funds)
@@ -774,7 +828,7 @@ ON_METHOD(user, move_funds)
     MyState s;
     if (!s.Load(cid))
         return;
-    s.MaybeNextEpoch();
+    bool bChangeEpoch = s.MaybeNextEpoch();
 
     MyUser u;
     u.Load(cid, s);
@@ -789,7 +843,7 @@ ON_METHOD(user, move_funds)
     UserKeyID kid(cid);
     kid.get_Pk(args.m_pkUser);
 
-    if (!bLock && amount < u.m_StakeNext)
+    if (!bLock && amount > u.m_StakeNext)
         u.AddChargeVotes(cid, s, u.m_pVotes, true);
 
     uint32_t nCharge =
@@ -798,6 +852,9 @@ ON_METHOD(user, move_funds)
         Env::Cost::AddSig +
         Env::Cost::FundsLock +
         Env::Cost::SaveVar_For(sizeof(User) + u.m_Votes);
+
+    if (!bChangeEpoch)
+        nCharge += Env::Cost::SaveVar_For(sizeof(State));
 
     auto* pFc = Env::StackAlloc_T<FundsChange>(u.m_Dividend.m_Assets + 1);
     nCharge += u.PrepareTx(pFc + 1);
@@ -840,21 +897,20 @@ ON_METHOD(user, vote)
     UserKeyID kid(cid);
     kid.get_Pk(args.m_pkUser);
 
-    static const char s_szPrefix[] = "vote_";
-    char szBuf[_countof(s_szPrefix) + Utils::String::Decimal::Digits<Proposal::s_ProposalsPerEpochMax>::N];
-    Env::Memcpy(szBuf, s_szPrefix, sizeof(s_szPrefix) - sizeof(char));
+    auto fVote = Utils::MakeFieldIndex<Proposal::s_ProposalsPerEpochMax + 1>("vote_");
 
     for (uint32_t i = 0; i < s.m_Current.m_Proposals; i++)
     {
-        uint32_t nPrintLen = Utils::String::Decimal::Print(szBuf + _countof(s_szPrefix) - 1, i + 1);
-        szBuf[_countof(s_szPrefix) - 1 + nPrintLen] = 0;
+        fVote.Set(i + 1);
 
         uint32_t nVote = 0;
-        if (!Env::DocGet(szBuf, nVote))
+        if (!Env::DocGet(fVote.m_sz, nVote))
             return OnError("vote missing");
 
         args.m_pVote[i] = (uint8_t) nVote;
     }
+
+    args.m_VoteCounter = std::max(voteCounter, u.m_VoteCounter);
 
     u.AddChargeVotes(cid, s, args.m_pVote, false);
 

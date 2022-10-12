@@ -17,7 +17,7 @@
 
 void AssertMainThread()
 {
-    if (emscripten_is_main_browser_thread() != 1)
+    if (emscripten_is_main_runtime_thread() != 1)
     {
         throw std::runtime_error("Invalid thread");
     }

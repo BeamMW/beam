@@ -433,7 +433,6 @@ void NodeDB::Open(const char* szPath)
 			// no break;
 
 		case 29: // Block interpretation nKrnIdx fixed to match KrnWalker's
-			ExecQuick("DROP TABLE IF EXISTS " TblKrnInfo);
 			// no break;
 
 		case 30: // Block interpretation nKrnIdx fixed to match KrnWalker's
@@ -2883,7 +2882,7 @@ void NodeDB::MigrateFrom18()
 		}
 	}
 
-	LOG_INFO() << "Migrating inputs...";
+	LongAction la("Migrating inputs...", ParamIntGetDef(ParamID::CursorHeight));
 
 	ExecQuick("ALTER TABLE " TblStates " ADD COLUMN "  "[" TblStates_Inputs	"] BLOB");
 
@@ -2910,6 +2909,7 @@ void NodeDB::MigrateFrom18()
 			break;
 
 		h = wlk.m_SpendHeight;
+		la.OnProgress(h);
 
 		// extract input from output (which may be naked already)
 		if (wlk.m_Value.n < sizeof(ECC::Point))
@@ -2929,12 +2929,13 @@ void NodeDB::MigrateFrom18()
 
 void NodeDB::MigrateFrom20()
 {
-	LOG_INFO() << "Rebuilding states MMR...";
+	StateID sid;
+	get_Cursor(sid);
+
+	LongAction la("Rebuilding states MMR...", sid.m_Height);
 
 	ExecQuick("UPDATE " TblStates " SET " TblStates_Rollback "=NULL"); // was used for states MMR. Prepare it for the new use
 
-	StateID sid;
-	get_Cursor(sid);
 
 	StatesMmr smmr(*this);
 	for (Height h = Rules::HeightGenesis; h < sid.m_Height; h++)
@@ -2943,6 +2944,7 @@ void NodeDB::MigrateFrom20()
 		smmr.LoadStateHash(hv, h); // there's a more effective way to select hashes of all active states. But it's just a migration.
 		smmr.Append(hv);
 
+		la.OnProgress(h);
 	}
 }
 
@@ -3179,9 +3181,13 @@ void NodeDB::KrnInfoDel(const HeightRange& hr)
 
 void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, Height h)
 {
+	KrnInfoEnum(wlk, HeightPos(h), HeightPos(h, static_cast<uint32_t>(-1)));
+}
+
+void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, const HeightPos& posMin, const HeightPos& posMax)
+{
 	wlk.m_Rs.Reset(*this, Query::KrnInfoEnumH, "SELECT * FROM " TblKrnInfo " WHERE " TblKrnInfo_Pos " BETWEEN ? AND ? ORDER BY " TblKrnInfo_Pos);
 
-	HeightPos posMin(h), posMax(h, static_cast<uint32_t>(-1));
 	wlk.m_bufMin.put(wlk.m_Rs, 0, posMin);
 	wlk.m_bufMax.put(wlk.m_Rs, 1, posMax);
 }
@@ -3189,7 +3195,7 @@ void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, Height h)
 void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, const KrnInfo::Cid& cid, Height hMax)
 {
 	wlk.m_Rs.Reset(*this, Query::KrnInfoEnumCid, "SELECT * FROM " TblKrnInfo
-		" WHERE (" TblKrnInfo "=?) AND (" TblKrnInfo_Pos "<=?) ORDER BY " TblContractLogs_Pos " DESC");
+		" WHERE (" TblKrnInfo_Key "=?) AND (" TblKrnInfo_Pos "<=?) ORDER BY " TblContractLogs_Pos " DESC");
 	wlk.m_Rs.put(0, cid);
 	wlk.m_bufMax.put(wlk.m_Rs, 1, HeightPos(hMax, static_cast<uint32_t>(-1)));
 }

@@ -1,11 +1,14 @@
 #pragma once
 #include "../Math.h"
+#include "../upgradable3/contract.h"
 
 namespace Oracle2
 {
 #pragma pack (push, 1)
 
-    static const ShaderID s_SID = { 0x13,0x6f,0xe9,0x6e,0xcf,0x64,0x43,0x62,0x3d,0x21,0x6e,0x79,0x2c,0x46,0x32,0x14,0x2c,0x32,0x9b,0x0f,0xa2,0x4c,0xca,0xc0,0x51,0x7b,0x9a,0xdb,0xdd,0xf5,0x2f,0xdd };
+    static const ShaderID s_pSID[] = {
+        { 0x97,0x6e,0x3e,0xff,0x9d,0x3c,0xa3,0xd3,0x3a,0xfe,0x07,0x39,0x38,0xec,0xec,0x00,0x38,0xe9,0xc8,0xcb,0x5c,0xfe,0x9e,0x96,0xa5,0x86,0x51,0xf6,0xed,0x1b,0x7d,0x50 },
+    };
 
     typedef MultiPrecision::Float ValueType;
 
@@ -16,54 +19,86 @@ namespace Oracle2
         static const uint8_t s_StateFull = 2;
     };
 
-    struct Median {
-        ValueType m_Res;
+    struct Settings
+    {
+        uint32_t m_MinProviders;
+        Height m_hValidity;
     };
 
-    struct StateFull
+    struct Median
     {
+        ValueType m_Res;
+        Height m_hEnd;
+    };
+
+    struct State0
+    {
+        Settings m_Settings;
+
         static const uint32_t s_ProvsMax = 32; // practically much less
 
         struct Entry
         {
             PubKey m_Pk;
-            uint32_t m_iPos;
-            uint32_t m_iProv;
             ValueType m_Val;
-
-            // 2 arrays merged:
-            //  iPos -> m_iProv, m_Val
-            //  iProv -> m_Pk, m_iPos
+            Height m_hUpdated;
         };
+    };
 
+    struct StateMax
+        :public State0
+    {
         Entry m_pE[s_ProvsMax];
     };
 
 
     namespace Method
     {
-        template <uint32_t nProvs>
         struct Create
         {
             static const uint32_t s_iMethod = 0; // Ctor
-
-            uint32_t m_Providers;
-            ValueType m_InitialValue;
-            PubKey m_pPk[nProvs]; // variable size
+            Upgradable3::Settings m_Upgradable;
+            Settings m_Settings;
         };
 
         struct Get
         {
             static const uint32_t s_iMethod = 3;
             ValueType m_Value; // retval
+            uint8_t m_IsValid;
         };
 
-        struct Set
+        struct FeedData
         {
             static const uint32_t s_iMethod = 4;
 
             uint32_t m_iProvider;
             ValueType m_Value;
+        };
+
+        struct Signed {
+            uint32_t m_ApproveMask;
+        };
+
+        struct SetSettings
+            :public Signed
+        {
+            static const uint32_t s_iMethod = 5;
+            Settings m_Settings;
+        };
+
+        struct ProviderAdd
+            :public Signed
+        {
+            static const uint32_t s_iMethod = 6;
+            PubKey m_pk;
+        };
+
+        struct ProviderDel
+            :public Signed
+        {
+            static const uint32_t s_iMethod = 7;
+            uint32_t m_iProvider;
         };
 
     }

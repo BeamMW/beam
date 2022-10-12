@@ -404,7 +404,7 @@ namespace Env {
 
 } // namespace Env
 
-#ifndef HOST_BUILD
+#if !defined(HOST_BUILD) && !defined(BEAM_SHADER_USE_STL)
 
 namespace std {
     
@@ -577,6 +577,18 @@ namespace Utils {
         template <uint32_t nRadix>
         struct Radix
         {
+            static char ToChar(uint64_t val)
+            {
+                val %= nRadix;
+                if constexpr (nRadix <= 10)
+                    return '0' + (uint8_t) val;
+                else
+                {
+                    static_assert(nRadix <= 0x10);
+                    return ((val < 10) ? '0' : ('a' - 0xa)) + (uint8_t) val;
+                }
+            }
+
             static uint32_t Print(char* sz, uint64_t val)
             {
                 uint32_t nDigs = 1;
@@ -592,7 +604,7 @@ namespace Utils {
             {
                 for (sz[nDigs] = 0; ; val /= nRadix)
                 {
-                    sz[--nDigs] = '0' + (val % nRadix);
+                    sz[--nDigs] = ToChar(val);
                     if (!nDigs)
                         break;
                 }
@@ -608,7 +620,31 @@ namespace Utils {
         };
 
         typedef Radix<10> Decimal;
+        typedef Radix<0x10> Hex;
     };
+
+    template <uint32_t nStrSize, uint32_t nMaxIndex>
+    struct FieldWithIndex
+    {
+        char m_sz[nStrSize + Utils::String::Decimal::Digits<nMaxIndex>::N];
+
+        FieldWithIndex(const char(&sz)[nStrSize])
+        {
+            Env::Memcpy(m_sz, sz, nStrSize);
+        }
+
+        void Set(uint32_t iIdx)
+        {
+            assert(iIdx <= nMaxIndex);
+            Utils::String::Decimal::Print(m_sz + nStrSize - 1, iIdx);
+        }
+    };
+
+    template <uint32_t nMaxIndex, uint32_t nStrSize>
+    FieldWithIndex<nStrSize, nMaxIndex> MakeFieldIndex(const char(&sz)[nStrSize])
+    {
+        return FieldWithIndex<nStrSize, nMaxIndex>(sz);
+    }
 
 } // namespace Utils
 
