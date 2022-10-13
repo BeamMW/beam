@@ -740,8 +740,13 @@ namespace MultiPrecision
 				return static_cast<uint64_t>(-1); // overflow/inf
 
             uint32_t ord = -m_Order;
-            if (ord >= s_Bits)
-                return 0;
+			if (ord >= s_Bits)
+			{
+#if BVM_TARGET_HF < 6
+				Env::get_Height(); // this is workaround!
+#endif
+				return 0;
+			}
 
             return m_Num >> ord;
         }

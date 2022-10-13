@@ -443,6 +443,8 @@ namespace Wasm {
 		virtual void InvokeExt(uint32_t);
 		virtual void OnGlobalVar(uint32_t, bool bGet);
 
+		virtual uint32_t get_WasmVersion() { return 1; }
+
 	};
 
 } // namespace Wasm

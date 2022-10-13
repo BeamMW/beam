@@ -1,8 +1,14 @@
 #include "../common.h"
 #include "../app_common_impl.h"
+#include "../upgradable3/app_common_impl.h"
 #include "contract.h"
 
-#define Amm_admin_create(macro)
+#define Amm_admin_schedule_upgrade(macro) Upgradable3_schedule_upgrade(macro)
+#define Amm_admin_replace_admin(macro) Upgradable3_replace_admin(macro)
+#define Amm_admin_set_min_approvers(macro) Upgradable3_set_min_approvers(macro)
+#define Amm_admin_explicit_upgrade(macro) macro(ContractID, cid)
+
+#define Amm_admin_deploy(macro) Upgradable3_deploy(macro)
 #define Amm_admin_view(macro)
 #define Amm_admin_destroy(macro) macro(ContractID, cid)
 #define Amm_admin_pools_view(macro) macro(ContractID, cid)
@@ -16,12 +22,17 @@
 
 #define AmmRole_admin(macro) \
     macro(admin, view) \
-    macro(admin, create) \
     macro(admin, destroy) \
+    macro(admin, deploy) \
+	macro(admin, schedule_upgrade) \
+	macro(admin, replace_admin) \
+	macro(admin, set_min_approvers) \
+	macro(admin, explicit_upgrade) \
     macro(admin, pool_view) \
     macro(admin, pools_view) \
 
-#define Amm_user_view(macro) Amm_poolop(macro)
+#define Amm_user_pool_create(macro) Amm_poolop(macro)
+#define Amm_user_pool_destroy(macro) Amm_poolop(macro)
 
 #define Amm_user_add_liquidity(macro) \
     Amm_poolop(macro) \
@@ -40,7 +51,8 @@
     macro(uint32_t, bPredictOnly)
 
 #define AmmRole_user(macro) \
-    macro(user, view) \
+    macro(user, pool_create) \
+    macro(user, pool_destroy) \
     macro(user, add_liquidity) \
     macro(user, withdraw) \
     macro(user, trade) \
@@ -80,19 +92,64 @@ void OnError(const char* sz)
     Env::DocAddText("error", sz);
 }
 
+const char g_szAdminSeed[] = "upgr3-amm";
+
+struct AdminKeyID :public Env::KeyID {
+    AdminKeyID() :Env::KeyID(g_szAdminSeed, sizeof(g_szAdminSeed)) {}
+};
+
+const Upgradable3::Manager::VerInfo g_VerInfo = { s_pSID, _countof(s_pSID) };
+
 ON_METHOD(admin, view)
 {
-    EnumAndDumpContracts(s_SID);
+    AdminKeyID kid;
+    g_VerInfo.DumpAll(&kid);
 }
 
-ON_METHOD(admin, create)
+ON_METHOD(admin, deploy)
 {
-    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "create Amm contract", 0);
+    AdminKeyID kid;
+    PubKey pk;
+    kid.get_Pk(pk);
+
+    Method::Create arg;
+    if (!g_VerInfo.FillDeployArgs(arg.m_Upgradable, &pk))
+        return;
+
+    const uint32_t nCharge =
+        Upgradable3::Manager::get_ChargeDeploy() +
+        Env::Cost::Refs +
+        Env::Cost::Cycle * 20;
+
+    Env::GenerateKernel(nullptr, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Deploy Amm contract", nCharge);
 }
 
 ON_METHOD(admin, destroy)
 {
     Env::GenerateKernel(&cid, 1, nullptr, 0, nullptr, 0, nullptr, 0, "destroy Amm contract", 0);
+}
+
+ON_METHOD(admin, schedule_upgrade)
+{
+    AdminKeyID kid;
+    g_VerInfo.ScheduleUpgrade(cid, kid, hTarget);
+}
+
+ON_METHOD(admin, explicit_upgrade)
+{
+    Upgradable3::Manager::MultiSigRitual::Perform_ExplicitUpgrade(cid);
+}
+
+ON_METHOD(admin, replace_admin)
+{
+    AdminKeyID kid;
+    Upgradable3::Manager::MultiSigRitual::Perform_ReplaceAdmin(cid, kid, iAdmin, pk);
+}
+
+ON_METHOD(admin, set_min_approvers)
+{
+    AdminKeyID kid;
+    Upgradable3::Manager::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
 }
 
 bool SetKey(Pool::ID& pid, bool& bReverse, AssetID aid1, AssetID aid2)
@@ -229,6 +286,14 @@ void DocAddRate(const char* sz, Amount v1, Amount v2)
     Env::DocAddText(sz, ftxt.m_sz);
 }
 
+#pragma pack (push, 1)
+struct UserKeyMaterial
+{
+    ContractID m_Cid;
+    Pool::ID m_Pid;
+};
+#pragma pack (pop)
+
 struct PoolsWalker
 {
     Env::VarReaderEx<true> m_R;
@@ -265,6 +330,14 @@ struct PoolsWalker
         return m_R.MoveNext_T(m_Key, m_Pool);
     }
 
+    bool MoveMustExist()
+    {
+        if (Move())
+            return true;
+        OnError("no such a pool");
+        return false;
+    }
+
     static void PrintAmounts(const Amounts& x)
     {
         Env::DocAddNum("tok1", x.m_Tok1);
@@ -277,16 +350,37 @@ struct PoolsWalker
         PrintAmounts(x);
     }
 
+    bool IsCreator() const
+    {
+        UserKeyMaterial ukm;
+        _POD_(ukm.m_Cid) = m_Key.m_Prefix.m_Cid;
+        _POD_(ukm.m_Pid) = m_Key.m_KeyInContract.m_ID;
+        return IsCreator(ukm);
+
+    }
+
+    bool IsCreator(const UserKeyMaterial& ukm) const
+    {
+        PubKey pk;
+        Env::DerivePk(pk, &ukm, sizeof(ukm));
+        return _POD_(pk) == m_Pool.m_pkCreator;
+    }
+
     void PrintPool() const
     {
         PrintTotals(m_Pool.m_Totals);
-        Env::DocAddNum("tid", m_Pool.m_tidCtl);
+        Env::DocAddNum("tid", m_Pool.m_aidCtl);
 
         if (m_Pool.m_Totals.m_Ctl)
         {
             DocAddRate("k1_2", m_Pool.m_Totals.m_Tok1, m_Pool.m_Totals.m_Tok2);
             DocAddRate("k2_1", m_Pool.m_Totals.m_Tok2, m_Pool.m_Totals.m_Tok1);
+            DocAddRate("k1_ctl", m_Pool.m_Totals.m_Tok1, m_Pool.m_Totals.m_Ctl);
+            DocAddRate("k2_ctl", m_Pool.m_Totals.m_Tok2, m_Pool.m_Totals.m_Ctl);
         }
+
+        if (IsCreator())
+            Env::DocAddNum32("creator", 1);
     }
 
     void PrintKey() const
@@ -319,100 +413,107 @@ ON_METHOD(admin, pool_view)
 
     PoolsWalker pw;
     pw.Enum(cid, pid);
-    if (pw.Move())
+    if (pw.MoveMustExist())
     {
         Env::DocGroup gr("res");
         pw.PrintPool();
     }
-    else
-        OnError("no such a pool");
 }
 
-#pragma pack (push, 1)
-struct UserKeyMaterial
+ON_METHOD(user, pool_create)
 {
-    ContractID m_Cid;
-    Pool::ID m_Pid;
+    Method::PoolCreate arg;
+    if (!SetKey(arg.m_Pid, aid1, aid2))
+        return;
 
-    Amount ReadBalance(const Pool& p, PubKey* pPk) const
-    {
-        Env::Key_T<Mintor::User::Key> key;
-        _POD_(key.m_Prefix.m_Cid) = m_Cid;
-        key.m_KeyInContract.m_Tid = p.m_tidCtl;
-        Env::DerivePk(key.m_KeyInContract.m_pk, this, sizeof(*this));
-
-        if (pPk)
-            _POD_(*pPk) = key.m_KeyInContract.m_pk;
-
-        Amount res;
-        return Env::VarReader::Read_T(key, res) ? res : 0;
-    }
-};
-#pragma pack (pop)
-
-ON_METHOD(user, view)
-{
     PoolsWalker pw;
-
-    bool bSpecific = (aid1 || aid2);
-    if (bSpecific)
-    {
-        Pool::ID pid;
-        if (!SetKey(pid, aid1, aid2))
-            return;
-
-        pw.Enum(cid, pid);
-    }
-    else
-        pw.Enum(cid);
+    pw.Enum(cid, arg.m_Pid);
+    if (pw.Move())
+        return OnError("pool already exists");
 
     UserKeyMaterial ukm;
     _POD_(ukm.m_Cid) = cid;
+    _POD_(ukm.m_Pid) = arg.m_Pid;
+    Env::DerivePk(arg.m_pkCreator, &ukm, sizeof(ukm));
 
-    Env::DocArray gr("res");
+    FundsChange fc;
+    fc.m_Aid = 0;
+    fc.m_Consume = 1;
+    fc.m_Amount = g_Beam2Groth * 10;
 
-    while (pw.Move())
-    {
-        ukm.m_Pid = pw.m_Key.m_KeyInContract.m_ID;
+    const uint32_t nCharge =
+        Env::Cost::CallFar +
+        Env::Cost::AssetManage +
+        Env::Cost::SaveVar_For(sizeof(Pool)) +
+        Env::Cost::Cycle * 200;
 
-        Amount uVal = ukm.ReadBalance(pw.m_Pool, nullptr);
-        if (uVal)
-        {
-            Env::DocGroup gr1("");
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Amm create pool", nCharge);
+}
 
-            if (!bSpecific)
-                pw.PrintKey();
 
-            Totals x;
-            x.m_Ctl = uVal;
-            Cast::Down<Amounts>(x) = pw.m_Pool.m_Totals.Remove(x.m_Ctl);
+ON_METHOD(user, pool_destroy)
+{
+    Method::PoolDestroy arg;
+    if (!SetKey(arg.m_Pid, aid1, aid2))
+        return;
 
-            pw.PrintTotals(x);
-        }
-    }
+    PoolsWalker pw;
+    pw.Enum(cid, arg.m_Pid);
+    if (!pw.MoveMustExist())
+        return;
+
+    UserKeyMaterial ukm;
+
+    if (!pw.IsCreator(ukm))
+        return OnError("not creator");
+
+    if (pw.m_Pool.m_Totals.m_Ctl)
+        return OnError("poo not empty");
+
+    FundsChange fc;
+    fc.m_Aid = 0;
+    fc.m_Consume = 0;
+    fc.m_Amount = g_Beam2Groth;
+
+    Env::KeyID kid(ukm);
+
+    const uint32_t nCharge =
+        Env::Cost::CallFar +
+        Env::Cost::AssetManage +
+        Env::Cost::LoadVar_For(sizeof(Pool)) +
+        Env::Cost::SaveVar +
+        Env::Cost::AddSig +
+        Env::Cost::Cycle * 200;
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &kid, 1, "Amm destroy pool", nCharge);
 }
 
 ON_METHOD(user, add_liquidity)
 {
-    UserKeyMaterial ukm;
-    _POD_(ukm.m_Cid) = cid;
+    Method::AddLiquidity arg;
     bool bReverse;
-    if (!SetKey(ukm.m_Pid, bReverse, aid1, aid2))
+    if (!SetKey(arg.m_Pid, bReverse, aid1, aid2))
         return;
 
-    Method::AddLiquidity arg;
     arg.m_Amounts.m_Tok1 = val1;
     arg.m_Amounts.m_Tok2 = val2;
 
     PoolsWalker pw;
-    pw.Enum(cid, ukm.m_Pid);
-    auto& t = pw.m_Pool.m_Totals; // alias
+    pw.Enum(cid, arg.m_Pid);
+    if (!pw.MoveMustExist())
+        return;
 
-    bool bEmpty = !pw.Move();
-    if (bEmpty)
+    pw.Enum(cid, arg.m_Pid);
+    auto& t = pw.m_Pool.m_Totals; // alias
+    Amount dCtl;
+
+    if (!t.m_Ctl)
     {
         if (!(val1 && val2))
             return OnError("pool empty - both tokens must be specified");
+
+        t.AddInitial(arg.m_Amounts);
+        dCtl = t.m_Ctl;
     }
     else
     {
@@ -442,28 +543,33 @@ ON_METHOD(user, add_liquidity)
         if (n)
             // TODO: auto-adjust values
             return OnError((n > 0) ? "val1 too large" : "val2 too large");
+
+        dCtl = t.m_Ctl;
+        t.Add(arg.m_Amounts);
+        dCtl = t.m_Ctl - dCtl;
     }
 
     if (bPredictOnly)
     {
         Env::DocGroup gr("res");
         pw.PrintAmounts(arg.m_Amounts);
+        Env::DocAddNum("ctl", dCtl);
     }
     else
     {
-        arg.m_Pid = ukm.m_Pid;
-        Env::DerivePk(arg.m_pk, &ukm, sizeof(ukm));
-
         if (bReverse)
             arg.m_Amounts.Swap();
 
-        FundsChange pFc[2];
+        FundsChange pFc[3];
         pFc[0].m_Amount = arg.m_Amounts.m_Tok1;
-        pFc[0].m_Aid = ukm.m_Pid.m_Aid1;
+        pFc[0].m_Aid = arg.m_Pid.m_Aid1;
         pFc[0].m_Consume = 1;
         pFc[1].m_Amount = arg.m_Amounts.m_Tok2;
-        pFc[1].m_Aid = ukm.m_Pid.m_Aid2;
+        pFc[1].m_Aid = arg.m_Pid.m_Aid2;
         pFc[1].m_Consume = 1;
+        pFc[2].m_Amount = dCtl;
+        pFc[2].m_Aid = pw.m_Pool.m_aidCtl;
+        pFc[2].m_Consume = 0;
 
         Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), nullptr, 0, "Amm add", 0);
     }
@@ -471,27 +577,21 @@ ON_METHOD(user, add_liquidity)
 
 ON_METHOD(user, withdraw)
 {
-    UserKeyMaterial ukm;
-    _POD_(ukm.m_Cid) = cid;
-    if (!SetKey(ukm.m_Pid, aid1, aid2))
+    Method::Withdraw arg;
+    if (!SetKey(arg.m_Pid, aid1, aid2))
         return;
 
     if (!ctl)
         return OnError("withdraw ctl not specified");
 
     PoolsWalker pw;
-    pw.Enum(cid, ukm.m_Pid);
-    if (!pw.Move())
-        return OnError("pool not found");
+    pw.Enum(cid, arg.m_Pid);
+    if (!pw.MoveMustExist())
+        return;
     
-    Method::Withdraw arg;
-
-    Amount valMax = ukm.ReadBalance(pw.m_Pool, &arg.m_pk);
-    if (!valMax)
-        return OnError("no ctl");
 
     Totals x;
-    x.m_Ctl = std::min(ctl, valMax);
+    x.m_Ctl = ctl;
     Cast::Down<Amounts>(x) = pw.m_Pool.m_Totals.Remove(x.m_Ctl);
 
     if (bPredictOnly)
@@ -502,19 +602,19 @@ ON_METHOD(user, withdraw)
     else
     {
         arg.m_Ctl = x.m_Ctl;
-        arg.m_Pid = ukm.m_Pid;
 
-        FundsChange pFc[2];
+        FundsChange pFc[3];
         pFc[0].m_Amount = x.m_Tok1;
-        pFc[0].m_Aid = ukm.m_Pid.m_Aid1;
+        pFc[0].m_Aid = arg.m_Pid.m_Aid1;
         pFc[0].m_Consume = 0;
         pFc[1].m_Amount = x.m_Tok2;
-        pFc[1].m_Aid = ukm.m_Pid.m_Aid2;
+        pFc[1].m_Aid = arg.m_Pid.m_Aid2;
         pFc[1].m_Consume = 0;
+        pFc[2].m_Amount = x.m_Ctl;
+        pFc[2].m_Aid = pw.m_Pool.m_aidCtl;
+        pFc[2].m_Consume = 1;
 
-        Env::KeyID kid(ukm);
-
-        Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), &kid, 1, "Amm withdraw", 0);
+        Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), nullptr, 0, "Amm withdraw", 0);
     }
 }
 
@@ -530,8 +630,8 @@ ON_METHOD(user, trade)
 
     PoolsWalker pw;
     pw.Enum(cid, pid);
-    if (!pw.Move())
-        return OnError("no such a pool");
+    if (!pw.MoveMustExist())
+        return;
 
     Pool& p = pw.m_Pool; // alias
     if (bReverse)
@@ -560,11 +660,6 @@ ON_METHOD(user, trade)
     {
         arg.m_Pid.m_Aid1 = aid1; // order as specified, not normalized
         arg.m_Pid.m_Aid2 = aid2;
-
-        if ((Pool::ID::s_Token & aid1) || (Pool::ID::s_Token & aid2))
-            return OnError("tokens not supported yet");
-
-        _POD_(arg.m_pk).SetZero();
 
         FundsChange pFc[2];
         pFc[0].m_Amount = arg.m_Buy1;

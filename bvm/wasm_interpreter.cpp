@@ -1697,6 +1697,20 @@ namespace Wasm {
 	struct ProcessorPlus
 		:public Processor
 	{
+		template <typename T>
+		T FixShiftCount(T val)
+		{
+			const T nMaxBits = sizeof(T) * 8;
+			if (val >= nMaxBits)
+			{
+				if (!get_WasmVersion())
+					Fail("Incompatible shift operand");
+
+				val %= nMaxBits;
+			}
+
+			return val;
+		}
 
 #define THE_MACRO_unop(name) \
 		template <typename TOut, typename TIn> \
@@ -1729,8 +1743,8 @@ namespace Wasm {
 		WasmInstructions_Proprietary(THE_MACRO)
 #undef THE_MACRO
 
-#define UNOP(name) template <typename TOut, typename TIn> static TOut Eval_##name(TIn x)
-#define BINOP(name) template <typename TOut, typename TIn> static TOut Eval_##name(TIn a, TIn b)
+#define UNOP(name) template <typename TOut, typename TIn> TOut Eval_##name(TIn x)
+#define BINOP(name) template <typename TOut, typename TIn> TOut Eval_##name(TIn a, TIn b)
 
 		UNOP(eqz) { return x == 0; }
 		BINOP(eq) { return a == b; }
@@ -1753,11 +1767,11 @@ namespace Wasm {
 		BINOP(and) { return a & b; }
 		BINOP(or) { return a | b; }
 		BINOP(xor) { return a ^ b; }
-		BINOP(shl) { Test(b < (sizeof(a) * 8)); return a << b; }
-		BINOP(shr_s) { Test(b < (sizeof(a) * 8)); return Type::SignedFrom(a) >> b; }
-		BINOP(shr_u) { Test(b < (sizeof(a) * 8)); return a >> b; }
-		BINOP(rotl) { Test(b < (sizeof(a) * 8)); if (!b) return a; return (a << b) | (a >> ((sizeof(a) * 8) - b)); }
-		BINOP(rotr) { Test(b < (sizeof(a) * 8)); if (!b) return a; return (a >> b) | (a << ((sizeof(a) * 8) - b)); }
+		BINOP(shl) { return a << FixShiftCount(b); }
+		BINOP(shr_s) { return Type::SignedFrom(a) >> FixShiftCount(b); }
+		BINOP(shr_u) { return a >> FixShiftCount(b); }
+		BINOP(rotl) { if (!b) return a; b = FixShiftCount(b); return (a << b) | (a >> ((sizeof(a) * 8) - b)); }
+		BINOP(rotr) { if (!b) return a; b = FixShiftCount(b); return (a >> b) | (a << ((sizeof(a) * 8) - b)); }
 
 
 		Word ReadAddr()
