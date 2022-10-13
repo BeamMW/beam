@@ -2097,6 +2097,12 @@ namespace beam
 			<< pForks[5].m_Height
 			<< CA.DepositForList5
 			>> pForks[5].m_Hash;
+
+		oracle
+			<< "fork6"
+			<< pForks[6].m_Height
+			// no more flexible parameters so far
+			>> pForks[6].m_Hash;
 	}
 
 	const HeightHash* Rules::FindFork(const Merkle::Hash& hv) const

@@ -421,6 +421,12 @@ namespace bvm2 {
 
 		m_Charge -= n;
 	}
+
+	uint32_t ProcessorContract::get_WasmVersion()
+	{
+		return IsPastFork(6) ? 1 : 0;
+	}
+
 	void Processor::Compile(ByteBuffer& res, const Blob& src, Kind kind, Wasm::Compiler::DebugInfo* pDbgInfo /* = nullptr */)
 	{
 		Wasm::CheckpointTxt cp("Wasm/compile");
