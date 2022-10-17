@@ -2894,8 +2894,6 @@ namespace
             }
             return 1;
         });
-
-        return 1;
     }
 
     int AssetSwapCreate(const po::variables_map& vm)
