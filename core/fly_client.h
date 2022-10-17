@@ -324,6 +324,7 @@ namespace proto {
 				bool IsSupported(const Data::Std&) { return true; }
 				bool IsSupported(RequestEvents&);
 				bool IsSupported(RequestTransaction&);
+				bool IsSupported(RequestAssetsListAt&);
 
 				void OnRequestData(const Data::Std&) {}
 				void OnRequestData(RequestUtxo&);
