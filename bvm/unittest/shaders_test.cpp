@@ -3182,7 +3182,7 @@ namespace bvm2 {
 
 			m_FarCalls.m_Stack.Clear();
 		}
-		VERIFY_ID(Shaders::DaoVote::s_SID, m_DaoVote.m_Sid);
+		VERIFY_ID(Shaders::DaoVote::s_pSID[_countof(Shaders::DaoVote::s_pSID) - 1], m_DaoVote.m_Sid);
 
 		PubKey pkModerator(Zero);
 		pkModerator.m_X = 4432U;

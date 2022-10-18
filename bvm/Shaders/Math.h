@@ -738,7 +738,7 @@ namespace MultiPrecision
 		{
 			Float x;
 			x.m_Num = s_HiBit;
-			x.m_Order = -(s_Bits - 1);
+			x.m_Order = -(int32_t) (s_Bits - 1);
 			return x;
 		}
 
@@ -746,7 +746,7 @@ namespace MultiPrecision
 		{
 			Float x;
 			x.m_Num = s_HiBit;
-			x.m_Order = -s_Bits;
+			x.m_Order = -(int32_t) s_Bits;
 			return x;
 		}
 
@@ -754,7 +754,7 @@ namespace MultiPrecision
 		{
 			Float x;
 			x.m_Num = static_cast<uint64_t>(-1);
-			x.m_Order = -s_Bits;
+			x.m_Order = -(int32_t) s_Bits;
 			return x;
 		}
 
