@@ -131,15 +131,6 @@ namespace bvm2 {
 		get_CidViaSid(cid, sid, args);
 	}
 
-	void get_AssetOwner(PeerID& pidOwner, const ContractID& cid, const Asset::Metadata& md)
-	{
-		ECC::Hash::Processor()
-			<< "bvm.a.own"
-			<< cid
-			<< md.m_Hash
-			>> pidOwner;
-	}
-
 	/////////////////////////////////////////////
 	// Processor
 #pragma pack (push, 1)
@@ -1516,7 +1507,7 @@ namespace bvm2 {
 		md.UpdateHash();
 
 		AssetVar av;
-		get_AssetOwner(av.m_Owner, m_FarCalls.m_Stack.back().m_Cid, md);
+		md.get_Owner(av.m_Owner, m_FarCalls.m_Stack.back().m_Cid);
 
 		Amount valDeposit;
 		Asset::ID ret = AssetCreate(md, av.m_Owner, valDeposit);

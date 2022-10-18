@@ -176,12 +176,14 @@ namespace beam
 			void Reset();
 			void UpdateHash(); // called automatically during deserialization
 			void get_Owner(PeerID&, Key::IPKdf&) const;
+			void get_Owner(PeerID&, const ContractID&) const;
 		};
 
 		struct Info
 		{
 			AmountBig::Type m_Value = Zero;
 			PeerID m_Owner = Zero;
+			ContractID m_Cid = Zero;
 			Height m_LockHeight = 0; // last emitted/burned change height. if emitted atm - when was latest 1st emission. If burned atm - what was last burn.
 			Amount m_Deposit = 0;
 			Metadata m_Metadata;

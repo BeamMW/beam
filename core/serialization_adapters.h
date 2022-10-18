@@ -1970,21 +1970,32 @@ namespace detail
 		template<typename Archive>
 		Archive& save(Archive& ar, const beam::Asset::Info& v)
 		{
-			bool bDef = v.IsDefDeposit();
-			beam::Height h = bDef ? v.m_LockHeight : beam::MaxHeight;
+			uint32_t nFlags = 0;
+			if (!v.IsDefDeposit())
+				nFlags |= 1;
+
+			const ECC::uintBig* pOwner = &v.m_Owner;
+			if (v.m_Cid != beam::Zero)
+			{
+				pOwner = &v.m_Cid;
+				nFlags |= 2;
+			}
+
+			beam::Height h = nFlags ? beam::MaxHeight : v.m_LockHeight;
 			ar
-				& v.m_Owner
+				& (*pOwner)
 				& v.m_Value
 				& h
 				& v.m_Metadata;
 
-			if (!bDef)
+			if (nFlags)
 			{
-				uint32_t nFlags = 1; // reserve other flags for future use
 				ar
 					& nFlags
-					& v.m_LockHeight
-					& v.m_Deposit;
+					& v.m_LockHeight;
+
+				if (1 & nFlags)
+					ar & v.m_Deposit;
 			}
 
 			return ar;
@@ -2000,6 +2011,7 @@ namespace detail
 				& v.m_Metadata;
 
 			v.m_Deposit = beam::Rules::get().CA.DepositForList2;
+			v.m_Cid = beam::Zero;
 
 			if (beam::MaxHeight == v.m_LockHeight)
 			{
@@ -2010,6 +2022,12 @@ namespace detail
 
 				if (1 & nFlags)
 					ar & v.m_Deposit;
+
+				if (2 & nFlags)
+				{
+					v.m_Cid = Cast::Down<ECC::uintBig>(v.m_Owner);
+					v.m_Metadata.get_Owner(v.m_Owner, v.m_Cid);
+				}
 			}
 
 			return ar;
