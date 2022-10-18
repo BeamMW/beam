@@ -529,11 +529,6 @@ private:
                 m_json["max"] = vMax;
             }
 
-            void AddCid(const bvm2::ContractID& cid)
-            {
-                AddHex("cid", cid);
-            }
-
             void AddAid(Asset::ID aid)
             {
                 m_json["aid"] = aid;
@@ -770,6 +765,11 @@ private:
                 AddMetadata(ai.m_Metadata);
                 AddValBig("value", ai.m_Value);
                 m_json["lock_height"] = ai.m_LockHeight;
+
+                if (ai.m_Cid != Zero)
+                    m_json["cid"] = MakeTypeObj("cid", ai.m_Cid);
+                else
+                    AddHex("owner", ai.m_Owner);
             }
         };
 
