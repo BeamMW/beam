@@ -102,8 +102,6 @@ namespace bvm2 {
 	void get_Cid(ContractID&, const Blob& data, const Blob& args);
 	void get_CidViaSid(ContractID&, const ShaderID&, const Blob& args);
 
-	void get_AssetOwner(PeerID&, const ContractID&, const Asset::Metadata&);
-
 	class ProcessorContract;
 
 	class Processor

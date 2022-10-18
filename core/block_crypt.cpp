@@ -3052,6 +3052,15 @@ namespace beam
 		res.Import(pt);
 	}
 
+	void Asset::Metadata::get_Owner(PeerID& res, const ContractID& cid) const
+	{
+		ECC::Hash::Processor()
+			<< "bvm.a.own"
+			<< cid
+			<< m_Hash
+			>> res;
+	}
+
 	bool Asset::Info::Recognize(Key::IPKdf& pkdf) const
 	{
 		PeerID pid;
