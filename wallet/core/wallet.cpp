@@ -1095,29 +1095,7 @@ namespace beam::wallet
         {
             const auto& info  = req.m_Res.m_Info;
             const auto height = sTip.m_Height;
-
-            m_WalletDB->saveAsset(info, height);
-            LOG_INFO() << msgPrefix << (msgPrefix.empty() ? "" : " ") << "Received proof for Asset with ID " << info.m_ID;
-
-            if (Key::IKdf::Ptr maserKdf = m_WalletDB->get_MasterKdf())
-            {
-                std::string strMeta;
-                info.m_Metadata.get_String(strMeta);
-
-                if (beam::wallet::GetAssetOwnerID(maserKdf, strMeta) == info.m_Owner)
-                {
-                    m_WalletDB->markAssetOwned(info.m_ID);
-                }
-            }
-            else
-            {
-                LOG_WARNING() << msgPrefix << "Unable to get master key. Asset's " << req.m_Res.m_Info.m_ID << " ownership won't be checked.";
-            }
-
-            if(const auto wasset = m_WalletDB->findAsset(info.m_ID))
-            {
-                wasset->LogInfo(msgPrefix);
-            }
+            ProcessAssetInfo(info, height, msgPrefix);
 
             if (tx)
             {
@@ -1162,6 +1140,32 @@ namespace beam::wallet
                 storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetInfoFull, Asset::Full(), true);
                 storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetUnconfirmedHeight, sTip.m_Height, true);
             }
+        }
+    }
+
+    void Wallet::ProcessAssetInfo(const Asset::Full& info, Height height, const std::string& logPrefix)
+    {
+        m_WalletDB->saveAsset(info, height);
+        LOG_INFO() << logPrefix << (logPrefix.empty() ? "" : " ") << "Received proof for Asset with ID " << info.m_ID;
+
+        if (Key::IKdf::Ptr maserKdf = m_WalletDB->get_MasterKdf())
+        {
+            std::string strMeta;
+            info.m_Metadata.get_String(strMeta);
+
+            if (beam::wallet::GetAssetOwnerID(maserKdf, strMeta) == info.m_Owner)
+            {
+                m_WalletDB->markAssetOwned(info.m_ID);
+            }
+        }
+        else
+        {
+            LOG_WARNING() << logPrefix << "Unable to get master key. Asset's " << info.m_ID << " ownership won't be checked.";
+        }
+
+        if (const auto wasset = m_WalletDB->findAsset(info.m_ID))
+        {
+            wasset->LogInfo(logPrefix);
         }
     }
 
@@ -1214,6 +1218,10 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestAssetsListAt& r)
     {
+        for (const auto& ai : r.m_Res.m_Assets)
+        {
+            ProcessAssetInfo(ai, 0, "");
+        }
         r.m_callback(std::move(r.m_Res));
     }
 
@@ -2366,6 +2374,10 @@ namespace beam::wallet
 
     void Wallet::RequestAssetsListAt(Height h, std::function<void(proto::AssetsListAt&&)>&& onRequestComplete)
     {
+        if (!m_PendingAssetsListAt.empty())
+        {
+            DeleteReq(*m_PendingAssetsListAt.begin());
+        }
         MyRequestAssetsListAt::Ptr pVal(new MyRequestAssetsListAt);
         pVal->m_Msg.m_Height = h;
         pVal->m_callback = std::move(onRequestComplete);
