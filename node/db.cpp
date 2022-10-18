@@ -1483,6 +1483,15 @@ void NodeDB::set_StateTxosAndExtra(uint64_t rowid, const TxoID* pId, const Blob*
 	TestChanged1Row();
 }
 
+void NodeDB::set_StateRB(uint64_t rowid, const Blob& rb)
+{
+	Recordset rs(*this, Query::StateSetRB, "UPDATE " TblStates " SET " TblStates_Rollback "=? WHERE rowid=?");
+	rs.put(0, rb);
+	rs.put(1, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
 TxoID NodeDB::get_StateTxos(uint64_t rowid)
 {
 	Recordset rs(*this, Query::StateGetTxos, "SELECT " TblStates_Txos " FROM " TblStates " WHERE rowid=?");

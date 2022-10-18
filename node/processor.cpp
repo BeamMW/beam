@@ -6586,11 +6586,13 @@ bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
 
 	for (wlkKrn.m_Height = hr.m_Min; wlkKrn.m_Height <= hr.m_Max; wlkKrn.m_Height++)
 	{
+		uint64_t rowID = FindActiveAtStrict(wlkKrn.m_Height);
+
 		txve.m_vKernels.clear();
-		ReadKrns(FindActiveAtStrict(wlkKrn.m_Height), txve);
+		ReadKrns(rowID, txve);
 
 		wlkKrn.m_nKrnIdx = 0;
-		if (!wlkKrn.ProcessHeight(txve.m_vKernels))
+		if (!wlkKrn.ProcessHeight(rowID, txve.m_vKernels))
 			return false;
 
 		if (wlkKrn.m_pLa)
@@ -6959,7 +6961,7 @@ void NodeProcessor::RebuildNonStd()
 
 		ByteBuffer m_Rollback;
 
-		virtual bool ProcessHeight(const std::vector<TxKernel::Ptr>& v) override
+		virtual bool ProcessHeight(uint64_t rowID, const std::vector<TxKernel::Ptr>& v) override
 		{
 			BlockInterpretCtx bic(m_Height, true);
 			m_pBic = &bic;
@@ -6974,6 +6976,11 @@ void NodeProcessor::RebuildNonStd()
 			Process(v);
 
 			bic.m_Rollback.swap(m_Rollback);
+			
+			if (m_Height > m_This.m_Extra.m_Fossil)
+				// replace rollback data
+				m_This.m_DB.set_StateRB(rowID, m_Rollback);
+
 			m_Rollback.clear();
 
 			cf.Do(m_This, m_Height);

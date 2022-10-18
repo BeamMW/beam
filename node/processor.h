@@ -670,7 +670,7 @@ public:
 	struct IKrnWalker
 		:public TxKernel::IWalker
 	{
-		virtual bool ProcessHeight(const std::vector<TxKernel::Ptr>& v) { return Process(v); }
+		virtual bool ProcessHeight(uint64_t rowID, const std::vector<TxKernel::Ptr>& v) { return Process(v); }
 		Height m_Height;
 		LongAction* m_pLa = nullptr;
 	};
