@@ -435,7 +435,7 @@ public:
 	struct ContractInvokeExtraInfo
 		:public ContractInvokeExtraInfoBase
 	{
-		ECC::uintBig m_Cid;
+		ContractID m_Cid;
 	};
 
 	bool ExtractBlockWithExtra(Block::Body&, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID&, std::vector<ContractInvokeExtraInfo>&);

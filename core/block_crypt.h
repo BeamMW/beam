@@ -44,6 +44,8 @@ namespace beam
 
 	using ECC::Key;
 
+	typedef ECC::uintBig ContractID;
+
 	namespace MasterKey
 	{
 		Key::IKdf::Ptr get_Child(Key::IKdf&, Key::Index);
@@ -1139,7 +1141,7 @@ namespace beam
 	struct TxKernelContractInvoke
 		:public TxKernelContractControl
 	{
-		ECC::uintBig m_Cid;
+		ContractID m_Cid;
 		uint32_t m_iMethod;
 
 		typedef std::unique_ptr<TxKernelContractInvoke> Ptr;
