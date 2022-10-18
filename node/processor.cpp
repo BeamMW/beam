@@ -3245,6 +3245,7 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelAssetCreate& v, Height h
 	evt.m_Info.m_Owner = v.m_Owner;
 	evt.m_Info.m_Value = Zero;
 	evt.m_Info.m_Deposit = Rules::get().get_DepositForCA(h);
+	evt.m_Info.SetCid(nullptr);
 
 	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt, key);
 }
@@ -3288,7 +3289,6 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelAssetDestroy& v, Height 
 	evt.m_Flags = proto::Event::Flags::Delete;
 	evt.m_EmissionChange = 0;
 
-	evt.m_Info.m_Owner = v.m_Owner;
 	evt.m_Info.m_Value = Zero;
 	evt.m_Info.m_Deposit = v.get_Deposit();
 
@@ -3574,10 +3574,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetCreate& krn, BlockInterp
 {
 	Asset::ID aid;
 	Amount valDeposit;
-	return HandleAssetCreate(krn.m_Owner, krn.m_MetaData, bic, aid, valDeposit);
+	return HandleAssetCreate(krn.m_Owner, nullptr, krn.m_MetaData, bic, aid, valDeposit);
 }
 
-bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metadata& md, BlockInterpretCtx& bic, Asset::ID& aid, Amount& valDeposit, uint32_t nSubIdx)
+bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const ContractID* pCid, const Asset::Metadata& md, BlockInterpretCtx& bic, Asset::ID& aid, Amount& valDeposit, uint32_t nSubIdx)
 {
 	if (!bic.m_AlreadyValidated)
 	{
@@ -3607,7 +3607,7 @@ bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metad
 		ai.m_Owner = pidOwner;
 		ai.m_LockHeight = bic.m_Height;
 		ai.m_Deposit = valDeposit = Rules::get().get_DepositForCA(bic.m_Height);
-
+		ai.SetCid(pCid);
 		ai.m_Metadata.m_Hash = md.m_Hash;
 
 		{
@@ -3627,7 +3627,8 @@ bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metad
 			bufBlob.resize(sizeof(AssetCreateInfoPacked) + md.m_Value.size());
 			auto* pAcip = reinterpret_cast<AssetCreateInfoPacked*>(&bufBlob.front());
 
-			memcpy(&pAcip->m_Owner, &pidOwner, sizeof(pidOwner));
+			pAcip->m_OwnedByContract = !!pCid;
+			Cast::Down<ECC::uintBig>(pAcip->m_Owner) = pAcip->m_OwnedByContract ? (*pCid) : Cast::Down<ECC::uintBig>(pidOwner);
 			if (!md.m_Value.empty())
 				memcpy(pAcip + 1, &md.m_Value.front(), md.m_Value.size());
 
@@ -3653,13 +3654,13 @@ bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metad
 bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInterpretCtx& bic)
 {
 	Amount valDeposit = krn.get_Deposit();
-	if (!HandleAssetDestroy(krn.m_Owner, bic, krn.m_AssetID, valDeposit, true))
+	if (!HandleAssetDestroy(krn.m_Owner, nullptr, bic, krn.m_AssetID, valDeposit, true))
 		return false;
 
 	return true;
 }
 
-bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx)
+bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, const ContractID* pCid, BlockInterpretCtx& bic, Asset::ID aid, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx)
 {
 	if (!bic.m_AlreadyValidated)
 		bic.EnsureAssetsUsed(m_DB);
@@ -3716,12 +3717,17 @@ bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, BlockInterpretCtx
 	{
 		Asset::Full ai;
 		ai.m_ID = aid;
-		ai.m_Owner = pidOwner;
+		ai.SetCid(pCid);
 
 		BlockInterpretCtx::Der der(bic);
 		der
 			& ai.m_Metadata
 			& ai.m_LockHeight;
+
+		if (pCid)
+			ai.m_Metadata.get_Owner(ai.m_Owner, *pCid);
+		else
+			ai.m_Owner = pidOwner;
 
 		if (bic.m_Height >= Rules::get().pForks[5].m_Height)
 			der & ai.m_Deposit;
@@ -5147,7 +5153,7 @@ bool NodeProcessor::get_HdrAt(Block::SystemState::Full& s)
 Asset::ID NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetCreate(const Asset::Metadata& md, const PeerID& pidOwner, Amount& valDeposit)
 {
 	Asset::ID aid = 0;
-	if (!m_Proc.HandleAssetCreate(pidOwner, md, m_Bic, aid, valDeposit, m_AssetEvtSubIdx))
+	if (!m_Proc.HandleAssetCreate(pidOwner, &m_FarCalls.m_Stack.back().m_Cid, md, m_Bic, aid, valDeposit, m_AssetEvtSubIdx))
 		return 0;
 
 	BlockInterpretCtx::Ser ser(m_Bic);
@@ -5177,14 +5183,16 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetEmit(Asset::ID aid, co
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDestroy(Asset::ID aid, const PeerID& pidOwner, Amount& valDeposit)
 {
-	if (!m_Proc.HandleAssetDestroy(pidOwner, m_Bic, aid, valDeposit, false, m_AssetEvtSubIdx))
+	const ContractID& cid = m_FarCalls.m_Stack.back().m_Cid;
+
+	if (!m_Proc.HandleAssetDestroy(pidOwner, &cid, m_Bic, aid, valDeposit, false, m_AssetEvtSubIdx))
 		return false;
 
 	BlockInterpretCtx::Ser ser(m_Bic);
 	RecoveryTag::Type nTag = RecoveryTag::AssetDestroy;
 	ser & nTag;
 	ser & aid;
-	ser & pidOwner;
+	ser & cid;
 
 	m_AssetEvtSubIdx++;
 	return true;
@@ -5213,7 +5221,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 				Asset::Metadata md;
 				Amount valDeposit;
 
-				if (!m_Proc.HandleAssetCreate(pidOwner, md, m_Bic, aid, valDeposit))
+				if (!m_Proc.HandleAssetCreate(pidOwner, nullptr, md, m_Bic, aid, valDeposit))
 					return OnCorrupted();
 			}
 			break;
@@ -5241,11 +5249,12 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 
 			Asset::ID aid = 0;
 			PeerID pidOwner;
+			ContractID cid;
 			der & aid;
-			der & pidOwner;
+			der & cid;
 
 			Amount valDeposit;
-			if (!m_Proc.HandleAssetDestroy(pidOwner, m_Bic, aid, valDeposit, false))
+			if (!m_Proc.HandleAssetDestroy(pidOwner, &cid, m_Bic, aid, valDeposit, false))
 				return OnCorrupted();
 		}
 		break;
@@ -7036,12 +7045,23 @@ int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)
 		OnCorrupted();
 
 	auto* pAcip = reinterpret_cast<const AssetCreateInfoPacked*>(wlk.m_Body.p);
-	memcpy(&ai.m_Owner, &pAcip->m_Owner, sizeof(ai.m_Owner));
 
 	ai.m_Metadata.m_Value.resize(wlk.m_Body.n - sizeof(AssetCreateInfoPacked));
 	if (!ai.m_Metadata.m_Value.empty())
 		memcpy(&ai.m_Metadata.m_Value.front(), pAcip + 1, ai.m_Metadata.m_Value.size());
 	ai.m_Metadata.UpdateHash();
+
+	if (pAcip->m_OwnedByContract)
+	{
+		ai.SetCid(&pAcip->m_Owner);
+		ai.m_Metadata.get_Owner(ai.m_Owner, ai.m_Cid);
+	}
+	else
+	{
+		ai.SetCid(nullptr);
+		ai.m_Owner = pAcip->m_Owner;
+
+	}
 
 	ai.m_Deposit = Rules::get().get_DepositForCA(wlk.m_Height);
 
