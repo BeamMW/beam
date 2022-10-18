@@ -1214,7 +1214,7 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestAssetsListAt& r)
     {
-        r.m_callback(r.m_Res.m_AssetsList);
+        r.m_callback(std::move(r.m_Res));
     }
 
     struct Wallet::RecognizerHandler : NodeProcessor::Recognizer::IHandler
@@ -2364,7 +2364,7 @@ namespace beam::wallet
         PostReqUnique(*pVal);
     }
 
-    void Wallet::RequestAssetsListAt(Height h, std::function<void(ByteBuffer)>&& onRequestComplete)
+    void Wallet::RequestAssetsListAt(Height h, std::function<void(proto::AssetsListAt&&)>&& onRequestComplete)
     {
         MyRequestAssetsListAt::Ptr pVal(new MyRequestAssetsListAt);
         pVal->m_Msg.m_Height = h;

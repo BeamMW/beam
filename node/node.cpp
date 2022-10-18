@@ -3937,29 +3937,33 @@ void Node::Peer::OnMsg(proto::GetShieldedOutputsAt&& msg)
 
 void Node::Peer::OnMsg(proto::GetAssetsListAt&& msg)
 {
-    auto& processor = m_This.m_Processor;
-    auto height = msg.m_Height;
+    proto::AssetsListAt msgOut;
 
-    if(processor.m_Cursor.m_ID.m_Height < height) return;
-    
-    std::vector<Asset::ID> assets = {Asset::s_BeamID};
-    Asset::Full ai;
-    for (ai.m_ID = 1; ; ai.m_ID++)
+    if (msg.m_Height >= m_This.m_Processor.m_Cursor.m_Full.m_Height)
     {
-        int ret = processor.get_AssetAt(ai, height);
-        if (!ret)
-            break;
+        // current assets
+        Asset::Full ai;
+        ai.m_ID = 0;
 
-        if (ret > 0)
+        while (m_This.m_Processor.get_DB().AssetGetNext(ai))
+            msgOut.m_Assets.push_back(std::move(ai));
+    }
+    else
+    {
+        // past assets state
+        Asset::Full ai;
+        for (ai.m_ID = 1; ; ai.m_ID++)
         {
-            assets.push_back(ai.m_ID);
+            int ret = m_This.m_Processor.get_AssetAt(ai, msg.m_Height);
+            if (!ret)
+                break;
+
+            if (ret > 0)
+                msgOut.m_Assets.push_back(std::move(ai));
         }
+
     }
 
-    proto::AssetsListAt msgOut;
-    size_t assetsBufferSize = sizeof(Asset::ID) * assets.size();
-    msgOut.m_AssetsList.resize(assetsBufferSize);
-    memcpy(msgOut.m_AssetsList.data(), assets.data(), assetsBufferSize);
     Send(msgOut);
 }
 

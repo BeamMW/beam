@@ -1770,7 +1770,7 @@ namespace beam
 				PeerID m_Owner;
 				Asset::ID m_ID = 0; // set after successful creation + proof
 				bool m_Recognized = false;
-
+				bool m_ListReceived = false;
 				bool m_EvtCreated = false;
 				bool m_EvtEmitted = false;
 
@@ -2115,6 +2115,23 @@ namespace beam
 				verify_test(m_Assets.m_ID);
 			}
 
+			virtual void OnMsg(proto::AssetsListAt&& msg) override
+			{
+				verify_test(m_Assets.m_hCreated);
+
+				if (msg.m_Assets.empty())
+					return;
+
+				verify_test(1 == msg.m_Assets.size());
+				auto& ai = msg.m_Assets.front();
+
+				verify_test(m_Assets.m_ID == ai.m_ID);
+				verify_test(ai.m_Metadata.m_Value == m_Assets.m_Metadata.m_Value);
+				verify_test(ai.m_Metadata.m_Hash == m_Assets.m_Metadata.m_Hash);
+
+				m_Assets.m_ListReceived = true;
+			}
+
 			struct AchievementTester
 			{
 				bool m_AllDone = true;
@@ -2145,6 +2162,7 @@ namespace beam
 				t.Test(m_Assets.m_Recognized, "CA output not recognized");
 				t.Test(m_Assets.m_EvtCreated, "CA creation not recognized by node");
 				t.Test(m_Assets.m_EvtEmitted, "CA emission not recognized by node");
+				t.Test(m_Assets.m_ListReceived, "CA list not received");
 				t.Test(m_Shielded.m_SpendConfirmed, "Shielded spend not confirmed");
 				t.Test(m_Shielded.m_EvtAdd, "Shielded Add event didn't arrive");
 				t.Test(m_Shielded.m_EvtSpend, "Shielded Spend event didn't arrive");
@@ -2189,6 +2207,10 @@ namespace beam
 					proto::GetProofAsset msgOut;
 					msgOut.m_Owner = m_Assets.m_Owner;
 					Send(msgOut);
+
+					proto::GetAssetsListAt msgOut2;
+					msgOut2.m_Height = MaxHeight;
+					Send(msgOut2);
 				}
 
 				proto::BbsMsg msgBbs;

@@ -470,6 +470,5 @@ namespace beam::wallet
         std::unique_ptr<HttpClient> m_httpClient;
         beam::Timestamp m_averageBlockTime = 0;
         beam::Timestamp m_lastBlockTime = 0;
-        std::set<Asset::ID> m_assetsFullList = {Asset::s_BeamID};
     };
 }

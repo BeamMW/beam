@@ -262,7 +262,7 @@ namespace proto {
     macro(Height, Height)
 
 #define BeamNodeMsg_AssetsListAt(macro) \
-    macro(ByteBuffer, AssetsList)
+    macro(std::vector<Asset::Full>, Assets)
 
 #define BeamNodeMsg_ContractVarsEnum(macro) \
     macro(ByteBuffer, KeyMin) \
