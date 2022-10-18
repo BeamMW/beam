@@ -190,6 +190,7 @@ namespace beam
 			static const uint32_t s_MetadataMaxSize = 1024 * 16; // 16K
 
 			void Reset();
+			void SetCid(const ContractID*);
 			bool IsEmpty() const;
 			bool IsValid() const;
 			bool Recognize(Key::IPKdf&) const;

@@ -3483,6 +3483,9 @@ void Node::Peer::OnMsg(proto::GetProofAsset&& msg)
         {
             msgOut.m_Info = std::move(ai);
 
+            if (get_Ext() < 10)
+                msgOut.m_Info.SetCid(nullptr);
+
             p.m_Mmr.m_Assets.get_Proof(msgOut.m_Proof, msgOut.m_Info.m_ID - 1);
 
             struct MyProofBuilder
@@ -3961,7 +3964,12 @@ void Node::Peer::OnMsg(proto::GetAssetsListAt&& msg)
             if (ret > 0)
                 msgOut.m_Assets.push_back(std::move(ai));
         }
+    }
 
+    if (get_Ext() < 10)
+    {
+        for (auto& ai : msgOut.m_Assets)
+            ai.SetCid(nullptr);
     }
 
     Send(msgOut);
@@ -5037,7 +5045,12 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
             ai.m_ID = 0;
 
             while (m_Processor.get_DB().AssetGetNext(ai))
+            {
+                if (m_Processor.m_Cursor.m_ID.m_Height < r.pForks[6].m_Height)
+                    ai.SetCid(nullptr);
+
                 ser & ai;
+            }
 
             ser & (Asset::s_MaxCount + 1); // terminator
 
