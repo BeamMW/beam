@@ -880,6 +880,14 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestTransaction& req)
     return true;
 }
 
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestAssetsListAt& req)
+{
+    if (get_Ext() < 10)
+        return false;
+
+    return true;
+}
+
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestProofShieldedInp& req)
 {
     if (!req.m_Res.m_Proof.empty())
