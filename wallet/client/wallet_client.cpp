@@ -1100,11 +1100,6 @@ namespace beam::wallet
         return m_rules;
     }
 
-    std::set<beam::Asset::ID> WalletClient::getAssetsFull() const
-    {
-        return m_assetsFullList;
-    }
-
     std::set<beam::Asset::ID> WalletClient::getAssetsNZ() const
     {
         std::set<beam::Asset::ID> assets;
@@ -2281,25 +2276,10 @@ namespace beam::wallet
         auto wallet = m_wallet.lock();
         if (wallet)
         {
-            auto h = m_status.stateID.m_Height;
-            wallet->RequestAssetsListAt(h, [this](ByteBuffer assetsBuffer)
+            wallet->RequestAssetsListAt(MaxHeight, [this](proto::AssetsListAt&& msgRes)
             {
-                std::vector<Asset::ID> assets;
-                size_t assetsCount = assetsBuffer.size() / sizeof(Asset::ID);
-                assets.resize(assetsCount);
-                memcpy(assets.data(), assetsBuffer.data(), assetsBuffer.size());
-
-                std::set<Asset::ID> assetsFullList;
-                for (auto asset : assets)
-                {
-                    assetsFullList.insert(asset);
-                    getAssetInfo(asset);
-                }
-
-                postFunctionToClientContext([this, assetsFullList]()
-                {
-                    m_assetsFullList = assetsFullList;
-                });
+                for (const auto& ai : msgRes.m_Assets)
+                    m_walletDB->saveAsset(ai, 0);
             });
         }
     }
