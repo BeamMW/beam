@@ -3942,34 +3942,40 @@ void Node::Peer::OnMsg(proto::GetAssetsListAt&& msg)
 {
     proto::AssetsListAt msgOut;
 
-    if (msg.m_Height >= m_This.m_Processor.m_Cursor.m_Full.m_Height)
-    {
-        // current assets
-        Asset::Full ai;
-        ai.m_ID = 0;
+    Asset::Full ai;
+    ai.m_ID = msg.m_Aid0 ? (msg.m_Aid0 - 1) : 0;
 
-        while (m_This.m_Processor.get_DB().AssetGetNext(ai))
-            msgOut.m_Assets.push_back(std::move(ai));
-    }
-    else
+    bool bCurrent = (msg.m_Height >= m_This.m_Processor.m_Cursor.m_Full.m_Height);
+    bool bLegacy = (get_Ext() < 10);
+
+    while (ai.m_ID < Asset::s_MaxCount)
     {
-        // past assets state
-        Asset::Full ai;
-        for (ai.m_ID = 1; ; ai.m_ID++)
+        if (bCurrent)
         {
+            if (!m_This.m_Processor.get_DB().AssetGetNext(ai))
+                break;
+        }
+        else
+        {
+            ++ai.m_ID;
             int ret = m_This.m_Processor.get_AssetAt(ai, msg.m_Height);
             if (!ret)
                 break;
 
-            if (ret > 0)
-                msgOut.m_Assets.push_back(std::move(ai));
+            if (ret < 0)
+                continue;
         }
-    }
 
-    if (get_Ext() < 10)
-    {
-        for (auto& ai : msgOut.m_Assets)
+        if (msgOut.m_Assets.size() >= 3000)
+        {
+            msgOut.m_bMore = true;
+            break;
+        }
+        
+        if (bLegacy)
             ai.SetCid(nullptr);
+
+        msgOut.m_Assets.push_back(std::move(ai));
     }
 
     Send(msgOut);

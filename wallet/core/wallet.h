@@ -177,7 +177,7 @@ namespace beam::wallet
         void RequestVouchersFrom(const WalletID& peerID, const WalletID& myID, uint32_t nCount = 1);
         virtual void OnVouchersFrom(const WalletAddress&, const WalletID& myID, std::vector<ShieldedTxo::Voucher>&&);
         void RequestShieldedOutputsAt(Height h, std::function<void(Height, TxoID)>&& onRequestComplete);
-        void RequestAssetsListAt(Height h, std::function<void(proto::AssetsListAt&&)>&& onRequestComplete);
+        void RequestAssetsListAt(Height h, std::function<void(std::vector<beam::Asset::Full>&&)>&& onRequestComplete);
         bool IsConnectedToOwnNode() const;
         bool CanDetectCoins() const;
         void EnableBodyRequests(bool value);
@@ -363,7 +363,7 @@ namespace beam::wallet
 
             struct AssetsListAt
             {
-                std::function<void(proto::AssetsListAt&&)> m_callback;
+                std::function<void(std::vector<beam::Asset::Full>&&)> m_callback;
             };
         };
 

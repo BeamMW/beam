@@ -2276,9 +2276,9 @@ namespace beam::wallet
         auto wallet = m_wallet.lock();
         if (wallet)
         {
-            wallet->RequestAssetsListAt(MaxHeight, [this](proto::AssetsListAt&& msgRes)
+            wallet->RequestAssetsListAt(MaxHeight, [this](std::vector<beam::Asset::Full>&& res)
             {
-                for (const auto& ai : msgRes.m_Assets)
+                for (const auto& ai : res)
                     m_walletDB->saveAsset(ai, 0);
             });
         }

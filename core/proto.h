@@ -259,10 +259,12 @@ namespace proto {
     macro(TxoID, ShieldedOuts)
 
 #define BeamNodeMsg_GetAssetsListAt(macro) \
-    macro(Height, Height)
+    macro(Height, Height) \
+    macro(Asset::ID, Aid0)
 
 #define BeamNodeMsg_AssetsListAt(macro) \
-    macro(std::vector<Asset::Full>, Assets)
+    macro(std::vector<Asset::Full>, Assets) \
+    macro(bool, bMore)
 
 #define BeamNodeMsg_ContractVarsEnum(macro) \
     macro(ByteBuffer, KeyMin) \

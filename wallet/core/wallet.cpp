@@ -2364,7 +2364,7 @@ namespace beam::wallet
         PostReqUnique(*pVal);
     }
 
-    void Wallet::RequestAssetsListAt(Height h, std::function<void(proto::AssetsListAt&&)>&& onRequestComplete)
+    void Wallet::RequestAssetsListAt(Height h, std::function<void(std::vector<beam::Asset::Full>&&)>&& onRequestComplete)
     {
         MyRequestAssetsListAt::Ptr pVal(new MyRequestAssetsListAt);
         pVal->m_Msg.m_Height = h;
