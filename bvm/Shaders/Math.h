@@ -57,6 +57,142 @@ namespace BitUtils
 
 }
 
+namespace Power
+{
+	namespace details
+	{
+		template <uint32_t n>
+		struct Power
+		{
+			template <uint64_t x>
+			struct Of
+			{
+				static const uint64_t N = Power<n / 2>::template Of<x>::N * Power<n - (n/2)>::template Of<x>::N;
+			};
+
+			template <typename T, T base>
+			static uint32_t Log(T& res, T x)
+			{
+				assert(x < Of<base>::N);
+
+				const uint32_t nHalf = (n + 1) / 2; // round to bigger side
+				const T vRoot = Power<nHalf>::template Of<base>::N;
+
+				bool bBigger = (x >= vRoot);
+				if (bBigger)
+					x /= vRoot;
+
+				uint32_t nRet = Power<nHalf>::template Log<T, base>(res, x);
+
+				if (bBigger)
+				{
+					nRet += nHalf;
+					res *= vRoot;
+				}
+
+				return nRet;
+			}
+
+			template <typename T, T base>
+			static T Raise(uint32_t n_)
+			{
+				const uint32_t nHalf = (n + 1) / 2; // round to bigger side
+
+				if (n_ < n)
+					return Power<nHalf>::template Raise<T, base>(n_);
+
+				return Of<base>::N * Power<nHalf>::template Raise<T, base>(n_ - n);
+			}
+
+		};
+
+		template <>
+		struct Power<1>
+		{
+			template <uint64_t x>
+			struct Of
+			{
+				static const uint64_t N = x;
+			};
+
+			template <typename T, T base>
+			static uint32_t Log(T& res, T x)
+			{
+				assert(x < base);
+
+				res = 1;
+				return 0;
+			}
+
+			template <typename T, T base>
+			static T Raise(uint32_t n_)
+			{
+				return n_ ? base : 1;
+			}
+
+		};
+
+		template <uint64_t n>
+		struct Log
+		{
+			template <uint64_t base>
+			struct Of
+			{
+				// rounded down
+				static const uint64_t N = 1 + Log<n / base>::template Of<base>::N;
+			};
+		};
+
+		template <>
+		struct Log<0>
+		{
+			template <uint64_t base>
+			struct Of
+			{
+				static const int32_t N = -1;
+			};
+		};
+
+	}
+
+	template <uint64_t x, uint32_t n>
+	struct PowerOf
+	{
+		static const uint64_t N = details::Power<n>::template Of<x>::N;
+	};
+
+	template <uint64_t x, uint32_t base>
+	struct LogOf
+	{
+		// rounded down
+		static const uint32_t N = details::Log<x>::template Of<base>::N;
+	};
+
+	template <typename T, T base>
+	T Raise(uint32_t n)
+	{
+		// find highest power, for which base^n <= bound
+		const uint32_t nMax = LogOf<(T) -1, base>::N;
+		return details::Power<nMax>::template Raise<T, base>(n);
+	}
+
+	template <typename T, T base>
+	uint32_t Log(T& res, T x)
+	{
+		// find highest power, for which base^n <= bound
+		const uint32_t nMax = LogOf<(uint64_t) -1, base>::N;
+		const uint64_t vMax = PowerOf<base, nMax>::N;
+
+		if (x >= vMax)
+		{
+			res = vMax;
+			return nMax;
+		}
+
+		return details::Power<nMax>::template Log<T, base>(res, x);
+	}
+}
+
 // big-uint implementation in a 'wasm-friendly' way.
 // Everything via templates. No arrays, no mandatory memory store/load.
 namespace MultiPrecision
@@ -970,7 +1106,202 @@ namespace MultiPrecision
 		bool operator == (const Float& x) const { return cmp(x) == 0; }
 		bool operator != (const Float& x) const { return cmp(x) != 0; }
 
-    private:
+
+		struct DecimalForm
+		{
+			uint64_t m_Num; // not necessarily normalized
+			int32_t m_Order;
+
+			void Assign(Float x)
+			{
+				m_Order = 0;
+
+				if (x.IsZero())
+					m_Num = 0;
+				else
+				{
+					while (true)
+					{
+						if (x.m_Order > 0)
+						{
+							Float f;
+							m_Order += MakeDecimalPower(f, x.m_Order + 3);
+							x = x / f;
+						}
+						else
+						{
+							if (x.m_Order >= -3)
+								break;
+
+							Float f;
+							m_Order -= MakeDecimalPower(f, -x.m_Order);
+							x = x * f;
+						}
+					}
+
+					x.Round(m_Num);
+				}
+			}
+
+		private:
+
+			static uint32_t ExpReduce(Float& res, Float cur, uint32_t nDecimal, uint32_t nBinary, uint32_t& nRemaining)
+			{
+				assert(nBinary && (nRemaining >= nBinary));
+
+				uint32_t nB2 = nBinary << 1; // may overflow
+				if ((nB2 < nBinary) || (nB2 > nRemaining))
+				{
+					res = cur;
+					nRemaining -= nBinary;
+					return nDecimal;
+				}
+
+				uint32_t ret = ExpReduce(res, cur * cur, nDecimal << 1, nB2, nRemaining);
+				if (nRemaining >= nBinary)
+				{
+					res = res * cur;
+					nRemaining -= nBinary;
+					ret += nDecimal;
+				}
+
+				return ret;
+			}
+
+			static uint32_t MakeDecimalPower(Float& res, uint32_t nBinaryOrder)
+			{
+				uint32_t ret = 0;
+
+				const uint32_t nBinMax = 63u;
+				bool bReduced = (nBinaryOrder >= nBinMax);
+				if (bReduced)
+				{
+					const uint32_t n = Power::LogOf<(uint64_t) -1, 10>::N;
+
+					ret = ExpReduce(res, Float(Power::PowerOf<10, n>::N), n, nBinMax, nBinaryOrder);
+				}
+
+				if (nBinaryOrder < nBinMax)
+				{
+					uint64_t val;
+					ret += Power::Log<uint64_t, 10>(val, 1ull << nBinaryOrder);
+
+					if (bReduced)
+						res = res * Float(val);
+					else
+						res.Set(val);
+				}
+
+				return ret;
+			}
+		};
+
+
+        // text formatting tools
+        struct Text
+        {
+            static const uint32_t s_LenMantissaMax = Utils::String::Decimal::DigitsMax<uint64_t>::N - 2;
+            static const uint32_t s_LenOrderMax = Utils::String::Decimal::DigitsMax<uint32_t>::N;
+
+            static const uint32_t s_LenMax = s_LenMantissaMax + s_LenOrderMax + 5; // dot, space, E, space, sign. Excluding 0-term.
+        };
+
+        uint32_t Print(char* sz, bool bTryStdNotation = true, uint32_t nDigits = Text::s_LenMantissaMax) const
+        {
+			uint32_t ret = 0;
+
+			if (IsZero())
+                sz[ret++] = '0';
+			else
+			{
+				DecimalForm df;
+				df.Assign(*this);
+
+				uint64_t nTrg;
+				uint32_t nPwr = Power::Log<uint64_t, 10>(nTrg, df.m_Num);
+				assert(df.m_Num >= nTrg);
+				df.m_Order += nPwr;
+
+				if (!nDigits)
+					nDigits = 1u;
+				else
+					if (nDigits > Text::s_LenMantissaMax)
+						nDigits = Text::s_LenMantissaMax;
+
+				if (nPwr >= nDigits)
+				{
+					// add rounding
+					uint64_t y = Power::Raise<uint64_t, 10>(nPwr - nDigits + 1);
+					y >>= 1; // take half
+
+					y += df.m_Num; // can overflow
+					if (y > df.m_Num)
+					{
+						df.m_Num = y;
+
+						if (df.m_Num / nTrg >= 10)
+						{
+							nTrg *= 10;
+							df.m_Order++;
+						}
+					}
+				}
+
+				// Standard is the scientific notation: a.bbbbb E order
+				// Check if we can print in the standard notation: aaa.bbbb
+
+				if (bTryStdNotation && (df.m_Order > 0) && (((uint32_t) df.m_Order) <= (nDigits - 1)))
+				{
+					uint32_t nBeforeDot = df.m_Order + 1;
+
+					nTrg /= Power::Raise<uint64_t, 10>(df.m_Order);
+
+					nDigits -= df.m_Order;
+					df.m_Order = 0;
+
+					Utils::String::Decimal::Print(sz + ret, nTrg ? (df.m_Num / nTrg) : 0, nBeforeDot);
+					ret += nBeforeDot;
+
+				}
+				else
+					sz[ret++] = Utils::String::Decimal::ToChar(df.m_Num / nTrg);
+
+				uint32_t pos = ret;
+				sz[pos++] = '.';
+
+				while (--nDigits)
+				{
+					if (!(nTrg /= 10))
+						break;
+
+					char ch = Utils::String::Decimal::ToChar(df.m_Num / nTrg);
+					sz[pos++] = ch;
+
+					if ('0' != ch)
+						ret = pos;
+				}
+
+				if (df.m_Order)
+				{
+					sz[ret++] = ' ';
+					sz[ret++] = 'E';
+					if (df.m_Order < 0)
+					{
+						sz[ret++] = '-';
+						df.m_Order = -df.m_Order;
+					}
+					else
+						sz[ret++] = '+';
+
+					ret += Utils::String::Decimal::Print(sz + ret, df.m_Order);
+				}
+			}
+
+			sz[ret] = 0;
+			return ret;
+        }
+
+	private:
 
         void AddMsb()
         {
