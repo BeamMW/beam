@@ -2285,8 +2285,14 @@ namespace beam
 	{
 		if (m_Height < Rules::HeightGenesis)
 			return false;
-		if ((m_Height == Rules::HeightGenesis) && !(m_Prev == Rules::get().Prehistoric))
-			return false;
+		if (m_Height == Rules::HeightGenesis)
+		{
+			if (m_Prev != Rules::get().Prehistoric)
+				return false;
+
+			if (m_ChainWork - m_PoW.m_Difficulty != Zero)
+				return false;
+		}
 
 		return true;
 	}

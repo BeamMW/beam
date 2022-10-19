@@ -254,6 +254,9 @@ namespace beam
 		vStates.resize(hMax);
 		memset0(&vStates.at(0), vStates.size());
 
+		Difficulty::Raw d0;
+		Difficulty(0).Unpack(d0);
+
 		Merkle::CompactMmr cmmr, cmmrFork;
 
 		for (uint32_t h = 0; h < hMax; h++)
@@ -261,7 +264,9 @@ namespace beam
 			Block::SystemState::Full& s = vStates[h];
 			s.m_Height = h + Rules::HeightGenesis;
 
-			s.m_ChainWork = h; // must be in ascending order
+			s.m_ChainWork = d0;
+			if (h)
+				s.m_ChainWork += vStates[h - 1].m_ChainWork;
 
 			if (h)
 			{
@@ -347,7 +352,7 @@ namespace beam
 		Merkle::Interpret(s.m_Definition, hvZero, true);
 
 		s.m_Height++;
-		s.m_ChainWork = s.m_Height;
+		s.m_ChainWork += d0;
 
 		uint64_t rowLast1 = db.InsertState(s, peer);
 

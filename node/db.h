@@ -92,7 +92,7 @@ public:
 			StateFindWithFlag,
 			StateFindWorkGreater,
 			StateUpdPrevRow,
-			StateGetNextFCount,
+			StateGetNextOf,
 			StateSetNextCount,
 			StateSetNextCountF,
 			StateGetHeightAndAux,

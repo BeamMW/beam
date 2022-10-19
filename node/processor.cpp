@@ -2775,6 +2775,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 		mbc.OnBlock(pid, pShared);
 
+		// Chainwork test isn't really necessary, already tested in DB. Just for more safety.
 		Difficulty::Raw wrk = m_Cursor.m_Full.m_ChainWork + s.m_PoW.m_Difficulty;
 
 		if (wrk != s.m_ChainWork)
