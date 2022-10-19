@@ -267,6 +267,7 @@ namespace beam::wallet
         Height GetEventsHeightNext() const;
         void ProcessEventShieldedUtxo(const proto::Event::Shielded& shieldedEvt, Height h);
         void RequestStateSummary();
+        void ProcessAssetInfo(const Asset::Full& info, Height height, const std::string& logPrefix);
 
         void OnTransactionMsg(const WalletID& myID, const SetTxParameter& msg);
         BaseTransaction::Ptr ConstructTransaction(const TxID& id, TxType type);
