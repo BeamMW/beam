@@ -3343,9 +3343,9 @@ namespace beam
 
 				NetworkStd net(*this);
 
-							io::Address addr;
-							addr.resolve("127.0.0.1");
-							addr.port(g_Port);
+				io::Address addr;
+				addr.resolve("127.0.0.1");
+				addr.port(g_Port);
 				net.m_Cfg.m_vNodes.resize(4, addr); // create several connections, let the compete
 
 				net.Connect();
@@ -3384,6 +3384,13 @@ namespace beam
 
 				net.PostRequest(*pHdrs, *this);
 				m_nProofsExpected++;
+
+				{
+					RequestAssetsListAt::Ptr pReq(new RequestAssetsListAt);
+					pReq->m_Msg.m_Height = MaxHeight;
+					net.PostRequest(*pReq, *this);
+					m_nProofsExpected++;
+				}
 
 				SetTimer(90 * 1000);
 				m_bRunning = true;

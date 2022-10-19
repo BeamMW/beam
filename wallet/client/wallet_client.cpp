@@ -1908,17 +1908,17 @@ namespace beam::wallet
         auto wallet = m_wallet.lock();
         if (wallet)
         {
-            wallet->RequestAssetsListAt(MaxHeight, [this](proto::AssetsListAt&& msgRes)
+            wallet->RequestAssetsListAt(MaxHeight, [this](std::vector<Asset::Full>&& res)
             {
                 std::set<Asset::ID> assetsFullList{ Asset::s_BeamID };
-                for (const auto& ai : msgRes.m_Assets)
+                for (const auto& ai : res)
                 {
                     assetsFullList.insert(ai.m_ID);
                 }
 
                 postFunctionToClientContext([this, assetsFullList]()
                 {
-                    m_assetsFullList = assetsFullList;
+                    m_assetsFullList = std::move(assetsFullList);
                     onFullAssetsListLoaded();
                 });
             });

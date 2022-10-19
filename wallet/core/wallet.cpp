@@ -1218,7 +1218,7 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestAssetsListAt& r)
     {
-        for (const auto& ai : r.m_Res.m_Assets)
+        for (const auto& ai : r.m_Res)
         {
             ProcessAssetInfo(ai, 0, "");
         }
@@ -2372,7 +2372,7 @@ namespace beam::wallet
         PostReqUnique(*pVal);
     }
 
-    void Wallet::RequestAssetsListAt(Height h, std::function<void(proto::AssetsListAt&&)>&& onRequestComplete)
+    void Wallet::RequestAssetsListAt(Height h, std::function<void(std::vector<beam::Asset::Full>&&)>&& onRequestComplete)
     {
         if (!m_PendingAssetsListAt.empty())
         {
