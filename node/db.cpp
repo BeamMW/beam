@@ -1302,7 +1302,7 @@ void NodeDB::SetStateNotFunctional(uint64_t rowid)
 
 	if (!(StateFlags::Functional & nFlags))
 		return; // ?!
-		nFlags &= ~StateFlags::Functional;
+	nFlags &= ~StateFlags::Functional;
 
 	Height h;
 	rs.get(0, h);
