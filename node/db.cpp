@@ -1609,18 +1609,6 @@ void NodeDB::get_ChainWork(uint64_t rowid, Difficulty::Raw& wrk)
 	rs.get_As(0, wrk);
 }
 
-uint32_t NodeDB::GetStateNextCount(uint64_t rowid)
-{
-	Recordset rs(*this, Query::StateGetNextCount, "SELECT " TblStates_CountNext " FROM " TblStates " WHERE rowid=?");
-	rs.put(0, rowid);
-
-	rs.StepStrict();
-
-	uint32_t nCount;
-	rs.get(0, nCount);
-	return nCount;
-}
-
 void NodeDB::assert_valid()
 {
 	uint32_t nTips = 0, nTipsReachable = 0;

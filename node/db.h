@@ -101,7 +101,6 @@ public:
 			StateGetFlags0,
 			StateGetFlags1,
 			StateGetChainWork,
-			StateGetNextCount,
 			StateSetPeer,
 			StateGetPeer,
 			StateGetExtra,
@@ -339,7 +338,6 @@ public:
 
 	bool DeleteState(uint64_t rowid, uint64_t& rowPrev); // State must exist. Returns false if there are ancestors.
 
-	uint32_t GetStateNextCount(uint64_t rowid);
 	uint32_t GetStateFlags(uint64_t rowid);
 	void SetFlags(uint64_t rowid, uint32_t);
 
