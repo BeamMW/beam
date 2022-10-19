@@ -87,6 +87,7 @@ namespace beam::wallet
         virtual void publishDexOrder(const DexOrder&) = 0;
         virtual void cancelDexOrder(const DexOrderID&) = 0;
 #endif  // BEAM_ASSET_SWAP_SUPPORT
+        virtual void loadFullAssetsList() = 0;
 
         #ifdef BEAM_IPFS_SUPPORT
         virtual void getIPFSStatus() = 0;

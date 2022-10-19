@@ -150,6 +150,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     }
 #endif  // BEAM_ASSET_SWAP_SUPPORT
 
+    void loadFullAssetsList() override
+    {
+        call_async(&IWalletModelAsync::loadFullAssetsList);
+    }
+
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT    
     void getSwapOffers() override
     {
@@ -1898,6 +1903,28 @@ namespace beam::wallet
     }
 #endif  // BEAM_ASSET_SWAP_SUPPORT
 
+    void WalletClient::loadFullAssetsList()
+    {
+        auto wallet = m_wallet.lock();
+        if (wallet)
+        {
+            wallet->RequestAssetsListAt(MaxHeight, [this](proto::AssetsListAt&& msgRes)
+            {
+                std::set<Asset::ID> assetsFullList{ Asset::s_BeamID };
+                for (const auto& ai : msgRes.m_Assets)
+                {
+                    assetsFullList.insert(ai.m_ID);
+                }
+
+                postFunctionToClientContext([this, assetsFullList]()
+                {
+                    m_assetsFullList = assetsFullList;
+                    onFullAssetsListLoaded();
+                });
+            });
+        }
+    }
+
     #ifdef BEAM_IPFS_SUPPORT
     void WalletClient::getIPFSStatus()
     {
@@ -2276,27 +2303,6 @@ namespace beam::wallet
         return status;
     }
 
-    void WalletClient::loadFullAssetsList()
-    {
-        auto wallet = m_wallet.lock();
-        if (wallet)
-        {
-            wallet->RequestAssetsListAt(MaxHeight, [this](proto::AssetsListAt&& msgRes)
-            {
-                std::set<Asset::ID> assetsFullList;
-                for (const auto& ai : msgRes.m_Assets)
-                {
-                    assetsFullList.insert(ai.m_ID);
-                }
-
-                postFunctionToClientContext([this, assetsFullList]()
-                {
-                    m_assetsFullList = assetsFullList;
-                });
-            });
-        }
-    }
-
     void WalletClient::onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
     {
         // reason -> ErrorType
@@ -2354,7 +2360,7 @@ namespace beam::wallet
                 m_unsafeActiveTxCount = count;
                 m_mpLockTimeLimit = limit;
             });
-            loadFullAssetsList();
+
             auto currentHeight = w->get_TipHeight();
 
             struct Walker :public Block::SystemState::IHistory::IWalker

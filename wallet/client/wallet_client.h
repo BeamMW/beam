@@ -222,6 +222,7 @@ namespace beam::wallet
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
         virtual void onAssetInfo(Asset::ID assetId, const WalletAsset&) {}
         virtual void onStopped() {}
+        virtual void onFullAssetsListLoaded() {}
 
 #ifdef BEAM_ASSET_SWAP_SUPPORT
         void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
@@ -307,6 +308,8 @@ namespace beam::wallet
         void cancelDexOrder(const DexOrderID&) override;
 #endif  // BEAM_ASSET_SWAP_SUPPORT
 
+        virtual void loadFullAssetsList() override;
+
         #ifdef BEAM_IPFS_SUPPORT
         void getIPFSStatus() override;
         #endif
@@ -357,7 +360,6 @@ namespace beam::wallet
         bool OnProgress(uint64_t done, uint64_t total) override;
 
         WalletStatus getStatus() const;
-        void loadFullAssetsList();
         void updateStatus();
         void updateClientState(const WalletStatus&);
         void updateMaxPrivacyStats(const WalletStatus& status);
