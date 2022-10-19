@@ -63,7 +63,6 @@ namespace proto {
         macro(ShieldedOutputsAt, GetShieldedOutputsAt, ShieldedOutputsAt) \
         macro(BodyPack,          GetBodyPack,          BodyPack) \
         macro(Body,              GetBodyPack,          Body) \
-        macro(AssetsListAt,      GetAssetsListAt,      AssetsListAt) \
 
 
 		class Request
@@ -139,6 +138,10 @@ namespace proto {
 			};
 			struct EnsureSync {
 				bool m_IsDependent;
+			};
+			struct AssetsListAt {
+				proto::GetAssetsListAt m_Msg;
+				std::vector<beam::Asset::Full> m_Res;
 			};
 		};
 
@@ -320,11 +323,11 @@ namespace proto {
 				void OnMsg(proto::HdrPack&& msg) override;
 				void OnMsg(proto::ContractVars&& msg) override;
 				void OnMsg(proto::ContractLogs&& msg) override;
+				void OnMsg(proto::AssetsListAt&& msg) override;
 
 				bool IsSupported(const Data::Std&) { return true; }
 				bool IsSupported(RequestEvents&);
 				bool IsSupported(RequestTransaction&);
-				bool IsSupported(RequestAssetsListAt&);
 
 				void OnRequestData(const Data::Std&) {}
 				void OnRequestData(RequestUtxo&);

@@ -3483,6 +3483,9 @@ void Node::Peer::OnMsg(proto::GetProofAsset&& msg)
         {
             msgOut.m_Info = std::move(ai);
 
+            if (get_Ext() < 10)
+                msgOut.m_Info.SetCid(nullptr);
+
             p.m_Mmr.m_Assets.get_Proof(msgOut.m_Proof, msgOut.m_Info.m_ID - 1);
 
             struct MyProofBuilder
@@ -3937,29 +3940,44 @@ void Node::Peer::OnMsg(proto::GetShieldedOutputsAt&& msg)
 
 void Node::Peer::OnMsg(proto::GetAssetsListAt&& msg)
 {
-    auto& processor = m_This.m_Processor;
-    auto height = msg.m_Height;
+    proto::AssetsListAt msgOut;
 
-    if(processor.m_Cursor.m_ID.m_Height < height) return;
-    
-    std::vector<Asset::ID> assets = {Asset::s_BeamID};
     Asset::Full ai;
-    for (ai.m_ID = 1; ; ai.m_ID++)
-    {
-        int ret = processor.get_AssetAt(ai, height);
-        if (!ret)
-            break;
+    ai.m_ID = msg.m_Aid0 ? (msg.m_Aid0 - 1) : 0;
 
-        if (ret > 0)
+    bool bCurrent = (msg.m_Height >= m_This.m_Processor.m_Cursor.m_Full.m_Height);
+    bool bLegacy = (get_Ext() < 10);
+
+    while (ai.m_ID < Asset::s_MaxCount)
+    {
+        if (bCurrent)
         {
-            assets.push_back(ai.m_ID);
+            if (!m_This.m_Processor.get_DB().AssetGetNext(ai))
+                break;
         }
+        else
+        {
+            ++ai.m_ID;
+            int ret = m_This.m_Processor.get_AssetAt(ai, msg.m_Height);
+            if (!ret)
+                break;
+
+            if (ret < 0)
+                continue;
+        }
+
+        if (msgOut.m_Assets.size() >= 3000)
+        {
+            msgOut.m_bMore = true;
+            break;
+        }
+        
+        if (bLegacy)
+            ai.SetCid(nullptr);
+
+        msgOut.m_Assets.push_back(std::move(ai));
     }
 
-    proto::AssetsListAt msgOut;
-    size_t assetsBufferSize = sizeof(Asset::ID) * assets.size();
-    msgOut.m_AssetsList.resize(assetsBufferSize);
-    memcpy(msgOut.m_AssetsList.data(), assets.data(), assetsBufferSize);
     Send(msgOut);
 }
 
@@ -5033,7 +5051,12 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
             ai.m_ID = 0;
 
             while (m_Processor.get_DB().AssetGetNext(ai))
+            {
+                if (m_Processor.m_Cursor.m_ID.m_Height < r.pForks[6].m_Height)
+                    ai.SetCid(nullptr);
+
                 ser & ai;
+            }
 
             ser & (Asset::s_MaxCount + 1); // terminator
 

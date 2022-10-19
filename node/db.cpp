@@ -98,6 +98,7 @@ namespace beam {
 #define TblAssets				"Assets"
 #define TblAssets_ID			"ID"
 #define TblAssets_Owner			"Owner"
+#define TblAssets_Cid			"Cid"
 #define TblAssets_Value			"Value"
 #define TblAssets_Data			"MetaData"
 #define TblAssets_Deposit		"Deposit"
@@ -367,7 +368,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 32;
+	const uint64_t nVersionTop = 33;
 
 
 	Transaction t(*this);
@@ -442,6 +443,7 @@ void NodeDB::Open(const char* szPath)
 			// no break;
 
 		case 31:
+		case 32:
 			ExecQuick("DROP TABLE IF EXISTS " TblAssets);
 			CreateTables31();
 
@@ -650,6 +652,7 @@ void NodeDB::CreateTables31()
 	ExecQuick("CREATE TABLE [" TblAssets "] ("
 		"[" TblAssets_ID			"] INTEGER NOT NULL PRIMARY KEY,"
 		"[" TblAssets_Owner			"] BLOB,"
+		"[" TblAssets_Cid			"] BLOB,"
 		"[" TblAssets_Data			"] BLOB,"
 		"[" TblAssets_Deposit		"] INTEGER,"
 		"[" TblAssets_LockHeight	"] INTEGER,"
@@ -1479,6 +1482,15 @@ void NodeDB::set_StateTxosAndExtra(uint64_t rowid, const TxoID* pId, const Blob*
 	if (pRB)
 		rs.put(2, *pRB);
 	rs.put(3, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::set_StateRB(uint64_t rowid, const Blob& rb)
+{
+	Recordset rs(*this, Query::StateSetRB, "UPDATE " TblStates " SET " TblStates_Rollback "=? WHERE rowid=?");
+	rs.put(0, rb);
+	rs.put(1, rowid);
 	rs.Step();
 	TestChanged1Row();
 }
@@ -2726,16 +2738,18 @@ void NodeDB::AssetDeleteRaw(Asset::ID id)
 
 void NodeDB::AssetInsertRaw(Asset::ID id, const Asset::Full* pAi)
 {
-	Recordset rs(*this, Query::AssetAdd, "INSERT INTO " TblAssets "(" TblAssets_ID "," TblAssets_Owner "," TblAssets_Data "," TblAssets_Deposit "," TblAssets_Value "," TblAssets_LockHeight ") VALUES(?,?,?,?,?,?)");
+	Recordset rs(*this, Query::AssetAdd, "INSERT INTO " TblAssets "(" TblAssets_ID "," TblAssets_Owner "," TblAssets_Cid "," TblAssets_Data "," TblAssets_Deposit "," TblAssets_Value "," TblAssets_LockHeight ") VALUES(?,?,?,?,?,?,?)");
 	rs.put(0, id);
 
 	if (pAi)
 	{
 		rs.put(1, pAi->m_Owner);
-		rs.put(2, Blob(pAi->m_Metadata.m_Value));
-		rs.put(3, pAi->m_Deposit);
-		rs.put_As(4, pAi->m_Value);
-		rs.put(5, pAi->m_LockHeight);
+		if (pAi->m_Cid != Zero)
+			rs.put(2, pAi->m_Cid);
+		rs.put(3, Blob(pAi->m_Metadata.m_Value));
+		rs.put(4, pAi->m_Deposit);
+		rs.put_As(5, pAi->m_Value);
+		rs.put(6, pAi->m_LockHeight);
 	}
 
 	rs.Step();
@@ -2822,16 +2836,22 @@ void NodeDB::AssetsDelAll()
 
 bool NodeDB::AssetGetSafe(Asset::Full& ai)
 {
-	Recordset rs(*this, Query::AssetGet, "SELECT " TblAssets_Value "," TblAssets_Owner "," TblAssets_Data "," TblAssets_Deposit "," TblAssets_LockHeight " FROM " TblAssets " WHERE " TblAssets_ID "=?");
+	Recordset rs(*this, Query::AssetGet, "SELECT " TblAssets_Value "," TblAssets_Owner "," TblAssets_Cid "," TblAssets_Data "," TblAssets_Deposit "," TblAssets_LockHeight " FROM " TblAssets " WHERE " TblAssets_ID "=?");
 	rs.put(0, ai.m_ID);
 	if (!rs.Step())
 		return false;
 
 	rs.get_As(0, ai.m_Value);
 	rs.get_As(1, ai.m_Owner);
-	rs.get(2, ai.m_Metadata.m_Value);
-	rs.get(3, ai.m_Deposit);
-	rs.get(4, ai.m_LockHeight);
+
+	if (rs.IsNull(2))
+		ai.m_Cid = Zero;
+	else
+		rs.get_As(2, ai.m_Cid);
+
+	rs.get(3, ai.m_Metadata.m_Value);
+	rs.get(4, ai.m_Deposit);
+	rs.get(5, ai.m_LockHeight);
 
 	ai.m_Metadata.UpdateHash();
 

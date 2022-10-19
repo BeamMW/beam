@@ -25,11 +25,11 @@ namespace Shaders {
 	typedef ECC::Point::Storage Secp_point_dataEx;
 	typedef ECC::Scalar Secp_scalar_data;
     typedef beam::Asset::ID AssetID;
-    typedef ECC::uintBig ContractID;
 	typedef ECC::uintBig ShaderID;
 	typedef ECC::uintBig HashValue;
 	typedef beam::uintBig_t<64> HashValue512;
-    using beam::Amount;
+	using beam::ContractID;
+	using beam::Amount;
     using beam::Height;
 	using beam::Timestamp;
 	using beam::HeightPos;
@@ -101,8 +101,6 @@ namespace bvm2 {
 	void get_ShaderID(ShaderID&, const Blob& data);
 	void get_Cid(ContractID&, const Blob& data, const Blob& args);
 	void get_CidViaSid(ContractID&, const ShaderID&, const Blob& args);
-
-	void get_AssetOwner(PeerID&, const ContractID&, const Asset::Metadata&);
 
 	class ProcessorContract;
 
