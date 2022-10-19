@@ -410,13 +410,14 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 	}
 	else
 	{
-		if (m_nTasksPackHdr >= proto::g_HdrPackMaxSize)
+        const uint32_t nMaxHdrRequests = proto::g_HdrPackMaxSize * 2;
+		if (m_nTasksPackHdr >= nMaxHdrRequests)
 			return false; // too many hdrs requested
 
         if (nBlocks)
             return false; // don't requests headers from the peer that transfers a block
 
-        uint32_t nPackSize = proto::g_HdrPackMaxSize - m_nTasksPackHdr;
+        uint32_t nPackSize = std::min(proto::g_HdrPackMaxSize, nMaxHdrRequests - m_nTasksPackHdr);
 
 		// try to avoid big overlaps when asking for headers, but also try to ask for as many headers as possible
         // The best guess seems to be based on the diff between current height and target header (to either side)
