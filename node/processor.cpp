@@ -545,6 +545,8 @@ NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::EnumCongestionsInt
 	cc.m_lstTips.swap(m_CongestionCache.m_lstTips);
 
 	CongestionCache::TipCongestion* pMaxTarget = nullptr;
+	bool bMaxTargetNeedsHeaders = false;
+	Difficulty::Raw cwMaxTarget;
 
 	// Find all potentially missing data
 	NodeDB::WalkerState ws;
@@ -645,11 +647,37 @@ NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::EnumCongestionsInt
 		assert(pEntry && pEntry->m_Rows.size());
 		pEntry->m_bNeedHdrs = bNeedHdrs;
 
-		if (!bNeedHdrs && (!pMaxTarget || (pMaxTarget->m_Height < pEntry->m_Height)))
+		Difficulty::Raw cw;
+		m_DB.get_ChainWork(pEntry->m_Rows.at(0), cw);
+
+		if (bNeedHdrs)
+		{
+			Difficulty::Raw cw2;
+			m_DB.get_ChainWork(pEntry->m_Rows.at(pEntry->m_Rows.size() - 1), cw2);
+			cw2.Negate();
+			cw2 += cw; // difficulty of the very 1st block is missing, nevermind
+
+			// ensure cw is no bigger than twice cw2 (proven Chainwork)
+			cw2 += cw2;
+			if (cw > cw2)
+				cw = cw2;
+		}
+
+		// check if this candidate is better. Select the one with bigger ChainWork
+		// If the candidate has all the headers down to the genesis - use the proven ChainWork
+		// If headers are missing - use the *estimated* ChainWork, which is
+		//		claimed ChainWork (in the last header)
+		//		no bigger than twice proven ChainWork 
+
+		if (!pMaxTarget || (cwMaxTarget < cw))
+		{
 			pMaxTarget = pEntry;
+			cwMaxTarget = cw;
+			bMaxTargetNeedsHeaders = bNeedHdrs;
+		}
 	}
 
-	return pMaxTarget;
+	return bMaxTargetNeedsHeaders ? nullptr : pMaxTarget;
 }
 
 template <typename T>
@@ -691,7 +719,6 @@ void NodeProcessor::EnumCongestions()
 		if (bFirstTime)
 		{
 			// first time target acquisition
-			// TODO - verify the headers w.r.t. difficulty and Chainwork
 			m_SyncData.m_h0 = pMaxTarget->m_Height - pMaxTarget->m_Rows.size();
 
 			if (pMaxTarget->m_Height > m_Horizon.m_Sync.Lo)

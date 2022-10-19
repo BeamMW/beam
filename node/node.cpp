@@ -416,17 +416,16 @@ bool Node::TryAssignTask(Task& t, Peer& p)
         if (nBlocks)
             return false; // don't requests headers from the peer that transfers a block
 
-		uint32_t nPackSize = proto::g_HdrPackMaxSize;
+        uint32_t nPackSize = proto::g_HdrPackMaxSize - m_nTasksPackHdr;
 
-		// make sure we're not dealing with overlaps
-		Height h0 = m_Processor.get_DB().get_HeightBelow(t.m_Key.first.m_Height);
-		assert(h0 < t.m_Key.first.m_Height);
-		Height dh = t.m_Key.first.m_Height - h0;
+		// try to avoid big overlaps when asking for headers, but also try to ask for as many headers as possible
+        // The best guess seems to be based on the diff between current height and target header (to either side)
+        // For big sync tasks (including deep reorgs) big packs are ok. 
+		Height h0 = m_Processor.m_Cursor.m_Full.m_Height;
+        Height dh = (t.m_Key.first.m_Height > h0) ? (t.m_Key.first.m_Height - h0) : (h0 - t.m_Key.first.m_Height);
 
-		if (nPackSize > dh)
-			nPackSize = (uint32_t) dh;
-
-		std::setmin(nPackSize, proto::g_HdrPackMaxSize - m_nTasksPackHdr);
+        if (nPackSize > dh)
+            nPackSize = dh ? (uint32_t) dh : 1;
 
         proto::GetHdrPack msg;
         msg.m_Top = t.m_Key.first;
