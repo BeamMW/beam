@@ -2937,8 +2937,17 @@ namespace beam
 	{
 		m_Value = Zero;
 		m_Owner = Zero;
+		m_Cid = Zero;
 		m_LockHeight = 0;
 		m_Metadata.Reset();
+	}
+
+	void Asset::Info::SetCid(const ContractID* pCid)
+	{
+		if (pCid)
+			m_Cid = *pCid;
+		else
+			m_Cid = Zero;
 	}
 
 	bool Asset::Info::IsEmpty() const
@@ -3050,6 +3059,15 @@ namespace beam
 		ECC::Point::Native pt;
 		pkdf.DerivePKeyG(pt, m_Hash);
 		res.Import(pt);
+	}
+
+	void Asset::Metadata::get_Owner(PeerID& res, const ContractID& cid) const
+	{
+		ECC::Hash::Processor()
+			<< "bvm.a.own"
+			<< cid
+			<< m_Hash
+			>> res;
 	}
 
 	bool Asset::Info::Recognize(Key::IPKdf& pkdf) const
