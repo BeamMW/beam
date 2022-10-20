@@ -720,6 +720,12 @@ private:
                 else
                     m_json.push_back("");
 
+                // debug info
+                {
+                    auto it = wrSrc.m_json.find("dbg");
+                    if (wrSrc.m_json.end() != it)
+                        m_json.push_back(std::move(*it));
+                }
             }
 
             void OnContractInternal(const NodeProcessor::ContractInvokeExtraInfo& info, const bvm2::ContractID* pDefCid, uint32_t nIndent, Height h)

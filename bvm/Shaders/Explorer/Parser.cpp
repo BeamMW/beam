@@ -99,6 +99,13 @@ void DocAddFloat(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot
 	Env::DocAddText(sz, szBuf);
 }
 
+void DocAddFloatSc(const char* sz, MultiPrecision::Float x)
+{
+	char szBuf[MultiPrecision::Float::Text::s_LenMax + 1];
+	x.Print(szBuf, false);
+	Env::DocAddText(sz, szBuf);
+}
+
 void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot = 3)
 {
 	DocAddFloat(sz, x * MultiPrecision::Float(100), 3);
@@ -192,6 +199,10 @@ struct ParserContext
 		GroupArgs() :Env::DocGroup("params") {}
 	};
 
+	struct GroupDbg :public Env::DocGroup {
+		GroupDbg() :Env::DocGroup("dbg") {}
+	};
+
 #define THE_MACRO(name, sid) \
 	void OnMethod_##name(); \
 	void OnState_##name();
@@ -280,6 +291,7 @@ struct ParserContext
 	void OnUpgrade3Method();
 	static void WriteUpgradeAdminsMask(uint32_t nApproveMask);
 	static void WriteNephriteSettings(const Nephrite::Settings&);
+	void DumpNephriteDbgStatus();
 	static void WriteOracle2Settings(const Oracle2::Settings&);
 	static bool get_Oracle2Median(MultiPrecision::Float&, const ContractID& cid);
 	static void WriteBansSettings(const NameService::Settings&);
@@ -1169,7 +1181,7 @@ void ParserContext::OnMethod_Nephrite(uint32_t /* iVer */)
 				OnMethod("Liquidate troves");
 				GroupArgs gr;
 
-				DocAddAmount("Count", pArg->m_Count);
+				Env::DocAddNum("Count", pArg->m_Count);
 			}
 		}
 		break;
@@ -1200,6 +1212,8 @@ void ParserContext::OnMethod_Nephrite(uint32_t /* iVer */)
 		}
 		break;
 	}
+
+	DumpNephriteDbgStatus();
 }
 
 void ParserContext::OnState_Nephrite(uint32_t /* iVer */)
@@ -1326,6 +1340,112 @@ void ParserContext::OnState_Nephrite(uint32_t /* iVer */)
 	}
 
 	DocAddAmount("BeamX reward remaining", g.m_StabPool.m_Reward.m_Remaining);
+
+	DumpNephriteDbgStatus();
+}
+
+void TestEqual(Amount a, Amount b, const char* szErr)
+{
+	// allow for little error
+	a = (a >= b) ? (a - b) : (b - a);
+	if (a > 10)
+		Env::DocAddNum(szErr, a);
+}
+
+void ParserContext::DumpNephriteDbgStatus()
+{
+/*
+	Env::Key_T<uint8_t> k;
+	_POD_(k.m_Prefix.m_Cid) = m_Cid;
+	k.m_KeyInContract = Nephrite::Tags::s_State;
+
+	Nephrite::Global g;
+	if (!Env::VarReader::Read_T(k, g))
+		return;
+
+	GroupDbg gr0("dbg");
+
+	{
+		Env::DocGroup gr1("Totals");
+		Env::DocAddNum("Tok", g.m_Troves.m_Totals.Tok);
+		Env::DocAddNum("Col", g.m_Troves.m_Totals.Col);
+	}
+
+	{
+		Env::DocGroup gr1("redist");
+		Env::DocAddNum("Tok", g.m_RedistPool.m_Active.m_Sell);
+		Env::DocAddNum("Col", g.m_RedistPool.m_Active.m_pDim[0].m_Buy);
+		DocAddFloatSc("kScale", g.m_RedistPool.m_Active.m_kScale);
+		DocAddFloatSc("Sigma", g.m_RedistPool.m_Active.m_pDim[0].m_Sigma);
+	}
+
+	{
+		Env::DocGroup gr1("stab");
+		Env::DocAddNum("Tok", g.m_StabPool.get_TotalSell());
+		Env::DocAddNum("Col", g.m_StabPool.m_Active.m_pDim[0].m_Buy + g.m_StabPool.m_Active.m_pDim[1].m_Buy);
+		
+	}
+
+	Nephrite::Pair trovesTotalsOrg, trovesTotalsAdj;
+	_POD_(trovesTotalsOrg).SetZero();
+	_POD_(trovesTotalsAdj).SetZero();
+
+	{
+		Env::DocGroup gr1("troves");
+
+		Env::Key_T<Nephrite::Trove::Key> tk0, tk1;
+		_POD_(tk0.m_Prefix.m_Cid) = m_Cid;
+		_POD_(tk1.m_Prefix.m_Cid) = m_Cid;
+		tk0.m_KeyInContract.m_iTrove = 0;
+		tk1.m_KeyInContract.m_iTrove = (Nephrite::Trove::ID)-1;
+
+		for (Env::VarReader r(tk0, tk1); ; )
+		{
+			Nephrite::Trove t;
+			if (!r.MoveNext_T(tk0, t))
+				break;
+
+			char sz[Utils::String::Decimal::DigitsMax<Nephrite::Trove::ID>::N + 1];
+			Utils::String::Decimal::Print(sz, tk0.m_KeyInContract.m_iTrove);
+			Env::DocGroup gr2(sz);
+
+			{
+				Env::DocGroup gr2("org");
+				Env::DocAddNum("Tok", t.m_Amounts.Tok);
+				Env::DocAddNum("Col", t.m_Amounts.Col);
+			}
+
+			trovesTotalsOrg.Tok += t.m_Amounts.Tok;
+			trovesTotalsOrg.Col += t.m_Amounts.Col;
+
+			auto vals = g.m_RedistPool.get_UpdatedAmounts(t);
+
+			{
+				Env::DocGroup gr2("adj");
+				Env::DocAddNum("Tok", vals.Tok);
+				Env::DocAddNum("Col", vals.Col);
+			}
+
+			trovesTotalsAdj.Tok += vals.Tok;
+			trovesTotalsAdj.Col += vals.Col;
+
+			DocAddFloatSc("Tok-Scaled", t.m_RedistUser.m_SellScaled);
+			DocAddFloatSc("Sigma", t.m_RedistUser.m_pSigma0[0]);
+
+		}
+	}
+
+	// Totals must be equal to the sum of effective (adjusted) trove amounts
+	TestEqual(g.m_Troves.m_Totals.Tok, trovesTotalsAdj.Tok, "errz-1-Tok");
+	TestEqual(g.m_Troves.m_Totals.Col, trovesTotalsAdj.Col, "errz-1-Col");
+
+	// All troves must be part of redist pool
+	if (g.m_Troves.m_Totals.Tok != g.m_RedistPool.m_Active.m_Sell)
+		Env::DocAddText("errz-2", "");
+
+	// extra collateral in the redist pool must be equal to diff of ordinal vs adjusted trove values
+	TestEqual(g.m_RedistPool.m_Active.m_pDim[0].m_Buy, g.m_Troves.m_Totals.Col - trovesTotalsOrg.Col, "errz-3");
+*/
 }
 
 void ParserContext::WriteOracle2Settings(const Oracle2::Settings& stg)
