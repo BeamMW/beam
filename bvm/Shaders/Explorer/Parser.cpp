@@ -103,6 +103,27 @@ void DocAddFloatSc(const char* sz, MultiPrecision::Float x)
 {
 	char szBuf[MultiPrecision::Float::Text::s_LenMax + 1];
 	x.Print(szBuf, false);
+}
+
+void DocAddFloatDbg(const char* sz, MultiPrecision::Float x)
+{
+	// convenient for debugging, to try the exact values on host
+	char szBuf[Utils::String::Hex::DigitsMax<uint64_t>::N + Utils::String::Decimal::DigitsMax<uint32_t>::N + 10];
+	Utils::String::Hex::Print(szBuf, x.m_Num, Utils::String::Hex::DigitsMax<uint64_t>::N);
+	uint32_t n = Utils::String::Hex::DigitsMax<uint64_t>::N;
+	szBuf[n++] = ' ';
+
+	if (x.m_Order >= 0)
+		szBuf[n++] = '+';
+	else
+	{
+		szBuf[n++] = '-';
+		x.m_Order = -x.m_Order;
+	}
+
+	n += Utils::String::Decimal::Print(szBuf + n, x.m_Order);
+	szBuf[n] = 0;
+
 	Env::DocAddText(sz, szBuf);
 }
 
@@ -1363,7 +1384,7 @@ void ParserContext::DumpNephriteDbgStatus()
 	if (!Env::VarReader::Read_T(k, g))
 		return;
 
-	GroupDbg gr0("dbg");
+	GroupDbg gr0;
 
 	{
 		Env::DocGroup gr1("Totals");
