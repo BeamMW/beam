@@ -843,7 +843,7 @@ namespace MultiPrecision
 	}
 
 
-
+#pragma pack (push, 1)
 
     struct Float
     {
@@ -1358,6 +1358,20 @@ namespace MultiPrecision
     };
 
 
+	struct FloatLegacy
+		:public Float
+	{
+		uint32_t m_Dummy;
+
+		void operator = (Float x) {
+			Cast::Down<Float>(*this) = x;
+		}
+	};
+
+#pragma pack (pop)
+
+	static_assert(sizeof(Float) == 12);
+	static_assert(sizeof(FloatLegacy) == 16);
 
 } // namespace MultiPrecision
 
