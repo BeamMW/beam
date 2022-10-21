@@ -1079,6 +1079,22 @@ namespace MultiPrecision
             return res;
         }
 
+		Float& operator += (Float b) {
+			return *this = *this + b;
+		}
+
+		Float& operator -= (Float b) {
+			return *this = *this - b;
+		}
+
+		Float& operator *= (Float b) {
+			return *this = *this * b;
+		}
+
+		Float& operator /= (Float b) {
+			return *this = *this / b;
+		}
+
 		int cmp(const Float& x) const
 		{
 			if (IsZero())
