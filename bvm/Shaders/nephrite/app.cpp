@@ -681,6 +681,8 @@ ON_METHOD(manager, view_all)
 
     Env::DocGroup gr("res");
 
+    Env::DocAddNum("troves_active", g.m_ActiveTroves);
+
     {
         Env::DocArray gr1("troves");
 
@@ -1016,13 +1018,13 @@ ON_METHOD(user, trove_modify)
     }
 
     auto& t = *g.m_MyTrove.m_pT; // alias
-    Amount tok0 = t.m_Amounts.Tok;
+    Pair vals0 = t.m_Amounts;
 
     if (!AdjustVal(t.m_Amounts.Tok, tok, opTok) ||
         !AdjustVal(t.m_Amounts.Col, col, opCol))
         return;
 
-    if (tok0 != t.m_Amounts.Tok)
+    if (vals0.Tok != t.m_Amounts.Tok)
         nCharge += Env::Cost::AssetEmit;
 
     FundsChange pFc[2];
@@ -1064,9 +1066,12 @@ ON_METHOD(user, trove_modify)
         if (g.IsTroveUpdInvalid(t, totals0, g.m_Price, bRecovery))
             return OnError("insufficient collateral");
 
+        if ((vals0.Col == t.m_Amounts.Col) && (vals0.Tok == t.m_Amounts.Tok))
+            return OnError("no change");
+
         g.OnTroveMove(txb, 0);
 
-        Amount fee = g.get_BorrowFee(t.m_Amounts.Tok, tok0, bRecovery);
+        Amount fee = g.get_BorrowFee(t.m_Amounts.Tok, vals0.Tok, bRecovery);
         if (fee)
         {
             nCharge += Charge::get_SendProfit();
@@ -1223,6 +1228,9 @@ ON_METHOD(user, liquidate)
 
     if (!bPredictOnly)
     {
+        if (!nCount)
+            return OnError("no liquidations possible");
+
         if (ctx.m_Stab)
         {
             AppGlobalPlus::EpochStorage stor(cid);
@@ -1251,6 +1259,9 @@ ON_METHOD(user, liquidate)
 
 ON_METHOD(user, redeem)
 {
+    if (!val)
+        return OnError("value must be nnz");
+
     AppGlobalPlus g(cid);
     if (!g.LoadPlus())
         return;
