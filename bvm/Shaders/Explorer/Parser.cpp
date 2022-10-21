@@ -1393,14 +1393,6 @@ void ParserContext::DumpNephriteDbgStatus()
 	}
 
 	{
-		Env::DocGroup gr1("redist");
-		Env::DocAddNum("Tok", g.m_RedistPool.m_Active.m_Sell);
-		Env::DocAddNum("Col", g.m_RedistPool.m_Active.m_pDim[0].m_Buy);
-		DocAddFloatSc("kScale", g.m_RedistPool.m_Active.m_kScale);
-		DocAddFloatSc("Sigma", g.m_RedistPool.m_Active.m_pDim[0].m_Sigma);
-	}
-
-	{
 		Env::DocGroup gr1("stab");
 		Env::DocAddNum("Tok", g.m_StabPool.get_TotalSell());
 		Env::DocAddNum("Col", g.m_StabPool.m_Active.m_pDim[0].m_Buy + g.m_StabPool.m_Active.m_pDim[1].m_Buy);
@@ -1410,6 +1402,8 @@ void ParserContext::DumpNephriteDbgStatus()
 	Nephrite::Pair trovesTotalsOrg, trovesTotalsAdj;
 	_POD_(trovesTotalsOrg).SetZero();
 	_POD_(trovesTotalsAdj).SetZero();
+
+	MultiPrecision::Float weight(0u);
 
 	{
 		Env::DocGroup gr1("troves");
@@ -1450,10 +1444,21 @@ void ParserContext::DumpNephriteDbgStatus()
 			trovesTotalsAdj.Tok += vals.Tok;
 			trovesTotalsAdj.Col += vals.Col;
 
-			DocAddFloatSc("Tok-Scaled", t.m_RedistUser.m_SellScaled);
+			DocAddFloatSc("weight", t.m_RedistUser.m_Weight);
 			DocAddFloatSc("Sigma", t.m_RedistUser.m_pSigma0[0]);
 
+			weight += t.m_RedistUser.m_Weight;
+
 		}
+	}
+
+	{
+		Env::DocGroup gr1("redist");
+		Env::DocAddNum("Tok", g.m_RedistPool.m_Active.m_Sell);
+		Env::DocAddNum("Col", g.m_RedistPool.m_Active.m_pDim[0].m_Buy);
+		DocAddFloatSc("Weight0", g.m_RedistPool.m_Active.m_Weight);
+		DocAddFloatSc("Weight1", weight);
+		DocAddFloatSc("Sigma", g.m_RedistPool.m_Active.m_pDim[0].m_Sigma);
 	}
 
 	// Totals must be equal to the sum of effective (adjusted) trove amounts
