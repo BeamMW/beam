@@ -1234,7 +1234,7 @@ ON_METHOD(user, liquidate)
         if (ctx.m_Stab)
         {
             AppGlobalPlus::EpochStorage stor(cid);
-            g.m_StabPool.OnPostTrade(stor);
+            g.m_StabPool.MaybeSwitchEpoch(stor);
 
             nCharge +=
                 stor.m_Charge +

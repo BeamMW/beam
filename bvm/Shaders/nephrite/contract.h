@@ -5,8 +5,7 @@
 namespace Nephrite
 {
     static const ShaderID s_pSID[] = {
-        { 0x96,0x37,0xf2,0x8f,0x51,0x29,0x59,0x97,0xee,0xd8,0x41,0xb9,0x9a,0xd6,0x1d,0x2a,0xff,0xfd,0x1a,0xb7,0x25,0xe4,0xfa,0xd0,0x48,0x42,0x6f,0x3f,0xe5,0x9d,0x8e,0xb6 },
-        { 0xd7,0x20,0xd0,0xa0,0xf9,0x22,0x35,0xd0,0x91,0x92,0x0f,0x6f,0x97,0xd6,0x18,0x79,0x74,0xfe,0xff,0xc9,0xcf,0x24,0x89,0x67,0xfe,0xc8,0x25,0xca,0x31,0x27,0x53,0x9d },
+        { 0x08,0x54,0xc1,0x88,0x7d,0xbc,0x49,0x15,0x87,0x13,0x50,0x8b,0x74,0x9b,0xa2,0x83,0xfe,0x9d,0x64,0xfc,0xda,0x42,0x3f,0x65,0x45,0xe2,0x3d,0x9a,0x6a,0x38,0xf4,0xb1 },
     };
 
 #pragma pack (push, 1)
@@ -156,38 +155,21 @@ namespace Nephrite
                 UserAdd(t.m_RedistUser, t.m_Amounts.Tok);
             }
 
-            bool IsUnchanged(const Trove& t) const
-            {
-                return m_Active.IsUnchanged(t.m_RedistUser);
-            }
-
             void Remove(Trove& t)
             {
-                // try to avoid recalculations if nothing changed, to prevent inaccuracies
-                //
-                // // should not overflow, all values are bounded by totals.
-                if (IsUnchanged(t))
-                {
-                    m_Active.m_Sell -= t.m_Amounts.Tok; // silent removal
-                    m_Active.m_Users--;
-                }
-                else
-                {
-                    User::Out out;
-                    UserDel(t.m_RedistUser, out);
-                    UpdAmountsPostRemove(t.m_Amounts, out);
-                }
+                User::Out out;
+                UserDel(t.m_RedistUser, out);
+                UpdAmountsPostRemove(t.m_Amounts, out);
             }
 
             Pair get_UpdatedAmounts(const Trove& t) const
             {
+                User::Out out;
+                t.m_RedistUser.DelRO_(m_Active, out);
+
                 auto ret = t.m_Amounts;
-                if (!IsUnchanged(t))
-                {
-                    User::Out out;
-                    t.m_RedistUser.DelRO_(m_Active, out);
-                    UpdAmountsPostRemove(ret, out);
-                }
+                UpdAmountsPostRemove(ret, out);
+
                 return ret;
             }
 

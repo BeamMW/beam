@@ -350,8 +350,6 @@ BEAM_EXPORT void Ctor(const Method::Create& r)
     _POD_(g).SetZero();
 
     _POD_(g.m_Settings) = r.m_Settings;
-    g.m_StabPool.Init();
-    g.m_RedistPool.Reset();
 
     static const char szMeta[] = "STD:SCH_VER=1;N=Nephrite Token;SN=Nph;UN=NPH;NTHUN=GROTHN";
     g.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
@@ -496,7 +494,7 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
     if (ctx.m_Stab)
     {
         EpochStorage stor;
-        g.m_StabPool.OnPostTrade(stor);
+        g.m_StabPool.MaybeSwitchEpoch(stor);
     }
 
     g.AdjustAll(r, totals0, ctx.m_fpLogic, r.m_pkUser);

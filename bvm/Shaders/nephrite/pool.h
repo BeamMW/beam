@@ -6,12 +6,6 @@ struct HomogenousPool
 {
     typedef MultiPrecision::Float Float;
 
-    struct Scale
-    {
-        static const uint32_t s_Initial = 64;
-        static const uint32_t s_Threshold = 20; // 1mln
-    };
-
     static Amount Round(Float x)
     {
         assert(x.m_Order <= 0); // assume overflow won't happen
@@ -23,17 +17,9 @@ struct HomogenousPool
         return x + half;
     }
 
-    enum Mode {
-        Neutral, // s doesn't change during the trade (i.e. farming)
-        Burn, // s is decreased during the trade (i.e. exchange, s burns-out)
-        Grow, // s grows during the trade (i.e. redistribution)
-    };
-
-    struct Epoch0
+    struct Base
     {
-        uint32_t m_Users;
-        Amount m_Sell;
-        Float m_kScale;
+        Float m_Weight;
 
         struct Dim
         {
@@ -41,65 +27,100 @@ struct HomogenousPool
             Float m_Sigma;
         };
 
+        void TradeBase(Amount valB, Dim& dim) const
+        {
+            if (valB)
+            {
+                assert(!m_Weight.IsZero());
+                dim.m_Sigma += Float(valB) / m_Weight;
+                Strict::Add(dim.m_Buy, valB);
+            }
+        }
+
+        struct UserBase
+        {
+            Float m_Weight;
+
+            void CalcReward_(Amount& resMax, Float x) const
+            {
+                Amount val = Round(m_Weight * x);
+                resMax = std::min(resMax, val);
+            }
+        };
+
+    };
+
+    enum Mode {
+        Neutral, // s doesn't change during the trade (i.e. farming)
+        Burn, // s is decreased during the trade (i.e. exchange, s burns-out)
+        Grow, // s grows during the trade (i.e. redistribution)
+    };
+
+    struct Epoch0
+        :public Base
+    {
+        uint32_t m_Users;
+        Amount m_Sell;
+
         template <Mode m>
         void Trade0_(Amount valS, Amount valB, Dim& dim)
         {
-            if (!m_Sell)
+            TradeBase(valB, dim);
+
+            if constexpr (Mode::Burn == m)
             {
-                assert(!valS && !valB);
-                return;
+                assert(m_Sell >= valS);
+                m_Sell -= valS;
             }
-
-            Float kScale_div_s = m_kScale / Float(m_Sell);
-
-            if (valB)
+            else
             {
-                // dSigma = m_kScale * db / s
-                dim.m_Sigma = dim.m_Sigma + kScale_div_s * Float(valB);
-
-                Strict::Add(dim.m_Buy, valB);
-            }
-
-            if (valS)
-            {
-                if constexpr (Mode::Burn == m)
-                {
-                    assert(m_Sell >= valS);
-                    m_Sell -= valS;
-                }
-                else
-                {
-                    if constexpr (Mode::Grow == m)
-                        Strict::Add(m_Sell, valS);
-                }
-
-                if constexpr (Mode::Neutral != m)
-                    // m_kScale *= sNew / sOld;
-                    m_kScale = kScale_div_s * Float(m_Sell);
+                if constexpr (Mode::Grow == m)
+                    Strict::Add(m_Sell, valS);
             }
         }
 
         struct User0
+            :public UserBase
         {
-            Float m_Sigma0;
-            Float m_SellScaled;
-
             void Add0_(Epoch0& e, Amount valSell)
             {
                 assert(valSell);
+                m_Weight = valSell;
 
-                m_SellScaled = Float(valSell) / e.m_kScale;
+                if (e.m_Users)
+                {
+                    m_Weight *= e.m_Weight / Float(e.m_Sell);
+                    e.m_Weight += m_Weight;
 
-                Strict::Add(e.m_Sell, valSell);
-                e.m_Users++; // won't overflow, 4bln isn't feasible
-            }
-
-            Amount CalcComponent_(Amount threshold, Float x) const
-            {
-                Amount res = Round(m_SellScaled * x);
-                return std::min(res, threshold);
+                    e.m_Users++; // won't overflow, 4bln isn't feasible
+                    Strict::Add(e.m_Sell, valSell);
+                }
+                else
+                {
+                    // the very 1st user. Define scale == 1
+                    e.m_Weight = m_Weight;
+                    e.m_Users = 1;
+                    e.m_Sell = valSell;
+                }
             }
         };
+
+        int32_t EstimateScaleOrder() const
+        {
+            if (!m_Sell)
+                return 0;
+
+            // The scale is (m_Active.m_Sell / m_Active.m_Weight), but we need only the order estimate
+            return BitUtils::FindHiBit(m_Sell) - m_Weight.m_Order - Float::s_Bits;
+        }
+
+        bool ShouldSwitchEpoch() const
+        {
+            const uint32_t nThreshold = 10; // we assume epoch switch necessary if the scale changed by at least 10 binary orders (times 1024)
+
+            uint32_t val = EstimateScaleOrder() + nThreshold;
+            return (val > nThreshold * 2);
+        }
     };
 
 
@@ -114,6 +135,11 @@ struct HomogenousPool
         {
             static_assert(iDim < nDims);
             Trade0_<m>(valS, valB, m_pDim[iDim]);
+        }
+
+        void Reset()
+        {
+            _POD_(*this).SetZero();
         }
 
         struct User
@@ -137,13 +163,18 @@ struct HomogenousPool
 
             void DelRO_(const Epoch& e, Out& v) const
             {
-                assert(e.m_Users);
-                bool bLast = (1 == e.m_Users);
-
-                v.m_Sell = bLast ? e.m_Sell : CalcComponent_(e.m_Sell, e.m_kScale);
-
+                v.m_Sell = e.m_Sell;
                 for (uint32_t i = 0; i < nDims; i++)
-                    v.m_pBuy[i] = bLast ? e.m_pDim[i].m_Buy : CalcComponent_(e.m_pDim[i].m_Buy, e.m_pDim[i].m_Sigma - m_pSigma0[i]);
+                    v.m_pBuy[i] = e.m_pDim[i].m_Buy;
+
+                assert(e.m_Users);
+                if (1 != e.m_Users)
+                {
+                    CalcReward_(v.m_Sell, Float(v.m_Sell) / e.m_Weight);
+
+                    for (uint32_t i = 0; i < nDims; i++)
+                        CalcReward_(v.m_pBuy[i], e.m_pDim[i].m_Sigma - m_pSigma0[i]);
+                }
             }
 
             template <bool bReadOnly>
@@ -153,23 +184,31 @@ struct HomogenousPool
 
                 if constexpr (!bReadOnly)
                 {
-                    e.m_Users--;
-                    e.m_Sell -= v.m_Sell;
+                    if (--e.m_Users)
+                    {
+                        e.m_Sell -= v.m_Sell;
+                        for (uint32_t i = 0; i < nDims; i++)
+                            e.m_pDim[i].m_Buy -= v.m_pBuy[i];
 
-                    for (uint32_t i = 0; i < nDims; i++)
-                        e.m_pDim[i].m_Buy -= v.m_pBuy[i];
+                        // reduce the weight. Beware of overflow!
+                        if (e.m_Weight > m_Weight)
+                        {
+                            e.m_Weight -= m_Weight;
+                            assert(!e.m_Weight.IsZero());
+                        }
+                        else
+                        {
+                            // actually if it happens and still pool users - this is a sign of a problem
+                            // Put some minimal eps, just don't let the it be completely 0, to prevent artifacts during trade
+                            e.m_Weight.m_Num = m_Weight.m_Num;
+                            e.m_Weight.m_Order = m_Weight.m_Order - 1024;
+                        }
+                    }
+                    else
+                        e.Reset();
                 }
             }
         };
-
-        bool IsUnchanged(const User& u) const
-        {
-            for (uint32_t i = 0; i < nDims; i++)
-                if (u.m_pSigma0[i] != m_pDim[i].m_Sigma)
-                    return false;
-            return true;
-        }
-
     };
 
     template <uint32_t nDims>
@@ -183,12 +222,6 @@ struct HomogenousPool
             return m_Active.m_Sell;
         }
 
-        void Reset()
-        {
-            _POD_(*this).SetZero();
-            m_Active.m_kScale = 1u;
-        }
-
         typedef typename Epoch<nDims>::User User;
 
         void UserAdd(User& u, Amount valSell)
@@ -200,11 +233,6 @@ struct HomogenousPool
         void UserDel(User& u, typename User::Out& out)
         {
             u.template Del_<bReadOnly>(m_Active, out);
-            if constexpr (!bReadOnly)
-            {
-                if (!m_Active.m_Users)
-                    Reset();
-            }
         }
 
         template <Mode m, uint32_t iDim>
@@ -230,13 +258,6 @@ struct HomogenousPool
 
         uint32_t m_iActive;
 
-        void Init()
-        {
-            _POD_(*this).SetZero();
-            ResetActiveScale();
-            m_iActive = 1;
-        }
-
         struct User
             :public Epoch<nDims>::User
         {
@@ -255,14 +276,7 @@ struct HomogenousPool
         void UserDel(User& u, typename User::Out& out, Storage& stor)
         {
             if (u.m_iEpoch == m_iActive)
-            {
                 u.template Del_<bReadOnly>(m_Active, out);
-                if constexpr (!bReadOnly)
-                {
-                    if (!m_Active.m_Users)
-                        ResetActive();
-                }
-            }
             else
             {
                 if (u.m_iEpoch + 1 == m_iActive)
@@ -309,34 +323,20 @@ struct HomogenousPool
         }
 
         template <class Storage>
-        void OnPostTrade(Storage& stor)
+        bool MaybeSwitchEpoch(Storage& stor)
         {
-            static_assert(Scale::s_Initial > Scale::s_Threshold * 2); // this means that order==0 is also covered
+            if (!m_Active.ShouldSwitchEpoch())
+                return false;
 
-            if (m_Active.m_kScale.m_Order < (int32_t) (Scale::s_Initial - Scale::s_Threshold))
-            {
-                if (m_Draining.m_Users)
-                    stor.Save(m_iActive - 1, m_Draining);
+            if (m_Draining.m_Users)
+                stor.Save(m_iActive - 1, m_Draining);
 
-                _POD_(m_Draining) = m_Active;
-
-                ResetActive();
-                m_iActive++;
-            }
-        }
-
-    private:
-
-        void ResetActive()
-        {
+            _POD_(m_Draining) = m_Active;
             _POD_(m_Active).SetZero();
-            ResetActiveScale();
-        }
 
-        void ResetActiveScale()
-        {
-            m_Active.m_kScale.m_Num = m_Active.m_kScale.s_HiBit;
-            m_Active.m_kScale.m_Order = Scale::s_Initial;
+            m_iActive++;
+
+            return true;
         }
     };
 };
