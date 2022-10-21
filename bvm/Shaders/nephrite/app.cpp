@@ -1147,17 +1147,10 @@ ON_METHOD(user, liquidate)
     if (!g.TestHaveValidPrice())
         return;
 
+    // Currently don't try to access balance. Prefer anonymous tx, without pk
     g.m_Kid.set_Trove();
-    bool bHaveBalance = g.ReadBalance();
-
     PubKey pkMy;
-    _POD_(pkMy) = g.m_Pk;
-
-    if (!bHaveBalance)
-    {
-        g.m_Kid.set_Stab();
-        g.ReadBalance();
-    }
+    g.m_Kid.get_Pk(pkMy);
 
     Global::Liquidator ctx;
     ctx.m_Price = g.m_Price;
@@ -1165,7 +1158,6 @@ ON_METHOD(user, liquidate)
 
     uint32_t nCharge =
         Charge::StdCall() +
-        Charge::BankAccess() +
         Charge::Price();
 
 
@@ -1244,16 +1236,17 @@ ON_METHOD(user, liquidate)
         }
 
         Method::Liquidate args;
+        _POD_(args.m_pkUser).SetZero();
         args.m_Flow = ctx.m_fpLogic;
         args.m_Count = nCount;
 
         FundsChange pFc[2];
-        g.PrepareTroveTx(args, pFc);
+        g.Flow2Fc(pFc, args.m_Flow);
 
         nCharge +=
             Charge::Funds(args);
 
-        Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "troves liquidate", nCharge);
+        Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), nullptr, 0, "troves liquidate", nCharge);
     }
 }
 
@@ -1269,11 +1262,10 @@ ON_METHOD(user, redeem)
     if (!g.TestHaveValidPrice())
         return;
 
-    g.ReadBalanceAny();
+    // Currently don't try to access balance. Prefer anonymous tx, without pk
 
     uint32_t nCharge =
         Charge::StdCall() +
-        Charge::BankAccess() +
         Charge::Price();
 
     Global::Redeemer ctx;
@@ -1333,18 +1325,19 @@ ON_METHOD(user, redeem)
             OnError("insufficient redeemable troves");
 
         Method::Redeem args;
+        _POD_(args.m_pkUser).SetZero();
         args.m_Flow = ctx.m_fpLogic;
         args.m_Amount = val;
         args.m_iPrev1 = iPrev1;
 
         FundsChange pFc[2];
-        g.PrepareTroveTx(args, pFc);
+        g.Flow2Fc(pFc, args.m_Flow);
 
         nCharge +=
             Charge::Funds(args) +
             Env::Cost::AssetEmit; // comission
 
-        Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "redeem", nCharge);
+        Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), nullptr, 0, "redeem", nCharge);
     }
 }
 

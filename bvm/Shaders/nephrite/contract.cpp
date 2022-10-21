@@ -58,35 +58,45 @@ struct MyGlobal
 
     static void AdjustBank(const FlowPair& fp, const PubKey& pk, const Flow* pGov = nullptr)
     {
+        if (!AdjustBankNoSig(fp, pk, pGov))
+        {
+            // no bank access is necessary (i.e. predicted tx values match the actual ones
+            // Add option for the user to not specify pk.
+            // This would allow anonymous redeem and liquidation txs.
+            if (_POD_(pk).IsZero())
+                return;
+        }
+
         Env::AddSig(pk);
-        AdjustBankNoSig(fp, pk, pGov);
     }
 
-    static void AdjustBankNoSig(const FlowPair& fp, const PubKey& pk, const Flow* pGov = nullptr)
+    static bool AdjustBankNoSig(const FlowPair& fp, const PubKey& pk, const Flow* pGov = nullptr)
     {
         if (pGov && !pGov->m_Val)
             pGov = nullptr;
 
-        if (fp.Tok.m_Val || fp.Col.m_Val || pGov)
-        {
-            Balance::Key kub;
-            _POD_(kub.m_Pk) = pk;
+        if (!(fp.Tok.m_Val || fp.Col.m_Val || pGov))
+            return false;
 
-            Balance ub;
-            if (!Env::LoadVar_T(kub, ub))
-                _POD_(ub).SetZero();
+        Balance::Key kub;
+        _POD_(kub.m_Pk) = pk;
 
-            AdjustStrict(ub.m_Amounts.Tok, fp.Tok);
-            AdjustStrict(ub.m_Amounts.Col, fp.Col);
+        Balance ub;
+        if (!Env::LoadVar_T(kub, ub))
+            _POD_(ub).SetZero();
 
-            if (pGov)
-                AdjustStrict(ub.m_Gov, *pGov);
+        AdjustStrict(ub.m_Amounts.Tok, fp.Tok);
+        AdjustStrict(ub.m_Amounts.Col, fp.Col);
 
-            if (ub.m_Amounts.Tok || ub.m_Amounts.Col || ub.m_Gov)
-                Env::SaveVar_T(kub, ub);
-            else
-                Env::DelVar_T(kub);
-        }
+        if (pGov)
+            AdjustStrict(ub.m_Gov, *pGov);
+
+        if (ub.m_Amounts.Tok || ub.m_Amounts.Col || ub.m_Gov)
+            Env::SaveVar_T(kub, ub);
+        else
+            Env::DelVar_T(kub);
+
+        return true;
     }
 
     static void ExtractSurplusCol(Amount val, const Trove& t)
