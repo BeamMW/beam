@@ -1330,19 +1330,46 @@ namespace bvm2 {
 		}
 
 		template <uint32_t nDims>
-		static void AddEpochTotals(Amount& vSell, Amount* pBuy, const Shaders::HomogenousPool::Epoch<nDims>& e)
+		struct EpochStorage
 		{
-			vSell += e.m_Sell;
-			for (uint32_t i = 0; i < nDims; i++)
-				pBuy[i] += e.m_pDim[i].m_Buy;
-		}
+			typedef Shaders::HomogenousPool::Epoch<nDims> MyEpoch;
+			std::map<uint32_t, MyEpoch> m_Data;
+
+			static void AddTotals1(Amount& vSell, Amount& vBuy, const MyEpoch& e)
+			{
+				vSell += e.m_Sell;
+				vBuy += e.m_pDim[0].m_Buy;
+			}
+
+			void AddTotals(Amount& vSell, Amount& vBuy) const
+			{
+				for (const auto x : m_Data)
+					AddTotals1(vSell, vBuy, x.second);
+			}
+
+			void Load(uint32_t iEpoch, MyEpoch& res)
+			{
+				auto it = m_Data.find(iEpoch);
+				verify_test(m_Data.end() != it);
+				res = it->second;
+			}
+
+			void Save(uint32_t iEpoch, const MyEpoch& res)
+			{
+			}
+
+			void Del(uint32_t iEpoch)
+			{
+			}
+		};
 
 		template <uint32_t nDims>
-		void AddPoolTotals(Amount& vSell, Amount* pBuy, uint8_t nTag)
+		void LoadEpochs(EpochStorage<nDims>& res, uint8_t nTag)
 		{
 			for (KeyWalker_T<Shaders::Nephrite::EpochKey, Shaders::HomogenousPool::Epoch<nDims> > wlk(m_Proc, m_Proc.m_Nephrite.m_Cid, nTag); wlk.MoveNext(); )
-				AddEpochTotals(vSell, pBuy, *wlk.m_pVal);
+				res.m_Data[wlk.m_pKey->m_KeyInContract.m_iEpoch] = *wlk.m_pVal;
 		}
+
 
 		static double ToDouble(Shaders::Nephrite::Float x)
 		{
@@ -1404,13 +1431,21 @@ namespace bvm2 {
 
 			Pair totalStab, totalRedist;
 
+			EpochStorage<2> storStab;
+			LoadEpochs(storStab, Shaders::Nephrite::Tags::s_Epoch_Stable);
+
 			ZeroObject(totalStab);
-			AddEpochTotals(totalStab.Tok, &totalStab.Col, g.m_StabPool.m_Active);
-			AddEpochTotals(totalStab.Tok, &totalStab.Col, g.m_StabPool.m_Draining);
-			AddPoolTotals<1>(totalStab.Tok, &totalStab.Col, Shaders::Nephrite::Tags::s_Epoch_Stable);
+			storStab.AddTotals1(totalStab.Tok, totalStab.Col, g.m_StabPool.m_Active);
+			storStab.AddTotals1(totalStab.Tok, totalStab.Col, g.m_StabPool.m_Draining);
+			storStab.AddTotals(totalStab.Tok, totalStab.Col);
+
+			EpochStorage<1> storRedist;
+			LoadEpochs(storRedist, Shaders::Nephrite::Tags::s_Epoch_Redist);
 
 			ZeroObject(totalRedist);
-			AddEpochTotals(totalRedist.Tok, &totalRedist.Col, g.m_RedistPool.m_Active);
+			storRedist.AddTotals1(totalRedist.Tok, totalRedist.Col, g.m_RedistPool.m_Active);
+			storRedist.AddTotals1(totalRedist.Tok, totalRedist.Col, g.m_RedistPool.m_Draining);
+			storRedist.AddTotals(totalRedist.Tok, totalRedist.Col);
 
 			Shaders::Nephrite::Global::Price price;
 			{
@@ -1474,7 +1509,7 @@ namespace bvm2 {
 
 				totalCol += x.m_Amounts.Col; // before accounting for redist
 
-				x.m_Amounts = g.m_RedistPool.get_UpdatedAmounts(x);
+				x.m_Amounts = g.m_RedistPool.get_UpdatedAmounts(x, storRedist);
 				x.m_Rcr = x.m_Amounts.get_Rcr();
 
 				nActiveTroves++;

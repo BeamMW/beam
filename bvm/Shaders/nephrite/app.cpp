@@ -316,11 +316,11 @@ struct AppGlobalPlus
 {
     MyKeyID m_Kid;
 
-    AppGlobalPlus(const ContractID& cid) :m_Kid(cid) {}
-
     MyPrice m_Price;
     uint32_t m_PriceOracle = 0;
 
+
+    template <uint8_t nTag>
     struct EpochStorage
     {
         uint32_t m_Charge = 0;
@@ -334,7 +334,7 @@ struct AppGlobalPlus
 
             Env::Key_T<EpochKey> k;
             _POD_(k.m_Prefix.m_Cid) = m_Cid;
-            k.m_KeyInContract.m_Tag = Tags::s_Epoch_Stable;
+            k.m_KeyInContract.m_Tag = nTag;
             k.m_KeyInContract.m_iEpoch = iEpoch;
 
             Env::Halt_if(!Env::VarReader::Read_T(k, e));
@@ -348,6 +348,16 @@ struct AppGlobalPlus
             m_Charge += Env::Cost::SaveVar;
         }
     };
+
+    EpochStorage<Tags::s_Epoch_Stable> m_EpochStorageStab;
+    EpochStorage<Tags::s_Epoch_Redist> m_EpochStorageRedist;
+
+    AppGlobalPlus(const ContractID& cid)
+        :m_Kid(cid)
+        ,m_EpochStorageStab(cid)
+        ,m_EpochStorageRedist(cid)
+    {
+    }
 
 
     Trove* m_pT = nullptr;
@@ -472,7 +482,7 @@ struct AppGlobalPlus
         else
             m_Troves.m_iHead = t.m_iNext;
 
-        m_RedistPool.Remove(t);
+        m_RedistPool.Remove(t, m_EpochStorageRedist);
 
         m_Troves.m_Totals.Tok -= t.m_Amounts.Tok;
         m_Troves.m_Totals.Col -= t.m_Amounts.Col;
@@ -510,7 +520,7 @@ struct AppGlobalPlus
         {
             const Trove& t1 = get_T(iT);
 
-            auto vals = m_RedistPool.get_UpdatedAmounts(t1);
+            auto vals = m_RedistPool.get_UpdatedAmounts(t1, m_EpochStorageRedist);
             if (vals.CmpRcr(tVals) >= 0)
                 break;
 
@@ -548,15 +558,13 @@ struct AppGlobalPlus
             return false;
         }
 
-        EpochStorage stor(m_Kid.m_Blob.m_Cid);
-
         StabilityPool::User::Out out;
-        m_StabPool.UserDel(e.m_User, out, stor);
+        m_StabPool.UserDel(e.m_User, out, m_EpochStorageStab);
 
         m_MyStab.m_Amounts.Tok = out.m_Sell;
         m_MyStab.m_Amounts.Col = out.m_pBuy[0];
         m_MyStab.m_Gov = out.m_pBuy[1];
-        m_MyStab.m_Charge = stor.m_Charge;
+        m_MyStab.m_Charge = m_EpochStorageStab.m_Charge;
 
         return true;
     }
@@ -691,7 +699,7 @@ ON_METHOD(manager, view_all)
             Env::DocGroup gr2("");
 
             Trove& t = g.get_T(iT);
-            t.m_Amounts = g.m_RedistPool.get_UpdatedAmounts(t);
+            t.m_Amounts = g.m_RedistPool.get_UpdatedAmounts(t, g.m_EpochStorageRedist);
             g.DocAddTrove(t);
 
             iT = t.m_iNext;
@@ -1223,13 +1231,22 @@ ON_METHOD(user, liquidate)
         if (!nCount)
             return OnError("no liquidations possible");
 
-        if (ctx.m_Stab)
+        if (ctx.m_Redist)
         {
-            AppGlobalPlus::EpochStorage stor(cid);
-            g.m_StabPool.MaybeSwitchEpoch(stor);
+            g.m_RedistPool.MaybeSwitchEpoch(g.m_EpochStorageRedist);
 
             nCharge +=
-                stor.m_Charge +
+                g.m_EpochStorageRedist.m_Charge +
+                Env::Cost::Cycle * 100;
+
+        }
+
+        if (ctx.m_Stab)
+        {
+            g.m_StabPool.MaybeSwitchEpoch(g.m_EpochStorageStab);
+
+            nCharge +=
+                g.m_EpochStorageStab.m_Charge +
                 Env::Cost::AssetEmit +
                 Env::Cost::Cycle * 100;
 

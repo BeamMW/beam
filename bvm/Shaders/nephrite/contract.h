@@ -5,7 +5,7 @@
 namespace Nephrite
 {
     static const ShaderID s_pSID[] = {
-        { 0x50,0xcf,0x09,0xd5,0xd4,0x11,0x36,0x39,0x5e,0x89,0xae,0xb5,0x2e,0x39,0x45,0x84,0x0a,0xdb,0x43,0x89,0xf7,0x0d,0xec,0x69,0x91,0xac,0x47,0x88,0x8d,0x77,0xef,0xa1 },
+        { 0x94,0x30,0x43,0x91,0xc4,0x36,0xc7,0xcb,0x3f,0xbe,0x89,0x85,0xe2,0x1e,0x02,0x1a,0x34,0x2c,0x6a,0xc6,0x8c,0x62,0x60,0xe8,0x24,0x0d,0x0a,0x9a,0xab,0x9f,0xef,0x4f },
     };
 
 #pragma pack (push, 1)
@@ -13,6 +13,7 @@ namespace Nephrite
     struct Tags
     {
         static const uint8_t s_State = 0;
+        static const uint8_t s_Epoch_Redist = 2;
         static const uint8_t s_Epoch_Stable = 3;
         static const uint8_t s_Balance = 4;
         static const uint8_t s_StabPool = 5;
@@ -78,7 +79,7 @@ namespace Nephrite
     typedef Pair_T<Flow> FlowPair;
 
     typedef HomogenousPool::MultiEpoch<2> ExchangePool;
-    typedef HomogenousPool::SingleEpoch<1> RedistPoolBase;
+    typedef HomogenousPool::MultiEpoch<1> RedistPoolBase;
 
     struct Balance
     {
@@ -155,17 +156,19 @@ namespace Nephrite
                 UserAdd(t.m_RedistUser, t.m_Amounts.Tok);
             }
 
-            void Remove(Trove& t)
+            template <class Storage>
+            void Remove(Trove& t, Storage& stor)
             {
                 User::Out out;
-                UserDel(t.m_RedistUser, out);
+                UserDel(t.m_RedistUser, out, stor);
                 UpdAmountsPostRemove(t.m_Amounts, out);
             }
 
-            Pair get_UpdatedAmounts(const Trove& t) const
+            template <class Storage>
+            Pair get_UpdatedAmounts(const Trove& t, Storage& stor) const
             {
                 User::Out out;
-                t.m_RedistUser.DelRO_(m_Active, out);
+                Cast::NotConst(this)->UserDel<true>(t.m_RedistUser, out, stor);
 
                 auto ret = t.m_Amounts;
                 UpdAmountsPostRemove(ret, out);
@@ -351,6 +354,7 @@ namespace Nephrite
             Price m_Price;
             FlowPair m_fpLogic;
             bool m_Stab = false;
+            bool m_Redist = false;
         };
 
         bool LiquidateTrove(Trove& t, const Pair& totals0, Liquidator& ctx, Amount& valSurplus)
@@ -392,7 +396,9 @@ namespace Nephrite
             if (bUseRedistPool)
             {
                 if (!m_RedistPool.Liquidate(t))
-                    return false; // last trove?
+                    return false;
+
+                ctx.m_Redist = true;
 
                 Strict::Add(m_Troves.m_Totals.Tok, t.m_Amounts.Tok);
                 Strict::Add(m_Troves.m_Totals.Col, t.m_Amounts.Col);

@@ -9,11 +9,12 @@
 
 namespace Nephrite {
 
+template <uint8_t nTag>
 struct EpochStorage
 {
     static EpochKey get_Key(uint32_t iEpoch) {
         EpochKey k;
-        k.m_Tag = Tags::s_Epoch_Stable;
+        k.m_Tag = nTag;
         k.m_iEpoch = iEpoch;
         return k;
     }
@@ -32,6 +33,9 @@ struct EpochStorage
         Env::DelVar_T(get_Key(iEpoch));
     }
 };
+
+typedef EpochStorage<Tags::s_Epoch_Redist> EpochStorageRedist;
+typedef EpochStorage<Tags::s_Epoch_Stable> EpochStorageStab;
 
 struct MyGlobal
     :public Global
@@ -180,7 +184,8 @@ struct MyGlobal
         tk.m_iTrove = iTrove;
         Env::Halt_if(!Env::LoadVar_T(tk, t));
 
-        m_RedistPool.Remove(t);
+        EpochStorageRedist storR;
+        m_RedistPool.Remove(t, storR);
 
         // just for more safety. Theoretically strict isn't necessary
         Strict::Sub(m_Troves.m_Totals.Tok, t.m_Amounts.Tok);
@@ -202,7 +207,8 @@ struct MyGlobal
     {
         Env::Halt_if(!Env::LoadVar_T(tk, t));
 
-        auto vals = m_RedistPool.get_UpdatedAmounts(t);
+        EpochStorageRedist storR;
+        auto vals = m_RedistPool.get_UpdatedAmounts(t, storR);
 
         return vals.CmpRcr(tRef.m_Amounts);
     }
@@ -432,10 +438,9 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
     {
         Env::Halt_if(spe.m_hLastModify == h);
 
-        EpochStorage stor;
-
         Global::StabilityPool::User::Out out;
-        g.m_StabPool.UserDel(spe.m_User, out, stor);
+        EpochStorageStab storS;
+        g.m_StabPool.UserDel(spe.m_User, out, storS);
 
         fpLogic.Tok.m_Val = out.m_Sell;
         fpLogic.Col.m_Val = out.m_pBuy[0];
@@ -451,7 +456,8 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
             Trove t;
             Env::Halt_if(!Env::LoadVar_T(tk, t));
 
-            auto vals = g.m_RedistPool.get_UpdatedAmounts(t);
+            EpochStorageRedist storR;
+            auto vals = g.m_RedistPool.get_UpdatedAmounts(t, storR);
             auto cr = price.ToCR(vals.get_Rcr());
             Env::Halt_if((cr < Global::Price::get_k110()));
         }
@@ -501,10 +507,16 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
             g.ExtractSurplusCol(valSurplus, t);
     }
 
+    if (ctx.m_Redist)
+    {
+        EpochStorageRedist storR;
+        g.m_RedistPool.MaybeSwitchEpoch(storR);
+    }
+
     if (ctx.m_Stab)
     {
-        EpochStorage stor;
-        g.m_StabPool.MaybeSwitchEpoch(stor);
+        EpochStorageStab storS;
+        g.m_StabPool.MaybeSwitchEpoch(storS);
     }
 
     g.AdjustAll(r, totals0, ctx.m_fpLogic, r.m_pkUser);
