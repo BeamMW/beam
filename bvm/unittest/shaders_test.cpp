@@ -1286,7 +1286,7 @@ namespace bvm2 {
 			m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&x, sizeof(x)));
 		}
 
-		bool InvokeBase(Shaders::Nephrite::Method::BaseTx& args, uint32_t nSizeArgs, uint32_t iMethod, const PubKey& pkUser, bool bShouldUseVault)
+		bool InvokeBase(Shaders::Nephrite::Method::BaseTx& args, uint32_t nSizeArgs, uint32_t iMethod, const PubKey& pkUser, uint32_t nChargeEst, bool bShouldUseVault)
 		{
 			Shaders::Env::Key_T<Balance::Key> key;
 			key.m_Prefix.m_Cid = m_Proc.m_Nephrite.m_Cid;
@@ -1310,6 +1310,9 @@ namespace bvm2 {
 			if (!m_Proc.RunGuarded(m_Proc.m_Nephrite.m_Cid, iMethod, Blob(&args, nSizeArgs), nullptr))
 				return false;
 
+			std::cout << "Estimated charge: " << nChargeEst << std::endl;
+			verify_test(nChargeEst >= Limits::BlockCharge - m_Proc.m_Charge);
+
 			// verify the init-guess
 			Balance ub1 = ReadBalance(key);
 			verify_test(ub1.m_Amounts.Tok == ub0.m_Amounts.Tok + valTok);
@@ -1321,15 +1324,15 @@ namespace bvm2 {
 		}
 
 		template <typename TMethod>
-		bool InvokeTx(TMethod& args, const PubKey& pkUser, bool bShouldUseVault = true)
+		bool InvokeTx(TMethod& args, const PubKey& pkUser, uint32_t nChargeEst, bool bShouldUseVault = true)
 		{
-			return InvokeBase(args, sizeof(args), args.s_iMethod, pkUser, bShouldUseVault);
+			return InvokeBase(args, sizeof(args), args.s_iMethod, pkUser, nChargeEst, bShouldUseVault);
 		}
 
 		template <typename TMethod>
-		bool InvokeTxUser(TMethod& args, bool bShouldUseVault = true)
+		bool InvokeTxUser(TMethod& args, uint32_t nChargeEst, bool bShouldUseVault = true)
 		{
-			return InvokeBase(args, sizeof(args), args.s_iMethod, args.m_pkUser, bShouldUseVault);
+			return InvokeBase(args, sizeof(args), args.s_iMethod, args.m_pkUser, nChargeEst, bShouldUseVault);
 		}
 
 		template <uint32_t nDims>
@@ -1658,10 +1661,9 @@ namespace bvm2 {
 
 			pPk[i] = args.m_pkUser;
 
-			verify_test(lc.InvokeTxUser(args));
+			verify_test(lc.InvokeTxUser(args, man.m_Charge));
 
 			std::cout << "Trove opened" << std::endl;
-			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1677,10 +1679,9 @@ namespace bvm2 {
 			Shaders::Nephrite::Method::UpdStabPool args;
 			verify_test(man.RunGuarded_T(args));
 
-			verify_test(lc.InvokeTxUser(args));
+			verify_test(lc.InvokeTxUser(args, man.m_Charge));
 
 			std::cout << "Stab" << i << ": Put=" << Val2Num(args.m_NewAmount) << std::endl;
-			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1694,10 +1695,9 @@ namespace bvm2 {
 			Shaders::Nephrite::Method::Redeem args;
 			verify_test(man.RunGuarded_T(args));
 
-			verify_test(lc.InvokeTxUser(args));
+			verify_test(lc.InvokeTxUser(args, man.m_Charge));
 
 			std::cout << "Redeem" << std::endl;
-			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1723,10 +1723,9 @@ namespace bvm2 {
 			Shaders::Nephrite::Method::Liquidate args;
 			verify_test(man.RunGuarded_T(args));
 
-			verify_test(lc.InvokeTxUser(args));
+			verify_test(lc.InvokeTxUser(args, man.m_Charge));
 
 			std::cout << "Trove liquidating" << std::endl;
-			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1749,10 +1748,9 @@ namespace bvm2 {
 			Shaders::Nephrite::Method::UpdStabPool args;
 			verify_test(man.RunGuarded_T(args));
 
-			verify_test(lc.InvokeTxUser(args));
+			verify_test(lc.InvokeTxUser(args, man.m_Charge));
 
 			std::cout << "Stab" << i << " all out" << std::endl;
-			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 
@@ -1771,10 +1769,9 @@ namespace bvm2 {
 			Shaders::Nephrite::Method::TroveClose args;
 			verify_test(man.RunGuarded_T(args));
 
-			verify_test(lc.InvokeTx(args, pPk[iTrove - 1]));
+			verify_test(lc.InvokeTx(args, pPk[iTrove - 1], man.m_Charge));
 
 			std::cout << "Trove closing" << std::endl;
-			std::cout << "Estimated charge: " << man.m_Charge << std::endl;
 			lc.PrintAll();
 		}
 /*
