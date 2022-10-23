@@ -590,6 +590,8 @@ namespace bvm2 {
 
 		} m_Comms;
 
+		void ResetBase();
+
 		DebugCallstack m_DbgCallstack;
 
 		virtual void OnCall(Wasm::Word nAddr) override;

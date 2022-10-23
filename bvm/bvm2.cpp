@@ -3580,6 +3580,20 @@ namespace bvm2 {
 
 	/////////////////////////////////////////////
 	// Manager
+	void ProcessorManager::ResetBase()
+	{
+		InitMem();
+		m_InvokeData.Reset();
+
+		m_Comms.Clear();
+		m_Context.Reset();
+
+		m_mapReadVars.Clear();
+		m_mapReadLogs.Clear();
+
+		m_DbgCallstack = DebugCallstack();
+	}
+
 	void ProcessorManager::CallMethod(uint32_t iMethod)
 	{
 		const Header& hdr = ParseMod();

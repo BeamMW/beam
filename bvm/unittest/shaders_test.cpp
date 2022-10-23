@@ -812,7 +812,7 @@ namespace bvm2 {
 		void SetCode(const char* szPath)
 		{
 			MyProcessor::AddCodeEx(m_bufCode, szPath, Kind::Manager, &m_DbgInfo);
-			m_Code = m_bufCode;
+			m_Debug = true;
 		}
 
 		struct VarEnumCtx
@@ -876,6 +876,9 @@ namespace bvm2 {
 
 		void RunMany(uint32_t iMethod)
 		{
+			ResetBase();
+			m_Code = m_bufCode;
+
 			std::ostringstream os;
 			//m_Dbg.m_pOut = &os;
 
