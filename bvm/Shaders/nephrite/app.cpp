@@ -601,26 +601,15 @@ struct AppGlobalPlus
             Env::Cost::SaveVar_For(sizeof(Trove)) +
             Charge::RedistPoolOp;
 
-        uint32_t nCharge0 = m_EpochStorageRedist.m_Charge;
-
         Trove::ID iPrev1 = 0;
         for (Trove::ID iT = m_Troves.m_iHead; iT; )
         {
             const Trove& t1 = get_T(iT);
 
             auto vals = m_RedistPool.get_UpdatedAmounts(t1, m_EpochStorageRedist);
-            if (vals.CmpRcr(t.m_Amounts) >= 0)
-            {
-                nCharge +=
-                    Charge::TrovePull0() +
-                    Charge::TrovePushCheck1;
+            if (vals.CmpRcr(t.m_Amounts) <= 0)
+                iPrev1 = iT; // suitable candidate, but maybe there'll be a better one
 
-                t.m_iNext = iT;
-                break;
-            }
-
-            m_EpochStorageRedist.m_Charge = nCharge0;
-            iPrev1 = iT;
             iT = t1.m_iNext;
         }
 
@@ -629,20 +618,25 @@ struct AppGlobalPlus
 
         if (iPrev1)
         {
-            Trove& t0 = get_T(iPrev1);
-            auto vals = m_RedistPool.get_UpdatedAmounts(t0, m_EpochStorageRedist);
+            uint32_t nCharge0 = m_EpochStorageRedist.m_Charge;
+
+            Trove& tPrev = get_T(iPrev1);
+            auto vals = m_RedistPool.get_UpdatedAmounts(tPrev, m_EpochStorageRedist);
 
             nCharge +=
                 Charge::TrovePull0() +
+                (m_EpochStorageRedist.m_Charge - nCharge0) +
                 Charge::TrovePushCheck1 +
                 Env::Cost::SaveVar_For(sizeof(Trove));
 
-            t0.m_iNext = tid;
+            t.m_iNext = tPrev.m_iNext;
+            tPrev.m_iNext = tid;
         }
         else
+        {
+            t.m_iNext = m_Troves.m_iHead;
             m_Troves.m_iHead = tid;
-
-        nCharge += (m_EpochStorageRedist.m_Charge - nCharge0);
+        }
 
         return iPrev1;
     }

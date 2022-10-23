@@ -203,16 +203,6 @@ struct MyGlobal
         return iTrove;
     }
 
-    int TroveLoadCmp(const Trove::Key& tk, Trove& t, const Trove& tRef)
-    {
-        Env::Halt_if(!Env::LoadVar_T(tk, t));
-
-        EpochStorageRedist storR;
-        auto vals = m_RedistPool.get_UpdatedAmounts(t, storR);
-
-        return vals.CmpRcr(tRef.m_Amounts);
-    }
-
     void TrovePush(Trove::ID iTrove, Trove& t, Trove::ID iPrev)
     {
         Strict::Add(m_Troves.m_Totals.Tok, t.m_Amounts.Tok);
@@ -226,8 +216,12 @@ struct MyGlobal
         {
             Trove tPrev;
             tk.m_iTrove = iPrev;
-            int iCmp = TroveLoadCmp(tk, tPrev, t);
+            Env::Halt_if(!Env::LoadVar_T(tk, tPrev));
 
+            EpochStorageRedist storR;
+            auto vals = m_RedistPool.get_UpdatedAmounts(tPrev, storR);
+
+            int iCmp = vals.CmpRcr(t.m_Amounts);
             Env::Halt_if(iCmp > 0);
 
             t.m_iNext = tPrev.m_iNext;
@@ -240,15 +234,6 @@ struct MyGlobal
         {
             t.m_iNext = m_Troves.m_iHead;
             m_Troves.m_iHead = iTrove;
-        }
-
-        if (t.m_iNext)
-        {
-            Trove tNext;
-            tk.m_iTrove = t.m_iNext;
-            int iCmp = TroveLoadCmp(tk, tNext, t);
-
-            Env::Halt_if(iCmp < 0);
         }
 
         tk.m_iTrove = iTrove;
