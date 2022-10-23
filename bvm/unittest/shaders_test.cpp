@@ -1394,30 +1394,11 @@ namespace bvm2 {
 
 			uint32_t m_iTrove;
 			Shaders::Nephrite::Float m_Rcr;
-			bool operator < (const Entry& x) const
-			{
-				if (m_Rcr.IsZero())
-					return false;
-				if (x.m_Rcr.IsZero())
-					return true;
-				return m_Rcr < x.m_Rcr;
-			}
-
 		};
 
 		std::vector<Entry> m_Troves;
-		uint32_t FindPrev(const Shaders::Nephrite::Pair& vals, size_t i0 = 0) const
-		{
-			auto rcr = vals.get_Rcr();
-			for (size_t i = m_Troves.size(); i-- > i0; )
-			{
-				const auto& x = m_Troves[i];
-				if (x.m_Rcr <= rcr)
-					return x.m_iTrove;
-			}
-
-			return 0;
-		}
+		uint32_t m_ActiveTroves = 0;
+		uint32_t m_iHeadTrove = 0;
 
 		void PrintAll()
 		{
@@ -1467,7 +1448,7 @@ namespace bvm2 {
 
 			std::cout << "Totals Tok=" << Val2Num(g.m_Troves.m_Totals.Tok) << ", Col=" << Val2Num(g.m_Troves.m_Totals.Col) << std::endl;
 			std::cout << "TCR = " << (ToDouble(price.ToCR(g.m_Troves.m_Totals.get_Rcr())) * 100.) << "" << std::endl;
-			std::cout << "RedistPool Tok=" << Val2Num(totalRedist.Tok) << ", Col=" << Val2Num(totalRedist.Col) << std::endl;
+			std::cout << "RedistPool iActive=" << g.m_RedistPool.m_iActive << ", Tok=" << Val2Num(totalRedist.Tok) << ", Col=" << Val2Num(totalRedist.Col) << std::endl;
 			std::cout << "StabPool Tok=" << Val2Num(totalStab.Tok) << ", Col=" << Val2Num(totalStab.Col) << std::endl;
 			std::cout << "kRate = " << ToDouble(g.m_BaseRate.m_k) * 100. << "%" << std::endl;
 
@@ -1501,10 +1482,12 @@ namespace bvm2 {
 
 			Amount totalCol = totalRedist.Col;
 
+			Pair valsTroves = { 0 };
+
 			m_Troves.clear();
 			m_Troves.resize(g.m_Troves.m_iLastCreated);
 
-			uint32_t nActiveTroves = 0;
+			m_ActiveTroves = 0;
 			for (KeyWalker_T<Shaders::Nephrite::Trove::Key, Shaders::Nephrite::Trove> wlk(m_Proc, m_Proc.m_Nephrite.m_Cid, Shaders::Nephrite::Tags::s_Trove); wlk.MoveNext(); )
 			{
 				auto iTrove = wlk.m_pKey->m_KeyInContract.m_iTrove; // not stored in BE form
@@ -1518,9 +1501,15 @@ namespace bvm2 {
 				x.m_Amounts = g.m_RedistPool.get_UpdatedAmounts(x, storRedist);
 				x.m_Rcr = x.m_Amounts.get_Rcr();
 
-				nActiveTroves++;
+				valsTroves.Tok += x.m_Amounts.Tok;
+				valsTroves.Col += x.m_Amounts.Col;
 
+				m_ActiveTroves++;
 			}
+
+			int64_t dTok = g.m_Troves.m_Totals.Tok - valsTroves.Tok;
+			int64_t dCol = g.m_Troves.m_Totals.Col - valsTroves.Col;
+			std::cout << "RedistPool delta Tok=" << dTok << ", Col=" << dCol << std::endl;
 			
 			verify_test(g.m_Troves.m_Totals.Col == totalCol);
 
@@ -1536,22 +1525,16 @@ namespace bvm2 {
 				verify_test(!x.m_iTrove); // ensure no loops
 				x.m_iTrove = iTrove;
 
+				std::cout << "\tiTrove=" << x.m_iTrove <<  ", Tok=" << Val2Num(x.m_Amounts.Tok) << ", Col=" << Val2Num(x.m_Amounts.Col)
+					<< ", CR = " << (ToDouble(price.ToCR(x.m_Rcr)) * 100.) << "" << std::endl;
+
 				verify_test(rcrPrev <= x.m_Rcr);
 				rcrPrev = x.m_Rcr;
 
 				iTrove = x.m_iNext;
 			}
-			verify_test(nCount == nActiveTroves);
-
-			std::sort(m_Troves.begin(), m_Troves.end());
-			m_Troves.resize(nCount);
-
-			for (uint32_t i = 0; i < nCount; i++)
-			{
-				const auto& x = m_Troves[i];
-				std::cout << "\tiTrove=" << x.m_iTrove <<  ", Tok=" << Val2Num(x.m_Amounts.Tok) << ", Col=" << Val2Num(x.m_Amounts.Col)
-					<< ", CR = " << (ToDouble(price.ToCR(x.m_Rcr)) * 100.) << "" << std::endl;
-			}
+			verify_test(nCount == m_ActiveTroves);
+			m_iHeadTrove = g.m_Troves.m_iHead;
 
 		}
 
@@ -1754,10 +1737,12 @@ namespace bvm2 {
 			lc.PrintAll();
 		}
 
-		while (!lc.m_Troves.empty())
+		while (lc.m_ActiveTroves)
 		{
-			size_t iIdx = lc.m_Troves.size() / 2;
-			auto iTrove = lc.m_Troves[iIdx].m_iTrove;
+			auto iTrove = lc.m_iHeadTrove;
+
+			for (uint32_t iMid = lc.m_ActiveTroves / 2; iMid--; )
+				iTrove = lc.m_Troves[iTrove - 1].m_iNext;
 
 			man.m_pPKdf = ppKdf[iTrove - 1];
 
