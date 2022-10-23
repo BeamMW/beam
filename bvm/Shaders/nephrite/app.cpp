@@ -311,6 +311,89 @@ struct AppGlobal
     };
 };
 
+namespace Charge
+{
+    uint32_t StdCall_RO()
+    {
+        return
+            Env::Cost::CallFar +
+            Env::Cost::LoadVar_For(sizeof(Global));
+    }
+
+    static uint32_t StdCall()
+    {
+        return
+            StdCall_RO() +
+            Env::Cost::SaveVar_For(sizeof(Global));
+    }
+
+    static uint32_t BankDeposit()
+    {
+        return
+            Env::Cost::LoadVar_For(sizeof(Balance)) +
+            Env::Cost::SaveVar_For(sizeof(Balance)) +
+            Env::Cost::Cycle * 50;
+    }
+
+    static uint32_t BankWithdraw()
+    {
+        return
+            Env::Cost::LoadVar_For(sizeof(Balance)) +
+            Env::Cost::SaveVar + // assume no balance after withdraw
+            Env::Cost::Cycle * 50;
+    }
+
+    static const uint32_t RedistPoolOp =
+        Env::Cost::Cycle * 1500;
+
+    static uint32_t TrovePull0()
+    {
+        return
+            Env::Cost::LoadVar_For(sizeof(Trove)) +
+            RedistPoolOp;
+    }
+
+    static uint32_t TrovePull(Trove::ID iPrev)
+    {
+        uint32_t nRet = TrovePull0();
+
+        if (iPrev)
+        {
+            nRet += 
+                Env::Cost::LoadVar_For(sizeof(Trove)) +
+                Env::Cost::SaveVar_For(sizeof(Trove));
+        }
+
+        return nRet;
+    }
+
+    static const uint32_t TrovePushCheck1 =
+        Env::Cost::Cycle * 200;
+
+
+    static const uint32_t get_SendProfit()
+    {
+        return
+            Env::Cost::Cycle * 100 +
+            Env::Cost::CallFar +
+            Env::Cost::FundsLock;
+    }
+
+    static const uint32_t StabPoolOp0 =
+        Env::Cost::Cycle * 1500;
+
+    static const uint32_t Price()
+    {
+        return
+            Env::Cost::CallFar +
+            Env::Cost::LoadVar_For(sizeof(Oracle2::Median)) +
+            Env::Cost::Cycle * 50;
+    }
+
+    static const uint32_t TroveTest =
+        Env::Cost::Cycle * 1000;
+}
+
 struct AppGlobalPlus
     :public AppGlobal
 {
@@ -378,7 +461,6 @@ struct AppGlobalPlus
     {
         Pair m_Amounts;
         Amount m_Gov;
-        uint32_t m_Charge;
     } m_MyStab;
 
     Trove& get_T(Trove::ID iTrove)
@@ -513,32 +595,62 @@ struct AppGlobalPlus
         return false;
     }
 
-    Trove::ID PushTrove(const Pair& tVals)
+    Trove::ID PushTrove(Trove& t, Trove::ID tid, uint32_t& nCharge)
     {
+        nCharge +=
+            Env::Cost::SaveVar_For(sizeof(Trove)) +
+            Charge::RedistPoolOp;
+
+        uint32_t nCharge0 = m_EpochStorageRedist.m_Charge;
+
         Trove::ID iPrev1 = 0;
         for (Trove::ID iT = m_Troves.m_iHead; iT; )
         {
             const Trove& t1 = get_T(iT);
 
             auto vals = m_RedistPool.get_UpdatedAmounts(t1, m_EpochStorageRedist);
-            if (vals.CmpRcr(tVals) >= 0)
-                break;
+            if (vals.CmpRcr(t.m_Amounts) >= 0)
+            {
+                nCharge +=
+                    Charge::TrovePull0() +
+                    Charge::TrovePushCheck1;
 
+                t.m_iNext = iT;
+                break;
+            }
+
+            m_EpochStorageRedist.m_Charge = nCharge0;
             iPrev1 = iT;
             iT = t1.m_iNext;
         }
 
-        // no need to modify list, we're not doing anything with it further. Just update totals
-        m_Troves.m_Totals.Tok += tVals.Tok;
-        m_Troves.m_Totals.Col += tVals.Col;
+        m_Troves.m_Totals.Tok += t.m_Amounts.Tok;
+        m_Troves.m_Totals.Col += t.m_Amounts.Col;
+
+        if (iPrev1)
+        {
+            Trove& t0 = get_T(iPrev1);
+            auto vals = m_RedistPool.get_UpdatedAmounts(t0, m_EpochStorageRedist);
+
+            nCharge +=
+                Charge::TrovePull0() +
+                Charge::TrovePushCheck1 +
+                Env::Cost::SaveVar_For(sizeof(Trove));
+
+            t0.m_iNext = tid;
+        }
+        else
+            m_Troves.m_iHead = tid;
+
+        nCharge += (m_EpochStorageRedist.m_Charge - nCharge0);
 
         return iPrev1;
     }
 
-    Trove::ID PushMyTrove()
+    Trove::ID PushMyTrove(uint32_t& nCharge)
     {
         assert(m_MyTrove.m_pT);
-        return PushTrove(m_MyTrove.m_pT->m_Amounts);
+        return PushTrove(*m_MyTrove.m_pT, m_MyTrove.m_iT, nCharge);
     }
 
     bool PopMyStab()
@@ -553,7 +665,6 @@ struct AppGlobalPlus
         StabPoolEntry e;
         if (!Env::VarReader::Read_T(k, e))
         {
-            m_MyStab.m_Charge = 0;
             m_MyStab.m_Gov = 0;
             return false;
         }
@@ -564,56 +675,77 @@ struct AppGlobalPlus
         m_MyStab.m_Amounts.Tok = out.m_Sell;
         m_MyStab.m_Amounts.Col = out.m_pBuy[0];
         m_MyStab.m_Gov = out.m_pBuy[1];
-        m_MyStab.m_Charge = m_EpochStorageStab.m_Charge;
 
         return true;
     }
 
-    static void Flow2Fc(FundsChange& fc, const Flow& f, AssetID aid)
+    static void AdjustChargeFunds(const FundsChange& fc, uint32_t& nCharge)
+    {
+        if (fc.m_Amount)
+            nCharge += Env::Cost::FundsLock;
+    }
+
+    static void Flow2Fc(FundsChange& fc, const Flow& f, AssetID aid, uint32_t& nCharge)
     {
         fc.m_Amount = f.m_Val;
         fc.m_Consume = f.m_Spend;
         fc.m_Aid = aid;
+
+        AdjustChargeFunds(fc, nCharge);
     }
 
-    void Flow2Fc(FundsChange* pFc, const FlowPair& fp)
+    void Flow2Fc(FundsChange* pFc, const FlowPair& fp, uint32_t& nCharge)
     {
-        Flow2Fc(pFc[0], fp.Tok, m_Aid);
-        Flow2Fc(pFc[1], fp.Col, 0);
+        Flow2Fc(pFc[0], fp.Tok, m_Aid, nCharge);
+        Flow2Fc(pFc[1], fp.Col, 0, nCharge);
     }
 
-    void UseBalance(Method::BaseTx& tx)
+    bool PrepareBalanceTx(Method::BaseTx& tx, FundsChange* pFc, uint32_t& nCharge)
     {
-        tx.m_Flow.Tok.Add(m_Balance.m_Amounts.Tok, 0);
-        tx.m_Flow.Col.Add(m_Balance.m_Amounts.Col, 0);
+        bool bUseBank = m_Balance.m_Amounts.Tok || m_Balance.m_Amounts.Col;
+        if (bUseBank)
+        {
+            tx.m_Flow.Tok.Add(m_Balance.m_Amounts.Tok, 0);
+            tx.m_Flow.Col.Add(m_Balance.m_Amounts.Col, 0);
+
+            nCharge += Charge::BankWithdraw();
+        }
+
+        Flow2Fc(pFc, tx.m_Flow, nCharge);
+
+        nCharge += Env::Cost::AddSig;
+
+        return bUseBank;
     }
 
-    void PrepareBalanceTx(Method::BaseTx& tx, FundsChange* pFc)
+    bool PrepareTroveTx(Method::BaseTxUser& tx, FundsChange* pFc, uint32_t& nCharge)
     {
-        UseBalance(tx);
-        Flow2Fc(pFc, tx.m_Flow);
-    }
-
-    void PrepareTroveTx(Method::BaseTxUser& tx, FundsChange* pFc)
-    {
-        PrepareBalanceTx(tx, pFc);
         _POD_(tx.m_pkUser) = m_Pk;
+        return PrepareBalanceTx(tx, pFc, nCharge);
     }
 
-    void PrepareTroveTx(Method::BaseTxTrove& tx, FundsChange* pFc)
+    bool PrepareTroveTx(Method::BaseTxTrove& tx, FundsChange* pFc, uint32_t& nCharge)
     {
-        PrepareBalanceTx(tx, pFc);
         tx.m_iPrev0 = m_MyTrove.m_iPrev0;
+        return PrepareBalanceTx(tx, pFc, nCharge);
     }
 
-    void PrepareTroveTxGov(Method::BaseTxUserGov& tx, FundsChange* pFc)
+    bool PrepareTroveTxGov(Method::BaseTxUserGov& tx, FundsChange* pFc, uint32_t& nCharge)
     {
-        PrepareTroveTx(tx, pFc);
+        bool bUseBank = PrepareTroveTx(tx, pFc, nCharge);
 
         tx.m_GovPull += m_Balance.m_Gov;
         pFc[2].m_Amount = tx.m_GovPull;
         pFc[2].m_Aid = m_Settings.m_AidGov;
         pFc[2].m_Consume = 0;
+
+        if (m_Balance.m_Gov && !bUseBank)
+        {
+            bUseBank = true;
+            nCharge += Charge::BankWithdraw();
+        }
+
+        return bUseBank;
     }
 
     void OnTroveMove(Method::BaseTx& tx, uint8_t bPop)
@@ -770,123 +902,6 @@ ON_METHOD(user, view)
     PrintSurplus("surplus_s", g);
 }
 
-namespace Charge
-{
-    uint32_t StdCall_RO()
-    {
-        return
-            Env::Cost::CallFar +
-            Env::Cost::LoadVar_For(sizeof(Global));
-    }
-
-    static uint32_t StdCall()
-    {
-        return
-            StdCall_RO() +
-            Env::Cost::SaveVar_For(sizeof(Global));
-    }
-
-    static uint32_t BankAccess_NoSig()
-    {
-        return
-            Env::Cost::LoadVar_For(sizeof(Balance)) +
-            Env::Cost::SaveVar_For(sizeof(Balance)) +
-            Env::Cost::Cycle * 50;
-    }
-
-    static uint32_t BankAccess()
-    {
-        return
-            BankAccess_NoSig() +
-            Env::Cost::AddSig;
-    }
-
-    static uint32_t Funds(const Method::BaseTx& tx)
-    {
-        return Env::Cost::FundsLock * ((!!tx.m_Flow.Tok.m_Val) + (!!tx.m_Flow.Col.m_Val));
-    }
-
-    static uint32_t Funds(const Method::BaseTxUserGov& tx)
-    {
-        auto ret = Funds(Cast::Down<Method::BaseTx>(tx));
-        return tx.m_GovPull ? (ret + Env::Cost::FundsLock) : ret;
-    }
-
-
-    static const uint32_t RedistPoolOp =
-        Env::Cost::Cycle * 1000;
-
-    static uint32_t TrovePull0()
-    {
-        return
-            Env::Cost::LoadVar_For(sizeof(Trove)) +
-            RedistPoolOp;
-    }
-
-    static uint32_t TrovePull(Trove::ID iPrev)
-    {
-        uint32_t nRet = TrovePull0();
-
-        if (iPrev)
-        {
-            nRet += 
-                Env::Cost::LoadVar_For(sizeof(Trove)) +
-                Env::Cost::SaveVar_For(sizeof(Trove));
-        }
-
-        return nRet;
-    }
-
-    static const uint32_t TrovePushCheck1 =
-        Env::Cost::Cycle * 200;
-
-    static uint32_t TrovePush(Trove::ID iPrev, Trove::ID iNext)
-    {
-        uint32_t nRet =
-            Env::Cost::SaveVar_For(sizeof(Trove)) +
-            RedistPoolOp;
-
-        if (iPrev)
-        {
-            nRet +=
-                TrovePull0() +
-                TrovePushCheck1 +
-                Env::Cost::SaveVar_For(sizeof(Trove));
-        }
-
-        if (iNext)
-        {
-            nRet +=
-                TrovePull0() +
-                TrovePushCheck1;
-        }
-
-        return nRet;
-
-    }
-
-    static const uint32_t get_SendProfit()
-    {
-        return
-            Env::Cost::Cycle * 100 +
-            Env::Cost::CallFar +
-            Env::Cost::FundsLock;
-    }
-
-    static const uint32_t StabPoolOp0 =
-        Env::Cost::Cycle * 1000;
-
-    static const uint32_t Price()
-    {
-        return
-            Env::Cost::CallFar +
-            Env::Cost::LoadVar_For(sizeof(Oracle2::Median)) +
-            Env::Cost::Cycle * 50;
-    }
-
-    static const uint32_t TroveTest =
-        Env::Cost::Cycle * 1000;
-}
 
 ON_METHOD(user, withdraw_surplus)
 {
@@ -904,14 +919,12 @@ ON_METHOD(user, withdraw_surplus)
     _POD_(args.m_Flow).SetZero();
     args.m_GovPull = 0;
 
-    FundsChange pFc[3];
-    g.PrepareTroveTxGov(args, pFc);
-
-    const uint32_t nCharge =
+    uint32_t nCharge =
         Charge::StdCall_RO() + // load global, but no modify/save
-        Charge::BankAccess() +
-        Charge::Funds(args) +
         Env::Cost::Cycle * 50;
+
+    FundsChange pFc[3];
+    g.PrepareTroveTxGov(args, pFc, nCharge);
 
     Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "surplus withdraw", nCharge);
 }
@@ -939,18 +952,16 @@ ON_METHOD(user, upd_stab)
     args.m_NewAmount = newVal;
     args.m_GovPull = g.m_MyStab.m_Gov;
 
-    FundsChange pFc[3];
-    g.PrepareTroveTxGov(args, pFc);
-
     uint32_t nCharge =
         Charge::StdCall() +
-        Charge::BankAccess() +
-        Charge::Funds(args) +
         Env::Cost::LoadVar_For(sizeof(StabPoolEntry)) +
         Env::Cost::SaveVar_For(sizeof(StabPoolEntry)) +
         Charge::StabPoolOp0 * 2 + // account for reward calculation
-        g.m_MyStab.m_Charge +
+        g.m_EpochStorageStab.m_Charge +
         Env::Cost::Cycle * 100;
+
+    FundsChange pFc[3];
+    g.PrepareTroveTxGov(args, pFc, nCharge);
 
     if (newVal < g.m_MyStab.m_Amounts.Tok && g.m_Troves.m_iHead)
     {
@@ -958,10 +969,22 @@ ON_METHOD(user, upd_stab)
         if (!g.TestHaveValidPrice())
             return;
 
-        // verification that 1st trove can't be liquidated
+        // verification that 1st trove can't be liquidated.
+        // Note: we didn't load all the troves (that'd be unnecessary), hence let's load it ourselves
+
+        Env::Key_T<Trove::Key> kt;
+        _POD_(kt.m_Prefix.m_Cid) = cid;
+        kt.m_KeyInContract.m_iTrove = g.m_Troves.m_iHead;
+
+        Trove tHead;
+        Env::Halt_if(!Env::VarReader::Read_T(kt, tHead));
+
+        g.m_RedistPool.Remove(tHead, g.m_EpochStorageRedist);
+
         nCharge +=
             Charge::Price() +
             Charge::TrovePull0() +
+            g.m_EpochStorageRedist.m_Charge +
             Charge::TroveTest;
     }
 
@@ -1010,13 +1033,15 @@ ON_METHOD(user, trove_modify)
 
     uint32_t nCharge =
         Charge::StdCall() +
-        Charge::BankAccess() +
         Env::Cost::Cycle * 200;
 
     bool bPopped = g.PopMyTrove();
     if (bPopped)
     {
-        nCharge += Charge::TrovePull(g.m_MyTrove.m_iPrev0);
+        nCharge +=
+            Charge::TrovePull(g.m_MyTrove.m_iPrev0) +
+            g.m_EpochStorageRedist.m_Charge;
+
         g.OnTroveMove(txb, 1);
     }
     else
@@ -1067,8 +1092,7 @@ ON_METHOD(user, trove_modify)
             return OnError("min tok required");
 
         auto totals0 = g.m_Troves.m_Totals;
-        auto iPrev1 = g.PushMyTrove();
-        auto iNext1 = iPrev1 ? g.get_T(iPrev1).m_iNext : g.m_Troves.m_iHead;
+        auto iPrev1 = g.PushMyTrove(nCharge);
 
         bool bRecovery = g.IsRecovery(g.m_Price);
         if (g.IsTroveUpdInvalid(t, totals0, g.m_Price, bRecovery))
@@ -1088,9 +1112,7 @@ ON_METHOD(user, trove_modify)
 
         nCharge +=
             Charge::Price() +
-            Charge::TroveTest +
-            Charge::TrovePush(iPrev1, iNext1) +
-            Charge::Funds(txb);
+            Charge::TroveTest;
 
         if (bPopped)
         {
@@ -1099,7 +1121,7 @@ ON_METHOD(user, trove_modify)
 
             args.m_Amounts = t.m_Amounts;
             args.m_iPrev1 = iPrev1;
-            g.PrepareTroveTx(args, pFc);
+            g.PrepareTroveTx(args, pFc, nCharge);
 
             if (!bPredictOnly)
                 Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "trove modify", nCharge);
@@ -1111,7 +1133,7 @@ ON_METHOD(user, trove_modify)
 
             args.m_Amounts = t.m_Amounts;
             args.m_iPrev1 = iPrev1;
-            g.PrepareTroveTx(args, pFc);
+            g.PrepareTroveTx(args, pFc, nCharge);
 
             if (!bPredictOnly)
                 Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "trove open", nCharge);
@@ -1135,11 +1157,9 @@ ON_METHOD(user, trove_modify)
         Method::TroveClose args;
         Cast::Down<Method::BaseTx>(args) = txb;
         
-        g.PrepareTroveTx(args, pFc);
+        g.PrepareTroveTx(args, pFc, nCharge);
 
-        nCharge +=
-            Env::Cost::SaveVar +
-            Charge::Funds(txb);
+        nCharge += Env::Cost::SaveVar;
 
         if (!bPredictOnly)
             Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), &g.m_Kid, 1, "trove close", nCharge);
@@ -1181,11 +1201,16 @@ ON_METHOD(user, liquidate)
     {
         Pair totals0 = g.m_Troves.m_Totals;
         auto& t = g.get_T(g.m_Troves.m_iHead);
+
+        uint32_t nCharge0 = g.m_EpochStorageRedist.m_Charge;
         g.PopTrove(0, t);
 
         Amount valSurplus = 0;
         if (!g.LiquidateTrove(t, totals0, ctx, valSurplus))
+        {
+            g.m_EpochStorageRedist.m_Charge = nCharge0;
             break;
+        }
 
         nCharge +=
             Charge::TrovePull0() +
@@ -1201,13 +1226,13 @@ ON_METHOD(user, liquidate)
         if (s0Redist != sRedist)
         {
             s0Redist = sRedist;
-            nCharge += Charge::StabPoolOp0;
+            nCharge += Charge::RedistPoolOp;
         }
 
         if (valSurplus)
         {
             nCharge +=
-                Charge::BankAccess_NoSig() +
+                Charge::BankDeposit() +
                 Env::Cost::Cycle * 500; // surplus calculation
         }
 
@@ -1234,12 +1259,10 @@ ON_METHOD(user, liquidate)
         if (ctx.m_Redist)
         {
             g.m_RedistPool.MaybeSwitchEpoch(g.m_EpochStorageRedist);
-
-            nCharge +=
-                g.m_EpochStorageRedist.m_Charge +
-                Env::Cost::Cycle * 100;
-
+            nCharge += Env::Cost::Cycle * 100;
         }
+
+        nCharge += g.m_EpochStorageRedist.m_Charge; // both epoch switch and troves pulling
 
         if (ctx.m_Stab)
         {
@@ -1249,7 +1272,6 @@ ON_METHOD(user, liquidate)
                 g.m_EpochStorageStab.m_Charge +
                 Env::Cost::AssetEmit +
                 Env::Cost::Cycle * 100;
-
         }
 
         Method::Liquidate args;
@@ -1258,10 +1280,7 @@ ON_METHOD(user, liquidate)
         args.m_Count = nCount;
 
         FundsChange pFc[2];
-        g.Flow2Fc(pFc, args.m_Flow);
-
-        nCharge +=
-            Charge::Funds(args);
+        g.Flow2Fc(pFc, args.m_Flow, nCharge);
 
         Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), nullptr, 0, "troves liquidate", nCharge);
     }
@@ -1294,7 +1313,10 @@ ON_METHOD(user, redeem)
 
     while (g.m_Troves.m_iHead && ctx.m_TokRemaining)
     {
-        auto& t = g.get_T(g.m_Troves.m_iHead);
+        Trove::ID tid = g.m_Troves.m_iHead;
+        auto& t = g.get_T(tid);
+
+        uint32_t nCharge0 = g.m_EpochStorageRedist.m_Charge;
         g.PopTrove(0, t);
 
         nCharge +=
@@ -1303,21 +1325,21 @@ ON_METHOD(user, redeem)
             Env::Cost::Cycle * 800;
 
         if (!g.RedeemTrove(t, ctx))
+        {
+            g.m_EpochStorageRedist.m_Charge = nCharge0;
             break;
+        }
 
         if (t.m_Amounts.Tok)
         {
             assert(!ctx.m_TokRemaining);
-            iPrev1 = g.PushTrove(t.m_Amounts);
-
-            auto iNext1 = iPrev1 ? g.get_T(iPrev1).m_iNext : g.m_Troves.m_iHead;
-            nCharge += Charge::TrovePush(iPrev1, iNext1);
+            iPrev1 = g.PushTrove(t, tid, nCharge);
         }
         else
         {
-            nCharge
-                += Env::Cost::SaveVar + // del trove
-                Charge::BankAccess_NoSig(); // surplus
+            nCharge +=
+                Env::Cost::SaveVar + // del trove
+                Charge::BankDeposit(); // surplus
         }
     }
 
@@ -1348,11 +1370,11 @@ ON_METHOD(user, redeem)
         args.m_iPrev1 = iPrev1;
 
         FundsChange pFc[2];
-        g.Flow2Fc(pFc, args.m_Flow);
+        g.Flow2Fc(pFc, args.m_Flow, nCharge);
 
         nCharge +=
-            Charge::Funds(args) +
-            Env::Cost::AssetEmit; // comission
+            g.m_EpochStorageRedist.m_Charge +
+            Env::Cost::AssetEmit;
 
         Env::GenerateKernel(&cid, args.s_iMethod, &args, sizeof(args), pFc, _countof(pFc), nullptr, 0, "redeem", nCharge);
     }
