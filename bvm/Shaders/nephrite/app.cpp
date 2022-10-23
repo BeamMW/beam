@@ -1190,12 +1190,7 @@ ON_METHOD(user, liquidate)
 
 
     uint32_t nCount = 0;
-    bool bSelf = false;
-
-    Amount& sStab = g.m_StabPool.m_Active.m_Sell; // alias
-    Amount& sRedist = g.m_RedistPool.m_Active.m_Sell;
-    Amount s0Stab = sStab;
-    Amount s0Redist = sRedist;
+    bool bSelf = false, bRedist = false, bStab = false;
 
     while (g.m_Troves.m_iHead)
     {
@@ -1204,6 +1199,9 @@ ON_METHOD(user, liquidate)
 
         uint32_t nCharge0 = g.m_EpochStorageRedist.m_Charge;
         g.PopTrove(0, t);
+
+        ctx.m_Redist = false;
+        ctx.m_Stab = false;
 
         Amount valSurplus = 0;
         if (!g.LiquidateTrove(t, totals0, ctx, valSurplus))
@@ -1217,16 +1215,16 @@ ON_METHOD(user, liquidate)
             Charge::TroveTest +
             Env::Cost::SaveVar; // trove del
 
-        if (s0Stab != sStab)
+        if (ctx.m_Stab)
         {
-            s0Stab = sStab;
             nCharge += Charge::StabPoolOp0;
+            bStab = true;
         }
 
-        if (s0Redist != sRedist)
+        if (ctx.m_Redist)
         {
-            s0Redist = sRedist;
             nCharge += Charge::RedistPoolOp;
+            bRedist = true;
         }
 
         if (valSurplus)
@@ -1256,7 +1254,7 @@ ON_METHOD(user, liquidate)
         if (!nCount)
             return OnError("no liquidations possible");
 
-        if (ctx.m_Redist)
+        if (bRedist)
         {
             g.m_RedistPool.MaybeSwitchEpoch(g.m_EpochStorageRedist);
             nCharge += Env::Cost::Cycle * 100;
@@ -1264,7 +1262,7 @@ ON_METHOD(user, liquidate)
 
         nCharge += g.m_EpochStorageRedist.m_Charge; // both epoch switch and troves pulling
 
-        if (ctx.m_Stab)
+        if (bStab)
         {
             g.m_StabPool.MaybeSwitchEpoch(g.m_EpochStorageStab);
 
