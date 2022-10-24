@@ -1253,7 +1253,7 @@ namespace bvm2 {
 			//bool bDelPrev = false;
 			for (KeyWalker_T<Balance::Key, Balance> wlk(m_Proc, m_Proc.m_Nephrite.m_Cid, Shaders::Nephrite::Tags::s_Balance); ; )
 			{
-				auto it = wlk.m_it;
+				//auto it = wlk.m_it;
 				bool bNext = wlk.MoveNext();
 
 				//if (bDelPrev)
