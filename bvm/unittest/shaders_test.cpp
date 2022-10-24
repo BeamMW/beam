@@ -1250,47 +1250,52 @@ namespace bvm2 {
 
 		void PrintBankExcess()
 		{
+			//bool bDelPrev = false;
 			for (KeyWalker_T<Balance::Key, Balance> wlk(m_Proc, m_Proc.m_Nephrite.m_Cid, Shaders::Nephrite::Tags::s_Balance); ; )
 			{
-				//auto it = wlk.m_it;
-				if (!wlk.MoveNext())
+				auto it = wlk.m_it;
+				bool bNext = wlk.MoveNext();
+
+				//if (bDelPrev)
+				//{
+				//	bDelPrev = false;
+				//	m_Proc.m_Vars.Delete(*it);
+				//}
+
+				if (!bNext)
 					break;
 
-				auto& vals = wlk.m_pVal->m_Amounts;
-				if (vals.Tok || vals.Col)
-				{
-					std::cout << "\tUser=" << wlk.m_pKey->m_KeyInContract.m_Pk
-						<< ", Tok=" << Val2Num(vals.Tok)
-						<< ", Col=" << Val2Num(vals.Col)
-						<< std::endl;
+				const auto& bal = *wlk.m_pVal;
+				verify_test(bal.m_Amounts.Tok || bal.m_Amounts.Col || bal.m_Gov);
 
-					vals.Tok = 0;
-					vals.Col = 0;
-				}
+				std::cout << "\tUser=" << wlk.m_pKey->m_KeyInContract.m_Pk
+					<< ", Tok=" << Val2Num(bal.m_Amounts.Tok)
+					<< ", Col=" << Val2Num(bal.m_Amounts.Col)
+					<< std::endl;
 
-				//m_Proc.m_Vars.erase(it);
+				//bDelPrev = true;
 			}
 		}
 
-		Balance ReadBalance(const Shaders::Env::Key_T<Balance::Key>& key)
-		{
-			Blob blVal;
-			m_Proc.LoadVar(Blob(&key, sizeof(key)), blVal);
-			if (sizeof(Balance) == blVal.n)
-				return *Cast::Reinterpret<Balance*>(blVal.p);
+		//Balance ReadBalance(const Shaders::Env::Key_T<Balance::Key>& key)
+		//{
+		//	Blob blVal;
+		//	m_Proc.LoadVar(Blob(&key, sizeof(key)), blVal);
+		//	if (sizeof(Balance) == blVal.n)
+		//		return *Cast::Reinterpret<Balance*>(blVal.p);
 
-			Balance x;
-			ZeroObject(x);
-			return x;
-		}
+		//	Balance x;
+		//	ZeroObject(x);
+		//	return x;
+		//}
 
-		void SetBalance(const Shaders::Env::Key_T<Balance::Key>& key, const Balance& x)
-		{
-			if (memis0(&x, sizeof(x)))
-				m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(nullptr, 0));
-			else
-				m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&x, sizeof(x)));
-		}
+		//void SetBalance(const Shaders::Env::Key_T<Balance::Key>& key, const Balance& x)
+		//{
+		//	if (memis0(&x, sizeof(x)))
+		//		m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(nullptr, 0));
+		//	else
+		//		m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&x, sizeof(x)));
+		//}
 
 		bool InvokeBase(Shaders::Nephrite::Method::BaseTx& args, uint32_t nSizeArgs, uint32_t iMethod, const PubKey& pkUser, uint32_t nChargeEst, bool bShouldUseVault)
 		{
@@ -1301,7 +1306,7 @@ namespace bvm2 {
 			key.m_Prefix.m_Cid = m_Proc.m_Nephrite.m_Cid;
 			key.m_KeyInContract.m_Pk = pkUser;
 
-			Balance ub0 = ReadBalance(key);
+			//Balance ub0 = ReadBalance(key);
 
 			std::cout << "\tUser=" << pkUser
 				<< ", Tok=" << Flow2Num(args.m_Flow.Tok)
@@ -1325,11 +1330,11 @@ namespace bvm2 {
 			std::cout << "Estimated charge: " << nChargeEst << std::endl;
 			verify_test(nChargeEst >= Limits::BlockCharge - m_Proc.m_Charge);
 
-			// verify the init-guess
-			Balance ub1 = ReadBalance(key);
-			verify_test(ub1.m_Amounts.Tok == ub0.m_Amounts.Tok + valTok);
-			verify_test(ub1.m_Amounts.Col == ub0.m_Amounts.Col + valCol);
-			SetBalance(key, ub0);
+			//// verify the init-guess
+			//Balance ub1 = ReadBalance(key);
+			//verify_test(ub1.m_Amounts.Tok == ub0.m_Amounts.Tok + valTok);
+			//verify_test(ub1.m_Amounts.Col == ub0.m_Amounts.Col + valCol);
+			//SetBalance(key, ub0);
 
 			PrintBankExcess();
 			return true;
@@ -1772,6 +1777,24 @@ namespace bvm2 {
 			verify_test(lc.InvokeTx(args, pPk[iTrove - 1], man.m_Charge));
 
 			std::cout << "Trove closing" << std::endl;
+			lc.PrintAll();
+		}
+
+		// withdraw the surplus
+		for (uint32_t i = 0; i < s_Users; i++)
+		{
+			man.m_pPKdf = ppKdf[i];
+
+			man.m_Args["action"] = "withdraw_surplus";
+			man.m_Args["newVal"] = "0";
+
+			Shaders::Nephrite::Method::FundsAccess args;
+			if (!man.RunGuarded_T(args))
+				continue;
+
+			verify_test(lc.InvokeTxUser(args, man.m_Charge));
+
+			std::cout << "User " << i << " surplus out" << std::endl;
 			lc.PrintAll();
 		}
 /*
