@@ -74,6 +74,10 @@ namespace beam::bvm2
 	{
 		BlobMap::Set m_Vars;
 
+		bool m_LogIO = false;
+		bool m_LogCalls = true;
+		bool m_LogExc = true;
+
 		struct Action
 			:public boost::intrusive::list_base_hook<>
 		{
@@ -95,6 +99,42 @@ namespace beam::bvm2
 			}
 		}
 
+		void LogIO(const Blob& key, const Blob& val, char ch)
+		{
+			if (m_LogIO && (key.n > ContractID::nBytes))
+			{
+				auto pPtr = reinterpret_cast<const uint8_t*>(key.p) + ContractID::nBytes;
+
+				std::ostringstream os;
+				os << " " << ch << ' ';
+
+				bool bWriteCid = true;
+				if (!m_FarCalls.m_Stack.empty())
+				{
+					const auto& cidRef = m_FarCalls.m_Stack.front().m_Cid;
+					if (!memcmp(cidRef.m_pData, key.p, cidRef.nBytes))
+						bWriteCid = false;
+				}
+
+				if (bWriteCid)
+				{
+					uintBigImpl::_Print(pPtr - ContractID::nBytes, ContractID::nBytes, os);
+					os << ':';
+				}
+				os << ((uint32_t)pPtr[0]) << '-';
+
+				uintBigImpl::_PrintFull(pPtr + 1, key.n - (ContractID::nBytes + 1), os);
+
+				if (val.n)
+				{
+					os << ", V=";
+					uintBigImpl::_PrintFull(reinterpret_cast<const uint8_t*>(val.p), val.n, os);
+				}
+				os << std::endl;
+
+				std::cout << os.str();
+			}
+		}
 
 		virtual void LoadVar(const Blob& key, Blob& res) override
 		{
@@ -103,6 +143,8 @@ namespace beam::bvm2
 				res = pE->m_Data;
 			else
 				res.n = 0;
+
+			LogIO(key, res, 'R');
 		}
 
 		virtual void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) override
@@ -118,8 +160,15 @@ namespace beam::bvm2
 				key.n = 0;
 				res.n = 0;
 			}
+
+			LogIO(key, res, 'R');
 		}
 
+		uint32_t OnLog(const Blob& key, const Blob& val) override
+		{
+			LogIO(key, val, 'E');
+			return 0;
+		}
 
 		struct Action_Var
 			:public Action
@@ -135,6 +184,8 @@ namespace beam::bvm2
 
 		virtual uint32_t SaveVar(const Blob& key, const Blob& val) override
 		{
+			LogIO(key, val, 'W');
+
 			auto pUndo = std::make_unique<Action_Var>();
 			uint32_t nRet = SaveVar2(key, val, pUndo.get());
 
@@ -370,7 +421,8 @@ namespace beam::bvm2
 			CallFarN(cid, iMethod, Cast::NotConst(args.p), args.n, 0);
 
 			os << "Done in " << m_Cycles << " cycles, Discharge=" << (Limits::BlockCharge - m_Charge) << std::endl << std::endl;
-			std::cout << os.str();
+			if (m_LogCalls)
+				std::cout << os.str();
 		}
 
 		bool RunGuarded(const ContractID& cid, uint32_t iMethod, const Blob& args, const Blob* pCode)
@@ -394,11 +446,15 @@ namespace beam::bvm2
 					SaveVar(cid, Blob(nullptr, 0));
 
 			}
-			catch (const std::exception& e) {
-				std::cout << "*** Shader Execution failed. Undoing changes" << std::endl;
-				std::cout << e.what();
-				DumpCallstack(std::cout);
-				std::cout << std::endl;
+			catch (const std::exception& e)
+			{
+				if (m_LogExc)
+				{
+					std::cout << "*** Shader Execution failed. Undoing changes" << std::endl;
+					std::cout << e.what();
+					DumpCallstack(std::cout);
+					std::cout << std::endl;
+				}
 
 				UndoChanges(nChanges);
 				m_FarCalls.m_Stack.Clear();

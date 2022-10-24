@@ -799,6 +799,7 @@ namespace bvm2 {
 		MyProcessor& m_Proc;
 		std::ostringstream m_Out;
 		uint32_t m_Charge;
+		bool m_LogIO = false;
 
 		ByteBuffer m_bufCode;
 		Wasm::Compiler::DebugInfo m_DbgInfo;
@@ -876,6 +877,8 @@ namespace bvm2 {
 
 		void RunMany(uint32_t iMethod)
 		{
+			TemporarySwap ts(m_LogIO, m_Proc.m_LogIO);
+
 			ResetBase();
 			m_Code = m_bufCode;
 
@@ -1283,11 +1286,17 @@ namespace bvm2 {
 
 		void SetBalance(const Shaders::Env::Key_T<Balance::Key>& key, const Balance& x)
 		{
-			m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&x, sizeof(x)));
+			if (memis0(&x, sizeof(x)))
+				m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(nullptr, 0));
+			else
+				m_Proc.SaveVar(Blob(&key, sizeof(key)), Blob(&x, sizeof(x)));
 		}
 
 		bool InvokeBase(Shaders::Nephrite::Method::BaseTx& args, uint32_t nSizeArgs, uint32_t iMethod, const PubKey& pkUser, uint32_t nChargeEst, bool bShouldUseVault)
 		{
+			bool bLogIO = false;
+			TemporarySwap ts(m_Proc.m_LogIO, bLogIO);
+
 			Shaders::Env::Key_T<Balance::Key> key;
 			key.m_Prefix.m_Cid = m_Proc.m_Nephrite.m_Cid;
 			key.m_KeyInContract.m_Pk = pkUser;
@@ -1307,8 +1316,11 @@ namespace bvm2 {
 			args.m_Flow.Tok.Add(valTok, 1);
 			args.m_Flow.Col.Add(valCol, 1);
 
-			if (!m_Proc.RunGuarded(m_Proc.m_Nephrite.m_Cid, iMethod, Blob(&args, nSizeArgs), nullptr))
-				return false;
+			{
+				TemporarySwap ts2(m_Proc.m_LogIO, bLogIO);
+				if (!m_Proc.RunGuarded(m_Proc.m_Nephrite.m_Cid, iMethod, Blob(&args, nSizeArgs), nullptr))
+					return false;
+			}
 
 			std::cout << "Estimated charge: " << nChargeEst << std::endl;
 			verify_test(nChargeEst >= Limits::BlockCharge - m_Proc.m_Charge);
@@ -1402,6 +1414,9 @@ namespace bvm2 {
 
 		void PrintAll()
 		{
+			bool bLogIO = false;
+			TemporarySwap ts(m_Proc.m_LogIO, bLogIO);
+
 			Shaders::Nephrite::Global g;
 			{
 				Shaders::Env::Key_T<uint8_t> key;
