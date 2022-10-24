@@ -904,7 +904,7 @@ ON_METHOD(user, withdraw_surplus)
         return;
 
     if (!g.ReadBalanceAny())
-        OnError("no surplus");
+        return OnError("no surplus");
 
     const auto& v = g.m_Balance.m_Amounts;
     assert(v.Col || v.Tok || g.m_Balance.m_Gov);
@@ -915,7 +915,7 @@ ON_METHOD(user, withdraw_surplus)
 
     uint32_t nCharge =
         Charge::StdCall_RO() + // load global, but no modify/save
-        Env::Cost::Cycle * 50;
+        Env::Cost::Cycle * 300;
 
     FundsChange pFc[3];
     g.PrepareTroveTxGov(args, pFc, nCharge);
@@ -1353,7 +1353,7 @@ ON_METHOD(user, redeem)
     if (!bPredictOnly)
     {
         if (ctx.m_TokRemaining)
-            OnError("insufficient redeemable troves");
+            return OnError("insufficient redeemable troves");
 
         Method::Redeem args;
         _POD_(args.m_pkUser).SetZero();
