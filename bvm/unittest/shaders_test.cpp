@@ -1468,8 +1468,6 @@ namespace bvm2 {
 
 			std::cout << "Totals Tok=" << Val2Num(g.m_Troves.m_Totals.Tok) << ", Col=" << Val2Num(g.m_Troves.m_Totals.Col) << std::endl;
 			std::cout << "TCR = " << (ToDouble(price.ToCR(g.m_Troves.m_Totals.get_Rcr())) * 100.) << "" << std::endl;
-			std::cout << "RedistPool iActive=" << g.m_RedistPool.m_iActive << ", Tok=" << Val2Num(totalRedist.Tok) << ", Col=" << Val2Num(totalRedist.Col) << std::endl;
-			std::cout << "StabPool Tok=" << Val2Num(totalStab.Tok) << ", Col=" << Val2Num(totalStab.Col) << std::endl;
 			std::cout << "kRate = " << ToDouble(g.m_BaseRate.m_k) * 100. << "%" << std::endl;
 
 			{
@@ -1527,10 +1525,6 @@ namespace bvm2 {
 				m_ActiveTroves++;
 			}
 
-			int64_t dTok = g.m_Troves.m_Totals.Tok - valsTroves.Tok;
-			int64_t dCol = g.m_Troves.m_Totals.Col - valsTroves.Col;
-			std::cout << "RedistPool delta Tok=" << dTok << ", Col=" << dCol << std::endl;
-			
 			verify_test(g.m_Troves.m_Totals.Col == totalCol);
 
 			// check troves order
@@ -1555,6 +1549,42 @@ namespace bvm2 {
 			}
 			verify_test(nCount == m_ActiveTroves);
 			m_iHeadTrove = g.m_Troves.m_iHead;
+
+			// Stabpool positions
+			Pair valsStabs = { 0 };
+
+			for (KeyWalker_T<Shaders::Nephrite::StabPoolEntry::Key, Shaders::Nephrite::StabPoolEntry> wlk(m_Proc, m_Proc.m_Nephrite.m_Cid, Shaders::Nephrite::Tags::s_StabPool); wlk.MoveNext(); )
+			{
+				Shaders::Nephrite::ExchangePool::User::Out out;
+				g.m_StabPool.UserDel<true>(wlk.m_pVal->m_User, out, storStab);
+
+				std::cout << "\tStab User=" << wlk.m_pKey->m_KeyInContract.m_pkUser
+					<< ", Tok=" << Val2Num(out.m_Sell)
+					<< ", Col=" << Val2Num(out.m_pBuy[0])
+					<< std::endl;
+
+				valsStabs.Tok += out.m_Sell;
+				valsStabs.Col += out.m_pBuy[0];
+			}
+
+			int64_t dTok = g.m_Troves.m_Totals.Tok - valsTroves.Tok;
+			int64_t dCol = g.m_Troves.m_Totals.Col - valsTroves.Col;
+			verify_test((abs(dTok) < 100) && (abs(dCol) < 100));
+
+			std::cout << "RedistPool iActive=" << g.m_RedistPool.m_iActive
+				<< "\n\tTok=" << Val2Num(totalRedist.Tok) << ", Col=" << Val2Num(totalRedist.Col)
+				<< "\n\tDelta=[" << dTok << "," << dCol << "]"
+				<< std::endl;
+
+			dTok = totalStab.Tok - valsStabs.Tok;
+			dCol = totalStab.Col - valsStabs.Col;
+			verify_test((abs(dTok) < 100) && (abs(dCol) < 100));
+
+			std::cout << "StabPool iActive=" << g.m_StabPool.m_iActive
+				<< "\n\tTok=" << Val2Num(totalStab.Tok) << ", Col=" << Val2Num(totalStab.Col)
+				<< "\n\tDelta=[" << dTok << "," << dCol << "]"
+				<< std::endl;
+			
 
 		}
 
@@ -1719,7 +1749,6 @@ namespace bvm2 {
 		{
 			man.m_pPKdf = ppKdf[0];
 
-			man.m_Args["role"] = "user";
 			man.m_Args["action"] = "liquidate";
 			man.m_Args["nMaxTroves"] = "1";
 
@@ -1797,6 +1826,160 @@ namespace bvm2 {
 			std::cout << "User " << i << " surplus out" << std::endl;
 			lc.PrintAll();
 		}
+
+/*
+		// Stress-test redist pool
+		for (uint32_t iCycle = 0; iCycle < 100; iCycle++)
+		{
+			{
+				Shaders::Oracle2::Method::FeedData args;
+				ZeroObject(args);
+				args.m_Value = 1;
+				verify_test(RunGuarded_T(m_Oracle2.m_Cid, args.s_iMethod, args));
+			}
+
+			man.m_Args["action"] = "trove_modify";
+
+			for (uint32_t i = 0; i < s_Users; i++)
+			{
+				ECC::SetRandom(ppKdf[i]);
+				man.m_pPKdf = ppKdf[i];
+				Amount tok = Rules::Coin * (35 + i * 5);
+
+				man.m_Args["tok"] = std::to_string(tok);
+				man.m_Args["col"] = std::to_string(tok * (i + 100) / 50); // approx. 200% ICR
+
+				Shaders::Nephrite::Method::TroveOpen args;
+				verify_test(man.RunGuarded_T(args));
+
+				pPk[i] = args.m_pkUser;
+
+				verify_test(lc.InvokeTxUser(args, man.m_Charge));
+				lc.PrintAll();
+			}
+
+			{
+				Shaders::Oracle2::Method::FeedData args;
+				ZeroObject(args);
+				args.m_Value = 1;
+				args.m_Value.m_Order -= 4;
+				verify_test(RunGuarded_T(m_Oracle2.m_Cid, args.s_iMethod, args));
+				lc.PrintAll();
+			}
+
+			uint32_t nCount = s_Users;
+			if (!iCycle)
+				nCount--;
+
+			man.m_Args["action"] = "liquidate";
+			man.m_Args["nMaxTroves"] = "1";
+
+			while (nCount--)
+			{
+
+				Shaders::Nephrite::Method::Liquidate args;
+				verify_test(man.RunGuarded_T(args));
+
+				verify_test(lc.InvokeTxUser(args, man.m_Charge));
+
+				std::cout << "Trove liquidating" << std::endl;
+				lc.PrintAll();
+			}
+
+		}
+
+		// close remaining troves
+		man.m_Args["action"] = "trove_modify";
+		man.m_Args["tok"] = "0";
+		man.m_Args["col"] = "0";
+		for (uint32_t i = 0; i < s_Users; i++)
+		{
+			man.m_pPKdf = ppKdf[i];
+
+			Shaders::Nephrite::Method::TroveClose args;
+			if (man.RunGuarded_T(args))
+			{
+				PubKey pkDummy;
+				ZeroObject(pkDummy);
+				verify_test(lc.InvokeTx(args, pkDummy, man.m_Charge));
+			}
+		}
+
+
+
+		// Stress-test stab pool
+		for (uint32_t iCycle = 0; iCycle < 100; iCycle++)
+		{
+			Amount tokTotal = 0;
+
+			{
+				Shaders::Oracle2::Method::FeedData args;
+				ZeroObject(args);
+				args.m_Value = 1;
+				verify_test(RunGuarded_T(m_Oracle2.m_Cid, args.s_iMethod, args));
+			}
+
+			for (uint32_t i = 0; i < s_Users; i++)
+			{
+				if (!iCycle)
+					ECC::SetRandom(ppKdf[i]);
+
+				man.m_pPKdf = ppKdf[i];
+				Amount tok = Rules::Coin * (35 + i * 5);
+
+				man.m_Args["action"] = "trove_modify";
+				man.m_Args["tok"] = std::to_string(tok);
+				man.m_Args["col"] = std::to_string(tok * (i + 1002) / 500); // little over 200% ICR
+
+				Shaders::Nephrite::Method::TroveOpen args;
+				verify_test(man.RunGuarded_T(args));
+
+				pPk[i] = args.m_pkUser;
+
+				verify_test(lc.InvokeTxUser(args, man.m_Charge));
+
+				man.m_Args["action"] = "upd_stab";
+				man.m_Args["newVal"] = std::to_string(tok + tok / 100); // cause almost complete stabpool burn
+
+				Shaders::Nephrite::Method::UpdStabPool args2;
+				verify_test(man.RunGuarded_T(args2));
+
+				verify_test(lc.InvokeTxUser(args2, man.m_Charge));
+
+
+				lc.PrintAll();
+
+				tokTotal += tok;
+			}
+
+			{
+				Shaders::Oracle2::Method::FeedData args;
+				ZeroObject(args);
+				args.m_Value = 1;
+				args.m_Value.m_Order--; // x2 price drop, all troves must be legit for liquidation via stability pool
+				verify_test(RunGuarded_T(m_Oracle2.m_Cid, args.s_iMethod, args));
+				lc.PrintAll();
+			}
+
+
+			{
+				man.m_Args["action"] = "liquidate";
+				man.m_Args["nMaxTroves"] = ""; // unlimited, should liquidate all troves
+
+				Shaders::Nephrite::Method::Liquidate args;
+				verify_test(man.RunGuarded_T(args));
+
+				verify_test(lc.InvokeTxUser(args, man.m_Charge));
+
+				std::cout << "Troves liquidated" << std::endl;
+				lc.PrintAll();
+			}
+
+			m_Height++; // it's forbidden to upd stabpool multiple times in the same height
+
+		}
+*/
+
 /*
 		for (uint32_t i = 0; i < 2; i++)
 		{
