@@ -107,15 +107,15 @@ struct HomogenousPool
 
         int32_t EstimateScaleOrder() const
         {
-            if (!m_Sell)
-                return 0;
-
             // The scale is (m_Sell / m_Weight), but we need only the order estimate
             return BitUtils::FindHiBit(m_Sell) - m_Weight.m_Order - Float::s_Bits;
         }
 
         bool ShouldSwitchEpoch() const
         {
+            if (!m_Sell)
+                return !!m_Users;
+
             const uint32_t nThreshold = 10; // we assume epoch switch necessary if the scale changed by at least 10 binary orders (times 1024)
 
             uint32_t val = EstimateScaleOrder() + nThreshold;
