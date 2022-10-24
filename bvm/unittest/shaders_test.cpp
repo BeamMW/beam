@@ -1500,7 +1500,7 @@ namespace bvm2 {
 
 			Amount totalCol = totalRedist.Col;
 
-			Pair valsTroves = { 0 };
+			Pair valsTroves = { {0} };
 
 			m_Troves.clear();
 			m_Troves.resize(g.m_Troves.m_iLastCreated);
@@ -1551,7 +1551,7 @@ namespace bvm2 {
 			m_iHeadTrove = g.m_Troves.m_iHead;
 
 			// Stabpool positions
-			Pair valsStabs = { 0 };
+			Pair valsStabs = { {0} };
 
 			for (KeyWalker_T<Shaders::Nephrite::StabPoolEntry::Key, Shaders::Nephrite::StabPoolEntry> wlk(m_Proc, m_Proc.m_Nephrite.m_Cid, Shaders::Nephrite::Tags::s_StabPool); wlk.MoveNext(); )
 			{
