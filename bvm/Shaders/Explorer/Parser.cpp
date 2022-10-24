@@ -321,6 +321,31 @@ struct ParserContext
 		DocSetBansNameEx(&x + 1, x.m_NameLen);
 	}
 	void DocSetBansNameEx(const void* p, uint32_t nLen);
+
+	template <uint8_t nTag>
+	struct NephriteEpochStorage
+	{
+		const ContractID& m_Cid;
+		NephriteEpochStorage(const ContractID& cid) :m_Cid(cid) {}
+
+		template <uint32_t nDims>
+		void Load(uint32_t iEpoch, HomogenousPool::Epoch<nDims>& e)
+		{
+			Env::Key_T<Nephrite::EpochKey> k;
+			_POD_(k.m_Prefix.m_Cid) = m_Cid;
+			k.m_KeyInContract.m_Tag = nTag;
+			k.m_KeyInContract.m_iEpoch = iEpoch;
+
+			Env::Halt_if(!Env::VarReader::Read_T(k, e));
+		}
+
+		template <uint32_t nDims>
+		void Save(uint32_t iEpoch, const HomogenousPool::Epoch<nDims>& e) {
+		}
+		void Del(uint32_t iEpoch) {
+		}
+	};
+
 };
 
 bool ParserContext::Parse()
@@ -1331,14 +1356,16 @@ void ParserContext::OnState_Nephrite(uint32_t /* iVer */)
 		for (auto iTrove = g.m_Troves.m_iHead; iTrove; )
 		{
 			Nephrite::Trove& t = vec.m_p[iTrove - 1];
-			g.m_RedistPool.Remove(t);
+
+			NephriteEpochStorage<Nephrite::Tags::s_Epoch_Redist> storR(m_Cid);
+			auto vals = g.m_RedistPool.get_UpdatedAmounts(t, storR);
 
 			Env::DocArray gr4("");
 
 			Env::DocAddNum("", iTrove);
 			DocAddPk("", t.m_pkOwner);
-			DocAddAmount("", t.m_Amounts.Col);
-			DocAddAmount("", t.m_Amounts.Tok);
+			DocAddAmount("", vals.Col);
+			DocAddAmount("", vals.Tok);
 
 			if (bHavePrice)
 				DocAddPerc("", price.ToCR(t.m_Amounts.get_Rcr()));
