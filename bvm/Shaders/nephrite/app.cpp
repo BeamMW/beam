@@ -664,7 +664,7 @@ struct AppGlobalPlus
         }
 
         StabilityPool::User::Out out;
-        m_StabPool.UserDel(e.m_User, out, m_EpochStorageStab);
+        m_StabPool.UserDel<false, false>(e.m_User, out, 0, m_EpochStorageStab);
 
         m_MyStab.m_Amounts.Tok = out.m_Sell;
         m_MyStab.m_Amounts.Col = out.m_pBuy[0];

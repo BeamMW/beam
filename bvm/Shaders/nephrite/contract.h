@@ -160,7 +160,7 @@ namespace Nephrite
             void Remove(Trove& t, Storage& stor)
             {
                 User::Out out;
-                UserDel(t.m_RedistUser, out, stor);
+                UserDel<false, true>(t.m_RedistUser, out, t.m_Amounts.Tok, stor);
                 UpdAmountsPostRemove(t.m_Amounts, out);
             }
 
@@ -168,7 +168,7 @@ namespace Nephrite
             Pair get_UpdatedAmounts(const Trove& t, Storage& stor) const
             {
                 User::Out out;
-                Cast::NotConst(this)->UserDel<true>(t.m_RedistUser, out, stor);
+                Cast::NotConst(this)->UserDel<true, true>(t.m_RedistUser, out, t.m_Amounts.Tok, stor);
 
                 auto ret = t.m_Amounts;
                 UpdAmountsPostRemove(ret, out);

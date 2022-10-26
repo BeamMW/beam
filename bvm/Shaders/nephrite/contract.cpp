@@ -425,7 +425,7 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
 
         Global::StabilityPool::User::Out out;
         EpochStorageStab storS;
-        g.m_StabPool.UserDel(spe.m_User, out, storS);
+        g.m_StabPool.UserDel<false, false>(spe.m_User, out, 0, storS);
 
         fpLogic.Tok.m_Val = out.m_Sell;
         fpLogic.Col.m_Val = out.m_pBuy[0];

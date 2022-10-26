@@ -161,8 +161,12 @@ struct HomogenousPool
                     m_pSigma0[i] = e.m_pDim[i].m_Sigma;
             }
 
-            void DelRO_(const Epoch& e, Out& v) const
+            template <bool bUseLowThreshold>
+            void DelRO_(const Epoch& e, Out& v, Amount lowThreshold) const
             {
+                if constexpr (bUseLowThreshold)
+                    assert(e.m_Sell >= lowThreshold);
+
                 v.m_Sell = e.m_Sell;
                 for (uint32_t i = 0; i < nDims; i++)
                     v.m_pBuy[i] = e.m_pDim[i].m_Buy;
@@ -171,16 +175,18 @@ struct HomogenousPool
                 if (1 != e.m_Users)
                 {
                     CalcReward_(v.m_Sell, Float(v.m_Sell) / e.m_Weight);
+                    if constexpr (bUseLowThreshold)
+                        v.m_Sell = std::max(v.m_Sell, lowThreshold);
 
                     for (uint32_t i = 0; i < nDims; i++)
                         CalcReward_(v.m_pBuy[i], e.m_pDim[i].m_Sigma - m_pSigma0[i]);
                 }
             }
 
-            template <bool bReadOnly>
-            void Del_(Epoch& e, Out& v) const
+            template <bool bReadOnly, bool bUseLowThreshold>
+            void Del_(Epoch& e, Out& v, Amount lowThreshold) const
             {
-                DelRO_(e, v);
+                DelRO_<bUseLowThreshold>(e, v, lowThreshold);
 
                 if constexpr (!bReadOnly)
                 {
@@ -229,10 +235,10 @@ struct HomogenousPool
             u.Add_(m_Active, valSell);
         }
 
-        template <bool bReadOnly = false>
-        void UserDel(User& u, typename User::Out& out)
+        template <bool bReadOnly, bool bUseLowThreshold>
+        void UserDel(User& u, typename User::Out& out, Amount lowThreshold)
         {
-            u.template Del_<bReadOnly>(m_Active, out);
+            u.template Del_<bReadOnly>(m_Active, out, lowThreshold);
         }
 
         template <Mode m, uint32_t iDim>
@@ -272,21 +278,21 @@ struct HomogenousPool
             Env::Halt_if(get_TotalSell() < m_Active.m_Sell); // overflow test
         }
 
-        template <bool bReadOnly = false, class Storage>
-        void UserDel(const User& u, typename User::Out& out, Storage& stor)
+        template <bool bReadOnly, bool bUseLowThreshold, class Storage>
+        void UserDel(const User& u, typename User::Out& out, Amount lowThreshold, Storage& stor)
         {
             if (u.m_iEpoch == m_iActive)
-                u.template Del_<bReadOnly>(m_Active, out);
+                u.template Del_<bReadOnly, bUseLowThreshold>(m_Active, out, lowThreshold);
             else
             {
                 if (u.m_iEpoch + 1 == m_iActive)
-                    u.template Del_<bReadOnly>(m_Draining, out);
+                    u.template Del_<bReadOnly, bUseLowThreshold>(m_Draining, out, lowThreshold);
                 else
                 {
                     Epoch<nDims> e;
                     stor.Load(u.m_iEpoch, e);
 
-                    u.template Del_<bReadOnly>(e, out);
+                    u.template Del_<bReadOnly, bUseLowThreshold>(e, out, lowThreshold);
 
                     if constexpr (!bReadOnly)
                     {
