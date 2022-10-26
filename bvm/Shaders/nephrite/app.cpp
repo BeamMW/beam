@@ -765,6 +765,7 @@ ON_METHOD(manager, view_params)
     Env::DocAddNum("aidGov", g.m_Settings.m_AidGov);
     Env::DocAddNum("redemptionHeight", g.m_Settings.m_hMinRedemptionHeight);
     Env::DocAddNum("liq_reserve", g.m_Settings.m_TroveLiquidationReserve);
+    Env::DocAddNum("min_debt", g.m_Settings.get_TroveMinDebt());
     Env::DocAddNum("troves_created", g.m_Troves.m_iLastCreated);
     DocAddPair("totals", g.m_Troves.m_Totals);
     DocAddPerc("baserate", g.m_BaseRate.m_k);
@@ -1082,7 +1083,7 @@ ON_METHOD(user, trove_modify)
             }
         }
 
-        if (t.m_Amounts.Tok < g.m_Settings.m_TroveLiquidationReserve)
+        if (t.m_Amounts.Tok < g.m_Settings.get_TroveMinDebt())
             return OnError("min tok required");
 
         auto totals0 = g.m_Troves.m_Totals;

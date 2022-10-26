@@ -282,7 +282,7 @@ struct MyGlobal
             fpLogic.Col.Add(pNewVals->Col, 1);
 
             t.m_Amounts = *pNewVals;
-            Env::Halt_if(t.m_Amounts.Tok <= m_Settings.m_TroveLiquidationReserve);
+            Env::Halt_if(t.m_Amounts.Tok < m_Settings.get_TroveMinDebt());
 
             TrovePush(iTrove, t, iPrev1);
 
@@ -359,6 +359,8 @@ BEAM_EXPORT void Ctor(const Method::Create& r)
     Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidDaoVault));
     Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidOracle1));
     Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidOracle2));
+
+    Env::Halt_if(g.m_Settings.get_TroveMinDebt() <= g.m_Settings.m_TroveLiquidationReserve); // zero or overflow
 
     g.Save();
 }
