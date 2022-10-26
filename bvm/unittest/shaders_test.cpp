@@ -1556,7 +1556,7 @@ namespace bvm2 {
 			for (KeyWalker_T<Shaders::Nephrite::StabPoolEntry::Key, Shaders::Nephrite::StabPoolEntry> wlk(m_Proc, m_Proc.m_Nephrite.m_Cid, Shaders::Nephrite::Tags::s_StabPool); wlk.MoveNext(); )
 			{
 				Shaders::Nephrite::ExchangePool::User::Out out;
-				g.m_StabPool.UserDel<true>(wlk.m_pVal->m_User, out, storStab);
+				g.m_StabPool.UserDel<true, false>(wlk.m_pVal->m_User, out, 0, storStab);
 
 				std::cout << "\tStab User=" << wlk.m_pKey->m_KeyInContract.m_pkUser
 					<< ", Tok=" << Val2Num(out.m_Sell)
@@ -1643,7 +1643,7 @@ namespace bvm2 {
 			args.m_Settings.m_cidDaoVault = m_DaoVault.m_Cid;
 			args.m_Settings.m_cidOracle1 = m_Oracle2.m_Cid;
 			args.m_Settings.m_cidOracle2 = m_Oracle2.m_Cid;
-			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 5;
+			args.m_Settings.m_TroveLiquidationReserve = Rules::Coin * 1;
 			args.m_Settings.m_AidGov = aidGov;
 			args.m_Upgradable.m_MinApprovers = 1; // 0 is illegal atm
 
