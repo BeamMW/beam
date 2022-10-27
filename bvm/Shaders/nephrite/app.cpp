@@ -20,6 +20,7 @@
     macro(ContractID, cidDaoVault) \
     macro(ContractID, cidOracle1) \
     macro(ContractID, cidOracle2) \
+    macro(Amount, caDeposit) \
     macro(Amount, troveLiquidationReserve) \
     macro(AssetID, aidGov) \
     macro(uint32_t, hInitialPeriod)
@@ -184,13 +185,11 @@ ON_METHOD(manager, view)
     g_VerInfo.DumpAll(&kid);
 }
 
-static const Amount g_DepositCA = 3000 * g_Beam2Groth; // 3K beams
-
 ON_METHOD(manager, deploy)
 {
     FundsChange fc;
     fc.m_Aid = 0; // asset id
-    fc.m_Amount = g_DepositCA; // amount of the input or output
+    fc.m_Amount = caDeposit ? caDeposit : g_Beam2Groth * 10;
     fc.m_Consume = 1; // contract consumes funds (i.e input, in this case)
 
     AdminKeyID kid;
