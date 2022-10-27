@@ -529,11 +529,6 @@ private:
                 m_json["max"] = vMax;
             }
 
-            void AddCid(const bvm2::ContractID& cid)
-            {
-                AddHex("cid", cid);
-            }
-
             void AddAid(Asset::ID aid)
             {
                 m_json["aid"] = aid;
@@ -725,6 +720,12 @@ private:
                 else
                     m_json.push_back("");
 
+                // debug info
+                {
+                    auto it = wrSrc.m_json.find("dbg");
+                    if (wrSrc.m_json.end() != it)
+                        m_json.push_back(std::move(*it));
+                }
             }
 
             void OnContractInternal(const NodeProcessor::ContractInvokeExtraInfo& info, const bvm2::ContractID* pDefCid, uint32_t nIndent, Height h)
@@ -770,6 +771,11 @@ private:
                 AddMetadata(ai.m_Metadata);
                 AddValBig("value", ai.m_Value);
                 m_json["lock_height"] = ai.m_LockHeight;
+
+                if (ai.m_Cid != Zero)
+                    m_json["cid"] = MakeTypeObj("cid", ai.m_Cid);
+                else
+                    AddHex("owner", ai.m_Owner);
             }
         };
 

@@ -25,11 +25,11 @@ namespace Shaders {
 	typedef ECC::Point::Storage Secp_point_dataEx;
 	typedef ECC::Scalar Secp_scalar_data;
     typedef beam::Asset::ID AssetID;
-    typedef ECC::uintBig ContractID;
 	typedef ECC::uintBig ShaderID;
 	typedef ECC::uintBig HashValue;
 	typedef beam::uintBig_t<64> HashValue512;
-    using beam::Amount;
+	using beam::ContractID;
+	using beam::Amount;
     using beam::Height;
 	using beam::Timestamp;
 	using beam::HeightPos;
@@ -101,8 +101,6 @@ namespace bvm2 {
 	void get_ShaderID(ShaderID&, const Blob& data);
 	void get_Cid(ContractID&, const Blob& data, const Blob& args);
 	void get_CidViaSid(ContractID&, const ShaderID&, const Blob& args);
-
-	void get_AssetOwner(PeerID&, const ContractID&, const Asset::Metadata&);
 
 	class ProcessorContract;
 
@@ -372,6 +370,7 @@ namespace bvm2 {
 		virtual void OnRet(Wasm::Word nRetAddr) override;
 		virtual uint32_t get_HeapLimit() override;
 		virtual void DischargeUnits(uint32_t size) override;
+		virtual uint32_t get_WasmVersion() override;
 
 		virtual void LoadVar(const Blob&, Blob& res) { res.n = 0; } // res is temporary
 		virtual uint32_t SaveVar(const Blob&, const Blob& val) { return 0; }
@@ -590,6 +589,8 @@ namespace bvm2 {
 			}
 
 		} m_Comms;
+
+		void ResetBase();
 
 		DebugCallstack m_DbgCallstack;
 

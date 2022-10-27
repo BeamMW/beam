@@ -259,10 +259,12 @@ namespace proto {
     macro(TxoID, ShieldedOuts)
 
 #define BeamNodeMsg_GetAssetsListAt(macro) \
-    macro(Height, Height)
+    macro(Height, Height) \
+    macro(Asset::ID, Aid0)
 
 #define BeamNodeMsg_AssetsListAt(macro) \
-    macro(ByteBuffer, AssetsList)
+    macro(std::vector<Asset::Full>, Assets) \
+    macro(bool, bMore)
 
 #define BeamNodeMsg_ContractVarsEnum(macro) \
     macro(ByteBuffer, KeyMin) \
@@ -404,9 +406,10 @@ namespace proto {
             // 7 - GetShieldedOutputsAt
             // 8 - Contract vars and logs, flexible hdr request, newer ShieldedList, Status
             // 9 - Dependent txs
+            // 10- GetAssetsListAt
 
             static const uint32_t Minimum = 8;
-            static const uint32_t Maximum = 9;
+            static const uint32_t Maximum = 10;
 
             static void set(uint32_t& nFlags, uint32_t nExt);
             static uint32_t get(uint32_t nFlags);

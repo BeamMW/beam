@@ -545,6 +545,8 @@ NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::EnumCongestionsInt
 	cc.m_lstTips.swap(m_CongestionCache.m_lstTips);
 
 	CongestionCache::TipCongestion* pMaxTarget = nullptr;
+	bool bMaxTargetNeedsHeaders = false;
+	Difficulty::Raw cwMaxTarget;
 
 	// Find all potentially missing data
 	NodeDB::WalkerState ws;
@@ -645,11 +647,37 @@ NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::EnumCongestionsInt
 		assert(pEntry && pEntry->m_Rows.size());
 		pEntry->m_bNeedHdrs = bNeedHdrs;
 
-		if (!bNeedHdrs && (!pMaxTarget || (pMaxTarget->m_Height < pEntry->m_Height)))
+		Difficulty::Raw cw;
+		m_DB.get_ChainWork(pEntry->m_Rows.at(0), cw);
+
+		if (bNeedHdrs)
+		{
+			Difficulty::Raw cw2;
+			m_DB.get_ChainWork(pEntry->m_Rows.at(pEntry->m_Rows.size() - 1), cw2);
+			cw2.Negate();
+			cw2 += cw; // difficulty of the very 1st block is missing, nevermind
+
+			// ensure cw is no bigger than twice cw2 (proven Chainwork)
+			cw2 += cw2;
+			if (cw > cw2)
+				cw = cw2;
+		}
+
+		// check if this candidate is better. Select the one with bigger ChainWork
+		// If the candidate has all the headers down to the genesis - use the proven ChainWork
+		// If headers are missing - use the *estimated* ChainWork, which is
+		//		claimed ChainWork (in the last header)
+		//		no bigger than twice proven ChainWork 
+
+		if (!pMaxTarget || (cwMaxTarget < cw))
+		{
 			pMaxTarget = pEntry;
+			cwMaxTarget = cw;
+			bMaxTargetNeedsHeaders = bNeedHdrs;
+		}
 	}
 
-	return pMaxTarget;
+	return bMaxTargetNeedsHeaders ? nullptr : pMaxTarget;
 }
 
 template <typename T>
@@ -691,7 +719,6 @@ void NodeProcessor::EnumCongestions()
 		if (bFirstTime)
 		{
 			// first time target acquisition
-			// TODO - verify the headers w.r.t. difficulty and Chainwork
 			m_SyncData.m_h0 = pMaxTarget->m_Height - pMaxTarget->m_Rows.size();
 
 			if (pMaxTarget->m_Height > m_Horizon.m_Sync.Lo)
@@ -2775,6 +2802,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 		mbc.OnBlock(pid, pShared);
 
+		// Chainwork test isn't really necessary, already tested in DB. Just for more safety.
 		Difficulty::Raw wrk = m_Cursor.m_Full.m_ChainWork + s.m_PoW.m_Difficulty;
 
 		if (wrk != s.m_ChainWork)
@@ -3245,6 +3273,7 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelAssetCreate& v, Height h
 	evt.m_Info.m_Owner = v.m_Owner;
 	evt.m_Info.m_Value = Zero;
 	evt.m_Info.m_Deposit = Rules::get().get_DepositForCA(h);
+	evt.m_Info.SetCid(nullptr);
 
 	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt, key);
 }
@@ -3288,7 +3317,6 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelAssetDestroy& v, Height 
 	evt.m_Flags = proto::Event::Flags::Delete;
 	evt.m_EmissionChange = 0;
 
-	evt.m_Info.m_Owner = v.m_Owner;
 	evt.m_Info.m_Value = Zero;
 	evt.m_Info.m_Deposit = v.get_Deposit();
 
@@ -3574,10 +3602,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetCreate& krn, BlockInterp
 {
 	Asset::ID aid;
 	Amount valDeposit;
-	return HandleAssetCreate(krn.m_Owner, krn.m_MetaData, bic, aid, valDeposit);
+	return HandleAssetCreate(krn.m_Owner, nullptr, krn.m_MetaData, bic, aid, valDeposit);
 }
 
-bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metadata& md, BlockInterpretCtx& bic, Asset::ID& aid, Amount& valDeposit, uint32_t nSubIdx)
+bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const ContractID* pCid, const Asset::Metadata& md, BlockInterpretCtx& bic, Asset::ID& aid, Amount& valDeposit, uint32_t nSubIdx)
 {
 	if (!bic.m_AlreadyValidated)
 	{
@@ -3607,7 +3635,7 @@ bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metad
 		ai.m_Owner = pidOwner;
 		ai.m_LockHeight = bic.m_Height;
 		ai.m_Deposit = valDeposit = Rules::get().get_DepositForCA(bic.m_Height);
-
+		ai.SetCid(pCid);
 		ai.m_Metadata.m_Hash = md.m_Hash;
 
 		{
@@ -3627,7 +3655,8 @@ bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metad
 			bufBlob.resize(sizeof(AssetCreateInfoPacked) + md.m_Value.size());
 			auto* pAcip = reinterpret_cast<AssetCreateInfoPacked*>(&bufBlob.front());
 
-			memcpy(&pAcip->m_Owner, &pidOwner, sizeof(pidOwner));
+			pAcip->m_OwnedByContract = !!pCid;
+			Cast::Down<ECC::uintBig>(pAcip->m_Owner) = pAcip->m_OwnedByContract ? (*pCid) : Cast::Down<ECC::uintBig>(pidOwner);
 			if (!md.m_Value.empty())
 				memcpy(pAcip + 1, &md.m_Value.front(), md.m_Value.size());
 
@@ -3653,13 +3682,13 @@ bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const Asset::Metad
 bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInterpretCtx& bic)
 {
 	Amount valDeposit = krn.get_Deposit();
-	if (!HandleAssetDestroy(krn.m_Owner, bic, krn.m_AssetID, valDeposit, true))
+	if (!HandleAssetDestroy(krn.m_Owner, nullptr, bic, krn.m_AssetID, valDeposit, true))
 		return false;
 
 	return true;
 }
 
-bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx)
+bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, const ContractID* pCid, BlockInterpretCtx& bic, Asset::ID aid, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx)
 {
 	if (!bic.m_AlreadyValidated)
 		bic.EnsureAssetsUsed(m_DB);
@@ -3716,12 +3745,17 @@ bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, BlockInterpretCtx
 	{
 		Asset::Full ai;
 		ai.m_ID = aid;
-		ai.m_Owner = pidOwner;
+		ai.SetCid(pCid);
 
 		BlockInterpretCtx::Der der(bic);
 		der
 			& ai.m_Metadata
 			& ai.m_LockHeight;
+
+		if (pCid)
+			ai.m_Metadata.get_Owner(ai.m_Owner, *pCid);
+		else
+			ai.m_Owner = pidOwner;
 
 		if (bic.m_Height >= Rules::get().pForks[5].m_Height)
 			der & ai.m_Deposit;
@@ -5147,7 +5181,7 @@ bool NodeProcessor::get_HdrAt(Block::SystemState::Full& s)
 Asset::ID NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetCreate(const Asset::Metadata& md, const PeerID& pidOwner, Amount& valDeposit)
 {
 	Asset::ID aid = 0;
-	if (!m_Proc.HandleAssetCreate(pidOwner, md, m_Bic, aid, valDeposit, m_AssetEvtSubIdx))
+	if (!m_Proc.HandleAssetCreate(pidOwner, &m_FarCalls.m_Stack.back().m_Cid, md, m_Bic, aid, valDeposit, m_AssetEvtSubIdx))
 		return 0;
 
 	BlockInterpretCtx::Ser ser(m_Bic);
@@ -5177,14 +5211,16 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetEmit(Asset::ID aid, co
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDestroy(Asset::ID aid, const PeerID& pidOwner, Amount& valDeposit)
 {
-	if (!m_Proc.HandleAssetDestroy(pidOwner, m_Bic, aid, valDeposit, false, m_AssetEvtSubIdx))
+	const ContractID& cid = m_FarCalls.m_Stack.back().m_Cid;
+
+	if (!m_Proc.HandleAssetDestroy(pidOwner, &cid, m_Bic, aid, valDeposit, false, m_AssetEvtSubIdx))
 		return false;
 
 	BlockInterpretCtx::Ser ser(m_Bic);
 	RecoveryTag::Type nTag = RecoveryTag::AssetDestroy;
 	ser & nTag;
 	ser & aid;
-	ser & pidOwner;
+	ser & cid;
 
 	m_AssetEvtSubIdx++;
 	return true;
@@ -5213,7 +5249,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 				Asset::Metadata md;
 				Amount valDeposit;
 
-				if (!m_Proc.HandleAssetCreate(pidOwner, md, m_Bic, aid, valDeposit))
+				if (!m_Proc.HandleAssetCreate(pidOwner, nullptr, md, m_Bic, aid, valDeposit))
 					return OnCorrupted();
 			}
 			break;
@@ -5241,11 +5277,12 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 
 			Asset::ID aid = 0;
 			PeerID pidOwner;
+			ContractID cid;
 			der & aid;
-			der & pidOwner;
+			der & cid;
 
 			Amount valDeposit;
-			if (!m_Proc.HandleAssetDestroy(pidOwner, m_Bic, aid, valDeposit, false))
+			if (!m_Proc.HandleAssetDestroy(pidOwner, &cid, m_Bic, aid, valDeposit, false))
 				return OnCorrupted();
 		}
 		break;
@@ -6586,11 +6623,13 @@ bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
 
 	for (wlkKrn.m_Height = hr.m_Min; wlkKrn.m_Height <= hr.m_Max; wlkKrn.m_Height++)
 	{
+		uint64_t rowID = FindActiveAtStrict(wlkKrn.m_Height);
+
 		txve.m_vKernels.clear();
-		ReadKrns(FindActiveAtStrict(wlkKrn.m_Height), txve);
+		ReadKrns(rowID, txve);
 
 		wlkKrn.m_nKrnIdx = 0;
-		if (!wlkKrn.ProcessHeight(txve.m_vKernels))
+		if (!wlkKrn.ProcessHeight(rowID, txve.m_vKernels))
 			return false;
 
 		if (wlkKrn.m_pLa)
@@ -6959,7 +6998,7 @@ void NodeProcessor::RebuildNonStd()
 
 		ByteBuffer m_Rollback;
 
-		virtual bool ProcessHeight(const std::vector<TxKernel::Ptr>& v) override
+		virtual bool ProcessHeight(uint64_t rowID, const std::vector<TxKernel::Ptr>& v) override
 		{
 			BlockInterpretCtx bic(m_Height, true);
 			m_pBic = &bic;
@@ -6974,6 +7013,11 @@ void NodeProcessor::RebuildNonStd()
 			Process(v);
 
 			bic.m_Rollback.swap(m_Rollback);
+			
+			if (m_Height > m_This.m_Extra.m_Fossil)
+				// replace rollback data
+				m_This.m_DB.set_StateRB(rowID, m_Rollback);
+
 			m_Rollback.clear();
 
 			cf.Do(m_This, m_Height);
@@ -7029,12 +7073,23 @@ int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)
 		OnCorrupted();
 
 	auto* pAcip = reinterpret_cast<const AssetCreateInfoPacked*>(wlk.m_Body.p);
-	memcpy(&ai.m_Owner, &pAcip->m_Owner, sizeof(ai.m_Owner));
 
 	ai.m_Metadata.m_Value.resize(wlk.m_Body.n - sizeof(AssetCreateInfoPacked));
 	if (!ai.m_Metadata.m_Value.empty())
 		memcpy(&ai.m_Metadata.m_Value.front(), pAcip + 1, ai.m_Metadata.m_Value.size());
 	ai.m_Metadata.UpdateHash();
+
+	if (pAcip->m_OwnedByContract)
+	{
+		ai.SetCid(&pAcip->m_Owner);
+		ai.m_Metadata.get_Owner(ai.m_Owner, ai.m_Cid);
+	}
+	else
+	{
+		ai.SetCid(nullptr);
+		ai.m_Owner = pAcip->m_Owner;
+
+	}
 
 	ai.m_Deposit = Rules::get().get_DepositForCA(wlk.m_Height);
 

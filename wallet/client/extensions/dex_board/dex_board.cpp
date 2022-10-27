@@ -89,7 +89,7 @@ namespace beam::wallet {
         auto it = _orders.find(order->getID());
         if (it == _orders.end())
         {
-            if (!order->isCanceled() && !order->isExpired())
+            if (!order->isCanceled() && !order->isExpired() && !order->isAccepted())
             {
                 _orders[order->getID()] = *order;
                 _wdb.saveDexOffer(order->getID(), toByteBuffer(*order), order->isMine());
@@ -173,6 +173,7 @@ namespace beam::wallet {
             || it->second.isAccepted()) return false;
 
         it->second.setAccepted(true);
+        publishOrder(it->second);
 
         return true;
     }

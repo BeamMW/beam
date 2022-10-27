@@ -60,17 +60,6 @@ void V72Api::onHandleAssetsSwapCreate(const JsonRpcId& id, AssetsSwapCreate&& re
         receiveAssetUnitName = receiveAssetMeta.GetUnitName();
     }
 
-    CoinsSelectionInfo csi;
-    csi.m_requestedSum = req.sendAmount;
-    csi.m_assetID = req.sendAsset;
-    csi.m_explicitFee = 0;
-    csi.Calculate(walletDB->getCurrentHeight(), walletDB, false);
-
-    if (!csi.m_isEnought)
-    {
-        throw jsonrpc_exception(ApiError::AssetSwapNotEnoughtFunds);
-    }
-
     if (req.expireMinutes < 30 || req.expireMinutes > 720)
     {
         throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "minutes_before_expire must be > 30 and < 720");

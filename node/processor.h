@@ -173,9 +173,9 @@ class NodeProcessor
 	void InternalAssetAdd(Asset::Full&, bool bMmr);
 	void InternalAssetDel(Asset::ID, bool bMmr);
 
-	bool HandleAssetCreate(const PeerID&, const Asset::Metadata&, BlockInterpretCtx&, Asset::ID&, Amount& valDeposit, uint32_t nSubIdx = 0);
+	bool HandleAssetCreate(const PeerID&, const ContractID*, const Asset::Metadata&, BlockInterpretCtx&, Asset::ID&, Amount& valDeposit, uint32_t nSubIdx = 0);
 	bool HandleAssetEmit(const PeerID&, BlockInterpretCtx&, Asset::ID, AmountSigned, uint32_t nSubIdx = 0);
-	bool HandleAssetDestroy(const PeerID&, BlockInterpretCtx&, Asset::ID, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx = 0);
+	bool HandleAssetDestroy(const PeerID&, const ContractID*, BlockInterpretCtx&, Asset::ID, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx = 0);
 
 	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
 	bool HandleKernelTypeAny(const TxKernel&, BlockInterpretCtx&);
@@ -435,7 +435,7 @@ public:
 	struct ContractInvokeExtraInfo
 		:public ContractInvokeExtraInfoBase
 	{
-		ECC::uintBig m_Cid;
+		ContractID m_Cid;
 	};
 
 	bool ExtractBlockWithExtra(Block::Body&, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID&, std::vector<ContractInvokeExtraInfo>&);
@@ -670,7 +670,7 @@ public:
 	struct IKrnWalker
 		:public TxKernel::IWalker
 	{
-		virtual bool ProcessHeight(const std::vector<TxKernel::Ptr>& v) { return Process(v); }
+		virtual bool ProcessHeight(uint64_t rowID, const std::vector<TxKernel::Ptr>& v) { return Process(v); }
 		Height m_Height;
 		LongAction* m_pLa = nullptr;
 	};
@@ -741,6 +741,7 @@ public:
 
 	struct AssetCreateInfoPacked {
 		PeerID m_Owner;
+		uint8_t m_OwnedByContract;
 		// followed by metadata
 	};
 

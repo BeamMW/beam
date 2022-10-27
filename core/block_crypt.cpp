@@ -2097,6 +2097,12 @@ namespace beam
 			<< pForks[5].m_Height
 			<< CA.DepositForList5
 			>> pForks[5].m_Hash;
+
+		oracle
+			<< "fork6"
+			<< pForks[6].m_Height
+			// no more flexible parameters so far
+			>> pForks[6].m_Hash;
 	}
 
 	const HeightHash* Rules::FindFork(const Merkle::Hash& hv) const
@@ -2279,8 +2285,14 @@ namespace beam
 	{
 		if (m_Height < Rules::HeightGenesis)
 			return false;
-		if ((m_Height == Rules::HeightGenesis) && !(m_Prev == Rules::get().Prehistoric))
-			return false;
+		if (m_Height == Rules::HeightGenesis)
+		{
+			if (m_Prev != Rules::get().Prehistoric)
+				return false;
+
+			if (m_ChainWork - m_PoW.m_Difficulty != Zero)
+				return false;
+		}
 
 		return true;
 	}
@@ -2931,8 +2943,17 @@ namespace beam
 	{
 		m_Value = Zero;
 		m_Owner = Zero;
+		m_Cid = Zero;
 		m_LockHeight = 0;
 		m_Metadata.Reset();
+	}
+
+	void Asset::Info::SetCid(const ContractID* pCid)
+	{
+		if (pCid)
+			m_Cid = *pCid;
+		else
+			m_Cid = Zero;
 	}
 
 	bool Asset::Info::IsEmpty() const
@@ -3044,6 +3065,15 @@ namespace beam
 		ECC::Point::Native pt;
 		pkdf.DerivePKeyG(pt, m_Hash);
 		res.Import(pt);
+	}
+
+	void Asset::Metadata::get_Owner(PeerID& res, const ContractID& cid) const
+	{
+		ECC::Hash::Processor()
+			<< "bvm.a.own"
+			<< cid
+			<< m_Hash
+			>> res;
 	}
 
 	bool Asset::Info::Recognize(Key::IPKdf& pkdf) const

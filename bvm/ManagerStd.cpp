@@ -426,25 +426,17 @@ namespace bvm2 {
 
 	void ManagerStd::OnReset()
 	{
-		InitMem();
+		ProcessorManager::ResetBase();
+
 		m_Code = m_BodyManager;
 		m_Out.str("");
 		m_Out.clear();
-		m_InvokeData.Reset();
-		
-		m_Comms.Clear();
-		m_Context.Reset();
-
-		m_mapReadVars.Clear();
-		m_mapReadLogs.Clear();
 
 		m_UnfreezeEvt.cancel();
 
 		m_Pending.m_pSingleRequest.reset();
 		m_Pending.m_pCommMsg.reset();
 		m_Pending.m_pBlocker = nullptr;
-
-		m_DbgCallstack = DebugCallstack();
 	}
 
 	void ManagerStd::StartRun(uint32_t iMethod)

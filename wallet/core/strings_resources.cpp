@@ -205,7 +205,7 @@ namespace beam
     const char kTxHistoryUnreliableCoins[] = "\n    ---- Coins below might belong to another asset ----\n\n";
     const char kTxAddress[] = "address";
     const char kSwapTxHistoryEmpty[] = "No swap transactions";
-    const char kSwapTxHistoryTableHead[] = "SWAP TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% |";
+    const char kSwapTxHistoryTableHead[] = "SWAP TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
     const char kSwapTxHistoryTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%  ";
     const char kTxHistoryColumnSwapAmount[] = "swap amount";
     const char kTxHistoryColumnSwapType[] = "swap type";
@@ -280,4 +280,19 @@ namespace beam
     // lelantus
     const char kErrorShieldedIDMissing[] = "shielded id is missing";
     const char kErrorWindowBeginMissing[] = "window begin is missing";
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+    const char kAssetsSwapTableHead[] = "ASSETS SWAPS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% | %7% | %8% | %9% | %10% |";
+    const char kAssetsSwapTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%   %7%   %8%   %9%   %10%";
+    const char kAssetsSwapID[] = "ID";
+    const char kAssetsSwapSendAmount[] = "Send Amount";
+    const char kAssetsSwapSendAssetID[] = "Send asset ID";
+    const char kAssetsSwapSendAssetName[] = "Send asset";
+    const char kAssetsSwapReceiveAmount[] = "Receive Amount";
+    const char kAssetsSwapReceiveAssetID[] = "Receive asset ID";
+    const char kAssetsSwapReceiveAssetName[] = "Receive asset";
+    const char kAssetsSwapCreation[] = "Creation time";
+    const char kAssetsSwapExpiration[] = "Expiration time";
+    const char kAssetsSwapIsMine[] = "is mine";
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 }
