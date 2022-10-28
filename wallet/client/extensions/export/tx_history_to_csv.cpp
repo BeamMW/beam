@@ -13,8 +13,10 @@
 // limitations under the License.
 
 #include "tx_history_to_csv.h"
+#include "bvm/invoke_data.h"
 #include "core/block_crypt.h"
 #include "wallet/core/common.h"
+#include "wallet/transactions/swaps/swap_tx_description.h"
 #include <boost/serialization/nvp.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
@@ -23,6 +25,19 @@ namespace
 using namespace beam;
 using namespace beam::wallet;
 using boost::multiprecision::cpp_dec_float_50;
+
+std::string unitNameFromAssetId(const beam::wallet::IWalletDB& db, Asset::ID assetId)
+{
+    std::string unitName = "BEAM";
+    const auto info = db.findAsset(assetId);
+    if (info.is_initialized())
+    {
+        const WalletAssetMeta &meta = info.is_initialized() ? WalletAssetMeta(*info) : WalletAssetMeta(Asset::Full());
+        unitName = meta.GetUnitName();
+    }
+
+    return unitName;
+}
 
 std::string getIdentity(const TxParameters& txParams, bool isSender)
 {
@@ -58,12 +73,11 @@ namespace beam::wallet
 {
 std::string ExportTxHistoryToCsv(const IWalletDB& db)
 {
-    // TODO:SWAP add to history if necessary https://github.com/BeamMW/beam/issues/1735
     std::stringstream ss;
     ss << "Type" << ","
        << "Date | Time" << ","
-       << "\"Amount\"" << ","
-       << "\"Unit name\"" << ","
+       << "Amount" << ","
+       << "Unit name" << ","
        << "\"Amount, USD\"" << ","
        << "\"Amount, BTC\"" << ","
        << "\"Transaction fee, BEAM\"" << ","
@@ -103,35 +117,198 @@ std::string ExportTxHistoryToCsv(const IWalletDB& db)
 
         auto assetIdOptional = tx.GetParameter<Asset::ID>(TxParameterID::AssetID);
         Asset::ID assetId  = assetIdOptional ? *assetIdOptional : 0;
-        std::string unitName = "BEAM";
-        const auto info = db.findAsset(assetId);
-        if (info.is_initialized())
-        {
-            const WalletAssetMeta &meta = info.is_initialized() ? WalletAssetMeta(*info) : WalletAssetMeta(Asset::Full());
-            unitName = meta.GetUnitName();
-        }
+        std::string unitName = unitNameFromAssetId(db, assetId);
+
 
         std::string amountInUsd = convertAmount(tx.m_amount, tx.getExchangeRate(Currency::USD()), 2);
         std::string amountInBtc = convertAmount(tx.m_amount, tx.getExchangeRate(Currency::BTC()), 8);
 
-        ss << (tx.m_sender ? "Send" : "Receive") << ","                                      // Type
-            << format_timestamp(kTimeStampFormatCsv, tx.m_createTime * 1000, false) << ","   // Date | Time
-            << "\"" << PrintableAmount(tx.m_amount, true) << "\"" << ","                     // Amount
-            << "\"" << unitName << "\"" << ","                                               // Unit name
-            << "\"" << amountInUsd << "\"" << ","                                            // Amount, USD
-            << "\"" << amountInBtc << "\"" << ","                                            // Amount, BTC
-            << "\"" << PrintableAmount(tx.m_fee, true) << "\"" << ","                        // Transaction fee, BEAM
-            << beam::wallet::interpretStatus(tx) << ","                                      // Status
-            << std::string { tx.m_message.begin(), tx.m_message.end() } << ","               // Comment
-            << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                             // Transaction ID
-            << std::to_string(tx.m_kernelID) << ","                                          // Kernel ID
-            << std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId) << ","                  // Sending address
-            << getIdentity(tx, tx.m_sender) << ","                                           // Sending wallet's signature
-            << std::to_string(!tx.m_sender ? tx.m_myId : tx.m_peerId) << ","                 // Receiving address
-            << getIdentity(tx, !tx.m_sender) << ","                                          // Receiving wallet's signature
-            << getToken(tx) << ","                                                           // Token
-            << strProof << std::endl;                                                        // Payment proof
+        ss << (tx.m_sender ? "Send" : "Receive") << ","                                     // Type
+           << format_timestamp(kTimeStampFormatCsv, tx.m_createTime * 1000, false) << ","   // Date | Time
+           << "\"" << PrintableAmount(tx.m_amount, true) << "\"" << ","                     // Amount
+           << "\"" << unitName << "\"" << ","                                               // Unit name
+           << "\"" << amountInUsd << "\"" << ","                                            // Amount, USD
+           << "\"" << amountInBtc << "\"" << ","                                            // Amount, BTC
+           << "\"" << PrintableAmount(tx.m_fee, true) << "\"" << ","                        // Transaction fee, BEAM
+           << beam::wallet::interpretStatus(tx) << ","                                      // Status
+           << std::string { tx.m_message.begin(), tx.m_message.end() } << ","               // Comment
+           << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                             // Transaction ID
+           << std::to_string(tx.m_kernelID) << ","                                          // Kernel ID
+           << std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId) << ","                  // Sending address
+           << getIdentity(tx, tx.m_sender) << ","                                           // Sending wallet's signature
+           << std::to_string(!tx.m_sender ? tx.m_myId : tx.m_peerId) << ","                 // Receiving address
+           << getIdentity(tx, !tx.m_sender) << ","                                          // Receiving wallet's signature
+           << getToken(tx) << ","                                                           // Token
+           << strProof << std::endl;                                                        // Payment proof
     }
+    return ss.str();
+}
+
+std::string ExportAtomicSwapTxHistoryToCsv(const IWalletDB& db)
+{
+    std::stringstream ss;
+    ss << "Date | Time" << ","
+       << "Amount sent" << ","
+       << "Unit name sent" << ","
+       << "Amount received" << ","
+       << "Unit name received" << ","
+       << "\"Transaction fee, BEAM\"" << ","
+       << "\"Swap coin fee rate\"" << ","
+       << "Peer address" << ","
+       << "My address" << ","
+       << "Transaction ID" << std::endl;
+
+    auto atomicSwapTransactions = db.getTxHistory(TxType::AtomicSwap);
+    for (const auto& tx : atomicSwapTransactions)
+    {
+        auto stx = beam::wallet::SwapTxDescription(tx);
+        bool isBeamSide = stx.isBeamSide();
+        Amount swapAmount = stx.getSwapAmount();
+        std::string swapCoin = std::to_string(stx.getSwapCoin());
+        Amount beamAmount = tx.m_amount;
+        std::string beamUnit = "BEAM";
+
+        ss  << format_timestamp(kTimeStampFormatCsv, tx.m_createTime * 1000, false) << "," // Date | Time
+            << PrintableAmount(isBeamSide ? beamAmount : swapAmount, true) << ","          // "Amount sent"
+            << (isBeamSide ? beamUnit : swapCoin) << ","                                   // "Unit name sent"
+            << PrintableAmount(isBeamSide ? swapAmount : beamAmount, true) << ","          // "Amount received"
+            << (isBeamSide ? swapCoin : beamUnit)  << ","                                  // "Unit name received"
+            << "\"" << PrintableAmount(*(stx.getFee()), true) << "\"" << ","               // Transaction fee, BEAM
+            << "\"" << PrintableAmount(*(stx.getSwapCoinFeeRate()), true) << "\"" << ","   // Swap coin fee rate
+            << std::to_string(tx.m_peerId) << ","                                          // Peer address
+            << std::to_string(tx.m_myId) << ","                                            // My address
+            << to_hex(tx.m_txId.data(), tx.m_txId.size()) << std::endl;                    // Transaction ID
+    }
+
+    return ss.str();
+}
+
+std::string ExportAssetsSwapTxHistoryToCsv(const IWalletDB& db)
+{
+    std::stringstream ss;
+    ss << "Date | Time" << ","
+       << "Amount sent" << ","
+       << "Unit name sent" << ","
+       << "Amount received" << ","
+       << "Unit name received" << ","
+       << "\"Transaction fee, BEAM\"" << ","
+       << "Status" << ","
+       << "Comment" << "," 
+       << "Transaction ID" << ","
+       << "Kernel ID" << "," 
+       << "Peer address" << ","
+       << "My address" << std::endl;
+
+    auto assetsSwapTransactions = db.getTxHistory(TxType::DexSimpleSwap);
+    for (const auto& tx : assetsSwapTransactions)
+    {
+        const auto rasset  = tx.GetParameter<beam::Asset::ID>(TxParameterID::DexReceiveAsset);
+        const auto ramount = tx.GetParameter<beam::Amount>(TxParameterID::DexReceiveAmount);
+
+        ss  << format_timestamp(kTimeStampFormatCsv, tx.m_createTime * 1000, false) << ","     // Date | Time
+            << PrintableAmount(tx.m_amount, true) << ","                                       // Sent
+            << unitNameFromAssetId(db, tx.m_assetId) << ","                                    // Unit name sent
+            << PrintableAmount(*ramount, true) << ","                                          // Receive
+            << unitNameFromAssetId(db, *rasset) << ","                                         // Unit name received
+            << "\"" << PrintableAmount(tx.m_fee, true) << "\"" << ","                          // Transaction fee, BEAM
+            << beam::wallet::interpretStatus(tx) << ","                                        // Status
+            << "\"" << std::string { tx.m_message.begin(), tx.m_message.end() } << "\"" << "," // Comment
+            << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                               // Transaction ID
+            << std::to_string(tx.m_kernelID) << ","                                            // Kernel ID
+            << std::to_string(tx.m_peerId) << ","                                              // Peer address
+            << std::to_string(tx.m_myId) << std::endl;                                         // My address
+    }
+
+    return ss.str();
+}
+
+std::string ExportContractTxHistoryToCsv(const IWalletDB& db)
+{
+    std::stringstream ss;
+    ss << "Date | Time" << ","
+       << "Send" << ","
+       << "Receive" << ","
+       << "\"Transaction fee, BEAM\"" << ","
+       << "Status" << ","
+       << "DApp name" << "," 
+       << "Application shader ID" << ","
+       << "Description" << "," 
+       << "Transaction ID" << ","
+       << "Kernel ID" << std::endl;
+
+    auto contractTransactions = db.getTxHistory(TxType::Contract);
+    for (const auto& tx : contractTransactions)
+    {
+        beam::bvm2::ContractInvokeData vData;
+
+        beam::Amount contractFee = 0;
+        beam::bvm2::FundsMap contractSpend;
+        std::string contractCids;
+        if (tx.GetParameter(TxParameterID::ContractDataPacked, vData))
+        {
+            Height h = tx.m_minHeight;
+            contractFee = vData.get_FullFee(h);
+            contractSpend = vData.get_FullSpend();
+        }
+
+        if (!vData.m_vec.empty())
+        {
+            std::stringstream ss;
+            ss << vData.m_vec[0].m_Cid.str();
+
+            if (vData.m_vec.size() > 1)
+            {
+                ss << " +" << vData.m_vec.size() - 1;
+            }
+
+            contractCids = ss.str();
+        }
+
+        std::stringstream sent;
+        std::stringstream received;
+        for (const auto& info: contractSpend)
+        {
+            auto amount = info.second;
+            if (info.first == beam::Asset::s_BeamID)
+            {
+                if (amount < 0)
+                {
+                    amount += contractFee;
+                }
+            }
+
+            if (amount <= 0)
+            {
+                if (!received.str().empty())
+                {
+                    received << " | " ;
+                }
+                received << PrintableAmount(static_cast<Amount>(std::abs(amount)), true)
+                         << " " << unitNameFromAssetId(db, info.first);
+            }
+            else
+            {
+                if (!sent.str().empty())
+                {
+                    sent << " | ";
+                }
+                sent << PrintableAmount(static_cast<Amount>(amount), true) 
+                     << " " << unitNameFromAssetId(db, info.first);
+            }
+        }
+
+        ss  << format_timestamp(kTimeStampFormatCsv, tx.m_createTime * 1000, false) << ","     // Date | Time
+            << "\"" << (sent.str().empty() ? "-" : sent.str()) << "\"" << ","                  // Send
+            << "\"" << (received.str().empty() ? "-" : received.str()) << "\"" << ","          // Receive
+            << "\"" << PrintableAmount(contractFee, true) << "\"" << ","                       // Transaction fee, BEAM
+            << beam::wallet::interpretStatus(tx) << ","                                        // Status
+            << "\"" << tx.m_appName << "\"" << ","                                             // DApp name
+            << contractCids << ","                                                             // Application shader ID
+            << "\"" << std::string { tx.m_message.begin(), tx.m_message.end() } << "\"" << "," // Description
+            << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                               // Transaction ID
+            << std::to_string(tx.m_kernelID) << std::endl;                                     // Kernel ID
+    }
+
     return ss.str();
 }
 } // namespace beam::wallet

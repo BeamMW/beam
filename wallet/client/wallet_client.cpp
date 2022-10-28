@@ -2018,6 +2018,12 @@ namespace beam::wallet
     {
         auto data = ExportTxHistoryToCsv(*m_walletDB);
         onExportTxHistoryToCsv(data);
+        auto dataAtomicSwap = ExportAtomicSwapTxHistoryToCsv(*m_walletDB);
+        onExportAtomicSwapTxHistoryToCsv(dataAtomicSwap);
+        auto dataAssetsSwap = ExportAssetsSwapTxHistoryToCsv(*m_walletDB);
+        onExportAssetsSwapTxHistoryToCsv(dataAssetsSwap);
+        auto dataContracts = ExportContractTxHistoryToCsv(*m_walletDB);
+        onExportContractTxHistoryToCsv(dataContracts);
     }
 
     void WalletClient::switchOnOffExchangeRates(bool isActive)

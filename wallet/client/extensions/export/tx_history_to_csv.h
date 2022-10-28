@@ -20,4 +20,7 @@
 namespace beam::wallet
 {
 std::string ExportTxHistoryToCsv(const IWalletDB& db);
+std::string ExportAtomicSwapTxHistoryToCsv(const IWalletDB& db);
+std::string ExportAssetsSwapTxHistoryToCsv(const IWalletDB& db);
+std::string ExportContractTxHistoryToCsv(const IWalletDB& db);
 } // namespace beam::wallet

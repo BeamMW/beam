@@ -220,6 +220,9 @@ namespace beam::wallet
         virtual void onExportDataToJson(const std::string& data) {}
         virtual void onPostFunctionToClientContext(MessageFunction&& func) {}
         virtual void onExportTxHistoryToCsv(const std::string& data) {}
+        virtual void onExportAtomicSwapTxHistoryToCsv(const std::string& data) {}
+        virtual void onExportAssetsSwapTxHistoryToCsv(const std::string& data) {}
+        virtual void onExportContractTxHistoryToCsv(const std::string& data) {}
         virtual void onAssetInfo(Asset::ID assetId, const WalletAsset&) {}
         virtual void onStopped() {}
         virtual void onFullAssetsListLoaded() {}
