@@ -154,6 +154,7 @@ std::string ExportAtomicSwapTxHistoryToCsv(const IWalletDB& db)
        << "Unit name received" << ","
        << "\"Transaction fee, BEAM\"" << ","
        << "\"Swap coin fee rate\"" << ","
+       << "Status" << ","
        << "Peer address" << ","
        << "My address" << ","
        << "Transaction ID" << std::endl;
@@ -175,6 +176,7 @@ std::string ExportAtomicSwapTxHistoryToCsv(const IWalletDB& db)
             << (isBeamSide ? swapCoin : beamUnit)  << ","                                  // "Unit name received"
             << "\"" << PrintableAmount(*(stx.getFee()), true) << "\"" << ","               // Transaction fee, BEAM
             << "\"" << PrintableAmount(*(stx.getSwapCoinFeeRate()), true) << "\"" << ","   // Swap coin fee rate
+            << beam::wallet::GetSwapTxStatusStr(tx) << ","                                        // Status
             << std::to_string(tx.m_peerId) << ","                                          // Peer address
             << std::to_string(tx.m_myId) << ","                                            // My address
             << to_hex(tx.m_txId.data(), tx.m_txId.size()) << std::endl;                    // Transaction ID
