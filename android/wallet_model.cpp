@@ -994,6 +994,7 @@ void WalletModel::onExportTxHistoryToCsv(const std::string& data)
     env->DeleteLocalRef(jdata);
 }
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 void WalletModel::onExportAtomicSwapTxHistoryToCsv(const std::string& data) 
 {
     LOG_DEBUG() << "onExportAtomicSwapTxHistoryToCsv()";
@@ -1007,7 +1008,9 @@ void WalletModel::onExportAtomicSwapTxHistoryToCsv(const std::string& data)
     env->CallStaticVoidMethod(WalletListenerClass, callback, jdata);
     env->DeleteLocalRef(jdata);
 }
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
 void WalletModel::onExportAssetsSwapTxHistoryToCsv(const std::string& data) 
 {
     LOG_DEBUG() << "onExportAssetsSwapTxHistoryToCsv()";
@@ -1021,6 +1024,7 @@ void WalletModel::onExportAssetsSwapTxHistoryToCsv(const std::string& data)
     env->CallStaticVoidMethod(WalletListenerClass, callback, jdata);
     env->DeleteLocalRef(jdata);
 }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
 void WalletModel::onExportContractTxHistoryToCsv(const std::string& data) 
 {

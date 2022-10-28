@@ -144,6 +144,7 @@ std::string ExportTxHistoryToCsv(const IWalletDB& db)
     return ss.str();
 }
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
 std::string ExportAtomicSwapTxHistoryToCsv(const IWalletDB& db)
 {
     std::stringstream ss;
@@ -184,7 +185,9 @@ std::string ExportAtomicSwapTxHistoryToCsv(const IWalletDB& db)
 
     return ss.str();
 }
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
 std::string ExportAssetsSwapTxHistoryToCsv(const IWalletDB& db)
 {
     std::stringstream ss;
@@ -223,6 +226,7 @@ std::string ExportAssetsSwapTxHistoryToCsv(const IWalletDB& db)
 
     return ss.str();
 }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
 std::string ExportContractTxHistoryToCsv(const IWalletDB& db)
 {
