@@ -3,20 +3,36 @@
 #include "../Math.h"
 #include "contract.h"
 #include "../upgradable3/contract_impl.h"
+#include "../dao-vault/contract.h"
 
 namespace Amm {
 
+#pragma pack (push, 1)
+    struct MySettings :public Settings
+    {
+        MySettings() {
+            Env::LoadVar_T((uint8_t)Tags::s_Settings, *this);
+        }
+    };
+#pragma pack (pop)
 
 BEAM_EXPORT void Ctor(const Method::Create& r)
 {
     r.m_Upgradable.TestNumApprovers();
     r.m_Upgradable.Save();
+
+    Env::Halt_if(!Env::RefAdd(r.m_Settings.m_cidDaoVault));
+    Env::SaveVar_T((uint8_t) Tags::s_Settings, r.m_Settings);
 }
 
 BEAM_EXPORT void Dtor(void*)
 {
     Upgradable3::Settings::Key key;
     Env::DelVar_T(key);
+
+    MySettings s;
+    Env::Halt_if(!Env::RefRelease(s.m_cidDaoVault));
+    Env::DelVar_T((uint8_t) Tags::s_Settings);
 }
 
 
@@ -29,9 +45,10 @@ struct MyPool :public Pool
     bool Save(const Key& key) { return Env::SaveVar_T(key, *this); }
 };
 
+
 BEAM_EXPORT void Method_3(const Method::PoolCreate& r)
 {
-    Env::Halt_if(r.m_Pid.m_Aid1 >= r.m_Pid.m_Aid2); // key must be well-ordered
+    Env::Halt_if((r.m_Pid.m_Aid1 >= r.m_Pid.m_Aid2) || (r.m_Pid.m_Fees.m_Kind >= FeeSettings::s_Kinds)); // key must be well-ordered
 
     Pool::Key key;
     key.m_ID = r.m_Pid;
@@ -70,6 +87,8 @@ BEAM_EXPORT void Method_4(const Method::PoolDestroy& r)
     assert(!p.m_Totals.m_Ctl && !p.m_Totals.m_Tok1 && !p.m_Totals.m_Tok2);
 
     Env::DelVar_T(key);
+
+    Env::AddSig(p.m_pkCreator);
 }
 
 BEAM_EXPORT void Method_5(const Method::AddLiquidity& r)
@@ -93,9 +112,10 @@ BEAM_EXPORT void Method_5(const Method::AddLiquidity& r)
     else
     {
         // 1st provider
+        Env::Halt_if(!(r.m_Amounts.m_Tok1 && r.m_Amounts.m_Tok2));
         p.m_Totals.AddInitial(r.m_Amounts);
         dCtl = p.m_Totals.m_Ctl;
-        Env::Halt_if(!dCtl);
+        assert(dCtl);
     }
 
     p.Save(key);
@@ -127,29 +147,36 @@ BEAM_EXPORT void Method_6(const Method::Withdraw& r)
 BEAM_EXPORT void Method_7(const Method::Trade& r)
 {
     Pool::Key key;
-    bool bReverse = (r.m_Pid.m_Aid1 > r.m_Pid.m_Aid2);
+    key.m_ID = r.m_Pid;
+    bool bReverse = (key.m_ID.m_Aid1 > key.m_ID.m_Aid2);
     if (bReverse)
-    {
-        key.m_ID.m_Aid1 = r.m_Pid.m_Aid2;
-        key.m_ID.m_Aid2 = r.m_Pid.m_Aid1;
-    }
-    else
-        key.m_ID = r.m_Pid;
+        std::swap(key.m_ID.m_Aid1, key.m_ID.m_Aid2);
     
     MyPool p(key);
 
     if (bReverse)
         p.m_Totals.Swap();
 
-    Amount valPay = p.m_Totals.Trade(r.m_Buy1);
+    TradeRes res;
+    p.m_Totals.Trade(res, r.m_Buy1, key.m_ID.m_Fees);
 
     if (bReverse)
         p.m_Totals.Swap();
 
     Env::FundsUnlock(r.m_Pid.m_Aid1, r.m_Buy1);
-    Env::FundsLock(r.m_Pid.m_Aid2, valPay);
+    Env::FundsLock(r.m_Pid.m_Aid2, res.m_PayPool);
 
     p.Save(key);
+
+    if (res.m_DaoFee)
+    {
+        DaoVault::Method::Deposit arg;
+        arg.m_Aid = r.m_Pid.m_Aid2;
+        arg.m_Amount = res.m_DaoFee;
+
+        MySettings s;
+        Env::CallFar_T(s.m_cidDaoVault, arg);
+    }
 }
 
 } // namespace Amm

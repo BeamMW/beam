@@ -16,7 +16,8 @@
 #define Amm_poolop(macro) \
     macro(ContractID, cid) \
     macro(AssetID, aid1) \
-    macro(AssetID, aid2)
+    macro(AssetID, aid2) \
+    macro(uint32_t, kind)
 
 #define Amm_admin_pool_view(macro) Amm_poolop(macro)
 
@@ -119,7 +120,8 @@ ON_METHOD(admin, deploy)
     const uint32_t nCharge =
         Upgradable3::Manager::get_ChargeDeploy() +
         Env::Cost::Refs +
-        Env::Cost::Cycle * 20;
+        Env::Cost::SaveVar_For(sizeof(Settings)) +
+        Env::Cost::Cycle * 50;
 
     Env::GenerateKernel(nullptr, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Deploy Amm contract", nCharge);
 }
@@ -152,7 +154,7 @@ ON_METHOD(admin, set_min_approvers)
     Upgradable3::Manager::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
 }
 
-bool SetKey(Pool::ID& pid, bool& bReverse, AssetID aid1, AssetID aid2)
+bool SetKey(Pool::ID& pid, bool& bReverse, AssetID aid1, AssetID aid2, uint32_t kind)
 {
     bReverse = (aid1 > aid2);
     if (bReverse)
@@ -172,13 +174,21 @@ bool SetKey(Pool::ID& pid, bool& bReverse, AssetID aid1, AssetID aid2)
         pid.m_Aid2 = aid2;
     }
 
+    if (kind >= FeeSettings::s_Kinds)
+    {
+        OnError("invalid kind");
+        return false;
+    }
+
+    pid.m_Fees.m_Kind = static_cast<uint8_t>(kind);
+
     return true;
 }
 
-bool SetKey(Pool::ID& pid, AssetID aid1, AssetID aid2)
+bool SetKey(Pool::ID& pid, AssetID aid1, AssetID aid2, uint32_t kind)
 {
     bool bDummy;
-    return SetKey(pid, bDummy, aid1, aid2);
+    return SetKey(pid, bDummy, aid1, aid2, kind);
 }
 
 void DocAddRate(const char* sz, Amount v1, Amount v2)
@@ -271,7 +281,7 @@ struct PoolsWalker
     void PrintPool() const
     {
         PrintTotals(m_Pool.m_Totals);
-        Env::DocAddNum("tid", m_Pool.m_aidCtl);
+        Env::DocAddNum("lp-token", m_Pool.m_aidCtl);
 
         if (m_Pool.m_Totals.m_Ctl)
         {
@@ -310,7 +320,7 @@ ON_METHOD(admin, pools_view)
 ON_METHOD(admin, pool_view)
 {
     Pool::ID pid;
-    if (!SetKey(pid, aid1, aid2))
+    if (!SetKey(pid, aid1, aid2, kind))
         return;
 
     PoolsWalker pw;
@@ -325,7 +335,7 @@ ON_METHOD(admin, pool_view)
 ON_METHOD(user, pool_create)
 {
     Method::PoolCreate arg;
-    if (!SetKey(arg.m_Pid, aid1, aid2))
+    if (!SetKey(arg.m_Pid, aid1, aid2, kind))
         return;
 
     PoolsWalker pw;
@@ -356,7 +366,7 @@ ON_METHOD(user, pool_create)
 ON_METHOD(user, pool_destroy)
 {
     Method::PoolDestroy arg;
-    if (!SetKey(arg.m_Pid, aid1, aid2))
+    if (!SetKey(arg.m_Pid, aid1, aid2, kind))
         return;
 
     PoolsWalker pw;
@@ -375,7 +385,7 @@ ON_METHOD(user, pool_destroy)
     FundsChange fc;
     fc.m_Aid = 0;
     fc.m_Consume = 0;
-    fc.m_Amount = g_Beam2Groth;
+    fc.m_Amount = g_Beam2Groth * 10;
 
     Env::KeyID kid(ukm);
 
@@ -394,7 +404,7 @@ ON_METHOD(user, add_liquidity)
 {
     Method::AddLiquidity arg;
     bool bReverse;
-    if (!SetKey(arg.m_Pid, bReverse, aid1, aid2))
+    if (!SetKey(arg.m_Pid, bReverse, aid1, aid2, kind))
         return;
 
     arg.m_Amounts.m_Tok1 = val1;
@@ -480,7 +490,7 @@ ON_METHOD(user, add_liquidity)
 ON_METHOD(user, withdraw)
 {
     Method::Withdraw arg;
-    if (!SetKey(arg.m_Pid, aid1, aid2))
+    if (!SetKey(arg.m_Pid, aid1, aid2, kind))
         return;
 
     if (!ctl)
@@ -524,7 +534,7 @@ ON_METHOD(user, trade)
 {
     Pool::ID pid;
     bool bReverse;
-    if (!SetKey(pid, bReverse, aid1, aid2))
+    if (!SetKey(pid, bReverse, aid1, aid2, kind))
         return;
 
     if (!val1_buy)
@@ -550,13 +560,18 @@ ON_METHOD(user, trade)
         arg.m_Buy1 = p.m_Totals.m_Tok1 - 1; // truncate
     }
 
-    Amount valPay = p.m_Totals.Trade(arg.m_Buy1);
+    TradeRes res;
+    Amount rawPay = p.m_Totals.Trade(res, arg.m_Buy1, pid.m_Fees);
+    Amount valPay = res.m_PayPool + res.m_DaoFee;
 
     if (bPredictOnly)
     {
         Env::DocGroup gr("res");
         Env::DocAddNum("buy", arg.m_Buy1);
-        Env::DocAddNum("pay", valPay);
+        Env::DocAddNum("pay", res.m_PayPool + res.m_DaoFee);
+        Env::DocAddNum("pay-raw", rawPay);
+        Env::DocAddNum("fee-pool", res.m_PayPool - rawPay);
+        Env::DocAddNum("fee-dao", res.m_DaoFee);
     }
     else
     {
