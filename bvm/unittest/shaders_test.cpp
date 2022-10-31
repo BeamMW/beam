@@ -334,6 +334,32 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Tid);
 	}
 
+	template <bool bToShader> void Convert(Amm::Method::Create& x) {
+		ConvertOrd<bToShader>(x.m_Upgradable.m_hMinUpgradeDelay);
+		ConvertOrd<bToShader>(x.m_Upgradable.m_MinApprovers);
+	}
+	template <bool bToShader> void Convert(Amm::Pool::ID& x) {
+		ConvertOrd<bToShader>(x.m_Aid1);
+		ConvertOrd<bToShader>(x.m_Aid2);
+		ConvertOrd<bToShader>(x.m_Fees.m_Kind);
+	}
+	template <bool bToShader> void Convert(Amm::Method::PoolCreate& x) {
+		Convert<bToShader>(x.m_Pid);
+	}
+	template <bool bToShader> void Convert(Amm::Method::AddLiquidity& x) {
+		Convert<bToShader>(x.m_Pid);
+		ConvertOrd<bToShader>(x.m_Amounts.m_Tok1);
+		ConvertOrd<bToShader>(x.m_Amounts.m_Tok2);
+	}
+	template <bool bToShader> void Convert(Amm::Method::Withdraw& x) {
+		Convert<bToShader>(x.m_Pid);
+		ConvertOrd<bToShader>(x.m_Ctl);
+	}
+	template <bool bToShader> void Convert(Amm::Method::Trade& x) {
+		Convert<bToShader>(x.m_Pid);
+		ConvertOrd<bToShader>(x.m_Buy1);
+	}
+
 	namespace Env {
 
 		typedef beam::bvm2::Limits::Cost Cost;
@@ -361,7 +387,7 @@ namespace Shaders {
 #include "../Shaders/oracle/contract.cpp"
 	}
 
-#include "../Shaders/oracle2/contract.cpp"
+//#include "../Shaders/oracle2/contract.cpp"
 
 	namespace StableCoin {
 #include "../Shaders/StableCoin/contract.cpp"
@@ -397,6 +423,7 @@ namespace Shaders {
 #include "../Shaders/aphorize/contract.cpp"
 	}
 
+//#include "../Shaders/amm/contract.cpp"
 //#include "../Shaders/dao-vote/contract.cpp" // already within namespace
 //#include "../Shaders/dao-vault/contract.cpp" // already within namespace
 //#include "../Shaders/nephrite/contract.cpp" // already within namespace
@@ -747,7 +774,21 @@ namespace bvm2 {
 				}
 			}
 */
-
+/*
+			if (cid == m_Amm.m_Cid)
+			{
+				TempFrame f(*this, cid);
+				switch (iMethod)
+				{
+				////case 0: Shaders::Amm::Ctor(CastArg<Shaders::Amm::Method::Create>(pArgs)); return;
+				////case 3: Shaders::Amm::Method_3(CastArg<Shaders::Amm::Method::PoolCreate>(pArgs)); return;
+				////case 4: Shaders::Amm::Method_4(CastArg<Shaders::Amm::Method::PoolDestroy>(pArgs)); return;
+				////case 5: Shaders::Amm::Method_5(CastArg<Shaders::Amm::Method::AddLiquidity>(pArgs)); return;
+				//case 6: Shaders::Amm::Method_6(CastArg<Shaders::Amm::Method::Withdraw>(pArgs)); return;
+				////case 7: Shaders::Amm::Method_7(CastArg<Shaders::Amm::Method::Trade>(pArgs)); return;
+				}
+			}
+*/
 /*
 			if (cid == m_Amm.m_Cid)
 			{
@@ -2013,6 +2054,61 @@ namespace bvm2 {
 	void MyProcessor::TestAmm()
 	{
 		VERIFY_ID(Shaders::Amm::s_pSID[_countof(Shaders::Amm::s_pSID) - 1], m_Amm.m_Sid);
+
+
+		{
+			Shaders::Amm::Method::Create args;
+			ZeroObject(args);
+			args.m_Upgradable.m_MinApprovers = 1;
+			args.m_Settings.m_cidDaoVault = m_DaoVault.m_Cid;
+			verify_test(ContractCreate_T(m_Amm.m_Cid, m_Amm.m_Code, args));
+		}
+
+		Shaders::Amm::Pool::ID pid;
+		pid.m_Aid1 = 12;
+		pid.m_Aid2 = 14;
+		pid.m_Fees.m_Kind = 1;
+
+		{
+			Shaders::Amm::Method::PoolCreate args;
+			ZeroObject(args);
+			args.m_Pid = pid;
+			verify_test(RunGuarded_T(m_Amm.m_Cid, args.s_iMethod, args));
+
+			verify_test(!RunGuarded_T(m_Amm.m_Cid, args.s_iMethod, args)); // duplication
+
+			pid.m_Fees.m_Kind = 0;
+			args.m_Pid = pid;
+			verify_test(RunGuarded_T(m_Amm.m_Cid, args.s_iMethod, args)); // ok
+		}
+
+
+		{
+			Shaders::Amm::Method::AddLiquidity args;
+			ZeroObject(args);
+			args.m_Pid = pid;
+			args.m_Amounts.m_Tok1 = Rules::Coin * 3450;
+			args.m_Amounts.m_Tok2 = Rules::Coin * 170;
+			verify_test(RunGuarded_T(m_Amm.m_Cid, args.s_iMethod, args));
+		}
+
+		{
+			Shaders::Amm::Method::Trade args;
+			ZeroObject(args);
+			args.m_Pid = pid;
+			std::swap(args.m_Pid.m_Aid1, args.m_Pid.m_Aid2);
+			args.m_Buy1 = Rules::Coin * 100; // would be very expensive
+			verify_test(RunGuarded_T(m_Amm.m_Cid, args.s_iMethod, args));
+		}
+
+		{
+			Shaders::Amm::Method::Withdraw args;
+			ZeroObject(args);
+			args.m_Pid = pid;
+			args.m_Ctl = Rules::Coin * 100;
+			verify_test(RunGuarded_T(m_Amm.m_Cid, args.s_iMethod, args));
+		}
+
 	}
 
 	namespace IndexDecoder
