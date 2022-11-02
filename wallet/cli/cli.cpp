@@ -2468,7 +2468,7 @@ namespace
                 {
                     std::cout << "Contract ID: " << man.m_Args["cid"] << std::endl;
                 }
-                std::cout << "\tComment: " << comment;
+                std::cout << "\tComment: " << comment << std::endl;
 
                 for (const auto& info: spend)
                 {
