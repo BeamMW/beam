@@ -238,6 +238,19 @@ struct MyGlobal
 
         tk.m_iTrove = iTrove;
         Env::SaveVar_T(tk, t);
+
+        if (t.m_iNext)
+        {
+            tk.m_iTrove = t.m_iNext;
+            Trove tNext;
+            Env::Halt_if(!Env::LoadVar_T(tk, tNext));
+
+            EpochStorageRedist storR;
+            auto vals = m_RedistPool.get_UpdatedAmounts(tNext, storR);
+
+            int iCmp = t.m_Amounts.CmpRcr(vals);
+            Env::Halt_if(iCmp > 0);
+        }
     }
 
     void TroveModify(Trove::ID iPrev0, Trove::ID iPrev1, const Pair* pNewVals, const PubKey* pPk, Method::BaseTx& r)
@@ -575,7 +588,7 @@ namespace Upgradable3 {
 
     void OnUpgraded(uint32_t nPrevVersion)
     {
-        if constexpr (g_CurrentVersion)
+        if constexpr (g_CurrentVersion > 0)
             Env::Halt_if(nPrevVersion != g_CurrentVersion - 1);
         else
             Env::Halt();

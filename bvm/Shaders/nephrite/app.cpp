@@ -620,7 +620,7 @@ struct AppGlobalPlus
             uint32_t nCharge0 = m_EpochStorageRedist.m_Charge;
 
             Trove& tPrev = get_T(iPrev1);
-            auto vals = m_RedistPool.get_UpdatedAmounts(tPrev, m_EpochStorageRedist);
+            m_RedistPool.get_UpdatedAmounts(tPrev, m_EpochStorageRedist);
 
             nCharge +=
                 Charge::TrovePull0() +
@@ -635,6 +635,19 @@ struct AppGlobalPlus
         {
             t.m_iNext = m_Troves.m_iHead;
             m_Troves.m_iHead = tid;
+        }
+
+        if (t.m_iNext)
+        {
+            uint32_t nCharge0 = m_EpochStorageRedist.m_Charge;
+
+            Trove& tNext = get_T(t.m_iNext);
+            m_RedistPool.get_UpdatedAmounts(tNext, m_EpochStorageRedist);
+
+            nCharge +=
+                Charge::TrovePull0() +
+                (m_EpochStorageRedist.m_Charge - nCharge0) +
+                Charge::TrovePushCheck1;
         }
 
         return iPrev1;
