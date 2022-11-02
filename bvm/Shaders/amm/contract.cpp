@@ -58,19 +58,23 @@ BEAM_EXPORT void Method_3(const Method::PoolCreate& r)
     _POD_(p.m_pkCreator) = r.m_pkCreator;
 
     // generate unique metadata
-    static const char s_szMeta[] = "STD:SCH_VER=1;N=Amm Control Token;SN=AmmC;UN=AMMC;NTHUN=GROTH";
+    static const char s_szMeta1[] = "STD:SCH_VER=1;N=Amm Liquidity Token ";
+    static const char s_szMeta2[] = ";SN=AmmL;UN=AMML;NTHUN=GROTH";
 
-#pragma pack (push, 1)
-    struct Meta {
-        char m_szMeta[sizeof(s_szMeta)]; // including 0-terminator
-        Pool::ID m_Pid;
-    } md;
-#pragma pack (pop)
+    typedef Utils::String::Decimal D;
+    char szMeta[_countof(s_szMeta1) + _countof(s_szMeta1) + D::DigitsMax<AssetID>::N * 2 + D::Digits<FeeSettings::s_Kinds - 1>::N + 2];
 
-    Env::Memcpy(md.m_szMeta, s_szMeta, sizeof(s_szMeta));
-    md.m_Pid = r.m_Pid;
+    Env::Memcpy(szMeta, s_szMeta1, sizeof(s_szMeta1) - sizeof(char));
+    uint32_t nMeta = _countof(s_szMeta1) - 1;
+    nMeta += D::Print(szMeta + nMeta, key.m_ID.m_Aid1);
+    szMeta[nMeta++] = '-';
+    nMeta += D::Print(szMeta + nMeta, key.m_ID.m_Aid2);
+    szMeta[nMeta++] = '-';
+    nMeta += D::Print(szMeta + nMeta, key.m_ID.m_Fees.m_Kind);
+    Env::Memcpy(szMeta + nMeta, s_szMeta2, sizeof(s_szMeta2) - sizeof(char));
+    nMeta += _countof(s_szMeta2) - 1;
 
-    p.m_aidCtl = Env::AssetCreate(&md, sizeof(md));
+    p.m_aidCtl = Env::AssetCreate(szMeta, nMeta);
     Env::Halt_if(!p.m_aidCtl);
 
     Env::Halt_if(p.Save(key)); // fail if already existed

@@ -8,7 +8,10 @@
 #define Amm_admin_set_min_approvers(macro) Upgradable3_set_min_approvers(macro)
 #define Amm_admin_explicit_upgrade(macro) macro(ContractID, cid)
 
-#define Amm_admin_deploy(macro) Upgradable3_deploy(macro)
+#define Amm_admin_deploy(macro) \
+    Upgradable3_deploy(macro) \
+    macro(ContractID, cidDaoVault)
+
 #define Amm_admin_view(macro)
 #define Amm_admin_destroy(macro) macro(ContractID, cid)
 #define Amm_admin_pools_view(macro) macro(ContractID, cid)
@@ -116,6 +119,8 @@ ON_METHOD(admin, deploy)
     Method::Create arg;
     if (!g_VerInfo.FillDeployArgs(arg.m_Upgradable, &pk))
         return;
+
+    _POD_(arg.m_Settings.m_cidDaoVault) = cidDaoVault;
 
     const uint32_t nCharge =
         Upgradable3::Manager::get_ChargeDeploy() +
@@ -299,6 +304,7 @@ struct PoolsWalker
     {
         Env::DocAddNum("aid1", m_Key.m_KeyInContract.m_ID.m_Aid1);
         Env::DocAddNum("aid2", m_Key.m_KeyInContract.m_ID.m_Aid2);
+        Env::DocAddNum32("kind", m_Key.m_KeyInContract.m_ID.m_Fees.m_Kind);
     }
 
 };
@@ -438,7 +444,7 @@ ON_METHOD(user, add_liquidity)
         {
             if (!val2)
             {
-                arg.m_Amounts.m_Tok2 = Float(t.m_Tok1) * Float(t.m_Tok2) / Float(val1);
+                (Float(val1) * Float(t.m_Tok2) / Float(t.m_Tok1)).Round(arg.m_Amounts.m_Tok2);
                 iAdjustDir = -1;
             }
         }
@@ -447,7 +453,7 @@ ON_METHOD(user, add_liquidity)
             if (!val2)
                 return OnError("at least 1 token must be specified");
 
-            arg.m_Amounts.m_Tok1 = Float(t.m_Tok1) * Float(t.m_Tok2) / Float(val2);
+            (Float(t.m_Tok1) * Float(val2) / Float(t.m_Tok2)).Round(arg.m_Amounts.m_Tok1);
             iAdjustDir = 1;
         }
 
