@@ -259,15 +259,15 @@ std::string ExportContractTxHistoryToCsv(const IWalletDB& db)
 
         if (!vData.m_vec.empty())
         {
-            std::stringstream ss;
-            ss << vData.m_vec[0].m_Cid.str();
+            std::stringstream ss2;
+            ss2 << vData.m_vec[0].m_Cid.str();
 
             if (vData.m_vec.size() > 1)
             {
-                ss << " +" << vData.m_vec.size() - 1;
+                ss2 << " +" << vData.m_vec.size() - 1;
             }
 
-            contractCids = ss.str();
+            contractCids = ss2.str();
         }
 
         std::stringstream sent;
