@@ -352,20 +352,6 @@ namespace Charge
             RedistPoolOp;
     }
 
-    static uint32_t TrovePull(Trove::ID iPrev)
-    {
-        uint32_t nRet = TrovePull0();
-
-        if (iPrev)
-        {
-            nRet += 
-                Env::Cost::LoadVar_For(sizeof(Trove)) +
-                Env::Cost::SaveVar_For(sizeof(Trove));
-        }
-
-        return nRet;
-    }
-
     static const uint32_t TrovePushCheck1 =
         Env::Cost::Cycle * 200;
 
@@ -556,20 +542,37 @@ struct AppGlobalPlus
         return ReadBalance();
     }
 
-    void PopTrove(Trove::ID iPrev, Trove& t)
+    void PopTrove(Trove::ID iPrev, Trove& t, uint32_t& nCharge)
     {
+        uint32_t nCharge0 = m_EpochStorageRedist.m_Charge;
+
         if (iPrev)
-            get_T(iPrev).m_iNext = t.m_iNext;
+        {
+            nCharge +=
+                Env::Cost::LoadVar_For(sizeof(Trove)) +
+                Env::Cost::SaveVar_For(sizeof(Trove));
+
+            Trove& tPrev = get_T(iPrev);
+            tPrev.m_iNext = t.m_iNext;
+
+            if (m_RedistPool.MaybeRefresh(tPrev, m_EpochStorageRedist))
+                nCharge += Charge::RedistPoolOp;
+        }
         else
             m_Troves.m_iHead = t.m_iNext;
 
         m_RedistPool.Remove(t, m_EpochStorageRedist);
 
+        nCharge +=
+            Env::Cost::LoadVar_For(sizeof(Trove)) +
+            Charge::RedistPoolOp +
+            (m_EpochStorageRedist.m_Charge - nCharge0);
+
         m_Troves.m_Totals.Tok -= t.m_Amounts.Tok;
         m_Troves.m_Totals.Col -= t.m_Amounts.Col;
     }
 
-    bool PopMyTrove()
+    bool PopMyTrove(uint32_t& nCharge)
     {
         assert(!m_MyTrove.m_pT);
 
@@ -582,7 +585,7 @@ struct AppGlobalPlus
             Trove& t = get_T(m_MyTrove.m_iT);
             if (_POD_(m_Pk) == t.m_pkOwner)
             {
-                PopTrove(m_MyTrove.m_iPrev0, t);
+                PopTrove(m_MyTrove.m_iPrev0, t, nCharge);
 
                 m_MyTrove.m_pT = &t;
                 return true;
@@ -615,16 +618,17 @@ struct AppGlobalPlus
         m_Troves.m_Totals.Tok += t.m_Amounts.Tok;
         m_Troves.m_Totals.Col += t.m_Amounts.Col;
 
+        uint32_t nCharge0 = m_EpochStorageRedist.m_Charge;
+
         if (iPrev1)
         {
-            uint32_t nCharge0 = m_EpochStorageRedist.m_Charge;
-
             Trove& tPrev = get_T(iPrev1);
-            m_RedistPool.get_UpdatedAmounts(tPrev, m_EpochStorageRedist);
+
+            if (!m_RedistPool.MaybeRefresh(tPrev, m_EpochStorageRedist))
+                m_RedistPool.get_UpdatedAmounts(tPrev, m_EpochStorageRedist);
 
             nCharge +=
                 Charge::TrovePull0() +
-                (m_EpochStorageRedist.m_Charge - nCharge0) +
                 Charge::TrovePushCheck1 +
                 Env::Cost::SaveVar_For(sizeof(Trove));
 
@@ -646,9 +650,10 @@ struct AppGlobalPlus
 
             nCharge +=
                 Charge::TrovePull0() +
-                (m_EpochStorageRedist.m_Charge - nCharge0) +
                 Charge::TrovePushCheck1;
         }
+
+        nCharge += (m_EpochStorageRedist.m_Charge - nCharge0);
 
         return iPrev1;
     }
@@ -893,7 +898,8 @@ ON_METHOD(user, view)
     Env::DocGroup gr("res");
     Env::DocAddNum("troves", g.m_ActiveTroves);
 
-    if (g.PopMyTrove())
+    uint32_t nCharge = 0;
+    if (g.PopMyTrove(nCharge))
     {
         Env::DocGroup gr2("my_trove");
         g.DocAddTrove(*g.m_MyTrove.m_pT);
@@ -1042,15 +1048,9 @@ ON_METHOD(user, trove_modify)
         Charge::StdCall() +
         Env::Cost::Cycle * 200;
 
-    bool bPopped = g.PopMyTrove();
+    bool bPopped = g.PopMyTrove(nCharge);
     if (bPopped)
-    {
-        nCharge +=
-            Charge::TrovePull(g.m_MyTrove.m_iPrev0) +
-            g.m_EpochStorageRedist.m_Charge;
-
         g.OnTroveMove(txb, 1);
-    }
     else
     {
         g.m_MyTrove.m_pT = &tNew;
@@ -1204,21 +1204,18 @@ ON_METHOD(user, liquidate)
         Pair totals0 = g.m_Troves.m_Totals;
         auto& t = g.get_T(g.m_Troves.m_iHead);
 
-        uint32_t nCharge0 = g.m_EpochStorageRedist.m_Charge;
-        g.PopTrove(0, t);
+        uint32_t nChargeDelta = 0;
+        g.PopTrove(0, t, nChargeDelta);
 
         ctx.m_Redist = false;
         ctx.m_Stab = false;
 
         Amount valSurplus = 0;
         if (!g.LiquidateTrove(t, totals0, ctx, valSurplus))
-        {
-            g.m_EpochStorageRedist.m_Charge = nCharge0;
             break;
-        }
 
         nCharge +=
-            Charge::TrovePull0() +
+            nChargeDelta +
             Charge::TroveTest +
             Env::Cost::SaveVar; // trove del
 
@@ -1263,11 +1260,13 @@ ON_METHOD(user, liquidate)
 
         if (bRedist)
         {
+            uint32_t nCharge0 = g.m_EpochStorageRedist.m_Charge;
             g.m_RedistPool.MaybeSwitchEpoch(g.m_EpochStorageRedist);
-            nCharge += Env::Cost::Cycle * 100;
-        }
 
-        nCharge += g.m_EpochStorageRedist.m_Charge; // both epoch switch and troves pulling
+            nCharge +=
+                (g.m_EpochStorageRedist.m_Charge - nCharge0) +
+                Env::Cost::Cycle * 100;
+        }
 
         if (bStab)
         {
@@ -1321,19 +1320,16 @@ ON_METHOD(user, redeem)
         Trove::ID tid = g.m_Troves.m_iHead;
         auto& t = g.get_T(tid);
 
-        uint32_t nCharge0 = g.m_EpochStorageRedist.m_Charge;
-        g.PopTrove(0, t);
-
-        nCharge +=
-            Charge::TrovePull0() +
-            Charge::TroveTest +
-            Env::Cost::Cycle * 800;
+        uint32_t nChargeDelta = 0;
+        g.PopTrove(0, t, nChargeDelta);
 
         if (!g.RedeemTrove(t, ctx))
-        {
-            g.m_EpochStorageRedist.m_Charge = nCharge0;
             break;
-        }
+
+        nCharge +=
+            nChargeDelta +
+            Charge::TroveTest +
+            Env::Cost::Cycle * 800;
 
         if (t.m_Amounts.Tok)
         {

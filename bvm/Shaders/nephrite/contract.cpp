@@ -195,6 +195,9 @@ struct MyGlobal
         {
             tPrev.m_iNext = t.m_iNext;
             tk.m_iTrove = iPrev;
+
+            m_RedistPool.MaybeRefresh(tPrev, storR);
+
             Env::SaveVar_T(tk, tPrev);
         }
         else
@@ -219,7 +222,11 @@ struct MyGlobal
             Env::Halt_if(!Env::LoadVar_T(tk, tPrev));
 
             EpochStorageRedist storR;
-            auto vals = m_RedistPool.get_UpdatedAmounts(tPrev, storR);
+            Pair vals;
+            if (m_RedistPool.MaybeRefresh(tPrev, storR))
+                vals = tPrev.m_Amounts;
+            else
+                vals = m_RedistPool.get_UpdatedAmounts(tPrev, storR);
 
             int iCmp = vals.CmpRcr(t.m_Amounts);
             Env::Halt_if(iCmp > 0);
@@ -228,7 +235,6 @@ struct MyGlobal
             tPrev.m_iNext = iTrove;
 
             Env::SaveVar_T(tk, tPrev);
-
         }
         else
         {
@@ -573,6 +579,21 @@ BEAM_EXPORT void Method_10(Method::AddStabPoolReward& r)
 
     Strict::Add(x.m_Remaining, r.m_Amount);
     Env::FundsLock(g.m_Settings.m_AidGov, r.m_Amount);
+}
+
+BEAM_EXPORT void Method_11(Method::TroveRefresh& r)
+{
+    MyGlobal_LoadSave g;
+
+    Trove t;
+    Trove::ID iTrove = g.TrovePop(r.m_iPrev0, t);
+
+    // verify the refresh makes sense
+    Env::Halt_if(
+        (r.m_iPrev0 == r.m_iPrev1) && // same pos
+        (t.m_RedistUser.m_iEpoch == g.m_RedistPool.m_iActive)); // same epoch
+
+    g.TrovePush(iTrove, t, r.m_iPrev1);
 }
 
 } // namespace Nephrite
