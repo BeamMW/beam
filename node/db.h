@@ -92,7 +92,7 @@ public:
 			StateFindWithFlag,
 			StateFindWorkGreater,
 			StateUpdPrevRow,
-			StateGetNextFCount,
+			StateGetNextOf,
 			StateSetNextCount,
 			StateSetNextCountF,
 			StateGetHeightAndAux,
@@ -101,13 +101,13 @@ public:
 			StateGetFlags0,
 			StateGetFlags1,
 			StateGetChainWork,
-			StateGetNextCount,
 			StateSetPeer,
 			StateGetPeer,
 			StateGetExtra,
 			StateSetInputs,
 			StateGetInputs,
 			StateSetTxosAndExtra,
+			StateSetRB,
 			StateGetTxos,
 			StateFindByTxos,
 			TipAdd,
@@ -338,7 +338,6 @@ public:
 
 	bool DeleteState(uint64_t rowid, uint64_t& rowPrev); // State must exist. Returns false if there are ancestors.
 
-	uint32_t GetStateNextCount(uint64_t rowid);
 	uint32_t GetStateFlags(uint64_t rowid);
 	void SetFlags(uint64_t rowid, uint32_t);
 
@@ -352,6 +351,7 @@ public:
 	TxoID get_StateTxos(uint64_t rowid);
 
 	void set_StateTxosAndExtra(uint64_t rowid, const TxoID*, const Blob* pExtra, const Blob* pRB);
+	void set_StateRB(uint64_t rowid, const Blob& rb);
 
 	void SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE, const PeerID&);
 	void GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE, ByteBuffer* pRB);

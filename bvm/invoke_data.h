@@ -27,7 +27,7 @@ namespace beam::bvm2 {
 	struct ContractInvokeEntry
 	{
 		uint32_t m_Flags = 0;
-		ECC::uintBig m_Cid;
+		ContractID m_Cid;
 		uint32_t m_iMethod = 0;
 		ByteBuffer m_Data;
 		ByteBuffer m_Args;

@@ -44,6 +44,8 @@ namespace beam
 
 	using ECC::Key;
 
+	typedef ECC::uintBig ContractID;
+
 	namespace MasterKey
 	{
 		Key::IKdf::Ptr get_Child(Key::IKdf&, Key::Index);
@@ -52,6 +54,20 @@ namespace beam
 	Timestamp getTimestamp();
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
+
+	struct LongAction
+	{
+		uint32_t m_Last_ms;
+		uint64_t m_Total;
+
+		LongAction(const char* sz, uint64_t nTotal) {
+			Reset(sz, nTotal);
+		}
+		LongAction() {}
+
+		void Reset(const char*, uint64_t nTotal);
+		void OnProgress(uint64_t pos);
+	};
 
 	void HeightAdd(Height& trg, Height val); // saturates if overflow
 
@@ -85,7 +101,6 @@ namespace beam
 
 	namespace AmountBig
 	{
-
 		typedef uintBig_t<sizeof(Amount) + sizeof(Height)> Type; // 128 bits
 		Amount get_Lo(const Type&);
 		Amount get_Hi(const Type&);
@@ -94,6 +109,9 @@ namespace beam
 
 		// This one is not optimized (slow)
 		void AddTo(ECC::Point::Native& res, const Type& x, const ECC::Point::Native& hGen);
+
+		void Print(std::ostream&, const Type&);
+		void Print(std::ostream&, Amount);
 	};
 
 	typedef int64_t AmountSigned;
@@ -160,18 +178,21 @@ namespace beam
 			void Reset();
 			void UpdateHash(); // called automatically during deserialization
 			void get_Owner(PeerID&, Key::IPKdf&) const;
+			void get_Owner(PeerID&, const ContractID&) const;
 		};
 
 		struct Info
 		{
 			AmountBig::Type m_Value = Zero;
 			PeerID m_Owner = Zero;
+			ContractID m_Cid = Zero;
 			Height m_LockHeight = 0; // last emitted/burned change height. if emitted atm - when was latest 1st emission. If burned atm - what was last burn.
 			Amount m_Deposit = 0;
 			Metadata m_Metadata;
 			static const uint32_t s_MetadataMaxSize = 1024 * 16; // 16K
 
 			void Reset();
+			void SetCid(const ContractID*);
 			bool IsEmpty() const;
 			bool IsValid() const;
 			bool Recognize(Key::IPKdf&) const;
@@ -331,7 +352,7 @@ namespace beam
 		static void get_Emission(AmountBig::Type&, const HeightRange&);
 		static void get_Emission(AmountBig::Type&, const HeightRange&, Amount base);
 
-		HeightHash pForks[6];
+		HeightHash pForks[7];
 
 		const HeightHash& get_LastFork() const;
 		const HeightHash* FindFork(const Merkle::Hash&) const;
@@ -1125,7 +1146,7 @@ namespace beam
 	struct TxKernelContractInvoke
 		:public TxKernelContractControl
 	{
-		ECC::uintBig m_Cid;
+		ContractID m_Cid;
 		uint32_t m_iMethod;
 
 		typedef std::unique_ptr<TxKernelContractInvoke> Ptr;

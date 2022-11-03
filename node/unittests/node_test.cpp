@@ -254,6 +254,9 @@ namespace beam
 		vStates.resize(hMax);
 		memset0(&vStates.at(0), vStates.size());
 
+		Difficulty::Raw d0;
+		Difficulty(0).Unpack(d0);
+
 		Merkle::CompactMmr cmmr, cmmrFork;
 
 		for (uint32_t h = 0; h < hMax; h++)
@@ -261,7 +264,9 @@ namespace beam
 			Block::SystemState::Full& s = vStates[h];
 			s.m_Height = h + Rules::HeightGenesis;
 
-			s.m_ChainWork = h; // must be in ascending order
+			s.m_ChainWork = d0;
+			if (h)
+				s.m_ChainWork += vStates[h - 1].m_ChainWork;
 
 			if (h)
 			{
@@ -347,7 +352,7 @@ namespace beam
 		Merkle::Interpret(s.m_Definition, hvZero, true);
 
 		s.m_Height++;
-		s.m_ChainWork = s.m_Height;
+		s.m_ChainWork += d0;
 
 		uint64_t rowLast1 = db.InsertState(s, peer);
 
@@ -1770,7 +1775,7 @@ namespace beam
 				PeerID m_Owner;
 				Asset::ID m_ID = 0; // set after successful creation + proof
 				bool m_Recognized = false;
-
+				bool m_ListReceived = false;
 				bool m_EvtCreated = false;
 				bool m_EvtEmitted = false;
 
@@ -2115,6 +2120,23 @@ namespace beam
 				verify_test(m_Assets.m_ID);
 			}
 
+			virtual void OnMsg(proto::AssetsListAt&& msg) override
+			{
+				verify_test(m_Assets.m_hCreated);
+
+				if (msg.m_Assets.empty())
+					return;
+
+				verify_test(1 == msg.m_Assets.size());
+				auto& ai = msg.m_Assets.front();
+
+				verify_test(m_Assets.m_ID == ai.m_ID);
+				verify_test(ai.m_Metadata.m_Value == m_Assets.m_Metadata.m_Value);
+				verify_test(ai.m_Metadata.m_Hash == m_Assets.m_Metadata.m_Hash);
+
+				m_Assets.m_ListReceived = true;
+			}
+
 			struct AchievementTester
 			{
 				bool m_AllDone = true;
@@ -2145,6 +2167,7 @@ namespace beam
 				t.Test(m_Assets.m_Recognized, "CA output not recognized");
 				t.Test(m_Assets.m_EvtCreated, "CA creation not recognized by node");
 				t.Test(m_Assets.m_EvtEmitted, "CA emission not recognized by node");
+				t.Test(m_Assets.m_ListReceived, "CA list not received");
 				t.Test(m_Shielded.m_SpendConfirmed, "Shielded spend not confirmed");
 				t.Test(m_Shielded.m_EvtAdd, "Shielded Add event didn't arrive");
 				t.Test(m_Shielded.m_EvtSpend, "Shielded Spend event didn't arrive");
@@ -2189,6 +2212,10 @@ namespace beam
 					proto::GetProofAsset msgOut;
 					msgOut.m_Owner = m_Assets.m_Owner;
 					Send(msgOut);
+
+					proto::GetAssetsListAt msgOut2;
+					msgOut2.m_Height = MaxHeight;
+					Send(msgOut2);
 				}
 
 				proto::BbsMsg msgBbs;
@@ -3321,9 +3348,9 @@ namespace beam
 
 				NetworkStd net(*this);
 
-							io::Address addr;
-							addr.resolve("127.0.0.1");
-							addr.port(g_Port);
+				io::Address addr;
+				addr.resolve("127.0.0.1");
+				addr.port(g_Port);
 				net.m_Cfg.m_vNodes.resize(4, addr); // create several connections, let the compete
 
 				net.Connect();
@@ -3362,6 +3389,13 @@ namespace beam
 
 				net.PostRequest(*pHdrs, *this);
 				m_nProofsExpected++;
+
+				{
+					RequestAssetsListAt::Ptr pReq(new RequestAssetsListAt);
+					pReq->m_Msg.m_Height = MaxHeight;
+					net.PostRequest(*pReq, *this);
+					m_nProofsExpected++;
+				}
 
 				SetTimer(90 * 1000);
 				m_bRunning = true;

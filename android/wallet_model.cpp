@@ -994,6 +994,52 @@ void WalletModel::onExportTxHistoryToCsv(const std::string& data)
     env->DeleteLocalRef(jdata);
 }
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+void WalletModel::onExportAtomicSwapTxHistoryToCsv(const std::string& data) 
+{
+    LOG_DEBUG() << "onExportAtomicSwapTxHistoryToCsv()";
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onExportAtomicSwapTxHistoryToCsv", "(Ljava/lang/String;)V");
+
+    jstring jdata = env->NewStringUTF(data.c_str());
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, jdata);
+    env->DeleteLocalRef(jdata);
+}
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+void WalletModel::onExportAssetsSwapTxHistoryToCsv(const std::string& data) 
+{
+    LOG_DEBUG() << "onExportAssetsSwapTxHistoryToCsv()";
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onExportAssetsSwapTxHistoryToCsv", "(Ljava/lang/String;)V");
+
+    jstring jdata = env->NewStringUTF(data.c_str());
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, jdata);
+    env->DeleteLocalRef(jdata);
+}
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
+void WalletModel::onExportContractTxHistoryToCsv(const std::string& data) 
+{
+    LOG_DEBUG() << "onExportContractTxHistoryToCsv()";
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onExportContractTxHistoryToCsv", "(Ljava/lang/String;)V");
+
+    jstring jdata = env->NewStringUTF(data.c_str());
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, jdata);
+    env->DeleteLocalRef(jdata);
+}
+
 void WalletModel::onPublicAddress(const std::string& publicAddr)
 {
     LOG_DEBUG() << "onPublicAddress()";

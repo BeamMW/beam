@@ -17,6 +17,7 @@
 #include <sstream>
 #include "block_crypt.h"
 #include "serialization_adapters.h"
+#include "../utility/logger.h"
 
 namespace beam
 {
@@ -1853,6 +1854,120 @@ namespace beam
             s.m_Value = x;
 			res += hGen * s;
         }
+
+		namespace Text
+		{
+			void PrintDigs(char* sz, uint32_t nDigs, Amount val)
+			{
+				for ( ; nDigs--; val /= 10)
+					sz[nDigs] = '0' + (val % 10);
+			}
+
+			void PrintPortion(std::ostream& os, Amount val, bool bFirst)
+			{
+				assert(val);
+
+				char szBuf[4];
+				PrintDigs(szBuf, _countof(szBuf) - 1, val);
+				szBuf[_countof(szBuf) - 1] = 0;
+
+				if (bFirst)
+				{
+					// trim leading zeroes
+					const char* sz = szBuf;
+					while ('0' == *sz)
+						sz++;
+
+					os << sz;
+				}
+				else
+					os << ',' << szBuf;
+			}
+
+			Amount SplitBy(const Type& val, uint32_t div, Type& valHi)
+			{
+				Type valResid;
+				valHi.SetDiv(val, uintBigFrom(div), valResid);
+
+				valResid.Negate();
+				valResid += val;
+
+				return get_Lo(valResid);
+			}
+
+			void PrintRec(std::ostream& os, Amount val)
+			{
+				Amount valNext = val / 1000;
+				if (valNext)
+				{
+					PrintRec(os, valNext);
+					PrintPortion(os, val, false);
+				}
+				else
+					PrintPortion(os, val, true);
+			}
+
+			void PrintRec(std::ostream& os, const Type& val)
+			{
+				if (get_Hi(val))
+				{
+					Type valHi;
+					Amount valLo = SplitBy(val, 1000000000ul, valHi);
+
+					PrintRec(os, valHi);
+					PrintPortion(os, valLo, false);
+
+				}
+				else
+					PrintRec(os, get_Lo(val));
+			}
+
+			void PrintGroths(std::ostream& os, Amount val)
+			{
+				if (!val)
+					return;
+
+				char szBuf[9];
+				PrintDigs(szBuf, _countof(szBuf) - 1, val);
+
+				// trim trailing zeroes
+				uint32_t nLen = _countof(szBuf) - 1;
+				while ('0' == szBuf[nLen - 1])
+					nLen--;
+
+				szBuf[nLen] = 0;
+				os << '.' << szBuf;
+			}
+
+
+		} // namespace Text
+
+		void Print(std::ostream& os, const Type& x)
+		{
+			if (get_Hi(x))
+			{
+				Type val;
+				Amount groths = Text::SplitBy(x, (uint32_t) Rules::Coin, val);
+				Text::PrintRec(os, val);
+				Text::PrintGroths(os, groths);
+			}
+			else
+				Print(os, get_Lo(x));
+		}
+
+		void Print(std::ostream& os, Amount x)
+		{
+			Amount groths = x % Rules::Coin;
+			x /= Rules::Coin;
+
+			if (x)
+				Text::PrintRec(os, x);
+			else
+				os << '0';
+
+			Text::PrintGroths(os, groths);
+		}
+
 	} // namespace AmountBig
 
 
@@ -2096,6 +2211,12 @@ namespace beam
 			<< pForks[5].m_Height
 			<< CA.DepositForList5
 			>> pForks[5].m_Hash;
+
+		oracle
+			<< "fork6"
+			<< pForks[6].m_Height
+			// no more flexible parameters so far
+			>> pForks[6].m_Hash;
 	}
 
 	const HeightHash* Rules::FindFork(const Merkle::Hash& hv) const
@@ -2168,10 +2289,7 @@ namespace beam
 			if (MaxHeight == x.m_Height)
 				break; // skip those
 
-			if (i)
-				os << ", ";
-
-			os << x;
+			os << "\n\t" << x;
 		}
 
 		return os.str();
@@ -2281,8 +2399,14 @@ namespace beam
 	{
 		if (m_Height < Rules::HeightGenesis)
 			return false;
-		if ((m_Height == Rules::HeightGenesis) && !(m_Prev == Rules::get().Prehistoric))
-			return false;
+		if (m_Height == Rules::HeightGenesis)
+		{
+			if (m_Prev != Rules::get().Prehistoric)
+				return false;
+
+			if (m_ChainWork - m_PoW.m_Difficulty != Zero)
+				return false;
+		}
 
 		return true;
 	}
@@ -2865,6 +2989,37 @@ namespace beam
 		return ret ? ret : 1;
 	}
 
+	void LongAction::Reset(const char* sz, uint64_t nTotal)
+	{
+		m_Total = nTotal;
+		m_Last_ms = GetTime_ms();
+		LOG_INFO() << sz;
+	}
+
+	void LongAction::OnProgress(uint64_t pos)
+	{
+		uint32_t dt_ms = GetTime_ms() - m_Last_ms;
+
+		const uint32_t nWindow_ms = 10000; // 10 sec
+		uint32_t n = dt_ms / nWindow_ms;
+		if (n)
+		{
+			m_Last_ms += n * nWindow_ms;
+
+			uint32_t nDone = 0;
+
+			if (m_Total)
+			{
+				if (pos >= m_Total)
+					nDone = 100;
+				else
+					nDone = (uint32_t) (pos * 100ull / m_Total);
+			}
+
+			LOG_INFO() << "\t" << nDone << "%...";
+		}
+	}
+
 	/////////////
 	// Asset
 	const PeerID Asset::s_InvalidOwnerID = Zero;
@@ -2902,8 +3057,17 @@ namespace beam
 	{
 		m_Value = Zero;
 		m_Owner = Zero;
+		m_Cid = Zero;
 		m_LockHeight = 0;
 		m_Metadata.Reset();
+	}
+
+	void Asset::Info::SetCid(const ContractID* pCid)
+	{
+		if (pCid)
+			m_Cid = *pCid;
+		else
+			m_Cid = Zero;
 	}
 
 	bool Asset::Info::IsEmpty() const
@@ -3015,6 +3179,15 @@ namespace beam
 		ECC::Point::Native pt;
 		pkdf.DerivePKeyG(pt, m_Hash);
 		res.Import(pt);
+	}
+
+	void Asset::Metadata::get_Owner(PeerID& res, const ContractID& cid) const
+	{
+		ECC::Hash::Processor()
+			<< "bvm.a.own"
+			<< cid
+			<< m_Hash
+			>> res;
 	}
 
 	bool Asset::Info::Recognize(Key::IPKdf& pkdf) const

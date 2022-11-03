@@ -381,6 +381,22 @@ namespace beam
         const char* IPFS_ROUTING_TYPE  = "ipfs_routing_type";
         const char* IPFS_RUN_GC        = "ipfs_run_gc";
         #endif
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        const char* ASSETS_SWAP_LIST   = "assets_swap_list";
+        const char* ASSETS_SWAP_CREATE = "asset_swap_create";
+        const char* ASSETS_SWAP_CANCEL = "asset_swap_cancel";
+        const char* ASSETS_SWAP_ACCEPT = "asset_swap_accept";
+
+        const char* ASSETS_SWAP_SEND_AMOUNT = "send_amount";
+        const char* ASSETS_SWAP_SEND_ASSET_ID = "send_asset_id";
+        const char* ASSETS_SWAP_RECEIVE_AMOUNT = "receive_amount";
+        const char* ASSETS_SWAP_RECEIVE_ASSET_ID = "receive_asset_id";
+        const char* ASSETS_SWAP_EXPIRATION = "minutes_before_expire";
+        const char* ASSETS_SWAP_COMMENT = "asset_swap_comment";
+
+        const char* ASSETS_SWAP_OFFER_ID = "offer_id";
+#endif  // BEAM_ASSET_SWAP_SUPPORT
     }
 
     template <typename T> struct TypeCvt {
@@ -559,6 +575,23 @@ namespace beam
             (cli::ASSET_METADATA,   po::value<string>(), "asset metadata")
             (cli::WITH_ASSETS,      po::bool_switch()->default_value(false), "enable confidential assets transactions");
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        po::options_description assets_swap_options("Assets swap");
+        assets_swap_options.add_options()
+            (cli::ASSETS_SWAP_LIST, "view available assets swap list")
+            (cli::ASSETS_SWAP_CREATE, "create asset swap offer")
+            (cli::ASSETS_SWAP_CANCEL, "cancel asset swap offer, arg - offer id")
+            (cli::ASSETS_SWAP_ACCEPT, "accept asset swap offer, arg - offer id")
+            (cli::ASSETS_SWAP_SEND_ASSET_ID, po::value<Nonnegative<uint32_t>>(), "send asset ID")
+            (cli::ASSETS_SWAP_RECEIVE_ASSET_ID, po::value<Nonnegative<uint32_t>>(), "receive asset ID")
+            (cli::ASSETS_SWAP_SEND_AMOUNT, po::value<Positive<double>>(), "amount to send")
+            (cli::ASSETS_SWAP_RECEIVE_AMOUNT, po::value<Positive<double>>(), "amount to receive")
+            (cli::ASSETS_SWAP_EXPIRATION, po::value<uint32_t>()->default_value(30), "expiration time in minutes")
+            (cli::ASSETS_SWAP_COMMENT, po::value<string>()->default_value(""), "comment")
+            (cli::ASSETS_SWAP_OFFER_ID, po::value<string>()->default_value(""), "offer id");
+
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
         #ifdef BEAM_LASER_SUPPORT
         po::options_description laser_options("Laser beam");
         laser_options.add_options()
@@ -611,6 +644,10 @@ namespace beam
             if(Rules::get().CA.Enabled)
             {
                 visible_options.add(wallet_assets_options);
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+                options.add(assets_swap_options);
+                visible_options.add(assets_swap_options);
+#endif  // BEAM_ASSET_SWAP_SUPPORT
             }
 
             #ifdef BEAM_LASER_SUPPORT

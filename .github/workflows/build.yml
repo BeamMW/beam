@@ -311,7 +311,6 @@ jobs:
         run: |
           git submodule update --init --recursive --jobs 4 -- "3rdparty/re2"
 
-
       ###############################################################################
       # Create Build Environment
       ###############################################################################
@@ -561,7 +560,7 @@ jobs:
       - name: Configure CMake && Build
         run: |
           source ${{runner.workspace}}/emsdk/emsdk_env.sh
-          cmake . -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DBoost_DEBUG=On -DBEAM_TESTS_ENABLED=Off -DBEAM_WALLET_CLIENT_LIBRARY=On -DBEAM_ATOMIC_SWAP_SUPPORT=Off -DBEAM_IPFS_SUPPORT=Off -DBEAM_LASER_SUPPORT=Off -DBEAM_USE_STATIC=On -DBOOST_ROOT=${{runner.workspace}}/boost_prebuild -DCMAKE_FIND_ROOT_PATH:FILEPATH="${{runner.workspace}}/boost_prebuild;${{runner.workspace}}/openssl-wasm" -DOPENSSL_ROOT_DIR=${{runner.workspace}}/openssl-wasm -B${{runner.workspace}}/build_wasm
+          cmake . -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DBoost_DEBUG=On -DBEAM_TESTS_ENABLED=Off -DBEAM_WALLET_CLIENT_LIBRARY=On -DBEAM_ATOMIC_SWAP_SUPPORT=Off -DBEAM_IPFS_SUPPORT=Off -DBEAM_LASER_SUPPORT=Off -DBEAM_ASSET_SWAP_SUPPORT=Off -DBEAM_USE_STATIC=On -DBOOST_ROOT=${{runner.workspace}}/boost_prebuild -DCMAKE_FIND_ROOT_PATH:FILEPATH="${{runner.workspace}}/boost_prebuild;${{runner.workspace}}/openssl-wasm" -DOPENSSL_ROOT_DIR=${{runner.workspace}}/openssl-wasm -B${{runner.workspace}}/build_wasm
           emmake make -j$(nproc) -C ${{runner.workspace}}/build_wasm
 
       - name: Save version info

@@ -18,9 +18,8 @@
 
 namespace beam::wallet {
 
-    DexBoard::DexBoard(IBroadcastMsgGateway& gateway, IWalletModelAsync::Ptr wallet, IWalletDB& wdb)
+    DexBoard::DexBoard(IBroadcastMsgGateway& gateway, IWalletDB& wdb)
         : _gateway(gateway)
-        , _wallet(std::move(wallet))
         , _wdb(wdb)
     {
         auto offersRaw = _wdb.loadDexOffers();
@@ -42,6 +41,8 @@ namespace beam::wallet {
 
         _gateway.registerListener(BroadcastContentType::DexOffers, this);
     }
+
+    DexBoard::~DexBoard() {}
 
     std::vector<DexOrder> DexBoard::getDexOrders() const
     {
@@ -88,7 +89,7 @@ namespace beam::wallet {
         auto it = _orders.find(order->getID());
         if (it == _orders.end())
         {
-            if (!order->isCanceled() && !order->isExpired())
+            if (!order->isCanceled() && !order->isExpired() && !order->isAccepted())
             {
                 _orders[order->getID()] = *order;
                 _wdb.saveDexOffer(order->getID(), toByteBuffer(*order), order->isMine());
@@ -172,6 +173,7 @@ namespace beam::wallet {
             || it->second.isAccepted()) return false;
 
         it->second.setAccepted(true);
+        publishOrder(it->second);
 
         return true;
     }

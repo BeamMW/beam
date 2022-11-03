@@ -4544,6 +4544,7 @@ namespace beam::wallet
         return offers;
     }
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
     void WalletDB::saveDexOffer(const DexOrderID& offerId, const ByteBuffer& offer, bool isMine)
     {
         const auto& idStr = offerId.to_string();
@@ -4586,6 +4587,7 @@ namespace beam::wallet
 
         stm.step();
     }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
     void WalletDB::rollbackAssets(Height minHeight)
     {

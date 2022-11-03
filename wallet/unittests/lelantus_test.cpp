@@ -113,10 +113,11 @@ void TestMaxPrivacyAndOffline()
 
     TxID txID = {}, txID2 = {};
     Node node;
+    bool bTxCreated = false;
     NodeObserver observer([&]()
     {
-        auto cursor = node.get_Processor().m_Cursor;
-        if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
+        const auto& cursor = node.get_Processor().m_Cursor;
+        if (!bTxCreated && (cursor.m_Sid.m_Height >= Rules::get().pForks[2].m_Height + 3))
         {
             WalletAddress walletAddress;
             receiver.m_WalletDB->createAddress(walletAddress);
@@ -139,6 +140,8 @@ void TestMaxPrivacyAndOffline()
 
             txID = f(maxPrivacyToken, TxAddressType::MaxPrivacy);
             txID2 = f(offlineToken, TxAddressType::Offline);
+
+            bTxCreated = true;
         }
         else if (cursor.m_Sid.m_Height == 50)
         {

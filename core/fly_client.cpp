@@ -1076,6 +1076,15 @@ bool FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
     return true;
 }
 
+bool FlyClient::NetworkStd::Connection::SendRequest(RequestAssetsListAt& req)
+{
+    if (get_Ext() < 10)
+        return false;
+
+    Send(req.m_Msg);
+    return true;
+}
+
 void FlyClient::NetworkStd::Connection::OnMsg(proto::Pong&&)
 {
     if (!m_lst.empty())
@@ -1104,6 +1113,42 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::Pong&&)
     }
 }
 
+void FlyClient::NetworkStd::Connection::OnMsg(proto::AssetsListAt&& msg)
+{
+    auto& n = get_FirstRequest();
+    auto& r = n.m_pRequest->As<RequestAssetsListAt>();
+
+    if (msg.m_Assets.empty())
+    {
+        if (msg.m_bMore)
+            ThrowUnexpected();
+    }
+    else
+    {
+        Asset::ID aid0 = r.m_Msg.m_Aid0;
+        for (const auto& ai : msg.m_Assets)
+        {
+            if (aid0 > ai.m_ID)
+                ThrowUnexpected();
+
+            aid0 = ai.m_ID + 1;
+        }
+
+        if (r.m_Res.empty())
+            r.m_Res = std::move(msg.m_Assets);
+        else
+            r.m_Res.insert(r.m_Res.end(), msg.m_Assets.begin(), msg.m_Assets.end());
+
+
+        r.m_Msg.m_Aid0 = aid0;
+    }
+
+
+    if (msg.m_bMore)
+        Send(r.m_Msg);
+    else
+        OnDone(n);
+}
 
 void FlyClient::NetworkStd::Connection::OnDone(RequestNode& n, bool bMaybeRetry /* = true */)
 {

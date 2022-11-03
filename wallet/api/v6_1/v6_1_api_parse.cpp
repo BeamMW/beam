@@ -102,7 +102,8 @@ namespace beam::wallet
                     {"beam_version_minor", res.beamVersionMinor},
                     {"beam_version_rev",   res.beamVersionRevision},
                     {"beam_commit_hash",   res.beamCommitHash},
-                    {"beam_branch_name",   res.beamBranchName}
+                    {"beam_branch_name",   res.beamBranchName},
+                    {"beam_network_name",  res.beamNetworkName}
                 }
             }
         };

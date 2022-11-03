@@ -723,6 +723,9 @@ namespace beam::wallet
         case TxType::AssetReg:
         case TxType::AssetUnreg:
         case TxType::Contract:
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        case TxType::DexSimpleSwap:
+#endif  // BEAM_ASSET_SWAP_SUPPORT
             return true;
         default:
             return false;

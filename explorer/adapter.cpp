@@ -401,6 +401,79 @@ private:
         return true;
     }
 
+    template <typename T>
+    static void AssignField(json& json, const char* szName, T&& val)
+    {
+        if (szName)
+            json[szName] = std::move(val);
+        else
+            json.push_back(std::move(val));
+    }
+
+    template <uint32_t nBytes>
+    static void AssignField(json& json, const char* szName, const uintBig_t<nBytes>&& val)
+    {
+        char sz[uintBig_t<nBytes>::nTxtLen + 1];
+        val.Print(sz);
+        AssignField(json, szName, std::move(sz));
+    }
+
+    static void AssignField(json& json, const char* szName, const ECC::Point& pt)
+    {
+        typedef uintBig_t<ECC::nBytes + 1> MyPoint;
+        AssignField<MyPoint::nBytes>(json, szName, std::move(Cast::Reinterpret<MyPoint>(pt)));
+    }
+
+    template <typename T>
+    static json MakeTypeObj(const char* szType, T&& val)
+    {
+        json j;
+        j["type"] = szType;
+        AssignField(j, "value", std::move(val));
+        return j;
+    }
+
+    static json MakeTableHdr(const char* szName)
+    {
+        return MakeTypeObj("th", szName);
+    }
+
+    static json MakeTable(json&& jRows)
+    {
+        return MakeTypeObj("table", std::move(jRows));
+    }
+
+    static json MakeObjAid(Asset::ID aid)
+    {
+        return MakeTypeObj("aid", aid);
+    }
+
+    static json MakeObjAmount(const Amount x)
+    {
+        return MakeTypeObj("amount", x);
+    }
+
+    static json MakeObjAmount(const AmountBig::Type& x)
+    {
+        if (!AmountBig::get_Hi(x))
+            return MakeObjAmount(AmountBig::get_Lo(x));
+
+        char sz[AmountBig::Type::nTxtLen10Max + 2];
+
+        if (x.get_Msb())
+        {
+            auto x2 = x;
+            x2.Negate();
+
+            sz[0] = '-';
+            x2.PrintDecimal(sz + 1);
+        }
+        else
+            x.PrintDecimal(sz);
+
+        return MakeTypeObj("amount", sz);
+    }
+
     struct ExtraInfo
     {
         struct ContractRichInfo {
@@ -416,6 +489,24 @@ private:
             }
         };
 
+        static void FundsToExclusive(NodeProcessor::ContractInvokeExtraInfo& info)
+        {
+            for (uint32_t iNested = 0; iNested < info.m_NumNested; )
+            {
+                auto& infoNested = (&info)[++iNested];
+                iNested += infoNested.m_NumNested;
+
+                FundsToExclusive(infoNested);
+
+                for (auto it = infoNested.m_FundsIO.m_Map.begin(); infoNested.m_FundsIO.m_Map.end() != it; it++)
+                {
+                    auto val = it->second;
+                    val.Negate();
+                    info.m_FundsIO.Add(val, it->first);
+                }
+            }
+        }
+
         struct Writer
         {
             json m_json;
@@ -423,20 +514,12 @@ private:
             template <uint32_t nBytes>
             void AddHex(const char* szName, const uintBig_t<nBytes>& val)
             {
-                char sz[uintBig_t<nBytes>::nTxtLen + 1];
-                val.Print(sz);
-                m_json[szName] = sz;
-            }
-
-            void AddPt(const char* szName, const ECC::Point& pt)
-            {
-                typedef uintBig_t<ECC::nBytes + 1> MyPoint;
-                AddHex(szName, Cast::Reinterpret<MyPoint>(pt));
+                AssignField(m_json, szName, std::move(val));
             }
 
             void AddCommitment(const ECC::Point& pt)
             {
-                AddPt("commitment", pt);
+                AssignField(m_json, "commitment", pt);
             }
 
             template <typename T>
@@ -444,22 +527,6 @@ private:
             {
                 m_json["min"] = vMin;
                 m_json["max"] = vMax;
-            }
-
-            void AddCid(const bvm2::ContractID& cid)
-            {
-                AddHex("cid", cid);
-            }
-
-            void AddSid(const bvm2::ShaderID& sid)
-            {
-                AddHex("sid", sid);
-            }
-
-            void AddSidIfNoName(const bvm2::ShaderID& sid)
-            {
-                if (m_json.find("name") == m_json.end())
-                    AddSid(sid);
             }
 
             void AddAid(Asset::ID aid)
@@ -470,12 +537,22 @@ private:
             void AddValBig(const char* szName, const AmountBig::Type& x)
             {
                 if (!AmountBig::get_Hi(x))
-                    m_json[szName] = AmountBig::get_Lo(x);
+                {
+                    auto valLo = AmountBig::get_Lo(x);
+                    if (szName)
+                        m_json[szName] = valLo;
+                    else
+                        m_json.push_back(valLo);
+                }
                 else
                 {
                     char sz[AmountBig::Type::nTxtLen10Max + 1];
                     x.PrintDecimal(sz);
-                    m_json[szName] = sz;
+
+                    if (szName)
+                        m_json[szName] = sz;
+                    else
+                        m_json.push_back(sz);
                 }
             }
 
@@ -503,10 +580,20 @@ private:
 
             void OnContract(const NodeProcessor::ContractInvokeExtraInfo& info)
             {
-                Writer wr2;
-                wr2.OnContractInternal(info);
+                Writer wrArr(json::array());
+                wrArr.m_json.push_back(json::array({
+                    MakeTableHdr("Cid"),
+                    MakeTableHdr("Kind"),
+                    MakeTableHdr("Method"),
+                    MakeTableHdr("Arguments"),
+                    MakeTableHdr("Funds"),
+                    MakeTableHdr("Keys")
+                    }));
 
-                m_json["contract"] = std::move(wr2.m_json);
+                
+                wrArr.OnContractInternal(info, nullptr, 0, 0);
+
+                m_json["Contract"] = MakeTable(std::move(wrArr.m_json));
             }
 
             void ParseSafe(const std::string& s)
@@ -520,93 +607,150 @@ private:
                 }
             }
 
-            void OnContractInternal(const NodeProcessor::ContractInvokeExtraInfo& info)
+            void OnContractInternalRaw(const NodeProcessor::ContractInvokeExtraInfo& info, const bvm2::ContractID* pDefCid, uint32_t nIndent, Height h)
             {
-                ParseSafe(info.m_sParsed);
+                Writer wrSrc;
+                wrSrc.ParseSafe(info.m_sParsed);
 
-                AddCid(info.m_Cid);
-
-                if (info.m_Sid.has_value())
-                    AddSidIfNoName(*info.m_Sid);
-
-                if (m_json.find("method") == m_json.end())
+                if (pDefCid)
                 {
-                    m_json["iMethod"] = info.m_iMethod;
+                    // Height
+                    if (nIndent)
+                        m_json.push_back("");
+                    else
+                        m_json.push_back(h);
+                }
 
-                    if (!info.m_Args.empty())
+                // Cid, Kind
+                if (pDefCid && (info.m_Cid == *pDefCid))
+                {
+                    m_json.push_back("");
+                    m_json.push_back("");
+                }
+                else
+                {
+                    m_json.push_back(MakeTypeObj("cid", info.m_Cid));
+
+                    auto it = wrSrc.m_json.find("kind");
+                    if (wrSrc.m_json.end() == it)
                     {
-                        std::string sBuf;
-                        sBuf.resize(info.m_Args.size() * 2);
-                        uintBigImpl::_Print(&info.m_Args.front(), (uint32_t)info.m_Args.size(), &sBuf.front());
-                        m_json["args"] = std::move(sBuf);
+                        if (info.m_Sid)
+                            AddHex(nullptr, *info.m_Sid);
+                        else
+                            m_json.push_back("");
+                    }
+                    else
+                        m_json.push_back(std::move(*it));
+                }
+
+                // Method, Arguments
+                {
+                    auto it = wrSrc.m_json.find("method");
+                    if (wrSrc.m_json.end() == it)
+                    {
+                        // as blob
+                        switch (info.m_iMethod)
+                        {
+                        case 0: m_json.push_back("Create"); break;
+                        case 1: m_json.push_back("Destroy"); break;
+                        default: m_json.push_back(info.m_iMethod);
+                        }
+
+                        std::string sArgs;
+                        if (!info.m_Args.empty())
+                        {
+                            sArgs.resize(info.m_Args.size() * 2);
+                            uintBigImpl::_Print(&info.m_Args.front(), (uint32_t) info.m_Args.size(), &sArgs.front());
+                        }
+
+                        m_json.push_back(std::move(sArgs));
+                    }
+                    else
+                    {
+                        m_json.push_back(std::move(*it));
+
+                        it = wrSrc.m_json.find("params");
+                        if (wrSrc.m_json.end() == it)
+                            m_json.push_back("");
+                        else
+                            m_json.push_back(std::move(*it));
                     }
                 }
+
+                // Funds.
+                if (!info.m_iParent)
+                    FundsToExclusive(Cast::NotConst(info));
 
                 if (!info.m_FundsIO.m_Map.empty())
                 {
-                    json jF = json::array();
+                    json jArr = json::array();
 
                     for (auto it = info.m_FundsIO.m_Map.begin(); info.m_FundsIO.m_Map.end() != it; it++)
                     {
-                        Writer wr;
+                        auto val = it->second;
+                        val.Negate();
 
-                        const char* szAction;
-                        auto valBig = it->second;
-                        if (valBig.get_Msb())
-                        {
-                            valBig.Negate();
-                            szAction = "Spend";
-                        }
-                        else
-                            szAction = "Receive";
+                        json jEntry = json::array();
+                        jEntry.push_back(MakeObjAid(it->first));
+                        jEntry.push_back(MakeObjAmount(val));
 
-                        wr.m_json["action"] = szAction;
-                        wr.AddValBig("val", valBig);
-
-                        auto aid = it->first;
-                        if (aid)
-                            wr.AddAid(aid);
-
-
-                        jF.push_back(std::move(wr.m_json));
+                        jArr.push_back(std::move(jEntry));
                     }
 
-                    m_json["funds"] = std::move(jF);
+                    m_json.push_back(MakeTable(std::move(jArr)));
                 }
+                else
+                    m_json.push_back("");
 
+
+                // Keys
                 if (!info.m_vSigs.empty())
                 {
-                    json jS = json::array();
+                    json jArr = json::array();
 
                     for (uint32_t iSig = 0; iSig < info.m_vSigs.size(); iSig++)
                     {
-                        Writer wr;
-                        wr.AddPt("pk", info.m_vSigs[iSig]);
-                        jS.push_back(std::move(wr.m_json));
-
+                        json jEntry = json::array();
+                        AssignField(jEntry, nullptr, info.m_vSigs[iSig]);
+                        jArr.push_back(std::move(jEntry));
                     }
 
-                    m_json["sigs"] = std::move(jS);
+                    m_json.push_back(MakeTable(std::move(jArr)));
                 }
+                else
+                    m_json.push_back("");
 
+                // debug info
+                {
+                    auto it = wrSrc.m_json.find("dbg");
+                    if (wrSrc.m_json.end() != it)
+                        m_json.push_back(std::move(*it));
+                }
+            }
+
+            void OnContractInternal(const NodeProcessor::ContractInvokeExtraInfo& info, const bvm2::ContractID* pDefCid, uint32_t nIndent, Height h)
+            {
+                Writer wr(json::array());
+                wr.OnContractInternalRaw(info, pDefCid, nIndent, h);
 
                 if (info.m_NumNested)
                 {
-                    json j2 = json::array();
+                    Writer wrGroup(json::array());
+                    wrGroup.m_json.push_back(std::move(wr.m_json));
 
                     for (uint32_t iNested = 0; iNested < info.m_NumNested; )
                     {
                         const auto& infoNested = (&info)[++iNested];
                         iNested += infoNested.m_NumNested;
 
-                        Writer wr3;
-                        wr3.OnContractInternal(infoNested);
-
-                        j2.push_back(std::move(wr3.m_json));
+                        wrGroup.OnContractInternal(infoNested, pDefCid, nIndent + 1, h);
                     }
 
-                    m_json["nested"] = std::move(j2);
+                    m_json.push_back(MakeTypeObj("group", std::move(wrGroup.m_json)));
                 }
+                else
+                    m_json.push_back(std::move(wr.m_json));
+
             }
 
             void AddMetadata(const Asset::Metadata& md)
@@ -627,6 +771,11 @@ private:
                 AddMetadata(ai.m_Metadata);
                 AddValBig("value", ai.m_Value);
                 m_json["lock_height"] = ai.m_LockHeight;
+
+                if (ai.m_Cid != Zero)
+                    m_json["cid"] = MakeTypeObj("cid", ai.m_Cid);
+                else
+                    AddHex("owner", ai.m_Owner);
             }
         };
 
@@ -802,6 +951,81 @@ private:
         }
     };
 
+    void get_LockedFunds(json& jArr, const bvm2::ContractID& cid)
+    {
+#pragma pack (push, 1)
+        struct KeyFund
+        {
+            bvm2::ContractID m_Cid;
+            uint8_t m_Tag = Shaders::KeyTag::LockedAmount;
+            uintBigFor<Asset::ID>::Type m_Aid;
+        };
+#pragma pack (pop)
+
+        KeyFund k0, k1;
+        k0.m_Cid = cid;
+        k0.m_Aid = Zero;
+        k1.m_Cid = cid;
+        k1.m_Aid = static_cast<Asset::ID>(-1);
+
+        NodeDB::WalkerContractData wlk;
+        for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
+        {
+            if ((sizeof(KeyFund) != wlk.m_Key.n) || (sizeof(AmountBig::Type) != wlk.m_Val.n))
+                continue;
+
+            Asset::ID aid;
+            reinterpret_cast<const KeyFund*>(wlk.m_Key.p)->m_Aid.Export(aid);
+
+            json jEntry = json::array();
+            jEntry.push_back(MakeObjAid(aid));
+            jEntry.push_back(MakeObjAmount(*reinterpret_cast<const AmountBig::Type*>(wlk.m_Val.p)));
+
+            jArr.push_back(std::move(jEntry));
+        }
+    }
+
+    void get_OwnedAssets(json& jArr, const bvm2::ContractID& cid)
+    {
+#pragma pack (push, 1)
+        struct KeyAsset
+        {
+            bvm2::ContractID m_Cid;
+            uint8_t m_Tag = Shaders::KeyTag::OwnedAsset;
+            uintBigFor<Asset::ID>::Type m_Aid;
+        };
+#pragma pack (pop)
+
+        KeyAsset k0, k1;
+        k0.m_Cid = cid;
+        k0.m_Aid = Zero;
+        k1.m_Cid = cid;
+        k1.m_Aid = static_cast<Asset::ID>(-1);
+
+        NodeDB::WalkerContractData wlk;
+        for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
+        {
+            if (sizeof(KeyAsset) != wlk.m_Key.n)
+                continue;
+
+            Asset::Full ai;
+            reinterpret_cast<const KeyAsset*>(wlk.m_Key.p)->m_Aid.Export(ai.m_ID);
+
+            if (!_nodeBackend.get_DB().AssetGetSafe(ai))
+                ai.m_Value = Zero;
+
+            std::string sMeta;
+            ai.m_Metadata.get_String(sMeta);
+
+            json jEntry = json::array();
+            jEntry.push_back(MakeObjAid(ai.m_ID));
+            jEntry.push_back(std::move(sMeta));
+            jEntry.push_back(MakeObjAmount(ai.m_Value));
+
+            jArr.push_back(std::move(jEntry));
+        }
+    }
+
     void get_ContractDescr(ExtraInfo::Writer& wr, const bvm2::ShaderID& sid, const bvm2::ContractID& cid, bool bFullState)
     {
         std::string sExtra;
@@ -809,7 +1033,9 @@ private:
 
         wr.ParseSafe(sExtra);
 
-        wr.AddSidIfNoName(sid);
+        if (wr.m_json.find("kind") == wr.m_json.end())
+            AssignField(wr.m_json, "kind", std::move(sid));
+
     }
 
     void get_ContractList(json& out)
@@ -852,20 +1078,57 @@ private:
         }
 
         out = json::array();
+        out.push_back(json::array({
+            MakeTableHdr("Cid"),
+            MakeTableHdr("Kind"),
+            MakeTableHdr("Deploy Height"),
+            MakeTableHdr("Locked Funds"),
+            MakeTableHdr("Owned Assets"),
+        }));
 
-        for (size_t i = 0; i < vIDs.size(); i++)
+        for (const auto& x : vIDs)
         {
-            const auto& x = vIDs[i];
+            json jItem = json::array();
+            jItem.push_back(MakeTypeObj("cid", x.first.m_Cid));
 
-            ExtraInfo::Writer wr;
-            get_ContractDescr(wr, x.first.m_Sid, x.first.m_Cid, false);
-            wr.AddCid(x.first.m_Cid);
-            wr.m_json["height"] = x.second;
+            {
+                ExtraInfo::Writer wr;
+                get_ContractDescr(wr, x.first.m_Sid, x.first.m_Cid, false);
 
+                auto it = wr.m_json.find("kind");
+                assert(wr.m_json.end() != it);
+                jItem.push_back(std::move(*it));
+            }
 
-            out.push_back(std::move(wr.m_json));
+            jItem.push_back(x.second);
+
+            {
+                json jArr = json::array();
+                get_LockedFunds(jArr, x.first.m_Cid);
+                if (jArr.empty())
+                    jItem.push_back("");
+                else
+                    jItem.push_back(MakeTable(std::move(jArr)));
+            }
+
+            {
+                json jArr = json::array();
+                get_OwnedAssets(jArr, x.first.m_Cid);
+                if (jArr.empty())
+                    jItem.push_back("");
+                else
+                    jItem.push_back(MakeTable(std::move(jArr)));
+            }
+
+            out.push_back(std::move(jItem));
         }
+    }
 
+    static void OnKrnInfoCorrupted()
+    {
+        CorruptionException exc;
+        exc.m_sErr = "KrnInfo";
+        throw exc;
     }
 
     void get_ContractState(json& out, const bvm2::ContractID& cid, const HeightRange& hr, uint32_t nMaxTxs)
@@ -889,86 +1152,38 @@ private:
 
         if (bExists)
         {
-            json jFunds = json::array();
+            json jArr = json::array();
+            jArr.push_back(json::array({
+                MakeTableHdr("Asset ID"),
+                MakeTableHdr("Amount")
+                }));
 
-#pragma pack (push, 1)
-            struct KeyFund
-            {
-                bvm2::ContractID m_Cid;
-                uint8_t m_Tag = Shaders::KeyTag::LockedAmount;
-                uintBigFor<Asset::ID>::Type m_Aid;
-            };
-#pragma pack (pop)
+            get_LockedFunds(jArr, cid);
 
-            KeyFund k0, k1;
-            k0.m_Cid = cid;
-            k0.m_Aid = Zero;
-            k1.m_Cid = cid;
-            k1.m_Aid = static_cast<Asset::ID>(-1);
-
-            NodeDB::WalkerContractData wlk;
-            for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
-            {
-                if ((sizeof(KeyFund) != wlk.m_Key.n) || (sizeof(AmountBig::Type) != wlk.m_Val.n))
-                    continue;
-
-                Asset::ID aid;
-                reinterpret_cast<const KeyFund*>(wlk.m_Key.p)->m_Aid.Export(aid);
-
-                const auto& val = *reinterpret_cast<const AmountBig::Type*>(wlk.m_Val.p);
-
-                ExtraInfo::Writer wr2;
-                wr2.AddAid(aid);
-                wr2.AddValBig("value", val);
-
-                jFunds.push_back(std::move(wr2.m_json));
-            }
-
-            wr.m_json["funds"] = std::move(jFunds);
+            wr.m_json["Locked Funds"] = MakeTable(std::move(jArr));
         }
 
         if (bExists)
         {
-            json jAssets = json::array();
+            json jArr = json::array();
 
-#pragma pack (push, 1)
-            struct KeyAsset
-            {
-                bvm2::ContractID m_Cid;
-                uint8_t m_Tag = Shaders::KeyTag::OwnedAsset;
-                uintBigFor<Asset::ID>::Type m_Aid;
-            };
-#pragma pack (pop)
+            jArr.push_back(json::array({
+                MakeTableHdr("Asset ID"),
+                MakeTableHdr("Metadata"),
+                MakeTableHdr("Emission")
+            }));
 
-            KeyAsset k0, k1;
-            k0.m_Cid = cid;
-            k0.m_Aid = Zero;
-            k1.m_Cid = cid;
-            k1.m_Aid = static_cast<Asset::ID>(-1);
+            get_OwnedAssets(jArr, cid);
 
-            NodeDB::WalkerContractData wlk;
-            for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
-            {
-                if (sizeof(KeyAsset) != wlk.m_Key.n)
-                    continue;
-
-                Asset::Full ai;
-                reinterpret_cast<const KeyAsset*>(wlk.m_Key.p)->m_Aid.Export(ai.m_ID);
-
-                if (!_nodeBackend.get_DB().AssetGetSafe(ai))
-                    ai.m_Value = Zero;
-
-                ExtraInfo::Writer wr2;
-                wr2.AddAssetInfo(ai);
-
-                jAssets.push_back(std::move(wr2.m_json));
-            }
-
-            wr.m_json["assets"] = std::move(jAssets);
+            wr.m_json["Owned assets"] = MakeTable(std::move(jArr));
         }
 
         {
-            json jVersions = json::array();
+            json jArr = json::array();
+            jArr.push_back(json::array({
+                MakeTableHdr("Height"),
+                MakeTableHdr("Version")
+                }));
 
 #pragma pack (push, 1)
             struct KeyVer
@@ -984,109 +1199,104 @@ private:
             NodeDB::ContractLog::Walker wlk;
             for (_nodeBackend.get_DB().ContractLogEnum(wlk, Blob(&key, sizeof(key)), Blob(&key, sizeof(key)), HeightPos(0), HeightPos(MaxHeight)); wlk.MoveNext(); )
             {
-                ExtraInfo::Writer wr2;
+                std::string sName;
+
+                json jEntry = json::array();
+                jEntry.push_back(wlk.m_Entry.m_Pos.m_Height);
+
                 if (sizeof(bvm2::ShaderID) == wlk.m_Entry.m_Val.n)
                 {
-                    const auto& sid = *(const bvm2::ShaderID*) wlk.m_Entry.m_Val.p;
+                    const auto& sid = *(const bvm2::ShaderID*)wlk.m_Entry.m_Val.p;
+
+                    ExtraInfo::Writer wr2;
                     get_ContractDescr(wr2, sid, cid, false); // assume it's safe, parser won't enumerate logs.
+
+                    auto it = wr2.m_json.find("kind");
+                    if (wr2.m_json.end() != it)
+                        jEntry.push_back(std::move(*it));
                 }
                 else
-                    wr2.m_json["name"] = "destroyed";
+                    jEntry.push_back("End of life");
 
-                wr2.m_json["height"] = wlk.m_Entry.m_Pos.m_Height;
-
-                jVersions.push_back(std::move(wr2.m_json));
+                jArr.push_back(std::move(jEntry));
             }
 
-            wr.m_json["versions"] = std::move(jVersions);
+            wr.m_json["Version History"] = MakeTable(std::move(jArr));
         }
 
         {
-            json jCalls = json::array();
+            ExtraInfo::Writer wrArr(json::array());
+            wrArr.m_json.push_back(json::array({
+                MakeTableHdr("Height"),
+                MakeTableHdr("Cid"),
+                MakeTableHdr("Kind"),
+                MakeTableHdr("Method"),
+                MakeTableHdr("Arguments"),
+                MakeTableHdr("Funds"),
+                MakeTableHdr("Keys")
+                }));
 
             std::vector<NodeProcessor::ContractInvokeExtraInfo> vInfo;
 
             uint32_t nCount = 0;
-            Height hLast = MaxHeight;
+            HeightPos hpLast = { 0 };
 
             NodeDB::KrnInfo::Walker wlk;
             for (_nodeBackend.get_DB().KrnInfoEnum(wlk, cid, hr.m_Max); wlk.MoveNext(); nCount++)
             {
-                const auto& pos = wlk.m_Entry.m_Pos;
-
-                if (hLast != pos.m_Height)
+                if (hpLast.m_Height != wlk.m_Entry.m_Pos.m_Height)
                 {
-                    if (pos.m_Height < hr.m_Min)
+                    if (wlk.m_Entry.m_Pos.m_Height < hr.m_Min)
                         break;
                     if (nCount >= nMaxTxs)
                         break;
 
-                    hLast = pos.m_Height;
+                    hpLast.m_Height = wlk.m_Entry.m_Pos.m_Height;
                 }
+                else
+                {
+                    if (hpLast.m_Pos <= wlk.m_Entry.m_Pos.m_Pos)
+                        continue; // already processed
+                }
+
+                hpLast.m_Pos = wlk.m_Entry.m_Pos.m_Pos;
 
                 vInfo.clear();
                 auto* pInfo = &ReadKrnInfo(vInfo, wlk);
 
+                // read the whole block, including parent and all its nested
+                while (pInfo->m_iParent)
+                {
+                    NodeDB::KrnInfo::Walker wlk2;
+                    hpLast.m_Pos = pInfo->m_iParent;
+                    _nodeBackend.get_DB().KrnInfoEnum(wlk2, hpLast, hpLast);
+                    if (!wlk2.MoveNext())
+                        OnKrnInfoCorrupted();
 
-                ExtraInfo::Writer wr2;
-                wr2.m_json["height"] = pos.m_Height;
+                    vInfo.clear();
+                    pInfo = &ReadKrnInfo(vInfo, wlk2);
+                }
 
                 uint32_t nNumNested = pInfo->m_NumNested;
-                if (nNumNested)
+                if (pInfo->m_NumNested)
                 {
                     vInfo.reserve(nNumNested + 1);
 
                     NodeDB::KrnInfo::Walker wlk2;
-                    for (_nodeBackend.get_DB().KrnInfoEnum(wlk2, HeightPos(pos.m_Height, pos.m_Pos + 1), HeightPos(pos.m_Height, pos.m_Pos + nNumNested)); wlk2.MoveNext(); )
+                    for (_nodeBackend.get_DB().KrnInfoEnum(wlk2, HeightPos(hpLast.m_Height, hpLast.m_Pos + 1), HeightPos(hpLast.m_Height, hpLast.m_Pos + nNumNested)); wlk2.MoveNext(); )
                         ReadKrnInfo(vInfo, wlk2);
 
                     if (vInfo.size() != nNumNested + 1)
-                    {
-                        CorruptionException exc;
-                        exc.m_sErr = "KrnInfo";
-                        throw exc;
-                    }
+                        OnKrnInfoCorrupted();
 
                     pInfo = &vInfo.front();
+                    hpLast.m_Pos += nNumNested;
                 }
 
-                wr2.OnContract(*pInfo);
-
-                uint32_t iParent = pInfo->m_iParent;
-                if (iParent)
-                {
-                    json jParent = json::array();
-
-                    while (true)
-                    {
-                        NodeDB::KrnInfo::Walker wlk2;
-                        _nodeBackend.get_DB().KrnInfoEnum(wlk2, HeightPos(pos.m_Height, iParent), HeightPos(pos.m_Height, iParent));
-                        if (!wlk2.MoveNext())
-                            break; // shouldn't happen
-
-                        vInfo.clear();
-                        pInfo = &ReadKrnInfo(vInfo, wlk2);
-
-                        pInfo->m_NumNested = 0;
-
-                        ExtraInfo::Writer wr3;
-                        wr3.OnContractInternal(*pInfo);
-
-                        jParent.push_back(std::move(wr3.m_json));
-
-                        iParent = pInfo->m_iParent;
-                        if (!iParent)
-                            break;
-                    }
-
-                    wr2.m_json["parent"] = std::move(jParent);
-                }
-
-                jCalls.push_back(std::move(wr2.m_json));
+                wrArr.OnContractInternal(*pInfo, &cid, 0, hpLast.m_Height);
             }
 
-            wr.m_json["calls"] = std::move(jCalls);
-
+            wr.m_json["Calls history"] = MakeTable(std::move(wrArr.m_json));
         }
 
         out = std::move(wr.m_json);

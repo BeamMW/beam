@@ -2,18 +2,37 @@
 #include "../common.h"
 #include "../Math.h"
 #include "contract.h"
+#include "../upgradable3/contract_impl.h"
+#include "../dao-vault/contract.h"
 
 namespace Amm {
 
+#pragma pack (push, 1)
+    struct MySettings :public Settings
+    {
+        MySettings() {
+            Env::LoadVar_T((uint8_t)Tags::s_Settings, *this);
+        }
+    };
+#pragma pack (pop)
 
-BEAM_EXPORT void Ctor(const void*)
+BEAM_EXPORT void Ctor(const Method::Create& r)
 {
-    Env::Halt_if(!Env::RefAdd(Mintor::s_CID));
+    r.m_Upgradable.TestNumApprovers();
+    r.m_Upgradable.Save();
+
+    Env::Halt_if(!Env::RefAdd(r.m_Settings.m_cidDaoVault));
+    Env::SaveVar_T((uint8_t) Tags::s_Settings, r.m_Settings);
 }
 
 BEAM_EXPORT void Dtor(void*)
 {
-    Env::Halt_if(!Env::RefRelease(Mintor::s_CID));
+    Upgradable3::Settings::Key key;
+    Env::DelVar_T(key);
+
+    MySettings s;
+    Env::Halt_if(!Env::RefRelease(s.m_cidDaoVault));
+    Env::DelVar_T((uint8_t) Tags::s_Settings);
 }
 
 
@@ -23,65 +42,65 @@ struct MyPool :public Pool
 
     MyPool(const Key& key) { Env::Halt_if(!Env::LoadVar_T(key, *this)); }
 
-    void Save(const Key& key) { Env::SaveVar_T(key, *this); }
+    bool Save(const Key& key) { return Env::SaveVar_T(key, *this); }
 };
 
-void FundsMove(AssetID aid, const PubKey& pk, Amount val, bool bLock)
+
+BEAM_EXPORT void Method_3(const Method::PoolCreate& r)
 {
-    if (Pool::ID::s_Token & aid)
-    {
-        Mintor::Method::Transfer arg;
-        arg.m_Tid = aid & ~Pool::ID::s_Token;
-        arg.m_Value = val;
+    Env::Halt_if((r.m_Pid.m_Aid1 >= r.m_Pid.m_Aid2) || (r.m_Pid.m_Fees.m_Kind >= FeeSettings::s_Kinds)); // key must be well-ordered
 
-        auto& pkUser = bLock ? arg.m_pkUser : arg.m_pkDst;
-        auto& pkMe = bLock ? arg.m_pkDst : arg.m_pkUser;
-
-        _POD_(pkUser) = pk;
-        _POD_(pkMe.m_X).SetZero();
-        pkMe.m_Y = Mintor::PubKeyFlag::s_Cid;
-
-        Env::CallFar_T(Mintor::s_CID, arg);
-    }
-    else
-    {
-        if (bLock)
-            Env::FundsLock(aid, val);
-        else
-            Env::FundsUnlock(aid, val);
-    }
-}
-
-void PoolCtlMove(const Pool& p, const PubKey& pk, Amount val, uint8_t bMint)
-{
-    Mintor::Method::Mint arg;
-    arg.m_Tid = p.m_tidCtl;
-    arg.m_Mint = bMint;
-    arg.m_Value = val;
-    _POD_(arg.m_pkUser) = pk;
-    Env::CallFar_T(Mintor::s_CID, arg);
-}
-
-BEAM_EXPORT void Method_2(const Method::AddLiquidity& r)
-{
     Pool::Key key;
     key.m_ID = r.m_Pid;
 
     MyPool p;
-    if (!Env::LoadVar_T(key, p))
-    {
-        Env::Halt_if(key.m_ID.m_Aid1 >= key.m_ID.m_Aid2); // potentially creating a new pool, key must be well-ordered
-        _POD_(p).SetZero();
+    _POD_(p).SetZero();
+    _POD_(p.m_pkCreator) = r.m_pkCreator;
 
-        Mintor::Method::Create arg;
-        arg.m_pkUser.m_Y = Mintor::PubKeyFlag::s_Cid;
-        Env::get_CallerCid(0, arg.m_pkUser.m_X);
-        _POD_(arg.m_Limit).SetObject(0xff);
+    // generate unique metadata
+    static const char s_szMeta1[] = "STD:SCH_VER=1;N=Amm Liquidity Token ";
+    static const char s_szMeta2[] = ";SN=AmmL;UN=AMML;NTHUN=GROTH";
 
-        Env::CallFar_T(Mintor::s_CID, arg);
+    typedef Utils::String::Decimal D;
+    char szMeta[_countof(s_szMeta1) + _countof(s_szMeta1) + D::DigitsMax<AssetID>::N * 2 + D::Digits<FeeSettings::s_Kinds - 1>::N + 2];
 
-        p.m_tidCtl = arg.m_Tid;
-    }
+    Env::Memcpy(szMeta, s_szMeta1, sizeof(s_szMeta1) - sizeof(char));
+    uint32_t nMeta = _countof(s_szMeta1) - 1;
+    nMeta += D::Print(szMeta + nMeta, key.m_ID.m_Aid1);
+    szMeta[nMeta++] = '-';
+    nMeta += D::Print(szMeta + nMeta, key.m_ID.m_Aid2);
+    szMeta[nMeta++] = '-';
+    nMeta += D::Print(szMeta + nMeta, key.m_ID.m_Fees.m_Kind);
+    Env::Memcpy(szMeta + nMeta, s_szMeta2, sizeof(s_szMeta2) - sizeof(char));
+    nMeta += _countof(s_szMeta2) - 1;
+
+    p.m_aidCtl = Env::AssetCreate(szMeta, nMeta);
+    Env::Halt_if(!p.m_aidCtl);
+
+    Env::Halt_if(p.Save(key)); // fail if already existed
+}
+
+BEAM_EXPORT void Method_4(const Method::PoolDestroy& r)
+{
+    Pool::Key key;
+    key.m_ID = r.m_Pid;
+
+    MyPool p(key);
+
+    Env::Halt_if(!Env::AssetDestroy(p.m_aidCtl)); // would fail unless fully burned
+    assert(!p.m_Totals.m_Ctl && !p.m_Totals.m_Tok1 && !p.m_Totals.m_Tok2);
+
+    Env::DelVar_T(key);
+
+    Env::AddSig(p.m_pkCreator);
+}
+
+BEAM_EXPORT void Method_5(const Method::AddLiquidity& r)
+{
+    Pool::Key key;
+    key.m_ID = r.m_Pid;
+
+    MyPool p(key);
 
     Amount dCtl;
     if (p.m_Totals.m_Ctl)
@@ -97,22 +116,22 @@ BEAM_EXPORT void Method_2(const Method::AddLiquidity& r)
     else
     {
         // 1st provider
-        dCtl = std::min(r.m_Amounts.m_Tok1, r.m_Amounts.m_Tok2);
-        Env::Halt_if(!dCtl);
-
-        Cast::Down<Amounts>(p.m_Totals) = r.m_Amounts;
-        p.m_Totals.m_Ctl = dCtl;
+        Env::Halt_if(!(r.m_Amounts.m_Tok1 && r.m_Amounts.m_Tok2));
+        p.m_Totals.AddInitial(r.m_Amounts);
+        dCtl = p.m_Totals.m_Ctl;
+        assert(dCtl);
     }
 
     p.Save(key);
 
-    FundsMove(key.m_ID.m_Aid1, r.m_pk, r.m_Amounts.m_Tok1, true);
-    FundsMove(key.m_ID.m_Aid2, r.m_pk, r.m_Amounts.m_Tok2, true);
+    Env::FundsLock(key.m_ID.m_Aid1, r.m_Amounts.m_Tok1);
+    Env::FundsLock(key.m_ID.m_Aid2, r.m_Amounts.m_Tok2);
 
-    PoolCtlMove(p, r.m_pk, dCtl, 1);
+    Env::Halt_if(!Env::AssetEmit(p.m_aidCtl, dCtl, 1));
+    Env::FundsUnlock(p.m_aidCtl, dCtl);
 }
 
-BEAM_EXPORT void Method_3(const Method::Withdraw& r)
+BEAM_EXPORT void Method_6(const Method::Withdraw& r)
 {
     Pool::Key key;
     key.m_ID = r.m_Pid;
@@ -120,43 +139,66 @@ BEAM_EXPORT void Method_3(const Method::Withdraw& r)
 
     auto dVals = p.m_Totals.Remove(r.m_Ctl);
 
-    if (p.m_Totals.m_Ctl)
-        p.Save(key);
-    else
-        Env::DelVar_T(key);
+    p.Save(key);
 
-    FundsMove(key.m_ID.m_Aid1, r.m_pk, dVals.m_Tok1, false);
-    FundsMove(key.m_ID.m_Aid2, r.m_pk, dVals.m_Tok2, false);
+    Env::FundsUnlock(key.m_ID.m_Aid1, dVals.m_Tok1);
+    Env::FundsUnlock(key.m_ID.m_Aid2, dVals.m_Tok2);
 
-    PoolCtlMove(p, r.m_pk, r.m_Ctl, 0);
+    Env::FundsLock(p.m_aidCtl, r.m_Ctl);
+    Env::Halt_if(!Env::AssetEmit(p.m_aidCtl, r.m_Ctl, 0));
 }
 
-BEAM_EXPORT void Method_4(const Method::Trade& r)
+BEAM_EXPORT void Method_7(const Method::Trade& r)
 {
     Pool::Key key;
-    bool bReverse = (r.m_Pid.m_Aid1 > r.m_Pid.m_Aid2);
+    key.m_ID = r.m_Pid;
+    bool bReverse = (key.m_ID.m_Aid1 > key.m_ID.m_Aid2);
     if (bReverse)
-    {
-        key.m_ID.m_Aid1 = r.m_Pid.m_Aid2;
-        key.m_ID.m_Aid2 = r.m_Pid.m_Aid1;
-    }
-    else
-        key.m_ID = r.m_Pid;
+        std::swap(key.m_ID.m_Aid1, key.m_ID.m_Aid2);
     
     MyPool p(key);
 
     if (bReverse)
         p.m_Totals.Swap();
 
-    Amount valPay = p.m_Totals.Trade(r.m_Buy1);
+    TradeRes res;
+    p.m_Totals.Trade(res, r.m_Buy1, key.m_ID.m_Fees);
 
     if (bReverse)
         p.m_Totals.Swap();
 
-    FundsMove(r.m_Pid.m_Aid1, r.m_pk, r.m_Buy1, false);
-    FundsMove(r.m_Pid.m_Aid2, r.m_pk, valPay, true);
+    Env::FundsUnlock(r.m_Pid.m_Aid1, r.m_Buy1);
+    Env::FundsLock(r.m_Pid.m_Aid2, res.m_PayPool);
 
     p.Save(key);
+
+    if (res.m_DaoFee)
+    {
+        DaoVault::Method::Deposit arg;
+        arg.m_Aid = r.m_Pid.m_Aid2;
+        arg.m_Amount = res.m_DaoFee;
+
+        MySettings s;
+        Env::CallFar_T(s.m_cidDaoVault, arg);
+    }
 }
 
 } // namespace Amm
+
+namespace Upgradable3 {
+
+    const uint32_t g_CurrentVersion = _countof(Amm::s_pSID) - 1;
+
+    uint32_t get_CurrentVersion()
+    {
+        return g_CurrentVersion;
+    }
+
+    void OnUpgraded(uint32_t nPrevVersion)
+    {
+        if constexpr (g_CurrentVersion)
+            Env::Halt_if(nPrevVersion != g_CurrentVersion - 1);
+        else
+            Env::Halt();
+    }
+}

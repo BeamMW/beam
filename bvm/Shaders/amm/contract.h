@@ -1,10 +1,12 @@
 #pragma once
 #include "../Math.h"
-#include "../mintor/contract.h"
+#include "../upgradable3/contract.h"
 
 namespace Amm
 {
-    static const ShaderID s_SID = { 0x88,0x41,0x2e,0x05,0xbc,0x31,0xbd,0x8d,0x1d,0x73,0x9f,0x6d,0x2b,0x28,0x33,0x61,0xcb,0x53,0x21,0xca,0x44,0xc6,0x1e,0x05,0xca,0x5d,0x19,0x5b,0xd0,0xb9,0xde,0xb1 };
+    static const ShaderID s_pSID[] = {
+        { 0xc7,0x65,0x32,0x49,0x08,0xcf,0x8d,0x87,0xf4,0xef,0xb1,0x2f,0xe3,0x39,0x9f,0xf0,0x7b,0x22,0xe5,0xf8,0x28,0xba,0xf4,0x6e,0x5d,0x0f,0x3e,0x35,0xda,0xb4,0x02,0xe0 },
+    };
 
 #pragma pack (push, 1)
 
@@ -12,8 +14,13 @@ namespace Amm
 
     struct Tags
     {
-        // don't use tag=1 for multiple data entries, it's used by Upgradable2
-        static const uint8_t s_Pool = 2;
+        static const uint8_t s_Settings = 0;
+        static const uint8_t s_Pool = 1;
+    };
+
+    struct Settings
+    {
+        ContractID m_cidDaoVault;
     };
 
     struct Amounts
@@ -24,6 +31,42 @@ namespace Amm
         void Swap()
         {
             std::swap(m_Tok1, m_Tok2);
+        }
+    };
+
+    struct TradeRes
+    {
+        Amount m_PayPool; // goes to the pool, including trading fees
+        Amount m_DaoFee; // dao fees
+    };
+
+    struct FeeSettings
+    {
+        uint8_t m_Kind;
+        static const uint8_t s_Kinds = 3;
+
+        // valPay gets the trade fees added (that are added to the pool), retval is the dao fees
+        void Get(TradeRes& res, Amount valPay) const
+        {
+            switch (m_Kind)
+            {
+            case 0: // low volatility, fee is 0.05%
+                res.m_PayPool = valPay / 2000;
+                break;
+
+            case 1: // mid volatility, fee is 0.3%
+                res.m_PayPool = valPay / 1000 * 3; // multiply after division, avoid overflow risk
+                break;
+
+            default: // high volatility, fee is 1%
+                res.m_PayPool = valPay / 100;
+            }
+
+            res.m_PayPool++; // add 1 groth (min unit) to compensate for potential round-off error during trade value calculation
+
+            res.m_DaoFee = res.m_PayPool * 3 / 10; // 30% of the fees goe to dao. Won't overflow
+            res.m_PayPool -= res.m_DaoFee;
+            Strict::Add(res.m_PayPool, valPay);
         }
     };
 
@@ -40,16 +83,19 @@ namespace Amm
         {
             AssertValid();
 
-            // Ensure the liquiduty is added according to the current proportion: da/db == a/b, or a*db == b*da
+            // Ensure the liquidity is added according to the current proportion: da/db == a/b, or a*db == b*da
             //
             // due to round-off errors we allow slight deviations.
-            // if da/db > a/b, then da/(db+1) <= (a+1)/b, and vice-versa. Means:
+            // if da/db > a/b, then da/(db+1) < a/b, and vice-versa. Means:
             //
-            // b*da <= (a+1)*(db+1) = a*db + (a + db + 1)
-            // a*db <= (b+1)*(da+1) = b*da + (b + da + 1)
+            // b*da < a*(db+1) = a*db + a
+            // a*db < b*(da+1) = b*da + b
 
-            auto adb = MultiPrecision::From(m_Tok1) * MultiPrecision::From(d.m_Tok2);
-            auto bda = MultiPrecision::From(m_Tok2) * MultiPrecision::From(d.m_Tok1);
+            auto a = MultiPrecision::From(m_Tok1);
+            auto b = MultiPrecision::From(m_Tok2);
+
+            auto adb = a * MultiPrecision::From(d.m_Tok2);
+            auto bda = b * MultiPrecision::From(d.m_Tok1);
 
             int n = adb.cmp(bda);
             if (n)
@@ -57,13 +103,13 @@ namespace Amm
                 if (n > 0)
                 {
                     // a*db > b*da, da/db < a/b
-                    if (adb > bda + MultiPrecision::From(m_Tok2 + d.m_Tok1 + 1)) // don't care about overflow
+                    if (adb >= bda + b) // don't care about overflow
                         return -1; // da/db too small
                 }
                 else
                 {
                     // b*da > a*db, da/db > a/b
-                    if (bda > adb + MultiPrecision::From(m_Tok1 + d.m_Tok2 + 1))
+                    if (bda >= adb + a)
                         return 1; // da/db too large
                 }
             }
@@ -71,11 +117,33 @@ namespace Amm
             return 0; // da/db is in range
         }
 
+        void AddInitial(const Amounts& d)
+        {
+            Cast::Down<Amounts>(*this) = d;
+            assert(m_Tok1 && m_Tok2);
+
+            // select roughly geometric mean ( (tok1 * tok2) ^ (1/2) ) for the initial Ctl value
+            uint32_t n1 = BitUtils::FindHiBit(m_Tok1);
+            uint32_t n2 = BitUtils::FindHiBit(m_Tok2);
+
+            
+            if (m_Tok1 >= m_Tok2)
+                m_Ctl = m_Tok1;
+            else
+            {
+                m_Ctl = m_Tok2;
+                std::swap(n1, n2);
+            }
+
+            m_Ctl >>= ((n1 - n2) >> 1);
+            assert(m_Ctl);
+        }
+
         static Amount ToAmount(const Float& f)
         {
-            static_assert(sizeof(Amount) == sizeof(f.m_Num));
-            Env::Halt_if(f.m_Order > 0); // would overflow
-            return f.Get();
+            Amount ret;
+            Env::Halt_if(!f.RoundDown(ret)); // don't allow overflow
+            return ret;
         }
 
         void Add(const Amounts& d)
@@ -110,7 +178,7 @@ namespace Amm
                 Float kRet = Float(dCtl) / Float(m_Ctl);
 
                 dRet.m_Tok1 = Float(m_Tok1) * kRet;
-                dRet.m_Tok2 = Float(m_Tok1) * kRet;
+                dRet.m_Tok2 = Float(m_Tok2) * kRet;
             }
             else
             {
@@ -129,7 +197,7 @@ namespace Amm
             return dRet;
         }
 
-        Amount Trade(Amount vBuy1)
+        Amount Trade(TradeRes& res, Amount vBuy1, const FeeSettings& fs) // retval is the raw price (without fees)
         {
             Float vol = Float(m_Tok1) * Float(m_Tok2);
 
@@ -139,10 +207,8 @@ namespace Amm
             Amount valPay = ToAmount(vol / Float(m_Tok1));
             Strict::Sub(valPay, m_Tok2);
 
-            // add comission 0.3%, plus add 1 groth (min unit) to compensate for potential round-off error during division
-            Amount fee = valPay / 1000 * 3 + 1;
-            Strict::Add(valPay, fee);
-            Strict::Add(m_Tok2, valPay);
+            fs.Get(res, valPay);
+            Strict::Add(m_Tok2, res.m_PayPool);
 
             return valPay;
         }
@@ -155,8 +221,7 @@ namespace Amm
             AssetID m_Aid1;
             AssetID m_Aid2;
             // must be well-ordered
-
-            static const AssetID s_Token = 0x80000000;
+            FeeSettings m_Fees;
         };
 
         struct Key
@@ -165,33 +230,50 @@ namespace Amm
             ID m_ID;
         };
 
-        Mintor::Token::ID m_tidCtl;
         Totals m_Totals;
+        AssetID m_aidCtl;
+        PubKey m_pkCreator;
     };
 
     namespace Method
     {
-        struct PoolUserInvoke
+        struct Create
         {
-            Pool::ID m_Pid;
-            PubKey m_pk;
+            static const uint32_t s_iMethod = 0;
+            Upgradable3::Settings m_Upgradable;
+            Settings m_Settings;
         };
 
-        struct AddLiquidity :public PoolUserInvoke
+        struct PoolInvoke {
+            Pool::ID m_Pid;
+        };
+
+        struct PoolCreate :public PoolInvoke
         {
-            static const uint32_t s_iMethod = 2;
+            static const uint32_t s_iMethod = 3;
+            PubKey m_pkCreator;
+        };
+
+        struct PoolDestroy :public PoolInvoke
+        {
+            static const uint32_t s_iMethod = 4;
+        };
+
+        struct AddLiquidity :public PoolInvoke
+        {
+            static const uint32_t s_iMethod = 5;
             Amounts m_Amounts;
         };
 
-        struct Withdraw :public PoolUserInvoke
+        struct Withdraw :public PoolInvoke
         {
-            static const uint32_t s_iMethod = 3;
+            static const uint32_t s_iMethod = 6;
             Amount m_Ctl;
         };
 
-        struct Trade :public PoolUserInvoke
+        struct Trade :public PoolInvoke
         {
-            static const uint32_t s_iMethod = 4;
+            static const uint32_t s_iMethod = 7;
             Amount m_Buy1;
         };
     }

@@ -297,7 +297,7 @@ namespace beam::wallet {
 
         LOG_INFO() << prefix << "Asset ID: "       << m_ID;
         LOG_INFO() << prefix << "Owner ID: "       << m_Owner;
-        LOG_INFO() << prefix << "Issued amount: "  << PrintableAmount(m_Value, false, m_ID);
+        LOG_INFO() << prefix << "Issued amount: "  << PrintableAmount(m_Value);
         LOG_INFO() << prefix << "Lock Height: "    << m_LockHeight;
         LOG_INFO() << prefix << "Refresh height: " << m_RefreshHeight;
         LOG_INFO() << prefix << "Metadata size: "  << m_Metadata.m_Value.size() << " bytes";

@@ -57,28 +57,28 @@ namespace beam::wallet {
             DeleteAddr(m_Addresses.begin()->get_ParentObj());
     }
 
-    void BaseMessageEndpoint::ProcessMessage(BbsChannel channel, const ByteBuffer& msg)
+    void BaseMessageEndpoint::ProcessMessage(const proto::BbsMsg& msg)
     {
         Addr::Channel key;
-        key.m_Value = channel;
+        key.m_Value = msg.m_Channel;
 
         for (ChannelSet::iterator it = m_Channels.lower_bound(key); ; ++it)
         {
             if (m_Channels.end() == it)
                 break;
-            if (it->m_Value != channel)
+            if (it->m_Value != msg.m_Channel)
                 break; // as well
 
 
             if (!m_pKdfSbbs)
             {
                 // read-only wallet
-                m_WalletDB->saveIncomingWalletMessage(channel, msg);
+                m_WalletDB->saveIncomingWalletMessage(msg.m_Channel, msg.m_Message);
                 OnIncomingMessage();
                 return;
             }
 
-            ByteBuffer buf = msg; // duplicate
+            ByteBuffer buf = msg.m_Message; // duplicate, copy
             uint8_t* pMsg = &buf.front();
             uint32_t nSize = static_cast<uint32_t>(buf.size());
 
@@ -497,7 +497,7 @@ namespace beam::wallet {
 
 	void WalletNetworkViaBbs::OnMsg(const proto::BbsMsg& msg)
 	{
-		ProcessMessage(msg.m_Channel, msg.m_Message);
+		ProcessMessage(msg);
 	}
 
     void WalletNetworkViaBbs::SendRawMessage(const WalletID& peerID, const ByteBuffer& msg)

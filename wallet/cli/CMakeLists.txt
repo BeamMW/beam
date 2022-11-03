@@ -21,6 +21,13 @@ if(BEAM_ATOMIC_SWAP_SUPPORT)
     )
 endif()
 
+if(BEAM_ASSET_SWAP_SUPPORT)
+    set(CLI_SRC
+        ${CLI_SRC}
+        assets_swap.cpp
+    )
+endif()
+
 add_executable(${TARGET_NAME} ${CLI_SRC})
 target_compile_definitions(${TARGET_NAME} PRIVATE APP_NAME=\"${TARGET_NAME}\")
 
@@ -75,6 +82,10 @@ target_link_libraries(${TARGET_NAME}
 
 if(BEAM_LASER_SUPPORT)
     target_link_libraries(${TARGET_NAME} PRIVATE laser)
+endif()
+
+if(BEAM_ASSET_SWAP_SUPPORT)
+    target_link_libraries(${TARGET_NAME} PRIVATE broadcast_gateway dex_board)
 endif()
 
 if (BEAM_SIGN_PACKAGE AND WIN32)

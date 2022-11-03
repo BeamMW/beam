@@ -14,7 +14,9 @@
 
 #include "wallet_client.h"
 #include "wallet/core/simple_transaction.h"
+#ifdef BEAM_ASSET_SWAP_SUPPORT
 #include "wallet/transactions/dex/dex_tx.h"
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 #include "utility/log_rotation.h"
 #include "http/http_client.h"
 #include "core/block_rw.h"
@@ -126,6 +128,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async((MethodType)&IWalletModelAsync::getAddresses, own);
     }
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
     void getDexOrders() override
     {
         call_async(&IWalletModelAsync::getDexOrders);
@@ -144,6 +147,12 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     void cancelDexOrder(const DexOrderID& orderId) override
     {
         call_async(&IWalletModelAsync::cancelDexOrder, orderId);
+    }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
+    void loadFullAssetsList() override
+    {
+        call_async(&IWalletModelAsync::loadFullAssetsList);
     }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT    
@@ -168,6 +177,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     }
 #endif
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
     void loadDexOrderParams() override
     {
         call_async(&IWalletModelAsync::loadDexOrderParams);
@@ -177,6 +187,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::storeDexOrderParams, params);
     }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
     void cancelTx(const wallet::TxID& id) override
     {
@@ -720,8 +731,8 @@ namespace beam::wallet
                 //
                 // DEX
                 //
-
-                auto dexBoard = make_shared<DexBoard>(*broadcastRouter, this->getAsync(), *m_walletDB);
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+                auto dexBoard = make_shared<DexBoard>(*broadcastRouter, *m_walletDB);
                 auto dexWDBSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(dexBoard.get()), m_walletDB);
 
                 using DexBoardSubscriber = ScopedSubscriber<DexBoard::IObserver, DexBoard>;
@@ -731,6 +742,7 @@ namespace beam::wallet
                 auto dexWalletSubscriber = make_unique<DexWalletSubscriber>(static_cast<ISimpleSwapHandler*>(dexBoard.get()), wallet);
 
                 _dex = dexBoard;
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
 
                 //
@@ -1841,6 +1853,7 @@ namespace beam::wallet
         onNodeConnectionChanged(isConnected());
     }
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
     void WalletClient::loadDexOrderParams()
     {
         ByteBuffer params;
@@ -1886,6 +1899,29 @@ namespace beam::wallet
         if (auto dex = _dex.lock())
         {
             dex->cancelDexOrder(orderId);
+        }
+    }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
+    void WalletClient::loadFullAssetsList()
+    {
+        auto wallet = m_wallet.lock();
+        if (wallet)
+        {
+            wallet->RequestAssetsListAt(MaxHeight, [this](std::vector<Asset::Full>&& res)
+            {
+                std::set<Asset::ID> assetsFullList{ Asset::s_BeamID };
+                for (const auto& ai : res)
+                {
+                    assetsFullList.insert(ai.m_ID);
+                }
+
+                postFunctionToClientContext([this, assetsFullList]()
+                {
+                    m_assetsFullList = std::move(assetsFullList);
+                    onFullAssetsListLoaded();
+                });
+            });
         }
     }
 
@@ -1982,6 +2018,17 @@ namespace beam::wallet
     {
         auto data = ExportTxHistoryToCsv(*m_walletDB);
         onExportTxHistoryToCsv(data);
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        auto dataAtomicSwap = ExportAtomicSwapTxHistoryToCsv(*m_walletDB);
+        onExportAtomicSwapTxHistoryToCsv(dataAtomicSwap);
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        auto dataAssetsSwap = ExportAssetsSwapTxHistoryToCsv(*m_walletDB);
+        onExportAssetsSwapTxHistoryToCsv(dataAssetsSwap);
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+        auto dataContracts = ExportContractTxHistoryToCsv(*m_walletDB);
+        onExportContractTxHistoryToCsv(dataContracts);
     }
 
     void WalletClient::switchOnOffExchangeRates(bool isActive)
@@ -2267,34 +2314,6 @@ namespace beam::wallet
         return status;
     }
 
-    void WalletClient::loadFullAssetsList()
-    {
-        auto wallet = m_wallet.lock();
-        if (wallet)
-        {
-            auto h = m_status.stateID.m_Height;
-            wallet->RequestAssetsListAt(h, [this](ByteBuffer assetsBuffer)
-            {
-                std::vector<Asset::ID> assets;
-                size_t assetsCount = assetsBuffer.size() / sizeof(Asset::ID);
-                assets.resize(assetsCount);
-                memcpy(assets.data(), assetsBuffer.data(), assetsBuffer.size());
-
-                std::set<Asset::ID> assetsFullList;
-                for (auto asset : assets)
-                {
-                    assetsFullList.insert(asset);
-                    getAssetInfo(asset);
-                }
-
-                postFunctionToClientContext([this, assetsFullList]()
-                {
-                    m_assetsFullList = assetsFullList;
-                });
-            });
-        }
-    }
-
     void WalletClient::onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
     {
         // reason -> ErrorType
@@ -2352,7 +2371,7 @@ namespace beam::wallet
                 m_unsafeActiveTxCount = count;
                 m_mpLockTimeLimit = limit;
             });
-            loadFullAssetsList();
+
             auto currentHeight = w->get_TipHeight();
 
             struct Walker :public Block::SystemState::IHistory::IWalker
