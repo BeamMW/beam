@@ -2507,7 +2507,7 @@ struct NodeProcessor::BlockInterpretCtx
 
 		void ParseExtraInfo(ContractInvokeExtraInfo&, const bvm2::ShaderID&, uint32_t iMethod, const Blob& args);
 
-		virtual void CallFar(const bvm2::ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint8_t bInheritContext) override;
+		virtual void CallFar(const bvm2::ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint32_t nFlags) override;
 		virtual void OnRet(Wasm::Word nRetAddr) override;
 
 		uint32_t m_iCurrentInvokeExtraInfo = 0;
@@ -5349,9 +5349,9 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 	}
 }
 
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::CallFar(const bvm2::ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint8_t bInheritContext)
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::CallFar(const bvm2::ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint32_t nFlags)
 {
-	bvm2::ProcessorContract::CallFar(cid, iMethod, pArgs, nArgs, bInheritContext);
+	bvm2::ProcessorContract::CallFar(cid, iMethod, pArgs, nArgs, nFlags);
 
 	if (m_Bic.m_pvC)
 	{
@@ -5373,7 +5373,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::CallFar(const bvm2::Contrac
 		Blob args;
 		if (nArgsOffs < m_Stack.m_BytesMax)
 		{
-			args.n = bInheritContext ?  (m_Stack.m_BytesMax - nArgsOffs) : nArgs;
+			args.n = (bvm2::CallFarFlags::InheritContext & nFlags) ?  (m_Stack.m_BytesMax - nArgsOffs) : nArgs;
 			args.p = reinterpret_cast<uint8_t*>(m_Stack.m_pPtr) + nArgsOffs;
 		}
 		else
@@ -5385,7 +5385,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::CallFar(const bvm2::Contrac
 		ParseExtraInfo(x, sid, iMethod, args);
 
 		// skip args for inherited-context calls, we don't know the size, only the high bound. No need to save all this.
-		if (bInheritContext)
+		if (bvm2::CallFarFlags::InheritContext & nFlags)
 			args.n = 0;
 
 		x.SetUnk(iMethod, args, &sid);

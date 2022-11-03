@@ -36,10 +36,10 @@ void InvokeNext(uint32_t iMethod, void* pArg)
         ResetNext(s);
         Env::SaveVar_T(key, s);
 
-        Env::CallFar(s.m_Cid, Upgradable::ScheduleUpgrade::s_iMethod, nullptr, 0, 1);
+        Env::CallFar(s.m_Cid, Upgradable::ScheduleUpgrade::s_iMethod, nullptr, 0, CallFarFlags::InheritContext);
     }
 
-    Env::CallFar(s.m_Cid, iMethod, pArg, 0, 1);
+    Env::CallFar(s.m_Cid, iMethod, pArg, 0, CallFarFlags::InheritContext);
 }
 
 BEAM_EXPORT void Ctor(Upgradable::Create& r)
@@ -52,7 +52,7 @@ BEAM_EXPORT void Ctor(Upgradable::Create& r)
     Env::SaveVar_T(key, s);
 
     if (RefManageSafe<true>(r.m_Cid))
-        Env::CallFar(s.m_Cid, 0, &r + 1, 0, 1);
+        Env::CallFar(s.m_Cid, 0, &r + 1, 0, CallFarFlags::InheritContext);
 }
 
 BEAM_EXPORT void Dtor(void* pArg)
@@ -64,7 +64,7 @@ BEAM_EXPORT void Dtor(void* pArg)
     Env::DelVar_T(key);
 
     if (RefManageSafe<false>(s.m_Cid))
-        Env::CallFar(s.m_Cid, 1, pArg, 0, 1);
+        Env::CallFar(s.m_Cid, 1, pArg, 0, CallFarFlags::InheritContext);
 }
 
 BEAM_EXPORT void Method_2(const Upgradable::ScheduleUpgrade& r)

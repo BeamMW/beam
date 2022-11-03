@@ -365,13 +365,13 @@ namespace Shaders {
 		typedef beam::bvm2::Limits::Cost Cost;
 		typedef Shaders::Env::KeyID KeyID;
 
-		void CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint8_t bInheritContext);
+		void CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint32_t nFlags);
 
 		template <typename T>
-		void CallFar_T(const ContractID& cid, T& args, uint8_t bInheritContext = 0)
+		void CallFar_T(const ContractID& cid, T& args, uint32_t nFlags = 0)
 		{
 			Convert<true>(args);
-			CallFarN(cid, args.s_iMethod, &args, sizeof(args), bInheritContext);
+			CallFarN(cid, args.s_iMethod, &args, sizeof(args), nFlags);
 			Convert<false>(args);
 		}
 
@@ -577,7 +577,7 @@ namespace bvm2 {
 		} m_Eth;
 
 
-		virtual void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint8_t bInheritContext) override
+		virtual void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint32_t nFlags) override
 		{
 			if (cid == m_Vault.m_Cid)
 			{
@@ -798,7 +798,7 @@ namespace bvm2 {
 				}
 			}
 */
-			ProcessorContract::CallFar(cid, iMethod, pArgs, nArgs, bInheritContext);
+			ProcessorContract::CallFar(cid, iMethod, pArgs, nArgs, nFlags);
 		}
 
 		void TestVault();
@@ -2340,7 +2340,7 @@ namespace bvm2 {
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
 
 			args.m_Variant = 0;
-			args.m_InheritCtx = 1;
+			args.m_Flags = CallFarFlags::InheritContext;
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args)); // should succeed, but won't affect the callee contract
 
 			UndoChanges();
@@ -3596,9 +3596,9 @@ namespace bvm2 {
 
 } // namespace beam
 
-void Shaders::Env::CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint8_t bInheritContext)
+void Shaders::Env::CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint32_t nFlags)
 {
-	Cast::Up<beam::bvm2::MyProcessor>(g_pEnv)->CallFarN(cid, iMethod, pArgs, nArgs, bInheritContext);
+	Cast::Up<beam::bvm2::MyProcessor>(g_pEnv)->CallFarN(cid, iMethod, pArgs, nArgs, nFlags);
 }
 
 namespace 

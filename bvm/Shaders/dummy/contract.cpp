@@ -66,7 +66,7 @@ BEAM_EXPORT void Method_2(Dummy::TestFarCall& r)
         pR = nullptr;
     }
 
-    Env::CallFar_T(Vault::s_CID, *reinterpret_cast<Vault::Deposit*>(pR), r.m_InheritCtx);
+    Env::CallFar_T(Vault::s_CID, *reinterpret_cast<Vault::Deposit*>(pR), r.m_Flags);
 }
 
 BEAM_EXPORT void Method_3(Dummy::MathTest1& r)

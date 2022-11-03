@@ -66,6 +66,7 @@ namespace bvm2 {
 	using Shaders::HashValue;
 	using Shaders::HashValue512;
 	using Shaders::BlockHeader;
+	using Shaders::CallFarFlags;
 
 	namespace Merkle {
 		using namespace Shaders::Merkle;
@@ -435,7 +436,7 @@ namespace bvm2 {
 
 		uint32_t m_Charge = Limits::BlockCharge;
 
-		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint8_t bInheritContext); // can override to invoke host code instead of interpretator (for debugging)
+		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint32_t nFlags); // can override to invoke host code instead of interpretator (for debugging)
 	};
 
 

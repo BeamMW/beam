@@ -172,4 +172,9 @@ struct ApiVersion
 	static const uint32_t Current = 1;
 };
 
+struct CallFarFlags
+{
+	static const uint32_t InheritContext  = 1; // similar to delegate call
+};
+
 #pragma pack (pop)

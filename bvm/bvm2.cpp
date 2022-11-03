@@ -207,7 +207,7 @@ namespace bvm2 {
 		return hdr;
 	}
 
-	void ProcessorContract::CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint8_t bInheritContext)
+	void ProcessorContract::CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint32_t nFlags)
 	{
 		struct MyCheckpoint :public Wasm::Checkpoint
 		{
@@ -231,8 +231,8 @@ namespace bvm2 {
 
 		Wasm::Test(m_FarCalls.m_Stack.size() < Limits::FarCallDepth);
 
-		assert(!(bInheritContext && m_FarCalls.m_Stack.empty()));
-		FarCalls::Frame* pPrev = bInheritContext ? &m_FarCalls.m_Stack.back() : nullptr;
+		assert(!((CallFarFlags::InheritContext & nFlags) && m_FarCalls.m_Stack.empty()));
+		FarCalls::Frame* pPrev = (CallFarFlags::InheritContext & nFlags) ? &m_FarCalls.m_Stack.back() : nullptr;
 
 		auto& x = *m_FarCalls.m_Stack.Create_back();
 		x.m_Cid = cid;
@@ -250,7 +250,7 @@ namespace bvm2 {
 		const Header& hdr = ParseMod();
 		Wasm::Test(iMethod < ByteOrder::from_le(hdr.m_NumMethods));
 
-		if (bInheritContext)
+		if (pPrev)
 			x.m_Cid = pPrev->m_Cid;
 
 		m_Stack.Push(pArgs);
@@ -1355,7 +1355,11 @@ namespace bvm2 {
 
 		auto nCalleeStackMax = m_Stack.m_BytesCurrent;
 
-		if (!bInheritContext)
+		bool bPastHF6 = IsPastFork(6);
+		if (!bPastHF6 && nFlags)
+			nFlags = CallFarFlags::InheritContext;
+
+		if (!(CallFarFlags::InheritContext & nFlags))
 		{
 			Wasm::Test(iMethod >= 2); // c'tor and d'tor calls are not allowed
 
@@ -1380,9 +1384,9 @@ namespace bvm2 {
 		}
 
 		auto nDepth = m_FarCalls.m_Stack.size(); // see if depth increases. If it doesn't - the call was hijacked, performed natively. No need to adjust m_BytesMax
-		CallFar(get_AddrAsR<ContractID>(cid), iMethod, pArgs, nArgs, bInheritContext);
+		CallFar(get_AddrAsR<ContractID>(cid), iMethod, pArgs, nArgs, nFlags);
 
-		if (!bInheritContext && (m_FarCalls.m_Stack.size() > nDepth))
+		if (!(CallFarFlags::InheritContext & nFlags) && (m_FarCalls.m_Stack.size() > nDepth))
 			m_Stack.m_BytesMax = nCalleeStackMax;
 	}
 	BVM_METHOD_HOST(CallFar)
