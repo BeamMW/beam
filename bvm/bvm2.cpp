@@ -166,7 +166,6 @@ namespace bvm2 {
 		m_Stack.m_PosMin = 0;
 
 		m_Heap.Clear();
-		m_vHeap.clear();
 
 		m_DataProcessor.m_Map.Clear();
 		m_Secp.m_Point.m_Map.Clear();
@@ -1005,7 +1004,7 @@ namespace bvm2 {
 
 		// grow
 		std::setmax(nSizeNew, 0x1000U); // 4K 
-		std::setmax(nSizeNew, static_cast<uint32_t>(m_vHeap.size()) * 2);
+		std::setmax(nSizeNew, static_cast<uint32_t>(m_Heap.m_vMem.size()) * 2);
 		std::setmin(nSizeNew, nHeapMax);
 
 		HeapReserveStrict(nSizeNew);
@@ -1018,10 +1017,9 @@ namespace bvm2 {
 		uint32_t nOld = m_LinearMem.n;
 		assert(nOld < n);
 
-		m_vHeap.resize(n, 0); // zero-init new mem
+		m_Heap.m_vMem.resize(n, 0); // zero-init new mem
+		m_LinearMem = m_Heap.m_vMem;
 
-		m_LinearMem.p = &m_vHeap.front();
-		m_LinearMem.n = n;
 		m_Heap.OnGrow(nOld, n);
 	}
 
@@ -1184,6 +1182,8 @@ namespace bvm2 {
 
 		while (!m_mapAllocated.empty())
 			Delete(m_mapAllocated.begin()->get_ParentObj(), false);
+
+		m_vMem.clear();
 	}
 
 	uint32_t Processor::Heap::get_UnusedAtEnd(uint32_t nEnd) const
@@ -1214,6 +1214,14 @@ namespace bvm2 {
 		}
 
 		Create(nOld, nNew - nOld, true);
+	}
+
+	void Processor::Heap::swap(Heap& x)
+	{
+		m_mapAllocated.swap(x.m_mapAllocated);
+		m_mapFree.swap(x.m_mapFree);
+		m_mapSize.swap(x.m_mapSize);
+		m_vMem.swap(x.m_vMem);
 	}
 
 	void ProcessorContract::SetVarKeyFromShader(VarKey& vk, uint8_t nTag, const Blob& key, bool bW)

@@ -145,6 +145,8 @@ namespace bvm2 {
 
 		public:
 
+			std::vector<uint8_t> m_vMem;
+
 			~Heap() { Clear(); }
 
 			bool Alloc(uint32_t&, uint32_t size);
@@ -155,9 +157,9 @@ namespace bvm2 {
 
 			uint32_t get_UnusedAtEnd(uint32_t nEnd) const;
 
-		} m_Heap;
+			void swap(Heap&);
 
-		std::vector<uint8_t> m_vHeap;
+		} m_Heap;
 
 		bool HeapAllocEx(uint32_t&, uint32_t size);
 		void HeapFreeEx(uint32_t);
