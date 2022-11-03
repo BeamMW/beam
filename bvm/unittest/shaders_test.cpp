@@ -2319,25 +2319,31 @@ namespace bvm2 {
 
 		m_lstUndo.Clear();
 
+		for (uint32_t i = 0; i < 2; i++)
 		{
+			bool bPostHF6 = !!i;
+
+			Rules::get().pForks[6].m_Height = bPostHF6 ? Rules::get().pForks[5].m_Height : MaxHeight;
+
+
 			Shaders::Dummy::TestFarCall args;
-			args.m_Variant = 0;
-			args.m_InheritCtx = 0;
+			args.m_Variant = 0; // stack, normal
+			args.m_Flags = 0;
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
-			args.m_Variant = 1;
+			args.m_Variant = 1; // stack, too high
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
-			args.m_Variant = 2;
+			args.m_Variant = 2; // stack, too low
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
-			args.m_Variant = 3;
-			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
-			args.m_Variant = 4;
-			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
-			args.m_Variant = 5;
-			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
-			args.m_Variant = 6;
-			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
-			args.m_Variant = 7;
-			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+			args.m_Variant = 3; // heap
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args) == bPostHF6);
+			args.m_Variant = 4; // heap, too high
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args) == bPostHF6);
+			args.m_Variant = 5; // heap, too low
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args) == bPostHF6);
+			args.m_Variant = 6; // global
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args) == bPostHF6);
+			args.m_Variant = 7; // data
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args) == bPostHF6);
 
 			args.m_Variant = 0;
 			args.m_Flags = CallFarFlags::InheritContext;
@@ -2517,7 +2523,10 @@ namespace bvm2 {
 
 		{
 			// set mainnet rules
-			auto& r = Rules::get();
+			Rules r = Rules::get(); // make a copy
+			Rules::Scope scopeRules(r);
+
+
 			r.pForks[0].m_Height = 0;
 			r.pForks[0].m_Hash.Scan("ed91a717313c6eb0e3f082411584d0da8f0c8af2a4ac01e5af1959e0ec4338bc");
 			r.pForks[1].m_Height = 321321;
@@ -2642,9 +2651,6 @@ namespace bvm2 {
 		}
 
 		{
-			Rules::get().pForks[4].m_Height = 1000000000;
-			Rules::get().pForks[4].m_Hash = Zero;
-
 			Height h = Rules::get().pForks[4].m_Height + 3;
 			TemporarySwap ts(h, m_Height);
 
@@ -2678,7 +2684,7 @@ namespace bvm2 {
 			args.m_ComissionForProof = 400;
 			CvtHdrPrefix(args.m_Hdr0, s);
 			CvtHdrElement(args.m_Hdr0, s);
-			args.m_Rules = Rules::get().pForks[2].m_Hash;
+			args.m_Rules = Rules::get().pForks[6].m_Hash;
 			verify_test(ContractCreate_T(m_Sidechain.m_Cid, m_Sidechain.m_Code, args));
 		}
 
@@ -4146,6 +4152,14 @@ int main()
 			*/
 		}
 
+		auto& r = Rules::get();
+		for (uint32_t i = 0; i <= 6; i++)
+			r.pForks[i].m_Height = 0;
+
+		r.DisableForksFrom(7);
+		r.UpdateChecksum();
+
+		proc.m_Height = 10;
 		proc.TestAll();
 
 		MyManager man(proc);

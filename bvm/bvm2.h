@@ -331,6 +331,11 @@ namespace bvm2 {
 
 		struct FarCalls
 		{
+			struct Flags
+			{
+				static const uint32_t s_HeapSwap = 4;
+			};
+
 			struct Frame
 				:public boost::intrusive::list_base_hook<>
 			{
@@ -340,6 +345,10 @@ namespace bvm2 {
 				Wasm::Word m_StackPosMin;
 				Wasm::Word m_StackBytesMax;
 				Wasm::Word m_StackBytesRet;
+
+				uint32_t m_Flags;
+				Heap m_Heap;
+				Blob m_Args;
 
 				DebugCallstack m_Debug;
 			};

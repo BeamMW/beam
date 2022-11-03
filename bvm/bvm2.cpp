@@ -239,6 +239,8 @@ namespace bvm2 {
 		x.m_FarRetAddr = nRetAddr;
 		x.m_StackBytesMax = m_Stack.m_BytesMax;
 		x.m_StackBytesRet = m_Stack.m_BytesCurrent;
+		x.m_Flags = 0;
+		ZeroObject(x.m_Args);
 
 		x.m_StackPosMin = m_Stack.m_PosMin;
 		m_Stack.m_PosMin = m_Stack.m_Pos;
@@ -284,6 +286,18 @@ namespace bvm2 {
 
 		m_Stack.m_PosMin = x.m_StackPosMin;
 		m_Stack.m_BytesMax = x.m_StackBytesMax;
+
+		if (FarCalls::Flags::s_HeapSwap & x.m_Flags)
+		{
+			m_Heap.swap(x.m_Heap);
+			m_LinearMem = m_Heap.m_vMem;
+		}
+
+		if (x.m_Args.n)
+		{
+			memcpy(Cast::NotConst(x.m_Args.p), m_Stack.get_AliasPtr(), x.m_Args.n);
+			m_Stack.AliasFree(x.m_Args.n);
+		}
 
 		m_FarCalls.m_Stack.Delete(x);
 
@@ -1354,6 +1368,7 @@ namespace bvm2 {
 		// The attacker may pass a global pointer which is assumed to point to arguments, but partially belongs to unallocated heap, which may be allocated later by the callee.
 
 		auto nCalleeStackMax = m_Stack.m_BytesCurrent;
+		uint8_t* pArgsPtr = nullptr;
 
 		bool bPastHF6 = IsPastFork(6);
 		if (!bPastHF6 && nFlags)
@@ -1365,19 +1380,39 @@ namespace bvm2 {
 
 			if (nArgs)
 			{
-				// Only stack pointer is allowed
-				Wasm::Test((Wasm::MemoryType::Mask & pArgs) == Wasm::MemoryType::Stack);
+				bool bIsStackPtr = ((Wasm::MemoryType::Mask & pArgs) == Wasm::MemoryType::Stack);
+				if (bIsStackPtr)
+				{
+					// for historical reasons the caller is allowed to specify greater nArgs (though it's not recommended), we truncate it
 
-				// Make sure that the pointer is valid (i.e. between current and max stack pointers)
-				// The caller is allowed to specify greater size (though it's not recommended), we will truncate it
-				uint32_t nSize;
-				get_AddrExVar(pArgs, nSize, false); // ensures it's a valid alias stack pointer.
+					// Make sure that the pointer is valid (i.e. between current and max stack pointers)
+					uint32_t nSize;
+					get_AddrExVar(pArgs, nSize, false); // ensures it's a valid alias stack pointer.
+					std::setmin(nArgs, nSize);
 
-				// Note: the above does NOT ensure it's not below current stack pointer, it has less strict validation criteria (see comments in its implementation for more info).
-				// Hence - the following is necessary.
-				Wasm::Test(pArgs >= m_Stack.get_AlasSp());
+					// Note: the above does NOT ensure it's not below current stack pointer, it has less strict validation criteria (see comments in its implementation for more info).
+					// Hence - the following is necessary.
+					Wasm::Test(pArgs >= m_Stack.get_AlasSp());
+				}
 
-				nCalleeStackMax = (pArgs & ~Wasm::MemoryType::Stack) + std::min(nArgs, nSize); // restrict callee from accessing anything beyond
+				if (bPastHF6)
+				{
+					// we allow any args pointer
+					if (pArgs != m_Stack.get_AlasSp())
+					{
+						// copy on stack at current position
+						pArgsPtr = get_AddrW(pArgs, nArgs);
+
+						m_Stack.PushAlias(Blob(pArgsPtr, nArgs));
+						pArgs = m_Stack.get_AlasSp();
+					}
+				}
+				else
+					// Only stack pointer is allowed
+					Wasm::Test(bIsStackPtr);
+
+				if (!pArgsPtr)
+					nCalleeStackMax = (pArgs & ~Wasm::MemoryType::Stack) + nArgs; // restrict callee from accessing anything beyond
 			}
 			else
 				pArgs = m_Stack.get_AlasSp();
@@ -1387,7 +1422,23 @@ namespace bvm2 {
 		CallFar(get_AddrAsR<ContractID>(cid), iMethod, pArgs, nArgs, nFlags);
 
 		if (!(CallFarFlags::InheritContext & nFlags) && (m_FarCalls.m_Stack.size() > nDepth))
+		{
+			if (bPastHF6)
+			{
+				auto& x = m_FarCalls.m_Stack.back();
+				x.m_Flags |= FarCalls::Flags::s_HeapSwap;
+				m_Heap.swap(x.m_Heap);
+				ZeroObject(m_LinearMem);
+
+				if (pArgsPtr)
+				{
+					x.m_Args.p = pArgsPtr;
+					x.m_Args.n = nArgs;
+				}
+			}
+
 			m_Stack.m_BytesMax = nCalleeStackMax;
+		}
 	}
 	BVM_METHOD_HOST(CallFar)
 	{
