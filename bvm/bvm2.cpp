@@ -1371,8 +1371,12 @@ namespace bvm2 {
 		uint8_t* pArgsPtr = nullptr;
 
 		bool bPastHF6 = IsPastFork(6);
-		if (!bPastHF6 && nFlags)
-			nFlags = CallFarFlags::InheritContext;
+		if (!bPastHF6)
+		{
+			nFlags &= 0xff; // before HF6 it was uint8_t
+			if (nFlags)
+				nFlags = CallFarFlags::InheritContext;
+		}
 
 		if (!(CallFarFlags::InheritContext & nFlags))
 		{
