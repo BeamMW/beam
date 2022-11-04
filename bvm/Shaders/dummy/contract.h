@@ -121,6 +121,14 @@ namespace Dummy
         static const uint32_t s_iMethod = 14;
     };
 
+    struct TestFarCallFlags
+    {
+        static const uint32_t s_iMethod = 15;
+        uint32_t m_DepthRemaining;
+        uint32_t m_Flags;
+        uint8_t m_TryWrite;
+    };
+
 #pragma pack (pop)
 
 }

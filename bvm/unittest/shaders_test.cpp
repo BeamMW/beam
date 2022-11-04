@@ -76,6 +76,9 @@ namespace Shaders {
 	}
 	template <bool bToShader> void Convert(Dummy::TestFarCall& x) {
 	}
+	template <bool bToShader> void Convert(Dummy::TestFarCallFlags& x) {
+		ConvertOrd<bToShader>(x.m_Flags);
+	}
 	template <bool bToShader> void Convert(Dummy::MathTest1& x) {
 		ConvertOrd<bToShader>(x.m_Value);
 		ConvertOrd<bToShader>(x.m_Rate);
@@ -1688,11 +1691,7 @@ namespace bvm2 {
 			args.m_Settings.m_AidGov = aidGov;
 			args.m_Upgradable.m_MinApprovers = 1; // 0 is illegal atm
 
-			m_FarCalls.m_Stack.Create_back()->m_Body = m_Dummy.m_Code; // add dummy frame, any valid shader is ok
-
 			verify_test(ContractCreate_T(m_Nephrite.m_Cid, m_Nephrite.m_Code, args));
-
-			m_FarCalls.m_Stack.Clear();
 		}
 
 		NephriteContext lc(*this);
@@ -2350,6 +2349,34 @@ namespace bvm2 {
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args)); // should succeed, but won't affect the callee contract
 
 			UndoChanges();
+		}
+
+		{
+			Shaders::Dummy::TestFarCallFlags args;
+			ZeroObject(args);
+			args.m_DepthRemaining = bvm2::Limits::FarCallDepth ;
+			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+
+			for (args.m_TryWrite = 0; args.m_TryWrite <= 1; args.m_TryWrite++)
+			{
+				bool bR = !args.m_TryWrite;
+
+				args.m_Flags = 0;
+				args.m_DepthRemaining = 2;
+				verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+
+				args.m_Flags = Shaders::CallFarFlags::SelfLockRO;
+				args.m_DepthRemaining = 2;
+				verify_test(RunGuarded_T(cid, args.s_iMethod, args) == bR);
+
+				args.m_Flags = Shaders::CallFarFlags::GlobalLockRO;
+				args.m_DepthRemaining = 2;
+				verify_test(RunGuarded_T(cid, args.s_iMethod, args) == bR);
+
+				args.m_Flags = Shaders::CallFarFlags::SelfBlock;
+				args.m_DepthRemaining = 2;
+				verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+			}
 		}
 
 		{
@@ -3498,32 +3525,7 @@ namespace bvm2 {
 			args.m_Cfg.m_Aid = 22;
 			args.m_Cfg.m_hEpochDuration = 50;
 
-			// emulate invocation from upgradable2
-
-			auto pFr = m_FarCalls.m_Stack.Create_back();
-
-#pragma pack (push, 1)
-			struct Hdr0
-			{
-				uint32_t m_Version;
-				uint32_t m_NumMethods;
-				uint32_t m_hdrData0;
-				uint32_t m_hdrTable0;
-
-				uint32_t m_pMethod[2];
-			};
-#pragma pack (pop)
-
-			pFr->m_Body.resize(sizeof(Hdr0));
-			Hdr0& hdr = *(Hdr0*) &pFr->m_Body.front();
-
-			ZeroObject(hdr);
-			hdr.m_Version = ByteOrder::to_le(2u);
-			hdr.m_NumMethods = ByteOrder::to_le(2u);
-
 			verify_test(ContractCreate_T(m_DaoVote.m_Cid, m_DaoVote.m_Code, args));
-
-			m_FarCalls.m_Stack.Clear();
 		}
 		VERIFY_ID(Shaders::DaoVote::s_pSID[_countof(Shaders::DaoVote::s_pSID) - 1], m_DaoVote.m_Sid);
 

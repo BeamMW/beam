@@ -352,3 +352,23 @@ BEAM_EXPORT void Method_14(Dummy::FindVarTest& r)
     Env::Halt_if((nKeySize != sizeof(nKey)) || (nValSize != sizeof(nVal)) || (nKey != 5) || (nVal != 5));
 }
 
+BEAM_EXPORT void Method_15(Dummy::TestFarCallFlags& r)
+{
+    if (r.m_DepthRemaining)
+    {
+        r.m_DepthRemaining--;
+        uint32_t nFlags = r.m_Flags;
+        r.m_Flags = 0; // flags must have cumulative effect, it must stay though we remove it for consecutive calls
+
+        ContractID cid;
+        Env::get_CallerCid(0, cid);
+        Env::CallFar_T(cid, r, nFlags);
+
+        Env::Halt_if(r.m_DepthRemaining != 0);
+    }
+    else
+    {
+        if (r.m_TryWrite)
+            Env::SaveVar_T((uint8_t) 1, (uint8_t) 2);
+    }
+}
