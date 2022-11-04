@@ -226,20 +226,67 @@ namespace bvm2 {
 		} cp(cid, iMethod);
 
 		DischargeUnits(Limits::Cost::CallFar);
-
-		auto nRetAddr = get_Ip();
-
 		Wasm::Test(m_FarCalls.m_Stack.size() < Limits::FarCallDepth);
 
-		assert(!((CallFarFlags::InheritContext & nFlags) && m_FarCalls.m_Stack.empty()));
-		FarCalls::Frame* pPrev = (CallFarFlags::InheritContext & nFlags) ? &m_FarCalls.m_Stack.back() : nullptr;
+		auto nRetAddr = get_Ip();
+		const ContractID* pCidContext = &cid;
+
+		uint32_t nFlagsDst = 0;
+
+		if (CallFarFlags::GlobalLockRO & nFlags)
+			nFlagsDst |= FarCalls::Flags::s_GlobalRO;
+
+		if (!m_FarCalls.m_Stack.empty())
+		{
+			if (CallFarFlags::SelfBlock & nFlags)
+				nFlagsDst |= FarCalls::Flags::s_CallerBlocked;
+			if (CallFarFlags::SelfLockRO & nFlags)
+				nFlagsDst |= FarCalls::Flags::s_CallerLockedRO;
+
+			auto it = m_FarCalls.m_Stack.rbegin();
+
+			{
+				FarCalls::Frame& f = *it;
+
+				if (CallFarFlags::InheritContext & nFlags)
+					pCidContext = &f.m_Cid;
+
+				if (FarCalls::Flags::s_GlobalRO & f.m_Flags)
+					nFlagsDst |= FarCalls::Flags::s_GlobalRO; // propagate it
+			}
+
+			// check re-entry flags
+			for (uint32_t nFlagsSrc = nFlagsDst; ; )
+			{
+				FarCalls::Frame& f = *it;
+
+				if (f.m_Cid == *pCidContext)
+				{
+					if (FarCalls::Flags::s_CallerBlocked & nFlagsSrc)
+						Wasm::Fail("reentry blocked");
+
+					if (FarCalls::Flags::s_CallerLockedRO & nFlagsSrc)
+						nFlagsDst |= FarCalls::Flags::s_LockedRO;
+
+					if (FarCalls::Flags::s_LockedRO & f.m_Flags)
+						nFlagsDst |= FarCalls::Flags::s_LockedRO;
+
+					break;
+				}
+
+				if (m_FarCalls.m_Stack.rend() == ++it)
+					break;
+
+				nFlagsSrc = f.m_Flags;
+			}
+		}
 
 		auto& x = *m_FarCalls.m_Stack.Create_back();
-		x.m_Cid = cid;
+		x.m_Cid = *pCidContext;
 		x.m_FarRetAddr = nRetAddr;
 		x.m_StackBytesMax = m_Stack.m_BytesMax;
 		x.m_StackBytesRet = m_Stack.m_BytesCurrent;
-		x.m_Flags = 0;
+		x.m_Flags = nFlagsDst;
 		ZeroObject(x.m_Args);
 
 		x.m_StackPosMin = m_Stack.m_PosMin;
@@ -251,9 +298,6 @@ namespace bvm2 {
 
 		const Header& hdr = ParseMod();
 		Wasm::Test(iMethod < ByteOrder::from_le(hdr.m_NumMethods));
-
-		if (pPrev)
-			x.m_Cid = pPrev->m_Cid;
 
 		m_Stack.Push(pArgs);
 		m_Stack.Push(0); // retaddr, set dummy for far call
@@ -1341,7 +1385,7 @@ namespace bvm2 {
 		VarKey vk;
 		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), true);
 
-		return SaveVar(vk.ToBlob(), Blob(pVal, nVal));
+		return SaveVarInternal(vk.ToBlob(), Blob(pVal, nVal));
 	}
 
 	BVM_METHOD(EmitLog)
@@ -1583,7 +1627,7 @@ namespace bvm2 {
 			ProcessorPlus_Contract::From(*this).HandleAmountOuter(valDeposit, Zero, true);
 
 			SetAssetKey(av, ret);
-			SaveVar(av.m_vk.ToBlob(), av.m_Owner);
+			SaveVarInternal(av.m_vk.ToBlob(), av.m_Owner);
 		}
 
 		return ret;
@@ -1642,7 +1686,7 @@ namespace bvm2 {
 		if (b)
 		{
 			HandleAmountOuter(valDeposit, Zero, false);
-			SaveVar(av.m_vk.ToBlob(), Blob(nullptr, 0));
+			SaveVarInternal(av.m_vk.ToBlob(), Blob(nullptr, 0));
 		}
 
 		return !!b;
@@ -3432,9 +3476,18 @@ namespace bvm2 {
 		return false;
 	}
 
+	uint32_t ProcessorContract::SaveVarInternal(const Blob& key, const Blob& val)
+	{
+		uint32_t nFlags = m_FarCalls.m_Stack.back().m_Flags;
+		if ((FarCalls::Flags::s_LockedRO | FarCalls::Flags::s_GlobalRO) & nFlags)
+			Wasm::Fail("write lock");
+
+		return SaveVar(key, val);
+	}
+
 	uint32_t ProcessorContract::SaveNnz(const VarKey& vk, const uint8_t* pVal, uint32_t n)
 	{
-		return SaveVar(vk.ToBlob(), Blob(pVal, memis0(pVal, n) ? 0 : n));
+		return SaveVarInternal(vk.ToBlob(), Blob(pVal, memis0(pVal, n) ? 0 : n));
 	}
 
 	void ProcessorContract::HandleAmount(Amount amount, Asset::ID aid, bool bLock)
@@ -3602,7 +3655,7 @@ namespace bvm2 {
 
 		if (pCode)
 		{
-			SaveVar(cid, *pCode);
+			SaveVarInternal(cid, *pCode);
 			get_ShaderID(sid, *pCode);
 		}
 		else
@@ -3611,7 +3664,7 @@ namespace bvm2 {
 			LoadVar(cid, res);
 
 			get_ShaderID(sid, res);
-			SaveVar(cid, Blob(nullptr, 0));
+			SaveVarInternal(cid, Blob(nullptr, 0));
 		}
 
 		ToggleSidEntry(sid, cid, !!pCode);
@@ -3639,10 +3692,10 @@ namespace bvm2 {
 		if (bSet)
 		{
 			auto h = uintBigFrom(get_Height() + 1);
-			SaveVar(blob, h);
+			SaveVarInternal(blob, h);
 		}
 		else
-			SaveVar(blob, Blob(nullptr, 0));
+			SaveVarInternal(blob, Blob(nullptr, 0));
 	}
 
 	/////////////////////////////////////////////

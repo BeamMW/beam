@@ -174,7 +174,10 @@ struct ApiVersion
 
 struct CallFarFlags
 {
-	static const uint32_t InheritContext  = 1; // similar to delegate call
+	static const uint32_t InheritContext  = 0x0001; // similar to delegate call
+	static const uint32_t SelfBlock       = 0x0200; // forbid recursive call to self
+	static const uint32_t SelfLockRO      = 0x0400; // recursive call is allowed, but can't modify state (including explicit and implicit vars, lock/unlock funds, asset ops)
+	static const uint32_t GlobalLockRO    = 0x0800; // All modifications are disallowed by all child callees (similar to staticcall)
 };
 
 #pragma pack (pop)

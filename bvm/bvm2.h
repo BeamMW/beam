@@ -333,7 +333,11 @@ namespace bvm2 {
 		{
 			struct Flags
 			{
+				static const uint32_t s_CallerBlocked = 1;
+				static const uint32_t s_CallerLockedRO = 2;
 				static const uint32_t s_HeapSwap = 4;
+				static const uint32_t s_LockedRO = 8;
+				static const uint32_t s_GlobalRO = 0x10;
 			};
 
 			struct Frame
@@ -375,6 +379,8 @@ namespace bvm2 {
 		uint32_t Save_T(const VarKey& vk, const uintBig_t<nBytes>& x) {
 			return SaveNnz(vk, x.m_pData, x.nBytes);
 		}
+
+		uint32_t SaveVarInternal(const Blob&, const Blob& val);
 
 
 		virtual void InvokeExt(uint32_t) override;
