@@ -2456,6 +2456,7 @@ struct NodeProcessor::BlockInterpretCtx
 		virtual void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) override;
 		virtual uint32_t SaveVar(const Blob& key, const Blob&) override;
 		virtual uint32_t OnLog(const Blob& key, const Blob& val) override;
+		virtual bool get_AssetInfo(Asset::Full&) override;
 
 		virtual Height get_Height() override;
 		virtual bool get_HdrAt(Block::SystemState::Full&) override;
@@ -5118,6 +5119,11 @@ uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const Blob& key, 
 	}
 
 	return m_Bic.m_ContractLogs++;
+}
+
+bool NodeProcessor::BlockInterpretCtx::BvmProcessor::get_AssetInfo(Asset::Full& ai)
+{
+	return m_Proc.get_DB().AssetGetSafe(ai);
 }
 
 Height NodeProcessor::BlockInterpretCtx::BvmProcessor::get_Height()
