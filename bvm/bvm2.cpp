@@ -1769,6 +1769,39 @@ namespace bvm2 {
 
 	BVM_METHOD_HOST_AUTO(get_ForkHeight)
 
+	BVM_METHOD(get_AssetInfo)
+	{
+		if (Kind::Contract == get_Kind())
+		{
+			Wasm::Test(IsPastFork(6));
+			DischargeUnits(Limits::Cost::LoadVar);
+		}
+
+		return OnHost_get_AssetInfo(aid, get_AddrAsW<AssetInfo>(res), get_AddrW(pMetadata, nMetadata), nMetadata);
+	}
+
+	BVM_METHOD_HOST(get_AssetInfo)
+	{
+		ZeroObject(res);
+
+		Asset::Full ai;
+		ai.m_ID = aid;
+		if (get_AssetInfo(ai))
+		{
+			res.m_ValueLo = AmountBig::get_Lo(ai.m_Value);
+			res.m_ValueHi = AmountBig::get_Hi(ai.m_Value);
+			res.m_Owner = Cast::Down<HashValue>(ai.m_Owner);
+			res.m_Cid = ai.m_Cid;
+			res.m_LockHeight = ai.m_LockHeight;
+			res.m_Deposit = ai.m_Deposit;
+		}
+
+		Blob md(ai.m_Metadata.m_Value);
+		memcpy(pMetadata, md.p, std::min(nMetadata, md.n));
+
+		return md.n;
+	}
+
 	struct Processor::DataProcessor::Instance
 	{
 		template <uint32_t nBytes>

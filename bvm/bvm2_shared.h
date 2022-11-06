@@ -180,4 +180,14 @@ struct CallFarFlags
 	static const uint32_t GlobalLockRO    = 0x0800; // All modifications are disallowed by all child callees (similar to staticcall)
 };
 
+struct AssetInfo
+{
+	Amount m_ValueLo;
+	Amount m_ValueHi;
+	HashValue m_Owner;
+	ContractID m_Cid; // seto to 0 if owned by user
+	Height m_LockHeight;
+	Amount m_Deposit;
+};
+
 #pragma pack (pop)

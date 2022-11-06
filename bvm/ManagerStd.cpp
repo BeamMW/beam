@@ -399,6 +399,30 @@ namespace bvm2 {
 		return false;
 	}
 
+	bool ManagerStd::get_AssetInfo(Asset::Full& ai)
+	{
+		if (!m_Pending.m_pSingleRequest)
+		{
+			proto::FlyClient::RequestAsset::Ptr pReq(new proto::FlyClient::RequestAsset);
+			pReq->m_Msg.m_AssetID = ai.m_ID;
+			PerformSingleRequest(*pReq);
+		}
+
+		if (!IsSuspended())
+		{
+			auto pReq = GetResSingleRequest();
+			auto& r = pReq->As<proto::FlyClient::RequestAsset>();
+
+			if (!r.m_Res.m_Proof.empty())
+			{
+				ai = std::move(r.m_Res.m_Info);
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	bool ManagerStd::LogGetProof(const HeightPos& hp, beam::Merkle::Proof& proof)
 	{
 		if (!m_Pending.m_pSingleRequest)
