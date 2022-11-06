@@ -436,6 +436,11 @@ namespace std {
 
 namespace Utils {
 
+    template <typename T>
+    T toValue(const T& x) {
+        return x;
+    }
+
     template <typename T> struct BlobOf
     {
         T& m_Obj;

@@ -2041,13 +2041,6 @@ namespace bvm2 {
 	void MyProcessor::TestMintor()
 	{
 		VERIFY_ID(Shaders::Mintor::s_SID, m_Mintor.m_Sid);
-
-		{
-			Zero_ zero;
-			verify_test(ContractCreate_T(m_Mintor.m_Cid, m_Mintor.m_Code, zero));
-		}
-
-		VERIFY_ID(Shaders::Mintor::s_CID, m_Mintor.m_Cid);
 	}
 
 	void MyProcessor::TestAmm()
