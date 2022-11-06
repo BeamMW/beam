@@ -2773,6 +2773,7 @@ Asset::ID NodeDB::AssetFindMinFree(Asset::ID nMin)
 void NodeDB::AssetAdd(Asset::Full& ai)
 {
 	Asset::ID aidMin = ai.m_ID;
+	assert(aidMin < s_AssetEmpty0);
 	// find free index
 	ai.m_ID = AssetFindMinFree(ai.m_ID + s_AssetEmpty0);
 	if (ai.m_ID)
@@ -2800,6 +2801,7 @@ void NodeDB::AssetAdd(Asset::Full& ai)
 
 Asset::ID NodeDB::AssetDelete(Asset::ID id)
 {
+	assert(id < s_AssetEmpty0);
 	AssetDeleteRaw(id);
 
 	Asset::ID nCount = static_cast<Asset::ID>(ParamIntGetDef(ParamID::AssetsCount));
@@ -2836,6 +2838,9 @@ void NodeDB::AssetsDelAll()
 
 bool NodeDB::AssetGetSafe(Asset::Full& ai)
 {
+	if (ai.m_ID >= s_AssetEmpty0)
+		return false;
+
 	Recordset rs(*this, Query::AssetGet, "SELECT " TblAssets_Value "," TblAssets_Owner "," TblAssets_Cid "," TblAssets_Data "," TblAssets_Deposit "," TblAssets_LockHeight " FROM " TblAssets " WHERE " TblAssets_ID "=?");
 	rs.put(0, ai.m_ID);
 	if (!rs.Step())
