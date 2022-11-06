@@ -216,7 +216,7 @@ struct TokenWalker
     void PrintIsOwned() const
     {
         if (m_IsOwned)
-            Env::DocAddNum32("owned", 1);
+            Env::DocAddNum32("is_owner", 1);
     }
 };
 
@@ -275,17 +275,22 @@ ON_METHOD(user, create)
     if (!nSize)
         return OnError("no metadata");
 
+    Settings s;
+    if (!LoadSettings(s, cid))
+        return;
+
     uint32_t nSizeArg = sizeof(Method::CreateToken) + nSize;
     auto pArg = (Method::CreateToken*) Env::Heap_Alloc(nSizeArg);
+    nSizeArg--; // don't include 0-term when sending tx
+
 
     char* szMetadata = (char*) (pArg + 1);
     Env::DocGetText("metadata", szMetadata, nSize);
-    nSize--; // don't count 0-term
 
     _POD_(*pArg).SetZero();
     pArg->m_Limit.m_Lo = limit;
     pArg->m_Limit.m_Hi = limitHi;
-    pArg->m_MetadataSize = nSize - 1;
+    pArg->m_MetadataSize = nSize - 1; // don't count 0-term
 
     MyKeyID kid;
     kid.Set(cid, szMetadata, pArg->m_MetadataSize, pArg->m_Limit);
@@ -293,10 +298,18 @@ ON_METHOD(user, create)
 
     FundsChange fc;
     fc.m_Aid = 0;
-    fc.m_Amount = g_Beam2Groth * 10;
+    fc.m_Amount = g_Beam2Groth * 10 + s.m_IssueFee;
     fc.m_Consume = 1;
 
-    Env::GenerateKernel(&cid, pArg->s_iMethod, pArg, nSizeArg, &fc, 1, nullptr, 0, "Mintor create token", 0);
+    uint32_t nCharge =
+        Env::Cost::CallFar * 2 +
+        Env::Cost::FundsLock +
+        Env::Cost::LoadVar_For(sizeof(Settings)) +
+        Env::Cost::SaveVar_For(sizeof(Token)) +
+        Env::Cost::AssetManage +
+        Env::Cost::Cycle * 300;
+
+    Env::GenerateKernel(&cid, pArg->s_iMethod, pArg, nSizeArg, &fc, 1, nullptr, 0, "Mintor create token", nCharge);
 
     Env::Heap_Free(pArg);
 }
