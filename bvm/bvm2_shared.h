@@ -172,4 +172,14 @@ struct ApiVersion
 	static const uint32_t Current = 1;
 };
 
+struct AssetInfo
+{
+	Amount m_ValueLo;
+	Amount m_ValueHi;
+	HashValue m_Owner;
+	ContractID m_Cid; // seto to 0 if owned by user
+	Height m_LockHeight;
+	Amount m_Deposit;
+};
+
 #pragma pack (pop)
