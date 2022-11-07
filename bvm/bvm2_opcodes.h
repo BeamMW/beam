@@ -219,6 +219,12 @@
 
 #define BVMOp_Halt(macro, sep)
 
+#define BVMOp_get_AssetInfo(macro, sep) \
+	macro(AssetID, aid) sep \
+	macro(AssetInfo&, res) sep \
+	macro(void*, pMetadata) sep \
+	macro(uint32_t, nMetadata)
+
 #define BVMOp_AddSig(macro, sep) \
 	macro(const PubKey&, pubKey)
 
@@ -485,6 +491,7 @@
 	macro(0x1A, void*    , Heap_Alloc) \
 	macro(0x1B, void     , Heap_Free) \
 	macro(0x28, void     , Halt) \
+	macro(0x2A, uint32_t , get_AssetInfo) \
 	macro(0x2B, void     , HashWrite) \
 	macro(0x2D, void     , HashGetValue) \
 	macro(0x2E, void     , HashFree) \
