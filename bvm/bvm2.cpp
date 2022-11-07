@@ -1529,6 +1529,7 @@ namespace bvm2 {
 	BVM_METHOD_HOST(UpdateShader)
 	{
 		Wasm::Test(IsPastHF4());
+		TestCanWrite();
 
 		TestVarSize(nVal);
 		DischargeUnits(Limits::Cost::UpdateShader_For(nVal));
@@ -3509,12 +3510,19 @@ namespace bvm2 {
 		return false;
 	}
 
-	uint32_t ProcessorContract::SaveVarInternal(const Blob& key, const Blob& val)
+	void ProcessorContract::TestCanWrite()
 	{
+		assert(!m_FarCalls.m_Stack.empty());
+
 		uint32_t nFlags = m_FarCalls.m_Stack.back().m_Flags;
 		if ((FarCalls::Flags::s_LockedRO | FarCalls::Flags::s_GlobalRO) & nFlags)
 			Wasm::Fail("write lock");
+	}
 
+
+	uint32_t ProcessorContract::SaveVarInternal(const Blob& key, const Blob& val)
+	{
+		TestCanWrite();
 		return SaveVar(key, val);
 	}
 
@@ -3688,7 +3696,7 @@ namespace bvm2 {
 
 		if (pCode)
 		{
-			SaveVarInternal(cid, *pCode);
+			SaveVar(cid, *pCode);
 			get_ShaderID(sid, *pCode);
 		}
 		else
@@ -3697,7 +3705,7 @@ namespace bvm2 {
 			LoadVar(cid, res);
 
 			get_ShaderID(sid, res);
-			SaveVarInternal(cid, Blob(nullptr, 0));
+			SaveVar(cid, Blob(nullptr, 0));
 		}
 
 		ToggleSidEntry(sid, cid, !!pCode);
@@ -3725,10 +3733,10 @@ namespace bvm2 {
 		if (bSet)
 		{
 			auto h = uintBigFrom(get_Height() + 1);
-			SaveVarInternal(blob, h);
+			SaveVar(blob, h);
 		}
 		else
-			SaveVarInternal(blob, Blob(nullptr, 0));
+			SaveVar(blob, Blob(nullptr, 0));
 	}
 
 	/////////////////////////////////////////////

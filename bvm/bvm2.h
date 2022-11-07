@@ -382,6 +382,7 @@ namespace bvm2 {
 			return SaveNnz(vk, x.m_pData, x.nBytes);
 		}
 
+		void TestCanWrite();
 		uint32_t SaveVarInternal(const Blob&, const Blob& val);
 
 
