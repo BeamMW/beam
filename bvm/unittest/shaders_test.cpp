@@ -334,7 +334,7 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Count);
 	}
 	template <bool bToShader> void Convert(Mintor::Method::Base& x) {
-		ConvertOrd<bToShader>(x.m_Tid);
+		ConvertOrd<bToShader>(x.m_Aid);
 	}
 
 	template <bool bToShader> void Convert(Amm::Method::Create& x) {
