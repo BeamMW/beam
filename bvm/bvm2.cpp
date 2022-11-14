@@ -1792,7 +1792,7 @@ namespace bvm2 {
 		if (get_AssetInfo(ai))
 			return ProcessorPlus::CvtAssetInfo(res, ai, pMetadata, nMetadata);
 
-		return md.n;
+		return 0;
 	}
 
 	uint32_t ProcessorPlus::CvtAssetInfo(AssetInfo& res, const Asset::Info& ai, void* pMetadata, uint32_t nMetadata)
