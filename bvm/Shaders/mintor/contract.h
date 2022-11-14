@@ -2,8 +2,7 @@
 
 namespace Mintor
 {
-    static const ShaderID s_SID = { 0xaf,0x0f,0x63,0x5c,0x58,0xf6,0x97,0x9f,0x04,0xff,0x21,0x5a,0x38,0x53,0x71,0xef,0x81,0xc2,0x12,0x1b,0x01,0x7e,0x4a,0x41,0x89,0x20,0x31,0xc4,0x53,0x0f,0x93,0x6e };
-    static const ContractID s_CID = { 0x98,0x1d,0x15,0x5a,0xbd,0xa3,0x65,0x3c,0x98,0x32,0x69,0x87,0x11,0xfb,0xa8,0x17,0x82,0x17,0x3c,0x71,0x19,0x34,0x00,0x81,0x4d,0xae,0xb4,0x1e,0x3a,0x15,0x65,0x0d };
+    static const ShaderID s_SID = { 0x0b,0xd2,0x69,0xde,0xc1,0xa5,0xcf,0xc6,0x4c,0x3c,0x24,0x93,0xe7,0x27,0xce,0x80,0x46,0xf4,0x02,0x57,0x59,0xf0,0xbe,0x30,0xf8,0xc8,0x9b,0x60,0xac,0xd8,0xd5,0x2e };
 
 #pragma pack (push, 1)
 
@@ -29,97 +28,68 @@ namespace Mintor
 
     struct Tags
     {
-        static const uint8_t s_Global = 0;
-        // don't use tag=1 for multiple data entries, it's used by Upgradable2
-        static const uint8_t s_Token = 2;
-        static const uint8_t s_User = 3;
+        static const uint8_t s_Settings = 0;
+        static const uint8_t s_Token = 1;
     };
 
     struct PubKeyFlag
     {
         static const uint8_t s_Cid = 2; // pk.X == cid
-        static const uint8_t s_CA = 3; // transfer directly via allocated CA
+    };
+
+    struct Settings
+    {
+        ContractID m_cidDaoVault;
+        Amount m_IssueFee;
     };
 
     struct Token
     {
-        typedef uint32_t ID;
-
         struct Key {
             uint8_t m_Tag = Tags::s_Token;
-            ID m_ID;
+            AssetID m_Aid;
         };
 
-        AmountBig m_Mint;
+        AmountBig m_Minted;
         AmountBig m_Limit;
         PubKey m_pkOwner;
-        AssetID m_Aid;
-    };
-
-    struct User
-    {
-        struct Key {
-            uint8_t m_Tag = Tags::s_User;
-            Token::ID m_Tid;
-            PubKey m_pk;
-        };
-    };
-
-    struct Global
-    {
-        Token::ID m_Tokens;
     };
 
     namespace Method
     {
         struct Base {
-            Token::ID m_Tid;
+            AssetID m_Aid;
         };
 
-        struct BaseWithUser :public Base {
-            PubKey m_pkUser;
+        struct Init
+        {
+            static const uint32_t s_iMethod = 0;
+
+            Settings m_Settings;
         };
 
         struct View :public Base
         {
             static const uint32_t s_iMethod = 2;
 
-            Token m_Result;
+            Token m_Result; // seto to 0 if no such a token
         };
 
-        struct ViewUser :public BaseWithUser
+        struct CreateToken :public Base
         {
             static const uint32_t s_iMethod = 3;
 
-            Amount m_Result;
+            AmountBig m_Limit;
+            PubKey m_pkOwner;
+            uint32_t m_MetadataSize;
+            // followed by metadata
         };
 
-        struct Create :public BaseWithUser
+        struct Withdraw :public Base
         {
             static const uint32_t s_iMethod = 4;
 
-            AmountBig m_Limit;
-        };
-
-        struct Mint :public BaseWithUser
-        {
-            static const uint32_t s_iMethod = 5;
-
             Amount m_Value;
-            uint8_t m_Mint; // or burn.
-        };
-
-        struct Transfer :public BaseWithUser
-        {
-            static const uint32_t s_iMethod = 6;
-
-            Amount m_Value;
-            PubKey m_pkDst;
-        };
-
-        struct CreateCA :public Base
-        {
-            static const uint32_t s_iMethod = 7;
         };
     }
 #pragma pack (pop)

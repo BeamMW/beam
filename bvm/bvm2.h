@@ -66,6 +66,8 @@ namespace bvm2 {
 	using Shaders::HashValue;
 	using Shaders::HashValue512;
 	using Shaders::BlockHeader;
+	using Shaders::CallFarFlags;
+	using Shaders::AssetInfo;
 
 	namespace Merkle {
 		using namespace Shaders::Merkle;
@@ -145,6 +147,8 @@ namespace bvm2 {
 
 		public:
 
+			std::vector<uint8_t> m_vMem;
+
 			~Heap() { Clear(); }
 
 			bool Alloc(uint32_t&, uint32_t size);
@@ -155,9 +159,9 @@ namespace bvm2 {
 
 			uint32_t get_UnusedAtEnd(uint32_t nEnd) const;
 
-		} m_Heap;
+			void swap(Heap&);
 
-		std::vector<uint8_t> m_vHeap;
+		} m_Heap;
 
 		bool HeapAllocEx(uint32_t&, uint32_t size);
 		void HeapFreeEx(uint32_t);
@@ -182,6 +186,7 @@ namespace bvm2 {
 		virtual uint32_t get_HeapLimit() { return 0; }
 		virtual Height get_Height() { return 0; }
 		virtual bool get_HdrAt(Block::SystemState::Full& s) { return false; }
+		virtual bool get_AssetInfo(Asset::Full&) { return false; }
 
 		template <typename T> const T& get_AddrAsR(uint32_t nOffset) {
 			return *reinterpret_cast<const T*>(get_AddrR(nOffset, sizeof(T)));
@@ -328,6 +333,15 @@ namespace bvm2 {
 
 		struct FarCalls
 		{
+			struct Flags
+			{
+				static const uint32_t s_CallerBlocked = 1;
+				static const uint32_t s_CallerLockedRO = 2;
+				static const uint32_t s_HeapSwap = 4;
+				static const uint32_t s_LockedRO = 8;
+				static const uint32_t s_GlobalRO = 0x10;
+			};
+
 			struct Frame
 				:public boost::intrusive::list_base_hook<>
 			{
@@ -337,6 +351,10 @@ namespace bvm2 {
 				Wasm::Word m_StackPosMin;
 				Wasm::Word m_StackBytesMax;
 				Wasm::Word m_StackBytesRet;
+
+				uint32_t m_Flags;
+				Heap m_Heap;
+				Blob m_Args;
 
 				DebugCallstack m_Debug;
 			};
@@ -363,6 +381,9 @@ namespace bvm2 {
 		uint32_t Save_T(const VarKey& vk, const uintBig_t<nBytes>& x) {
 			return SaveNnz(vk, x.m_pData, x.nBytes);
 		}
+
+		void TestCanWrite();
+		uint32_t SaveVarInternal(const Blob&, const Blob& val);
 
 
 		virtual void InvokeExt(uint32_t) override;
@@ -433,7 +454,7 @@ namespace bvm2 {
 
 		uint32_t m_Charge = Limits::BlockCharge;
 
-		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint8_t bInheritContext); // can override to invoke host code instead of interpretator (for debugging)
+		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint32_t nFlags); // can override to invoke host code instead of interpretator (for debugging)
 	};
 
 
