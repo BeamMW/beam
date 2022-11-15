@@ -2,44 +2,37 @@
 #include "../app_common_impl.h"
 #include "contract.h"
 
-#define Mintor_manager_view(macro)
-#define Mintor_manager_view_all_assets(macro)
-#define Mintor_manager_view_params(macro) macro(ContractID, cid)
-#define Mintor_manager_view_token(macro) \
+#define Mintor_view_deployed(macro)
+#define Mintor_view_all_assets(macro)
+#define Mintor_view_params(macro) macro(ContractID, cid)
+#define Mintor_view_owned(macro) macro(ContractID, cid)
+#define Mintor_view_token(macro) \
     macro(ContractID, cid) \
     macro(AssetID, aid)
 
-#define Mintor_manager_deploy(macro) \
+#define Mintor_deploy(macro) \
     macro(ContractID, cidDaoVault) \
     macro(Amount, tokenIssueFee)
 
-#define MintorRole_manager(macro) \
-    macro(manager, view) \
-    macro(manager, deploy) \
-    macro(manager, view_params) \
-    macro(manager, view_token) \
-    macro(manager, view_all_assets) \
-
-#define Mintor_user_view(macro) macro(ContractID, cid)
-
-#define Mintor_user_create(macro) \
+#define Mintor_create_token(macro) \
     macro(ContractID, cid) \
     macro(Amount, limit) \
     macro(Amount, limitHi)
 
-#define Mintor_user_withdraw(macro) \
+#define Mintor_withdraw(macro) \
     macro(ContractID, cid) \
     macro(AssetID, aid) \
     macro(Amount, value)
 
-#define MintorRole_user(macro) \
-    macro(user, view) \
-    macro(user, create) \
-    macro(user, withdraw)
-
-#define MintorRoles_All(macro) \
-    macro(manager) \
-    macro(user)
+#define MintorActions_All(macro) \
+    macro(view_deployed) \
+    macro(deploy) \
+    macro(view_params) \
+    macro(view_token) \
+    macro(view_all_assets) \
+    macro(view_owned) \
+    macro(create_token) \
+    macro(withdraw)
 
 namespace Mintor {
 
@@ -48,33 +41,31 @@ BEAM_EXPORT void Method_0()
     // scheme
     Env::DocGroup root("");
 
-    {   Env::DocGroup gr("roles");
+    {   Env::DocGroup gr("actions");
 
 #define THE_FIELD(type, name) Env::DocAddText(#name, #type);
-#define THE_METHOD(role, name) { Env::DocGroup grMethod(#name);  Mintor_##role##_##name(THE_FIELD) }
-#define THE_ROLE(name) { Env::DocGroup grRole(#name); MintorRole_##name(THE_METHOD) }
+#define THE_ACTION(name) { Env::DocGroup gr(#name);  Mintor_##name(THE_FIELD) }
         
-        MintorRoles_All(THE_ROLE)
-#undef THE_ROLE
-#undef THE_METHOD
+        MintorActions_All(THE_ACTION)
+#undef THE_ACTION
 #undef THE_FIELD
     }
 }
 
 #define THE_FIELD(type, name) const type& name,
-#define ON_METHOD(role, name) void On_##role##_##name(Mintor_##role##_##name(THE_FIELD) int unused = 0)
+#define ON_METHOD(name) void On_##name(Mintor_##name(THE_FIELD) int unused = 0)
 
 void OnError(const char* sz)
 {
     Env::DocAddText("error", sz);
 }
 
-ON_METHOD(manager, view)
+ON_METHOD(view_deployed)
 {
     EnumAndDumpContracts(s_SID);
 }
 
-ON_METHOD(manager, deploy)
+ON_METHOD(deploy)
 {
     Mintor::Method::Init arg;
     _POD_(arg.m_Settings.m_cidDaoVault) = cidDaoVault;
@@ -96,7 +87,7 @@ bool LoadSettings(Settings& s, const ContractID& cid)
     return false;
 }
 
-ON_METHOD(manager, view_params)
+ON_METHOD(view_params)
 {
     Settings s;
     if (LoadSettings(s, cid))
@@ -244,7 +235,7 @@ void PrintTokens(const ContractID& cid, bool bOwnedOnly)
     }
 }
 
-ON_METHOD(manager, view_token)
+ON_METHOD(view_token)
 {
     TokenWalker wlk;
     wlk.Enum(cid, aid);
@@ -265,7 +256,7 @@ ON_METHOD(manager, view_token)
         PrintTokens(cid, false);
 }
 
-ON_METHOD(manager, view_all_assets)
+ON_METHOD(view_all_assets)
 {
     Env::DocArray gr("res");
 
@@ -297,12 +288,12 @@ ON_METHOD(manager, view_all_assets)
     Env::Assets_Close(iSlot);
 }
 
-ON_METHOD(user, view)
+ON_METHOD(view_owned)
 {
     PrintTokens(cid, true);
 }
 
-ON_METHOD(user, create)
+ON_METHOD(create_token)
 {
     uint32_t nSize = Env::DocGetText("metadata", nullptr, 0);
     if (!nSize)
@@ -347,7 +338,7 @@ ON_METHOD(user, create)
     Env::Heap_Free(pArg);
 }
 
-ON_METHOD(user, withdraw)
+ON_METHOD(withdraw)
 {
     if (!(aid && value))
         return OnError("aid and amount must be nnz");
@@ -380,10 +371,7 @@ BEAM_EXPORT void Method_1()
 {
     Env::DocGroup root("");
 
-    char szRole[0x20], szAction[0x20];
-
-    if (!Env::DocGetText("role", szRole, sizeof(szRole)))
-        return OnError("Role not specified");
+    char szAction[0x20];
 
     if (!Env::DocGetText("action", szAction, sizeof(szAction)))
         return OnError("Action not specified");
@@ -391,27 +379,21 @@ BEAM_EXPORT void Method_1()
 #define PAR_READ(type, name) type arg_##name; Env::DocGet(#name, arg_##name);
 #define PAR_PASS(type, name) arg_##name,
 
-#define THE_METHOD(role, name) \
+#define THE_METHOD(name) \
+        static_assert(sizeof(szAction) >= sizeof(#name)); \
         if (!Env::Strcmp(szAction, #name)) { \
-            Mintor_##role##_##name(PAR_READ) \
-            On_##role##_##name(Mintor_##role##_##name(PAR_PASS) 0); \
+            Mintor_##name(PAR_READ) \
+            On_##name(Mintor_##name(PAR_PASS) 0); \
             return; \
         }
 
-#define THE_ROLE(name) \
-    if (!Env::Strcmp(szRole, #name)) { \
-        MintorRole_##name(THE_METHOD) \
-        return OnError("invalid Action"); \
-    }
+    MintorActions_All(THE_METHOD)
 
-    MintorRoles_All(THE_ROLE)
-
-#undef THE_ROLE
 #undef THE_METHOD
 #undef PAR_PASS
 #undef PAR_READ
 
-    OnError("unknown Role");
+    OnError("unknown action");
 }
 
 } // namespace Mintor
