@@ -311,12 +311,19 @@ namespace bvm2 {
 		virtual Kind get_Kind() = 0;
 		virtual bool IsSuspended() { return false; }
 
-		static void Compile(ByteBuffer&, const Blob&, Kind, Wasm::Compiler::DebugInfo* = nullptr);
+		struct Compiler
+		{
+			virtual void OnBindingMissing(const Wasm::Compiler::PerImport&) {}
 
-	private:
-		static void ResolveBinding(Wasm::Compiler& c, uint32_t iFunction, Kind);
-		static void ResolveBindings(Wasm::Compiler&, Kind);
-		static int32_t get_PublicMethodIdx(const Wasm::Compiler::Vec<char>& sName);
+			void Compile(ByteBuffer&, const Blob&, Kind, Wasm::Compiler::DebugInfo* = nullptr);
+
+		private:
+			bool ResolveBinding(Wasm::Compiler& c, Wasm::Compiler::PerImportFunc&, Kind);
+			void ResolveBindings(Wasm::Compiler&, Kind);
+			static int32_t get_PublicMethodIdx(const Wasm::Compiler::Vec<char>& sName);
+		};
+
+		static void Compile(ByteBuffer&, const Blob&, Kind, Wasm::Compiler::DebugInfo* = nullptr);
 	};
 
 	struct ProcessorPlus;

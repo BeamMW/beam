@@ -447,5 +447,8 @@ namespace Wasm {
 
 	};
 
+	std::ostream& operator << (std::ostream&, const Compiler::PerImport&);
+	std::ostream& operator << (std::ostream&, const Compiler::PerImportFunc&);
+
 } // namespace Wasm
 } // namespace beam

@@ -417,9 +417,15 @@ namespace bvm2 {
 	/////////////////////////////////////////////
 	// Compilation
 
+	void Processor::Compile(ByteBuffer& res, const Blob& src, Kind kind, Wasm::Compiler::DebugInfo* pDbgInfo /* = nullptr */)
+	{
+		Compiler c;
+		c.Compile(res, src, kind, pDbgInfo);
+	}
+
 #define STR_MATCH(vec, txt) ((vec.n == sizeof(txt)-1) && !memcmp(vec.p, txt, sizeof(txt)-1))
 
-	int32_t Processor::get_PublicMethodIdx(const Wasm::Compiler::Vec<char>& sName)
+	int32_t Processor::Compiler::get_PublicMethodIdx(const Wasm::Compiler::Vec<char>& sName)
 	{
 		if (STR_MATCH(sName, "Ctor"))
 			return 0;
@@ -475,7 +481,7 @@ namespace bvm2 {
 		return IsPastFork(6) ? 1 : 0;
 	}
 
-	void Processor::Compile(ByteBuffer& res, const Blob& src, Kind kind, Wasm::Compiler::DebugInfo* pDbgInfo /* = nullptr */)
+	void Processor::Compiler::Compile(ByteBuffer& res, const Blob& src, Kind kind, Wasm::Compiler::DebugInfo* pDbgInfo /* = nullptr */)
 	{
 		Wasm::CheckpointTxt cp("Wasm/compile");
 
@@ -815,12 +821,10 @@ namespace bvm2 {
 		Wasm::Test(x.CanBeStackPtr());
 	}
 
-	void Processor::ResolveBinding(Wasm::Compiler& c, uint32_t iFunction, Kind kind)
+	bool Processor::Compiler::ResolveBinding(Wasm::Compiler& c, Wasm::Compiler::PerImportFunc& x, Kind kind)
 	{
-		auto& x = c.m_ImportFuncs[iFunction];
-
 		if (!STR_MATCH(x.m_sMod, "env"))
-			Wasm::Fail(); // imports from other modules are not supported
+			return false; // imports from other modules are not supported
 
 		const auto& tp = c.m_Types[x.m_TypeIdx];
 
@@ -833,7 +837,7 @@ namespace bvm2 {
 			Wasm::Test(tp.m_Args.n == _countof(pSig) - 1); \
 			Wasm::Test(!memcmp(tp.m_Args.p, pSig, sizeof(pSig) - 1)); \
 			ParamWrap<ret>::TestRetType(tp.m_Rets); \
-			return; \
+			return true; \
 		}
 
 		BVMOpsAll_Common(THE_MACRO)
@@ -852,13 +856,38 @@ namespace bvm2 {
 #undef THE_MACRO
 #undef PAR_TYPECODE
 
-		Wasm::Fail(); // not found
+		return false; // not found
 	}
 
-	void Processor::ResolveBindings(Wasm::Compiler& c, Kind kind)
+	void Processor::Compiler::ResolveBindings(Wasm::Compiler& c, Kind kind)
 	{
+		Wasm::CheckpointTxt cp("Bindings");
+
 		for (uint32_t i = 0; i < c.m_ImportFuncs.size(); i++)
-			ResolveBinding(c, i, kind);
+		{
+			auto& x = c.m_ImportFuncs[i];
+
+			struct MyCheckpoint
+				:public Wasm::Checkpoint
+			{
+				const Wasm::Compiler::PerImportFunc& m_Func;
+				MyCheckpoint(const Wasm::Compiler::PerImportFunc& f) :m_Func(f) {}
+
+				void Dump(std::ostream& os) override
+				{
+					os << m_Func;
+				}
+
+			} cp2(x);
+
+			if (ResolveBinding(c, x, kind))
+				continue;
+
+			if (Kind::Manager != kind)
+				Wasm::Fail();
+
+			OnBindingMissing(x);
+		}
 
 		bool bStackPtrImported = false;
 		for (uint32_t i = 0; i < c.m_ImportGlobals.size(); i++)
