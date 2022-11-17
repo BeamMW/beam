@@ -1485,15 +1485,15 @@ namespace
         cout << boost::format(kWalletSummaryFormat)
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldCurHeight) % stateID.m_Height
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldCurStateID) % stateID.m_Hash
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(avail))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldMaturing) % to_string(PrintableAmount(maturing))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(incoming))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(unavail))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailableCoinbase) % to_string(PrintableAmount(totals.AvailCoinbase))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalCoinbase) % to_string(PrintableAmount(totals.Coinbase))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvaliableFee) % to_string(PrintableAmount(totals.AvailFee))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalFee) % to_string(PrintableAmount(totals.Fee))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(unspent));
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(avail, false, 0))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldMaturing) % to_string(PrintableAmount(maturing, false, 0))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(incoming, false, 0))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(unavail, false, 0))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailableCoinbase) % to_string(PrintableAmount(totals.AvailCoinbase, false, 0))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalCoinbase) % to_string(PrintableAmount(totals.Coinbase, false, 0))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvaliableFee) % to_string(PrintableAmount(totals.AvailFee, false, 0))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalFee) % to_string(PrintableAmount(totals.Fee, false, 0))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(unspent, false, 0));
 
         if (vm.count(cli::UTXO_LIST))
         {
@@ -2395,7 +2395,24 @@ namespace
                         if (!res.empty())
                             fs.read(&res.front(), res.size());
 
-                        bvm2::Processor::Compile(res, res, kind, pDbgInfo);
+                        struct MyCompiler :public bvm2::Processor::Compiler
+                        {
+                            bool m_HaveMissing;
+
+                            void OnBindingMissing(const Wasm::Compiler::PerImport& x) override
+                            {
+                              //  if (!m_HaveMissing)
+                                {
+                                //    m_HaveMissing = true;
+                                    std::cout << "Shader uses newer API, some features may not work.\n";
+                                }
+                                std::cout << "\t Missing " << x << std::endl;
+                            }
+                        };
+
+                        MyCompiler c;
+                        c.m_HaveMissing = false;
+                        c.Compile(res, res, kind, pDbgInfo);
                     }
                 };
 
@@ -2468,7 +2485,7 @@ namespace
                 {
                     std::cout << "Contract ID: " << man.m_Args["cid"] << std::endl;
                 }
-                std::cout << "\tComment: " << comment;
+                std::cout << "\tComment: " << comment << std::endl;
 
                 for (const auto& info: spend)
                 {
@@ -2479,17 +2496,10 @@ namespace
                     if (!bSpend)
                         amount = -amount;
 
-                    PrintableAmount prnt(static_cast<Amount>(amount));
-                    if (aid)
-                    {
-                        prnt.m_coinName = "ASSET-" + to_string(aid);
-                        prnt.m_grothName = prnt.m_coinName + "-GROTH";
-                    }
-
-                    std::cout << '\t' << (bSpend ? "Send" : "Recv") << ' ' << prnt << std::endl;
+                    std::cout << '\t' << (bSpend ? "Send" : "Recv") << ' ' << PrintableAmount(static_cast<Amount>(amount), false, aid) << std::endl;
                 }
 
-                std::cout << "\tTotal fee: " << PrintableAmount(fee) << std::endl;
+                std::cout << "\tTotal fee: " << PrintableAmount(fee, false, 0) << std::endl;
 
                 ByteBuffer msg(comment.begin(), comment.end());
                 currentTxID = wallet->StartTransaction(

@@ -1854,6 +1854,120 @@ namespace beam
             s.m_Value = x;
 			res += hGen * s;
         }
+
+		namespace Text
+		{
+			void PrintDigs(char* sz, uint32_t nDigs, Amount val)
+			{
+				for ( ; nDigs--; val /= 10)
+					sz[nDigs] = '0' + (val % 10);
+			}
+
+			void PrintPortion(std::ostream& os, Amount val, bool bFirst)
+			{
+				assert(val);
+
+				char szBuf[4];
+				PrintDigs(szBuf, _countof(szBuf) - 1, val);
+				szBuf[_countof(szBuf) - 1] = 0;
+
+				if (bFirst)
+				{
+					// trim leading zeroes
+					const char* sz = szBuf;
+					while ('0' == *sz)
+						sz++;
+
+					os << sz;
+				}
+				else
+					os << ',' << szBuf;
+			}
+
+			Amount SplitBy(const Type& val, uint32_t div, Type& valHi)
+			{
+				Type valResid;
+				valHi.SetDiv(val, uintBigFrom(div), valResid);
+
+				valResid.Negate();
+				valResid += val;
+
+				return get_Lo(valResid);
+			}
+
+			void PrintRec(std::ostream& os, Amount val)
+			{
+				Amount valNext = val / 1000;
+				if (valNext)
+				{
+					PrintRec(os, valNext);
+					PrintPortion(os, val, false);
+				}
+				else
+					PrintPortion(os, val, true);
+			}
+
+			void PrintRec(std::ostream& os, const Type& val)
+			{
+				if (get_Hi(val))
+				{
+					Type valHi;
+					Amount valLo = SplitBy(val, 1000000000ul, valHi);
+
+					PrintRec(os, valHi);
+					PrintPortion(os, valLo, false);
+
+				}
+				else
+					PrintRec(os, get_Lo(val));
+			}
+
+			void PrintGroths(std::ostream& os, Amount val)
+			{
+				if (!val)
+					return;
+
+				char szBuf[9];
+				PrintDigs(szBuf, _countof(szBuf) - 1, val);
+
+				// trim trailing zeroes
+				uint32_t nLen = _countof(szBuf) - 1;
+				while ('0' == szBuf[nLen - 1])
+					nLen--;
+
+				szBuf[nLen] = 0;
+				os << '.' << szBuf;
+			}
+
+
+		} // namespace Text
+
+		void Print(std::ostream& os, const Type& x)
+		{
+			if (get_Hi(x))
+			{
+				Type val;
+				Amount groths = Text::SplitBy(x, (uint32_t) Rules::Coin, val);
+				Text::PrintRec(os, val);
+				Text::PrintGroths(os, groths);
+			}
+			else
+				Print(os, get_Lo(x));
+		}
+
+		void Print(std::ostream& os, Amount x)
+		{
+			Amount groths = x % Rules::Coin;
+			x /= Rules::Coin;
+
+			if (x)
+				Text::PrintRec(os, x);
+			else
+				os << '0';
+
+			Text::PrintGroths(os, groths);
+		}
+
 	} // namespace AmountBig
 
 

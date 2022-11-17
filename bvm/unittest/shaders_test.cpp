@@ -76,6 +76,9 @@ namespace Shaders {
 	}
 	template <bool bToShader> void Convert(Dummy::TestFarCall& x) {
 	}
+	template <bool bToShader> void Convert(Dummy::TestFarCallFlags& x) {
+		ConvertOrd<bToShader>(x.m_Flags);
+	}
 	template <bool bToShader> void Convert(Dummy::MathTest1& x) {
 		ConvertOrd<bToShader>(x.m_Value);
 		ConvertOrd<bToShader>(x.m_Rate);
@@ -331,7 +334,33 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Count);
 	}
 	template <bool bToShader> void Convert(Mintor::Method::Base& x) {
-		ConvertOrd<bToShader>(x.m_Tid);
+		ConvertOrd<bToShader>(x.m_Aid);
+	}
+
+	template <bool bToShader> void Convert(Amm::Method::Create& x) {
+		ConvertOrd<bToShader>(x.m_Upgradable.m_hMinUpgradeDelay);
+		ConvertOrd<bToShader>(x.m_Upgradable.m_MinApprovers);
+	}
+	template <bool bToShader> void Convert(Amm::Pool::ID& x) {
+		ConvertOrd<bToShader>(x.m_Aid1);
+		ConvertOrd<bToShader>(x.m_Aid2);
+		ConvertOrd<bToShader>(x.m_Fees.m_Kind);
+	}
+	template <bool bToShader> void Convert(Amm::Method::PoolCreate& x) {
+		Convert<bToShader>(x.m_Pid);
+	}
+	template <bool bToShader> void Convert(Amm::Method::AddLiquidity& x) {
+		Convert<bToShader>(x.m_Pid);
+		ConvertOrd<bToShader>(x.m_Amounts.m_Tok1);
+		ConvertOrd<bToShader>(x.m_Amounts.m_Tok2);
+	}
+	template <bool bToShader> void Convert(Amm::Method::Withdraw& x) {
+		Convert<bToShader>(x.m_Pid);
+		ConvertOrd<bToShader>(x.m_Ctl);
+	}
+	template <bool bToShader> void Convert(Amm::Method::Trade& x) {
+		Convert<bToShader>(x.m_Pid);
+		ConvertOrd<bToShader>(x.m_Buy1);
 	}
 
 	namespace Env {
@@ -339,13 +368,13 @@ namespace Shaders {
 		typedef beam::bvm2::Limits::Cost Cost;
 		typedef Shaders::Env::KeyID KeyID;
 
-		void CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint8_t bInheritContext);
+		void CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint32_t nFlags);
 
 		template <typename T>
-		void CallFar_T(const ContractID& cid, T& args, uint8_t bInheritContext = 0)
+		void CallFar_T(const ContractID& cid, T& args, uint32_t nFlags = 0)
 		{
 			Convert<true>(args);
-			CallFarN(cid, args.s_iMethod, &args, sizeof(args), bInheritContext);
+			CallFarN(cid, args.s_iMethod, &args, sizeof(args), nFlags);
 			Convert<false>(args);
 		}
 
@@ -361,7 +390,7 @@ namespace Shaders {
 #include "../Shaders/oracle/contract.cpp"
 	}
 
-#include "../Shaders/oracle2/contract.cpp"
+//#include "../Shaders/oracle2/contract.cpp"
 
 	namespace StableCoin {
 #include "../Shaders/StableCoin/contract.cpp"
@@ -397,6 +426,7 @@ namespace Shaders {
 #include "../Shaders/aphorize/contract.cpp"
 	}
 
+//#include "../Shaders/amm/contract.cpp"
 //#include "../Shaders/dao-vote/contract.cpp" // already within namespace
 //#include "../Shaders/dao-vault/contract.cpp" // already within namespace
 //#include "../Shaders/nephrite/contract.cpp" // already within namespace
@@ -550,7 +580,7 @@ namespace bvm2 {
 		} m_Eth;
 
 
-		virtual void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint8_t bInheritContext) override
+		virtual void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint32_t nFlags) override
 		{
 			if (cid == m_Vault.m_Cid)
 			{
@@ -747,7 +777,21 @@ namespace bvm2 {
 				}
 			}
 */
-
+/*
+			if (cid == m_Amm.m_Cid)
+			{
+				TempFrame f(*this, cid);
+				switch (iMethod)
+				{
+				////case 0: Shaders::Amm::Ctor(CastArg<Shaders::Amm::Method::Create>(pArgs)); return;
+				////case 3: Shaders::Amm::Method_3(CastArg<Shaders::Amm::Method::PoolCreate>(pArgs)); return;
+				////case 4: Shaders::Amm::Method_4(CastArg<Shaders::Amm::Method::PoolDestroy>(pArgs)); return;
+				////case 5: Shaders::Amm::Method_5(CastArg<Shaders::Amm::Method::AddLiquidity>(pArgs)); return;
+				//case 6: Shaders::Amm::Method_6(CastArg<Shaders::Amm::Method::Withdraw>(pArgs)); return;
+				////case 7: Shaders::Amm::Method_7(CastArg<Shaders::Amm::Method::Trade>(pArgs)); return;
+				}
+			}
+*/
 /*
 			if (cid == m_Amm.m_Cid)
 			{
@@ -757,7 +801,7 @@ namespace bvm2 {
 				}
 			}
 */
-			ProcessorContract::CallFar(cid, iMethod, pArgs, nArgs, bInheritContext);
+			ProcessorContract::CallFar(cid, iMethod, pArgs, nArgs, nFlags);
 		}
 
 		void TestVault();
@@ -1647,11 +1691,7 @@ namespace bvm2 {
 			args.m_Settings.m_AidGov = aidGov;
 			args.m_Upgradable.m_MinApprovers = 1; // 0 is illegal atm
 
-			m_FarCalls.m_Stack.Create_back()->m_Body = m_Dummy.m_Code; // add dummy frame, any valid shader is ok
-
 			verify_test(ContractCreate_T(m_Nephrite.m_Cid, m_Nephrite.m_Code, args));
-
-			m_FarCalls.m_Stack.Clear();
 		}
 
 		NephriteContext lc(*this);
@@ -2001,18 +2041,66 @@ namespace bvm2 {
 	void MyProcessor::TestMintor()
 	{
 		VERIFY_ID(Shaders::Mintor::s_SID, m_Mintor.m_Sid);
-
-		{
-			Zero_ zero;
-			verify_test(ContractCreate_T(m_Mintor.m_Cid, m_Mintor.m_Code, zero));
-		}
-
-		VERIFY_ID(Shaders::Mintor::s_CID, m_Mintor.m_Cid);
 	}
 
 	void MyProcessor::TestAmm()
 	{
 		VERIFY_ID(Shaders::Amm::s_pSID[_countof(Shaders::Amm::s_pSID) - 1], m_Amm.m_Sid);
+
+
+		{
+			Shaders::Amm::Method::Create args;
+			ZeroObject(args);
+			args.m_Upgradable.m_MinApprovers = 1;
+			args.m_Settings.m_cidDaoVault = m_DaoVault.m_Cid;
+			verify_test(ContractCreate_T(m_Amm.m_Cid, m_Amm.m_Code, args));
+		}
+
+		Shaders::Amm::Pool::ID pid;
+		pid.m_Aid1 = 12;
+		pid.m_Aid2 = 14;
+		pid.m_Fees.m_Kind = 1;
+
+		{
+			Shaders::Amm::Method::PoolCreate args;
+			ZeroObject(args);
+			args.m_Pid = pid;
+			verify_test(RunGuarded_T(m_Amm.m_Cid, args.s_iMethod, args));
+
+			verify_test(!RunGuarded_T(m_Amm.m_Cid, args.s_iMethod, args)); // duplication
+
+			pid.m_Fees.m_Kind = 0;
+			args.m_Pid = pid;
+			verify_test(RunGuarded_T(m_Amm.m_Cid, args.s_iMethod, args)); // ok
+		}
+
+
+		{
+			Shaders::Amm::Method::AddLiquidity args;
+			ZeroObject(args);
+			args.m_Pid = pid;
+			args.m_Amounts.m_Tok1 = Rules::Coin * 3450;
+			args.m_Amounts.m_Tok2 = Rules::Coin * 170;
+			verify_test(RunGuarded_T(m_Amm.m_Cid, args.s_iMethod, args));
+		}
+
+		{
+			Shaders::Amm::Method::Trade args;
+			ZeroObject(args);
+			args.m_Pid = pid;
+			std::swap(args.m_Pid.m_Aid1, args.m_Pid.m_Aid2);
+			args.m_Buy1 = Rules::Coin * 100; // would be very expensive
+			verify_test(RunGuarded_T(m_Amm.m_Cid, args.s_iMethod, args));
+		}
+
+		{
+			Shaders::Amm::Method::Withdraw args;
+			ZeroObject(args);
+			args.m_Pid = pid;
+			args.m_Ctl = Rules::Coin * 100;
+			verify_test(RunGuarded_T(m_Amm.m_Cid, args.s_iMethod, args));
+		}
+
 	}
 
 	namespace IndexDecoder
@@ -2223,31 +2311,65 @@ namespace bvm2 {
 
 		m_lstUndo.Clear();
 
+		for (uint32_t i = 0; i < 2; i++)
 		{
+			bool bPostHF6 = !!i;
+
+			Rules::get().pForks[6].m_Height = bPostHF6 ? Rules::get().pForks[5].m_Height : MaxHeight;
+
+
 			Shaders::Dummy::TestFarCall args;
-			args.m_Variant = 0;
-			args.m_InheritCtx = 0;
+			args.m_Variant = 0; // stack, normal
+			args.m_Flags = 0;
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
-			args.m_Variant = 1;
+			args.m_Variant = 1; // stack, too high
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
-			args.m_Variant = 2;
+			args.m_Variant = 2; // stack, too low
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
-			args.m_Variant = 3;
-			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
-			args.m_Variant = 4;
-			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
-			args.m_Variant = 5;
-			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
-			args.m_Variant = 6;
-			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
-			args.m_Variant = 7;
-			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+			args.m_Variant = 3; // heap
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args) == bPostHF6);
+			args.m_Variant = 4; // heap, too high
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args) == bPostHF6);
+			args.m_Variant = 5; // heap, too low
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args) == bPostHF6);
+			args.m_Variant = 6; // global
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args) == bPostHF6);
+			args.m_Variant = 7; // data
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args) == bPostHF6);
 
 			args.m_Variant = 0;
-			args.m_InheritCtx = 1;
+			args.m_Flags = CallFarFlags::InheritContext;
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args)); // should succeed, but won't affect the callee contract
 
 			UndoChanges();
+		}
+
+		{
+			Shaders::Dummy::TestFarCallFlags args;
+			ZeroObject(args);
+			args.m_DepthRemaining = bvm2::Limits::FarCallDepth ;
+			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+
+			for (args.m_TryWrite = 0; args.m_TryWrite <= 1; args.m_TryWrite++)
+			{
+				bool bR = !args.m_TryWrite;
+
+				args.m_Flags = 0;
+				args.m_DepthRemaining = 2;
+				verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+
+				args.m_Flags = Shaders::CallFarFlags::SelfLockRO;
+				args.m_DepthRemaining = 2;
+				verify_test(RunGuarded_T(cid, args.s_iMethod, args) == bR);
+
+				args.m_Flags = Shaders::CallFarFlags::GlobalLockRO;
+				args.m_DepthRemaining = 2;
+				verify_test(RunGuarded_T(cid, args.s_iMethod, args) == bR);
+
+				args.m_Flags = Shaders::CallFarFlags::SelfBlock;
+				args.m_DepthRemaining = 2;
+				verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+			}
 		}
 
 		{
@@ -2421,7 +2543,10 @@ namespace bvm2 {
 
 		{
 			// set mainnet rules
-			auto& r = Rules::get();
+			Rules r = Rules::get(); // make a copy
+			Rules::Scope scopeRules(r);
+
+
 			r.pForks[0].m_Height = 0;
 			r.pForks[0].m_Hash.Scan("ed91a717313c6eb0e3f082411584d0da8f0c8af2a4ac01e5af1959e0ec4338bc");
 			r.pForks[1].m_Height = 321321;
@@ -2546,9 +2671,6 @@ namespace bvm2 {
 		}
 
 		{
-			Rules::get().pForks[4].m_Height = 1000000000;
-			Rules::get().pForks[4].m_Hash = Zero;
-
 			Height h = Rules::get().pForks[4].m_Height + 3;
 			TemporarySwap ts(h, m_Height);
 
@@ -2582,7 +2704,7 @@ namespace bvm2 {
 			args.m_ComissionForProof = 400;
 			CvtHdrPrefix(args.m_Hdr0, s);
 			CvtHdrElement(args.m_Hdr0, s);
-			args.m_Rules = Rules::get().pForks[2].m_Hash;
+			args.m_Rules = Rules::get().pForks[6].m_Hash;
 			verify_test(ContractCreate_T(m_Sidechain.m_Cid, m_Sidechain.m_Code, args));
 		}
 
@@ -3396,32 +3518,7 @@ namespace bvm2 {
 			args.m_Cfg.m_Aid = 22;
 			args.m_Cfg.m_hEpochDuration = 50;
 
-			// emulate invocation from upgradable2
-
-			auto pFr = m_FarCalls.m_Stack.Create_back();
-
-#pragma pack (push, 1)
-			struct Hdr0
-			{
-				uint32_t m_Version;
-				uint32_t m_NumMethods;
-				uint32_t m_hdrData0;
-				uint32_t m_hdrTable0;
-
-				uint32_t m_pMethod[2];
-			};
-#pragma pack (pop)
-
-			pFr->m_Body.resize(sizeof(Hdr0));
-			Hdr0& hdr = *(Hdr0*) &pFr->m_Body.front();
-
-			ZeroObject(hdr);
-			hdr.m_Version = ByteOrder::to_le(2u);
-			hdr.m_NumMethods = ByteOrder::to_le(2u);
-
 			verify_test(ContractCreate_T(m_DaoVote.m_Cid, m_DaoVote.m_Code, args));
-
-			m_FarCalls.m_Stack.Clear();
 		}
 		VERIFY_ID(Shaders::DaoVote::s_pSID[_countof(Shaders::DaoVote::s_pSID) - 1], m_DaoVote.m_Sid);
 
@@ -3500,9 +3597,9 @@ namespace bvm2 {
 
 } // namespace beam
 
-void Shaders::Env::CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint8_t bInheritContext)
+void Shaders::Env::CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint32_t nFlags)
 {
-	Cast::Up<beam::bvm2::MyProcessor>(g_pEnv)->CallFarN(cid, iMethod, pArgs, nArgs, bInheritContext);
+	Cast::Up<beam::bvm2::MyProcessor>(g_pEnv)->CallFarN(cid, iMethod, pArgs, nArgs, nFlags);
 }
 
 namespace 
@@ -4050,6 +4147,14 @@ int main()
 			*/
 		}
 
+		auto& r = Rules::get();
+		for (uint32_t i = 0; i <= 6; i++)
+			r.pForks[i].m_Height = 0;
+
+		r.DisableForksFrom(7);
+		r.UpdateChecksum();
+
+		proc.m_Height = 10;
 		proc.TestAll();
 
 		MyManager man(proc);

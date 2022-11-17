@@ -65,6 +65,8 @@ namespace beam::bvm2 {
 		bool get_HdrAt(Block::SystemState::Full&) override;
 		void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr&) override;
 		void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax, IReadLogs::Ptr&) override;
+		void AssetsEnum(Asset::ID aid0, Height, IReadAssets::Ptr&) override;
+		bool get_AssetInfo(Asset::Full&) override;
 		void get_ContractShader(ByteBuffer&) override;
 		bool get_SpecialParam(const char*, Blob&) override;
 		bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) override;

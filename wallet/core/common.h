@@ -106,25 +106,35 @@ namespace beam::wallet
     {
         explicit PrintableAmount(
             const AmountBig::Type& amount,
-            bool showPoint = false,
-            Asset::ID assetID = Asset::s_BeamID,
-            std::string coinName = std::string(),
-            std::string grothName = std::string()
+            bool /* showPoint */ = false,
+            Asset::ID aid = static_cast<Asset::ID>(-1),
+            const char* szCoinName = nullptr,
+            const char* /* szGrothName */ = nullptr
         )
-            : m_value(amount)
-            , m_showPoint(showPoint)
-            , m_assetID(assetID)
-            , m_coinName(std::move(coinName))
-            , m_grothName(std::move(grothName))
-        {}
+            :m_value(amount)
+            ,m_Aid(aid)
+            ,m_szCoinName(szCoinName)
+        {
+        }
+
+        explicit PrintableAmount(
+            const AmountBig::Type& amount,
+            bool /* showPoint */,
+            Asset::ID aid,
+            const std::string& sCoin,
+            const std::string& /* sGroth */
+        )
+            :m_value(amount)
+            ,m_Aid(aid)
+            ,m_szCoinName(sCoin.c_str())
+        {
+        }
 
         const AmountBig::Type& m_value;
-        bool m_showPoint;
-        Asset::ID m_assetID;
-        std::string m_coinName;
-        std::string m_grothName;
+        Asset::ID m_Aid;
+        const char* m_szCoinName;
     };
-    
+
     struct Coin;
 
     enum class TxStatus : uint32_t

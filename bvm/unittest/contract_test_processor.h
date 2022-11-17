@@ -359,7 +359,7 @@ namespace beam::bvm2
 
 		uint32_t m_Cycles;
 
-		void CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint8_t bInheritContext)
+		void CallFarN(const ContractID& cid, uint32_t iMethod, void* pArgs, uint32_t nArgs, uint32_t nFlags)
 		{
 			m_Stack.AliasAlloc(nArgs);
 			memcpy(m_Stack.get_AliasPtr(), pArgs, nArgs);
@@ -367,7 +367,7 @@ namespace beam::bvm2
 			size_t nFrames = m_FarCalls.m_Stack.size();
 
 			Wasm::Word nSp = m_Stack.get_AlasSp();
-			CallFar(cid, iMethod, nSp, nArgs, bInheritContext);
+			CallFar(cid, iMethod, nSp, nArgs, nFlags);
 
 			bool bWasm = false;
 			for (; m_FarCalls.m_Stack.size() > nFrames; m_Cycles++)

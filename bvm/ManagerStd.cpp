@@ -240,6 +240,38 @@ namespace bvm2 {
 			}
 		};
 
+
+		struct Assets
+			:public Handler
+			,public IReadAssets
+		{
+			using Handler::Handler;
+
+			size_t m_iPos = 0;
+			std::vector<Asset::Full> m_Res;
+
+			virtual bool MoveNext() override
+			{
+				assert(m_pRequest);
+				auto& r = Cast::Up<proto::FlyClient::RequestAssetsListAt>(*m_pRequest);
+
+				if (m_Res.empty())
+				{
+					if (!CheckDone())
+						return false;
+					if (r.m_Res.empty())
+						return false;
+
+					m_iPos = 0;
+					m_Res = std::move(r.m_Res);
+				}
+
+				m_aiLast = std::move(m_Res[m_iPos++]);
+
+				return true;
+			}
+		};
+
 	};
 
 	void ManagerStd::PerformSingleRequest(proto::FlyClient::Request& r)
@@ -306,6 +338,21 @@ namespace bvm2 {
 		pOut = std::move(p);
 	}
 
+	void ManagerStd::AssetsEnum(Asset::ID aid0, Height h, IReadAssets::Ptr& pOut)
+	{
+		auto p = std::make_unique<RemoteRead::Assets>(*this);
+
+		boost::intrusive_ptr<proto::FlyClient::RequestAssetsListAt> pReq(new proto::FlyClient::RequestAssetsListAt);
+		auto& r = *pReq;
+
+		r.m_Msg.m_Aid0 = aid0;
+		r.m_Msg.m_Height = h;
+
+		p->m_pRequest = std::move(pReq);
+		p->Post();
+
+		pOut = std::move(p);
+	}
 
 	void ManagerStd::SelectContext(bool bDependent, uint32_t /* nChargeNeeded */)
 	{
@@ -392,6 +439,30 @@ namespace bvm2 {
 			{
 				r.m_Res.m_Value.swap(val);
 				r.m_Res.m_Proof.swap(proof);
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	bool ManagerStd::get_AssetInfo(Asset::Full& ai)
+	{
+		if (!m_Pending.m_pSingleRequest)
+		{
+			proto::FlyClient::RequestAsset::Ptr pReq(new proto::FlyClient::RequestAsset);
+			pReq->m_Msg.m_AssetID = ai.m_ID;
+			PerformSingleRequest(*pReq);
+		}
+
+		if (!IsSuspended())
+		{
+			auto pReq = GetResSingleRequest();
+			auto& r = pReq->As<proto::FlyClient::RequestAsset>();
+
+			if (!r.m_Res.m_Proof.empty())
+			{
+				ai = std::move(r.m_Res.m_Info);
 				return true;
 			}
 		}

@@ -195,6 +195,9 @@ struct MyGlobal
         {
             tPrev.m_iNext = t.m_iNext;
             tk.m_iTrove = iPrev;
+
+            m_RedistPool.MaybeRefresh(tPrev, storR);
+
             Env::SaveVar_T(tk, tPrev);
         }
         else
@@ -219,7 +222,11 @@ struct MyGlobal
             Env::Halt_if(!Env::LoadVar_T(tk, tPrev));
 
             EpochStorageRedist storR;
-            auto vals = m_RedistPool.get_UpdatedAmounts(tPrev, storR);
+            Pair vals;
+            if (m_RedistPool.MaybeRefresh(tPrev, storR))
+                vals = tPrev.m_Amounts;
+            else
+                vals = m_RedistPool.get_UpdatedAmounts(tPrev, storR);
 
             int iCmp = vals.CmpRcr(t.m_Amounts);
             Env::Halt_if(iCmp > 0);
@@ -228,7 +235,6 @@ struct MyGlobal
             tPrev.m_iNext = iTrove;
 
             Env::SaveVar_T(tk, tPrev);
-
         }
         else
         {
@@ -238,6 +244,19 @@ struct MyGlobal
 
         tk.m_iTrove = iTrove;
         Env::SaveVar_T(tk, t);
+
+        if (t.m_iNext)
+        {
+            tk.m_iTrove = t.m_iNext;
+            Trove tNext;
+            Env::Halt_if(!Env::LoadVar_T(tk, tNext));
+
+            EpochStorageRedist storR;
+            auto vals = m_RedistPool.get_UpdatedAmounts(tNext, storR);
+
+            int iCmp = t.m_Amounts.CmpRcr(vals);
+            Env::Halt_if(iCmp > 0);
+        }
     }
 
     void TroveModify(Trove::ID iPrev0, Trove::ID iPrev1, const Pair* pNewVals, const PubKey* pPk, Method::BaseTx& r)
@@ -562,6 +581,21 @@ BEAM_EXPORT void Method_10(Method::AddStabPoolReward& r)
     Env::FundsLock(g.m_Settings.m_AidGov, r.m_Amount);
 }
 
+BEAM_EXPORT void Method_11(Method::TroveRefresh& r)
+{
+    MyGlobal_LoadSave g;
+
+    Trove t;
+    Trove::ID iTrove = g.TrovePop(r.m_iPrev0, t);
+
+    // verify the refresh makes sense
+    Env::Halt_if(
+        (r.m_iPrev0 == r.m_iPrev1) && // same pos
+        (t.m_RedistUser.m_iEpoch == g.m_RedistPool.m_iActive)); // same epoch
+
+    g.TrovePush(iTrove, t, r.m_iPrev1);
+}
+
 } // namespace Nephrite
 
 namespace Upgradable3 {
@@ -575,7 +609,7 @@ namespace Upgradable3 {
 
     void OnUpgraded(uint32_t nPrevVersion)
     {
-        if constexpr (g_CurrentVersion)
+        if constexpr (g_CurrentVersion > 0)
             Env::Halt_if(nPrevVersion != g_CurrentVersion - 1);
         else
             Env::Halt();

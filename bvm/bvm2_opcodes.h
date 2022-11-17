@@ -209,7 +209,7 @@
 	macro(uint32_t, iMethod) sep \
 	macro(void*, pArgs) sep \
 	macro(uint32_t, nArgs) sep \
-	macro(uint8_t, bInheritContext)
+	macro(uint32_t, nFlags)
 
 #define BVMOp_get_CallDepth(macro, sep)
 
@@ -218,6 +218,12 @@
 	macro(ContractID&, cid)
 
 #define BVMOp_Halt(macro, sep)
+
+#define BVMOp_get_AssetInfo(macro, sep) \
+	macro(AssetID, aid) sep \
+	macro(AssetInfo&, res) sep \
+	macro(void*, pMetadata) sep \
+	macro(uint32_t, nMetadata)
 
 #define BVMOp_AddSig(macro, sep) \
 	macro(const PubKey&, pubKey)
@@ -318,6 +324,20 @@
 #define BVMOp_LogGetProof(macro, sep) \
 	macro(const HeightPos&, pos) sep \
 	macro(const Merkle::Node**, ppProof)
+
+#define BVMOp_Assets_Enum(macro, sep) \
+	macro(AssetID, aid0) sep \
+	macro(Height, h)
+
+#define BVMOp_Assets_MoveNext(macro, sep) \
+	macro(uint32_t, iSlot) sep \
+	macro(AssetInfo&, res) sep \
+	macro(void*, pMetadata) sep \
+	macro(uint32_t&, nMetadata) sep \
+	macro(uint8_t, nRepeat)
+
+#define BVMOp_Assets_Close(macro, sep) \
+	macro(uint32_t, iSlot)
 
 #define BVMOp_DerivePk(macro, sep) \
 	macro(PubKey&, pubKey) sep \
@@ -485,6 +505,7 @@
 	macro(0x1A, void*    , Heap_Alloc) \
 	macro(0x1B, void     , Heap_Free) \
 	macro(0x28, void     , Halt) \
+	macro(0x2A, uint32_t , get_AssetInfo) \
 	macro(0x2B, void     , HashWrite) \
 	macro(0x2D, void     , HashGetValue) \
 	macro(0x2E, void     , HashFree) \
@@ -549,6 +570,9 @@
 	macro(0x57, void     , Logs_Close) \
 	macro(0x58, uint32_t , LogGetProof) \
 	macro(0x5A, void     , DerivePk) \
+	macro(0x5B, uint32_t , Assets_Enum) \
+	macro(0x5C, AssetID  , Assets_MoveNext) \
+	macro(0x5D, void     , Assets_Close) \
 	macro(0x60, void     , DocAddGroup) \
 	macro(0x61, void     , DocCloseGroup) \
 	macro(0x62, void     , DocAddText) \
