@@ -115,6 +115,7 @@ void EvmProcessor::InitVars()
 	macro(0x36, calldatasize, 2) \
 	macro(0x38, codesize, 2) \
 	macro(0x39, codecopy, 3) \
+	macro(0x46, chainid, 2) \
 	macro(0x50, pop, 2) \
 	macro(0x51, mload, 3) \
 	macro(0x52, mstore, 3) \
@@ -173,6 +174,7 @@ struct EvmProcessorPlus :public EvmProcessor
 	void RunOnce();
 
 	void LogOpCode(const char* sz);
+	void LogOpCode(const char* sz, uint32_t n);
 	void DrainGas(uint64_t);
 
 	uint8_t* get_Memory(const Word& wAddr, uint32_t nSize);
@@ -215,6 +217,11 @@ struct EvmProcessorPlus :public EvmProcessor
 void EvmProcessorPlus::LogOpCode(const char* sz)
 {
 	printf("\t%08x, %s\n", m_Code.m_Ip - 1, sz);
+}
+
+void EvmProcessorPlus::LogOpCode(const char* sz, uint32_t n)
+{
+	printf("\t%08x, %s%u\n", m_Code.m_Ip - 1, sz, n);
 }
 
 void EvmProcessorPlus::DrainGas(uint64_t n)
@@ -281,29 +288,38 @@ void EvmProcessorPlus::RunOnce()
 		{
 		case 0x6:
 		case 0x7: // 0x60 - 0x7f
-			LogOpCode("push");
+		{
+			auto n = nCode - 0x5f;
+			LogOpCode("push", n);
 			DrainGas(3);
-			PushN(nCode - 0x5f);
-			break;
+			PushN(n);
+		}
+		break;
 
 		case 0x8: // 0x80 - 0x8f
-			LogOpCode("dup");
+		{
+			auto n = nCode - 0x7f;
+			LogOpCode("dup", n);
 			DrainGas(3);
-			DupN(nCode - 0x7f);
-			break;
+			DupN(n);
+		}
+		break;
 
 		case 0x9: // 0x90 - 0x9f
-			LogOpCode("swap");
+		{
+			auto n = nCode - 0x8f;
+			LogOpCode("swap", n);
 			DrainGas(3);
-			SwapN(nCode - 0x8f);
-			break;
+			SwapN(n);
+		}
+		break;
 
 		case 0xa: // 0xa0 - 0xaf
 			{
 				uint8_t nLog = nCode - 0xa0;
 				Test(nLog <= 4);
 
-				LogOpCode("log");
+				LogOpCode("log", nLog);
 				DrainGas(375 * (nLog + 1));
 				LogN(nLog);
 			}
@@ -345,6 +361,9 @@ OnOpcodeBinary(sub)
 OnOpcodeBinary(div)
 {
 	// b = a / b;
+	if (b == Zero)
+		return;
+
 	auto x = b;
 	Test(x != Zero);
 
@@ -354,6 +373,9 @@ OnOpcodeBinary(div)
 OnOpcodeBinary(sdiv)
 {
 	// b = a / b;
+	if (b == Zero)
+		return;
+
 	auto x = b;
 	Test(x != Zero);
 
@@ -641,6 +663,15 @@ OnOpcode(jumpdest)
 	// do nothing
 }
 
+OnOpcode(chainid)
+{
+	get_ChainID(m_Stack.Push());
+}
+
+void EvmProcessor::get_ChainID(Word& w)
+{
+	w = Zero;
+}
 
 template <bool bPadLeft>
 void EvmProcessorPlus::AssignPartial(Word& w, const uint8_t* p, uint32_t n)
@@ -658,8 +689,6 @@ void EvmProcessorPlus::AssignPartial(Word& w, const uint8_t* p, uint32_t n)
 
 void EvmProcessorPlus::PushN(uint32_t n)
 {
-	printf("\t\tn=%u\n", n);
-
 	auto pSrc = m_Code.Consume(n);
 	auto& wDst = m_Stack.Push();
 	AssignPartial<true>(wDst, pSrc, n);
