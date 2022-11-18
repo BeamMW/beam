@@ -90,6 +90,12 @@ namespace beam {
 				return *Consume(1);
 			}
 
+			void operator = (const Blob& x)
+			{
+				m_p = (const uint8_t*)x.p;
+				m_n = x.n;
+			}
+
 		} m_Code;
 
 		EvmProcessor()
@@ -134,6 +140,7 @@ namespace beam {
 
 		virtual void SStore(const Word& key, const Word&) = 0;
 		virtual bool SLoad(const Word& key, Word&) = 0;
+		virtual void get_ChainID(Word&);
 
 	private:
 
