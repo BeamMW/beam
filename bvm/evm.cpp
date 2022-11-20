@@ -55,7 +55,7 @@ void EvmProcessor::Method::SetSelector(const Blob& b)
 	Word w;
 	HashOf(w, b);
 	assert(w.nBytes >= m_Selector.nBytes);
-	memcpy(m_Selector.m_pData, w.m_pData, w.nBytes);
+	memcpy(m_Selector.m_pData, w.m_pData, m_Selector.nBytes);
 }
 
 void EvmProcessor::Method::SetSelector(const char* szSignature)
@@ -109,6 +109,7 @@ void EvmProcessor::InitVars()
 
 #define EvmOpcodes_Custom(macro) \
 	macro(0x00, stop, 0) \
+	macro(0x30, address, 2) \
 	macro(0x33, caller, 2) \
 	macro(0x34, callvalue, 2) \
 	macro(0x35, calldataload, 3) \
@@ -527,6 +528,11 @@ OnOpcodeBinary(byte)
 	auto nByte = WtoU32(a);
 	Test(nByte < b.nBytes);
 	b = b.m_pData[nByte];
+}
+
+OnOpcode(address)
+{
+	m_Stack.Push() = m_Args.m_Caller; //?!
 }
 
 OnOpcode(caller)
