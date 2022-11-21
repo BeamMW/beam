@@ -417,9 +417,15 @@ namespace bvm2 {
 	/////////////////////////////////////////////
 	// Compilation
 
+	void Processor::Compile(ByteBuffer& res, const Blob& src, Kind kind, Wasm::Compiler::DebugInfo* pDbgInfo /* = nullptr */)
+	{
+		Compiler c;
+		c.Compile(res, src, kind, pDbgInfo);
+	}
+
 #define STR_MATCH(vec, txt) ((vec.n == sizeof(txt)-1) && !memcmp(vec.p, txt, sizeof(txt)-1))
 
-	int32_t Processor::get_PublicMethodIdx(const Wasm::Compiler::Vec<char>& sName)
+	int32_t Processor::Compiler::get_PublicMethodIdx(const Wasm::Compiler::Vec<char>& sName)
 	{
 		if (STR_MATCH(sName, "Ctor"))
 			return 0;
@@ -475,7 +481,7 @@ namespace bvm2 {
 		return IsPastFork(6) ? 1 : 0;
 	}
 
-	void Processor::Compile(ByteBuffer& res, const Blob& src, Kind kind, Wasm::Compiler::DebugInfo* pDbgInfo /* = nullptr */)
+	void Processor::Compiler::Compile(ByteBuffer& res, const Blob& src, Kind kind, Wasm::Compiler::DebugInfo* pDbgInfo /* = nullptr */)
 	{
 		Wasm::CheckpointTxt cp("Wasm/compile");
 
@@ -658,6 +664,8 @@ namespace bvm2 {
 
 		void InvokeExtPlus(uint32_t nBinding);
 
+		static uint32_t CvtAssetInfo(AssetInfo& res, const Asset::Info&, void* pMetadata, uint32_t nMetadata);
+
 		BVMOpsAll_Common(THE_MACRO)
 	};
 
@@ -813,12 +821,10 @@ namespace bvm2 {
 		Wasm::Test(x.CanBeStackPtr());
 	}
 
-	void Processor::ResolveBinding(Wasm::Compiler& c, uint32_t iFunction, Kind kind)
+	bool Processor::Compiler::ResolveBinding(Wasm::Compiler& c, Wasm::Compiler::PerImportFunc& x, Kind kind)
 	{
-		auto& x = c.m_ImportFuncs[iFunction];
-
 		if (!STR_MATCH(x.m_sMod, "env"))
-			Wasm::Fail(); // imports from other modules are not supported
+			return false; // imports from other modules are not supported
 
 		const auto& tp = c.m_Types[x.m_TypeIdx];
 
@@ -831,7 +837,7 @@ namespace bvm2 {
 			Wasm::Test(tp.m_Args.n == _countof(pSig) - 1); \
 			Wasm::Test(!memcmp(tp.m_Args.p, pSig, sizeof(pSig) - 1)); \
 			ParamWrap<ret>::TestRetType(tp.m_Rets); \
-			return; \
+			return true; \
 		}
 
 		BVMOpsAll_Common(THE_MACRO)
@@ -850,13 +856,38 @@ namespace bvm2 {
 #undef THE_MACRO
 #undef PAR_TYPECODE
 
-		Wasm::Fail(); // not found
+		return false; // not found
 	}
 
-	void Processor::ResolveBindings(Wasm::Compiler& c, Kind kind)
+	void Processor::Compiler::ResolveBindings(Wasm::Compiler& c, Kind kind)
 	{
+		Wasm::CheckpointTxt cp("Bindings");
+
 		for (uint32_t i = 0; i < c.m_ImportFuncs.size(); i++)
-			ResolveBinding(c, i, kind);
+		{
+			auto& x = c.m_ImportFuncs[i];
+
+			struct MyCheckpoint
+				:public Wasm::Checkpoint
+			{
+				const Wasm::Compiler::PerImportFunc& m_Func;
+				MyCheckpoint(const Wasm::Compiler::PerImportFunc& f) :m_Func(f) {}
+
+				void Dump(std::ostream& os) override
+				{
+					os << m_Func;
+				}
+
+			} cp2(x);
+
+			if (ResolveBinding(c, x, kind))
+				continue;
+
+			if (Kind::Manager != kind)
+				Wasm::Fail();
+
+			OnBindingMissing(x);
+		}
 
 		bool bStackPtrImported = false;
 		for (uint32_t i = 0; i < c.m_ImportGlobals.size(); i++)
@@ -1788,14 +1819,19 @@ namespace bvm2 {
 		Asset::Full ai;
 		ai.m_ID = aid;
 		if (get_AssetInfo(ai))
-		{
-			res.m_ValueLo = AmountBig::get_Lo(ai.m_Value);
-			res.m_ValueHi = AmountBig::get_Hi(ai.m_Value);
-			res.m_Owner = Cast::Down<HashValue>(ai.m_Owner);
-			res.m_Cid = ai.m_Cid;
-			res.m_LockHeight = ai.m_LockHeight;
-			res.m_Deposit = ai.m_Deposit;
-		}
+			return ProcessorPlus::CvtAssetInfo(res, ai, pMetadata, nMetadata);
+
+		return 0;
+	}
+
+	uint32_t ProcessorPlus::CvtAssetInfo(AssetInfo& res, const Asset::Info& ai, void* pMetadata, uint32_t nMetadata)
+	{
+		res.m_ValueLo = AmountBig::get_Lo(ai.m_Value);
+		res.m_ValueHi = AmountBig::get_Hi(ai.m_Value);
+		res.m_Owner = Cast::Down<HashValue>(ai.m_Owner);
+		res.m_Cid = ai.m_Cid;
+		res.m_LockHeight = ai.m_LockHeight;
+		res.m_Deposit = ai.m_Deposit;
 
 		Blob md(ai.m_Metadata.m_Value);
 		memcpy(pMetadata, md.p, std::min(nMetadata, md.n));
@@ -2631,6 +2667,68 @@ namespace bvm2 {
 		auto it = m_mapReadLogs.find(iSlot, IReadLogs::Comparator());
 		Wasm::Test(m_mapReadLogs.end() != it);
 		m_mapReadLogs.Delete(*it);
+	}
+
+	BVM_METHOD(Assets_Enum)
+	{
+		return OnHost_Assets_Enum(aid0, h);
+	}
+	BVM_METHOD_HOST(Assets_Enum)
+	{
+		IReadAssets::Ptr pObj;
+		AssetsEnum(aid0, h, pObj);
+		if (!pObj)
+			return 0;
+
+		pObj->m_aiLast.m_ID = 0;
+
+		uint32_t nKey = m_mapReadAssets.empty() ? 1 : m_mapReadAssets.rbegin()->m_Key + 1;
+		pObj->m_Key = nKey;
+		m_mapReadAssets.insert(*pObj.release());
+
+		return nKey;
+	}
+
+	BVM_METHOD(Assets_MoveNext)
+	{
+		auto& nMetadata_ = get_AddrAsW<Wasm::Word>(nMetadata);
+		auto nMetadataSize = Wasm::from_wasm(nMetadata_);
+
+		auto ret = OnHost_Assets_MoveNext(iSlot, get_AddrAsW<AssetInfo>(res), get_AddrW(pMetadata, nMetadataSize), nMetadataSize, nRepeat);
+
+		nMetadata_ = Wasm::to_wasm(nMetadataSize);
+		return ret;
+	}
+	BVM_METHOD_HOST(Assets_MoveNext)
+	{
+		auto it = m_mapReadAssets.find(iSlot, IReadAssets::Comparator());
+		Wasm::Test(m_mapReadAssets.end() != it);
+
+		auto& x = *it;
+		if (nRepeat)
+		{
+			if (!x.m_aiLast.m_ID)
+				return 0; // MoveNext never called
+		}
+		else
+		{
+			if (!x.MoveNext())
+				return 0;
+		}
+
+		nMetadata = ProcessorPlus::CvtAssetInfo(res, x.m_aiLast, pMetadata, nMetadata);
+		return x.m_aiLast.m_ID;
+	}
+
+	BVM_METHOD(Assets_Close)
+	{
+		return OnHost_Assets_Close(iSlot);
+	}
+	BVM_METHOD_HOST(Assets_Close)
+	{
+		auto it = m_mapReadAssets.find(iSlot, IReadAssets::Comparator());
+		Wasm::Test(m_mapReadAssets.end() != it);
+		m_mapReadAssets.Delete(*it);
 	}
 
 	uint32_t ProcessorManager::VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof)
@@ -3751,6 +3849,7 @@ namespace bvm2 {
 
 		m_mapReadVars.Clear();
 		m_mapReadLogs.Clear();
+		m_mapReadAssets.Clear();
 
 		m_DbgCallstack = DebugCallstack();
 	}

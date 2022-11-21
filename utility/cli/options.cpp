@@ -759,6 +759,7 @@ namespace beam
             macro(Height, Fork3, "Height of the 3rd fork") \
             macro(Height, Fork4, "Height of the 4th fork") \
             macro(Height, Fork5, "Height of the 5th fork") \
+            macro(Height, Fork6, "Height of the 6th fork") \
             macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
             macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only") \
             macro(Height, MaxKernelValidityDH, "Max implicit kernel lifespan after HF2 (a.k.a. kernel visibility horizon)") \
@@ -787,6 +788,7 @@ namespace beam
         #define Fork3 pForks[3].m_Height
         #define Fork4 pForks[4].m_Height
         #define Fork5 pForks[5].m_Height
+        #define Fork6 pForks[6].m_Height
 
         #define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
 

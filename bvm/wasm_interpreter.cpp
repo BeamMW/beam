@@ -1179,7 +1179,7 @@ namespace Wasm {
 				WriteRes(Instruction::call_ext);
 
 				const auto& f = m_This.m_ImportFuncs[iFunc];
-				TestBinding(f);
+				//TestBinding(f); // allow code generation for unbound function calls. Catch it during runtime
 				WriteResU(f.m_Binding);
 			}
 			else
@@ -2133,7 +2133,10 @@ namespace Wasm {
 		struct MyCheckpoint :public Checkpoint {
 			uint32_t m_iExt;
 			virtual void Dump(std::ostream& os) override {
-				os << "InvokeExt=" << m_iExt;
+				if (static_cast<uint32_t>(-1) == m_iExt)
+					os << "Unresolved binding";
+				else
+					os << "InvokeExt=" << m_iExt;
 			}
 
 		} cp;
@@ -2274,7 +2277,18 @@ namespace Wasm {
 		}
 	}
 
+	std::ostream& operator << (std::ostream& os, const Compiler::PerImport& x)
+	{
+		os.write(x.m_sMod.p, x.m_sMod.n);
+		os << '/';
+		os.write(x.m_sName.p, x.m_sName.n);
+		return os;
+	}
 
+	std::ostream& operator << (std::ostream& os, const Compiler::PerImportFunc& x)
+	{
+		return operator << (os, Cast::Down<Compiler::PerImport>(x));
+	}
 
 } // namespace Wasm
 } // namespace beam

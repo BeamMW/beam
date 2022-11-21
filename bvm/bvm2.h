@@ -311,12 +311,19 @@ namespace bvm2 {
 		virtual Kind get_Kind() = 0;
 		virtual bool IsSuspended() { return false; }
 
-		static void Compile(ByteBuffer&, const Blob&, Kind, Wasm::Compiler::DebugInfo* = nullptr);
+		struct Compiler
+		{
+			virtual void OnBindingMissing(const Wasm::Compiler::PerImport&) {}
 
-	private:
-		static void ResolveBinding(Wasm::Compiler& c, uint32_t iFunction, Kind);
-		static void ResolveBindings(Wasm::Compiler&, Kind);
-		static int32_t get_PublicMethodIdx(const Wasm::Compiler::Vec<char>& sName);
+			void Compile(ByteBuffer&, const Blob&, Kind, Wasm::Compiler::DebugInfo* = nullptr);
+
+		private:
+			bool ResolveBinding(Wasm::Compiler& c, Wasm::Compiler::PerImportFunc&, Kind);
+			void ResolveBindings(Wasm::Compiler&, Kind);
+			static int32_t get_PublicMethodIdx(const Wasm::Compiler::Vec<char>& sName);
+		};
+
+		static void Compile(ByteBuffer&, const Blob&, Kind, Wasm::Compiler::DebugInfo* = nullptr);
 	};
 
 	struct ProcessorPlus;
@@ -529,11 +536,26 @@ namespace bvm2 {
 			virtual bool MoveNext() = 0;
 		};
 
+		struct IReadAssets
+			:public intrusive::set_base_hook<uint32_t>
+		{
+			typedef std::unique_ptr<IReadAssets> Ptr;
+			typedef intrusive::multiset_autoclear<IReadAssets> Map;
+
+			Asset::Full m_aiLast;
+
+			virtual ~IReadAssets() {}
+			virtual bool MoveNext() = 0;
+		};
+
+
 		IReadVars::Map m_mapReadVars;
 		IReadLogs::Map m_mapReadLogs;
+		IReadAssets::Map m_mapReadAssets;
 
 		virtual void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr&) {}
 		virtual void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax, IReadLogs::Ptr&) {}
+		virtual void AssetsEnum(Asset::ID, Height, IReadAssets::Ptr&) {}
 
 		virtual bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) { return false; }
 		virtual bool LogGetProof(const HeightPos&, beam::Merkle::Proof&) { return false; }

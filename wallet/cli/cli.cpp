@@ -2395,7 +2395,24 @@ namespace
                         if (!res.empty())
                             fs.read(&res.front(), res.size());
 
-                        bvm2::Processor::Compile(res, res, kind, pDbgInfo);
+                        struct MyCompiler :public bvm2::Processor::Compiler
+                        {
+                            bool m_HaveMissing;
+
+                            void OnBindingMissing(const Wasm::Compiler::PerImport& x) override
+                            {
+                              //  if (!m_HaveMissing)
+                                {
+                                //    m_HaveMissing = true;
+                                    std::cout << "Shader uses newer API, some features may not work.\n";
+                                }
+                                std::cout << "\t Missing " << x << std::endl;
+                            }
+                        };
+
+                        MyCompiler c;
+                        c.m_HaveMissing = false;
+                        c.Compile(res, res, kind, pDbgInfo);
                     }
                 };
 
