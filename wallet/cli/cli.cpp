@@ -2401,9 +2401,9 @@ namespace
 
                             void OnBindingMissing(const Wasm::Compiler::PerImport& x) override
                             {
-                              //  if (!m_HaveMissing)
+                                if (!m_HaveMissing)
                                 {
-                                //    m_HaveMissing = true;
+                                    m_HaveMissing = true;
                                     std::cout << "Shader uses newer API, some features may not work.\n";
                                 }
                                 std::cout << "\t Missing " << x << std::endl;
