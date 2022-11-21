@@ -3941,8 +3941,7 @@ void TestKeyKeeper(IPrivateKeyKeeper2::Ptr externalKeyKeeper = {}, size_t index 
     tx.m_Offset = mS.m_kOffset;
     tx.Normalize();
 
-    Transaction::Context::Params pars;
-    Transaction::Context ctx(pars);
+    Transaction::Context ctx;
     ctx.m_Height.m_Min = hScheme;
     WALLET_CHECK(tx.IsValid(ctx));
 }

@@ -2083,8 +2083,7 @@ namespace beam::wallet
         LOG_DEBUG() << txId << "[" << subTxID << "]" << " sending tx for registration";
 
 #ifndef NDEBUG
-        TxBase::Context::Params pars;
-        TxBase::Context ctx(pars);
+        TxBase::Context ctx;
         ctx.m_Height.m_Min = m_WalletDB->getCurrentHeight();
         assert(data->IsValid(ctx));
 #endif // NDEBUG

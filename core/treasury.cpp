@@ -222,8 +222,7 @@ namespace beam
 		TxVectors::Writer(txv, txv).Dump(Reader(*this));
 		txv.Normalize();
 
-		TxBase::Context::Params pars;
-		TxBase::Context ctx(pars);
+		TxBase::Context ctx;
 		ZeroObject(ctx.m_Height);
 		if (!ctx.ValidateAndSummarize(m_Base, txv.get_Reader()))
 			return false;
@@ -403,8 +402,7 @@ namespace beam
 	{
 		Mode::Scope scope(Mode::Fast);
 
-		TxBase::Context::Params pars;
-		TxBase::Context ctx(pars);
+		TxBase::Context ctx;
 		ZeroObject(ctx.m_Height); // current height is zero
 		if (!ctx.ValidateAndSummarize(m_Data, m_Data.get_Reader()))
 			return false;
