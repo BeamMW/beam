@@ -4695,7 +4695,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 		m_Bic.m_ChargePerBlock = m_Charge;
 
 	}
-	catch (const Wasm::Exc& e)
+	catch (const Exc& e)
 	{
 		uint32_t n = e.m_Type + proto::TxStatus::ContractFailFirst;
 		m_Bic.m_TxStatus = (n < proto::TxStatus::ContractFailLast) ? static_cast<uint8_t>(n) : proto::TxStatus::ContractFailFirst;
@@ -5100,12 +5100,12 @@ void NodeProcessor::Mapped::Contract::Toggle(const Blob& key, const Blob& data, 
 
 	if (bAdd != bCreate)
 	{
-		Wasm::CheckpointTxt cp("SaveVar collision");
+		Exc::CheckpointTxt cp("SaveVar collision");
 
 		if (!bAdd)
 			OnCorrupted();
 
-		Wasm::Fail();
+		Exc::Fail();
 	}
 }
 

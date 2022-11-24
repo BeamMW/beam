@@ -87,7 +87,7 @@ namespace bvm2 {
 			void Post()
 			{
 				assert(m_pRequest);
-				Wasm::Test(m_This.m_pNetwork != nullptr);
+				Exc::Test(m_This.m_pNetwork != nullptr);
 				m_This.m_pNetwork->PostRequest(*m_pRequest, *this);
 			}
 
@@ -146,8 +146,8 @@ namespace bvm2 {
 				m_Consumed = m_Buf.size() - der.bytes_left();
 
 				uint32_t nTotal = m_LastKey.n + m_LastVal.n;
-				Wasm::Test(nTotal >= m_LastKey.n); // no overflow
-				Wasm::Test(nTotal <= der.bytes_left());
+				Exc::Test(nTotal >= m_LastKey.n); // no overflow
+				Exc::Test(nTotal <= der.bytes_left());
 
 				m_LastKey.p = pBuf + m_Consumed;
 				m_Consumed += m_LastKey.n;
@@ -218,8 +218,8 @@ namespace bvm2 {
 				m_Consumed = m_Buf.size() - der.bytes_left();
 
 				uint32_t nTotal = m_LastKey.n + m_LastVal.n;
-				Wasm::Test(nTotal >= m_LastKey.n); // no overflow
-				Wasm::Test(nTotal <= der.bytes_left());
+				Exc::Test(nTotal >= m_LastKey.n); // no overflow
+				Exc::Test(nTotal <= der.bytes_left());
 
 				m_LastKey.p = pBuf + m_Consumed;
 				m_Consumed += m_LastKey.n;
@@ -372,7 +372,7 @@ namespace bvm2 {
 			auto pReq = GetResSingleRequest();
 			auto& r = pReq->As<proto::FlyClient::RequestEnsureSync>();
 
-			Wasm::Test(m_pHist);
+			Exc::Test(m_pHist);
 
 			Block::SystemState::Full s;
 			m_pHist->get_Tip(s); // zero-inits if no tip
@@ -393,7 +393,7 @@ namespace bvm2 {
 	{
 		if (!m_Pending.m_pSingleRequest)
 		{
-			Wasm::Test(m_pHist);
+			Exc::Test(m_pHist);
 
 			Height h = s.m_Height;
 			if (m_pHist->get_At(s, h))
