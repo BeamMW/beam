@@ -266,8 +266,10 @@ namespace bvm2 {
 					m_Res = std::move(r.m_Res);
 				}
 
-				m_aiLast = std::move(m_Res[m_iPos++]);
+				if (m_iPos >= m_Res.size())
+					return false;
 
+				m_aiLast = std::move(m_Res[m_iPos++]);
 				return true;
 			}
 		};
