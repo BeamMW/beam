@@ -1014,8 +1014,7 @@ namespace beam
 
 			tx.Normalize();
 
-			Transaction::Context::Params pars;
-			Transaction::Context ctx(pars);
+			Transaction::Context ctx;
 			ctx.m_Height.m_Min = h + 1;
 			bool isTxValid = tx.IsValid(ctx);
 			verify_test(isTxValid);
@@ -1068,8 +1067,7 @@ namespace beam
 				uint32_t nBvmCharge = 0;
 				verify_test(proto::TxStatus::Ok == np.ValidateTxContextEx(*pTx, hr, false, nBvmCharge, nullptr, nullptr, nullptr));
 
-				Transaction::Context::Params pars;
-				Transaction::Context ctx(pars);
+				Transaction::Context ctx;
 				ctx.m_Height = np.m_Cursor.m_Sid.m_Height + 1;
 				verify_test(pTx->IsValid(ctx));
 
@@ -1972,8 +1970,7 @@ namespace beam
 
 				msgTx.m_Transaction->Normalize();
 
-				Transaction::Context::Params pars;
-				Transaction::Context ctx(pars);
+				Transaction::Context ctx;
 				ctx.m_Height.m_Min = h + 1;
 				bool isTxValid = msgTx.m_Transaction->IsValid(ctx);
 				verify_test(isTxValid);
@@ -2047,8 +2044,7 @@ namespace beam
 
 				m_Wallet.MakeTxOutput(*msgTx.m_Transaction, h, 0, m_Shielded.m_Params.m_Output.m_Value, fee);
 
-				Transaction::Context::Params pars;
-				Transaction::Context ctx(pars);
+				Transaction::Context ctx;
 				ctx.m_Height.m_Min = h + 1;
 				verify_test(msgTx.m_Transaction->IsValid(ctx));
 
@@ -2309,8 +2305,7 @@ namespace beam
 
 					m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
 
-					Transaction::Context::Params pars;
-					Transaction::Context ctx(pars);
+					Transaction::Context ctx;
 					ctx.m_Height.m_Min = msg.m_Description.m_Height + 1;
 					verify_test(msgTx.m_Transaction->IsValid(ctx));
 

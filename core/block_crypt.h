@@ -1582,7 +1582,7 @@ namespace beam
 			Params(); // defaults
 		};
 
-		const Params& m_Params;
+		Params m_Params;
 
 		ECC::Point::Native m_Sigma;
 		TxStats m_Stats;
@@ -1590,8 +1590,7 @@ namespace beam
 
 		uint32_t m_iVerifier;
 
-		Context(const Params& p)
-			:m_Params(p)
+		Context()
 		{
 			Reset();
 		}

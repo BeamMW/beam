@@ -1064,8 +1064,7 @@ void KeyKeeperWrap::TestTx(const wallet::IPrivateKeyKeeper2::Method::TxCommon& t
 	Transaction tx;
 	ExportTx(tx, tx2);
 
-	Transaction::Context::Params pars;
-	Transaction::Context ctx(pars);
+	Transaction::Context ctx;
 	ctx.m_Height.m_Min = g_hFork;
 	verify_test(tx.IsValid(ctx));
 }
@@ -1453,8 +1452,7 @@ void TestKeyKeeperTxs()
 
 	kkw.ExportTx(tx, mS); // the sender part
 
-	Transaction::Context::Params pars;
-	Transaction::Context ctx(pars);
+	Transaction::Context ctx;
 	ctx.m_Height.m_Min = mS.m_pKernel->m_Height.m_Min;
 	verify_test(tx.IsValid(ctx));
 

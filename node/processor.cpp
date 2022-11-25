@@ -1339,12 +1339,10 @@ struct NodeProcessor::MultiblockContext
 
 			Block::Body m_Body;
 			size_t m_Size;
-			TxBase::Context::Params m_Pars;
 			TxBase::Context m_Ctx;
 
 			SharedBlock(MultiblockContext& mbc)
 				:Shared(mbc)
-				,m_Ctx(m_Pars)
 			{
 			}
 
@@ -1427,10 +1425,8 @@ struct NodeProcessor::MultiblockContext
 			if (m_InProgress.m_Max == m_This.m_SyncData.m_TxoLo)
 			{
 				// finalize multi-block arithmetics
-				TxBase::Context::Params pars;
-				pars.m_bAllowUnsignedOutputs = true; // ignore verification of locked coinbase
-
-				TxBase::Context ctx(pars);
+				TxBase::Context ctx;
+				ctx.m_Params.m_bAllowUnsignedOutputs = true; // ignore verification of locked coinbase
 				ctx.m_Height.m_Min = m_This.m_SyncData.m_h0 + 1;
 				ctx.m_Height.m_Max = m_This.m_SyncData.m_TxoLo;
 
@@ -1506,13 +1502,13 @@ struct NodeProcessor::MultiblockContext
 
 		bool bFull = (pShared->m_Ctx.m_Height.m_Min > m_This.m_SyncData.m_Target.m_Height);
 
-		pShared->m_Pars.m_bAllowUnsignedOutputs = !bFull;
-		pShared->m_Pars.m_pAbort = &m_bFail;
-		pShared->m_Pars.m_nVerifiers = ex.get_Threads();
+		pShared->m_Ctx.m_Params.m_bAllowUnsignedOutputs = !bFull;
+		pShared->m_Ctx.m_Params.m_pAbort = &m_bFail;
+		pShared->m_Ctx.m_Params.m_nVerifiers = ex.get_Threads();
 
 		m_Msc.Prepare(pShared->m_Body, m_This, pShared->m_Ctx.m_Height.m_Min);
 
-		PushTasks(pShared, pShared->m_Pars);
+		PushTasks(pShared, pShared->m_Ctx.m_Params);
 	}
 
 	void PushTasks(const MyTask::Shared::Ptr& pShared, TxBase::Context::Params& pars)
@@ -1577,7 +1573,8 @@ void NodeProcessor::MultiblockContext::MyTask::Exec(Executor::Context&)
 
 void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerifier)
 {
-	TxBase::Context ctx(m_Ctx.m_Params);
+	TxBase::Context ctx;
+	ctx.m_Params = m_Ctx.m_Params;
 	ctx.m_Height = m_Ctx.m_Height;
 	ctx.m_iVerifier = iVerifier;
 
@@ -1597,8 +1594,8 @@ void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerif
 	if (bValid)
 		bValid = m_Ctx.Merge(ctx);
 
-	assert(m_Done < m_Pars.m_nVerifiers);
-	if (++m_Done == m_Pars.m_nVerifiers)
+	assert(m_Done < ctx.m_Params.m_nVerifiers);
+	if (++m_Done == ctx.m_Params.m_nVerifiers)
 	{
 		assert(m_Mbc.m_SizePending >= m_Size);
 		m_Mbc.m_SizePending -= m_Size;
@@ -4698,7 +4695,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 		m_Bic.m_ChargePerBlock = m_Charge;
 
 	}
-	catch (const Wasm::Exc& e)
+	catch (const Exc& e)
 	{
 		uint32_t n = e.m_Type + proto::TxStatus::ContractFailFirst;
 		m_Bic.m_TxStatus = (n < proto::TxStatus::ContractFailLast) ? static_cast<uint8_t>(n) : proto::TxStatus::ContractFailFirst;
@@ -5103,12 +5100,12 @@ void NodeProcessor::Mapped::Contract::Toggle(const Blob& key, const Blob& data, 
 
 	if (bAdd != bCreate)
 	{
-		Wasm::CheckpointTxt cp("SaveVar collision");
+		Exc::CheckpointTxt cp("SaveVar collision");
 
 		if (!bAdd)
 			OnCorrupted();
 
-		Wasm::Fail();
+		Exc::Fail();
 	}
 }
 
@@ -6459,7 +6456,6 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 	struct MyShared
 		:public MultiblockContext::MyTask::Shared
 	{
-		TxBase::Context::Params m_Pars;
 		TxBase::Context* m_pCtx;
 		const TxBase* m_pTx;
 		TxBase::IReader* m_pR;
@@ -6473,7 +6469,8 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 
 		virtual void Exec(uint32_t iThread) override
 		{
-			TxBase::Context ctx(m_Pars);
+			TxBase::Context ctx;
+			ctx.m_Params = m_pCtx->m_Params;
 			ctx.m_Height = m_pCtx->m_Height;
 			ctx.m_iVerifier = iThread;
 
@@ -6496,13 +6493,12 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 
 	std::shared_ptr<MyShared> pShared = std::make_shared<MyShared>(mbc);
 
-	pShared->m_Pars = ctx.m_Params;
 	pShared->m_pCtx = &ctx;
 	pShared->m_pTx = &txb;
 	pShared->m_pR = &r;
 
 	mbc.m_InProgress.m_Max++; // dummy, just to emulate ongoing progress
-	mbc.PushTasks(pShared, pShared->m_Pars);
+	mbc.PushTasks(pShared, ctx.m_Params);
 
 	return mbc.Flush();
 }
