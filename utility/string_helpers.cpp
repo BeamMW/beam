@@ -32,4 +32,14 @@ namespace string_helpers
 		
 		return result;
 	}
+
+	std::string trimCommas(const std::string& s)
+	{
+		std::string str = s;
+
+		if (str.find(",") == std::string::npos) return str;
+
+		str.erase(std::remove(str.begin(), str.end(), ','), str.end());
+		return str;
+	}
 }
