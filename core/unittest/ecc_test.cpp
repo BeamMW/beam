@@ -1366,15 +1366,14 @@ struct TransactionMaker
 
 		CoSignKernel(*pKrn);
 
-		Point::Native exc;
 		pKrn->m_pHashLock->m_IsImage = false;
 		pKrn->UpdateID();
-		verify_test(!pKrn->IsValid(g_hFork, exc)); // should not pass validation unless correct hash preimage is specified
+		verify_test(!pKrn->IsValid(g_hFork)); // should not pass validation unless correct hash preimage is specified
 
 		// finish HL: add hash preimage
 		pKrn->m_pHashLock->m_Value = hl.m_Value;
 		pKrn->UpdateID();
-		verify_test(pKrn->IsValid(g_hFork, exc));
+		verify_test(pKrn->IsValid(g_hFork));
 
 		lstTrg.push_back(std::move(pKrn));
 	}

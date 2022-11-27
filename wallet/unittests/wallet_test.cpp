@@ -3899,8 +3899,7 @@ void TestKeyKeeper(IPrivateKeyKeeper2::Ptr externalKeyKeeper = {}, size_t index 
     pKrn->UpdateID();
 
     Height hScheme = pKrn->m_Height.m_Min;
-    Point::Native exc;
-    WALLET_CHECK(pKrn->IsValid(hScheme, exc));
+    WALLET_CHECK(pKrn->IsValid(hScheme));
 
     // build the whole tx
     Transaction tx;

@@ -830,8 +830,10 @@ namespace beam::wallet
         TxBase::Context ctx;
         ctx.m_Height.m_Min = m_Height.m_Min;
         // TODO:DEX set to false, other side will not see it!!!
-        if (!m_pTransaction->IsValid(ctx))
-            throw TransactionFailedException(false, TxFailureReason::InvalidTransaction);
+
+        std::string sErr;
+        if (!m_pTransaction->IsValid(ctx, &sErr))
+            throw TransactionFailedException(false, TxFailureReason::InvalidTransaction, sErr.c_str());
     }
 
     void BaseTxBuilder::VerifyAssetsEnabled()

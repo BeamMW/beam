@@ -513,8 +513,7 @@ uint32_t MultiTx::Update2()
 		krn.m_Signature.m_k = k;
 
 
-		ECC::Point::Native comm;
-		if (!krn.IsValid(hScheme, comm))
+		if (!krn.IsValid(hScheme))
 			return Status::Error;
 
 		tx.m_vKernels.emplace_back();

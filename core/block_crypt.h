@@ -912,10 +912,12 @@ namespace beam
 		virtual ~TxKernel() {}
 		virtual Subtype::Enum get_Subtype() const = 0;
 		virtual void UpdateID() = 0;
-		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const = 0;
+		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const = 0;
 		virtual void AddStats(TxStats&) const; // including self and nested
 		virtual int cmp_Subtype(const TxKernel&) const;
 		virtual void Clone(Ptr&) const = 0;
+
+		bool IsValid(Height hScheme, std::string* psErr = nullptr) const;
 
 		struct LongProof; // legacy
 
@@ -959,7 +961,7 @@ namespace beam
 		void HashBase(ECC::Hash::Processor&) const;
 		void HashNested(ECC::Hash::Processor&) const;
 		void CopyFrom(const TxKernel&);
-		bool IsValidBase(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent, ECC::Point::Native* pComm = nullptr) const;
+		void TestValidBase(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent, ECC::Point::Native* pComm = nullptr) const;
 	private:
 		void operator = (const TxKernel&);
 	};
@@ -999,7 +1001,7 @@ namespace beam
 		virtual ~TxKernelStd() {}
 		virtual Subtype::Enum get_Subtype() const override;
 		virtual void UpdateID() override;
-		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual int cmp_Subtype(const TxKernel&) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
 
@@ -1037,7 +1039,7 @@ namespace beam
 
 	protected:
 		void CopyFrom(const TxKernelAssetControl&);
-		bool IsValidAssetCtl(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent) const;
+		void TestValidAssetCtl(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent) const;
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
 		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
 	};
@@ -1053,7 +1055,7 @@ namespace beam
 
 		virtual ~TxKernelAssetEmit() {}
 		virtual Subtype::Enum get_Subtype() const override;
-		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
 	protected:
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
@@ -1070,7 +1072,7 @@ namespace beam
 
 		virtual ~TxKernelAssetCreate() {}
 		virtual Subtype::Enum get_Subtype() const override;
-		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
 	protected:
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
@@ -1090,7 +1092,7 @@ namespace beam
 
 		virtual ~TxKernelAssetDestroy() {}
 		virtual Subtype::Enum get_Subtype() const override;
-		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
 	protected:
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
@@ -1105,7 +1107,7 @@ namespace beam
 
 		virtual ~TxKernelShieldedOutput() {}
 		virtual Subtype::Enum get_Subtype() const override;
-		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void AddStats(TxStats&) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
 	protected:
@@ -1130,7 +1132,7 @@ namespace beam
 
 		virtual ~TxKernelShieldedInput() {}
 		virtual Subtype::Enum get_Subtype() const override;
-		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void AddStats(TxStats&) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
 	protected:
@@ -1147,7 +1149,7 @@ namespace beam
 		ByteBuffer m_Args;
 		bool m_Dependent = false;
 
-		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void AddStats(TxStats&) const override;
 
 		void Prepare(ECC::Hash::Processor&, const Merkle::Hash* pParentCtx) const;
@@ -1309,7 +1311,8 @@ namespace beam
 	{
 		typedef std::shared_ptr<Transaction> Ptr;
 
-		bool IsValid(Context&) const; // Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
+		void TestValid(Context&) const; // Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
+		bool IsValid(Context&, std::string* psErr = nullptr) const;
 
 		typedef uintBig_t<ECC::nBytes> KeyType; // key len for map of transactions. Can actually be less than 256 bits.
 
@@ -1582,9 +1585,9 @@ namespace beam
 	class TxBase::Context
 	{
 		bool ShouldVerify(uint32_t& iV) const;
-		bool ShouldAbort() const;
-
-		bool HandleElementHeight(const HeightRange&);
+		void TestAbort() const;
+		void TestHeightNotEmpty() const;
+		void HandleElementHeightStrict(const HeightRange&);
 
 	public:
 		// Tests the validity of all the components, overall arithmetics, and the lexicographical order of the components.
@@ -1630,12 +1633,14 @@ namespace beam
 
 		void Reset();
 
-		bool ValidateAndSummarize(const TxBase&, IReader&&);
-		bool Merge(const Context&);
+		void ValidateAndSummarizeStrict(const TxBase&, IReader&&);
+		bool ValidateAndSummarize(const TxBase&, IReader&&, std::string* psErr = nullptr);
+		void MergeStrict(const Context&);
 
 		// hi-level functions, should be used after all parts were validated and merged
-		bool IsValidTransaction();
-		bool IsValidBlock();
+		void TestValidTransaction();
+		void TestSigma();
+		void TestValidBlock();
 	};
 
 	struct Block::ChainWorkProof

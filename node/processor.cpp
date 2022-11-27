@@ -1307,6 +1307,7 @@ struct NodeProcessor::MultiblockContext
 	size_t m_SizePending = 0;
 	bool m_bFail = false;
 	bool m_bBatchDirty = false;
+	std::string m_sErr;
 
 	struct MyTask
 		:public Executor::TaskAsync
@@ -1407,6 +1408,7 @@ struct NodeProcessor::MultiblockContext
 
 			if (!(ptBatchSigma == Zero))
 			{
+				m_sErr = "Sigma nnz";
 				m_bFail = true;
 				return;
 			}
@@ -1424,7 +1426,8 @@ struct NodeProcessor::MultiblockContext
 
 			if (m_InProgress.m_Max == m_This.m_SyncData.m_TxoLo)
 			{
-				// finalize multi-block arithmetics
+				Exc::CheckpointTxt cp("multi-block finalization"); // finalize multi-block arithmetics
+				
 				TxBase::Context ctx;
 				ctx.m_Params.m_bAllowUnsignedOutputs = true; // ignore verification of locked coinbase
 				ctx.m_Height.m_Min = m_This.m_SyncData.m_h0 + 1;
@@ -1432,9 +1435,12 @@ struct NodeProcessor::MultiblockContext
 
 				ctx.m_Sigma = m_Sigma;
 
-				if (!ctx.IsValidBlock())
-				{
+				try {
+					ctx.TestValidBlock();
+				} catch (const std::exception& e) {
+
 					m_bFail = true;
+					m_sErr = e.what();
 					OnFastSyncFailedOnLo();
 
 					return;
@@ -1584,34 +1590,65 @@ void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerif
 	if (bSparse)
 		txbDummy.m_Offset = Zero;
 
-	bool bValid = ctx.ValidateAndSummarize(bSparse ? txbDummy : m_Body, m_Body.get_Reader());
+	bool bValid = true;
+	std::string sErr;
 
-	if (bValid)
-		bValid = m_Mbc.m_Msc.IsValid(m_Body, m_Ctx.m_Height.m_Min, *ECC::InnerProduct::BatchContext::s_pInstance, iVerifier, m_Ctx.m_Params.m_nVerifiers, m_Mbc.m_This.m_ValCache);
+	try {
+		ctx.ValidateAndSummarizeStrict(bSparse ? txbDummy : m_Body, m_Body.get_Reader());
+
+		if (!m_Mbc.m_Msc.IsValid(m_Body, m_Ctx.m_Height.m_Min, *ECC::InnerProduct::BatchContext::s_pInstance, iVerifier, m_Ctx.m_Params.m_nVerifiers, m_Mbc.m_This.m_ValCache))
+		{
+			Exc::CheckpointTxt cp("Shielded proof");
+			TxBase::Fail_Signature();
+		}
+
+	} catch (const std::exception& e) {
+		sErr = e.what();
+		bValid = false;
+	}
 
 	std::unique_lock<std::mutex> scope(m_Mbc.m_Mutex);
 
-	if (bValid)
-		bValid = m_Ctx.Merge(ctx);
-
-	assert(m_Done < ctx.m_Params.m_nVerifiers);
-	if (++m_Done == ctx.m_Params.m_nVerifiers)
+	if (!m_Mbc.m_bFail)
 	{
-		assert(m_Mbc.m_SizePending >= m_Size);
-		m_Mbc.m_SizePending -= m_Size;
+		assert(m_Done < ctx.m_Params.m_nVerifiers);
 
-		if (bValid && !bSparse)
-			bValid = m_Ctx.IsValidBlock();
-
-		if (bValid && bSparse)
+		bool bLast = (++m_Done == ctx.m_Params.m_nVerifiers);
+		if (bLast)
 		{
-			m_Mbc.m_Offset += m_Body.m_Offset;
-			m_Mbc.m_Sigma += m_Ctx.m_Sigma;
+			assert(m_Mbc.m_SizePending >= m_Size);
+			m_Mbc.m_SizePending -= m_Size;
+		}
+
+		if (bValid)
+		{
+			try {
+
+				m_Ctx.MergeStrict(ctx);
+
+				if (bLast)
+				{
+					if (!bSparse)
+						m_Ctx.TestValidBlock();
+					else
+					{
+						m_Mbc.m_Offset += m_Body.m_Offset;
+						m_Mbc.m_Sigma += m_Ctx.m_Sigma;
+					}
+				}
+
+			} catch (const std::exception& e) {
+				bValid = false;
+				sErr = e.what();
+			}
 		}
 	}
 
 	if (!bValid)
+	{
 		m_Mbc.m_bFail = true;
+		m_Mbc.m_sErr = std::move(sErr);
+	}
 }
 
 void NodeProcessor::TryGoUp()
@@ -1733,7 +1770,7 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 		return; // at position
 
 	if (!bContextFail)
-		LOG_WARNING() << "Context-free verification failed";
+		LOG_WARNING() << "Context-free verification failed: " << mbc.m_sErr;
 
 	RollbackTo(mbc.m_InProgress.m_Min - 1);
 
@@ -1783,6 +1820,7 @@ void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
 			if (TxoIsNaked(wlk.m_Value))
 			{
 				bContextFail = mbc.m_bFail = true;
+				mbc.m_sErr = "Utxo unsigned";
 				m_DB.FindStateByTxoID(sidFail, wlk.m_ID);
 				break;
 			}
@@ -1791,7 +1829,7 @@ void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
 
 	if (mbc.m_bFail)
 	{
-		LOG_WARNING() << "Fast-sync failed";
+		LOG_WARNING() << "Fast-sync failed: " << mbc.m_sErr;
 
 		if (!m_DB.get_Peer(sidFail.m_Row, mbc.m_pidLast))
 			mbc.m_pidLast = Zero;
@@ -2586,7 +2624,7 @@ bool NodeProcessor::ExtractTreasury(const Blob& blob, Treasury::Data& td)
 	der.reset(blob.p, blob.n);
 
 	try {
-		der& td;
+		der & td;
 	}
 	catch (const std::exception&) {
 		LOG_WARNING() << "Treasury corrupt";
@@ -6451,7 +6489,7 @@ void NodeProcessor::MyExecutor::ExecAll(TaskSync& t)
 	t.Exec(m_Ctx);
 }
 
-bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r)
+bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r, std::string& sErr)
 {
 	struct MyShared
 		:public MultiblockContext::MyTask::Shared
@@ -6477,15 +6515,37 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 			TxBase::IReader::Ptr pR;
 			m_pR->Clone(pR);
 
-			bool bValid = ctx.ValidateAndSummarize(*m_pTx, std::move(*pR));
+			bool bValid = true;
+			std::string sErr;
+
+			try {
+				ctx.ValidateAndSummarizeStrict(*m_pTx, std::move(*pR));
+			} catch (const std::exception& e) {
+				bValid = false;
+				sErr = e.what();
+			}
 
 			std::unique_lock<std::mutex> scope(m_Mbc.m_Mutex);
 
-			if (bValid && !m_Mbc.m_bFail)
-				bValid = m_pCtx->Merge(ctx);
+			if (!m_Mbc.m_bFail)
+			{
+				if (bValid)
+				{
+					try {
+						m_pCtx->MergeStrict(ctx);
+					} catch (const std::exception& e) {
+						bValid = false;
+						sErr = e.what();
+					}
+				}
 
-			if (!bValid)
-				m_Mbc.m_bFail = true;
+				if (!bValid)
+				{
+					m_Mbc.m_bFail = true;
+					m_Mbc.m_sErr = std::move(sErr);
+				}
+
+			}
 		}
 	};
 
@@ -6500,7 +6560,11 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 	mbc.m_InProgress.m_Max++; // dummy, just to emulate ongoing progress
 	mbc.PushTasks(pShared, ctx.m_Params);
 
-	return mbc.Flush();
+	if (mbc.Flush())
+		return true;
+
+	sErr = std::move(mbc.m_sErr);
+	return false;
 }
 
 bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID& sid, std::vector<ContractInvokeExtraInfo>& vC)
