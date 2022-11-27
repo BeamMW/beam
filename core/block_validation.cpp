@@ -18,6 +18,14 @@ namespace beam
 {
 	/////////////
 	// Transaction
+	void TxBase::Fail_Order() {
+		Exc::Fail("Wrong Order");
+	}
+
+	void TxBase::Fail_Signature() {
+		Exc::Fail("Invalid signature");
+	}
+
 	TxBase::Context::Params::Params()
 	{
 		ZeroObject(*this);

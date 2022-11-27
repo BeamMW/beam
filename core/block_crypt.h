@@ -362,6 +362,27 @@ namespace beam
 		std::string get_SignatureStr() const;
 		Amount get_DepositForCA(Height hScheme) const;
 
+		static void Fail_Fork(uint32_t iFork);
+
+		void TestForkAtLeast(Height h, uint32_t iFork) const
+		{
+			assert(iFork < _countof(pForks));
+			if (h < iFork)
+				Fail_Fork(iFork);
+		}
+
+		void TestEnabledCA() const
+		{
+			if (!CA.Enabled)
+				Exc::Fail("CA disabled");
+		}
+
+		void TestEnabledShielded() const
+		{
+			if (!Shielded.Enabled)
+				Exc::Fail("Shielded disabled");
+		}
+
 	private:
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
 		bool IsForkHeightsConsistent() const;
@@ -912,6 +933,16 @@ namespace beam
 			bool Process(const TxKernel&);
 		};
 
+		struct Checkpoint :public Exc::Checkpoint {
+
+			const TxKernel& m_Krn;
+			Checkpoint(const TxKernel& krn) :m_Krn(krn) {}
+
+			void Dump(std::ostream& os) override {
+				os << "Kernel ID=" << m_Krn.m_Internal.m_ID << ", type=" << (uint32_t) m_Krn.get_Subtype();
+			}
+		};
+
 #define THE_MACRO(id, name) \
 		TxKernel##name & CastTo_##name() { \
 			assert(get_Subtype() == Subtype::name); \
@@ -1212,6 +1243,8 @@ namespace beam
 			bool Combine(IReader&& r0, IReader&& r1, const volatile bool& bStop);
 		};
 
+		static void Fail_Order();
+		static void Fail_Signature();
 
 		ECC::Scalar m_Offset;
 	};

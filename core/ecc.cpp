@@ -14,6 +14,7 @@
 
 #include "common.h"
 #include "ecc_native.h"
+#include "../utility/common.h" // Exc
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic push
@@ -530,6 +531,11 @@ namespace ECC {
 			ZeroObject(*pS);
 
 		return memis0(&v, sizeof(v));
+	}
+
+	void Point::Native::Fail()
+	{
+		beam::Exc::Fail("Bad EC Point");
 	}
 
 	void Point::Native::ExportNnz(secp256k1_ge& ge) const

@@ -2295,6 +2295,13 @@ namespace beam
 		return os.str();
 	}
 
+	void Rules::Fail_Fork(uint32_t iFork)
+	{
+		std::ostringstream ss;
+		ss << "Fork required: " << iFork;
+		Exc::Fail(ss.str().c_str());
+	}
+
 	int HeightHash::cmp(const HeightHash& v) const
 	{
 		CMP_MEMBER(m_Height)
