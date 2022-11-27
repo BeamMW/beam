@@ -367,7 +367,7 @@ namespace beam
 		void TestForkAtLeast(Height h, uint32_t iFork) const
 		{
 			assert(iFork < _countof(pForks));
-			if (h < iFork)
+			if (h < pForks[iFork].m_Height)
 				Fail_Fork(iFork);
 		}
 
