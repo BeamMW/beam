@@ -827,8 +827,7 @@ namespace beam::wallet
 
     void BaseTxBuilder::VerifyTx()
     {
-        TxBase::Context::Params pars;
-        TxBase::Context ctx(pars);
+        TxBase::Context ctx;
         ctx.m_Height.m_Min = m_Height.m_Min;
         // TODO:DEX set to false, other side will not see it!!!
         if (!m_pTransaction->IsValid(ctx))

@@ -77,7 +77,9 @@ struct MyState
         }
 
         {
-            ValueType pVals[s_ProvsMax], pAux[s_ProvsMax];
+            typedef MultiPrecision::Float ValueTypeInternal;
+
+            ValueTypeInternal pVals[s_ProvsMax], pAux[s_ProvsMax];
 
             for (uint32_t i = 0; i < nValid; i++)
             {
@@ -85,7 +87,7 @@ struct MyState
                 pVals[i] = m_pE[iProv].m_Val;
             }
 
-            auto* pSorted = MergeSort<ValueType>::Do(pVals, pAux, nValid); // worst validity height at the beginning
+            auto* pSorted = MergeSort<ValueTypeInternal>::Do(pVals, pAux, nValid); // worst validity height at the beginning
 
             uint32_t iMid = nValid / 2;
             res.m_Res = pSorted[iMid];

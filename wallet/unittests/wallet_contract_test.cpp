@@ -155,7 +155,6 @@ namespace
             m_Node.m_Cfg.m_Listen.ip(INADDR_ANY);
             m_Node.m_Cfg.m_MiningThreads = 1;
             m_Node.m_Cfg.m_VerificationThreads = 1;
-            m_Node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 0;
             m_Node.m_Cfg.m_Connect = peers;
 
             m_Node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;

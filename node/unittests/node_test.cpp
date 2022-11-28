@@ -254,6 +254,9 @@ namespace beam
 		vStates.resize(hMax);
 		memset0(&vStates.at(0), vStates.size());
 
+		Difficulty::Raw d0;
+		Difficulty(0).Unpack(d0);
+
 		Merkle::CompactMmr cmmr, cmmrFork;
 
 		for (uint32_t h = 0; h < hMax; h++)
@@ -261,7 +264,9 @@ namespace beam
 			Block::SystemState::Full& s = vStates[h];
 			s.m_Height = h + Rules::HeightGenesis;
 
-			s.m_ChainWork = h; // must be in ascending order
+			s.m_ChainWork = d0;
+			if (h)
+				s.m_ChainWork += vStates[h - 1].m_ChainWork;
 
 			if (h)
 			{
@@ -347,7 +352,7 @@ namespace beam
 		Merkle::Interpret(s.m_Definition, hvZero, true);
 
 		s.m_Height++;
-		s.m_ChainWork = s.m_Height;
+		s.m_ChainWork += d0;
 
 		uint64_t rowLast1 = db.InsertState(s, peer);
 
@@ -1009,8 +1014,7 @@ namespace beam
 
 			tx.Normalize();
 
-			Transaction::Context::Params pars;
-			Transaction::Context ctx(pars);
+			Transaction::Context ctx;
 			ctx.m_Height.m_Min = h + 1;
 			bool isTxValid = tx.IsValid(ctx);
 			verify_test(isTxValid);
@@ -1063,8 +1067,7 @@ namespace beam
 				uint32_t nBvmCharge = 0;
 				verify_test(proto::TxStatus::Ok == np.ValidateTxContextEx(*pTx, hr, false, nBvmCharge, nullptr, nullptr, nullptr));
 
-				Transaction::Context::Params pars;
-				Transaction::Context ctx(pars);
+				Transaction::Context ctx;
 				ctx.m_Height = np.m_Cursor.m_Sid.m_Height + 1;
 				verify_test(pTx->IsValid(ctx));
 
@@ -1967,8 +1970,7 @@ namespace beam
 
 				msgTx.m_Transaction->Normalize();
 
-				Transaction::Context::Params pars;
-				Transaction::Context ctx(pars);
+				Transaction::Context ctx;
 				ctx.m_Height.m_Min = h + 1;
 				bool isTxValid = msgTx.m_Transaction->IsValid(ctx);
 				verify_test(isTxValid);
@@ -2042,8 +2044,7 @@ namespace beam
 
 				m_Wallet.MakeTxOutput(*msgTx.m_Transaction, h, 0, m_Shielded.m_Params.m_Output.m_Value, fee);
 
-				Transaction::Context::Params pars;
-				Transaction::Context ctx(pars);
+				Transaction::Context ctx;
 				ctx.m_Height.m_Min = h + 1;
 				verify_test(msgTx.m_Transaction->IsValid(ctx));
 
@@ -2304,8 +2305,7 @@ namespace beam
 
 					m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
 
-					Transaction::Context::Params pars;
-					Transaction::Context ctx(pars);
+					Transaction::Context ctx;
 					ctx.m_Height.m_Min = msg.m_Description.m_Height + 1;
 					verify_test(msgTx.m_Transaction->IsValid(ctx));
 

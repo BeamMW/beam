@@ -100,7 +100,7 @@ namespace beam::wallet {
 
     void ManagerStdInWallet::TestCommAllowed() const
     {
-        Wasm::Test(m_Privilege >= 2);
+        Exc::Test(m_Privilege >= 2);
     }
 
     void ManagerStdInWallet::Comm_CreateListener(Comm::Channel::Ptr& pRes, const ECC::Hash::Value& hv)

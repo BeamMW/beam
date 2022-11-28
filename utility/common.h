@@ -246,6 +246,45 @@ namespace beam
 			static const uint32_t V = 1;
 		};
 	};
+
+
+	struct Exc
+		:public std::runtime_error
+	{
+		Exc(std::string&& s) :std::runtime_error(std::move(s)) {}
+		uint32_t m_Type;
+
+		static void Fail();
+		static void Fail(const char*);
+
+		static void Test(bool b)
+		{
+			if (!b)
+				Fail();
+		}
+
+		class Checkpoint
+		{
+			static thread_local Checkpoint* s_pTop;
+			Checkpoint* m_pNext;
+		public:
+			Checkpoint();
+			~Checkpoint();
+			virtual void Dump(std::ostream&) = 0;
+			virtual uint32_t get_Type() { return 0; }
+
+			static uint32_t DumpAll(std::ostream&);
+		};
+
+		class CheckpointTxt :public Checkpoint {
+			const char* m_sz;
+		public:
+			CheckpointTxt(const char* sz) :m_sz(sz) {}
+			virtual void Dump(std::ostream&) override;
+		};
+
+	};
+
 }
 
 namespace std
