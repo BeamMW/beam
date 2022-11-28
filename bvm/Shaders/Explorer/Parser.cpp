@@ -99,6 +99,34 @@ void DocAddFloat(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot
 	Env::DocAddText(sz, szBuf);
 }
 
+void DocAddFloatSc(const char* sz, MultiPrecision::Float x)
+{
+	char szBuf[MultiPrecision::Float::Text::s_LenMax + 1];
+	x.Print(szBuf, false);
+}
+
+void DocAddFloatDbg(const char* sz, MultiPrecision::Float x)
+{
+	// convenient for debugging, to try the exact values on host
+	char szBuf[Utils::String::Hex::DigitsMax<uint64_t>::N + Utils::String::Decimal::DigitsMax<uint32_t>::N + 10];
+	Utils::String::Hex::Print(szBuf, x.m_Num, Utils::String::Hex::DigitsMax<uint64_t>::N);
+	uint32_t n = Utils::String::Hex::DigitsMax<uint64_t>::N;
+	szBuf[n++] = ' ';
+
+	if (x.m_Order >= 0)
+		szBuf[n++] = '+';
+	else
+	{
+		szBuf[n++] = '-';
+		x.m_Order = -x.m_Order;
+	}
+
+	n += Utils::String::Decimal::Print(szBuf + n, x.m_Order);
+	szBuf[n] = 0;
+
+	Env::DocAddText(sz, szBuf);
+}
+
 void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot = 3)
 {
 	DocAddFloat(sz, x * MultiPrecision::Float(100), 3);
@@ -109,10 +137,12 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	macro(Vault, Vault::s_SID) \
 	macro(VaultAnon, VaultAnon::s_SID) \
 	macro(Faucet, Faucet::s_SID) \
-	macro(Oracle2, Oracle2::s_pSID[0]) \
-	macro(Nephrite, Nephrite::s_pSID[0]) \
-	macro(DaoVault, DaoVault::s_pSID[0]) \
-	macro(Bans, NameService::s_pSID[0]) \
+
+#define HandleContractsVer(macro) \
+	macro(Oracle2, Oracle2::s_pSID) \
+	macro(Nephrite, Nephrite::s_pSID) \
+	macro(DaoVault, DaoVault::s_pSID) \
+	macro(Bans, NameService::s_pSID) \
 
 #define HandleContractsWrappers(macro) \
 	macro(Upgradable, Upgradable::s_SID) \
@@ -154,6 +184,24 @@ struct ParserContext
 		Env::DocAddText("kind", sz);
 	}
 
+#define VER_TXT " v"
+
+	static void OnNameVer2(const char* sz, uint32_t iVer, char* szBuf, uint32_t nNameLen)
+	{
+		Env::Memcpy(szBuf, sz, nNameLen);
+		Env::Memcpy(szBuf + nNameLen, VER_TXT, sizeof(VER_TXT) - 1);
+		Utils::String::Decimal::Print(szBuf + nNameLen + _countof(VER_TXT) - 1, iVer);
+
+		OnName(szBuf);
+	}
+
+	template <uint32_t nNameLen>
+	static void OnNameVer(const char* sz, uint32_t iVer)
+	{
+		char szBuf[nNameLen + Utils::String::Decimal::DigitsMax<uint32_t>::N + _countof(VER_TXT)];
+		OnNameVer2(sz, iVer, szBuf, nNameLen);
+	}
+
 	static void OnNameUpgradable(const char* sz, const ShaderID& sid)
 	{
 		Env::DocGroup gr("kind");
@@ -172,15 +220,25 @@ struct ParserContext
 		GroupArgs() :Env::DocGroup("params") {}
 	};
 
+	struct GroupDbg :public Env::DocGroup {
+		GroupDbg() :Env::DocGroup("dbg") {}
+	};
+
 #define THE_MACRO(name, sid) \
 	void OnMethod_##name(); \
 	void OnState_##name();
 	HandleContractsStd(THE_MACRO)
-	HandleContractsWrapped(THE_MACRO)
+		HandleContractsWrapped(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(name, psid) \
+	void OnMethod_##name(uint32_t iVer); \
+	void OnState_##name(uint32_t iVer);
+		HandleContractsVer(THE_MACRO)
 #undef THE_MACRO
 
 #define THE_MACRO(name, sid) void On_##name();
-	HandleContractsWrappers(THE_MACRO)
+		HandleContractsWrappers(THE_MACRO)
 #undef THE_MACRO
 
 #define THE_MACRO(name, sid) \
@@ -196,7 +254,23 @@ struct ParserContext
 		} \
 	}
 
-	HandleContractsStd(THE_MACRO)
+		HandleContractsStd(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(name, psid) \
+	void On_##name(uint32_t iVer) \
+	{ \
+		OnNameVer<_countof(#name) - 1>(#name, iVer); \
+		if (m_Method) \
+			OnMethod_##name(iVer); \
+		if (m_State) \
+		{ \
+			Env::DocGroup gr("State"); \
+			OnState_##name(iVer); \
+		} \
+	}
+
+	HandleContractsVer(THE_MACRO)
 #undef THE_MACRO
 
 #define THE_MACRO(name, sid) \
@@ -238,6 +312,7 @@ struct ParserContext
 	void OnUpgrade3Method();
 	static void WriteUpgradeAdminsMask(uint32_t nApproveMask);
 	static void WriteNephriteSettings(const Nephrite::Settings&);
+	void DumpNephriteDbgStatus();
 	static void WriteOracle2Settings(const Oracle2::Settings&);
 	static bool get_Oracle2Median(MultiPrecision::Float&, const ContractID& cid);
 	static void WriteBansSettings(const NameService::Settings&);
@@ -246,6 +321,31 @@ struct ParserContext
 		DocSetBansNameEx(&x + 1, x.m_NameLen);
 	}
 	void DocSetBansNameEx(const void* p, uint32_t nLen);
+
+	template <uint8_t nTag>
+	struct NephriteEpochStorage
+	{
+		const ContractID& m_Cid;
+		NephriteEpochStorage(const ContractID& cid) :m_Cid(cid) {}
+
+		template <uint32_t nDims>
+		void Load(uint32_t iEpoch, HomogenousPool::Epoch<nDims>& e)
+		{
+			Env::Key_T<Nephrite::EpochKey> k;
+			_POD_(k.m_Prefix.m_Cid) = m_Cid;
+			k.m_KeyInContract.m_Tag = nTag;
+			k.m_KeyInContract.m_iEpoch = iEpoch;
+
+			Env::Halt_if(!Env::VarReader::Read_T(k, e));
+		}
+
+		template <uint32_t nDims>
+		void Save(uint32_t iEpoch, const HomogenousPool::Epoch<nDims>& e) {
+		}
+		void Del(uint32_t iEpoch) {
+		}
+	};
+
 };
 
 bool ParserContext::Parse()
@@ -273,6 +373,17 @@ bool ParserContext::Parse()
 	HandleContractsStd(THE_MACRO)
 	HandleContractsWrappers(THE_MACRO)
 	HandleContractsWrapped(THE_MACRO)
+#undef THE_MACRO
+
+#define THE_MACRO(name, psid) \
+	for (uint32_t i = 0; i < _countof(psid); i++) \
+		if (_POD_(m_Sid) == psid[i]) \
+		{ \
+			On_##name(i); \
+			return true; \
+		}
+
+	HandleContractsVer(THE_MACRO)
 #undef THE_MACRO
 
 	return false;
@@ -1023,7 +1134,7 @@ void ParserContext::WriteNephriteSettings(const Nephrite::Settings& stg)
 	DocAddAid("Gov Token", stg.m_AidGov);
 }
 
-void ParserContext::OnMethod_Nephrite()
+void ParserContext::OnMethod_Nephrite(uint32_t /* iVer */)
 {
 	switch (m_iMethod)
 	{
@@ -1116,7 +1227,7 @@ void ParserContext::OnMethod_Nephrite()
 				OnMethod("Liquidate troves");
 				GroupArgs gr;
 
-				DocAddAmount("Count", pArg->m_Count);
+				Env::DocAddNum("Count", pArg->m_Count);
 			}
 		}
 		break;
@@ -1147,9 +1258,11 @@ void ParserContext::OnMethod_Nephrite()
 		}
 		break;
 	}
+
+	DumpNephriteDbgStatus();
 }
 
-void ParserContext::OnState_Nephrite()
+void ParserContext::OnState_Nephrite(uint32_t /* iVer */)
 {
 	WriteUpgrade3State();
 
@@ -1243,14 +1356,16 @@ void ParserContext::OnState_Nephrite()
 		for (auto iTrove = g.m_Troves.m_iHead; iTrove; )
 		{
 			Nephrite::Trove& t = vec.m_p[iTrove - 1];
-			g.m_RedistPool.Remove(t);
+
+			NephriteEpochStorage<Nephrite::Tags::s_Epoch_Redist> storR(m_Cid);
+			auto vals = g.m_RedistPool.get_UpdatedAmounts(t, storR);
 
 			Env::DocArray gr4("");
 
 			Env::DocAddNum("", iTrove);
 			DocAddPk("", t.m_pkOwner);
-			DocAddAmount("", t.m_Amounts.Col);
-			DocAddAmount("", t.m_Amounts.Tok);
+			DocAddAmount("", vals.Col);
+			DocAddAmount("", vals.Tok);
 
 			if (bHavePrice)
 				DocAddPerc("", price.ToCR(t.m_Amounts.get_Rcr()));
@@ -1273,6 +1388,117 @@ void ParserContext::OnState_Nephrite()
 	}
 
 	DocAddAmount("BeamX reward remaining", g.m_StabPool.m_Reward.m_Remaining);
+
+	DumpNephriteDbgStatus();
+}
+
+void TestEqual(Amount a, Amount b, const char* szErr)
+{
+	// allow for little error
+	a = (a >= b) ? (a - b) : (b - a);
+	if (a > 10)
+		Env::DocAddNum(szErr, a);
+}
+
+void ParserContext::DumpNephriteDbgStatus()
+{
+/*
+	Env::Key_T<uint8_t> k;
+	_POD_(k.m_Prefix.m_Cid) = m_Cid;
+	k.m_KeyInContract = Nephrite::Tags::s_State;
+
+	Nephrite::Global g;
+	if (!Env::VarReader::Read_T(k, g))
+		return;
+
+	GroupDbg gr0;
+
+	{
+		Env::DocGroup gr1("Totals");
+		Env::DocAddNum("Tok", g.m_Troves.m_Totals.Tok);
+		Env::DocAddNum("Col", g.m_Troves.m_Totals.Col);
+	}
+
+	{
+		Env::DocGroup gr1("stab");
+		Env::DocAddNum("Tok", g.m_StabPool.get_TotalSell());
+		Env::DocAddNum("Col", g.m_StabPool.m_Active.m_pDim[0].m_Buy + g.m_StabPool.m_Active.m_pDim[1].m_Buy);
+		
+	}
+
+	Nephrite::Pair trovesTotalsOrg, trovesTotalsAdj;
+	_POD_(trovesTotalsOrg).SetZero();
+	_POD_(trovesTotalsAdj).SetZero();
+
+	MultiPrecision::Float weight(0u);
+
+	{
+		Env::DocGroup gr1("troves");
+
+		Env::Key_T<Nephrite::Trove::Key> tk0, tk1;
+		_POD_(tk0.m_Prefix.m_Cid) = m_Cid;
+		_POD_(tk1.m_Prefix.m_Cid) = m_Cid;
+		tk0.m_KeyInContract.m_iTrove = 0;
+		tk1.m_KeyInContract.m_iTrove = (Nephrite::Trove::ID)-1;
+
+		for (Env::VarReader r(tk0, tk1); ; )
+		{
+			Nephrite::Trove t;
+			if (!r.MoveNext_T(tk0, t))
+				break;
+
+			char sz[Utils::String::Decimal::DigitsMax<Nephrite::Trove::ID>::N + 1];
+			Utils::String::Decimal::Print(sz, tk0.m_KeyInContract.m_iTrove);
+			Env::DocGroup gr2(sz);
+
+			{
+				Env::DocGroup gr2("org");
+				Env::DocAddNum("Tok", t.m_Amounts.Tok);
+				Env::DocAddNum("Col", t.m_Amounts.Col);
+			}
+
+			trovesTotalsOrg.Tok += t.m_Amounts.Tok;
+			trovesTotalsOrg.Col += t.m_Amounts.Col;
+
+			auto vals = g.m_RedistPool.get_UpdatedAmounts(t);
+
+			{
+				Env::DocGroup gr2("adj");
+				Env::DocAddNum("Tok", vals.Tok);
+				Env::DocAddNum("Col", vals.Col);
+			}
+
+			trovesTotalsAdj.Tok += vals.Tok;
+			trovesTotalsAdj.Col += vals.Col;
+
+			DocAddFloatSc("weight", t.m_RedistUser.m_Weight);
+			DocAddFloatSc("Sigma", t.m_RedistUser.m_pSigma0[0]);
+
+			weight += t.m_RedistUser.m_Weight;
+
+		}
+	}
+
+	{
+		Env::DocGroup gr1("redist");
+		Env::DocAddNum("Tok", g.m_RedistPool.m_Active.m_Sell);
+		Env::DocAddNum("Col", g.m_RedistPool.m_Active.m_pDim[0].m_Buy);
+		DocAddFloatSc("Weight0", g.m_RedistPool.m_Active.m_Weight);
+		DocAddFloatSc("Weight1", weight);
+		DocAddFloatSc("Sigma", g.m_RedistPool.m_Active.m_pDim[0].m_Sigma);
+	}
+
+	// Totals must be equal to the sum of effective (adjusted) trove amounts
+	TestEqual(g.m_Troves.m_Totals.Tok, trovesTotalsAdj.Tok, "errz-1-Tok");
+	TestEqual(g.m_Troves.m_Totals.Col, trovesTotalsAdj.Col, "errz-1-Col");
+
+	// All troves must be part of redist pool
+	if (g.m_Troves.m_Totals.Tok != g.m_RedistPool.m_Active.m_Sell)
+		Env::DocAddText("errz-2", "");
+
+	// extra collateral in the redist pool must be equal to diff of ordinal vs adjusted trove values
+	TestEqual(g.m_RedistPool.m_Active.m_pDim[0].m_Buy, g.m_Troves.m_Totals.Col - trovesTotalsOrg.Col, "errz-3");
+*/
 }
 
 void ParserContext::WriteOracle2Settings(const Oracle2::Settings& stg)
@@ -1298,7 +1524,7 @@ bool ParserContext::get_Oracle2Median(MultiPrecision::Float& ret, const Contract
 	return true;
 }
 
-void ParserContext::OnMethod_Oracle2()
+void ParserContext::OnMethod_Oracle2(uint32_t /* iVer */)
 {
 	switch (m_iMethod)
 	{
@@ -1392,7 +1618,7 @@ void ParserContext::OnMethod_Oracle2()
 	}
 }
 
-void ParserContext::OnState_Oracle2()
+void ParserContext::OnState_Oracle2(uint32_t /* iVer */)
 {
 	Oracle2::StateMax g;
 	uint32_t nProvs = 0;
@@ -1461,7 +1687,7 @@ void ParserContext::OnState_Oracle2()
 	}
 }
 
-void ParserContext::OnMethod_DaoVault()
+void ParserContext::OnMethod_DaoVault(uint32_t /* iVer */)
 {
 	switch (m_iMethod)
 	{
@@ -1510,7 +1736,7 @@ void ParserContext::OnMethod_DaoVault()
 	}
 }
 
-void ParserContext::OnState_DaoVault()
+void ParserContext::OnState_DaoVault(uint32_t /* iVer */)
 {
 	WriteUpgrade3State();
 }
@@ -1539,7 +1765,7 @@ void ParserContext::DocSetBansNameEx(const void* p, uint32_t nLen)
 	Env::DocAddText("name", sz);
 }
 
-void ParserContext::OnMethod_Bans()
+void ParserContext::OnMethod_Bans(uint32_t /* iVer */)
 {
 	switch (m_iMethod)
 	{
@@ -1637,7 +1863,7 @@ void ParserContext::OnMethod_Bans()
 	}
 }
 
-void ParserContext::OnState_Bans()
+void ParserContext::OnState_Bans(uint32_t /* iVer */)
 {
 	WriteUpgrade3State();
 

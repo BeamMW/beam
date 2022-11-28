@@ -8,7 +8,10 @@
 #define Amm_admin_set_min_approvers(macro) Upgradable3_set_min_approvers(macro)
 #define Amm_admin_explicit_upgrade(macro) macro(ContractID, cid)
 
-#define Amm_admin_deploy(macro) Upgradable3_deploy(macro)
+#define Amm_admin_deploy(macro) \
+    Upgradable3_deploy(macro) \
+    macro(ContractID, cidDaoVault)
+
 #define Amm_admin_view(macro)
 #define Amm_admin_destroy(macro) macro(ContractID, cid)
 #define Amm_admin_pools_view(macro) macro(ContractID, cid)
@@ -16,7 +19,8 @@
 #define Amm_poolop(macro) \
     macro(ContractID, cid) \
     macro(AssetID, aid1) \
-    macro(AssetID, aid2)
+    macro(AssetID, aid2) \
+    macro(uint32_t, kind)
 
 #define Amm_admin_pool_view(macro) Amm_poolop(macro)
 
@@ -116,10 +120,13 @@ ON_METHOD(admin, deploy)
     if (!g_VerInfo.FillDeployArgs(arg.m_Upgradable, &pk))
         return;
 
+    _POD_(arg.m_Settings.m_cidDaoVault) = cidDaoVault;
+
     const uint32_t nCharge =
         Upgradable3::Manager::get_ChargeDeploy() +
         Env::Cost::Refs +
-        Env::Cost::Cycle * 20;
+        Env::Cost::SaveVar_For(sizeof(Settings)) +
+        Env::Cost::Cycle * 50;
 
     Env::GenerateKernel(nullptr, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Deploy Amm contract", nCharge);
 }
@@ -152,7 +159,7 @@ ON_METHOD(admin, set_min_approvers)
     Upgradable3::Manager::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
 }
 
-bool SetKey(Pool::ID& pid, bool& bReverse, AssetID aid1, AssetID aid2)
+bool SetKey(Pool::ID& pid, bool& bReverse, AssetID aid1, AssetID aid2, uint32_t kind)
 {
     bReverse = (aid1 > aid2);
     if (bReverse)
@@ -172,118 +179,28 @@ bool SetKey(Pool::ID& pid, bool& bReverse, AssetID aid1, AssetID aid2)
         pid.m_Aid2 = aid2;
     }
 
+    if (kind >= FeeSettings::s_Kinds)
+    {
+        OnError("invalid kind");
+        return false;
+    }
+
+    pid.m_Fees.m_Kind = static_cast<uint8_t>(kind);
+
     return true;
 }
 
-bool SetKey(Pool::ID& pid, AssetID aid1, AssetID aid2)
+bool SetKey(Pool::ID& pid, AssetID aid1, AssetID aid2, uint32_t kind)
 {
     bool bDummy;
-    return SetKey(pid, bDummy, aid1, aid2);
+    return SetKey(pid, bDummy, aid1, aid2, kind);
 }
-
-struct FloatTxt
-{
-    static const uint32_t s_DigsAfterDotMax = 18;
-    static const uint32_t s_TxtLenMax = Utils::String::Decimal::DigitsMax<uint32_t>::N + s_DigsAfterDotMax + 6; // 1st dig, dot, space, E, space, minus
-
-    static uint32_t Print_(char* szBuf, Float x, uint32_t nDigitsAfterDot)
-    {
-        if (x.IsZero())
-        {
-            szBuf[0] = '0';
-            szBuf[1] = 0;
-            return 1;
-        }
-
-        if (nDigitsAfterDot > s_DigsAfterDotMax)
-            nDigitsAfterDot = s_DigsAfterDotMax;
-
-        uint64_t trgLo = 1;
-        for (uint32_t i = 0; i < nDigitsAfterDot; i++)
-            trgLo *= 10;
-
-        uint64_t trgHi = trgLo * 10;
-
-        int ord = nDigitsAfterDot;
-
-        Float one(1u);
-        Float dec(10u);
-
-        uint64_t x_ = x.Get();
-        if (x_ < trgLo)
-        {
-            do
-            {
-                x = x * dec;
-                ord--;
-            } while ((x_ = x.Get()) < trgLo);
-
-            if (x_ >= trgHi)
-            {
-                x_ /= 10;
-                ord++;
-            }
-        }
-        else
-        {
-            if (x_ >= trgHi)
-            {
-                Float dec_inv = one / dec;
-
-                do
-                {
-                    x = x * dec_inv;
-                    ord++;
-                } while ((x_ = x.Get()) >= trgHi);
-
-                if (x_ < trgLo)
-                {
-                    x_ *= 10;
-                    ord--;
-                }
-            }
-        }
-
-        uint32_t nPos = 0;
-
-        szBuf[nPos++] = '0' + (x_ / trgLo);
-        szBuf[nPos++] = '.';
-
-        Utils::String::Decimal::Print(szBuf + nPos, x_ - trgLo, nDigitsAfterDot);
-        nPos += nDigitsAfterDot;
-
-        if (ord)
-        {
-            szBuf[nPos++] = ' ';
-            szBuf[nPos++] = 'E';
-
-            if (ord > 0)
-                szBuf[nPos++] = ' ';
-            else
-            {
-                ord = -ord;
-                szBuf[nPos++] = '-';
-            }
-
-            nPos += Utils::String::Decimal::Print(szBuf + nPos, ord);
-        }
-
-        szBuf[nPos] = 0;
-        return nPos;
-    }
-
-    char m_sz[s_TxtLenMax + 1];
-    uint32_t Print(Float f, uint32_t nDigitsAfterDot = 10)
-    {
-        return Print_(m_sz, f, nDigitsAfterDot);
-    }
-};
 
 void DocAddRate(const char* sz, Amount v1, Amount v2)
 {
-    FloatTxt ftxt;
-    ftxt.Print(Float(v1) / Float(v2));
-    Env::DocAddText(sz, ftxt.m_sz);
+    char szBuf[Float::Text::s_LenMax + 1];
+    (Float(v1) / Float(v2)).Print(szBuf);
+    Env::DocAddText(sz, szBuf);
 }
 
 #pragma pack (push, 1)
@@ -369,7 +286,7 @@ struct PoolsWalker
     void PrintPool() const
     {
         PrintTotals(m_Pool.m_Totals);
-        Env::DocAddNum("tid", m_Pool.m_aidCtl);
+        Env::DocAddNum("lp-token", m_Pool.m_aidCtl);
 
         if (m_Pool.m_Totals.m_Ctl)
         {
@@ -387,6 +304,7 @@ struct PoolsWalker
     {
         Env::DocAddNum("aid1", m_Key.m_KeyInContract.m_ID.m_Aid1);
         Env::DocAddNum("aid2", m_Key.m_KeyInContract.m_ID.m_Aid2);
+        Env::DocAddNum32("kind", m_Key.m_KeyInContract.m_ID.m_Fees.m_Kind);
     }
 
 };
@@ -408,7 +326,7 @@ ON_METHOD(admin, pools_view)
 ON_METHOD(admin, pool_view)
 {
     Pool::ID pid;
-    if (!SetKey(pid, aid1, aid2))
+    if (!SetKey(pid, aid1, aid2, kind))
         return;
 
     PoolsWalker pw;
@@ -423,7 +341,7 @@ ON_METHOD(admin, pool_view)
 ON_METHOD(user, pool_create)
 {
     Method::PoolCreate arg;
-    if (!SetKey(arg.m_Pid, aid1, aid2))
+    if (!SetKey(arg.m_Pid, aid1, aid2, kind))
         return;
 
     PoolsWalker pw;
@@ -454,7 +372,7 @@ ON_METHOD(user, pool_create)
 ON_METHOD(user, pool_destroy)
 {
     Method::PoolDestroy arg;
-    if (!SetKey(arg.m_Pid, aid1, aid2))
+    if (!SetKey(arg.m_Pid, aid1, aid2, kind))
         return;
 
     PoolsWalker pw;
@@ -473,7 +391,7 @@ ON_METHOD(user, pool_destroy)
     FundsChange fc;
     fc.m_Aid = 0;
     fc.m_Consume = 0;
-    fc.m_Amount = g_Beam2Groth;
+    fc.m_Amount = g_Beam2Groth * 10;
 
     Env::KeyID kid(ukm);
 
@@ -492,7 +410,7 @@ ON_METHOD(user, add_liquidity)
 {
     Method::AddLiquidity arg;
     bool bReverse;
-    if (!SetKey(arg.m_Pid, bReverse, aid1, aid2))
+    if (!SetKey(arg.m_Pid, bReverse, aid1, aid2, kind))
         return;
 
     arg.m_Amounts.m_Tok1 = val1;
@@ -526,7 +444,7 @@ ON_METHOD(user, add_liquidity)
         {
             if (!val2)
             {
-                arg.m_Amounts.m_Tok2 = Float(t.m_Tok1) * Float(t.m_Tok2) / Float(val1);
+                (Float(val1) * Float(t.m_Tok2) / Float(t.m_Tok1)).Round(arg.m_Amounts.m_Tok2);
                 iAdjustDir = -1;
             }
         }
@@ -535,7 +453,7 @@ ON_METHOD(user, add_liquidity)
             if (!val2)
                 return OnError("at least 1 token must be specified");
 
-            arg.m_Amounts.m_Tok1 = Float(t.m_Tok1) * Float(t.m_Tok2) / Float(val2);
+            (Float(t.m_Tok1) * Float(val2) / Float(t.m_Tok2)).Round(arg.m_Amounts.m_Tok1);
             iAdjustDir = 1;
         }
 
@@ -578,7 +496,7 @@ ON_METHOD(user, add_liquidity)
 ON_METHOD(user, withdraw)
 {
     Method::Withdraw arg;
-    if (!SetKey(arg.m_Pid, aid1, aid2))
+    if (!SetKey(arg.m_Pid, aid1, aid2, kind))
         return;
 
     if (!ctl)
@@ -622,7 +540,7 @@ ON_METHOD(user, trade)
 {
     Pool::ID pid;
     bool bReverse;
-    if (!SetKey(pid, bReverse, aid1, aid2))
+    if (!SetKey(pid, bReverse, aid1, aid2, kind))
         return;
 
     if (!val1_buy)
@@ -648,13 +566,18 @@ ON_METHOD(user, trade)
         arg.m_Buy1 = p.m_Totals.m_Tok1 - 1; // truncate
     }
 
-    Amount valPay = p.m_Totals.Trade(arg.m_Buy1);
+    TradeRes res;
+    Amount rawPay = p.m_Totals.Trade(res, arg.m_Buy1, pid.m_Fees);
+    Amount valPay = res.m_PayPool + res.m_DaoFee;
 
     if (bPredictOnly)
     {
         Env::DocGroup gr("res");
         Env::DocAddNum("buy", arg.m_Buy1);
-        Env::DocAddNum("pay", valPay);
+        Env::DocAddNum("pay", res.m_PayPool + res.m_DaoFee);
+        Env::DocAddNum("pay-raw", rawPay);
+        Env::DocAddNum("fee-pool", res.m_PayPool - rawPay);
+        Env::DocAddNum("fee-dao", res.m_DaoFee);
     }
     else
     {

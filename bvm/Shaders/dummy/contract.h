@@ -9,7 +9,7 @@ namespace Dummy
     {
         static const uint32_t s_iMethod = 2;
         uint8_t m_Variant; // stack, stack-inv1, stack-inv2, heap, heap-inv1, heap-inv2, data, inv
-        uint8_t m_InheritCtx;
+        uint8_t m_Flags;
     };
 
     struct MathTest1
@@ -119,6 +119,14 @@ namespace Dummy
     struct FindVarTest
     {
         static const uint32_t s_iMethod = 14;
+    };
+
+    struct TestFarCallFlags
+    {
+        static const uint32_t s_iMethod = 15;
+        uint32_t m_DepthRemaining;
+        uint32_t m_Flags;
+        uint8_t m_TryWrite;
     };
 
 #pragma pack (pop)

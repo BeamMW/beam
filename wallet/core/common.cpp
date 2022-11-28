@@ -117,64 +117,9 @@ namespace std
 
     string to_string(const beam::wallet::PrintableAmount& amount)
     {
-        cpp_int intval;
-        import_bits(intval, amount.m_value.m_pData, amount.m_value.m_pData + std::decay_t<decltype(amount.m_value)>::nBytes);
-
-        std::string unitName = amount.m_coinName;
-        if(unitName.empty())
-        {
-            if (amount.m_assetID == Asset::s_BeamID)
-            {
-                unitName = kBEAM;
-            }
-            else
-            {
-                std::stringstream ss;
-                ss << kASSET << "_" << amount.m_assetID;
-                unitName = ss.str();
-            }
-        }
-
-        std::string grothName = amount.m_grothName;
-        if (grothName.empty())
-        {
-            grothName = amount.m_assetID == Asset::s_BeamID ? kGROTH : kAGROTH;
-        }
-
-        if (amount.m_showPoint)
-        {
-            const auto maxGroths = std::lround(std::log10(Rules::Coin));
-            cpp_dec_float_50 floatval(intval);
-
-            stringstream ss;
-            ss << fixed << setprecision(maxGroths) << floatval / Rules::Coin;
-            auto str   = ss.str();
-            const auto point = std::use_facet< std::numpunct<char>>(ss.getloc()).decimal_point();
-
-            boost::algorithm::trim_right_if(str, boost::is_any_of("0"));
-            boost::algorithm::trim_right_if(str, [point](const char ch) {return ch == point;});
-
-            return str;
-        }
-        else
-        {
-            stringstream ss;
-            cpp_int coin  = intval / Rules::Coin;
-            cpp_int groth = intval - coin * Rules::Coin;
-
-            if (intval >= Rules::Coin)
-            {
-                ss << coin << " " << unitName;
-            }
-
-            if (groth > 0 || intval == 0)
-            {
-                ss << (intval >= Rules::Coin ? (" ") : "")
-                   << groth << " " << grothName;
-            }
-
-            return ss.str();
-        }
+        std::ostringstream os;
+        beam::operator << (os, amount);
+        return os.str();
     }
 
     string to_string(const beam::wallet::TxParameters& value)
@@ -233,11 +178,27 @@ namespace beam
         return os;
     }
 
-    std::ostream& operator<<(std::ostream& os, const wallet::PrintableAmount& amount)
+    std::ostream& operator<<(std::ostream& os, const wallet::PrintableAmount& x)
     {
-        os << std::to_string(amount);
+        AmountBig::Print(os, x.m_value);
+
+        if (static_cast<Asset::ID>(-1) != x.m_Aid)
+        {
+            os << ' ';
+
+            if (x.m_Aid)
+            {
+                os << kASSET << '-' << x.m_Aid;
+                if (x.m_szCoinName && *x.m_szCoinName)
+                    os << " (" << x.m_szCoinName << ')';
+            }
+            else
+                os << kBEAM;
+        }
+
         return os;
     }
+
 }  // namespace beam
 
 namespace beam::wallet

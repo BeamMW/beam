@@ -66,6 +66,7 @@ namespace bvm2 {
 	using Shaders::HashValue;
 	using Shaders::HashValue512;
 	using Shaders::BlockHeader;
+	using Shaders::CallFarFlags;
 	using Shaders::AssetInfo;
 
 	namespace Merkle {
@@ -146,6 +147,8 @@ namespace bvm2 {
 
 		public:
 
+			std::vector<uint8_t> m_vMem;
+
 			~Heap() { Clear(); }
 
 			bool Alloc(uint32_t&, uint32_t size);
@@ -156,9 +159,9 @@ namespace bvm2 {
 
 			uint32_t get_UnusedAtEnd(uint32_t nEnd) const;
 
-		} m_Heap;
+			void swap(Heap&);
 
-		std::vector<uint8_t> m_vHeap;
+		} m_Heap;
 
 		bool HeapAllocEx(uint32_t&, uint32_t size);
 		void HeapFreeEx(uint32_t);
@@ -196,7 +199,7 @@ namespace bvm2 {
 		static uint32_t ToArrSize(uint32_t nCount)
 		{
 			uint32_t nSize = sizeof(T) * nCount;
-			Wasm::Test(nSize / sizeof(T) == nCount); // overflow test
+			Exc::Test(nSize / sizeof(T) == nCount); // overflow test
 			return nSize;
 		}
 
@@ -218,7 +221,7 @@ namespace bvm2 {
 		virtual void DischargeUnits(uint32_t size) {}
 
 		virtual void WriteStream(const Blob&, uint32_t iStream) {
-			Wasm::Fail();
+			Exc::Fail();
 		}
 
 		struct DataProcessor
@@ -308,12 +311,19 @@ namespace bvm2 {
 		virtual Kind get_Kind() = 0;
 		virtual bool IsSuspended() { return false; }
 
-		static void Compile(ByteBuffer&, const Blob&, Kind, Wasm::Compiler::DebugInfo* = nullptr);
+		struct Compiler
+		{
+			virtual void OnBindingMissing(const Wasm::Compiler::PerImport&) {}
 
-	private:
-		static void ResolveBinding(Wasm::Compiler& c, uint32_t iFunction, Kind);
-		static void ResolveBindings(Wasm::Compiler&, Kind);
-		static int32_t get_PublicMethodIdx(const Wasm::Compiler::Vec<char>& sName);
+			void Compile(ByteBuffer&, const Blob&, Kind, Wasm::Compiler::DebugInfo* = nullptr);
+
+		private:
+			bool ResolveBinding(Wasm::Compiler& c, Wasm::Compiler::PerImportFunc&, Kind);
+			void ResolveBindings(Wasm::Compiler&, Kind);
+			static int32_t get_PublicMethodIdx(const Wasm::Compiler::Vec<char>& sName);
+		};
+
+		static void Compile(ByteBuffer&, const Blob&, Kind, Wasm::Compiler::DebugInfo* = nullptr);
 	};
 
 	struct ProcessorPlus;
@@ -330,6 +340,15 @@ namespace bvm2 {
 
 		struct FarCalls
 		{
+			struct Flags
+			{
+				static const uint32_t s_CallerBlocked = 1;
+				static const uint32_t s_CallerLockedRO = 2;
+				static const uint32_t s_HeapSwap = 4;
+				static const uint32_t s_LockedRO = 8;
+				static const uint32_t s_GlobalRO = 0x10;
+			};
+
 			struct Frame
 				:public boost::intrusive::list_base_hook<>
 			{
@@ -339,6 +358,10 @@ namespace bvm2 {
 				Wasm::Word m_StackPosMin;
 				Wasm::Word m_StackBytesMax;
 				Wasm::Word m_StackBytesRet;
+
+				uint32_t m_Flags;
+				Heap m_Heap;
+				Blob m_Args;
 
 				DebugCallstack m_Debug;
 			};
@@ -365,6 +388,9 @@ namespace bvm2 {
 		uint32_t Save_T(const VarKey& vk, const uintBig_t<nBytes>& x) {
 			return SaveNnz(vk, x.m_pData, x.nBytes);
 		}
+
+		void TestCanWrite();
+		uint32_t SaveVarInternal(const Blob&, const Blob& val);
 
 
 		virtual void InvokeExt(uint32_t) override;
@@ -408,7 +434,7 @@ namespace bvm2 {
 		void TestVarSize(uint32_t n)
 		{
 			uint32_t nMax = IsPastHF4() ? Limits::VarSize_4 : Limits::VarSize_0;
-			Wasm::Test(n <= nMax);
+			Exc::Test(n <= nMax);
 		}
 
 		void ToggleSidEntry(const ShaderID& sid, const ContractID& cid, bool bSet);
@@ -435,7 +461,7 @@ namespace bvm2 {
 
 		uint32_t m_Charge = Limits::BlockCharge;
 
-		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint8_t bInheritContext); // can override to invoke host code instead of interpretator (for debugging)
+		virtual void CallFar(const ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint32_t nFlags); // can override to invoke host code instead of interpretator (for debugging)
 	};
 
 
@@ -510,11 +536,26 @@ namespace bvm2 {
 			virtual bool MoveNext() = 0;
 		};
 
+		struct IReadAssets
+			:public intrusive::set_base_hook<uint32_t>
+		{
+			typedef std::unique_ptr<IReadAssets> Ptr;
+			typedef intrusive::multiset_autoclear<IReadAssets> Map;
+
+			Asset::Full m_aiLast;
+
+			virtual ~IReadAssets() {}
+			virtual bool MoveNext() = 0;
+		};
+
+
 		IReadVars::Map m_mapReadVars;
 		IReadLogs::Map m_mapReadLogs;
+		IReadAssets::Map m_mapReadAssets;
 
 		virtual void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr&) {}
 		virtual void LogsEnum(const Blob& kMin, const Blob& kMax, const HeightPos* pPosMin, const HeightPos* pPosMax, IReadLogs::Ptr&) {}
+		virtual void AssetsEnum(Asset::ID, Height, IReadAssets::Ptr&) {}
 
 		virtual bool VarGetProof(Blob& key, ByteBuffer& val, beam::Merkle::Proof&) { return false; }
 		virtual bool LogGetProof(const HeightPos&, beam::Merkle::Proof&) { return false; }
@@ -592,6 +633,8 @@ namespace bvm2 {
 
 		} m_Comms;
 
+		void ResetBase();
+
 		DebugCallstack m_DbgCallstack;
 
 		virtual void OnCall(Wasm::Word nAddr) override;
@@ -599,7 +642,7 @@ namespace bvm2 {
 
 		virtual void Comm_CreateListener(Comm::Channel::Ptr&, const ECC::Hash::Value&) {}
 		virtual void Comm_Send(const ECC::Point&, const Blob&) {}
-		virtual void Comm_Wait(uint32_t nTimeout_ms) { Wasm::Fail(); }
+		virtual void Comm_Wait(uint32_t nTimeout_ms) { Exc::Fail(); }
 
 	public:
 

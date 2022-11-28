@@ -645,9 +645,7 @@ uint32_t MultiTx::Update2()
 	txFull.m_Offset = ECC::Scalar::Native(tx.m_Offset) + ECC::Scalar::Native(txPeer.m_Offset);
 	txFull.Normalize();
 
-	TxBase::Context::Params pars;
-	TxBase::Context ctx(pars);
-
+	TxBase::Context ctx;
 	ctx.m_Height.m_Min = hScheme;
 	if (!txFull.IsValid(ctx))
 		return Status::Error;

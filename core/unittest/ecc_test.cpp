@@ -1193,8 +1193,7 @@ void TestMultiSigOutput()
     transaction.m_vOutputs.push_back(std::move(pOutput));
     transaction.Normalize();
 
-    beam::TxBase::Context::Params pars;
-    beam::TxBase::Context context(pars);
+    beam::TxBase::Context context;
 	context.m_Height.m_Min = g_hFork;
     verify_test(transaction.IsValid(context));
 }
@@ -1413,8 +1412,7 @@ void TestTransaction()
 
 	tm.m_Trans.Normalize();
 
-	beam::TxBase::Context::Params pars;
-	beam::TxBase::Context ctx(pars);
+	beam::TxBase::Context ctx;
 	ctx.m_Height.m_Min = g_hFork;
 	verify_test(tm.m_Trans.IsValid(ctx));
 	verify_test(ctx.m_Stats.m_Fee == beam::AmountBig::Type(fee1 + fee2));
@@ -1428,8 +1426,7 @@ void TestCutThrough()
 
 	tm.m_Trans.Normalize();
 
-	beam::TxBase::Context::Params pars;
-	beam::TxBase::Context ctx(pars);
+	beam::TxBase::Context ctx;
 	ctx.m_Height.m_Min = g_hFork;
 	verify_test(ctx.ValidateAndSummarize(tm.m_Trans, tm.m_Trans.get_Reader()));
 
@@ -2229,8 +2226,7 @@ void TestAssetEmission()
 
 	tx.Normalize();
 
-	beam::Transaction::Context::Params pars;
-	beam::Transaction::Context ctx(pars);
+	beam::Transaction::Context ctx;
 	ctx.m_Height.m_Min = hScheme;
 	bool bIsValid = tx.IsValid(ctx);
 

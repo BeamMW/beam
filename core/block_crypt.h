@@ -101,7 +101,6 @@ namespace beam
 
 	namespace AmountBig
 	{
-
 		typedef uintBig_t<sizeof(Amount) + sizeof(Height)> Type; // 128 bits
 		Amount get_Lo(const Type&);
 		Amount get_Hi(const Type&);
@@ -110,6 +109,9 @@ namespace beam
 
 		// This one is not optimized (slow)
 		void AddTo(ECC::Point::Native& res, const Type& x, const ECC::Point::Native& hGen);
+
+		void Print(std::ostream&, const Type&);
+		void Print(std::ostream&, Amount);
 	};
 
 	typedef int64_t AmountSigned;
@@ -312,7 +314,7 @@ namespace beam
 		size_t MaxBodySize = 0x100000; // 1MB
 
 		bool AllowPublicUtxos = false;
-		bool FakePoW = false;
+		bool FakePoW = true; // dappnet
 
 		Height MaxKernelValidityDH = 1440 * 30; // past Fork2
 		// if kernel has higher lifetime - its max height is implicitly decreased
@@ -1580,7 +1582,7 @@ namespace beam
 			Params(); // defaults
 		};
 
-		const Params& m_Params;
+		Params m_Params;
 
 		ECC::Point::Native m_Sigma;
 		TxStats m_Stats;
@@ -1588,8 +1590,7 @@ namespace beam
 
 		uint32_t m_iVerifier;
 
-		Context(const Params& p)
-			:m_Params(p)
+		Context()
 		{
 			Reset();
 		}

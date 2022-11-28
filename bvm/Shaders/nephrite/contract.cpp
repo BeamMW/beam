@@ -9,11 +9,12 @@
 
 namespace Nephrite {
 
+template <uint8_t nTag>
 struct EpochStorage
 {
     static EpochKey get_Key(uint32_t iEpoch) {
         EpochKey k;
-        k.m_Tag = Tags::s_Epoch_Stable;
+        k.m_Tag = nTag;
         k.m_iEpoch = iEpoch;
         return k;
     }
@@ -32,6 +33,9 @@ struct EpochStorage
         Env::DelVar_T(get_Key(iEpoch));
     }
 };
+
+typedef EpochStorage<Tags::s_Epoch_Redist> EpochStorageRedist;
+typedef EpochStorage<Tags::s_Epoch_Stable> EpochStorageStab;
 
 struct MyGlobal
     :public Global
@@ -58,35 +62,45 @@ struct MyGlobal
 
     static void AdjustBank(const FlowPair& fp, const PubKey& pk, const Flow* pGov = nullptr)
     {
+        if (!AdjustBankNoSig(fp, pk, pGov))
+        {
+            // no bank access is necessary (i.e. predicted tx values match the actual ones
+            // Add option for the user to not specify pk.
+            // This would allow anonymous redeem and liquidation txs.
+            if (_POD_(pk).IsZero())
+                return;
+        }
+
         Env::AddSig(pk);
-        AdjustBankNoSig(fp, pk, pGov);
     }
 
-    static void AdjustBankNoSig(const FlowPair& fp, const PubKey& pk, const Flow* pGov = nullptr)
+    static bool AdjustBankNoSig(const FlowPair& fp, const PubKey& pk, const Flow* pGov = nullptr)
     {
         if (pGov && !pGov->m_Val)
             pGov = nullptr;
 
-        if (fp.Tok.m_Val || fp.Col.m_Val || pGov)
-        {
-            Balance::Key kub;
-            _POD_(kub.m_Pk) = pk;
+        if (!(fp.Tok.m_Val || fp.Col.m_Val || pGov))
+            return false;
 
-            Balance ub;
-            if (!Env::LoadVar_T(kub, ub))
-                _POD_(ub).SetZero();
+        Balance::Key kub;
+        _POD_(kub.m_Pk) = pk;
 
-            AdjustStrict(ub.m_Amounts.Tok, fp.Tok);
-            AdjustStrict(ub.m_Amounts.Col, fp.Col);
+        Balance ub;
+        if (!Env::LoadVar_T(kub, ub))
+            _POD_(ub).SetZero();
 
-            if (pGov)
-                AdjustStrict(ub.m_Gov, *pGov);
+        AdjustStrict(ub.m_Amounts.Tok, fp.Tok);
+        AdjustStrict(ub.m_Amounts.Col, fp.Col);
 
-            if (ub.m_Amounts.Tok || ub.m_Amounts.Col || ub.m_Gov)
-                Env::SaveVar_T(kub, ub);
-            else
-                Env::DelVar_T(kub);
-        }
+        if (pGov)
+            AdjustStrict(ub.m_Gov, *pGov);
+
+        if (ub.m_Amounts.Tok || ub.m_Amounts.Col || ub.m_Gov)
+            Env::SaveVar_T(kub, ub);
+        else
+            Env::DelVar_T(kub);
+
+        return true;
     }
 
     static void ExtractSurplusCol(Amount val, const Trove& t)
@@ -170,7 +184,8 @@ struct MyGlobal
         tk.m_iTrove = iTrove;
         Env::Halt_if(!Env::LoadVar_T(tk, t));
 
-        m_RedistPool.Remove(t);
+        EpochStorageRedist storR;
+        m_RedistPool.Remove(t, storR);
 
         // just for more safety. Theoretically strict isn't necessary
         Strict::Sub(m_Troves.m_Totals.Tok, t.m_Amounts.Tok);
@@ -180,21 +195,15 @@ struct MyGlobal
         {
             tPrev.m_iNext = t.m_iNext;
             tk.m_iTrove = iPrev;
+
+            m_RedistPool.MaybeRefresh(tPrev, storR);
+
             Env::SaveVar_T(tk, tPrev);
         }
         else
             m_Troves.m_iHead = t.m_iNext;
 
         return iTrove;
-    }
-
-    int TroveLoadCmp(const Trove::Key& tk, Trove& t, const Trove& tRef)
-    {
-        Env::Halt_if(!Env::LoadVar_T(tk, t));
-
-        auto vals = m_RedistPool.get_UpdatedAmounts(t);
-
-        return vals.CmpRcr(tRef.m_Amounts);
     }
 
     void TrovePush(Trove::ID iTrove, Trove& t, Trove::ID iPrev)
@@ -210,15 +219,22 @@ struct MyGlobal
         {
             Trove tPrev;
             tk.m_iTrove = iPrev;
-            int iCmp = TroveLoadCmp(tk, tPrev, t);
+            Env::Halt_if(!Env::LoadVar_T(tk, tPrev));
 
+            EpochStorageRedist storR;
+            Pair vals;
+            if (m_RedistPool.MaybeRefresh(tPrev, storR))
+                vals = tPrev.m_Amounts;
+            else
+                vals = m_RedistPool.get_UpdatedAmounts(tPrev, storR);
+
+            int iCmp = vals.CmpRcr(t.m_Amounts);
             Env::Halt_if(iCmp > 0);
 
             t.m_iNext = tPrev.m_iNext;
             tPrev.m_iNext = iTrove;
 
             Env::SaveVar_T(tk, tPrev);
-
         }
         else
         {
@@ -226,17 +242,21 @@ struct MyGlobal
             m_Troves.m_iHead = iTrove;
         }
 
-        if (t.m_iNext)
-        {
-            Trove tNext;
-            tk.m_iTrove = t.m_iNext;
-            int iCmp = TroveLoadCmp(tk, tNext, t);
-
-            Env::Halt_if(iCmp < 0);
-        }
-
         tk.m_iTrove = iTrove;
         Env::SaveVar_T(tk, t);
+
+        if (t.m_iNext)
+        {
+            tk.m_iTrove = t.m_iNext;
+            Trove tNext;
+            Env::Halt_if(!Env::LoadVar_T(tk, tNext));
+
+            EpochStorageRedist storR;
+            auto vals = m_RedistPool.get_UpdatedAmounts(tNext, storR);
+
+            int iCmp = t.m_Amounts.CmpRcr(vals);
+            Env::Halt_if(iCmp > 0);
+        }
     }
 
     void TroveModify(Trove::ID iPrev0, Trove::ID iPrev1, const Pair* pNewVals, const PubKey* pPk, Method::BaseTx& r)
@@ -281,7 +301,7 @@ struct MyGlobal
             fpLogic.Col.Add(pNewVals->Col, 1);
 
             t.m_Amounts = *pNewVals;
-            Env::Halt_if(t.m_Amounts.Tok <= m_Settings.m_TroveLiquidationReserve);
+            Env::Halt_if(t.m_Amounts.Tok < m_Settings.get_TroveMinDebt());
 
             TrovePush(iTrove, t, iPrev1);
 
@@ -350,8 +370,6 @@ BEAM_EXPORT void Ctor(const Method::Create& r)
     _POD_(g).SetZero();
 
     _POD_(g.m_Settings) = r.m_Settings;
-    g.m_StabPool.Init();
-    g.m_RedistPool.Reset();
 
     static const char szMeta[] = "STD:SCH_VER=1;N=Nephrite Token;SN=Nph;UN=NPH;NTHUN=GROTHN";
     g.m_Aid = Env::AssetCreate(szMeta, sizeof(szMeta) - 1);
@@ -360,6 +378,8 @@ BEAM_EXPORT void Ctor(const Method::Create& r)
     Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidDaoVault));
     Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidOracle1));
     Env::Halt_if(!Env::RefAdd(g.m_Settings.m_cidOracle2));
+
+    Env::Halt_if(g.m_Settings.get_TroveMinDebt() <= g.m_Settings.m_TroveLiquidationReserve); // zero or overflow
 
     g.Save();
 }
@@ -424,10 +444,9 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
     {
         Env::Halt_if(spe.m_hLastModify == h);
 
-        EpochStorage stor;
-
         Global::StabilityPool::User::Out out;
-        g.m_StabPool.UserDel(spe.m_User, out, stor);
+        EpochStorageStab storS;
+        g.m_StabPool.UserDel<false, false>(spe.m_User, out, 0, storS);
 
         fpLogic.Tok.m_Val = out.m_Sell;
         fpLogic.Col.m_Val = out.m_pBuy[0];
@@ -443,7 +462,8 @@ BEAM_EXPORT void Method_7(Method::UpdStabPool& r)
             Trove t;
             Env::Halt_if(!Env::LoadVar_T(tk, t));
 
-            auto vals = g.m_RedistPool.get_UpdatedAmounts(t);
+            EpochStorageRedist storR;
+            auto vals = g.m_RedistPool.get_UpdatedAmounts(t, storR);
             auto cr = price.ToCR(vals.get_Rcr());
             Env::Halt_if((cr < Global::Price::get_k110()));
         }
@@ -493,10 +513,16 @@ BEAM_EXPORT void Method_8(Method::Liquidate& r)
             g.ExtractSurplusCol(valSurplus, t);
     }
 
+    if (ctx.m_Redist)
+    {
+        EpochStorageRedist storR;
+        g.m_RedistPool.MaybeSwitchEpoch(storR);
+    }
+
     if (ctx.m_Stab)
     {
-        EpochStorage stor;
-        g.m_StabPool.OnPostTrade(stor);
+        EpochStorageStab storS;
+        g.m_StabPool.MaybeSwitchEpoch(storS);
     }
 
     g.AdjustAll(r, totals0, ctx.m_fpLogic, r.m_pkUser);
@@ -555,6 +581,21 @@ BEAM_EXPORT void Method_10(Method::AddStabPoolReward& r)
     Env::FundsLock(g.m_Settings.m_AidGov, r.m_Amount);
 }
 
+BEAM_EXPORT void Method_11(Method::TroveRefresh& r)
+{
+    MyGlobal_LoadSave g;
+
+    Trove t;
+    Trove::ID iTrove = g.TrovePop(r.m_iPrev0, t);
+
+    // verify the refresh makes sense
+    Env::Halt_if(
+        (r.m_iPrev0 == r.m_iPrev1) && // same pos
+        (t.m_RedistUser.m_iEpoch == g.m_RedistPool.m_iActive)); // same epoch
+
+    g.TrovePush(iTrove, t, r.m_iPrev1);
+}
+
 } // namespace Nephrite
 
 namespace Upgradable3 {
@@ -568,7 +609,7 @@ namespace Upgradable3 {
 
     void OnUpgraded(uint32_t nPrevVersion)
     {
-        if constexpr (g_CurrentVersion)
+        if constexpr (g_CurrentVersion > 0)
             Env::Halt_if(nPrevVersion != g_CurrentVersion - 1);
         else
             Env::Halt();

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 cmake_policy(SET CMP0074 NEW)
 
 set(VERSION_MAJOR 7)
-set(VERSION_MINOR 2 )
+set(VERSION_MINOR 2)
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
@@ -175,7 +175,7 @@ set(BEAM_TESTNET TRUE CACHE INTERNAL "")
 # uncomment next line for mainnet
 #set(BEAM_MAINNET TRUE CACHE INTERNAL "")
 # uncomment next line for mainnet
-#set(BEAM_DAPPNET TRUE CACHE INTERNAL "")
+set(BEAM_DAPPNET TRUE CACHE INTERNAL "")
 
 # uncomment next line for swap mainnet
 #set(SWAP_MAINNET TRUE)

@@ -410,23 +410,23 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 	}
 	else
 	{
-		if (m_nTasksPackHdr >= proto::g_HdrPackMaxSize)
+        const uint32_t nMaxHdrRequests = proto::g_HdrPackMaxSize * 2;
+		if (m_nTasksPackHdr >= nMaxHdrRequests)
 			return false; // too many hdrs requested
 
         if (nBlocks)
             return false; // don't requests headers from the peer that transfers a block
 
-		uint32_t nPackSize = proto::g_HdrPackMaxSize;
+        uint32_t nPackSize = std::min(proto::g_HdrPackMaxSize, nMaxHdrRequests - m_nTasksPackHdr);
 
-		// make sure we're not dealing with overlaps
-		Height h0 = m_Processor.get_DB().get_HeightBelow(t.m_Key.first.m_Height);
-		assert(h0 < t.m_Key.first.m_Height);
-		Height dh = t.m_Key.first.m_Height - h0;
+		// try to avoid big overlaps when asking for headers, but also try to ask for as many headers as possible
+        // The best guess seems to be based on the diff between current height and target header (to either side)
+        // For big sync tasks (including deep reorgs) big packs are ok. 
+		Height h0 = m_Processor.m_Cursor.m_Full.m_Height;
+        Height dh = (t.m_Key.first.m_Height > h0) ? (t.m_Key.first.m_Height - h0) : (h0 - t.m_Key.first.m_Height);
 
-		if (nPackSize > dh)
-			nPackSize = (uint32_t) dh;
-
-		std::setmin(nPackSize, proto::g_HdrPackMaxSize - m_nTasksPackHdr);
+        if (nPackSize > dh)
+            nPackSize = dh ? (uint32_t) dh : 1;
 
         proto::GetHdrPack msg;
         msg.m_Top = t.m_Key.first;
@@ -1010,6 +1010,10 @@ void Node::Initialize(IExternalPOW* externalPOW)
 	m_Processor.get_DB().get_BbsTotals(m_Bbs.m_Totals);
     m_Bbs.Cleanup();
 	m_Bbs.m_HighestPosted_s = m_Processor.get_DB().get_BbsMaxTime();
+
+    if (m_Cfg.m_TestMode.m_FakePowSolveTime_ms && Rules::get().FakePoW)
+        m_PostStartSynced = true;
+
 }
 
 uint32_t Node::get_AcessiblePeerCount() const
@@ -2240,8 +2244,7 @@ uint8_t Node::ValidateTx(TxPool::Stats& stats, const Transaction& tx, const Tran
         return it->second;
     }
 
-    Transaction::Context::Params pars;
-    Transaction::Context ctx(pars);
+    Transaction::Context ctx;
     uint32_t nBvmCharge = 0;
     Amount feeReserve = 0;
 
@@ -2878,8 +2881,7 @@ uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash&
             pParent = &itCtx->get_ParentObj();
         }
 
-        Transaction::Context::Params pars;
-        Transaction::Context ctx(pars);
+        Transaction::Context ctx;
         uint32_t nBvmCharge = 0;
         Amount feeReserve = 0;
         Merkle::Hash hvCtxNew;
@@ -3858,8 +3860,7 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 
         // verify that all the outputs correspond to our viewer's Kdf (in case our comm was hacked this'd prevent mining for someone else)
         // and do the overall validation
-        TxBase::Context::Params pars;
-		TxBase::Context ctx(pars);
+		TxBase::Context ctx;
 		ctx.m_Height = m_This.m_Processor.m_Cursor.m_ID.m_Height + 1;
         if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader()))
             ThrowUnexpected();

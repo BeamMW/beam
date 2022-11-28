@@ -87,7 +87,7 @@ namespace bvm2 {
 			void Post()
 			{
 				assert(m_pRequest);
-				Wasm::Test(m_This.m_pNetwork != nullptr);
+				Exc::Test(m_This.m_pNetwork != nullptr);
 				m_This.m_pNetwork->PostRequest(*m_pRequest, *this);
 			}
 
@@ -146,8 +146,8 @@ namespace bvm2 {
 				m_Consumed = m_Buf.size() - der.bytes_left();
 
 				uint32_t nTotal = m_LastKey.n + m_LastVal.n;
-				Wasm::Test(nTotal >= m_LastKey.n); // no overflow
-				Wasm::Test(nTotal <= der.bytes_left());
+				Exc::Test(nTotal >= m_LastKey.n); // no overflow
+				Exc::Test(nTotal <= der.bytes_left());
 
 				m_LastKey.p = pBuf + m_Consumed;
 				m_Consumed += m_LastKey.n;
@@ -218,8 +218,8 @@ namespace bvm2 {
 				m_Consumed = m_Buf.size() - der.bytes_left();
 
 				uint32_t nTotal = m_LastKey.n + m_LastVal.n;
-				Wasm::Test(nTotal >= m_LastKey.n); // no overflow
-				Wasm::Test(nTotal <= der.bytes_left());
+				Exc::Test(nTotal >= m_LastKey.n); // no overflow
+				Exc::Test(nTotal <= der.bytes_left());
 
 				m_LastKey.p = pBuf + m_Consumed;
 				m_Consumed += m_LastKey.n;
@@ -236,6 +236,40 @@ namespace bvm2 {
 					Post();
 				}
 
+				return true;
+			}
+		};
+
+
+		struct Assets
+			:public Handler
+			,public IReadAssets
+		{
+			using Handler::Handler;
+
+			size_t m_iPos = 0;
+			std::vector<Asset::Full> m_Res;
+
+			virtual bool MoveNext() override
+			{
+				assert(m_pRequest);
+				auto& r = Cast::Up<proto::FlyClient::RequestAssetsListAt>(*m_pRequest);
+
+				if (m_Res.empty())
+				{
+					if (!CheckDone())
+						return false;
+					if (r.m_Res.empty())
+						return false;
+
+					m_iPos = 0;
+					m_Res = std::move(r.m_Res);
+				}
+
+				if (m_iPos >= m_Res.size())
+					return false;
+
+				m_aiLast = std::move(m_Res[m_iPos++]);
 				return true;
 			}
 		};
@@ -306,6 +340,21 @@ namespace bvm2 {
 		pOut = std::move(p);
 	}
 
+	void ManagerStd::AssetsEnum(Asset::ID aid0, Height h, IReadAssets::Ptr& pOut)
+	{
+		auto p = std::make_unique<RemoteRead::Assets>(*this);
+
+		boost::intrusive_ptr<proto::FlyClient::RequestAssetsListAt> pReq(new proto::FlyClient::RequestAssetsListAt);
+		auto& r = *pReq;
+
+		r.m_Msg.m_Aid0 = aid0;
+		r.m_Msg.m_Height = h;
+
+		p->m_pRequest = std::move(pReq);
+		p->Post();
+
+		pOut = std::move(p);
+	}
 
 	void ManagerStd::SelectContext(bool bDependent, uint32_t /* nChargeNeeded */)
 	{
@@ -325,7 +374,7 @@ namespace bvm2 {
 			auto pReq = GetResSingleRequest();
 			auto& r = pReq->As<proto::FlyClient::RequestEnsureSync>();
 
-			Wasm::Test(m_pHist);
+			Exc::Test(m_pHist);
 
 			Block::SystemState::Full s;
 			m_pHist->get_Tip(s); // zero-inits if no tip
@@ -346,7 +395,7 @@ namespace bvm2 {
 	{
 		if (!m_Pending.m_pSingleRequest)
 		{
-			Wasm::Test(m_pHist);
+			Exc::Test(m_pHist);
 
 			Height h = s.m_Height;
 			if (m_pHist->get_At(s, h))
@@ -450,25 +499,17 @@ namespace bvm2 {
 
 	void ManagerStd::OnReset()
 	{
-		InitMem();
+		ProcessorManager::ResetBase();
+
 		m_Code = m_BodyManager;
 		m_Out.str("");
 		m_Out.clear();
-		m_InvokeData.Reset();
-		
-		m_Comms.Clear();
-		m_Context.Reset();
-
-		m_mapReadVars.Clear();
-		m_mapReadLogs.Clear();
 
 		m_UnfreezeEvt.cancel();
 
 		m_Pending.m_pSingleRequest.reset();
 		m_Pending.m_pCommMsg.reset();
 		m_Pending.m_pBlocker = nullptr;
-
-		m_DbgCallstack = DebugCallstack();
 	}
 
 	void ManagerStd::StartRun(uint32_t iMethod)

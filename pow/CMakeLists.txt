@@ -17,6 +17,10 @@ if(UNIX)
     set_source_files_properties(impl/crypto/equihashR_impl.cpp PROPERTIES COMPILE_FLAGS -O2)
 endif()
 
+if(APPLE OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set_source_files_properties(${PROJECT_SOURCE_DIR}/3rdparty/uint256.cpp PROPERTIES COMPILE_FLAGS -Wno-deprecated-declarations) #'sprintf' is deprecated is highly recommended that you use snprintf
+endif()
+
 add_library(pow STATIC ${POW_SRC})
 
 target_compile_definitions(pow PUBLIC ENABLE_MINING)

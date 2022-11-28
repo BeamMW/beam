@@ -908,11 +908,14 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s, const PeerID& pe
 	assert(s.m_Height >= Rules::HeightGenesis);
 
 	// Is there a prev? Is it a tip currently?
-	Recordset rs(*this, Query::StateFind2, "SELECT rowid," TblStates_CountNext " FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_Hash "=?");
+	Difficulty::Raw wrk = s.m_ChainWork - s.m_PoW.m_Difficulty;
+
+	Recordset rs(*this, Query::StateFind2, "SELECT rowid," TblStates_CountNext " FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_Hash "=? AND " TblStates_ChainWork "=?");
 	rs.put(0, s.m_Height - 1);
 	rs.put(1, s.m_Prev);
+	rs.put(2, wrk);
 
-	uint32_t nPrevCountNext = 0, nCountNextF = 0; // initialized to suppress warning, not really needed
+	uint32_t nPrevCountNext = 0; // initialized to suppress warning, not really needed
 	uint64_t rowPrev;
 
 	if (rs.Step())
@@ -925,15 +928,6 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s, const PeerID& pe
 
 	Merkle::Hash hash;
 	s.get_Hash(hash);
-
-	// Count next functional
-	rs.Reset(*this, Query::StateGetNextFCount, "SELECT COUNT() FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=? AND (" TblStates_Flags " & ?)");
-	rs.put(0, s.m_Height + 1);
-	rs.put(1, hash);
-	rs.put(2, StateFlags::Functional);
-
-    BEAM_VERIFY(rs.Step());
-	rs.get(0, nCountNextF);
 
 	// Insert row
 
@@ -954,7 +948,7 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s, const PeerID& pe
 	StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0)
 #undef THE_MACRO_1
 
-	rs.put(iCol++, nCountNextF);
+	rs.put(iCol++, 0u); // next functional, update it later if needed
 	if (rowPrev)
 		rs.put(iCol, rowPrev); // otherwise it'd be NULL
 	iCol++;
@@ -976,18 +970,45 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s, const PeerID& pe
 	}
 
 	// Ancestors
-	rs.Reset(*this, Query::StateUpdPrevRow, "UPDATE " TblStates " SET " TblStates_RowPrev "=? WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=?");
-	rs.put(0, rowid);
-	rs.put(1, s.m_Height + 1);
-	rs.put(2, hash);
+	uint32_t nCountAncestors = 0, nCountNextF = 0;
+	rs.Reset(*this, Query::StateGetNextOf, "SELECT rowid," TblStates_ChainWork "," TblStates_PoW "," TblStates_Flags " FROM " TblStates " WHERE " TblStates_Height "=? AND " TblStates_HashPrev "=?");
+	rs.put(0, s.m_Height + 1);
+	rs.put(1, hash);
 
-	rs.Step();
-	uint32_t nCountAncestors = get_RowsChanged();
+	while (rs.Step())
+	{
+		auto& wrk1 = rs.get_As<Difficulty::Raw>(1);
+		auto& pow1 = rs.get_As<Block::PoW>(2);
 
+		if (s.m_ChainWork + pow1.m_Difficulty != wrk1)
+			continue; // no match
+
+		uint64_t rowNext;
+		rs.get(0, rowNext);
+
+		{
+			Recordset rs2(*this, Query::StateUpdPrevRow, "UPDATE " TblStates " SET " TblStates_RowPrev "=? WHERE rowid=?");
+			rs2.put(0, rowid);
+			rs2.put(1, rowNext);
+			rs2.Step();
+			TestChanged1Row();
+		}
+		nCountAncestors++;
+
+		uint32_t nFlags;
+		rs.get(3, nFlags);
+
+		if (StateFlags::Functional & nFlags)
+			nCountNextF++;
+	}
+	
 	if (nCountAncestors)
 		SetNextCount(rowid, nCountAncestors);
 	else
 		TipAdd(rowid, s.m_Height);
+
+	if (nCountNextF)
+		SetNextCountFunctional(rowid, nCountNextF);
 
 	return rowid;
 }
@@ -1607,18 +1628,6 @@ void NodeDB::get_ChainWork(uint64_t rowid, Difficulty::Raw& wrk)
 	rs.StepStrict();
 
 	rs.get_As(0, wrk);
-}
-
-uint32_t NodeDB::GetStateNextCount(uint64_t rowid)
-{
-	Recordset rs(*this, Query::StateGetNextCount, "SELECT " TblStates_CountNext " FROM " TblStates " WHERE rowid=?");
-	rs.put(0, rowid);
-
-	rs.StepStrict();
-
-	uint32_t nCount;
-	rs.get(0, nCount);
-	return nCount;
 }
 
 void NodeDB::assert_valid()
@@ -2773,6 +2782,7 @@ Asset::ID NodeDB::AssetFindMinFree(Asset::ID nMin)
 void NodeDB::AssetAdd(Asset::Full& ai)
 {
 	Asset::ID aidMin = ai.m_ID;
+	assert(aidMin < s_AssetEmpty0);
 	// find free index
 	ai.m_ID = AssetFindMinFree(ai.m_ID + s_AssetEmpty0);
 	if (ai.m_ID)
@@ -2800,6 +2810,7 @@ void NodeDB::AssetAdd(Asset::Full& ai)
 
 Asset::ID NodeDB::AssetDelete(Asset::ID id)
 {
+	assert(id < s_AssetEmpty0);
 	AssetDeleteRaw(id);
 
 	Asset::ID nCount = static_cast<Asset::ID>(ParamIntGetDef(ParamID::AssetsCount));
@@ -2836,6 +2847,9 @@ void NodeDB::AssetsDelAll()
 
 bool NodeDB::AssetGetSafe(Asset::Full& ai)
 {
+	if (ai.m_ID >= s_AssetEmpty0)
+		return false;
+
 	Recordset rs(*this, Query::AssetGet, "SELECT " TblAssets_Value "," TblAssets_Owner "," TblAssets_Cid "," TblAssets_Data "," TblAssets_Deposit "," TblAssets_LockHeight " FROM " TblAssets " WHERE " TblAssets_ID "=?");
 	rs.put(0, ai.m_ID);
 	if (!rs.Step())

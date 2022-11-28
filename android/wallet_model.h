@@ -66,6 +66,13 @@ private:
     void onExportDataToJson(const std::string& data) override;
     void onPostFunctionToClientContext(MessageFunction&& func) override;
     void onExportTxHistoryToCsv(const std::string& data) override;
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    void onExportAtomicSwapTxHistoryToCsv(const std::string& data) override;
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+    void onExportAssetsSwapTxHistoryToCsv(const std::string& data) override;
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+    void onExportContractTxHistoryToCsv(const std::string& data) override;
     void onNotificationsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Notification>&) override;
     void onExchangeRates(const std::vector<beam::wallet::ExchangeRate>&) override;
     void onPublicAddress(const std::string& publicAddr) override;
