@@ -15,6 +15,7 @@
 #define Amm_admin_view(macro)
 #define Amm_admin_destroy(macro) macro(ContractID, cid)
 #define Amm_admin_pools_view(macro) macro(ContractID, cid)
+#define Amm_admin_view_all_assets(macro)
 
 #define Amm_poolop(macro) \
     macro(ContractID, cid) \
@@ -34,6 +35,7 @@
 	macro(admin, explicit_upgrade) \
     macro(admin, pool_view) \
     macro(admin, pools_view) \
+    macro(admin, view_all_assets) \
 
 #define Amm_user_pool_create(macro) Amm_poolop(macro)
 #define Amm_user_pool_destroy(macro) Amm_poolop(macro)
@@ -321,6 +323,38 @@ ON_METHOD(admin, pools_view)
         pw.PrintKey();
         pw.PrintPool();
     }
+}
+
+ON_METHOD(admin, view_all_assets)
+{
+    Env::DocArray gr("res");
+
+    auto iSlot = Env::Assets_Enum(0, static_cast<Height>(-1));
+    while (true)
+    {
+        char szMetadata[1024 * 16 + 1]; // max metadata size is 16K
+        AssetInfo ai;
+        uint32_t nMetadata = sizeof(szMetadata) - 1;
+        auto aid = Env::Assets_MoveNext(iSlot, ai, szMetadata, nMetadata, 0);
+        if (!aid)
+            break;
+
+        Env::DocGroup gr1("");
+
+        Env::DocAddNum("aid", aid);
+
+        Env::DocAddNum("mintedLo", ai.m_ValueLo);
+        Env::DocAddNum("mintedHi", ai.m_ValueHi);
+
+        if (_POD_(ai.m_Cid).IsZero())
+            Env::DocAddBlob_T("owner_pk", ai.m_Owner);
+        else
+            Env::DocAddBlob_T("owner_cid", ai.m_Cid);
+
+        szMetadata[std::min<uint32_t>(nMetadata, sizeof(szMetadata) - 1)] = 0;
+        Env::DocAddText("metadata", szMetadata);
+    }
+    Env::Assets_Close(iSlot);
 }
 
 ON_METHOD(admin, pool_view)
