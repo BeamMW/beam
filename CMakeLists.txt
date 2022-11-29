@@ -174,8 +174,8 @@ option(SWAP_MAINNET "Use mainnet blockchain when perform atomic swaps" FALSE)
 #set(BEAM_TESTNET TRUE CACHE INTERNAL "")
 # uncomment next line for mainnet
 set(BEAM_MAINNET TRUE CACHE INTERNAL "")
-# uncomment next line for mainnet
-set(BEAM_DAPPNET TRUE CACHE INTERNAL "")
+# uncomment next line for dappnet
+#set(BEAM_DAPPNET TRUE CACHE INTERNAL "")
 
 # uncomment next line for swap mainnet
 #set(SWAP_MAINNET TRUE)
