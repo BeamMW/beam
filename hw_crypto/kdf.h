@@ -28,4 +28,4 @@ void BeamCrypto_Kdf_Derive_SKey(const BeamCrypto_Kdf*, const BeamCrypto_UintBig*
 void BeamCrypto_Kdf_getChild(BeamCrypto_Kdf*, uint32_t iChild, const BeamCrypto_Kdf* pParent);
 
 void BeamCrypto_CoinID_getSk(const BeamCrypto_Kdf*, const BeamCrypto_CoinID*, secp256k1_scalar*);
-void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf*, const BeamCrypto_CoinID*, secp256k1_scalar*, BeamCrypto_FlexPoint*);
+void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf*, const BeamCrypto_CoinID*, secp256k1_scalar*, BeamCrypto_CompactPoint*);

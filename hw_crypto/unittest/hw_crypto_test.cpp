@@ -412,11 +412,7 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 
 	CoinID::Worker(cid).Create(sk1, comm1, *pChildKdf);
 
-	BeamCrypto_FlexPoint fp;
-	BeamCrypto_CoinID_getSkComm(&kdf2, &cid2, &sk2.get_Raw(), &fp);
-
-	BeamCrypto_FlexPoint_MakeCompact(&fp);
-	Ecc2BC(comm2) = fp.m_Compact;
+	BeamCrypto_CoinID_getSkComm(&kdf2, &cid2, &sk2.get_Raw(), &Ecc2BC(comm2));
 
 	verify_test(sk1 == sk2);
 	verify_test(comm1 == comm2);

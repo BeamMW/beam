@@ -951,7 +951,7 @@ void BeamCrypto_CoinID_getSk(const BeamCrypto_Kdf* pKdf, const BeamCrypto_CoinID
 	BeamCrypto_CoinID_getSkComm(pKdf, pCid, pK, 0);
 }
 
-void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_CoinID* pCid, secp256k1_scalar* pK, BeamCrypto_FlexPoint* pComm)
+void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_CoinID* pCid, secp256k1_scalar* pK, BeamCrypto_CompactPoint* pComm)
 {
 	BeamCrypto_FlexPoint pFlex[2];
 
@@ -1026,8 +1026,12 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 
 		assert(BeamCrypto_FlexPoint_Ge & pFlex[0].m_Flags);
 
-		secp256k1_gej_add_ge_var(&pComm->m_Gej, &pFlex[1].m_Gej, &pFlex[0].m_Ge, 0);
-		pComm->m_Flags = BeamCrypto_FlexPoint_Gej;
+		secp256k1_gej_add_ge_var(&pFlex[0].m_Gej, &pFlex[1].m_Gej, &pFlex[0].m_Ge, 0);
+		pFlex[0].m_Flags = BeamCrypto_FlexPoint_Gej;
+
+		BeamCrypto_FlexPoint_MakeCompact(&pFlex[0]);
+		assert(BeamCrypto_FlexPoint_Compact && pFlex[0].m_Flags);
+		*pComm = pFlex[0].m_Compact;
 	}
 }
 
@@ -1093,10 +1097,9 @@ static void BeamCrypto_RangeProof_Calculate_Before_S(BeamCrypto_RangeProof_Worke
 	const BeamCrypto_RangeProof* p = pWrk->m_pRangeProof;
 
 	BeamCrypto_FlexPoint fp;
-	BeamCrypto_CoinID_getSkComm(p->m_pKdf, &p->m_Cid, &pWrk->m_sk, &fp);
+	BeamCrypto_CoinID_getSkComm(p->m_pKdf, &p->m_Cid, &pWrk->m_sk, &fp.m_Compact);
+	fp.m_Flags = BeamCrypto_FlexPoint_Compact;
 
-	BeamCrypto_FlexPoint_MakeCompact(&fp);
-	assert(BeamCrypto_FlexPoint_Compact & fp.m_Flags);
 	pWrk->m_Commitment = fp.m_Compact;
 
 	// get seed
