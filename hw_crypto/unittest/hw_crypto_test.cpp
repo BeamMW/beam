@@ -981,11 +981,13 @@ void KeyKeeperWrap::ExportTx(Transaction& tx, const wallet::IPrivateKeyKeeper2::
 
 	for (unsigned int i = 0; i < tx2.m_vInputs.size(); i++)
 	{
+		wallet::IPrivateKeyKeeper2::Method::get_Commitment m;
+		m.m_Cid = tx2.m_vInputs[i];
+		Cast::Down<wallet::IPrivateKeyKeeper2>(m_kkEmu).InvokeSync(m);
+
 		Input::Ptr& pInp = tx.m_vInputs.emplace_back();
 		pInp = std::make_unique<Input>();
-
-		m_kkEmu.get_Commitment(pt, tx2.m_vInputs[i]);
-		pInp->m_Commitment = pt;
+		pInp->m_Commitment = m.m_Result;
 	}
 
 	tx.m_vOutputs.reserve(tx.m_vOutputs.size() + tx2.m_vOutputs.size());

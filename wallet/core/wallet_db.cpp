@@ -2677,20 +2677,31 @@ namespace beam::wallet
 
     bool IWalletDB::get_CommitmentSafe(ECC::Point& comm, const CoinID& cid, IPrivateKeyKeeper2* pKeyKeeper)
     {
-        ECC::Point::Native comm2;
-        if (!pKeyKeeper || (IPrivateKeyKeeper2::Status::Success != pKeyKeeper->get_Commitment(comm2, cid)))
+        Key::Index idx;
+        if (cid.get_ChildKdfIndex(idx))
         {
-            Key::Index idx;
-            if (cid.get_ChildKdfIndex(idx))
-                return false; // child kdf is required
+            if (!pKeyKeeper)
+                return false;
 
+            IPrivateKeyKeeper2::Method::get_Commitment m;
+            m.m_Cid = cid;
+
+            if (IPrivateKeyKeeper2::Status::Success != pKeyKeeper->InvokeSync(m))
+                return false;
+
+            comm = m.m_Result;
+        }
+        else
+        {
             Key::IPKdf::Ptr pOwner = get_OwnerKdf();
             assert(pOwner); // must always be available
 
+            ECC::Point::Native comm2;
             CoinID::Worker(cid).Recover(comm2, *pOwner);
+
+            comm2.Export(comm);
         }
 
-        comm = comm2;
         return true;
     }
 

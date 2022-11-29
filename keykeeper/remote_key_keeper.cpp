@@ -624,11 +624,11 @@ namespace beam::wallet
         Method::CreateOutput& m_M;
 
         Key::IPKdf::Ptr m_pOwner;
-        Key::IPKdf::Ptr m_pChild;
         Output::Ptr m_pOutput;
 
         Proto::CreateOutput m_Msg;
         Method::get_Kdf m_GetKey;
+        Method::get_Commitment m_GetCommitment;
 
         void Do()
         {
@@ -653,12 +653,12 @@ namespace beam::wallet
         {
             if (m_pOwner)
             {
-                if (m_pChild)
+                assert(m_pOutput);
+                if (m_pOutput->m_Commitment.m_Y != 2)
                     Create3();
                 else
                 {
-                    assert(m_GetKey.m_pPKdf);
-                    m_pChild = std::move(m_GetKey.m_pPKdf);
+                    m_pOutput->m_Commitment = m_GetCommitment.m_Result;
                     Create2();
                 }
             }
@@ -673,30 +673,15 @@ namespace beam::wallet
         void Create1()
         {
             // have owner key
-            if (m_M.m_Cid.get_ChildKdfIndex(m_GetKey.m_iChild))
-            {
-                if (!m_This.m_Cache.FindPKdf(m_pChild, &m_GetKey.m_iChild))
-                {
-                    m_GetKey.m_Root = false;
-                    m_This.InvokeAsync(m_GetKey, shared_from_this());
-                    return;
-                }
-            }
-            else
-                m_pChild = m_pOwner;
+            m_pOutput = std::make_unique<Output>();
+            m_pOutput->m_Commitment.m_Y = 2; // not set yet
 
-            Create2();
+            m_GetCommitment.m_Cid = m_M.m_Cid;
+            m_This.InvokeAsync(m_GetCommitment, shared_from_this());
         }
 
         void Create2()
         {
-            // have owner and child keys
-            ECC::Point::Native comm;
-            CoinID::Worker(m_M.m_Cid).Recover(comm, *m_pChild);
-
-            m_pOutput = std::make_unique<Output>();
-            m_pOutput->m_Commitment = comm;
-
             // rangeproof
             CalcLocal(Output::OpCode::Mpc_1);
 

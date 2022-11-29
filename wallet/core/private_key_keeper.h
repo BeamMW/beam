@@ -76,8 +76,6 @@ namespace beam::wallet
 
                 Key::IKdf::Ptr m_pKdf; // only for trusted host
                 Key::IPKdf::Ptr m_pPKdf;
-
-                void From(const CoinID&);
             };
 
             struct get_NumSlots {
@@ -191,9 +189,6 @@ namespace beam::wallet
 #undef THE_MACRO
 
         virtual ~IPrivateKeyKeeper2() {}
-
-        // synthetic functions (in terms of underlying ones)
-        Status::Type get_Commitment(ECC::Point::Native&, const CoinID&);
 
     private:
         struct HandlerSync;

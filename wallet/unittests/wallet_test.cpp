@@ -3917,12 +3917,13 @@ void TestKeyKeeper(IPrivateKeyKeeper2::Ptr externalKeyKeeper = {}, size_t index 
             const CoinID& cid = io.m_vInputs[j];
 
             // build input commitment
-            Point::Native comm;
-            WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == p.m_pKk->get_Commitment(comm, cid));
+            IPrivateKeyKeeper2::Method::get_Commitment m;
+            m.m_Cid = cid;
+            WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == p.m_pKk->InvokeSync(m));
 
             tx.m_vInputs.emplace_back();
             tx.m_vInputs.back().reset(new Input);
-            tx.m_vInputs.back()->m_Commitment = comm;
+            tx.m_vInputs.back()->m_Commitment = m.m_Result;
         }
 
         for (size_t j = 0; j < io.m_vOutputs.size(); j++)

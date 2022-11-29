@@ -433,11 +433,7 @@ namespace beam::wallet
 
         struct Inputs
         {
-            struct CoinPars :public IPrivateKeyKeeper2::Method::get_Kdf {
-                CoinID m_Cid;
-            };
-
-            std::vector<CoinPars> m_vMethods;
+            std::vector<IPrivateKeyKeeper2::Method::get_Commitment> m_vMethods;
             std::vector<Input::Ptr> m_Done;
 
             bool IsAllDone() const { return m_vMethods.size() == m_Done.size(); }
@@ -445,17 +441,11 @@ namespace beam::wallet
             bool OnNext()
             {
                 size_t iDone = m_Done.size();
-                CoinPars& c = m_vMethods[iDone];
-
-                if (!c.m_pPKdf)
-                    return false;
-
-                Point::Native comm;
-                CoinID::Worker(c.m_Cid).Recover(comm, *c.m_pPKdf);
+                auto& m = m_vMethods[iDone];
 
                 m_Done.emplace_back();
                 m_Done.back().reset(new Input);
-                m_Done.back()->m_Commitment = comm;
+                m_Done.back()->m_Commitment = m.m_Result;
 
                 return true;
             }
@@ -616,9 +606,8 @@ namespace beam::wallet
         x.m_Inputs.m_Done.reserve(m_Coins.m_Input.size());
         for (size_t i = 0; i < m_Coins.m_Input.size(); i++)
         {
-            HandlerInOuts::Inputs::CoinPars& c = x.m_Inputs.m_vMethods[i];
+            auto& c = x.m_Inputs.m_vMethods[i];
             c.m_Cid = m_Coins.m_Input[i];
-            c.m_Root = !c.m_Cid.get_ChildKdfIndex(c.m_iChild);
             m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Inputs.m_vMethods[i], pHandler);
         }
 
