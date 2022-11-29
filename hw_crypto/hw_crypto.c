@@ -1932,6 +1932,19 @@ PROTO_METHOD(GetPKdf)
 	return BeamCrypto_KeyKeeper_Status_Ok;
 }
 
+PROTO_METHOD(GetCommitment)
+{
+	if (nIn || nOut)
+		return BeamCrypto_KeyKeeper_Status_ProtoError; // size mismatch
+
+	secp256k1_scalar sk;
+	BeamCrypto_CoinID_getSkComm(&p->m_MasterKey, &pIn->m_Cid, &sk, &pOut->m_ptRes);
+	SECURE_ERASE_OBJ(sk);
+
+	return BeamCrypto_KeyKeeper_Status_Ok;
+
+}
+
 PROTO_METHOD(CreateOutput)
 {
 	if (nIn || nOut)

@@ -165,7 +165,7 @@ typedef struct
 
 //////////////////
 // Protocol
-#define BeamCrypto_CurrentProtoVer 1
+#define BeamCrypto_CurrentProtoVer 2
 
 #define BeamCrypto_ProtoRequest_Version(macro)
 #define BeamCrypto_ProtoResponse_Version(macro) \
@@ -191,6 +191,12 @@ typedef struct
 #define BeamCrypto_ProtoResponse_CreateOutput(macro) \
 	macro(0, BeamCrypto_CompactPoint, pT[2]) \
 	macro(0, BeamCrypto_UintBig, TauX) \
+
+#define BeamCrypto_ProtoRequest_GetCommitment(macro) \
+	macro(1, BeamCrypto_CoinID, Cid)
+
+#define BeamCrypto_ProtoResponse_GetCommitment(macro) \
+	macro(0, BeamCrypto_CompactPoint, ptRes)
 
 #define BeamCrypto_ProtoRequest_CreateShieldedInput(macro) \
 	macro(1, BeamCrypto_ShieldedInput, Inp) \
@@ -278,6 +284,7 @@ typedef struct
 	macro(0x02, GetNumSlots) \
 	macro(0x03, GetPKdf) \
 	macro(0x10, CreateOutput) \
+	macro(0x11, GetCommitment) \
 	macro(0x21, CreateShieldedInput) \
 	macro(0x22, CreateShieldedVouchers) \
 	macro(0x30, TxSplit) \
