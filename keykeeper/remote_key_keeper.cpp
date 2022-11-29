@@ -585,6 +585,32 @@ namespace beam::wallet
         }
     };
 
+    struct RemoteKeyKeeper::Impl::RemoteCall_get_Commitment
+        :public RemoteCall
+    {
+        RemoteCall_get_Commitment(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::get_Commitment& m)
+            :RemoteCall(kk, h)
+            ,m_M(m)
+        {
+        }
+
+        Method::get_Commitment& m_M;
+        Proto::GetCommitment m_Msg;
+
+        void Do()
+        {
+            CidCvt(m_Msg.m_Out.m_Cid, m_M.m_Cid);
+            InvokeProto(m_Msg);
+        }
+
+        virtual void OnRemoteData() override
+        {
+            m_Msg.m_In.n2h();
+            Ecc2BC(m_M.m_Result) = m_Msg.m_In.m_ptRes;
+            Fin();
+        }
+    };
+
 
     struct RemoteKeyKeeper::Impl::RemoteCall_CreateOutput
         :public RemoteCall

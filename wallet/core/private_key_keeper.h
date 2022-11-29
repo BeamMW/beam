@@ -84,6 +84,11 @@ namespace beam::wallet
                 Slot::Type m_Count;
             };
 
+            struct get_Commitment {
+                CoinID m_Cid;
+                ECC::Point m_Result;
+            };
+
             struct CreateOutput {
                 Height m_hScheme; // scheme prior to Fork1 isn't supported for trustless wallet
                 CoinID m_Cid; // weak schemes (V0, BB21) isn't supported for trustless wallet
@@ -168,6 +173,7 @@ namespace beam::wallet
 #define KEY_KEEPER_METHODS(macro) \
 		macro(get_Kdf) \
 		macro(get_NumSlots) \
+		macro(get_Commitment) \
 		macro(CreateOutput) \
 		macro(CreateInputShielded) \
 		macro(CreateVoucherShielded) \

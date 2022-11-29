@@ -266,6 +266,15 @@ namespace beam::wallet
         return Status::Success;
     }
 
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::get_Commitment& x)
+    {
+        ECC::Point::Native pt;
+        CoinID::Worker(x.m_Cid).Recover(pt, *x.m_Cid.get_ChildKdf(m_pKdf));
+
+        x.m_Result = pt;
+        return Status::Success;
+    }
+
     IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::CreateOutput& x)
     {
         if (IsTrustless())
