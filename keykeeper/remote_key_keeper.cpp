@@ -595,19 +595,82 @@ namespace beam::wallet
         }
 
         Method::get_Commitment& m_M;
-        Proto::GetCommitment m_Msg;
+        Proto::GetImage m_Msg;
+        Method::get_Kdf m_GetKey;
+        uint32_t m_Phase = 0;
 
         void Do()
         {
-            CidCvt(m_Msg.m_Out.m_Cid, m_M.m_Cid);
-            InvokeProto(m_Msg);
+
+            if (m_M.m_Cid.get_ChildKdfIndex(m_Msg.m_Out.m_iChild))
+            {
+                m_Msg.m_Out.m_bG = 1;
+                m_Msg.m_Out.m_bJ = 1;
+
+                m_M.m_Cid.get_Hash(Cast::Reinterpret<ECC::Hash::Value>(m_Msg.m_Out.m_hvSrc));
+
+                m_Phase = 1;
+                InvokeProto(m_Msg);
+
+            }
+            else
+            {
+                if (m_This.m_Cache.FindPKdf(m_GetKey.m_pPKdf, nullptr))
+                    CreateLocal();
+                else
+                {
+                    m_GetKey.m_Root = true;
+                    m_GetKey.m_iChild = 0;
+                    m_This.InvokeAsync(m_GetKey, shared_from_this());
+                }
+
+            }
+        }
+
+        void CreateLocal()
+        {
+            assert(m_GetKey.m_pPKdf);
+
+            ECC::Point::Native comm;
+            CoinID::Worker(m_M.m_Cid).Recover(comm, *m_GetKey.m_pPKdf);
+
+            comm.Export(m_M.m_Result);
+            Fin();
+        }
+
+        void CreateFromImages()
+        {
+            ECC::Point::Native ptG, ptJ;
+            if (!ptG.ImportNnz(Cast::Reinterpret<ECC::Point>(m_Msg.m_In.m_ptImageG)) ||
+                !ptJ.ImportNnz(Cast::Reinterpret<ECC::Point>(m_Msg.m_In.m_ptImageJ)))
+                Fin(Status::Unspecified);
+
+            CoinID::Worker(m_M.m_Cid).Recover(ptG, ptJ);
+
+            ptG.Export(m_M.m_Result);
+            Fin();
         }
 
         virtual void OnRemoteData() override
         {
-            m_Msg.m_In.n2h();
-            Ecc2BC(m_M.m_Result) = m_Msg.m_In.m_ptRes;
-            Fin();
+            switch (m_Phase)
+            {
+            default:
+                assert(false);
+                // no break;
+
+            case 0:
+                if (!m_GetKey.m_pPKdf)
+                    Fin(Status::Unspecified);
+                CreateLocal();
+
+                break;
+
+            case 1:
+                m_Msg.m_In.n2h();
+                CreateFromImages();
+                break;
+            }
         }
     };
 

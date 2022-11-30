@@ -192,11 +192,15 @@ typedef struct
 	macro(0, BeamCrypto_CompactPoint, pT[2]) \
 	macro(0, BeamCrypto_UintBig, TauX) \
 
-#define BeamCrypto_ProtoRequest_GetCommitment(macro) \
-	macro(1, BeamCrypto_CoinID, Cid)
+#define BeamCrypto_ProtoRequest_GetImage(macro) \
+	macro(0, BeamCrypto_UintBig, hvSrc) \
+	macro(1, uint32_t, iChild) \
+	macro(0, uint8_t, bG) \
+	macro(0, uint8_t, bJ) \
 
-#define BeamCrypto_ProtoResponse_GetCommitment(macro) \
-	macro(0, BeamCrypto_CompactPoint, ptRes)
+#define BeamCrypto_ProtoResponse_GetImage(macro) \
+	macro(0, BeamCrypto_CompactPoint, ptImageG) \
+	macro(0, BeamCrypto_CompactPoint, ptImageJ) \
 
 #define BeamCrypto_ProtoRequest_CreateShieldedInput(macro) \
 	macro(1, BeamCrypto_ShieldedInput, Inp) \
@@ -283,8 +287,8 @@ typedef struct
 	macro(0x01, Version) \
 	macro(0x02, GetNumSlots) \
 	macro(0x03, GetPKdf) \
+	macro(0x04, GetImage) \
 	macro(0x10, CreateOutput) \
-	macro(0x11, GetCommitment) \
 	macro(0x21, CreateShieldedInput) \
 	macro(0x22, CreateShieldedVouchers) \
 	macro(0x30, TxSplit) \

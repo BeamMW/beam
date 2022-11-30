@@ -1932,17 +1932,50 @@ PROTO_METHOD(GetPKdf)
 	return BeamCrypto_KeyKeeper_Status_Ok;
 }
 
-PROTO_METHOD(GetCommitment)
+PROTO_METHOD(GetImage)
 {
 	if (nIn || nOut)
 		return BeamCrypto_KeyKeeper_Status_ProtoError; // size mismatch
 
+	BeamCrypto_Kdf kdfC;
+	BeamCrypto_Kdf_getChild(&kdfC, pIn->m_iChild, &p->m_MasterKey);
+
 	secp256k1_scalar sk;
-	BeamCrypto_CoinID_getSkComm(&p->m_MasterKey, &pIn->m_Cid, &sk, &pOut->m_ptRes);
-	SECURE_ERASE_OBJ(sk);
+	BeamCrypto_Kdf_Derive_SKey(&kdfC, &pIn->m_hvSrc, &sk);
+	SECURE_ERASE_OBJ(kdfC);
+
+	BeamCrypto_FlexPoint pFlex[2];
+
+	if (pIn->m_bG)
+		BeamCrypto_MulG(pFlex, &sk);
+
+	if (pIn->m_bJ)
+	{
+		BeamCrypto_MulPoint(pFlex + 1, BeamCrypto_Context_get()->m_pGenGJ + 1, &sk);
+
+		if (pIn->m_bG)
+			BeamCrypto_FlexPoint_MakeGe_Batch(pFlex, _countof(pFlex));
+
+		BeamCrypto_FlexPoint_MakeCompact(pFlex + 1);
+		pOut->m_ptImageJ = pFlex[1].m_Compact;
+	}
+	else
+	{
+		if (!pIn->m_bG)
+			return BeamCrypto_KeyKeeper_Status_Unspecified;
+
+		memset(&pOut->m_ptImageJ, 0, sizeof(pOut->m_ptImageJ));
+	}
+
+	if (pIn->m_bG)
+	{
+		BeamCrypto_FlexPoint_MakeCompact(pFlex);
+		pOut->m_ptImageG = pFlex->m_Compact;
+	}
+	else
+		memset(&pOut->m_ptImageG, 0, sizeof(pOut->m_ptImageG));
 
 	return BeamCrypto_KeyKeeper_Status_Ok;
-
 }
 
 PROTO_METHOD(CreateOutput)
