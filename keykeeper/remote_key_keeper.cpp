@@ -26,77 +26,21 @@ namespace beam::wallet
 
     //////////////
     // Cache
-    void RemoteKeyKeeper::Cache::ShrinkMru(uint32_t nCount)
+
+    bool RemoteKeyKeeper::Cache::get_Owner(Key::IPKdf::Ptr& pRes)
     {
-        while (m_mruPKdfs.size() > nCount)
-        {
-            ChildPKdf& x = m_mruPKdfs.back();
-            m_mruPKdfs.pop_back();
-
-            m_setPKdfs.erase(ChildPKdfSet::s_iterator_to(x));
-            delete& x;
-        }
-    }
-
-    void RemoteKeyKeeper::Cache::AddMru(ChildPKdf& x)
-    {
-        m_mruPKdfs.push_front(x);
-    }
-
-    bool RemoteKeyKeeper::Cache::FindPKdf(Key::IPKdf::Ptr& pRes, const Key::Index* pChild)
-    {
-        pRes.reset(); // for more safety
-
         std::unique_lock<std::mutex> scope(m_Mutex);
 
-        if (pChild)
-        {
-            ChildPKdf key;
-            key.m_iChild = *pChild;
-
-            ChildPKdfSet::iterator it = m_setPKdfs.find(key);
-            if (m_setPKdfs.end() != it)
-            {
-                ChildPKdf& x = *it;
-                m_mruPKdfs.erase(ChildPKdfList::s_iterator_to(x));
-                AddMru(x);
-                pRes = x.m_pRes;
-            }
-        }
-        else
-        {
-            pRes = m_pOwner;
-        }
-
+        pRes = m_pOwner;
         return pRes != nullptr;
     }
 
-    void RemoteKeyKeeper::Cache::AddPKdf(const Key::IPKdf::Ptr& pRes, const Key::Index* pChild)
+    void RemoteKeyKeeper::Cache::set_Owner(const Key::IPKdf::Ptr& pRes)
     {
         std::unique_lock<std::mutex> scope(m_Mutex);
 
-        if (pChild)
-        {
-            std::unique_ptr<ChildPKdf> pItem = std::make_unique<ChildPKdf>();
-            pItem->m_iChild = *pChild;
-
-            ChildPKdfSet::iterator it = m_setPKdfs.find(*pItem);
-            if (m_setPKdfs.end() == it)
-            {
-                pItem->m_pRes = pRes;
-
-                m_setPKdfs.insert(*pItem);
-                AddMru(*pItem);
-                pItem.release();
-
-                ShrinkMru(1000); // don't let it grow indefinitely
-            }
-        }
-        else
-        {
-            if (!m_pOwner)
-                m_pOwner = pRes;
-        }
+        if (!m_pOwner)
+            m_pOwner = pRes;
     }
 
     uint32_t RemoteKeyKeeper::Cache::get_NumSlots()
@@ -462,8 +406,20 @@ namespace beam::wallet
 
     IPrivateKeyKeeper2::Status::Type RemoteKeyKeeper::InvokeSync(Method::get_Kdf& m)
     {
-        if (m_Cache.FindPKdf(m.m_pPKdf, m.m_Root ? nullptr : &m.m_iChild))
-            return Status::Success;
+        switch (m.m_Type)
+        {
+        case KdfType::Root:
+            if (m_Cache.get_Owner(m.m_pPKdf))
+                return Status::Success;
+
+            // no break;
+
+        case KdfType::Sbbs:
+            break;
+
+        default:
+            return Status::Unspecified;
+        }
 
         return PrivateKeyKeeper_WithMarshaller::InvokeSync(m);
     }
@@ -494,14 +450,13 @@ namespace beam::wallet
 
         void Do()
         {
-            if (m_This.m_Cache.FindPKdf(m_M.m_pPKdf, m_M.m_Root ? nullptr : &m_M.m_iChild))
+            if ((KdfType::Root == m_M.m_Type) && m_This.m_Cache.get_Owner(m_M.m_pPKdf))
             {
                 Fin();
                 return;
             }
 
-            m_Msg.m_Out.m_Root = m_M.m_Root;
-            m_Msg.m_Out.m_iChild = m_M.m_iChild;
+            m_Msg.m_Out.m_Kind = (KdfType::Root == m_M.m_Type) ? 0 : 1;
             InvokeProto(m_Msg);
         }
 
@@ -517,7 +472,8 @@ namespace beam::wallet
             auto pRes = std::make_shared<ECC::HKdfPub>();
             if (Cast::Up<ECC::HKdfPub>(*pRes).Import(p))
             {
-                m_This.m_Cache.AddPKdf(pRes, m_M.m_Root ? nullptr : &m_M.m_iChild);
+                if (KdfType::Root == m_M.m_Type)
+                    m_This.m_Cache.set_Owner(pRes);
 
                 m_M.m_pPKdf = std::move(pRes);
                 Fin();
@@ -615,12 +571,11 @@ namespace beam::wallet
             }
             else
             {
-                if (m_This.m_Cache.FindPKdf(m_GetKey.m_pPKdf, nullptr))
+                if (m_This.m_Cache.get_Owner(m_GetKey.m_pPKdf))
                     CreateLocal();
                 else
                 {
-                    m_GetKey.m_Root = true;
-                    m_GetKey.m_iChild = 0;
+                    m_GetKey.m_Type = KdfType::Root;
                     m_This.InvokeAsync(m_GetKey, shared_from_this());
                 }
 
@@ -701,12 +656,11 @@ namespace beam::wallet
                 return;
             }
 
-            if (m_This.m_Cache.FindPKdf(m_pOwner, nullptr))
+            if (m_This.m_Cache.get_Owner(m_pOwner))
                 Create1();
             else
             {
-                m_GetKey.m_Root = true;
-                m_GetKey.m_iChild = 0;
+                m_GetKey.m_Type = KdfType::Root;
                 m_This.InvokeAsync(m_GetKey, shared_from_this());
 
             }
@@ -815,13 +769,11 @@ namespace beam::wallet
         void Do()
         {
 
-            if (m_This.m_Cache.FindPKdf(m_GetKey.m_pPKdf, nullptr))
+            if (m_This.m_Cache.get_Owner(m_GetKey.m_pPKdf))
                 Create1();
             else
             {
-                m_GetKey.m_Root = true;
-                m_GetKey.m_iChild = 0;
-
+                m_GetKey.m_Type = KdfType::Root;
                 m_This.InvokeAsync(m_GetKey, shared_from_this());
             }
         }

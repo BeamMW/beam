@@ -46,6 +46,11 @@ namespace beam::wallet
             static const Type NotImplemented = 3;
         };
 
+        enum struct KdfType {
+            Root,
+            Sbbs,
+        };
+
         struct Handler
         {
             typedef std::shared_ptr<Handler> Ptr;
@@ -71,8 +76,7 @@ namespace beam::wallet
         {
             struct get_Kdf
             {
-                Key::Index m_iChild;
-                bool m_Root; // if true the m_iChild is ignored
+                KdfType m_Type;
 
                 Key::IKdf::Ptr m_pKdf; // only for trusted host
                 Key::IPKdf::Ptr m_pPKdf;

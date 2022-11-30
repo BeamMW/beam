@@ -176,8 +176,7 @@ typedef struct
 	macro(1, uint32_t, Value)
 
 #define BeamCrypto_ProtoRequest_GetPKdf(macro) \
-	macro(0, uint8_t, Root) \
-	macro(1, uint32_t, iChild)
+	macro(0, uint8_t, Kind) \
 
 #define BeamCrypto_ProtoResponse_GetPKdf(macro) \
 	macro(0, BeamCrypto_KdfPub, Value)

@@ -3839,7 +3839,7 @@ void TestKeyKeeper(IPrivateKeyKeeper2::Ptr externalKeyKeeper = {}, size_t index 
 
         // get ID
         IPrivateKeyKeeper2::Method::get_Kdf m;
-        m.m_Root = true;
+        m.m_Type = IPrivateKeyKeeper2::KdfType::Root;
         WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == p.m_pKk->InvokeSync(m));
         WALLET_CHECK(!m.m_pKdf); // we're testing in trustless mode
         WALLET_CHECK(m.m_pPKdf);

@@ -1927,7 +1927,8 @@ PROTO_METHOD(GetPKdf)
 	if (nIn || nOut)
 		return BeamCrypto_KeyKeeper_Status_ProtoError; // size mismatch
 
-	BeamCrypto_KeyKeeper_GetPKdf(p, &pOut->m_Value, pIn->m_Root ? 0 : &pIn->m_iChild);
+	uint32_t iChild = (uint32_t) -1;
+	BeamCrypto_KeyKeeper_GetPKdf(p, &pOut->m_Value, pIn->m_Kind ? &iChild : 0);
 
 	return BeamCrypto_KeyKeeper_Status_Ok;
 }

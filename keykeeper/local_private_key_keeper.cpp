@@ -248,14 +248,26 @@ namespace beam::wallet
 
     IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::get_Kdf& x)
     {
-        Key::IKdf::Ptr pKdf = x.m_Root ?
-            m_pKdf :
-            MasterKey::get_Child(*m_pKdf, x.m_iChild);
+        Key::IKdf::Ptr pKdf;
 
-        x.m_pPKdf = pKdf;
+        switch (x.m_Type)
+        {
+        case KdfType::Root:
+            pKdf = m_pKdf;
+            break;
 
+        case KdfType::Sbbs:
+            pKdf = MasterKey::get_Child(*m_pKdf, Key::Index(-1)); // definitely won't be used for any coin
+            break;
+
+        default:
+            return Status::Unspecified;
+        }
+        
         if (!IsTrustless())
             x.m_pKdf = pKdf;
+
+        x.m_pPKdf = std::move(pKdf);
 
         return Status::Success;
     }

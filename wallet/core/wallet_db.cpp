@@ -2021,7 +2021,7 @@ namespace beam::wallet
             throw std::runtime_error("Key keeper required");
 
         IPrivateKeyKeeper2::Method::get_Kdf m;
-        m.m_Root = true;
+        m.m_Type = IPrivateKeyKeeper2::KdfType::Root;
         m_pKeyKeeper->InvokeSync(m);
 
         if (m.m_pKdf)
@@ -2038,9 +2038,7 @@ namespace beam::wallet
         m_pKdfOwner = std::move(m.m_pPKdf);
 
         // trustless mode. create SBBS Kdf from a child PKdf. It won't be directly accessible from the owner key
-        m.m_Root = false;
-        m.m_iChild = Key::Index(-1); // definitely won't collude with a coin child Kdf (for coins high byte is reserved for scheme)
-
+        m.m_Type = IPrivateKeyKeeper2::KdfType::Sbbs;
         m_pKeyKeeper->InvokeSync(m);
 
         if (!m.m_pPKdf)
