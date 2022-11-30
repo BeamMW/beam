@@ -145,6 +145,8 @@ typedef struct
 
 } BeamCrypto_ShieldedVoucher;
 
+#define BeamCrypto_ShieldedInput_ChildKdf ((uint32_t) -2)
+
 #pragma pack (push, 1)
 typedef struct
 {

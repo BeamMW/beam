@@ -139,7 +139,7 @@ namespace beam
 	{
 		ECC::Hash::Value hv;
 		get_SkOutPreimage(hv, fee);
-		kdf.DeriveKey(out, hv);
+		MasterKey::get_Child(kdf, s_iChildOut)->DeriveKey(out, hv);
 	}
 
 	/////////////

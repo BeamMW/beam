@@ -1035,7 +1035,7 @@ void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf* pKdf, const BeamCrypto_Co
 	}
 }
 
-static void BeamCrypto_ShieldedInput_getSk(const BeamCrypto_Kdf* pKdf, const BeamCrypto_ShieldedInput* pInp, secp256k1_scalar* pK)
+static void BeamCrypto_ShieldedInput_getSk(const BeamCrypto_KeyKeeper* p, const BeamCrypto_ShieldedInput* pInp, secp256k1_scalar* pK)
 {
 	BeamCrypto_UintBig hv;
 	secp256k1_sha256_t sha;
@@ -1050,7 +1050,9 @@ static void BeamCrypto_ShieldedInput_getSk(const BeamCrypto_Kdf* pKdf, const Bea
 	secp256k1_sha256_write_Num(&sha, pInp->m_TxoID.m_nViewerIdx);
 	secp256k1_sha256_finalize(&sha, hv.m_pVal);
 
-	BeamCrypto_Kdf_Derive_SKey(pKdf, &hv, pK);
+	BeamCrypto_Kdf kdfChild;
+	BeamCrypto_Kdf_getChild(&kdfChild, BeamCrypto_ShieldedInput_ChildKdf, &p->m_MasterKey);
+	BeamCrypto_Kdf_Derive_SKey(&kdfChild, &hv, pK);
 }
 
 //////////////////////////////
@@ -2116,7 +2118,7 @@ static int TxAggregateShIns(const BeamCrypto_KeyKeeper* p, BeamCrypto_ShieldedIn
 			return 0; // overflow
 
 		secp256k1_scalar sk;
-		BeamCrypto_ShieldedInput_getSk(&p->m_MasterKey, pIns, &sk);
+		BeamCrypto_ShieldedInput_getSk(p, pIns, &sk);
 
 		secp256k1_scalar_add(&pCommon->m_sk, &pCommon->m_sk, &sk);
 		SECURE_ERASE_OBJ(sk);
@@ -2790,7 +2792,7 @@ PROTO_METHOD(CreateShieldedInput)
 	secp256k1_sha256_write_Num(&oracle.m_sha, pIn->m_Sigma_M);
 
 	// output commitment
-	BeamCrypto_ShieldedInput_getSk(&p->m_MasterKey, &pIn->m_Inp, &skOutp);
+	BeamCrypto_ShieldedInput_getSk(p, &pIn->m_Inp, &skOutp); // TODO: use isolated child!
 	BeamCrypto_CoinID_getCommRaw(&skOutp, pIn->m_Inp.m_TxoID.m_Amount, pIn->m_Inp.m_TxoID.m_AssetID, &comm);
 	secp256k1_sha256_write_Point(&oracle.m_sha, &comm);
 

@@ -752,6 +752,7 @@ namespace beam::wallet
 
         uint32_t m_Phase = 0;
 
+        Proto::GetImage m_GetCommitment;
         Proto::CreateShieldedInput m_Msg;
         ByteBuffer m_MsgOut;
 
@@ -768,17 +769,24 @@ namespace beam::wallet
 
         void Do()
         {
-
             if (m_This.m_Cache.get_Owner(m_GetKey.m_pPKdf))
-                Create1();
+                m_Phase = 1;
             else
             {
                 m_GetKey.m_Type = KdfType::Root;
                 m_This.InvokeAsync(m_GetKey, shared_from_this());
             }
+
+            static_assert(BeamCrypto_ShieldedInput_ChildKdf == ShieldedTxo::ID::s_iChildOut);
+
+            m_GetCommitment.m_Out.m_bG = 1;
+            m_GetCommitment.m_Out.m_bJ = 0;
+            m_GetCommitment.m_Out.m_iChild = BeamCrypto_ShieldedInput_ChildKdf;
+            m_M.get_SkOutPreimage(Cast::Reinterpret<ECC::Hash::Value>(m_GetCommitment.m_Out.m_hvSrc), m_M.m_pKernel->m_Fee);
+            InvokeProto(m_GetCommitment);
         }
 
-        void Setup()
+        bool Setup()
         {
             auto& m = m_M; // alias
             assert(m.m_pList && m.m_pKernel);
@@ -808,8 +816,9 @@ namespace beam::wallet
 
             // output commitment
             ECC::Point::Native comm;
-            m.get_SkOutPreimage(m_hvSigmaSeed, krn.m_Fee);
-            m_GetKey.m_pPKdf->DerivePKeyG(comm, m_hvSigmaSeed);
+            if (!comm.ImportNnz(Cast::Reinterpret<ECC::Point>(m_GetCommitment.m_In.m_ptImageG)))
+                return false;
+            
             ECC::Tag::AddValue(comm, &plus.m_hGen, m.m_Value);
 
             proof.m_Commitment = comm;
@@ -858,14 +867,16 @@ namespace beam::wallet
                 << krn.m_Msg
                 << proof.m_Commitment
                 >> m_hvSigmaSeed;
+
+            return true;
         }
 
         void Create1()
         {
             assert(m_GetKey.m_pPKdf);
-            m_Phase = 1;
 
-            Setup();
+            if (!Setup())
+                return;
 
             {
                 ExecutorMT_R exec;
@@ -917,10 +928,24 @@ namespace beam::wallet
 
         virtual void OnRemoteData() override
         {
-            if (m_Phase)
-                Create2();
-            else
+            switch (m_Phase)
+            {
+            case 0:
+                if (!m_GetKey.m_pPKdf)
+                    Fin(Status::Unspecified);
+
+                m_Phase = 1;
+                break;
+
+            case 1:
                 Create1();
+                m_Phase = 2;
+                break;
+
+            case 2:
+                Create2();
+            }
+
         }
     };
 
