@@ -14,7 +14,17 @@
 
 #include <iostream>
 
-extern "C" {
+#include "../core/ecc_native.h"
+#include "../core/block_crypt.h"
+
+#include "../keykeeper/local_private_key_keeper.h"
+#include "../keykeeper/remote_key_keeper.h"
+
+namespace beam {
+namespace hw {
+
+extern "C"
+{
 #include "multimac.h"
 #include "oracle.h"
 #include "noncegen.h"
@@ -23,19 +33,7 @@ extern "C" {
 #include "rangeproof.h"
 #include "sign.h"
 #include "keykeeper.h"
-}
 
-#include "../core/ecc_native.h"
-#include "../core/block_crypt.h"
-
-#include "../keykeeper/local_private_key_keeper.h"
-#include "../keykeeper/remote_key_keeper.h"
-
-
-using namespace beam;
-
-extern "C"
-{
 	void BeamCrypto_SecureEraseMem(void* p, uint32_t n)
 	{
 		memset0(p, n);
@@ -64,6 +62,11 @@ extern "C"
 	}
 
 }
+
+} // namespace hw
+} // namespace beam
+
+using namespace beam;
 
 
 int g_TestsFailed = 0;
@@ -125,19 +128,19 @@ void SetRandomOrd(T& x)
 	GenerateRandom(&x, sizeof(x));
 }
 
-BeamCrypto_UintBig& Ecc2BC(const ECC::uintBig& x)
+hw::BeamCrypto_UintBig& Ecc2BC(const ECC::uintBig& x)
 {
-	static_assert(sizeof(x) == sizeof(BeamCrypto_UintBig));
-	return (BeamCrypto_UintBig&) x;
+	static_assert(sizeof(x) == sizeof(hw::BeamCrypto_UintBig));
+	return (hw::BeamCrypto_UintBig&) x;
 }
 
-BeamCrypto_CompactPoint& Ecc2BC(const ECC::Point& x)
+hw::BeamCrypto_CompactPoint& Ecc2BC(const ECC::Point& x)
 {
-	static_assert(sizeof(x) == sizeof(BeamCrypto_CompactPoint));
-	return (BeamCrypto_CompactPoint&) x;
+	static_assert(sizeof(x) == sizeof(hw::BeamCrypto_CompactPoint));
+	return (hw::BeamCrypto_CompactPoint&) x;
 }
 
-void BeamCrypto_InitGenSecure(BeamCrypto_MultiMac_Secure& x, const ECC::Point::Native& ptVal, const ECC::Point::Native& nums)
+void BeamCrypto_InitGenSecure(hw::BeamCrypto_MultiMac_Secure& x, const ECC::Point::Native& ptVal, const ECC::Point::Native& nums)
 {
 	ECC::Point::Compact::Converter cpc;
 	ECC::Point::Native pt = nums;
@@ -164,7 +167,7 @@ void BeamCrypto_InitGenSecure(BeamCrypto_MultiMac_Secure& x, const ECC::Point::N
 	cpc.Flush();
 }
 
-void BeamCrypto_InitFast(BeamCrypto_MultiMac_Fast& trg, const ECC::MultiMac::Prepared& p)
+void BeamCrypto_InitFast(hw::BeamCrypto_MultiMac_Fast& trg, const ECC::MultiMac::Prepared& p)
 {
 	const ECC::MultiMac::Prepared::Fast& src = p.m_Fast;
 
@@ -204,7 +207,7 @@ void InitContext()
 {
 	printf("Init context...\n");
 
-	BeamCrypto_Context* pCtx = BeamCrypto_Context_get();
+	hw::BeamCrypto_Context* pCtx = hw::BeamCrypto_Context_get();
 	assert(pCtx);
 
 	const ECC::Context& ctx = ECC::Context::get();
@@ -233,9 +236,9 @@ void TestMultiMac()
 
 	ECC::Mode::Scope scope(ECC::Mode::Fast);
 
-	uint32_t aa = sizeof(BeamCrypto_MultiMac_Secure);
-	uint32_t bb = sizeof(BeamCrypto_MultiMac_Fast);
-	uint32_t cc = sizeof(BeamCrypto_MultiMac_WNaf);
+	uint32_t aa = sizeof(hw::BeamCrypto_MultiMac_Secure);
+	uint32_t bb = sizeof(hw::BeamCrypto_MultiMac_Fast);
+	uint32_t cc = sizeof(hw::BeamCrypto_MultiMac_WNaf);
 	aa;  bb; cc;
 
 	const uint32_t nFast = 8;
@@ -243,17 +246,17 @@ void TestMultiMac()
 
 	const uint32_t nBatch = nFast + nSecure;
 
-	BeamCrypto_MultiMac_WNaf pWnaf[nFast];
-	BeamCrypto_MultiMac_Scalar pFastS[nFast];
+	hw::BeamCrypto_MultiMac_WNaf pWnaf[nFast];
+	hw::BeamCrypto_MultiMac_Scalar pFastS[nFast];
 
-	BeamCrypto_MultiMac_Secure pGenSecure[nSecure];
+	hw::BeamCrypto_MultiMac_Secure pGenSecure[nSecure];
 	secp256k1_scalar pSecureS[nSecure];
 
-	BeamCrypto_MultiMac_Context mmCtx;
+	hw::BeamCrypto_MultiMac_Context mmCtx;
 	mmCtx.m_pZDenom = nullptr;
 	mmCtx.m_Fast = nFast;
 	mmCtx.m_Secure = nSecure;
-	mmCtx.m_pGenFast = BeamCrypto_Context_get()->m_pGenFast;
+	mmCtx.m_pGenFast = hw::BeamCrypto_Context_get()->m_pGenFast;
 	mmCtx.m_pS = pFastS;
 	mmCtx.m_pWnaf = pWnaf;
 	mmCtx.m_pGenSecure = pGenSecure;
@@ -323,7 +326,7 @@ void TestNonceGen()
 		ECC::NonceGenerator ng1(szSalt);
 		ng1 << seed;
 
-		BeamCrypto_NonceGenerator ng2;
+		hw::BeamCrypto_NonceGenerator ng2;
 		BeamCrypto_NonceGenerator_Init(&ng2, szSalt, sizeof(szSalt), &Ecc2BC(seed));
 
 		for (int j = 0; j < 10; j++)
@@ -344,8 +347,8 @@ void TestOracle()
 	for (int i = 0; i < 3; i++)
 	{
 		ECC::Oracle o1;
-		BeamCrypto_Oracle o2;
-		BeamCrypto_Oracle_Init(&o2);
+		hw::BeamCrypto_Oracle o2;
+		hw::BeamCrypto_Oracle_Init(&o2);
 
 		for (int j = 0; j < 4; j++)
 		{
@@ -353,7 +356,7 @@ void TestOracle()
 			{
 				ECC::Scalar::Native sk1, sk2;
 				o1 >> sk1;
-				BeamCrypto_Oracle_NextScalar(&o2, &sk2.get_Raw());
+				hw::BeamCrypto_Oracle_NextScalar(&o2, &sk2.get_Raw());
 
 				verify_test(sk1 == sk2);
 			}
@@ -362,17 +365,17 @@ void TestOracle()
 			SetRandom(val);
 
 			o1 << val;
-			BeamCrypto_Oracle_Expose(&o2, val.m_pData, val.nBytes);
+			hw::BeamCrypto_Oracle_Expose(&o2, val.m_pData, val.nBytes);
 		}
 	}
 }
 
-void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
+void TestCoin(const CoinID& cid, Key::IKdf& kdf, const hw::BeamCrypto_Kdf& kdf2)
 {
 	ECC::Hash::Value hv1, hv2;
 	cid.get_Hash(hv1);
 
-	BeamCrypto_CoinID cid2;
+	hw::BeamCrypto_CoinID cid2;
 	cid2.m_Idx = cid.m_Idx;
 	cid2.m_Type = cid.m_Type;
 	cid2.m_SubIdx = cid.m_SubIdx;
@@ -385,7 +388,7 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 
 	uint8_t nScheme;
 	uint32_t nSubKey;
-	bool bChildKdf2 = !!BeamCrypto_CoinID_getSchemeAndSubkey(&cid2, &nScheme, &nSubKey);
+	bool bChildKdf2 = !!hw::BeamCrypto_CoinID_getSchemeAndSubkey(&cid2, &nScheme, &nSubKey);
 
 	verify_test(cid.get_Scheme() == nScheme);
 
@@ -412,7 +415,7 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 
 	CoinID::Worker(cid).Create(sk1, comm1, *pChildKdf);
 
-	BeamCrypto_CoinID_getSkComm(&kdf2, &cid2, &sk2.get_Raw(), &Ecc2BC(comm2));
+	hw::BeamCrypto_CoinID_getSkComm(&kdf2, &cid2, &sk2.get_Raw(), &Ecc2BC(comm2));
 
 	verify_test(sk1 == sk2);
 	verify_test(comm1 == comm2);
@@ -438,13 +441,13 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 	outp.Create(g_hFork, skDummy, kdfDummy, cid, kdf, Output::OpCode::Mpc_1, &user); // Phase 1
 	assert(outp.m_pConfidential);
 
-	BeamCrypto_CompactPoint pT[2];
+	hw::BeamCrypto_CompactPoint pT[2];
 	pT[0] = Ecc2BC(outp.m_pConfidential->m_Part2.m_T1);
 	pT[1] = Ecc2BC(outp.m_pConfidential->m_Part2.m_T2);
 
 	ECC::Scalar::Native tauX;
 
-	BeamCrypto_RangeProof rp;
+	hw::BeamCrypto_RangeProof rp;
 	rp.m_pKdf = &kdf2;
 	rp.m_Cid = cid2;
 	rp.m_pT_In = pT;
@@ -453,7 +456,7 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 	rp.m_pTauX = &tauX.get_Raw();
 	rp.m_pAssetGen = outp.m_pAsset ? &Ecc2BC(outp.m_pAsset->m_hGen) : nullptr;
 
-	verify_test(BeamCrypto_RangeProof_Calculate(&rp)); // Phase 2
+	verify_test(hw::BeamCrypto_RangeProof_Calculate(&rp)); // Phase 2
 
 	Ecc2BC(outp.m_pConfidential->m_Part2.m_T1) = pT[0];
 	Ecc2BC(outp.m_pConfidential->m_Part2.m_T2) = pT[1];
@@ -477,13 +480,13 @@ void TestCoins()
 	printf("Utxo key derivation and rangeproof...\n");
 
 	ECC::HKdf hkdf;
-	BeamCrypto_Kdf kdf2;
+	hw::BeamCrypto_Kdf kdf2;
 
 	ECC::Hash::Value hv;
 	SetRandom(hv);
 
 	hkdf.Generate(hv);
-	BeamCrypto_Kdf_Init(&kdf2, &Ecc2BC(hv));
+	hw::BeamCrypto_Kdf_Init(&kdf2, &Ecc2BC(hv));
 
 	for (int i = 0; i < 3; i++)
 	{
@@ -528,7 +531,7 @@ void TestKdf()
 	printf("Key derivation...\n");
 
 	ECC::HKdf hkdf;
-	BeamCrypto_Kdf kdf2;
+	hw::BeamCrypto_Kdf kdf2;
 
 	for (int i = 0; i < 3; i++)
 	{
@@ -541,12 +544,12 @@ void TestKdf()
 			SetRandomOrd(iChild);
 
 			hkdf.GenerateChild(hkdf, iChild);
-			BeamCrypto_Kdf_getChild(&kdf2, iChild, &kdf2);
+			hw::BeamCrypto_Kdf_getChild(&kdf2, iChild, &kdf2);
 		}
 		else
 		{
 			hkdf.Generate(hv);
-			BeamCrypto_Kdf_Init(&kdf2, &Ecc2BC(hv));
+			hw::BeamCrypto_Kdf_Init(&kdf2, &Ecc2BC(hv));
 		}
 
 		for (int j = 0; j < 5; j++)
@@ -556,11 +559,11 @@ void TestKdf()
 			ECC::Scalar::Native sk1, sk2;
 
 			hkdf.DerivePKey(sk1, hv);
-			BeamCrypto_Kdf_Derive_PKey(&kdf2, &Ecc2BC(hv), &sk2.get_Raw());
+			hw::BeamCrypto_Kdf_Derive_PKey(&kdf2, &Ecc2BC(hv), &sk2.get_Raw());
 			verify_test(sk1 == sk2);
 
 			hkdf.DeriveKey(sk1, hv);
-			BeamCrypto_Kdf_Derive_SKey(&kdf2, &Ecc2BC(hv), &sk2.get_Raw());
+			hw::BeamCrypto_Kdf_Derive_SKey(&kdf2, &Ecc2BC(hv), &sk2.get_Raw());
 			verify_test(sk1 == sk2);
 		}
 	}
@@ -580,14 +583,14 @@ void TestSignature()
 		ECC::Point::Native pkN = ECC::Context::get().G * sk;
 		ECC::Point pk = pkN;
 
-		BeamCrypto_Signature sig2;
-		BeamCrypto_Signature_Sign(&sig2, &Ecc2BC(msg), &sk.get_Raw());
+		hw::BeamCrypto_Signature sig2;
+		hw::BeamCrypto_Signature_Sign(&sig2, &Ecc2BC(msg), &sk.get_Raw());
 
-		BeamCrypto_FlexPoint fp;
+		hw::BeamCrypto_FlexPoint fp;
 		fp.m_Compact = Ecc2BC(pk);
 		fp.m_Flags = BeamCrypto_FlexPoint_Compact;
 
-		verify_test(BeamCrypto_Signature_IsValid(&sig2, &Ecc2BC(msg), &fp));
+		verify_test(hw::BeamCrypto_Signature_IsValid(&sig2, &Ecc2BC(msg), &fp));
 
 		ECC::Signature sig1;
 		Ecc2BC(sig1.m_NoncePub) = sig2.m_NoncePub;
@@ -597,7 +600,7 @@ void TestSignature()
 
 		// tamper with sig
 		sig2.m_k.m_pVal[0] ^= 12;
-		verify_test(!BeamCrypto_Signature_IsValid(&sig2, &Ecc2BC(msg), &fp));
+		verify_test(!hw::BeamCrypto_Signature_IsValid(&sig2, &Ecc2BC(msg), &fp));
 	}
 }
 
@@ -617,8 +620,8 @@ void TestKrn()
 		SetRandom(sk);
 		krn1.Sign(sk);
 
-		BeamCrypto_TxKernelUser krn2U;
-		BeamCrypto_TxKernelData krn2D;
+		hw::BeamCrypto_TxKernelUser krn2U;
+		hw::BeamCrypto_TxKernelData krn2D;
 		krn2U.m_Fee = krn1.m_Fee;
 		krn2U.m_hMin = krn1.m_Height.m_Min;
 		krn2U.m_hMax = krn1.m_Height.m_Max;
@@ -626,15 +629,15 @@ void TestKrn()
 		krn2D.m_Signature.m_k = Ecc2BC(krn1.m_Signature.m_k.m_Value);
 		krn2D.m_Signature.m_NoncePub = Ecc2BC(krn1.m_Signature.m_NoncePub);
 
-		verify_test(BeamCrypto_TxKernel_IsValid(&krn2U, &krn2D));
+		verify_test(hw::BeamCrypto_TxKernel_IsValid(&krn2U, &krn2D));
 
 		ECC::Hash::Value msg;
-		BeamCrypto_TxKernel_getID(&krn2U, &krn2D, &Ecc2BC(msg));
+		hw::BeamCrypto_TxKernel_getID(&krn2U, &krn2D, &Ecc2BC(msg));
 		verify_test(msg == krn1.m_Internal.m_ID);
 
 		// tamper
 		krn2U.m_Fee++;
-		verify_test(!BeamCrypto_TxKernel_IsValid(&krn2U, &krn2D));
+		verify_test(!hw::BeamCrypto_TxKernel_IsValid(&krn2U, &krn2D));
 	}
 }
 
@@ -650,28 +653,28 @@ void TestPKdfExport()
 		ECC::HKdf hkdf;
 		hkdf.Generate(hv);
 
-		BeamCrypto_KeyKeeper kk;
-		BeamCrypto_Kdf_Init(&kk.m_MasterKey, &Ecc2BC(hv));
+		hw::BeamCrypto_KeyKeeper kk;
+		hw::BeamCrypto_Kdf_Init(&kk.m_MasterKey, &Ecc2BC(hv));
 
 		for (int j = 0; j < 3; j++)
 		{
 			ECC::HKdf hkdfChild;
 			ECC::HKdf* pKdf1 = &hkdfChild;
 
-			BeamCrypto_KdfPub pkdf2;
+			hw::BeamCrypto_KdfPub pkdf2;
 
 			if (j)
 			{
 				uint32_t iChild;
 				SetRandomOrd(iChild);
 
-				BeamCrypto_KeyKeeper_GetPKdf(&kk, &pkdf2, &iChild);
+				hw::BeamCrypto_KeyKeeper_GetPKdf(&kk, &pkdf2, &iChild);
 				hkdfChild.GenerateChild(hkdf, iChild);
 			}
 			else
 			{
 				pKdf1 = &hkdf;
-				BeamCrypto_KeyKeeper_GetPKdf(&kk, &pkdf2, nullptr);
+				hw::BeamCrypto_KeyKeeper_GetPKdf(&kk, &pkdf2, nullptr);
 			}
 
 			ECC::HKdfPub::Packed p;
@@ -700,7 +703,7 @@ void TestPKdfExport()
 struct KeyKeeperHwEmu
 	:public wallet::RemoteKeyKeeper
 {
-	BeamCrypto_KeyKeeper m_Ctx;
+	hw::BeamCrypto_KeyKeeper m_Ctx;
 
 	struct MyTask
 		:public wallet::PrivateKeyKeeper_WithMarshaller::Task
@@ -711,7 +714,7 @@ struct KeyKeeperHwEmu
 
 		virtual void Execute(Task::Ptr&) override
 		{
-			int nRes = BeamCrypto_KeyKeeper_Invoke(&m_pThis->m_Ctx,
+			int nRes = hw::BeamCrypto_KeyKeeper_Invoke(&m_pThis->m_Ctx,
 				reinterpret_cast<uint8_t*>(Cast::NotConst(m_msgOut.p)),
 				static_cast<uint32_t>(m_msgOut.n),
 				reinterpret_cast<uint8_t*>(Cast::NotConst(m_msgIn.p)),
@@ -769,7 +772,7 @@ struct KeyKeeperWrap
 		SetRandom(m_kkStd.m_State.m_hvLast);
 
 		m_kkEmu.m_Ctx.m_AllowWeakInputs = 0;
-		BeamCrypto_Kdf_Init(&m_kkEmu.m_Ctx.m_MasterKey, &Ecc2BC(hv));
+		hw::BeamCrypto_Kdf_Init(&m_kkEmu.m_Ctx.m_MasterKey, &Ecc2BC(hv));
 
 		wallet::IPrivateKeyKeeper2::Method::get_NumSlots m;
 		verify_test(m_kkEmu.InvokeSync(m) == wallet::IPrivateKeyKeeper2::Status::Success);
@@ -922,9 +925,9 @@ struct KeyKeeperWrap
 		TMethod m2;
 		UpdateMethod(m2, m, 0); // copy into m2
 
-		g_pHwEmuNonces = &m_Nonces;
+		hw::g_pHwEmuNonces = &m_Nonces;
 		int n1 = Cast::Down<wallet::IPrivateKeyKeeper2>(m_kkEmu).InvokeSync(m);
-		g_pHwEmuNonces = nullptr;
+		hw::g_pHwEmuNonces = nullptr;
 
 		UpdateMethod(m2, m, 1); // swap
 
