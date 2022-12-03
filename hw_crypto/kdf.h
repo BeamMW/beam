@@ -17,15 +17,15 @@
 
 typedef struct
 {
-	BeamCrypto_UintBig m_Secret;
+	UintBig m_Secret;
 	secp256k1_scalar m_kCoFactor;
 
-} BeamCrypto_Kdf;
+} Kdf;
 
-void BeamCrypto_Kdf_Init(BeamCrypto_Kdf*, const BeamCrypto_UintBig* pSeed);
-void BeamCrypto_Kdf_Derive_PKey(const BeamCrypto_Kdf*, const BeamCrypto_UintBig* pHv, secp256k1_scalar* pK);
-void BeamCrypto_Kdf_Derive_SKey(const BeamCrypto_Kdf*, const BeamCrypto_UintBig* pHv, secp256k1_scalar* pK);
-void BeamCrypto_Kdf_getChild(BeamCrypto_Kdf*, uint32_t iChild, const BeamCrypto_Kdf* pParent);
+void Kdf_Init(Kdf*, const UintBig* pSeed);
+void Kdf_Derive_PKey(const Kdf*, const UintBig* pHv, secp256k1_scalar* pK);
+void Kdf_Derive_SKey(const Kdf*, const UintBig* pHv, secp256k1_scalar* pK);
+void Kdf_getChild(Kdf*, uint32_t iChild, const Kdf* pParent);
 
-void BeamCrypto_CoinID_getSk(const BeamCrypto_Kdf*, const BeamCrypto_CoinID*, secp256k1_scalar*);
-void BeamCrypto_CoinID_getSkComm(const BeamCrypto_Kdf*, const BeamCrypto_CoinID*, secp256k1_scalar*, BeamCrypto_CompactPoint*);
+void CoinID_getSk(const Kdf*, const CoinID*, secp256k1_scalar*);
+void CoinID_getSkComm(const Kdf*, const CoinID*, secp256k1_scalar*, CompactPoint*);

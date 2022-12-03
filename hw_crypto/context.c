@@ -4268,9 +4268,9 @@ static const uint8_t g_ContextBuf[] = {
  0x26,0xd5,0x75,0x88,0xfc,0x4a,0x8e,0x2a,0x6f,0x74,0xb7,0x62,0xf1,0x1e,0x86,0x82,
 };
 
-BeamCrypto_Context* BeamCrypto_Context_get()
+Context* Context_get()
 {
-    static_assert(sizeof(g_ContextBuf) == sizeof(BeamCrypto_Context), "context size mismatch");
+    static_assert(sizeof(g_ContextBuf) == sizeof(Context), "context size mismatch");
 
-    return (BeamCrypto_Context*) g_ContextBuf;
+    return (Context*) g_ContextBuf;
 }

@@ -15,8 +15,8 @@
 #pragma once
 #include "ecc_decl.h"
 
-typedef uint64_t BeamCrypto_Amount;
-typedef uint32_t BeamCrypto_AssetID;
+typedef uint64_t Amount;
+typedef uint32_t AssetID;
 
 typedef struct
 {
@@ -24,14 +24,14 @@ typedef struct
 	uint32_t m_Type;
 	uint32_t m_SubIdx;
 
-	BeamCrypto_Amount  m_Amount;
-	BeamCrypto_AssetID m_AssetID;
+	Amount  m_Amount;
+	AssetID m_AssetID;
 
-} BeamCrypto_CoinID;
+} CoinID;
 
-#define BeamCrypto_CoinID_Scheme_V0 0
-#define BeamCrypto_CoinID_Scheme_V1 1
-#define BeamCrypto_CoinID_Scheme_BB21 2 // worakround for BB.2.1
+#define c_CoinID_Scheme_V0 0
+#define c_CoinID_Scheme_V1 1
+#define c_CoinID_Scheme_BB21 2 // worakround for BB.2.1
 
-int BeamCrypto_CoinID_getSchemeAndSubkey(const BeamCrypto_CoinID*, uint8_t* pScheme, uint32_t* pSubkey); // returns 1 iff subkey is required
-void BeamCrypto_CoinID_getHash(const BeamCrypto_CoinID*, BeamCrypto_UintBig*);
+int CoinID_getSchemeAndSubkey(const CoinID*, uint8_t* pScheme, uint32_t* pSubkey); // returns 1 iff subkey is required
+void CoinID_getHash(const CoinID*, UintBig*);

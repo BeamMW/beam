@@ -51,14 +51,14 @@ extern "C" {
 		void h2n(uint64_t& x) { h2n_u(x); }
 		void n2h(uint64_t& x) { n2h_u(x); }
 
-		void h2n(BeamCrypto_ShieldedInput& x) {
+		void h2n(ShieldedInput& x) {
 			h2n(x.m_Fee);
 			h2n(x.m_TxoID.m_Amount);
 			h2n(x.m_TxoID.m_AssetID);
 			h2n(x.m_TxoID.m_nViewerIdx);
 		}
 
-		void h2n(BeamCrypto_CoinID& cid) {
+		void h2n(CoinID& cid) {
 			h2n(cid.m_Amount);
 			h2n(cid.m_AssetID);
 			h2n(cid.m_Idx);
@@ -66,7 +66,7 @@ extern "C" {
 			h2n(cid.m_Type);
 		}
 
-		void h2n(BeamCrypto_TxCommonIn& tx) {
+		void h2n(TxCommonIn& tx) {
 			h2n(tx.m_Ins);
 			h2n(tx.m_Outs);
 			h2n(tx.m_InsShielded);
@@ -75,7 +75,7 @@ extern "C" {
 			h2n(tx.m_Krn.m_hMax);
 		}
 
-		void h2n(BeamCrypto_TxMutualIn& mut) {
+		void h2n(TxMutualIn& mut) {
 			h2n(mut.m_MyIDKey);
 		}
 
@@ -153,7 +153,7 @@ namespace beam::wallet
 		    return *reinterpret_cast<T*>(&buf.front());
 	    }
 
-        static void CidCvt(hw::BeamCrypto_CoinID&, const CoinID&);
+        static void CidCvt(hw::CoinID&, const CoinID&);
 
 
 	    struct Encoder
@@ -167,16 +167,16 @@ namespace beam::wallet
 			    return *reinterpret_cast<T*>(&m_Buf.front());
 		    }
 
-		    void ExtendByInternal(const uint8_t* p, uint32_t nSize, hw::BeamCrypto_TxCommonIn&, const Method::TxCommon& tx, uint32_t& nOutExtra);
+		    void ExtendByInternal(const uint8_t* p, uint32_t nSize, hw::TxCommonIn&, const Method::TxCommon& tx, uint32_t& nOutExtra);
 
-		    static void Import(hw::BeamCrypto_TxKernelUser&, const Method::TxCommon&);
-		    static void Import(hw::BeamCrypto_TxKernelData&, const Method::TxCommon&);
-		    static void Import(hw::BeamCrypto_TxCommonOut&, const Method::TxCommon&);
-		    static void Import(hw::BeamCrypto_TxMutualIn&, const Method::TxMutual&);
-		    static void Import(hw::BeamCrypto_ShieldedTxoID&, const ShieldedTxo::ID&);
-		    static void Import(hw::BeamCrypto_ShieldedTxoUser&, const ShieldedTxo::User&);
+		    static void Import(hw::TxKernelUser&, const Method::TxCommon&);
+		    static void Import(hw::TxKernelData&, const Method::TxCommon&);
+		    static void Import(hw::TxCommonOut&, const Method::TxCommon&);
+		    static void Import(hw::TxMutualIn&, const Method::TxMutual&);
+		    static void Import(hw::ShieldedTxoID&, const ShieldedTxo::ID&);
+		    static void Import(hw::ShieldedTxoUser&, const ShieldedTxo::User&);
 
-		    static void Export(Method::TxCommon&, const hw::BeamCrypto_TxCommonOut&);
+		    static void Export(Method::TxCommon&, const hw::TxCommonOut&);
 	    };
 
 	    static Amount CalcTxBalance(Asset::ID* pAid, const Method::TxCommon&);
@@ -238,20 +238,20 @@ namespace beam::wallet
 
     };
 
-    hw::BeamCrypto_UintBig& Ecc2BC(const ECC::uintBig& x)
+    hw::UintBig& Ecc2BC(const ECC::uintBig& x)
     {
-        static_assert(sizeof(x) == sizeof(hw::BeamCrypto_UintBig));
-        return (hw::BeamCrypto_UintBig&) x;
+        static_assert(sizeof(x) == sizeof(hw::UintBig));
+        return (hw::UintBig&) x;
     }
 
-    hw::BeamCrypto_CompactPoint& Ecc2BC(const ECC::Point& x)
+    hw::CompactPoint& Ecc2BC(const ECC::Point& x)
     {
-        static_assert(sizeof(x) == sizeof(hw::BeamCrypto_CompactPoint));
-        return (hw::BeamCrypto_CompactPoint&) x;
+        static_assert(sizeof(x) == sizeof(hw::CompactPoint));
+        return (hw::CompactPoint&) x;
     }
 
 
-    void RemoteKeyKeeper::Impl::CidCvt(hw::BeamCrypto_CoinID& cid2, const CoinID& cid)
+    void RemoteKeyKeeper::Impl::CidCvt(hw::CoinID& cid2, const CoinID& cid)
     {
         cid2.m_Idx = cid.m_Idx;
         cid2.m_SubIdx = cid.m_SubIdx;
@@ -261,7 +261,7 @@ namespace beam::wallet
     }
 
 
-    void RemoteKeyKeeper::Impl::Encoder::ExtendByInternal(const uint8_t* p, uint32_t nSize, hw::BeamCrypto_TxCommonIn& txIn, const Method::TxCommon& m, uint32_t& nOutExtra)
+    void RemoteKeyKeeper::Impl::Encoder::ExtendByInternal(const uint8_t* p, uint32_t nSize, hw::TxCommonIn& txIn, const Method::TxCommon& m, uint32_t& nOutExtra)
     {
 	    Import(txIn.m_Krn, m); // do it before reallocation
 
@@ -270,14 +270,14 @@ namespace beam::wallet
 	    txIn.m_InsShielded = static_cast<uint32_t>(m.m_vInputsShielded.size());
 
 	    uint32_t nExtra =
-		    static_cast <uint32_t>(sizeof(hw::BeamCrypto_CoinID)) * (txIn.m_Ins + txIn.m_Outs) +
-		    static_cast <uint32_t>(sizeof(hw::BeamCrypto_ShieldedInput)) * txIn.m_InsShielded;
+		    static_cast <uint32_t>(sizeof(hw::CoinID)) * (txIn.m_Ins + txIn.m_Outs) +
+		    static_cast <uint32_t>(sizeof(hw::ShieldedInput)) * txIn.m_InsShielded;
 	    nOutExtra = nExtra;
 
 	    m_Buf.resize(nSize + nExtra);
 	    memcpy(&m_Buf.front(), p, nSize);
 
-        hw::BeamCrypto_CoinID* pCid = (hw::BeamCrypto_CoinID*) (&m_Buf.front() + nSize);
+        hw::CoinID* pCid = (hw::CoinID*) (&m_Buf.front() + nSize);
 
 	    for (uint32_t i = 0; i < txIn.m_Ins; i++, pCid++)
 	    {
@@ -291,7 +291,7 @@ namespace beam::wallet
             hw::Proto::h2n(*pCid);
 	    }
 
-        hw::BeamCrypto_ShieldedInput* pShInp = (hw::BeamCrypto_ShieldedInput*) pCid;
+        hw::ShieldedInput* pShInp = (hw::ShieldedInput*) pCid;
 	    for (uint32_t i = 0; i < txIn.m_InsShielded; i++, pShInp++)
 	    {
 		    const auto& src = m.m_vInputsShielded[i];
@@ -301,7 +301,7 @@ namespace beam::wallet
 	    }
     }
 
-    void RemoteKeyKeeper::Impl::Encoder::Import(hw::BeamCrypto_TxKernelUser& krn, const Method::TxCommon& m)
+    void RemoteKeyKeeper::Impl::Encoder::Import(hw::TxKernelUser& krn, const Method::TxCommon& m)
     {
 	    assert(m.m_pKernel);
 	    const auto& src = *m.m_pKernel;
@@ -311,7 +311,7 @@ namespace beam::wallet
 	    krn.m_hMax = src.m_Height.m_Max;
     }
 
-    void RemoteKeyKeeper::Impl::Encoder::Import(hw::BeamCrypto_TxKernelData& krn, const Method::TxCommon& m)
+    void RemoteKeyKeeper::Impl::Encoder::Import(hw::TxKernelData& krn, const Method::TxCommon& m)
     {
 	    assert(m.m_pKernel);
 	    const auto& src = *m.m_pKernel;
@@ -321,7 +321,7 @@ namespace beam::wallet
 	    krn.m_Signature.m_k = Ecc2BC(src.m_Signature.m_k.m_Value);
     }
 
-    void RemoteKeyKeeper::Impl::Encoder::Import(hw::BeamCrypto_TxCommonOut& txOut, const Method::TxCommon& m)
+    void RemoteKeyKeeper::Impl::Encoder::Import(hw::TxCommonOut& txOut, const Method::TxCommon& m)
     {
 	    Import(txOut.m_Krn, m);
 
@@ -329,13 +329,13 @@ namespace beam::wallet
 	    txOut.m_kOffset = Ecc2BC(kOffs.m_Value);
     }
 
-    void RemoteKeyKeeper::Impl::Encoder::Import(hw::BeamCrypto_TxMutualIn& txIn, const Method::TxMutual& m)
+    void RemoteKeyKeeper::Impl::Encoder::Import(hw::TxMutualIn& txIn, const Method::TxMutual& m)
     {
 	    txIn.m_MyIDKey = m.m_MyIDKey;
 	    txIn.m_Peer = Ecc2BC(m.m_Peer);
     }
 
-    void RemoteKeyKeeper::Impl::Encoder::Export(Method::TxCommon& m, const hw::BeamCrypto_TxCommonOut& txOut)
+    void RemoteKeyKeeper::Impl::Encoder::Export(Method::TxCommon& m, const hw::TxCommonOut& txOut)
     {
 	    // kernel
 	    assert(m.m_pKernel);
@@ -353,7 +353,7 @@ namespace beam::wallet
 	    m.m_kOffset = kOffs;
     }
 
-    void RemoteKeyKeeper::Impl::Encoder::Import(hw::BeamCrypto_ShieldedTxoUser& dst, const ShieldedTxo::User& src)
+    void RemoteKeyKeeper::Impl::Encoder::Import(hw::ShieldedTxoUser& dst, const ShieldedTxo::User& src)
     {
 	    dst.m_Sender = Ecc2BC(src.m_Sender);
 
@@ -362,7 +362,7 @@ namespace beam::wallet
 		    dst.m_pMessage[i] = Ecc2BC(src.m_pMessage[i]);
     }
 
-    void RemoteKeyKeeper::Impl::Encoder::Import(hw::BeamCrypto_ShieldedTxoID& dst, const ShieldedTxo::ID& src)
+    void RemoteKeyKeeper::Impl::Encoder::Import(hw::ShieldedTxoID& dst, const ShieldedTxo::ID& src)
     {
 	    Import(dst.m_User, src.m_User);
 
@@ -532,7 +532,7 @@ namespace beam::wallet
                     Fin();
                 }
                 else
-                    Fin(BeamCrypto_KeyKeeper_Status_ProtoError);
+                    Fin(c_KeyKeeper_Status_ProtoError);
             }
             else
             {
@@ -543,7 +543,7 @@ namespace beam::wallet
                     InvokeProto(m_Msg2);
                 }
                 else
-                    Fin(BeamCrypto_KeyKeeper_Status_ProtoError);
+                    Fin(c_KeyKeeper_Status_ProtoError);
             }
         }
     };
@@ -784,11 +784,11 @@ namespace beam::wallet
                 m_This.InvokeAsync(m_GetKey, shared_from_this());
             }
 
-            static_assert(BeamCrypto_ShieldedInput_ChildKdf == ShieldedTxo::ID::s_iChildOut);
+            static_assert(c_ShieldedInput_ChildKdf == ShieldedTxo::ID::s_iChildOut);
 
             m_GetCommitment.m_Out.m_bG = 1;
             m_GetCommitment.m_Out.m_bJ = 0;
-            m_GetCommitment.m_Out.m_iChild = BeamCrypto_ShieldedInput_ChildKdf;
+            m_GetCommitment.m_Out.m_iChild = c_ShieldedInput_ChildKdf;
             m_M.get_SkOutPreimage(Cast::Reinterpret<ECC::Hash::Value>(m_GetCommitment.m_Out.m_hvSrc), m_M.m_pKernel->m_Fee);
             InvokeProto(m_GetCommitment);
         }
@@ -982,7 +982,7 @@ namespace beam::wallet
             }
 
             m_MaxCount = std::min(m_M.m_Count, 30U);
-            size_t nSize = sizeof(hw::BeamCrypto_ShieldedVoucher) * m_MaxCount;
+            size_t nSize = sizeof(hw::ShieldedVoucher) * m_MaxCount;
 
             m_MsgOut.m_Count = m_MaxCount;
             m_MsgOut.m_Nonce0 = Ecc2BC(m_M.m_Nonce);
@@ -1001,16 +1001,16 @@ namespace beam::wallet
 
             if (!msgIn.m_Count || (msgIn.m_Count > m_MaxCount))
             {
-                Fin(BeamCrypto_KeyKeeper_Status_ProtoError);
+                Fin(c_KeyKeeper_Status_ProtoError);
                 return;
             }
 
-            auto* pRes = reinterpret_cast<hw::BeamCrypto_ShieldedVoucher*>(&msgIn + 1);
+            auto* pRes = reinterpret_cast<hw::ShieldedVoucher*>(&msgIn + 1);
 
             m_M.m_Res.resize(msgIn.m_Count);
             for (uint32_t i = 0; i < msgIn.m_Count; i++)
             {
-                const hw::BeamCrypto_ShieldedVoucher& src = pRes[i];
+                const hw::ShieldedVoucher& src = pRes[i];
                 ShieldedTxo::Voucher& trg = m_M.m_Res[i];
 
                 Ecc2BC(trg.m_Ticket.m_SerialPub) = src.m_SerialPub;

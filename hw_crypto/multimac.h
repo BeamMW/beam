@@ -15,32 +15,32 @@
 #pragma once
 #include "ecc_decl.h"
 
-#define BeamCrypto_MultiMac_Directions 2 // must be 1 or 2. For 2 interleaving is used. Faster (~1 effective window bit), but needs an extra scalar per element
-#define BeamCrypto_MultiMac_Fast_nBits 4
-#define BeamCrypto_MultiMac_Secure_nBits 4
-#define BeamCrypto_MultiMac_Fast_nCount (1 << (BeamCrypto_MultiMac_Fast_nBits - 1)) // odd powers
-#define BeamCrypto_MultiMac_Secure_nCount (1 << BeamCrypto_MultiMac_Secure_nBits)
+#define c_MultiMac_Directions 2 // must be 1 or 2. For 2 interleaving is used. Faster (~1 effective window bit), but needs an extra scalar per element
+#define c_MultiMac_Fast_nBits 4
+#define c_MultiMac_Secure_nBits 4
+#define c_MultiMac_Fast_nCount (1 << (c_MultiMac_Fast_nBits - 1)) // odd powers
+#define c_MultiMac_Secure_nCount (1 << c_MultiMac_Secure_nBits)
 
 typedef struct {
-	secp256k1_ge_storage m_pPt[BeamCrypto_MultiMac_Fast_nCount]; // odd powers
-} BeamCrypto_MultiMac_Fast;
+	secp256k1_ge_storage m_pPt[c_MultiMac_Fast_nCount]; // odd powers
+} MultiMac_Fast;
 
 typedef struct {
-	secp256k1_ge_storage m_pPt[BeamCrypto_MultiMac_Secure_nCount + 1]; // the last is the compensation term
-} BeamCrypto_MultiMac_Secure;
+	secp256k1_ge_storage m_pPt[c_MultiMac_Secure_nCount + 1]; // the last is the compensation term
+} MultiMac_Secure;
 
 typedef struct {
 	uint8_t m_iBit;
 	uint8_t m_iElement;
-} BeamCrypto_MultiMac_WNaf_Cursor;
+} MultiMac_WNaf_Cursor;
 
 typedef struct {
-	BeamCrypto_MultiMac_WNaf_Cursor m_pC[BeamCrypto_MultiMac_Directions];
-} BeamCrypto_MultiMac_WNaf;
+	MultiMac_WNaf_Cursor m_pC[c_MultiMac_Directions];
+} MultiMac_WNaf;
 
 typedef struct {
-	secp256k1_scalar m_pK[BeamCrypto_MultiMac_Directions];
-} BeamCrypto_MultiMac_Scalar;
+	secp256k1_scalar m_pK[c_MultiMac_Directions];
+} MultiMac_Scalar;
 
 typedef struct
 {
@@ -49,32 +49,32 @@ typedef struct
 	unsigned int m_Fast;
 	unsigned int m_Secure;
 
-	const BeamCrypto_MultiMac_Fast* m_pGenFast;
-	BeamCrypto_MultiMac_Scalar* m_pS;
-	BeamCrypto_MultiMac_WNaf* m_pWnaf;
+	const MultiMac_Fast* m_pGenFast;
+	MultiMac_Scalar* m_pS;
+	MultiMac_WNaf* m_pWnaf;
 
-	const BeamCrypto_MultiMac_Secure* m_pGenSecure;
+	const MultiMac_Secure* m_pGenSecure;
 	const secp256k1_scalar* m_pSecureK;
 
 	secp256k1_fe* m_pZDenom; // optional common z-denominator of 'fast' generators.
 
-} BeamCrypto_MultiMac_Context;
+} MultiMac_Context;
 
-void BeamCrypto_MultiMac_Calculate(const BeamCrypto_MultiMac_Context*);
+void MultiMac_Calculate(const MultiMac_Context*);
 
-#define BeamCrypto_MultiMac_Fast_nGenerators (sizeof(uint64_t) * 8 * 2)
-#define BeamCrypto_MultiMac_Fast_Idx_H BeamCrypto_MultiMac_Fast_nGenerators
+#define c_MultiMac_Fast_nGenerators (sizeof(uint64_t) * 8 * 2)
+#define c_MultiMac_Fast_Idx_H c_MultiMac_Fast_nGenerators
 
 typedef struct
 {
-	BeamCrypto_MultiMac_Fast m_pGenFast[BeamCrypto_MultiMac_Fast_Idx_H + 1];
-	BeamCrypto_MultiMac_Secure m_pGenGJ[2];
+	MultiMac_Fast m_pGenFast[c_MultiMac_Fast_Idx_H + 1];
+	MultiMac_Secure m_pGenGJ[2];
 
-} BeamCrypto_Context;
+} Context;
 
-BeamCrypto_Context* BeamCrypto_Context_get();
+Context* Context_get();
 
 // simplified versions
-void BeamCrypto_MulPoint(BeamCrypto_FlexPoint*, const BeamCrypto_MultiMac_Secure*, const secp256k1_scalar*);
-void BeamCrypto_MulG(BeamCrypto_FlexPoint*, const secp256k1_scalar*);
-void BeamCrypto_Sk2Pk(BeamCrypto_UintBig*, secp256k1_scalar*);
+void MulPoint(FlexPoint*, const MultiMac_Secure*, const secp256k1_scalar*);
+void MulG(FlexPoint*, const secp256k1_scalar*);
+void Sk2Pk(UintBig*, secp256k1_scalar*);

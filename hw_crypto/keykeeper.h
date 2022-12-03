@@ -19,150 +19,150 @@
 
 typedef struct
 {
-	BeamCrypto_Kdf m_MasterKey;
+	Kdf m_MasterKey;
 
 	int m_AllowWeakInputs;
 
 	// TODO: state, Slot management, etc.
 
-} BeamCrypto_KeyKeeper;
+} KeyKeeper;
 
 //////////////////////////
 // External functions, implemented by the platform-specific code
-void BeamCrypto_SecureEraseMem(void*, uint32_t);
-uint32_t BeamCrypto_KeyKeeper_getNumSlots();
-void BeamCrypto_KeyKeeper_ReadSlot(uint32_t, BeamCrypto_UintBig*);
-void BeamCrypto_KeyKeeper_RegenerateSlot(uint32_t);
+void SecureEraseMem(void*, uint32_t);
+uint32_t KeyKeeper_getNumSlots();
+void KeyKeeper_ReadSlot(uint32_t, UintBig*);
+void KeyKeeper_RegenerateSlot(uint32_t);
 
 typedef struct
 {
-	BeamCrypto_UintBig m_Secret;
-	BeamCrypto_CompactPoint m_CoFactorG;
-	BeamCrypto_CompactPoint m_CoFactorJ;
+	UintBig m_Secret;
+	CompactPoint m_CoFactorG;
+	CompactPoint m_CoFactorJ;
 
-} BeamCrypto_KdfPub;
+} KdfPub;
 
-void BeamCrypto_KeyKeeper_GetPKdf(const BeamCrypto_KeyKeeper*, BeamCrypto_KdfPub*, const uint32_t* pChild); // if pChild is NULL then the master kdfpub (owner key) is returned
+void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if pChild is NULL then the master kdfpub (owner key) is returned
 
-typedef uint64_t BeamCrypto_Height;
-typedef uint64_t BeamCrypto_WalletIdentity;
-
-typedef struct
-{
-	BeamCrypto_Amount m_Fee;
-	BeamCrypto_Height m_hMin;
-	BeamCrypto_Height m_hMax;
-} BeamCrypto_TxKernelUser;
+typedef uint64_t Height;
+typedef uint64_t WalletIdentity;
 
 typedef struct
 {
-	BeamCrypto_CompactPoint m_Commitment;
-	BeamCrypto_Signature m_Signature;
-
-} BeamCrypto_TxKernelData;
-
-void BeamCrypto_TxKernel_getID(const BeamCrypto_TxKernelUser*, const BeamCrypto_TxKernelData*, BeamCrypto_UintBig* pMsg);
-int BeamCrypto_TxKernel_IsValid(const BeamCrypto_TxKernelUser*, const BeamCrypto_TxKernelData*);
+	Amount m_Fee;
+	Height m_hMin;
+	Height m_hMax;
+} TxKernelUser;
 
 typedef struct
 {
-	BeamCrypto_CompactPoint m_Commitment;
-	BeamCrypto_CompactPoint m_NoncePub;
+	CompactPoint m_Commitment;
+	Signature m_Signature;
 
-} BeamCrypto_TxKernelCommitments;
+} TxKernelData;
+
+void TxKernel_getID(const TxKernelUser*, const TxKernelData*, UintBig* pMsg);
+int TxKernel_IsValid(const TxKernelUser*, const TxKernelData*);
 
 typedef struct
 {
-	BeamCrypto_UintBig m_Sender;
-	BeamCrypto_UintBig m_pMessage[2];
+	CompactPoint m_Commitment;
+	CompactPoint m_NoncePub;
 
-} BeamCrypto_ShieldedTxoUser;
+} TxKernelCommitments;
+
+typedef struct
+{
+	UintBig m_Sender;
+	UintBig m_pMessage[2];
+
+} ShieldedTxoUser;
 
 typedef struct
 {
 	// ticket source params
-	BeamCrypto_UintBig m_kSerG;
+	UintBig m_kSerG;
 	uint32_t m_nViewerIdx;
 	uint8_t m_IsCreatedByViewer;
 
 	// sender params
-	BeamCrypto_ShieldedTxoUser m_User;
-	BeamCrypto_Amount m_Amount;
-	BeamCrypto_AssetID m_AssetID;
+	ShieldedTxoUser m_User;
+	Amount m_Amount;
+	AssetID m_AssetID;
 
-} BeamCrypto_ShieldedTxoID;
-
-typedef struct
-{
-	BeamCrypto_ShieldedTxoID m_TxoID;
-	BeamCrypto_Amount m_Fee;
-
-} BeamCrypto_ShieldedInput;
+} ShieldedTxoID;
 
 typedef struct
 {
-	BeamCrypto_TxKernelUser m_Krn;
+	ShieldedTxoID m_TxoID;
+	Amount m_Fee;
+
+} ShieldedInput;
+
+typedef struct
+{
+	TxKernelUser m_Krn;
 
 	uint32_t m_Ins;
 	uint32_t m_Outs;
 	uint32_t m_InsShielded;
 
-} BeamCrypto_TxCommonIn;
+} TxCommonIn;
 
 typedef struct
 {
-	BeamCrypto_TxKernelData m_Krn;
-	BeamCrypto_UintBig m_kOffset;
+	TxKernelData m_Krn;
+	UintBig m_kOffset;
 
-} BeamCrypto_TxCommonOut;
+} TxCommonOut;
 
 typedef struct
 {
-	BeamCrypto_UintBig m_Peer;
-	BeamCrypto_WalletIdentity m_MyIDKey;
+	UintBig m_Peer;
+	WalletIdentity m_MyIDKey;
 
-} BeamCrypto_TxMutualIn;
+} TxMutualIn;
 
 
 
-#define BeamCrypto_KeyKeeper_Status_Ok 0
-#define BeamCrypto_KeyKeeper_Status_Unspecified 1
-#define BeamCrypto_KeyKeeper_Status_UserAbort 2
-#define BeamCrypto_KeyKeeper_Status_NotImpl 3
+#define c_KeyKeeper_Status_Ok 0
+#define c_KeyKeeper_Status_Unspecified 1
+#define c_KeyKeeper_Status_UserAbort 2
+#define c_KeyKeeper_Status_NotImpl 3
 
-#define BeamCrypto_KeyKeeper_Status_ProtoError 10
+#define c_KeyKeeper_Status_ProtoError 10
 
 
 typedef struct
 {
 	// ticket
-	BeamCrypto_CompactPoint m_SerialPub;
-	BeamCrypto_CompactPoint m_NoncePub;
-	BeamCrypto_UintBig m_pK[2];
+	CompactPoint m_SerialPub;
+	CompactPoint m_NoncePub;
+	UintBig m_pK[2];
 
-	BeamCrypto_UintBig m_SharedSecret;
-	BeamCrypto_Signature m_Signature;
+	UintBig m_SharedSecret;
+	Signature m_Signature;
 
-} BeamCrypto_ShieldedVoucher;
+} ShieldedVoucher;
 
-#define BeamCrypto_ShieldedInput_ChildKdf ((uint32_t) -2)
+#define c_ShieldedInput_ChildKdf ((uint32_t) -2)
 
 #pragma pack (push, 1)
 typedef struct
 {
 	// packed into 674 bytes, serialized the same way
-	BeamCrypto_UintBig m_Ax;
-	BeamCrypto_UintBig m_Sx;
-	BeamCrypto_UintBig m_T1x;
-	BeamCrypto_UintBig m_T2x;
-	BeamCrypto_UintBig m_Taux;
-	BeamCrypto_UintBig m_Mu;
-	BeamCrypto_UintBig m_tDot;
-	BeamCrypto_UintBig m_pLRx[6][2];
-	BeamCrypto_UintBig m_pCondensed[2];
+	UintBig m_Ax;
+	UintBig m_Sx;
+	UintBig m_T1x;
+	UintBig m_T2x;
+	UintBig m_Taux;
+	UintBig m_Mu;
+	UintBig m_tDot;
+	UintBig m_pLRx[6][2];
+	UintBig m_pCondensed[2];
 	uint8_t m_pYs[2];
 
-} BeamCrypto_RangeProof_Packed;
+} RangeProof_Packed;
 #pragma pack (pop)
 
 //////////////////
@@ -181,107 +181,107 @@ typedef struct
 	macro(0, uint8_t, Kind) \
 
 #define BeamCrypto_ProtoResponse_GetPKdf(macro) \
-	macro(0, BeamCrypto_KdfPub, Value)
+	macro(0, KdfPub, Value)
 
 #define BeamCrypto_ProtoRequest_CreateOutput(macro) \
-	macro(1, BeamCrypto_CoinID, Cid) \
-	macro(0, BeamCrypto_CompactPoint, ptAssetGen) \
-	macro(0, BeamCrypto_UintBig, pKExtra[2]) \
-	macro(0, BeamCrypto_CompactPoint, pT[2]) \
+	macro(1, CoinID, Cid) \
+	macro(0, CompactPoint, ptAssetGen) \
+	macro(0, UintBig, pKExtra[2]) \
+	macro(0, CompactPoint, pT[2]) \
 
 #define BeamCrypto_ProtoResponse_CreateOutput(macro) \
-	macro(0, BeamCrypto_CompactPoint, pT[2]) \
-	macro(0, BeamCrypto_UintBig, TauX) \
+	macro(0, CompactPoint, pT[2]) \
+	macro(0, UintBig, TauX) \
 
 #define BeamCrypto_ProtoRequest_GetImage(macro) \
-	macro(0, BeamCrypto_UintBig, hvSrc) \
+	macro(0, UintBig, hvSrc) \
 	macro(1, uint32_t, iChild) \
 	macro(0, uint8_t, bG) \
 	macro(0, uint8_t, bJ) \
 
 #define BeamCrypto_ProtoResponse_GetImage(macro) \
-	macro(0, BeamCrypto_CompactPoint, ptImageG) \
-	macro(0, BeamCrypto_CompactPoint, ptImageJ) \
+	macro(0, CompactPoint, ptImageG) \
+	macro(0, CompactPoint, ptImageJ) \
 
 #define BeamCrypto_ProtoRequest_CreateShieldedInput(macro) \
-	macro(1, BeamCrypto_ShieldedInput, Inp) \
-	macro(1, BeamCrypto_Height, hMin) \
-	macro(1, BeamCrypto_Height, hMax) \
+	macro(1, ShieldedInput, Inp) \
+	macro(1, Height, hMin) \
+	macro(1, Height, hMax) \
 	macro(1, uint64_t, WindowEnd) \
 	macro(1, uint32_t, Sigma_M) \
 	macro(1, uint32_t, Sigma_n) \
-	macro(0, BeamCrypto_UintBig, ShieldedState) \
-	macro(0, BeamCrypto_UintBig, AssetSk) /* negated blinding for asset generator (H` = H - assetSk*G) */ \
-	macro(0, BeamCrypto_UintBig, OutpSk) /* The overall blinding factor of the shielded Txo (not secret) */ \
-	macro(0, BeamCrypto_CompactPoint, ptAssetGen) \
-	macro(0, BeamCrypto_CompactPoint, pABCD[4]) \
-	/* followed by BeamCrypto_CompactPoint* pG[] */
+	macro(0, UintBig, ShieldedState) \
+	macro(0, UintBig, AssetSk) /* negated blinding for asset generator (H` = H - assetSk*G) */ \
+	macro(0, UintBig, OutpSk) /* The overall blinding factor of the shielded Txo (not secret) */ \
+	macro(0, CompactPoint, ptAssetGen) \
+	macro(0, CompactPoint, pABCD[4]) \
+	/* followed by CompactPoint* pG[] */
 
 #define BeamCrypto_ProtoResponse_CreateShieldedInput(macro) \
-	macro(0, BeamCrypto_CompactPoint, G0) \
-	macro(0, BeamCrypto_CompactPoint, NoncePub) \
-	macro(0, BeamCrypto_UintBig, pSig[2]) \
-	macro(0, BeamCrypto_UintBig, zR)
+	macro(0, CompactPoint, G0) \
+	macro(0, CompactPoint, NoncePub) \
+	macro(0, UintBig, pSig[2]) \
+	macro(0, UintBig, zR)
 
 #define BeamCrypto_ProtoRequest_CreateShieldedVouchers(macro) \
 	macro(1, uint32_t, Count) \
-	macro(1, BeamCrypto_WalletIdentity, nMyIDKey) \
-	macro(0, BeamCrypto_UintBig, Nonce0) \
+	macro(1, WalletIdentity, nMyIDKey) \
+	macro(0, UintBig, Nonce0) \
 
 #define BeamCrypto_ProtoResponse_CreateShieldedVouchers(macro) \
 	macro(1, uint32_t, Count) \
-	/* followed by BeamCrypto_ShieldedVoucher[] */
+	/* followed by ShieldedVoucher[] */
 
 #define BeamCrypto_ProtoRequest_TxSplit(macro) \
-	macro(1, BeamCrypto_TxCommonIn, Tx) \
+	macro(1, TxCommonIn, Tx) \
 	/* followed by in/outs */
 
 #define BeamCrypto_ProtoResponse_TxSplit(macro) \
-	macro(0, BeamCrypto_TxCommonOut, Tx) \
+	macro(0, TxCommonOut, Tx) \
 
 #define BeamCrypto_ProtoRequest_TxReceive(macro) \
-	macro(1, BeamCrypto_TxCommonIn, Tx) \
-	macro(1, BeamCrypto_TxMutualIn, Mut) \
-	macro(0, BeamCrypto_TxKernelData, Krn) \
+	macro(1, TxCommonIn, Tx) \
+	macro(1, TxMutualIn, Mut) \
+	macro(0, TxKernelData, Krn) \
 	/* followed by in/outs */
 
 #define BeamCrypto_ProtoResponse_TxReceive(macro) \
-	macro(0, BeamCrypto_TxCommonOut, Tx) \
-	macro(0, BeamCrypto_Signature, PaymentProof) \
+	macro(0, TxCommonOut, Tx) \
+	macro(0, Signature, PaymentProof) \
 
 #define BeamCrypto_ProtoRequest_TxSend1(macro) \
-	macro(1, BeamCrypto_TxCommonIn, Tx) \
-	macro(1, BeamCrypto_TxMutualIn, Mut) \
+	macro(1, TxCommonIn, Tx) \
+	macro(1, TxMutualIn, Mut) \
 	macro(1, uint32_t, iSlot) \
 	/* followed by in/outs */
 
 #define BeamCrypto_ProtoResponse_TxSend1(macro) \
-	macro(0, BeamCrypto_TxKernelCommitments, HalfKrn) \
-	macro(0, BeamCrypto_UintBig, UserAgreement) \
+	macro(0, TxKernelCommitments, HalfKrn) \
+	macro(0, UintBig, UserAgreement) \
 
 #define BeamCrypto_ProtoRequest_TxSend2(macro) \
 	BeamCrypto_ProtoRequest_TxSend1(macro) \
-	macro(0, BeamCrypto_TxKernelCommitments, HalfKrn) \
-	macro(0, BeamCrypto_Signature, PaymentProof) \
-	macro(0, BeamCrypto_UintBig, UserAgreement) \
+	macro(0, TxKernelCommitments, HalfKrn) \
+	macro(0, Signature, PaymentProof) \
+	macro(0, UintBig, UserAgreement) \
 	/* followed by in/outs */
 
 #define BeamCrypto_ProtoResponse_TxSend2(macro) \
-	macro(0, BeamCrypto_UintBig, kSig) \
-	macro(0, BeamCrypto_UintBig, kOffset) \
+	macro(0, UintBig, kSig) \
+	macro(0, UintBig, kOffset) \
 
 #define BeamCrypto_ProtoRequest_TxSendShielded(macro) \
-	macro(1, BeamCrypto_TxCommonIn, Tx) \
-	macro(1, BeamCrypto_TxMutualIn, Mut) \
-	macro(0, BeamCrypto_ShieldedVoucher, Voucher) \
-	macro(0, BeamCrypto_ShieldedTxoUser, User) \
-	macro(0, BeamCrypto_RangeProof_Packed, RangeProof) \
-	macro(0, BeamCrypto_CompactPoint, ptAssetGen) \
+	macro(1, TxCommonIn, Tx) \
+	macro(1, TxMutualIn, Mut) \
+	macro(0, ShieldedVoucher, Voucher) \
+	macro(0, ShieldedTxoUser, User) \
+	macro(0, RangeProof_Packed, RangeProof) \
+	macro(0, CompactPoint, ptAssetGen) \
 	macro(0, uint8_t, HideAssetAlways) /* important to specify, this affects expected blinding factor recovery */ \
 	/* followed by in/outs */
 
 #define BeamCrypto_ProtoResponse_TxSendShielded(macro) \
-	macro(0, BeamCrypto_TxCommonOut, Tx) \
+	macro(0, TxCommonOut, Tx) \
 
 
 #define BeamCrypto_ProtoMethods(macro) \
@@ -298,7 +298,7 @@ typedef struct
 	macro(0x33, TxSend2) \
 	macro(0x36, TxSendShielded) \
 
-int BeamCrypto_KeyKeeper_Invoke(const BeamCrypto_KeyKeeper*, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t nOut);
+int KeyKeeper_Invoke(const KeyKeeper*, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t nOut);
 
 //////////////////////////
 // KeyKeeper - request user approval for spend
@@ -307,6 +307,6 @@ int BeamCrypto_KeyKeeper_Invoke(const BeamCrypto_KeyKeeper*, uint8_t* pIn, uint3
 // pKrnID and pData are NULL, if this is a 'preliminary' confirmation (SendTx 1st invocation)
 // pUser contains fee and min/max height (may be shown to the user)
 // pData (if specified) has commitments.
-int BeamCrypto_KeyKeeper_ConfirmSpend(
-	BeamCrypto_Amount val, BeamCrypto_AssetID aid, const BeamCrypto_UintBig* pPeerID,
-	const BeamCrypto_TxKernelUser* pUser, const BeamCrypto_TxKernelData* pData, const BeamCrypto_UintBig* pKrnID);
+int KeyKeeper_ConfirmSpend(
+	Amount val, AssetID aid, const UintBig* pPeerID,
+	const TxKernelUser* pUser, const TxKernelData* pData, const UintBig* pKrnID);

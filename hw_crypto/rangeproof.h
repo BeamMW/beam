@@ -17,17 +17,17 @@
 
 typedef struct
 {
-	BeamCrypto_CoinID m_Cid;
-	const BeamCrypto_Kdf* m_pKdf; // master kdf
-	const BeamCrypto_CompactPoint* m_pAssetGen; // optional if no asset.
+	CoinID m_Cid;
+	const Kdf* m_pKdf; // master kdf
+	const CompactPoint* m_pAssetGen; // optional if no asset.
 
 	const secp256k1_scalar* m_pKExtra; // optionally embed 2 scalars that can be recognized (in addition to CoinID)
 
-	const BeamCrypto_CompactPoint* m_pT_In;
+	const CompactPoint* m_pT_In;
 	// result
-	BeamCrypto_CompactPoint* m_pT_Out; // can be same as T_In
+	CompactPoint* m_pT_Out; // can be same as T_In
 	secp256k1_scalar* m_pTauX;
 
-} BeamCrypto_RangeProof;
+} RangeProof;
 
-int BeamCrypto_RangeProof_Calculate(BeamCrypto_RangeProof*);
+int RangeProof_Calculate(RangeProof*);
