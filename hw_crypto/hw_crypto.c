@@ -45,9 +45,6 @@
 
 #define SECURE_ERASE_OBJ(x) SecureEraseMem(&x, sizeof(x))
 
-#define s_WNaf_HiBit 0x80
-static_assert(c_MultiMac_Fast_nCount < s_WNaf_HiBit, "");
-
 #ifdef USE_SCALAR_4X64
 typedef uint64_t secp256k1_scalar_uint;
 #else // USE_SCALAR_4X64
@@ -98,115 +95,127 @@ inline static secp256k1_scalar_uint BitWalker_get(const BitWalker* p, const secp
 	return pK->d[p->m_Word] & p->m_Msk;
 }
 
-inline static void BitWalker_xor(const BitWalker* p, secp256k1_scalar* pK)
+inline static secp256k1_scalar_uint BitWalker_xor(const BitWalker* p, secp256k1_scalar* pK)
 {
-	pK->d[p->m_Word] ^= p->m_Msk;
+	return (pK->d[p->m_Word] ^= p->m_Msk) & p->m_Msk;
+}
+
+#define c_WNaf_Invalid 0x80
+static_assert((c_MultiMac_Fast_nCount * 2) < c_WNaf_Invalid, "");
+
+inline static void WNaf_Cursor_SetInvalid(MultiMac_WNaf* p)
+{
+	p->m_iBit = 0xff;
+	p->m_iElement = c_WNaf_Invalid;
 }
 
 
-static void WNaf_Cursor_MoveNext(MultiMac_WNaf_Cursor* p, const secp256k1_scalar* pK)
+static int WNaf_Cursor_Init(MultiMac_WNaf* p, secp256k1_scalar* pK)
 {
+	// Choose the optimal strategy
+	// Pass from lower bits up, look for 1.
+	WNaf_Cursor_SetInvalid(p);
+
+	int carry = 0;
+	unsigned int nWndLen = 0;
+	BitWalker bw, bw0;
+	bw.m_Word = 0;
+	bw.m_Msk = 1;
+
+	for (unsigned int iBit = 0; iBit < c_ECC_nBits; BitWalker_MoveUp(&bw), iBit++)
+	{
+		if (carry)
+		{
+			assert(!nWndLen);
+
+			if (!BitWalker_xor(&bw, pK))
+				continue;
+
+			carry = 0;
+		}
+		else
+		{
+			secp256k1_scalar_uint val = BitWalker_get(&bw, pK);
+
+			if (nWndLen)
+			{
+				assert(nWndLen <= c_MultiMac_Fast_nBits);
+
+				if (val)
+					p->m_iElement |= (1 << (nWndLen - 1));
+
+				if (++nWndLen > c_MultiMac_Fast_nBits)
+				{
+					// word end. Make sure there's a bit set at this position. Use the bit at word beginning as a negation indicator.
+					if (val)
+					{
+						carry = 1;
+						BitWalker_xor(&bw0, pK);
+					}
+					else
+						BitWalker_xor(&bw, pK);
+
+					nWndLen = 0;
+				}
+
+				continue;
+			}
+
+			if (!val)
+				continue;
+		}
+
+		// new window
+		nWndLen = 1;
+		p->m_iBit = iBit;
+		p->m_iElement = 0;
+
+		bw0 = bw;
+	}
+
+	return carry;
+}
+
+static void WNaf_Cursor_MoveNext(MultiMac_WNaf* p, const secp256k1_scalar* pK)
+{
+	if (p->m_iBit <= c_MultiMac_Fast_nBits)
+		return;
+
 	BitWalker bw;
 	BitWalker_SetPos(&bw, --p->m_iBit);
 
 	// find next nnz bit
-	for (; ; p->m_iBit--, BitWalker_MoveDown(&bw))
+	for (; ; BitWalker_MoveDown(&bw), --p->m_iBit)
 	{
 		if (BitWalker_get(&bw, pK))
 			break;
 
-		if (!p->m_iBit)
+		if (p->m_iBit <= c_MultiMac_Fast_nBits)
 		{
-			// end
-			p->m_iBit = 1;
-			p->m_iElement = s_WNaf_HiBit;
+			WNaf_Cursor_SetInvalid(p);
 			return;
 		}
 	}
 
-	uint8_t nOdd = 1;
+	p->m_iBit -= c_MultiMac_Fast_nBits;
+	p->m_iElement = 0;
 
-	uint8_t nWndBits = c_MultiMac_Fast_nBits - 1;
-	if (nWndBits > p->m_iBit)
-		nWndBits = p->m_iBit;
-
-	for (uint8_t i = 0; i < nWndBits; i++, p->m_iBit--)
+	for (unsigned int i = 0; i < (c_MultiMac_Fast_nBits - 1); i++)
 	{
+		p->m_iElement <<= 1;
+
 		BitWalker_MoveDown(&bw);
-		nOdd = (nOdd << 1) | (BitWalker_get(&bw, pK) != 0);
+		if (BitWalker_get(&bw, pK))
+			p->m_iElement |= 1;
 	}
 
-	for (; !(1 & nOdd); p->m_iBit++)
-		nOdd >>= 1;
+	assert(p->m_iElement < c_MultiMac_Fast_nCount);
 
-	p->m_iElement = nOdd >> 1;
-}
-
-static int Scalar_SplitPosNeg(MultiMac_Scalar* p)
-{
-#if c_MultiMac_Directions != 2
-	static_assert(c_MultiMac_Directions == 1, "");
-#else // c_MultiMac_Directions
-
-	memset(p->m_pK[1].d, 0, sizeof(p->m_pK[1].d));
-
-	uint8_t iBit = 0;
-	BitWalker bw;
-	bw.m_Word = 0;
-	bw.m_Msk = 1;
-
-	while (1)
-	{
-		// find nnz bit
-		while (1)
-		{
-			if (iBit >= c_ECC_nBits - c_MultiMac_Fast_nBits)
-				return 0;
-
-			if (BitWalker_get(&bw, p->m_pK))
-				break;
-
-			iBit++;
-			BitWalker_MoveUp(&bw);
-		}
-
-		BitWalker bw0 = bw;
-
-		iBit += c_MultiMac_Fast_nBits;
-		for (uint32_t i = 0; i < c_MultiMac_Fast_nBits; i++)
-			BitWalker_MoveUp(&bw); // akward
-
-		if (!BitWalker_get(&bw, p->m_pK))
-			continue; // interleaving is not needed
-
-		// set negative bits
-		BitWalker_xor(&bw0, p->m_pK);
-		BitWalker_xor(&bw0, p->m_pK + 1);
-
-		for (uint8_t i = 1; i < c_MultiMac_Fast_nBits; i++)
-		{
-			BitWalker_MoveUp(&bw0);
-
-			secp256k1_scalar_uint val = BitWalker_get(&bw0, p->m_pK);
-			BitWalker_xor(&bw0, p->m_pK + !val);
-		}
-
-		// propagate carry
-		while (1)
-		{
-			BitWalker_xor(&bw, p->m_pK);
-			if (BitWalker_get(&bw, p->m_pK))
-				break;
-
-			if (! ++iBit)
-				return 1; // carry goes outside
-
-			BitWalker_MoveUp(&bw);
-		}
-	}
-#endif // c_MultiMac_Directions
-
-	return 0;
+	// last indicator bit
+	BitWalker_MoveDown(&bw);
+	if (!BitWalker_get(&bw, pK))
+		// must negate instead of addition
+		p->m_iElement += c_MultiMac_Fast_nCount;
 }
 
 void mem_cmov(unsigned int* pDst, const unsigned int* pSrc, int flag, unsigned int nWords)
@@ -222,33 +231,28 @@ void MultiMac_Calculate(const MultiMac_Context* p)
 {
 	secp256k1_gej_set_infinity(p->m_pRes);
 
-	for (unsigned int i = 0; i < p->m_Fast; i++)
-	{
-		MultiMac_WNaf* pWnaf = p->m_pWnaf + i;
-		MultiMac_Scalar* pS = p->m_pS + i;
-
-		pWnaf->m_pC[0].m_iBit = 0;
-
-		int carry = Scalar_SplitPosNeg(pS);
-		if (carry)
-			pWnaf->m_pC[0].m_iElement = s_WNaf_HiBit;
-		else
-			WNaf_Cursor_MoveNext(pWnaf->m_pC, pS->m_pK);
-
-#if c_MultiMac_Directions == 2
-		pWnaf->m_pC[1].m_iBit = 0;
-		WNaf_Cursor_MoveNext(pWnaf->m_pC + 1, pS->m_pK + 1);
-#endif // c_MultiMac_Directions
-	}
-
 	secp256k1_ge ge;
 	secp256k1_ge_storage ges;
 
-	for (uint16_t iBit = c_ECC_nBits + 1; iBit--; ) // extra bit may be necessary because of interleaving
+	for (unsigned int i = 0; i < p->m_Fast; i++)
+	{
+		MultiMac_WNaf* pWnaf = p->m_pWnaf + i;
+		secp256k1_scalar* pS = p->m_pFastK + i;
+
+		int carry = WNaf_Cursor_Init(pWnaf, pS);
+		if (carry)
+		{
+			secp256k1_ge_from_storage(&ge, p->m_pGenFast[i].m_pPt);
+			secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, 0);
+		}
+	}
+
+
+	for (unsigned int iBit = c_ECC_nBits; iBit--; )
 	{
 		secp256k1_gej_double_var(p->m_pRes, p->m_pRes, 0); // would be fast if zero, no need to check explicitly
 
-		if (!(iBit % c_MultiMac_Secure_nBits) && (iBit < c_ECC_nBits) && p->m_Secure)
+		if (!(iBit % c_MultiMac_Secure_nBits) && p->m_Secure)
 		{
 			static_assert(!(secp256k1_scalar_WordBits % c_MultiMac_Secure_nBits), "");
 
@@ -286,27 +290,29 @@ void MultiMac_Calculate(const MultiMac_Context* p)
 		{
 			MultiMac_WNaf* pWnaf = p->m_pWnaf + i;
 
-			for (unsigned int j = 0; j < c_MultiMac_Directions; j++)
+			if (((uint8_t) iBit) != pWnaf->m_iBit)
+				continue;
+
+			unsigned int iElem = pWnaf->m_iElement;
+
+			if (c_WNaf_Invalid == iElem)
+				continue;
+
+			int bNegate = (iElem >= c_MultiMac_Fast_nCount);
+			if (bNegate)
 			{
-				MultiMac_WNaf_Cursor* pWc = pWnaf->m_pC + j;
-
-				if (((uint8_t) iBit) != pWc->m_iBit)
-					continue;
-
-				// special case: resolve 256-0 ambiguity
-				if ((pWc->m_iElement ^ ((uint8_t) (iBit >> 1))) & s_WNaf_HiBit)
-					continue;
-
-				secp256k1_ge_from_storage(&ge, p->m_pGenFast[i].m_pPt + (pWc->m_iElement & ~s_WNaf_HiBit));
-
-				if (j)
-					secp256k1_ge_neg(&ge, &ge);
-
-				secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, 0);
-
-				if (iBit)
-					WNaf_Cursor_MoveNext(pWc, p->m_pS[i].m_pK + j);
+				iElem = (c_MultiMac_Fast_nCount * 2 - 1) - iElem;
+				assert(iElem < c_MultiMac_Fast_nCount);
 			}
+
+			secp256k1_ge_from_storage(&ge, p->m_pGenFast[i].m_pPt + iElem);
+
+			if (bNegate)
+				secp256k1_ge_neg(&ge, &ge);
+
+			secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, 0);
+
+			WNaf_Cursor_MoveNext(pWnaf, p->m_pFastK + i);
 		}
 	}
 
@@ -891,7 +897,7 @@ void CoinID_getCommRawEx(const secp256k1_scalar* pkG, const secp256k1_scalar* pk
 
 		struct
 		{
-			MultiMac_Scalar s;
+			secp256k1_scalar s;
 			MultiMac_WNaf wnaf;
 			MultiMac_Fast genAsset;
 			secp256k1_fe zDenom;
@@ -908,7 +914,7 @@ void CoinID_getCommRawEx(const secp256k1_scalar* pkG, const secp256k1_scalar* pk
 	mmCtx.m_pSecureK = pkG;
 	mmCtx.m_pGenSecure = pCtx->m_pGenGJ;
 	mmCtx.m_Fast = 1;
-	mmCtx.m_pS = &u.mm.s;
+	mmCtx.m_pFastK = &u.mm.s;
 	mmCtx.m_pWnaf = &u.mm.wnaf;
 
 	if (aid)
@@ -933,7 +939,7 @@ void CoinID_getCommRawEx(const secp256k1_scalar* pkG, const secp256k1_scalar* pk
 		mmCtx.m_pZDenom = 0;
 	}
 
-	*u.mm.s.m_pK = *pkH;
+	u.mm.s = *pkH; // copy
 
 	MultiMac_Calculate(&mmCtx);
 	pComm[0].m_Flags = c_FlexPoint_Gej;
@@ -1150,17 +1156,16 @@ static void RangeProof_Calculate_S(RangeProof_Worker* pWrk)
 	// Data buffers needed for calculating Part1.S
 	// Need to multi-exponentiate nDims * 2 == 128 elements.
 	// Calculating everything in a single pass is faster, but requires more buffers (stack memory)
-	// Each element size is sizeof(MultiMac_Scalar) + sizeof(MultiMac_WNaf),
-	// which is either 34 or 68 bytes, depends on c_MultiMac_Directions (larger size is for faster algorithm)
+	// Each element size is sizeof(secp256k1_scalar) + sizeof(MultiMac_WNaf) == 34 bytes
 	//
-	// This requires 8.5K stack memory (or 4.25K if c_MultiMac_Directions == 1)
+	// This requires of 4.25K stack memory
 #define Calc_S_Naggle_Max (nDims * 2)
 
 #define Calc_S_Naggle Calc_S_Naggle_Max // currently using max
 
 	static_assert(Calc_S_Naggle <= Calc_S_Naggle_Max, "Naggle too large");
 
-	MultiMac_Scalar pS[Calc_S_Naggle];
+	secp256k1_scalar pS[Calc_S_Naggle];
 	MultiMac_WNaf pWnaf[Calc_S_Naggle];
 
 	// Try to avoid local vars, save as much stack as possible
@@ -1177,7 +1182,7 @@ static void RangeProof_Calculate_S(RangeProof_Worker* pWrk)
 
 	mmCtx.m_Fast = 0;
 	mmCtx.m_pGenFast = Context_get()->m_pGenFast;
-	mmCtx.m_pS = pS;
+	mmCtx.m_pFastK = pS;
 	mmCtx.m_pWnaf = pWnaf;
 
 	for (unsigned int iBit = 0; iBit < nDims * 2; iBit++, mmCtx.m_Fast++)
@@ -1196,11 +1201,11 @@ static void RangeProof_Calculate_S(RangeProof_Worker* pWrk)
 			mmCtx.m_pGenFast += Calc_S_Naggle;
 		}
 
-		NonceGenerator_NextScalar(&pWrk->m_NonceGen, pS[mmCtx.m_Fast].m_pK);
+		NonceGenerator_NextScalar(&pWrk->m_NonceGen, pS + mmCtx.m_Fast);
 
 		if (!(iBit % nDims) && pWrk->m_pRangeProof->m_pKExtra)
 			// embed more info
-			secp256k1_scalar_add(pS[mmCtx.m_Fast].m_pK, pS[mmCtx.m_Fast].m_pK, pWrk->m_pRangeProof->m_pKExtra + (iBit / nDims));
+			secp256k1_scalar_add(pS + mmCtx.m_Fast, pS + mmCtx.m_Fast, pWrk->m_pRangeProof->m_pKExtra + (iBit / nDims));
 	}
 
 	mmCtx.m_pRes = pWrk->m_pGej + 1;
@@ -1665,7 +1670,7 @@ int Signature_IsValid(const Signature* p, const UintBig* pMsg, FlexPoint* pPk)
 	secp256k1_fe zDenom;
 
 	MultiMac_WNaf wnaf;
-	MultiMac_Scalar s;
+	secp256k1_scalar s;
 	MultiMac_Fast gen;
 
 	MultiMac_Context ctx;
@@ -1685,11 +1690,11 @@ int Signature_IsValid(const Signature* p, const UintBig* pMsg, FlexPoint* pPk)
 		ctx.m_pZDenom = &zDenom;
 		ctx.m_Fast = 1;
 		ctx.m_pGenFast = &gen;
-		ctx.m_pS = &s;
+		ctx.m_pFastK = &s;
 		ctx.m_pWnaf = &wnaf;
 		MultiMac_SetCustom_Nnz(&ctx, pPk);
 
-		Signature_GetChallenge(p, pMsg, s.m_pK);
+		Signature_GetChallenge(p, pMsg, &s);
 	}
 
 	MultiMac_Calculate(&ctx);

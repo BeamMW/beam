@@ -247,7 +247,7 @@ void TestMultiMac()
 	const uint32_t nBatch = nFast + nSecure;
 
 	hw::MultiMac_WNaf pWnaf[nFast];
-	hw::MultiMac_Scalar pFastS[nFast];
+	secp256k1_scalar pFastS[nFast];
 
 	hw::MultiMac_Secure pGenSecure[nSecure];
 	secp256k1_scalar pSecureS[nSecure];
@@ -257,7 +257,7 @@ void TestMultiMac()
 	mmCtx.m_Fast = nFast;
 	mmCtx.m_Secure = nSecure;
 	mmCtx.m_pGenFast = hw::Context_get()->m_pGenFast;
-	mmCtx.m_pS = pFastS;
+	mmCtx.m_pFastK = pFastS;
 	mmCtx.m_pWnaf = pWnaf;
 	mmCtx.m_pGenSecure = pGenSecure;
 	mmCtx.m_pSecureK = pSecureS;
@@ -297,7 +297,7 @@ void TestMultiMac()
 			mm1.m_Prepared++;
 
 			if (iPt < nFast)
-				pFastS[iPt].m_pK[0] = sk.get();
+				pFastS[iPt] = sk.get();
 			else
 				pSecureS[iPt - nFast] = sk.get();
 		}

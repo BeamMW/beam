@@ -15,8 +15,7 @@
 #pragma once
 #include "ecc_decl.h"
 
-#define c_MultiMac_Directions 2 // must be 1 or 2. For 2 interleaving is used. Faster (~1 effective window bit), but needs an extra scalar per element
-#define c_MultiMac_Fast_nBits 4
+#define c_MultiMac_Fast_nBits 4 // effectively it'd be 1 bit more, because we both add and subtract (i.e. interleave)
 #define c_MultiMac_Secure_nBits 4
 #define c_MultiMac_Fast_nCount (1 << (c_MultiMac_Fast_nBits - 1)) // odd powers
 #define c_MultiMac_Secure_nCount (1 << c_MultiMac_Secure_nBits)
@@ -32,15 +31,7 @@ typedef struct {
 typedef struct {
 	uint8_t m_iBit;
 	uint8_t m_iElement;
-} MultiMac_WNaf_Cursor;
-
-typedef struct {
-	MultiMac_WNaf_Cursor m_pC[c_MultiMac_Directions];
 } MultiMac_WNaf;
-
-typedef struct {
-	secp256k1_scalar m_pK[c_MultiMac_Directions];
-} MultiMac_Scalar;
 
 typedef struct
 {
@@ -50,7 +41,7 @@ typedef struct
 	unsigned int m_Secure;
 
 	const MultiMac_Fast* m_pGenFast;
-	MultiMac_Scalar* m_pS;
+	secp256k1_scalar* m_pFastK; // would be modified during calculation, value won't be preserved
 	MultiMac_WNaf* m_pWnaf;
 
 	const MultiMac_Secure* m_pGenSecure;
