@@ -714,11 +714,14 @@ struct KeyKeeperHwEmu
 
 		virtual void Execute(Task::Ptr&) override
 		{
-			int nRes = hw::KeyKeeper_Invoke(&m_pThis->m_Ctx,
-				reinterpret_cast<uint8_t*>(Cast::NotConst(m_msgOut.p)),
-				static_cast<uint32_t>(m_msgOut.n),
-				reinterpret_cast<uint8_t*>(Cast::NotConst(m_msgIn.p)),
-				static_cast<uint32_t>(m_msgIn.n));
+			bool bUseOutp = (m_msgOut.n >= m_msgIn.n);
+			if (!bUseOutp)
+				memcpy(Cast::NotConst(m_msgIn.p), m_msgOut.p, m_msgOut.n);
+
+			int nRes = hw::KeyKeeper_Invoke(&m_pThis->m_Ctx, reinterpret_cast<uint8_t*>(Cast::NotConst(bUseOutp ? m_msgOut.p : m_msgIn.p)), m_msgOut.n, m_msgIn.n);
+
+			if (bUseOutp)
+				memcpy(Cast::NotConst(m_msgIn.p), m_msgOut.p, m_msgIn.n);
 
 			m_pHandler->OnDone((Status::Type) nRes);
 		}

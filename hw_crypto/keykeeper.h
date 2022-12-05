@@ -298,7 +298,7 @@ typedef struct
 	macro(0x33, TxSend2) \
 	macro(0x36, TxSendShielded) \
 
-int KeyKeeper_Invoke(const KeyKeeper*, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t nOut);
+int KeyKeeper_Invoke(const KeyKeeper*, uint8_t* pInOut, uint32_t nIn, uint32_t nOut);
 
 //////////////////////////
 // KeyKeeper - request user approval for spend
