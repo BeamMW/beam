@@ -1089,7 +1089,6 @@ static uint64_t ReadInNetworkOrder(const uint8_t* pSrc, unsigned int nLen)
 
 typedef struct
 {
-	RangeProof* m_pRangeProof;
 	NonceGenerator m_NonceGen; // 88 bytes
 	secp256k1_gej m_pGej[2]; // 248 bytes
 
@@ -1098,92 +1097,115 @@ typedef struct
 	secp256k1_scalar m_alpha;
 	CompactPoint m_Commitment;
 
+	union
+	{
+		struct
+		{
+			FlexPoint fp;
+			Oracle oracle;
+			UintBig hv;
+			secp256k1_scalar k;
+		} p1;
+
+		struct
+		{
+			// Data buffers needed for calculating Part1.S
+			// Need to multi-exponentiate nDims * 2 == 128 elements.
+			// Calculating everything in a single pass is faster, but requires more buffers (stack memory)
+			// Each element size is sizeof(secp256k1_scalar) + sizeof(MultiMac_WNaf) == 34 bytes
+			//
+			// This requires of 4.25K stack memory
+#define nDims (sizeof(Amount) * 8)
+#define Calc_S_Naggle_Max (nDims * 2)
+
+#define Calc_S_Naggle Calc_S_Naggle_Max // currently using max
+
+			secp256k1_scalar pS[Calc_S_Naggle];
+			MultiMac_WNaf pWnaf[Calc_S_Naggle];
+
+			secp256k1_scalar ro;
+
+		} p2;
+
+		struct
+		{
+			secp256k1_scalar pK[2];
+
+			Oracle oracle;
+			secp256k1_scalar pChallenge[2];
+			UintBig hv;
+			secp256k1_hmac_sha256_t hmac;
+
+			FlexPoint pFp[2]; // 496 bytes
+
+		} p3;
+
+	} u;
+
 } RangeProof_Worker;
 
-static void RangeProof_Calculate_Before_S(RangeProof_Worker* pWrk)
+static void RangeProof_Calculate_Before_S(RangeProof* const p, RangeProof_Worker* const pWrk)
 {
-	const RangeProof* p = pWrk->m_pRangeProof;
+	CoinID_getSkComm(p->m_pKdf, &p->m_Cid, &pWrk->m_sk, &pWrk->u.p1.fp.m_Compact);
+	pWrk->u.p1.fp.m_Flags = c_FlexPoint_Compact;
 
-	FlexPoint fp;
-	CoinID_getSkComm(p->m_pKdf, &p->m_Cid, &pWrk->m_sk, &fp.m_Compact);
-	fp.m_Flags = c_FlexPoint_Compact;
-
-	pWrk->m_Commitment = fp.m_Compact;
+	pWrk->m_Commitment = pWrk->u.p1.fp.m_Compact;
 
 	// get seed
-	Oracle oracle;
-	secp256k1_sha256_initialize(&oracle.m_sha);
-	secp256k1_sha256_write_Point(&oracle.m_sha, &fp);
+	secp256k1_sha256_initialize(&pWrk->u.p1.oracle.m_sha);
+	secp256k1_sha256_write_Point(&pWrk->u.p1.oracle.m_sha, &pWrk->u.p1.fp);
 
-	UintBig hv;
-	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
+	secp256k1_sha256_finalize(&pWrk->u.p1.oracle.m_sha, pWrk->u.p1.hv.m_pVal);
 
-	secp256k1_scalar k;
-	Kdf_Derive_PKey(p->m_pKdf, &hv, &k);
-	secp256k1_scalar_get_b32(hv.m_pVal, &k);
+	Kdf_Derive_PKey(p->m_pKdf, &pWrk->u.p1.hv, &pWrk->u.p1.k);
+	secp256k1_scalar_get_b32(pWrk->u.p1.hv.m_pVal, &pWrk->u.p1.k);
 
-	secp256k1_sha256_initialize(&oracle.m_sha);
-	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, sizeof(hv.m_pVal));
-	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
+	secp256k1_sha256_initialize(&pWrk->u.p1.oracle.m_sha);
+	secp256k1_sha256_write(&pWrk->u.p1.oracle.m_sha, pWrk->u.p1.hv.m_pVal, sizeof(pWrk->u.p1.hv.m_pVal));
+	secp256k1_sha256_finalize(&pWrk->u.p1.oracle.m_sha, pWrk->u.p1.hv.m_pVal);
 
 	// NonceGen
 	static const char szSalt[] = "bulletproof";
-	NonceGenerator_Init(&pWrk->m_NonceGen, szSalt, sizeof(szSalt), &hv);
+	NonceGenerator_Init(&pWrk->m_NonceGen, szSalt, sizeof(szSalt), &pWrk->u.p1.hv);
 
 	NonceGenerator_NextScalar(&pWrk->m_NonceGen, &pWrk->m_alpha); // alpha
 
 	// embed params into alpha
-	uint8_t* pPtr = hv.m_pVal + c_ECC_nBytes;
+	uint8_t* pPtr = pWrk->u.p1.hv.m_pVal + c_ECC_nBytes;
 	WriteInNetworkOrder(&pPtr, p->m_Cid.m_Amount, sizeof(p->m_Cid.m_Amount));
 	WriteInNetworkOrder(&pPtr, p->m_Cid.m_SubIdx, sizeof(p->m_Cid.m_SubIdx));
 	WriteInNetworkOrder(&pPtr, p->m_Cid.m_Type, sizeof(p->m_Cid.m_Type));
 	WriteInNetworkOrder(&pPtr, p->m_Cid.m_Idx, sizeof(p->m_Cid.m_Idx));
 	WriteInNetworkOrder(&pPtr, p->m_Cid.m_AssetID, sizeof(p->m_Cid.m_AssetID));
-	memset(hv.m_pVal, 0, pPtr - hv.m_pVal); // padding
+	memset(pWrk->u.p1.hv.m_pVal, 0, pPtr - pWrk->u.p1.hv.m_pVal); // padding
 
 	int overflow;
-	secp256k1_scalar_set_b32(&k, hv.m_pVal, &overflow);
+	secp256k1_scalar_set_b32(&pWrk->u.p1.k, pWrk->u.p1.hv.m_pVal, &overflow);
 	assert(!overflow);
 
-	secp256k1_scalar_add(&pWrk->m_alpha, &pWrk->m_alpha, &k);
+	secp256k1_scalar_add(&pWrk->m_alpha, &pWrk->m_alpha, &pWrk->u.p1.k);
 }
 
 
-#define nDims (sizeof(Amount) * 8)
-
-static void RangeProof_Calculate_S(RangeProof_Worker* pWrk)
+static void RangeProof_Calculate_S(RangeProof* const p, RangeProof_Worker* const pWrk)
 {
-	// Data buffers needed for calculating Part1.S
-	// Need to multi-exponentiate nDims * 2 == 128 elements.
-	// Calculating everything in a single pass is faster, but requires more buffers (stack memory)
-	// Each element size is sizeof(secp256k1_scalar) + sizeof(MultiMac_WNaf) == 34 bytes
-	//
-	// This requires of 4.25K stack memory
-#define Calc_S_Naggle_Max (nDims * 2)
-
-#define Calc_S_Naggle Calc_S_Naggle_Max // currently using max
-
 	static_assert(Calc_S_Naggle <= Calc_S_Naggle_Max, "Naggle too large");
-
-	secp256k1_scalar pS[Calc_S_Naggle];
-	MultiMac_WNaf pWnaf[Calc_S_Naggle];
 
 	// Try to avoid local vars, save as much stack as possible
 
-	secp256k1_scalar ro;
-	NonceGenerator_NextScalar(&pWrk->m_NonceGen, &ro);
+	NonceGenerator_NextScalar(&pWrk->m_NonceGen, &pWrk->u.p2.ro);
 
 	MultiMac_Context mmCtx;
 	mmCtx.m_pZDenom = 0;
 
 	mmCtx.m_Secure = 1;
-	mmCtx.m_pSecureK = &ro;
+	mmCtx.m_pSecureK = &pWrk->u.p2.ro;
 	mmCtx.m_pGenSecure = Context_get()->m_pGenGJ;
 
 	mmCtx.m_Fast = 0;
 	mmCtx.m_pGenFast = Context_get()->m_pGenFast;
-	mmCtx.m_pFastK = pS;
-	mmCtx.m_pWnaf = pWnaf;
+	mmCtx.m_pFastK = pWrk->u.p2.pS;
+	mmCtx.m_pWnaf = pWrk->u.p2.pWnaf;
 
 	for (unsigned int iBit = 0; iBit < nDims * 2; iBit++, mmCtx.m_Fast++)
 	{
@@ -1201,11 +1223,11 @@ static void RangeProof_Calculate_S(RangeProof_Worker* pWrk)
 			mmCtx.m_pGenFast += Calc_S_Naggle;
 		}
 
-		NonceGenerator_NextScalar(&pWrk->m_NonceGen, pS + mmCtx.m_Fast);
+		NonceGenerator_NextScalar(&pWrk->m_NonceGen, pWrk->u.p2.pS + mmCtx.m_Fast);
 
-		if (!(iBit % nDims) && pWrk->m_pRangeProof->m_pKExtra)
+		if (!(iBit % nDims) && p->m_pKExtra)
 			// embed more info
-			secp256k1_scalar_add(pS + mmCtx.m_Fast, pS + mmCtx.m_Fast, pWrk->m_pRangeProof->m_pKExtra + (iBit / nDims));
+			secp256k1_scalar_add(pWrk->u.p2.pS + mmCtx.m_Fast, pWrk->u.p2.pS + mmCtx.m_Fast, p->m_pKExtra + (iBit / nDims));
 	}
 
 	mmCtx.m_pRes = pWrk->m_pGej + 1;
@@ -1232,21 +1254,12 @@ static void RangeProof_Calculate_A_Bits(secp256k1_gej* pRes, secp256k1_ge* pGeTm
 	}
 }
 
-static int RangeProof_Calculate_After_S(RangeProof_Worker* pWrk)
+static int RangeProof_Calculate_After_S(RangeProof* const p, RangeProof_Worker* const pWrk)
 {
-	RangeProof* p = pWrk->m_pRangeProof;
 	Context* pCtx = Context_get();
 
-	secp256k1_scalar pK[2];
-
-	Oracle oracle;
-	secp256k1_scalar pChallenge[2];
-	UintBig hv;
-	secp256k1_hmac_sha256_t hmac;
-
-	FlexPoint pFp[2]; // 496 bytes
-	pFp[1].m_Gej = pWrk->m_pGej[1];
-	pFp[1].m_Flags = c_FlexPoint_Gej;
+	pWrk->u.p3.pFp[1].m_Gej = pWrk->m_pGej[1];
+	pWrk->u.p3.pFp[1].m_Flags = c_FlexPoint_Gej;
 
 	// CalcA
 	MultiMac_Context mmCtx;
@@ -1255,65 +1268,65 @@ static int RangeProof_Calculate_After_S(RangeProof_Worker* pWrk)
 	mmCtx.m_Secure = 1;
 	mmCtx.m_pSecureK = &pWrk->m_alpha;
 	mmCtx.m_pGenSecure = pCtx->m_pGenGJ;
-	mmCtx.m_pRes = &pFp[0].m_Gej;
+	mmCtx.m_pRes = &pWrk->u.p3.pFp[0].m_Gej;
 
 	MultiMac_Calculate(&mmCtx); // alpha*G
-	pFp[0].m_Flags = c_FlexPoint_Gej;
+	pWrk->u.p3.pFp[0].m_Flags = c_FlexPoint_Gej;
 
-	RangeProof_Calculate_A_Bits(&pFp[0].m_Gej, &pFp[0].m_Ge, p->m_Cid.m_Amount);
+	RangeProof_Calculate_A_Bits(&pWrk->u.p3.pFp[0].m_Gej, &pWrk->u.p3.pFp[0].m_Ge, p->m_Cid.m_Amount);
 
 
 	// normalize A,S at once, feed them to Oracle
-	FlexPoint_MakeGe_Batch(pFp, _countof(pFp));
+	FlexPoint_MakeGe_Batch(pWrk->u.p3.pFp, _countof(pWrk->u.p3.pFp));
 
-	Oracle_Init(&oracle);
-	secp256k1_sha256_write_Num(&oracle.m_sha, 0); // incubation time, must be zero
-	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pWrk->m_Commitment); // starting from Fork1, earlier schem is not allowed
-	secp256k1_sha256_write_CompactPointOptional(&oracle.m_sha, pWrk->m_pRangeProof->m_pAssetGen); // starting from Fork3, earlier schem is not allowed
+	Oracle_Init(&pWrk->u.p3.oracle);
+	secp256k1_sha256_write_Num(&pWrk->u.p3.oracle.m_sha, 0); // incubation time, must be zero
+	secp256k1_sha256_write_CompactPoint(&pWrk->u.p3.oracle.m_sha, &pWrk->m_Commitment); // starting from Fork1, earlier schem is not allowed
+	secp256k1_sha256_write_CompactPointOptional(&pWrk->u.p3.oracle.m_sha, p->m_pAssetGen); // starting from Fork3, earlier schem is not allowed
 
 	for (unsigned int i = 0; i < 2; i++)
-		secp256k1_sha256_write_Point(&oracle.m_sha, pFp + i);
+		secp256k1_sha256_write_Point(&pWrk->u.p3.oracle.m_sha, pWrk->u.p3.pFp + i);
 
 	// get challenges. Use the challenges, sk, T1 and T2 to init the NonceGen for blinding the sk
 	static const char szSalt[] = "bulletproof-sk";
-	NonceGenerator_InitBegin(&pWrk->m_NonceGen, &hmac, szSalt, sizeof(szSalt));
+	NonceGenerator_InitBegin(&pWrk->m_NonceGen, &pWrk->u.p3.hmac, szSalt, sizeof(szSalt));
 
-	secp256k1_scalar_get_b32(hv.m_pVal, &pWrk->m_sk);
-	secp256k1_hmac_sha256_write(&hmac, hv.m_pVal, sizeof(hv.m_pVal));
+	secp256k1_scalar_get_b32(pWrk->u.p3.hv.m_pVal, &pWrk->m_sk);
+	secp256k1_hmac_sha256_write(&pWrk->u.p3.hmac, pWrk->u.p3.hv.m_pVal, sizeof(pWrk->u.p3.hv.m_pVal));
 
 	for (unsigned int i = 0; i < 2; i++)
 	{
-		secp256k1_hmac_sha256_write(&hmac, p->m_pT_In[i].m_X.m_pVal, sizeof(p->m_pT_In[i].m_X.m_pVal));
-		secp256k1_hmac_sha256_write(&hmac, &p->m_pT_In[i].m_Y, sizeof(p->m_pT_In[i].m_Y));
+		secp256k1_hmac_sha256_write(&pWrk->u.p3.hmac, p->m_pT_In[i].m_X.m_pVal, sizeof(p->m_pT_In[i].m_X.m_pVal));
+		secp256k1_hmac_sha256_write(&pWrk->u.p3.hmac, &p->m_pT_In[i].m_Y, sizeof(p->m_pT_In[i].m_Y));
 
-		Oracle_NextScalar(&oracle, pChallenge); // challenges y,z. The 'y' is not needed, will be overwritten by 'z'.
-		secp256k1_scalar_get_b32(hv.m_pVal, pChallenge);
-		secp256k1_hmac_sha256_write(&hmac, hv.m_pVal, sizeof(hv.m_pVal));
+		Oracle_NextScalar(&pWrk->u.p3.oracle, pWrk->u.p3.pChallenge); // challenges y,z. The 'y' is not needed, will be overwritten by 'z'.
+		secp256k1_scalar_get_b32(pWrk->u.p3.hv.m_pVal, pWrk->u.p3.pChallenge);
+		secp256k1_hmac_sha256_write(&pWrk->u.p3.hmac, pWrk->u.p3.hv.m_pVal, sizeof(pWrk->u.p3.hv.m_pVal));
 	}
 
 	int ok = 1;
 
-	NonceGenerator_InitEnd(&pWrk->m_NonceGen, &hmac);
+	NonceGenerator_InitEnd(&pWrk->m_NonceGen, &pWrk->u.p3.hmac);
 
 	for (unsigned int i = 0; i < 2; i++)
 	{
-		NonceGenerator_NextScalar(&pWrk->m_NonceGen, pK + i); // tau1/2
-		mmCtx.m_pSecureK = pK + i;
+		NonceGenerator_NextScalar(&pWrk->m_NonceGen, pWrk->u.p3.pK + i); // tau1/2
+		mmCtx.m_pSecureK = pWrk->u.p3.pK + i;
 		mmCtx.m_pRes = pWrk->m_pGej;
 
 		MultiMac_Calculate(&mmCtx); // pub nonces of T1/T2
 
-		pFp[i].m_Compact = p->m_pT_In[i];
-		pFp[i].m_Flags = c_FlexPoint_Compact;
-		FlexPoint_MakeGe(pFp + i);
-		if (!pFp[i].m_Flags)
+		pWrk->u.p3.pFp[i].m_Compact = p->m_pT_In[i];
+		pWrk->u.p3.pFp[i].m_Flags = c_FlexPoint_Compact;
+		FlexPoint_MakeGe(pWrk->u.p3.pFp + i);
+		if (!pWrk->u.p3.pFp[i].m_Flags)
 		{
 			ok = 0;
 			break;
 		}
 
-		secp256k1_gej_add_ge_var(&pFp[i].m_Gej, mmCtx.m_pRes, &pFp[i].m_Ge, 0);
-		pFp[i].m_Flags = c_FlexPoint_Gej;
+		secp256k1_gej_add_ge_var(&pWrk->u.p3.pFp[i].m_Gej, mmCtx.m_pRes, &pWrk->u.p3.pFp[i].m_Ge, 0);
+		pWrk->u.p3.pFp[i].m_Flags = c_FlexPoint_Gej;
 	}
 
 	SECURE_ERASE_OBJ(pWrk->m_NonceGen);
@@ -1321,32 +1334,32 @@ static int RangeProof_Calculate_After_S(RangeProof_Worker* pWrk)
 	if (ok)
 	{
 		// normalize & expose
-		FlexPoint_MakeGe_Batch(pFp, _countof(pFp));
+		FlexPoint_MakeGe_Batch(pWrk->u.p3.pFp, _countof(pWrk->u.p3.pFp));
 
 		for (unsigned int i = 0; i < 2; i++)
 		{
-			secp256k1_sha256_write_Point(&oracle.m_sha, pFp + i);
-			assert(c_FlexPoint_Compact & pFp[i].m_Flags);
-			p->m_pT_Out[i] = pFp[i].m_Compact;
+			secp256k1_sha256_write_Point(&pWrk->u.p3.oracle.m_sha, pWrk->u.p3.pFp + i);
+			assert(c_FlexPoint_Compact & pWrk->u.p3.pFp[i].m_Flags);
+			p->m_pT_Out[i] = pWrk->u.p3.pFp[i].m_Compact;
 		}
 
 		// last challenge
-		Oracle_NextScalar(&oracle, pChallenge + 1);
+		Oracle_NextScalar(&pWrk->u.p3.oracle, pWrk->u.p3.pChallenge + 1);
 
 		// m_TauX = tau2*x^2 + tau1*x + sk*z^2
-		secp256k1_scalar_mul(pK, pK, pChallenge + 1); // tau1*x
-		secp256k1_scalar_mul(pChallenge + 1, pChallenge + 1, pChallenge + 1); // x^2
-		secp256k1_scalar_mul(pK + 1, pK + 1, pChallenge + 1); // tau2*x^2
+		secp256k1_scalar_mul(pWrk->u.p3.pK, pWrk->u.p3.pK, pWrk->u.p3.pChallenge + 1); // tau1*x
+		secp256k1_scalar_mul(pWrk->u.p3.pChallenge + 1, pWrk->u.p3.pChallenge + 1, pWrk->u.p3.pChallenge + 1); // x^2
+		secp256k1_scalar_mul(pWrk->u.p3.pK + 1, pWrk->u.p3.pK + 1, pWrk->u.p3.pChallenge + 1); // tau2*x^2
 
-		secp256k1_scalar_mul(pChallenge, pChallenge, pChallenge); // z^2
+		secp256k1_scalar_mul(pWrk->u.p3.pChallenge, pWrk->u.p3.pChallenge, pWrk->u.p3.pChallenge); // z^2
 
-		secp256k1_scalar_mul(p->m_pTauX, &pWrk->m_sk, pChallenge); // sk*z^2
-		secp256k1_scalar_add(p->m_pTauX, p->m_pTauX, pK);
-		secp256k1_scalar_add(p->m_pTauX, p->m_pTauX, pK + 1);
+		secp256k1_scalar_mul(p->m_pTauX, &pWrk->m_sk, pWrk->u.p3.pChallenge); // sk*z^2
+		secp256k1_scalar_add(p->m_pTauX, p->m_pTauX, pWrk->u.p3.pK);
+		secp256k1_scalar_add(p->m_pTauX, p->m_pTauX, pWrk->u.p3.pK + 1);
 	}
 
 	SECURE_ERASE_OBJ(pWrk->m_sk);
-	SECURE_ERASE_OBJ(pK); // tau1/2
+	SECURE_ERASE_OBJ(pWrk->u.p3.pK); // tau1/2
 	//SECURE_ERASE_OBJ(hv); - no need, last value is the challenge
 
 	return ok;
@@ -1356,11 +1369,10 @@ static int RangeProof_Calculate_After_S(RangeProof_Worker* pWrk)
 int RangeProof_Calculate(RangeProof* p)
 {
 	RangeProof_Worker wrk;
-	wrk.m_pRangeProof = p;
 
-	RangeProof_Calculate_Before_S(&wrk);
-	RangeProof_Calculate_S(&wrk);
-	return RangeProof_Calculate_After_S(&wrk);
+	RangeProof_Calculate_Before_S(p, &wrk);
+	RangeProof_Calculate_S(p, &wrk);
+	return RangeProof_Calculate_After_S(p, &wrk);
 }
 
 typedef struct
