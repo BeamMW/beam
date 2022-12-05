@@ -2167,15 +2167,6 @@ static void TxAggrToOffset(TxAggr* pAggr, const secp256k1_scalar* pKrn, TxCommon
 	TxAggrToOffsetEx(pAggr, pKrn, &pTx->m_kOffset);
 }
 
-static void TxImportSubtract(secp256k1_scalar* pK, const UintBig* pPrev)
-{
-	secp256k1_scalar kPeer;
-	int overflow;
-	secp256k1_scalar_set_b32(&kPeer, pPrev->m_pVal, &overflow);
-	secp256k1_scalar_negate(&kPeer, &kPeer);
-	secp256k1_scalar_add(pK, pK, &kPeer);
-}
-
 static int TxAggregate_SendOrSplit(const KeyKeeper* p, const TxCommonIn* pTx, TxAggr* pRes, void* pExtra, uint32_t nExtra)
 {
 	if (!TxAggregate(p, pTx, pRes, pExtra, nExtra))
