@@ -30,6 +30,8 @@
 #	pragma warning (disable: 4706 4701) // assignment within conditional expression
 #endif
 
+#define __stack_hungry__
+
 
 #include "secp256k1-zkp/src/group_impl.h"
 #include "secp256k1-zkp/src/scalar_impl.h"
@@ -227,12 +229,11 @@ void mem_cmov(unsigned int* pDst, const unsigned int* pSrc, int flag, unsigned i
 		pDst[n] = (pDst[n] & mask0) | (pSrc[n] & mask1);
 }
 
-void MultiMac_Calculate(const MultiMac_Context* p)
+__stack_hungry__
+static void MultiMac_Calculate_PrePhase(const MultiMac_Context* p)
 {
-	secp256k1_gej_set_infinity(p->m_pRes);
-
 	secp256k1_ge ge;
-	secp256k1_ge_storage ges;
+	secp256k1_gej_set_infinity(p->m_pRes);
 
 	for (unsigned int i = 0; i < p->m_Fast; i++)
 	{
@@ -246,91 +247,126 @@ void MultiMac_Calculate(const MultiMac_Context* p)
 			secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, 0);
 		}
 	}
+}
 
+__stack_hungry__
+static void MultiMac_Calculate_Secure_Read(secp256k1_ge* pGe, const MultiMac_Secure* pGen, unsigned int iElement)
+{
+	secp256k1_ge_storage ges;
 
-	for (unsigned int iBit = c_ECC_nBits; iBit--; )
+	for (unsigned int j = 0; j < c_MultiMac_Secure_nCount; j++)
 	{
-		secp256k1_gej_double_var(p->m_pRes, p->m_pRes, 0); // would be fast if zero, no need to check explicitly
+		static_assert(sizeof(ges) == sizeof(pGen->m_pPt[j]), "");
+		static_assert(!(sizeof(ges) % sizeof(unsigned int)), "");
 
-		if (!(iBit % c_MultiMac_Secure_nBits) && p->m_Secure)
-		{
-			static_assert(!(secp256k1_scalar_WordBits % c_MultiMac_Secure_nBits), "");
-
-			unsigned int iWord = iBit / secp256k1_scalar_WordBits;
-			unsigned int nShift = iBit % secp256k1_scalar_WordBits;
-			const secp256k1_scalar_uint nMsk = ((1U << c_MultiMac_Secure_nBits) - 1);
-
-			for (unsigned int i = 0; i < p->m_Secure; i++)
-			{
-				unsigned int iElement = (p->m_pSecureK[i].d[iWord] >> nShift) & nMsk;
-				const MultiMac_Secure* pGen = p->m_pGenSecure + i;
-
-				for (unsigned int j = 0; j < c_MultiMac_Secure_nCount; j++)
-				{
-					static_assert(sizeof(ges) == sizeof(pGen->m_pPt[j]), "");
-					static_assert(!(sizeof(ges) % sizeof(unsigned int)), "");
-
-					mem_cmov(
-						(unsigned int*) &ges,
-						(unsigned int*) (pGen->m_pPt + j),
-						iElement == j,
-						sizeof(ges) / sizeof(unsigned int));
-				}
-
-				secp256k1_ge_from_storage(&ge, &ges);
-
-				if (p->m_pZDenom)
-					secp256k1_gej_add_zinv_var(p->m_pRes, p->m_pRes, &ge, p->m_pZDenom);
-				else
-					secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, 0);
-			}
-		}
-
-		for (unsigned int i = 0; i < p->m_Fast; i++)
-		{
-			MultiMac_WNaf* pWnaf = p->m_pWnaf + i;
-
-			if (((uint8_t) iBit) != pWnaf->m_iBit)
-				continue;
-
-			unsigned int iElem = pWnaf->m_iElement;
-
-			if (c_WNaf_Invalid == iElem)
-				continue;
-
-			int bNegate = (iElem >= c_MultiMac_Fast_nCount);
-			if (bNegate)
-			{
-				iElem = (c_MultiMac_Fast_nCount * 2 - 1) - iElem;
-				assert(iElem < c_MultiMac_Fast_nCount);
-			}
-
-			secp256k1_ge_from_storage(&ge, p->m_pGenFast[i].m_pPt + iElem);
-
-			if (bNegate)
-				secp256k1_ge_neg(&ge, &ge);
-
-			secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, 0);
-
-			WNaf_Cursor_MoveNext(pWnaf, p->m_pFastK + i);
-		}
+		mem_cmov(
+			(unsigned int*) &ges,
+			(unsigned int*)(pGen->m_pPt + j),
+			iElement == j,
+			sizeof(ges) / sizeof(unsigned int));
 	}
 
+	secp256k1_ge_from_storage(pGe, &ges); // inline is ok here
 	SECURE_ERASE_OBJ(ges);
+}
 
+__stack_hungry__
+static void MultiMac_Calculate_SecureBit(const MultiMac_Context* p, unsigned int iBit)
+{
+	secp256k1_ge ge;
+
+	static_assert(!(secp256k1_scalar_WordBits % c_MultiMac_Secure_nBits), "");
+
+	unsigned int iWord = iBit / secp256k1_scalar_WordBits;
+	unsigned int nShift = iBit % secp256k1_scalar_WordBits;
+	const secp256k1_scalar_uint nMsk = ((1U << c_MultiMac_Secure_nBits) - 1);
+
+	for (unsigned int i = 0; i < p->m_Secure; i++)
+	{
+		unsigned int iElement = (p->m_pSecureK[i].d[iWord] >> nShift) & nMsk;
+		const MultiMac_Secure* pGen = p->m_pGenSecure + i;
+
+		MultiMac_Calculate_Secure_Read(&ge, pGen, iElement);
+
+		if (p->m_pZDenom)
+			secp256k1_gej_add_zinv_var(p->m_pRes, p->m_pRes, &ge, p->m_pZDenom);
+		else
+			secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, 0);
+	}
+}
+
+__stack_hungry__
+static void MultiMac_Calculate_FastBit(const MultiMac_Context* p, unsigned int iBit)
+{
+	for (unsigned int i = 0; i < p->m_Fast; i++)
+	{
+		MultiMac_WNaf* pWnaf = p->m_pWnaf + i;
+
+		if (((uint8_t)iBit) != pWnaf->m_iBit)
+			continue;
+
+		unsigned int iElem = pWnaf->m_iElement;
+
+		if (c_WNaf_Invalid == iElem)
+			continue;
+
+		int bNegate = (iElem >= c_MultiMac_Fast_nCount);
+		if (bNegate)
+		{
+			iElem = (c_MultiMac_Fast_nCount * 2 - 1) - iElem;
+			assert(iElem < c_MultiMac_Fast_nCount);
+		}
+
+		secp256k1_ge ge;
+		secp256k1_ge_from_storage(&ge, p->m_pGenFast[i].m_pPt + iElem);
+
+		if (bNegate)
+			secp256k1_ge_neg(&ge, &ge);
+
+		secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, 0);
+
+		WNaf_Cursor_MoveNext(pWnaf, p->m_pFastK + i);
+	}
+}
+
+__stack_hungry__
+static void MultiMac_Calculate_PostPhase(const MultiMac_Context* p)
+{
 	if (p->m_pZDenom)
 		// fix denominator
 		secp256k1_fe_mul(&p->m_pRes->z, &p->m_pRes->z, p->m_pZDenom);
 
 	for (unsigned int i = 0; i < p->m_Secure; i++)
 	{
+		secp256k1_ge ge;
 		secp256k1_ge_from_storage(&ge, p->m_pGenSecure[i].m_pPt + c_MultiMac_Secure_nCount);
 		secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, 0);
 	}
+
+}
+
+__stack_hungry__
+void MultiMac_Calculate(const MultiMac_Context* p)
+{
+	MultiMac_Calculate_PrePhase(p);
+
+	for (unsigned int iBit = c_ECC_nBits; iBit--; )
+	{
+		secp256k1_gej_double_var(p->m_pRes, p->m_pRes, 0); // would be fast if zero, no need to check explicitly
+
+		if (!(iBit % c_MultiMac_Secure_nBits) && p->m_Secure)
+			MultiMac_Calculate_SecureBit(p, iBit);
+
+
+		MultiMac_Calculate_FastBit(p, iBit);
+	}
+
+	MultiMac_Calculate_PostPhase(p);
 }
 
 //////////////////////////////
 // Batch normalization
+__stack_hungry__
 static void secp256k1_gej_rescale_XY(secp256k1_gej* pGej, const secp256k1_fe* pZ)
 {
 	// equivalent of secp256k1_gej_rescale, but doesn't change z coordinate
@@ -392,6 +428,7 @@ static void secp256k1_ge_set_gej_normalized(secp256k1_ge* pGe, const secp256k1_g
 	pGe->y = pGej->y;
 }
 
+__stack_hungry__
 static void MultiMac_SetCustom_Nnz(MultiMac_Context* p, FlexPoint* pFlex)
 {
 	assert(p->m_Fast == 1);
@@ -443,6 +480,7 @@ void NonceGenerator_InitEnd(NonceGenerator* p, secp256k1_hmac_sha256_t* pHMac)
 	secp256k1_hmac_sha256_finalize(pHMac, p->m_Prk.m_pVal);
 }
 
+__stack_hungry__
 void NonceGenerator_Init(NonceGenerator* p, const char* szSalt, size_t nSalt, const UintBig* pSeed)
 {
 	secp256k1_hmac_sha256_t hmac;
@@ -452,6 +490,7 @@ void NonceGenerator_Init(NonceGenerator* p, const char* szSalt, size_t nSalt, co
 	NonceGenerator_InitEnd(p, &hmac);
 }
 
+__stack_hungry__
 void NonceGenerator_NextOkm(NonceGenerator* p)
 {
 	// Expand
@@ -805,43 +844,53 @@ void CoinID_getHash(const CoinID* p, UintBig* pHash)
 
 //////////////////////////////
 // Kdf
+__stack_hungry__
 void Kdf_Init(Kdf* p, const UintBig* pSeed)
 {
 	static const char szSalt[] = "beam-HKdf";
 
-	NonceGenerator ng1, ng2;
-	NonceGenerator_Init(&ng1, szSalt, sizeof(szSalt), pSeed);
-	ng2 = ng1;
+	NonceGenerator ng;
+	NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), pSeed);
 
 	static const char szCtx1[] = "gen";
 	static const char szCtx2[] = "coF";
 
-	ng1.m_pContext = (const uint8_t*)szCtx1;
-	ng1.m_nContext = sizeof(szCtx1);
+	ng.m_pContext = (const uint8_t*) szCtx1;
+	ng.m_nContext = sizeof(szCtx1);
 
-	NonceGenerator_NextOkm(&ng1);
-	p->m_Secret = ng1.m_Okm;
+	NonceGenerator_NextOkm(&ng);
+	p->m_Secret = ng.m_Okm;
 
-	ng2.m_pContext = (const uint8_t*)szCtx2;
-	ng2.m_nContext = sizeof(szCtx2);
-	NonceGenerator_NextScalar(&ng2, &p->m_kCoFactor);
+	ng.m_Counter = 0;
+	ng.m_FirstTime = 1;
+	ng.m_pContext = (const uint8_t*) szCtx2;
+	ng.m_nContext = sizeof(szCtx2);
+	NonceGenerator_NextScalar(&ng, &p->m_kCoFactor);
 
-	SECURE_ERASE_OBJ(ng1);
-	SECURE_ERASE_OBJ(ng2);
+	SECURE_ERASE_OBJ(ng);
 }
 
-void Kdf_Derive_PKey(const Kdf* p, const UintBig* pHv, secp256k1_scalar* pK)
+__stack_hungry__
+void Kdf_Derive_PKey_Pre(const Kdf* p, const UintBig* pHv, NonceGenerator* pN)
 {
 	static const char szSalt[] = "beam-Key";
 
-	NonceGenerator ng;
 	secp256k1_hmac_sha256_t hmac;
-	NonceGenerator_InitBegin(&ng, &hmac, szSalt, sizeof(szSalt));
+	NonceGenerator_InitBegin(pN, &hmac, szSalt, sizeof(szSalt));
 
 	secp256k1_hmac_sha256_write(&hmac, p->m_Secret.m_pVal, sizeof(p->m_Secret.m_pVal));
 	secp256k1_hmac_sha256_write(&hmac, pHv->m_pVal, sizeof(pHv->m_pVal));
 
-	NonceGenerator_InitEnd(&ng, &hmac);
+	NonceGenerator_InitEnd(pN, &hmac);
+
+	SECURE_ERASE_OBJ(hmac);
+}
+
+__stack_hungry__
+void Kdf_Derive_PKey(const Kdf* p, const UintBig* pHv, secp256k1_scalar* pK)
+{
+	NonceGenerator ng;
+	Kdf_Derive_PKey_Pre(p, pHv, &ng);
 
 	NonceGenerator_NextScalar(&ng, pK);
 
@@ -858,7 +907,8 @@ void Kdf_Derive_SKey(const Kdf* p, const UintBig* pHv, secp256k1_scalar* pK)
 #define FOURCC_FROM_BYTES(a, b, c, d) (((((((uint32_t) a << 8) | (uint32_t) b) << 8) | (uint32_t) c) << 8) | (uint32_t) d)
 #define FOURCC_FROM_STR(name) FOURCC_FROM_BYTES(ARRAY_ELEMENT_SAFE(#name,0), ARRAY_ELEMENT_SAFE(#name,1), ARRAY_ELEMENT_SAFE(#name,2), ARRAY_ELEMENT_SAFE(#name,3))
 
-void Kdf_getChild(Kdf* p, uint32_t iChild, const Kdf* pParent)
+__stack_hungry__
+void Kdf_getChild_Hv(uint32_t iChild, UintBig* pHv)
 {
 	secp256k1_sha256_t sha;
 	secp256k1_sha256_initialize(&sha);
@@ -870,14 +920,26 @@ void Kdf_getChild(Kdf* p, uint32_t iChild, const Kdf* pParent)
 	secp256k1_sha256_write_Num(&sha, nType);
 	secp256k1_sha256_write_Num(&sha, 0);
 
-	UintBig hv;
-	secp256k1_sha256_finalize(&sha, hv.m_pVal);
+	secp256k1_sha256_finalize(&sha, pHv->m_pVal);
+}
+
+__stack_hungry__
+void Kdf_getChild_Hv2(const Kdf* pParent, uint32_t iChild, UintBig* pHv)
+{
+	Kdf_getChild_Hv(iChild, pHv);
 
 	secp256k1_scalar sk;
-	Kdf_Derive_SKey(pParent, &hv, &sk);
+	Kdf_Derive_SKey(pParent, pHv, &sk);
 
-	secp256k1_scalar_get_b32(hv.m_pVal, &sk);
+	secp256k1_scalar_get_b32(pHv->m_pVal, &sk);
 	SECURE_ERASE_OBJ(sk);
+}
+
+__stack_hungry__
+void Kdf_getChild(Kdf* p, uint32_t iChild, const Kdf* pParent)
+{
+	UintBig hv;
+	Kdf_getChild_Hv2(pParent, iChild, &hv);
 
 	Kdf_Init(p, &hv);
 	SECURE_ERASE_OBJ(hv);
