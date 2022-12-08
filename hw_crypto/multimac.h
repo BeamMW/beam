@@ -15,14 +15,29 @@
 #pragma once
 #include "ecc_decl.h"
 
-#define c_MultiMac_Fast_nBits 4 // effectively it'd be 1 bit more, because we both add and subtract (i.e. interleave)
+#define c_MultiMac_Fast_Precomputed_nBits 4 // effectively it'd be 1 bit more, because we both add and subtract (i.e. interleave)
 #define c_MultiMac_Secure_nBits 4
-#define c_MultiMac_Fast_nCount (1 << (c_MultiMac_Fast_nBits - 1)) // odd powers
 #define c_MultiMac_Secure_nCount (1 << c_MultiMac_Secure_nBits)
 
+#ifdef BeamCrypto_ScarceStack
+#	define c_MultiMac_Fast_Custom_nBits 3
+#else
+#	define c_MultiMac_Fast_Custom_nBits 4
+#endif // BeamCrypto_ScarceStack
+
+#define c_MultiMac_OddCount(numBits) (1 << ((numBits) - 1))
+
+#define c_MultiMac_Fast_Precomputed_nCount c_MultiMac_OddCount(c_MultiMac_Fast_Precomputed_nBits)
+#define c_MultiMac_Fast_Custom_nCount c_MultiMac_OddCount(c_MultiMac_Fast_Custom_nBits)
+
+
 typedef struct {
-	secp256k1_ge_storage m_pPt[c_MultiMac_Fast_nCount]; // odd powers
-} MultiMac_Fast;
+	secp256k1_ge_storage m_pPt[c_MultiMac_Fast_Precomputed_nCount]; // odd powers
+} MultiMac_Fast_Precomputed;
+
+typedef struct {
+	secp256k1_ge_storage m_pPt[c_MultiMac_Fast_Custom_nCount]; // odd powers
+} MultiMac_Fast_Custom;
 
 typedef struct {
 	secp256k1_ge_storage m_pPt[c_MultiMac_Secure_nCount + 1]; // the last is the compensation term
@@ -40,14 +55,19 @@ typedef struct
 	unsigned int m_Fast;
 	unsigned int m_Secure;
 
-	const MultiMac_Fast* m_pGenFast;
+	union {
+		const MultiMac_Fast_Precomputed* m_pPrecomputed;
+		const MultiMac_Fast_Custom* m_pCustom;
+	} m_FastGen;
+
 	secp256k1_scalar* m_pFastK; // would be modified during calculation, value won't be preserved
 	MultiMac_WNaf* m_pWnaf;
 
 	const MultiMac_Secure* m_pGenSecure;
 	const secp256k1_scalar* m_pSecureK;
 
-	const secp256k1_fe* m_pZDenom; // optional common z-denominator of 'fast' generators.
+	const secp256k1_fe* m_pZDenom; // optional common z-denominator of 'fast' custom generators.
+	// If specified - assuming custom generators, otherwise - precomputed
 
 } MultiMac_Context;
 
@@ -58,7 +78,7 @@ void MultiMac_Calculate(const MultiMac_Context*);
 
 typedef struct
 {
-	MultiMac_Fast m_pGenFast[c_MultiMac_Fast_Idx_H + 1];
+	MultiMac_Fast_Precomputed m_pGenFast[c_MultiMac_Fast_Idx_H + 1];
 	MultiMac_Secure m_pGenGJ[2];
 
 } Context;

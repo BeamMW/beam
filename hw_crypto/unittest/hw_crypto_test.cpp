@@ -167,7 +167,7 @@ void BeamCrypto_InitGenSecure(hw::MultiMac_Secure& x, const ECC::Point::Native& 
 	cpc.Flush();
 }
 
-void BeamCrypto_InitFast(hw::MultiMac_Fast& trg, const ECC::MultiMac::Prepared& p)
+void BeamCrypto_InitFast(hw::MultiMac_Fast_Precomputed& trg, const ECC::MultiMac::Prepared& p)
 {
 	const ECC::MultiMac::Prepared::Fast& src = p.m_Fast;
 
@@ -237,7 +237,7 @@ void TestMultiMac()
 	ECC::Mode::Scope scope(ECC::Mode::Fast);
 
 	uint32_t aa = sizeof(hw::MultiMac_Secure);
-	uint32_t bb = sizeof(hw::MultiMac_Fast);
+	uint32_t bb = sizeof(hw::MultiMac_Fast_Precomputed);
 	uint32_t cc = sizeof(hw::MultiMac_WNaf);
 	aa;  bb; cc;
 
@@ -256,7 +256,7 @@ void TestMultiMac()
 	mmCtx.m_pZDenom = nullptr;
 	mmCtx.m_Fast = nFast;
 	mmCtx.m_Secure = nSecure;
-	mmCtx.m_pGenFast = hw::Context_get()->m_pGenFast;
+	mmCtx.m_FastGen.m_pPrecomputed = hw::Context_get()->m_pGenFast;
 	mmCtx.m_pFastK = pFastS;
 	mmCtx.m_pWnaf = pWnaf;
 	mmCtx.m_pGenSecure = pGenSecure;
