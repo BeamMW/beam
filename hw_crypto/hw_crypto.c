@@ -429,11 +429,8 @@ static void secp256k1_ge_set_gej_normalized(secp256k1_ge* pGe, const secp256k1_g
 }
 
 __stack_hungry__
-static void MultiMac_SetCustom_Nnz(MultiMac_Context* p, FlexPoint* pFlex)
+static void MultiMac_Fast_Init(MultiMac_Fast* pFast, secp256k1_fe* pZDenom, FlexPoint* pFlex)
 {
-	assert(p->m_Fast == 1);
-	assert(p->m_pZDenom);
-
 	FlexPoint_MakeGej(pFlex);
 	assert(c_FlexPoint_Gej & pFlex->m_Flags);
 	assert(!secp256k1_gej_is_infinity(&pFlex->m_Gej));
@@ -442,24 +439,26 @@ static void MultiMac_SetCustom_Nnz(MultiMac_Context* p, FlexPoint* pFlex)
 	pOdds[0] = pFlex->m_Gej;
 
 	// calculate odd powers
-	secp256k1_gej x2;
-	secp256k1_gej_double_var(&x2, pOdds, 0);
+	union {
+		secp256k1_gej x2;
+		secp256k1_fe pFe[c_MultiMac_Fast_nCount];
+	} u;
+
+	secp256k1_gej_double_var(&u.x2, pOdds, 0);
 
 	for (unsigned int i = 1; i < c_MultiMac_Fast_nCount; i++)
 	{
-		secp256k1_gej_add_var(pOdds + i, pOdds + i - 1, &x2, 0);
+		secp256k1_gej_add_var(pOdds + i, pOdds + i - 1, &u.x2, 0);
 		assert(!secp256k1_gej_is_infinity(pOdds + i)); // odd powers of non-zero point must not be zero!
 	}
 
-	secp256k1_fe pFe[c_MultiMac_Fast_nCount];
-
-	ToCommonDenominator(c_MultiMac_Fast_nCount, pOdds, pFe, p->m_pZDenom, 0);
+	ToCommonDenominator(c_MultiMac_Fast_nCount, pOdds, u.pFe, pZDenom, 0);
 
 	for (unsigned int i = 0; i < c_MultiMac_Fast_nCount; i++)
 	{
 		secp256k1_ge ge;
 		secp256k1_ge_set_gej_normalized(&ge, pOdds + i);
-		secp256k1_ge_to_storage((secp256k1_ge_storage*)p->m_pGenFast[0].m_pPt + i, &ge);
+		secp256k1_ge_to_storage((secp256k1_ge_storage*) pFast[0].m_pPt + i, &ge);
 	}
 }
 
@@ -952,27 +951,27 @@ void Kdf_getChild(Kdf* p, uint32_t iChild, const Kdf* pParent)
 
 //////////////////////////////
 // Kdf - CoinID key derivation
-//__stack_hungry__
-void CoinID_getCommRawEx(const secp256k1_scalar* pkG, const secp256k1_scalar* pkH, AssetID aid, FlexPoint* pComm)
+__stack_hungry__
+static void CoinID_GetAssetGen(AssetID aid, FlexPoint* pComm)
 {
-	union
-	{
-		// save some space
-		struct
-		{
-			Oracle oracle;
-		} o;
+	assert(aid);
 
-		struct
-		{
-			secp256k1_scalar s;
-			MultiMac_WNaf wnaf;
-			MultiMac_Fast genAsset;
-			secp256k1_fe zDenom;
-		} mm;
+	Oracle oracle;
+	Oracle_Init(&oracle);
 
-	} u;
+	HASH_WRITE_STR(oracle.m_sha, "B.Asset.Gen.V1");
+	secp256k1_sha256_write_Num(&oracle.m_sha, aid);
 
+	Oracle_NextPoint(&oracle, pComm);
+}
+
+__stack_hungry__
+void CoinID_getCommRawEx(const secp256k1_scalar* pkG, secp256k1_scalar* pkH, AssetID aid, FlexPoint* pComm)
+{
+	MultiMac_Fast aGen; // very large
+	secp256k1_fe zDenom;
+
+	MultiMac_WNaf wnaf;
 	Context* pCtx = Context_get();
 
 	// sk*G + v*H
@@ -982,32 +981,22 @@ void CoinID_getCommRawEx(const secp256k1_scalar* pkG, const secp256k1_scalar* pk
 	mmCtx.m_pSecureK = pkG;
 	mmCtx.m_pGenSecure = pCtx->m_pGenGJ;
 	mmCtx.m_Fast = 1;
-	mmCtx.m_pFastK = &u.mm.s;
-	mmCtx.m_pWnaf = &u.mm.wnaf;
+	mmCtx.m_pFastK = pkH;
+	mmCtx.m_pWnaf = &wnaf;
 
 	if (aid)
 	{
-		// derive asset gen
-		Oracle_Init(&u.o.oracle);
+		CoinID_GetAssetGen(aid, pComm);
+		MultiMac_Fast_Init(&aGen, &zDenom, pComm);
 
-		HASH_WRITE_STR(u.o.oracle.m_sha, "B.Asset.Gen.V1");
-		secp256k1_sha256_write_Num(&u.o.oracle.m_sha, aid);
-
-		Oracle_NextPoint(&u.o.oracle, pComm);
-
-		mmCtx.m_pGenFast = &u.mm.genAsset;
-		mmCtx.m_pZDenom = &u.mm.zDenom;
-
-		MultiMac_SetCustom_Nnz(&mmCtx, pComm);
-
+		mmCtx.m_pGenFast = &aGen;
+		mmCtx.m_pZDenom = &zDenom;
 	}
 	else
 	{
 		mmCtx.m_pGenFast = pCtx->m_pGenFast + c_MultiMac_Fast_Idx_H;
 		mmCtx.m_pZDenom = 0;
 	}
-
-	u.mm.s = *pkH; // copy
 
 	MultiMac_Calculate(&mmCtx);
 	pComm[0].m_Flags = c_FlexPoint_Gej;
@@ -1747,7 +1736,7 @@ int Signature_IsValid(const Signature* p, const UintBig* pMsg, FlexPoint* pPk)
 
 	MultiMac_WNaf wnaf;
 	secp256k1_scalar s;
-	MultiMac_Fast gen;
+	MultiMac_Fast gen; // very large
 
 	MultiMac_Context ctx;
 	ctx.m_pRes = &gej;
@@ -1763,12 +1752,13 @@ int Signature_IsValid(const Signature* p, const UintBig* pMsg, FlexPoint* pPk)
 	}
 	else
 	{
+		MultiMac_Fast_Init(&gen, &zDenom, pPk);
+
 		ctx.m_pZDenom = &zDenom;
 		ctx.m_Fast = 1;
 		ctx.m_pGenFast = &gen;
 		ctx.m_pFastK = &s;
 		ctx.m_pWnaf = &wnaf;
-		MultiMac_SetCustom_Nnz(&ctx, pPk);
 
 		Signature_GetChallenge(p, pMsg, &s);
 	}
@@ -2957,7 +2947,9 @@ PROTO_METHOD_SIMPLE(CreateShieldedInput)
 		// SigGen
 		secp256k1_scalar sAmount, s1, e;
 
-		CoinID_getCommRawEx(pN, pN + 1, pIn->m_Inp.m_TxoID.m_AssetID, &comm);
+		s1 = pN[1]; // copy it, it'd be destroyed
+
+		CoinID_getCommRawEx(pN, &s1, pIn->m_Inp.m_TxoID.m_AssetID, &comm);
 		FlexPoint_MakeCompact(&comm);
 		pOut->m_NoncePub = comm.m_Compact;
 

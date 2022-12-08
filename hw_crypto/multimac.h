@@ -47,7 +47,7 @@ typedef struct
 	const MultiMac_Secure* m_pGenSecure;
 	const secp256k1_scalar* m_pSecureK;
 
-	secp256k1_fe* m_pZDenom; // optional common z-denominator of 'fast' generators.
+	const secp256k1_fe* m_pZDenom; // optional common z-denominator of 'fast' generators.
 
 } MultiMac_Context;
 
