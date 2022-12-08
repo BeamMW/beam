@@ -66,6 +66,6 @@ typedef struct
 Context* Context_get();
 
 // simplified versions
-void MulPoint(FlexPoint*, const MultiMac_Secure*, const secp256k1_scalar*);
-void MulG(FlexPoint*, const secp256k1_scalar*);
+void MulPoint(secp256k1_gej*, const MultiMac_Secure*, const secp256k1_scalar*);
+void MulG(secp256k1_gej*, const secp256k1_scalar*);
 void Sk2Pk(UintBig*, secp256k1_scalar*);

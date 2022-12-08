@@ -52,22 +52,16 @@ typedef struct
 	uint8_t m_Y;
 } CompactPoint;
 
-// Converting point representations is expensive.
-// The following is a "flexible" point representation, which is converted on-demand according to the needs
-typedef struct
-{
-	CompactPoint m_Compact; // platform-independent way. Suitable for serialization, hashing and etc.
-	secp256k1_gej m_Gej; // Jacobian form (x,y,z)
-	secp256k1_ge m_Ge; // Affine form (x,y)
+void Point_Gej_from_Ge(secp256k1_gej*, const secp256k1_ge*);
+void Point_Gej_BatchRescale(secp256k1_gej*, unsigned int nCount, secp256k1_fe* pBuf, secp256k1_fe* pZDenom, int bNormalize);
 
-	uint8_t m_Flags; // zero indicates 'invalid' point. Auto-set on a failed attempt to convert from m_Compact
+void Point_Ge_from_Gej(secp256k1_ge*, const secp256k1_gej*);
 
-} FlexPoint;
+int Point_Ge_from_Compact(secp256k1_ge*, const CompactPoint*);
+int Point_Ge_from_CompactNnz(secp256k1_ge*, const CompactPoint*);
 
-#define c_FlexPoint_Compact 1
-#define c_FlexPoint_Gej 2
-#define c_FlexPoint_Ge 4
+void Point_Compact_from_Ge(CompactPoint*, const secp256k1_ge*);
+void Point_Compact_from_Gej(CompactPoint*, const secp256k1_gej*);
 
-void FlexPoint_MakeCompact(FlexPoint*);
-void FlexPoint_MakeGej(FlexPoint*);
-void FlexPoint_MakeGe(FlexPoint*);
+uint8_t Point_Compact_from_Ge_Ex(UintBig* pX, const secp256k1_ge*);
+uint8_t Point_Compact_from_Gej_Ex(UintBig* pX, const secp256k1_gej*);

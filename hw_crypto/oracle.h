@@ -23,4 +23,4 @@ void Oracle_Init(Oracle*);
 void Oracle_Expose(Oracle*, const uint8_t*, size_t);
 void Oracle_NextHash(Oracle*, UintBig*);
 void Oracle_NextScalar(Oracle*, secp256k1_scalar*);
-void Oracle_NextPoint(Oracle*, FlexPoint*);
+void Oracle_NextPoint(Oracle*, CompactPoint*, secp256k1_ge*);

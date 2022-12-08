@@ -586,11 +586,7 @@ void TestSignature()
 		hw::Signature sig2;
 		hw::Signature_Sign(&sig2, &Ecc2BC(msg), &sk.get_Raw());
 
-		hw::FlexPoint fp;
-		fp.m_Compact = Ecc2BC(pk);
-		fp.m_Flags = c_FlexPoint_Compact;
-
-		verify_test(hw::Signature_IsValid(&sig2, &Ecc2BC(msg), &fp));
+		verify_test(hw::Signature_IsValid(&sig2, &Ecc2BC(msg), &Ecc2BC(pk)));
 
 		ECC::Signature sig1;
 		Ecc2BC(sig1.m_NoncePub) = sig2.m_NoncePub;
@@ -600,7 +596,7 @@ void TestSignature()
 
 		// tamper with sig
 		sig2.m_k.m_pVal[0] ^= 12;
-		verify_test(!hw::Signature_IsValid(&sig2, &Ecc2BC(msg), &fp));
+		verify_test(!hw::Signature_IsValid(&sig2, &Ecc2BC(msg), &Ecc2BC(pk)));
 	}
 }
 

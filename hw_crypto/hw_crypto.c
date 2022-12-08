@@ -45,7 +45,8 @@
 #	pragma warning (pop)
 #endif
 
-#define SECURE_ERASE_OBJ(x) SecureEraseMem(&x, sizeof(x))
+#define SECURE_ERASE_OBJ(x) SecureEraseMem(&(x), sizeof(x))
+#define ZERO_OBJ(x) memset(&(x), 0, sizeof(x))
 
 #ifdef USE_SCALAR_4X64
 typedef uint64_t secp256k1_scalar_uint;
@@ -367,76 +368,103 @@ void MultiMac_Calculate(const MultiMac_Context* p)
 //////////////////////////////
 // Batch normalization
 __stack_hungry__
-static void secp256k1_gej_rescale_XY(secp256k1_gej* pGej, const secp256k1_fe* pZ)
+static void secp256k1_gej_rescale_To_ge(secp256k1_gej* pGej, const secp256k1_fe* pZ)
 {
 	// equivalent of secp256k1_gej_rescale, but doesn't change z coordinate
 	// A bit more effective when the value of z is known in advance (such as when normalizing)
+
+	// object is implicitly converted into ge
+	secp256k1_ge* pGe = (secp256k1_ge *) pGej;
+
 	secp256k1_fe zz;
 	secp256k1_fe_sqr(&zz, pZ);
 
-	secp256k1_fe_mul(&pGej->x, &pGej->x, &zz);
-	secp256k1_fe_mul(&pGej->y, &pGej->y, &zz);
-	secp256k1_fe_mul(&pGej->y, &pGej->y, pZ);
+	secp256k1_fe_mul(&pGe->x, &pGej->x, &zz);
+	secp256k1_fe_mul(&pGe->y, &pGej->y, &zz);
+	secp256k1_fe_mul(&pGe->y, &pGej->y, pZ);
+
+	pGe->infinity = 0;
 }
 
-static void BatchNormalize_Fwd(secp256k1_fe* pFe, unsigned int n, const secp256k1_gej* pGej, const secp256k1_fe* pFePrev)
+void Point_Gej_BatchRescale(secp256k1_gej*  pGej, unsigned int nCount, secp256k1_fe* pBuf, secp256k1_fe* pZDenom, int bNormalize)
 {
-	if (n)
-		secp256k1_fe_mul(pFe, pFePrev, &pGej->z);
-	else
-		*pFe = pGej[0].z;
-}
-
-static void BatchNormalize_Apex(secp256k1_fe* pZDenom, secp256k1_fe* pFePrev, int nNormalize)
-{
-	if (nNormalize)
-		secp256k1_fe_inv(pZDenom, pFePrev); // the only expensive call
-	else
-		secp256k1_fe_set_int(pZDenom, 1);
-}
-
-static void BatchNormalize_Bwd(secp256k1_fe* pFe, unsigned int n, secp256k1_gej* pGej, const secp256k1_fe* pFePrev, secp256k1_fe* pZDenom)
-{
-	if (n)
-		secp256k1_fe_mul(pFe, pFePrev, pZDenom);
-	else
-		*pFe = *pZDenom;
-
-	secp256k1_gej_rescale_XY(pGej, pFe);
-
-	secp256k1_fe_mul(pZDenom, pZDenom, &pGej->z);
-}
-
-
-static void ToCommonDenominator(unsigned int nCount, secp256k1_gej* pGej, secp256k1_fe* pFe, secp256k1_fe* pZDenom, int nNormalize)
-{
-	assert(nCount);
-
+	int iPrev = -1;
 	for (unsigned int i = 0; i < nCount; i++)
-		BatchNormalize_Fwd(pFe + i, i, pGej + i, pFe + i - 1);
+	{
+		if (secp256k1_gej_is_infinity(pGej + i))
+		{
+			((secp256k1_ge*)(pGej + i))->infinity = 1;
+			continue;
+		}
 
-	BatchNormalize_Apex(pZDenom, pFe + nCount - 1, nNormalize);
+		if (iPrev >= 0)
+			secp256k1_fe_mul(pBuf + i, pBuf + iPrev, &pGej[i].z);
+		else
+			pBuf[i] = pGej[i].z;
 
+		iPrev = i;
+	}
+
+	if (iPrev < 0)
+		return; // all are zero
+
+	if (bNormalize)
+		secp256k1_fe_inv(pZDenom, pBuf + iPrev); // the only expensive call
+	else
+		secp256k1_fe_set_int(pZDenom, 1); // can be arbitrary
+
+	iPrev = -1;
 	for (unsigned int i = nCount; i--; )
-		BatchNormalize_Bwd(pFe + i, i, pGej + i, pFe + i - 1, pZDenom);
-}
+	{
+		if (secp256k1_gej_is_infinity(pGej + i))
+			continue;
 
-static void secp256k1_ge_set_gej_normalized(secp256k1_ge* pGe, const secp256k1_gej* pGej)
-{
-	pGe->infinity = pGej->infinity;
-	pGe->x = pGej->x;
-	pGe->y = pGej->y;
+		if (iPrev >= 0)
+		{
+			secp256k1_fe_mul(pBuf + iPrev, pBuf + i, pZDenom);
+			secp256k1_fe_mul(pZDenom, pZDenom, &pGej[iPrev].z);
+
+			secp256k1_gej_rescale_To_ge(pGej + iPrev, pBuf + iPrev);
+		}
+
+		iPrev = i;
+	}
+
+	assert(iPrev >= 0);
+
+	secp256k1_gej_rescale_To_ge(pGej + iPrev, pZDenom);
+
+	// if we're normalizing - no need to return the common denominator (it's assumed 1)
+	// If we're just bringing to common denominator - we assume that 1st element is normalized by the caller, hence zDenom is already set
+
+	/*
+	if (bNormalize)
+		secp256k1_gej_rescale_To_ge(pGej + iPrev, pZDenom);
+	else
+	{
+		pBuf[iPrev] = *pZDenom;
+		secp256k1_fe_mul(pZDenom, pZDenom, &pGej[iPrev].z);
+
+		secp256k1_gej_rescale_To_ge(pGej + iPrev, pBuf + iPrev);
+	}
+	*/
 }
 
 __stack_hungry__
-static void MultiMac_Fast_Init(MultiMac_Fast* pFast, secp256k1_fe* pZDenom, FlexPoint* pFlex)
+void Point_Gej_2_Normalize(secp256k1_gej* pGej)
 {
-	FlexPoint_MakeGej(pFlex);
-	assert(c_FlexPoint_Gej & pFlex->m_Flags);
-	assert(!secp256k1_gej_is_infinity(&pFlex->m_Gej));
+	secp256k1_fe pBuf[2];
+	secp256k1_fe zDenom;
+	Point_Gej_BatchRescale(pGej, _countof(pBuf), pBuf, &zDenom, 1);
+}
+
+__stack_hungry__
+static void MultiMac_Fast_Init(MultiMac_Fast* pFast, secp256k1_fe* pZDenom, const secp256k1_gej* pGej)
+{
+	assert(!secp256k1_gej_is_infinity(pGej));
 
 	secp256k1_gej pOdds[c_MultiMac_Fast_nCount];
-	pOdds[0] = pFlex->m_Gej;
+	pOdds[0] = *pGej;
 
 	// calculate odd powers
 	union {
@@ -452,14 +480,11 @@ static void MultiMac_Fast_Init(MultiMac_Fast* pFast, secp256k1_fe* pZDenom, Flex
 		assert(!secp256k1_gej_is_infinity(pOdds + i)); // odd powers of non-zero point must not be zero!
 	}
 
-	ToCommonDenominator(c_MultiMac_Fast_nCount, pOdds, u.pFe, pZDenom, 0);
+	// to common denominator
+	Point_Gej_BatchRescale(pOdds, c_MultiMac_Fast_nCount, u.pFe, pZDenom, 0);
 
 	for (unsigned int i = 0; i < c_MultiMac_Fast_nCount; i++)
-	{
-		secp256k1_ge ge;
-		secp256k1_ge_set_gej_normalized(&ge, pOdds + i);
-		secp256k1_ge_to_storage((secp256k1_ge_storage*) pFast[0].m_pPt + i, &ge);
-	}
+		secp256k1_ge_to_storage(pFast->m_pPt + i, (secp256k1_ge*) (pOdds + i));
 }
 
 //////////////////////////////
@@ -542,112 +567,81 @@ static int IsUintBigZero(const UintBig* p)
 
 //////////////////////////////
 // Point
-void FlexPoint_MakeCompact(FlexPoint* pFlex)
+uint8_t Point_Compact_from_Ge_Ex(UintBig* pX, const secp256k1_ge* pGe)
 {
-	if ((c_FlexPoint_Compact & pFlex->m_Flags) || !pFlex->m_Flags)
-		return;
-
-	FlexPoint_MakeGe(pFlex);
-	assert(c_FlexPoint_Ge & pFlex->m_Flags);
-
-	if (secp256k1_ge_is_infinity(&pFlex->m_Ge))
-		memset(&pFlex->m_Compact, 0, sizeof(pFlex->m_Compact));
-	else
+	if (secp256k1_ge_is_infinity(pGe))
 	{
-		secp256k1_fe_normalize(&pFlex->m_Ge.x);
-		secp256k1_fe_normalize(&pFlex->m_Ge.y);
-
-		secp256k1_fe_get_b32(pFlex->m_Compact.m_X.m_pVal, &pFlex->m_Ge.x);
-		pFlex->m_Compact.m_Y = (secp256k1_fe_is_odd(&pFlex->m_Ge.y) != 0);
+		ZERO_OBJ(*pX);
+		return 0;
 	}
 
-	pFlex->m_Flags |= c_FlexPoint_Compact;
+	secp256k1_fe_normalize((secp256k1_fe*) &pGe->x); // seems unnecessary, but ok
+	secp256k1_fe_normalize((secp256k1_fe*) &pGe->y);
+
+	secp256k1_fe_get_b32(pX->m_pVal, &pGe->x);
+	return (secp256k1_fe_is_odd(&pGe->y) != 0);
 }
 
-void FlexPoint_MakeGej(FlexPoint* pFlex)
+void Point_Compact_from_Ge(CompactPoint* pCompact, const secp256k1_ge* pGe)
 {
-	if (c_FlexPoint_Gej & pFlex->m_Flags)
-		return;
-
-	FlexPoint_MakeGe(pFlex);
-	if (!pFlex->m_Flags)
-		return;
-
-	assert(c_FlexPoint_Ge & pFlex->m_Flags);
-	secp256k1_gej_set_ge(&pFlex->m_Gej, &pFlex->m_Ge);
-
-	pFlex->m_Flags |= c_FlexPoint_Gej;
+	pCompact->m_Y = Point_Compact_from_Ge_Ex(&pCompact->m_X, pGe);
 }
 
-void FlexPoint_MakeGe(FlexPoint* pFlex)
+void Point_Compact_from_Gej(CompactPoint* pCompact, const secp256k1_gej* pGej)
 {
-	if (c_FlexPoint_Ge & pFlex->m_Flags)
-		return;
+	secp256k1_ge ge;
+	Point_Ge_from_Gej(&ge, pGej);
+	Point_Compact_from_Ge(pCompact, &ge);
+}
 
-	if (c_FlexPoint_Gej & pFlex->m_Flags)
-		secp256k1_ge_set_gej_var(&pFlex->m_Ge, &pFlex->m_Gej); // expensive, better to a batch convertion
-	else
+uint8_t Point_Compact_from_Gej_Ex(UintBig* pX, const secp256k1_gej* pGej)
+{
+	secp256k1_ge ge;
+	Point_Ge_from_Gej(&ge, pGej);
+	return Point_Compact_from_Ge_Ex(pX, &ge);
+}
+
+void Point_Gej_from_Ge(secp256k1_gej* pGej, const secp256k1_ge* pGe)
+{
+	secp256k1_gej_set_ge(pGej, pGe);
+}
+
+int Point_Ge_from_CompactNnz(secp256k1_ge* pGe, const CompactPoint* pCompact)
+{
+	if (pCompact->m_Y > 1)
+		return 0; // not well-formed
+
+	if (!secp256k1_fe_set_b32(&pGe->x, pCompact->m_X.m_pVal))
+		return 0; // not well-formed
+
+	if (!secp256k1_ge_set_xo_var(pGe, &pGe->x, pCompact->m_Y)) // according to code it seems ok to use ge.x as an argument
+		return 0;
+
+	return 1; // ok
+}
+
+int Point_Ge_from_Compact(secp256k1_ge* pGe, const CompactPoint* pCompact)
+{
+	if (!Point_Ge_from_CompactNnz(pGe, pCompact))
 	{
-		if (!(c_FlexPoint_Compact & pFlex->m_Flags))
-			return;
+		if (pCompact->m_Y || !IsUintBigZero(&pCompact->m_X))
+			return 0;
 
-		pFlex->m_Flags = 0; // will restore Compact flag iff import is successful
-
-		if (pFlex->m_Compact.m_Y > 1)
-			return; // not well-formed
-
-		// use pFlex->m_Gej.x as a temp var
-		if (!secp256k1_fe_set_b32(&pFlex->m_Gej.x, pFlex->m_Compact.m_X.m_pVal))
-			return; // not well-formed
-
-		if (!secp256k1_ge_set_xo_var(&pFlex->m_Ge, &pFlex->m_Gej.x, pFlex->m_Compact.m_Y))
-		{
-			// be convention zeroed Compact is a zero point
-			if (pFlex->m_Compact.m_Y || !IsUintBigZero(&pFlex->m_Compact.m_X))
-				return;
-
-			pFlex->m_Ge.infinity = 1; // no specific function like secp256k1_ge_set_infinity
-		}
-
-		pFlex->m_Flags = c_FlexPoint_Compact; // restored
+		pGe->infinity = 1; // no specific function like secp256k1_ge_set_infinity
 	}
 
-	pFlex->m_Flags |= c_FlexPoint_Ge;
+	return 1;
 }
 
-__stack_hungry__
-void FlexPoint_MakeGe_Batch(FlexPoint* pFlex, unsigned int nCount)
+void Point_Ge_from_Gej(secp256k1_ge* pGe, const secp256k1_gej* pGej)
 {
-	assert(nCount);
-
-	static_assert(sizeof(pFlex->m_Ge) >= sizeof(secp256k1_fe), "Ge is used as a temp placeholder for Fe");
-#define FLEX_POINT_TEMP_FE(pt) ((secp256k1_fe*) (&(pt).m_Ge))
-
-	for (unsigned int i = 0; i < nCount; i++)
-	{
-		assert(c_FlexPoint_Gej == pFlex[i].m_Flags);
-
-		BatchNormalize_Fwd(FLEX_POINT_TEMP_FE(pFlex[i]), i, &pFlex[i].m_Gej, FLEX_POINT_TEMP_FE(pFlex[i - 1]));
-	}
-
-	secp256k1_fe zDenom;
-	BatchNormalize_Apex(&zDenom, FLEX_POINT_TEMP_FE(pFlex[nCount - 1]), 1);
-
-	for (unsigned int i = nCount; i--; )
-	{
-		BatchNormalize_Bwd(FLEX_POINT_TEMP_FE(pFlex[i]), i, &pFlex[i].m_Gej, FLEX_POINT_TEMP_FE(pFlex[i - 1]), &zDenom);
-
-		secp256k1_ge_set_gej_normalized(&pFlex[i].m_Ge, &pFlex[i].m_Gej);
-		pFlex[i].m_Flags = c_FlexPoint_Ge;
-	}
-
-	assert(nCount);
+	secp256k1_ge_set_gej_var(pGe, (secp256k1_gej*) pGej); // expensive, better to a batch convertion
 }
 
-void MulPoint(FlexPoint* pFlex, const MultiMac_Secure* pGen, const secp256k1_scalar* pK)
+void MulPoint(secp256k1_gej* pGej, const MultiMac_Secure* pGen, const secp256k1_scalar* pK)
 {
 	MultiMac_Context ctx;
-	ctx.m_pRes = &pFlex->m_Gej;
+	ctx.m_pRes = pGej;
 	ctx.m_pZDenom = 0;
 	ctx.m_Fast = 0;
 	ctx.m_Secure = 1;
@@ -655,26 +649,21 @@ void MulPoint(FlexPoint* pFlex, const MultiMac_Secure* pGen, const secp256k1_sca
 	ctx.m_pSecureK = pK;
 
 	MultiMac_Calculate(&ctx);
-	pFlex->m_Flags = c_FlexPoint_Gej;
 }
 
-void MulG(FlexPoint* pFlex, const secp256k1_scalar* pK)
+void MulG(secp256k1_gej* pGej, const secp256k1_scalar* pK)
 {
-	MulPoint(pFlex, Context_get()->m_pGenGJ, pK);
+	MulPoint(pGej, Context_get()->m_pGenGJ, pK);
 }
 
 __stack_hungry__
 void Sk2Pk(UintBig* pRes, secp256k1_scalar* pK)
 {
-	FlexPoint fp;
-	MulG(&fp, pK);
+	secp256k1_gej gej;
+	MulG(&gej, pK);
 
-	FlexPoint_MakeCompact(&fp);
-	assert(c_FlexPoint_Compact & fp.m_Flags);
-
-	*pRes = fp.m_Compact.m_X;
-
-	if (fp.m_Compact.m_Y)
+	uint8_t y = Point_Compact_from_Gej_Ex(pRes, &gej);
+	if (y)
 		secp256k1_scalar_negate(pK, pK);
 }
 //////////////////////////////
@@ -711,18 +700,15 @@ void Oracle_NextScalar(Oracle* p, secp256k1_scalar* pS)
 	}
 }
 
-void Oracle_NextPoint(Oracle* p, FlexPoint* pFlex)
+void Oracle_NextPoint(Oracle* p, CompactPoint* pCompact, secp256k1_ge* pGe)
 {
-	pFlex->m_Compact.m_Y = 0;
+	pCompact->m_Y = 0;
 
 	while (1)
 	{
-		Oracle_NextHash(p, &pFlex->m_Compact.m_X);
-		pFlex->m_Flags = c_FlexPoint_Compact;
+		Oracle_NextHash(p, &pCompact->m_X);
 
-		FlexPoint_MakeGe(pFlex);
-
-		if ((c_FlexPoint_Ge & pFlex->m_Flags) && !secp256k1_ge_is_infinity(&pFlex->m_Ge))
+		if (Point_Ge_from_CompactNnz(pGe, pCompact))
 			break;
 	}
 }
@@ -792,11 +778,25 @@ void secp256k1_sha256_write_CompactPointEx(secp256k1_sha256_t* pSha, const UintB
 	secp256k1_sha256_write(pSha, &nY, sizeof(nY));
 }
 
-void secp256k1_sha256_write_Point(secp256k1_sha256_t* pSha, FlexPoint* pFlex)
+__stack_hungry__
+void secp256k1_sha256_write_Ge(secp256k1_sha256_t* pSha, const secp256k1_ge* pGe)
 {
-	FlexPoint_MakeCompact(pFlex);
-	assert(c_FlexPoint_Compact & pFlex->m_Flags);
-	secp256k1_sha256_write_CompactPoint(pSha, &pFlex->m_Compact);
+	CompactPoint pt;
+	Point_Compact_from_Ge(&pt, pGe);
+
+	secp256k1_sha256_write_CompactPoint(pSha, &pt);
+}
+
+void secp256k1_sha256_write_Gej_converted(secp256k1_sha256_t* pSha, const secp256k1_gej* pGej)
+{
+	secp256k1_sha256_write_Ge(pSha, (secp256k1_ge*) pGej);
+}
+
+void secp256k1_sha256_write_Gej(secp256k1_sha256_t* pSha, const secp256k1_gej* pGej) // expensive
+{
+	secp256k1_ge ge;
+	Point_Ge_from_Gej(&ge, pGej);
+	secp256k1_sha256_write_Ge(pSha, &ge);
 }
 
 __stack_hungry__
@@ -952,7 +952,7 @@ void Kdf_getChild(Kdf* p, uint32_t iChild, const Kdf* pParent)
 //////////////////////////////
 // Kdf - CoinID key derivation
 __stack_hungry__
-static void CoinID_GetAssetGen(AssetID aid, FlexPoint* pComm)
+static void CoinID_GetAssetGen(AssetID aid, secp256k1_gej* pGej)
 {
 	assert(aid);
 
@@ -962,11 +962,16 @@ static void CoinID_GetAssetGen(AssetID aid, FlexPoint* pComm)
 	HASH_WRITE_STR(oracle.m_sha, "B.Asset.Gen.V1");
 	secp256k1_sha256_write_Num(&oracle.m_sha, aid);
 
-	Oracle_NextPoint(&oracle, pComm);
+	CompactPoint pt;
+	secp256k1_ge ge;
+
+	Oracle_NextPoint(&oracle, &pt, &ge);
+
+	Point_Gej_from_Ge(pGej, &ge);
 }
 
 __stack_hungry__
-void CoinID_getCommRawEx(const secp256k1_scalar* pkG, secp256k1_scalar* pkH, AssetID aid, FlexPoint* pComm)
+void CoinID_getCommRawEx(const secp256k1_scalar* pkG, secp256k1_scalar* pkH, AssetID aid, secp256k1_gej* pGej)
 {
 	MultiMac_Fast aGen; // very large
 	secp256k1_fe zDenom;
@@ -976,7 +981,7 @@ void CoinID_getCommRawEx(const secp256k1_scalar* pkG, secp256k1_scalar* pkH, Ass
 
 	// sk*G + v*H
 	MultiMac_Context mmCtx;
-	mmCtx.m_pRes = &pComm->m_Gej;
+	mmCtx.m_pRes = pGej;
 	mmCtx.m_Secure = 1;
 	mmCtx.m_pSecureK = pkG;
 	mmCtx.m_pGenSecure = pCtx->m_pGenGJ;
@@ -986,8 +991,8 @@ void CoinID_getCommRawEx(const secp256k1_scalar* pkG, secp256k1_scalar* pkH, Ass
 
 	if (aid)
 	{
-		CoinID_GetAssetGen(aid, pComm);
-		MultiMac_Fast_Init(&aGen, &zDenom, pComm);
+		CoinID_GetAssetGen(aid, pGej);
+		MultiMac_Fast_Init(&aGen, &zDenom, pGej);
 
 		mmCtx.m_pGenFast = &aGen;
 		mmCtx.m_pZDenom = &zDenom;
@@ -999,15 +1004,14 @@ void CoinID_getCommRawEx(const secp256k1_scalar* pkG, secp256k1_scalar* pkH, Ass
 	}
 
 	MultiMac_Calculate(&mmCtx);
-	pComm[0].m_Flags = c_FlexPoint_Gej;
 }
 
 //__stack_hungry__
-void CoinID_getCommRaw(const secp256k1_scalar* pK, Amount amount, AssetID aid, FlexPoint* pComm)
+void CoinID_getCommRaw(const secp256k1_scalar* pK, Amount amount, AssetID aid, secp256k1_gej* pGej)
 {
 	secp256k1_scalar kH;
 	secp256k1_scalar_set_u64(&kH, amount);
-	CoinID_getCommRawEx(pK, &kH, aid, pComm);
+	CoinID_getCommRawEx(pK, &kH, aid, pGej);
 }
 
 void CoinID_getSk(const Kdf* pKdf, const CoinID* pCid, secp256k1_scalar* pK)
@@ -1038,13 +1042,13 @@ static void CoinID_getSkNonSwitch(const Kdf* pKdf, const CoinID* pCid, secp256k1
 }
 
 __stack_hungry__
-static void CoinID_getSkSwitchDelta(secp256k1_scalar* pK, FlexPoint* pFlex)
+static void CoinID_getSkSwitchDelta(secp256k1_scalar* pK, const secp256k1_gej* pCommsNorm)
 {
 	Oracle oracle;
-
 	Oracle_Init(&oracle);
-	secp256k1_sha256_write_Point(&oracle.m_sha, pFlex);
-	secp256k1_sha256_write_Point(&oracle.m_sha, pFlex + 1);
+
+	secp256k1_sha256_write_Gej_converted(&oracle.m_sha, pCommsNorm);
+	secp256k1_sha256_write_Gej_converted(&oracle.m_sha, pCommsNorm + 1);
 
 	Oracle_NextScalar(&oracle, pK);
 }
@@ -1052,31 +1056,27 @@ static void CoinID_getSkSwitchDelta(secp256k1_scalar* pK, FlexPoint* pFlex)
 __stack_hungry__
 static void CoinID_getSkComm_FromNonSwitchK(const CoinID* pCid, secp256k1_scalar* pK, CompactPoint* pComm)
 {
-	FlexPoint pFlex[2];
+	secp256k1_gej pGej[2];
 
-	CoinID_getCommRaw(pK, pCid->m_Amount, pCid->m_AssetID, pFlex); // sk*G + amount*H(aid)
-	MulPoint(pFlex + 1, Context_get()->m_pGenGJ + 1, pK); // sk*J
+	CoinID_getCommRaw(pK, pCid->m_Amount, pCid->m_AssetID, pGej); // sk*G + amount*H(aid)
+	MulPoint(pGej + 1, Context_get()->m_pGenGJ + 1, pK); // sk*J
 
-	FlexPoint_MakeGe_Batch(pFlex, _countof(pFlex));
+	Point_Gej_2_Normalize(pGej);
 
 	secp256k1_scalar kDelta;
-	CoinID_getSkSwitchDelta(&kDelta, pFlex);
+	CoinID_getSkSwitchDelta(&kDelta, pGej);
 
 	secp256k1_scalar_add(pK, pK, &kDelta);
 
 	if (pComm)
 	{
-		MulG(pFlex + 1, &kDelta);
+		MulG(pGej + 1, &kDelta);
 
-		assert(c_FlexPoint_Gej & pFlex[1].m_Flags);
-		assert(c_FlexPoint_Ge & pFlex[0].m_Flags);
+		// pGej[0] is ge
 
-		secp256k1_gej_add_ge_var(&pFlex[0].m_Gej, &pFlex[1].m_Gej, &pFlex[0].m_Ge, 0);
-		pFlex[0].m_Flags = c_FlexPoint_Gej;
+		secp256k1_gej_add_ge_var(pGej + 1, pGej + 1, (secp256k1_ge*) pGej, 0);
 
-		FlexPoint_MakeCompact(&pFlex[0]);
-		assert(c_FlexPoint_Compact && pFlex[0].m_Flags);
-		*pComm = pFlex[0].m_Compact;
+		Point_Compact_from_Gej(pComm, pGej + 1);
 	}
 }
 
@@ -1147,7 +1147,6 @@ typedef struct
 	{
 		struct
 		{
-			FlexPoint fp;
 			Oracle oracle;
 			UintBig hv;
 			secp256k1_scalar k;
@@ -1181,9 +1180,7 @@ typedef struct
 			secp256k1_scalar pChallenge[2];
 			UintBig hv;
 			secp256k1_hmac_sha256_t hmac;
-
-			FlexPoint pFp[2]; // 496 bytes
-
+			secp256k1_ge ge;
 		} p3;
 
 	} u;
@@ -1193,14 +1190,11 @@ typedef struct
 
 static void RangeProof_Calculate_Before_S(RangeProof* const p, RangeProof_Worker* const pWrk)
 {
-	CoinID_getSkComm(p->m_pKdf, &p->m_Cid, &pWrk->m_sk, &pWrk->u.p1.fp.m_Compact);
-	pWrk->u.p1.fp.m_Flags = c_FlexPoint_Compact;
-
-	pWrk->m_Commitment = pWrk->u.p1.fp.m_Compact;
+	CoinID_getSkComm(p->m_pKdf, &p->m_Cid, &pWrk->m_sk, &pWrk->m_Commitment);
 
 	// get seed
 	secp256k1_sha256_initialize(&pWrk->u.p1.oracle.m_sha);
-	secp256k1_sha256_write_Point(&pWrk->u.p1.oracle.m_sha, &pWrk->u.p1.fp);
+	secp256k1_sha256_write_CompactPoint(&pWrk->u.p1.oracle.m_sha, &pWrk->m_Commitment);
 
 	secp256k1_sha256_finalize(&pWrk->u.p1.oracle.m_sha, pWrk->u.p1.hv.m_pVal);
 
@@ -1305,9 +1299,6 @@ static int RangeProof_Calculate_After_S(RangeProof* const p, RangeProof_Worker* 
 {
 	Context* pCtx = Context_get();
 
-	pWrk->u.p3.pFp[1].m_Gej = pWrk->m_pGej[1];
-	pWrk->u.p3.pFp[1].m_Flags = c_FlexPoint_Gej;
-
 	// CalcA
 	MultiMac_Context mmCtx;
 	mmCtx.m_pZDenom = 0;
@@ -1315,16 +1306,14 @@ static int RangeProof_Calculate_After_S(RangeProof* const p, RangeProof_Worker* 
 	mmCtx.m_Secure = 1;
 	mmCtx.m_pSecureK = &pWrk->m_alpha;
 	mmCtx.m_pGenSecure = pCtx->m_pGenGJ;
-	mmCtx.m_pRes = &pWrk->u.p3.pFp[0].m_Gej;
+	mmCtx.m_pRes = pWrk->m_pGej;
 
 	MultiMac_Calculate(&mmCtx); // alpha*G
-	pWrk->u.p3.pFp[0].m_Flags = c_FlexPoint_Gej;
 
-	RangeProof_Calculate_A_Bits(&pWrk->u.p3.pFp[0].m_Gej, &pWrk->u.p3.pFp[0].m_Ge, p->m_Cid.m_Amount);
-
+	RangeProof_Calculate_A_Bits(pWrk->m_pGej, &pWrk->u.p3.ge, p->m_Cid.m_Amount);
 
 	// normalize A,S at once, feed them to Oracle
-	FlexPoint_MakeGe_Batch(pWrk->u.p3.pFp, _countof(pWrk->u.p3.pFp));
+	Point_Gej_2_Normalize(pWrk->m_pGej);
 
 	Oracle_Init(&pWrk->u.p3.oracle);
 	secp256k1_sha256_write_Num(&pWrk->u.p3.oracle.m_sha, 0); // incubation time, must be zero
@@ -1332,7 +1321,7 @@ static int RangeProof_Calculate_After_S(RangeProof* const p, RangeProof_Worker* 
 	secp256k1_sha256_write_CompactPointOptional(&pWrk->u.p3.oracle.m_sha, p->m_pAssetGen); // starting from Fork3, earlier schem is not allowed
 
 	for (unsigned int i = 0; i < 2; i++)
-		secp256k1_sha256_write_Point(&pWrk->u.p3.oracle.m_sha, pWrk->u.p3.pFp + i);
+		secp256k1_sha256_write_Gej_converted(&pWrk->u.p3.oracle.m_sha, pWrk->m_pGej + i);
 
 	// get challenges. Use the challenges, sk, T1 and T2 to init the NonceGen for blinding the sk
 	static const char szSalt[] = "bulletproof-sk";
@@ -1359,21 +1348,17 @@ static int RangeProof_Calculate_After_S(RangeProof* const p, RangeProof_Worker* 
 	{
 		NonceGenerator_NextScalar(&pWrk->m_NonceGen, pWrk->u.p3.pK + i); // tau1/2
 		mmCtx.m_pSecureK = pWrk->u.p3.pK + i;
-		mmCtx.m_pRes = pWrk->m_pGej;
+		mmCtx.m_pRes = pWrk->m_pGej + 1;
 
 		MultiMac_Calculate(&mmCtx); // pub nonces of T1/T2
 
-		pWrk->u.p3.pFp[i].m_Compact = p->m_pT_In[i];
-		pWrk->u.p3.pFp[i].m_Flags = c_FlexPoint_Compact;
-		FlexPoint_MakeGe(pWrk->u.p3.pFp + i);
-		if (!pWrk->u.p3.pFp[i].m_Flags)
+		if (!Point_Ge_from_Compact(&pWrk->u.p3.ge, p->m_pT_In + i))
 		{
 			ok = 0;
 			break;
 		}
 
-		secp256k1_gej_add_ge_var(&pWrk->u.p3.pFp[i].m_Gej, mmCtx.m_pRes, &pWrk->u.p3.pFp[i].m_Ge, 0);
-		pWrk->u.p3.pFp[i].m_Flags = c_FlexPoint_Gej;
+		secp256k1_gej_add_ge_var(pWrk->m_pGej + i, mmCtx.m_pRes, &pWrk->u.p3.ge, 0);
 	}
 
 	SECURE_ERASE_OBJ(pWrk->m_NonceGen);
@@ -1381,13 +1366,12 @@ static int RangeProof_Calculate_After_S(RangeProof* const p, RangeProof_Worker* 
 	if (ok)
 	{
 		// normalize & expose
-		FlexPoint_MakeGe_Batch(pWrk->u.p3.pFp, _countof(pWrk->u.p3.pFp));
+		Point_Gej_2_Normalize(pWrk->m_pGej);
 
 		for (unsigned int i = 0; i < 2; i++)
 		{
-			secp256k1_sha256_write_Point(&pWrk->u.p3.oracle.m_sha, pWrk->u.p3.pFp + i);
-			assert(c_FlexPoint_Compact & pWrk->u.p3.pFp[i].m_Flags);
-			p->m_pT_Out[i] = pWrk->u.p3.pFp[i].m_Compact;
+			Point_Compact_from_Ge(p->m_pT_Out + i, (secp256k1_ge*) (pWrk->m_pGej + i));
+			secp256k1_sha256_write_CompactPoint(&pWrk->u.p3.oracle.m_sha, p->m_pT_Out + i);
 		}
 
 		// last challenge
@@ -1495,12 +1479,19 @@ static int RangeProof_Recover(const RangeProof_Packed* pRangeproof, Oracle* pOra
 	secp256k1_scalar_add(&alpha_minus_params, &alpha_minus_params, &tmp); // just alpha
 
 	// Recalculate p1.A, make sure we get the correct result
-	FlexPoint comm;
-	MulG(&comm, &alpha_minus_params);
-	RangeProof_Calculate_A_Bits(&comm.m_Gej, &comm.m_Ge, pCtx->m_Amount);
-	FlexPoint_MakeCompact(&comm);
+	union {
+		secp256k1_gej comm;
+		CompactPoint pt;
+	} u;
 
-	if (memcmp(comm.m_Compact.m_X.m_pVal, pRangeproof->m_Ax.m_pVal, c_ECC_nBytes) || (comm.m_Compact.m_Y != (1 & (pRangeproof->m_pYs[1] >> 4))))
+	secp256k1_ge ge;
+	MulG(&u.comm, &alpha_minus_params);
+	RangeProof_Calculate_A_Bits(&u.comm, &ge, pCtx->m_Amount);
+
+	Point_Ge_from_Gej(&ge, &u.comm);
+	Point_Compact_from_Ge(&u.pt, &ge);
+
+	if (memcmp(u.pt.m_X.m_pVal, pRangeproof->m_Ax.m_pVal, c_ECC_nBytes) || (u.pt.m_Y != (1 & (pRangeproof->m_pYs[1] >> 4))))
 		return 0; // false positive
 
 	if (pCtx->m_pSeedSk || pCtx->m_pExtra)
@@ -1660,10 +1651,14 @@ __stack_hungry__
 void Signature_Sign(Signature* p, const UintBig* pMsg, const secp256k1_scalar* pSk)
 {
 	// get nonce
-	secp256k1_hmac_sha256_t hmac;
+	union {
+		secp256k1_hmac_sha256_t hmac;
+		secp256k1_gej gej;
+	} u2;
+
 	NonceGenerator ng;
 	static const char szSalt[] = "beam-Schnorr";
-	NonceGenerator_InitBegin(&ng, &hmac, szSalt, sizeof(szSalt));
+	NonceGenerator_InitBegin(&ng, &u2.hmac, szSalt, sizeof(szSalt));
 
 	union
 	{
@@ -1674,18 +1669,17 @@ void Signature_Sign(Signature* p, const UintBig* pMsg, const secp256k1_scalar* p
 	static_assert(sizeof(u.nonce) >= sizeof(u.sk), ""); // means nonce completely overwrites the sk
 
 	secp256k1_scalar_get_b32(u.sk.m_pVal, pSk);
-	secp256k1_hmac_sha256_write(&hmac, u.sk.m_pVal, sizeof(u.sk.m_pVal));
-	secp256k1_hmac_sha256_write(&hmac, pMsg->m_pVal, sizeof(pMsg->m_pVal));
+	secp256k1_hmac_sha256_write(&u2.hmac, u.sk.m_pVal, sizeof(u.sk.m_pVal));
+	secp256k1_hmac_sha256_write(&u2.hmac, pMsg->m_pVal, sizeof(pMsg->m_pVal));
 
-	NonceGenerator_InitEnd(&ng, &hmac);
+	NonceGenerator_InitEnd(&ng, &u2.hmac);
 	NonceGenerator_NextScalar(&ng, &u.nonce);
 	SECURE_ERASE_OBJ(ng);
 
 	// expose the nonce
-	FlexPoint fp;
-	MulG(&fp, &u.nonce);
-	FlexPoint_MakeCompact(&fp);
-	p->m_NoncePub = fp.m_Compact;
+	MulG(&u2.gej, &u.nonce);
+
+	Point_Compact_from_Gej(&p->m_NoncePub, &u2.gej);
 
 	Signature_SignPartial(p, pMsg, pSk, &u.nonce);
 
@@ -1712,24 +1706,21 @@ void Signature_SignPartial(Signature* p, const UintBig* pMsg, const secp256k1_sc
 }
 
 __stack_hungry__
-int Signature_IsValid(const Signature* p, const UintBig* pMsg, FlexPoint* pPk)
+int Signature_IsValid(const Signature* p, const UintBig* pMsg, const CompactPoint* pPk)
 {
-	FlexPoint fpNonce;
-	fpNonce.m_Compact = p->m_NoncePub;
-	fpNonce.m_Flags = c_FlexPoint_Compact;
-	
-	FlexPoint_MakeGe(&fpNonce);
-	if (!fpNonce.m_Flags)
-		return 0;
+	secp256k1_ge geNonce;
+	secp256k1_gej gejPubkey;
+
+	if (!Point_Ge_from_Compact(&geNonce, pPk))
+		return 0; // bad Pubkey
+	Point_Gej_from_Ge(&gejPubkey, &geNonce);
+
+	if (!Point_Ge_from_Compact(&geNonce, &p->m_NoncePub))
+		return 0; // bad pub nonce
 
 	secp256k1_scalar k;
 	int overflow; // for historical reasons we don't check for overflow, i.e. theoretically there can be an ambiguity, but it makes not much sense for the attacker
 	secp256k1_scalar_set_b32(&k, p->m_k.m_pVal, &overflow);
-
-
-	FlexPoint_MakeGej(pPk);
-	if (!pPk->m_Flags)
-		return 0; // bad Pubkey
 
 	secp256k1_gej gej;
 	secp256k1_fe zDenom;
@@ -1744,7 +1735,7 @@ int Signature_IsValid(const Signature* p, const UintBig* pMsg, FlexPoint* pPk)
 	ctx.m_pGenSecure = Context_get()->m_pGenGJ;
 	ctx.m_pSecureK = &k;
 
-	if (secp256k1_gej_is_infinity(&pPk->m_Gej))
+	if (secp256k1_gej_is_infinity(&gejPubkey))
 	{
 		// unlikely, but allowed for historical reasons
 		ctx.m_Fast = 0;
@@ -1752,7 +1743,7 @@ int Signature_IsValid(const Signature* p, const UintBig* pMsg, FlexPoint* pPk)
 	}
 	else
 	{
-		MultiMac_Fast_Init(&gen, &zDenom, pPk);
+		MultiMac_Fast_Init(&gen, &zDenom, &gejPubkey);
 
 		ctx.m_pZDenom = &zDenom;
 		ctx.m_Fast = 1;
@@ -1764,7 +1755,7 @@ int Signature_IsValid(const Signature* p, const UintBig* pMsg, FlexPoint* pPk)
 	}
 
 	MultiMac_Calculate(&ctx);
-	secp256k1_gej_add_ge_var(&gej, &gej, &fpNonce.m_Ge, 0);
+	secp256k1_gej_add_ge_var(&gej, &gej, &geNonce, 0);
 
 	return secp256k1_gej_is_infinity(&gej);
 }
@@ -1810,11 +1801,7 @@ int TxKernel_IsValid(const TxKernelUser* pUser, const TxKernelData* pData)
 	UintBig msg;
 	TxKernel_getID(pUser, pData, &msg);
 
-	FlexPoint fp;
-	fp.m_Compact = pData->m_Commitment;
-	fp.m_Flags = c_FlexPoint_Compact;
-
-	return Signature_IsValid(&pData->m_Signature, &msg, &fp);
+	return Signature_IsValid(&pData->m_Signature, &msg, &pData->m_Commitment);
 }
 
 __stack_hungry__
@@ -1843,15 +1830,16 @@ static void Kdf2Pub(const Kdf* pKdf, KdfPub* pRes)
 
 	pRes->m_Secret = pKdf->m_Secret;
 
-	FlexPoint fp;
+	secp256k1_gej gej;
+	secp256k1_ge ge;
 
-	MulPoint(&fp, pCtx->m_pGenGJ, &pKdf->m_kCoFactor);
-	FlexPoint_MakeCompact(&fp);
-	pRes->m_CoFactorG = fp.m_Compact;
+	MulPoint(&gej, pCtx->m_pGenGJ, &pKdf->m_kCoFactor);
+	Point_Ge_from_Gej(&ge, &gej);
+	Point_Compact_from_Ge(&pRes->m_CoFactorG, &ge);
 
-	MulPoint(&fp, pCtx->m_pGenGJ + 1, &pKdf->m_kCoFactor);
-	FlexPoint_MakeCompact(&fp);
-	pRes->m_CoFactorJ = fp.m_Compact;
+	MulPoint(&gej, pCtx->m_pGenGJ + 1, &pKdf->m_kCoFactor);
+	Point_Ge_from_Gej(&ge, &gej);
+	Point_Compact_from_Ge(&pRes->m_CoFactorJ, &ge);
 }
 
 __stack_hungry__
@@ -2042,41 +2030,47 @@ PROTO_METHOD(GetImage)
 	Kdf_Derive_SKey(&kdfC, &pArg->m_In.m_hvSrc, &sk);
 	SECURE_ERASE_OBJ(kdfC);
 
-	FlexPoint pFlex[2];
+	const uint8_t pFlag[] = {
+		pArg->m_In.m_bG, // copy, coz it'd be overwritten by the result
+		pArg->m_In.m_bJ
+	};
+	secp256k1_gej pGej[_countof(pFlag)];
 
-	uint8_t bG = pArg->m_In.m_bG; // they would be overwritten by pArg->m_Out
-	uint8_t bJ = pArg->m_In.m_bJ;
+	unsigned int nCount = 0;
 
-	if (bG)
-		MulG(pFlex, &sk);
-
-	if (bJ)
+	for (unsigned int i = 0; i < _countof(pGej); i++)
 	{
-		MulPoint(pFlex + 1, Context_get()->m_pGenGJ + 1, &sk);
+		if (!pFlag[i])
+			continue;
 
-		if (bG)
-			FlexPoint_MakeGe_Batch(pFlex, _countof(pFlex));
-
-		FlexPoint_MakeCompact(pFlex + 1);
-		pArg->m_Out.m_ptImageJ = pFlex[1].m_Compact;
-	}
-	else
-	{
-		if (!bG)
-			return c_KeyKeeper_Status_Unspecified;
-
-		memset(&pArg->m_Out.m_ptImageJ, 0, sizeof(pArg->m_Out.m_ptImageJ));
+		MulPoint(pGej + i, Context_get()->m_pGenGJ + i, &sk);
+		nCount++;
 	}
 
-	SECURE_ERASE_OBJ(sk);
+	if (!nCount)
+		return c_KeyKeeper_Status_Unspecified;
 
-	if (bG)
+	if (_countof(pGej) == nCount)
+		Point_Gej_2_Normalize(pGej);
+
+	CompactPoint* pRes = &pArg->m_Out.m_ptImageG;
+
+	for (unsigned int i = 0; i < _countof(pGej); i++)
 	{
-		FlexPoint_MakeCompact(pFlex);
-		pArg->m_Out.m_ptImageG = pFlex->m_Compact;
+		if (_countof(pGej) == nCount)
+			Point_Compact_from_Ge(pRes + i, (secp256k1_ge*) (pGej + i));
+		else
+		{
+			if (pFlag[i])
+			{
+				secp256k1_ge ge;
+				Point_Ge_from_Gej(&ge, pGej + i);
+				Point_Compact_from_Ge(pRes + i, &ge);
+			}
+			else
+				ZERO_OBJ(pRes[i]);
+		}
 	}
-	else
-		memset(&pArg->m_Out.m_ptImageG, 0, sizeof(pArg->m_Out.m_ptImageG));
 
 	return c_KeyKeeper_Status_Ok;
 }
@@ -2246,7 +2240,7 @@ static int TxAggregate(const KeyKeeper* p, const TxCommonIn* pTx, TxAggr* pRes, 
 	if ((uint8_t*) (pInsShielded + pTx->m_InsShielded) != ((uint8_t*) pExtra) + nExtra)
 		return 0;
 
-	memset(pRes, 0, sizeof(*pRes));
+	ZERO_OBJ(*pRes);
 	pRes->m_TotalFee = pTx->m_Krn.m_Fee;
 
 	if (!TxAggregate0(p, pIns, pTx->m_Ins, &pRes->m_Ins, pRes, 0))
@@ -2308,40 +2302,29 @@ static int TxAggregate_SendOrSplit(const KeyKeeper* p, const TxCommonIn* pTx, Tx
 __stack_hungry__
 static int KernelUpdateKeysEx(CompactPoint* pCommitment, CompactPoint* pNoncePub, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce, const TxKernelData* pAdd)
 {
-	FlexPoint pFp[2];
+	secp256k1_gej pGej[2];
 
-	MulG(pFp, pSk);
-	MulG(pFp + 1, pNonce);
+	MulG(pGej, pSk);
+	MulG(pGej + 1, pNonce);
 
 	if (pAdd)
 	{
-		FlexPoint fp;
-		fp.m_Compact = pAdd->m_Commitment;
-		fp.m_Flags = c_FlexPoint_Compact;
-
-		FlexPoint_MakeGe(&fp);
-		if (!fp.m_Flags)
+		secp256k1_ge ge;
+		if (!Point_Ge_from_Compact(&ge, &pAdd->m_Commitment))
 			return 0;
 
-		secp256k1_gej_add_ge_var(&pFp[0].m_Gej, &pFp[0].m_Gej, &fp.m_Ge, 0);
+		secp256k1_gej_add_ge_var(pGej, pGej, &ge, 0);
 
-		fp.m_Compact = pAdd->m_Signature.m_NoncePub;
-		fp.m_Flags = c_FlexPoint_Compact;
-
-		FlexPoint_MakeGe(&fp);
-		if (!fp.m_Flags)
+		if (!Point_Ge_from_Compact(&ge, &pAdd->m_Signature.m_NoncePub))
 			return 0;
 
-		secp256k1_gej_add_ge_var(&pFp[1].m_Gej, &pFp[1].m_Gej, &fp.m_Ge, 0);
+		secp256k1_gej_add_ge_var(pGej + 1, pGej + 1, &ge, 0);
 	}
 
-	FlexPoint_MakeGe_Batch(pFp, _countof(pFp));
+	Point_Gej_2_Normalize(pGej);
 
-	FlexPoint_MakeCompact(pFp);
-	*pCommitment = pFp[0].m_Compact;
-
-	FlexPoint_MakeCompact(pFp + 1);
-	*pNoncePub = pFp[1].m_Compact;
+	Point_Compact_from_Ge(pCommitment, (secp256k1_ge*) pGej);
+	Point_Compact_from_Ge(pNoncePub, (secp256k1_ge*) (pGej + 1));
 
 	return 1;
 }
@@ -2606,12 +2589,11 @@ int HandleTxSend(const KeyKeeper* p, OpIn_TxSend2* pIn, void* pInExtra, uint32_t
 	// verify payment confirmation signature
 	GetPaymentConfirmationMsg(&hvMyID, &hvMyID, &hv, txAggr.m_Ins.m_Assets, txAggr.m_AssetID);
 
-	FlexPoint fp;
-	fp.m_Compact.m_X = pIn->m_Mut.m_Peer;
-	fp.m_Compact.m_Y = 0;
-	fp.m_Flags = c_FlexPoint_Compact;
+	CompactPoint pt;
+	pt.m_X = pIn->m_Mut.m_Peer;
+	pt.m_Y = 0;
 
-	if (!Signature_IsValid(&pIn->m_PaymentProof, &hvMyID, &fp))
+	if (!Signature_IsValid(&pIn->m_PaymentProof, &hvMyID, &pt))
 		return c_KeyKeeper_Status_Unspecified;
 
 	// 2nd user confirmation request. Now the kernel is complete, its ID is calculated
@@ -2688,10 +2670,10 @@ static void ShieldedViewerInit(ShieldedViewer* pRes, uint32_t iViewer, const Key
 	secp256k1_scalar_mul(&pRes->m_Ser.m_kCoFactor, &pRes->m_Ser.m_kCoFactor, &sk);
 }
 
-static void MulGJ(FlexPoint* pFlex, const secp256k1_scalar* pK)
+static void MulGJ(secp256k1_gej* pGej, const secp256k1_scalar* pK)
 {
 	MultiMac_Context ctx;
-	ctx.m_pRes = &pFlex->m_Gej;
+	ctx.m_pRes = pGej;
 	ctx.m_pZDenom = 0;
 	ctx.m_Fast = 0;
 	ctx.m_Secure = 2;
@@ -2699,7 +2681,6 @@ static void MulGJ(FlexPoint* pFlex, const secp256k1_scalar* pK)
 	ctx.m_pSecureK = pK;
 
 	MultiMac_Calculate(&ctx);
-	pFlex->m_Flags = c_FlexPoint_Gej;
 }
 
 __stack_hungry__
@@ -2765,17 +2746,17 @@ static void CreateVoucherInternal(ShieldedVoucher* pRes, const UintBig* pNonce, 
 	// kG -> serial preimage and spend sk
 	ShieldedGetSpendKey(pViewer, pK, 1, &hv, &sk);
 
-	FlexPoint pt;
-	MulG(&pt, &sk); // spend pk
+	secp256k1_gej gej;
+	MulG(&gej, &sk); // spend pk
 
 	Oracle_Init(&oracle);
 	HASH_WRITE_STR(oracle.m_sha, "L.Spend");
-	secp256k1_sha256_write_Point(&oracle.m_sha, &pt);
+
+	secp256k1_sha256_write_Gej(&oracle.m_sha, &gej);
 	Oracle_NextScalar(&oracle, pK + 1); // serial
 
-	MulGJ(&pt, pK);
-	FlexPoint_MakeCompact(&pt);
-	pRes->m_SerialPub = pt.m_Compact; // kG*G + serial*J
+	MulGJ(&gej, pK); // kG*G + serial*J
+	Point_Compact_from_Gej(&pRes->m_SerialPub, &gej);
 
 	// DH
 	ShieldedHashTxt(&oracle.m_sha);
@@ -2786,11 +2767,11 @@ static void CreateVoucherInternal(ShieldedVoucher* pRes, const UintBig* pNonce, 
 
 	secp256k1_scalar_mul(pN, pK, &sk);
 	secp256k1_scalar_mul(pN + 1, pK + 1, &sk);
-	MulGJ(&pt, pN); // shared point
+	MulGJ(&gej, pN); // shared point
 
 	ShieldedHashTxt(&oracle.m_sha);
 	HASH_WRITE_STR(oracle.m_sha, "sp-sec");
-	secp256k1_sha256_write_Point(&oracle.m_sha, &pt);
+	secp256k1_sha256_write_Gej(&oracle.m_sha, &gej);
 	secp256k1_sha256_finalize(&oracle.m_sha, pRes->m_SharedSecret.m_pVal); // Shared secret
 
 	// nonces
@@ -2806,9 +2787,8 @@ static void CreateVoucherInternal(ShieldedVoucher* pRes, const UintBig* pNonce, 
 	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
 	Kdf_Derive_PKey(&pViewer->m_Gen, &hv, pN + 1);
 
-	MulGJ(&pt, pN);
-	FlexPoint_MakeCompact(&pt);
-	pRes->m_NoncePub = pt.m_Compact; // nG*G + nJ*J
+	MulGJ(&gej, pN); // nG*G + nJ*J
+	Point_Compact_from_Gej(&pRes->m_NoncePub, &gej);
 
 	// sign it
 	Ticket_Hash(&hv, pRes);
@@ -2871,7 +2851,7 @@ PROTO_METHOD_SIMPLE(CreateShieldedInput)
 
 	Oracle oracle;
 	secp256k1_scalar skOutp, skSpend, pN[3];
-	FlexPoint comm;
+	secp256k1_gej gej;
 	UintBig hv, hvSigGen;
 
 	ShieldedViewer viewer;
@@ -2895,8 +2875,8 @@ PROTO_METHOD_SIMPLE(CreateShieldedInput)
 
 	// output commitment
 	ShieldedInput_getSk(p, &pIn->m_Inp, &skOutp); // TODO: use isolated child!
-	CoinID_getCommRaw(&skOutp, pIn->m_Inp.m_TxoID.m_Amount, pIn->m_Inp.m_TxoID.m_AssetID, &comm);
-	secp256k1_sha256_write_Point(&oracle.m_sha, &comm);
+	CoinID_getCommRaw(&skOutp, pIn->m_Inp.m_TxoID.m_Amount, pIn->m_Inp.m_TxoID.m_AssetID, &gej);
+	secp256k1_sha256_write_Gej(&oracle.m_sha, &gej);
 
 	// spend sk/pk
 	int overflow;
@@ -2905,8 +2885,8 @@ PROTO_METHOD_SIMPLE(CreateShieldedInput)
 		return c_KeyKeeper_Status_Unspecified;
 
 	ShieldedGetSpendKey(&viewer, &skSpend, pIn->m_Inp.m_TxoID.m_IsCreatedByViewer, &hv, &skSpend);
-	MulG(&comm, &skSpend);
-	secp256k1_sha256_write_Point(&oracle.m_sha, &comm);
+	MulG(&gej, &skSpend);
+	secp256k1_sha256_write_Gej(&oracle.m_sha, &gej);
 
 	Oracle_NextHash(&oracle, &hvSigGen);
 
@@ -2949,13 +2929,12 @@ PROTO_METHOD_SIMPLE(CreateShieldedInput)
 
 		s1 = pN[1]; // copy it, it'd be destroyed
 
-		CoinID_getCommRawEx(pN, &s1, pIn->m_Inp.m_TxoID.m_AssetID, &comm);
-		FlexPoint_MakeCompact(&comm);
-		pOut->m_NoncePub = comm.m_Compact;
+		CoinID_getCommRawEx(pN, &s1, pIn->m_Inp.m_TxoID.m_AssetID, &gej);
+		Point_Compact_from_Gej(&pOut->m_NoncePub, &gej);
 
 		Oracle o2;
 		Oracle_Init(&o2);
-		secp256k1_sha256_write_CompactPoint(&o2.m_sha, &comm.m_Compact);
+		secp256k1_sha256_write_CompactPoint(&o2.m_sha, &pOut->m_NoncePub);
 		secp256k1_sha256_write(&o2.m_sha, hvSigGen.m_pVal, sizeof(hvSigGen.m_pVal));
 
 		secp256k1_scalar_set_b32(&e, pIn->m_AssetSk.m_pVal, &overflow); // the 'mix' term
@@ -2991,22 +2970,15 @@ PROTO_METHOD_SIMPLE(CreateShieldedInput)
 		}
 	}
 
-	comm.m_Compact = pG[0];
-	comm.m_Flags = c_FlexPoint_Compact;
-
-	FlexPoint_MakeGe(&comm);
-	if (!comm.m_Flags)
+	secp256k1_ge ge;
+	if (!Point_Ge_from_Compact(&ge, pG))
 		return c_KeyKeeper_Status_Unspecified; // import failed
 
-	{
-		FlexPoint comm2;
-		MulG(&comm2, pN + 2);
-		secp256k1_gej_add_ge_var(&comm2.m_Gej, &comm2.m_Gej, &comm.m_Ge, 0);
+	MulG(&gej, pN + 2);
+	secp256k1_gej_add_ge_var(&gej, &gej, &ge, 0);
 
-		FlexPoint_MakeCompact(&comm2);
-		pOut->m_G0 = comm2.m_Compact;
-		secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pOut->m_G0);
-	}
+	Point_Compact_from_Gej(&pOut->m_G0, &gej);
+	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pOut->m_G0);
 
 	for (uint32_t i = 1; i < pIn->m_Sigma_M; i++)
 		secp256k1_sha256_write_CompactPoint(&oracle.m_sha, pG + i);
@@ -3054,12 +3026,11 @@ int VerifyShieldedOutputParams(const KeyKeeper* p, const OpIn_TxSendShielded* pS
 	UintBig hv;
 	Voucher_Hash(&hv, &pSh->m_Voucher);
 
-	FlexPoint comm;
-	comm.m_Compact.m_X = pSh->m_Mut.m_Peer;
-	comm.m_Compact.m_Y = 0;
-	comm.m_Flags = c_FlexPoint_Compact;
+	CompactPoint ptPubKey;
+	ptPubKey.m_X = pSh->m_Mut.m_Peer;
+	ptPubKey.m_Y = 0;
 
-	if (!Signature_IsValid(&pSh->m_Voucher.m_Signature, &hv, &comm))
+	if (!Signature_IsValid(&pSh->m_Voucher.m_Signature, &hv, &ptPubKey))
 		return 0;
 	// skip the voucher's ticket verification, don't care if it's valid, as it was already signed by the receiver.
 
@@ -3090,7 +3061,9 @@ int VerifyShieldedOutputParams(const KeyKeeper* p, const OpIn_TxSendShielded* pS
 	}
 
 	secp256k1_scalar_add(pSk, pSk, pExtra); // output blinding factor
-	CoinID_getCommRaw(pSk, amount, aid, &comm); // output commitment
+
+	secp256k1_gej gej;
+	CoinID_getCommRaw(pSk, amount, aid, &gej); // output commitment
 
 	nFlagsPacked |= (Msg2Scalar(pExtra, &pSh->m_User.m_pMessage[0]) << 1);
 	nFlagsPacked |= (Msg2Scalar(pExtra + 1, &pSh->m_User.m_pMessage[1]) << 2);
@@ -3106,7 +3079,7 @@ int VerifyShieldedOutputParams(const KeyKeeper* p, const OpIn_TxSendShielded* pS
 	secp256k1_sha256_write(&oracle.m_sha, pKrnID->m_pVal, sizeof(pKrnID->m_pVal)); // oracle << krn.Msg
 	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pSh->m_Voucher.m_SerialPub);
 	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pSh->m_Voucher.m_NoncePub);
-	secp256k1_sha256_write_Point(&oracle.m_sha, &comm);
+	secp256k1_sha256_write_Gej(&oracle.m_sha, &gej);
 	secp256k1_sha256_write_CompactPointOptional2(&oracle.m_sha, &pSh->m_ptAssetGen, !IsUintBigZero(&pSh->m_ptAssetGen.m_X)); // starting from HF3 it's mandatory
 
 	{

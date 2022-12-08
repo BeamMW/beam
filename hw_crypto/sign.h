@@ -24,4 +24,4 @@ typedef struct
 
 void Signature_Sign(Signature*, const UintBig* pMsg, const secp256k1_scalar* pSk);
 void Signature_SignPartial(Signature*, const UintBig* pMsg, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce);
-int Signature_IsValid(const Signature*, const UintBig* pMsg, FlexPoint* pPk);
+int Signature_IsValid(const Signature*, const UintBig* pMsg, const CompactPoint* pPk);
