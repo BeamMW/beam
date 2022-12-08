@@ -232,7 +232,6 @@ void mem_cmov(unsigned int* pDst, const unsigned int* pSrc, int flag, unsigned i
 __stack_hungry__
 static void MultiMac_Calculate_PrePhase(const MultiMac_Context* p)
 {
-	secp256k1_ge ge;
 	secp256k1_gej_set_infinity(p->m_pRes);
 
 	for (unsigned int i = 0; i < p->m_Fast; i++)
@@ -243,6 +242,7 @@ static void MultiMac_Calculate_PrePhase(const MultiMac_Context* p)
 		int carry = WNaf_Cursor_Init(pWnaf, pS);
 		if (carry)
 		{
+			secp256k1_ge ge;
 			secp256k1_ge_from_storage(&ge, p->m_pGenFast[i].m_pPt);
 			secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, 0);
 		}
@@ -597,11 +597,11 @@ void FlexPoint_MakeGe(FlexPoint* pFlex)
 		if (pFlex->m_Compact.m_Y > 1)
 			return; // not well-formed
 
-		secp256k1_fe nx;
-		if (!secp256k1_fe_set_b32(&nx, pFlex->m_Compact.m_X.m_pVal))
+		// use pFlex->m_Gej.x as a temp var
+		if (!secp256k1_fe_set_b32(&pFlex->m_Gej.x, pFlex->m_Compact.m_X.m_pVal))
 			return; // not well-formed
 
-		if (!secp256k1_ge_set_xo_var(&pFlex->m_Ge, &nx, pFlex->m_Compact.m_Y))
+		if (!secp256k1_ge_set_xo_var(&pFlex->m_Ge, &pFlex->m_Gej.x, pFlex->m_Compact.m_Y))
 		{
 			// be convention zeroed Compact is a zero point
 			if (pFlex->m_Compact.m_Y || !IsUintBigZero(&pFlex->m_Compact.m_X))
@@ -616,6 +616,7 @@ void FlexPoint_MakeGe(FlexPoint* pFlex)
 	pFlex->m_Flags |= c_FlexPoint_Ge;
 }
 
+__stack_hungry__
 void FlexPoint_MakeGe_Batch(FlexPoint* pFlex, unsigned int nCount)
 {
 	assert(nCount);
@@ -663,6 +664,7 @@ void MulG(FlexPoint* pFlex, const secp256k1_scalar* pK)
 	MulPoint(pFlex, Context_get()->m_pGenGJ, pK);
 }
 
+__stack_hungry__
 void Sk2Pk(UintBig* pRes, secp256k1_scalar* pK)
 {
 	FlexPoint fp;
@@ -688,6 +690,7 @@ void Oracle_Expose(Oracle* p, const uint8_t* pPtr, size_t nSize)
 	secp256k1_sha256_write(&p->m_sha, pPtr, nSize);
 }
 
+__stack_hungry__
 void Oracle_NextHash(Oracle* p, UintBig* pHash)
 {
 	secp256k1_sha256_t sha = p->m_sha; // copy
@@ -696,6 +699,7 @@ void Oracle_NextHash(Oracle* p, UintBig* pHash)
 	secp256k1_sha256_write(&p->m_sha, pHash->m_pVal, c_ECC_nBytes);
 }
 
+__stack_hungry__
 void Oracle_NextScalar(Oracle* p, secp256k1_scalar* pS)
 {
 	while (1)
@@ -796,6 +800,7 @@ void secp256k1_sha256_write_Point(secp256k1_sha256_t* pSha, FlexPoint* pFlex)
 	secp256k1_sha256_write_CompactPoint(pSha, &pFlex->m_Compact);
 }
 
+__stack_hungry__
 void CoinID_getHash(const CoinID* p, UintBig* pHash)
 {
 	secp256k1_sha256_t sha;
@@ -947,6 +952,7 @@ void Kdf_getChild(Kdf* p, uint32_t iChild, const Kdf* pParent)
 
 //////////////////////////////
 // Kdf - CoinID key derivation
+//__stack_hungry__
 void CoinID_getCommRawEx(const secp256k1_scalar* pkG, const secp256k1_scalar* pkH, AssetID aid, FlexPoint* pComm)
 {
 	union
@@ -1007,6 +1013,7 @@ void CoinID_getCommRawEx(const secp256k1_scalar* pkG, const secp256k1_scalar* pk
 	pComm[0].m_Flags = c_FlexPoint_Gej;
 }
 
+//__stack_hungry__
 void CoinID_getCommRaw(const secp256k1_scalar* pK, Amount amount, AssetID aid, FlexPoint* pComm)
 {
 	secp256k1_scalar kH;
@@ -1019,79 +1026,60 @@ void CoinID_getSk(const Kdf* pKdf, const CoinID* pCid, secp256k1_scalar* pK)
 	CoinID_getSkComm(pKdf, pCid, pK, 0);
 }
 
-void CoinID_getSkComm(const Kdf* pKdf, const CoinID* pCid, secp256k1_scalar* pK, CompactPoint* pComm)
+__stack_hungry__
+static void CoinID_getSkNonSwitch(const Kdf* pKdf, const CoinID* pCid, secp256k1_scalar* pK)
+{
+	uint8_t nScheme;
+	uint32_t nSubkey;
+	UintBig hv;
+	Kdf kdfC;
+
+	int nChild = CoinID_getSchemeAndSubkey(pCid, &nScheme, &nSubkey);
+	if (nChild)
+	{
+		Kdf_getChild(&kdfC, nSubkey, pKdf);
+		pKdf = &kdfC;
+	}
+
+	CoinID_getHash(pCid, &hv);
+	Kdf_Derive_SKey(pKdf, &hv, pK);
+
+	if (nChild)
+		SECURE_ERASE_OBJ(kdfC);
+}
+
+__stack_hungry__
+static void CoinID_getSkSwitchDelta(secp256k1_scalar* pK, FlexPoint* pFlex)
+{
+	Oracle oracle;
+
+	Oracle_Init(&oracle);
+	secp256k1_sha256_write_Point(&oracle.m_sha, pFlex);
+	secp256k1_sha256_write_Point(&oracle.m_sha, pFlex + 1);
+
+	Oracle_NextScalar(&oracle, pK);
+}
+
+__stack_hungry__
+static void CoinID_getSkComm_FromNonSwitchK(const CoinID* pCid, secp256k1_scalar* pK, CompactPoint* pComm)
 {
 	FlexPoint pFlex[2];
 
-	union
-	{
-		// save some space
-		struct
-		{
-			uint8_t nScheme;
-			uint32_t nSubkey;
-			UintBig hv;
-			Kdf kdfC;
-		} k;
+	CoinID_getCommRaw(pK, pCid->m_Amount, pCid->m_AssetID, pFlex); // sk*G + amount*H(aid)
+	MulPoint(pFlex + 1, Context_get()->m_pGenGJ + 1, pK); // sk*J
 
-		struct
-		{
-			Oracle oracle;
-			secp256k1_scalar k1;
-		} o;
-
-	} u;
-
-	int nChild = CoinID_getSchemeAndSubkey(pCid, &u.k.nScheme, &u.k.nSubkey);
-	if (nChild)
-	{
-		Kdf_getChild(&u.k.kdfC, u.k.nSubkey, pKdf);
-		pKdf = &u.k.kdfC;
-	}
-
-	CoinID_getHash(pCid, &u.k.hv);
-
-	Kdf_Derive_SKey(pKdf, &u.k.hv, pK);
-
-	if (nChild)
-		SECURE_ERASE_OBJ(u.k.kdfC);
-
-	CoinID_getCommRaw(pK, pCid->m_Amount, pCid->m_AssetID, pFlex);
-
-	Context* pCtx = Context_get();
-
-	// sk * J
-	MultiMac_Context mmCtx;
-	mmCtx.m_pRes = &pFlex[1].m_Gej;
-	mmCtx.m_Secure = 1;
-	mmCtx.m_Fast = 0;
-	mmCtx.m_pSecureK = pK;
-	mmCtx.m_pGenSecure = pCtx->m_pGenGJ + 1;
-	mmCtx.m_pZDenom = 0;
-
-	MultiMac_Calculate(&mmCtx);
-	pFlex[1].m_Flags = c_FlexPoint_Gej;
-
-	// adjust sk
 	FlexPoint_MakeGe_Batch(pFlex, _countof(pFlex));
 
-	Oracle_Init(&u.o.oracle);
+	secp256k1_scalar kDelta;
+	CoinID_getSkSwitchDelta(&kDelta, pFlex);
 
-	for (unsigned int i = 0; i < _countof(pFlex); i++)
-		secp256k1_sha256_write_Point(&u.o.oracle.m_sha, pFlex + i);
-
-	Oracle_NextScalar(&u.o.oracle, &u.o.k1);
-
-	secp256k1_scalar_add(pK, pK, &u.o.k1);
+	secp256k1_scalar_add(pK, pK, &kDelta);
 
 	if (pComm)
 	{
-		mmCtx.m_pGenSecure = pCtx->m_pGenGJ; // not really secure here, just no good reason to have additional non-secure J-gen
-		mmCtx.m_pSecureK = &u.o.k1;
+		MulG(pFlex + 1, &kDelta);
 
-		MultiMac_Calculate(&mmCtx);
-		pFlex[1].m_Flags = c_FlexPoint_Gej;
-
+		assert(c_FlexPoint_Gej & pFlex[1].m_Flags);
 		assert(c_FlexPoint_Ge & pFlex[0].m_Flags);
 
 		secp256k1_gej_add_ge_var(&pFlex[0].m_Gej, &pFlex[1].m_Gej, &pFlex[0].m_Ge, 0);
@@ -1103,6 +1091,13 @@ void CoinID_getSkComm(const Kdf* pKdf, const CoinID* pCid, secp256k1_scalar* pK,
 	}
 }
 
+void CoinID_getSkComm(const Kdf* pKdf, const CoinID* pCid, secp256k1_scalar* pK, CompactPoint* pComm)
+{
+	CoinID_getSkNonSwitch(pKdf, pCid, pK);
+	CoinID_getSkComm_FromNonSwitchK(pCid, pK, pComm);
+}
+
+__stack_hungry__
 static void ShieldedInput_getSk(const KeyKeeper* p, const ShieldedInput* pInp, secp256k1_scalar* pK)
 {
 	UintBig hv;
@@ -1205,6 +1200,7 @@ typedef struct
 	} u;
 
 } RangeProof_Worker;
+
 
 static void RangeProof_Calculate_Before_S(RangeProof* const p, RangeProof_Worker* const pWrk)
 {
@@ -1427,7 +1423,7 @@ static int RangeProof_Calculate_After_S(RangeProof* const p, RangeProof_Worker* 
 	return ok;
 }
 
-
+__stack_hungry__
 int RangeProof_Calculate(RangeProof* p)
 {
 	RangeProof_Worker wrk;
@@ -1452,6 +1448,7 @@ typedef struct
 
 } RangeProof_Recovery_Context;
 
+__stack_hungry__
 static int RangeProof_Recover(const RangeProof_Packed* pRangeproof, Oracle* pOracle, RangeProof_Recovery_Context* pCtx)
 {
 	static const char szSalt[] = "bulletproof";
@@ -1654,6 +1651,7 @@ static int RangeProof_Recover(const RangeProof_Packed* pRangeproof, Oracle* pOra
 
 //////////////////////////////
 // Signature
+__stack_hungry__
 void Signature_GetChallengeEx(const CompactPoint* pNoncePub, const UintBig* pMsg, secp256k1_scalar* pE)
 {
 	Oracle oracle;
@@ -1669,6 +1667,7 @@ void Signature_GetChallenge(const Signature* p, const UintBig* pMsg, secp256k1_s
 	Signature_GetChallengeEx(&p->m_NoncePub, pMsg, pE);
 }
 
+__stack_hungry__
 void Signature_Sign(Signature* p, const UintBig* pMsg, const secp256k1_scalar* pSk)
 {
 	// get nonce
@@ -1704,6 +1703,7 @@ void Signature_Sign(Signature* p, const UintBig* pMsg, const secp256k1_scalar* p
 	SECURE_ERASE_OBJ(u.nonce);
 }
 
+__stack_hungry__
 void Signature_SignPartialEx(UintBig* pRes, const secp256k1_scalar* pE, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce)
 {
 	secp256k1_scalar k;
@@ -1714,6 +1714,7 @@ void Signature_SignPartialEx(UintBig* pRes, const secp256k1_scalar* pE, const se
 	secp256k1_scalar_get_b32(pRes->m_pVal, &k);
 }
 
+__stack_hungry__
 void Signature_SignPartial(Signature* p, const UintBig* pMsg, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce)
 {
 	secp256k1_scalar e;
@@ -1721,6 +1722,7 @@ void Signature_SignPartial(Signature* p, const UintBig* pMsg, const secp256k1_sc
 	Signature_SignPartialEx(&p->m_k, &e, pSk, pNonce);
 }
 
+__stack_hungry__
 int Signature_IsValid(const Signature* p, const UintBig* pMsg, FlexPoint* pPk)
 {
 	FlexPoint fpNonce;
@@ -1779,6 +1781,7 @@ int Signature_IsValid(const Signature* p, const UintBig* pMsg, FlexPoint* pPk)
 
 //////////////////////////////
 // TxKernel
+__stack_hungry__
 void TxKernel_getID_Ex(const TxKernelUser* pUser, const TxKernelData* pData, UintBig* pMsg, const UintBig* pNestedIDs, uint32_t nNestedIDs)
 {
 	secp256k1_sha256_t sha;
@@ -1811,6 +1814,7 @@ void TxKernel_getID(const TxKernelUser* pUser, const TxKernelData* pData, UintBi
 	TxKernel_getID_Ex(pUser, pData, pMsg, 0, 0);
 }
 
+__stack_hungry__
 int TxKernel_IsValid(const TxKernelUser* pUser, const TxKernelData* pData)
 {
 	UintBig msg;
@@ -1823,6 +1827,7 @@ int TxKernel_IsValid(const TxKernelUser* pUser, const TxKernelData* pData)
 	return Signature_IsValid(&pData->m_Signature, &msg, &fp);
 }
 
+__stack_hungry__
 void TxKernel_SpecialMsg(secp256k1_sha256_t* pSha, Amount fee, Height hMin, Height hMax, uint8_t nType)
 {
 	// calculate kernel Msg
@@ -1841,6 +1846,7 @@ void TxKernel_SpecialMsg(secp256k1_sha256_t* pSha, Amount fee, Height hMin, Heig
 
 //////////////////////////////
 // KeyKeeper - pub Kdf export
+__stack_hungry__
 static void Kdf2Pub(const Kdf* pKdf, KdfPub* pRes)
 {
 	Context* pCtx = Context_get();
@@ -1858,6 +1864,7 @@ static void Kdf2Pub(const Kdf* pKdf, KdfPub* pRes)
 	pRes->m_CoFactorJ = fp.m_Compact;
 }
 
+__stack_hungry__
 void KeyKeeper_GetPKdf(const KeyKeeper* p, KdfPub* pRes, const uint32_t* pChild)
 {
 	if (pChild)
@@ -1874,7 +1881,7 @@ void KeyKeeper_GetPKdf(const KeyKeeper* p, KdfPub* pRes, const uint32_t* pChild)
 
 //////////////////
 // Protocol
-#define PROTO_METHOD(name) static int HandleProto_##name(const KeyKeeper* p, Op_##name* pArg, uint32_t nIn, uint32_t nOut)
+#define PROTO_METHOD(name) __stack_hungry__ static int HandleProto_##name(const KeyKeeper* p, Op_##name* pArg, uint32_t nIn, uint32_t nOut)
 
 #pragma pack (push, 1)
 #define THE_MACRO_Field(cvt, type, name) type m_##name;
@@ -1902,7 +1909,7 @@ BeamCrypto_ProtoMethods(THE_MACRO_OpCode)
 
 #define PROTO_METHOD_SIMPLE(name) \
 static int HandleProtoSimple_##name(const KeyKeeper* p, OpIn_##name* pIn, uint32_t nIn, OpOut_##name* pOut); \
-static int HandleProto_##name(const KeyKeeper* p, Op_##name* pArg, uint32_t nIn, uint32_t nOut) \
+__stack_hungry__ static int HandleProto_##name(const KeyKeeper* p, Op_##name* pArg, uint32_t nIn, uint32_t nOut) \
 { \
 	if (nOut) \
 		return c_KeyKeeper_Status_ProtoError; \
@@ -1962,6 +1969,7 @@ void N2H_TxMutualIn(TxMutualIn* p)
 	ProtoN2H(p->m_MyIDKey, WalletIdentity);
 }
 
+__stack_hungry__
 int KeyKeeper_Invoke(const KeyKeeper* p, uint8_t* pInOut, uint32_t nIn, uint32_t nOut)
 {
 	if (!nIn)
@@ -2176,6 +2184,7 @@ static int TxAggregate_AddAmount(Amount val, AssetID aid, TxAggr0* pRes, TxAggr*
 	return 1;
 }
 
+__stack_hungry__
 static int TxAggregate0(const KeyKeeper* p, CoinID* pCid, uint32_t nCount, TxAggr0* pRes, TxAggr* pCommon, int isOuts)
 {
 	for (uint32_t i = 0; i < nCount; i++, pCid++)
@@ -2214,6 +2223,7 @@ static int TxAggregate0(const KeyKeeper* p, CoinID* pCid, uint32_t nCount, TxAgg
 	return 1;
 }
 
+__stack_hungry__
 static int TxAggregateShIns(const KeyKeeper* p, ShieldedInput* pIns, uint32_t nCount, TxAggr0* pRes, TxAggr* pCommon)
 {
 	for (uint32_t i = 0; i < nCount; i++, pIns++)
@@ -2305,6 +2315,7 @@ static int TxAggregate_SendOrSplit(const KeyKeeper* p, const TxCommonIn* pTx, Tx
 
 //////////////////////////////
 // KeyKeeper - Kernel modification
+__stack_hungry__
 static int KernelUpdateKeysEx(CompactPoint* pCommitment, CompactPoint* pNoncePub, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce, const TxKernelData* pAdd)
 {
 	FlexPoint pFp[2];
@@ -2399,6 +2410,7 @@ PROTO_METHOD_SIMPLE(TxSplit)
 
 //////////////////////////////
 // KeyKeeper - Receive + Send common stuff
+__stack_hungry__
 static void GetPaymentConfirmationMsg(UintBig* pRes, const UintBig* pSender, const UintBig* pKernelID, Amount amount, AssetID nAssetID)
 {
 	secp256k1_sha256_t sha;
@@ -2418,6 +2430,7 @@ static void GetPaymentConfirmationMsg(UintBig* pRes, const UintBig* pSender, con
 	secp256k1_sha256_finalize(&sha, pRes->m_pVal);
 }
 
+__stack_hungry__
 static void GetWalletIDKey(const KeyKeeper* p, WalletIdentity nKey, secp256k1_scalar* pKey, UintBig* pID)
 {
 	// derive key
@@ -2652,6 +2665,7 @@ typedef struct
 
 } ShieldedViewer;
 
+__stack_hungry__
 static void ShieldedViewerInit(ShieldedViewer* pRes, uint32_t iViewer, const KeyKeeper* p)
 {
 	// Shielded viewer
@@ -2698,6 +2712,7 @@ static void MulGJ(FlexPoint* pFlex, const secp256k1_scalar* pK)
 	pFlex->m_Flags = c_FlexPoint_Gej;
 }
 
+__stack_hungry__
 static void Ticket_Hash(UintBig* pRes, const ShieldedVoucher* pVoucher)
 {
 	secp256k1_sha256_t sha;
@@ -2707,6 +2722,7 @@ static void Ticket_Hash(UintBig* pRes, const ShieldedVoucher* pVoucher)
 	secp256k1_sha256_finalize(&sha, pRes->m_pVal);
 }
 
+__stack_hungry__
 static void Voucher_Hash(UintBig* pRes, const ShieldedVoucher* pVoucher)
 {
 	secp256k1_sha256_t sha;
@@ -2718,6 +2734,7 @@ static void Voucher_Hash(UintBig* pRes, const ShieldedVoucher* pVoucher)
 	secp256k1_sha256_finalize(&sha, pRes->m_pVal);
 }
 
+__stack_hungry__
 static void ShieldedGetSpendKey(const ShieldedViewer* pViewer, const secp256k1_scalar* pkG, uint8_t nIsGenByViewer, UintBig* pPreimage, secp256k1_scalar* pSk)
 {
 	secp256k1_sha256_t sha;
@@ -2741,6 +2758,7 @@ static void ShieldedGetSpendKey(const ShieldedViewer* pViewer, const secp256k1_s
 	Kdf_Derive_SKey(&pViewer->m_Ser, pPreimage, pSk); // spend sk
 }
 
+__stack_hungry__
 static void CreateVoucherInternal(ShieldedVoucher* pRes, const UintBig* pNonce, const ShieldedViewer* pViewer)
 {
 	secp256k1_scalar pK[2], pN[2], sk;
@@ -3037,6 +3055,7 @@ static uint8_t Msg2Scalar(secp256k1_scalar* p, const UintBig* pMsg)
 	return !!overflow;
 }
 
+__stack_hungry__
 int VerifyShieldedOutputParams(const KeyKeeper* p, const OpIn_TxSendShielded* pSh, Amount amount, AssetID aid, secp256k1_scalar* pSk, UintBig* pKrnID)
 {
 	// check the voucher
