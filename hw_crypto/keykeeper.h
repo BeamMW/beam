@@ -21,8 +21,6 @@ typedef struct
 {
 	Kdf m_MasterKey;
 
-	int m_AllowWeakInputs;
-
 	// TODO: state, Slot management, etc.
 
 } KeyKeeper;
@@ -30,9 +28,10 @@ typedef struct
 //////////////////////////
 // External functions, implemented by the platform-specific code
 void SecureEraseMem(void*, uint32_t);
-uint32_t KeyKeeper_getNumSlots();
-void KeyKeeper_ReadSlot(uint32_t, UintBig*);
-void KeyKeeper_RegenerateSlot(uint32_t);
+uint32_t KeyKeeper_getNumSlots(KeyKeeper*);
+void KeyKeeper_ReadSlot(KeyKeeper*, uint32_t, UintBig*);
+void KeyKeeper_RegenerateSlot(KeyKeeper*, uint32_t);
+int KeyKeeper_AllowWeakInputs(KeyKeeper*);
 
 typedef struct
 {
@@ -298,7 +297,7 @@ typedef struct
 	macro(0x33, TxSend2) \
 	macro(0x36, TxSendShielded) \
 
-int KeyKeeper_Invoke(const KeyKeeper*, uint8_t* pInOut, uint32_t nIn, uint32_t nOut);
+int KeyKeeper_Invoke(KeyKeeper*, uint8_t* pInOut, uint32_t nIn, uint32_t nOut);
 
 //////////////////////////
 // KeyKeeper - request user approval for spend
@@ -307,6 +306,6 @@ int KeyKeeper_Invoke(const KeyKeeper*, uint8_t* pInOut, uint32_t nIn, uint32_t n
 // pKrnID and pData are NULL, if this is a 'preliminary' confirmation (SendTx 1st invocation)
 // pUser contains fee and min/max height (may be shown to the user)
 // pData (if specified) has commitments.
-int KeyKeeper_ConfirmSpend(
+int KeyKeeper_ConfirmSpend(KeyKeeper*,
 	Amount val, AssetID aid, const UintBig* pPeerID,
 	const TxKernelUser* pUser, const TxKernelData* pData, const UintBig* pKrnID);

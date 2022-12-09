@@ -34,31 +34,42 @@ extern "C"
 #include "sign.h"
 #include "keykeeper.h"
 
+	struct KeyKeeperPlus
+		:public KeyKeeper
+	{
+		wallet::LocalPrivateKeyKeeperStd::State m_Nonces;
+		int m_AllowWeakInputs = 0;
+	};
+
 	void SecureEraseMem(void* p, uint32_t n)
 	{
 		memset0(p, n);
 	}
 
-	wallet::LocalPrivateKeyKeeperStd::State* g_pHwEmuNonces = nullptr;
 
-	uint32_t KeyKeeper_getNumSlots() {
+	uint32_t KeyKeeper_getNumSlots(KeyKeeper*) {
 		return wallet::LocalPrivateKeyKeeperStd::s_DefNumSlots;
 	}
 
-	void KeyKeeper_ReadSlot(uint32_t iSlot, UintBig* p)
+	void KeyKeeper_ReadSlot(KeyKeeper* pKk, uint32_t iSlot, UintBig* p)
 	{
-		memcpy(p->m_pVal, g_pHwEmuNonces->get_AtReady(iSlot).m_pData, c_ECC_nBytes);
+		memcpy(p->m_pVal, Cast::Up<KeyKeeperPlus>(pKk)->m_Nonces.get_AtReady(iSlot).m_pData, c_ECC_nBytes);
 	}
 
 
-	void KeyKeeper_RegenerateSlot(uint32_t iSlot)
+	void KeyKeeper_RegenerateSlot(KeyKeeper* pKk, uint32_t iSlot)
 	{
-		g_pHwEmuNonces->Regenerate(iSlot);
+		Cast::Up<KeyKeeperPlus>(pKk)->m_Nonces.Regenerate(iSlot);
 	}
 
-	int KeyKeeper_ConfirmSpend(Amount val, AssetID aid, const UintBig* pPeerID, const TxKernelUser* pUser, const TxKernelData* pData, const UintBig* pKrnID)
+	int KeyKeeper_ConfirmSpend(KeyKeeper*, Amount val, AssetID aid, const UintBig* pPeerID, const TxKernelUser* pUser, const TxKernelData* pData, const UintBig* pKrnID)
 	{
 		return c_KeyKeeper_Status_Ok;
+	}
+
+	int KeyKeeper_AllowWeakInputs(KeyKeeper* pKk)
+	{
+		return Cast::Up<KeyKeeperPlus>(pKk)->m_AllowWeakInputs;
 	}
 
 }
@@ -649,7 +660,7 @@ void TestPKdfExport()
 		ECC::HKdf hkdf;
 		hkdf.Generate(hv);
 
-		hw::KeyKeeper kk;
+		hw::KeyKeeperPlus kk;
 		hw::Kdf_Init(&kk.m_MasterKey, &Ecc2BC(hv));
 
 		for (int j = 0; j < 3; j++)
@@ -699,7 +710,7 @@ void TestPKdfExport()
 struct KeyKeeperHwEmu
 	:public wallet::RemoteKeyKeeper
 {
-	hw::KeyKeeper m_Ctx;
+	hw::KeyKeeperPlus m_Ctx;
 
 	struct MyTask
 		:public wallet::PrivateKeyKeeper_WithMarshaller::Task
@@ -756,8 +767,6 @@ struct KeyKeeperWrap
 	KeyKeeperHwEmu m_kkEmu;
 	KeyKeeperStd m_kkStd; // for comparison
 
-	wallet::LocalPrivateKeyKeeperStd::State m_Nonces;
-
 	static Key::IKdf::Ptr get_KdfFromSeed(const ECC::Hash::Value& hv)
 	{
 		Key::IKdf::Ptr pKdf;
@@ -776,7 +785,7 @@ struct KeyKeeperWrap
 		wallet::IPrivateKeyKeeper2::Method::get_NumSlots m;
 		verify_test(m_kkEmu.InvokeSync(m) == wallet::IPrivateKeyKeeper2::Status::Success);
 
-		m_Nonces.m_hvLast = m_kkStd.m_State.m_hvLast;
+		m_kkEmu.m_Ctx.m_Nonces.m_hvLast = m_kkStd.m_State.m_hvLast;
 	}
 
 	static CoinID& Add(std::vector<CoinID>& vec, Amount val = 0);
@@ -924,9 +933,7 @@ struct KeyKeeperWrap
 		TMethod m2;
 		UpdateMethod(m2, m, 0); // copy into m2
 
-		hw::g_pHwEmuNonces = &m_Nonces;
 		int n1 = Cast::Down<wallet::IPrivateKeyKeeper2>(m_kkEmu).InvokeSync(m);
-		hw::g_pHwEmuNonces = nullptr;
 
 		UpdateMethod(m2, m, 1); // swap
 

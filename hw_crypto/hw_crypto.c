@@ -1878,7 +1878,7 @@ void KeyKeeper_GetPKdf(const KeyKeeper* p, KdfPub* pRes, const uint32_t* pChild)
 
 //////////////////
 // Protocol
-#define PROTO_METHOD(name) __stack_hungry__ static int HandleProto_##name(const KeyKeeper* p, Op_##name* pArg, uint32_t nIn, uint32_t nOut)
+#define PROTO_METHOD(name) __stack_hungry__ static int HandleProto_##name(KeyKeeper* p, Op_##name* pArg, uint32_t nIn, uint32_t nOut)
 
 #pragma pack (push, 1)
 #define THE_MACRO_Field(cvt, type, name) type m_##name;
@@ -1905,8 +1905,8 @@ BeamCrypto_ProtoMethods(THE_MACRO_OpCode)
 
 
 #define PROTO_METHOD_SIMPLE(name) \
-static int HandleProtoSimple_##name(const KeyKeeper* p, OpIn_##name* pIn, uint32_t nIn, OpOut_##name* pOut); \
-__stack_hungry__ static int HandleProto_##name(const KeyKeeper* p, Op_##name* pArg, uint32_t nIn, uint32_t nOut) \
+static int HandleProtoSimple_##name(KeyKeeper* p, OpIn_##name* pIn, uint32_t nIn, OpOut_##name* pOut); \
+__stack_hungry__ static int HandleProto_##name(KeyKeeper* p, Op_##name* pArg, uint32_t nIn, uint32_t nOut) \
 { \
 	if (nOut) \
 		return c_KeyKeeper_Status_ProtoError; \
@@ -1916,7 +1916,7 @@ __stack_hungry__ static int HandleProto_##name(const KeyKeeper* p, Op_##name* pA
 		memcpy(&pArg->m_Out, &out, sizeof(out)); \
 	return res; \
 } \
-static int HandleProtoSimple_##name(const KeyKeeper* p, OpIn_##name* pIn, uint32_t nIn, OpOut_##name* pOut)
+static int HandleProtoSimple_##name(KeyKeeper* p, OpIn_##name* pIn, uint32_t nIn, OpOut_##name* pOut)
 
 
 #define ProtoH2N(field) WriteInNetworkOrderRaw((uint8_t*) &field, field, sizeof(field))
@@ -1967,7 +1967,7 @@ void N2H_TxMutualIn(TxMutualIn* p)
 }
 
 __stack_hungry__
-int KeyKeeper_Invoke(const KeyKeeper* p, uint8_t* pInOut, uint32_t nIn, uint32_t nOut)
+int KeyKeeper_Invoke(KeyKeeper* p, uint8_t* pInOut, uint32_t nIn, uint32_t nOut)
 {
 	if (!nIn)
 		return c_KeyKeeper_Status_ProtoError;
@@ -2022,7 +2022,7 @@ PROTO_METHOD(GetNumSlots)
 	if (nIn || nOut)
 		return c_KeyKeeper_Status_ProtoError; // size mismatch
 
-	pArg->m_Out.m_Value = KeyKeeper_getNumSlots();
+	pArg->m_Out.m_Value = KeyKeeper_getNumSlots(p);
 	return c_KeyKeeper_Status_Ok;
 }
 
@@ -2188,7 +2188,7 @@ static int TxAggregate_AddAmount(Amount val, AssetID aid, TxAggr0* pRes, TxAggr*
 }
 
 __stack_hungry__
-static int TxAggregate0(const KeyKeeper* p, CoinID* pCid, uint32_t nCount, TxAggr0* pRes, TxAggr* pCommon, int isOuts)
+static int TxAggregate0(KeyKeeper* p, CoinID* pCid, uint32_t nCount, TxAggr0* pRes, TxAggr* pCommon, int isOuts)
 {
 	for (uint32_t i = 0; i < nCount; i++, pCid++)
 	{
@@ -2209,7 +2209,7 @@ static int TxAggregate0(const KeyKeeper* p, CoinID* pCid, uint32_t nCount, TxAgg
 			if (isOuts)
 				return 0; // no reason to create weak outputs
 
-			if (!p->m_AllowWeakInputs)
+			if (!KeyKeeper_AllowWeakInputs(p))
 				return 0;
 		}
 
@@ -2250,7 +2250,7 @@ static int TxAggregateShIns(const KeyKeeper* p, ShieldedInput* pIns, uint32_t nC
 	return 1;
 }
 
-static int TxAggregate(const KeyKeeper* p, const TxCommonIn* pTx, TxAggr* pRes, void* pExtra, uint32_t nExtra)
+static int TxAggregate(KeyKeeper* p, const TxCommonIn* pTx, TxAggr* pRes, void* pExtra, uint32_t nExtra)
 {
 	CoinID* pIns = (CoinID*) pExtra;
 	CoinID* pOuts = pIns + pTx->m_Ins;
@@ -2285,7 +2285,7 @@ static void TxAggrToOffset(TxAggr* pAggr, const secp256k1_scalar* pKrn, TxCommon
 	TxAggrToOffsetEx(pAggr, pKrn, &pTx->m_kOffset);
 }
 
-static int TxAggregate_SendOrSplit(const KeyKeeper* p, const TxCommonIn* pTx, TxAggr* pRes, void* pExtra, uint32_t nExtra)
+static int TxAggregate_SendOrSplit(KeyKeeper* p, const TxCommonIn* pTx, TxAggr* pRes, void* pExtra, uint32_t nExtra)
 {
 	if (!TxAggregate(p, pTx, pRes, pExtra, nExtra))
 		return 0;
@@ -2389,7 +2389,7 @@ PROTO_METHOD_SIMPLE(TxSplit)
 
 	TxKernel_getID(&pIn->m_Tx.m_Krn, &pOut->m_Tx.m_Krn, &hv);
 
-	int res = KeyKeeper_ConfirmSpend(0, 0, 0, &pIn->m_Tx.m_Krn, &pOut->m_Tx.m_Krn, &hv);
+	int res = KeyKeeper_ConfirmSpend(p, 0, 0, 0, &pIn->m_Tx.m_Krn, &pOut->m_Tx.m_Krn, &hv);
 	if (c_KeyKeeper_Status_Ok != res)
 		return res;
 
@@ -2524,7 +2524,7 @@ PROTO_METHOD_SIMPLE(TxReceive)
 
 //////////////////////////////
 // KeyKeeper - SendTx
-int HandleTxSend(const KeyKeeper* p, OpIn_TxSend2* pIn, void* pInExtra, uint32_t nInExtra, OpOut_TxSend1* pOut1, OpOut_TxSend2* pOut2)
+int HandleTxSend(KeyKeeper* p, OpIn_TxSend2* pIn, void* pInExtra, uint32_t nInExtra, OpOut_TxSend1* pOut1, OpOut_TxSend2* pOut2)
 {
 	TxAggr txAggr;
 	if (!TxAggregate_SendOrSplit(p, &pIn->m_Tx, &txAggr, pInExtra, nInExtra))
@@ -2539,10 +2539,10 @@ int HandleTxSend(const KeyKeeper* p, OpIn_TxSend2* pIn, void* pInExtra, uint32_t
 	UintBig hvMyID, hv;
 	GetWalletIDKey(p, pIn->m_Mut.m_MyIDKey, &kNonce, &hvMyID);
 
-	if (pIn->m_iSlot >= KeyKeeper_getNumSlots())
+	if (pIn->m_iSlot >= KeyKeeper_getNumSlots(p))
 		return c_KeyKeeper_Status_Unspecified;
 
-	KeyKeeper_ReadSlot(pIn->m_iSlot, &hv);
+	KeyKeeper_ReadSlot(p, pIn->m_iSlot, &hv);
 	Kdf_Derive_SKey(&p->m_MasterKey, &hv, &kNonce);
 
 	// during negotiation kernel height and commitment are adjusted. We should only commit to the Fee
@@ -2583,7 +2583,7 @@ int HandleTxSend(const KeyKeeper* p, OpIn_TxSend2* pIn, void* pInExtra, uint32_t
 
 	if (pOut1)
 	{
-		int res = KeyKeeper_ConfirmSpend(txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, 0, 0);
+		int res = KeyKeeper_ConfirmSpend(p, txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, 0, 0);
 		if (c_KeyKeeper_Status_Ok != res)
 			return res;
 
@@ -2616,12 +2616,12 @@ int HandleTxSend(const KeyKeeper* p, OpIn_TxSend2* pIn, void* pInExtra, uint32_t
 		return c_KeyKeeper_Status_Unspecified;
 
 	// 2nd user confirmation request. Now the kernel is complete, its ID is calculated
-	int res = KeyKeeper_ConfirmSpend(txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, &krn, &hvMyID);
+	int res = KeyKeeper_ConfirmSpend(p, txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, &krn, &hvMyID);
 	if (c_KeyKeeper_Status_Ok != res)
 		return res;
 
 	// Regenerate the slot (BEFORE signing), and sign
-	KeyKeeper_RegenerateSlot(pIn->m_iSlot);
+	KeyKeeper_RegenerateSlot(p, pIn->m_iSlot);
 
 	Signature_SignPartial(&krn.m_Signature, &hv, &kKrn, &kNonce);
 
@@ -3210,8 +3210,8 @@ PROTO_METHOD_SIMPLE(TxSendShielded)
 
 	// all set
 	int res = pIn->m_Mut.m_MyIDKey ?
-		KeyKeeper_ConfirmSpend(0, 0, 0, &pIn->m_Tx.m_Krn, &pOut->m_Tx.m_Krn, &hv) :
-		KeyKeeper_ConfirmSpend(txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, &pOut->m_Tx.m_Krn, &hv);
+		KeyKeeper_ConfirmSpend(p, 0, 0, 0, &pIn->m_Tx.m_Krn, &pOut->m_Tx.m_Krn, &hv) :
+		KeyKeeper_ConfirmSpend(p, txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, &pOut->m_Tx.m_Krn, &hv);
 
 	if (c_KeyKeeper_Status_Ok != res)
 		return res;
