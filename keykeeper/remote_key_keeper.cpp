@@ -24,15 +24,8 @@ extern "C" {
 }
 
 
-#define THE_MACRO_Field(cvt, type, name) type m_##name;
-
-#define THE_MACRO_Field_h2n(cvt, type, name) THE_MACRO_Field_h2n_##cvt(m_##name)
-#define THE_MACRO_Field_h2n_0(field)
-#define THE_MACRO_Field_h2n_1(field) Proto::h2n(field);
-
-#define THE_MACRO_Field_n2h(cvt, type, name) THE_MACRO_Field_n2h_##cvt(m_##name)
-#define THE_MACRO_Field_n2h_0(field)
-#define THE_MACRO_Field_n2h_1(field) Proto::n2h(field);
+#define THE_MACRO_Field(type, name) type m_##name;
+#define THE_MACRO_Field_h2n(type, name) Proto::h2n(m_##name);
 
 	namespace Proto
 	{
@@ -40,16 +33,10 @@ extern "C" {
             x = ByteOrder::to_be(x);
 		}
 
-		template <typename T> void n2h_u(T& x) {
-            x = ByteOrder::from_be(x);
-        }
-
-		void h2n(uint16_t& x) { h2n_u(x); }
-		void n2h(uint16_t& x) { n2h_u(x); }
+        void h2n(uint8_t& x) { }
+        void h2n(uint16_t& x) { h2n_u(x); }
 		void h2n(uint32_t& x) { h2n_u(x); }
-		void n2h(uint32_t& x) { n2h_u(x); }
 		void h2n(uint64_t& x) { h2n_u(x); }
-		void n2h(uint64_t& x) { n2h_u(x); }
 
 		void h2n(ShieldedInput& x) {
 			h2n(x.m_Fee);
@@ -76,6 +63,17 @@ extern "C" {
 			h2n(mut.m_MyIDKey);
 		}
 
+        void h2n(KdfPub& x) {}
+        void h2n(UintBig& x) {}
+        void h2n(CompactPoint& x) {}
+        void h2n(TxCommonOut& x) {}
+        void h2n(TxKernelData& x) {}
+        void h2n(TxKernelCommitments& x) {}
+        void h2n(ShieldedVoucher& x) {}
+        void h2n(ShieldedTxoUser& x) {}
+        void h2n(Signature& x) {}
+        void h2n(RangeProof_Packed& x) {}
+
 #pragma pack (push, 1)
 
 #define THE_MACRO(id, name) \
@@ -91,7 +89,7 @@ extern "C" {
 			}; \
 			struct In { \
 				BeamCrypto_ProtoResponse_##name(THE_MACRO_Field) \
-				void n2h() { BeamCrypto_ProtoResponse_##name(THE_MACRO_Field_n2h) } \
+				void n2h() { BeamCrypto_ProtoResponse_##name(THE_MACRO_Field_h2n) } \
 			}; \
 			Out m_Out; \
 			In m_In; \

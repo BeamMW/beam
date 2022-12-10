@@ -185,123 +185,123 @@ typedef struct
 
 #define BeamCrypto_ProtoRequest_Version(macro)
 #define BeamCrypto_ProtoResponse_Version(macro) \
-	macro(1, uint32_t, Value)
+	macro(uint32_t, Value)
 
 #define BeamCrypto_ProtoRequest_GetNumSlots(macro)
 #define BeamCrypto_ProtoResponse_GetNumSlots(macro) \
-	macro(1, uint32_t, Value)
+	macro(uint32_t, Value)
 
 #define BeamCrypto_ProtoRequest_GetPKdf(macro) \
-	macro(0, uint8_t, Kind) \
+	macro(uint8_t, Kind) \
 
 #define BeamCrypto_ProtoResponse_GetPKdf(macro) \
-	macro(0, KdfPub, Value)
+	macro(KdfPub, Value)
 
 #define BeamCrypto_ProtoRequest_CreateOutput(macro) \
-	macro(1, CoinID, Cid) \
-	macro(0, CompactPoint, ptAssetGen) \
-	macro(0, UintBig, pKExtra[2]) \
-	macro(0, CompactPoint, pT[2]) \
+	macro(CoinID, Cid) \
+	macro(CompactPoint, ptAssetGen) \
+	macro(UintBig, pKExtra[2]) \
+	macro(CompactPoint, pT[2]) \
 
 #define BeamCrypto_ProtoResponse_CreateOutput(macro) \
-	macro(0, CompactPoint, pT[2]) \
-	macro(0, UintBig, TauX) \
+	macro(CompactPoint, pT[2]) \
+	macro(UintBig, TauX) \
 
 #define BeamCrypto_ProtoRequest_TxAddCoins(macro) \
-	macro(0, uint8_t, Reset) \
-	macro(0, uint8_t, Ins) \
-	macro(0, uint8_t, Outs) \
-	macro(0, uint8_t, InsShielded)
+	macro(uint8_t, Reset) \
+	macro(uint8_t, Ins) \
+	macro(uint8_t, Outs) \
+	macro(uint8_t, InsShielded)
 	/* followed by in/outs */
 
 
 #define BeamCrypto_ProtoResponse_TxAddCoins(macro) \
-	macro(0, uint8_t, Dummy) // no response needed actually
+	macro(uint8_t, Dummy) // no response needed actually
 
 #define BeamCrypto_ProtoRequest_GetImage(macro) \
-	macro(0, UintBig, hvSrc) \
-	macro(1, uint32_t, iChild) \
-	macro(0, uint8_t, bG) \
-	macro(0, uint8_t, bJ) \
+	macro(UintBig, hvSrc) \
+	macro(uint32_t, iChild) \
+	macro(uint8_t, bG) \
+	macro(uint8_t, bJ) \
 
 #define BeamCrypto_ProtoResponse_GetImage(macro) \
-	macro(0, CompactPoint, ptImageG) \
-	macro(0, CompactPoint, ptImageJ) \
+	macro(CompactPoint, ptImageG) \
+	macro(CompactPoint, ptImageJ) \
 
 #define BeamCrypto_ProtoRequest_CreateShieldedInput(macro) \
-	macro(1, ShieldedInput, Inp) \
-	macro(1, Height, hMin) \
-	macro(1, Height, hMax) \
-	macro(1, uint64_t, WindowEnd) \
-	macro(1, uint32_t, Sigma_M) \
-	macro(1, uint32_t, Sigma_n) \
-	macro(0, UintBig, ShieldedState) \
-	macro(0, UintBig, AssetSk) /* negated blinding for asset generator (H` = H - assetSk*G) */ \
-	macro(0, UintBig, OutpSk) /* The overall blinding factor of the shielded Txo (not secret) */ \
-	macro(0, CompactPoint, ptAssetGen) \
-	macro(0, CompactPoint, pABCD[4]) \
+	macro(ShieldedInput, Inp) \
+	macro(Height, hMin) \
+	macro(Height, hMax) \
+	macro(uint64_t, WindowEnd) \
+	macro(uint32_t, Sigma_M) \
+	macro(uint32_t, Sigma_n) \
+	macro(UintBig, ShieldedState) \
+	macro(UintBig, AssetSk) /* negated blinding for asset generator (H` = H - assetSk*G) */ \
+	macro(UintBig, OutpSk) /* The overall blinding factor of the shielded Txo (not secret) */ \
+	macro(CompactPoint, ptAssetGen) \
+	macro(CompactPoint, pABCD[4]) \
 	/* followed by CompactPoint* pG[] */
 
 #define BeamCrypto_ProtoResponse_CreateShieldedInput(macro) \
-	macro(0, CompactPoint, G0) \
-	macro(0, CompactPoint, NoncePub) \
-	macro(0, UintBig, pSig[2]) \
-	macro(0, UintBig, zR)
+	macro(CompactPoint, G0) \
+	macro(CompactPoint, NoncePub) \
+	macro(UintBig, pSig[2]) \
+	macro(UintBig, zR)
 
 #define BeamCrypto_ProtoRequest_CreateShieldedVouchers(macro) \
-	macro(1, uint32_t, Count) \
-	macro(1, WalletIdentity, nMyIDKey) \
-	macro(0, UintBig, Nonce0) \
+	macro(uint32_t, Count) \
+	macro(WalletIdentity, nMyIDKey) \
+	macro(UintBig, Nonce0) \
 
 #define BeamCrypto_ProtoResponse_CreateShieldedVouchers(macro) \
-	macro(1, uint32_t, Count) \
+	macro(uint32_t, Count) \
 	/* followed by ShieldedVoucher[] */
 
 #define BeamCrypto_ProtoRequest_TxSplit(macro) \
-	macro(1, TxCommonIn, Tx) \
+	macro(TxCommonIn, Tx) \
 
 #define BeamCrypto_ProtoResponse_TxSplit(macro) \
-	macro(0, TxCommonOut, Tx) \
+	macro(TxCommonOut, Tx) \
 
 #define BeamCrypto_ProtoRequest_TxReceive(macro) \
-	macro(1, TxCommonIn, Tx) \
-	macro(1, TxMutualIn, Mut) \
-	macro(0, TxKernelData, Krn) \
+	macro(TxCommonIn, Tx) \
+	macro(TxMutualIn, Mut) \
+	macro(TxKernelData, Krn) \
 
 #define BeamCrypto_ProtoResponse_TxReceive(macro) \
-	macro(0, TxCommonOut, Tx) \
-	macro(0, Signature, PaymentProof) \
+	macro(TxCommonOut, Tx) \
+	macro(Signature, PaymentProof) \
 
 #define BeamCrypto_ProtoRequest_TxSend1(macro) \
-	macro(1, TxCommonIn, Tx) \
-	macro(1, TxMutualIn, Mut) \
-	macro(1, uint32_t, iSlot) \
+	macro(TxCommonIn, Tx) \
+	macro(TxMutualIn, Mut) \
+	macro(uint32_t, iSlot) \
 
 #define BeamCrypto_ProtoResponse_TxSend1(macro) \
-	macro(0, TxKernelCommitments, HalfKrn) \
-	macro(0, UintBig, UserAgreement) \
+	macro(TxKernelCommitments, HalfKrn) \
+	macro(UintBig, UserAgreement) \
 
 #define BeamCrypto_ProtoRequest_TxSend2(macro) \
 	BeamCrypto_ProtoRequest_TxSend1(macro) \
-	macro(0, TxKernelCommitments, HalfKrn) \
-	macro(0, Signature, PaymentProof) \
-	macro(0, UintBig, UserAgreement) \
+	macro(TxKernelCommitments, HalfKrn) \
+	macro(Signature, PaymentProof) \
+	macro(UintBig, UserAgreement) \
 
 #define BeamCrypto_ProtoResponse_TxSend2(macro) \
-	macro(0, UintBig, kSig) \
-	macro(0, UintBig, kOffset) \
+	macro(UintBig, kSig) \
+	macro(UintBig, kOffset) \
 
 #define BeamCrypto_ProtoRequest_TxSendShielded(macro) \
-	macro(1, TxCommonIn, Tx) \
-	macro(1, TxMutualIn, Mut) \
-	macro(0, ShieldedVoucher, Voucher) \
-	macro(0, ShieldedTxoUser, User) \
-	macro(0, RangeProof_Packed, RangeProof) \
-	macro(0, CompactPoint, ptAssetGen) \
-	macro(0, uint8_t, HideAssetAlways) /* important to specify, this affects expected blinding factor recovery */ \
+	macro(TxCommonIn, Tx) \
+	macro(TxMutualIn, Mut) \
+	macro(ShieldedVoucher, Voucher) \
+	macro(ShieldedTxoUser, User) \
+	macro(RangeProof_Packed, RangeProof) \
+	macro(CompactPoint, ptAssetGen) \
+	macro(uint8_t, HideAssetAlways) /* important to specify, this affects expected blinding factor recovery */ \
 
 #define BeamCrypto_ProtoResponse_TxSendShielded(macro) \
-	macro(0, TxCommonOut, Tx) \
+	macro(TxCommonOut, Tx) \
 
 
 #define BeamCrypto_ProtoMethods(macro) \

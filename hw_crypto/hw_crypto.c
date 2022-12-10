@@ -64,6 +64,69 @@ typedef uint32_t secp256k1_scalar_uint;
 
 #define secp256k1_scalar_WordBits (sizeof(secp256k1_scalar_uint) * 8)
 
+// This nasty macro is under MIT license (afaik)
+#if !defined(__LITTLE_ENDIAN__) && !defined(__BIG_ENDIAN__)
+#  if (defined(__BYTE_ORDER__)  && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__) || \
+     (defined(__BYTE_ORDER) && __BYTE_ORDER == __BIG_ENDIAN) || \
+     (defined(_BYTE_ORDER) && _BYTE_ORDER == _BIG_ENDIAN) || \
+     (defined(BYTE_ORDER) && BYTE_ORDER == BIG_ENDIAN) || \
+     (defined(__sun) && defined(__SVR4) && defined(_BIG_ENDIAN)) || \
+     defined(__ARMEB__) || defined(__THUMBEB__) || defined(__AARCH64EB__) || \
+     defined(_MIBSEB) || defined(__MIBSEB) || defined(__MIBSEB__) || \
+     defined(_M_PPC)
+#        define __BIG_ENDIAN__
+#  elif (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) || /* gcc */\
+     (defined(__BYTE_ORDER) && __BYTE_ORDER == __LITTLE_ENDIAN) /* linux header */ || \
+     (defined(_BYTE_ORDER) && _BYTE_ORDER == _LITTLE_ENDIAN) || \
+     (defined(BYTE_ORDER) && BYTE_ORDER == LITTLE_ENDIAN) /* mingw header */ ||  \
+     (defined(__sun) && defined(__SVR4) && defined(_LITTLE_ENDIAN)) || /* solaris */ \
+     defined(__ARMEL__) || defined(__THUMBEL__) || defined(__AARCH64EL__) || \
+     defined(_MIPSEL) || defined(__MIPSEL) || defined(__MIPSEL__) || \
+     defined(_M_IX86) || defined(_M_X64) || defined(_M_IA64) || /* msvc for intel processors */ \
+     defined(_M_ARM) /* msvc code on arm executes in little endian mode */
+#        define __LITTLE_ENDIAN__
+#  elif
+#    error can not detect endian-ness
+#  endif
+#endif
+
+#ifdef _MSC_VER
+
+	inline uint16_t bswap16(uint16_t x) { return _byteswap_ushort(x); }
+	inline uint32_t bswap32(uint32_t x) { static_assert(sizeof(uint32_t) == sizeof(unsigned long), ""); return _byteswap_ulong(x); }
+	inline uint64_t bswap64(uint64_t x) { return _byteswap_uint64(x); }
+
+#else // _MSC_VER
+
+	inline uint16_t bswap16(uint16_t x) { return __builtin_bswap16(x); }
+	inline uint32_t bswap32(uint32_t x) { return __builtin_bswap32(x); }
+	inline uint64_t bswap64(uint64_t x) { return __builtin_bswap64(x); }
+
+#endif // _MSC_VER
+
+#ifdef __LITTLE_ENDIAN__
+
+	inline uint16_t bswap16_be(uint16_t x) { return bswap16(x); }
+	inline uint32_t bswap32_be(uint32_t x) { return bswap32(x); }
+	inline uint64_t bswap64_be(uint64_t x) { return bswap64(x); }
+
+	inline uint16_t bswap16_le(uint16_t x) { return x; }
+	inline uint32_t bswap32_le(uint32_t x) { return x; }
+	inline uint64_t bswap64_le(uint64_t x) { return x; }
+
+#else // __LITTLE_ENDIAN__
+
+	inline uint16_t bswap16_le(uint16_t x) { return bswap16(x); }
+	inline uint32_t bswap32_le(uint32_t x) { return bswap32(x); }
+	inline uint64_t bswap64_le(uint64_t x) { return bswap64(x); }
+
+	inline uint16_t bswap16_be(uint16_t x) { return x; }
+	inline uint32_t bswap32_be(uint32_t x) { return x; }
+	inline uint64_t bswap64_be(uint64_t x) { return x; }
+
+#endif // __LITTLE_ENDIAN__
+
+
 //////////////////////////////
 // MultiMac
 typedef struct
@@ -1142,30 +1205,6 @@ static void ShieldedInput_getSk(const KeyKeeper* p, const ShieldedInput* pInp, s
 
 //////////////////////////////
 // RangeProof
-
-static void WriteInNetworkOrderRaw(uint8_t* pDst, uint64_t val, unsigned int nLen)
-{
-	for (unsigned int i = nLen; i--; val >>= 8)
-		pDst[i] = (uint8_t) val;
-}
-
-static void WriteInNetworkOrder(uint8_t** ppDst, uint64_t val, unsigned int nLen)
-{
-	*ppDst -= nLen;
-	WriteInNetworkOrderRaw(*ppDst, val, nLen);
-}
-
-static uint64_t ReadInNetworkOrder(const uint8_t* pSrc, unsigned int nLen)
-{
-	assert(nLen);
-	uint64_t ret = pSrc[0];
-
-	for (unsigned int i = 1; i < nLen; i++)
-		ret = (ret << 8) | pSrc[i];
-
-	return ret;
-}
-
 typedef struct
 {
 	NonceGenerator m_NonceGen; // 88 bytes
@@ -1177,7 +1216,6 @@ typedef struct
 	CompactPoint m_Commitment;
 
 } RangeProof_Worker;
-
 
 __stack_hungry__
 static void RangeProof_Calculate_Before_S(RangeProof* const p, RangeProof_Worker* const pWrk)
@@ -1205,13 +1243,27 @@ static void RangeProof_Calculate_Before_S(RangeProof* const p, RangeProof_Worker
 	NonceGenerator_NextScalar(&pWrk->m_NonceGen, &pWrk->m_alpha); // alpha
 
 	// embed params into alpha
-	uint8_t* pPtr = hv.m_pVal + c_ECC_nBytes;
-	WriteInNetworkOrder(&pPtr, p->m_Cid.m_Amount, sizeof(p->m_Cid.m_Amount));
-	WriteInNetworkOrder(&pPtr, p->m_Cid.m_SubIdx, sizeof(p->m_Cid.m_SubIdx));
-	WriteInNetworkOrder(&pPtr, p->m_Cid.m_Type, sizeof(p->m_Cid.m_Type));
-	WriteInNetworkOrder(&pPtr, p->m_Cid.m_Idx, sizeof(p->m_Cid.m_Idx));
-	WriteInNetworkOrder(&pPtr, p->m_Cid.m_AssetID, sizeof(p->m_Cid.m_AssetID));
-	memset(hv.m_pVal, 0, pPtr - hv.m_pVal); // padding
+#pragma pack (push, 1)
+	typedef struct
+	{
+		uint32_t m_Padding;
+		AssetID m_AssetID;
+		uint64_t m_Idx;
+		uint32_t m_Type;
+		uint32_t m_SubIdx;
+		Amount m_Amount;
+	} RangeProof_Embedded;
+#pragma pack (pop)
+
+	static_assert(sizeof(RangeProof_Embedded) == c_ECC_nBytes, "");
+	RangeProof_Embedded* pEmb = (RangeProof_Embedded*) hv.m_pVal;
+
+	pEmb->m_Amount = bswap64_be(p->m_Cid.m_Amount);
+	pEmb->m_SubIdx = bswap32_be(p->m_Cid.m_SubIdx);
+	pEmb->m_Type = bswap32_be(p->m_Cid.m_Type);
+	pEmb->m_Idx = bswap64_be(p->m_Cid.m_Idx);
+	pEmb->m_AssetID = bswap32_be(p->m_Cid.m_AssetID);
+	pEmb->m_Padding = 0;
 
 	int overflow;
 	secp256k1_scalar_set_b32(&k, hv.m_pVal, &overflow);
@@ -1480,7 +1532,7 @@ static int RangeProof_Recover(const RangeProof_Packed* pRangeproof, Oracle* pOra
 
 	{
 		static_assert(sizeof(ro) >= c_ECC_nBytes, "");
-		uint8_t* pBlob = (uint8_t*)&ro; // just reuse this mem
+		uint8_t* pBlob = (uint8_t*) &ro; // just reuse this mem
 
 		secp256k1_scalar_get_b32(pBlob, &tmp);
 
@@ -1493,7 +1545,7 @@ static int RangeProof_Recover(const RangeProof_Packed* pRangeproof, Oracle* pOra
 		memcpy(pCtx->m_pUser, pBlob + nPad, pCtx->m_nUser);
 
 		// recover value. It's always at the buf end
-		pCtx->m_Amount = ReadInNetworkOrder(pBlob + c_ECC_nBytes - sizeof(Amount), sizeof(Amount));
+		pCtx->m_Amount = bswap64_be(*(Amount*) (pBlob + c_ECC_nBytes - sizeof(Amount)));
 	}
 
 	secp256k1_scalar_add(&alpha_minus_params, &alpha_minus_params, &tmp); // just alpha
@@ -1881,7 +1933,7 @@ void KeyKeeper_GetPKdf(const KeyKeeper* p, KdfPub* pRes, const uint32_t* pChild)
 #define PROTO_METHOD(name) __stack_hungry__ static int HandleProto_##name(KeyKeeper* p, Op_##name* pArg, uint32_t nIn, uint32_t nOut)
 
 #pragma pack (push, 1)
-#define THE_MACRO_Field(cvt, type, name) type m_##name;
+#define THE_MACRO_Field(type, name) type m_##name;
 #define THE_MACRO_OpCode(id, name) \
 typedef struct { \
 	uint8_t m_OpCode; \
@@ -1919,48 +1971,51 @@ __stack_hungry__ static int HandleProto_##name(KeyKeeper* p, Op_##name* pArg, ui
 static int HandleProtoSimple_##name(KeyKeeper* p, OpIn_##name* pIn, uint32_t nIn, OpOut_##name* pOut)
 
 
-#define ProtoH2N(field) WriteInNetworkOrderRaw((uint8_t*) &field, field, sizeof(field))
-#define ProtoN2H(field, type) field = (type) ReadInNetworkOrder((uint8_t*) &field, sizeof(field)); static_assert(sizeof(field) == sizeof(type), "")
+#define N2H_uint8_t(p)
+#define N2H_uint32_t(p) *p = bswap32_be(*p)
+#define N2H_uint64_t(p) *p = bswap64_be(*p)
+#define N2H_Height(p) N2H_uint64_t(p)
+#define N2H_WalletIdentity(p) N2H_uint64_t(p)
 
-#define N2H_uint32_t(p) ProtoN2H((*p), uint32_t)
-#define H2N_uint32_t(p) ProtoH2N((*p))
+#define N2H_KdfPub(p)
+#define N2H_UintBig(p)
+#define N2H_CompactPoint(p)
+#define N2H_TxCommonOut(p)
+#define N2H_TxKernelData(p)
+#define N2H_TxKernelCommitments(p)
+#define N2H_ShieldedVoucher(p)
+#define N2H_ShieldedTxoUser(p)
+#define N2H_Signature(p)
+#define N2H_RangeProof_Packed(p)
 
-#define N2H_uint64_t(p) ProtoN2H((*p), uint64_t)
-#define H2N_uint64_t(p) ProtoH2N((*p))
-
-#define N2H_Height(p) ProtoN2H((*p), Height)
-#define H2N_Height(p) ProtoH2N((*p))
-
-#define N2H_WalletIdentity(p) ProtoN2H((*p), WalletIdentity)
-#define H2N_WalletIdentity(p) ProtoH2N((*p))
 
 void N2H_CoinID(CoinID* p)
 {
-	ProtoN2H(p->m_Amount, Amount);
-	ProtoN2H(p->m_AssetID, AssetID);
-	ProtoN2H(p->m_Idx, uint64_t);
-	ProtoN2H(p->m_SubIdx, uint32_t);
-	ProtoN2H(p->m_Type, uint32_t);
+	N2H_uint64_t(&p->m_Amount);
+	N2H_uint64_t(&p->m_Idx);
+	N2H_uint32_t(&p->m_AssetID);
+	N2H_uint32_t(&p->m_SubIdx);
+	N2H_uint32_t(&p->m_Type);
 }
 
 void N2H_ShieldedInput(ShieldedInput* p)
 {
-	ProtoN2H(p->m_Fee, Amount);
-	ProtoN2H(p->m_TxoID.m_Amount, Amount);
-	ProtoN2H(p->m_TxoID.m_AssetID, AssetID);
-	ProtoN2H(p->m_TxoID.m_nViewerIdx, uint32_t);
+	N2H_uint64_t(&p->m_Fee);
+	N2H_uint64_t(&p->m_TxoID.m_Amount);
+	N2H_uint32_t(&p->m_TxoID.m_AssetID);
+	N2H_uint32_t(&p->m_TxoID.m_nViewerIdx);
 }
 
 void N2H_TxCommonIn(TxCommonIn* p)
 {
-	ProtoN2H(p->m_Krn.m_Fee, Amount);
-	ProtoN2H(p->m_Krn.m_hMin, Height);
-	ProtoN2H(p->m_Krn.m_hMax, Height);
+	N2H_uint64_t(&p->m_Krn.m_Fee);
+	N2H_uint64_t(&p->m_Krn.m_hMin);
+	N2H_uint64_t(&p->m_Krn.m_hMax);
 }
 
 void N2H_TxMutualIn(TxMutualIn* p)
 {
-	ProtoN2H(p->m_MyIDKey, WalletIdentity);
+	N2H_uint64_t(&p->m_MyIDKey);
 }
 
 __stack_hungry__
@@ -1971,13 +2026,8 @@ int KeyKeeper_Invoke(KeyKeeper* p, uint8_t* pInOut, uint32_t nIn, uint32_t nOut)
 
 	switch (*pInOut)
 	{
-#define THE_MACRO_CvtIn(cvt, type, name) THE_MACRO_CvtIn_##cvt(type, name)
-#define THE_MACRO_CvtIn_0(type, name)
-#define THE_MACRO_CvtIn_1(type, name) N2H_##type(&pArg->m_In.m_##name);
-
-#define THE_MACRO_CvtOut(cvt, type, name) THE_MACRO_CvtOut_##cvt(type, name)
-#define THE_MACRO_CvtOut_0(type, name)
-#define THE_MACRO_CvtOut_1(type, name) H2N_##type(&pArg->m_Out.m_##name);
+#define THE_MACRO_CvtIn(type, name) N2H_##type(&pArg->m_In.m_##name);
+#define THE_MACRO_CvtOut(type, name) N2H_##type(&pArg->m_Out.m_##name);
 
 #define THE_MACRO(id, name) \
 	case id: \
@@ -3140,7 +3190,7 @@ int VerifyShieldedOutputParams(const KeyKeeper* p, const OpIn_TxSendShielded* pS
 #pragma pack (push, 1)
 		typedef struct
 		{
-			uint8_t m_pAssetID[sizeof(AssetID)];
+			AssetID m_AssetID;
 			uint8_t m_Flags;
 		} ShieldedTxo_RangeProof_Packed;
 #pragma pack (pop)
@@ -3164,7 +3214,7 @@ int VerifyShieldedOutputParams(const KeyKeeper* p, const OpIn_TxSendShielded* pS
 		if (memcmp(pExtra, pExtraRecovered, sizeof(pExtra)) ||
 			(packed.m_Flags != nFlagsPacked) ||
 			(ctx.m_Amount != amount) ||
-			(ReadInNetworkOrder(packed.m_pAssetID, sizeof(packed.m_pAssetID)) != aid))
+			(bswap32_be(packed.m_AssetID) != aid))
 			return 0;
 
 		if (aid || pSh->m_HideAssetAlways)
