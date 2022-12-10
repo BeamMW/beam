@@ -1972,8 +1972,8 @@ static int HandleProtoSimple_##name(KeyKeeper* p, OpIn_##name* pIn, uint32_t nIn
 
 
 #define N2H_uint8_t(p)
-#define N2H_uint32_t(p) *p = bswap32_be(*p)
-#define N2H_uint64_t(p) *p = bswap64_be(*p)
+#define N2H_uint32_t(p) *p = bswap32_le(*p)
+#define N2H_uint64_t(p) *p = bswap64_le(*p)
 #define N2H_Height(p) N2H_uint64_t(p)
 #define N2H_WalletIdentity(p) N2H_uint64_t(p)
 

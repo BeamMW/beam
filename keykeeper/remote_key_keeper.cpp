@@ -30,7 +30,7 @@ extern "C" {
 	namespace Proto
 	{
 		template <typename T> void h2n_u(T& x) {
-            x = ByteOrder::to_be(x);
+            x = ByteOrder::to_le(x);
 		}
 
         void h2n(uint8_t& x) { }
