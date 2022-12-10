@@ -72,6 +72,10 @@ extern "C"
 		return Cast::Up<KeyKeeperPlus>(pKk)->m_AllowWeakInputs;
 	}
 
+	Amount KeyKeeper_get_MaxShieldedFee(KeyKeeper* pKk)
+	{
+		return static_cast<Amount>(-1);
+	}
 }
 
 } // namespace hw

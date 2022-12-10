@@ -67,9 +67,6 @@ extern "C" {
 		}
 
 		void h2n(TxCommonIn& tx) {
-			h2n(tx.m_Ins);
-			h2n(tx.m_Outs);
-			h2n(tx.m_InsShielded);
 			h2n(tx.m_Krn.m_Fee);
 			h2n(tx.m_Krn.m_hMin);
 			h2n(tx.m_Krn.m_hMax);
@@ -161,13 +158,13 @@ namespace beam::wallet
 		    ByteBuffer m_Buf;
 
 		    template <typename T>
-		    T& ExtendByCommon(T& x, const Method::TxCommon& tx, uint32_t& nOutExtra)
+		    T& ExtendByCoins(T& x, const Method::TxCommon& tx, uint32_t& nOutExtra)
 		    {
-			    ExtendByInternal(reinterpret_cast<const uint8_t*>(&x), static_cast<uint32_t>(sizeof(x)), x.m_Tx, tx, nOutExtra);
+			    ExtendByCoinsInternal(reinterpret_cast<const uint8_t*>(&x), static_cast<uint32_t>(sizeof(x)), x, tx, nOutExtra);
 			    return *reinterpret_cast<T*>(&m_Buf.front());
 		    }
 
-		    void ExtendByInternal(const uint8_t* p, uint32_t nSize, hw::TxCommonIn&, const Method::TxCommon& tx, uint32_t& nOutExtra);
+		    void ExtendByCoinsInternal(const uint8_t* p, uint32_t nSize, hw::Proto::TxAddCoins::Out&, const Method::TxCommon& tx, uint32_t& nOutExtra);
 
 		    static void Import(hw::TxKernelUser&, const Method::TxCommon&);
 		    static void Import(hw::TxKernelData&, const Method::TxCommon&);
@@ -261,17 +258,16 @@ namespace beam::wallet
     }
 
 
-    void RemoteKeyKeeper::Impl::Encoder::ExtendByInternal(const uint8_t* p, uint32_t nSize, hw::TxCommonIn& txIn, const Method::TxCommon& m, uint32_t& nOutExtra)
+    void RemoteKeyKeeper::Impl::Encoder::ExtendByCoinsInternal(const uint8_t* p, uint32_t nSize, hw::Proto::TxAddCoins::Out& msg, const Method::TxCommon& m, uint32_t& nOutExtra)
     {
-	    Import(txIn.m_Krn, m); // do it before reallocation
-
-	    txIn.m_Ins = static_cast<uint32_t>(m.m_vInputs.size());
-	    txIn.m_Outs = static_cast<uint32_t>(m.m_vOutputs.size());
-	    txIn.m_InsShielded = static_cast<uint32_t>(m.m_vInputsShielded.size());
+        msg.m_Reset = 1;
+	    msg.m_Ins = static_cast<uint8_t>(m.m_vInputs.size());
+	    msg.m_Outs = static_cast<uint8_t>(m.m_vOutputs.size());
+	    msg.m_InsShielded = static_cast<uint8_t>(m.m_vInputsShielded.size());
 
 	    uint32_t nExtra =
-		    static_cast <uint32_t>(sizeof(hw::CoinID)) * (txIn.m_Ins + txIn.m_Outs) +
-		    static_cast <uint32_t>(sizeof(hw::ShieldedInput)) * txIn.m_InsShielded;
+		    static_cast <uint32_t>(sizeof(hw::CoinID)) * (msg.m_Ins + (uint32_t) msg.m_Outs) +
+		    static_cast <uint32_t>(sizeof(hw::ShieldedInput)) * msg.m_InsShielded;
 	    nOutExtra = nExtra;
 
 	    m_Buf.resize(nSize + nExtra);
@@ -279,20 +275,20 @@ namespace beam::wallet
 
         hw::CoinID* pCid = (hw::CoinID*) (&m_Buf.front() + nSize);
 
-	    for (uint32_t i = 0; i < txIn.m_Ins; i++, pCid++)
+	    for (uint32_t i = 0; i < msg.m_Ins; i++, pCid++)
 	    {
 		    CidCvt(*pCid, m.m_vInputs[i]);
             hw::Proto::h2n(*pCid);
 	    }
 
-	    for (uint32_t i = 0; i < txIn.m_Outs; i++, pCid++)
+	    for (uint32_t i = 0; i < msg.m_Outs; i++, pCid++)
 	    {
 		    CidCvt(*pCid, m.m_vOutputs[i]);
             hw::Proto::h2n(*pCid);
 	    }
 
         hw::ShieldedInput* pShInp = (hw::ShieldedInput*) pCid;
-	    for (uint32_t i = 0; i < txIn.m_InsShielded; i++, pShInp++)
+	    for (uint32_t i = 0; i < msg.m_InsShielded; i++, pShInp++)
 	    {
 		    const auto& src = m.m_vInputsShielded[i];
 		    pShInp->m_Fee = src.m_Fee;
@@ -1041,28 +1037,37 @@ namespace beam::wallet
         }
 
         Method::SignReceiver& m_M;
+        hw::Proto::TxAddCoins m_Coins;
         hw::Proto::TxReceive m_Msg;
         Impl::Encoder m_Enc;
+        bool m_CoinsSent = false;
 
         void Do()
         {
             uint32_t nOutExtra;
+            auto& out = m_Enc.ExtendByCoins(m_Coins.m_Out, m_M, nOutExtra);
+            InvokeProtoEx(out, m_Coins.m_In, nOutExtra, 0);
 
-            auto& out = m_Enc.ExtendByCommon(m_Msg.m_Out, m_M, nOutExtra);
-            m_Enc.Import(out.m_Krn, m_M);
-            m_Enc.Import(out.m_Mut, m_M);
+            m_Enc.Import(m_Msg.m_Out.m_Tx.m_Krn, m_M);
+            m_Enc.Import(m_Msg.m_Out.m_Krn, m_M);
+            m_Enc.Import(m_Msg.m_Out.m_Mut, m_M);
 
-            InvokeProtoEx(out, m_Msg.m_In, nOutExtra, 0);
+            InvokeProto(m_Msg);
         }
 
         virtual void OnRemoteData() override
         {
-            m_Msg.m_In.n2h();
-            m_Enc.Export(m_M, m_Msg.m_In.m_Tx);
+            if (!m_CoinsSent)
+                m_CoinsSent = true;
+            else
+            {
+                m_Msg.m_In.n2h();
+                m_Enc.Export(m_M, m_Msg.m_In.m_Tx);
 
-            Ecc2BC(m_M.m_PaymentProofSignature.m_NoncePub) = m_Msg.m_In.m_PaymentProof.m_NoncePub;
-            Ecc2BC(m_M.m_PaymentProofSignature.m_k.m_Value) = m_Msg.m_In.m_PaymentProof.m_k;
-            Fin();
+                Ecc2BC(m_M.m_PaymentProofSignature.m_NoncePub) = m_Msg.m_In.m_PaymentProof.m_NoncePub;
+                Ecc2BC(m_M.m_PaymentProofSignature.m_k.m_Value) = m_Msg.m_In.m_PaymentProof.m_k;
+                Fin();
+            }
         }
     };
 
@@ -1076,47 +1081,57 @@ namespace beam::wallet
         }
 
         Method::SignSender& m_M;
+        hw::Proto::TxAddCoins m_Coins;
         hw::Proto::TxSend1 m_Msg1; // TODO union
         hw::Proto::TxSend2 m_Msg2;
         Impl::Encoder m_Enc;
         bool m_Initial;
+        bool m_CoinsSent = false;
 
         void Do()
         {
-            m_Initial = (m_M.m_UserAgreement == Zero);
+            // send coins each time. Assume the remove could be busy doing something else in the meanwhile
             uint32_t nOutExtra;
+            auto& out = m_Enc.ExtendByCoins(m_Coins.m_Out, m_M, nOutExtra);
+            InvokeProtoEx(out, m_Coins.m_In, nOutExtra, 0);
+
+            m_Initial = (m_M.m_UserAgreement == Zero);
 
             if (m_Initial)
             {
-                auto& out = m_Enc.ExtendByCommon(m_Msg1.m_Out, m_M, nOutExtra);
+                m_Msg1.m_Out.m_iSlot = m_M.m_Slot;
+                m_Enc.Import(m_Msg1.m_Out.m_Mut, m_M);
+                m_Enc.Import(m_Msg1.m_Out.m_Tx.m_Krn, m_M);
 
-                out.m_iSlot = m_M.m_Slot;
-                m_Enc.Import(out.m_Mut, m_M);
-
-                InvokeProtoEx(out, m_Msg1.m_In, nOutExtra, 0);
+                InvokeProto(m_Msg1);
             }
             else
             {
-                auto& out = m_Enc.ExtendByCommon(m_Msg2.m_Out, m_M, nOutExtra);
+                m_Msg2.m_Out.m_iSlot = m_M.m_Slot;
+                m_Enc.Import(m_Msg2.m_Out.m_Tx.m_Krn, m_M);
+                m_Enc.Import(m_Msg2.m_Out.m_Mut, m_M);
 
-                out.m_iSlot = m_M.m_Slot;
-                m_Enc.Import(out.m_Mut, m_M);
-
-                out.m_PaymentProof.m_NoncePub = Ecc2BC(m_M.m_PaymentProofSignature.m_NoncePub);
-                out.m_PaymentProof.m_k = Ecc2BC(m_M.m_PaymentProofSignature.m_k.m_Value);
+                m_Msg2.m_Out.m_PaymentProof.m_NoncePub = Ecc2BC(m_M.m_PaymentProofSignature.m_NoncePub);
+                m_Msg2.m_Out.m_PaymentProof.m_k = Ecc2BC(m_M.m_PaymentProofSignature.m_k.m_Value);
 
                 auto& krn = *m_M.m_pKernel;
 
-                out.m_UserAgreement = Ecc2BC(m_M.m_UserAgreement);
-                out.m_HalfKrn.m_Commitment = Ecc2BC(krn.m_Commitment);
-                out.m_HalfKrn.m_NoncePub = Ecc2BC(krn.m_Signature.m_NoncePub);
+                m_Msg2.m_Out.m_UserAgreement = Ecc2BC(m_M.m_UserAgreement);
+                m_Msg2.m_Out.m_HalfKrn.m_Commitment = Ecc2BC(krn.m_Commitment);
+                m_Msg2.m_Out.m_HalfKrn.m_NoncePub = Ecc2BC(krn.m_Signature.m_NoncePub);
 
-                InvokeProtoEx(out, m_Msg2.m_In, nOutExtra, 0);
+                InvokeProto(m_Msg2);
             }
         }
 
         virtual void OnRemoteData() override
         {
+            if (!m_CoinsSent)
+            {
+                m_CoinsSent = true;
+                return;
+            }
+
             auto& krn = *m_M.m_pKernel;
 
             if (m_Initial)
@@ -1158,27 +1173,31 @@ namespace beam::wallet
         }
 
         Method::SignSendShielded& m_M;
+        hw::Proto::TxAddCoins m_Coins;
         hw::Proto::TxSendShielded m_Msg;
         Encoder m_Enc;
         TxKernelShieldedOutput::Ptr m_pOutp;
+        bool m_CoinsSent = false;
 
         void Do()
         {
             uint32_t nOutExtra;
+            auto& out = m_Enc.ExtendByCoins(m_Coins.m_Out, m_M, nOutExtra);
+            InvokeProtoEx(out, m_Coins.m_In, nOutExtra, 0);
 
-            auto& out = m_Enc.ExtendByCommon(m_Msg.m_Out, m_M, nOutExtra);
-            out.m_Mut.m_Peer = Ecc2BC(m_M.m_Peer);
-            out.m_Mut.m_MyIDKey = m_M.m_MyIDKey;
-            out.m_HideAssetAlways = m_M.m_HideAssetAlways;
-            m_Enc.Import(out.m_User, m_M.m_User);
+            m_Msg.m_Out.m_Mut.m_Peer = Ecc2BC(m_M.m_Peer);
+            m_Msg.m_Out.m_Mut.m_MyIDKey = m_M.m_MyIDKey;
+            m_Msg.m_Out.m_HideAssetAlways = m_M.m_HideAssetAlways;
+            m_Enc.Import(m_Msg.m_Out.m_User, m_M.m_User);
+            m_Enc.Import(m_Msg.m_Out.m_Tx.m_Krn, m_M);
 
-            out.m_Voucher.m_SerialPub = Ecc2BC(m_M.m_Voucher.m_Ticket.m_SerialPub);
-            out.m_Voucher.m_NoncePub = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_NoncePub);
-            out.m_Voucher.m_pK[0] = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_pK[0].m_Value);
-            out.m_Voucher.m_pK[1] = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_pK[1].m_Value);
-            out.m_Voucher.m_SharedSecret = Ecc2BC(m_M.m_Voucher.m_SharedSecret);
-            out.m_Voucher.m_Signature.m_NoncePub = Ecc2BC(m_M.m_Voucher.m_Signature.m_NoncePub);
-            out.m_Voucher.m_Signature.m_k = Ecc2BC(m_M.m_Voucher.m_Signature.m_k.m_Value);
+            m_Msg.m_Out.m_Voucher.m_SerialPub = Ecc2BC(m_M.m_Voucher.m_Ticket.m_SerialPub);
+            m_Msg.m_Out.m_Voucher.m_NoncePub = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_NoncePub);
+            m_Msg.m_Out.m_Voucher.m_pK[0] = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_pK[0].m_Value);
+            m_Msg.m_Out.m_Voucher.m_pK[1] = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_pK[1].m_Value);
+            m_Msg.m_Out.m_Voucher.m_SharedSecret = Ecc2BC(m_M.m_Voucher.m_SharedSecret);
+            m_Msg.m_Out.m_Voucher.m_Signature.m_NoncePub = Ecc2BC(m_M.m_Voucher.m_Signature.m_NoncePub);
+            m_Msg.m_Out.m_Voucher.m_Signature.m_k = Ecc2BC(m_M.m_Voucher.m_Signature.m_k.m_Value);
 
             ShieldedTxo::Data::OutputParams op;
 
@@ -1186,7 +1205,7 @@ namespace beam::wallet
             // Don't care about value overflow, or asset ambiguity, this will be re-checked by the HW wallet anyway.
 
             op.m_Value = CalcTxBalance(nullptr, m_M);
-            op.m_Value -= out.m_Tx.m_Krn.m_Fee;
+            op.m_Value -= m_Msg.m_Out.m_Tx.m_Krn.m_Fee;
 
             if (op.m_Value)
                 op.m_AssetID = 0;
@@ -1211,17 +1230,23 @@ namespace beam::wallet
             krn1.MsgToID();
 
             if (krn1.m_Txo.m_pAsset)
-                out.m_ptAssetGen = Ecc2BC(krn1.m_Txo.m_pAsset->m_hGen);
+                m_Msg.m_Out.m_ptAssetGen = Ecc2BC(krn1.m_Txo.m_pAsset->m_hGen);
 
-            SerializerIntoStaticBuf ser(&out.m_RangeProof);
+            SerializerIntoStaticBuf ser(&m_Msg.m_Out.m_RangeProof);
             ser& krn1.m_Txo.m_RangeProof;
-            assert(ser.get_Size(&out.m_RangeProof) == sizeof(out.m_RangeProof));
+            assert(ser.get_Size(&m_Msg.m_Out.m_RangeProof) == sizeof(m_Msg.m_Out.m_RangeProof));
 
-            InvokeProtoEx(out, m_Msg.m_In, nOutExtra, 0);
+            InvokeProto(m_Msg);
         }
 
         virtual void OnRemoteData() override
         {
+            if (!m_CoinsSent)
+            {
+                m_CoinsSent = true;
+                return;
+            }
+
             m_Msg.m_In.n2h();
             m_M.m_pKernel->m_vNested.push_back(std::move(m_pOutp));
             m_Enc.Export(m_M, m_Msg.m_In.m_Tx);
@@ -1240,18 +1265,29 @@ namespace beam::wallet
         }
 
         Method::SignSplit& m_M;
+        hw::Proto::TxAddCoins m_Coins;
         hw::Proto::TxSplit m_Msg;
         Encoder m_Enc;
+        bool m_CoinsSent = false;
 
         void Do()
         {
             uint32_t nOutExtra;
-            auto& out = m_Enc.ExtendByCommon(m_Msg.m_Out, m_M, nOutExtra);
-            InvokeProtoEx(out, m_Msg.m_In, nOutExtra, 0);
+            auto& out = m_Enc.ExtendByCoins(m_Coins.m_Out, m_M, nOutExtra);
+            InvokeProtoEx(out, m_Coins.m_In, nOutExtra, 0);
+
+            m_Enc.Import(m_Msg.m_Out.m_Tx.m_Krn, m_M);
+            InvokeProto(m_Msg);
         }
 
         virtual void OnRemoteData() override
         {
+            if (!m_CoinsSent)
+            {
+                m_CoinsSent = true;
+                return;
+            }
+
             m_Msg.m_In.n2h();
             m_Enc.Export(m_M, m_Msg.m_In.m_Tx);
             Fin();

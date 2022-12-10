@@ -21,9 +21,27 @@ typedef struct
 {
 	Kdf m_MasterKey;
 
-	// TODO: state, Slot management, etc.
+	// context information
+	union {
+
+		struct {
+
+			int64_t m_RcvBeam;
+			int64_t m_RcvAsset; // up to 1 more asset supported in a tx
+			Amount m_ImplicitFee; // shielded input fees. Their effect is already accounted for in m_RcvBeam
+			AssetID m_Aid;
+			secp256k1_scalar m_sk; // net blinding factor, sum(outputs) - sum(inputs)
+
+		} m_TxBalance;
+
+	} u;
+
+	uint8_t m_State;
 
 } KeyKeeper;
+
+#define c_KeyKeeper_State_TxBalance 1
+
 
 //////////////////////////
 // External functions, implemented by the platform-specific code
@@ -32,6 +50,7 @@ uint32_t KeyKeeper_getNumSlots(KeyKeeper*);
 void KeyKeeper_ReadSlot(KeyKeeper*, uint32_t, UintBig*);
 void KeyKeeper_RegenerateSlot(KeyKeeper*, uint32_t);
 int KeyKeeper_AllowWeakInputs(KeyKeeper*);
+Amount KeyKeeper_get_MaxShieldedFee(KeyKeeper*);
 
 typedef struct
 {
@@ -101,10 +120,6 @@ typedef struct
 typedef struct
 {
 	TxKernelUser m_Krn;
-
-	uint32_t m_Ins;
-	uint32_t m_Outs;
-	uint32_t m_InsShielded;
 
 } TxCommonIn;
 
@@ -192,6 +207,17 @@ typedef struct
 	macro(0, CompactPoint, pT[2]) \
 	macro(0, UintBig, TauX) \
 
+#define BeamCrypto_ProtoRequest_TxAddCoins(macro) \
+	macro(0, uint8_t, Reset) \
+	macro(0, uint8_t, Ins) \
+	macro(0, uint8_t, Outs) \
+	macro(0, uint8_t, InsShielded)
+	/* followed by in/outs */
+
+
+#define BeamCrypto_ProtoResponse_TxAddCoins(macro) \
+	macro(0, uint8_t, Dummy) // no response needed actually
+
 #define BeamCrypto_ProtoRequest_GetImage(macro) \
 	macro(0, UintBig, hvSrc) \
 	macro(1, uint32_t, iChild) \
@@ -233,7 +259,6 @@ typedef struct
 
 #define BeamCrypto_ProtoRequest_TxSplit(macro) \
 	macro(1, TxCommonIn, Tx) \
-	/* followed by in/outs */
 
 #define BeamCrypto_ProtoResponse_TxSplit(macro) \
 	macro(0, TxCommonOut, Tx) \
@@ -242,7 +267,6 @@ typedef struct
 	macro(1, TxCommonIn, Tx) \
 	macro(1, TxMutualIn, Mut) \
 	macro(0, TxKernelData, Krn) \
-	/* followed by in/outs */
 
 #define BeamCrypto_ProtoResponse_TxReceive(macro) \
 	macro(0, TxCommonOut, Tx) \
@@ -252,7 +276,6 @@ typedef struct
 	macro(1, TxCommonIn, Tx) \
 	macro(1, TxMutualIn, Mut) \
 	macro(1, uint32_t, iSlot) \
-	/* followed by in/outs */
 
 #define BeamCrypto_ProtoResponse_TxSend1(macro) \
 	macro(0, TxKernelCommitments, HalfKrn) \
@@ -263,7 +286,6 @@ typedef struct
 	macro(0, TxKernelCommitments, HalfKrn) \
 	macro(0, Signature, PaymentProof) \
 	macro(0, UintBig, UserAgreement) \
-	/* followed by in/outs */
 
 #define BeamCrypto_ProtoResponse_TxSend2(macro) \
 	macro(0, UintBig, kSig) \
@@ -277,7 +299,6 @@ typedef struct
 	macro(0, RangeProof_Packed, RangeProof) \
 	macro(0, CompactPoint, ptAssetGen) \
 	macro(0, uint8_t, HideAssetAlways) /* important to specify, this affects expected blinding factor recovery */ \
-	/* followed by in/outs */
 
 #define BeamCrypto_ProtoResponse_TxSendShielded(macro) \
 	macro(0, TxCommonOut, Tx) \
@@ -289,6 +310,7 @@ typedef struct
 	macro(0x03, GetPKdf) \
 	macro(0x04, GetImage) \
 	macro(0x10, CreateOutput) \
+	macro(0x18, TxAddCoins) \
 	macro(0x21, CreateShieldedInput) \
 	macro(0x22, CreateShieldedVouchers) \
 	macro(0x30, TxSplit) \

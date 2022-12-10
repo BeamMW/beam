@@ -1953,9 +1953,6 @@ void N2H_ShieldedInput(ShieldedInput* p)
 
 void N2H_TxCommonIn(TxCommonIn* p)
 {
-	ProtoN2H(p->m_Ins, uint32_t);
-	ProtoN2H(p->m_Outs, uint32_t);
-	ProtoN2H(p->m_InsShielded, uint32_t);
 	ProtoN2H(p->m_Krn.m_Fee, Amount);
 	ProtoN2H(p->m_Krn.m_hMin, Height);
 	ProtoN2H(p->m_Krn.m_hMax, Height);
@@ -2142,53 +2139,47 @@ PROTO_METHOD(CreateOutput)
 
 //////////////////////////////
 // KeyKeeper - transaction common. Aggregation
-typedef struct
+static int TxAggr_AddAmount_Raw(int64_t* pRcv, Amount newVal, int isOut)
 {
-	Amount m_Beams;
-	Amount m_Assets;
+	// beware of overflow
+	int64_t val0 = *pRcv;
 
-} TxAggr0;
-
-typedef struct
-{
-	TxAggr0 m_Ins;
-	TxAggr0 m_Outs;
-
-	Amount m_TotalFee;
-	AssetID m_AssetID;
-	secp256k1_scalar m_sk;
-
-} TxAggr;
-
-
-static int TxAggregate_AddAmount(Amount val, AssetID aid, TxAggr0* pRes, TxAggr* pCommon)
-{
-	Amount* pVal;
-	if (aid)
+	if (isOut)
 	{
-		if (pCommon->m_AssetID)
-		{
-			if (pCommon->m_AssetID != aid)
-				return 0; // multiple assets are not allowed
-		}
-		else
-			pCommon->m_AssetID = aid;
-
-		pVal = &pRes->m_Assets;
+		*pRcv += newVal;
+		if (*pRcv < val0)
+			return 0;
 	}
 	else
-		pVal = &pRes->m_Beams;
-
-	(*pVal) += val;
-
-	if (val > (*pVal))
-		return 0; // overflow
+	{
+		*pRcv -= newVal;
+		if (*pRcv > val0)
+			return 0;
+	}
 
 	return 1;
 }
+static int TxAggr_AddAmount(KeyKeeper* p, Amount newVal, AssetID aid, int isOut)
+{
+	int64_t* pRcv = &p->u.m_TxBalance.m_RcvBeam;
 
-__stack_hungry__
-static int TxAggregate0(KeyKeeper* p, CoinID* pCid, uint32_t nCount, TxAggr0* pRes, TxAggr* pCommon, int isOuts)
+	if (aid)
+	{
+		if (p->u.m_TxBalance.m_Aid)
+		{
+			if (p->u.m_TxBalance.m_Aid != aid)
+				return 0; // only 1 additional asset type is supported in a tx
+		}
+		else
+			p->u.m_TxBalance.m_Aid = aid;
+
+		pRcv = &p->u.m_TxBalance.m_RcvAsset;
+	}
+
+	return TxAggr_AddAmount_Raw(pRcv, newVal, isOut);
+}
+
+static int TxAggr_AddCoins(KeyKeeper* p, CoinID* pCid, uint32_t nCount, int isOut)
 {
 	for (uint32_t i = 0; i < nCount; i++, pCid++)
 	{
@@ -2198,7 +2189,7 @@ static int TxAggregate0(KeyKeeper* p, CoinID* pCid, uint32_t nCount, TxAggr0* pR
 		uint32_t nSubkey;
 		CoinID_getSchemeAndSubkey(pCid, &nScheme, &nSubkey);
 
-		if (nSubkey && isOuts)
+		if (nSubkey && isOut)
 			return 0; // HW wallet should not send funds to child subkeys (potentially belonging to miners)
 
 		switch (nScheme)
@@ -2206,114 +2197,163 @@ static int TxAggregate0(KeyKeeper* p, CoinID* pCid, uint32_t nCount, TxAggr0* pR
 		case c_CoinID_Scheme_V0:
 		case c_CoinID_Scheme_BB21:
 			// weak schemes
-			if (isOuts)
+			if (isOut)
 				return 0; // no reason to create weak outputs
 
 			if (!KeyKeeper_AllowWeakInputs(p))
 				return 0;
 		}
 
-		if (!TxAggregate_AddAmount(pCid->m_Amount, pCid->m_AssetID, pRes, pCommon))
+		if (!TxAggr_AddAmount(p, pCid->m_Amount, pCid->m_AssetID, isOut))
 			return 0;
 
 		secp256k1_scalar sk;
 		CoinID_getSk(&p->m_MasterKey, pCid, &sk);
 
-		secp256k1_scalar_add(&pCommon->m_sk, &pCommon->m_sk, &sk);
+		if (!isOut)
+			secp256k1_scalar_negate(&sk, &sk);
+
+		secp256k1_scalar_add(&p->u.m_TxBalance.m_sk, &p->u.m_TxBalance.m_sk, &sk);
 		SECURE_ERASE_OBJ(sk);
 	}
 
 	return 1;
 }
 
-__stack_hungry__
-static int TxAggregateShIns(const KeyKeeper* p, ShieldedInput* pIns, uint32_t nCount, TxAggr0* pRes, TxAggr* pCommon)
+static int TxAggr_AddAllCoins(KeyKeeper* p, const OpIn_TxAddCoins* pArg, uint32_t nSizeIn)
 {
-	for (uint32_t i = 0; i < nCount; i++, pIns++)
+	uint32_t nSize =
+		(sizeof(CoinID) * pArg->m_Ins) +
+		(sizeof(CoinID) * pArg->m_Outs) +
+		(sizeof(ShieldedInput) * pArg->m_InsShielded);
+
+	if (nSizeIn != nSize)
+		return c_KeyKeeper_Status_ProtoError;
+
+	CoinID* pCid = (CoinID*) (pArg + 1);
+
+	if (!TxAggr_AddCoins(p, pCid, pArg->m_Ins, 0))
+		return c_KeyKeeper_Status_Unspecified;
+
+	pCid += pArg->m_Ins;
+
+	if (!TxAggr_AddCoins(p, pCid, pArg->m_Outs, 1))
+		return c_KeyKeeper_Status_Unspecified;
+
+	pCid += pArg->m_Outs;
+
+	ShieldedInput* pIns = (ShieldedInput*) pCid;
+
+	for (uint32_t i = 0; i < pArg->m_InsShielded; i++, pIns++)
 	{
 		N2H_ShieldedInput(pIns);
 
-		if (!TxAggregate_AddAmount(pIns->m_TxoID.m_Amount, pIns->m_TxoID.m_AssetID, pRes, pCommon))
-			return 0;
+		if (!TxAggr_AddAmount(p, pIns->m_TxoID.m_Amount, pIns->m_TxoID.m_AssetID, 0))
+			return c_KeyKeeper_Status_Unspecified;
 
-		pCommon->m_TotalFee += pIns->m_Fee;
-		if (pCommon->m_TotalFee < pIns->m_Fee)
-			return 0; // overflow
+		if (pIns->m_Fee)
+		{
+			// Starding from HF3 shielded input fees are optional. And basically should not be used. But currently we support them
+			if (pIns->m_Fee > KeyKeeper_get_MaxShieldedFee(p))
+				return c_KeyKeeper_Status_Unspecified;
+
+			p->u.m_TxBalance.m_ImplicitFee += pIns->m_Fee;
+			if (p->u.m_TxBalance.m_ImplicitFee < pIns->m_Fee)
+				return c_KeyKeeper_Status_Unspecified; // overflow
+
+			if (!TxAggr_AddAmount(p, pIns->m_Fee, 0, 1))
+				return c_KeyKeeper_Status_Unspecified;
+		}
 
 		secp256k1_scalar sk;
 		ShieldedInput_getSk(p, pIns, &sk);
 
-		secp256k1_scalar_add(&pCommon->m_sk, &pCommon->m_sk, &sk);
+		secp256k1_scalar_negate(&sk, &sk);
+		secp256k1_scalar_add(&p->u.m_TxBalance.m_sk, &p->u.m_TxBalance.m_sk, &sk);
 		SECURE_ERASE_OBJ(sk);
 	}
 
-	return 1;
+	return c_KeyKeeper_Status_Ok;
 }
 
-static int TxAggregate(KeyKeeper* p, const TxCommonIn* pTx, TxAggr* pRes, void* pExtra, uint32_t nExtra)
+static int TxAggr_Get(const KeyKeeper* p, Amount* pNetAmount, AssetID* pAid, const Amount* pFeeSender)
 {
-	CoinID* pIns = (CoinID*) pExtra;
-	CoinID* pOuts = pIns + pTx->m_Ins;
-	ShieldedInput* pInsShielded = (ShieldedInput*)(pOuts + pTx->m_Outs);
-
-	if ((uint8_t*) (pInsShielded + pTx->m_InsShielded) != ((uint8_t*) pExtra) + nExtra)
+	if (c_KeyKeeper_State_TxBalance != p->m_State)
 		return 0;
 
-	ZERO_OBJ(*pRes);
-	pRes->m_TotalFee = pTx->m_Krn.m_Fee;
-
-	if (!TxAggregate0(p, pIns, pTx->m_Ins, &pRes->m_Ins, pRes, 0))
-		return 0;
-
-	if (!TxAggregateShIns(p, pInsShielded, pTx->m_InsShielded, &pRes->m_Ins, pRes))
-		return 0;
-
-	secp256k1_scalar_negate(&pRes->m_sk, &pRes->m_sk);
-
-	return TxAggregate0(p, pOuts, pTx->m_Outs, &pRes->m_Outs, pRes, 1);
-}
-
-static void TxAggrToOffsetEx(TxAggr* pAggr, const secp256k1_scalar* pKrn, UintBig* pOffs)
-{
-	secp256k1_scalar_add(&pAggr->m_sk, &pAggr->m_sk, pKrn);
-	secp256k1_scalar_negate(&pAggr->m_sk, &pAggr->m_sk);
-	secp256k1_scalar_get_b32(pOffs->m_pVal, &pAggr->m_sk);
-}
-
-static void TxAggrToOffset(TxAggr* pAggr, const secp256k1_scalar* pKrn, TxCommonOut* pTx)
-{
-	TxAggrToOffsetEx(pAggr, pKrn, &pTx->m_kOffset);
-}
-
-static int TxAggregate_SendOrSplit(KeyKeeper* p, const TxCommonIn* pTx, TxAggr* pRes, void* pExtra, uint32_t nExtra)
-{
-	if (!TxAggregate(p, pTx, pRes, pExtra, nExtra))
-		return 0;
-
-	if (pRes->m_Ins.m_Beams < pRes->m_Outs.m_Beams)
-		return 0; // not sending
-	pRes->m_Ins.m_Beams -= pRes->m_Outs.m_Beams;
-
-	if (pRes->m_Ins.m_Assets != pRes->m_Outs.m_Assets)
+	int64_t rcvVal = p->u.m_TxBalance.m_RcvBeam;
+	if (pFeeSender)
 	{
-		if (pRes->m_Ins.m_Assets < pRes->m_Outs.m_Assets)
-			return 0; // not sending
+		// we're paying the fee. Subtract it from the net value we're sending
+		if (!TxAggr_AddAmount_Raw(&rcvVal, *pFeeSender, 1))
+			return 0;
+	}
 
-		if (pRes->m_Ins.m_Beams != pRes->m_TotalFee)
-			return 0; // balance mismatch, the lost amount must go entirely to fee
+	if (p->u.m_TxBalance.m_RcvAsset)
+	{
+		if (rcvVal)
+			return 0; // nnz net result in both beams and assets.
 
-		pRes->m_Ins.m_Assets -= pRes->m_Outs.m_Assets;
+		rcvVal = p->u.m_TxBalance.m_RcvAsset;
+		*pAid = p->u.m_TxBalance.m_Aid;
+	}
+	else
+		*pAid = 0;
+
+	if (pFeeSender)
+	{
+		if (rcvVal > 0)
+			return 0; // actually receiving
+
+		*pNetAmount = -rcvVal;
 	}
 	else
 	{
-		if (pRes->m_Ins.m_Beams < pRes->m_TotalFee)
-			return 0; // not sending
-
-		pRes->m_Ins.m_Assets = pRes->m_Ins.m_Beams - pRes->m_TotalFee;
-		pRes->m_AssetID = 0;
+		if (rcvVal <= 0)
+			return 0; // not receiving
+		*pNetAmount = rcvVal;
 	}
 
 	return 1;
+}
+
+static void TxAggr_ToOffsetEx(const KeyKeeper* p, const secp256k1_scalar* pKrn, UintBig* pOffs)
+{
+	secp256k1_scalar kOffs;
+	secp256k1_scalar_add(&kOffs, &p->u.m_TxBalance.m_sk, pKrn);
+	secp256k1_scalar_negate(&kOffs, &kOffs);
+
+	secp256k1_scalar_get_b32(pOffs->m_pVal, &kOffs);
+	// kOffs isn't secret
+}
+
+static void TxAggr_ToOffset(const KeyKeeper* p, const secp256k1_scalar* pKrn, TxCommonOut* pTx)
+{
+	TxAggr_ToOffsetEx(p, pKrn, &pTx->m_kOffset);
+}
+
+PROTO_METHOD(TxAddCoins)
+{
+	if (nOut)
+		return c_KeyKeeper_Status_ProtoError;
+
+	if ((pArg->m_In.m_Reset) || (c_KeyKeeper_State_TxBalance != p->m_State))
+	{
+		ZERO_OBJ(p->u);
+		p->m_State = c_KeyKeeper_State_TxBalance;
+	}
+
+	int status = TxAggr_AddAllCoins(p, &pArg->m_In, nIn);
+
+	if (c_KeyKeeper_Status_Ok != status)
+	{
+		SECURE_ERASE_OBJ(p->u);
+		p->m_State = 0;
+	}
+	else
+		pArg->m_Out.m_Dummy = 0;
+
+	return c_KeyKeeper_Status_Ok;
 }
 
 //////////////////////////////
@@ -2357,10 +2397,9 @@ static int KernelUpdateKeys(TxKernelData* pKrn, const secp256k1_scalar* pSk, con
 // KeyKeeper - SplitTx
 PROTO_METHOD_SIMPLE(TxSplit)
 {
-	TxAggr txAggr;
-	if (!TxAggregate_SendOrSplit(p, &pIn->m_Tx, &txAggr, pIn + 1, nIn))
-		return c_KeyKeeper_Status_Unspecified;
-	if (txAggr.m_Ins.m_Assets)
+	Amount netAmount;
+	AssetID aid;
+	if (!TxAggr_Get(p, &netAmount, &aid, &pIn->m_Tx.m_Krn.m_Fee) || netAmount)
 		return c_KeyKeeper_Status_Unspecified; // not split
 
 	// hash all visible params
@@ -2371,7 +2410,7 @@ PROTO_METHOD_SIMPLE(TxSplit)
 	secp256k1_sha256_write_Num(&sha, pIn->m_Tx.m_Krn.m_Fee);
 
 	UintBig hv;
-	secp256k1_scalar_get_b32(hv.m_pVal, &txAggr.m_sk);
+	secp256k1_scalar_get_b32(hv.m_pVal, &p->u.m_TxBalance.m_sk);
 	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
 	secp256k1_sha256_finalize(&sha, hv.m_pVal);
 
@@ -2395,7 +2434,10 @@ PROTO_METHOD_SIMPLE(TxSplit)
 
 	Signature_SignPartial(&pOut->m_Tx.m_Krn.m_Signature, &hv, &kKrn, &kNonce);
 
-	TxAggrToOffset(&txAggr, &kKrn, &pOut->m_Tx);
+	TxAggr_ToOffset(p, &kKrn, &pOut->m_Tx);
+
+	SECURE_ERASE_OBJ(kKrn);
+	SECURE_ERASE_OBJ(kNonce);
 
 	return c_KeyKeeper_Status_Ok;
 }
@@ -2445,29 +2487,12 @@ static void GetWalletIDKey(const KeyKeeper* p, WalletIdentity nKey, secp256k1_sc
 // KeyKeeper - ReceiveTx
 PROTO_METHOD_SIMPLE(TxReceive)
 {
-	TxAggr txAggr;
-	if (!TxAggregate(p, &pIn->m_Tx, &txAggr, pIn + 1, nIn))
-		return c_KeyKeeper_Status_Unspecified;
+	Amount netAmount;
+	AssetID aid;
+	if (!TxAggr_Get(p, &netAmount, &aid, 0))
+		return c_KeyKeeper_Status_Unspecified; // not receiving
 
-	if (txAggr.m_Ins.m_Beams != txAggr.m_Outs.m_Beams)
-	{
-		if (txAggr.m_Ins.m_Beams > txAggr.m_Outs.m_Beams)
-			return c_KeyKeeper_Status_Unspecified; // not receiving
-
-		if (txAggr.m_Ins.m_Assets != txAggr.m_Outs.m_Assets)
-			return c_KeyKeeper_Status_Unspecified; // mixed
-
-		txAggr.m_AssetID = 0;
-		txAggr.m_Outs.m_Assets = txAggr.m_Outs.m_Beams - txAggr.m_Ins.m_Beams;
-	}
-	else
-	{
-		if (txAggr.m_Ins.m_Assets >= txAggr.m_Outs.m_Assets)
-			return c_KeyKeeper_Status_Unspecified; // not receiving
-
-		assert(txAggr.m_AssetID);
-		txAggr.m_Outs.m_Assets -= txAggr.m_Ins.m_Assets;
-	}
+	assert(netAmount);
 
 	// Hash *ALL* the parameters, make the context unique
 	secp256k1_sha256_t sha;
@@ -2484,11 +2509,11 @@ PROTO_METHOD_SIMPLE(TxReceive)
 	secp256k1_sha256_write(&sha, pIn->m_Mut.m_Peer.m_pVal, sizeof(pIn->m_Mut.m_Peer.m_pVal));
 	secp256k1_sha256_write_Num(&sha, pIn->m_Mut.m_MyIDKey);
 
-	secp256k1_scalar_get_b32(hv.m_pVal, &txAggr.m_sk);
+	secp256k1_scalar_get_b32(hv.m_pVal, &p->u.m_TxBalance.m_sk);
 	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
 
-	secp256k1_sha256_write_Num(&sha, txAggr.m_Outs.m_Assets); // the value being-received
-	secp256k1_sha256_write_Num(&sha, txAggr.m_AssetID);
+	secp256k1_sha256_write_Num(&sha, netAmount); // the value being-received
+	secp256k1_sha256_write_Num(&sha, aid);
 
 	secp256k1_sha256_finalize(&sha, hv.m_pVal);
 
@@ -2508,14 +2533,14 @@ PROTO_METHOD_SIMPLE(TxReceive)
 	TxKernel_getID(&pIn->m_Tx.m_Krn, &pOut->m_Tx.m_Krn, &hv); // final ID
 	Signature_SignPartial(&pOut->m_Tx.m_Krn.m_Signature, &hv, &kKrn, &kNonce);
 
-	TxAggrToOffset(&txAggr, &kKrn, &pOut->m_Tx);
+	TxAggr_ToOffset(p, &kKrn, &pOut->m_Tx);
 
 	if (pIn->m_Mut.m_MyIDKey)
 	{
 		// sign
 		UintBig hvID;
 		GetWalletIDKey(p, pIn->m_Mut.m_MyIDKey, &kKrn, &hvID);
-		GetPaymentConfirmationMsg(&hvID, &pIn->m_Mut.m_Peer, &hv, txAggr.m_Outs.m_Assets, txAggr.m_AssetID);
+		GetPaymentConfirmationMsg(&hvID, &pIn->m_Mut.m_Peer, &hv, netAmount, aid);
 		Signature_Sign(&pOut->m_PaymentProof, &hvID, &kKrn);
 	}
 
@@ -2526,11 +2551,10 @@ PROTO_METHOD_SIMPLE(TxReceive)
 // KeyKeeper - SendTx
 int HandleTxSend(KeyKeeper* p, OpIn_TxSend2* pIn, void* pInExtra, uint32_t nInExtra, OpOut_TxSend1* pOut1, OpOut_TxSend2* pOut2)
 {
-	TxAggr txAggr;
-	if (!TxAggregate_SendOrSplit(p, &pIn->m_Tx, &txAggr, pInExtra, nInExtra))
-		return c_KeyKeeper_Status_Unspecified;
-	if (!txAggr.m_Ins.m_Assets)
-		return c_KeyKeeper_Status_Unspecified; // not sending (no net transferred value)
+	Amount netAmount;
+	AssetID aid;
+	if (!TxAggr_Get(p, &netAmount, &aid, &pIn->m_Tx.m_Krn.m_Fee) || !netAmount)
+		return c_KeyKeeper_Status_Unspecified; // not sending
 
 	if (IsUintBigZero(&pIn->m_Mut.m_Peer))
 		return c_KeyKeeper_Status_UserAbort; // conventional transfers must always be signed
@@ -2555,10 +2579,10 @@ int HandleTxSend(KeyKeeper* p, OpIn_TxSend2* pIn, void* pInExtra, uint32_t nInEx
 	uint8_t nFlag = 0; // not nonconventional
 	secp256k1_sha256_write(&sha, &nFlag, sizeof(nFlag));
 
-	secp256k1_scalar_get_b32(hv.m_pVal, &txAggr.m_sk);
+	secp256k1_scalar_get_b32(hv.m_pVal, &p->u.m_TxBalance.m_sk);
 	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
-	secp256k1_sha256_write_Num(&sha, txAggr.m_Ins.m_Assets);
-	secp256k1_sha256_write_Num(&sha, txAggr.m_AssetID);
+	secp256k1_sha256_write_Num(&sha, netAmount);
+	secp256k1_sha256_write_Num(&sha, aid);
 
 	secp256k1_scalar_get_b32(hv.m_pVal, &kNonce);
 	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
@@ -2583,7 +2607,7 @@ int HandleTxSend(KeyKeeper* p, OpIn_TxSend2* pIn, void* pInExtra, uint32_t nInEx
 
 	if (pOut1)
 	{
-		int res = KeyKeeper_ConfirmSpend(p, txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, 0, 0);
+		int res = KeyKeeper_ConfirmSpend(p, netAmount, aid, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, 0, 0);
 		if (c_KeyKeeper_Status_Ok != res)
 			return res;
 
@@ -2606,7 +2630,7 @@ int HandleTxSend(KeyKeeper* p, OpIn_TxSend2* pIn, void* pInExtra, uint32_t nInEx
 	TxKernel_getID(&pIn->m_Tx.m_Krn, &krn, &hv);
 
 	// verify payment confirmation signature
-	GetPaymentConfirmationMsg(&hvMyID, &hvMyID, &hv, txAggr.m_Ins.m_Assets, txAggr.m_AssetID);
+	GetPaymentConfirmationMsg(&hvMyID, &hvMyID, &hv, netAmount, aid);
 
 	CompactPoint pt;
 	pt.m_X = pIn->m_Mut.m_Peer;
@@ -2616,7 +2640,7 @@ int HandleTxSend(KeyKeeper* p, OpIn_TxSend2* pIn, void* pInExtra, uint32_t nInEx
 		return c_KeyKeeper_Status_Unspecified;
 
 	// 2nd user confirmation request. Now the kernel is complete, its ID is calculated
-	int res = KeyKeeper_ConfirmSpend(p, txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, &krn, &hvMyID);
+	int res = KeyKeeper_ConfirmSpend(p, netAmount, aid, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, &krn, &hvMyID);
 	if (c_KeyKeeper_Status_Ok != res)
 		return res;
 
@@ -2626,7 +2650,7 @@ int HandleTxSend(KeyKeeper* p, OpIn_TxSend2* pIn, void* pInExtra, uint32_t nInEx
 	Signature_SignPartial(&krn.m_Signature, &hv, &kKrn, &kNonce);
 
 	pOut2->m_kSig = krn.m_Signature.m_k;
-	TxAggrToOffsetEx(&txAggr, &kKrn, &pOut2->m_kOffset);
+	TxAggr_ToOffsetEx(p, &kKrn, &pOut2->m_kOffset);
 
 	return c_KeyKeeper_Status_Ok;
 }
@@ -3170,20 +3194,21 @@ int VerifyShieldedOutputParams(const KeyKeeper* p, const OpIn_TxSendShielded* pS
 
 PROTO_METHOD_SIMPLE(TxSendShielded)
 {
-	TxAggr txAggr;
-	if (!TxAggregate_SendOrSplit(p, &pIn->m_Tx, &txAggr, pIn + 1, nIn))
-		return c_KeyKeeper_Status_Unspecified;
+	Amount netAmount;
+	AssetID aid;
+	if (!TxAggr_Get(p, &netAmount, &aid, &pIn->m_Tx.m_Krn.m_Fee) || !netAmount)
+		return c_KeyKeeper_Status_Unspecified; // not sending
 
 	if (IsUintBigZero(&pIn->m_Mut.m_Peer))
 		return c_KeyKeeper_Status_UserAbort; // conventional transfers must always be signed
 
 	CustomGenerator aGen;
-	if (txAggr.m_AssetID)
-		CoinID_GenerateAGen(txAggr.m_AssetID, &aGen);
+	if (aid)
+		CoinID_GenerateAGen(aid, &aGen);
 
 	UintBig hvKrn1, hv;
 	secp256k1_scalar skKrn1, skKrnOuter, kNonce;
-	if (!VerifyShieldedOutputParams(p, pIn, txAggr.m_Ins.m_Assets, txAggr.m_AssetID, txAggr.m_AssetID ? &aGen : 0, &skKrn1, &hvKrn1))
+	if (!VerifyShieldedOutputParams(p, pIn, netAmount, aid, aid ? &aGen : 0, &skKrn1, &hvKrn1))
 		return c_KeyKeeper_Status_Unspecified;
 
 	// select blinding factor for the outer kernel.
@@ -3193,7 +3218,7 @@ PROTO_METHOD_SIMPLE(TxSendShielded)
 	secp256k1_sha256_write_Num(&sha, pIn->m_Tx.m_Krn.m_hMin);
 	secp256k1_sha256_write_Num(&sha, pIn->m_Tx.m_Krn.m_hMax);
 	secp256k1_sha256_write_Num(&sha, pIn->m_Tx.m_Krn.m_Fee);
-	secp256k1_scalar_get_b32(hv.m_pVal, &txAggr.m_sk);
+	secp256k1_scalar_get_b32(hv.m_pVal, &p->u.m_TxBalance.m_sk);
 	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
 	secp256k1_sha256_finalize(&sha, hv.m_pVal);
 
@@ -3211,7 +3236,7 @@ PROTO_METHOD_SIMPLE(TxSendShielded)
 	// all set
 	int res = pIn->m_Mut.m_MyIDKey ?
 		KeyKeeper_ConfirmSpend(p, 0, 0, 0, &pIn->m_Tx.m_Krn, &pOut->m_Tx.m_Krn, &hv) :
-		KeyKeeper_ConfirmSpend(p, txAggr.m_Ins.m_Assets, txAggr.m_AssetID, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, &pOut->m_Tx.m_Krn, &hv);
+		KeyKeeper_ConfirmSpend(p, netAmount, aid, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, &pOut->m_Tx.m_Krn, &hv);
 
 	if (c_KeyKeeper_Status_Ok != res)
 		return res;
@@ -3219,7 +3244,7 @@ PROTO_METHOD_SIMPLE(TxSendShielded)
 	Signature_SignPartial(&pOut->m_Tx.m_Krn.m_Signature, &hv, &skKrnOuter, &kNonce);
 
 	secp256k1_scalar_add(&skKrnOuter, &skKrnOuter, &skKrn1);
-	TxAggrToOffset(&txAggr, &skKrnOuter, &pOut->m_Tx);
+	TxAggr_ToOffset(p, &skKrnOuter, &pOut->m_Tx);
 
 	return c_KeyKeeper_Status_Ok;
 }
