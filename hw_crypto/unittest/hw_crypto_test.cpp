@@ -62,7 +62,7 @@ extern "C"
 		Cast::Up<KeyKeeperPlus>(pKk)->m_Nonces.Regenerate(iSlot);
 	}
 
-	int KeyKeeper_ConfirmSpend(KeyKeeper*, Amount val, AssetID aid, const UintBig* pPeerID, const TxKernelUser* pUser, const TxKernelData* pData, const UintBig* pKrnID)
+	int KeyKeeper_ConfirmSpend(KeyKeeper*, Amount val, AssetID aid, const UintBig* pPeerID, const TxKernelUser* pUser, const UintBig* pKrnID)
 	{
 		return c_KeyKeeper_Status_Ok;
 	}
@@ -632,23 +632,22 @@ void TestKrn()
 		krn1.Sign(sk);
 
 		hw::TxKernelUser krn2U;
-		hw::TxKernelData krn2D;
+		hw::TxKernelCommitments krn2C;
 		krn2U.m_Fee = krn1.m_Fee;
 		krn2U.m_hMin = krn1.m_Height.m_Min;
 		krn2U.m_hMax = krn1.m_Height.m_Max;
-		krn2D.m_Commitment = Ecc2BC(krn1.m_Commitment);
-		krn2D.m_Signature.m_k = Ecc2BC(krn1.m_Signature.m_k.m_Value);
-		krn2D.m_Signature.m_NoncePub = Ecc2BC(krn1.m_Signature.m_NoncePub);
+		krn2C.m_Commitment = Ecc2BC(krn1.m_Commitment);
+		krn2C.m_NoncePub = Ecc2BC(krn1.m_Signature.m_NoncePub);
 
-		verify_test(hw::TxKernel_IsValid(&krn2U, &krn2D));
+		verify_test(hw::TxKernel_IsValid(&krn2U, &krn2C, &Ecc2BC(krn1.m_Signature.m_k.m_Value)));
 
 		ECC::Hash::Value msg;
-		hw::TxKernel_getID(&krn2U, &krn2D, &Ecc2BC(msg));
+		hw::TxKernel_getID(&krn2U, &krn2C, &Ecc2BC(msg));
 		verify_test(msg == krn1.m_Internal.m_ID);
 
 		// tamper
 		krn2U.m_Fee++;
-		verify_test(!hw::TxKernel_IsValid(&krn2U, &krn2D));
+		verify_test(!hw::TxKernel_IsValid(&krn2U, &krn2C, &Ecc2BC(krn1.m_Signature.m_k.m_Value)));
 	}
 }
 

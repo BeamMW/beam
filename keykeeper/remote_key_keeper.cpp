@@ -67,7 +67,7 @@ extern "C" {
         void h2n(UintBig& x) {}
         void h2n(CompactPoint& x) {}
         void h2n(TxCommonOut& x) {}
-        void h2n(TxKernelData& x) {}
+        void h2n(TxSig& x) {}
         void h2n(TxKernelCommitments& x) {}
         void h2n(ShieldedVoucher& x) {}
         void h2n(ShieldedTxoUser& x) {}
@@ -165,8 +165,8 @@ namespace beam::wallet
 		    void ExtendByCoinsInternal(const uint8_t* p, uint32_t nSize, hw::Proto::TxAddCoins::Out&, const Method::TxCommon& tx, uint32_t& nOutExtra);
 
 		    static void Import(hw::TxKernelUser&, const Method::TxCommon&);
-		    static void Import(hw::TxKernelData&, const Method::TxCommon&);
-		    static void Import(hw::TxCommonOut&, const Method::TxCommon&);
+		    static void Import(hw::TxKernelCommitments&, const Method::TxCommon&);
+            static void Import(hw::TxCommonOut&, const Method::TxCommon&);
 		    static void Import(hw::TxMutualIn&, const Method::TxMutual&);
 		    static void Import(hw::ShieldedTxoID&, const ShieldedTxo::ID&);
 		    static void Import(hw::ShieldedTxoUser&, const ShieldedTxo::User&);
@@ -305,22 +305,22 @@ namespace beam::wallet
 	    krn.m_hMax = src.m_Height.m_Max;
     }
 
-    void RemoteKeyKeeper::Impl::Encoder::Import(hw::TxKernelData& krn, const Method::TxCommon& m)
+    void RemoteKeyKeeper::Impl::Encoder::Import(hw::TxKernelCommitments& krn, const Method::TxCommon& m)
     {
 	    assert(m.m_pKernel);
 	    const auto& src = *m.m_pKernel;
 
 	    krn.m_Commitment = Ecc2BC(src.m_Commitment);
-	    krn.m_Signature.m_NoncePub = Ecc2BC(src.m_Signature.m_NoncePub);
-	    krn.m_Signature.m_k = Ecc2BC(src.m_Signature.m_k.m_Value);
+	    krn.m_NoncePub = Ecc2BC(src.m_Signature.m_NoncePub);
     }
 
     void RemoteKeyKeeper::Impl::Encoder::Import(hw::TxCommonOut& txOut, const Method::TxCommon& m)
     {
-	    Import(txOut.m_Krn, m);
+	    Import(txOut.m_Comms, m);
 
 	    ECC::Scalar kOffs(m.m_kOffset);
-	    txOut.m_kOffset = Ecc2BC(kOffs.m_Value);
+	    txOut.m_TxSig.m_kOffset = Ecc2BC(kOffs.m_Value);
+        txOut.m_TxSig.m_kSig = Ecc2BC(m.m_pKernel->m_Signature.m_k.m_Value);
     }
 
     void RemoteKeyKeeper::Impl::Encoder::Import(hw::TxMutualIn& txIn, const Method::TxMutual& m)
@@ -335,15 +335,15 @@ namespace beam::wallet
 	    assert(m.m_pKernel);
 	    auto& krn = *m.m_pKernel;
 
-	    Ecc2BC(krn.m_Commitment) = txOut.m_Krn.m_Commitment;
-	    Ecc2BC(krn.m_Signature.m_NoncePub) = txOut.m_Krn.m_Signature.m_NoncePub;
-	    Ecc2BC(krn.m_Signature.m_k.m_Value) = txOut.m_Krn.m_Signature.m_k;
+	    Ecc2BC(krn.m_Commitment) = txOut.m_Comms.m_Commitment;
+	    Ecc2BC(krn.m_Signature.m_NoncePub) = txOut.m_Comms.m_NoncePub;
+	    Ecc2BC(krn.m_Signature.m_k.m_Value) = txOut.m_TxSig.m_kSig;
 
 	    krn.UpdateID();
 
 	    // offset
 	    ECC::Scalar kOffs;
-	    Ecc2BC(kOffs.m_Value) = txOut.m_kOffset;
+	    Ecc2BC(kOffs.m_Value) = txOut.m_TxSig.m_kOffset;
 	    m.m_kOffset = kOffs;
     }
 
@@ -1047,7 +1047,7 @@ namespace beam::wallet
             InvokeProtoEx(out, m_Coins.m_In, nOutExtra, 0);
 
             m_Enc.Import(m_Msg.m_Out.m_Tx.m_Krn, m_M);
-            m_Enc.Import(m_Msg.m_Out.m_Krn, m_M);
+            m_Enc.Import(m_Msg.m_Out.m_Comms, m_M);
             m_Enc.Import(m_Msg.m_Out.m_Mut, m_M);
 
             InvokeProto(m_Msg);
@@ -1112,11 +1112,8 @@ namespace beam::wallet
                 m_Msg2.m_Out.m_PaymentProof.m_NoncePub = Ecc2BC(m_M.m_PaymentProofSignature.m_NoncePub);
                 m_Msg2.m_Out.m_PaymentProof.m_k = Ecc2BC(m_M.m_PaymentProofSignature.m_k.m_Value);
 
-                auto& krn = *m_M.m_pKernel;
-
                 m_Msg2.m_Out.m_UserAgreement = Ecc2BC(m_M.m_UserAgreement);
-                m_Msg2.m_Out.m_HalfKrn.m_Commitment = Ecc2BC(krn.m_Commitment);
-                m_Msg2.m_Out.m_HalfKrn.m_NoncePub = Ecc2BC(krn.m_Signature.m_NoncePub);
+                m_Enc.Import(m_Msg2.m_Out.m_Comms, m_M);
 
                 InvokeProto(m_Msg2);
             }
@@ -1137,8 +1134,8 @@ namespace beam::wallet
                 m_Msg1.m_In.n2h();
 
                 Ecc2BC(m_M.m_UserAgreement) = m_Msg1.m_In.m_UserAgreement;
-                Ecc2BC(krn.m_Commitment) = m_Msg1.m_In.m_HalfKrn.m_Commitment;
-                Ecc2BC(krn.m_Signature.m_NoncePub) = m_Msg1.m_In.m_HalfKrn.m_NoncePub;
+                Ecc2BC(krn.m_Commitment) = m_Msg1.m_In.m_Comms.m_Commitment;
+                Ecc2BC(krn.m_Signature.m_NoncePub) = m_Msg1.m_In.m_Comms.m_NoncePub;
 
                 krn.UpdateID(); // not really required, the kernel isn't full yet
             }
@@ -1147,13 +1144,13 @@ namespace beam::wallet
                 m_Msg2.m_In.n2h();
                 // add scalars
                 ECC::Scalar k_;
-                Ecc2BC(k_.m_Value) = m_Msg2.m_In.m_kSig;
+                Ecc2BC(k_.m_Value) = m_Msg2.m_In.m_TxSig.m_kSig;
 
                 ECC::Scalar::Native k(krn.m_Signature.m_k);
                 k += k_;
                 krn.m_Signature.m_k = k;
 
-                Ecc2BC(k_.m_Value) = m_Msg2.m_In.m_kOffset;
+                Ecc2BC(k_.m_Value) = m_Msg2.m_In.m_TxSig.m_kOffset;
                 m_M.m_kOffset += k_;
             }
 

@@ -75,19 +75,12 @@ typedef struct
 typedef struct
 {
 	CompactPoint m_Commitment;
-	Signature m_Signature;
-
-} TxKernelData;
-
-void TxKernel_getID(const TxKernelUser*, const TxKernelData*, UintBig* pMsg);
-int TxKernel_IsValid(const TxKernelUser*, const TxKernelData*);
-
-typedef struct
-{
-	CompactPoint m_Commitment;
 	CompactPoint m_NoncePub;
 
 } TxKernelCommitments;
+
+void TxKernel_getID(const TxKernelUser*, const TxKernelCommitments*, UintBig* pMsg);
+int TxKernel_IsValid(const TxKernelUser*, const TxKernelCommitments*, const UintBig* pSig);
 
 typedef struct
 {
@@ -125,8 +118,15 @@ typedef struct
 
 typedef struct
 {
-	TxKernelData m_Krn;
+	UintBig m_kSig;
 	UintBig m_kOffset;
+
+} TxSig;
+
+typedef struct
+{
+	TxKernelCommitments m_Comms;
+	TxSig m_TxSig;
 
 } TxCommonOut;
 
@@ -266,7 +266,7 @@ typedef struct
 #define BeamCrypto_ProtoRequest_TxReceive(macro) \
 	macro(TxCommonIn, Tx) \
 	macro(TxMutualIn, Mut) \
-	macro(TxKernelData, Krn) \
+	macro(TxKernelCommitments, Comms) \
 
 #define BeamCrypto_ProtoResponse_TxReceive(macro) \
 	macro(TxCommonOut, Tx) \
@@ -278,18 +278,17 @@ typedef struct
 	macro(uint32_t, iSlot) \
 
 #define BeamCrypto_ProtoResponse_TxSend1(macro) \
-	macro(TxKernelCommitments, HalfKrn) \
+	macro(TxKernelCommitments, Comms) \
 	macro(UintBig, UserAgreement) \
 
 #define BeamCrypto_ProtoRequest_TxSend2(macro) \
 	BeamCrypto_ProtoRequest_TxSend1(macro) \
-	macro(TxKernelCommitments, HalfKrn) \
-	macro(Signature, PaymentProof) \
+	macro(TxKernelCommitments, Comms) \
 	macro(UintBig, UserAgreement) \
+	macro(Signature, PaymentProof) \
 
 #define BeamCrypto_ProtoResponse_TxSend2(macro) \
-	macro(UintBig, kSig) \
-	macro(UintBig, kOffset) \
+	macro(TxSig, TxSig) \
 
 #define BeamCrypto_ProtoRequest_TxSendShielded(macro) \
 	macro(TxCommonIn, Tx) \
@@ -325,9 +324,6 @@ int KeyKeeper_Invoke(KeyKeeper*, uint8_t* pInOut, uint32_t nIn, uint32_t nOut);
 // KeyKeeper - request user approval for spend
 //
 // pPeerID is NULL, if it's a Split tx (i.e. funds are transferred back to you, only the fee is spent).
-// pKrnID and pData are NULL, if this is a 'preliminary' confirmation (SendTx 1st invocation)
+// pKrnID is NULL, if this is a 'preliminary' confirmation (SendTx 1st invocation)
 // pUser contains fee and min/max height (may be shown to the user)
-// pData (if specified) has commitments.
-int KeyKeeper_ConfirmSpend(KeyKeeper*,
-	Amount val, AssetID aid, const UintBig* pPeerID,
-	const TxKernelUser* pUser, const TxKernelData* pData, const UintBig* pKrnID);
+int KeyKeeper_ConfirmSpend(KeyKeeper*, Amount val, AssetID aid, const UintBig* pPeerID, const TxKernelUser* pUser, const UintBig* pKrnID);
