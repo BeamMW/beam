@@ -545,19 +545,20 @@ typedef struct {
 } CustomGenerator;
 
 __stack_hungry__
-void MultiMac_Fast_Custom_Init(CustomGenerator* p, secp256k1_gej* pGej)
+void MultiMac_Fast_Custom_Init(CustomGenerator* p, const secp256k1_ge* pGe)
 {
-	assert(!secp256k1_gej_is_infinity(pGej));
+	assert(!secp256k1_ge_is_infinity(pGe));
 
 	// calculate odd powers
 	secp256k1_gej pOdds[c_MultiMac_Fast_Custom_nCount];
-	pOdds[0] = *pGej;
+	Point_Gej_from_Ge(pOdds, pGe);
 
-	secp256k1_gej_double_var(pGej, pOdds, 0);
+	secp256k1_gej* const pX2 = (secp256k1_gej *) &p->m_Gen; // reuse its mem!
+	secp256k1_gej_double_var(pX2, pOdds, 0);
 
 	for (unsigned int i = 1; i < c_MultiMac_Fast_Custom_nCount; i++)
 	{
-		secp256k1_gej_add_var(pOdds + i, pOdds + i - 1, pGej, 0);
+		secp256k1_gej_add_var(pOdds + i, pOdds + i - 1, pX2, 0);
 		assert(!secp256k1_gej_is_infinity(pOdds + i)); // odd powers of non-zero point must not be zero!
 	}
 
@@ -1049,22 +1050,15 @@ void CoinID_GetAssetGen(AssetID aid, secp256k1_ge* pGe)
 	Oracle_NextPoint(&oracle, &pt, pGe);
 }
 
-typedef struct {
-	secp256k1_gej gej;
-	secp256k1_ge ge;
-} DummyPack1;
-
 __stack_hungry__
 void CoinID_GenerateAGen(AssetID aid, CustomGenerator* pAGen)
 {
 	assert(aid);
 
-	static_assert(sizeof(*pAGen) >= sizeof(DummyPack1), "");
+	static_assert(sizeof(*pAGen) >= sizeof(secp256k1_ge), "");
 
-	CoinID_GetAssetGen(aid, &((DummyPack1*) pAGen)->ge);
-	Point_Gej_from_Ge(&((DummyPack1*) pAGen)->gej, &((DummyPack1*) pAGen)->ge);
-
-	MultiMac_Fast_Custom_Init(pAGen, &((DummyPack1*) pAGen)->gej);
+	CoinID_GetAssetGen(aid, (secp256k1_ge*) pAGen);
+	MultiMac_Fast_Custom_Init(pAGen, (secp256k1_ge*) pAGen);
 }
 
 __stack_hungry__
@@ -1778,35 +1772,32 @@ void Signature_SignPartial(Signature* p, const UintBig* pMsg, const secp256k1_sc
 }
 
 __stack_hungry__
-int Signature_IsValid(const Signature* p, const UintBig* pMsg, const CompactPoint* pPk)
+static int Signature_IsValid_Internal(const Signature* p, const UintBig* pMsg, const CustomGenerator* pPkGen)
 {
-	secp256k1_ge geNonce;
-	secp256k1_gej gejPubkey;
-
-	if (!Point_Ge_from_Compact(&geNonce, pPk))
-		return 0; // bad Pubkey
-	Point_Gej_from_Ge(&gejPubkey, &geNonce);
-
-	if (!Point_Ge_from_Compact(&geNonce, &p->m_NoncePub))
-		return 0; // bad pub nonce
-
-	secp256k1_scalar k;
-	int overflow; // for historical reasons we don't check for overflow, i.e. theoretically there can be an ambiguity, but it makes not much sense for the attacker
-	secp256k1_scalar_set_b32(&k, p->m_k.m_pVal, &overflow);
-
 	secp256k1_gej gej;
 
-	MultiMac_WNaf wnaf;
-	secp256k1_scalar s;
-	CustomGenerator gen; // very large
+	union
+	{
+		struct {
+			secp256k1_scalar k;
+			secp256k1_scalar s;
+			int overflow;
+			MultiMac_WNaf wnaf;
+		} p1;
+
+		secp256k1_ge geNonce;
+	} u;
+
+	// for historical reasons we don't check for overflow, i.e. theoretically there can be an ambiguity, but it makes not much sense for the attacker
+	secp256k1_scalar_set_b32(&u.p1.k, p->m_k.m_pVal, &u.p1.overflow);
 
 	MultiMac_Context ctx;
 	ctx.m_pRes = &gej;
 	ctx.m_Secure = 1;
 	ctx.m_pGenSecure = Context_get()->m_pGenGJ;
-	ctx.m_pSecureK = &k;
+	ctx.m_pSecureK = &u.p1.k;
 
-	if (secp256k1_gej_is_infinity(&gejPubkey))
+	if (!pPkGen)
 	{
 		// unlikely, but allowed for historical reasons
 		ctx.m_Fast = 0;
@@ -1814,21 +1805,43 @@ int Signature_IsValid(const Signature* p, const UintBig* pMsg, const CompactPoin
 	}
 	else
 	{
-		MultiMac_Fast_Custom_Init(&gen, &gejPubkey);
 
-		ctx.m_pZDenom = &gen.m_zDenom;
+		ctx.m_pZDenom = &pPkGen->m_zDenom;
 		ctx.m_Fast = 1;
-		ctx.m_FastGen.m_pCustom = &gen.m_Gen;
-		ctx.m_pFastK = &s;
-		ctx.m_pWnaf = &wnaf;
+		ctx.m_FastGen.m_pCustom = &pPkGen->m_Gen;
+		ctx.m_pFastK = &u.p1.s;
+		ctx.m_pWnaf = &u.p1.wnaf;
 
-		Signature_GetChallenge(p, pMsg, &s);
+		Signature_GetChallenge(p, pMsg, &u.p1.s);
 	}
 
 	MultiMac_Calculate(&ctx);
-	secp256k1_gej_add_ge_var(&gej, &gej, &geNonce, 0);
+
+	if (!Point_Ge_from_Compact(&u.geNonce, &p->m_NoncePub))
+		return 0; // bad pub nonce
+
+	secp256k1_gej_add_ge_var(&gej, &gej, &u.geNonce, 0);
 
 	return secp256k1_gej_is_infinity(&gej);
+}
+
+__stack_hungry__
+int Signature_IsValid(const Signature* p, const UintBig* pMsg, const CompactPoint* pPk)
+{
+	CustomGenerator gen; // very large
+
+	static_assert(sizeof(gen) >= sizeof(secp256k1_ge), "");
+	secp256k1_ge* const pGe = (secp256k1_ge*)&gen;
+
+	if (!Point_Ge_from_Compact(pGe, pPk))
+		return 0; // bad Pubkey
+
+	if (secp256k1_ge_is_infinity(pGe))
+		return Signature_IsValid_Internal(p, pMsg, 0);
+
+	MultiMac_Fast_Custom_Init(&gen, pGe);
+
+	return Signature_IsValid_Internal(p, pMsg, &gen);
 }
 
 __stack_hungry__
