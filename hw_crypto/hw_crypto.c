@@ -1831,6 +1831,17 @@ int Signature_IsValid(const Signature* p, const UintBig* pMsg, const CompactPoin
 	return secp256k1_gej_is_infinity(&gej);
 }
 
+__stack_hungry__
+static int Signature_IsValid_Ex(const Signature* p, const UintBig* pMsg, const UintBig* pPeer)
+{
+	CompactPoint pt;
+	pt.m_X = *pPeer;
+	pt.m_Y = 0;
+
+	return Signature_IsValid(p, pMsg, &pt);
+}
+
+
 //////////////////////////////
 // TxKernel
 __stack_hungry__
@@ -2403,7 +2414,7 @@ PROTO_METHOD(TxAddCoins)
 	else
 		pArg->m_Out.m_Dummy = 0;
 
-	return c_KeyKeeper_Status_Ok;
+	return status;
 }
 
 //////////////////////////////
@@ -2447,6 +2458,9 @@ static int KernelUpdateKeys(TxKernelData* pKrn, const secp256k1_scalar* pSk, con
 // KeyKeeper - SplitTx
 PROTO_METHOD_SIMPLE(TxSplit)
 {
+	if (nIn)
+		return c_KeyKeeper_Status_ProtoError;
+
 	Amount netAmount;
 	AssetID aid;
 	if (!TxAggr_Get(p, &netAmount, &aid, &pIn->m_Tx.m_Krn.m_Fee) || netAmount)
@@ -2537,6 +2551,9 @@ static void GetWalletIDKey(const KeyKeeper* p, WalletIdentity nKey, secp256k1_sc
 // KeyKeeper - ReceiveTx
 PROTO_METHOD_SIMPLE(TxReceive)
 {
+	if (nIn)
+		return c_KeyKeeper_Status_ProtoError;
+
 	Amount netAmount;
 	AssetID aid;
 	if (!TxAggr_Get(p, &netAmount, &aid, 0))
@@ -2599,120 +2616,140 @@ PROTO_METHOD_SIMPLE(TxReceive)
 
 //////////////////////////////
 // KeyKeeper - SendTx
-int HandleTxSend(KeyKeeper* p, OpIn_TxSend2* pIn, void* pInExtra, uint32_t nInExtra, OpOut_TxSend1* pOut1, OpOut_TxSend2* pOut2)
+typedef struct
 {
-	Amount netAmount;
-	AssetID aid;
-	if (!TxAggr_Get(p, &netAmount, &aid, &pIn->m_Tx.m_Krn.m_Fee) || !netAmount)
-		return c_KeyKeeper_Status_Unspecified; // not sending
+	Amount m_netAmount;
+	AssetID m_Aid;
 
-	if (IsUintBigZero(&pIn->m_Mut.m_Peer))
-		return c_KeyKeeper_Status_UserAbort; // conventional transfers must always be signed
+	secp256k1_scalar m_kKrn;
+	secp256k1_scalar m_kNonce;
 
-	secp256k1_scalar kKrn, kNonce;
-	UintBig hvMyID, hv;
-	GetWalletIDKey(p, pIn->m_Mut.m_MyIDKey, &kNonce, &hvMyID);
+	UintBig m_hvMyID;
+	UintBig m_hvToken;
 
-	if (pIn->m_iSlot >= KeyKeeper_getNumSlots(p))
-		return c_KeyKeeper_Status_Unspecified;
+} TxSendContext;
 
-	KeyKeeper_ReadSlot(p, pIn->m_iSlot, &hv);
-	Kdf_Derive_SKey(&p->m_MasterKey, &hv, &kNonce);
+__stack_hungry__
+static void TxSend_DeriveKeys(KeyKeeper* p, const OpIn_TxSend2* pIn, TxSendContext* pCtx)
+{
+	GetWalletIDKey(p, pIn->m_Mut.m_MyIDKey, &pCtx->m_kNonce, &pCtx->m_hvMyID);
+
+	KeyKeeper_ReadSlot(p, pIn->m_iSlot, &pCtx->m_hvToken);
+	Kdf_Derive_SKey(&p->m_MasterKey, &pCtx->m_hvToken, &pCtx->m_kNonce);
 
 	// during negotiation kernel height and commitment are adjusted. We should only commit to the Fee
 	secp256k1_sha256_t sha;
 	secp256k1_sha256_initialize(&sha);
 	secp256k1_sha256_write_Num(&sha, pIn->m_Tx.m_Krn.m_Fee);
 	secp256k1_sha256_write(&sha, pIn->m_Mut.m_Peer.m_pVal, sizeof(pIn->m_Mut.m_Peer.m_pVal));
-	secp256k1_sha256_write(&sha, hvMyID.m_pVal, sizeof(hvMyID.m_pVal));
+	secp256k1_sha256_write(&sha, pCtx->m_hvMyID.m_pVal, sizeof(pCtx->m_hvMyID.m_pVal));
 
 	uint8_t nFlag = 0; // not nonconventional
 	secp256k1_sha256_write(&sha, &nFlag, sizeof(nFlag));
 
-	secp256k1_scalar_get_b32(hv.m_pVal, &p->u.m_TxBalance.m_sk);
-	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
-	secp256k1_sha256_write_Num(&sha, netAmount);
-	secp256k1_sha256_write_Num(&sha, aid);
+	secp256k1_scalar_get_b32(pCtx->m_hvToken.m_pVal, &p->u.m_TxBalance.m_sk);
+	secp256k1_sha256_write(&sha, pCtx->m_hvToken.m_pVal, sizeof(pCtx->m_hvToken.m_pVal));
+	secp256k1_sha256_write_Num(&sha, pCtx->m_netAmount);
+	secp256k1_sha256_write_Num(&sha, pCtx->m_Aid);
 
-	secp256k1_scalar_get_b32(hv.m_pVal, &kNonce);
-	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
-	secp256k1_sha256_finalize(&sha, hv.m_pVal);
+	secp256k1_scalar_get_b32(pCtx->m_hvToken.m_pVal, &pCtx->m_kNonce);
+	secp256k1_sha256_write(&sha, pCtx->m_hvToken.m_pVal, sizeof(pCtx->m_hvToken.m_pVal));
+	secp256k1_sha256_finalize(&sha, pCtx->m_hvToken.m_pVal);
 
 	static const char szSalt[] = "hw-wlt-snd";
 	NonceGenerator ng;
-	NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &hv);
-	NonceGenerator_NextScalar(&ng, &kKrn);
+	NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &pCtx->m_hvToken);
+	NonceGenerator_NextScalar(&ng, &pCtx->m_kKrn);
 	SECURE_ERASE_OBJ(ng);
 
 	// derive tx token
 	secp256k1_sha256_initialize(&sha);
 	HASH_WRITE_STR(sha, "tx.token");
 
-	secp256k1_scalar_get_b32(hv.m_pVal, &kKrn);
-	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
-	secp256k1_sha256_finalize(&sha, hv.m_pVal);
+	secp256k1_scalar_get_b32(pCtx->m_hvToken.m_pVal, &pCtx->m_kKrn);
+	secp256k1_sha256_write(&sha, pCtx->m_hvToken.m_pVal, sizeof(pCtx->m_hvToken.m_pVal));
+	secp256k1_sha256_finalize(&sha, pCtx->m_hvToken.m_pVal);
 
-	if (IsUintBigZero(&hv))
-		hv.m_pVal[_countof(hv.m_pVal) - 1] = 1;
+	if (IsUintBigZero(&pCtx->m_hvToken))
+		pCtx->m_hvToken.m_pVal[_countof(pCtx->m_hvToken.m_pVal) - 1] = 1;
+}
+
+int HandleTxSend(KeyKeeper* p, OpIn_TxSend2* pIn, OpOut_TxSend1* pOut1, OpOut_TxSend2* pOut2)
+{
+	TxSendContext ctx;
+
+	if (!TxAggr_Get(p, &ctx.m_netAmount, &ctx.m_Aid, &pIn->m_Tx.m_Krn.m_Fee) || !ctx.m_netAmount)
+		return c_KeyKeeper_Status_Unspecified; // not sending
+
+	if (IsUintBigZero(&pIn->m_Mut.m_Peer))
+		return c_KeyKeeper_Status_UserAbort; // conventional transfers must always be signed
+
+	if (pIn->m_iSlot >= KeyKeeper_getNumSlots(p))
+		return c_KeyKeeper_Status_Unspecified;
+
+	TxSend_DeriveKeys(p, pIn, &ctx);
+
 
 	if (pOut1)
 	{
-		int res = KeyKeeper_ConfirmSpend(p, netAmount, aid, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, 0, 0);
+		int res = KeyKeeper_ConfirmSpend(p, ctx.m_netAmount, ctx.m_Aid, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, 0, 0);
 		if (c_KeyKeeper_Status_Ok != res)
 			return res;
 
-		pOut1->m_UserAgreement = hv;
+		pOut1->m_UserAgreement = ctx.m_hvToken;
 
-		KernelUpdateKeysEx(&pOut1->m_HalfKrn.m_Commitment, &pOut1->m_HalfKrn.m_NoncePub, &kKrn, &kNonce, 0);
+		KernelUpdateKeysEx(&pOut1->m_HalfKrn.m_Commitment, &pOut1->m_HalfKrn.m_NoncePub, &ctx.m_kKrn, &ctx.m_kNonce, 0);
 
 		return c_KeyKeeper_Status_Ok;
 	}
 
 	assert(pOut2);
 
-	if (memcmp(pIn->m_UserAgreement.m_pVal, hv.m_pVal, sizeof(hv.m_pVal)))
+	if (memcmp(pIn->m_UserAgreement.m_pVal, ctx.m_hvToken.m_pVal, sizeof(ctx.m_hvToken.m_pVal)))
 		return c_KeyKeeper_Status_Unspecified; // incorrect user agreement token
 
 	TxKernelData krn;
 	krn.m_Commitment = pIn->m_HalfKrn.m_Commitment;
 	krn.m_Signature.m_NoncePub = pIn->m_HalfKrn.m_NoncePub;
 
-	TxKernel_getID(&pIn->m_Tx.m_Krn, &krn, &hv);
+	TxKernel_getID(&pIn->m_Tx.m_Krn, &krn, &ctx.m_hvToken);
 
 	// verify payment confirmation signature
-	GetPaymentConfirmationMsg(&hvMyID, &hvMyID, &hv, netAmount, aid);
+	GetPaymentConfirmationMsg(&ctx.m_hvMyID, &ctx.m_hvMyID, &ctx.m_hvToken, ctx.m_netAmount, ctx.m_Aid);
 
-	CompactPoint pt;
-	pt.m_X = pIn->m_Mut.m_Peer;
-	pt.m_Y = 0;
-
-	if (!Signature_IsValid(&pIn->m_PaymentProof, &hvMyID, &pt))
+	if (!Signature_IsValid_Ex(&pIn->m_PaymentProof, &ctx.m_hvMyID, &pIn->m_Mut.m_Peer))
 		return c_KeyKeeper_Status_Unspecified;
 
 	// 2nd user confirmation request. Now the kernel is complete, its ID is calculated
-	int res = KeyKeeper_ConfirmSpend(p, netAmount, aid, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, &krn, &hvMyID);
+	int res = KeyKeeper_ConfirmSpend(p, ctx.m_netAmount, ctx.m_Aid, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, &krn, &ctx.m_hvMyID);
 	if (c_KeyKeeper_Status_Ok != res)
 		return res;
 
 	// Regenerate the slot (BEFORE signing), and sign
 	KeyKeeper_RegenerateSlot(p, pIn->m_iSlot);
 
-	Signature_SignPartial(&krn.m_Signature, &hv, &kKrn, &kNonce);
+	Signature_SignPartial(&krn.m_Signature, &ctx.m_hvToken, &ctx.m_kKrn, &ctx.m_kNonce);
 
 	pOut2->m_kSig = krn.m_Signature.m_k;
-	TxAggr_ToOffsetEx(p, &kKrn, &pOut2->m_kOffset);
+	TxAggr_ToOffsetEx(p, &ctx.m_kKrn, &pOut2->m_kOffset);
 
 	return c_KeyKeeper_Status_Ok;
 }
 
 PROTO_METHOD_SIMPLE(TxSend1)
 {
-	return HandleTxSend(p, (OpIn_TxSend2*) pIn, pIn + 1, nIn, pOut, 0);
+	if (nIn)
+		return c_KeyKeeper_Status_ProtoError;
+
+	return HandleTxSend(p, (OpIn_TxSend2*) pIn, pOut, 0);
 }
 
 PROTO_METHOD_SIMPLE(TxSend2)
 {
-	return HandleTxSend(p, pIn, pIn + 1, nIn, 0, pOut);
+	if (nIn)
+		return c_KeyKeeper_Status_ProtoError;
+
+	return HandleTxSend(p, pIn, 0, pOut);
 }
 
 //////////////////////////////
@@ -3244,6 +3281,9 @@ int VerifyShieldedOutputParams(const KeyKeeper* p, const OpIn_TxSendShielded* pS
 
 PROTO_METHOD_SIMPLE(TxSendShielded)
 {
+	if (nIn)
+		return c_KeyKeeper_Status_ProtoError;
+
 	Amount netAmount;
 	AssetID aid;
 	if (!TxAggr_Get(p, &netAmount, &aid, &pIn->m_Tx.m_Krn.m_Fee) || !netAmount)
