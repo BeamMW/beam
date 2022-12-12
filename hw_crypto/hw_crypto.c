@@ -1959,7 +1959,7 @@ void KeyKeeper_GetPKdf(const KeyKeeper* p, KdfPub* pRes, const uint32_t* pChild)
 
 //////////////////
 // Protocol
-#define PROTO_METHOD(name) __stack_hungry__ static int HandleProto_##name(KeyKeeper* p, Op_##name* pArg, uint32_t nIn, uint32_t nOut)
+#define PROTO_METHOD(name) __stack_hungry__ static int HandleProto_##name(KeyKeeper* p, Op_##name* pArg, uint32_t nIn, uint32_t* pOutSize)
 
 #pragma pack (push, 1)
 #define THE_MACRO_Field(type, name) type m_##name;
@@ -1987,14 +1987,15 @@ BeamCrypto_ProtoMethods(THE_MACRO_OpCode)
 
 #define PROTO_METHOD_SIMPLE(name) \
 static int HandleProtoSimple_##name(KeyKeeper* p, OpIn_##name* pIn, uint32_t nIn, OpOut_##name* pOut); \
-__stack_hungry__ static int HandleProto_##name(KeyKeeper* p, Op_##name* pArg, uint32_t nIn, uint32_t nOut) \
+__stack_hungry__ static int HandleProto_##name(KeyKeeper* p, Op_##name* pArg, uint32_t nIn, uint32_t* pOutSize) \
 { \
-	if (nOut) \
-		return c_KeyKeeper_Status_ProtoError; \
 	OpOut_##name out; \
 	int res = HandleProtoSimple_##name(p, &pArg->m_In, nIn, &out); \
 	if (c_KeyKeeper_Status_Ok == res) \
+	{ \
 		memcpy(&pArg->m_Out, &out, sizeof(out)); \
+		*pOutSize = sizeof(OpOut_##name); \
+	} \
 	return res; \
 } \
 static int HandleProtoSimple_##name(KeyKeeper* p, OpIn_##name* pIn, uint32_t nIn, OpOut_##name* pOut)
@@ -2004,7 +2005,7 @@ static int HandleProtoSimple_##name(KeyKeeper* p, OpIn_##name* pIn, uint32_t nIn
 #define N2H_uint32_t(p) *p = bswap32_le(*p)
 #define N2H_uint64_t(p) *p = bswap64_le(*p)
 #define N2H_Height(p) N2H_uint64_t(p)
-#define N2H_WalletIdentity(p) N2H_uint64_t(p)
+#define N2H_AddrID(p) N2H_uint64_t(p)
 
 #define N2H_KdfPub(p)
 #define N2H_UintBig(p)
@@ -2044,11 +2045,11 @@ void N2H_TxCommonIn(TxCommonIn* p)
 
 void N2H_TxMutualIn(TxMutualIn* p)
 {
-	N2H_uint64_t(&p->m_MyIDKey);
+	N2H_uint64_t(&p->m_AddrID);
 }
 
 __stack_hungry__
-int KeyKeeper_Invoke(KeyKeeper* p, uint8_t* pInOut, uint32_t nIn, uint32_t nOut)
+int KeyKeeper_Invoke(KeyKeeper* p, uint8_t* pInOut, uint32_t nIn, uint32_t* pOutSize)
 {
 	if (!nIn)
 		return c_KeyKeeper_Status_ProtoError;
@@ -2061,13 +2062,13 @@ int KeyKeeper_Invoke(KeyKeeper* p, uint8_t* pInOut, uint32_t nIn, uint32_t nOut)
 #define THE_MACRO(id, name) \
 	case id: \
 	{ \
-		if ((nIn < sizeof(OpIn_##name)) || (nOut < sizeof(OpOut_##name))) \
+		if ((nIn < sizeof(OpIn_##name)) || (*pOutSize < sizeof(OpOut_##name))) \
 			return c_KeyKeeper_Status_ProtoError; \
  \
 		Op_##name* pArg = (Op_##name*) pInOut; \
 		BeamCrypto_ProtoRequest_##name(THE_MACRO_CvtIn) \
 \
-		int nRes = HandleProto_##name(p, pArg, nIn - sizeof(OpIn_##name), nOut - sizeof(OpOut_##name)); \
+		int nRes = HandleProto_##name(p, pArg, nIn - sizeof(OpIn_##name), pOutSize); \
 		if (c_KeyKeeper_Status_Ok == nRes) \
 		{ \
 			BeamCrypto_ProtoResponse_##name(THE_MACRO_CvtOut) \
@@ -2086,36 +2087,41 @@ int KeyKeeper_Invoke(KeyKeeper* p, uint8_t* pInOut, uint32_t nIn, uint32_t nOut)
 
 PROTO_METHOD(Version)
 {
-	if (nIn || nOut)
+	if (nIn)
 		return c_KeyKeeper_Status_ProtoError; // size mismatch
 
 	pArg->m_Out.m_Value = BeamCrypto_CurrentProtoVer;
+
+	*pOutSize = sizeof(pArg->m_Out);
 	return c_KeyKeeper_Status_Ok;
 }
 
 PROTO_METHOD(GetNumSlots)
 {
-	if (nIn || nOut)
+	if (nIn)
 		return c_KeyKeeper_Status_ProtoError; // size mismatch
 
 	pArg->m_Out.m_Value = KeyKeeper_getNumSlots(p);
+
+	*pOutSize = sizeof(pArg->m_Out);
 	return c_KeyKeeper_Status_Ok;
 }
 
 PROTO_METHOD(GetPKdf)
 {
-	if (nIn || nOut)
+	if (nIn)
 		return c_KeyKeeper_Status_ProtoError; // size mismatch
 
 	uint32_t iChild = (uint32_t) -1;
 	KeyKeeper_GetPKdf(p, &pArg->m_Out.m_Value, pArg->m_In.m_Kind ? &iChild : 0);
 
+	*pOutSize = sizeof(pArg->m_Out);
 	return c_KeyKeeper_Status_Ok;
 }
 
 PROTO_METHOD(GetImage)
 {
-	if (nIn || nOut)
+	if (nIn)
 		return c_KeyKeeper_Status_ProtoError; // size mismatch
 
 	Kdf kdfC;
@@ -2167,12 +2173,13 @@ PROTO_METHOD(GetImage)
 		}
 	}
 
+	*pOutSize = sizeof(pArg->m_Out);
 	return c_KeyKeeper_Status_Ok;
 }
 
 PROTO_METHOD(CreateOutput)
 {
-	if (nIn || nOut)
+	if (nIn)
 		return c_KeyKeeper_Status_ProtoError; // size mismatch
 
 	RangeProof ctx;
@@ -2213,6 +2220,7 @@ PROTO_METHOD(CreateOutput)
 
 	secp256k1_scalar_get_b32(pArg->m_Out.m_TauX.m_pVal, &sBuf);
 
+	*pOutSize = sizeof(pArg->m_Out);
 	return c_KeyKeeper_Status_Ok;
 }
 
@@ -2413,9 +2421,6 @@ static void TxAggr_ToOffset(const KeyKeeper* p, const secp256k1_scalar* pKrn, Tx
 
 PROTO_METHOD(TxAddCoins)
 {
-	if (nOut)
-		return c_KeyKeeper_Status_ProtoError;
-
 	if ((pArg->m_In.m_Reset) || (c_KeyKeeper_State_TxBalance != p->m_State))
 	{
 		ZERO_OBJ(p->u);
@@ -2430,7 +2435,10 @@ PROTO_METHOD(TxAddCoins)
 		p->m_State = 0;
 	}
 	else
+	{
 		pArg->m_Out.m_Dummy = 0;
+		*pOutSize = sizeof(pArg->m_Out);
+	}
 
 	return status;
 }
@@ -2565,7 +2573,7 @@ static void GetPaymentConfirmationMsg(UintBig* pRes, const UintBig* pSender, con
 }
 
 __stack_hungry__
-void GetWalletIDKey(const KeyKeeper* p, WalletIdentity nKey, secp256k1_scalar* pKey, UintBig* pID)
+void DeriveAddress(const KeyKeeper* p, AddrID addrID, secp256k1_scalar* pKey, UintBig* pID)
 {
 	// derive key
 	secp256k1_sha256_t sha;
@@ -2574,7 +2582,7 @@ void GetWalletIDKey(const KeyKeeper* p, WalletIdentity nKey, secp256k1_scalar* p
 
 	const uint32_t nType = FOURCC_FROM_STR(tRid);
 
-	secp256k1_sha256_write_Num(&sha, nKey);
+	secp256k1_sha256_write_Num(&sha, addrID);
 	secp256k1_sha256_write_Num(&sha, nType);
 	secp256k1_sha256_write_Num(&sha, 0);
 	secp256k1_sha256_finalize(&sha, pID->m_pVal);
@@ -2610,7 +2618,7 @@ PROTO_METHOD_SIMPLE(TxReceive)
 	uint8_t nFlag = 0; // not nonconventional
 	secp256k1_sha256_write(&sha, &nFlag, sizeof(nFlag));
 	secp256k1_sha256_write(&sha, pIn->m_Mut.m_Peer.m_pVal, sizeof(pIn->m_Mut.m_Peer.m_pVal));
-	secp256k1_sha256_write_Num(&sha, pIn->m_Mut.m_MyIDKey);
+	secp256k1_sha256_write_Num(&sha, pIn->m_Mut.m_AddrID);
 
 	secp256k1_scalar_get_b32(hv.m_pVal, &p->u.m_TxBalance.m_sk);
 	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
@@ -2638,17 +2646,38 @@ PROTO_METHOD_SIMPLE(TxReceive)
 
 	TxAggr_ToOffset(p, &keys.m_kKrn, &pOut->m_Tx);
 
-	if (pIn->m_Mut.m_MyIDKey)
+	if (pIn->m_Mut.m_AddrID)
 	{
 		// sign
 		UintBig hvID;
-		GetWalletIDKey(p, pIn->m_Mut.m_MyIDKey, &keys.m_kKrn, &hvID);
+		DeriveAddress(p, pIn->m_Mut.m_AddrID, &keys.m_kKrn, &hvID);
 		GetPaymentConfirmationMsg(&hvID, &pIn->m_Mut.m_Peer, &hv, netAmount, aid);
 		Signature_Sign(&pOut->m_PaymentProof, &hvID, &keys.m_kKrn);
 	}
 
 	return c_KeyKeeper_Status_Ok;
 }
+
+//////////////////////////////
+// KeyKeeper - DisplayAddress
+PROTO_METHOD(DisplayAddress)
+{
+	if (nIn)
+		return c_KeyKeeper_Status_ProtoError; // size mismatch
+
+	secp256k1_scalar sk;
+	UintBig hvAddr;
+
+	DeriveAddress(p, pArg->m_In.m_AddrID, &sk, &hvAddr);
+	SECURE_ERASE_OBJ(sk);
+
+	KeyKeeper_DisplayAddress(p, pArg->m_In.m_AddrID, &hvAddr);
+
+	pArg->m_Out.m_Dummy = 0;
+	*pOutSize = sizeof(pArg->m_Out);
+	return c_KeyKeeper_Status_Ok;
+}
+
 
 //////////////////////////////
 // KeyKeeper - SendTx
@@ -2667,7 +2696,7 @@ typedef struct
 __stack_hungry__
 static void TxSend_DeriveKeys(KeyKeeper* p, const OpIn_TxSend2* pIn, TxSendContext* pCtx)
 {
-	GetWalletIDKey(p, pIn->m_Mut.m_MyIDKey, &pCtx->m_Keys.m_kNonce, &pCtx->m_hvMyID);
+	DeriveAddress(p, pIn->m_Mut.m_AddrID, &pCtx->m_Keys.m_kNonce, &pCtx->m_hvMyID);
 
 	KeyKeeper_ReadSlot(p, pIn->m_iSlot, &pCtx->m_hvToken);
 	Kdf_Derive_SKey(&p->m_MasterKey, &pCtx->m_hvToken, &pCtx->m_Keys.m_kNonce);
@@ -2966,8 +2995,10 @@ PROTO_METHOD(CreateShieldedVouchers)
 	if (!inp.m_Count)
 		return c_KeyKeeper_Status_Ok;
 
-	if (nOut != sizeof(ShieldedVoucher) * inp.m_Count)
+	uint32_t nSizeOut = sizeof(pArg->m_Out) + sizeof(ShieldedVoucher) * inp.m_Count;
+	if (*pOutSize < nSizeOut)
 		return c_KeyKeeper_Status_ProtoError;
+	*pOutSize = nSizeOut;
 
 	ShieldedViewer viewer;
 	ShieldedViewerInit(&viewer, 0, p);
@@ -2975,7 +3006,7 @@ PROTO_METHOD(CreateShieldedVouchers)
 	// key to sign the voucher(s)
 	UintBig hv;
 	secp256k1_scalar skSign;
-	GetWalletIDKey(p, inp.m_nMyIDKey, &skSign, &hv);
+	DeriveAddress(p, inp.m_AddrID, &skSign, &hv);
 
 	ShieldedVoucher* pRes = (ShieldedVoucher*)(&pArg->m_Out + 1);
 
@@ -3198,9 +3229,9 @@ int VerifyShieldedOutputParams(const KeyKeeper* p, const OpIn_TxSendShielded* pS
 		return 0;
 	// skip the voucher's ticket verification, don't care if it's valid, as it was already signed by the receiver.
 
-	if (pSh->m_Mut.m_MyIDKey)
+	if (pSh->m_Mut.m_AddrID)
 	{
-		GetWalletIDKey(p, pSh->m_Mut.m_MyIDKey, pSk, &hv);
+		DeriveAddress(p, pSh->m_Mut.m_AddrID, pSk, &hv);
 		if (memcmp(hv.m_pVal, pSh->m_Mut.m_Peer.m_pVal, sizeof(hv.m_pVal)))
 			return 0;
 	}
@@ -3355,7 +3386,7 @@ PROTO_METHOD_SIMPLE(TxSendShielded)
 	TxKernel_getID_Ex(&pIn->m_Tx.m_Krn, &pOut->m_Tx.m_Comms, &hv, &hvKrn1, 1);
 
 	// all set
-	int res = pIn->m_Mut.m_MyIDKey ?
+	int res = pIn->m_Mut.m_AddrID ?
 		KeyKeeper_ConfirmSpend(p, 0, 0, 0, &pIn->m_Tx.m_Krn, &hv) :
 		KeyKeeper_ConfirmSpend(p, netAmount, aid, &pIn->m_Mut.m_Peer, &pIn->m_Tx.m_Krn, &hv);
 

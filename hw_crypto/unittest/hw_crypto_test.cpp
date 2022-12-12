@@ -76,6 +76,10 @@ extern "C"
 	{
 		return static_cast<Amount>(-1);
 	}
+
+	void KeyKeeper_DisplayAddress(KeyKeeper*, AddrID addrID, const UintBig* pAddr)
+	{
+	}
 }
 
 } // namespace hw
@@ -728,7 +732,7 @@ struct KeyKeeperHwEmu
 			if (!bUseOutp)
 				memcpy(Cast::NotConst(m_msgIn.p), m_msgOut.p, m_msgOut.n);
 
-			int nRes = hw::KeyKeeper_Invoke(&m_pThis->m_Ctx, reinterpret_cast<uint8_t*>(Cast::NotConst(bUseOutp ? m_msgOut.p : m_msgIn.p)), m_msgOut.n, m_msgIn.n);
+			int nRes = hw::KeyKeeper_Invoke(&m_pThis->m_Ctx, reinterpret_cast<uint8_t*>(Cast::NotConst(bUseOutp ? m_msgOut.p : m_msgIn.p)), m_msgOut.n, &m_msgIn.n);
 
 			if (bUseOutp)
 				memcpy(Cast::NotConst(m_msgIn.p), m_msgOut.p, m_msgIn.n);

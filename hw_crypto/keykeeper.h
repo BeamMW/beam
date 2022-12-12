@@ -43,15 +43,6 @@ typedef struct
 #define c_KeyKeeper_State_TxBalance 1
 
 
-//////////////////////////
-// External functions, implemented by the platform-specific code
-void SecureEraseMem(void*, uint32_t);
-uint32_t KeyKeeper_getNumSlots(KeyKeeper*);
-void KeyKeeper_ReadSlot(KeyKeeper*, uint32_t, UintBig*);
-void KeyKeeper_RegenerateSlot(KeyKeeper*, uint32_t);
-int KeyKeeper_AllowWeakInputs(KeyKeeper*);
-Amount KeyKeeper_get_MaxShieldedFee(KeyKeeper*);
-
 typedef struct
 {
 	UintBig m_Secret;
@@ -63,7 +54,7 @@ typedef struct
 void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if pChild is NULL then the master kdfpub (owner key) is returned
 
 typedef uint64_t Height;
-typedef uint64_t WalletIdentity;
+typedef uint64_t AddrID;
 
 typedef struct
 {
@@ -133,7 +124,7 @@ typedef struct
 typedef struct
 {
 	UintBig m_Peer;
-	WalletIdentity m_MyIDKey;
+	AddrID m_AddrID;
 
 } TxMutualIn;
 
@@ -228,6 +219,12 @@ typedef struct
 	macro(CompactPoint, ptImageG) \
 	macro(CompactPoint, ptImageJ) \
 
+#define BeamCrypto_ProtoRequest_DisplayAddress(macro) \
+	macro(AddrID, AddrID) \
+
+#define BeamCrypto_ProtoResponse_DisplayAddress(macro) \
+	macro(uint8_t, Dummy) \
+
 #define BeamCrypto_ProtoRequest_CreateShieldedInput(macro) \
 	macro(ShieldedInput, Inp) \
 	macro(Height, hMin) \
@@ -250,7 +247,7 @@ typedef struct
 
 #define BeamCrypto_ProtoRequest_CreateShieldedVouchers(macro) \
 	macro(uint32_t, Count) \
-	macro(WalletIdentity, nMyIDKey) \
+	macro(AddrID, AddrID) \
 	macro(UintBig, Nonce0) \
 
 #define BeamCrypto_ProtoResponse_CreateShieldedVouchers(macro) \
@@ -308,6 +305,7 @@ typedef struct
 	macro(0x02, GetNumSlots) \
 	macro(0x03, GetPKdf) \
 	macro(0x04, GetImage) \
+	macro(0x05, DisplayAddress) \
 	macro(0x10, CreateOutput) \
 	macro(0x18, TxAddCoins) \
 	macro(0x21, CreateShieldedInput) \
@@ -318,7 +316,18 @@ typedef struct
 	macro(0x33, TxSend2) \
 	macro(0x36, TxSendShielded) \
 
-int KeyKeeper_Invoke(KeyKeeper*, uint8_t* pInOut, uint32_t nIn, uint32_t nOut);
+int KeyKeeper_Invoke(KeyKeeper*, uint8_t* pInOut, uint32_t nIn, uint32_t* pOutSize);
+
+//////////////////////////
+// External functions, implemented by the platform-specific code
+void SecureEraseMem(void*, uint32_t);
+uint32_t KeyKeeper_getNumSlots(KeyKeeper*);
+void KeyKeeper_ReadSlot(KeyKeeper*, uint32_t, UintBig*);
+void KeyKeeper_RegenerateSlot(KeyKeeper*, uint32_t);
+int KeyKeeper_AllowWeakInputs(KeyKeeper*);
+Amount KeyKeeper_get_MaxShieldedFee(KeyKeeper*);
+
+void KeyKeeper_DisplayAddress(KeyKeeper*, AddrID addrID, const UintBig* pPeerID);
 
 //////////////////////////
 // KeyKeeper - request user approval for spend

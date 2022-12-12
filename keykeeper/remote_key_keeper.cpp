@@ -60,7 +60,7 @@ extern "C" {
 		}
 
 		void h2n(TxMutualIn& mut) {
-			h2n(mut.m_MyIDKey);
+			h2n(mut.m_AddrID);
 		}
 
         void h2n(KdfPub& x) {}
@@ -325,7 +325,7 @@ namespace beam::wallet
 
     void RemoteKeyKeeper::Impl::Encoder::Import(hw::TxMutualIn& txIn, const Method::TxMutual& m)
     {
-	    txIn.m_MyIDKey = m.m_MyIDKey;
+	    txIn.m_AddrID = m.m_MyIDKey;
 	    txIn.m_Peer = Ecc2BC(m.m_Peer);
     }
 
@@ -980,7 +980,7 @@ namespace beam::wallet
 
             m_MsgOut.m_Count = m_MaxCount;
             m_MsgOut.m_Nonce0 = Ecc2BC(m_M.m_Nonce);
-            m_MsgOut.m_nMyIDKey = m_M.m_MyIDKey;
+            m_MsgOut.m_AddrID = m_M.m_MyIDKey;
 
             hw::Proto::CreateShieldedVouchers::In dummy;
             auto& msgIn = ExtendBy(m_MsgIn, dummy, nSize);
@@ -1181,7 +1181,7 @@ namespace beam::wallet
             InvokeProtoEx(out, m_Coins.m_In, nOutExtra, 0);
 
             m_Msg.m_Out.m_Mut.m_Peer = Ecc2BC(m_M.m_Peer);
-            m_Msg.m_Out.m_Mut.m_MyIDKey = m_M.m_MyIDKey;
+            m_Msg.m_Out.m_Mut.m_AddrID = m_M.m_MyIDKey;
             m_Msg.m_Out.m_HideAssetAlways = m_M.m_HideAssetAlways;
             m_Enc.Import(m_Msg.m_Out.m_User, m_M.m_User);
             m_Enc.Import(m_Msg.m_Out.m_Tx.m_Krn, m_M);
