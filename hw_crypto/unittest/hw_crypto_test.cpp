@@ -226,8 +226,7 @@ void InitContext()
 {
 	printf("Init context...\n");
 
-	hw::Context* pCtx = hw::Context_get();
-	assert(pCtx);
+	hw::Context hwCtx;
 
 	const ECC::Context& ctx = ECC::Context::get();
 
@@ -235,17 +234,32 @@ void InitContext()
 	ctx.m_Ipp.m_GenDot_.m_Fast.m_pPt[0].Assign(nums, true); // whatever point, doesn't matter actually
 
 	ctx.m_Ipp.G_.m_Fast.m_pPt[0].Assign(pt, true);
-	BeamCrypto_InitGenSecure(pCtx->m_pGenGJ[0], pt, nums);
+	BeamCrypto_InitGenSecure(hwCtx.m_pGenGJ[0], pt, nums);
 
 	ctx.m_Ipp.J_.m_Fast.m_pPt[0].Assign(pt, true);
-	BeamCrypto_InitGenSecure(pCtx->m_pGenGJ[1], pt, nums);
+	BeamCrypto_InitGenSecure(hwCtx.m_pGenGJ[1], pt, nums);
 
 	static_assert(ECC::InnerProduct::nDim * 2 == c_MultiMac_Fast_Idx_H);
 
 	for (uint32_t iGen = 0; iGen < ECC::InnerProduct::nDim * 2; iGen++)
-		BeamCrypto_InitFast(pCtx->m_pGenFast[iGen], ECC::Context::get().m_Ipp.m_pGen_[0][iGen]);
+		BeamCrypto_InitFast(hwCtx.m_pGenFast[iGen], ECC::Context::get().m_Ipp.m_pGen_[0][iGen]);
 
-	BeamCrypto_InitFast(pCtx->m_pGenFast[c_MultiMac_Fast_Idx_H], ECC::Context::get().m_Ipp.H_);
+	BeamCrypto_InitFast(hwCtx.m_pGenFast[c_MultiMac_Fast_Idx_H], ECC::Context::get().m_Ipp.H_);
+
+	// dump it
+	auto p = reinterpret_cast<const uint8_t*>(&hwCtx);
+
+	const uint32_t nWidth = 16;
+	for (uint32_t i = 0; i < sizeof(hwCtx); )
+	{
+		char sz[3];
+		uintBigImpl::_Print(p + i, 1, sz);
+
+		std::cout << "0x" << sz << ',';
+		if (!((++i) % nWidth))
+			std::cout << '\n';
+	}
+
 }
 
 
