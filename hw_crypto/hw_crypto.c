@@ -1299,6 +1299,10 @@ static void RangeProof_Calculate_S(RangeProof* const p, RangeProof_Worker* const
 	secp256k1_scalar pS[Calc_S_Naggle];
 	MultiMac_WNaf pWnaf[Calc_S_Naggle];
 
+#ifdef BeamCrypto_SlowLoad
+	secp256k1_ge_storage pGen[Calc_S_Naggle][c_MultiMac_OddCount(c_MultiMac_nBits_Rangeproof)];
+#endif // BeamCrypto_SlowLoad
+
 	secp256k1_scalar ro;
 
 	NonceGenerator_NextScalar(&pWrk->m_NonceGen, &ro);
@@ -1311,10 +1315,16 @@ static void RangeProof_Calculate_S(RangeProof* const p, RangeProof_Worker* const
 
 	mmCtx.m_Fast.m_pZDenom = 0;
 	mmCtx.m_Fast.m_Count = 0;
-	mmCtx.m_Fast.m_pGen0 = Context_get()->m_pGenRangeproof[0];
 	mmCtx.m_Fast.m_WndBits = c_MultiMac_nBits_Rangeproof;
 	mmCtx.m_Fast.m_pK = pS;
 	mmCtx.m_Fast.m_pWnaf = pWnaf;
+
+#ifdef BeamCrypto_SlowLoad
+	memcpy(pGen, Context_get()->m_pGenRangeproof, sizeof(pGen));
+	mmCtx.m_Fast.m_pGen0 = pGen;
+#else // BeamCrypto_SlowLoad
+	mmCtx.m_Fast.m_pGen0 = Context_get()->m_pGenRangeproof[0];
+#endif // BeamCrypto_SlowLoad
 
 	for (unsigned int iBit = 0; iBit < nDims * 2; iBit++, mmCtx.m_Fast.m_Count++)
 	{
@@ -1329,7 +1339,14 @@ static void RangeProof_Calculate_S(RangeProof* const p, RangeProof_Worker* const
 
 			mmCtx.m_Secure.m_Count = 0;
 			mmCtx.m_Fast.m_Count = 0;
+
+#ifdef BeamCrypto_SlowLoad
+			uint32_t nRemaining = min(Calc_S_Naggle, (nDims * 2 - iBit));
+			memcpy(pGen, Context_get()->m_pGenRangeproof + iBit, sizeof(pGen[0]) * nRemaining);
+#else // BeamCrypto_SlowLoad
 			mmCtx.m_Fast.m_pGen0 += Calc_S_Naggle * c_MultiMac_OddCount(c_MultiMac_nBits_Rangeproof);
+#endif // BeamCrypto_SlowLoad
+
 		}
 
 		NonceGenerator_NextScalar(&pWrk->m_NonceGen, pS + mmCtx.m_Fast.m_Count);

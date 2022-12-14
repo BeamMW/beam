@@ -242,9 +242,9 @@ void InitContext()
 	static_assert(ECC::InnerProduct::nDim * 2 == _countof(hwCtx.m_pGenRangeproof));
 
 	for (uint32_t iGen = 0; iGen < ECC::InnerProduct::nDim * 2; iGen++)
-		BeamCrypto_InitFast(hwCtx.m_pGenRangeproof[iGen], ECC::Context::get().m_Ipp.m_pGen_[0][iGen], c_MultiMac_OddCount(c_MultiMac_nBits_Rangeproof));
+		BeamCrypto_InitFast(hwCtx.m_pGenRangeproof[iGen], ECC::Context::get().m_Ipp.m_pGen_[0][iGen], _countof(hwCtx.m_pGenRangeproof[iGen]));
 
-	BeamCrypto_InitFast(hwCtx.m_pGenH, ECC::Context::get().m_Ipp.H_, c_MultiMac_OddCount(c_MultiMac_nBits_H));
+	BeamCrypto_InitFast(hwCtx.m_pGenH, ECC::Context::get().m_Ipp.H_, _countof(hwCtx.m_pGenH));
 
 	// dump it
 	auto p = reinterpret_cast<const uint8_t*>(&hwCtx);
