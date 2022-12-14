@@ -177,7 +177,7 @@ void BeamCrypto_InitGenSecure(hw::MultiMac_Secure& x, const ECC::Point::Native& 
 	{
 		pt = pt * ECC::Two;
 
-		if (!(iBit % c_MultiMac_Secure_nBits))
+		if (!(iBit % c_MultiMac_nBits_Secure))
 			pt += nums;
 	}
 
@@ -186,14 +186,14 @@ void BeamCrypto_InitGenSecure(hw::MultiMac_Secure& x, const ECC::Point::Native& 
 	cpc.Flush();
 }
 
-void BeamCrypto_InitFast(hw::MultiMac_Fast_Precomputed& trg, const ECC::MultiMac::Prepared& p)
+void BeamCrypto_InitFast(secp256k1_ge_storage* pRes, const ECC::MultiMac::Prepared& p, uint32_t nCount)
 {
 	const ECC::MultiMac::Prepared::Fast& src = p.m_Fast;
 
-	static_assert(_countof(trg.m_pPt) <= _countof(src.m_pPt));
+	assert(nCount <= _countof(src.m_pPt));
 
-	for (uint32_t j = 0; j < _countof(trg.m_pPt); j++)
-		trg.m_pPt[j] = src.m_pPt[j];
+	for (uint32_t j = 0; j < nCount; j++)
+		pRes[j] = src.m_pPt[j];
 }
 
 char Dig2Hex(uint8_t x)
@@ -239,12 +239,12 @@ void InitContext()
 	ctx.m_Ipp.J_.m_Fast.m_pPt[0].Assign(pt, true);
 	BeamCrypto_InitGenSecure(hwCtx.m_pGenGJ[1], pt, nums);
 
-	static_assert(ECC::InnerProduct::nDim * 2 == c_MultiMac_Fast_Idx_H);
+	static_assert(ECC::InnerProduct::nDim * 2 == _countof(hwCtx.m_pGenRangeproof));
 
 	for (uint32_t iGen = 0; iGen < ECC::InnerProduct::nDim * 2; iGen++)
-		BeamCrypto_InitFast(hwCtx.m_pGenFast[iGen], ECC::Context::get().m_Ipp.m_pGen_[0][iGen]);
+		BeamCrypto_InitFast(hwCtx.m_pGenRangeproof[iGen], ECC::Context::get().m_Ipp.m_pGen_[0][iGen], c_MultiMac_OddCount(c_MultiMac_nBits_Rangeproof));
 
-	BeamCrypto_InitFast(hwCtx.m_pGenFast[c_MultiMac_Fast_Idx_H], ECC::Context::get().m_Ipp.H_);
+	BeamCrypto_InitFast(hwCtx.m_pGenH, ECC::Context::get().m_Ipp.H_, c_MultiMac_OddCount(c_MultiMac_nBits_H));
 
 	// dump it
 	auto p = reinterpret_cast<const uint8_t*>(&hwCtx);
@@ -270,9 +270,8 @@ void TestMultiMac()
 	ECC::Mode::Scope scope(ECC::Mode::Fast);
 
 	uint32_t aa = sizeof(hw::MultiMac_Secure);
-	uint32_t bb = sizeof(hw::MultiMac_Fast_Precomputed);
 	uint32_t cc = sizeof(hw::MultiMac_WNaf);
-	aa;  bb; cc;
+	aa;  cc;
 
 	const uint32_t nFast = 8;
 	const uint32_t nSecure = 2;
@@ -288,8 +287,8 @@ void TestMultiMac()
 	hw::MultiMac_Context mmCtx;
 	mmCtx.m_Fast.m_pZDenom = nullptr;
 	mmCtx.m_Fast.m_Count = nFast;
-	mmCtx.m_Fast.m_pGen0 = hw::Context_get()->m_pGenFast[0].m_pPt;
-	mmCtx.m_Fast.m_WndBits = c_MultiMac_Fast_Precomputed_nBits;
+	mmCtx.m_Fast.m_pGen0 = hw::Context_get()->m_pGenRangeproof[0];
+	mmCtx.m_Fast.m_WndBits = c_MultiMac_nBits_Rangeproof;
 	mmCtx.m_Fast.m_pK = pFastS;
 	mmCtx.m_Fast.m_pWnaf = pWnaf;
 	mmCtx.m_Secure.m_Count = nSecure;
