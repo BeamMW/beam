@@ -52,26 +52,28 @@ typedef struct
 {
 	secp256k1_gej* m_pRes;
 
-	unsigned int m_Fast;
-	unsigned int m_Secure;
+	struct
+	{
+		unsigned int m_Count;
+		unsigned int m_WndBits;
+		const secp256k1_ge_storage* m_pGen0;
+		secp256k1_scalar* m_pK; // would be modified during calculation, value won't be preserved
+		MultiMac_WNaf* m_pWnaf;
+		const secp256k1_fe* m_pZDenom; // optional common z-denominator of 'fast' custom generators.
 
-	union {
-		const MultiMac_Fast_Precomputed* m_pPrecomputed;
-		const MultiMac_Fast_Custom* m_pCustom;
-	} m_FastGen;
+	} m_Fast;
 
-	secp256k1_scalar* m_pFastK; // would be modified during calculation, value won't be preserved
-	MultiMac_WNaf* m_pWnaf;
+	struct
+	{
+		unsigned int m_Count;
+		const MultiMac_Secure* m_pGen;
+		const secp256k1_scalar* m_pK;
 
-	const MultiMac_Secure* m_pGenSecure;
-	const secp256k1_scalar* m_pSecureK;
-
-	const secp256k1_fe* m_pZDenom; // optional common z-denominator of 'fast' custom generators.
-	// If specified - assuming custom generators, otherwise - precomputed
+	} m_Secure;
 
 } MultiMac_Context;
 
-void MultiMac_Calculate(const MultiMac_Context*);
+void MultiMac_Calculate(MultiMac_Context*);
 
 #define c_MultiMac_Fast_nGenerators (sizeof(uint64_t) * 8 * 2)
 #define c_MultiMac_Fast_Idx_H c_MultiMac_Fast_nGenerators

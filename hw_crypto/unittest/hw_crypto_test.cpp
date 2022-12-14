@@ -286,14 +286,15 @@ void TestMultiMac()
 	secp256k1_scalar pSecureS[nSecure];
 
 	hw::MultiMac_Context mmCtx;
-	mmCtx.m_pZDenom = nullptr;
-	mmCtx.m_Fast = nFast;
-	mmCtx.m_Secure = nSecure;
-	mmCtx.m_FastGen.m_pPrecomputed = hw::Context_get()->m_pGenFast;
-	mmCtx.m_pFastK = pFastS;
-	mmCtx.m_pWnaf = pWnaf;
-	mmCtx.m_pGenSecure = pGenSecure;
-	mmCtx.m_pSecureK = pSecureS;
+	mmCtx.m_Fast.m_pZDenom = nullptr;
+	mmCtx.m_Fast.m_Count = nFast;
+	mmCtx.m_Fast.m_pGen0 = hw::Context_get()->m_pGenFast[0].m_pPt;
+	mmCtx.m_Fast.m_WndBits = c_MultiMac_Fast_Precomputed_nBits;
+	mmCtx.m_Fast.m_pK = pFastS;
+	mmCtx.m_Fast.m_pWnaf = pWnaf;
+	mmCtx.m_Secure.m_Count = nSecure;
+	mmCtx.m_Secure.m_pGen = pGenSecure;
+	mmCtx.m_Secure.m_pK = pSecureS;
 
 	ECC::MultiMac_WithBufs<1, nBatch> mm1;
 
