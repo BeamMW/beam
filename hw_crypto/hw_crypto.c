@@ -1321,7 +1321,7 @@ static void RangeProof_Calculate_S(RangeProof* const p, RangeProof_Worker* const
 
 #ifdef BeamCrypto_SlowLoad
 	memcpy(pGen, Context_get()->m_pGenRangeproof, sizeof(pGen));
-	mmCtx.m_Fast.m_pGen0 = pGen;
+	mmCtx.m_Fast.m_pGen0 = pGen[0];
 #else // BeamCrypto_SlowLoad
 	mmCtx.m_Fast.m_pGen0 = Context_get()->m_pGenRangeproof[0];
 #endif // BeamCrypto_SlowLoad
