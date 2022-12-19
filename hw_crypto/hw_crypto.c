@@ -311,6 +311,42 @@ static void MultiMac_Calculate_LoadFast(const MultiMac_Context* p, secp256k1_ge*
 }
 
 __stack_hungry__
+static void wrap_gej_add_ge_var(secp256k1_gej* r, const secp256k1_gej* a, const secp256k1_ge* b /*, secp256k1_fe* rzr */)
+{
+	secp256k1_gej_add_ge_var(r, a, b, 0 /* rzr */);
+}
+
+__stack_hungry__
+static void wrap_gej_add_zinv_var(secp256k1_gej* r, const secp256k1_gej* a, const secp256k1_ge* b, const secp256k1_fe* bzinv)
+{
+	secp256k1_gej_add_zinv_var(r, a, b, bzinv);
+}
+
+__stack_hungry__
+static void wrap_gej_add_var(secp256k1_gej* r, const secp256k1_gej* a, const secp256k1_gej* b /*, secp256k1_fe* rzr */)
+{
+	secp256k1_gej_add_var(r, a, b, 0 /* rzr */);
+}
+
+__stack_hungry__
+static int wrap_scalar_add(secp256k1_scalar* r, const secp256k1_scalar* a, const secp256k1_scalar* b)
+{
+	return secp256k1_scalar_add(r, a, b);
+}
+
+__stack_hungry__
+static void wrap_ge_neg(secp256k1_ge* r, const secp256k1_ge* a)
+{
+	secp256k1_ge_neg(r, a);
+}
+
+__stack_hungry__
+static void wrap_gej_double_var(secp256k1_gej* r, const secp256k1_gej* a/*, secp256k1_fe* rzr*/)
+{
+	secp256k1_gej_double_var(r, a, 0 /* rzr */);
+}
+
+__stack_hungry__
 static void MultiMac_Calculate_PrePhase(MultiMac_Context* const p)
 {
 	secp256k1_gej_set_infinity(p->m_pRes);
@@ -331,7 +367,7 @@ static void MultiMac_Calculate_PrePhase(MultiMac_Context* const p)
 		{
 			secp256k1_ge ge;
 			MultiMac_Calculate_LoadFast(p, &ge, i, 0);
-			secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, 0);
+			wrap_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge);
 		}
 	}
 }
@@ -376,9 +412,9 @@ static void MultiMac_Calculate_SecureBit(const MultiMac_Context* p, unsigned int
 		MultiMac_Calculate_Secure_Read(&ge, pGen, iElement);
 
 		if (p->m_Fast.m_pZDenom)
-			secp256k1_gej_add_zinv_var(p->m_pRes, p->m_pRes, &ge, p->m_Fast.m_pZDenom);
+			wrap_gej_add_zinv_var(p->m_pRes, p->m_pRes, &ge, p->m_Fast.m_pZDenom);
 		else
-			secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, 0);
+			wrap_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge);
 	}
 }
 
@@ -411,9 +447,9 @@ static void MultiMac_Calculate_FastBit(const MultiMac_Context* p, unsigned int i
 		MultiMac_Calculate_LoadFast(p, &ge, i, iElem);
 
 		if (bNegate)
-			secp256k1_ge_neg(&ge, &ge);
+			wrap_ge_neg(&ge, &ge);
 
-		secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, 0);
+		wrap_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge);
 
 		WNaf_Cursor_MoveNext(pWnaf, p->m_Fast.m_pK + i, nMaxWnd);
 	}
@@ -430,7 +466,7 @@ static void MultiMac_Calculate_PostPhase(const MultiMac_Context* p)
 	{
 		secp256k1_ge ge;
 		secp256k1_ge_from_storage(&ge, p->m_Secure.m_pGen[i].m_pPt + c_MultiMac_Secure_nCount);
-		secp256k1_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge, 0);
+		wrap_gej_add_ge_var(p->m_pRes, p->m_pRes, &ge);
 	}
 
 }
@@ -442,11 +478,10 @@ void MultiMac_Calculate(MultiMac_Context* p)
 
 	for (unsigned int iBit = c_ECC_nBits; iBit--; )
 	{
-		secp256k1_gej_double_var(p->m_pRes, p->m_pRes, 0); // would be fast if zero, no need to check explicitly
+		wrap_gej_double_var(p->m_pRes, p->m_pRes); // would be fast if zero, no need to check explicitly
 
 		if (!(iBit % c_MultiMac_nBits_Secure) && p->m_Secure.m_Count)
 			MultiMac_Calculate_SecureBit(p, iBit);
-
 
 		MultiMac_Calculate_FastBit(p, iBit);
 	}
@@ -563,11 +598,11 @@ void MultiMac_Fast_Custom_Init(CustomGenerator* p, const secp256k1_ge* pGe)
 	Point_Gej_from_Ge(pOdds, pGe);
 
 	secp256k1_gej* const pX2 = (secp256k1_gej *) p->m_pPt; // reuse its mem!
-	secp256k1_gej_double_var(pX2, pOdds, 0);
+	wrap_gej_double_var(pX2, pOdds);
 
 	for (unsigned int i = 1; i < _countof(pOdds); i++)
 	{
-		secp256k1_gej_add_var(pOdds + i, pOdds + i - 1, pX2, 0);
+		wrap_gej_add_var(pOdds + i, pOdds + i - 1, pX2);
 		assert(!secp256k1_gej_is_infinity(pOdds + i)); // odd powers of non-zero point must not be zero!
 	}
 
@@ -1169,12 +1204,12 @@ static void CoinID_getSkComm_FromNonSwitchK(const CoinID* pCid, secp256k1_scalar
 
 		// pGej[0] is ge
 
-		secp256k1_gej_add_ge_var(pGej + 1, pGej + 1, (secp256k1_ge*) pGej, 0);
-
+		wrap_gej_add_ge_var(pGej + 1, pGej + 1, (secp256k1_ge*) pGej);
 		Point_Compact_from_Gej(pComm, pGej + 1);
 	}
 }
 
+__stack_hungry__
 void CoinID_getSkComm(const Kdf* pKdf, const CoinID* pCid, secp256k1_scalar* pK, CompactPoint* pComm)
 {
 	CoinID_getSkNonSwitch(pKdf, pCid, pK);
@@ -1299,18 +1334,15 @@ static void RangeProof_Calculate_S(RangeProof* const p, RangeProof_Worker* const
 	secp256k1_scalar pS[Calc_S_Naggle];
 	MultiMac_WNaf pWnaf[Calc_S_Naggle];
 
-#ifdef BeamCrypto_SlowLoad
-	secp256k1_ge_storage pGen[Calc_S_Naggle][c_MultiMac_OddCount(c_MultiMac_nBits_Rangeproof)];
-#endif // BeamCrypto_SlowLoad
+	secp256k1_scalar* const pRho = (secp256k1_scalar*) (pWrk->m_pGej + (Calc_S_Naggle < Calc_S_Naggle_Max)); // reuse its mem
+	// depending on naggling, the 1st point would be either pGej o pGej+1, hence we may use the other one
 
-	secp256k1_scalar ro;
-
-	NonceGenerator_NextScalar(&pWrk->m_NonceGen, &ro);
+	NonceGenerator_NextScalar(&pWrk->m_NonceGen, pRho);
 
 	MultiMac_Context mmCtx;
 
 	mmCtx.m_Secure.m_Count = 1;
-	mmCtx.m_Secure.m_pK = &ro;
+	mmCtx.m_Secure.m_pK = pRho;
 	mmCtx.m_Secure.m_pGen = Context_get()->m_pGenGJ;
 
 	mmCtx.m_Fast.m_pZDenom = 0;
@@ -1320,6 +1352,7 @@ static void RangeProof_Calculate_S(RangeProof* const p, RangeProof_Worker* const
 	mmCtx.m_Fast.m_pWnaf = pWnaf;
 
 #ifdef BeamCrypto_SlowLoad
+	secp256k1_ge_storage pGen[Calc_S_Naggle][c_MultiMac_OddCount(c_MultiMac_nBits_Rangeproof)];
 	memcpy(pGen, Context_get()->m_pGenRangeproof, sizeof(pGen));
 	mmCtx.m_Fast.m_pGen0 = pGen[0];
 #else // BeamCrypto_SlowLoad
@@ -1335,7 +1368,7 @@ static void RangeProof_Calculate_S(RangeProof* const p, RangeProof_Worker* const
 			MultiMac_Calculate(&mmCtx);
 
 			if (iBit != Calc_S_Naggle)
-				secp256k1_gej_add_var(pWrk->m_pGej, pWrk->m_pGej + 1, pWrk->m_pGej, 0);
+				wrap_gej_add_var(pWrk->m_pGej, pWrk->m_pGej + 1, pWrk->m_pGej);
 
 			mmCtx.m_Secure.m_Count = 0;
 			mmCtx.m_Fast.m_Count = 0;
@@ -1353,14 +1386,14 @@ static void RangeProof_Calculate_S(RangeProof* const p, RangeProof_Worker* const
 
 		if (!(iBit % nDims) && p->m_pKExtra)
 			// embed more info
-			secp256k1_scalar_add(pS + mmCtx.m_Fast.m_Count, pS + mmCtx.m_Fast.m_Count, p->m_pKExtra + (iBit / nDims));
+			wrap_scalar_add(pS + mmCtx.m_Fast.m_Count, pS + mmCtx.m_Fast.m_Count, p->m_pKExtra + (iBit / nDims));
 	}
 
 	mmCtx.m_pRes = pWrk->m_pGej + 1;
 	MultiMac_Calculate(&mmCtx);
 
 	if (Calc_S_Naggle < Calc_S_Naggle_Max)
-		secp256k1_gej_add_var(pWrk->m_pGej + 1, pWrk->m_pGej + 1, pWrk->m_pGej, 0);
+		wrap_gej_add_var(pWrk->m_pGej + 1, pWrk->m_pGej + 1, pWrk->m_pGej);
 }
 
 static void RangeProof_Calculate_A_Bits(secp256k1_gej* pRes, secp256k1_ge* pGeTmp, Amount v)
@@ -1376,7 +1409,7 @@ static void RangeProof_Calculate_A_Bits(secp256k1_gej* pRes, secp256k1_ge* pGeTm
 			secp256k1_ge_neg(pGeTmp, pGeTmp);
 		}
 
-		secp256k1_gej_add_ge_var(pRes, pRes, pGeTmp, 0);
+		wrap_gej_add_ge_var(pRes, pRes, pGeTmp);
 	}
 }
 
@@ -1448,7 +1481,7 @@ static int RangeProof_Calculate_After_S(RangeProof* const p, RangeProof_Worker* 
 			break;
 		}
 
-		secp256k1_gej_add_ge_var(pWrk->m_pGej + i, pWrk->m_pGej + i, &ge, 0);
+		wrap_gej_add_ge_var(pWrk->m_pGej + i, pWrk->m_pGej + i, &ge);
 	}
 
 	SECURE_ERASE_OBJ(pWrk->m_NonceGen);
@@ -1845,7 +1878,7 @@ static int Signature_IsValid_Internal(const Signature* p, const UintBig* pMsg, c
 	if (!Point_Ge_from_Compact(&u.geNonce, &p->m_NoncePub))
 		return 0; // bad pub nonce
 
-	secp256k1_gej_add_ge_var(&gej, &gej, &u.geNonce, 0);
+	wrap_gej_add_ge_var(&gej, &gej, &u.geNonce);
 
 	return secp256k1_gej_is_infinity(&gej);
 }
@@ -2490,12 +2523,12 @@ static int KernelUpdateKeysEx(TxKernelCommitments* pComms, const KernelKeys* pKe
 		if (!Point_Ge_from_Compact(&ge, &pAdd->m_Commitment))
 			return 0;
 
-		secp256k1_gej_add_ge_var(pGej, pGej, &ge, 0);
+		wrap_gej_add_ge_var(pGej, pGej, &ge);
 
 		if (!Point_Ge_from_Compact(&ge, &pAdd->m_NoncePub))
 			return 0;
 
-		secp256k1_gej_add_ge_var(pGej + 1, pGej + 1, &ge, 0);
+		wrap_gej_add_ge_var(pGej + 1, pGej + 1, &ge);
 	}
 
 	Point_Gej_2_Normalize(pGej);
@@ -3194,7 +3227,7 @@ PROTO_METHOD_SIMPLE(CreateShieldedInput)
 		return c_KeyKeeper_Status_Unspecified; // import failed
 
 	MulG(&gej, pN + 2);
-	secp256k1_gej_add_ge_var(&gej, &gej, &ge, 0);
+	wrap_gej_add_ge_var(&gej, &gej, &ge);
 
 	Point_Compact_from_Gej(&pOut->m_G0, &gej);
 	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pOut->m_G0);
