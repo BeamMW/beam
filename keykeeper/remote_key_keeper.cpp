@@ -38,12 +38,22 @@ extern "C" {
 		void h2n(uint32_t& x) { h2n_u(x); }
 		void h2n(uint64_t& x) { h2n_u(x); }
 
-		void h2n(ShieldedInput& x) {
+        void h2n(ShieldedInput_Blob& x) {}
+
+		void h2n(ShieldedInput_Fmt& x) {
 			h2n(x.m_Fee);
-			h2n(x.m_TxoID.m_Amount);
-			h2n(x.m_TxoID.m_AssetID);
-			h2n(x.m_TxoID.m_nViewerIdx);
+			h2n(x.m_Amount);
+			h2n(x.m_AssetID);
+			h2n(x.m_nViewerIdx);
 		}
+
+        void h2n(ShieldedInput_SpendParams& x) {
+            h2n(x.m_hMin);
+            h2n(x.m_hMax);
+            h2n(x.m_WindowEnd);
+            h2n(x.m_Sigma_M);
+            h2n(x.m_Sigma_n);
+        }
 
 		void h2n(CoinID& cid) {
 			h2n(cid.m_Amount);
@@ -168,7 +178,7 @@ namespace beam::wallet
 		    static void Import(hw::TxKernelCommitments&, const Method::TxCommon&);
             static void Import(hw::TxCommonOut&, const Method::TxCommon&);
 		    static void Import(hw::TxMutualIn&, const Method::TxMutual&);
-		    static void Import(hw::ShieldedTxoID&, const ShieldedTxo::ID&);
+		    static void Import(hw::ShieldedInput_Blob&, hw::ShieldedInput_Fmt&, const ShieldedTxo::ID&, Amount fee);
 		    static void Import(hw::ShieldedTxoUser&, const ShieldedTxo::User&);
 
 		    static void Export(Method::TxCommon&, const hw::TxCommonOut&);
@@ -265,7 +275,7 @@ namespace beam::wallet
 
 	    uint32_t nExtra =
 		    static_cast <uint32_t>(sizeof(hw::CoinID)) * (msg.m_Ins + (uint32_t) msg.m_Outs) +
-		    static_cast <uint32_t>(sizeof(hw::ShieldedInput)) * msg.m_InsShielded;
+		    static_cast <uint32_t>(sizeof(hw::ShieldedInput_Blob) + sizeof(hw::ShieldedInput_Fmt)) * msg.m_InsShielded;
 	    nOutExtra = nExtra;
 
 	    m_Buf.resize(nSize + nExtra);
@@ -285,13 +295,18 @@ namespace beam::wallet
             hw::Proto::h2n(*pCid);
 	    }
 
-        hw::ShieldedInput* pShInp = (hw::ShieldedInput*) pCid;
-	    for (uint32_t i = 0; i < msg.m_InsShielded; i++, pShInp++)
+        auto pPtr = reinterpret_cast<uint8_t*>(pCid);
+	    for (uint32_t i = 0; i < msg.m_InsShielded; i++)
 	    {
 		    const auto& src = m.m_vInputsShielded[i];
-		    pShInp->m_Fee = src.m_Fee;
-		    Import(pShInp->m_TxoID, src);
-            hw::Proto::h2n(*pShInp);
+
+            hw::ShieldedInput_Fmt fmt;
+            Import(*(hw::ShieldedInput_Blob*) pPtr, fmt, src, src.m_Fee);
+            hw::Proto::h2n(fmt);
+
+            pPtr += sizeof(hw::ShieldedInput_Blob);
+            memcpy(pPtr, &fmt, sizeof(fmt));
+            pPtr += sizeof(hw::ShieldedInput_Fmt);
 	    }
     }
 
@@ -356,16 +371,17 @@ namespace beam::wallet
 		    dst.m_pMessage[i] = Ecc2BC(src.m_pMessage[i]);
     }
 
-    void RemoteKeyKeeper::Impl::Encoder::Import(hw::ShieldedTxoID& dst, const ShieldedTxo::ID& src)
+    void RemoteKeyKeeper::Impl::Encoder::Import(hw::ShieldedInput_Blob& blob, hw::ShieldedInput_Fmt& fmt, const ShieldedTxo::ID& src, Amount fee)
     {
-	    Import(dst.m_User, src.m_User);
+	    Import(blob.m_User, src.m_User);
 
-	    dst.m_Amount = src.m_Value;
-	    dst.m_AssetID = src.m_AssetID;
+	    fmt.m_Amount = src.m_Value;
+	    fmt.m_AssetID = src.m_AssetID;
+        fmt.m_Fee = fee;
 
-	    dst.m_IsCreatedByViewer = !!src.m_Key.m_IsCreatedByViewer;
-	    dst.m_nViewerIdx = src.m_Key.m_nIdx;
-	    dst.m_kSerG = Ecc2BC(src.m_Key.m_kSerG.m_Value);
+	    blob.m_IsCreatedByViewer = !!src.m_Key.m_IsCreatedByViewer;
+	    fmt.m_nViewerIdx = src.m_Key.m_nIdx;
+	    blob.m_kSerG = Ecc2BC(src.m_Key.m_kSerG.m_Value);
     }
 
 
@@ -797,14 +813,13 @@ namespace beam::wallet
             pars.Set(*m_GetKey.m_pPKdf, m);
             ShieldedTxo::Data::Params::Plus plus(pars);
 
-            Encoder::Import(m_Msg.m_Out.m_Inp.m_TxoID, m);
+            Encoder::Import(m_Msg.m_Out.m_InpBlob, m_Msg.m_Out.m_InpFmt, m, krn.m_Fee);
 
-            m_Msg.m_Out.m_hMin = krn.m_Height.m_Min;
-            m_Msg.m_Out.m_hMax = krn.m_Height.m_Max;
-            m_Msg.m_Out.m_WindowEnd = krn.m_WindowEnd;
-            m_Msg.m_Out.m_Sigma_M = krn.m_SpendProof.m_Cfg.M;
-            m_Msg.m_Out.m_Sigma_n = krn.m_SpendProof.m_Cfg.n;
-            m_Msg.m_Out.m_Inp.m_Fee = krn.m_Fee;
+            m_Msg.m_Out.m_SpendParams.m_hMin = krn.m_Height.m_Min;
+            m_Msg.m_Out.m_SpendParams.m_hMax = krn.m_Height.m_Max;
+            m_Msg.m_Out.m_SpendParams.m_WindowEnd = krn.m_WindowEnd;
+            m_Msg.m_Out.m_SpendParams.m_Sigma_M = krn.m_SpendProof.m_Cfg.M;
+            m_Msg.m_Out.m_SpendParams.m_Sigma_n = krn.m_SpendProof.m_Cfg.n;
 
             ECC::Scalar sk_;
             sk_ = plus.m_skFull;

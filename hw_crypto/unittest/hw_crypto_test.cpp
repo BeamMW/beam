@@ -746,10 +746,17 @@ struct KeyKeeperHwEmu
 			if (!bUseOutp)
 				memcpy(Cast::NotConst(m_msgIn.p), m_msgOut.p, m_msgOut.n);
 
-			int nRes = hw::KeyKeeper_Invoke(&m_pThis->m_Ctx, reinterpret_cast<uint8_t*>(Cast::NotConst(bUseOutp ? m_msgOut.p : m_msgIn.p)), m_msgOut.n, &m_msgIn.n);
+			uint8_t* pBuf = reinterpret_cast<uint8_t*>(Cast::NotConst(bUseOutp ? m_msgOut.p : m_msgIn.p));
 
-			if (bUseOutp)
-				memcpy(Cast::NotConst(m_msgIn.p), m_msgOut.p, m_msgIn.n);
+			uint32_t nResSize = m_msgIn.n;
+			int nRes = hw::KeyKeeper_Invoke(&m_pThis->m_Ctx, pBuf, m_msgOut.n, pBuf, &m_msgIn.n);
+
+			if (c_KeyKeeper_Status_Ok == nRes)
+			{
+				verify_test(nResSize == m_msgIn.n);
+				if (bUseOutp)
+					memcpy(Cast::NotConst(m_msgIn.p), m_msgOut.p, m_msgIn.n);
+			}
 
 			m_pHandler->OnDone((Status::Type) nRes);
 		}

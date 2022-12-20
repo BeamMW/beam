@@ -80,26 +80,26 @@ typedef struct
 
 } ShieldedTxoUser;
 
+#pragma pack (push, 1)
+
 typedef struct
 {
-	// ticket source params
 	UintBig m_kSerG;
-	uint32_t m_nViewerIdx;
+	ShieldedTxoUser m_User;
 	uint8_t m_IsCreatedByViewer;
 
-	// sender params
-	ShieldedTxoUser m_User;
-	Amount m_Amount;
-	AssetID m_AssetID;
-
-} ShieldedTxoID;
+} ShieldedInput_Blob;
 
 typedef struct
 {
-	ShieldedTxoID m_TxoID;
+	Amount m_Amount;
 	Amount m_Fee;
+	AssetID m_AssetID;
+	uint32_t m_nViewerIdx;
+	// alignment should be ok
+} ShieldedInput_Fmt;
 
-} ShieldedInput;
+#pragma pack (pop)
 
 typedef struct
 {
@@ -168,6 +168,16 @@ typedef struct
 	uint8_t m_pYs[2];
 
 } RangeProof_Packed;
+
+typedef struct
+{
+	Height m_hMin;
+	Height m_hMax;
+	uint64_t m_WindowEnd;
+	uint32_t m_Sigma_M;
+	uint32_t m_Sigma_n;
+} ShieldedInput_SpendParams;
+
 #pragma pack (pop)
 
 //////////////////
@@ -226,12 +236,9 @@ typedef struct
 	macro(uint8_t, Dummy) \
 
 #define BeamCrypto_ProtoRequest_CreateShieldedInput(macro) \
-	macro(ShieldedInput, Inp) \
-	macro(Height, hMin) \
-	macro(Height, hMax) \
-	macro(uint64_t, WindowEnd) \
-	macro(uint32_t, Sigma_M) \
-	macro(uint32_t, Sigma_n) \
+	macro(ShieldedInput_Blob, InpBlob) \
+	macro(ShieldedInput_Fmt, InpFmt) \
+	macro(ShieldedInput_SpendParams, SpendParams) \
 	macro(UintBig, ShieldedState) \
 	macro(UintBig, AssetSk) /* negated blinding for asset generator (H` = H - assetSk*G) */ \
 	macro(UintBig, OutpSk) /* The overall blinding factor of the shielded Txo (not secret) */ \
@@ -316,7 +323,9 @@ typedef struct
 	macro(0x33, TxSend2) \
 	macro(0x36, TxSendShielded) \
 
-int KeyKeeper_Invoke(KeyKeeper*, uint8_t* pInOut, uint32_t nIn, uint32_t* pOutSize);
+// pIn/pOut don't have to be distinct! There may be overlap
+// Alignment isn't guaranteed either
+int KeyKeeper_Invoke(KeyKeeper*, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t* pOutSize);
 
 //////////////////////////
 // External functions, implemented by the platform-specific code

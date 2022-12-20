@@ -18,6 +18,7 @@
 typedef uint64_t Amount;
 typedef uint32_t AssetID;
 
+#pragma pack (push, 1)
 typedef struct
 {
 	uint64_t m_Idx;
@@ -27,7 +28,11 @@ typedef struct
 	Amount  m_Amount;
 	AssetID m_AssetID;
 
+	// only trailing padding skipped (4 bytes)
+	// normally this struct is aligned, the problem could be only with arrays
+
 } CoinID;
+#pragma pack (pop)
 
 #define c_CoinID_Scheme_V0 0
 #define c_CoinID_Scheme_V1 1
