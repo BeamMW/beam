@@ -475,6 +475,21 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::enableBodyRequests, value);
     }
+
+    void sendInstantMessage(const WalletID& peerID, const WalletID& myID, ByteBuffer&& message) override
+    {
+        call_async(&IWalletModelAsync::sendInstantMessage, peerID, myID, std::move(message));
+    }
+
+    void getChats() override
+    {
+        call_async(&IWalletModelAsync::getChats);
+    }
+
+    void getInstantMessages(const WalletID& peerID) override
+    {
+        call_async(&IWalletModelAsync::getInstantMessages, peerID);
+    }
 };
 }
 
@@ -1298,6 +1313,14 @@ namespace beam::wallet
     {
         updateConnectionTrust(connected);
         onNodeConnectionChanged(isConnected());
+    }
+
+    void WalletClient::onIMSaved(Timestamp time, const WalletID& counterpart, const std::string& message, bool isIncome)
+    {
+        postFunctionToClientContext([this, time, counterpart, message, isIncome]()
+        {
+            onInstantMessage(time, counterpart, message, isIncome);
+        });
     }
 
     void WalletClient::sendMoney(const WalletID& receiver, const std::string& comment, Amount amount, Amount fee)
@@ -2274,6 +2297,36 @@ namespace beam::wallet
         {
             s->EnableBodyRequests(value);
         }
+    }
+
+    void WalletClient::sendInstantMessage(const WalletID& peerID, const WalletID& myID, ByteBuffer&& message)
+    {
+        auto timestamp = getTimestamp();
+        m_walletDB->storeIM(timestamp, peerID, std::string(message.begin(), message.end()), false);
+
+        auto s = m_wallet.lock();
+        if (s)
+        {
+            s->sendInstantSbbsMessage(timestamp, peerID, myID, std::move(message));
+        }
+    }
+
+    void WalletClient::getChats()
+    {
+        auto chats = m_walletDB->getChats();
+        postFunctionToClientContext([this, chats]()
+            {
+                onGetChatList(chats);
+            });
+    }
+
+    void WalletClient::getInstantMessages(const WalletID& peerID)
+    {
+        auto messages = m_walletDB->readIMs(peerID);
+        postFunctionToClientContext([this, messages]()
+            {
+                onGetChatMessages(messages);
+            });
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)

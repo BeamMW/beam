@@ -108,6 +108,8 @@ namespace fs = std::filesystem;
 #define EVENTS_NAME "events"
 #define TX_SUMMARY_NAME "tx_summary"
 #define DEX_OFFERS_NAME "dex_offers"
+#define IM_NAME "IM"
+#define LAST_READ_IM_ID "LastReadIMId"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(name,  name,  TEXT UNIQUE, obj) sep \
@@ -275,6 +277,15 @@ namespace fs = std::filesystem;
 #define ENUM_TX_SUMMARY_FIELDS(each) \
     each(CreateTime, Timestamp) \
     BEAM_TX_LIST_FILTER_MAP(each)
+
+#define ENUM_IM_FIELDS(each, sep, obj) \
+    each(id,          id,             INTEGER PRIMARY KEY AUTOINCREMENT, obj) sep \
+    each(timestamp,   timestamp,      INTEGER NOT NULL, obj) sep \
+    each(counterpart, counterpart,    BLOB NOT NULL,    obj) sep \
+    each(message,     message,        BLOB NOT NULL,    obj) sep \
+    each(is_income,   is_income,      INTEGER,    obj)
+
+#define IM_FIELDS ENUM_IM_FIELDS(LIST, COMMA, )
 
 namespace std
 {
@@ -1004,7 +1015,8 @@ namespace beam::wallet
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
 
-        const int DbVersion   = 34;
+        const int DbVersion   = 35;
+        const int DbVersion34 = 34;
         const int DbVersion33 = 33;
         const int DbVersion32 = 32;
         const int DbVersion31 = 31;
@@ -1858,6 +1870,15 @@ namespace beam::wallet
             dropStm.step();
             return true;
         }
+
+        void CreateIMTables(sqlite3* db)
+        {
+            const char* req = "CREATE TABLE " IM_NAME " (" ENUM_IM_FIELDS(LIST_WITH_TYPES, COMMA, ) ");"
+                "CREATE UNIQUE INDEX " IM_NAME "_timestamp_counterpart on " IM_NAME " ( timestamp, counterpart ) ;"
+                "insert into SQLITE_SEQUENCE (name, seq) VALUES ('" IM_NAME "', 0);";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
     }
 
     void WalletDB::createTables(sqlite3* db, sqlite3* privateDb)
@@ -1881,6 +1902,7 @@ namespace beam::wallet
         CreateTxSummaryTable(db);
         CreateVerificationTable(db);
         CreateDexOffersTable(db);
+        CreateIMTables(db);
     }
 
     std::shared_ptr<WalletDB> WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
@@ -2409,8 +2431,13 @@ namespace beam::wallet
                 case DbVersion33:
                     LOG_INFO() << "Converting DB from format 33...";
                     CreateDexOffersTable(walletDB->_db);
-
                     // no break
+
+                case DbVersion34:
+                    LOG_INFO() << "Converting DB from format 34...";
+                    CreateIMTables(walletDB->_db);
+                    // no break
+
                     storage::setVar(*walletDB, Version, DbVersion);
 
                 case DbVersion:
@@ -2568,7 +2595,8 @@ namespace beam::wallet
             TxParameterID::TransactionType,
             TxParameterID::CreateTime}
     {
-
+        if (m_Initialized && !storage::getVar(*this, LAST_READ_IM_ID, m_lastReadIMId))
+            m_lastReadIMId = 0;
     }
 
     WalletDB::~WalletDB()
@@ -5036,6 +5064,91 @@ namespace beam::wallet
             stm.get(0, res);
         }
         return size_t(res);
+    }
+
+    void WalletDB::storeIM(Timestamp time, const WalletID& counterpart, const std::string& message, bool isIncome)
+    {
+        sqlite::Statement stm(this, "INSERT OR IGNORE INTO " IM_NAME " (" ENUM_IM_FIELDS(LIST, COMMA, ) ") VALUES(null,?,?,?,?);");
+        stm.bind(1, time);
+        stm.bind(2, counterpart);
+        stm.bind(3, message);
+        stm.bind(4, isIncome);
+        stm.step();
+
+        for (const auto sub : m_subscribers)
+        {
+            sub->onIMSaved(time, counterpart, message, isIncome);
+        }
+    }
+
+    std::vector<InstantMessage> WalletDB::readIMs(bool all)
+    {
+        std::vector<InstantMessage> messages;
+        const char* req = all
+            ? "SELECT * FROM " IM_NAME " ORDER BY timestamp DESC;"
+            : "SELECT * FROM " IM_NAME " WHERE ID > ?1 ORDER BY timestamp DESC;";
+
+        sqlite::Statement stm(this, req);
+        if (!all) stm.bind(1, m_lastReadIMId);
+
+        while (stm.step())
+        {
+            auto& message = messages.emplace_back();
+            int colIdx = 0;
+            ENUM_IM_FIELDS(STM_GET_LIST, NOSEP, message);
+        }
+
+        if (!messages.empty())
+        {
+            auto message_with_largest_id = std::max_element(
+                messages.begin(), messages.end(),
+                [] (const InstantMessage& largest, const InstantMessage& first)
+                {
+                    return largest.m_id < first.m_id;
+                });
+            m_lastReadIMId = message_with_largest_id->m_id;
+            storage::setVar(*this, LAST_READ_IM_ID, m_lastReadIMId);
+        }
+
+        return messages;
+    }
+
+    std::vector<InstantMessage> WalletDB::readIMs(const WalletID& counterpart)
+    {
+        std::vector<InstantMessage> messages;
+
+        const char* req = "SELECT * FROM " IM_NAME " WHERE counterpart=?1 ORDER BY timestamp DESC;";
+
+        sqlite::Statement stm(this, req);
+        stm.bind(1, counterpart);
+
+        while (stm.step())
+        {
+            auto& message = messages.emplace_back();
+            int colIdx = 0;
+            ENUM_IM_FIELDS(STM_GET_LIST, NOSEP, message);
+        }
+
+        return messages;
+    }
+
+    std::vector<WalletID> WalletDB::getChats()
+    {
+        const char* req = "SELECT DISTINCT counterpart FROM " IM_NAME ";";
+
+        sqlite::Statement stm(this, req);
+
+        std::vector<WalletID> chats;
+        while (stm.step())
+        {
+            ByteBuffer counterpartID;
+            stm.get(0, counterpartID);
+            WalletID peerID;
+            if (peerID.FromBuf(counterpartID))
+                chats.push_back(peerID);
+
+        }
+        return chats;
     }
 
     void WalletDB::insertEvent(Height h, const Blob& body, const Blob& key)

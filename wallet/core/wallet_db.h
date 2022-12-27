@@ -355,6 +355,15 @@ namespace beam::wallet
         Reset
     };
 
+    struct InstantMessage
+    {
+        uint32_t m_id;
+        Timestamp m_timestamp;
+        WalletID m_counterpart;
+        std::string m_message;
+        bool m_is_income;
+    };
+
     class CannotGenerateSecretException : public std::runtime_error
     {
     public:
@@ -417,6 +426,7 @@ namespace beam::wallet
         virtual void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) {};
         virtual void onShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& items) {};
         virtual void onAssetChanged(ChangeAction action, Asset::ID assetID) {}
+        virtual void onIMSaved(Timestamp time, const WalletID& counterpart, const std::string& message, bool isIncome) {}
     };
 
     struct IWalletDB : IVariablesDB
@@ -612,6 +622,12 @@ namespace beam::wallet
         virtual void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab = false) = 0;
         virtual size_t getVoucherCount(const WalletID& peerID) const = 0;
 
+        // IM
+        virtual void storeIM(Timestamp time, const WalletID& counterpart, const std::string& message, bool isIncome) = 0;
+        virtual std::vector<InstantMessage> readIMs(bool all = false) = 0;
+        virtual std::vector<InstantMessage> readIMs(const WalletID& counterpart) = 0;
+        virtual std::vector<WalletID> getChats() = 0;
+
         // Events
         virtual void insertEvent(Height h, const Blob& body, const Blob& key) = 0;
         virtual void deleteEventsFrom(Height h) = 0;
@@ -778,6 +794,11 @@ namespace beam::wallet
         void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab) override;
         size_t getVoucherCount(const WalletID& peerID) const override;
 
+        void storeIM(Timestamp time, const WalletID& counterpart, const std::string& message, bool isIncome) override;
+        std::vector<InstantMessage> readIMs(bool all = false) override;
+        std::vector<InstantMessage> readIMs(const WalletID& counterpart) override;
+        std::vector<WalletID> getChats() override;
+
         void insertEvent(Height h, const Blob& body, const Blob& key) override;
         void deleteEventsFrom(Height h) override;
         void visitEvents(Height min, const Blob& key, std::function<bool(Height, ByteBuffer&&)>&& func) const override;
@@ -878,6 +899,7 @@ namespace beam::wallet
         struct LocalKeyKeeper;
         LocalKeyKeeper* m_pLocalKeyKeeper = nullptr;
         uint32_t m_coinConfirmationsOffset = 0;
+        uint32_t m_lastReadIMId = 0;
 
         struct ShieldedStatusCtx;
     };

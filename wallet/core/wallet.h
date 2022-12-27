@@ -183,6 +183,7 @@ namespace beam::wallet
         void EnableBodyRequests(bool value);
         void assertThread() const; // throws if not in wallet thread
         void markAppNotificationAsRead(const TxID& id);
+        void sendInstantSbbsMessage(beam::Timestamp timestamp, const WalletID& peerID, const WalletID& myID, ByteBuffer&& message);
 
         const std::set<IWalletMessageEndpoint::Ptr>& get_MessageEndpoints() const {
             return m_MessageEndpoints;
