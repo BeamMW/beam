@@ -172,7 +172,7 @@ UsbIO::~UsbIO()
 void UsbIO::Open(const char* szPath)
 {
 #ifdef WIN32
-	m_hFile = CreateFileA(szPath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+	m_hFile = CreateFileA(szPath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 	if (INVALID_HANDLE_VALUE == m_hFile)
 		std::ThrowLastError();
 
@@ -265,11 +265,18 @@ uint16_t UsbIO::Read(void* p, uint16_t n)
 #endif // WIN32
 }
 
-uint16_t UsbIO::ReadFrame(uint8_t* p, uint16_t n)
+struct UsbIO::FrameReader
 {
-	Frame f;
+	virtual uint16_t ReadRaw(void* p, uint16_t n) = 0;
 
-	if (Read(&f, sizeof(f)) != sizeof(f))
+	uint16_t ReadFrame(uint8_t* p, uint16_t n);
+};
+
+uint16_t UsbIO::FrameReader::ReadFrame(uint8_t* p, uint16_t n)
+{
+	UsbIO::Frame f;
+
+	if (ReadRaw(&f, sizeof(f)) != sizeof(f))
 		return 0;
 
 	uint16_t nSize;
@@ -293,11 +300,27 @@ uint16_t UsbIO::ReadFrame(uint8_t* p, uint16_t n)
 		p += nPortion;
 		nRemaining -= nPortion;
 
-		if (Read(&f, sizeof(f)) != sizeof(f))
+		if (ReadRaw(&f, sizeof(f)) != sizeof(f))
 			return 0;
 	}
 
 	return nSize;
+}
+
+uint16_t UsbIO::ReadFrame(uint8_t* p, uint16_t n)
+{
+	struct Reader :public FrameReader
+	{
+		UsbIO& m_This;
+		Reader(UsbIO& x) :m_This(x) {}
+
+		uint16_t ReadRaw(void* p, uint16_t n) override
+		{
+			return m_This.Read(p, n);
+		}
+
+	} r(*this);
+	return r.ReadFrame(p, n);
 }
 
 } // namespace beam::wallet

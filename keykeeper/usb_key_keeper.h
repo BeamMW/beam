@@ -43,6 +43,7 @@ namespace beam::wallet
 #endif // WIN32
 
         struct Frame;
+        struct FrameReader;
 
         void WriteFrame(const uint8_t*, uint16_t);
         uint16_t ReadFrame(uint8_t*, uint16_t);
