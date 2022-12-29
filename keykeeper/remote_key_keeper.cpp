@@ -87,6 +87,11 @@ extern "C" {
 
 #pragma pack (push, 1)
 
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#	pragma GCC diagnostic push
+#	pragma GCC diagnostic ignored "-Warray-bounds" // can popup during the following macro expansion. Ignore it.
+#endif
+
 #define THE_MACRO(id, name) \
 		struct name { \
 			struct Out { \
@@ -109,6 +114,11 @@ extern "C" {
 #undef THE_MACRO
 #undef THE_MACRO_Field
 #pragma pack (pop)
+
+
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#   pragma GCC diagnostic pop
+#endif
 
 	} // namespace Proto
 
