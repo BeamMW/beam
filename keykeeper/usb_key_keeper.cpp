@@ -144,6 +144,18 @@ struct UsbIO::Frame
 	uint8_t m_Magic3 = 0x05;
 	uint16_t m_Seq = 0;
 	uint8_t m_pBody[59]; // TODO - make it variable (based on retrieved caps)
+
+	struct Reader
+	{
+		virtual uint16_t ReadRaw(void* p, uint16_t n) = 0;
+		uint16_t ReadFrame(uint8_t* p, uint16_t n);
+	};
+
+	struct Writer
+	{
+		virtual void WriteRaw(const void* p, uint16_t n) = 0;
+		void WriteFrame(const uint8_t* p, uint16_t n);
+	};
 };
 
 #pragma pack (pop)
@@ -167,6 +179,10 @@ UsbIO::~UsbIO()
 		BOOL b = CloseHandle(m_hFile);
 		assert(b);
 	}
+
+	if (m_hEvent)
+		CloseHandle(m_hEvent);
+
 #else // WIN32
 	if (m_hFile >= 0)
 		close(m_hFile);
@@ -178,6 +194,10 @@ void UsbIO::Open(const char* szPath)
 #ifdef WIN32
 	m_hFile = CreateFileA(szPath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 	if (INVALID_HANDLE_VALUE == m_hFile)
+		std::ThrowLastError();
+
+	m_hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+	if (!m_hEvent)
 		std::ThrowLastError();
 
 	HIDP_CAPS hidCaps;
@@ -202,7 +222,7 @@ void UsbIO::Open(const char* szPath)
 #endif // WIN32
 }
 
-void UsbIO::WriteFrame(const uint8_t* p, uint16_t n)
+void UsbIO::Frame::Writer::WriteFrame(const uint8_t* p, uint16_t n)
 {
 	Frame f;
 
@@ -223,15 +243,9 @@ void UsbIO::WriteFrame(const uint8_t* p, uint16_t n)
 		if (bLast)
 			memset(f.m_pBody + nUsed, 0, sizeof(f.m_pBody) - nUsed);
 
-		DWORD dw;
-		if (!WriteFile(m_hFile, &f, sizeof(f), &dw, NULL)) // must always send the whole frame
-			std::ThrowLastError();
+		WriteRaw(&f, sizeof(f)); // must always send the whole frame
 #else // WIN32
-
-		auto wr = write(m_hFile, &f, sizeof(f) - sizeof(f.m_pBody) + nUsed);
-		if (wr < 0)
-			std::ThrowLastError();
-
+		WriteRaw(&f, sizeof(f) - sizeof(f.m_pBody) + nUsed);
 #endif // WIN32
 
 		if (bLast)
@@ -245,15 +259,80 @@ void UsbIO::WriteFrame(const uint8_t* p, uint16_t n)
 	}
 }
 
+
+void UsbIO::WriteFrame(const uint8_t* p, uint16_t n)
+{
+	struct Writer :public Frame::Writer
+	{
+		UsbIO& m_This;
+		Writer(UsbIO& x) :m_This(x) {}
+
+		void WriteRaw(const void* p, uint16_t n) override
+		{
+			return m_This.Write(p, n);
+		}
+
+	} w(*this);
+
+	w.WriteFrame(p, n);
+}
+
+#ifdef WIN32
+
+void UsbIO::EnsureIoPending()
+{
+	if (GetLastError() != ERROR_IO_PENDING)
+		std::ThrowLastError();
+}
+
+void UsbIO::WaitSync()
+{
+	EnsureIoPending();
+
+	if (WAIT_OBJECT_0 != WaitForSingleObject(m_hEvent, INFINITE))
+	{
+		CancelIo(m_hFile);
+		std::ThrowLastError();
+	}
+}
+
+#endif // WIN32
+
+void UsbIO::Write(const void* p, uint16_t n)
+{
+#ifdef WIN32
+
+	OVERLAPPED over;
+	ZeroObject(over);
+	over.hEvent = m_hEvent;
+
+	DWORD dw;
+	if (!WriteFile(m_hFile, p, n, &dw, &over))
+		WaitSync();
+#else // WIN32
+
+	auto wr = write(m_hFile, p, n);
+	if (wr < 0)
+		std::ThrowLastError();
+
+#endif // WIN32
+}
+
 uint16_t UsbIO::Read(void* p, uint16_t n)
 {
 #ifdef WIN32
 
-	DWORD dw;
-	if (!ReadFile(m_hFile, p, n, &dw, NULL))
-		std::ThrowLastError();
+	OVERLAPPED over;
+	ZeroObject(over);
+	over.hEvent = m_hEvent;
 
-	return static_cast<uint16_t>(dw);
+	DWORD dw;
+	if (ReadFile(m_hFile, p, n, &dw, &over))
+		return static_cast<uint16_t>(dw);
+
+	WaitSync();
+	return static_cast<uint16_t>(over.InternalHigh);
+
 
 #else // WIN32
 
@@ -269,14 +348,7 @@ uint16_t UsbIO::Read(void* p, uint16_t n)
 #endif // WIN32
 }
 
-struct UsbIO::FrameReader
-{
-	virtual uint16_t ReadRaw(void* p, uint16_t n) = 0;
-
-	uint16_t ReadFrame(uint8_t* p, uint16_t n);
-};
-
-uint16_t UsbIO::FrameReader::ReadFrame(uint8_t* p, uint16_t n)
+uint16_t UsbIO::Frame::Reader::ReadFrame(uint8_t* p, uint16_t n)
 {
 	UsbIO::Frame f;
 
@@ -313,7 +385,7 @@ uint16_t UsbIO::FrameReader::ReadFrame(uint8_t* p, uint16_t n)
 
 uint16_t UsbIO::ReadFrame(uint8_t* p, uint16_t n)
 {
-	struct Reader :public FrameReader
+	struct Reader :public Frame::Reader
 	{
 		UsbIO& m_This;
 		Reader(UsbIO& x) :m_This(x) {}
@@ -417,14 +489,10 @@ void UsbKeyKeeper::RunThreadGuarded()
 	{
 		try
 		{
-			struct AsyncReader :public UsbIO::FrameReader
+			struct AsyncReader :public UsbIO::Frame::Reader
 			{
 				UsbKeyKeeper& m_This;
 				AsyncReader(UsbKeyKeeper& x) :m_This(x) {}
-#ifdef WIN32
-				Event m_Event;
-				OVERLAPPED m_Overlapped;
-#endif // WIN32
 
 				UsbIO m_Usbio;
 				bool m_NotifyWait;
@@ -432,24 +500,34 @@ void UsbKeyKeeper::RunThreadGuarded()
 				uint16_t ReadInternal(void* p, uint16_t n, const uint32_t* pTimeout_ms)
 				{
 #ifdef WIN32
-					while (true)
+					// 1st try read. 
+					OVERLAPPED over;
+					memset(&over, 0, sizeof(over));
+					over.hEvent = m_Usbio.m_hEvent;
+
+					DWORD dw;
+					if (ReadFile(m_Usbio.m_hFile, p, n, &dw, &over) && dw)
+						return static_cast<uint16_t>(dw);
+
+					UsbIO::EnsureIoPending();
+
+					struct Guard
 					{
-						// 1st try read. 
-						memset(&m_Overlapped, 0, sizeof(m_Overlapped));
-						m_Overlapped.hEvent = m_Event.m_hEvt;
+						HANDLE m_hFile;
+						Guard(HANDLE hFile) :m_hFile(hFile) {}
+						~Guard()
+						{
+							if (INVALID_HANDLE_VALUE != m_hFile)
+								CancelIo(m_hFile);
+						}
 
-						DWORD dw;
-						if (ReadFile(m_Usbio.m_hFile, p, n, &dw, &m_Overlapped) && dw)
-							return static_cast<uint16_t>(dw);
+					} g(m_Usbio.m_hFile);
 
-						if (GetLastError() != ERROR_IO_PENDING)
-							std::ThrowLastError();
+					if (!m_This.WaitEvent(&m_Usbio.m_hEvent, pTimeout_ms))
+						return 0;
 
-						if (!m_This.WaitEvent(&m_Event.m_hEvt, pTimeout_ms))
-							break;
-					}
-
-					return 0;
+					g.m_hFile = INVALID_HANDLE_VALUE; // dismiss
+					return static_cast<uint16_t>(over.InternalHigh);
 #else // WIN32
 					// wait for data
 					if (!m_This.WaitEvent(&m_Usbio.m_hFile, pTimeout_ms))
@@ -486,10 +564,6 @@ void UsbKeyKeeper::RunThreadGuarded()
 			} reader(*this);
 
 			reader.m_Usbio.Open(m_sPath.c_str());
-
-#ifdef WIN32
-			reader.m_Event.Create();
-#endif // WIN32
 
 			{
 				std::scoped_lock l(m_lstDone.m_Mutex);

@@ -40,15 +40,21 @@ namespace beam::wallet
     {
 #ifdef WIN32
         HANDLE m_hFile;
+        HANDLE m_hEvent;
+
+        static void EnsureIoPending();
+        void WaitSync();
+
 #else // WIN32
         int m_hFile;
 #endif // WIN32
 
         struct Frame;
-        struct FrameReader;
 
         void WriteFrame(const uint8_t*, uint16_t);
         uint16_t ReadFrame(uint8_t*, uint16_t);
+
+        void Write(const void*, uint16_t);
         uint16_t Read(void*, uint16_t);
 
         UsbIO();
