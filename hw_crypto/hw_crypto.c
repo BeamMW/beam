@@ -28,6 +28,8 @@
 #else
 #	pragma warning (push, 0) // suppress warnings from secp256k1
 #	pragma warning (disable: 4706 4701) // assignment within conditional expression
+#	define __attribute__(x) __declspec x
+#	define UNUSED(x) (x)
 #endif
 
 #if BeamCrypto_ScarceStack
@@ -688,7 +690,7 @@ int memis0(const uint8_t* p, uint32_t n)
 	return 1;
 }
 
-static int IsUintBigZero(const UintBig* p)
+int IsUintBigZero(const UintBig* p)
 {
 	return memis0(p->m_pVal, sizeof(p->m_pVal));
 }
@@ -2019,6 +2021,14 @@ void KeyKeeper_GetPKdf(const KeyKeeper* p, KdfPub* pRes, const uint32_t* pChild)
 // Protocol
 #define PROTO_METHOD(name) __stack_hungry__ static int HandleProto_##name(KeyKeeper* p, OpIn_##name* pIn, uint32_t nIn, OpOut_##name* pOut, uint32_t nOut, uint32_t* pOutSize)
 
+#define PROTO_UNUSED_ARGS \
+	UNUSED(p); \
+	UNUSED(pIn); \
+	UNUSED(nIn); \
+	UNUSED(pOut); \
+	UNUSED(nOut);  \
+	UNUSED(pOutSize);
+
 #pragma pack (push, 1)
 #define THE_MACRO_Field(type, name) type m_##name;
 #define THE_MACRO_OpCode(id, name) \
@@ -2038,11 +2048,17 @@ BeamCrypto_ProtoMethods(THE_MACRO_OpCode)
 
 #pragma pack (pop)
 
+__attribute__((noinline))
+void memcpy_unaligned(void* pDst, const void* pSrc, uint32_t n)
+{
+	memcpy(pDst, pSrc, n);
+}
+
 #define H2N_uint(n_val_unaligned, h_val, bits) \
 do { \
 	uint##bits##_t n_val = bswap##bits##_le(h_val); \
 	static_assert(sizeof(n_val_unaligned) == sizeof(n_val), ""); \
-	memcpy(&n_val_unaligned, &n_val, sizeof(n_val)); \
+	memcpy_unaligned(&n_val_unaligned, &n_val, sizeof(n_val)); \
 } while(0)
 
 #define N2H_uint_inplace(val, bits) \
@@ -2054,13 +2070,13 @@ do { \
 #define N2H_uint(h_val, n_val_unaligned, bits) \
 do { \
 	static_assert(sizeof(n_val_unaligned) == sizeof(h_val), ""); \
-	memcpy(&h_val, &n_val_unaligned, sizeof(h_val)); \
+	memcpy_unaligned(&h_val, &n_val_unaligned, sizeof(h_val)); \
 	N2H_uint_inplace(h_val, bits); \
 } while(0)
 
 void N2H_CoinID(CoinID* p, const CoinID* p_unaligned)
 {
-	memcpy(p, p_unaligned, sizeof(*p));
+	memcpy_unaligned(p, p_unaligned, sizeof(*p));
 
 	N2H_uint_inplace(p->m_Amount, 64);
 	N2H_uint_inplace(p->m_Idx, 64);
@@ -2071,7 +2087,7 @@ void N2H_CoinID(CoinID* p, const CoinID* p_unaligned)
 
 void N2H_ShieldedInput_Fmt(ShieldedInput_Fmt* p, const ShieldedInput_Fmt* p_unaligned)
 {
-	memcpy(p, p_unaligned, sizeof(*p));
+	memcpy_unaligned(p, p_unaligned, sizeof(*p));
 
 	N2H_uint_inplace(p->m_Fee, 64);
 	N2H_uint_inplace(p->m_Amount, 64);
@@ -2081,7 +2097,7 @@ void N2H_ShieldedInput_Fmt(ShieldedInput_Fmt* p, const ShieldedInput_Fmt* p_unal
 
 void N2H_TxCommonIn(TxCommonIn* p, const TxCommonIn* p_unaligned)
 {
-	memcpy(p, p_unaligned, sizeof(*p));
+	memcpy_unaligned(p, p_unaligned, sizeof(*p));
 
 	N2H_uint_inplace(p->m_Krn.m_Fee, 64);
 	N2H_uint_inplace(p->m_Krn.m_hMin, 64);
@@ -2120,6 +2136,8 @@ int KeyKeeper_Invoke(KeyKeeper* p, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, ui
 
 PROTO_METHOD(Version)
 {
+	PROTO_UNUSED_ARGS;
+
 	if (nIn)
 		return c_KeyKeeper_Status_ProtoError; // size mismatch
 
@@ -2130,6 +2148,8 @@ PROTO_METHOD(Version)
 
 PROTO_METHOD(GetNumSlots)
 {
+	PROTO_UNUSED_ARGS;
+
 	if (nIn)
 		return c_KeyKeeper_Status_ProtoError; // size mismatch
 
@@ -2141,6 +2161,8 @@ PROTO_METHOD(GetNumSlots)
 
 PROTO_METHOD(GetPKdf)
 {
+	PROTO_UNUSED_ARGS;
+
 	if (nIn)
 		return c_KeyKeeper_Status_ProtoError; // size mismatch
 
@@ -2152,6 +2174,8 @@ PROTO_METHOD(GetPKdf)
 
 PROTO_METHOD(GetImage)
 {
+	PROTO_UNUSED_ARGS;
+
 	if (nIn)
 		return c_KeyKeeper_Status_ProtoError; // size mismatch
 
@@ -2212,6 +2236,8 @@ PROTO_METHOD(GetImage)
 
 PROTO_METHOD(CreateOutput)
 {
+	PROTO_UNUSED_ARGS;
+
 	if (nIn)
 		return c_KeyKeeper_Status_ProtoError; // size mismatch
 
@@ -2465,6 +2491,8 @@ static void TxAggr_ToOffset(const KeyKeeper* p, const secp256k1_scalar* pKrn, Tx
 
 PROTO_METHOD(TxAddCoins)
 {
+	PROTO_UNUSED_ARGS;
+
 	if ((pIn->m_Reset) || (c_KeyKeeper_State_TxBalance != p->m_State))
 	{
 		ZERO_OBJ(p->u);
@@ -2530,13 +2558,11 @@ static int KernelUpdateKeys(TxKernelCommitments* pComms, const KernelKeys* pKeys
 __stack_hungry__
 static void Kernel_SignPartial(UintBig* pSig, const TxKernelCommitments* pComms, const UintBig* pMsg, const KernelKeys* pKeys)
 {
-	Signature sig;
-	sig.m_NoncePub = pComms->m_NoncePub;
+	// Note: 1st 2 arguments are unaligned
+	secp256k1_scalar e;
+	Signature_GetChallengeEx(&pComms->m_NoncePub, pMsg, &e);
 
-	static_assert(sizeof(UintBig) == sizeof(secp256k1_scalar), "");
-	Signature_GetChallenge(&sig, pMsg, (secp256k1_scalar*) pSig);
-
-	Signature_SignPartialEx(pSig, (secp256k1_scalar*) pSig, &pKeys->m_kKrn, &pKeys->m_kNonce);
+	Signature_SignPartialEx(pSig, (secp256k1_scalar*) &e, &pKeys->m_kKrn, &pKeys->m_kNonce);
 }
 
 
@@ -2544,6 +2570,8 @@ static void Kernel_SignPartial(UintBig* pSig, const TxKernelCommitments* pComms,
 // KeyKeeper - SplitTx
 PROTO_METHOD(TxSplit)
 {
+	PROTO_UNUSED_ARGS;
+
 	if (nIn)
 		return c_KeyKeeper_Status_ProtoError;
 
@@ -2639,6 +2667,8 @@ void DeriveAddress(const KeyKeeper* p, AddrID addrID, secp256k1_scalar* pKey, Ui
 // KeyKeeper - ReceiveTx
 PROTO_METHOD(TxReceive)
 {
+	PROTO_UNUSED_ARGS;
+
 	if (nIn)
 		return c_KeyKeeper_Status_ProtoError;
 
@@ -2653,7 +2683,7 @@ PROTO_METHOD(TxReceive)
 	N2H_TxCommonIn(&txc, &pIn->m_Tx);
 
 	TxMutualIn txm;
-	memcpy(&txm, &pIn->m_Mut, sizeof(txm)); // save it before we generate output
+	memcpy_unaligned(&txm, &pIn->m_Mut, sizeof(txm)); // save it before we generate output
 	N2H_uint_inplace(txm.m_AddrID, 64);
 
 	// Hash *ALL* the parameters, make the context unique
@@ -2714,6 +2744,8 @@ PROTO_METHOD(TxReceive)
 // KeyKeeper - DisplayAddress
 PROTO_METHOD(DisplayAddress)
 {
+	PROTO_UNUSED_ARGS;
+
 	if (nIn)
 		return c_KeyKeeper_Status_ProtoError; // size mismatch
 
@@ -2860,6 +2892,8 @@ int HandleTxSend(KeyKeeper* p, OpIn_TxSend2* pIn, OpOut_TxSend1* pOut1, OpOut_Tx
 
 PROTO_METHOD(TxSend1)
 {
+	PROTO_UNUSED_ARGS;
+
 	if (nIn)
 		return c_KeyKeeper_Status_ProtoError;
 
@@ -2868,6 +2902,8 @@ PROTO_METHOD(TxSend1)
 
 PROTO_METHOD(TxSend2)
 {
+	PROTO_UNUSED_ARGS;
+
 	if (nIn)
 		return c_KeyKeeper_Status_ProtoError;
 
@@ -3050,6 +3086,8 @@ static void CreateVoucherInternal(ShieldedVoucher* pRes, const UintBig* pNonce, 
 
 PROTO_METHOD(CreateShieldedVouchers)
 {
+	PROTO_UNUSED_ARGS;
+
 	if (nIn)
 		return c_KeyKeeper_Status_ProtoError;
 
@@ -3104,6 +3142,8 @@ PROTO_METHOD(CreateShieldedVouchers)
 // KeyKeeper - CreateShieldedInput
 PROTO_METHOD(CreateShieldedInput)
 {
+	PROTO_UNUSED_ARGS;
+
 	ShieldedInput_Fmt fmt;
 	N2H_ShieldedInput_Fmt(&fmt, &pIn->m_InpFmt);
 
@@ -3112,7 +3152,7 @@ PROTO_METHOD(CreateShieldedInput)
 		CoinID_GenerateAGen(fmt.m_AssetID, &aGen);
 
 	ShieldedInput_SpendParams sip;
-	memcpy(&sip, &pIn->m_SpendParams, sizeof(sip));
+	memcpy_unaligned(&sip, &pIn->m_SpendParams, sizeof(sip));
 	N2H_uint_inplace(sip.m_hMin, 64);
 	N2H_uint_inplace(sip.m_hMax, 64);
 	N2H_uint_inplace(sip.m_WindowEnd, 64);
@@ -3421,6 +3461,8 @@ int VerifyShieldedOutputParams(const KeyKeeper* p, const OpIn_TxSendShielded* pS
 
 PROTO_METHOD(TxSendShielded)
 {
+	PROTO_UNUSED_ARGS;
+
 	if (nIn)
 		return c_KeyKeeper_Status_ProtoError;
 
