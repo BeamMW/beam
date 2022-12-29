@@ -509,7 +509,8 @@ void UsbKeyKeeper::RunThreadGuarded()
 #ifndef WIN32
 						// unset evt
 						uint8_t pBuf[0x100];
-						read(m_evtTask.m_hEvt, pBuf, sizeof(pBuf));
+						auto nRes = read(m_evtTask.m_hEvt, pBuf, sizeof(pBuf));
+						(nRes); // don't care
 #endif // WIN32
 					}
 				}
@@ -671,7 +672,8 @@ UsbKeyKeeper::Event::~Event()
 void UsbKeyKeeper::Event::Set()
 {
 	uint8_t dummy = 0;
-	write(m_hSetter, &dummy, 1);
+	auto nRes = write(m_hSetter, &dummy, 1);
+	(nRes); // ignore
 }
 
 void UsbKeyKeeper::Event::Create()
