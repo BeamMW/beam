@@ -34,6 +34,7 @@ extern "C" {
             x = ByteOrder::to_le(x);
 		}
 
+        void h2n(char& x) { }
         void h2n(uint8_t& x) { }
         void h2n(uint16_t& x) { h2n_u(x); }
 		void h2n(uint32_t& x) { h2n_u(x); }
@@ -105,6 +106,7 @@ extern "C" {
 				void h2n() { BeamCrypto_ProtoRequest_##name(THE_MACRO_Field_h2n) } \
 			}; \
 			struct In { \
+				uint8_t m_StatusCode; \
 				BeamCrypto_ProtoResponse_##name(THE_MACRO_Field) \
 				void n2h() { BeamCrypto_ProtoResponse_##name(THE_MACRO_Field_h2n) } \
 			}; \
@@ -155,6 +157,33 @@ namespace beam::wallet
         return m_Slots;
     }
 
+
+    RemoteKeyKeeper::Status::Type RemoteKeyKeeper::DeduceStatus(uint8_t* pBuf, uint32_t nResponse, uint32_t nResponseActual)
+    {
+        if (!nResponseActual)
+            return Status::Unspecified;
+
+        uint8_t retVal = *pBuf;
+        if (c_KeyKeeper_Status_Ok != retVal)
+        {
+            switch (retVal)
+            {
+            case c_KeyKeeper_Status_UserAbort:
+                return Status::UserAbort;
+
+            case c_KeyKeeper_Status_NotImpl:
+                return Status::NotImplemented;
+
+            default:
+                return Status::Unspecified;
+            }
+        }
+
+        if (nResponse != nResponseActual)
+            return Status::Unspecified;
+
+        return Status::Success;
+    }
 
     //////////////
     // Impl
@@ -574,7 +603,7 @@ namespace beam::wallet
                 if (!pMsg)
                     return;
 
-                if (BeamCrypto_CurrentProtoVer != pMsg->m_Value)
+                if (memcmp(pMsg->m_Signature, BeamCrypto_CurrentSignature, sizeof(pMsg->m_Signature)))
                 {
                     Fin(c_KeyKeeper_Status_ProtoError);
                     return;

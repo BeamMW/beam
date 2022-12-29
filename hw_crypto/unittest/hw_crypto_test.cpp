@@ -744,14 +744,10 @@ struct KeyKeeperHwEmu
 		virtual void Execute(Task::Ptr&) override
 		{
 			uint32_t nResSize = m_nResponse;
-			int nRes = hw::KeyKeeper_Invoke(&m_pThis->m_Ctx, (uint8_t*) m_pBuf, m_nRequest, (uint8_t*)m_pBuf, &nResSize);
+			uint8_t* p = (uint8_t*) m_pBuf;
+			hw::KeyKeeper_Invoke(&m_pThis->m_Ctx, p, m_nRequest, p, &nResSize);
 
-			if (c_KeyKeeper_Status_Ok == nRes)
-			{
-				verify_test(nResSize == m_nResponse);
-			}
-
-			m_pHandler->OnDone((Status::Type) nRes);
+			m_pHandler->OnDone(DeduceStatus(p, m_nResponse, nResSize));
 		}
 	};
 

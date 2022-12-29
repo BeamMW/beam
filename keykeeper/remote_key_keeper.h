@@ -45,6 +45,8 @@ namespace beam::wallet
         // communication with the remote
         virtual void SendRequestAsync(void* pBuf, uint32_t nRequest, uint32_t nResponse, const Handler::Ptr& pHandler) = 0;
 
+        static Status::Type DeduceStatus(uint8_t* pBuf, uint32_t nResponse, uint32_t nResponseActual);
+
         struct Cache
         {
             std::mutex m_Mutex;

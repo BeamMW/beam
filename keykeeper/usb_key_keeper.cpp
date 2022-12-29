@@ -596,7 +596,8 @@ void UsbKeyKeeper::RunThreadGuarded()
 				reader.m_NotifyWait = true;
 
 				uint16_t nLen = reader.ReadFrame((uint8_t*) pTask->m_pBuf, static_cast<uint16_t>(pTask->m_nResponse));
-				pTask->m_eRes = (nLen == pTask->m_nResponse) ? Status::Success : Status::Unspecified;
+
+				pTask->m_eRes = DeduceStatus((uint8_t*) pTask->m_pBuf, pTask->m_nResponse, nLen);
 
 				bool bWasEmpty;
 				{

@@ -182,11 +182,11 @@ typedef struct
 
 //////////////////
 // Protocol
-#define BeamCrypto_CurrentProtoVer 2
+#define BeamCrypto_CurrentSignature "BeamHW.ver.01"
 
 #define BeamCrypto_ProtoRequest_Version(macro)
 #define BeamCrypto_ProtoResponse_Version(macro) \
-	macro(uint32_t, Value)
+	macro(char, Signature[sizeof(BeamCrypto_CurrentSignature) - 1])
 
 #define BeamCrypto_ProtoRequest_GetNumSlots(macro)
 #define BeamCrypto_ProtoResponse_GetNumSlots(macro) \
@@ -216,8 +216,7 @@ typedef struct
 	/* followed by in/outs */
 
 
-#define BeamCrypto_ProtoResponse_TxAddCoins(macro) \
-	macro(uint8_t, Dummy) // no response needed actually
+#define BeamCrypto_ProtoResponse_TxAddCoins(macro)
 
 #define BeamCrypto_ProtoRequest_GetImage(macro) \
 	macro(UintBig, hvSrc) \
@@ -232,8 +231,7 @@ typedef struct
 #define BeamCrypto_ProtoRequest_DisplayAddress(macro) \
 	macro(AddrID, AddrID) \
 
-#define BeamCrypto_ProtoResponse_DisplayAddress(macro) \
-	macro(uint8_t, Dummy) \
+#define BeamCrypto_ProtoResponse_DisplayAddress(macro)
 
 #define BeamCrypto_ProtoRequest_CreateShieldedInput(macro) \
 	macro(ShieldedInput_Blob, InpBlob) \
@@ -325,7 +323,7 @@ typedef struct
 
 // pIn/pOut don't have to be distinct! There may be overlap
 // Alignment isn't guaranteed either
-int KeyKeeper_Invoke(KeyKeeper*, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t* pOutSize);
+void KeyKeeper_Invoke(KeyKeeper*, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t* pOutSize);
 
 //////////////////////////
 // External functions, implemented by the platform-specific code
