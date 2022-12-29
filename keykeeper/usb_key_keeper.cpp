@@ -191,7 +191,7 @@ void UsbIO::Open(const char* szPath)
 
 #else // WIN32
 
-	m_hFile = open(path, O_RDWR);
+	m_hFile = open(szPath, O_RDWR);
 	if (m_hFile < 0)
 		std::ThrowLastError();
 
@@ -253,7 +253,7 @@ uint16_t UsbIO::Read(void* p, uint16_t n)
 
 #else // WIN32
 
-	int bytes_read = read(dev->device_handle, data, length);
+	int bytes_read = read(m_hFile, p, n);
 	if (bytes_read >= 0)
 		return static_cast<uint16_t>(bytes_read);
 

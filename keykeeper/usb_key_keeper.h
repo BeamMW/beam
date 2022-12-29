@@ -38,9 +38,9 @@ namespace beam::wallet
     {
 #ifdef WIN32
         HANDLE m_hFile;
-#else
+#else // WIN32
         int m_hFile;
-#endif WIN32
+#endif // WIN32
 
         struct Frame;
 
