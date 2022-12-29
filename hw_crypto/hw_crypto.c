@@ -29,8 +29,11 @@
 #	pragma warning (push, 0) // suppress warnings from secp256k1
 #	pragma warning (disable: 4706 4701) // assignment within conditional expression
 #	define __attribute__(x) __declspec x
-#	define UNUSED(x) (x)
 #endif
+
+#ifndef UNUSED
+#	define UNUSED(x) (x)
+#endif // UNUSED
 
 #if BeamCrypto_ScarceStack
 #	define __stack_hungry__ __attribute__((noinline))
