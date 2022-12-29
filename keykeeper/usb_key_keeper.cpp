@@ -323,5 +323,363 @@ uint16_t UsbIO::ReadFrame(uint8_t* p, uint16_t n)
 	return r.ReadFrame(p, n);
 }
 
+UsbKeyKeeper::~UsbKeyKeeper()
+{
+	Stop();
+}
+
+void UsbKeyKeeper::Stop()
+{
+	if (m_Thread.joinable())
+	{
+		m_evtShutdown.Set();
+		m_Thread.join();
+	}
+}
+
+void UsbKeyKeeper::StartSafe()
+{
+	if (!m_Thread.joinable())
+	{
+		m_evtTask.Create();
+		m_evtShutdown.Create();
+
+		m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnEvent(); });
+
+
+		m_Thread = MyThread(&UsbKeyKeeper::RunThread, this);
+	}
+}
+
+bool UsbKeyKeeper::TaskList::Push(Task::Ptr& pTask)
+{
+	std::scoped_lock l(m_Mutex);
+	return PushLocked(pTask);
+}
+
+bool UsbKeyKeeper::TaskList::PushLocked(Task::Ptr& pTask)
+{
+	bool bWasEmpty = empty();
+	push_back(*pTask.release());
+
+	return bWasEmpty;
+}
+
+bool UsbKeyKeeper::TaskList::Pop(Task::Ptr& pTask)
+{
+	std::scoped_lock l(m_Mutex);
+	if (empty())
+		return false;
+
+	pTask.reset(&front());
+	pop_front();
+
+	return true;
+}
+
+
+void UsbKeyKeeper::SendRequestAsync(void* pBuf, uint32_t nRequest, uint32_t nResponse, const Handler::Ptr& pHandler)
+{
+	Task::Ptr pTask(new Task);
+	pTask->m_pBuf = pBuf;
+	pTask->m_nRequest = nRequest;
+	pTask->m_nResponse = nResponse;
+	pTask->m_pHandler = pHandler;
+
+	bool bWasEmpty = m_lstPending.Push(pTask);
+	if (bWasEmpty)
+	{
+		StartSafe();
+		m_evtTask.Set();
+	}
+}
+
+void UsbKeyKeeper::RunThread()
+{
+	try
+	{
+		RunThreadGuarded();
+	}
+	catch (const ShutdownExc&)
+	{
+		// ignore
+	}
+}
+
+void UsbKeyKeeper::RunThreadGuarded()
+{
+	Task::Ptr pTask;
+	while (true)
+	{
+		try
+		{
+			struct AsyncReader :public UsbIO::FrameReader
+			{
+				UsbKeyKeeper& m_This;
+				AsyncReader(UsbKeyKeeper& x) :m_This(x) {}
+#ifdef WIN32
+				Event m_Event;
+				OVERLAPPED m_Overlapped;
+#endif // WIN32
+
+				UsbIO m_Usbio;
+				bool m_NotifyWait;
+
+				uint16_t ReadInternal(void* p, uint16_t n, const uint32_t* pTimeout_ms)
+				{
+#ifdef WIN32
+					while (true)
+					{
+						// 1st try read. 
+						memset(&m_Overlapped, 0, sizeof(m_Overlapped));
+						m_Overlapped.hEvent = m_Event.m_hEvt;
+
+						DWORD dw;
+						if (ReadFile(m_Usbio.m_hFile, p, n, &dw, &m_Overlapped) && dw)
+							return static_cast<uint16_t>(dw);
+
+						if (GetLastError() != ERROR_IO_PENDING)
+							std::ThrowLastError();
+
+						if (!m_This.WaitEvent(&m_Event.m_hEvt, pTimeout_ms))
+							break;
+					}
+
+					return 0;
+#else // WIN32
+					// wait for data
+					if (!WaitEvent(&m_Usbio.m_hFile, pTimeout_ms))
+						return 0;
+
+					// read once
+					return m_Usbio.Read(p, n);
+#endif // WIN32
+				}
+
+				uint16_t ReadRaw(void* p, uint16_t n) override
+				{
+					if (m_NotifyWait)
+					{
+						uint32_t nTimeout_ms = 3000;
+						uint16_t res = ReadInternal(p, n, &nTimeout_ms);
+						if (res)
+							return res;
+
+						// notify!
+						m_NotifyWait = false;
+
+						{
+							std::scoped_lock l(m_This.m_lstDone.m_Mutex);
+							m_This.m_WaitUser = true;
+						}
+						m_This.m_pEvt->post();
+
+					}
+
+					return ReadInternal(p, n, nullptr);
+				}
+
+			} reader(*this);
+
+			reader.m_Usbio.Open(m_sPath.c_str());
+
+#ifdef WIN32
+			reader.m_Event.Create();
+#endif // WIN32
+
+			{
+				std::scoped_lock l(m_lstDone.m_Mutex);
+				m_sLastError.clear();
+				m_WaitUser = false;
+			}
+
+			while (true)
+			{
+				// take a task
+				if (!pTask)
+				{
+					while (!m_lstPending.Pop(pTask))
+					{
+						WaitEvent(&m_evtTask.m_hEvt, nullptr);
+
+#ifndef WIN32
+						// unset evt
+						uint8_t pBuf[0x100];
+						read(m_evtTask.m_hEvt, pBuf, sizeof(pBuf));
+#endif // WIN32
+					}
+				}
+
+				// send request
+				reader.m_Usbio.WriteFrame((uint8_t*) pTask->m_pBuf, static_cast<uint16_t>(pTask->m_nRequest));
+
+				// read response asynchronously
+				reader.m_NotifyWait = true;
+
+				uint16_t nLen = reader.ReadFrame((uint8_t*) pTask->m_pBuf, static_cast<uint16_t>(pTask->m_nResponse));
+				pTask->m_eRes = (nLen == pTask->m_nResponse) ? Status::Success : Status::Unspecified;
+
+				bool bWasEmpty;
+				{
+					std::scoped_lock l(m_lstDone.m_Mutex);
+
+					bWasEmpty = m_lstDone.PushLocked(pTask);
+					m_WaitUser = false;
+				}
+
+
+				if (bWasEmpty)
+					// notify
+					m_pEvt->post();
+
+			}
+		}
+		catch (const std::exception& e)
+		{
+			std::string sErr = e.what();
+
+			{
+				std::scoped_lock l(m_lstDone.m_Mutex);
+				m_sLastError = std::move(sErr);
+			}
+			m_pEvt->post();
+
+			uint32_t nTimeout_ms = 1000;
+			WaitEvent(nullptr, &nTimeout_ms);
+		}
+	}
+}
+
+bool UsbKeyKeeper::WaitEvent(const Event::Handle* pEvt, const uint32_t* pTimeout_ms)
+{
+#ifdef WIN32
+
+	HANDLE pWait[2];
+	pWait[0] = m_evtShutdown.m_hEvt;
+	uint32_t nWait = 1;
+
+	if (pEvt)
+	{
+		pWait[1] = *pEvt;
+		nWait = 2;
+	}
+
+	DWORD dw = WaitForMultipleObjects(nWait, pWait, FALSE, pTimeout_ms ? *pTimeout_ms : INFINITE);
+	switch (dw)
+	{
+	case WAIT_OBJECT_0:
+		break;
+
+	default:
+		std::ThrowLastError();
+		// no break;
+
+	case WAIT_OBJECT_0 + 1:
+		return true;
+
+	case WAIT_TIMEOUT:
+		return false;
+	}
+
+
+#else // WIN32
+
+	struct pollfd pFds[2];
+	memset(pFds, 0, sizeof(pFds));
+
+	pFds[0].fd = m_evtShutdown.m_hEvt;
+	pFds[0].events = POLLIN;
+	uint32_t nWait = 1;
+
+	if (pEvt)
+	{
+		pFds[1].fd = *pEvt;
+		pFds[1].events = POLLIN;
+		nWait = 2;
+	}
+
+	int ret = poll(pFds, nWait, pTimeout_ms ? *pTimeout_ms : -1);
+	if (ret < 0)
+		std::ThrowLastError();
+	if (!ret)
+		return false; // timeout
+
+	if (pFds[1].revents)
+		return true;
+
+#endif // WIN32
+
+	ShutdownExc exc;
+	throw exc;
+}
+
+void UsbKeyKeeper::OnEvent()
+{
+	while (true)
+	{
+		Task::Ptr pTask;
+		if (!m_lstDone.Pop(pTask))
+			break;
+
+		pTask->m_pHandler->OnDone(pTask->m_eRes);
+	}
+}
+
+#ifdef WIN32
+
+UsbKeyKeeper::Event::Event() :m_hEvt(NULL)
+{
+}
+
+UsbKeyKeeper::Event::~Event()
+{
+	if (m_hEvt)
+		CloseHandle(m_hEvt);
+}
+
+void UsbKeyKeeper::Event::Set()
+{
+	SetEvent(m_hEvt);
+}
+
+void UsbKeyKeeper::Event::Create()
+{
+	m_hEvt = CreateEvent(NULL, FALSE, FALSE, NULL);
+	if (!m_hEvt)
+		std::ThrowLastError();
+}
+
+#else // WIN32
+
+UsbKeyKeeper::Event::Event() :m_hEvt(-1)
+{
+}
+
+UsbKeyKeeper::Event::~Event()
+{
+	if (m_hEvt >= 0)
+	{
+		close(m_hEvt);
+		close(m_hSetter);
+	}
+}
+
+void UsbKeyKeeper::Event::Set()
+{
+	uint8_t dummy = 0;
+	write(m_hSetter, &dummy, 1);
+}
+
+void UsbKeyKeeper::Event::Create()
+{
+	int pFds[2];
+	if (pipe(pFds) < 0)
+		std::ThrowLastError();
+
+	m_hEvt = pFds[0];
+	m_hSetter = pFds[1];
+}
+#endif // WIN32
+
 } // namespace beam::wallet
 

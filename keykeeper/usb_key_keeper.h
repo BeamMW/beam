@@ -15,6 +15,8 @@
 #pragma once
 
 #include "remote_key_keeper.h"
+#include "../utility/thread.h"
+#include "../utility/containers.h"
 
 namespace beam::wallet
 {
@@ -53,6 +55,78 @@ namespace beam::wallet
         ~UsbIO();
 
         void Open(const char* szPath); // throws exc on error
+    };
+
+    class UsbKeyKeeper
+        :public RemoteKeyKeeper
+    {
+        struct Task
+            :public boost::intrusive::list_base_hook<>
+        {
+            typedef std::unique_ptr<Task> Ptr;
+
+            void* m_pBuf;
+            uint32_t m_nRequest;
+            uint32_t m_nResponse;
+            Handler::Ptr m_pHandler;
+            Status::Type m_eRes; // set after processing
+        };
+
+        struct TaskList :public intrusive::list_autoclear<Task>
+        {
+            std::mutex m_Mutex;
+
+            bool Push(Task::Ptr&); // returns true if list was empty
+            bool PushLocked(Task::Ptr&);
+            bool Pop(Task::Ptr&);
+        };
+
+        struct Event
+        {
+#ifdef WIN32
+            typedef  HANDLE Handle;
+#else // WIN32
+            typedef int Handle;
+            Handle m_hSetter;
+#endif // WIN32
+            Handle m_hEvt;
+
+            Event();
+            ~Event();
+
+            void Set();
+            void Create();
+        };
+
+        struct ShutdownExc {};
+
+        TaskList m_lstPending;
+        TaskList m_lstDone;
+
+        Event m_evtShutdown;
+        Event m_evtTask;
+        MyThread m_Thread; // theoretically it's possible to handle async read events in the same thread, unfortunately it's too complex to integrate with uv
+
+        bool m_WaitUser = false;
+        std::string m_sLastError;
+
+        io::AsyncEvent::Ptr m_pEvt;
+
+        void SendRequestAsync(void* pBuf, uint32_t nRequest, uint32_t nResponse, const Handler::Ptr& pHandler) override;
+
+        void RunThread();
+        void RunThreadGuarded();
+        bool WaitEvent(const Event::Handle*, const uint32_t* pTimeout_ms);
+        void OnEvent();
+
+    public:
+
+        std::string m_sPath;
+
+        void StartSafe();
+        void Stop();
+
+        virtual ~UsbKeyKeeper();
     };
 }
 
