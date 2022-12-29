@@ -36,6 +36,10 @@ std::string string_from_WStr(const wchar_t* wsz)
 	return sRet;
 }
 
+#else // WIN32
+
+#	include <poll.h>
+#	include <unistd.h>
 
 #endif // WIN32
 
@@ -448,7 +452,7 @@ void UsbKeyKeeper::RunThreadGuarded()
 					return 0;
 #else // WIN32
 					// wait for data
-					if (!WaitEvent(&m_Usbio.m_hFile, pTimeout_ms))
+					if (!m_This.WaitEvent(&m_Usbio.m_hFile, pTimeout_ms))
 						return 0;
 
 					// read once
