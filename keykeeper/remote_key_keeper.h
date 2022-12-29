@@ -43,7 +43,7 @@ namespace beam::wallet
     protected:
 
         // communication with the remote
-        virtual void SendRequestAsync(const Blob& msgOut, const Blob& msgIn, const Handler::Ptr& pHandler) = 0;
+        virtual void SendRequestAsync(void* pBuf, uint32_t nRequest, uint32_t nResponse, const Handler::Ptr& pHandler) = 0;
 
         struct Cache
         {

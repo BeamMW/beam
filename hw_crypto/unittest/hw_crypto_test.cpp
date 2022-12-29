@@ -737,39 +737,33 @@ struct KeyKeeperHwEmu
 		:public wallet::PrivateKeyKeeper_WithMarshaller::Task
 	{
 		KeyKeeperHwEmu* m_pThis;
-		Blob m_msgOut;
-		Blob m_msgIn;
+		void* m_pBuf;
+		uint32_t m_nRequest;
+		uint32_t m_nResponse;
 
 		virtual void Execute(Task::Ptr&) override
 		{
-			bool bUseOutp = (m_msgOut.n >= m_msgIn.n);
-			if (!bUseOutp)
-				memcpy(Cast::NotConst(m_msgIn.p), m_msgOut.p, m_msgOut.n);
-
-			uint8_t* pBuf = reinterpret_cast<uint8_t*>(Cast::NotConst(bUseOutp ? m_msgOut.p : m_msgIn.p));
-
-			uint32_t nResSize = m_msgIn.n;
-			int nRes = hw::KeyKeeper_Invoke(&m_pThis->m_Ctx, pBuf, m_msgOut.n, pBuf, &m_msgIn.n);
+			uint32_t nResSize = m_nResponse;
+			int nRes = hw::KeyKeeper_Invoke(&m_pThis->m_Ctx, (uint8_t*) m_pBuf, m_nRequest, (uint8_t*)m_pBuf, &nResSize);
 
 			if (c_KeyKeeper_Status_Ok == nRes)
 			{
-				verify_test(nResSize == m_msgIn.n);
-				if (bUseOutp)
-					memcpy(Cast::NotConst(m_msgIn.p), m_msgOut.p, m_msgIn.n);
+				verify_test(nResSize == m_nResponse);
 			}
 
 			m_pHandler->OnDone((Status::Type) nRes);
 		}
 	};
 
-	virtual void SendRequestAsync(const Blob& msgOut, const Blob& msgIn, const Handler::Ptr& pHandler)
+	virtual void SendRequestAsync(void* pBuf, uint32_t nRequest, uint32_t nResponse, const Handler::Ptr& pHandler)
 	{
 		Task::Ptr pTask = std::make_unique<MyTask>();
 		auto& t = Cast::Up<MyTask>(*pTask);
 
 		t.m_pThis = this;
-		t.m_msgOut = msgOut;
-		t.m_msgIn = msgIn;
+		t.m_pBuf = pBuf;
+		t.m_nRequest = nRequest;
+		t.m_nResponse = nResponse;
 		t.m_pHandler = pHandler;
 
 		PushOut(pTask);

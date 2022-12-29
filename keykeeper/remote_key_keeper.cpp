@@ -15,6 +15,7 @@
 #include "remote_key_keeper.h"
 #include "utility/byteorder.h"
 #include "utility/executor.h"
+#include "utility/containers.h"
 
 namespace beam {
 namespace hw {
@@ -89,6 +90,7 @@ extern "C" {
 #define THE_MACRO(id, name) \
 		struct name { \
 			struct Out { \
+                typedef name Pair; \
 				uint8_t m_OpCode; \
 				Out() { \
 					ZeroObject(*this); \
@@ -101,8 +103,6 @@ extern "C" {
 				BeamCrypto_ProtoResponse_##name(THE_MACRO_Field) \
 				void n2h() { BeamCrypto_ProtoResponse_##name(THE_MACRO_Field_h2n) } \
 			}; \
-			Out m_Out; \
-			In m_In; \
 		};
 
 		BeamCrypto_ProtoMethods(THE_MACRO)
@@ -150,39 +150,16 @@ namespace beam::wallet
     // Impl
     struct RemoteKeyKeeper::Impl
     {
-	    template <typename T>
-	    static T& ExtendBy(ByteBuffer& buf, const T& x, size_t nExtra)
-	    {
-		    buf.resize(sizeof(T) + nExtra);
-		    memcpy(&buf.front(), &x, sizeof(T));
-		    return *reinterpret_cast<T*>(&buf.front());
-	    }
-
         static void CidCvt(hw::CoinID&, const CoinID&);
 
+		static void Import(hw::TxKernelUser&, const Method::TxCommon&);
+		static void Import(hw::TxKernelCommitments&, const Method::TxCommon&);
+        static void Import(hw::TxCommonOut&, const Method::TxCommon&);
+		static void Import(hw::TxMutualIn&, const Method::TxMutual&);
+		static void Import(hw::ShieldedInput_Blob&, hw::ShieldedInput_Fmt&, const ShieldedTxo::ID&, Amount fee);
+		static void Import(hw::ShieldedTxoUser&, const ShieldedTxo::User&);
 
-	    struct Encoder
-	    {
-		    ByteBuffer m_Buf;
-
-		    template <typename T>
-		    T& ExtendByCoins(T& x, const Method::TxCommon& tx, uint32_t& nOutExtra)
-		    {
-			    ExtendByCoinsInternal(reinterpret_cast<const uint8_t*>(&x), static_cast<uint32_t>(sizeof(x)), x, tx, nOutExtra);
-			    return *reinterpret_cast<T*>(&m_Buf.front());
-		    }
-
-		    void ExtendByCoinsInternal(const uint8_t* p, uint32_t nSize, hw::Proto::TxAddCoins::Out&, const Method::TxCommon& tx, uint32_t& nOutExtra);
-
-		    static void Import(hw::TxKernelUser&, const Method::TxCommon&);
-		    static void Import(hw::TxKernelCommitments&, const Method::TxCommon&);
-            static void Import(hw::TxCommonOut&, const Method::TxCommon&);
-		    static void Import(hw::TxMutualIn&, const Method::TxMutual&);
-		    static void Import(hw::ShieldedInput_Blob&, hw::ShieldedInput_Fmt&, const ShieldedTxo::ID&, Amount fee);
-		    static void Import(hw::ShieldedTxoUser&, const ShieldedTxo::User&);
-
-		    static void Export(Method::TxCommon&, const hw::TxCommonOut&);
-	    };
+		static void Export(Method::TxCommon&, const hw::TxCommonOut&);
 
 	    static Amount CalcTxBalance(Asset::ID* pAid, const Method::TxCommon&);
 	    static void CalcTxBalance(Amount&, Asset::ID* pAid, Amount, Asset::ID);
@@ -195,29 +172,107 @@ namespace beam::wallet
             RemoteKeyKeeper& m_This;
             Handler::Ptr m_pFinal;
 
+            struct ReqNode
+                :public boost::intrusive::list_base_hook<>
+            {
+                typedef std::unique_ptr<ReqNode> Ptr;
+
+                uint32_t m_Request;
+                uint32_t m_Response;
+
+                void* operator new(size_t n, uint32_t nExtra) {
+                    return new uint8_t[n + nExtra];
+                }
+
+                void operator delete(void* p) {
+                    delete[] reinterpret_cast<uint8_t*>(p);
+                }
+
+                void operator delete(void* p, uint32_t) {
+                    delete[] reinterpret_cast<uint8_t*>(p);
+                }
+            };
+
+            intrusive::list_autoclear<ReqNode> m_lstPending;
+            intrusive::list_autoclear<ReqNode> m_lstDone;
+            uint32_t m_Phase = 0;
+
             RemoteCall(RemoteKeyKeeper& kk, const Handler::Ptr& h)
                 :m_This(kk)
                 ,m_pFinal(h)
             {
             }
 
-	        template <typename TOut, typename TIn>
-	        void InvokeProtoEx(TOut& out, TIn& in, size_t nExOut, size_t nExIn)
-	        {
-		        out.h2n();
+            void* AllocReq(uint32_t nRequest, uint32_t nResponse)
+            {
+                ReqNode::Ptr pGuard(new (std::max(nRequest, nResponse)) ReqNode);
+                pGuard->m_Request = nRequest;
+                pGuard->m_Response = nResponse;
 
-                m_This.SendRequestAsync(
-                    Blob(&out, static_cast<uint32_t>(sizeof(out) + nExOut)),
-                    Blob(&in, static_cast<uint32_t>(sizeof(in) + nExIn)),
-                    shared_from_this());
-	        }
+                auto pRet = pGuard.get() + 1;
+                m_lstPending.push_back(*pGuard.release());
+                return pRet;
+            }
 
-	        template <typename T>
-	        void InvokeProto(T& msg)
-	        {
-		        return InvokeProtoEx(msg.m_Out, msg.m_In, 0, 0);
-	        }
+            void SendReq()
+            {
+                assert(!m_lstPending.empty());
+                auto& r = m_lstPending.back();
 
+                m_Phase++;
+                m_This.SendRequestAsync(&r + 1, r.m_Request, r.m_Response, shared_from_this());
+            }
+
+            void SendDummyReq()
+            {
+                AllocReq(0, 0);
+                m_Phase++;
+            }
+
+            template <typename TRequest>
+            void* AllocReq_T(const TRequest& msg, uint32_t nExtraRequest = 0, uint32_t nExtraResponse = 0)
+            {
+                auto pMsg = (TRequest*) AllocReq(sizeof(TRequest) + nExtraRequest, sizeof(typename TRequest::Pair::In) + nExtraResponse);
+                memcpy(pMsg, &msg, sizeof(msg));
+                pMsg->h2n();
+
+                return pMsg + 1;
+            }
+
+
+            template <typename TRequest>
+            void SendReq_T(const TRequest& msg, uint32_t nExtraResponse = 0)
+            {
+                AllocReq_T(msg, 0, nExtraResponse);
+                SendReq();
+            }
+
+
+            template <typename TPair>
+            typename TPair::In* ReadReq_T()
+            {
+                while (true)
+                {
+                    if (m_lstDone.empty())
+                        return nullptr;
+
+                    auto& r0 = m_lstDone.front();
+                    if (r0.m_Request)
+                        break;
+
+                    m_lstDone.Delete(r0);
+                }
+
+                auto& r = m_lstDone.front();
+                assert(r.m_Response >= sizeof(typename TPair::In));
+
+                r.m_Request = 0;
+                m_Phase++;
+
+                auto pRes = reinterpret_cast<typename TPair::In*>(&r + 1);
+                pRes->n2h();
+                return pRes;
+            }
 
             void Fin(Status::Type n = Status::Success) {
                 m_This.PushOut(n, m_pFinal);
@@ -226,12 +281,25 @@ namespace beam::wallet
             virtual void OnDone(Status::Type n) override
             {
                 if (Status::Success == n)
-                    OnRemoteData();
+                {
+                    auto& r = m_lstPending.front();
+                    m_lstPending.pop_front();
+                    m_lstDone.push_back(r);
+
+                    if (!r.m_Request && !r.m_Response)
+                    {
+                        // dummy
+                        m_lstDone.Delete(r);
+                        m_Phase++;
+                    }
+
+                    Update();
+                }
                 else
                     Fin(n);
             }
 
-            virtual void OnRemoteData() = 0;
+            virtual void Update() = 0;
         };
 
 
@@ -240,7 +308,8 @@ namespace beam::wallet
 #undef THE_MACRO
 
 
-
+        struct RemoteCall_WithOwnerKey;
+        struct RemoteCall_WithCoins;
     };
 
     hw::UintBig& Ecc2BC(const ECC::uintBig& x)
@@ -265,52 +334,7 @@ namespace beam::wallet
         cid2.m_Amount = cid.m_Value;
     }
 
-
-    void RemoteKeyKeeper::Impl::Encoder::ExtendByCoinsInternal(const uint8_t* p, uint32_t nSize, hw::Proto::TxAddCoins::Out& msg, const Method::TxCommon& m, uint32_t& nOutExtra)
-    {
-        msg.m_Reset = 1;
-	    msg.m_Ins = static_cast<uint8_t>(m.m_vInputs.size());
-	    msg.m_Outs = static_cast<uint8_t>(m.m_vOutputs.size());
-	    msg.m_InsShielded = static_cast<uint8_t>(m.m_vInputsShielded.size());
-
-	    uint32_t nExtra =
-		    static_cast <uint32_t>(sizeof(hw::CoinID)) * (msg.m_Ins + (uint32_t) msg.m_Outs) +
-		    static_cast <uint32_t>(sizeof(hw::ShieldedInput_Blob) + sizeof(hw::ShieldedInput_Fmt)) * msg.m_InsShielded;
-	    nOutExtra = nExtra;
-
-	    m_Buf.resize(nSize + nExtra);
-	    memcpy(&m_Buf.front(), p, nSize);
-
-        hw::CoinID* pCid = (hw::CoinID*) (&m_Buf.front() + nSize);
-
-	    for (uint32_t i = 0; i < msg.m_Ins; i++, pCid++)
-	    {
-		    CidCvt(*pCid, m.m_vInputs[i]);
-            hw::Proto::h2n(*pCid);
-	    }
-
-	    for (uint32_t i = 0; i < msg.m_Outs; i++, pCid++)
-	    {
-		    CidCvt(*pCid, m.m_vOutputs[i]);
-            hw::Proto::h2n(*pCid);
-	    }
-
-        auto pPtr = reinterpret_cast<uint8_t*>(pCid);
-	    for (uint32_t i = 0; i < msg.m_InsShielded; i++)
-	    {
-		    const auto& src = m.m_vInputsShielded[i];
-
-            hw::ShieldedInput_Fmt fmt;
-            Import(*(hw::ShieldedInput_Blob*) pPtr, fmt, src, src.m_Fee);
-            hw::Proto::h2n(fmt);
-
-            pPtr += sizeof(hw::ShieldedInput_Blob);
-            memcpy(pPtr, &fmt, sizeof(fmt));
-            pPtr += sizeof(hw::ShieldedInput_Fmt);
-	    }
-    }
-
-    void RemoteKeyKeeper::Impl::Encoder::Import(hw::TxKernelUser& krn, const Method::TxCommon& m)
+    void RemoteKeyKeeper::Impl::Import(hw::TxKernelUser& krn, const Method::TxCommon& m)
     {
 	    assert(m.m_pKernel);
 	    const auto& src = *m.m_pKernel;
@@ -320,7 +344,7 @@ namespace beam::wallet
 	    krn.m_hMax = src.m_Height.m_Max;
     }
 
-    void RemoteKeyKeeper::Impl::Encoder::Import(hw::TxKernelCommitments& krn, const Method::TxCommon& m)
+    void RemoteKeyKeeper::Impl::Import(hw::TxKernelCommitments& krn, const Method::TxCommon& m)
     {
 	    assert(m.m_pKernel);
 	    const auto& src = *m.m_pKernel;
@@ -329,7 +353,7 @@ namespace beam::wallet
 	    krn.m_NoncePub = Ecc2BC(src.m_Signature.m_NoncePub);
     }
 
-    void RemoteKeyKeeper::Impl::Encoder::Import(hw::TxCommonOut& txOut, const Method::TxCommon& m)
+    void RemoteKeyKeeper::Impl::Import(hw::TxCommonOut& txOut, const Method::TxCommon& m)
     {
 	    Import(txOut.m_Comms, m);
 
@@ -338,13 +362,13 @@ namespace beam::wallet
         txOut.m_TxSig.m_kSig = Ecc2BC(m.m_pKernel->m_Signature.m_k.m_Value);
     }
 
-    void RemoteKeyKeeper::Impl::Encoder::Import(hw::TxMutualIn& txIn, const Method::TxMutual& m)
+    void RemoteKeyKeeper::Impl::Import(hw::TxMutualIn& txIn, const Method::TxMutual& m)
     {
 	    txIn.m_AddrID = m.m_MyIDKey;
 	    txIn.m_Peer = Ecc2BC(m.m_Peer);
     }
 
-    void RemoteKeyKeeper::Impl::Encoder::Export(Method::TxCommon& m, const hw::TxCommonOut& txOut)
+    void RemoteKeyKeeper::Impl::Export(Method::TxCommon& m, const hw::TxCommonOut& txOut)
     {
 	    // kernel
 	    assert(m.m_pKernel);
@@ -362,7 +386,7 @@ namespace beam::wallet
 	    m.m_kOffset = kOffs;
     }
 
-    void RemoteKeyKeeper::Impl::Encoder::Import(hw::ShieldedTxoUser& dst, const ShieldedTxo::User& src)
+    void RemoteKeyKeeper::Impl::Import(hw::ShieldedTxoUser& dst, const ShieldedTxo::User& src)
     {
 	    dst.m_Sender = Ecc2BC(src.m_Sender);
 
@@ -371,7 +395,7 @@ namespace beam::wallet
 		    dst.m_pMessage[i] = Ecc2BC(src.m_pMessage[i]);
     }
 
-    void RemoteKeyKeeper::Impl::Encoder::Import(hw::ShieldedInput_Blob& blob, hw::ShieldedInput_Fmt& fmt, const ShieldedTxo::ID& src, Amount fee)
+    void RemoteKeyKeeper::Impl::Import(hw::ShieldedInput_Blob& blob, hw::ShieldedInput_Fmt& fmt, const ShieldedTxo::ID& src, Amount fee)
     {
 	    Import(blob.m_User, src.m_User);
 
@@ -463,41 +487,48 @@ namespace beam::wallet
         }
 
         Method::get_Kdf& m_M;
-        hw::Proto::GetPKdf m_Msg;
 
-        void Do()
+        void Update() override
         {
-            if ((KdfType::Root == m_M.m_Type) && m_This.m_Cache.get_Owner(m_M.m_pPKdf))
+            if (!m_Phase)
             {
-                Fin();
-                return;
+                if ((KdfType::Root == m_M.m_Type) && m_This.m_Cache.get_Owner(m_M.m_pPKdf))
+                {
+                    Fin();
+                    return;
+                }
+
+                hw::Proto::GetPKdf::Out msg;
+                msg.m_Kind = (KdfType::Root == m_M.m_Type) ? 0 : 1;
+                SendReq_T(msg);
             }
 
-            m_Msg.m_Out.m_Kind = (KdfType::Root == m_M.m_Type) ? 0 : 1;
-            InvokeProto(m_Msg);
-        }
-
-        virtual void OnRemoteData() override
-        {
-            m_Msg.m_In.n2h();
-
-            ECC::HKdfPub::Packed p;
-            Ecc2BC(p.m_Secret) = m_Msg.m_In.m_Value.m_Secret;
-            Ecc2BC(p.m_PkG) = m_Msg.m_In.m_Value.m_CoFactorG;
-            Ecc2BC(p.m_PkJ) = m_Msg.m_In.m_Value.m_CoFactorJ;
-
-            auto pRes = std::make_shared<ECC::HKdfPub>();
-            if (Cast::Up<ECC::HKdfPub>(*pRes).Import(p))
+            if (1 == m_Phase)
             {
-                if (KdfType::Root == m_M.m_Type)
-                    m_This.m_Cache.set_Owner(pRes);
+                auto pMsg = ReadReq_T<hw::Proto::GetPKdf>();
+                if (!pMsg)
+                    return;
 
-                m_M.m_pPKdf = std::move(pRes);
-                Fin();
+                ECC::HKdfPub::Packed p;
+                Ecc2BC(p.m_Secret) = pMsg->m_Value.m_Secret;
+                Ecc2BC(p.m_PkG) = pMsg->m_Value.m_CoFactorG;
+                Ecc2BC(p.m_PkJ) = pMsg->m_Value.m_CoFactorJ;
+
+                auto pPKdf = std::make_shared<ECC::HKdfPub>();
+                if (pPKdf->Import(p))
+                {
+                    if (KdfType::Root == m_M.m_Type)
+                        m_This.m_Cache.set_Owner(pPKdf);
+
+                    m_M.m_pPKdf = std::move(pPKdf);
+                    Fin();
+                }
+                else
+                    Fin(Status::Unspecified);
             }
-            else
-                Fin(Status::Unspecified);
+
         }
+
     };
 
 
@@ -512,249 +543,230 @@ namespace beam::wallet
 
         Method::get_NumSlots& m_M;
 
-        hw::Proto::Version m_Msg1;
-        hw::Proto::GetNumSlots m_Msg2;
-        bool m_VersionVerified = false;
-
-        void Do()
+        void Update() override
         {
-            m_M.m_Count = m_This.m_Cache.get_NumSlots();
-            if (m_M.m_Count)
-                Fin();
-            else
-                InvokeProto(m_Msg1);
-        }
-
-        virtual void OnRemoteData() override
-        {
-            if (m_VersionVerified)
+            if (!m_Phase)
             {
-                m_Msg2.m_In.n2h();
-
-                if (m_Msg2.m_In.m_Value)
+                m_M.m_Count = m_This.m_Cache.get_NumSlots();
+                if (m_M.m_Count)
                 {
-                    {
-                        std::unique_lock<std::mutex> scope(m_This.m_Cache.m_Mutex);
-                        m_This.m_Cache.m_Slots = m_Msg2.m_In.m_Value;
-                    }
-
-                    m_M.m_Count = m_Msg2.m_In.m_Value;
                     Fin();
+                    return;
                 }
-                else
-                    Fin(c_KeyKeeper_Status_ProtoError);
+
+                hw::Proto::Version::Out msg;
+                SendReq_T(msg);
             }
-            else
+
+            if (1 == m_Phase)
             {
-                m_Msg1.m_In.n2h();
-                if (BeamCrypto_CurrentProtoVer == m_Msg1.m_In.m_Value)
+                auto pMsg = ReadReq_T<hw::Proto::Version>();
+                if (!pMsg)
+                    return;
+
+                if (BeamCrypto_CurrentProtoVer != pMsg->m_Value)
                 {
-                    m_VersionVerified = true;
-                    InvokeProto(m_Msg2);
-                }
-                else
                     Fin(c_KeyKeeper_Status_ProtoError);
+                    return;
+                }
+            }
+
+            if (2 == m_Phase)
+            {
+                hw::Proto::GetNumSlots::Out msg;
+                SendReq_T(msg);
+            }
+
+            if (3 == m_Phase)
+            {
+                auto pMsg = ReadReq_T<hw::Proto::GetNumSlots>();
+                if (!pMsg)
+                    return;
+
+                {
+                    std::unique_lock<std::mutex> scope(m_This.m_Cache.m_Mutex);
+                    m_This.m_Cache.m_Slots = pMsg->m_Value;
+                }
+
+                m_M.m_Count = pMsg->m_Value;
+                Fin();
             }
         }
     };
 
-    struct RemoteKeyKeeper::Impl::RemoteCall_get_Commitment
+    struct RemoteKeyKeeper::Impl::RemoteCall_WithOwnerKey
         :public RemoteCall
     {
+        Method::get_Kdf m_GetKey;
+
+        using RemoteCall::RemoteCall;
+
+        bool GetOwnerKey()
+        {
+            if (m_This.m_Cache.get_Owner(m_GetKey.m_pPKdf))
+            {
+                m_Phase += 2;
+                return true;
+            }
+
+            SendDummyReq();
+            m_GetKey.m_Type = KdfType::Root;
+            m_This.InvokeAsync(m_GetKey, shared_from_this());
+
+            return false;
+        }
+    };
+
+
+    struct RemoteKeyKeeper::Impl::RemoteCall_get_Commitment
+        :public RemoteCall_WithOwnerKey
+    {
         RemoteCall_get_Commitment(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::get_Commitment& m)
-            :RemoteCall(kk, h)
+            :RemoteCall_WithOwnerKey(kk, h)
             ,m_M(m)
         {
         }
 
         Method::get_Commitment& m_M;
-        hw::Proto::GetImage m_Msg;
-        Method::get_Kdf m_GetKey;
-        uint32_t m_Phase = 0;
 
-        void Do()
+        void Update() override
         {
-
-            if (m_M.m_Cid.get_ChildKdfIndex(m_Msg.m_Out.m_iChild))
+            if (!m_Phase)
             {
-                m_Msg.m_Out.m_bG = 1;
-                m_Msg.m_Out.m_bJ = 1;
+                hw::Proto::GetImage::Out msg;
+                if (m_M.m_Cid.get_ChildKdfIndex(msg.m_iChild))
+                {
+                    msg.m_bG = 1;
+                    msg.m_bJ = 1;
 
-                m_M.m_Cid.get_Hash(Cast::Reinterpret<ECC::Hash::Value>(m_Msg.m_Out.m_hvSrc));
+                    m_M.m_Cid.get_Hash(Cast::Reinterpret<ECC::Hash::Value>(msg.m_hvSrc));
 
-                m_Phase = 1;
-                InvokeProto(m_Msg);
-
-            }
-            else
-            {
-                if (m_This.m_Cache.get_Owner(m_GetKey.m_pPKdf))
-                    CreateLocal();
+                    SendReq_T(msg);
+                }
                 else
                 {
-                    m_GetKey.m_Type = KdfType::Root;
-                    m_This.InvokeAsync(m_GetKey, shared_from_this());
+                    m_Phase += 10;
+                    GetOwnerKey();
+                    // no return;
                 }
-
             }
-        }
 
-        void CreateLocal()
-        {
-            assert(m_GetKey.m_pPKdf);
-
-            ECC::Point::Native comm;
-            CoinID::Worker(m_M.m_Cid).Recover(comm, *m_GetKey.m_pPKdf);
-
-            comm.Export(m_M.m_Result);
-            Fin();
-        }
-
-        void CreateFromImages()
-        {
-            ECC::Point::Native ptG, ptJ;
-            if (!ptG.ImportNnz(Cast::Reinterpret<ECC::Point>(m_Msg.m_In.m_ptImageG)) ||
-                !ptJ.ImportNnz(Cast::Reinterpret<ECC::Point>(m_Msg.m_In.m_ptImageJ)))
-                Fin(Status::Unspecified);
-
-            CoinID::Worker(m_M.m_Cid).Recover(ptG, ptJ);
-
-            ptG.Export(m_M.m_Result);
-            Fin();
-        }
-
-        virtual void OnRemoteData() override
-        {
-            switch (m_Phase)
+            if (1 == m_Phase)
             {
-            default:
-                assert(false);
-                // no break;
+                auto pMsg = ReadReq_T<hw::Proto::GetImage>();
+                if (!pMsg)
+                    return;
 
-            case 0:
-                if (!m_GetKey.m_pPKdf)
+                ECC::Point::Native ptG, ptJ;
+                if (!ptG.ImportNnz(Cast::Reinterpret<ECC::Point>(pMsg->m_ptImageG)) ||
+                    !ptJ.ImportNnz(Cast::Reinterpret<ECC::Point>(pMsg->m_ptImageJ)))
                     Fin(Status::Unspecified);
-                CreateLocal();
 
-                break;
+                CoinID::Worker(m_M.m_Cid).Recover(ptG, ptJ);
 
-            case 1:
-                m_Msg.m_In.n2h();
-                CreateFromImages();
-                break;
+                ptG.Export(m_M.m_Result);
+                Fin();
+            }
+
+            if (12 == m_Phase)
+            {
+                assert(m_GetKey.m_pPKdf);
+
+                ECC::Point::Native comm;
+                CoinID::Worker(m_M.m_Cid).Recover(comm, *m_GetKey.m_pPKdf);
+
+                comm.Export(m_M.m_Result);
+                Fin();
             }
         }
     };
 
 
     struct RemoteKeyKeeper::Impl::RemoteCall_CreateOutput
-        :public RemoteCall
+        :public RemoteCall_WithOwnerKey
     {
         RemoteCall_CreateOutput(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::CreateOutput& m)
-            :RemoteCall(kk, h)
+            :RemoteCall_WithOwnerKey(kk, h)
             ,m_M(m)
         {
         }
 
         Method::CreateOutput& m_M;
 
-        Key::IPKdf::Ptr m_pOwner;
         Output::Ptr m_pOutput;
-
-        hw::Proto::CreateOutput m_Msg;
-        Method::get_Kdf m_GetKey;
         Method::get_Commitment m_GetCommitment;
 
-        void Do()
+        void Update() override
         {
-            if (m_M.m_hScheme < Rules::get().pForks[1].m_Height)
+            if (!m_Phase)
             {
-                Fin(Status::NotImplemented);
-                return;
-            }
-
-            if (m_This.m_Cache.get_Owner(m_pOwner))
-                Create1();
-            else
-            {
-                m_GetKey.m_Type = KdfType::Root;
-                m_This.InvokeAsync(m_GetKey, shared_from_this());
-
-            }
-        }
-
-        virtual void OnRemoteData() override
-        {
-            if (m_pOwner)
-            {
-                assert(m_pOutput);
-                if (m_pOutput->m_Commitment.m_Y != 2)
-                    Create3();
-                else
+                if (m_M.m_hScheme < Rules::get().pForks[1].m_Height)
                 {
-                    m_pOutput->m_Commitment = m_GetCommitment.m_Result;
-                    Create2();
+                    Fin(Status::NotImplemented);
+                    return;
                 }
+
+                GetOwnerKey();
+
+                SendDummyReq();
+                m_GetCommitment.m_Cid = m_M.m_Cid;
+                m_This.InvokeAsync(m_GetCommitment, shared_from_this());
             }
-            else
+
+            if (4 == m_Phase)
             {
-                assert(m_GetKey.m_pPKdf);
-                m_pOwner = std::move(m_GetKey.m_pPKdf);
-                Create1();
+                // have owner key and commitment
+                m_pOutput = std::make_unique<Output>();
+                m_pOutput->m_Commitment = m_GetCommitment.m_Result;
+
+                // rangeproof
+                CalcLocal(Output::OpCode::Mpc_1);
+
+                assert(m_pOutput->m_pConfidential);
+                auto& c = *m_pOutput->m_pConfidential;
+
+                hw::Proto::CreateOutput::Out msg;
+
+
+                CidCvt(msg.m_Cid, m_M.m_Cid);
+                msg.m_pT[0] = Ecc2BC(c.m_Part2.m_T1);
+                msg.m_pT[1] = Ecc2BC(c.m_Part2.m_T2);
+
+                msg.m_pKExtra[0] = Ecc2BC(m_M.m_User.m_pExtra[0].m_Value);
+                msg.m_pKExtra[1] = Ecc2BC(m_M.m_User.m_pExtra[1].m_Value);
+
+                if (m_pOutput->m_pAsset)
+                    msg.m_ptAssetGen = Ecc2BC(m_pOutput->m_pAsset->m_hGen);
+
+                SendReq_T(msg);
             }
-        }
 
-        void Create1()
-        {
-            // have owner key
-            m_pOutput = std::make_unique<Output>();
-            m_pOutput->m_Commitment.m_Y = 2; // not set yet
+            if (5 == m_Phase)
+            {
+                auto pMsg = ReadReq_T<hw::Proto::CreateOutput>();
+                if (!pMsg)
+                    return;
 
-            m_GetCommitment.m_Cid = m_M.m_Cid;
-            m_This.InvokeAsync(m_GetCommitment, shared_from_this());
-        }
+                auto& c = *m_pOutput->m_pConfidential;
 
-        void Create2()
-        {
-            // rangeproof
-            CalcLocal(Output::OpCode::Mpc_1);
+                Ecc2BC(c.m_Part2.m_T1) = pMsg->m_pT[0];
+                Ecc2BC(c.m_Part2.m_T2) = pMsg->m_pT[1];
+                Ecc2BC(c.m_Part3.m_TauX.m_Value) = pMsg->m_TauX;
 
-            assert(m_pOutput->m_pConfidential);
-            auto& c = *m_pOutput->m_pConfidential;
+                CalcLocal(Output::OpCode::Mpc_2); // Phase 3
 
-            CidCvt(m_Msg.m_Out.m_Cid, m_M.m_Cid);
-            m_Msg.m_Out.m_pT[0] = Ecc2BC(c.m_Part2.m_T1);
-            m_Msg.m_Out.m_pT[1] = Ecc2BC(c.m_Part2.m_T2);
+                m_M.m_pResult = std::move(m_pOutput);
+                Fin();
 
-            m_Msg.m_Out.m_pKExtra[0] = Ecc2BC(m_M.m_User.m_pExtra[0].m_Value);
-            m_Msg.m_Out.m_pKExtra[1] = Ecc2BC(m_M.m_User.m_pExtra[1].m_Value);
+            }
 
-            if (m_pOutput->m_pAsset)
-                m_Msg.m_Out.m_ptAssetGen = Ecc2BC(m_pOutput->m_pAsset->m_hGen);
-
-            InvokeProto(m_Msg);
-        }
-
-        void Create3()
-        {
-            m_Msg.m_In.n2h();
-            auto& c = *m_pOutput->m_pConfidential;
-
-            Ecc2BC(c.m_Part2.m_T1) = m_Msg.m_In.m_pT[0];
-            Ecc2BC(c.m_Part2.m_T2) = m_Msg.m_In.m_pT[1];
-            Ecc2BC(c.m_Part3.m_TauX.m_Value) = m_Msg.m_In.m_TauX;
-
-            CalcLocal(Output::OpCode::Mpc_2); // Phase 3
-
-            m_M.m_pResult = std::move(m_pOutput);
-            Fin();
         }
 
         void CalcLocal(Output::OpCode::Enum e)
         {
             ECC::Scalar::Native skDummy;
             ECC::HKdf kdfDummy;
-            m_pOutput->Create(m_M.m_hScheme, skDummy, kdfDummy, m_M.m_Cid, *m_pOwner, e); // Phase 3
+            m_pOutput->Create(m_M.m_hScheme, skDummy, kdfDummy, m_M.m_Cid, *m_GetKey.m_pPKdf, e); // Phase 3
         }
 
     };
@@ -762,48 +774,108 @@ namespace beam::wallet
 
 
     struct RemoteKeyKeeper::Impl::RemoteCall_CreateInputShielded
-        :public RemoteCall
+        :public RemoteCall_WithOwnerKey
     {
         Method::CreateInputShielded& m_M;
-        Method::get_Kdf m_GetKey;
 
-        uint32_t m_Phase = 0;
-
-        hw::Proto::GetImage m_GetCommitment;
-        hw::Proto::CreateShieldedInput m_Msg;
-        ByteBuffer m_MsgOut;
 
         Lelantus::Prover m_Prover;
         ECC::Hash::Value m_hvSigmaSeed;
         ECC::Oracle m_Oracle;
 
         RemoteCall_CreateInputShielded(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::CreateInputShielded& m)
-            :RemoteCall(kk, h)
+            :RemoteCall_WithOwnerKey(kk, h)
             ,m_M(m)
             ,m_Prover(*m.m_pList, m.m_pKernel->m_SpendProof)
         {
         }
 
-        void Do()
+
+        void Update() override
         {
-            if (m_This.m_Cache.get_Owner(m_GetKey.m_pPKdf))
-                m_Phase = 1;
-            else
+            if (!m_Phase)
             {
-                m_GetKey.m_Type = KdfType::Root;
-                m_This.InvokeAsync(m_GetKey, shared_from_this());
+                GetOwnerKey(); // no return
+
+                static_assert(c_ShieldedInput_ChildKdf == ShieldedTxo::ID::s_iChildOut);
+
+                hw::Proto::GetImage::Out msg;
+                msg.m_bG = 1;
+                msg.m_bJ = 0;
+                msg.m_iChild = c_ShieldedInput_ChildKdf;
+                m_M.get_SkOutPreimage(Cast::Reinterpret<ECC::Hash::Value>(msg.m_hvSrc), m_M.m_pKernel->m_Fee);
+                SendReq_T(msg);
             }
 
-            static_assert(c_ShieldedInput_ChildKdf == ShieldedTxo::ID::s_iChildOut);
+            if (3 == m_Phase)
+            {
+                auto pMsg = ReadReq_T<hw::Proto::GetImage>();
+                if (!pMsg)
+                    return;
 
-            m_GetCommitment.m_Out.m_bG = 1;
-            m_GetCommitment.m_Out.m_bJ = 0;
-            m_GetCommitment.m_Out.m_iChild = c_ShieldedInput_ChildKdf;
-            m_M.get_SkOutPreimage(Cast::Reinterpret<ECC::Hash::Value>(m_GetCommitment.m_Out.m_hvSrc), m_M.m_pKernel->m_Fee);
-            InvokeProto(m_GetCommitment);
+
+                assert(m_GetKey.m_pPKdf);
+
+                hw::Proto::CreateShieldedInput::Out msgOut;
+                if (!Setup(*pMsg, msgOut))
+                {
+                    Fin(Status::Unspecified);
+                    return;
+                }
+
+                {
+                    ExecutorMT_R exec;
+                    Executor::Scope scope(exec);
+
+                    // proof phase1 generation (the most computationally expensive)
+                    m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step1);
+                }
+
+                auto& proof = m_Prover.m_Sigma.m_Proof;
+
+                // Invoke HW device
+                msgOut.m_pABCD[0] = Ecc2BC(proof.m_Part1.m_A);
+                msgOut.m_pABCD[1] = Ecc2BC(proof.m_Part1.m_B);
+                msgOut.m_pABCD[2] = Ecc2BC(proof.m_Part1.m_C);
+                msgOut.m_pABCD[3] = Ecc2BC(proof.m_Part1.m_D);
+
+                const auto& vec = m_Prover.m_Sigma.m_Proof.m_Part1.m_vG;
+                size_t nSize = sizeof(vec[0]) * vec.size();
+
+                void* pExtra = AllocReq_T(msgOut, (uint32_t) nSize);
+                if (nSize)
+                    memcpy(pExtra, reinterpret_cast<const uint8_t*>(&vec.front()), nSize);
+
+                SendReq();
+            }
+
+            if (5 == m_Phase)
+            {
+                auto pMsg = ReadReq_T<hw::Proto::CreateShieldedInput>();
+                if (!pMsg)
+                    return;
+
+                auto& proof = Cast::Up<Lelantus::Proof>(m_Prover.m_Sigma.m_Proof);
+
+                // import SigGen and vG[0]
+                Ecc2BC(proof.m_Part1.m_vG.front()) = pMsg->m_G0;
+                Ecc2BC(proof.m_Part2.m_zR.m_Value) = pMsg->m_zR;
+
+                Ecc2BC(proof.m_Signature.m_NoncePub) = pMsg->m_NoncePub;
+                Ecc2BC(proof.m_Signature.m_pK[0].m_Value) = pMsg->m_pSig[0];
+                Ecc2BC(proof.m_Signature.m_pK[1].m_Value) = pMsg->m_pSig[1];
+
+                // phase2
+                m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step2);
+
+                // finished
+                m_M.m_pKernel->MsgToID();
+                Fin();
+
+            }
         }
 
-        bool Setup()
+        bool Setup(const hw::Proto::GetImage::In& msgIn, hw::Proto::CreateShieldedInput::Out& msgOut)
         {
             auto& m = m_M; // alias
             assert(m.m_pList && m.m_pKernel);
@@ -813,17 +885,17 @@ namespace beam::wallet
             pars.Set(*m_GetKey.m_pPKdf, m);
             ShieldedTxo::Data::Params::Plus plus(pars);
 
-            Encoder::Import(m_Msg.m_Out.m_InpBlob, m_Msg.m_Out.m_InpFmt, m, krn.m_Fee);
+            Import(msgOut.m_InpBlob, msgOut.m_InpFmt, m, krn.m_Fee);
 
-            m_Msg.m_Out.m_SpendParams.m_hMin = krn.m_Height.m_Min;
-            m_Msg.m_Out.m_SpendParams.m_hMax = krn.m_Height.m_Max;
-            m_Msg.m_Out.m_SpendParams.m_WindowEnd = krn.m_WindowEnd;
-            m_Msg.m_Out.m_SpendParams.m_Sigma_M = krn.m_SpendProof.m_Cfg.M;
-            m_Msg.m_Out.m_SpendParams.m_Sigma_n = krn.m_SpendProof.m_Cfg.n;
+            msgOut.m_SpendParams.m_hMin = krn.m_Height.m_Min;
+            msgOut.m_SpendParams.m_hMax = krn.m_Height.m_Max;
+            msgOut.m_SpendParams.m_WindowEnd = krn.m_WindowEnd;
+            msgOut.m_SpendParams.m_Sigma_M = krn.m_SpendProof.m_Cfg.M;
+            msgOut.m_SpendParams.m_Sigma_n = krn.m_SpendProof.m_Cfg.n;
 
             ECC::Scalar sk_;
             sk_ = plus.m_skFull;
-            m_Msg.m_Out.m_OutpSk = Ecc2BC(sk_.m_Value);
+            msgOut.m_OutpSk = Ecc2BC(sk_.m_Value);
 
             Lelantus::Proof& proof = krn.m_SpendProof;
 
@@ -832,7 +904,7 @@ namespace beam::wallet
 
             // output commitment
             ECC::Point::Native comm;
-            if (!comm.ImportNnz(Cast::Reinterpret<ECC::Point>(m_GetCommitment.m_In.m_ptImageG)))
+            if (!comm.ImportNnz(Cast::Reinterpret<ECC::Point>(msgIn.m_ptImageG)))
                 return false;
             
             ECC::Tag::AddValue(comm, &plus.m_hGen, m.m_Value);
@@ -856,10 +928,10 @@ namespace beam::wallet
 
 
                 sk_ = -skBlind;
-                m_Msg.m_Out.m_AssetSk = Ecc2BC(sk_.m_Value);
+                msgOut.m_AssetSk = Ecc2BC(sk_.m_Value);
             }
             else
-                ZeroObject(m_Msg.m_Out.m_AssetSk);
+                ZeroObject(msgOut.m_AssetSk);
 
             krn.UpdateMsg();
             m_Oracle << krn.m_Msg;
@@ -869,10 +941,10 @@ namespace beam::wallet
                 m_Oracle << krn.m_NotSerialized.m_hvShieldedState;
                 Asset::Proof::Expose(m_Oracle, krn.m_Height.m_Min, krn.m_pAsset);
 
-                m_Msg.m_Out.m_ShieldedState = Ecc2BC(krn.m_NotSerialized.m_hvShieldedState);
+                msgOut.m_ShieldedState = Ecc2BC(krn.m_NotSerialized.m_hvShieldedState);
 
                 if (krn.m_pAsset)
-                    m_Msg.m_Out.m_ptAssetGen = Ecc2BC(krn.m_pAsset->m_hGen);
+                    msgOut.m_ptAssetGen = Ecc2BC(krn.m_pAsset->m_hGen);
             }
 
             // generate seed for Sigma proof blinding. Use mix of deterministic + random params
@@ -887,82 +959,6 @@ namespace beam::wallet
             return true;
         }
 
-        void Create1()
-        {
-            assert(m_GetKey.m_pPKdf);
-
-            if (!Setup())
-                return;
-
-            {
-                ExecutorMT_R exec;
-                Executor::Scope scope(exec);
-
-                // proof phase1 generation (the most computationally expensive)
-                m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step1);
-            }
-
-            auto& proof = m_Prover.m_Sigma.m_Proof;
-
-            // Invoke HW device
-            m_Msg.m_Out.m_pABCD[0] = Ecc2BC(proof.m_Part1.m_A);
-            m_Msg.m_Out.m_pABCD[1] = Ecc2BC(proof.m_Part1.m_B);
-            m_Msg.m_Out.m_pABCD[2] = Ecc2BC(proof.m_Part1.m_C);
-            m_Msg.m_Out.m_pABCD[3] = Ecc2BC(proof.m_Part1.m_D);
-
-            const auto& vec = m_Prover.m_Sigma.m_Proof.m_Part1.m_vG;
-            size_t nSize = sizeof(vec[0]) * vec.size();
-
-            auto& msgOut = ExtendBy(m_MsgOut, m_Msg.m_Out, nSize);
-            if (nSize)
-                memcpy(&msgOut + 1, reinterpret_cast<const uint8_t*>(&vec.front()), nSize);
-
-            InvokeProtoEx(msgOut, m_Msg.m_In, nSize, 0);
-        }
-
-        void Create2()
-        {
-            m_Msg.m_In.n2h();
-
-            auto& proof = Cast::Up<Lelantus::Proof>(m_Prover.m_Sigma.m_Proof);
-
-            // import SigGen and vG[0]
-            Ecc2BC(proof.m_Part1.m_vG.front()) = m_Msg.m_In.m_G0;
-            Ecc2BC(proof.m_Part2.m_zR.m_Value) = m_Msg.m_In.m_zR;
-
-            Ecc2BC(proof.m_Signature.m_NoncePub) = m_Msg.m_In.m_NoncePub;
-            Ecc2BC(proof.m_Signature.m_pK[0].m_Value) = m_Msg.m_In.m_pSig[0];
-            Ecc2BC(proof.m_Signature.m_pK[1].m_Value) = m_Msg.m_In.m_pSig[1];
-
-            // phase2
-            m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step2);
-
-            // finished
-            m_M.m_pKernel->MsgToID();
-            Fin();
-        }
-
-        virtual void OnRemoteData() override
-        {
-            switch (m_Phase)
-            {
-            case 0:
-                if (!m_GetKey.m_pPKdf)
-                    Fin(Status::Unspecified);
-
-                m_Phase = 1;
-                break;
-
-            case 1:
-                Create1();
-                m_Phase = 2;
-                break;
-
-            case 2:
-                Create2();
-            }
-
-        }
     };
 
 
@@ -978,330 +974,413 @@ namespace beam::wallet
 
         Method::CreateVoucherShielded& m_M;
 
-        hw::Proto::CreateShieldedVouchers::Out m_MsgOut;
-        ByteBuffer m_MsgIn;
         uint32_t m_MaxCount;
 
-        void Do()
+        void Update() override
         {
-            if (!m_M.m_Count)
+            if (!m_Phase)
             {
-                Fin();
-                return;
+                if (!m_M.m_Count)
+                {
+                    Fin();
+                    return;
+                }
+
+                m_MaxCount = std::min(m_M.m_Count, 30U);
+                size_t nSize = sizeof(hw::ShieldedVoucher) * m_MaxCount;
+
+                hw::Proto::CreateShieldedVouchers::Out msg;
+
+                msg.m_Count = m_MaxCount;
+                msg.m_Nonce0 = Ecc2BC(m_M.m_Nonce);
+                msg.m_AddrID = m_M.m_MyIDKey;
+
+                SendReq_T(msg, (uint32_t) nSize);
             }
 
-            m_MaxCount = std::min(m_M.m_Count, 30U);
-            size_t nSize = sizeof(hw::ShieldedVoucher) * m_MaxCount;
+            if (1 == m_Phase)
+            {
+                auto pMsg = ReadReq_T<hw::Proto::CreateShieldedVouchers>();
+                if (!pMsg)
+                    return;
 
-            m_MsgOut.m_Count = m_MaxCount;
-            m_MsgOut.m_Nonce0 = Ecc2BC(m_M.m_Nonce);
-            m_MsgOut.m_AddrID = m_M.m_MyIDKey;
+                if (!pMsg->m_Count || (pMsg->m_Count > m_MaxCount))
+                {
+                    Fin(c_KeyKeeper_Status_ProtoError);
+                    return;
+                }
 
-            hw::Proto::CreateShieldedVouchers::In dummy;
-            auto& msgIn = ExtendBy(m_MsgIn, dummy, nSize);
+                auto* pRes = reinterpret_cast<hw::ShieldedVoucher*>(pMsg + 1);
 
-            InvokeProtoEx(m_MsgOut, msgIn, 0, nSize);
+                m_M.m_Res.resize(pMsg->m_Count);
+                for (uint32_t i = 0; i < pMsg->m_Count; i++)
+                {
+                    const hw::ShieldedVoucher& src = pRes[i];
+                    ShieldedTxo::Voucher& trg = m_M.m_Res[i];
+
+                    Ecc2BC(trg.m_Ticket.m_SerialPub) = src.m_SerialPub;
+                    Ecc2BC(trg.m_Ticket.m_Signature.m_NoncePub) = src.m_NoncePub;
+
+                    static_assert(_countof(trg.m_Ticket.m_Signature.m_pK) == _countof(src.m_pK));
+                    for (uint32_t iK = 0; iK < static_cast<uint32_t>(_countof(src.m_pK)); iK++)
+                        Ecc2BC(trg.m_Ticket.m_Signature.m_pK[iK].m_Value) = src.m_pK[iK];
+
+                    Ecc2BC(trg.m_SharedSecret) = src.m_SharedSecret;
+                    Ecc2BC(trg.m_Signature.m_NoncePub) = src.m_Signature.m_NoncePub;
+                    Ecc2BC(trg.m_Signature.m_k.m_Value) = src.m_Signature.m_k;
+                }
+
+                Fin();
+
+            }
         }
 
-        virtual void OnRemoteData() override
+    };
+
+    struct RemoteKeyKeeper::Impl::RemoteCall_WithCoins
+        :public RemoteCall
+    {
+        using RemoteCall::RemoteCall;
+
+        static const uint32_t s_CoinsSent = 100000;
+
+        uint32_t m_AcksPending = 0;
+
+        void SendCoins(const Method::InOuts& m)
         {
-            auto& msgIn = *reinterpret_cast<hw::Proto::CreateShieldedVouchers::In*>(&m_MsgIn.front());
-            msgIn.n2h();
+            m_Phase += s_CoinsSent;
 
-            if (!msgIn.m_Count || (msgIn.m_Count > m_MaxCount))
+            // TODO: multiple invocations if necessary
+
+            hw::Proto::TxAddCoins::Out msg;
+
+            msg.m_Reset = 1;
+            msg.m_Ins = static_cast<uint8_t>(m.m_vInputs.size());
+            msg.m_Outs = static_cast<uint8_t>(m.m_vOutputs.size());
+            msg.m_InsShielded = static_cast<uint8_t>(m.m_vInputsShielded.size());
+
+            uint32_t nExtra =
+                static_cast <uint32_t>(sizeof(hw::CoinID)) * (msg.m_Ins + (uint32_t)msg.m_Outs) +
+                static_cast <uint32_t>(sizeof(hw::ShieldedInput_Blob) + sizeof(hw::ShieldedInput_Fmt)) * msg.m_InsShielded;
+
+            void* pExtra = AllocReq_T(msg, nExtra);
+
+            hw::CoinID* pCid = (hw::CoinID*) pExtra;
+
+            for (uint32_t i = 0; i < msg.m_Ins; i++, pCid++)
             {
-                Fin(c_KeyKeeper_Status_ProtoError);
-                return;
+                CidCvt(*pCid, m.m_vInputs[i]);
+                hw::Proto::h2n(*pCid);
             }
 
-            auto* pRes = reinterpret_cast<hw::ShieldedVoucher*>(&msgIn + 1);
-
-            m_M.m_Res.resize(msgIn.m_Count);
-            for (uint32_t i = 0; i < msgIn.m_Count; i++)
+            for (uint32_t i = 0; i < msg.m_Outs; i++, pCid++)
             {
-                const hw::ShieldedVoucher& src = pRes[i];
-                ShieldedTxo::Voucher& trg = m_M.m_Res[i];
-
-                Ecc2BC(trg.m_Ticket.m_SerialPub) = src.m_SerialPub;
-                Ecc2BC(trg.m_Ticket.m_Signature.m_NoncePub) = src.m_NoncePub;
-
-                static_assert(_countof(trg.m_Ticket.m_Signature.m_pK) == _countof(src.m_pK));
-                for (uint32_t iK = 0; iK < static_cast<uint32_t>(_countof(src.m_pK)); iK++)
-                    Ecc2BC(trg.m_Ticket.m_Signature.m_pK[iK].m_Value) = src.m_pK[iK];
-
-                Ecc2BC(trg.m_SharedSecret) = src.m_SharedSecret;
-                Ecc2BC(trg.m_Signature.m_NoncePub) = src.m_Signature.m_NoncePub;
-                Ecc2BC(trg.m_Signature.m_k.m_Value) = src.m_Signature.m_k;
+                CidCvt(*pCid, m.m_vOutputs[i]);
+                hw::Proto::h2n(*pCid);
             }
 
-            Fin();
+            auto pPtr = reinterpret_cast<uint8_t*>(pCid);
+            for (uint32_t i = 0; i < msg.m_InsShielded; i++)
+            {
+                const auto& src = m.m_vInputsShielded[i];
 
+                hw::ShieldedInput_Fmt fmt;
+                Import(*(hw::ShieldedInput_Blob*)pPtr, fmt, src, src.m_Fee);
+                hw::Proto::h2n(fmt);
+
+                pPtr += sizeof(hw::ShieldedInput_Blob);
+                memcpy(pPtr, &fmt, sizeof(fmt));
+                pPtr += sizeof(hw::ShieldedInput_Fmt);
+            }
+
+            m_Phase--;
+            SendReq();
+            m_AcksPending++;
+        }
+
+        bool ReadCoinsAck()
+        {
+            for (; m_AcksPending; m_AcksPending--, m_Phase--)
+            {
+                auto pMsg = ReadReq_T<hw::Proto::TxAddCoins>();
+                if (!pMsg)
+                    return false;
+            }
+
+            return true;
         }
     };
 
 
+
     struct RemoteKeyKeeper::Impl::RemoteCall_SignReceiver
-        :public RemoteCall
+        :public RemoteCall_WithCoins
     {
         RemoteCall_SignReceiver(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::SignReceiver& m)
-            :RemoteCall(kk, h)
+            :RemoteCall_WithCoins(kk, h)
             ,m_M(m)
         {
         }
 
         Method::SignReceiver& m_M;
-        hw::Proto::TxAddCoins m_Coins;
-        hw::Proto::TxReceive m_Msg;
-        Impl::Encoder m_Enc;
-        bool m_CoinsSent = false;
 
-        void Do()
+        void Update() override
         {
-            uint32_t nOutExtra;
-            auto& out = m_Enc.ExtendByCoins(m_Coins.m_Out, m_M, nOutExtra);
-            InvokeProtoEx(out, m_Coins.m_In, nOutExtra, 0);
-
-            m_Enc.Import(m_Msg.m_Out.m_Tx.m_Krn, m_M);
-            m_Enc.Import(m_Msg.m_Out.m_Comms, m_M);
-            m_Enc.Import(m_Msg.m_Out.m_Mut, m_M);
-
-            InvokeProto(m_Msg);
-        }
-
-        virtual void OnRemoteData() override
-        {
-            if (!m_CoinsSent)
-                m_CoinsSent = true;
-            else
+            if (!m_Phase)
             {
-                m_Msg.m_In.n2h();
-                m_Enc.Export(m_M, m_Msg.m_In.m_Tx);
+                SendCoins(m_M);
 
-                Ecc2BC(m_M.m_PaymentProofSignature.m_NoncePub) = m_Msg.m_In.m_PaymentProof.m_NoncePub;
-                Ecc2BC(m_M.m_PaymentProofSignature.m_k.m_Value) = m_Msg.m_In.m_PaymentProof.m_k;
+                hw::Proto::TxReceive::Out msg;
+                Import(msg.m_Tx.m_Krn, m_M);
+                Import(msg.m_Comms, m_M);
+                Import(msg.m_Mut, m_M);
+
+                SendReq_T(msg);
+            }
+
+            if (!ReadCoinsAck())
+                return;
+
+            if (s_CoinsSent + 1 == m_Phase)
+            {
+                auto pMsg = ReadReq_T<hw::Proto::TxReceive>();
+                if (!pMsg)
+                    return;
+
+                Export(m_M, pMsg->m_Tx);
+
+                Ecc2BC(m_M.m_PaymentProofSignature.m_NoncePub) = pMsg->m_PaymentProof.m_NoncePub;
+                Ecc2BC(m_M.m_PaymentProofSignature.m_k.m_Value) = pMsg->m_PaymentProof.m_k;
                 Fin();
             }
+
         }
+
     };
 
     struct RemoteKeyKeeper::Impl::RemoteCall_SignSender
-        :public RemoteCall
+        :public RemoteCall_WithCoins
     {
         RemoteCall_SignSender(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::SignSender& m)
-            :RemoteCall(kk, h)
+            :RemoteCall_WithCoins(kk, h)
             ,m_M(m)
         {
         }
 
         Method::SignSender& m_M;
-        hw::Proto::TxAddCoins m_Coins;
-        hw::Proto::TxSend1 m_Msg1; // TODO union
-        hw::Proto::TxSend2 m_Msg2;
-        Impl::Encoder m_Enc;
         bool m_Initial;
-        bool m_CoinsSent = false;
 
-        void Do()
+        void Update() override
         {
-            // send coins each time. Assume the remove could be busy doing something else in the meanwhile
-            uint32_t nOutExtra;
-            auto& out = m_Enc.ExtendByCoins(m_Coins.m_Out, m_M, nOutExtra);
-            InvokeProtoEx(out, m_Coins.m_In, nOutExtra, 0);
-
-            m_Initial = (m_M.m_UserAgreement == Zero);
-
-            if (m_Initial)
+            if (!m_Phase)
             {
-                m_Msg1.m_Out.m_iSlot = m_M.m_Slot;
-                m_Enc.Import(m_Msg1.m_Out.m_Mut, m_M);
-                m_Enc.Import(m_Msg1.m_Out.m_Tx.m_Krn, m_M);
+                // send coins each time. Assume the remote could be busy doing something else in the meanwhile
+                SendCoins(m_M);
 
-                InvokeProto(m_Msg1);
+                m_Initial = (m_M.m_UserAgreement == Zero);
+
+                if (m_Initial)
+                {
+                    hw::Proto::TxSend1::Out msg;
+                    msg.m_iSlot = m_M.m_Slot;
+                    Import(msg.m_Mut, m_M);
+                    Import(msg.m_Tx.m_Krn, m_M);
+
+                    SendReq_T(msg);
+                }
+                else
+                {
+                    hw::Proto::TxSend2::Out msg;
+                    msg.m_iSlot = m_M.m_Slot;
+                    Import(msg.m_Tx.m_Krn, m_M);
+                    Import(msg.m_Mut, m_M);
+
+                    msg.m_PaymentProof.m_NoncePub = Ecc2BC(m_M.m_PaymentProofSignature.m_NoncePub);
+                    msg.m_PaymentProof.m_k = Ecc2BC(m_M.m_PaymentProofSignature.m_k.m_Value);
+
+                    msg.m_UserAgreement = Ecc2BC(m_M.m_UserAgreement);
+                    Import(msg.m_Comms, m_M);
+
+                    SendReq_T(msg);
+                }
             }
-            else
-            {
-                m_Msg2.m_Out.m_iSlot = m_M.m_Slot;
-                m_Enc.Import(m_Msg2.m_Out.m_Tx.m_Krn, m_M);
-                m_Enc.Import(m_Msg2.m_Out.m_Mut, m_M);
 
-                m_Msg2.m_Out.m_PaymentProof.m_NoncePub = Ecc2BC(m_M.m_PaymentProofSignature.m_NoncePub);
-                m_Msg2.m_Out.m_PaymentProof.m_k = Ecc2BC(m_M.m_PaymentProofSignature.m_k.m_Value);
-
-                m_Msg2.m_Out.m_UserAgreement = Ecc2BC(m_M.m_UserAgreement);
-                m_Enc.Import(m_Msg2.m_Out.m_Comms, m_M);
-
-                InvokeProto(m_Msg2);
-            }
-        }
-
-        virtual void OnRemoteData() override
-        {
-            if (!m_CoinsSent)
-            {
-                m_CoinsSent = true;
+            if (!ReadCoinsAck())
                 return;
-            }
 
-            auto& krn = *m_M.m_pKernel;
-
-            if (m_Initial)
+            if (s_CoinsSent + 1 == m_Phase)
             {
-                m_Msg1.m_In.n2h();
+                auto& krn = *m_M.m_pKernel;
 
-                Ecc2BC(m_M.m_UserAgreement) = m_Msg1.m_In.m_UserAgreement;
-                Ecc2BC(krn.m_Commitment) = m_Msg1.m_In.m_Comms.m_Commitment;
-                Ecc2BC(krn.m_Signature.m_NoncePub) = m_Msg1.m_In.m_Comms.m_NoncePub;
+                if (m_Initial)
+                {
+                    auto pMsg = ReadReq_T<hw::Proto::TxSend1>();
+                    if (!pMsg)
+                        return;
 
-                krn.UpdateID(); // not really required, the kernel isn't full yet
+                    Ecc2BC(m_M.m_UserAgreement) = pMsg->m_UserAgreement;
+                    Ecc2BC(krn.m_Commitment) = pMsg->m_Comms.m_Commitment;
+                    Ecc2BC(krn.m_Signature.m_NoncePub) = pMsg->m_Comms.m_NoncePub;
+
+                    krn.UpdateID(); // not really required, the kernel isn't full yet
+                }
+                else
+                {
+                    auto pMsg = ReadReq_T<hw::Proto::TxSend2>();
+                    if (!pMsg)
+                        return;
+
+                    // add scalars
+                    ECC::Scalar k_;
+                    Ecc2BC(k_.m_Value) = pMsg->m_TxSig.m_kSig;
+
+                    ECC::Scalar::Native k(krn.m_Signature.m_k);
+                    k += k_;
+                    krn.m_Signature.m_k = k;
+
+                    Ecc2BC(k_.m_Value) = pMsg->m_TxSig.m_kOffset;
+                    m_M.m_kOffset += k_;
+                }
+
+                Fin();
+
             }
-            else
-            {
-                m_Msg2.m_In.n2h();
-                // add scalars
-                ECC::Scalar k_;
-                Ecc2BC(k_.m_Value) = m_Msg2.m_In.m_TxSig.m_kSig;
 
-                ECC::Scalar::Native k(krn.m_Signature.m_k);
-                k += k_;
-                krn.m_Signature.m_k = k;
-
-                Ecc2BC(k_.m_Value) = m_Msg2.m_In.m_TxSig.m_kOffset;
-                m_M.m_kOffset += k_;
-            }
-
-            Fin();
         }
+
     };
 
     struct RemoteKeyKeeper::Impl::RemoteCall_SignSendShielded
-        :public RemoteCall
+        :public RemoteCall_WithCoins
     {
         RemoteCall_SignSendShielded(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::SignSendShielded& m)
-            :RemoteCall(kk, h)
+            :RemoteCall_WithCoins(kk, h)
             ,m_M(m)
         {
         }
 
         Method::SignSendShielded& m_M;
-        hw::Proto::TxAddCoins m_Coins;
-        hw::Proto::TxSendShielded m_Msg;
-        Encoder m_Enc;
         TxKernelShieldedOutput::Ptr m_pOutp;
-        bool m_CoinsSent = false;
 
-        void Do()
+        void Update() override
         {
-            uint32_t nOutExtra;
-            auto& out = m_Enc.ExtendByCoins(m_Coins.m_Out, m_M, nOutExtra);
-            InvokeProtoEx(out, m_Coins.m_In, nOutExtra, 0);
-
-            m_Msg.m_Out.m_Mut.m_Peer = Ecc2BC(m_M.m_Peer);
-            m_Msg.m_Out.m_Mut.m_AddrID = m_M.m_MyIDKey;
-            m_Msg.m_Out.m_HideAssetAlways = m_M.m_HideAssetAlways;
-            m_Enc.Import(m_Msg.m_Out.m_User, m_M.m_User);
-            m_Enc.Import(m_Msg.m_Out.m_Tx.m_Krn, m_M);
-
-            m_Msg.m_Out.m_Voucher.m_SerialPub = Ecc2BC(m_M.m_Voucher.m_Ticket.m_SerialPub);
-            m_Msg.m_Out.m_Voucher.m_NoncePub = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_NoncePub);
-            m_Msg.m_Out.m_Voucher.m_pK[0] = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_pK[0].m_Value);
-            m_Msg.m_Out.m_Voucher.m_pK[1] = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_pK[1].m_Value);
-            m_Msg.m_Out.m_Voucher.m_SharedSecret = Ecc2BC(m_M.m_Voucher.m_SharedSecret);
-            m_Msg.m_Out.m_Voucher.m_Signature.m_NoncePub = Ecc2BC(m_M.m_Voucher.m_Signature.m_NoncePub);
-            m_Msg.m_Out.m_Voucher.m_Signature.m_k = Ecc2BC(m_M.m_Voucher.m_Signature.m_k.m_Value);
-
-            ShieldedTxo::Data::OutputParams op;
-
-            // the amount and asset are not directly specified, they must be deduced from tx balance.
-            // Don't care about value overflow, or asset ambiguity, this will be re-checked by the HW wallet anyway.
-
-            op.m_Value = CalcTxBalance(nullptr, m_M);
-            op.m_Value -= m_Msg.m_Out.m_Tx.m_Krn.m_Fee;
-
-            if (op.m_Value)
-                op.m_AssetID = 0;
-            else
-                // no net value transferred in beams, try assets
-                op.m_Value = CalcTxBalance(&op.m_AssetID, m_M);
-
-            op.m_User = m_M.m_User;
-            op.Restore_kG(m_M.m_Voucher.m_SharedSecret);
-
-            m_pOutp = std::make_unique<TxKernelShieldedOutput>();
-            TxKernelShieldedOutput& krn1 = *m_pOutp;
-
-            krn1.m_CanEmbed = true;
-            krn1.m_Txo.m_Ticket = m_M.m_Voucher.m_Ticket;
-
-            krn1.UpdateMsg();
-            ECC::Oracle oracle;
-            oracle << krn1.m_Msg;
-
-            op.Generate(krn1.m_Txo, m_M.m_Voucher.m_SharedSecret, m_M.m_pKernel->m_Height.m_Min, oracle, m_M.m_HideAssetAlways);
-            krn1.MsgToID();
-
-            if (krn1.m_Txo.m_pAsset)
-                m_Msg.m_Out.m_ptAssetGen = Ecc2BC(krn1.m_Txo.m_pAsset->m_hGen);
-
-            SerializerIntoStaticBuf ser(&m_Msg.m_Out.m_RangeProof);
-            ser& krn1.m_Txo.m_RangeProof;
-            assert(ser.get_Size(&m_Msg.m_Out.m_RangeProof) == sizeof(m_Msg.m_Out.m_RangeProof));
-
-            InvokeProto(m_Msg);
-        }
-
-        virtual void OnRemoteData() override
-        {
-            if (!m_CoinsSent)
+            if (!m_Phase)
             {
-                m_CoinsSent = true;
-                return;
+                SendCoins(m_M);
+
+                hw::Proto::TxSendShielded::Out msg;
+
+                msg.m_Mut.m_Peer = Ecc2BC(m_M.m_Peer);
+                msg.m_Mut.m_AddrID = m_M.m_MyIDKey;
+                msg.m_HideAssetAlways = m_M.m_HideAssetAlways;
+                Import(msg.m_User, m_M.m_User);
+                Import(msg.m_Tx.m_Krn, m_M);
+
+                msg.m_Voucher.m_SerialPub = Ecc2BC(m_M.m_Voucher.m_Ticket.m_SerialPub);
+                msg.m_Voucher.m_NoncePub = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_NoncePub);
+                msg.m_Voucher.m_pK[0] = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_pK[0].m_Value);
+                msg.m_Voucher.m_pK[1] = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_pK[1].m_Value);
+                msg.m_Voucher.m_SharedSecret = Ecc2BC(m_M.m_Voucher.m_SharedSecret);
+                msg.m_Voucher.m_Signature.m_NoncePub = Ecc2BC(m_M.m_Voucher.m_Signature.m_NoncePub);
+                msg.m_Voucher.m_Signature.m_k = Ecc2BC(m_M.m_Voucher.m_Signature.m_k.m_Value);
+
+                ShieldedTxo::Data::OutputParams op;
+
+                // the amount and asset are not directly specified, they must be deduced from tx balance.
+                // Don't care about value overflow, or asset ambiguity, this will be re-checked by the HW wallet anyway.
+
+                op.m_Value = CalcTxBalance(nullptr, m_M);
+                op.m_Value -= msg.m_Tx.m_Krn.m_Fee;
+
+                if (op.m_Value)
+                    op.m_AssetID = 0;
+                else
+                    // no net value transferred in beams, try assets
+                    op.m_Value = CalcTxBalance(&op.m_AssetID, m_M);
+
+                op.m_User = m_M.m_User;
+                op.Restore_kG(m_M.m_Voucher.m_SharedSecret);
+
+                m_pOutp = std::make_unique<TxKernelShieldedOutput>();
+                TxKernelShieldedOutput& krn1 = *m_pOutp;
+
+                krn1.m_CanEmbed = true;
+                krn1.m_Txo.m_Ticket = m_M.m_Voucher.m_Ticket;
+
+                krn1.UpdateMsg();
+                ECC::Oracle oracle;
+                oracle << krn1.m_Msg;
+
+                op.Generate(krn1.m_Txo, m_M.m_Voucher.m_SharedSecret, m_M.m_pKernel->m_Height.m_Min, oracle, m_M.m_HideAssetAlways);
+                krn1.MsgToID();
+
+                if (krn1.m_Txo.m_pAsset)
+                    msg.m_ptAssetGen = Ecc2BC(krn1.m_Txo.m_pAsset->m_hGen);
+
+                SerializerIntoStaticBuf ser(&msg.m_RangeProof);
+                ser& krn1.m_Txo.m_RangeProof;
+                assert(ser.get_Size(&msg.m_RangeProof) == sizeof(msg.m_RangeProof));
+
+                SendReq_T(msg);
             }
 
-            m_Msg.m_In.n2h();
-            m_M.m_pKernel->m_vNested.push_back(std::move(m_pOutp));
-            m_Enc.Export(m_M, m_Msg.m_In.m_Tx);
+            if (!ReadCoinsAck())
+                return;
 
-            Fin();
+            if (s_CoinsSent + 1 == m_Phase)
+            {
+                auto pMsg = ReadReq_T<hw::Proto::TxSendShielded>();
+                if (!pMsg)
+                    return;
+
+                m_M.m_pKernel->m_vNested.push_back(std::move(m_pOutp));
+                Export(m_M, pMsg->m_Tx);
+
+                Fin();
+            }
+
+
         }
+
     };
 
     struct RemoteKeyKeeper::Impl::RemoteCall_SignSplit
-        :public RemoteCall
+        :public RemoteCall_WithCoins
     {
         RemoteCall_SignSplit(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::SignSplit& m)
-            :RemoteCall(kk, h)
+            :RemoteCall_WithCoins(kk, h)
             ,m_M(m)
         {
         }
 
         Method::SignSplit& m_M;
-        hw::Proto::TxAddCoins m_Coins;
-        hw::Proto::TxSplit m_Msg;
-        Encoder m_Enc;
-        bool m_CoinsSent = false;
 
-        void Do()
+        void Update() override
         {
-            uint32_t nOutExtra;
-            auto& out = m_Enc.ExtendByCoins(m_Coins.m_Out, m_M, nOutExtra);
-            InvokeProtoEx(out, m_Coins.m_In, nOutExtra, 0);
-
-            m_Enc.Import(m_Msg.m_Out.m_Tx.m_Krn, m_M);
-            InvokeProto(m_Msg);
-        }
-
-        virtual void OnRemoteData() override
-        {
-            if (!m_CoinsSent)
+            if (!m_Phase)
             {
-                m_CoinsSent = true;
-                return;
+                SendCoins(m_M);
+
+                hw::Proto::TxSplit::Out msg;
+                Import(msg.m_Tx.m_Krn, m_M);
+                SendReq_T(msg);
             }
 
-            m_Msg.m_In.n2h();
-            m_Enc.Export(m_M, m_Msg.m_In.m_Tx);
-            Fin();
+            if (!ReadCoinsAck())
+                return;
+
+            if (s_CoinsSent + 1 == m_Phase)
+            {
+                auto pMsg = ReadReq_T<hw::Proto::TxSplit>();
+                if (!pMsg)
+                    return;
+
+                Export(m_M, pMsg->m_Tx);
+
+                Fin();
+            }
         }
+
     };
 
 
@@ -1310,7 +1389,7 @@ namespace beam::wallet
     void RemoteKeyKeeper::InvokeAsync(Method::method& m, const Handler::Ptr& h) \
     { \
         auto pCall = std::make_shared<Impl::RemoteCall_##method>(*this, h, m); \
-        pCall->Do(); \
+        pCall->Update(); \
     }
 
     KEY_KEEPER_METHODS(THE_MACRO)
