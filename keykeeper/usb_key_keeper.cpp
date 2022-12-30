@@ -400,6 +400,13 @@ uint16_t UsbIO::ReadFrame(uint8_t* p, uint16_t n)
 	return r.ReadFrame(p, n);
 }
 
+std::shared_ptr<UsbKeyKeeper> UsbKeyKeeper::Open(const std::string& sPath)
+{
+	auto pRet = std::make_shared<UsbKeyKeeper>();
+	pRet->m_sPath = sPath;
+	return pRet;
+}
+
 UsbKeyKeeper::~UsbKeyKeeper()
 {
 	Stop();

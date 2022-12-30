@@ -130,6 +130,8 @@ namespace beam::wallet
 
     public:
 
+        static std::shared_ptr<UsbKeyKeeper> Open(const std::string& sPath);
+
         std::string m_sPath; // don't modify after start
 
         virtual void OnDevState(const std::string& sErr, bool bStall) {} // is there an error, or device stalled (perhaps waiting for the user interaction)

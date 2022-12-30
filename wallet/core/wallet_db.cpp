@@ -36,6 +36,7 @@ namespace fs = std::filesystem;
 #include "nlohmann/json.hpp"
 #include "utility/std_extension.h"
 #include "keykeeper/local_private_key_keeper.h"
+#include "keykeeper/usb_key_keeper.h"
 #include "strings_resources.h"
 #include "core/uintBig.h"
 #include "utility/test_helpers.h"
@@ -994,6 +995,7 @@ namespace beam::wallet
         const char* WalletSeed = "WalletSeed";
         const char* OwnerKey = "OwnerKey";
         const char* Version = "Version";
+        const char* UsbHw = "UsbHw";
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const char* kStateSummaryShieldedOutsDBPath = "StateSummaryShieldedOuts";
@@ -2135,6 +2137,17 @@ namespace beam::wallet
         return walletDB;
     }
 
+    IWalletDB::Ptr WalletDB::initUsb(const string& path, const SecString& password, const std::string& sUsbPath, bool separateDBForPrivateData)
+    {
+        auto pKeyKeeper = UsbKeyKeeper::Open(sUsbPath);
+
+        auto pRet = init(path, password, pKeyKeeper, separateDBForPrivateData);
+
+        storage::setBlobVar(*pRet, UsbHw, sUsbPath);
+
+        return pRet;
+    }
+
     IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password)
     {
         return open(path, password, nullptr);
@@ -2464,9 +2477,16 @@ namespace beam::wallet
                 ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
                 bool bHadOwnerKey = storage::getVar(*walletDB, OwnerKey, packedOwnerKey.V);
 
-                if (pKeyKeeper)
+                walletDB->m_pKeyKeeper = pKeyKeeper;
+                if (!walletDB->m_pKeyKeeper)
                 {
-                    walletDB->m_pKeyKeeper = pKeyKeeper;
+                    std::string sUsbPath;
+                    if (storage::getBlobVar(*walletDB, UsbHw, sUsbPath) && !sUsbPath.empty())
+                        walletDB->m_pKeyKeeper = UsbKeyKeeper::Open(sUsbPath);
+                }
+
+                if (walletDB->m_pKeyKeeper)
+                {
                     walletDB->FromKeyKeeper();
 
                     if (bHadOwnerKey)
