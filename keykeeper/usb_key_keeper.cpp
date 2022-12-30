@@ -164,6 +164,7 @@ struct UsbIO::Frame
 UsbIO::UsbIO()
 #ifdef WIN32
 	:m_hFile(INVALID_HANDLE_VALUE)
+	,m_hEvent(NULL)
 #else // WIN32
 	:m_hFile(-1)
 #endif // WIN32
@@ -444,15 +445,18 @@ bool UsbKeyKeeper::TaskList::PushLocked(Task::Ptr& pTask)
 bool UsbKeyKeeper::TaskList::Pop(Task::Ptr& pTask)
 {
 	std::scoped_lock l(m_Mutex);
+	return PopLocked(pTask);
+}
+
+bool UsbKeyKeeper::TaskList::PopLocked(Task::Ptr& pTask)
+{
 	if (empty())
 		return false;
 
 	pTask.reset(&front());
 	pop_front();
-
 	return true;
 }
-
 
 void UsbKeyKeeper::SendRequestAsync(void* pBuf, uint32_t nRequest, uint32_t nResponse, const Handler::Ptr& pHandler)
 {
@@ -495,7 +499,7 @@ void UsbKeyKeeper::RunThreadGuarded()
 				AsyncReader(UsbKeyKeeper& x) :m_This(x) {}
 
 				UsbIO m_Usbio;
-				bool m_NotifyWait;
+				bool m_Stall = false;
 
 				uint16_t ReadInternal(void* p, uint16_t n, const uint32_t* pTimeout_ms)
 				{
@@ -540,36 +544,31 @@ void UsbKeyKeeper::RunThreadGuarded()
 
 				uint16_t ReadRaw(void* p, uint16_t n) override
 				{
-					if (m_NotifyWait)
+					if (!m_Stall)
 					{
 						uint32_t nTimeout_ms = 3000;
 						uint16_t res = ReadInternal(p, n, &nTimeout_ms);
 						if (res)
 							return res;
 
-						// notify!
-						m_NotifyWait = false;
-
-						{
-							std::scoped_lock l(m_This.m_lstDone.m_Mutex);
-							m_This.m_WaitUser = true;
-						}
-						m_This.m_pEvt->post();
-
+						m_This.NotifyState(nullptr, true);
+						m_Stall = true;
 					}
 
-					return ReadInternal(p, n, nullptr);
+					uint16_t ret = ReadInternal(p, n, nullptr);
+					if (ret && m_Stall)
+					{
+						m_This.NotifyState(nullptr, false);
+						m_Stall = false;
+					}
+					return ret;
 				}
 
 			} reader(*this);
 
 			reader.m_Usbio.Open(m_sPath.c_str());
 
-			{
-				std::scoped_lock l(m_lstDone.m_Mutex);
-				m_sLastError.clear();
-				m_WaitUser = false;
-			}
+			NotifyState(nullptr, false); // TODO maybe notify only after initial device version query info
 
 			while (true)
 			{
@@ -592,24 +591,11 @@ void UsbKeyKeeper::RunThreadGuarded()
 				// send request
 				reader.m_Usbio.WriteFrame((uint8_t*) pTask->m_pBuf, static_cast<uint16_t>(pTask->m_nRequest));
 
-				// read response asynchronously
-				reader.m_NotifyWait = true;
-
 				uint16_t nLen = reader.ReadFrame((uint8_t*) pTask->m_pBuf, static_cast<uint16_t>(pTask->m_nResponse));
 
 				pTask->m_eRes = DeduceStatus((uint8_t*) pTask->m_pBuf, pTask->m_nResponse, nLen);
 
-				bool bWasEmpty;
-				{
-					std::scoped_lock l(m_lstDone.m_Mutex);
-
-					bWasEmpty = m_lstDone.PushLocked(pTask);
-					m_WaitUser = false;
-				}
-
-
-				if (bWasEmpty)
-					// notify
+				if (m_lstDone.Push(pTask))
 					m_pEvt->post();
 
 			}
@@ -617,18 +603,60 @@ void UsbKeyKeeper::RunThreadGuarded()
 		catch (const std::exception& e)
 		{
 			std::string sErr = e.what();
-
-			{
-				std::scoped_lock l(m_lstDone.m_Mutex);
-				m_sLastError = std::move(sErr);
-			}
-			m_pEvt->post();
+			NotifyState(&sErr, false);
 
 			uint32_t nTimeout_ms = 1000;
 			WaitEvent(nullptr, &nTimeout_ms);
 		}
 	}
 }
+
+void UsbKeyKeeper::NotifyState(std::string* pErr, bool bStall)
+{
+	bool bNotify = false;
+
+	{
+		std::scoped_lock l(m_lstDone.m_Mutex);
+
+		if (pErr)
+		{
+			if (m_sLastError != *pErr)
+			{
+				pErr->swap(m_sLastError);
+				bNotify = true;
+			}
+		}
+		else
+		{
+			if (!m_sLastError.empty())
+			{
+				m_sLastError.clear();
+				bNotify = true;
+			}
+		}
+
+		if (m_Stall != bStall)
+		{
+			m_Stall = bStall;
+			bNotify = true;
+		}
+
+		if (bNotify)
+		{
+			if (m_NotifyStatePending)
+				bNotify = false; // already pending
+			else
+				m_NotifyStatePending = true;
+
+			if (!m_lstDone.empty())
+				bNotify = false; // already pending
+		}
+	}
+
+	if (bNotify)
+		m_pEvt->post();
+}
+
 
 bool UsbKeyKeeper::WaitEvent(const Event::Handle* pEvt, const uint32_t* pTimeout_ms)
 {
@@ -695,10 +723,31 @@ bool UsbKeyKeeper::WaitEvent(const Event::Handle* pEvt, const uint32_t* pTimeout
 
 void UsbKeyKeeper::OnEvent()
 {
+	std::string sErr;
+
 	while (true)
 	{
+		bool bNotify = false, bStall = false;
+
 		Task::Ptr pTask;
-		if (!m_lstDone.Pop(pTask))
+
+		{
+			std::scoped_lock l(m_lstDone.m_Mutex);
+			m_lstDone.PopLocked(pTask);
+
+			if (m_NotifyStatePending)
+			{
+				m_NotifyStatePending = false;
+				bNotify = true;
+				bStall = m_Stall;
+				sErr = m_sLastError;
+			}
+		}
+
+		if (bNotify)
+			OnDevState(sErr, bStall);
+
+		if (!pTask)
 			break;
 
 		pTask->m_pHandler->OnDone(pTask->m_eRes);

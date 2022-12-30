@@ -85,6 +85,7 @@ namespace beam::wallet
             bool Push(Task::Ptr&); // returns true if list was empty
             bool PushLocked(Task::Ptr&);
             bool Pop(Task::Ptr&);
+            bool PopLocked(Task::Ptr&);
         };
 
         struct Event
@@ -113,7 +114,8 @@ namespace beam::wallet
         Event m_evtTask;
         MyThread m_Thread; // theoretically it's possible to handle async read events in the same thread, unfortunately it's too complex to integrate with uv
 
-        bool m_WaitUser = false;
+        bool m_Stall = false;
+        bool m_NotifyStatePending = false;
         std::string m_sLastError;
 
         io::AsyncEvent::Ptr m_pEvt;
@@ -124,10 +126,13 @@ namespace beam::wallet
         void RunThreadGuarded();
         bool WaitEvent(const Event::Handle*, const uint32_t* pTimeout_ms);
         void OnEvent();
+        void NotifyState(std::string* pErr, bool bStall);
 
     public:
 
-        std::string m_sPath;
+        std::string m_sPath; // don't modify after start
+
+        virtual void OnDevState(const std::string& sErr, bool bStall) {} // is there an error, or device stalled (perhaps waiting for the user interaction)
 
         void StartSafe();
         void Stop();
