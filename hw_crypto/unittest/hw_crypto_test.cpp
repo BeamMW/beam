@@ -485,7 +485,7 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const hw::Kdf& kdf2)
 	rp.m_Cid = cid2;
 	rp.m_pT_In = pT;
 	rp.m_pT_Out = pT;
-	rp.m_pKExtra = &pKExtra->get();
+	rp.m_pKExtra = &Ecc2BC(user.m_pExtra[0].m_Value);
 	rp.m_pTauX = &tauX.get_Raw();
 	rp.m_pAssetGen = outp.m_pAsset ? &Ecc2BC(outp.m_pAsset->m_hGen) : nullptr;
 
@@ -502,9 +502,11 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const hw::Kdf& kdf2)
 	verify_test(outp.IsValid(g_hFork, comm));
 
 	CoinID cid3;
-	verify_test(outp.Recover(g_hFork, kdf, cid3));
+	Output::User user2;
+	verify_test(outp.Recover(g_hFork, kdf, cid3, &user2));
 
 	verify_test(cid == cid3);
+	verify_test(!memcmp(&user, &user2, sizeof(user)));
 
 }
 
@@ -1024,9 +1026,21 @@ void KeyKeeperWrap::ExportTx(Transaction& tx, const wallet::IPrivateKeyKeeper2::
 		KeyKeeperHwEmu::Method::CreateOutput m;
 		m.m_hScheme = g_hFork;
 		m.m_Cid = tx2.m_vOutputs[i];
+		SetRandom(m.m_User.m_pExtra[0].m_Value);
+		SetRandom(m.m_User.m_pExtra[1].m_Value);
 		
 		verify_test(Cast::Down<wallet::IPrivateKeyKeeper2>(m_kkEmu).InvokeSync(m) == KeyKeeperHwEmu::Status::Success);
 		assert(m.m_pResult);
+
+		CoinID cid;
+		Output::User usr;
+		verify_test(m.m_pResult->Recover(g_hFork, m_kkStd.get_Owner(), cid, &usr));
+		verify_test(cid == m.m_Cid);
+		verify_test(usr.m_pExtra[0] == m.m_User.m_pExtra[0]);
+		verify_test(usr.m_pExtra[1] == m.m_User.m_pExtra[1]);
+
+		ECC::Point::Native comm;
+		verify_test(m.m_pResult->IsValid(g_hFork, comm));
 
 		tx.m_vOutputs.emplace_back().swap(m.m_pResult);
 	}

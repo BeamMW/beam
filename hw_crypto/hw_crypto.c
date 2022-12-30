@@ -1390,8 +1390,12 @@ static void RangeProof_Calculate_S(RangeProof* const p, RangeProof_Worker* const
 		NonceGenerator_NextScalar(&pWrk->m_NonceGen, pS + mmCtx.m_Fast.m_Count);
 
 		if (!(iBit % nDims) && p->m_pKExtra)
+		{
 			// embed more info
-			wrap_scalar_add(pS + mmCtx.m_Fast.m_Count, pS + mmCtx.m_Fast.m_Count, p->m_pKExtra + (iBit / nDims));
+			int overflow;
+			secp256k1_scalar_set_b32(p->m_pTauX, p->m_pKExtra[iBit / nDims].m_pVal, &overflow);
+			wrap_scalar_add(pS + mmCtx.m_Fast.m_Count, pS + mmCtx.m_Fast.m_Count, p->m_pTauX);
+		}
 	}
 
 	mmCtx.m_pRes = pWrk->m_pGej + 1;
@@ -2271,25 +2275,14 @@ PROTO_METHOD(CreateOutput)
 	if (memis0(pIn->m_pKExtra->m_pVal, sizeof(pIn->m_pKExtra)))
 		ctx.m_pKExtra = 0;
 	else
-	{
-		// in-place convert, overwrite the original pIn->m_pKExtra
-		ctx.m_pKExtra = ctx.m_pTauX;
-
-		for (uint32_t i = 0; i < _countof(pIn->m_pKExtra); i++)
-		{
-			memcpy(&sBuf, pIn->m_pKExtra[i].m_pVal, sizeof(sBuf));
-			int overflow;
-			secp256k1_scalar_set_b32((secp256k1_scalar*) pIn->m_pKExtra + i, (uint8_t*) &sBuf, &overflow);
-		}
-	}
+		ctx.m_pKExtra = pIn->m_pKExtra;
 
 	ctx.m_pAssetGen = IsUintBigZero(&pIn->m_ptAssetGen.m_X) ? 0 : &pIn->m_ptAssetGen;
 
 	if (!RangeProof_Calculate(&ctx))
 		return c_KeyKeeper_Status_Unspecified;
 
-	// copy into out. To it carefully, since in/out share the same mem
-
+	// copy into out. Do it carefully, since in/out share the same mem
 	static_assert(sizeof(pOut->m_pT) == sizeof(pIn->m_pT), "");
 	memmove(pOut->m_pT, pIn->m_pT, sizeof(pOut->m_pT)); // MUST use memmove!
 

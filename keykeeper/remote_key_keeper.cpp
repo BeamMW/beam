@@ -805,7 +805,7 @@ namespace beam::wallet
         {
             ECC::Scalar::Native skDummy;
             ECC::HKdf kdfDummy;
-            m_pOutput->Create(m_M.m_hScheme, skDummy, kdfDummy, m_M.m_Cid, *m_GetKey.m_pPKdf, e); // Phase 3
+            m_pOutput->Create(m_M.m_hScheme, skDummy, kdfDummy, m_M.m_Cid, *m_GetKey.m_pPKdf, e, &m_M.m_User); // Phase 3
         }
 
     };

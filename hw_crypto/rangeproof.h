@@ -21,7 +21,7 @@ typedef struct
 	const Kdf* m_pKdf; // master kdf
 	const CompactPoint* m_pAssetGen; // optional if no asset.
 
-	const secp256k1_scalar* m_pKExtra; // optionally embed 2 scalars that can be recognized (in addition to CoinID)
+	const UintBig* m_pKExtra; // optionally embed 2 scalars that can be recognized (in addition to CoinID)
 
 	const CompactPoint* m_pT_In;
 	// result

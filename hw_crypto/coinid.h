@@ -28,8 +28,8 @@ typedef struct
 	Amount  m_Amount;
 	AssetID m_AssetID;
 
-	// only trailing padding skipped (4 bytes)
-	// normally this struct is aligned, the problem could be only with arrays
+	// alignment is ok. We only remove the trailing padding
+	// We don't deal with arrays internally, and input arrays are considered unaligned and copied one-by-one
 
 } CoinID;
 #pragma pack (pop)
