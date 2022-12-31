@@ -398,9 +398,9 @@ namespace beam::wallet
             m_Pending##type.insert(x); \
             x.AddRef(); \
         } \
-        bool PostReqUnique(MyRequest##type& x) \
+        bool PostReq(MyRequest##type& x) \
         { \
-            if (!m_NodeEndpoint || m_Pending##type.end() != m_Pending##type.find(x)) \
+            if (!m_NodeEndpoint) \
                 return false; \
             AddReq(x); \
             m_NodeEndpoint->PostRequest(x, m_RequestHandler); \
@@ -408,6 +408,12 @@ namespace beam::wallet
             if (SyncTasks::type::b) \
                 m_LastSyncTotal++; \
             return true; \
+        } \
+        bool PostReqUnique(MyRequest##type& x) \
+        { \
+            if (m_Pending##type.end() != m_Pending##type.find(x)) \
+                return false; \
+            return PostReq(x); \
         }
 
 #define WalletFlyClientRequests_All(macro) \

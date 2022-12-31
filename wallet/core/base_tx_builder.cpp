@@ -407,53 +407,104 @@ namespace beam::wallet
     }
 
     struct BaseTxBuilder::HandlerInOuts
-        :public KeyKeeperHandler
-        ,public std::enable_shared_from_this<HandlerInOuts>
     {
-        using KeyKeeperHandler::KeyKeeperHandler;
-
-        virtual ~HandlerInOuts() {} // auto
-
-        struct Outputs
+        struct Shared
+            :public std::enable_shared_from_this<Shared>
         {
-            std::vector<IPrivateKeyKeeper2::Method::CreateOutput> m_vMethods;
-            std::vector<Output::Ptr> m_Done;
+            typedef std::shared_ptr<Shared> Ptr;
 
-            bool IsAllDone() const { return m_vMethods.size() == m_Done.size(); }
+            TxVectors::Full m_InOuts;
+            uint32_t m_Remaining;
+        };
 
-            bool OnNext()
+        struct Base
+            :public KeyKeeperHandler
+        {
+            Base(BaseTxBuilder& b, Stage& s, const Shared::Ptr& pShared)
+                :KeyKeeperHandler(b, s)
             {
-                size_t iDone = m_Done.size();
-                assert(m_vMethods[iDone].m_pResult);
-                m_Done.push_back(std::move(m_vMethods[iDone].m_pResult));
-                return true;
+                m_pShared = pShared;
+                pShared->m_Remaining++;
             }
 
-        } m_Outputs;
+            using KeyKeeperHandler::KeyKeeperHandler;
 
-        struct Inputs
-        {
-            std::vector<IPrivateKeyKeeper2::Method::get_Commitment> m_vMethods;
-            std::vector<Input::Ptr> m_Done;
+            Shared::Ptr m_pShared;
 
-            bool IsAllDone() const { return m_vMethods.size() == m_Done.size(); }
+            virtual bool OnDoneItem(BaseTxBuilder& b) = 0;
 
-            bool OnNext()
+            void OnSuccess(BaseTxBuilder& b) override
             {
-                size_t iDone = m_Done.size();
-                auto& m = m_vMethods[iDone];
+                if (OnDoneItem(b))
+                {
+                    auto& s = *m_pShared;
+                    assert(s.m_Remaining);
+                    if (!--s.m_Remaining)
+                    {
+                        MoveIntoVec(b.m_pTransaction->m_vOutputs, s.m_InOuts.m_vOutputs);
+                        MoveIntoVec(b.m_pTransaction->m_vInputs, s.m_InOuts.m_vInputs);
+                        MoveIntoVec1(b.m_pTransaction->m_vKernels, s.m_InOuts.m_vKernels);
 
-                m_Done.emplace_back();
-                m_Done.back().reset(new Input);
-                m_Done.back()->m_Commitment = m.m_Result;
+                        b.SaveInOuts();
 
+                        OnAllDone(b);
+                    }
+                    else
+                        m_pStage = nullptr; // detach silently
+                }
+                else
+                    OnFailed(b, IPrivateKeyKeeper2::Status::Unspecified); // although shouldn't happen
+            }
+        };
+
+        struct HandlerOutput
+            :public Base
+            ,public std::enable_shared_from_this<HandlerOutput>
+        {
+            using Base::Base;
+
+            virtual ~HandlerOutput() {} // auto
+
+            IPrivateKeyKeeper2::Method::CreateOutput m_Method;
+
+            bool OnDoneItem(BaseTxBuilder& b) override
+            {
+                assert(m_Method.m_pResult);
+                m_pShared->m_InOuts.m_vOutputs.push_back(std::move(m_Method.m_pResult));
+                return true;
+
+            }
+        };
+
+        struct HandlerInput
+            :public Base
+            ,public std::enable_shared_from_this<HandlerInput>
+        {
+            using Base::Base;
+
+            virtual ~HandlerInput() {} // auto
+
+            IPrivateKeyKeeper2::Method::get_Commitment m_Method;
+
+            bool OnDoneItem(BaseTxBuilder& b) override
+            {
+                auto& s = *m_pShared;
+                s.m_InOuts.m_vInputs.emplace_back();
+                s.m_InOuts.m_vInputs.back().reset(new Input);
+                s.m_InOuts.m_vInputs.back()->m_Commitment = m_Method.m_Result;
                 return true;
             }
+        };
 
-        } m_Inputs;
-
-        struct InputsShielded
+        struct HandlerInputShielded
+            :public Base
+            ,public std::enable_shared_from_this<HandlerInputShielded>
         {
+            using Base::Base;
+
+            virtual ~HandlerInputShielded() {} // auto
+
+
             struct MyList
                 :public Sigma::CmList
             {
@@ -479,61 +530,21 @@ namespace beam::wallet
             IPrivateKeyKeeper2::Method::CreateInputShielded m_Method;
             MyList m_Lst;
 
-            std::vector<TxKernelShieldedInput::Ptr> m_Done;
-
             TxoID m_Wnd0;
             uint32_t m_N;
             uint32_t m_Count;
 
-            bool IsAllDone(BaseTxBuilder& b) const { return b.m_Coins.m_InputShielded.size() == m_Done.size(); }
-
-            bool OnNext(BaseTxBuilder& b)
+            bool OnDoneItem(BaseTxBuilder& b) override
             {
-                m_Done.push_back(std::move(m_Method.m_pKernel));
-                return MoveNextSafe(b);
+                assert(m_Method.m_pKernel);
+                m_pShared->m_InOuts.m_vKernels.push_back(std::move(m_Method.m_pKernel));
+                return true;
             }
 
-            bool MoveNextSafe(BaseTxBuilder&);
+            bool InvokeSafe(BaseTxBuilder&, const IPrivateKeyKeeper2::ShieldedInput&);
             bool OnList(BaseTxBuilder&, proto::ShieldedList& msg);
 
-            IMPLEMENT_GET_PARENT_OBJ(HandlerInOuts, m_InputsShielded)
-
-        } m_InputsShielded;
-
-
-        void CheckAllDone(BaseTxBuilder& b)
-        {
-            if (m_Outputs.IsAllDone() && m_Inputs.IsAllDone() && m_InputsShielded.IsAllDone(b))
-            {
-                MoveIntoVec(b.m_pTransaction->m_vOutputs, m_Outputs.m_Done);
-                MoveIntoVec(b.m_pTransaction->m_vInputs, m_Inputs.m_Done);
-                MoveIntoVec1(b.m_pTransaction->m_vKernels, m_InputsShielded.m_Done);
-
-                b.SaveInOuts();
-
-                OnAllDone(b);
-            }
-        }
-
-        bool OnNext(BaseTxBuilder& b)
-        {
-            if (!m_Outputs.IsAllDone())
-                return m_Outputs.OnNext();
-
-            if (!m_Inputs.IsAllDone())
-                return m_Inputs.OnNext();
-
-            assert(!m_InputsShielded.IsAllDone(b));
-            return m_InputsShielded.OnNext(b);
-        }
-
-        virtual void OnSuccess(BaseTxBuilder& b) override
-        {
-            if (OnNext(b))
-                CheckAllDone(b);
-            else
-                OnFailed(b, IPrivateKeyKeeper2::Status::Unspecified); // although shouldn't happen
-        }
+        };
     };
 
     struct MyWrapper
@@ -587,44 +598,50 @@ namespace beam::wallet
             return;
         }
 
-        KeyKeeperHandler::Ptr pHandler = std::make_shared<HandlerInOuts>(*this, m_GeneratingInOuts);
-        HandlerInOuts& x = Cast::Up<HandlerInOuts>(*pHandler);
+        auto pShared = std::make_shared<HandlerInOuts::Shared>();
+        pShared->m_Remaining = 0;
 
         // outputs
-        x.m_Outputs.m_vMethods.resize(m_Coins.m_Output.size());
-        x.m_Outputs.m_Done.reserve(m_Coins.m_Output.size());
-        for (size_t i = 0; i < m_Coins.m_Output.size(); i++)
+        for (const auto& cid : m_Coins.m_Output)
         {
-            x.m_Outputs.m_vMethods[i].m_hScheme = m_Height.m_Min;
-            x.m_Outputs.m_vMethods[i].m_Cid = m_Coins.m_Output[i];
-            FillUserData(Output::User::ToPacked(x.m_Outputs.m_vMethods[i].m_User));
-            m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Outputs.m_vMethods[i], pHandler);
+            m_GeneratingInOuts = Stage::None;
+            auto pHandler = std::make_shared<HandlerInOuts::HandlerOutput>(*this, m_GeneratingInOuts, pShared);
+            auto& h = *pHandler;
+
+            h.m_Method.m_hScheme = m_Height.m_Min;
+            h.m_Method.m_Cid = cid;
+            FillUserData(Output::User::ToPacked(h.m_Method.m_User));
+            m_Tx.get_KeyKeeperStrict()->InvokeAsync(h.m_Method, pHandler);
         }
 
         // inputs
-        x.m_Inputs.m_vMethods.resize(m_Coins.m_Input.size());
-        x.m_Inputs.m_Done.reserve(m_Coins.m_Input.size());
-        for (size_t i = 0; i < m_Coins.m_Input.size(); i++)
+        for (const auto& cid : m_Coins.m_Input)
         {
-            auto& c = x.m_Inputs.m_vMethods[i];
-            c.m_Cid = m_Coins.m_Input[i];
-            m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Inputs.m_vMethods[i], pHandler);
+            m_GeneratingInOuts = Stage::None;
+            auto pHandler = std::make_shared<HandlerInOuts::HandlerInput>(*this, m_GeneratingInOuts, pShared);
+            auto& h = *pHandler;
+
+            h.m_Method.m_Cid = cid;
+            m_Tx.get_KeyKeeperStrict()->InvokeAsync(h.m_Method, pHandler);
         }
 
         // inputs shielded
-        x.m_InputsShielded.m_Done.reserve(m_Coins.m_InputShielded.size());
-        if (!x.m_InputsShielded.MoveNextSafe(*this))
-            throw TransactionFailedException(true, TxFailureReason::Unknown);
+        for (const auto& ins : m_Coins.m_InputShielded)
+        {
+            m_GeneratingInOuts = Stage::None;
+            auto pHandler = std::make_shared<HandlerInOuts::HandlerInputShielded>(*this, m_GeneratingInOuts, pShared);
+            auto& h = *pHandler;
+
+            if (!h.InvokeSafe(*this, ins))
+                throw TransactionFailedException(true, TxFailureReason::Unknown);
+        }
+
     }
 
-    bool BaseTxBuilder::HandlerInOuts::InputsShielded::MoveNextSafe(BaseTxBuilder& b)
+    bool BaseTxBuilder::HandlerInOuts::HandlerInputShielded::InvokeSafe(BaseTxBuilder& b, const IPrivateKeyKeeper2::ShieldedInput& si)
     {
-        if (IsAllDone(b))
-            return true;
-
         // currently process inputs 1-by-1
         // don't cache retrieved elements (i.e. ignore overlaps for multiple inputs)
-        const IPrivateKeyKeeper2::ShieldedInput& si = b.m_Coins.m_InputShielded[m_Done.size()];
         auto pCoin = b.m_Tx.GetWalletDB()->getShieldedCoin(si.m_Key);
         if (!pCoin)
             return false;
@@ -681,7 +698,7 @@ namespace beam::wallet
         LOG_INFO() << "ShieldedInput window N=" << m_N << ", Wnd0=" << m_Wnd0 << ", iIdx=" << m_Method.m_iIdx << ", TxoID=" << c.m_TxoID << ", PoolSize=" << nShieldedCurrently;
 
         b.m_Tx.GetGateway().get_shielded_list(b.m_Tx.GetTxID(), m_Wnd0, m_Count,
-            [pHandler = get_ParentObj().shared_from_this(), weakTx = b.m_Tx.weak_from_this()](TxoID, uint32_t, proto::ShieldedList& msg)
+            [pHandler = shared_from_this(), weakTx = b.m_Tx.weak_from_this()](TxoID, uint32_t, proto::ShieldedList& msg)
         {
             auto pBldr = pHandler->m_pBuilder.lock();
             if (!pBldr)
@@ -693,7 +710,7 @@ namespace beam::wallet
                 return;
 
             try {
-                if (!pHandler->m_InputsShielded.OnList(b, msg))
+                if (!pHandler->OnList(b, msg))
                     b.m_Tx.OnFailed(TxFailureReason::Unknown);
             }
             catch (const TransactionFailedException& ex) {
@@ -704,7 +721,7 @@ namespace beam::wallet
         return true;
     }
 
-    bool BaseTxBuilder::HandlerInOuts::InputsShielded::OnList(BaseTxBuilder& b, proto::ShieldedList& msg)
+    bool BaseTxBuilder::HandlerInOuts::HandlerInputShielded::OnList(BaseTxBuilder& b, proto::ShieldedList& msg)
     {
         if (msg.m_Items.size() > m_Count)
         {
@@ -748,7 +765,7 @@ namespace beam::wallet
             assert(m_Method.m_iIdx < m_N);
         }
 
-        b.m_Tx.get_KeyKeeperStrict()->InvokeAsync(m_Method, get_ParentObj().shared_from_this());
+        b.m_Tx.get_KeyKeeperStrict()->InvokeAsync(m_Method, shared_from_this());
 
         return true;
     }

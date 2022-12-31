@@ -657,7 +657,7 @@ namespace beam::wallet
         pVal->m_Msg.m_Id0 = startIndex;
         pVal->m_Msg.m_Count = count;
 
-        if (PostReqUnique(*pVal))
+        if (PostReq(*pVal))
         {
             LOG_INFO() << txId << " Get shielded list, start_index = " << startIndex << ", count = " << count;
         }
