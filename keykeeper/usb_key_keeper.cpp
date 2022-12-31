@@ -769,7 +769,7 @@ void UsbKeyKeeper_ToConsole::OnDevState(const std::string& sErr, DevState eState
 void UsbKeyKeeper_ToConsole::OnDevReject(const CallStats& stats)
 {
 	std::cout << "HW Wallet reject opcode=" << static_cast<uint32_t>(stats.m_Dbg.m_OpCode) << ", I/O sizes " << stats.m_nRequest << '/' << stats.m_nResponse
-		<< ", Status=" << static_cast<uint32_t>(stats.m_Dbg.m_Major) << '.' << static_cast<uint32_t>(stats.m_Dbg.m_Minor);
+		<< ", Status=" << static_cast<uint32_t>(stats.m_Dbg.m_Major) << '.' << static_cast<uint32_t>(stats.m_Dbg.m_Minor) << std::endl;
 }
 
 bool UsbKeyKeeper::WaitEvent(const Event::Handle* pEvt, const uint32_t* pTimeout_ms)
