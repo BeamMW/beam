@@ -15,7 +15,6 @@
 #include "usb_key_keeper.h"
 #include "utility/byteorder.h"
 #include "../hw_crypto/keykeeper.h"
-#include "utility/logger.h"
 
 #ifdef WIN32
 
@@ -401,7 +400,7 @@ uint16_t UsbIO::ReadFrame(uint8_t* p, uint16_t n)
 
 std::shared_ptr<UsbKeyKeeper> UsbKeyKeeper::Open(const std::string& sPath)
 {
-	auto pRet = std::make_shared<UsbKeyKeeper>();
+	auto pRet = std::make_shared<UsbKeyKeeper_ToConsole>();
 	pRet->m_sPath = sPath;
 	return pRet;
 }
@@ -543,7 +542,7 @@ void UsbKeyKeeper::RunThreadGuarded()
 
 				static void ThrowBadSig()
 				{
-					throw std::runtime_error("Unrecognized signature");
+					throw std::runtime_error("Beam app not running");
 				}
 
 				uint16_t ReadInternal(void* p, uint16_t n, const uint32_t* pTimeout_ms)
@@ -650,29 +649,40 @@ void UsbKeyKeeper::RunThreadGuarded()
 					}
 				}
 
-				// send request
-				auto pBuf = pTask->m_pBuf;
-				uint8_t nOpCode = *pBuf; // save it
-
-				reader.m_Usbio.WriteFrame(pBuf, static_cast<uint16_t>(pTask->m_nRequest));
-
-				uint16_t nLen = reader.ReadFrame(pBuf, static_cast<uint16_t>(pTask->m_nResponse));
-				if (!nLen)
-					AsyncReader::ThrowBadSig();
-
-				if (*pBuf != c_KeyKeeper_Status_Ok)
+				uint8_t pFrame[0x400]; // actual size is much smaller
+				if (pTask->m_nResponse > sizeof(pFrame))
+					// too big (should not happen), just skip it
+					pTask->m_eRes = Status::NotImplemented;
+				else
 				{
-					// proper error message should be returned
-					if ((4 != nLen) ||
-						('b' != pBuf[2]) ||
-						('F' != pBuf[3]))
+
+					// send request
+					auto pBuf = pTask->m_pBuf;
+					reader.m_Usbio.WriteFrame(pBuf, static_cast<uint16_t>(pTask->m_nRequest));
+
+					uint16_t nLen = reader.ReadFrame(pFrame, static_cast<uint16_t>(pTask->m_nResponse));
+					if (!nLen)
 						AsyncReader::ThrowBadSig();
 
-					LOG_INFO() << "HW Wallet opcode=" << static_cast<uint32_t>(nOpCode) << ", Status=" << static_cast<uint32_t>(pBuf[0]) << '.' << static_cast<uint32_t>(pBuf[1]);
+					if (pFrame[0] != c_KeyKeeper_Status_Ok)
+					{
+						// proper error message should be returned
+						if ((4 != nLen) ||
+							('b' != pFrame[2]) ||
+							('F' != pFrame[3]))
+							AsyncReader::ThrowBadSig();
+
+						pTask->m_Dbg.m_OpCode = pBuf[0];
+						pTask->m_Dbg.m_Major = pFrame[0];
+						pTask->m_Dbg.m_Minor = pFrame[1];
+
+						nLen = 1;
+					}
+
+					memcpy(pBuf, pFrame, std::min(nLen, static_cast<uint16_t>(pTask->m_nResponse)));
+
+					pTask->m_eRes = DeduceStatus(pBuf, pTask->m_nResponse, nLen);
 				}
-
-				pTask->m_eRes = DeduceStatus(pBuf, pTask->m_nResponse, nLen);
-
 
 				if (m_lstDone.Push(pTask))
 					m_pEvt->post();
@@ -736,6 +746,31 @@ void UsbKeyKeeper::NotifyState(std::string* pErr, DevState eState)
 		m_pEvt->post();
 }
 
+void UsbKeyKeeper_ToConsole::OnDevState(const std::string& sErr, DevState eState)
+{
+	switch (eState)
+	{
+	case DevState::Connected:
+		std::cout << "HW Wallet connected" << std::endl;
+		break;
+
+	case DevState::Stalled:
+		std::cout << "HW Wallet needs user interaction" << std::endl;
+		break;
+
+	default:
+		// no break;
+	case DevState::Disconnected:
+		std::cout << "HW Wallet disconnected: " << sErr << std::endl;
+		break;
+	}
+}
+
+void UsbKeyKeeper_ToConsole::OnDevReject(const CallStats& stats)
+{
+	std::cout << "HW Wallet reject opcode=" << static_cast<uint32_t>(stats.m_Dbg.m_OpCode) << ", I/O sizes " << stats.m_nRequest << '/' << stats.m_nResponse
+		<< ", Status=" << static_cast<uint32_t>(stats.m_Dbg.m_Major) << '.' << static_cast<uint32_t>(stats.m_Dbg.m_Minor);
+}
 
 bool UsbKeyKeeper::WaitEvent(const Event::Handle* pEvt, const uint32_t* pTimeout_ms)
 {
@@ -829,6 +864,9 @@ void UsbKeyKeeper::OnEvent()
 
 		if (!pTask)
 			break;
+
+		if (Status::Success != pTask->m_eRes)
+			OnDevReject(*pTask);
 
 		pTask->m_pHandler->OnDone(pTask->m_eRes);
 	}

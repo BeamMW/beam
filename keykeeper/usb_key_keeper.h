@@ -66,14 +66,31 @@ namespace beam::wallet
     class UsbKeyKeeper
         :public RemoteKeyKeeper
     {
+    public:
+
+        struct CallStats
+        {
+            uint32_t m_nRequest;
+            uint32_t m_nResponse;
+
+            // dbg info returned by device
+            struct
+            {
+                uint8_t m_OpCode;
+                uint8_t m_Major;
+                uint8_t m_Minor;
+            } m_Dbg;
+        };
+
+    private:
+
         struct Task
             :public boost::intrusive::list_base_hook<>
+            ,public CallStats
         {
             typedef std::unique_ptr<Task> Ptr;
 
             uint8_t* m_pBuf;
-            uint32_t m_nRequest;
-            uint32_t m_nResponse;
             Handler::Ptr m_pHandler;
             Status::Type m_eRes; // set after processing
         };
@@ -136,6 +153,7 @@ namespace beam::wallet
         std::string m_sPath; // don't modify after start
 
         virtual void OnDevState(const std::string& sErr, DevState) {} // is there an error, or device stalled (perhaps waiting for the user interaction)
+        virtual void OnDevReject(const CallStats&) {}
 
         void StartSafe();
         void Stop();
@@ -148,6 +166,13 @@ namespace beam::wallet
         bool m_NotifyStatePending = false;
         std::string m_sLastError;
         void NotifyState(std::string* pErr, DevState);
+    };
+
+    struct UsbKeyKeeper_ToConsole
+        :public UsbKeyKeeper
+    {
+        void OnDevState(const std::string& sErr, DevState) override;
+        void OnDevReject(const CallStats&) override;
     };
 }
 
