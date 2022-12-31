@@ -740,6 +740,11 @@ namespace beam::wallet
         return Status::Success;
     }
 
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::DisplayWalletID& x)
+    {
+        return Status::Success;
+    }
+
     /////////////////////////
     // LocalPrivateKeyKeeperStd
     LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd(const ECC::Key::IKdf::Ptr& pkdf, const Slot::Type numSlots)

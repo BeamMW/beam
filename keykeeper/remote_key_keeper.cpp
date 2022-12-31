@@ -1403,6 +1403,38 @@ namespace beam::wallet
 
     };
 
+    struct RemoteKeyKeeper::Impl::RemoteCall_DisplayWalletID
+        :public RemoteCall
+    {
+        RemoteCall_DisplayWalletID(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::DisplayWalletID& m)
+            :RemoteCall(kk, h)
+            ,m_M(m)
+        {
+        }
+
+        Method::DisplayWalletID& m_M;
+
+        void Update() override
+        {
+            if (!m_Phase)
+            {
+                hw::Proto::DisplayAddress::Out msg;
+                msg.m_AddrID = m_M.m_MyIDKey;
+                SendReq_T(msg);
+            }
+
+            if (1 == m_Phase)
+            {
+                auto pMsg = ReadReq_T<hw::Proto::DisplayAddress>();
+                if (!pMsg)
+                    return;
+
+                Fin();
+            }
+        }
+
+    };
+
 
 
 #define THE_MACRO(method) \

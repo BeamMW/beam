@@ -170,6 +170,11 @@ namespace beam::wallet
                 bool m_HideAssetAlways = false;
             };
 
+            struct DisplayWalletID
+            {
+                WalletIDKey m_MyIDKey = 0;
+            };
+
         };
 
 #define KEY_KEEPER_METHODS(macro) \
@@ -183,6 +188,7 @@ namespace beam::wallet
 		macro(SignSender) \
 		macro(SignSendShielded) \
 		macro(SignSplit) \
+		macro(DisplayWalletID) \
 
 
 #define THE_MACRO(method) \
