@@ -2026,7 +2026,7 @@ void KeyKeeper_GetPKdf(const KeyKeeper* p, KdfPub* pRes, const uint32_t* pChild)
 
 //////////////////
 // Protocol
-#define PROTO_METHOD(name) __stack_hungry__ static uint8_t HandleProto_##name(KeyKeeper* p, OpIn_##name* pIn, uint32_t nIn, OpOut_##name* pOut, uint32_t nOut, uint32_t* pOutSize)
+#define PROTO_METHOD(name) __stack_hungry__ static uint16_t HandleProto_##name(KeyKeeper* p, OpIn_##name* pIn, uint32_t nIn, OpOut_##name* pOut, uint32_t nOut, uint32_t* pOutSize)
 
 #define PROTO_UNUSED_ARGS \
 	UNUSED(p); \
@@ -2112,10 +2112,15 @@ void N2H_TxCommonIn(TxCommonIn* p, const TxCommonIn* p_unaligned)
 	N2H_uint_inplace(p->m_Krn.m_hMax, 64);
 }
 
-uint8_t KeyKeeper_Invoke2(KeyKeeper* p, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t* pOutSize)
+uint16_t MakeStatus(uint8_t major, uint8_t minor)
+{
+	return (((uint16_t) minor) << 8) | major;
+}
+
+uint16_t KeyKeeper_Invoke(KeyKeeper* p, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t* pOutSize)
 {
 	if (!nIn)
-		return c_KeyKeeper_Status_ProtoError;
+		return MakeStatus(c_KeyKeeper_Status_ProtoError, 0xfd);
 
 	uint32_t nOutSize = *pOutSize;
 
@@ -2125,7 +2130,7 @@ uint8_t KeyKeeper_Invoke2(KeyKeeper* p, uint8_t* pIn, uint32_t nIn, uint8_t* pOu
 	case id: \
 	{ \
 		if ((nIn < sizeof(OpIn_##name)) || (nOutSize < sizeof(OpOut_##name))) \
-			return c_KeyKeeper_Status_ProtoError; \
+			return MakeStatus(c_KeyKeeper_Status_ProtoError, 0xfe); \
  \
 		*pOutSize = sizeof(OpOut_##name); \
 \
@@ -2138,19 +2143,7 @@ uint8_t KeyKeeper_Invoke2(KeyKeeper* p, uint8_t* pIn, uint32_t nIn, uint8_t* pOu
 
 	}
 
-	return c_KeyKeeper_Status_ProtoError;
-}
-
-void KeyKeeper_Invoke(KeyKeeper* p, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t* pOutSize)
-{
-	if (!*pOutSize)
-		return; // at least 1 byte required to return status code
-
-	uint8_t retVal = KeyKeeper_Invoke2(p, pIn, nIn, pOut, pOutSize);
-	*pOut = retVal;
-
-	if (c_KeyKeeper_Status_Ok != retVal)
-		*pOutSize = 1; // return only status code in case of err
+	return MakeStatus(c_KeyKeeper_Status_ProtoError, 0xff);
 }
 
 PROTO_METHOD(Version)
@@ -2334,7 +2327,7 @@ static int TxAggr_AddAmount(KeyKeeper* p, Amount newVal, AssetID aid, int isOut)
 }
 
 __stack_hungry__
-static int TxAggr_AddCoins(KeyKeeper* p, CoinID* pCid_unaligned, uint32_t nCount, int isOut)
+static uint16_t TxAggr_AddCoins(KeyKeeper* p, CoinID* pCid_unaligned, uint32_t nCount, int isOut)
 {
 	for (uint32_t i = 0; i < nCount; i++)
 	{
@@ -2346,7 +2339,7 @@ static int TxAggr_AddCoins(KeyKeeper* p, CoinID* pCid_unaligned, uint32_t nCount
 		CoinID_getSchemeAndSubkey(&cid, &nScheme, &nSubkey);
 
 		if (nSubkey && isOut)
-			return 0; // HW wallet should not send funds to child subkeys (potentially belonging to miners)
+			return MakeStatus(c_KeyKeeper_Status_Unspecified, 3); // HW wallet should not send funds to child subkeys (potentially belonging to miners)
 
 		switch (nScheme)
 		{
@@ -2354,14 +2347,14 @@ static int TxAggr_AddCoins(KeyKeeper* p, CoinID* pCid_unaligned, uint32_t nCount
 		case c_CoinID_Scheme_BB21:
 			// weak schemes
 			if (isOut)
-				return 0; // no reason to create weak outputs
+				return MakeStatus(c_KeyKeeper_Status_Unspecified, 4); // no reason to create weak outputs
 
 			if (!KeyKeeper_AllowWeakInputs(p))
-				return 0;
+				return MakeStatus(c_KeyKeeper_Status_Unspecified, 5);
 		}
 
 		if (!TxAggr_AddAmount(p, cid.m_Amount, cid.m_AssetID, isOut))
-			return 0;
+			return MakeStatus(c_KeyKeeper_Status_Unspecified, 1);
 
 		secp256k1_scalar sk;
 		CoinID_getSk(&p->m_MasterKey, &cid, &sk);
@@ -2373,11 +2366,11 @@ static int TxAggr_AddCoins(KeyKeeper* p, CoinID* pCid_unaligned, uint32_t nCount
 		SECURE_ERASE_OBJ(sk);
 	}
 
-	return 1;
+	return c_KeyKeeper_Status_Ok;
 }
 
 __stack_hungry__
-static int TxAggr_AddShieldedInputs(KeyKeeper* p, uint8_t* pIns_unaligned, uint32_t nCount)
+static uint16_t TxAggr_AddShieldedInputs(KeyKeeper* p, uint8_t* pIns_unaligned, uint32_t nCount)
 {
 	for (uint32_t i = 0; i < nCount; i++)
 	{
@@ -2389,20 +2382,20 @@ static int TxAggr_AddShieldedInputs(KeyKeeper* p, uint8_t* pIns_unaligned, uint3
 		pIns_unaligned += sizeof(ShieldedInput_Fmt);
 
 		if (!TxAggr_AddAmount(p, fmt.m_Amount, fmt.m_AssetID, 0))
-			return c_KeyKeeper_Status_Unspecified;
+			return MakeStatus(c_KeyKeeper_Status_Unspecified, 1);
 
 		if (fmt.m_Fee)
 		{
 			// Starding from HF3 shielded input fees are optional. And basically should not be used. But currently we support them
 			if (fmt.m_Fee > KeyKeeper_get_MaxShieldedFee(p))
-				return c_KeyKeeper_Status_Unspecified;
+				return MakeStatus(c_KeyKeeper_Status_Unspecified, 8);
 
 			p->u.m_TxBalance.m_ImplicitFee += fmt.m_Fee;
 			if (p->u.m_TxBalance.m_ImplicitFee < fmt.m_Fee)
-				return c_KeyKeeper_Status_Unspecified; // overflow
+				return MakeStatus(c_KeyKeeper_Status_Unspecified, 1); // overflow
 
 			if (!TxAggr_AddAmount(p, fmt.m_Fee, 0, 1))
-				return c_KeyKeeper_Status_Unspecified;
+				return MakeStatus(c_KeyKeeper_Status_Unspecified, 1);
 		}
 
 		secp256k1_scalar sk;
@@ -2417,7 +2410,7 @@ static int TxAggr_AddShieldedInputs(KeyKeeper* p, uint8_t* pIns_unaligned, uint3
 }
 
 
-static int TxAggr_AddAllCoins(KeyKeeper* p, const OpIn_TxAddCoins* pArg, uint32_t nSizeIn)
+static uint16_t TxAggr_AddAllCoins(KeyKeeper* p, const OpIn_TxAddCoins* pArg, uint32_t nSizeIn)
 {
 	uint32_t nSize =
 		(sizeof(CoinID) * pArg->m_Ins) +
@@ -2429,36 +2422,38 @@ static int TxAggr_AddAllCoins(KeyKeeper* p, const OpIn_TxAddCoins* pArg, uint32_
 
 	CoinID* pCid_unaligned = (CoinID*) (pArg + 1);
 
-	if (!TxAggr_AddCoins(p, pCid_unaligned, pArg->m_Ins, 0))
-		return c_KeyKeeper_Status_Unspecified;
+	uint16_t errCode = TxAggr_AddCoins(p, pCid_unaligned, pArg->m_Ins, 0);
+	if (c_KeyKeeper_Status_Ok != errCode)
+		return errCode;
 
 	pCid_unaligned += pArg->m_Ins;
 
-	if (!TxAggr_AddCoins(p, pCid_unaligned, pArg->m_Outs, 1))
-		return c_KeyKeeper_Status_Unspecified;
+	errCode = TxAggr_AddCoins(p, pCid_unaligned, pArg->m_Outs, 1);
+	if (c_KeyKeeper_Status_Ok != errCode)
+		return errCode;
 
 	pCid_unaligned += pArg->m_Outs;
 
 	return TxAggr_AddShieldedInputs(p, (uint8_t*) pCid_unaligned, pArg->m_InsShielded);
 }
 
-static int TxAggr_Get(const KeyKeeper* p, Amount* pNetAmount, AssetID* pAid, const Amount* pFeeSender)
+static uint16_t TxAggr_Get(const KeyKeeper* p, Amount* pNetAmount, AssetID* pAid, const Amount* pFeeSender)
 {
 	if (c_KeyKeeper_State_TxBalance != p->m_State)
-		return 0;
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 10);
 
 	int64_t rcvVal = p->u.m_TxBalance.m_RcvBeam;
 	if (pFeeSender)
 	{
 		// we're paying the fee. Subtract it from the net value we're sending
 		if (!TxAggr_AddAmount_Raw(&rcvVal, *pFeeSender, 1))
-			return 0;
+			return MakeStatus(c_KeyKeeper_Status_Unspecified, 1);
 	}
 
 	if (p->u.m_TxBalance.m_RcvAsset)
 	{
 		if (rcvVal)
-			return 0; // nnz net result in both beams and assets.
+			return MakeStatus(c_KeyKeeper_Status_Unspecified, 11); // nnz net result in both beams and assets.
 
 		rcvVal = p->u.m_TxBalance.m_RcvAsset;
 		*pAid = p->u.m_TxBalance.m_Aid;
@@ -2469,18 +2464,18 @@ static int TxAggr_Get(const KeyKeeper* p, Amount* pNetAmount, AssetID* pAid, con
 	if (pFeeSender)
 	{
 		if (rcvVal > 0)
-			return 0; // actually receiving
+			return MakeStatus(c_KeyKeeper_Status_Unspecified, 12); // actually receiving
 
 		*pNetAmount = -rcvVal;
 	}
 	else
 	{
 		if (rcvVal <= 0)
-			return 0; // not receiving
+			return MakeStatus(c_KeyKeeper_Status_Unspecified, 13); // not receiving
 		*pNetAmount = rcvVal;
 	}
 
-	return 1;
+	return c_KeyKeeper_Status_Ok;
 }
 
 static void TxAggr_ToOffsetEx(const KeyKeeper* p, const secp256k1_scalar* pKrn, UintBig* pOffs)
@@ -2508,15 +2503,15 @@ PROTO_METHOD(TxAddCoins)
 		p->m_State = c_KeyKeeper_State_TxBalance;
 	}
 
-	int status = TxAggr_AddAllCoins(p, pIn, nIn);
+	uint16_t errCode = TxAggr_AddAllCoins(p, pIn, nIn);
 
-	if (c_KeyKeeper_Status_Ok != status)
+	if (c_KeyKeeper_Status_Ok != errCode)
 	{
 		SECURE_ERASE_OBJ(p->u);
 		p->m_State = 0;
 	}
 
-	return status;
+	return errCode;
 }
 
 //////////////////////////////
@@ -2587,8 +2582,12 @@ PROTO_METHOD(TxSplit)
 
 	Amount netAmount;
 	AssetID aid;
-	if (!TxAggr_Get(p, &netAmount, &aid, &txc.m_Krn.m_Fee) || netAmount)
-		return c_KeyKeeper_Status_Unspecified; // not split
+	uint16_t errCode = TxAggr_Get(p, &netAmount, &aid, &txc.m_Krn.m_Fee);
+	if (errCode)
+		return errCode;
+
+	if (netAmount)
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21); // not split
 
 	// hash all visible params
 	secp256k1_sha256_t sha;
@@ -2616,9 +2615,9 @@ PROTO_METHOD(TxSplit)
 
 	TxKernel_getID(&txc.m_Krn, &pOut->m_Tx.m_Comms, &hv);
 
-	int res = KeyKeeper_ConfirmSpend(p, 0, 0, 0, &txc.m_Krn, &hv);
-	if (c_KeyKeeper_Status_Ok != res)
-		return res;
+	errCode = KeyKeeper_ConfirmSpend(p, 0, 0, 0, &txc.m_Krn, &hv);
+	if (c_KeyKeeper_Status_Ok != errCode)
+		return errCode;
 
 	Kernel_SignPartial(&pOut->m_Tx.m_TxSig.m_kSig, &pOut->m_Tx.m_Comms, &hv, &keys);
 
@@ -2681,8 +2680,9 @@ PROTO_METHOD(TxReceive)
 
 	Amount netAmount;
 	AssetID aid;
-	if (!TxAggr_Get(p, &netAmount, &aid, 0))
-		return c_KeyKeeper_Status_Unspecified; // not receiving
+	uint16_t errCode = TxAggr_Get(p, &netAmount, &aid, 0);
+	if (c_KeyKeeper_Status_Ok != errCode)
+		return errCode;
 
 	assert(netAmount);
 
@@ -2728,7 +2728,7 @@ PROTO_METHOD(TxReceive)
 	SECURE_ERASE_OBJ(ng);
 
 	if (!KernelUpdateKeys(&pOut->m_Tx.m_Comms, &keys, &pIn->m_Comms)) // safe to call, even though pOut and pIn may overlap
-		return c_KeyKeeper_Status_Unspecified;
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 22);
 
 	TxKernel_getID(&txc.m_Krn, &pOut->m_Tx.m_Comms, &hv); // final ID
 	Kernel_SignPartial(&pOut->m_Tx.m_TxSig.m_kSig, &pOut->m_Tx.m_Comms, &hv, &keys);
@@ -2835,31 +2835,34 @@ static void TxSend_DeriveKeys(KeyKeeper* p, const OpIn_TxSend2* pIn, TxSendConte
 		pCtx->m_hvToken.m_pVal[_countof(pCtx->m_hvToken.m_pVal) - 1] = 1;
 }
 
-int HandleTxSend(KeyKeeper* p, OpIn_TxSend2* pIn, OpOut_TxSend1* pOut1, OpOut_TxSend2* pOut2)
+uint16_t HandleTxSend(KeyKeeper* p, OpIn_TxSend2* pIn, OpOut_TxSend1* pOut1, OpOut_TxSend2* pOut2)
 {
 	TxSendContext ctx;
 	N2H_TxCommonIn(&ctx.m_txc, &pIn->m_Tx);
 
+	uint16_t errCode = TxAggr_Get(p, &ctx.m_netAmount, &ctx.m_Aid, &ctx.m_txc.m_Krn.m_Fee);
+	if (errCode)
+		return errCode;
 
-	if (!TxAggr_Get(p, &ctx.m_netAmount, &ctx.m_Aid, &ctx.m_txc.m_Krn.m_Fee) || !ctx.m_netAmount)
-		return c_KeyKeeper_Status_Unspecified; // not sending
+	if (!ctx.m_netAmount)
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21); // not sending
 
 	if (IsUintBigZero(&pIn->m_Mut.m_Peer))
-		return c_KeyKeeper_Status_UserAbort; // conventional transfers must always be signed
+		return MakeStatus(c_KeyKeeper_Status_UserAbort, 22); // conventional transfers must always be signed
 
 	N2H_uint(ctx.m_iSlot, pIn->m_iSlot, 32);
 
 	if (ctx.m_iSlot >= KeyKeeper_getNumSlots(p))
-		return c_KeyKeeper_Status_Unspecified;
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 23);
 
 	TxSend_DeriveKeys(p, pIn, &ctx);
 
 
 	if (pOut1)
 	{
-		int res = KeyKeeper_ConfirmSpend(p, ctx.m_netAmount, ctx.m_Aid, &pIn->m_Mut.m_Peer, &ctx.m_txc.m_Krn, 0);
-		if (c_KeyKeeper_Status_Ok != res)
-			return res;
+		errCode = KeyKeeper_ConfirmSpend(p, ctx.m_netAmount, ctx.m_Aid, &pIn->m_Mut.m_Peer, &ctx.m_txc.m_Krn, 0);
+		if (c_KeyKeeper_Status_Ok != errCode)
+			return errCode;
 
 		pOut1->m_UserAgreement = ctx.m_hvToken;
 
@@ -2871,7 +2874,7 @@ int HandleTxSend(KeyKeeper* p, OpIn_TxSend2* pIn, OpOut_TxSend1* pOut1, OpOut_Tx
 	assert(pOut2);
 
 	if (memcmp(pIn->m_UserAgreement.m_pVal, ctx.m_hvToken.m_pVal, sizeof(ctx.m_hvToken.m_pVal)))
-		return c_KeyKeeper_Status_Unspecified; // incorrect user agreement token
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 24); // incorrect user agreement token
 
 	TxKernel_getID(&ctx.m_txc.m_Krn, &pIn->m_Comms, &ctx.m_hvToken);
 
@@ -2879,12 +2882,12 @@ int HandleTxSend(KeyKeeper* p, OpIn_TxSend2* pIn, OpOut_TxSend1* pOut1, OpOut_Tx
 	GetPaymentConfirmationMsg(&ctx.m_hvMyID, &ctx.m_hvMyID, &ctx.m_hvToken, ctx.m_netAmount, ctx.m_Aid);
 
 	if (!Signature_IsValid_Ex(&pIn->m_PaymentProof, &ctx.m_hvMyID, &pIn->m_Mut.m_Peer))
-		return c_KeyKeeper_Status_Unspecified;
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 25);
 
 	// 2nd user confirmation request. Now the kernel is complete, its ID is calculated
-	int res = KeyKeeper_ConfirmSpend(p, ctx.m_netAmount, ctx.m_Aid, &pIn->m_Mut.m_Peer, &ctx.m_txc.m_Krn, &ctx.m_hvMyID);
-	if (c_KeyKeeper_Status_Ok != res)
-		return res;
+	errCode = KeyKeeper_ConfirmSpend(p, ctx.m_netAmount, ctx.m_Aid, &pIn->m_Mut.m_Peer, &ctx.m_txc.m_Krn, &ctx.m_hvMyID);
+	if (c_KeyKeeper_Status_Ok != errCode)
+		return errCode;
 
 	// Regenerate the slot (BEFORE signing), and sign
 	KeyKeeper_RegenerateSlot(p, ctx.m_iSlot);
@@ -3107,7 +3110,7 @@ PROTO_METHOD(CreateShieldedVouchers)
 
 	uint32_t nSizeOut = sizeof(ShieldedVoucher) * nCount;
 	if (nOut < nSizeOut)
-		return c_KeyKeeper_Status_ProtoError;
+		return MakeStatus(c_KeyKeeper_Status_ProtoError, 1);
 	*pOutSize += nSizeOut;
 
 	ShieldedViewer viewer;
@@ -3202,7 +3205,7 @@ PROTO_METHOD(CreateShieldedInput)
 	int overflow;
 	secp256k1_scalar_set_b32(&skSpend, pIn->m_InpBlob.m_kSerG.m_pVal, &overflow);
 	if (overflow)
-		return c_KeyKeeper_Status_Unspecified;
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21);
 
 	ShieldedGetSpendKey(&viewer, &skSpend, pIn->m_InpBlob.m_IsCreatedByViewer, &hv, &skSpend);
 	MulG(&gej, &skSpend);
@@ -3292,7 +3295,7 @@ PROTO_METHOD(CreateShieldedInput)
 
 	secp256k1_ge ge;
 	if (!Point_Ge_from_Compact(&ge, pG))
-		return c_KeyKeeper_Status_Unspecified; // import failed
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 22); // import failed
 
 	MulG(&gej, pN + 2);
 	wrap_gej_add_ge_var(&gej, &gej, &ge);
@@ -3480,11 +3483,15 @@ PROTO_METHOD(TxSendShielded)
 
 	Amount netAmount;
 	AssetID aid;
-	if (!TxAggr_Get(p, &netAmount, &aid, &txc.m_Krn.m_Fee) || !netAmount)
-		return c_KeyKeeper_Status_Unspecified; // not sending
+	uint16_t errCode = TxAggr_Get(p, &netAmount, &aid, &txc.m_Krn.m_Fee);
+	if (errCode)
+		return errCode;
+
+	if (!netAmount)
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21); // not sending
 
 	if (IsUintBigZero(&pIn->m_Mut.m_Peer))
-		return c_KeyKeeper_Status_UserAbort; // conventional transfers must always be signed
+		return MakeStatus(c_KeyKeeper_Status_UserAbort, 22); // conventional transfers must always be signed
 
 	CustomGenerator aGen;
 	if (aid)
@@ -3493,7 +3500,7 @@ PROTO_METHOD(TxSendShielded)
 	UintBig hvKrn1, hv;
 	secp256k1_scalar skKrn1;
 	if (!VerifyShieldedOutputParams(p, pIn, netAmount, aid, aid ? &aGen : 0, &skKrn1, &hvKrn1, addrID))
-		return c_KeyKeeper_Status_Unspecified;
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 23);
 
 	// select blinding factor for the outer kernel.
 	secp256k1_sha256_t sha;
@@ -3519,12 +3526,12 @@ PROTO_METHOD(TxSendShielded)
 	TxKernel_getID_Ex(&txc.m_Krn, &pOut->m_Tx.m_Comms, &hv, &hvKrn1, 1);
 
 	// all set
-	int res = addrID ?
+	errCode = addrID ?
 		KeyKeeper_ConfirmSpend(p, 0, 0, 0, &txc.m_Krn, &hv) :
 		KeyKeeper_ConfirmSpend(p, netAmount, aid, &pIn->m_Mut.m_Peer, &txc.m_Krn, &hv);
 
-	if (c_KeyKeeper_Status_Ok != res)
-		return res;
+	if (c_KeyKeeper_Status_Ok != errCode)
+		return errCode;
 
 	Kernel_SignPartial(&pOut->m_Tx.m_TxSig.m_kSig, &pOut->m_Tx.m_Comms, &hv, &keys);
 

@@ -62,7 +62,7 @@ extern "C"
 		Cast::Up<KeyKeeperPlus>(pKk)->m_Nonces.Regenerate(iSlot);
 	}
 
-	int KeyKeeper_ConfirmSpend(KeyKeeper*, Amount val, AssetID aid, const UintBig* pPeerID, const TxKernelUser* pUser, const UintBig* pKrnID)
+	uint16_t KeyKeeper_ConfirmSpend(KeyKeeper*, Amount val, AssetID aid, const UintBig* pPeerID, const TxKernelUser* pUser, const UintBig* pKrnID)
 	{
 		return c_KeyKeeper_Status_Ok;
 	}
@@ -747,7 +747,9 @@ struct KeyKeeperHwEmu
 		{
 			uint32_t nResSize = m_nResponse;
 			uint8_t* p = (uint8_t*) m_pBuf;
-			hw::KeyKeeper_Invoke(&m_pThis->m_Ctx, p, m_nRequest, p, &nResSize);
+			
+			uint16_t errCode = hw::KeyKeeper_Invoke(&m_pThis->m_Ctx, p, m_nRequest, p, &nResSize);
+			p[0] = (uint8_t) errCode;
 
 			m_pHandler->OnDone(DeduceStatus(p, m_nResponse, nResSize));
 		}
