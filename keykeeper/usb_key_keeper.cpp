@@ -176,10 +176,7 @@ UsbIO::~UsbIO()
 #ifdef WIN32
 
 	if (INVALID_HANDLE_VALUE != m_hFile)
-	{
-		BOOL b = CloseHandle(m_hFile);
-		assert(b);
-	}
+		CloseHandle(m_hFile);
 
 	if (m_hEvent)
 		CloseHandle(m_hEvent);
