@@ -593,30 +593,11 @@ namespace beam::wallet
                     return;
                 }
 
-                hw::Proto::Version::Out msg;
-                SendReq_T(msg);
-            }
-
-            if (1 == m_Phase)
-            {
-                auto pMsg = ReadReq_T<hw::Proto::Version>();
-                if (!pMsg)
-                    return;
-
-                if (memcmp(pMsg->m_Signature, BeamCrypto_CurrentSignature, sizeof(pMsg->m_Signature)))
-                {
-                    Fin(c_KeyKeeper_Status_ProtoError);
-                    return;
-                }
-            }
-
-            if (2 == m_Phase)
-            {
                 hw::Proto::GetNumSlots::Out msg;
                 SendReq_T(msg);
             }
 
-            if (3 == m_Phase)
+            if (1 == m_Phase)
             {
                 auto pMsg = ReadReq_T<hw::Proto::GetNumSlots>();
                 if (!pMsg)

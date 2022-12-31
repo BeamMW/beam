@@ -71,7 +71,7 @@ namespace beam::wallet
         {
             typedef std::unique_ptr<Task> Ptr;
 
-            void* m_pBuf;
+            uint8_t* m_pBuf;
             uint32_t m_nRequest;
             uint32_t m_nResponse;
             Handler::Ptr m_pHandler;
@@ -114,10 +114,6 @@ namespace beam::wallet
         Event m_evtTask;
         MyThread m_Thread; // theoretically it's possible to handle async read events in the same thread, unfortunately it's too complex to integrate with uv
 
-        bool m_Stall = false;
-        bool m_NotifyStatePending = false;
-        std::string m_sLastError;
-
         io::AsyncEvent::Ptr m_pEvt;
 
         void SendRequestAsync(void* pBuf, uint32_t nRequest, uint32_t nResponse, const Handler::Ptr& pHandler) override;
@@ -126,20 +122,32 @@ namespace beam::wallet
         void RunThreadGuarded();
         bool WaitEvent(const Event::Handle*, const uint32_t* pTimeout_ms);
         void OnEvent();
-        void NotifyState(std::string* pErr, bool bStall);
 
     public:
+
+        enum struct DevState {
+            Disconnected,
+            Connected,
+            Stalled,
+        };
 
         static std::shared_ptr<UsbKeyKeeper> Open(const std::string& sPath);
 
         std::string m_sPath; // don't modify after start
 
-        virtual void OnDevState(const std::string& sErr, bool bStall) {} // is there an error, or device stalled (perhaps waiting for the user interaction)
+        virtual void OnDevState(const std::string& sErr, DevState) {} // is there an error, or device stalled (perhaps waiting for the user interaction)
 
         void StartSafe();
         void Stop();
 
         virtual ~UsbKeyKeeper();
+
+    private:
+
+        DevState m_State = DevState::Disconnected;
+        bool m_NotifyStatePending = false;
+        std::string m_sLastError;
+        void NotifyState(std::string* pErr, DevState);
     };
 }
 

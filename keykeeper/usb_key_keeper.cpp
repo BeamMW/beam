@@ -14,6 +14,8 @@
 
 #include "usb_key_keeper.h"
 #include "utility/byteorder.h"
+#include "../hw_crypto/keykeeper.h"
+#include "utility/logger.h"
 
 #ifdef WIN32
 
@@ -465,7 +467,7 @@ bool UsbKeyKeeper::TaskList::PopLocked(Task::Ptr& pTask)
 void UsbKeyKeeper::SendRequestAsync(void* pBuf, uint32_t nRequest, uint32_t nResponse, const Handler::Ptr& pHandler)
 {
 	Task::Ptr pTask(new Task);
-	pTask->m_pBuf = pBuf;
+	pTask->m_pBuf = reinterpret_cast<uint8_t*>(pBuf);
 	pTask->m_nRequest = nRequest;
 	pTask->m_nResponse = nResponse;
 	pTask->m_pHandler = pHandler;
@@ -490,6 +492,34 @@ void UsbKeyKeeper::RunThread()
 	}
 }
 
+
+struct HwMsgs
+{
+
+#pragma pack (push, 1)
+
+#define THE_MACRO_Field(type, name) type m_##name;
+#define THE_MACRO(id, name) \
+	struct name { \
+		struct Out { \
+			uint8_t m_OpCode = id; \
+			BeamCrypto_ProtoRequest_##name(THE_MACRO_Field) \
+		}; \
+		struct In { \
+			uint8_t m_StatusCode; \
+			BeamCrypto_ProtoResponse_##name(THE_MACRO_Field) \
+		}; \
+	};
+
+	BeamCrypto_ProtoMethods(THE_MACRO)
+#undef THE_MACRO
+#undef THE_MACRO_Field
+#pragma pack (pop)
+
+};
+
+
+
 void UsbKeyKeeper::RunThreadGuarded()
 {
 	Task::Ptr pTask;
@@ -504,6 +534,17 @@ void UsbKeyKeeper::RunThreadGuarded()
 
 				UsbIO m_Usbio;
 				bool m_Stall = false;
+
+				static void TestDisconnect(uint16_t nSizeRead)
+				{
+					if (!nSizeRead)
+						throw std::runtime_error("Device disconnected");
+				}
+
+				static void ThrowBadSig()
+				{
+					throw std::runtime_error("Unrecognized signature");
+				}
 
 				uint16_t ReadInternal(void* p, uint16_t n, const uint32_t* pTimeout_ms)
 				{
@@ -555,14 +596,14 @@ void UsbKeyKeeper::RunThreadGuarded()
 						if (res)
 							return res;
 
-						m_This.NotifyState(nullptr, true);
+						m_This.NotifyState(nullptr, DevState::Stalled);
 						m_Stall = true;
 					}
 
 					uint16_t ret = ReadInternal(p, n, nullptr);
 					if (ret && m_Stall)
 					{
-						m_This.NotifyState(nullptr, false);
+						m_This.NotifyState(nullptr, DevState::Connected);
 						m_Stall = false;
 					}
 					return ret;
@@ -572,7 +613,24 @@ void UsbKeyKeeper::RunThreadGuarded()
 
 			reader.m_Usbio.Open(m_sPath.c_str());
 
-			NotifyState(nullptr, false); // TODO maybe notify only after initial device version query info
+			// verify dev signature
+			{
+				HwMsgs::Version::Out msgOut;
+				reader.m_Usbio.WriteFrame((uint8_t*) &msgOut, sizeof(msgOut));
+
+				HwMsgs::Version::In msgIn;
+				uint16_t nLen = reader.ReadFrame((uint8_t*) &msgIn, sizeof(msgIn));
+
+				bool bOk =
+					(sizeof(msgIn) == nLen) &&
+					!memcmp(msgIn.m_Signature, BeamCrypto_CurrentSignature, sizeof(msgIn.m_Signature));
+
+				if (!bOk)
+					AsyncReader::ThrowBadSig();
+			}
+
+
+			NotifyState(nullptr, DevState::Connected);
 
 			while (true)
 			{
@@ -593,11 +651,28 @@ void UsbKeyKeeper::RunThreadGuarded()
 				}
 
 				// send request
-				reader.m_Usbio.WriteFrame((uint8_t*) pTask->m_pBuf, static_cast<uint16_t>(pTask->m_nRequest));
+				auto pBuf = pTask->m_pBuf;
+				uint8_t nOpCode = *pBuf; // save it
 
-				uint16_t nLen = reader.ReadFrame((uint8_t*) pTask->m_pBuf, static_cast<uint16_t>(pTask->m_nResponse));
+				reader.m_Usbio.WriteFrame(pBuf, static_cast<uint16_t>(pTask->m_nRequest));
 
-				pTask->m_eRes = DeduceStatus((uint8_t*) pTask->m_pBuf, pTask->m_nResponse, nLen);
+				uint16_t nLen = reader.ReadFrame(pBuf, static_cast<uint16_t>(pTask->m_nResponse));
+				if (!nLen)
+					AsyncReader::ThrowBadSig();
+
+				if (*pBuf != c_KeyKeeper_Status_Ok)
+				{
+					// proper error message should be returned
+					if ((4 != nLen) ||
+						('b' != pBuf[2]) ||
+						('F' != pBuf[3]))
+						AsyncReader::ThrowBadSig();
+
+					LOG_INFO() << "HW Wallet opcode=" << static_cast<uint32_t>(nOpCode) << ", Status=" << static_cast<uint32_t>(pBuf[0]) << '.' << static_cast<uint32_t>(pBuf[1]);
+				}
+
+				pTask->m_eRes = DeduceStatus(pBuf, pTask->m_nResponse, nLen);
+
 
 				if (m_lstDone.Push(pTask))
 					m_pEvt->post();
@@ -607,7 +682,7 @@ void UsbKeyKeeper::RunThreadGuarded()
 		catch (const std::exception& e)
 		{
 			std::string sErr = e.what();
-			NotifyState(&sErr, false);
+			NotifyState(&sErr, DevState::Disconnected);
 
 			uint32_t nTimeout_ms = 1000;
 			WaitEvent(nullptr, &nTimeout_ms);
@@ -615,7 +690,7 @@ void UsbKeyKeeper::RunThreadGuarded()
 	}
 }
 
-void UsbKeyKeeper::NotifyState(std::string* pErr, bool bStall)
+void UsbKeyKeeper::NotifyState(std::string* pErr, DevState eState)
 {
 	bool bNotify = false;
 
@@ -639,9 +714,9 @@ void UsbKeyKeeper::NotifyState(std::string* pErr, bool bStall)
 			}
 		}
 
-		if (m_Stall != bStall)
+		if (m_State != eState)
 		{
-			m_Stall = bStall;
+			m_State = eState;
 			bNotify = true;
 		}
 
@@ -731,7 +806,8 @@ void UsbKeyKeeper::OnEvent()
 
 	while (true)
 	{
-		bool bNotify = false, bStall = false;
+		bool bNotify = false;
+		DevState eState = DevState::Disconnected;
 
 		Task::Ptr pTask;
 
@@ -743,13 +819,13 @@ void UsbKeyKeeper::OnEvent()
 			{
 				m_NotifyStatePending = false;
 				bNotify = true;
-				bStall = m_Stall;
+				eState = m_State;
 				sErr = m_sLastError;
 			}
 		}
 
 		if (bNotify)
-			OnDevState(sErr, bStall);
+			OnDevState(sErr, eState);
 
 		if (!pTask)
 			break;
