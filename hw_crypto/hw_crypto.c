@@ -3259,7 +3259,6 @@ PROTO_METHOD(CreateShieldedInput_2)
 		secp256k1_sha256_write(&u.sha, hv.m_pVal, sizeof(hv.m_pVal));
 
 		secp256k1_sha256_write(&u.sha, pIn->m_AssetSk.m_pVal, sizeof(pIn->m_AssetSk.m_pVal));
-		secp256k1_sha256_write(&u.sha, pIn->m_OutpSk.m_pVal, sizeof(pIn->m_OutpSk.m_pVal));
 		secp256k1_sha256_finalize(&u.sha, hv.m_pVal);
 
 		// use current secret hv to seed our nonce generator
@@ -3281,8 +3280,6 @@ PROTO_METHOD(CreateShieldedInput_2)
 		s1 = pN[1]; // copy it, it'd be destroyed
 
 		secp256k1_scalar_set_b32(&e, pIn->m_AssetSk.m_pVal, &overflow); // the 'mix' term
-
-		hv = pIn->m_OutpSk; // copy it
 
 		/////////////////////
 		// Starting output generation. Avoid accessing pIn
@@ -3348,13 +3345,10 @@ PROTO_METHOD(CreateShieldedInput_2)
 	for (uint32_t i = 1; i < p->u.m_Ins.m_Sigma_M; i++)
 		secp256k1_scalar_mul(&xPwr, &xPwr, &e);
 
-	secp256k1_scalar_negate(&p->u.m_Ins.m_skOutp, &p->u.m_Ins.m_skOutp);
-	secp256k1_scalar_set_b32(pN, hv.m_pVal, &overflow); // hv == pIn->m_OutpSk
-	secp256k1_scalar_add(&p->u.m_Ins.m_skOutp, &p->u.m_Ins.m_skOutp, pN); // skOld - skNew
-	secp256k1_scalar_mul(&p->u.m_Ins.m_skOutp, &p->u.m_Ins.m_skOutp, &xPwr);
+	secp256k1_scalar_mul(&xPwr, &p->u.m_Ins.m_skOutp, &xPwr);
 
-	secp256k1_scalar_negate(pN + 2, pN + 2);
-	secp256k1_scalar_add(pN + 2, pN + 2, &p->u.m_Ins.m_skOutp); // (skOld - skNew) * xPwr - tau
+	secp256k1_scalar_add(pN + 2, pN + 2, &xPwr); // skNew * xPwr + tau
+	secp256k1_scalar_negate(pN + 2, pN + 2); // -skNew * xPwr - tau
 
 	secp256k1_scalar_get_b32(pOut->m_zR.m_pVal, pN + 2);
 

@@ -256,7 +256,6 @@ typedef struct
 
 #define BeamCrypto_ProtoRequest_CreateShieldedInput_2(macro) \
 	macro(UintBig, AssetSk) /* negated blinding for asset generator (H` = H - assetSk*G) */ \
-	macro(UintBig, OutpSk) /* The overall blinding factor of the shielded Txo (not secret) */ \
 	macro(CompactPoint, pABCD[4]) \
 	/* followed by CompactPoint* pG[] */
 

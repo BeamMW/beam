@@ -923,14 +923,11 @@ namespace beam::wallet
             msgOut1.m_SpendParams.m_Sigma_M = krn.m_SpendProof.m_Cfg.M;
             msgOut1.m_SpendParams.m_Sigma_n = krn.m_SpendProof.m_Cfg.n;
 
-            ECC::Scalar sk_;
-            sk_ = plus.m_skFull;
-            msgOut2.m_OutpSk = Ecc2BC(sk_.m_Value);
-
             Lelantus::Proof& proof = krn.m_SpendProof;
 
             m_Prover.m_Witness.m_V = 0; // not used
             m_Prover.m_Witness.m_L = m.m_iIdx;
+            m_Prover.m_Witness.m_R = plus.m_skFull;
 
             // output commitment
             ECC::Point::Native comm;
@@ -956,7 +953,7 @@ namespace beam::wallet
                 krn.m_pAsset = std::make_unique<Asset::Proof>();
                 krn.m_pAsset->Create(plus.m_hGen, skBlind, m.m_AssetID, plus.m_hGen);
 
-
+                ECC::Scalar sk_;
                 sk_ = -skBlind;
                 msgOut2.m_AssetSk = Ecc2BC(sk_.m_Value);
             }
