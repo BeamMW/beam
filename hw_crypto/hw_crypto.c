@@ -3149,16 +3149,12 @@ PROTO_METHOD(CreateShieldedVouchers)
 
 //////////////////////////////
 // KeyKeeper - CreateShieldedInput
-PROTO_METHOD(CreateShieldedInput)
+PROTO_METHOD(CreateShieldedInput_1)
 {
 	PROTO_UNUSED_ARGS;
 
 	ShieldedInput_Fmt fmt;
 	N2H_ShieldedInput_Fmt(&fmt, &pIn->m_InpFmt);
-
-	CustomGenerator aGen;
-	if (fmt.m_AssetID)
-		CoinID_GenerateAGen(fmt.m_AssetID, &aGen);
 
 	ShieldedInput_SpendParams sip;
 	memcpy_unaligned(&sip, &pIn->m_SpendParams, sizeof(sip));
@@ -3168,54 +3164,85 @@ PROTO_METHOD(CreateShieldedInput)
 	N2H_uint_inplace(sip.m_Sigma_M, 32);
 	N2H_uint_inplace(sip.m_Sigma_n, 32);
 
-	CompactPoint* pG = (CompactPoint*)(pIn + 1);
-	if (nIn != sizeof(*pG) * sip.m_Sigma_M)
-		return c_KeyKeeper_Status_ProtoError;
-
-	Oracle oracle;
-	secp256k1_scalar skOutp, skSpend, pN[3];
-	secp256k1_gej gej;
-	UintBig hv, hvSigGen;
-
-	ShieldedViewer viewer;
-	ShieldedViewerInit(&viewer, fmt.m_nViewerIdx, p);
-
 	// calculate kernel Msg
-	TxKernel_SpecialMsg(&oracle.m_sha, fmt.m_Fee, sip.m_hMin, sip.m_hMax, 4);
-	secp256k1_sha256_write_Num(&oracle.m_sha, sip.m_WindowEnd);
-	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
+
+	Oracle* const pOracle = &p->u.m_Ins.m_Oracle;
+	TxKernel_SpecialMsg(&pOracle->m_sha, fmt.m_Fee, sip.m_hMin, sip.m_hMax, 4);
+	secp256k1_sha256_write_Num(&pOracle->m_sha, sip.m_WindowEnd);
+
+	UintBig hv;
+	secp256k1_sha256_finalize(&pOracle->m_sha, hv.m_pVal);
 
 	// init oracle
-	secp256k1_sha256_initialize(&oracle.m_sha);
-	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, sizeof(hv.m_pVal));
+	secp256k1_sha256_initialize(&pOracle->m_sha);
+	secp256k1_sha256_write(&pOracle->m_sha, hv.m_pVal, sizeof(hv.m_pVal));
 
 	// starting from HF3 commitmens to shielded state and asset are mandatory
-	secp256k1_sha256_write(&oracle.m_sha, pIn->m_ShieldedState.m_pVal, sizeof(pIn->m_ShieldedState.m_pVal));
-	secp256k1_sha256_write_CompactPointOptional2(&oracle.m_sha, &pIn->m_ptAssetGen, !IsUintBigZero(&pIn->m_ptAssetGen.m_X));
+	secp256k1_sha256_write(&pOracle->m_sha, pIn->m_ShieldedState.m_pVal, sizeof(pIn->m_ShieldedState.m_pVal));
+	secp256k1_sha256_write_CompactPointOptional2(&pOracle->m_sha, &pIn->m_ptAssetGen, !IsUintBigZero(&pIn->m_ptAssetGen.m_X));
 
-	secp256k1_sha256_write_Num(&oracle.m_sha, sip.m_Sigma_n);
-	secp256k1_sha256_write_Num(&oracle.m_sha, sip.m_Sigma_M);
+	secp256k1_sha256_write_Num(&pOracle->m_sha, sip.m_Sigma_n);
+	secp256k1_sha256_write_Num(&pOracle->m_sha, sip.m_Sigma_M);
 
-	// output commitment
-	ShieldedInput_getSk(p, &pIn->m_InpBlob, &fmt, &skOutp); // TODO: use isolated child!
-	CoinID_getCommRaw(&skOutp, fmt.m_Amount, fmt.m_AssetID ? &aGen : 0, &gej);
-	secp256k1_sha256_write_Gej(&oracle.m_sha, &gej);
+	// Derive keys
+
+	// Output blinding factor
+	ShieldedInput_getSk(p, &pIn->m_InpBlob, &fmt, &p->u.m_Ins.m_skOutp); // TODO: use isolated child!
 
 	// spend sk/pk
 	int overflow;
-	secp256k1_scalar_set_b32(&skSpend, pIn->m_InpBlob.m_kSerG.m_pVal, &overflow);
+	secp256k1_scalar_set_b32(&p->u.m_Ins.m_skSpend, pIn->m_InpBlob.m_kSerG.m_pVal, &overflow);
 	if (overflow)
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21);
 
-	ShieldedGetSpendKey(&viewer, &skSpend, pIn->m_InpBlob.m_IsCreatedByViewer, &hv, &skSpend);
-	MulG(&gej, &skSpend);
-	secp256k1_sha256_write_Gej(&oracle.m_sha, &gej);
+	ShieldedViewer viewer;
+	ShieldedViewerInit(&viewer, fmt.m_nViewerIdx, p);
+	ShieldedGetSpendKey(&viewer, &p->u.m_Ins.m_skSpend, pIn->m_InpBlob.m_IsCreatedByViewer, &hv, &p->u.m_Ins.m_skSpend);
 
-	Oracle_NextHash(&oracle, &hvSigGen);
+	// finalyze
+	p->u.m_Ins.m_Amount = fmt.m_Amount;
+	p->u.m_Ins.m_Aid = fmt.m_AssetID;
+	p->u.m_Ins.m_Sigma_M = sip.m_Sigma_M;
+	p->m_State = c_KeyKeeper_State_CreateShielded_1;
+
+	return c_KeyKeeper_Status_Ok;
+}
+
+PROTO_METHOD(CreateShieldedInput_2)
+{
+	PROTO_UNUSED_ARGS;
+
+	if (c_KeyKeeper_State_CreateShielded_1 != p->m_State)
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 20);
+
+	CompactPoint* pG = (CompactPoint*)(pIn + 1);
+	if (nIn != sizeof(*pG) * p->u.m_Ins.m_Sigma_M)
+		return c_KeyKeeper_Status_ProtoError;
+
+	secp256k1_scalar pN[3];
+
+	// update oracle
+	Oracle* const pOracle = &p->u.m_Ins.m_Oracle;
+
+	// output commitment
+	CustomGenerator aGen;
+	if (p->u.m_Ins.m_Aid)
+		CoinID_GenerateAGen(p->u.m_Ins.m_Aid, &aGen);
+
+	secp256k1_gej gej;
+	CoinID_getCommRaw(&p->u.m_Ins.m_skOutp, p->u.m_Ins.m_Amount, p->u.m_Ins.m_Aid ? &aGen : 0, &gej);
+	secp256k1_sha256_write_Gej(&pOracle->m_sha, &gej);
+
+	// Spend pk
+	MulG(&gej, &p->u.m_Ins.m_skSpend);
+	secp256k1_sha256_write_Gej(&pOracle->m_sha, &gej);
+
+	UintBig hv, hvSigGen;
+	Oracle_NextHash(pOracle, &hvSigGen);
 
 	// Sigma::Part1
 	for (uint32_t i = 0; i < _countof(pIn->m_pABCD); i++)
-		secp256k1_sha256_write_CompactPoint(&oracle.m_sha, pIn->m_pABCD + i);
+		secp256k1_sha256_write_CompactPoint(&pOracle->m_sha, pIn->m_pABCD + i);
 
 	{
 		// hash all the visible to-date params
@@ -3224,11 +3251,11 @@ PROTO_METHOD(CreateShieldedInput)
 			NonceGenerator ng;
 		} u;
 
-		u.sha = oracle.m_sha; // copy
-		for (uint32_t i = 0; i < sip.m_Sigma_M; i++)
+		u.sha = pOracle->m_sha; // copy
+		for (uint32_t i = 0; i < p->u.m_Ins.m_Sigma_M; i++)
 			secp256k1_sha256_write_CompactPoint(&u.sha, pG + i);
 
-		secp256k1_scalar_get_b32(hv.m_pVal, &skOutp); // secret (invisible for the host)
+		secp256k1_scalar_get_b32(hv.m_pVal, &p->u.m_Ins.m_skOutp); // secret (invisible for the host)
 		secp256k1_sha256_write(&u.sha, hv.m_pVal, sizeof(hv.m_pVal));
 
 		secp256k1_sha256_write(&u.sha, pIn->m_AssetSk.m_pVal, sizeof(pIn->m_AssetSk.m_pVal));
@@ -3245,6 +3272,7 @@ PROTO_METHOD(CreateShieldedInput)
 		SECURE_ERASE_OBJ(u);
 	}
 
+	int overflow;
 
 	{
 		// SigGen
@@ -3252,7 +3280,14 @@ PROTO_METHOD(CreateShieldedInput)
 
 		s1 = pN[1]; // copy it, it'd be destroyed
 
-		CoinID_getCommRawEx(pN, &s1, fmt.m_AssetID ? &aGen : 0, &gej);
+		secp256k1_scalar_set_b32(&e, pIn->m_AssetSk.m_pVal, &overflow); // the 'mix' term
+
+		hv = pIn->m_OutpSk; // copy it
+
+		/////////////////////
+		// Starting output generation. Avoid accessing pIn
+
+		CoinID_getCommRawEx(pN, &s1, p->u.m_Ins.m_Aid ? &aGen : 0, &gej);
 		Point_Compact_from_Gej(&pOut->m_NoncePub, &gej);
 
 		Oracle o2;
@@ -3260,16 +3295,15 @@ PROTO_METHOD(CreateShieldedInput)
 		secp256k1_sha256_write_CompactPoint(&o2.m_sha, &pOut->m_NoncePub);
 		secp256k1_sha256_write(&o2.m_sha, hvSigGen.m_pVal, sizeof(hvSigGen.m_pVal));
 
-		secp256k1_scalar_set_b32(&e, pIn->m_AssetSk.m_pVal, &overflow); // the 'mix' term
 
 		// nG += nH * assetSk
 		secp256k1_scalar_mul(&s1, &e, pN + 1);
 		secp256k1_scalar_add(pN, pN, &s1);
 
 		// skOutp` = skOutp + amount * assetSk
-		secp256k1_scalar_set_u64(&sAmount, fmt.m_Amount);
+		secp256k1_scalar_set_u64(&sAmount, p->u.m_Ins.m_Amount);
 		secp256k1_scalar_mul(&s1, &e, &sAmount);
-		secp256k1_scalar_add(&s1, &s1, &skOutp);
+		secp256k1_scalar_add(&s1, &s1, &p->u.m_Ins.m_skOutp);
 
 		// 1st challenge
 		Oracle_NextScalar(&o2, &e);
@@ -3282,7 +3316,7 @@ PROTO_METHOD(CreateShieldedInput)
 
 		// 2nd challenge
 		Oracle_NextScalar(&o2, &e);
-		secp256k1_scalar_mul(&s1, &skSpend, &e);
+		secp256k1_scalar_mul(&s1, &p->u.m_Ins.m_skSpend, &e);
 		secp256k1_scalar_add(pN, pN, &s1); // nG += skSpend * e
 
 		static_assert(_countof(pN) >= _countof(pOut->m_pSig), "");
@@ -3301,33 +3335,33 @@ PROTO_METHOD(CreateShieldedInput)
 	wrap_gej_add_ge_var(&gej, &gej, &ge);
 
 	Point_Compact_from_Gej(&pOut->m_G0, &gej);
-	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pOut->m_G0);
+	secp256k1_sha256_write_CompactPoint(&pOracle->m_sha, &pOut->m_G0);
 
-	for (uint32_t i = 1; i < sip.m_Sigma_M; i++)
-		secp256k1_sha256_write_CompactPoint(&oracle.m_sha, pG + i);
+	for (uint32_t i = 1; i < p->u.m_Ins.m_Sigma_M; i++)
+		secp256k1_sha256_write_CompactPoint(&pOracle->m_sha, pG + i);
 
 	secp256k1_scalar e, xPwr;
-	Oracle_NextScalar(&oracle, &e);
+	Oracle_NextScalar(pOracle, &e);
 
 	// calculate zR
 	xPwr = e;
-	for (uint32_t i = 1; i < sip.m_Sigma_M; i++)
+	for (uint32_t i = 1; i < p->u.m_Ins.m_Sigma_M; i++)
 		secp256k1_scalar_mul(&xPwr, &xPwr, &e);
 
-	secp256k1_scalar_negate(&skOutp, &skOutp);
-	secp256k1_scalar_set_b32(pN, pIn->m_OutpSk.m_pVal, &overflow);
-	secp256k1_scalar_add(&skOutp, &skOutp, pN); // skOld - skNew
-	secp256k1_scalar_mul(&skOutp, &skOutp, &xPwr);
+	secp256k1_scalar_negate(&p->u.m_Ins.m_skOutp, &p->u.m_Ins.m_skOutp);
+	secp256k1_scalar_set_b32(pN, hv.m_pVal, &overflow); // hv == pIn->m_OutpSk
+	secp256k1_scalar_add(&p->u.m_Ins.m_skOutp, &p->u.m_Ins.m_skOutp, pN); // skOld - skNew
+	secp256k1_scalar_mul(&p->u.m_Ins.m_skOutp, &p->u.m_Ins.m_skOutp, &xPwr);
 
 	secp256k1_scalar_negate(pN + 2, pN + 2);
-	secp256k1_scalar_add(pN + 2, pN + 2, &skOutp); // (skOld - skNew) * xPwr - tau
+	secp256k1_scalar_add(pN + 2, pN + 2, &p->u.m_Ins.m_skOutp); // (skOld - skNew) * xPwr - tau
 
 	secp256k1_scalar_get_b32(pOut->m_zR.m_pVal, pN + 2);
 
-
-	SECURE_ERASE_OBJ(skSpend);
-	SECURE_ERASE_OBJ(skOutp);
 	SECURE_ERASE_OBJ(pN);
+
+	SECURE_ERASE_OBJ(p->u.m_Ins);
+	p->m_State = 0;
 
 	return c_KeyKeeper_Status_Ok;
 }

@@ -16,12 +16,15 @@
 #include "kdf.h"
 #include "coinid.h"
 #include "sign.h"
+#include "oracle.h"
 
 typedef struct
 {
 	Kdf m_MasterKey;
 
 	// context information
+	uint8_t m_State;
+
 	union {
 
 		struct {
@@ -34,13 +37,22 @@ typedef struct
 
 		} m_TxBalance;
 
-	} u;
+		struct
+		{
+			secp256k1_scalar m_skOutp;
+			secp256k1_scalar m_skSpend;
+			Oracle m_Oracle;
+			Amount m_Amount;
+			AssetID m_Aid;
+			uint32_t m_Sigma_M;
+		} m_Ins;
 
-	uint8_t m_State;
+	} u;
 
 } KeyKeeper;
 
 #define c_KeyKeeper_State_TxBalance 1
+#define c_KeyKeeper_State_CreateShielded_1 11
 
 
 typedef struct
@@ -182,7 +194,7 @@ typedef struct
 
 //////////////////
 // Protocol
-#define BeamCrypto_CurrentSignature "BeamHW.ver.01"
+#define BeamCrypto_CurrentSignature "BeamHW.ver.02"
 
 #define BeamCrypto_ProtoRequest_Version(macro)
 #define BeamCrypto_ProtoResponse_Version(macro) \
@@ -233,18 +245,22 @@ typedef struct
 
 #define BeamCrypto_ProtoResponse_DisplayAddress(macro)
 
-#define BeamCrypto_ProtoRequest_CreateShieldedInput(macro) \
-	macro(ShieldedInput_Blob, InpBlob) \
-	macro(ShieldedInput_Fmt, InpFmt) \
-	macro(ShieldedInput_SpendParams, SpendParams) \
+#define BeamCrypto_ProtoRequest_CreateShieldedInput_1(macro) \
+	macro(ShieldedInput_Blob, InpBlob) /* 129 bytes */ \
+	macro(ShieldedInput_Fmt, InpFmt) /* 24 bytes */ \
+	macro(ShieldedInput_SpendParams, SpendParams) /* 32 bytes */ \
 	macro(UintBig, ShieldedState) \
+	macro(CompactPoint, ptAssetGen) \
+
+#define BeamCrypto_ProtoResponse_CreateShieldedInput_1(macro)
+
+#define BeamCrypto_ProtoRequest_CreateShieldedInput_2(macro) \
 	macro(UintBig, AssetSk) /* negated blinding for asset generator (H` = H - assetSk*G) */ \
 	macro(UintBig, OutpSk) /* The overall blinding factor of the shielded Txo (not secret) */ \
-	macro(CompactPoint, ptAssetGen) \
 	macro(CompactPoint, pABCD[4]) \
 	/* followed by CompactPoint* pG[] */
 
-#define BeamCrypto_ProtoResponse_CreateShieldedInput(macro) \
+#define BeamCrypto_ProtoResponse_CreateShieldedInput_2(macro) \
 	macro(CompactPoint, G0) \
 	macro(CompactPoint, NoncePub) \
 	macro(UintBig, pSig[2]) \
@@ -313,7 +329,8 @@ typedef struct
 	macro(0x05, DisplayAddress) \
 	macro(0x10, CreateOutput) \
 	macro(0x18, TxAddCoins) \
-	macro(0x21, CreateShieldedInput) \
+	macro(0x1a, CreateShieldedInput_1) \
+	macro(0x1b, CreateShieldedInput_2) \
 	macro(0x22, CreateShieldedVouchers) \
 	macro(0x30, TxSplit) \
 	macro(0x31, TxReceive) \

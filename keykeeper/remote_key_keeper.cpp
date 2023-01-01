@@ -836,12 +836,15 @@ namespace beam::wallet
 
                 assert(m_GetKey.m_pPKdf);
 
-                hw::Proto::CreateShieldedInput::Out msgOut;
-                if (!Setup(*pMsg, msgOut))
+                hw::Proto::CreateShieldedInput_1::Out msgOut1;
+                hw::Proto::CreateShieldedInput_2::Out msgOut2;
+                if (!Setup(*pMsg, msgOut1, msgOut2))
                 {
                     Fin(Status::Unspecified);
                     return;
                 }
+
+                SendReq_T(msgOut1);
 
                 {
                     ExecutorMT_R exec;
@@ -854,24 +857,31 @@ namespace beam::wallet
                 auto& proof = m_Prover.m_Sigma.m_Proof;
 
                 // Invoke HW device
-                msgOut.m_pABCD[0] = Ecc2BC(proof.m_Part1.m_A);
-                msgOut.m_pABCD[1] = Ecc2BC(proof.m_Part1.m_B);
-                msgOut.m_pABCD[2] = Ecc2BC(proof.m_Part1.m_C);
-                msgOut.m_pABCD[3] = Ecc2BC(proof.m_Part1.m_D);
+                msgOut2.m_pABCD[0] = Ecc2BC(proof.m_Part1.m_A);
+                msgOut2.m_pABCD[1] = Ecc2BC(proof.m_Part1.m_B);
+                msgOut2.m_pABCD[2] = Ecc2BC(proof.m_Part1.m_C);
+                msgOut2.m_pABCD[3] = Ecc2BC(proof.m_Part1.m_D);
 
                 const auto& vec = m_Prover.m_Sigma.m_Proof.m_Part1.m_vG;
                 size_t nSize = sizeof(vec[0]) * vec.size();
 
-                void* pExtra = AllocReq_T(msgOut, (uint32_t) nSize);
+                void* pExtra = AllocReq_T(msgOut2, (uint32_t) nSize);
                 if (nSize)
                     memcpy(pExtra, reinterpret_cast<const uint8_t*>(&vec.front()), nSize);
 
                 SendReq();
             }
 
-            if (5 == m_Phase)
+            if (6 == m_Phase)
             {
-                auto pMsg = ReadReq_T<hw::Proto::CreateShieldedInput>();
+                auto pMsg = ReadReq_T<hw::Proto::CreateShieldedInput_1>();
+                if (!pMsg)
+                    return;
+            }
+
+            if (7 == m_Phase)
+            {
+                auto pMsg = ReadReq_T<hw::Proto::CreateShieldedInput_2>();
                 if (!pMsg)
                     return;
 
@@ -895,7 +905,7 @@ namespace beam::wallet
             }
         }
 
-        bool Setup(const hw::Proto::GetImage::In& msgIn, hw::Proto::CreateShieldedInput::Out& msgOut)
+        bool Setup(const hw::Proto::GetImage::In& msgIn, hw::Proto::CreateShieldedInput_1::Out& msgOut1, hw::Proto::CreateShieldedInput_2::Out& msgOut2)
         {
             auto& m = m_M; // alias
             assert(m.m_pList && m.m_pKernel);
@@ -905,17 +915,17 @@ namespace beam::wallet
             pars.Set(*m_GetKey.m_pPKdf, m);
             ShieldedTxo::Data::Params::Plus plus(pars);
 
-            Import(msgOut.m_InpBlob, msgOut.m_InpFmt, m, krn.m_Fee);
+            Import(msgOut1.m_InpBlob, msgOut1.m_InpFmt, m, krn.m_Fee);
 
-            msgOut.m_SpendParams.m_hMin = krn.m_Height.m_Min;
-            msgOut.m_SpendParams.m_hMax = krn.m_Height.m_Max;
-            msgOut.m_SpendParams.m_WindowEnd = krn.m_WindowEnd;
-            msgOut.m_SpendParams.m_Sigma_M = krn.m_SpendProof.m_Cfg.M;
-            msgOut.m_SpendParams.m_Sigma_n = krn.m_SpendProof.m_Cfg.n;
+            msgOut1.m_SpendParams.m_hMin = krn.m_Height.m_Min;
+            msgOut1.m_SpendParams.m_hMax = krn.m_Height.m_Max;
+            msgOut1.m_SpendParams.m_WindowEnd = krn.m_WindowEnd;
+            msgOut1.m_SpendParams.m_Sigma_M = krn.m_SpendProof.m_Cfg.M;
+            msgOut1.m_SpendParams.m_Sigma_n = krn.m_SpendProof.m_Cfg.n;
 
             ECC::Scalar sk_;
             sk_ = plus.m_skFull;
-            msgOut.m_OutpSk = Ecc2BC(sk_.m_Value);
+            msgOut2.m_OutpSk = Ecc2BC(sk_.m_Value);
 
             Lelantus::Proof& proof = krn.m_SpendProof;
 
@@ -948,10 +958,10 @@ namespace beam::wallet
 
 
                 sk_ = -skBlind;
-                msgOut.m_AssetSk = Ecc2BC(sk_.m_Value);
+                msgOut2.m_AssetSk = Ecc2BC(sk_.m_Value);
             }
             else
-                ZeroObject(msgOut.m_AssetSk);
+                ZeroObject(msgOut2.m_AssetSk);
 
             krn.UpdateMsg();
             m_Oracle << krn.m_Msg;
@@ -961,10 +971,10 @@ namespace beam::wallet
                 m_Oracle << krn.m_NotSerialized.m_hvShieldedState;
                 Asset::Proof::Expose(m_Oracle, krn.m_Height.m_Min, krn.m_pAsset);
 
-                msgOut.m_ShieldedState = Ecc2BC(krn.m_NotSerialized.m_hvShieldedState);
+                msgOut1.m_ShieldedState = Ecc2BC(krn.m_NotSerialized.m_hvShieldedState);
 
                 if (krn.m_pAsset)
-                    msgOut.m_ptAssetGen = Ecc2BC(krn.m_pAsset->m_hGen);
+                    msgOut1.m_ptAssetGen = Ecc2BC(krn.m_pAsset->m_hGen);
             }
 
             // generate seed for Sigma proof blinding. Use mix of deterministic + random params
