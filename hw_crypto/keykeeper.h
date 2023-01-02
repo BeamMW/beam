@@ -42,8 +42,6 @@ typedef struct
 			secp256k1_scalar m_skOutp;
 			secp256k1_scalar m_skSpend;
 			Oracle m_Oracle;
-			Amount m_Amount;
-			AssetID m_Aid;
 			uint32_t m_Sigma_M;
 		} m_Ins;
 

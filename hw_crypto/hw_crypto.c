@@ -2026,7 +2026,7 @@ void KeyKeeper_GetPKdf(const KeyKeeper* p, KdfPub* pRes, const uint32_t* pChild)
 
 //////////////////
 // Protocol
-#define PROTO_METHOD(name) __stack_hungry__ static uint16_t HandleProto_##name(KeyKeeper* p, OpIn_##name* pIn, uint32_t nIn, OpOut_##name* pOut, uint32_t nOut, uint32_t* pOutSize)
+#define PROTO_METHOD(name) __stack_hungry__ static uint16_t HandleProto_##name(KeyKeeper* const p, OpIn_##name* const pIn, uint32_t nIn, OpOut_##name* const pOut, uint32_t nOut, uint32_t* pOutSize)
 
 #define PROTO_UNUSED_ARGS \
 	UNUSED(p); \
@@ -3199,9 +3199,21 @@ PROTO_METHOD(CreateShieldedInput_1)
 	ShieldedViewerInit(&viewer, fmt.m_nViewerIdx, p);
 	ShieldedGetSpendKey(&viewer, &p->u.m_Ins.m_skSpend, pIn->m_InpBlob.m_IsCreatedByViewer, &hv, &p->u.m_Ins.m_skSpend);
 
+	// output commitment
+	CustomGenerator aGen;
+	if (fmt.m_AssetID)
+		CoinID_GenerateAGen(fmt.m_AssetID, &aGen);
+
+	secp256k1_gej gej;
+	CoinID_getCommRaw(&p->u.m_Ins.m_skOutp, fmt.m_Amount, fmt.m_AssetID ? &aGen : 0, &gej);
+	secp256k1_sha256_write_Gej(&pOracle->m_sha, &gej);
+
+	// Spend pk
+	MulG(&gej, &p->u.m_Ins.m_skSpend);
+	secp256k1_sha256_write_Gej(&pOracle->m_sha, &gej);
+
+
 	// finalyze
-	p->u.m_Ins.m_Amount = fmt.m_Amount;
-	p->u.m_Ins.m_Aid = fmt.m_AssetID;
 	p->u.m_Ins.m_Sigma_M = sip.m_Sigma_M;
 	p->m_State = c_KeyKeeper_State_CreateShielded_1;
 
@@ -3223,19 +3235,6 @@ PROTO_METHOD(CreateShieldedInput_2)
 
 	// update oracle
 	Oracle* const pOracle = &p->u.m_Ins.m_Oracle;
-
-	// output commitment
-	CustomGenerator aGen;
-	if (p->u.m_Ins.m_Aid)
-		CoinID_GenerateAGen(p->u.m_Ins.m_Aid, &aGen);
-
-	secp256k1_gej gej;
-	CoinID_getCommRaw(&p->u.m_Ins.m_skOutp, p->u.m_Ins.m_Amount, p->u.m_Ins.m_Aid ? &aGen : 0, &gej);
-	secp256k1_sha256_write_Gej(&pOracle->m_sha, &gej);
-
-	// Spend pk
-	MulG(&gej, &p->u.m_Ins.m_skSpend);
-	secp256k1_sha256_write_Gej(&pOracle->m_sha, &gej);
 
 	UintBig hv, hvSigGen;
 	Oracle_NextHash(pOracle, &hvSigGen);
@@ -3272,6 +3271,7 @@ PROTO_METHOD(CreateShieldedInput_2)
 		SECURE_ERASE_OBJ(u);
 	}
 
+	secp256k1_gej gej;
 	secp256k1_ge ge;
 
 	{
