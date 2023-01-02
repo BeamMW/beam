@@ -265,7 +265,7 @@ typedef struct
 	/* followed by CompactPoint* pG[] */
 
 #define BeamCrypto_ProtoResponse_CreateShieldedInput_3(macro) \
-	macro(CompactPoint, G0) \
+	macro(CompactPoint, G_Last) \
 	macro(UintBig, zR)
 
 #define BeamCrypto_ProtoRequest_CreateShieldedVouchers(macro) \

@@ -924,10 +924,9 @@ namespace beam::wallet
 
                 auto& proof = Cast::Up<Lelantus::Proof>(m_Prover.m_Sigma.m_Proof);
 
-                // import vG[0]
-                Ecc2BC(proof.m_Part1.m_vG.front()) = pMsg->m_G0;
+                // import last vG
+                Ecc2BC(proof.m_Part1.m_vG.back()) = pMsg->m_G_Last;
                 Ecc2BC(proof.m_Part2.m_zR.m_Value) = pMsg->m_zR;
-
 
                 // phase2
                 m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step2);

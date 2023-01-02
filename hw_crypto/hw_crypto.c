@@ -3305,14 +3305,21 @@ PROTO_METHOD(CreateShieldedInput_3)
 	if (c_KeyKeeper_State_CreateShielded_2 != p->m_State)
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 20);
 
+	uint32_t nSigmaM = p->u.m_Ins.m_Sigma_M;
+	if (!nSigmaM)
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21); // G_Last is always read. Attacker may try to read uninitialized mem
+
 	CompactPoint* pG = (CompactPoint*)(pIn + 1);
-	if (nIn != sizeof(*pG) * p->u.m_Ins.m_Sigma_M)
+	if (nIn != sizeof(*pG) * nSigmaM)
 		return c_KeyKeeper_Status_ProtoError;
 
-	if (!p->u.m_Ins.m_Sigma_M)
-		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21); // G[0] is always read. Attacker may try to read uninitialized mem
 
 	Oracle* const pOracle = &p->u.m_Ins.m_Oracle;
+
+	for (uint32_t i = 0; i < nSigmaM - 1; i++)
+		secp256k1_sha256_write_CompactPoint(&pOracle->m_sha, pG + i);
+
+	const CompactPoint* pG_Last = pG + nSigmaM - 1;
 
 	// derive nonce
 	secp256k1_scalar k;
@@ -3325,8 +3332,7 @@ PROTO_METHOD(CreateShieldedInput_3)
 		} u;
 
 		u.sha = pOracle->m_sha; // copy
-		for (uint32_t i = 0; i < p->u.m_Ins.m_Sigma_M; i++)
-			secp256k1_sha256_write_CompactPoint(&u.sha, pG + i);
+		secp256k1_sha256_write_CompactPoint(&u.sha, pG_Last);
 
 		UintBig hv;
 		secp256k1_sha256_finalize(&u.sha, hv.m_pVal);
@@ -3343,31 +3349,34 @@ PROTO_METHOD(CreateShieldedInput_3)
 	secp256k1_gej gej;
 	secp256k1_ge ge;
 
-	if (!Point_Ge_from_Compact(&ge, pG))
+	if (!Point_Ge_from_Compact(&ge, pG_Last))
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 22); // import failed
 
 	MulG(&gej, &k);
 	wrap_gej_add_ge_var(&gej, &gej, &ge);
 
 	Point_Ge_from_Gej(&ge, &gej);
-	Point_Compact_from_Ge(&pOut->m_G0, &ge);
-	secp256k1_sha256_write_CompactPoint(&pOracle->m_sha, &pOut->m_G0); // Generating output, whereas still consuming input (pG). Assume it's safe, we're overwriting the 1st element that was already consumed
+	Point_Compact_from_Ge(&pOut->m_G_Last, &ge);
+	secp256k1_sha256_write_CompactPoint(&pOracle->m_sha, &pOut->m_G_Last);
 
-	for (uint32_t i = 1; i < p->u.m_Ins.m_Sigma_M; i++)
-		secp256k1_sha256_write_CompactPoint(&pOracle->m_sha, pG + i);
 
 	secp256k1_scalar e, xPwr;
 	Oracle_NextScalar(pOracle, &e);
 
 	// calculate zR
 	xPwr = e;
-	for (uint32_t i = 1; i < p->u.m_Ins.m_Sigma_M; i++)
+	for (uint32_t i = 1; i < nSigmaM; i++)
+	{
+		if (i == nSigmaM - 1)
+			secp256k1_scalar_mul(&k, &k, &xPwr); // tau * e^(N-1)
+
 		secp256k1_scalar_mul(&xPwr, &xPwr, &e);
+	}
 
-	secp256k1_scalar_mul(&xPwr, &p->u.m_Ins.m_skOutp, &xPwr);
+	secp256k1_scalar_mul(&xPwr, &p->u.m_Ins.m_skOutp, &xPwr); // sk * e^N
 
-	secp256k1_scalar_add(&k, &k, &xPwr); // skNew * xPwr + tau
-	secp256k1_scalar_negate(&k, &k); // -skNew * xPwr - tau
+	secp256k1_scalar_add(&k, &k, &xPwr); // sk * e^N + tau * e^(N-1)
+	secp256k1_scalar_negate(&k, &k);
 
 	secp256k1_scalar_get_b32(pOut->m_zR.m_pVal, &k);
 
