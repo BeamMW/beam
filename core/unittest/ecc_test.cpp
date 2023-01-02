@@ -1976,8 +1976,11 @@ void TestLelantus(bool bWithAsset, bool bMpc)
 
 			proof.m_Part2.m_zR = sVal;
 
-
+			// hide p.m_Witness.m_R
+			x = p.m_Witness.m_R;
+			p.m_Witness.m_R = Zero;
 			p.Generate(seed, oracle, &hGen, beam::Lelantus::Prover::Phase::Step2);
+			p.m_Witness.m_R = x;
 		}
 		else
 			p.Generate(seed, oracle, &hGen);
