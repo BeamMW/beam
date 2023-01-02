@@ -802,6 +802,7 @@ namespace beam::wallet
         Lelantus::Prover m_Prover;
         ECC::Hash::Value m_hvSigmaSeed;
         ECC::Oracle m_Oracle;
+        uint32_t m_PtsMsgSent = 0;
 
         RemoteCall_CreateInputShielded(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::CreateInputShielded& m)
             :RemoteCall_WithOwnerKey(kk, h)
@@ -833,7 +834,6 @@ namespace beam::wallet
                 if (!pMsg)
                     return;
 
-
                 assert(m_GetKey.m_pPKdf);
 
                 hw::Proto::CreateShieldedInput_1::Out msgOut1;
@@ -864,27 +864,49 @@ namespace beam::wallet
 
                 SendReq_T(msgOut2);
 
-
-                hw::Proto::CreateShieldedInput_3::Out msgOut3;
-
                 const auto& vec = m_Prover.m_Sigma.m_Proof.m_Part1.m_vG;
-                size_t nSize = sizeof(vec[0]) * vec.size();
+                uint8_t nMaxPts = 7;
 
-                void* pExtra = AllocReq_T(msgOut3, (uint32_t) nSize);
-                if (nSize)
-                    memcpy(pExtra, reinterpret_cast<const uint8_t*>(&vec.front()), nSize);
+                for (uint32_t nDone = 0; ; )
+                {
+                    void* pExtra;
 
-                SendReq();
+                    uint32_t nRemaining = static_cast<uint32_t>(vec.size()) - nDone;
+                    if (!nRemaining)
+                        break;
+                    uint32_t nNaggle = nRemaining;
+
+                    if (nRemaining > nMaxPts)
+                    {
+                        hw::Proto::CreateShieldedInput_3::Out msgOut3;
+                        msgOut3.m_NumPoints = nMaxPts;
+                        pExtra = AllocReq_T(msgOut3, sizeof(vec[0]) * nMaxPts);
+                        nNaggle = nMaxPts;
+                    }
+                    else
+                    {
+                        hw::Proto::CreateShieldedInput_4::Out msgOut4;
+                        pExtra = AllocReq_T(msgOut4, sizeof(vec[0]) * nRemaining);
+                    }
+
+                    memcpy(pExtra, reinterpret_cast<const uint8_t*>(&vec.front() + nDone), sizeof(vec[0]) * nNaggle);
+                    SendReq();
+
+                    nDone += nNaggle;
+
+                    m_Phase--;
+                    m_PtsMsgSent++;
+                }
             }
 
-            if (7 == m_Phase)
+            if (6 == m_Phase)
             {
                 auto pMsg = ReadReq_T<hw::Proto::CreateShieldedInput_1>();
                 if (!pMsg)
                     return;
             }
 
-            if (8 == m_Phase)
+            if (7 == m_Phase)
             {
                 auto pMsg = ReadReq_T<hw::Proto::CreateShieldedInput_2>();
                 if (!pMsg)
@@ -916,26 +938,41 @@ namespace beam::wallet
 
             }
 
-            if (9 == m_Phase)
+            while (8 == m_Phase)
             {
-                auto pMsg = ReadReq_T<hw::Proto::CreateShieldedInput_3>();
-                if (!pMsg)
+                assert(m_PtsMsgSent);
+
+                if (m_PtsMsgSent > 1)
+                {
+                    auto pMsg = ReadReq_T<hw::Proto::CreateShieldedInput_3>();
+                    if (!pMsg)
+                        return;
+
+                    m_PtsMsgSent--;
+                    m_Phase--;
+                }
+                else
+                {
+                    auto pMsg = ReadReq_T<hw::Proto::CreateShieldedInput_4>();
+                    if (!pMsg)
+                        return;
+
+                    auto& proof = Cast::Up<Lelantus::Proof>(m_Prover.m_Sigma.m_Proof);
+
+                    // import last vG
+                    Ecc2BC(proof.m_Part1.m_vG.back()) = pMsg->m_G_Last;
+                    Ecc2BC(proof.m_Part2.m_zR.m_Value) = pMsg->m_zR;
+
+                    // phase2
+                    m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step2);
+
+                    // finished
+                    m_M.m_pKernel->MsgToID();
+                    Fin();
                     return;
-
-                auto& proof = Cast::Up<Lelantus::Proof>(m_Prover.m_Sigma.m_Proof);
-
-                // import last vG
-                Ecc2BC(proof.m_Part1.m_vG.back()) = pMsg->m_G_Last;
-                Ecc2BC(proof.m_Part2.m_zR.m_Value) = pMsg->m_zR;
-
-                // phase2
-                m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step2);
-
-                // finished
-                m_M.m_pKernel->MsgToID();
-                Fin();
-
+                }
             }
+
         }
 
         bool Setup(const hw::Proto::GetImage::In& msgIn, hw::Proto::CreateShieldedInput_1::Out& msgOut1, hw::Proto::CreateShieldedInput_2::Out& msgOut2)

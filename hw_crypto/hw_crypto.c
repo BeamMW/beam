@@ -3164,6 +3164,9 @@ PROTO_METHOD(CreateShieldedInput_1)
 	N2H_uint_inplace(sip.m_Sigma_M, 32);
 	N2H_uint_inplace(sip.m_Sigma_n, 32);
 
+	if (!sip.m_Sigma_M)
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 22); // Attacker may try to read uninitialized mem
+
 	// calculate kernel Msg
 
 	Oracle* const pOracle = &p->u.m_Ins.m_Oracle;
@@ -3214,6 +3217,7 @@ PROTO_METHOD(CreateShieldedInput_1)
 
 	// finalyze
 	p->u.m_Ins.m_Sigma_M = sip.m_Sigma_M;
+	p->u.m_Ins.m_Remaining = sip.m_Sigma_M;
 
 	p->m_State = c_KeyKeeper_State_CreateShielded_1;
 	return c_KeyKeeper_Status_Ok;
@@ -3305,21 +3309,43 @@ PROTO_METHOD(CreateShieldedInput_3)
 	if (c_KeyKeeper_State_CreateShielded_2 != p->m_State)
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 20);
 
-	uint32_t nSigmaM = p->u.m_Ins.m_Sigma_M;
-	if (!nSigmaM)
-		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21); // G_Last is always read. Attacker may try to read uninitialized mem
+	if (pIn->m_NumPoints >= p->u.m_Ins.m_Remaining)
+		return MakeStatus(c_KeyKeeper_Status_ProtoError, 21);
 
 	CompactPoint* pG = (CompactPoint*)(pIn + 1);
-	if (nIn != sizeof(*pG) * nSigmaM)
+	if (nIn != sizeof(*pG) * pIn->m_NumPoints)
+		return c_KeyKeeper_Status_ProtoError;
+
+	Oracle* const pOracle = &p->u.m_Ins.m_Oracle;
+
+	for (uint32_t i = 0; i < pIn->m_NumPoints; i++)
+		secp256k1_sha256_write_CompactPoint(&pOracle->m_sha, pG + i);
+
+	p->u.m_Ins.m_Remaining -= pIn->m_NumPoints;
+	return c_KeyKeeper_Status_Ok;
+}
+
+PROTO_METHOD(CreateShieldedInput_4)
+{
+	PROTO_UNUSED_ARGS;
+
+	if (c_KeyKeeper_State_CreateShielded_2 != p->m_State)
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 20);
+
+	uint32_t nRemaining = p->u.m_Ins.m_Remaining;
+	assert(nRemaining);
+
+	CompactPoint* pG = (CompactPoint*)(pIn + 1);
+	if (nIn != sizeof(*pG) * nRemaining)
 		return c_KeyKeeper_Status_ProtoError;
 
 
 	Oracle* const pOracle = &p->u.m_Ins.m_Oracle;
 
-	for (uint32_t i = 0; i < nSigmaM - 1; i++)
+	for (uint32_t i = 0; i < nRemaining - 1; i++)
 		secp256k1_sha256_write_CompactPoint(&pOracle->m_sha, pG + i);
 
-	const CompactPoint* pG_Last = pG + nSigmaM - 1;
+	const CompactPoint* pG_Last = pG + nRemaining - 1;
 
 	// derive nonce
 	secp256k1_scalar k;
@@ -3364,10 +3390,11 @@ PROTO_METHOD(CreateShieldedInput_3)
 	Oracle_NextScalar(pOracle, &e);
 
 	// calculate zR
+	nRemaining = p->u.m_Ins.m_Sigma_M;
 	xPwr = e;
-	for (uint32_t i = 1; i < nSigmaM; i++)
+	for (uint32_t i = 1; i < nRemaining; i++)
 	{
-		if (i == nSigmaM - 1)
+		if (i == nRemaining - 1)
 			secp256k1_scalar_mul(&k, &k, &xPwr); // tau * e^(N-1)
 
 		secp256k1_scalar_mul(&xPwr, &xPwr, &e);
@@ -3385,7 +3412,6 @@ PROTO_METHOD(CreateShieldedInput_3)
 
 	return c_KeyKeeper_Status_Ok;
 }
-
 
 //////////////////////////////
 // KeyKeeper - SendShieldedTx

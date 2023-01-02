@@ -43,6 +43,7 @@ typedef struct
 			secp256k1_scalar m_skSpend;
 			Oracle m_Oracle; // 100 bytes
 			uint32_t m_Sigma_M;
+			uint32_t m_Remaining;
 		} m_Ins;
 
 	} u;
@@ -262,9 +263,15 @@ typedef struct
 	macro(UintBig, SigG) \
 
 #define BeamCrypto_ProtoRequest_CreateShieldedInput_3(macro) \
+	macro(uint8_t, NumPoints) \
 	/* followed by CompactPoint* pG[] */
 
-#define BeamCrypto_ProtoResponse_CreateShieldedInput_3(macro) \
+#define BeamCrypto_ProtoResponse_CreateShieldedInput_3(macro)
+
+#define BeamCrypto_ProtoRequest_CreateShieldedInput_4(macro) \
+	/* followed by CompactPoint* pG[] */
+
+#define BeamCrypto_ProtoResponse_CreateShieldedInput_4(macro) \
 	macro(CompactPoint, G_Last) \
 	macro(UintBig, zR)
 
@@ -334,6 +341,7 @@ typedef struct
 	macro(0x1a, CreateShieldedInput_1) \
 	macro(0x1b, CreateShieldedInput_2) \
 	macro(0x1c, CreateShieldedInput_3) \
+	macro(0x1d, CreateShieldedInput_4) \
 	macro(0x22, CreateShieldedVouchers) \
 	macro(0x30, TxSplit) \
 	macro(0x31, TxReceive) \
