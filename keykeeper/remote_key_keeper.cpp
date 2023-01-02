@@ -892,23 +892,31 @@ namespace beam::wallet
                 Ecc2BC(proof.m_Part2.m_zR.m_Value) = pMsg->m_zR;
 
                 Ecc2BC(proof.m_Signature.m_NoncePub) = pMsg->m_NoncePub;
-                Ecc2BC(proof.m_Signature.m_pK[0].m_Value) = pMsg->m_pSig[0];
-                Ecc2BC(proof.m_Signature.m_pK[1].m_Value) = pMsg->m_pSig[1];
+                Ecc2BC(proof.m_Signature.m_pK[0].m_Value) = pMsg->m_SigG;
 
                 // phase2
                 m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step2);
 
-                if (m_M.m_pKernel->m_pAsset)
                 {
-                    // Fix signature (G-part)
-                    ECC::Scalar::Native k = proof.m_Signature.m_pK[1];
-                    k *= m_Prover.m_Witness.m_R_Adj;
+                    // Complete H-part of the generalized Schnorr's signature for output comm
+                    ECC::Scalar::Native e;
+                    proof.m_Signature.get_Challenge(e, m_Prover.m_hvSigGen);
+                    e *= m_M.m_Value;
 
-                    k = -k;
-                    k += proof.m_Signature.m_pK[0];
-                    proof.m_Signature.m_pK[0] = k;
+                    ECC::Scalar::Native sH = e + m_Prover.m_Witness.m_R_Output;
+                    proof.m_Signature.m_pK[1] = -sH;
+
+                    if (m_M.m_pKernel->m_pAsset)
+                    {
+                        // Fix signature (G-part)
+                        e *= m_Prover.m_Witness.m_R_Adj; // -sH * skAsset
+
+                        e += proof.m_Signature.m_pK[0];
+                        proof.m_Signature.m_pK[0] = e;
+
+                    }
+
                 }
-
 
                 // finished
                 m_M.m_pKernel->MsgToID();
@@ -963,6 +971,25 @@ namespace beam::wallet
 
                 krn.m_pAsset = std::make_unique<Asset::Proof>();
                 krn.m_pAsset->Create(plus.m_hGen, m_Prover.m_Witness.m_R_Adj, m.m_AssetID, plus.m_hGen);
+            }
+
+            {
+                ECC::Hash::Processor()
+                    << "h-blind.sh"
+                    << proof.m_Commitment
+                    >> m_hvSigmaSeed;
+
+                m_GetKey.m_pPKdf->DerivePKey(m_Prover.m_Witness.m_R_Output, m_hvSigmaSeed);
+
+                ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+                comm = Zero;
+                if (krn.m_pAsset)
+                    comm = plus.m_hGen * m_Prover.m_Witness.m_R_Output;
+                else
+                    comm = ECC::Context::get().H_Big * m_Prover.m_Witness.m_R_Output;
+
+                comm.Export(Cast::Reinterpret<ECC::Point>(msgOut2.m_NoncePub));
             }
 
             krn.UpdateMsg();

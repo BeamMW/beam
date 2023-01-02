@@ -3219,7 +3219,7 @@ PROTO_METHOD(CreateShieldedInput_2)
 	if (nIn != sizeof(*pG) * p->u.m_Ins.m_Sigma_M)
 		return c_KeyKeeper_Status_ProtoError;
 
-	secp256k1_scalar pN[3];
+	secp256k1_scalar pN[2];
 
 	// update oracle
 	Oracle* const pOracle = &p->u.m_Ins.m_Oracle;
@@ -3255,6 +3255,8 @@ PROTO_METHOD(CreateShieldedInput_2)
 		for (uint32_t i = 0; i < p->u.m_Ins.m_Sigma_M; i++)
 			secp256k1_sha256_write_CompactPoint(&u.sha, pG + i);
 
+		secp256k1_sha256_write_CompactPoint(&u.sha, &pIn->m_NoncePub);
+
 		secp256k1_scalar_get_b32(hv.m_pVal, &p->u.m_Ins.m_skOutp); // secret (invisible for the host)
 		secp256k1_sha256_write(&u.sha, hv.m_pVal, sizeof(hv.m_pVal));
 
@@ -3270,16 +3272,24 @@ PROTO_METHOD(CreateShieldedInput_2)
 		SECURE_ERASE_OBJ(u);
 	}
 
+	secp256k1_ge ge;
+
 	{
 		// SigGen
-		secp256k1_scalar s1, e;
+		secp256k1_scalar e;
+
+		MulG(&gej, pN);
+
+		if (!Point_Ge_from_Compact(&ge, &pIn->m_NoncePub))
+			return MakeStatus(c_KeyKeeper_Status_Unspecified, 22); // import failed
+
+		wrap_gej_add_ge_var(&gej, &gej, &ge);
 
 		/////////////////////
 		// Starting output generation. Avoid accessing pIn
 
-		s1 = pN[1]; // copy it, it'd be destroyed by the next function
-		CoinID_getCommRawEx(pN, &s1, p->u.m_Ins.m_Aid ? &aGen : 0, &gej);
-		Point_Compact_from_Gej(&pOut->m_NoncePub, &gej);
+		Point_Ge_from_Gej(&ge, &gej);
+		Point_Compact_from_Ge(&pOut->m_NoncePub, &ge);
 
 		Oracle o2;
 		Oracle_Init(&o2);
@@ -3289,34 +3299,27 @@ PROTO_METHOD(CreateShieldedInput_2)
 		// 1st challenge
 		Oracle_NextScalar(&o2, &e);
 
-		secp256k1_scalar_mul(&s1, &p->u.m_Ins.m_skOutp, &e);
-		secp256k1_scalar_add(pN, pN, &s1); // nG += skOutp * e
-
-		secp256k1_scalar_set_u64(&s1, p->u.m_Ins.m_Amount);
-		secp256k1_scalar_mul(&s1, &s1, &e);
-		secp256k1_scalar_add(pN + 1, pN + 1, &s1); // nH += amount * e
+		secp256k1_scalar_mul(&e, &p->u.m_Ins.m_skOutp, &e);
+		secp256k1_scalar_add(pN, pN, &e); // nG += skOutp * e
 
 		// 2nd challenge
 		Oracle_NextScalar(&o2, &e);
-		secp256k1_scalar_mul(&s1, &p->u.m_Ins.m_skSpend, &e);
-		secp256k1_scalar_add(pN, pN, &s1); // nG += skSpend * e
+		secp256k1_scalar_mul(&e, &p->u.m_Ins.m_skSpend, &e);
+		secp256k1_scalar_add(pN, pN, &e); // nG += skSpend * e
 
-		static_assert(_countof(pN) >= _countof(pOut->m_pSig), "");
-		for (uint32_t i = 0; i < _countof(pOut->m_pSig); i++)
-		{
-			secp256k1_scalar_negate(pN + i, pN + i);
-			secp256k1_scalar_get_b32(pOut->m_pSig[i].m_pVal, pN + i);
-		}
+		// to sig
+		secp256k1_scalar_negate(pN, pN);
+		secp256k1_scalar_get_b32(pOut->m_SigG.m_pVal, pN);
 	}
 
-	secp256k1_ge ge;
 	if (!Point_Ge_from_Compact(&ge, pG))
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 22); // import failed
 
-	MulG(&gej, pN + 2);
+	MulG(&gej, pN + 1);
 	wrap_gej_add_ge_var(&gej, &gej, &ge);
 
-	Point_Compact_from_Gej(&pOut->m_G0, &gej);
+	Point_Ge_from_Gej(&ge, &gej);
+	Point_Compact_from_Ge(&pOut->m_G0, &ge);
 	secp256k1_sha256_write_CompactPoint(&pOracle->m_sha, &pOut->m_G0);
 
 	for (uint32_t i = 1; i < p->u.m_Ins.m_Sigma_M; i++)
@@ -3332,10 +3335,10 @@ PROTO_METHOD(CreateShieldedInput_2)
 
 	secp256k1_scalar_mul(&xPwr, &p->u.m_Ins.m_skOutp, &xPwr);
 
-	secp256k1_scalar_add(pN + 2, pN + 2, &xPwr); // skNew * xPwr + tau
-	secp256k1_scalar_negate(pN + 2, pN + 2); // -skNew * xPwr - tau
+	secp256k1_scalar_add(pN + 1, pN + 1, &xPwr); // skNew * xPwr + tau
+	secp256k1_scalar_negate(pN + 1, pN + 1); // -skNew * xPwr - tau
 
-	secp256k1_scalar_get_b32(pOut->m_zR.m_pVal, pN + 2);
+	secp256k1_scalar_get_b32(pOut->m_zR.m_pVal, pN + 1);
 
 	SECURE_ERASE_OBJ(pN);
 

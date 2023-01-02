@@ -256,12 +256,13 @@ typedef struct
 
 #define BeamCrypto_ProtoRequest_CreateShieldedInput_2(macro) \
 	macro(CompactPoint, pABCD[4]) \
+	macro(CompactPoint, NoncePub) \
 	/* followed by CompactPoint* pG[] */
 
 #define BeamCrypto_ProtoResponse_CreateShieldedInput_2(macro) \
 	macro(CompactPoint, G0) \
 	macro(CompactPoint, NoncePub) \
-	macro(UintBig, pSig[2]) \
+	macro(UintBig, SigG) \
 	macro(UintBig, zR)
 
 #define BeamCrypto_ProtoRequest_CreateShieldedVouchers(macro) \
