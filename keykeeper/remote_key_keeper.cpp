@@ -862,61 +862,75 @@ namespace beam::wallet
                 msgOut2.m_pABCD[2] = Ecc2BC(proof.m_Part1.m_C);
                 msgOut2.m_pABCD[3] = Ecc2BC(proof.m_Part1.m_D);
 
+                SendReq_T(msgOut2);
+
+
+                hw::Proto::CreateShieldedInput_3::Out msgOut3;
+
                 const auto& vec = m_Prover.m_Sigma.m_Proof.m_Part1.m_vG;
                 size_t nSize = sizeof(vec[0]) * vec.size();
 
-                void* pExtra = AllocReq_T(msgOut2, (uint32_t) nSize);
+                void* pExtra = AllocReq_T(msgOut3, (uint32_t) nSize);
                 if (nSize)
                     memcpy(pExtra, reinterpret_cast<const uint8_t*>(&vec.front()), nSize);
 
                 SendReq();
             }
 
-            if (6 == m_Phase)
+            if (7 == m_Phase)
             {
                 auto pMsg = ReadReq_T<hw::Proto::CreateShieldedInput_1>();
                 if (!pMsg)
                     return;
             }
 
-            if (7 == m_Phase)
+            if (8 == m_Phase)
             {
                 auto pMsg = ReadReq_T<hw::Proto::CreateShieldedInput_2>();
                 if (!pMsg)
                     return;
 
+                // import SigGen
                 auto& proof = Cast::Up<Lelantus::Proof>(m_Prover.m_Sigma.m_Proof);
-
-                // import SigGen and vG[0]
-                Ecc2BC(proof.m_Part1.m_vG.front()) = pMsg->m_G0;
-                Ecc2BC(proof.m_Part2.m_zR.m_Value) = pMsg->m_zR;
 
                 Ecc2BC(proof.m_Signature.m_NoncePub) = pMsg->m_NoncePub;
                 Ecc2BC(proof.m_Signature.m_pK[0].m_Value) = pMsg->m_SigG;
 
-                // phase2
-                m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step2);
+                // Complete H-part of the generalized Schnorr's signature for output comm
+                ECC::Scalar::Native e;
+                proof.m_Signature.get_Challenge(e, m_Prover.m_hvSigGen);
+                e *= m_M.m_Value;
 
+                ECC::Scalar::Native sH = e + m_Prover.m_Witness.m_R_Output;
+                proof.m_Signature.m_pK[1] = -sH;
+
+                if (m_M.m_pKernel->m_pAsset)
                 {
-                    // Complete H-part of the generalized Schnorr's signature for output comm
-                    ECC::Scalar::Native e;
-                    proof.m_Signature.get_Challenge(e, m_Prover.m_hvSigGen);
-                    e *= m_M.m_Value;
+                    // Fix G-part (influenced by asset gen blinding)
+                    e *= m_Prover.m_Witness.m_R_Adj; // -sH * skAsset
 
-                    ECC::Scalar::Native sH = e + m_Prover.m_Witness.m_R_Output;
-                    proof.m_Signature.m_pK[1] = -sH;
-
-                    if (m_M.m_pKernel->m_pAsset)
-                    {
-                        // Fix signature (G-part)
-                        e *= m_Prover.m_Witness.m_R_Adj; // -sH * skAsset
-
-                        e += proof.m_Signature.m_pK[0];
-                        proof.m_Signature.m_pK[0] = e;
-
-                    }
+                    e += proof.m_Signature.m_pK[0];
+                    proof.m_Signature.m_pK[0] = e;
 
                 }
+
+            }
+
+            if (9 == m_Phase)
+            {
+                auto pMsg = ReadReq_T<hw::Proto::CreateShieldedInput_3>();
+                if (!pMsg)
+                    return;
+
+                auto& proof = Cast::Up<Lelantus::Proof>(m_Prover.m_Sigma.m_Proof);
+
+                // import vG[0]
+                Ecc2BC(proof.m_Part1.m_vG.front()) = pMsg->m_G0;
+                Ecc2BC(proof.m_Part2.m_zR.m_Value) = pMsg->m_zR;
+
+
+                // phase2
+                m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step2);
 
                 // finished
                 m_M.m_pKernel->MsgToID();

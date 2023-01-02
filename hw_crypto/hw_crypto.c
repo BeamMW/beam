@@ -3212,11 +3212,10 @@ PROTO_METHOD(CreateShieldedInput_1)
 	MulG(&gej, &p->u.m_Ins.m_skSpend);
 	secp256k1_sha256_write_Gej(&pOracle->m_sha, &gej);
 
-
 	// finalyze
 	p->u.m_Ins.m_Sigma_M = sip.m_Sigma_M;
-	p->m_State = c_KeyKeeper_State_CreateShielded_1;
 
+	p->m_State = c_KeyKeeper_State_CreateShielded_1;
 	return c_KeyKeeper_Status_Ok;
 }
 
@@ -3227,66 +3226,49 @@ PROTO_METHOD(CreateShieldedInput_2)
 	if (c_KeyKeeper_State_CreateShielded_1 != p->m_State)
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 20);
 
-	CompactPoint* pG = (CompactPoint*)(pIn + 1);
-	if (nIn != sizeof(*pG) * p->u.m_Ins.m_Sigma_M)
-		return c_KeyKeeper_Status_ProtoError;
-
-	secp256k1_scalar pN[2];
-
-	// update oracle
+	// Generate sigGen
 	Oracle* const pOracle = &p->u.m_Ins.m_Oracle;
 
-	UintBig hv, hvSigGen;
+	UintBig hvSigGen;
 	Oracle_NextHash(pOracle, &hvSigGen);
 
-	// Sigma::Part1
+	// update oracle (consume input before generating output)
 	for (uint32_t i = 0; i < _countof(pIn->m_pABCD); i++)
 		secp256k1_sha256_write_CompactPoint(&pOracle->m_sha, pIn->m_pABCD + i);
 
+	secp256k1_scalar k;
+
 	{
-		// hash all the visible to-date params
-		union {
-			secp256k1_sha256_t sha;
-			NonceGenerator ng;
-		} u;
+		// derive nonce. Sensitive commitments (corresponding to secret keys) were already exposed
+		NonceGenerator ng;
+		static const char szSalt[] = "beam.lelantus.1";
 
-		u.sha = pOracle->m_sha; // copy
-		for (uint32_t i = 0; i < p->u.m_Ins.m_Sigma_M; i++)
-			secp256k1_sha256_write_CompactPoint(&u.sha, pG + i);
+		secp256k1_hmac_sha256_t hmac;
+		NonceGenerator_InitBegin(&ng, &hmac, szSalt, sizeof(szSalt));
 
-		secp256k1_sha256_write_CompactPoint(&u.sha, &pIn->m_NoncePub);
+		secp256k1_hmac_sha256_write(&hmac, hvSigGen.m_pVal, sizeof(hvSigGen.m_pVal));
+		secp256k1_hmac_sha256_write(&hmac, pIn->m_NoncePub.m_X.m_pVal, sizeof(pIn->m_NoncePub.m_X.m_pVal));
+		secp256k1_hmac_sha256_write(&hmac, &pIn->m_NoncePub.m_Y, sizeof(pIn->m_NoncePub.m_Y));
 
-		secp256k1_scalar_get_b32(hv.m_pVal, &p->u.m_Ins.m_skOutp); // secret (invisible for the host)
-		secp256k1_sha256_write(&u.sha, hv.m_pVal, sizeof(hv.m_pVal));
+		NonceGenerator_InitEnd(&ng, &hmac);
 
-		secp256k1_sha256_finalize(&u.sha, hv.m_pVal);
-
-		// use current secret hv to seed our nonce generator
-		static const char szSalt[] = "lelantus.1";
-		NonceGenerator_Init(&u.ng, szSalt, sizeof(szSalt), &hv);
-
-		for (uint32_t i = 0; i < _countof(pN); i++)
-			NonceGenerator_NextScalar(&u.ng, pN + i);
-
-		SECURE_ERASE_OBJ(u);
+		NonceGenerator_NextScalar(&ng, &k);
+		SECURE_ERASE_OBJ(ng);
 	}
 
-	secp256k1_gej gej;
-	secp256k1_ge ge;
 
 	{
-		// SigGen
+		secp256k1_gej gej;
+		secp256k1_ge ge;
+
 		secp256k1_scalar e;
 
-		MulG(&gej, pN);
+		MulG(&gej, &k);
 
 		if (!Point_Ge_from_Compact(&ge, &pIn->m_NoncePub))
 			return MakeStatus(c_KeyKeeper_Status_Unspecified, 22); // import failed
 
 		wrap_gej_add_ge_var(&gej, &gej, &ge);
-
-		/////////////////////
-		// Starting output generation. Avoid accessing pIn
 
 		Point_Ge_from_Gej(&ge, &gej);
 		Point_Compact_from_Ge(&pOut->m_NoncePub, &ge);
@@ -3300,27 +3282,76 @@ PROTO_METHOD(CreateShieldedInput_2)
 		Oracle_NextScalar(&o2, &e);
 
 		secp256k1_scalar_mul(&e, &p->u.m_Ins.m_skOutp, &e);
-		secp256k1_scalar_add(pN, pN, &e); // nG += skOutp * e
+		secp256k1_scalar_add(&k, &k, &e); // nG += skOutp * e
 
 		// 2nd challenge
 		Oracle_NextScalar(&o2, &e);
 		secp256k1_scalar_mul(&e, &p->u.m_Ins.m_skSpend, &e);
-		secp256k1_scalar_add(pN, pN, &e); // nG += skSpend * e
+		secp256k1_scalar_add(&k, &k, &e); // nG += skSpend * e
 
 		// to sig
-		secp256k1_scalar_negate(pN, pN);
-		secp256k1_scalar_get_b32(pOut->m_SigG.m_pVal, pN);
+		secp256k1_scalar_negate(&k, &k);
+		secp256k1_scalar_get_b32(pOut->m_SigG.m_pVal, &k);
 	}
+
+	p->m_State = c_KeyKeeper_State_CreateShielded_2;
+	return c_KeyKeeper_Status_Ok;
+}
+
+PROTO_METHOD(CreateShieldedInput_3)
+{
+	PROTO_UNUSED_ARGS;
+
+	if (c_KeyKeeper_State_CreateShielded_2 != p->m_State)
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 20);
+
+	CompactPoint* pG = (CompactPoint*)(pIn + 1);
+	if (nIn != sizeof(*pG) * p->u.m_Ins.m_Sigma_M)
+		return c_KeyKeeper_Status_ProtoError;
+
+	if (!p->u.m_Ins.m_Sigma_M)
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21); // G[0] is always read. Attacker may try to read uninitialized mem
+
+	Oracle* const pOracle = &p->u.m_Ins.m_Oracle;
+
+	// derive nonce
+	secp256k1_scalar k;
+
+	{
+		// hash all the visible to-date params
+		union {
+			secp256k1_sha256_t sha;
+			NonceGenerator ng;
+		} u;
+
+		u.sha = pOracle->m_sha; // copy
+		for (uint32_t i = 0; i < p->u.m_Ins.m_Sigma_M; i++)
+			secp256k1_sha256_write_CompactPoint(&u.sha, pG + i);
+
+		UintBig hv;
+		secp256k1_sha256_finalize(&u.sha, hv.m_pVal);
+
+		// derive nonce. Sensitive commitments (corresponding to secret keys) were already exposed
+		static const char szSalt[] = "beam.lelantus.2";
+		NonceGenerator_Init(&u.ng, szSalt, sizeof(szSalt), &hv);
+
+		NonceGenerator_NextScalar(&u.ng, &k);
+
+		SECURE_ERASE_OBJ(u);
+	}
+
+	secp256k1_gej gej;
+	secp256k1_ge ge;
 
 	if (!Point_Ge_from_Compact(&ge, pG))
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 22); // import failed
 
-	MulG(&gej, pN + 1);
+	MulG(&gej, &k);
 	wrap_gej_add_ge_var(&gej, &gej, &ge);
 
 	Point_Ge_from_Gej(&ge, &gej);
 	Point_Compact_from_Ge(&pOut->m_G0, &ge);
-	secp256k1_sha256_write_CompactPoint(&pOracle->m_sha, &pOut->m_G0);
+	secp256k1_sha256_write_CompactPoint(&pOracle->m_sha, &pOut->m_G0); // Generating output, whereas still consuming input (pG). Assume it's safe, we're overwriting the 1st element that was already consumed
 
 	for (uint32_t i = 1; i < p->u.m_Ins.m_Sigma_M; i++)
 		secp256k1_sha256_write_CompactPoint(&pOracle->m_sha, pG + i);
@@ -3335,12 +3366,10 @@ PROTO_METHOD(CreateShieldedInput_2)
 
 	secp256k1_scalar_mul(&xPwr, &p->u.m_Ins.m_skOutp, &xPwr);
 
-	secp256k1_scalar_add(pN + 1, pN + 1, &xPwr); // skNew * xPwr + tau
-	secp256k1_scalar_negate(pN + 1, pN + 1); // -skNew * xPwr - tau
+	secp256k1_scalar_add(&k, &k, &xPwr); // skNew * xPwr + tau
+	secp256k1_scalar_negate(&k, &k); // -skNew * xPwr - tau
 
-	secp256k1_scalar_get_b32(pOut->m_zR.m_pVal, pN + 1);
-
-	SECURE_ERASE_OBJ(pN);
+	secp256k1_scalar_get_b32(pOut->m_zR.m_pVal, &k);
 
 	SECURE_ERASE_OBJ(p->u.m_Ins);
 	p->m_State = 0;

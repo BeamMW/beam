@@ -41,7 +41,7 @@ typedef struct
 		{
 			secp256k1_scalar m_skOutp;
 			secp256k1_scalar m_skSpend;
-			Oracle m_Oracle;
+			Oracle m_Oracle; // 100 bytes
 			uint32_t m_Sigma_M;
 		} m_Ins;
 
@@ -51,6 +51,7 @@ typedef struct
 
 #define c_KeyKeeper_State_TxBalance 1
 #define c_KeyKeeper_State_CreateShielded_1 11
+#define c_KeyKeeper_State_CreateShielded_2 12
 
 
 typedef struct
@@ -255,12 +256,16 @@ typedef struct
 #define BeamCrypto_ProtoRequest_CreateShieldedInput_2(macro) \
 	macro(CompactPoint, pABCD[4]) \
 	macro(CompactPoint, NoncePub) \
-	/* followed by CompactPoint* pG[] */
 
 #define BeamCrypto_ProtoResponse_CreateShieldedInput_2(macro) \
-	macro(CompactPoint, G0) \
 	macro(CompactPoint, NoncePub) \
 	macro(UintBig, SigG) \
+
+#define BeamCrypto_ProtoRequest_CreateShieldedInput_3(macro) \
+	/* followed by CompactPoint* pG[] */
+
+#define BeamCrypto_ProtoResponse_CreateShieldedInput_3(macro) \
+	macro(CompactPoint, G0) \
 	macro(UintBig, zR)
 
 #define BeamCrypto_ProtoRequest_CreateShieldedVouchers(macro) \
@@ -328,6 +333,7 @@ typedef struct
 	macro(0x18, TxAddCoins) \
 	macro(0x1a, CreateShieldedInput_1) \
 	macro(0x1b, CreateShieldedInput_2) \
+	macro(0x1c, CreateShieldedInput_3) \
 	macro(0x22, CreateShieldedVouchers) \
 	macro(0x30, TxSplit) \
 	macro(0x31, TxReceive) \
