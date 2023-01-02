@@ -898,6 +898,18 @@ namespace beam::wallet
                 // phase2
                 m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step2);
 
+                if (m_M.m_pKernel->m_pAsset)
+                {
+                    // Fix signature (G-part)
+                    ECC::Scalar::Native k = proof.m_Signature.m_pK[1];
+                    k *= m_Prover.m_Witness.m_R_Adj;
+
+                    k = -k;
+                    k += proof.m_Signature.m_pK[0];
+                    proof.m_Signature.m_pK[0] = k;
+                }
+
+
                 // finished
                 m_M.m_pKernel->MsgToID();
                 Fin();
@@ -947,18 +959,11 @@ namespace beam::wallet
                     << proof.m_Commitment // pseudo-uniquely indentifies this specific Txo
                     >> m_hvSigmaSeed;
 
-                ECC::Scalar::Native skBlind;
-                m_GetKey.m_pPKdf->DerivePKey(skBlind, m_hvSigmaSeed);
+                m_GetKey.m_pPKdf->DerivePKey(m_Prover.m_Witness.m_R_Adj, m_hvSigmaSeed);
 
                 krn.m_pAsset = std::make_unique<Asset::Proof>();
-                krn.m_pAsset->Create(plus.m_hGen, skBlind, m.m_AssetID, plus.m_hGen);
-
-                ECC::Scalar sk_;
-                sk_ = -skBlind;
-                msgOut2.m_AssetSk = Ecc2BC(sk_.m_Value);
+                krn.m_pAsset->Create(plus.m_hGen, m_Prover.m_Witness.m_R_Adj, m.m_AssetID, plus.m_hGen);
             }
-            else
-                ZeroObject(msgOut2.m_AssetSk);
 
             krn.UpdateMsg();
             m_Oracle << krn.m_Msg;

@@ -3258,7 +3258,6 @@ PROTO_METHOD(CreateShieldedInput_2)
 		secp256k1_scalar_get_b32(hv.m_pVal, &p->u.m_Ins.m_skOutp); // secret (invisible for the host)
 		secp256k1_sha256_write(&u.sha, hv.m_pVal, sizeof(hv.m_pVal));
 
-		secp256k1_sha256_write(&u.sha, pIn->m_AssetSk.m_pVal, sizeof(pIn->m_AssetSk.m_pVal));
 		secp256k1_sha256_finalize(&u.sha, hv.m_pVal);
 
 		// use current secret hv to seed our nonce generator
@@ -3271,19 +3270,14 @@ PROTO_METHOD(CreateShieldedInput_2)
 		SECURE_ERASE_OBJ(u);
 	}
 
-	int overflow;
-
 	{
 		// SigGen
-		secp256k1_scalar sAmount, s1, e;
-
-		s1 = pN[1]; // copy it, it'd be destroyed
-
-		secp256k1_scalar_set_b32(&e, pIn->m_AssetSk.m_pVal, &overflow); // the 'mix' term
+		secp256k1_scalar s1, e;
 
 		/////////////////////
 		// Starting output generation. Avoid accessing pIn
 
+		s1 = pN[1]; // copy it, it'd be destroyed by the next function
 		CoinID_getCommRawEx(pN, &s1, p->u.m_Ins.m_Aid ? &aGen : 0, &gej);
 		Point_Compact_from_Gej(&pOut->m_NoncePub, &gej);
 
@@ -3292,23 +3286,14 @@ PROTO_METHOD(CreateShieldedInput_2)
 		secp256k1_sha256_write_CompactPoint(&o2.m_sha, &pOut->m_NoncePub);
 		secp256k1_sha256_write(&o2.m_sha, hvSigGen.m_pVal, sizeof(hvSigGen.m_pVal));
 
-
-		// nG += nH * assetSk
-		secp256k1_scalar_mul(&s1, &e, pN + 1);
-		secp256k1_scalar_add(pN, pN, &s1);
-
-		// skOutp` = skOutp + amount * assetSk
-		secp256k1_scalar_set_u64(&sAmount, p->u.m_Ins.m_Amount);
-		secp256k1_scalar_mul(&s1, &e, &sAmount);
-		secp256k1_scalar_add(&s1, &s1, &p->u.m_Ins.m_skOutp);
-
 		// 1st challenge
 		Oracle_NextScalar(&o2, &e);
 
-		secp256k1_scalar_mul(&s1, &s1, &e);
-		secp256k1_scalar_add(pN, pN, &s1); // nG += skOutp` * e
+		secp256k1_scalar_mul(&s1, &p->u.m_Ins.m_skOutp, &e);
+		secp256k1_scalar_add(pN, pN, &s1); // nG += skOutp * e
 
-		secp256k1_scalar_mul(&s1, &sAmount, &e);
+		secp256k1_scalar_set_u64(&s1, p->u.m_Ins.m_Amount);
+		secp256k1_scalar_mul(&s1, &s1, &e);
 		secp256k1_scalar_add(pN + 1, pN + 1, &s1); // nH += amount * e
 
 		// 2nd challenge
