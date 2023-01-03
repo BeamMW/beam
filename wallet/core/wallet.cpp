@@ -657,7 +657,7 @@ namespace beam::wallet
         pVal->m_Msg.m_Id0 = startIndex;
         pVal->m_Msg.m_Count = count;
 
-        if (PostReqUnique(*pVal))
+        if (PostReq(*pVal))
         {
             LOG_INFO() << txId << " Get shielded list, start_index = " << startIndex << ", count = " << count;
         }
@@ -2104,8 +2104,7 @@ namespace beam::wallet
         LOG_DEBUG() << txId << "[" << subTxID << "]" << " sending tx for registration";
 
 #ifndef NDEBUG
-        TxBase::Context::Params pars;
-        TxBase::Context ctx(pars);
+        TxBase::Context ctx;
         ctx.m_Height.m_Min = m_WalletDB->getCurrentHeight();
         assert(data->IsValid(ctx));
 #endif // NDEBUG

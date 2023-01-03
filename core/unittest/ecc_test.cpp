@@ -1193,8 +1193,7 @@ void TestMultiSigOutput()
     transaction.m_vOutputs.push_back(std::move(pOutput));
     transaction.Normalize();
 
-    beam::TxBase::Context::Params pars;
-    beam::TxBase::Context context(pars);
+    beam::TxBase::Context context;
 	context.m_Height.m_Min = g_hFork;
     verify_test(transaction.IsValid(context));
 }
@@ -1367,15 +1366,14 @@ struct TransactionMaker
 
 		CoSignKernel(*pKrn);
 
-		Point::Native exc;
 		pKrn->m_pHashLock->m_IsImage = false;
 		pKrn->UpdateID();
-		verify_test(!pKrn->IsValid(g_hFork, exc)); // should not pass validation unless correct hash preimage is specified
+		verify_test(!pKrn->IsValid(g_hFork)); // should not pass validation unless correct hash preimage is specified
 
 		// finish HL: add hash preimage
 		pKrn->m_pHashLock->m_Value = hl.m_Value;
 		pKrn->UpdateID();
-		verify_test(pKrn->IsValid(g_hFork, exc));
+		verify_test(pKrn->IsValid(g_hFork));
 
 		lstTrg.push_back(std::move(pKrn));
 	}
@@ -1413,8 +1411,7 @@ void TestTransaction()
 
 	tm.m_Trans.Normalize();
 
-	beam::TxBase::Context::Params pars;
-	beam::TxBase::Context ctx(pars);
+	beam::TxBase::Context ctx;
 	ctx.m_Height.m_Min = g_hFork;
 	verify_test(tm.m_Trans.IsValid(ctx));
 	verify_test(ctx.m_Stats.m_Fee == beam::AmountBig::Type(fee1 + fee2));
@@ -1428,8 +1425,7 @@ void TestCutThrough()
 
 	tm.m_Trans.Normalize();
 
-	beam::TxBase::Context::Params pars;
-	beam::TxBase::Context ctx(pars);
+	beam::TxBase::Context ctx;
 	ctx.m_Height.m_Min = g_hFork;
 	verify_test(ctx.ValidateAndSummarize(tm.m_Trans, tm.m_Trans.get_Reader()));
 
@@ -1980,8 +1976,11 @@ void TestLelantus(bool bWithAsset, bool bMpc)
 
 			proof.m_Part2.m_zR = sVal;
 
-
+			// hide p.m_Witness.m_R
+			x = p.m_Witness.m_R;
+			p.m_Witness.m_R = Zero;
 			p.Generate(seed, oracle, &hGen, beam::Lelantus::Prover::Phase::Step2);
+			p.m_Witness.m_R = x;
 		}
 		else
 			p.Generate(seed, oracle, &hGen);
@@ -2229,8 +2228,7 @@ void TestAssetEmission()
 
 	tx.Normalize();
 
-	beam::Transaction::Context::Params pars;
-	beam::Transaction::Context ctx(pars);
+	beam::Transaction::Context ctx;
 	ctx.m_Height.m_Min = hScheme;
 	bool bIsValid = tx.IsValid(ctx);
 

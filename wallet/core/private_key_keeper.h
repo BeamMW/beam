@@ -46,6 +46,11 @@ namespace beam::wallet
             static const Type NotImplemented = 3;
         };
 
+        enum struct KdfType {
+            Root,
+            Sbbs,
+        };
+
         struct Handler
         {
             typedef std::shared_ptr<Handler> Ptr;
@@ -71,17 +76,19 @@ namespace beam::wallet
         {
             struct get_Kdf
             {
-                Key::Index m_iChild;
-                bool m_Root; // if true the m_iChild is ignored
+                KdfType m_Type;
 
                 Key::IKdf::Ptr m_pKdf; // only for trusted host
                 Key::IPKdf::Ptr m_pPKdf;
-
-                void From(const CoinID&);
             };
 
             struct get_NumSlots {
                 Slot::Type m_Count;
+            };
+
+            struct get_Commitment {
+                CoinID m_Cid;
+                ECC::Point m_Result;
             };
 
             struct CreateOutput {
@@ -163,11 +170,17 @@ namespace beam::wallet
                 bool m_HideAssetAlways = false;
             };
 
+            struct DisplayWalletID
+            {
+                WalletIDKey m_MyIDKey = 0;
+            };
+
         };
 
 #define KEY_KEEPER_METHODS(macro) \
 		macro(get_Kdf) \
 		macro(get_NumSlots) \
+		macro(get_Commitment) \
 		macro(CreateOutput) \
 		macro(CreateInputShielded) \
 		macro(CreateVoucherShielded) \
@@ -175,6 +188,7 @@ namespace beam::wallet
 		macro(SignSender) \
 		macro(SignSendShielded) \
 		macro(SignSplit) \
+		macro(DisplayWalletID) \
 
 
 #define THE_MACRO(method) \
@@ -185,9 +199,6 @@ namespace beam::wallet
 #undef THE_MACRO
 
         virtual ~IPrivateKeyKeeper2() {}
-
-        // synthetic functions (in terms of underlying ones)
-        Status::Type get_Commitment(ECC::Point::Native&, const CoinID&);
 
     private:
         struct HandlerSync;

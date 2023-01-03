@@ -1014,8 +1014,7 @@ namespace beam
 
 			tx.Normalize();
 
-			Transaction::Context::Params pars;
-			Transaction::Context ctx(pars);
+			Transaction::Context ctx;
 			ctx.m_Height.m_Min = h + 1;
 			bool isTxValid = tx.IsValid(ctx);
 			verify_test(isTxValid);
@@ -1068,8 +1067,7 @@ namespace beam
 				uint32_t nBvmCharge = 0;
 				verify_test(proto::TxStatus::Ok == np.ValidateTxContextEx(*pTx, hr, false, nBvmCharge, nullptr, nullptr, nullptr));
 
-				Transaction::Context::Params pars;
-				Transaction::Context ctx(pars);
+				Transaction::Context ctx;
 				ctx.m_Height = np.m_Cursor.m_Sid.m_Height + 1;
 				verify_test(pTx->IsValid(ctx));
 
@@ -1963,8 +1961,7 @@ namespace beam
 					ShieldedTxo::Viewer::GenerateSerPrivate(pSerPrivate, *m_Wallet.m_pKdf, 0);
 					pSerPrivate->DeriveKey(m_Shielded.m_skSpendKey, sdp.m_Ticket.m_SerialPreimage);
 
-					ECC::Point::Native pt;
-					verify_test(pKrn->IsValid(h + 1, pt));
+					verify_test(pKrn->IsValid(h + 1));
 
 					msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 					m_Wallet.UpdateOffset(*msgTx.m_Transaction, sdp.m_Output.m_k, true);
@@ -1972,8 +1969,7 @@ namespace beam
 
 				msgTx.m_Transaction->Normalize();
 
-				Transaction::Context::Params pars;
-				Transaction::Context ctx(pars);
+				Transaction::Context ctx;
 				ctx.m_Height.m_Min = h + 1;
 				bool isTxValid = msgTx.m_Transaction->IsValid(ctx);
 				verify_test(isTxValid);
@@ -2047,8 +2043,7 @@ namespace beam
 
 				m_Wallet.MakeTxOutput(*msgTx.m_Transaction, h, 0, m_Shielded.m_Params.m_Output.m_Value, fee);
 
-				Transaction::Context::Params pars;
-				Transaction::Context ctx(pars);
+				Transaction::Context ctx;
 				ctx.m_Height.m_Min = h + 1;
 				verify_test(msgTx.m_Transaction->IsValid(ctx));
 
@@ -2309,8 +2304,7 @@ namespace beam
 
 					m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
 
-					Transaction::Context::Params pars;
-					Transaction::Context ctx(pars);
+					Transaction::Context ctx;
 					ctx.m_Height.m_Min = msg.m_Description.m_Height + 1;
 					verify_test(msgTx.m_Transaction->IsValid(ctx));
 
@@ -2817,8 +2811,7 @@ namespace beam
 					{
 						verify_test(msg.m_Kernel);
 
-						ECC::Point::Native exc;
-						verify_test(msg.m_Kernel->IsValid(msg.m_Height, exc));
+						verify_test(msg.m_Kernel->IsValid(msg.m_Height));
 
 						verify_test(msg.m_Height <= m_vStates.size());
 						const Block::SystemState::Full& s = m_vStates[msg.m_Height - 1];

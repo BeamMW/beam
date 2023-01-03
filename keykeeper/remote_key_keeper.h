@@ -43,7 +43,9 @@ namespace beam::wallet
     protected:
 
         // communication with the remote
-        virtual void SendRequestAsync(const Blob& msgOut, const Blob& msgIn, const Handler::Ptr& pHandler) = 0;
+        virtual void SendRequestAsync(void* pBuf, uint32_t nRequest, uint32_t nResponse, const Handler::Ptr& pHandler) = 0;
+
+        static Status::Type DeduceStatus(uint8_t* pBuf, uint32_t nResponse, uint32_t nResponseActual);
 
         struct Cache
         {
@@ -51,33 +53,11 @@ namespace beam::wallet
 
             Key::IPKdf::Ptr m_pOwner;
 
-            struct ChildPKdf
-		        :public boost::intrusive::set_base_hook<>
-		        ,public boost::intrusive::list_base_hook<>
-            {
-                Key::Index m_iChild;
-                Key::IPKdf::Ptr m_pRes;
-                bool operator < (const ChildPKdf& v) const { return (m_iChild < v.m_iChild); }
-            };
-
-            typedef boost::intrusive::list<ChildPKdf> ChildPKdfList;
-            typedef boost::intrusive::multiset<ChildPKdf> ChildPKdfSet;
-
-            ChildPKdfList m_mruPKdfs;
-            ChildPKdfSet m_setPKdfs;
-
             uint32_t m_Slots = 0;
             uint32_t get_NumSlots();
 
-            ~Cache() { ShrinkMru(0); }
-
-            void ShrinkMru(uint32_t);
-
-            bool FindPKdf(Key::IPKdf::Ptr&, const Key::Index* pChild);
-            void AddPKdf(const Key::IPKdf::Ptr&, const Key::Index* pChild);
-
-        private:
-            void AddMru(ChildPKdf&);
+            bool get_Owner(Key::IPKdf::Ptr&);
+            void set_Owner(const Key::IPKdf::Ptr&);
         };
 
         Cache m_Cache;

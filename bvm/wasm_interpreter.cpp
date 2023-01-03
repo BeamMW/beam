@@ -23,66 +23,12 @@
 namespace beam {
 namespace Wasm {
 
-	thread_local Checkpoint* Checkpoint::s_pTop = nullptr;
-
-	Checkpoint::Checkpoint()
-	{
-		m_pNext = s_pTop;
-		s_pTop = this;
-	}
-
-	Checkpoint::~Checkpoint()
-	{
-		s_pTop = m_pNext;
-	}
-
-	uint32_t Checkpoint::DumpAll(std::ostream& os)
-	{
-		uint32_t ret = 0;
-		for (Checkpoint* p = s_pTop; p; p = p->m_pNext)
-		{
-			os << " <- ";
-			p->Dump(os);
-
-			if (!ret)
-				ret = p->get_Type();
-		}
-		return ret;
-	}
-
-	void CheckpointTxt::Dump(std::ostream& os) {
-		os << m_sz;
-	}
-
-	void Fail()
-	{
-		Fail("Error");
-	}
-
-	void Fail(const char* sz)
-	{
-		std::ostringstream os;
-		os << sz << ": ";
-
-		uint32_t nType = Checkpoint::DumpAll(os);
-
-		Exc exc(os.str());
-		exc.m_Type = nType;
-
-		throw exc;
-	}
-
-	void Test(bool b) {
-		if (!b)
-			Fail();
-	}
-
 	/////////////////////////////////////////////
 	// Reader
 
 	void Reader::Ensure(uint32_t n)
 	{
-		Test(static_cast<size_t>(m_p1 - m_p0) >= n);
+		Exc::Test(static_cast<size_t>(m_p1 - m_p0) >= n);
 	}
 
 	const uint8_t* Reader::Consume(uint32_t n)
@@ -151,7 +97,7 @@ namespace Wasm {
 								assert(false);
 								// no break;
 							case Mode::Restrict:
-								Fail("Conflicting flags");
+								Exc::Fail("Conflicting flags");
 							}
 						}
 						else
@@ -162,7 +108,7 @@ namespace Wasm {
 				break;
 			}
 
-			Test(nShift < nBitsMax);
+			Exc::Test(nShift < nBitsMax);
 		}
 
 		return ret;
@@ -179,7 +125,7 @@ namespace Wasm {
 		static uint8_t Words(uint8_t t) {
 			switch (t) {
 			default:
-				Fail();
+				Exc::Fail();
 			case i32:
 			case f32:
 				return 1;
@@ -389,9 +335,9 @@ namespace Wasm {
 		int32_t ReadI32Initializer(Reader& inp)
 		{
 			// initialization expression for the global variable. Ignore it, we don't really support globals, it's just needed for a non-imported stack pointer worakround.
-			Test(Instruction::i32_const == inp.Read1());
+			Exc::Test(Instruction::i32_const == inp.Read1());
 			auto val = inp.Read<int32_t>();
-			Test(Instruction::end_block == inp.Read1());
+			Exc::Test(Instruction::end_block == inp.Read1());
 			return val;
 		}
 	};
@@ -406,13 +352,13 @@ namespace Wasm {
 
 	void CompilerPlus::ParsePlus(Reader inp)
 	{
-		CheckpointTxt cp("wasm/parse");
+		Exc::CheckpointTxt cp("wasm/parse");
 
 		static const uint8_t pMagic[] = { 0, 'a', 's', 'm' };
-		Test(!memcmp(pMagic, inp.Consume(sizeof(pMagic)), sizeof(pMagic)));
+		Exc::Test(!memcmp(pMagic, inp.Consume(sizeof(pMagic)), sizeof(pMagic)));
 
 		static const uint8_t pVer[] = { 1, 0, 0, 0 };
-		Test(!memcmp(pVer, inp.Consume(sizeof(pVer)), sizeof(pVer)));
+		Exc::Test(!memcmp(pVer, inp.Consume(sizeof(pVer)), sizeof(pVer)));
 
 		m_cmplData0 = 0;
 
@@ -420,7 +366,7 @@ namespace Wasm {
 		{
 			auto nSection = inp.Read1();
 			bool bIgnoreOrder = !nSection || (12 == nSection);
-			Test(!nPrevSection || bIgnoreOrder || (nSection > nPrevSection));
+			Exc::Test(!nPrevSection || bIgnoreOrder || (nSection > nPrevSection));
 
 			auto nLen = inp.Read<uint32_t>();
 
@@ -430,7 +376,7 @@ namespace Wasm {
 
 			switch (nSection)
 			{
-#define THE_MACRO(id, name) case id: OnSection_##name(inpSection); Test(inpSection.m_p0 == inpSection.m_p1); break;
+#define THE_MACRO(id, name) case id: OnSection_##name(inpSection); Exc::Test(inpSection.m_p0 == inpSection.m_p1); break;
 			WasmParserSections(THE_MACRO)
 #undef THE_MACRO
 
@@ -487,18 +433,18 @@ namespace Wasm {
 		{
 			auto& x = m_Types[i];
 
-			Test(inp.Read1() == 0x60);
+			Exc::Test(inp.Read1() == 0x60);
 
 			x.m_Args.Read(inp);
 			x.m_Rets.Read(inp);
 
-			Test(x.m_Rets.n <= 1);
+			Exc::Test(x.m_Rets.n <= 1);
 		}
 	}
 
 	void TestBinding(const Compiler::PerImport& x)
 	{
-		Test(x.m_Binding != static_cast<uint32_t>(-1));
+		Exc::Test(x.m_Binding != static_cast<uint32_t>(-1));
 	}
 
 	void CompilerPlus::OnSection_Import(Reader& inp)
@@ -519,7 +465,7 @@ namespace Wasm {
 				auto& x = m_ImportFuncs.emplace_back();
 				Cast::Down<PerImport>(x) = pi;
 				x.m_TypeIdx = inp.Read<uint32_t>();
-				Test(x.m_TypeIdx < m_Types.size());
+				Exc::Test(x.m_TypeIdx < m_Types.size());
 			}
 			break;
 
@@ -556,7 +502,7 @@ namespace Wasm {
 			break;
 
 			default:
-				Fail();
+				Exc::Fail();
 
 			}
 
@@ -575,7 +521,7 @@ namespace Wasm {
 			ZeroObject(x.m_sName);
 
 			x.m_TypeIdx = inp.Read<uint32_t>();
-			Test(x.m_TypeIdx < m_Types.size());
+			Exc::Test(x.m_TypeIdx < m_Types.size());
 		}
 	}
 
@@ -586,7 +532,7 @@ namespace Wasm {
 		for (uint32_t i = 0; i < nCount; i++)
 		{
 			auto tblType = inp.Read<uint32_t>(); 
-			Test(0x70 == tblType); // must by anyfunc
+			Exc::Test(0x70 == tblType); // must by anyfunc
 
 			auto nFlags = inp.Read<uint32_t>();
 			[[maybe_unused]] auto nLimitMin = inp.Read<uint32_t>();
@@ -632,7 +578,7 @@ namespace Wasm {
 			if (!x.m_Kind)
 			{
 				x.m_Idx -= static_cast<uint32_t>(m_ImportFuncs.size());
-				Test(x.m_Idx < m_Functions.size());
+				Exc::Test(x.m_Idx < m_Functions.size());
 			}
 		}
 	}
@@ -640,14 +586,14 @@ namespace Wasm {
 	void CompilerPlus::OnSection_Element(Reader& inp)
 	{
 		auto nCount = inp.Read<uint32_t>();
-		Test(1 == nCount);
+		Exc::Test(1 == nCount);
 
 		for (uint32_t i = 0; i < nCount; i++)
 		{
 			auto iTable = inp.Read<uint32_t>();
-			Test(0 == iTable);
+			Exc::Test(0 == iTable);
 			uint32_t nOffset = ReadI32Initializer(inp);
-			Test(1 == nOffset); // seems irrelevant
+			Exc::Test(1 == nOffset); // seems irrelevant
 
 			auto nFuncs = inp.Read<uint32_t>();
 			m_IndirectFuncs.m_vec.resize(nFuncs);
@@ -656,7 +602,7 @@ namespace Wasm {
 			{
 				auto val = inp.Read<uint32_t>();
 				val -= static_cast<uint32_t>(m_ImportFuncs.size());
-				Test(val < m_Functions.size());
+				Exc::Test(val < m_Functions.size());
 
 				m_IndirectFuncs.m_vec[iFunc] = val;
 			}
@@ -666,7 +612,7 @@ namespace Wasm {
 	void CompilerPlus::OnSection_Code(Reader& inp)
 	{
 		auto nCount = inp.Read<uint32_t>();
-		Test(nCount == m_Functions.size());
+		Exc::Test(nCount == m_Functions.size());
 
 		for (uint32_t i = 0; i < nCount; i++)
 		{
@@ -713,7 +659,7 @@ namespace Wasm {
 
 			if (i) {
 				// assume data blocks are sorted w.r.t. their virtual offset, and no overlap
-				Test(nAddr >= m_cmplData0 + m_Data.size());
+				Exc::Test(nAddr >= m_cmplData0 + m_Data.size());
 			}
 			else
 				m_cmplData0 = nAddr;
@@ -763,7 +709,7 @@ namespace Wasm {
 		bool m_Unreachable = false;
 
 		Block& get_B() {
-			Test(!m_Blocks.empty());
+			Exc::Test(!m_Blocks.empty());
 			return m_Blocks.back();
 		}
 
@@ -773,7 +719,7 @@ namespace Wasm {
 		}
 
 		uint8_t Pop() {
-			Test(!m_Operands.empty());
+			Exc::Test(!m_Operands.empty());
 			uint8_t ret = m_Operands.back();
 			m_Operands.pop_back();
 
@@ -783,7 +729,7 @@ namespace Wasm {
 
 		void Pop(uint8_t nType) {
 			uint8_t x = Pop();
-			Test(x == nType);
+			Exc::Test(x == nType);
 		}
 
 		void Pop(const Vec<uint8_t>& vArgs)
@@ -797,8 +743,8 @@ namespace Wasm {
 			if (!v.n)
 				return;
 
-			Test(m_Operands.size() >= v.n);
-			Test(!memcmp(&m_Operands.front() + m_Operands.size() - v.n, v.p, sizeof(*v.p) * v.n));
+			Exc::Test(m_Operands.size() >= v.n);
+			Exc::Test(!memcmp(&m_Operands.front() + m_Operands.size() - v.n, v.p, sizeof(*v.p) * v.n));
 		}
 
 		void BlockOpen(const PerType& tp)
@@ -825,7 +771,7 @@ namespace Wasm {
 		void BlockOpen()
 		{
 			auto nType = m_Code.Read<uint32_t>();
-			Test(0x40 == nType);
+			Exc::Test(0x40 == nType);
 			PerType tp = { { 0 } };
 			BlockOpen(tp);
 
@@ -834,7 +780,7 @@ namespace Wasm {
 
 		void TestBlockCanClose(const Block& b)
 		{
-			Test(m_Operands == b.m_OperandsAtExit);
+			Exc::Test(m_Operands == b.m_OperandsAtExit);
 		}
 
 		void UpdTopBlockLabel()
@@ -918,7 +864,7 @@ namespace Wasm {
 
 		void PutBranchLabel(uint32_t nLabel)
 		{
-			Test(nLabel + 1 < m_Blocks.size());
+			Exc::Test(nLabel + 1 < m_Blocks.size());
 			assert(nLabel < m_This.m_Labels.m_Items.size());
 
 			auto iBlock = m_Blocks.size() - (nLabel + 1);
@@ -932,7 +878,7 @@ namespace Wasm {
 			}
 
 			TestOperands(b.m_Type.m_Args);
-			Test(m_Operands.size() == nOperands);
+			Exc::Test(m_Operands.size() == nOperands);
 
 			PutLabelTrg(m_Blocks[m_Blocks.size() - (nLabel + 1)].m_iLabel);
 		}
@@ -953,7 +899,7 @@ namespace Wasm {
 			const auto& f = m_This.m_Functions[m_iFunc];
 			auto iVar = m_Code.Read<uint32_t>();
 
-			Test(iVar < f.m_Locals.m_v.size());
+			Exc::Test(iVar < f.m_Locals.m_v.size());
 			const auto var = f.m_Locals.m_v[iVar];
 
 
@@ -1124,7 +1070,7 @@ namespace Wasm {
 			}
 			else
 			{
-				Fail(); // not supported atm
+				Exc::Fail(); // not supported atm
 			}
 
 			m_p0 = nullptr; // don't write
@@ -1164,7 +1110,7 @@ namespace Wasm {
 			if (!bImported)
 			{
 				iFunc -= static_cast<uint32_t>(m_This.m_ImportFuncs.size());
-				Test(iFunc < m_This.m_Functions.size());
+				Exc::Test(iFunc < m_This.m_Functions.size());
 
 				OnDep(iFunc);
 			}
@@ -1192,10 +1138,10 @@ namespace Wasm {
 		void On_call_indirect()
 		{
 			auto iType = m_Code.Read<uint32_t>();
-			Test(iType < m_This.m_Types.size());
+			Exc::Test(iType < m_This.m_Types.size());
 
 			auto iTable = m_Code.Read<uint32_t>();
-			Test(!iTable);
+			Exc::Test(!iTable);
 
 			Pop(Type::i32); // func index
 			OnCallType(iType);
@@ -1350,7 +1296,7 @@ namespace Wasm {
 
 	void Compiler::Build()
 	{
-		CheckpointTxt cp("wasm/Compiler/build");
+		Exc::CheckpointTxt cp("wasm/Compiler/build");
 
 		auto n0 = m_Result.size();
 
@@ -1451,7 +1397,7 @@ namespace Wasm {
 
 	void Compiler::Context::CompileFunc()
 	{
-		struct MyCheckpoint :public Checkpoint {
+		struct MyCheckpoint :public Exc::Checkpoint {
 			uint32_t m_iFunc;
 			uint32_t m_Line = 0;
 			virtual void Dump(std::ostream& os) override {
@@ -1582,13 +1528,13 @@ namespace Wasm {
 #undef THE_MACRO_ID64
 
 			default:
-				Fail();
+				Exc::Fail();
 			}
 
 			WriteInstruction(); // unless already written
 		}
 
-		Test(m_Code.m_p0 == m_Code.m_p1);
+		Exc::Test(m_Code.m_p0 == m_Code.m_p1);
 
 	}
 
@@ -1599,13 +1545,13 @@ namespace Wasm {
 	// Processor
 	Word Processor::Stack::Pop1()
 	{
-		Test(m_Pos > m_PosMin);
+		Exc::Test(m_Pos > m_PosMin);
 		return m_pPtr[--m_Pos];
 	}
 
 	void Processor::Stack::Push1(Word x)
 	{
-		Test(m_Pos < m_BytesCurrent / sizeof(Word));
+		Exc::Test(m_Pos < m_BytesCurrent / sizeof(Word));
 		m_pPtr[m_Pos++] = x;
 	}
 
@@ -1643,7 +1589,7 @@ namespace Wasm {
 
 	void Processor::Stack::set_AlasSp(Word x)
 	{
-		Test((MemoryType::Mask & x) == MemoryType::Stack);
+		Exc::Test((MemoryType::Mask & x) == MemoryType::Stack);
 		m_BytesCurrent = (x & ~MemoryType::Mask);
 		TestSelf();
 	}
@@ -1651,7 +1597,7 @@ namespace Wasm {
 	void Processor::Stack::AliasAlloc(Word nSize)
 	{
 		nSize = AlignUp(nSize);
-		Test(nSize <= m_BytesCurrent);
+		Exc::Test(nSize <= m_BytesCurrent);
 		m_BytesCurrent -= nSize;
 		TestSelf();
 	}
@@ -1660,7 +1606,7 @@ namespace Wasm {
 	{
 		nSize = AlignUp(nSize);
 		m_BytesCurrent += nSize;
-		Test(nSize <= m_BytesCurrent); // no overflow
+		Exc::Test(nSize <= m_BytesCurrent); // no overflow
 		TestSelf();
 	}
 
@@ -1678,8 +1624,8 @@ namespace Wasm {
 	void Processor::Stack::TestSelf() const
 	{
 		// Test(m_Pos >= m_PosMin); - this test is not needed
-		Test(m_BytesCurrent <= m_BytesMax);
-		Test(m_Pos <= m_BytesCurrent / sizeof(Word));
+		Exc::Test(m_BytesCurrent <= m_BytesMax);
+		Exc::Test(m_Pos <= m_BytesCurrent / sizeof(Word));
 		assert(AlignUp(m_BytesCurrent) == m_BytesCurrent);
 	}
 
@@ -1691,7 +1637,7 @@ namespace Wasm {
 	void Processor::Stack::TestAlignmentPower(uint32_t n)
 	{
 		static_assert(s_Alignment == (1 << 4));
-		Test(n <= 4);
+		Exc::Test(n <= 4);
 	}
 
 	struct ProcessorPlus
@@ -1704,7 +1650,7 @@ namespace Wasm {
 			if (val >= nMaxBits)
 			{
 				if (!get_WasmVersion())
-					Fail("Incompatible shift operand");
+					Exc::Fail("Incompatible shift operand");
 
 				val %= nMaxBits;
 			}
@@ -1760,10 +1706,10 @@ namespace Wasm {
 		BINOP(add) { return a + b; }
 		BINOP(sub) { return a - b; }
 		BINOP(mul) { return a * b; }
-		BINOP(div_s) { Test(b);  return Type::SignedFrom(a) / Type::SignedFrom(b); }
-		BINOP(div_u) { Test(b);  return a / b; }
-		BINOP(rem_s) { Test(b);  return Type::SignedFrom(a) % Type::SignedFrom(b); }
-		BINOP(rem_u) { Test(b);  return a % b; }
+		BINOP(div_s) { Exc::Test(b);  return Type::SignedFrom(a) / Type::SignedFrom(b); }
+		BINOP(div_u) { Exc::Test(b);  return a / b; }
+		BINOP(rem_s) { Exc::Test(b);  return Type::SignedFrom(a) % Type::SignedFrom(b); }
+		BINOP(rem_u) { Exc::Test(b);  return a % b; }
 		BINOP(and) { return a & b; }
 		BINOP(or) { return a | b; }
 		BINOP(xor) { return a ^ b; }
@@ -1788,7 +1734,7 @@ namespace Wasm {
 
 			nOffset /= sizeof(Word);
 
-			Test((nOffset >= nWords) && (nOffset <= m_Stack.m_Pos - m_Stack.m_PosMin));
+			Exc::Test((nOffset >= nWords) && (nOffset <= m_Stack.m_Pos - m_Stack.m_PosMin));
 
 			uint32_t* pSrc = m_Stack.m_pPtr + m_Stack.m_Pos;
 			uint32_t* pDst = pSrc - nOffset;
@@ -1797,7 +1743,7 @@ namespace Wasm {
 			{
 				std::swap(pDst, pSrc);
 				m_Stack.m_Pos += nWords;
-				Test(m_Stack.m_Pos <= m_Stack.m_BytesCurrent / sizeof(Word));
+				Exc::Test(m_Stack.m_Pos <= m_Stack.m_BytesCurrent / sizeof(Word));
 			}
 			else
 			{
@@ -1813,7 +1759,7 @@ namespace Wasm {
 
 		void OnGlobal(bool bGet)
 		{
-			Fail();
+			Exc::Fail();
 		}
 
 		void OnGlobalImp(bool bGet)
@@ -1843,7 +1789,7 @@ namespace Wasm {
 
 		void RunOncePlus()
 		{
-			struct MyCheckpoint :public Checkpoint {
+			struct MyCheckpoint :public Exc::Checkpoint {
 				Word m_Ip;
 				virtual void Dump(std::ostream& os) override {
 					os << "wasm/Run, Ip=" << uintBigFrom(m_Ip);
@@ -1908,7 +1854,7 @@ namespace Wasm {
 #undef THE_MACRO
 
 			default:
-				Fail();
+				Exc::Fail();
 			}
 
 		}
@@ -1921,7 +1867,7 @@ namespace Wasm {
 
 	uint8_t* Processor::get_AddrExVar(uint32_t nOffset, uint32_t& nSizeOut, bool bW) const
 	{
-		CheckpointTxt cp("mem/probe");
+		Exc::CheckpointTxt cp("mem/probe");
 
 		Blob blob;
 
@@ -1946,7 +1892,7 @@ namespace Wasm {
 			{
 				// sometimes the compiler may omit updating the stack pointer yet write below it (currently this happens in debug build empty function with a single parameter)
 				// We allow it, as long as it's above wasm operand stack
-				Test(m_Stack.m_Pos <= nOffset / sizeof(Word));
+				Exc::Test(m_Stack.m_Pos <= nOffset / sizeof(Word));
 			}
 
 			blob.p = m_Stack.m_pPtr;
@@ -1954,10 +1900,10 @@ namespace Wasm {
 			break;
 
 		default:
-			Fail();
+			Exc::Fail();
 		}
 
-		Test(nOffset <= blob.n);
+		Exc::Test(nOffset <= blob.n);
 		nSizeOut = blob.n - nOffset;
 		return reinterpret_cast<uint8_t*>(Cast::NotConst(blob.p)) + nOffset;
 	}
@@ -1970,8 +1916,8 @@ namespace Wasm {
 		uint32_t nSizeOut;
 		auto pRet = get_AddrExVar(nOffset, nSizeOut, bW);
 
-		CheckpointTxt cp("mem/bounds");
-		Test(nSize <= nSizeOut);
+		Exc::CheckpointTxt cp("mem/bounds");
+		Exc::Test(nSize <= nSizeOut);
 
 		return pRet;
 	}
@@ -1985,7 +1931,7 @@ namespace Wasm {
 
 	void Processor::InvokeExt(uint32_t)
 	{
-		Fail(); // unresolved binding
+		Exc::Fail(); // unresolved binding
 	}
 
 	void Processor::OnGlobalVar(uint32_t iVar, bool bGet)
@@ -1998,20 +1944,20 @@ namespace Wasm {
 			else
 			{
 				Word val = m_Stack.Pop<Word>();
-				Test(m_Stack.AlignUp(val) == val);
+				Exc::Test(m_Stack.AlignUp(val) == val);
 				m_Stack.set_AlasSp(val);
 			}
 			break;
 
 		default:
-			Fail();
+			Exc::Fail();
 		}
 
 	}
 
 	void Processor::Jmp(uint32_t ip)
 	{
-		Test(ip < m_Code.n);
+		Exc::Test(ip < m_Code.n);
 
 		m_Instruction.m_p0 = reinterpret_cast<const uint8_t*>(m_Code.p) + ip;
 		m_Instruction.m_p1 = m_Instruction.m_p0 + m_Code.n - ip;
@@ -2055,7 +2001,7 @@ namespace Wasm {
 	void ProcessorPlus::On_drop()
 	{
 		uint32_t nWords = Type::Words(m_Instruction.Read1());
-		Test(m_Stack.m_Pos - m_Stack.m_PosMin >= nWords);
+		Exc::Test(m_Stack.m_Pos - m_Stack.m_PosMin >= nWords);
 		m_Stack.m_Pos -= nWords;
 	}
 
@@ -2064,7 +2010,7 @@ namespace Wasm {
 		uint32_t nWords = Type::Words(m_Instruction.Read1());
 		auto nSel = m_Stack.Pop<Word>();
 
-		Test(m_Stack.m_Pos - m_Stack.m_PosMin >= (nWords << 1)); // must be at least 2 such operands
+		Exc::Test(m_Stack.m_Pos - m_Stack.m_PosMin >= (nWords << 1)); // must be at least 2 such operands
 		m_Stack.m_Pos -= nWords;
 
 		if (!nSel)
@@ -2112,7 +2058,7 @@ namespace Wasm {
 
 		nLabels++;
 		uint32_t nSize = sizeof(Word) * nLabels;
-		Test(nSize / sizeof(Word) == nLabels); // overflow check
+		Exc::Test(nSize / sizeof(Word) == nLabels); // overflow check
 
 		auto* pAddrs = reinterpret_cast<const Word*>(m_Instruction.Consume(nSize));
 		Jmp(from_wasm<Word>(pAddrs[nOperand]));
@@ -2130,7 +2076,7 @@ namespace Wasm {
 	{
 		uint32_t iExt = m_Instruction.Read<uint32_t>();
 
-		struct MyCheckpoint :public Checkpoint {
+		struct MyCheckpoint :public Exc::Checkpoint {
 			uint32_t m_iExt;
 			virtual void Dump(std::ostream& os) override {
 				if (static_cast<uint32_t>(-1) == m_iExt)
@@ -2149,7 +2095,7 @@ namespace Wasm {
 	{
 		iItem--; // it's 1-based
 		assert(m_prTable0 <= m_Code.n); // must be checked during setup
-		Test(iItem < (m_Code.n - m_prTable0) / sizeof(Word));
+		Exc::Test(iItem < (m_Code.n - m_prTable0) / sizeof(Word));
 		return from_wasm<Word>(static_cast<const uint8_t*>(m_Code.p) + m_prTable0 + sizeof(Word) * iItem);
 	}
 
@@ -2202,14 +2148,14 @@ namespace Wasm {
 		// retval
 
 		uint32_t nPosRetSrc = m_Stack.m_Pos - nRets;
-		Test(nPosRetSrc <= m_Stack.m_Pos);
+		Exc::Test(nPosRetSrc <= m_Stack.m_Pos);
 
 		uint32_t nPosAddr = nPosRetSrc - (nLocals + 1);
-		Test(nPosAddr < nPosRetSrc);
+		Exc::Test(nPosAddr < nPosRetSrc);
 
 		uint32_t nPosRetDst = nPosAddr - nArgs;
-		Test(nPosRetDst <= nPosAddr);
-		Test(nPosRetDst >= m_Stack.m_PosMin);
+		Exc::Test(nPosRetDst <= nPosAddr);
+		Exc::Test(nPosRetDst >= m_Stack.m_PosMin);
 
 		Word nRetAddr = m_Stack.m_pPtr[nPosAddr];
 

@@ -32,6 +32,7 @@
 
 #include "wallet/transactions/assets/assets_reg_creators.h"
 #include "keykeeper/local_private_key_keeper.h"
+#include "keykeeper/usb_key_keeper.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "core/treasury.h"
@@ -700,7 +701,50 @@ namespace
         return pass;
     }
 
-    int InitDataBase(const po::variables_map& vm, bool generateNewSeed)
+    std::vector<HidInfo::Entry> EnumUsbHw()
+    {
+        // supported vender (Ledger)
+        return wallet::HidInfo::Enum(0x2c97);
+    }
+
+    std::string ReadUsbPath(const po::variables_map& vm)
+    {
+        std::string sRet;
+
+        auto val = vm[cli::USB_NAME];
+        if (val.empty())
+            std::cout << "USB name not specified" << std::endl;
+        else
+        {
+            auto sName = val.as<std::string>();
+
+            auto vRes = EnumUsbHw();
+            for (uint32_t i = 0; ; i++)
+            {
+                if (vRes.size() == i)
+                {
+                    std::cout << "No such a USB device found" << std::endl;
+                    break;
+                }
+
+                if (vRes[i].m_sProduct == sName)
+                {
+                    sRet = std::move(vRes[i].m_sPath);
+                    break;
+                }
+            }
+        }
+
+        return sRet;
+    }
+
+    enum struct InitKind {
+        GenerateSeed,
+        RecoverFromSeed,
+        RecoverFromUsb,
+    };
+
+    int InitDataBase(const po::variables_map& vm, InitKind kind)
     {
         BOOST_ASSERT(vm.count(cli::WALLET_STORAGE) > 0);
         auto walletPath = vm[cli::WALLET_STORAGE].as<string>();
@@ -735,15 +779,30 @@ namespace
             return -1;
         }
 
-        NoLeak<uintBig> walletSeed;
-        walletSeed.V = Zero;
-        if (!ReadWalletSeed(walletSeed, vm, generateNewSeed))
+        IWalletDB::Ptr walletDB;
+
+        if (InitKind::RecoverFromUsb == kind)
         {
-            LOG_ERROR() << kErrorSeedPhraseFail;
-            return -1;
+            std::string sPath = ReadUsbPath(vm);
+            if (sPath.empty())
+                return -1;
+
+            walletDB = WalletDB::initUsb(walletPath, pass, sPath);
+        }
+        else
+        {
+            NoLeak<uintBig> walletSeed;
+            walletSeed.V = Zero;
+            if (!ReadWalletSeed(walletSeed, vm, InitKind::GenerateSeed == kind))
+            {
+                LOG_ERROR() << kErrorSeedPhraseFail;
+                return -1;
+            }
+
+            walletDB = WalletDB::init(walletPath, pass, walletSeed);
         }
 
-        auto walletDB = WalletDB::init(walletPath, pass, walletSeed);
+
         if (walletDB)
         {
             LOG_INFO() << kWalletCreatedMessage;
@@ -754,14 +813,35 @@ namespace
         return -1;
     }
 
+    int EnumUsb(const po::variables_map& vm)
+    {
+        auto vRes = EnumUsbHw();
+        if (vRes.empty())
+            std::cout << "No supported USB devices found" << std::endl;
+        else
+        {
+            std::cout << "Found devices: " << vRes.size() << std::endl;
+
+            for (const auto& x : vRes)
+                std::cout << "\tManufacturer: " << x.m_sManufacturer << ", Name: " << x.m_sProduct << std::endl;
+        }
+
+        return 0;
+    }
+
     int InitWallet(const po::variables_map& vm)
     {
-        return InitDataBase(vm, true);
+        return InitDataBase(vm, InitKind::GenerateSeed);
     }
 
     int RestoreWallet(const po::variables_map& vm)
     {
-        return InitDataBase(vm, false);
+        return InitDataBase(vm, InitKind::RecoverFromSeed);
+    }
+
+    int RestoreWalletUsb(const po::variables_map& vm)
+    {
+        return InitDataBase(vm, InitKind::RecoverFromUsb);
     }
 
    int GetAddress(const po::variables_map& vm)
@@ -3209,6 +3289,8 @@ int main(int argc, char* argv[])
     {
         {cli::INIT,               InitWallet,                       "initialize new wallet database with a new seed phrase"},
         {cli::RESTORE,            RestoreWallet,                    "restore wallet database from a seed phrase provided by the user"},
+        {cli::RESTORE_USB,        RestoreWalletUsb,                 "restore wallet database from an attached HW wallet"},
+        {cli::USB_ENUM,           EnumUsb,                          "Enumerate attached HW wallets"},
         {cli::SEND,               Send,                             "send BEAM"},
         {cli::SHADER_INVOKE,      ShaderInvoke,                     "Invoke a wallet-side shader"},
         {cli::LISTEN,             Listen,                           "listen to the node (the wallet won't close till halted"},

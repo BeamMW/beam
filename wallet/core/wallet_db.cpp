@@ -36,6 +36,7 @@ namespace fs = std::filesystem;
 #include "nlohmann/json.hpp"
 #include "utility/std_extension.h"
 #include "keykeeper/local_private_key_keeper.h"
+#include "keykeeper/usb_key_keeper.h"
 #include "strings_resources.h"
 #include "core/uintBig.h"
 #include "utility/test_helpers.h"
@@ -1005,6 +1006,7 @@ namespace beam::wallet
         const char* WalletSeed = "WalletSeed";
         const char* OwnerKey = "OwnerKey";
         const char* Version = "Version";
+        const char* UsbHw = "UsbHw";
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const char* kStateSummaryShieldedOutsDBPath = "StateSummaryShieldedOuts";
@@ -2043,7 +2045,7 @@ namespace beam::wallet
             throw std::runtime_error("Key keeper required");
 
         IPrivateKeyKeeper2::Method::get_Kdf m;
-        m.m_Root = true;
+        m.m_Type = IPrivateKeyKeeper2::KdfType::Root;
         m_pKeyKeeper->InvokeSync(m);
 
         if (m.m_pKdf)
@@ -2060,9 +2062,7 @@ namespace beam::wallet
         m_pKdfOwner = std::move(m.m_pPKdf);
 
         // trustless mode. create SBBS Kdf from a child PKdf. It won't be directly accessible from the owner key
-        m.m_Root = false;
-        m.m_iChild = Key::Index(-1); // definitely won't collude with a coin child Kdf (for coins high byte is reserved for scheme)
-
+        m.m_Type = IPrivateKeyKeeper2::KdfType::Sbbs;
         m_pKeyKeeper->InvokeSync(m);
 
         if (!m.m_pPKdf)
@@ -2157,6 +2157,17 @@ namespace beam::wallet
         }
 
         return walletDB;
+    }
+
+    IWalletDB::Ptr WalletDB::initUsb(const string& path, const SecString& password, const std::string& sUsbPath, bool separateDBForPrivateData)
+    {
+        auto pKeyKeeper = UsbKeyKeeper::Open(sUsbPath);
+
+        auto pRet = init(path, password, pKeyKeeper, separateDBForPrivateData);
+
+        storage::setBlobVar(*pRet, UsbHw, sUsbPath);
+
+        return pRet;
     }
 
     IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password)
@@ -2493,9 +2504,16 @@ namespace beam::wallet
                 ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
                 bool bHadOwnerKey = storage::getVar(*walletDB, OwnerKey, packedOwnerKey.V);
 
-                if (pKeyKeeper)
+                walletDB->m_pKeyKeeper = pKeyKeeper;
+                if (!walletDB->m_pKeyKeeper)
                 {
-                    walletDB->m_pKeyKeeper = pKeyKeeper;
+                    std::string sUsbPath;
+                    if (storage::getBlobVar(*walletDB, UsbHw, sUsbPath) && !sUsbPath.empty())
+                        walletDB->m_pKeyKeeper = UsbKeyKeeper::Open(sUsbPath);
+                }
+
+                if (walletDB->m_pKeyKeeper)
+                {
                     walletDB->FromKeyKeeper();
 
                     if (bHadOwnerKey)
@@ -2705,20 +2723,31 @@ namespace beam::wallet
 
     bool IWalletDB::get_CommitmentSafe(ECC::Point& comm, const CoinID& cid, IPrivateKeyKeeper2* pKeyKeeper)
     {
-        ECC::Point::Native comm2;
-        if (!pKeyKeeper || (IPrivateKeyKeeper2::Status::Success != pKeyKeeper->get_Commitment(comm2, cid)))
+        Key::Index idx;
+        if (cid.get_ChildKdfIndex(idx))
         {
-            Key::Index idx;
-            if (cid.get_ChildKdfIndex(idx))
-                return false; // child kdf is required
+            if (!pKeyKeeper)
+                return false;
 
+            IPrivateKeyKeeper2::Method::get_Commitment m;
+            m.m_Cid = cid;
+
+            if (IPrivateKeyKeeper2::Status::Success != pKeyKeeper->InvokeSync(m))
+                return false;
+
+            comm = m.m_Result;
+        }
+        else
+        {
             Key::IPKdf::Ptr pOwner = get_OwnerKdf();
             assert(pOwner); // must always be available
 
+            ECC::Point::Native comm2;
             CoinID::Worker(cid).Recover(comm2, *pOwner);
+
+            comm2.Export(comm);
         }
 
-        comm = comm2;
         return true;
     }
 

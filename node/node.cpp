@@ -2244,8 +2244,7 @@ uint8_t Node::ValidateTx(TxPool::Stats& stats, const Transaction& tx, const Tran
         return it->second;
     }
 
-    Transaction::Context::Params pars;
-    Transaction::Context ctx(pars);
+    Transaction::Context ctx;
     uint32_t nBvmCharge = 0;
     Amount feeReserve = 0;
 
@@ -2274,10 +2273,22 @@ uint8_t Node::ValidateTx2(Transaction::Context& ctx, const Transaction& tx, uint
 {
     ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
 
-    if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
+    std::string sErr;
+    bool bValid = m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader(), sErr);
+    if (bValid)
+    {
+        try {
+            ctx.TestValidTransaction();
+        } catch (const std::exception& e) {
+            bValid = false;
+            sErr = e.what();
+        }
+    }
+
+    if (!bValid)
     {
         if (pExtraInfo)
-            *pExtraInfo << "Context-free validation failed";
+            *pExtraInfo << "Context-free validation failed: " << sErr;
         return proto::TxStatus::Invalid;
     }
 
@@ -2882,8 +2893,7 @@ uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash&
             pParent = &itCtx->get_ParentObj();
         }
 
-        Transaction::Context::Params pars;
-        Transaction::Context ctx(pars);
+        Transaction::Context ctx;
         uint32_t nBvmCharge = 0;
         Amount feeReserve = 0;
         Merkle::Hash hvCtxNew;
@@ -3862,11 +3872,11 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 
         // verify that all the outputs correspond to our viewer's Kdf (in case our comm was hacked this'd prevent mining for someone else)
         // and do the overall validation
-        TxBase::Context::Params pars;
-		TxBase::Context ctx(pars);
+		TxBase::Context ctx;
 		ctx.m_Height = m_This.m_Processor.m_Cursor.m_ID.m_Height + 1;
-        if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader()))
-            ThrowUnexpected();
+        std::string sErr;
+        if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader(), sErr))
+            ThrowUnexpected(sErr.c_str());
 
         if (ctx.m_Stats.m_Coinbase != AmountBig::Type(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
             ThrowUnexpected();

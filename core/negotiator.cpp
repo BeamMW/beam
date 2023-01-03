@@ -513,8 +513,7 @@ uint32_t MultiTx::Update2()
 		krn.m_Signature.m_k = k;
 
 
-		ECC::Point::Native comm;
-		if (!krn.IsValid(hScheme, comm))
+		if (!krn.IsValid(hScheme))
 			return Status::Error;
 
 		tx.m_vKernels.emplace_back();
@@ -645,9 +644,7 @@ uint32_t MultiTx::Update2()
 	txFull.m_Offset = ECC::Scalar::Native(tx.m_Offset) + ECC::Scalar::Native(txPeer.m_Offset);
 	txFull.Normalize();
 
-	TxBase::Context::Params pars;
-	TxBase::Context ctx(pars);
-
+	TxBase::Context ctx;
 	ctx.m_Height.m_Min = hScheme;
 	if (!txFull.IsValid(ctx))
 		return Status::Error;

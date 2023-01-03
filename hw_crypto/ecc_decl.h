@@ -37,37 +37,31 @@
 #	pragma warning (pop)
 #endif
 
-#define BeamCrypto_nBytes sizeof(secp256k1_scalar)
-#define BeamCrypto_nBits (BeamCrypto_nBytes * 8)
+#define c_ECC_nBytes sizeof(secp256k1_scalar)
+#define c_ECC_nBits (c_ECC_nBytes * 8)
 
 typedef struct
 {
-	uint8_t m_pVal[BeamCrypto_nBytes];
-} BeamCrypto_UintBig;
+	uint8_t m_pVal[c_ECC_nBytes];
+} UintBig;
 
 typedef struct
 {
 	// platform-independent EC point representation
-	BeamCrypto_UintBig m_X;
+	UintBig m_X;
 	uint8_t m_Y;
-} BeamCrypto_CompactPoint;
+} CompactPoint;
 
-// Converting point representations is expensive.
-// The following is a "flexible" point representation, which is converted on-demand according to the needs
-typedef struct
-{
-	BeamCrypto_CompactPoint m_Compact; // platform-independent way. Suitable for serialization, hashing and etc.
-	secp256k1_gej m_Gej; // Jacobian form (x,y,z)
-	secp256k1_ge m_Ge; // Affine form (x,y)
+void Point_Gej_from_Ge(secp256k1_gej*, const secp256k1_ge*);
+void Point_Gej_BatchRescale(secp256k1_gej*, unsigned int nCount, secp256k1_fe* pBuf, secp256k1_fe* pZDenom, int bNormalize);
 
-	uint8_t m_Flags; // zero indicates 'invalid' point. Auto-set on a failed attempt to convert from m_Compact
+void Point_Ge_from_Gej(secp256k1_ge*, const secp256k1_gej*);
 
-} BeamCrypto_FlexPoint;
+int Point_Ge_from_Compact(secp256k1_ge*, const CompactPoint*);
+int Point_Ge_from_CompactNnz(secp256k1_ge*, const CompactPoint*);
 
-#define BeamCrypto_FlexPoint_Compact 1
-#define BeamCrypto_FlexPoint_Gej 2
-#define BeamCrypto_FlexPoint_Ge 4
+void Point_Compact_from_Ge(CompactPoint*, const secp256k1_ge*);
+void Point_Compact_from_Gej(CompactPoint*, const secp256k1_gej*);
 
-void BeamCrypto_FlexPoint_MakeCompact(BeamCrypto_FlexPoint*);
-void BeamCrypto_FlexPoint_MakeGej(BeamCrypto_FlexPoint*);
-void BeamCrypto_FlexPoint_MakeGe(BeamCrypto_FlexPoint*);
+uint8_t Point_Compact_from_Ge_Ex(UintBig* pX, const secp256k1_ge*);
+uint8_t Point_Compact_from_Gej_Ex(UintBig* pX, const secp256k1_gej*);

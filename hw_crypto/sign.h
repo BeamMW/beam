@@ -17,11 +17,11 @@
 
 typedef struct
 {
-	BeamCrypto_CompactPoint m_NoncePub;
-	BeamCrypto_UintBig m_k; // scalar, but in a platform-independent way
+	CompactPoint m_NoncePub;
+	UintBig m_k; // scalar, but in a platform-independent way
 
-} BeamCrypto_Signature; // Schnorr
+} Signature; // Schnorr
 
-void BeamCrypto_Signature_Sign(BeamCrypto_Signature*, const BeamCrypto_UintBig* pMsg, const secp256k1_scalar* pSk);
-void BeamCrypto_Signature_SignPartial(BeamCrypto_Signature*, const BeamCrypto_UintBig* pMsg, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce);
-int BeamCrypto_Signature_IsValid(const BeamCrypto_Signature*, const BeamCrypto_UintBig* pMsg, BeamCrypto_FlexPoint* pPk);
+void Signature_Sign(Signature*, const UintBig* pMsg, const secp256k1_scalar* pSk);
+void Signature_SignPartial(Signature*, const UintBig* pMsg, const secp256k1_scalar* pSk, const secp256k1_scalar* pNonce);
+int Signature_IsValid(const Signature*, const UintBig* pMsg, const CompactPoint* pPk);

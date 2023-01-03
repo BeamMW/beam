@@ -14,6 +14,7 @@ target_sources(keykeeper
     PRIVATE
         local_private_key_keeper.cpp
         remote_key_keeper.cpp
+        usb_key_keeper.cpp
 )
 
 if(EMSCRIPTEN AND NOT BEAM_WALLET_CLIENT_LIBRARY)

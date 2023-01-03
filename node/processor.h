@@ -572,7 +572,7 @@ public:
 
 	virtual Executor& get_Executor();
 
-	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
+	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&, std::string& sErr);
 
 	struct ViewerKeys
 	{

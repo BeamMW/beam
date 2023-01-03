@@ -187,29 +187,29 @@ namespace bvm2 {
 
 	const Processor::Header& Processor::ParseMod()
 	{
-		Wasm::Test(m_Code.n >= sizeof(Header));
+		Exc::Test(m_Code.n >= sizeof(Header));
 		const Header& hdr = *reinterpret_cast<const Header*>(m_Code.p);
 
-		Wasm::Test(ByteOrder::from_le(hdr.m_Version) == hdr.s_Version);
+		Exc::Test(ByteOrder::from_le(hdr.m_Version) == hdr.s_Version);
 		uint32_t nMethods = ByteOrder::from_le(hdr.m_NumMethods);
-		Wasm::Test((nMethods - Header::s_MethodsMin <= Header::s_MethodsMax - Header::s_MethodsMin));
+		Exc::Test((nMethods - Header::s_MethodsMin <= Header::s_MethodsMax - Header::s_MethodsMin));
 
 		uint32_t nHdrSize = sizeof(Header) + sizeof(Wasm::Word) * (nMethods - Header::s_MethodsMin);
-		Wasm::Test(nHdrSize <= m_Code.n);
+		Exc::Test(nHdrSize <= m_Code.n);
 
 		m_Data.n = m_Code.n - nHdrSize;
 		m_Data.p = reinterpret_cast<const uint8_t*>(m_Code.p) + nHdrSize;
 		m_prData0 = ByteOrder::from_le(hdr.m_hdrData0);
 
 		m_prTable0 = ByteOrder::from_le(hdr.m_hdrTable0);
-		Wasm::Test(m_prTable0 <= m_Code.n);
+		Exc::Test(m_prTable0 <= m_Code.n);
 
 		return hdr;
 	}
 
 	void ProcessorContract::CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint32_t nFlags)
 	{
-		struct MyCheckpoint :public Wasm::Checkpoint
+		struct MyCheckpoint :public Exc::Checkpoint
 		{
 			const ContractID& m_Cid;
 			uint32_t m_iMethod;
@@ -226,7 +226,7 @@ namespace bvm2 {
 		} cp(cid, iMethod);
 
 		DischargeUnits(Limits::Cost::CallFar);
-		Wasm::Test(m_FarCalls.m_Stack.size() < Limits::FarCallDepth);
+		Exc::Test(m_FarCalls.m_Stack.size() < Limits::FarCallDepth);
 
 		auto nRetAddr = get_Ip();
 		const ContractID* pCidContext = &cid;
@@ -263,7 +263,7 @@ namespace bvm2 {
 				if (f.m_Cid == *pCidContext)
 				{
 					if (FarCalls::Flags::s_CallerBlocked & nFlagsSrc)
-						Wasm::Fail("reentry blocked");
+						Exc::Fail("reentry blocked");
 
 					if (FarCalls::Flags::s_CallerLockedRO & nFlagsSrc)
 						nFlagsDst |= FarCalls::Flags::s_LockedRO;
@@ -297,7 +297,7 @@ namespace bvm2 {
 		m_Code = x.m_Body; // important! Use our local copy to access the code
 
 		const Header& hdr = ParseMod();
-		Wasm::Test(iMethod < ByteOrder::from_le(hdr.m_NumMethods));
+		Exc::Test(iMethod < ByteOrder::from_le(hdr.m_NumMethods));
 
 		m_Stack.Push(pArgs);
 		m_Stack.Push(0); // retaddr, set dummy for far call
@@ -321,10 +321,10 @@ namespace bvm2 {
 
 	void ProcessorContract::OnRetFar()
 	{
-		Wasm::Test(m_Stack.m_Pos == m_Stack.m_PosMin);
+		Exc::Test(m_Stack.m_Pos == m_Stack.m_PosMin);
 
 		auto& x = m_FarCalls.m_Stack.back();
-		Wasm::Test(m_Stack.m_BytesCurrent == x.m_StackBytesRet);
+		Exc::Test(m_Stack.m_BytesCurrent == x.m_StackBytesRet);
 
 		Wasm::Word nRetAddr = x.m_FarRetAddr;
 
@@ -458,7 +458,7 @@ namespace bvm2 {
 	{
 		if (m_Charge < n)
 		{
-			struct MyCheckpoint :public Wasm::Checkpoint
+			struct MyCheckpoint :public Exc::Checkpoint
 			{
 				void Dump(std::ostream& os) override {
 					os << "Discharge";
@@ -470,7 +470,7 @@ namespace bvm2 {
 
 			} cp;
 
-			Wasm::Fail("no Charge");
+			Exc::Fail("no Charge");
 		}
 
 		m_Charge -= n;
@@ -483,7 +483,7 @@ namespace bvm2 {
 
 	void Processor::Compiler::Compile(ByteBuffer& res, const Blob& src, Kind kind, Wasm::Compiler::DebugInfo* pDbgInfo /* = nullptr */)
 	{
-		Wasm::CheckpointTxt cp("Wasm/compile");
+		Exc::CheckpointTxt cp("Wasm/compile");
 
 		Wasm::Reader inp;
 		inp.m_p0 = reinterpret_cast<const uint8_t*>(src.p);
@@ -508,14 +508,14 @@ namespace bvm2 {
 			if (iMethod < 0)
 				continue;
 
-			Wasm::Test(hdrMap.end() == hdrMap.find(iMethod)); // duplicates check
+			Exc::Test(hdrMap.end() == hdrMap.find(iMethod)); // duplicates check
 			hdrMap[iMethod] = x.m_Idx;
 		}
 
 		uint32_t nNumMethods = static_cast<uint32_t>(hdrMap.size());
 
-		Wasm::Test(nNumMethods >= Header::s_MethodsMin);
-		Wasm::Test(hdrMap.rbegin()->first == nNumMethods - 1); // should be no gaps
+		Exc::Test(nNumMethods >= Header::s_MethodsMin);
+		Exc::Test(hdrMap.rbegin()->first == nNumMethods - 1); // should be no gaps
 
 		for (auto it = hdrMap.begin(); hdrMap.end() != it; it++)
 		{
@@ -587,7 +587,7 @@ namespace bvm2 {
 			Wasm::TypeCode::i64;
 
 		static void TestRetType(const Wasm::Compiler::Vec<uint8_t>& v) {
-			Wasm::Test((1 == v.n) && (s_Code == *v.p));
+			Exc::Test((1 == v.n) && (s_Code == *v.p));
 		}
 	};
 
@@ -615,7 +615,7 @@ namespace bvm2 {
 		typedef void Type;
 
 		static void TestRetType(const Wasm::Compiler::Vec<uint8_t>& v) {
-			Wasm::Test(!v.n);
+			Exc::Test(!v.n);
 		}
 	};
 
@@ -755,7 +755,7 @@ namespace bvm2 {
 #define THE_MACRO(id, ret, name) \
 		case id: { \
 			WASM_LOG_EXTCALL(name) \
-			struct Args :public Wasm::Checkpoint { \
+			struct Args :public Exc::Checkpoint { \
 				BVMOp_##name(PAR_DECL, MACRO_NOP) \
 				RetType_##name Call(TProcessor& me) const { return me.OnMethod_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); } \
 				virtual void Dump(std::ostream& os) override { \
@@ -818,7 +818,7 @@ namespace bvm2 {
 
 	void TestStackPtr(const Wasm::Compiler::GlobalVar& x)
 	{
-		Wasm::Test(x.CanBeStackPtr());
+		Exc::Test(x.CanBeStackPtr());
 	}
 
 	bool Processor::Compiler::ResolveBinding(Wasm::Compiler& c, Wasm::Compiler::PerImportFunc& x, Kind kind)
@@ -834,8 +834,8 @@ namespace bvm2 {
 			x.m_Binding = id; \
 			/* verify signature */ \
 			const uint8_t pSig[] = { BVMOp_##name(PAR_TYPECODE, MACRO_NOP) 0 }; \
-			Wasm::Test(tp.m_Args.n == _countof(pSig) - 1); \
-			Wasm::Test(!memcmp(tp.m_Args.p, pSig, sizeof(pSig) - 1)); \
+			Exc::Test(tp.m_Args.n == _countof(pSig) - 1); \
+			Exc::Test(!memcmp(tp.m_Args.p, pSig, sizeof(pSig) - 1)); \
 			ParamWrap<ret>::TestRetType(tp.m_Rets); \
 			return true; \
 		}
@@ -861,14 +861,14 @@ namespace bvm2 {
 
 	void Processor::Compiler::ResolveBindings(Wasm::Compiler& c, Kind kind)
 	{
-		Wasm::CheckpointTxt cp("Bindings");
+		Exc::CheckpointTxt cp("Bindings");
 
 		for (uint32_t i = 0; i < c.m_ImportFuncs.size(); i++)
 		{
 			auto& x = c.m_ImportFuncs[i];
 
 			struct MyCheckpoint
-				:public Wasm::Checkpoint
+				:public Exc::Checkpoint
 			{
 				const Wasm::Compiler::PerImportFunc& m_Func;
 				MyCheckpoint(const Wasm::Compiler::PerImportFunc& f) :m_Func(f) {}
@@ -884,7 +884,7 @@ namespace bvm2 {
 				continue;
 
 			if (Kind::Manager != kind)
-				Wasm::Fail();
+				Exc::Fail();
 
 			OnBindingMissing(x);
 		}
@@ -910,7 +910,7 @@ namespace bvm2 {
 		if (!c.m_Globals.empty())
 		{
 			// we don't support globals, but it could be the stack pointer if the module wasn't built as a "shared" lib.
-			Wasm::Test(!bStackPtrImported && (1 <= c.m_Globals.size()));
+			Exc::Test(!bStackPtrImported && (1 <= c.m_Globals.size()));
 
 			for (auto& g : c.m_Globals)
 			{
@@ -1020,13 +1020,13 @@ namespace bvm2 {
 
 	const char* Processor::RealizeStr(Wasm::Word sz, uint32_t& nLenOut)
 	{
-		Wasm::CheckpointTxt cp("string/realize");
+		Exc::CheckpointTxt cp("string/realize");
 
 		uint32_t n;
 		auto sz_ = reinterpret_cast<const char*>(get_AddrExVar(sz, n, false));
 
 		auto* p = reinterpret_cast<const char*>(memchr(sz_, 0, n));
-		Wasm::Test(p);
+		Exc::Test(p);
 		nLenOut = static_cast<uint32_t>(p - sz_);
 
 		DischargeMemOp(nLenOut + 1);
@@ -1189,7 +1189,7 @@ namespace bvm2 {
 	void Processor::Heap::Free(uint32_t ptr)
 	{
 		auto it = m_mapAllocated.find(ptr, Entry::Pos::Comparator());
-		Wasm::Test(m_mapAllocated.end() != it);
+		Exc::Test(m_mapAllocated.end() != it);
 
 		auto& e = it->get_ParentObj();
 		Remove(e, false);
@@ -1208,14 +1208,14 @@ namespace bvm2 {
 	void Processor::Heap::Test(uint32_t ptr, uint32_t size)
 	{
 		auto it = m_mapAllocated.upper_bound(ptr, Entry::Pos::Comparator());
-		Wasm::Test(m_mapAllocated.begin() != it);
+		Exc::Test(m_mapAllocated.begin() != it);
 		--it;
 
 		auto& e = it->get_ParentObj();
 		assert(ptr >= e.m_Pos.m_Key);
 		
 		ptr += size;
-		Wasm::Test((ptr >= size) && (ptr <= e.m_Pos.m_Key + e.m_Size.m_Key));
+		Exc::Test((ptr >= size) && (ptr <= e.m_Pos.m_Key + e.m_Size.m_Key));
 	}
 
 	void Processor::Heap::UpdateSizeFree(Entry& e, uint32_t newVal)
@@ -1315,7 +1315,7 @@ namespace bvm2 {
 
 	void ProcessorContract::SetVarKeyFromShader(VarKey& vk, uint8_t nTag, const Blob& key, bool bW)
 	{
-		Wasm::Test(key.n <= Limits::VarKeySize);
+		Exc::Test(key.n <= Limits::VarKeySize);
 		SetVarKey(vk, nTag, key);
 
 		if (bW)
@@ -1327,7 +1327,7 @@ namespace bvm2 {
 				break; // ok
 
 			default:
-				Wasm::Fail(); // not allowed to modify/emit
+				Exc::Fail(); // not allowed to modify/emit
 			}
 		}
 	}
@@ -1370,10 +1370,10 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(LoadVarEx)
 	{
-		Wasm::Test(IsPastHF4());
+		Exc::Test(IsPastHF4());
 
 		std::setmin(nKeyBufSize, Limits::VarKeySize);
-		Wasm::Test(nKey <= nKeyBufSize);
+		Exc::Test(nKey <= nKeyBufSize);
 
 		VarKey vk;
 		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), false);
@@ -1455,7 +1455,7 @@ namespace bvm2 {
 
 		if (!(CallFarFlags::InheritContext & nFlags))
 		{
-			Wasm::Test(iMethod >= 2); // c'tor and d'tor calls are not allowed
+			Exc::Test(iMethod >= 2); // c'tor and d'tor calls are not allowed
 
 			if (nArgs)
 			{
@@ -1471,7 +1471,7 @@ namespace bvm2 {
 
 					// Note: the above does NOT ensure it's not below current stack pointer, it has less strict validation criteria (see comments in its implementation for more info).
 					// Hence - the following is necessary.
-					Wasm::Test(pArgs >= m_Stack.get_AlasSp());
+					Exc::Test(pArgs >= m_Stack.get_AlasSp());
 				}
 
 				if (bPastHF6)
@@ -1488,7 +1488,7 @@ namespace bvm2 {
 				}
 				else
 					// Only stack pointer is allowed
-					Wasm::Test(bIsStackPtr);
+					Exc::Test(bIsStackPtr);
 
 				if (!pArgsPtr)
 					nCalleeStackMax = (pArgs & ~Wasm::MemoryType::Stack) + nArgs; // restrict callee from accessing anything beyond
@@ -1521,7 +1521,7 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(CallFar)
 	{
-		Wasm::Fail(); // not supported in this form. Proper host code would invoke CallFar_T
+		Exc::Fail(); // not supported in this form. Proper host code would invoke CallFar_T
 	}
 
 	BVM_METHOD(get_CallDepth)
@@ -1543,7 +1543,7 @@ namespace bvm2 {
 	{
 		for (auto it = m_FarCalls.m_Stack.rbegin(); ; it++)
 		{
-			Wasm::Test(m_FarCalls.m_Stack.rend() != it);
+			Exc::Test(m_FarCalls.m_Stack.rend() != it);
 			if (!iCaller--)
 			{
 				cid = it->m_Cid;
@@ -1559,7 +1559,7 @@ namespace bvm2 {
 
 	BVM_METHOD_HOST(UpdateShader)
 	{
-		Wasm::Test(IsPastHF4());
+		Exc::Test(IsPastHF4());
 		TestCanWrite();
 
 		TestVarSize(nVal);
@@ -1574,7 +1574,7 @@ namespace bvm2 {
 
 	BVM_METHOD(Halt)
 	{
-		struct MyCheckpoint :public Wasm::Checkpoint
+		struct MyCheckpoint :public Exc::Checkpoint
 		{
 			void Dump(std::ostream& os) override {
 				os << "Explicit Halt";
@@ -1586,7 +1586,7 @@ namespace bvm2 {
 
 		} cp;
 
-		Wasm::Fail();
+		Exc::Fail();
 	}
 	BVM_METHOD_HOST_AUTO(Halt)
 
@@ -1642,7 +1642,7 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(AssetCreate)
 	{
-		Wasm::Test(nMeta && (nMeta <= Asset::Info::s_MetadataMaxSize));
+		Exc::Test(nMeta && (nMeta <= Asset::Info::s_MetadataMaxSize));
 		DischargeUnits(Limits::Cost::AssetManage);
 
 		Asset::Metadata md;
@@ -1678,7 +1678,7 @@ namespace bvm2 {
 		Blob res;
 		LoadVar(av.m_vk.ToBlob(), res);
 
-		Wasm::Test(av.m_Owner.nBytes == res.n);
+		Exc::Test(av.m_Owner.nBytes == res.n);
 		memcpy(av.m_Owner.m_pData, res.p, res.n);
 	}
 
@@ -1690,12 +1690,12 @@ namespace bvm2 {
 		get_AssetStrict(av, aid);
 
 		AmountSigned valS(amount);
-		Wasm::Test(valS >= 0);
+		Exc::Test(valS >= 0);
 
 		if (!bEmit)
 		{
 			valS = -valS;
-			Wasm::Test(valS <= 0);
+			Exc::Test(valS <= 0);
 		}
 
 		bool b = AssetEmit(aid, av.m_Owner, valS);
@@ -1743,7 +1743,7 @@ namespace bvm2 {
 	{
 		Block::SystemState::Full s;
 		s.m_Height = hdr.m_Height;
-		Wasm::Test(get_HdrAt(s));
+		Exc::Test(get_HdrAt(s));
 
 		CvtHdr(hdr, s);
 		s.get_Hash(hdr.m_Hash);
@@ -1761,7 +1761,7 @@ namespace bvm2 {
 	{
 		Block::SystemState::Full s;
 		s.m_Height = hdr.m_Height;
-		Wasm::Test(get_HdrAt(s));
+		Exc::Test(get_HdrAt(s));
 
 		CvtHdr(hdr, s);
 		hdr.m_Prev = s.m_Prev;
@@ -1793,7 +1793,7 @@ namespace bvm2 {
 	BVM_METHOD(get_ForkHeight)
 	{
 		if (Kind::Contract == get_Kind())
-			Wasm::Test(IsPastFork(5));
+			Exc::Test(IsPastFork(5));
 
 		const Rules& r = Rules::get();
 		return (iFork >= _countof(r.pForks)) ? MaxHeight : r.pForks[iFork].m_Height;
@@ -1805,7 +1805,7 @@ namespace bvm2 {
 	{
 		if (Kind::Contract == get_Kind())
 		{
-			Wasm::Test(IsPastFork(6));
+			Exc::Test(IsPastFork(6));
 			DischargeUnits(Limits::Cost::LoadVar);
 		}
 
@@ -1935,7 +1935,7 @@ namespace bvm2 {
 	Processor::DataProcessor::Base& Processor::DataProcessor::FindStrict(uint32_t key)
 	{
 		auto it = m_Map.find(key, Base::Comparator());
-		Wasm::Test(m_Map.end() != it);
+		Exc::Test(m_Map.end() != it);
 		return *it;
 	}
 
@@ -2055,7 +2055,7 @@ namespace bvm2 {
 	BVM_METHOD(HashClone)
 	{
 		if (Kind::Contract == get_Kind())
-			Wasm::Test(IsPastHF4());
+			Exc::Test(IsPastHF4());
 
 		return CloneHash(m_DataProcessor.FindStrict(pHash));
 	}
@@ -2082,7 +2082,7 @@ namespace bvm2 {
 	Processor::Secp::Scalar::Item& Processor::Secp::Scalar::FindStrict(uint32_t key)
 	{
 		auto it = m_Map.find(key, Item::Comparator());
-		Wasm::Test(m_Map.end() != it);
+		Exc::Test(m_Map.end() != it);
 		return *it;
 	}
 
@@ -2181,7 +2181,7 @@ namespace bvm2 {
 	Processor::Secp::Point::Item& Processor::Secp::Point::FindStrict(uint32_t key)
 	{
 		auto it = m_Map.find(key, Item::Comparator());
-		Wasm::Test(m_Map.end() != it);
+		Exc::Test(m_Map.end() != it);
 		return *it;
 	}
 
@@ -2234,7 +2234,7 @@ namespace bvm2 {
 	BVM_METHOD(Secp_Point_ExportEx)
 	{
 		if (Kind::Contract == get_Kind())
-			Wasm::Test(IsPastHF4());
+			Exc::Test(IsPastHF4());
 
 		DischargeUnits(Limits::Cost::Secp_Point_Export);
 		m_Secp.m_Point.FindStrict(p).m_Val.Export(get_AddrAsW<ECC::Point::Storage>(res));
@@ -2562,7 +2562,7 @@ namespace bvm2 {
 	BVM_METHOD_HOST(Vars_MoveNext)
 	{
 		auto it = m_mapReadVars.find(iSlot, IReadVars::Comparator());
-		Wasm::Test(m_mapReadVars.end() != it);
+		Exc::Test(m_mapReadVars.end() != it);
 
 		auto& x = *it;
 		if (!nRepeat && !x.MoveNext())
@@ -2583,7 +2583,7 @@ namespace bvm2 {
 	BVM_METHOD_HOST(Vars_Close)
 	{
 		auto it = m_mapReadVars.find(iSlot, IReadVars::Comparator());
-		Wasm::Test(m_mapReadVars.end() != it);
+		Exc::Test(m_mapReadVars.end() != it);
 		m_mapReadVars.Delete(*it);
 	}
 
@@ -2643,7 +2643,7 @@ namespace bvm2 {
 	BVM_METHOD_HOST(Logs_MoveNext)
 	{
 		auto it = m_mapReadLogs.find(iSlot, IReadLogs::Comparator());
-		Wasm::Test(m_mapReadLogs.end() != it);
+		Exc::Test(m_mapReadLogs.end() != it);
 
 		auto& x = *it;
 		if (!nRepeat && !x.MoveNext())
@@ -2665,7 +2665,7 @@ namespace bvm2 {
 	BVM_METHOD_HOST(Logs_Close)
 	{
 		auto it = m_mapReadLogs.find(iSlot, IReadLogs::Comparator());
-		Wasm::Test(m_mapReadLogs.end() != it);
+		Exc::Test(m_mapReadLogs.end() != it);
 		m_mapReadLogs.Delete(*it);
 	}
 
@@ -2702,7 +2702,7 @@ namespace bvm2 {
 	BVM_METHOD_HOST(Assets_MoveNext)
 	{
 		auto it = m_mapReadAssets.find(iSlot, IReadAssets::Comparator());
-		Wasm::Test(m_mapReadAssets.end() != it);
+		Exc::Test(m_mapReadAssets.end() != it);
 
 		auto& x = *it;
 		if (nRepeat)
@@ -2727,7 +2727,7 @@ namespace bvm2 {
 	BVM_METHOD_HOST(Assets_Close)
 	{
 		auto it = m_mapReadAssets.find(iSlot, IReadAssets::Comparator());
-		Wasm::Test(m_mapReadAssets.end() != it);
+		Exc::Test(m_mapReadAssets.end() != it);
 		m_mapReadAssets.Delete(*it);
 	}
 
@@ -2858,7 +2858,7 @@ namespace bvm2 {
 		ECC::Hash::Value hv;
 		DeriveKeyPreimage(hv, b);
 
-		Wasm::Test(m_pPKdf != nullptr);
+		Exc::Test(m_pPKdf != nullptr);
 		m_pPKdf->DerivePKeyG(res, hv);
 	}
 
@@ -2908,7 +2908,7 @@ namespace bvm2 {
 		ECC::Hash::Value hv;
 		get_SlotPreimageInternal(hv, iSlot);
 
-		Wasm::Test(m_pPKdf != nullptr);
+		Exc::Test(m_pPKdf != nullptr);
 		m_pPKdf->DerivePKeyG(m_Secp.m_Point.FindStrict(res).m_Val, hv);
 
 	}
@@ -2916,7 +2916,7 @@ namespace bvm2 {
 
 	void ProcessorManager::get_DH_Internal(uint32_t res, const ECC::Hash::Value& hv, uint32_t gen)
 	{
-		Wasm::Test(m_pKdf != nullptr);
+		Exc::Test(m_pKdf != nullptr);
 		ECC::Scalar::Native sk;
 		m_pKdf->DeriveKey(sk, hv);
 
@@ -2941,7 +2941,7 @@ namespace bvm2 {
 
 	BVM_METHOD_HOST(SlotInit)
 	{
-		Wasm::Test(iSlot < Shaders::s_NonceSlots);
+		Exc::Test(iSlot < Shaders::s_NonceSlots);
 
 		ECC::Hash::Value hv;
 		SlotRenegerateInternal(hv, iSlot, pExtraSeed, nExtraSeed);
@@ -2958,7 +2958,7 @@ namespace bvm2 {
 
 	void ProcessorManager::get_SlotPreimageInternal(ECC::Hash::Value& hv, uint32_t iSlot)
 	{
-		Wasm::Test(iSlot < Shaders::s_NonceSlots);
+		Exc::Test(iSlot < Shaders::s_NonceSlots);
 
 		if (!SlotLoad(hv, iSlot))
 			SlotRenegerateInternal(hv, iSlot, nullptr, 0);
@@ -2982,7 +2982,7 @@ namespace bvm2 {
 
 	void ProcessorManager::get_Sk(ECC::Scalar::Native& sk, const ECC::Hash::Value& hv)
 	{
-		Wasm::Test(m_pKdf != nullptr);
+		Exc::Test(m_pKdf != nullptr);
 		m_pKdf->DeriveKey(sk, hv);
 	}
 
@@ -3313,7 +3313,7 @@ namespace bvm2 {
 
 	BVM_METHOD(SetApiVersion)
 	{
-		Wasm::Test(Shaders::ApiVersion::Current == nVer);
+		Exc::Test(Shaders::ApiVersion::Current == nVer);
 	}
 
 	BVM_METHOD_HOST_AUTO(SetApiVersion)
@@ -3349,7 +3349,7 @@ namespace bvm2 {
 		if (MaxHeight != m_Context.m_Height)
 			return true;
 
-		Wasm::Test(IsSuspended());
+		Exc::Test(IsSuspended());
 		return false;
 	}
 
@@ -3360,7 +3360,7 @@ namespace bvm2 {
 
 		if (iMethod)
 		{
-			Wasm::Test(pCid != nullptr); // only c'tor can be invoked without cid
+			Exc::Test(pCid != nullptr); // only c'tor can be invoked without cid
 			v.m_Cid = *pCid;
 		}
 		else
@@ -3406,21 +3406,21 @@ namespace bvm2 {
 	void ProcessorManager::SetMultisignedTx(const void* pID, uint32_t nID, uint8_t bIsSender, const PubKey* pPeers, uint32_t nPeers,
 		const bool* pIsMultisigned, uint32_t nIsMultisigned, const Shaders::FundsChange* pFunds, uint32_t nFunds, bool bCvtFunds)
 	{
-		Wasm::Test(bIsSender || (1 == nPeers)); // co-signer must specify the sender as its only peer
+		Exc::Test(bIsSender || (1 == nPeers)); // co-signer must specify the sender as its only peer
 
 		m_InvokeData.m_IsSender = !!bIsSender;
 		m_InvokeData.m_vPeers.assign(pPeers, pPeers + nPeers);
 
 		DeriveKeyPreimage(m_InvokeData.m_hvKey, Blob(pID, nID));
 
-		Wasm::Test(nIsMultisigned <= m_InvokeData.m_vec.size());
+		Exc::Test(nIsMultisigned <= m_InvokeData.m_vec.size());
 		for (uint32_t i = 0; i < nIsMultisigned; i++)
 		{
 			if (!pIsMultisigned[i])
 				continue;
 
 			auto& v = m_InvokeData.m_vec[i];
-			Wasm::Test(v.IsAdvanced());
+			Exc::Test(v.IsAdvanced());
 			v.m_Flags |= ContractInvokeEntry::Flags::Multisigned;
 		}
 
@@ -3446,7 +3446,7 @@ namespace bvm2 {
 
 		if (!pE)
 		{
-			Wasm::Test(m_pKdf != nullptr);
+			Exc::Test(m_pKdf != nullptr);
 			pKdf = m_pKdf.get();
 
 			get_SlotPreimageInternal(v.m_Adv.m_hvSk, iSlotBlind);
@@ -3531,7 +3531,7 @@ namespace bvm2 {
 		}
 		else
 		{
-			Wasm::Test(!nID);
+			Exc::Test(!nID);
 			m_Comms.m_Map.Delete(*it);
 		}
 	}
@@ -3614,7 +3614,7 @@ namespace bvm2 {
 
 		uint32_t nFlags = m_FarCalls.m_Stack.back().m_Flags;
 		if ((FarCalls::Flags::s_LockedRO | FarCalls::Flags::s_GlobalRO) & nFlags)
-			Wasm::Fail("write lock");
+			Exc::Fail("write lock");
 	}
 
 
@@ -3639,7 +3639,7 @@ namespace bvm2 {
 
 	void ProcessorContract::HandleAmountInner(Amount amount, Asset::ID aid, bool bLock)
 	{
-		struct MyCheckpoint :public Wasm::Checkpoint
+		struct MyCheckpoint :public Exc::Checkpoint
 		{
 			void Dump(std::ostream& os) override {
 				os << "Funds I/O";
@@ -3662,11 +3662,11 @@ namespace bvm2 {
 		if (bLock)
 		{
 			val0 += val;
-			Wasm::Test(val0 >= val); // overflow test
+			Exc::Test(val0 >= val); // overflow test
 		}
 		else
 		{
-			Wasm::Test(val0 >= val); // overflow test
+			Exc::Test(val0 >= val); // overflow test
 
 			val0.Negate();
 			val0 += val;
@@ -3693,11 +3693,11 @@ namespace bvm2 {
 		{
 			ret = (refs == Zero);
 			refs.Inc();
-			Wasm::Test(refs != Zero);
+			Exc::Test(refs != Zero);
 		}
 		else
 		{
-			Wasm::Test(refs != Zero);
+			Exc::Test(refs != Zero);
 			refs.Negate();
 			refs.Inv();
 			ret = (refs == Zero);
@@ -3745,7 +3745,7 @@ namespace bvm2 {
 		(*m_pSigValidate) << pk;
 
 		auto& ret = m_vPks.emplace_back();
-		Wasm::Test(ret.ImportNnz(pk));
+		Exc::Test(ret.ImportNnz(pk));
 		return ret;
 	}
 
@@ -3754,17 +3754,43 @@ namespace bvm2 {
 		if (!m_pSigValidate)
 			return;
 
-		struct MyCheckpoint :public Wasm::Checkpoint
+		struct MyCheckpoint :public Exc::Checkpoint
 		{
-			void Dump(std::ostream& os) override {
-				os << "CheckSigs";
+			const ProcessorContract& m_This;
+			MyCheckpoint(const ProcessorContract& x) :m_This(x) {}
+
+			void Dump(std::ostream& os) override
+			{
+				os << "CheckSigs, Keys=" << m_This.m_vPks.size();
+
+				if (!m_This.m_FundsIO.m_Map.empty())
+				{
+					os << ", Funds=[";
+					for (auto it = m_This.m_FundsIO.m_Map.begin(); ; )
+					{
+						auto val = it->second;
+						bool bSpend = !!val.get_Msb();
+						if (bSpend)
+							val.Negate();
+
+						os << (bSpend ? '+' : '-');
+						os << it->first << ':';
+						AmountBig::Print(os, val);
+
+						if (m_This.m_FundsIO.m_Map.end() == ++it)
+							break;
+
+						os << ", ";
+					}
+					os << ']';
+				}
 			}
 
 			uint32_t get_Type() override {
 				return ErrorSubType::BadSignature;
 			}
 
-		} cp;
+		} cp(*this);
 
 		auto& comm = AddSigInternal(pt);
 
@@ -3778,7 +3804,7 @@ namespace bvm2 {
 		ECC::SignatureBase::Config cfg = ECC::Context::get().m_Sig.m_CfgG1; // copy
 		cfg.m_nKeys = static_cast<uint32_t>(m_vPks.size());
 
-		Wasm::Test(Cast::Down<ECC::SignatureBase>(sig).IsValid(cfg, hv, &sig.m_k, &m_vPks.front()));
+		Exc::Test(Cast::Down<ECC::SignatureBase>(sig).IsValid(cfg, hv, &sig.m_k, &m_vPks.front()));
 	}
 
 	/////////////////////////////////////////////
@@ -3857,7 +3883,7 @@ namespace bvm2 {
 	void ProcessorManager::CallMethod(uint32_t iMethod)
 	{
 		const Header& hdr = ParseMod();
-		Wasm::Test(iMethod < ByteOrder::from_le(hdr.m_NumMethods));
+		Exc::Test(iMethod < ByteOrder::from_le(hdr.m_NumMethods));
 		uint32_t nAddr = ByteOrder::from_le(hdr.m_pMethod[iMethod]);
 		Call(nAddr, 0);
 	}

@@ -429,24 +429,13 @@ struct TestWalletRig
 
     {
         m_Wallet = std::make_shared<TestWallet>(m_WalletDB, move(action), Wallet::UpdateCompletedAction());
-        if (auto kdf = m_WalletDB->get_MasterKdf(); kdf) // can create secrets
-        {
-            WalletAddress wa;
-            m_WalletDB->createAddress(wa);
-            m_WalletDB->saveAddress(wa);
-            m_WalletID = wa.m_walletID;
-            m_OwnID = wa.m_OwnID;
-            Key::ID kid(m_OwnID, Key::Type::WalletID);
-            Scalar::Native sk;
-            kdf->DeriveKey(sk, kid);
-            m_SecureWalletID.FromSk(sk);
-        }
-        else
-        {
-            auto addresses = m_WalletDB->getAddresses(true);
-            m_WalletID = addresses[0].m_walletID;
-            m_OwnID = addresses[0].m_OwnID;
-        }
+
+        WalletAddress wa;
+        m_WalletDB->createAddress(wa);
+        m_WalletDB->saveAddress(wa);
+        m_WalletID = wa.m_walletID;
+        m_OwnID = wa.m_OwnID;
+        m_WalletDB->get_Identity(m_SecureWalletID, m_OwnID);
 
         m_Wallet->ResumeAllTransactions();
 
