@@ -2409,34 +2409,6 @@ static uint16_t TxAggr_AddShieldedInputs(KeyKeeper* p, uint8_t* pIns_unaligned, 
 	return c_KeyKeeper_Status_Ok;
 }
 
-
-static uint16_t TxAggr_AddAllCoins(KeyKeeper* p, const OpIn_TxAddCoins* pArg, uint32_t nSizeIn)
-{
-	uint32_t nSize =
-		(sizeof(CoinID) * pArg->m_Ins) +
-		(sizeof(CoinID) * pArg->m_Outs) +
-		((sizeof(ShieldedInput_Blob) + sizeof(ShieldedInput_Fmt)) * pArg->m_InsShielded);
-
-	if (nSizeIn != nSize)
-		return c_KeyKeeper_Status_ProtoError;
-
-	CoinID* pCid_unaligned = (CoinID*) (pArg + 1);
-
-	uint16_t errCode = TxAggr_AddCoins(p, pCid_unaligned, pArg->m_Ins, 0);
-	if (c_KeyKeeper_Status_Ok != errCode)
-		return errCode;
-
-	pCid_unaligned += pArg->m_Ins;
-
-	errCode = TxAggr_AddCoins(p, pCid_unaligned, pArg->m_Outs, 1);
-	if (c_KeyKeeper_Status_Ok != errCode)
-		return errCode;
-
-	pCid_unaligned += pArg->m_Outs;
-
-	return TxAggr_AddShieldedInputs(p, (uint8_t*) pCid_unaligned, pArg->m_InsShielded);
-}
-
 static uint16_t TxAggr_Get(const KeyKeeper* p, Amount* pNetAmount, AssetID* pAid, const Amount* pFeeSender)
 {
 	if (c_KeyKeeper_State_TxBalance != p->m_State)
@@ -2503,15 +2475,29 @@ PROTO_METHOD(TxAddCoins)
 		p->m_State = c_KeyKeeper_State_TxBalance;
 	}
 
-	uint16_t errCode = TxAggr_AddAllCoins(p, pIn, nIn);
+	uint32_t nSize =
+		(sizeof(CoinID) * pIn->m_Ins) +
+		(sizeof(CoinID) * pIn->m_Outs) +
+		((sizeof(ShieldedInput_Blob) + sizeof(ShieldedInput_Fmt)) * pIn->m_InsShielded);
 
+	if (nIn != nSize)
+		return c_KeyKeeper_Status_ProtoError;
+
+	CoinID* pCid_unaligned = (CoinID*)(pIn + 1);
+
+	uint16_t errCode = TxAggr_AddCoins(p, pCid_unaligned, pIn->m_Ins, 0);
 	if (c_KeyKeeper_Status_Ok != errCode)
-	{
-		SECURE_ERASE_OBJ(p->u);
-		p->m_State = 0;
-	}
+		return errCode;
 
-	return errCode;
+	pCid_unaligned += pIn->m_Ins;
+
+	errCode = TxAggr_AddCoins(p, pCid_unaligned, pIn->m_Outs, 1);
+	if (c_KeyKeeper_Status_Ok != errCode)
+		return errCode;
+
+	pCid_unaligned += pIn->m_Outs;
+
+	return TxAggr_AddShieldedInputs(p, (uint8_t*) pCid_unaligned, pIn->m_InsShielded);
 }
 
 //////////////////////////////
@@ -3427,13 +3413,13 @@ int VerifyShieldedOutputParams(const KeyKeeper* p, const OpIn_TxSendShielded* pS
 {
 	// check the voucher
 	UintBig hv;
-	Voucher_Hash(&hv, &pSh->m_Voucher);
+	Voucher_Hash(&hv, &p->u.m_TxBalance.m_Sh.m_Voucher);
 
 	CompactPoint ptPubKey;
 	ptPubKey.m_X = pSh->m_Mut.m_Peer;
 	ptPubKey.m_Y = 0;
 
-	if (!Signature_IsValid(&pSh->m_Voucher.m_Signature, &hv, &ptPubKey))
+	if (!Signature_IsValid(&p->u.m_TxBalance.m_Sh.m_Voucher.m_Signature, &hv, &ptPubKey))
 		return 0;
 	// skip the voucher's ticket verification, don't care if it's valid, as it was already signed by the receiver.
 
@@ -3459,7 +3445,7 @@ int VerifyShieldedOutputParams(const KeyKeeper* p, const OpIn_TxSendShielded* pS
 	{
 		static const char szSalt[] = "kG-O";
 		NonceGenerator ng; // not really secret
-		NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &pSh->m_Voucher.m_SharedSecret);
+		NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &p->u.m_TxBalance.m_Sh.m_Voucher.m_SharedSecret);
 		NonceGenerator_NextScalar(&ng, pSk);
 	}
 
@@ -3480,15 +3466,15 @@ int VerifyShieldedOutputParams(const KeyKeeper* p, const OpIn_TxSendShielded* pS
 
 	secp256k1_sha256_initialize(&oracle.m_sha);
 	secp256k1_sha256_write(&oracle.m_sha, pKrnID->m_pVal, sizeof(pKrnID->m_pVal)); // oracle << krn.Msg
-	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pSh->m_Voucher.m_SerialPub);
-	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pSh->m_Voucher.m_NoncePub);
+	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &p->u.m_TxBalance.m_Sh.m_Voucher.m_SerialPub);
+	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &p->u.m_TxBalance.m_Sh.m_Voucher.m_NoncePub);
 	secp256k1_sha256_write_Gej(&oracle.m_sha, &gej);
 	secp256k1_sha256_write_CompactPointOptional2(&oracle.m_sha, &pSh->m_ptAssetGen, !IsUintBigZero(&pSh->m_ptAssetGen.m_X)); // starting from HF3 it's mandatory
 
 	{
 		Oracle o2 = oracle;
 		HASH_WRITE_STR(o2.m_sha, "bp-s");
-		secp256k1_sha256_write(&o2.m_sha, pSh->m_Voucher.m_SharedSecret.m_pVal, sizeof(pSh->m_Voucher.m_SharedSecret.m_pVal));
+		secp256k1_sha256_write(&o2.m_sha, p->u.m_TxBalance.m_Sh.m_Voucher.m_SharedSecret.m_pVal, sizeof(p->u.m_TxBalance.m_Sh.m_Voucher.m_SharedSecret.m_pVal));
 		secp256k1_sha256_finalize(&o2.m_sha, hv.m_pVal); // seed
 	}
 
@@ -3514,7 +3500,7 @@ int VerifyShieldedOutputParams(const KeyKeeper* p, const OpIn_TxSendShielded* pS
 		ctx.m_nUser = sizeof(packed);
 		ctx.m_pExtra = pExtraRecovered;
 
-		if (!RangeProof_Recover(&pSh->m_RangeProof, &oracle, &ctx))
+		if (!RangeProof_Recover(&p->u.m_TxBalance.m_Sh.m_RangeProof, &oracle, &ctx))
 			return 0;
 
 		if (memcmp(pExtra, pExtraRecovered, sizeof(pExtra)) ||
@@ -3527,7 +3513,7 @@ int VerifyShieldedOutputParams(const KeyKeeper* p, const OpIn_TxSendShielded* pS
 		{
 			static const char szSalt[] = "skG-O";
 			NonceGenerator ng; // not really secret
-			NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &pSh->m_Voucher.m_SharedSecret);
+			NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &p->u.m_TxBalance.m_Sh.m_Voucher.m_SharedSecret);
 			NonceGenerator_NextScalar(&ng, pExtraRecovered);
 
 			secp256k1_scalar_set_u64(pExtraRecovered + 1, amount);
@@ -3542,10 +3528,32 @@ int VerifyShieldedOutputParams(const KeyKeeper* p, const OpIn_TxSendShielded* pS
 	// all match! Calculate the resulting kernelID
 	secp256k1_sha256_initialize(&oracle.m_sha);
 	secp256k1_sha256_write(&oracle.m_sha, pKrnID->m_pVal, sizeof(pKrnID->m_pVal));
-	secp256k1_sha256_write(&oracle.m_sha, (uint8_t*) &pSh->m_RangeProof, sizeof(pSh->m_RangeProof));
+	secp256k1_sha256_write(&oracle.m_sha, (uint8_t*) &p->u.m_TxBalance.m_Sh.m_RangeProof, sizeof(p->u.m_TxBalance.m_Sh.m_RangeProof));
 	secp256k1_sha256_finalize(&oracle.m_sha, pKrnID->m_pVal);
 
 	return 1;
+}
+
+PROTO_METHOD(TxPrepareShielded)
+{
+	PROTO_UNUSED_ARGS;
+
+	static_assert(sizeof(pIn->m_Size) == 1, "can access it directly");
+	if (nIn != pIn->m_Size)
+		return c_KeyKeeper_Status_ProtoError;
+
+	if (c_KeyKeeper_State_TxBalance != p->m_State)
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 10);
+
+	uint8_t* pDst = ((uint8_t *) &p->u.m_TxBalance.m_Sh) + p->u.m_TxBalance.m_SizeSh;
+
+	p->u.m_TxBalance.m_SizeSh += pIn->m_Size;
+	if (p->u.m_TxBalance.m_SizeSh > sizeof(p->u.m_TxBalance.m_Sh))
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 11);
+
+	memcpy(pDst, pIn + 1, nIn);
+
+	return c_KeyKeeper_Status_Ok;
 }
 
 PROTO_METHOD(TxSendShielded)
@@ -3566,6 +3574,9 @@ PROTO_METHOD(TxSendShielded)
 	uint16_t errCode = TxAggr_Get(p, &netAmount, &aid, &txc.m_Krn.m_Fee);
 	if (errCode)
 		return errCode;
+
+	if (sizeof(p->u.m_TxBalance.m_Sh) != p->u.m_TxBalance.m_SizeSh)
+		return MakeStatus(c_KeyKeeper_Status_ProtoError, 20);
 
 	if (!netAmount)
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21); // not sending

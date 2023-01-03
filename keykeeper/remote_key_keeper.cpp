@@ -1370,6 +1370,7 @@ namespace beam::wallet
 
         Method::SignSendShielded& m_M;
         TxKernelShieldedOutput::Ptr m_pOutp;
+        uint32_t m_BlobsSent = 0;
 
         void Update() override
         {
@@ -1385,13 +1386,15 @@ namespace beam::wallet
                 Import(msg.m_User, m_M.m_User);
                 Import(msg.m_Tx.m_Krn, m_M);
 
-                msg.m_Voucher.m_SerialPub = Ecc2BC(m_M.m_Voucher.m_Ticket.m_SerialPub);
-                msg.m_Voucher.m_NoncePub = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_NoncePub);
-                msg.m_Voucher.m_pK[0] = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_pK[0].m_Value);
-                msg.m_Voucher.m_pK[1] = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_pK[1].m_Value);
-                msg.m_Voucher.m_SharedSecret = Ecc2BC(m_M.m_Voucher.m_SharedSecret);
-                msg.m_Voucher.m_Signature.m_NoncePub = Ecc2BC(m_M.m_Voucher.m_Signature.m_NoncePub);
-                msg.m_Voucher.m_Signature.m_k = Ecc2BC(m_M.m_Voucher.m_Signature.m_k.m_Value);
+                hw::ShieldedOutParams sop;
+
+                sop.m_Voucher.m_SerialPub = Ecc2BC(m_M.m_Voucher.m_Ticket.m_SerialPub);
+                sop.m_Voucher.m_NoncePub = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_NoncePub);
+                sop.m_Voucher.m_pK[0] = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_pK[0].m_Value);
+                sop.m_Voucher.m_pK[1] = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_pK[1].m_Value);
+                sop.m_Voucher.m_SharedSecret = Ecc2BC(m_M.m_Voucher.m_SharedSecret);
+                sop.m_Voucher.m_Signature.m_NoncePub = Ecc2BC(m_M.m_Voucher.m_Signature.m_NoncePub);
+                sop.m_Voucher.m_Signature.m_k = Ecc2BC(m_M.m_Voucher.m_Signature.m_k.m_Value);
 
                 ShieldedTxo::Data::OutputParams op;
 
@@ -1426,9 +1429,27 @@ namespace beam::wallet
                 if (krn1.m_Txo.m_pAsset)
                     msg.m_ptAssetGen = Ecc2BC(krn1.m_Txo.m_pAsset->m_hGen);
 
-                SerializerIntoStaticBuf ser(&msg.m_RangeProof);
-                ser& krn1.m_Txo.m_RangeProof;
-                assert(ser.get_Size(&msg.m_RangeProof) == sizeof(msg.m_RangeProof));
+                SerializerIntoStaticBuf ser(&sop.m_RangeProof);
+                ser & krn1.m_Txo.m_RangeProof;
+                assert(ser.get_Size(&sop.m_RangeProof) == sizeof(sop.m_RangeProof));
+
+                for (uint32_t nDone = 0; nDone < sizeof(sop); )
+                {
+                    uint32_t nPortion = std::min<uint32_t>(230, sizeof(sop) - nDone);
+
+                    hw::Proto::TxPrepareShielded::Out msgPrep;
+                    msgPrep.m_Size = (uint8_t) nPortion;
+                    
+                    auto pExtra = AllocReq_T(msgPrep, nPortion);
+                    memcpy(pExtra, reinterpret_cast<const uint8_t*>(&sop) + nDone, nPortion);
+                    nDone += nPortion;
+
+                    SendReq();
+
+                    m_Phase--;
+                    m_BlobsSent++;
+                }
+
 
                 SendReq_T(msg);
             }
@@ -1436,16 +1457,29 @@ namespace beam::wallet
             if (!ReadCoinsAck())
                 return;
 
-            if (s_CoinsSent + 1 == m_Phase)
+            while (s_CoinsSent + 1 == m_Phase)
             {
-                auto pMsg = ReadReq_T<hw::Proto::TxSendShielded>();
-                if (!pMsg)
+                if (m_BlobsSent)
+                {
+                    auto pMsg = ReadReq_T<hw::Proto::TxPrepareShielded>();
+                    if (!pMsg)
+                        return;
+
+                    m_BlobsSent--;
+                    m_Phase--;
+                }
+                else
+                {
+                    auto pMsg = ReadReq_T<hw::Proto::TxSendShielded>();
+                    if (!pMsg)
+                        return;
+
+                    m_M.m_pKernel->m_vNested.push_back(std::move(m_pOutp));
+                    Export(m_M, pMsg->m_Tx);
+
+                    Fin();
                     return;
-
-                m_M.m_pKernel->m_vNested.push_back(std::move(m_pOutp));
-                Export(m_M, pMsg->m_Tx);
-
-                Fin();
+                }
             }
 
 

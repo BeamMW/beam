@@ -18,42 +18,6 @@
 #include "sign.h"
 #include "oracle.h"
 
-typedef struct
-{
-	Kdf m_MasterKey;
-
-	// context information
-	uint8_t m_State;
-
-	union {
-
-		struct {
-
-			int64_t m_RcvBeam;
-			int64_t m_RcvAsset; // up to 1 more asset supported in a tx
-			Amount m_ImplicitFee; // shielded input fees. Their effect is already accounted for in m_RcvBeam
-			AssetID m_Aid;
-			secp256k1_scalar m_sk; // net blinding factor, sum(outputs) - sum(inputs)
-
-		} m_TxBalance;
-
-		struct
-		{
-			secp256k1_scalar m_skOutp;
-			secp256k1_scalar m_skSpend;
-			Oracle m_Oracle; // 100 bytes
-			uint32_t m_Sigma_M;
-			uint32_t m_Remaining;
-		} m_Ins;
-
-	} u;
-
-} KeyKeeper;
-
-#define c_KeyKeeper_State_TxBalance 1
-#define c_KeyKeeper_State_CreateShielded_1 11
-#define c_KeyKeeper_State_CreateShielded_2 12
-
 
 typedef struct
 {
@@ -62,8 +26,6 @@ typedef struct
 	CompactPoint m_CoFactorJ;
 
 } KdfPub;
-
-void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if pChild is NULL then the master kdfpub (owner key) is returned
 
 typedef uint64_t Height;
 typedef uint64_t AddrID;
@@ -183,6 +145,12 @@ typedef struct
 
 typedef struct
 {
+	RangeProof_Packed m_RangeProof;
+	ShieldedVoucher m_Voucher;
+} ShieldedOutParams;
+
+typedef struct
+{
 	Height m_hMin;
 	Height m_hMax;
 	uint64_t m_WindowEnd;
@@ -191,6 +159,52 @@ typedef struct
 } ShieldedInput_SpendParams;
 
 #pragma pack (pop)
+
+
+typedef struct
+{
+	Kdf m_MasterKey;
+
+	// context information
+	uint8_t m_State;
+
+	union {
+
+		struct {
+
+			int64_t m_RcvBeam;
+			int64_t m_RcvAsset; // up to 1 more asset supported in a tx
+			Amount m_ImplicitFee; // shielded input fees. Their effect is already accounted for in m_RcvBeam
+			AssetID m_Aid;
+			secp256k1_scalar m_sk; // net blinding factor, sum(outputs) - sum(inputs)
+
+			// 64 bytes so far
+
+			// The following is used for shielded send tx
+			ShieldedOutParams m_Sh; // 901 byte
+			uint16_t m_SizeSh;
+
+		} m_TxBalance;
+
+		struct
+		{
+			secp256k1_scalar m_skOutp;
+			secp256k1_scalar m_skSpend;
+			Oracle m_Oracle; // 100 bytes
+			uint32_t m_Sigma_M;
+			uint32_t m_Remaining;
+		} m_Ins;
+
+	} u;
+
+} KeyKeeper;
+
+#define c_KeyKeeper_State_TxBalance 1
+#define c_KeyKeeper_State_CreateShielded_1 11
+#define c_KeyKeeper_State_CreateShielded_2 12
+
+void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if pChild is NULL then the master kdfpub (owner key) is returned
+
 
 //////////////////
 // Protocol
@@ -317,18 +331,21 @@ typedef struct
 #define BeamCrypto_ProtoResponse_TxSend2(macro) \
 	macro(TxSig, TxSig) \
 
+#define BeamCrypto_ProtoRequest_TxPrepareShielded(macro) \
+	macro(uint8_t, Size) \
+	/* followed by blob */
+
+#define BeamCrypto_ProtoResponse_TxPrepareShielded(macro)
+
 #define BeamCrypto_ProtoRequest_TxSendShielded(macro) \
 	macro(TxCommonIn, Tx) \
 	macro(TxMutualIn, Mut) \
-	macro(ShieldedVoucher, Voucher) \
 	macro(ShieldedTxoUser, User) \
-	macro(RangeProof_Packed, RangeProof) \
 	macro(CompactPoint, ptAssetGen) \
 	macro(uint8_t, HideAssetAlways) /* important to specify, this affects expected blinding factor recovery */ \
 
 #define BeamCrypto_ProtoResponse_TxSendShielded(macro) \
 	macro(TxCommonOut, Tx) \
-
 
 #define BeamCrypto_ProtoMethods(macro) \
 	macro(0x01, Version) \
@@ -347,6 +364,7 @@ typedef struct
 	macro(0x31, TxReceive) \
 	macro(0x32, TxSend1) \
 	macro(0x33, TxSend2) \
+	macro(0x35, TxPrepareShielded) \
 	macro(0x36, TxSendShielded) \
 
 // pIn/pOut don't have to be distinct! There may be overlap
