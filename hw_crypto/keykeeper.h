@@ -160,6 +160,10 @@ typedef struct
 
 #pragma pack (pop)
 
+typedef union
+{
+	ShieldedOutParams m_Sh;
+} KeyKeeper_AuxBuf;
 
 typedef struct
 {
@@ -179,10 +183,6 @@ typedef struct
 			secp256k1_scalar m_sk; // net blinding factor, sum(outputs) - sum(inputs)
 
 			// 64 bytes so far
-
-			// The following is used for shielded send tx
-			ShieldedOutParams m_Sh; // 901 byte
-			uint16_t m_SizeSh;
 
 		} m_TxBalance;
 
@@ -331,11 +331,12 @@ void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if
 #define BeamCrypto_ProtoResponse_TxSend2(macro) \
 	macro(TxSig, TxSig) \
 
-#define BeamCrypto_ProtoRequest_TxPrepareShielded(macro) \
-	macro(uint8_t, Size) \
+#define BeamCrypto_ProtoRequest_AuxWrite(macro) \
+	macro(uint16_t, Offset) \
+	macro(uint16_t, Size) \
 	/* followed by blob */
 
-#define BeamCrypto_ProtoResponse_TxPrepareShielded(macro)
+#define BeamCrypto_ProtoResponse_AuxWrite(macro)
 
 #define BeamCrypto_ProtoRequest_TxSendShielded(macro) \
 	macro(TxCommonIn, Tx) \
@@ -360,11 +361,11 @@ void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if
 	macro(0x1c, CreateShieldedInput_3) \
 	macro(0x1d, CreateShieldedInput_4) \
 	macro(0x22, CreateShieldedVouchers) \
+	macro(0x28, AuxWrite) \
 	macro(0x30, TxSplit) \
 	macro(0x31, TxReceive) \
 	macro(0x32, TxSend1) \
 	macro(0x33, TxSend2) \
-	macro(0x35, TxPrepareShielded) \
 	macro(0x36, TxSendShielded) \
 
 // pIn/pOut don't have to be distinct! There may be overlap
@@ -380,6 +381,8 @@ void KeyKeeper_ReadSlot(KeyKeeper*, uint32_t, UintBig*);
 void KeyKeeper_RegenerateSlot(KeyKeeper*, uint32_t);
 int KeyKeeper_AllowWeakInputs(KeyKeeper*);
 Amount KeyKeeper_get_MaxShieldedFee(KeyKeeper*);
+const KeyKeeper_AuxBuf* KeyKeeper_GetAuxBuf(KeyKeeper*);
+void KeyKeeper_WriteAuxBuf(KeyKeeper*, const void*, uint32_t nOffset, uint32_t nSize);
 
 void KeyKeeper_DisplayAddress(KeyKeeper*, AddrID addrID, const UintBig* pPeerID);
 

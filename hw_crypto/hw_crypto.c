@@ -3420,6 +3420,32 @@ PROTO_METHOD(CreateShieldedInput_4)
 
 //////////////////////////////
 // KeyKeeper - SendShieldedTx
+PROTO_METHOD(AuxWrite)
+{
+	PROTO_UNUSED_ARGS;
+
+	uint16_t nOffset, nSize;
+
+	N2H_uint(nOffset, pIn->m_Offset, 16);
+	N2H_uint(nSize, pIn->m_Size, 16);
+
+	if (nSize != pIn->m_Size)
+		return c_KeyKeeper_Status_ProtoError;
+
+	uint16_t nEnd = nOffset + nSize;
+	if (nEnd < nSize)
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 11); // overflow
+
+	if (nEnd > sizeof(KeyKeeper_AuxBuf))
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 12);
+
+	KeyKeeper_WriteAuxBuf(p, pIn + 1, nOffset, nSize);
+
+	return c_KeyKeeper_Status_Ok;
+}
+
+//////////////////////////////
+// KeyKeeper - SendShieldedTx
 static uint8_t Msg2Scalar(secp256k1_scalar* p, const UintBig* pMsg)
 {
 	int overflow;
@@ -3427,33 +3453,13 @@ static uint8_t Msg2Scalar(secp256k1_scalar* p, const UintBig* pMsg)
 	return !!overflow;
 }
 
-PROTO_METHOD(TxPrepareShielded)
-{
-	PROTO_UNUSED_ARGS;
-
-	static_assert(sizeof(pIn->m_Size) == 1, "can access it directly");
-	if (nIn != pIn->m_Size)
-		return c_KeyKeeper_Status_ProtoError;
-
-	if (c_KeyKeeper_State_TxBalance != p->m_State)
-		return MakeStatus(c_KeyKeeper_Status_Unspecified, 10);
-
-	uint8_t* pDst = ((uint8_t *) &p->u.m_TxBalance.m_Sh) + p->u.m_TxBalance.m_SizeSh;
-
-	p->u.m_TxBalance.m_SizeSh += pIn->m_Size;
-	if (p->u.m_TxBalance.m_SizeSh > sizeof(p->u.m_TxBalance.m_Sh))
-		return MakeStatus(c_KeyKeeper_Status_Unspecified, 11);
-
-	memcpy(pDst, pIn + 1, nIn);
-
-	return c_KeyKeeper_Status_Ok;
-}
 
 typedef struct
 {
 	KeyKeeper* m_p;
 	const OpIn_TxSendShielded* m_pIn;
 	OpOut_TxSendShielded* m_pOut;
+	const ShieldedOutParams* m_pSh;
 
 	Amount m_Amount;
 	AssetID m_Aid;
@@ -3468,13 +3474,13 @@ __stack_hungry__
 int TxSendShielded_VoucherCheck(TxSendShieldedContext* pCtx)
 {
 	// check the voucher
-	Voucher_Hash(&pCtx->m_hvKrn, &pCtx->m_p->u.m_TxBalance.m_Sh.m_Voucher);
+	Voucher_Hash(&pCtx->m_hvKrn, &pCtx->m_pSh->m_Voucher);
 
 	CompactPoint ptPubKey;
 	ptPubKey.m_X = pCtx->m_pIn->m_Mut.m_Peer;
 	ptPubKey.m_Y = 0;
 
-	return Signature_IsValid(&pCtx->m_p->u.m_TxBalance.m_Sh.m_Voucher.m_Signature, &pCtx->m_hvKrn, &ptPubKey);
+	return Signature_IsValid(&pCtx->m_pSh->m_Voucher.m_Signature, &pCtx->m_hvKrn, &ptPubKey);
 }
 
 typedef struct
@@ -3500,7 +3506,7 @@ void TxSendShielded_PrepareRangeProofRecover(TxSendShieldedContext* pCtx, TxSend
 
 	{
 		static const char szSalt[] = "kG-O";
-		NonceGenerator_Init(&u.ng, szSalt, sizeof(szSalt), &pCtx->m_p->u.m_TxBalance.m_Sh.m_Voucher.m_SharedSecret);
+		NonceGenerator_Init(&u.ng, szSalt, sizeof(szSalt), &pCtx->m_pSh->m_Voucher.m_SharedSecret);
 		NonceGenerator_NextScalar(&u.ng, &pCtx->m_skKrn);
 	}
 
@@ -3522,19 +3528,19 @@ void TxSendShielded_PrepareRangeProofRecover(TxSendShieldedContext* pCtx, TxSend
 
 	secp256k1_sha256_initialize(&oracle.m_sha);
 	secp256k1_sha256_write(&oracle.m_sha, pCtx->m_hvKrn.m_pVal, sizeof(pCtx->m_hvKrn.m_pVal)); // oracle << krn.Msg
-	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pCtx->m_p->u.m_TxBalance.m_Sh.m_Voucher.m_SerialPub);
-	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pCtx->m_p->u.m_TxBalance.m_Sh.m_Voucher.m_NoncePub);
+	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pCtx->m_pSh->m_Voucher.m_SerialPub);
+	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pCtx->m_pSh->m_Voucher.m_NoncePub);
 	secp256k1_sha256_write_Gej(&oracle.m_sha, &u.gej);
 	secp256k1_sha256_write_CompactPointOptional2(&oracle.m_sha, &pCtx->m_pIn->m_ptAssetGen, !IsUintBigZero(&pCtx->m_pIn->m_ptAssetGen.m_X)); // starting from HF3 it's mandatory
 
 	{
 		u.o2 = oracle;
 		HASH_WRITE_STR(u.o2.m_sha, "bp-s");
-		secp256k1_sha256_write(&u.o2.m_sha, pCtx->m_p->u.m_TxBalance.m_Sh.m_Voucher.m_SharedSecret.m_pVal, sizeof(pCtx->m_p->u.m_TxBalance.m_Sh.m_Voucher.m_SharedSecret.m_pVal));
+		secp256k1_sha256_write(&u.o2.m_sha, pCtx->m_pSh->m_Voucher.m_SharedSecret.m_pVal, sizeof(pCtx->m_pSh->m_Voucher.m_SharedSecret.m_pVal));
 		secp256k1_sha256_finalize(&u.o2.m_sha, pRp->u.m_RCtx.m_Seed.m_pVal); // rangeproof seed. For both gen and blinding factor
 	}
 
-	RangeProof_InitChallenges(&pCtx->m_p->u.m_TxBalance.m_Sh.m_RangeProof, &oracle, &pRp->u.m_RCtx);
+	RangeProof_InitChallenges(&pCtx->m_pSh->m_RangeProof, &oracle, &pRp->u.m_RCtx);
 }
 
 __stack_hungry__
@@ -3554,7 +3560,7 @@ uint16_t TxSendShielded_VerifyParams2(TxSendShieldedContext* pCtx, TxSendShielde
 	pRp->u.m_RCtx.m_pUser = &packed;
 	pRp->u.m_RCtx.m_nUser = sizeof(packed);
 
-	if (!RangeProof_Recover1(&pCtx->m_p->u.m_TxBalance.m_Sh.m_RangeProof, &pRp->u.m_RCtx))
+	if (!RangeProof_Recover1(&pCtx->m_pSh->m_RangeProof, &pRp->u.m_RCtx))
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 26);
 
 	if ((pRp->u.m_RCtx.m_Amount != pCtx->m_Amount) || (bswap32_be(packed.m_AssetID) != pCtx->m_Aid))
@@ -3582,7 +3588,7 @@ uint16_t TxSendShielded_VerifyParams3(TxSendShieldedContext* pCtx, TxSendShielde
 	{
 		static const char szSalt[] = "skG-O";
 		NonceGenerator ng; // not really secret
-		NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &pCtx->m_p->u.m_TxBalance.m_Sh.m_Voucher.m_SharedSecret);
+		NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &pCtx->m_pSh->m_Voucher.m_SharedSecret);
 		NonceGenerator_NextScalar(&ng, pRp->u.m_RCtx.m_pExtra);
 
 		secp256k1_scalar_set_u64(pRp->u.m_RCtx.m_pExtra + 1, pCtx->m_Amount);
@@ -3597,7 +3603,7 @@ uint16_t TxSendShielded_VerifyParams3(TxSendShieldedContext* pCtx, TxSendShielde
 	Oracle oracle;
 	secp256k1_sha256_initialize(&oracle.m_sha);
 	secp256k1_sha256_write(&oracle.m_sha, pCtx->m_hvKrn.m_pVal, sizeof(pCtx->m_hvKrn.m_pVal));
-	secp256k1_sha256_write(&oracle.m_sha, (uint8_t*) &pCtx->m_p->u.m_TxBalance.m_Sh.m_RangeProof, sizeof(pCtx->m_p->u.m_TxBalance.m_Sh.m_RangeProof));
+	secp256k1_sha256_write(&oracle.m_sha, (uint8_t*) &pCtx->m_pSh->m_RangeProof, sizeof(pCtx->m_pSh->m_RangeProof));
 	secp256k1_sha256_finalize(&oracle.m_sha, pCtx->m_hvKrn.m_pVal);
 
 	return c_KeyKeeper_Status_Ok;
@@ -3621,8 +3627,8 @@ uint16_t TxSendShielded_VerifyParams(TxSendShieldedContext* pCtx)
 	if (errCode)
 		return errCode;
 
-	RangeProof_Recover2(&pCtx->m_p->u.m_TxBalance.m_Sh.m_RangeProof, &rp.u.m_RCtx);
-	RangeProof_Recover3(&pCtx->m_p->u.m_TxBalance.m_Sh.m_RangeProof, &rp.u.m_RCtx);
+	RangeProof_Recover2(&pCtx->m_pSh->m_RangeProof, &rp.u.m_RCtx);
+	RangeProof_Recover3(&pCtx->m_pSh->m_RangeProof, &rp.u.m_RCtx);
 
 	return TxSendShielded_VerifyParams3(pCtx, &rp);
 }
@@ -3681,6 +3687,7 @@ PROTO_METHOD(TxSendShielded)
 	ctx.m_p = p;
 	ctx.m_pIn = pIn;
 	ctx.m_pOut = pOut;
+	ctx.m_pSh = &KeyKeeper_GetAuxBuf(p)->m_Sh;
 
 	N2H_TxCommonIn(&ctx.m_Txc, &pIn->m_Tx);
 
@@ -3690,9 +3697,6 @@ PROTO_METHOD(TxSendShielded)
 	uint16_t errCode = TxAggr_Get(p, &ctx.m_Amount, &ctx.m_Aid, &ctx.m_Txc.m_Krn.m_Fee);
 	if (errCode)
 		return errCode;
-
-	if (sizeof(p->u.m_TxBalance.m_Sh) != p->u.m_TxBalance.m_SizeSh)
-		return MakeStatus(c_KeyKeeper_Status_ProtoError, 20);
 
 	if (!ctx.m_Amount)
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21); // not sending/splitting
