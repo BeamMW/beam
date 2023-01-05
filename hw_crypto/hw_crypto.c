@@ -1557,16 +1557,20 @@ typedef struct
 	secp256k1_scalar m_Sk;
 	secp256k1_scalar m_pExtra[2];
 
+	// helper
+	secp256k1_scalar x, y, z, zz;
+
 } RangeProof_Recovery_Context;
 
 
+
 __stack_hungry__
-static int RangeProof_Recover(const RangeProof_Packed* pRangeproof, Oracle* pOracle, RangeProof_Recovery_Context* pCtx)
+static int RangeProof_Recover1(const RangeProof_Packed* pRangeproof, Oracle* pOracle, RangeProof_Recovery_Context* pCtx)
 {
 	static const char szSalt[] = "bulletproof";
 	NonceGenerator_Init(&pCtx->m_Ng, szSalt, sizeof(szSalt), &pCtx->m_SeedGen);
 
-	secp256k1_scalar alpha_minus_params, ro, x, y, z, tmp;
+	secp256k1_scalar alpha_minus_params, ro;
 	NonceGenerator_NextScalar(&pCtx->m_Ng, &alpha_minus_params);
 	NonceGenerator_NextScalar(&pCtx->m_Ng, &ro);
 
@@ -1576,31 +1580,31 @@ static int RangeProof_Recover(const RangeProof_Packed* pRangeproof, Oracle* pOra
 	// oracle >> x
 	secp256k1_sha256_write_CompactPointEx(&pOracle->m_sha, &pRangeproof->m_Ax, pRangeproof->m_pYs[1] >> 4);
 	secp256k1_sha256_write_CompactPointEx(&pOracle->m_sha, &pRangeproof->m_Sx, pRangeproof->m_pYs[1] >> 5);
-	Oracle_NextScalar(pOracle, &y);
-	Oracle_NextScalar(pOracle, &z);
+	Oracle_NextScalar(pOracle, &pCtx->y);
+	Oracle_NextScalar(pOracle, &pCtx->z);
 	secp256k1_sha256_write_CompactPointEx(&pOracle->m_sha, &pRangeproof->m_T1x, pRangeproof->m_pYs[1] >> 6);
 	secp256k1_sha256_write_CompactPointEx(&pOracle->m_sha, &pRangeproof->m_T2x, pRangeproof->m_pYs[1] >> 7);
-	Oracle_NextScalar(pOracle, &x);
+	Oracle_NextScalar(pOracle, &pCtx->x);
 
 	// m_Mu = alpha + ro*x
 	// alpha = m_Mu - ro*x = alpha_minus_params + params
 	// params = m_Mu - ro*x - alpha_minus_params
-	secp256k1_scalar_mul(&ro, &ro, &x);
-	secp256k1_scalar_add(&tmp, &alpha_minus_params, &ro);
-	secp256k1_scalar_negate(&tmp, &tmp); // - ro*x - alpha_minus_params
+	secp256k1_scalar_mul(&ro, &ro, &pCtx->x);
+	secp256k1_scalar_add(&pCtx->zz, &alpha_minus_params, &ro);
+	secp256k1_scalar_negate(&pCtx->zz, &pCtx->zz); // - ro*x - alpha_minus_params
 
 	int overflow;
 	secp256k1_scalar_set_b32(&ro, pRangeproof->m_Mu.m_pVal, &overflow);
 	if (overflow)
 		return 0;
 
-	secp256k1_scalar_add(&tmp, &tmp, &ro);
+	secp256k1_scalar_add(&pCtx->zz, &pCtx->zz, &ro);
 
 	{
 		static_assert(sizeof(ro) >= c_ECC_nBytes, "");
-		uint8_t* pBlob = (uint8_t*) &ro; // just reuse this mem
+		uint8_t* pBlob = (uint8_t*)&ro; // just reuse this mem
 
-		secp256k1_scalar_get_b32(pBlob, &tmp);
+		secp256k1_scalar_get_b32(pBlob, &pCtx->zz);
 
 		assert(pCtx->m_nUser <= c_ECC_nBytes - sizeof(Amount));
 		uint32_t nPad = c_ECC_nBytes - sizeof(Amount) - pCtx->m_nUser;
@@ -1611,10 +1615,10 @@ static int RangeProof_Recover(const RangeProof_Packed* pRangeproof, Oracle* pOra
 		memcpy(pCtx->m_pUser, pBlob + nPad, pCtx->m_nUser);
 
 		// recover value. It's always at the buf end
-		pCtx->m_Amount = bswap64_be(*(Amount*) (pBlob + c_ECC_nBytes - sizeof(Amount)));
+		pCtx->m_Amount = bswap64_be(*(Amount*)(pBlob + c_ECC_nBytes - sizeof(Amount)));
 	}
 
-	secp256k1_scalar_add(&alpha_minus_params, &alpha_minus_params, &tmp); // just alpha
+	secp256k1_scalar_add(&alpha_minus_params, &alpha_minus_params, &pCtx->zz); // just alpha
 
 	// Recalculate p1.A, make sure we get the correct result
 	union {
@@ -1632,34 +1636,45 @@ static int RangeProof_Recover(const RangeProof_Packed* pRangeproof, Oracle* pOra
 	if (memcmp(u.pt.m_X.m_pVal, pRangeproof->m_Ax.m_pVal, c_ECC_nBytes) || (u.pt.m_Y != (1 & (pRangeproof->m_pYs[1] >> 4))))
 		return 0; // false positive
 
-	if (pCtx->m_pSeedSk || pCtx->m_pExtra)
-		secp256k1_scalar_mul(&tmp, &z, &z); // z^2
+	secp256k1_scalar_mul(&pCtx->zz, &pCtx->z, &pCtx->z); // z^2
 
-	if (pCtx->m_pSeedSk)
+	return 1;
+}
+
+__stack_hungry__
+static void RangeProof_Recover2(const RangeProof_Packed* pRangeproof, Oracle* pOracle, RangeProof_Recovery_Context* pCtx)
+{
+	int overflow;
+	secp256k1_scalar_set_b32(&pCtx->m_Sk, pRangeproof->m_Taux.m_pVal, &overflow);
+
+	secp256k1_scalar tau1, tau2;
+
+	// recover the blinding factor
 	{
-		secp256k1_scalar_set_b32(&pCtx->m_Sk, pRangeproof->m_Taux.m_pVal, &overflow);
-
-		// recover the blinding factor
-		{
-			static const char szSaltSk[] = "bp-key";
-			NonceGenerator ngSk;
-			NonceGenerator_Init(&ngSk, szSaltSk, sizeof(szSaltSk), pCtx->m_pSeedSk);
-			NonceGenerator_NextScalar(&ngSk, &alpha_minus_params); // tau1
-			NonceGenerator_NextScalar(&ngSk, &ro); // tau2
-		}
-
-		secp256k1_scalar_mul(&ro, &ro, &x);
-		secp256k1_scalar_add(&ro, &ro, &alpha_minus_params);
-		secp256k1_scalar_mul(&ro, &ro, &x); // tau2*x^2 + tau1*x
-
-		secp256k1_scalar_negate(&ro, &ro);
-		secp256k1_scalar_add(&pCtx->m_Sk, &pCtx->m_Sk, &ro);
-
-		secp256k1_scalar_inverse(&ro, &tmp); // heavy operation
-		secp256k1_scalar_mul(&pCtx->m_Sk, &pCtx->m_Sk, &ro);
+		static const char szSaltSk[] = "bp-key";
+		NonceGenerator ngSk;
+		NonceGenerator_Init(&ngSk, szSaltSk, sizeof(szSaltSk), pCtx->m_pSeedSk);
+		NonceGenerator_NextScalar(&ngSk, &tau1);
+		NonceGenerator_NextScalar(&ngSk, &tau2);
 	}
 
-	if (pCtx->m_pExtra)
+	secp256k1_scalar_mul(&tau2, &tau2, &pCtx->x);
+	secp256k1_scalar_add(&tau2, &tau2, &tau1);
+	secp256k1_scalar_mul(&tau2, &tau2, &pCtx->x); // tau2*x^2 + tau1*x
+
+	secp256k1_scalar_negate(&tau2, &tau2);
+	secp256k1_scalar_add(&pCtx->m_Sk, &pCtx->m_Sk, &tau2);
+
+	secp256k1_scalar_inverse(&tau2, &pCtx->zz); // heavy operation
+	secp256k1_scalar_mul(&pCtx->m_Sk, &pCtx->m_Sk, &tau2);
+}
+
+__stack_hungry__
+static void RangeProof_Recover3(const RangeProof_Packed* pRangeproof, Oracle* pOracle, RangeProof_Recovery_Context* pCtx)
+{
+	secp256k1_scalar ro, alpha_minus_params;
+
+	//if (pCtx->m_pExtra)
 	{
 		secp256k1_scalar pE[2][_countof(pRangeproof->m_pLRx)];
 
@@ -1683,10 +1698,9 @@ static int RangeProof_Recover(const RangeProof_Packed* pRangeproof, Oracle* pOra
 		secp256k1_scalar_set_int(&alpha_minus_params, 2);
 
 		secp256k1_scalar_negate(&ro, &yPwr);
-		secp256k1_scalar_add(&ro, &ro, &z);
-		const secp256k1_scalar* pZ[] = { &z, &ro }; // z, z-1
+		secp256k1_scalar_add(&ro, &ro, &pCtx->z);
+		const secp256k1_scalar* pZ[] = { &pCtx->z, &ro }; // z, z-1
 
-		// tmp == z^2
 
 		static_assert(!(nDims & 1), ""); // must be even
 		secp256k1_scalar pS[nDims / 2]; // 32 elements, 1K stack size. Perform 1st condensation in-place (otherwise we'd need to prepare 64 elements first)
@@ -1703,19 +1717,19 @@ static int RangeProof_Recover(const RangeProof_Packed* pRangeproof, Oracle* pOra
 
 				if (j)
 				{
-					secp256k1_scalar_mul(&val, &val, &x); // pS[i] *= x;
+					secp256k1_scalar_mul(&val, &val, &pCtx->x); // pS[i] *= x;
 					secp256k1_scalar_mul(&val, &val, &yPwr); // pS[i] *= yPwr;
 
 					secp256k1_scalar_mul(&tmp2, pZ[!bit], &yPwr);
-					secp256k1_scalar_add(&tmp2, &tmp2, &tmp);
+					secp256k1_scalar_add(&tmp2, &tmp2, &pCtx->zz);
 					secp256k1_scalar_add(&val, &val, &tmp2); // pS[i] += pZ[!bit]*yPwr + z^2*2^i
 
-					secp256k1_scalar_mul(&tmp, &tmp, &alpha_minus_params); // x2
-					secp256k1_scalar_mul(&yPwr, &yPwr, &y);
+					secp256k1_scalar_mul(&pCtx->zz, &pCtx->zz, &alpha_minus_params); // x2
+					secp256k1_scalar_mul(&yPwr, &yPwr, &pCtx->y);
 				}
 				else
 				{
-					secp256k1_scalar_mul(&val, &val, &x); // pS[i] *= x;
+					secp256k1_scalar_mul(&val, &val, &pCtx->x); // pS[i] *= x;
 
 					secp256k1_scalar_negate(&tmp2, pZ[bit]);
 					secp256k1_scalar_add(&val, &val, &tmp2); // pS[i] -= pZ[bit];
@@ -1748,12 +1762,13 @@ static int RangeProof_Recover(const RangeProof_Packed* pRangeproof, Oracle* pOra
 			}
 			assert(1 == nStep);
 
+			int overflow;
 			secp256k1_scalar_set_b32(pS + 1, pRangeproof->m_pCondensed[j].m_pVal, &overflow);
 			secp256k1_scalar_negate(pS, pS);
 			secp256k1_scalar_add(pS, pS, pS + 1); // the difference
 
 			// now let's estimate the difference that would be if extra == 1.
-			pS[1] = x;
+			pS[1] = pCtx->x;
 			for (uint32_t iCycle = 0; iCycle < _countof(pRangeproof->m_pLRx); iCycle++)
 				secp256k1_scalar_mul(pS + 1, pS + 1, pE[j] + iCycle);
 
@@ -1762,7 +1777,6 @@ static int RangeProof_Recover(const RangeProof_Packed* pRangeproof, Oracle* pOra
 		}
 	}
 
-	return 1;
 }
 
 //////////////////////////////
@@ -3537,13 +3551,16 @@ uint16_t TxSendShielded_VerifyParams2(TxSendShieldedContext* pCtx, TxSendShielde
 	pRp->m_RCtx.m_pUser = &packed;
 	pRp->m_RCtx.m_nUser = sizeof(packed);
 
-	if (!RangeProof_Recover(&pCtx->m_p->u.m_TxBalance.m_Sh.m_RangeProof, &pRp->m_Oracle, &pRp->m_RCtx))
+	if (!RangeProof_Recover1(&pCtx->m_p->u.m_TxBalance.m_Sh.m_RangeProof, &pRp->m_Oracle, &pRp->m_RCtx))
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 26);
 
 	if ((pRp->m_RCtx.m_Amount != pCtx->m_Amount) || (bswap32_be(packed.m_AssetID) != pCtx->m_Aid))
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 27);
 
 	pRp->m_FlagsPacked ^= packed.m_Flags;
+
+	RangeProof_Recover2(&pCtx->m_p->u.m_TxBalance.m_Sh.m_RangeProof, &pRp->m_Oracle, &pRp->m_RCtx);
+	RangeProof_Recover3(&pCtx->m_p->u.m_TxBalance.m_Sh.m_RangeProof, &pRp->m_Oracle, &pRp->m_RCtx);
 
 	return c_KeyKeeper_Status_Ok;
 }
