@@ -1437,8 +1437,9 @@ namespace beam::wallet
                 {
                     uint32_t nPortion = std::min<uint32_t>(230, sizeof(sop) - nDone);
 
-                    hw::Proto::TxPrepareShielded::Out msgPrep;
-                    msgPrep.m_Size = (uint8_t) nPortion;
+                    hw::Proto::AuxWrite::Out msgPrep;
+                    msgPrep.m_Offset = (uint16_t) nDone;
+                    msgPrep.m_Size = (uint16_t) nPortion;
                     
                     auto pExtra = AllocReq_T(msgPrep, nPortion);
                     memcpy(pExtra, reinterpret_cast<const uint8_t*>(&sop) + nDone, nPortion);
@@ -1461,7 +1462,7 @@ namespace beam::wallet
             {
                 if (m_BlobsSent)
                 {
-                    auto pMsg = ReadReq_T<hw::Proto::TxPrepareShielded>();
+                    auto pMsg = ReadReq_T<hw::Proto::AuxWrite>();
                     if (!pMsg)
                         return;
 
