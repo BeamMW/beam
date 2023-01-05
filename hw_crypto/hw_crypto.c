@@ -3408,132 +3408,6 @@ static uint8_t Msg2Scalar(secp256k1_scalar* p, const UintBig* pMsg)
 	return !!overflow;
 }
 
-__stack_hungry__
-int VerifyShieldedOutputParams(const KeyKeeper* p, const OpIn_TxSendShielded* pSh, Amount amount, AssetID aid, const CustomGenerator* pAGen, secp256k1_scalar* pSk, UintBig* pKrnID, AddrID addrID)
-{
-	// check the voucher
-	UintBig hv;
-	Voucher_Hash(&hv, &p->u.m_TxBalance.m_Sh.m_Voucher);
-
-	CompactPoint ptPubKey;
-	ptPubKey.m_X = pSh->m_Mut.m_Peer;
-	ptPubKey.m_Y = 0;
-
-	if (!Signature_IsValid(&p->u.m_TxBalance.m_Sh.m_Voucher.m_Signature, &hv, &ptPubKey))
-		return 0;
-	// skip the voucher's ticket verification, don't care if it's valid, as it was already signed by the receiver.
-
-	if (addrID)
-	{
-		DeriveAddress(p, addrID, pSk, &hv);
-		if (memcmp(hv.m_pVal, pSh->m_Mut.m_Peer.m_pVal, sizeof(hv.m_pVal)))
-			return 0;
-	}
-
-	// The host expects a TxKernelStd, which contains TxKernelShieldedOutput as a nested kernel, which contains the ShieldedTxo
-	// This ShieldedTxo must use the ticket from the voucher, have appropriate commitment + rangeproof, which MUST be generated w.r.t. SharedSecret from the voucher.
-	// The receiver *MUST* be able to decode all the parameters w.r.t. the protocol.
-	//
-	// So, here we ensure that the protocol is obeyed, i.e. the receiver will be able to decode all the parameters from the rangeproof
-	//
-	// Important: the TxKernelShieldedOutput kernel ID has the whole rangeproof serialized, means it can't be tampered with after we sign the outer kernel
-
-	secp256k1_scalar pExtra[2];
-
-	uint8_t nFlagsPacked = Msg2Scalar(pExtra, &pSh->m_User.m_Sender);
-
-	{
-		static const char szSalt[] = "kG-O";
-		NonceGenerator ng; // not really secret
-		NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &p->u.m_TxBalance.m_Sh.m_Voucher.m_SharedSecret);
-		NonceGenerator_NextScalar(&ng, pSk);
-	}
-
-	secp256k1_scalar_add(pSk, pSk, pExtra); // output blinding factor
-
-	secp256k1_gej gej;
-	CoinID_getCommRaw(pSk, amount, pAGen, &gej); // output commitment
-
-	nFlagsPacked |= (Msg2Scalar(pExtra, &pSh->m_User.m_pMessage[0]) << 1);
-	nFlagsPacked |= (Msg2Scalar(pExtra + 1, &pSh->m_User.m_pMessage[1]) << 2);
-
-	// We have the commitment, and params that are supposed to be packed in the rangeproof.
-	// Recover the parameters, make sure they match
-
-	Oracle oracle;
-	TxKernel_SpecialMsg(&oracle.m_sha, 0, 0, -1, 3);
-	secp256k1_sha256_finalize(&oracle.m_sha, pKrnID->m_pVal); // krn.Msg
-
-	secp256k1_sha256_initialize(&oracle.m_sha);
-	secp256k1_sha256_write(&oracle.m_sha, pKrnID->m_pVal, sizeof(pKrnID->m_pVal)); // oracle << krn.Msg
-	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &p->u.m_TxBalance.m_Sh.m_Voucher.m_SerialPub);
-	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &p->u.m_TxBalance.m_Sh.m_Voucher.m_NoncePub);
-	secp256k1_sha256_write_Gej(&oracle.m_sha, &gej);
-	secp256k1_sha256_write_CompactPointOptional2(&oracle.m_sha, &pSh->m_ptAssetGen, !IsUintBigZero(&pSh->m_ptAssetGen.m_X)); // starting from HF3 it's mandatory
-
-	{
-		Oracle o2 = oracle;
-		HASH_WRITE_STR(o2.m_sha, "bp-s");
-		secp256k1_sha256_write(&o2.m_sha, p->u.m_TxBalance.m_Sh.m_Voucher.m_SharedSecret.m_pVal, sizeof(p->u.m_TxBalance.m_Sh.m_Voucher.m_SharedSecret.m_pVal));
-		secp256k1_sha256_finalize(&o2.m_sha, hv.m_pVal); // seed
-	}
-
-	{
-#pragma pack (push, 1)
-		typedef struct
-		{
-			AssetID m_AssetID;
-			uint8_t m_Flags;
-		} ShieldedTxo_RangeProof_Packed;
-#pragma pack (pop)
-
-		secp256k1_scalar skRecovered;
-		secp256k1_scalar pExtraRecovered[2];
-		ShieldedTxo_RangeProof_Packed packed;
-
-		RangeProof_Recovery_Context ctx;
-		ctx.m_pExtra = 0;
-		ctx.m_SeedGen = hv;
-		ctx.m_pSeedSk = &ctx.m_SeedGen;
-		ctx.m_pSk = &skRecovered;
-		ctx.m_pUser = &packed;
-		ctx.m_nUser = sizeof(packed);
-		ctx.m_pExtra = pExtraRecovered;
-
-		if (!RangeProof_Recover(&p->u.m_TxBalance.m_Sh.m_RangeProof, &oracle, &ctx))
-			return 0;
-
-		if (memcmp(pExtra, pExtraRecovered, sizeof(pExtra)) ||
-			(packed.m_Flags != nFlagsPacked) ||
-			(ctx.m_Amount != amount) ||
-			(bswap32_be(packed.m_AssetID) != aid))
-			return 0;
-
-		if (aid || pSh->m_HideAssetAlways)
-		{
-			static const char szSalt[] = "skG-O";
-			NonceGenerator ng; // not really secret
-			NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &p->u.m_TxBalance.m_Sh.m_Voucher.m_SharedSecret);
-			NonceGenerator_NextScalar(&ng, pExtraRecovered);
-
-			secp256k1_scalar_set_u64(pExtraRecovered + 1, amount);
-			secp256k1_scalar_mul(pExtraRecovered, pExtraRecovered, pExtraRecovered + 1);
-			secp256k1_scalar_add(&skRecovered, &skRecovered, pExtraRecovered);
-		}
-
-		if (memcmp(pSk, &skRecovered, sizeof(skRecovered)))
-			return 0;
-	}
-
-	// all match! Calculate the resulting kernelID
-	secp256k1_sha256_initialize(&oracle.m_sha);
-	secp256k1_sha256_write(&oracle.m_sha, pKrnID->m_pVal, sizeof(pKrnID->m_pVal));
-	secp256k1_sha256_write(&oracle.m_sha, (uint8_t*) &p->u.m_TxBalance.m_Sh.m_RangeProof, sizeof(p->u.m_TxBalance.m_Sh.m_RangeProof));
-	secp256k1_sha256_finalize(&oracle.m_sha, pKrnID->m_pVal);
-
-	return 1;
-}
-
 PROTO_METHOD(TxPrepareShielded)
 {
 	PROTO_UNUSED_ARGS;
@@ -3556,6 +3430,229 @@ PROTO_METHOD(TxPrepareShielded)
 	return c_KeyKeeper_Status_Ok;
 }
 
+typedef struct
+{
+	KeyKeeper* m_p;
+	const OpIn_TxSendShielded* m_pIn;
+	OpOut_TxSendShielded* m_pOut;
+
+	Amount m_Amount;
+	AssetID m_Aid;
+	TxCommonIn m_Txc;
+
+	secp256k1_scalar m_skKrn;
+	UintBig m_hvKrn;
+
+} TxSendShieldedContext;
+
+__stack_hungry__
+int TxSendShielded_VoucherCheck(TxSendShieldedContext* pCtx)
+{
+	// check the voucher
+	Voucher_Hash(&pCtx->m_hvKrn, &pCtx->m_p->u.m_TxBalance.m_Sh.m_Voucher);
+
+	CompactPoint ptPubKey;
+	ptPubKey.m_X = pCtx->m_pIn->m_Mut.m_Peer;
+	ptPubKey.m_Y = 0;
+
+	return Signature_IsValid(&pCtx->m_p->u.m_TxBalance.m_Sh.m_Voucher.m_Signature, &pCtx->m_hvKrn, &ptPubKey);
+}
+
+typedef struct
+{
+	RangeProof_Recovery_Context m_RCtx;
+	Oracle m_Oracle;
+	secp256k1_scalar m_pExtra[2];
+	secp256k1_scalar m_skRecovered;
+	uint8_t m_FlagsPacked;
+
+} TxSendShieldedRecoveryParams;
+
+__stack_hungry__
+void TxSendShielded_GetComm(TxSendShieldedContext* pCtx, secp256k1_gej* pGej)
+{
+	CustomGenerator aGen;
+	if (pCtx->m_Aid)
+		CoinID_GenerateAGen(pCtx->m_Aid, &aGen); // assume that's not the peak stack consumer
+
+	CoinID_getCommRaw(&pCtx->m_skKrn, pCtx->m_Amount, pCtx->m_Aid ? &aGen : 0, pGej); // output commitment
+}
+
+__stack_hungry__
+void TxSendShielded_PrepareRangeProofRecover(TxSendShieldedContext* pCtx, TxSendShieldedRecoveryParams* pRp)
+{
+	union {
+		NonceGenerator ng; // no really secret
+		Oracle o2;
+		secp256k1_gej gej;
+		secp256k1_scalar skExtra;
+	} u;
+
+	{
+		static const char szSalt[] = "kG-O";
+		NonceGenerator_Init(&u.ng, szSalt, sizeof(szSalt), &pCtx->m_p->u.m_TxBalance.m_Sh.m_Voucher.m_SharedSecret);
+		NonceGenerator_NextScalar(&u.ng, &pCtx->m_skKrn);
+	}
+
+	pRp->m_FlagsPacked = Msg2Scalar(&u.skExtra, &pCtx->m_pIn->m_User.m_Sender);
+	secp256k1_scalar_add(&pCtx->m_skKrn, &pCtx->m_skKrn, &u.skExtra); // output blinding factor
+
+	TxSendShielded_GetComm(pCtx, &u.gej);
+
+	// We have the commitment, and params that are supposed to be packed in the rangeproof.
+	// Recover the parameters, make sure they match
+
+	TxKernel_SpecialMsg(&pRp->m_Oracle.m_sha, 0, 0, -1, 3);
+	secp256k1_sha256_finalize(&pRp->m_Oracle.m_sha, pCtx->m_hvKrn.m_pVal); // krn.Msg
+
+	secp256k1_sha256_initialize(&pRp->m_Oracle.m_sha);
+	secp256k1_sha256_write(&pRp->m_Oracle.m_sha, pCtx->m_hvKrn.m_pVal, sizeof(pCtx->m_hvKrn.m_pVal)); // oracle << krn.Msg
+	secp256k1_sha256_write_CompactPoint(&pRp->m_Oracle.m_sha, &pCtx->m_p->u.m_TxBalance.m_Sh.m_Voucher.m_SerialPub);
+	secp256k1_sha256_write_CompactPoint(&pRp->m_Oracle.m_sha, &pCtx->m_p->u.m_TxBalance.m_Sh.m_Voucher.m_NoncePub);
+	secp256k1_sha256_write_Gej(&pRp->m_Oracle.m_sha, &u.gej);
+	secp256k1_sha256_write_CompactPointOptional2(&pRp->m_Oracle.m_sha, &pCtx->m_pIn->m_ptAssetGen, !IsUintBigZero(&pCtx->m_pIn->m_ptAssetGen.m_X)); // starting from HF3 it's mandatory
+
+	{
+		u.o2 = pRp->m_Oracle;
+		HASH_WRITE_STR(u.o2.m_sha, "bp-s");
+		secp256k1_sha256_write(&u.o2.m_sha, pCtx->m_p->u.m_TxBalance.m_Sh.m_Voucher.m_SharedSecret.m_pVal, sizeof(pCtx->m_p->u.m_TxBalance.m_Sh.m_Voucher.m_SharedSecret.m_pVal));
+		secp256k1_sha256_finalize(&u.o2.m_sha, pRp->m_RCtx.m_SeedGen.m_pVal); // rangeproof seed
+	}
+
+}
+
+__stack_hungry__
+uint16_t TxSendShielded_VerifyParams2(TxSendShieldedContext* pCtx, TxSendShieldedRecoveryParams* pRp)
+{
+
+#pragma pack (push, 1)
+	typedef struct
+	{
+		AssetID m_AssetID;
+		uint8_t m_Flags;
+	} ShieldedTxo_RangeProof_Packed;
+#pragma pack (pop)
+
+	ShieldedTxo_RangeProof_Packed packed;
+
+	pRp->m_RCtx.m_pSeedSk = &pRp->m_RCtx.m_SeedGen; // same seed
+	pRp->m_RCtx.m_pSk = &pRp->m_skRecovered;
+	pRp->m_RCtx.m_pUser = &packed;
+	pRp->m_RCtx.m_nUser = sizeof(packed);
+	pRp->m_RCtx.m_pExtra = pRp->m_pExtra;
+
+	if (!RangeProof_Recover(&pCtx->m_p->u.m_TxBalance.m_Sh.m_RangeProof, &pRp->m_Oracle, &pRp->m_RCtx))
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 26);
+
+	if ((pRp->m_RCtx.m_Amount != pCtx->m_Amount) || (bswap32_be(packed.m_AssetID) != pCtx->m_Aid))
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 27);
+
+	pRp->m_FlagsPacked ^= packed.m_Flags;
+
+	return c_KeyKeeper_Status_Ok;
+}
+
+__stack_hungry__
+uint16_t TxSendShielded_VerifyParams3(TxSendShieldedContext* pCtx, TxSendShieldedRecoveryParams* pRp)
+{
+	{
+		secp256k1_scalar pExtra[2];
+		pRp->m_FlagsPacked ^= (Msg2Scalar(pExtra, &pCtx->m_pIn->m_User.m_pMessage[0]) << 1);
+		pRp->m_FlagsPacked ^= (Msg2Scalar(pExtra + 1, &pCtx->m_pIn->m_User.m_pMessage[1]) << 2);
+
+		if (memcmp(pRp->m_pExtra, pExtra, sizeof(pExtra)) || pRp->m_FlagsPacked)
+			return MakeStatus(c_KeyKeeper_Status_Unspecified, 28);
+
+	}
+
+	if (pCtx->m_Aid || pCtx->m_pIn->m_HideAssetAlways)
+	{
+		static const char szSalt[] = "skG-O";
+		NonceGenerator ng; // not really secret
+		NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &pCtx->m_p->u.m_TxBalance.m_Sh.m_Voucher.m_SharedSecret);
+		NonceGenerator_NextScalar(&ng, pRp->m_pExtra);
+
+		secp256k1_scalar_set_u64(pRp->m_pExtra + 1, pCtx->m_Amount);
+		secp256k1_scalar_mul(pRp->m_pExtra, pRp->m_pExtra, pRp->m_pExtra + 1);
+		secp256k1_scalar_add(&pRp->m_skRecovered, &pRp->m_skRecovered, pRp->m_pExtra);
+	}
+
+	if (memcmp(&pCtx->m_skKrn, &pRp->m_skRecovered, sizeof(pRp->m_skRecovered)))
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 28);
+
+	// all match! Calculate the resulting kernelID
+	secp256k1_sha256_initialize(&pRp->m_Oracle.m_sha);
+	secp256k1_sha256_write(&pRp->m_Oracle.m_sha, pCtx->m_hvKrn.m_pVal, sizeof(pCtx->m_hvKrn.m_pVal));
+	secp256k1_sha256_write(&pRp->m_Oracle.m_sha, (uint8_t*) &pCtx->m_p->u.m_TxBalance.m_Sh.m_RangeProof, sizeof(pCtx->m_p->u.m_TxBalance.m_Sh.m_RangeProof));
+	secp256k1_sha256_finalize(&pRp->m_Oracle.m_sha, pCtx->m_hvKrn.m_pVal);
+
+	return c_KeyKeeper_Status_Ok;
+}
+
+__stack_hungry__
+uint16_t TxSendShielded_VerifyParams(TxSendShieldedContext* pCtx)
+{
+	// The host expects a TxKernelStd, which contains TxKernelShieldedOutput as a nested kernel, which contains the ShieldedTxo
+	// This ShieldedTxo must use the ticket from the voucher, have appropriate commitment + rangeproof, which MUST be generated w.r.t. SharedSecret from the voucher.
+	// The receiver *MUST* be able to decode all the parameters w.r.t. the protocol.
+	//
+	// So, here we ensure that the protocol is obeyed, i.e. the receiver will be able to decode all the parameters from the rangeproof
+	//
+	// Important: the TxKernelShieldedOutput kernel ID has the whole rangeproof serialized, means it can't be tampered with after we sign the outer kernel
+
+	TxSendShieldedRecoveryParams rp;
+	TxSendShielded_PrepareRangeProofRecover(pCtx, &rp);
+
+	uint16_t errCode = TxSendShielded_VerifyParams2(pCtx, &rp);
+	if (errCode)
+		return errCode;
+
+	return TxSendShielded_VerifyParams3(pCtx, &rp);
+}
+
+__stack_hungry__
+uint16_t TxSendShielded_FinalyzeTx(TxSendShieldedContext* pCtx, int bSplit)
+{
+	// select blinding factor for the outer kernel.
+	UintBig hvOuter;
+	secp256k1_sha256_t sha;
+	secp256k1_sha256_initialize(&sha);
+	secp256k1_sha256_write(&sha, pCtx->m_hvKrn.m_pVal, sizeof(pCtx->m_hvKrn.m_pVal));
+	secp256k1_sha256_write_Num(&sha, pCtx->m_Txc.m_Krn.m_hMin);
+	secp256k1_sha256_write_Num(&sha, pCtx->m_Txc.m_Krn.m_hMax);
+	secp256k1_sha256_write_Num(&sha, pCtx->m_Txc.m_Krn.m_Fee);
+	secp256k1_scalar_get_b32(hvOuter.m_pVal, &pCtx->m_p->u.m_TxBalance.m_sk);
+	secp256k1_sha256_write(&sha, hvOuter.m_pVal, sizeof(hvOuter.m_pVal));
+	secp256k1_sha256_finalize(&sha, hvOuter.m_pVal);
+
+	// derive keys
+	KernelKeys keys;
+	static const char szSalt[] = "hw-wlt-snd-sh";
+	NonceGenerator ng;
+	NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &hvOuter);
+	NonceGenerator_NextScalar(&ng, &keys.m_kKrn);
+	NonceGenerator_NextScalar(&ng, &keys.m_kNonce);
+	SECURE_ERASE_OBJ(ng);
+
+	KernelUpdateKeys(&pCtx->m_pOut->m_Tx.m_Comms, &keys, 0);
+	TxKernel_getID_Ex(&pCtx->m_Txc.m_Krn, &pCtx->m_pOut->m_Tx.m_Comms, &hvOuter, &pCtx->m_hvKrn, 1);
+
+	// all set
+	uint16_t errCode = bSplit ?
+		KeyKeeper_ConfirmSpend(pCtx->m_p, 0, 0, 0, &pCtx->m_Txc.m_Krn, &hvOuter) :
+		KeyKeeper_ConfirmSpend(pCtx->m_p, pCtx->m_Amount, pCtx->m_Aid, &pCtx->m_pIn->m_Mut.m_Peer, &pCtx->m_Txc.m_Krn, &hvOuter);
+
+	if (c_KeyKeeper_Status_Ok != errCode)
+		return errCode;
+
+	Kernel_SignPartial(&pCtx->m_pOut->m_Tx.m_TxSig.m_kSig, &pCtx->m_pOut->m_Tx.m_Comms, &hvOuter, &keys);
+
+	secp256k1_scalar_add(&keys.m_kKrn, &keys.m_kKrn, &pCtx->m_skKrn);
+	TxAggr_ToOffset(pCtx->m_p, &keys.m_kKrn, &pCtx->m_pOut->m_Tx);
+
+	return c_KeyKeeper_Status_Ok;
+}
+
 PROTO_METHOD(TxSendShielded)
 {
 	PROTO_UNUSED_ARGS;
@@ -3563,71 +3660,46 @@ PROTO_METHOD(TxSendShielded)
 	if (nIn)
 		return c_KeyKeeper_Status_ProtoError;
 
-	TxCommonIn txc;
-	N2H_TxCommonIn(&txc, &pIn->m_Tx);
+	TxSendShieldedContext ctx;
+	ctx.m_p = p;
+	ctx.m_pIn = pIn;
+	ctx.m_pOut = pOut;
+
+	N2H_TxCommonIn(&ctx.m_Txc, &pIn->m_Tx);
 
 	AddrID addrID;
 	N2H_uint(addrID, pIn->m_Mut.m_AddrID, 64);
 
-	Amount netAmount;
-	AssetID aid;
-	uint16_t errCode = TxAggr_Get(p, &netAmount, &aid, &txc.m_Krn.m_Fee);
+	uint16_t errCode = TxAggr_Get(p, &ctx.m_Amount, &ctx.m_Aid, &ctx.m_Txc.m_Krn.m_Fee);
 	if (errCode)
 		return errCode;
 
 	if (sizeof(p->u.m_TxBalance.m_Sh) != p->u.m_TxBalance.m_SizeSh)
 		return MakeStatus(c_KeyKeeper_Status_ProtoError, 20);
 
-	if (!netAmount)
-		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21); // not sending
+	if (!ctx.m_Amount)
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21); // not sending/splitting
 
 	if (IsUintBigZero(&pIn->m_Mut.m_Peer))
 		return MakeStatus(c_KeyKeeper_Status_UserAbort, 22); // conventional transfers must always be signed
 
-	CustomGenerator aGen;
-	if (aid)
-		CoinID_GenerateAGen(aid, &aGen);
-
-	UintBig hvKrn1, hv;
-	secp256k1_scalar skKrn1;
-	if (!VerifyShieldedOutputParams(p, pIn, netAmount, aid, aid ? &aGen : 0, &skKrn1, &hvKrn1, addrID))
+	if (!TxSendShielded_VoucherCheck(&ctx))
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 23);
 
-	// select blinding factor for the outer kernel.
-	secp256k1_sha256_t sha;
-	secp256k1_sha256_initialize(&sha);
-	secp256k1_sha256_write(&sha, hvKrn1.m_pVal, sizeof(hvKrn1.m_pVal));
-	secp256k1_sha256_write_Num(&sha, txc.m_Krn.m_hMin);
-	secp256k1_sha256_write_Num(&sha, txc.m_Krn.m_hMax);
-	secp256k1_sha256_write_Num(&sha, txc.m_Krn.m_Fee);
-	secp256k1_scalar_get_b32(hv.m_pVal, &p->u.m_TxBalance.m_sk);
-	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
-	secp256k1_sha256_finalize(&sha, hv.m_pVal);
+	if (addrID)
+	{
+		// should be a split tx
+		DeriveAddress(p, addrID, &ctx.m_skKrn, &ctx.m_hvKrn);
+		if (memcmp(ctx.m_hvKrn.m_pVal, pIn->m_Mut.m_Peer.m_pVal, sizeof(ctx.m_hvKrn.m_pVal)))
+			return MakeStatus(c_KeyKeeper_Status_Unspecified, 24);
+	}
 
-	// derive keys
-	KernelKeys keys;
-	static const char szSalt[] = "hw-wlt-snd-sh";
-	NonceGenerator ng;
-	NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &hv);
-	NonceGenerator_NextScalar(&ng, &keys.m_kKrn);
-	NonceGenerator_NextScalar(&ng, &keys.m_kNonce);
-	SECURE_ERASE_OBJ(ng);
-
-	KernelUpdateKeys(&pOut->m_Tx.m_Comms, &keys, 0);
-	TxKernel_getID_Ex(&txc.m_Krn, &pOut->m_Tx.m_Comms, &hv, &hvKrn1, 1);
-
-	// all set
-	errCode = addrID ?
-		KeyKeeper_ConfirmSpend(p, 0, 0, 0, &txc.m_Krn, &hv) :
-		KeyKeeper_ConfirmSpend(p, netAmount, aid, &pIn->m_Mut.m_Peer, &txc.m_Krn, &hv);
-
-	if (c_KeyKeeper_Status_Ok != errCode)
+	errCode = TxSendShielded_VerifyParams(&ctx);
+	if (errCode)
 		return errCode;
 
-	Kernel_SignPartial(&pOut->m_Tx.m_TxSig.m_kSig, &pOut->m_Tx.m_Comms, &hv, &keys);
+	errCode = TxSendShielded_FinalyzeTx(&ctx, !!addrID);
 
-	secp256k1_scalar_add(&keys.m_kKrn, &keys.m_kKrn, &skKrn1);
-	TxAggr_ToOffset(p, &keys.m_kKrn, &pOut->m_Tx);
 
-	return c_KeyKeeper_Status_Ok;
+	return errCode;
 }
