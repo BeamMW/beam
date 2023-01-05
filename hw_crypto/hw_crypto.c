@@ -1544,6 +1544,8 @@ int RangeProof_Calculate(RangeProof* p)
 
 typedef struct
 {
+	NonceGenerator m_Ng;
+
 	// in
 	UintBig m_SeedGen;
 	const UintBig* m_pSeedSk;
@@ -1552,21 +1554,21 @@ typedef struct
 	void* m_pUser;
 	Amount m_Amount;
 
-	secp256k1_scalar* m_pSk;
-	secp256k1_scalar* m_pExtra;
+	secp256k1_scalar m_Sk;
+	secp256k1_scalar m_pExtra[2];
 
 } RangeProof_Recovery_Context;
+
 
 __stack_hungry__
 static int RangeProof_Recover(const RangeProof_Packed* pRangeproof, Oracle* pOracle, RangeProof_Recovery_Context* pCtx)
 {
 	static const char szSalt[] = "bulletproof";
-	NonceGenerator ng;
-	NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &pCtx->m_SeedGen);
+	NonceGenerator_Init(&pCtx->m_Ng, szSalt, sizeof(szSalt), &pCtx->m_SeedGen);
 
 	secp256k1_scalar alpha_minus_params, ro, x, y, z, tmp;
-	NonceGenerator_NextScalar(&ng, &alpha_minus_params);
-	NonceGenerator_NextScalar(&ng, &ro);
+	NonceGenerator_NextScalar(&pCtx->m_Ng, &alpha_minus_params);
+	NonceGenerator_NextScalar(&pCtx->m_Ng, &ro);
 
 	// oracle << p1.A << p1.S
 	// oracle >> y, z
@@ -1635,9 +1637,7 @@ static int RangeProof_Recover(const RangeProof_Packed* pRangeproof, Oracle* pOra
 
 	if (pCtx->m_pSeedSk)
 	{
-		assert(pCtx->m_pSk);
-
-		secp256k1_scalar_set_b32(pCtx->m_pSk, pRangeproof->m_Taux.m_pVal, &overflow);
+		secp256k1_scalar_set_b32(&pCtx->m_Sk, pRangeproof->m_Taux.m_pVal, &overflow);
 
 		// recover the blinding factor
 		{
@@ -1653,10 +1653,10 @@ static int RangeProof_Recover(const RangeProof_Packed* pRangeproof, Oracle* pOra
 		secp256k1_scalar_mul(&ro, &ro, &x); // tau2*x^2 + tau1*x
 
 		secp256k1_scalar_negate(&ro, &ro);
-		secp256k1_scalar_add(pCtx->m_pSk, pCtx->m_pSk, &ro);
+		secp256k1_scalar_add(&pCtx->m_Sk, &pCtx->m_Sk, &ro);
 
 		secp256k1_scalar_inverse(&ro, &tmp); // heavy operation
-		secp256k1_scalar_mul(pCtx->m_pSk, pCtx->m_pSk, &ro);
+		secp256k1_scalar_mul(&pCtx->m_Sk, &pCtx->m_Sk, &ro);
 	}
 
 	if (pCtx->m_pExtra)
@@ -1696,7 +1696,7 @@ static int RangeProof_Recover(const RangeProof_Packed* pRangeproof, Oracle* pOra
 			for (uint32_t i = 0; i < nDims; i++)
 			{
 				secp256k1_scalar val;
-				NonceGenerator_NextScalar(&ng, &val);
+				NonceGenerator_NextScalar(&pCtx->m_Ng, &val);
 
 				uint32_t bit = 1 & (pCtx->m_Amount >> i);
 				secp256k1_scalar tmp2;
@@ -3462,8 +3462,6 @@ typedef struct
 {
 	RangeProof_Recovery_Context m_RCtx;
 	Oracle m_Oracle;
-	secp256k1_scalar m_pExtra[2];
-	secp256k1_scalar m_skRecovered;
 	uint8_t m_FlagsPacked;
 
 } TxSendShieldedRecoveryParams;
@@ -3536,10 +3534,8 @@ uint16_t TxSendShielded_VerifyParams2(TxSendShieldedContext* pCtx, TxSendShielde
 	ShieldedTxo_RangeProof_Packed packed;
 
 	pRp->m_RCtx.m_pSeedSk = &pRp->m_RCtx.m_SeedGen; // same seed
-	pRp->m_RCtx.m_pSk = &pRp->m_skRecovered;
 	pRp->m_RCtx.m_pUser = &packed;
 	pRp->m_RCtx.m_nUser = sizeof(packed);
-	pRp->m_RCtx.m_pExtra = pRp->m_pExtra;
 
 	if (!RangeProof_Recover(&pCtx->m_p->u.m_TxBalance.m_Sh.m_RangeProof, &pRp->m_Oracle, &pRp->m_RCtx))
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 26);
@@ -3560,7 +3556,7 @@ uint16_t TxSendShielded_VerifyParams3(TxSendShieldedContext* pCtx, TxSendShielde
 		pRp->m_FlagsPacked ^= (Msg2Scalar(pExtra, &pCtx->m_pIn->m_User.m_pMessage[0]) << 1);
 		pRp->m_FlagsPacked ^= (Msg2Scalar(pExtra + 1, &pCtx->m_pIn->m_User.m_pMessage[1]) << 2);
 
-		if (memcmp(pRp->m_pExtra, pExtra, sizeof(pExtra)) || pRp->m_FlagsPacked)
+		if (memcmp(pRp->m_RCtx.m_pExtra, pExtra, sizeof(pExtra)) || pRp->m_FlagsPacked)
 			return MakeStatus(c_KeyKeeper_Status_Unspecified, 28);
 
 	}
@@ -3570,14 +3566,14 @@ uint16_t TxSendShielded_VerifyParams3(TxSendShieldedContext* pCtx, TxSendShielde
 		static const char szSalt[] = "skG-O";
 		NonceGenerator ng; // not really secret
 		NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &pCtx->m_p->u.m_TxBalance.m_Sh.m_Voucher.m_SharedSecret);
-		NonceGenerator_NextScalar(&ng, pRp->m_pExtra);
+		NonceGenerator_NextScalar(&ng, pRp->m_RCtx.m_pExtra);
 
-		secp256k1_scalar_set_u64(pRp->m_pExtra + 1, pCtx->m_Amount);
-		secp256k1_scalar_mul(pRp->m_pExtra, pRp->m_pExtra, pRp->m_pExtra + 1);
-		secp256k1_scalar_add(&pRp->m_skRecovered, &pRp->m_skRecovered, pRp->m_pExtra);
+		secp256k1_scalar_set_u64(pRp->m_RCtx.m_pExtra + 1, pCtx->m_Amount);
+		secp256k1_scalar_mul(pRp->m_RCtx.m_pExtra, pRp->m_RCtx.m_pExtra, pRp->m_RCtx.m_pExtra + 1);
+		secp256k1_scalar_add(&pRp->m_RCtx.m_Sk, &pRp->m_RCtx.m_Sk, pRp->m_RCtx.m_pExtra);
 	}
 
-	if (memcmp(&pCtx->m_skKrn, &pRp->m_skRecovered, sizeof(pRp->m_skRecovered)))
+	if (memcmp(&pCtx->m_skKrn, &pRp->m_RCtx.m_Sk, sizeof(pRp->m_RCtx.m_Sk)))
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 28);
 
 	// all match! Calculate the resulting kernelID
