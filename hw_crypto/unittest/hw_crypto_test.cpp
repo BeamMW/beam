@@ -39,6 +39,8 @@ extern "C"
 	{
 		wallet::LocalPrivateKeyKeeperStd::State m_Nonces;
 		int m_AllowWeakInputs = 0;
+
+		hw::KeyKeeper_AuxBuf m_AuxBuf;
 	};
 
 	void SecureEraseMem(void* p, uint32_t n)
@@ -80,6 +82,20 @@ extern "C"
 	void KeyKeeper_DisplayAddress(KeyKeeper*, AddrID addrID, const UintBig* pAddr)
 	{
 	}
+
+	const KeyKeeper_AuxBuf* KeyKeeper_GetAuxBuf(KeyKeeper* pKk)
+	{
+		return &Cast::Up<KeyKeeperPlus>(pKk)->m_AuxBuf;
+	}
+
+	void KeyKeeper_WriteAuxBuf(KeyKeeper* pKk, const void* p, uint32_t nOffset, uint32_t nSize)
+	{
+		assert(nOffset + nSize <= sizeof(KeyKeeper_AuxBuf));
+
+		auto pDst = reinterpret_cast<uint8_t*>(&Cast::Up<KeyKeeperPlus>(pKk)->m_AuxBuf);
+		memcpy(pDst + nOffset, p, nSize);
+	}
+
 }
 
 } // namespace hw
@@ -734,6 +750,7 @@ struct KeyKeeperHwEmu
 	:public wallet::RemoteKeyKeeper
 {
 	hw::KeyKeeperPlus m_Ctx;
+	bool m_LogComm = false;
 
 	struct MyTask
 		:public wallet::PrivateKeyKeeper_WithMarshaller::Task
@@ -748,6 +765,30 @@ struct KeyKeeperHwEmu
 			uint32_t nResSize = m_nResponse;
 			uint8_t* p = (uint8_t*) m_pBuf;
 			
+			if (m_pThis->m_LogComm)
+			{
+				std::string s;
+				s.reserve(m_nRequest * 6);
+
+				for (uint32_t i = 0; i < m_nRequest; i++)
+				{
+					if (i)
+						s.push_back(',');
+
+					
+
+					s.push_back('0');
+					s.push_back('x');
+
+					char sz[3];
+					uintBigImpl::_Print(p + i, 1, sz);
+					s.push_back(sz[0]);
+					s.push_back(sz[1]);
+				}
+
+				std::cout << "** Send:\n" << s << std::endl;
+			}
+
 			uint16_t errCode = hw::KeyKeeper_Invoke(&m_pThis->m_Ctx, p, m_nRequest, p, &nResSize);
 			p[0] = (uint8_t) errCode;
 
@@ -1421,7 +1462,7 @@ void TestShielded()
 			m.m_HideAssetAlways = true;
 		}
 
-		verify_test(kkw.InvokeOnBoth(m) == KeyKeeperHwEmu::Status::Success); // Sender Phase1
+		verify_test(kkw.InvokeOnBoth(m) == KeyKeeperHwEmu::Status::Success);
 		kkw.TestTx(m);
 	}
 }
