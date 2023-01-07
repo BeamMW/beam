@@ -178,7 +178,7 @@ typedef struct
 
 			int64_t m_RcvBeam;
 			int64_t m_RcvAsset; // up to 1 more asset supported in a tx
-			Amount m_ImplicitFee; // shielded input fees. Their effect is already accounted for in m_RcvBeam
+			Amount m_TotalFee; // explicit + shielded input fees.
 			AssetID m_Aid;
 			secp256k1_scalar m_sk; // net blinding factor, sum(outputs) - sum(inputs)
 
@@ -380,7 +380,6 @@ uint32_t KeyKeeper_getNumSlots(KeyKeeper*);
 void KeyKeeper_ReadSlot(KeyKeeper*, uint32_t, UintBig*);
 void KeyKeeper_RegenerateSlot(KeyKeeper*, uint32_t);
 int KeyKeeper_AllowWeakInputs(KeyKeeper*);
-Amount KeyKeeper_get_MaxShieldedFee(KeyKeeper*);
 const KeyKeeper_AuxBuf* KeyKeeper_GetAuxBuf(KeyKeeper*);
 void KeyKeeper_WriteAuxBuf(KeyKeeper*, const void*, uint32_t nOffset, uint32_t nSize);
 

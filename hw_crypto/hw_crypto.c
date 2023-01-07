@@ -2366,6 +2366,11 @@ static int TxAggr_AddAmount(KeyKeeper* p, Amount newVal, AssetID aid, int isOut)
 
 	return TxAggr_AddAmount_Raw(pRcv, newVal, isOut);
 }
+static int TxAggr_AddFee(KeyKeeper* p, Amount newVal)
+{
+	p->u.m_TxBalance.m_TotalFee += newVal;
+	return (p->u.m_TxBalance.m_TotalFee >= newVal);
+}
 
 __stack_hungry__
 static uint16_t TxAggr_AddCoins(KeyKeeper* p, CoinID* pCid_unaligned, uint32_t nCount, int isOut)
@@ -2428,15 +2433,8 @@ static uint16_t TxAggr_AddShieldedInputs(KeyKeeper* p, uint8_t* pIns_unaligned, 
 		if (fmt.m_Fee)
 		{
 			// Starding from HF3 shielded input fees are optional. And basically should not be used. But currently we support them
-			if (fmt.m_Fee > KeyKeeper_get_MaxShieldedFee(p))
-				return MakeStatus(c_KeyKeeper_Status_Unspecified, 8);
-
-			p->u.m_TxBalance.m_ImplicitFee += fmt.m_Fee;
-			if (p->u.m_TxBalance.m_ImplicitFee < fmt.m_Fee)
+			if (!TxAggr_AddFee(p, fmt.m_Fee))
 				return MakeStatus(c_KeyKeeper_Status_Unspecified, 1); // overflow
-
-			if (!TxAggr_AddAmount(p, fmt.m_Fee, 0, 1))
-				return MakeStatus(c_KeyKeeper_Status_Unspecified, 1);
 		}
 
 		secp256k1_scalar sk;
@@ -2450,7 +2448,7 @@ static uint16_t TxAggr_AddShieldedInputs(KeyKeeper* p, uint8_t* pIns_unaligned, 
 	return c_KeyKeeper_Status_Ok;
 }
 
-static uint16_t TxAggr_Get(const KeyKeeper* p, Amount* pNetAmount, AssetID* pAid, const Amount* pFeeSender)
+static uint16_t TxAggr_Get(KeyKeeper* p, Amount* pNetAmount, AssetID* pAid, const Amount* pFeeSender)
 {
 	if (c_KeyKeeper_State_TxBalance != p->m_State)
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 10);
@@ -2458,9 +2456,18 @@ static uint16_t TxAggr_Get(const KeyKeeper* p, Amount* pNetAmount, AssetID* pAid
 	int64_t rcvVal = p->u.m_TxBalance.m_RcvBeam;
 	if (pFeeSender)
 	{
+		if (!TxAggr_AddFee(p, *pFeeSender))
+			return MakeStatus(c_KeyKeeper_Status_Unspecified, 15);
+
 		// we're paying the fee. Subtract it from the net value we're sending
-		if (!TxAggr_AddAmount_Raw(&rcvVal, *pFeeSender, 1))
-			return MakeStatus(c_KeyKeeper_Status_Unspecified, 1);
+		if (!TxAggr_AddAmount_Raw(&rcvVal, p->u.m_TxBalance.m_TotalFee, 1))
+			return MakeStatus(c_KeyKeeper_Status_Unspecified, 17);
+	}
+	else
+	{
+		if (p->u.m_TxBalance.m_TotalFee)
+			// Implicit fees are not allowed for rcv tx (since we don't ask user permission)
+			return MakeStatus(c_KeyKeeper_Status_Unspecified, 16);
 	}
 
 	if (p->u.m_TxBalance.m_RcvAsset)
