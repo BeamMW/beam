@@ -405,6 +405,7 @@ namespace beam
 			static const uint8_t V0 = 0;
 			static const uint8_t V1 = 1;
 			static const uint8_t BB21 = 2; // worakround for BB.2.1
+			static const uint8_t V3 = 3;
 
 			static const uint32_t s_SubKeyBits = 24;
 			static const Key::Index s_SubKeyMask = (static_cast<Key::Index>(1) << s_SubKeyBits) - 1;

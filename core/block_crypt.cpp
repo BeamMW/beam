@@ -211,11 +211,16 @@ namespace beam
 	bool CoinID::get_ChildKdfIndex(Key::Index& idx) const
 	{
 		Key::Index iSubkey = get_Subkey();
-		if (!iSubkey)
-			return false; // by convention: up to latest scheme, Subkey=0 - is a master key
+		Key::Index iScheme = get_Scheme();
 
-		if (Scheme::BB21 == get_Scheme())
-			return false; // BB2.1 workaround
+		if (iScheme < Scheme::V3)
+		{
+			if (!iSubkey)
+				return false; // by convention: before V3 , Subkey=0 - is a master key
+
+			if (Scheme::BB21 == iScheme)
+				return false; // BB2.1 workaround
+		}
 
 		idx = iSubkey;
 		return true;
