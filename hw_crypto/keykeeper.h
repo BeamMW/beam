@@ -379,7 +379,6 @@ void SecureEraseMem(void*, uint32_t);
 uint32_t KeyKeeper_getNumSlots(KeyKeeper*);
 void KeyKeeper_ReadSlot(KeyKeeper*, uint32_t, UintBig*);
 void KeyKeeper_RegenerateSlot(KeyKeeper*, uint32_t);
-int KeyKeeper_AllowWeakInputs(KeyKeeper*);
 const KeyKeeper_AuxBuf* KeyKeeper_GetAuxBuf(KeyKeeper*);
 void KeyKeeper_WriteAuxBuf(KeyKeeper*, const void*, uint32_t nOffset, uint32_t nSize);
 

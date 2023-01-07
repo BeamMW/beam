@@ -427,7 +427,7 @@ namespace beam
 			:ID(nIdx, type)
 			,m_Value(v)
 		{
-			set_Subkey(nSubIdx, Scheme::V1);
+			set_Subkey(nSubIdx, Scheme::V3);
 		}
 
 		Key::Index get_Scheme() const
@@ -440,7 +440,7 @@ namespace beam
 			return m_SubIdx & Scheme::s_SubKeyMask;
 		}
 
-		void set_Subkey(Key::Index nSubIdx, Key::Index nScheme = Scheme::V1)
+		void set_Subkey(Key::Index nSubIdx, Key::Index nScheme = Scheme::V3)
 		{
 			m_SubIdx = (nSubIdx & Scheme::s_SubKeyMask) | (nScheme << Scheme::s_SubKeyBits);
 		}

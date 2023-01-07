@@ -849,18 +849,9 @@ void Oracle_NextPoint(Oracle* p, CompactPoint* pCompact, secp256k1_ge* pGe)
 // CoinID
 #define c_CoinID_nSubkeyBits 24
 
-int CoinID_getSchemeAndSubkey(const CoinID* p, uint8_t* pScheme, uint32_t* pSubkey)
+uint32_t CoinID_getSubkey(const CoinID* p)
 {
-	*pScheme = (uint8_t) (p->m_SubIdx >> c_CoinID_nSubkeyBits);
-	*pSubkey = p->m_SubIdx & ((1U << c_CoinID_nSubkeyBits) - 1);
-
-	if (!*pSubkey)
-		return 0; // by convention: up to latest scheme, Subkey=0 - is a master key
-
-	if (c_CoinID_Scheme_BB21 == *pScheme)
-		return 0; // BB2.1 workaround
-
-	return 1;
+	return p->m_SubIdx & ((1U << c_CoinID_nSubkeyBits) - 1);
 }
 
 #define HASH_WRITE_STR(hash, str) secp256k1_sha256_write(&(hash), (const unsigned char*)str, sizeof(str))
@@ -937,42 +928,17 @@ void CoinID_getHash(const CoinID* p, UintBig* pHash)
 	secp256k1_sha256_t sha;
 	secp256k1_sha256_initialize(&sha);
 
-	uint8_t nScheme;
-	uint32_t nSubkey;
-	CoinID_getSchemeAndSubkey(p, &nScheme, &nSubkey);
-
-	uint32_t nSubIdx = p->m_SubIdx;
-
-	switch (nScheme)
-	{
-	case c_CoinID_Scheme_BB21:
-		// this is actually V0, with a workaround
-		nSubIdx = nSubkey | (c_CoinID_Scheme_V0 << c_CoinID_nSubkeyBits);
-		nScheme = c_CoinID_Scheme_V0;
-		// no break;
-
-	case c_CoinID_Scheme_V0:
-		HASH_WRITE_STR(sha, "kid");
-		break;
-
-	default:
-		HASH_WRITE_STR(sha, "kidv-1");
-	}
-
+	HASH_WRITE_STR(sha, "kidv-1");
 	secp256k1_sha256_write_Num(&sha, p->m_Idx);
 	secp256k1_sha256_write_Num(&sha, p->m_Type);
-	secp256k1_sha256_write_Num(&sha, nSubIdx);
+	secp256k1_sha256_write_Num(&sha, p->m_SubIdx);
+	// newer scheme - account for the Value and Asset.
+	secp256k1_sha256_write_Num(&sha, p->m_Amount);
 
-	if (nScheme >= c_CoinID_Scheme_V1)
+	if (p->m_AssetID)
 	{
-		// newer scheme - account for the Value and Asset.
-		secp256k1_sha256_write_Num(&sha, p->m_Amount);
-
-		if (p->m_AssetID)
-		{
-			HASH_WRITE_STR(sha, "asset");
-			secp256k1_sha256_write_Num(&sha, p->m_AssetID);
-		}
+		HASH_WRITE_STR(sha, "asset");
+		secp256k1_sha256_write_Num(&sha, p->m_AssetID);
 	}
 
 	secp256k1_sha256_finalize(&sha, pHash->m_pVal);
@@ -1149,31 +1115,17 @@ void CoinID_getCommRaw(const secp256k1_scalar* pK, Amount amount, const CustomGe
 	CoinID_getCommRawEx(pK, &kH, pAGen, pGej);
 }
 
-void CoinID_getSk(const Kdf* pKdf, const CoinID* pCid, secp256k1_scalar* pK)
-{
-	CoinID_getSkComm(pKdf, pCid, pK, 0);
-}
-
 __stack_hungry__
 static void CoinID_getSkNonSwitch(const Kdf* pKdf, const CoinID* pCid, secp256k1_scalar* pK)
 {
-	uint8_t nScheme;
-	uint32_t nSubkey;
 	UintBig hv;
-	Kdf kdfC;
-
-	int nChild = CoinID_getSchemeAndSubkey(pCid, &nScheme, &nSubkey);
-	if (nChild)
-	{
-		Kdf_getChild(&kdfC, nSubkey, pKdf);
-		pKdf = &kdfC;
-	}
-
 	CoinID_getHash(pCid, &hv);
-	Kdf_Derive_SKey(pKdf, &hv, pK);
 
-	if (nChild)
-		SECURE_ERASE_OBJ(kdfC);
+	Kdf kdfC;
+	Kdf_getChild(&kdfC, CoinID_getSubkey(pCid), pKdf);
+
+	Kdf_Derive_SKey(&kdfC, &hv, pK);
+	SECURE_ERASE_OBJ(kdfC);
 }
 
 __stack_hungry__
@@ -2380,30 +2332,11 @@ static uint16_t TxAggr_AddCoins(KeyKeeper* p, CoinID* pCid_unaligned, uint32_t n
 		CoinID cid;
 		N2H_CoinID(&cid, pCid_unaligned + i);
 
-		uint8_t nScheme;
-		uint32_t nSubkey;
-		CoinID_getSchemeAndSubkey(&cid, &nScheme, &nSubkey);
-
-		if (nSubkey && isOut)
-			return MakeStatus(c_KeyKeeper_Status_Unspecified, 3); // HW wallet should not send funds to child subkeys (potentially belonging to miners)
-
-		switch (nScheme)
-		{
-		case c_CoinID_Scheme_V0:
-		case c_CoinID_Scheme_BB21:
-			// weak schemes
-			if (isOut)
-				return MakeStatus(c_KeyKeeper_Status_Unspecified, 4); // no reason to create weak outputs
-
-			if (!KeyKeeper_AllowWeakInputs(p))
-				return MakeStatus(c_KeyKeeper_Status_Unspecified, 5);
-		}
-
 		if (!TxAggr_AddAmount(p, cid.m_Amount, cid.m_AssetID, isOut))
 			return MakeStatus(c_KeyKeeper_Status_Unspecified, 1);
 
 		secp256k1_scalar sk;
-		CoinID_getSk(&p->m_MasterKey, &cid, &sk);
+		CoinID_getSkComm(&p->m_MasterKey, &cid, &sk, 0);
 
 		if (!isOut)
 			secp256k1_scalar_negate(&sk, &sk);
@@ -3224,7 +3157,7 @@ PROTO_METHOD(CreateShieldedInput_1)
 	// Derive keys
 
 	// Output blinding factor
-	ShieldedInput_getSk(p, &pIn->m_InpBlob, &fmt, &p->u.m_Ins.m_skOutp); // TODO: use isolated child!
+	ShieldedInput_getSk(p, &pIn->m_InpBlob, &fmt, &p->u.m_Ins.m_skOutp);
 
 	// spend sk/pk
 	int overflow;

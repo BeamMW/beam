@@ -38,8 +38,6 @@ extern "C"
 		:public KeyKeeper
 	{
 		wallet::LocalPrivateKeyKeeperStd::State m_Nonces;
-		int m_AllowWeakInputs = 0;
-
 		hw::KeyKeeper_AuxBuf m_AuxBuf;
 	};
 
@@ -67,11 +65,6 @@ extern "C"
 	uint16_t KeyKeeper_ConfirmSpend(KeyKeeper*, Amount val, AssetID aid, const UintBig* pPeerID, const TxKernelUser* pUser, const UintBig* pKrnID, uint32_t nFlags)
 	{
 		return c_KeyKeeper_Status_Ok;
-	}
-
-	int KeyKeeper_AllowWeakInputs(KeyKeeper* pKk)
-	{
-		return Cast::Up<KeyKeeperPlus>(pKk)->m_AllowWeakInputs;
 	}
 
 	Amount KeyKeeper_get_MaxShieldedFee(KeyKeeper* pKk)
@@ -435,19 +428,12 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const hw::Kdf& kdf2)
 
 	verify_test(hv1 == hv2);
 
-	uint8_t nScheme;
-	uint32_t nSubKey;
-	bool bChildKdf2 = !!hw::CoinID_getSchemeAndSubkey(&cid2, &nScheme, &nSubKey);
-
-	verify_test(cid.get_Scheme() == nScheme);
+	uint32_t nSubKey = hw::CoinID_getSubkey(&cid2);
 
 	uint32_t iChild;
 	bool bChildKdf = cid.get_ChildKdfIndex(iChild);
-	verify_test(bChildKdf == bChildKdf2);
-
-	if (bChildKdf) {
-		verify_test(nSubKey == iChild);
-	}
+	verify_test(bChildKdf);
+	verify_test(nSubKey == iChild);
 
 	// keys and commitment
 	ECC::Scalar::Native sk1, sk2;
@@ -468,9 +454,6 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const hw::Kdf& kdf2)
 
 	verify_test(sk1 == sk2);
 	verify_test(comm1 == comm2);
-
-	if (CoinID::Scheme::V1 != nScheme)
-		return;
 
 	// Generate multi-party output
 
@@ -565,12 +548,6 @@ void TestCoins()
 					iChild = 0;
 
 				cid.set_Subkey(iChild);
-				TestCoin(cid, hkdf, kdf2);
-
-				cid.set_Subkey(iChild, CoinID::Scheme::V0);
-				TestCoin(cid, hkdf, kdf2);
-
-				cid.set_Subkey(iChild, CoinID::Scheme::BB21);
 				TestCoin(cid, hkdf, kdf2);
 			}
 		}
@@ -842,7 +819,6 @@ struct KeyKeeperWrap
 	{
 		SetRandom(m_kkStd.m_State.m_hvLast);
 
-		m_kkEmu.m_Ctx.m_AllowWeakInputs = 0;
 		hw::Kdf_Init(&m_kkEmu.m_Ctx.m_MasterKey, &Ecc2BC(hv));
 
 		wallet::IPrivateKeyKeeper2::Method::get_NumSlots m;
@@ -1171,21 +1147,9 @@ void KeyKeeperWrap::TestSplit()
 
 	m.m_pKernel->m_Fee = 32; // ok
 	
-	m.m_vOutputs[0].set_Subkey(0, CoinID::Scheme::V0); // weak output scheme
-	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
+	m.m_vOutputs[0].set_Subkey(10); // ok
+	m.m_vInputs[0].set_Subkey(14); // weak input scheme
 
-	m.m_vOutputs[0].set_Subkey(0, CoinID::Scheme::BB21); // weak output scheme
-	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
-
-	m.m_vOutputs[0].set_Subkey(12); // outputs to a child key
-	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
-
-	m.m_vOutputs[0].set_Subkey(0); // ok
-
-	m.m_vInputs[0].set_Subkey(14, CoinID::Scheme::V0); // weak input scheme
-	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
-
-	m_kkEmu.m_Ctx.m_AllowWeakInputs = 1;
 	m_kkStd.m_Trustless = false; // no explicit flag for weak inputs, just switch to trusted mode
 	verify_test(InvokeOnBoth(m) == KeyKeeperHwEmu::Status::Success); // should work now
 
@@ -1208,7 +1172,6 @@ void KeyKeeperWrap::TestSplit()
 
 	TestTx(m);
 
-	m_kkEmu.m_Ctx.m_AllowWeakInputs = 0;
 	m_kkStd.m_Trustless = true;
 }
 

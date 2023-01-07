@@ -34,9 +34,5 @@ typedef struct
 } CoinID;
 #pragma pack (pop)
 
-#define c_CoinID_Scheme_V0 0
-#define c_CoinID_Scheme_V1 1
-#define c_CoinID_Scheme_BB21 2 // worakround for BB.2.1
-
-int CoinID_getSchemeAndSubkey(const CoinID*, uint8_t* pScheme, uint32_t* pSubkey); // returns 1 iff subkey is required
+uint32_t CoinID_getSubkey(const CoinID*);
 void CoinID_getHash(const CoinID*, UintBig*);

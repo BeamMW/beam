@@ -175,6 +175,7 @@ namespace beam::wallet
             switch (cid.get_Scheme())
             {
             case CoinID::Scheme::V0:
+            case CoinID::Scheme::V1:
             case CoinID::Scheme::BB21:
                 // disallow weak scheme
                 if (bOuts)
@@ -187,7 +188,7 @@ namespace beam::wallet
             if (bOuts && m_This.IsTrustless())
             {
                 Key::Index iSubKey;
-                if (cid.get_ChildKdfIndex(iSubKey))
+                if (cid.get_ChildKdfIndex(iSubKey) && iSubKey)
                     return false; // trustless wallet should not send funds to child subkeys (potentially belonging to miners)
             }
 
