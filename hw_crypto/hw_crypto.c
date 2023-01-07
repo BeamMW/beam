@@ -2158,7 +2158,7 @@ uint16_t MakeStatus(uint8_t major, uint8_t minor)
 	return (((uint16_t) minor) << 8) | major;
 }
 
-uint16_t KeyKeeper_Invoke(KeyKeeper* p, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t* pOutSize)
+uint16_t KeyKeeper_Invoke(KeyKeeper* p, const uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t* pOutSize)
 {
 	if (!nIn)
 		return MakeStatus(c_KeyKeeper_Status_ProtoError, 0xfd);
@@ -2642,7 +2642,7 @@ PROTO_METHOD(TxSplit)
 
 	TxKernel_getID(&txc.m_Krn, &pOut->m_Tx.m_Comms, &hv);
 
-	errCode = KeyKeeper_ConfirmSpend(p, 0, 0, 0, &txc.m_Krn, &hv);
+	errCode = KeyKeeper_ConfirmSpend(p, 0, 0, 0, &txc.m_Krn, &hv, c_KeyKeeper_ConfirmSpend_Split);
 	if (c_KeyKeeper_Status_Ok != errCode)
 		return errCode;
 
@@ -2887,7 +2887,7 @@ uint16_t HandleTxSend(KeyKeeper* p, OpIn_TxSend2* pIn, OpOut_TxSend1* pOut1, OpO
 
 	if (pOut1)
 	{
-		errCode = KeyKeeper_ConfirmSpend(p, ctx.m_netAmount, ctx.m_Aid, &pIn->m_Mut.m_Peer, &ctx.m_txc.m_Krn, 0);
+		errCode = KeyKeeper_ConfirmSpend(p, ctx.m_netAmount, ctx.m_Aid, &pIn->m_Mut.m_Peer, &ctx.m_txc.m_Krn, 0, 0);
 		if (c_KeyKeeper_Status_Ok != errCode)
 			return errCode;
 
@@ -2912,7 +2912,7 @@ uint16_t HandleTxSend(KeyKeeper* p, OpIn_TxSend2* pIn, OpOut_TxSend1* pOut1, OpO
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 25);
 
 	// 2nd user confirmation request. Now the kernel is complete, its ID is calculated
-	errCode = KeyKeeper_ConfirmSpend(p, ctx.m_netAmount, ctx.m_Aid, &pIn->m_Mut.m_Peer, &ctx.m_txc.m_Krn, &ctx.m_hvMyID);
+	errCode = KeyKeeper_ConfirmSpend(p, ctx.m_netAmount, ctx.m_Aid, &pIn->m_Mut.m_Peer, &ctx.m_txc.m_Krn, &ctx.m_hvMyID, c_KeyKeeper_ConfirmSpend_2ndPhase);
 	if (c_KeyKeeper_Status_Ok != errCode)
 		return errCode;
 
@@ -3704,8 +3704,8 @@ uint16_t TxSendShielded_FinalyzeTx(TxSendShieldedContext* pCtx, int bSplit)
 
 	// all set
 	uint16_t errCode = bSplit ?
-		KeyKeeper_ConfirmSpend(pCtx->m_p, 0, 0, 0, &pCtx->m_Txc.m_Krn, &hvOuter) :
-		KeyKeeper_ConfirmSpend(pCtx->m_p, pCtx->m_Amount, pCtx->m_Aid, &pCtx->m_pIn->m_Mut.m_Peer, &pCtx->m_Txc.m_Krn, &hvOuter);
+		KeyKeeper_ConfirmSpend(pCtx->m_p, 0, 0, 0, &pCtx->m_Txc.m_Krn, &hvOuter, c_KeyKeeper_ConfirmSpend_Shielded | c_KeyKeeper_ConfirmSpend_Split) :
+		KeyKeeper_ConfirmSpend(pCtx->m_p, pCtx->m_Amount, pCtx->m_Aid, &pCtx->m_pIn->m_Mut.m_Peer, &pCtx->m_Txc.m_Krn, &hvOuter, c_KeyKeeper_ConfirmSpend_Shielded);
 
 	if (c_KeyKeeper_Status_Ok != errCode)
 		return errCode;

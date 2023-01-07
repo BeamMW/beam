@@ -371,7 +371,7 @@ void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if
 // pIn/pOut don't have to be distinct! There may be overlap
 // Alignment isn't guaranteed either
 //
-uint16_t KeyKeeper_Invoke(KeyKeeper*, uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t* pOutSize);
+uint16_t KeyKeeper_Invoke(KeyKeeper*, const uint8_t* pIn, uint32_t nIn, uint8_t* pOut, uint32_t* pOutSize);
 
 //////////////////////////
 // External functions, implemented by the platform-specific code
@@ -392,4 +392,9 @@ void KeyKeeper_DisplayAddress(KeyKeeper*, AddrID addrID, const UintBig* pPeerID)
 // pPeerID is NULL, if it's a Split tx (i.e. funds are transferred back to you, only the fee is spent).
 // pKrnID is NULL, if this is a 'preliminary' confirmation (SendTx 1st invocation)
 // pUser contains fee and min/max height (may be shown to the user)
-uint16_t KeyKeeper_ConfirmSpend(KeyKeeper*, Amount val, AssetID aid, const UintBig* pPeerID, const TxKernelUser* pUser, const UintBig* pKrnID);
+uint16_t KeyKeeper_ConfirmSpend(KeyKeeper*, Amount val, AssetID aid, const UintBig* pPeerID, const TxKernelUser* pUser, const UintBig* pKrnID, uint32_t nFlags);
+
+
+#define c_KeyKeeper_ConfirmSpend_Split 0x10 // if not set - this is a send tx (also pPeerID should be specified)
+#define c_KeyKeeper_ConfirmSpend_Shielded 0x20
+#define c_KeyKeeper_ConfirmSpend_2ndPhase 0x40
