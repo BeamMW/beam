@@ -281,6 +281,8 @@ namespace
         arc & x;
     }
 
+    std::string ReadUsbPath(const po::variables_map& vm);
+
     IWalletDB::Ptr OpenDataBase(const po::variables_map& vm, const SecString& pass)
     {
         BOOST_ASSERT(vm.count(cli::WALLET_STORAGE) > 0);
@@ -291,7 +293,17 @@ namespace
             throw std::runtime_error(kErrorWalletNotInitialized);
         }
 
-        auto walletDB = WalletDB::open(walletPath, pass);
+        IWalletDB::Ptr walletDB;
+
+        std::string sPath = ReadUsbPath(vm);
+        if (sPath.empty())
+            walletDB = WalletDB::open(walletPath, pass);
+        else
+        {
+            auto pKeyKeeper = UsbKeyKeeper::Open(sPath);
+            walletDB = WalletDB::open(walletPath, pass, pKeyKeeper);
+            WalletDB::setUsbPath(*walletDB, sPath);
+        }
 
         LOG_INFO() << kWalletOpenedMessage;
         return walletDB;

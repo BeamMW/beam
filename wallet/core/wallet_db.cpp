@@ -2137,13 +2137,18 @@ namespace beam::wallet
         return walletDB;
     }
 
+    void  WalletDB::setUsbPath(IWalletDB& db, const std::string& sUsbPath)
+    {
+        storage::setBlobVar(db, UsbHw, sUsbPath);
+    }
+
     IWalletDB::Ptr WalletDB::initUsb(const string& path, const SecString& password, const std::string& sUsbPath, bool separateDBForPrivateData)
     {
         auto pKeyKeeper = UsbKeyKeeper::Open(sUsbPath);
 
         auto pRet = init(path, password, pKeyKeeper, separateDBForPrivateData);
 
-        storage::setBlobVar(*pRet, UsbHw, sUsbPath);
+        setUsbPath(*pRet, sUsbPath);
 
         return pRet;
     }
