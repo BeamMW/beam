@@ -703,7 +703,7 @@ namespace
 
     std::vector<HidInfo::Entry> EnumUsbHw()
     {
-        // supported vender (Ledger)
+        // supported vendor (Ledger)
         return wallet::HidInfo::Enum(0x2c97);
     }
 
