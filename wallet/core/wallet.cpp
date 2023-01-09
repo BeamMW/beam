@@ -848,6 +848,27 @@ namespace beam::wallet
             }
             break;
 
+            case TxType::InstantSbbsMessage:
+            {
+                auto receiver = m_WalletDB->getAddress(myID);
+                if (!receiver.is_initialized() || !receiver->m_OwnID)
+                    return;
+
+                size_t message_size = 0;
+                msg.GetParameter((TxParameterID) 0, message_size);
+
+                Timestamp timestamp;
+                msg.GetParameter((TxParameterID) 1, timestamp);
+
+                ByteBuffer message_bb;
+                message_bb.reserve(message_size);
+                msg.GetParameter((TxParameterID) 2, message_bb);
+                std::string message(message_bb.begin(), message_bb.end());
+
+                m_WalletDB->storeIM(timestamp, msg.m_From, message, true);
+            }
+            break;
+
         default: // suppress watning
             break;
         }
@@ -2488,5 +2509,18 @@ namespace beam::wallet
 
         if (!storage::setTxParameter(*m_WalletDB, id, TxParameterID::IsContractNotificationMarkedAsRead, true, true))
             LOG_ERROR() << "Can't mark application notification as read.";
+    }
+
+    void Wallet::sendInstantSbbsMessage(beam::Timestamp timestamp, const WalletID& peerID, const WalletID& myID, ByteBuffer&& message)
+    {
+        SetTxParameter msg;
+        msg.m_From = myID;
+        msg.m_Type = TxType::InstantSbbsMessage;
+
+        msg.AddParameter((TxParameterID) 0, message.size());
+        msg.AddParameter((TxParameterID) 1, timestamp);
+        msg.AddParameter((TxParameterID) 2, message);
+
+        SendSpecialMsg(peerID, msg);
     }
 }

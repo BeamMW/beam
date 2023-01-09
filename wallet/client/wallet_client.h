@@ -230,6 +230,9 @@ namespace beam::wallet
         virtual void onAssetInfo(Asset::ID assetId, const WalletAsset&) {}
         virtual void onStopped() {}
         virtual void onFullAssetsListLoaded() {}
+        virtual void onInstantMessage(Timestamp time, const WalletID& counterpart, const std::string& message, bool isIncome) {}
+        virtual void onGetChatList(const std::vector<WalletID>& chats) {}
+        virtual void onGetChatMessages(const std::vector<InstantMessage>& messages) {}
 
 #ifdef BEAM_ASSET_SWAP_SUPPORT
         void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
@@ -260,6 +263,7 @@ namespace beam::wallet
         void onShieldedCoinsChanged(ChangeAction, const std::vector<ShieldedCoin>& coins) override;
         void onSyncProgress(int done, int total) override;
         void onOwnedNode(const PeerID& id, bool connected) override;
+        void onIMSaved(Timestamp time, const WalletID& counterpart, const std::string& message, bool isIncome) override;
 
         void sendMoney(const WalletID& receiver, const std::string& comment, Amount amount, Amount fee) override;
         void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount amount, Amount fee) override;
@@ -362,6 +366,10 @@ namespace beam::wallet
         void markAppNotificationAsRead(const TxID& id) override;
 
         void enableBodyRequests(bool value) override;
+
+        void sendInstantMessage(const WalletID& peerID, const WalletID& myID, ByteBuffer&& message) override;
+        void getChats() override;
+        void getInstantMessages(const WalletID& peerID) override;
 
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;

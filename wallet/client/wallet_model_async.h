@@ -146,6 +146,11 @@ namespace beam::wallet
         virtual void markAppNotificationAsRead(const TxID& id) = 0;
 
         virtual void enableBodyRequests(bool value) = 0;
+
+        virtual void sendInstantMessage(const WalletID& peerID, const WalletID& myID, ByteBuffer&& message) = 0;
+        virtual void getChats() = 0;
+        virtual void getInstantMessages(const WalletID& peerID) = 0;
+
         virtual ~IWalletModelAsync() = default;
     };
 }
