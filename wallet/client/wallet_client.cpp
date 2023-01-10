@@ -2175,7 +2175,7 @@ namespace beam::wallet
 #elif defined(BEAM_DAPPNET)
             return "https://apps-dappnet.beam.mw/app/appslist.json";
 #else
-            return "http://3.19.141.112/app/appslist.json";
+            return "http://3.19.32.148/app/appslist.json";
 #endif
         }
     }
