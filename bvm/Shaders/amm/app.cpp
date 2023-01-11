@@ -609,6 +609,7 @@ ON_METHOD(pool_trade)
     {
         arg.m_Pid.m_Aid1 = aid1; // order as specified, not normalized
         arg.m_Pid.m_Aid2 = aid2;
+        arg.m_Pid.m_Fees = pid.m_Fees;
 
         FundsChange pFc[2];
         pFc[0].m_Amount = arg.m_Buy1;
