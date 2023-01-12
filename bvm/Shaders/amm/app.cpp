@@ -601,9 +601,9 @@ ON_METHOD(pool_trade)
         Env::DocGroup gr("res");
         Env::DocAddNum("buy", arg.m_Buy1);
         Env::DocAddNum("pay", res.m_PayPool + res.m_DaoFee);
-        Env::DocAddNum("pay-raw", rawPay);
-        Env::DocAddNum("fee-pool", res.m_PayPool - rawPay);
-        Env::DocAddNum("fee-dao", res.m_DaoFee);
+        Env::DocAddNum("pay_raw", rawPay);
+        Env::DocAddNum("fee_pool", res.m_PayPool - rawPay);
+        Env::DocAddNum("fee_dao", res.m_DaoFee);
     }
     else
     {
