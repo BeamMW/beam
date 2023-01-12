@@ -1159,52 +1159,67 @@ namespace beam::wallet
         {
             m_Phase += s_CoinsSent;
 
-            // TODO: multiple invocations if necessary
+            size_t nDoneIns = 0, nDoneOuts = 0, nDoneInsShielded = 0;
 
             hw::Proto::TxAddCoins::Out msg;
-
-            msg.m_Reset = 1;
-            msg.m_Ins = static_cast<uint8_t>(m.m_vInputs.size());
-            msg.m_Outs = static_cast<uint8_t>(m.m_vOutputs.size());
-            msg.m_InsShielded = static_cast<uint8_t>(m.m_vInputsShielded.size());
-
-            uint32_t nExtra =
-                static_cast <uint32_t>(sizeof(hw::CoinID)) * (msg.m_Ins + (uint32_t)msg.m_Outs) +
-                static_cast <uint32_t>(sizeof(hw::ShieldedInput_Blob) + sizeof(hw::ShieldedInput_Fmt)) * msg.m_InsShielded;
-
-            void* pExtra = AllocReq_T(msg, nExtra);
-
-            hw::CoinID* pCid = (hw::CoinID*) pExtra;
-
-            for (uint32_t i = 0; i < msg.m_Ins; i++, pCid++)
+            for (msg.m_Reset = 1; ; msg.m_Reset = 0)
             {
-                CidCvt(*pCid, m.m_vInputs[i]);
-                hw::Proto::h2n(*pCid);
+                const uint32_t nMaxSize = 240;
+                const uint32_t nSizeInpShielded = sizeof(hw::ShieldedInput_Blob) + sizeof(hw::ShieldedInput_Fmt);
+                static_assert(nMaxSize >= sizeof(hw::CoinID));
+                static_assert(nMaxSize >= nSizeInpShielded);
+
+                uint32_t nReserve = nMaxSize;
+
+                msg.m_Ins = (uint8_t) std::min<size_t>(m.m_vInputs.size() - nDoneIns, nReserve / sizeof(hw::CoinID));
+                nReserve -= sizeof(hw::CoinID) * msg.m_Ins;
+
+                msg.m_Outs = (uint8_t) std::min<size_t>(m.m_vOutputs.size() - nDoneOuts, nReserve / sizeof(hw::CoinID));
+                nReserve -= sizeof(hw::CoinID) * msg.m_Outs;
+
+                msg.m_InsShielded = (uint8_t) std::min<size_t>(m.m_vInputsShielded.size() - nDoneInsShielded, nReserve / nSizeInpShielded);
+                nReserve -= nSizeInpShielded * msg.m_InsShielded;
+
+
+                uint32_t nExtra = nMaxSize - nReserve;
+                void* pExtra = AllocReq_T(msg, nExtra);
+
+                hw::CoinID* pCid = (hw::CoinID*) pExtra;
+
+                for (uint32_t i = 0; i < msg.m_Ins; i++, pCid++)
+                {
+                    CidCvt(*pCid, m.m_vInputs[nDoneIns++]);
+                    hw::Proto::h2n(*pCid);
+                }
+
+                for (uint32_t i = 0; i < msg.m_Outs; i++, pCid++)
+                {
+                    CidCvt(*pCid, m.m_vOutputs[nDoneOuts++]);
+                    hw::Proto::h2n(*pCid);
+                }
+
+                auto pPtr = reinterpret_cast<uint8_t*>(pCid);
+                for (uint32_t i = 0; i < msg.m_InsShielded; i++)
+                {
+                    const auto& src = m.m_vInputsShielded[nDoneInsShielded++];
+
+                    hw::ShieldedInput_Fmt fmt;
+                    Import(*(hw::ShieldedInput_Blob*)pPtr, fmt, src, src.m_Fee);
+                    hw::Proto::h2n(fmt);
+
+                    pPtr += sizeof(hw::ShieldedInput_Blob);
+                    memcpy(pPtr, &fmt, sizeof(fmt));
+                    pPtr += sizeof(hw::ShieldedInput_Fmt);
+                }
+
+                m_Phase--;
+                SendReq();
+                m_AcksPending++;
+
+                if ((nDoneIns == m.m_vInputs.size()) && (nDoneOuts == m.m_vOutputs.size()) && (nDoneInsShielded == m.m_vInputsShielded.size()))
+                    break;
             }
 
-            for (uint32_t i = 0; i < msg.m_Outs; i++, pCid++)
-            {
-                CidCvt(*pCid, m.m_vOutputs[i]);
-                hw::Proto::h2n(*pCid);
-            }
-
-            auto pPtr = reinterpret_cast<uint8_t*>(pCid);
-            for (uint32_t i = 0; i < msg.m_InsShielded; i++)
-            {
-                const auto& src = m.m_vInputsShielded[i];
-
-                hw::ShieldedInput_Fmt fmt;
-                Import(*(hw::ShieldedInput_Blob*)pPtr, fmt, src, src.m_Fee);
-                hw::Proto::h2n(fmt);
-
-                pPtr += sizeof(hw::ShieldedInput_Blob);
-                memcpy(pPtr, &fmt, sizeof(fmt));
-                pPtr += sizeof(hw::ShieldedInput_Fmt);
-            }
-
-            m_Phase--;
-            SendReq();
-            m_AcksPending++;
         }
 
         bool ReadCoinsAck()
