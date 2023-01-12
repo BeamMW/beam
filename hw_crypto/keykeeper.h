@@ -208,11 +208,14 @@ void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if
 
 //////////////////
 // Protocol
-#define BeamCrypto_CurrentSignature "BeamHW.ver.02"
+#define BeamCrypto_Signature "BeamHW"
+#define BeamCrypto_CurrentVersion 3
 
 #define BeamCrypto_ProtoRequest_Version(macro)
 #define BeamCrypto_ProtoResponse_Version(macro) \
-	macro(char, Signature[sizeof(BeamCrypto_CurrentSignature) - 1])
+	macro(char, Signature[sizeof(BeamCrypto_Signature) - 1]) \
+	macro(uint32_t, Version) \
+	macro(uint32_t, Flags)
 
 #define BeamCrypto_ProtoRequest_GetNumSlots(macro)
 #define BeamCrypto_ProtoResponse_GetNumSlots(macro) \

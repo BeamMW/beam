@@ -2207,8 +2207,11 @@ PROTO_METHOD(Version)
 	if (nIn)
 		return c_KeyKeeper_Status_ProtoError; // size mismatch
 
-	static_assert(sizeof(pOut->m_Signature) == sizeof(BeamCrypto_CurrentSignature) - sizeof(char), "");
-	memcpy(pOut->m_Signature, BeamCrypto_CurrentSignature, sizeof(BeamCrypto_CurrentSignature) - sizeof(char));
+	static_assert(sizeof(pOut->m_Signature) == sizeof(BeamCrypto_Signature) - sizeof(char), "");
+	memcpy(pOut->m_Signature, BeamCrypto_Signature, sizeof(BeamCrypto_Signature) - sizeof(char));
+
+	H2N_uint(pOut->m_Version, BeamCrypto_CurrentVersion, 32);
+	H2N_uint(pOut->m_Flags, 0, 32);
 
 	return c_KeyKeeper_Status_Ok;
 }

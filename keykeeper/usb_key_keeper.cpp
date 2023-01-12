@@ -608,6 +608,49 @@ void UsbKeyKeeper::RunThreadGuarded()
 					return ret;
 				}
 
+				uint8_t m_pFrame[0x400]; // actual size is much smaller
+
+				uint16_t ReadApduResponse()
+				{
+					uint16_t sw;
+					uint16_t nLen = ReadFrame(m_pFrame, sizeof(m_pFrame));
+					if ((nLen < sizeof(sw)) || (nLen > sizeof(m_pFrame)))
+						ThrowBadSig();
+
+					memcpy(&sw, m_pFrame + nLen - sizeof(sw), sizeof(sw));
+					sw = ByteOrder::from_be(sw);
+
+					if (0x9000 != sw)
+						throw std::runtime_error(std::string("Device status: ") + uintBigFrom(sw).str());
+
+					nLen -= sizeof(sw);
+					if (!nLen)
+						ThrowBadSig();
+
+					if (m_pFrame[0] != c_KeyKeeper_Status_Ok)
+					{
+						// proper error message should be returned
+						if ((4 != nLen) ||
+							('b' != m_pFrame[2]) ||
+							('F' != m_pFrame[3]))
+							AsyncReader::ThrowBadSig();
+					}
+
+					return nLen;
+				}
+
+				void WriteApdu(const void* p, uint16_t n)
+				{
+					m_pFrame[0] = 0xE0; // cla
+					m_pFrame[1] = 'B'; // ins
+					m_pFrame[2] = 0;
+					m_pFrame[3] = 0;
+					m_pFrame[4] = (uint8_t) n;
+
+					memcpy(m_pFrame + 5, p, (uint8_t) n);
+					m_Usbio.WriteFrame(m_pFrame, n + 5);
+				}
+
 			} reader(*this);
 
 			reader.m_Usbio.Open(m_sPath.c_str());
@@ -615,17 +658,20 @@ void UsbKeyKeeper::RunThreadGuarded()
 			// verify dev signature
 			{
 				HwMsgs::Version::Out msgOut;
-				reader.m_Usbio.WriteFrame((uint8_t*) &msgOut, sizeof(msgOut));
+				reader.WriteApdu(&msgOut, sizeof(msgOut));
 
-				HwMsgs::Version::In msgIn;
-				uint16_t nLen = reader.ReadFrame((uint8_t*) &msgIn, sizeof(msgIn));
-
-				bool bOk =
-					(sizeof(msgIn) == nLen) &&
-					!memcmp(msgIn.m_Signature, BeamCrypto_CurrentSignature, sizeof(msgIn.m_Signature));
-
-				if (!bOk)
+				uint16_t nLen = reader.ReadApduResponse();
+				if (sizeof(HwMsgs::Version::In) != nLen)
 					AsyncReader::ThrowBadSig();
+
+				const HwMsgs::Version::In* pMsg = (const HwMsgs::Version::In*) reader.m_pFrame;
+				if ((c_KeyKeeper_Status_Ok != pMsg->m_StatusCode) ||
+					memcmp(pMsg->m_Signature, BeamCrypto_Signature, sizeof(pMsg->m_Signature)))
+					AsyncReader::ThrowBadSig();
+
+				uint32_t nVer = ByteOrder::from_le(pMsg->m_Version); // unaligned, don't care
+				if (nVer != BeamCrypto_CurrentVersion)
+					throw std::runtime_error("Unsupported vesion: " + std::to_string(nVer));
 			}
 
 
@@ -649,8 +695,8 @@ void UsbKeyKeeper::RunThreadGuarded()
 					}
 				}
 
-				uint8_t pFrame[0x400]; // actual size is much smaller
-				if (pTask->m_nResponse > sizeof(pFrame))
+				if ((pTask->m_nRequest > 0xff) ||
+					(pTask->m_nResponse > sizeof(reader.m_pFrame) - 5))
 					// too big (should not happen), just skip it
 					pTask->m_eRes = Status::NotImplemented;
 				else
@@ -658,28 +704,22 @@ void UsbKeyKeeper::RunThreadGuarded()
 
 					// send request
 					auto pBuf = pTask->m_pBuf;
-					reader.m_Usbio.WriteFrame(pBuf, static_cast<uint16_t>(pTask->m_nRequest));
+					reader.WriteApdu(pBuf, (uint16_t) pTask->m_nRequest);
 
-					uint16_t nLen = reader.ReadFrame(pFrame, static_cast<uint16_t>(pTask->m_nResponse));
+					uint16_t nLen = reader.ReadApduResponse();
 					if (!nLen)
 						AsyncReader::ThrowBadSig();
 
-					if (pFrame[0] != c_KeyKeeper_Status_Ok)
+					if (reader.m_pFrame[0] != c_KeyKeeper_Status_Ok)
 					{
-						// proper error message should be returned
-						if ((4 != nLen) ||
-							('b' != pFrame[2]) ||
-							('F' != pFrame[3]))
-							AsyncReader::ThrowBadSig();
-
 						pTask->m_Dbg.m_OpCode = pBuf[0];
-						pTask->m_Dbg.m_Major = pFrame[0];
-						pTask->m_Dbg.m_Minor = pFrame[1];
+						pTask->m_Dbg.m_Major = reader.m_pFrame[0];
+						pTask->m_Dbg.m_Minor = reader.m_pFrame[1];
 
 						nLen = 1;
 					}
 
-					memcpy(pBuf, pFrame, std::min(nLen, static_cast<uint16_t>(pTask->m_nResponse)));
+					memcpy(pBuf, reader.m_pFrame, std::min(nLen, static_cast<uint16_t>(pTask->m_nResponse)));
 
 					pTask->m_eRes = DeduceStatus(pBuf, pTask->m_nResponse, nLen);
 				}
