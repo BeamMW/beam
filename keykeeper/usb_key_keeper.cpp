@@ -41,6 +41,7 @@ std::string string_from_WStr(const wchar_t* wsz)
 
 #	include <poll.h>
 #	include <unistd.h>
+#	include <libudev.h>
 
 #endif // WIN32
 
@@ -125,6 +126,66 @@ std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 		}
 
 		SetupDiDestroyDeviceInfoList(hEnum);
+	}
+
+#else // WIN32
+
+
+	udev* udevCtx = udev_new();
+	if (udevCtx)
+	{
+		udev_enumerate* pEnum = udev_enumerate_new(udevCtx);
+		if (pEnum)
+		{
+			udev_enumerate_add_match_subsystem(pEnum, "usb");
+			udev_enumerate_scan_devices(pEnum);
+
+			udev_list_entry* pList = udev_enumerate_get_list_entry(pEnum);
+			udev_list_entry* pEntry;
+
+			udev_list_entry_foreach(pEntry, pList)
+			{
+				udev_device* pDev = udev_device_new_from_syspath(udevCtx, udev_list_entry_get_name(pEntry));
+				if (pDev)
+				{
+					const char* sz = udev_device_get_devnode(pDev);
+					if (sz)
+					{
+						auto& x = ret.emplace_back();
+						x.m_sPath = sz;
+						x.m_Version = 0; // unsupported atm
+
+						sz = udev_device_get_sysattr_value(pDev, "idVendor");
+						x.m_Vendor = sz ? ((uint16_t)x.Str2Hex(sz)) : 0;
+
+						sz = udev_device_get_sysattr_value(pDev, "idProduct");
+						x.m_Product = sz ? ((uint16_t)x.Str2Hex(sz)) : 0;
+
+
+						sz = udev_device_get_sysattr_value(pDev, "manufacturer");
+						if (sz)
+							x.m_sManufacturer = sz;
+
+						sz = udev_device_get_sysattr_value(pDev, "product");
+						if (sz)
+							x.m_sProduct = sz;
+
+						//sz = udev_device_get_sysattr_value(pDev, "serial");
+						//if (sz)
+						//	x.m_sSerialNumber = sz;
+
+						if (nVendor && (nVendor != x.m_Vendor))
+							ret.pop_back();
+					}
+
+					udev_device_unref(pDev);
+				}
+			}
+
+			udev_enumerate_unref(pEnum);
+		}
+
+		udev_unref(udevCtx);
 	}
 
 #endif // WIN32
