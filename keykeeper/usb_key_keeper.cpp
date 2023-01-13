@@ -41,7 +41,10 @@ std::string string_from_WStr(const wchar_t* wsz)
 
 #	include <poll.h>
 #	include <unistd.h>
-#	include <libudev.h>
+
+#	ifdef UDEV_ENABLED
+#		include <libudev.h>
+#	endif // UDEV_ENABLED
 
 #endif // WIN32
 
@@ -131,6 +134,7 @@ std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 #else // WIN32
 
 
+#	ifdef UDEV_ENABLED
 	udev* udevCtx = udev_new();
 	if (udevCtx)
 	{
@@ -187,6 +191,7 @@ std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 
 		udev_unref(udevCtx);
 	}
+#	endif // UDEV_ENABLED
 
 #endif // WIN32
 
