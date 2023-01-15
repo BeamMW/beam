@@ -152,8 +152,14 @@ namespace beam::wallet
 
         std::string m_sPath; // don't modify after start
 
-        virtual void OnDevState(const std::string& sErr, DevState) {} // is there an error, or device stalled (perhaps waiting for the user interaction)
-        virtual void OnDevReject(const CallStats&) {}
+        struct IEvents
+        {
+            virtual void OnDevState(const std::string& sErr, DevState) {} // is there an error, or device stalled (perhaps waiting for the user interaction)
+            virtual void OnDevReject(const CallStats&) {}
+        };
+
+        IEvents* m_pEvents = nullptr;
+
 
         void StartSafe();
         void Stop();
@@ -171,8 +177,19 @@ namespace beam::wallet
     struct UsbKeyKeeper_ToConsole
         :public UsbKeyKeeper
     {
-        void OnDevState(const std::string& sErr, DevState) override;
-        void OnDevReject(const CallStats&) override;
+        static thread_local UsbKeyKeeper::IEvents* s_pEvents;
+
+        struct Events
+            :public UsbKeyKeeper::IEvents
+        {
+            void OnDevState(const std::string& sErr, DevState) override;
+            void OnDevReject(const CallStats&) override;
+        } m_Events;
+
+        UsbKeyKeeper_ToConsole()
+        {
+            m_pEvents = &m_Events;
+        }
     };
 }
 

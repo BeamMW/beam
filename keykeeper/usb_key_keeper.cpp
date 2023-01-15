@@ -852,8 +852,13 @@ void UsbKeyKeeper::NotifyState(std::string* pErr, DevState eState)
 		m_pEvt->post();
 }
 
-void UsbKeyKeeper_ToConsole::OnDevState(const std::string& sErr, DevState eState)
+thread_local UsbKeyKeeper::IEvents* UsbKeyKeeper_ToConsole::s_pEvents = nullptr;
+
+void UsbKeyKeeper_ToConsole::Events::OnDevState(const std::string& sErr, DevState eState)
 {
+	if (s_pEvents)
+		return s_pEvents->OnDevState(sErr, eState);
+
 	switch (eState)
 	{
 	case DevState::Connected:
@@ -872,8 +877,11 @@ void UsbKeyKeeper_ToConsole::OnDevState(const std::string& sErr, DevState eState
 	}
 }
 
-void UsbKeyKeeper_ToConsole::OnDevReject(const CallStats& stats)
+void UsbKeyKeeper_ToConsole::Events::OnDevReject(const CallStats& stats)
 {
+	if (s_pEvents)
+		return s_pEvents->OnDevReject(stats);
+
 	std::cout << "HW Wallet reject opcode=" << static_cast<uint32_t>(stats.m_Dbg.m_OpCode) << ", I/O sizes " << stats.m_nRequest << '/' << stats.m_nResponse
 		<< ", Status=" << static_cast<uint32_t>(stats.m_Dbg.m_Major) << '.' << static_cast<uint32_t>(stats.m_Dbg.m_Minor) << std::endl;
 }
@@ -965,14 +973,14 @@ void UsbKeyKeeper::OnEvent()
 			}
 		}
 
-		if (bNotify)
-			OnDevState(sErr, eState);
+		if (bNotify && m_pEvents)
+			m_pEvents->OnDevState(sErr, eState);
 
 		if (!pTask)
 			break;
 
-		if (Status::Success != pTask->m_eRes)
-			OnDevReject(*pTask);
+		if ((Status::Success != pTask->m_eRes) && m_pEvents)
+			m_pEvents->OnDevReject(*pTask);
 
 		pTask->m_pHandler->OnDone(pTask->m_eRes);
 	}
