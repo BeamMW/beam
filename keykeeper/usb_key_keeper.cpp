@@ -44,6 +44,7 @@ std::string string_from_WStr(const wchar_t* wsz)
 
 #	ifdef __APPLE__
 #	else // __APPLE__
+#		include <sys/ioctl.h>
 #		include <linux/hidraw.h>
 #		ifdef UDEV_ENABLED
 #			include <libudev.h>
