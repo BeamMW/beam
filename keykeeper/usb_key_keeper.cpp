@@ -45,6 +45,7 @@ static std::string string_from_WStr(const wchar_t* wsz)
 #		include <IOKit/hid/IOHIDManager.h>
 #		include <IOKit/hid/IOHIDKeys.h>
 #		include <IOKit/IOKitLib.h>
+#		include <CoreFoundation/CoreFoundation.h>
 #	else // __APPLE__
 #		include <sys/ioctl.h>
 #		ifndef __EMSCRIPTEN__
@@ -158,7 +159,7 @@ std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 			std::vector<IOHIDDeviceRef> vDevs;
 			vDevs.resize(nDevs);
 
-			CFSetGetValues(hSet, (const void**) nDevs ? &vDevs.front() : nullptr);
+			CFSetGetValues(hSet, (const void**) (nDevs ? &vDevs.front() : nullptr));
 
 			for (IOHIDDeviceRef hDev : vDevs)
 			{
@@ -184,7 +185,7 @@ std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 						CFTypeRef hVal = IOHIDDeviceGetProperty(hDev, key);
 						if (hVal)
 						{
-							CFIndex nLen = CFStringGetLength(hVal);
+							//CFIndex nLen = CFStringGetLength(hVal);
 
 							char szBuf[0x100];
 							if (CFStringGetCString(hVal, szBuf, sizeof(szBuf), kCFStringEncodingUTF8))
