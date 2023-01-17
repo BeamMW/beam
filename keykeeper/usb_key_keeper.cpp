@@ -42,10 +42,13 @@ std::string string_from_WStr(const wchar_t* wsz)
 #	include <poll.h>
 #	include <unistd.h>
 
-#	ifdef UDEV_ENABLED
-#		include <libudev.h>
-#	endif // UDEV_ENABLED
-
+#	ifdef __APPLE__
+#	else // __APPLE__
+#		include <linux/hidraw.h>
+#		ifdef UDEV_ENABLED
+#			include <libudev.h>
+#		endif // UDEV_ENABLED
+#	endif // __APPLE__
 #endif // WIN32
 
 namespace beam::wallet {
@@ -133,8 +136,11 @@ std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 
 #else // WIN32
 
+#	ifdef __APPLE__
+#	else // __APPLE__
 
-#	ifdef UDEV_ENABLED
+
+#		ifdef UDEV_ENABLED
 	udev* udevCtx = udev_new();
 	if (udevCtx)
 	{
@@ -191,8 +197,43 @@ std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 
 		udev_unref(udevCtx);
 	}
-#	endif // UDEV_ENABLED
 
+#		else // UDEV_ENABLED
+
+	for (uint32_t iDev = 0; ; iDev++)
+	{
+		std::string sPath = "/dev/hidraw" + std::to_string(iDev);
+		int hFile = open(sPath.c_str(), O_RDONLY);
+		if (hFile < 0)
+			break;
+
+		hidraw_devinfo hidInfo;
+		memset(&hidInfo, 0, sizeof(hidInfo));
+
+		if (!ioctl(hFile, HIDIOCGRAWINFO, *hidInfo) && (!nVendor || (hidInfo.vendor == nVendor)))
+		{
+			auto& x = ret.emplace_back();
+			x.m_sPath = std::move(sPath);
+			x.m_Version = 0; // unsupported atm
+			x.m_Vendor = hidInfo.vendor;
+			x.m_Product = hidInfo.product;
+
+			char szName[0x100] = { 0 };
+			if (ioctl(hFile, HIDIOCGRAWNAME(sizeof(szName)), szName) >= 0)
+			{
+				szName[_countof(szName) - 1] = 0;
+				x.m_sProduct = szName; // manufacturer + name, single string
+			}
+		}
+
+		close(hFile);
+	}
+	
+
+#		endif // UDEV_ENABLED
+
+
+#	endif // __APPLE__
 #endif // WIN32
 
 	return ret;
