@@ -210,7 +210,7 @@ std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 		hidraw_devinfo hidInfo;
 		memset(&hidInfo, 0, sizeof(hidInfo));
 
-		if (!ioctl(hFile, HIDIOCGRAWINFO, *hidInfo) && (!nVendor || (hidInfo.vendor == nVendor)))
+		if (!ioctl(hFile, HIDIOCGRAWINFO, &hidInfo) && (!nVendor || (hidInfo.vendor == nVendor)))
 		{
 			auto& x = ret.emplace_back();
 			x.m_sPath = std::move(sPath);
