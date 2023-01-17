@@ -188,7 +188,7 @@ std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 							//CFIndex nLen = CFStringGetLength(hVal);
 
 							char szBuf[0x100];
-							if (CFStringGetCString(hVal, szBuf, sizeof(szBuf), kCFStringEncodingUTF8))
+							if (CFStringGetCString((CFStringRef) hVal, szBuf, sizeof(szBuf), kCFStringEncodingUTF8))
 								sRet = szBuf;
 						}
 
@@ -202,8 +202,8 @@ std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 					continue;
 
 				// discover path
-				io_string_t szPath = NULL;
-				if (IORegistryEntryGetPath(IOHIDDeviceGetService(hDev), kIOServicePlane, sPath) != KERN_SUCCESS)
+				io_string_t szPath;
+				if (IORegistryEntryGetPath(IOHIDDeviceGetService(hDev), kIOServicePlane, szPath) != KERN_SUCCESS)
 					continue;
 
 				auto& x = ret.emplace_back();
