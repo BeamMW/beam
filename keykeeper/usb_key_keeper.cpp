@@ -24,7 +24,7 @@
 #	pragma comment (lib, "hid")
 #	pragma comment (lib, "SetupAPI")
 
-std::string string_from_WStr(const wchar_t* wsz)
+static std::string string_from_WStr(const wchar_t* wsz)
 {
 	std::string sRet;
 	int nLen = WideCharToMultiByte(CP_UTF8, 0, wsz, -1, NULL, 0, NULL, NULL);
@@ -41,14 +41,19 @@ std::string string_from_WStr(const wchar_t* wsz)
 
 #	include <poll.h>
 #	include <unistd.h>
-
 #	ifdef __APPLE__
+#		include <IOKit/hid/IOHIDManager.h>
+#		include <IOKit/hid/IOHIDKeys.h>
+#		include <IOKit/IOKitLib.h>
 #	else // __APPLE__
 #		include <sys/ioctl.h>
-#		include <linux/hidraw.h>
-#		ifdef UDEV_ENABLED
-#			include <libudev.h>
-#		endif // UDEV_ENABLED
+#		ifndef __EMSCRIPTEN__
+#			include <linux/hidraw.h>
+#			define ENUM_VIA_HIDRAW
+#			ifdef ENUM_VIA_UDEV // currently disabled
+#				include <libudev.h>
+#			endif // ENUM_VIA_UDEV
+#		endif // __EMSCRIPTEN__
 #	endif // __APPLE__
 #endif // WIN32
 
@@ -135,13 +140,92 @@ std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 		SetupDiDestroyDeviceInfoList(hEnum);
 	}
 
-#else // WIN32
+#endif // WIN32
 
-#	ifdef __APPLE__
-#	else // __APPLE__
+#ifdef __APPLE__
 
+	IOHIDManagerRef hMgr = IOHIDManagerCreate(kCFAllocatorDefault, kIOHIDOptionsTypeNone);
+	if (hMgr)
+	{
+		IOHIDManagerSetDeviceMatching(hMgr, nullptr);
+		IOHIDManagerScheduleWithRunLoop(hMgr, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
 
-#		ifdef UDEV_ENABLED
+		CFSetRef hSet = IOHIDManagerCopyDevices(hMgr);
+		if (hSet)
+		{
+			uint32_t nDevs = CFSetGetCount(hSet);
+
+			std::vector<IOHIDDeviceRef> vDevs;
+			vDevs.resize(nDevs);
+
+			CFSetGetValues(hSet, (const void**) nDevs ? &vDevs.front() : nullptr);
+
+			for (IOHIDDeviceRef hDev : vDevs)
+			{
+				if (!hDev)
+					continue;
+
+				struct PropReader
+				{
+					static int32_t get_Int(IOHIDDeviceRef hDev, const CFStringRef& key)
+					{
+						int32_t nVal = 0;
+						CFTypeRef hVal = IOHIDDeviceGetProperty(hDev, key);
+						if (hVal && (CFGetTypeID(hVal) == CFNumberGetTypeID()))
+							CFNumberGetValue((CFNumberRef) hVal, kCFNumberSInt32Type, &nVal);
+
+						return nVal;
+					}
+
+					static std::string get_Str(IOHIDDeviceRef hDev, const CFStringRef& key)
+					{
+						std::string sRet;
+
+						CFTypeRef hVal = IOHIDDeviceGetProperty(hDev, key);
+						if (hVal)
+						{
+							CFIndex nLen = CFStringGetLength(hVal);
+
+							char szBuf[0x100];
+							if (CFStringGetCString(hVal, szBuf, sizeof(szBuf), kCFStringEncodingUTF8))
+								sRet = szBuf;
+						}
+
+						return sRet;
+					}
+				};
+
+				uint16_t vid = (uint16_t) PropReader::get_Int(hDev, CFSTR(kIOHIDVendorIDKey));
+
+				if (vid != nVendor)
+					continue;
+
+				// discover path
+				io_string_t szPath = NULL;
+				if (IORegistryEntryGetPath(IOHIDDeviceGetService(hDev), kIOServicePlane, sPath) != KERN_SUCCESS)
+					continue;
+
+				auto& x = ret.emplace_back();
+				x.m_sPath = szPath;
+				x.m_Version = 0; // unsupported atm
+				x.m_Vendor = vid;
+				x.m_Product = (uint16_t) PropReader::get_Int(hDev, CFSTR(kIOHIDProductIDKey));
+
+				x.m_sManufacturer = PropReader::get_Str(hDev, CFSTR(kIOHIDManufacturerKey));
+				x.m_sProduct = PropReader::get_Str(hDev, CFSTR(kIOHIDProductKey));
+			}
+
+			CFRelease(hSet);
+		}
+
+		// cleanup
+		IOHIDManagerClose(hMgr, kIOHIDOptionsTypeNone);
+		CFRelease(hMgr);
+	}
+
+#endif // __APPLE__
+
+#ifdef ENUM_VIA_UDEV
 	udev* udevCtx = udev_new();
 	if (udevCtx)
 	{
@@ -199,7 +283,9 @@ std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 		udev_unref(udevCtx);
 	}
 
-#		else // UDEV_ENABLED
+#endif // ENUM_VIA_UDEV
+
+#ifdef ENUM_VIA_HIDRAW
 
 	for (uint32_t iDev = 0; ; iDev++)
 	{
@@ -230,12 +316,7 @@ std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 		close(hFile);
 	}
 	
-
-#		endif // UDEV_ENABLED
-
-
-#	endif // __APPLE__
-#endif // WIN32
+#endif // ENUM_VIA_HIDRAW
 
 	return ret;
 }
