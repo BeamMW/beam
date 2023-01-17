@@ -42,10 +42,12 @@ static std::string string_from_WStr(const wchar_t* wsz)
 #	include <poll.h>
 #	include <unistd.h>
 #	ifdef __APPLE__
-#		include <IOKit/hid/IOHIDManager.h>
-#		include <IOKit/hid/IOHIDKeys.h>
-#		include <IOKit/IOKitLib.h>
-#		include <CoreFoundation/CoreFoundation.h>
+#		ifdef __OSX__
+#			include <IOKit/hid/IOHIDManager.h>
+#			include <IOKit/hid/IOHIDKeys.h>
+#			include <IOKit/IOKitLib.h>
+#			include <CoreFoundation/CoreFoundation.h>
+#		endif //__OSX__
 #	else // __APPLE__
 #		include <sys/ioctl.h>
 #		ifndef __EMSCRIPTEN__
@@ -143,7 +145,7 @@ std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 
 #endif // WIN32
 
-#ifdef __APPLE__
+#ifdef __OSX__
 
 	IOHIDManagerRef hMgr = IOHIDManagerCreate(kCFAllocatorDefault, kIOHIDOptionsTypeNone);
 	if (hMgr)
@@ -224,7 +226,7 @@ std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 		CFRelease(hMgr);
 	}
 
-#endif // __APPLE__
+#endif // __OSX__
 
 #ifdef ENUM_VIA_UDEV
 	udev* udevCtx = udev_new();

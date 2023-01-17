@@ -66,6 +66,15 @@ else()
     
 endif()
 
+if (APPLE AND NOT IOS)
+	find_library(IOKIT_FRAMEWORK IOKit REQUIRED)
+	find_library(CORE_FOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
+	message(STATUS "Framework IOKit: ${IOKIT_FRAMEWORK}")
+	message(STATUS "Framework CoreFoundation: ${CORE_FOUNDATION_FRAMEWORK}")
+	target_link_libraries(keykeeper ${IOKIT_FRAMEWORK})
+	target_link_libraries(keykeeper ${CORE_FOUNDATION_FRAMEWORK})
+endif()
+
 if (NOT ANDROID AND NOT IOS)
     if(BEAM_HW_WALLET)
 
