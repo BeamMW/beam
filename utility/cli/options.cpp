@@ -185,7 +185,6 @@ namespace beam
         const char* INIT = "init";
         const char* RESTORE = "restore";
         const char* RESTORE_USB = "restore_usb";
-        const char* USB_NAME = "usb_name";
         const char* USB_ENUM = "usb_enum";
         const char* EXPORT_MINER_KEY = "export_miner_key";
         const char* EXPORT_OWNER_KEY = "export_owner_key";
@@ -507,7 +506,6 @@ namespace beam
             (cli::EXPIRATION_TIME, po::value<string>()->default_value(cli::EXPIRATION_TIME_AUTO), "expiration time for own address [auto|never|now]")
             (cli::GENERATE_PHRASE, "generate seed phrase which will be used to create a secret according to BIP-39")
             (cli::KEY_SUBKEY, po::value<Positive<uint32_t>>(), "miner key index (use with export_miner_key)")
-            (cli::USB_NAME, po::value<std::string>(), "name of the USB HW wallet")
             (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
             (cli::PAYMENT_PROOF_DATA, po::value<string>(), "payment proof data to verify")
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "set IDs of specific UTXO to send")

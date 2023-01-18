@@ -62,6 +62,11 @@ static std::string string_from_WStr(const wchar_t* wsz)
 
 namespace beam::wallet {
 
+std::vector<HidInfo::Entry> HidInfo::EnumSupported()
+{
+	return Enum(0x2c97); // supported vendor (Ledger)
+}
+
 std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 {
 	std::vector<Entry> ret;
@@ -717,6 +722,8 @@ struct HwMsgs
 
 void UsbKeyKeeper::RunThreadGuarded()
 {
+	std::string sLastPath;
+
 	Task::Ptr pTask;
 	while (true)
 	{
@@ -849,10 +856,25 @@ void UsbKeyKeeper::RunThreadGuarded()
 
 			} reader(*this);
 
-			reader.m_Usbio.Open(m_sPath.c_str());
-
-			// verify dev signature
 			{
+				std::string sPath;
+				if (m_sPath.empty())
+				{
+					if (sLastPath.empty())
+					{
+						auto v = HidInfo::EnumSupported();
+						if (v.empty())
+							throw std::runtime_error("no supported devices found");
+
+						sPath = v.front().m_sPath;
+					}
+					else
+						sPath.swap(sLastPath);
+				}
+
+				reader.m_Usbio.Open((m_sPath.empty() ? sPath : m_sPath).c_str());
+
+				// verify dev signature
 				HwMsgs::Version::Out msgOut;
 				reader.WriteApdu(&msgOut, sizeof(msgOut));
 
@@ -868,6 +890,9 @@ void UsbKeyKeeper::RunThreadGuarded()
 				uint32_t nVer = ByteOrder::from_le(pMsg->m_Version); // unaligned, don't care
 				if (nVer != BeamCrypto_CurrentVersion)
 					throw std::runtime_error("Unsupported vesion: " + std::to_string(nVer));
+
+				if (m_sPath.empty())
+					sLastPath = std::move(sPath);
 			}
 
 

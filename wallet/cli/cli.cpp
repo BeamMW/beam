@@ -281,8 +281,6 @@ namespace
         arc & x;
     }
 
-    std::string ReadUsbPath(const po::variables_map& vm);
-
     IWalletDB::Ptr OpenDataBase(const po::variables_map& vm, const SecString& pass)
     {
         BOOST_ASSERT(vm.count(cli::WALLET_STORAGE) > 0);
@@ -293,17 +291,7 @@ namespace
             throw std::runtime_error(kErrorWalletNotInitialized);
         }
 
-        IWalletDB::Ptr walletDB;
-
-        std::string sPath = ReadUsbPath(vm);
-        if (sPath.empty())
-            walletDB = WalletDB::open(walletPath, pass);
-        else
-        {
-            auto pKeyKeeper = UsbKeyKeeper::Open(sPath);
-            walletDB = WalletDB::open(walletPath, pass, pKeyKeeper);
-            WalletDB::setUsbPath(*walletDB, sPath);
-        }
+        IWalletDB::Ptr walletDB = WalletDB::open(walletPath, pass);
 
         LOG_INFO() << kWalletOpenedMessage;
         return walletDB;
@@ -713,43 +701,6 @@ namespace
         return pass;
     }
 
-    std::vector<HidInfo::Entry> EnumUsbHw()
-    {
-        // supported vendor (Ledger)
-        return wallet::HidInfo::Enum(0x2c97);
-    }
-
-    std::string ReadUsbPath(const po::variables_map& vm)
-    {
-        std::string sRet;
-
-        auto val = vm[cli::USB_NAME];
-        if (val.empty())
-            std::cout << "USB name not specified" << std::endl;
-        else
-        {
-            auto sName = val.as<std::string>();
-
-            auto vRes = EnumUsbHw();
-            for (uint32_t i = 0; ; i++)
-            {
-                if (vRes.size() == i)
-                {
-                    std::cout << "No such a USB device found" << std::endl;
-                    break;
-                }
-
-                if (vRes[i].m_sProduct == sName)
-                {
-                    sRet = std::move(vRes[i].m_sPath);
-                    break;
-                }
-            }
-        }
-
-        return sRet;
-    }
-
     enum struct InitKind {
         GenerateSeed,
         RecoverFromSeed,
@@ -794,13 +745,7 @@ namespace
         IWalletDB::Ptr walletDB;
 
         if (InitKind::RecoverFromUsb == kind)
-        {
-            std::string sPath = ReadUsbPath(vm);
-            if (sPath.empty())
-                return -1;
-
-            walletDB = WalletDB::initUsb(walletPath, pass, sPath);
-        }
+            walletDB = WalletDB::initHww(walletPath, pass);
         else
         {
             NoLeak<uintBig> walletSeed;
@@ -827,7 +772,7 @@ namespace
 
     int EnumUsb(const po::variables_map& vm)
     {
-        auto vRes = EnumUsbHw();
+        auto vRes = wallet::HidInfo::EnumSupported();
         if (vRes.empty())
             std::cout << "No supported USB devices found" << std::endl;
         else

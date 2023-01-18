@@ -1006,7 +1006,7 @@ namespace beam::wallet
         const char* WalletSeed = "WalletSeed";
         const char* OwnerKey = "OwnerKey";
         const char* Version = "Version";
-        const char* UsbHw = "UsbHw";
+        const char* HwwKind = "Hww";
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const char* kStateSummaryShieldedOutsDBPath = "StateSummaryShieldedOuts";
@@ -2159,18 +2159,14 @@ namespace beam::wallet
         return walletDB;
     }
 
-    void  WalletDB::setUsbPath(IWalletDB& db, const std::string& sUsbPath)
+    IWalletDB::Ptr WalletDB::initHww(const string& path, const SecString& password, bool separateDBForPrivateData)
     {
-        storage::setBlobVar(db, UsbHw, sUsbPath);
-    }
-
-    IWalletDB::Ptr WalletDB::initUsb(const string& path, const SecString& password, const std::string& sUsbPath, bool separateDBForPrivateData)
-    {
-        auto pKeyKeeper = UsbKeyKeeper::Open(sUsbPath);
+        auto pKeyKeeper = UsbKeyKeeper::Open("");
 
         auto pRet = init(path, password, pKeyKeeper, separateDBForPrivateData);
 
-        setUsbPath(*pRet, sUsbPath);
+        uint32_t iKind = 1;
+        storage::setBlobVar(*pRet, HwwKind, iKind);
 
         return pRet;
     }
@@ -2512,9 +2508,12 @@ namespace beam::wallet
                 walletDB->m_pKeyKeeper = pKeyKeeper;
                 if (!walletDB->m_pKeyKeeper)
                 {
-                    std::string sUsbPath;
-                    if (storage::getBlobVar(*walletDB, UsbHw, sUsbPath) && !sUsbPath.empty())
-                        walletDB->m_pKeyKeeper = UsbKeyKeeper::Open(sUsbPath);
+                    uint32_t iKind = 0;
+                    if (storage::getBlobVar(*walletDB, HwwKind, iKind))
+                    {
+                        if (1 == iKind) // auto-find any supported HWW
+                            walletDB->m_pKeyKeeper = UsbKeyKeeper::Open("");
+                    }
                 }
 
                 if (walletDB->m_pKeyKeeper)

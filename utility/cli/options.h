@@ -89,7 +89,6 @@ namespace beam
         extern const char* INIT;
         extern const char* RESTORE;
         extern const char* RESTORE_USB;
-        extern const char* USB_NAME;
         extern const char* USB_ENUM;
         extern const char* EXPORT_MINER_KEY;
         extern const char* EXPORT_OWNER_KEY;

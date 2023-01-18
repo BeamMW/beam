@@ -34,6 +34,8 @@ namespace beam::wallet
         };
 
         static std::vector<Entry> Enum(uint16_t nVendor);
+
+        static std::vector<Entry> EnumSupported();
     };
 
     struct UsbIO
@@ -150,7 +152,7 @@ namespace beam::wallet
 
         static std::shared_ptr<UsbKeyKeeper> Open(const std::string& sPath);
 
-        std::string m_sPath; // don't modify after start
+        std::string m_sPath; // don't modify after start. Leave empty string to auto-detect
 
         struct IEvents
         {
