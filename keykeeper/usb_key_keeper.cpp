@@ -290,12 +290,16 @@ std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 
 #ifdef ENUM_VIA_HIDRAW
 
-	for (uint32_t iDev = 0; ; iDev++)
+	for (uint32_t iDev = 0; iDev < 64; iDev++)
 	{
 		std::string sPath = "/dev/hidraw" + std::to_string(iDev);
 		int hFile = open(sPath.c_str(), O_RDONLY);
 		if (hFile < 0)
-			break;
+		{
+			// can fail because of permissions, or simply becase there's a gap in device numbering. Continue search anyway
+			continue;
+			//break;
+		}
 
 		hidraw_devinfo hidInfo;
 		memset(&hidInfo, 0, sizeof(hidInfo));
