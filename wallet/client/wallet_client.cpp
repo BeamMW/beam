@@ -631,6 +631,9 @@ namespace beam::wallet
                 LogRotation logRotation(*m_reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
 #endif // !__EMSCRIPTEN__
 
+                wallet::UsbKeyKeeper::IEvents* pEvts = this;
+                beam::TemporarySwap ts(wallet::UsbKeyKeeper_ToConsole::s_pEvents, pEvts);
+
                 if (!m_walletDB)
                 {
                     if (m_openDBFunc)
