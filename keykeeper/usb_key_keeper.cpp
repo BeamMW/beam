@@ -823,8 +823,22 @@ void UsbKeyKeeper::RunThreadGuarded()
 					memcpy(&sw, m_pFrame + nLen - sizeof(sw), sizeof(sw));
 					sw = ByteOrder::from_be(sw);
 
-					if (0x9000 != sw)
+					switch (sw)
+					{
+					case 0x9000:
+						break; // ok
+
+					case 0x6d02:
+						throw std::runtime_error("Beam app not running");
+						// no break;
+
+					case 0x5515:
+						throw std::runtime_error("device locked");
+						// no break;
+
+					default:
 						throw std::runtime_error(std::string("Device status: ") + uintBigFrom(sw).str());
+					}
 
 					nLen -= sizeof(sw);
 					if (!nLen)
