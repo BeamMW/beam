@@ -2163,12 +2163,22 @@ namespace beam::wallet
     {
         auto pKeyKeeper = UsbKeyKeeper::Open("");
 
-        auto pRet = init(path, password, pKeyKeeper, separateDBForPrivateData);
+        std::shared_ptr<WalletDB> walletDB = initBase(path, password, separateDBForPrivateData);
+        if (walletDB)
+        {
+            uint32_t iKind = 1;
+            storage::setBlobVar(*walletDB, HwwKind, iKind); // do it before the rest, in case of error we'd like to have the kind saved
 
-        uint32_t iKind = 1;
-        storage::setBlobVar(*pRet, HwwKind, iKind);
+            walletDB->m_pKeyKeeper = pKeyKeeper;
+            walletDB->FromKeyKeeper();
 
-        return pRet;
+            walletDB->storeOwnerKey(); // store owner key (public)
+
+            walletDB->flushDB();
+            walletDB->m_Initialized = true;
+        }
+
+        return walletDB;
     }
 
     IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password)
