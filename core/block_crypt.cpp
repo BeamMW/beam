@@ -536,7 +536,7 @@ namespace beam
 				if (OpCode::Mpc_1 == eOp)
 				{
 					ZeroObject(m_pConfidential->m_Part2);
-					m_pConfidential->CoSign(nonces, skSign, cp, oracle, ECC::RangeProof::Confidential::Phase::Step2, &wrk.m_hGen); // stop after Part2
+					m_pConfidential->CoSign(nonces, skSign, cp, oracle, ECC::RangeProof::Confidential::Phase::Step1, &wrk.m_hGen); // stop after t1/t2
 				}
 				else
 				{

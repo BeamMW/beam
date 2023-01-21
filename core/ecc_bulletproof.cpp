@@ -808,6 +808,14 @@ namespace ECC {
 			t2 += lx * rx;
 		}
 
+		if (Phase::Step1 == ePhase)
+		{
+			// stop after t1, t2 calculated
+			Cast::Reinterpret<Scalar>(m_Part2.m_T1.m_X) = t1;
+			Cast::Reinterpret<Scalar>(m_Part2.m_T2.m_X) = t2;
+			return true;
+		}
+
 		if (Phase::Finalize != ePhase) // otherwise m_Part2 already contains the whole aggregate
 		{
 			Point::Native comm2;

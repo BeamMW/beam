@@ -23,9 +23,9 @@ typedef struct
 
 	const UintBig* m_pKExtra; // optionally embed 2 scalars that can be recognized (in addition to CoinID)
 
-	const CompactPoint* m_pT_In;
+	const UintBig* m_pt_In; // t1, t2 (scalars)
 	// result
-	CompactPoint* m_pT_Out; // can be same as T_In
+	CompactPoint* m_pT_Out;
 	secp256k1_scalar* m_pTauX;
 
 } RangeProof;

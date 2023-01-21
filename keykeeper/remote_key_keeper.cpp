@@ -749,8 +749,8 @@ namespace beam::wallet
 
 
                 CidCvt(msg.m_Cid, m_M.m_Cid);
-                msg.m_pT[0] = Ecc2BC(c.m_Part2.m_T1);
-                msg.m_pT[1] = Ecc2BC(c.m_Part2.m_T2);
+                msg.m_pT[0] = Ecc2BC(c.m_Part2.m_T1.m_X);
+                msg.m_pT[1] = Ecc2BC(c.m_Part2.m_T2.m_X);
 
                 msg.m_pKExtra[0] = Ecc2BC(m_M.m_User.m_pExtra[0].m_Value);
                 msg.m_pKExtra[1] = Ecc2BC(m_M.m_User.m_pExtra[1].m_Value);

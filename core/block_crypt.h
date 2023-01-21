@@ -657,7 +657,7 @@ namespace beam
 			enum Enum {
 				Standard,
 				Public, // insist on public rangeproof, regardless to m_Coinbase. For tests only
-				Mpc_1, // ignore coinKdf, generate rangeproof without sk, up to T1/T2
+				Mpc_1, // ignore coinKdf, generate rangeproof without sk, up to t1/t2
 				Mpc_2, // Finish rangeproof after T1/T2 and TauX were updated by the peer
 			};
 		};
