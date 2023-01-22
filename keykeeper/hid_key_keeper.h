@@ -23,7 +23,8 @@
 #endif
 
 #ifdef __OSX__
-#	include <IOKit/hid/IOHIDManager.h>
+    struct __IOHIDDevice;
+    typedef __IOHIDDevice *IOHIDDeviceRef;
 #endif // __OSX__
 
 namespace beam::wallet
