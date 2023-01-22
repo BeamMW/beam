@@ -474,16 +474,15 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const hw::Kdf& kdf2)
 	assert(outp.m_pConfidential);
 
 	hw::CompactPoint pT[2];
-	hw::UintBig pt_In[2];
-	pt_In[0] = Ecc2BC(outp.m_pConfidential->m_Part2.m_T1.m_X);
-	pt_In[1] = Ecc2BC(outp.m_pConfidential->m_Part2.m_T2.m_X);
+	pT[0] = Ecc2BC(outp.m_pConfidential->m_Part2.m_T1);
+	pT[1] = Ecc2BC(outp.m_pConfidential->m_Part2.m_T2);
 
 	ECC::Scalar::Native tauX;
 
 	hw::RangeProof rp;
 	rp.m_pKdf = &kdf2;
 	rp.m_Cid = cid2;
-	rp.m_pt_In = pt_In;
+	rp.m_pT_In = pT;
 	rp.m_pT_Out = pT;
 	rp.m_pKExtra = &Ecc2BC(user.m_pExtra[0].m_Value);
 	rp.m_pTauX = &tauX.get_Raw();

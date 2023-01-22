@@ -1434,7 +1434,7 @@ static void RangeProof_Calculate_A_Bits(secp256k1_gej* pRes, secp256k1_ge* pGeTm
 }
 
 __stack_hungry__
-static int RangeProof_Calculate_After_S_Gen(RangeProof* const p, RangeProof_Worker* const pWrk, const CustomGenerator* pAGen)
+static int RangeProof_Calculate_After_S(RangeProof* const p, RangeProof_Worker* const pWrk)
 {
 	{
 		// CalcA
@@ -1462,7 +1462,7 @@ static int RangeProof_Calculate_After_S_Gen(RangeProof* const p, RangeProof_Work
 		Oracle_NextScalar(&oracle, pK + i); // challenges y,z. The 'y' is not needed
 
 	{
-		// Use the challenges, sk, t1 and t2 to init the NonceGen for blinding the sk
+		// Use the challenges, sk, T1 and T2 to init the NonceGen for blinding the sk
 		static const char szSalt[] = "bulletproof-sk";
 
 		secp256k1_hmac_sha256_t hmac;
@@ -1474,7 +1474,8 @@ static int RangeProof_Calculate_After_S_Gen(RangeProof* const p, RangeProof_Work
 
 		for (unsigned int i = 0; i < 2; i++)
 		{
-			secp256k1_hmac_sha256_write(&hmac, p->m_pt_In[i].m_pVal, sizeof(p->m_pt_In[i].m_pVal));
+			secp256k1_hmac_sha256_write(&hmac, p->m_pT_In[i].m_X.m_pVal, sizeof(p->m_pT_In[i].m_X.m_pVal));
+			secp256k1_hmac_sha256_write(&hmac, &p->m_pT_In[i].m_Y, sizeof(p->m_pT_In[i].m_Y));
 
 			secp256k1_scalar_get_b32(hv.m_pVal, pK + i);
 			secp256k1_hmac_sha256_write(&hmac, hv.m_pVal, sizeof(hv.m_pVal));
@@ -1491,12 +1492,16 @@ static int RangeProof_Calculate_After_S_Gen(RangeProof* const p, RangeProof_Work
 	{
 		NonceGenerator_NextScalar(&pWrk->m_NonceGen, pK + i); // tau1/2
 
-		int overflow;
-		secp256k1_scalar_set_b32(p->m_pTauX, p->m_pt_In[i].m_pVal, &overflow);
-		if (overflow)
-			ok = 0;
+		MulG(pWrk->m_pGej + i, pK + i); // pub nonces of T1/T2
 
-		CoinID_getCommRawEx(pK + i, p->m_pTauX, pAGen, pWrk->m_pGej + i);
+		secp256k1_ge ge;
+		if (!Point_Ge_from_Compact(&ge, p->m_pT_In + i))
+		{
+			ok = 0;
+			break;
+		}
+
+		wrap_gej_add_ge_var(pWrk->m_pGej + i, pWrk->m_pGej + i, &ge);
 	}
 
 	SECURE_ERASE_OBJ(pWrk->m_NonceGen);
@@ -1535,22 +1540,6 @@ static int RangeProof_Calculate_After_S_Gen(RangeProof* const p, RangeProof_Work
 	//SECURE_ERASE_OBJ(hv); - no need, last value is the challenge
 
 	return ok;
-}
-
-__stack_hungry__
-static int RangeProof_Calculate_After_S(RangeProof* const p, RangeProof_Worker* const pWrk)
-{
-	CustomGenerator aGen;
-	if (p->m_pAssetGen)
-	{
-		static_assert(sizeof(aGen) >= sizeof(secp256k1_ge), "");
-		if (!Point_Ge_from_CompactNnz((secp256k1_ge*) &aGen, p->m_pAssetGen))
-			return 0;
-
-		MultiMac_Fast_Custom_Init(&aGen, (secp256k1_ge*) &aGen);
-	}
-
-	return RangeProof_Calculate_After_S_Gen(p, pWrk, p->m_pAssetGen ? &aGen : 0);
 }
 
 __stack_hungry__
@@ -2325,8 +2314,8 @@ PROTO_METHOD(CreateOutput)
 	RangeProof ctx;
 	N2H_CoinID(&ctx.m_Cid, &pIn->m_Cid);
 	ctx.m_pKdf = &p->m_MasterKey;
-	ctx.m_pt_In = pIn->m_pT;
-	ctx.m_pT_Out = pOut->m_pT;
+	ctx.m_pT_In = pIn->m_pT;
+	ctx.m_pT_Out = pIn->m_pT; // use same buf (since we changed to in/out buf design). Copy res later
 
 	secp256k1_scalar sBuf;
 	ctx.m_pTauX = &sBuf;
@@ -2342,6 +2331,10 @@ PROTO_METHOD(CreateOutput)
 
 	if (!RangeProof_Calculate(&ctx))
 		return c_KeyKeeper_Status_Unspecified;
+
+	// copy into out. Do it carefully, since in/out share the same mem
+	static_assert(sizeof(pOut->m_pT) == sizeof(pIn->m_pT), "");
+	memmove(pOut->m_pT, pIn->m_pT, sizeof(pOut->m_pT)); // MUST use memmove!
 
 	secp256k1_scalar_get_b32(pOut->m_TauX.m_pVal, &sBuf);
 

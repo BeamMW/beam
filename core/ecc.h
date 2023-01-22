@@ -454,7 +454,7 @@ namespace ECC
 			struct Phase {
 				enum Enum {
 					SinglePass, // regular, no multisig
-					Step1,
+					//Step1,
 					Step2,
 					Finalize,
 				};
