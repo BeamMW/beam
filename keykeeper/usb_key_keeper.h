@@ -18,6 +18,10 @@
 #include "../utility/thread.h"
 #include "../utility/containers.h"
 
+#ifdef __MACH__
+#	include <IOKit/hid/IOHIDManager.h>
+#endif // __MACH__
+
 namespace beam::wallet
 {
     struct HidInfo
@@ -48,7 +52,18 @@ namespace beam::wallet
         void WaitSync();
 
 #else // WIN32
+#   ifdef __MACH__
+        IOHIDDeviceRef m_hDev;
+
+        struct Chunk {
+            uint8_t m_p[64];
+        };
+        Chunk m_Chunk0;
+        std::queue<Chunk> m_qDone;
+
+#   else // __MACH__ 
         int m_hFile;
+#   endif // __MACH__
 #endif // WIN32
 
         struct Frame;

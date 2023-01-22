@@ -368,7 +368,11 @@ UsbIO::UsbIO()
 	:m_hFile(INVALID_HANDLE_VALUE)
 	,m_hEvent(NULL)
 #else // WIN32
+#	ifdef __MACH__
+	:m_hDev(nullptr)
+#	else // __MACH__
 	:m_hFile(-1)
+#	endif // _MACH__
 #endif // WIN32
 {
 }
@@ -384,10 +388,27 @@ UsbIO::~UsbIO()
 		CloseHandle(m_hEvent);
 
 #else // WIN32
+#	ifdef __MACH__
+	if (m_hDev)
+		CFRelease(m_hDev);
+#	else // __MACH__
 	if (m_hFile >= 0)
 		close(m_hFile);
+#	endif // __MACH__
 #endif // WIN32
 }
+
+#ifdef __MACH__
+
+void ReportCallback(void* pCtx, IOReturn result, void* pSender, IOHIDReportType type, uint32_t reportID, uint8_t* pReport, CFIndex nReport)
+{
+	UsbIO* pDev = reinterpret_cast<UsbIO*>(pCtx);
+
+	auto& x = pDev->m_qDone.emplace();
+	x = pDev->m_Chunk0;
+}
+
+#endif // __MACH__
 
 void UsbIO::Open(const char* szPath)
 {
@@ -414,10 +435,34 @@ void UsbIO::Open(const char* szPath)
 	// TODO: check hidCaps.InputReportByteLength, hidCaps.OutputReportByteLength
 
 #else // WIN32
+#	ifdef __MACH__
 
+	auto pEntry = IORegistryEntryFromPath(kIOMainPortDefault, szPath);
+	if (pEntry)
+	{
+		m_hDev = IOHIDDeviceCreate(kCFAllocatorDefault, pEntry);
+
+		if (m_hDev)
+		{
+			IOHIDDeviceOpen(m_hDev, kIOHIDOptionsTypeSeizeDevice);
+
+			IOHIDDeviceRegisterInputReportCallback(m_hDev, m_Chunk0.m_p, sizeof(m_Chunk0.m_p), ReportCallback, this);
+
+			IOHIDDeviceScheduleWithRunLoop(m_hDev, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+		}
+
+		IOObjectRelease(pEntry);
+	}
+
+	if (!pEntry)
+		std::ThrowLastError();
+
+#	else // __MACH__
 	m_hFile = open(szPath, O_RDWR);
 	if (m_hFile < 0)
 		std::ThrowLastError();
+#	endif // __MACH__
+
 
 #endif // WIN32
 }
@@ -510,11 +555,21 @@ void UsbIO::Write(const void* p, uint16_t n)
 	if (!WriteFile(m_hFile, p, n, &dw, &over))
 		WaitSync();
 #else // WIN32
+#	ifdef __MACH__
 
+	if (!n)
+		throw std::runtime_error("empty report");
+
+	const uint8_t* pPtr = (const uint8_t*) p;
+	auto res = IOHIDDeviceSetReport(m_hDev, kIOHIDReportTypeOutput, pPtr[0], pPtr, n);
+	if (kIOReturnSuccess != res)
+		std::ThrowLastError();
+
+#	else // _MACH__
 	auto wr = write(m_hFile, p, n);
 	if (wr < 0)
 		std::ThrowLastError();
-
+#	endif // __MACH__
 #endif // WIN32
 }
 
@@ -535,7 +590,37 @@ uint16_t UsbIO::Read(void* p, uint16_t n)
 
 
 #else // WIN32
+#	ifdef __MACH__
 
+	while (m_qDone.empty())
+	{
+		auto res = CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1, true);
+
+		switch (res)
+		{
+		case kCFRunLoopRunHandledSource:
+		case kCFRunLoopRunTimedOut:
+			break;
+		default:
+			std::ThrowLastError();
+		}
+	}
+
+	auto& x = m_qDone.front();
+	memcpy(p, x.m_p, std::min<uint16_t>(sizeof(x.m_p), n));
+	m_qDone.pop();
+
+	return sizeof(x.m_p);
+/*
+	//IOHIDDeviceRegisterInputReportCallback
+	CFIndex len = n;
+	auto res = IOHIDDeviceGetReport(m_hDev, kIOHIDReportTypeInput, 1, (uint8_t*) p, &len);
+	if (kIOReturnSuccess != res)
+		std::ThrowLastError();
+	return res;
+*/	
+
+#	else // __MACH__
 	int bytes_read = read(m_hFile, p, n);
 	if (bytes_read >= 0)
 		return static_cast<uint16_t>(bytes_read);
@@ -544,7 +629,7 @@ uint16_t UsbIO::Read(void* p, uint16_t n)
 		std::ThrowLastError();
 
 	return 0;
-
+#	endif // __MACH__
 #endif // WIN32
 }
 
@@ -780,12 +865,16 @@ void UsbKeyKeeper::RunThreadGuarded()
 					g.m_hFile = INVALID_HANDLE_VALUE; // dismiss
 					return static_cast<uint16_t>(over.InternalHigh);
 #else // WIN32
+#	ifdef __MACH__
+					return m_Usbio.Read(p, n);
+#	else // __MACH__
 					// wait for data
 					if (!m_This.WaitEvent(&m_Usbio.m_hFile, pTimeout_ms))
 						return 0;
 
 					// read once
 					return m_Usbio.Read(p, n);
+#	endif // __MACH__
 #endif // WIN32
 				}
 
