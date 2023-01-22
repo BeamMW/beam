@@ -18,9 +18,13 @@
 #include "../utility/thread.h"
 #include "../utility/containers.h"
 
-#ifdef __MACH__
+#if !(defined __OSX__) && (defined __MACH__) && !(defined __IOS__)
+#   define __OSX__
+#endif
+
+#ifdef __OSX__
 #	include <IOKit/hid/IOHIDManager.h>
-#endif // __MACH__
+#endif // __OSX__
 
 namespace beam::wallet
 {
@@ -52,7 +56,7 @@ namespace beam::wallet
         void WaitSync();
 
 #else // WIN32
-#   ifdef __MACH__
+#   ifdef __OSX__
         IOHIDDeviceRef m_hDev;
 
         struct Chunk {
@@ -63,9 +67,9 @@ namespace beam::wallet
 
         uint16_t ReadTm(void*, uint16_t, const uint32_t* pTimeout_ms);
 
-#   else // __MACH__ 
+#   else // __OSX__ 
         int m_hFile;
-#   endif // __MACH__
+#   endif // __OSX__
 #endif // WIN32
 
         struct Frame;

@@ -42,12 +42,12 @@ static std::string string_from_WStr(const wchar_t* wsz)
 #	include <poll.h>
 #	include <unistd.h>
 #	ifdef __APPLE__
-#		ifdef __MACH__
+#		ifdef __OSX__
 #			include <IOKit/hid/IOHIDManager.h>
 #			include <IOKit/hid/IOHIDKeys.h>
 #			include <IOKit/IOKitLib.h>
 #			include <CoreFoundation/CoreFoundation.h>
-#		endif //__MACH__
+#		endif //__OSX__
 #	else // __APPLE__
 #		include <sys/ioctl.h>
 #		ifndef __EMSCRIPTEN__
@@ -150,7 +150,7 @@ std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 
 #endif // WIN32
 
-#ifdef __MACH__
+#ifdef __OSX__
 
 	IOHIDManagerRef hMgr = IOHIDManagerCreate(kCFAllocatorDefault, kIOHIDOptionsTypeNone);
 	if (hMgr)
@@ -231,7 +231,7 @@ std::vector<HidInfo::Entry> HidInfo::Enum(uint16_t nVendor)
 		CFRelease(hMgr);
 	}
 
-#endif // __MACH__
+#endif // __OSX__
 
 #ifdef ENUM_VIA_UDEV
 	udev* udevCtx = udev_new();
@@ -368,9 +368,9 @@ UsbIO::UsbIO()
 	:m_hFile(INVALID_HANDLE_VALUE)
 	,m_hEvent(NULL)
 #else // WIN32
-#	ifdef __MACH__
+#	ifdef __OSX__
 	:m_hDev(nullptr)
-#	else // __MACH__
+#	else // __OSX__
 	:m_hFile(-1)
 #	endif // _MACH__
 #endif // WIN32
@@ -388,17 +388,17 @@ UsbIO::~UsbIO()
 		CloseHandle(m_hEvent);
 
 #else // WIN32
-#	ifdef __MACH__
+#	ifdef __OSX__
 	if (m_hDev)
 		CFRelease(m_hDev);
-#	else // __MACH__
+#	else // __OSX__
 	if (m_hFile >= 0)
 		close(m_hFile);
-#	endif // __MACH__
+#	endif // __OSX__
 #endif // WIN32
 }
 
-#ifdef __MACH__
+#ifdef __OSX__
 
 void ReportCallback(void* pCtx, IOReturn result, void* pSender, IOHIDReportType type, uint32_t reportID, uint8_t* pReport, CFIndex nReport)
 {
@@ -412,7 +412,7 @@ void DummyCallback(__CFSocket *, unsigned long, const __CFData *, const void *, 
 {
 }
 
-#endif // __MACH__
+#endif // __OSX__
 
 void UsbIO::Open(const char* szPath)
 {
@@ -439,9 +439,13 @@ void UsbIO::Open(const char* szPath)
 	// TODO: check hidCaps.InputReportByteLength, hidCaps.OutputReportByteLength
 
 #else // WIN32
-#	ifdef __MACH__
+#	ifdef __OSX__
 
+#		if (__MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_VERSION_12_0)
 	auto pEntry = IORegistryEntryFromPath(kIOMainPortDefault, szPath);
+#		else
+	auto pEntry = IORegistryEntryFromPath(kIOMasterPortDefault, szPath);
+#		endif
 	if (pEntry)
 	{
 		m_hDev = IOHIDDeviceCreate(kCFAllocatorDefault, pEntry);
@@ -461,11 +465,11 @@ void UsbIO::Open(const char* szPath)
 	if (!pEntry)
 		std::ThrowLastError();
 
-#	else // __MACH__
+#	else // __OSX__
 	m_hFile = open(szPath, O_RDWR);
 	if (m_hFile < 0)
 		std::ThrowLastError();
-#	endif // __MACH__
+#	endif // __OSX__
 
 
 #endif // WIN32
@@ -559,7 +563,7 @@ void UsbIO::Write(const void* p, uint16_t n)
 	if (!WriteFile(m_hFile, p, n, &dw, &over))
 		WaitSync();
 #else // WIN32
-#	ifdef __MACH__
+#	ifdef __OSX__
 
 	if (!n)
 		throw std::runtime_error("empty report");
@@ -569,15 +573,15 @@ void UsbIO::Write(const void* p, uint16_t n)
 	if (kIOReturnSuccess != res)
 		std::ThrowLastError();
 
-#	else // _MACH__
+#	else // __OSX__
 	auto wr = write(m_hFile, p, n);
 	if (wr < 0)
 		std::ThrowLastError();
-#	endif // __MACH__
+#	endif // __OSX__
 #endif // WIN32
 }
 
-#ifdef __MACH__
+#ifdef __OSX__
 
 uint16_t UsbIO::ReadTm(void* p, uint16_t n, const uint32_t* pTimeout_ms)
 {
@@ -612,7 +616,7 @@ uint16_t UsbIO::ReadTm(void* p, uint16_t n, const uint32_t* pTimeout_ms)
 	return sizeof(x.m_p);
 }
 
-#endif // __MACH__
+#endif // __OSX__
 
 uint16_t UsbIO::Read(void* p, uint16_t n)
 {
@@ -631,11 +635,11 @@ uint16_t UsbIO::Read(void* p, uint16_t n)
 
 
 #else // WIN32
-#	ifdef __MACH__
+#	ifdef __OSX__
 
 	return ReadTm(p, n, nullptr);
 
-#	else // __MACH__
+#	else // __OSX__
 	int bytes_read = read(m_hFile, p, n);
 	if (bytes_read >= 0)
 		return static_cast<uint16_t>(bytes_read);
@@ -644,7 +648,7 @@ uint16_t UsbIO::Read(void* p, uint16_t n)
 		std::ThrowLastError();
 
 	return 0;
-#	endif // __MACH__
+#	endif // __OSX__
 #endif // WIN32
 }
 
@@ -822,7 +826,7 @@ struct HwMsgs
 
 void HidKeyKeeper::RunThreadGuarded()
 {
-	#ifdef __MACH__
+	#ifdef __OSX__
 
 	{
 		// termination handler
@@ -833,7 +837,7 @@ void HidKeyKeeper::RunThreadGuarded()
 		CFRelease(pSrc);
 	}
 
-	#endif // __MACH__
+	#endif // __OSX__
 
 	std::string sLastPath;
 
@@ -893,16 +897,16 @@ void HidKeyKeeper::RunThreadGuarded()
 					g.m_hFile = INVALID_HANDLE_VALUE; // dismiss
 					return static_cast<uint16_t>(over.InternalHigh);
 #else // WIN32
-#	ifdef __MACH__
+#	ifdef __OSX__
 					return m_Usbio.ReadTm(p, n, pTimeout_ms);
-#	else // __MACH__
+#	else // __OSX__
 					// wait for data
 					if (!m_This.WaitEvent(&m_Usbio.m_hFile, pTimeout_ms))
 						return 0;
 
 					// read once
 					return m_Usbio.Read(p, n);
-#	endif // __MACH__
+#	endif // __OSX__
 #endif // WIN32
 				}
 

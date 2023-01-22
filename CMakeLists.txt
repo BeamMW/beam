@@ -13,6 +13,7 @@ set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}" CACHE INTERNAL "")
 
 if(IOS)
     add_compile_definitions(_LIBCPP_ENABLE_CXX17_REMOVED_AUTO_PTR)
+    add_compile_definitions(__IOS__)
 
     if (POLICY CMP0025)
         cmake_policy(SET CMP0025 NEW)
