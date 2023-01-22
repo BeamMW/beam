@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "usb_key_keeper.h"
+#include "hid_key_keeper.h"
 #include "utility/byteorder.h"
 #include "../hw_crypto/keykeeper.h"
 
@@ -684,19 +684,19 @@ uint16_t UsbIO::ReadFrame(uint8_t* p, uint16_t n)
 	return r.ReadFrame(p, n);
 }
 
-std::shared_ptr<UsbKeyKeeper> UsbKeyKeeper::Open(const std::string& sPath)
+std::shared_ptr<HidKeyKeeper> HidKeyKeeper::Open(const std::string& sPath)
 {
-	auto pRet = std::make_shared<UsbKeyKeeper_ToConsole>();
+	auto pRet = std::make_shared<HidKeyKeeper_ToConsole>();
 	pRet->m_sPath = sPath;
 	return pRet;
 }
 
-UsbKeyKeeper::~UsbKeyKeeper()
+HidKeyKeeper::~HidKeyKeeper()
 {
 	Stop();
 }
 
-void UsbKeyKeeper::Stop()
+void HidKeyKeeper::Stop()
 {
 	if (m_Thread.joinable())
 	{
@@ -705,7 +705,7 @@ void UsbKeyKeeper::Stop()
 	}
 }
 
-void UsbKeyKeeper::StartSafe()
+void HidKeyKeeper::StartSafe()
 {
 	if (!m_Thread.joinable())
 	{
@@ -715,17 +715,17 @@ void UsbKeyKeeper::StartSafe()
 		m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnEvent(); });
 
 
-		m_Thread = MyThread(&UsbKeyKeeper::RunThread, this);
+		m_Thread = MyThread(&HidKeyKeeper::RunThread, this);
 	}
 }
 
-bool UsbKeyKeeper::TaskList::Push(Task::Ptr& pTask)
+bool HidKeyKeeper::TaskList::Push(Task::Ptr& pTask)
 {
 	std::scoped_lock l(m_Mutex);
 	return PushLocked(pTask);
 }
 
-bool UsbKeyKeeper::TaskList::PushLocked(Task::Ptr& pTask)
+bool HidKeyKeeper::TaskList::PushLocked(Task::Ptr& pTask)
 {
 	bool bWasEmpty = empty();
 	push_back(*pTask.release());
@@ -733,13 +733,13 @@ bool UsbKeyKeeper::TaskList::PushLocked(Task::Ptr& pTask)
 	return bWasEmpty;
 }
 
-bool UsbKeyKeeper::TaskList::Pop(Task::Ptr& pTask)
+bool HidKeyKeeper::TaskList::Pop(Task::Ptr& pTask)
 {
 	std::scoped_lock l(m_Mutex);
 	return PopLocked(pTask);
 }
 
-bool UsbKeyKeeper::TaskList::PopLocked(Task::Ptr& pTask)
+bool HidKeyKeeper::TaskList::PopLocked(Task::Ptr& pTask)
 {
 	if (empty())
 		return false;
@@ -749,7 +749,7 @@ bool UsbKeyKeeper::TaskList::PopLocked(Task::Ptr& pTask)
 	return true;
 }
 
-void UsbKeyKeeper::SendRequestAsync(void* pBuf, uint32_t nRequest, uint32_t nResponse, const Handler::Ptr& pHandler)
+void HidKeyKeeper::SendRequestAsync(void* pBuf, uint32_t nRequest, uint32_t nResponse, const Handler::Ptr& pHandler)
 {
 	Task::Ptr pTask(new Task);
 	pTask->m_pBuf = reinterpret_cast<uint8_t*>(pBuf);
@@ -765,7 +765,7 @@ void UsbKeyKeeper::SendRequestAsync(void* pBuf, uint32_t nRequest, uint32_t nRes
 	}
 }
 
-void UsbKeyKeeper::RunThread()
+void HidKeyKeeper::RunThread()
 {
 	try
 	{
@@ -805,7 +805,7 @@ struct HwMsgs
 
 
 
-void UsbKeyKeeper::RunThreadGuarded()
+void HidKeyKeeper::RunThreadGuarded()
 {
 	std::string sLastPath;
 
@@ -816,8 +816,8 @@ void UsbKeyKeeper::RunThreadGuarded()
 		{
 			struct AsyncReader :public UsbIO::Frame::Reader
 			{
-				UsbKeyKeeper& m_This;
-				AsyncReader(UsbKeyKeeper& x) :m_This(x) {}
+				HidKeyKeeper& m_This;
+				AsyncReader(HidKeyKeeper& x) :m_This(x) {}
 
 				UsbIO m_Usbio;
 				bool m_Stall = false;
@@ -1064,7 +1064,7 @@ void UsbKeyKeeper::RunThreadGuarded()
 	}
 }
 
-void UsbKeyKeeper::NotifyState(std::string* pErr, DevState eState)
+void HidKeyKeeper::NotifyState(std::string* pErr, DevState eState)
 {
 	bool bNotify = false;
 
@@ -1110,9 +1110,9 @@ void UsbKeyKeeper::NotifyState(std::string* pErr, DevState eState)
 		m_pEvt->post();
 }
 
-thread_local UsbKeyKeeper::IEvents* UsbKeyKeeper_ToConsole::s_pEvents = nullptr;
+thread_local HidKeyKeeper::IEvents* HidKeyKeeper_ToConsole::s_pEvents = nullptr;
 
-void UsbKeyKeeper_ToConsole::Events::OnDevState(const std::string& sErr, DevState eState)
+void HidKeyKeeper_ToConsole::Events::OnDevState(const std::string& sErr, DevState eState)
 {
 	if (s_pEvents)
 		return s_pEvents->OnDevState(sErr, eState);
@@ -1135,7 +1135,7 @@ void UsbKeyKeeper_ToConsole::Events::OnDevState(const std::string& sErr, DevStat
 	}
 }
 
-void UsbKeyKeeper_ToConsole::Events::OnDevReject(const CallStats& stats)
+void HidKeyKeeper_ToConsole::Events::OnDevReject(const CallStats& stats)
 {
 	if (s_pEvents)
 		return s_pEvents->OnDevReject(stats);
@@ -1144,7 +1144,7 @@ void UsbKeyKeeper_ToConsole::Events::OnDevReject(const CallStats& stats)
 		<< ", Status=" << static_cast<uint32_t>(stats.m_Dbg.m_Major) << '.' << static_cast<uint32_t>(stats.m_Dbg.m_Minor) << std::endl;
 }
 
-bool UsbKeyKeeper::WaitEvent(const Event::Handle* pEvt, const uint32_t* pTimeout_ms)
+bool HidKeyKeeper::WaitEvent(const Event::Handle* pEvt, const uint32_t* pTimeout_ms)
 {
 #ifdef WIN32
 
@@ -1207,7 +1207,7 @@ bool UsbKeyKeeper::WaitEvent(const Event::Handle* pEvt, const uint32_t* pTimeout
 	throw exc;
 }
 
-void UsbKeyKeeper::OnEvent()
+void HidKeyKeeper::OnEvent()
 {
 	std::string sErr;
 
@@ -1246,22 +1246,22 @@ void UsbKeyKeeper::OnEvent()
 
 #ifdef WIN32
 
-UsbKeyKeeper::Event::Event() :m_hEvt(NULL)
+HidKeyKeeper::Event::Event() :m_hEvt(NULL)
 {
 }
 
-UsbKeyKeeper::Event::~Event()
+HidKeyKeeper::Event::~Event()
 {
 	if (m_hEvt)
 		CloseHandle(m_hEvt);
 }
 
-void UsbKeyKeeper::Event::Set()
+void HidKeyKeeper::Event::Set()
 {
 	SetEvent(m_hEvt);
 }
 
-void UsbKeyKeeper::Event::Create()
+void HidKeyKeeper::Event::Create()
 {
 	m_hEvt = CreateEvent(NULL, FALSE, FALSE, NULL);
 	if (!m_hEvt)
@@ -1270,11 +1270,11 @@ void UsbKeyKeeper::Event::Create()
 
 #else // WIN32
 
-UsbKeyKeeper::Event::Event() :m_hEvt(-1)
+HidKeyKeeper::Event::Event() :m_hEvt(-1)
 {
 }
 
-UsbKeyKeeper::Event::~Event()
+HidKeyKeeper::Event::~Event()
 {
 	if (m_hEvt >= 0)
 	{
@@ -1283,14 +1283,14 @@ UsbKeyKeeper::Event::~Event()
 	}
 }
 
-void UsbKeyKeeper::Event::Set()
+void HidKeyKeeper::Event::Set()
 {
 	uint8_t dummy = 0;
 	auto nRes = write(m_hSetter, &dummy, 1);
 	(nRes); // ignore
 }
 
-void UsbKeyKeeper::Event::Create()
+void HidKeyKeeper::Event::Create()
 {
 	int pFds[2];
 	if (pipe(pFds) < 0)

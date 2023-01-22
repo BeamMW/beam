@@ -32,7 +32,7 @@
 
 #include "wallet/transactions/assets/assets_reg_creators.h"
 #include "keykeeper/local_private_key_keeper.h"
-#include "keykeeper/usb_key_keeper.h"
+#include "keykeeper/hid_key_keeper.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "core/treasury.h"

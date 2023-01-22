@@ -35,7 +35,7 @@
 #include "extensions/dex_board/dex_board.h"
 #include "extensions/dex_board/dex_order.h"
 #endif  // BEAM_ASSET_SWAP_SUPPORT
-#include "keykeeper/usb_key_keeper.h"
+#include "keykeeper/hid_key_keeper.h"
 
 #ifdef BEAM_IPFS_SUPPORT
 #include "wallet/ipfs/ipfs.h"
@@ -121,7 +121,7 @@ namespace beam::wallet
         , private DexBoard::IObserver
 #endif  // BEAM_ASSET_SWAP_SUPPORT
         , private IVerificationObserver
-        , public wallet::UsbKeyKeeper::IEvents
+        , public wallet::HidKeyKeeper::IEvents
     {
     public:
 

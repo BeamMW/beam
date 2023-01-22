@@ -80,7 +80,7 @@ namespace beam::wallet
         void Open(const char* szPath); // throws exc on error
     };
 
-    class UsbKeyKeeper
+    class HidKeyKeeper
         :public RemoteKeyKeeper
     {
     public:
@@ -165,7 +165,7 @@ namespace beam::wallet
             Stalled,
         };
 
-        static std::shared_ptr<UsbKeyKeeper> Open(const std::string& sPath);
+        static std::shared_ptr<HidKeyKeeper> Open(const std::string& sPath);
 
         std::string m_sPath; // don't modify after start. Leave empty string to auto-detect
 
@@ -181,7 +181,7 @@ namespace beam::wallet
         void StartSafe();
         void Stop();
 
-        virtual ~UsbKeyKeeper();
+        virtual ~HidKeyKeeper();
 
     private:
 
@@ -191,19 +191,19 @@ namespace beam::wallet
         void NotifyState(std::string* pErr, DevState);
     };
 
-    struct UsbKeyKeeper_ToConsole
-        :public UsbKeyKeeper
+    struct HidKeyKeeper_ToConsole
+        :public HidKeyKeeper
     {
-        static thread_local UsbKeyKeeper::IEvents* s_pEvents;
+        static thread_local HidKeyKeeper::IEvents* s_pEvents;
 
         struct Events
-            :public UsbKeyKeeper::IEvents
+            :public HidKeyKeeper::IEvents
         {
             void OnDevState(const std::string& sErr, DevState) override;
             void OnDevReject(const CallStats&) override;
         } m_Events;
 
-        UsbKeyKeeper_ToConsole()
+        HidKeyKeeper_ToConsole()
         {
             m_pEvents = &m_Events;
         }

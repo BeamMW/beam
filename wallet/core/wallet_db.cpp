@@ -36,7 +36,7 @@ namespace fs = std::filesystem;
 #include "nlohmann/json.hpp"
 #include "utility/std_extension.h"
 #include "keykeeper/local_private_key_keeper.h"
-#include "keykeeper/usb_key_keeper.h"
+#include "keykeeper/hid_key_keeper.h"
 #include "strings_resources.h"
 #include "core/uintBig.h"
 #include "utility/test_helpers.h"
@@ -2161,7 +2161,7 @@ namespace beam::wallet
 
     IWalletDB::Ptr WalletDB::initHww(const string& path, const SecString& password, bool separateDBForPrivateData)
     {
-        auto pKeyKeeper = UsbKeyKeeper::Open("");
+        auto pKeyKeeper = HidKeyKeeper::Open("");
 
         std::shared_ptr<WalletDB> walletDB = initBase(path, password, separateDBForPrivateData);
         if (walletDB)
@@ -2522,7 +2522,7 @@ namespace beam::wallet
                     if (storage::getBlobVar(*walletDB, HwwKind, iKind))
                     {
                         if (1 == iKind) // auto-find any supported HWW
-                            walletDB->m_pKeyKeeper = UsbKeyKeeper::Open("");
+                            walletDB->m_pKeyKeeper = HidKeyKeeper::Open("");
                     }
                 }
 
