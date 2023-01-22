@@ -390,7 +390,7 @@ namespace beam
 		for (size_t i = 0; i < _countof(m_User.m_pMessage); i++)
 			p.m_Flags |= (Msg2Scalar(pExtra[i], m_User.m_pMessage[i]) << (i + 1));
 
-		ECC::RangeProof::CreatorParams cp;
+		ECC::RangeProof::Params::Create cp;
 		cp.m_Value = m_Value;
 
 		CoinID::Generator g(m_AssetID);
@@ -427,7 +427,7 @@ namespace beam
 	{
 		txo.Prepare(oracle, hScheme);
 
-		ECC::RangeProof::CreatorParams cp;
+		ECC::RangeProof::Params::Recover cp;
 		get_Seed(cp.m_Seed.V, hvShared, oracle);
 
 		ECC::Scalar::Native pExtra[2];

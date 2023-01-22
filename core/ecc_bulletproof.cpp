@@ -606,11 +606,13 @@ namespace ECC {
 
 	/////////////////////
 	// Bulletproof
-	void RangeProof::Confidential::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, const Point::Native* pHGen /* = nullptr */)
+	void RangeProof::Confidential::Create(const Scalar::Native& sk, const Params::Create& cp, Oracle& oracle, const Point::Native* pHGen /* = nullptr */)
 	{
 		NoLeak<uintBig> seedSk;
         GenerateSeed(seedSk.V, sk, cp.m_Value, oracle);
-        BEAM_VERIFY(CoSign(seedSk.V, sk, cp, oracle, Phase::SinglePass, pHGen));
+
+		Nonces nonces(seedSk.V);
+        BEAM_VERIFY(CoSign(nonces, sk, cp, oracle, Phase::SinglePass, pHGen));
 	}
 
     void RangeProof::Confidential::GenerateSeed(uintBig& seedSk, const Scalar::Native& sk, Amount amount, Oracle& oracle)
@@ -690,7 +692,7 @@ namespace ECC {
 		}
 	};
 
-	void RangeProof::CreatorParams::BlobSave(uint8_t* p, size_t n) const
+	void RangeProof::Params::Base::BlobSave(uint8_t* p, size_t n) const
 	{
 		assert(m_Blob.n <= n);
 		size_t nPad = n - m_Blob.n;
@@ -699,7 +701,7 @@ namespace ECC {
 		memcpy(p + nPad, m_Blob.p, m_Blob.n);
 	}
 
-	bool RangeProof::CreatorParams::BlobRecover(const uint8_t* p, size_t n)
+	bool RangeProof::Params::Base::BlobRecover(const uint8_t* p, size_t n)
 	{
 		assert(m_Blob.n <= n);
 		size_t nPad = n - m_Blob.n;
@@ -712,14 +714,14 @@ namespace ECC {
 	}
 
 #pragma pack (push, 1)
-	struct RangeProof::CreatorParams::Packed
+	struct RangeProof::Params::Base::Packed
 	{
 		uint8_t m_pUser[sizeof(Scalar) - sizeof(Amount)];
 		beam::uintBigFor<Amount>::Type m_Value; // for historical reasons: value should be here!
 	};
 #pragma pack (pop)
 
-	bool RangeProof::Confidential::CoSign(const Nonces& nonces, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, const Point::Native* pHGen /* = nullptr */)
+	bool RangeProof::Confidential::CoSign(const Nonces& nonces, const Scalar::Native& sk, const Params::Create& cp, Oracle& oracle, Phase::Enum ePhase, const Point::Native* pHGen /* = nullptr */)
 	{
 		NonceGeneratorBp nonceGen(cp.m_Seed.V);
 
@@ -728,7 +730,7 @@ namespace ECC {
 		nonceGen >> alpha;
 
 		// embed extra params into alpha
-		NoLeak<CreatorParams::Packed> cpp;
+		NoLeak<Params::Base::Packed> cpp;
 		cpp.V.m_Value = cp.m_Value;
 
 		cp.BlobSave(cpp.V.m_pUser, sizeof(cpp.V.m_pUser));
@@ -934,7 +936,7 @@ namespace ECC {
 		res = comm;
 	}
 
-	bool RangeProof::Confidential::Recover(Oracle& oracle, CreatorParams& cp) const
+	bool RangeProof::Confidential::Recover(Oracle& oracle, Params::Recover& cp) const
 	{
 		NonceGeneratorBp nonceGen(cp.m_Seed.V);
 
@@ -957,7 +959,7 @@ namespace ECC {
 		params = -params;
 		params += m_Mu;
 
-		CreatorParams::Packed cpp;
+		Params::Base::Packed cpp;
 		static_assert(sizeof(cpp) == sizeof(Scalar));
 		((Scalar&) cpp) = params;
 

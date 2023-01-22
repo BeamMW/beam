@@ -2493,7 +2493,7 @@ namespace ECC {
 			return m_Signature.IsValid(hv, pk);
 		}
 
-		void Public::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle)
+		void Public::Create(const Scalar::Native& sk, const Params::Base& cp, Oracle& oracle)
 		{
 			m_Value = cp.m_Value;
 			assert(m_Value >= s_MinimumValue);
@@ -2507,7 +2507,7 @@ namespace ECC {
 			m_Signature.Sign(hv, sk);
 		}
 
-		bool Public::Recover(CreatorParams& cp) const
+		bool Public::Recover(Params::Base& cp) const
 		{
 			Key::ID::Packed kid = m_Recovery.m_Kid;
 			Hash::Value hvChecksum;
@@ -2541,7 +2541,7 @@ namespace ECC {
 			return 0;
 		}
 
-		void Public::XCryptKid(Key::ID::Packed& kid, const CreatorParams& cp, Hash::Value& hvChecksum)
+		void Public::XCryptKid(Key::ID::Packed& kid, const Params::Base& cp, Hash::Value& hvChecksum)
 		{
 			NonceGenerator nonceGen("beam-psig");
 			nonceGen << cp.m_Seed.V;

@@ -714,7 +714,7 @@ struct AssetTag
 
 void TestRangeProof(bool bCustomTag)
 {
-	RangeProof::CreatorParams cp;
+	RangeProof::Params::Create cp;
 
 	beam::uintBig_t<sizeof(Key::ID::Packed)> up0, up1;
 	SetRandom(up0);
@@ -747,7 +747,7 @@ void TestRangeProof(bool bCustomTag)
 	}
 
 	{
-		RangeProof::CreatorParams cp2;
+		RangeProof::Params::Base cp2;
 		cp2.m_Seed = cp.m_Seed;
 		cp2.m_Blob = up1;
 
@@ -832,7 +832,7 @@ void TestRangeProof(bool bCustomTag)
 	}
 	{
 		Oracle oracle;
-		RangeProof::CreatorParams cp2;
+		RangeProof::Params::Recover cp2;
 		cp2.m_Seed = cp.m_Seed;
 		cp2.m_Blob = uc1;
 
@@ -870,7 +870,7 @@ void TestRangeProof(bool bCustomTag)
 		Scalar::Native sk2;
 		Scalar::Native pExVer[2];
 
-		RangeProof::CreatorParams cp2;
+		RangeProof::Params::Recover cp2;
 		cp2.m_Blob = uc1;
 		cp2.m_Seed = cp.m_Seed;
 		cp2.m_pSeedSk = &seedSk;
@@ -1064,7 +1064,7 @@ void TestMultiSigOutput()
 	outp.Prepare(o0, g_hFork);
 
     // from Output::get_SeedKid    
-	RangeProof::CreatorParams cp;
+	RangeProof::Params::Create cp;
 	cp.m_Value = cid.m_Value;
 	beam::Output::GenerateSeedKid(cp.m_Seed.V, outp.m_Commitment, *pKdf_B);
 
@@ -2636,7 +2636,7 @@ void RunBenchmark()
 	}
 
 	RangeProof::Confidential bp;
-	RangeProof::CreatorParams cp;
+	RangeProof::Params::Create cp;
 	SetRandom(cp.m_Seed.V);
 	cp.m_Value = 23110;
 

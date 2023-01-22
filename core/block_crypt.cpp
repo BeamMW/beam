@@ -490,7 +490,7 @@ namespace beam
 		ECC::Oracle oracle;
 		Prepare(oracle, hScheme);
 
-		ECC::RangeProof::CreatorParams cp;
+		ECC::RangeProof::Params::Create cp;
 		cp.m_Value = cid.m_Value;
 		GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
 
@@ -570,7 +570,7 @@ namespace beam
 
 	bool Output::Recover(Height hScheme, Key::IPKdf& tagKdf, CoinID& cid, User* pUser) const
 	{
-		ECC::RangeProof::CreatorParams cp;
+		ECC::RangeProof::Params::Recover cp;
 		GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
 
 		ECC::Oracle oracle;

@@ -260,7 +260,7 @@ uint32_t Multisig::Update2()
 		Set(outp.m_Commitment, Codes::Commitment);
 	}
 
-	ECC::RangeProof::CreatorParams cp;
+	ECC::RangeProof::Params::Create cp;
 	cp.m_Value = cid.m_Value;
 
 	uint32_t iRole = 0;
