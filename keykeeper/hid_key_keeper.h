@@ -105,9 +105,9 @@ namespace beam::wallet
             } m_Dbg;
         };
 
-        struct ShutdownExc {};
-
     private:
+
+        struct ShutdownExc {};
 
         struct Task
             :public boost::intrusive::list_base_hook<>

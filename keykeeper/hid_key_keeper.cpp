@@ -408,6 +408,10 @@ void ReportCallback(void* pCtx, IOReturn result, void* pSender, IOHIDReportType 
 	x = pDev->m_Chunk0;
 }
 
+void RemoveCallback(void* pCtx, IOReturn result, void* pSender)
+{
+}
+
 void DummyCallback(__CFSocket *, unsigned long, const __CFData *, const void *, void *)
 {
 }
@@ -455,6 +459,7 @@ void UsbIO::Open(const char* szPath)
 			IOHIDDeviceOpen(m_hDev, kIOHIDOptionsTypeSeizeDevice);
 
 			IOHIDDeviceRegisterInputReportCallback(m_hDev, m_Chunk0.m_p, sizeof(m_Chunk0.m_p), ReportCallback, this);
+			IOHIDDeviceRegisterRemovalCallback(m_hDev, RemoveCallback, this);
 
 			IOHIDDeviceScheduleWithRunLoop(m_hDev, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
 		}
@@ -594,19 +599,8 @@ uint16_t UsbIO::ReadTm(void* p, uint16_t n, const uint32_t* pTimeout_ms)
 			return 0;
 
 		if (m_qDone.empty())
-		{
-			HidKeyKeeper::ShutdownExc exc;
-			throw exc;
-		}
-
-		switch (res)
-		{
-		case kCFRunLoopRunHandledSource:
-		case kCFRunLoopRunTimedOut:
-			break;
-		default:
-			std::ThrowLastError();
-		}
+			// either disconnect, some I/O error, or shutdown, we don't distinguish
+			throw std::runtime_error("Device disconnected");
 	}
 
 	auto& x = m_qDone.front();
