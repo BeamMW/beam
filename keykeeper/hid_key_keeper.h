@@ -61,6 +61,8 @@ namespace beam::wallet
         Chunk m_Chunk0;
         std::queue<Chunk> m_qDone;
 
+        uint16_t ReadTm(void*, uint16_t, const uint32_t* pTimeout_ms);
+
 #   else // __MACH__ 
         int m_hFile;
 #   endif // __MACH__
@@ -98,6 +100,8 @@ namespace beam::wallet
                 uint8_t m_Minor;
             } m_Dbg;
         };
+
+        struct ShutdownExc {};
 
     private:
 
@@ -138,8 +142,6 @@ namespace beam::wallet
             void Set();
             void Create();
         };
-
-        struct ShutdownExc {};
 
         TaskList m_lstPending;
         TaskList m_lstDone;

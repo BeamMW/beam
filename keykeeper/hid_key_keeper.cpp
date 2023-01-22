@@ -408,6 +408,10 @@ void ReportCallback(void* pCtx, IOReturn result, void* pSender, IOHIDReportType 
 	x = pDev->m_Chunk0;
 }
 
+void DummyCallback(__CFSocket *, unsigned long, const __CFData *, const void *, void *)
+{
+}
+
 #endif // __MACH__
 
 void UsbIO::Open(const char* szPath)
@@ -573,6 +577,43 @@ void UsbIO::Write(const void* p, uint16_t n)
 #endif // WIN32
 }
 
+#ifdef __MACH__
+
+uint16_t UsbIO::ReadTm(void* p, uint16_t n, const uint32_t* pTimeout_ms)
+{
+	if (m_qDone.empty())
+	{
+		CFTimeInterval tm_sec = pTimeout_ms ? (CFTimeInterval(*pTimeout_ms) / 1000.) : 1e20;
+
+		auto res = CFRunLoopRunInMode(kCFRunLoopDefaultMode, tm_sec, true);
+		if (kCFRunLoopRunTimedOut == res)
+			return 0;
+
+		if (m_qDone.empty())
+		{
+			HidKeyKeeper::ShutdownExc exc;
+			throw exc;
+		}
+
+		switch (res)
+		{
+		case kCFRunLoopRunHandledSource:
+		case kCFRunLoopRunTimedOut:
+			break;
+		default:
+			std::ThrowLastError();
+		}
+	}
+
+	auto& x = m_qDone.front();
+	memcpy(p, x.m_p, std::min<uint16_t>(sizeof(x.m_p), n));
+	m_qDone.pop();
+
+	return sizeof(x.m_p);
+}
+
+#endif // __MACH__
+
 uint16_t UsbIO::Read(void* p, uint16_t n)
 {
 #ifdef WIN32
@@ -592,33 +633,7 @@ uint16_t UsbIO::Read(void* p, uint16_t n)
 #else // WIN32
 #	ifdef __MACH__
 
-	while (m_qDone.empty())
-	{
-		auto res = CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1, true);
-
-		switch (res)
-		{
-		case kCFRunLoopRunHandledSource:
-		case kCFRunLoopRunTimedOut:
-			break;
-		default:
-			std::ThrowLastError();
-		}
-	}
-
-	auto& x = m_qDone.front();
-	memcpy(p, x.m_p, std::min<uint16_t>(sizeof(x.m_p), n));
-	m_qDone.pop();
-
-	return sizeof(x.m_p);
-/*
-	//IOHIDDeviceRegisterInputReportCallback
-	CFIndex len = n;
-	auto res = IOHIDDeviceGetReport(m_hDev, kIOHIDReportTypeInput, 1, (uint8_t*) p, &len);
-	if (kIOReturnSuccess != res)
-		std::ThrowLastError();
-	return res;
-*/	
+	return ReadTm(p, n, nullptr);
 
 #	else // __MACH__
 	int bytes_read = read(m_hFile, p, n);
@@ -807,6 +822,19 @@ struct HwMsgs
 
 void HidKeyKeeper::RunThreadGuarded()
 {
+	#ifdef __MACH__
+
+	{
+		// termination handler
+		auto pSock = CFSocketCreateWithNative(kCFAllocatorDefault, m_evtShutdown.m_hEvt, kCFSocketReadCallBack, DummyCallback, nullptr);
+		auto pSrc = CFSocketCreateRunLoopSource(kCFAllocatorDefault, pSock, 0);
+		CFRelease(pSock);
+		CFRunLoopAddSource(CFRunLoopGetCurrent(), pSrc, kCFRunLoopDefaultMode);
+		CFRelease(pSrc);
+	}
+
+	#endif // __MACH__
+
 	std::string sLastPath;
 
 	Task::Ptr pTask;
@@ -866,7 +894,7 @@ void HidKeyKeeper::RunThreadGuarded()
 					return static_cast<uint16_t>(over.InternalHigh);
 #else // WIN32
 #	ifdef __MACH__
-					return m_Usbio.Read(p, n);
+					return m_Usbio.ReadTm(p, n, pTimeout_ms);
 #	else // __MACH__
 					// wait for data
 					if (!m_This.WaitEvent(&m_Usbio.m_hFile, pTimeout_ms))
