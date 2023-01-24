@@ -735,7 +735,7 @@ namespace
                 {
                     WALLET_CHECK(action == ChangeAction::Added);
                     WALLET_CHECK(list.size() == 1);
-                    WALLET_CHECK(list[0].m_ID == addr.m_walletID.m_Pk);
+                    WALLET_CHECK(list[0].m_ID == addr.m_BbsAddr.m_Pk);
                     WALLET_CHECK(list[0].m_type == Notification::Type::AddressStatusChanged);
                     WALLET_CHECK(list[0].m_state == Notification::State::Unread);
                     ++exeCount;
@@ -745,7 +745,7 @@ namespace
             center.Subscribe(&observer);
             auto list = center.getNotifications();
             WALLET_CHECK(list.size() == 1);
-            WALLET_CHECK(list[0].m_ID == addr.m_walletID.m_Pk);
+            WALLET_CHECK(list[0].m_ID == addr.m_BbsAddr.m_Pk);
             WALLET_CHECK(list[0].m_type == Notification::Type::AddressStatusChanged);
             WALLET_CHECK(list[0].m_state == Notification::State::Unread);
             center.Unsubscribe(&observer);
@@ -772,7 +772,7 @@ namespace
             wid2.m_Channel = 123u;
             wid2.m_Pk = id2;
             WalletAddress addr2;
-            addr2.m_walletID = wid2;
+            addr2.m_BbsAddr = wid2;
             addr2.m_label = "expiredAddress";
             addr2.m_category = "abc";
             addr2.m_createTime = 123;

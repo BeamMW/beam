@@ -120,13 +120,13 @@ namespace beam::wallet
             Auto
         };
 
-        WalletID    m_walletID;   // derived from SBBS
+        WalletID    m_BbsAddr;
         std::string m_label;
         std::string m_category;
         Timestamp   m_createTime;
         uint64_t    m_duration;   // if equals to "AddressExpirationNever" then address never expires
         uint64_t    m_OwnID;      // set for own address
-        PeerID      m_Endpoint;   // derived from master. Different from m_walletID
+        PeerID      m_Endpoint;
         std::string m_Address;    // token publicly visible to users
         
         WalletAddress(const std::string& label = std::string(), const std::string& category = std::string());
@@ -139,7 +139,7 @@ namespace beam::wallet
         Timestamp getCreateTime() const;
         Timestamp getExpirationTime() const;
 
-        SERIALIZE(  m_walletID,
+        SERIALIZE(  m_BbsAddr,
                     m_label,
                     m_category,
                     m_createTime,

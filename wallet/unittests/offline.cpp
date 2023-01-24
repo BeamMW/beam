@@ -68,7 +68,7 @@ WaitHandle run_wallet(const WalletParams& params) {
 
 //            if (sender) {
 //                TxPeer receiverPeer = {};
-////                 receiverPeer.m_walletID = sendTo;
+////                 receiverPeer.m_BbsAddr = sendTo;
 //                params.walletDB->addPeer(receiverPeer);
 //            }
 
@@ -183,10 +183,10 @@ void test_offline(bool twoNodes) {
     WalletAddress wa;
     senderParams.walletDB->createAddress(wa);
 	senderParams.walletDB->saveAddress(wa);
-	senderParams.sendFrom = wa.m_walletID;
+	senderParams.sendFrom = wa.m_BbsAddr;
     senderParams.walletDB->createAddress(wa);
     receiverParams.walletDB->saveAddress(wa);
-	senderParams.sendTo = wa.m_walletID;
+	senderParams.sendTo = wa.m_BbsAddr;
 
     WalletDBObserver senderObserver("AAAAAAAAAAAAAAAAAAAAAA"), receiverObserver("BBBBBBBBBBBBBBBBBBBBBB");
 

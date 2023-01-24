@@ -119,7 +119,7 @@ namespace fs = std::filesystem;
 #define VARIABLES_FIELDS ENUM_VARIABLES_FIELDS(LIST, COMMA, )
 
 #define ENUM_ADDRESS_FIELDS(each, sep, obj) \
-    each(walletID,       walletID,       BLOB, obj) sep \
+    each(walletID,       BbsAddr,        BLOB, obj) sep \
     each(label,          label,          TEXT NOT NULL, obj) sep \
     each(category,       category,       TEXT, obj) sep \
     each(createTime,     createTime,     INTEGER, obj) sep \
@@ -1515,7 +1515,7 @@ namespace beam::wallet
                 while (stm.step())
                 {
                     WalletAddress addr;
-                    stm.get(0, addr.m_walletID);
+                    stm.get(0, addr.m_BbsAddr);
                     stm.get(1, addr.m_label);
                     stm.get(2, addr.m_category);
                     stm.get(3, addr.m_createTime);
@@ -1523,9 +1523,9 @@ namespace beam::wallet
                     stm.get(5, addr.m_OwnID);
                     stm.get(6, addr.m_Endpoint);
 
-                    if (addr.m_walletID != Zero)
+                    if (addr.m_BbsAddr != Zero)
                     {
-                        addr.m_Address = std::to_string(addr.m_walletID);
+                        addr.m_Address = std::to_string(addr.m_BbsAddr);
                         walletDB->saveAddress(addr, isLaser);
                     }
                 }
@@ -2977,17 +2977,17 @@ namespace beam::wallet
         addr.m_createTime = beam::getTimestamp();
         addr.m_OwnID = AllocateKidRange(1);
 
-        get_SbbsWalletID(addr.m_walletID, addr.m_OwnID);
+        get_SbbsWalletID(addr.m_BbsAddr, addr.m_OwnID);
         get_Endpoint(addr.m_Endpoint, addr.m_OwnID);
 
-        LOG_INFO() << boost::format(kWalletIdNewGenerated) % std::to_string(addr.m_walletID);
+        LOG_INFO() << boost::format(kWalletIdNewGenerated) % std::to_string(addr.m_BbsAddr);
 
         if (!addr.m_label.empty())
         {
             LOG_INFO() << boost::format(kAddrNewGeneratedLabel) % addr.m_label;
         }
 
-        addr.m_Address = std::to_string(addr.m_walletID);
+        addr.m_Address = std::to_string(addr.m_BbsAddr);
     }
 
     void IWalletDB::get_Endpoint(PeerID& pid, uint64_t ownID) const
@@ -4317,8 +4317,8 @@ namespace beam::wallet
         WalletAddress address = addr;
         if (address.m_Address.empty())
         {
-            assert(address.m_walletID != Zero);
-            address.m_Address = std::to_string(address.m_walletID);
+            assert(address.m_BbsAddr != Zero);
+            address.m_Address = std::to_string(address.m_BbsAddr);
         }
 
         auto selectByToken = "SELECT * FROM " + addrTableName + " WHERE address=?1;";
@@ -4336,7 +4336,7 @@ namespace beam::wallet
                 stm.bind(3, address.m_category);
                 stm.bind(4, address.m_duration);
                 stm.bind(5, address.m_createTime);
-                stm.bind(6, address.m_walletID);
+                stm.bind(6, address.m_BbsAddr);
                 stm.bind(7, address.m_OwnID);
                 stm.bind(8, address.m_Endpoint);
                 stm.step();
@@ -4351,11 +4351,11 @@ namespace beam::wallet
         }
 
         // This check is intentional, it skips MaxPrivacy addresses
-        if (address.m_walletID.IsValid())
+        if (address.m_BbsAddr.IsValid())
         {
             auto selectByWid = "SELECT * FROM " + addrTableName + " WHERE walletID=?1;";
             sqlite::Statement stmWid(this, selectByWid.c_str());
-            stmWid.bind(1, address.m_walletID);
+            stmWid.bind(1, address.m_BbsAddr);
 
             if (stmWid.step())
             {
@@ -4368,7 +4368,7 @@ namespace beam::wallet
                     stm.bind(3, address.m_category);
                     stm.bind(4, address.m_duration);
                     stm.bind(5, address.m_createTime);
-                    stm.bind(6, address.m_walletID);
+                    stm.bind(6, address.m_BbsAddr);
                     stm.bind(7, address.m_OwnID);
                     stm.bind(8, address.m_Endpoint);
                     stm.step();
@@ -4404,7 +4404,7 @@ namespace beam::wallet
         address.m_label = kDefaultAddrLabel;
         address.setExpirationStatus(WalletAddress::ExpirationStatus::Never);
         saveAddress(address);
-        LOG_DEBUG() << "Default address: " << std::to_string(address.m_walletID);
+        LOG_DEBUG() << "Default address: " << std::to_string(address.m_BbsAddr);
     }
 
     void WalletDB::deleteAddressByToken(const std::string& addr, bool isLaser)
@@ -6343,7 +6343,7 @@ namespace beam::wallet
                 WalletAddress receiverAddress;
                 if (message->m_ReceiverOwnID)
                 {
-                    db.get_SbbsWalletID(receiverAddress.m_walletID, message->m_ReceiverOwnID);
+                    db.get_SbbsWalletID(receiverAddress.m_BbsAddr, message->m_ReceiverOwnID);
                     db.get_Endpoint(receiverAddress.m_Endpoint, message->m_ReceiverOwnID);
                 }
                 else
@@ -6353,7 +6353,7 @@ namespace beam::wallet
                 }
 
                 auto params = CreateTransactionParameters(TxType::PushTransaction, txID)
-                    .SetParameter(TxParameterID::MyAddr, receiverAddress.m_walletID)
+                    .SetParameter(TxParameterID::MyAddr, receiverAddress.m_BbsAddr)
                     .SetParameter(TxParameterID::PeerAddr, WalletID())
                     .SetParameter(TxParameterID::Status, TxStatus::Completed)
                     .SetParameter(TxParameterID::Amount, coin.m_CoinID.m_Value)
@@ -6409,8 +6409,8 @@ namespace beam::wallet
                 const string Contacts = "Contacts";
                 const string TransactionParameters = "TransactionParameters";
                 const string Category = "Category";
-                const string WalletID = "WalletID";
-                const string Identity = "Identity";
+                const string BbsAddr = "WalletID";
+                const string Endpoint = "Identity";
                 const string Index = "Index";
                 const string Label = "Label";
                 const string CreationTime = "CreationTime";
@@ -6432,10 +6432,10 @@ namespace beam::wallet
                 for (const auto& jsonAddress : obj[nodeName])
                 {
                     WalletAddress address;
-                    if (address.m_walletID.FromHex(jsonAddress[Fields::WalletID]))
+                    if (address.m_BbsAddr.FromHex(jsonAddress[Fields::BbsAddr]))
                     {
                         address.m_OwnID = jsonAddress[Fields::Index];
-                        if (!address.isOwn() || db.ValidateSbbsWalletID(address.m_walletID, address.m_OwnID))
+                        if (!address.isOwn() || db.ValidateSbbsWalletID(address.m_BbsAddr, address.m_OwnID))
                         {
                             //{ "SubIndex", 0 },
                             address.m_label = jsonAddress[Fields::Label].get<std::string>();
@@ -6455,7 +6455,7 @@ namespace beam::wallet
                             {
                                 address.m_category = it->get<std::string>();
                             }
-                            if (auto it = jsonAddress.find(Fields::Identity); it != jsonAddress.end())
+                            if (auto it = jsonAddress.find(Fields::Endpoint); it != jsonAddress.end())
                             {
                                 bool isValid = false;
                                 auto buf = from_hex(*it, &isValid);
@@ -6470,12 +6470,12 @@ namespace beam::wallet
                             }
                             db.saveAddress(address);
 
-                            LOG_INFO() << "The address [" << jsonAddress[Fields::WalletID] << "] has been successfully imported.";
+                            LOG_INFO() << "The address [" << jsonAddress[Fields::BbsAddr] << "] has been successfully imported.";
                             continue;
                         }
                     }
 
-                    LOG_INFO() << "The address [" << jsonAddress[Fields::WalletID] << "] has NOT been imported. Wrong address.";
+                    LOG_INFO() << "The address [" << jsonAddress[Fields::BbsAddr] << "] has NOT been imported. Wrong address.";
                     return false;
                 }
                 return true;
@@ -6616,7 +6616,7 @@ namespace beam::wallet
                         {
                             {Fields::Index, address.m_OwnID},
                             {"SubIndex", 0},
-                            {Fields::WalletID, to_string(address.m_walletID)},
+                            {Fields::BbsAddr, to_string(address.m_BbsAddr)},
                             {Fields::Label, address.m_label},
                             {Fields::CreationTime, address.m_createTime},
                             {Fields::Duration, address.m_duration},
@@ -6626,7 +6626,7 @@ namespace beam::wallet
                     );
                     if (address.m_Endpoint != Zero)
                     {
-                        addresses.back().push_back({ Fields::Identity, to_string(address.m_Endpoint) });
+                        addresses.back().push_back({ Fields::Endpoint, to_string(address.m_Endpoint) });
                     }
                 }
                 return addresses;
@@ -7066,7 +7066,7 @@ namespace beam::wallet
                 myAddresses.end(),
                 [&wid] (const WalletAddress& addr)
                 {
-                    return wid == addr.m_walletID;
+                    return wid == addr.m_BbsAddr;
                 });
             return myAddrIt != myAddresses.end();
         }
@@ -7075,7 +7075,7 @@ namespace beam::wallet
     ////////////////////////
     // WalletAddress
     WalletAddress::WalletAddress(const std::string& label, const std::string& category)
-        : m_walletID(Zero)
+        : m_BbsAddr(Zero)
         , m_label(label)
         , m_category(category)
         , m_createTime(0)
@@ -7086,7 +7086,7 @@ namespace beam::wallet
 
     bool WalletAddress::operator == (const WalletAddress& other) const
     {
-        return m_walletID == other.m_walletID && m_OwnID == other.m_OwnID;
+        return m_BbsAddr == other.m_BbsAddr && m_OwnID == other.m_OwnID;
     }
 
     bool WalletAddress::operator != (const WalletAddress& other) const
@@ -7377,7 +7377,7 @@ namespace beam::wallet
 
         params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
         params.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
-        params.SetParameter(TxParameterID::PeerAddr,            address.m_walletID);
+        params.SetParameter(TxParameterID::PeerAddr,            address.m_BbsAddr);
         params.SetParameter(TxParameterID::PeerEndpoint,        address.m_Endpoint);
         params.SetParameter(TxParameterID::PeerOwnID,           address.m_OwnID);
         params.SetParameter(TxParameterID::IsPermanentPeerID,   address.isPermanent());
@@ -7410,14 +7410,14 @@ namespace beam::wallet
 
     std::string  GenerateRegularOldToken(const WalletAddress& address)
     {
-        return std::to_string(address.m_walletID);
+        return std::to_string(address.m_BbsAddr);
     }
 
     std::string  GenerateRegularNewToken(const WalletAddress& address, Amount amount, Asset::ID assetId, const std::string& clientVersion)
     {
         TxParameters params = GenerateCommonAddressPart(amount, assetId, clientVersion);
 
-        params.SetParameter(TxParameterID::PeerAddr, address.m_walletID);
+        params.SetParameter(TxParameterID::PeerAddr, address.m_BbsAddr);
         params.SetParameter(TxParameterID::PeerEndpoint, address.m_Endpoint);
         params.SetParameter(TxParameterID::IsPermanentPeerID, address.isPermanent());
         params.SetParameter(TxParameterID::TransactionType, TxType::Simple);

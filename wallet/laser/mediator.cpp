@@ -63,7 +63,7 @@ Mediator::Mediator(const IWalletDB::Ptr& walletDB,
     : m_pWalletDB(walletDB)
     , m_Params(params)
 {
-    m_myInAddr.m_walletID = Zero;
+    m_myInAddr.m_BbsAddr = Zero;
 }
 
 Mediator::~Mediator()
@@ -278,12 +278,12 @@ void Mediator::StopWaiting()
     m_trgInAllowed = 0;
     m_feeAllowed = 0;
     m_pInputReceiver.reset();
-    m_myInAddr.m_walletID = Zero;
+    m_myInAddr.m_BbsAddr = Zero;
 }
 
 WalletID Mediator::getWaitingWalletID() const
 {
-    return m_myInAddr.m_walletID;
+    return m_myInAddr.m_BbsAddr;
 }
 
 bool Mediator::Serve(const std::string& channelID)
@@ -605,7 +605,7 @@ bool Mediator::Transfer(Amount amount, const std::string& channelID)
 bool Mediator::get_skBbs(ECC::Scalar::Native& sk, const ChannelIDPtr& chID)
 {
     auto& addr = chID ? m_channels[chID]->get_myAddr() : m_myInAddr;
-    auto& wid = addr.m_walletID;
+    auto& wid = addr.m_BbsAddr;
     if (wid == Zero)
         return false;
 
@@ -982,7 +982,7 @@ bool Mediator::IsEnoughCoinsAvailable(Amount required)
 void Mediator::Subscribe()
 {
     BbsChannel ch;
-    m_myInAddr.m_walletID.m_Channel.Export(ch);
+    m_myInAddr.m_BbsAddr.m_Channel.Export(ch);
     m_pConnection->BbsSubscribe(ch, getTimestamp(), m_pInputReceiver.get());
     LOG_DEBUG() << "LASER WAIT IN subscribed: " << ch;
 }
@@ -990,7 +990,7 @@ void Mediator::Subscribe()
 void Mediator::Unsubscribe()
 {
     BbsChannel ch;
-    m_myInAddr.m_walletID.m_Channel.Export(ch);
+    m_myInAddr.m_BbsAddr.m_Channel.Export(ch);
     m_pConnection->BbsSubscribe(ch, 0, nullptr);
     LOG_DEBUG() << "LASER WAIT IN unsubscribed: " << ch;
 }

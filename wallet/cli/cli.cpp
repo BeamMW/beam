@@ -685,7 +685,7 @@ namespace
         address.setExpirationStatus(expirationStatus);
         walletDB->saveAddress(address);
 
-        std::cout << "New SBBS address: " << std::to_string(address.m_walletID);
+        std::cout << "New SBBS address: " << std::to_string(address.m_BbsAddr);
         return true;
     }
 
@@ -970,9 +970,9 @@ namespace
                 << kAddrListComment << address.m_label << std::endl
                 << kAddrListAddress << address.m_Address << std::endl;
 
-            if (address.m_walletID.IsValid())
+            if (address.m_BbsAddr.IsValid())
             {
-                std::cout << kAddrListWalletID << std::to_string(address.m_walletID) << std::endl;
+                std::cout << kAddrListBbsAddr << std::to_string(address.m_BbsAddr) << std::endl;
             }
 
             const auto expirationDateText = (address.m_duration == 0)
@@ -982,7 +982,7 @@ namespace
             const auto creationDateText = format_timestamp(kTimeStampFormat3x3, address.getCreateTime() * 1000, false);
 
             std::cout
-                << kAddrListIdentity << std::to_string(address.m_Endpoint) << std::endl
+                << kAddrListEndpoint << std::to_string(address.m_Endpoint) << std::endl
                 << kAddrListActive   << (address.isExpired() ? "false" : "true") << std::endl
                 << kAddrListExprDate << expirationDateText << std::endl
                 << kAddrListCreated  << creationDateText << std::endl
@@ -2377,7 +2377,7 @@ namespace
                 walletDB->createAddress(senderAddress);
                 walletDB->saveAddress(senderAddress);
 
-                params.SetParameter(TxParameterID::MyAddr, senderAddress.m_walletID)
+                params.SetParameter(TxParameterID::MyAddr, senderAddress.m_BbsAddr)
                     .SetParameter(TxParameterID::Amount, amount)
                     // fee for shielded inputs included automatically
                     .SetParameter(TxParameterID::Fee, fee)
@@ -3044,7 +3044,7 @@ namespace
 
             DexOrder orderObj(
                 DexOrderID::generate(),
-                receiverAddress.m_walletID,
+                receiverAddress.m_BbsAddr,
                 receiverAddress.m_OwnID,
                 sendAssetId,
                 sendAmountGroth,
@@ -3215,7 +3215,7 @@ namespace
             auto params = beam::wallet::CreateDexTransactionParams(
                             offerId,
                             order->getSBBSID(),
-                            myAddress.m_walletID,
+                            myAddress.m_BbsAddr,
                             sendAsset,
                             order->getSendAmount(),
                             receiveAsset,
@@ -3263,7 +3263,7 @@ int main(int argc, char* argv[])
         {cli::PAYMENT_PROOF_EXPORT, ExportPaymentProof,             "export payment proof by transaction ID"},
         {cli::PAYMENT_PROOF_VERIFY, VerifyPaymentProof,             "verify payment proof"},
         {cli::GENERATE_PHRASE,      GeneratePhrase,                 "generate new seed phrase"},
-        {cli::WALLET_ADDRESS_LIST,  ShowAddressList,                "print SBBS addresses"},
+        {cli::WALLET_ADDRESS_LIST,  ShowAddressList,                "print addresses"},
         {cli::WALLET_RESCAN,        Rescan,                         "rescan the blockchain for owned UTXO (works only with node configured with an owner key)"},
         {cli::EXPORT_DATA,          ExportWalletData,               "export wallet data (UTXO, transactions, addresses) to a JSON file"},
         {cli::IMPORT_DATA,          ImportWalletData,               "import wallet data from a JSON file"},

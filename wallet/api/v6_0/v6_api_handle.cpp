@@ -261,7 +261,7 @@ namespace beam::wallet
                     throw jsonrpc_exception(ApiError::InvalidAddress, "Unable to find sender address (from).");
                 }
 
-                if (!addr->m_walletID.IsValid())
+                if (!addr->m_BbsAddr.IsValid())
                 {
                     throw jsonrpc_exception(ApiError::InvalidAddress, "Invalid sender (from) address.");
                 }
@@ -276,7 +276,7 @@ namespace beam::wallet
                     throw jsonrpc_exception(ApiError::InvalidAddress, "Sender address (from) is expired.");
                 }
 
-                from = addr->m_walletID;
+                from = addr->m_BbsAddr;
             }
             else
             {
@@ -291,7 +291,7 @@ namespace beam::wallet
                 }
 
                 walletDB->saveAddress(senderAddress);
-                from = senderAddress.m_walletID;
+                from = senderAddress.m_BbsAddr;
             }
 
             ByteBuffer message(data.comment.begin(), data.comment.end());
@@ -520,7 +520,7 @@ namespace beam::wallet
                 return;
             }
 
-            auto params = CreateSplitTransactionParameters(senderAddress.m_walletID, data.coins, data.txId)
+            auto params = CreateSplitTransactionParameters(senderAddress.m_BbsAddr, data.coins, data.txId)
                     .SetParameter(TxParameterID::Fee, data.fee);
 
             if (data.assetId)

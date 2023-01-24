@@ -134,14 +134,14 @@ namespace beam::wallet {
             return;
 
         Addr::Wid key;
-        key.m_Value = address.m_walletID;
+        key.m_Value = address.m_BbsAddr;
 
         Addr* pAddr = nullptr;
         auto itW = m_Addresses.find(key);
 
         if (m_Addresses.end() == itW)
         {
-            pAddr = CreateOwnAddr(address.m_walletID);
+            pAddr = CreateOwnAddr(address.m_BbsAddr);
             m_WalletDB->get_SbbsPeerID(pAddr->m_sk, pAddr->m_Wid.m_Value.m_Pk, address.m_OwnID);
         }
         else
@@ -151,7 +151,7 @@ namespace beam::wallet {
 
         pAddr->m_ExpirationTime = address.getExpirationTime();
 
-        LOG_INFO() << "WalletID " << to_string(address.m_walletID) << " subscribes to BBS channel " << pAddr->m_Channel.m_Value;
+        LOG_INFO() << "WalletID " << to_string(address.m_BbsAddr) << " subscribes to BBS channel " << pAddr->m_Channel.m_Value;
     }
 
     void BaseMessageEndpoint::DeleteOwnAddress(const WalletID& wid)
@@ -540,14 +540,14 @@ namespace beam::wallet {
                 }
                 else
                 {
-                    DeleteOwnAddress(address.m_walletID);
+                    DeleteOwnAddress(address.m_BbsAddr);
                 }
             }
             break;
         case ChangeAction::Removed:
             for (const auto& address : items)
             {
-                DeleteOwnAddress(address.m_walletID);
+                DeleteOwnAddress(address.m_BbsAddr);
             }
             break;
         case ChangeAction::Reset:

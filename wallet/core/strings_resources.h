@@ -139,11 +139,11 @@ namespace beam
     extern const char kAddrNewGeneratedLabel[];
     extern const char kAddrListComment[];
     extern const char kAddrListAddress[];
-    extern const char kAddrListIdentity[];
+    extern const char kAddrListEndpoint[];
     extern const char kAddrListActive[];
     extern const char kAddrListExprDate[];
     extern const char kAddrListCreated[];
-    extern const char kAddrListWalletID[];
+    extern const char kAddrListBbsAddr[];
     extern const char kAddrListType[];
 
     // Seed phrase

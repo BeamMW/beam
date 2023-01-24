@@ -1098,7 +1098,7 @@ namespace beam::wallet
                 {"own",         addr.isOwn()},
                 {"own_id",      addr.m_OwnID},
                 {"own_id_str",  std::to_string(addr.m_OwnID)},
-                {"wallet_id",   std::to_string(addr.m_walletID)},
+                {"wallet_id",   std::to_string(addr.m_BbsAddr)},
                 {"type",        getTokenType(type)}
             };
 

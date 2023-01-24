@@ -102,8 +102,8 @@ namespace beam::wallet
 
     TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB, bool isMandatory)
     {
-        const auto& peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerAddr);
-        if (!peerID)
+        const auto& peerAddr = parameters.GetParameter<WalletID>(TxParameterID::PeerAddr);
+        if (!peerAddr)
         {
             if (isMandatory)
                 throw InvalidTransactionParametersException("No PeerID");
@@ -115,7 +115,7 @@ namespace beam::wallet
         auto savePeerAddressParam = parameters.GetParameter<bool>(TxParameterID::SavePeerAddress);
         bool savePeerAddress = !savePeerAddressParam || *savePeerAddressParam == true;
 
-        auto receiverAddr = walletDB->getAddress(*peerID);
+        auto receiverAddr = walletDB->getAddress(*peerAddr);
         if (receiverAddr)
         {
             if (receiverAddr->isOwn() && receiverAddr->isExpired())
@@ -146,7 +146,7 @@ namespace beam::wallet
         if (savePeerAddress)
         {
             WalletAddress address;
-            address.m_walletID = *peerID;
+            address.m_BbsAddr = *peerAddr;
             address.m_createTime = getTimestamp();
             if (auto message = parameters.GetParameter<ByteBuffer>(TxParameterID::Message); message)
             {
@@ -916,7 +916,7 @@ namespace beam::wallet
     void Wallet::OnVouchersFrom(const WalletAddress& addr, const WalletID& ownAddr, std::vector<ShieldedTxo::Voucher>&& res)
     {
         VoucherManager::Request::Target key;
-        key.m_Value = addr.m_walletID;
+        key.m_Value = addr.m_BbsAddr;
 
         VoucherManager::Request::Target::Set::iterator it = m_VoucherManager.m_setTrg.find(key);
         if (m_VoucherManager.m_setTrg.end() == it)
@@ -929,9 +929,9 @@ namespace beam::wallet
         m_VoucherManager.Delete(r);
 
         for (const auto& v : res)
-            m_WalletDB->saveVoucher(v, addr.m_walletID);
+            m_WalletDB->saveVoucher(v, addr.m_BbsAddr);
 
-        auto transactions = FindTxWaitingForVouchers(addr.m_walletID);
+        auto transactions = FindTxWaitingForVouchers(addr.m_BbsAddr);
         for (auto tx : transactions)
         {
             UpdateTransaction(tx);

@@ -142,11 +142,11 @@ namespace beam
 
     const char kAddrListComment[]  = "Comment: ";
     const char kAddrListAddress[]  = "Address: ";
-    const char kAddrListIdentity[] = "Wallet's signature: ";
+    const char kAddrListEndpoint[] = "Endpoint: ";
     const char kAddrListActive[]   = "Active: ";
     const char kAddrListExprDate[] = "Expires: ";
     const char kAddrListCreated[]  = "Created: ";
-    const char kAddrListWalletID[] = "Wallet ID: ";
+    const char kAddrListBbsAddr[]  = "Bbs: ";
     const char kAddrListType[]     = "Type: ";
 
     // Seed phrase

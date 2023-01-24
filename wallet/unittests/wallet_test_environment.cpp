@@ -147,7 +147,7 @@ public:
     boost::optional<WalletAddress> getAddress(
         const WalletID& id, bool isLaser = false) const override
     {
-        if (id == m_LastAdddr.m_walletID)
+        if (id == m_LastAdddr.m_BbsAddr)
             return m_LastAdddr;
 
         return boost::optional<WalletAddress>();
@@ -433,7 +433,7 @@ struct TestWalletRig
         WalletAddress wa;
         m_WalletDB->createAddress(wa);
         m_WalletDB->saveAddress(wa);
-        m_WalletID = wa.m_walletID;
+        m_BbsAddr = wa.m_BbsAddr;
         m_OwnID = wa.m_OwnID;
         m_WalletDB->get_Endpoint(m_Endpoint, m_OwnID);
 
@@ -503,7 +503,7 @@ struct TestWalletRig
         return coins;
     }
 
-    WalletID m_WalletID;
+    WalletID m_BbsAddr;
     PeerID m_Endpoint;
     uint64_t m_OwnID;
     IWalletDB::Ptr m_WalletDB;
@@ -1367,8 +1367,8 @@ public:
                 if (sendCount--)
                 {
                     sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
-                        .SetParameter(TxParameterID::MyAddr, sender.m_WalletID)
-                        .SetParameter(TxParameterID::PeerAddr, receiver.m_WalletID)
+                        .SetParameter(TxParameterID::MyAddr, sender.m_BbsAddr)
+                        .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
                         .SetParameter(TxParameterID::Amount, Amount(5))
                         .SetParameter(TxParameterID::Fee, Amount(1))
                         .SetParameter(TxParameterID::Lifetime, Height(10000))

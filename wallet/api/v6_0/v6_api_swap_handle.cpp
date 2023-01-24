@@ -86,7 +86,7 @@ namespace beam::wallet
         address.m_duration = WalletAddress::AddressExpirationAuto;
         walletDb->saveAddress(address);
 
-        return address.m_walletID;
+        return address.m_BbsAddr;
     }
 
     bool checkAcceptableTxParams(const TxParameters& params, const OfferInput& data)

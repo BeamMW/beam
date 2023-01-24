@@ -624,9 +624,9 @@ void TestAddresses()
     a.m_createTime = beam::getTimestamp();
     a.m_duration = 23;
     a.m_OwnID = 44;
-    db->get_SbbsWalletID(a.m_walletID, a.m_OwnID);
+    db->get_SbbsWalletID(a.m_BbsAddr, a.m_OwnID);
     WALLET_CHECK(a.m_Endpoint == Zero);
-    a.m_Address = std::to_string(a.m_walletID);
+    a.m_Address = std::to_string(a.m_BbsAddr);
     db->saveAddress(a);
 
     WalletAddress c = {};
@@ -635,13 +635,13 @@ void TestAddresses()
     c.m_createTime = beam::getTimestamp();
     c.m_duration = 23;
     c.m_OwnID = 0;
-    db->get_SbbsWalletID(c.m_walletID, 32);
+    db->get_SbbsWalletID(c.m_BbsAddr, 32);
     db->get_Endpoint(c.m_Endpoint, 32);
     db->saveAddress(c);
 
     addresses = db->getAddresses(true);
     WALLET_CHECK(addresses.size() == 1);
-    WALLET_CHECK(addresses[0].m_walletID == a.m_walletID);
+    WALLET_CHECK(addresses[0].m_BbsAddr == a.m_BbsAddr);
     WALLET_CHECK(addresses[0].m_label == a.m_label);
     WALLET_CHECK(addresses[0].m_category == a.m_category);
     WALLET_CHECK(addresses[0].m_createTime == a.m_createTime);
@@ -655,14 +655,14 @@ void TestAddresses()
 
     auto contacts = db->getAddresses(false);
     WALLET_CHECK(contacts.size() == 1);
-    WALLET_CHECK(contacts[0].m_walletID == c.m_walletID);
+    WALLET_CHECK(contacts[0].m_BbsAddr == c.m_BbsAddr);
     WALLET_CHECK(contacts[0].m_label == c.m_label);
     WALLET_CHECK(contacts[0].m_category == c.m_category);
     WALLET_CHECK(contacts[0].m_createTime == c.m_createTime);
     WALLET_CHECK(contacts[0].m_duration == c.m_duration);
     WALLET_CHECK(contacts[0].m_OwnID == c.m_OwnID);
     WALLET_CHECK(contacts[0].m_Endpoint == c.m_Endpoint);
-    WALLET_CHECK(contacts[0].m_Address == std::to_string(c.m_walletID));
+    WALLET_CHECK(contacts[0].m_Address == std::to_string(c.m_BbsAddr));
 
 
     a.m_category = "cat2";
@@ -671,7 +671,7 @@ void TestAddresses()
 
     addresses = db->getAddresses(true);
     WALLET_CHECK(addresses.size() == 1);
-    WALLET_CHECK(addresses[0].m_walletID == a.m_walletID);
+    WALLET_CHECK(addresses[0].m_BbsAddr == a.m_BbsAddr);
     WALLET_CHECK(addresses[0].m_label == a.m_label);
     WALLET_CHECK(addresses[0].m_category == a.m_category);
     WALLET_CHECK(addresses[0].m_createTime == a.m_createTime);
@@ -682,28 +682,28 @@ void TestAddresses()
     auto exported = storage::ExportDataToJson(*db);
     WALLET_CHECK(!exported.empty());
  
-    auto a2 = db->getAddress(a.m_walletID);
+    auto a2 = db->getAddress(a.m_BbsAddr);
     WALLET_CHECK(a2.is_initialized());
 
-    db->deleteAddress(a.m_walletID);
+    db->deleteAddress(a.m_BbsAddr);
     WALLET_CHECK(db->getAddresses(true).empty());
 
-    a2 = db->getAddress(a.m_walletID);
+    a2 = db->getAddress(a.m_BbsAddr);
     WALLET_CHECK(!a2.is_initialized());
 
     WALLET_CHECK(storage::ImportDataFromJson(*db, &exported[0], exported.size()));
     {
-        auto a3 = db->getAddress(a.m_walletID);
+        auto a3 = db->getAddress(a.m_BbsAddr);
         const auto& refa = *a3;
         WALLET_CHECK(a3.is_initialized());
         WALLET_CHECK(a3->m_category == a.m_category);
         WALLET_CHECK(a3->m_Endpoint == endPoint);
         WALLET_CHECK(refa.m_Address == a.m_Address);
-        auto a4 = db->getAddress(c.m_walletID);
+        auto a4 = db->getAddress(c.m_BbsAddr);
         WALLET_CHECK(a4.is_initialized());
         WALLET_CHECK(a4->m_category == c.m_category);
         WALLET_CHECK(a4->m_Endpoint == c.m_Endpoint);
-        WALLET_CHECK(a4->m_Address == std::to_string(c.m_walletID));
+        WALLET_CHECK(a4->m_Address == std::to_string(c.m_BbsAddr));
 
         WALLET_CHECK(addresses == db->getAddresses(true));
         WALLET_CHECK(contacts == db->getAddresses(false));
@@ -712,9 +712,9 @@ void TestAddresses()
     // check double import
     WALLET_CHECK(storage::ImportDataFromJson(*db, &exported[0], exported.size()));
     {
-        auto a3 = db->getAddress(a.m_walletID);
+        auto a3 = db->getAddress(a.m_BbsAddr);
         WALLET_CHECK(a3.is_initialized());
-        auto a4 = db->getAddress(c.m_walletID);
+        auto a4 = db->getAddress(c.m_BbsAddr);
         WALLET_CHECK(a4.is_initialized());
 
         WALLET_CHECK(addresses == db->getAddresses(true));
@@ -729,14 +729,14 @@ void TestExportImportTx()
 
     WalletAddress wa;
     wa.m_OwnID = (*walletDB).AllocateKidRange(1);
-    walletDB->get_SbbsWalletID(wa.m_walletID, wa.m_OwnID);
+    walletDB->get_SbbsWalletID(wa.m_BbsAddr, wa.m_OwnID);
     TxDescription tr = { { {4, 5, 6, 7, 65} } };
     tr.m_amount = 52;
     tr.m_createTime = 45613;
     tr.m_minHeight = 185;
     tr.m_sender = false;
     tr.m_status = TxStatus::Pending;
-    tr.m_myAddr = wa.m_walletID;
+    tr.m_myAddr = wa.m_BbsAddr;
     walletDB->saveTx(tr);
     storage::setTxParameter(
         *walletDB,
@@ -748,14 +748,14 @@ void TestExportImportTx()
 
     WalletAddress wa2;
     wa2.m_OwnID = (*walletDB).AllocateKidRange(1);
-    walletDB->get_SbbsWalletID(wa2.m_walletID, wa2.m_OwnID);
+    walletDB->get_SbbsWalletID(wa2.m_BbsAddr, wa2.m_OwnID);
     TxDescription tr2 = { { {7, 8, 9, 13} } };
     tr2.m_amount = 71;
     tr2.m_minHeight = 285;
     tr2.m_createTime = 4628;
     tr2.m_modifyTime = 45285;
     tr2.m_status = TxStatus::Canceled;
-    tr2.m_myAddr = wa2.m_walletID;
+    tr2.m_myAddr = wa2.m_BbsAddr;
     walletDB->saveTx(tr2); // without MyAddressID
 
     auto exported = storage::ExportDataToJson(*walletDB);
@@ -1499,7 +1499,7 @@ void TestVouchers()
     auto db = createSqliteWalletDB();
     WalletAddress address;
     db->createAddress(address);
-    const WalletID& receiverID = address.m_walletID;
+    const WalletID& receiverID = address.m_BbsAddr;
     const uint32_t VOUCHERS_COUNT = 20;
     auto voucher = db->grabVoucher(receiverID);
     WALLET_CHECK(!voucher);

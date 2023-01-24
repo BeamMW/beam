@@ -1340,7 +1340,7 @@ namespace beam::wallet
                 ByteBuffer message(comment.begin(), comment.end());
 
                 TxParameters txParameters = CreateSimpleTransactionParameters()
-                    .SetParameter(TxParameterID::MyAddr, senderAddress.m_walletID)
+                    .SetParameter(TxParameterID::MyAddr, senderAddress.m_BbsAddr)
                     .SetParameter(TxParameterID::PeerAddr, receiver)
                     .SetParameter(TxParameterID::Amount, amount)
                     .SetParameter(TxParameterID::Fee, fee)
@@ -1424,7 +1424,7 @@ namespace beam::wallet
                     WalletAddress senderAddress;
                     m_walletDB->createAddress(senderAddress);
                     saveAddress(senderAddress); // should update the wallet_network
-                    parameters.SetParameter(TxParameterID::MyAddr, senderAddress.m_walletID);
+                    parameters.SetParameter(TxParameterID::MyAddr, senderAddress.m_BbsAddr);
                 }
 
                 s->StartTransaction(parameters);
@@ -1790,9 +1790,9 @@ namespace beam::wallet
         auto addr = m_walletDB->getAddressByToken(token);
 
         size_t vouchersCount = 0;
-        if (addr && addr->m_walletID != Zero)
+        if (addr && addr->m_BbsAddr != Zero)
         {
-            vouchersCount = m_walletDB->getVoucherCount(addr->m_walletID);
+            vouchersCount = m_walletDB->getVoucherCount(addr->m_BbsAddr);
         }
 
         postFunctionToClientContext([addr, vouchersCount, cb = std::move(callback)]() {

@@ -47,7 +47,7 @@ namespace
     {
         jobject addr = env->AllocObject(WalletAddressClass);
 
-        setStringField(env, WalletAddressClass, addr, "walletID", to_string(address.m_walletID));
+        setStringField(env, WalletAddressClass, addr, "walletID", to_string(address.m_BbsAddr));
         setStringField(env, WalletAddressClass, addr, "identity", to_string(address.m_Endpoint));
         setStringField(env, WalletAddressClass, addr, "label", address.m_label);
         setStringField(env, WalletAddressClass, addr, "category", address.m_category);
