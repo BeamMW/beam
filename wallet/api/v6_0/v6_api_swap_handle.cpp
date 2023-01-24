@@ -382,14 +382,14 @@ namespace beam::wallet
         }
         else
         {
-            auto peerId = txParams->GetParameter<WalletID>(TxParameterID::PeerAddr);
+            auto peerAddr = txParams->GetParameter<WalletID>(TxParameterID::PeerAddr);
 
-            if (!peerId)
+            if (!peerAddr)
             {
                 throw jsonrpc_exception(ApiError::SwapFailToParseToken, "bad or missing peer ID");
             }
 
-            if (storage::isMyAddress(myAddresses, *peerId))
+            if (storage::isMyAddress(myAddresses, *peerAddr))
             {
                 throw jsonrpc_exception(ApiError::SwapFailToAcceptOwn);
             }
@@ -523,8 +523,8 @@ namespace beam::wallet
             throw jsonrpc_exception(ApiError::SwapFailToParseToken, "bad or missing txId");
         }
 
-        auto peerId = txParams->GetParameter<WalletID>(TxParameterID::PeerAddr);
-        if (!peerId)
+        auto peerAddr = txParams->GetParameter<WalletID>(TxParameterID::PeerAddr);
+        if (!peerAddr)
         {
             throw jsonrpc_exception(ApiError::SwapFailToParseToken, "bad or missing peer ID");
         }
@@ -533,7 +533,7 @@ namespace beam::wallet
         bool isMyOffer = false;
         auto walletDB = getWalletDB();
         auto myAddresses = walletDB->getAddresses(true);
-        if (!storage::isMyAddress(myAddresses, *peerId))
+        if (!storage::isMyAddress(myAddresses, *peerAddr))
         {
             offer = SwapOffer(*txParams);
         }

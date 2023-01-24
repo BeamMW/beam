@@ -263,8 +263,8 @@ void TestAssets() {
     WALLET_CHECK(tx.m_status      == TxStatus::Completed);
     WALLET_CHECK(tx.m_fee         == fee);
     WALLET_CHECK(tx.m_assetId     == ASSET1_ID);
-    WALLET_CHECK(tx.m_peerId      == Zero);
-    WALLET_CHECK(tx.m_myId        == Zero);
+    WALLET_CHECK(tx.m_peerAddr    == Zero);
+    WALLET_CHECK(tx.m_myAddr      == Zero);
     WALLET_CHECK(tx.m_assetMeta   == ASSET1_META);
     checkOwnerTotals(currBM, currA1, currA2);
 
@@ -292,8 +292,8 @@ void TestAssets() {
     WALLET_CHECK(tx.m_status      == TxStatus::Completed);
     WALLET_CHECK(tx.m_fee         == fee);
     WALLET_CHECK(tx.m_assetId     == ASSET2_ID);
-    WALLET_CHECK(tx.m_peerId      == Zero);
-    WALLET_CHECK(tx.m_myId        == Zero);
+    WALLET_CHECK(tx.m_peerAddr    == Zero);
+    WALLET_CHECK(tx.m_myAddr      == Zero);
     WALLET_CHECK(tx.m_assetMeta   == ASSET2_META);
 
     // confirm asset #1 by ID

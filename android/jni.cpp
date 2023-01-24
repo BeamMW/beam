@@ -182,9 +182,9 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
                 setStringField(env, TransactionParametersClass, jParameters, "identity", "");
             }
             
-            if (auto peerIdentity = params->GetParameter<WalletID>(TxParameterID::PeerAddr); peerIdentity)
+            if (auto peerAddr = params->GetParameter<WalletID>(TxParameterID::PeerAddr); peerAddr)
             {
-                setStringField(env, TransactionParametersClass, jParameters, "address", std::to_string(*peerIdentity));
+                setStringField(env, TransactionParametersClass, jParameters, "address", std::to_string(*peerAddr));
             }
             else {
                 setStringField(env, TransactionParametersClass, jParameters, "address", "");
@@ -256,13 +256,13 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
 
     if(requestInfo) 
     {
-        if (auto peerId = params->GetParameter<WalletID>(TxParameterID::PeerAddr); peerId)
+        if (auto peerAddr = params->GetParameter<WalletID>(TxParameterID::PeerAddr); peerAddr)
         {
             ShieldedVoucherList trVouchers;
             if (params->GetParameter(TxParameterID::ShieldedVoucherList, trVouchers))
             {
-                walletModel->getAsync()->getAddress(*peerId);
-                walletModel->getAsync()->saveVouchers(trVouchers, *peerId);
+                walletModel->getAsync()->getAddress(*peerAddr);
+                walletModel->getAsync()->saveVouchers(trVouchers, *peerAddr);
             }
         }
     }

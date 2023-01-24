@@ -558,8 +558,8 @@ namespace beam::wallet
             , Amount fee              = 0
             , Asset::ID assetId       = Asset::s_InvalidID
             , Height minHeight        = 0
-            , const WalletID & peerId = Zero
-            , const WalletID& myId    = Zero
+            , const WalletID & peerAddr = Zero
+            , const WalletID& myAddr  = Zero
             , ByteBuffer&& message    = {}
             , Timestamp createTime    = {}
             , bool sender             = true
@@ -571,8 +571,8 @@ namespace beam::wallet
             , m_fee{ fee }
             , m_assetId{assetId}
             , m_minHeight{ minHeight }
-            , m_peerId{ peerId }
-            , m_myId{ myId }
+            , m_peerAddr{ peerAddr }
+            , m_myAddr{ myAddr }
             , m_message{ std::move(message) }
             , m_createTime{ createTime }
             , m_modifyTime{ createTime }
@@ -603,8 +603,8 @@ namespace beam::wallet
         macro(TxParameterID::AssetID,           Asset::ID,       m_assetId,         Asset::s_InvalidID) \
         macro(TxParameterID::AssetMetadata,     std::string,     m_assetMeta,       {}) \
         macro(TxParameterID::MinHeight,         Height,          m_minHeight,       0) \
-        macro(TxParameterID::PeerID,            WalletID,        m_peerId,          Zero) \
-        macro(TxParameterID::MyID,              WalletID,        m_myId,            Zero) \
+        macro(TxParameterID::PeerAddr,          WalletID,        m_peerAddr,        Zero) \
+        macro(TxParameterID::MyAddr,            WalletID,        m_myAddr,          Zero) \
         macro(TxParameterID::Message,           ByteBuffer,      m_message,         {}) \
         macro(TxParameterID::CreateTime,        Timestamp,       m_createTime,      0) \
         macro(TxParameterID::ModifyTime,        Timestamp,       m_modifyTime,      0) \
@@ -700,7 +700,7 @@ namespace beam::wallet
 
         virtual void Listen(const WalletID&, const ECC::Scalar::Native& sk, IHandler* = nullptr) {}
         virtual void Unlisten(const WalletID&) {}
-        virtual void Send(const WalletID& peerID, const Blob&) {}
+        virtual void Send(const WalletID& peerAddr, const Blob&) {}
     };
 
     struct INegotiatorGateway
@@ -718,11 +718,11 @@ namespace beam::wallet
         virtual void confirm_asset(const TxID& txID, const Asset::ID assetId, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual bool get_tip(Block::SystemState::Full& state) const = 0;
-        virtual void send_tx_params(const WalletID& peerID, const SetTxParameter&) = 0;
+        virtual void send_tx_params(const WalletID& peerAddr, const SetTxParameter&) = 0;
         virtual void get_shielded_list(const TxID&, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback) = 0;
         virtual void get_proof_shielded_output(const TxID&, const ECC::Point& serialPublic, ProofShildedOutputCallback&& callback) {};
         virtual void UpdateOnNextTip(const TxID&) = 0;
-        virtual void get_UniqueVoucher(const WalletID& peerID, const TxID& txID, boost::optional<ShieldedTxo::Voucher>&) {}
+        virtual void get_UniqueVoucher(const WalletID& peerAddr, const TxID& txID, boost::optional<ShieldedTxo::Voucher>&) {}
     };
 
     enum class ErrorType : uint8_t

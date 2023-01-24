@@ -272,10 +272,10 @@ void TestStoreTxRecord()
     TxDescription tr(id);
     tr.m_txId = id;
     tr.m_amount = 34;
-    tr.m_peerId.m_Pk = unsigned(23);
-    tr.m_peerId.m_Channel = 0U;
-    tr.m_myId.m_Pk = unsigned(42);
-    tr.m_myId.m_Channel = 0U;
+    tr.m_peerAddr.m_Pk = unsigned(23);
+    tr.m_peerAddr.m_Channel = 0U;
+    tr.m_myAddr.m_Pk = unsigned(42);
+    tr.m_myAddr.m_Channel = 0U;
     tr.m_createTime = 123456;
     tr.m_minHeight = 134;
     tr.m_sender = true;
@@ -303,8 +303,8 @@ void TestStoreTxRecord()
     WALLET_CHECK(t[0].m_txId == tr2.m_txId);
     WALLET_CHECK(t[0].m_amount == tr2.m_amount);
     WALLET_CHECK(t[0].m_minHeight == tr2.m_minHeight);
-    WALLET_CHECK(t[0].m_peerId == tr2.m_peerId);
-    WALLET_CHECK(t[0].m_myId == tr2.m_myId);
+    WALLET_CHECK(t[0].m_peerAddr == tr2.m_peerAddr);
+    WALLET_CHECK(t[0].m_myAddr == tr2.m_myAddr);
     WALLET_CHECK(t[0].m_createTime == tr2.m_createTime);
     WALLET_CHECK(t[0].m_modifyTime == tr2.m_modifyTime);
     WALLET_CHECK(t[0].m_sender == tr2.m_sender);
@@ -325,8 +325,8 @@ void TestStoreTxRecord()
     WALLET_CHECK(tr3.is_initialized());
     WALLET_CHECK(tr3->m_txId == tr2.m_txId);
     WALLET_CHECK(tr3->m_amount == tr2.m_amount);
-    WALLET_CHECK(tr3->m_peerId == tr2.m_peerId);
-    WALLET_CHECK(tr3->m_myId == tr2.m_myId);
+    WALLET_CHECK(tr3->m_peerAddr == tr2.m_peerAddr);
+    WALLET_CHECK(tr3->m_myAddr == tr2.m_myAddr);
     WALLET_CHECK(tr3->m_message == tr2.m_message);
     WALLET_CHECK(tr3->m_createTime == tr2.m_createTime);
     WALLET_CHECK(tr3->m_modifyTime == tr2.m_modifyTime);
@@ -736,7 +736,7 @@ void TestExportImportTx()
     tr.m_minHeight = 185;
     tr.m_sender = false;
     tr.m_status = TxStatus::Pending;
-    tr.m_myId = wa.m_walletID;
+    tr.m_myAddr = wa.m_walletID;
     walletDB->saveTx(tr);
     storage::setTxParameter(
         *walletDB,
@@ -755,7 +755,7 @@ void TestExportImportTx()
     tr2.m_createTime = 4628;
     tr2.m_modifyTime = 45285;
     tr2.m_status = TxStatus::Canceled;
-    tr2.m_myId = wa2.m_walletID;
+    tr2.m_myAddr = wa2.m_walletID;
     walletDB->saveTx(tr2); // without MyAddressID
 
     auto exported = storage::ExportDataToJson(*walletDB);

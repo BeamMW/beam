@@ -4086,8 +4086,8 @@ namespace beam::wallet
         {
             storage::setTxParameter(*this, p.m_txId, TxParameterID::MinHeight, p.m_minHeight, false);
         }
-        storage::setTxParameter(*this, p.m_txId, TxParameterID::PeerAddr, p.m_peerId, false);
-        storage::setTxParameter(*this, p.m_txId, TxParameterID::MyAddr, p.m_myId, false);
+        storage::setTxParameter(*this, p.m_txId, TxParameterID::PeerAddr, p.m_peerAddr, false);
+        storage::setTxParameter(*this, p.m_txId, TxParameterID::MyAddr, p.m_myAddr, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::Message, p.m_message, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::CreateTime, p.m_createTime, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::ModifyTime, p.m_modifyTime, false);

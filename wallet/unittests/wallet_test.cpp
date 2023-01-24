@@ -1327,8 +1327,8 @@ namespace
         txDescription.m_amount = 1;
         txDescription.m_fee = 2;
         txDescription.m_minHeight = currentHeight;
-        txDescription.m_peerId = receiver.m_WalletID;
-        txDescription.m_myId = sender.m_WalletID;
+        txDescription.m_peerAddr = receiver.m_WalletID;
+        txDescription.m_myAddr = sender.m_WalletID;
         txDescription.m_message = {};
         txDescription.m_createTime = getTimestamp();
         txDescription.m_sender = true;
@@ -1385,8 +1385,8 @@ namespace
             txDescription.m_amount = 1;
             txDescription.m_fee = 2;
             txDescription.m_minHeight = currentHeight;
-            txDescription.m_peerId = receiver.m_WalletID;
-            txDescription.m_myId = sender.m_WalletID;
+            txDescription.m_peerAddr = receiver.m_WalletID;
+            txDescription.m_myAddr = sender.m_WalletID;
             txDescription.m_message = {};
             txDescription.m_createTime = getTimestamp();
             txDescription.m_sender = true;
@@ -1424,8 +1424,8 @@ namespace
             txDescription.m_amount = 1;
             txDescription.m_fee = 2;
             txDescription.m_minHeight = currentHeight;
-            txDescription.m_peerId = receiver.m_WalletID;
-            txDescription.m_myId = sender.m_WalletID;
+            txDescription.m_peerAddr = receiver.m_WalletID;
+            txDescription.m_myAddr = sender.m_WalletID;
             txDescription.m_message = {};
             txDescription.m_createTime = getTimestamp();
             txDescription.m_sender = true;

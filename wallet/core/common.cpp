@@ -982,12 +982,12 @@ namespace beam::wallet
 
     std::string TxDescription::getSender() const
     {
-        return std::to_string(m_sender ? m_myId : m_peerId);
+        return std::to_string(m_sender ? m_myAddr : m_peerAddr);
     }
 
     std::string TxDescription::getReceiver() const
     {
-        return std::to_string(!m_sender ? m_myId : m_peerId);
+        return std::to_string(!m_sender ? m_myAddr : m_peerAddr);
     }
 
     std::string TxDescription::getIdentity(bool isSender) const
@@ -1007,7 +1007,7 @@ namespace beam::wallet
         {
             return getSenderIdentity();
         }
-        return std::to_string(m_sender ? m_myId : m_peerId);
+        return std::to_string(m_sender ? m_myAddr : m_peerAddr);
     }
 
     std::string TxDescription::getAddressTo() const
@@ -1016,11 +1016,11 @@ namespace beam::wallet
         {
             auto token = getToken();
             if (token.empty())
-                return std::to_string(m_peerId);
+                return std::to_string(m_peerAddr);
 
             return token;
         }
-        return std::to_string(m_myId);
+        return std::to_string(m_myAddr);
     }
 
     uint64_t get_RandomID()

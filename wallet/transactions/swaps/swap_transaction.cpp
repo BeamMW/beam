@@ -109,14 +109,14 @@ namespace beam::wallet
 
         if (isOwn)
         {
-            auto myId = *original.GetParameter<WalletID>(TxParameterID::MyAddr);
-            res.SetParameter(TxParameterID::PeerAddr, myId);
+            auto myAddr = *original.GetParameter<WalletID>(TxParameterID::MyAddr);
+            res.SetParameter(TxParameterID::PeerAddr, myAddr);
             res.DeleteParameter(TxParameterID::MyAddr);
         }
         else
         {
-            auto myId = *original.GetParameter<WalletID>(TxParameterID::PeerAddr);
-            res.SetParameter(TxParameterID::MyAddr, myId);
+            auto myAddr = *original.GetParameter<WalletID>(TxParameterID::PeerAddr);
+            res.SetParameter(TxParameterID::MyAddr, myAddr);
             res.DeleteParameter(TxParameterID::PeerAddr);
         }
         

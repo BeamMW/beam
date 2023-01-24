@@ -791,7 +791,7 @@ void TestDirectAnonymousPayment()
         {
             TxID txID = *txHistory[0].GetTxID();
 
-            WALLET_CHECK(txHistory[0].m_myId == receiver.m_WalletID);
+            WALLET_CHECK(txHistory[0].m_myAddr == receiver.m_WalletID);
             WALLET_CHECK(txHistory[0].getReceiverIdentity() == std::to_string(receiver.m_SecureWalletID));
             ByteBuffer b = storage::ExportPaymentProof(*sender.m_WalletDB, txID);
 

@@ -70,8 +70,8 @@ namespace
         setLongField(env, TxDescriptionClass, tx, "fee", txDescription.m_fee);
         setLongField(env, TxDescriptionClass, tx, "minHeight", txDescription.m_minHeight);
 
-        setStringField(env, TxDescriptionClass, tx, "peerId", to_string(txDescription.m_peerId));
-        setStringField(env, TxDescriptionClass, tx, "myId", to_string(txDescription.m_myId));
+        setStringField(env, TxDescriptionClass, tx, "peerId", to_string(txDescription.m_peerAddr));
+        setStringField(env, TxDescriptionClass, tx, "myId", to_string(txDescription.m_myAddr));
 
         setStringField(env, TxDescriptionClass, tx, "message", comment);
         setLongField(env, TxDescriptionClass, tx, "createTime", txDescription.m_createTime);
