@@ -33,12 +33,12 @@ namespace beam::wallet
 
     TxParameters AssetIssueTransaction::Creator::CheckAndCompleteParameters(const TxParameters& params)
     {
-        if(params.GetParameter<WalletID>(TxParameterID::PeerID))
+        if(params.GetParameter<WalletID>(TxParameterID::PeerAddr))
         {
             throw InvalidTransactionParametersException("PeerID is unexpected for issue/consume");
         }
 
-        if(params.GetParameter<WalletID>(TxParameterID::MyID))
+        if(params.GetParameter<WalletID>(TxParameterID::MyAddr))
         {
             throw InvalidTransactionParametersException("WalletID is unexpected for issue/consume");
         }
@@ -56,7 +56,7 @@ namespace beam::wallet
         }
 
         TxParameters result{params};
-        result.SetParameter(TxParameterID::MyID, WalletID(Zero)); // Mandatory parameter
+        result.SetParameter(TxParameterID::MyAddr, WalletID(Zero)); // Mandatory parameter
         return result;
     }
 

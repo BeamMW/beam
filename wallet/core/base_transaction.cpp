@@ -486,8 +486,8 @@ namespace beam::wallet
         msg.m_Type = GetType();
 
         WalletID peerID;
-        if (GetParameter(TxParameterID::MyID, msg.m_From)
-            && GetParameter(TxParameterID::PeerID, peerID))
+        if (GetParameter(TxParameterID::MyAddr, msg.m_From)
+            && GetParameter(TxParameterID::PeerAddr, peerID))
         {
             PeerID secureWalletID = Zero, peerWalletID = Zero;
             if (GetParameter(TxParameterID::MyWalletIdentity, secureWalletID)
@@ -658,7 +658,7 @@ namespace beam::wallet
 
     bool BaseTransaction::IsSelfTx() const
     {
-        const auto peerID = GetMandatoryParameter<WalletID>(TxParameterID::PeerID);
+        const auto peerID = GetMandatoryParameter<WalletID>(TxParameterID::PeerAddr);
         const auto address = GetWalletDB()->getAddress(peerID);
         return address.is_initialized() && address->isOwn();
     }

@@ -49,7 +49,7 @@ namespace beam::wallet
                           Height responseTime /*= kDefaultTxResponseTime*/,
                           Height lifetime /*= kDefaultTxLifetime*/)
     {
-        params->SetParameter(TxParameterID::MyID, myID);
+        params->SetParameter(TxParameterID::MyAddr, myID);
         params->SetParameter(TxParameterID::MinHeight, minHeight);
         params->SetParameter(TxParameterID::Amount, amount);
         params->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin);
@@ -109,15 +109,15 @@ namespace beam::wallet
 
         if (isOwn)
         {
-            auto myId = *original.GetParameter<WalletID>(TxParameterID::MyID);
-            res.SetParameter(TxParameterID::PeerID, myId);
-            res.DeleteParameter(TxParameterID::MyID);
+            auto myId = *original.GetParameter<WalletID>(TxParameterID::MyAddr);
+            res.SetParameter(TxParameterID::PeerAddr, myId);
+            res.DeleteParameter(TxParameterID::MyAddr);
         }
         else
         {
-            auto myId = *original.GetParameter<WalletID>(TxParameterID::PeerID);
-            res.SetParameter(TxParameterID::MyID, myId);
-            res.DeleteParameter(TxParameterID::PeerID);
+            auto myId = *original.GetParameter<WalletID>(TxParameterID::PeerAddr);
+            res.SetParameter(TxParameterID::MyAddr, myId);
+            res.DeleteParameter(TxParameterID::PeerAddr);
         }
         
 
@@ -148,7 +148,7 @@ namespace beam::wallet
         copyParameter<AtomicSwapCoin>(
             TxParameterID::AtomicSwapCoin, original, res);
 
-        copyParameter<WalletID>(TxParameterID::PeerID, original, res);
+        copyParameter<WalletID>(TxParameterID::PeerAddr, original, res);
         copyParameter<bool>(TxParameterID::IsInitiator, original, res);
         copyParameter<bool>(TxParameterID::AtomicSwapIsBeamSide, original, res);
         copyParameter<bool>(TxParameterID::IsSender, original, res);
@@ -306,7 +306,7 @@ namespace beam::wallet
     {
         CheckSenderAddress(parameters, m_walletDB);
 
-        auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
+        auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerAddr);
         if (peerID)
         {
             auto receiverAddr = m_walletDB->getAddress(*peerID);

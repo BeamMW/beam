@@ -220,7 +220,7 @@ namespace beam::wallet
                     return TxAddressType::Unknown;
             }
 
-            auto peerID = params.GetParameter<WalletID>(TxParameterID::PeerID); // sbbs addres
+            auto peerID = params.GetParameter<WalletID>(TxParameterID::PeerAddr); // sbbs addres
             auto peerIdentity = params.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); // identity
 
             auto voucher = params.GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher);
@@ -562,7 +562,7 @@ namespace beam::wallet
             if (walletID.FromBuf(buffer) && walletID.IsValid())
             {
                 auto result = boost::make_optional<TxParameters>({});
-                result->SetParameter(TxParameterID::PeerID, walletID);
+                result->SetParameter(TxParameterID::PeerAddr, walletID);
                 return result;
             }
         }
@@ -586,7 +586,7 @@ namespace beam::wallet
                     params.SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap);
                 }
 
-                if (!CopyParameter(TxParameterID::PeerID, p, params))
+                if (!CopyParameter(TxParameterID::PeerAddr, p, params))
                 {
                     return false;
                 }
@@ -612,7 +612,7 @@ namespace beam::wallet
         case TxAddressType::Offline:
             {
                 params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
-                CopyParameter(TxParameterID::PeerID, p, params);
+                CopyParameter(TxParameterID::PeerAddr, p, params);
                 CopyParameter(TxParameterID::PeerOwnID, p, params);
                 auto peerID = p.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); 
                 params.SetParameter(TxParameterID::PeerWalletIdentity, *peerID);
@@ -1052,7 +1052,7 @@ namespace beam::wallet
             parameters.SetParameter(TxParameterID::Amount, amount);
         }
 
-        parameters.SetParameter(TxParameterID::PeerID, walletID);
+        parameters.SetParameter(TxParameterID::PeerAddr, walletID);
         parameters.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::Simple);
         parameters.SetParameter(TxParameterID::PeerWalletIdentity, *identity);
 

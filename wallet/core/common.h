@@ -423,7 +423,11 @@ namespace beam::wallet
         SavePeerAddress = 212, // allows to preserve and control the old behaviour of saving address 
         TransactionRegisteredInternal = 222, // used to overwrite previouse result
         IsContractNotificationMarkedAsRead = 223,
-        State = 255
+        State = 255,
+
+        // aliases
+        MyAddr = MyID,
+        PeerAddr = PeerID,
     };
 
     using PackedTxParameters = std::vector<std::pair<TxParameterID, ByteBuffer>>;

@@ -1319,7 +1319,7 @@ void TestWalletMessages()
         wallet::SetTxParameter msg;
         msg.m_From = walletID;
         msg.AddParameter(TxParameterID::Amount, 100);
-        msg.AddParameter(TxParameterID::PeerID, walletID);
+        msg.AddParameter(TxParameterID::PeerAddr, walletID);
         msg.AddParameter(TxParameterID::Lifetime, 130);
 
         auto id = db->saveWalletMessage(walletID, toByteBuffer(msg));
@@ -1333,7 +1333,7 @@ void TestWalletMessages()
         WALLET_CHECK(fromByteBuffer(messages[0].m_Message, message));
         WALLET_CHECK(message.GetParameter(TxParameterID::Amount, amount) && amount == 100);
         WalletID walletID2 = Zero;
-        WALLET_CHECK(message.GetParameter(TxParameterID::PeerID, walletID2) && walletID2 == walletID);
+        WALLET_CHECK(message.GetParameter(TxParameterID::PeerAddr, walletID2) && walletID2 == walletID);
         Height lifetime = 0;
         WALLET_CHECK(message.GetParameter(TxParameterID::Lifetime, lifetime) && lifetime == 130);
     }
@@ -1342,7 +1342,7 @@ void TestWalletMessages()
         wallet::SetTxParameter msg;
         msg.m_From = walletID;
         msg.AddParameter(TxParameterID::Amount, 200);
-        msg.AddParameter(TxParameterID::PeerID, walletID);
+        msg.AddParameter(TxParameterID::PeerAddr, walletID);
         msg.AddParameter(TxParameterID::Lifetime, 230);
 
         auto id = db->saveWalletMessage(walletID, toByteBuffer(msg));
@@ -1356,7 +1356,7 @@ void TestWalletMessages()
         WALLET_CHECK(fromByteBuffer(messages[1].m_Message, message));
         WALLET_CHECK(message.GetParameter(TxParameterID::Amount, amount) && amount == 200);
         WalletID walletID2 = Zero;
-        WALLET_CHECK(message.GetParameter(TxParameterID::PeerID, walletID2) && walletID2 == walletID);
+        WALLET_CHECK(message.GetParameter(TxParameterID::PeerAddr, walletID2) && walletID2 == walletID);
         Height lifetime = 0;
         WALLET_CHECK(message.GetParameter(TxParameterID::Lifetime, lifetime) && lifetime == 230);
     }

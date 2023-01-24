@@ -62,9 +62,9 @@ namespace beam::wallet::lelantus
 
         SetCommon(m);
 
-        WalletID widMy = GetParameterStrict<WalletID>(TxParameterID::MyID);
+        WalletID widMy = GetParameterStrict<WalletID>(TxParameterID::MyAddr);
         WalletID widPeer;
-        bool bHasWidPeer = GetParameter(TxParameterID::PeerID, widPeer);
+        bool bHasWidPeer = GetParameter(TxParameterID::PeerAddr, widPeer);
 
         if (!GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer))
         {

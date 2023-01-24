@@ -2377,7 +2377,7 @@ namespace
                 walletDB->createAddress(senderAddress);
                 walletDB->saveAddress(senderAddress);
 
-                params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
+                params.SetParameter(TxParameterID::MyAddr, senderAddress.m_walletID)
                     .SetParameter(TxParameterID::Amount, amount)
                     // fee for shielded inputs included automatically
                     .SetParameter(TxParameterID::Fee, fee)

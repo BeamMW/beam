@@ -1139,7 +1139,7 @@ namespace beam::wallet
             m.m_MyIDKey = 0;
 
             WalletID widMy, widPeer;
-            if (GetParameter(TxParameterID::PeerID, widPeer) && GetParameter(TxParameterID::MyID, widMy))
+            if (GetParameter(TxParameterID::PeerAddr, widPeer) && GetParameter(TxParameterID::MyAddr, widMy))
             {
                 m.m_Peer = widPeer.m_Pk;
                 m.m_MyID = widMy.m_Pk;

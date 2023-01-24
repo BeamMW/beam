@@ -213,8 +213,8 @@ void TestAssets() {
        return receiver.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::Amount, initial)
             .SetParameter(TxParameterID::Fee, beam::Amount(100))
-            .SetParameter(TxParameterID::MyID, receiver.m_WalletID)
-            .SetParameter(TxParameterID::PeerID, owner.m_WalletID));
+            .SetParameter(TxParameterID::MyAddr, receiver.m_WalletID)
+            .SetParameter(TxParameterID::PeerAddr, owner.m_WalletID));
     }, 2, false);
     LOG_INFO() << "Now owner has " << PrintableAmount(storage::Totals(*ownerDB, false).GetBeamTotals().Avail);
 
@@ -435,8 +435,8 @@ void TestAssets() {
             .SetParameter(TxParameterID::Amount, currA1)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetID, ASSET1_ID)
-            .SetParameter(TxParameterID::MyID, owner.m_WalletID)
-            .SetParameter(TxParameterID::PeerID, receiver.m_WalletID));
+            .SetParameter(TxParameterID::MyAddr, owner.m_WalletID)
+            .SetParameter(TxParameterID::PeerAddr, receiver.m_WalletID));
     }, 1);
 
     WALLET_CHECK(tx.m_status == TxStatus::Failed);
@@ -468,8 +468,8 @@ void TestAssets() {
             .SetParameter(TxParameterID::Amount, amount)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetID, ASSET1_ID)
-            .SetParameter(TxParameterID::MyID, owner.m_WalletID)
-            .SetParameter(TxParameterID::PeerID, receiver.m_WalletID));
+            .SetParameter(TxParameterID::MyAddr, owner.m_WalletID)
+            .SetParameter(TxParameterID::PeerAddr, receiver.m_WalletID));
     }, 2);
 
     WALLET_CHECK(tx.m_status == TxStatus::Completed);
@@ -486,8 +486,8 @@ void TestAssets() {
             .SetParameter(TxParameterID::Amount, amount)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetID, ASSET1_ID)
-            .SetParameter(TxParameterID::MyID, owner.m_WalletID)
-            .SetParameter(TxParameterID::PeerID, receiver.m_WalletID));
+            .SetParameter(TxParameterID::MyAddr, owner.m_WalletID)
+            .SetParameter(TxParameterID::PeerAddr, receiver.m_WalletID));
     }, 2);
 
     WALLET_CHECK(tx.m_status == TxStatus::Completed);
@@ -516,8 +516,8 @@ void TestAssets() {
             .SetParameter(TxParameterID::Amount, amount)
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetID, ASSET1_ID)
-            .SetParameter(TxParameterID::MyID, receiver.m_WalletID)
-            .SetParameter(TxParameterID::PeerID, owner.m_WalletID));
+            .SetParameter(TxParameterID::MyAddr, receiver.m_WalletID)
+            .SetParameter(TxParameterID::PeerAddr, owner.m_WalletID));
     }, 2, false);
 
     WALLET_CHECK(tx.m_status == TxStatus::Completed);

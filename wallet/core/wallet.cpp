@@ -77,7 +77,7 @@ namespace beam::wallet
 
     void CheckSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB)
     {
-        const auto& myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
+        const auto& myID = parameters.GetParameter<WalletID>(TxParameterID::MyAddr);
         if (!myID)
         {
             throw InvalidTransactionParametersException("No MyID");
@@ -102,7 +102,7 @@ namespace beam::wallet
 
     TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB, bool isMandatory)
     {
-        const auto& peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
+        const auto& peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerAddr);
         if (!peerID)
         {
             if (isMandatory)
@@ -883,7 +883,7 @@ namespace beam::wallet
             WalletID txPeerID;
             const auto& tx = p.second;
             if (tx->GetType() == TxType::PushTransaction
-                && tx->GetParameter<WalletID>(TxParameterID::PeerID, txPeerID)
+                && tx->GetParameter<WalletID>(TxParameterID::PeerAddr, txPeerID)
                 && peerID == txPeerID
                 && !tx->GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher, voucher))
             {
@@ -2189,14 +2189,14 @@ namespace beam::wallet
             }
 
             WalletID peerID;
-            if (pTx->GetParameter(TxParameterID::PeerID, peerID))
+            if (pTx->GetParameter(TxParameterID::PeerAddr, peerID))
             {
                 if (peerID != msg.m_From)
                     return; // if we already have PeerID, we should ignore messages from others
             }
             else
             {
-                pTx->SetParameter(TxParameterID::PeerID, msg.m_From, false);
+                pTx->SetParameter(TxParameterID::PeerAddr, msg.m_From, false);
             }
 
             if (ApplyTransactionParameters(pTx, msg.m_Parameters, false))
@@ -2267,8 +2267,8 @@ namespace beam::wallet
 
             pTx->SetParameter(TxParameterID::TransactionType, msg.m_Type, true);
             pTx->SetParameter(TxParameterID::CreateTime, getTimestamp(),true);
-            pTx->SetParameter(TxParameterID::MyID, myID, false);
-            pTx->SetParameter(TxParameterID::PeerID, msg.m_From, false);
+            pTx->SetParameter(TxParameterID::MyAddr, myID, false);
+            pTx->SetParameter(TxParameterID::PeerAddr, msg.m_From, false);
             pTx->SetParameter(TxParameterID::IsInitiator, false, false);
             pTx->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
 
@@ -2330,7 +2330,7 @@ namespace beam::wallet
 
         if (auto peerID = parameters.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); peerID)
         {
-            auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
+            auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyAddr);
             if (myID)
             {
                 auto address = m_WalletDB->getAddress(*myID);

@@ -88,7 +88,7 @@ namespace beam::wallet
             }
             else
             {
-                auto myId = offer.GetParameter<WalletID>(TxParameterID::MyID);
+                auto myId = offer.GetParameter<WalletID>(TxParameterID::MyAddr);
                 // TODO roman.strilets should create new function for this code
                 if (myId && storage::isMyAddress(myAddresses, *myId) && !offer.GetParameter<bool>(TxParameterID::IsInitiator).get())
                     isOwnOffer = true;

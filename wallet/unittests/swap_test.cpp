@@ -83,8 +83,8 @@ namespace
     {
         TxParameters parameters = initialParameters;
 
-        parameters.SetParameter(TxParameterID::PeerID, *parameters.GetParameter<WalletID>(TxParameterID::MyID));
-        parameters.SetParameter(TxParameterID::MyID, myID);
+        parameters.SetParameter(TxParameterID::PeerAddr, *parameters.GetParameter<WalletID>(TxParameterID::MyAddr));
+        parameters.SetParameter(TxParameterID::MyAddr, myID);
 
         bool isBeamSide = !*parameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
 
@@ -1579,7 +1579,7 @@ void TestIgnoringThirdPeer()
     eventToUpdate = io::AsyncEvent::create(*mainReactor, [&]()
     {
         WalletID peerID;
-        bool result = storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::PeerID, peerID);
+        bool result = storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::PeerAddr, peerID);
         if (result)
         {
             wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;

@@ -410,8 +410,8 @@ void TestRestoreInterruption()
     }
     completedCount = 2;
     receiver.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
-        .SetParameter(TxParameterID::MyID, receiver.m_WalletID)
-        .SetParameter(TxParameterID::PeerID, sender.m_WalletID)
+        .SetParameter(TxParameterID::MyAddr, receiver.m_WalletID)
+        .SetParameter(TxParameterID::PeerAddr, sender.m_WalletID)
         .SetParameter(TxParameterID::Amount, Amount(txNum * 37000000))
         .SetParameter(TxParameterID::Fee, Amount(1000000))
         .SetParameter(TxParameterID::Lifetime, Height(200))
@@ -562,7 +562,7 @@ void TestMaxPrivacyTx()
             auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                 .SetParameter(TxParameterID::Amount, 18000000)
                 .SetParameter(TxParameterID::Fee, 12000000)
-                .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                .SetParameter(TxParameterID::PeerAddr, receiver.m_WalletID)
                 .SetParameter(TxParameterID::Voucher, voucher) // preassing the voucher
                 .SetParameter(TxParameterID::PeerWalletIdentity, pid)
                 .SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, uint8_t(64));
@@ -649,7 +649,7 @@ void TestPublicAddressTx()
             auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                 .SetParameter(TxParameterID::Amount, 18000000)
                 .SetParameter(TxParameterID::Fee, 12000000)
-                .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                .SetParameter(TxParameterID::PeerAddr, receiver.m_WalletID)
                 .SetParameter(TxParameterID::Voucher, voucher) // preassing the voucher
                 .SetParameter(TxParameterID::PeerWalletIdentity, pid);
 
@@ -723,7 +723,7 @@ void TestDirectAnonymousPayment()
                 auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 18000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                    .SetParameter(TxParameterID::PeerAddr, receiver.m_WalletID)
                     .SetParameter(TxParameterID::Voucher, vouchers.front()) // preassing the voucher
                     .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
                     .SetParameter(TxParameterID::PeerOwnID, receiver.m_OwnID);
@@ -736,7 +736,7 @@ void TestDirectAnonymousPayment()
                 auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 18000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                    .SetParameter(TxParameterID::PeerAddr, receiver.m_WalletID)
                     .SetParameter(TxParameterID::Voucher, vouchers.front()) // attempt to reuse same voucher
                     .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
                     .SetParameter(TxParameterID::PeerOwnID, receiver.m_OwnID);
@@ -748,7 +748,7 @@ void TestDirectAnonymousPayment()
                 auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                     .SetParameter(TxParameterID::Amount, 18000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                    .SetParameter(TxParameterID::PeerAddr, receiver.m_WalletID)
                     .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
                     .SetParameter(TxParameterID::PeerOwnID, receiver.m_OwnID);
             
@@ -898,7 +898,7 @@ void TestManyTransactons()
                 parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
                     .SetParameter(TxParameterID::Amount, 38000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                    .SetParameter(TxParameterID::MyAddr, sender.m_WalletID)
                     .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
                     .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                     .SetParameter(TxParameterID::CreateTime, getTimestamp());
@@ -915,7 +915,7 @@ void TestManyTransactons()
                 parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
                     .SetParameter(TxParameterID::Amount, 38000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                    .SetParameter(TxParameterID::MyAddr, sender.m_WalletID)
                     .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
                     .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                     .SetParameter(TxParameterID::CreateTime, getTimestamp());
@@ -932,7 +932,7 @@ void TestManyTransactons()
                 parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
                     .SetParameter(TxParameterID::Amount, 38000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                    .SetParameter(TxParameterID::MyAddr, sender.m_WalletID)
                     .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
                     .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                     .SetParameter(TxParameterID::CreateTime, getTimestamp());
@@ -949,7 +949,7 @@ void TestManyTransactons()
                 parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
                     .SetParameter(TxParameterID::Amount, 38000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                    .SetParameter(TxParameterID::MyAddr, sender.m_WalletID)
                     .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
                     .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                     .SetParameter(TxParameterID::CreateTime, getTimestamp());
@@ -1282,7 +1282,7 @@ void TestPushTxRollbackByLowFee()
                     .SetParameter(TxParameterID::IsSender, true)
                     .SetParameter(TxParameterID::Amount, 38000000)
                     .SetParameter(TxParameterID::Fee, 200)
-                    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                    .SetParameter(TxParameterID::MyAddr, sender.m_WalletID)
                     .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
                     .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                     .SetParameter(TxParameterID::CreateTime, getTimestamp());
@@ -1508,7 +1508,7 @@ void TestPushTxNoVoucherAtTime() {
                                   auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                                           .SetParameter(TxParameterID::Amount, 18000000)
                                           .SetParameter(TxParameterID::Fee, 12000000)
-                                          .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                                          .SetParameter(TxParameterID::PeerAddr, receiver.m_WalletID)
                                           .SetParameter(TxParameterID::Voucher, vouchers.front()) // preassing the voucher
                                           .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
                                           .SetParameter(TxParameterID::PeerOwnID, receiver.m_OwnID);
@@ -1521,7 +1521,7 @@ void TestPushTxNoVoucherAtTime() {
                                   auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
                                           .SetParameter(TxParameterID::Amount, 18000000)
                                           .SetParameter(TxParameterID::Fee, 12000000)
-                                          .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                                          .SetParameter(TxParameterID::PeerAddr, receiver.m_WalletID)
                                           .SetParameter(TxParameterID::Lifetime, static_cast<Height>(1))
                                           .SetParameter(TxParameterID::Voucher, vouchers.front()) // attempt to reuse same voucher
                                           .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)

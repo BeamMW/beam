@@ -333,7 +333,7 @@ namespace beam::wallet
 
         if (offer.m_status == SwapOfferStatus::Pending)
         {
-            offer.m_publisherId = *offer.GetParameter<WalletID>(TxParameterID::PeerID);
+            offer.m_publisherId = *offer.GetParameter<WalletID>(TxParameterID::PeerAddr);
             getSwaps()->getSwapOffersBoard().publishOffer(offer);
 
             doResponse(id, PublishOffer::Response
@@ -382,7 +382,7 @@ namespace beam::wallet
         }
         else
         {
-            auto peerId = txParams->GetParameter<WalletID>(TxParameterID::PeerID);
+            auto peerId = txParams->GetParameter<WalletID>(TxParameterID::PeerAddr);
 
             if (!peerId)
             {
@@ -460,7 +460,7 @@ namespace beam::wallet
 
         auto wid = createWID(walletDB.get(), data.comment);
         SwapOffer offer = SwapOffer(*txParams);
-        offer.SetParameter(TxParameterID::MyID, wid);
+        offer.SetParameter(TxParameterID::MyAddr, wid);
         if (!data.comment.empty())
         {
             offer.SetParameter(TxParameterID::Message,
@@ -473,7 +473,7 @@ namespace beam::wallet
         wallet->StartTransaction(offer);
         offer.m_status = SwapOfferStatus::InProgress;
         if (!publicOffer)
-            offer.DeleteParameter(TxParameterID::MyID);
+            offer.DeleteParameter(TxParameterID::MyAddr);
 
         doResponse(
             id,
@@ -523,7 +523,7 @@ namespace beam::wallet
             throw jsonrpc_exception(ApiError::SwapFailToParseToken, "bad or missing txId");
         }
 
-        auto peerId = txParams->GetParameter<WalletID>(TxParameterID::PeerID);
+        auto peerId = txParams->GetParameter<WalletID>(TxParameterID::PeerAddr);
         if (!peerId)
         {
             throw jsonrpc_exception(ApiError::SwapFailToParseToken, "bad or missing peer ID");

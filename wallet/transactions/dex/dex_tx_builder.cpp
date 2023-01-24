@@ -66,8 +66,8 @@ namespace beam::wallet
                 PaymentConfirmation pc;
                 WalletID widPeer, widMy;
                 bool bSuccess =
-                    m_Tx.GetParameter(TxParameterID::PeerID, widPeer, m_SubTxID) &&
-                    m_Tx.GetParameter(TxParameterID::MyID, widMy, m_SubTxID);
+                    m_Tx.GetParameter(TxParameterID::PeerAddr, widPeer, m_SubTxID) &&
+                    m_Tx.GetParameter(TxParameterID::MyAddr, widMy, m_SubTxID);
 
                 if (bSuccess)
                 {

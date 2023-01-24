@@ -200,7 +200,7 @@ namespace beam::wallet
         if (p)
         {
             auto walletDB = getWalletDB();
-            if (auto v = p->GetParameter<WalletID>(TxParameterID::PeerID); v)
+            if (auto v = p->GetParameter<WalletID>(TxParameterID::PeerAddr); v)
             {
                 isValid &= v->IsValid();
                 addr = walletDB->getAddress(*v);
@@ -314,7 +314,7 @@ namespace beam::wallet
                 params.SetParameter(TxParameterID::AssetID, *data.assetId);
             }
 
-            params.SetParameter(TxParameterID::MyID, from)
+            params.SetParameter(TxParameterID::MyAddr, from)
                 .SetParameter(TxParameterID::Amount, data.value)
                 .SetParameter(TxParameterID::Fee, data.fee)
                 .SetParameter(TxParameterID::PreselectedCoins, coins)

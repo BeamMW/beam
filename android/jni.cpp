@@ -182,7 +182,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
                 setStringField(env, TransactionParametersClass, jParameters, "identity", "");
             }
             
-            if (auto peerIdentity = params->GetParameter<WalletID>(TxParameterID::PeerID); peerIdentity)
+            if (auto peerIdentity = params->GetParameter<WalletID>(TxParameterID::PeerAddr); peerIdentity)
             {
                 setStringField(env, TransactionParametersClass, jParameters, "address", std::to_string(*peerIdentity));
             }
@@ -256,7 +256,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
 
     if(requestInfo) 
     {
-        if (auto peerId = params->GetParameter<WalletID>(TxParameterID::PeerID); peerId)
+        if (auto peerId = params->GetParameter<WalletID>(TxParameterID::PeerAddr); peerId)
         {
             ShieldedVoucherList trVouchers;
             if (params->GetParameter(TxParameterID::ShieldedVoucherList, trVouchers))
@@ -320,7 +320,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     TxParameters offlineParameters;
     offlineParameters.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
     offlineParameters.SetParameter(TxParameterID::ShieldedVoucherList, lastVouchers);
-    offlineParameters.SetParameter(TxParameterID::PeerID, address->m_walletID);
+    offlineParameters.SetParameter(TxParameterID::PeerAddr, address->m_walletID);
     offlineParameters.SetParameter(TxParameterID::PeerWalletIdentity, address->m_Identity);
     offlineParameters.SetParameter(TxParameterID::PeerOwnID, address->m_OwnID);
     offlineParameters.SetParameter(TxParameterID::IsPermanentPeerID, true);
@@ -694,7 +694,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
 
     params.SetParameter(TxParameterID::Amount, bAmount)
         .SetParameter(TxParameterID::Fee, bfee)
-        .SetParameter(beam::wallet::TxParameterID::MyID, m_walletID)
+        .SetParameter(beam::wallet::TxParameterID::MyAddr, m_walletID)
         .SetParameter(TxParameterID::AssetID, beam::Asset::ID(asset))
         .SetParameter(TxParameterID::Message, beam::ByteBuffer(messageString.begin(), messageString.end()));
 

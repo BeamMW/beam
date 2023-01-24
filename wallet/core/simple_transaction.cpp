@@ -36,8 +36,8 @@ namespace beam::wallet
     TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList, const boost::optional<TxID>& txId)
     {
         return CreateSimpleTransactionParameters(txId)
-            .SetParameter(TxParameterID::MyID, myID)
-            .SetParameter(TxParameterID::PeerID, myID)
+            .SetParameter(TxParameterID::MyAddr, myID)
+            .SetParameter(TxParameterID::PeerAddr, myID)
             .SetParameter(TxParameterID::AmountList, amountList)
             .SetParameter(TxParameterID::Amount, std::accumulate(amountList.begin(), amountList.end(), Amount(0)));
     }
@@ -115,8 +115,8 @@ namespace beam::wallet
                 PaymentConfirmation pc;
                 WalletID widPeer, widMy;
                 bool bSuccess =
-                    m_Tx.GetParameter(TxParameterID::PeerID, widPeer, m_SubTxID) &&
-                    m_Tx.GetParameter(TxParameterID::MyID, widMy, m_SubTxID);
+                    m_Tx.GetParameter(TxParameterID::PeerAddr, widPeer, m_SubTxID) &&
+                    m_Tx.GetParameter(TxParameterID::MyAddr, widMy, m_SubTxID);
 
                 if (bSuccess)
                 {
@@ -204,7 +204,7 @@ namespace beam::wallet
             if (!GetParameter(TxParameterID::MyAddressID, nAddrOwnID))
             {
                 WalletID wid;
-                if (GetParameter(TxParameterID::MyID, wid))
+                if (GetParameter(TxParameterID::MyAddr, wid))
                 {
                     auto waddr = GetWalletDB()->getAddress(wid);
                     if (waddr)

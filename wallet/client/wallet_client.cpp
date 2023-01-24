@@ -1340,8 +1340,8 @@ namespace beam::wallet
                 ByteBuffer message(comment.begin(), comment.end());
 
                 TxParameters txParameters = CreateSimpleTransactionParameters()
-                    .SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
-                    .SetParameter(TxParameterID::PeerID, receiver)
+                    .SetParameter(TxParameterID::MyAddr, senderAddress.m_walletID)
+                    .SetParameter(TxParameterID::PeerAddr, receiver)
                     .SetParameter(TxParameterID::Amount, amount)
                     .SetParameter(TxParameterID::Fee, fee)
                     .SetParameter(TxParameterID::Message, message);
@@ -1380,8 +1380,8 @@ namespace beam::wallet
             {
                 ByteBuffer message(comment.begin(), comment.end());
                 TxParameters txParameters = CreateSimpleTransactionParameters()
-                    .SetParameter(TxParameterID::MyID, sender)
-                    .SetParameter(TxParameterID::PeerID, receiver)
+                    .SetParameter(TxParameterID::MyAddr, sender)
+                    .SetParameter(TxParameterID::PeerAddr, receiver)
                     .SetParameter(TxParameterID::Amount, amount)
                     .SetParameter(TxParameterID::Fee, fee)
                     .SetParameter(TxParameterID::Message, message);
@@ -1418,13 +1418,13 @@ namespace beam::wallet
             auto s = m_wallet.lock();
             if (s)
             {
-                auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
+                auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyAddr);
                 if (!myID)
                 {
                     WalletAddress senderAddress;
                     m_walletDB->createAddress(senderAddress);
                     saveAddress(senderAddress); // should update the wallet_network
-                    parameters.SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
+                    parameters.SetParameter(TxParameterID::MyAddr, senderAddress.m_walletID);
                 }
 
                 s->StartTransaction(parameters);

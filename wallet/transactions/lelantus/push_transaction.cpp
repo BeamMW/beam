@@ -24,7 +24,7 @@ namespace beam::wallet::lelantus
     TxParameters CreatePushTransactionParameters(const WalletID& myID, const boost::optional<TxID>& txId)
     {
         return CreateTransactionParameters(TxType::PushTransaction, txId)
-            .SetParameter(TxParameterID::MyID, myID);
+            .SetParameter(TxParameterID::MyAddr, myID);
     }
 
     BaseTransaction::Ptr PushTransaction::Creator::Create(const TxContext& context)
@@ -37,7 +37,7 @@ namespace beam::wallet::lelantus
         auto walletDB = m_dbFunc();
         wallet::CheckSenderAddress(parameters, walletDB);
 
-        auto receiverID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
+        auto receiverID = parameters.GetParameter<WalletID>(TxParameterID::PeerAddr);
         if (receiverID)
         {
             auto vouchers = parameters.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);

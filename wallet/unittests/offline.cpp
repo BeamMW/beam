@@ -83,8 +83,8 @@ WaitHandle run_wallet(const WalletParams& params) {
 
             if (sender) {
                 wallet.StartTransaction(CreateSimpleTransactionParameters()
-                    .SetParameter(TxParameterID::MyID, params.sendFrom)
-                    .SetParameter(TxParameterID::PeerID, params.sendTo)
+                    .SetParameter(TxParameterID::MyAddr, params.sendFrom)
+                    .SetParameter(TxParameterID::PeerAddr, params.sendTo)
                     .SetParameter(TxParameterID::Amount, Amount(1000000))
                     .SetParameter(TxParameterID::Fee, Amount(100000)));
             }

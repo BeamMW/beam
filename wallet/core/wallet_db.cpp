@@ -4086,8 +4086,8 @@ namespace beam::wallet
         {
             storage::setTxParameter(*this, p.m_txId, TxParameterID::MinHeight, p.m_minHeight, false);
         }
-        storage::setTxParameter(*this, p.m_txId, TxParameterID::PeerID, p.m_peerId, false);
-        storage::setTxParameter(*this, p.m_txId, TxParameterID::MyID, p.m_myId, false);
+        storage::setTxParameter(*this, p.m_txId, TxParameterID::PeerAddr, p.m_peerId, false);
+        storage::setTxParameter(*this, p.m_txId, TxParameterID::MyAddr, p.m_myId, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::Message, p.m_message, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::CreateTime, p.m_createTime, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::ModifyTime, p.m_modifyTime, false);
@@ -6353,8 +6353,8 @@ namespace beam::wallet
                 }
 
                 auto params = CreateTransactionParameters(TxType::PushTransaction, txID)
-                    .SetParameter(TxParameterID::MyID, receiverAddress.m_walletID)
-                    .SetParameter(TxParameterID::PeerID, WalletID())
+                    .SetParameter(TxParameterID::MyAddr, receiverAddress.m_walletID)
+                    .SetParameter(TxParameterID::PeerAddr, WalletID())
                     .SetParameter(TxParameterID::Status, TxStatus::Completed)
                     .SetParameter(TxParameterID::Amount, coin.m_CoinID.m_Value)
                     .SetParameter(TxParameterID::AssetID, coin.m_CoinID.m_AssetID)
@@ -6539,7 +6539,7 @@ namespace beam::wallet
                     }
 
                     WalletID wid;
-                    if (auto idIt = paramsMap.find(TxParameterID::MyID); idIt == paramsMap.end() || !wid.FromBuf(idIt->second.m_value))
+                    if (auto idIt = paramsMap.find(TxParameterID::MyAddr); idIt == paramsMap.end() || !wid.FromBuf(idIt->second.m_value))
                     {
                         LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid myID parameter";
                         ++errorsCount;
@@ -6885,8 +6885,8 @@ namespace beam::wallet
                             storage::getTxParameter(walletDB, txID, TxParameterID::MyWalletIdentity, pi.m_Sender.m_Pk)
                             ) ||
                         (
-                            storage::getTxParameter(walletDB, txID, TxParameterID::PeerID, pi.m_Receiver) && // payment proof using SBBS address
-                            storage::getTxParameter(walletDB, txID, TxParameterID::MyID, pi.m_Sender)
+                            storage::getTxParameter(walletDB, txID, TxParameterID::PeerAddr, pi.m_Receiver) && // payment proof using SBBS address
+                            storage::getTxParameter(walletDB, txID, TxParameterID::MyAddr, pi.m_Sender)
                             )
                         )
                     &&
@@ -7377,7 +7377,7 @@ namespace beam::wallet
 
         params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
         params.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
-        params.SetParameter(TxParameterID::PeerID,              address.m_walletID);
+        params.SetParameter(TxParameterID::PeerAddr,              address.m_walletID);
         params.SetParameter(TxParameterID::PeerWalletIdentity,  address.m_Identity);
         params.SetParameter(TxParameterID::PeerOwnID,           address.m_OwnID);
         params.SetParameter(TxParameterID::IsPermanentPeerID,   address.isPermanent());
@@ -7417,7 +7417,7 @@ namespace beam::wallet
     {
         TxParameters params = GenerateCommonAddressPart(amount, assetId, clientVersion);
 
-        params.SetParameter(TxParameterID::PeerID, address.m_walletID);
+        params.SetParameter(TxParameterID::PeerAddr, address.m_walletID);
         params.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
         params.SetParameter(TxParameterID::IsPermanentPeerID, address.isPermanent());
         params.SetParameter(TxParameterID::TransactionType, TxType::Simple);
@@ -7485,7 +7485,7 @@ namespace beam::wallet
                 if(auto params = ParseParameters(token))
                 {
                     WalletID wid;
-                    if(!params->GetParameter(TxParameterID::PeerID, wid))
+                    if(!params->GetParameter(TxParameterID::PeerAddr, wid))
                     {
                         assert(false);
                         return TokenType::RegularOldStyle;

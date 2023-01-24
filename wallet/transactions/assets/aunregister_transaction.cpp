@@ -28,12 +28,12 @@ namespace beam::wallet
 
     TxParameters AssetUnregisterTransaction::Creator::CheckAndCompleteParameters(const TxParameters& params)
     {
-        if(params.GetParameter<WalletID>(TxParameterID::PeerID))
+        if(params.GetParameter<WalletID>(TxParameterID::PeerAddr))
         {
             throw InvalidTransactionParametersException("Asset registration: unexpected PeerID");
         }
 
-        if(params.GetParameter<WalletID>(TxParameterID::MyID))
+        if(params.GetParameter<WalletID>(TxParameterID::MyAddr))
         {
             throw InvalidTransactionParametersException("Asset registration: unexpected MyID");
         }
@@ -51,7 +51,7 @@ namespace beam::wallet
         }
 
         TxParameters result{params};
-        result.SetParameter(TxParameterID::MyID, WalletID(Zero)); // Mandatory parameter
+        result.SetParameter(TxParameterID::MyAddr, WalletID(Zero)); // Mandatory parameter
         return result;
     }
 

@@ -29,8 +29,8 @@ namespace beam::wallet
             const boost::optional<TxID>& txId)
     {
         return CreateTransactionParameters(TxType::DexSimpleSwap, txId)
-            .SetParameter(TxParameterID::PeerID, peerID)
-            .SetParameter(TxParameterID::MyID, myID)
+            .SetParameter(TxParameterID::PeerAddr, peerID)
+            .SetParameter(TxParameterID::MyAddr, myID)
             .SetParameter(TxParameterID::DexOrderID, dexOrderID)
             .SetParameter(TxParameterID::SavePeerAddress, false)
             .SetParameter(TxParameterID::DexReceiveAsset, coinPeer)
@@ -77,7 +77,7 @@ namespace beam::wallet
         //
         // Check Peer
         //
-        const auto peerID = params.GetParameter<WalletID>(TxParameterID::PeerID);
+        const auto peerID = params.GetParameter<WalletID>(TxParameterID::PeerAddr);
         if(!peerID)
         {
             throw InvalidTransactionParametersException("DexSimpleSwap missing PeerID");
@@ -92,7 +92,7 @@ namespace beam::wallet
         //
         // Check self
         //
-        const auto myID = params.GetParameter<WalletID>(TxParameterID::MyID);
+        const auto myID = params.GetParameter<WalletID>(TxParameterID::MyAddr);
         if (!myID.is_initialized())
         {
             throw InvalidTransactionParametersException("DexSimpleSwap missing MyID");
