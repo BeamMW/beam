@@ -489,11 +489,11 @@ namespace beam::wallet
         if (GetParameter(TxParameterID::MyAddr, msg.m_From)
             && GetParameter(TxParameterID::PeerAddr, peerID))
         {
-            PeerID secureWalletID = Zero, peerWalletID = Zero;
-            if (GetParameter(TxParameterID::MyWalletIdentity, secureWalletID)
-             && GetParameter(TxParameterID::PeerWalletIdentity, peerWalletID))
+            PeerID myEndpoint = Zero, peerEndpoint = Zero;
+            if (GetParameter(TxParameterID::MyEndpoint, myEndpoint)
+             && GetParameter(TxParameterID::PeerEndpoint, peerEndpoint))
             {
-                msg.AddParameter(TxParameterID::PeerWalletIdentity, secureWalletID);
+                msg.AddParameter(TxParameterID::PeerEndpoint, myEndpoint);
             }
             GetGateway().send_tx_params(peerID, msg);
             return true;

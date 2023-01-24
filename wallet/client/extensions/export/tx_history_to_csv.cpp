@@ -39,10 +39,10 @@ std::string unitNameFromAssetId(const beam::wallet::IWalletDB& db, Asset::ID ass
     return unitName;
 }
 
-std::string getIdentity(const TxParameters& txParams, bool isSender)
+std::string getEndpoint(const TxParameters& txParams, bool isSender)
 {
-    auto v = isSender ? txParams.GetParameter<PeerID>(TxParameterID::MyWalletIdentity)
-                      : txParams.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity);
+    auto v = isSender ? txParams.GetParameter<PeerID>(TxParameterID::MyEndpoint)
+                      : txParams.GetParameter<PeerID>(TxParameterID::PeerEndpoint);
 
     return v ? std::to_string(*v) : "";
 }
@@ -135,9 +135,9 @@ std::string ExportTxHistoryToCsv(const IWalletDB& db)
            << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                             // Transaction ID
            << std::to_string(tx.m_kernelID) << ","                                          // Kernel ID
            << std::to_string(tx.m_sender ? tx.m_myAddr : tx.m_peerAddr) << ","              // Sending address
-           << getIdentity(tx, tx.m_sender) << ","                                           // Sending wallet's signature
+           << getEndpoint(tx, tx.m_sender) << ","                                           // Sending wallet's endpoint
            << std::to_string(!tx.m_sender ? tx.m_myAddr : tx.m_peerAddr) << ","             // Receiving address
-           << getIdentity(tx, !tx.m_sender) << ","                                          // Receiving wallet's signature
+           << getEndpoint(tx, !tx.m_sender) << ","                                          // Receiving wallet's endpoint
            << getToken(tx) << ","                                                           // Token
            << strProof << std::endl;                                                        // Payment proof
     }

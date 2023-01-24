@@ -1127,16 +1127,16 @@ namespace beam::wallet
 
         m.m_Slot = m_Tx.GetSlotSafe(true);
 
-        if (GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer) &&
-            GetParameter(TxParameterID::MyWalletIdentity, m.m_MyID))
+        if (GetParameter(TxParameterID::PeerEndpoint, m.m_Peer) &&
+            GetParameter(TxParameterID::MyEndpoint, m.m_MyID))
         {
             // newer scheme
-            GetParameterStrict(TxParameterID::MyAddressID, m.m_MyIDKey);
+            GetParameterStrict(TxParameterID::MyAddressID, m.m_iEndpoint);
         }
         else
         {
             // legacy. Will fail for trustless key keeper.
-            m.m_MyIDKey = 0;
+            m.m_iEndpoint = 0;
 
             WalletID widMy, widPeer;
             if (GetParameter(TxParameterID::PeerAddr, widPeer) && GetParameter(TxParameterID::MyAddr, widMy))
@@ -1216,7 +1216,7 @@ namespace beam::wallet
 
                 b.AddOffset(m_Method.m_kOffset);
 
-                if (m_Method.m_MyIDKey)
+                if (m_Method.m_iEndpoint)
                     b.SetParameter(TxParameterID::PaymentConfirmation, m_Method.m_PaymentProofSignature);
 
                 OnAllDone(b);
@@ -1231,12 +1231,12 @@ namespace beam::wallet
         m_pKrn->Clone(Cast::Reinterpret<TxKernel::Ptr>(m.m_pKernel));
 
         m.m_Peer = Zero;
-        m.m_MyIDKey = 0;
+        m.m_iEndpoint = 0;
 
-        GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer);
+        GetParameter(TxParameterID::PeerEndpoint, m.m_Peer);
 
         if (m.m_Peer != Zero)
-            GetParameter(TxParameterID::MyAddressID, m.m_MyIDKey);
+            GetParameter(TxParameterID::MyAddressID, m.m_iEndpoint);
 
         m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);
     }
@@ -1405,7 +1405,7 @@ namespace beam::wallet
     {
         SimpleTxBuilder::FillUserData(user);
         PeerID peerID = Zero;
-        m_Tx.GetParameter(TxParameterID::PeerWalletIdentity, peerID);
+        m_Tx.GetParameter(TxParameterID::PeerEndpoint, peerID);
         user->m_Peer = peerID;
     }
 }

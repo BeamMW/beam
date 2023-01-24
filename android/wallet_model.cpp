@@ -48,7 +48,7 @@ namespace
         jobject addr = env->AllocObject(WalletAddressClass);
 
         setStringField(env, WalletAddressClass, addr, "walletID", to_string(address.m_walletID));
-        setStringField(env, WalletAddressClass, addr, "identity", to_string(address.m_Identity));
+        setStringField(env, WalletAddressClass, addr, "identity", to_string(address.m_Endpoint));
         setStringField(env, WalletAddressClass, addr, "label", address.m_label);
         setStringField(env, WalletAddressClass, addr, "category", address.m_category);
         setLongField(env, WalletAddressClass, addr, "createTime", address.m_createTime);
@@ -82,10 +82,10 @@ namespace
         setStringField(env, TxDescriptionClass, tx, "kernelId", to_string(txDescription.m_kernelID));
         setIntField(env, TxDescriptionClass, tx, "failureReason", static_cast<jint>(txDescription.m_failureReason));
 
-        setStringField(env, TxDescriptionClass, tx, "identity", txDescription.getIdentity(txDescription.m_sender));
+        setStringField(env, TxDescriptionClass, tx, "identity", txDescription.getEndpoint(txDescription.m_sender));
 
-        setStringField(env, TxDescriptionClass, tx, "senderIdentity", txDescription.getSenderIdentity());
-        setStringField(env, TxDescriptionClass, tx, "receiverIdentity", txDescription.getReceiverIdentity());
+        setStringField(env, TxDescriptionClass, tx, "senderIdentity", txDescription.getSenderEndpoint());
+        setStringField(env, TxDescriptionClass, tx, "receiverIdentity", txDescription.getReceiverEndpoint());
 
         setStringField(env, TxDescriptionClass, tx, "receiverAddress", txDescription.getAddressTo());
         setStringField(env, TxDescriptionClass, tx, "senderAddress", txDescription.getAddressFrom());

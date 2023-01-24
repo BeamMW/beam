@@ -173,9 +173,9 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
                 setLongField(env, TransactionParametersClass, jParameters, "amount", 0L);
             }
 
-            if (auto walletIdentity = params->GetParameter<beam::PeerID>(TxParameterID::PeerWalletIdentity); walletIdentity)
+            if (auto peerEndpoint = params->GetParameter<beam::PeerID>(TxParameterID::PeerEndpoint); peerEndpoint)
             {
-                setStringField(env, TransactionParametersClass, jParameters, "identity", std::to_string(*walletIdentity));
+                setStringField(env, TransactionParametersClass, jParameters, "identity", std::to_string(*peerEndpoint));
             }
             else 
             {
@@ -321,7 +321,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     offlineParameters.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
     offlineParameters.SetParameter(TxParameterID::ShieldedVoucherList, lastVouchers);
     offlineParameters.SetParameter(TxParameterID::PeerAddr, address->m_walletID);
-    offlineParameters.SetParameter(TxParameterID::PeerWalletIdentity, address->m_Identity);
+    offlineParameters.SetParameter(TxParameterID::PeerEndpoint, address->m_Endpoint);
     offlineParameters.SetParameter(TxParameterID::PeerOwnID, address->m_OwnID);
     offlineParameters.SetParameter(TxParameterID::IsPermanentPeerID, true);
     offlineParameters.SetParameter(TxParameterID::AssetID, beam::Asset::ID(asset));
@@ -772,8 +772,8 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
                 {
                     bool isValid = false;
                     auto buf = from_hex(getStringField(env, WalletAddressClass, walletAddrObj, "identity"), &isValid);
-                    PeerID m_Identity = Blob(buf);
-                    addr.m_Identity = m_Identity;
+                    PeerID val = Blob(buf);
+                    addr.m_Endpoint = val;
                 }
 
                 walletModel->getAsync()->saveAddress(addr);
@@ -793,8 +793,8 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
         auto buf = from_hex(getStringField(env, WalletAddressClass, walletAddrObj, "identity"), &isValid);
         if(isValid)
         {
-            PeerID m_Identity = Blob(buf);
-            addr.m_Identity = m_Identity;
+            PeerID val = Blob(buf);
+            addr.m_Endpoint = val;
         }
         
         walletModel->getAsync()->saveAddress(addr);

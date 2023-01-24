@@ -220,22 +220,22 @@ namespace beam::wallet
                     return TxAddressType::Unknown;
             }
 
-            auto peerID = params.GetParameter<WalletID>(TxParameterID::PeerAddr); // sbbs addres
-            auto peerIdentity = params.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); // identity
+            auto peerAddr = params.GetParameter<WalletID>(TxParameterID::PeerAddr); // sbbs addres
+            auto peerEndpoint = params.GetParameter<PeerID>(TxParameterID::PeerEndpoint);
 
             auto voucher = params.GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher);
-            if (voucher && peerIdentity)
+            if (voucher && peerEndpoint)
                 return TxAddressType::MaxPrivacy;
 
             auto vouchers = params.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
-            if (vouchers && !vouchers->empty() && peerIdentity && peerID)
+            if (vouchers && !vouchers->empty() && peerEndpoint && peerAddr)
                 return TxAddressType::Offline;
 
             auto gen = params.GetParameter<ShieldedTxo::PublicGen>(TxParameterID::PublicAddreessGen);
             if (gen)
                 return TxAddressType::PublicOffline;
 
-            if (peerID)
+            if (peerAddr)
                 return TxAddressType::Regular;
 
             return TxAddressType::Unknown;
@@ -590,7 +590,7 @@ namespace beam::wallet
                 {
                     return false;
                 }
-                CopyParameter(TxParameterID::PeerWalletIdentity, p, params);
+                CopyParameter(TxParameterID::PeerEndpoint, p, params);
                 break;
             }
 
@@ -605,7 +605,7 @@ namespace beam::wallet
                 pid.FromSk(sk);
                 ShieldedTxo::Voucher voucher = GenerateVoucherFromPublicAddress(*publicGen, sk);
                 params.SetParameter(TxParameterID::Voucher, voucher);
-                params.SetParameter(TxParameterID::PeerWalletIdentity, pid);
+                params.SetParameter(TxParameterID::PeerEndpoint, pid);
             }
             break;
 
@@ -614,12 +614,12 @@ namespace beam::wallet
                 params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
                 CopyParameter(TxParameterID::PeerAddr, p, params);
                 CopyParameter(TxParameterID::PeerOwnID, p, params);
-                auto peerID = p.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); 
-                params.SetParameter(TxParameterID::PeerWalletIdentity, *peerID);
+                auto peerEndpoint = p.GetParameter<PeerID>(TxParameterID::PeerEndpoint);
+                params.SetParameter(TxParameterID::PeerEndpoint, *peerEndpoint);
 
                 if (auto vouchers = p.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
                 {
-                    if (!IsValidVoucherList(*vouchers, *peerID))
+                    if (!IsValidVoucherList(*vouchers, *peerEndpoint))
                     {
                         LOG_ERROR() << "Voucher signature verification failed. Unauthorized voucher was provider.";
                         return false;
@@ -633,10 +633,10 @@ namespace beam::wallet
             {
                 params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
                 CopyParameter(TxParameterID::PeerOwnID, p, params);
-                auto peerID = p.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity);
-                params.SetParameter(TxParameterID::PeerWalletIdentity, *peerID);
+                auto peerEndpoint = p.GetParameter<PeerID>(TxParameterID::PeerEndpoint);
+                params.SetParameter(TxParameterID::PeerEndpoint, *peerEndpoint);
                 auto voucher = p.GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher);
-                if (!voucher->IsValid(*peerID))
+                if (!voucher->IsValid(*peerEndpoint))
                 {
                     LOG_ERROR() << "Voucher signature verification failed. Unauthorized voucher was provider.";
                     return false;
@@ -970,14 +970,14 @@ namespace beam::wallet
         return {};
     }
 
-    std::string TxDescription::getSenderIdentity() const
+    std::string TxDescription::getSenderEndpoint() const
     {
-        return getIdentity(m_sender);
+        return getEndpoint(m_sender);
     }
 
-    std::string TxDescription::getReceiverIdentity() const
+    std::string TxDescription::getReceiverEndpoint() const
     {
-        return getIdentity(!m_sender);
+        return getEndpoint(!m_sender);
     }
 
     std::string TxDescription::getSender() const
@@ -990,10 +990,10 @@ namespace beam::wallet
         return std::to_string(!m_sender ? m_myAddr : m_peerAddr);
     }
 
-    std::string TxDescription::getIdentity(bool isSender) const
+    std::string TxDescription::getEndpoint(bool isSender) const
     {
-        auto v = isSender ? GetParameter<PeerID>(TxParameterID::MyWalletIdentity)
-            : GetParameter<PeerID>(TxParameterID::PeerWalletIdentity);
+        auto v = isSender ? GetParameter<PeerID>(TxParameterID::MyEndpoint)
+            : GetParameter<PeerID>(TxParameterID::PeerEndpoint);
         if (v)
         {
             return std::to_string(*v);
@@ -1005,7 +1005,7 @@ namespace beam::wallet
     {
         if (m_txType == wallet::TxType::PushTransaction && !m_sender)
         {
-            return getSenderIdentity();
+            return getSenderEndpoint();
         }
         return std::to_string(m_sender ? m_myAddr : m_peerAddr);
     }
@@ -1033,15 +1033,15 @@ namespace beam::wallet
         return ret;
     }
 
-    std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, Amount amount)
+    std::string GetSendToken(const std::string& sbbsAddress, const std::string& endpointStr, Amount amount)
     {
         WalletID walletID;
         if (!walletID.FromHex(sbbsAddress))
         {
             return "";
         }
-        auto identity = GetPeerIDFromHex(identityStr);
-        if (!identity)
+        auto endPoint = GetPeerIDFromHex(endpointStr);
+        if (!endPoint)
         {
             return "";
         }
@@ -1054,7 +1054,7 @@ namespace beam::wallet
 
         parameters.SetParameter(TxParameterID::PeerAddr, walletID);
         parameters.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::Simple);
-        parameters.SetParameter(TxParameterID::PeerWalletIdentity, *identity);
+        parameters.SetParameter(TxParameterID::PeerEndpoint, *endPoint);
 
         return std::to_string(parameters);
     }
@@ -1066,7 +1066,7 @@ namespace beam::wallet
         if (pKeeper && count)
         {
             IPrivateKeyKeeper2::Method::CreateVoucherShielded m;
-            m.m_MyIDKey = ownID;
+            m.m_iEndpoint = ownID;
             m.m_Count = static_cast<uint32_t>(count);
             ECC::GenRandom(m.m_Nonce);
 

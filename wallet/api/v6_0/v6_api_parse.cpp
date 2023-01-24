@@ -319,8 +319,8 @@ namespace beam::wallet
             }
         }
 
-        auto senderIdentity = tx.getSenderIdentity();
-        auto receiverIdentity = tx.getReceiverIdentity();
+        auto senderIdentity = tx.getSenderEndpoint();
+        auto receiverIdentity = tx.getReceiverEndpoint();
         if (!senderIdentity.empty() && !receiverIdentity.empty())
         {
             msg["sender_identity"] = senderIdentity;
@@ -1102,9 +1102,9 @@ namespace beam::wallet
                 {"type",        getTokenType(type)}
             };
 
-            if (addr.m_Identity != Zero)
+            if (addr.m_Endpoint != Zero)
             {
-                obj["identity"] = std::to_string(addr.m_Identity);
+                obj["identity"] = std::to_string(addr.m_Endpoint);
             }
 
             parent.push_back(obj);

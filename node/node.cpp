@@ -5111,7 +5111,7 @@ void Node::PrintTxos()
 
     {
         Key::ID kid(Zero);
-        kid.m_Type = ECC::Key::Type::WalletID;
+        kid.m_Type = ECC::Key::Type::EndPoint;
         kid.get_Hash(pid);
 
         ECC::Point::Native ptN;

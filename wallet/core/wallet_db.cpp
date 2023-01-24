@@ -125,7 +125,7 @@ namespace fs = std::filesystem;
     each(createTime,     createTime,     INTEGER, obj) sep \
     each(duration,       duration,       INTEGER, obj) sep \
     each(OwnID,          OwnID,          INTEGER NOT NULL, obj) sep \
-    each(Identity,       Identity,       BLOB, obj) sep \
+    each(Identity,       Endpoint,       BLOB, obj) sep \
     each(Address,        Address,        TEXT NOT NULL PRIMARY KEY, obj) 
 
 #define ADDRESS_FIELDS ENUM_ADDRESS_FIELDS(LIST, COMMA, )
@@ -1521,7 +1521,7 @@ namespace beam::wallet
                     stm.get(3, addr.m_createTime);
                     stm.get(4, addr.m_duration);
                     stm.get(5, addr.m_OwnID);
-                    stm.get(6, addr.m_Identity);
+                    stm.get(6, addr.m_Endpoint);
 
                     if (addr.m_walletID != Zero)
                     {
@@ -2978,7 +2978,7 @@ namespace beam::wallet
         addr.m_OwnID = AllocateKidRange(1);
 
         get_SbbsWalletID(addr.m_walletID, addr.m_OwnID);
-        get_Identity(addr.m_Identity, addr.m_OwnID);
+        get_Endpoint(addr.m_Endpoint, addr.m_OwnID);
 
         LOG_INFO() << boost::format(kWalletIdNewGenerated) % std::to_string(addr.m_walletID);
 
@@ -2990,10 +2990,10 @@ namespace beam::wallet
         addr.m_Address = std::to_string(addr.m_walletID);
     }
 
-    void IWalletDB::get_Identity(PeerID& pid, uint64_t ownID) const
+    void IWalletDB::get_Endpoint(PeerID& pid, uint64_t ownID) const
     {
         ECC::Hash::Value hv;
-        Key::ID(ownID, Key::Type::WalletID).get_Hash(hv);
+        Key::ID(ownID, Key::Type::EndPoint).get_Hash(hv);
         ECC::Point::Native pt;
         get_OwnerKdf()->DerivePKeyG(pt, hv);
         pid = ECC::Point(pt).m_X;
@@ -4248,8 +4248,8 @@ namespace beam::wallet
         {
             int colIdx = 0;
             ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, address);
-            if (address.isOwn() && address.m_Identity == Zero)
-                db->get_Identity(address.m_Identity, address.m_OwnID);
+            if (address.isOwn() && address.m_Endpoint == Zero)
+                db->get_Endpoint(address.m_Endpoint, address.m_OwnID);
         }
     }
 
@@ -4338,7 +4338,7 @@ namespace beam::wallet
                 stm.bind(5, address.m_createTime);
                 stm.bind(6, address.m_walletID);
                 stm.bind(7, address.m_OwnID);
-                stm.bind(8, address.m_Identity);
+                stm.bind(8, address.m_Endpoint);
                 stm.step();
             }
 
@@ -4370,7 +4370,7 @@ namespace beam::wallet
                     stm.bind(5, address.m_createTime);
                     stm.bind(6, address.m_walletID);
                     stm.bind(7, address.m_OwnID);
-                    stm.bind(8, address.m_Identity);
+                    stm.bind(8, address.m_Endpoint);
                     stm.step();
                 }
 
@@ -6344,7 +6344,7 @@ namespace beam::wallet
                 if (message->m_ReceiverOwnID)
                 {
                     db.get_SbbsWalletID(receiverAddress.m_walletID, message->m_ReceiverOwnID);
-                    db.get_Identity(receiverAddress.m_Identity, message->m_ReceiverOwnID);
+                    db.get_Endpoint(receiverAddress.m_Endpoint, message->m_ReceiverOwnID);
                 }
                 else
                 {
@@ -6360,8 +6360,8 @@ namespace beam::wallet
                     .SetParameter(TxParameterID::AssetID, coin.m_CoinID.m_AssetID)
                     .SetParameter(TxParameterID::IsSender, false)
                     .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
-                    .SetParameter(TxParameterID::PeerWalletIdentity, coin.m_CoinID.m_User.m_Sender)
-                    .SetParameter(TxParameterID::MyWalletIdentity, receiverAddress.m_Identity)
+                    .SetParameter(TxParameterID::PeerEndpoint, coin.m_CoinID.m_User.m_Sender)
+                    .SetParameter(TxParameterID::MyEndpoint, receiverAddress.m_Endpoint)
                     .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero));
 
                 const auto assetId = coin.m_CoinID.m_AssetID;
@@ -6461,7 +6461,7 @@ namespace beam::wallet
                                 auto buf = from_hex(*it, &isValid);
                                 if (isValid)
                                 {
-                                    address.m_Identity = Blob(buf);
+                                    address.m_Endpoint = Blob(buf);
                                 }
                             }
                             if (auto it = jsonAddress.find(Fields::Address); it != jsonAddress.end())
@@ -6624,9 +6624,9 @@ namespace beam::wallet
                             {Fields::Address,  address.m_Address}
                         }
                     );
-                    if (address.m_Identity != Zero)
+                    if (address.m_Endpoint != Zero)
                     {
-                        addresses.back().push_back({ Fields::Identity, to_string(address.m_Identity) });
+                        addresses.back().push_back({ Fields::Identity, to_string(address.m_Endpoint) });
                     }
                 }
                 return addresses;
@@ -6881,8 +6881,8 @@ namespace beam::wallet
                 bool bSuccess =
                     (
                         (
-                            storage::getTxParameter(walletDB, txID, TxParameterID::PeerWalletIdentity, pi.m_Receiver.m_Pk) &&  // payment proiof using wallet ID
-                            storage::getTxParameter(walletDB, txID, TxParameterID::MyWalletIdentity, pi.m_Sender.m_Pk)
+                            storage::getTxParameter(walletDB, txID, TxParameterID::PeerEndpoint, pi.m_Receiver.m_Pk) &&  // payment proiof using wallet ID
+                            storage::getTxParameter(walletDB, txID, TxParameterID::MyEndpoint, pi.m_Sender.m_Pk)
                             ) ||
                         (
                             storage::getTxParameter(walletDB, txID, TxParameterID::PeerAddr, pi.m_Receiver) && // payment proof using SBBS address
@@ -6927,8 +6927,8 @@ namespace beam::wallet
                 TxKernel::Ptr rootKernel;
                 ShieldedTxo::Voucher voucher;
                 bool bSuccess =
-                    storage::getTxParameter(walletDB, txID, TxParameterID::PeerWalletIdentity, pi.m_Receiver) &&
-                    storage::getTxParameter(walletDB, txID, TxParameterID::MyWalletIdentity, pi.m_Sender) &&
+                    storage::getTxParameter(walletDB, txID, TxParameterID::PeerEndpoint, pi.m_Receiver) &&
+                    storage::getTxParameter(walletDB, txID, TxParameterID::MyEndpoint, pi.m_Sender) &&
                     storage::getTxParameter(walletDB, txID, TxParameterID::Voucher, voucher) &&
                     storage::getTxParameter(walletDB, txID, TxParameterID::Kernel, rootKernel) &&
                     storage::getTxParameter(walletDB, txID, TxParameterID::Amount, pi.m_Amount) &&
@@ -7081,7 +7081,7 @@ namespace beam::wallet
         , m_createTime(0)
         , m_duration(AddressExpiration24h)
         , m_OwnID(0)
-        , m_Identity(Zero)
+        , m_Endpoint(Zero)
     {}
 
     bool WalletAddress::operator == (const WalletAddress& other) const
@@ -7377,8 +7377,8 @@ namespace beam::wallet
 
         params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
         params.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
-        params.SetParameter(TxParameterID::PeerAddr,              address.m_walletID);
-        params.SetParameter(TxParameterID::PeerWalletIdentity,  address.m_Identity);
+        params.SetParameter(TxParameterID::PeerAddr,            address.m_walletID);
+        params.SetParameter(TxParameterID::PeerEndpoint,        address.m_Endpoint);
         params.SetParameter(TxParameterID::PeerOwnID,           address.m_OwnID);
         params.SetParameter(TxParameterID::IsPermanentPeerID,   address.isPermanent());
 
@@ -7390,7 +7390,7 @@ namespace beam::wallet
         TxParameters params = GenerateCommonAddressPart(amount, assetId, clientVersion);
 
         params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
-        params.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
+        params.SetParameter(TxParameterID::PeerEndpoint, address.m_Endpoint);
         params.SetParameter(TxParameterID::PeerOwnID, address.m_OwnID);
         params.SetParameter(TxParameterID::Voucher, voucher);
 
@@ -7418,7 +7418,7 @@ namespace beam::wallet
         TxParameters params = GenerateCommonAddressPart(amount, assetId, clientVersion);
 
         params.SetParameter(TxParameterID::PeerAddr, address.m_walletID);
-        params.SetParameter(TxParameterID::PeerWalletIdentity, address.m_Identity);
+        params.SetParameter(TxParameterID::PeerEndpoint, address.m_Endpoint);
         params.SetParameter(TxParameterID::IsPermanentPeerID, address.isPermanent());
         params.SetParameter(TxParameterID::TransactionType, TxType::Simple);
 

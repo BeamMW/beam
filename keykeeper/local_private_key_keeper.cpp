@@ -340,7 +340,7 @@ namespace beam::wallet
         std::setmin(x.m_Count, 30U);
 
         ECC::Scalar::Native sk;
-        m_pKdf->DeriveKey(sk, Key::ID(x.m_MyIDKey, Key::Type::WalletID));
+        m_pKdf->DeriveKey(sk, Key::ID(x.m_iEndpoint, Key::Type::EndPoint));
         PeerID pid;
         pid.FromSk(sk);
 
@@ -422,7 +422,7 @@ namespace beam::wallet
             << krn.m_Signature.m_NoncePub
             << x.m_NonConventional
             << x.m_Peer
-            << x.m_MyIDKey
+            << x.m_iEndpoint
             << aggr.m_sk
             << vals.m_Asset
             << aggr.m_AssetID
@@ -454,7 +454,7 @@ namespace beam::wallet
         krn.m_Signature.SignPartial(hv, kKrn, kNonce);
         UpdateOffset(x, aggr.m_sk, kKrn);
 
-        if (x.m_MyIDKey && !x.m_NonConventional)
+        if (x.m_iEndpoint && !x.m_NonConventional)
         {
             PaymentConfirmation pc;
             pc.m_KernelID = hv;
@@ -462,7 +462,7 @@ namespace beam::wallet
             pc.m_Value = vals.m_Asset;
             pc.m_AssetID = aggr.m_AssetID;
 
-            m_pKdf->DeriveKey(kKrn, Key::ID(x.m_MyIDKey, Key::Type::WalletID));
+            m_pKdf->DeriveKey(kKrn, Key::ID(x.m_iEndpoint, Key::Type::EndPoint));
 
             PeerID wid;
             wid.FromSk(kKrn);
@@ -499,9 +499,9 @@ namespace beam::wallet
 
         Scalar::Native kNonce;
 
-        if (x.m_MyIDKey)
+        if (x.m_iEndpoint)
         {
-            m_pKdf->DeriveKey(kNonce, Key::ID(x.m_MyIDKey, Key::Type::WalletID));
+            m_pKdf->DeriveKey(kNonce, Key::ID(x.m_iEndpoint, Key::Type::EndPoint));
             x.m_MyID.FromSk(kNonce);
         }
         else
@@ -621,9 +621,9 @@ namespace beam::wallet
             if (!x.m_Voucher.IsValid(x.m_Peer)) // will fail if m_Peer is Zero
                 return Status::Unspecified;
 
-            if (x.m_MyIDKey)
+            if (x.m_iEndpoint)
             {
-                m_pKdf->DeriveKey(kKrn, Key::ID(x.m_MyIDKey, Key::Type::WalletID));
+                m_pKdf->DeriveKey(kKrn, Key::ID(x.m_iEndpoint, Key::Type::EndPoint));
 
                 PeerID pid;
                 pid.FromSk(kKrn);
@@ -675,7 +675,7 @@ namespace beam::wallet
 
         if (IsTrustless())
         {
-            Status::Type res = x.m_MyIDKey ?
+            Status::Type res = x.m_iEndpoint ?
                 ConfirmSpend(0, 0, Zero, krn, aggr.m_TotalFee, true) : // sending to self, it's a split in fact
                 ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, aggr.m_TotalFee, true);
 
@@ -741,7 +741,7 @@ namespace beam::wallet
         return Status::Success;
     }
 
-    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::DisplayWalletID& x)
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::DisplayEndpoint& x)
     {
         return Status::Success;
     }

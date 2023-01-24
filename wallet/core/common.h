@@ -428,6 +428,8 @@ namespace beam::wallet
         // aliases
         MyAddr = MyID,
         PeerAddr = PeerID,
+        MyEndpoint = MyWalletIdentity,
+        PeerEndpoint = PeerWalletIdentity,
     };
 
     using PackedTxParameters = std::vector<std::pair<TxParameterID, ByteBuffer>>;
@@ -588,9 +590,9 @@ namespace beam::wallet
         [[nodiscard]] std::string getTxTypeString() const;
         [[nodiscard]] Amount getExchangeRate(const Currency& target, beam::Asset::ID assetId = beam::Asset::s_InvalidID) const;
         [[nodiscard]] std::string getToken() const;
-        [[nodiscard]] std::string getSenderIdentity() const;
-        [[nodiscard]] std::string getReceiverIdentity() const;
-        [[nodiscard]] std::string getIdentity(bool isSender) const;
+        [[nodiscard]] std::string getSenderEndpoint() const;
+        [[nodiscard]] std::string getReceiverEndpoint() const;
+        [[nodiscard]] std::string getEndpoint(bool isSender) const;
         [[nodiscard]] std::string getSender() const;
         [[nodiscard]] std::string getReceiver() const;
         [[nodiscard]] std::string getAddressFrom() const;
@@ -797,7 +799,7 @@ namespace beam::wallet
     // If it is more than 10 minutes, the walelt is considered not in sync
     bool IsValidTimeStamp(Timestamp currentBlockTime_s, Timestamp tolerance_s = 60 * 10); // 10 minutes tolerance.
 
-    std::string GetSendToken(const std::string& sbbsAddress, const std::string& identityStr, Amount amount);
+    std::string GetSendToken(const std::string& sbbsAddress, const std::string& endpointStr, Amount amount);
 
     struct IPrivateKeyKeeper2;
     ShieldedVoucherList GenerateVoucherList(const std::shared_ptr<IPrivateKeyKeeper2>&, uint64_t ownID, size_t count);

@@ -152,9 +152,9 @@ namespace beam::wallet
             {
                 address.m_label = std::string(message->begin(), message->end());
             }
-            if (auto identity = parameters.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); identity)
+            if (auto ep = parameters.GetParameter<PeerID>(TxParameterID::PeerEndpoint); ep)
             {
-                address.m_Identity = *identity;
+                address.m_Endpoint = *ep;
             }
             walletDB->saveAddress(address);
         }
@@ -836,7 +836,7 @@ namespace beam::wallet
                     return;
                 }
 
-                if (!IsValidVoucherList(res, address->m_Identity))
+                if (!IsValidVoucherList(res, address->m_Endpoint))
                 {
                     LOG_WARNING() << "Invalid voucher list received";
                     FailTxWaitingForVouchers(msg.m_From);
@@ -2328,7 +2328,7 @@ namespace beam::wallet
 
         auto completedParameters = it->second->CheckAndCompleteParameters(parameters);
 
-        if (auto peerID = parameters.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); peerID)
+        if (auto peerEndpoint = parameters.GetParameter<PeerID>(TxParameterID::PeerEndpoint); peerEndpoint)
         {
             auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyAddr);
             if (myID)
@@ -2336,7 +2336,7 @@ namespace beam::wallet
                 auto address = m_WalletDB->getAddress(*myID);
                 if (address)
                 {
-                    completedParameters.SetParameter(TxParameterID::MyWalletIdentity, address->m_Identity);
+                    completedParameters.SetParameter(TxParameterID::MyEndpoint, address->m_Endpoint);
                 }
             }
         }

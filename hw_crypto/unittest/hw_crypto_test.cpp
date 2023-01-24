@@ -837,10 +837,10 @@ struct KeyKeeperWrap
 	void TestRcv();
 	void TestSend1();
 
-	void get_WalletID(PeerID& pid, wallet::WalletIDKey nKeyID)
+	void get_Endpoint(PeerID& pid, wallet::EndpointIndex iIdx)
 	{
 		ECC::Hash::Value hv;
-		Key::ID(nKeyID, Key::Type::WalletID).get_Hash(hv);
+		Key::ID(iIdx, Key::Type::EndPoint).get_Hash(hv);
 
 		ECC::Point::Native ptN;
 		m_kkStd.get_Owner().DerivePKeyG(ptN, hv);
@@ -927,7 +927,7 @@ struct KeyKeeperWrap
 			// So we'll only compare that both signatures are good for the expected pubkey
 			{
 				PeerID pid;
-				get_WalletID(pid, src.m_MyIDKey);
+				get_Endpoint(pid, src.m_iEndpoint);
 
 				wallet::PaymentConfirmation pc;
 				pc.m_KernelID = src.m_pKernel->m_Internal.m_ID;
@@ -1190,7 +1190,7 @@ void KeyKeeperWrap::TestRcv()
 	m.m_pKernel->m_Fee = 20;
 
 	SetRandom(m.m_Peer);
-	m.m_MyIDKey = 325;
+	m.m_iEndpoint = 325;
 
 	// make the kernel look like the sender already did its part
 	ECC::Point::Native pt = ECC::Context::get().G * ECC::Scalar::Native(115U);
@@ -1208,7 +1208,7 @@ void KeyKeeperWrap::TestRcv()
 void KeyKeeperWrap::TestSend1()
 {
 	wallet::IPrivateKeyKeeper2::Method::SignSender m;
-	m.m_MyIDKey = 18;
+	m.m_iEndpoint = 18;
 	m.m_Peer = 567U;
 	m.m_Slot = 6;
 	m.m_UserAgreement = Zero;
@@ -1243,19 +1243,19 @@ void TestShielded()
 
 	std::vector<ShieldedTxo::Voucher> vVouchers;
 	PeerID pidRcv;
-	wallet::WalletIDKey nKeyRcv = 0;
+	wallet::EndpointIndex nKeyRcv = 0;
 
 	for (uint32_t i = 0; i < 3; i++)
 	{
 		wallet::IPrivateKeyKeeper2::Method::CreateVoucherShielded m;
 		m.m_Count = 5;
-		m.m_MyIDKey = 12 + i;
+		m.m_iEndpoint = 12 + i;
 		m.m_Nonce = 776U + i;
 
 		PeerID pid;
 
 		{
-			Key::ID(m.m_MyIDKey, Key::Type::WalletID).get_Hash(hv);
+			Key::ID(m.m_iEndpoint, Key::Type::EndPoint).get_Hash(hv);
 
 			ECC::Point::Native pt;
 			kkw.m_kkStd.get_Owner().DerivePKeyG(pt, hv);
@@ -1288,7 +1288,7 @@ void TestShielded()
 		{
 			vVouchers.swap(v0);
 			pidRcv = pid;
-			nKeyRcv = m.m_MyIDKey;
+			nKeyRcv = m.m_iEndpoint;
 		}
 	}
 
@@ -1418,9 +1418,9 @@ void TestShielded()
 
 		if (1 & i)
 		{
-			m.m_MyIDKey = nKeyRcv + 10; // wrong, should not pass
+			m.m_iEndpoint = nKeyRcv + 10; // wrong, should not pass
 			verify_test(kkw.InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
-			m.m_MyIDKey = nKeyRcv; // should pass
+			m.m_iEndpoint = nKeyRcv; // should pass
 
 			m.m_HideAssetAlways = true;
 		}
@@ -1451,15 +1451,15 @@ void TestKeyKeeperTxs()
 	KeyKeeperWrap kkw2(hv); // the receiver
 
 	wallet::IPrivateKeyKeeper2::Method::SignSender mS;
-	mS.m_MyIDKey = 18;
+	mS.m_iEndpoint = 18;
 	mS.m_Slot = 8;
 	mS.m_UserAgreement = Zero;
 
 	wallet::IPrivateKeyKeeper2::Method::SignReceiver mR;
-	mR.m_MyIDKey = 23;
+	mR.m_iEndpoint = 23;
 
-	kkw.get_WalletID(mR.m_Peer, mS.m_MyIDKey);
-	kkw2.get_WalletID(mS.m_Peer, mR.m_MyIDKey);
+	kkw.get_Endpoint(mR.m_Peer, mS.m_iEndpoint);
+	kkw2.get_Endpoint(mS.m_Peer, mR.m_iEndpoint);
 
 	KeyKeeperWrap::Add(mS.m_vInputs, 50);
 	KeyKeeperWrap::Add(mS.m_vOutputs, 25);

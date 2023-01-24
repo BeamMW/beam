@@ -2781,17 +2781,17 @@ namespace
 
         {
             std::string sbbsAddressStr = "7a3b9afd0f6bba147a4e044329b135424ca3a57ab9982fe68747010a71e0cac3f3";
-            std::string identityStr = "3ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95";
-            auto token = GetSendToken(sbbsAddressStr, identityStr, Amount(11));
+            std::string endpointStr = "3ab404a243fd09f827e8941e419e523a5b21e17c70563bfbc211dbe0e87ca95";
+            auto token = GetSendToken(sbbsAddressStr, endpointStr, Amount(11));
             auto p = wallet::ParseParameters(token);
             WALLET_CHECK(p.is_initialized());
             const TxParameters& p2 = *p;
             WalletID address;
             WALLET_CHECK(address.FromHex(sbbsAddressStr));
             WALLET_CHECK(*p2.GetParameter<WalletID>(TxParameterID::PeerAddr) == address);
-            auto  identity = GetPeerIDFromHex(identityStr);
-            WALLET_CHECK(identity.is_initialized());
-            WALLET_CHECK(*identity == *p2.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity));
+            auto  endpoint = GetPeerIDFromHex(endpointStr);
+            WALLET_CHECK(endpoint.is_initialized());
+            WALLET_CHECK(*endpoint == *p2.GetParameter<PeerID>(TxParameterID::PeerEndpoint));
             WALLET_CHECK(*p2.GetParameter<Amount>(TxParameterID::Amount) == Amount(11));
         }
         { // invalid channel
@@ -2999,9 +2999,9 @@ namespace
         //completedCount = 1;
         //auto txId1 = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
         //    .SetParameter(TxParameterID::MyAddr, sender.m_WalletID)
-        //    .SetParameter(TxParameterID::MyWalletIdentity, sender.m_SecureWalletID)
+        //    .SetParameter(TxParameterID::MyEndpoint, sender.m_Endpoint)
         //    .SetParameter(TxParameterID::PeerAddr, receiver.m_WalletID)
-        //    .SetParameter(TxParameterID::PeerWalletIdentity, sender.m_SecureWalletID)
+        //    .SetParameter(TxParameterID::PeerEndpoint, sender.m_Endpoint)
         //    .SetParameter(TxParameterID::Amount, Amount(4))
         //    .SetParameter(TxParameterID::Fee, Amount(2))
         //    .SetParameter(TxParameterID::Lifetime, Height(200))
@@ -3017,9 +3017,9 @@ namespace
 
         auto txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyAddr, sender.m_WalletID)
-            .SetParameter(TxParameterID::MyWalletIdentity, sender.m_SecureWalletID)
+            .SetParameter(TxParameterID::MyEndpoint, sender.m_Endpoint)
             .SetParameter(TxParameterID::PeerAddr, receiver.m_WalletID)
-            .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
+            .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint)
             .SetParameter(TxParameterID::Amount, Amount(4))
             .SetParameter(TxParameterID::Fee, Amount(2))
             .SetParameter(TxParameterID::Lifetime, Height(200))
@@ -3155,9 +3155,9 @@ namespace
 
         auto txId  = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyAddr, sender.m_WalletID)
-            .SetParameter(TxParameterID::MyWalletIdentity, sender.m_SecureWalletID)
+            .SetParameter(TxParameterID::MyEndpoint, sender.m_Endpoint)
             .SetParameter(TxParameterID::PeerAddr, receiver.m_WalletID)
-            .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
+            .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint)
             .SetParameter(TxParameterID::Amount, nValNetto)
             .SetParameter(TxParameterID::Fee, nStdFee)
             .SetParameter(TxParameterID::Lifetime, Height(200))
@@ -3363,9 +3363,9 @@ namespace
             auto& sender = *w;
             sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
                 .SetParameter(TxParameterID::MyAddr, sender.m_WalletID)
-                .SetParameter(TxParameterID::MyWalletIdentity, sender.m_SecureWalletID)
+                .SetParameter(TxParameterID::MyEndpoint, sender.m_Endpoint)
                 .SetParameter(TxParameterID::PeerAddr, receiver.m_WalletID)
-                .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
+                .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint)
                 .SetParameter(TxParameterID::Amount, Amount(4))
                 .SetParameter(TxParameterID::Fee, Amount(2))
                 .SetParameter(TxParameterID::Lifetime, Height(200))
@@ -3805,7 +3805,7 @@ void TestKeyKeeper(IPrivateKeyKeeper2::Ptr externalKeyKeeper = {}, size_t index 
     struct Peer
     {
         IPrivateKeyKeeper2::Ptr m_pKk;
-        WalletIDKey m_KeyID;
+        EndpointIndex m_KeyID;
         PeerID m_ID;
     };
 
@@ -3845,7 +3845,7 @@ void TestKeyKeeper(IPrivateKeyKeeper2::Ptr externalKeyKeeper = {}, size_t index 
         WALLET_CHECK(m.m_pPKdf);
 
         Hash::Value hv;
-        Key::ID(p.m_KeyID, Key::Type::WalletID).get_Hash(hv);
+        Key::ID(p.m_KeyID, Key::Type::EndPoint).get_Hash(hv);
 
         Point::Native ptN;
         m.m_pPKdf->DerivePKeyG(ptN, hv);
@@ -3861,7 +3861,7 @@ void TestKeyKeeper(IPrivateKeyKeeper2::Ptr externalKeyKeeper = {}, size_t index 
     IPrivateKeyKeeper2::Method::SignSender mS;
     ZeroObjectUnchecked(mS); // not so good coz it contains vectors. nevermind, it's a test
     mS.m_Peer = r.m_ID;
-    mS.m_MyIDKey = s.m_KeyID;
+    mS.m_iEndpoint = s.m_KeyID;
     mS.m_Slot = 12;
     mS.m_pKernel.reset(new TxKernelStd);
     mS.m_pKernel->m_Fee = 315;
@@ -3876,7 +3876,7 @@ void TestKeyKeeper(IPrivateKeyKeeper2::Ptr externalKeyKeeper = {}, size_t index 
     IPrivateKeyKeeper2::Method::SignReceiver mR;
     ZeroObjectUnchecked(mR);
     mR.m_Peer = s.m_ID;
-    mR.m_MyIDKey = r.m_KeyID;
+    mR.m_iEndpoint = r.m_KeyID;
     mR.m_pKernel = std::move(mS.m_pKernel);
     mR.m_vInputs.push_back(CoinID(3, 2344, Key::Type::Regular));
     mR.m_vOutputs.push_back(CoinID(125, 2345, Key::Type::Regular));

@@ -161,7 +161,7 @@ namespace beam
 	void Treasury::get_ID(Key::IKdf& kdf, PeerID& pid, Scalar::Native& sk)
 	{
 		Key::ID kid(Zero);
-		kid.m_Type = ECC::Key::Type::WalletID;
+		kid.m_Type = ECC::Key::Type::EndPoint;
 
 		kdf.DeriveKey(sk, kid);
 		pid.FromSk(sk);

@@ -53,14 +53,14 @@ struct KeyKeeper
         return ks.m_sRes;
     }
 
-    std::string GetWalletID()
+    std::string GetEndpoint()
     {
-        return _impl2.GetWalletID();
+        return _impl2.GetEndpoint();
     }
 
-    std::string GetIdentity(const std::string& keyIDstr)
+    std::string GetEndpoint(const std::string& keyIDstr)
     {
-        return _impl2.GetIdentity(std::stoull(keyIDstr)).str();
+        return _impl2.GetEndpoint(std::stoull(keyIDstr)).str();
     }
 
     std::string GetSbbsAddress(const std::string& ownIDstr)
@@ -181,7 +181,7 @@ struct KeyKeeper
         method.m_pKernel = from_base64<TxKernelStd::Ptr>(kernel);
         method.m_NonConventional = nonConventional;
         method.m_Peer = from_base64<PeerID>(peerID);
-        method.m_MyIDKey = from_base64<WalletIDKey>(myIDKey);
+        method.m_iEndpoint = from_base64<EndpointIndex>(myIDKey);
 
         auto status = _impl2.InvokeSync(method);
         json res =
@@ -215,7 +215,7 @@ struct KeyKeeper
         method.m_pKernel = from_base64<TxKernelStd::Ptr>(kernel);
         method.m_NonConventional = nonConventional;
         method.m_Peer = from_base64<PeerID>(peerID);
-        method.m_MyIDKey = from_base64<WalletIDKey>(myIDKey);
+        method.m_iEndpoint = from_base64<EndpointIndex>(myIDKey);
         method.m_Slot = slot;
         method.m_UserAgreement = from_base64<ECC::Hash::Value>(userAgreement);
         method.m_MyID = from_base64<PeerID>(myID);
@@ -339,15 +339,15 @@ private:
 
         bool IsTrustless() override { return true; }
 
-        std::string GetWalletID() const
+        std::string GetEndpoint() const
         {
-            return GetIdentity(0).str();
+            return GetEndpoint(0).str();
         }
 
-        PeerID GetIdentity(uint64_t keyID) const
+        PeerID GetEndpoint(wallet::EndpointIndex iIdx) const
         {
             ECC::Scalar::Native sk;
-            m_pKdf->DeriveKey(sk, Key::ID(keyID, ECC::Key::Type::WalletID));
+            m_pKdf->DeriveKey(sk, Key::ID(iIdx, ECC::Key::Type::EndPoint));
             PeerID pid;
             pid.FromSk(sk);
             return pid;
@@ -442,7 +442,7 @@ EMSCRIPTEN_BINDINGS()
         .constructor<const std::string&>()
         .function("getOwnerKey",            &KeyKeeper::GetOwnerKey)
         .function("getWalletID",            &KeyKeeper::GetWalletID)
-        .function("getIdentity",            &KeyKeeper::GetIdentity)
+        .function("getEndpoint",            &KeyKeeper::GetEndpoint)
         .function("getSendToken",           &KeyKeeper::GetSendToken)
         .function("getSbbsAddress",         &KeyKeeper::GetSbbsAddress)
         .function("getSbbsAddressPrivate",  &KeyKeeper::GetSbbsAddressPrivate)

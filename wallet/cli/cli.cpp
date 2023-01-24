@@ -190,8 +190,8 @@ namespace
 
         bool hasNoPeerId = desc.m_sender && (addressType == TxAddressType::PublicOffline || addressType == TxAddressType::MaxPrivacy);
 
-        auto senderIdentity = desc.getSenderIdentity();
-        auto receiverIdentity = desc.getReceiverIdentity();
+        auto senderIdentity = desc.getSenderEndpoint();
+        auto receiverIdentity = desc.getReceiverEndpoint();
         bool showIdentity = !senderIdentity.empty() && !receiverIdentity.empty();
 
         auto sender = desc.getSender();
@@ -982,7 +982,7 @@ namespace
             const auto creationDateText = format_timestamp(kTimeStampFormat3x3, address.getCreateTime() * 1000, false);
 
             std::cout
-                << kAddrListIdentity << std::to_string(address.m_Identity) << std::endl
+                << kAddrListIdentity << std::to_string(address.m_Endpoint) << std::endl
                 << kAddrListActive   << (address.isExpired() ? "false" : "true") << std::endl
                 << kAddrListExprDate << expirationDateText << std::endl
                 << kAddrListCreated  << creationDateText << std::endl

@@ -435,7 +435,7 @@ struct TestWalletRig
         m_WalletDB->saveAddress(wa);
         m_WalletID = wa.m_walletID;
         m_OwnID = wa.m_OwnID;
-        m_WalletDB->get_Identity(m_SecureWalletID, m_OwnID);
+        m_WalletDB->get_Endpoint(m_Endpoint, m_OwnID);
 
         m_Wallet->ResumeAllTransactions();
 
@@ -504,7 +504,7 @@ struct TestWalletRig
     }
 
     WalletID m_WalletID;
-    PeerID m_SecureWalletID;
+    PeerID m_Endpoint;
     uint64_t m_OwnID;
     IWalletDB::Ptr m_WalletDB;
     std::shared_ptr<TestWallet> m_Wallet;

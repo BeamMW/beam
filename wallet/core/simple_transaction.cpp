@@ -158,7 +158,7 @@ namespace beam::wallet
         case TxParameterID::Lifetime:
         case TxParameterID::PaymentConfirmation:
         case TxParameterID::PeerProtoVersion:
-        case TxParameterID::PeerWalletIdentity:
+        case TxParameterID::PeerEndpoint:
         case TxParameterID::PeerMaxHeight:
         case TxParameterID::PeerPublicExcess:
         case TxParameterID::PeerPublicNonce:
@@ -215,14 +215,15 @@ namespace beam::wallet
                             throw std::runtime_error("Not own address in MyID");
                         }
                         SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
-                        SetParameter(TxParameterID::MyWalletIdentity, waddr->m_Identity);
+                        SetParameter(TxParameterID::MyEndpoint, waddr->m_Endpoint);
                     }
                 }
             }
 
-            PeerID myWalletID, peerWalletID;
-            bool hasID = GetParameter<PeerID>(TxParameterID::MyWalletIdentity, myWalletID)
-                && GetParameter<PeerID>(TxParameterID::PeerWalletIdentity, peerWalletID);
+            PeerID myEndpoint, peerEndpoint;
+            bool hasEndpoints =
+                GetParameter<PeerID>(TxParameterID::MyEndpoint, myEndpoint) &&
+                GetParameter<PeerID>(TxParameterID::PeerEndpoint, peerEndpoint);
 
             UpdateTxDescription(TxStatus::InProgress);
 
@@ -289,8 +290,8 @@ namespace beam::wallet
             if (builder.m_AssetID)
                 ss << ", asset ID: " << builder.m_AssetID;
 
-            if (hasID)
-                ss << ", my ID: " << myWalletID << ", peer ID: " << peerWalletID;
+            if (hasEndpoints)
+                ss << ", my EP: " << myEndpoint << ", peer EP: " << peerEndpoint;
 
             LOG_INFO() << ss.str();
             builder.SaveCoins();

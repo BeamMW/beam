@@ -66,23 +66,23 @@ namespace beam::wallet::lelantus
         WalletID widPeer;
         bool bHasWidPeer = GetParameter(TxParameterID::PeerAddr, widPeer);
 
-        if (!GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer))
+        if (!GetParameter(TxParameterID::PeerEndpoint, m.m_Peer))
         {
             auto wa = m_Tx.GetWalletDB()->getAddress(bHasWidPeer ? widPeer : widMy);
             if (!wa)
                 throw TransactionFailedException(true, TxFailureReason::NoPeerIdentity);
 
-            m.m_Peer = wa->m_Identity;
-            m.m_MyIDKey = wa->m_OwnID;
+            m.m_Peer = wa->m_Endpoint;
+            m.m_iEndpoint = wa->m_OwnID;
         }
 
         if (!GetParameter(TxParameterID::Voucher, m.m_Voucher))
         {
-            if (m.m_MyIDKey)
+            if (m.m_iEndpoint)
             {
                 // We're sending to ourselves. Create our voucher
                 IPrivateKeyKeeper2::Method::CreateVoucherShielded m2;
-                m2.m_MyIDKey = m.m_MyIDKey;
+                m2.m_iEndpoint = m.m_iEndpoint;
                 ECC::GenRandom(m2.m_Nonce);
 
                 if (IPrivateKeyKeeper2::Status::Success != m_Tx.get_KeyKeeperStrict()->InvokeSync(m2) ||
@@ -109,11 +109,11 @@ namespace beam::wallet::lelantus
 
         ZeroObject(m.m_User);
 
-        if (!m.m_MyIDKey)
+        if (!m.m_iEndpoint)
         {
             auto wa = m_Tx.GetWalletDB()->getAddress(widMy);
             if (wa)
-                m.m_User.m_Sender = wa->m_Identity;
+                m.m_User.m_Sender = wa->m_Endpoint;
         }
 
         // TODO: add ShieldedMessage if needed
@@ -217,9 +217,9 @@ namespace beam::wallet::lelantus
     {
         BaseTxBuilder::FillUserData(user);
         user->m_Amount = m_Value;
-        PeerID peerID = Zero;
-        GetParameter(TxParameterID::PeerWalletIdentity, peerID);
-        user->m_Peer = peerID;
+        PeerID peerEndpoint = Zero;
+        GetParameter(TxParameterID::PeerEndpoint, peerEndpoint);
+        user->m_Peer = peerEndpoint;
     }
 
 } // namespace beam::wallet::lelantus

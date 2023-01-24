@@ -19,7 +19,7 @@
 
 namespace beam::wallet
 {
-    using WalletIDKey = uint64_t;
+    using EndpointIndex = uint64_t;
 
     //
     // Interface to master key storage. HW wallet etc.
@@ -116,7 +116,7 @@ namespace beam::wallet
 
             struct CreateVoucherShielded
             {
-                WalletIDKey m_MyIDKey = 0;
+                EndpointIndex m_iEndpoint = 0;
                 ECC::Hash::Value m_Nonce;
                 uint32_t m_Count = 1; // the result amount of vouchers may be less (i.e. there's an internal limit)
                 std::vector<ShieldedTxo::Voucher> m_Res;
@@ -142,7 +142,7 @@ namespace beam::wallet
             {
                 // for mutually-constructed kernel
                 PeerID m_Peer;
-                WalletIDKey m_MyIDKey; // Must set for trustless wallet
+                EndpointIndex m_iEndpoint; // Must set for trustless wallet
                 ECC::Signature m_PaymentProofSignature;
             };
 
@@ -152,7 +152,7 @@ namespace beam::wallet
             struct SignSender :public TxMutual {
                 Slot::Type m_Slot;
                 ECC::Hash::Value m_UserAgreement; // set to Zero on 1st invocation
-                PeerID m_MyID; // set in legacy mode (where it was sbbs pubkey) instead of m_MyIDKey. Otherwise it'll be set automatically.
+                PeerID m_MyID; // set in legacy mode (where it was sbbs pubkey) instead of m_iEndpoint. Otherwise it'll be set automatically.
             };
 
             struct SignSplit :public TxCommon {
@@ -163,16 +163,16 @@ namespace beam::wallet
             {
                 ShieldedTxo::Voucher m_Voucher;
                 PeerID m_Peer;
-                WalletIDKey m_MyIDKey = 0; // set if sending to yourself (though makes no sense to do so)
+                EndpointIndex m_iEndpoint = 0; // set if sending to yourself (though makes no sense to do so)
 
                 // sent value and asset are derived from the tx balance (ins - outs)
                 ShieldedTxo::User m_User;
                 bool m_HideAssetAlways = false;
             };
 
-            struct DisplayWalletID
+            struct DisplayEndpoint
             {
-                WalletIDKey m_MyIDKey = 0;
+                EndpointIndex m_iEndpoint = 0;
             };
 
         };
@@ -188,7 +188,7 @@ namespace beam::wallet
 		macro(SignSender) \
 		macro(SignSendShielded) \
 		macro(SignSplit) \
-		macro(DisplayWalletID) \
+		macro(DisplayEndpoint) \
 
 
 #define THE_MACRO(method) \

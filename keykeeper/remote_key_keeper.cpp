@@ -403,7 +403,7 @@ namespace beam::wallet
 
     void RemoteKeyKeeper::Impl::Import(hw::TxMutualIn& txIn, const Method::TxMutual& m)
     {
-	    txIn.m_AddrID = m.m_MyIDKey;
+	    txIn.m_AddrID = m.m_iEndpoint;
 	    txIn.m_Peer = Ecc2BC(m.m_Peer);
     }
 
@@ -1102,7 +1102,7 @@ namespace beam::wallet
 
                 msg.m_Count = m_MaxCount;
                 msg.m_Nonce0 = Ecc2BC(m_M.m_Nonce);
-                msg.m_AddrID = m_M.m_MyIDKey;
+                msg.m_AddrID = m_M.m_iEndpoint;
 
                 SendReq_T(msg, (uint32_t) nSize);
             }
@@ -1396,7 +1396,7 @@ namespace beam::wallet
                 hw::Proto::TxSendShielded::Out msg;
 
                 msg.m_Mut.m_Peer = Ecc2BC(m_M.m_Peer);
-                msg.m_Mut.m_AddrID = m_M.m_MyIDKey;
+                msg.m_Mut.m_AddrID = m_M.m_iEndpoint;
                 msg.m_HideAssetAlways = m_M.m_HideAssetAlways;
                 Import(msg.m_User, m_M.m_User);
                 Import(msg.m_Tx.m_Krn, m_M);
@@ -1542,23 +1542,23 @@ namespace beam::wallet
 
     };
 
-    struct RemoteKeyKeeper::Impl::RemoteCall_DisplayWalletID
+    struct RemoteKeyKeeper::Impl::RemoteCall_DisplayEndpoint
         :public RemoteCall
     {
-        RemoteCall_DisplayWalletID(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::DisplayWalletID& m)
+        RemoteCall_DisplayEndpoint(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::DisplayEndpoint& m)
             :RemoteCall(kk, h)
             ,m_M(m)
         {
         }
 
-        Method::DisplayWalletID& m_M;
+        Method::DisplayEndpoint& m_M;
 
         void Update() override
         {
             if (!m_Phase)
             {
                 hw::Proto::DisplayAddress::Out msg;
-                msg.m_AddrID = m_M.m_MyIDKey;
+                msg.m_AddrID = m_M.m_iEndpoint;
                 SendReq_T(msg);
             }
 
