@@ -126,7 +126,7 @@ namespace fs = std::filesystem;
     each(duration,       duration,       INTEGER, obj) sep \
     each(OwnID,          OwnID,          INTEGER NOT NULL, obj) sep \
     each(Identity,       Endpoint,       BLOB, obj) sep \
-    each(Address,        Address,        TEXT NOT NULL PRIMARY KEY, obj) 
+    each(Address,        Token,        TEXT NOT NULL PRIMARY KEY, obj) 
 
 #define ADDRESS_FIELDS ENUM_ADDRESS_FIELDS(LIST, COMMA, )
 
@@ -1525,7 +1525,7 @@ namespace beam::wallet
 
                     if (addr.m_BbsAddr != Zero)
                     {
-                        addr.m_Address = std::to_string(addr.m_BbsAddr);
+                        addr.m_Token = std::to_string(addr.m_BbsAddr);
                         walletDB->saveAddress(addr, isLaser);
                     }
                 }
@@ -2987,7 +2987,7 @@ namespace beam::wallet
             LOG_INFO() << boost::format(kAddrNewGeneratedLabel) % addr.m_label;
         }
 
-        addr.m_Address = std::to_string(addr.m_BbsAddr);
+        addr.m_Token = std::to_string(addr.m_BbsAddr);
     }
 
     void IWalletDB::get_Endpoint(PeerID& pid, uint64_t ownID) const
@@ -4315,15 +4315,15 @@ namespace beam::wallet
         const std::string addrTableName = isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
 
         WalletAddress address = addr;
-        if (address.m_Address.empty())
+        if (address.m_Token.empty())
         {
             assert(address.m_BbsAddr != Zero);
-            address.m_Address = std::to_string(address.m_BbsAddr);
+            address.m_Token = std::to_string(address.m_BbsAddr);
         }
 
         auto selectByToken = "SELECT * FROM " + addrTableName + " WHERE address=?1;";
         sqlite::Statement stmToken(this, selectByToken.c_str());
-        stmToken.bind(1, address.m_Address);
+        stmToken.bind(1, address.m_Token);
 
         if (stmToken.step())
         {
@@ -4331,7 +4331,7 @@ namespace beam::wallet
                 auto updateReq = "UPDATE " + addrTableName + " SET label=?2, category=?3, duration=?4, createTime=?5, walletID=?6, OwnID=?7, Identity=?8 WHERE address=?1;";
                 sqlite::Statement stm(this, updateReq.c_str());
 
-                stm.bind(1, address.m_Address);
+                stm.bind(1, address.m_Token);
                 stm.bind(2, address.m_label);
                 stm.bind(3, address.m_category);
                 stm.bind(4, address.m_duration);
@@ -4363,7 +4363,7 @@ namespace beam::wallet
                     auto updateReq = "UPDATE " + addrTableName + " SET address=?1, label=?2, category=?3, duration=?4, createTime=?5, OwnID=?7, Identity=?8 WHERE walletID=?6;";
                     sqlite::Statement stm(this, updateReq.c_str());
 
-                    stm.bind(1, address.m_Address);
+                    stm.bind(1, address.m_Token);
                     stm.bind(2, address.m_label);
                     stm.bind(3, address.m_category);
                     stm.bind(4, address.m_duration);
@@ -6475,7 +6475,7 @@ namespace beam::wallet
                             }
                             if (auto it = jsonAddress.find(Fields::Address); it != jsonAddress.end())
                             {
-                                address.m_Address = it->get<std::string>();
+                                address.m_Token = it->get<std::string>();
                             }
                             db.saveAddress(address);
 
@@ -6630,7 +6630,7 @@ namespace beam::wallet
                             {Fields::CreationTime, address.m_createTime},
                             {Fields::Duration, address.m_duration},
                             {Fields::Category, address.m_category},
-                            {Fields::Address,  address.m_Address}
+                            {Fields::Address,  address.m_Token}
                         }
                     );
                     if (address.m_Endpoint != Zero)

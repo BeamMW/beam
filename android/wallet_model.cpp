@@ -54,7 +54,7 @@ namespace
         setLongField(env, WalletAddressClass, addr, "createTime", address.m_createTime);
         setLongField(env, WalletAddressClass, addr, "duration", address.m_duration);
         setLongField(env, WalletAddressClass, addr, "own", address.m_OwnID);
-        setStringField(env, WalletAddressClass, addr, "address", address.m_Address);
+        setStringField(env, WalletAddressClass, addr, "address", address.m_Token);
 
         return addr;
     }

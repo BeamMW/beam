@@ -127,7 +127,7 @@ namespace beam::wallet
         uint64_t    m_duration;   // if equals to "AddressExpirationNever" then address never expires
         uint64_t    m_OwnID;      // set for own address
         PeerID      m_Endpoint;
-        std::string m_Address;    // token publicly visible to users
+        std::string m_Token;    // token publicly visible to users
         
         WalletAddress(const std::string& label = std::string(), const std::string& category = std::string());
 

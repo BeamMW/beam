@@ -626,7 +626,7 @@ void TestAddresses()
     a.m_OwnID = 44;
     db->get_SbbsWalletID(a.m_BbsAddr, a.m_OwnID);
     WALLET_CHECK(a.m_Endpoint == Zero);
-    a.m_Address = std::to_string(a.m_BbsAddr);
+    a.m_Token = std::to_string(a.m_BbsAddr);
     db->saveAddress(a);
 
     WalletAddress c = {};
@@ -647,7 +647,7 @@ void TestAddresses()
     WALLET_CHECK(addresses[0].m_createTime == a.m_createTime);
     WALLET_CHECK(addresses[0].m_duration == a.m_duration);
     WALLET_CHECK(addresses[0].m_OwnID == a.m_OwnID);
-    WALLET_CHECK(addresses[0].m_Address == a.m_Address);
+    WALLET_CHECK(addresses[0].m_Token == a.m_Token);
     
     PeerID endPoint = Zero;
     db->get_Endpoint(endPoint, a.m_OwnID);
@@ -662,7 +662,7 @@ void TestAddresses()
     WALLET_CHECK(contacts[0].m_duration == c.m_duration);
     WALLET_CHECK(contacts[0].m_OwnID == c.m_OwnID);
     WALLET_CHECK(contacts[0].m_Endpoint == c.m_Endpoint);
-    WALLET_CHECK(contacts[0].m_Address == std::to_string(c.m_BbsAddr));
+    WALLET_CHECK(contacts[0].m_Token == std::to_string(c.m_BbsAddr));
 
 
     a.m_category = "cat2";
@@ -698,12 +698,12 @@ void TestAddresses()
         WALLET_CHECK(a3.is_initialized());
         WALLET_CHECK(a3->m_category == a.m_category);
         WALLET_CHECK(a3->m_Endpoint == endPoint);
-        WALLET_CHECK(refa.m_Address == a.m_Address);
+        WALLET_CHECK(refa.m_Token == a.m_Token);
         auto a4 = db->getAddress(c.m_BbsAddr);
         WALLET_CHECK(a4.is_initialized());
         WALLET_CHECK(a4->m_category == c.m_category);
         WALLET_CHECK(a4->m_Endpoint == c.m_Endpoint);
-        WALLET_CHECK(a4->m_Address == std::to_string(c.m_BbsAddr));
+        WALLET_CHECK(a4->m_Token == std::to_string(c.m_BbsAddr));
 
         WALLET_CHECK(addresses == db->getAddresses(true));
         WALLET_CHECK(contacts == db->getAddresses(false));

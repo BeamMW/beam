@@ -1087,9 +1087,9 @@ namespace beam::wallet
     {
         for (auto& addr : items)
         {
-            auto type = GetTokenType(addr.m_Address);
+            auto type = GetTokenType(addr.m_Token);
             json obj = {
-                {"address",     addr.m_Address},
+                {"address",     addr.m_Token},
                 {"comment",     addr.m_label},
                 {"category",    addr.m_category},
                 {"create_time", addr.getCreateTime()},

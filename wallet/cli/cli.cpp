@@ -854,9 +854,9 @@ namespace
 
         try
         {
-            address.m_Address = GenerateToken(type, address, walletDB, offlineCount);
+            address.m_Token = GenerateToken(type, address, walletDB, offlineCount);
             walletDB->saveAddress(address);
-            std::cout << "New address: " << address.m_Address << std::endl;
+            std::cout << "New address: " << address.m_Token << std::endl;
         }
         catch (const std::exception& ex)
         {
@@ -939,7 +939,7 @@ namespace
 
     std::string GetAddressTypeString(const WalletAddress& address)
     {
-        const auto type = GetTokenType(address.m_Address);
+        const auto type = GetTokenType(address.m_Token);
         switch (type)
         {
             case TokenType::Public: return "public offline";
@@ -968,7 +968,7 @@ namespace
             std::cout
                 << kAddrListType    << GetAddressTypeString(address) << std::endl
                 << kAddrListComment << address.m_label << std::endl
-                << kAddrListAddress << address.m_Address << std::endl;
+                << kAddrListAddress << address.m_Token << std::endl;
 
             if (address.m_BbsAddr.IsValid())
             {

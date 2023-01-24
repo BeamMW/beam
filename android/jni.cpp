@@ -753,7 +753,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
                 address->m_label = getStringField(env, WalletAddressClass, walletAddrObj, "label");
                 address->m_category = getStringField(env, WalletAddressClass, walletAddrObj, "category");
                 address->m_duration = getLongField(env, WalletAddressClass, walletAddrObj, "duration");
-                address->m_Address = getStringField(env, WalletAddressClass, walletAddrObj, "address");
+                address->m_Token = getStringField(env, WalletAddressClass, walletAddrObj, "address");
                 walletDB->saveAddress(*address);
             }
             else {
@@ -766,7 +766,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
                 addr.m_createTime = getLongField(env, WalletAddressClass, walletAddrObj, "createTime");
                 addr.m_duration = getLongField(env, WalletAddressClass, walletAddrObj, "duration");
                 addr.m_OwnID = getLongField(env, WalletAddressClass, walletAddrObj, "own");
-                addr.m_Address = getStringField(env, WalletAddressClass, walletAddrObj, "address");
+                addr.m_Token = getStringField(env, WalletAddressClass, walletAddrObj, "address");
 
                 if(own) 
                 {
@@ -784,7 +784,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
         addr.m_BbsAddr = Zero;
         addr.m_OwnID = getLongField(env, WalletAddressClass, walletAddrObj, "own");
         addr.m_duration = getLongField(env, WalletAddressClass, walletAddrObj, "duration");
-        addr.m_Address = getStringField(env, WalletAddressClass, walletAddrObj, "address");
+        addr.m_Token = getStringField(env, WalletAddressClass, walletAddrObj, "address");
         addr.m_createTime = getLongField(env, WalletAddressClass, walletAddrObj, "createTime");
         addr.m_category = getStringField(env, WalletAddressClass, walletAddrObj, "category");
         addr.m_label = getStringField(env, WalletAddressClass, walletAddrObj, "label");

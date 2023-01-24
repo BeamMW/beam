@@ -465,7 +465,7 @@ namespace beam::wallet
         struct AddressKey
         {
             typedef std::string type;
-            const type& operator()(const WalletAddress& c) const { return c.m_Address; }
+            const type& operator()(const WalletAddress& c) const { return c.m_Token; }
         };
         ChangesCollector <WalletAddress, AddressKey> m_AddressChangesCollector;
 

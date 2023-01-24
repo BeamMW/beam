@@ -123,10 +123,10 @@ namespace beam::wallet
         if (data.expiration) address.setExpirationStatus(*data.expiration);
         if (isApp())         address.setCategory(getAppId());
 
-        address.m_Address = GenerateToken(data.type, address,  walletDB, data.offlinePayments);
+        address.m_Token = GenerateToken(data.type, address,  walletDB, data.offlinePayments);
         walletDB->saveAddress(address);
 
-        doResponse(id, CreateAddress::Response{address.m_Address});
+        doResponse(id, CreateAddress::Response{address.m_Token});
     }
 
     void V6Api::onHandleDeleteAddress(const JsonRpcId& id, DeleteAddress&& data)

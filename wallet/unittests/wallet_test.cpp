@@ -4251,12 +4251,12 @@ void TestAddressGeneration()
     WALLET_CHECK(GetAddressType(t5) == TxAddressType::PublicOffline);
 
     const std::string abra = "cadabra";
-    addr.m_Address = abra;
+    addr.m_Token = abra;
     db->saveAddress(addr);
 
     auto read = db->getAddress(addr.m_BbsAddr);
     WALLET_CHECK(read);
-    WALLET_CHECK(read->m_Address == abra);
+    WALLET_CHECK(read->m_Token == abra);
 }
 
 void TestAddressVersions()
