@@ -150,6 +150,7 @@ namespace beam::wallet
         virtual void sendInstantMessage(const WalletID& peerID, const WalletID& myID, ByteBuffer&& message) = 0;
         virtual void getChats() = 0;
         virtual void getInstantMessages(const WalletID& peerID) = 0;
+        virtual void removeChat(const WalletID& peerID) = 0;
 
         virtual ~IWalletModelAsync() = default;
     };

@@ -5194,6 +5194,15 @@ namespace beam::wallet
         return chats;
     }
 
+    void WalletDB::removeChat(const WalletID& counterpart)
+    {
+        const char* req = "DELETE FROM " IM_NAME " WHERE counterpart=?1;";
+
+        sqlite::Statement stm(this, req);
+        stm.bind(1, counterpart);
+        stm.step();
+    }
+
     void WalletDB::insertEvent(Height h, const Blob& body, const Blob& key)
     {
         sqlite::Statement stm(this, "INSERT INTO " EVENTS_NAME "(" ENUM_EVENTS_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_EVENTS_FIELDS(BIND_LIST, COMMA, ) ");");

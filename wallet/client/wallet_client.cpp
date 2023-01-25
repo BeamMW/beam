@@ -490,6 +490,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::getInstantMessages, peerID);
     }
+
+    void removeChat(const WalletID& peerID) override
+    {
+        call_async(&IWalletModelAsync::removeChat, peerID);
+    }
 };
 }
 
@@ -2329,6 +2334,15 @@ namespace beam::wallet
         postFunctionToClientContext([this, messages]()
             {
                 onGetChatMessages(messages);
+            });
+    }
+
+    void WalletClient::removeChat(const WalletID& peerID)
+    {
+        m_walletDB->removeChat(peerID);
+        postFunctionToClientContext([this, peerID]()
+            {
+                onChatRemoved(peerID);
             });
     }
 

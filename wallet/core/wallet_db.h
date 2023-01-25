@@ -627,6 +627,7 @@ namespace beam::wallet
         virtual std::vector<InstantMessage> readIMs(bool all = false) = 0;
         virtual std::vector<InstantMessage> readIMs(const WalletID& counterpart) = 0;
         virtual std::vector<WalletID> getChats() = 0;
+        virtual void removeChat(const WalletID& counterpart) = 0;
 
         // Events
         virtual void insertEvent(Height h, const Blob& body, const Blob& key) = 0;
@@ -799,6 +800,7 @@ namespace beam::wallet
         std::vector<InstantMessage> readIMs(bool all = false) override;
         std::vector<InstantMessage> readIMs(const WalletID& counterpart) override;
         std::vector<WalletID> getChats() override;
+        void removeChat(const WalletID& counterpart) override;
 
         void insertEvent(Height h, const Blob& body, const Blob& key) override;
         void deleteEventsFrom(Height h) override;
