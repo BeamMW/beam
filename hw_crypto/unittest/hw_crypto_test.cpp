@@ -113,24 +113,12 @@ void TestFailed(const char* szExpr, uint32_t nLine)
 			TestFailed(#x, __LINE__); \
 	} while (false)
 
-void GenerateRandom(void* p, uint32_t n)
-{
-	for (uint32_t i = 0; i < n; i++)
-		((uint8_t*) p)[i] = (uint8_t) rand();
-}
-
-template <uint32_t nBytes>
-void SetRandom(uintBig_t<nBytes>& x)
-{
-	GenerateRandom(x.m_pData, x.nBytes);
-}
-
 void SetRandom(ECC::Scalar::Native& x)
 {
 	ECC::Scalar s;
 	while (true)
 	{
-		SetRandom(s.m_Value);
+		ECC::GenRandom(s.m_Value);
 		if (!x.Import(s))
 			break;
 	}
@@ -140,7 +128,7 @@ void SetRandom(ECC::Point::Native& value, uint8_t y = 0)
 {
     ECC::Point p;
 
-    SetRandom(p.m_X);
+	ECC::GenRandom(p.m_X);
     p.m_Y = y;
 
     while (!value.Import(p))
@@ -153,7 +141,7 @@ void SetRandom(ECC::Point::Native& value, uint8_t y = 0)
 template <typename T>
 void SetRandomOrd(T& x)
 {
-	GenerateRandom(&x, sizeof(x));
+	ECC::GenRandom(&x, sizeof(x));
 }
 
 hw::UintBig& Ecc2BC(const ECC::uintBig& x)
@@ -363,7 +351,7 @@ void TestNonceGen()
 	for (int i = 0; i < 3; i++)
 	{
 		ECC::Hash::Value seed;
-		SetRandom(seed);
+		ECC::GenRandom(seed);
 
 		ECC::NonceGenerator ng1(szSalt);
 		ng1 << seed;
@@ -404,7 +392,7 @@ void TestOracle()
 			}
 
 			ECC::Hash::Value val;
-			SetRandom(val);
+			ECC::GenRandom(val);
 
 			o1 << val;
 			hw::Oracle_Expose(&o2, val.m_pData, val.nBytes);
@@ -517,7 +505,7 @@ void TestCoins()
 	hw::Kdf kdf2;
 
 	ECC::Hash::Value hv;
-	SetRandom(hv);
+	ECC::GenRandom(hv);
 
 	hkdf.Generate(hv);
 	hw::Kdf_Init(&kdf2, &Ecc2BC(hv));
@@ -564,7 +552,7 @@ void TestKdf()
 	for (int i = 0; i < 3; i++)
 	{
 		ECC::Hash::Value hv;
-		SetRandom(hv);
+		ECC::GenRandom(hv);
 
 		if (i)
 		{
@@ -582,7 +570,7 @@ void TestKdf()
 
 		for (int j = 0; j < 5; j++)
 		{
-			SetRandom(hv);
+			ECC::GenRandom(hv);
 
 			ECC::Scalar::Native sk1, sk2;
 
@@ -605,7 +593,7 @@ void TestSignature()
 	{
 		ECC::Hash::Value msg;
 		ECC::Scalar::Native sk;
-		SetRandom(msg);
+		ECC::GenRandom(msg);
 		SetRandom(sk);
 
 		ECC::Point::Native pkN = ECC::Context::get().G * sk;
@@ -671,7 +659,7 @@ void TestPKdfExport()
 	for (int i = 0; i < 3; i++)
 	{
 		ECC::Hash::Value hv;
-		SetRandom(hv);
+		ECC::GenRandom(hv);
 
 		ECC::HKdf hkdf;
 		hkdf.Generate(hv);
@@ -817,7 +805,7 @@ struct KeyKeeperWrap
 	KeyKeeperWrap(const ECC::Hash::Value& hv)
 		:m_kkStd(get_KdfFromSeed(hv))
 	{
-		SetRandom(m_kkStd.m_State.m_hvLast);
+		ECC::GenRandom(m_kkStd.m_State.m_hvLast);
 
 		hw::Kdf_Init(&m_kkEmu.m_Ctx.m_MasterKey, &Ecc2BC(hv));
 
@@ -1005,9 +993,9 @@ wallet::IPrivateKeyKeeper2::ShieldedInput& KeyKeeperWrap::AddSh(std::vector<wall
 {
 	wallet::IPrivateKeyKeeper2::ShieldedInput& ret = vec.emplace_back();
 
-	SetRandom(ret.m_User.m_Sender);
-	SetRandom(ret.m_User.m_pMessage[0]);
-	SetRandom(ret.m_User.m_pMessage[1]);
+	ECC::GenRandom(ret.m_User.m_Sender);
+	ECC::GenRandom(ret.m_User.m_pMessage[0]);
+	ECC::GenRandom(ret.m_User.m_pMessage[1]);
 
 	ECC::Scalar::Native sk;
 	SetRandom(sk);
@@ -1045,8 +1033,8 @@ void KeyKeeperWrap::ExportTx(Transaction& tx, const wallet::IPrivateKeyKeeper2::
 		KeyKeeperHwEmu::Method::CreateOutput m;
 		m.m_hScheme = g_hFork;
 		m.m_Cid = tx2.m_vOutputs[i];
-		SetRandom(m.m_User.m_pExtra[0].m_Value);
-		SetRandom(m.m_User.m_pExtra[1].m_Value);
+		ECC::GenRandom(m.m_User.m_pExtra[0].m_Value);
+		ECC::GenRandom(m.m_User.m_pExtra[1].m_Value);
 		
 		verify_test(Cast::Down<wallet::IPrivateKeyKeeper2>(m_kkEmu).InvokeSync(m) == KeyKeeperHwEmu::Status::Success);
 		assert(m.m_pResult);
@@ -1189,7 +1177,7 @@ void KeyKeeperWrap::TestRcv()
 	m.m_pKernel->m_Height.m_Max = g_hFork + 40;
 	m.m_pKernel->m_Fee = 20;
 
-	SetRandom(m.m_Peer);
+	ECC::GenRandom(m.m_Peer);
 	m.m_iEndpoint = 325;
 
 	// make the kernel look like the sender already did its part
@@ -1238,7 +1226,7 @@ void TestShielded()
 	printf("Shielded vouchers...\n");
 
 	ECC::Hash::Value hv;
-	SetRandom(hv);
+	ECC::GenRandom(hv);
 	KeyKeeperWrap kkw(hv);
 
 	std::vector<ShieldedTxo::Voucher> vVouchers;
@@ -1319,7 +1307,7 @@ void TestShielded()
 		m.m_Key.m_kSerG = sk;
 		m.m_Key.m_nIdx = i;
 		m.m_Key.m_IsCreatedByViewer = (i >= 2);
-		GenerateRandom(&m.m_User, sizeof(m.m_User));
+		ECC::GenRandom(&m.m_User, sizeof(m.m_User));
 		m.m_Value = 100500;
 		m.m_AssetID = 1 & i;
 
@@ -1388,7 +1376,7 @@ void TestShielded()
 		m.m_Voucher = vVouchers.front();
 		m.m_Peer = pidRcv;
 
-		GenerateRandom(&m.m_User, sizeof(m.m_User));
+		ECC::GenRandom(&m.m_User, sizeof(m.m_User));
 
 		ECC::uintBig hvHuge = 12U;
 		hvHuge.Negate();
@@ -1433,7 +1421,7 @@ void TestShielded()
 void TestKeyKeeperTxs()
 {
 	ECC::Hash::Value hv;
-	SetRandom(hv);
+	ECC::GenRandom(hv);
 
 	KeyKeeperWrap kkw(hv);
 
@@ -1447,7 +1435,7 @@ void TestKeyKeeperTxs()
 	printf("Mutual Snd-Rcv-Snd tx...\n");
 
 	// try a full with tx from both sides, each belongs to a different wallet
-	SetRandom(hv);
+	ECC::GenRandom(hv);
 	KeyKeeperWrap kkw2(hv); // the receiver
 
 	wallet::IPrivateKeyKeeper2::Method::SignSender mS;
@@ -1514,8 +1502,12 @@ int main()
 	io::Reactor::Ptr pReactor(io::Reactor::create());
 	io::Reactor::Scope scope(*pReactor);
 
+	ECC::PseudoRandomGenerator prg;
+	ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
+
 	//InitContext();
 
+	TestMisc();
 	TestMultiMac();
 	TestNonceGen();
 	TestOracle();
