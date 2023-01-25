@@ -135,10 +135,10 @@ namespace beam {
         uint32_t DecodeW(const char* szEnc, uint32_t nEnc, uint32_t* pW, uint32_t nW, uint32_t& nW_Nnz)
         {
             const uint32_t ord1 = Base58::s_Radix;
-            const uint32_t ord2 = ord1 * ord1;
-            const uint32_t ord3 = ord2 * ord1;
-            const uint32_t ord4 = ord3 * ord1;
-            const uint32_t ord5 = ord4 * ord1;
+            // const uint32_t ord2 = ord1 * ord1;
+            // const uint32_t ord3 = ord2 * ord1;
+            // const uint32_t ord4 = ord3 * ord1;
+            // const uint32_t ord5 = ord4 * ord1;
 
             nW_Nnz = nW;
 
