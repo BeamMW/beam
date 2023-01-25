@@ -637,6 +637,7 @@ void TestAddresses()
     c.m_OwnID = 0;
     db->get_SbbsWalletID(c.m_BbsAddr, 32);
     db->get_Endpoint(c.m_Endpoint, 32);
+    c.setDefaultToken();
     db->saveAddress(c);
 
     addresses = db->getAddresses(true);
@@ -662,7 +663,7 @@ void TestAddresses()
     WALLET_CHECK(contacts[0].m_duration == c.m_duration);
     WALLET_CHECK(contacts[0].m_OwnID == c.m_OwnID);
     WALLET_CHECK(contacts[0].m_Endpoint == c.m_Endpoint);
-    WALLET_CHECK(contacts[0].m_Token == std::to_string(c.m_BbsAddr));
+    WALLET_CHECK(contacts[0].m_Token == c.m_Token);
 
 
     a.m_category = "cat2";
@@ -703,7 +704,7 @@ void TestAddresses()
         WALLET_CHECK(a4.is_initialized());
         WALLET_CHECK(a4->m_category == c.m_category);
         WALLET_CHECK(a4->m_Endpoint == c.m_Endpoint);
-        WALLET_CHECK(a4->m_Token == std::to_string(c.m_BbsAddr));
+        WALLET_CHECK(a4->m_Token == c.m_Token);
 
         WALLET_CHECK(addresses == db->getAddresses(true));
         WALLET_CHECK(contacts == db->getAddresses(false));

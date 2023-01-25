@@ -81,7 +81,7 @@ namespace beam
         }
 
         static uint32_t EncodeRaw(char* szEnc, uint32_t nEnc, uint32_t* pWrk, const uint8_t* p, uint32_t n); // returns the num of nnz characters.
-        // Supplied string is always fully filled (perhaps with leading '0' characeters). Returns nEnc+1 if the buffer was not enough
+        // Supplied string is always fully filled (perhaps with leading '1' characeters). Returns nEnc+1 if the buffer was not enough
         // does NOT 0-terminate the result
 
         static uint32_t DecodeRaw(uint8_t* p, uint32_t n, uint32_t* pWrk, const char* szEnc, uint32_t nEnc); // returns num of processed characters

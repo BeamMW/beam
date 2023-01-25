@@ -1762,7 +1762,13 @@ template <uint32_t nTxtSize>
 void TestBase58_Once(const char(&szTxt)[nTxtSize], const char* szVerify)
 {
 	auto sTxt = beam::Base58::to_string<nTxtSize - 1>(reinterpret_cast<const uint8_t*>(szTxt));
-	verify_test(sTxt == szVerify);
+
+	// trim potential leading '1'
+	uint32_t nTrim = 0;
+	while (nTrim < sTxt.size() && ('1' == sTxt[nTrim]))
+		nTrim++;
+
+	verify_test(!memcmp(sTxt.c_str() + nTrim, szVerify, sTxt.size() - nTrim + 1));
 
 	// decode
 	uint8_t pDec[nTxtSize - 1];
