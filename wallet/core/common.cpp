@@ -16,6 +16,7 @@
 #include "common.h"
 #include "utility/logger.h"
 #include "core/ecc_native.h"
+#include "core/base58.h"
 #include "core/serialization_adapters.h"
 #include "base58.h"
 #include "utility/string_helpers.h"
@@ -140,6 +141,11 @@ namespace std
     string to_string(const beam::PeerID& id)
     {
         return EncodeToHex(id);
+    }
+
+    string to_base58(const beam::PeerID& id)
+    {
+        return Base58::to_string(id);
     }
 
      unsigned to_unsigned(const std::string& what, bool throws)

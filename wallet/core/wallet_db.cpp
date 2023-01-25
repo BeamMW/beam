@@ -2983,8 +2983,11 @@ namespace beam::wallet
 
         LOG_INFO() << boost::format(kWalletAddrNewGenerated) % addr.m_Token;
 
-        if (!addr.m_label.empty())
-        {
+        if (addr.m_Endpoint != Zero) {
+            LOG_INFO() << boost::format(kAddrNewGeneratedEndpoint) % std::to_base58(addr.m_Endpoint);
+        }
+
+        if (!addr.m_label.empty()) {
             LOG_INFO() << boost::format(kAddrNewGeneratedLabel) % addr.m_label;
         }
     }
@@ -6424,7 +6427,7 @@ namespace beam::wallet
                 const string TransactionParameters = "TransactionParameters";
                 const string Category = "Category";
                 const string BbsAddr = "WalletID";
-                const string Endpoint = "Identity";
+                const string EndpointHex = "Identity";
                 const string Index = "Index";
                 const string Label = "Label";
                 const string CreationTime = "CreationTime";
@@ -6469,7 +6472,7 @@ namespace beam::wallet
                             {
                                 address.m_category = it->get<std::string>();
                             }
-                            if (auto it = jsonAddress.find(Fields::Endpoint); it != jsonAddress.end())
+                            if (auto it = jsonAddress.find(Fields::EndpointHex); it != jsonAddress.end())
                             {
                                 bool isValid = false;
                                 auto buf = from_hex(*it, &isValid);
@@ -6640,7 +6643,7 @@ namespace beam::wallet
                     );
                     if (address.m_Endpoint != Zero)
                     {
-                        addresses.back().push_back({ Fields::Endpoint, to_string(address.m_Endpoint) });
+                        addresses.back().push_back({ Fields::EndpointHex, to_string(address.m_Endpoint) });
                     }
                 }
                 return addresses;

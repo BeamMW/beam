@@ -853,6 +853,7 @@ namespace std
     string to_string(const beam::wallet::TxParameters&);
     string to_string(const beam::wallet::TxID&);
     string to_string(const beam::PeerID&);
+    string to_base58(const beam::PeerID&);
     string to_string(const beam::AmountBig::Type&);
 
     template<>

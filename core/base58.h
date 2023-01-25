@@ -115,6 +115,12 @@ namespace beam
             return s;
         }
 
+        template <typename T>
+        static std::string to_string(const T& x)
+        {
+            return to_string<sizeof(T)>(reinterpret_cast<const uint8_t*>(&x));
+        }
+
     };
 
 } // namespace beam

@@ -685,7 +685,6 @@ namespace
         address.setExpirationStatus(expirationStatus);
         walletDB->saveAddress(address);
 
-        std::cout << "New address: " << address.m_Token;
         return true;
     }
 
@@ -856,7 +855,6 @@ namespace
         {
             address.m_Token = GenerateToken(type, address, walletDB, offlineCount);
             walletDB->saveAddress(address);
-            std::cout << "New address: " << address.m_Token << std::endl;
         }
         catch (const std::exception& ex)
         {
@@ -982,7 +980,7 @@ namespace
             const auto creationDateText = format_timestamp(kTimeStampFormat3x3, address.getCreateTime() * 1000, false);
 
             std::cout
-                << kAddrListEndpoint << std::to_string(address.m_Endpoint) << std::endl
+                << kAddrListEndpoint << std::to_base58(address.m_Endpoint) << std::endl
                 << kAddrListActive   << (address.isExpired() ? "false" : "true") << std::endl
                 << kAddrListExprDate << expirationDateText << std::endl
                 << kAddrListCreated  << creationDateText << std::endl
