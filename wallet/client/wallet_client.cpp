@@ -48,6 +48,7 @@ constexpr size_t kShieldedPer24hFilterSize = 20;
 constexpr size_t kShieldedPer24hFilterBlocksForUpdate = 144;
 constexpr size_t kShieldedCountHistoryWindowSize = kShieldedPer24hFilterSize << 1;
 constexpr int kOneTimeLoadTxCount = 100;
+const size_t kMaxImMessageLength = 1024;
 
 using WalletSubscriber = ScopedSubscriber<wallet::IWalletObserver, wallet::Wallet>;
 
@@ -2310,12 +2311,19 @@ namespace beam::wallet
     void WalletClient::sendInstantMessage(const WalletID& peerID, const WalletID& myID, ByteBuffer&& message)
     {
         auto timestamp = getTimestamp();
-        m_walletDB->storeIM(timestamp, peerID, std::string(message.begin(), message.end()), false);
+
+        ByteBuffer trimmed_message(message);
+        if (trimmed_message.size() >= kMaxImMessageLength)
+        {
+            trimmed_message.erase(trimmed_message.begin() + kMaxImMessageLength, trimmed_message.end());
+        }
+
+        m_walletDB->storeIM(timestamp, peerID, std::string(trimmed_message.begin(), trimmed_message.end()), false);
 
         auto s = m_wallet.lock();
         if (s)
         {
-            s->sendInstantSbbsMessage(timestamp, peerID, myID, std::move(message));
+            s->sendInstantSbbsMessage(timestamp, peerID, myID, std::move(trimmed_message));
         }
     }
 

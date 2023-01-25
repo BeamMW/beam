@@ -32,9 +32,6 @@
 #include <numeric>
 #include <queue>
 
-namespace {
-    const size_t kMaxImMessageLength = 1024;
-}  // namespace
 namespace beam::wallet
 {
     using namespace std;
@@ -2519,15 +2516,9 @@ namespace beam::wallet
         msg.m_From = myID;
         msg.m_Type = TxType::InstantSbbsMessage;
 
-        ByteBuffer trimmed_message(message);
-        if (trimmed_message.size() >= kMaxImMessageLength)
-        {
-            trimmed_message.erase(trimmed_message.begin() + kMaxImMessageLength, trimmed_message.end());
-        }
-
-        msg.AddParameter((TxParameterID) 0, trimmed_message.size());
+        msg.AddParameter((TxParameterID) 0, message.size());
         msg.AddParameter((TxParameterID) 1, timestamp);
-        msg.AddParameter((TxParameterID) 2, trimmed_message);
+        msg.AddParameter((TxParameterID) 2, message);
 
         SendSpecialMsg(peerID, msg);
     }
