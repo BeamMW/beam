@@ -16,6 +16,7 @@
 
 #include "../core/ecc_native.h"
 #include "../core/block_crypt.h"
+#include "../core/base58.h"
 
 #include "../keykeeper/local_private_key_keeper.h"
 #include "../keykeeper/remote_key_keeper.h"
@@ -72,7 +73,7 @@ extern "C"
 		return static_cast<Amount>(-1);
 	}
 
-	void KeyKeeper_DisplayAddress(KeyKeeper*, AddrID addrID, const UintBig* pAddr)
+	void KeyKeeper_DisplayEndpoint(KeyKeeper*, AddrID addrID, const UintBig* pAddr)
 	{
 	}
 
@@ -259,6 +260,28 @@ void InitContext()
 
 }
 
+void TestMisc()
+{
+	printf("Miscellanous...\n");
+
+	static_assert(Base58::get_MaxEnc<PeerID::nBytes>() == c_KeyKeeper_Endpoint_Len);
+
+	for (uint32_t i = 0; i < 20; i++)
+	{
+		ECC::Hash::Value hv;
+		ECC::GenRandom(hv);
+
+		if (!(i % 8))
+			memset0(hv.m_pData, 10); // check head padding
+
+		char sz1[c_KeyKeeper_Endpoint_Len], sz2[c_KeyKeeper_Endpoint_Len];
+		hw::PrintEndpoint(sz1, &Ecc2BC(hv));
+		Base58::Encode<ECC::Hash::Value::nBytes>(sz2, hv.m_pData);
+
+		verify_test(!memcmp(sz1, sz2, c_KeyKeeper_Endpoint_Len));
+	}
+
+}
 
 void TestMultiMac()
 {

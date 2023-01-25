@@ -1557,14 +1557,14 @@ namespace beam::wallet
         {
             if (!m_Phase)
             {
-                hw::Proto::DisplayAddress::Out msg;
+                hw::Proto::DisplayEndpoint::Out msg;
                 msg.m_AddrID = m_M.m_iEndpoint;
                 SendReq_T(msg);
             }
 
             if (1 == m_Phase)
             {
-                auto pMsg = ReadReq_T<hw::Proto::DisplayAddress>();
+                auto pMsg = ReadReq_T<hw::Proto::DisplayEndpoint>();
                 if (!pMsg)
                     return;
 

@@ -103,6 +103,8 @@ typedef struct
 } TxMutualIn;
 
 
+void PrintEndpoint(char*, const UintBig*); // without 0-term
+#define c_KeyKeeper_Endpoint_Len 44
 
 #define c_KeyKeeper_Status_Ok 0
 #define c_KeyKeeper_Status_Unspecified 1
@@ -257,10 +259,10 @@ void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if
 	macro(CompactPoint, ptImageG) \
 	macro(CompactPoint, ptImageJ) \
 
-#define BeamCrypto_ProtoRequest_DisplayAddress(macro) \
+#define BeamCrypto_ProtoRequest_DisplayEndpoint(macro) \
 	macro(AddrID, AddrID) \
 
-#define BeamCrypto_ProtoResponse_DisplayAddress(macro)
+#define BeamCrypto_ProtoResponse_DisplayEndpoint(macro)
 
 #define BeamCrypto_ProtoRequest_CreateShieldedInput_1(macro) \
 	macro(ShieldedInput_Blob, InpBlob) /* 129 bytes */ \
@@ -356,7 +358,7 @@ void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if
 	macro(0x02, GetNumSlots) \
 	macro(0x03, GetPKdf) \
 	macro(0x04, GetImage) \
-	macro(0x05, DisplayAddress) \
+	macro(0x05, DisplayEndpoint) \
 	macro(0x10, CreateOutput) \
 	macro(0x18, TxAddCoins) \
 	macro(0x1a, CreateShieldedInput_1) \
@@ -385,7 +387,7 @@ void KeyKeeper_RegenerateSlot(KeyKeeper*, uint32_t);
 const KeyKeeper_AuxBuf* KeyKeeper_GetAuxBuf(KeyKeeper*);
 void KeyKeeper_WriteAuxBuf(KeyKeeper*, const void*, uint32_t nOffset, uint32_t nSize);
 
-void KeyKeeper_DisplayAddress(KeyKeeper*, AddrID addrID, const UintBig* pPeerID);
+void KeyKeeper_DisplayEndpoint(KeyKeeper*, AddrID addrID, const UintBig* pPeerID);
 
 //////////////////////////
 // KeyKeeper - request user approval for spend

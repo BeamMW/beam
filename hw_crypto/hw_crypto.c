@@ -2779,8 +2779,96 @@ PROTO_METHOD(TxReceive)
 }
 
 //////////////////////////////
-// KeyKeeper - DisplayAddress
-PROTO_METHOD(DisplayAddress)
+// Base58 encoding
+
+static const char g_pBase58Alphabet[] = {
+  '1','2','3','4','5','6','7','8','9','A','B','C','D','E','F','G','H','J','K','L','M','N','P','Q','R','S','T','U','V',
+  'W','X','Y','Z','a','b','c','d','e','f','g','h','i','j','k','m','n','o','p','q','r','s','t','u','v','w','x','y','z'
+};
+
+uint32_t LongIntDiv(uint32_t* p, uint32_t n, uint32_t div)
+{
+	assert(div && n && p[0]);
+
+	uint64_t carry = 0;
+	for (uint32_t i = 0; ; )
+	{
+		carry |= p[i];
+		p[i] = (uint32_t)(carry / div);
+		carry %= div;
+
+		if (++i == n)
+			break;
+		carry <<= 32;
+	}
+
+	return (uint32_t)carry;
+}
+
+void Base58_EncodeW(char* szEnc, uint32_t nEnc, uint32_t* pW, uint32_t nW)
+{
+	char* szPos = szEnc + nEnc;
+
+	const uint32_t ord1 = _countof(g_pBase58Alphabet);
+	const uint32_t ord5 = ord1 * ord1 * ord1 * ord1 * ord1;
+
+	while (nW)
+	{
+		if (pW[0])
+		{
+			uint32_t resid;
+
+			if ((nW > 1) || (*pW >= ord5))
+			{
+				resid = LongIntDiv(pW, nW, ord5);
+				for (int i = 0; i < 4; i++)
+				{
+					*(--szPos) = g_pBase58Alphabet[resid % ord1];
+					resid /= ord1;
+				}
+			}
+			else
+				resid = LongIntDiv(pW, nW, ord1);
+
+			*(--szPos) = g_pBase58Alphabet[resid];
+		}
+		else
+		{
+			pW++;
+			nW--;
+		}
+	}
+
+	while (szPos > szEnc)
+		*(--szPos) = g_pBase58Alphabet[0];
+}
+
+void Base58_Encode(char* szEnc, uint32_t nEnc, uint32_t* pWrk, const uint8_t* p, uint32_t n)
+{
+	uint32_t nResid = n % sizeof(uint32_t);
+	if (nResid)
+	{
+		pWrk[0] = 0;
+		memcpy(((uint8_t*)pWrk) + sizeof(uint32_t) - nResid, p, n);
+		n /= sizeof(uint32_t);
+		n++;
+	}
+	else
+	{
+		memcpy(pWrk, p, n);
+		n /= sizeof(uint32_t);
+	}
+
+	for (uint32_t i = 0; i < n; i++)
+		pWrk[i] = bswap32_be(pWrk[i]);
+
+	Base58_EncodeW(szEnc, nEnc, pWrk, n);
+}
+
+
+//////////////////////////////
+// KeyKeeper - DisplayEndpoint
+PROTO_METHOD(DisplayEndpoint)
 {
 	PROTO_UNUSED_ARGS;
 
@@ -2796,9 +2884,15 @@ PROTO_METHOD(DisplayAddress)
 	DeriveAddress(p, addrID, &sk, &hvAddr);
 	SECURE_ERASE_OBJ(sk);
 
-	KeyKeeper_DisplayAddress(p, addrID, &hvAddr);
+	KeyKeeper_DisplayEndpoint(p, addrID, &hvAddr);
 
 	return c_KeyKeeper_Status_Ok;
+}
+
+void PrintEndpoint(char* sz, const UintBig* pID)
+{
+	uint32_t pWrk[(c_KeyKeeper_Endpoint_Len + sizeof(uint32_t) - 1) / sizeof(uint32_t)];
+	Base58_Encode(sz, c_KeyKeeper_Endpoint_Len, pWrk, pID->m_pVal, sizeof(pID->m_pVal));
 }
 
 
