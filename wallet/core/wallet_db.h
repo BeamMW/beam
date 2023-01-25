@@ -151,6 +151,7 @@ namespace beam::wallet
         void setCategory(const std::string& category);
         void setExpirationStatus(ExpirationStatus status);
         void setExpirationTime(beam::Timestamp);
+        void setDefaultToken();
 
         static constexpr uint64_t AddressExpirationNever = 0;
         static constexpr uint64_t AddressExpiration24h   = 24 * 60 * 60;

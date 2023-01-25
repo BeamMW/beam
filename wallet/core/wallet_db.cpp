@@ -1525,7 +1525,7 @@ namespace beam::wallet
 
                     if (addr.m_BbsAddr != Zero)
                     {
-                        addr.m_Token = std::to_string(addr.m_BbsAddr);
+                        addr.setDefaultToken();
                         walletDB->saveAddress(addr, isLaser);
                     }
                 }
@@ -2979,15 +2979,14 @@ namespace beam::wallet
 
         get_SbbsWalletID(addr.m_BbsAddr, addr.m_OwnID);
         get_Endpoint(addr.m_Endpoint, addr.m_OwnID);
+        addr.setDefaultToken();
 
-        LOG_INFO() << boost::format(kWalletIdNewGenerated) % std::to_string(addr.m_BbsAddr);
+        LOG_INFO() << boost::format(kWalletAddrNewGenerated) % addr.m_Token;
 
         if (!addr.m_label.empty())
         {
             LOG_INFO() << boost::format(kAddrNewGeneratedLabel) % addr.m_label;
         }
-
-        addr.m_Token = std::to_string(addr.m_BbsAddr);
     }
 
     void IWalletDB::get_Endpoint(PeerID& pid, uint64_t ownID) const
@@ -4310,16 +4309,22 @@ namespace beam::wallet
         return res;
     }
 
+    void WalletAddress::setDefaultToken()
+    {
+        assert(m_BbsAddr != Zero);
+        if (m_Endpoint == Zero)
+            m_Token = to_string(m_BbsAddr);
+        else
+            m_Token =  GenerateRegularNewToken(*this, 0, 0, "");
+    }
+
     void WalletDB::saveAddress(const WalletAddress& addr, bool isLaser)
     {
         const std::string addrTableName = isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
 
         WalletAddress address = addr;
         if (address.m_Token.empty())
-        {
-            assert(address.m_BbsAddr != Zero);
-            address.m_Token = std::to_string(address.m_BbsAddr);
-        }
+            address.setDefaultToken();
 
         auto selectByToken = "SELECT * FROM " + addrTableName + " WHERE address=?1;";
         sqlite::Statement stmToken(this, selectByToken.c_str());
@@ -4404,7 +4409,7 @@ namespace beam::wallet
         address.m_label = kDefaultAddrLabel;
         address.setExpirationStatus(WalletAddress::ExpirationStatus::Never);
         saveAddress(address);
-        LOG_DEBUG() << "Default address: " << std::to_string(address.m_BbsAddr);
+        LOG_DEBUG() << "Default address: " << address.m_Token;
     }
 
     void WalletDB::deleteAddressByToken(const std::string& addr, bool isLaser)

@@ -685,7 +685,7 @@ namespace
         address.setExpirationStatus(expirationStatus);
         walletDB->saveAddress(address);
 
-        std::cout << "New SBBS address: " << std::to_string(address.m_BbsAddr);
+        std::cout << "New address: " << address.m_Token;
         return true;
     }
 
