@@ -72,7 +72,7 @@ namespace beam
 
         template <uint32_t nCharsEncoded>
         static constexpr uint32_t get_MaxDec() {
-            return RadixConverter<s_Radix, nCharsEncoded, 0x100>::::get_MaxLen();
+            return RadixConverter<s_Radix, nCharsEncoded, 0x100>::get_MaxLen();
         }
 
         template <uint32_t nBytes>

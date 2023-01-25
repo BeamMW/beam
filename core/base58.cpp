@@ -33,6 +33,7 @@ namespace beam {
             0xff,0xff,0xff,0xff,0xff,0xff, 33,34,35,36,37,38,39,40,41,42,43, 0xff, 44,45,46,47,48,49,50,51,52,53,54,55,56,57
         };
 
+#ifdef _DEBUG
         void VerifyReverseTable()
         {
             // vice
@@ -55,6 +56,7 @@ namespace beam {
                 }
             }
         }
+#endif // _DEBUG
 
         uint8_t DecodeChar(char ch)
         {
@@ -135,10 +137,6 @@ namespace beam {
         uint32_t DecodeW(const char* szEnc, uint32_t nEnc, uint32_t* pW, uint32_t nW, uint32_t& nW_Nnz)
         {
             const uint32_t ord1 = Base58::s_Radix;
-            // const uint32_t ord2 = ord1 * ord1;
-            // const uint32_t ord3 = ord2 * ord1;
-            // const uint32_t ord4 = ord3 * ord1;
-            // const uint32_t ord5 = ord4 * ord1;
 
             nW_Nnz = nW;
 
