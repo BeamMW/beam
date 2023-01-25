@@ -22,6 +22,7 @@
 #include "../aes.h"
 #include "../proto.h"
 #include "../lelantus.h"
+#include "../base58.h"
 #include "../../utility/byteorder.h"
 #include "../../utility/executor.h"
 
@@ -1757,6 +1758,27 @@ void TestFourCC()
 	TEST_FOURCC(h)
 }
 
+template <uint32_t nTxtSize>
+void TestBase58_Once(const char(&szTxt)[nTxtSize], const char* szVerify)
+{
+	auto sTxt = beam::Base58::to_string<nTxtSize - 1>(reinterpret_cast<const uint8_t*>(szTxt));
+	verify_test(sTxt == szVerify);
+
+	// decode
+	uint8_t pDec[nTxtSize - 1];
+	verify_test(beam::Base58::Decode<nTxtSize - 1>(pDec, szVerify));
+
+	verify_test(!memcmp(pDec, szTxt, nTxtSize - 1));
+}
+
+
+void TestBase58()
+{
+	TestBase58_Once("Hello World!", "2NEpo7TZRRrLZSi2U");
+	TestBase58_Once("Hello, World!", "72k1xXWG59fYdzSNoA"); // would require padding (len is odd)
+	TestBase58_Once("The quick brown fox jumps over the lazy dog.", "USm3fpXnKG5EUBx2ndxBDMPVciP5hGey2Jh4NDv6gmeo1LkMeiKrLJUUBk6Z");
+}
+
 void TestTreasury()
 {
 	beam::Treasury::Parameters pars;
@@ -2256,6 +2278,7 @@ void TestAll()
 	TestProtoVer();
 	TestRandom();
 	TestFourCC();
+	TestBase58();
 	TestTreasury();
 	TestAssetProof();
 	TestAssetEmission();
