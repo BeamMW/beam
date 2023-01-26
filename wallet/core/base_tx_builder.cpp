@@ -1127,33 +1127,54 @@ namespace beam::wallet
 
         m.m_Slot = m_Tx.GetSlotSafe(true);
 
-        if (GetParameter(TxParameterID::PeerEndpoint, m.m_Peer) &&
-            GetParameter(TxParameterID::MyEndpoint, m.m_MyID))
-        {
-            // newer scheme
-            GetParameterStrict(TxParameterID::MyAddressID, m.m_iEndpoint);
-        }
-        else
-        {
-            // legacy. Will fail for trustless key keeper.
-            m.m_iEndpoint = 0;
+        bool bSignedTx = true;
 
-            WalletID widMy, widPeer;
-            if (GetParameter(TxParameterID::PeerAddr, widPeer) && GetParameter(TxParameterID::MyAddr, widMy))
+        if (!GetParameter(TxParameterID::PeerEndpoint, m.m_Peer))
+        {
+            // Peer endpoint not specified, we consider its bbs address as the endpoint
+            WalletID wid;
+            if (GetParameter(TxParameterID::PeerAddr, wid))
             {
-                m.m_Peer = widPeer.m_Pk;
-                m.m_MyID = widMy.m_Pk;
+                m.m_Peer = wid.m_Pk;
+                SetParameter(TxParameterID::PeerEndpoint, m.m_Peer);
             }
             else
             {
-                if (!m.m_NonConventional)
-                    throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
+                m.m_Peer = Zero;
+                bSignedTx = false;
+            }
+        }
 
-                ZeroObject(m.m_Peer);
-                ZeroObject(m.m_MyID);
+        m.m_iEndpoint = 0;
+
+        if (bSignedTx)
+        {
+            WalletID wid;
+            bool bHaveAddr = GetParameter(TxParameterID::MyAddr, wid);
+
+            m.m_iEndpoint = 0;
+
+            if (GetParameter(TxParameterID::MyEndpoint, m.m_MyID))
+            {
+                bool bLegacy = (bHaveAddr && (wid.m_Pk == m.m_MyID));
+                if (!bLegacy)
+                    GetParameterStrict(TxParameterID::MyAddressID, m.m_iEndpoint);
+            }
+            else
+            {
+                if (bHaveAddr)
+                    m.m_MyID = wid.m_Pk;
+                else
+                {
+                    m.m_MyID = Zero;
+                    bSignedTx = false;
+                }
             }
 
         }
+
+        if (!bSignedTx && !m.m_NonConventional)
+            throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
 
         ZeroObject(m.m_PaymentProofSignature);
         m.m_UserAgreement = Zero;
@@ -1233,10 +1254,25 @@ namespace beam::wallet
         m.m_Peer = Zero;
         m.m_iEndpoint = 0;
 
-        GetParameter(TxParameterID::PeerEndpoint, m.m_Peer);
+        PeerID myEndpoint;
+        WalletID wid;
+        // check if we use our legacy address: endpoint is either absent or equal to bbs
+        if (GetParameter(TxParameterID::MyEndpoint, myEndpoint) && GetParameter(TxParameterID::MyAddr, wid) && (myEndpoint != wid.m_Pk))
+        {
+            GetParameter(TxParameterID::MyAddressID, m.m_iEndpoint); // ok
 
-        if (m.m_Peer != Zero)
-            GetParameter(TxParameterID::MyAddressID, m.m_iEndpoint);
+            if (!GetParameter(TxParameterID::PeerEndpoint, m.m_Peer))
+            {
+                // Peer endpoint not specified, we consider its bbs address as the endpoint
+                if (GetParameter(TxParameterID::PeerAddr, wid))
+                {
+                    m.m_Peer = wid.m_Pk;
+                    SetParameter(TxParameterID::PeerEndpoint, m.m_Peer);
+                }
+                else
+                    m.m_iEndpoint = 0; // fallback to unsigned tx
+            }
+        }
 
         m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);
     }

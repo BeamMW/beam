@@ -110,26 +110,35 @@ namespace beam::wallet
             Signature sig;
             if (!m_Tx.GetParameter(TxParameterID::PaymentConfirmation, sig, m_SubTxID))
             {
-                // legacy peer
+                // legacy address was used.
                 // Provide older-style payment confirmation, signed by the sbbs addr
                 PaymentConfirmation pc;
-                WalletID widPeer, widMy;
-                bool bSuccess =
-                    m_Tx.GetParameter(TxParameterID::PeerAddr, widPeer, m_SubTxID) &&
-                    m_Tx.GetParameter(TxParameterID::MyAddr, widMy, m_SubTxID);
+
+                bool bSuccess = true;
+                WalletID wid;
+
+                if (!m_Tx.GetParameter(TxParameterID::PeerEndpoint, pc.m_Sender, m_SubTxID))
+                {
+                    if (m_Tx.GetParameter(TxParameterID::PeerAddr, wid, m_SubTxID))
+                        pc.m_Sender = wid.m_Pk;
+                    else
+                        bSuccess = false;
+                }
+
+                if (bSuccess)
+                    bSuccess = m_Tx.GetParameter(TxParameterID::MyAddr, wid, m_SubTxID);
 
                 if (bSuccess)
                 {
-                    pc.m_Sender = widPeer.m_Pk;
                     pc.m_Value = m_Amount;
                     pc.m_AssetID = m_AssetID;
                     pc.m_KernelID = m_pKrn->m_Internal.m_ID;
 
-                    auto waddr = m_Tx.GetWalletDB()->getAddress(widMy);
+                    auto waddr = m_Tx.GetWalletDB()->getAddress(wid);
                     if (waddr && waddr->isOwn())
                     {
                         Scalar::Native sk;
-                        m_Tx.GetWalletDB()->get_SbbsPeerID(sk, widMy.m_Pk, waddr->m_OwnID);
+                        m_Tx.GetWalletDB()->get_SbbsPeerID(sk, wid.m_Pk, waddr->m_OwnID);
 
                         pc.Sign(sk);
                         msg.AddParameter(TxParameterID::PaymentConfirmation, pc.m_Signature);

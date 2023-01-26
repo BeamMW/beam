@@ -341,10 +341,12 @@ namespace
         receiverWalletDB->createAddress(wa);
         receiverWalletDB->saveAddress(wa);
         WalletID receiver_id = wa.m_BbsAddr;
+        PeerID receiver_Endpoint = wa.m_Endpoint;
 
         senderWalletDB->createAddress(wa);
         senderWalletDB->saveAddress(wa);
         WalletID sender_id = wa.m_BbsAddr;
+        PeerID sender_Endpoint = wa.m_Endpoint;
 
         int count = 0;
         auto f = [&count](const auto& /*id*/)
@@ -375,7 +377,9 @@ namespace
 
         sender.StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyAddr, sender_id)
+            .SetParameter(TxParameterID::MyEndpoint, sender_Endpoint)
             .SetParameter(TxParameterID::PeerAddr, receiver_id)
+            .SetParameter(TxParameterID::PeerEndpoint, receiver_Endpoint)
             .SetParameter(TxParameterID::Amount, Amount(6))
             .SetParameter(TxParameterID::Fee, Amount(1))
             .SetParameter(TxParameterID::Lifetime, Height(200)));
@@ -4727,6 +4731,7 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel, logLevel, "wallet_test", path.string());
 
     ECC::PseudoRandomGenerator prg;
+    ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
     prg.m_hv = 125U;
 
 
