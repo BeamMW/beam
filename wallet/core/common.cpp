@@ -1002,7 +1002,7 @@ namespace beam::wallet
             : GetParameter<PeerID>(TxParameterID::PeerEndpoint);
         if (v)
         {
-            return std::to_string(*v);
+            return std::to_base58(*v);
         }
         return {};
     }
