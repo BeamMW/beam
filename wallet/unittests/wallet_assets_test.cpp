@@ -214,7 +214,8 @@ void TestAssets() {
             .SetParameter(TxParameterID::Amount, initial)
             .SetParameter(TxParameterID::Fee, beam::Amount(100))
             .SetParameter(TxParameterID::MyAddr, receiver.m_BbsAddr)
-            .SetParameter(TxParameterID::PeerAddr, owner.m_BbsAddr));
+            .SetParameter(TxParameterID::PeerAddr, owner.m_BbsAddr)
+            .SetParameter(TxParameterID::PeerEndpoint, owner.m_Endpoint));
     }, 2, false);
     LOG_INFO() << "Now owner has " << PrintableAmount(storage::Totals(*ownerDB, false).GetBeamTotals().Avail);
 
@@ -436,7 +437,8 @@ void TestAssets() {
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetID, ASSET1_ID)
             .SetParameter(TxParameterID::MyAddr, owner.m_BbsAddr)
-            .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr));
+            .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
+            .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint));
     }, 1);
 
     WALLET_CHECK(tx.m_status == TxStatus::Failed);
@@ -469,7 +471,8 @@ void TestAssets() {
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetID, ASSET1_ID)
             .SetParameter(TxParameterID::MyAddr, owner.m_BbsAddr)
-            .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr));
+            .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
+            .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint));
     }, 2);
 
     WALLET_CHECK(tx.m_status == TxStatus::Completed);
@@ -487,7 +490,8 @@ void TestAssets() {
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetID, ASSET1_ID)
             .SetParameter(TxParameterID::MyAddr, owner.m_BbsAddr)
-            .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr));
+            .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
+            .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint));
     }, 2);
 
     WALLET_CHECK(tx.m_status == TxStatus::Completed);
@@ -517,7 +521,8 @@ void TestAssets() {
             .SetParameter(TxParameterID::Fee, fee)
             .SetParameter(TxParameterID::AssetID, ASSET1_ID)
             .SetParameter(TxParameterID::MyAddr, receiver.m_BbsAddr)
-            .SetParameter(TxParameterID::PeerAddr, owner.m_BbsAddr));
+            .SetParameter(TxParameterID::PeerAddr, owner.m_BbsAddr)
+            .SetParameter(TxParameterID::PeerEndpoint, owner.m_Endpoint));
     }, 2, false);
 
     WALLET_CHECK(tx.m_status == TxStatus::Completed);
