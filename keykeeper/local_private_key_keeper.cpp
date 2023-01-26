@@ -454,7 +454,7 @@ namespace beam::wallet
         krn.m_Signature.SignPartial(hv, kKrn, kNonce);
         UpdateOffset(x, aggr.m_sk, kKrn);
 
-        if (x.m_iEndpoint && !x.m_NonConventional)
+        if (!x.m_NonConventional)
         {
             PaymentConfirmation pc;
             pc.m_KernelID = hv;
@@ -462,7 +462,10 @@ namespace beam::wallet
             pc.m_Value = vals.m_Asset;
             pc.m_AssetID = aggr.m_AssetID;
 
-            m_pKdf->DeriveKey(kKrn, Key::ID(x.m_iEndpoint, Key::Type::EndPoint));
+            if (x.m_IsBbs && IsTrustless())
+                return Status::Unspecified;
+
+            m_pKdf->DeriveKey(kKrn, Key::ID(x.m_iEndpoint, x.m_IsBbs ? Key::Type::Bbs : Key::Type::EndPoint));
 
             PeerID wid;
             wid.FromSk(kKrn);
@@ -499,17 +502,13 @@ namespace beam::wallet
 
         Scalar::Native kNonce;
 
-        if (x.m_iEndpoint)
-        {
-            m_pKdf->DeriveKey(kNonce, Key::ID(x.m_iEndpoint, Key::Type::EndPoint));
-            x.m_MyID.FromSk(kNonce);
-        }
-        else
-        {
-            // legacy. We need to verify the payment proof vs externally-specified our ID (usually SBBS address)
-            if (IsTrustless())
-                return Status::Unspecified;
-        }
+        if (x.m_IsBbs && IsTrustless())
+            return Status::Unspecified;
+
+        PeerID pidMe;
+
+        m_pKdf->DeriveKey(kNonce, Key::ID(x.m_iEndpoint, x.m_IsBbs ? Key::Type::Bbs : Key::Type::EndPoint));
+        pidMe.FromSk(kNonce);
 
         get_Nonce(kNonce, x.m_Slot);
 
@@ -518,7 +517,7 @@ namespace beam::wallet
         Hash::Processor()
             << krn.m_Fee
             << x.m_Peer
-            << x.m_MyID
+            << pidMe
             << x.m_NonConventional
             << aggr.m_sk
             << vals.m_Asset
@@ -571,7 +570,7 @@ namespace beam::wallet
             pc.m_KernelID = krn.m_Internal.m_ID;
             pc.m_Value = vals.m_Asset;
             pc.m_AssetID = aggr.m_AssetID;
-            pc.m_Sender = x.m_MyID;
+            pc.m_Sender = pidMe;
             pc.m_Signature = x.m_PaymentProofSignature;
             if (!pc.IsValid(x.m_Peer))
             {

@@ -1076,6 +1076,30 @@ namespace beam::wallet
         SimpleTxBuilder::FinalizeTxInternal();
     }
 
+    void MutualTxBuilder::PrepareMutualParams(IPrivateKeyKeeper2::Method::TxMutual& m)
+    {
+        m.m_Peer = Zero;
+        m.m_iEndpoint = 0;
+
+        if (!m.m_NonConventional)
+        {
+            GetParameterStrict(TxParameterID::MyAddressID, m.m_iEndpoint);
+
+            PeerID epMy;
+            bool bNewerScheme = GetParameter(TxParameterID::PeerEndpoint, m.m_Peer) && GetParameter(TxParameterID::MyEndpoint, epMy);
+            if (!bNewerScheme)
+            {
+                // legacy. Will fail for trustless key keeper.
+                m.m_IsBbs = true;
+
+                WalletID wid;
+                GetParameterStrict(TxParameterID::PeerAddr, wid);
+                m.m_Peer = wid.m_Pk;
+            }
+        }
+
+    }
+
     void MutualTxBuilder::SignSender(bool initial)
     {
         if (Stage::InProgress == m_Signing)
@@ -1127,33 +1151,7 @@ namespace beam::wallet
 
         m.m_Slot = m_Tx.GetSlotSafe(true);
 
-        if (GetParameter(TxParameterID::PeerEndpoint, m.m_Peer) &&
-            GetParameter(TxParameterID::MyEndpoint, m.m_MyID))
-        {
-            // newer scheme
-            GetParameterStrict(TxParameterID::MyAddressID, m.m_iEndpoint);
-        }
-        else
-        {
-            // legacy. Will fail for trustless key keeper.
-            m.m_iEndpoint = 0;
-
-            WalletID widMy, widPeer;
-            if (GetParameter(TxParameterID::PeerAddr, widPeer) && GetParameter(TxParameterID::MyAddr, widMy))
-            {
-                m.m_Peer = widPeer.m_Pk;
-                m.m_MyID = widMy.m_Pk;
-            }
-            else
-            {
-                if (!m.m_NonConventional)
-                    throw TransactionFailedException(true, TxFailureReason::NotEnoughDataForProof);
-
-                ZeroObject(m.m_Peer);
-                ZeroObject(m.m_MyID);
-            }
-
-        }
+        PrepareMutualParams(m);
 
         ZeroObject(m.m_PaymentProofSignature);
         m.m_UserAgreement = Zero;
@@ -1230,13 +1228,7 @@ namespace beam::wallet
         SetInOuts(m);
         m_pKrn->Clone(Cast::Reinterpret<TxKernel::Ptr>(m.m_pKernel));
 
-        m.m_Peer = Zero;
-        m.m_iEndpoint = 0;
-
-        GetParameter(TxParameterID::PeerEndpoint, m.m_Peer);
-
-        if (m.m_Peer != Zero)
-            GetParameter(TxParameterID::MyAddressID, m.m_iEndpoint);
+        PrepareMutualParams(m);
 
         m_Tx.get_KeyKeeperStrict()->InvokeAsync(x.m_Method, pHandler);
     }
