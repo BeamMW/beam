@@ -432,12 +432,10 @@ struct TestWalletRig
 
         WalletAddress wa;
         m_WalletDB->createAddress(wa);
-        wa.m_Endpoint = wa.m_BbsAddr.m_Pk;
         m_WalletDB->saveAddress(wa);
         m_BbsAddr = wa.m_BbsAddr;
         m_OwnID = wa.m_OwnID;
-        //m_WalletDB->get_Endpoint(m_Endpoint, m_OwnID);
-        m_Endpoint = m_BbsAddr.m_Pk; // too many tests don't specify it properly
+        m_Endpoint = wa.m_Endpoint;
 
         m_Wallet->ResumeAllTransactions();
 
