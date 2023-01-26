@@ -412,7 +412,6 @@ void TestRestoreInterruption()
     receiver.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
         .SetParameter(TxParameterID::MyAddr, receiver.m_BbsAddr)
         .SetParameter(TxParameterID::PeerAddr, sender.m_BbsAddr)
-        .SetParameter(TxParameterID::PeerEndpoint, sender.m_Endpoint)
         .SetParameter(TxParameterID::Amount, Amount(txNum * 37000000))
         .SetParameter(TxParameterID::Fee, Amount(1000000))
         .SetParameter(TxParameterID::Lifetime, Height(200))
@@ -1637,9 +1636,6 @@ int main()
     Rules::get().pForks[2].m_Height = 12;
     Rules::get().pForks[3].m_Height = 800;
     Rules::get().UpdateChecksum();
-
-    ECC::PseudoRandomGenerator prg;
-    ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
 
     auto testAll = []()
     {
