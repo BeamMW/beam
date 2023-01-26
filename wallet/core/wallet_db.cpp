@@ -4250,25 +4250,8 @@ namespace beam::wallet
         {
             int colIdx = 0;
             ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, address);
-
-            if (address.isOwn())
-            {
-                // workaround for older addresses. If the token is 'short' - enforce our own endpoint to be equal to bbs address
-                //
-                // short address is the bbs address: bbs channel + pub
-                if (
-                    (address.m_Token.size() >= ECC::uintBig::nBytes * 2) &&
-                    (address.m_Token.size() <= (ECC::uintBig::nBytes + 4) * 2) &&
-                    (std::to_string(address.m_BbsAddr) == address.m_Token))
-                    // old style
-                    address.m_Endpoint = address.m_BbsAddr.m_Pk;
-                else
-                {
-                    if (address.m_Endpoint == Zero)
-                        db->get_Endpoint(address.m_Endpoint, address.m_OwnID);
-                }
-
-            }
+            if (address.isOwn() && address.m_Endpoint == Zero)
+                db->get_Endpoint(address.m_Endpoint, address.m_OwnID);
         }
     }
 
