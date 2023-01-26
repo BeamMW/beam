@@ -103,11 +103,11 @@ namespace beam::wallet
                 .AddParameter(TxParameterID::IsSender, false);
 
 
-            PeerID myEndpoint, peerEndpoint;
-            if (GetParameter(TxParameterID::MyEndpoint, myEndpoint) && GetParameter(TxParameterID::PeerEndpoint, peerEndpoint))
-                // newer sig scheme
-                msg.AddParameter(TxParameterID::PeerEndpoint, myEndpoint);
-
+            PeerID pid;
+            if (GetParameter(TxParameterID::MyEndpoint, pid))
+                msg.AddParameter(TxParameterID::PeerEndpoint, pid);
+            if (GetParameter(TxParameterID::PeerEndpoint, pid))
+                msg.AddParameter(TxParameterID::MyEndpoint, pid);
         }
         else
         {
@@ -134,6 +134,7 @@ namespace beam::wallet
         case TxParameterID::Lifetime:
         case TxParameterID::PaymentConfirmation:
         case TxParameterID::PeerProtoVersion:
+        case TxParameterID::MyEndpoint:
         case TxParameterID::PeerEndpoint:
         case TxParameterID::PeerMaxHeight:
         case TxParameterID::PeerPublicExcess:
@@ -191,7 +192,29 @@ namespace beam::wallet
                             throw std::runtime_error("Not own address in MyID");
                         }
                         SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
-                        SetParameter(TxParameterID::MyEndpoint, waddr->m_Endpoint);
+
+                        if (pMutualBuilder)
+                        {
+                            if (pMutualBuilder->m_IsSender)
+                            {
+                                // sender may decide wether or not to use the endpoint. Both for itself and the receiver
+                                // To keep max compatibility we use our endpoint if either we have the receiver endpoint (i.e. it'd be standard ep-ep tx), or
+                                // if we use remote key keeper (then we have no choice).
+                                PeerID pidRemote;
+                                if (!m_Context.GetWalletDB()->get_MasterKdf() || GetParameter(TxParameterID::PeerEndpoint, pidRemote))
+                                    SetParameter(TxParameterID::MyEndpoint, waddr->m_Endpoint);
+                            }
+                            else
+                            {
+                                // Receiver should comply
+                                PeerID pid;
+                                if (GetParameter(TxParameterID::MyEndpoint, pid) && (pid != waddr->m_Endpoint))
+                                {
+                                    OnFailed(TxFailureReason::NotEnoughDataForProof, true);
+                                    return;
+                                }
+                            }
+                        }
                     }
                 }
             }

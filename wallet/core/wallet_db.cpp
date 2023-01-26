@@ -1525,7 +1525,7 @@ namespace beam::wallet
 
                     if (addr.m_BbsAddr != Zero)
                     {
-                        addr.setDefaultToken();
+                        walletDB->setDefaultToken(addr);
                         walletDB->saveAddress(addr, isLaser);
                     }
                 }
@@ -2979,7 +2979,7 @@ namespace beam::wallet
 
         get_SbbsWalletID(addr.m_BbsAddr, addr.m_OwnID);
         get_Endpoint(addr.m_Endpoint, addr.m_OwnID);
-        addr.setDefaultToken();
+        setDefaultToken(addr);
 
         LOG_INFO() << boost::format(kWalletAddrNewGenerated) % addr.m_Token;
 
@@ -4312,6 +4312,15 @@ namespace beam::wallet
         return res;
     }
 
+    void IWalletDB::setDefaultToken(WalletAddress& wa)
+    {
+        if (get_MasterKdf())
+            wa.setDefaultToken();
+        else
+            // remote key keeper is incompatible with bbs-style addresses.
+            wa.m_Token = GenerateRegularNewToken(wa, 0, 0, "");
+    }
+
     void WalletAddress::setDefaultToken()
     {
         // Current decision: use 'old'-style addresses by default
@@ -4325,7 +4334,7 @@ namespace beam::wallet
 
         WalletAddress address = addr;
         if (address.m_Token.empty())
-            address.setDefaultToken();
+            setDefaultToken(address);
 
         auto selectByToken = "SELECT * FROM " + addrTableName + " WHERE address=?1;";
         sqlite::Statement stmToken(this, selectByToken.c_str());

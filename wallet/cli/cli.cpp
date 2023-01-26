@@ -935,10 +935,9 @@ namespace
         return true;
     }
 
-    std::string GetAddressTypeString(const WalletAddress& address)
+    const char* GetAddressTypeString(wallet::TokenType tokenType)
     {
-        const auto type = GetTokenType(address.m_Token);
-        switch (type)
+        switch (tokenType)
         {
             case TokenType::Public: return "public offline";
             case TokenType::MaxPrivacy: return "max privacy";
@@ -963,8 +962,11 @@ namespace
         std::cout << endl;
         for (const auto& address : addresses)
         {
+            auto addrType = GetTokenType(address.m_Token);
+
+
             std::cout
-                << kAddrListType    << GetAddressTypeString(address) << std::endl
+                << kAddrListType    << GetAddressTypeString(addrType) << std::endl
                 << kAddrListComment << address.m_label << std::endl
                 << kAddrListAddress << address.m_Token << std::endl;
 
@@ -979,8 +981,10 @@ namespace
 
             const auto creationDateText = format_timestamp(kTimeStampFormat3x3, address.getCreateTime() * 1000, false);
 
+            const auto& ep = (wallet::TokenType::RegularOldStyle == addrType) ? address.m_BbsAddr.m_Pk : address.m_Endpoint;
+
             std::cout
-                << kAddrListEndpoint << std::to_base58(address.m_Endpoint) << std::endl
+                << kAddrListEndpoint << std::to_base58(ep) << std::endl
                 << kAddrListActive   << (address.isExpired() ? "false" : "true") << std::endl
                 << kAddrListExprDate << expirationDateText << std::endl
                 << kAddrListCreated  << creationDateText << std::endl
@@ -1011,12 +1015,6 @@ namespace
         if (!addr.isOwn())
         {
             std::cout << "Address not owned" << std::endl;
-            return 1;
-        }
-
-        if (pAddr->m_BbsAddr.m_Pk == pAddr->m_Endpoint)
-        {
-            std::cout << "Legacy address, can not verify on external device." << std::endl;
             return 1;
         }
 

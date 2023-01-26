@@ -460,6 +460,7 @@ namespace beam::wallet
         void get_SbbsWalletID(WalletID&, uint64_t ownID);
         bool ValidateSbbsWalletID(const WalletID&, uint64_t ownID);
         void createAddress(WalletAddress&);
+        void setDefaultToken(WalletAddress&);
         void get_Endpoint(PeerID&, uint64_t ownID) const;
 
         TxoID get_ShieldedOuts() const;

@@ -1085,17 +1085,16 @@ namespace beam::wallet
         {
             GetParameterStrict(TxParameterID::MyAddressID, m.m_iEndpoint);
 
-            PeerID epMy;
-            bool bNewerScheme = GetParameter(TxParameterID::PeerEndpoint, m.m_Peer) && GetParameter(TxParameterID::MyEndpoint, epMy);
-            if (!bNewerScheme)
+            if (!GetParameter(TxParameterID::PeerEndpoint, m.m_Peer))
             {
-                // legacy. Will fail for trustless key keeper.
-                m.m_IsBbs = true;
-
                 WalletID wid;
                 GetParameterStrict(TxParameterID::PeerAddr, wid);
                 m.m_Peer = wid.m_Pk;
             }
+
+            PeerID epMy;
+            if (!GetParameter(TxParameterID::MyEndpoint, epMy))
+                m.m_IsBbs = true; // legacy. Will fail for trustless key keeper.
         }
 
     }

@@ -166,6 +166,7 @@ namespace beam::wallet
         case TxParameterID::Lifetime:  // TODO:DEX check where set
         case TxParameterID::PaymentConfirmation:
         case TxParameterID::PeerProtoVersion:
+        case TxParameterID::MyEndpoint:
         case TxParameterID::PeerEndpoint: // TODO:DEX check if really passed
         case TxParameterID::PeerMaxHeight:
         case TxParameterID::PeerPublicExcess:
