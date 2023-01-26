@@ -233,6 +233,7 @@ namespace beam
         const char* WALLET_ADDR = "address";
         const char* CHANGE_ADDRESS_EXPIRATION = "change_address_expiration";
         const char* WALLET_ADDRESS_LIST = "address_list";
+        const char* WALLET_ADDRESS_VERIFY = "address_verify";
         const char* WALLET_RESCAN = "rescan";
         const char* UTXO = "utxo";
         const char* EXPORT_DATA = "export_data";

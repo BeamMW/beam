@@ -137,6 +137,7 @@ namespace beam
         extern const char* WALLET_ADDR;
         extern const char* CHANGE_ADDRESS_EXPIRATION;
         extern const char* WALLET_ADDRESS_LIST;
+        extern const char* WALLET_ADDRESS_VERIFY;
         extern const char* WALLET_RESCAN;
         extern const char* UTXO;
         extern const char* EXPORT_ADDRESSES;

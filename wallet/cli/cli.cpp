@@ -990,6 +990,55 @@ namespace
         return 0;
     }
 
+    int VerifyAddress(const po::variables_map& vm)
+    {
+        auto walletDB = OpenDataBase(vm);
+
+        string sToken = vm[cli::WALLET_ADDR].as<string>();
+        auto pAddr = walletDB->getAddressByToken(sToken);
+        if (!pAddr)
+        {
+            std::cout << "No such an address" << std::endl;
+            return 1;
+        }
+
+        const auto& addr = *pAddr;
+
+        std::cout
+            << kAddrListAddress << addr.m_Token << std::endl
+            << kAddrListEndpoint << std::to_base58(addr.m_Endpoint) << std::endl;
+
+        if (!addr.isOwn())
+        {
+            std::cout << "Address not owned" << std::endl;
+            return 1;
+        }
+
+        if (pAddr->m_BbsAddr.m_Pk == pAddr->m_Endpoint)
+        {
+            std::cout << "Legacy address, can not verify on external device." << std::endl;
+            return 1;
+        }
+
+        auto pKk = walletDB->get_KeyKeeper();
+        if (!pKk)
+        {
+            std::cout << "Read-only mode." << std::endl;
+            return 1;
+        }
+
+        IPrivateKeyKeeper2::Method::DisplayEndpoint m;
+        m.m_iEndpoint = addr.m_OwnID;
+        auto st = pKk->InvokeSync(m);
+        if (IPrivateKeyKeeper2::Status::Success != st)
+        {
+            std::cout << "HW wallet status: " << st << std::endl;
+            return 1;
+        }
+
+        return 0;
+    }
+
     Height ShowAssetInfo(IWalletDB::Ptr db, const storage::Totals::AssetTotals& totals)
     {
         auto isOwned  = false;
@@ -3262,6 +3311,7 @@ int main(int argc, char* argv[])
         {cli::PAYMENT_PROOF_VERIFY, VerifyPaymentProof,             "verify payment proof"},
         {cli::GENERATE_PHRASE,      GeneratePhrase,                 "generate new seed phrase"},
         {cli::WALLET_ADDRESS_LIST,  ShowAddressList,                "print addresses"},
+        {cli::WALLET_ADDRESS_VERIFY, VerifyAddress,                 "verify your Endpoint on the attached HW wallet"},
         {cli::WALLET_RESCAN,        Rescan,                         "rescan the blockchain for owned UTXO (works only with node configured with an owner key)"},
         {cli::EXPORT_DATA,          ExportWalletData,               "export wallet data (UTXO, transactions, addresses) to a JSON file"},
         {cli::IMPORT_DATA,          ImportWalletData,               "import wallet data from a JSON file"},
