@@ -102,6 +102,12 @@ namespace beam::wallet
                 .AddParameter(TxParameterID::Lifetime, m_Lifetime)
                 .AddParameter(TxParameterID::IsSender, false);
 
+
+            PeerID myEndpoint, peerEndpoint;
+            if (GetParameter(TxParameterID::MyEndpoint, myEndpoint) && GetParameter(TxParameterID::PeerEndpoint, peerEndpoint))
+                // newer sig scheme
+                msg.AddParameter(TxParameterID::PeerEndpoint, myEndpoint);
+
         }
         else
         {

@@ -486,15 +486,8 @@ namespace beam::wallet
         msg.m_Type = GetType();
 
         WalletID peerID;
-        if (GetParameter(TxParameterID::MyAddr, msg.m_From)
-            && GetParameter(TxParameterID::PeerAddr, peerID))
+        if (GetParameter(TxParameterID::MyAddr, msg.m_From) && GetParameter(TxParameterID::PeerAddr, peerID))
         {
-            PeerID myEndpoint = Zero, peerEndpoint = Zero;
-            if (GetParameter(TxParameterID::MyEndpoint, myEndpoint)
-             && GetParameter(TxParameterID::PeerEndpoint, peerEndpoint))
-            {
-                msg.AddParameter(TxParameterID::PeerEndpoint, myEndpoint);
-            }
             GetGateway().send_tx_params(peerID, msg);
             return true;
         }
