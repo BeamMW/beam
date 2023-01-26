@@ -4331,11 +4331,9 @@ namespace beam::wallet
 
     void WalletAddress::setDefaultToken()
     {
+        // Current decision: use 'old'-style addresses by default
         assert(m_BbsAddr != Zero);
-        if (m_Endpoint == Zero)
-            m_Token = to_string(m_BbsAddr);
-        else
-            m_Token =  GenerateRegularNewToken(*this, 0, 0, "");
+        m_Token = to_string(m_BbsAddr);
     }
 
     void WalletDB::saveAddress(const WalletAddress& addr, bool isLaser)
