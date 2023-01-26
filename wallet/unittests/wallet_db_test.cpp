@@ -650,7 +650,9 @@ void TestAddresses()
     WALLET_CHECK(addresses[0].m_OwnID == a.m_OwnID);
     WALLET_CHECK(addresses[0].m_Token == a.m_Token);
     
-    WALLET_CHECK(addresses[0].m_Endpoint == addresses[0].m_BbsAddr.m_Pk);
+    PeerID endPoint = Zero;
+    db->get_Endpoint(endPoint, a.m_OwnID);
+    WALLET_CHECK(addresses[0].m_Endpoint == endPoint);
 
     auto contacts = db->getAddresses(false);
     WALLET_CHECK(contacts.size() == 1);
@@ -676,7 +678,7 @@ void TestAddresses()
     WALLET_CHECK(addresses[0].m_createTime == a.m_createTime);
     WALLET_CHECK(addresses[0].m_duration == a.m_duration);
     WALLET_CHECK(addresses[0].m_OwnID == a.m_OwnID);
-    WALLET_CHECK(addresses[0].m_Endpoint == addresses[0].m_BbsAddr.m_Pk);
+    WALLET_CHECK(addresses[0].m_Endpoint == endPoint);
 
     auto exported = storage::ExportDataToJson(*db);
     WALLET_CHECK(!exported.empty());
@@ -696,7 +698,7 @@ void TestAddresses()
         const auto& refa = *a3;
         WALLET_CHECK(a3.is_initialized());
         WALLET_CHECK(a3->m_category == a.m_category);
-        WALLET_CHECK(a3->m_Endpoint == refa.m_BbsAddr.m_Pk);
+        WALLET_CHECK(a3->m_Endpoint == endPoint);
         WALLET_CHECK(refa.m_Token == a.m_Token);
         auto a4 = db->getAddress(c.m_BbsAddr);
         WALLET_CHECK(a4.is_initialized());
