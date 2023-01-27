@@ -282,6 +282,8 @@ ON_METHOD(view_all_assets)
         else
             Env::DocAddBlob_T("owner_cid", ai.m_Cid);
 
+        Env::DocAddNum("height", ai.m_LockHeight);
+
         szMetadata[std::min<uint32_t>(nMetadata, sizeof(szMetadata) - 1)] = 0;
         Env::DocAddText("metadata", szMetadata);
     }
@@ -333,7 +335,7 @@ ON_METHOD(create_token)
         Env::Cost::AssetManage +
         Env::Cost::Cycle * 300;
 
-    Env::GenerateKernel(&cid, pArg->s_iMethod, pArg, nSizeArg, &fc, 1, nullptr, 0, "Minter create token", nCharge);
+    Env::GenerateKernel(&cid, pArg->s_iMethod, pArg, nSizeArg, &fc, 1, nullptr, 0, "Creating asset", nCharge);
 
     Env::Heap_Free(pArg);
 }
@@ -360,7 +362,7 @@ ON_METHOD(withdraw)
     fc.m_Amount = value;
     fc.m_Consume = 0;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &wlk.m_Kid, 1, "Minter withdraw", 0);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &wlk.m_Kid, 1, "Minting asset", 0);
 
 }
 
