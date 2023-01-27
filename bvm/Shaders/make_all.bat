@@ -31,8 +31,8 @@ call make_shader fuddle/contract
 call make_shader gallery/app
 call make_shader gallery/app-admin
 call make_shader gallery/contract
-call make_shader mintor/app
-call make_shader mintor/contract
+call make_shader minter/app
+call make_shader minter/contract
 call make_shader mirrorcoin/app
 call make_shader mirrorcoin/contract
 call make_shader nephrite/app
