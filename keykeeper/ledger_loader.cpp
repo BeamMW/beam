@@ -18,6 +18,8 @@
 namespace beam::wallet {
 namespace LedgerFw {
 
+///////////////////////////
+// AppData
 const char AppData::s_szSig[] = "beam.ledger.fw.1";
 
 void AppData::Create(const char* szDir)
@@ -267,6 +269,534 @@ void AppData::SetTargetNanoSPlus()
 	static const char szIcon[] = "0100000000ffffff00000030001280041002b4804ca014240985223f0940fe1f0000";
 	SetIconFromStr(szIcon, sizeof(szIcon) - 1);
 }
+
+
+
+
+///////////////////////////
+// Loader
+#pragma pack (push, 1)
+struct Loader::Cmd
+{
+	uint8_t cla = 0xe0;
+	uint8_t ins = 0;
+	uint8_t p1 = 0;
+	uint8_t p2 = 0;
+
+	Cmd(uint8_t ins_ = 0, uint8_t p1_ = 0)
+	{
+		ins = ins_;
+		p1 = p1_;
+	}
+};
+#pragma pack (pop)
+
+void Loader::CbcCoder::Init(const ECC::Hash::Value& hvSecret, uint32_t iKey)
+{
+	ECC::Scalar::Native sk;
+
+	iKey = ByteOrder::to_be(iKey);
+
+	for (uint32_t i = 0; ; i++)
+	{
+		ECC::NoLeak<ECC::Scalar> s_;
+		ECC::Hash::Processor hp;
+		hp.Write(&iKey, sizeof(iKey));
+
+		hp
+			<< i
+			<< hvSecret
+			>> s_.V.m_Value;
+
+		if (sk.ImportNnz(s_.V))
+			break;
+	}
+
+	ECC::Point::Native ptN = ECC::Context::get().G * sk;
+	ECC::Point::Storage ptS;
+	ptN.Export(ptS);
+
+	ECC::Hash::Processor()
+		<< (uint8_t)4u
+		<< ptS.m_X
+		<< ptS.m_Y
+		>> ptS.m_X;
+
+	static_assert(ptS.m_X.nBytes >= sizeof(m_pIv));
+	m_Aes.Init128(ptS.m_X.m_pData);
+	ZeroObject(m_pIv);
+
+}
+
+void Loader::CbcCoder::Encode(uint8_t* pDst, const uint8_t* pSrc, uint32_t len)
+{
+	assert(!(len % sizeof(m_pIv)));
+
+	for (uint32_t i = 0; i < len; i += sizeof(m_pIv))
+	{
+		memxor(m_pIv, pSrc, sizeof(m_pIv));
+		pSrc += sizeof(m_pIv);
+
+		m_Aes.EncodeBlock(m_pIv, m_pIv);
+		if (pDst)
+		{
+			memcpy(pDst, m_pIv, sizeof(m_pIv));
+			pDst += sizeof(m_pIv);
+		}
+	}
+}
+
+void Loader::CbcCoder::Decode(uint8_t* pDst, const uint8_t* pSrc, uint32_t len)
+{
+	assert(!(len % sizeof(m_pIv)));
+
+	for (uint32_t i = 0; i < len; i += sizeof(m_pIv))
+	{
+		uint8_t pDec[sizeof(m_pIv)];
+		m_Aes.DecodeBlock(pDec, pSrc);
+
+		memxor(pDec, m_pIv, sizeof(m_pIv));
+		memcpy(m_pIv, pSrc, sizeof(m_pIv));
+		pSrc += sizeof(m_pIv);
+
+		if (pDst)
+		{
+			memcpy(pDst, pDec, sizeof(m_pIv));
+			pDst += sizeof(m_pIv);
+		}
+	}
+}
+
+
+uint16_t Loader::Exchange(const Cmd& cmd)
+{
+	uint16_t nFrame = sizeof(Cmd) + 1 + m_Data;
+	assert(nFrame < sizeof(m_pData));
+	uint8_t pFrame[0x100];
+	memcpy(pFrame, &cmd, sizeof(cmd));
+	pFrame[sizeof(cmd)] = m_Data;
+	memcpy(pFrame + sizeof(cmd) + 1, m_pData, m_Data);
+
+	m_Io.WriteFrame(pFrame, nFrame);
+
+	nFrame = m_Io.ReadFrame(m_pData, sizeof(m_pData));
+	if (nFrame > sizeof(m_pData))
+		Exc::Fail("res too large");
+	if (nFrame < sizeof(uint16_t))
+		Exc::Fail("res too short");
+
+	m_Read = 0;
+	m_Data = (uint8_t) (nFrame - sizeof(uint16_t));
+	memcpy(&nFrame, m_pData + m_Data, sizeof(uint16_t));
+
+	return ByteOrder::from_be(nFrame);
+}
+
+uint16_t Loader::ExchangeSec(const Cmd& cmd)
+{
+	const uint8_t nSizeAes = 16;
+	const uint8_t nSizeMac = 14;
+	const uint8_t nPadChar = 0x80;
+
+	m_pData[m_Data++] = nPadChar;
+
+	uint8_t nPad = 0xf - (0xf & (0xf + m_Data));
+	memset0(m_pData + m_Data, nPad);
+	m_Data += nPad;
+
+	m_Enc.Encode(m_pData, m_pData, m_Data);
+	m_Mac.Encode(nullptr, m_pData, m_Data);
+	memcpy(m_pData + m_Data, m_Mac.m_pIv + nSizeAes - nSizeMac, nSizeMac);
+	m_Data += nSizeMac;
+
+	uint16_t retCode = Exchange(cmd);
+
+	if (m_Data > 0)
+	{
+		if (m_Data < nSizeMac)
+			Exc::Fail("no mac");
+		m_Data -= nSizeMac;
+
+		if (0xf & m_Data)
+			Exc::Fail("bad dec size");
+
+		m_Mac.Encode(nullptr, m_pData, m_Data);
+		if (memcmp(m_Mac.m_pIv + nSizeAes - nSizeMac, m_pData + m_Data, nSizeMac))
+			Exc::Fail("bad mac");
+
+		m_Enc.Decode(m_pData, m_pData, m_Data);
+		while (true)
+		{
+			if (!m_Data)
+				Exc::Fail("no dec pad");
+			if (m_pData[--m_Data] == nPadChar)
+				break;
+		}
+	}
+
+	return retCode;
+}
+
+void Loader::TestStatus(uint16_t res)
+{
+	if (0x9000 != res)
+	{
+		std::ostringstream ss;
+		ss << "Hid status " << res;
+
+		Exc::Fail(ss.str().c_str());
+	}
+}
+
+//void Loader::TestSize(uint16_t n)
+//{
+//	if (m_Data != n)
+//	{
+//		std::ostringstream ss;
+//		ss << "Read size Expected=" << n << ", Actual=" << (uint16_t) m_Data;
+//		Exc::Fail(ss.str().c_str());
+//	}
+//}
+
+template <typename T>
+void Loader::TestInVal(const T& nExp, const T& nActial)
+{
+	if (nExp != nActial)
+	{
+		std::ostringstream ss;
+		ss << "Expected=" << nExp << ", Actual=" << nActial;
+		Exc::Fail(ss.str().c_str());
+	}
+}
+
+void Loader::Ecdsa::Sign(const ECC::Scalar::Native& sk, const ECC::Hash::Value& msg)
+{
+	ECC::Scalar::Native kNonce;
+	{
+		ECC::NonceGenerator nonceGen("beam-ecdsa");
+
+		ECC::NoLeak<ECC::Scalar> s_;
+		s_.V = sk;
+		nonceGen << msg;
+
+		nonceGen >> kNonce;
+	}
+
+	ECC::Point::Native ptN = ECC::Context::get().G * kNonce;
+	ECC::Point pt(ptN);
+	m_r.m_Value = pt.m_X; // don't care about overflow
+
+	ECC::Scalar::Native kSig = ECC::Scalar::Native(m_r) * sk;
+	kSig += Cast::Reinterpret<ECC::Scalar>(msg);
+
+	kNonce.SetInv(kNonce);
+	kSig *= kNonce;
+	m_s = kSig;
+}
+
+bool Loader::Ecdsa::IsValid(const ECC::Point::Native& pubKey, const ECC::Hash::Value& msg) const
+{
+	if ((m_r.m_Value == Zero) || (m_s.m_Value == Zero))
+		return false;
+
+	ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+	ECC::Scalar::Native s1 = m_s;
+	s1.SetInv(s1);
+
+	ECC::Scalar::Native k = s1 * Cast::Reinterpret<ECC::Scalar>(msg);
+	ECC::Point::Native ptN = ECC::Context::get().G * k;
+
+	k = s1 * Cast::Reinterpret<ECC::Scalar>(m_r);
+	ptN += pubKey * k;
+
+	ECC::Point pt(ptN);
+	return pt.m_X == m_r.m_Value;
+}
+
+void Loader::DataOutSig(const Ecdsa& x)
+{
+	uint8_t nPadR = x.m_r.m_Value.get_Msb();
+	uint8_t nPadS = x.m_s.m_Value.get_Msb();
+	uint8_t nLen = sizeof(x) + nPadR + nPadS; // 64-66 bytes
+
+	DataOut_be<uint8_t>(nLen + 6);
+	DataOut_be<uint8_t>(0x30);
+	DataOut_be<uint8_t>(nLen + 4);
+	DataOut_be<uint8_t>(2);
+	DataOut_be<uint8_t>(sizeof(x.m_r.m_Value) + nPadR);
+	if (nPadR)
+		DataOut_be<uint8_t>(0);
+	DataOutBlob(x.m_r);
+	DataOut_be<uint8_t>(2);
+	DataOut_be<uint8_t>(sizeof(x.m_s.m_Value) + nPadS);
+	if (nPadS)
+		DataOut_be<uint8_t>(0);
+	DataOutBlob(x.m_s);
+}
+
+void Loader::EstablishSChannel(uint32_t nTargetID)
+{
+	Exc::CheckpointTxt cp1("Ledger SChannel");
+
+	//{
+	//	// test
+	//	PubKey pk;
+	//	pk.m_ptS.m_X.Scan("747f3ed897fb7585cf042412937d0949631da22b61b9ebe3159f3a54a18b7017");
+	//	pk.m_ptS.m_Y.Scan("797722ceb77660ced79eae48009741559bff446ae3bbb04ceff61ec1e92d163f");
+
+	//	Ecdsa sig;
+	//	sig.m_r.m_Value.Scan("e9cb9ccc21173597512f41c372ba376f3180af9454532e53f1d2e2329be2a7f3");
+	//	sig.m_s.m_Value.Scan("1f60c17578f0627e9d87ff5d03c3f642876ef4001947469a2954c31eeeced663");
+
+	//	ECC::Hash::Processor hp;
+	//	hp << 1u;
+	//	hp.Write(&pk, sizeof(pk));
+	//	ECC::Hash::Value hv;
+	//	hp >> hv; // message
+
+	//	ECC::Point::Native ptN;
+	//	verify_test(ptN.Import(pk.m_ptS, true));
+	//	verify_test(sig.IsValid(ptN, hv));
+	//}
+
+
+	//{
+	//	// test
+	//	PubKey pk;
+	//	pk.m_ptS.m_X.Scan("50bd343141a0f12c79bba2fb7119c08b64cd596f7493984d2939903513d69bbf");
+	//	pk.m_ptS.m_Y.Scan("47ab7182e9c24c57c7bef177c4dd449679d6a877506a10a1669383491f7e4319");
+
+	//	Ecdsa sig;
+	//	sig.m_r.m_Value.Scan("bb8932fd020d509f0a78fba641b0e59d1a9b5c7c742679d301f26f376cc6b2a0");
+	//	sig.m_s.m_Value.Scan("1b282223c89e83ba7b7cd6a45684e7a8f59fd3c21728a47c3d8d6801b01a57de");
+
+	//	uintBig_t<8> hvNonceMy, hvNonceDev;
+	//	hvNonceMy.Scan("cb9f239f243081ca");
+	//	hvNonceDev.Scan("2ed9ad91aba4b30f");
+
+	//	ECC::Hash::Processor hp;
+	//	hp
+	//		<< 0x11u
+	//		<< hvNonceMy
+	//		<< hvNonceDev;
+	//	hp.Write(&pk, sizeof(pk));
+
+	//	ECC::Hash::Value hv;
+	//	hp >> hv; // message
+
+	//	ECC::Point::Native ptN;
+	//	verify_test(ptN.Import(pk.m_ptS, true));
+	//	verify_test(sig.IsValid(ptN, hv));
+	//}
+
+
+	//{
+	//	ECC::Point::Storage ptS;
+	//	ptS.m_X.Scan("f494e2e397cdfe0383fad6de8d6f1b97b4dbf208b2e6bc8000f53ecd76934714");
+	//	ptS.m_Y.Scan("429dfcac2f4c0939129e098d2f88374dd1d0a4c6b3bf63c4b8b0189a083355c3");
+
+	//	ECC::Point::Native ptN;
+	//	verify_test(ptN.Import(ptS, true));
+
+	//	ECC::Scalar k;
+	//	k.m_Value.Scan("fa22cb299ca02730d52538a4bf5fb618d4b20981b101b507057bd59cf6572b46");
+	//	ptN = ptN * k;
+
+	//	ECC::Point pt;
+	//	ptN.Export(pt);
+
+	//	ECC::Hash::Processor hp;
+	//	uint8_t nCode = 0x2 | pt.m_Y;
+	//	hp << nCode;
+	//	hp << pt.m_X;
+
+	//	ECC::Hash::Value hv1, hv2;
+	//	hp >> hv1;
+	//	hv2.Scan("3b191f3fd3fa130ff635a367aa56ed3b08a01e472cdd397cd12695b5fbc84840");
+
+	//	verify_test(hv1 == hv2);
+	//}
+
+	//{
+	//	ECC::Hash::Value hvSecret;
+	//	hvSecret.Scan("9e220686b42054a5715e71fcc51a9ce9f21b561cabc2e0fc1d24c8369cc42f5c");
+	//	uintBig_t<16> k1, k2;
+
+	//	m_Enc.Init(hvSecret, 0);
+	//	m_Mac.Init(hvSecret, 1);
+
+	//	uint8_t pInp[] = { 0xc, 4, 'B','e','a','m' };
+
+	//	uint8_t pEnc[0x100];
+	//	memcpy(pEnc, pInp, sizeof(pInp));
+	//	uint32_t nLenEnc = sizeof(pInp);
+	//	pEnc[nLenEnc++] = 0x80;
+	//	while (nLenEnc & 0xf)
+	//		pEnc[nLenEnc++] = 0;
+
+	//	m_Enc.Encode(pEnc, pEnc, nLenEnc);
+	//	m_Mac.Encode(pEnc, pEnc, nLenEnc);
+	//}
+
+	m_Data = 0;
+	DataOut_be(nTargetID);
+	TestStatus(Exchange(Cmd(4)));
+
+	uintBig_t<8> hvNonceMy, hvNonceDev;
+	ECC::GenRandom(hvNonceMy);
+
+	m_Data = 0;
+	DataOutBlob(hvNonceMy);
+	TestStatus(Exchange(Cmd(0x50)));
+
+	DataIn_be<uint32_t>(); // batch_signer_serial
+	DataInBlob(hvNonceDev);
+
+	// master key
+	ECC::Scalar::Native skMaster;
+	skMaster.GenRandomNnz();
+
+	PubKey pk;
+	{
+		ECC::Point::Native ptN = ECC::Context::get().G * skMaster;
+		ptN.Export(pk.m_ptS);
+	}
+
+	m_Data = 0;
+	DataOutBlob<uint8_t>(sizeof(pk));
+	DataOutBlob(pk);
+
+	{
+		// sign
+		ECC::Hash::Processor hp;
+		hp << 1u;
+		hp.Write(&pk, sizeof(pk));
+
+		ECC::Hash::Value hv;
+		hp >> hv; // message
+
+		Ecdsa sig;
+		sig.Sign(skMaster, hv);
+		DataOutSig(sig);
+	}
+
+	TestStatus(Exchange(Cmd(0x51)));
+
+
+	// ephemeral key
+	ECC::Scalar::Native skEphemeral;
+	skEphemeral.GenRandomNnz();
+
+	{
+		ECC::Point::Native ptN = ECC::Context::get().G * skEphemeral;
+		ptN.Export(pk.m_ptS);
+	}
+
+	m_Data = 0;
+	DataOutBlob<uint8_t>(sizeof(pk));
+	DataOutBlob(pk);
+
+	{
+		// sign
+		ECC::Hash::Processor hp;
+		hp
+			<< 0x11u
+			<< hvNonceMy
+			<< hvNonceDev;
+		hp.Write(&pk, sizeof(pk));
+
+		ECC::Hash::Value hv;
+		hp >> hv; // message
+
+		Ecdsa sig;
+		sig.Sign(skMaster, hv);
+		DataOutSig(sig);
+	}
+
+	TestStatus(Exchange(Cmd(0x51, 0x80)));
+
+	// get dev cert.
+	m_Data = 0;
+	TestStatus(Exchange(Cmd(0x52)));
+
+	// get dev cert #2. Skip cert chain, go straight to 'loading from user key'
+	m_Data = 0;
+	TestStatus(Exchange(Cmd(0x52, 0x80)));
+
+	{
+		auto n = *DataIn(1);
+		DataIn(n); // skip ret hdr
+
+		auto nSize = *DataIn(1);
+		TestInVal<uint16_t>(sizeof(PubKey), nSize);
+
+		auto pPk = (const PubKey*) DataIn(sizeof(PubKey));
+		TestInVal<uint16_t>(pk.m_Tag, pPk->m_Tag);
+
+		ECC::Point::Native ptN;
+		if (!ptN.Import(pPk->m_ptS, true))
+			Exc::Fail("bad dev pk");
+
+		// Derive DH secret (secp256k1 style)
+		ptN = ptN * skEphemeral;
+
+		ECC::NoLeak<ECC::Point> pt;
+		ptN.Export(pt.V);
+
+		ECC::Hash::Processor hp;
+		uint8_t nCode = 0x2 | pt.V.m_Y;
+		hp << nCode;
+		hp << pt.V.m_X;
+
+		ECC::NoLeak<ECC::Hash::Value> hv;
+		hp >> hv.V;
+			
+		m_Enc.Init(hv.V, 0);
+		m_Mac.Init(hv.V, 1);
+	}
+
+	// go to encrypted mode
+	m_Data = 0;
+	TestStatus(Exchange(Cmd(0x53)));
+
+}
+
+uint32_t Loader::GetVersion(std::string& sMcuVer)
+{
+	m_Data = 0;
+	DataOut_be<uint8_t>(0x10);
+	TestStatus(ExchangeSec(Cmd()));
+
+	uint32_t nTargetID = DataIn_be<uint32_t>();
+
+	uint8_t nLenMcu = DataIn_be<uint8_t>();
+	sMcuVer.resize(nLenMcu);
+	if (nLenMcu)
+		memcpy(&sMcuVer.front(), DataIn(nLenMcu), nLenMcu);
+
+	return nTargetID;
+}
+
+void Loader::DeleteApp(const char* szApp)
+{
+	Exc::CheckpointTxt cp1("Delete app");
+
+	m_Data = 0;
+	DataOut_be<uint8_t>(0xc);
+
+	uint8_t n = (uint8_t) strlen(szApp);
+	DataOut_be<uint8_t>(n);
+	DataOut(szApp, n);
+
+	uint16_t ret = ExchangeSec(Cmd());
+	TestStatus(ret);
+}
+
+
+
+
+
 
 } // namespace LedgerFw
 } // namespace beam::wallet

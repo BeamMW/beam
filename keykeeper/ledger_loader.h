@@ -14,6 +14,7 @@
 
 #pragma once
 #include "hid_key_keeper.h"
+#include "../core/aes2.h"
 
 
 namespace beam::wallet
@@ -70,6 +71,114 @@ namespace beam::wallet
 			void SetTargetNanoS();
 			void SetTargetNanoSPlus();
 		};
+
+
+
+		struct Loader
+		{
+
+			beam::wallet::UsbIO m_Io;
+
+			struct Cmd;
+
+			uint8_t m_pData[0x100];
+			uint8_t m_Data = 0;
+			uint8_t m_Read = 0;
+
+			struct CbcCoder
+			{
+				AES2::Coder m_Aes;
+				uint8_t m_pIv[16];
+
+				void Init(const ECC::Hash::Value& hvSecret, uint32_t iKey);
+				void Encode(uint8_t* pDst, const uint8_t* pSrc, uint32_t len);
+				void Decode(uint8_t* pDst, const uint8_t* pSrc, uint32_t len);
+			};
+
+			CbcCoder m_Enc;
+			CbcCoder m_Mac;
+
+			void DataOut(const void* p, uint8_t n) {
+				memcpy(m_pData + m_Data, p, n);
+				m_Data += n;
+			}
+
+			template <typename T>
+			void DataOutBlob(const T& x) {
+				DataOut(&x, sizeof(x));
+			}
+
+			template <typename T>
+			void DataOut_be(T x) {
+				x = ByteOrder::to_be(x);
+				DataOutBlob(x);
+			}
+
+			uint8_t* DataIn(uint8_t n)
+			{
+				if (m_Data - m_Read < n)
+					Exc::Fail("not enough data");
+
+				auto pRet = m_pData + m_Read;
+				m_Read += n;
+				return pRet;
+			}
+
+			template <typename T>
+			void DataInBlob(T& x) {
+				memcpy(&x, DataIn(sizeof(x)), sizeof(x));
+			}
+
+			template <typename T>
+			T DataIn_be() {
+				T x;
+				DataInBlob(x);
+				return ByteOrder::from_be(x);
+			}
+
+			struct PubKey {
+				uint8_t m_Tag = 4;
+				ECC::Point::Storage m_ptS;
+			};
+
+			uint16_t Exchange(const Cmd& cmd);
+			uint16_t ExchangeSec(const Cmd& cmd);
+
+			static void TestStatus(uint16_t res);
+
+			//static void TestSize(uint16_t n);
+
+			template <typename T>
+			void TestInVal(const T& nExp, const T& nActial);
+
+			struct Ecdsa
+			{
+				ECC::Scalar m_r;
+				ECC::Scalar m_s;
+
+				// [r, s], whereas
+				//		r = (G*nonce).x
+				//		s = (msg + r*sk)/nonce
+				// verification:
+				//		G*msg/s + Pubkey*r/s = (G*msg + G*sk*r) * noce / (msg+r*sk) = G*nonce
+				//		(G*msg/s).x =?= r
+
+
+				void Sign(const ECC::Scalar::Native& sk, const ECC::Hash::Value& msg);
+				bool IsValid(const ECC::Point::Native& pubKey, const ECC::Hash::Value& msg) const;
+			};
+
+			void DataOutSig(const Ecdsa& x);
+
+			void EstablishSChannel(uint32_t nTargetID);
+
+			uint32_t GetVersion(std::string& sMcuVer);
+
+			void DeleteApp(const char* szApp);
+
+		};
+
+
 
 	} // namespace LedgerFw
 } // namespace beam::wallet
