@@ -35,7 +35,7 @@ void AppData::Create(const char* szDir)
 	ParseHex((s + "app.hex").c_str());
 
 	Serializer ser;
-	ser& (*this);
+	ser & (*this);
 
 	std::ofstream fs;
 	fs.open(s + "beam-ledger.bin", std::ios_base::out);
@@ -46,6 +46,32 @@ void AppData::Create(const char* szDir)
 	fs.write(ser.buffer().first, ser.buffer().second);
 }
 
+void AppData::Load(const char* szPath)
+{
+	Exc::CheckpointTxt cp1("Ledger data load");
+
+	ByteBuffer buf;
+
+	{
+		std::FStream fs;
+		fs.Open(szPath, true, true);
+
+		char szSig[sizeof(s_szSig) - 1];
+		fs.read(szSig, sizeof(szSig));
+		if (memcmp(szSig, s_szSig, sizeof(szSig)))
+			Exc::Fail("sig mismatch");
+
+		buf.resize((size_t) fs.get_Remaining());
+		if (!buf.empty())
+			fs.read(&buf.front(), buf.size());
+	}	
+
+
+	Deserializer der;
+	der.reset(buf);
+
+	der & (*this);
+}
 
 void AppData::HexReadStrict(uint8_t* pDst, const char* sz, uint32_t nBytes)
 {
@@ -270,9 +296,6 @@ void AppData::SetTargetNanoSPlus()
 	SetIconFromStr(szIcon, sizeof(szIcon) - 1);
 }
 
-
-
-
 ///////////////////////////
 // Loader
 #pragma pack (push, 1)
@@ -442,7 +465,7 @@ void Loader::TestStatus(uint16_t res)
 	if (0x9000 != res)
 	{
 		std::ostringstream ss;
-		ss << "Hid status " << res;
+		ss << "Hid status " << uintBigFor<uint16_t>::Type(res);
 
 		Exc::Fail(ss.str().c_str());
 	}
@@ -778,22 +801,174 @@ uint32_t Loader::GetVersion(std::string& sMcuVer)
 	return nTargetID;
 }
 
-void Loader::DeleteApp(const char* szApp)
+void Loader::DeleteApp(const std::string& sApp)
 {
 	Exc::CheckpointTxt cp1("Delete app");
 
 	m_Data = 0;
 	DataOut_be<uint8_t>(0xc);
 
-	uint8_t n = (uint8_t) strlen(szApp);
+	uint8_t n = (uint8_t) sApp.size();
 	DataOut_be<uint8_t>(n);
-	DataOut(szApp, n);
+	DataOut(sApp.c_str(), n);
 
-	uint16_t ret = ExchangeSec(Cmd());
-	TestStatus(ret);
+	TestStatus(ExchangeSec(Cmd()));
+}
+
+template <typename TContainer>
+void BufAddVarArg(ByteBuffer& buf, uint8_t tag, const TContainer& x)
+{
+	buf.push_back(tag);
+	uint8_t nLen = (uint8_t)x.size();
+	buf.push_back(nLen);
+	buf.insert(buf.end(), x.begin(), x.end());
+}
+
+void Loader::Install(const AppData& ad)
+{
+	ByteBuffer bufInstArgs;
+	BufAddVarArg(bufInstArgs, 0x01, ad.m_sName);
+	BufAddVarArg(bufInstArgs, 0x02, ad.m_sAppVer);
+	BufAddVarArg(bufInstArgs, 0x03, ad.m_Icon);
+	BufAddVarArg(bufInstArgs, 0x04, ad.m_KeyPath);
+
+	ECC::Hash::Value hv;
+	{
+		// calculate expected hash
+		ECC::Hash::Processor hp;
+		hp << uintBigFrom(ad.m_TargetID);
+		hp.Write(ad.m_sTargetVer.c_str(), (uint32_t) ad.m_sTargetVer.size());
+		hp.Write(&bufInstArgs.front(), (uint32_t) bufInstArgs.size());
+
+		for (auto it = ad.m_Zones.begin(); ad.m_Zones.end() != it; it++)
+		{
+			const auto& seg = it->second;
+			hp.Write(&seg.front(), (uint32_t)seg.size());
+		}
+
+		hp.Write(&bufInstArgs.front(), (uint32_t) bufInstArgs.size());
+		hp >> hv;
+	}
+
+	std::cout << "Connecting to the device. Please approve the manager..." << std::endl;
+	EstablishSChannel(ad.m_TargetID);
+
+	{
+		std::string sMcuVer;
+		GetVersion(sMcuVer);
+		if (sMcuVer != ad.m_sTargetVer)
+		{
+			std::cout << "Unsupported firmware version. Expected=" << ad.m_sTargetVer << ", Actual=" << sMcuVer << std::endl;
+			std::cout << "Please update device firmware first" << std::endl;
+			Exc::Fail();
+		}
+	}
+
+	std::cout << "Deleting previous app installation (if exists). Please approve..." << std::endl;
+	DeleteApp(ad.m_sName);
+
+
+	std::cout << "Loading app..." << std::endl;
+
+	m_Data = 0;
+	DataOut_be<uint8_t>(0xb); // set create app params
+
+	auto rit = ad.m_Zones.rbegin();
+
+	uint32_t nAddrBegin = ad.m_Zones.begin()->first;
+	uint32_t nAddrEnd = rit->first + (uint32_t) rit->second.size();
+
+	DataOut_be(nAddrEnd - nAddrBegin - ad.m_SizeNVRam); // Code length
+	DataOut_be(ad.m_SizeNVRam); // data length
+	DataOut_be((uint32_t) bufInstArgs.size());
+	DataOut_be<uint32_t>(0); // flags
+	DataOut_be(ad.m_BootAddr - nAddrBegin); // boot offset
+
+	TestStatus(ExchangeSec(Cmd()));
+
+	for (auto it = ad.m_Zones.begin(); ad.m_Zones.end() != it; it++)
+	{
+		m_Data = 0;
+		DataOut_be<uint8_t>(0x5); // select segment
+		DataOut_be<uint32_t>(it->first - nAddrBegin);
+		TestStatus(ExchangeSec(Cmd()));
+
+		const auto& buf = it->second;
+		uint32_t nEnd = (uint32_t) buf.size();
+
+		for (uint32_t nPos = 0; nPos < nEnd; )
+		{
+			auto nChunk = std::min<uint32_t>(nEnd - nPos, 220);
+
+			m_Data = 0;
+			DataOut_be<uint8_t>(0x6); // chunk
+			DataOut_be((uint16_t) nPos);
+			DataOut(&buf.front() + nPos, (uint8_t) nChunk);
+			TestStatus(ExchangeSec(Cmd()));
+
+			nPos += nChunk;
+		}
+
+		m_Data = 0;
+		DataOut_be<uint8_t>(0x7); // flush segment
+		TestStatus(ExchangeSec(Cmd()));
+	}
+
+	// install args
+	{
+		m_Data = 0;
+		DataOut_be<uint8_t>(0x5); // select segment
+		DataOut_be(nAddrEnd - nAddrBegin);
+		TestStatus(ExchangeSec(Cmd()));
+
+		m_Data = 0;
+		DataOut_be<uint8_t>(0x6); // chunk
+		DataOut_be<uint16_t>(0);
+		DataOut(&bufInstArgs.front(), (uint8_t) bufInstArgs.size());
+		TestStatus(ExchangeSec(Cmd()));
+
+		m_Data = 0;
+		DataOut_be<uint8_t>(0x7); // flush segment
+		TestStatus(ExchangeSec(Cmd()));
+	}
+
+	std::cout << "Please approve app install..." << std::endl;
+
+	m_Data = 0;
+	DataOut_be<uint8_t>(0x9); // commit
+	TestStatus(ExchangeSec(Cmd()));
+
+	std::cout << "done!" << std::endl;
 }
 
 
+void FindAndLoad(const char* szPath)
+{
+	AppData ad;
+	ad.Load(szPath);
+
+	Loader ld;
+
+	auto ret = HidInfo::EnumSupported();
+	for (uint32_t i = 0; ; i++)
+	{
+		if (ret.size() == i)
+			Exc::Fail("No supported devices found");
+
+		const auto& v = ret[i];
+
+		std::cout << "Found supported device: " << v.m_sManufacturer << " " << v.m_sProduct << std::endl;
+		if (v.m_Product == ad.m_HidProductID)
+		{
+			ld.m_Io.Open(v.m_sPath.c_str());
+			break;
+		}
+
+		std::cout << "Incompatible with the app data. Skipping.";
+	}
+
+	ld.Install(ad);
+}
 
 
 

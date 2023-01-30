@@ -70,6 +70,8 @@ namespace beam::wallet
 
 			void SetTargetNanoS();
 			void SetTargetNanoSPlus();
+
+			void Load(const char* szPath);
 		};
 
 
@@ -174,10 +176,12 @@ namespace beam::wallet
 
 			uint32_t GetVersion(std::string& sMcuVer);
 
-			void DeleteApp(const char* szApp);
+			void DeleteApp(const std::string& sApp);
 
+			void Install(const AppData&);
 		};
 
+		void FindAndLoad(const char* szPath);
 
 
 	} // namespace LedgerFw
