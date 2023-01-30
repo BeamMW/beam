@@ -15,6 +15,7 @@ target_sources(keykeeper
         local_private_key_keeper.cpp
         remote_key_keeper.cpp
         hid_key_keeper.cpp
+        ledger_loader.cpp
 )
 
 if(EMSCRIPTEN AND NOT BEAM_WALLET_CLIENT_LIBRARY)
