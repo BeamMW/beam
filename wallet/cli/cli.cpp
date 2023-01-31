@@ -33,6 +33,7 @@
 #include "wallet/transactions/assets/assets_reg_creators.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "keykeeper/hid_key_keeper.h"
+#include "keykeeper/ledger_loader.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "core/treasury.h"
@@ -782,6 +783,20 @@ namespace
                 std::cout << "\tManufacturer: " << x.m_sManufacturer << ", Name: " << x.m_sProduct << std::endl;
         }
 
+        return 0;
+    }
+
+    int HidInstall(const po::variables_map& vm)
+    {
+        auto var = vm[cli::HID_INSTALL_FILE];
+        if (var.empty())
+            beam::wallet::LedgerFw::FindAndLoadIntegrated();
+        else
+        {
+            auto sFile = vm[cli::HID_INSTALL_FILE].as<std::string>();
+            beam::wallet::LedgerFw::FindAndLoad(sFile.c_str());
+
+        }
         return 0;
     }
 
@@ -3293,6 +3308,7 @@ int main(int argc, char* argv[])
         {cli::RESTORE,            RestoreWallet,                    "restore wallet database from a seed phrase provided by the user"},
         {cli::RESTORE_HID,        RestoreWalletHid,                 "restore wallet database from an attached HW wallet"},
         {cli::HID_ENUM,           EnumHid,                          "Enumerate attached HW wallets"},
+        {cli::HID_INSTALL,        HidInstall,                       "Install Beam app on the attached HW wallet"},
         {cli::SEND,               Send,                             "send BEAM"},
         {cli::SHADER_INVOKE,      ShaderInvoke,                     "Invoke a wallet-side shader"},
         {cli::LISTEN,             Listen,                           "listen to the node (the wallet won't close till halted"},
