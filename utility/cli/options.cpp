@@ -184,8 +184,8 @@ namespace beam
         const char* CRASH = "crash";
         const char* INIT = "init";
         const char* RESTORE = "restore";
-        const char* RESTORE_USB = "restore_usb";
-        const char* USB_ENUM = "usb_enum";
+        const char* RESTORE_HID = "restore_hid";
+        const char* HID_ENUM = "hid_enum";
         const char* EXPORT_MINER_KEY = "export_miner_key";
         const char* EXPORT_OWNER_KEY = "export_owner_key";
         const char* KEY_SUBKEY = "subkey";

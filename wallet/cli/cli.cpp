@@ -703,7 +703,7 @@ namespace
     enum struct InitKind {
         GenerateSeed,
         RecoverFromSeed,
-        RecoverFromUsb,
+        RecoverFromHid,
     };
 
     int InitDataBase(const po::variables_map& vm, InitKind kind)
@@ -743,7 +743,7 @@ namespace
 
         IWalletDB::Ptr walletDB;
 
-        if (InitKind::RecoverFromUsb == kind)
+        if (InitKind::RecoverFromHid == kind)
             walletDB = WalletDB::initHww(walletPath, pass);
         else
         {
@@ -769,11 +769,11 @@ namespace
         return -1;
     }
 
-    int EnumUsb(const po::variables_map& vm)
+    int EnumHid(const po::variables_map& vm)
     {
         auto vRes = wallet::HidInfo::EnumSupported();
         if (vRes.empty())
-            std::cout << "No supported USB devices found" << std::endl;
+            std::cout << "No supported HW wallet found" << std::endl;
         else
         {
             std::cout << "Found devices: " << vRes.size() << std::endl;
@@ -795,9 +795,9 @@ namespace
         return InitDataBase(vm, InitKind::RecoverFromSeed);
     }
 
-    int RestoreWalletUsb(const po::variables_map& vm)
+    int RestoreWalletHid(const po::variables_map& vm)
     {
-        return InitDataBase(vm, InitKind::RecoverFromUsb);
+        return InitDataBase(vm, InitKind::RecoverFromHid);
     }
 
    int GetAddress(const po::variables_map& vm)
@@ -3291,8 +3291,8 @@ int main(int argc, char* argv[])
     {
         {cli::INIT,               InitWallet,                       "initialize new wallet database with a new seed phrase"},
         {cli::RESTORE,            RestoreWallet,                    "restore wallet database from a seed phrase provided by the user"},
-        {cli::RESTORE_USB,        RestoreWalletUsb,                 "restore wallet database from an attached HW wallet"},
-        {cli::USB_ENUM,           EnumUsb,                          "Enumerate attached HW wallets"},
+        {cli::RESTORE_HID,        RestoreWalletHid,                 "restore wallet database from an attached HW wallet"},
+        {cli::HID_ENUM,           EnumHid,                          "Enumerate attached HW wallets"},
         {cli::SEND,               Send,                             "send BEAM"},
         {cli::SHADER_INVOKE,      ShaderInvoke,                     "Invoke a wallet-side shader"},
         {cli::LISTEN,             Listen,                           "listen to the node (the wallet won't close till halted"},
