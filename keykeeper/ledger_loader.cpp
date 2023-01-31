@@ -832,13 +832,27 @@ void Loader::Install(const AppData& ad)
 	BufAddVarArg(bufInstArgs, 0x03, ad.m_Icon);
 	BufAddVarArg(bufInstArgs, 0x04, ad.m_KeyPath);
 
+	auto rit = ad.m_Zones.rbegin();
+	uint32_t nAddrBegin = ad.m_Zones.begin()->first;
+	uint32_t nAddrEnd = rit->first + (uint32_t)rit->second.size();
+
+	uint32_t pCp[5];
+	pCp[0] = nAddrEnd - nAddrBegin - ad.m_SizeNVRam; // Code length
+	pCp[1] = ad.m_SizeNVRam; // data length
+	pCp[2] = (uint32_t) bufInstArgs.size();
+	pCp[3] = 0; // flags
+	pCp[4] = ad.m_BootAddr - nAddrBegin; // boot offset
+
+	for (uint32_t i = 0; i < _countof(pCp); i++)
+		pCp[i] = ByteOrder::to_be(pCp[i]);
+
 	ECC::Hash::Value hv;
 	{
 		// calculate expected hash
 		ECC::Hash::Processor hp;
 		hp << uintBigFrom(ad.m_TargetID);
 		hp.Write(ad.m_sTargetVer.c_str(), (uint32_t) ad.m_sTargetVer.size());
-		hp.Write(&bufInstArgs.front(), (uint32_t) bufInstArgs.size());
+		hp.Write(pCp, sizeof(pCp));
 
 		for (auto it = ad.m_Zones.begin(); ad.m_Zones.end() != it; it++)
 		{
@@ -849,6 +863,8 @@ void Loader::Install(const AppData& ad)
 		hp.Write(&bufInstArgs.front(), (uint32_t) bufInstArgs.size());
 		hp >> hv;
 	}
+
+	std::cout << "Expected app Hash: " << hv.str() << std::endl;
 
 	std::cout << "Connecting to the device. Please approve the manager..." << std::endl;
 	EstablishSChannel(ad.m_TargetID);
@@ -872,17 +888,7 @@ void Loader::Install(const AppData& ad)
 
 	m_Data = 0;
 	DataOut_be<uint8_t>(0xb); // set create app params
-
-	auto rit = ad.m_Zones.rbegin();
-
-	uint32_t nAddrBegin = ad.m_Zones.begin()->first;
-	uint32_t nAddrEnd = rit->first + (uint32_t) rit->second.size();
-
-	DataOut_be(nAddrEnd - nAddrBegin - ad.m_SizeNVRam); // Code length
-	DataOut_be(ad.m_SizeNVRam); // data length
-	DataOut_be((uint32_t) bufInstArgs.size());
-	DataOut_be<uint32_t>(0); // flags
-	DataOut_be(ad.m_BootAddr - nAddrBegin); // boot offset
+	DataOut(pCp, sizeof(pCp));
 
 	TestStatus(ExchangeSec(Cmd()));
 
