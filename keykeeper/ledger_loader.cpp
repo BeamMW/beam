@@ -391,6 +391,44 @@ void Loader::CbcCoder::Decode(uint8_t* pDst, const uint8_t* pSrc, uint32_t len)
 }
 
 
+void Loader::DataOut(const void* p, uint8_t n) {
+	memcpy(m_pData + m_Data, p, n);
+	m_Data += n;
+}
+
+template <typename T>
+void Loader::DataOutBlob(const T& x) {
+	DataOut(&x, sizeof(x));
+}
+
+template <typename T>
+void Loader::DataOut_be(T x) {
+	x = ByteOrder::to_be(x);
+	DataOutBlob(x);
+}
+
+uint8_t* Loader::DataIn(uint8_t n)
+{
+	if (m_Data - m_Read < n)
+		Exc::Fail("not enough data");
+
+	auto pRet = m_pData + m_Read;
+	m_Read += n;
+	return pRet;
+}
+
+template <typename T>
+void Loader::DataInBlob(T& x) {
+	memcpy(&x, DataIn(sizeof(x)), sizeof(x));
+}
+
+template <typename T>
+T Loader::DataIn_be() {
+	T x;
+	DataInBlob(x);
+	return ByteOrder::from_be(x);
+}
+
 uint16_t Loader::Exchange(const Cmd& cmd)
 {
 	uint16_t nFrame = sizeof(Cmd) + 1 + m_Data;

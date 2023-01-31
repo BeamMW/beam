@@ -100,43 +100,16 @@ namespace beam::wallet
 			CbcCoder m_Enc;
 			CbcCoder m_Mac;
 
-			void DataOut(const void* p, uint8_t n) {
-				memcpy(m_pData + m_Data, p, n);
-				m_Data += n;
-			}
-
+			void DataOut(const void* p, uint8_t n);
 			template <typename T>
-			void DataOutBlob(const T& x) {
-				DataOut(&x, sizeof(x));
-			}
-
+			void DataOutBlob(const T& x);
 			template <typename T>
-			void DataOut_be(T x) {
-				x = ByteOrder::to_be(x);
-				DataOutBlob(x);
-			}
-
-			uint8_t* DataIn(uint8_t n)
-			{
-				if (m_Data - m_Read < n)
-					Exc::Fail("not enough data");
-
-				auto pRet = m_pData + m_Read;
-				m_Read += n;
-				return pRet;
-			}
-
+			void DataOut_be(T x);
+			uint8_t* DataIn(uint8_t n);
 			template <typename T>
-			void DataInBlob(T& x) {
-				memcpy(&x, DataIn(sizeof(x)), sizeof(x));
-			}
-
+			void DataInBlob(T& x);
 			template <typename T>
-			T DataIn_be() {
-				T x;
-				DataInBlob(x);
-				return ByteOrder::from_be(x);
-			}
+			T DataIn_be();
 
 			struct PubKey {
 				uint8_t m_Tag = 4;
