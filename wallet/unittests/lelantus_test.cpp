@@ -1629,6 +1629,10 @@ void TestReextract()
 
 int main()
 {
+    ECC::PseudoRandomGenerator prg;
+    ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
+    prg.m_hv = 71U;
+
     int logLevel = LOG_LEVEL_DEBUG;
     auto logger = beam::Logger::create(logLevel, logLevel);
     Rules::get().FakePoW = true;
