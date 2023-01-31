@@ -155,6 +155,7 @@ namespace beam::wallet
 		};
 
 		void FindAndLoad(const char* szPath);
+		void FindAndLoadIntegrated();
 
 
 	} // namespace LedgerFw

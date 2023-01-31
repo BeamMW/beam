@@ -16,6 +16,8 @@ target_sources(keykeeper
         remote_key_keeper.cpp
         hid_key_keeper.cpp
         ledger_loader.cpp
+        ledger_app_nanos.cpp
+        ledger_app_nanosplus.cpp
 )
 
 if(EMSCRIPTEN AND NOT BEAM_WALLET_CLIENT_LIBRARY)

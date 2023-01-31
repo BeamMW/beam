@@ -1014,6 +1014,60 @@ void FindAndLoad(const char* szPath)
 	ld.Install(ad);
 }
 
+namespace NanoS {
+	const void get(Blob&);
+}
+
+namespace NanoSPlus {
+	const void get(Blob&);
+}
+
+void FindAndLoadIntegrated()
+{
+	auto ret = HidInfo::EnumSupported();
+	for (uint32_t i = 0; ; i++)
+	{
+		if (ret.size() == i)
+			Exc::Fail("No supported devices found");
+
+		const auto& v = ret[i];
+		std::cout << "Found supported device: " << v.m_sManufacturer << " " << v.m_sProduct << std::endl;
+
+		Blob blob;
+
+		switch (v.m_Product)
+		{
+		case 0x5011:
+			NanoSPlus::get(blob);
+			break;
+
+		case 0x1011:
+			NanoS::get(blob);
+			break;
+
+		default:
+			ZeroObject(blob);
+		}
+
+		if (blob.n)
+		{
+			Loader ld;
+			ld.m_Io.Open(v.m_sPath.c_str());
+
+			Deserializer der;
+			der.reset(blob.p, blob.n);
+
+			AppData ad;
+			der & ad;
+
+			ld.Install(ad);
+			break;
+		}
+
+		std::cout << "No supported app. Skipping.";
+
+	}
+}
 
 
 
