@@ -336,7 +336,6 @@ namespace beam::wallet
     /* MaxPrivacy */ \
     MACRO(MaxPrivacyMinAnonimitySet,       100, uint8_t) \
     /* allows to restore receiver address from */ \
-    MACRO(PeerOwnID,                       101, uint64_t)   \
     /*MACRO(PeerSharedBulletProofMSig,       108, ECC::RangeProof::Confidential::Part1) not used */ \
     MACRO(PeerSharedBulletProofPart2,      109, ECC::RangeProof::Confidential::Part2) \
     MACRO(PeerSharedBulletProofPart3,      110, ECC::RangeProof::Confidential::Part3) \
@@ -592,7 +591,7 @@ namespace beam::wallet
         [[nodiscard]] std::string getToken() const;
         [[nodiscard]] std::string getSenderEndpoint() const;
         [[nodiscard]] std::string getReceiverEndpoint() const;
-        [[nodiscard]] std::string getEndpoint(bool isSender) const;
+        [[nodiscard]] std::string getEndpoint(bool isMy) const;
         [[nodiscard]] std::string getSender() const;
         [[nodiscard]] std::string getReceiver() const;
         [[nodiscard]] std::string getAddressFrom() const;

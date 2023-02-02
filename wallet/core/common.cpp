@@ -619,7 +619,6 @@ namespace beam::wallet
             {
                 params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
                 CopyParameter(TxParameterID::PeerAddr, p, params);
-                CopyParameter(TxParameterID::PeerOwnID, p, params);
                 auto peerEndpoint = p.GetParameter<PeerID>(TxParameterID::PeerEndpoint);
                 params.SetParameter(TxParameterID::PeerEndpoint, *peerEndpoint);
 
@@ -638,7 +637,6 @@ namespace beam::wallet
         case TxAddressType::MaxPrivacy:
             {
                 params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
-                CopyParameter(TxParameterID::PeerOwnID, p, params);
                 auto peerEndpoint = p.GetParameter<PeerID>(TxParameterID::PeerEndpoint);
                 params.SetParameter(TxParameterID::PeerEndpoint, *peerEndpoint);
                 auto voucher = p.GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher);
@@ -996,14 +994,11 @@ namespace beam::wallet
         return std::to_string(!m_sender ? m_myAddr : m_peerAddr);
     }
 
-    std::string TxDescription::getEndpoint(bool isSender) const
+    std::string TxDescription::getEndpoint(bool isMy) const
     {
-        auto v = isSender ? GetParameter<PeerID>(TxParameterID::MyEndpoint)
-            : GetParameter<PeerID>(TxParameterID::PeerEndpoint);
+        auto v = GetParameter<PeerID>(isMy ? TxParameterID::MyEndpoint : TxParameterID::PeerEndpoint);
         if (v)
-        {
             return std::to_base58(*v);
-        }
         return {};
     }
 

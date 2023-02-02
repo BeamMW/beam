@@ -6384,9 +6384,11 @@ namespace beam::wallet
                     .SetParameter(TxParameterID::AssetID, coin.m_CoinID.m_AssetID)
                     .SetParameter(TxParameterID::IsSender, false)
                     .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
-                    .SetParameter(TxParameterID::PeerEndpoint, coin.m_CoinID.m_User.m_Sender)
                     .SetParameter(TxParameterID::MyEndpoint, receiverAddress.m_Endpoint)
                     .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero));
+
+                if (coin.m_CoinID.m_User.m_Sender != Zero) // This is optional. Sender may prefer to send anonymously
+                    params.SetParameter(TxParameterID::PeerEndpoint, coin.m_CoinID.m_User.m_Sender);
 
                 const auto assetId = coin.m_CoinID.m_AssetID;
                 if (assetId != Asset::s_BeamID)
@@ -7403,7 +7405,6 @@ namespace beam::wallet
         params.SetParameter(TxParameterID::ShieldedVoucherList, vouchers);
         params.SetParameter(TxParameterID::PeerAddr,            address.m_BbsAddr);
         params.SetParameter(TxParameterID::PeerEndpoint,        address.m_Endpoint);
-        params.SetParameter(TxParameterID::PeerOwnID,           address.m_OwnID);
         params.SetParameter(TxParameterID::IsPermanentPeerID,   address.isPermanent());
 
         return std::to_string(params);
@@ -7415,7 +7416,6 @@ namespace beam::wallet
 
         params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
         params.SetParameter(TxParameterID::PeerEndpoint, address.m_Endpoint);
-        params.SetParameter(TxParameterID::PeerOwnID, address.m_OwnID);
         params.SetParameter(TxParameterID::Voucher, voucher);
 
         return std::to_string(params);

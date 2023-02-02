@@ -322,7 +322,6 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     offlineParameters.SetParameter(TxParameterID::ShieldedVoucherList, lastVouchers);
     offlineParameters.SetParameter(TxParameterID::PeerAddr, address->m_BbsAddr);
     offlineParameters.SetParameter(TxParameterID::PeerEndpoint, address->m_Endpoint);
-    offlineParameters.SetParameter(TxParameterID::PeerOwnID, address->m_OwnID);
     offlineParameters.SetParameter(TxParameterID::IsPermanentPeerID, true);
     offlineParameters.SetParameter(TxParameterID::AssetID, beam::Asset::ID(asset));
 
@@ -683,7 +682,6 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
             assert(false);
             return;
         }
-        CopyParameter(TxParameterID::PeerOwnID, _txParameters, params);
     }
     else {
         if(!LoadReceiverParams(_txParameters, params, TxAddressType::Regular)) {

@@ -61,39 +61,14 @@ namespace beam::wallet::lelantus
         IPrivateKeyKeeper2::Method::SignSendShielded& m = x.m_Method;
 
         SetCommon(m);
+        ZeroObject(m.m_User);
 
-        WalletID widMy = GetParameterStrict<WalletID>(TxParameterID::MyAddr);
-        WalletID widPeer;
-        bool bHasWidPeer = GetParameter(TxParameterID::PeerAddr, widPeer);
-
-        if (!GetParameter(TxParameterID::PeerEndpoint, m.m_Peer))
+        if (GetParameter(TxParameterID::PeerEndpoint, m.m_Peer))
         {
-            auto wa = m_Tx.GetWalletDB()->getAddress(bHasWidPeer ? widPeer : widMy);
-            if (!wa)
-                throw TransactionFailedException(true, TxFailureReason::NoPeerIdentity);
-
-            m.m_Peer = wa->m_Endpoint;
-            m.m_iEndpoint = wa->m_OwnID;
-        }
-
-        if (!GetParameter(TxParameterID::Voucher, m.m_Voucher))
-        {
-            if (m.m_iEndpoint)
+            if (!GetParameter(TxParameterID::Voucher, m.m_Voucher))
             {
-                // We're sending to ourselves. Create our voucher
-                IPrivateKeyKeeper2::Method::CreateVoucherShielded m2;
-                m2.m_iEndpoint = m.m_iEndpoint;
-                ECC::GenRandom(m2.m_Nonce);
-
-                if (IPrivateKeyKeeper2::Status::Success != m_Tx.get_KeyKeeperStrict()->InvokeSync(m2) ||
-                    m2.m_Res.empty())
-                    throw TransactionFailedException(true, TxFailureReason::KeyKeeperError);
-
-                m.m_Voucher = std::move(m2.m_Res.front());
-            }
-            else
-            {
-                if (!bHasWidPeer)
+                WalletID widPeer;
+                if (!GetParameter(TxParameterID::PeerAddr, widPeer))
                     throw TransactionFailedException(true, TxFailureReason::NoVoucher);
 
                 boost::optional<ShieldedTxo::Voucher> res;
@@ -103,30 +78,51 @@ namespace beam::wallet::lelantus
                     return;
 
                 m.m_Voucher = std::move(*res);
+                SetParameter(TxParameterID::Voucher, m.m_Voucher);
             }
-            SetParameter(TxParameterID::Voucher, m.m_Voucher);
+
+            // set sender info, if specified
+            if (!GetParameter(TxParameterID::MyEndpoint, m.m_User.m_Sender))
+            {
+                WalletID widMe;
+                if (GetParameter(TxParameterID::MyAddr, widMe))
+                {
+                    auto wa = m_Tx.GetWalletDB()->getAddress(widMe);
+                    if (wa)
+                        m.m_User.m_Sender = wa->m_Endpoint;
+                    else
+                        // put it anyway
+                        m.m_User.m_Sender = widMe.m_Pk;
+                }
+            }
         }
-
-        ZeroObject(m.m_User);
-
-        if (!m.m_iEndpoint)
+        else
         {
-            auto wa = m_Tx.GetWalletDB()->getAddress(widMy);
-            if (wa)
-                m.m_User.m_Sender = wa->m_Endpoint;
+            // We're sending to ourselves. Create our voucher
+            if (!GetParameter(TxParameterID::MyAddressID, m.m_iEndpoint))
+            {
+                m.m_iEndpoint = m_Tx.GetWalletDB()->AllocateKidRange(1);
+                SetParameter(TxParameterID::MyAddressID, m.m_iEndpoint);
+            }
+
+            m_Tx.GetWalletDB()->get_Endpoint(m.m_Peer, m.m_iEndpoint);
+
+            IPrivateKeyKeeper2::Method::CreateVoucherShielded m2;
+            m2.m_iEndpoint = m.m_iEndpoint;
+            ECC::GenRandom(m2.m_Nonce);
+
+            if (IPrivateKeyKeeper2::Status::Success != m_Tx.get_KeyKeeperStrict()->InvokeSync(m2) || m2.m_Res.empty())
+                throw TransactionFailedException(true, TxFailureReason::KeyKeeperError);
+
+            m.m_Voucher = std::move(m2.m_Res.front());
         }
 
-        // TODO: add ShieldedMessage if needed
-        // m.m_User.m_Message = GetParameterStrict<WalletID>(TxParameterID::ShieldedMessage);
 
         auto* packedMessage = ShieldedTxo::User::ToPackedMessage(m.m_User);
         packedMessage->m_TxID = Blob(m_Tx.GetTxID().data(), static_cast<uint32_t>(m_Tx.GetTxID().size()));
         uint8_t maxPrivacyMinAnonimitySet = 0;
         if (GetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, maxPrivacyMinAnonimitySet))
             packedMessage->m_MaxPrivacyMinAnonymitySet = maxPrivacyMinAnonimitySet;
-
-        // store receiver's own ID to allow it to restore the address
-        GetParameter(TxParameterID::PeerOwnID, packedMessage->m_ReceiverOwnID);
 
         // store flags
         uint8_t flags = 0;
