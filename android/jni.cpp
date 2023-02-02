@@ -690,7 +690,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
 
     WalletID widMy(Zero);
     if (widMy.FromHex(JString(env, senderAddr).value()))
-        .SetParameter(beam::wallet::TxParameterID::MyAddr, widMy)
+        params.SetParameter(beam::wallet::TxParameterID::MyAddr, widMy)
 
     if (type == TxAddressType::MaxPrivacy) {
         CopyParameter(TxParameterID::Voucher, _txParameters, params);
