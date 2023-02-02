@@ -247,52 +247,8 @@ namespace beam::wallet
 
         try
         {
-            WalletID from(Zero);
-
             auto walletDB = getWalletDB();
             auto wallet = getWallet();
-
-            if (data.tokenFrom)
-            {
-                auto addr = walletDB->getAddressByToken(*data.tokenFrom);
-
-                if (!addr.is_initialized())
-                {
-                    throw jsonrpc_exception(ApiError::InvalidAddress, "Unable to find sender address (from).");
-                }
-
-                if (!addr->m_BbsAddr.IsValid())
-                {
-                    throw jsonrpc_exception(ApiError::InvalidAddress, "Invalid sender (from) address.");
-                }
-
-                if (!addr->isOwn())
-                {
-                    throw jsonrpc_exception(ApiError::InvalidAddress, "Sender address (from) is not your own address.");
-                }
-
-                if (addr->isExpired())
-                {
-                    throw jsonrpc_exception(ApiError::InvalidAddress, "Sender address (from) is expired.");
-                }
-
-                from = addr->m_BbsAddr;
-            }
-            else
-            {
-                WalletAddress senderAddress;
-                walletDB->createAddress(senderAddress);
-
-                if (isApp())
-                {
-                    // This address is created for DApp
-                    // Make it visible to DApp
-                    senderAddress.setCategory(getAppId());
-                }
-
-                walletDB->saveAddress(senderAddress);
-                from = senderAddress.m_BbsAddr;
-            }
 
             ByteBuffer message(data.comment.begin(), data.comment.end());
             CoinIDList coins = data.coins ? *data.coins : CoinIDList();
@@ -314,12 +270,32 @@ namespace beam::wallet
                 params.SetParameter(TxParameterID::AssetID, *data.assetId);
             }
 
-            params.SetParameter(TxParameterID::MyAddr, from)
+            params
                 .SetParameter(TxParameterID::Amount, data.value)
                 .SetParameter(TxParameterID::Fee, data.fee)
                 .SetParameter(TxParameterID::PreselectedCoins, coins)
                 .SetParameter(TxParameterID::Message, message)
                 .SetParameter(beam::wallet::TxParameterID::OriginalToken, data.tokenTo);
+
+
+            if (data.tokenFrom)
+            {
+                auto addr = walletDB->getAddressByToken(*data.tokenFrom);
+
+                if (!addr.is_initialized())
+                    throw jsonrpc_exception(ApiError::InvalidAddress, "Unable to find sender address (from).");
+
+                if (!addr->m_BbsAddr.IsValid())
+                    throw jsonrpc_exception(ApiError::InvalidAddress, "Invalid sender (from) address.");
+
+                if (!addr->isOwn())
+                    throw jsonrpc_exception(ApiError::InvalidAddress, "Sender address (from) is not your own address.");
+
+                if (addr->isExpired())
+                    throw jsonrpc_exception(ApiError::InvalidAddress, "Sender address (from) is expired.");
+
+                params.SetParameter(TxParameterID::MyAddr, addr->m_BbsAddr);
+            }
 
             if (isApp())
             {

@@ -2433,11 +2433,7 @@ namespace
                 auto params = CreateSimpleTransactionParameters();
                 LoadReceiverParams(vm, params);
 
-                WalletAddress senderAddress;
-                walletDB->createAddress(senderAddress);
-                walletDB->saveAddress(senderAddress);
-
-                params.SetParameter(TxParameterID::MyAddr, senderAddress.m_BbsAddr)
+                params
                     .SetParameter(TxParameterID::Amount, amount)
                     // fee for shielded inputs included automatically
                     .SetParameter(TxParameterID::Fee, fee)

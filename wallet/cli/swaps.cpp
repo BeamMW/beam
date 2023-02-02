@@ -1121,12 +1121,6 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         return boost::none;
     }
 
-    // on accepting
-    WalletAddress senderAddress;
-    walletDB->createAddress(senderAddress);
-    walletDB->saveAddress(senderAddress);
-
-    swapTxParameters->SetParameter(TxParameterID::MyAddr, senderAddress.m_BbsAddr);
     FillSwapFee(&(*swapTxParameters), fee, swapFeeRate, *isBeamSide);
 
     return wallet.StartTransaction(*swapTxParameters);

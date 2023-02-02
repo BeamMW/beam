@@ -6364,27 +6364,13 @@ namespace beam::wallet
             }
             else
             {
-                WalletAddress receiverAddress;
-                if (message->m_ReceiverOwnID)
-                {
-                    db.get_SbbsWalletID(receiverAddress.m_BbsAddr, message->m_ReceiverOwnID);
-                    db.get_Endpoint(receiverAddress.m_Endpoint, message->m_ReceiverOwnID);
-                }
-                else
-                {
-                    // fake address
-                    db.createAddress(receiverAddress);
-                }
 
                 auto params = CreateTransactionParameters(TxType::PushTransaction, txID)
-                    .SetParameter(TxParameterID::MyAddr, receiverAddress.m_BbsAddr)
-                    .SetParameter(TxParameterID::PeerAddr, WalletID())
                     .SetParameter(TxParameterID::Status, TxStatus::Completed)
                     .SetParameter(TxParameterID::Amount, coin.m_CoinID.m_Value)
                     .SetParameter(TxParameterID::AssetID, coin.m_CoinID.m_AssetID)
                     .SetParameter(TxParameterID::IsSender, false)
                     .SetParameter(TxParameterID::CreateTime, RestoreCreationTime(tip, coin.m_confirmHeight))
-                    .SetParameter(TxParameterID::MyEndpoint, receiverAddress.m_Endpoint)
                     .SetParameter(TxParameterID::KernelID, Merkle::Hash(Zero));
 
                 if (coin.m_CoinID.m_User.m_Sender != Zero) // This is optional. Sender may prefer to send anonymously

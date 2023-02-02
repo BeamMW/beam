@@ -1391,18 +1391,7 @@ namespace beam::wallet
             assert(!m_wallet.expired());
             auto s = m_wallet.lock();
             if (s)
-            {
-                auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyAddr);
-                if (!myID)
-                {
-                    WalletAddress senderAddress;
-                    m_walletDB->createAddress(senderAddress);
-                    saveAddress(senderAddress); // should update the wallet_network
-                    parameters.SetParameter(TxParameterID::MyAddr, senderAddress.m_BbsAddr);
-                }
-
                 s->StartTransaction(parameters);
-            }
 
             onSendMoneyVerified();
         }

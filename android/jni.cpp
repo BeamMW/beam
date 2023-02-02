@@ -660,13 +660,6 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
         return;
     }
 
-    WalletID bbsAddr(Zero);
-    if (!bbsAddr.FromHex(JString(env, senderAddr).value()))
-    {
-        LOG_ERROR() << "Sender Address is not valid!!!";
-        return;
-    }
-
     auto messageString = JString(env, comment).value();
     uint64_t bAmount = amount;
     uint64_t bfee = fee;
@@ -692,9 +685,12 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
 
     params.SetParameter(TxParameterID::Amount, bAmount)
         .SetParameter(TxParameterID::Fee, bfee)
-        .SetParameter(beam::wallet::TxParameterID::MyAddr, bbsAddr)
         .SetParameter(TxParameterID::AssetID, beam::Asset::ID(asset))
         .SetParameter(TxParameterID::Message, beam::ByteBuffer(messageString.begin(), messageString.end()));
+
+    WalletID widMy(Zero);
+    if (widMy.FromHex(JString(env, senderAddr).value()))
+        .SetParameter(beam::wallet::TxParameterID::MyAddr, widMy)
 
     if (type == TxAddressType::MaxPrivacy) {
         CopyParameter(TxParameterID::Voucher, _txParameters, params);
