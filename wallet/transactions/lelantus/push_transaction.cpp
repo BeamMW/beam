@@ -57,7 +57,7 @@ namespace beam::wallet::lelantus
                 {
                     TxParameters temp{ parameters };
                     temp.SetParameter(TxParameterID::IsSelfTx, true);
-                    return wallet::ProcessReceiverAddress(temp, walletDB, false);
+                    return wallet::ProcessReceiverAddress(temp, walletDB);
                 }
             }
             else
@@ -67,11 +67,11 @@ namespace beam::wallet::lelantus
                 {
                     TxParameters temp{ parameters };
                     temp.SetParameter(TxParameterID::IsSelfTx, addr->isOwn());
-                    return wallet::ProcessReceiverAddress(temp, walletDB, false);
+                    return wallet::ProcessReceiverAddress(temp, walletDB);
                 }
             }
         }
-        return wallet::ProcessReceiverAddress(parameters, walletDB, false);
+        return wallet::ProcessReceiverAddress(parameters, walletDB);
     }
 
     PushTransaction::PushTransaction(const TxContext& context)

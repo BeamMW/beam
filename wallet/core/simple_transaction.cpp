@@ -33,11 +33,9 @@ namespace beam::wallet
         return CreateTransactionParameters(TxType::Simple, txId);
     }
 
-    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList, const boost::optional<TxID>& txId)
+    TxParameters CreateSplitTransactionParameters(const AmountList& amountList, const boost::optional<TxID>& txId)
     {
         return CreateSimpleTransactionParameters(txId)
-            .SetParameter(TxParameterID::MyAddr, myID)
-            .SetParameter(TxParameterID::PeerAddr, myID)
             .SetParameter(TxParameterID::AmountList, amountList)
             .SetParameter(TxParameterID::Amount, std::accumulate(amountList.begin(), amountList.end(), Amount(0)));
     }
@@ -177,7 +175,7 @@ namespace beam::wallet
 
             // we are at the beginning
             uint64_t nAddrOwnID;
-            if (!GetParameter(TxParameterID::MyAddressID, nAddrOwnID))
+            if (pMutualBuilder && !GetParameter(TxParameterID::MyAddressID, nAddrOwnID))
             {
                 WalletID wid;
                 if (GetParameter(TxParameterID::MyAddr, wid))
@@ -186,10 +184,8 @@ namespace beam::wallet
                     if (waddr)
                     {
                         if (!waddr->isOwn())
-                        {
-                            assert(false);
                             throw std::runtime_error("Not own address in MyID");
-                        }
+
                         SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
 
                         if (pMutualBuilder)

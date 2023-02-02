@@ -510,17 +510,13 @@ namespace beam::wallet
             auto walletDB = getWalletDB();
             auto wallet = getWallet();
 
-            WalletAddress senderAddress;
-            walletDB->createAddress(senderAddress);
-            walletDB->saveAddress(senderAddress);
-
             if (data.txId && walletDB->getTx(*data.txId))
             {
                 doTxAlreadyExistsError(id);
                 return;
             }
 
-            auto params = CreateSplitTransactionParameters(senderAddress.m_BbsAddr, data.coins, data.txId)
+            auto params = CreateSplitTransactionParameters(data.coins, data.txId)
                     .SetParameter(TxParameterID::Fee, data.fee);
 
             if (data.assetId)

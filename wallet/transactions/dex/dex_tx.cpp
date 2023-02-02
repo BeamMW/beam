@@ -52,7 +52,7 @@ namespace beam::wallet
 
     TxParameters DexTransaction::Creator::CheckAndCompleteParameters(const TxParameters& initialParams)
     {
-        auto params = ProcessReceiverAddress(initialParams, _wdb, true);
+        auto params = ProcessReceiverAddress(initialParams, _wdb);
 
         const auto selfTx = params.GetParameter<bool>(TxParameterID::IsSelfTx);
         if (!selfTx)

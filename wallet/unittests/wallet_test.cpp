@@ -591,13 +591,19 @@ namespace
         
 
         cout << "An attempt to send from invalid address\n";
-        WALLET_CHECK_THROW(txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
+        txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyAddr, receiver.m_BbsAddr)
             .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
             .SetParameter(TxParameterID::Amount, Amount(6))
             .SetParameter(TxParameterID::Fee, Amount(0))
             .SetParameter(TxParameterID::Lifetime, Height(200))
-            .SetParameter(TxParameterID::PreselectedCoins, preselectedIDs)));
+            .SetParameter(TxParameterID::PreselectedCoins, preselectedIDs));
+
+        stx = sender.m_WalletDB->getTx(txId);
+        WALLET_CHECK(stx.is_initialized());
+        WALLET_CHECK(stx->m_status == wallet::TxStatus::Failed);
+
+        completedCount = 2;
 
         sw.start();
 
@@ -651,7 +657,7 @@ namespace
 
         // Tx history check
         sh = sender.m_WalletDB->getTxHistory();
-        WALLET_CHECK(sh.size() == 2);
+        WALLET_CHECK(sh.size() == 3);
         rh = receiver.m_WalletDB->getTxHistory();
         WALLET_CHECK(rh.size() == 2);
         stx = sender.m_WalletDB->getTx(txId);
@@ -694,7 +700,7 @@ namespace
 
         // Tx history check. New failed tx should be added to sender
         sh = sender.m_WalletDB->getTxHistory();
-        WALLET_CHECK(sh.size() == 3);
+        WALLET_CHECK(sh.size() == 4);
         rh = receiver.m_WalletDB->getTxHistory();
         WALLET_CHECK(rh.size() == 2);
         stx = sender.m_WalletDB->getTx(txId);
@@ -944,7 +950,7 @@ namespace
 
         sw.start();
 
-        auto txId = sender.m_Wallet->StartTransaction(CreateSplitTransactionParameters(sender.m_BbsAddr, AmountList{ 11, 12, 13 })
+        auto txId = sender.m_Wallet->StartTransaction(CreateSplitTransactionParameters(AmountList{ 11, 12, 13 })
             .SetParameter(TxParameterID::Fee, Amount(2))
             .SetParameter(TxParameterID::Lifetime, Height(200)));
 
@@ -1039,7 +1045,7 @@ namespace
         TestWalletRig sender(senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
 
 
-        auto txId = sender.m_Wallet->StartTransaction(CreateSplitTransactionParameters(sender.m_BbsAddr, AmountList{ 11, 12, 13 })
+        auto txId = sender.m_Wallet->StartTransaction(CreateSplitTransactionParameters(AmountList{ 11, 12, 13 })
            .SetParameter(TxParameterID::Fee, Amount(2))
            .SetParameter(TxParameterID::Lifetime, Height(200)));
 
@@ -1056,7 +1062,7 @@ namespace
         }
         
 
-        txId = sender.m_Wallet->StartTransaction(CreateSplitTransactionParameters(sender.m_BbsAddr, AmountList{ 11, 12, 13 })
+        txId = sender.m_Wallet->StartTransaction(CreateSplitTransactionParameters(AmountList{ 11, 12, 13 })
             .SetParameter(TxParameterID::Fee, Amount(42))
             .SetParameter(TxParameterID::Lifetime, Height(200)));
         mainReactor->run();
@@ -1073,7 +1079,7 @@ namespace
         }
 
         // another attempt
-        txId = sender.m_Wallet->StartTransaction(CreateSplitTransactionParameters(sender.m_BbsAddr, AmountList{ 11, 12, 13 })
+        txId = sender.m_Wallet->StartTransaction(CreateSplitTransactionParameters(AmountList{ 11, 12, 13 })
             .SetParameter(TxParameterID::Fee, Amount(50))
             .SetParameter(TxParameterID::Lifetime, Height(200)));
         mainReactor->run();
@@ -1690,7 +1696,7 @@ namespace
         TestWalletRig sender(db, f, TestWalletRig::Type::Regular, false, 0, senderNodeAddress);
         TestWalletRig receiver(createReceiverWalletDB(), f, TestWalletRig::Type::Regular, false, 0, receiverNodeAddress);
 
-        sender.m_Wallet->StartTransaction(CreateSplitTransactionParameters(sender.m_BbsAddr, AmountList(Count, Amount(5)))
+        sender.m_Wallet->StartTransaction(CreateSplitTransactionParameters(AmountList(Count, Amount(5)))
             .SetParameter(TxParameterID::Fee, Amount(0))
             .SetParameter(TxParameterID::Lifetime, Height(200)));
 

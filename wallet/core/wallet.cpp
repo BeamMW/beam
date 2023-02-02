@@ -74,16 +74,11 @@ namespace beam::wallet
         return !!p;
     }
 
-    TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB, bool isMandatory)
+    TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB)
     {
         const auto& peerAddr = parameters.GetParameter<WalletID>(TxParameterID::PeerAddr);
         if (!peerAddr)
-        {
-            if (isMandatory)
-                throw InvalidTransactionParametersException("No PeerID");
-
             return parameters;
-        }
 
         // if there is no parameter default behaviour is to save address or update it, for historical reasons
         auto savePeerAddressParam = parameters.GetParameter<bool>(TxParameterID::SavePeerAddress);

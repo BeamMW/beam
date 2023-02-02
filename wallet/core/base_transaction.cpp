@@ -651,8 +651,11 @@ namespace beam::wallet
 
     bool BaseTransaction::IsSelfTx() const
     {
-        const auto peerID = GetMandatoryParameter<WalletID>(TxParameterID::PeerAddr);
-        const auto address = GetWalletDB()->getAddress(peerID);
+        WalletID wid;
+        if (!GetParameter(TxParameterID::PeerAddr, wid))
+            return true;
+
+        const auto address = GetWalletDB()->getAddress(wid);
         return address.is_initialized() && address->isOwn();
     }
 }

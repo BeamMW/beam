@@ -1017,7 +1017,7 @@ void TestShortWindow()
             // create 300(kCount) coins(split TX)
             if (cursor.m_Sid.m_Height == 3)
             {
-                auto splitTxParameters = CreateSplitTransactionParameters(sender.m_BbsAddr, testAmount)
+                auto splitTxParameters = CreateSplitTransactionParameters(testAmount)
                     .SetParameter(TxParameterID::Fee, Amount(kNominalCoin));
 
                 sender.m_Wallet->StartTransaction(splitTxParameters);
@@ -1152,7 +1152,7 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
                 // better not to send split tx before fork2. It can be dropped once we cross the fork
                 if (cursor.m_Sid.m_Height >= Rules::get().pForks[2].m_Height+1)
                 {
-                    auto splitTxParameters = CreateSplitTransactionParameters(sender.m_BbsAddr, testAmount)
+                    auto splitTxParameters = CreateSplitTransactionParameters(testAmount)
                         .SetParameter(TxParameterID::Fee, Amount(kNominalCoin));
 
                     bTxSplit = true;
