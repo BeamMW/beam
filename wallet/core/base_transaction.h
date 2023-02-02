@@ -301,7 +301,6 @@ namespace beam::wallet
         virtual void RollbackTx();
         virtual void NotifyFailure(TxFailureReason);
         void UpdateTxDescription(TxStatus s);
-        bool IsSelfTx() const;
 
         bool SendTxParameters(SetTxParameter&& msg) const;
         virtual void UpdateImpl() = 0;

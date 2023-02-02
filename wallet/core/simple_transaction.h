@@ -57,6 +57,7 @@ namespace beam::wallet
     private:
         explicit SimpleTransaction(const TxContext& context);
 
+        bool IsSelfTx() const;
         bool IsInSafety() const override;
         void UpdateImpl() override;
         bool IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const override;

@@ -147,6 +147,16 @@ namespace beam::wallet
         }
     }
 
+    bool SimpleTransaction::IsSelfTx() const
+    {
+        WalletID wid;
+        if (!GetParameter(TxParameterID::PeerAddr, wid))
+            return true;
+
+        const auto address = GetWalletDB()->getAddress(wid);
+        return address.is_initialized() && address->isOwn();
+    }
+
     void SimpleTransaction::UpdateImpl()
     {
         if (!m_TxBuilder)
@@ -188,26 +198,23 @@ namespace beam::wallet
 
                         SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
 
-                        if (pMutualBuilder)
+                        if (pMutualBuilder->m_IsSender)
                         {
-                            if (pMutualBuilder->m_IsSender)
+                            // sender may decide wether or not to use the endpoint. Both for itself and the receiver
+                            // To keep max compatibility we use our endpoint if either we have the receiver endpoint (i.e. it'd be standard ep-ep tx), or
+                            // if we use remote key keeper (then we have no choice).
+                            PeerID pidRemote;
+                            if (!m_Context.GetWalletDB()->get_MasterKdf() || GetParameter(TxParameterID::PeerEndpoint, pidRemote))
+                                SetParameter(TxParameterID::MyEndpoint, waddr->m_Endpoint);
+                        }
+                        else
+                        {
+                            // Receiver should comply
+                            PeerID pid;
+                            if (GetParameter(TxParameterID::MyEndpoint, pid) && (pid != waddr->m_Endpoint))
                             {
-                                // sender may decide wether or not to use the endpoint. Both for itself and the receiver
-                                // To keep max compatibility we use our endpoint if either we have the receiver endpoint (i.e. it'd be standard ep-ep tx), or
-                                // if we use remote key keeper (then we have no choice).
-                                PeerID pidRemote;
-                                if (!m_Context.GetWalletDB()->get_MasterKdf() || GetParameter(TxParameterID::PeerEndpoint, pidRemote))
-                                    SetParameter(TxParameterID::MyEndpoint, waddr->m_Endpoint);
-                            }
-                            else
-                            {
-                                // Receiver should comply
-                                PeerID pid;
-                                if (GetParameter(TxParameterID::MyEndpoint, pid) && (pid != waddr->m_Endpoint))
-                                {
-                                    OnFailed(TxFailureReason::NotEnoughDataForProof, true);
-                                    return;
-                                }
+                                OnFailed(TxFailureReason::NotEnoughDataForProof, true);
+                                return;
                             }
                         }
                     }
