@@ -455,7 +455,7 @@ namespace beam::wallet
         bool IsRecoveredMatch(CoinID&, const ECC::Point& comm);
         bool get_CommitmentSafe(ECC::Point& comm, const CoinID&);
 
-        void get_SbbsPeerID(ECC::Scalar::Native&, PeerID&, uint64_t ownID);
+        void get_SbbsPeerID(ECC::Scalar::Native&, PeerID&, uint64_t ownID) const;
         void get_SbbsWalletID(ECC::Scalar::Native&, WalletID&, uint64_t ownID);
         void get_SbbsWalletID(WalletID&, uint64_t ownID);
         bool ValidateSbbsWalletID(const WalletID&, uint64_t ownID);
@@ -561,6 +561,9 @@ namespace beam::wallet
         virtual void deleteAddress(const WalletID&, bool isLaser = false) = 0;
         virtual void deleteAddressByToken(const std::string&, bool isLaser = false) = 0;
         virtual void generateAndSaveDefaultAddress() = 0;
+
+        bool get_EffectiveEndpointPeer(const TxID& txID, SubTxID subTxID, PeerID&) const;
+        bool get_EffectiveEndpointMy(const TxID& txID, SubTxID subTxID, PeerID&) const;
 
         // Laser
         virtual void saveLaserChannel(const ILaserChannelEntity&) = 0;
@@ -1056,8 +1059,8 @@ namespace beam::wallet
         // Used for Payment Proof feature
         struct PaymentInfo
         {
-            WalletID m_Sender;
-            WalletID m_Receiver;
+            PeerID m_Sender;
+            PeerID m_Receiver;
 
             Asset::ID m_AssetID;
             Amount m_Amount;
@@ -1066,27 +1069,21 @@ namespace beam::wallet
             PaymentInfo();
 
             template <typename Archive>
-            static void serializeWid(Archive& ar, const WalletID& wid)
+            static void serializeWid(Archive& ar, const PeerID& pid)
             {
-                BbsChannel ch;
-                wid.m_Channel.Export(ch);
-
+                BbsChannel ch = 0; // legacy
                 ar
                     & ch
-                    & wid.m_Pk;
+                    & pid;
             }
 
             template <typename Archive>
-            static void serializeWid(Archive& ar, WalletID& wid)
+            static void serializeWid(Archive& ar, PeerID& pid)
             {
-                BbsChannel ch;
-                wid.m_Channel.Export(ch);
-
+                BbsChannel ch = 0; // legacy
                 ar
                     & ch
-                    & wid.m_Pk;
-
-                wid.m_Channel = ch;
+                    & pid;
             }
 
             //

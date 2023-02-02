@@ -2940,7 +2940,7 @@ namespace beam::wallet
         return false;
 	}
 
-    void IWalletDB::get_SbbsPeerID(ECC::Scalar::Native& sk, PeerID& pid, uint64_t ownID)
+    void IWalletDB::get_SbbsPeerID(ECC::Scalar::Native& sk, PeerID& pid, uint64_t ownID) const
     {
         Key::IKdf::Ptr pKdfSbbs = get_SbbsKdf();
         if (!pKdfSbbs)
@@ -5533,6 +5533,45 @@ namespace beam::wallet
         return res;
     }
 
+    bool IWalletDB::get_EffectiveEndpointPeer(const TxID& txID, SubTxID subTxID, PeerID& res) const
+    {
+        if (!storage::getTxParameter(*this, txID, TxParameterID::PeerEndpoint, res))
+        {
+            WalletID wid;
+            if (!storage::getTxParameter(*this, txID, TxParameterID::PeerAddr, wid))
+                return false;
+
+            res = wid.m_Pk;
+        }
+
+        return true;
+    }
+
+    bool IWalletDB::get_EffectiveEndpointMy(const TxID& txID, SubTxID subTxID, PeerID& res) const
+    {
+        if (!storage::getTxParameter(*this, txID, TxParameterID::MyEndpoint, res))
+        {
+            WalletID wid;
+            if (storage::getTxParameter(*this, txID, TxParameterID::MyAddr, wid))
+                res = wid.m_Pk;
+            else
+            {
+                // try to recover it from ownID
+                if (!get_SbbsKdf())
+                    return false;
+
+                uint64_t ownID;
+                if (!storage::getTxParameter(*this, txID, TxParameterID::MyAddressID, ownID))
+                    return false;
+
+                ECC::Scalar::Native sk;
+                get_SbbsPeerID(sk, res, ownID);
+            }
+        }
+
+        return true;
+    }
+
     void WalletDB::insertParameterToCache(const TxID& txID, SubTxID subTxID, TxParameterID paramID, const boost::optional<ByteBuffer>& blob) const
     {
         m_TxParametersCache[txID][subTxID][paramID] = blob;
@@ -6767,9 +6806,9 @@ namespace beam::wallet
             pc.m_Value = m_Amount;
             pc.m_KernelID = m_KernelID;
             pc.m_Signature = m_Signature;
-            pc.m_Sender = m_Sender.m_Pk;
+            pc.m_Sender = m_Sender;
             pc.m_AssetID = m_AssetID;
-            return pc.IsValid(m_Receiver.m_Pk);
+            return pc.IsValid(m_Receiver);
         }
 
         std::string PaymentInfo::to_string(const IWalletDB& wdb) const
@@ -6891,17 +6930,8 @@ namespace beam::wallet
                 uint64_t nAddrOwnID = 0;
 
                 bool bSuccess =
-                    (
-                        (
-                            storage::getTxParameter(walletDB, txID, TxParameterID::PeerEndpoint, pi.m_Receiver.m_Pk) &&  // payment proiof using wallet ID
-                            storage::getTxParameter(walletDB, txID, TxParameterID::MyEndpoint, pi.m_Sender.m_Pk)
-                            ) ||
-                        (
-                            storage::getTxParameter(walletDB, txID, TxParameterID::PeerAddr, pi.m_Receiver) && // payment proof using SBBS address
-                            storage::getTxParameter(walletDB, txID, TxParameterID::MyAddr, pi.m_Sender)
-                            )
-                        )
-                    &&
+                    walletDB.get_EffectiveEndpointPeer(txID, kDefaultSubTxID, pi.m_Receiver) &&
+                    walletDB.get_EffectiveEndpointMy(txID, kDefaultSubTxID, pi.m_Sender) &&
                     storage::getTxParameter(walletDB, txID, TxParameterID::KernelID, pi.m_KernelID) &&
                     storage::getTxParameter(walletDB, txID, TxParameterID::Amount, pi.m_Amount) &&
                     storage::getTxParameter(walletDB, txID, TxParameterID::PaymentConfirmation, pi.m_Signature) &&
