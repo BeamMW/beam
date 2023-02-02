@@ -476,7 +476,7 @@ void TestSimpleTx()
         }
         //else if (cursor.m_Sid.m_Height == 40)
         //{
-        //    auto parameters = lelantus::CreatePullTransactionParameters(sender.m_BbsAddr)
+        //    auto parameters = lelantus::CreatePullTransactionParameters()
         //        .SetParameter(TxParameterID::Amount, 66000000)
         //        .SetParameter(TxParameterID::AmountList, AmountList{ 46000000, 20000000 })
         //        .SetParameter(TxParameterID::Fee, 12000000)
@@ -486,7 +486,7 @@ void TestSimpleTx()
         //}
         //else if (cursor.m_Sid.m_Height == 50)
         //{
-        //    auto parameters = lelantus::CreatePullTransactionParameters(sender.m_BbsAddr)
+        //    auto parameters = lelantus::CreatePullTransactionParameters()
         //        .SetParameter(TxParameterID::Amount, 26000000)
         //        .SetParameter(TxParameterID::Fee, 12000000)
         //        .SetParameter(TxParameterID::ShieldedOutputId, 0U);
@@ -1038,7 +1038,7 @@ void TestShortWindow()
             else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 15)
             {
                 {
-                    auto parameters = lelantus::CreatePullTransactionParameters(sender.m_BbsAddr)
+                    auto parameters = lelantus::CreatePullTransactionParameters()
                         .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                         .SetParameter(TxParameterID::Fee, kFee)
                         .SetParameter(TxParameterID::ShieldedOutputId, 40U);
@@ -1046,7 +1046,7 @@ void TestShortWindow()
                     sender.m_Wallet->StartTransaction(parameters);
                 }
                 {
-                    auto parameters = lelantus::CreatePullTransactionParameters(sender.m_BbsAddr)
+                    auto parameters = lelantus::CreatePullTransactionParameters()
                         .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                         .SetParameter(TxParameterID::Fee, kFee)
                         .SetParameter(TxParameterID::ShieldedOutputId, 42U);
@@ -1054,7 +1054,7 @@ void TestShortWindow()
                     sender.m_Wallet->StartTransaction(parameters);
                 }
                 {
-                    auto parameters = lelantus::CreatePullTransactionParameters(sender.m_BbsAddr)
+                    auto parameters = lelantus::CreatePullTransactionParameters()
                         .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                         .SetParameter(TxParameterID::Fee, kFee)
                         .SetParameter(TxParameterID::ShieldedOutputId, 43U);
@@ -1064,7 +1064,7 @@ void TestShortWindow()
             }
             else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 20)
             {
-                auto parameters = lelantus::CreatePullTransactionParameters(sender.m_BbsAddr)
+                auto parameters = lelantus::CreatePullTransactionParameters()
                     .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                     .SetParameter(TxParameterID::Fee, kFee)
                     .SetParameter(TxParameterID::ShieldedOutputId, 62U);
@@ -1073,7 +1073,7 @@ void TestShortWindow()
             }
             else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 30)
             {
-                auto parameters = lelantus::CreatePullTransactionParameters(sender.m_BbsAddr)
+                auto parameters = lelantus::CreatePullTransactionParameters()
                     .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                     .SetParameter(TxParameterID::Fee, kFee)
                     .SetParameter(TxParameterID::ShieldedOutputId, 180);
@@ -1195,7 +1195,7 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
 
                     for (size_t index = 0; index < pullTxCount; index++)
                     {
-                        auto parameters = lelantus::CreatePullTransactionParameters(sender.m_BbsAddr)
+                        auto parameters = lelantus::CreatePullTransactionParameters()
                             .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                             .SetParameter(TxParameterID::Fee, kFee)
                             .SetParameter(TxParameterID::ShieldedOutputId, static_cast<TxoID>(index));
@@ -1347,7 +1347,7 @@ void TestPullTxRollbackByLowFee()
             }
             else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 10)
             {
-                auto parameters = lelantus::CreatePullTransactionParameters(sender.m_BbsAddr)
+                auto parameters = lelantus::CreatePullTransactionParameters()
                     .SetParameter(TxParameterID::Amount, 3600000)
                     .SetParameter(TxParameterID::Fee, 200000)
                     .SetParameter(TxParameterID::ShieldedOutputId, 0U);
@@ -1430,7 +1430,7 @@ void TestExpiredTxs()
             }
             else if (cursor.m_Sid.m_Height == startHeight + 6)
             {
-                auto parameters = lelantus::CreatePullTransactionParameters(sender.m_BbsAddr)
+                auto parameters = lelantus::CreatePullTransactionParameters()
                     .SetParameter(TxParameterID::Amount, 66000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
                     .SetParameter(TxParameterID::ShieldedOutputId, 0U)
@@ -1440,7 +1440,7 @@ void TestExpiredTxs()
             }
             else if (cursor.m_Sid.m_Height == startHeight + 9)
             {
-                auto parameters = lelantus::CreatePullTransactionParameters(sender.m_BbsAddr)
+                auto parameters = lelantus::CreatePullTransactionParameters()
                     .SetParameter(TxParameterID::Amount, 66000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
                     .SetParameter(TxParameterID::ShieldedOutputId, 0U);
@@ -1593,7 +1593,7 @@ void TestReextract()
             else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 10)
             {
                 {
-                    auto parameters = lelantus::CreatePullTransactionParameters(sender.m_BbsAddr)
+                    auto parameters = lelantus::CreatePullTransactionParameters()
                         .SetParameter(TxParameterID::Amount, 26000000)
                         .SetParameter(TxParameterID::Fee, 12000000)
                         .SetParameter(TxParameterID::ShieldedOutputId, 0U);
@@ -1601,7 +1601,7 @@ void TestReextract()
                     sender.m_Wallet->StartTransaction(parameters);
                 }
                 {
-                    auto parameters = lelantus::CreatePullTransactionParameters(sender.m_BbsAddr)
+                    auto parameters = lelantus::CreatePullTransactionParameters()
                         .SetParameter(TxParameterID::Amount, 26000000)
                         .SetParameter(TxParameterID::Fee, 12000000)
                         .SetParameter(TxParameterID::ShieldedOutputId, 0U);

@@ -105,10 +105,9 @@ namespace beam::wallet::lelantus
         };
     }
 
-    TxParameters CreateUnlinkFundsTransactionParameters(const WalletID& myID, const boost::optional<TxID>& txId)
+    TxParameters CreateUnlinkFundsTransactionParameters(const boost::optional<TxID>& txId)
     {
-        return CreateTransactionParameters(TxType::UnlinkFunds, txId)
-            .SetParameter(TxParameterID::MyAddr, myID);
+        return CreateTransactionParameters(TxType::UnlinkFunds, txId);
     }
 
     BaseTransaction::Ptr UnlinkFundsTransaction::Creator::Create(const TxContext& context)
