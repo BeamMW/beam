@@ -1334,49 +1334,15 @@ namespace beam::wallet
 
     void WalletClient::sendMoney(const WalletID& receiver, const std::string& comment, Amount amount, Amount fee)
     {
-        try
-        {
-            assert(!m_wallet.expired());
-            auto s = m_wallet.lock();
-            if (s)
-            {
-                WalletAddress senderAddress;
-                m_walletDB->createAddress(senderAddress);
-                saveAddress(senderAddress); // should update the wallet_network
-                ByteBuffer message(comment.begin(), comment.end());
-
-                TxParameters txParameters = CreateSimpleTransactionParameters()
-                    .SetParameter(TxParameterID::MyAddr, senderAddress.m_BbsAddr)
-                    .SetParameter(TxParameterID::PeerAddr, receiver)
-                    .SetParameter(TxParameterID::Amount, amount)
-                    .SetParameter(TxParameterID::Fee, fee)
-                    .SetParameter(TxParameterID::Message, message);
-
-                s->StartTransaction(txParameters);
-            }
-
-            onSendMoneyVerified();
-        }
-        catch (const CannotGenerateSecretException&)
-        {
-            onNewAddressFailed();
-            return;
-        }
-        catch (const ReceiverAddressExpiredException&)
-        {
-            onCantSendToExpired();
-            return;
-        }
-        catch (const std::exception& e)
-        {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
-        }
-        catch (...) {
-            LOG_UNHANDLED_EXCEPTION();
-        }
+        sendMoneyInternal(nullptr, receiver, comment, amount, fee);
     }
 
     void WalletClient::sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount amount, Amount fee)
+    {
+        sendMoneyInternal(&sender, receiver, comment, amount, fee);
+    }
+
+    void WalletClient::sendMoneyInternal(const WalletID* pSender, const WalletID& receiver, const std::string& comment, Amount amount, Amount fee)
     {
         try
         {
@@ -1386,12 +1352,14 @@ namespace beam::wallet
             {
                 ByteBuffer message(comment.begin(), comment.end());
                 TxParameters txParameters = CreateSimpleTransactionParameters()
-                    .SetParameter(TxParameterID::MyAddr, sender)
                     .SetParameter(TxParameterID::PeerAddr, receiver)
                     .SetParameter(TxParameterID::Amount, amount)
                     .SetParameter(TxParameterID::Fee, fee)
                     .SetParameter(TxParameterID::Message, message);
                 
+                if (pSender)
+                    txParameters.SetParameter(TxParameterID::MyAddr, *pSender);
+
                 s->StartTransaction(txParameters);
             }
 
