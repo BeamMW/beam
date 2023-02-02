@@ -164,7 +164,6 @@ namespace
         for (int i = 0; i < Count; ++i)
         {
             sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
-                .SetParameter(TxParameterID::MyAddr, sender.m_BbsAddr)
                 .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
                 .SetParameter(TxParameterID::Amount, Amount(1))
                 .SetParameter(TxParameterID::Fee, Amount(2))
@@ -414,8 +413,6 @@ namespace
         sw.start();
 
         auto txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
-                    .SetParameter(TxParameterID::MyAddr, sender.m_BbsAddr)
-                    .SetParameter(TxParameterID::PeerAddr, sender.m_BbsAddr)
                     .SetParameter(TxParameterID::Amount, Amount(24))
                     .SetParameter(TxParameterID::Fee, Amount(2))
                     .SetParameter(TxParameterID::Lifetime, Height(200)));
@@ -491,7 +488,6 @@ namespace
         sw.start();
 
         auto txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
-            .SetParameter(TxParameterID::MyAddr, sender.m_BbsAddr)
             .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
             .SetParameter(TxParameterID::Amount, Amount(4))
             .SetParameter(TxParameterID::Fee, Amount(2))
@@ -608,7 +604,7 @@ namespace
         sw.start();
 
         txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
-            .SetParameter(TxParameterID::MyAddr, sender.m_BbsAddr)
+            .SetParameter(TxParameterID::MyAddr, sender.m_BbsAddr) // not mandatory, but can be specified
             .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
             .SetParameter(TxParameterID::Amount, Amount(6))
             .SetParameter(TxParameterID::Fee, Amount(0))
@@ -680,7 +676,6 @@ namespace
         completedCount = 1;// only one wallet takes part in tx
 
         txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
-            .SetParameter(TxParameterID::MyAddr, sender.m_BbsAddr)
             .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
             .SetParameter(TxParameterID::Amount, Amount(6))
             .SetParameter(TxParameterID::Fee, Amount(0))
@@ -740,7 +735,6 @@ namespace
             TestWalletRig receiver(createReceiverWalletDB(), f);
 
             sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
-                .SetParameter(TxParameterID::MyAddr, sender.m_BbsAddr)
                 .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
                 .SetParameter(TxParameterID::Amount, Amount(4))
                 .SetParameter(TxParameterID::Fee, Amount(2))
@@ -1164,7 +1158,6 @@ namespace
         WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
         auto txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
-            .SetParameter(TxParameterID::MyAddr, sender.m_BbsAddr)
             .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
             .SetParameter(TxParameterID::Amount, Amount(4))
             .SetParameter(TxParameterID::Fee, Amount(2))
@@ -1192,7 +1185,6 @@ namespace
         }
 
         txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
-            .SetParameter(TxParameterID::MyAddr, sender.m_BbsAddr)
             .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
             .SetParameter(TxParameterID::Amount, Amount(4))
             .SetParameter(TxParameterID::Fee, Amount(2)));
@@ -1262,7 +1254,6 @@ namespace
             WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
 
             sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
-                .SetParameter(TxParameterID::MyAddr, sender.m_BbsAddr)
                 .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
                 .SetParameter(TxParameterID::Amount, Amount(4))
                 .SetParameter(TxParameterID::Fee, Amount(2))
@@ -1709,7 +1700,6 @@ namespace
         for (int i = 0; i < Count; ++i)
         {
             sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
-                .SetParameter(TxParameterID::MyAddr, sender.m_BbsAddr)
                 .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
                 .SetParameter(TxParameterID::Amount, Amount(4))
                 .SetParameter(TxParameterID::Fee, Amount(1))
@@ -2686,7 +2676,6 @@ namespace
             WalletID peerID(Zero);
             WALLET_CHECK(peerID.FromHex("1b516fb39884a3281bc0761f97817782a8bc51fdb1336882a2c7efebdb400d00d4"));
             auto params = CreateSimpleTransactionParameters()
-                .SetParameter(TxParameterID::MyAddr, myID)
                 .SetParameter(TxParameterID::PeerAddr, peerID)
                 .SetParameter(TxParameterID::Lifetime, Height(200));
 
@@ -2719,7 +2708,6 @@ namespace
 
             {
                 auto jsParams = CreateSimpleTransactionParameters()
-                    .SetParameter(TxParameterID::MyAddr, myID)
                     .SetParameter(TxParameterID::PeerAddr, peerID)
                     .SetParameter(TxParameterID::Lifetime, Height(200))
                     .SetParameter(TxParameterID::Amount, Amount(234))
