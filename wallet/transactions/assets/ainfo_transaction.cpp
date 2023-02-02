@@ -26,30 +26,7 @@ namespace beam::wallet
 
     TxParameters AssetInfoTransaction::Creator::CheckAndCompleteParameters(const TxParameters& params)
     {
-        if(params.GetParameter<WalletID>(TxParameterID::PeerAddr))
-        {
-            throw InvalidTransactionParametersException("Asset registration: unexpected PeerID");
-        }
-
-        if(params.GetParameter<WalletID>(TxParameterID::MyAddr))
-        {
-            throw InvalidTransactionParametersException("Asset registration: unexpected MyID");
-        }
-
-        const auto isSenderO = params.GetParameter<bool>(TxParameterID::IsSender);
-        if (!isSenderO || !isSenderO.get())
-        {
-            throw InvalidTransactionParametersException("Asset registration: non-sender transaction");
-        }
-
-        const auto isInitiatorO = params.GetParameter<bool>(TxParameterID::IsInitiator);
-        if (!isInitiatorO || !isInitiatorO.get())
-        {
-            throw InvalidTransactionParametersException("Asset registration: non-initiator transaction");
-        }
-
         TxParameters result{params};
-        result.SetParameter(TxParameterID::MyAddr, WalletID(Zero)); // Mandatory parameter
         result.SetParameter(TxParameterID::Amount, Amount(0)); // Mandatory parameter
         return result;
     }
