@@ -700,7 +700,7 @@ namespace beam::wallet
         };
 
         virtual void Listen(const WalletID&, const ECC::Scalar::Native& sk, IHandler* = nullptr) {}
-        virtual void Unlisten(const WalletID&) {}
+        virtual void Unlisten(const WalletID&, IHandler* = nullptr) {}
         virtual void Send(const WalletID& peerAddr, const Blob&) {}
     };
 

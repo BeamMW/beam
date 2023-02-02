@@ -87,8 +87,8 @@ namespace beam::wallet {
             if (!proto::Bbs::Decrypt(pMsg, nSize, x.m_sk))
                 continue;
 
-            if (x.m_pHandler)
-                x.m_pHandler->OnMsg(Blob(pMsg, nSize));
+            if (x.m_Wid.m_pHandler)
+                x.m_Wid.m_pHandler->OnMsg(Blob(pMsg, nSize));
             else
             {
                 SetTxParameter msgWallet;
@@ -113,10 +113,11 @@ namespace beam::wallet {
         }
     }
 
-    BaseMessageEndpoint::Addr* BaseMessageEndpoint::CreateAddr(const WalletID& wid)
+    BaseMessageEndpoint::Addr* BaseMessageEndpoint::CreateAddr(const WalletID& wid, IHandler* pHandler)
     {
         Addr* pAddr = new Addr;
         pAddr->m_Wid.m_Value = wid;
+        pAddr->m_Wid.m_pHandler = pHandler;
         pAddr->m_Channel.m_Value = wid.get_Channel();
 
         m_Addresses.insert(pAddr->m_Wid);
@@ -128,10 +129,11 @@ namespace beam::wallet {
         return pAddr;
     }
 
-    BaseMessageEndpoint::Addr* BaseMessageEndpoint::FindAddr(const WalletID& wid)
+    BaseMessageEndpoint::Addr* BaseMessageEndpoint::FindAddr(const WalletID& wid, IHandler* pHandler)
     {
         Addr::Wid key;
         key.m_Value = wid;
+        key.m_pHandler = pHandler;
 
         auto it = m_Addresses.find(key);
         return (m_Addresses.end() == it) ? nullptr : &it->get_ParentObj();
@@ -143,10 +145,10 @@ namespace beam::wallet {
         if (!m_pKdfSbbs)
             return;
 
-        Addr* pAddr = FindAddr(address.m_BbsAddr);
+        Addr* pAddr = FindAddr(address.m_BbsAddr, nullptr);
         if (!pAddr)
         {
-            pAddr = CreateAddr(address.m_BbsAddr);
+            pAddr = CreateAddr(address.m_BbsAddr, nullptr);
             m_WalletDB->get_SbbsPeerID(pAddr->m_sk, pAddr->m_Wid.m_Value.m_Pk, address.m_OwnID);
         }
 
@@ -158,7 +160,7 @@ namespace beam::wallet {
 
     void BaseMessageEndpoint::DeleteOwnAddress(const WalletID& wid)
     {
-        Addr* pAddr = FindAddr(wid);
+        Addr* pAddr = FindAddr(wid, nullptr);
         if (pAddr)
             ReleaseAddr(*pAddr, true);
     }
@@ -258,21 +260,20 @@ namespace beam::wallet {
 
     void BaseMessageEndpoint::Listen(const WalletID& addr, const ECC::Scalar::Native& sk, IHandler* pHandler)
     {
-        Addr* pAddr = FindAddr(addr);
+        Addr* pAddr = FindAddr(addr, pHandler);
         if (!pAddr)
         {
-            pAddr = CreateAddr(addr);
+            pAddr = CreateAddr(addr, pHandler);
             pAddr->m_sk = sk;
             pAddr->m_ExpirationTime = Timestamp(-1);
-            pAddr->m_pHandler = pHandler;
         }
 
         pAddr->m_Refs++;
    }
 
-    void BaseMessageEndpoint::Unlisten(const WalletID& wid)
+    void BaseMessageEndpoint::Unlisten(const WalletID& wid, IHandler* pHandler)
     {
-        Addr* pAddr = FindAddr(wid);
+        Addr* pAddr = FindAddr(wid, pHandler);
         if (pAddr)
             ReleaseAddr(*pAddr, false);
     }

@@ -82,7 +82,7 @@ namespace beam::wallet {
         virtual ~Channel()
         {
             if (m_pThis)
-                m_pThis->m_pWallet->Unlisten(m_Wid);
+                m_pThis->m_pWallet->Unlisten(m_Wid, &m_Handler);
         }
 
         struct Handler

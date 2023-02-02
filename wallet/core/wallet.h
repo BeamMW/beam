@@ -190,7 +190,7 @@ namespace beam::wallet
 
         // IRawCommGateway
         void Listen(const WalletID&, const ECC::Scalar::Native& sk, IHandler* = nullptr) override;
-        void Unlisten(const WalletID&) override;
+        void Unlisten(const WalletID&, IHandler* = nullptr) override;
         void Send(const WalletID& peerID, const Blob&) override;
 
     protected:

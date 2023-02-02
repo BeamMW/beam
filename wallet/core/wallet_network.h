@@ -34,7 +34,17 @@ namespace beam::wallet
         {
             struct Wid :public boost::intrusive::set_base_hook<> {
                 WalletID m_Value;
-                bool operator < (const Wid& x) const { return m_Value < x.m_Value; }
+                IHandler* m_pHandler;
+
+                bool operator < (const Wid& x) const
+                {
+                    if (m_pHandler < x.m_pHandler)
+                        return true;
+                    if (m_pHandler > x.m_pHandler)
+                        return false;
+                    return m_Value < x.m_Value;
+                }
+
                 IMPLEMENT_GET_PARENT_OBJ(Addr, m_Wid)
             } m_Wid;
 
@@ -51,7 +61,6 @@ namespace beam::wallet
 
             ECC::Scalar::Native m_sk; // private addr
             Timestamp m_ExpirationTime = 0;
-            IHandler* m_pHandler = nullptr;
             uint32_t m_Refs = 0;
             static const uint32_t s_InternalRef = 0x10000000;
 
@@ -69,17 +78,17 @@ namespace beam::wallet
         virtual void OnChannelDeleted(BbsChannel channel) {};
         virtual void OnIncomingMessage() {};
     private:
-        Addr* FindAddr(const WalletID&);
+        Addr* FindAddr(const WalletID&, IHandler*);
         void DeleteAddr(const Addr&);
         void ReleaseAddr(Addr&, bool bInternalRef);
         bool IsSingleChannelUser(const Addr::Channel&);
-        Addr* CreateAddr(const WalletID&);
+        Addr* CreateAddr(const WalletID&, IHandler* );
 
         // IWalletMessageEndpoint
         void Send(const WalletID& peerID, const SetTxParameter& msg) override;
         void Send(const WalletID& peerID, const Blob&) override;
         void Listen(const WalletID&, const ECC::Scalar::Native&, IHandler*) override;
-        void Unlisten(const WalletID&) override;
+        void Unlisten(const WalletID&, IHandler*) override;
         void OnAddressTimer();
         
     private:

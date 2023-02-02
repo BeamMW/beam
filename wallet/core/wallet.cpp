@@ -684,10 +684,10 @@ namespace beam::wallet
             p->Listen(wid, sk, pH);
     }
 
-    void Wallet::Unlisten(const WalletID& wid)
+    void Wallet::Unlisten(const WalletID& wid, IHandler* pH)
     {
         for (auto& p : m_MessageEndpoints)
-            p->Unlisten(wid);
+            p->Unlisten(wid, pH);
     }
 
     void Wallet::Send(const WalletID& peerID, const Blob& b)

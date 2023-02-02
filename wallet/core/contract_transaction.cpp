@@ -77,7 +77,7 @@ namespace beam::wallet
 
             virtual ~Channel()
             {
-                m_pThis->m_Tx.GetGateway().Unlisten(m_WidMy);
+                m_pThis->m_Tx.GetGateway().Unlisten(m_WidMy, this);
             }
 
             uint32_t get_Idx() const
