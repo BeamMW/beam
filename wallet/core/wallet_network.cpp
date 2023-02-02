@@ -113,7 +113,7 @@ namespace beam::wallet {
         }
     }
 
-    BaseMessageEndpoint::Addr* BaseMessageEndpoint::CreateOwnAddr(const WalletID& wid)
+    BaseMessageEndpoint::Addr* BaseMessageEndpoint::CreateAddr(const WalletID& wid)
     {
         Addr* pAddr = new Addr;
         pAddr->m_Wid.m_Value = wid;
@@ -128,27 +128,29 @@ namespace beam::wallet {
         return pAddr;
     }
 
+    BaseMessageEndpoint::Addr* BaseMessageEndpoint::FindAddr(const WalletID& wid)
+    {
+        Addr::Wid key;
+        key.m_Value = wid;
+
+        auto it = m_Addresses.find(key);
+        return (m_Addresses.end() == it) ? nullptr : &it->get_ParentObj();
+    }
+
+
     void BaseMessageEndpoint::AddOwnAddress(const WalletAddress& address)
     {
         if (!m_pKdfSbbs)
             return;
 
-        Addr::Wid key;
-        key.m_Value = address.m_BbsAddr;
-
-        Addr* pAddr = nullptr;
-        auto itW = m_Addresses.find(key);
-
-        if (m_Addresses.end() == itW)
+        Addr* pAddr = FindAddr(address.m_BbsAddr);
+        if (!pAddr)
         {
-            pAddr = CreateOwnAddr(address.m_BbsAddr);
+            pAddr = CreateAddr(address.m_BbsAddr);
             m_WalletDB->get_SbbsPeerID(pAddr->m_sk, pAddr->m_Wid.m_Value.m_Pk, address.m_OwnID);
         }
-        else
-        {
-            pAddr = &(itW->get_ParentObj());
-        }
 
+        pAddr->m_Refs |= Addr::s_InternalRef;
         pAddr->m_ExpirationTime = address.getExpirationTime();
 
         LOG_INFO() << "WalletID " << to_string(address.m_BbsAddr) << " subscribes to BBS channel " << pAddr->m_Channel.m_Value;
@@ -156,20 +158,32 @@ namespace beam::wallet {
 
     void BaseMessageEndpoint::DeleteOwnAddress(const WalletID& wid)
     {
-        Addr::Wid key;
-        key.m_Value = wid;
+        Addr* pAddr = FindAddr(wid);
+        if (pAddr)
+            ReleaseAddr(*pAddr, true);
+    }
 
-        auto it = m_Addresses.find(key);
-        if (m_Addresses.end() != it)
-            DeleteAddr(it->get_ParentObj());
+    void BaseMessageEndpoint::ReleaseAddr(Addr& addr, bool bInternalRef)
+    {
+        if (bInternalRef)
+        {
+            if (Addr::s_InternalRef & addr.m_Refs)
+                addr.m_Refs &= ~Addr::s_InternalRef;
+        }
+        else
+        {
+            if (addr.m_Refs & (~Addr::s_InternalRef))
+                addr.m_Refs--;
+        }
+
+        if (!addr.m_Refs)
+            DeleteAddr(addr);
     }
 
     void BaseMessageEndpoint::DeleteAddr(const Addr& v)
     {
         if (IsSingleChannelUser(v.m_Channel))
-        {
             OnChannelDeleted(v.m_Channel.m_Value);
-        }
 
         m_Addresses.erase(WidSet::s_iterator_to(v.m_Wid));
         m_Channels.erase(ChannelSet::s_iterator_to(v.m_Channel));
@@ -233,28 +247,34 @@ namespace beam::wallet {
         for (const auto& address : m_Addresses)
         {
             if (address.get_ParentObj().IsExpired())
-            {
                 addressesToDelete.push_back(&address.get_ParentObj());
-            }
         }
+
         for (const auto& address : addressesToDelete)
-        {
-            DeleteAddr(*address);
-        }
+            ReleaseAddr(*address, true);
+
         m_AddressExpirationTimer->start(AddressUpdateInterval_ms, false, [this] { OnAddressTimer(); });
     }
 
     void BaseMessageEndpoint::Listen(const WalletID& addr, const ECC::Scalar::Native& sk, IHandler* pHandler)
     {
-        Addr* pAddr = CreateOwnAddr(addr);
-        pAddr->m_sk = sk;
-        pAddr->m_ExpirationTime = Timestamp(-1);
-        pAddr->m_pHandler = pHandler;
-    }
+        Addr* pAddr = FindAddr(addr);
+        if (!pAddr)
+        {
+            pAddr = CreateAddr(addr);
+            pAddr->m_sk = sk;
+            pAddr->m_ExpirationTime = Timestamp(-1);
+            pAddr->m_pHandler = pHandler;
+        }
+
+        pAddr->m_Refs++;
+   }
 
     void BaseMessageEndpoint::Unlisten(const WalletID& wid)
     {
-        DeleteOwnAddress(wid);
+        Addr* pAddr = FindAddr(wid);
+        if (pAddr)
+            ReleaseAddr(*pAddr, false);
     }
 
     /////////////////////////

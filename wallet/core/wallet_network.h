@@ -52,6 +52,9 @@ namespace beam::wallet
             ECC::Scalar::Native m_sk; // private addr
             Timestamp m_ExpirationTime = 0;
             IHandler* m_pHandler = nullptr;
+            uint32_t m_Refs = 0;
+            static const uint32_t s_InternalRef = 0x10000000;
+
         };
     public:
         BaseMessageEndpoint(IWalletMessageConsumer&, const IWalletDB::Ptr&);
@@ -66,9 +69,11 @@ namespace beam::wallet
         virtual void OnChannelDeleted(BbsChannel channel) {};
         virtual void OnIncomingMessage() {};
     private:
+        Addr* FindAddr(const WalletID&);
         void DeleteAddr(const Addr&);
+        void ReleaseAddr(Addr&, bool bInternalRef);
         bool IsSingleChannelUser(const Addr::Channel&);
-        Addr* CreateOwnAddr(const WalletID&);
+        Addr* CreateAddr(const WalletID&);
 
         // IWalletMessageEndpoint
         void Send(const WalletID& peerID, const SetTxParameter& msg) override;
