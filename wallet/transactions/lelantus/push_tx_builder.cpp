@@ -99,11 +99,7 @@ namespace beam::wallet::lelantus
         else
         {
             // We're sending to ourselves. Create our voucher
-            if (!GetParameter(TxParameterID::MyAddressID, m.m_iEndpoint))
-            {
-                m.m_iEndpoint = m_Tx.GetWalletDB()->AllocateKidRange(1);
-                SetParameter(TxParameterID::MyAddressID, m.m_iEndpoint);
-            }
+            m.m_iEndpoint = m_Tx.EnsureOwnID();
 
             m_Tx.GetWalletDB()->get_Endpoint(m.m_Peer, m.m_iEndpoint);
 

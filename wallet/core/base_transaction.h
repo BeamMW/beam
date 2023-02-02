@@ -134,7 +134,7 @@ namespace beam::wallet
         };
 
         BaseTransaction(const TxType type, const TxContext& context);
-        virtual ~BaseTransaction() = default;
+        virtual ~BaseTransaction();
 
         const TxID& GetTxID() const;
         void Update() override;
@@ -248,6 +248,12 @@ namespace beam::wallet
             return m_txType;
         }
 
+        void GetMyAddrAlways(WalletID&);
+        uint64_t EnsureOwnID();
+
+        void EnsureListening();
+        void StopListening();
+
         IWalletDB::Ptr GetWalletDB() const;
         IPrivateKeyKeeper2::Ptr get_KeyKeeperStrict(); // throws TxFailureReason::NoKeyKeeper if no key keeper (read-only mode)
         Key::IKdf::Ptr get_MasterKdfStrict() const; // throws TxFailureReason::NoMasterKey if no master key
@@ -267,7 +273,7 @@ namespace beam::wallet
         virtual void FreeResources();
         virtual void OnFailed(TxFailureReason reason, bool notify = false);
 
-        void SendTxParametersStrict(SetTxParameter&& msg) const
+        void SendTxParametersStrict(SetTxParameter&& msg)
         {
             if (!SendTxParameters(std::move(msg)))
                 throw TransactionFailedException(false, TxFailureReason::FailedToSendParameters);
@@ -293,6 +299,8 @@ namespace beam::wallet
         AssetCheckResult CheckAsset(Asset::ID);
         std::map<Asset::ID, AssetCheckState> m_assetCheckState;
 
+        boost::optional<WalletID> m_widListening;
+
     protected:
         virtual bool CheckExpired();
         virtual bool CheckExternalFailures();
@@ -302,7 +310,7 @@ namespace beam::wallet
         virtual void NotifyFailure(TxFailureReason);
         void UpdateTxDescription(TxStatus s);
 
-        bool SendTxParameters(SetTxParameter&& msg) const;
+        bool SendTxParameters(SetTxParameter&& msg);
         virtual void UpdateImpl() = 0;
 
         void SetCompletedTxCoinStatuses(Height proofHeight);

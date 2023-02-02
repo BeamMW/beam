@@ -171,6 +171,9 @@ namespace beam::wallet
         SimpleTxBuilder& builder = *m_TxBuilder;
         MyBuilder* pMutualBuilder = IsSelfTx() ? nullptr : &Cast::Up<MyBuilder>(builder);
 
+        if (pMutualBuilder)
+            EnsureListening();
+
         if (builder.m_Coins.IsEmpty())
         {
             if (builder.m_AssetID)
@@ -184,39 +187,44 @@ namespace beam::wallet
             }
 
             // we are at the beginning
-            uint64_t nAddrOwnID;
-            if (pMutualBuilder && !GetParameter(TxParameterID::MyAddressID, nAddrOwnID))
+
+            if (pMutualBuilder)
             {
                 WalletID wid;
-                if (GetParameter(TxParameterID::MyAddr, wid))
+                GetMyAddrAlways(wid);
+
+                PeerID epMy;
+
+                auto waddr = GetWalletDB()->getAddress(wid);
+                if (waddr)
                 {
-                    auto waddr = GetWalletDB()->getAddress(wid);
-                    if (waddr)
+                    assert(waddr->isOwn()); // checked in base class
+                    epMy = waddr->m_Endpoint;
+                }
+                else
+                {
+                    // we're using a nonce addr
+                    auto ownID = EnsureOwnID();
+                    GetWalletDB()->get_Endpoint(epMy, ownID);
+                }
+
+                if (pMutualBuilder->m_IsSender)
+                {
+                    // sender may decide wether or not to use the endpoint. Both for itself and the receiver
+                    // To keep max compatibility we use our endpoint if either we have the receiver endpoint (i.e. it'd be standard ep-ep tx), or
+                    // if we use remote key keeper (then we have no choice).
+                    PeerID pidRemote;
+                    if (!m_Context.GetWalletDB()->get_MasterKdf() || GetParameter(TxParameterID::PeerEndpoint, pidRemote))
+                        SetParameter(TxParameterID::MyEndpoint, epMy);
+                }
+                else
+                {
+                    // Receiver should comply
+                    PeerID pid;
+                    if (GetParameter(TxParameterID::MyEndpoint, pid) && (pid != epMy))
                     {
-                        if (!waddr->isOwn())
-                            throw std::runtime_error("Not own address in MyID");
-
-                        SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
-
-                        if (pMutualBuilder->m_IsSender)
-                        {
-                            // sender may decide wether or not to use the endpoint. Both for itself and the receiver
-                            // To keep max compatibility we use our endpoint if either we have the receiver endpoint (i.e. it'd be standard ep-ep tx), or
-                            // if we use remote key keeper (then we have no choice).
-                            PeerID pidRemote;
-                            if (!m_Context.GetWalletDB()->get_MasterKdf() || GetParameter(TxParameterID::PeerEndpoint, pidRemote))
-                                SetParameter(TxParameterID::MyEndpoint, waddr->m_Endpoint);
-                        }
-                        else
-                        {
-                            // Receiver should comply
-                            PeerID pid;
-                            if (GetParameter(TxParameterID::MyEndpoint, pid) && (pid != waddr->m_Endpoint))
-                            {
-                                OnFailed(TxFailureReason::NotEnoughDataForProof, true);
-                                return;
-                            }
-                        }
+                        OnFailed(TxFailureReason::NotEnoughDataForProof, true);
+                        return;
                     }
                 }
             }

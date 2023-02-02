@@ -102,6 +102,35 @@ namespace beam::wallet
         assert(context.GetWalletDB());
     }
 
+    BaseTransaction::~BaseTransaction()
+    {
+        StopListening();
+    }
+
+    void BaseTransaction::EnsureListening()
+    {
+        if (m_widListening)
+            return;
+
+        assert(!m_widListening);
+
+        WalletID wid;
+        ECC::Scalar::Native sk;
+        GetWalletDB()->get_SbbsWalletID(sk, wid, EnsureOwnID());
+
+        GetGateway().Listen(wid, sk);
+        m_widListening.reset(wid);
+    }
+
+    void BaseTransaction::StopListening()
+    {
+        if (m_widListening)
+        {
+            GetGateway().Unlisten(*m_widListening, nullptr);
+            m_widListening.reset();
+        }
+    }
+
     bool BaseTransaction::IsInitiator() const
     {
         if (!m_IsInitiator.is_initialized())
@@ -480,18 +509,57 @@ namespace beam::wallet
         return GetGateway();
     }
 
-    bool BaseTransaction::SendTxParameters(SetTxParameter && msg) const
+    void BaseTransaction::GetMyAddrAlways(WalletID& wid)
+    {
+        if (!GetParameter(TxParameterID::MyAddr, wid))
+            GetWalletDB()->get_SbbsWalletID(wid, EnsureOwnID());
+            // do NOT save the addr, derive it each time this function is called.
+            // This way we know that address is a nonce (not saved in our address book)
+    }
+
+    uint64_t BaseTransaction::EnsureOwnID()
+    {
+        uint64_t val = 0;
+        GetParameter(TxParameterID::MyAddressID, val);
+        if (!val)
+        {
+            // if addr specified - get it from there
+            WalletID wid;
+            if (GetParameter(TxParameterID::MyAddr, wid))
+            {
+                auto waddr = GetWalletDB()->getAddress(wid);
+                if (waddr)
+                {
+                    if (!waddr->isOwn())
+                        throw std::runtime_error("Not own address in MyID");
+
+                    val = waddr->m_OwnID;
+                }
+            }
+
+            if (!val)
+                val = GetWalletDB()->AllocateKidRange(1); // use nonce
+
+            SetParameter(TxParameterID::MyAddressID, val);
+        }
+        return val;
+    }
+
+    bool BaseTransaction::SendTxParameters(SetTxParameter && msg)
     {
         msg.m_TxID = GetTxID();
         msg.m_Type = GetType();
 
         WalletID peerID;
-        if (GetParameter(TxParameterID::MyAddr, msg.m_From) && GetParameter(TxParameterID::PeerAddr, peerID))
-        {
-            GetGateway().send_tx_params(peerID, msg);
-            return true;
-        }
-        return false;
+        if (!GetParameter(TxParameterID::PeerAddr, peerID))
+            return false;
+
+        EnsureListening(); // assume the communication is bi-directional, i.e. if we're sending - would also like to receive
+
+        GetMyAddrAlways(msg.m_From);
+        GetGateway().send_tx_params(peerID, msg);
+
+        return true;
     }
 
     void BaseTransaction::SetCompletedTxCoinStatuses(Height proofHeight)
