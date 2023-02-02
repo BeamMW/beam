@@ -266,6 +266,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::deleteAddressByToken, token);
     }
 
+    void verifyOnHw(const std::string& token) override
+    {
+        call_async(&IWalletModelAsync::verifyOnHw, token);
+    }
+
     void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) override
     {
         call_async(&IWalletModelAsync::saveVouchers, v, walletID);
@@ -1657,6 +1662,40 @@ namespace beam::wallet
         try
         {
             m_walletDB->deleteAddressByToken(token);
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+    }
+
+    void WalletClient::verifyOnHw(const std::string& token)
+    {
+        try
+        {
+            auto pKk = m_walletDB->get_KeyKeeper();
+            if (pKk)
+            {
+                auto waddr = m_walletDB->getAddressByToken(token);
+                if (waddr && waddr->isOwn())
+                {
+                    struct MyHandler
+                        :public IPrivateKeyKeeper2::Handler
+                    {
+                        void OnDone(IPrivateKeyKeeper2::Status::Type) override {}
+                    };
+
+                    auto pHandler = std::make_shared<MyHandler>();
+
+                    IPrivateKeyKeeper2::Method::DisplayEndpoint m;
+                    m.m_iEndpoint = waddr->m_OwnID;
+                    pKk->InvokeAsync(m, pHandler);
+                }
+            }
+
         }
         catch (const std::exception& e)
         {
