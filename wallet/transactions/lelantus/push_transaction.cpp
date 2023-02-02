@@ -35,7 +35,6 @@ namespace beam::wallet::lelantus
     TxParameters PushTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
         auto walletDB = m_dbFunc();
-        wallet::CheckSenderAddress(parameters, walletDB);
 
         auto receiverID = parameters.GetParameter<WalletID>(TxParameterID::PeerAddr);
         if (receiverID)

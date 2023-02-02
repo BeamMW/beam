@@ -72,7 +72,6 @@ namespace beam::wallet
 
     };
 
-    void CheckSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB);
     TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB, bool isMandatory = true);
 
     // Interface for wallet observer. 

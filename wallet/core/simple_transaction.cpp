@@ -59,7 +59,6 @@ namespace beam::wallet
 
     TxParameters SimpleTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
-        CheckSenderAddress(parameters, m_WalletDB);
         return ProcessReceiverAddress(parameters, m_WalletDB);
     }
 

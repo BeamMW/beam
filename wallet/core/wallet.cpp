@@ -74,31 +74,6 @@ namespace beam::wallet
         return !!p;
     }
 
-    void CheckSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB)
-    {
-        const auto& myID = parameters.GetParameter<WalletID>(TxParameterID::MyAddr);
-        if (!myID)
-        {
-            throw InvalidTransactionParametersException("No MyID");
-        }
-
-        auto senderAddr = walletDB->getAddress(*myID);
-        if (!senderAddr)
-        {
-            throw SenderInvalidAddressException();
-        }
-
-        if (!senderAddr->isOwn())
-        {
-            throw SenderInvalidAddressException();
-        }
-
-        if(senderAddr->isExpired())
-        {
-            throw SenderInvalidAddressException();
-        }
-    }
-
     TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB, bool isMandatory)
     {
         const auto& peerAddr = parameters.GetParameter<WalletID>(TxParameterID::PeerAddr);
