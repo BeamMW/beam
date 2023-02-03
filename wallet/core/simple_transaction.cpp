@@ -190,8 +190,6 @@ namespace beam::wallet
 
             if (pMutualBuilder)
             {
-                PeerID epMy;
-
                 if (pMutualBuilder->m_IsSender)
                 {
                     // sender may decide wether or not to use the endpoint. Both for itself and the receiver
@@ -205,10 +203,16 @@ namespace beam::wallet
                 {
                     // Receiver should comply
                     PeerID pid;
-                    if (GetParameter(TxParameterID::MyEndpoint, pid) && (pid != epMy))
+                    if (GetParameter(TxParameterID::MyEndpoint, pid))
                     {
-                        OnFailed(TxFailureReason::NotEnoughDataForProof, true);
-                        return;
+                        // ensure we can sign with in
+                        PeerID epMy;
+                        GetWalletDB()->get_Endpoint(epMy, EnsureOwnID());
+                        if (epMy != pid)
+                        {
+                            OnFailed(TxFailureReason::NotEnoughDataForProof, true);
+                            return;
+                        }
                     }
                 }
             }
