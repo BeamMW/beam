@@ -564,6 +564,7 @@ namespace beam::wallet
 
         bool get_EffectiveEndpointPeer(const TxID& txID, SubTxID subTxID, PeerID&) const;
         bool get_EffectiveEndpointMy(const TxID& txID, SubTxID subTxID, PeerID&) const;
+        bool get_EffectiveEndpointEx(const TxID& txID, SubTxID subTxID, PeerID&, TxParameterID, TxParameterID) const;
 
         // Laser
         virtual void saveLaserChannel(const ILaserChannelEntity&) = 0;

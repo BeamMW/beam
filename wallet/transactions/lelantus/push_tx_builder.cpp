@@ -81,20 +81,8 @@ namespace beam::wallet::lelantus
                 SetParameter(TxParameterID::Voucher, m.m_Voucher);
             }
 
-            // set sender info, if specified
-            if (!GetParameter(TxParameterID::MyEndpoint, m.m_User.m_Sender))
-            {
-                WalletID widMe;
-                if (GetParameter(TxParameterID::MyAddr, widMe))
-                {
-                    auto wa = m_Tx.GetWalletDB()->getAddress(widMe);
-                    if (wa)
-                        m.m_User.m_Sender = wa->m_Endpoint;
-                    else
-                        // put it anyway
-                        m.m_User.m_Sender = widMe.m_Pk;
-                }
-            }
+            // set sender info
+            m_Tx.GetMyEndpointAlways(m.m_User.m_Sender);
         }
         else
         {

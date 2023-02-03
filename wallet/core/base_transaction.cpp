@@ -512,9 +512,19 @@ namespace beam::wallet
     void BaseTransaction::GetMyAddrAlways(WalletID& wid)
     {
         if (!GetParameter(TxParameterID::MyAddr, wid))
+        {
             GetWalletDB()->get_SbbsWalletID(wid, EnsureOwnID());
-            // do NOT save the addr, derive it each time this function is called.
-            // This way we know that address is a nonce (not saved in our address book)
+            SetParameter(TxParameterID::MyAddr, wid);
+        }
+    }
+
+    void BaseTransaction::GetMyEndpointAlways(PeerID& pid)
+    {
+        if (!GetParameter(TxParameterID::MyEndpoint, pid))
+        {
+            GetWalletDB()->get_Endpoint(pid, EnsureOwnID());
+            GetParameter(TxParameterID::MyEndpoint, pid);
+        }
     }
 
     uint64_t BaseTransaction::EnsureOwnID()

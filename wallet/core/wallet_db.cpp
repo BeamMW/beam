@@ -5533,43 +5533,27 @@ namespace beam::wallet
         return res;
     }
 
-    bool IWalletDB::get_EffectiveEndpointPeer(const TxID& txID, SubTxID subTxID, PeerID& res) const
+    bool IWalletDB::get_EffectiveEndpointEx(const TxID& txID, SubTxID subTxID, PeerID& res, TxParameterID par1, TxParameterID par2) const
     {
-        if (!storage::getTxParameter(*this, txID, TxParameterID::PeerEndpoint, res))
+        if (!storage::getTxParameter(*this, txID, par1, res))
         {
             WalletID wid;
-            if (!storage::getTxParameter(*this, txID, TxParameterID::PeerAddr, wid))
+            if (!storage::getTxParameter(*this, txID, par2, wid))
                 return false;
 
             res = wid.m_Pk;
         }
-
         return true;
+    }
+
+    bool IWalletDB::get_EffectiveEndpointPeer(const TxID& txID, SubTxID subTxID, PeerID& res) const
+    {
+        return get_EffectiveEndpointEx(txID, subTxID, res, TxParameterID::PeerEndpoint, TxParameterID::PeerAddr);
     }
 
     bool IWalletDB::get_EffectiveEndpointMy(const TxID& txID, SubTxID subTxID, PeerID& res) const
     {
-        if (!storage::getTxParameter(*this, txID, TxParameterID::MyEndpoint, res))
-        {
-            WalletID wid;
-            if (storage::getTxParameter(*this, txID, TxParameterID::MyAddr, wid))
-                res = wid.m_Pk;
-            else
-            {
-                // try to recover it from ownID
-                if (!get_SbbsKdf())
-                    return false;
-
-                uint64_t ownID;
-                if (!storage::getTxParameter(*this, txID, TxParameterID::MyAddressID, ownID))
-                    return false;
-
-                ECC::Scalar::Native sk;
-                get_SbbsPeerID(sk, res, ownID);
-            }
-        }
-
-        return true;
+        return get_EffectiveEndpointEx(txID, subTxID, res, TxParameterID::MyEndpoint, TxParameterID::MyAddr);
     }
 
     void WalletDB::insertParameterToCache(const TxID& txID, SubTxID subTxID, TxParameterID paramID, const boost::optional<ByteBuffer>& blob) const

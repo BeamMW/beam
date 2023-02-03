@@ -190,23 +190,7 @@ namespace beam::wallet
 
             if (pMutualBuilder)
             {
-                WalletID wid;
-                GetMyAddrAlways(wid);
-
                 PeerID epMy;
-
-                auto waddr = GetWalletDB()->getAddress(wid);
-                if (waddr)
-                {
-                    assert(waddr->isOwn()); // checked in base class
-                    epMy = waddr->m_Endpoint;
-                }
-                else
-                {
-                    // we're using a nonce addr
-                    auto ownID = EnsureOwnID();
-                    GetWalletDB()->get_Endpoint(epMy, ownID);
-                }
 
                 if (pMutualBuilder->m_IsSender)
                 {
@@ -215,7 +199,7 @@ namespace beam::wallet
                     // if we use remote key keeper (then we have no choice).
                     PeerID pidRemote;
                     if (!m_Context.GetWalletDB()->get_MasterKdf() || GetParameter(TxParameterID::PeerEndpoint, pidRemote))
-                        SetParameter(TxParameterID::MyEndpoint, epMy);
+                        GetMyEndpointAlways(pidRemote); // makes sure our endpoint is set
                 }
                 else
                 {

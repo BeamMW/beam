@@ -999,6 +999,12 @@ namespace beam::wallet
         auto v = GetParameter<PeerID>(isMy ? TxParameterID::MyEndpoint : TxParameterID::PeerEndpoint);
         if (v)
             return std::to_base58(*v);
+
+        // try from addr
+        const WalletID& wid = isMy ? m_myAddr : m_peerAddr;
+        if (wid.m_Pk != Zero)
+            return std::to_base58(wid.m_Pk);
+
         return {};
     }
 

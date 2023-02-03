@@ -249,6 +249,7 @@ namespace beam::wallet
         }
 
         void GetMyAddrAlways(WalletID&);
+        void GetMyEndpointAlways(PeerID&);
         uint64_t EnsureOwnID();
 
         void EnsureListening();
