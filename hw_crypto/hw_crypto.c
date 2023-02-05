@@ -3777,7 +3777,7 @@ __stack_hungry__
 uint16_t TxSendShielded_FinalyzeTx(TxSendShieldedContext* pCtx, int bSplit)
 {
 	// select blinding factor for the outer kernel.
-	UintBig hvOuter;
+	UintBig hvOuter, hvPeer;
 	secp256k1_sha256_t sha;
 	secp256k1_sha256_initialize(&sha);
 	secp256k1_sha256_write(&sha, pCtx->m_hvKrn.m_pVal, sizeof(pCtx->m_hvKrn.m_pVal));
@@ -3797,13 +3797,17 @@ uint16_t TxSendShielded_FinalyzeTx(TxSendShieldedContext* pCtx, int bSplit)
 	NonceGenerator_NextScalar(&ng, &keys.m_kNonce);
 	SECURE_ERASE_OBJ(ng);
 
+	if (!bSplit)
+		// save Peer before generating output
+		memcpy(hvPeer.m_pVal, pCtx->m_pIn->m_Mut.m_Peer.m_pVal, sizeof(hvPeer.m_pVal));
+
 	KernelUpdateKeys(&pCtx->m_pOut->m_Tx.m_Comms, &keys, 0);
 	TxKernel_getID_Ex(&pCtx->m_Txc.m_Krn, &pCtx->m_pOut->m_Tx.m_Comms, &hvOuter, &pCtx->m_hvKrn, 1);
 
 	// all set
 	uint16_t errCode = bSplit ?
 		KeyKeeper_ConfirmSpend(pCtx->m_p, 0, 0, 0, &pCtx->m_Txc.m_Krn, &hvOuter, c_KeyKeeper_ConfirmSpend_Shielded | c_KeyKeeper_ConfirmSpend_Split) :
-		KeyKeeper_ConfirmSpend(pCtx->m_p, pCtx->m_Amount, pCtx->m_Aid, &pCtx->m_pIn->m_Mut.m_Peer, &pCtx->m_Txc.m_Krn, &hvOuter, c_KeyKeeper_ConfirmSpend_Shielded);
+		KeyKeeper_ConfirmSpend(pCtx->m_p, pCtx->m_Amount, pCtx->m_Aid, &hvPeer, &pCtx->m_Txc.m_Krn, &hvOuter, c_KeyKeeper_ConfirmSpend_Shielded);
 
 	if (c_KeyKeeper_Status_Ok != errCode)
 		return errCode;
