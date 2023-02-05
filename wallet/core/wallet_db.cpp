@@ -1017,7 +1017,8 @@ namespace beam::wallet
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
 
-        const int DbVersion   = 35;
+        const int DbVersion   = 36;
+        const int DbVersion35 = 35;
         const int DbVersion34 = 34;
         const int DbVersion33 = 33;
         const int DbVersion32 = 32;
@@ -2458,6 +2459,11 @@ namespace beam::wallet
                 case DbVersion34:
                     LOG_INFO() << "Converting DB from format 34...";
                     CreateIMTables(walletDB->_db);
+                    // no break
+
+                case DbVersion35:
+                    LOG_INFO() << "Converting DB from format 35...";
+                    walletDB->DeleteNonceAddresses();
                     // no break
 
                     storage::setVar(*walletDB, Version, DbVersion);
@@ -5788,6 +5794,53 @@ namespace beam::wallet
         sqlite::Statement stm(this, "DELETE FROM " INCOMING_WALLET_MESSAGE_NAME " WHERE ID == ?1;");
         stm.bind(1, id);
         stm.step();
+    }
+
+    void WalletDB::DeleteNonceAddresses()
+    {
+        // Historically all send txs used 'nonce' address, i.e. addresses created specifically for it.
+        std::map<uint64_t, uint32_t> addrUse;
+
+        sqlite::Statement stm(this, "SELECT TxID FROM " TX_SUMMARY_NAME);
+        sqlite::Statement stm2(this, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1;");
+        TxID txID;
+        while (stm.step())
+        {
+            stm.get(0, txID);
+
+            auto t = getTxImpl(txID, stm2);
+            if (!t.is_initialized())
+                break;
+
+            auto& txDesc = *t;
+
+            uint64_t ownID = 0;
+            if (!txDesc.GetParameter(TxParameterID::MyAddressID, ownID) || !ownID)
+                continue;
+
+            if (!txDesc.m_sender)
+                continue;
+
+            auto it = addrUse.find(ownID);
+            if (addrUse.end() == it)
+                addrUse[ownID] = 0;
+            else
+                it->second++; // for more safety: if addr is used more than once - it's not nonce
+        }
+
+        auto vAddrs = getAddresses(true);
+        for (auto& addr : vAddrs)
+        {
+            auto it = addrUse.find(addr.m_OwnID);
+            if (addrUse.end() == it)
+                continue;
+            if (it->second)
+                continue; // not a nonce, used in multiple txs
+
+            deleteAddress(addr.m_BbsAddr);
+            LOG_INFO() << "Removed nonce addr: " << addr.m_Token;
+
+        }
     }
 
     bool WalletDB::History::Enum(IWalker& w, const Height* pBelow)

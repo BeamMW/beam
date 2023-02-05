@@ -816,6 +816,7 @@ namespace beam::wallet
     private:
         static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, bool separateDBForPrivateData);
 
+        void DeleteNonceAddresses();
         void storeOwnerKey();
         void FromMaster();
         void FromMaster(const ECC::uintBig&);
