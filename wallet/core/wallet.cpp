@@ -2297,19 +2297,6 @@ namespace beam::wallet
 
         auto completedParameters = it->second->CheckAndCompleteParameters(parameters);
 
-        if (auto peerEndpoint = parameters.GetParameter<PeerID>(TxParameterID::PeerEndpoint); peerEndpoint)
-        {
-            auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyAddr);
-            if (myID)
-            {
-                auto address = m_WalletDB->getAddress(*myID);
-                if (address)
-                {
-                    completedParameters.SetParameter(TxParameterID::MyEndpoint, address->m_Endpoint);
-                }
-            }
-        }
-
         auto newTx = it->second->Create(BaseTransaction::TxContext(*this, m_WalletDB, *parameters.GetTxID()));
         ApplyTransactionParameters(newTx, completedParameters.Pack(), true);
         return newTx;
