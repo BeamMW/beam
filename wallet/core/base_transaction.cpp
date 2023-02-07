@@ -523,7 +523,7 @@ namespace beam::wallet
         if (!GetParameter(TxParameterID::MyEndpoint, pid))
         {
             GetWalletDB()->get_Endpoint(pid, EnsureOwnID());
-            GetParameter(TxParameterID::MyEndpoint, pid);
+            SetParameter(TxParameterID::MyEndpoint, pid);
         }
     }
 
