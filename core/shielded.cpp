@@ -587,4 +587,30 @@ namespace beam
 		return offset + m_pSer->ExportP(p);
 	}
 
+	void ShieldedTxo::PublicGen::Export(Packed& p) const
+	{
+		if (sizeof(p) != ExportP(nullptr))
+			Exc::Fail("Shielded/PupGen size");
+		ExportP(&p);
+	}
+
+	bool ShieldedTxo::PublicGen::Import(const Packed& p)
+	{
+		auto pKdf = std::make_shared<ECC::HKdfPub>();
+		bool b1 = pKdf->Import(p.m_Gen);
+		m_pGen = std::move(pKdf);
+
+		pKdf = std::make_shared<ECC::HKdfPub>();
+		bool b2 = pKdf->Import(p.m_Ser);
+		m_pSer = std::move(pKdf);
+
+		return b1 && b2;
+	}
+
+	void ShieldedTxo::PublicGen::ImportStrict(const Packed& p)
+	{
+		if (!Import(p))
+			Exc::Fail("Shielded/PupGen import");
+	}
+
 } // namespace beam

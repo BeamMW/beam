@@ -23,8 +23,19 @@ namespace beam
 		Key::IPKdf::Ptr m_pGen;
 		Key::IPKdf::Ptr m_pSer;
 
+#pragma pack (push, 1)
+		struct Packed
+		{
+			ECC::HKdfPub::Packed m_Gen;
+			ECC::HKdfPub::Packed m_Ser;
+		};
+#pragma pack (pop)
+
 		void FromViewer(const Viewer&);
 		uint32_t ExportP(void* p) const;
+		void Export(Packed&) const;
+		bool Import(const Packed&);
+		void ImportStrict(const Packed&);
 	};
 
 	struct ShieldedTxo::Viewer
