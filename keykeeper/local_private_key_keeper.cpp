@@ -616,7 +616,7 @@ namespace beam::wallet
         ShieldedTxo::Voucher* pVoucher = x.m_pVoucher.get();
         if (!pVoucher)
         {
-            if (!x.m_pGen)
+            if (!x.m_pOffline)
                 return Status::Unspecified;
 
             pVoucher = &voucher;
@@ -634,20 +634,20 @@ namespace beam::wallet
             }
             else
             {
-                auto& g = *x.m_pGen;
+                auto& off = *x.m_pOffline;
 
                 ShieldedTxo::PublicGen::Packed p;
-                g.m_Gen.Export(p);
+                off.m_Addr.Export(p);
 
                 ECC::Hash::Value hv;
                 p.get_Hash(hv);
 
                 ECC::Point::Native pt;
-                if (!x.m_Peer.ExportNnz(pt) || !g.m_Signature.IsValid(hv, pt))
+                if (!x.m_Peer.ExportNnz(pt) || !off.m_Signature.IsValid(hv, pt))
                     return Status::Unspecified;
 
                 ShieldedTxo::Data::TicketParams tp;
-                tp.Generate(voucher.m_Ticket, g.m_Gen, g.m_Nonce);
+                tp.Generate(voucher.m_Ticket, off.m_Addr, off.m_Nonce);
                 voucher.m_SharedSecret = tp.m_SharedSecret;
             }
 

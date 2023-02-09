@@ -67,17 +67,17 @@ namespace beam::wallet::lelantus
 
         if (GetParameter(TxParameterID::PeerEndpoint, m.m_Peer))
         {
-            auto pGen = std::make_unique<IPrivateKeyKeeper2::Method::SignSendShielded::GenParams>();
+            auto pOffline = std::make_unique<IPrivateKeyKeeper2::Method::SignSendShielded::Offline>();
 
-            if (GetParameter(TxParameterID::PublicAddreessGen, pGen->m_Gen))
+            if (GetParameter(TxParameterID::PublicAddreessGen, pOffline->m_Addr))
             {
                 // public offline tx
-                if (!GetParameter(TxParameterID::PublicAddressGenSig, pGen->m_Signature))
+                if (!GetParameter(TxParameterID::PublicAddressGenSig, pOffline->m_Signature))
                     throw TransactionFailedException(true, TxFailureReason::NoVoucher);
 
-                ECC::GenRandom(pGen->m_Nonce);
+                ECC::GenRandom(pOffline->m_Nonce);
 
-                m.m_pGen = std::move(pGen);
+                m.m_pOffline = std::move(pOffline);
                 m.m_pVoucher.reset();
             }
             else
