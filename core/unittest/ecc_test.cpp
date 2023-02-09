@@ -2111,6 +2111,23 @@ void TestLelantusKeys()
 	beam::ShieldedTxo::PublicGen gen;
 	gen.FromViewer(viewer);
 
+	{
+		beam::ShieldedTxo::PublicGen::Packed p;
+		gen.Export(p);
+
+		ECC::Scalar::Native sk;
+		sk.GenRandomNnz();
+
+		beam::ShieldedTxo::PublicGen::Signature psig;
+		psig.m_Endpoint.FromSk(sk);
+		psig.Create(sk, p);
+
+		verify_test(psig.IsValid(p));
+
+		p.m_Gen.m_PkJ.m_X.Inc();
+		verify_test(!psig.IsValid(p));
+	}
+
 	beam::ShieldedTxo::Data::TicketParams sprs, sprs2;
 	beam::ShieldedTxo txo;
 
