@@ -1147,10 +1147,10 @@ namespace beam::wallet
     };
 
     struct RemoteKeyKeeper::Impl::RemoteCall_CreateOfflineAddr
-        :public RemoteCall
+        :public RemoteCall_WithOwnerKey
     {
         RemoteCall_CreateOfflineAddr(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::CreateOfflineAddr& m)
-            :RemoteCall(kk, h)
+            :RemoteCall_WithOwnerKey(kk, h)
             ,m_M(m)
         {
         }
@@ -1159,9 +1159,31 @@ namespace beam::wallet
 
         void Update() override
         {
-            Fin(Status::NotImplemented);
-        }
+            if (!m_Phase)
+            {
+                GetOwnerKey();
 
+                hw::Proto::SignOfflineAddr::Out msg;
+                msg.m_AddrID = m_M.m_iEndpoint;
+                SendReq_T(msg);
+            }
+
+            if (3 == m_Phase)
+            {
+                auto pMsg = ReadReq_T<hw::Proto::SignOfflineAddr::In>();
+                if (!pMsg)
+                    return;
+
+                ShieldedTxo::Viewer viewer;
+                viewer.FromOwner(*m_GetKey.m_pPKdf, 0);
+
+                m_M.m_Addr.FromViewer(viewer);
+                Ecc2BC(m_M.m_Signature.m_NoncePub) = pMsg->m_Signature.m_NoncePub;
+                Ecc2BC(m_M.m_Signature.m_k.m_Value) = pMsg->m_Signature.m_k;
+
+                Fin();
+            }
+        }
     };
 
     struct RemoteKeyKeeper::Impl::RemoteCall_WithCoins

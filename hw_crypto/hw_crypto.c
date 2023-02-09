@@ -3295,6 +3295,74 @@ PROTO_METHOD(CreateShieldedVouchers)
 }
 
 //////////////////////////////
+// KeyKeeper - SignOfflineAddr
+void OfflineAddr_Init(OfflineAddr* pRes, const KeyKeeper* p, uint32_t iAddr)
+{
+	ShieldedViewer viewer;
+	ShieldedViewerInit(&viewer, iAddr, p);
+
+	secp256k1_gej pGej[3];
+	MulG(pGej, &viewer.m_Gen.m_kCoFactor);
+	MulJ(pGej + 1, &viewer.m_Gen.m_kCoFactor);
+	MulG(pGej + 2, &viewer.m_Ser.m_kCoFactor);
+
+	secp256k1_fe pBuf[_countof(pGej)];
+	secp256k1_fe zDenom;
+	Point_Gej_BatchRescale(pGej, _countof(pGej), pBuf, &zDenom, 1);
+
+	pRes->m_Gen_Secret = viewer.m_Gen.m_Secret;
+	pRes->m_Ser_Secret = viewer.m_Ser.m_Secret;
+
+	Point_Compact_from_Ge(&pRes->m_Gen_PkG, (secp256k1_ge*) pGej);
+	Point_Compact_from_Ge(&pRes->m_Gen_PkJ, (secp256k1_ge*) (pGej + 1));
+	Point_Compact_from_Ge(&pRes->m_Ser_PkG, (secp256k1_ge*) (pGej + 2));
+}
+
+__stack_hungry__
+void OfflineAddr_getHash(UintBig* pRes, const OfflineAddr* pAddr)
+{
+	secp256k1_sha256_t sha;
+	secp256k1_sha256_initialize(&sha);
+	HASH_WRITE_STR(sha, "sh.pub.sig");
+	secp256k1_sha256_write_UintBig(&sha, &pAddr->m_Gen_Secret);
+	secp256k1_sha256_write_CompactPoint(&sha, &pAddr->m_Gen_PkG);
+	secp256k1_sha256_write_CompactPoint(&sha, &pAddr->m_Gen_PkJ);
+	secp256k1_sha256_write_UintBig(&sha, &pAddr->m_Ser_Secret);
+	secp256k1_sha256_write_CompactPoint(&sha, &pAddr->m_Ser_PkG);
+
+	secp256k1_sha256_finalize(&sha, pRes->m_pVal);
+}
+
+PROTO_METHOD(SignOfflineAddr)
+{
+	PROTO_UNUSED_ARGS;
+
+	if (nIn)
+		return c_KeyKeeper_Status_ProtoError;
+
+	AddrID addrID;
+	N2H_uint(addrID, pIn->m_AddrID, 64);
+
+	UintBig hv;
+	secp256k1_scalar sk;
+	DeriveAddress(p, addrID, &sk, &hv);
+
+	ShieldedViewer viewer;
+	ShieldedViewerInit(&viewer, 0, p);
+
+	OfflineAddr addr;
+	OfflineAddr_Init(&addr, p, 0);
+
+	OfflineAddr_getHash(&hv, &addr);
+
+	Signature_Sign(&pOut->m_Signature, &hv, &sk);
+
+	SECURE_ERASE_OBJ(sk);
+
+	return c_KeyKeeper_Status_Ok;
+}
+
+//////////////////////////////
 // KeyKeeper - CreateShieldedInput
 PROTO_METHOD(CreateShieldedInput_1)
 {
