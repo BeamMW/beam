@@ -678,6 +678,17 @@ void MultiMac_Fast_Custom_Init(CustomGenerator* p, const secp256k1_ge* pGe)
 		secp256k1_ge_to_storage(p->m_pPt + i, (secp256k1_ge*) (pOdds + i));
 }
 
+void secp256k1_hmac_sha256_write_UintBig(secp256k1_hmac_sha256_t* pHMac, const UintBig* p)
+{
+	secp256k1_hmac_sha256_write(pHMac, p->m_pVal, sizeof(p->m_pVal));
+}
+
+void secp256k1_hmac_sha256_write_CompactPoint(secp256k1_hmac_sha256_t* pHMac, const CompactPoint* pCompact)
+{
+	secp256k1_hmac_sha256_write_UintBig(pHMac, &pCompact->m_X);
+	secp256k1_hmac_sha256_write(pHMac, &pCompact->m_Y, sizeof(pCompact->m_Y));
+}
+
 //////////////////////////////
 // NonceGenerator
 void NonceGenerator_InitBegin(NonceGenerator* p, secp256k1_hmac_sha256_t* pHMac, const char* szSalt, size_t nSalt)
@@ -701,7 +712,7 @@ void NonceGenerator_Init(NonceGenerator* p, const char* szSalt, size_t nSalt, co
 	secp256k1_hmac_sha256_t hmac;
 
 	NonceGenerator_InitBegin(p, &hmac, szSalt, nSalt);
-	secp256k1_hmac_sha256_write(&hmac, pSeed->m_pVal, sizeof(pSeed->m_pVal));
+	secp256k1_hmac_sha256_write_UintBig(&hmac, pSeed);
 	NonceGenerator_InitEnd(p, &hmac);
 }
 
@@ -715,7 +726,7 @@ void NonceGenerator_NextOkm(NonceGenerator* p)
 	if (p->m_FirstTime)
 		p->m_FirstTime = 0;
 	else
-		secp256k1_hmac_sha256_write(&hmac, p->m_Okm.m_pVal, sizeof(p->m_Okm.m_pVal));
+		secp256k1_hmac_sha256_write_UintBig(&hmac, &p->m_Okm);
 
 	secp256k1_hmac_sha256_write(&hmac, p->m_pContext, p->m_nContext);
 
@@ -1040,29 +1051,22 @@ void Kdf_Init(Kdf* p, const UintBig* pSeed)
 }
 
 __stack_hungry__
-void Kdf_Derive_PKey_Pre(const Kdf* p, const UintBig* pHv, NonceGenerator* pN)
-{
-	static const char szSalt[] = "beam-Key";
-
-	secp256k1_hmac_sha256_t hmac;
-	NonceGenerator_InitBegin(pN, &hmac, szSalt, sizeof(szSalt));
-
-	secp256k1_hmac_sha256_write(&hmac, p->m_Secret.m_pVal, sizeof(p->m_Secret.m_pVal));
-	secp256k1_hmac_sha256_write(&hmac, pHv->m_pVal, sizeof(pHv->m_pVal));
-
-	NonceGenerator_InitEnd(pN, &hmac);
-
-	SECURE_ERASE_OBJ(hmac);
-}
-
-__stack_hungry__
 void Kdf_Derive_PKey(const Kdf* p, const UintBig* pHv, secp256k1_scalar* pK)
 {
 	NonceGenerator ng;
-	Kdf_Derive_PKey_Pre(p, pHv, &ng);
+
+	static const char szSalt[] = "beam-Key";
+
+	secp256k1_hmac_sha256_t hmac;
+	NonceGenerator_InitBegin(&ng, &hmac, szSalt, sizeof(szSalt));
+
+	secp256k1_hmac_sha256_write_UintBig(&hmac, &p->m_Secret);
+	secp256k1_hmac_sha256_write_UintBig(&hmac, pHv);
+	NonceGenerator_InitEnd(&ng, &hmac);
 
 	NonceGenerator_NextScalar(&ng, pK);
 
+	SECURE_ERASE_OBJ(hmac);
 	SECURE_ERASE_OBJ(ng);
 }
 
@@ -1478,15 +1482,14 @@ static int RangeProof_Calculate_After_S(RangeProof* const p, RangeProof_Worker* 
 
 		UintBig hv;
 		secp256k1_scalar_get_b32(hv.m_pVal, &pWrk->m_sk);
-		secp256k1_hmac_sha256_write(&hmac, hv.m_pVal, sizeof(hv.m_pVal));
+		secp256k1_hmac_sha256_write_UintBig(&hmac, &hv);
 
 		for (unsigned int i = 0; i < 2; i++)
 		{
-			secp256k1_hmac_sha256_write(&hmac, p->m_pT_In[i].m_X.m_pVal, sizeof(p->m_pT_In[i].m_X.m_pVal));
-			secp256k1_hmac_sha256_write(&hmac, &p->m_pT_In[i].m_Y, sizeof(p->m_pT_In[i].m_Y));
+			secp256k1_hmac_sha256_write_CompactPoint(&hmac, p->m_pT_In + i);
 
 			secp256k1_scalar_get_b32(hv.m_pVal, pK + i);
-			secp256k1_hmac_sha256_write(&hmac, hv.m_pVal, sizeof(hv.m_pVal));
+			secp256k1_hmac_sha256_write_UintBig(&hmac, &hv);
 		}
 
 		NonceGenerator_InitEnd(&pWrk->m_NonceGen, &hmac);
@@ -1867,8 +1870,8 @@ void Signature_Sign(Signature* p, const UintBig* pMsg, const secp256k1_scalar* p
 	static_assert(sizeof(u.nonce) >= sizeof(u.sk), ""); // means nonce completely overwrites the sk
 
 	secp256k1_scalar_get_b32(u.sk.m_pVal, pSk);
-	secp256k1_hmac_sha256_write(&u2.hmac, u.sk.m_pVal, sizeof(u.sk.m_pVal));
-	secp256k1_hmac_sha256_write(&u2.hmac, pMsg->m_pVal, sizeof(pMsg->m_pVal));
+	secp256k1_hmac_sha256_write_UintBig(&u2.hmac, &u.sk);
+	secp256k1_hmac_sha256_write_UintBig(&u2.hmac, pMsg);
 
 	NonceGenerator_InitEnd(&ng, &u2.hmac);
 	NonceGenerator_NextScalar(&ng, &u.nonce);
@@ -3379,9 +3382,8 @@ PROTO_METHOD(CreateShieldedInput_2)
 		secp256k1_hmac_sha256_t hmac;
 		NonceGenerator_InitBegin(&ng, &hmac, szSalt, sizeof(szSalt));
 
-		secp256k1_hmac_sha256_write(&hmac, hvSigGen.m_pVal, sizeof(hvSigGen.m_pVal));
-		secp256k1_hmac_sha256_write(&hmac, pIn->m_NoncePub.m_X.m_pVal, sizeof(pIn->m_NoncePub.m_X.m_pVal));
-		secp256k1_hmac_sha256_write(&hmac, &pIn->m_NoncePub.m_Y, sizeof(pIn->m_NoncePub.m_Y));
+		secp256k1_hmac_sha256_write_UintBig(&hmac, &hvSigGen);
+		secp256k1_hmac_sha256_write_CompactPoint(&hmac, &pIn->m_NoncePub);
 
 		NonceGenerator_InitEnd(&ng, &hmac);
 
@@ -3594,17 +3596,11 @@ typedef struct
 
 } TxSendShieldedContext;
 
-__stack_hungry__
 int TxSendShielded_VoucherCheck(TxSendShieldedContext* pCtx)
 {
 	// check the voucher
 	Voucher_Hash(&pCtx->m_hvKrn, &pCtx->m_pSh->m_Voucher);
-
-	CompactPoint ptPubKey;
-	ptPubKey.m_X = pCtx->m_pIn->m_Mut.m_Peer;
-	ptPubKey.m_Y = 0;
-
-	return Signature_IsValid(&pCtx->m_pSh->m_Voucher.m_Signature, &pCtx->m_hvKrn, &ptPubKey);
+	return Signature_IsValid_Ex(&pCtx->m_pSh->m_Voucher.m_Signature, &pCtx->m_hvKrn, &pCtx->m_pIn->m_Mut.m_Peer);
 }
 
 typedef struct
