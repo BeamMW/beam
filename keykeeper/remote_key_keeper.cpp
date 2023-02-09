@@ -1403,13 +1403,21 @@ namespace beam::wallet
 
                 hw::ShieldedOutParams sop;
 
-                sop.m_Voucher.m_SerialPub = Ecc2BC(m_M.m_Voucher.m_Ticket.m_SerialPub);
-                sop.m_Voucher.m_NoncePub = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_NoncePub);
-                sop.m_Voucher.m_pK[0] = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_pK[0].m_Value);
-                sop.m_Voucher.m_pK[1] = Ecc2BC(m_M.m_Voucher.m_Ticket.m_Signature.m_pK[1].m_Value);
-                sop.m_Voucher.m_SharedSecret = Ecc2BC(m_M.m_Voucher.m_SharedSecret);
-                sop.m_Voucher.m_Signature.m_NoncePub = Ecc2BC(m_M.m_Voucher.m_Signature.m_NoncePub);
-                sop.m_Voucher.m_Signature.m_k = Ecc2BC(m_M.m_Voucher.m_Signature.m_k.m_Value);
+                if (!m_M.m_pVoucher)
+                {
+                    Fin(Status::NotImplemented);
+                    return;
+                }
+
+                auto& voucher = *m_M.m_pVoucher;
+
+                sop.m_Voucher.m_SerialPub = Ecc2BC(voucher.m_Ticket.m_SerialPub);
+                sop.m_Voucher.m_NoncePub = Ecc2BC(voucher.m_Ticket.m_Signature.m_NoncePub);
+                sop.m_Voucher.m_pK[0] = Ecc2BC(voucher.m_Ticket.m_Signature.m_pK[0].m_Value);
+                sop.m_Voucher.m_pK[1] = Ecc2BC(voucher.m_Ticket.m_Signature.m_pK[1].m_Value);
+                sop.m_Voucher.m_SharedSecret = Ecc2BC(voucher.m_SharedSecret);
+                sop.m_Voucher.m_Signature.m_NoncePub = Ecc2BC(voucher.m_Signature.m_NoncePub);
+                sop.m_Voucher.m_Signature.m_k = Ecc2BC(voucher.m_Signature.m_k.m_Value);
 
                 ShieldedTxo::Data::OutputParams op;
 
@@ -1426,19 +1434,19 @@ namespace beam::wallet
                     op.m_Value = CalcTxBalance(&op.m_AssetID, m_M);
 
                 op.m_User = m_M.m_User;
-                op.Restore_kG(m_M.m_Voucher.m_SharedSecret);
+                op.Restore_kG(voucher.m_SharedSecret);
 
                 m_pOutp = std::make_unique<TxKernelShieldedOutput>();
                 TxKernelShieldedOutput& krn1 = *m_pOutp;
 
                 krn1.m_CanEmbed = true;
-                krn1.m_Txo.m_Ticket = m_M.m_Voucher.m_Ticket;
+                krn1.m_Txo.m_Ticket = voucher.m_Ticket;
 
                 krn1.UpdateMsg();
                 ECC::Oracle oracle;
                 oracle << krn1.m_Msg;
 
-                op.Generate(krn1.m_Txo, m_M.m_Voucher.m_SharedSecret, m_M.m_pKernel->m_Height.m_Min, oracle, m_M.m_HideAssetAlways);
+                op.Generate(krn1.m_Txo, voucher.m_SharedSecret, m_M.m_pKernel->m_Height.m_Min, oracle, m_M.m_HideAssetAlways);
                 krn1.MsgToID();
 
                 if (krn1.m_Txo.m_pAsset)

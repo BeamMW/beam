@@ -612,13 +612,42 @@ namespace beam::wallet
 
         ECC::Scalar::Native kKrn, kNonce;
 
+        ShieldedTxo::Voucher voucher;
+        ShieldedTxo::Voucher* pVoucher = x.m_pVoucher.get();
+        if (!pVoucher)
+        {
+            if (!x.m_pGen)
+                return Status::Unspecified;
+
+            pVoucher = &voucher;
+        }
+
         if (!x.m_NonConventional)
         {
             if (!aggr.ValidateSend())
                 return Status::Unspecified; // not sending
 
-            if (!x.m_Voucher.IsValid(x.m_Peer)) // will fail if m_Peer is Zero
-                return Status::Unspecified;
+            if (x.m_pVoucher)
+            {
+                if (!x.m_pVoucher->IsValid(x.m_Peer))
+                    return Status::Unspecified;
+            }
+            else
+            {
+                auto& g = *x.m_pGen;
+
+                ShieldedTxo::PublicGen::Packed p;
+                g.m_Gen.Export(p);
+
+                ShieldedTxo::PublicGen::Signature sig;
+                sig.m_Endpoint = x.m_Peer;
+                if (!sig.IsValid(p))
+                    return Status::Unspecified;
+
+                ShieldedTxo::Data::TicketParams tp;
+                tp.Generate(voucher.m_Ticket, g.m_Gen, g.m_Nonce);
+                voucher.m_SharedSecret = tp.m_SharedSecret;
+            }
 
             if (x.m_iEndpoint)
             {
@@ -635,19 +664,19 @@ namespace beam::wallet
         pars.m_Output.m_Value = vals.m_Asset;
         pars.m_Output.m_AssetID = aggr.m_AssetID;
         pars.m_Output.m_User = x.m_User;
-        pars.m_Output.Restore_kG(x.m_Voucher.m_SharedSecret);
+        pars.m_Output.Restore_kG(pVoucher->m_SharedSecret);
 
         TxKernelShieldedOutput::Ptr pOutp = std::make_unique<TxKernelShieldedOutput>();
         TxKernelShieldedOutput& krn1 = *pOutp;
 
         krn1.m_CanEmbed = true;
-        krn1.m_Txo.m_Ticket = x.m_Voucher.m_Ticket;
+        krn1.m_Txo.m_Ticket = pVoucher->m_Ticket;
 
         krn1.UpdateMsg();
         ECC::Oracle oracle;
         oracle << krn1.m_Msg;
 
-        pars.m_Output.Generate(krn1.m_Txo, x.m_Voucher.m_SharedSecret, krn.m_Height.m_Min, oracle, x.m_HideAssetAlways);
+        pars.m_Output.Generate(krn1.m_Txo, pVoucher->m_SharedSecret, krn.m_Height.m_Min, oracle, x.m_HideAssetAlways);
         krn1.MsgToID();
 
         assert(krn.m_vNested.empty());

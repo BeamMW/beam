@@ -161,7 +161,18 @@ namespace beam::wallet
 
             struct SignSendShielded :public TxCommon
             {
-                ShieldedTxo::Voucher m_Voucher;
+                // one of the above should be specified
+                std::unique_ptr<ShieldedTxo::Voucher> m_pVoucher;
+
+                struct GenParams
+                {
+                    ShieldedTxo::PublicGen m_Gen;
+                    ECC::Signature m_Signature;
+                    ECC::Hash::Value m_Nonce;
+                };
+
+                std::unique_ptr<GenParams> m_pGen;
+
                 PeerID m_Peer;
                 EndpointIndex m_iEndpoint = 0; // set if sending to yourself (though makes no sense to do so)
 

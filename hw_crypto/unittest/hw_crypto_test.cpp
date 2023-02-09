@@ -1396,7 +1396,7 @@ void TestShielded()
 	for (uint32_t i = 0; i < 4; i++)
 	{
 		wallet::IPrivateKeyKeeper2::Method::SignSendShielded m;
-		m.m_Voucher = vVouchers.front();
+		m.m_pVoucher = std::make_unique<ShieldedTxo::Voucher>(vVouchers.front());
 		m.m_Peer = pidRcv;
 
 		ECC::GenRandom(&m.m_User, sizeof(m.m_User));

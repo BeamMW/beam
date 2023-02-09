@@ -63,22 +63,40 @@ namespace beam::wallet::lelantus
         SetCommon(m);
         ZeroObject(m.m_User);
 
+        m.m_pVoucher = std::make_unique<ShieldedTxo::Voucher>();
+
         if (GetParameter(TxParameterID::PeerEndpoint, m.m_Peer))
         {
-            if (!GetParameter(TxParameterID::Voucher, m.m_Voucher))
+            auto pGen = std::make_unique<IPrivateKeyKeeper2::Method::SignSendShielded::GenParams>();
+
+            if (GetParameter(TxParameterID::PublicAddreessGen, pGen->m_Gen))
             {
-                WalletID widPeer;
-                if (!GetParameter(TxParameterID::PeerAddr, widPeer))
+                // public offline tx
+                if (!GetParameter(TxParameterID::PublicAddressGenSig, pGen->m_Signature))
                     throw TransactionFailedException(true, TxFailureReason::NoVoucher);
 
-                boost::optional<ShieldedTxo::Voucher> res;
-                m_Tx.GetGateway().get_UniqueVoucher(widPeer, m_Tx.GetTxID(), res);
+                ECC::GenRandom(pGen->m_Nonce);
 
-                if (!res)
-                    return;
+                m.m_pGen = std::move(pGen);
+                m.m_pVoucher.reset();
+            }
+            else
+            {
+                if (!GetParameter(TxParameterID::Voucher, *m.m_pVoucher))
+                {
+                    WalletID widPeer;
+                    if (!GetParameter(TxParameterID::PeerAddr, widPeer))
+                        throw TransactionFailedException(true, TxFailureReason::NoVoucher);
 
-                m.m_Voucher = std::move(*res);
-                SetParameter(TxParameterID::Voucher, m.m_Voucher);
+                    boost::optional<ShieldedTxo::Voucher> res;
+                    m_Tx.GetGateway().get_UniqueVoucher(widPeer, m_Tx.GetTxID(), res);
+
+                    if (!res)
+                        return;
+
+                    *m.m_pVoucher = std::move(*res);
+                    SetParameter(TxParameterID::Voucher, *m.m_pVoucher);
+                }
             }
 
             // set sender info
@@ -98,7 +116,7 @@ namespace beam::wallet::lelantus
             if (IPrivateKeyKeeper2::Status::Success != m_Tx.get_KeyKeeperStrict()->InvokeSync(m2) || m2.m_Res.empty())
                 throw TransactionFailedException(true, TxFailureReason::KeyKeeperError);
 
-            m.m_Voucher = std::move(m2.m_Res.front());
+            *m.m_pVoucher = m2.m_Res.front();
         }
 
 
@@ -121,7 +139,7 @@ namespace beam::wallet::lelantus
         viewer.FromOwner(*m_Tx.GetWalletDB()->get_OwnerKdf(), 0);
 
         ShieldedTxo::DataParams pars;
-        if (pars.m_Ticket.Recover(m.m_Voucher.m_Ticket, viewer))
+        if (m.m_pVoucher && pars.m_Ticket.Recover(m.m_pVoucher->m_Ticket, viewer))
         {
             // sending to yourself
             pars.m_Output.m_User = m.m_User;

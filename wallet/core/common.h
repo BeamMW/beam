@@ -350,6 +350,7 @@ namespace beam::wallet
     MACRO(PublicAddreessGen,               123, ShieldedTxo::PublicGen) \
     MACRO(ShieldedVoucherList,             124, ShieldedVoucherList) \
     MACRO(Voucher,                         125, ShieldedTxo::Voucher) \
+    MACRO(PublicAddressGenSig,             111, ECC::Signature) \
     /* Version */ \
     MACRO(ClientVersion,                   126, ByteBuffer/*std::string*/) \
     MACRO(LibraryVersion,                  127, ByteBuffer/*std::string*/) \
