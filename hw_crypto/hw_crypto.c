@@ -651,6 +651,32 @@ typedef struct
 	secp256k1_fe m_zDenom;
 } CustomGenerator;
 
+void Point_CalculateOdds(secp256k1_gej* pOdds, uint32_t n, const secp256k1_ge* pGe)
+{
+	assert(n);
+	Point_Gej_from_Ge(pOdds, pGe);
+
+	secp256k1_gej* const pX2 = pOdds + n - 1;
+	wrap_gej_double_var(pX2, pOdds);
+
+	for (uint32_t i = 1; i < n; i++)
+	{
+		wrap_gej_add_var(pOdds + i, pX2, pOdds + i - 1);
+		assert(!secp256k1_gej_is_infinity(pOdds + i)); // odd powers of non-zero point must not be zero!
+	}
+}
+
+void Point_Gej_ToCommonDenominator(secp256k1_gej* pOdds, uint32_t n, secp256k1_ge_storage* pRes, secp256k1_fe* pZDenom)
+{
+	// to common denominator
+	static_assert(sizeof(secp256k1_fe) <= sizeof(secp256k1_ge_storage), "Need this to temporary use its memory");
+
+	Point_Gej_BatchRescale(pOdds, n, (secp256k1_fe*) pRes, pZDenom, 0);
+
+	for (unsigned int i = 0; i < n; i++)
+		secp256k1_ge_to_storage(pRes + i, (secp256k1_ge*)(pOdds + i));
+}
+
 __stack_hungry__
 void MultiMac_Fast_Custom_Init(CustomGenerator* p, const secp256k1_ge* pGe)
 {
@@ -658,24 +684,10 @@ void MultiMac_Fast_Custom_Init(CustomGenerator* p, const secp256k1_ge* pGe)
 
 	// calculate odd powers
 	secp256k1_gej pOdds[_countof(p->m_pPt)];
-	Point_Gej_from_Ge(pOdds, pGe);
 
-	secp256k1_gej* const pX2 = (secp256k1_gej *) p->m_pPt; // reuse its mem!
-	wrap_gej_double_var(pX2, pOdds);
+	Point_CalculateOdds(pOdds, _countof(pOdds), pGe);
 
-	for (unsigned int i = 1; i < _countof(pOdds); i++)
-	{
-		wrap_gej_add_var(pOdds + i, pOdds + i - 1, pX2);
-		assert(!secp256k1_gej_is_infinity(pOdds + i)); // odd powers of non-zero point must not be zero!
-	}
-
-	// to common denominator
-	static_assert(sizeof(secp256k1_fe) * _countof(pOdds) <= sizeof(p->m_pPt), "Need this to temporary use its memory");
-
-	Point_Gej_BatchRescale(pOdds, _countof(pOdds), (secp256k1_fe*) &p->m_pPt, &p->m_zDenom, 0);
-
-	for (unsigned int i = 0; i < _countof(pOdds); i++)
-		secp256k1_ge_to_storage(p->m_pPt + i, (secp256k1_ge*) (pOdds + i));
+	Point_Gej_ToCommonDenominator(pOdds, _countof(pOdds), p->m_pPt, &p->m_zDenom);
 }
 
 void secp256k1_hmac_sha256_write_UintBig(secp256k1_hmac_sha256_t* pHMac, const UintBig* p)
@@ -856,6 +868,11 @@ void MulPoint(secp256k1_gej* pGej, const MultiMac_Secure* pGen, const secp256k1_
 void MulG(secp256k1_gej* pGej, const secp256k1_scalar* pK)
 {
 	MulPoint(pGej, Context_get()->m_pGenGJ, pK);
+}
+
+void MulJ(secp256k1_gej* pGej, const secp256k1_scalar* pK)
+{
+	MulPoint(pGej, Context_get()->m_pGenGJ + 1, pK);
 }
 
 __stack_hungry__
@@ -1217,7 +1234,7 @@ static void CoinID_getSkComm_FromNonSwitchK(const CoinID* pCid, secp256k1_scalar
 	secp256k1_gej pGej[2];
 
 	CoinID_getCommRaw(pK, pCid->m_Amount, pAGen, pGej); // sk*G + amount*H(aid)
-	MulPoint(pGej + 1, Context_get()->m_pGenGJ + 1, pK); // sk*J
+	MulJ(pGej + 1, pK); // sk*J
 
 	Point_Gej_2_Normalize(pGej);
 
@@ -2059,16 +2076,14 @@ static void Kdf2Pub(const Kdf* pKdf, KdfPub* pRes)
 
 	pRes->m_Secret = pKdf->m_Secret;
 
-	secp256k1_gej gej;
-	secp256k1_ge ge;
+	secp256k1_gej pGej[2];
+	MulG(pGej, &pKdf->m_kCoFactor);
+	MulJ(pGej + 1, &pKdf->m_kCoFactor);
 
-	MulPoint(&gej, pCtx->m_pGenGJ, &pKdf->m_kCoFactor);
-	Point_Ge_from_Gej(&ge, &gej);
-	Point_Compact_from_Ge(&pRes->m_CoFactorG, &ge);
+	Point_Gej_2_Normalize(pGej);
 
-	MulPoint(&gej, pCtx->m_pGenGJ + 1, &pKdf->m_kCoFactor);
-	Point_Ge_from_Gej(&ge, &gej);
-	Point_Compact_from_Ge(&pRes->m_CoFactorJ, &ge);
+	Point_Compact_from_Ge(&pRes->m_CoFactorG, (secp256k1_ge*) pGej);
+	Point_Compact_from_Ge(&pRes->m_CoFactorJ, (secp256k1_ge*) (pGej + 1));
 }
 
 __stack_hungry__
