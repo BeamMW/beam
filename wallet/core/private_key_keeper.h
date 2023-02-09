@@ -122,6 +122,13 @@ namespace beam::wallet
                 std::vector<ShieldedTxo::Voucher> m_Res;
             };
 
+            struct CreateOfflineAddr
+            {
+                EndpointIndex m_iEndpoint = 0;
+                ShieldedTxo::PublicGen m_Addr;
+                ECC::Signature m_Signature;
+            };
+
             struct InOuts
             {
                 std::vector<CoinID> m_vInputs;
@@ -195,6 +202,7 @@ namespace beam::wallet
 		macro(CreateOutput) \
 		macro(CreateInputShielded) \
 		macro(CreateVoucherShielded) \
+		macro(CreateOfflineAddr) \
 		macro(SignReceiver) \
 		macro(SignSender) \
 		macro(SignSendShielded) \

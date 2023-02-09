@@ -374,6 +374,35 @@ namespace beam::wallet
         return Status::Success;
     }
 
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::CreateOfflineAddr& x)
+    {
+        {
+            ShieldedTxo::Viewer viewer;
+            viewer.FromOwner(*m_pKdf, 0);
+            x.m_Addr.FromViewer(viewer);
+        }
+
+        ECC::Hash::Value hv;
+        {
+            ShieldedTxo::PublicGen::Packed p;
+            x.m_Addr.Export(p);
+
+            p.get_Hash(hv);
+        }
+
+        ECC::Scalar::Native sk;
+        m_pKdf->DeriveKey(sk, Key::ID(x.m_iEndpoint, Key::Type::EndPoint));
+
+        {
+            PeerID pid;
+            pid.FromSk(sk);
+        }
+
+        x.m_Signature.Sign(hv, sk);
+
+        return Status::Success;
+    }
+
     void LocalPrivateKeyKeeper2::UpdateOffset(Method::TxCommon& tx, const Scalar::Native& kDiff, const Scalar::Native& kKrn)
     {
         Scalar::Native k = kDiff + kKrn;

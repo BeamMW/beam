@@ -1146,6 +1146,24 @@ namespace beam::wallet
 
     };
 
+    struct RemoteKeyKeeper::Impl::RemoteCall_CreateOfflineAddr
+        :public RemoteCall
+    {
+        RemoteCall_CreateOfflineAddr(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::CreateOfflineAddr& m)
+            :RemoteCall(kk, h)
+            ,m_M(m)
+        {
+        }
+
+        Method::CreateOfflineAddr& m_M;
+
+        void Update() override
+        {
+            Fin(Status::NotImplemented);
+        }
+
+    };
+
     struct RemoteKeyKeeper::Impl::RemoteCall_WithCoins
         :public RemoteCall
     {
