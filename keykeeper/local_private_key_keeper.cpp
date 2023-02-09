@@ -639,9 +639,11 @@ namespace beam::wallet
                 ShieldedTxo::PublicGen::Packed p;
                 g.m_Gen.Export(p);
 
-                ShieldedTxo::PublicGen::Signature sig;
-                sig.m_Endpoint = x.m_Peer;
-                if (!sig.IsValid(p))
+                ECC::Hash::Value hv;
+                p.get_Hash(hv);
+
+                ECC::Point::Native pt;
+                if (!x.m_Peer.ExportNnz(pt) || !g.m_Signature.IsValid(hv, pt))
                     return Status::Unspecified;
 
                 ShieldedTxo::Data::TicketParams tp;

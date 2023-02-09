@@ -28,19 +28,10 @@ namespace beam
 		{
 			ECC::HKdfPub::Packed m_Gen;
 			ECC::HKdfPub::Packed m_Ser;
+
+			void get_Hash(ECC::Hash::Value&) const;
 		};
 #pragma pack (pop)
-
-		struct Signature
-		{
-			PeerID m_Endpoint;
-			ECC::Signature m_Sig;
-
-			void Create(ECC::Scalar::Native& sk, const Packed&);
-			bool IsValid(const Packed&) const;
-
-			void get_Msg(ECC::Hash::Value&, const Packed&) const;
-		};
 
 		void FromViewer(const Viewer&);
 		uint32_t ExportP(void* p) const;

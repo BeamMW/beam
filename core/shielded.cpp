@@ -613,39 +613,17 @@ namespace beam
 			Exc::Fail("Shielded/PupGen import");
 	}
 
-	void ShieldedTxo::PublicGen::Signature::get_Msg(ECC::Hash::Value& hv, const Packed& p) const
+	void ShieldedTxo::PublicGen::Packed::get_Hash(ECC::Hash::Value& hv) const
 	{
 		ECC::Hash::Processor()
 			<< "sh.pub.sig"
-			<< m_Endpoint
-			<< p.m_Gen.m_Secret
-			<< p.m_Gen.m_PkG
-			<< p.m_Gen.m_PkJ
-			<< p.m_Ser.m_Secret
-			<< p.m_Ser.m_PkG
-			// << p.m_Ser.m_PkJ // not necessary, not used atm
+			<< m_Gen.m_Secret
+			<< m_Gen.m_PkG
+			<< m_Gen.m_PkJ
+			<< m_Ser.m_Secret
+			<< m_Ser.m_PkG
+			// << m_Ser.m_PkJ // not necessary, not used atm
 			>> hv;
-	}
-
-	void ShieldedTxo::PublicGen::Signature::Create(ECC::Scalar::Native& sk, const Packed& p)
-	{
-		m_Endpoint.FromSk(sk);
-		
-		ECC::Hash::Value hv;
-		get_Msg(hv, p);
-		m_Sig.Sign(hv, sk);
-	}
-
-	bool ShieldedTxo::PublicGen::Signature::IsValid(const Packed& p) const
-	{
-		ECC::Point::Native pt;
-		if (!m_Endpoint.ExportNnz(pt))
-			return false;
-
-		ECC::Hash::Value hv;
-		get_Msg(hv, p);
-
-		return m_Sig.IsValid(hv, pt);
 	}
 
 } // namespace beam
