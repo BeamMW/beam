@@ -648,6 +648,10 @@ namespace beam::wallet
             if (!x.m_pOffline)
                 return Status::Unspecified;
 
+            ShieldedTxo::Data::TicketParams tp;
+            tp.Generate(voucher.m_Ticket, x.m_pOffline->m_Addr, x.m_pOffline->m_Nonce);
+            voucher.m_SharedSecret = tp.m_SharedSecret;
+
             pVoucher = &voucher;
         }
 
@@ -674,10 +678,6 @@ namespace beam::wallet
                 ECC::Point::Native pt;
                 if (!x.m_Peer.ExportNnz(pt) || !off.m_Signature.IsValid(hv, pt))
                     return Status::Unspecified;
-
-                ShieldedTxo::Data::TicketParams tp;
-                tp.Generate(voucher.m_Ticket, off.m_Addr, off.m_Nonce);
-                voucher.m_SharedSecret = tp.m_SharedSecret;
             }
 
             if (x.m_iEndpoint)
