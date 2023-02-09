@@ -380,7 +380,7 @@ static void wrap_scalar_mul(secp256k1_scalar* r, const secp256k1_scalar* a, cons
 static void wrap_scalar_inverse(secp256k1_scalar* r, const secp256k1_scalar* a)
 {
 	secp256k1_scalar_inverse(r, a);
-	Suffer(1000); // very heavy
+	Suffer(300); // very heavy: inverse + misc
 }
 
 static void wrap_fe_mul(secp256k1_fe* r, const secp256k1_fe* a, const secp256k1_fe* b)
@@ -594,8 +594,8 @@ void Point_Gej_BatchRescale(secp256k1_gej*  pGej, unsigned int nCount, secp256k1
 
 	if (bNormalize)
 	{
-		secp256k1_fe_inv(pZDenom, pBuf + iPrev); // the only expensive call
-		Suffer(1000); // Very heavy
+		secp256k1_fe_inv(pZDenom, pBuf + iPrev); // the only expensive call: 15 mul, 255 sqr
+		Suffer(280); // Very heavy
 	}
 	else
 		secp256k1_fe_set_int(pZDenom, 1); // can be arbitrary
