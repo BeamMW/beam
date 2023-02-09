@@ -857,6 +857,17 @@ void Sk2Pk(UintBig* pRes, secp256k1_scalar* pK)
 	if (y)
 		secp256k1_scalar_negate(pK, pK);
 }
+
+void secp256k1_sha256_write_UintBig(secp256k1_sha256_t* pSha, const UintBig* p)
+{
+	secp256k1_sha256_write(pSha, p->m_pVal, sizeof(p->m_pVal));
+}
+
+void secp256k1_sha256_write_u8(secp256k1_sha256_t* pSha, uint8_t x)
+{
+	secp256k1_sha256_write(pSha, &x, sizeof(x));
+}
+
 //////////////////////////////
 // Oracle
 void Oracle_Init(Oracle* p)
@@ -874,8 +885,7 @@ void Oracle_NextHash(Oracle* p, UintBig* pHash)
 {
 	secp256k1_sha256_t sha = p->m_sha; // copy
 	secp256k1_sha256_finalize(&sha, pHash->m_pVal);
-
-	secp256k1_sha256_write(&p->m_sha, pHash->m_pVal, c_ECC_nBytes);
+	secp256k1_sha256_write_UintBig(&p->m_sha, pHash);
 }
 
 __stack_hungry__
@@ -929,20 +939,20 @@ void secp256k1_sha256_write_Num(secp256k1_sha256_t* pSha, uint64_t val)
 			val >>= 7;
 		}
 
-		secp256k1_sha256_write(pSha, &x, sizeof(x));
+		secp256k1_sha256_write_u8(pSha, x);
 
 	} while (nContinue);
 }
 
 void secp256k1_sha256_write_CompactPoint(secp256k1_sha256_t* pSha, const CompactPoint* pCompact)
 {
-	secp256k1_sha256_write(pSha, pCompact->m_X.m_pVal, sizeof(pCompact->m_X.m_pVal));
-	secp256k1_sha256_write(pSha, &pCompact->m_Y, sizeof(pCompact->m_Y));
+	secp256k1_sha256_write_UintBig(pSha, &pCompact->m_X);
+	secp256k1_sha256_write_u8(pSha, pCompact->m_Y);
 }
 
 void secp256k1_sha256_write_CompactPointOptional2(secp256k1_sha256_t* pSha, const CompactPoint* pCompact, uint8_t bValid)
 {
-	secp256k1_sha256_write(pSha, &bValid, sizeof(bValid));
+	secp256k1_sha256_write_u8(pSha, bValid);
 	if (bValid)
 		secp256k1_sha256_write_CompactPoint(pSha, pCompact);
 }
@@ -954,10 +964,8 @@ void secp256k1_sha256_write_CompactPointOptional(secp256k1_sha256_t* pSha, const
 
 void secp256k1_sha256_write_CompactPointEx(secp256k1_sha256_t* pSha, const UintBig* pX, uint8_t nY)
 {
-	secp256k1_sha256_write(pSha, pX->m_pVal, sizeof(pX->m_pVal));
-
-	nY &= 1;
-	secp256k1_sha256_write(pSha, &nY, sizeof(nY));
+	secp256k1_sha256_write_UintBig(pSha, pX);
+	secp256k1_sha256_write_u8(pSha, nY & 1);
 }
 
 __stack_hungry__
@@ -1248,7 +1256,7 @@ static void ShieldedInput_getSk(const KeyKeeper* p, const ShieldedInput_Blob* pI
 	secp256k1_sha256_write_Num(&sha, pInpFmt->m_Amount);
 	secp256k1_sha256_write_Num(&sha, pInpFmt->m_AssetID);
 	secp256k1_sha256_write_Num(&sha, pInpFmt->m_Fee);
-	secp256k1_sha256_write(&sha, pInpBlob->m_kSerG.m_pVal, sizeof(pInpBlob->m_kSerG.m_pVal));
+	secp256k1_sha256_write_UintBig(&sha, &pInpBlob->m_kSerG);
 	secp256k1_sha256_write_Num(&sha, !!pInpBlob->m_IsCreatedByViewer);
 	secp256k1_sha256_write_Num(&sha, pInpFmt->m_nViewerIdx);
 	secp256k1_sha256_finalize(&sha, hv.m_pVal);
@@ -1288,7 +1296,7 @@ static void RangeProof_Calculate_Before_S(RangeProof* const p, RangeProof_Worker
 	secp256k1_scalar_get_b32(hv.m_pVal, &k);
 
 	secp256k1_sha256_initialize(&oracle.m_sha);
-	secp256k1_sha256_write(&oracle.m_sha, hv.m_pVal, sizeof(hv.m_pVal));
+	secp256k1_sha256_write_UintBig(&oracle.m_sha, &hv);
 	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
 
 	// NonceGen
@@ -1605,7 +1613,7 @@ static void RangeProof_Recover_Init(const RangeProof_Packed* pRangeproof, Oracle
 
 	static_assert(sizeof(pRangeproof->m_pLRx) == sizeof(pRep->m_pE), "");
 
-	secp256k1_sha256_write(&pOracle->m_sha, pRangeproof->m_tDot.m_pVal, sizeof(pRangeproof->m_tDot.m_pVal));
+	secp256k1_sha256_write_UintBig(&pOracle->m_sha, &pRangeproof->m_tDot);
 	Oracle_NextScalar(pOracle, pRep->m_pE[0]); // dot-multiplier, unneeded atm
 
 	for (uint32_t iCycle = 0; iCycle < _countof(pRangeproof->m_pLRx); iCycle++)
@@ -1827,7 +1835,7 @@ void Signature_GetChallengeEx(const CompactPoint* pNoncePub, const UintBig* pMsg
 	Oracle oracle;
 	Oracle_Init(&oracle);
 	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, pNoncePub);
-	secp256k1_sha256_write(&oracle.m_sha, pMsg->m_pVal, sizeof(pMsg->m_pVal));
+	secp256k1_sha256_write_UintBig(&oracle.m_sha, pMsg);
 
 	Oracle_NextScalar(&oracle, pE);
 }
@@ -1991,17 +1999,15 @@ void TxKernel_getID_Ex(const TxKernelUser* pUser, const TxKernelCommitments* pCo
 	secp256k1_sha256_write_CompactPoint(&sha, &pComms->m_Commitment);
 	secp256k1_sha256_write_Num(&sha, 0); // former m_AssetEmission
 
-	uint8_t nFlags = 0; // extended flags, irrelevent for HW wallet
-	secp256k1_sha256_write(&sha, &nFlags, sizeof(nFlags));
+	secp256k1_sha256_write_u8(&sha, 0); // extended flags, irrelevent for HW wallet
 
 	for (uint32_t i = 0; i < nNestedIDs; i++)
 	{
-		secp256k1_sha256_write(&sha, &nFlags, sizeof(nFlags));
-		secp256k1_sha256_write(&sha, pNestedIDs[i].m_pVal, sizeof(pNestedIDs[i].m_pVal));
+		secp256k1_sha256_write_u8(&sha, 0);
+		secp256k1_sha256_write_UintBig(&sha, pNestedIDs + i);
 	}
 
-	nFlags = 1; // no more nested kernels
-	secp256k1_sha256_write(&sha, &nFlags, sizeof(nFlags));
+	secp256k1_sha256_write_u8(&sha, 1); // no more nested kernels
 
 	secp256k1_sha256_finalize(&sha, pMsg->m_pVal);
 }
@@ -2035,11 +2041,10 @@ void TxKernel_SpecialMsg(secp256k1_sha256_t* pSha, Amount fee, Height hMin, Heig
 	secp256k1_sha256_write_Num(pSha, hMax);
 
 	UintBig hv = { 0 };
-	secp256k1_sha256_write(pSha, hv.m_pVal, sizeof(hv.m_pVal));
-	hv.m_pVal[0] = 1;
-	secp256k1_sha256_write(pSha, hv.m_pVal, 1);
+	secp256k1_sha256_write_UintBig(pSha, &hv);
+	secp256k1_sha256_write_u8(pSha, 1);
 	secp256k1_sha256_write_Num(pSha, nType);
-	secp256k1_sha256_write(pSha, hv.m_pVal, 1); // nested break
+	secp256k1_sha256_write_u8(pSha, 1); // nested break
 }
 
 //////////////////////////////
@@ -2629,7 +2634,7 @@ PROTO_METHOD(TxSplit)
 
 	UintBig hv;
 	secp256k1_scalar_get_b32(hv.m_pVal, &p->u.m_TxBalance.m_sk);
-	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
+	secp256k1_sha256_write_UintBig(&sha, &hv);
 	secp256k1_sha256_finalize(&sha, hv.m_pVal);
 
 	// derive keys
@@ -2668,8 +2673,8 @@ static void GetPaymentConfirmationMsg(UintBig* pRes, const UintBig* pSender, con
 	secp256k1_sha256_initialize(&sha);
 
 	HASH_WRITE_STR(sha, "PaymentConfirmation");
-	secp256k1_sha256_write(&sha, pKernelID->m_pVal, sizeof(pKernelID->m_pVal));
-	secp256k1_sha256_write(&sha, pSender->m_pVal, sizeof(pSender->m_pVal));
+	secp256k1_sha256_write_UintBig(&sha, pKernelID);
+	secp256k1_sha256_write_UintBig(&sha, pSender);
 	secp256k1_sha256_write_Num(&sha, amount);
 
 	if (nAssetID)
@@ -2731,17 +2736,16 @@ PROTO_METHOD(TxReceive)
 	UintBig hv;
 	TxKernel_getID(&txc.m_Krn, &pIn->m_Comms, &hv); // not a final ID yet
 
-	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
+	secp256k1_sha256_write_UintBig(&sha, &hv);
 	secp256k1_sha256_write_CompactPoint(&sha, &pIn->m_Comms.m_NoncePub);
 
-	uint8_t nFlag = 0; // not nonconventional
-	secp256k1_sha256_write(&sha, &nFlag, sizeof(nFlag));
-	secp256k1_sha256_write(&sha, pIn->m_Mut.m_Peer.m_pVal, sizeof(pIn->m_Mut.m_Peer.m_pVal));
+	secp256k1_sha256_write_u8(&sha, 0); // not nonconventional
+	secp256k1_sha256_write_UintBig(&sha, &pIn->m_Mut.m_Peer);
 
 	secp256k1_sha256_write_Num(&sha, txm.m_AddrID);
 
 	secp256k1_scalar_get_b32(hv.m_pVal, &p->u.m_TxBalance.m_sk);
-	secp256k1_sha256_write(&sha, hv.m_pVal, sizeof(hv.m_pVal));
+	secp256k1_sha256_write_UintBig(&sha, &hv);
 
 	secp256k1_sha256_write_Num(&sha, netAmount); // the value being-received
 	secp256k1_sha256_write_Num(&sha, aid);
@@ -2927,19 +2931,19 @@ static void TxSend_DeriveKeys(KeyKeeper* p, const OpIn_TxSend2* pIn, TxSendConte
 	secp256k1_sha256_t sha;
 	secp256k1_sha256_initialize(&sha);
 	secp256k1_sha256_write_Num(&sha, pCtx->m_txc.m_Krn.m_Fee);
-	secp256k1_sha256_write(&sha, pIn->m_Mut.m_Peer.m_pVal, sizeof(pIn->m_Mut.m_Peer.m_pVal));
-	secp256k1_sha256_write(&sha, pCtx->m_hvMyID.m_pVal, sizeof(pCtx->m_hvMyID.m_pVal));
+	secp256k1_sha256_write_UintBig(&sha, &pIn->m_Mut.m_Peer);
+	secp256k1_sha256_write_UintBig(&sha, &pCtx->m_hvMyID);
 
 	uint8_t nFlag = 0; // not nonconventional
-	secp256k1_sha256_write(&sha, &nFlag, sizeof(nFlag));
+	secp256k1_sha256_write_u8(&sha, nFlag);
 
 	secp256k1_scalar_get_b32(pCtx->m_hvToken.m_pVal, &p->u.m_TxBalance.m_sk);
-	secp256k1_sha256_write(&sha, pCtx->m_hvToken.m_pVal, sizeof(pCtx->m_hvToken.m_pVal));
+	secp256k1_sha256_write_UintBig(&sha, &pCtx->m_hvToken);
 	secp256k1_sha256_write_Num(&sha, pCtx->m_netAmount);
 	secp256k1_sha256_write_Num(&sha, pCtx->m_Aid);
 
 	secp256k1_scalar_get_b32(pCtx->m_hvToken.m_pVal, &pCtx->m_Keys.m_kNonce);
-	secp256k1_sha256_write(&sha, pCtx->m_hvToken.m_pVal, sizeof(pCtx->m_hvToken.m_pVal));
+	secp256k1_sha256_write_UintBig(&sha, &pCtx->m_hvToken);
 	secp256k1_sha256_finalize(&sha, pCtx->m_hvToken.m_pVal);
 
 	static const char szSalt[] = "hw-wlt-snd";
@@ -2953,7 +2957,7 @@ static void TxSend_DeriveKeys(KeyKeeper* p, const OpIn_TxSend2* pIn, TxSendConte
 	HASH_WRITE_STR(sha, "tx.token");
 
 	secp256k1_scalar_get_b32(pCtx->m_hvToken.m_pVal, &pCtx->m_Keys.m_kKrn);
-	secp256k1_sha256_write(&sha, pCtx->m_hvToken.m_pVal, sizeof(pCtx->m_hvToken.m_pVal));
+	secp256k1_sha256_write_UintBig(&sha, &pCtx->m_hvToken);
 	secp256k1_sha256_finalize(&sha, pCtx->m_hvToken.m_pVal);
 
 	if (IsUintBigZero(&pCtx->m_hvToken))
@@ -3122,7 +3126,7 @@ static void Voucher_Hash(UintBig* pRes, const ShieldedVoucher* pVoucher)
 	HASH_WRITE_STR(sha, "voucher.1");
 	secp256k1_sha256_write_CompactPoint(&sha, &pVoucher->m_SerialPub);
 	secp256k1_sha256_write_CompactPoint(&sha, &pVoucher->m_NoncePub);
-	secp256k1_sha256_write(&sha, pVoucher->m_SharedSecret.m_pVal, sizeof(pVoucher->m_SharedSecret.m_pVal));
+	secp256k1_sha256_write_UintBig(&sha, &pVoucher->m_SharedSecret);
 	secp256k1_sha256_finalize(&sha, pRes->m_pVal);
 }
 
@@ -3133,7 +3137,7 @@ static void ShieldedGetSpendKey(const ShieldedViewer* pViewer, const secp256k1_s
 	ShieldedHashTxt(&sha);
 	HASH_WRITE_STR(sha, "kG-k");
 	secp256k1_scalar_get_b32(pPreimage->m_pVal, pkG);
-	secp256k1_sha256_write(&sha, pPreimage->m_pVal, sizeof(pPreimage->m_pVal));
+	secp256k1_sha256_write_UintBig(&sha, pPreimage);
 	secp256k1_sha256_finalize(&sha, pPreimage->m_pVal);
 
 	if (nIsGenByViewer)
@@ -3144,7 +3148,7 @@ static void ShieldedGetSpendKey(const ShieldedViewer* pViewer, const secp256k1_s
 	ShieldedHashTxt(&sha);
 	HASH_WRITE_STR(sha, "k-pI");
 	secp256k1_scalar_get_b32(pPreimage->m_pVal, pSk);
-	secp256k1_sha256_write(&sha, pPreimage->m_pVal, sizeof(pPreimage->m_pVal));
+	secp256k1_sha256_write_UintBig(&sha, pPreimage);
 	secp256k1_sha256_finalize(&sha, pPreimage->m_pVal); // SerialPreimage
 
 	Kdf_Derive_SKey(&pViewer->m_Ser, pPreimage, pSk); // spend sk
@@ -3160,7 +3164,7 @@ static void CreateVoucherInternal(ShieldedVoucher* pRes, const UintBig* pNonce, 
 	// nonce -> kG
 	ShieldedHashTxt(&oracle.m_sha);
 	HASH_WRITE_STR(oracle.m_sha, "kG");
-	secp256k1_sha256_write(&oracle.m_sha, pNonce->m_pVal, sizeof(pNonce->m_pVal));
+	secp256k1_sha256_write_UintBig(&oracle.m_sha, pNonce);
 	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
 	Kdf_Derive_PKey(&pViewer->m_Gen, &hv, pK);
 
@@ -3198,13 +3202,13 @@ static void CreateVoucherInternal(ShieldedVoucher* pRes, const UintBig* pNonce, 
 	// nonces
 	ShieldedHashTxt(&oracle.m_sha);
 	HASH_WRITE_STR(oracle.m_sha, "nG");
-	secp256k1_sha256_write(&oracle.m_sha, pRes->m_SharedSecret.m_pVal, sizeof(pRes->m_SharedSecret.m_pVal));
+	secp256k1_sha256_write_UintBig(&oracle.m_sha, &pRes->m_SharedSecret);
 	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
 	Kdf_Derive_PKey(&pViewer->m_Gen, &hv, pN);
 
 	ShieldedHashTxt(&oracle.m_sha);
 	HASH_WRITE_STR(oracle.m_sha, "nJ");
-	secp256k1_sha256_write(&oracle.m_sha, pRes->m_SharedSecret.m_pVal, sizeof(pRes->m_SharedSecret.m_pVal));
+	secp256k1_sha256_write_UintBig(&oracle.m_sha, &pRes->m_SharedSecret);
 	secp256k1_sha256_finalize(&oracle.m_sha, hv.m_pVal);
 	Kdf_Derive_PKey(&pViewer->m_Gen, &hv, pN + 1);
 
@@ -3263,7 +3267,7 @@ PROTO_METHOD(CreateShieldedVouchers)
 		Oracle oracle;
 		secp256k1_sha256_initialize(&oracle.m_sha);
 		HASH_WRITE_STR(oracle.m_sha, "sh.v.n");
-		secp256k1_sha256_write(&oracle.m_sha, hvNonce.m_pVal, sizeof(hvNonce.m_pVal));
+		secp256k1_sha256_write_UintBig(&oracle.m_sha, &hvNonce);
 		secp256k1_sha256_finalize(&oracle.m_sha, hvNonce.m_pVal);
 	}
 
@@ -3303,10 +3307,10 @@ PROTO_METHOD(CreateShieldedInput_1)
 
 	// init oracle
 	secp256k1_sha256_initialize(&pOracle->m_sha);
-	secp256k1_sha256_write(&pOracle->m_sha, hv.m_pVal, sizeof(hv.m_pVal));
+	secp256k1_sha256_write_UintBig(&pOracle->m_sha, &hv);
 
 	// starting from HF3 commitmens to shielded state and asset are mandatory
-	secp256k1_sha256_write(&pOracle->m_sha, pIn->m_ShieldedState.m_pVal, sizeof(pIn->m_ShieldedState.m_pVal));
+	secp256k1_sha256_write_UintBig(&pOracle->m_sha, &pIn->m_ShieldedState);
 	secp256k1_sha256_write_CompactPointOptional2(&pOracle->m_sha, &pIn->m_ptAssetGen, !IsUintBigZero(&pIn->m_ptAssetGen.m_X));
 
 	secp256k1_sha256_write_Num(&pOracle->m_sha, sip.m_Sigma_n);
@@ -3405,7 +3409,7 @@ PROTO_METHOD(CreateShieldedInput_2)
 		Oracle o2;
 		Oracle_Init(&o2);
 		secp256k1_sha256_write_CompactPoint(&o2.m_sha, &pOut->m_NoncePub);
-		secp256k1_sha256_write(&o2.m_sha, hvSigGen.m_pVal, sizeof(hvSigGen.m_pVal));
+		secp256k1_sha256_write_UintBig(&o2.m_sha, &hvSigGen);
 
 		// 1st challenge
 		Oracle_NextScalar(&o2, &e);
@@ -3622,7 +3626,7 @@ void TxSendShielded_PrepareRangeProofRepack(TxSendShieldedContext* pCtx, TxSendS
 
 	// Before we repack (i.e. overwrite the original RangeProof) - finalyze the krnID
 	secp256k1_sha256_initialize(&pOracle->m_sha);
-	secp256k1_sha256_write(&pOracle->m_sha, pCtx->m_hvKrn.m_pVal, sizeof(pCtx->m_hvKrn.m_pVal));
+	secp256k1_sha256_write_UintBig(&pOracle->m_sha, &pCtx->m_hvKrn);
 	secp256k1_sha256_write(&pOracle->m_sha, (uint8_t*) &pCtx->m_pSh->m_RangeProof, sizeof(pCtx->m_pSh->m_RangeProof));
 	secp256k1_sha256_finalize(&pOracle->m_sha, pCtx->m_hvKrn.m_pVal);
 
@@ -3673,7 +3677,7 @@ void TxSendShielded_PrepareRangeProofRecover(TxSendShieldedContext* pCtx, TxSend
 	secp256k1_sha256_finalize(&oracle.m_sha, pCtx->m_hvKrn.m_pVal); // krn.Msg
 
 	secp256k1_sha256_initialize(&oracle.m_sha);
-	secp256k1_sha256_write(&oracle.m_sha, pCtx->m_hvKrn.m_pVal, sizeof(pCtx->m_hvKrn.m_pVal)); // oracle << krn.Msg
+	secp256k1_sha256_write_UintBig(&oracle.m_sha, &pCtx->m_hvKrn); // oracle << krn.Msg
 	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pCtx->m_pSh->m_Voucher.m_SerialPub);
 	secp256k1_sha256_write_CompactPoint(&oracle.m_sha, &pCtx->m_pSh->m_Voucher.m_NoncePub);
 	secp256k1_sha256_write_Gej(&oracle.m_sha, &u.gej);
@@ -3682,7 +3686,7 @@ void TxSendShielded_PrepareRangeProofRecover(TxSendShieldedContext* pCtx, TxSend
 	{
 		u.o2 = oracle;
 		HASH_WRITE_STR(u.o2.m_sha, "bp-s");
-		secp256k1_sha256_write(&u.o2.m_sha, pCtx->m_pSh->m_Voucher.m_SharedSecret.m_pVal, sizeof(pCtx->m_pSh->m_Voucher.m_SharedSecret.m_pVal));
+		secp256k1_sha256_write_UintBig(&u.o2.m_sha, &pCtx->m_pSh->m_Voucher.m_SharedSecret);
 		secp256k1_sha256_finalize(&u.o2.m_sha, pRp->u.m_RCtx.m_Seed.m_pVal); // rangeproof seed. For both gen and blinding factor
 	}
 
@@ -3780,12 +3784,12 @@ uint16_t TxSendShielded_FinalyzeTx(TxSendShieldedContext* pCtx, int bSplit)
 	UintBig hvOuter, hvPeer;
 	secp256k1_sha256_t sha;
 	secp256k1_sha256_initialize(&sha);
-	secp256k1_sha256_write(&sha, pCtx->m_hvKrn.m_pVal, sizeof(pCtx->m_hvKrn.m_pVal));
+	secp256k1_sha256_write_UintBig(&sha, &pCtx->m_hvKrn);
 	secp256k1_sha256_write_Num(&sha, pCtx->m_Txc.m_Krn.m_hMin);
 	secp256k1_sha256_write_Num(&sha, pCtx->m_Txc.m_Krn.m_hMax);
 	secp256k1_sha256_write_Num(&sha, pCtx->m_Txc.m_Krn.m_Fee);
 	secp256k1_scalar_get_b32(hvOuter.m_pVal, &pCtx->m_p->u.m_TxBalance.m_sk);
-	secp256k1_sha256_write(&sha, hvOuter.m_pVal, sizeof(hvOuter.m_pVal));
+	secp256k1_sha256_write_UintBig(&sha, &hvOuter);
 	secp256k1_sha256_finalize(&sha, hvOuter.m_pVal);
 
 	// derive keys
