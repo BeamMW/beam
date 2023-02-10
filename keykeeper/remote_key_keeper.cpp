@@ -1442,22 +1442,50 @@ namespace beam::wallet
                 Import(msg.m_Tx.m_Krn, m_M);
 
                 hw::ShieldedOutParams sop;
+                ZeroObject(sop.u);
 
-                if (!m_M.m_pVoucher)
+                msg.m_UsePublicGen = !m_M.m_pVoucher;
+
+                ShieldedTxo::Voucher voucherInst;
+                auto& voucher = m_M.m_pVoucher ? *m_M.m_pVoucher : voucherInst;
+
+                if (m_M.m_pVoucher)
                 {
-                    Fin(Status::NotImplemented);
-                    return;
+                    sop.u.m_Voucher.m_SerialPub = Ecc2BC(voucher.m_Ticket.m_SerialPub);
+                    sop.u.m_Voucher.m_NoncePub = Ecc2BC(voucher.m_Ticket.m_Signature.m_NoncePub);
+                    sop.u.m_Voucher.m_pK[0] = Ecc2BC(voucher.m_Ticket.m_Signature.m_pK[0].m_Value);
+                    sop.u.m_Voucher.m_pK[1] = Ecc2BC(voucher.m_Ticket.m_Signature.m_pK[1].m_Value);
+                    sop.u.m_Voucher.m_SharedSecret = Ecc2BC(voucher.m_SharedSecret);
+                    sop.u.m_Voucher.m_Signature.m_NoncePub = Ecc2BC(voucher.m_Signature.m_NoncePub);
+                    sop.u.m_Voucher.m_Signature.m_k = Ecc2BC(voucher.m_Signature.m_k.m_Value);
                 }
+                else
+                {
+                    if (!m_M.m_pOffline)
+                    {
+                        Fin(Status::Unspecified);
+                        return;
+                    }
 
-                auto& voucher = *m_M.m_pVoucher;
+                    auto& off = *m_M.m_pOffline;
 
-                sop.m_Voucher.m_SerialPub = Ecc2BC(voucher.m_Ticket.m_SerialPub);
-                sop.m_Voucher.m_NoncePub = Ecc2BC(voucher.m_Ticket.m_Signature.m_NoncePub);
-                sop.m_Voucher.m_pK[0] = Ecc2BC(voucher.m_Ticket.m_Signature.m_pK[0].m_Value);
-                sop.m_Voucher.m_pK[1] = Ecc2BC(voucher.m_Ticket.m_Signature.m_pK[1].m_Value);
-                sop.m_Voucher.m_SharedSecret = Ecc2BC(voucher.m_SharedSecret);
-                sop.m_Voucher.m_Signature.m_NoncePub = Ecc2BC(voucher.m_Signature.m_NoncePub);
-                sop.m_Voucher.m_Signature.m_k = Ecc2BC(voucher.m_Signature.m_k.m_Value);
+                    sop.u.m_Offline.m_Nonce = Ecc2BC(off.m_Nonce);
+                    sop.u.m_Offline.m_Sig.m_NoncePub = Ecc2BC(off.m_Signature.m_NoncePub);
+                    sop.u.m_Offline.m_Sig.m_k = Ecc2BC(off.m_Signature.m_k.m_Value);
+
+                    ShieldedTxo::PublicGen::Packed p;
+                    off.m_Addr.Export(p);
+
+                    sop.u.m_Offline.m_Addr.m_Gen_Secret = Ecc2BC(p.m_Gen.m_Secret);
+                    sop.u.m_Offline.m_Addr.m_Ser_Secret = Ecc2BC(p.m_Ser.m_Secret);
+                    sop.u.m_Offline.m_Addr.m_Gen_PkG = Ecc2BC(p.m_Gen.m_PkG);
+                    sop.u.m_Offline.m_Addr.m_Gen_PkJ = Ecc2BC(p.m_Gen.m_PkJ);
+                    sop.u.m_Offline.m_Addr.m_Ser_PkG = Ecc2BC(p.m_Ser.m_PkG);
+
+                    ShieldedTxo::Data::TicketParams tp;
+                    tp.Generate(voucher.m_Ticket, off.m_Addr, off.m_Nonce);
+                    voucher.m_SharedSecret = tp.m_SharedSecret;
+                }
 
                 ShieldedTxo::Data::OutputParams op;
 

@@ -894,6 +894,26 @@ struct KeyKeeperWrap
 			NegateUns(pc.m_Value);
 	}
 
+	void UpdateMethod(KeyKeeperHwEmu::Method::CreateOfflineAddr& dst, KeyKeeperHwEmu::Method::CreateOfflineAddr& src, int nPhase)
+	{
+		switch (nPhase)
+		{
+		case 0: // save
+		{
+			dst.m_Addr = src.m_Addr;
+		}
+		break;
+
+		case 1: // swap
+			std::swap(dst.m_Addr, src.m_Addr);
+			break;
+
+		default: // compare
+			verify_test(dst.m_Addr.m_pGen->IsSame(*src.m_Addr.m_pGen));
+			verify_test(dst.m_Addr.m_pSer->IsSame(*src.m_Addr.m_pSer));
+		}
+	}
+
 	void UpdateMethod(KeyKeeperHwEmu::Method::TxCommon& dst, KeyKeeperHwEmu::Method::TxCommon& src, int nPhase)
 	{
 		switch (nPhase)
@@ -992,10 +1012,9 @@ struct KeyKeeperWrap
 		verify_test(n1 == n2);
 
 		if (KeyKeeperHwEmu::Status::Success == n1)
-		{
 			UpdateMethod(m2, m, 2); // test
-			UpdateMethod(m2, m, 1); // swap again, return original variant to the caller
-		}
+
+		UpdateMethod(m2, m, 1); // swap again, return original variant to the caller
 
 		return n1;
 	}
@@ -1256,6 +1275,8 @@ void TestShielded()
 	PeerID pidRcv;
 	wallet::EndpointIndex nKeyRcv = 0;
 
+	auto pOffline = std::make_unique<wallet::IPrivateKeyKeeper2::Method::SignSendShielded::Offline>();
+
 	for (uint32_t i = 0; i < 3; i++)
 	{
 		wallet::IPrivateKeyKeeper2::Method::CreateVoucherShielded m;
@@ -1300,6 +1321,13 @@ void TestShielded()
 			vVouchers.swap(v0);
 			pidRcv = pid;
 			nKeyRcv = m.m_iEndpoint;
+
+			wallet::IPrivateKeyKeeper2::Method::CreateOfflineAddr m2;
+			m2.m_iEndpoint = m.m_iEndpoint;
+			verify_test(kkw.InvokeOnBoth(m2) == KeyKeeperHwEmu::Status::Success);
+
+			pOffline->m_Addr = std::move(m2.m_Addr);
+			pOffline->m_Signature = std::move(m2.m_Signature);
 		}
 	}
 
@@ -1393,10 +1421,9 @@ void TestShielded()
 
 	printf("Shielded outputs...\n");
 
-	for (uint32_t i = 0; i < 4; i++)
+	for (uint32_t i = 0; i < 8; i++)
 	{
 		wallet::IPrivateKeyKeeper2::Method::SignSendShielded m;
-		m.m_pVoucher = std::make_unique<ShieldedTxo::Voucher>(vVouchers.front());
 		m.m_Peer = pidRcv;
 
 		ECC::GenRandom(&m.m_User, sizeof(m.m_User));
@@ -1412,6 +1439,11 @@ void TestShielded()
 			m.m_User.m_pMessage[0] = hvHuge;
 		if (3 == i)
 			m.m_User.m_pMessage[1] = hvHuge;
+
+		if (4 & i)
+			m.m_pOffline = std::move(pOffline);
+		else
+			m.m_pVoucher = std::make_unique<ShieldedTxo::Voucher>(vVouchers.front());
 
 		m.m_pKernel = std::make_unique<TxKernelStd>();
 		m.m_pKernel->m_Height.m_Min = g_hFork;
@@ -1431,13 +1463,24 @@ void TestShielded()
 		{
 			m.m_iEndpoint = nKeyRcv + 10; // wrong, should not pass
 			verify_test(kkw.InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
-			m.m_iEndpoint = nKeyRcv; // should pass
+			m.m_iEndpoint = nKeyRcv;
+
+			auto& sig = m.m_pVoucher ?
+				m.m_pVoucher->m_Signature :
+				m.m_pOffline->m_Signature;
+
+			sig.m_k.m_Value.Inv();
+			verify_test(kkw.InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
+			sig.m_k.m_Value.Inv();
 
 			m.m_HideAssetAlways = true;
 		}
 
 		verify_test(kkw.InvokeOnBoth(m) == KeyKeeperHwEmu::Status::Success);
 		kkw.TestTx(m);
+
+		if (!pOffline)
+			pOffline = std::move(m.m_pOffline);
 	}
 }
 

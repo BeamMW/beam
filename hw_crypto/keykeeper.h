@@ -147,8 +147,31 @@ typedef struct
 
 typedef struct
 {
+	UintBig m_Gen_Secret;
+	CompactPoint m_Gen_PkG;
+	CompactPoint m_Gen_PkJ;
+	UintBig m_Ser_Secret;
+	CompactPoint m_Ser_PkG;
+
+} OfflineAddr;
+
+
+typedef struct
+{
 	RangeProof_Packed m_RangeProof;
-	ShieldedVoucher m_Voucher;
+
+	union
+	{
+		ShieldedVoucher m_Voucher;
+
+		struct
+		{
+			OfflineAddr m_Addr;
+			Signature m_Sig;
+			UintBig m_Nonce;
+		} m_Offline;
+	} u;
+
 } ShieldedOutParams;
 
 typedef struct
@@ -354,6 +377,7 @@ void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if
 	macro(TxMutualIn, Mut) \
 	macro(ShieldedTxoUser, User) \
 	macro(CompactPoint, ptAssetGen) \
+	macro(uint8_t, UsePublicGen) \
 	macro(uint8_t, HideAssetAlways) /* important to specify, this affects expected blinding factor recovery */ \
 
 #define BeamCrypto_ProtoResponse_TxSendShielded(macro) \
