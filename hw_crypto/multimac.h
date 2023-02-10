@@ -15,12 +15,7 @@
 #pragma once
 #include "ecc_decl.h"
 
-#ifdef BeamCrypto_SlowLoad
-#	define c_MultiMac_nBits_Rangeproof 2
-#else // BeamCrypto_SlowLoad
-#	define c_MultiMac_nBits_Rangeproof 4
-#endif // BeamCrypto_SlowLoad
-
+#define c_MultiMac_nBits_Rangeproof 4
 #define c_MultiMac_nBits_H 4
 #define c_MultiMac_nBits_Secure 4
 #define c_MultiMac_Secure_nCount (1 << c_MultiMac_nBits_Secure)
