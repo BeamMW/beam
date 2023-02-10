@@ -1195,7 +1195,7 @@ namespace beam::wallet
 
             if (3 == m_Phase)
             {
-                auto pMsg = ReadReq_T<hw::Proto::SignOfflineAddr::In>();
+                auto pMsg = ReadReq_T<hw::Proto::SignOfflineAddr>();
                 if (!pMsg)
                     return;
 
