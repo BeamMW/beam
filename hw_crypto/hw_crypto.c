@@ -2063,8 +2063,6 @@ void TxKernel_SpecialMsg(secp256k1_sha256_t* pSha, Amount fee, Height hMin, Heig
 __stack_hungry__
 static void Kdf2Pub(const Kdf* pKdf, KdfPub* pRes)
 {
-	Context* pCtx = Context_get();
-
 	pRes->m_Secret = pKdf->m_Secret;
 
 	secp256k1_gej pGej[2];
