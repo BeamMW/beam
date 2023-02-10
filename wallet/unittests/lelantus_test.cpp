@@ -536,20 +536,13 @@ void TestMaxPrivacyTx()
 
     receiver.m_Wallet->RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
 
-    // generate ticket from public address
-    Scalar::Native sk;
-    sk.GenRandomNnz();
-    PeerID pid;  // fake peedID
-    pid.FromSk(sk);
+    IPrivateKeyKeeper2::Method::CreateVoucherShielded m;
+    m.m_iEndpoint = receiver.m_OwnID;
+    m.m_Count = 1;
+    ECC::GenRandom(m.m_Nonce);
+    WALLET_CHECK(receiver.m_WalletDB->get_KeyKeeper()->InvokeSync(m) == IPrivateKeyKeeper2::Status::Success);
+    WALLET_CHECK(!m.m_Res.empty());
 
-    ShieldedTxo::PublicGen gen = GeneratePublicAddress(*receiver.m_WalletDB->get_OwnerKdf(), 0);
-
-    ByteBuffer buf = toByteBuffer(gen);
-
-    ShieldedTxo::PublicGen gen2;
-    WALLET_CHECK(fromByteBuffer(buf, gen2));
-
-    ShieldedTxo::Voucher voucher = GenerateVoucherFromPublicAddress(gen2, sk);
 
     TxID txID = {};
     Node node;
@@ -561,9 +554,8 @@ void TestMaxPrivacyTx()
             auto parameters = lelantus::CreatePushTransactionParameters()
                 .SetParameter(TxParameterID::Amount, 18000000)
                 .SetParameter(TxParameterID::Fee, 12000000)
-                .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
-                .SetParameter(TxParameterID::Voucher, voucher) // preassing the voucher
-                .SetParameter(TxParameterID::PeerEndpoint, pid)
+                .SetParameter(TxParameterID::Voucher, m.m_Res.front()) // preassing the voucher
+                .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint)
                 .SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, uint8_t(64));
 
             txID = sender.m_Wallet->StartTransaction(parameters);
@@ -592,7 +584,7 @@ void TestMaxPrivacyTx()
         WALLET_CHECK(txHistory[0].m_txId == txID);
         auto shieldedCoins = receiver.m_WalletDB->getShieldedCoins(Asset::Asset::s_BeamID);
         WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Value == 18000000);
-        WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Key.m_IsCreatedByViewer == false);
+        WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Key.m_IsCreatedByViewer == true);
         WALLET_CHECK(shieldedCoins[0] .m_Status == ShieldedCoin::Status::Maturing);
     }
 }
@@ -623,20 +615,9 @@ void TestPublicAddressTx()
 
     receiver.m_Wallet->RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
 
-    // generate ticket from public address
-    Scalar::Native sk;
-    sk.GenRandomNnz();
-    PeerID pid;  // fake peedID
-    pid.FromSk(sk);
-
-    ShieldedTxo::PublicGen gen = GeneratePublicAddress(*receiver.m_WalletDB->get_OwnerKdf(), 0);
-
-    ByteBuffer buf = toByteBuffer(gen);
-
-    ShieldedTxo::PublicGen gen2;
-    WALLET_CHECK(fromByteBuffer(buf, gen2));
-
-    ShieldedTxo::Voucher voucher = GenerateVoucherFromPublicAddress(gen2, sk);
+    IPrivateKeyKeeper2::Method::CreateOfflineAddr mAddr;
+    mAddr.m_iEndpoint = receiver.m_OwnID;
+    WALLET_CHECK(receiver.m_WalletDB->get_KeyKeeper()->InvokeSync(mAddr) == IPrivateKeyKeeper2::Status::Success);
 
     TxID txID = {};
     Node node;
@@ -648,9 +629,9 @@ void TestPublicAddressTx()
             auto parameters = lelantus::CreatePushTransactionParameters()
                 .SetParameter(TxParameterID::Amount, 18000000)
                 .SetParameter(TxParameterID::Fee, 12000000)
-                .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
-                .SetParameter(TxParameterID::Voucher, voucher) // preassing the voucher
-                .SetParameter(TxParameterID::PeerEndpoint, pid);
+                .SetParameter(TxParameterID::PublicAddreessGen, mAddr.m_Addr)
+                .SetParameter(TxParameterID::PublicAddressGenSig, mAddr.m_Signature)
+                .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint);
 
             txID = sender.m_Wallet->StartTransaction(parameters);
         }
