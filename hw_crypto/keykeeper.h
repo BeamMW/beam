@@ -318,12 +318,11 @@ void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if
 	macro(UintBig, zR)
 
 #define BeamCrypto_ProtoRequest_CreateShieldedVouchers(macro) \
-	macro(uint32_t, Count) \
+	macro(uint8_t, Count) \
 	macro(AddrID, AddrID) \
 	macro(UintBig, Nonce0) \
 
 #define BeamCrypto_ProtoResponse_CreateShieldedVouchers(macro) \
-	macro(uint32_t, Count) \
 	/* followed by ShieldedVoucher[] */
 
 #define BeamCrypto_ProtoRequest_SignOfflineAddr(macro) \

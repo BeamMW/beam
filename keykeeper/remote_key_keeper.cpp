@@ -1082,8 +1082,27 @@ namespace beam::wallet
         }
 
         Method::CreateVoucherShielded& m_M;
+        std::vector<ShieldedTxo::Voucher> m_vRes;
+        uint8_t m_AuxDone;
 
-        uint32_t m_MaxCount;
+        void ImportVoucher(const void* pData, uint32_t iIdx)
+        {
+            const auto& src = *reinterpret_cast<const hw::ShieldedVoucher*>(pData);
+
+            assert(iIdx < m_vRes.size());
+            ShieldedTxo::Voucher& trg = m_vRes[iIdx];
+
+            Ecc2BC(trg.m_Ticket.m_SerialPub) = src.m_SerialPub;
+            Ecc2BC(trg.m_Ticket.m_Signature.m_NoncePub) = src.m_NoncePub;
+
+            static_assert(_countof(trg.m_Ticket.m_Signature.m_pK) == _countof(src.m_pK));
+            for (uint32_t iK = 0; iK < static_cast<uint32_t>(_countof(src.m_pK)); iK++)
+                Ecc2BC(trg.m_Ticket.m_Signature.m_pK[iK].m_Value) = src.m_pK[iK];
+
+            Ecc2BC(trg.m_SharedSecret) = src.m_SharedSecret;
+            Ecc2BC(trg.m_Signature.m_NoncePub) = src.m_Signature.m_NoncePub;
+            Ecc2BC(trg.m_Signature.m_k.m_Value) = src.m_Signature.m_k;
+        }
 
         void Update() override
         {
@@ -1095,16 +1114,19 @@ namespace beam::wallet
                     return;
                 }
 
-                m_MaxCount = std::min(m_M.m_Count, 30U);
-                size_t nSize = sizeof(hw::ShieldedVoucher) * m_MaxCount;
+                const uint8_t nMaxAux = sizeof(hw::KeyKeeper_AuxBuf) / sizeof(hw::ShieldedVoucher);
+                uint32_t nCount = std::min<uint32_t>(m_M.m_Count, nMaxAux + 1);
 
                 hw::Proto::CreateShieldedVouchers::Out msg;
 
-                msg.m_Count = m_MaxCount;
+                msg.m_Count = (uint8_t) nCount;
                 msg.m_Nonce0 = Ecc2BC(m_M.m_Nonce);
                 msg.m_AddrID = m_M.m_iEndpoint;
 
-                SendReq_T(msg, (uint32_t) nSize);
+                SendReq_T(msg, sizeof(hw::ShieldedVoucher));
+
+                m_vRes.resize(nCount);
+                m_AuxDone = 0;
             }
 
             if (1 == m_Phase)
@@ -1113,35 +1135,38 @@ namespace beam::wallet
                 if (!pMsg)
                     return;
 
-                if (!pMsg->m_Count || (pMsg->m_Count > m_MaxCount))
-                {
-                    Fin(c_KeyKeeper_Status_ProtoError);
-                    return;
-                }
+                ImportVoucher(pMsg + 1, static_cast<uint32_t>(m_vRes.size() - 1));
 
-                auto* pRes = reinterpret_cast<hw::ShieldedVoucher*>(pMsg + 1);
-
-                m_M.m_Res.resize(pMsg->m_Count);
-                for (uint32_t i = 0; i < pMsg->m_Count; i++)
-                {
-                    const hw::ShieldedVoucher& src = pRes[i];
-                    ShieldedTxo::Voucher& trg = m_M.m_Res[i];
-
-                    Ecc2BC(trg.m_Ticket.m_SerialPub) = src.m_SerialPub;
-                    Ecc2BC(trg.m_Ticket.m_Signature.m_NoncePub) = src.m_NoncePub;
-
-                    static_assert(_countof(trg.m_Ticket.m_Signature.m_pK) == _countof(src.m_pK));
-                    for (uint32_t iK = 0; iK < static_cast<uint32_t>(_countof(src.m_pK)); iK++)
-                        Ecc2BC(trg.m_Ticket.m_Signature.m_pK[iK].m_Value) = src.m_pK[iK];
-
-                    Ecc2BC(trg.m_SharedSecret) = src.m_SharedSecret;
-                    Ecc2BC(trg.m_Signature.m_NoncePub) = src.m_Signature.m_NoncePub;
-                    Ecc2BC(trg.m_Signature.m_k.m_Value) = src.m_Signature.m_k;
-                }
-
-                Fin();
-
+                m_Phase = 10;
             }
+
+            if (11 == m_Phase)
+            {
+                auto pMsg = ReadReq_T<hw::Proto::AuxRead>();
+                if (!pMsg)
+                    return;
+
+                ImportVoucher(pMsg + 1, m_AuxDone++);
+                m_Phase = 10;
+            }
+
+            if (10 == m_Phase)
+            {
+                if (m_AuxDone == m_vRes.size() - 1)
+                {
+                    m_M.m_Res = std::move(m_vRes);
+                    Fin();
+                }
+                else
+                {
+                    hw::Proto::AuxRead::Out msg;
+                    msg.m_Size = sizeof(hw::ShieldedVoucher);
+                    msg.m_Offset = sizeof(hw::ShieldedVoucher) * m_AuxDone;
+
+                    SendReq_T(msg, sizeof(hw::ShieldedVoucher));
+                }
+            }
+
         }
 
     };

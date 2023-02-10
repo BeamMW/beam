@@ -3342,15 +3342,17 @@ PROTO_METHOD(CreateShieldedVouchers)
 	AddrID addrID;
 	N2H_uint(addrID, pIn->m_AddrID, 64);
 
-	uint32_t nCount;
-	N2H_uint(nCount, pIn->m_Count, 32);
+	uint8_t nCount = pIn->m_Count;
 	if (!nCount)
 		return c_KeyKeeper_Status_Ok;
 
-	uint32_t nSizeOut = sizeof(ShieldedVoucher) * nCount;
-	if (nOut < nSizeOut)
+	if (nOut < sizeof(ShieldedVoucher))
 		return MakeStatus(c_KeyKeeper_Status_ProtoError, 1);
-	*pOutSize += nSizeOut;
+	*pOutSize += sizeof(ShieldedVoucher);
+
+	const uint8_t nMaxCountAux = sizeof(KeyKeeper_AuxBuf) / sizeof(ShieldedVoucher);
+	if (nCount - 1 > nMaxCountAux)
+		return MakeStatus(c_KeyKeeper_Status_ProtoError, 2);
 
 	ShieldedViewer viewer;
 	ShieldedViewerInit(&viewer, 0, p);
@@ -3366,7 +3368,7 @@ PROTO_METHOD(CreateShieldedVouchers)
 	ShieldedVoucher* pRes = (ShieldedVoucher*)(pOut + 1); // no fields require alignment
 	memcpy(&hvNonce, &pIn->m_Nonce0, sizeof(hvNonce));
 
-	for (uint32_t i = 0; ; pRes++)
+	for (uint32_t i = 0; ; )
 	{
 		CreateVoucherInternal(&vCtx, pRes, &hvNonce);
 
@@ -3376,6 +3378,9 @@ PROTO_METHOD(CreateShieldedVouchers)
 		if (++i == nCount)
 			break;
 
+		// append the result to aux buf
+		KeyKeeper_WriteAuxBuf(p, pRes, sizeof(*pRes) * (i - 1), sizeof(*pRes));
+
 		// regenerate nonce
 		Oracle oracle;
 		secp256k1_sha256_initialize(&oracle.m_sha);
@@ -3383,8 +3388,6 @@ PROTO_METHOD(CreateShieldedVouchers)
 		secp256k1_sha256_write_UintBig(&oracle.m_sha, &hvNonce);
 		secp256k1_sha256_finalize(&oracle.m_sha, hvNonce.m_pVal);
 	}
-
-	H2N_uint(pOut->m_Count, nCount, 32);
 
 	return c_KeyKeeper_Status_Ok;
 }
