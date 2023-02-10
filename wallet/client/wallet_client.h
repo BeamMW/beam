@@ -356,8 +356,6 @@ namespace beam::wallet
         void getPublicAddress() override;
         void getVerificationInfo() override;
 
-        void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback) override;
-
         void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override;
         void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) override;
 

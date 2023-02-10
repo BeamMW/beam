@@ -393,11 +393,6 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getPublicAddress);
     }
 
-    void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback) override
-    {
-        call_async(&IWalletModelAsync::generateVouchers, ownID, count, std::move(callback));
-    }
-
     void getAssetInfo(Asset::ID assetId) override
     {
         call_async(&IWalletModelAsync::getAssetInfo, assetId);
@@ -2118,15 +2113,6 @@ namespace beam::wallet
     void WalletClient::getPublicAddress()
     {
         onPublicAddress(GeneratePublicToken(*m_walletDB, std::string()));
-    }
-
-    void WalletClient::generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback)
-    {
-        auto vouchers = GenerateVoucherList(m_walletDB->get_KeyKeeper(), ownID, count);
-        postFunctionToClientContext([res = std::move(vouchers), cb = std::move(callback)]() 
-        {
-            cb(res);
-        });
     }
 
     void WalletClient::setMaxPrivacyLockTimeLimitHours(uint8_t limit)
