@@ -2644,15 +2644,7 @@ namespace
 
     struct MyZeroInit {
         static void Do(std::string&) {}
-        static void Do(beam::ShieldedTxo::PublicGen& pg)
-        {
-            SecString secretSeed;
-            //secretSeed.assign(buf.data(), buf.size());
-
-            Key::IKdf::Ptr kdf;
-            ECC::HKdf::Create(kdf, secretSeed.hash().V);
-            pg = GeneratePublicAddress(*kdf);
-        }
+        static void Do(beam::ShieldedTxo::PublicGen& pg) {}
         template <typename T> static void Do(std::vector<T>&) {}
         // fill with valid wallet id
         static void Do(WalletID& id) { id.FromHex("1b516fb39884a3281bc0761f97817782a8bc51fdb1336882a2c7efebdb400d00d4"); } 

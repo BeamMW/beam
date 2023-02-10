@@ -371,15 +371,10 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     auto address = walletDB->getAddress(walletID);
     uint64_t bAmount = amount;
 
-    auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address->m_OwnID, 1);
-
-     if (!vouchers.empty())
-      {
-          auto maxPrivacyAddress = GenerateMaxPrivacyToken(*address, bAmount, assetId, vouchers[0], std::string(BEAM_LIB_VERSION));
-          jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onMaxPrivacyAddress", "(Ljava/lang/String;)V");
-          jstring jdata = env->NewStringUTF(maxPrivacyAddress.c_str());
-          env->CallStaticVoidMethod(WalletListenerClass, callback, jdata);
-     }
+    auto maxPrivacyAddress = GenerateMaxPrivacyToken(*address, *walletDB, bAmount, assetId, std::string(BEAM_LIB_VERSION));
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onMaxPrivacyAddress", "(Ljava/lang/String;)V");
+    jstring jdata = env->NewStringUTF(maxPrivacyAddress.c_str());
+    env->CallStaticVoidMethod(WalletListenerClass, callback, jdata);
  }
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, jobject thiz, 

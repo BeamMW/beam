@@ -815,8 +815,6 @@ namespace beam::wallet
     TxFailureReason CheckAssetsEnabled(Height h);
     bool isFork3(Height h);
 
-    ShieldedTxo::PublicGen GeneratePublicAddress(Key::IPKdf& kdf, Key::Index index = 0);
-    ShieldedTxo::Voucher GenerateVoucherFromPublicAddress(const ShieldedTxo::PublicGen& gen, const ECC::Scalar::Native& sk);
     void AppendLibraryVersion(TxParameters& params);
 
     using VersionFunc = std::function<void(const std::string&, const std::string&)>;

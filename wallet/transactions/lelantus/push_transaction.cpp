@@ -48,26 +48,12 @@ namespace beam::wallet::lelantus
         const auto& originalToken = parameters.GetParameter<std::string>(TxParameterID::OriginalToken);
         if (originalToken)
         {
-            auto addrType = parameters.GetParameter<TxAddressType>(TxParameterID::AddressType);
-            if (addrType && addrType == TxAddressType::PublicOffline)
+            auto addr = walletDB->getAddressByToken(*originalToken);
+            if (addr && addr->isOwn())
             {
-                auto publicToken = GeneratePublicToken(*walletDB, std::string());
-                if (*originalToken == publicToken)
-                {
-                    TxParameters temp{ parameters };
-                    temp.SetParameter(TxParameterID::IsSelfTx, true);
-                    return wallet::ProcessReceiverAddress(temp, walletDB);
-                }
-            }
-            else
-            {
-                auto addr = walletDB->getAddressByToken(*originalToken);
-                if (addr && addr->isOwn())
-                {
-                    TxParameters temp{ parameters };
-                    temp.SetParameter(TxParameterID::IsSelfTx, addr->isOwn());
-                    return wallet::ProcessReceiverAddress(temp, walletDB);
-                }
+                TxParameters temp{ parameters };
+                temp.SetParameter(TxParameterID::IsSelfTx, addr->isOwn());
+                return wallet::ProcessReceiverAddress(temp, walletDB);
             }
         }
         return wallet::ProcessReceiverAddress(parameters, walletDB);

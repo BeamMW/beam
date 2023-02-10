@@ -1285,11 +1285,11 @@ namespace beam::wallet
         Public,     // 1 offline voucher
     };
 
-    std::string  GenerateOfflineToken    (const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedVoucherList& vouchers, const std::string& clientVersion);
+    std::string  GenerateOfflineToken    (const WalletAddress& address, const IWalletDB& walletDB, Amount amount, Asset::ID assetId, const std::string& clientVersion);
     std::string  GenerateRegularOldToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const std::string& clientVersion);
     std::string  GenerateRegularNewToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const std::string& clientVersion);
-    std::string  GenerateMaxPrivacyToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion);
-    std::string  GeneratePublicToken     (const IWalletDB& walletDB, const std::string& clientVersion);
+    std::string  GenerateMaxPrivacyToken (const WalletAddress& address, const IWalletDB& walletDB, Amount amount, Asset::ID assetId, const std::string& clientVersion);
+    std::string  GeneratePublicToken     (IWalletDB& walletDB, const std::string& clientVersion);
     std::string  GenerateToken           (TokenType type, const WalletAddress& address, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount = 10);
 
     TokenType GetTokenType(const std::string& token);

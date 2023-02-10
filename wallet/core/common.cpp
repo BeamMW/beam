@@ -603,15 +603,43 @@ namespace beam::wallet
         case TxAddressType::PublicOffline:
             {
                 params.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction);
-                auto publicGen = p.GetParameter<ShieldedTxo::PublicGen>(TxParameterID::PublicAddreessGen);
-                // generate fake peerID
-                Scalar::Native sk;
-                sk.GenRandomNnz();
-                PeerID pid;  // fake peedID
-                pid.FromSk(sk);
-                ShieldedTxo::Voucher voucher = GenerateVoucherFromPublicAddress(*publicGen, sk);
-                params.SetParameter(TxParameterID::Voucher, voucher);
-                params.SetParameter(TxParameterID::PeerEndpoint, pid);
+
+                ShieldedTxo::PublicGen pgen;
+                if (!p.GetParameter(TxParameterID::PublicAddreessGen, pgen))
+                    return false;
+
+                PeerID pid;
+                ECC::Signature sig;
+                if (p.GetParameter(TxParameterID::PublicAddressGenSig, sig) && p.GetParameter(TxParameterID::PeerEndpoint, pid))
+                {
+                    params.SetParameter(TxParameterID::PublicAddreessGen, pgen);
+                    params.SetParameter(TxParameterID::PublicAddressGenSig, sig);
+                    params.SetParameter(TxParameterID::PeerEndpoint, pid);
+                }
+                else
+                {
+                    // legacy address. Temporarily support them.
+                    ECC::Hash::Value hv;
+                    ECC::GenRandom(hv); // nonce
+
+                    ShieldedTxo::Voucher voucher;
+
+                    ShieldedTxo::Data::TicketParams tp;
+                    tp.Generate(voucher.m_Ticket, pgen, hv);
+
+                    voucher.m_SharedSecret = tp.m_SharedSecret;
+
+                    // fake Endpoint
+                    Scalar::Native sk;
+                    sk.GenRandomNnz();
+                    pid.FromSk(sk);
+
+                    voucher.get_Hash(hv);
+                    voucher.m_Signature.Sign(hv, sk);
+
+                    params.SetParameter(TxParameterID::Voucher, voucher);
+                    params.SetParameter(TxParameterID::PeerEndpoint, pid);
+                }
             }
             break;
 
@@ -1539,32 +1567,6 @@ namespace beam::wallet
             return false;
         }
         return true;
-    }
-
-    ShieldedTxo::PublicGen GeneratePublicAddress(Key::IPKdf& kdf, Key::Index index /*= 0*/)
-    {
-        ShieldedTxo::Viewer viewer;
-        viewer.FromOwner(kdf, index);
-        ShieldedTxo::PublicGen gen;
-        gen.FromViewer(viewer);
-        return gen;
-    }
-
-    ShieldedTxo::Voucher GenerateVoucherFromPublicAddress(const ShieldedTxo::PublicGen& gen, const Scalar::Native& sk)
-    {
-        ShieldedTxo::Voucher voucher;
-        ECC::Hash::Value nonce;
-        ECC::GenRandom(nonce);
-
-        ShieldedTxo::Data::TicketParams tp;
-        tp.Generate(voucher.m_Ticket, gen, nonce);
-
-        voucher.m_SharedSecret = tp.m_SharedSecret;
-
-        ECC::Hash::Value hvMsg;
-        voucher.get_Hash(hvMsg);
-        voucher.m_Signature.Sign(hvMsg, sk);
-        return voucher;
     }
 
     void AppendLibraryVersion(TxParameters& params)

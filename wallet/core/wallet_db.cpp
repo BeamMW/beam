@@ -7450,8 +7450,10 @@ namespace beam::wallet
         }
     }
 
-    std::string GenerateOfflineToken(const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedVoucherList& vouchers, const std::string& clientVersion)
+    std::string GenerateOfflineToken(const WalletAddress& address, const IWalletDB& walletDB, Amount amount, Asset::ID assetId, const std::string& clientVersion)
     {
+        auto vouchers = GenerateVoucherList(walletDB.get_KeyKeeper(), address.m_OwnID, 10);
+
         TxParameters params = GenerateCommonAddressPart(amount, assetId, clientVersion);
 
         params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
@@ -7463,23 +7465,38 @@ namespace beam::wallet
         return std::to_string(params);
     }
 
-    std::string GenerateMaxPrivacyToken(const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion)
+    std::string GenerateMaxPrivacyToken(const WalletAddress& address, const IWalletDB& walletDB, Amount amount, Asset::ID assetId, const std::string& clientVersion)
     {
+        auto vouchers = GenerateVoucherList(walletDB.get_KeyKeeper(), address.m_OwnID, 1);
+        if (vouchers.empty())
+            return "";
+
         TxParameters params = GenerateCommonAddressPart(amount, assetId, clientVersion);
 
         params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
         params.SetParameter(TxParameterID::PeerEndpoint, address.m_Endpoint);
-        params.SetParameter(TxParameterID::Voucher, voucher);
+        params.SetParameter(TxParameterID::Voucher, vouchers.front());
 
         return std::to_string(params);
     }
 
-    std::string GeneratePublicToken(const IWalletDB& walletDB, const std::string& clientVersion)
+    std::string GeneratePublicToken(IWalletDB& walletDB, const std::string& clientVersion)
     {
+        IPrivateKeyKeeper2::Method::CreateOfflineAddr mAddr;
+        mAddr.m_iEndpoint = walletDB.AllocateKidRange(1); // TODO: support tokens for existing addresses
+
+        if (!walletDB.get_KeyKeeper()->InvokeSync(mAddr))
+            return "";
+
+        PeerID pid;
+        walletDB.get_Endpoint(pid, mAddr.m_iEndpoint);
+
         TxParameters params = GenerateCommonAddressPart(0, Asset::s_InvalidID, clientVersion);
 
         params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
-        params.SetParameter(TxParameterID::PublicAddreessGen, GeneratePublicAddress(*walletDB.get_OwnerKdf(), 0));
+        params.SetParameter(TxParameterID::PublicAddreessGen, mAddr.m_Addr);
+        params.SetParameter(TxParameterID::PublicAddressGenSig, mAddr.m_Signature);
+        params.SetParameter(TxParameterID::PeerEndpoint, pid);
         AppendLibraryVersion(params);
 
         return std::to_string(params);
@@ -7502,17 +7519,17 @@ namespace beam::wallet
         return std::to_string(params);
     }
 
-    std::string  GenerateToken (TokenType type, const WalletAddress& address, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount)
+    std::string  GenerateToken(TokenType type, const WalletAddress& address, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount)
     {
-        if (type == TokenType::Public)
-        {
-            auto token = GeneratePublicToken(*walletDB, "");
-            LOG_INFO() << "Generated public offline address: " << token;
-            return token;
-        }
-
         switch (type)
         {
+        case TokenType::Public:
+            {
+                auto token = GeneratePublicToken(*walletDB, "");
+                LOG_INFO() << "Generated public offline address: " << token;
+                return token;
+            }
+
         case TokenType::RegularOldStyle:
             {
                 auto token = GenerateRegularOldToken(address);
@@ -7529,17 +7546,14 @@ namespace beam::wallet
 
         case TokenType::Offline:
             {
-                size_t count = offlineCount.get_value_or(10);
-                auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address.m_OwnID, count);
-                auto token = GenerateOfflineToken(address, 0, 0, vouchers, "");
-                LOG_INFO() << "Generated offline address: " << token << ", vouchers count " << count;
+                auto token = GenerateOfflineToken(address, *walletDB, 0, 0, "");
+                LOG_INFO() << "Generated offline address: " << token;
                 return token;
             }
 
         case TokenType::MaxPrivacy:
             {
-                auto vouchers = GenerateVoucherList(walletDB->get_KeyKeeper(), address.m_OwnID, 1);
-                auto token = GenerateMaxPrivacyToken(address, 0, 0, vouchers[0], "");
+                auto token = GenerateMaxPrivacyToken(address, *walletDB, 0, 0, "");
                 LOG_INFO() << "Generated max privacy address: " << token;
                 return token;
             }

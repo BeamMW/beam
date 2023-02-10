@@ -213,8 +213,7 @@ void TestTreasuryRestore()
             receiver.m_WalletDB->createAddress(walletAddress);
             receiver.m_WalletDB->saveAddress(walletAddress);
 
-            auto vouchers = GenerateVoucherList(receiver.m_WalletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
-            auto newAddress = GenerateOfflineToken(walletAddress, 0, Asset::s_BeamID, vouchers, "");
+            auto newAddress = GenerateOfflineToken(walletAddress, *receiver.m_WalletDB, 0, Asset::s_BeamID, "");
             auto p = ParseParameters(newAddress);
             WALLET_CHECK(p);
             auto parameters = lelantus::CreatePushTransactionParameters()
@@ -311,8 +310,7 @@ void TestRestoreInterruption()
                 receiver.m_WalletDB->createAddress(walletAddress);
                 receiver.m_WalletDB->saveAddress(walletAddress);
 
-                auto vouchers = GenerateVoucherList(receiver.m_WalletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
-                auto newAddress = GenerateOfflineToken(walletAddress, 0, Asset::s_BeamID, vouchers, "");
+                auto newAddress = GenerateOfflineToken(walletAddress, *receiver.m_WalletDB, 0, Asset::s_BeamID, "");
                 auto p = ParseParameters(newAddress);
                 WALLET_CHECK(p);
                 auto parameters = lelantus::CreatePushTransactionParameters()
