@@ -3776,7 +3776,7 @@ PROTO_METHOD(AuxRead)
 
 	const uint8_t* pSrc = (const uint8_t*) KeyKeeper_GetAuxBuf(p);
 
-	memcpy(pOut, pSrc, nSize);
+	memcpy(pOut + 1, pSrc + nOffset, nSize);
 	*pOutSize += nSize;
 
 	return c_KeyKeeper_Status_Ok;
