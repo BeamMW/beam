@@ -372,6 +372,13 @@ void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if
 
 #define BeamCrypto_ProtoResponse_AuxWrite(macro)
 
+#define BeamCrypto_ProtoRequest_AuxRead(macro) \
+	macro(uint16_t, Offset) \
+	macro(uint16_t, Size)
+
+#define BeamCrypto_ProtoResponse_AuxRead(macro) \
+	/* followed by blob */
+
 #define BeamCrypto_ProtoRequest_TxSendShielded(macro) \
 	macro(TxCommonIn, Tx) \
 	macro(TxMutualIn, Mut) \
@@ -398,6 +405,7 @@ void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if
 	macro(0x22, CreateShieldedVouchers) \
 	macro(0x23, SignOfflineAddr) \
 	macro(0x28, AuxWrite) \
+	macro(0x29, AuxRead) \
 	macro(0x30, TxSplit) \
 	macro(0x31, TxReceive) \
 	macro(0x32, TxSend1) \

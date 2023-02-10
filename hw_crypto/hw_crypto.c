@@ -3727,7 +3727,7 @@ PROTO_METHOD(CreateShieldedInput_4)
 }
 
 //////////////////////////////
-// KeyKeeper - SendShieldedTx
+// KeyKeeper - Aux I/O
 PROTO_METHOD(AuxWrite)
 {
 	PROTO_UNUSED_ARGS;
@@ -3737,7 +3737,7 @@ PROTO_METHOD(AuxWrite)
 	N2H_uint(nOffset, pIn->m_Offset, 16);
 	N2H_uint(nSize, pIn->m_Size, 16);
 
-	if (nSize != pIn->m_Size)
+	if (nSize != nIn)
 		return c_KeyKeeper_Status_ProtoError;
 
 	uint16_t nEnd = nOffset + nSize;
@@ -3748,6 +3748,36 @@ PROTO_METHOD(AuxWrite)
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 12);
 
 	KeyKeeper_WriteAuxBuf(p, pIn + 1, nOffset, nSize);
+
+	return c_KeyKeeper_Status_Ok;
+}
+
+PROTO_METHOD(AuxRead)
+{
+	PROTO_UNUSED_ARGS;
+
+	if (nIn)
+		return c_KeyKeeper_Status_ProtoError;
+
+	uint16_t nOffset, nSize;
+
+	N2H_uint(nOffset, pIn->m_Offset, 16);
+	N2H_uint(nSize, pIn->m_Size, 16);
+
+	if (nOut < nSize)
+		return c_KeyKeeper_Status_ProtoError;
+
+	uint16_t nEnd = nOffset + nSize;
+	if (nEnd < nSize)
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 11); // overflow
+
+	if (nEnd > sizeof(KeyKeeper_AuxBuf))
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 12);
+
+	const uint8_t* pSrc = (const uint8_t*) KeyKeeper_GetAuxBuf(p);
+
+	memcpy(pOut, pSrc, nSize);
+	*pOutSize += nSize;
 
 	return c_KeyKeeper_Status_Ok;
 }
