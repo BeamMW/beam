@@ -7485,7 +7485,7 @@ namespace beam::wallet
         IPrivateKeyKeeper2::Method::CreateOfflineAddr mAddr;
         mAddr.m_iEndpoint = walletDB.AllocateKidRange(1); // TODO: support tokens for existing addresses
 
-        if (!walletDB.get_KeyKeeper()->InvokeSync(mAddr))
+        if (walletDB.get_KeyKeeper()->InvokeSync(mAddr) != IPrivateKeyKeeper2::Status::Success)
             return "";
 
         PeerID pid;
