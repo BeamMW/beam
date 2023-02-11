@@ -2644,7 +2644,22 @@ namespace
 
     struct MyZeroInit {
         static void Do(std::string&) {}
-        static void Do(beam::ShieldedTxo::PublicGen& pg) {}
+
+        static void Do(beam::ShieldedTxo::PublicGen& pg)
+        {
+            ECC::Hash::Value hv(Zero);
+            ECC::HKdf kdf;
+            kdf.Generate(hv);
+            // generate random. Don't leave it empty (no PKDfs), it'll not serialized properly
+            auto pVal = std::make_unique<ECC::HKdfPub>();
+            pVal->GenerateFrom(kdf);
+            pg.m_pGen = std::move(pVal);
+
+            pVal = std::make_unique<ECC::HKdfPub>();
+            pVal->GenerateFrom(kdf);
+            pg.m_pSer = std::move(pVal);
+        }
+
         template <typename T> static void Do(std::vector<T>&) {}
         // fill with valid wallet id
         static void Do(WalletID& id) { id.FromHex("1b516fb39884a3281bc0761f97817782a8bc51fdb1336882a2c7efebdb400d00d4"); } 
