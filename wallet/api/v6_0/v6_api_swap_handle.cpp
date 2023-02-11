@@ -77,18 +77,6 @@ namespace beam::wallet
         return boost::optional<SwapOffer>();
     }
 
-    WalletID createWID(IWalletDB* walletDb, const std::string& comment)
-    {
-        WalletAddress address;
-        walletDb->createAddress(address);
-        if (!comment.empty())
-            address.m_label = comment;
-        address.m_duration = WalletAddress::AddressExpirationAuto;
-        walletDb->saveAddress(address);
-
-        return address.m_BbsAddr;
-    }
-
     bool checkAcceptableTxParams(const TxParameters& params, const OfferInput& data)
     {
         auto beamAmount = params.GetParameter<Amount>(TxParameterID::Amount);
@@ -267,11 +255,10 @@ namespace beam::wallet
         }
 
         auto txParameters = CreateSwapTransactionParameters();
-        auto wid = createWID(walletDB.get(), data.comment);
         auto currentHeight = walletDB->getCurrentHeight();
         FillSwapTxParams(
             &txParameters,
-            wid,
+            *walletDB,
             currentHeight,
             data.beamAmount,
             data.beamFee,
@@ -458,9 +445,7 @@ namespace beam::wallet
             }
         }
 
-        auto wid = createWID(walletDB.get(), data.comment);
         SwapOffer offer = SwapOffer(*txParams);
-        offer.SetParameter(TxParameterID::MyAddr, wid);
         if (!data.comment.empty())
         {
             offer.SetParameter(TxParameterID::Message,

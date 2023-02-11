@@ -38,7 +38,7 @@ namespace beam::wallet
     }  // namespace
 
     void FillSwapTxParams(TxParameters* params,
-                          const WalletID& myID,
+                          IWalletDB& db,
                           Height minHeight,
                           Amount amount,
                           Amount beamFee,
@@ -49,7 +49,13 @@ namespace beam::wallet
                           Height responseTime /*= kDefaultTxResponseTime*/,
                           Height lifetime /*= kDefaultTxLifetime*/)
     {
-        params->SetParameter(TxParameterID::MyAddr, myID);
+        auto ownID = db.AllocateKidRange(1);
+        WalletID wid;
+        db.get_SbbsWalletID(wid, ownID);
+
+        params->SetParameter(TxParameterID::MyAddressID, ownID);
+        params->SetParameter(TxParameterID::MyAddr, wid);
+
         params->SetParameter(TxParameterID::MinHeight, minHeight);
         params->SetParameter(TxParameterID::Amount, amount);
         params->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin);
@@ -491,6 +497,7 @@ namespace beam::wallet
         try
         {
             CheckSubTxFailures();
+            EnsureListening();
 
             const auto state = GetState<State>(kDefaultSubTxID);
             bool isBeamOwner = IsBeamSide();

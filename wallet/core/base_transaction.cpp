@@ -112,8 +112,6 @@ namespace beam::wallet
         if (m_widListening)
             return;
 
-        assert(!m_widListening);
-
         WalletID wid;
         ECC::Scalar::Native sk;
         GetWalletDB()->get_SbbsWalletID(sk, wid, EnsureOwnID());
