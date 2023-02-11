@@ -561,6 +561,7 @@ namespace beam::wallet
         virtual void deleteAddress(const WalletID&, bool isLaser = false) = 0;
         virtual void deleteAddressByToken(const std::string&, bool isLaser = false) = 0;
         virtual void generateAndSaveDefaultAddress() = 0;
+        virtual void getDefaultAddressAlways(WalletAddress&) = 0; // gets or generates a 'default' address. A default is the latest 'normal' new-style address 
 
         bool get_EffectiveEndpointPeer(const TxID& txID, SubTxID subTxID, PeerID&) const;
         bool get_EffectiveEndpointMy(const TxID& txID, SubTxID subTxID, PeerID&) const;
@@ -740,6 +741,7 @@ namespace beam::wallet
         void deleteAddress(const WalletID&, bool isLaser = false) override;
         void deleteAddressByToken(const std::string&, bool isLaser = false) override;
         void generateAndSaveDefaultAddress() override;
+        void getDefaultAddressAlways(WalletAddress&) override;
 
         void saveLaserChannel(const ILaserChannelEntity&) override;
         virtual bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
@@ -876,6 +878,8 @@ namespace beam::wallet
         template<typename T>
         void FillTxSummaryTableParam(const char* szField, TxParameterID paramID);
 
+        static bool IsSuitableDefaultAddr(const WalletAddress&);
+
     private:
         friend struct sqlite::Statement;
         bool m_Initialized = false;
@@ -891,6 +895,7 @@ namespace beam::wallet
         std::unique_ptr<sqlite::Transaction> m_DbTransaction;
         std::vector<IWalletDbObserver*> m_subscribers;
         const std::set<TxParameterID> m_mandatoryTxParams;
+        boost::optional<WalletID> m_widDefaultAddr;
 
         // Wallet has ablity to track blockchain state
         // This interface allows to check and update the blockchain state 

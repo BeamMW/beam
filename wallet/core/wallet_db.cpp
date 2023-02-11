@@ -4334,6 +4334,67 @@ namespace beam::wallet
         m_Token = to_string(m_BbsAddr);
     }
 
+    bool WalletDB::IsSuitableDefaultAddr(const WalletAddress& addr)
+    {
+        if (!addr.isOwn())
+            return false;
+        if (!addr.isPermanent())
+            return false;
+
+        return TokenType::RegularNewStyle == GetTokenType(addr.m_Token);
+    }
+
+    void WalletDB::getDefaultAddressAlways(WalletAddress& res)
+    {
+        if (m_widDefaultAddr)
+        {
+            auto pAddr = getAddress(*m_widDefaultAddr);
+            if (pAddr)
+            {
+                res = std::move(*pAddr);
+                return;
+            }
+
+            m_widDefaultAddr.reset();
+        }
+
+        uint32_t iBest = static_cast<uint32_t>(-1);
+
+        auto vec = getAddresses(true);
+        for (uint32_t i = 0; i < vec.size(); i++)
+        {
+            const auto& addr = vec[i];
+            if (!IsSuitableDefaultAddr(addr))
+                continue;
+
+            if (iBest < vec.size())
+            {
+                // prefer newer address
+                if (vec[iBest].m_OwnID >= addr.m_OwnID)
+                    continue;
+            }
+
+            iBest = i;
+        }
+
+        if (iBest < vec.size())
+        {
+            res = std::move(vec[iBest]);
+            m_widDefaultAddr.reset(res.m_BbsAddr);
+        }
+        else
+        {
+            createAddress(res);
+            res.m_label = kDefaultAddrLabel;
+            res.setExpirationStatus(WalletAddress::ExpirationStatus::Never);
+            res.m_Token = GenerateRegularNewToken(res, 0, 0, "");
+            saveAddress(res);
+
+            m_widDefaultAddr.reset(res.m_BbsAddr);
+        }
+
+    }
+
     void WalletDB::saveAddress(const WalletAddress& addr, bool isLaser)
     {
         const std::string addrTableName = isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
@@ -4341,6 +4402,9 @@ namespace beam::wallet
         WalletAddress address = addr;
         if (address.m_Token.empty())
             setDefaultToken(address);
+
+        if (m_widDefaultAddr && IsSuitableDefaultAddr(addr))
+            m_widDefaultAddr.reset();
 
         auto selectByToken = "SELECT * FROM " + addrTableName + " WHERE address=?1;";
         sqlite::Statement stmToken(this, selectByToken.c_str());
@@ -4372,7 +4436,7 @@ namespace beam::wallet
         }
 
         // This check is intentional, it skips MaxPrivacy addresses
-        if (address.m_BbsAddr.IsValid())
+        if (address.m_BbsAddr.m_Pk != Zero)
         {
             auto selectByWid = "SELECT * FROM " + addrTableName + " WHERE walletID=?1;";
             sqlite::Statement stmWid(this, selectByWid.c_str());
@@ -4442,6 +4506,9 @@ namespace beam::wallet
             stm.bind(1, addr);
             stm.step();
 
+            if (m_widDefaultAddr && address->m_BbsAddr == *m_widDefaultAddr)
+                m_widDefaultAddr.reset();
+
             if (!isLaser)
             {
                 notifyAddressChanged(ChangeAction::Removed, { *address });
@@ -4462,6 +4529,9 @@ namespace beam::wallet
 
             stm.bind(1, id);
             stm.step();
+
+            if (m_widDefaultAddr && address->m_BbsAddr == *m_widDefaultAddr)
+                m_widDefaultAddr.reset();
 
             if (!isLaser)
             {
