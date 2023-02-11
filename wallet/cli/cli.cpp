@@ -819,11 +819,36 @@ namespace
    {
         auto walletDB = OpenDataBase(vm);
 
+        WalletAddress address;
+        if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
+        {
+            auto receiver = it->second.as<string>();
+
+            WalletID walletID;
+            if (!walletID.FromHex(receiver))
+            {
+                throw std::runtime_error("Invalid existing address format");
+            }
+
+            auto existing = walletDB->getAddress(walletID);
+
+            if (!existing)
+            {
+                throw std::runtime_error("Cannot find specified existing address.");
+            }
+
+            if (existing->isExpired())
+            {
+                throw std::runtime_error("Specified existing address is already expired");
+            }
+
+            address = *existing;
+        }
+        else
+            walletDB->getDefaultAddressAlways(address);
+
         auto type = TokenType::RegularNewStyle;
         uint32_t offlineCount = 10;
-
-        WalletAddress address;
-        walletDB->createAddress(address);
 
         if (auto it2 = vm.find(cli::PUBLIC_OFFLINE); it2 != vm.end() && it2->second.as<bool>())
         {
@@ -838,43 +863,8 @@ namespace
             type = TokenType::Offline;
             offlineCount = it2->second.as<Positive<uint32_t>>().value;
         }
-        else
-        {
-            if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
-            {
-                auto receiver = it->second.as<string>();
 
-                WalletID walletID;
-                if (!walletID.FromHex(receiver))
-                {
-                    throw std::runtime_error("Invalid existing address format");
-                }
-
-                auto existing = walletDB->getAddress(walletID);
-
-                if (!existing)
-                {
-                    throw std::runtime_error("Cannot find specified existing address.");
-                }
-
-                if (existing->isExpired())
-                {
-                    throw std::runtime_error("Specified existing address is already expired");
-                }
-
-                address = *existing;
-            }
-        }
-
-        try
-        {
-            address.m_Token = GenerateToken(type, address, walletDB, offlineCount);
-            walletDB->saveAddress(address);
-        }
-        catch (const std::exception& ex)
-        {
-            std::cerr << ex.what();
-        }
+        GenerateToken(type, address, walletDB, offlineCount); // result is emitted via log
 
         return 0;
     }

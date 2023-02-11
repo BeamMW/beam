@@ -1294,8 +1294,9 @@ namespace beam::wallet
     std::string  GenerateRegularOldToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const std::string& clientVersion);
     std::string  GenerateRegularNewToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const std::string& clientVersion);
     std::string  GenerateMaxPrivacyToken (const WalletAddress& address, const IWalletDB& walletDB, Amount amount, Asset::ID assetId, const std::string& clientVersion);
-    std::string  GeneratePublicToken     (IWalletDB& walletDB, const std::string& clientVersion);
+    std::string  GeneratePublicToken     (const WalletAddress& address, const IWalletDB& walletDB, const std::string& clientVersion);
     std::string  GenerateToken           (TokenType type, const WalletAddress& address, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount = 10);
+    std::string  GenerateTokenDefaultAddr(TokenType type, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount = 10);
 
     TokenType GetTokenType(const std::string& token);
 

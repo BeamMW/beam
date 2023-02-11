@@ -7550,23 +7550,21 @@ namespace beam::wallet
         return std::to_string(params);
     }
 
-    std::string GeneratePublicToken(IWalletDB& walletDB, const std::string& clientVersion)
+    std::string GeneratePublicToken(const WalletAddress& address, const IWalletDB& walletDB, const std::string& clientVersion)
     {
+        assert(address.m_OwnID);
         IPrivateKeyKeeper2::Method::CreateOfflineAddr mAddr;
-        mAddr.m_iEndpoint = walletDB.AllocateKidRange(1); // TODO: support tokens for existing addresses
+        mAddr.m_iEndpoint = address.m_OwnID;
 
         if (walletDB.get_KeyKeeper()->InvokeSync(mAddr) != IPrivateKeyKeeper2::Status::Success)
             return "";
-
-        PeerID pid;
-        walletDB.get_Endpoint(pid, mAddr.m_iEndpoint);
 
         TxParameters params = GenerateCommonAddressPart(0, Asset::s_InvalidID, clientVersion);
 
         params.SetParameter(TxParameterID::TransactionType, beam::wallet::TxType::PushTransaction);
         params.SetParameter(TxParameterID::PublicAddreessGen, mAddr.m_Addr);
         params.SetParameter(TxParameterID::PublicAddressGenSig, mAddr.m_Signature);
-        params.SetParameter(TxParameterID::PeerEndpoint, pid);
+        params.SetParameter(TxParameterID::PeerEndpoint, address.m_Endpoint);
         AppendLibraryVersion(params);
 
         return std::to_string(params);
@@ -7589,13 +7587,20 @@ namespace beam::wallet
         return std::to_string(params);
     }
 
+    std::string  GenerateTokenDefaultAddr(TokenType type, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount)
+    {
+        WalletAddress wa;
+        walletDB->getDefaultAddressAlways(wa);
+        return GenerateToken(type, wa, walletDB, offlineCount);
+    }
+
     std::string  GenerateToken(TokenType type, const WalletAddress& address, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount)
     {
         switch (type)
         {
         case TokenType::Public:
             {
-                auto token = GeneratePublicToken(*walletDB, "");
+                auto token = GeneratePublicToken(address, *walletDB, "");
                 LOG_INFO() << "Generated public offline address: " << token;
                 return token;
             }

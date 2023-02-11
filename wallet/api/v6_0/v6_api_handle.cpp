@@ -117,16 +117,35 @@ namespace beam::wallet
         auto walletDB = getWalletDB();
 
         WalletAddress address;
-        walletDB->createAddress(address);
+        bool bCreated = false;
 
-        if (data.comment)    address.setLabel(*data.comment);
-        if (data.expiration) address.setExpirationStatus(*data.expiration);
-        if (isApp())         address.setCategory(getAppId());
+        switch (data.type)
+        {
+        case TokenType::RegularNewStyle:
+        case TokenType::RegularOldStyle:
+            bCreated = true;
 
-        address.m_Token = GenerateToken(data.type, address,  walletDB, data.offlinePayments);
-        walletDB->saveAddress(address);
+            walletDB->createAddress(address);
 
-        doResponse(id, CreateAddress::Response{address.m_Token});
+            if (data.comment)    address.setLabel(*data.comment);
+            if (data.expiration) address.setExpirationStatus(*data.expiration);
+            if (isApp())         address.setCategory(getAppId());
+
+            break;
+
+        default: // suppress warning
+            break;
+        }
+
+        std::string sToken = GenerateToken(data.type, address, walletDB, data.offlinePayments);
+
+        if (bCreated)
+        {
+            address.m_Token = sToken;
+            walletDB->saveAddress(address);
+        }
+
+        doResponse(id, CreateAddress::Response{sToken});
     }
 
     void V6Api::onHandleDeleteAddress(const JsonRpcId& id, DeleteAddress&& data)

@@ -337,12 +337,10 @@ namespace
         io::Reactor::Scope scope(*mainReactor);
 
         WalletAddress wa;
-        receiverWalletDB->createAddress(wa);
-        receiverWalletDB->saveAddress(wa);
+        receiverWalletDB->getDefaultAddressAlways(wa);
         WalletID receiver_id = wa.m_BbsAddr;
 
-        senderWalletDB->createAddress(wa);
-        senderWalletDB->saveAddress(wa);
+        senderWalletDB->getDefaultAddressAlways(wa);
         WalletID sender_id = wa.m_BbsAddr;
 
         int count = 0;
@@ -1504,8 +1502,7 @@ namespace
                 , m_ReceiverID(receiverID)
             {
                 WalletAddress wa;
-                db->createAddress(wa);
-                db->saveAddress(wa);
+                db->getDefaultAddressAlways(wa);
                 m_BbsAddr = wa.m_BbsAddr;
             }
 
@@ -4174,8 +4171,7 @@ void TestVouchers()
         MyWallet(IWalletDB::Ptr pDb, const std::shared_ptr<TestWalletNetwork>& pTwn, TestNodeNetwork::Shared& tnns)
             :Wallet(pDb)
         {
-            pDb->createAddress(m_MyAddr);
-            pDb->saveAddress(m_MyAddr);
+            pDb->getDefaultAddressAlways(m_MyAddr);
 
             m_MyNetwork = make_shared<TestNodeNetwork>(tnns, *this);
 

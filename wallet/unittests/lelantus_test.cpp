@@ -119,11 +119,8 @@ void TestMaxPrivacyAndOffline()
         const auto& cursor = node.get_Processor().m_Cursor;
         if (!bTxCreated && (cursor.m_Sid.m_Height >= Rules::get().pForks[2].m_Height + 3))
         {
-            WalletAddress walletAddress;
-            receiver.m_WalletDB->createAddress(walletAddress);
-            receiver.m_WalletDB->saveAddress(walletAddress);
-            auto maxPrivacyToken = GenerateToken(TokenType::MaxPrivacy, walletAddress, receiver.m_WalletDB);
-            auto offlineToken = GenerateToken(TokenType::Offline, walletAddress, receiver.m_WalletDB, 1);
+            auto maxPrivacyToken = GenerateTokenDefaultAddr(TokenType::MaxPrivacy, receiver.m_WalletDB);
+            auto offlineToken = GenerateTokenDefaultAddr(TokenType::Offline, receiver.m_WalletDB, 1);
 
             auto f = [&](const std::string& token, TxAddressType t)->TxID
             {
@@ -210,8 +207,7 @@ void TestTreasuryRestore()
         if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
         {
             WalletAddress walletAddress;
-            receiver.m_WalletDB->createAddress(walletAddress);
-            receiver.m_WalletDB->saveAddress(walletAddress);
+            receiver.m_WalletDB->getDefaultAddressAlways(walletAddress);
 
             auto newAddress = GenerateOfflineToken(walletAddress, *receiver.m_WalletDB, 0, Asset::s_BeamID, "");
             auto p = ParseParameters(newAddress);
@@ -307,8 +303,7 @@ void TestRestoreInterruption()
             for (int i = 0; i < txNum; ++i)
             {
                 WalletAddress walletAddress;
-                receiver.m_WalletDB->createAddress(walletAddress);
-                receiver.m_WalletDB->saveAddress(walletAddress);
+                receiver.m_WalletDB->getDefaultAddressAlways(walletAddress);
 
                 auto newAddress = GenerateOfflineToken(walletAddress, *receiver.m_WalletDB, 0, Asset::s_BeamID, "");
                 auto p = ParseParameters(newAddress);

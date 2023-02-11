@@ -2112,7 +2112,10 @@ namespace beam::wallet
 
     void WalletClient::getPublicAddress()
     {
-        onPublicAddress(GeneratePublicToken(*m_walletDB, std::string()));
+        WalletAddress wa;
+        m_walletDB->getDefaultAddressAlways(wa);
+
+        onPublicAddress(GeneratePublicToken(wa, *m_walletDB, std::string()));
     }
 
     void WalletClient::setMaxPrivacyLockTimeLimitHours(uint8_t limit)
