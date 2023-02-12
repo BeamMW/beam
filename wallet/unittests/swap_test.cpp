@@ -812,8 +812,11 @@ void TestSwapBeamRefundTransaction()
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
     Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
     auto parameters = InitNewSwap2(*receiver, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
+    cout << "receiver tx start" << endl;
     receiver->m_Wallet->StartTransaction(parameters);
+    cout << "sender tx start" << endl;
     TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, beamFee, feeRate));
+    cout << "waiting..." << endl;
 
     auto receiverCoins = receiver->GetCoins();
     WALLET_CHECK(receiverCoins.empty());
@@ -828,6 +831,8 @@ void TestSwapBeamRefundTransaction()
             storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
             if (txState == wallet::AtomicSwapTransaction::State::SendingBeamRedeemTX)
             {
+                cout << "deleting rcvr" << endl;
+
                 // delete receiver to simulate refund on Beam side
                 receiver.reset();
             }
