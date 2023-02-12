@@ -1574,16 +1574,6 @@ namespace beam::wallet
     {
         m_walletDB->setVarRaw(SWAP_PARAMS_NAME, params.data(), params.size());
     }
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
-    void WalletClient::cancelTx(const TxID& id)
-    {
-        auto w = m_wallet.lock();
-        if (w)
-        {
-            w->CancelTransaction(id);
-        }
-    }
 
     void WalletClient::CreateSwapTxParams(Amount amount, Amount beamFee, AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate, bool isBeamSide, Height responseTime, AsyncCallback<TxParameters&&>&& callback)
     {
@@ -1614,6 +1604,17 @@ namespace beam::wallet
         }
 
         callback(std::move(res));
+    }
+
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+    void WalletClient::cancelTx(const TxID& id)
+    {
+        auto w = m_wallet.lock();
+        if (w)
+        {
+            w->CancelTransaction(id);
+        }
     }
 
     void WalletClient::deleteTx(const TxID& id)
