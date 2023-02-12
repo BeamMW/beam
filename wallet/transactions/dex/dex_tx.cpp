@@ -106,7 +106,6 @@ namespace beam::wallet
             }
 
             params.SetParameter(TxParameterID::MyAddressID, myaddr->m_OwnID);
-            params.SetParameter(TxParameterID::MyEndpoint, myaddr->m_Endpoint); // TODO: do we need this? it is set in ConstructTransactionFromParameters
         }
 
         //
@@ -165,8 +164,6 @@ namespace beam::wallet
         case TxParameterID::Lifetime:  // TODO:DEX check where set
         case TxParameterID::PaymentConfirmation:
         case TxParameterID::PeerProtoVersion:
-        case TxParameterID::MyEndpoint:
-        case TxParameterID::PeerEndpoint: // TODO:DEX check if really passed
         case TxParameterID::PeerMaxHeight:
         case TxParameterID::PeerPublicExcess:
         case TxParameterID::PeerPublicNonce:
