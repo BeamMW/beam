@@ -571,6 +571,7 @@ namespace beam::wallet
                     auto minHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight, SubTxIndex::BEAM_LOCK_TX);
                     if (minHeight < mainMinHeight || minHeight >= mainPeerResponseHeight)
                     {
+                        LOG_WARNING() << "mainMinHeight=" << mainMinHeight << ", locktxMinHeight=" << minHeight << ", peerHeight=" << mainPeerResponseHeight;
                         OnSubTxFailed(TxFailureReason::MinHeightIsUnacceptable, SubTxIndex::BEAM_LOCK_TX, true);
                         break;
                     }
