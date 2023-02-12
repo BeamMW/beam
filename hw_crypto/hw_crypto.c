@@ -2169,15 +2169,6 @@ void N2H_ShieldedInput_Fmt(ShieldedInput_Fmt* p, const ShieldedInput_Fmt* p_unal
 	N2H_uint_inplace(p->m_nViewerIdx, 32);
 }
 
-void N2H_TxCommonIn(TxCommonIn* p, const TxCommonIn* p_unaligned)
-{
-	memcpy_unaligned(p, p_unaligned, sizeof(*p));
-
-	N2H_uint_inplace(p->m_Krn.m_Fee, 64);
-	N2H_uint_inplace(p->m_Krn.m_hMin, 64);
-	N2H_uint_inplace(p->m_Krn.m_hMax, 64);
-}
-
 uint16_t MakeStatus(uint8_t major, uint8_t minor)
 {
 	return (((uint16_t) minor) << 8) | major;
@@ -2457,15 +2448,21 @@ static uint16_t TxAggr_AddShieldedInputs(KeyKeeper* p, uint8_t* pIns_unaligned, 
 	return c_KeyKeeper_Status_Ok;
 }
 
-static uint16_t TxAggr_Get(KeyKeeper* p, Amount* pNetAmount, AssetID* pAid, const Amount* pFeeSender)
+static uint16_t TxAggr_Get(KeyKeeper* p, TxSummary* pRes, const TxCommonIn* pTx, uint8_t isSender)
 {
 	if (c_KeyKeeper_State_TxBalance != p->m_State)
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 10);
 
+	memcpy_unaligned(&pRes->m_Krn, &pTx->m_Krn, sizeof(pRes->m_Krn));
+
+	N2H_uint_inplace(pRes->m_Krn.m_Fee, 64);
+	N2H_uint_inplace(pRes->m_Krn.m_hMin, 64);
+	N2H_uint_inplace(pRes->m_Krn.m_hMax, 64);
+
 	int64_t rcvVal = p->u.m_TxBalance.m_RcvBeam;
-	if (pFeeSender)
+	if (isSender)
 	{
-		if (!TxAggr_AddFee(p, *pFeeSender))
+		if (!TxAggr_AddFee(p, pRes->m_Krn.m_Fee))
 			return MakeStatus(c_KeyKeeper_Status_Unspecified, 15);
 
 		// we're paying the fee. Subtract it from the net value we're sending
@@ -2485,23 +2482,23 @@ static uint16_t TxAggr_Get(KeyKeeper* p, Amount* pNetAmount, AssetID* pAid, cons
 			return MakeStatus(c_KeyKeeper_Status_Unspecified, 11); // nnz net result in both beams and assets.
 
 		rcvVal = p->u.m_TxBalance.m_RcvAsset;
-		*pAid = p->u.m_TxBalance.m_Aid;
+		pRes->m_Aid = p->u.m_TxBalance.m_Aid;
 	}
 	else
-		*pAid = 0;
+		pRes->m_Aid = 0;
 
-	if (pFeeSender)
+	if (isSender)
 	{
 		if (rcvVal > 0)
 			return MakeStatus(c_KeyKeeper_Status_Unspecified, 12); // actually receiving
 
-		*pNetAmount = -rcvVal;
+		pRes->m_NetAmount = -rcvVal;
 	}
 	else
 	{
 		if (rcvVal <= 0)
 			return MakeStatus(c_KeyKeeper_Status_Unspecified, 13); // not receiving
-		*pNetAmount = rcvVal;
+		pRes->m_NetAmount = rcvVal;
 	}
 
 	return c_KeyKeeper_Status_Ok;
@@ -2620,24 +2617,20 @@ PROTO_METHOD(TxSplit)
 	if (nIn)
 		return c_KeyKeeper_Status_ProtoError;
 
-	TxCommonIn txc;
-	N2H_TxCommonIn(&txc, &pIn->m_Tx);
-
-	Amount netAmount;
-	AssetID aid;
-	uint16_t errCode = TxAggr_Get(p, &netAmount, &aid, &txc.m_Krn.m_Fee);
+	TxSummary txs;
+	uint16_t errCode = TxAggr_Get(p, &txs, &pIn->m_Tx, 1);
 	if (errCode)
 		return errCode;
 
-	if (netAmount)
+	if (txs.m_NetAmount)
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21); // not split
 
 	// hash all visible params
 	secp256k1_sha256_t sha;
 	secp256k1_sha256_initialize(&sha);
-	secp256k1_sha256_write_Num(&sha, txc.m_Krn.m_hMin);
-	secp256k1_sha256_write_Num(&sha, txc.m_Krn.m_hMax);
-	secp256k1_sha256_write_Num(&sha, txc.m_Krn.m_Fee);
+	secp256k1_sha256_write_Num(&sha, txs.m_Krn.m_hMin);
+	secp256k1_sha256_write_Num(&sha, txs.m_Krn.m_hMax);
+	secp256k1_sha256_write_Num(&sha, txs.m_Krn.m_Fee);
 
 	UintBig hv;
 	secp256k1_scalar_get_b32(hv.m_pVal, &p->u.m_TxBalance.m_sk);
@@ -2656,9 +2649,13 @@ PROTO_METHOD(TxSplit)
 
 	KernelUpdateKeys(&pOut->m_Tx.m_Comms, &keys, 0);
 
-	TxKernel_getID(&txc.m_Krn, &pOut->m_Tx.m_Comms, &hv);
+	TxKernel_getID(&txs.m_Krn, &pOut->m_Tx.m_Comms, &hv);
 
-	errCode = KeyKeeper_ConfirmSpend(p, 0, 0, 0, &txc.m_Krn, &hv, c_KeyKeeper_ConfirmSpend_Split);
+	txs.m_Flags = c_KeyKeeper_ConfirmSpend_Split;
+	txs.m_pPeer = 0;
+	txs.m_pKrnID = &hv;
+
+	errCode = KeyKeeper_ConfirmSpend(p, &txs);
 	if (c_KeyKeeper_Status_Ok != errCode)
 		return errCode;
 
@@ -2721,16 +2718,12 @@ PROTO_METHOD(TxReceive)
 	if (nIn)
 		return c_KeyKeeper_Status_ProtoError;
 
-	Amount netAmount;
-	AssetID aid;
-	uint16_t errCode = TxAggr_Get(p, &netAmount, &aid, 0);
+	TxSummary txs;
+	uint16_t errCode = TxAggr_Get(p, &txs, &pIn->m_Tx, 0);
 	if (c_KeyKeeper_Status_Ok != errCode)
 		return errCode;
 
-	assert(netAmount);
-
-	TxCommonIn txc;
-	N2H_TxCommonIn(&txc, &pIn->m_Tx);
+	assert(txs.m_NetAmount);
 
 	TxMutualIn txm;
 	memcpy_unaligned(&txm, &pIn->m_Mut, sizeof(txm)); // save it before we generate output
@@ -2741,7 +2734,7 @@ PROTO_METHOD(TxReceive)
 	secp256k1_sha256_initialize(&sha);
 
 	UintBig hv;
-	TxKernel_getID(&txc.m_Krn, &pIn->m_Comms, &hv); // not a final ID yet
+	TxKernel_getID(&txs.m_Krn, &pIn->m_Comms, &hv); // not a final ID yet
 
 	secp256k1_sha256_write_UintBig(&sha, &hv);
 	secp256k1_sha256_write_CompactPoint(&sha, &pIn->m_Comms.m_NoncePub);
@@ -2754,8 +2747,8 @@ PROTO_METHOD(TxReceive)
 	secp256k1_scalar_get_b32(hv.m_pVal, &p->u.m_TxBalance.m_sk);
 	secp256k1_sha256_write_UintBig(&sha, &hv);
 
-	secp256k1_sha256_write_Num(&sha, netAmount); // the value being-received
-	secp256k1_sha256_write_Num(&sha, aid);
+	secp256k1_sha256_write_Num(&sha, txs.m_NetAmount); // the value being-received
+	secp256k1_sha256_write_Num(&sha, txs.m_Aid);
 
 	secp256k1_sha256_finalize(&sha, hv.m_pVal);
 
@@ -2772,7 +2765,7 @@ PROTO_METHOD(TxReceive)
 	if (!KernelUpdateKeys(&pOut->m_Tx.m_Comms, &keys, &pIn->m_Comms)) // safe to call, even though pOut and pIn may overlap
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 22);
 
-	TxKernel_getID(&txc.m_Krn, &pOut->m_Tx.m_Comms, &hv); // final ID
+	TxKernel_getID(&txs.m_Krn, &pOut->m_Tx.m_Comms, &hv); // final ID
 	Kernel_SignPartial(&pOut->m_Tx.m_TxSig.m_kSig, &pOut->m_Tx.m_Comms, &hv, &keys);
 
 	TxAggr_ToOffset(p, &keys.m_kKrn, &pOut->m_Tx);
@@ -2782,7 +2775,7 @@ PROTO_METHOD(TxReceive)
 		// sign
 		UintBig hvID;
 		DeriveAddress(p, txm.m_AddrID, &keys.m_kKrn, &hvID);
-		GetPaymentConfirmationMsg(&hvID, &txm.m_Peer, &hv, netAmount, aid);
+		GetPaymentConfirmationMsg(&hvID, &txm.m_Peer, &hv, txs.m_NetAmount, txs.m_Aid);
 		Signature_Sign(&pOut->m_PaymentProof, &hvID, &keys.m_kKrn);
 	}
 
@@ -2911,16 +2904,13 @@ void PrintEndpoint(char* sz, const UintBig* pID)
 // KeyKeeper - SendTx
 typedef struct
 {
-	Amount m_netAmount;
-	AssetID m_Aid;
+	TxSummary m_Txs;
 	uint32_t m_iSlot;
 
 	KernelKeys m_Keys;
 
 	UintBig m_hvMyID;
 	UintBig m_hvToken;
-
-	TxCommonIn m_txc;
 
 } TxSendContext;
 
@@ -2937,7 +2927,7 @@ static void TxSend_DeriveKeys(KeyKeeper* p, const OpIn_TxSend2* pIn, TxSendConte
 	// during negotiation kernel height and commitment are adjusted. We should only commit to the Fee
 	secp256k1_sha256_t sha;
 	secp256k1_sha256_initialize(&sha);
-	secp256k1_sha256_write_Num(&sha, pCtx->m_txc.m_Krn.m_Fee);
+	secp256k1_sha256_write_Num(&sha, pCtx->m_Txs.m_Krn.m_Fee);
 	secp256k1_sha256_write_UintBig(&sha, &pIn->m_Mut.m_Peer);
 	secp256k1_sha256_write_UintBig(&sha, &pCtx->m_hvMyID);
 
@@ -2946,8 +2936,8 @@ static void TxSend_DeriveKeys(KeyKeeper* p, const OpIn_TxSend2* pIn, TxSendConte
 
 	secp256k1_scalar_get_b32(pCtx->m_hvToken.m_pVal, &p->u.m_TxBalance.m_sk);
 	secp256k1_sha256_write_UintBig(&sha, &pCtx->m_hvToken);
-	secp256k1_sha256_write_Num(&sha, pCtx->m_netAmount);
-	secp256k1_sha256_write_Num(&sha, pCtx->m_Aid);
+	secp256k1_sha256_write_Num(&sha, pCtx->m_Txs.m_NetAmount);
+	secp256k1_sha256_write_Num(&sha, pCtx->m_Txs.m_Aid);
 
 	secp256k1_scalar_get_b32(pCtx->m_hvToken.m_pVal, &pCtx->m_Keys.m_kNonce);
 	secp256k1_sha256_write_UintBig(&sha, &pCtx->m_hvToken);
@@ -2973,13 +2963,11 @@ static void TxSend_DeriveKeys(KeyKeeper* p, const OpIn_TxSend2* pIn, TxSendConte
 
 uint16_t TxSend_Prepare(KeyKeeper* p, OpIn_TxSend2* pIn, TxSendContext* pCtx)
 {
-	N2H_TxCommonIn(&pCtx->m_txc, &pIn->m_Tx);
-
-	uint16_t errCode = TxAggr_Get(p, &pCtx->m_netAmount, &pCtx->m_Aid, &pCtx->m_txc.m_Krn.m_Fee);
+	uint16_t errCode = TxAggr_Get(p, &pCtx->m_Txs, &pIn->m_Tx, 1);
 	if (errCode)
 		return errCode;
 
-	if (!pCtx->m_netAmount)
+	if (!pCtx->m_Txs.m_NetAmount)
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21); // not sending
 
 	if (IsUintBigZero(&pIn->m_Mut.m_Peer))
@@ -2991,6 +2979,9 @@ uint16_t TxSend_Prepare(KeyKeeper* p, OpIn_TxSend2* pIn, TxSendContext* pCtx)
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 23);
 
 	TxSend_DeriveKeys(p, pIn, pCtx);
+
+	pCtx->m_Txs.m_pPeer = &pIn->m_Mut.m_Peer;
+
 	return c_KeyKeeper_Status_Ok;
 }
 
@@ -3006,7 +2997,10 @@ PROTO_METHOD(TxSend1)
 	if (errCode)
 		return errCode;
 
-	errCode = KeyKeeper_ConfirmSpend(p, ctx.m_netAmount, ctx.m_Aid, &pIn->m_Mut.m_Peer, &ctx.m_txc.m_Krn, 0, 0);
+	ctx.m_Txs.m_Flags = 0;
+	ctx.m_Txs.m_pKrnID = 0;
+
+	errCode = KeyKeeper_ConfirmSpend(p, &ctx.m_Txs);
 	if (c_KeyKeeper_Status_Ok != errCode)
 		return errCode;
 
@@ -3032,16 +3026,19 @@ PROTO_METHOD(TxSend2)
 	if (memcmp(pIn->m_UserAgreement.m_pVal, ctx.m_hvToken.m_pVal, sizeof(ctx.m_hvToken.m_pVal)))
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 24); // incorrect user agreement token
 
-	TxKernel_getID(&ctx.m_txc.m_Krn, &pIn->m_Comms, &ctx.m_hvToken);
+	TxKernel_getID(&ctx.m_Txs.m_Krn, &pIn->m_Comms, &ctx.m_hvToken);
 
 	// verify payment confirmation signature
-	GetPaymentConfirmationMsg(&ctx.m_hvMyID, &ctx.m_hvMyID, &ctx.m_hvToken, ctx.m_netAmount, ctx.m_Aid);
+	GetPaymentConfirmationMsg(&ctx.m_hvMyID, &ctx.m_hvMyID, &ctx.m_hvToken, ctx.m_Txs.m_NetAmount, ctx.m_Txs.m_Aid);
 
 	if (!Signature_IsValid_Ex(&pIn->m_PaymentProof, &ctx.m_hvMyID, &pIn->m_Mut.m_Peer))
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 25);
 
 	// 2nd user confirmation request. Now the kernel is complete, its ID is calculated
-	errCode = KeyKeeper_ConfirmSpend(p, ctx.m_netAmount, ctx.m_Aid, &pIn->m_Mut.m_Peer, &ctx.m_txc.m_Krn, &ctx.m_hvMyID, c_KeyKeeper_ConfirmSpend_2ndPhase);
+	ctx.m_Txs.m_Flags = c_KeyKeeper_ConfirmSpend_2ndPhase;
+	ctx.m_Txs.m_pKrnID = &ctx.m_hvMyID;
+
+	errCode = KeyKeeper_ConfirmSpend(p, &ctx.m_Txs);
 	if (c_KeyKeeper_Status_Ok != errCode)
 		return errCode;
 
@@ -3786,9 +3783,7 @@ typedef struct
 	OpOut_TxSendShielded* m_pOut;
 	const ShieldedOutParams* m_pSh;
 
-	Amount m_Amount;
-	AssetID m_Aid;
-	TxCommonIn m_Txc;
+	TxSummary m_Txs;
 
 	secp256k1_scalar m_skKrn;
 	UintBig m_hvKrn;
@@ -3915,11 +3910,11 @@ void TxSendShielded_PrepareRangeProofRecover(TxSendShieldedContext* pCtx, TxSend
 	pRp->m_FlagsPacked = Msg2Scalar(&u.skExtra, &pCtx->m_pIn->m_User.m_Sender);
 	secp256k1_scalar_add(&pCtx->m_skKrn, &pCtx->m_skKrn, &u.skExtra); // output blinding factor
 
-	CustomGenerator* pAGen = pCtx->m_Aid ? &pRp->u.m_AGen : 0;
+	CustomGenerator* pAGen = pCtx->m_Txs.m_Aid ? &pRp->u.m_AGen : 0;
 	if (pAGen)
-		CoinID_GenerateAGen(pCtx->m_Aid, pAGen); // assume that's not the peak stack consumer
+		CoinID_GenerateAGen(pCtx->m_Txs.m_Aid, pAGen); // assume that's not the peak stack consumer
 
-	CoinID_getCommRaw(&pCtx->m_skKrn, pCtx->m_Amount, pAGen, &u.gej); // output commitment
+	CoinID_getCommRaw(&pCtx->m_skKrn, pCtx->m_Txs.m_NetAmount, pAGen, &u.gej); // output commitment
 
 	// We have the commitment, and params that are supposed to be packed in the rangeproof.
 	// Recover the parameters, make sure they match
@@ -3965,7 +3960,7 @@ uint16_t TxSendShielded_VerifyParams2(TxSendShieldedContext* pCtx, TxSendShielde
 	if (!RangeProof_Recover1(&pRp->u.m_RCtx))
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 26);
 
-	if ((pRp->u.m_RCtx.m_Amount != pCtx->m_Amount) || (bswap32_be(packed.m_AssetID) != pCtx->m_Aid))
+	if ((pRp->u.m_RCtx.m_Amount != pCtx->m_Txs.m_NetAmount) || (bswap32_be(packed.m_AssetID) != pCtx->m_Txs.m_Aid))
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 27);
 
 	pRp->m_FlagsPacked ^= packed.m_Flags;
@@ -3986,14 +3981,14 @@ uint16_t TxSendShielded_VerifyParams3(TxSendShieldedContext* pCtx, TxSendShielde
 
 	}
 
-	if (pCtx->m_Aid || pCtx->m_pIn->m_HideAssetAlways)
+	if (pCtx->m_Txs.m_Aid || pCtx->m_pIn->m_HideAssetAlways)
 	{
 		static const char szSalt[] = "skG-O";
 		NonceGenerator ng; // not really secret
 		NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &pCtx->m_pSh->u.m_Voucher.m_SharedSecret);
 		NonceGenerator_NextScalar(&ng, pRp->u.m_RCtx.m_pExtra);
 
-		secp256k1_scalar_set_u64(pRp->u.m_RCtx.m_pExtra + 1, pCtx->m_Amount);
+		secp256k1_scalar_set_u64(pRp->u.m_RCtx.m_pExtra + 1, pCtx->m_Txs.m_NetAmount);
 		wrap_scalar_mul(pRp->u.m_RCtx.m_pExtra, pRp->u.m_RCtx.m_pExtra, pRp->u.m_RCtx.m_pExtra + 1);
 		secp256k1_scalar_add(&pRp->u.m_RCtx.m_Sk, &pRp->u.m_RCtx.m_Sk, pRp->u.m_RCtx.m_pExtra);
 	}
@@ -4037,9 +4032,9 @@ uint16_t TxSendShielded_FinalyzeTx(TxSendShieldedContext* pCtx, int bSplit)
 	secp256k1_sha256_t sha;
 	secp256k1_sha256_initialize(&sha);
 	secp256k1_sha256_write_UintBig(&sha, &pCtx->m_hvKrn);
-	secp256k1_sha256_write_Num(&sha, pCtx->m_Txc.m_Krn.m_hMin);
-	secp256k1_sha256_write_Num(&sha, pCtx->m_Txc.m_Krn.m_hMax);
-	secp256k1_sha256_write_Num(&sha, pCtx->m_Txc.m_Krn.m_Fee);
+	secp256k1_sha256_write_Num(&sha, pCtx->m_Txs.m_Krn.m_hMin);
+	secp256k1_sha256_write_Num(&sha, pCtx->m_Txs.m_Krn.m_hMax);
+	secp256k1_sha256_write_Num(&sha, pCtx->m_Txs.m_Krn.m_Fee);
 	secp256k1_scalar_get_b32(hvOuter.m_pVal, &pCtx->m_p->u.m_TxBalance.m_sk);
 	secp256k1_sha256_write_UintBig(&sha, &hvOuter);
 	secp256k1_sha256_finalize(&sha, hvOuter.m_pVal);
@@ -4058,13 +4053,21 @@ uint16_t TxSendShielded_FinalyzeTx(TxSendShieldedContext* pCtx, int bSplit)
 		memcpy(hvPeer.m_pVal, pCtx->m_pIn->m_Mut.m_Peer.m_pVal, sizeof(hvPeer.m_pVal));
 
 	KernelUpdateKeys(&pCtx->m_pOut->m_Tx.m_Comms, &keys, 0);
-	TxKernel_getID_Ex(&pCtx->m_Txc.m_Krn, &pCtx->m_pOut->m_Tx.m_Comms, &hvOuter, &pCtx->m_hvKrn, 1);
+	TxKernel_getID_Ex(&pCtx->m_Txs.m_Krn, &pCtx->m_pOut->m_Tx.m_Comms, &hvOuter, &pCtx->m_hvKrn, 1);
 
 	// all set
-	uint16_t errCode = bSplit ?
-		KeyKeeper_ConfirmSpend(pCtx->m_p, 0, 0, 0, &pCtx->m_Txc.m_Krn, &hvOuter, c_KeyKeeper_ConfirmSpend_Shielded | c_KeyKeeper_ConfirmSpend_Split) :
-		KeyKeeper_ConfirmSpend(pCtx->m_p, pCtx->m_Amount, pCtx->m_Aid, &hvPeer, &pCtx->m_Txc.m_Krn, &hvOuter, c_KeyKeeper_ConfirmSpend_Shielded);
+	pCtx->m_Txs.m_pKrnID = &hvOuter;
+	pCtx->m_Txs.m_Flags = c_KeyKeeper_ConfirmSpend_Shielded;
 
+	if (bSplit)
+	{
+		pCtx->m_Txs.m_pPeer = 0;
+		pCtx->m_Txs.m_Flags |= c_KeyKeeper_ConfirmSpend_Split;
+	}
+	else
+		pCtx->m_Txs.m_pPeer = &hvPeer;
+
+	uint16_t errCode = KeyKeeper_ConfirmSpend(pCtx->m_p, &pCtx->m_Txs);
 	if (c_KeyKeeper_Status_Ok != errCode)
 		return errCode;
 
@@ -4089,16 +4092,14 @@ PROTO_METHOD(TxSendShielded)
 	ctx.m_pOut = pOut;
 	ctx.m_pSh = &KeyKeeper_GetAuxBuf(p)->m_Sh;
 
-	N2H_TxCommonIn(&ctx.m_Txc, &pIn->m_Tx);
-
 	AddrID addrID;
 	N2H_uint(addrID, pIn->m_Mut.m_AddrID, 64);
 
-	uint16_t errCode = TxAggr_Get(p, &ctx.m_Amount, &ctx.m_Aid, &ctx.m_Txc.m_Krn.m_Fee);
+	uint16_t errCode = TxAggr_Get(p, &ctx.m_Txs, &pIn->m_Tx, 1);
 	if (errCode)
 		return errCode;
 
-	if (!ctx.m_Amount)
+	if (!ctx.m_Txs.m_NetAmount)
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21); // not sending/splitting
 
 	if (IsUintBigZero(&pIn->m_Mut.m_Peer))

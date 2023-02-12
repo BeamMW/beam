@@ -429,13 +429,23 @@ void KeyKeeper_DisplayEndpoint(KeyKeeper*, AddrID addrID, const UintBig* pPeerID
 
 //////////////////////////
 // KeyKeeper - request user approval for spend
-//
-// pPeerID is NULL, if it's a Split tx (i.e. funds are transferred back to you, only the fee is spent).
-// pKrnID is NULL, if this is a 'preliminary' confirmation (SendTx 1st invocation)
-// pUser contains fee and min/max height (may be shown to the user)
-uint16_t KeyKeeper_ConfirmSpend(KeyKeeper*, Amount val, AssetID aid, const UintBig* pPeerID, const TxKernelUser* pUser, const UintBig* pKrnID, uint32_t nFlags);
+typedef struct
+{
+	const UintBig* m_pPeer; // NULL if it's a split tx (i.e. funds are transferred back to you, only the fee is spent).
+	const UintBig* m_pKrnID; // NULL if it's a Send 1st invocation
+
+	TxKernelUser m_Krn; // contains fee and min/max height (may be shown to the user)
+
+	Amount m_NetAmount;
+	AssetID m_Aid;
+	uint8_t m_Flags;
+
+} TxSummary;
+
+uint16_t KeyKeeper_ConfirmSpend(KeyKeeper*, const TxSummary*);
 
 
 #define c_KeyKeeper_ConfirmSpend_Split 0x10 // if not set - this is a send tx (also pPeerID should be specified)
 #define c_KeyKeeper_ConfirmSpend_Shielded 0x20
 #define c_KeyKeeper_ConfirmSpend_2ndPhase 0x40
+#define c_KeyKeeper_ConfirmSpend_Offline 0x80
