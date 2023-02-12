@@ -288,6 +288,7 @@ namespace beam::wallet
         void publishSwapOffer(const SwapOffer& offer) override;
         void loadSwapParams() override;
         void storeSwapParams(const beam::ByteBuffer& params) override;
+        void CreateSwapTxParams(Amount amount, Amount beamFee, AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate, bool isBeamSide, Height responseTime, AsyncCallback<TxParameters&&>&& callback) override;
         #endif
 
         #ifdef BEAM_IPFS_SUPPORT
@@ -301,6 +302,7 @@ namespace beam::wallet
         void saveAddress(const WalletAddress& address) override;
         void generateNewAddress() override;
         void generateNewAddress(AsyncCallback<const WalletAddress&>&& callback) override;
+        void generateToken(TokenType, Amount, Asset::ID, std::string sVer, AsyncCallback<std::string&&>&& callback);
         void deleteAddress(const WalletID& addr) override;
         void updateAddress(const WalletID& addr, const std::string& name, WalletAddress::ExpirationStatus expirationStatus) override;
         void updateAddress(const WalletID& addr, const std::string& name, beam::Timestamp expirationTime) override;

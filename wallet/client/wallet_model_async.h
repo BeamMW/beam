@@ -15,6 +15,7 @@
 
 #include "wallet/core/common_utils.h"
 #include "wallet/core/common.h"
+#include "wallet/transactions/swaps/common.h"
 #include "boost/any.hpp"
 #ifdef BEAM_IPFS_SUPPORT
 #include <asio-ipfs/include/ipfs_config.h>
@@ -51,12 +52,14 @@ namespace beam::wallet
         virtual void saveAddress(const WalletAddress& address) = 0;
         virtual void generateNewAddress() = 0;
         virtual void generateNewAddress(AsyncCallback<const WalletAddress&>&& callback) = 0;
+        virtual void generateToken(TokenType, Amount, Asset::ID, std::string sVer, AsyncCallback<std::string&&>&& callback) = 0;
 
         #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         virtual void loadSwapParams() = 0;
         virtual void storeSwapParams(const beam::ByteBuffer& params) = 0;
         virtual void getSwapOffers() = 0;
         virtual void publishSwapOffer(const SwapOffer& offer) = 0;
+        virtual void CreateSwapTxParams(Amount amount, Amount beamFee, AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate, bool isBeamSide, Height responseTime, AsyncCallback<TxParameters&&>&& callback) = 0;
         #endif
 
         #ifdef BEAM_IPFS_SUPPORT

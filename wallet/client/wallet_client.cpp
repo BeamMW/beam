@@ -28,6 +28,7 @@
 #include "utility/fsutils.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
+#include "wallet/transactions/swaps/swap_transaction.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 #ifdef BEAM_LELANTUS_SUPPORT
 #include "wallet/transactions/lelantus/push_transaction.h"
@@ -167,6 +168,12 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 		call_async(&IWalletModelAsync::publishSwapOffer, offer);
     }
 
+    void CreateSwapTxParams(Amount amount, Amount beamFee, AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate, bool isBeamSide, Height responseTime, AsyncCallback<TxParameters&&>&& callback) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(Amount, Amount, AtomicSwapCoin, Amount, Amount, bool, Height, AsyncCallback<TxParameters&&>&&);
+        call_async((MethodType)&IWalletModelAsync::CreateSwapTxParams, amount, beamFee, swapCoin, swapAmount, swapFeeRate, isBeamSide, responseTime, std::move(callback));
+    }
+
     void loadSwapParams() override
     {
         call_async(&IWalletModelAsync::loadSwapParams);
@@ -220,6 +227,12 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         typedef void(IWalletModelAsync::* MethodType)(AsyncCallback<const WalletAddress&>&&);
         call_async((MethodType)&IWalletModelAsync::generateNewAddress, std::move(callback));
+    }
+
+    void generateToken(wallet::TokenType type, Amount amount, Asset::ID aid, std::string sVer, AsyncCallback<std::string&&>&& callback) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(wallet::TokenType, Amount, Asset::ID, std::string, AsyncCallback<std::string&&>&&);
+        call_async((MethodType)&IWalletModelAsync::generateToken, type, amount, aid, std::move(sVer), std::move(callback));
     }
 
     void deleteAddress(const WalletID& addr) override
@@ -1572,6 +1585,37 @@ namespace beam::wallet
         }
     }
 
+    void WalletClient::CreateSwapTxParams(Amount amount, Amount beamFee, AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate, bool isBeamSide, Height responseTime, AsyncCallback<TxParameters&&>&& callback)
+    {
+        TxParameters res;
+        try
+        {
+            res = CreateSwapTransactionParameters();
+
+            FillSwapTxParams(
+                &res,
+                *m_walletDB,
+                getCurrentHeight(),
+                amount,
+                beamFee,
+                swapCoin,
+                swapAmount,
+                swapFeeRate,
+                isBeamSide,
+                responseTime);
+
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+
+        callback(std::move(res));
+    }
+
     void WalletClient::deleteTx(const TxID& id)
     {
         auto w = m_wallet.lock();
@@ -1635,6 +1679,39 @@ namespace beam::wallet
         catch (...) {
             LOG_UNHANDLED_EXCEPTION();
         }
+    }
+
+    void WalletClient::generateToken(TokenType type, Amount amount, Asset::ID aid, std::string sVer, AsyncCallback<std::string&&>&& callback)
+    {
+        std::string sToken;
+        try
+        {
+            WalletAddress wa;
+            m_walletDB->getDefaultAddressAlways(wa);
+
+            switch (type)
+            {
+            case TokenType::Offline:
+                sToken = GenerateOfflineToken(wa, *m_walletDB, amount, aid, sVer);
+                break;
+
+            case TokenType::MaxPrivacy:
+                sToken = GenerateMaxPrivacyToken(wa, *m_walletDB, amount, aid, sVer);
+                break;
+
+            default:
+                sToken = GenerateToken(type, wa, m_walletDB);
+            }
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+
+        callback(std::move(sToken));
     }
 
     void WalletClient::deleteAddress(const WalletID& addr)
