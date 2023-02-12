@@ -4048,24 +4048,20 @@ uint16_t TxSendShielded_FinalyzeTx(TxSendShieldedContext* pCtx, int bSplit)
 	NonceGenerator_NextScalar(&ng, &keys.m_kNonce);
 	SECURE_ERASE_OBJ(ng);
 
-	if (!bSplit)
+	if (bSplit)
+		pCtx->m_Txs.m_pPeer = 0;
+	else
+	{
 		// save Peer before generating output
 		memcpy(hvPeer.m_pVal, pCtx->m_pIn->m_Mut.m_Peer.m_pVal, sizeof(hvPeer.m_pVal));
+		pCtx->m_Txs.m_pPeer = &hvPeer;
+	}
 
 	KernelUpdateKeys(&pCtx->m_pOut->m_Tx.m_Comms, &keys, 0);
 	TxKernel_getID_Ex(&pCtx->m_Txs.m_Krn, &pCtx->m_pOut->m_Tx.m_Comms, &hvOuter, &pCtx->m_hvKrn, 1);
 
 	// all set
 	pCtx->m_Txs.m_pKrnID = &hvOuter;
-	pCtx->m_Txs.m_Flags = c_KeyKeeper_ConfirmSpend_Shielded;
-
-	if (bSplit)
-	{
-		pCtx->m_Txs.m_pPeer = 0;
-		pCtx->m_Txs.m_Flags |= c_KeyKeeper_ConfirmSpend_Split;
-	}
-	else
-		pCtx->m_Txs.m_pPeer = &hvPeer;
 
 	uint16_t errCode = KeyKeeper_ConfirmSpend(pCtx->m_p, &pCtx->m_Txs);
 	if (c_KeyKeeper_Status_Ok != errCode)
@@ -4105,6 +4101,9 @@ PROTO_METHOD(TxSendShielded)
 	if (IsUintBigZero(&pIn->m_Mut.m_Peer))
 		return MakeStatus(c_KeyKeeper_Status_UserAbort, 22); // conventional transfers must always be signed
 
+	ctx.m_Txs.m_Flags = c_KeyKeeper_ConfirmSpend_Shielded;
+
+
 	if (pIn->m_UsePublicGen)
 	{
 		if (!TxSendShielded_OfflineAddrCheck(&ctx))
@@ -4112,6 +4111,8 @@ PROTO_METHOD(TxSendShielded)
 
 		if (!TxSendShielded_OfflineMakeTicket(&ctx))
 			return MakeStatus(c_KeyKeeper_Status_Unspecified, 27);
+
+		ctx.m_Txs.m_Flags |= c_KeyKeeper_ConfirmSpend_Offline;
 	}
 	else
 	{
@@ -4125,6 +4126,8 @@ PROTO_METHOD(TxSendShielded)
 		DeriveAddress(p, addrID, &ctx.m_skKrn, &ctx.m_hvKrn);
 		if (memcmp(ctx.m_hvKrn.m_pVal, pIn->m_Mut.m_Peer.m_pVal, sizeof(ctx.m_hvKrn.m_pVal)))
 			return MakeStatus(c_KeyKeeper_Status_Unspecified, 24);
+
+		ctx.m_Txs.m_Flags |= c_KeyKeeper_ConfirmSpend_Split;
 	}
 
 	errCode = TxSendShielded_VerifyParams(&ctx);
