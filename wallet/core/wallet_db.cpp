@@ -7520,9 +7520,11 @@ namespace beam::wallet
         }
     }
 
-    std::string GenerateOfflineToken(const WalletAddress& address, const IWalletDB& walletDB, Amount amount, Asset::ID assetId, const std::string& clientVersion)
+    std::string GenerateOfflineToken(const WalletAddress& address, const IWalletDB& walletDB, Amount amount, Asset::ID assetId, const std::string& clientVersion, uint32_t offlineCount /* = 0 */)
     {
-        auto vouchers = GenerateVoucherList(walletDB.get_KeyKeeper(), address.m_OwnID, 10);
+        if (!offlineCount)
+            offlineCount = 10; // default
+        auto vouchers = GenerateVoucherList(walletDB.get_KeyKeeper(), address.m_OwnID, offlineCount);
 
         TxParameters params = GenerateCommonAddressPart(amount, assetId, clientVersion);
 
@@ -7587,14 +7589,14 @@ namespace beam::wallet
         return std::to_string(params);
     }
 
-    std::string  GenerateTokenDefaultAddr(TokenType type, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount)
+    std::string  GenerateTokenDefaultAddr(TokenType type, IWalletDB::Ptr walletDB, uint32_t offlineCount /* = 0 */)
     {
         WalletAddress wa;
         walletDB->getDefaultAddressAlways(wa);
         return GenerateToken(type, wa, walletDB, offlineCount);
     }
 
-    std::string  GenerateToken(TokenType type, const WalletAddress& address, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount)
+    std::string  GenerateToken(TokenType type, const WalletAddress& address, IWalletDB::Ptr walletDB, uint32_t offlineCount /* = 0 */)
     {
         switch (type)
         {
@@ -7621,7 +7623,7 @@ namespace beam::wallet
 
         case TokenType::Offline:
             {
-                auto token = GenerateOfflineToken(address, *walletDB, 0, 0, "");
+                auto token = GenerateOfflineToken(address, *walletDB, 0, 0, "", offlineCount);
                 LOG_INFO() << "Generated offline address: " << token;
                 return token;
             }
