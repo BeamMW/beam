@@ -1723,7 +1723,7 @@ namespace beam::wallet
             m_lstPending.pop_front();
 
             assert(x.m_pHandler);
-            if (x.m_pHandler.use_count() > 1) // already cancelled?
+            //if (x.m_pHandler.use_count() > 1) // already cancelled?
             {
                 struct RecursionPreventor {
                     uint32_t& m_Var;
