@@ -137,7 +137,7 @@ namespace beam::wallet
 
     bool RemoteKeyKeeper::Cache::get_Owner(Key::IPKdf::Ptr& pRes)
     {
-        std::unique_lock<std::mutex> scope(m_Mutex);
+        //std::unique_lock<std::mutex> scope(m_Mutex);
 
         pRes = m_pOwner;
         return pRes != nullptr;
@@ -145,7 +145,7 @@ namespace beam::wallet
 
     void RemoteKeyKeeper::Cache::set_Owner(const Key::IPKdf::Ptr& pRes)
     {
-        std::unique_lock<std::mutex> scope(m_Mutex);
+        //std::unique_lock<std::mutex> scope(m_Mutex);
 
         if (!m_pOwner)
             m_pOwner = pRes;
@@ -153,7 +153,7 @@ namespace beam::wallet
 
     uint32_t RemoteKeyKeeper::Cache::get_NumSlots()
     {
-        std::unique_lock<std::mutex> scope(m_Mutex);
+        //std::unique_lock<std::mutex> scope(m_Mutex);
         return m_Slots;
     }
 
@@ -236,10 +236,18 @@ namespace beam::wallet
             intrusive::list_autoclear<ReqNode> m_lstDone;
             uint32_t m_Phase = 0;
 
-            RemoteCall(RemoteKeyKeeper& kk, const Handler::Ptr& h)
+            RemoteCall(RemoteKeyKeeper& kk, Handler::Ptr&& h)
                 :m_This(kk)
                 ,m_pFinal(h)
             {
+                m_This.m_InProgress++;
+            }
+
+            virtual ~RemoteCall()
+            {
+                assert(m_This.m_InProgress);
+                --m_This.m_InProgress;
+                m_This.CheckPending();
             }
 
             void* AllocReq(uint32_t nRequest, uint32_t nResponse)
@@ -313,8 +321,9 @@ namespace beam::wallet
                 return pRes;
             }
 
-            void Fin(Status::Type n = Status::Success) {
-                m_This.PushOut(n, m_pFinal);
+            void Fin(Status::Type n = Status::Success)
+            {
+                m_This.PushOut(n, std::move(m_pFinal));
             }
 
             virtual void OnDone(Status::Type n) override
@@ -342,7 +351,8 @@ namespace beam::wallet
         };
 
 
-#define THE_MACRO(method) struct RemoteCall_##method;
+#define THE_MACRO(method) \
+        struct RemoteCall_##method;
         KEY_KEEPER_METHODS(THE_MACRO)
 #undef THE_MACRO
 
@@ -519,8 +529,8 @@ namespace beam::wallet
     struct RemoteKeyKeeper::Impl::RemoteCall_get_Kdf
         :public RemoteCall
     {
-        RemoteCall_get_Kdf(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::get_Kdf& m)
-            :RemoteCall(kk, h)
+        RemoteCall_get_Kdf(RemoteKeyKeeper& kk, Handler::Ptr&& h, Method::get_Kdf& m)
+            :RemoteCall(kk, std::move(h))
             ,m_M(m)
         {
         }
@@ -574,8 +584,8 @@ namespace beam::wallet
     struct RemoteKeyKeeper::Impl::RemoteCall_get_NumSlots
         :public RemoteCall
     {
-        RemoteCall_get_NumSlots(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::get_NumSlots& m)
-            :RemoteCall(kk, h)
+        RemoteCall_get_NumSlots(RemoteKeyKeeper& kk, Handler::Ptr&& h, Method::get_NumSlots& m)
+            :RemoteCall(kk, std::move(h))
             ,m_M(m)
         {
         }
@@ -604,7 +614,7 @@ namespace beam::wallet
                     return;
 
                 {
-                    std::unique_lock<std::mutex> scope(m_This.m_Cache.m_Mutex);
+                    //std::unique_lock<std::mutex> scope(m_This.m_Cache.m_Mutex);
                     m_This.m_Cache.m_Slots = pMsg->m_Value;
                 }
 
@@ -631,7 +641,7 @@ namespace beam::wallet
 
             SendDummyReq();
             m_GetKey.m_Type = KdfType::Root;
-            m_This.InvokeAsync(m_GetKey, shared_from_this());
+            m_This.InvokeAsyncStart(m_GetKey, shared_from_this());
 
             return false;
         }
@@ -641,8 +651,8 @@ namespace beam::wallet
     struct RemoteKeyKeeper::Impl::RemoteCall_get_Commitment
         :public RemoteCall_WithOwnerKey
     {
-        RemoteCall_get_Commitment(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::get_Commitment& m)
-            :RemoteCall_WithOwnerKey(kk, h)
+        RemoteCall_get_Commitment(RemoteKeyKeeper& kk, Handler::Ptr&& h, Method::get_Commitment& m)
+            :RemoteCall_WithOwnerKey(kk, std::move(h))
             ,m_M(m)
         {
         }
@@ -705,8 +715,8 @@ namespace beam::wallet
     struct RemoteKeyKeeper::Impl::RemoteCall_CreateOutput
         :public RemoteCall_WithOwnerKey
     {
-        RemoteCall_CreateOutput(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::CreateOutput& m)
-            :RemoteCall_WithOwnerKey(kk, h)
+        RemoteCall_CreateOutput(RemoteKeyKeeper& kk, Handler::Ptr&& h, Method::CreateOutput& m)
+            :RemoteCall_WithOwnerKey(kk, std::move(h))
             ,m_M(m)
         {
         }
@@ -730,7 +740,7 @@ namespace beam::wallet
 
                 SendDummyReq();
                 m_GetCommitment.m_Cid = m_M.m_Cid;
-                m_This.InvokeAsync(m_GetCommitment, shared_from_this());
+                m_This.InvokeAsyncStart(m_GetCommitment, shared_from_this());
             }
 
             if (4 == m_Phase)
@@ -804,8 +814,8 @@ namespace beam::wallet
         ECC::Oracle m_Oracle;
         uint32_t m_PtsMsgSent = 0;
 
-        RemoteCall_CreateInputShielded(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::CreateInputShielded& m)
-            :RemoteCall_WithOwnerKey(kk, h)
+        RemoteCall_CreateInputShielded(RemoteKeyKeeper& kk, Handler::Ptr&& h, Method::CreateInputShielded& m)
+            :RemoteCall_WithOwnerKey(kk, std::move(h))
             ,m_M(m)
             ,m_Prover(*m.m_pList, m.m_pKernel->m_SpendProof)
         {
@@ -1075,8 +1085,8 @@ namespace beam::wallet
     struct RemoteKeyKeeper::Impl::RemoteCall_CreateVoucherShielded
         :public RemoteCall
     {
-        RemoteCall_CreateVoucherShielded(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::CreateVoucherShielded& m)
-            :RemoteCall(kk, h)
+        RemoteCall_CreateVoucherShielded(RemoteKeyKeeper& kk, Handler::Ptr&& h, Method::CreateVoucherShielded& m)
+            :RemoteCall(kk, std::move(h))
             ,m_M(m)
         {
         }
@@ -1174,8 +1184,8 @@ namespace beam::wallet
     struct RemoteKeyKeeper::Impl::RemoteCall_CreateOfflineAddr
         :public RemoteCall_WithOwnerKey
     {
-        RemoteCall_CreateOfflineAddr(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::CreateOfflineAddr& m)
-            :RemoteCall_WithOwnerKey(kk, h)
+        RemoteCall_CreateOfflineAddr(RemoteKeyKeeper& kk, Handler::Ptr&& h, Method::CreateOfflineAddr& m)
+            :RemoteCall_WithOwnerKey(kk, std::move(h))
             ,m_M(m)
         {
         }
@@ -1305,8 +1315,8 @@ namespace beam::wallet
     struct RemoteKeyKeeper::Impl::RemoteCall_SignReceiver
         :public RemoteCall_WithCoins
     {
-        RemoteCall_SignReceiver(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::SignReceiver& m)
-            :RemoteCall_WithCoins(kk, h)
+        RemoteCall_SignReceiver(RemoteKeyKeeper& kk, Handler::Ptr&& h, Method::SignReceiver& m)
+            :RemoteCall_WithCoins(kk, std::move(h))
             ,m_M(m)
         {
         }
@@ -1350,8 +1360,8 @@ namespace beam::wallet
     struct RemoteKeyKeeper::Impl::RemoteCall_SignSender
         :public RemoteCall_WithCoins
     {
-        RemoteCall_SignSender(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::SignSender& m)
-            :RemoteCall_WithCoins(kk, h)
+        RemoteCall_SignSender(RemoteKeyKeeper& kk, Handler::Ptr&& h, Method::SignSender& m)
+            :RemoteCall_WithCoins(kk, std::move(h))
             ,m_M(m)
         {
         }
@@ -1442,8 +1452,8 @@ namespace beam::wallet
     struct RemoteKeyKeeper::Impl::RemoteCall_SignSendShielded
         :public RemoteCall_WithCoins
     {
-        RemoteCall_SignSendShielded(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::SignSendShielded& m)
-            :RemoteCall_WithCoins(kk, h)
+        RemoteCall_SignSendShielded(RemoteKeyKeeper& kk, Handler::Ptr&& h, Method::SignSendShielded& m)
+            :RemoteCall_WithCoins(kk, std::move(h))
             ,m_M(m)
         {
         }
@@ -1607,8 +1617,8 @@ namespace beam::wallet
     struct RemoteKeyKeeper::Impl::RemoteCall_SignSplit
         :public RemoteCall_WithCoins
     {
-        RemoteCall_SignSplit(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::SignSplit& m)
-            :RemoteCall_WithCoins(kk, h)
+        RemoteCall_SignSplit(RemoteKeyKeeper& kk, Handler::Ptr&& h, Method::SignSplit& m)
+            :RemoteCall_WithCoins(kk, std::move(h))
             ,m_M(m)
         {
         }
@@ -1646,8 +1656,8 @@ namespace beam::wallet
     struct RemoteKeyKeeper::Impl::RemoteCall_DisplayEndpoint
         :public RemoteCall
     {
-        RemoteCall_DisplayEndpoint(RemoteKeyKeeper& kk, const Handler::Ptr& h, Method::DisplayEndpoint& m)
-            :RemoteCall(kk, h)
+        RemoteCall_DisplayEndpoint(RemoteKeyKeeper& kk, Handler::Ptr&& h, Method::DisplayEndpoint& m)
+            :RemoteCall(kk, std::move(h))
             ,m_M(m)
         {
         }
@@ -1676,16 +1686,55 @@ namespace beam::wallet
     };
 
 
-
 #define THE_MACRO(method) \
+    void RemoteKeyKeeper::InvokeAsyncStart(Method::method& m, Handler::Ptr&& h) \
+    { \
+        auto pCall = std::make_shared<Impl::RemoteCall_##method>(*this, std::move(h), m); \
+        pCall->Update(); \
+    } \
+ \
     void RemoteKeyKeeper::InvokeAsync(Method::method& m, const Handler::Ptr& h) \
     { \
-        auto pCall = std::make_shared<Impl::RemoteCall_##method>(*this, h, m); \
-        pCall->Update(); \
+        if (m_InProgress) \
+        { \
+            struct MyPending :public Pending \
+            { \
+                Method::method* m_pMethod; \
+                void Start(RemoteKeyKeeper& kk) override  { kk.InvokeAsyncStart(*m_pMethod, std::move(m_pHandler)); } \
+            }; \
+            MyPending* p = new MyPending; \
+            m_lstPending.push_back(*p); \
+            p->m_pMethod = &m; \
+            p->m_pHandler = h; \
+        } \
+        else \
+            InvokeAsyncStart(m, Handler::Ptr(h)); \
     }
 
     KEY_KEEPER_METHODS(THE_MACRO)
 #undef THE_MACRO
 
+    void RemoteKeyKeeper::CheckPending()
+    {
+        while (!m_lstPending.empty() && !m_InProgress)
+        {
+            auto& x = m_lstPending.front();
+            std::unique_ptr<Pending> pGuard(&x);
+            m_lstPending.pop_front();
+
+            assert(x.m_pHandler);
+            if (x.m_pHandler.use_count() > 1) // already cancelled?
+            {
+                struct RecursionPreventor {
+                    uint32_t& m_Var;
+                    RecursionPreventor(uint32_t& var) :m_Var(var) { m_Var++;  }
+                    ~RecursionPreventor() { m_Var--; }
+
+                } rp(m_InProgress);
+
+                x.Start(*this);
+            }
+        }
+    }
 }
 

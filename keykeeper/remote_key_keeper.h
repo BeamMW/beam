@@ -15,9 +15,8 @@
 #pragma once
 
 #include "../wallet/core/private_key_keeper.h"
-#include <mutex>
-#include <boost/intrusive/list.hpp>
-#include <boost/intrusive/set.hpp>
+//#include <mutex>
+#include "../utility/containers.h"
 
 namespace beam::wallet
 {
@@ -25,6 +24,28 @@ namespace beam::wallet
         : public PrivateKeyKeeper_WithMarshaller
     {
         struct Impl;
+
+        struct Pending
+            :public boost::intrusive::list_base_hook<>
+        {
+            typedef intrusive::list_autoclear<Pending> List;
+
+            Handler::Ptr m_pHandler;
+
+            virtual ~Pending() {}
+            virtual void Start(RemoteKeyKeeper&) = 0;
+        };
+
+        Pending::List m_lstPending;
+        void CheckPending();
+
+        uint32_t m_InProgress = 0;
+
+#define THE_MACRO(method) \
+        void InvokeAsyncStart(Method::method& m, Handler::Ptr&&);
+        KEY_KEEPER_METHODS(THE_MACRO)
+#undef THE_MACRO
+
 
     public:
         RemoteKeyKeeper();
@@ -49,7 +70,7 @@ namespace beam::wallet
 
         struct Cache
         {
-            std::mutex m_Mutex;
+            //std::mutex m_Mutex;
 
             Key::IPKdf::Ptr m_pOwner;
 
