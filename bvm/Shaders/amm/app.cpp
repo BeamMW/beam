@@ -213,7 +213,10 @@ struct PoolsWalker
 
     PoolsWalker()
     {
-        Env::SelectContext(1, 0); // dependent
+        uint32_t nHft = 0;
+        Env::DocGet("hft", nHft);
+
+        Env::SelectContext(!!nHft, 0);
     }
 
     void Enum(const ContractID& cid)
