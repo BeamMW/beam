@@ -432,6 +432,68 @@ ON_METHOD(pool_destroy)
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &kid, 1, "Amm destroy pool", nCharge);
 }
 
+int AdjustAddedValues(const Totals& t, Amounts& d, int iAdjustDir)
+{
+    int cmp = t.TestAdd(d);
+    if (!cmp || !iAdjustDir)
+        return cmp;
+
+    Amount& v = (iAdjustDir > 0) ? d.m_Tok1 : d.m_Tok2;
+    Amount v0 = v;
+
+    // 1st phase: walk, while incrementing search radius, until the cmp sign changes
+    for (Amount rad = 1; ; )
+    {
+        if (iAdjustDir == cmp)
+        {
+            v = v0 - rad;
+            if (v > v0)
+                v = 0;
+        }
+        else
+        {
+            v = v0 + rad;
+            if (v < v0)
+                v = static_cast<Amount>(-1);
+        }
+
+        int cmp2 = t.TestAdd(d);
+        if (cmp2 != cmp)
+        {
+            if (!cmp2)
+                return 0;
+            break;
+        }
+
+        rad <<= 1;
+        if (!rad)
+            return cmp; // failed
+    }
+
+    // 2nd phase: median search
+    Amount v1 = v;
+    if (v1 < v0)
+    {
+        std::swap(v0, v1);
+        cmp = -cmp;
+    }
+
+    while (true)
+    {
+        v = v0 + ((v1 - v0) >> 1); // overflow-resistant
+        if (v == v0)
+            return cmp; // oops
+
+        int cmp2 = t.TestAdd(d);
+        if (!cmp2)
+            break;
+
+        ((cmp2 == cmp) ? v0 : v1) = v;
+    }
+
+    return 0;
+}
+
 ON_METHOD(pool_add_liquidity)
 {
     Method::AddLiquidity arg;
@@ -483,7 +545,7 @@ ON_METHOD(pool_add_liquidity)
             iAdjustDir = 1;
         }
 
-        int n = t.TestAdd(arg.m_Amounts);
+        int n = AdjustAddedValues(t, arg.m_Amounts, iAdjustDir);
         if (n)
             // TODO: auto-adjust values
             return OnError((n > 0) ? "val1 too large" : "val2 too large");
