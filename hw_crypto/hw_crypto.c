@@ -1044,21 +1044,18 @@ int Point_Ge_from_Compact(secp256k1_ge* pGe, const CompactPoint* pCompact)
 	return 1;
 }
 
-#ifndef BeamCrypto_ExternalGej
-void Point_Ge_from_Gej(secp256k1_ge* pGe, const gej_t* pGej)
+#ifdef BeamCrypto_ExternalGej
+
+void MulPoint(gej_t* pGej, const secp256k1_ge_storage* pGen, const secp256k1_scalar* pK)
 {
-	secp256k1_ge_set_gej_var(pGe, (gej_t*) pGej); // expensive, better to a batch convertion
-	Suffer(1000); // Very heavy
+	Gej_Set_ge_storage(pGej, pGen);
+	Gej_MulSecure(pGej, pGej, pK);
 }
-#endif // BeamCrypto_ExternalGej
+
+#else // BeamCrypto_ExternalGej
 
 void MulPoint(gej_t* pGej, const MultiMac_Secure* pGen, const secp256k1_scalar* pK)
 {
-#ifdef BeamCrypto_ExternalGej
-	Gej_Set_ge_storage(pGej, pGen->m_pPt);
-	Gej_MulSecure(pGej, pGej, pK);
-#else // BeamCrypto_ExternalGej
-
 	MultiMac_Context ctx;
 	ctx.m_pRes = pGej;
 	ctx.m_Fast.m_Count = 0;
@@ -1067,8 +1064,15 @@ void MulPoint(gej_t* pGej, const MultiMac_Secure* pGen, const secp256k1_scalar* 
 	ctx.m_Secure.m_pK = pK;
 
 	MultiMac_Calculate(&ctx);
-#endif // BeamCrypto_ExternalGej
 }
+
+void Point_Ge_from_Gej(secp256k1_ge* pGe, const gej_t* pGej)
+{
+	secp256k1_ge_set_gej_var(pGe, (gej_t*) pGej); // expensive, better to a batch convertion
+	Suffer(1000); // Very heavy
+}
+
+#endif // BeamCrypto_ExternalGej
 
 void MulG(gej_t* pGej, const secp256k1_scalar* pK)
 {
@@ -1406,7 +1410,7 @@ void CoinID_getCommRawEx(const secp256k1_scalar* pkG, secp256k1_scalar* pkH, con
 
 	if (!pAGen)
 	{
-		Gej_Set_ge_storage(&gej, pCtx->m_pGenH);
+		Gej_Set_ge_storage(&gej, &pCtx->m_GenH);
 		pAGen = &gej;
 	}
 

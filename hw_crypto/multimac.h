@@ -69,9 +69,15 @@ void MultiMac_Calculate(MultiMac_Context*);
 
 typedef struct
 {
+#ifdef BeamCrypto_ExternalGej
+	secp256k1_ge_storage m_pGenRangeproof[c_MultiMac_Fast_nGenerators][1];
+	secp256k1_ge_storage m_GenH;
+	secp256k1_ge_storage m_pGenGJ[2];
+#else // BeamCrypto_ExternalGej
 	secp256k1_ge_storage m_pGenRangeproof[c_MultiMac_Fast_nGenerators][c_MultiMac_OddCount(c_MultiMac_nBits_Rangeproof)];
 	secp256k1_ge_storage m_pGenH[c_MultiMac_OddCount(c_MultiMac_nBits_H)];
 	MultiMac_Secure m_pGenGJ[2];
+#endif // BeamCrypto_ExternalGej
 
 } Context;
 

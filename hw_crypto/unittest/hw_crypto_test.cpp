@@ -222,10 +222,23 @@ hw::CompactPoint& Ecc2BC(const ECC::Point& x)
 	return (hw::CompactPoint&) x;
 }
 
-void BeamCrypto_InitGenSecure(hw::MultiMac_Secure& x, const ECC::Point::Native& ptVal, const ECC::Point::Native& nums)
+#ifdef BeamCrypto_ExternalGej
+
+void BeamCrypto_InitGenSecure(secp256k1_ge_storage& x, const ECC::Point::Compact& ptS, const ECC::Point::Native&)
+{
+	x = ptS;
+}
+
+#else // BeamCrypto_ExternalGej
+
+void BeamCrypto_InitGenSecure(hw::MultiMac_Secure& x, const ECC::Point::Compact& ptS, const ECC::Point::Native& nums)
 {
 	ECC::Point::Compact::Converter cpc;
 	ECC::Point::Native pt = nums;
+
+	ECC::Point::Native ptVal;
+	ptS.Assign(ptVal, true);
+
 
 	for (unsigned int i = 0; ; pt += ptVal)
 	{
@@ -248,6 +261,8 @@ void BeamCrypto_InitGenSecure(hw::MultiMac_Secure& x, const ECC::Point::Native& 
 	cpc.set_Deferred(Cast::Up<ECC::Point::Compact>(x.m_pPt[c_MultiMac_Secure_nCount]), pt);
 	cpc.Flush();
 }
+
+#endif // BeamCrypto_ExternalGej
 
 void BeamCrypto_InitFast(secp256k1_ge_storage* pRes, const ECC::MultiMac::Prepared& p, uint32_t nCount)
 {
@@ -293,21 +308,23 @@ void InitContext()
 
 	const ECC::Context& ctx = ECC::Context::get();
 
-	ECC::Point::Native nums, pt;
+	ECC::Point::Native nums;
 	ctx.m_Ipp.m_GenDot_.m_Fast.m_pPt[0].Assign(nums, true); // whatever point, doesn't matter actually
 
-	ctx.m_Ipp.G_.m_Fast.m_pPt[0].Assign(pt, true);
-	BeamCrypto_InitGenSecure(hwCtx.m_pGenGJ[0], pt, nums);
+	BeamCrypto_InitGenSecure(hwCtx.m_pGenGJ[0], ctx.m_Ipp.G_.m_Fast.m_pPt[0], nums);
 
-	ctx.m_Ipp.J_.m_Fast.m_pPt[0].Assign(pt, true);
-	BeamCrypto_InitGenSecure(hwCtx.m_pGenGJ[1], pt, nums);
+	BeamCrypto_InitGenSecure(hwCtx.m_pGenGJ[1], ctx.m_Ipp.J_.m_Fast.m_pPt[0], nums);
 
 	static_assert(ECC::InnerProduct::nDim * 2 == _countof(hwCtx.m_pGenRangeproof));
 
 	for (uint32_t iGen = 0; iGen < ECC::InnerProduct::nDim * 2; iGen++)
 		BeamCrypto_InitFast(hwCtx.m_pGenRangeproof[iGen], ECC::Context::get().m_Ipp.m_pGen_[0][iGen], _countof(hwCtx.m_pGenRangeproof[iGen]));
 
+#ifdef BeamCrypto_ExternalGej
+	BeamCrypto_InitFast(&hwCtx.m_GenH, ECC::Context::get().m_Ipp.H_, 1);
+#else // BeamCrypto_ExternalGej
 	BeamCrypto_InitFast(hwCtx.m_pGenH, ECC::Context::get().m_Ipp.H_, _countof(hwCtx.m_pGenH));
+#endif // BeamCrypto_ExternalGej
 
 	// dump it
 	auto p = reinterpret_cast<const uint8_t*>(&hwCtx);
@@ -388,20 +405,19 @@ void TestMultiMac()
 		mm1.m_ppPrepared[iGen] = &p;
 	}
 
-	ECC::Point::Native ptVal, nums;
+	ECC::Point::Native nums;
 	ECC::Context::get().m_Ipp.m_GenDot_.m_Fast.m_pPt[0].Assign(nums, true); // whatever point, doesn't matter actually
+
+#ifndef BeamCrypto_ExternalGej
 
 	for (uint32_t iGen = 0; iGen < nSecure; iGen++)
 	{
 		const ECC::MultiMac::Prepared& p = ECC::Context::get().m_Ipp.m_pGen_[0][nFast + iGen];
 		mm1.m_ppPrepared[nFast + iGen] = &p;
 
-		p.m_Fast.m_pPt[0].Assign(ptVal, true);
-
-		BeamCrypto_InitGenSecure(pGenSecure[iGen], ptVal, nums);
+		BeamCrypto_InitGenSecure(pGenSecure[iGen], p.m_Fast.m_pPt[0], nums);
 	}
 
-#ifndef BeamCrypto_ExternalGej
 	for (int i = 0; i < 10; i++)
 	{
 		mm1.Reset();
