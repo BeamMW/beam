@@ -173,11 +173,149 @@ void Gej_Init(gej_t* p)
 	p->m_Handle = 0;
 }
 
-void Gej_Destroy(gej_t* p);
-void Gej_Add(gej_t*, const gej_t*, const gej_t*);
-void Gej_MulFast(gej_t*, const gej_t*, const secp256k1_scalar*);
-void Gej_MulSecure(gej_t*, const gej_t*, const secp256k1_scalar*);
-void Gej_Set_ge_storage(gej_t*, const secp256k1_ge_storage*);
+void Gej_Destroy(gej_t* p)
+{
+	if (p->m_Handle)
+		GejExt_Destroy(p->m_Handle);
+}
+
+void Gej_RemoveHandle(gej_t* p)
+{
+	assert(p->m_Handle);
+	GejExt_Destroy(p->m_Handle);
+	p->m_Handle = 0;
+}
+
+void Gej_EnsureHandle(gej_t* p)
+{
+	if (!p->m_Handle)
+		p->m_Handle = GejExt_Create();
+}
+
+void Gej_EnsureNoHandle(gej_t* p)
+{
+	if (p->m_Handle)
+		Gej_RemoveHandle(p);
+}
+
+void Gej_PostOp(gej_t* p, int res)
+{
+	assert(p->m_Handle);
+	if (!res)
+		Gej_RemoveHandle(p);
+}
+
+void Gej_Add(gej_t* p, const gej_t* a, const gej_t* b)
+{
+	if (a->m_Handle)
+	{
+		uint32_t hB = b->m_Handle;
+		Gej_EnsureHandle(p); // could be b
+
+		if (hB)
+			Gej_PostOp(p, GejExt_Add(p->m_Handle, a->m_Handle, hB));
+		else
+			GejExt_Copy(p->m_Handle, a->m_Handle);
+	}
+	else
+	{
+		if (b->m_Handle)
+		{
+			Gej_EnsureHandle(p);
+			GejExt_Copy(p->m_Handle, b->m_Handle);
+		}
+		else
+			Gej_EnsureNoHandle(p);
+	}
+}
+
+void Gej_Mul(gej_t* p, const gej_t* a, const secp256k1_scalar* k, int bFast)
+{
+	if (a->m_Handle)
+	{
+		Gej_EnsureHandle(p);
+		Gej_PostOp(p, GejExt_Mul(p->m_Handle, a->m_Handle, k, bFast));
+	}
+	else
+		Gej_EnsureNoHandle(p);
+}
+
+
+void Gej_MulFast(gej_t* p, const gej_t* a, const secp256k1_scalar* k)
+{
+	Gej_Mul(p, a, k, 1);
+}
+
+void Gej_MulSecure(gej_t* p, const gej_t* a, const secp256k1_scalar* k)
+{
+	Gej_Mul(p, a, k, 0);
+}
+
+static void Convert_fe(secp256k1_fe_storage* p)
+{
+	for (uint32_t i = 0; i < _countof(p->n) / 2; i++)
+	{
+		uint32_t* p1 = p->n + i;
+		uint32_t* p2 = p->n + _countof(p->n) - 1 - i;
+
+		uint32_t a1 = *p1;
+		uint32_t a2 = *p2;
+
+		*p2 = bswap32_be(a1);
+		*p1 = bswap32_be(a2);
+	}
+}
+
+static void Convert_ge(secp256k1_ge_storage* pDst)
+{
+	Convert_fe(&pDst->x);
+	Convert_fe(&pDst->y);
+}
+
+void Gej_Set_ge_storage(gej_t* p, const secp256k1_ge_storage* pGes)
+{
+	secp256k1_ge_storage ges2 = *pGes;
+	Convert_ge(&ges2);
+
+	Gej_EnsureHandle(p);
+	GejExt_Set(p->m_Handle, (AffinePoint*) &ges2);
+}
+
+void Point_Gej_from_Ge(gej_t* p, const secp256k1_ge* pGe)
+{
+	if (secp256k1_ge_is_infinity(pGe))
+		Gej_EnsureNoHandle(p);
+	else
+	{
+		AffinePoint ap;
+
+		secp256k1_fe_normalize((secp256k1_fe*) &pGe->x); // seems unnecessary, but ok
+		secp256k1_fe_normalize((secp256k1_fe*) &pGe->y);
+
+		secp256k1_fe_get_b32(ap.m_X.m_pVal, &pGe->x);
+		secp256k1_fe_get_b32(ap.m_Y.m_pVal, &pGe->y);
+
+		Gej_EnsureHandle(p);
+		GejExt_Set(p->m_Handle, &ap);
+	}
+}
+
+void Point_Ge_from_Gej(secp256k1_ge* pGe, const gej_t* p)
+{
+	if (p->m_Handle)
+	{
+		secp256k1_ge_storage ges;
+		GejExt_Get(p->m_Handle, (AffinePoint*) &ges);
+
+		Suffer(1000); // Very heavy
+
+		Convert_ge(&ges);
+		secp256k1_ge_from_storage(pGe, &ges);
+	}
+	else
+		pGe->infinity = 1; // no specific function like secp256k1_ge_set_infinity
+}
+
 
 int Gej_Is_infinity(const gej_t* p)
 {
@@ -1362,9 +1500,13 @@ static void CoinID_getSkComm_FromNonSwitchK(const CoinID* pCid, secp256k1_scalar
 	{
 		MulG(pGej + 1, &kDelta);
 
+#ifdef BeamCrypto_ExternalGej
+		wrap_gej_add_var(pGej + 1, pGej + 1, pGej);
+#else // BeamCrypto_ExternalGej
 		// pGej[0] is ge
-
 		wrap_gej_add_ge_var(pGej + 1, pGej + 1, (secp256k1_ge*) pGej);
+#endif // BeamCrypto_ExternalGej
+
 		Point_Compact_from_Gej(pComm, pGej + 1);
 	}
 

@@ -90,6 +90,71 @@ extern "C"
 		memcpy(pDst + nOffset, p, nSize);
 	}
 
+#ifdef BeamCrypto_ExternalGej
+
+	struct ExtGej
+	{
+		std::map<uint32_t, secp256k1_gej> m_Map;
+	};
+
+	thread_local ExtGej* g_pExtGej;
+
+	uint32_t GejExt_Create()
+	{
+		uint32_t ret = g_pExtGej->m_Map.empty() ? 1u : (g_pExtGej->m_Map.rbegin()->first + 1);
+		g_pExtGej->m_Map[ret];
+		return ret;
+	}
+
+	ECC::Point::Native& GejExt_GetStrict(uint32_t h)
+	{
+		auto it = g_pExtGej->m_Map.find(h);
+		return Cast::Reinterpret<ECC::Point::Native>(it->second);
+	}
+
+	void GejExt_Copy(uint32_t hDst, uint32_t hSrc)
+	{
+		GejExt_GetStrict(hDst) = GejExt_GetStrict(hSrc);
+	}
+
+	void GejExt_Destroy(uint32_t hDst)
+	{
+		auto it = g_pExtGej->m_Map.find(hDst);
+		g_pExtGej->m_Map.erase(hDst);
+	}
+
+	int GejExt_Add(uint32_t hDst, uint32_t a, uint32_t b)
+	{
+		auto& dst = GejExt_GetStrict(hDst);
+		dst = GejExt_GetStrict(a) + GejExt_GetStrict(b);
+
+		return dst != Zero;
+	}
+
+	int GejExt_Mul(uint32_t hDst, uint32_t hSrc, const secp256k1_scalar* pK, int /* bFast */)
+	{
+		auto& dst = GejExt_GetStrict(hDst);
+
+		dst = GejExt_GetStrict(hSrc) * Cast::Reinterpret<ECC::Scalar::Native>(*pK);
+
+		return dst != Zero;
+	}
+
+	void GejExt_Set(uint32_t hDst, const AffinePoint* pAp)
+	{
+		auto& dst = GejExt_GetStrict(hDst);
+		dst.Import(Cast::Reinterpret<ECC::Point::Storage>(*pAp), false);
+	}
+
+	void GejExt_Get(uint32_t hDst, AffinePoint* pAp)
+	{
+		auto& dst = GejExt_GetStrict(hDst);
+		assert(dst != Zero);
+		dst.Export(Cast::Reinterpret<ECC::Point::Storage>(*pAp));
+	}
+
+#endif // BeamCrypto_ExternalGej
+
 }
 
 } // namespace hw
@@ -336,7 +401,7 @@ void TestMultiMac()
 		BeamCrypto_InitGenSecure(pGenSecure[iGen], ptVal, nums);
 	}
 
-
+#ifndef BeamCrypto_ExternalGej
 	for (int i = 0; i < 10; i++)
 	{
 		mm1.Reset();
@@ -363,6 +428,8 @@ void TestMultiMac()
 
 		verify_test(res1 == res2);
 	}
+#endif // BeamCrypto_ExternalGej
+
 }
 
 void TestNonceGen()
@@ -1571,6 +1638,11 @@ int main()
 	ECC::PseudoRandomGenerator prg;
 	ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
 
+#ifdef BeamCrypto_ExternalGej
+	hw::ExtGej extGej;
+	hw::g_pExtGej = &extGej;
+#endif // BeamCrypto_ExternalGej
+
 	//InitContext();
 
 	TestMisc();
@@ -1586,6 +1658,11 @@ int main()
 	TestKeyKeeperTxs();
 
 	printf("All done\n");
+
+#ifdef BeamCrypto_ExternalGej
+	verify_test(extGej.m_Map.empty());
+#endif // BeamCrypto_ExternalGej
+
 
     return g_TestsFailed ? -1 : 0;
 }

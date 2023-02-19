@@ -53,7 +53,26 @@ typedef struct
 } CompactPoint;
 
 
+typedef struct
+{
+	UintBig m_X;
+	UintBig m_Y;
+} AffinePoint;
+
 int Point_Ge_from_Compact(secp256k1_ge*, const CompactPoint*);
 int Point_Ge_from_CompactNnz(secp256k1_ge*, const CompactPoint*);
 void Point_Compact_from_Ge(CompactPoint*, const secp256k1_ge*);
 uint8_t Point_Compact_from_Ge_Ex(UintBig* pX, const secp256k1_ge*);
+
+#ifdef BeamCrypto_ExternalGej
+
+uint32_t GejExt_Create();
+void GejExt_Copy(uint32_t, uint32_t hSrc);
+void GejExt_Destroy(uint32_t);
+
+int GejExt_Add(uint32_t, uint32_t, uint32_t);
+int GejExt_Mul(uint32_t, uint32_t, const secp256k1_scalar*, int bFast);
+void GejExt_Set(uint32_t, const AffinePoint*);
+void GejExt_Get(uint32_t, AffinePoint*);
+
+#endif // BeamCrypto_ExternalGej
