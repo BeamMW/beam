@@ -224,9 +224,23 @@ hw::CompactPoint& Ecc2BC(const ECC::Point& x)
 
 #ifdef BeamCrypto_ExternalGej
 
-void BeamCrypto_InitGenSecure(secp256k1_ge_storage& x, const ECC::Point::Compact& ptS, const ECC::Point::Native&)
+void BeamCrypto_SetAffine(hw::AffinePoint& x, const ECC::Point::Compact& ptS)
 {
-	x = ptS;
+	auto& dst = Cast::Reinterpret<ECC::Point::Storage>(x);
+
+	secp256k1_ge ge;
+	ptS.Assign(ge);
+	dst.FromNnz(ge);
+}
+
+void BeamCrypto_InitGenSecure(hw::AffinePoint& x, const ECC::Point::Compact& ptS, const ECC::Point::Native&)
+{
+	BeamCrypto_SetAffine(x, ptS);
+}
+
+void BeamCrypto_InitFast(hw::AffinePoint* pRes, const ECC::MultiMac::Prepared& p, uint32_t nCount)
+{
+	BeamCrypto_SetAffine(*pRes, p.m_Fast.m_pPt[0]);
 }
 
 #else // BeamCrypto_ExternalGej
@@ -262,8 +276,6 @@ void BeamCrypto_InitGenSecure(hw::MultiMac_Secure& x, const ECC::Point::Compact&
 	cpc.Flush();
 }
 
-#endif // BeamCrypto_ExternalGej
-
 void BeamCrypto_InitFast(secp256k1_ge_storage* pRes, const ECC::MultiMac::Prepared& p, uint32_t nCount)
 {
 	const ECC::MultiMac::Prepared::Fast& src = p.m_Fast;
@@ -273,6 +285,8 @@ void BeamCrypto_InitFast(secp256k1_ge_storage* pRes, const ECC::MultiMac::Prepar
 	for (uint32_t j = 0; j < nCount; j++)
 		pRes[j] = src.m_pPt[j];
 }
+
+#endif // BeamCrypto_ExternalGej
 
 char Dig2Hex(uint8_t x)
 {
@@ -367,6 +381,8 @@ void TestMisc()
 
 void TestMultiMac()
 {
+#ifndef BeamCrypto_ExternalGej
+
 	printf("MultiMac...\n");
 
 	ECC::Mode::Scope scope(ECC::Mode::Fast);
@@ -408,7 +424,6 @@ void TestMultiMac()
 	ECC::Point::Native nums;
 	ECC::Context::get().m_Ipp.m_GenDot_.m_Fast.m_pPt[0].Assign(nums, true); // whatever point, doesn't matter actually
 
-#ifndef BeamCrypto_ExternalGej
 
 	for (uint32_t iGen = 0; iGen < nSecure; iGen++)
 	{

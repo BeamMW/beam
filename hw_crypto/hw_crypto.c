@@ -251,34 +251,11 @@ void Gej_MulSecure(gej_t* p, const gej_t* a, const secp256k1_scalar* k)
 	Gej_Mul(p, a, k, 0);
 }
 
-static void Convert_fe(secp256k1_fe_storage* p)
+
+void Gej_Set_Affine(gej_t* p, const AffinePoint* pAp)
 {
-	for (uint32_t i = 0; i < _countof(p->n) / 2; i++)
-	{
-		uint32_t* p1 = p->n + i;
-		uint32_t* p2 = p->n + _countof(p->n) - 1 - i;
-
-		uint32_t a1 = *p1;
-		uint32_t a2 = *p2;
-
-		*p2 = bswap32_be(a1);
-		*p1 = bswap32_be(a2);
-	}
-}
-
-static void Convert_ge(secp256k1_ge_storage* pDst)
-{
-	Convert_fe(&pDst->x);
-	Convert_fe(&pDst->y);
-}
-
-void Gej_Set_ge_storage(gej_t* p, const secp256k1_ge_storage* pGes)
-{
-	secp256k1_ge_storage ges2 = *pGes;
-	Convert_ge(&ges2);
-
 	Gej_EnsureHandle(p);
-	GejExt_Set(p->m_Handle, (AffinePoint*) &ges2);
+	GejExt_Set(p->m_Handle, pAp);
 }
 
 void Point_Gej_from_Ge(gej_t* p, const secp256k1_ge* pGe)
@@ -300,17 +277,24 @@ void Point_Gej_from_Ge(gej_t* p, const secp256k1_ge* pGe)
 	}
 }
 
+void Point_Ge_from_Affine(secp256k1_ge* pGe, const AffinePoint* pAp)
+{
+	secp256k1_fe_set_b32(&pGe->x, pAp->m_X.m_pVal);
+	secp256k1_fe_set_b32(&pGe->y, pAp->m_Y.m_pVal);
+	pGe->infinity = 0;
+}
+
+__stack_hungry__
 void Point_Ge_from_Gej(secp256k1_ge* pGe, const gej_t* p)
 {
 	if (p->m_Handle)
 	{
-		secp256k1_ge_storage ges;
-		GejExt_Get(p->m_Handle, (AffinePoint*) &ges);
+		AffinePoint ap;
+		GejExt_Get(p->m_Handle, &ap);
 
 		Suffer(1000); // Very heavy
 
-		Convert_ge(&ges);
-		secp256k1_ge_from_storage(pGe, &ges);
+		Point_Ge_from_Affine(pGe, &ap);
 	}
 	else
 		pGe->infinity = 1; // no specific function like secp256k1_ge_set_infinity
@@ -1046,9 +1030,9 @@ int Point_Ge_from_Compact(secp256k1_ge* pGe, const CompactPoint* pCompact)
 
 #ifdef BeamCrypto_ExternalGej
 
-void MulPoint(gej_t* pGej, const secp256k1_ge_storage* pGen, const secp256k1_scalar* pK)
+void MulPoint(gej_t* pGej, const AffinePoint* pGen, const secp256k1_scalar* pK)
 {
-	Gej_Set_ge_storage(pGej, pGen);
+	Gej_Set_Affine(pGej, pGen);
 	Gej_MulSecure(pGej, pGej, pK);
 }
 
@@ -1410,7 +1394,7 @@ void CoinID_getCommRawEx(const secp256k1_scalar* pkG, secp256k1_scalar* pkH, con
 
 	if (!pAGen)
 	{
-		Gej_Set_ge_storage(&gej, &pCtx->m_GenH);
+		Gej_Set_Affine(&gej, &pCtx->m_GenH);
 		pAGen = &gej;
 	}
 
@@ -1714,7 +1698,7 @@ static void RangeProof_Calculate_S(RangeProof* const p, RangeProof_Worker* const
 
 #ifdef BeamCrypto_ExternalGej
 
-		Gej_Set_ge_storage(pWrk->m_pGej, Context_get()->m_pGenRangeproof[iBit]);
+		Gej_Set_Affine(pWrk->m_pGej, Context_get()->m_pGenRangeproof[iBit]);
 		Gej_MulFast(pWrk->m_pGej, pWrk->m_pGej, &s);
 		Gej_Add(pWrk->m_pGej + 1, pWrk->m_pGej + 1, pWrk->m_pGej);
 
@@ -1735,6 +1719,30 @@ static void RangeProof_Calculate_S(RangeProof* const p, RangeProof_Worker* const
 static void RangeProof_Calculate_A_Bits(gej_t* pRes, secp256k1_ge* pGeTmp, Amount v)
 {
 	Context* pCtx = Context_get();
+
+#ifdef BeamCrypto_ExternalGej
+
+	gej_t gej;
+	Gej_Init(&gej);
+
+	for (uint32_t i = 0; i < nDims; i++)
+	{
+		if (1 & (v >> i))
+			Gej_Set_Affine(&gej, pCtx->m_pGenRangeproof[i]);
+		else
+		{
+			Point_Ge_from_Affine(pGeTmp, pCtx->m_pGenRangeproof[nDims + i]);
+			secp256k1_ge_neg(pGeTmp, pGeTmp);
+			Point_Gej_from_Ge(&gej, pGeTmp);
+		}
+
+		Gej_Add(pRes, pRes, &gej);
+	}
+
+	Gej_Destroy(&gej);
+
+#else // BeamCrypto_ExternalGej
+
 	for (uint32_t i = 0; i < nDims; i++)
 	{
 		if (1 & (v >> i))
@@ -1747,6 +1755,8 @@ static void RangeProof_Calculate_A_Bits(gej_t* pRes, secp256k1_ge* pGeTmp, Amoun
 
 		wrap_gej_add_ge_var(pRes, pRes, pGeTmp);
 	}
+
+#endif // BeamCrypto_ExternalGej
 }
 
 __stack_hungry__
