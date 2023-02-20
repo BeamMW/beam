@@ -94,63 +94,57 @@ extern "C"
 
 	struct ExtGej
 	{
-		std::map<uint32_t, secp256k1_gej> m_Map;
+		std::set<gej_t*> m_Set;
 	};
 
 	thread_local ExtGej* g_pExtGej;
 
-	uint32_t GejExt_Create()
+
+	void Gej_Init(gej_t* p)
 	{
-		uint32_t ret = g_pExtGej->m_Map.empty() ? 1u : (g_pExtGej->m_Map.rbegin()->first + 1);
-		g_pExtGej->m_Map[ret];
-		return ret;
+		g_pExtGej->m_Set.insert(p);
+		p->m_Val.infinity = 1;
 	}
 
-	ECC::Point::Native& GejExt_GetStrict(uint32_t h)
+	void Gej_Destroy(gej_t* p)
 	{
-		auto it = g_pExtGej->m_Map.find(h);
-		return Cast::Reinterpret<ECC::Point::Native>(it->second);
+		auto it = g_pExtGej->m_Set.find(p);
+		g_pExtGej->m_Set.erase(it);
 	}
 
-	void GejExt_Copy(uint32_t hDst, uint32_t hSrc)
+	int Gej_Is_infinity(const gej_t* p)
 	{
-		GejExt_GetStrict(hDst) = GejExt_GetStrict(hSrc);
+		return Cast::Reinterpret<ECC::Point::Native>(p->m_Val) == Zero;
 	}
 
-	void GejExt_Destroy(uint32_t hDst)
+	void Gej_Add(gej_t* p, const gej_t* a, const gej_t* b)
 	{
-		auto it = g_pExtGej->m_Map.find(hDst);
-		g_pExtGej->m_Map.erase(hDst);
+		Cast::Reinterpret<ECC::Point::Native>(p->m_Val) =
+			Cast::Reinterpret<ECC::Point::Native>(a->m_Val) +
+			Cast::Reinterpret<ECC::Point::Native>(b->m_Val);
 	}
 
-	int GejExt_Add(uint32_t hDst, uint32_t a, uint32_t b)
+	void Gej_Mul_Ub(gej_t* p, const gej_t* a, const UintBig* k, int bFast)
 	{
-		auto& dst = GejExt_GetStrict(hDst);
-		dst = GejExt_GetStrict(a) + GejExt_GetStrict(b);
-
-		return dst != Zero;
+		Cast::Reinterpret<ECC::Point::Native>(p->m_Val) =
+			Cast::Reinterpret<ECC::Point::Native>(a->m_Val) * Cast::Reinterpret<ECC::Scalar>(*k);
 	}
 
-	int GejExt_Mul(uint32_t hDst, uint32_t hSrc, const secp256k1_scalar* pK, int /* bFast */)
+	void Gej_Mul2_Fast(gej_t* p, const gej_t* a, const UintBig* ka, const gej_t* b, const UintBig* kb)
 	{
-		auto& dst = GejExt_GetStrict(hDst);
-
-		dst = GejExt_GetStrict(hSrc) * Cast::Reinterpret<ECC::Scalar::Native>(*pK);
-
-		return dst != Zero;
+		ECC::Point::Native pt1 = Cast::Reinterpret<ECC::Point::Native>(a->m_Val) * Cast::Reinterpret<ECC::Scalar>(*ka);
+		ECC::Point::Native pt2 = Cast::Reinterpret<ECC::Point::Native>(b->m_Val) * Cast::Reinterpret<ECC::Scalar>(*kb);
+		Cast::Reinterpret<ECC::Point::Native>(p->m_Val) = pt1 + pt2;
 	}
 
-	void GejExt_Set(uint32_t hDst, const AffinePoint* pAp)
+	void Gej_Set_Affine(gej_t* p, const AffinePoint* pAp)
 	{
-		auto& dst = GejExt_GetStrict(hDst);
-		dst.Import(Cast::Reinterpret<ECC::Point::Storage>(*pAp), false);
+		Cast::Reinterpret<ECC::Point::Native>(p->m_Val).Import(Cast::Reinterpret<ECC::Point::Storage>(*pAp), false);
+		
 	}
-
-	void GejExt_Get(uint32_t hDst, AffinePoint* pAp)
+	void Gej_Get_Affine(const gej_t* p, AffinePoint* pAp)
 	{
-		auto& dst = GejExt_GetStrict(hDst);
-		assert(dst != Zero);
-		dst.Export(Cast::Reinterpret<ECC::Point::Storage>(*pAp));
+		Cast::Reinterpret<ECC::Point::Native>(p->m_Val).Export(Cast::Reinterpret<ECC::Point::Storage>(*pAp));
 	}
 
 #endif // BeamCrypto_ExternalGej
@@ -1691,7 +1685,7 @@ int main()
 	printf("All done\n");
 
 #ifdef BeamCrypto_ExternalGej
-	verify_test(extGej.m_Map.empty());
+	verify_test(extGej.m_Set.empty());
 #endif // BeamCrypto_ExternalGej
 
 

@@ -161,83 +161,18 @@ void Suffer(uint16_t n)
 
 #ifdef BeamCrypto_ExternalGej
 
-typedef struct
-{
-	uint32_t m_Handle; // 0 for infinity
-} gej_t;
 
 typedef gej_t CustomGenerator;
 
-void Gej_Init(gej_t* p)
-{
-	p->m_Handle = 0;
-}
-
-void Gej_Destroy(gej_t* p)
-{
-	if (p->m_Handle)
-		GejExt_Destroy(p->m_Handle);
-}
-
-void Gej_RemoveHandle(gej_t* p)
-{
-	assert(p->m_Handle);
-	GejExt_Destroy(p->m_Handle);
-	p->m_Handle = 0;
-}
-
-void Gej_EnsureHandle(gej_t* p)
-{
-	if (!p->m_Handle)
-		p->m_Handle = GejExt_Create();
-}
-
-void Gej_EnsureNoHandle(gej_t* p)
-{
-	if (p->m_Handle)
-		Gej_RemoveHandle(p);
-}
-
-void Gej_PostOp(gej_t* p, int res)
-{
-	assert(p->m_Handle);
-	if (!res)
-		Gej_RemoveHandle(p);
-}
-
-void Gej_Add(gej_t* p, const gej_t* a, const gej_t* b)
-{
-	if (a->m_Handle)
-	{
-		uint32_t hB = b->m_Handle;
-		Gej_EnsureHandle(p); // could be b
-
-		if (hB)
-			Gej_PostOp(p, GejExt_Add(p->m_Handle, a->m_Handle, hB));
-		else
-			GejExt_Copy(p->m_Handle, a->m_Handle);
-	}
-	else
-	{
-		if (b->m_Handle)
-		{
-			Gej_EnsureHandle(p);
-			GejExt_Copy(p->m_Handle, b->m_Handle);
-		}
-		else
-			Gej_EnsureNoHandle(p);
-	}
-}
-
 void Gej_Mul(gej_t* p, const gej_t* a, const secp256k1_scalar* k, int bFast)
 {
-	if (a->m_Handle)
-	{
-		Gej_EnsureHandle(p);
-		Gej_PostOp(p, GejExt_Mul(p->m_Handle, a->m_Handle, k, bFast));
-	}
-	else
-		Gej_EnsureNoHandle(p);
+	UintBig s;
+	secp256k1_scalar_get_b32(s.m_pVal, k);
+
+	Gej_Mul_Ub(p, a, &s, bFast);
+
+	if (!bFast)
+		SECURE_ERASE_OBJ(s);
 }
 
 
@@ -251,17 +186,10 @@ void Gej_MulSecure(gej_t* p, const gej_t* a, const secp256k1_scalar* k)
 	Gej_Mul(p, a, k, 0);
 }
 
-
-void Gej_Set_Affine(gej_t* p, const AffinePoint* pAp)
-{
-	Gej_EnsureHandle(p);
-	GejExt_Set(p->m_Handle, pAp);
-}
-
 void Point_Gej_from_Ge(gej_t* p, const secp256k1_ge* pGe)
 {
 	if (secp256k1_ge_is_infinity(pGe))
-		Gej_EnsureNoHandle(p);
+		Gej_Destroy(p);
 	else
 	{
 		AffinePoint ap;
@@ -272,8 +200,7 @@ void Point_Gej_from_Ge(gej_t* p, const secp256k1_ge* pGe)
 		secp256k1_fe_get_b32(ap.m_X.m_pVal, &pGe->x);
 		secp256k1_fe_get_b32(ap.m_Y.m_pVal, &pGe->y);
 
-		Gej_EnsureHandle(p);
-		GejExt_Set(p->m_Handle, &ap);
+		Gej_Set_Affine(p, &ap);
 	}
 }
 
@@ -287,38 +214,37 @@ void Point_Ge_from_Affine(secp256k1_ge* pGe, const AffinePoint* pAp)
 __stack_hungry__
 void Point_Ge_from_Gej(secp256k1_ge* pGe, const gej_t* p)
 {
-	if (p->m_Handle)
+	if (Gej_Is_infinity(p))
+		pGe->infinity = 1; // no specific function like secp256k1_ge_set_infinity
+	else
 	{
 		AffinePoint ap;
-		GejExt_Get(p->m_Handle, &ap);
+		Gej_Get_Affine(p, &ap);
 
 		Suffer(1000); // Very heavy
 
 		Point_Ge_from_Affine(pGe, &ap);
 	}
-	else
-		pGe->infinity = 1; // no specific function like secp256k1_ge_set_infinity
 }
-
-
-int Gej_Is_infinity(const gej_t* p)
-{
-	return !p->m_Handle;
-}
-
 
 #else // BeamCrypto_ExternalGej
 
 typedef secp256k1_gej gej_t;
 
-void Gej_Init(gej_t* p) {}
-void Gej_Destroy(gej_t* p) {}
+void Gej_Init(gej_t* p)
+{
+	UNUSED(p);
+}
+
+void Gej_Destroy(gej_t* p)
+{
+	UNUSED(p);
+}
+
 int Gej_Is_infinity(const gej_t* p)
 {
 	return secp256k1_gej_is_infinity(p);
 }
-
-#endif // BeamCrypto_ExternalGej
 
 //////////////////////////////
 // MultiMac
@@ -504,6 +430,8 @@ static void MultiMac_Calculate_LoadFast(const MultiMac_Context* p, secp256k1_ge*
 	secp256k1_ge_from_storage(pGe, p->m_Fast.m_pGen0 + n);
 }
 
+#endif // BeamCrypto_ExternalGej
+
 void Point_Gej_from_Ge(gej_t*, const secp256k1_ge*);
 void Point_Ge_from_Gej(secp256k1_ge*, const gej_t*);
 
@@ -552,20 +480,18 @@ static void wrap_scalar_inverse(secp256k1_scalar* r, const secp256k1_scalar* a)
 	Suffer(300); // very heavy: inverse + misc
 }
 
+#ifndef BeamCrypto_ExternalGej
 static void wrap_fe_mul(secp256k1_fe* r, const secp256k1_fe* a, const secp256k1_fe* b)
 {
 	secp256k1_fe_mul(r, a, b);
 	Suffer(1);
 }
 
-
 __stack_hungry__
 static void wrap_ge_neg(secp256k1_ge* r, const secp256k1_ge* a)
 {
 	secp256k1_ge_neg(r, a);
 }
-
-#ifndef BeamCrypto_ExternalGej
 
 __stack_hungry__
 static void wrap_gej_double_var(gej_t* r, const gej_t* a/*, secp256k1_fe* rzr*/)
@@ -1633,9 +1559,15 @@ static void RangeProof_Calculate_S(RangeProof* const p, RangeProof_Worker* const
 	static_assert(Calc_S_Naggle <= Calc_S_Naggle_Max, "Naggle too large");
 
 #ifdef BeamCrypto_ExternalGej
+
 	secp256k1_scalar s;
 	NonceGenerator_NextScalar(&pWrk->m_NonceGen, &s);
 	MulG(pWrk->m_pGej + 1, &s); // can mul fast!
+
+	gej_t gej2;
+	Gej_Init(&gej2);
+
+	UintBig pK[2];
 
 #else // BeamCrypto_ExternalGej
 
@@ -1698,16 +1630,26 @@ static void RangeProof_Calculate_S(RangeProof* const p, RangeProof_Worker* const
 
 #ifdef BeamCrypto_ExternalGej
 
-		Gej_Set_Affine(pWrk->m_pGej, Context_get()->m_pGenRangeproof[iBit]);
-		Gej_MulFast(pWrk->m_pGej, pWrk->m_pGej, &s);
-		Gej_Add(pWrk->m_pGej + 1, pWrk->m_pGej + 1, pWrk->m_pGej);
+		secp256k1_scalar_get_b32(pK[1 & iBit].m_pVal, &s);
+
+		if (1 & iBit)
+		{
+			Gej_Set_Affine(pWrk->m_pGej, Context_get()->m_pGenRangeproof[iBit - 1]);
+			Gej_Set_Affine(&gej2, Context_get()->m_pGenRangeproof[iBit]);
+
+			Gej_Mul2_Fast(pWrk->m_pGej, pWrk->m_pGej, pK, &gej2, pK + 1);
+
+			Gej_Add(pWrk->m_pGej + 1, pWrk->m_pGej + 1, pWrk->m_pGej);
+		}
 
 #else // BeamCrypto_ExternalGej
 		mmCtx.m_Fast.m_Count++;
 #endif // BeamCrypto_ExternalGej
 	}
 
-#ifndef BeamCrypto_ExternalGej
+#ifdef BeamCrypto_ExternalGej
+	Gej_Destroy(&gej2);
+#else // BeamCrypto_ExternalGej
 	mmCtx.m_pRes = pWrk->m_pGej + 1;
 	MultiMac_Calculate(&mmCtx);
 

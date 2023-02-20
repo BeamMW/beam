@@ -110,6 +110,7 @@ void PrintEndpoint(char*, const UintBig*); // without 0-term
 #define c_KeyKeeper_Status_Unspecified 1
 #define c_KeyKeeper_Status_UserAbort 2
 #define c_KeyKeeper_Status_NotImpl 3
+#define c_KeyKeeper_Status_InternalError 4
 
 #define c_KeyKeeper_Status_ProtoError 10
 

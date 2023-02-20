@@ -66,13 +66,18 @@ uint8_t Point_Compact_from_Ge_Ex(UintBig* pX, const secp256k1_ge*);
 
 #ifdef BeamCrypto_ExternalGej
 
-uint32_t GejExt_Create();
-void GejExt_Copy(uint32_t, uint32_t hSrc);
-void GejExt_Destroy(uint32_t);
+typedef struct {
+	secp256k1_gej m_Val;
+} gej_t;
 
-int GejExt_Add(uint32_t, uint32_t, uint32_t);
-int GejExt_Mul(uint32_t, uint32_t, const secp256k1_scalar*, int bFast);
-void GejExt_Set(uint32_t, const AffinePoint*);
-void GejExt_Get(uint32_t, AffinePoint*);
+void Gej_Init(gej_t*);
+void Gej_Destroy(gej_t*);
+int Gej_Is_infinity(const gej_t* p);
+void Gej_Add(gej_t* p, const gej_t* a, const gej_t* b);
+void Gej_Mul_Ub(gej_t* p, const gej_t* a, const UintBig* k, int bFast);
+void Gej_Mul2_Fast(gej_t* p, const gej_t* a, const UintBig* ka, const gej_t* b, const UintBig* kb);
+void Gej_Set_Affine(gej_t* p, const AffinePoint* pAp);
+void Gej_Get_Affine(const gej_t* p, AffinePoint* pAp);
+
 
 #endif // BeamCrypto_ExternalGej
