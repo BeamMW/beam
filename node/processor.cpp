@@ -7044,6 +7044,7 @@ void NodeProcessor::RebuildNonStd()
 	m_DB.ShieldedOutpDelFrom(0);
 	m_DB.ParamDelSafe(NodeDB::ParamID::ShieldedInputs);
 	m_DB.AssetsDelAll();
+	m_DB.AssetEvtsDeleteFrom(0);
 	m_DB.UniqueDeleteAll();
 	m_DB.KrnInfoDel(HeightRange(0, m_Cursor.m_Full.m_Height));
 

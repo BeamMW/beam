@@ -368,7 +368,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 33;
+	const uint64_t nVersionTop = 34;
 
 
 	Transaction t(*this);
@@ -446,6 +446,9 @@ void NodeDB::Open(const char* szPath)
 		case 32:
 			ExecQuick("DROP TABLE IF EXISTS " TblAssets);
 			CreateTables31();
+			// no break;
+
+		case 33: // fix asset evt table, after previous Rebuild non-std
 
 			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
 			ParamIntSet(ParamID::DbVer, nVersionTop);
