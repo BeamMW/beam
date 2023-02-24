@@ -41,6 +41,7 @@ enum Dirs {
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
     , DIR_CONTRACTS
     , DIR_CONTRACT_DETAILS
+    , DIR_ASSET
     // etc
 };
 
@@ -131,6 +132,7 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg) {
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
         , { "contracts", DIR_CONTRACTS }
         , { "contract", DIR_CONTRACT_DETAILS }
+        , { "asset", DIR_ASSET }
     };
 
     const HttpConnection::Ptr& conn = it->second;
@@ -164,6 +166,9 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg) {
                 break;
             case DIR_CONTRACT_DETAILS:
                 func = &Server::send_contract_details;
+                break;
+            case DIR_ASSET:
+                func = &Server::send_asset;
                 break;
             default:
                 break;
@@ -281,6 +286,18 @@ bool Server::send_contract_details(const HttpConnection::Ptr& conn) {
     uint32_t nMaxTxs = (uint32_t) _currentUrl.get_int_arg("nMaxTxs", static_cast<uint32_t>(-1));
 
     if (!_backend.get_contract_details(_body, id, hMin, hMax, nMaxTxs))
+        return send(conn, 500, "Internal error #2");
+
+    return send(conn, 200, "OK");
+}
+
+bool Server::send_asset(const HttpConnection::Ptr& conn) {
+
+    auto aid = _currentUrl.get_int_arg("id", 0);
+    beam::Height hMin = _currentUrl.get_int_arg("hMin", 0);
+    beam::Height hMax = _currentUrl.get_int_arg("hMax", -1);
+
+    if (!_backend.get_asset_history(_body, (uint32_t) aid, hMin, hMax))
         return send(conn, 500, "Internal error #2");
 
     return send(conn, 200, "OK");
