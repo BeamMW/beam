@@ -2583,6 +2583,13 @@ namespace
                 }
 
                 std::cout << "\tTotal fee: " << PrintableAmount(fee, false, 0) << std::endl;
+                std::cout << "Proceed? (y/n)" << std::endl;
+
+                std::string s;
+                std::cin >> s;
+
+                if (s.empty() || ('y' != std::tolower(s.front())))
+                    return 1;
 
                 ByteBuffer msg(comment.begin(), comment.end());
                 currentTxID = wallet->StartTransaction(
