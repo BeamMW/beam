@@ -765,17 +765,24 @@ private:
                 m_json["metadata"] = std::move(wr.m_json);
             }
 
-            void AddAssetInfo(const Asset::Full& ai)
+            void AddAssetCreateInfo(const Asset::CreateInfo& ai)
             {
-                AddAid(ai.m_ID);
                 AddMetadata(ai.m_Metadata);
-                AddValBig("value", ai.m_Value);
-                m_json["lock_height"] = ai.m_LockHeight;
 
                 if (ai.m_Cid != Zero)
                     m_json["cid"] = MakeTypeObj("cid", ai.m_Cid);
                 else
                     AddHex("owner", ai.m_Owner);
+
+                m_json["deposit"] = MakeObjAmount(ai.m_Deposit);
+            }
+
+            void AddAssetInfo(const Asset::Full& ai)
+            {
+                AddAid(ai.m_ID);
+                AddAssetCreateInfo(ai);
+                AddValBig("value", ai.m_Value);
+                m_json["lock_height"] = ai.m_LockHeight;
             }
         };
 
@@ -839,9 +846,15 @@ private:
 
                 void OnKrnEx(const TxKernelAssetCreate& krn)
                 {
+                    Asset::CreateInfo ai;
+                    ai.SetCid(nullptr);
+                    ai.m_Owner = krn.m_Owner;
+                    ai.m_Deposit = Rules::get().get_DepositForCA(m_Height);
+
+                    TemporarySwap ts(ai.m_Metadata, Cast::NotConst(krn).m_MetaData);
+
                     Writer wr;
-                    wr.AddMetadata(krn.m_MetaData);
-                    wr.m_json["Deposit"] = Rules::get().get_DepositForCA(m_Height);
+                    wr.AddAssetCreateInfo(ai);
                     m_Wr.m_json["Asset.Create"] = std::move(wr.m_json);
                 }
 
