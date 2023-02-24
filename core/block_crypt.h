@@ -181,22 +181,28 @@ namespace beam
 			void get_Owner(PeerID&, const ContractID&) const;
 		};
 
-		struct Info
+		struct CreateInfo
 		{
-			AmountBig::Type m_Value = Zero;
 			PeerID m_Owner = Zero;
 			ContractID m_Cid = Zero;
-			Height m_LockHeight = 0; // last emitted/burned change height. if emitted atm - when was latest 1st emission. If burned atm - what was last burn.
 			Amount m_Deposit = 0;
 			Metadata m_Metadata;
 			static const uint32_t s_MetadataMaxSize = 1024 * 16; // 16K
 
-			void Reset();
 			void SetCid(const ContractID*);
-			bool IsEmpty() const;
-			bool IsValid() const;
 			bool Recognize(Key::IPKdf&) const;
 			bool IsDefDeposit() const;
+		};
+
+		struct Info
+			:public CreateInfo
+		{
+			AmountBig::Type m_Value = Zero;
+			Height m_LockHeight = 0; // last emitted/burned change height. if emitted atm - when was latest 1st emission. If burned atm - what was last burn.
+
+			void Reset();
+			bool IsEmpty() const;
+			bool IsValid() const;
 		};
 
 		struct Full

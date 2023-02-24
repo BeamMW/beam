@@ -3064,7 +3064,7 @@ namespace beam
 		m_Metadata.Reset();
 	}
 
-	void Asset::Info::SetCid(const ContractID* pCid)
+	void Asset::CreateInfo::SetCid(const ContractID* pCid)
 	{
 		if (pCid)
 			m_Cid = *pCid;
@@ -3082,7 +3082,7 @@ namespace beam
 	    return m_Owner != Zero && m_LockHeight != Zero;
     }
 
-	bool Asset::Info::IsDefDeposit() const
+	bool Asset::CreateInfo::IsDefDeposit() const
 	{
 		return (Rules::get().CA.DepositForList2 == m_Deposit);
 	}
@@ -3192,7 +3192,7 @@ namespace beam
 			>> res;
 	}
 
-	bool Asset::Info::Recognize(Key::IPKdf& pkdf) const
+	bool Asset::CreateInfo::Recognize(Key::IPKdf& pkdf) const
 	{
 		PeerID pid;
 		m_Metadata.get_Owner(pid, pkdf);

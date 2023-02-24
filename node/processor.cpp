@@ -7136,6 +7136,33 @@ int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)
 	if (!wlk.m_Body.n) // last was destroy
 		return -1;
 
+	get_AssetCreateInfo(ai, wlk);
+
+	typedef std::pair<Height, uint64_t> HeightAndIndex;
+	HeightAndIndex hiCreate(wlk.m_Height, wlk.m_Index);
+
+	m_DB.AssetEvtsEnumBwd(wlk, ai.m_ID, h);
+	if (wlk.MoveNext() && (HeightAndIndex(wlk.m_Height, wlk.m_Index) > hiCreate))
+	{
+		AssetDataPacked adp;
+		adp.set_Strict(wlk.m_Body);
+
+		ai.m_Value = adp.m_Amount;
+		adp.m_LockHeight.Export(ai.m_LockHeight);
+
+	}
+	else
+	{
+		// wasn't ever emitted
+		ai.m_LockHeight = wlk.m_Height;
+		ai.m_Value = Zero;
+	}
+
+	return 1;
+}
+
+void NodeProcessor::get_AssetCreateInfo(Asset::CreateInfo& ai, const NodeDB::WalkerAssetEvt& wlk)
+{
 	if (wlk.m_Body.n < sizeof(AssetCreateInfoPacked))
 		OnCorrupted();
 
@@ -7159,28 +7186,6 @@ int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)
 	}
 
 	ai.m_Deposit = Rules::get().get_DepositForCA(wlk.m_Height);
-
-	typedef std::pair<Height, uint64_t> HeightAndIndex;
-	HeightAndIndex hiCreate(wlk.m_Height, wlk.m_Index);
-
-	m_DB.AssetEvtsEnumBwd(wlk, ai.m_ID, h);
-	if (wlk.MoveNext() && (HeightAndIndex(wlk.m_Height, wlk.m_Index) > hiCreate))
-	{
-		AssetDataPacked adp;
-		adp.set_Strict(wlk.m_Body);
-
-		ai.m_Value = adp.m_Amount;
-		adp.m_LockHeight.Export(ai.m_LockHeight);
-
-	}
-	else
-	{
-		// wasn't ever emitted
-		ai.m_LockHeight = wlk.m_Height;
-		ai.m_Value = Zero;
-	}
-
-	return 1;
 }
 
 void NodeProcessor::ValidatedCache::ShrinkTo(uint32_t n)
