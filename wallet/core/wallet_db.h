@@ -361,8 +361,10 @@ namespace beam::wallet
         uint32_t m_id;
         Timestamp m_timestamp;
         WalletID m_counterpart;
+        WalletID m_mySbbs;
         std::string m_message;
         bool m_is_income;
+        bool m_is_read;
     };
 
     class CannotGenerateSecretException : public std::runtime_error
@@ -630,10 +632,11 @@ namespace beam::wallet
         virtual size_t getVoucherCount(const WalletID& peerID) const = 0;
 
         // IM
-        virtual void storeIM(Timestamp time, const WalletID& counterpart, const std::string& message, bool isIncome) = 0;
+        virtual void storeIM(Timestamp time, const WalletID& counterpart, const WalletID& mySbbs, const std::string& message, bool isIncome, bool isRead) = 0;
         virtual std::vector<InstantMessage> readIMs(bool all = false) = 0;
         virtual std::vector<InstantMessage> readIMs(const WalletID& counterpart) = 0;
-        virtual std::vector<WalletID> getChats() = 0;
+        virtual std::vector<std::pair<WalletID, bool>> getChats() = 0;
+        virtual void markIMsasRead(const std::vector<std::pair<Timestamp, WalletID>>& ims) = 0;
         virtual void removeChat(const WalletID& counterpart) = 0;
 
         // Events
@@ -804,10 +807,11 @@ namespace beam::wallet
         void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab) override;
         size_t getVoucherCount(const WalletID& peerID) const override;
 
-        void storeIM(Timestamp time, const WalletID& counterpart, const std::string& message, bool isIncome) override;
+        void storeIM(Timestamp time, const WalletID& counterpart, const WalletID& mySbbs, const std::string& message, bool isIncome, bool isRead) override;
         std::vector<InstantMessage> readIMs(bool all = false) override;
         std::vector<InstantMessage> readIMs(const WalletID& counterpart) override;
-        std::vector<WalletID> getChats() override;
+        std::vector<std::pair<WalletID, bool>> getChats() override;
+        void markIMsasRead(const std::vector<std::pair<Timestamp, WalletID>>& ims) override;
         void removeChat(const WalletID& counterpart) override;
 
         void insertEvent(Height h, const Blob& body, const Blob& key) override;

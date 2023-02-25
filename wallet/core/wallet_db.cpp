@@ -283,8 +283,10 @@ namespace fs = std::filesystem;
     each(id,          id,             INTEGER PRIMARY KEY AUTOINCREMENT, obj) sep \
     each(timestamp,   timestamp,      INTEGER NOT NULL, obj) sep \
     each(counterpart, counterpart,    BLOB NOT NULL,    obj) sep \
+    each(mySbbs,      mySbbs,         BLOB NOT NULL,    obj) sep \
     each(message,     message,        BLOB NOT NULL,    obj) sep \
-    each(is_income,   is_income,      INTEGER,    obj)
+    each(is_income,   is_income,      INTEGER,    obj) sep \
+    each(is_read,     is_read,        INTEGER,    obj)
 
 #define IM_FIELDS ENUM_IM_FIELDS(LIST, COMMA, )
 
@@ -1017,7 +1019,8 @@ namespace beam::wallet
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
 
-        const int DbVersion   = 36;
+        const int DbVersion   = 37;
+        const int DbVersion36 = 36;
         const int DbVersion35 = 35;
         const int DbVersion34 = 34;
         const int DbVersion33 = 33;
@@ -1882,6 +1885,13 @@ namespace beam::wallet
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
         }
+
+        void DeleteIMTables(sqlite3* db)
+        {
+            const char* req = "DROP TABLE IF EXISTS " IM_NAME ";";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
     }
 
     void WalletDB::createTables(sqlite3* db, sqlite3* privateDb)
@@ -2464,6 +2474,12 @@ namespace beam::wallet
                 case DbVersion35:
                     LOG_INFO() << "Converting DB from format 35...";
                     walletDB->DeleteNonceAddresses();
+                    // no break
+
+                case DbVersion36:
+                    LOG_INFO() << "Converting DB from format 36...";
+                    DeleteIMTables(walletDB->_db);
+                    CreateIMTables(walletDB->_db);
                     // no break
 
                     storage::setVar(*walletDB, Version, DbVersion);
@@ -5200,13 +5216,15 @@ namespace beam::wallet
         return size_t(res);
     }
 
-    void WalletDB::storeIM(Timestamp time, const WalletID& counterpart, const std::string& message, bool isIncome)
+    void WalletDB::storeIM(Timestamp time, const WalletID& counterpart, const WalletID& mySbbs, const std::string& message, bool isIncome, bool isRead)
     {
-        sqlite::Statement stm(this, "INSERT OR IGNORE INTO " IM_NAME " (" ENUM_IM_FIELDS(LIST, COMMA, ) ") VALUES(null,?,?,?,?);");
+        sqlite::Statement stm(this, "INSERT OR IGNORE INTO " IM_NAME " (" ENUM_IM_FIELDS(LIST, COMMA, ) ") VALUES(null,?,?,?,?,?,?);");
         stm.bind(1, time);
         stm.bind(2, counterpart);
-        stm.bind(3, message);
-        stm.bind(4, isIncome);
+        stm.bind(3, mySbbs);
+        stm.bind(4, message);
+        stm.bind(5, isIncome);
+        stm.bind(6, isRead);
         stm.step();
 
         for (const auto sub : m_subscribers)
@@ -5266,23 +5284,44 @@ namespace beam::wallet
         return messages;
     }
 
-    std::vector<WalletID> WalletDB::getChats()
+    std::vector<std::pair<WalletID, bool>> WalletDB::getChats()
     {
         const char* req = "SELECT DISTINCT counterpart FROM " IM_NAME ";";
 
         sqlite::Statement stm(this, req);
 
-        std::vector<WalletID> chats;
+        std::vector<std::pair<WalletID, bool>> chats;
         while (stm.step())
         {
             ByteBuffer counterpartID;
             stm.get(0, counterpartID);
             WalletID peerID;
-            if (peerID.FromBuf(counterpartID))
-                chats.push_back(peerID);
+            if (peerID.FromBuf(counterpartID)) {
+                const char* req2 = "SELECT count(*) FROM " IM_NAME " WHERE is_read = 0;";
+                sqlite::Statement stm2(this, req2);
+                bool hasUnread = false;
+                if (stm2.step()) {
+                    int unreadCnt = 0;
+                    stm2.get(0, unreadCnt);
+                    hasUnread = unreadCnt > 0;
+                }
+                chats.push_back(std::make_pair(peerID, hasUnread));
+            }
 
         }
         return chats;
+    }
+
+    void WalletDB::markIMsasRead(const std::vector<std::pair<Timestamp, WalletID>>& ims)
+    {
+        const char* req = "UPDATE " IM_NAME " SET is_read=1 WHERE timestamp=?1 AND counterpart=?2;";
+        for (const auto& im : ims) {
+            sqlite::Statement stm(this, req);
+
+            stm.bind(1, im.first);
+            stm.bind(2, im.second);
+            stm.step();
+        }
     }
 
     void WalletDB::removeChat(const WalletID& counterpart)

@@ -233,7 +233,7 @@ namespace beam::wallet
         virtual void onStopped() {}
         virtual void onFullAssetsListLoaded() {}
         virtual void onInstantMessage(Timestamp time, const WalletID& counterpart, const std::string& message, bool isIncome) {}
-        virtual void onGetChatList(const std::vector<WalletID>& chats) {}
+        virtual void onGetChatList(const std::vector<std::pair<beam::wallet::WalletID, bool>>& chats) {}
         virtual void onGetChatMessages(const std::vector<InstantMessage>& messages) {}
         virtual void onChatRemoved(const WalletID& counterpart) {}
 
@@ -374,6 +374,7 @@ namespace beam::wallet
 
         void sendInstantMessage(const WalletID& peerID, const WalletID& myID, ByteBuffer&& message) override;
         void getChats() override;
+        void markIMsasRead(const std::vector<std::pair<Timestamp, WalletID>>&& ims) override;
         void getInstantMessages(const WalletID& peerID) override;
         void removeChat(const WalletID& peerID) override;
 

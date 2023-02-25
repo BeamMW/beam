@@ -834,7 +834,7 @@ namespace beam::wallet
                 msg.GetParameter((TxParameterID) 2, message_bb);
                 std::string message(message_bb.begin(), message_bb.end());
 
-                m_WalletDB->storeIM(timestamp, msg.m_From, message, true);
+                m_WalletDB->storeIM(timestamp, msg.m_From, myID, message, true, false);
             }
             break;
 

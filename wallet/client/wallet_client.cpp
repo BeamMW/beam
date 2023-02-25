@@ -500,6 +500,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getChats);
     }
 
+    void markIMsasRead(const std::vector<std::pair<Timestamp, WalletID>>&& ims) override
+    {
+        call_async(&IWalletModelAsync::markIMsasRead, std::move(ims));
+    }
+
     void getInstantMessages(const WalletID& peerID) override
     {
         call_async(&IWalletModelAsync::getInstantMessages, peerID);
@@ -2381,7 +2386,7 @@ namespace beam::wallet
             trimmed_message.erase(trimmed_message.begin() + kMaxImMessageLength, trimmed_message.end());
         }
 
-        m_walletDB->storeIM(timestamp, peerID, std::string(trimmed_message.begin(), trimmed_message.end()), false);
+        m_walletDB->storeIM(timestamp, peerID, myID, std::string(trimmed_message.begin(), trimmed_message.end()), false, true);
 
         auto s = m_wallet.lock();
         if (s)
@@ -2397,6 +2402,12 @@ namespace beam::wallet
             {
                 onGetChatList(chats);
             });
+    }
+
+    void WalletClient::markIMsasRead(const std::vector<std::pair<Timestamp, WalletID>>&& ims)
+    {
+        std::vector<std::pair<Timestamp, WalletID>> messages(ims);
+        m_walletDB->markIMsasRead(messages);
     }
 
     void WalletClient::getInstantMessages(const WalletID& peerID)
