@@ -27,6 +27,8 @@ namespace beam::wallet {
 
         void set_Privilege(uint32_t);
 
+        bvm2::ContractInvokeData get_InvokeData();
+
     protected:
 
         IWalletDB::Ptr m_pWalletDB;

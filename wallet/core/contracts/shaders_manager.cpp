@@ -150,6 +150,24 @@ namespace beam::wallet {
         std::cout << std::endl;
     }
 
+    bvm2::ContractInvokeData ManagerStdInWallet::get_InvokeData()
+    {
+        bvm2::ContractInvokeData res;
+        Cast::Down<bvm2::ContractInvokeDataBase>(res) = std::move(m_InvokeData);
+        m_InvokeData.Reset();
+
+        if (res.HasDependent() && !res.HasMultiSig())
+        {
+            res.m_vec.front().m_Flags |= bvm2::ContractInvokeEntry::Flags::SaveAppInvoke;
+            res.m_AppInvoke.m_App = m_BodyManager;
+            res.m_AppInvoke.m_Contract = m_BodyContract;
+            res.m_AppInvoke.m_Args = m_Args;
+            res.m_AppInvoke.m_Privilege = m_Privilege;
+        }
+
+        return res;
+    }
+
     ShadersManager::ShadersManager(beam::wallet::Wallet::Ptr wallet,
                                    beam::wallet::IWalletDB::Ptr walletDB,
                                    beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
@@ -395,7 +413,7 @@ namespace beam::wallet {
 
         try
         {
-            auto buffer = toByteBuffer(m_InvokeData);
+            auto buffer = toByteBuffer(get_InvokeData());
 
             if (req.doneCall)
             {

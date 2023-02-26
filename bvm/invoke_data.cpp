@@ -285,7 +285,7 @@ namespace beam::bvm2 {
 			AddSpend(it->first, it->second);
 	}
 
-	bool ContractInvokeData::HasMultiSig() const
+	bool ContractInvokeDataBase::HasMultiSig() const
 	{
 		for (const auto& cdata : m_vec)
 			if (cdata.IsMultisigned())
@@ -293,7 +293,15 @@ namespace beam::bvm2 {
 		return false;
 	}
 
-	std::string ContractInvokeData::get_FullComment() const
+	bool ContractInvokeDataBase::HasDependent() const
+	{
+		for (const auto& cdata : m_vec)
+			if (ContractInvokeEntry::Flags::Dependent & cdata.m_Flags)
+				return true;
+		return false;
+	}
+
+	std::string ContractInvokeDataBase::get_FullComment() const
     {
         std::string comment;
         for (size_t i = 0; i < m_vec.size(); i++)
@@ -306,7 +314,7 @@ namespace beam::bvm2 {
         return comment;
     }
 
-    beam::Amount ContractInvokeData::get_FullFee(Height h) const
+    beam::Amount ContractInvokeDataBase::get_FullFee(Height h) const
     {
         Amount fee = 0;
 		for (const auto& cdata : m_vec)
@@ -318,7 +326,7 @@ namespace beam::bvm2 {
         return fee;
     }
 
-    bvm2::FundsMap ContractInvokeData::get_FullSpend() const
+    bvm2::FundsMap ContractInvokeDataBase::get_FullSpend() const
     {
         bvm2::FundsMap fm = m_SpendExtra;
         for (const auto& cdata: m_vec)
@@ -327,7 +335,7 @@ namespace beam::bvm2 {
         return fm;
     }
 
-	void ContractInvokeData::Reset()
+	void ContractInvokeDataBase::Reset()
 	{
 		m_vec.clear();
 		m_vPeers.clear();
