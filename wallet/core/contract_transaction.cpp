@@ -48,8 +48,10 @@ namespace beam::wallet
         using BaseTxBuilder::BaseTxBuilder;
 
         bvm2::ContractInvokeData m_Data;
+        bvm2::FundsMap m_SpendInitial;
         const HeightHash* m_pParentCtx = nullptr;
         uint32_t m_TxMask = 0;
+        bool m_Rebuilt = false;
 
         static void Fail(const char* sz = nullptr)
         {
@@ -279,6 +281,103 @@ namespace beam::wallet
                 }
             }
         }
+
+        struct FundsCmpWalker
+        {
+            struct PerMap
+            {
+                bvm2::FundsMap::const_iterator m_it, m_itEnd;
+                AmountSigned m_Val;
+
+                void Init(const bvm2::FundsMap& fm)
+                {
+                    m_it = fm.begin();
+                    m_itEnd = fm.end();
+                }
+
+                void Move()
+                {
+                    m_Val = m_it->second;
+                    m_it++;
+                }
+            };
+
+            PerMap m_pm0, m_pm1;
+
+            FundsCmpWalker(const bvm2::FundsMap& fm0, const bvm2::FundsMap& fm1)
+            {
+                m_pm0.Init(fm0);
+                m_pm1.Init(fm1);
+            }
+
+            bool MoveNext()
+            {
+                m_pm0.m_Val = 0;
+                m_pm1.m_Val = 0;
+
+                if (m_pm0.m_it == m_pm0.m_itEnd)
+                {
+                    if (m_pm1.m_it == m_pm1.m_itEnd)
+                        return false;
+
+                    m_pm1.Move();
+                }
+                else
+                {
+                    if (m_pm1.m_it == m_pm1.m_itEnd)
+                        m_pm0.Move();
+                    else
+                    {
+                        bool b0 = (m_pm0.m_it->first <= m_pm1.m_it->first);
+                        bool b1 = (m_pm1.m_it->first <= m_pm0.m_it->first);
+
+                        if (b0)
+                            m_pm0.Move();
+                        if (b1)
+                            m_pm1.Move();
+                    }
+                }
+
+                return true;
+            }
+        };
+
+        static bool IsSpendWithinLimitsUns(Amount v0, Amount v1)
+        {
+            if (v1 <= v0)
+                return true;
+
+            Amount dv = v1 - v0;
+            return dv <= v0 / 10; // assume threshold is 10%
+        }
+
+        bool IsSpendWithinLimits(const bvm2::FundsMap& fm) const
+        {
+            
+            for (FundsCmpWalker fcw(m_SpendInitial, fm); fcw.MoveNext(); )
+            {
+                if (fcw.m_pm1.m_Val > 0)
+                {
+                    // spending
+                    if (fcw.m_pm0.m_Val <= 0)
+                        return false;
+
+                    if (!IsSpendWithinLimitsUns(fcw.m_pm0.m_Val, fcw.m_pm1.m_Val))
+                        return false;
+                }
+                else
+                {
+                    // receiving
+                    if (fcw.m_pm0.m_Val >= 0)
+                        continue;
+
+                    if (!IsSpendWithinLimitsUns(0-fcw.m_pm1.m_Val, 0-fcw.m_pm0.m_Val))
+                        return false;
+                }
+            }
+
+            return true;
+        }
     };
 
     void ContractTransaction::Init()
@@ -390,6 +489,18 @@ namespace beam::wallet
             BaseTxBuilder::Balance bb(builder);
             for (auto it = fm.begin(); fm.end() != it; it++)
                 bb.m_Map[it->first].m_Value -= it->second;
+
+            if (builder.m_Rebuilt)
+            {
+                // ensure spend is within 
+                if (!builder.IsSpendWithinLimits(fm))
+                {
+                    OnFailed(TxFailureReason::SwapInvalidAmount); // whatever
+                    return false;
+                }
+            }
+            else
+                builder.m_SpendInitial = std::move(fm);
 
             bb.CompleteBalance(); // will select coins as needed
             builder.SaveCoins();
@@ -728,8 +839,14 @@ namespace beam::wallet
         SetParameter(TxParameterID::KernelID, Zero);
 
         bvm2::ContractInvokeData vData = std::move(builder.m_Data);
+        vData.m_vec.clear();
+        bvm2::FundsMap fmSpend = std::move(builder.m_SpendInitial);
+
         m_TxBuilder = std::make_shared<MyBuilder>(*this, kDefaultSubTxID); // reset it
+
+        m_TxBuilder->m_SpendInitial = std::move(fmSpend);
         m_TxBuilder->m_Data = std::move(vData);
+        m_TxBuilder->m_Rebuilt = true;
 
         SetState(State::RebuildHft);
         return true;
