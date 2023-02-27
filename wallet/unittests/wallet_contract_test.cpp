@@ -131,7 +131,7 @@ namespace
 
         wallet->StartTransaction(
             CreateTransactionParameters(TxType::Contract)
-            .SetParameter(TxParameterID::ContractDataPacked, man.m_InvokeData)
+            .SetParameter(TxParameterID::ContractDataPacked, man.get_InvokeData())
         );
         return true;
     }
