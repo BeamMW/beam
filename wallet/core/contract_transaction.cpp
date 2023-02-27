@@ -17,6 +17,7 @@
 #include "base_tx_builder.h"
 #include "wallet.h"
 #include "bvm/ManagerStd.h"
+#include "contracts/shaders_manager.h"
 
 namespace beam::wallet
 {
@@ -231,6 +232,53 @@ namespace beam::wallet
 
             src.clear();
         }
+
+        struct AppShaderExec :public wallet::ManagerStdInWallet
+        {
+            typedef std::unique_ptr<AppShaderExec> Ptr;
+
+            MyBuilder* m_pBuilder; // set to null when finished
+            bool m_Err = false;
+
+            using ManagerStdInWallet::ManagerStdInWallet;
+
+            void SwapParams()
+            {
+                m_BodyManager.swap(m_pBuilder->m_Data.m_AppInvoke.m_App);
+                m_BodyContract.swap(m_pBuilder->m_Data.m_AppInvoke.m_Contract);
+                m_Args.swap(m_pBuilder->m_Data.m_AppInvoke.m_Args);
+            }
+
+            void OnDone(const std::exception* pExc) override
+            {
+                assert(m_pBuilder);
+
+                m_Err = !!pExc;
+                if (pExc)
+                    std::cout << "Shader exec error: " << pExc->what() << std::endl;
+                else
+                    std::cout << "Shader output: " << m_Out.str() << std::endl;
+
+                m_pBuilder->m_Tx.UpdateAsync();
+                m_pBuilder = nullptr;
+            }
+        };
+
+        AppShaderExec::Ptr m_pAppExec;
+
+        void SetParentCtx()
+        {
+            m_pParentCtx = nullptr;
+
+            for (const auto& cdata : m_Data.m_vec)
+            {
+                if (bvm2::ContractInvokeEntry::Flags::Dependent & cdata.m_Flags)
+                {
+                    m_pParentCtx = &cdata.m_ParentCtx;
+                    break;
+                }
+            }
+        }
     };
 
     void ContractTransaction::Init()
@@ -242,43 +290,76 @@ namespace beam::wallet
 
         GetParameter(TxParameterID::ContractDataPacked, builder.m_Data, GetSubTxID());
 
-        for (const auto& cdata : builder.m_Data.m_vec)
-        {
-            if (bvm2::ContractInvokeEntry::Flags::Dependent & cdata.m_Flags)
-            {
-                builder.m_pParentCtx = &cdata.m_ParentCtx;
-                break;
-            }
-        }
+        builder.SetParentCtx();
     }
 
-    void ContractTransaction::BuildTxOnce()
+    bool ContractTransaction::BuildTxOnce()
     {
         Key::IKdf::Ptr pKdf = get_MasterKdfStrict();
 
         auto& builder = *m_TxBuilder;
         auto& vData = builder.m_Data;
 
-
         auto s = GetState<State>();
+
+        if (State::RebuildHft == s)
+        {
+            if (!builder.m_pAppExec)
+            {
+                builder.m_pAppExec = std::make_unique<MyBuilder::AppShaderExec>(m_Context.get_Wallet());
+                auto& aex = *builder.m_pAppExec;
+                aex.m_pBuilder = &builder;
+                aex.SwapParams();
+                aex.set_Privilege(vData.m_AppInvoke.m_Privilege);
+
+                builder.m_pAppExec->StartRun(1);
+            }
+
+            auto& aex = *builder.m_pAppExec;
+            if (aex.m_pBuilder)
+                return false; // still running
+
+            if (aex.m_Err)
+            {
+                OnFailed(TxFailureReason::TransactionExpired);
+                return false;
+            }
+
+            if (aex.m_InvokeData.m_vec.empty())
+            {
+                OnFailed(TxFailureReason::TransactionExpired);
+                return false;
+            }
+
+            // TODO: check slipage is within limits
+
+            Cast::Down<bvm2::ContractInvokeDataBase>(vData) = std::move(aex.m_InvokeData);
+
+            aex.m_pBuilder = &builder;
+            aex.SwapParams();
+
+            builder.m_pAppExec.reset();
+
+            builder.SetParentCtx();
+
+            s = State::Initial;
+            SetState(s);
+        }
+
         if (State::Initial == s)
         {
             UpdateTxDescription(TxStatus::InProgress);
 
             if (builder.m_pParentCtx)
-            {
                 builder.m_Height = builder.m_pParentCtx->m_Height;
-                SetParameter(TxParameterID::MinHeight, builder.m_Height.m_Min, GetSubTxID());
-                SetParameter(TxParameterID::MaxHeight, builder.m_Height.m_Max, GetSubTxID());
-            }
             else
             {
                 Block::SystemState::Full sTip;
-                if (GetTip(sTip))
-                {
-                    builder.m_Height.m_Max = sTip.m_Height + 5; // 5 blocks - standard contract tx life time
-                    SetParameter(TxParameterID::MaxHeight, builder.m_Height.m_Max, GetSubTxID());
-                }
+                if (!GetTip(sTip))
+                    return false;
+
+                builder.m_Height.m_Min = sTip.m_Height + 1;
+                builder.m_Height.m_Max = sTip.m_Height + 5; // 5 blocks - standard contract tx life time
             }
 
             if (vData.m_vec.empty())
@@ -369,7 +450,7 @@ namespace beam::wallet
         {
             builder.GenerateInOuts();
             if (builder.IsGeneratingInOuts())
-                return;
+                return false;
 
             if (builder.m_vSigs.empty())
             {
@@ -452,7 +533,7 @@ namespace beam::wallet
             }
 
             if (bStillNegotiating)
-                return;
+                return false;
 
             builder.OnSigned();
 
@@ -465,6 +546,8 @@ namespace beam::wallet
             s = Registration;
             SetState(s);
         }
+
+        return (State::Registration == s);
     }
 
     void ContractTransaction::UpdateImpl()
@@ -472,24 +555,21 @@ namespace beam::wallet
         if (!m_TxBuilder)
             Init();
 
-        auto s = GetState<State>();
-        if (Recreation == s)
-        {
-            // TODO
-
-            s = Initial;
-            SetState(s);
-        }
-
-        BuildTxOnce();
-
-        s = GetState<State>();
-        if (State::Registration != s)
+        if (!BuildTxOnce())
             return;
 
         int ret = RegisterTx();
         if (ret < 0)
-            OnFailed(TxFailureReason::TransactionExpired);
+        {
+            // expired. Check if it's an HFT tx that can be rebuilt
+            if (RetryHft())
+            {
+                LOG_INFO() << "TxoID=" << GetTxID() << " Expired. Retrying HFT tx";
+                UpdateAsync();
+            }
+            else
+                OnFailed(TxFailureReason::TransactionExpired);
+        }
     }
 
     int ContractTransaction::RegisterTx()
@@ -516,8 +596,8 @@ namespace beam::wallet
             uint8_t nTxRegStatus = proto::TxStatus::Unspecified;
             if (!GetParameter(TxParameterID::TransactionRegistered, nTxRegStatus))
             {
-                Block::SystemState::Full state;
-                if (GetTip(state) && !IsExpired(state.m_Height + 1))
+                Block::SystemState::Full sTip;
+                if (GetTip(sTip) && !IsExpired(sTip.m_Height + 1))
                     GetGateway().register_tx(GetTxID(), builder.m_pTransaction, builder.m_pParentCtx ? &builder.m_pParentCtx->m_Hash : nullptr);
             }
             else
@@ -580,6 +660,79 @@ namespace beam::wallet
             return true;
 
         return GetState<State>() != State::Registration;
+    }
+
+    bool ContractTransaction::RetryHft()
+    {
+        auto& builder = *m_TxBuilder;
+
+        if (!builder.m_pParentCtx || builder.m_Data.m_AppInvoke.m_App.empty())
+            return false;
+
+        Height h = 0;
+        GetParameter(TxParameterID::MinHeight, h);
+        if (!h)
+        {
+            h = m_TxBuilder->m_pKrn->m_Height.m_Min;
+            SetParameter(TxParameterID::MinHeight, h);
+        }
+
+        Block::SystemState::Full sTip;
+        if (!GetTip(sTip))
+            return false; //?!
+
+        if (sTip.m_Height - h >= 5)
+            return false;
+
+        // Release coins, Reset everything
+        SetParameter(TxParameterID::KernelUnconfirmedHeight, Zero);
+        SetParameter(TxParameterID::TransactionRegistered, Zero);
+
+        {
+            auto pDB = GetWalletDB();
+            for (const auto& cid : builder.m_Coins.m_Input)
+            {
+                Coin coin;
+                coin.m_ID = cid;
+                if (pDB->findCoin(coin))
+                {
+                    coin.m_spentTxId.reset();
+                    pDB->saveCoin(coin);
+                }
+            }
+
+            for (auto& cid : builder.m_Coins.m_InputShielded)
+            {
+                auto pCoin = pDB->getShieldedCoin(cid.m_Key);
+                if (pCoin)
+                {
+                    pCoin->m_spentTxId.reset();
+                    pDB->saveShieldedCoin(*pCoin);
+                }
+            }
+
+            pDB->deleteCoinsCreatedByTx(GetTxID());
+        }
+
+        SetParameter(TxParameterID::InputCoins, Zero);
+        SetParameter(TxParameterID::InputCoinsShielded, Zero);
+        SetParameter(TxParameterID::OutputCoins, Zero);
+
+        SetParameter(TxParameterID::Inputs, Zero);
+        SetParameter(TxParameterID::ExtraKernels, Zero); // shielded inputs probably
+        SetParameter(TxParameterID::Outputs, Zero);
+
+        SetParameter(TxParameterID::Offset, Zero);
+
+        SetParameter(TxParameterID::Kernel, Zero);
+        SetParameter(TxParameterID::KernelID, Zero);
+
+        bvm2::ContractInvokeData vData = std::move(builder.m_Data);
+        m_TxBuilder = std::make_shared<MyBuilder>(*this, kDefaultSubTxID); // reset it
+        m_TxBuilder->m_Data = std::move(vData);
+
+        SetState(State::RebuildHft);
+        return true;
     }
 
 }

@@ -30,7 +30,7 @@ namespace beam::wallet
             Registration,
             OutputsConfirmation,
             Negotiating,
-            Recreation,
+            RebuildHft,
         };
 
         class Creator : public BaseTransaction::Creator
@@ -51,9 +51,10 @@ namespace beam::wallet
         bool CanCancel() const override;
 
         void Init();
-        void BuildTxOnce();
+        bool BuildTxOnce();
         int RegisterTx();
         bool IsExpired(Height hTrg);
+        bool RetryHft();
 
     private:
         struct MyBuilder;
