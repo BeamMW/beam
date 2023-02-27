@@ -2277,7 +2277,7 @@ namespace beam::wallet
             return wallet::BaseTransaction::Ptr();
         }
 
-        return it->second->Create(BaseTransaction::TxContext(*this, m_WalletDB, id));
+        return it->second->Create(BaseTransaction::TxContext(*this, *this, id));
     }
 
     BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const TxParameters& parameters)
@@ -2297,7 +2297,7 @@ namespace beam::wallet
 
         auto completedParameters = it->second->CheckAndCompleteParameters(parameters);
 
-        auto newTx = it->second->Create(BaseTransaction::TxContext(*this, m_WalletDB, *parameters.GetTxID()));
+        auto newTx = it->second->Create(BaseTransaction::TxContext(*this, *this, *parameters.GetTxID()));
         ApplyTransactionParameters(newTx, completedParameters.Pack(), true);
         return newTx;
     }

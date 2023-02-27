@@ -14,6 +14,7 @@
 
 #include "base_transaction.h"
 #include "core/block_crypt.h"
+#include "wallet.h"
 
 // TODO:DEX & General getrandom not available until API 28 in the Android NDK 17b
 // https://github.com/boostorg/uuid/issues/76
@@ -94,6 +95,12 @@ namespace beam::wallet
     }
 
     const uint32_t BaseTransaction::s_ProtoVersion = 4;
+
+    const IWalletDB::Ptr& BaseTransaction::TxContext::GetWalletDB() const
+    {
+        return m_Wallet.get_WalletDB();
+    }
+
 
     BaseTransaction::BaseTransaction(const TxType txType, const TxContext& context)
         : m_txType(txType)

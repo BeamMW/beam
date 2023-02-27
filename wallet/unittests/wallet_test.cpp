@@ -1306,7 +1306,7 @@ namespace
         TxID txID = wallet::GenerateTxID();
         SimpleTransaction::Creator simpleCreator(sender.m_WalletDB);
         BaseTransaction::Creator& creator = simpleCreator;
-        auto tx = creator.Create(BaseTransaction::TxContext(gateway, sender.m_WalletDB, txID));
+        auto tx = creator.Create(BaseTransaction::TxContext(*sender.m_Wallet, gateway, txID));
 
         Height currentHeight = sender.m_WalletDB->getCurrentHeight();
 
@@ -1368,7 +1368,7 @@ namespace
             } gateway;
 
             TxID txID = wallet::GenerateTxID();
-            auto tx = txCreator.Create(BaseTransaction::TxContext(gateway, sender.m_WalletDB, txID));
+            auto tx = txCreator.Create(BaseTransaction::TxContext(*sender.m_Wallet, gateway, txID));
 
             tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
             tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
@@ -1407,7 +1407,7 @@ namespace
             } gateway;
 
             TxID txID = wallet::GenerateTxID();
-            auto tx = txCreator.Create(BaseTransaction::TxContext(gateway, sender.m_WalletDB, txID));
+            auto tx = txCreator.Create(BaseTransaction::TxContext(*sender.m_Wallet, gateway, txID));
 
             tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
             tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
@@ -1793,7 +1793,7 @@ namespace
             if (m_InvokeData.m_vec.empty())
                 return false;
 
-            txid = m_pWallet->StartTransaction(
+            txid = m_Wallet.StartTransaction(
                 CreateTransactionParameters(TxType::Contract)
                 .SetParameter(TxParameterID::ContractDataPacked, m_InvokeData));
 
@@ -1808,7 +1808,7 @@ namespace
                 return false;
 
             io::Reactor::get_Current().run();
-            auto pTx = m_pWalletDB->getTx(txid);
+            auto pTx = m_Wallet.get_WalletDB()->getTx(txid);
             return (pTx->m_status == wallet::TxStatus::Completed);
         }
 

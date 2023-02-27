@@ -166,6 +166,10 @@ namespace beam::wallet
         bool IsWalletInSync() const;
         Height get_TipHeight() const;
 
+        const IWalletDB::Ptr& get_WalletDB() const {
+            return m_WalletDB;
+        }
+
         // Performs action only if wallet is in sync, otherwise this action is queued.
         void DoInSyncedWallet(OnSyncAction&& action); 
 
