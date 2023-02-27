@@ -2499,7 +2499,7 @@ namespace
                     }
                 };
 
-                MyManager man(walletDB, wallet);
+                MyManager man(*wallet);
                 man.m_Debug = vm[cli::SHADER_DEBUG].as<bool>();
 
                 auto sVal = vm[cli::SHADER_BYTECODE_APP].as<string>();

@@ -1896,7 +1896,7 @@ namespace
         TestWalletRig receiver(dbReceiver, f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
 
 
-        MyManager manSender(dbSender, sender.m_Wallet);
+        MyManager manSender(*sender.m_Wallet);
         manSender.set_Privilege(2);
         MyManager::Compile(manSender.m_BodyManager, "vault/app.wasm", MyManager::Kind::Manager);
         MyManager::Compile(manSender.m_BodyContract, "vault/contract.wasm", MyManager::Kind::Contract);
@@ -1929,7 +1929,7 @@ namespace
         WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
         WALLET_CHECK(manSender.get_OutpStr("\"key\": \"", sKeySender, sizeof(ECC::Point) * 2));
 
-        MyManager manReceiver(dbReceiver, receiver.m_Wallet);
+        MyManager manReceiver(*receiver.m_Wallet);
         manReceiver.set_Privilege(2);
         manReceiver.m_BodyManager = manSender.m_BodyManager;
 
@@ -2041,7 +2041,7 @@ namespace
         for (uint32_t i = 0; i < nPeers; i++)
         {
             pRig[i] = std::make_unique<TestWalletRig>(pDb[i], f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
-            pMan[i] = std::make_unique<MyManager>(pDb[i], pRig[i]->m_Wallet);
+            pMan[i] = std::make_unique<MyManager>(*pRig[i]->m_Wallet);
             pMan[i]->set_Privilege(2);
 
             if (i)
@@ -2337,7 +2337,7 @@ namespace
         for (uint32_t i = 0; i < nPeers; i++)
         {
             pRig[i] = std::make_unique<TestWalletRig>(pDb[i], f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
-            pMan[i] = std::make_unique<MyManager>(pDb[i], pRig[i]->m_Wallet);
+            pMan[i] = std::make_unique<MyManager>(*pRig[i]->m_Wallet);
             pMan[i]->set_Privilege(2);
 
             if (i)
@@ -2541,7 +2541,7 @@ namespace
         for (uint32_t i = 0; i < nPeers; i++)
         {
             pRig[i] = std::make_unique<TestWalletRig>(pDb[i], f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
-            pMan[i] = std::make_unique<MyManager>(pDb[i], pRig[i]->m_Wallet);
+            pMan[i] = std::make_unique<MyManager>(*pRig[i]->m_Wallet);
             pMan[i]->set_Privilege(2);
 
             if (i)

@@ -29,16 +29,13 @@ namespace beam::wallet {
         }
     };
 
-    ManagerStdInWallet::ManagerStdInWallet(IWalletDB::Ptr wdb, Wallet::Ptr pWallet)
-        :m_pWalletDB(std::move(wdb))
-        ,m_pWallet(std::move(pWallet))
+    ManagerStdInWallet::ManagerStdInWallet(Wallet& wallet)
+        :m_Wallet(wallet)
     {
-        assert(m_pWalletDB && m_pWallet);
+        m_pPKdf = wallet.get_WalletDB()->get_OwnerKdf();
+        m_pHist = &wallet.get_WalletDB()->get_History();
 
-        m_pPKdf = m_pWalletDB->get_OwnerKdf();
-        m_pHist = &m_pWalletDB->get_History();
-
-        m_pNetwork = m_pWallet->GetNodeEndpoint();
+        m_pNetwork = wallet.GetNodeEndpoint();
         assert(m_pNetwork);
     }
 
@@ -51,25 +48,25 @@ namespace beam::wallet {
     {
         m_Privilege = n;
         if (n)
-            m_pKdf = m_pWalletDB->get_MasterKdf();
+            m_pKdf = m_Wallet.get_WalletDB()->get_MasterKdf();
     }
 
     bool ManagerStdInWallet::SlotLoad(ECC::Hash::Value& hv, uint32_t iSlot)
     {
         SlotName sn(iSlot);
-        return m_pWalletDB->getVarRaw(sn.m_sz, hv.m_pData, hv.nBytes);
+        return m_Wallet.get_WalletDB()->getVarRaw(sn.m_sz, hv.m_pData, hv.nBytes);
     }
 
     void ManagerStdInWallet::SlotSave(const ECC::Hash::Value& hv, uint32_t iSlot)
     {
         SlotName sn(iSlot);
-        m_pWalletDB->setVarRaw(sn.m_sz, hv.m_pData, hv.nBytes);
+        m_Wallet.get_WalletDB()->setVarRaw(sn.m_sz, hv.m_pData, hv.nBytes);
     }
 
     void ManagerStdInWallet::SlotErase(uint32_t iSlot)
     {
         SlotName sn(iSlot);
-        m_pWalletDB->removeVarRaw(sn.m_sz);
+        m_Wallet.get_WalletDB()->removeVarRaw(sn.m_sz);
     }
 
     struct ManagerStdInWallet::Channel
@@ -82,7 +79,7 @@ namespace beam::wallet {
         virtual ~Channel()
         {
             if (m_pThis)
-                m_pThis->m_pWallet->Unlisten(m_Wid, &m_Handler);
+                m_pThis->m_Wallet.Unlisten(m_Wid, &m_Handler);
         }
 
         struct Handler
@@ -117,7 +114,7 @@ namespace beam::wallet {
         c.m_Wid.SetChannelFromPk();
 
         c.m_pThis = this;
-        m_pWallet->Listen(c.m_Wid, sk, &c.m_Handler);
+        m_Wallet.Listen(c.m_Wid, sk, &c.m_Handler);
 
         pRes = std::move(pCh);
     }
@@ -131,7 +128,7 @@ namespace beam::wallet {
         wid.m_Pk = pk.m_X;
         wid.SetChannelFromPk();
 
-        m_pWallet->Send(wid, msg);
+        m_Wallet.Send(wid, msg);
     }
 
     void ManagerStdInWallet::WriteStream(const Blob& b, uint32_t iStream)
@@ -168,18 +165,11 @@ namespace beam::wallet {
         return res;
     }
 
-    ShadersManager::ShadersManager(beam::wallet::Wallet::Ptr wallet,
-                                   beam::wallet::IWalletDB::Ptr walletDB,
-                                   beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
-                                   std::string appid,
-                                   std::string appname,
-                                   uint32_t privilegeLvl)
-        : ManagerStdInWallet(std::move(walletDB), wallet)
+    ShadersManager::ShadersManager(Wallet& wallet, std::string appid, std::string appname, uint32_t privilegeLvl)
+        : ManagerStdInWallet(wallet)
         , _currentAppId(std::move(appid))
         , _currentAppName(std::move(appname))
-        , _wallet(std::move(wallet))
     {
-        assert(_wallet);
         _logResult = appid.empty();
         set_Privilege(privilegeLvl);
     }
@@ -302,7 +292,7 @@ namespace beam::wallet {
                 StartRun(method);
             });
 
-        _wallet->DoInSyncedWallet([this]()
+        m_Wallet.DoInSyncedWallet([this]()
             {
                 _startEvent->post();
             });
@@ -344,7 +334,7 @@ namespace beam::wallet {
                 params.SetParameter(TxParameterID::AppName, _currentAppName);
             }
 
-            auto txid = _wallet->StartTransaction(params);
+            auto txid = m_Wallet.StartTransaction(params);
             return doneHandler(txid, boost::none);
         }
         catch(const std::runtime_error& err)
@@ -439,21 +429,8 @@ namespace beam::wallet {
         }
     }
 
-    IShadersManager::Ptr IShadersManager::CreateInstance(
-                beam::wallet::Wallet::Ptr wallet,
-                beam::wallet::IWalletDB::Ptr wdb,
-                beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
-                std::string appid,
-                std::string appname,
-                uint32_t privilegeLvl)
+    IShadersManager::Ptr IShadersManager::CreateInstance(Wallet& wallet, std::string appid, std::string appname,uint32_t privilegeLvl)
     {
-        return std::make_shared<ShadersManager>(
-                std::move(wallet),
-                std::move(wdb),
-                std::move(nodeNetwork),
-                std::move(appid),
-                std::move(appname),
-                privilegeLvl
-            );
+        return std::make_shared<ShadersManager>(wallet, std::move(appid), std::move(appname), privilegeLvl);
     }
 }

@@ -834,7 +834,7 @@ namespace beam::wallet
                 //
                 // Shaders
                 //
-                auto clientShaders = IShadersManager::CreateInstance(wallet, m_walletDB, nodeNetwork, "", "", 0);
+                auto clientShaders = IShadersManager::CreateInstance(*wallet, "", "", 0);
                 _clientShaders = clientShaders;
 
                 nodeNetwork->tryToConnect();
@@ -1033,7 +1033,7 @@ namespace beam::wallet
         auto wallet = m_wallet.lock();
         auto network = m_nodeNetwork.lock();
         assert(wallet && network);
-        return IShadersManager::CreateInstance(wallet, m_walletDB, network, appid, appname, privilegeLvl);
+        return IShadersManager::CreateInstance(*wallet, appid, appname, privilegeLvl);
     }
 
     std::string WalletClient::getNodeAddress() const
