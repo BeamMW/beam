@@ -38,7 +38,7 @@ namespace beam::wallet
     bool ContractTransaction::IsInSafety() const
     {
         const auto txState = GetState<State>();
-        return txState == State::KernelConfirmation;
+        return txState == State::Registration;
     }
 
     struct ContractTransaction::MyBuilder
@@ -233,27 +233,28 @@ namespace beam::wallet
         }
     };
 
-
-    void ContractTransaction::UpdateImpl()
+    void ContractTransaction::Init()
     {
-        Key::IKdf::Ptr pKdf = get_MasterKdfStrict();
+        assert(!m_TxBuilder);
 
-        if (!m_TxBuilder)
+        m_TxBuilder = std::make_shared<MyBuilder>(*this, kDefaultSubTxID);
+        auto& builder = *m_TxBuilder;
+
+        GetParameter(TxParameterID::ContractDataPacked, builder.m_Data, GetSubTxID());
+
+        for (const auto& cdata : builder.m_Data.m_vec)
         {
-            m_TxBuilder = std::make_shared<MyBuilder>(*this, kDefaultSubTxID);
-            auto& builder = *m_TxBuilder;
-
-            GetParameter(TxParameterID::ContractDataPacked, builder.m_Data, GetSubTxID());
-
-            for (const auto& cdata : builder.m_Data.m_vec)
+            if (bvm2::ContractInvokeEntry::Flags::Dependent & cdata.m_Flags)
             {
-                if (bvm2::ContractInvokeEntry::Flags::Dependent & cdata.m_Flags)
-                {
-                    builder.m_pParentCtx = &cdata.m_ParentCtx;
-                    break;
-                }
+                builder.m_pParentCtx = &cdata.m_ParentCtx;
+                break;
             }
         }
+    }
+
+    void ContractTransaction::BuildTxOnce()
+    {
+        Key::IKdf::Ptr pKdf = get_MasterKdfStrict();
 
         auto& builder = *m_TxBuilder;
         auto& vData = builder.m_Data;
@@ -464,42 +465,121 @@ namespace beam::wallet
             s = Registration;
             SetState(s);
         }
+    }
 
-        if (vData.m_IsSender)
+    void ContractTransaction::UpdateImpl()
+    {
+        if (!m_TxBuilder)
+            Init();
+
+        auto s = GetState<State>();
+        if (Recreation == s)
+        {
+            // TODO
+
+            s = Initial;
+            SetState(s);
+        }
+
+        BuildTxOnce();
+
+        s = GetState<State>();
+        if (State::Registration != s)
+            return;
+
+        int ret = RegisterTx();
+        if (ret < 0)
+            OnFailed(TxFailureReason::TransactionExpired);
+    }
+
+    int ContractTransaction::RegisterTx()
+    {
+        Height h = 0;
+        GetParameter(TxParameterID::KernelProofHeight, h);
+        if (h)
+        {
+            SetCompletedTxCoinStatuses(h);
+            CompleteTx();
+            return 1;
+        }
+
+        auto& builder = *m_TxBuilder;
+
+        GetParameter(TxParameterID::KernelUnconfirmedHeight, h);
+
+        if (h && IsExpired(h + 1))
+            return -1;
+
+        if (builder.m_Data.m_IsSender)
         {
             // We're the tx owner
-            uint8_t nRegistered = proto::TxStatus::Unspecified;
-            if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
+            uint8_t nTxRegStatus = proto::TxStatus::Unspecified;
+            if (!GetParameter(TxParameterID::TransactionRegistered, nTxRegStatus))
             {
-                if (CheckExpired())
-                    return;
-
-                GetGateway().register_tx(GetTxID(), builder.m_pTransaction, builder.m_pParentCtx ? &builder.m_pParentCtx->m_Hash : nullptr);
-                SetState(State::Registration);
-                return;
+                Block::SystemState::Full state;
+                if (GetTip(state) && !IsExpired(state.m_Height + 1))
+                    GetGateway().register_tx(GetTxID(), builder.m_pTransaction, builder.m_pParentCtx ? &builder.m_pParentCtx->m_Hash : nullptr);
             }
-
-            if (proto::TxStatus::Ok != nRegistered) // we have to ensure that this transaction hasn't already added to blockchain)
+            else
             {
-                Height lastUnconfirmedHeight = 0;
-                if (GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight) && lastUnconfirmedHeight > 0)
+                // assume the status could be due to redundant tx send. Ensure tx hasn't been accepted yet
+                if ((proto::TxStatus::Ok != nTxRegStatus) && h)
                 {
-                    OnFailed(TxFailureReason::FailedToRegister, true);
-                    return;
+                    switch (nTxRegStatus)
+                    {
+                    case proto::TxStatus::DependentNoParent:
+                    case proto::TxStatus::DependentNotBest:
+                    case proto::TxStatus::DependentNoNewCtx:
+                        return -1;
+
+                    default:
+                        OnFailed(TxFailureReason::FailedToRegister, true);
+                        return 0;
+                    }
                 }
             }
         }
 
-        Height hProof = 0;
-        GetParameter(TxParameterID::KernelProofHeight, hProof);
-        if (!hProof)
+        ConfirmKernel(builder.m_pKrn->m_Internal.m_ID);
+
+        return 0;
+    }
+
+    bool ContractTransaction::IsExpired(Height hTrg)
+    {
+        auto& builder = *m_TxBuilder;
+
+        Height hMax;
+        if (builder.m_pParentCtx)
+            hMax = builder.m_pParentCtx->m_Height;
+        else
         {
-            SetState(State::KernelConfirmation);
-            ConfirmKernel(builder.m_pKrn->m_Internal.m_ID);
-            return;
+            if (builder.m_pKrn)
+                hMax = builder.m_pKrn->get_EffectiveHeightRange().m_Max;
+            else
+            {
+                if (!GetParameter(TxParameterID::MaxHeight, hMax))
+                    return false;
+            }
         }
 
-        SetCompletedTxCoinStatuses(hProof);
-        CompleteTx();
+        return (hMax < hTrg);
     }
+
+    bool ContractTransaction::CheckExpired()
+    {
+        return false; // disable the outer logic, handle expiration internally
+    }
+
+    bool ContractTransaction::CanCancel() const
+    {
+        if (!m_TxBuilder)
+            return true;
+
+        if (m_TxBuilder->m_Data.m_IsSender)
+            return true;
+
+        return GetState<State>() != State::Registration;
+    }
+
 }
