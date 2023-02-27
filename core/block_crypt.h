@@ -928,6 +928,8 @@ namespace beam
 
 		bool IsValid(Height hScheme, std::string* psErr = nullptr) const;
 
+		HeightRange get_EffectiveHeightRange() const;
+
 		struct LongProof; // legacy
 
 		int cmp(const TxKernel&) const;

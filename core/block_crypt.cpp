@@ -747,6 +747,19 @@ namespace beam
 		return true;
 	}
 
+	HeightRange TxKernel::get_EffectiveHeightRange() const
+	{
+		HeightRange hr = m_Height;
+		if (!hr.IsEmpty())
+		{
+			auto& r = Rules::get();
+			if ((hr.m_Min >= r.pForks[2].m_Height) && (hr.m_Max - hr.m_Min > r.MaxKernelValidityDH))
+				hr.m_Max = hr.m_Min + r.MaxKernelValidityDH;
+		}
+
+		return hr;
+	}
+
 	void TxKernel::TestValidBase(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent, ECC::Point::Native* pComm) const
 	{
 		const Rules& r = Rules::get(); // alias

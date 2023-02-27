@@ -214,14 +214,7 @@ namespace beam
 
 				r.m_pKernel->TestValid(m_Height.m_Min, m_Sigma);
 
-				HeightRange hr = r.m_pKernel->m_Height;
-				if (iFork >= 2)
-				{
-					if (!hr.IsEmpty() && (hr.m_Max - hr.m_Min > rules.MaxKernelValidityDH))
-						hr.m_Max = hr.m_Min + rules.MaxKernelValidityDH;
-				}
-
-				HandleElementHeightStrict(hr);
+				HandleElementHeightStrict(r.m_pKernel->get_EffectiveHeightRange());
 
 				r.m_pKernel->AddStats(m_Stats);
 			}
