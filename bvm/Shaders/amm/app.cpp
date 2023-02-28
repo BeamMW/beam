@@ -42,6 +42,7 @@
 #define Amm_pool_trade(macro) \
     Amm_poolop(macro) \
     macro(Amount, val1_buy) \
+    macro(Amount, val2_pay) \
     macro(uint32_t, bPredictOnly)
 
 #define AmmActions_All(macro) \
@@ -634,9 +635,6 @@ ON_METHOD(pool_trade)
     if (!SetKey(pid, bReverse, aid1, aid2, kind))
         return;
 
-    if (!val1_buy)
-        return OnError("buy amount not specified");
-
     PoolsWalker pw;
     pw.Enum(cid, pid);
     if (!pw.MoveMustExist())
@@ -646,20 +644,78 @@ ON_METHOD(pool_trade)
     if (bReverse)
         p.m_Totals.Swap();
 
+    if (p.m_Totals.m_Tok1 <= 1)
+        return OnError("no liquidity");
+
     Method::Trade arg;
-    arg.m_Buy1 = val1_buy;
+    Amount valPay, rawPay;
+    TradeRes res;
 
-    if (arg.m_Buy1 >= p.m_Totals.m_Tok1)
+    if (val1_buy)
     {
-        if (p.m_Totals.m_Tok1 <= 1)
-            return OnError("no liquidity");
+        arg.m_Buy1 = val1_buy;
+        if (arg.m_Buy1 >= p.m_Totals.m_Tok1)
+            arg.m_Buy1 = p.m_Totals.m_Tok1 - 1; // truncate
+    }
+    else
+    {
+        if (!val2_pay)
+            return OnError("buy or pay amount must be specified");
 
-        arg.m_Buy1 = p.m_Totals.m_Tok1 - 1; // truncate
+        Amount thrLo, thrHi;
+        {
+            const Amount refVal = 0x20000000;
+            pid.m_Fees.Get(res, refVal);
+            Amount rawPay = Totals::ToAmount(Float(val2_pay) * Float(refVal) / Float(res.m_DaoFee + res.m_PayPool)); // reduced by fee proportion
+
+            // init guess
+            Amount guess = p.m_Totals.m_Tok1 - Totals::ToAmount(Float(p.m_Totals.m_Tok1) * Float(p.m_Totals.m_Tok2) / Float(p.m_Totals.m_Tok2 + rawPay));
+
+            thrLo = guess - guess / 10000;
+            if (thrLo)
+                thrLo--;
+
+            thrHi = guess + guess / 1000 + 1;
+        }
+
+        if (thrHi >= p.m_Totals.m_Tok1)
+            thrHi = p.m_Totals.m_Tok1 - 1;
+
+        if (thrLo >= thrHi)
+            thrLo = thrHi - 1;
+
+        // median search
+        arg.m_Buy1 = 0;
+        Amount val2_Best = 0;
+
+        while (true)
+        {
+            Amount mid = thrLo + (thrHi - thrLo) / 2;
+
+            Totals t2 = p.m_Totals;
+            rawPay = t2.Trade(res, mid, pid.m_Fees);
+            valPay = res.m_PayPool + res.m_DaoFee;
+
+            // due to precision loss it could be impossible to find the exact solution. So we select the upper bound
+            if ((valPay <= val2_pay) && (valPay >= val2_Best))
+            {
+                arg.m_Buy1 = mid; // don't stop the search even if exact match. Maybe we can get a little more for the same pay amount
+                val2_Best = valPay;
+            }
+
+            if (thrLo >= thrHi)
+                break;
+
+            if (valPay > val2_pay)
+                thrHi = mid;
+            else
+                thrLo = mid + 1;
+        }
     }
 
-    TradeRes res;
-    Amount rawPay = p.m_Totals.Trade(res, arg.m_Buy1, pid.m_Fees);
-    Amount valPay = res.m_PayPool + res.m_DaoFee;
+    rawPay = p.m_Totals.Trade(res, arg.m_Buy1, pid.m_Fees);
+    valPay = res.m_PayPool + res.m_DaoFee;
+
 
     if (bPredictOnly)
     {
