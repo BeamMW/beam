@@ -92,7 +92,7 @@ namespace beam::wallet
         EvaluateSelfFields();
 
         // Shared seed: Hash(A_commitment | B_commitment)
-        ECC::RangeProof::CreatorParams cp;
+        ECC::RangeProof::Params::Create cp;
         cp.m_Value = m_Amount;
 
         GetParameterStrict(TxParameterID::PeerPublicSharedBlindingFactor, outp.m_Commitment);

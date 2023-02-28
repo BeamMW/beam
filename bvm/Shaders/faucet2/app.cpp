@@ -13,6 +13,8 @@
 
 #define Faucet2_admin_destroy(macro) macro(ContractID, cid)
 
+#define Faucet2_admin_view(macro)
+
 #define Faucet2_admin_control(macro) \
     macro(ContractID, cid) \
     macro(uint32_t, bEnable)
@@ -23,6 +25,7 @@
 #define Faucet2Role_admin(macro) \
     macro(admin, create) \
     macro(admin, destroy) \
+    macro(admin, view) \
     macro(admin, control) \
     macro(admin, withdraw)
 
@@ -88,6 +91,11 @@ ON_METHOD(admin, create)
     arg.m_Params.m_Limit.m_Height = backlogPeriod;
 
     Env::GenerateKernel(nullptr, arg.s_iMethod, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "create Faucet2 contract", 0);
+}
+
+ON_METHOD(admin, view)
+{
+    EnumAndDumpContracts(Faucet2::s_SID);
 }
 
 ON_METHOD(admin, destroy)

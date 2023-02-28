@@ -29,8 +29,8 @@ namespace beam::wallet
             const boost::optional<TxID>& txId)
     {
         return CreateTransactionParameters(TxType::DexSimpleSwap, txId)
-            .SetParameter(TxParameterID::PeerID, peerID)
-            .SetParameter(TxParameterID::MyID, myID)
+            .SetParameter(TxParameterID::PeerAddr, peerID)
+            .SetParameter(TxParameterID::MyAddr, myID)
             .SetParameter(TxParameterID::DexOrderID, dexOrderID)
             .SetParameter(TxParameterID::SavePeerAddress, false)
             .SetParameter(TxParameterID::DexReceiveAsset, coinPeer)
@@ -52,8 +52,7 @@ namespace beam::wallet
 
     TxParameters DexTransaction::Creator::CheckAndCompleteParameters(const TxParameters& initialParams)
     {
-        CheckSenderAddress(initialParams, _wdb);
-        auto params = ProcessReceiverAddress(initialParams, _wdb, true);
+        auto params = ProcessReceiverAddress(initialParams, _wdb);
 
         const auto selfTx = params.GetParameter<bool>(TxParameterID::IsSelfTx);
         if (!selfTx)
@@ -77,7 +76,7 @@ namespace beam::wallet
         //
         // Check Peer
         //
-        const auto peerID = params.GetParameter<WalletID>(TxParameterID::PeerID);
+        const auto peerID = params.GetParameter<WalletID>(TxParameterID::PeerAddr);
         if(!peerID)
         {
             throw InvalidTransactionParametersException("DexSimpleSwap missing PeerID");
@@ -92,7 +91,7 @@ namespace beam::wallet
         //
         // Check self
         //
-        const auto myID = params.GetParameter<WalletID>(TxParameterID::MyID);
+        const auto myID = params.GetParameter<WalletID>(TxParameterID::MyAddr);
         if (!myID.is_initialized())
         {
             throw InvalidTransactionParametersException("DexSimpleSwap missing MyID");
@@ -107,7 +106,6 @@ namespace beam::wallet
             }
 
             params.SetParameter(TxParameterID::MyAddressID, myaddr->m_OwnID);
-            params.SetParameter(TxParameterID::MyWalletIdentity, myaddr->m_Identity); // TODO: do we need this? it is set in ConstructTransactionFromParameters
         }
 
         //
@@ -166,7 +164,6 @@ namespace beam::wallet
         case TxParameterID::Lifetime:  // TODO:DEX check where set
         case TxParameterID::PaymentConfirmation:
         case TxParameterID::PeerProtoVersion:
-        case TxParameterID::PeerWalletIdentity: // TODO:DEX check if really passed
         case TxParameterID::PeerMaxHeight:
         case TxParameterID::PeerPublicExcess:
         case TxParameterID::PeerPublicNonce:

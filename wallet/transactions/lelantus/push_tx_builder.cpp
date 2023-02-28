@@ -61,72 +61,70 @@ namespace beam::wallet::lelantus
         IPrivateKeyKeeper2::Method::SignSendShielded& m = x.m_Method;
 
         SetCommon(m);
+        ZeroObject(m.m_User);
 
-        WalletID widMy = GetParameterStrict<WalletID>(TxParameterID::MyID);
-        WalletID widPeer;
-        bool bHasWidPeer = GetParameter(TxParameterID::PeerID, widPeer);
+        m.m_pVoucher = std::make_unique<ShieldedTxo::Voucher>();
 
-        if (!GetParameter(TxParameterID::PeerWalletIdentity, m.m_Peer))
+        if (GetParameter(TxParameterID::PeerEndpoint, m.m_Peer))
         {
-            auto wa = m_Tx.GetWalletDB()->getAddress(bHasWidPeer ? widPeer : widMy);
-            if (!wa)
-                throw TransactionFailedException(true, TxFailureReason::NoPeerIdentity);
+            auto pOffline = std::make_unique<IPrivateKeyKeeper2::Method::SignSendShielded::Offline>();
 
-            m.m_Peer = wa->m_Identity;
-            m.m_MyIDKey = wa->m_OwnID;
-        }
-
-        if (!GetParameter(TxParameterID::Voucher, m.m_Voucher))
-        {
-            if (m.m_MyIDKey)
+            if (GetParameter(TxParameterID::PublicAddreessGen, pOffline->m_Addr))
             {
-                // We're sending to ourselves. Create our voucher
-                IPrivateKeyKeeper2::Method::CreateVoucherShielded m2;
-                m2.m_MyIDKey = m.m_MyIDKey;
-                ECC::GenRandom(m2.m_Nonce);
+                // public offline tx
+                if (!GetParameter(TxParameterID::PublicAddressGenSig, pOffline->m_Signature))
+                    throw TransactionFailedException(true, TxFailureReason::NoVoucher);
 
-                if (IPrivateKeyKeeper2::Status::Success != m_Tx.get_KeyKeeperStrict()->InvokeSync(m2) ||
-                    m2.m_Res.empty())
-                    throw TransactionFailedException(true, TxFailureReason::KeyKeeperError);
+                ECC::GenRandom(pOffline->m_Nonce);
 
-                m.m_Voucher = std::move(m2.m_Res.front());
+                m.m_pOffline = std::move(pOffline);
+                m.m_pVoucher.reset();
             }
             else
             {
-                if (!bHasWidPeer)
-                    throw TransactionFailedException(true, TxFailureReason::NoVoucher);
+                if (!GetParameter(TxParameterID::Voucher, *m.m_pVoucher))
+                {
+                    WalletID widPeer;
+                    if (!GetParameter(TxParameterID::PeerAddr, widPeer))
+                        throw TransactionFailedException(true, TxFailureReason::NoVoucher);
 
-                boost::optional<ShieldedTxo::Voucher> res;
-                m_Tx.GetGateway().get_UniqueVoucher(widPeer, m_Tx.GetTxID(), res);
+                    boost::optional<ShieldedTxo::Voucher> res;
+                    m_Tx.GetGateway().get_UniqueVoucher(widPeer, m_Tx.GetTxID(), res);
 
-                if (!res)
-                    return;
+                    if (!res)
+                        return;
 
-                m.m_Voucher = std::move(*res);
+                    *m.m_pVoucher = std::move(*res);
+                    SetParameter(TxParameterID::Voucher, *m.m_pVoucher);
+                }
             }
-            SetParameter(TxParameterID::Voucher, m.m_Voucher);
+
+            // set sender info
+            m_Tx.GetMyEndpointAlways(m.m_User.m_Sender);
         }
-
-        ZeroObject(m.m_User);
-
-        if (!m.m_MyIDKey)
+        else
         {
-            auto wa = m_Tx.GetWalletDB()->getAddress(widMy);
-            if (wa)
-                m.m_User.m_Sender = wa->m_Identity;
+            // We're sending to ourselves. Create our voucher
+            m.m_iEndpoint = m_Tx.EnsureOwnID();
+
+            m_Tx.GetWalletDB()->get_Endpoint(m.m_Peer, m.m_iEndpoint);
+
+            IPrivateKeyKeeper2::Method::CreateVoucherShielded m2;
+            m2.m_iEndpoint = m.m_iEndpoint;
+            ECC::GenRandom(m2.m_Nonce);
+
+            if (IPrivateKeyKeeper2::Status::Success != m_Tx.get_KeyKeeperStrict()->InvokeSync(m2) || m2.m_Res.empty())
+                throw TransactionFailedException(true, TxFailureReason::KeyKeeperError);
+
+            *m.m_pVoucher = m2.m_Res.front();
         }
 
-        // TODO: add ShieldedMessage if needed
-        // m.m_User.m_Message = GetParameterStrict<WalletID>(TxParameterID::ShieldedMessage);
 
         auto* packedMessage = ShieldedTxo::User::ToPackedMessage(m.m_User);
         packedMessage->m_TxID = Blob(m_Tx.GetTxID().data(), static_cast<uint32_t>(m_Tx.GetTxID().size()));
         uint8_t maxPrivacyMinAnonimitySet = 0;
         if (GetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, maxPrivacyMinAnonimitySet))
             packedMessage->m_MaxPrivacyMinAnonymitySet = maxPrivacyMinAnonimitySet;
-
-        // store receiver's own ID to allow it to restore the address
-        GetParameter(TxParameterID::PeerOwnID, packedMessage->m_ReceiverOwnID);
 
         // store flags
         uint8_t flags = 0;
@@ -141,7 +139,7 @@ namespace beam::wallet::lelantus
         viewer.FromOwner(*m_Tx.GetWalletDB()->get_OwnerKdf(), 0);
 
         ShieldedTxo::DataParams pars;
-        if (pars.m_Ticket.Recover(m.m_Voucher.m_Ticket, viewer))
+        if (m.m_pVoucher && pars.m_Ticket.Recover(m.m_pVoucher->m_Ticket, viewer))
         {
             // sending to yourself
             pars.m_Output.m_User = m.m_User;
@@ -217,9 +215,9 @@ namespace beam::wallet::lelantus
     {
         BaseTxBuilder::FillUserData(user);
         user->m_Amount = m_Value;
-        PeerID peerID = Zero;
-        GetParameter(TxParameterID::PeerWalletIdentity, peerID);
-        user->m_Peer = peerID;
+        PeerID peerEndpoint = Zero;
+        GetParameter(TxParameterID::PeerEndpoint, peerEndpoint);
+        user->m_Peer = peerEndpoint;
     }
 
 } // namespace beam::wallet::lelantus

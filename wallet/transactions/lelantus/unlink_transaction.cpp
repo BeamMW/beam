@@ -105,10 +105,9 @@ namespace beam::wallet::lelantus
         };
     }
 
-    TxParameters CreateUnlinkFundsTransactionParameters(const WalletID& myID, const boost::optional<TxID>& txId)
+    TxParameters CreateUnlinkFundsTransactionParameters(const boost::optional<TxID>& txId)
     {
-        return CreateTransactionParameters(TxType::UnlinkFunds, txId)
-            .SetParameter(TxParameterID::MyID, myID);
+        return CreateTransactionParameters(TxType::UnlinkFunds, txId);
     }
 
     BaseTransaction::Ptr UnlinkFundsTransaction::Creator::Create(const TxContext& context)
@@ -266,7 +265,7 @@ namespace beam::wallet::lelantus
         CopyParameter<Height>(TxParameterID::MinHeight, *tx);
         CopyParameter<Height>(TxParameterID::MaxHeight, *tx);
         CopyParameter<Height>(TxParameterID::Lifetime, *tx);
-        CopyParameter<WalletID>(TxParameterID::MyID, *tx);
+        CopyParameter<WalletID>(TxParameterID::MyAddr, *tx);
 
         m_ActiveTransaction = tx;
     }

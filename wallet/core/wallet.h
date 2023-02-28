@@ -72,8 +72,7 @@ namespace beam::wallet
 
     };
 
-    void CheckSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB);
-    TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB, bool isMandatory = true);
+    TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB);
 
     // Interface for wallet observer. 
     struct IWalletObserver : IWalletDbObserver
@@ -167,6 +166,10 @@ namespace beam::wallet
         bool IsWalletInSync() const;
         Height get_TipHeight() const;
 
+        const IWalletDB::Ptr& get_WalletDB() const {
+            return m_WalletDB;
+        }
+
         // Performs action only if wallet is in sync, otherwise this action is queued.
         void DoInSyncedWallet(OnSyncAction&& action); 
 
@@ -183,6 +186,7 @@ namespace beam::wallet
         void EnableBodyRequests(bool value);
         void assertThread() const; // throws if not in wallet thread
         void markAppNotificationAsRead(const TxID& id);
+        void sendInstantSbbsMessage(beam::Timestamp timestamp, const WalletID& peerID, const WalletID& myID, ByteBuffer&& message);
 
         const std::set<IWalletMessageEndpoint::Ptr>& get_MessageEndpoints() const {
             return m_MessageEndpoints;
@@ -190,7 +194,7 @@ namespace beam::wallet
 
         // IRawCommGateway
         void Listen(const WalletID&, const ECC::Scalar::Native& sk, IHandler* = nullptr) override;
-        void Unlisten(const WalletID&) override;
+        void Unlisten(const WalletID&, IHandler* = nullptr) override;
         void Send(const WalletID& peerID, const Blob&) override;
 
     protected:
@@ -398,9 +402,9 @@ namespace beam::wallet
             m_Pending##type.insert(x); \
             x.AddRef(); \
         } \
-        bool PostReqUnique(MyRequest##type& x) \
+        bool PostReq(MyRequest##type& x) \
         { \
-            if (!m_NodeEndpoint || m_Pending##type.end() != m_Pending##type.find(x)) \
+            if (!m_NodeEndpoint) \
                 return false; \
             AddReq(x); \
             m_NodeEndpoint->PostRequest(x, m_RequestHandler); \
@@ -408,6 +412,12 @@ namespace beam::wallet
             if (SyncTasks::type::b) \
                 m_LastSyncTotal++; \
             return true; \
+        } \
+        bool PostReqUnique(MyRequest##type& x) \
+        { \
+            if (m_Pending##type.end() != m_Pending##type.find(x)) \
+                return false; \
+            return PostReq(x); \
         }
 
 #define WalletFlyClientRequests_All(macro) \

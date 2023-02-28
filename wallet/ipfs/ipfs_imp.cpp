@@ -96,7 +96,7 @@ namespace beam::wallet::imp
                         config.bootstrap.emplace_back("/dns4/eu-node04.mainnet.beam.mw/tcp/38041/p2p/12D3KooWHpgKQYXJMKXQZuwbuRoFK28cQLiVjCVFxhSpFX9XHNWZ");
                         LOG_INFO() << "Default MAINNET IPFS bootstrap is used";
                         #else
-                        config.bootstrap.emplace_back("/ip4/3.19.141.112/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
+                        config.bootstrap.emplace_back("/ip4/3.19.32.148/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
                         LOG_INFO() << "Default MASTERNET IPFS bootstrap is used";
                         #endif
                     }
@@ -122,7 +122,7 @@ namespace beam::wallet::imp
                         config.peering.emplace_back("/dns4/eu-node04.mainnet.beam.mw/tcp/38041/p2p/12D3KooWHpgKQYXJMKXQZuwbuRoFK28cQLiVjCVFxhSpFX9XHNWZ");
                         LOG_INFO() << "Default MAINNET IPFS peering is used";
                         #else
-                        config.peering.emplace_back("/ip4/3.19.141.112/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
+                        config.peering.emplace_back("/ip4/3.19.32.148/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
                         LOG_INFO() << "Default MASTERNET IPFS peering is used";
                         #endif
                     }

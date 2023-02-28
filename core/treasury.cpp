@@ -161,7 +161,7 @@ namespace beam
 	void Treasury::get_ID(Key::IKdf& kdf, PeerID& pid, Scalar::Native& sk)
 	{
 		Key::ID kid(Zero);
-		kid.m_Type = ECC::Key::Type::WalletID;
+		kid.m_Type = ECC::Key::Type::EndPoint;
 
 		kdf.DeriveKey(sk, kid);
 		pid.FromSk(sk);
@@ -185,6 +185,7 @@ namespace beam
 			cid.m_Idx = nIndex++;
 			cid.m_Type = Key::Type::Treasury;
 			cid.m_Value = c0.m_Value;
+			cid.set_Subkey(0, CoinID::Scheme::V1);
 
 			c.m_pOutput->Create(Rules::HeightGenesis - 1, sk, kdf, cid, kdf);
 			offset += sk;

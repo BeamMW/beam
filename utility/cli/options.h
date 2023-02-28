@@ -88,6 +88,10 @@ namespace beam
         extern const char* CRASH;
         extern const char* INIT;
         extern const char* RESTORE;
+        extern const char* RESTORE_HID;
+        extern const char* HID_ENUM;
+        extern const char* HID_INSTALL;
+        extern const char* HID_INSTALL_FILE;
         extern const char* EXPORT_MINER_KEY;
         extern const char* EXPORT_OWNER_KEY;
         extern const char* KEY_SUBKEY;
@@ -135,6 +139,7 @@ namespace beam
         extern const char* WALLET_ADDR;
         extern const char* CHANGE_ADDRESS_EXPIRATION;
         extern const char* WALLET_ADDRESS_LIST;
+        extern const char* WALLET_ADDRESS_VERIFY;
         extern const char* WALLET_RESCAN;
         extern const char* UTXO;
         extern const char* EXPORT_ADDRESSES;

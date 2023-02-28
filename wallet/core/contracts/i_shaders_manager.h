@@ -29,13 +29,7 @@ namespace beam::wallet
         typedef std::shared_ptr<IShadersManager> Ptr;
         typedef std::weak_ptr<IShadersManager> WeakPtr;
 
-        static Ptr CreateInstance(
-                beam::wallet::Wallet::Ptr wallet,
-                beam::wallet::IWalletDB::Ptr wdb,
-                beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
-                std::string appid,
-                std::string appname,
-                uint32_t privilegeLvl);
+        static Ptr CreateInstance(Wallet&, std::string appid, std::string appname, uint32_t privilegeLvl);
 
         virtual ~IShadersManager() = default;
 

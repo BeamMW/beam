@@ -165,7 +165,7 @@ namespace
         TxID txID = generateTxID();
         const auto offer = createOffer( txID,
                                         SwapOfferStatus::Pending,
-                                        wa.m_walletID,
+                                        wa.m_BbsAddr,
                                         AtomicSwapCoin::Bitcoin,
                                         true);
         return std::make_tuple(offer, wa.m_OwnID);
@@ -241,7 +241,7 @@ namespace
             // changed public key another
             WalletAddress anotherAddress;
             storage->createAddress(anotherAddress);
-            offer.m_publisherId = anotherAddress.m_walletID;
+            offer.m_publisherId = anotherAddress.m_BbsAddr;
 
             const ByteBuffer msgRaw = toByteBuffer(SwapOfferToken(offer));
             const auto signatureRaw = signData(msgRaw, keyIndex, storage);

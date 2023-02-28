@@ -48,6 +48,7 @@ struct IAdapter {
 
     virtual bool get_contracts(io::SerializedMsg& out) = 0;
     virtual bool get_contract_details(io::SerializedMsg& out, const Blob& id, Height hMin, Height hMax, uint32_t nMaxTxs) = 0;
+    virtual bool get_asset_history(io::SerializedMsg& out, uint32_t, Height hMin, Height hMax) = 0;
 };
 
 IAdapter::Ptr create_adapter(Node& node);

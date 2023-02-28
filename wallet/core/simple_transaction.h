@@ -23,7 +23,7 @@
 namespace beam::wallet
 {
     TxParameters CreateSimpleTransactionParameters(const boost::optional<TxID>& txId = boost::none);
-    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList, const boost::optional<TxID>& txId = boost::none);
+    TxParameters CreateSplitTransactionParameters(const AmountList& amountList, const boost::optional<TxID>& txId = boost::none);
 
     class SimpleTxBuilder;
 
@@ -57,6 +57,7 @@ namespace beam::wallet
     private:
         explicit SimpleTransaction(const TxContext& context);
 
+        bool IsSelfTx() const;
         bool IsInSafety() const override;
         void UpdateImpl() override;
         bool IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const override;

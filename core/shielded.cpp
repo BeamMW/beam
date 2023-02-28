@@ -139,7 +139,7 @@ namespace beam
 	{
 		ECC::Hash::Value hv;
 		get_SkOutPreimage(hv, fee);
-		kdf.DeriveKey(out, hv);
+		MasterKey::get_Child(kdf, s_iChildOut)->DeriveKey(out, hv);
 	}
 
 	/////////////
@@ -390,7 +390,7 @@ namespace beam
 		for (size_t i = 0; i < _countof(m_User.m_pMessage); i++)
 			p.m_Flags |= (Msg2Scalar(pExtra[i], m_User.m_pMessage[i]) << (i + 1));
 
-		ECC::RangeProof::CreatorParams cp;
+		ECC::RangeProof::Params::Create cp;
 		cp.m_Value = m_Value;
 
 		CoinID::Generator g(m_AssetID);
@@ -427,7 +427,7 @@ namespace beam
 	{
 		txo.Prepare(oracle, hScheme);
 
-		ECC::RangeProof::CreatorParams cp;
+		ECC::RangeProof::Params::Recover cp;
 		get_Seed(cp.m_Seed.V, hvShared, oracle);
 
 		ECC::Scalar::Native pExtra[2];
@@ -585,6 +585,45 @@ namespace beam
 			p = static_cast<uint8_t*>(p) + offset;
 
 		return offset + m_pSer->ExportP(p);
+	}
+
+	void ShieldedTxo::PublicGen::Export(Packed& p) const
+	{
+		if (sizeof(p) != ExportP(nullptr))
+			Exc::Fail("Shielded/PupGen size");
+		ExportP(&p);
+	}
+
+	bool ShieldedTxo::PublicGen::Import(const Packed& p)
+	{
+		auto pKdf = std::make_shared<ECC::HKdfPub>();
+		bool b1 = pKdf->Import(p.m_Gen);
+		m_pGen = std::move(pKdf);
+
+		pKdf = std::make_shared<ECC::HKdfPub>();
+		bool b2 = pKdf->Import(p.m_Ser);
+		m_pSer = std::move(pKdf);
+
+		return b1 && b2;
+	}
+
+	void ShieldedTxo::PublicGen::ImportStrict(const Packed& p)
+	{
+		if (!Import(p))
+			Exc::Fail("Shielded/PupGen import");
+	}
+
+	void ShieldedTxo::PublicGen::Packed::get_Hash(ECC::Hash::Value& hv) const
+	{
+		ECC::Hash::Processor()
+			<< "sh.pub.sig"
+			<< m_Gen.m_Secret
+			<< m_Gen.m_PkG
+			<< m_Gen.m_PkJ
+			<< m_Ser.m_Secret
+			<< m_Ser.m_PkG
+			// << m_Ser.m_PkJ // not necessary, not used atm
+			>> hv;
 	}
 
 } // namespace beam

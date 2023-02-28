@@ -2,29 +2,29 @@
 #include "../app_common_impl.h"
 #include "contract.h"
 
-#define Mintor_view_deployed(macro)
-#define Mintor_view_all_assets(macro)
-#define Mintor_view_params(macro) macro(ContractID, cid)
-#define Mintor_view_owned(macro) macro(ContractID, cid)
-#define Mintor_view_token(macro) \
+#define Minter_view_deployed(macro)
+#define Minter_view_all_assets(macro)
+#define Minter_view_params(macro) macro(ContractID, cid)
+#define Minter_view_owned(macro) macro(ContractID, cid)
+#define Minter_view_token(macro) \
     macro(ContractID, cid) \
     macro(AssetID, aid)
 
-#define Mintor_deploy(macro) \
+#define Minter_deploy(macro) \
     macro(ContractID, cidDaoVault) \
     macro(Amount, tokenIssueFee)
 
-#define Mintor_create_token(macro) \
+#define Minter_create_token(macro) \
     macro(ContractID, cid) \
     macro(Amount, limit) \
     macro(Amount, limitHi)
 
-#define Mintor_withdraw(macro) \
+#define Minter_withdraw(macro) \
     macro(ContractID, cid) \
     macro(AssetID, aid) \
     macro(Amount, value)
 
-#define MintorActions_All(macro) \
+#define MinterActions_All(macro) \
     macro(view_deployed) \
     macro(deploy) \
     macro(view_params) \
@@ -34,7 +34,7 @@
     macro(create_token) \
     macro(withdraw)
 
-namespace Mintor {
+namespace Minter {
 
 BEAM_EXPORT void Method_0()
 {
@@ -44,16 +44,16 @@ BEAM_EXPORT void Method_0()
     {   Env::DocGroup gr("actions");
 
 #define THE_FIELD(type, name) Env::DocAddText(#name, #type);
-#define THE_ACTION(name) { Env::DocGroup gr(#name);  Mintor_##name(THE_FIELD) }
+#define THE_ACTION(name) { Env::DocGroup gr(#name);  Minter_##name(THE_FIELD) }
         
-        MintorActions_All(THE_ACTION)
+        MinterActions_All(THE_ACTION)
 #undef THE_ACTION
 #undef THE_FIELD
     }
 }
 
 #define THE_FIELD(type, name) const type& name,
-#define ON_METHOD(name) void On_##name(Mintor_##name(THE_FIELD) int unused = 0)
+#define ON_METHOD(name) void On_##name(Minter_##name(THE_FIELD) int unused = 0)
 
 void OnError(const char* sz)
 {
@@ -67,11 +67,11 @@ ON_METHOD(view_deployed)
 
 ON_METHOD(deploy)
 {
-    Mintor::Method::Init arg;
+    Minter::Method::Init arg;
     _POD_(arg.m_Settings.m_cidDaoVault) = cidDaoVault;
     arg.m_Settings.m_IssueFee = tokenIssueFee;
 
-    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Deploy Mintor contract", 0);
+    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), nullptr, 0, nullptr, 0, "Deploy Minter contract", 0);
 }
 
 bool LoadSettings(Settings& s, const ContractID& cid)
@@ -282,6 +282,8 @@ ON_METHOD(view_all_assets)
         else
             Env::DocAddBlob_T("owner_cid", ai.m_Cid);
 
+        Env::DocAddNum("height", ai.m_LockHeight);
+
         szMetadata[std::min<uint32_t>(nMetadata, sizeof(szMetadata) - 1)] = 0;
         Env::DocAddText("metadata", szMetadata);
     }
@@ -333,7 +335,7 @@ ON_METHOD(create_token)
         Env::Cost::AssetManage +
         Env::Cost::Cycle * 300;
 
-    Env::GenerateKernel(&cid, pArg->s_iMethod, pArg, nSizeArg, &fc, 1, nullptr, 0, "Mintor create token", nCharge);
+    Env::GenerateKernel(&cid, pArg->s_iMethod, pArg, nSizeArg, &fc, 1, nullptr, 0, "Creating asset", nCharge);
 
     Env::Heap_Free(pArg);
 }
@@ -360,7 +362,7 @@ ON_METHOD(withdraw)
     fc.m_Amount = value;
     fc.m_Consume = 0;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &wlk.m_Kid, 1, "Mintor withdraw", 0);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &wlk.m_Kid, 1, "Minting asset", 0);
 
 }
 
@@ -382,12 +384,12 @@ BEAM_EXPORT void Method_1()
 #define THE_METHOD(name) \
         static_assert(sizeof(szAction) >= sizeof(#name)); \
         if (!Env::Strcmp(szAction, #name)) { \
-            Mintor_##name(PAR_READ) \
-            On_##name(Mintor_##name(PAR_PASS) 0); \
+            Minter_##name(PAR_READ) \
+            On_##name(Minter_##name(PAR_PASS) 0); \
             return; \
         }
 
-    MintorActions_All(THE_METHOD)
+    MinterActions_All(THE_METHOD)
 
 #undef THE_METHOD
 #undef PAR_PASS
@@ -396,4 +398,4 @@ BEAM_EXPORT void Method_1()
     OnError("unknown action");
 }
 
-} // namespace Mintor
+} // namespace Minter

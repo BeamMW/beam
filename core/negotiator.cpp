@@ -260,7 +260,7 @@ uint32_t Multisig::Update2()
 		Set(outp.m_Commitment, Codes::Commitment);
 	}
 
-	ECC::RangeProof::CreatorParams cp;
+	ECC::RangeProof::Params::Create cp;
 	cp.m_Value = cid.m_Value;
 
 	uint32_t iRole = 0;
@@ -513,8 +513,7 @@ uint32_t MultiTx::Update2()
 		krn.m_Signature.m_k = k;
 
 
-		ECC::Point::Native comm;
-		if (!krn.IsValid(hScheme, comm))
+		if (!krn.IsValid(hScheme))
 			return Status::Error;
 
 		tx.m_vKernels.emplace_back();

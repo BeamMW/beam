@@ -120,14 +120,14 @@ namespace beam::wallet
             Auto
         };
 
-        WalletID    m_walletID;   // derived from SBBS
+        WalletID    m_BbsAddr;
         std::string m_label;
         std::string m_category;
         Timestamp   m_createTime;
         uint64_t    m_duration;   // if equals to "AddressExpirationNever" then address never expires
         uint64_t    m_OwnID;      // set for own address
-        PeerID      m_Identity;   // derived from master. Different from m_walletID
-        std::string m_Address;    // token publicly visible to users
+        PeerID      m_Endpoint;
+        std::string m_Token;    // token publicly visible to users
         
         WalletAddress(const std::string& label = std::string(), const std::string& category = std::string());
 
@@ -139,18 +139,19 @@ namespace beam::wallet
         Timestamp getCreateTime() const;
         Timestamp getExpirationTime() const;
 
-        SERIALIZE(  m_walletID,
+        SERIALIZE(  m_BbsAddr,
                     m_label,
                     m_category,
                     m_createTime,
                     m_duration,
                     m_OwnID,
-                    m_Identity);
+                    m_Endpoint);
 
         void setLabel(const std::string& label);
         void setCategory(const std::string& category);
         void setExpirationStatus(ExpirationStatus status);
         void setExpirationTime(beam::Timestamp);
+        void setDefaultToken();
 
         static constexpr uint64_t AddressExpirationNever = 0;
         static constexpr uint64_t AddressExpiration24h   = 24 * 60 * 60;
@@ -355,6 +356,17 @@ namespace beam::wallet
         Reset
     };
 
+    struct InstantMessage
+    {
+        uint32_t m_id;
+        Timestamp m_timestamp;
+        WalletID m_counterpart;
+        WalletID m_mySbbs;
+        std::string m_message;
+        bool m_is_income;
+        bool m_is_read;
+    };
+
     class CannotGenerateSecretException : public std::runtime_error
     {
     public:
@@ -417,6 +429,7 @@ namespace beam::wallet
         virtual void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) {};
         virtual void onShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& items) {};
         virtual void onAssetChanged(ChangeAction action, Asset::ID assetID) {}
+        virtual void onIMSaved(Timestamp time, const WalletID& counterpart, const std::string& message, bool isIncome) {}
     };
 
     struct IWalletDB : IVariablesDB
@@ -444,12 +457,13 @@ namespace beam::wallet
         bool IsRecoveredMatch(CoinID&, const ECC::Point& comm);
         bool get_CommitmentSafe(ECC::Point& comm, const CoinID&);
 
-        void get_SbbsPeerID(ECC::Scalar::Native&, PeerID&, uint64_t ownID);
+        void get_SbbsPeerID(ECC::Scalar::Native&, PeerID&, uint64_t ownID) const;
         void get_SbbsWalletID(ECC::Scalar::Native&, WalletID&, uint64_t ownID);
         void get_SbbsWalletID(WalletID&, uint64_t ownID);
         bool ValidateSbbsWalletID(const WalletID&, uint64_t ownID);
         void createAddress(WalletAddress&);
-        void get_Identity(PeerID&, uint64_t ownID) const;
+        void setDefaultToken(WalletAddress&);
+        void get_Endpoint(PeerID&, uint64_t ownID) const;
 
         TxoID get_ShieldedOuts() const;
         void set_ShieldedOuts(TxoID);
@@ -549,6 +563,11 @@ namespace beam::wallet
         virtual void deleteAddress(const WalletID&, bool isLaser = false) = 0;
         virtual void deleteAddressByToken(const std::string&, bool isLaser = false) = 0;
         virtual void generateAndSaveDefaultAddress() = 0;
+        virtual void getDefaultAddressAlways(WalletAddress&) = 0; // gets or generates a 'default' address. A default is the latest 'normal' new-style address 
+
+        bool get_EffectiveEndpointPeer(const TxID& txID, SubTxID subTxID, PeerID&) const;
+        bool get_EffectiveEndpointMy(const TxID& txID, SubTxID subTxID, PeerID&) const;
+        bool get_EffectiveEndpointEx(const TxID& txID, SubTxID subTxID, PeerID&, TxParameterID, TxParameterID) const;
 
         // Laser
         virtual void saveLaserChannel(const ILaserChannelEntity&) = 0;
@@ -612,6 +631,14 @@ namespace beam::wallet
         virtual void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab = false) = 0;
         virtual size_t getVoucherCount(const WalletID& peerID) const = 0;
 
+        // IM
+        virtual void storeIM(Timestamp time, const WalletID& counterpart, const WalletID& mySbbs, const std::string& message, bool isIncome, bool isRead) = 0;
+        virtual std::vector<InstantMessage> readIMs(bool all = false) = 0;
+        virtual std::vector<InstantMessage> readIMs(const WalletID& counterpart) = 0;
+        virtual std::vector<std::pair<WalletID, bool>> getChats() = 0;
+        virtual void markIMsasRead(const std::vector<std::pair<Timestamp, WalletID>>& ims) = 0;
+        virtual void removeChat(const WalletID& counterpart) = 0;
+
         // Events
         virtual void insertEvent(Height h, const Blob& body, const Blob& key) = 0;
         virtual void deleteEventsFrom(Height h) = 0;
@@ -635,6 +662,7 @@ namespace beam::wallet
         static bool isValidPassword(const std::string& path, const SecString& password);
         static Ptr  init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, bool separateDBForPrivateData = false);
         static Ptr  init(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&, bool separateDBForPrivateData = false);
+        static Ptr  initHww(const std::string& path, const SecString& password, bool separateDBForPrivateData = false);
         static Ptr  initNoKeeper(const std::string& path, const SecString& password, bool separateDBForPrivateData = false);
         static Ptr  open(const std::string& path, const SecString& password, const IPrivateKeyKeeper2::Ptr&);
         static Ptr  open(const std::string& path, const SecString& password);
@@ -716,6 +744,7 @@ namespace beam::wallet
         void deleteAddress(const WalletID&, bool isLaser = false) override;
         void deleteAddressByToken(const std::string&, bool isLaser = false) override;
         void generateAndSaveDefaultAddress() override;
+        void getDefaultAddressAlways(WalletAddress&) override;
 
         void saveLaserChannel(const ILaserChannelEntity&) override;
         virtual bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
@@ -778,6 +807,13 @@ namespace beam::wallet
         void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab) override;
         size_t getVoucherCount(const WalletID& peerID) const override;
 
+        void storeIM(Timestamp time, const WalletID& counterpart, const WalletID& mySbbs, const std::string& message, bool isIncome, bool isRead) override;
+        std::vector<InstantMessage> readIMs(bool all = false) override;
+        std::vector<InstantMessage> readIMs(const WalletID& counterpart) override;
+        std::vector<std::pair<WalletID, bool>> getChats() override;
+        void markIMsasRead(const std::vector<std::pair<Timestamp, WalletID>>& ims) override;
+        void removeChat(const WalletID& counterpart) override;
+
         void insertEvent(Height h, const Blob& body, const Blob& key) override;
         void deleteEventsFrom(Height h) override;
         void visitEvents(Height min, const Blob& key, std::function<bool(Height, ByteBuffer&&)>&& func) const override;
@@ -786,6 +822,7 @@ namespace beam::wallet
     private:
         static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, bool separateDBForPrivateData);
 
+        void DeleteNonceAddresses();
         void storeOwnerKey();
         void FromMaster();
         void FromMaster(const ECC::uintBig&);
@@ -845,6 +882,8 @@ namespace beam::wallet
         template<typename T>
         void FillTxSummaryTableParam(const char* szField, TxParameterID paramID);
 
+        static bool IsSuitableDefaultAddr(const WalletAddress&);
+
     private:
         friend struct sqlite::Statement;
         bool m_Initialized = false;
@@ -860,6 +899,7 @@ namespace beam::wallet
         std::unique_ptr<sqlite::Transaction> m_DbTransaction;
         std::vector<IWalletDbObserver*> m_subscribers;
         const std::set<TxParameterID> m_mandatoryTxParams;
+        boost::optional<WalletID> m_widDefaultAddr;
 
         // Wallet has ablity to track blockchain state
         // This interface allows to check and update the blockchain state 
@@ -878,6 +918,7 @@ namespace beam::wallet
         struct LocalKeyKeeper;
         LocalKeyKeeper* m_pLocalKeyKeeper = nullptr;
         uint32_t m_coinConfirmationsOffset = 0;
+        uint32_t m_lastReadIMId = 0;
 
         struct ShieldedStatusCtx;
     };
@@ -1029,8 +1070,8 @@ namespace beam::wallet
         // Used for Payment Proof feature
         struct PaymentInfo
         {
-            WalletID m_Sender;
-            WalletID m_Receiver;
+            PeerID m_Sender;
+            PeerID m_Receiver;
 
             Asset::ID m_AssetID;
             Amount m_Amount;
@@ -1039,27 +1080,21 @@ namespace beam::wallet
             PaymentInfo();
 
             template <typename Archive>
-            static void serializeWid(Archive& ar, const WalletID& wid)
+            static void serializeWid(Archive& ar, const PeerID& pid)
             {
-                BbsChannel ch;
-                wid.m_Channel.Export(ch);
-
+                BbsChannel ch = 0; // legacy
                 ar
                     & ch
-                    & wid.m_Pk;
+                    & pid;
             }
 
             template <typename Archive>
-            static void serializeWid(Archive& ar, WalletID& wid)
+            static void serializeWid(Archive& ar, PeerID& pid)
             {
-                BbsChannel ch;
-                wid.m_Channel.Export(ch);
-
+                BbsChannel ch = 0; // legacy
                 ar
                     & ch
-                    & wid.m_Pk;
-
-                wid.m_Channel = ch;
+                    & pid;
             }
 
             //
@@ -1259,12 +1294,13 @@ namespace beam::wallet
         Public,     // 1 offline voucher
     };
 
-    std::string  GenerateOfflineToken    (const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedVoucherList& vouchers, const std::string& clientVersion);
+    std::string  GenerateOfflineToken    (const WalletAddress& address, const IWalletDB& walletDB, Amount amount, Asset::ID assetId, const std::string& clientVersion, uint32_t offlineCount = 0);
     std::string  GenerateRegularOldToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const std::string& clientVersion);
     std::string  GenerateRegularNewToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const std::string& clientVersion);
-    std::string  GenerateMaxPrivacyToken (const WalletAddress& address, Amount amount, Asset::ID assetId, const ShieldedTxo::Voucher& voucher, const std::string& clientVersion);
-    std::string  GeneratePublicToken     (const IWalletDB& walletDB, const std::string& clientVersion);
-    std::string  GenerateToken           (TokenType type, const WalletAddress& address, IWalletDB::Ptr walletDB, boost::optional<uint32_t> offlineCount = 10);
+    std::string  GenerateMaxPrivacyToken (const WalletAddress& address, const IWalletDB& walletDB, Amount amount, Asset::ID assetId, const std::string& clientVersion);
+    std::string  GeneratePublicToken     (const WalletAddress& address, const IWalletDB& walletDB, const std::string& clientVersion);
+    std::string  GenerateToken           (TokenType type, const WalletAddress& address, IWalletDB::Ptr walletDB, uint32_t offlineCount = 0);
+    std::string  GenerateTokenDefaultAddr(TokenType type, IWalletDB::Ptr walletDB, uint32_t offlineCount = 0);
 
     TokenType GetTokenType(const std::string& token);
 

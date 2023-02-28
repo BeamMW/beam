@@ -3756,15 +3756,41 @@ namespace bvm2 {
 
 		struct MyCheckpoint :public Exc::Checkpoint
 		{
-			void Dump(std::ostream& os) override {
-				os << "CheckSigs";
+			const ProcessorContract& m_This;
+			MyCheckpoint(const ProcessorContract& x) :m_This(x) {}
+
+			void Dump(std::ostream& os) override
+			{
+				os << "CheckSigs, Keys=" << m_This.m_vPks.size();
+
+				if (!m_This.m_FundsIO.m_Map.empty())
+				{
+					os << ", Funds=[";
+					for (auto it = m_This.m_FundsIO.m_Map.begin(); ; )
+					{
+						auto val = it->second;
+						bool bSpend = !!val.get_Msb();
+						if (bSpend)
+							val.Negate();
+
+						os << (bSpend ? '+' : '-');
+						os << it->first << ':';
+						AmountBig::Print(os, val);
+
+						if (m_This.m_FundsIO.m_Map.end() == ++it)
+							break;
+
+						os << ", ";
+					}
+					os << ']';
+				}
 			}
 
 			uint32_t get_Type() override {
 				return ErrorSubType::BadSignature;
 			}
 
-		} cp;
+		} cp(*this);
 
 		auto& comm = AddSigInternal(pt);
 

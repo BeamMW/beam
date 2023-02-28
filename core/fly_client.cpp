@@ -830,8 +830,7 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel2& req)
 {
     if (req.m_Res.m_Kernel)
     {
-        ECC::Point::Native exc;
-        if (!req.m_Res.m_Kernel->IsValid(req.m_Res.m_Height, exc))
+        if (!req.m_Res.m_Kernel->IsValid(req.m_Res.m_Height))
             ThrowUnexpected();
     }
 }

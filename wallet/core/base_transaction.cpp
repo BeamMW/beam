@@ -14,6 +14,7 @@
 
 #include "base_transaction.h"
 #include "core/block_crypt.h"
+#include "wallet.h"
 
 // TODO:DEX & General getrandom not available until API 28 in the Android NDK 17b
 // https://github.com/boostorg/uuid/issues/76
@@ -95,11 +96,44 @@ namespace beam::wallet
 
     const uint32_t BaseTransaction::s_ProtoVersion = 4;
 
+    const IWalletDB::Ptr& BaseTransaction::TxContext::GetWalletDB() const
+    {
+        return m_Wallet.get_WalletDB();
+    }
+
+
     BaseTransaction::BaseTransaction(const TxType txType, const TxContext& context)
         : m_txType(txType)
         , m_Context{ context }
     {
         assert(context.GetWalletDB());
+    }
+
+    BaseTransaction::~BaseTransaction()
+    {
+        StopListening();
+    }
+
+    void BaseTransaction::EnsureListening()
+    {
+        if (m_widListening)
+            return;
+
+        WalletID wid;
+        ECC::Scalar::Native sk;
+        GetWalletDB()->get_SbbsWalletID(sk, wid, EnsureOwnID());
+
+        GetGateway().Listen(wid, sk);
+        m_widListening.reset(wid);
+    }
+
+    void BaseTransaction::StopListening()
+    {
+        if (m_widListening)
+        {
+            GetGateway().Unlisten(*m_widListening, nullptr);
+            m_widListening.reset();
+        }
     }
 
     bool BaseTransaction::IsInitiator() const
@@ -480,25 +514,67 @@ namespace beam::wallet
         return GetGateway();
     }
 
-    bool BaseTransaction::SendTxParameters(SetTxParameter && msg) const
+    void BaseTransaction::GetMyAddrAlways(WalletID& wid)
+    {
+        if (!GetParameter(TxParameterID::MyAddr, wid))
+        {
+            GetWalletDB()->get_SbbsWalletID(wid, EnsureOwnID());
+            SetParameter(TxParameterID::MyAddr, wid);
+        }
+    }
+
+    void BaseTransaction::GetMyEndpointAlways(PeerID& pid)
+    {
+        if (!GetParameter(TxParameterID::MyEndpoint, pid))
+        {
+            GetWalletDB()->get_Endpoint(pid, EnsureOwnID());
+            SetParameter(TxParameterID::MyEndpoint, pid);
+        }
+    }
+
+    uint64_t BaseTransaction::EnsureOwnID()
+    {
+        uint64_t val = 0;
+        GetParameter(TxParameterID::MyAddressID, val);
+        if (!val)
+        {
+            // if addr specified - get it from there
+            WalletID wid;
+            if (GetParameter(TxParameterID::MyAddr, wid))
+            {
+                auto waddr = GetWalletDB()->getAddress(wid);
+                if (waddr)
+                {
+                    if (!waddr->isOwn())
+                        throw std::runtime_error("Not own address in MyID");
+
+                    val = waddr->m_OwnID;
+                }
+            }
+
+            if (!val)
+                val = GetWalletDB()->AllocateKidRange(1); // use nonce
+
+            SetParameter(TxParameterID::MyAddressID, val);
+        }
+        return val;
+    }
+
+    bool BaseTransaction::SendTxParameters(SetTxParameter && msg)
     {
         msg.m_TxID = GetTxID();
         msg.m_Type = GetType();
 
         WalletID peerID;
-        if (GetParameter(TxParameterID::MyID, msg.m_From)
-            && GetParameter(TxParameterID::PeerID, peerID))
-        {
-            PeerID secureWalletID = Zero, peerWalletID = Zero;
-            if (GetParameter(TxParameterID::MyWalletIdentity, secureWalletID)
-             && GetParameter(TxParameterID::PeerWalletIdentity, peerWalletID))
-            {
-                msg.AddParameter(TxParameterID::PeerWalletIdentity, secureWalletID);
-            }
-            GetGateway().send_tx_params(peerID, msg);
-            return true;
-        }
-        return false;
+        if (!GetParameter(TxParameterID::PeerAddr, peerID))
+            return false;
+
+        EnsureListening(); // assume the communication is bi-directional, i.e. if we're sending - would also like to receive
+
+        GetMyAddrAlways(msg.m_From);
+        GetGateway().send_tx_params(peerID, msg);
+
+        return true;
     }
 
     void BaseTransaction::SetCompletedTxCoinStatuses(Height proofHeight)
@@ -656,10 +732,4 @@ namespace beam::wallet
         return AssetCheckResult::Fail;
     }
 
-    bool BaseTransaction::IsSelfTx() const
-    {
-        const auto peerID = GetMandatoryParameter<WalletID>(TxParameterID::PeerID);
-        const auto address = GetWalletDB()->getAddress(peerID);
-        return address.is_initialized() && address->isOwn();
-    }
 }

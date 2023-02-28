@@ -1961,8 +1961,7 @@ namespace beam
 					ShieldedTxo::Viewer::GenerateSerPrivate(pSerPrivate, *m_Wallet.m_pKdf, 0);
 					pSerPrivate->DeriveKey(m_Shielded.m_skSpendKey, sdp.m_Ticket.m_SerialPreimage);
 
-					ECC::Point::Native pt;
-					verify_test(pKrn->IsValid(h + 1, pt));
+					verify_test(pKrn->IsValid(h + 1));
 
 					msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 					m_Wallet.UpdateOffset(*msgTx.m_Transaction, sdp.m_Output.m_k, true);
@@ -2812,8 +2811,7 @@ namespace beam
 					{
 						verify_test(msg.m_Kernel);
 
-						ECC::Point::Native exc;
-						verify_test(msg.m_Kernel->IsValid(msg.m_Height, exc));
+						verify_test(msg.m_Kernel->IsValid(msg.m_Height));
 
 						verify_test(msg.m_Height <= m_vStates.size());
 						const Block::SystemState::Full& s = m_vStates[msg.m_Height - 1];

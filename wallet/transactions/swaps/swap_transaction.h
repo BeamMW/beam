@@ -23,7 +23,7 @@
 namespace beam::wallet
 {
     void FillSwapTxParams(TxParameters* params,
-                          const WalletID& myID,
+                          IWalletDB&,
                           Height minHeight,
                           Amount amount,
                           Amount beamFee,

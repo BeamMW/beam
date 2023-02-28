@@ -24,6 +24,8 @@
 
 namespace beam::wallet
 {
+    class Wallet;
+
     TxID GenerateTxID();
     TxParameters CreateTransactionParameters(TxType type, const boost::optional<TxID>& oTxId = boost::optional<TxID>());
     //
@@ -77,17 +79,16 @@ namespace beam::wallet
         class TxContext
         {
         public:
-            TxContext(INegotiatorGateway& gateway, IWalletDB::Ptr db, const TxID& txID, SubTxID subTxID = kDefaultSubTxID)
-                : m_Gateway(gateway)
-                , m_WalletDB(db)
+            TxContext(Wallet& wallet, INegotiatorGateway& gateway, const TxID& txID, SubTxID subTxID = kDefaultSubTxID)
+                : m_Wallet(wallet)
+                , m_Gateway(gateway)
                 , m_TxID(txID)
                 , m_SubTxID(subTxID)
             {
-
             }
 
             TxContext(const TxContext& parentContext, INegotiatorGateway& gateway, SubTxID subTxID = kDefaultSubTxID)
-                : TxContext(gateway, parentContext.m_WalletDB, parentContext.m_TxID, (subTxID == kDefaultSubTxID) ? parentContext.m_SubTxID : subTxID)
+                : TxContext(parentContext.m_Wallet, gateway, parentContext.m_TxID, (subTxID == kDefaultSubTxID) ? parentContext.m_SubTxID : subTxID)
             {
 
             }
@@ -97,10 +98,7 @@ namespace beam::wallet
                 return m_Gateway;
             }
 
-            [[nodiscard]] IWalletDB::Ptr GetWalletDB() const
-            {
-                return m_WalletDB;
-            }
+            [[nodiscard]] const IWalletDB::Ptr& GetWalletDB() const;
 
             [[nodiscard]] const TxID& GetTxID() const
             {
@@ -112,9 +110,13 @@ namespace beam::wallet
                 return m_SubTxID;
             }
 
+            Wallet& get_Wallet() const {
+                return m_Wallet;
+            }
+
         private:
+            Wallet& m_Wallet;
             INegotiatorGateway& m_Gateway;
-            IWalletDB::Ptr m_WalletDB;
             TxID m_TxID;
             SubTxID m_SubTxID;
         };
@@ -134,7 +136,7 @@ namespace beam::wallet
         };
 
         BaseTransaction(const TxType type, const TxContext& context);
-        virtual ~BaseTransaction() = default;
+        virtual ~BaseTransaction();
 
         const TxID& GetTxID() const;
         void Update() override;
@@ -248,6 +250,13 @@ namespace beam::wallet
             return m_txType;
         }
 
+        void GetMyAddrAlways(WalletID&);
+        void GetMyEndpointAlways(PeerID&);
+        uint64_t EnsureOwnID();
+
+        void EnsureListening();
+        void StopListening();
+
         IWalletDB::Ptr GetWalletDB() const;
         IPrivateKeyKeeper2::Ptr get_KeyKeeperStrict(); // throws TxFailureReason::NoKeyKeeper if no key keeper (read-only mode)
         Key::IKdf::Ptr get_MasterKdfStrict() const; // throws TxFailureReason::NoMasterKey if no master key
@@ -267,7 +276,7 @@ namespace beam::wallet
         virtual void FreeResources();
         virtual void OnFailed(TxFailureReason reason, bool notify = false);
 
-        void SendTxParametersStrict(SetTxParameter&& msg) const
+        void SendTxParametersStrict(SetTxParameter&& msg)
         {
             if (!SendTxParameters(std::move(msg)))
                 throw TransactionFailedException(false, TxFailureReason::FailedToSendParameters);
@@ -293,6 +302,8 @@ namespace beam::wallet
         AssetCheckResult CheckAsset(Asset::ID);
         std::map<Asset::ID, AssetCheckState> m_assetCheckState;
 
+        boost::optional<WalletID> m_widListening;
+
     protected:
         virtual bool CheckExpired();
         virtual bool CheckExternalFailures();
@@ -301,9 +312,8 @@ namespace beam::wallet
         virtual void RollbackTx();
         virtual void NotifyFailure(TxFailureReason);
         void UpdateTxDescription(TxStatus s);
-        bool IsSelfTx() const;
 
-        bool SendTxParameters(SetTxParameter&& msg) const;
+        bool SendTxParameters(SetTxParameter&& msg);
         virtual void UpdateImpl() = 0;
 
         void SetCompletedTxCoinStatuses(Height proofHeight);

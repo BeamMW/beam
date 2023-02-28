@@ -32,7 +32,6 @@
 #include <numeric>
 #include <queue>
 
-
 namespace beam::wallet
 {
     using namespace std;
@@ -75,47 +74,17 @@ namespace beam::wallet
         return !!p;
     }
 
-    void CheckSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB)
+    TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB)
     {
-        const auto& myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
-        if (!myID)
-        {
-            throw InvalidTransactionParametersException("No MyID");
-        }
-
-        auto senderAddr = walletDB->getAddress(*myID);
-        if (!senderAddr)
-        {
-            throw SenderInvalidAddressException();
-        }
-
-        if (!senderAddr->isOwn())
-        {
-            throw SenderInvalidAddressException();
-        }
-
-        if(senderAddr->isExpired())
-        {
-            throw SenderInvalidAddressException();
-        }
-    }
-
-    TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB, bool isMandatory)
-    {
-        const auto& peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
-        if (!peerID)
-        {
-            if (isMandatory)
-                throw InvalidTransactionParametersException("No PeerID");
-
+        const auto& peerAddr = parameters.GetParameter<WalletID>(TxParameterID::PeerAddr);
+        if (!peerAddr)
             return parameters;
-        }
 
         // if there is no parameter default behaviour is to save address or update it, for historical reasons
         auto savePeerAddressParam = parameters.GetParameter<bool>(TxParameterID::SavePeerAddress);
         bool savePeerAddress = !savePeerAddressParam || *savePeerAddressParam == true;
 
-        auto receiverAddr = walletDB->getAddress(*peerID);
+        auto receiverAddr = walletDB->getAddress(*peerAddr);
         if (receiverAddr)
         {
             if (receiverAddr->isOwn() && receiverAddr->isExpired())
@@ -146,15 +115,15 @@ namespace beam::wallet
         if (savePeerAddress)
         {
             WalletAddress address;
-            address.m_walletID = *peerID;
+            address.m_BbsAddr = *peerAddr;
             address.m_createTime = getTimestamp();
             if (auto message = parameters.GetParameter<ByteBuffer>(TxParameterID::Message); message)
             {
                 address.m_label = std::string(message->begin(), message->end());
             }
-            if (auto identity = parameters.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); identity)
+            if (auto ep = parameters.GetParameter<PeerID>(TxParameterID::PeerEndpoint); ep)
             {
-                address.m_Identity = *identity;
+                address.m_Endpoint = *ep;
             }
             walletDB->saveAddress(address);
         }
@@ -657,7 +626,7 @@ namespace beam::wallet
         pVal->m_Msg.m_Id0 = startIndex;
         pVal->m_Msg.m_Count = count;
 
-        if (PostReqUnique(*pVal))
+        if (PostReq(*pVal))
         {
             LOG_INFO() << txId << " Get shielded list, start_index = " << startIndex << ", count = " << count;
         }
@@ -715,10 +684,10 @@ namespace beam::wallet
             p->Listen(wid, sk, pH);
     }
 
-    void Wallet::Unlisten(const WalletID& wid)
+    void Wallet::Unlisten(const WalletID& wid, IHandler* pH)
     {
         for (auto& p : m_MessageEndpoints)
-            p->Unlisten(wid);
+            p->Unlisten(wid, pH);
     }
 
     void Wallet::Send(const WalletID& peerID, const Blob& b)
@@ -836,7 +805,7 @@ namespace beam::wallet
                     return;
                 }
 
-                if (!IsValidVoucherList(res, address->m_Identity))
+                if (!IsValidVoucherList(res, address->m_Endpoint))
                 {
                     LOG_WARNING() << "Invalid voucher list received";
                     FailTxWaitingForVouchers(msg.m_From);
@@ -845,6 +814,27 @@ namespace beam::wallet
 
                 OnVouchersFrom(*address, myID, std::move(res));
 
+            }
+            break;
+
+            case TxType::InstantSbbsMessage:
+            {
+                auto receiver = m_WalletDB->getAddress(myID);
+                if (!receiver.is_initialized() || !receiver->m_OwnID)
+                    return;
+
+                size_t message_size = 0;
+                msg.GetParameter((TxParameterID) 0, message_size);
+
+                Timestamp timestamp;
+                msg.GetParameter((TxParameterID) 1, timestamp);
+
+                ByteBuffer message_bb;
+                message_bb.reserve(message_size);
+                msg.GetParameter((TxParameterID) 2, message_bb);
+                std::string message(message_bb.begin(), message_bb.end());
+
+                m_WalletDB->storeIM(timestamp, msg.m_From, myID, message, true, false);
             }
             break;
 
@@ -862,7 +852,7 @@ namespace beam::wallet
             WalletID txPeerID;
             const auto& tx = p.second;
             if (tx->GetType() == TxType::PushTransaction
-                && tx->GetParameter<WalletID>(TxParameterID::PeerID, txPeerID)
+                && tx->GetParameter<WalletID>(TxParameterID::PeerAddr, txPeerID)
                 && peerID == txPeerID
                 && !tx->GetParameter<ShieldedTxo::Voucher>(TxParameterID::Voucher, voucher))
             {
@@ -895,7 +885,7 @@ namespace beam::wallet
     void Wallet::OnVouchersFrom(const WalletAddress& addr, const WalletID& ownAddr, std::vector<ShieldedTxo::Voucher>&& res)
     {
         VoucherManager::Request::Target key;
-        key.m_Value = addr.m_walletID;
+        key.m_Value = addr.m_BbsAddr;
 
         VoucherManager::Request::Target::Set::iterator it = m_VoucherManager.m_setTrg.find(key);
         if (m_VoucherManager.m_setTrg.end() == it)
@@ -908,9 +898,9 @@ namespace beam::wallet
         m_VoucherManager.Delete(r);
 
         for (const auto& v : res)
-            m_WalletDB->saveVoucher(v, addr.m_walletID);
+            m_WalletDB->saveVoucher(v, addr.m_BbsAddr);
 
-        auto transactions = FindTxWaitingForVouchers(addr.m_walletID);
+        auto transactions = FindTxWaitingForVouchers(addr.m_BbsAddr);
         for (auto tx : transactions)
         {
             UpdateTransaction(tx);
@@ -2168,14 +2158,14 @@ namespace beam::wallet
             }
 
             WalletID peerID;
-            if (pTx->GetParameter(TxParameterID::PeerID, peerID))
+            if (pTx->GetParameter(TxParameterID::PeerAddr, peerID))
             {
                 if (peerID != msg.m_From)
                     return; // if we already have PeerID, we should ignore messages from others
             }
             else
             {
-                pTx->SetParameter(TxParameterID::PeerID, msg.m_From, false);
+                pTx->SetParameter(TxParameterID::PeerAddr, msg.m_From, false);
             }
 
             if (ApplyTransactionParameters(pTx, msg.m_Parameters, false))
@@ -2246,8 +2236,8 @@ namespace beam::wallet
 
             pTx->SetParameter(TxParameterID::TransactionType, msg.m_Type, true);
             pTx->SetParameter(TxParameterID::CreateTime, getTimestamp(),true);
-            pTx->SetParameter(TxParameterID::MyID, myID, false);
-            pTx->SetParameter(TxParameterID::PeerID, msg.m_From, false);
+            pTx->SetParameter(TxParameterID::MyAddr, myID, false);
+            pTx->SetParameter(TxParameterID::PeerAddr, msg.m_From, false);
             pTx->SetParameter(TxParameterID::IsInitiator, false, false);
             pTx->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
 
@@ -2287,7 +2277,7 @@ namespace beam::wallet
             return wallet::BaseTransaction::Ptr();
         }
 
-        return it->second->Create(BaseTransaction::TxContext(*this, m_WalletDB, id));
+        return it->second->Create(BaseTransaction::TxContext(*this, *this, id));
     }
 
     BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const TxParameters& parameters)
@@ -2307,20 +2297,7 @@ namespace beam::wallet
 
         auto completedParameters = it->second->CheckAndCompleteParameters(parameters);
 
-        if (auto peerID = parameters.GetParameter<PeerID>(TxParameterID::PeerWalletIdentity); peerID)
-        {
-            auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
-            if (myID)
-            {
-                auto address = m_WalletDB->getAddress(*myID);
-                if (address)
-                {
-                    completedParameters.SetParameter(TxParameterID::MyWalletIdentity, address->m_Identity);
-                }
-            }
-        }
-
-        auto newTx = it->second->Create(BaseTransaction::TxContext(*this, m_WalletDB, *parameters.GetTxID()));
+        auto newTx = it->second->Create(BaseTransaction::TxContext(*this, *this, *parameters.GetTxID()));
         ApplyTransactionParameters(newTx, completedParameters.Pack(), true);
         return newTx;
     }
@@ -2488,5 +2465,18 @@ namespace beam::wallet
 
         if (!storage::setTxParameter(*m_WalletDB, id, TxParameterID::IsContractNotificationMarkedAsRead, true, true))
             LOG_ERROR() << "Can't mark application notification as read.";
+    }
+
+    void Wallet::sendInstantSbbsMessage(beam::Timestamp timestamp, const WalletID& peerID, const WalletID& myID, ByteBuffer&& message)
+    {
+        SetTxParameter msg;
+        msg.m_From = myID;
+        msg.m_Type = TxType::InstantSbbsMessage;
+
+        msg.AddParameter((TxParameterID) 0, message.size());
+        msg.AddParameter((TxParameterID) 1, timestamp);
+        msg.AddParameter((TxParameterID) 2, message);
+
+        SendSpecialMsg(peerID, msg);
     }
 }

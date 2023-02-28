@@ -211,11 +211,16 @@ namespace beam
 	bool CoinID::get_ChildKdfIndex(Key::Index& idx) const
 	{
 		Key::Index iSubkey = get_Subkey();
-		if (!iSubkey)
-			return false; // by convention: up to latest scheme, Subkey=0 - is a master key
+		Key::Index iScheme = get_Scheme();
 
-		if (Scheme::BB21 == get_Scheme())
-			return false; // BB2.1 workaround
+		if (iScheme < Scheme::V3)
+		{
+			if (!iSubkey)
+				return false; // by convention: before V3 , Subkey=0 - is a master key
+
+			if (Scheme::BB21 == iScheme)
+				return false; // BB2.1 workaround
+		}
 
 		idx = iSubkey;
 		return true;
@@ -485,7 +490,7 @@ namespace beam
 		ECC::Oracle oracle;
 		Prepare(oracle, hScheme);
 
-		ECC::RangeProof::CreatorParams cp;
+		ECC::RangeProof::Params::Create cp;
 		cp.m_Value = cid.m_Value;
 		GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
 
@@ -565,7 +570,7 @@ namespace beam
 
 	bool Output::Recover(Height hScheme, Key::IPKdf& tagKdf, CoinID& cid, User* pUser) const
 	{
-		ECC::RangeProof::CreatorParams cp;
+		ECC::RangeProof::Params::Recover cp;
 		GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
 
 		ECC::Oracle oracle;
@@ -728,21 +733,48 @@ namespace beam
 		}
 	}
 
-	bool TxKernel::IsValidBase(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent, ECC::Point::Native* pComm) const
+	bool TxKernel::IsValid(Height hScheme, std::string* psErr /* = nullptr */) const
+	{
+		try {
+			ECC::Point::Native exc;
+			TestValid(hScheme, exc);
+		} catch (const std::exception& e) {
+			if (psErr)
+				(*psErr) = e.what();
+			return false;
+		}
+
+		return true;
+	}
+
+	HeightRange TxKernel::get_EffectiveHeightRange() const
+	{
+		HeightRange hr = m_Height;
+		if (!hr.IsEmpty())
+		{
+			auto& r = Rules::get();
+			if ((hr.m_Min >= r.pForks[2].m_Height) && (hr.m_Max - hr.m_Min > r.MaxKernelValidityDH))
+				hr.m_Max = hr.m_Min + r.MaxKernelValidityDH;
+		}
+
+		return hr;
+	}
+
+	void TxKernel::TestValidBase(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent, ECC::Point::Native* pComm) const
 	{
 		const Rules& r = Rules::get(); // alias
-		if ((hScheme < r.pForks[1].m_Height) && m_CanEmbed)
-			return false; // unsupported for that version
+		if (m_CanEmbed)
+			r.TestForkAtLeast(hScheme, 1);
 
 		if (pParent)
 		{
 			if (!m_CanEmbed)
-				return false;
+				Exc::Fail();
 
 			// nested kernel restrictions
 			if ((m_Height.m_Min > pParent->m_Height.m_Min) ||
 				(m_Height.m_Max < pParent->m_Height.m_Max))
-				return false; // parent Height range must be contained in ours.
+				Exc::Fail(); // parent Height range must be contained in ours.
 		}
 
 		if (!m_vNested.empty())
@@ -753,15 +785,15 @@ namespace beam
 			for (auto it = m_vNested.begin(); m_vNested.end() != it; ++it)
 			{
 				const TxKernel& v = *(*it);
+				TxKernel::Checkpoint cp(v);
 
 				// sort for nested kernels is not important. But for 'historical' reasons it's enforced up to Fork2
 				// Remove this code once Fork2 is reached iff no multiple nested kernels
 				if ((hScheme < r.pForks[2].m_Height) && p0Krn && (*p0Krn > v))
-					return false;
+					TxBase::Fail_Order();
 				p0Krn = &v;
 
-				if (!v.IsValid(hScheme, excNested, this))
-					return false;
+				v.TestValid(hScheme, excNested, this);
 			}
 
 			if (hScheme < r.pForks[2].m_Height)
@@ -769,15 +801,13 @@ namespace beam
 				// Prior to Fork2 the parent commitment was supposed to include the nested. But nested kernels are unlikely to be seen up to Fork2.
 				// Remove this code once Fork2 is reached iff no such kernels exist
 				if (!pComm)
-					return false;
+					Exc::Fail();
 				excNested = -excNested;
 				(*pComm) += excNested;
 			}
 			else
 				exc += excNested;
 		}
-
-		return true;
 	}
 
 #define THE_MACRO(id, name) \
@@ -790,31 +820,26 @@ namespace beam
 #undef THE_MACRO
 
 
-	bool TxKernelStd::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	void TxKernelStd::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
 		const Rules& r = Rules::get(); // alias
 		if (m_pRelativeLock)
 		{
-			if (hScheme < r.pForks[1].m_Height)
-				return false; // unsupported for that version
+			r.TestForkAtLeast(hScheme, 1);
 
 			if ((hScheme >= r.pForks[2].m_Height) && !m_pRelativeLock->m_LockHeight)
-				return false; // zero m_LockHeight makes no sense, but allowed prior to Fork2
+				Exc::Fail(); // zero m_LockHeight makes no sense, but allowed prior to Fork2
 		}
 
 		ECC::Point::Native pt;
-		if (!pt.ImportNnz(m_Commitment))
-			return false;
+		pt.ImportNnzStrict(m_Commitment);
 
 		exc += pt;
 
-		if (!IsValidBase(hScheme, exc, pParent, &pt))
-			return false;
+		TestValidBase(hScheme, exc, pParent, &pt);
 
 		if (!m_Signature.IsValid(m_Internal.m_ID, pt))
-			return false;
-
-		return true;
+			TxBase::Fail_Signature();
 	}
 
 	void TxKernel::AddStats(TxStats& s) const
@@ -1003,28 +1028,27 @@ namespace beam
 		hp.Serialize(m_Signature);
 	}
 
-	bool TxKernelAssetControl::IsValidAssetCtl(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent) const
+	void TxKernelAssetControl::TestValidAssetCtl(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent) const
 	{
-		if (!IsValidBase(hScheme, exc, pParent))
-			return false;
+		TestValidBase(hScheme, exc, pParent);
 
 		const Rules& r = Rules::get(); // alias
-		if ((hScheme < r.pForks[2].m_Height) || !r.CA.Enabled)
-			return false; // unsupported for that version
+		r.TestForkAtLeast(hScheme, 2);
+		r.TestEnabledCA();
 
 		ECC::Point::Native pPt[2];
-		if (!pPt[0].ImportNnz(m_Commitment))
-			return false;
+		pPt[0].ImportNnzStrict(m_Commitment);
 
 		exc += pPt[0];
 
 		if (!m_Owner.ExportNnz(pPt[1]))
-			return false;
+			ECC::Point::Native::Fail();
 
 		assert(m_Owner != Zero); // the above ensures this
 
 		// prover must prove knowledge of excess AND m_AssetID sk
-		return m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pPt);
+		if (!m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pPt))
+			TxBase::Fail_Signature();
 	}
 
 	void TxKernelAssetControl::CopyFrom(const TxKernelAssetControl& v)
@@ -1080,13 +1104,12 @@ namespace beam
 			<< Amount(m_Value);
 	}
 
-	bool TxKernelAssetEmit::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	void TxKernelAssetEmit::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
-		if (!TxKernelAssetControl::IsValidAssetCtl(hScheme, exc, pParent))
-			return false;
+		TestValidAssetCtl(hScheme, exc, pParent);
 
 		if (!m_Value || !m_AssetID)
-			return false;
+			Exc::Fail();
 
 		CoinID::Generator g(m_AssetID);
 
@@ -1103,8 +1126,6 @@ namespace beam
 		}
 
 		g.AddValue(exc, val);
-
-		return true;
 	}
 
 	void TxKernelAssetEmit::Clone(TxKernel::Ptr& p) const
@@ -1119,18 +1140,15 @@ namespace beam
 
 	/////////////
 	// TxKernelAssetCreate
-	bool TxKernelAssetCreate::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	void TxKernelAssetCreate::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
-		if (!TxKernelAssetControl::IsValidAssetCtl(hScheme, exc, pParent))
-			return false;
+		TestValidAssetCtl(hScheme, exc, pParent);
 
 		if (m_MetaData.m_Value.size() > Asset::Info::s_MetadataMaxSize)
-			return false;
+			Exc::Fail();
 
 		ECC::Point::Native pt = ECC::Context::get().H * Rules::get().get_DepositForCA(hScheme);
 		exc += pt;
-
-		return true;
 	}
 
 	void TxKernelAssetCreate::Clone(TxKernel::Ptr& p) const
@@ -1174,17 +1192,14 @@ namespace beam
 		return IsCustomDeposit() ? m_Deposit : Rules::get().CA.DepositForList2;
 	}
 
-	bool TxKernelAssetDestroy::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	void TxKernelAssetDestroy::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
-		if (!TxKernelAssetControl::IsValidAssetCtl(hScheme, exc, pParent))
-			return false;
+		TestValidAssetCtl(hScheme, exc, pParent);
 
 		ECC::Point::Native pt = ECC::Context::get().H * get_Deposit();
 
 		pt = -pt;
 		exc += pt;
-
-		return true;
 	}
 
 	void TxKernelAssetDestroy::Clone(TxKernel::Ptr& p) const
@@ -1199,27 +1214,25 @@ namespace beam
 
 	/////////////
 	// TxKernelShieldedOutput
-	bool TxKernelShieldedOutput::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	void TxKernelShieldedOutput::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
-		if (!IsValidBase(hScheme, exc, pParent))
-			return false;
+		TestValidBase(hScheme, exc, pParent);
 
 		const Rules& r = Rules::get(); // alias
-		if ((hScheme < r.pForks[2].m_Height) || !r.Shielded.Enabled)
-			return false; // unsupported for that version
+		r.TestForkAtLeast(hScheme, 2);
+		r.TestEnabledShielded();
 
-		if (m_Txo.m_pAsset && !r.CA.Enabled)
-			return false; // unsupported for that version
+		if (m_Txo.m_pAsset)
+			r.TestEnabledCA();
 
 		ECC::Oracle oracle;
 		oracle << m_Msg;
 
 		ECC::Point::Native comm, ser;
 		if (!m_Txo.IsValid(oracle, hScheme, comm, ser))
-			return false;
+			TxBase::Fail_Signature();
 
 		exc += comm;
-		return true;
 	}
 
 	void TxKernelShieldedOutput::HashSelfForMsg(ECC::Hash::Processor& hp) const
@@ -1248,14 +1261,13 @@ namespace beam
 
 	/////////////
 	// TxKernelShieldedInput
-	bool TxKernelShieldedInput::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	void TxKernelShieldedInput::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
-		if (!IsValidBase(hScheme, exc, pParent))
-			return false;
+		TestValidBase(hScheme, exc, pParent);
 
 		const Rules& r = Rules::get(); // alias
-		if ((hScheme < r.pForks[2].m_Height) || !r.Shielded.Enabled)
-			return false; // unsupported for that version
+		r.TestForkAtLeast(hScheme, 2);
+		r.TestEnabledShielded();
 
 		ECC::Point ptNeg = m_SpendProof.m_Commitment;
 		ptNeg.m_Y = !ptNeg.m_Y; // probably faster than negating the result
@@ -1263,18 +1275,15 @@ namespace beam
 		ECC::Point::Native comm;
 		if (m_pAsset)
 		{
-			if (!r.CA.Enabled)
-				return false;
+			r.TestEnabledCA();
 
 			if (!m_pAsset->IsValid(comm))
-				return false;
+				TxBase::Fail_Signature();
 		}
 
-		if (!comm.ImportNnz(ptNeg))
-			return false;
-
+		comm.ImportNnzStrict(ptNeg);
 		exc += comm;
-		return true; // Spend proof verification is not done here
+		// Spend proof verification is not done here
 	}
 
 	void TxKernelShieldedInput::HashSelfForMsg(ECC::Hash::Processor& hp) const
@@ -1357,21 +1366,17 @@ namespace beam
 
 	/////////////
 	// TxKernelContractControl
-	bool TxKernelContractControl::IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	void TxKernelContractControl::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
-		if (!IsValidBase(hScheme, exc, pParent))
-			return false;
+		TestValidBase(hScheme, exc, pParent);
 
 		const Rules& r = Rules::get(); // alias
-		if (hScheme < r.pForks[3].m_Height)
-			return false; // unsupported for that version
+		r.TestForkAtLeast(hScheme, 3);
 
 		ECC::Point::Native comm;
-		if (!comm.ImportNnz(m_Commitment))
-			return false;
-
+		comm.ImportNnzStrict(m_Commitment);
 		exc += comm;
-		return true; // the rest is deferred till the context-bound validation
+		// the rest is deferred till the context-bound validation
 	}
 
 	void TxKernelContractControl::CopyFrom(const TxKernelContractControl& v)
@@ -1688,20 +1693,23 @@ namespace beam
 				return n; \
 		}
 
-	bool Transaction::IsValid(Context& ctx) const
+	void Transaction::TestValid(Context& ctx) const
 	{
-	    // Please do not rewrite to a shorter form.
-	    // It is easy to debug/set breakpoints when code is like below
-		if(!ctx.ValidateAndSummarize(*this, get_Reader()))
-        {
-		    return false;
-        }
+		ctx.ValidateAndSummarizeStrict(*this, get_Reader());
+		ctx.TestValidTransaction();
+	}
 
-		if(!ctx.IsValidTransaction())
-        {
-		    return false;
-        }
-		
+	bool Transaction::IsValid(Context& ctx, std::string* psErr /* = nullptr */) const
+	{
+		try {
+			TestValid(ctx);
+		}
+		catch (const std::exception& e) {
+			if (psErr)
+				(*psErr) = e.what();
+			return false;
+		}
+
 		return true;
 	}
 
@@ -2293,6 +2301,13 @@ namespace beam
 		}
 
 		return os.str();
+	}
+
+	void Rules::Fail_Fork(uint32_t iFork)
+	{
+		std::ostringstream ss;
+		ss << "Fork required: " << iFork;
+		Exc::Fail(ss.str().c_str());
 	}
 
 	int HeightHash::cmp(const HeightHash& v) const
@@ -3062,7 +3077,7 @@ namespace beam
 		m_Metadata.Reset();
 	}
 
-	void Asset::Info::SetCid(const ContractID* pCid)
+	void Asset::CreateInfo::SetCid(const ContractID* pCid)
 	{
 		if (pCid)
 			m_Cid = *pCid;
@@ -3080,7 +3095,7 @@ namespace beam
 	    return m_Owner != Zero && m_LockHeight != Zero;
     }
 
-	bool Asset::Info::IsDefDeposit() const
+	bool Asset::CreateInfo::IsDefDeposit() const
 	{
 		return (Rules::get().CA.DepositForList2 == m_Deposit);
 	}
@@ -3190,7 +3205,7 @@ namespace beam
 			>> res;
 	}
 
-	bool Asset::Info::Recognize(Key::IPKdf& pkdf) const
+	bool Asset::CreateInfo::Recognize(Key::IPKdf& pkdf) const
 	{
 		PeerID pid;
 		m_Metadata.get_Owner(pid, pkdf);

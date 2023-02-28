@@ -2273,10 +2273,22 @@ uint8_t Node::ValidateTx2(Transaction::Context& ctx, const Transaction& tx, uint
 {
     ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
 
-    if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
+    std::string sErr;
+    bool bValid = m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader(), sErr);
+    if (bValid)
+    {
+        try {
+            ctx.TestValidTransaction();
+        } catch (const std::exception& e) {
+            bValid = false;
+            sErr = e.what();
+        }
+    }
+
+    if (!bValid)
     {
         if (pExtraInfo)
-            *pExtraInfo << "Context-free validation failed";
+            *pExtraInfo << "Context-free validation failed: " << sErr;
         return proto::TxStatus::Invalid;
     }
 
@@ -3862,8 +3874,9 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
         // and do the overall validation
 		TxBase::Context ctx;
 		ctx.m_Height = m_This.m_Processor.m_Cursor.m_ID.m_Height + 1;
-        if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader()))
-            ThrowUnexpected();
+        std::string sErr;
+        if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader(), sErr))
+            ThrowUnexpected(sErr.c_str());
 
         if (ctx.m_Stats.m_Coinbase != AmountBig::Type(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
             ThrowUnexpected();
@@ -5098,7 +5111,7 @@ void Node::PrintTxos()
 
     {
         Key::ID kid(Zero);
-        kid.m_Type = ECC::Key::Type::WalletID;
+        kid.m_Type = ECC::Key::Type::EndPoint;
         kid.get_Hash(pid);
 
         ECC::Point::Native ptN;
