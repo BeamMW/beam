@@ -12,6 +12,7 @@
 #include "../oracle2/contract.h"
 #include "../dao-vault/contract.h"
 #include "../bans/contract.h"
+#include "../amm/contract.h"
 #include "../dao-core/contract.h"
 namespace Masternet {
 #include "../dao-core-masternet/contract.h"
@@ -143,6 +144,7 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	macro(Nephrite, Nephrite::s_pSID) \
 	macro(DaoVault, DaoVault::s_pSID) \
 	macro(Bans, NameService::s_pSID) \
+	macro(DEX, Amm::s_pSID) \
 
 #define HandleContractsWrappers(macro) \
 	macro(Upgradable, Upgradable::s_SID) \
@@ -321,6 +323,10 @@ struct ParserContext
 		DocSetBansNameEx(&x + 1, x.m_NameLen);
 	}
 	void DocSetBansNameEx(const void* p, uint32_t nLen);
+
+	static void WriteAmmSettings(const Amm::Settings&);
+	static void DocSetAmmPool(const Amm::Pool::ID&);
+	static const char* get_AmmKind(const Amm::Pool::ID&);
 
 	template <uint8_t nTag>
 	struct NephriteEpochStorage
@@ -1948,6 +1954,174 @@ void ParserContext::OnState_Bans(uint32_t /* iVer */)
 }
 
 
+void ParserContext::WriteAmmSettings(const Amm::Settings& stg)
+{
+	DocAddCid("Dao-Vault", stg.m_cidDaoVault);
+}
+
+void ParserContext::DocSetAmmPool(const Amm::Pool::ID& pid)
+{
+	DocAddAid("Aid1", pid.m_Aid1);
+	DocAddAid("Aid2", pid.m_Aid2);
+	Env::DocAddText("Volatility", get_AmmKind(pid));
+}
+
+const char* ParserContext::get_AmmKind(const Amm::Pool::ID& pid)
+{
+	switch (pid.m_Fees.m_Kind)
+	{
+	case 0: return "Low";
+	case 1: return "Medium";
+	case 2: return "High";
+	}
+	return "";
+}
+
+
+void ParserContext::OnMethod_DEX(uint32_t /* iVer */)
+{
+	switch (m_iMethod)
+	{
+	case Amm::Method::Create::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Amm::Method::Create>();
+			if (pArg)
+			{
+				GroupArgs gr;
+
+				WriteAmmSettings(pArg->m_Settings);
+				WriteUpgradeSettings(pArg->m_Upgradable);
+			}
+		}
+		break;
+
+	case Upgradable3::Method::Control::s_iMethod:
+		OnUpgrade3Method();
+		break;
+
+	case Amm::Method::PoolCreate::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Amm::Method::PoolCreate>();
+			if (pArg)
+			{
+				OnMethod("Pool Create");
+				GroupArgs gr;
+
+				DocSetAmmPool(pArg->m_Pid);
+				DocAddPk("Creator", pArg->m_pkCreator);
+			}
+		}
+		break;
+
+	case Amm::Method::PoolDestroy::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Amm::Method::PoolDestroy>();
+			if (pArg)
+			{
+				OnMethod("Pool Destroy");
+				GroupArgs gr;
+				DocSetAmmPool(pArg->m_Pid);
+			}
+		}
+		break;
+
+	case Amm::Method::AddLiquidity::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Amm::Method::AddLiquidity>();
+			if (pArg)
+			{
+				OnMethod("Liquidity Add");
+				GroupArgs gr;
+				DocSetAmmPool(pArg->m_Pid);
+			}
+		}
+		break;
+
+	case Amm::Method::Withdraw::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Amm::Method::Withdraw>();
+			if (pArg)
+			{
+				OnMethod("Liquidity Withdraw");
+				GroupArgs gr;
+				DocSetAmmPool(pArg->m_Pid);
+			}
+		}
+		break;
+
+	case Amm::Method::Trade::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Amm::Method::Trade>();
+			if (pArg)
+			{
+				OnMethod("Trade");
+				GroupArgs gr;
+				DocSetAmmPool(pArg->m_Pid);
+			}
+		}
+		break;
+	}
+}
+
+void ParserContext::OnState_DEX(uint32_t /* iVer */)
+{
+	WriteUpgrade3State();
+
+	Env::Key_T<uint8_t> k;
+	_POD_(k.m_Prefix.m_Cid) = m_Cid;
+	k.m_KeyInContract = Amm::Tags::s_Settings;
+
+	Amm::Settings s;
+	if (!Env::VarReader::Read_T(k, s))
+		return;
+
+	{
+		Env::DocGroup gr2("Settings");
+		WriteAmmSettings(s);
+	}
+
+	{
+		Env::DocGroup gr2("Pools");
+		DocSetType("table");
+		Env::DocArray gr3("value");
+
+		{
+			Env::DocArray gr4("");
+			DocAddTableHeader("Aid1");
+			DocAddTableHeader("Aid2");
+			DocAddTableHeader("Volatility");
+			DocAddTableHeader("LP-Token");
+			DocAddTableHeader("Amount1");
+			DocAddTableHeader("Amount2");
+			DocAddTableHeader("Amount-LP-Token");
+		}
+
+		Env::Key_T<Amm::Pool::Key> k0, k1;
+		_POD_(k0.m_Prefix.m_Cid) = m_Cid;
+		_POD_(k1.m_Prefix.m_Cid) = m_Cid;
+		_POD_(k0.m_KeyInContract.m_ID).SetZero();
+		_POD_(k1.m_KeyInContract.m_ID).SetObject(0xff);
+
+		for (Env::VarReader r(k0, k1); ; )
+		{
+			Amm::Pool p;
+			if (!r.MoveNext_T(k0, p))
+				break;
+
+			Env::DocArray gr4("");
+
+			DocAddAid("", k0.m_KeyInContract.m_ID.m_Aid1);
+			DocAddAid("", k0.m_KeyInContract.m_ID.m_Aid2);
+			Env::DocAddText("", get_AmmKind(k0.m_KeyInContract.m_ID));
+			DocAddAid("", p.m_aidCtl);
+			DocAddAmount("", p.m_Totals.m_Tok1);
+			DocAddAmount("", p.m_Totals.m_Tok2);
+			DocAddAmount("", p.m_Totals.m_Ctl);
+		}
+
+	}
+
+}
 
 BEAM_EXPORT void Method_0(const ShaderID& sid, const ContractID& cid, uint32_t iMethod, const void* pArg, uint32_t nArg)
 {
