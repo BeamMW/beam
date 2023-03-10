@@ -11,11 +11,17 @@ namespace DaoCore2
 
 #pragma pack (push, 1)
 
+    struct Tags
+    {
+        static const uint8_t s_State = 0;
+        static const uint8_t s_Preallocated = 1;
+        static const uint8_t s_Farm = 2;
+        static const uint8_t s_WithdrawReserve = 3;
+    };
+
 
     struct State
     {
-        static const uint8_t s_Key = 0;
-
         AssetID m_Aid;
     };
 
@@ -40,12 +46,10 @@ namespace DaoCore2
 
         typedef MultiPrecision::UInt<5> SigmaType; // sum (period_emission / period_weight) * normalization
 
-        static const uint8_t s_Key = 2;
-
         struct UserPos
         {
             struct Key {
-                uint8_t m_Tag = s_Key;
+                uint8_t m_Tag = Tags::s_Farm;
                 PubKey m_Pk;
             };
 
@@ -106,10 +110,8 @@ namespace DaoCore2
     {
         struct User
         {
-            static const uint8_t s_Key = 1;
-
             struct Key {
-                uint8_t m_Tag = s_Key;
+                uint8_t m_Tag = Tags::s_Preallocated;
                 PubKey m_Pk;
             };
 
@@ -120,8 +122,6 @@ namespace DaoCore2
             Amount m_Received;
         };
 
-        static const Height s_hLaunch = 1'466'500; // expected at 2021-10-21
-
         static const Amount s_Emission = g_Beam2Groth * 99'000'000;
 
         static const Amount s_Unassigned = g_Beam2Groth * (
@@ -130,23 +130,34 @@ namespace DaoCore2
         );
     };
 
-    struct GetPreallocated
+    namespace Method
     {
-        static const uint32_t s_iMethod = 3;
+        struct GetPreallocated
+        {
+            static const uint32_t s_iMethod = 3;
 
-        PubKey m_Pk;
-        Amount m_Amount;
-    };
+            PubKey m_Pk;
+            Amount m_Amount;
+        };
 
-    struct UpdPosFarming
-    {
-        static const uint32_t s_iMethod = 4;
+        struct UpdPosFarming
+        {
+            static const uint32_t s_iMethod = 4;
 
-        PubKey m_Pk;
-        Amount m_WithdrawBeamX;
-        Amount m_Beam; // deposit or withdraw
-        uint8_t m_BeamLock;
-    };
+            PubKey m_Pk;
+            Amount m_WithdrawBeamX;
+            Amount m_Beam; // deposit or withdraw
+            uint8_t m_BeamLock;
+        };
+
+        struct AdminWithdraw
+            :public Upgradable3::Method::Control::Signed
+        {
+            static const uint32_t s_iMethod = 5;
+
+            Amount m_BeamX;
+        };
+    }
 
 #pragma pack (pop)
 

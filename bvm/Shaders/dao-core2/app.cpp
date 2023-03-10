@@ -152,7 +152,7 @@ AssetID get_TrgAid(const ContractID& cid)
 {
     Env::Key_T<uint8_t> key;
     _POD_(key.m_Prefix.m_Cid) = cid;
-    key.m_KeyInContract = 0;
+    key.m_KeyInContract = Tags::s_State;
 
     State s;
     if (!Env::VarReader::Read_T(key, s))
@@ -277,7 +277,7 @@ ON_METHOD(manager, prealloc_withdraw)
     if (!aid)
         return;
 
-    GetPreallocated arg;
+    Method::GetPreallocated arg;
     Env::DerivePk(arg.m_Pk, g_szXid, sizeof(g_szXid));
     arg.m_Amount = amount;
     
@@ -308,7 +308,7 @@ void GetFarmingState(const ContractID& cid, Farming::State& fs)
 
     Env::Key_T<uint8_t> fsk;
     _POD_(fsk.m_Prefix.m_Cid) = cid;
-    fsk.m_KeyInContract = Farming::s_Key;
+    fsk.m_KeyInContract = Tags::s_Farm;
 
     if (!Env::VarReader::Read_T(fsk, fs))
         _POD_(fs).SetZero();
@@ -341,8 +341,6 @@ ON_METHOD(manager, farm_view)
         Env::DocGroup gr("farming");
         Env::DocAddNum("duation", fs.m_hTotal);
         Env::DocAddNum("emission", fs.get_EmissionSoFar());
-        Env::DocAddNum("h", Env::get_Height());
-        Env::DocAddNum("h0", Preallocated::s_hLaunch);
     }
 
     {
@@ -418,7 +416,7 @@ ON_METHOD(manager, farm_update)
     if (!aid)
         return;
 
-    UpdPosFarming arg;
+    Method::UpdPosFarming arg;
     arg.m_BeamLock = bLockOrUnlock;
     arg.m_Beam = amountBeam;
     arg.m_WithdrawBeamX = amountBeamX;

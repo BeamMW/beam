@@ -14,7 +14,7 @@ BEAM_EXPORT void Dtor(void*)
 {
 }
 
-BEAM_EXPORT void Method_3(const GetPreallocated& r)
+BEAM_EXPORT void Method_3(const Method::GetPreallocated& r)
 {
     Preallocated::User::Key puk;
     _POD_(puk.m_Pk) = r.m_Pk;
@@ -39,20 +39,16 @@ BEAM_EXPORT void Method_3(const GetPreallocated& r)
         Env::DelVar_T(puk);
 
     State s;
-    Env::LoadVar_T((uint8_t) s.s_Key, s);
+    Env::LoadVar_T((uint8_t) Tags::s_State, s);
     Env::FundsUnlock(s.m_Aid, r.m_Amount);
 
     Env::AddSig(r.m_Pk);
 }
 
-BEAM_EXPORT void Method_4(const UpdPosFarming& r)
+BEAM_EXPORT void Method_4(const Method::UpdPosFarming& r)
 {
-    Height h = Env::get_Height();
-    Env::Halt_if(h < Preallocated::s_hLaunch); // farming starts at the same time
-
     Farming::State fs;
-    Env::LoadVar_T((uint8_t) Farming::s_Key, fs);
-    fs.m_hLast = h;
+    Env::LoadVar_T((uint8_t) Tags::s_Farm, fs);
 
     Farming::UserPos up;
     Farming::UserPos::Key uk;
@@ -73,7 +69,7 @@ BEAM_EXPORT void Method_4(const UpdPosFarming& r)
         Strict::Sub(up.m_BeamX, r.m_WithdrawBeamX);
 
         State s;
-        Env::LoadVar_T((uint8_t) s.s_Key, s);
+        Env::LoadVar_T((uint8_t) Tags::s_State, s);
 
         Env::FundsUnlock(s.m_Aid, r.m_WithdrawBeamX);
     }
@@ -95,7 +91,7 @@ BEAM_EXPORT void Method_4(const UpdPosFarming& r)
     fs.m_WeightTotal += Farming::Weight::Calculate(up.m_Beam);
 
     // fin
-    Env::SaveVar_T((uint8_t) Farming::s_Key, fs);
+    Env::SaveVar_T((uint8_t) Tags::s_Farm, fs);
 
     if (up.m_Beam || up.m_BeamX)
         Env::SaveVar_T(uk, up);
@@ -104,6 +100,25 @@ BEAM_EXPORT void Method_4(const UpdPosFarming& r)
 
     Env::AddSig(r.m_Pk);
 
+}
+
+BEAM_EXPORT void Method_5(const Method::AdminWithdraw& r)
+{
+    Upgradable3::Settings stg;
+    stg.Load();
+    stg.TestAdminSigs(r.m_ApproveMask);
+
+    State s;
+    Env::LoadVar_T((uint8_t) Tags::s_State, s);
+
+    Amount val;
+    if (!Env::LoadVar_T((uint8_t) Tags::s_WithdrawReserve, val))
+        val = Preallocated::s_Unassigned;
+
+    Strict::Sub(val, r.m_BeamX);
+    Env::SaveVar_T((uint8_t) Tags::s_WithdrawReserve, val);
+
+    Env::FundsUnlock(s.m_Aid, r.m_BeamX);
 }
 
 } // namespace DaoCore2
