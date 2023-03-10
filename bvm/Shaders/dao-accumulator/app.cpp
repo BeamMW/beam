@@ -3,6 +3,7 @@
 #include "../app_common_impl.h"
 #include "../upgradable3/app_common_impl.h"
 #include "contract.h"
+#include "../dao-core/contract.h"
 
 #define DaoAcc_schedule_upgrade(macro) Upgradable3_schedule_upgrade(macro)
 #define DaoAcc_replace_admin(macro) Upgradable3_replace_admin(macro)
@@ -12,9 +13,13 @@
 #define DaoAcc_deploy(macro) \
     Upgradable3_deploy(macro) \
     macro(Height, hPrePhaseEnd) \
-    macro(AssetID, aidBeamX)
+    macro(ContractID, cidDaoCore)
 
 #define DaoAcc_view_deployed(macro)
+
+#define DaoAcc_user_lock_prephase(macro) \
+    macro(ContractID, cid) \
+    macro(Amount, amountBeamX)
 
 #define DaoAccActions_All(macro) \
     macro(view_deployed) \
@@ -23,11 +28,10 @@
 	macro(replace_admin) \
 	macro(set_min_approvers) \
 	macro(explicit_upgrade) \
+	macro(user_lock_prephase) \
 
 
 namespace DaoAccumulator {
-
-using MultiPrecision::Float;
 
 BEAM_EXPORT void Method_0()
 {
@@ -67,6 +71,22 @@ ON_METHOD(view_deployed)
     g_VerInfo.DumpAll(&kid);
 }
 
+AssetID ReadAidBeamX(const ContractID& cidDaoCore)
+{
+    Env::Key_T<uint8_t> key;
+    _POD_(key.m_Prefix.m_Cid) = cidDaoCore;
+    key.m_KeyInContract = DaoCore::State::s_Key;
+
+    DaoCore::State s;
+    if (!Env::VarReader::Read_T(key, s))
+        s.m_Aid = 0;
+
+    if (!s.m_Aid)
+        OnError("Dao-Core state not found");
+
+    return s.m_Aid;
+}
+
 ON_METHOD(deploy)
 {
     AdminKeyID kid;
@@ -81,9 +101,9 @@ ON_METHOD(deploy)
         return OnError("pre-phase too short");
     arg.m_hPrePhaseEnd = hPrePhaseEnd;
 
-    if (!aidBeamX)
-        return OnError("BeamX aid not specified");
-    arg.m_aidBeamX = aidBeamX;
+    arg.m_aidBeamX = ReadAidBeamX(cidDaoCore);
+    if (!arg.m_aidBeamX)
+        return;
 
     const uint32_t nCharge =
         Upgradable3::Manager::get_ChargeDeploy() +
@@ -114,6 +134,59 @@ ON_METHOD(set_min_approvers)
 {
     AdminKeyID kid;
     Upgradable3::Manager::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
+}
+
+struct MyState
+    :public State
+{
+    bool Read(const ContractID& cid)
+    {
+        Env::Key_T<uint8_t> key;
+        _POD_(key.m_Prefix.m_Cid) = cid;
+        key.m_KeyInContract = Tags::s_State;
+
+        if (Env::VarReader::Read_T(key, *this))
+            return true;
+
+        OnError("State not found");
+        return false;
+    }
+};
+
+ON_METHOD(user_lock_prephase)
+{
+    if (!amountBeamX)
+        return OnError("amount not specified");
+
+    MyState s;
+    if (!s.Read(cid))
+        return;
+
+    if (s.m_hPreEnd >= Env::get_Height())
+        return OnError("pre-phase is over");
+
+    Method::UserLockPrePhase arg;
+    arg.m_AmountBeamX = amountBeamX;
+    Env::KeyID(cid).get_Pk(arg.m_pkUser);
+
+    FundsChange pFc[2];
+    pFc[0].m_Aid = 0;
+    pFc[0].m_Consume = 1;
+    pFc[0].m_Amount = amountBeamX * State::s_InitialRatio;
+    pFc[1].m_Aid = s.m_aidBeamX;
+    pFc[1].m_Consume = 1;
+    pFc[1].m_Amount = amountBeamX;
+
+    const uint32_t nCharge =
+        Env::Cost::CallFar +
+        Env::Cost::LoadVar_For(sizeof(State)) +
+        Env::Cost::SaveVar_For(sizeof(State)) +
+        Env::Cost::LoadVar_For(sizeof(User)) +
+        Env::Cost::SaveVar_For(sizeof(User)) +
+        Env::Cost::FundsLock * 2 +
+        Env::Cost::Cycle * 200;
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), nullptr, 0, "Dao-Accumulator Lock pre-phase", nCharge);
 }
 
 
