@@ -151,10 +151,10 @@ namespace DaoCore2
         };
 
         struct AdminWithdraw
-            :public Upgradable3::Method::Control::Signed
         {
             static const uint32_t s_iMethod = 5;
 
+            uint32_t m_ApproveMask;
             Amount m_BeamX;
         };
     }

@@ -7,17 +7,15 @@
 #define DaoCore_manager_replace_admin(macro) Upgradable3_replace_admin(macro)
 #define DaoCore_manager_set_min_approvers(macro) Upgradable3_set_min_approvers(macro)
 #define DaoCore_manager_explicit_upgrade(macro) macro(ContractID, cid)
+#define DaoCore_manager_withdraw_unassigned(macro) \
+    macro(ContractID, cid) \
+    macro(Amount, amountBeamX)
 
 #define DaoCore_manager_view(macro)
 #define DaoCore_manager_view_params(macro) macro(ContractID, cid)
 
 #define DaoCore_manager_farm_view(macro) \
     macro(ContractID, cid)
-
-#define DaoCore_manager_farm_get_yield(macro) \
-    macro(ContractID, cid) \
-    macro(Amount, amount) \
-    macro(Height, hPeriod)
 
 #define DaoCore_manager_farm_totals(macro) \
     macro(ContractID, cid)
@@ -50,6 +48,7 @@
     macro(manager, my_admin_key) \
     macro(manager, view) \
     macro(manager, explicit_upgrade) \
+    macro(manager, withdraw_unassigned) \
     macro(manager, view_params) \
     macro(manager, my_xid) \
     macro(manager, my_admin_key) \
@@ -57,7 +56,6 @@
     macro(manager, prealloc_view) \
     macro(manager, prealloc_withdraw) \
     macro(manager, farm_view) \
-    macro(manager, farm_get_yield) \
     macro(manager, farm_totals) \
     macro(manager, farm_update)
 
@@ -109,6 +107,31 @@ ON_METHOD(manager, view)
 ON_METHOD(manager, explicit_upgrade)
 {
     Upgradable3::Manager::MultiSigRitual::Perform_ExplicitUpgrade(cid);
+}
+
+ON_METHOD(manager, withdraw_unassigned)
+{
+    if (!amountBeamX)
+        return OnError("amount not specified");
+
+    AdminKeyID kid;
+
+    Method::AdminWithdraw arg;
+    arg.m_BeamX = amountBeamX;
+
+    Upgradable3::Manager::MultiSigRitual msp;
+    msp.m_szComment = "Dao-Core withdraw unassigned BeamX";
+    msp.m_iMethod = arg.s_iMethod;
+    msp.m_nArg = sizeof(arg);
+    msp.m_pCid = &cid;
+    msp.m_Kid = kid;
+
+    msp.m_Charge +=
+        Env::Cost::LoadVar_For(sizeof(Amount)) +
+        Env::Cost::SaveVar_For(sizeof(Amount)) +
+        Env::Cost::FundsLock;
+
+    msp.Perform(arg);
 }
 
 ON_METHOD(manager, schedule_upgrade)
@@ -352,25 +375,6 @@ ON_METHOD(manager, farm_view)
         Env::DocAddNum("beamX_recent", val);
         Env::DocAddNum("beamX", fup.m_BeamX + val);
     }
-}
-
-ON_METHOD(manager, farm_get_yield)
-{
-    Farming::State fs;
-    Farming::UserPos fup;
-    GetFarmingState(cid, fs, fup);
-
-    fs.RemoveFraction(fup);
-
-    Farming::Weight::Type w = Farming::Weight::Calculate(amount);
-    fs.m_WeightTotal += w;
-
-    _POD_(fup.m_SigmaLast) = fs.m_Sigma;
-    fup.m_Beam = amount;
-
-    Amount res = fs.RemoveFraction(fup);
-
-    Env::DocAddNum("yield", res);
 }
 
 ON_METHOD(manager, farm_totals)

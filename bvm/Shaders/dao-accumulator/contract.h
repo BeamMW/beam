@@ -144,10 +144,10 @@ namespace DaoAccumulator
         };
 
         struct FarmStart
-            :public Upgradable3::Method::Control::Signed
         {
             static const uint32_t s_iMethod = 3;
 
+            uint32_t m_ApproveMask;
             AssetID m_aidLpToken;
             Amount m_FarmBeamX; // total value to farm
             Height m_hFarmDuration;
