@@ -1,6 +1,7 @@
 #include "../common.h"
 #include "contract.h"
 #include "../Math.h"
+#include "../upgradable3/contract_impl.h"
 
 namespace DaoCore2
 {
@@ -11,11 +12,6 @@ BEAM_EXPORT void Ctor(const void*)
 
 BEAM_EXPORT void Dtor(void*)
 {
-}
-
-BEAM_EXPORT void Method_2(void*)
-{
-    // called on upgrade. N/A
 }
 
 BEAM_EXPORT void Method_3(const GetPreallocated& r)
@@ -111,3 +107,21 @@ BEAM_EXPORT void Method_4(const UpdPosFarming& r)
 }
 
 } // namespace DaoCore2
+
+namespace Upgradable3 {
+
+    const uint32_t g_CurrentVersion = _countof(DaoCore2::s_pSID) - 1;
+
+    uint32_t get_CurrentVersion()
+    {
+        return g_CurrentVersion;
+    }
+
+    void OnUpgraded(uint32_t nPrevVersion)
+    {
+        if constexpr (g_CurrentVersion)
+            Env::Halt_if(nPrevVersion != g_CurrentVersion - 1);
+        else
+            Env::Halt();
+    }
+}

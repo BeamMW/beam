@@ -1,14 +1,12 @@
 #include "../common.h"
 #include "../app_common_impl.h"
+#include "../upgradable3/app_common_impl.h"
 #include "contract.h"
-#include "../upgradable2/contract.h"
-#include "../upgradable2/app_common_impl.h"
 
-#define DaoCore_manager_deploy_version(macro)
-#define DaoCore_manager_deploy_contract(macro) Upgradable2_deploy(macro)
-#define DaoCore_manager_schedule_upgrade(macro) Upgradable2_schedule_upgrade(macro)
-#define DaoCore_manager_replace_admin(macro) Upgradable2_replace_admin(macro)
-#define DaoCore_manager_set_min_approvers(macro) Upgradable2_set_min_approvers(macro)
+#define DaoCore_manager_schedule_upgrade(macro) Upgradable3_schedule_upgrade(macro)
+#define DaoCore_manager_replace_admin(macro) Upgradable3_replace_admin(macro)
+#define DaoCore_manager_set_min_approvers(macro) Upgradable3_set_min_approvers(macro)
+#define DaoCore_manager_explicit_upgrade(macro) macro(ContractID, cid)
 
 #define DaoCore_manager_view(macro)
 #define DaoCore_manager_view_params(macro) macro(ContractID, cid)
@@ -44,11 +42,8 @@
 
 #define DaoCore_manager_my_admin_key(macro)
 
-#define DaoCore_manager_explicit_upgrade(macro) macro(ContractID, cid)
 
 #define DaoCoreRole_manager(macro) \
-    macro(manager, deploy_version) \
-    macro(manager, deploy_contract) \
     macro(manager, schedule_upgrade) \
     macro(manager, replace_admin) \
     macro(manager, set_min_approvers) \
@@ -97,77 +92,41 @@ void OnError(const char* sz)
     Env::DocAddText("error", sz);
 }
 
-const char g_szAdminSeed[] = "upgr2-dao-core";
+const char g_szAdminSeed[] = "upgr2-dao-core"; // leave this name, it should be compatible with already-deployed dao-core
 
-struct MyKeyID :public Env::KeyID {
-    MyKeyID() :Env::KeyID(&g_szAdminSeed, sizeof(g_szAdminSeed)) {}
+struct AdminKeyID :public Env::KeyID {
+    AdminKeyID() :Env::KeyID(&g_szAdminSeed, sizeof(g_szAdminSeed)) {}
 };
+
+const Upgradable3::Manager::VerInfo g_VerInfo = { s_pSID, _countof(s_pSID) };
 
 ON_METHOD(manager, view)
 {
-    static const ShaderID s_pSid[] = {
-        DaoCore2::s_SID,
-    };
-
-    ContractID pVerCid[_countof(s_pSid)];
-    Height pVerDeploy[_countof(s_pSid)];
-
-    ManagerUpgadable2::Walker wlk;
-    wlk.m_VerInfo.m_Count = _countof(s_pSid);
-    wlk.m_VerInfo.s_pSid = s_pSid;
-    wlk.m_VerInfo.m_pCid = pVerCid;
-    wlk.m_VerInfo.m_pHeight = pVerDeploy;
-
-    MyKeyID kid;
-    wlk.ViewAll(&kid);
+    AdminKeyID kid;
+    g_VerInfo.DumpAll(&kid);
 }
 
 ON_METHOD(manager, explicit_upgrade)
 {
-    ManagerUpgadable2::MultiSigRitual::Perform_ExplicitUpgrade(cid);
-}
-
-ON_METHOD(manager, deploy_version)
-{
-    Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy DaoCore bytecode", 0);
-}
-
-static const Amount g_DepositCA = 3000 * g_Beam2Groth; // 3K beams
-
-ON_METHOD(manager, deploy_contract)
-{
-    FundsChange fc;
-    fc.m_Aid = 0; // asset id
-    fc.m_Amount = g_DepositCA; // amount of the input or output
-    fc.m_Consume = 1; // contract consumes funds (i.e input, in this case)
-
-    MyKeyID kid;
-    PubKey pk;
-    kid.get_Pk(pk);
-
-    Upgradable2::Create arg;
-    if (!ManagerUpgadable2::FillDeployArgs(arg, &pk))
-        return;
-
-    Env::GenerateKernel(nullptr, 0, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Deploy DaoCore contract", 0);
+    Upgradable3::Manager::MultiSigRitual::Perform_ExplicitUpgrade(cid);
 }
 
 ON_METHOD(manager, schedule_upgrade)
 {
-    MyKeyID kid;
-    ManagerUpgadable2::MultiSigRitual::Perform_ScheduleUpgrade(cid, kid, cidVersion, hTarget);
+    AdminKeyID kid;
+    g_VerInfo.ScheduleUpgrade(cid, kid, hTarget);
 }
 
 ON_METHOD(manager, replace_admin)
 {
-    MyKeyID kid;
-    ManagerUpgadable2::MultiSigRitual::Perform_ReplaceAdmin(cid, kid, iAdmin, pk);
+    AdminKeyID kid;
+    Upgradable3::Manager::MultiSigRitual::Perform_ReplaceAdmin(cid, kid, iAdmin, pk);
 }
 
 ON_METHOD(manager, set_min_approvers)
 {
-    MyKeyID kid;
-    ManagerUpgadable2::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
+    AdminKeyID kid;
+    Upgradable3::Manager::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
 }
 
 Amount get_ContractLocked(AssetID aid, const ContractID& cid)
@@ -229,7 +188,7 @@ ON_METHOD(manager, my_xid)
 ON_METHOD(manager, my_admin_key)
 {
     PubKey pk;
-    MyKeyID kid;
+    AdminKeyID kid;
     kid.get_Pk(pk);
     Env::DocAddBlob_T("admin_key", pk);
 }
@@ -332,7 +291,7 @@ ON_METHOD(manager, prealloc_withdraw)
     fc.m_Consume = 0;
 
     uint32_t nCharge =
-        ManagerUpgadable2::get_ChargeInvoke() +
+        Env::Cost::CallFar +
         Env::Cost::LoadVar_For(sizeof(Preallocated::User)) +
         Env::Cost::SaveVar_For(sizeof(Preallocated::User)) +
         Env::Cost::LoadVar_For(sizeof(State)) +
@@ -479,7 +438,7 @@ ON_METHOD(manager, farm_update)
     pFc[1].m_Consume = bLockOrUnlock;
 
     uint32_t nCharge =
-        ManagerUpgadable2::get_ChargeInvoke() +
+        Env::Cost::CallFar +
         Env::Cost::LoadVar_For(sizeof(Farming::UserPos)) +
         Env::Cost::SaveVar_For(sizeof(Farming::UserPos)) +
         Env::Cost::LoadVar_For(sizeof(Farming::State)) +
