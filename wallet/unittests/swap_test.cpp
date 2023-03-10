@@ -1086,7 +1086,7 @@ void TestSwapBTCRedeemAfterExpired()
             {
                 sender.reset();
                 isNeedReset = false;
-                node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 50;
+                node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
             }
         }
         else
