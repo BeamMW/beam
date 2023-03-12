@@ -950,7 +950,7 @@ void TestSwapBeamAndBTCRefundTransaction()
                 // delete receiver to simulate refund on Beam side
                 receiver.reset();
                 isNeedReset = false;
-                node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
+                node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 200;
             }
         }
         else
@@ -1086,7 +1086,7 @@ void TestSwapBTCRedeemAfterExpired()
             {
                 sender.reset();
                 isNeedReset = false;
-                node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
+                node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 200;
             }
         }
         else
