@@ -7,6 +7,8 @@ call make_shader bans/contract
 call make_shader blackhole/app
 call make_shader blackhole/contract
 call make_shader aphorize/contract
+call make_shader dao-accumulator/app
+call make_shader dao-accumulator/contract
 call make_shader dao-core/app
 call make_shader dao-core/app-admin
 call make_shader dao-core/contract
@@ -16,6 +18,8 @@ call make_shader dao-core-masternet/contract
 call make_shader dao-core-testnet/app
 call make_shader dao-core-testnet/app-admin
 call make_shader dao-core-testnet/contract
+call make_shader dao-core2/app
+call make_shader dao-core2/contract
 call make_shader dao-vote/app
 call make_shader dao-vote/contract
 call make_shader dao-vault/app
