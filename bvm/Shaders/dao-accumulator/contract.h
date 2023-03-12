@@ -5,7 +5,7 @@
 namespace DaoAccumulator
 {
     static const ShaderID s_pSID[] = {
-        { 0x05,0xd0,0x7a,0x89,0x47,0x8f,0x71,0x02,0xf5,0xeb,0x24,0x57,0x43,0x0f,0xd5,0xc7,0x7d,0x6b,0xff,0x35,0xda,0x1e,0x0f,0xf3,0x30,0xee,0x85,0x90,0xdd,0xdf,0x39,0xd8 },
+        { 0x19,0xf1,0x27,0x96,0xa1,0xf8,0xfe,0xf9,0x82,0xcf,0x0f,0xe3,0x8b,0xcf,0xc7,0x6a,0x4a,0x56,0xd1,0x37,0x28,0x14,0x77,0x5d,0x79,0x36,0xec,0xf8,0xdf,0x60,0xfc,0x18 },
     };
 
 #pragma pack (push, 1)
@@ -123,12 +123,26 @@ namespace DaoAccumulator
         };
 
         Pool::User m_PoolUser;
+        Amount m_LpTokenPrePhase;
         Amount m_LpTokenPostPhase; // how much LP-Token did the user deposit AFTER the pre-phase
         Amount m_EarnedBeamX; // earned but not withdrawn yet
 
+        uint8_t m_PrePhaseLockPeriods;
+
+        static const uint32_t s_PreLockPeriodBlocks = 1440 * 365 / 4; // 3 months
+        static const uint8_t s_PreLockPeriodsMax = 4; // 1 year
+
+        uint64_t get_WeightPrePhase() const
+        {
+            uint64_t val = m_LpTokenPrePhase * 2; // don't care about overflow
+            uint64_t extra = (m_LpTokenPrePhase / 2) * m_PrePhaseLockPeriods;
+
+            return val + extra;
+        }
+
         uint64_t get_WeightPostPhase() const
         {
-            return m_LpTokenPostPhase / 2; // assume it's 1/2 of Pre-Phase weight
+            return m_LpTokenPostPhase; // assume it's 1/2 of Pre-Phase weight
         }
     };
 
@@ -160,6 +174,7 @@ namespace DaoAccumulator
 
             PubKey m_pkUser;
             Amount m_AmountBeamX;
+            uint8_t m_PrePhaseLockPeriods;
         };
 
         struct UserUpdate

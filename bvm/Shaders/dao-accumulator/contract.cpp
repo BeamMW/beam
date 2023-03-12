@@ -45,6 +45,21 @@ BEAM_EXPORT void Dtor(void*)
     // ignore
 }
 
+Amount get_LockedAmount(AssetID aid)
+{
+    struct AmountBig {
+        Amount m_Hi;
+        Amount m_Lo;
+    } val;
+
+    aid = Utils::FromBE(aid);
+
+    if (!Env::LoadVar_T(aid, val, KeyTag::LockedAmount))
+        return 0;
+
+    Env::Halt_if(val.m_Hi != 0);
+    return Utils::FromBE(val.m_Lo);
+}
 
 BEAM_EXPORT void Method_3(const Method::FarmStart& r)
 {
@@ -58,17 +73,22 @@ BEAM_EXPORT void Method_3(const Method::FarmStart& r)
         stg.TestAdminSigs(r.m_ApproveMask);
     }
 
+    Amount val = get_LockedAmount(0); // assume amount of LP-token is exactly equal to amount of Beams
+
     // grab lp-token
     Env::Halt_if(!s.m_aidLpToken);
     s.m_aidLpToken = r.m_aidLpToken;
-    Env::FundsLock(s.m_aidLpToken, s.m_Pool.m_Weight);
+    Env::FundsLock(s.m_aidLpToken, val);
 
-    // release locked beam+beamX
-    Env::FundsUnlock(s.m_aidBeamX, s.m_Pool.m_Weight / State::s_InitialRatio);
-    Env::FundsUnlock(0, s.m_Pool.m_Weight);
+    // release locked beam
+    Env::FundsUnlock(0, val);
 
-    // grab deposited beamX for farming
-    Env::FundsLock(s.m_aidBeamX, r.m_FarmBeamX);
+    // grab deposited beamX for farming, but also release locked beamX
+    val /= State::s_InitialRatio;
+    if (val > r.m_FarmBeamX)
+        Env::FundsUnlock(s.m_aidBeamX, val - r.m_FarmBeamX);
+    else
+        Env::FundsLock(s.m_aidBeamX, r.m_FarmBeamX - val);
     
     s.m_Pool.m_hLast = h;
     s.m_Pool.m_hRemaining = r.m_hFarmDuration;
@@ -86,14 +106,21 @@ BEAM_EXPORT void Method_4(const Method::UserLockPrePhase& r)
     User::Key uk;
     _POD_(uk.m_pk) = r.m_pkUser;
     User u;
-    if (!Env::LoadVar_T(uk, u))
+    if (Env::LoadVar_T(uk, u))
+        s.m_Pool.m_Weight -= u.m_PoolUser.m_Weight;
+    else
         _POD_(u).SetZero();
 
     Amount valBeam = r.m_AmountBeamX * State::s_InitialRatio;
     Env::Halt_if(valBeam / State::s_InitialRatio != r.m_AmountBeamX); // overflow test
 
-    Strict::Add(s.m_Pool.m_Weight, valBeam);
-    u.m_PoolUser.m_Weight += valBeam; // should not overflow if the prev didn't
+    Env::Halt_if(r.m_PrePhaseLockPeriods > User::s_PreLockPeriodsMax);
+    u.m_PrePhaseLockPeriods = r.m_PrePhaseLockPeriods;
+
+    Strict::Add(u.m_LpTokenPrePhase, valBeam);
+    u.m_PoolUser.m_Weight = u.get_WeightPrePhase();
+
+    Strict::Add(s.m_Pool.m_Weight, u.m_PoolUser.m_Weight);
 
     Env::FundsLock(s.m_aidBeamX, r.m_AmountBeamX);
     Env::FundsLock(0, valBeam);
@@ -104,9 +131,11 @@ BEAM_EXPORT void Method_4(const Method::UserLockPrePhase& r)
 
 BEAM_EXPORT void Method_5(const Method::UserUpdate& r)
 {
+    Height h = Env::get_Height();
+
     MyState s;
     Env::Halt_if(!s.m_aidLpToken); // post-phase didn't start
-    s.m_Pool.Update(Env::get_Height());
+    s.m_Pool.Update(h);
 
     Env::AddSig(r.m_pkUser);
 
@@ -120,7 +149,6 @@ BEAM_EXPORT void Method_5(const Method::UserUpdate& r)
         Amount valEarned = s.m_Pool.Remove(u.m_PoolUser);
         u.m_EarnedBeamX += valEarned; // should not overflow
 
-        u.m_PoolUser.m_Weight -= u.get_WeightPostPhase(); // should not overflow
         valLpTokenTotal = u.m_PoolUser.m_Weight + u.m_LpTokenPostPhase; // should not overflow
     }
     else
@@ -147,7 +175,9 @@ BEAM_EXPORT void Method_5(const Method::UserUpdate& r)
                 diff -= u.m_LpTokenPostPhase;
                 u.m_LpTokenPostPhase = 0;
 
-                Strict::Sub(u.m_PoolUser.m_Weight, diff);
+                Env::Halt_if(h < s.m_hPreEnd + User::s_PreLockPeriodBlocks * u.m_PrePhaseLockPeriods);
+
+                Strict::Sub(u.m_LpTokenPrePhase, diff);
             }
 
             Env::FundsUnlock(s.m_aidLpToken, diff);
@@ -160,17 +190,17 @@ BEAM_EXPORT void Method_5(const Method::UserUpdate& r)
         Env::FundsUnlock(s.m_aidBeamX, r.m_WithdrawBeamX);
     }
 
-    // recalculate the weight
-    u.m_PoolUser.m_Weight += u.get_WeightPostPhase(); // should not overflow
-    Strict::Add(s.m_Pool.m_Weight, u.m_PoolUser.m_Weight);
+    u.m_PoolUser.m_Weight = u.get_WeightPrePhase() + u.get_WeightPostPhase();
 
     if (u.m_PoolUser.m_Weight || u.m_EarnedBeamX)
-        Env::SaveVar_T(uk, u);
-    else
     {
-        assert(!u.m_AmountLpToken);
-        Env::DelVar_T(uk);
+        u.m_PoolUser.m_Sigma0 = s.m_Pool.m_Sigma;
+        Strict::Add(s.m_Pool.m_Weight, u.m_PoolUser.m_Weight);
+
+        Env::SaveVar_T(uk, u);
     }
+    else
+        Env::DelVar_T(uk);
 
     s.Save();
 }
