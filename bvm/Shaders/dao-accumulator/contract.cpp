@@ -175,7 +175,7 @@ BEAM_EXPORT void Method_5(const Method::UserUpdate& r)
                 diff -= u.m_LpTokenPostPhase;
                 u.m_LpTokenPostPhase = 0;
 
-                Env::Halt_if(h < s.m_hPreEnd + User::s_PreLockPeriodBlocks * u.m_PrePhaseLockPeriods);
+                Env::Halt_if(h < u.get_UnlockHeight(s));
 
                 Strict::Sub(u.m_LpTokenPrePhase, diff);
             }
