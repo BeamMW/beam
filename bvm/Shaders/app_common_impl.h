@@ -97,9 +97,35 @@ struct WalkerFunds
 	{
 		Amount m_Hi;
 		Amount m_Lo;
+
+		void FromBE()
+		{
+			m_Lo = Utils::FromBE(m_Lo);
+			m_Hi = Utils::FromBE(m_Hi);
+		}
+
+		bool FromContract(const ContractID& cid, AssetID aid)
+		{
+			KeyFunds key;
+			_POD_(key.m_Prefix.m_Cid) = cid;
+			key.m_Prefix.m_Tag = KeyTag::LockedAmount;
+			key.m_KeyInContract = Utils::FromBE(aid);
+
+			if (!Env::VarReader::Read_T(key, *this))
+				return false;
+
+			FromBE();
+			return true;
+		}
 	};
 
 #pragma pack (pop)
+
+	static Amount FromContract_Lo(const ContractID& cid, AssetID aid)
+	{
+		ValueFunds val;
+		return val.FromContract(cid, aid) ? val.m_Lo : 0;
+	}
 
 	AssetID m_Aid;
 	ValueFunds m_Val;
@@ -137,8 +163,7 @@ struct WalkerFunds
 			return false;
 
 		m_Aid = Utils::FromBE(key.m_KeyInContract);
-		m_Val.m_Lo = Utils::FromBE(val.m_Lo);
-		m_Val.m_Hi = Utils::FromBE(val.m_Hi);
+		m_Val.FromBE();
 
 		return true;
 	}

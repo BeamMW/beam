@@ -152,25 +152,6 @@ ON_METHOD(manager, set_min_approvers)
     Upgradable3::Manager::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
 }
 
-Amount get_ContractLocked(AssetID aid, const ContractID& cid)
-{
-    Env::Key_T<AssetID> key;
-    _POD_(key.m_Prefix.m_Cid) = cid;
-    key.m_Prefix.m_Tag = KeyTag::LockedAmount;
-    key.m_KeyInContract = Utils::FromBE(aid);
-
-    struct AmountBig {
-        Amount m_Hi;
-        Amount m_Lo;
-    };
-
-    AmountBig val;
-    if (!Env::VarReader::Read_T(key, val))
-        return 0;
-
-    return Utils::FromBE(val.m_Lo);
-}
-
 AssetID get_TrgAid(const ContractID& cid)
 {
     Env::Key_T<uint8_t> key;
@@ -195,8 +176,8 @@ ON_METHOD(manager, view_params)
 
     Env::DocGroup gr("params");
     Env::DocAddNum("aid", aid);
-    Env::DocAddNum("locked_beamX", get_ContractLocked(aid, cid));
-    Env::DocAddNum("locked_beams", get_ContractLocked(0, cid));
+    Env::DocAddNum("locked_beamX", WalkerFunds::FromContract_Lo(cid, aid));
+    Env::DocAddNum("locked_beams", WalkerFunds::FromContract_Lo(cid, 0));
 }
 
 static const char g_szXid[] = "xid-seed";
