@@ -457,7 +457,7 @@ void ParserContext::On_Upgradable()
 	}
 
 	ShaderID sid;
-	if (!Utils::get_ShaderID_FromContract(sid, us.m_Cid))
+	if (!Utils::Shader::get_Sid_FromContract(sid, us.m_Cid))
 		return;
 
 	auto eType = Wrapped::Recognize(sid);
@@ -536,7 +536,7 @@ void ParserContext::On_Upgradable2()
 	}
 
 	ShaderID sid;
-	if (!Utils::get_ShaderID_FromContract(sid, us.m_Active.m_Cid))
+	if (!Utils::Shader::get_Sid_FromContract(sid, us.m_Active.m_Cid))
 		return;
 
 	auto eType = Wrapped::Recognize(sid);
@@ -661,7 +661,7 @@ void ParserContext::WriteUpgradeParams(const ContractID& cid, Height h)
 	if (!_POD_(cid).IsZero())
 	{
 		ShaderID sid;
-		if (!Utils::get_ShaderID_FromContract(sid, cid))
+		if (!Utils::Shader::get_Sid_FromContract(sid, cid))
 			return;
 
 		ParserContext pc2(sid, sid); // use sid as dummy cid. It won't be used anyway
@@ -683,7 +683,7 @@ void ParserContext::WriteUpgradeParams(Height h, const ShaderID& sid)
 void ParserContext::WriteUpgradeParams(const Upgradable3::NextVersion& x, uint32_t nSizeShader)
 {
 	ShaderID sid;
-	Utils::get_ShaderID(sid, &x + 1, nSizeShader);
+	Utils::Shader::get_Sid(sid, &x + 1, nSizeShader);
 
 	WriteUpgradeParams(x.m_hTarget, sid);
 }

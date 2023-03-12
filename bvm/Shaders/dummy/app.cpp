@@ -38,7 +38,7 @@ void OnError(const char* sz)
 ON_METHOD(manager, get_Sid)
 {
     ShaderID sid;
-    if (!Utils::get_ShaderID_FromArg(sid))
+    if (!Utils::Shader::get_Sid_FromArg(sid))
         return OnError("shader not specified");
 
     Env::DocGroup root("res");
