@@ -98,6 +98,22 @@ struct AdminKeyID :public Env::KeyID {
 
 const Upgradable3::Manager::VerInfo g_VerInfo = { s_pSID, _countof(s_pSID) };
 
+AssetID get_TrgAid(const ContractID& cid)
+{
+    Env::Key_T<uint8_t> key;
+    _POD_(key.m_Prefix.m_Cid) = cid;
+    key.m_KeyInContract = Tags::s_State;
+
+    State s;
+    if (!Env::VarReader::Read_T(key, s))
+    {
+        OnError("no such contract");
+        return 0;
+    }
+
+    return s.m_Aid;
+}
+
 ON_METHOD(manager, view)
 {
     AdminKeyID kid;
@@ -114,6 +130,10 @@ ON_METHOD(manager, withdraw_unassigned)
     if (!amountBeamX)
         return OnError("amount not specified");
 
+    auto aid = get_TrgAid(cid);
+    if (!aid)
+        return;
+
     AdminKeyID kid;
 
     Method::AdminWithdraw arg;
@@ -125,6 +145,14 @@ ON_METHOD(manager, withdraw_unassigned)
     msp.m_nArg = sizeof(arg);
     msp.m_pCid = &cid;
     msp.m_Kid = kid;
+
+    FundsChange fc;
+    fc.m_Consume = 0;
+    fc.m_Amount = amountBeamX;
+    fc.m_Aid = aid;
+
+    msp.m_pFc = &fc;
+    msp.m_nFc = 1;
 
     msp.m_Charge +=
         Env::Cost::LoadVar_For(sizeof(Amount)) +
@@ -152,22 +180,6 @@ ON_METHOD(manager, set_min_approvers)
     Upgradable3::Manager::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
 }
 
-AssetID get_TrgAid(const ContractID& cid)
-{
-    Env::Key_T<uint8_t> key;
-    _POD_(key.m_Prefix.m_Cid) = cid;
-    key.m_KeyInContract = Tags::s_State;
-
-    State s;
-    if (!Env::VarReader::Read_T(key, s))
-    {
-        OnError("no such contract");
-        return 0;
-    }
-
-    return s.m_Aid;
-}
-
 ON_METHOD(manager, view_params)
 {
     auto aid = get_TrgAid(cid);
@@ -178,6 +190,15 @@ ON_METHOD(manager, view_params)
     Env::DocAddNum("aid", aid);
     Env::DocAddNum("locked_beamX", WalkerFunds::FromContract_Lo(cid, aid));
     Env::DocAddNum("locked_beams", WalkerFunds::FromContract_Lo(cid, 0));
+
+    Env::Key_T<uint8_t> key;
+    _POD_(key.m_Prefix.m_Cid) = cid;
+    key.m_KeyInContract = Tags::s_WithdrawReserve;
+
+    Amount val = Preallocated::s_Unassigned;
+    Env::VarReader::Read_T(key, val);
+
+    Env::DocAddNum("unassigned_beamX", val);
 }
 
 static const char g_szXid[] = "xid-seed";
