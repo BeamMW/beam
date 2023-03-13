@@ -535,7 +535,7 @@ void NodeConnection::SendRaw(const msg& v) \
     TestNotDrown(); \
 } \
 \
-bool NodeConnection::OnMsgInternal(uint64_t, msg##_NoInit&& v) \
+bool NodeConnection::OnMsgInternal(uint64_t, msg##_NoInit&& v, uint32_t) \
 { \
     try { \
         /* checkpoint */ \

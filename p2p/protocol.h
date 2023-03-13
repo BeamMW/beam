@@ -57,7 +57,7 @@ public:
     template <
         typename MsgHandler,
         typename MsgObject,
-        bool(MsgHandler::*MessageFn)(uint64_t, MsgObject&&)
+        bool(MsgHandler::*MessageFn)(uint64_t, MsgObject&&, uint32_t msgSize)
     >
     void add_message_handler(MsgType type, MsgHandler* msgHandler, uint32_t minMsgSize, uint32_t maxMsgSize) {
         add_custom_message_handler(
@@ -69,7 +69,7 @@ public:
                     errorHandler.on_protocol_error(fromStream, ProtocolError::message_corrupted);
                     return false;
                 }
-                return (static_cast<MsgHandler*>(msgHandler)->*MessageFn)(fromStream, std::move(m));
+                return (static_cast<MsgHandler*>(msgHandler)->*MessageFn)(fromStream, std::move(m), (uint32_t) size);
             }
         );
     }

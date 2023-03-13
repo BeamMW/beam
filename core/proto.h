@@ -762,7 +762,7 @@ namespace proto {
         virtual void on_protocol_error(uint64_t, ProtocolError error) override;
         virtual void on_connection_error(uint64_t, io::ErrorCode errorCode) override;
 
-#define THE_MACRO(code, msg) bool OnMsgInternal(uint64_t, msg##_NoInit&& v);
+#define THE_MACRO(code, msg) bool OnMsgInternal(uint64_t, msg##_NoInit&& v, uint32_t msgSize);
         BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
 
