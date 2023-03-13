@@ -528,6 +528,7 @@ void NodeConnection::SendRaw(const msg& v) \
     m_SerializeCache.clear(); \
     MsgSerializer& ser = m_Protocol.serializeNoFinalize(m_SerializeCache, uint8_t(code), v); \
     m_Protocol.Encrypt(m_SerializeCache, ser); \
+    OnTraficOut(msg::s_Code); \
     io::Result res = m_Connection->write_msg(m_SerializeCache); \
     m_SerializeCache.clear(); \
 \
@@ -535,11 +536,12 @@ void NodeConnection::SendRaw(const msg& v) \
     TestNotDrown(); \
 } \
 \
-bool NodeConnection::OnMsgInternal(uint64_t, msg##_NoInit&& v, uint32_t) \
+bool NodeConnection::OnMsgInternal(uint64_t, msg##_NoInit&& v, uint32_t msgSize) \
 { \
     try { \
         /* checkpoint */ \
         TestInputMsgContext(code); \
+        OnTrafic(msg::s_Code, msgSize, false); \
         return OnMsg2(std::move(v)); \
     } catch (const NodeProcessingException& e) { \
         OnProcessingExc(e); \
@@ -552,6 +554,16 @@ bool NodeConnection::OnMsgInternal(uint64_t, msg##_NoInit&& v, uint32_t) \
 
 BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
+
+void NodeConnection::OnTraficOut(uint8_t nCode)
+{
+    uint32_t msgSize = 0;
+    for (const auto& buf : m_SerializeCache)
+        msgSize += (uint32_t) buf.size;
+    
+    OnTrafic(nCode, msgSize, true);
+}
+
 
 void NodeConnection::TestInputMsgContext(uint8_t code)
 {

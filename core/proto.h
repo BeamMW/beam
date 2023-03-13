@@ -770,6 +770,8 @@ namespace proto {
 
 		void OnLoginInternal(Login&&);
 
+        void OnTraficOut(uint8_t);
+
     public:
 
         uint32_t m_LoginFlags;
@@ -802,6 +804,8 @@ namespace proto {
 		virtual void OnMsg(Time&&) override;
 		virtual void OnMsg(Login&&) override;
         virtual void OnMsg(NewTransaction0&&) override;
+
+        virtual void OnTrafic(uint8_t nCode, uint32_t nSize, bool bOut) {}
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 
