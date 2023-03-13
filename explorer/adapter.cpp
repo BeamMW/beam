@@ -192,7 +192,7 @@ public:
     }
 
     // IBroadcastListener implementation
-    bool onMessage(uint64_t unused, BroadcastMsg&& msg) override
+    bool onMessage(BroadcastMsg&& msg) override
     {
         Block::SystemState::Full blockState;
         _walletDB->get_History().get_Tip(blockState);

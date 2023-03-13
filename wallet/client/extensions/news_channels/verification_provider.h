@@ -27,7 +27,7 @@ namespace beam::wallet
         VerificationProvider(IBroadcastMsgGateway&, BroadcastMsgValidator&, IWalletDB&);
         virtual ~VerificationProvider() = default;
 
-        bool onMessage(uint64_t unused, BroadcastMsg&&) override;
+        bool onMessage(BroadcastMsg&&) override;
         void Subscribe(IVerificationObserver* observer);
         void Unsubscribe(IVerificationObserver* observer);
         std::vector<VerificationInfo> getInfo() const;
