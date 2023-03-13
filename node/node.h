@@ -78,6 +78,7 @@ struct Node
 		bool m_LogEvents = false; // may be insecure. Off by default.
 		bool m_LogTxStem = true;
 		bool m_LogTxFluff = true;
+		bool m_LogTraficUsage = false;
 
 		// Number of verification threads for CPU-hungry cryptography. Currently used for block validation only.
 		// 0: single threaded
@@ -588,6 +589,7 @@ private:
 		virtual void OnConnectedSecure() override;
 		virtual void OnDisconnect(const DisconnectReason&) override;
 		virtual void GenerateSChannelNonce(ECC::Scalar::Native&) override; // Must be overridden to support SChannel
+		void OnTrafic(uint8_t msgCode, uint32_t msgSize, bool bOut) override;
 		// login
 		virtual void SetupLogin(proto::Login&) override;
 		virtual void OnLogin(proto::Login&&, uint32_t nFlagsPrev) override;
