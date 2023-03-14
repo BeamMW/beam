@@ -3,7 +3,8 @@
 #include "../app_common_impl.h"
 #include "../upgradable3/app_common_impl.h"
 #include "contract.h"
-#include "../dao-core/contract.h"
+#include "../dao-core2/contract.h"
+#include "../amm/contract.h"
 
 #define DaoAcc_schedule_upgrade(macro) Upgradable3_schedule_upgrade(macro)
 #define DaoAcc_replace_admin(macro) Upgradable3_replace_admin(macro)
@@ -20,6 +21,11 @@
 #define DaoAcc_user_view(macro) macro(ContractID, cid)
 #define DaoAcc_users_view_all(macro) macro(ContractID, cid)
 
+#define DaoAcc_start_farming(macro) \
+    macro(ContractID, cid) \
+    macro(ContractID, cidAmm) \
+    macro(ContractID, cidDaoCore) \
+
 #define DaoAcc_user_lock_prephase(macro) \
     macro(ContractID, cid) \
     macro(Amount, amountBeamX) \
@@ -33,6 +39,7 @@
 	macro(replace_admin) \
 	macro(set_min_approvers) \
 	macro(explicit_upgrade) \
+	macro(start_farming) \
 	macro(user_view) \
 	macro(users_view_all) \
 	macro(user_lock_prephase) \
@@ -82,9 +89,9 @@ AssetID ReadAidBeamX(const ContractID& cidDaoCore)
 {
     Env::Key_T<uint8_t> key;
     _POD_(key.m_Prefix.m_Cid) = cidDaoCore;
-    key.m_KeyInContract = DaoCore::State::s_Key;
+    key.m_KeyInContract = DaoCore2::Tags::s_State;
 
-    DaoCore::State s;
+    DaoCore2::State s;
     if (!Env::VarReader::Read_T(key, s))
         s.m_Aid = 0;
 
@@ -192,6 +199,139 @@ ON_METHOD(view_params)
         Env::DocAddNum("locked-Beam", WalkerFunds::FromContract_Lo(cid, 0));
         Env::DocAddNum("locked-BeamX", totalBeamX);
     }
+}
+
+ON_METHOD(start_farming)
+{
+    MyState s;
+    if (!s.Read(cid))
+        return;
+    if (s.m_aidLpToken)
+        return OnError("farming already started");
+
+    Amount valBeams = WalkerFunds::FromContract_Lo(cid, 0);
+    Amount valBeamX = valBeams / State::s_InitialRatio;
+
+    Env::Key_T<Amm::Pool::Key> pk;
+    _POD_(pk.m_Prefix.m_Cid) = cidAmm;
+    pk.m_KeyInContract.m_ID.m_Aid1 = 0;
+    pk.m_KeyInContract.m_ID.m_Aid2 = s.m_aidBeamX;
+    pk.m_KeyInContract.m_ID.m_Fees.m_Kind = Amm::FeeSettings::s_Kinds - 1; // highest volatility
+
+    Amm::Pool pool;
+    if (!Env::VarReader::Read_T(pk, pool))
+        return OnError("target pool not created");
+
+    if (pool.m_Totals.m_Ctl)
+        return OnError("target pool not empty");
+
+    const Amount valFarmBeamX = 6'000'000ull * g_Beam2Groth;
+
+    // 1. Activate farming
+    {
+        Method::FarmStart arg;
+        arg.m_aidLpToken = pool.m_aidCtl;
+        arg.m_FarmBeamX = valFarmBeamX;
+        arg.m_hFarmDuration = 1440 * 365 * 2; // 2 years
+
+        Upgradable3::Manager::MultiSigRitual msp;
+        msp.m_szComment = "Dao-Accumulator Farming start";
+        msp.m_iMethod = arg.s_iMethod;
+        msp.m_nArg = sizeof(arg);
+        msp.m_pCid = &cid;
+        msp.m_Kid = AdminKeyID();
+
+        FundsChange pFc[4];
+
+        pFc[0].m_Consume = 0;
+        pFc[0].m_Aid = 0;
+        pFc[0].m_Amount = valBeams;
+
+        pFc[1].m_Consume = 0;
+        pFc[1].m_Aid = s.m_aidBeamX;
+        pFc[1].m_Amount = valBeamX;
+
+        pFc[2].m_Consume = 1;
+        pFc[2].m_Aid = pool.m_aidCtl;
+        pFc[2].m_Amount = valBeams;
+
+        pFc[3].m_Consume = 1;
+        pFc[3].m_Aid = s.m_aidBeamX;
+        pFc[3].m_Amount = valFarmBeamX;
+
+        msp.m_pFc = pFc;
+        msp.m_nFc = _countof(pFc);
+
+        msp.m_Charge +=
+            Env::Cost::LoadVar_For(sizeof(State)) +
+            Env::Cost::SaveVar_For(sizeof(State)) +
+            Env::Cost::FundsLock * 3 +
+            Env::Cost::Cycle * 1000;
+
+        msp.Perform(arg);
+    }
+
+    // 2. Exchange liquidity for LP-token
+    {
+        Amm::Method::AddLiquidity arg;
+        arg.m_Pid = pk.m_KeyInContract.m_ID;
+        arg.m_Amounts.m_Tok1 = valBeams;
+        arg.m_Amounts.m_Tok2 = valBeamX;
+
+        FundsChange pFc[3];
+
+        pFc[0].m_Consume = 1;
+        pFc[0].m_Aid = 0;
+        pFc[0].m_Amount = valBeams;
+
+        pFc[1].m_Consume = 1;
+        pFc[1].m_Aid = s.m_aidBeamX;
+        pFc[1].m_Amount = valBeamX;
+
+        pFc[2].m_Consume = 0;
+        pFc[2].m_Aid = pool.m_aidCtl;
+        pFc[2].m_Amount = valBeams;
+
+        uint32_t nCharge =
+            Env::Cost::LoadVar_For(sizeof(Amm::Pool)) +
+            Env::Cost::SaveVar_For(sizeof(Amm::Pool)) +
+            Env::Cost::FundsLock * 3 +
+            Env::Cost::AssetEmit +
+            Env::Cost::Cycle * 1000;
+
+        Env::GenerateKernel(&cidAmm, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), nullptr, 0, "Amm put liquidity", nCharge);
+    }
+
+    // 3. Withdraw BeamX for farming from dao-core
+    {
+        DaoCore2::Method::AdminWithdraw arg;
+        arg.m_BeamX = valFarmBeamX;
+
+        Upgradable3::Manager::MultiSigRitual msp;
+        msp.m_szComment = "Dao-Core Withdraw unassigned BeamX";
+        msp.m_iMethod = arg.s_iMethod;
+        msp.m_nArg = sizeof(arg);
+        msp.m_pCid = &cid;
+        msp.m_Kid = AdminKeyID();
+
+        FundsChange fc;
+        fc.m_Consume = 0;
+        fc.m_Aid = s.m_aidBeamX;
+        fc.m_Amount = valFarmBeamX;
+
+
+        msp.m_pFc = &fc;
+        msp.m_nFc = 1;
+
+        msp.m_Charge +=
+            Env::Cost::LoadVar_For(sizeof(Amount)) +
+            Env::Cost::SaveVar_For(sizeof(Amount)) +
+            Env::Cost::FundsLock +
+            Env::Cost::Cycle * 100;
+
+        msp.Perform(arg);
+    }
+
 }
 
 struct MyUser
