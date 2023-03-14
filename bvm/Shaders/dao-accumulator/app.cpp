@@ -408,6 +408,7 @@ ON_METHOD(users_view_all)
     {
         Env::DocGroup gr1("");
         u.Print(s);
+        Env::DocAddBlob_T("pk", k0.m_KeyInContract.m_pk);
     }
 }
 
@@ -422,7 +423,7 @@ ON_METHOD(user_lock_prephase)
     if (!s.Read(cid))
         return;
 
-    if (s.m_hPreEnd >= Env::get_Height())
+    if (Env::get_Height() >= s.m_hPreEnd)
         return OnError("pre-phase is over");
 
     Method::UserLockPrePhase arg;
