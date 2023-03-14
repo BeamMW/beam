@@ -62,8 +62,13 @@ struct MyKeyID :public Env::KeyID {
 
 ON_METHOD(manager, view)
 {
+    static const ShaderID s_SidMigrate = {
+        0x67,0x78,0xde,0x40,0xc6,0xac,0xb5,0xd8,0x05,0xf7,0x29,0x8b,0x77,0xf6,0x18,0xb3,0x32,0x6c,0x76,0x7b,0x81,0xe9,0x43,0x3a,0x81,0x81,0x27,0x5f,0x08,0x9e,0xb0,0xcc
+    };
+
     static const ShaderID s_pSid[] = {
         DaoCore::s_SID,
+        s_SidMigrate
     };
 
     ContractID pVerCid[_countof(s_pSid)];
@@ -112,7 +117,7 @@ ON_METHOD(manager, schedule_upgrade)
 
 ON_METHOD(manager, explicit_upgrade)
 {
-    ManagerUpgadable2::MultiSigRitual::Perform_ExplicitUpgrade(cid);
+    ManagerUpgadable2::MultiSigRitual::Perform_ExplicitUpgrade(cid, 800000);
 }
 
 ON_METHOD(manager, replace_admin)
