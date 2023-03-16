@@ -1385,8 +1385,11 @@ private:
 
         Event::List m_Lst;
 
-        void Enum(NodeProcessor& p, Asset::ID aid, Height hMin, Height hMax)
+        void Enum(NodeProcessor& p, Asset::ID aid, Height hMin, Height hMax, uint32_t nMaxOps)
         {
+            if (!nMaxOps)
+                return;
+
             NodeDB& db = p.get_DB();
 
             // in sqlite 64-bit nums are signed
@@ -1396,6 +1399,9 @@ private:
             NodeDB::WalkerAssetEvt wlk;
             for (db.AssetEvtsEnumBwd(wlk, aid, hMax); wlk.MoveNext(); )
             {
+                if ((m_Lst.size() >= nMaxOps) && (m_Lst.back().m_Pos.first != wlk.m_Height))
+                    break;
+
                 auto* pEvt = new Event_Emit;
                 m_Lst.push_back(*pEvt);
 
@@ -1414,6 +1420,9 @@ private:
                 if (wlk.m_Height < hMin)
                     break;
 
+                if ((m_Lst.size() >= nMaxOps * 2) && (m_Lst.back().m_Pos.first != wlk.m_Height))
+                    break;
+
                 Pos pos;
                 pos.first = wlk.m_Height;
                 pos.second = wlk.m_Index;
@@ -1425,6 +1434,7 @@ private:
                 {
                     auto* pEvt = new Event_Create;
                     m_Lst.insert(it, *pEvt);
+                    pEvt->m_Pos = pos;
 
                     p.get_AssetCreateInfo(pEvt->m_Ai, wlk);
                 }
@@ -1438,13 +1448,13 @@ private:
         }
     };
 
-    bool get_asset_history(io::SerializedMsg& out, Asset::ID aid, Height hMin, Height hMax) override
+    bool get_asset_history(io::SerializedMsg& out, Asset::ID aid, Height hMin, Height hMax, uint32_t nMaxOps) override
     {
         if (!aid)
             return false;
 
         AssetHistoryWalker wlk;
-        wlk.Enum(_nodeBackend, aid, hMin, hMax);
+        wlk.Enum(_nodeBackend, aid, hMin, hMax, nMaxOps);
 
 
         ExtraInfo::Writer wrArr(json::array());
@@ -1456,16 +1466,26 @@ private:
             MakeTableHdr("Extra")
             }));
 
-        for (auto it = wlk.m_Lst.begin(); wlk.m_Lst.end() != it; )
+        Height hPrev = MaxHeight;
+        uint32_t nCount = 0;
+        for (auto it = wlk.m_Lst.begin(); wlk.m_Lst.end() != it; nCount++)
         {
             auto& x = *it;
             it++;
 
-            if (x.m_Pos.first < hMin)
-                break;
+            if (hPrev != x.m_Pos.first)
+            {
+                if (nCount >= nMaxOps)
+                    break;
+
+                hPrev = x.m_Pos.first;
+
+                if (hPrev < hMin)
+                    break;
+            }
 
             ExtraInfo::Writer wrItem(json::array());
-            wrItem.m_json.push_back(x.m_Pos.first); // height
+            wrItem.m_json.push_back(hPrev); // height
 
             typedef AssetHistoryWalker::Event::Type Type;
 

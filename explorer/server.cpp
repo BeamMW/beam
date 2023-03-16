@@ -307,8 +307,9 @@ bool Server::send_asset(const HttpConnection::Ptr& conn) {
     auto aid = _currentUrl.get_int_arg("id", 0);
     beam::Height hMin = _currentUrl.get_int_arg("hMin", 0);
     beam::Height hMax = _currentUrl.get_int_arg("hMax", -1);
+    uint32_t nMaxOps = (uint32_t) _currentUrl.get_int_arg("nMaxOps", -1);
 
-    if (!_backend.get_asset_history(_body, (uint32_t) aid, hMin, hMax))
+    if (!_backend.get_asset_history(_body, (uint32_t) aid, hMin, hMax, nMaxOps))
         return send(conn, 500, "Internal error #2");
 
     return send(conn, 200, "OK");
