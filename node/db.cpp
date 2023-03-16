@@ -2253,20 +2253,6 @@ Height NodeDB::FindKernel(const Blob& key)
 	return h;
 }
 
-Height NodeDB::FindBlock(const Blob& hash)
-{
-    Recordset rs(*this, Query::BlockFind, "SELECT " TblStates_Height " FROM " TblStates" WHERE " TblStates_Hash "=? ORDER BY " TblStates_Height " DESC LIMIT 1");
-    rs.put(0, hash);
-    if (!rs.Step())
-        return Rules::HeightGenesis - 1;
-
-    Height h;
-    rs.get(0, h);
-
-    assert(h >= Rules::HeightGenesis);
-    return h;
-}
-
 void NodeDB::TxoAdd(TxoID id, const Blob& b)
 {
 	Recordset rs(*this, Query::TxoAdd, "INSERT INTO " TblTxo "(" TblTxo_ID "," TblTxo_Value ") VALUES(?,?)");

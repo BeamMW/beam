@@ -229,13 +229,7 @@ bool get_UrlHexArg(const HttpUrl& url, const std::string_view& name, uintBig_t<n
 bool Server::send_block(const HttpConnection::Ptr &conn) {
 
     ECC::Hash::Value hv;
-    if (get_UrlHexArg(_currentUrl, "hash", hv))
-    {
-        if (!_backend.get_block_by_hash(_body, hv)) {
-            return send(conn, 500, "Internal error #2");
-        }
-    }
-    else if (get_UrlHexArg(_currentUrl, "kernel", hv))
+    if (get_UrlHexArg(_currentUrl, "kernel", hv))
     {
         if (!_backend.get_block_by_kernel(_body, hv)) {
             return send(conn, 500, "Internal error #2");

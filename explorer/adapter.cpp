@@ -1702,15 +1702,6 @@ private:
         return get_block_impl(out, height, row, 0);
     }
 
-    bool get_block_by_hash(io::SerializedMsg& out, const Blob& hash) override {
-        NodeDB& db = _nodeBackend.get_DB();
-
-        Height height = db.FindBlock(hash);
-        uint64_t row = 0;
-
-        return get_block_impl(out, height, row, 0);
-    }
-
     bool get_block_by_kernel(io::SerializedMsg& out, const Blob& key) override {
         NodeDB& db = _nodeBackend.get_DB();
 
