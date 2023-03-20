@@ -311,8 +311,11 @@ ON_METHOD(start_farming)
         msp.m_szComment = "Dao-Core Withdraw unassigned BeamX";
         msp.m_iMethod = arg.s_iMethod;
         msp.m_nArg = sizeof(arg);
-        msp.m_pCid = &cid;
-        msp.m_Kid = AdminKeyID();
+        msp.m_pCid = &cidDaoCore;
+
+        const char g_szDaoCoreAdminSeed[] = "upgr2-dao-core";
+        msp.m_Kid.m_pID = g_szDaoCoreAdminSeed;
+        msp.m_Kid.m_nID = sizeof(g_szDaoCoreAdminSeed);
 
         FundsChange fc;
         fc.m_Consume = 0;

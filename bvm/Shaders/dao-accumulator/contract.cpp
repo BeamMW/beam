@@ -76,8 +76,8 @@ BEAM_EXPORT void Method_3(const Method::FarmStart& r)
     Amount val = get_LockedAmount(0); // assume amount of LP-token is exactly equal to amount of Beams
 
     // grab lp-token
-    Env::Halt_if(!s.m_aidLpToken);
     s.m_aidLpToken = r.m_aidLpToken;
+    Env::Halt_if(!s.m_aidLpToken);
     Env::FundsLock(s.m_aidLpToken, val);
 
     // release locked beam
