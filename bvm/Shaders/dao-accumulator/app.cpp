@@ -37,6 +37,12 @@
     macro(Amount, amountLpToken) \
     macro(uint32_t, bLockOrUnlock) \
 
+#define DaoAcc_user_get_yield(macro) \
+    macro(ContractID, cid) \
+    macro(Amount, amountLpToken) \
+    macro(uint32_t, bLockOrUnlock) \
+    macro(Height, hTarget) \
+
 #define DaoAccActions_All(macro) \
     macro(view_deployed) \
     macro(view_params) \
@@ -50,6 +56,7 @@
 	macro(users_view_all) \
 	macro(user_lock_prephase) \
 	macro(user_update) \
+	macro(user_get_yield) \
 
 
 namespace DaoAccumulator {
@@ -360,6 +367,32 @@ struct MyUser
         return false;
     }
 
+    bool AdjustTokens(Amount val, uint32_t bLockOrUnlock)
+    {
+        if (bLockOrUnlock)
+            Strict::Add(m_LpTokenPostPhase, val);
+        else
+        {
+            if (m_LpTokenPostPhase >= val)
+                m_LpTokenPostPhase -= val;
+            else
+            {
+                val -= m_LpTokenPostPhase;
+                m_LpTokenPostPhase = 0;
+
+                if (m_LpTokenPrePhase < val)
+                {
+                    OnError("not enough LP-tokens");
+                    return false;
+                }
+
+                m_LpTokenPrePhase -= val;
+            }
+        }
+
+        return true;
+    }
+
     void AddEarned(State& s)
     {
         m_EarnedBeamX += s.m_Pool.Remove(m_PoolUser);
@@ -485,26 +518,20 @@ ON_METHOD(user_update)
     else
         _POD_(u).SetZero();
 
+    if (!u.AdjustTokens(amountLpToken, bLockOrUnlock))
+        return;
+
     FundsChange pFc[2];
     pFc[0].m_Aid = s.m_aidBeamX;
     pFc[0].m_Consume = 0;
     pFc[0].m_Amount = amountBeamX;
     pFc[1].m_Aid = s.m_aidLpToken;
-    pFc[1].m_Consume = bLockOrUnlock;
+    pFc[1].m_Consume = !!bLockOrUnlock;
     pFc[1].m_Amount = amountLpToken;
 
     Method::UserUpdate arg;
     arg.m_WithdrawBeamX = amountBeamX;
     arg.m_NewLpToken = u.m_LpTokenPrePhase + u.m_LpTokenPostPhase;
-
-    if (bLockOrUnlock)
-        Strict::Add(arg.m_NewLpToken, amountLpToken);
-    else
-    {
-        if (arg.m_NewLpToken < amountLpToken)
-            return OnError("not enough LP-tokens");
-        arg.m_NewLpToken--;
-    }
 
     Env::KeyID kid(cid);
     kid.get_Pk(arg.m_pkUser);
@@ -522,6 +549,45 @@ ON_METHOD(user_update)
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), &kid, 1, "Lock/Unlock and get farmed beamX tokens", nCharge);
 }
 
+ON_METHOD(user_get_yield)
+{
+    MyState s;
+    if (!s.Read(cid))
+        return;
+
+    Amount res = 0;
+
+    if (s.m_aidLpToken)
+    {
+        Height h = Env::get_Height();
+
+        MyUser u;
+        if (u.Load(cid))
+            u.AddEarned(s);
+        else
+            _POD_(u).SetZero();
+
+        if (amountLpToken)
+        {
+            s.m_Pool.Update(Env::get_Height());
+            u.AddEarned(s);
+
+            u.AdjustTokens(amountLpToken, bLockOrUnlock);
+
+            u.m_PoolUser.m_Weight = u.get_WeightPrePhase() + u.get_WeightPostPhase();
+            u.m_PoolUser.m_Sigma0 = s.m_Pool.m_Sigma;
+            s.m_Pool.m_Weight += u.m_PoolUser.m_Weight;
+        }
+
+        s.m_Pool.Update(std::max(h, hTarget));
+        u.AddEarned(s);
+
+        res = u.m_EarnedBeamX;
+    }
+
+    Env::DocGroup gr("res");
+    Env::DocAddNum("beamX", res);
+}
 
 #undef ON_METHOD
 #undef THE_FIELD
