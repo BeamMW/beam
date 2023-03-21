@@ -31,6 +31,12 @@
     macro(Amount, amountBeamX) \
     macro(uint32_t, lockPeriods)
 
+#define DaoAcc_user_update(macro) \
+    macro(ContractID, cid) \
+    macro(Amount, amountBeamX) \
+    macro(Amount, amountLpToken) \
+    macro(uint32_t, bLockOrUnlock) \
+
 #define DaoAccActions_All(macro) \
     macro(view_deployed) \
     macro(view_params) \
@@ -43,6 +49,7 @@
 	macro(user_view) \
 	macro(users_view_all) \
 	macro(user_lock_prephase) \
+	macro(user_update) \
 
 
 namespace DaoAccumulator {
@@ -353,6 +360,11 @@ struct MyUser
         return false;
     }
 
+    void AddEarned(State& s)
+    {
+        m_EarnedBeamX += s.m_Pool.Remove(m_PoolUser);
+    }
+
     void Print(State& s)
     {
         Env::DocAddNum32("lock-periods", m_PrePhaseLockPeriods);
@@ -360,11 +372,10 @@ struct MyUser
 
         Env::DocAddNum("unlock-height", get_UnlockHeight(s));
 
-        if (s.m_aidBeamX)
+        if (s.m_aidLpToken)
         {
+            AddEarned(s);
             Env::DocAddNum("lpToken-post", m_LpTokenPostPhase);
-
-            m_EarnedBeamX += s.m_Pool.Remove(m_PoolUser);
             Env::DocAddNum("avail-BeamX", m_EarnedBeamX);
         }
 
@@ -377,7 +388,7 @@ ON_METHOD(user_view)
     if (!s.Read(cid))
         return;
 
-    if (s.m_aidBeamX)
+    if (s.m_aidLpToken)
         s.m_Pool.Update(Env::get_Height());
 
     MyUser u;
@@ -395,7 +406,7 @@ ON_METHOD(users_view_all)
     if (!s.Read(cid))
         return;
 
-    if (s.m_aidBeamX)
+    if (s.m_aidLpToken)
         s.m_Pool.Update(Env::get_Height());
 
     Env::Key_T<User::Key> k0, k1;
@@ -453,6 +464,64 @@ ON_METHOD(user_lock_prephase)
 
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), nullptr, 0, "Dao-Accumulator Lock pre-phase", nCharge);
 }
+
+ON_METHOD(user_update)
+{
+    if (!amountBeamX && !amountLpToken)
+        return OnError("no effect");
+
+    MyState s;
+    if (!s.Read(cid))
+        return;
+
+    if (!s.m_aidLpToken)
+        return OnError("can't update before farming");
+
+    s.m_Pool.Update(Env::get_Height());
+
+    MyUser u;
+    if (u.Load(cid))
+        u.AddEarned(s);
+    else
+        _POD_(u).SetZero();
+
+    FundsChange pFc[2];
+    pFc[0].m_Aid = s.m_aidBeamX;
+    pFc[0].m_Consume = 0;
+    pFc[0].m_Amount = amountBeamX;
+    pFc[1].m_Aid = s.m_aidLpToken;
+    pFc[1].m_Consume = bLockOrUnlock;
+    pFc[1].m_Amount = amountLpToken;
+
+    Method::UserUpdate arg;
+    arg.m_WithdrawBeamX = amountBeamX;
+    arg.m_NewLpToken = u.m_LpTokenPrePhase + u.m_LpTokenPostPhase;
+
+    if (bLockOrUnlock)
+        Strict::Add(arg.m_NewLpToken, amountLpToken);
+    else
+    {
+        if (arg.m_NewLpToken < amountLpToken)
+            return OnError("not enough LP-tokens");
+        arg.m_NewLpToken--;
+    }
+
+    Env::KeyID kid(cid);
+    kid.get_Pk(arg.m_pkUser);
+
+    uint32_t nCharge =
+        Env::Cost::CallFar +
+        Env::Cost::LoadVar_For(sizeof(State)) +
+        Env::Cost::SaveVar_For(sizeof(State)) +
+        Env::Cost::LoadVar_For(sizeof(User)) +
+        Env::Cost::SaveVar_For(sizeof(User)) +
+        Env::Cost::FundsLock * 2 +
+        Env::Cost::AddSig +
+        Env::Cost::Cycle * 2000;
+
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), &kid, 1, "Lock/Unlock and get farmed beamX tokens", nCharge);
+}
+
 
 #undef ON_METHOD
 #undef THE_FIELD
