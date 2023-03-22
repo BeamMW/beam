@@ -41,7 +41,6 @@
     macro(ContractID, cid) \
     macro(Amount, amountLpToken) \
     macro(uint32_t, bLockOrUnlock) \
-    macro(Height, hTarget) \
 
 #define DaoAccActions_All(macro) \
     macro(view_deployed) \
@@ -567,26 +566,24 @@ ON_METHOD(user_get_yield)
         else
             _POD_(u).SetZero();
 
-        if (amountLpToken)
-        {
-            s.m_Pool.Update(Env::get_Height());
-            u.AddEarned(s);
-
-            u.AdjustTokens(amountLpToken, bLockOrUnlock);
-
-            u.m_PoolUser.m_Weight = u.get_WeightPrePhase() + u.get_WeightPostPhase();
-            u.m_PoolUser.m_Sigma0 = s.m_Pool.m_Sigma;
-            s.m_Pool.m_Weight += u.m_PoolUser.m_Weight;
-        }
-
-        s.m_Pool.Update(std::max(h, hTarget));
+        s.m_Pool.Update(h);
         u.AddEarned(s);
-
         res = u.m_EarnedBeamX;
+
+        if (!u.AdjustTokens(amountLpToken, bLockOrUnlock))
+            return;
+
+        u.m_PoolUser.m_Weight = u.get_WeightPrePhase() + u.get_WeightPostPhase();
+        u.m_PoolUser.m_Sigma0 = s.m_Pool.m_Sigma;
+        s.m_Pool.m_Weight += u.m_PoolUser.m_Weight;
+
+        s.m_Pool.Update(h + 1440);
+        u.AddEarned(s);
+        res = u.m_EarnedBeamX - res;
     }
 
     Env::DocGroup gr("res");
-    Env::DocAddNum("beamX", res);
+    Env::DocAddNum("daily_reward", res);
 }
 
 #undef ON_METHOD
