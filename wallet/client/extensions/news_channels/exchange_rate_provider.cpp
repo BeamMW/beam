@@ -135,7 +135,7 @@ namespace beam::wallet
         }
     }
 
-    bool ExchangeRateProvider::onMessage(uint64_t unused, BroadcastMsg&& msg)
+    bool ExchangeRateProvider::onMessage(BroadcastMsg&& msg)
     {
         if (!m_isEnabled)
         {

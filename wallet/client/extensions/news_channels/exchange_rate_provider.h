@@ -35,7 +35,7 @@ namespace beam::wallet
         void setOnOff(bool isEnabled);
 
         // IBroadcastListener implementation
-        bool onMessage(uint64_t unused, BroadcastMsg&&) override;
+        bool onMessage(BroadcastMsg&&) override;
         
         // IExchangeRateObserver interface
         void Subscribe(IExchangeRatesObserver* observer);

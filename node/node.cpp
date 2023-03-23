@@ -1256,6 +1256,12 @@ void Node::Peer::GenerateSChannelNonce(ECC::Scalar::Native& nonce)
     m_This.NextNonce(nonce);
 }
 
+void Node::Peer::OnTrafic(uint8_t msgCode, uint32_t msgSize, bool bOut)
+{
+    if (m_This.m_Cfg.m_LogTraficUsage)
+        std::cout << "** " << (bOut ? "<-" : "->") << " " << m_RemoteAddr << " Size=" << msgSize << ", Msg=" << static_cast<uint32_t>(msgCode) << '\n';
+}
+
 void Node::Peer::OnConnectedSecure()
 {
     LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Connected";

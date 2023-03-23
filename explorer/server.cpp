@@ -18,6 +18,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <fstream>
+#include "../core/ecc.h"
 
 namespace beam { namespace explorer {
 
@@ -204,21 +205,33 @@ bool Server::send_status(const HttpConnection::Ptr& conn) {
     return send(conn, 200, "OK");
 }
 
+bool get_UrlHexArg(const HttpUrl& url, const std::string_view& name, uint8_t* p, uint32_t n)
+{
+    auto it = url.args.find(name);
+    if (url.args.end() == it)
+        return false;
+
+    n <<= 1; // to txt len
+
+    const auto& val = it->second;
+    if (val.size() != n)
+        return false;
+
+    return uintBigImpl::_Scan(p, val.data(), n) == n;
+}
+
+template <uint32_t nBytes>
+bool get_UrlHexArg(const HttpUrl& url, const std::string_view& name, uintBig_t<nBytes>& val)
+{
+    return get_UrlHexArg(url, name, val.m_pData, nBytes);
+}
+
 bool Server::send_block(const HttpConnection::Ptr &conn) {
 
-    if (_currentUrl.has_arg("hash"))
+    ECC::Hash::Value hv;
+    if (get_UrlHexArg(_currentUrl, "kernel", hv))
     {
-        ByteBuffer hash;
-
-        if (!_currentUrl.get_hex_arg("hash", hash) || !_backend.get_block_by_hash(_body, hash)) {
-            return send(conn, 500, "Internal error #2");
-        }
-    }
-    else if (_currentUrl.has_arg("kernel"))
-    {
-        ByteBuffer kernel;
-
-        if (!_currentUrl.get_hex_arg("kernel", kernel) || !_backend.get_block_by_kernel(_body, kernel)) {
+        if (!_backend.get_block_by_kernel(_body, hv)) {
             return send(conn, 500, "Internal error #2");
         }
     }
@@ -275,11 +288,9 @@ bool Server::send_contracts(const HttpConnection::Ptr& conn) {
 
 bool Server::send_contract_details(const HttpConnection::Ptr& conn) {
 
-    if (!_currentUrl.has_arg("id"))
+    ECC::Hash::Value id;
+    if (!get_UrlHexArg(_currentUrl, "id", id))
         return send(conn, 404, "not found");
-
-    ByteBuffer id;
-    _currentUrl.get_hex_arg("id", id);
 
     beam::Height hMin = _currentUrl.get_int_arg("hMin", 0);
     beam::Height hMax = _currentUrl.get_int_arg("hMax", -1);
@@ -296,8 +307,9 @@ bool Server::send_asset(const HttpConnection::Ptr& conn) {
     auto aid = _currentUrl.get_int_arg("id", 0);
     beam::Height hMin = _currentUrl.get_int_arg("hMin", 0);
     beam::Height hMax = _currentUrl.get_int_arg("hMax", -1);
+    uint32_t nMaxOps = (uint32_t) _currentUrl.get_int_arg("nMaxOps", -1);
 
-    if (!_backend.get_asset_history(_body, (uint32_t) aid, hMin, hMax))
+    if (!_backend.get_asset_history(_body, (uint32_t) aid, hMin, hMax, nMaxOps))
         return send(conn, 500, "Internal error #2");
 
     return send(conn, 200, "OK");

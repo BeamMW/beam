@@ -62,7 +62,7 @@ namespace beam::wallet {
         //
         // IBroadcastListener
         //
-        bool onMessage(uint64_t, BroadcastMsg&&) override;
+        bool onMessage(BroadcastMsg&&) override;
 
         //
         // ISimpleSwapHandler

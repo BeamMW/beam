@@ -36,7 +36,7 @@ struct WalkerUpgradable
 				auto& cid = m_pCid[i];
 				const auto& sid = s_pSid[i];
 
-				Utils::get_Cid(cid, sid, nullptr, 0);
+				Utils::Shader::get_Cid(cid, sid, nullptr, 0);
 
 				_POD_(key.m_KeyInContract.m_Sid) = sid;
 				_POD_(key.m_KeyInContract.m_Cid) = cid;

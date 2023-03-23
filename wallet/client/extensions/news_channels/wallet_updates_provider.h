@@ -30,7 +30,7 @@ namespace beam::wallet
         WalletUpdatesProvider(IBroadcastMsgGateway&, BroadcastMsgValidator&);
         virtual ~WalletUpdatesProvider() = default;
         // IBroadcastListener implementation
-        bool onMessage(uint64_t unused, BroadcastMsg&&) override;
+        bool onMessage(BroadcastMsg&&) override;
         
         // INewsObserver interface
         void Subscribe(INewsObserver* observer);

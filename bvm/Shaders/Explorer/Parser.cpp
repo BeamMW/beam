@@ -12,7 +12,10 @@
 #include "../oracle2/contract.h"
 #include "../dao-vault/contract.h"
 #include "../bans/contract.h"
+#include "../amm/contract.h"
 #include "../dao-core/contract.h"
+#include "../dao-core2/contract.h"
+#include "../dao-accumulator/contract.h"
 namespace Masternet {
 #include "../dao-core-masternet/contract.h"
 }
@@ -143,6 +146,9 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	macro(Nephrite, Nephrite::s_pSID) \
 	macro(DaoVault, DaoVault::s_pSID) \
 	macro(Bans, NameService::s_pSID) \
+	macro(DEX, Amm::s_pSID) \
+	macro(DaoCore2, DaoCore2::s_pSID) \
+	macro(DaoAccumulator, DaoAccumulator::s_pSID) \
 
 #define HandleContractsWrappers(macro) \
 	macro(Upgradable, Upgradable::s_SID) \
@@ -322,6 +328,10 @@ struct ParserContext
 	}
 	void DocSetBansNameEx(const void* p, uint32_t nLen);
 
+	static void WriteAmmSettings(const Amm::Settings&);
+	static void DocSetAmmPool(const Amm::Pool::ID&);
+	static const char* get_AmmKind(const Amm::Pool::ID&);
+
 	template <uint8_t nTag>
 	struct NephriteEpochStorage
 	{
@@ -451,7 +461,7 @@ void ParserContext::On_Upgradable()
 	}
 
 	ShaderID sid;
-	if (!Utils::get_ShaderID_FromContract(sid, us.m_Cid))
+	if (!Utils::Shader::get_Sid_FromContract(sid, us.m_Cid))
 		return;
 
 	auto eType = Wrapped::Recognize(sid);
@@ -530,7 +540,7 @@ void ParserContext::On_Upgradable2()
 	}
 
 	ShaderID sid;
-	if (!Utils::get_ShaderID_FromContract(sid, us.m_Active.m_Cid))
+	if (!Utils::Shader::get_Sid_FromContract(sid, us.m_Active.m_Cid))
 		return;
 
 	auto eType = Wrapped::Recognize(sid);
@@ -655,7 +665,7 @@ void ParserContext::WriteUpgradeParams(const ContractID& cid, Height h)
 	if (!_POD_(cid).IsZero())
 	{
 		ShaderID sid;
-		if (!Utils::get_ShaderID_FromContract(sid, cid))
+		if (!Utils::Shader::get_Sid_FromContract(sid, cid))
 			return;
 
 		ParserContext pc2(sid, sid); // use sid as dummy cid. It won't be used anyway
@@ -677,7 +687,7 @@ void ParserContext::WriteUpgradeParams(Height h, const ShaderID& sid)
 void ParserContext::WriteUpgradeParams(const Upgradable3::NextVersion& x, uint32_t nSizeShader)
 {
 	ShaderID sid;
-	Utils::get_ShaderID(sid, &x + 1, nSizeShader);
+	Utils::Shader::get_Sid(sid, &x + 1, nSizeShader);
 
 	WriteUpgradeParams(x.m_hTarget, sid);
 }
@@ -931,6 +941,18 @@ void ParserContext::OnMethod_DaoCore()
 		{
 		case DaoCore::GetPreallocated::s_iMethod: OnMethod("Get Preallocated"); break;
 		case DaoCore::UpdPosFarming::s_iMethod: OnMethod("Farming Upd"); break;
+
+		case DaoCore2::Method::AdminWithdraw::s_iMethod:
+			{
+				OnMethod("Admin Withdraw");
+				auto pArg = get_ArgsAs<DaoCore2::Method::AdminWithdraw>();
+				if (pArg)
+				{
+					GroupArgs gr;
+					WriteUpgradeAdminsMask(pArg->m_ApproveMask);
+				}
+			}
+			break;
 		}
 	}
 }
@@ -939,6 +961,9 @@ void ParserContext::OnMethod_DaoCore_Masternet() {
 	OnMethod_DaoCore();
 }
 void ParserContext::OnMethod_DaoCore_Testnet() {
+	OnMethod_DaoCore();
+}
+void ParserContext::OnMethod_DaoCore2(uint32_t /* iVer */) {
 	OnMethod_DaoCore();
 }
 
@@ -951,6 +976,9 @@ void ParserContext::OnState_DaoCore_Masternet() {
 	OnState_DaoCore();
 }
 void ParserContext::OnState_DaoCore_Testnet() {
+	OnState_DaoCore();
+}
+void ParserContext::OnState_DaoCore2(uint32_t /* iVer */) {
 	OnState_DaoCore();
 }
 
@@ -1947,6 +1975,309 @@ void ParserContext::OnState_Bans(uint32_t /* iVer */)
 
 }
 
+
+void ParserContext::WriteAmmSettings(const Amm::Settings& stg)
+{
+	DocAddCid("Dao-Vault", stg.m_cidDaoVault);
+}
+
+void ParserContext::DocSetAmmPool(const Amm::Pool::ID& pid)
+{
+	DocAddAid("Aid1", pid.m_Aid1);
+	DocAddAid("Aid2", pid.m_Aid2);
+	Env::DocAddText("Volatility", get_AmmKind(pid));
+}
+
+const char* ParserContext::get_AmmKind(const Amm::Pool::ID& pid)
+{
+	switch (pid.m_Fees.m_Kind)
+	{
+	case 0: return "Low";
+	case 1: return "Medium";
+	case 2: return "High";
+	}
+	return "";
+}
+
+
+void ParserContext::OnMethod_DEX(uint32_t /* iVer */)
+{
+	switch (m_iMethod)
+	{
+	case Amm::Method::Create::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Amm::Method::Create>();
+			if (pArg)
+			{
+				GroupArgs gr;
+
+				WriteAmmSettings(pArg->m_Settings);
+				WriteUpgradeSettings(pArg->m_Upgradable);
+			}
+		}
+		break;
+
+	case Upgradable3::Method::Control::s_iMethod:
+		OnUpgrade3Method();
+		break;
+
+	case Amm::Method::PoolCreate::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Amm::Method::PoolCreate>();
+			if (pArg)
+			{
+				OnMethod("Pool Create");
+				GroupArgs gr;
+
+				DocSetAmmPool(pArg->m_Pid);
+				DocAddPk("Creator", pArg->m_pkCreator);
+			}
+		}
+		break;
+
+	case Amm::Method::PoolDestroy::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Amm::Method::PoolDestroy>();
+			if (pArg)
+			{
+				OnMethod("Pool Destroy");
+				GroupArgs gr;
+				DocSetAmmPool(pArg->m_Pid);
+			}
+		}
+		break;
+
+	case Amm::Method::AddLiquidity::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Amm::Method::AddLiquidity>();
+			if (pArg)
+			{
+				OnMethod("Liquidity Add");
+				GroupArgs gr;
+				DocSetAmmPool(pArg->m_Pid);
+			}
+		}
+		break;
+
+	case Amm::Method::Withdraw::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Amm::Method::Withdraw>();
+			if (pArg)
+			{
+				OnMethod("Liquidity Withdraw");
+				GroupArgs gr;
+				DocSetAmmPool(pArg->m_Pid);
+			}
+		}
+		break;
+
+	case Amm::Method::Trade::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Amm::Method::Trade>();
+			if (pArg)
+			{
+				OnMethod("Trade");
+				GroupArgs gr;
+				DocSetAmmPool(pArg->m_Pid);
+			}
+		}
+		break;
+	}
+}
+
+void ParserContext::OnState_DEX(uint32_t /* iVer */)
+{
+	WriteUpgrade3State();
+
+	Env::Key_T<uint8_t> k;
+	_POD_(k.m_Prefix.m_Cid) = m_Cid;
+	k.m_KeyInContract = Amm::Tags::s_Settings;
+
+	Amm::Settings s;
+	if (!Env::VarReader::Read_T(k, s))
+		return;
+
+	{
+		Env::DocGroup gr2("Settings");
+		WriteAmmSettings(s);
+	}
+
+	{
+		Env::DocGroup gr2("Pools");
+		DocSetType("table");
+		Env::DocArray gr3("value");
+
+		{
+			Env::DocArray gr4("");
+			DocAddTableHeader("Aid1");
+			DocAddTableHeader("Aid2");
+			DocAddTableHeader("Volatility");
+			DocAddTableHeader("LP-Token");
+			DocAddTableHeader("Amount1");
+			DocAddTableHeader("Amount2");
+			DocAddTableHeader("Amount-LP-Token");
+		}
+
+		Env::Key_T<Amm::Pool::Key> k0, k1;
+		_POD_(k0.m_Prefix.m_Cid) = m_Cid;
+		_POD_(k1.m_Prefix.m_Cid) = m_Cid;
+		_POD_(k0.m_KeyInContract.m_ID).SetZero();
+		_POD_(k1.m_KeyInContract.m_ID).SetObject(0xff);
+
+		for (Env::VarReader r(k0, k1); ; )
+		{
+			Amm::Pool p;
+			if (!r.MoveNext_T(k0, p))
+				break;
+
+			Env::DocArray gr4("");
+
+			DocAddAid("", k0.m_KeyInContract.m_ID.m_Aid1);
+			DocAddAid("", k0.m_KeyInContract.m_ID.m_Aid2);
+			Env::DocAddText("", get_AmmKind(k0.m_KeyInContract.m_ID));
+			DocAddAid("", p.m_aidCtl);
+			DocAddAmount("", p.m_Totals.m_Tok1);
+			DocAddAmount("", p.m_Totals.m_Tok2);
+			DocAddAmount("", p.m_Totals.m_Ctl);
+		}
+
+	}
+
+}
+
+
+void ParserContext::OnMethod_DaoAccumulator(uint32_t /* iVer */)
+{
+	switch (m_iMethod)
+	{
+	case DaoAccumulator::Method::Create::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<DaoAccumulator::Method::Create>();
+		if (pArg)
+		{
+			GroupArgs gr;
+			WriteUpgradeSettings(pArg->m_Upgradable);
+		}
+	}
+	break;
+
+	case Upgradable3::Method::Control::s_iMethod:
+		OnUpgrade3Method();
+		break;
+
+	case DaoAccumulator::Method::FarmStart::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<DaoAccumulator::Method::FarmStart>();
+		if (pArg)
+		{
+			OnMethod("Farm Start");
+			GroupArgs gr;
+
+			WriteUpgradeAdminsMask(pArg->m_ApproveMask);
+			DocAddAid("LP-Token", pArg->m_aidLpToken);
+			DocAddAmount("Total Reward", pArg->m_FarmBeamX);
+			Env::DocAddNum("Total Duration", pArg->m_hFarmDuration);
+
+		}
+	}
+	break;
+
+	case DaoAccumulator::Method::UserLockPrePhase::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<DaoAccumulator::Method::UserLockPrePhase>();
+		if (pArg)
+		{
+			OnMethod("Lock pre-phase");
+			GroupArgs gr;
+			DocAddPk("pk", pArg->m_pkUser);
+			Env::DocAddNum32("Lock periods", pArg->m_PrePhaseLockPeriods);
+		}
+	}
+	break;
+
+	case DaoAccumulator::Method::UserUpdate::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<DaoAccumulator::Method::UserUpdate>();
+		if (pArg)
+		{
+			OnMethod("User update");
+			GroupArgs gr;
+			DocAddPk("pk", pArg->m_pkUser);
+			DocAddAmount("New LP-token", pArg->m_NewLpToken);
+		}
+	}
+	break;
+	}
+}
+
+void ParserContext::OnState_DaoAccumulator(uint32_t /* iVer */)
+{
+	WriteUpgrade3State();
+
+	Env::Key_T<uint8_t> k;
+	_POD_(k.m_Prefix.m_Cid) = m_Cid;
+	k.m_KeyInContract = DaoAccumulator::Tags::s_State;
+
+	DaoAccumulator::State s;
+	if (!Env::VarReader::Read_T(k, s))
+		return;
+
+	DocAddAid("BeamX", s.m_aidBeamX);
+	DocAddHeight("Pre-phaseend height ", s.m_hPreEnd);
+
+	if (s.m_aidLpToken)
+	{
+		DocAddAid("LP-token", s.m_aidLpToken);
+
+		s.m_Pool.Update(Env::get_Height());
+
+		DocAddAmount("Reward remaining", s.m_Pool.m_AmountRemaining);
+		Env::DocAddNum("Farming duration remaining", s.m_Pool.m_hRemaining);
+	}
+
+	{
+		Env::DocGroup gr2("Users");
+		DocSetType("table");
+		Env::DocArray gr3("value");
+
+		{
+			Env::DocArray gr4("");
+			DocAddTableHeader("LP-Tokens pre-phase");
+			DocAddTableHeader("LP-Tokens post-phase");
+			DocAddTableHeader("Lock periods");
+			DocAddTableHeader("Reward");
+			DocAddTableHeader("Key");
+		}
+
+		Env::Key_T<DaoAccumulator::User::Key> k0, k1;
+		_POD_(k0.m_Prefix.m_Cid) = m_Cid;
+		_POD_(k1.m_Prefix.m_Cid) = m_Cid;
+		_POD_(k0.m_KeyInContract.m_pk).SetZero();
+		_POD_(k1.m_KeyInContract.m_pk).SetObject(0xff);
+
+		for (Env::VarReader r(k0, k1); ; )
+		{
+			DaoAccumulator::User u;
+			if (!r.MoveNext_T(k0, u))
+				break;
+
+			Env::DocArray gr4("");
+
+			DocAddAmount("", u.m_LpTokenPrePhase);
+			DocAddAmount("", u.m_LpTokenPostPhase);
+			Env::DocAddNum32("", u.m_PrePhaseLockPeriods);
+
+			if (s.m_aidLpToken)
+				u.m_EarnedBeamX += s.m_Pool.Remove(u.m_PoolUser);
+
+			DocAddAmount("", u.m_EarnedBeamX);
+
+			DocAddPk("", k0.m_KeyInContract.m_pk);
+		}
+
+	}
+
+}
 
 
 BEAM_EXPORT void Method_0(const ShaderID& sid, const ContractID& cid, uint32_t iMethod, const void* pArg, uint32_t nArg)

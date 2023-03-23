@@ -28,7 +28,7 @@ namespace beam::wallet
         m_broadcastGateway.registerListener(BroadcastContentType::SoftwareUpdates, this);
     }
 
-    bool AppUpdateInfoProvider::onMessage(uint64_t unused, BroadcastMsg&& msg)
+    bool AppUpdateInfoProvider::onMessage(BroadcastMsg&& msg)
     {
         if (m_validator.isSignatureValid(msg))
         {

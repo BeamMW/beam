@@ -34,7 +34,7 @@ SwapOffersBoard::SwapOffersBoard(IBroadcastMsgGateway& broadcastGateway,
     fillOwnAdresses();
 }
 
-bool SwapOffersBoard::onMessage(uint64_t unused, BroadcastMsg&& msg)
+bool SwapOffersBoard::onMessage(BroadcastMsg&& msg)
 {
     auto newOffer = m_protocolHandler.parseMessage(msg);
     if (!newOffer) return false;

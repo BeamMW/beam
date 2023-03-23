@@ -32,9 +32,7 @@ struct IAdapter {
 
     virtual bool get_block(io::SerializedMsg& out, uint64_t height) = 0;
 
-    virtual bool get_block_by_hash(io::SerializedMsg& out, const ByteBuffer& hash) = 0;
-
-    virtual bool get_block_by_kernel(io::SerializedMsg& out, const ByteBuffer& key) = 0;
+    virtual bool get_block_by_kernel(io::SerializedMsg& out, const Blob& key) = 0;
 
     virtual bool get_blocks(io::SerializedMsg& out, uint64_t startHeight, uint64_t n) = 0;
 
@@ -48,7 +46,7 @@ struct IAdapter {
 
     virtual bool get_contracts(io::SerializedMsg& out) = 0;
     virtual bool get_contract_details(io::SerializedMsg& out, const Blob& id, Height hMin, Height hMax, uint32_t nMaxTxs) = 0;
-    virtual bool get_asset_history(io::SerializedMsg& out, uint32_t, Height hMin, Height hMax) = 0;
+    virtual bool get_asset_history(io::SerializedMsg& out, uint32_t, Height hMin, Height hMax, uint32_t nMaxOps) = 0;
 };
 
 IAdapter::Ptr create_adapter(Node& node);

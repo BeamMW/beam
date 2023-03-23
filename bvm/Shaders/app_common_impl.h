@@ -97,9 +97,35 @@ struct WalkerFunds
 	{
 		Amount m_Hi;
 		Amount m_Lo;
+
+		void FromBE()
+		{
+			m_Lo = Utils::FromBE(m_Lo);
+			m_Hi = Utils::FromBE(m_Hi);
+		}
+
+		bool FromContract(const ContractID& cid, AssetID aid)
+		{
+			KeyFunds key;
+			_POD_(key.m_Prefix.m_Cid) = cid;
+			key.m_Prefix.m_Tag = KeyTag::LockedAmount;
+			key.m_KeyInContract = Utils::FromBE(aid);
+
+			if (!Env::VarReader::Read_T(key, *this))
+				return false;
+
+			FromBE();
+			return true;
+		}
 	};
 
 #pragma pack (pop)
+
+	static Amount FromContract_Lo(const ContractID& cid, AssetID aid)
+	{
+		ValueFunds val;
+		return val.FromContract(cid, aid) ? val.m_Lo : 0;
+	}
 
 	AssetID m_Aid;
 	ValueFunds m_Val;
@@ -137,8 +163,7 @@ struct WalkerFunds
 			return false;
 
 		m_Aid = Utils::FromBE(key.m_KeyInContract);
-		m_Val.m_Lo = Utils::FromBE(val.m_Lo);
-		m_Val.m_Hi = Utils::FromBE(val.m_Hi);
+		m_Val.FromBE();
 
 		return true;
 	}
@@ -146,63 +171,98 @@ struct WalkerFunds
 
 namespace Utils
 {
-	inline void get_ShaderID(ShaderID& sid, const void* p, uint32_t n)
+	struct Shader
 	{
-		HashProcessor::Sha256 hp;
-		hp
-			<< "bvm.shader.id"
-			<< n;
+		void* m_p = nullptr;
+		uint32_t m_n = 0;
 
-		hp.Write(p, n);
-		hp >> sid;
-	}
+		void Alloc()
+		{
+			assert(!m_p && m_n);
+			m_p = Env::Heap_Alloc(m_n);
+		}
 
-	inline void get_Cid(ContractID& cid, const ShaderID& sid, const void* pArg, uint32_t nArg)
-	{
-		HashProcessor::Sha256 hp;
-		hp
-			<< "bvm.cid"
-			<< sid
-			<< nArg;
+		~Shader()
+		{
+			if (m_p)
+				Env::Heap_Free(m_p);
+		}
 
-		hp.Write(pArg, nArg);
-		hp >> cid;
-	}
+		bool FromArg()
+		{
+			static const char szName[] = "contract.shader";
+			m_n = Env::DocGetBlob(szName, nullptr, 0);
+			if (!m_n)
+				return 0;
 
-	inline bool get_ShaderID_FromArg(ShaderID& sid)
-	{
-		static const char szName[] = "contract.shader";
-		uint32_t nSize = Env::DocGetBlob(szName, nullptr, 0);
-		if (!nSize)
-			return 0;
+			Alloc();
+			Env::DocGetBlob(szName, m_p, m_n);
+			return true;
+		}
 
-		void* p = Env::Heap_Alloc(nSize);
-		Env::DocGetBlob(szName, p, nSize);
+		bool FromContract(const ContractID& cid)
+		{
+			Env::VarReader r(cid, cid);
 
-		get_ShaderID(sid, p, nSize);
+			uint32_t nKey = 0;
+			if (!r.MoveNext(nullptr, nKey, nullptr, m_n, 0))
+				return false;
 
-		Env::Heap_Free(p);
+			Alloc();
 
-		return true;
-	}
+			nKey = 0;
+			r.MoveNext(nullptr, nKey, m_p, m_n, 1);
 
-	inline bool get_ShaderID_FromContract(ShaderID& sid, const ContractID& cid)
-	{
-		Env::VarReader r(cid, cid);
+			return true;
+		}
 
-		uint32_t nKey = 0, nVal = 0;
-		if (!r.MoveNext(nullptr, nKey, nullptr, nVal, 0))
-			return false;
+		static void get_Sid(ShaderID& sid, const void* p, uint32_t n)
+		{
+			HashProcessor::Sha256 hp;
+			hp
+				<< "bvm.shader.id"
+				<< n;
 
-		void* pVal = Env::Heap_Alloc(nVal);
+			hp.Write(p, n);
+			hp >> sid;
+		}
 
-		nKey = 0;
-		r.MoveNext(nullptr, nKey, pVal, nVal, 1);
+		static void get_Cid(ContractID& cid, const ShaderID& sid, const void* pArg, uint32_t nArg)
+		{
+			HashProcessor::Sha256 hp;
+			hp
+				<< "bvm.cid"
+				<< sid
+				<< nArg;
 
-		get_ShaderID(sid, pVal, nVal);
+			hp.Write(pArg, nArg);
+			hp >> cid;
+		}
 
-		Env::Heap_Free(pVal);
-		return true;
-	}
+		void get_Sid(ShaderID& sid)
+		{
+			get_Sid(sid, m_p, m_n);
+		}
+
+		static bool get_Sid_FromArg(ShaderID& sid)
+		{
+			Shader sh;
+			if (!sh.FromArg())
+				return false;
+
+			sh.get_Sid(sid);
+			return true;
+		}
+
+		static bool get_Sid_FromContract(ShaderID& sid, const ContractID& cid)
+		{
+			Shader sh;
+			if (!sh.FromContract(cid))
+				return false;
+
+			sh.get_Sid(sid);
+			return true;
+		}
+	};
 
 };

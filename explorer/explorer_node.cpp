@@ -37,6 +37,7 @@ struct Options {
     uint32_t logCleanupPeriod;
     ByteBuffer m_RichParser;
     bool m_RichParserChanged = false;
+    bool m_LogTrafic = false;
 };
 
 static bool parse_cmdline(int argc, char* argv[], Options& o);
@@ -84,6 +85,8 @@ int main(int argc, char* argv[]) {
     return retCode;
 }
 
+const char g_szTraficLog[] = "log_trafic";
+
 bool parse_cmdline(int argc, char* argv[], Options& o) {
     
     po::options_description cliOptions("Node explorer options");
@@ -98,6 +101,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
         (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
         (cli::CONFIG_FILE_PATH, po::value<std::string>()->default_value("explorer-node.cfg"), "path to the config file")
         (cli::CONTRACT_RICH_PARSER, po::value<std::string>(), "Optional shader to parse contract invocation info")
+        (g_szTraficLog, po::value<bool>()->default_value(false), "Log trafic")
     ;
 
     cliOptions.add(createRulesOptionsDescription());
@@ -177,6 +181,8 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
 
         }
 
+        o.m_LogTrafic = vm[g_szTraficLog].as<bool>();
+
 #ifdef WIN32
         WSADATA wsaData = { };
         WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -227,6 +233,7 @@ void setup_node(Node& node, const Options& o) {
     node.m_Cfg.m_Listen.ip(o.nodeListenTo.ip());
     node.m_Cfg.m_MiningThreads = 0;
     node.m_Cfg.m_VerificationThreads = -1;
+    node.m_Cfg.m_LogTraficUsage = o.m_LogTrafic;
 
     node.m_Keys.m_pOwner = o.ownerKey;
 

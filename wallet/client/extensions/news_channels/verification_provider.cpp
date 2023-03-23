@@ -26,7 +26,7 @@ namespace beam::wallet
         m_broadcastGateway.registerListener(BroadcastContentType::AssetVerification, this);
     }
 
-    bool VerificationProvider::onMessage(uint64_t unused, BroadcastMsg&& msg)
+    bool VerificationProvider::onMessage(BroadcastMsg&& msg)
     {
         if (m_validator.isSignatureValid(msg))
         {

@@ -217,7 +217,7 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
         }
     }
 
-    bool on_request(uint64_t connectionId, Request&& req) {
+    bool on_request(uint64_t connectionId, Request&& req, uint32_t) {
         // this assertion is for this test only
         assert(connectionId == address.u64());
         if (!req.is_valid()) return false; // shut down stream
@@ -226,7 +226,7 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
         return true;
     }
 
-    bool on_response(uint64_t connectionId, Response&& res) {
+    bool on_response(uint64_t connectionId, Response&& res, uint32_t) {
         // this assertion is for this test only
         assert(connectionId == address.u64());
         if (!res.is_valid()) return false; // shut down stream
