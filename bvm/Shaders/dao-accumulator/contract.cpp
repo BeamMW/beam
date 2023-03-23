@@ -149,7 +149,7 @@ BEAM_EXPORT void Method_5(const Method::UserUpdate& r)
         Amount valEarned = s.m_Pool.Remove(u.m_PoolUser);
         u.m_EarnedBeamX += valEarned; // should not overflow
 
-        valLpTokenTotal = u.m_PoolUser.m_Weight + u.m_LpTokenPostPhase; // should not overflow
+        valLpTokenTotal = u.m_LpTokenPrePhase + u.m_LpTokenPostPhase; // should not overflow
     }
     else
     {
@@ -218,7 +218,7 @@ namespace Upgradable3 {
 
     void OnUpgraded(uint32_t nPrevVersion)
     {
-        if constexpr (g_CurrentVersion)
+        if constexpr (g_CurrentVersion > 0)
             Env::Halt_if(nPrevVersion != g_CurrentVersion - 1);
         else
             Env::Halt();
