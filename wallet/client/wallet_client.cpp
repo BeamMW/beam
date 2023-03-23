@@ -1698,7 +1698,7 @@ namespace beam::wallet
             switch (type)
             {
             case TokenType::Offline:
-                sToken = GenerateOfflineToken(wa, *m_walletDB, amount, aid, sVer);
+                sToken = GenerateOfflineToken(wa, *m_walletDB, amount, aid, sVer, 1);
                 break;
 
             case TokenType::MaxPrivacy:
