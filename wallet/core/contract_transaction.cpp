@@ -838,6 +838,8 @@ namespace beam::wallet
         SetParameter(TxParameterID::Kernel, Zero);
         SetParameter(TxParameterID::KernelID, Zero);
 
+        SetParameter(TxParameterID::MutualTxState, Zero); // otherwise BaseTxBuilder won't re-normalize the newly-built tx
+
         bvm2::ContractInvokeData vData = std::move(builder.m_Data);
         vData.m_vec.clear();
         bvm2::FundsMap fmSpend = std::move(builder.m_SpendInitial);
