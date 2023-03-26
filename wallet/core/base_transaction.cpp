@@ -245,10 +245,18 @@ namespace beam::wallet
         if (GetParameter(TxParameterID::KernelProofHeight, proofHeight) && (proofHeight > height))
         {
             SetParameter(TxParameterID::Status, TxStatus::Registering);
-            SetParameter(TxParameterID::KernelProofHeight, Height(0));
-            SetParameter(TxParameterID::KernelUnconfirmedHeight, Height(0));
+            SetParameter(TxParameterID::KernelProofHeight, Zero);
+            SetParameter(TxParameterID::KernelUnconfirmedHeight, height);
             return true;
         }
+
+        if (GetParameter(TxParameterID::KernelUnconfirmedHeight, proofHeight) && (proofHeight > height))
+        {
+            SetParameter(TxParameterID::Status, TxStatus::Registering);
+            SetParameter(TxParameterID::KernelUnconfirmedHeight, Zero);
+            return true;
+        }
+
         return false;
     }
 
