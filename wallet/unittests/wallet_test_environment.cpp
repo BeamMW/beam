@@ -43,7 +43,7 @@ struct EmptyTestGateway : wallet::INegotiatorGateway
     bool get_tip(Block::SystemState::Full& state) const override { return false; }
     void send_tx_params(const WalletID& peerID, const wallet::SetTxParameter&) override {}
     void get_shielded_list(const TxID&, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback) override {}
-    void UpdateOnNextTip(const TxID&) override {};
+    void UpdateOnNextTip(const TxID&) override {}
 };
 
 Coin CreateAvailCoin(Amount amount, Height maturity = 10)
