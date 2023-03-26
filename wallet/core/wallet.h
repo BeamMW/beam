@@ -210,6 +210,7 @@ namespace beam::wallet
         void on_tx_failed(const TxID& txID) override;
 
         void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID) override;
+        void confirm_kernel_ex(const Merkle::Hash& kernelID, IConfirmCallback::Ptr&&) override;
         void confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID) override;
         void confirm_asset(const TxID& txID, const Asset::ID assetId, SubTxID subTxID = kDefaultSubTxID) override;
         void confirm_asset(const Asset::ID assetId);
@@ -331,6 +332,7 @@ namespace beam::wallet
             {
                 TxID m_TxID = {0};
                 SubTxID m_SubTxID = kDefaultSubTxID;
+                INegotiatorGateway::IConfirmCallback::Ptr m_pCallback;
             };
             struct Kernel2
             {

@@ -36,6 +36,7 @@ struct EmptyTestGateway : wallet::INegotiatorGateway
     void on_tx_failed(const TxID&) override {}
     void register_tx(const TxID&, const Transaction::Ptr&, const Merkle::Hash*, wallet::SubTxID) override {}
     void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID subTxID) override {}
+    void confirm_kernel_ex(const Merkle::Hash& kernelID, IConfirmCallback::Ptr&& pCallback) override {}
     void confirm_asset(const TxID&, const PeerID&, SubTxID subTxID) override {}
     void confirm_asset(const TxID&, const Asset::ID, SubTxID subTxID) override {}
     void get_kernel(const TxID& txID, const Merkle::Hash& kernelID, wallet::SubTxID subTxID) override {}

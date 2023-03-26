@@ -537,6 +537,18 @@ namespace beam::wallet
         }
     }
 
+    void Wallet::confirm_kernel_ex(const Merkle::Hash& kernelID, IConfirmCallback::Ptr&& pCallback)
+    {
+        MyRequestKernel::Ptr pVal(new MyRequestKernel);
+        pVal->m_Msg.m_ID = kernelID;
+        pVal->m_pCallback = std::move(pCallback);
+
+        if (PostReqUnique(*pVal))
+        {
+            LOG_INFO() << " Get proof for kernel: " << kernelID;
+        }
+    }
+
     void Wallet::confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID)
     {
         MyRequestAsset::Ptr pVal(new MyRequestAsset);
@@ -1037,16 +1049,22 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestKernel& r)
     {
-        auto it = m_ActiveTransactions.find(r.m_TxID);
-        if (m_ActiveTransactions.end() == it)
+        if (!r.m_Res.m_Proof.empty())
+            m_WalletDB->get_History().AddStates(&r.m_Res.m_Proof.m_State, 1); // why not?
+
+        if (r.m_pCallback)
         {
+            r.m_pCallback->OnDone(r.m_Res.m_Proof.empty() ? nullptr : &r.m_Res.m_Proof.m_State.m_Height);
             return;
         }
+
+        auto it = m_ActiveTransactions.find(r.m_TxID);
+        if (m_ActiveTransactions.end() == it)
+            return;
+
         auto tx = it->second;
         if (!r.m_Res.m_Proof.empty())
         {
-            m_WalletDB->get_History().AddStates(&r.m_Res.m_Proof.m_State, 1); // why not?
-
             if (tx->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Proof.m_State.m_Height, r.m_SubTxID))
             {
                 UpdateTransaction(tx);
