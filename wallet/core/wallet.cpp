@@ -1891,6 +1891,17 @@ namespace beam::wallet
 
     void Wallet::OnDependentStateChanged()
     {
+        uint32_t nCount = 0;
+        const auto* pHv = get_DependentState(nCount);
+
+        std::ostringstream os;
+        os << "HFT state changed";
+
+        for (uint32_t i = 0; i < nCount; i++)
+            os << "\n\t" << pHv[i];
+
+        LOG_INFO() << os.str();
+
         for (auto it = m_ActiveTransactions.begin(); m_ActiveTransactions.end() != it; it++)
             it->second->OnDependentStateChanged();
     }
