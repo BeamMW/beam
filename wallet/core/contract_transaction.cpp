@@ -824,6 +824,43 @@ namespace beam::wallet
                 }
 
                 SetParameter(TxParameterID::Offset, pHf->m_Tx.m_Offset);
+
+                // mark inputs/outputs appropriately
+                {
+                    auto pDB = m_Tx.GetWalletDB();
+                    for (const auto& cid : pHf->m_Coins.m_Input)
+                    {
+                        Coin coin;
+                        coin.m_ID = cid;
+                        if (pDB->findCoin(coin))
+                        {
+                            coin.m_spentTxId = m_Tx.GetTxID();
+                            coin.m_spentHeight = *pHeight;
+                            pDB->saveCoin(coin);
+                        }
+                    }
+
+                    for (auto& cid : pHf->m_Coins.m_InputShielded)
+                    {
+                        auto pCoin = pDB->getShieldedCoin(cid.m_Key);
+                        if (pCoin)
+                        {
+                            pCoin->m_spentTxId = m_Tx.GetTxID();
+                            pCoin->m_spentHeight = *pHeight;
+                            pDB->saveShieldedCoin(*pCoin);
+                        }
+                    }
+
+                    for (auto& cid : pHf->m_Coins.m_Output)
+                    {
+                        Coin c;
+                        c.m_ID = cid;
+                        c.m_confirmHeight = *pHeight;
+                        c.m_createTxId = m_Tx.GetTxID();
+                        pDB->saveCoin(c);
+                    }
+                }
+
             }
         }
 
@@ -903,6 +940,8 @@ namespace beam::wallet
 
                 for (auto it = builder.m_HftMap.lower_bound(hh, MyBuilder::HftVariant::Comparator()); builder.m_HftMap.end() != it; it++)
                     builder.ConfirmKernelEx(&(*it));
+
+                return 0;
             }
         }
 
@@ -941,7 +980,9 @@ namespace beam::wallet
             }
         }
 
-        if (!builder.m_pNewCtx)
+        if (builder.m_pNewCtx)
+            UpdateOnNextTip();
+        else
             ConfirmKernel(builder.m_pKrn->m_Internal.m_ID);
 
         return 0;
