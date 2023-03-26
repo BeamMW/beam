@@ -1889,6 +1889,37 @@ namespace beam::wallet
 
     }
 
+    void Wallet::OnDependentStateChanged()
+    {
+        for (auto it = m_ActiveTransactions.begin(); m_ActiveTransactions.end() != it; it++)
+            it->second->OnDependentStateChanged();
+    }
+
+    void Wallet::HftSubscribe(bool bSubscribe)
+    {
+        if (bSubscribe)
+        {
+            if (!m_HftSubscribed)
+                m_NodeEndpoint->DependentSubscribe(true);
+
+            m_HftSubscribed++;
+        }
+        else
+        {
+            if (m_HftSubscribed)
+            {
+                --m_HftSubscribed;
+                if (!m_HftSubscribed)
+                    m_NodeEndpoint->DependentSubscribe(false);
+            }
+        }
+    }
+
+    const Merkle::Hash* Wallet::get_DependentState(uint32_t& nCount)
+    {
+        return m_NodeEndpoint->get_DependentState(nCount);
+    }
+
     void Wallet::OnNewPeer(const PeerID& id, io::Address address)
     {
         constexpr size_t MaxPeers = 10;
