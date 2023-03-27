@@ -2756,11 +2756,14 @@ namespace
 
         printf("Withdrawing ...\n");
 
+        node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 10000;
+
         TxID pTxID[nRcvs];
         for (uint32_t i = 0; i < nRcvs; i++)
         {
             pManRcv[i]->m_Args["action"] = "withdraw";
             pManRcv[i]->m_Args["amount"] = "90000000";
+            pManRcv[i]->m_EnforceDependent = true;
             pManRcv[i]->RunSync(1);
             WALLET_CHECK(pManRcv[i]->m_Done && !pManRcv[i]->m_Err);
 

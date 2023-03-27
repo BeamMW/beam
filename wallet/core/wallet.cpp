@@ -543,7 +543,7 @@ namespace beam::wallet
         pVal->m_Msg.m_ID = kernelID;
         pVal->m_pCallback = std::move(pCallback);
 
-        if (PostReqUnique(*pVal))
+        if (PostReq(*pVal))
         {
             LOG_INFO() << " Get proof for kernel: " << kernelID;
         }

@@ -514,6 +514,7 @@ namespace beam::wallet
                 aex.m_pBuilder = &builder;
                 aex.SwapParams();
                 aex.set_Privilege(vData.m_AppInvoke.m_Privilege);
+                aex.m_EnforceDependent = true;
 
                 builder.m_pAppExec->StartRun(1);
             }
@@ -805,8 +806,9 @@ namespace beam::wallet
 
         if (pHeight)
         {
+            LOG_INFO() << "TxoID=" << m_Tx.GetTxID() << " HFT confirmed";
+
             SetParameter(TxParameterID::KernelProofHeight, *pHeight);
-            m_Tx.UpdateAsync();
             DeleteAsyncCtx();
 
             if (pHf)
@@ -863,16 +865,19 @@ namespace beam::wallet
 
             }
         }
-
-        if (!m_pAsyncCtx->m_Remaining)
+        else
         {
+            if (m_pAsyncCtx->m_Remaining)
+                return;
+
             Block::SystemState::Full sTip;
             if (!m_Tx.GetTip(sTip))
                 sTip.m_Height = 0;
 
             SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height);
-            m_Tx.UpdateAsync();
         }
+
+        m_Tx.UpdateAsync();
     }
 
     bool ContractTransaction::Rollback(Height h)
