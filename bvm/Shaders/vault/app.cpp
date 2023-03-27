@@ -261,16 +261,21 @@ ON_METHOD(my_account, move)
     bool bIsMultisig = !_POD_(pkForeign).IsZero();
     if (bIsMultisig)
     {
-        Secp::Point p0, p1;
+        if (bCoSigner == 2)
+            _POD_(arg.m_Account) = pkForeign;
+        else
+        {
+            Secp::Point p0, p1;
 
-        if (!p1.Import(pkForeign))
-            return OnError("bad foreign key");
+            if (!p1.Import(pkForeign))
+                return OnError("bad foreign key");
 
-        kid.get_Pk(p0);
-        p0.Export(pkMy);
+            kid.get_Pk(p0);
+            p0.Export(pkMy);
 
-        p0 += p1;
-        p0.Export(arg.m_Account);
+            p0 += p1;
+            p0.Export(arg.m_Account);
+        }
     }
     else
         kid.get_Pk(arg.m_Account);

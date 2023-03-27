@@ -61,6 +61,11 @@ namespace beam::wallet::lelantus
                 m_Root.GetGateway().confirm_kernel(txID, kernelID, subTxID);
             }
 
+            void confirm_kernel_ex(const Merkle::Hash& kernelID, IConfirmCallback::Ptr&& pCallback) override
+            {
+                m_Root.GetGateway().confirm_kernel_ex(kernelID, std::move(pCallback));
+            }
+
             void confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID) override
             {
                 m_Root.GetGateway().confirm_asset(txID, ownerID, subTxID);

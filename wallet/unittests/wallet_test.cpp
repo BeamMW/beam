@@ -2639,6 +2639,147 @@ namespace
         WALLET_CHECK(pMan[iSender]->DoTx(completedCount));
     }
 
+
+    void TestAppShader5()
+    {
+        printf("Testing Hfts ...\n");
+
+        io::Reactor::Ptr mainReactor(io::Reactor::create());
+        io::Reactor::Scope scope(*mainReactor);
+
+        string nodePath = "node.db";
+        if (boost::filesystem::exists(nodePath))
+            boost::filesystem::remove(nodePath);
+
+        int completedCount = 0;
+
+        //auto timer = io::Timer::create(io::Reactor::get_Current());
+        auto f = [&completedCount, mainReactor](auto txID)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+              //  timer->cancel();
+                mainReactor->stop();
+            }
+        };
+
+        auto dbSender = createSqliteWalletDB(SenderWalletDB, false, true);
+        auto treasury = createTreasury(dbSender, AmountList{Rules::Coin * 300000});
+
+        auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
+        {
+            InitNodeToTest(node, treasury, nullptr, port, 3000, path, peers, miningNode);
+            io::Address address;
+            address.resolve("127.0.0.1");
+            address.port(port);
+            return address;
+        };
+
+
+        Node node;
+        auto nodeAddress = nodeCreator(node, treasury, 32125, "node.db");
+
+        TestWalletRig sender(dbSender, f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
+        MyManager manSender(*sender.m_Wallet);
+
+        manSender.set_Privilege(2);
+        MyManager::Compile(manSender.m_BodyManager, "vault/app.wasm", MyManager::Kind::Manager);
+        MyManager::Compile(manSender.m_BodyContract, "vault/contract.wasm", MyManager::Kind::Contract);
+
+        printf("Deploying vault...\n");
+
+        manSender.m_Args["role"] = "manager";
+        manSender.m_Args["action"] = "create";
+        manSender.RunSync(1);
+        WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+
+        WALLET_CHECK(manSender.DoTx(completedCount));
+
+        printf("reading vault cid...\n");
+
+        manSender.m_Args["action"] = "view";
+        manSender.RunSync(1);
+        WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+
+        std::string sCid;
+        WALLET_CHECK(manSender.get_OutpStr("\"cid\": \"", sCid, bvm2::ContractID::nTxtLen));
+
+        printf("getting vault keys...\n");
+
+        const uint32_t nRcvs = 10;
+
+
+        wallet::IWalletDB::Ptr pDbRcv[nRcvs];
+        std::unique_ptr<TestWalletRig> pRigRcv[nRcvs];
+        std::unique_ptr<MyManager> pManRcv[nRcvs];
+        std::string pKeyRcv[nRcvs];
+
+        for (uint32_t i = 0; i < nRcvs; i++)
+        {
+            std::string sPath = std::string("rcv_") + std::to_string(i) + "wallet.db";
+            pDbRcv[i] = createSqliteWalletDB(sPath, false, true);
+
+            pRigRcv[i] = std::make_unique<TestWalletRig>(pDbRcv[i], f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
+            pManRcv[i] = std::make_unique<MyManager>(*pRigRcv[i]->m_Wallet);
+            pManRcv[i]->m_BodyManager = manSender.m_BodyManager;
+
+            pManRcv[i]->m_Args["cid"] = sCid;
+            pManRcv[i]->m_Args["role"] = "my_account";
+            pManRcv[i]->m_Args["action"] = "get_key";
+            pManRcv[i]->RunSync(1);
+            WALLET_CHECK(pManRcv[i]->m_Done && !pManRcv[i]->m_Err);
+            WALLET_CHECK(pManRcv[i]->get_OutpStr("\"key\": \"", pKeyRcv[i], sizeof(ECC::Point) * 2));
+        }
+
+        printf("depositing to all receivers...\n");
+
+        manSender.m_Args["cid"] = sCid;
+        manSender.m_Args["role"] = "my_account";
+        manSender.m_Args["action"] = "deposit";
+        manSender.m_Args["bCoSigner"] = "2";
+        manSender.m_Args["amount"] = "100000000";
+
+        for (uint32_t i = 0; i < nRcvs; i++)
+        {
+            auto vData = std::move(manSender.m_InvokeData);
+           
+            manSender.m_Args["pkForeign"] = pKeyRcv[i];
+            manSender.RunSync(1);
+            WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+
+            manSender.m_InvokeData.m_vec.insert(manSender.m_InvokeData.m_vec.end(), vData.m_vec.begin(), vData.m_vec.end());
+        }
+
+
+        WALLET_CHECK(manSender.DoTx(completedCount));
+
+        printf("Withdrawing ...\n");
+
+        node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 10000;
+
+        TxID pTxID[nRcvs];
+        for (uint32_t i = 0; i < nRcvs; i++)
+        {
+            pManRcv[i]->m_Args["action"] = "withdraw";
+            pManRcv[i]->m_Args["amount"] = "90000000";
+            pManRcv[i]->m_EnforceDependent = true;
+            pManRcv[i]->RunSync(1);
+            WALLET_CHECK(pManRcv[i]->m_Done && !pManRcv[i]->m_Err);
+
+            WALLET_CHECK(pManRcv[i]->StartTx(completedCount, pTxID[i]));
+        }
+
+        io::Reactor::get_Current().run();
+
+        for (uint32_t i = 0; i < nRcvs; i++)
+        {
+            auto pTx = pDbRcv[i]->getTx(pTxID[i]);
+            WALLET_CHECK(pTx->m_status == wallet::TxStatus::Completed);
+        }
+    }
+
+
     struct MyZeroInit {
         static void Do(std::string&) {}
 
@@ -4802,6 +4943,7 @@ int main()
     TestAppShader2();
     TestAppShader3();
     TestAppShader4();
+    TestAppShader5();
     Rules::get().pForks[1].m_Height = 20;
     Rules::get().pForks[2].m_Height = 20;
     Rules::get().pForks[3].m_Height = 20;

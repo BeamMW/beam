@@ -537,6 +537,18 @@ namespace beam::wallet
         }
     }
 
+    void Wallet::confirm_kernel_ex(const Merkle::Hash& kernelID, IConfirmCallback::Ptr&& pCallback)
+    {
+        MyRequestKernel::Ptr pVal(new MyRequestKernel);
+        pVal->m_Msg.m_ID = kernelID;
+        pVal->m_pCallback = std::move(pCallback);
+
+        if (PostReq(*pVal))
+        {
+            LOG_INFO() << " Get proof for kernel: " << kernelID;
+        }
+    }
+
     void Wallet::confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID)
     {
         MyRequestAsset::Ptr pVal(new MyRequestAsset);
@@ -1037,16 +1049,22 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestKernel& r)
     {
-        auto it = m_ActiveTransactions.find(r.m_TxID);
-        if (m_ActiveTransactions.end() == it)
+        if (!r.m_Res.m_Proof.empty())
+            m_WalletDB->get_History().AddStates(&r.m_Res.m_Proof.m_State, 1); // why not?
+
+        if (r.m_pCallback)
         {
+            r.m_pCallback->OnDone(r.m_Res.m_Proof.empty() ? nullptr : &r.m_Res.m_Proof.m_State.m_Height);
             return;
         }
+
+        auto it = m_ActiveTransactions.find(r.m_TxID);
+        if (m_ActiveTransactions.end() == it)
+            return;
+
         auto tx = it->second;
         if (!r.m_Res.m_Proof.empty())
         {
-            m_WalletDB->get_History().AddStates(&r.m_Res.m_Proof.m_State, 1); // why not?
-
             if (tx->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Proof.m_State.m_Height, r.m_SubTxID))
             {
                 UpdateTransaction(tx);
@@ -1869,6 +1887,48 @@ namespace beam::wallet
         if (bMustRescan)
             Rescan();
 
+    }
+
+    void Wallet::OnDependentStateChanged()
+    {
+        uint32_t nCount = 0;
+        const auto* pHv = get_DependentState(nCount);
+
+        std::ostringstream os;
+        os << "HFT state changed";
+
+        for (uint32_t i = 0; i < nCount; i++)
+            os << "\n\t" << pHv[i];
+
+        LOG_INFO() << os.str();
+
+        for (auto it = m_ActiveTransactions.begin(); m_ActiveTransactions.end() != it; it++)
+            it->second->OnDependentStateChanged();
+    }
+
+    void Wallet::HftSubscribe(bool bSubscribe)
+    {
+        if (bSubscribe)
+        {
+            if (!m_HftSubscribed)
+                m_NodeEndpoint->DependentSubscribe(true);
+
+            m_HftSubscribed++;
+        }
+        else
+        {
+            if (m_HftSubscribed)
+            {
+                --m_HftSubscribed;
+                if (!m_HftSubscribed)
+                    m_NodeEndpoint->DependentSubscribe(false);
+            }
+        }
+    }
+
+    const Merkle::Hash* Wallet::get_DependentState(uint32_t& nCount)
+    {
+        return m_NodeEndpoint->get_DependentState(nCount);
     }
 
     void Wallet::OnNewPeer(const PeerID& id, io::Address address)

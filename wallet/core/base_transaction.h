@@ -276,6 +276,8 @@ namespace beam::wallet
         virtual void FreeResources();
         virtual void OnFailed(TxFailureReason reason, bool notify = false);
 
+        virtual void OnDependentStateChanged() {}
+
         void SendTxParametersStrict(SetTxParameter&& msg)
         {
             if (!SendTxParameters(std::move(msg)))

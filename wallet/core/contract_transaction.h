@@ -49,6 +49,8 @@ namespace beam::wallet
         void UpdateImpl() override;
         bool CheckExpired() override;
         bool CanCancel() const override;
+        void OnDependentStateChanged() override;
+        bool Rollback(Height height) override;
 
         void Init();
         bool BuildTxOnce();

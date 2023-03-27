@@ -210,6 +210,7 @@ namespace beam::wallet
         void on_tx_failed(const TxID& txID) override;
 
         void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID) override;
+        void confirm_kernel_ex(const Merkle::Hash& kernelID, IConfirmCallback::Ptr&&) override;
         void confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID) override;
         void confirm_asset(const TxID& txID, const Asset::ID assetId, SubTxID subTxID = kDefaultSubTxID) override;
         void confirm_asset(const Asset::ID assetId);
@@ -221,6 +222,8 @@ namespace beam::wallet
         void register_tx(const TxID& txId, const Transaction::Ptr&, const Merkle::Hash* pParentCtx, SubTxID subTxID) override;
         void UpdateOnNextTip(const TxID&) override;
         void get_UniqueVoucher(const WalletID& peerID, const TxID& txID, boost::optional<ShieldedTxo::Voucher>&) override;
+        void HftSubscribe(bool) override;
+        const Merkle::Hash* get_DependentState(uint32_t& nCount) override;
 
         // IWalletMessageConsumer
         void OnWalletMessage(const WalletID& peerID, const SetTxParameter&) override;
@@ -235,6 +238,7 @@ namespace beam::wallet
         void OnOwnedNode(const PeerID&, bool bUp) override;
         void OnEventsSerif(const ECC::Hash::Value&, Height) override;
         void OnNewPeer(const PeerID& id, io::Address address) override;
+        void OnDependentStateChanged() override;
 
         struct RequestHandler
             : public proto::FlyClient::Request::IHandler
@@ -331,6 +335,7 @@ namespace beam::wallet
             {
                 TxID m_TxID = {0};
                 SubTxID m_SubTxID = kDefaultSubTxID;
+                INegotiatorGateway::IConfirmCallback::Ptr m_pCallback;
             };
             struct Kernel2
             {
@@ -486,6 +491,8 @@ namespace beam::wallet
 
         // List of transactions that are waiting for the next tip (new block) to arrive
         std::unordered_set<BaseTransaction::Ptr> m_NextTipTransactionToUpdate;
+
+        uint32_t m_HftSubscribed = 0;
 
         // Functor for callback when transaction completed
         TxCompletedAction m_TxCompletedAction;

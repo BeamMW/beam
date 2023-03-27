@@ -381,6 +381,7 @@ namespace beam::wallet
         Offset = 140,
 
         ContractDataPacked = 141,
+        HftState = 142,
 
         UserConfirmationToken = 143,
 
@@ -725,6 +726,17 @@ namespace beam::wallet
         virtual void get_proof_shielded_output(const TxID&, const ECC::Point& serialPublic, ProofShildedOutputCallback&& callback) {};
         virtual void UpdateOnNextTip(const TxID&) = 0;
         virtual void get_UniqueVoucher(const WalletID& peerAddr, const TxID& txID, boost::optional<ShieldedTxo::Voucher>&) {}
+
+        struct IConfirmCallback
+        {
+            typedef std::unique_ptr<IConfirmCallback> Ptr;
+            virtual ~IConfirmCallback() {}
+            virtual void OnDone(const Height*) = 0;
+        };
+        virtual void confirm_kernel_ex(const Merkle::Hash& kernelID, IConfirmCallback::Ptr&&) = 0;
+
+        virtual void HftSubscribe(bool) {}
+        virtual const Merkle::Hash* get_DependentState(uint32_t& nCount) { nCount = 0; return nullptr; }
     };
 
     enum class ErrorType : uint8_t

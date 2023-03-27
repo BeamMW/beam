@@ -48,15 +48,118 @@ namespace beam::wallet
         using BaseTxBuilder::BaseTxBuilder;
 
         bvm2::ContractInvokeData m_Data;
-        bvm2::FundsMap m_SpendInitial;
         const HeightHash* m_pParentCtx = nullptr;
         uint32_t m_TxMask = 0;
-        bool m_Rebuilt = false;
+        bool m_HftSubscribed = false;
+        boost::optional<Merkle::Hash> m_pNewCtx;
 
         static void Fail(const char* sz = nullptr)
         {
             throw TransactionFailedException(false, TxFailureReason::Unknown, sz);
         }
+
+        struct HftVariant
+            :public intrusive::set_base_hook<HeightHash>
+        {
+            Transaction m_Tx; // built and validated tx
+            Coins m_Coins;
+
+		    template <typename Archive>
+            void serialize(Archive& ar)
+            {
+                ar
+                    & m_Key
+                    & m_Tx
+                    & m_Coins.m_Input
+                    & m_Coins.m_InputShielded
+                    & m_Coins.m_Output;
+            }
+        };
+
+        struct HftState
+        {
+            intrusive::multiset_autoclear<HftVariant> m_Variants;
+            bvm2::FundsMap m_SpendInitial;
+
+            void Ser(Serializer& ser) const
+            {
+                ser & Cast::Down< std::map<Asset::ID, AmountSigned> >(m_SpendInitial);
+
+                size_t n = m_Variants.size();
+                ser & n;
+
+                for (const auto& x : m_Variants)
+                    ser & x;
+            }
+
+            void Der(Deserializer& der)
+            {
+                der & Cast::Down< std::map<Asset::ID, AmountSigned> >(m_SpendInitial);
+
+                size_t n = 0;
+                der & n;
+
+                while (n--)
+                {
+                    auto pHftv = std::make_unique<HftVariant>();
+                    der & *pHftv;
+                    m_Variants.insert(*pHftv.release());
+                }
+            }
+
+        } m_HftState;
+
+        struct KernelProofContext
+        {
+            typedef std::shared_ptr<KernelProofContext> Ptr;
+
+            MyBuilder* m_pThis;
+            uint32_t m_Remaining;
+        };
+
+        KernelProofContext::Ptr m_pAsyncCtx;
+
+        void DeleteAsyncCtx()
+        {
+            if (m_pAsyncCtx)
+            {
+                m_pAsyncCtx->m_pThis = nullptr;
+                m_pAsyncCtx.reset();
+            }
+        }
+
+        bool IsHftPending();
+
+        virtual ~MyBuilder()
+        {
+            DeleteAsyncCtx();
+
+            if (m_HftSubscribed)
+                m_Tx.GetGateway().HftSubscribe(false);
+        }
+
+        bool CanRebuildHft() const
+        {
+            return m_pParentCtx && !m_Data.m_AppInvoke.m_App.empty();
+        }
+
+        struct KernelCallback
+            :public INegotiatorGateway::IConfirmCallback
+        {
+            KernelProofContext::Ptr m_pAsyncCtx;
+            HftVariant* m_pHftv;
+
+            void OnDone(const Height* pHeight) override
+            {
+                auto* pThis = m_pAsyncCtx->m_pThis;
+                if (pThis)
+                    pThis->OnKernelConfirmed(m_pHftv, pHeight);
+            }
+        };
+
+        void ConfirmKernelEx(HftVariant*);
+        void OnKernelConfirmed(HftVariant*, const Height*);
+        void SaveToHftv();
 
         struct SigState
         {
@@ -354,7 +457,7 @@ namespace beam::wallet
         bool IsSpendWithinLimits(const bvm2::FundsMap& fm) const
         {
             
-            for (FundsCmpWalker fcw(m_SpendInitial, fm); fcw.MoveNext(); )
+            for (FundsCmpWalker fcw(m_HftState.m_SpendInitial, fm); fcw.MoveNext(); )
             {
                 if (fcw.m_pm1.m_Val > 0)
                 {
@@ -389,7 +492,60 @@ namespace beam::wallet
 
         GetParameter(TxParameterID::ContractDataPacked, builder.m_Data, GetSubTxID());
 
+        {
+            ByteBuffer buf;
+            GetParameter(TxParameterID::HftState, buf);
+            if (!buf.empty())
+            {
+                Deserializer der;
+                der.reset(&buf.front(), buf.size());
+                builder.m_HftState.Der(der);
+            }
+        }
+
+
         builder.SetParentCtx();
+
+        if (builder.m_pParentCtx)
+        {
+            builder.m_HftSubscribed = true;
+            GetGateway().HftSubscribe(true);
+        }
+    }
+
+    void ContractTransaction::OnDependentStateChanged()
+    {
+        UpdateAsync();
+    }
+
+    bool ContractTransaction::MyBuilder::IsHftPending()
+    {
+        if (!m_pNewCtx)
+            return false;
+        assert(m_pParentCtx);
+
+        Block::SystemState::Full sTip;
+        if (!m_Tx.GetTip(sTip))
+            return false;
+
+        uint32_t nCount = 0;
+        const auto* pHv = m_Tx.GetGateway().get_DependentState(nCount);
+        Height h = sTip.m_Height + 1;
+
+        for (uint32_t i = 0; i < nCount; i++)
+        {
+            if ((m_pParentCtx->m_Height == h) && (pHv[i] == *m_pNewCtx))
+                return true;
+
+            HeightHash hh;
+            hh.m_Height = h;
+            hh.m_Hash = pHv[i];
+            auto it = m_HftState.m_Variants.find(hh, HftVariant::Comparator());
+            if (m_HftState.m_Variants.end() != it)
+                return true;
+        }
+
+        return false;
     }
 
     bool ContractTransaction::BuildTxOnce()
@@ -410,6 +566,7 @@ namespace beam::wallet
                 aex.m_pBuilder = &builder;
                 aex.SwapParams();
                 aex.set_Privilege(vData.m_AppInvoke.m_Privilege);
+                aex.m_EnforceDependent = true;
 
                 builder.m_pAppExec->StartRun(1);
             }
@@ -429,8 +586,6 @@ namespace beam::wallet
                 OnFailed(TxFailureReason::TransactionExpired);
                 return false;
             }
-
-            // TODO: check slipage is within limits
 
             Cast::Down<bvm2::ContractInvokeDataBase>(vData) = std::move(aex.m_InvokeData);
 
@@ -465,6 +620,12 @@ namespace beam::wallet
                 builder.Fail();
 
             bvm2::FundsMap fm = vData.get_FullSpend();
+            // ensure spend is within 
+            if (!builder.m_HftState.m_Variants.empty() && !builder.IsSpendWithinLimits(fm))
+            {
+                OnFailed(TxFailureReason::SwapInvalidAmount); // whatever
+                return false;
+            }
 
             for (uint32_t i = 0; i < vData.m_vec.size(); i++)
             {
@@ -490,17 +651,6 @@ namespace beam::wallet
             for (auto it = fm.begin(); fm.end() != it; it++)
                 bb.m_Map[it->first].m_Value -= it->second;
 
-            if (builder.m_Rebuilt)
-            {
-                // ensure spend is within 
-                if (!builder.IsSpendWithinLimits(fm))
-                {
-                    OnFailed(TxFailureReason::SwapInvalidAmount); // whatever
-                    return false;
-                }
-            }
-            else
-                builder.m_SpendInitial = std::move(fm);
 
             bb.CompleteBalance(); // will select coins as needed
             builder.SaveCoins();
@@ -683,8 +833,112 @@ namespace beam::wallet
         }
     }
 
+    void ContractTransaction::MyBuilder::ConfirmKernelEx(HftVariant* pV)
+    {
+        auto pCallback = std::make_unique<KernelCallback>();
+        pCallback->m_pHftv = pV;
+        
+        assert(m_pAsyncCtx);
+        pCallback->m_pAsyncCtx = m_pAsyncCtx;
+        m_pAsyncCtx->m_Remaining++;
+
+        const auto& tx = pV ? pV->m_Tx : *m_pTransaction;
+        m_Tx.GetGateway().confirm_kernel_ex(tx.m_vKernels.front()->m_Internal.m_ID, std::move(pCallback));
+    }
+
+    void ContractTransaction::MyBuilder::OnKernelConfirmed(HftVariant* pHf, const Height* pHeight)
+    {
+        assert(m_pAsyncCtx && m_pAsyncCtx->m_Remaining);
+        m_pAsyncCtx->m_Remaining--;
+
+        if (pHeight)
+        {
+            LOG_INFO() << "TxoID=" << m_Tx.GetTxID() << " HFT confirmed";
+
+            SetParameter(TxParameterID::KernelProofHeight, *pHeight);
+            DeleteAsyncCtx();
+
+            if (pHf)
+            {
+                // substitute that tx params
+                SetParameter(TxParameterID::InputCoins, pHf->m_Coins.m_Input);
+                SetParameter(TxParameterID::InputCoinsShielded, pHf->m_Coins.m_InputShielded);
+                SetParameter(TxParameterID::OutputCoins, pHf->m_Coins.m_Output);
+
+                {
+                    TemporarySwap ts(pHf->m_Tx, *m_pTransaction);
+                    SaveInOuts();
+                    SaveKernel();
+                    SaveKernelID();
+                }
+
+                SetParameter(TxParameterID::Offset, pHf->m_Tx.m_Offset);
+
+                // mark inputs/outputs appropriately
+                {
+                    auto pDB = m_Tx.GetWalletDB();
+                    for (const auto& cid : pHf->m_Coins.m_Input)
+                    {
+                        Coin coin;
+                        coin.m_ID = cid;
+                        if (pDB->findCoin(coin))
+                        {
+                            coin.m_spentTxId = m_Tx.GetTxID();
+                            coin.m_spentHeight = *pHeight;
+                            pDB->saveCoin(coin);
+                        }
+                    }
+
+                    for (auto& cid : pHf->m_Coins.m_InputShielded)
+                    {
+                        auto pCoin = pDB->getShieldedCoin(cid.m_Key);
+                        if (pCoin)
+                        {
+                            pCoin->m_spentTxId = m_Tx.GetTxID();
+                            pCoin->m_spentHeight = *pHeight;
+                            pDB->saveShieldedCoin(*pCoin);
+                        }
+                    }
+
+                    for (auto& cid : pHf->m_Coins.m_Output)
+                    {
+                        Coin c;
+                        c.m_ID = cid;
+                        c.m_confirmHeight = *pHeight;
+                        c.m_createTxId = m_Tx.GetTxID();
+                        pDB->saveCoin(c);
+                    }
+                }
+
+            }
+        }
+        else
+        {
+            if (m_pAsyncCtx->m_Remaining)
+                return;
+
+            Block::SystemState::Full sTip;
+            if (!m_Tx.GetTip(sTip))
+                sTip.m_Height = 0;
+
+            SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height);
+        }
+
+        m_Tx.UpdateAsync();
+    }
+
+    bool ContractTransaction::Rollback(Height h)
+    {
+        if (m_TxBuilder)
+            m_TxBuilder->DeleteAsyncCtx();
+
+        return BaseTransaction::Rollback(h);
+    }
+
     int ContractTransaction::RegisterTx()
     {
+        auto& builder = *m_TxBuilder;
+
         Height h = 0;
         GetParameter(TxParameterID::KernelProofHeight, h);
         if (h)
@@ -694,12 +948,54 @@ namespace beam::wallet
             return 1;
         }
 
-        auto& builder = *m_TxBuilder;
-
         GetParameter(TxParameterID::KernelUnconfirmedHeight, h);
 
         if (h && IsExpired(h + 1))
             return -1;
+
+        Block::SystemState::Full sTip;
+        if (!GetTip(sTip))
+            return 0;
+
+        if (builder.m_pParentCtx)
+        {
+            if (!builder.m_pNewCtx)
+            {
+                builder.m_pNewCtx.emplace();
+                auto& hv = builder.m_pNewCtx.get();
+
+                hv = builder.m_pParentCtx->m_Hash;
+
+                for (const auto& pKrn : builder.m_pTransaction->m_vKernels)
+                    DependentContext::get_Ancestor(hv, hv, pKrn->m_Internal.m_ID);
+            }
+
+            if (builder.m_pParentCtx->m_Height <= sTip.m_Height)
+            {
+                if (builder.m_pAsyncCtx)
+                {
+                    if (builder.m_pAsyncCtx->m_Remaining)
+                        return 0; // wait for res
+                }
+                else
+                {
+                    builder.m_pAsyncCtx = std::make_shared<MyBuilder::KernelProofContext>();
+                    builder.m_pAsyncCtx->m_pThis = &builder;
+                    builder.m_pAsyncCtx->m_Remaining = 0;
+                }
+
+                builder.ConfirmKernelEx(nullptr);
+
+                HeightHash hh;
+                hh.m_Height = h + 1;
+                hh.m_Hash = Zero;
+
+                for (auto it = builder.m_HftState.m_Variants.lower_bound(hh, MyBuilder::HftVariant::Comparator()); builder.m_HftState.m_Variants.end() != it; it++)
+                    builder.ConfirmKernelEx(&(*it));
+
+                return 0;
+            }
+        }
 
         if (builder.m_Data.m_IsSender)
         {
@@ -707,8 +1003,7 @@ namespace beam::wallet
             uint8_t nTxRegStatus = proto::TxStatus::Unspecified;
             if (!GetParameter(TxParameterID::TransactionRegistered, nTxRegStatus))
             {
-                Block::SystemState::Full sTip;
-                if (GetTip(sTip) && !IsExpired(sTip.m_Height + 1))
+                if (!IsExpired(sTip.m_Height + 1))
                     GetGateway().register_tx(GetTxID(), builder.m_pTransaction, builder.m_pParentCtx ? &builder.m_pParentCtx->m_Hash : nullptr);
             }
             else
@@ -724,14 +1019,23 @@ namespace beam::wallet
                         return -1;
 
                     default:
-                        OnFailed(TxFailureReason::FailedToRegister, true);
-                        return 0;
+                        if (!builder.m_pNewCtx)
+                        {
+                            OnFailed(TxFailureReason::FailedToRegister, true);
+                            return 0;
+                        }
                     }
                 }
+
+                if (builder.m_pNewCtx && !builder.IsHftPending())
+                    return -1;
             }
         }
 
-        ConfirmKernel(builder.m_pKrn->m_Internal.m_ID);
+        if (builder.m_pNewCtx)
+            UpdateOnNextTip();
+        else
+            ConfirmKernel(builder.m_pKrn->m_Internal.m_ID);
 
         return 0;
     }
@@ -776,8 +1080,7 @@ namespace beam::wallet
     bool ContractTransaction::RetryHft()
     {
         auto& builder = *m_TxBuilder;
-
-        if (!builder.m_pParentCtx || builder.m_Data.m_AppInvoke.m_App.empty())
+        if (!builder.CanRebuildHft())
             return false;
 
         Height h = 0;
@@ -795,13 +1098,21 @@ namespace beam::wallet
         if (sTip.m_Height - h >= 5)
             return false;
 
+        builder.SaveToHftv();
+
+        SetState(State::RebuildHft);
+        return true;
+    }
+
+    void ContractTransaction::MyBuilder::SaveToHftv()
+    {
         // Release coins, Reset everything
         SetParameter(TxParameterID::KernelUnconfirmedHeight, Zero);
         SetParameter(TxParameterID::TransactionRegistered, Zero);
 
         {
-            auto pDB = GetWalletDB();
-            for (const auto& cid : builder.m_Coins.m_Input)
+            auto pDB = m_Tx.GetWalletDB();
+            for (const auto& cid : m_Coins.m_Input)
             {
                 Coin coin;
                 coin.m_ID = cid;
@@ -812,7 +1123,7 @@ namespace beam::wallet
                 }
             }
 
-            for (auto& cid : builder.m_Coins.m_InputShielded)
+            for (auto& cid : m_Coins.m_InputShielded)
             {
                 auto pCoin = pDB->getShieldedCoin(cid.m_Key);
                 if (pCoin)
@@ -822,7 +1133,7 @@ namespace beam::wallet
                 }
             }
 
-            pDB->deleteCoinsCreatedByTx(GetTxID());
+            pDB->deleteCoinsCreatedByTx(m_Tx.GetTxID());
         }
 
         SetParameter(TxParameterID::InputCoins, Zero);
@@ -840,18 +1151,40 @@ namespace beam::wallet
 
         SetParameter(TxParameterID::MutualTxState, Zero); // otherwise BaseTxBuilder won't re-normalize the newly-built tx
 
-        bvm2::ContractInvokeData vData = std::move(builder.m_Data);
-        vData.m_vec.clear();
-        bvm2::FundsMap fmSpend = std::move(builder.m_SpendInitial);
+        assert(m_pNewCtx);
 
-        m_TxBuilder = std::make_shared<MyBuilder>(*this, kDefaultSubTxID); // reset it
+        HeightHash hh;
+        hh.m_Height = m_pParentCtx->m_Height;
+        hh.m_Hash = *m_pNewCtx;
 
-        m_TxBuilder->m_SpendInitial = std::move(fmSpend);
-        m_TxBuilder->m_Data = std::move(vData);
-        m_TxBuilder->m_Rebuilt = true;
+        auto* pHftv = m_HftState.m_Variants.Create(hh);
+        pHftv->m_Tx = std::move(*m_pTransaction);
+        pHftv->m_Coins = std::move(m_Coins);
 
-        SetState(State::RebuildHft);
-        return true;
+        m_pTransaction->m_Offset = Zero;
+
+        m_HftState.m_SpendInitial = m_Data.get_FullSpend();
+
+        {
+            Serializer ser;
+            m_HftState.Ser(ser);
+
+            ByteBuffer bb;
+            ser.swap_buf(bb);
+
+            SetParameter(TxParameterID::HftState, bb);
+        }
+
+        m_Data.m_vec.clear();
+
+        m_GeneratingInOuts = Stage::None;
+        m_Signing = Stage::None;
+        m_Status = Status::None;
+
+        m_pKrn = nullptr;
+        m_pNewCtx.reset();
+        m_pParentCtx = nullptr;
     }
+
 
 }
