@@ -381,6 +381,7 @@ namespace beam::wallet
         Offset = 140,
 
         ContractDataPacked = 141,
+        HftState = 142,
 
         UserConfirmationToken = 143,
 

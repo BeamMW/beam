@@ -48,10 +48,8 @@ namespace beam::wallet
         using BaseTxBuilder::BaseTxBuilder;
 
         bvm2::ContractInvokeData m_Data;
-        bvm2::FundsMap m_SpendInitial;
         const HeightHash* m_pParentCtx = nullptr;
         uint32_t m_TxMask = 0;
-        bool m_Rebuilt = false;
         bool m_HftSubscribed = false;
         boost::optional<Merkle::Hash> m_pNewCtx;
 
@@ -65,9 +63,51 @@ namespace beam::wallet
         {
             Transaction m_Tx; // built and validated tx
             Coins m_Coins;
+
+		    template <typename Archive>
+            void serialize(Archive& ar)
+            {
+                ar
+                    & m_Key
+                    & m_Tx
+                    & m_Coins.m_Input
+                    & m_Coins.m_InputShielded
+                    & m_Coins.m_Output;
+            }
         };
 
-        intrusive::multiset_autoclear<HftVariant> m_HftMap;
+        struct HftState
+        {
+            intrusive::multiset_autoclear<HftVariant> m_Variants;
+            bvm2::FundsMap m_SpendInitial;
+
+            void Ser(Serializer& ser) const
+            {
+                ser & Cast::Down< std::map<Asset::ID, AmountSigned> >(m_SpendInitial);
+
+                size_t n = m_Variants.size();
+                ser & n;
+
+                for (const auto& x : m_Variants)
+                    ser & x;
+            }
+
+            void Der(Deserializer& der)
+            {
+                der & Cast::Down< std::map<Asset::ID, AmountSigned> >(m_SpendInitial);
+
+                size_t n = 0;
+                der & n;
+
+                while (n--)
+                {
+                    auto pHftv = std::make_unique<HftVariant>();
+                    der & *pHftv;
+                    m_Variants.insert(*pHftv.release());
+                }
+            }
+
+        } m_HftState;
 
         struct KernelProofContext
         {
@@ -417,7 +457,7 @@ namespace beam::wallet
         bool IsSpendWithinLimits(const bvm2::FundsMap& fm) const
         {
             
-            for (FundsCmpWalker fcw(m_SpendInitial, fm); fcw.MoveNext(); )
+            for (FundsCmpWalker fcw(m_HftState.m_SpendInitial, fm); fcw.MoveNext(); )
             {
                 if (fcw.m_pm1.m_Val > 0)
                 {
@@ -451,6 +491,18 @@ namespace beam::wallet
         auto& builder = *m_TxBuilder;
 
         GetParameter(TxParameterID::ContractDataPacked, builder.m_Data, GetSubTxID());
+
+        {
+            ByteBuffer buf;
+            GetParameter(TxParameterID::HftState, buf);
+            if (!buf.empty())
+            {
+                Deserializer der;
+                der.reset(&buf.front(), buf.size());
+                builder.m_HftState.Der(der);
+            }
+        }
+
 
         builder.SetParentCtx();
 
@@ -488,8 +540,8 @@ namespace beam::wallet
             HeightHash hh;
             hh.m_Height = h;
             hh.m_Hash = pHv[i];
-            auto it = m_HftMap.find(hh, HftVariant::Comparator());
-            if (m_HftMap.end() != it)
+            auto it = m_HftState.m_Variants.find(hh, HftVariant::Comparator());
+            if (m_HftState.m_Variants.end() != it)
                 return true;
         }
 
@@ -568,6 +620,12 @@ namespace beam::wallet
                 builder.Fail();
 
             bvm2::FundsMap fm = vData.get_FullSpend();
+            // ensure spend is within 
+            if (!builder.m_HftState.m_Variants.empty() && !builder.IsSpendWithinLimits(fm))
+            {
+                OnFailed(TxFailureReason::SwapInvalidAmount); // whatever
+                return false;
+            }
 
             for (uint32_t i = 0; i < vData.m_vec.size(); i++)
             {
@@ -593,17 +651,6 @@ namespace beam::wallet
             for (auto it = fm.begin(); fm.end() != it; it++)
                 bb.m_Map[it->first].m_Value -= it->second;
 
-            if (builder.m_Rebuilt)
-            {
-                // ensure spend is within 
-                if (!builder.IsSpendWithinLimits(fm))
-                {
-                    OnFailed(TxFailureReason::SwapInvalidAmount); // whatever
-                    return false;
-                }
-            }
-            else
-                builder.m_SpendInitial = std::move(fm);
 
             bb.CompleteBalance(); // will select coins as needed
             builder.SaveCoins();
@@ -943,7 +990,7 @@ namespace beam::wallet
                 hh.m_Height = h + 1;
                 hh.m_Hash = Zero;
 
-                for (auto it = builder.m_HftMap.lower_bound(hh, MyBuilder::HftVariant::Comparator()); builder.m_HftMap.end() != it; it++)
+                for (auto it = builder.m_HftState.m_Variants.lower_bound(hh, MyBuilder::HftVariant::Comparator()); builder.m_HftState.m_Variants.end() != it; it++)
                     builder.ConfirmKernelEx(&(*it));
 
                 return 0;
@@ -1110,12 +1157,24 @@ namespace beam::wallet
         hh.m_Height = m_pParentCtx->m_Height;
         hh.m_Hash = *m_pNewCtx;
 
-        auto* pHftv = m_HftMap.Create(hh);
+        auto* pHftv = m_HftState.m_Variants.Create(hh);
         pHftv->m_Tx = std::move(*m_pTransaction);
         pHftv->m_Coins = std::move(m_Coins);
 
         m_pTransaction->m_Offset = Zero;
-        m_Rebuilt = true;
+
+        m_HftState.m_SpendInitial = m_Data.get_FullSpend();
+
+        {
+            Serializer ser;
+            m_HftState.Ser(ser);
+
+            ByteBuffer bb;
+            ser.swap_buf(bb);
+
+            SetParameter(TxParameterID::HftState, bb);
+        }
+
         m_Data.m_vec.clear();
 
         m_GeneratingInOuts = Stage::None;
