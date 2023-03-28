@@ -2144,7 +2144,10 @@ namespace beam::wallet
         pReq->m_Msg.m_Transaction = data;
 
         if (pParentCtx)
+        {
             pReq->m_Msg.m_Context = std::make_unique<Merkle::Hash>(*pParentCtx);
+            pReq->m_Msg.m_Fluff = true;
+        }
 
         PostReqUnique(*pReq);
     }
