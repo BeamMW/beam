@@ -2909,7 +2909,7 @@ uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash&
             return nRes;
 
         if (m_TxDependent.m_setContexts.find(hvCtxNew, TxPool::Dependent::Element::Context::Comparator()) != m_TxDependent.m_setContexts.end())
-            return proto::TxStatus::DependentNotBest;
+            return proto::TxStatus::DependentNoNewCtx;
         
         pElem = m_TxDependent.AddValidTx(std::move(pTx), ctx, keyTx, hvCtxNew, pParent);
         pElem->m_BvmCharge = nBvmCharge;
