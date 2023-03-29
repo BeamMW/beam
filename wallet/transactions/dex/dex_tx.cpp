@@ -82,11 +82,11 @@ namespace beam::wallet
             throw InvalidTransactionParametersException("DexSimpleSwap missing PeerID");
         }
 
-        const auto peeraddr = _wdb->getAddress(*peerID);
-        if (peeraddr)
-        {
-            throw InvalidTransactionParametersException("DexSimpleSwap transaction should not save peer adddress");
-        }
+        // const auto peeraddr = _wdb->getAddress(*peerID);
+        // if (peeraddr)
+        // {
+        //     throw InvalidTransactionParametersException("DexSimpleSwap transaction should not save peer adddress");
+        // }
 
         //
         // Check self
