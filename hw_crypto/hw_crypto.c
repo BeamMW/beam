@@ -221,8 +221,6 @@ void Point_Ge_from_Gej(secp256k1_ge* pGe, const gej_t* p)
 		AffinePoint ap;
 		Gej_Get_Affine(p, &ap);
 
-		Suffer(1000); // Very heavy
-
 		Point_Ge_from_Affine(pGe, &ap);
 	}
 }
@@ -1564,7 +1562,8 @@ static void RangeProof_Calculate_S(RangeProof* const p, RangeProof_Worker* const
 	NonceGenerator_NextScalar(&pWrk->m_NonceGen, &s);
 	MulG(pWrk->m_pGej + 1, &s); // can mul fast!
 
-	gej_t gej2;
+	gej_t gej1, gej2;
+	Gej_Init(&gej1);
 	Gej_Init(&gej2);
 
 	UintBig pK[2];
@@ -1615,6 +1614,7 @@ static void RangeProof_Calculate_S(RangeProof* const p, RangeProof_Worker* const
 		}
 
 		secp256k1_scalar* const pTrg = pS + mmCtx.m_Fast.m_Count;
+		mmCtx.m_Fast.m_Count++;
 
 #endif // BeamCrypto_ExternalGej
 
@@ -1634,27 +1634,30 @@ static void RangeProof_Calculate_S(RangeProof* const p, RangeProof_Worker* const
 
 		if (1 & iBit)
 		{
-			Gej_Set_Affine(pWrk->m_pGej, Context_get()->m_pGenRangeproof[iBit - 1]);
+			Gej_Set_Affine(&gej1, Context_get()->m_pGenRangeproof[iBit - 1]);
 			Gej_Set_Affine(&gej2, Context_get()->m_pGenRangeproof[iBit]);
 
-			Gej_Mul2_Fast(pWrk->m_pGej, pWrk->m_pGej, pK, &gej2, pK + 1);
+			Gej_Mul2_Fast(pWrk->m_pGej, &gej1, pK, &gej2, pK + 1);
 
 			Gej_Add(pWrk->m_pGej + 1, pWrk->m_pGej + 1, pWrk->m_pGej);
 		}
 
-#else // BeamCrypto_ExternalGej
-		mmCtx.m_Fast.m_Count++;
 #endif // BeamCrypto_ExternalGej
 	}
 
 #ifdef BeamCrypto_ExternalGej
+
 	Gej_Destroy(&gej2);
+	Gej_Destroy(&gej1);
+
 #else // BeamCrypto_ExternalGej
+
 	mmCtx.m_pRes = pWrk->m_pGej + 1;
 	MultiMac_Calculate(&mmCtx);
 
 	if (Calc_S_Naggle < Calc_S_Naggle_Max)
 		wrap_gej_add_var(pWrk->m_pGej + 1, pWrk->m_pGej + 1, pWrk->m_pGej);
+
 #endif // BeamCrypto_ExternalGej
 }
 
@@ -2688,6 +2691,13 @@ static int TxAggr_AddAmount_Raw(int64_t* pRcv, Amount newVal, int isOut)
 
 	return 1;
 }
+
+static int TxAggr_AddAmount_Uns(Amount* pRes, Amount newVal)
+{
+	*pRes += newVal;
+	return (*pRes) >= newVal;
+}
+
 static int TxAggr_AddAmount(KeyKeeper* p, Amount newVal, AssetID aid, int isOut)
 {
 	int64_t* pRcv = &p->u.m_TxBalance.m_RcvBeam;
@@ -2706,11 +2716,6 @@ static int TxAggr_AddAmount(KeyKeeper* p, Amount newVal, AssetID aid, int isOut)
 	}
 
 	return TxAggr_AddAmount_Raw(pRcv, newVal, isOut);
-}
-static int TxAggr_AddFee(KeyKeeper* p, Amount newVal)
-{
-	p->u.m_TxBalance.m_TotalFee += newVal;
-	return (p->u.m_TxBalance.m_TotalFee >= newVal);
 }
 
 __stack_hungry__
@@ -2754,8 +2759,8 @@ static uint16_t TxAggr_AddShieldedInputs(KeyKeeper* p, uint8_t* pIns_unaligned, 
 
 		if (fmt.m_Fee)
 		{
-			// Starding from HF3 shielded input fees are optional. And basically should not be used. But currently we support them
-			if (!TxAggr_AddFee(p, fmt.m_Fee))
+			// Starting from HF3 shielded input fees are optional. And basically should not be used. But currently we support them
+			if (!TxAggr_AddAmount_Uns(&p->u.m_TxBalance.m_ImplicitFee, fmt.m_Fee))
 				return MakeStatus(c_KeyKeeper_Status_Unspecified, 1); // overflow
 		}
 
@@ -2770,7 +2775,7 @@ static uint16_t TxAggr_AddShieldedInputs(KeyKeeper* p, uint8_t* pIns_unaligned, 
 	return c_KeyKeeper_Status_Ok;
 }
 
-static uint16_t TxAggr_Get(KeyKeeper* p, TxSummary* pRes, const TxCommonIn* pTx, uint8_t isSender)
+static uint16_t TxAggr_Get(const KeyKeeper* p, TxSummary* pRes, const TxCommonIn* pTx, uint8_t isSender)
 {
 	if (c_KeyKeeper_State_TxBalance != p->m_State)
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 10);
@@ -2784,16 +2789,17 @@ static uint16_t TxAggr_Get(KeyKeeper* p, TxSummary* pRes, const TxCommonIn* pTx,
 	int64_t rcvVal = p->u.m_TxBalance.m_RcvBeam;
 	if (isSender)
 	{
-		if (!TxAggr_AddFee(p, pRes->m_Krn.m_Fee))
+		Amount totalFee = p->u.m_TxBalance.m_ImplicitFee;
+		if (!TxAggr_AddAmount_Uns(&totalFee, pRes->m_Krn.m_Fee))
 			return MakeStatus(c_KeyKeeper_Status_Unspecified, 15);
 
 		// we're paying the fee. Subtract it from the net value we're sending
-		if (!TxAggr_AddAmount_Raw(&rcvVal, p->u.m_TxBalance.m_TotalFee, 1))
+		if (!TxAggr_AddAmount_Raw(&rcvVal, totalFee, 1))
 			return MakeStatus(c_KeyKeeper_Status_Unspecified, 17);
 	}
 	else
 	{
-		if (p->u.m_TxBalance.m_TotalFee)
+		if (p->u.m_TxBalance.m_ImplicitFee)
 			// Implicit fees are not allowed for rcv tx (since we don't ask user permission)
 			return MakeStatus(c_KeyKeeper_Status_Unspecified, 16);
 	}
@@ -3439,7 +3445,7 @@ typedef struct
 
 	union
 	{
-		const ShieldedOfflineContext* m_pOffline;
+		ShieldedOfflineContext* m_pOffline;
 		const ShieldedViewer* m_pViewer;
 	} u;
 
@@ -3593,6 +3599,7 @@ static void CreateVoucherInternal(const ShieldedVoucherContext* pCtx, ShieldedVo
 #ifdef BeamCrypto_ExternalGej
 
 		Gej_MulFast(&gej, pCtx->u.m_pOffline->m_pPubGJG + 2, &sk); // ser.G
+		Gej_Destroy(pCtx->u.m_pOffline->m_pPubGJG + 2);
 
 #else // BeamCrypto_ExternalGej
 
@@ -3638,11 +3645,14 @@ static void CreateVoucherInternal(const ShieldedVoucherContext* pCtx, ShieldedVo
 #ifdef BeamCrypto_ExternalGej
 
 		Gej_MulFast(&gej, pCtx->u.m_pOffline->m_pPubGJG, pN);
+		Gej_Destroy(pCtx->u.m_pOffline->m_pPubGJG);
 
 		gej_t gej2;
 		Gej_Init(&gej2);
 
 		Gej_MulFast(&gej2, pCtx->u.m_pOffline->m_pPubGJG + 1, pN + 1);
+		Gej_Destroy(pCtx->u.m_pOffline->m_pPubGJG + 1);
+
 		Gej_Add(&gej, &gej, &gej2);
 
 		Gej_Destroy(&gej2);
