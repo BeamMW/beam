@@ -619,9 +619,8 @@ namespace beam::wallet
                 // is it any different now?
                 if (builder.m_pParentCtx && (builder.m_pParentCtx->m_Hash == hvCtx))
                 {
-                    builder.OnRebuildFailed();
                     LOG_INFO() << "same state";
-                    return true;
+                    return false; // retry when the state changes
                 }
 
                 builder.m_pAppExec = std::make_unique<MyBuilder::AppShaderExec>(m_Context.get_Wallet());
@@ -913,6 +912,9 @@ namespace beam::wallet
         if (ret < 0)
         {
             // expired. Check if it's an HFT tx that can be rebuilt
+            if (builder.m_pAsyncCtx && builder.m_pAsyncCtx->m_Remaining)
+                return;
+
             if (RetryHft())
             {
                 LOG_INFO() << "TxoID=" << GetTxID() << " Expired. Retrying HFT tx";
@@ -1142,6 +1144,10 @@ namespace beam::wallet
         // check if can confirm anything
         builder.ConfirmHfts(h, sTip.m_Height);
 
+        auto itUnconfirmed = builder.m_HftState.FindVariantFrom(h + 1);
+        if ((builder.m_HftState.m_Variants.end() != itUnconfirmed) && (itUnconfirmed->m_Key.m_Height <= sTip.m_Height))
+            return 0; // confirm or unconfirm prev txs before continuing with this one
+
         bool bWaitingNewTxRes = false;
         // check if need to send newly-built tx
         if (!builder.m_RebuildFailed && builder.m_Data.m_IsSender)
@@ -1260,7 +1266,6 @@ namespace beam::wallet
     void ContractTransaction::MyBuilder::SaveToHftv()
     {
         // Release coins, Reset everything
-        SetParameter(TxParameterID::KernelUnconfirmedHeight, Zero);
         SetParameter(TxParameterID::TransactionRegistered, Zero);
 
         {

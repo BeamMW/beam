@@ -1151,7 +1151,10 @@ ON_METHOD(user, trove_modify)
             g.DocAddTrove(t);
 
             if (fee)
+            {
                 Env::DocAddNum("fee", fee);
+                DocAddPerc("fee_perc", Float(fee) / Float(t.m_Amounts.Tok - vals0.Tok));
+            }
         }
 
     }
@@ -1351,6 +1354,7 @@ ON_METHOD(user, redeem)
         Env::DocAddNum("tok", ctx.m_fpLogic.Tok.m_Val);
         Env::DocAddNum("col", ctx.m_fpLogic.Col.m_Val);
         Env::DocAddNum("fee", fee);
+        DocAddPerc("fee_perc", Float(fee) / Float(ctx.m_fpLogic.Col.m_Val));
     }
 
     if (fee)

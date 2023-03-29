@@ -204,7 +204,7 @@ typedef struct
 
 			int64_t m_RcvBeam;
 			int64_t m_RcvAsset; // up to 1 more asset supported in a tx
-			Amount m_TotalFee; // explicit + shielded input fees.
+			Amount m_ImplicitFee; // shielded input fees.
 			AssetID m_Aid;
 			secp256k1_scalar m_sk; // net blinding factor, sum(outputs) - sum(inputs)
 
