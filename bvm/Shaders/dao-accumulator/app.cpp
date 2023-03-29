@@ -362,7 +362,7 @@ struct MyUser
         if (Env::VarReader::Read_T(uk, *this))
             return true;
 
-        OnError("no user");
+        _POD_(*this).SetZero();
         return false;
     }
 
@@ -423,13 +423,11 @@ ON_METHOD(user_view)
     if (s.m_aidLpToken)
         s.m_Pool.Update(Env::get_Height());
 
-    MyUser u;
-    if (!u.Load(cid))
-        return;
-
     Env::DocGroup gr("res");
 
-    u.Print(s);
+    MyUser u;
+    if (u.Load(cid))
+        u.Print(s);
 }
 
 ON_METHOD(users_view_all)
@@ -514,8 +512,6 @@ ON_METHOD(user_update)
     MyUser u;
     if (u.Load(cid))
         u.AddEarned(s);
-    else
-        _POD_(u).SetZero();
 
     if (!u.AdjustTokens(amountLpToken, bLockOrUnlock))
         return;
@@ -563,8 +559,6 @@ ON_METHOD(user_get_yield)
         MyUser u;
         if (u.Load(cid))
             u.AddEarned(s);
-        else
-            _POD_(u).SetZero();
 
         s.m_Pool.Update(h);
         u.AddEarned(s);
