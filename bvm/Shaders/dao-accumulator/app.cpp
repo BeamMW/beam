@@ -451,6 +451,7 @@ ON_METHOD(users_view_all)
     for (Env::VarReader r(k0, k1); r.MoveNext_T(k0, u); )
     {
         Env::DocGroup gr1("");
+        Env::DocAddNum("p0", s.m_Pool.m_AmountInPool);
         u.Print(s);
         Env::DocAddBlob_T("pk", k0.m_KeyInContract.m_pk);
     }
@@ -568,8 +569,7 @@ ON_METHOD(user_get_yield)
             return;
 
         u.m_PoolUser.m_Weight = u.get_WeightPrePhase() + u.get_WeightPostPhase();
-        u.m_PoolUser.m_Sigma0 = s.m_Pool.m_Sigma;
-        s.m_Pool.m_Weight += u.m_PoolUser.m_Weight;
+        s.m_Pool.Add(u.m_PoolUser);
 
         s.m_Pool.Update(h + 1440);
         u.AddEarned(s);

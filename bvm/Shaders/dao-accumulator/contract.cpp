@@ -194,9 +194,7 @@ BEAM_EXPORT void Method_5(const Method::UserUpdate& r)
 
     if (u.m_PoolUser.m_Weight || u.m_EarnedBeamX)
     {
-        u.m_PoolUser.m_Sigma0 = s.m_Pool.m_Sigma;
-        Strict::Add(s.m_Pool.m_Weight, u.m_PoolUser.m_Weight);
-
+        s.m_Pool.Add(u.m_PoolUser);
         Env::SaveVar_T(uk, u);
     }
     else
