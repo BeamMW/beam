@@ -157,9 +157,8 @@ struct WalkerFunds
 	bool MoveNext()
 	{
 		KeyFunds key;
-		ValueFunds val;
 
-		if (!m_Reader.MoveNext_T(key, val))
+		if (!m_Reader.MoveNext_T(key, m_Val))
 			return false;
 
 		m_Aid = Utils::FromBE(key.m_KeyInContract);
