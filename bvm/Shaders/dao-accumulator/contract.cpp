@@ -97,36 +97,49 @@ BEAM_EXPORT void Method_3(const Method::FarmStart& r)
     s.Save();
 }
 
-BEAM_EXPORT void Method_4(const Method::UserLockPrePhase& r)
+BEAM_EXPORT void Method_4(const Method::UserLock& r)
 {
-    Height h = Env::get_Height();
     MyState s;
-    Env::Halt_if(h >= s.m_hPreEnd);
+    Height h = Env::get_Height();
+
+    if (r.m_bPrePhase)
+    {
+        Env::Halt_if(h >= s.m_hPreEnd);
+        h = s.m_hPreEnd;
+    }
+    else
+    {
+        Env::Halt_if(!s.m_aidLpToken);
+        s.m_Pool.Update(h);
+    }
+
+    Env::Halt_if(!r.m_LpToken || (r.m_hEnd <= h));
+
+    uint64_t nPeriods = (r.m_hEnd - h) / User::s_LockPeriodBlocks;
+    uint64_t val = nPeriods - 1;
+    Env::Halt_if(val >= User::s_LockPeriodsMax);
+
+    User u;
+    _POD_(u).SetZero();
+    u.m_LpToken = r.m_LpToken;
+    u.m_hEnd = r.m_hEnd;
+
+    u.set_Weight(nPeriods, !!r.m_bPrePhase);
+    s.m_Pool.Add(u.m_PoolUser);
 
     User::Key uk;
     _POD_(uk.m_pk) = r.m_pkUser;
-    User u;
-    if (Env::LoadVar_T(uk, u))
-        s.m_Pool.m_Weight -= u.m_PoolUser.m_Weight;
-    else
-        _POD_(u).SetZero();
+    Env::Halt_if(Env::SaveVar_T(uk, u)); // fail if already exists
 
-    Amount valBeam = r.m_AmountBeamX * State::s_InitialRatio;
-    Env::Halt_if(valBeam / State::s_InitialRatio != r.m_AmountBeamX); // overflow test
-
-    Env::Halt_if(r.m_PrePhaseLockPeriods > User::s_PreLockPeriodsMax);
-    u.m_PrePhaseLockPeriods = r.m_PrePhaseLockPeriods;
-
-    Strict::Add(u.m_LpTokenPrePhase, valBeam);
-    u.m_PoolUser.m_Weight = u.get_WeightPrePhase();
-
-    Strict::Add(s.m_Pool.m_Weight, u.m_PoolUser.m_Weight);
-
-    Env::FundsLock(s.m_aidBeamX, r.m_AmountBeamX);
-    Env::FundsLock(0, valBeam);
-
-    Env::SaveVar_T(uk, u);
     s.Save();
+
+    if (r.m_bPrePhase)
+    {
+        Env::FundsLock(0, r.m_LpToken);
+        Env::FundsLock(s.m_aidBeamX, r.m_LpToken / State::s_InitialRatio);
+    }
+    else
+        Env::FundsLock(s.m_aidLpToken, r.m_LpToken);
 }
 
 BEAM_EXPORT void Method_5(const Method::UserUpdate& r)
@@ -142,46 +155,17 @@ BEAM_EXPORT void Method_5(const Method::UserUpdate& r)
     User::Key uk;
     _POD_(uk.m_pk) = r.m_pkUser;
     User u;
-    Amount valLpTokenTotal;
+    Env::Halt_if(!Env::LoadVar_T(uk, u)); // must exist
 
-    if (Env::LoadVar_T(uk, u))
+    u.m_EarnedBeamX += s.m_Pool.Remove(u.m_PoolUser); // should not overflow
+
+    if (r.m_WithdrawLPToken)
     {
-        Amount valEarned = s.m_Pool.Remove(u.m_PoolUser);
-        u.m_EarnedBeamX += valEarned; // should not overflow
+        Env::Halt_if(h < u.m_hEnd);
+        Env::FundsUnlock(s.m_aidLpToken, u.m_LpToken);
 
-        valLpTokenTotal = u.m_LpTokenPrePhase + u.m_LpTokenPostPhase; // should not overflow
-    }
-    else
-    {
-        _POD_(u).SetZero();
-        valLpTokenTotal = 0;
-    }
-
-    if (r.m_NewLpToken > valLpTokenTotal)
-    {
-        Amount diff = r.m_NewLpToken - valLpTokenTotal;
-        u.m_LpTokenPostPhase += diff; // should not overflow
-        Env::FundsLock(s.m_aidLpToken, diff);
-    }
-    else
-    {
-        Amount diff = valLpTokenTotal - r.m_NewLpToken;
-        if (diff)
-        {
-            if (u.m_LpTokenPostPhase >= diff)
-                u.m_LpTokenPostPhase -= diff;
-            else
-            {
-                diff -= u.m_LpTokenPostPhase;
-                u.m_LpTokenPostPhase = 0;
-
-                Env::Halt_if(h < u.get_UnlockHeight(s));
-
-                Strict::Sub(u.m_LpTokenPrePhase, diff);
-            }
-
-            Env::FundsUnlock(s.m_aidLpToken, diff);
-        }
+        u.m_LpToken = 0;
+        u.m_PoolUser.m_Weight = 0;
     }
 
     if (r.m_WithdrawBeamX)
@@ -190,9 +174,7 @@ BEAM_EXPORT void Method_5(const Method::UserUpdate& r)
         Env::FundsUnlock(s.m_aidBeamX, r.m_WithdrawBeamX);
     }
 
-    u.m_PoolUser.m_Weight = u.get_WeightPrePhase() + u.get_WeightPostPhase();
-
-    if (u.m_PoolUser.m_Weight || u.m_EarnedBeamX)
+    if (u.m_LpToken || u.m_EarnedBeamX)
     {
         s.m_Pool.Add(u.m_PoolUser);
         Env::SaveVar_T(uk, u);
