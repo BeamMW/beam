@@ -136,7 +136,11 @@ BEAM_EXPORT void Method_4(const Method::UserLock& r)
     if (r.m_bPrePhase)
     {
         Env::FundsLock(0, r.m_LpToken);
-        Env::FundsLock(s.m_aidBeamX, r.m_LpToken / State::s_InitialRatio);
+
+        Amount valBeamX = r.m_LpToken / State::s_InitialRatio;
+        Env::Halt_if(valBeamX * State::s_InitialRatio != r.m_LpToken); // must be exact multiple
+
+        Env::FundsLock(s.m_aidBeamX, valBeamX);
     }
     else
         Env::FundsLock(s.m_aidLpToken, r.m_LpToken);

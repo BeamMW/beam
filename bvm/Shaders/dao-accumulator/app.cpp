@@ -436,6 +436,12 @@ bool CheckLockParams(Amount amountLpToken, uint32_t lockPeriods)
         return false;
     }
 
+    if (amountLpToken % State::s_InitialRatio)
+    {
+        OnError("amount should be even");
+        return false;
+    }
+
     if (!lockPeriods)
     {
         OnError("lock period should be nnz");
@@ -473,6 +479,7 @@ ON_METHOD(user_lock)
             return OnError("wait for farm start");
 
         arg.m_bPrePhase = 1;
+        h = s.m_hPreEnd;
     }
 
     arg.m_LpToken = amountLpToken;
