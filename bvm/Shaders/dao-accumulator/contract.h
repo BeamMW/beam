@@ -5,9 +5,8 @@
 namespace DaoAccumulator
 {
     static const ShaderID s_pSID[] = {
-        { 0x6d,0x61,0x1e,0xc9,0xff,0x3b,0x18,0xb9,0xc7,0xf7,0x0d,0x2f,0x8e,0x03,0x99,0xd2,0xfa,0xd2,0xf5,0xfe,0xd8,0x7f,0x54,0xa5,0xfe,0xb3,0x14,0xd6,0xd4,0x84,0xd1,0xb4 },
-        { 0xc6,0x9d,0x73,0x5f,0xf5,0xd5,0x64,0x56,0x27,0x44,0x33,0xbd,0x49,0xf0,0xd7,0x84,0x12,0xaa,0x08,0x29,0xcf,0xa1,0x07,0x0a,0x6c,0x21,0x9c,0x5f,0xdd,0xbd,0x78,0x8d },
-        { 0xdf,0x15,0xe3,0x70,0x3e,0x23,0xdc,0x33,0x8b,0x58,0x1c,0xe4,0x05,0x20,0xa6,0xab,0xc6,0x6b,0x50,0xdd,0xaa,0x6f,0xf2,0xa6,0x00,0x9c,0xbb,0xc8,0xbb,0xcc,0x82,0x98 },
+        { 0x8b,0xce,0x8c,0x1f,0x0a,0xd8,0xd9,0xd1,0x95,0x63,0x19,0x66,0x6a,0xf7,0x89,0xd7,0xfd,0x68,0xab,0x7e,0xc9,0xd4,0x62,0x15,0x6f,0xcb,0x03,0xc9,0xbd,0x79,0xcc,0x96 },
+        { 0xcc,0xed,0x12,0x15,0xca,0x99,0x34,0x62,0x0b,0x02,0x0f,0xea,0x17,0xb3,0xf5,0x9e,0xff,0x58,0xca,0x6b,0x38,0xb3,0x97,0x62,0xbc,0x42,0xf0,0x95,0xc0,0xe5,0x23,0x3a },
     };
 
 #pragma pack (push, 1)
@@ -20,12 +19,8 @@ namespace DaoAccumulator
         static const uint8_t s_User = 0;
     };
 
-
     struct Pool
     {
-//        static const Amount s_Emission = g_Beam2Groth * 6'000'000;
-//        static const Height s_Duration = 1440 * 365 * 2; // 2 years
-
         Height m_hLast;
         Height m_hRemaining;
         Amount m_AmountRemaining;
@@ -76,6 +71,12 @@ namespace DaoAccumulator
             m_Sigma = m_Sigma + fDelta / Float(m_Weight);
         }
 
+        void Add(User& u)
+        {
+            Strict::Add(m_Weight, u.m_Weight);
+            u.m_Sigma0 = m_Sigma;
+        }
+
         Amount Remove(const User& u)
         {
             uint64_t w = u.m_Weight;
@@ -86,19 +87,21 @@ namespace DaoAccumulator
             Amount ret;
             if (w < m_Weight)
             {
-                (Float(m_AmountInPool) * Float(w) / Float(m_Weight)).RoundDown(ret);
-                assert(ret <= m_AmountInPool);
-
-                m_AmountInPool -= ret;
                 m_Weight -= w;
+
+                Float dSigma = m_Sigma - u.m_Sigma0;
+                (dSigma * Float(w)).RoundDown(ret);
+
+                if (ret > m_AmountInPool) // round-off errors?
+                    ret = m_AmountInPool;
             }
             else
             {
                 ret = m_AmountInPool;
-                m_AmountInPool = 0;
                 m_Weight = 0;
             }
 
+            m_AmountInPool -= ret;
             return ret;
         }
 
@@ -124,31 +127,21 @@ namespace DaoAccumulator
         };
 
         Pool::User m_PoolUser;
-        Amount m_LpTokenPrePhase;
-        Amount m_LpTokenPostPhase; // how much LP-Token did the user deposit AFTER the pre-phase
+        Amount m_LpToken;
         Amount m_EarnedBeamX; // earned but not withdrawn yet
 
-        uint8_t m_PrePhaseLockPeriods;
+        Height m_hEnd;
 
-        static const uint32_t s_PreLockPeriodBlocks = 1440 * 365 / 4; // 3 months
-        static const uint8_t s_PreLockPeriodsMax = 4; // 1 year
+        static const uint32_t s_LockPeriodBlocks = 1440 * 365 / 12; // 1 month
+        static const uint8_t s_LockPeriodsMax = 12; // 1 year
 
-        uint64_t get_WeightPrePhase() const
+        void set_Weight(uint64_t nLockPeriods, bool bPrePhase)
         {
-            uint64_t val = m_LpTokenPrePhase * 2; // don't care about overflow
-            uint64_t extra = (m_LpTokenPrePhase / 2) * m_PrePhaseLockPeriods;
+            uint64_t val = m_LpToken * nLockPeriods / s_LockPeriodsMax; // don't care about overflow
+            if (bPrePhase)
+                val *= 2;
 
-            return val + extra;
-        }
-
-        uint64_t get_WeightPostPhase() const
-        {
-            return m_LpTokenPostPhase; // assume it's 1/2 of Pre-Phase weight
-        }
-
-        Height get_UnlockHeight(const State& s) const
-        {
-            return s.m_hPreEnd + s_PreLockPeriodBlocks * m_PrePhaseLockPeriods;
+            m_PoolUser.m_Weight = val;
         }
     };
 
@@ -174,24 +167,22 @@ namespace DaoAccumulator
 
         };
 
-        struct UserLockPrePhase
+        struct UserLock
         {
             static const uint32_t s_iMethod = 4;
 
             PubKey m_pkUser;
-            Amount m_AmountBeamX;
-            uint8_t m_PrePhaseLockPeriods;
+            Amount m_LpToken;
+            Height m_hEnd;
+            uint8_t m_bPrePhase;
         };
 
         struct UserUpdate
         {
             static const uint32_t s_iMethod = 5;
 
-            // withdraw lp-tokens locked during pre-phase
-            // lock/unlock more lp-tokens
-            // withdraw earned beamX
             PubKey m_pkUser;
-            Amount m_NewLpToken;
+            uint8_t m_WithdrawLPToken;
             Amount m_WithdrawBeamX;
         };
 

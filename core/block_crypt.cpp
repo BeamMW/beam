@@ -969,7 +969,6 @@ namespace beam
 
 	void TxKernelNonStd::UpdateID()
 	{
-		m_Internal.m_HasNonStd = true; // I'm non-standard already
 		UpdateMsg();
 		MsgToID();
 	}
@@ -996,6 +995,8 @@ namespace beam
 
 	void TxKernelNonStd::MsgToID()
 	{
+		m_Internal.m_HasNonStd = true; // I'm non-standard already
+
 		ECC::Hash::Processor hp;
 		hp << m_Msg;
 		HashSelfForID(hp);
