@@ -917,38 +917,26 @@ namespace detail
 			return ar;
 		}
 
-#pragma pack (push, 1)
-		struct PublicGenPacked
-		{
-			ECC::HKdfPub::Packed m_Gen;
-			ECC::HKdfPub::Packed m_Ser;
-		};
-		static_assert(sizeof(PublicGenPacked) == sizeof(ECC::HKdfPub::Packed) * 2);
-#pragma pack (pop)
-
-
 		/// beam::ShieldedTxo::PublicGen serialization
 		template<typename Archive>
 		Archive& save(Archive& ar, const beam::ShieldedTxo::PublicGen& x)
 		{
-			ECC::NoLeak<PublicGenPacked> p;
-			if (x.ExportP(nullptr) != sizeof(p))
-				return ar;
+			beam::ShieldedTxo::PublicGen::Packed p;
+			x.Export(p);
 
-			x.ExportP(&p);
 			uint8_t nFlags =
-				(p.V.m_Gen.m_PkG.m_Y ? 1 : 0) |
-				(p.V.m_Gen.m_PkJ.m_Y ? 2 : 0) |
-				(p.V.m_Ser.m_PkG.m_Y ? 4 : 0) |
-				(p.V.m_Ser.m_PkJ.m_Y ? 8 : 0);
+				(p.m_Gen.m_PkG.m_Y ? 1 : 0) |
+				(p.m_Gen.m_PkJ.m_Y ? 2 : 0) |
+				(p.m_Ser.m_PkG.m_Y ? 4 : 0) |
+				(p.m_Ser.m_PkJ.m_Y ? 8 : 0);
 			ar
 				& nFlags
-				& p.V.m_Gen.m_Secret
-				& p.V.m_Gen.m_PkG.m_X
-				& p.V.m_Gen.m_PkJ.m_X
-				& p.V.m_Ser.m_Secret
-				& p.V.m_Ser.m_PkG.m_X
-				& p.V.m_Ser.m_PkJ.m_X;
+				& p.m_Gen.m_Secret
+				& p.m_Gen.m_PkG.m_X
+				& p.m_Gen.m_PkJ.m_X
+				& p.m_Ser.m_Secret
+				& p.m_Ser.m_PkG.m_X
+				& p.m_Ser.m_PkJ.m_X;
 
 			return ar;
 		}
@@ -956,28 +944,23 @@ namespace detail
 		template<typename Archive>
 		Archive& load(Archive& ar, beam::ShieldedTxo::PublicGen& x)
 		{
-			ECC::NoLeak<PublicGenPacked> p;
+			beam::ShieldedTxo::PublicGen::Packed p;
 			uint8_t nFlags;
 			ar
 				& nFlags
-				& p.V.m_Gen.m_Secret
-				& p.V.m_Gen.m_PkG.m_X
-				& p.V.m_Gen.m_PkJ.m_X
-				& p.V.m_Ser.m_Secret
-				& p.V.m_Ser.m_PkG.m_X
-				& p.V.m_Ser.m_PkJ.m_X;
+				& p.m_Gen.m_Secret
+				& p.m_Gen.m_PkG.m_X
+				& p.m_Gen.m_PkJ.m_X
+				& p.m_Ser.m_Secret
+				& p.m_Ser.m_PkG.m_X
+				& p.m_Ser.m_PkJ.m_X;
 
-			p.V.m_Gen.m_PkG.m_Y = (1 & nFlags);
-			p.V.m_Gen.m_PkJ.m_Y = (2 & nFlags) != 0;
-			p.V.m_Ser.m_PkG.m_Y = (4 & nFlags) != 0;
-			p.V.m_Ser.m_PkJ.m_Y = (8 & nFlags) != 0;
+			p.m_Gen.m_PkG.m_Y = (1 & nFlags);
+			p.m_Gen.m_PkJ.m_Y = (2 & nFlags) != 0;
+			p.m_Ser.m_PkG.m_Y = (4 & nFlags) != 0;
+			p.m_Ser.m_PkJ.m_Y = (8 & nFlags) != 0;
 
-			auto pKdf = std::make_shared<ECC::HKdfPub>();
-			pKdf->Import(p.V.m_Gen);
-			x.m_pGen = pKdf;
-			pKdf = std::make_shared<ECC::HKdfPub>();
-			pKdf->Import(p.V.m_Ser);
-			x.m_pSer = pKdf;
+			x.ImportStrict(p);
 
 			return ar;
 		}

@@ -19,7 +19,7 @@
 
 namespace beam::wallet
 {
-    using WalletIDKey = uint64_t;
+    using EndpointIndex = uint64_t;
 
     //
     // Interface to master key storage. HW wallet etc.
@@ -44,6 +44,11 @@ namespace beam::wallet
             static const Type Unspecified = 1;
             static const Type UserAbort = 2;
             static const Type NotImplemented = 3;
+        };
+
+        enum struct KdfType {
+            Root,
+            Sbbs,
         };
 
         struct Handler
@@ -71,17 +76,19 @@ namespace beam::wallet
         {
             struct get_Kdf
             {
-                Key::Index m_iChild;
-                bool m_Root; // if true the m_iChild is ignored
+                KdfType m_Type;
 
                 Key::IKdf::Ptr m_pKdf; // only for trusted host
                 Key::IPKdf::Ptr m_pPKdf;
-
-                void From(const CoinID&);
             };
 
             struct get_NumSlots {
                 Slot::Type m_Count;
+            };
+
+            struct get_Commitment {
+                CoinID m_Cid;
+                ECC::Point m_Result;
             };
 
             struct CreateOutput {
@@ -109,10 +116,17 @@ namespace beam::wallet
 
             struct CreateVoucherShielded
             {
-                WalletIDKey m_MyIDKey = 0;
+                EndpointIndex m_iEndpoint = 0;
                 ECC::Hash::Value m_Nonce;
                 uint32_t m_Count = 1; // the result amount of vouchers may be less (i.e. there's an internal limit)
                 std::vector<ShieldedTxo::Voucher> m_Res;
+            };
+
+            struct CreateOfflineAddr
+            {
+                EndpointIndex m_iEndpoint = 0;
+                ShieldedTxo::PublicGen m_Addr;
+                ECC::Signature m_Signature;
             };
 
             struct InOuts
@@ -135,7 +149,8 @@ namespace beam::wallet
             {
                 // for mutually-constructed kernel
                 PeerID m_Peer;
-                WalletIDKey m_MyIDKey; // Must set for trustless wallet
+                EndpointIndex m_iEndpoint; // Must set for trustless wallet
+                bool m_IsBbs = false; // set in legacy mode (where it was sbbs pubkey instead of endpoint). Unavailable in trusted mode
                 ECC::Signature m_PaymentProofSignature;
             };
 
@@ -145,7 +160,6 @@ namespace beam::wallet
             struct SignSender :public TxMutual {
                 Slot::Type m_Slot;
                 ECC::Hash::Value m_UserAgreement; // set to Zero on 1st invocation
-                PeerID m_MyID; // set in legacy mode (where it was sbbs pubkey) instead of m_MyIDKey. Otherwise it'll be set automatically.
             };
 
             struct SignSplit :public TxCommon {
@@ -154,13 +168,29 @@ namespace beam::wallet
 
             struct SignSendShielded :public TxCommon
             {
-                ShieldedTxo::Voucher m_Voucher;
+                // one of the above should be specified
+                std::unique_ptr<ShieldedTxo::Voucher> m_pVoucher;
+
+                struct Offline
+                {
+                    ShieldedTxo::PublicGen m_Addr;
+                    ECC::Signature m_Signature;
+                    ECC::Hash::Value m_Nonce;
+                };
+
+                std::unique_ptr<Offline> m_pOffline;
+
                 PeerID m_Peer;
-                WalletIDKey m_MyIDKey = 0; // set if sending to yourself (though makes no sense to do so)
+                EndpointIndex m_iEndpoint = 0; // set if sending to yourself (though makes no sense to do so)
 
                 // sent value and asset are derived from the tx balance (ins - outs)
                 ShieldedTxo::User m_User;
                 bool m_HideAssetAlways = false;
+            };
+
+            struct DisplayEndpoint
+            {
+                EndpointIndex m_iEndpoint = 0;
             };
 
         };
@@ -168,13 +198,16 @@ namespace beam::wallet
 #define KEY_KEEPER_METHODS(macro) \
 		macro(get_Kdf) \
 		macro(get_NumSlots) \
+		macro(get_Commitment) \
 		macro(CreateOutput) \
 		macro(CreateInputShielded) \
 		macro(CreateVoucherShielded) \
+		macro(CreateOfflineAddr) \
 		macro(SignReceiver) \
 		macro(SignSender) \
 		macro(SignSendShielded) \
 		macro(SignSplit) \
+		macro(DisplayEndpoint) \
 
 
 #define THE_MACRO(method) \
@@ -185,9 +218,6 @@ namespace beam::wallet
 #undef THE_MACRO
 
         virtual ~IPrivateKeyKeeper2() {}
-
-        // synthetic functions (in terms of underlying ones)
-        Status::Type get_Commitment(ECC::Point::Native&, const CoinID&);
 
     private:
         struct HandlerSync;

@@ -36,13 +36,14 @@ struct EmptyTestGateway : wallet::INegotiatorGateway
     void on_tx_failed(const TxID&) override {}
     void register_tx(const TxID&, const Transaction::Ptr&, const Merkle::Hash*, wallet::SubTxID) override {}
     void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID subTxID) override {}
+    void confirm_kernel_ex(const Merkle::Hash& kernelID, IConfirmCallback::Ptr&& pCallback) override {}
     void confirm_asset(const TxID&, const PeerID&, SubTxID subTxID) override {}
     void confirm_asset(const TxID&, const Asset::ID, SubTxID subTxID) override {}
     void get_kernel(const TxID& txID, const Merkle::Hash& kernelID, wallet::SubTxID subTxID) override {}
     bool get_tip(Block::SystemState::Full& state) const override { return false; }
     void send_tx_params(const WalletID& peerID, const wallet::SetTxParameter&) override {}
     void get_shielded_list(const TxID&, TxoID startIndex, uint32_t count, ShieldedListCallback&& callback) override {}
-    void UpdateOnNextTip(const TxID&) override {};
+    void UpdateOnNextTip(const TxID&) override {}
 };
 
 Coin CreateAvailCoin(Amount amount, Height maturity = 10)
@@ -125,8 +126,8 @@ public:
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AssetID, toByteBuffer(p.m_assetId), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AssetMetadata, toByteBuffer(p.m_assetMeta), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::MinHeight, toByteBuffer(p.m_minHeight), false);
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::PeerID, toByteBuffer(p.m_peerId), false);
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::MyID, toByteBuffer(p.m_myId), false);
+        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::PeerAddr, toByteBuffer(p.m_peerAddr), false);
+        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::MyAddr, toByteBuffer(p.m_myAddr), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Message, toByteBuffer(p.m_message), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::CreateTime, toByteBuffer(p.m_createTime), false);
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::ModifyTime, toByteBuffer(p.m_modifyTime), false);
@@ -147,7 +148,7 @@ public:
     boost::optional<WalletAddress> getAddress(
         const WalletID& id, bool isLaser = false) const override
     {
-        if (id == m_LastAdddr.m_walletID)
+        if (id == m_LastAdddr.m_BbsAddr)
             return m_LastAdddr;
 
         return boost::optional<WalletAddress>();
@@ -429,24 +430,13 @@ struct TestWalletRig
 
     {
         m_Wallet = std::make_shared<TestWallet>(m_WalletDB, move(action), Wallet::UpdateCompletedAction());
-        if (auto kdf = m_WalletDB->get_MasterKdf(); kdf) // can create secrets
-        {
-            WalletAddress wa;
-            m_WalletDB->createAddress(wa);
-            m_WalletDB->saveAddress(wa);
-            m_WalletID = wa.m_walletID;
-            m_OwnID = wa.m_OwnID;
-            Key::ID kid(m_OwnID, Key::Type::WalletID);
-            Scalar::Native sk;
-            kdf->DeriveKey(sk, kid);
-            m_SecureWalletID.FromSk(sk);
-        }
-        else
-        {
-            auto addresses = m_WalletDB->getAddresses(true);
-            m_WalletID = addresses[0].m_walletID;
-            m_OwnID = addresses[0].m_OwnID;
-        }
+
+        WalletAddress wa;
+        m_WalletDB->createAddress(wa);
+        m_WalletDB->saveAddress(wa);
+        m_BbsAddr = wa.m_BbsAddr;
+        m_OwnID = wa.m_OwnID;
+        m_WalletDB->get_Endpoint(m_Endpoint, m_OwnID);
 
         m_Wallet->ResumeAllTransactions();
 
@@ -514,8 +504,8 @@ struct TestWalletRig
         return coins;
     }
 
-    WalletID m_WalletID;
-    PeerID m_SecureWalletID;
+    WalletID m_BbsAddr;
+    PeerID m_Endpoint;
     uint64_t m_OwnID;
     IWalletDB::Ptr m_WalletDB;
     std::shared_ptr<TestWallet> m_Wallet;
@@ -1378,8 +1368,8 @@ public:
                 if (sendCount--)
                 {
                     sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
-                        .SetParameter(TxParameterID::MyID, sender.m_WalletID)
-                        .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                        .SetParameter(TxParameterID::MyAddr, sender.m_BbsAddr)
+                        .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
                         .SetParameter(TxParameterID::Amount, Amount(5))
                         .SetParameter(TxParameterID::Fee, Amount(1))
                         .SetParameter(TxParameterID::Lifetime, Height(10000))

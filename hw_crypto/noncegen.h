@@ -18,8 +18,8 @@
 typedef struct
 {
 	// RFC-5869
-	BeamCrypto_UintBig m_Prk;
-	BeamCrypto_UintBig m_Okm;
+	UintBig m_Prk;
+	UintBig m_Okm;
 
 	uint8_t m_Counter; // wraps-around, it's fine
 	uint8_t m_FirstTime;
@@ -27,8 +27,8 @@ typedef struct
 	const uint8_t* m_pContext;
 	size_t m_nContext;
 
-} BeamCrypto_NonceGenerator;
+} NonceGenerator;
 
-void BeamCrypto_NonceGenerator_Init(BeamCrypto_NonceGenerator*, const char* szSalt, size_t nSalt, const BeamCrypto_UintBig* pSeed);
-void BeamCrypto_NonceGenerator_NextOkm(BeamCrypto_NonceGenerator*);
-void BeamCrypto_NonceGenerator_NextScalar(BeamCrypto_NonceGenerator*, secp256k1_scalar*);
+void NonceGenerator_Init(NonceGenerator*, const char* szSalt, size_t nSalt, const UintBig* pSeed);
+void NonceGenerator_NextOkm(NonceGenerator*);
+void NonceGenerator_NextScalar(NonceGenerator*, secp256k1_scalar*);

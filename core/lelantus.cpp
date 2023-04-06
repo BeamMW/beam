@@ -922,12 +922,10 @@ void Prover::Generate(const uintBig& seed, Oracle& oracle, const Point::Native* 
 	}
 
 	m_Sigma.m_Witness.m_L = m_Witness.m_L;
+	m_Sigma.m_Witness.m_R = m_Witness.m_R;
 
 	if (Phase::SinglePass == ePhase)
-	{
-		m_Sigma.m_Witness.m_R = m_Witness.m_R;
 		m_Sigma.m_Witness.m_R -= m_Witness.m_R_Output;
-	}
 
 	m_Sigma.Generate(seed, oracle, ptBias, ePhase);
 }

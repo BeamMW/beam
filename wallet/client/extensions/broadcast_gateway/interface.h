@@ -59,7 +59,8 @@ namespace beam
      */
     struct IBroadcastListener
     {
-        virtual bool onMessage(uint64_t, BroadcastMsg&&) { return true; };
+        bool onMessage(uint64_t, BroadcastMsg&& msg, uint32_t) { return onMessage(std::move(msg)); };
+        virtual bool onMessage(BroadcastMsg&&) { return true; };
     };
 
     /**

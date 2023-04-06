@@ -23,4 +23,4 @@ configure_file("../Shaders/nephrite/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/
 configure_file("../Shaders/nephrite/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/nephrite/app.wasm" COPYONLY)
 configure_file("../Shaders/amm/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/amm/contract.wasm" COPYONLY)
 configure_file("../Shaders/amm/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/amm/app.wasm" COPYONLY)
-configure_file("../Shaders/mintor/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/mintor/contract.wasm" COPYONLY)
+configure_file("../Shaders/minter/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/minter/contract.wasm" COPYONLY)

@@ -192,7 +192,7 @@ public:
     }
 
     // IBroadcastListener implementation
-    bool onMessage(uint64_t unused, BroadcastMsg&& msg) override
+    bool onMessage(BroadcastMsg&& msg) override
     {
         Block::SystemState::Full blockState;
         _walletDB->get_History().get_Tip(blockState);
@@ -765,17 +765,24 @@ private:
                 m_json["metadata"] = std::move(wr.m_json);
             }
 
-            void AddAssetInfo(const Asset::Full& ai)
+            void AddAssetCreateInfo(const Asset::CreateInfo& ai)
             {
-                AddAid(ai.m_ID);
                 AddMetadata(ai.m_Metadata);
-                AddValBig("value", ai.m_Value);
-                m_json["lock_height"] = ai.m_LockHeight;
 
                 if (ai.m_Cid != Zero)
                     m_json["cid"] = MakeTypeObj("cid", ai.m_Cid);
                 else
                     AddHex("owner", ai.m_Owner);
+
+                m_json["deposit"] = MakeObjAmount(ai.m_Deposit);
+            }
+
+            void AddAssetInfo(const Asset::Full& ai)
+            {
+                AddAid(ai.m_ID);
+                AddAssetCreateInfo(ai);
+                AddValBig("value", ai.m_Value);
+                m_json["lock_height"] = ai.m_LockHeight;
             }
         };
 
@@ -839,9 +846,15 @@ private:
 
                 void OnKrnEx(const TxKernelAssetCreate& krn)
                 {
+                    Asset::CreateInfo ai;
+                    ai.SetCid(nullptr);
+                    ai.m_Owner = krn.m_Owner;
+                    ai.m_Deposit = Rules::get().get_DepositForCA(m_Height);
+
+                    TemporarySwap ts(ai.m_Metadata, Cast::NotConst(krn).m_MetaData);
+
                     Writer wr;
-                    wr.AddMetadata(krn.m_MetaData);
-                    wr.m_json["Deposit"] = Rules::get().get_DepositForCA(m_Height);
+                    wr.AddAssetCreateInfo(ai);
                     m_Wr.m_json["Asset.Create"] = std::move(wr.m_json);
                 }
 
@@ -1333,6 +1346,207 @@ private:
         return json2Msg(j, out);
     }
 
+    struct AssetHistoryWalker
+    {
+        typedef std::pair<Height, uint64_t> Pos;
+
+        struct Event
+            :public boost::intrusive::list_base_hook<>
+        {
+            Pos m_Pos;
+
+            enum struct Type {
+                Emit,
+                Create,
+                Destroy,
+            };
+
+            virtual ~Event() {}
+            virtual Type get_Type() const = 0;
+
+            typedef intrusive::list_autoclear<Event> List;
+        };
+
+        struct Event_Emit :public Event {
+            NodeProcessor::AssetDataPacked m_Adp;
+            virtual Type get_Type() const { return Type::Emit; }
+        };
+
+        struct Event_Destroy :public Event {
+            virtual Type get_Type() const { return Type::Destroy; }
+        };
+
+        struct Event_Create :public Event {
+            virtual Type get_Type() const { return Type::Create; }
+
+            Asset::CreateInfo m_Ai;
+            virtual ~Event_Create() {}
+        };
+
+        Event::List m_Lst;
+
+        void Enum(NodeProcessor& p, Asset::ID aid, Height hMin, Height hMax, uint32_t nMaxOps)
+        {
+            if (!nMaxOps)
+                return;
+
+            NodeDB& db = p.get_DB();
+
+            // in sqlite 64-bit nums are signed
+            hMax = std::min<Height>(hMax, std::numeric_limits<int64_t>::max());
+            hMin = std::min<Height>(hMin, std::numeric_limits<int64_t>::max());
+
+            NodeDB::WalkerAssetEvt wlk;
+            for (db.AssetEvtsEnumBwd(wlk, aid, hMax); wlk.MoveNext(); )
+            {
+                if ((m_Lst.size() >= nMaxOps) && (m_Lst.back().m_Pos.first != wlk.m_Height))
+                    break;
+
+                auto* pEvt = new Event_Emit;
+                m_Lst.push_back(*pEvt);
+
+                pEvt->m_Pos.first = wlk.m_Height;
+                pEvt->m_Pos.second = wlk.m_Index;
+                pEvt->m_Adp.set_Strict(wlk.m_Body);
+
+                if (wlk.m_Height < hMin)
+                    break;
+            }
+
+            auto it = m_Lst.begin();
+
+            for (db.AssetEvtsEnumBwd(wlk, aid + Asset::s_MaxCount, hMax); wlk.MoveNext(); )
+            {
+                if (wlk.m_Height < hMin)
+                    break;
+
+                if ((m_Lst.size() >= nMaxOps * 2) && (m_Lst.back().m_Pos.first != wlk.m_Height))
+                    break;
+
+                Pos pos;
+                pos.first = wlk.m_Height;
+                pos.second = wlk.m_Index;
+
+                while ((m_Lst.end() != it) && (it->m_Pos > pos))
+                    it++;
+
+                if (wlk.m_Body.n)
+                {
+                    auto* pEvt = new Event_Create;
+                    m_Lst.insert(it, *pEvt);
+                    pEvt->m_Pos = pos;
+
+                    p.get_AssetCreateInfo(pEvt->m_Ai, wlk);
+                }
+                else
+                {
+                    auto* pEvt = new Event_Destroy;
+                    m_Lst.insert(it, *pEvt);
+                    pEvt->m_Pos = pos;
+                }
+            }
+        }
+    };
+
+    bool get_asset_history(io::SerializedMsg& out, Asset::ID aid, Height hMin, Height hMax, uint32_t nMaxOps) override
+    {
+        if (!aid)
+            return false;
+
+        AssetHistoryWalker wlk;
+        wlk.Enum(_nodeBackend, aid, hMin, hMax, nMaxOps);
+
+
+        ExtraInfo::Writer wrArr(json::array());
+        wrArr.m_json.push_back(json::array({
+            MakeTableHdr("Height"),
+            MakeTableHdr("Event"),
+            MakeTableHdr("Amount"),
+            MakeTableHdr("Total Amount"),
+            MakeTableHdr("Extra")
+            }));
+
+        Height hPrev = MaxHeight;
+        uint32_t nCount = 0;
+        for (auto it = wlk.m_Lst.begin(); wlk.m_Lst.end() != it; nCount++)
+        {
+            auto& x = *it;
+            it++;
+
+            if (hPrev != x.m_Pos.first)
+            {
+                if (nCount >= nMaxOps)
+                    break;
+
+                hPrev = x.m_Pos.first;
+
+                if (hPrev < hMin)
+                    break;
+            }
+
+            ExtraInfo::Writer wrItem(json::array());
+            wrItem.m_json.push_back(hPrev); // height
+
+            typedef AssetHistoryWalker::Event::Type Type;
+
+            switch (x.get_Type())
+            {
+            default:
+                assert(false);
+                // no break;
+
+            case Type::Emit:
+                {
+                    auto& evt = Cast::Up<AssetHistoryWalker::Event_Emit>(x);
+                    AmountBig::Type delta = evt.m_Adp.m_Amount;
+
+                    if ((wlk.m_Lst.end() != it) && (it->get_Type() == Type::Emit))
+                    {
+                        AmountBig::Type v0 = Cast::Up<AssetHistoryWalker::Event_Emit>(*it).m_Adp.m_Amount;
+                        v0.Negate();
+                        delta += v0;
+                    }
+
+                    wrItem.m_json.push_back(delta.get_Msb() ? "Burn" : "Mint");
+                    wrItem.m_json.push_back(MakeObjAmount(delta)); // handles negative sign
+                    wrItem.m_json.push_back(MakeObjAmount(evt.m_Adp.m_Amount));
+                    wrItem.m_json.push_back("");
+                }
+                break;
+
+            case Type::Create:
+                {
+                    auto& evt = Cast::Up<AssetHistoryWalker::Event_Create>(x);
+                    wrItem.m_json.push_back("Create");
+                    wrItem.m_json.push_back("");
+                    wrItem.m_json.push_back("");
+
+                    ExtraInfo::Writer wrExtra;
+                    wrExtra.AddAssetCreateInfo(evt.m_Ai);
+                    wrItem.m_json.push_back(std::move(wrExtra.m_json));
+                }
+                break;
+
+                case Type::Destroy:
+                {
+                    wrItem.m_json.push_back("Destroy");
+                    wrItem.m_json.push_back("");
+                    wrItem.m_json.push_back("");
+                    wrItem.m_json.push_back("");
+                }
+                break;
+            }
+
+            wrArr.m_json.push_back(std::move(wrItem.m_json));
+
+        }
+
+        ExtraInfo::Writer wr;
+        wr.m_json["Asset history"] = MakeTable(std::move(wrArr.m_json));
+
+        return json2Msg(wr.m_json, out);
+    }
+
     bool extract_block_from_row(json& out, uint64_t row, Height height) {
         NodeDB& db = _nodeBackend.get_DB();
 
@@ -1508,16 +1722,7 @@ private:
         return get_block_impl(out, height, row, 0);
     }
 
-    bool get_block_by_hash(io::SerializedMsg& out, const ByteBuffer& hash) override {
-        NodeDB& db = _nodeBackend.get_DB();
-
-        Height height = db.FindBlock(hash);
-        uint64_t row = 0;
-
-        return get_block_impl(out, height, row, 0);
-    }
-
-    bool get_block_by_kernel(io::SerializedMsg& out, const ByteBuffer& key) override {
+    bool get_block_by_kernel(io::SerializedMsg& out, const Blob& key) override {
         NodeDB& db = _nodeBackend.get_DB();
 
         Height height = db.FindKernel(key);

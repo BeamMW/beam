@@ -14,6 +14,10 @@ target_sources(keykeeper
     PRIVATE
         local_private_key_keeper.cpp
         remote_key_keeper.cpp
+        hid_key_keeper.cpp
+        ledger_loader.cpp
+        ledger_app_nanos.cpp
+        ledger_app_nanosplus.cpp
 )
 
 if(EMSCRIPTEN AND NOT BEAM_WALLET_CLIENT_LIBRARY)
@@ -63,6 +67,15 @@ else()
 
     target_link_libraries(keykeeper PRIVATE Boost::boost utility)
     
+endif()
+
+if (APPLE AND NOT IOS)
+	find_library(IOKIT_FRAMEWORK IOKit REQUIRED)
+	find_library(CORE_FOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
+	message(STATUS "Framework IOKit: ${IOKIT_FRAMEWORK}")
+	message(STATUS "Framework CoreFoundation: ${CORE_FOUNDATION_FRAMEWORK}")
+	target_link_libraries(keykeeper PRIVATE ${IOKIT_FRAMEWORK})
+	target_link_libraries(keykeeper PRIVATE ${CORE_FOUNDATION_FRAMEWORK})
 endif()
 
 if (NOT ANDROID AND NOT IOS)

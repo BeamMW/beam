@@ -19,7 +19,7 @@
 
 namespace beam::wallet::lelantus
 {
-    TxParameters CreatePullTransactionParameters(const WalletID& myID, const boost::optional<TxID>& txId = boost::none);
+    TxParameters CreatePullTransactionParameters(const boost::optional<TxID>& txId = boost::none);
 
     class PullTxBuilder;
 

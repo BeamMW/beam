@@ -153,7 +153,7 @@ namespace beam::wallet
                 {"tx_mutual_info",
                     {
                         {"peer", Hex(m.m_Peer.str())},
-                        {"wallet_identity_key", m.m_MyIDKey},
+                        {"wallet_identity_key", m.m_iEndpoint},
                         {"payment_proof_signature",
                             {
                                 {"nonce_pub",
@@ -755,7 +755,7 @@ namespace beam::wallet
         TxImport(txCommon, m, v);
 
         BeamCrypto_TxMutualInfo txMutualInfo;
-        txMutualInfo.m_MyIDKey = m.m_MyIDKey;
+        txMutualInfo.m_iEndpoint = m.m_iEndpoint;
         txMutualInfo.m_Peer = Ecc2BC(m.m_Peer);
 
         PushHandler(h);
@@ -782,7 +782,7 @@ namespace beam::wallet
         TxImport(txCommon, m, v);
 
         BeamCrypto_TxMutualInfo txMutualInfo;
-        txMutualInfo.m_MyIDKey = m.m_MyIDKey;
+        txMutualInfo.m_iEndpoint = m.m_iEndpoint;
         txMutualInfo.m_Peer = Ecc2BC(m.m_Peer);
         txMutualInfo.m_PaymentProofSignature.m_NoncePub = Ecc2BC(m.m_PaymentProofSignature.m_NoncePub);
         txMutualInfo.m_PaymentProofSignature.m_k = Ecc2BC(m.m_PaymentProofSignature.m_k.m_Value);

@@ -14,7 +14,18 @@
 
 #include <iostream>
 
-extern "C" {
+#include "../core/ecc_native.h"
+#include "../core/block_crypt.h"
+#include "../core/base58.h"
+
+#include "../keykeeper/local_private_key_keeper.h"
+#include "../keykeeper/remote_key_keeper.h"
+
+namespace beam {
+namespace hw {
+
+extern "C"
+{
 #include "multimac.h"
 #include "oracle.h"
 #include "noncegen.h"
@@ -23,47 +34,127 @@ extern "C" {
 #include "rangeproof.h"
 #include "sign.h"
 #include "keykeeper.h"
-}
 
-#include "../core/ecc_native.h"
-#include "../core/block_crypt.h"
+	struct KeyKeeperPlus
+		:public KeyKeeper
+	{
+		wallet::LocalPrivateKeyKeeperStd::State m_Nonces;
+		hw::KeyKeeper_AuxBuf m_AuxBuf;
+	};
 
-#include "../keykeeper/local_private_key_keeper.h"
-#include "../keykeeper/remote_key_keeper.h"
-
-
-using namespace beam;
-
-extern "C"
-{
-	void BeamCrypto_SecureEraseMem(void* p, uint32_t n)
+	void SecureEraseMem(void* p, uint32_t n)
 	{
 		memset0(p, n);
 	}
 
-	wallet::LocalPrivateKeyKeeperStd::State* g_pHwEmuNonces = nullptr;
 
-	uint32_t BeamCrypto_KeyKeeper_getNumSlots() {
+	uint32_t KeyKeeper_getNumSlots(KeyKeeper*) {
 		return wallet::LocalPrivateKeyKeeperStd::s_DefNumSlots;
 	}
 
-	void BeamCrypto_KeyKeeper_ReadSlot(uint32_t iSlot, BeamCrypto_UintBig* p)
+	void KeyKeeper_ReadSlot(KeyKeeper* pKk, uint32_t iSlot, UintBig* p)
 	{
-		memcpy(p->m_pVal, g_pHwEmuNonces->get_AtReady(iSlot).m_pData, BeamCrypto_nBytes);
+		memcpy(p->m_pVal, Cast::Up<KeyKeeperPlus>(pKk)->m_Nonces.get_AtReady(iSlot).m_pData, c_ECC_nBytes);
 	}
 
 
-	void BeamCrypto_KeyKeeper_RegenerateSlot(uint32_t iSlot)
+	void KeyKeeper_RegenerateSlot(KeyKeeper* pKk, uint32_t iSlot)
 	{
-		g_pHwEmuNonces->Regenerate(iSlot);
+		Cast::Up<KeyKeeperPlus>(pKk)->m_Nonces.Regenerate(iSlot);
 	}
 
-	int BeamCrypto_KeyKeeper_ConfirmSpend(BeamCrypto_Amount val, BeamCrypto_AssetID aid, const BeamCrypto_UintBig* pPeerID, const BeamCrypto_TxKernelUser* pUser, const BeamCrypto_TxKernelData* pData, const BeamCrypto_UintBig* pKrnID)
+	uint16_t KeyKeeper_ConfirmSpend(KeyKeeper*, const hw::TxSummary*)
 	{
-		return BeamCrypto_KeyKeeper_Status_Ok;
+		return c_KeyKeeper_Status_Ok;
 	}
+
+	Amount KeyKeeper_get_MaxShieldedFee(KeyKeeper* pKk)
+	{
+		return static_cast<Amount>(-1);
+	}
+
+	void KeyKeeper_DisplayEndpoint(KeyKeeper*, AddrID addrID, const UintBig* pAddr)
+	{
+	}
+
+	const KeyKeeper_AuxBuf* KeyKeeper_GetAuxBuf(KeyKeeper* pKk)
+	{
+		return &Cast::Up<KeyKeeperPlus>(pKk)->m_AuxBuf;
+	}
+
+	void KeyKeeper_WriteAuxBuf(KeyKeeper* pKk, const void* p, uint32_t nOffset, uint32_t nSize)
+	{
+		assert(nOffset + nSize <= sizeof(KeyKeeper_AuxBuf));
+
+		auto pDst = reinterpret_cast<uint8_t*>(&Cast::Up<KeyKeeperPlus>(pKk)->m_AuxBuf);
+		memcpy(pDst + nOffset, p, nSize);
+	}
+
+#ifdef BeamCrypto_ExternalGej
+
+	struct ExtGej
+	{
+		std::set<gej_t*> m_Set;
+	};
+
+	thread_local ExtGej* g_pExtGej;
+
+
+	void Gej_Init(gej_t* p)
+	{
+		g_pExtGej->m_Set.insert(p);
+		p->m_Val.infinity = 1;
+	}
+
+	void Gej_Destroy(gej_t* p)
+	{
+		auto it = g_pExtGej->m_Set.find(p);
+		g_pExtGej->m_Set.erase(it);
+	}
+
+	int Gej_Is_infinity(const gej_t* p)
+	{
+		return Cast::Reinterpret<ECC::Point::Native>(p->m_Val) == Zero;
+	}
+
+	void Gej_Add(gej_t* p, const gej_t* a, const gej_t* b)
+	{
+		Cast::Reinterpret<ECC::Point::Native>(p->m_Val) =
+			Cast::Reinterpret<ECC::Point::Native>(a->m_Val) +
+			Cast::Reinterpret<ECC::Point::Native>(b->m_Val);
+	}
+
+	void Gej_Mul_Ub(gej_t* p, const gej_t* a, const UintBig* k, int bFast)
+	{
+		Cast::Reinterpret<ECC::Point::Native>(p->m_Val) =
+			Cast::Reinterpret<ECC::Point::Native>(a->m_Val) * Cast::Reinterpret<ECC::Scalar>(*k);
+	}
+
+	void Gej_Mul2_Fast(gej_t* p, const gej_t* a, const UintBig* ka, const gej_t* b, const UintBig* kb)
+	{
+		ECC::Point::Native pt1 = Cast::Reinterpret<ECC::Point::Native>(a->m_Val) * Cast::Reinterpret<ECC::Scalar>(*ka);
+		ECC::Point::Native pt2 = Cast::Reinterpret<ECC::Point::Native>(b->m_Val) * Cast::Reinterpret<ECC::Scalar>(*kb);
+		Cast::Reinterpret<ECC::Point::Native>(p->m_Val) = pt1 + pt2;
+	}
+
+	void Gej_Set_Affine(gej_t* p, const AffinePoint* pAp)
+	{
+		Cast::Reinterpret<ECC::Point::Native>(p->m_Val).Import(Cast::Reinterpret<ECC::Point::Storage>(*pAp), false);
+		
+	}
+	void Gej_Get_Affine(const gej_t* p, AffinePoint* pAp)
+	{
+		Cast::Reinterpret<ECC::Point::Native>(p->m_Val).Export(Cast::Reinterpret<ECC::Point::Storage>(*pAp));
+	}
+
+#endif // BeamCrypto_ExternalGej
 
 }
+
+} // namespace hw
+} // namespace beam
+
+using namespace beam;
 
 
 int g_TestsFailed = 0;
@@ -82,24 +173,12 @@ void TestFailed(const char* szExpr, uint32_t nLine)
 			TestFailed(#x, __LINE__); \
 	} while (false)
 
-void GenerateRandom(void* p, uint32_t n)
-{
-	for (uint32_t i = 0; i < n; i++)
-		((uint8_t*) p)[i] = (uint8_t) rand();
-}
-
-template <uint32_t nBytes>
-void SetRandom(uintBig_t<nBytes>& x)
-{
-	GenerateRandom(x.m_pData, x.nBytes);
-}
-
 void SetRandom(ECC::Scalar::Native& x)
 {
 	ECC::Scalar s;
 	while (true)
 	{
-		SetRandom(s.m_Value);
+		ECC::GenRandom(s.m_Value);
 		if (!x.Import(s))
 			break;
 	}
@@ -109,7 +188,7 @@ void SetRandom(ECC::Point::Native& value, uint8_t y = 0)
 {
     ECC::Point p;
 
-    SetRandom(p.m_X);
+	ECC::GenRandom(p.m_X);
     p.m_Y = y;
 
     while (!value.Import(p))
@@ -122,57 +201,86 @@ void SetRandom(ECC::Point::Native& value, uint8_t y = 0)
 template <typename T>
 void SetRandomOrd(T& x)
 {
-	GenerateRandom(&x, sizeof(x));
+	ECC::GenRandom(&x, sizeof(x));
 }
 
-BeamCrypto_UintBig& Ecc2BC(const ECC::uintBig& x)
+hw::UintBig& Ecc2BC(const ECC::uintBig& x)
 {
-	static_assert(sizeof(x) == sizeof(BeamCrypto_UintBig));
-	return (BeamCrypto_UintBig&) x;
+	static_assert(sizeof(x) == sizeof(hw::UintBig));
+	return (hw::UintBig&) x;
 }
 
-BeamCrypto_CompactPoint& Ecc2BC(const ECC::Point& x)
+hw::CompactPoint& Ecc2BC(const ECC::Point& x)
 {
-	static_assert(sizeof(x) == sizeof(BeamCrypto_CompactPoint));
-	return (BeamCrypto_CompactPoint&) x;
+	static_assert(sizeof(x) == sizeof(hw::CompactPoint));
+	return (hw::CompactPoint&) x;
 }
 
-void BeamCrypto_InitGenSecure(BeamCrypto_MultiMac_Secure& x, const ECC::Point::Native& ptVal, const ECC::Point::Native& nums)
+#ifdef BeamCrypto_ExternalGej
+
+void BeamCrypto_SetAffine(hw::AffinePoint& x, const ECC::Point::Compact& ptS)
+{
+	auto& dst = Cast::Reinterpret<ECC::Point::Storage>(x);
+
+	secp256k1_ge ge;
+	ptS.Assign(ge);
+	dst.FromNnz(ge);
+}
+
+void BeamCrypto_InitGenSecure(hw::AffinePoint& x, const ECC::Point::Compact& ptS, const ECC::Point::Native&)
+{
+	BeamCrypto_SetAffine(x, ptS);
+}
+
+void BeamCrypto_InitFast(hw::AffinePoint* pRes, const ECC::MultiMac::Prepared& p, uint32_t nCount)
+{
+	BeamCrypto_SetAffine(*pRes, p.m_Fast.m_pPt[0]);
+}
+
+#else // BeamCrypto_ExternalGej
+
+void BeamCrypto_InitGenSecure(hw::MultiMac_Secure& x, const ECC::Point::Compact& ptS, const ECC::Point::Native& nums)
 {
 	ECC::Point::Compact::Converter cpc;
 	ECC::Point::Native pt = nums;
+
+	ECC::Point::Native ptVal;
+	ptS.Assign(ptVal, true);
+
 
 	for (unsigned int i = 0; ; pt += ptVal)
 	{
 		assert(!(pt == Zero));
 		cpc.set_Deferred(Cast::Up<ECC::Point::Compact>(x.m_pPt[i]), pt);
-		if (++i == BeamCrypto_MultiMac_Secure_nCount)
+		if (++i == c_MultiMac_Secure_nCount)
 			break;
 	}
 
 	pt = Zero;
-	for (unsigned int iBit = BeamCrypto_nBits; iBit--; )
+	for (unsigned int iBit = c_ECC_nBits; iBit--; )
 	{
 		pt = pt * ECC::Two;
 
-		if (!(iBit % BeamCrypto_MultiMac_Secure_nBits))
+		if (!(iBit % c_MultiMac_nBits_Secure))
 			pt += nums;
 	}
 
 	pt = -pt;
-	cpc.set_Deferred(Cast::Up<ECC::Point::Compact>(x.m_pPt[BeamCrypto_MultiMac_Secure_nCount]), pt);
+	cpc.set_Deferred(Cast::Up<ECC::Point::Compact>(x.m_pPt[c_MultiMac_Secure_nCount]), pt);
 	cpc.Flush();
 }
 
-void BeamCrypto_InitFast(BeamCrypto_MultiMac_Fast& trg, const ECC::MultiMac::Prepared& p)
+void BeamCrypto_InitFast(secp256k1_ge_storage* pRes, const ECC::MultiMac::Prepared& p, uint32_t nCount)
 {
 	const ECC::MultiMac::Prepared::Fast& src = p.m_Fast;
 
-	static_assert(_countof(trg.m_pPt) <= _countof(src.m_pPt));
+	assert(nCount <= _countof(src.m_pPt));
 
-	for (uint32_t j = 0; j < _countof(trg.m_pPt); j++)
-		trg.m_pPt[j] = src.m_pPt[j];
+	for (uint32_t j = 0; j < nCount; j++)
+		pRes[j] = src.m_pPt[j];
 }
+
+#endif // BeamCrypto_ExternalGej
 
 char Dig2Hex(uint8_t x)
 {
@@ -204,60 +312,100 @@ void InitContext()
 {
 	printf("Init context...\n");
 
-	BeamCrypto_Context* pCtx = BeamCrypto_Context_get();
-	assert(pCtx);
+	hw::Context hwCtx;
 
 	const ECC::Context& ctx = ECC::Context::get();
 
-	ECC::Point::Native nums, pt;
+	ECC::Point::Native nums;
 	ctx.m_Ipp.m_GenDot_.m_Fast.m_pPt[0].Assign(nums, true); // whatever point, doesn't matter actually
 
-	ctx.m_Ipp.G_.m_Fast.m_pPt[0].Assign(pt, true);
-	BeamCrypto_InitGenSecure(pCtx->m_pGenGJ[0], pt, nums);
+	BeamCrypto_InitGenSecure(hwCtx.m_pGenGJ[0], ctx.m_Ipp.G_.m_Fast.m_pPt[0], nums);
 
-	ctx.m_Ipp.J_.m_Fast.m_pPt[0].Assign(pt, true);
-	BeamCrypto_InitGenSecure(pCtx->m_pGenGJ[1], pt, nums);
+	BeamCrypto_InitGenSecure(hwCtx.m_pGenGJ[1], ctx.m_Ipp.J_.m_Fast.m_pPt[0], nums);
 
-	static_assert(ECC::InnerProduct::nDim * 2 == BeamCrypto_MultiMac_Fast_Idx_H);
+	static_assert(ECC::InnerProduct::nDim * 2 == _countof(hwCtx.m_pGenRangeproof));
 
 	for (uint32_t iGen = 0; iGen < ECC::InnerProduct::nDim * 2; iGen++)
-		BeamCrypto_InitFast(pCtx->m_pGenFast[iGen], ECC::Context::get().m_Ipp.m_pGen_[0][iGen]);
+		BeamCrypto_InitFast(hwCtx.m_pGenRangeproof[iGen], ECC::Context::get().m_Ipp.m_pGen_[0][iGen], _countof(hwCtx.m_pGenRangeproof[iGen]));
 
-	BeamCrypto_InitFast(pCtx->m_pGenFast[BeamCrypto_MultiMac_Fast_Idx_H], ECC::Context::get().m_Ipp.H_);
+#ifdef BeamCrypto_ExternalGej
+	BeamCrypto_InitFast(&hwCtx.m_GenH, ECC::Context::get().m_Ipp.H_, 1);
+#else // BeamCrypto_ExternalGej
+	BeamCrypto_InitFast(hwCtx.m_pGenH, ECC::Context::get().m_Ipp.H_, _countof(hwCtx.m_pGenH));
+#endif // BeamCrypto_ExternalGej
+
+	// dump it
+	auto p = reinterpret_cast<const uint8_t*>(&hwCtx);
+
+	const uint32_t nWidth = 16;
+	for (uint32_t i = 0; i < sizeof(hwCtx); )
+	{
+		char sz[3];
+		uintBigImpl::_Print(p + i, 1, sz);
+
+		std::cout << "0x" << sz << ',';
+		if (!((++i) % nWidth))
+			std::cout << '\n';
+	}
+
 }
 
+void TestMisc()
+{
+	printf("Miscellanous...\n");
+
+	static_assert(Base58::get_MaxEnc<PeerID::nBytes>() == c_KeyKeeper_Endpoint_Len);
+
+	for (uint32_t i = 0; i < 20; i++)
+	{
+		ECC::Hash::Value hv;
+		ECC::GenRandom(hv);
+
+		if (!(i % 8))
+			memset0(hv.m_pData, 10); // check head padding
+
+		char sz1[c_KeyKeeper_Endpoint_Len], sz2[c_KeyKeeper_Endpoint_Len];
+		hw::PrintEndpoint(sz1, &Ecc2BC(hv));
+		Base58::Encode<ECC::Hash::Value::nBytes>(sz2, hv.m_pData);
+
+		verify_test(!memcmp(sz1, sz2, c_KeyKeeper_Endpoint_Len));
+	}
+
+}
 
 void TestMultiMac()
 {
+#ifndef BeamCrypto_ExternalGej
+
 	printf("MultiMac...\n");
 
 	ECC::Mode::Scope scope(ECC::Mode::Fast);
 
-	uint32_t aa = sizeof(BeamCrypto_MultiMac_Secure);
-	uint32_t bb = sizeof(BeamCrypto_MultiMac_Fast);
-	uint32_t cc = sizeof(BeamCrypto_MultiMac_WNaf);
-	aa;  bb; cc;
+	uint32_t aa = sizeof(hw::MultiMac_Secure);
+	uint32_t cc = sizeof(hw::MultiMac_WNaf);
+	aa;  cc;
 
 	const uint32_t nFast = 8;
 	const uint32_t nSecure = 2;
 
 	const uint32_t nBatch = nFast + nSecure;
 
-	BeamCrypto_MultiMac_WNaf pWnaf[nFast];
-	BeamCrypto_MultiMac_Scalar pFastS[nFast];
+	hw::MultiMac_WNaf pWnaf[nFast];
+	secp256k1_scalar pFastS[nFast];
 
-	BeamCrypto_MultiMac_Secure pGenSecure[nSecure];
+	hw::MultiMac_Secure pGenSecure[nSecure];
 	secp256k1_scalar pSecureS[nSecure];
 
-	BeamCrypto_MultiMac_Context mmCtx;
-	mmCtx.m_pZDenom = nullptr;
-	mmCtx.m_Fast = nFast;
-	mmCtx.m_Secure = nSecure;
-	mmCtx.m_pGenFast = BeamCrypto_Context_get()->m_pGenFast;
-	mmCtx.m_pS = pFastS;
-	mmCtx.m_pWnaf = pWnaf;
-	mmCtx.m_pGenSecure = pGenSecure;
-	mmCtx.m_pSecureK = pSecureS;
+	hw::MultiMac_Context mmCtx;
+	mmCtx.m_Fast.m_pZDenom = nullptr;
+	mmCtx.m_Fast.m_Count = nFast;
+	mmCtx.m_Fast.m_pGen0 = hw::Context_get()->m_pGenRangeproof[0];
+	mmCtx.m_Fast.m_WndBits = c_MultiMac_nBits_Rangeproof;
+	mmCtx.m_Fast.m_pK = pFastS;
+	mmCtx.m_Fast.m_pWnaf = pWnaf;
+	mmCtx.m_Secure.m_Count = nSecure;
+	mmCtx.m_Secure.m_pGen = pGenSecure;
+	mmCtx.m_Secure.m_pK = pSecureS;
 
 	ECC::MultiMac_WithBufs<1, nBatch> mm1;
 
@@ -267,19 +415,17 @@ void TestMultiMac()
 		mm1.m_ppPrepared[iGen] = &p;
 	}
 
-	ECC::Point::Native ptVal, nums;
+	ECC::Point::Native nums;
 	ECC::Context::get().m_Ipp.m_GenDot_.m_Fast.m_pPt[0].Assign(nums, true); // whatever point, doesn't matter actually
+
 
 	for (uint32_t iGen = 0; iGen < nSecure; iGen++)
 	{
 		const ECC::MultiMac::Prepared& p = ECC::Context::get().m_Ipp.m_pGen_[0][nFast + iGen];
 		mm1.m_ppPrepared[nFast + iGen] = &p;
 
-		p.m_Fast.m_pPt[0].Assign(ptVal, true);
-
-		BeamCrypto_InitGenSecure(pGenSecure[iGen], ptVal, nums);
+		BeamCrypto_InitGenSecure(pGenSecure[iGen], p.m_Fast.m_pPt[0], nums);
 	}
-
 
 	for (int i = 0; i < 10; i++)
 	{
@@ -294,7 +440,7 @@ void TestMultiMac()
 			mm1.m_Prepared++;
 
 			if (iPt < nFast)
-				pFastS[iPt].m_pK[0] = sk.get();
+				pFastS[iPt] = sk.get();
 			else
 				pSecureS[iPt - nFast] = sk.get();
 		}
@@ -303,10 +449,12 @@ void TestMultiMac()
 		mm1.Calculate(res1);
 
 		mmCtx.m_pRes = &res2.get_Raw();
-		BeamCrypto_MultiMac_Calculate(&mmCtx);
+		hw::MultiMac_Calculate(&mmCtx);
 
 		verify_test(res1 == res2);
 	}
+#endif // BeamCrypto_ExternalGej
+
 }
 
 void TestNonceGen()
@@ -318,19 +466,19 @@ void TestNonceGen()
 	for (int i = 0; i < 3; i++)
 	{
 		ECC::Hash::Value seed;
-		SetRandom(seed);
+		ECC::GenRandom(seed);
 
 		ECC::NonceGenerator ng1(szSalt);
 		ng1 << seed;
 
-		BeamCrypto_NonceGenerator ng2;
-		BeamCrypto_NonceGenerator_Init(&ng2, szSalt, sizeof(szSalt), &Ecc2BC(seed));
+		hw::NonceGenerator ng2;
+		NonceGenerator_Init(&ng2, szSalt, sizeof(szSalt), &Ecc2BC(seed));
 
 		for (int j = 0; j < 10; j++)
 		{
 			ECC::Scalar::Native sk1, sk2;
 			ng1 >> sk1;
-			BeamCrypto_NonceGenerator_NextScalar(&ng2, &sk2.get_Raw());
+			NonceGenerator_NextScalar(&ng2, &sk2.get_Raw());
 
 			verify_test(sk1 == sk2);
 		}
@@ -344,8 +492,8 @@ void TestOracle()
 	for (int i = 0; i < 3; i++)
 	{
 		ECC::Oracle o1;
-		BeamCrypto_Oracle o2;
-		BeamCrypto_Oracle_Init(&o2);
+		hw::Oracle o2;
+		hw::Oracle_Init(&o2);
 
 		for (int j = 0; j < 4; j++)
 		{
@@ -353,49 +501,42 @@ void TestOracle()
 			{
 				ECC::Scalar::Native sk1, sk2;
 				o1 >> sk1;
-				BeamCrypto_Oracle_NextScalar(&o2, &sk2.get_Raw());
+				hw::Oracle_NextScalar(&o2, &sk2.get_Raw());
 
 				verify_test(sk1 == sk2);
 			}
 
 			ECC::Hash::Value val;
-			SetRandom(val);
+			ECC::GenRandom(val);
 
 			o1 << val;
-			BeamCrypto_Oracle_Expose(&o2, val.m_pData, val.nBytes);
+			hw::Oracle_Expose(&o2, val.m_pData, val.nBytes);
 		}
 	}
 }
 
-void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
+void TestCoin(const CoinID& cid, Key::IKdf& kdf, const hw::Kdf& kdf2)
 {
 	ECC::Hash::Value hv1, hv2;
 	cid.get_Hash(hv1);
 
-	BeamCrypto_CoinID cid2;
+	hw::CoinID cid2;
 	cid2.m_Idx = cid.m_Idx;
 	cid2.m_Type = cid.m_Type;
 	cid2.m_SubIdx = cid.m_SubIdx;
 	cid2.m_Amount = cid.m_Value;
 	cid2.m_AssetID = cid.m_AssetID;
 
-	BeamCrypto_CoinID_getHash(&cid2, &Ecc2BC(hv2));
+	CoinID_getHash(&cid2, &Ecc2BC(hv2));
 
 	verify_test(hv1 == hv2);
 
-	uint8_t nScheme;
-	uint32_t nSubKey;
-	bool bChildKdf2 = !!BeamCrypto_CoinID_getSchemeAndSubkey(&cid2, &nScheme, &nSubKey);
-
-	verify_test(cid.get_Scheme() == nScheme);
+	uint32_t nSubKey = hw::CoinID_getSubkey(&cid2);
 
 	uint32_t iChild;
 	bool bChildKdf = cid.get_ChildKdfIndex(iChild);
-	verify_test(bChildKdf == bChildKdf2);
-
-	if (bChildKdf) {
-		verify_test(nSubKey == iChild);
-	}
+	verify_test(bChildKdf);
+	verify_test(nSubKey == iChild);
 
 	// keys and commitment
 	ECC::Scalar::Native sk1, sk2;
@@ -412,17 +553,10 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 
 	CoinID::Worker(cid).Create(sk1, comm1, *pChildKdf);
 
-	BeamCrypto_FlexPoint fp;
-	BeamCrypto_CoinID_getSkComm(&kdf2, &cid2, &sk2.get_Raw(), &fp);
-
-	BeamCrypto_FlexPoint_MakeCompact(&fp);
-	Ecc2BC(comm2) = fp.m_Compact;
+	hw::CoinID_getSkComm(&kdf2, &cid2, &sk2.get_Raw(), &Ecc2BC(comm2));
 
 	verify_test(sk1 == sk2);
 	verify_test(comm1 == comm2);
-
-	if (CoinID::Scheme::V1 != nScheme)
-		return;
 
 	// Generate multi-party output
 
@@ -442,22 +576,22 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 	outp.Create(g_hFork, skDummy, kdfDummy, cid, kdf, Output::OpCode::Mpc_1, &user); // Phase 1
 	assert(outp.m_pConfidential);
 
-	BeamCrypto_CompactPoint pT[2];
+	hw::CompactPoint pT[2];
 	pT[0] = Ecc2BC(outp.m_pConfidential->m_Part2.m_T1);
 	pT[1] = Ecc2BC(outp.m_pConfidential->m_Part2.m_T2);
 
 	ECC::Scalar::Native tauX;
 
-	BeamCrypto_RangeProof rp;
+	hw::RangeProof rp;
 	rp.m_pKdf = &kdf2;
 	rp.m_Cid = cid2;
 	rp.m_pT_In = pT;
 	rp.m_pT_Out = pT;
-	rp.m_pKExtra = &pKExtra->get();
+	rp.m_pKExtra = &Ecc2BC(user.m_pExtra[0].m_Value);
 	rp.m_pTauX = &tauX.get_Raw();
 	rp.m_pAssetGen = outp.m_pAsset ? &Ecc2BC(outp.m_pAsset->m_hGen) : nullptr;
 
-	verify_test(BeamCrypto_RangeProof_Calculate(&rp)); // Phase 2
+	verify_test(hw::RangeProof_Calculate(&rp)); // Phase 2
 
 	Ecc2BC(outp.m_pConfidential->m_Part2.m_T1) = pT[0];
 	Ecc2BC(outp.m_pConfidential->m_Part2.m_T2) = pT[1];
@@ -470,9 +604,11 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const BeamCrypto_Kdf& kdf2)
 	verify_test(outp.IsValid(g_hFork, comm));
 
 	CoinID cid3;
-	verify_test(outp.Recover(g_hFork, kdf, cid3));
+	Output::User user2;
+	verify_test(outp.Recover(g_hFork, kdf, cid3, &user2));
 
 	verify_test(cid == cid3);
+	verify_test(!memcmp(&user, &user2, sizeof(user)));
 
 }
 
@@ -481,13 +617,13 @@ void TestCoins()
 	printf("Utxo key derivation and rangeproof...\n");
 
 	ECC::HKdf hkdf;
-	BeamCrypto_Kdf kdf2;
+	hw::Kdf kdf2;
 
 	ECC::Hash::Value hv;
-	SetRandom(hv);
+	ECC::GenRandom(hv);
 
 	hkdf.Generate(hv);
-	BeamCrypto_Kdf_Init(&kdf2, &Ecc2BC(hv));
+	hw::Kdf_Init(&kdf2, &Ecc2BC(hv));
 
 	for (int i = 0; i < 3; i++)
 	{
@@ -516,12 +652,6 @@ void TestCoins()
 
 				cid.set_Subkey(iChild);
 				TestCoin(cid, hkdf, kdf2);
-
-				cid.set_Subkey(iChild, CoinID::Scheme::V0);
-				TestCoin(cid, hkdf, kdf2);
-
-				cid.set_Subkey(iChild, CoinID::Scheme::BB21);
-				TestCoin(cid, hkdf, kdf2);
 			}
 		}
 	}
@@ -532,12 +662,12 @@ void TestKdf()
 	printf("Key derivation...\n");
 
 	ECC::HKdf hkdf;
-	BeamCrypto_Kdf kdf2;
+	hw::Kdf kdf2;
 
 	for (int i = 0; i < 3; i++)
 	{
 		ECC::Hash::Value hv;
-		SetRandom(hv);
+		ECC::GenRandom(hv);
 
 		if (i)
 		{
@@ -545,26 +675,26 @@ void TestKdf()
 			SetRandomOrd(iChild);
 
 			hkdf.GenerateChild(hkdf, iChild);
-			BeamCrypto_Kdf_getChild(&kdf2, iChild, &kdf2);
+			hw::Kdf_getChild(&kdf2, iChild, &kdf2);
 		}
 		else
 		{
 			hkdf.Generate(hv);
-			BeamCrypto_Kdf_Init(&kdf2, &Ecc2BC(hv));
+			hw::Kdf_Init(&kdf2, &Ecc2BC(hv));
 		}
 
 		for (int j = 0; j < 5; j++)
 		{
-			SetRandom(hv);
+			ECC::GenRandom(hv);
 
 			ECC::Scalar::Native sk1, sk2;
 
 			hkdf.DerivePKey(sk1, hv);
-			BeamCrypto_Kdf_Derive_PKey(&kdf2, &Ecc2BC(hv), &sk2.get_Raw());
+			hw::Kdf_Derive_PKey(&kdf2, &Ecc2BC(hv), &sk2.get_Raw());
 			verify_test(sk1 == sk2);
 
 			hkdf.DeriveKey(sk1, hv);
-			BeamCrypto_Kdf_Derive_SKey(&kdf2, &Ecc2BC(hv), &sk2.get_Raw());
+			hw::Kdf_Derive_SKey(&kdf2, &Ecc2BC(hv), &sk2.get_Raw());
 			verify_test(sk1 == sk2);
 		}
 	}
@@ -578,20 +708,16 @@ void TestSignature()
 	{
 		ECC::Hash::Value msg;
 		ECC::Scalar::Native sk;
-		SetRandom(msg);
+		ECC::GenRandom(msg);
 		SetRandom(sk);
 
 		ECC::Point::Native pkN = ECC::Context::get().G * sk;
 		ECC::Point pk = pkN;
 
-		BeamCrypto_Signature sig2;
-		BeamCrypto_Signature_Sign(&sig2, &Ecc2BC(msg), &sk.get_Raw());
+		hw::Signature sig2;
+		hw::Signature_Sign(&sig2, &Ecc2BC(msg), &sk.get_Raw());
 
-		BeamCrypto_FlexPoint fp;
-		fp.m_Compact = Ecc2BC(pk);
-		fp.m_Flags = BeamCrypto_FlexPoint_Compact;
-
-		verify_test(BeamCrypto_Signature_IsValid(&sig2, &Ecc2BC(msg), &fp));
+		verify_test(hw::Signature_IsValid(&sig2, &Ecc2BC(msg), &Ecc2BC(pk)));
 
 		ECC::Signature sig1;
 		Ecc2BC(sig1.m_NoncePub) = sig2.m_NoncePub;
@@ -601,7 +727,7 @@ void TestSignature()
 
 		// tamper with sig
 		sig2.m_k.m_pVal[0] ^= 12;
-		verify_test(!BeamCrypto_Signature_IsValid(&sig2, &Ecc2BC(msg), &fp));
+		verify_test(!hw::Signature_IsValid(&sig2, &Ecc2BC(msg), &Ecc2BC(pk)));
 	}
 }
 
@@ -621,24 +747,23 @@ void TestKrn()
 		SetRandom(sk);
 		krn1.Sign(sk);
 
-		BeamCrypto_TxKernelUser krn2U;
-		BeamCrypto_TxKernelData krn2D;
+		hw::TxKernelUser krn2U;
+		hw::TxKernelCommitments krn2C;
 		krn2U.m_Fee = krn1.m_Fee;
 		krn2U.m_hMin = krn1.m_Height.m_Min;
 		krn2U.m_hMax = krn1.m_Height.m_Max;
-		krn2D.m_Commitment = Ecc2BC(krn1.m_Commitment);
-		krn2D.m_Signature.m_k = Ecc2BC(krn1.m_Signature.m_k.m_Value);
-		krn2D.m_Signature.m_NoncePub = Ecc2BC(krn1.m_Signature.m_NoncePub);
+		krn2C.m_Commitment = Ecc2BC(krn1.m_Commitment);
+		krn2C.m_NoncePub = Ecc2BC(krn1.m_Signature.m_NoncePub);
 
-		verify_test(BeamCrypto_TxKernel_IsValid(&krn2U, &krn2D));
+		verify_test(hw::TxKernel_IsValid(&krn2U, &krn2C, &Ecc2BC(krn1.m_Signature.m_k.m_Value)));
 
 		ECC::Hash::Value msg;
-		BeamCrypto_TxKernel_getID(&krn2U, &krn2D, &Ecc2BC(msg));
+		hw::TxKernel_getID(&krn2U, &krn2C, &Ecc2BC(msg));
 		verify_test(msg == krn1.m_Internal.m_ID);
 
 		// tamper
 		krn2U.m_Fee++;
-		verify_test(!BeamCrypto_TxKernel_IsValid(&krn2U, &krn2D));
+		verify_test(!hw::TxKernel_IsValid(&krn2U, &krn2C, &Ecc2BC(krn1.m_Signature.m_k.m_Value)));
 	}
 }
 
@@ -649,33 +774,33 @@ void TestPKdfExport()
 	for (int i = 0; i < 3; i++)
 	{
 		ECC::Hash::Value hv;
-		SetRandom(hv);
+		ECC::GenRandom(hv);
 
 		ECC::HKdf hkdf;
 		hkdf.Generate(hv);
 
-		BeamCrypto_KeyKeeper kk;
-		BeamCrypto_Kdf_Init(&kk.m_MasterKey, &Ecc2BC(hv));
+		hw::KeyKeeperPlus kk;
+		hw::Kdf_Init(&kk.m_MasterKey, &Ecc2BC(hv));
 
 		for (int j = 0; j < 3; j++)
 		{
 			ECC::HKdf hkdfChild;
 			ECC::HKdf* pKdf1 = &hkdfChild;
 
-			BeamCrypto_KdfPub pkdf2;
+			hw::KdfPub pkdf2;
 
 			if (j)
 			{
 				uint32_t iChild;
 				SetRandomOrd(iChild);
 
-				BeamCrypto_KeyKeeper_GetPKdf(&kk, &pkdf2, &iChild);
+				hw::KeyKeeper_GetPKdf(&kk, &pkdf2, &iChild);
 				hkdfChild.GenerateChild(hkdf, iChild);
 			}
 			else
 			{
 				pKdf1 = &hkdf;
-				BeamCrypto_KeyKeeper_GetPKdf(&kk, &pkdf2, nullptr);
+				hw::KeyKeeper_GetPKdf(&kk, &pkdf2, nullptr);
 			}
 
 			ECC::HKdfPub::Packed p;
@@ -704,35 +829,62 @@ void TestPKdfExport()
 struct KeyKeeperHwEmu
 	:public wallet::RemoteKeyKeeper
 {
-	BeamCrypto_KeyKeeper m_Ctx;
+	hw::KeyKeeperPlus m_Ctx;
+	bool m_LogComm = false;
 
 	struct MyTask
 		:public wallet::PrivateKeyKeeper_WithMarshaller::Task
 	{
 		KeyKeeperHwEmu* m_pThis;
-		Blob m_msgOut;
-		Blob m_msgIn;
+		void* m_pBuf;
+		uint32_t m_nRequest;
+		uint32_t m_nResponse;
 
 		virtual void Execute(Task::Ptr&) override
 		{
-			int nRes = BeamCrypto_KeyKeeper_Invoke(&m_pThis->m_Ctx,
-				reinterpret_cast<uint8_t*>(Cast::NotConst(m_msgOut.p)),
-				static_cast<uint32_t>(m_msgOut.n),
-				reinterpret_cast<uint8_t*>(Cast::NotConst(m_msgIn.p)),
-				static_cast<uint32_t>(m_msgIn.n));
+			uint32_t nResSize = m_nResponse;
+			uint8_t* p = (uint8_t*) m_pBuf;
+			
+			if (m_pThis->m_LogComm)
+			{
+				std::string s;
+				s.reserve(m_nRequest * 6);
 
-			m_pHandler->OnDone((Status::Type) nRes);
+				for (uint32_t i = 0; i < m_nRequest; i++)
+				{
+					if (i)
+						s.push_back(',');
+
+					
+
+					s.push_back('0');
+					s.push_back('x');
+
+					char sz[3];
+					uintBigImpl::_Print(p + i, 1, sz);
+					s.push_back(sz[0]);
+					s.push_back(sz[1]);
+				}
+
+				std::cout << "** Send:\n" << s << std::endl;
+			}
+
+			uint16_t errCode = hw::KeyKeeper_Invoke(&m_pThis->m_Ctx, p, m_nRequest, p, &nResSize);
+			p[0] = (uint8_t) errCode;
+
+			m_pHandler->OnDone(DeduceStatus(p, m_nResponse, nResSize));
 		}
 	};
 
-	virtual void SendRequestAsync(const Blob& msgOut, const Blob& msgIn, const Handler::Ptr& pHandler)
+	virtual void SendRequestAsync(void* pBuf, uint32_t nRequest, uint32_t nResponse, const Handler::Ptr& pHandler)
 	{
 		Task::Ptr pTask = std::make_unique<MyTask>();
 		auto& t = Cast::Up<MyTask>(*pTask);
 
 		t.m_pThis = this;
-		t.m_msgOut = msgOut;
-		t.m_msgIn = msgIn;
+		t.m_pBuf = pBuf;
+		t.m_nRequest = nRequest;
+		t.m_nResponse = nResponse;
 		t.m_pHandler = pHandler;
 
 		PushOut(pTask);
@@ -758,8 +910,6 @@ struct KeyKeeperWrap
 	KeyKeeperHwEmu m_kkEmu;
 	KeyKeeperStd m_kkStd; // for comparison
 
-	wallet::LocalPrivateKeyKeeperStd::State m_Nonces;
-
 	static Key::IKdf::Ptr get_KdfFromSeed(const ECC::Hash::Value& hv)
 	{
 		Key::IKdf::Ptr pKdf;
@@ -770,15 +920,14 @@ struct KeyKeeperWrap
 	KeyKeeperWrap(const ECC::Hash::Value& hv)
 		:m_kkStd(get_KdfFromSeed(hv))
 	{
-		SetRandom(m_kkStd.m_State.m_hvLast);
+		ECC::GenRandom(m_kkStd.m_State.m_hvLast);
 
-		m_kkEmu.m_Ctx.m_AllowWeakInputs = 0;
-		BeamCrypto_Kdf_Init(&m_kkEmu.m_Ctx.m_MasterKey, &Ecc2BC(hv));
+		hw::Kdf_Init(&m_kkEmu.m_Ctx.m_MasterKey, &Ecc2BC(hv));
 
 		wallet::IPrivateKeyKeeper2::Method::get_NumSlots m;
 		verify_test(m_kkEmu.InvokeSync(m) == wallet::IPrivateKeyKeeper2::Status::Success);
 
-		m_Nonces.m_hvLast = m_kkStd.m_State.m_hvLast;
+		m_kkEmu.m_Ctx.m_Nonces.m_hvLast = m_kkStd.m_State.m_hvLast;
 	}
 
 	static CoinID& Add(std::vector<CoinID>& vec, Amount val = 0);
@@ -791,10 +940,10 @@ struct KeyKeeperWrap
 	void TestRcv();
 	void TestSend1();
 
-	void get_WalletID(PeerID& pid, wallet::WalletIDKey nKeyID)
+	void get_Endpoint(PeerID& pid, wallet::EndpointIndex iIdx)
 	{
 		ECC::Hash::Value hv;
-		Key::ID(nKeyID, Key::Type::WalletID).get_Hash(hv);
+		Key::ID(iIdx, Key::Type::EndPoint).get_Hash(hv);
 
 		ECC::Point::Native ptN;
 		m_kkStd.get_Owner().DerivePKeyG(ptN, hv);
@@ -835,6 +984,26 @@ struct KeyKeeperWrap
 
 		if (!bSending)
 			NegateUns(pc.m_Value);
+	}
+
+	void UpdateMethod(KeyKeeperHwEmu::Method::CreateOfflineAddr& dst, KeyKeeperHwEmu::Method::CreateOfflineAddr& src, int nPhase)
+	{
+		switch (nPhase)
+		{
+		case 0: // save
+		{
+			dst.m_Addr = src.m_Addr;
+		}
+		break;
+
+		case 1: // swap
+			std::swap(dst.m_Addr, src.m_Addr);
+			break;
+
+		default: // compare
+			verify_test(dst.m_Addr.m_pGen->IsSame(*src.m_Addr.m_pGen));
+			verify_test(dst.m_Addr.m_pSer->IsSame(*src.m_Addr.m_pSer));
+		}
 	}
 
 	void UpdateMethod(KeyKeeperHwEmu::Method::TxCommon& dst, KeyKeeperHwEmu::Method::TxCommon& src, int nPhase)
@@ -881,7 +1050,7 @@ struct KeyKeeperWrap
 			// So we'll only compare that both signatures are good for the expected pubkey
 			{
 				PeerID pid;
-				get_WalletID(pid, src.m_MyIDKey);
+				get_Endpoint(pid, src.m_iEndpoint);
 
 				wallet::PaymentConfirmation pc;
 				pc.m_KernelID = src.m_pKernel->m_Internal.m_ID;
@@ -926,9 +1095,7 @@ struct KeyKeeperWrap
 		TMethod m2;
 		UpdateMethod(m2, m, 0); // copy into m2
 
-		g_pHwEmuNonces = &m_Nonces;
 		int n1 = Cast::Down<wallet::IPrivateKeyKeeper2>(m_kkEmu).InvokeSync(m);
-		g_pHwEmuNonces = nullptr;
 
 		UpdateMethod(m2, m, 1); // swap
 
@@ -937,10 +1104,9 @@ struct KeyKeeperWrap
 		verify_test(n1 == n2);
 
 		if (KeyKeeperHwEmu::Status::Success == n1)
-		{
 			UpdateMethod(m2, m, 2); // test
-			UpdateMethod(m2, m, 1); // swap again, return original variant to the caller
-		}
+
+		UpdateMethod(m2, m, 1); // swap again, return original variant to the caller
 
 		return n1;
 	}
@@ -961,9 +1127,9 @@ wallet::IPrivateKeyKeeper2::ShieldedInput& KeyKeeperWrap::AddSh(std::vector<wall
 {
 	wallet::IPrivateKeyKeeper2::ShieldedInput& ret = vec.emplace_back();
 
-	SetRandom(ret.m_User.m_Sender);
-	SetRandom(ret.m_User.m_pMessage[0]);
-	SetRandom(ret.m_User.m_pMessage[1]);
+	ECC::GenRandom(ret.m_User.m_Sender);
+	ECC::GenRandom(ret.m_User.m_pMessage[0]);
+	ECC::GenRandom(ret.m_User.m_pMessage[1]);
 
 	ECC::Scalar::Native sk;
 	SetRandom(sk);
@@ -985,11 +1151,13 @@ void KeyKeeperWrap::ExportTx(Transaction& tx, const wallet::IPrivateKeyKeeper2::
 
 	for (unsigned int i = 0; i < tx2.m_vInputs.size(); i++)
 	{
+		wallet::IPrivateKeyKeeper2::Method::get_Commitment m;
+		m.m_Cid = tx2.m_vInputs[i];
+		Cast::Down<wallet::IPrivateKeyKeeper2>(m_kkEmu).InvokeSync(m);
+
 		Input::Ptr& pInp = tx.m_vInputs.emplace_back();
 		pInp = std::make_unique<Input>();
-
-		m_kkEmu.get_Commitment(pt, tx2.m_vInputs[i]);
-		pInp->m_Commitment = pt;
+		pInp->m_Commitment = m.m_Result;
 	}
 
 	tx.m_vOutputs.reserve(tx.m_vOutputs.size() + tx2.m_vOutputs.size());
@@ -999,9 +1167,21 @@ void KeyKeeperWrap::ExportTx(Transaction& tx, const wallet::IPrivateKeyKeeper2::
 		KeyKeeperHwEmu::Method::CreateOutput m;
 		m.m_hScheme = g_hFork;
 		m.m_Cid = tx2.m_vOutputs[i];
+		ECC::GenRandom(m.m_User.m_pExtra[0].m_Value);
+		ECC::GenRandom(m.m_User.m_pExtra[1].m_Value);
 		
 		verify_test(Cast::Down<wallet::IPrivateKeyKeeper2>(m_kkEmu).InvokeSync(m) == KeyKeeperHwEmu::Status::Success);
 		assert(m.m_pResult);
+
+		CoinID cid;
+		Output::User usr;
+		verify_test(m.m_pResult->Recover(g_hFork, m_kkStd.get_Owner(), cid, &usr));
+		verify_test(cid == m.m_Cid);
+		verify_test(usr.m_pExtra[0] == m.m_User.m_pExtra[0]);
+		verify_test(usr.m_pExtra[1] == m.m_User.m_pExtra[1]);
+
+		ECC::Point::Native comm;
+		verify_test(m.m_pResult->IsValid(g_hFork, comm));
 
 		tx.m_vOutputs.emplace_back().swap(m.m_pResult);
 	}
@@ -1089,21 +1269,9 @@ void KeyKeeperWrap::TestSplit()
 
 	m.m_pKernel->m_Fee = 32; // ok
 	
-	m.m_vOutputs[0].set_Subkey(0, CoinID::Scheme::V0); // weak output scheme
-	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
+	m.m_vOutputs[0].set_Subkey(10); // ok
+	m.m_vInputs[0].set_Subkey(14); // weak input scheme
 
-	m.m_vOutputs[0].set_Subkey(0, CoinID::Scheme::BB21); // weak output scheme
-	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
-
-	m.m_vOutputs[0].set_Subkey(12); // outputs to a child key
-	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
-
-	m.m_vOutputs[0].set_Subkey(0); // ok
-
-	m.m_vInputs[0].set_Subkey(14, CoinID::Scheme::V0); // weak input scheme
-	verify_test(InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
-
-	m_kkEmu.m_Ctx.m_AllowWeakInputs = 1;
 	m_kkStd.m_Trustless = false; // no explicit flag for weak inputs, just switch to trusted mode
 	verify_test(InvokeOnBoth(m) == KeyKeeperHwEmu::Status::Success); // should work now
 
@@ -1126,7 +1294,6 @@ void KeyKeeperWrap::TestSplit()
 
 	TestTx(m);
 
-	m_kkEmu.m_Ctx.m_AllowWeakInputs = 0;
 	m_kkStd.m_Trustless = true;
 }
 
@@ -1144,8 +1311,8 @@ void KeyKeeperWrap::TestRcv()
 	m.m_pKernel->m_Height.m_Max = g_hFork + 40;
 	m.m_pKernel->m_Fee = 20;
 
-	SetRandom(m.m_Peer);
-	m.m_MyIDKey = 325;
+	ECC::GenRandom(m.m_Peer);
+	m.m_iEndpoint = 325;
 
 	// make the kernel look like the sender already did its part
 	ECC::Point::Native pt = ECC::Context::get().G * ECC::Scalar::Native(115U);
@@ -1163,7 +1330,7 @@ void KeyKeeperWrap::TestRcv()
 void KeyKeeperWrap::TestSend1()
 {
 	wallet::IPrivateKeyKeeper2::Method::SignSender m;
-	m.m_MyIDKey = 18;
+	m.m_iEndpoint = 18;
 	m.m_Peer = 567U;
 	m.m_Slot = 6;
 	m.m_UserAgreement = Zero;
@@ -1193,24 +1360,26 @@ void TestShielded()
 	printf("Shielded vouchers...\n");
 
 	ECC::Hash::Value hv;
-	SetRandom(hv);
+	ECC::GenRandom(hv);
 	KeyKeeperWrap kkw(hv);
 
 	std::vector<ShieldedTxo::Voucher> vVouchers;
 	PeerID pidRcv;
-	wallet::WalletIDKey nKeyRcv = 0;
+	wallet::EndpointIndex nKeyRcv = 0;
+
+	auto pOffline = std::make_unique<wallet::IPrivateKeyKeeper2::Method::SignSendShielded::Offline>();
 
 	for (uint32_t i = 0; i < 3; i++)
 	{
 		wallet::IPrivateKeyKeeper2::Method::CreateVoucherShielded m;
 		m.m_Count = 5;
-		m.m_MyIDKey = 12 + i;
+		m.m_iEndpoint = 12 + i;
 		m.m_Nonce = 776U + i;
 
 		PeerID pid;
 
 		{
-			Key::ID(m.m_MyIDKey, Key::Type::WalletID).get_Hash(hv);
+			Key::ID(m.m_iEndpoint, Key::Type::EndPoint).get_Hash(hv);
 
 			ECC::Point::Native pt;
 			kkw.m_kkStd.get_Owner().DerivePKeyG(pt, hv);
@@ -1243,7 +1412,14 @@ void TestShielded()
 		{
 			vVouchers.swap(v0);
 			pidRcv = pid;
-			nKeyRcv = m.m_MyIDKey;
+			nKeyRcv = m.m_iEndpoint;
+
+			wallet::IPrivateKeyKeeper2::Method::CreateOfflineAddr m2;
+			m2.m_iEndpoint = m.m_iEndpoint;
+			verify_test(kkw.InvokeOnBoth(m2) == KeyKeeperHwEmu::Status::Success);
+
+			pOffline->m_Addr = std::move(m2.m_Addr);
+			pOffline->m_Signature = std::move(m2.m_Signature);
 		}
 	}
 
@@ -1274,7 +1450,7 @@ void TestShielded()
 		m.m_Key.m_kSerG = sk;
 		m.m_Key.m_nIdx = i;
 		m.m_Key.m_IsCreatedByViewer = (i >= 2);
-		GenerateRandom(&m.m_User, sizeof(m.m_User));
+		ECC::GenRandom(&m.m_User, sizeof(m.m_User));
 		m.m_Value = 100500;
 		m.m_AssetID = 1 & i;
 
@@ -1337,13 +1513,12 @@ void TestShielded()
 
 	printf("Shielded outputs...\n");
 
-	for (uint32_t i = 0; i < 4; i++)
+	for (uint32_t i = 0; i < 8; i++)
 	{
 		wallet::IPrivateKeyKeeper2::Method::SignSendShielded m;
-		m.m_Voucher = vVouchers.front();
 		m.m_Peer = pidRcv;
 
-		GenerateRandom(&m.m_User, sizeof(m.m_User));
+		ECC::GenRandom(&m.m_User, sizeof(m.m_User));
 
 		ECC::uintBig hvHuge = 12U;
 		hvHuge.Negate();
@@ -1356,6 +1531,11 @@ void TestShielded()
 			m.m_User.m_pMessage[0] = hvHuge;
 		if (3 == i)
 			m.m_User.m_pMessage[1] = hvHuge;
+
+		if (4 & i)
+			m.m_pOffline = std::move(pOffline);
+		else
+			m.m_pVoucher = std::make_unique<ShieldedTxo::Voucher>(vVouchers.front());
 
 		m.m_pKernel = std::make_unique<TxKernelStd>();
 		m.m_pKernel->m_Height.m_Min = g_hFork;
@@ -1373,22 +1553,33 @@ void TestShielded()
 
 		if (1 & i)
 		{
-			m.m_MyIDKey = nKeyRcv + 10; // wrong, should not pass
+			m.m_iEndpoint = nKeyRcv + 10; // wrong, should not pass
 			verify_test(kkw.InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
-			m.m_MyIDKey = nKeyRcv; // should pass
+			m.m_iEndpoint = nKeyRcv;
+
+			auto& sig = m.m_pVoucher ?
+				m.m_pVoucher->m_Signature :
+				m.m_pOffline->m_Signature;
+
+			sig.m_k.m_Value.Inv();
+			verify_test(kkw.InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
+			sig.m_k.m_Value.Inv();
 
 			m.m_HideAssetAlways = true;
 		}
 
-		verify_test(kkw.InvokeOnBoth(m) == KeyKeeperHwEmu::Status::Success); // Sender Phase1
+		verify_test(kkw.InvokeOnBoth(m) == KeyKeeperHwEmu::Status::Success);
 		kkw.TestTx(m);
+
+		if (!pOffline)
+			pOffline = std::move(m.m_pOffline);
 	}
 }
 
 void TestKeyKeeperTxs()
 {
 	ECC::Hash::Value hv;
-	SetRandom(hv);
+	ECC::GenRandom(hv);
 
 	KeyKeeperWrap kkw(hv);
 
@@ -1402,19 +1593,19 @@ void TestKeyKeeperTxs()
 	printf("Mutual Snd-Rcv-Snd tx...\n");
 
 	// try a full with tx from both sides, each belongs to a different wallet
-	SetRandom(hv);
+	ECC::GenRandom(hv);
 	KeyKeeperWrap kkw2(hv); // the receiver
 
 	wallet::IPrivateKeyKeeper2::Method::SignSender mS;
-	mS.m_MyIDKey = 18;
+	mS.m_iEndpoint = 18;
 	mS.m_Slot = 8;
 	mS.m_UserAgreement = Zero;
 
 	wallet::IPrivateKeyKeeper2::Method::SignReceiver mR;
-	mR.m_MyIDKey = 23;
+	mR.m_iEndpoint = 23;
 
-	kkw.get_WalletID(mR.m_Peer, mS.m_MyIDKey);
-	kkw2.get_WalletID(mS.m_Peer, mR.m_MyIDKey);
+	kkw.get_Endpoint(mR.m_Peer, mS.m_iEndpoint);
+	kkw2.get_Endpoint(mS.m_Peer, mR.m_iEndpoint);
 
 	KeyKeeperWrap::Add(mS.m_vInputs, 50);
 	KeyKeeperWrap::Add(mS.m_vOutputs, 25);
@@ -1469,8 +1660,17 @@ int main()
 	io::Reactor::Ptr pReactor(io::Reactor::create());
 	io::Reactor::Scope scope(*pReactor);
 
+	ECC::PseudoRandomGenerator prg;
+	ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
+
+#ifdef BeamCrypto_ExternalGej
+	hw::ExtGej extGej;
+	hw::g_pExtGej = &extGej;
+#endif // BeamCrypto_ExternalGej
+
 	//InitContext();
 
+	TestMisc();
 	TestMultiMac();
 	TestNonceGen();
 	TestOracle();
@@ -1483,6 +1683,11 @@ int main()
 	TestKeyKeeperTxs();
 
 	printf("All done\n");
+
+#ifdef BeamCrypto_ExternalGej
+	verify_test(extGej.m_Set.empty());
+#endif // BeamCrypto_ExternalGej
+
 
     return g_TestsFailed ? -1 : 0;
 }

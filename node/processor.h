@@ -443,6 +443,8 @@ public:
 
 	int get_AssetAt(Asset::Full&, Height); // Must set ID. Returns -1 if asset is destroyed, 0 if never existed.
 
+	void get_AssetCreateInfo(Asset::CreateInfo&, const NodeDB::WalkerAssetEvt&);
+
 	struct DataStatus {
 		enum Enum {
 			Accepted,
@@ -572,7 +574,7 @@ public:
 
 	virtual Executor& get_Executor();
 
-	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
+	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&, std::string& sErr);
 
 	struct ViewerKeys
 	{

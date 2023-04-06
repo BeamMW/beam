@@ -72,8 +72,7 @@ namespace beam::wallet
 
     };
 
-    void CheckSenderAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB);
-    TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB, bool isMandatory = true);
+    TxParameters ProcessReceiverAddress(const TxParameters& parameters, IWalletDB::Ptr walletDB);
 
     // Interface for wallet observer. 
     struct IWalletObserver : IWalletDbObserver
@@ -167,6 +166,10 @@ namespace beam::wallet
         bool IsWalletInSync() const;
         Height get_TipHeight() const;
 
+        const IWalletDB::Ptr& get_WalletDB() const {
+            return m_WalletDB;
+        }
+
         // Performs action only if wallet is in sync, otherwise this action is queued.
         void DoInSyncedWallet(OnSyncAction&& action); 
 
@@ -183,6 +186,7 @@ namespace beam::wallet
         void EnableBodyRequests(bool value);
         void assertThread() const; // throws if not in wallet thread
         void markAppNotificationAsRead(const TxID& id);
+        void sendInstantSbbsMessage(beam::Timestamp timestamp, const WalletID& peerID, const WalletID& myID, ByteBuffer&& message);
 
         const std::set<IWalletMessageEndpoint::Ptr>& get_MessageEndpoints() const {
             return m_MessageEndpoints;
@@ -190,7 +194,7 @@ namespace beam::wallet
 
         // IRawCommGateway
         void Listen(const WalletID&, const ECC::Scalar::Native& sk, IHandler* = nullptr) override;
-        void Unlisten(const WalletID&) override;
+        void Unlisten(const WalletID&, IHandler* = nullptr) override;
         void Send(const WalletID& peerID, const Blob&) override;
 
     protected:
@@ -206,6 +210,7 @@ namespace beam::wallet
         void on_tx_failed(const TxID& txID) override;
 
         void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID) override;
+        void confirm_kernel_ex(const Merkle::Hash& kernelID, IConfirmCallback::Ptr&&) override;
         void confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID) override;
         void confirm_asset(const TxID& txID, const Asset::ID assetId, SubTxID subTxID = kDefaultSubTxID) override;
         void confirm_asset(const Asset::ID assetId);
@@ -217,6 +222,8 @@ namespace beam::wallet
         void register_tx(const TxID& txId, const Transaction::Ptr&, const Merkle::Hash* pParentCtx, SubTxID subTxID) override;
         void UpdateOnNextTip(const TxID&) override;
         void get_UniqueVoucher(const WalletID& peerID, const TxID& txID, boost::optional<ShieldedTxo::Voucher>&) override;
+        void HftSubscribe(bool) override;
+        const Merkle::Hash* get_DependentState(uint32_t& nCount) override;
 
         // IWalletMessageConsumer
         void OnWalletMessage(const WalletID& peerID, const SetTxParameter&) override;
@@ -231,6 +238,7 @@ namespace beam::wallet
         void OnOwnedNode(const PeerID&, bool bUp) override;
         void OnEventsSerif(const ECC::Hash::Value&, Height) override;
         void OnNewPeer(const PeerID& id, io::Address address) override;
+        void OnDependentStateChanged() override;
 
         struct RequestHandler
             : public proto::FlyClient::Request::IHandler
@@ -327,6 +335,7 @@ namespace beam::wallet
             {
                 TxID m_TxID = {0};
                 SubTxID m_SubTxID = kDefaultSubTxID;
+                INegotiatorGateway::IConfirmCallback::Ptr m_pCallback;
             };
             struct Kernel2
             {
@@ -398,9 +407,9 @@ namespace beam::wallet
             m_Pending##type.insert(x); \
             x.AddRef(); \
         } \
-        bool PostReqUnique(MyRequest##type& x) \
+        bool PostReq(MyRequest##type& x) \
         { \
-            if (!m_NodeEndpoint || m_Pending##type.end() != m_Pending##type.find(x)) \
+            if (!m_NodeEndpoint) \
                 return false; \
             AddReq(x); \
             m_NodeEndpoint->PostRequest(x, m_RequestHandler); \
@@ -408,6 +417,12 @@ namespace beam::wallet
             if (SyncTasks::type::b) \
                 m_LastSyncTotal++; \
             return true; \
+        } \
+        bool PostReqUnique(MyRequest##type& x) \
+        { \
+            if (m_Pending##type.end() != m_Pending##type.find(x)) \
+                return false; \
+            return PostReq(x); \
         }
 
 #define WalletFlyClientRequests_All(macro) \
@@ -476,6 +491,8 @@ namespace beam::wallet
 
         // List of transactions that are waiting for the next tip (new block) to arrive
         std::unordered_set<BaseTransaction::Ptr> m_NextTipTransactionToUpdate;
+
+        uint32_t m_HftSubscribed = 0;
 
         // Functor for callback when transaction completed
         TxCompletedAction m_TxCompletedAction;

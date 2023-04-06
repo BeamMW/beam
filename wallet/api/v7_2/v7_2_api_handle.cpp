@@ -73,7 +73,7 @@ void V72Api::onHandleAssetsSwapCreate(const JsonRpcId& id, AssetsSwapCreate&& re
 
     beam::wallet::DexOrder orderObj(
         beam::wallet::DexOrderID::generate(),
-        receiverAddress.m_walletID,
+        receiverAddress.m_BbsAddr,
         receiverAddress.m_OwnID,
         req.sendAsset,
         req.sendAmount,
@@ -184,7 +184,7 @@ void V72Api::onHandleAssetsSwapAccept(const JsonRpcId& id, AssetsSwapAccept&& re
     auto params = beam::wallet::CreateDexTransactionParams(
                     dexOrderId,
                     order->getSBBSID(),
-                    myAddress.m_walletID,
+                    myAddress.m_BbsAddr,
                     sendAsset,
                     order->getSendAmount(),
                     receiveAsset,

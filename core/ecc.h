@@ -235,7 +235,7 @@ namespace ECC
 			static const uint32_t Kernel      = FOURCC_FROM(kern); // tests only
 			static const uint32_t Kernel2     = FOURCC_FROM(kerM); // used by the miner
 			static const uint32_t ProtoID     = FOURCC_FROM(iden); // Node-Wallet auth
-			static const uint32_t WalletID    = FOURCC_FROM(tRid); // Wallet ID (historically used for treasury)
+			static const uint32_t EndPoint    = FOURCC_FROM(tRid); // Wallet Endpoint (a.k.a. ID, SecureID, etc.), historically used for treasury
 			static const uint32_t ChildKey    = FOURCC_FROM(SubK);
 			static const uint32_t Bbs         = FOURCC_FROM(BbsM);
 			static const uint32_t Decoy       = FOURCC_FROM(dcoy);
@@ -362,22 +362,38 @@ namespace ECC
 	{
 		static const Amount s_MinimumValue = 1;
 
-		struct CreatorParams
+		struct Params
 		{
-			NoLeak<uintBig> m_Seed; // must be a function of the commitment and master secret
-			Amount m_Value;
-			beam::Blob m_Blob = beam::Blob(nullptr, 0); // max size is limited, together with m_Value should not exceed Scalar
+			struct Base
+			{
+				NoLeak<uintBig> m_Seed; // must be a function of the commitment and master secret
+				Amount m_Value;
+				beam::Blob m_Blob = beam::Blob(nullptr, 0); // max size is limited, together with m_Value should not exceed Scalar
 
-			void BlobSave(uint8_t* p, size_t) const;
-			bool BlobRecover(const uint8_t* p, size_t);
+				void BlobSave(uint8_t* p, size_t) const;
+				bool BlobRecover(const uint8_t* p, size_t);
 
-			struct Packed;
+				struct Packed;
+			};
 
-			// more params to embed/recover, optional
-			const uintBig* m_pSeedSk = nullptr; // set only when recovering
-			Scalar::Native* m_pSk; // set only when recovering
+			struct BasePlus
+				:public Base
+			{
+				Scalar::Native* m_pExtra = nullptr; // 2 more scalars can be embedded
+			};
 
-			Scalar::Native* m_pExtra = nullptr; // 2 more scalars can be embedded
+			struct Create
+				:public BasePlus
+			{
+			};
+
+			struct Recover
+				:public BasePlus
+			{
+				// more params to embed/recover, optional
+				const uintBig* m_pSeedSk = nullptr; // set only when recovering
+				Scalar::Native* m_pSk; // set only when recovering
+			};
 		};
 
 		struct Confidential
@@ -414,11 +430,11 @@ namespace ECC
 			//		In case of multi-sig it should be specified explicitly by the caller (the resulting nonce must be the same for multiple invocations).
 			//			Means - the caller must take care of constructing the nonce, which has external randomness
 
-			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&, const Point::Native* pHGen = nullptr); // single-pass
+			void Create(const Scalar::Native& sk, const Params::Create&, Oracle&, const Point::Native* pHGen = nullptr); // single-pass
 			bool IsValid(const Point::Native&, Oracle&, const Point::Native* pHGen = nullptr) const;
 			bool IsValid(const Point::Native&, Oracle&, InnerProduct::BatchContext&, const Point::Native* pHGen = nullptr) const;
 
-			bool Recover(Oracle&, CreatorParams&) const;
+			bool Recover(Oracle&, Params::Recover&) const;
 
 			int cmp(const Confidential&) const;
 			COMPARISON_VIA_CMP
@@ -444,7 +460,7 @@ namespace ECC
 				};
 			};
 
-			bool CoSign(const Nonces&, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, const Point::Native* pHGen = nullptr);
+			bool CoSign(const Nonces&, const Scalar::Native& sk, const Params::Create&, Oracle&, Phase::Enum, const Point::Native* pHGen = nullptr);
 
             static void GenerateSeed(uintBig& seedSk, const Scalar::Native& sk, Amount amount, Oracle& oracle);
 
@@ -467,15 +483,15 @@ namespace ECC
 			} m_Recovery;
 #pragma pack (pop)
 
-			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&); // amount should have been set
+			void Create(const Scalar::Native& sk, const Params::Base&, Oracle&); // amount should have been set
 			bool IsValid(const Point::Native&, Oracle&, const Point::Native* pHGen = nullptr) const;
-			bool Recover(CreatorParams&) const;
+			bool Recover(Params::Base&) const;
 
 			int cmp(const Public&) const;
 			COMPARISON_VIA_CMP
 
 		private:
-			static void XCryptKid(Key::ID::Packed&, const CreatorParams&, Hash::Value& hvChecksum);
+			static void XCryptKid(Key::ID::Packed&, const Params::Base&, Hash::Value& hvChecksum);
 			void get_Msg(Hash::Value&, Oracle&) const;
 		};
 	}

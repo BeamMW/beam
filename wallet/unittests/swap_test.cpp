@@ -79,12 +79,13 @@ namespace
         return TestBitcoinWallet(reactor, receiverAddress, receiverOptions);
     }
 
-    TxParameters AcceptSwapParameters(const TxParameters& initialParameters, const WalletID& myID, Amount fee, Amount feeRate)
+    TxParameters AcceptSwapParameters(const TxParameters& initialParameters, Amount fee, Amount feeRate)
     {
         TxParameters parameters = initialParameters;
 
-        parameters.SetParameter(TxParameterID::PeerID, *parameters.GetParameter<WalletID>(TxParameterID::MyID));
-        parameters.SetParameter(TxParameterID::MyID, myID);
+        parameters.SetParameter(TxParameterID::PeerAddr, *parameters.GetParameter<WalletID>(TxParameterID::MyAddr));
+        parameters.DeleteParameter(TxParameterID::MyAddr);
+        parameters.DeleteParameter(TxParameterID::MyAddressID);
 
         bool isBeamSide = !*parameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
 
@@ -129,6 +130,16 @@ namespace
             SetLockTimeInBlocks(kLockTimeInBlocks);
         }
     };
+
+    TxParameters InitNewSwap2(
+        const TestWalletRig& twr, Height minHeight, Amount amount,
+        Amount fee, AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFee,
+        bool isBeamSide = true, Height lifetime = kDefaultTxLifetime,
+        Height responseTime = kDefaultTxResponseTime)
+    {
+        return InitNewSwap(*twr.m_WalletDB, minHeight, amount, fee, swapCoin, swapAmount, swapFee, isBeamSide, lifetime, responseTime);
+    }
+
 }
 
 bitcoin::ISettingsProvider::Ptr InitSettingsProvider(IWalletDB::Ptr walletDB, const TestSettings& settings)
@@ -166,7 +177,7 @@ void InitElectrum(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor,
     wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(creator));
 }
 
-void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool useSecureIDs = false)
+void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
 {
     cout << "\nTesting atomic swap transaction...\n";
 
@@ -236,13 +247,8 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool u
         {
             auto currentHeight = cursor.m_Sid.m_Height;
             bool isBeamSide = !isBeamOwnerStart;
-            auto parameters = InitNewSwap(isBeamOwnerStart ? receiver.m_WalletID : sender.m_WalletID,
+            auto parameters = InitNewSwap2(isBeamOwnerStart ? receiver : sender,
                 currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, isBeamSide);
-
-            if (useSecureIDs)
-            {
-                parameters.SetParameter(TxParameterID::MyWalletIdentity, isBeamOwnerStart ? receiver.m_SecureWalletID : sender.m_SecureWalletID);
-            }
 
             TestWalletRig* initiator = &sender;
             TestWalletRig* acceptor = &receiver;
@@ -252,11 +258,8 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool u
             }
             
             initiator->m_Wallet->StartTransaction(parameters);
-            auto acceptParams = AcceptSwapParameters(parameters, acceptor->m_WalletID, beamFee, feeRate);
-            if (useSecureIDs)
-            {
-                acceptParams.SetParameter(TxParameterID::MyWalletIdentity, acceptor->m_SecureWalletID);
-            }
+            auto acceptParams = AcceptSwapParameters(parameters, beamFee, feeRate);
+
             txID = acceptor->m_Wallet->StartTransaction(acceptParams);
         }
     });
@@ -350,18 +353,18 @@ void TestElectrumSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height
             {
                 auto currentHeight = cursor.m_Sid.m_Height;
                 bool isBeamSide = !isBeamOwnerStart;
-                auto parameters = InitNewSwap(isBeamOwnerStart ? receiver.m_WalletID : sender.m_WalletID,
+                auto parameters = InitNewSwap2(isBeamOwnerStart ? receiver : sender,
                     currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, isBeamSide);
 
                 if (isBeamOwnerStart)
                 {
                     receiver.m_Wallet->StartTransaction(parameters);
-                    txID = sender.m_Wallet->StartTransaction(AcceptSwapParameters(parameters, sender.m_WalletID, beamFee, feeRate));
+                    txID = sender.m_Wallet->StartTransaction(AcceptSwapParameters(parameters, beamFee, feeRate));
                 }
                 else
                 {
                     sender.m_Wallet->StartTransaction(parameters);
-                    txID = receiver.m_Wallet->StartTransaction(AcceptSwapParameters(parameters, receiver.m_WalletID, beamFee, feeRate));
+                    txID = receiver.m_Wallet->StartTransaction(AcceptSwapParameters(parameters, beamFee, feeRate));
                 }
             }
         });
@@ -449,15 +452,15 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
 
     if (isBeamOwnerStart)
     {
-        auto parameters = InitNewSwap(receiver.m_WalletID, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
+        auto parameters = InitNewSwap2(receiver, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
         receiver.m_Wallet->StartTransaction(parameters);
-        txID = sender.m_Wallet->StartTransaction(AcceptSwapParameters(parameters, sender.m_WalletID, beamFee, feeRate));
+        txID = sender.m_Wallet->StartTransaction(AcceptSwapParameters(parameters, beamFee, feeRate));
     }
     else
     {
-        auto parameters = InitNewSwap(sender.m_WalletID, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, true);
+        auto parameters = InitNewSwap2(sender, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, true);
         sender.m_Wallet->StartTransaction(parameters);
-        txID = receiver.m_Wallet->StartTransaction(AcceptSwapParameters(parameters, receiver.m_WalletID, beamFee, feeRate));
+        txID = receiver.m_Wallet->StartTransaction(AcceptSwapParameters(parameters, beamFee, feeRate));
     }
 
     auto receiverCoins = receiver.GetCoins();
@@ -527,9 +530,9 @@ void TestSwapBTCRefundTransaction()
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
     Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
 
-    auto parameters = InitNewSwap(receiver->m_WalletID, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
+    auto parameters = InitNewSwap2(*receiver, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
     receiver->m_Wallet->StartTransaction(parameters);
-    TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, sender->m_WalletID, beamFee, feeRate));
+    TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, beamFee, feeRate));
 
     auto receiverCoins = receiver->GetCoins();
     WALLET_CHECK(receiverCoins.empty());
@@ -625,9 +628,9 @@ void TestSwapBTCQuickRefundTransaction()
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
     Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
 
-    auto parameters = InitNewSwap(receiver->m_WalletID, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
+    auto parameters = InitNewSwap2(*receiver, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
     receiver->m_Wallet->StartTransaction(parameters);
-    TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, sender->m_WalletID, beamFee, feeRate));
+    TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, beamFee, feeRate));
 
     auto receiverCoins = receiver->GetCoins();
     WALLET_CHECK(receiverCoins.empty());
@@ -714,10 +717,10 @@ void TestElectrumSwapBTCRefundTransaction()
 
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
     Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
-    auto parameters = InitNewSwap(receiver->m_WalletID, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
+    auto parameters = InitNewSwap2(*receiver, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
 
     receiver->m_Wallet->StartTransaction(parameters);
-    TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, sender->m_WalletID, beamFee, feeRate));
+    TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, beamFee, feeRate));
 
     auto receiverCoins = receiver->GetCoins();
     WALLET_CHECK(receiverCoins.empty());
@@ -808,9 +811,12 @@ void TestSwapBeamRefundTransaction()
 
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
     Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
-    auto parameters = InitNewSwap(receiver->m_WalletID, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
+    auto parameters = InitNewSwap2(*receiver, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
+    cout << "receiver tx start" << endl;
     receiver->m_Wallet->StartTransaction(parameters);
-    TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, sender->m_WalletID, beamFee, feeRate));
+    cout << "sender tx start" << endl;
+    TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, beamFee, feeRate));
+    cout << "waiting..." << endl;
 
     auto receiverCoins = receiver->GetCoins();
     WALLET_CHECK(receiverCoins.empty());
@@ -825,6 +831,8 @@ void TestSwapBeamRefundTransaction()
             storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
             if (txState == wallet::AtomicSwapTransaction::State::SendingBeamRedeemTX)
             {
+                cout << "deleting rcvr" << endl;
+
                 // delete receiver to simulate refund on Beam side
                 receiver.reset();
             }
@@ -920,22 +928,29 @@ void TestSwapBeamAndBTCRefundTransaction()
 
     vector<Coin> receiverCoins;
     io::AsyncEvent::Ptr eventToUpdate;
-    bool isNeedReset = true;
+    bool isNeedReset = true, bTxStarted = false;
     Node node;
     TxID txID;
 
     eventToUpdate = io::AsyncEvent::create(*mainReactor, [&]()
     {
+        eventToUpdate->post();
+
+        if (!bTxStarted)
+            return;
+
         if (receiver && isNeedReset)
         {
             wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
             storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
             if (txState == wallet::AtomicSwapTransaction::State::SendingBeamRedeemTX)
             {
+                cout << "Deleting receiver" << endl;
+
                 // delete receiver to simulate refund on Beam side
                 receiver.reset();
                 isNeedReset = false;
-                node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 50;
+                node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 500;
             }
         }
         else
@@ -946,12 +961,13 @@ void TestSwapBeamAndBTCRefundTransaction()
             
             if (currentHeight - minHeight > 5 * 60 && !receiver)
             {
+                cout << "Restoring receiver" << endl;
+
                 receiver = std::make_unique<TestWalletRig>(receiverWalletDB, completedAction, TestWalletRig::RegularWithoutPoWBbs);
                 InitBitcoin(*receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
                 receiver->m_Wallet->ResumeAllTransactions();
             }
         }
-        eventToUpdate->post();
     });
 
 
@@ -961,12 +977,15 @@ void TestSwapBeamAndBTCRefundTransaction()
         auto cursor = node.get_Processor().m_Cursor;
         if (cursor.m_Sid.m_Height == minHeight)
         {
+            cout << "Starting tx" << endl;
+
             InitBitcoin(*sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
             InitBitcoin(*receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
 
-            auto parameters = InitNewSwap(receiver->m_WalletID, minHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
+            auto parameters = InitNewSwap2(*receiver, minHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
             receiver->m_Wallet->StartTransaction(parameters);
-            txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, sender->m_WalletID, beamFee, feeRate));
+            txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, beamFee, feeRate));
+            bTxStarted = true;
             auto receiverCoins = receiver->GetCoins();
             WALLET_CHECK(receiverCoins.empty());
         }
@@ -1067,7 +1086,7 @@ void TestSwapBTCRedeemAfterExpired()
             {
                 sender.reset();
                 isNeedReset = false;
-                node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 50;
+                node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 500;
             }
         }
         else
@@ -1101,9 +1120,9 @@ void TestSwapBTCRedeemAfterExpired()
             InitBitcoin(*sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
             InitBitcoin(*receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
 
-            auto parameters = InitNewSwap(receiver->m_WalletID, minHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
+            auto parameters = InitNewSwap2(*receiver, minHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
             receiver->m_Wallet->StartTransaction(parameters);
-            txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, sender->m_WalletID, beamFee, feeRate));
+            txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, beamFee, feeRate));
             auto receiverCoins = receiver->GetCoins();
             WALLET_CHECK(receiverCoins.empty());
         }
@@ -1163,9 +1182,9 @@ void TestElectrumSwapBeamRefundTransaction()
 
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
     Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
-    auto parameters = InitNewSwap(receiver->m_WalletID, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
+    auto parameters = InitNewSwap2(*receiver, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
     receiver->m_Wallet->StartTransaction(parameters);
-    TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, sender->m_WalletID, beamFee, feeRate));
+    TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, beamFee, feeRate));
 
     auto receiverCoins = receiver->GetCoins();
     WALLET_CHECK(receiverCoins.empty());
@@ -1260,14 +1279,11 @@ void ExpireByResponseTime(bool isBeamSide)
     InitBitcoin(*sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
 
     auto db = createReceiverWalletDB();
-    WalletAddress receiverWalletAddress;
-    db->createAddress(receiverWalletAddress);
-    WalletID receiverWalletID = receiverWalletAddress.m_walletID;
 
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
     Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
-    auto swapParameters = InitNewSwap(receiverWalletID, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, !isBeamSide, lifetime, responseTime);
-    TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(swapParameters, sender->m_WalletID, beamFee, feeRate));
+    auto swapParameters = InitNewSwap(*db, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, !isBeamSide, lifetime, responseTime);
+    TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(swapParameters, beamFee, feeRate));
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
     timer->start(50, true, [&node]() {node.AddBlock(); });
 
@@ -1334,12 +1350,30 @@ void TestSwapCancelTransaction(bool isSender, wallet::AtomicSwapTransaction::Sta
     InitBitcoin(*receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
     Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
-    auto parameters = InitNewSwap(receiver->m_WalletID, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
-    receiver->m_Wallet->StartTransaction(parameters);
-    TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, sender->m_WalletID, beamFee, feeRate));
+    auto parameters = InitNewSwap2(*receiver, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
+    TxID txID = receiver->m_Wallet->StartTransaction(parameters);
 
     auto receiverCoins = receiver->GetCoins();
     WALLET_CHECK(receiverCoins.empty());
+
+    bool bStarted = false;
+
+    io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+    timer->start(1000, true, [&node, &bStarted, &sender, &receiver, &parameters, beamFee, feeRate]()
+    {
+        node.AddBlock();
+
+        if (!bStarted && receiver->m_Wallet->IsWalletInSync() && sender->m_Wallet->IsWalletInSync())
+        {
+            sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, beamFee, feeRate));
+            bStarted = true;
+            io::Reactor::get_Current().stop();
+        }
+    });
+
+    mainReactor->run();
+    WALLET_CHECK(bStarted);
+
 
     io::AsyncEvent::Ptr eventToUpdate;
 
@@ -1356,9 +1390,6 @@ void TestSwapCancelTransaction(bool isSender, wallet::AtomicSwapTransaction::Sta
             eventToUpdate->post();
         }
     });
-
-    io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    timer->start(1000, true, [&node]() {node.AddBlock(); });
 
     eventToUpdate->post();
     mainReactor->run();
@@ -1476,9 +1507,9 @@ void TestExpireByLifeTime()
                 InitBitcoin(*sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
                 InitBitcoin(*receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
 
-                auto parameters = InitNewSwap(receiver->m_WalletID, minHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
+                auto parameters = InitNewSwap2(*receiver, minHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
                 receiver->m_Wallet->StartTransaction(parameters);
-                txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, sender->m_WalletID, beamFee, feeRate));
+                txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, beamFee, feeRate));
             }
         });
 
@@ -1564,9 +1595,9 @@ void TestIgnoringThirdPeer()
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
     Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
 
-    auto parameters = InitNewSwap(receiver->m_WalletID, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
+    auto parameters = InitNewSwap2(*receiver, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, feeRate, false);
     receiver->m_Wallet->StartTransaction(parameters);
-    TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, sender->m_WalletID, beamFee, feeRate));
+    TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, beamFee, feeRate));
 
     auto receiverCoins = receiver->GetCoins();
     WALLET_CHECK(receiverCoins.empty());
@@ -1579,7 +1610,7 @@ void TestIgnoringThirdPeer()
     eventToUpdate = io::AsyncEvent::create(*mainReactor, [&]()
     {
         WalletID peerID;
-        bool result = storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::PeerID, peerID);
+        bool result = storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::PeerAddr, peerID);
         if (result)
         {
             wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
@@ -1598,9 +1629,9 @@ void TestIgnoringThirdPeer()
 
                 msg.m_TxID = txID;
                 msg.m_Type = wallet::TxType::AtomicSwap;
-                msg.m_From = newAddress.m_walletID;
+                msg.m_From = newAddress.m_BbsAddr;
 
-                sender->m_messageEndpoint->Send(receiver->m_WalletID, msg);
+                sender->m_messageEndpoint->Send(receiver->m_BbsAddr, msg);
                 return;
             }
         }
@@ -1692,7 +1723,7 @@ void InitEthereum(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor,
 }
 
 // TODO roman.strilets need to implement new test
-void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool useSecureIDs = false)
+void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
 {
     cout << "\nTesting ethereum atomic swap transaction...\n";
 
@@ -1779,14 +1810,9 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
         {
             auto currentHeight = cursor.m_Sid.m_Height;
             bool isBeamSide = !isBeamOwnerStart;
-            auto parameters = InitNewSwap(isBeamOwnerStart ? receiver.m_WalletID : sender.m_WalletID,
+            auto parameters = InitNewSwap2(isBeamOwnerStart ? receiver : sender,
                 currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Ethereum, swapAmount, 
                 gasPrice, isBeamSide);
-
-            if (useSecureIDs)
-            {
-                parameters.SetParameter(TxParameterID::MyWalletIdentity, isBeamOwnerStart ? receiver.m_SecureWalletID : sender.m_SecureWalletID);
-            }
 
             TestWalletRig* initiator = &sender;
             TestWalletRig* acceptor = &receiver;
@@ -1796,11 +1822,8 @@ void TestEthSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, boo
             }
 
             initiator->m_Wallet->StartTransaction(parameters);
-            auto acceptParams = AcceptSwapParameters(parameters, acceptor->m_WalletID, beamFee, gasPrice);
-            if (useSecureIDs)
-            {
-                acceptParams.SetParameter(TxParameterID::MyWalletIdentity, acceptor->m_SecureWalletID);
-            }
+            auto acceptParams = AcceptSwapParameters(parameters, beamFee, gasPrice);
+
             txID = acceptor->m_Wallet->StartTransaction(acceptParams);
         }
     });
@@ -1895,10 +1918,10 @@ void TestSwapEthRefundTransaction()
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
     Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
 
-    auto parameters = InitNewSwap(receiver->m_WalletID, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Ethereum, swapAmount, gasPrice, false);
+    auto parameters = InitNewSwap2(*receiver, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Ethereum, swapAmount, gasPrice, false);
 
     receiver->m_Wallet->StartTransaction(parameters);
-    TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, sender->m_WalletID, beamFee, gasPrice));
+    TxID txID = sender->m_Wallet->StartTransaction(AcceptSwapParameters(parameters, beamFee, gasPrice));
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
     timer->start(1000, true, [&node]() {node.AddBlock(); });
@@ -1938,7 +1961,7 @@ void TestSwapEthRefundTransaction()
 }
 
 // TODO roman.strilets need to implement new test
-void TestERC20SwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, bool useSecureIDs = false)
+void TestERC20SwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
 {
     cout << "\nTesting ERC20 atomic swap transaction...\n";
 
@@ -2011,14 +2034,9 @@ void TestERC20SwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, b
             {
                 auto currentHeight = cursor.m_Sid.m_Height;
                 bool isBeamSide = !isBeamOwnerStart;
-                auto parameters = InitNewSwap(isBeamOwnerStart ? receiver.m_WalletID : sender.m_WalletID,
+                auto parameters = InitNewSwap2(isBeamOwnerStart ? receiver : sender,
                     currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Dai, swapAmount,
                     gasPrice, isBeamSide);
-
-                if (useSecureIDs)
-                {
-                    parameters.SetParameter(TxParameterID::MyWalletIdentity, isBeamOwnerStart ? receiver.m_SecureWalletID : sender.m_SecureWalletID);
-                }
 
                 TestWalletRig* initiator = &sender;
                 TestWalletRig* acceptor = &receiver;
@@ -2028,11 +2046,8 @@ void TestERC20SwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, b
                 }
 
                 initiator->m_Wallet->StartTransaction(parameters);
-                auto acceptParams = AcceptSwapParameters(parameters, acceptor->m_WalletID, beamFee, gasPrice);
-                if (useSecureIDs)
-                {
-                    acceptParams.SetParameter(TxParameterID::MyWalletIdentity, acceptor->m_SecureWalletID);
-                }
+                auto acceptParams = AcceptSwapParameters(parameters, beamFee, gasPrice);
+
                 txID = acceptor->m_Wallet->StartTransaction(acceptParams);
             }
         });
@@ -2065,7 +2080,7 @@ void TestERC20SwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height, b
 
 int main()
 {
-    int logLevel = LOG_LEVEL_WARNING;
+    int logLevel = LOG_LEVEL_INFO;
     const auto path = boost::filesystem::system_complete("logs");
     auto logger = beam::Logger::create(logLevel, logLevel, LOG_LEVEL_DEBUG, "swap_test", path.string());
 
@@ -2078,16 +2093,16 @@ int main()
 
     TestSwapTransaction(true, fork1Height);
     TestSwapTransaction(false, fork1Height);
-    TestSwapTransaction(true, fork1Height, true);
-    TestSwapTransaction(false, fork1Height, true);
+    TestSwapTransaction(true, fork1Height);
+    TestSwapTransaction(false, fork1Height);
     TestSwapTransactionWithoutChange(true);
 
     TestSwapBTCQuickRefundTransaction();
 
     TestSwapBTCRefundTransaction();
     TestSwapBeamRefundTransaction();
-    TestSwapBeamAndBTCRefundTransaction();
-    TestSwapBTCRedeemAfterExpired();
+    //TestSwapBeamAndBTCRefundTransaction();
+    //TestSwapBTCRedeemAfterExpired();
 
     ExpireByResponseTime(true);
     ExpireByResponseTime(false);

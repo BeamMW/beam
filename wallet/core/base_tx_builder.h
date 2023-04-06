@@ -253,6 +253,7 @@ namespace beam::wallet
         void SignReceiver();
         bool LoadPeerPart(ECC::Point::Native& ptNonce, ECC::Point::Native& ptExc);
         void AddPeerOffset();
+        void PrepareMutualParams(IPrivateKeyKeeper2::Method::TxMutual&);
         virtual bool SignTxSender();
         virtual bool SignTxReceiver();
 

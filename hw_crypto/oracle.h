@@ -17,10 +17,10 @@
 
 typedef struct {
 	secp256k1_sha256_t m_sha;
-} BeamCrypto_Oracle;
+} Oracle;
 
-void BeamCrypto_Oracle_Init(BeamCrypto_Oracle*);
-void BeamCrypto_Oracle_Expose(BeamCrypto_Oracle*, const uint8_t*, size_t);
-void BeamCrypto_Oracle_NextHash(BeamCrypto_Oracle*, BeamCrypto_UintBig*);
-void BeamCrypto_Oracle_NextScalar(BeamCrypto_Oracle*, secp256k1_scalar*);
-void BeamCrypto_Oracle_NextPoint(BeamCrypto_Oracle*, BeamCrypto_FlexPoint*);
+void Oracle_Init(Oracle*);
+void Oracle_Expose(Oracle*, const uint8_t*, size_t);
+void Oracle_NextHash(Oracle*, UintBig*);
+void Oracle_NextScalar(Oracle*, secp256k1_scalar*);
+void Oracle_NextPoint(Oracle*, CompactPoint*, secp256k1_ge*);

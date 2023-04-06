@@ -18,6 +18,14 @@ namespace beam
 {
 	/////////////
 	// Transaction
+	void TxBase::Fail_Order() {
+		Exc::Fail("Wrong Order");
+	}
+
+	void TxBase::Fail_Signature() {
+		Exc::Fail("Invalid signature");
+	}
+
 	TxBase::Context::Params::Params()
 	{
 		ZeroObject(*this);
@@ -44,31 +52,46 @@ namespace beam
 		return true;
 	}
 
-	bool TxBase::Context::ShouldAbort() const
+	void TxBase::Context::TestAbort() const
 	{
-		return m_Params.m_pAbort && *m_Params.m_pAbort;
+		if (m_Params.m_pAbort && *m_Params.m_pAbort)
+			Exc::Fail("abort");
 	}
 
-	bool TxBase::Context::HandleElementHeight(const HeightRange& hr)
+	void TxBase::Context::TestHeightNotEmpty() const
+	{
+		if (m_Height.IsEmpty())
+			Exc::Fail("Height mismatch");
+	}
+
+	void TxBase::Context::HandleElementHeightStrict(const HeightRange& hr)
 	{
 		m_Height.Intersect(hr); // shrink permitted range. For blocks have no effect, since the range must already consist of a single height
-		return !m_Height.IsEmpty();
+		TestHeightNotEmpty();
 	}
 
-	bool TxBase::Context::Merge(const Context& x)
+	void TxBase::Context::MergeStrict(const Context& x)
 	{
-		if (!HandleElementHeight(x.m_Height))
-			return false;
-
+		HandleElementHeightStrict(x.m_Height);
 		m_Sigma += x.m_Sigma;
 		m_Stats += x.m_Stats;
+	}
+
+	bool TxBase::Context::ValidateAndSummarize(const TxBase& txb, IReader&& r, std::string* psErr /* = nullptr */)
+	{
+		try {
+			ValidateAndSummarizeStrict(txb, std::move(r));
+		} catch (const std::exception& e) {
+			if (psErr)
+				(*psErr) = e.what();
+			return false;
+		}
 		return true;
 	}
 
-	bool TxBase::Context::ValidateAndSummarize(const TxBase& txb, IReader&& r)
+	void TxBase::Context::ValidateAndSummarizeStrict(const TxBase& txb, IReader&& r)
 	{
-		if (m_Height.IsEmpty())
-			return false;
+		TestHeightNotEmpty();
 
 		const Rules& rules = Rules::get(); // alias
 
@@ -90,13 +113,24 @@ namespace beam
 
 		for (const Input* pPrev = NULL; r.m_pUtxoIn; pPrev = r.m_pUtxoIn, r.NextUtxoIn())
 		{
-			if (ShouldAbort())
-				return false;
+			TestAbort();
 
 			if (ShouldVerify(iV))
 			{
+				struct MyCheckpoint :public Exc::Checkpoint {
+
+					const Input& m_Inp;
+					MyCheckpoint(const Input& inp) :m_Inp(inp) {}
+
+					void Dump(std::ostream& os) override
+					{
+						os << "Input " << m_Inp.m_Commitment;
+					}
+
+				} cp(*r.m_pUtxoIn);
+
 				if (pPrev && (*pPrev > *r.m_pUtxoIn))
-					return false;
+					Fail_Order();
 
 				// make sure no redundant outputs
 				for (; r.m_pUtxoOut; r.NextUtxoOut())
@@ -106,11 +140,10 @@ namespace beam
 						break;
 
 					if (!n)
-						return false; // duplicate!
+						Exc::Fail("dup out"); // duplicate!
 				}
 
-				if (!pt.Import(r.m_pUtxoIn->m_Commitment))
-					return false;
+				pt.ImportStrict(r.m_pUtxoIn->m_Commitment);
 
 				r.m_pUtxoIn->AddStats(m_Stats);
 				m_Sigma += pt;
@@ -124,16 +157,27 @@ namespace beam
 
 		for (const Output* pPrev = NULL; r.m_pUtxoOut; pPrev = r.m_pUtxoOut, r.NextUtxoOut())
 		{
-			if (ShouldAbort())
-				return false;
+			TestAbort();
 
 			if (ShouldVerify(iV))
 			{
+				struct MyCheckpoint :public Exc::Checkpoint {
+
+					const Output& m_Outp;
+					MyCheckpoint(const Output& outp) :m_Outp(outp) {}
+
+					void Dump(std::ostream& os) override
+					{
+						os << "Output " << m_Outp.m_Commitment;
+					}
+
+				} cp(*r.m_pUtxoOut);
+
 				if (pPrev && (*pPrev > *r.m_pUtxoOut))
 				{
 					// in case of unsigned outputs sometimes order of outputs may look incorrect (duplicated commitment, part of signatures removed)
 					if (!m_Params.m_bAllowUnsignedOutputs || (pPrev->m_Commitment != r.m_pUtxoOut->m_Commitment))
-						return false;
+						Fail_Order();
 				}
 
 				bool bSigned = r.m_pUtxoOut->m_pConfidential || r.m_pUtxoOut->m_pPublic;
@@ -141,16 +185,15 @@ namespace beam
 				if (bSigned)
 				{
 					if (!r.m_pUtxoOut->IsValid(m_Height.m_Min, pt))
-						return false;
+						Fail_Signature();
 				}
 				else
 				{
 					// unsigned output
 					if (!m_Params.m_bAllowUnsignedOutputs)
-						return false;
+						Exc::Fail("Missing rangeproof");
 
-					if (!pt.Import(r.m_pUtxoOut->m_Commitment))
-						return false;
+					pt.ImportStrict(r.m_pUtxoOut->m_Commitment);
 				}
 
 				r.m_pUtxoOut->AddStats(m_Stats);
@@ -160,26 +203,18 @@ namespace beam
 
 		for (const TxKernel* pPrev = NULL; r.m_pKernel; pPrev = r.m_pKernel, r.NextKernel())
 		{
-			if (ShouldAbort())
-				return false;
+			TestAbort();
 
 			if (ShouldVerify(iV))
 			{
+				TxKernel::Checkpoint cp(*r.m_pKernel);
+
 				if (pPrev && ((*pPrev) > (*r.m_pKernel)))
-					return false; // wrong order
+					Fail_Order(); // wrong order
 
-				if (!r.m_pKernel->IsValid(m_Height.m_Min, m_Sigma))
-					return false;
+				r.m_pKernel->TestValid(m_Height.m_Min, m_Sigma);
 
-				HeightRange hr = r.m_pKernel->m_Height;
-				if (iFork >= 2)
-				{
-					if (!hr.IsEmpty() && (hr.m_Max - hr.m_Min > rules.MaxKernelValidityDH))
-						hr.m_Max = hr.m_Min + rules.MaxKernelValidityDH;
-				}
-
-				if (!HandleElementHeight(hr))
-					return false;
+				HandleElementHeightStrict(r.m_pKernel->get_EffectiveHeightRange());
 
 				r.m_pKernel->AddStats(m_Stats);
 			}
@@ -189,19 +224,24 @@ namespace beam
 			m_Sigma += ECC::Context::get().G * txb.m_Offset;
 
 		assert(!m_Height.IsEmpty());
-		return true;
 	}
 
-	bool TxBase::Context::IsValidTransaction()
+	void TxBase::Context::TestSigma()
+	{
+		if (m_Sigma != Zero)
+			Exc::Fail("Sigma nnz");
+	}
+
+	void TxBase::Context::TestValidTransaction()
 	{
 		if (m_Stats.m_Coinbase != Zero)
-			return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
+			Exc::Fail("Coinbase in tx"); // regular transactions should not produce coinbase outputs, only the miner should do this.
 
 		AmountBig::AddTo(m_Sigma, m_Stats.m_Fee);
-		return m_Sigma == Zero;
+		TestSigma();
 	}
 
-	bool TxBase::Context::IsValidBlock()
+	void TxBase::Context::TestValidBlock()
 	{
 		AmountBig::Type subsTotal, subsLocked;
 		Rules::get_Emission(subsTotal, m_Height);
@@ -209,9 +249,7 @@ namespace beam
 		m_Sigma = -m_Sigma;
 
 		AmountBig::AddTo(m_Sigma, subsTotal);
-
-		if (!(m_Sigma == Zero))
-			return false;
+		TestSigma();
 
 		if (!m_Params.m_bAllowUnsignedOutputs)
 		{
@@ -228,10 +266,8 @@ namespace beam
 			}
 
 			if (m_Stats.m_Coinbase < subsLocked)
-				return false;
+				Exc::Fail("Coinbase value mismatch");
 		}
-
-		return true;
 	}
 
 } // namespace beam

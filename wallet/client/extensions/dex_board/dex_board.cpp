@@ -114,7 +114,7 @@ namespace beam::wallet {
         return true;
     }
 
-    bool DexBoard::onMessage(uint64_t, BroadcastMsg&& msg)
+    bool DexBoard::onMessage(BroadcastMsg&& msg)
     {
         auto order = parseAssetSwapMessage(msg);
         return order ? handleDexOrder(order) : false;

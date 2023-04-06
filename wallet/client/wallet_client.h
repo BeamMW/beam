@@ -35,6 +35,7 @@
 #include "extensions/dex_board/dex_board.h"
 #include "extensions/dex_board/dex_order.h"
 #endif  // BEAM_ASSET_SWAP_SUPPORT
+#include "keykeeper/hid_key_keeper.h"
 
 #ifdef BEAM_IPFS_SUPPORT
 #include "wallet/ipfs/ipfs.h"
@@ -120,6 +121,7 @@ namespace beam::wallet
         , private DexBoard::IObserver
 #endif  // BEAM_ASSET_SWAP_SUPPORT
         , private IVerificationObserver
+        , public wallet::HidKeyKeeper::IEvents
     {
     public:
 
@@ -230,6 +232,10 @@ namespace beam::wallet
         virtual void onAssetInfo(Asset::ID assetId, const WalletAsset&) {}
         virtual void onStopped() {}
         virtual void onFullAssetsListLoaded() {}
+        virtual void onInstantMessage(Timestamp time, const WalletID& counterpart, const std::string& message, bool isIncome) {}
+        virtual void onGetChatList(const std::vector<std::pair<beam::wallet::WalletID, bool>>& chats) {}
+        virtual void onGetChatMessages(const std::vector<InstantMessage>& messages) {}
+        virtual void onChatRemoved(const WalletID& counterpart) {}
 
 #ifdef BEAM_ASSET_SWAP_SUPPORT
         void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
@@ -260,9 +266,11 @@ namespace beam::wallet
         void onShieldedCoinsChanged(ChangeAction, const std::vector<ShieldedCoin>& coins) override;
         void onSyncProgress(int done, int total) override;
         void onOwnedNode(const PeerID& id, bool connected) override;
+        void onIMSaved(Timestamp time, const WalletID& counterpart, const std::string& message, bool isIncome) override;
 
         void sendMoney(const WalletID& receiver, const std::string& comment, Amount amount, Amount fee) override;
         void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount amount, Amount fee) override;
+        void sendMoneyInternal(const WalletID* pSender, const WalletID& receiver, const std::string& comment, Amount amount, Amount fee);
         void startTransaction(TxParameters&& parameters) override;
         void syncWithNode() override;
         void calcChange(Amount amount, Amount fee, Asset::ID assetId) override;
@@ -280,6 +288,7 @@ namespace beam::wallet
         void publishSwapOffer(const SwapOffer& offer) override;
         void loadSwapParams() override;
         void storeSwapParams(const beam::ByteBuffer& params) override;
+        void CreateSwapTxParams(Amount amount, Amount beamFee, AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate, bool isBeamSide, Height responseTime, AsyncCallback<TxParameters&&>&& callback) override;
         #endif
 
         #ifdef BEAM_IPFS_SUPPORT
@@ -293,6 +302,7 @@ namespace beam::wallet
         void saveAddress(const WalletAddress& address) override;
         void generateNewAddress() override;
         void generateNewAddress(AsyncCallback<const WalletAddress&>&& callback) override;
+        void generateToken(TokenType, Amount, Asset::ID, std::string sVer, AsyncCallback<std::string&&>&& callback) override;
         void deleteAddress(const WalletID& addr) override;
         void updateAddress(const WalletID& addr, const std::string& name, WalletAddress::ExpirationStatus expirationStatus) override;
         void updateAddress(const WalletID& addr, const std::string& name, beam::Timestamp expirationTime) override;
@@ -301,6 +311,7 @@ namespace beam::wallet
         void getAddress(const WalletID& addr, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) override;
         void getAddressByToken(const std::string& token, AsyncCallback<const boost::optional<WalletAddress>&, size_t>&& callback) override;
         void deleteAddressByToken(const std::string& token) override;
+        void verifyOnHw(const std::string& token) override;
         void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) override;
         void setNodeAddress(const std::string& addr) override;
         void changeWalletPassword(const SecString& password) override;
@@ -347,8 +358,6 @@ namespace beam::wallet
         void getPublicAddress() override;
         void getVerificationInfo() override;
 
-        void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback) override;
-
         void setMaxPrivacyLockTimeLimitHours(uint8_t limit) override;
         void getMaxPrivacyLockTimeLimitHours(AsyncCallback<uint8_t>&& callback) override;
 
@@ -362,6 +371,12 @@ namespace beam::wallet
         void markAppNotificationAsRead(const TxID& id) override;
 
         void enableBodyRequests(bool value) override;
+
+        void sendInstantMessage(const WalletID& peerID, const WalletID& myID, ByteBuffer&& message) override;
+        void getChats() override;
+        void markIMsasRead(const std::vector<std::pair<Timestamp, WalletID>>&& ims) override;
+        void getInstantMessages(const WalletID& peerID) override;
+        void removeChat(const WalletID& peerID) override;
 
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;
@@ -453,7 +468,7 @@ namespace beam::wallet
         struct AddressKey
         {
             typedef std::string type;
-            const type& operator()(const WalletAddress& c) const { return c.m_Address; }
+            const type& operator()(const WalletAddress& c) const { return c.m_Token; }
         };
         ChangesCollector <WalletAddress, AddressKey> m_AddressChangesCollector;
 

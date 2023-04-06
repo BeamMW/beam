@@ -28,6 +28,7 @@
 #include "utility/fsutils.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
+#include "wallet/transactions/swaps/swap_transaction.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 #ifdef BEAM_LELANTUS_SUPPORT
 #include "wallet/transactions/lelantus/push_transaction.h"
@@ -48,6 +49,7 @@ constexpr size_t kShieldedPer24hFilterSize = 20;
 constexpr size_t kShieldedPer24hFilterBlocksForUpdate = 144;
 constexpr size_t kShieldedCountHistoryWindowSize = kShieldedPer24hFilterSize << 1;
 constexpr int kOneTimeLoadTxCount = 100;
+const size_t kMaxImMessageLength = 1024;
 
 using WalletSubscriber = ScopedSubscriber<wallet::IWalletObserver, wallet::Wallet>;
 
@@ -166,6 +168,12 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 		call_async(&IWalletModelAsync::publishSwapOffer, offer);
     }
 
+    void CreateSwapTxParams(Amount amount, Amount beamFee, AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate, bool isBeamSide, Height responseTime, AsyncCallback<TxParameters&&>&& callback) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(Amount, Amount, AtomicSwapCoin, Amount, Amount, bool, Height, AsyncCallback<TxParameters&&>&&);
+        call_async((MethodType)&IWalletModelAsync::CreateSwapTxParams, amount, beamFee, swapCoin, swapAmount, swapFeeRate, isBeamSide, responseTime, std::move(callback));
+    }
+
     void loadSwapParams() override
     {
         call_async(&IWalletModelAsync::loadSwapParams);
@@ -221,6 +229,12 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async((MethodType)&IWalletModelAsync::generateNewAddress, std::move(callback));
     }
 
+    void generateToken(wallet::TokenType type, Amount amount, Asset::ID aid, std::string sVer, AsyncCallback<std::string&&>&& callback) override
+    {
+        typedef void(IWalletModelAsync::* MethodType)(wallet::TokenType, Amount, Asset::ID, std::string, AsyncCallback<std::string&&>&&);
+        call_async((MethodType)&IWalletModelAsync::generateToken, type, amount, aid, std::move(sVer), std::move(callback));
+    }
+
     void deleteAddress(const WalletID& addr) override
     {
         call_async(&IWalletModelAsync::deleteAddress, addr);
@@ -263,6 +277,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     void deleteAddressByToken(const std::string& token) override
     {
         call_async(&IWalletModelAsync::deleteAddressByToken, token);
+    }
+
+    void verifyOnHw(const std::string& token) override
+    {
+        call_async(&IWalletModelAsync::verifyOnHw, token);
     }
 
     void saveVouchers(const ShieldedVoucherList& v, const WalletID& walletID) override
@@ -387,11 +406,6 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getPublicAddress);
     }
 
-    void generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback) override
-    {
-        call_async(&IWalletModelAsync::generateVouchers, ownID, count, std::move(callback));
-    }
-
     void getAssetInfo(Asset::ID assetId) override
     {
         call_async(&IWalletModelAsync::getAssetInfo, assetId);
@@ -474,6 +488,31 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     void enableBodyRequests(bool value) override
     {
         call_async(&IWalletModelAsync::enableBodyRequests, value);
+    }
+
+    void sendInstantMessage(const WalletID& peerID, const WalletID& myID, ByteBuffer&& message) override
+    {
+        call_async(&IWalletModelAsync::sendInstantMessage, peerID, myID, std::move(message));
+    }
+
+    void getChats() override
+    {
+        call_async(&IWalletModelAsync::getChats);
+    }
+
+    void markIMsasRead(const std::vector<std::pair<Timestamp, WalletID>>&& ims) override
+    {
+        call_async(&IWalletModelAsync::markIMsasRead, std::move(ims));
+    }
+
+    void getInstantMessages(const WalletID& peerID) override
+    {
+        call_async(&IWalletModelAsync::getInstantMessages, peerID);
+    }
+
+    void removeChat(const WalletID& peerID) override
+    {
+        call_async(&IWalletModelAsync::removeChat, peerID);
     }
 };
 }
@@ -615,6 +654,9 @@ namespace beam::wallet
                 static const unsigned LOG_CLEANUP_PERIOD_SEC = 120 * 3600; // 5 days
                 LogRotation logRotation(*m_reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
 #endif // !__EMSCRIPTEN__
+
+                wallet::HidKeyKeeper::IEvents* pEvts = this;
+                beam::TemporarySwap ts(wallet::HidKeyKeeper_ToConsole::s_pEvents, pEvts);
 
                 if (!m_walletDB)
                 {
@@ -792,7 +834,7 @@ namespace beam::wallet
                 //
                 // Shaders
                 //
-                auto clientShaders = IShadersManager::CreateInstance(wallet, m_walletDB, nodeNetwork, "", "", 0);
+                auto clientShaders = IShadersManager::CreateInstance(*wallet, "", "", 0);
                 _clientShaders = clientShaders;
 
                 nodeNetwork->tryToConnect();
@@ -991,7 +1033,7 @@ namespace beam::wallet
         auto wallet = m_wallet.lock();
         auto network = m_nodeNetwork.lock();
         assert(wallet && network);
-        return IShadersManager::CreateInstance(wallet, m_walletDB, network, appid, appname, privilegeLvl);
+        return IShadersManager::CreateInstance(*wallet, appid, appname, privilegeLvl);
     }
 
     std::string WalletClient::getNodeAddress() const
@@ -1300,52 +1342,26 @@ namespace beam::wallet
         onNodeConnectionChanged(isConnected());
     }
 
+    void WalletClient::onIMSaved(Timestamp time, const WalletID& counterpart, const std::string& message, bool isIncome)
+    {
+        postFunctionToClientContext([this, time, counterpart, message, isIncome]()
+        {
+            onInstantMessage(time, counterpart, message, isIncome);
+        });
+    }
+
     void WalletClient::sendMoney(const WalletID& receiver, const std::string& comment, Amount amount, Amount fee)
     {
-        try
-        {
-            assert(!m_wallet.expired());
-            auto s = m_wallet.lock();
-            if (s)
-            {
-                WalletAddress senderAddress;
-                m_walletDB->createAddress(senderAddress);
-                saveAddress(senderAddress); // should update the wallet_network
-                ByteBuffer message(comment.begin(), comment.end());
-
-                TxParameters txParameters = CreateSimpleTransactionParameters()
-                    .SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
-                    .SetParameter(TxParameterID::PeerID, receiver)
-                    .SetParameter(TxParameterID::Amount, amount)
-                    .SetParameter(TxParameterID::Fee, fee)
-                    .SetParameter(TxParameterID::Message, message);
-
-                s->StartTransaction(txParameters);
-            }
-
-            onSendMoneyVerified();
-        }
-        catch (const CannotGenerateSecretException&)
-        {
-            onNewAddressFailed();
-            return;
-        }
-        catch (const ReceiverAddressExpiredException&)
-        {
-            onCantSendToExpired();
-            return;
-        }
-        catch (const std::exception& e)
-        {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
-        }
-        catch (...) {
-            LOG_UNHANDLED_EXCEPTION();
-        }
+        sendMoneyInternal(nullptr, receiver, comment, amount, fee);
     }
 
     void WalletClient::sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount amount, Amount fee)
     {
+        sendMoneyInternal(&sender, receiver, comment, amount, fee);
+    }
+
+    void WalletClient::sendMoneyInternal(const WalletID* pSender, const WalletID& receiver, const std::string& comment, Amount amount, Amount fee)
+    {
         try
         {
             assert(!m_wallet.expired());
@@ -1354,12 +1370,14 @@ namespace beam::wallet
             {
                 ByteBuffer message(comment.begin(), comment.end());
                 TxParameters txParameters = CreateSimpleTransactionParameters()
-                    .SetParameter(TxParameterID::MyID, sender)
-                    .SetParameter(TxParameterID::PeerID, receiver)
+                    .SetParameter(TxParameterID::PeerAddr, receiver)
                     .SetParameter(TxParameterID::Amount, amount)
                     .SetParameter(TxParameterID::Fee, fee)
                     .SetParameter(TxParameterID::Message, message);
                 
+                if (pSender)
+                    txParameters.SetParameter(TxParameterID::MyAddr, *pSender);
+
                 s->StartTransaction(txParameters);
             }
 
@@ -1391,18 +1409,7 @@ namespace beam::wallet
             assert(!m_wallet.expired());
             auto s = m_wallet.lock();
             if (s)
-            {
-                auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
-                if (!myID)
-                {
-                    WalletAddress senderAddress;
-                    m_walletDB->createAddress(senderAddress);
-                    saveAddress(senderAddress); // should update the wallet_network
-                    parameters.SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
-                }
-
                 s->StartTransaction(parameters);
-            }
 
             onSendMoneyVerified();
         }
@@ -1572,6 +1579,38 @@ namespace beam::wallet
     {
         m_walletDB->setVarRaw(SWAP_PARAMS_NAME, params.data(), params.size());
     }
+
+    void WalletClient::CreateSwapTxParams(Amount amount, Amount beamFee, AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate, bool isBeamSide, Height responseTime, AsyncCallback<TxParameters&&>&& callback)
+    {
+        TxParameters res;
+        try
+        {
+            res = CreateSwapTransactionParameters();
+
+            FillSwapTxParams(
+                &res,
+                *m_walletDB,
+                getCurrentHeight(),
+                amount,
+                beamFee,
+                swapCoin,
+                swapAmount,
+                swapFeeRate,
+                isBeamSide,
+                responseTime);
+
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+
+        callback(std::move(res));
+    }
+
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
     void WalletClient::cancelTx(const TxID& id)
@@ -1648,6 +1687,39 @@ namespace beam::wallet
         }
     }
 
+    void WalletClient::generateToken(TokenType type, Amount amount, Asset::ID aid, std::string sVer, AsyncCallback<std::string&&>&& callback)
+    {
+        std::string sToken;
+        try
+        {
+            WalletAddress wa;
+            m_walletDB->getDefaultAddressAlways(wa);
+
+            switch (type)
+            {
+            case TokenType::Offline:
+                sToken = GenerateOfflineToken(wa, *m_walletDB, amount, aid, sVer, 1);
+                break;
+
+            case TokenType::MaxPrivacy:
+                sToken = GenerateMaxPrivacyToken(wa, *m_walletDB, amount, aid, sVer);
+                break;
+
+            default:
+                sToken = GenerateToken(type, wa, m_walletDB);
+            }
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+
+        callback(std::move(sToken));
+    }
+
     void WalletClient::deleteAddress(const WalletID& addr)
     {
         try
@@ -1668,6 +1740,40 @@ namespace beam::wallet
         try
         {
             m_walletDB->deleteAddressByToken(token);
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+    }
+
+    void WalletClient::verifyOnHw(const std::string& token)
+    {
+        try
+        {
+            auto pKk = m_walletDB->get_KeyKeeper();
+            if (pKk)
+            {
+                auto waddr = m_walletDB->getAddressByToken(token);
+                if (waddr && waddr->isOwn())
+                {
+                    struct MyHandler
+                        :public IPrivateKeyKeeper2::Handler
+                    {
+                        void OnDone(IPrivateKeyKeeper2::Status::Type) override {}
+                    };
+
+                    auto pHandler = std::make_shared<MyHandler>();
+
+                    IPrivateKeyKeeper2::Method::DisplayEndpoint m;
+                    m.m_iEndpoint = waddr->m_OwnID;
+                    pKk->InvokeAsync(m, pHandler);
+                }
+            }
+
         }
         catch (const std::exception& e)
         {
@@ -1764,9 +1870,9 @@ namespace beam::wallet
         auto addr = m_walletDB->getAddressByToken(token);
 
         size_t vouchersCount = 0;
-        if (addr && addr->m_walletID != Zero)
+        if (addr && addr->m_BbsAddr != Zero)
         {
-            vouchersCount = m_walletDB->getVoucherCount(addr->m_walletID);
+            vouchersCount = m_walletDB->getVoucherCount(addr->m_BbsAddr);
         }
 
         postFunctionToClientContext([addr, vouchersCount, cb = std::move(callback)]() {
@@ -2089,16 +2195,10 @@ namespace beam::wallet
 
     void WalletClient::getPublicAddress()
     {
-        onPublicAddress(GeneratePublicToken(*m_walletDB, std::string()));
-    }
+        WalletAddress wa;
+        m_walletDB->getDefaultAddressAlways(wa);
 
-    void WalletClient::generateVouchers(uint64_t ownID, size_t count, AsyncCallback<const ShieldedVoucherList&>&& callback)
-    {
-        auto vouchers = GenerateVoucherList(m_walletDB->get_KeyKeeper(), ownID, count);
-        postFunctionToClientContext([res = std::move(vouchers), cb = std::move(callback)]() 
-        {
-            cb(res);
-        });
+        onPublicAddress(GeneratePublicToken(wa, *m_walletDB, std::string()));
     }
 
     void WalletClient::setMaxPrivacyLockTimeLimitHours(uint8_t limit)
@@ -2152,7 +2252,7 @@ namespace beam::wallet
 #elif defined(BEAM_DAPPNET)
             return "https://apps-dappnet.beam.mw/app/appslist.json";
 #else
-            return "http://3.19.141.112/app/appslist.json";
+            return "http://3.19.32.148/app/appslist.json";
 #endif
         }
     }
@@ -2274,6 +2374,58 @@ namespace beam::wallet
         {
             s->EnableBodyRequests(value);
         }
+    }
+
+    void WalletClient::sendInstantMessage(const WalletID& peerID, const WalletID& myID, ByteBuffer&& message)
+    {
+        auto timestamp = getTimestamp();
+
+        ByteBuffer trimmed_message(message);
+        if (trimmed_message.size() >= kMaxImMessageLength)
+        {
+            trimmed_message.erase(trimmed_message.begin() + kMaxImMessageLength, trimmed_message.end());
+        }
+
+        m_walletDB->storeIM(timestamp, peerID, myID, std::string(trimmed_message.begin(), trimmed_message.end()), false, true);
+
+        auto s = m_wallet.lock();
+        if (s)
+        {
+            s->sendInstantSbbsMessage(timestamp, peerID, myID, std::move(trimmed_message));
+        }
+    }
+
+    void WalletClient::getChats()
+    {
+        auto chats = m_walletDB->getChats();
+        postFunctionToClientContext([this, chats]()
+            {
+                onGetChatList(chats);
+            });
+    }
+
+    void WalletClient::markIMsasRead(const std::vector<std::pair<Timestamp, WalletID>>&& ims)
+    {
+        std::vector<std::pair<Timestamp, WalletID>> messages(ims);
+        m_walletDB->markIMsasRead(messages);
+    }
+
+    void WalletClient::getInstantMessages(const WalletID& peerID)
+    {
+        auto messages = m_walletDB->readIMs(peerID);
+        postFunctionToClientContext([this, messages]()
+            {
+                onGetChatMessages(messages);
+            });
+    }
+
+    void WalletClient::removeChat(const WalletID& peerID)
+    {
+        m_walletDB->removeChat(peerID);
+        postFunctionToClientContext([this, peerID]()
+            {
+                onChatRemoved(peerID);
+            });
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)

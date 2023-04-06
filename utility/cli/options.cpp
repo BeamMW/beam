@@ -184,6 +184,10 @@ namespace beam
         const char* CRASH = "crash";
         const char* INIT = "init";
         const char* RESTORE = "restore";
+        const char* RESTORE_HID = "restore_hid";
+        const char* HID_ENUM = "hid_enum";
+        const char* HID_INSTALL = "hid_install";
+        const char* HID_INSTALL_FILE = "hid_install_image";
         const char* EXPORT_MINER_KEY = "export_miner_key";
         const char* EXPORT_OWNER_KEY = "export_owner_key";
         const char* KEY_SUBKEY = "subkey";
@@ -231,6 +235,7 @@ namespace beam
         const char* WALLET_ADDR = "address";
         const char* CHANGE_ADDRESS_EXPIRATION = "change_address_expiration";
         const char* WALLET_ADDRESS_LIST = "address_list";
+        const char* WALLET_ADDRESS_VERIFY = "address_verify";
         const char* WALLET_RESCAN = "rescan";
         const char* UTXO = "utxo";
         const char* EXPORT_DATA = "export_data";
@@ -506,6 +511,7 @@ namespace beam
             (cli::KEY_SUBKEY, po::value<Positive<uint32_t>>(), "miner key index (use with export_miner_key)")
             (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
             (cli::PAYMENT_PROOF_DATA, po::value<string>(), "payment proof data to verify")
+            (cli::HID_INSTALL_FILE, po::value<string>(), "App image file to install on HID device. If not specified - integrated image will be used")
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "set IDs of specific UTXO to send")
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export wallet data (should be used with import_data|export_data)")
             (cli::IGNORE_DICTIONARY, "ignore dictionary for a specific seed phrase validation")

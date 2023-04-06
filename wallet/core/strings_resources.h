@@ -135,15 +135,16 @@ namespace beam
     // Address
     extern const char kAllAddrExprChanged[];
     extern const char kAddrExprChanged[];
-    extern const char kWalletIdNewGenerated[];
+    extern const char kWalletAddrNewGenerated[];
     extern const char kAddrNewGeneratedLabel[];
+    extern const char kAddrNewGeneratedEndpoint[];
     extern const char kAddrListComment[];
     extern const char kAddrListAddress[];
-    extern const char kAddrListIdentity[];
+    extern const char kAddrListEndpoint[];
     extern const char kAddrListActive[];
     extern const char kAddrListExprDate[];
     extern const char kAddrListCreated[];
-    extern const char kAddrListWalletID[];
+    extern const char kAddrListBbsAddr[];
     extern const char kAddrListType[];
 
     // Seed phrase

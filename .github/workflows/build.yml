@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         # os: [macos-11]
-        os: [macos-11, ubuntu-18.04, windows-2019]
+        os: [macos-11, ubuntu-20.04, windows-2019]
 
     steps:
       - uses: actions/checkout@v2
@@ -392,7 +392,7 @@ jobs:
   # Build ANDROID
   ###############################################################################
   build_android:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     #if: ${{false}}
     strategy:
       matrix:
@@ -460,7 +460,7 @@ jobs:
   ###############################################################################
   build_key_keeper:
     if: ${{false}} # disabled
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     steps:
       - uses: actions/checkout@v2

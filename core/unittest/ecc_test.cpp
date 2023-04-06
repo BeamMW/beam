@@ -22,6 +22,7 @@
 #include "../aes.h"
 #include "../proto.h"
 #include "../lelantus.h"
+#include "../base58.h"
 #include "../../utility/byteorder.h"
 #include "../../utility/executor.h"
 
@@ -714,7 +715,7 @@ struct AssetTag
 
 void TestRangeProof(bool bCustomTag)
 {
-	RangeProof::CreatorParams cp;
+	RangeProof::Params::Create cp;
 
 	beam::uintBig_t<sizeof(Key::ID::Packed)> up0, up1;
 	SetRandom(up0);
@@ -747,7 +748,7 @@ void TestRangeProof(bool bCustomTag)
 	}
 
 	{
-		RangeProof::CreatorParams cp2;
+		RangeProof::Params::Base cp2;
 		cp2.m_Seed = cp.m_Seed;
 		cp2.m_Blob = up1;
 
@@ -832,7 +833,7 @@ void TestRangeProof(bool bCustomTag)
 	}
 	{
 		Oracle oracle;
-		RangeProof::CreatorParams cp2;
+		RangeProof::Params::Recover cp2;
 		cp2.m_Seed = cp.m_Seed;
 		cp2.m_Blob = uc1;
 
@@ -870,7 +871,7 @@ void TestRangeProof(bool bCustomTag)
 		Scalar::Native sk2;
 		Scalar::Native pExVer[2];
 
-		RangeProof::CreatorParams cp2;
+		RangeProof::Params::Recover cp2;
 		cp2.m_Blob = uc1;
 		cp2.m_Seed = cp.m_Seed;
 		cp2.m_pSeedSk = &seedSk;
@@ -1064,7 +1065,7 @@ void TestMultiSigOutput()
 	outp.Prepare(o0, g_hFork);
 
     // from Output::get_SeedKid    
-	RangeProof::CreatorParams cp;
+	RangeProof::Params::Create cp;
 	cp.m_Value = cid.m_Value;
 	beam::Output::GenerateSeedKid(cp.m_Seed.V, outp.m_Commitment, *pKdf_B);
 
@@ -1366,15 +1367,14 @@ struct TransactionMaker
 
 		CoSignKernel(*pKrn);
 
-		Point::Native exc;
 		pKrn->m_pHashLock->m_IsImage = false;
 		pKrn->UpdateID();
-		verify_test(!pKrn->IsValid(g_hFork, exc)); // should not pass validation unless correct hash preimage is specified
+		verify_test(!pKrn->IsValid(g_hFork)); // should not pass validation unless correct hash preimage is specified
 
 		// finish HL: add hash preimage
 		pKrn->m_pHashLock->m_Value = hl.m_Value;
 		pKrn->UpdateID();
-		verify_test(pKrn->IsValid(g_hFork, exc));
+		verify_test(pKrn->IsValid(g_hFork));
 
 		lstTrg.push_back(std::move(pKrn));
 	}
@@ -1758,6 +1758,33 @@ void TestFourCC()
 	TEST_FOURCC(h)
 }
 
+template <uint32_t nTxtSize>
+void TestBase58_Once(const char(&szTxt)[nTxtSize], const char* szVerify)
+{
+	auto sTxt = beam::Base58::to_string<nTxtSize - 1>(reinterpret_cast<const uint8_t*>(szTxt));
+
+	// trim potential leading '1'
+	uint32_t nTrim = 0;
+	while (nTrim < sTxt.size() && ('1' == sTxt[nTrim]))
+		nTrim++;
+
+	verify_test(!memcmp(sTxt.c_str() + nTrim, szVerify, sTxt.size() - nTrim + 1));
+
+	// decode
+	uint8_t pDec[nTxtSize - 1];
+	verify_test(beam::Base58::Decode<nTxtSize - 1>(pDec, szVerify));
+
+	verify_test(!memcmp(pDec, szTxt, nTxtSize - 1));
+}
+
+
+void TestBase58()
+{
+	TestBase58_Once("Hello World!", "2NEpo7TZRRrLZSi2U");
+	TestBase58_Once("Hello, World!", "72k1xXWG59fYdzSNoA"); // would require padding (len is odd)
+	TestBase58_Once("The quick brown fox jumps over the lazy dog.", "USm3fpXnKG5EUBx2ndxBDMPVciP5hGey2Jh4NDv6gmeo1LkMeiKrLJUUBk6Z");
+}
+
 void TestTreasury()
 {
 	beam::Treasury::Parameters pars;
@@ -1977,8 +2004,11 @@ void TestLelantus(bool bWithAsset, bool bMpc)
 
 			proof.m_Part2.m_zR = sVal;
 
-
+			// hide p.m_Witness.m_R
+			x = p.m_Witness.m_R;
+			p.m_Witness.m_R = Zero;
 			p.Generate(seed, oracle, &hGen, beam::Lelantus::Prover::Phase::Step2);
+			p.m_Witness.m_R = x;
 		}
 		else
 			p.Generate(seed, oracle, &hGen);
@@ -2080,6 +2110,20 @@ void TestLelantusKeys()
 
 	beam::ShieldedTxo::PublicGen gen;
 	gen.FromViewer(viewer);
+
+	{
+		beam::ShieldedTxo::PublicGen::Packed p;
+		gen.Export(p);
+
+		ECC::Hash::Value hv;
+		p.get_Hash(hv);
+
+		p.m_Gen.m_PkJ.m_X.Inc();
+		ECC::Hash::Value hv2;
+		p.get_Hash(hv2);
+
+		verify_test(hv != hv2);
+	}
 
 	beam::ShieldedTxo::Data::TicketParams sprs, sprs2;
 	beam::ShieldedTxo txo;
@@ -2254,6 +2298,7 @@ void TestAll()
 	TestProtoVer();
 	TestRandom();
 	TestFourCC();
+	TestBase58();
 	TestTreasury();
 	TestAssetProof();
 	TestAssetEmission();
@@ -2634,7 +2679,7 @@ void RunBenchmark()
 	}
 
 	RangeProof::Confidential bp;
-	RangeProof::CreatorParams cp;
+	RangeProof::Params::Create cp;
 	SetRandom(cp.m_Seed.V);
 	cp.m_Value = 23110;
 

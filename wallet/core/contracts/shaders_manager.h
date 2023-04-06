@@ -22,15 +22,16 @@ namespace beam::wallet {
     struct ManagerStdInWallet
         :public bvm2::ManagerStd
     {
-        ManagerStdInWallet(IWalletDB::Ptr, Wallet::Ptr);
+        ManagerStdInWallet(Wallet&);
         virtual ~ManagerStdInWallet();
 
         void set_Privilege(uint32_t);
 
+        bvm2::ContractInvokeData get_InvokeData();
+
     protected:
 
-        IWalletDB::Ptr m_pWalletDB;
-        Wallet::Ptr m_pWallet;
+        Wallet& m_Wallet;
         uint32_t m_Privilege;
 
         struct SlotName;
@@ -51,12 +52,7 @@ namespace beam::wallet {
         , private ManagerStdInWallet
     {
     public:
-        ShadersManager(beam::wallet::Wallet::Ptr wallet,
-                       beam::wallet::IWalletDB::Ptr walletDB,
-                       beam::proto::FlyClient::INetwork::Ptr nodeNetwork,
-                       std::string appid,
-                       std::string appname,
-                       uint32_t privilegeLvl);
+        ShadersManager(Wallet&, std::string appid, std::string appname, uint32_t privilegeLvl);
 
         bool IsDone() const override
         {
@@ -81,7 +77,6 @@ namespace beam::wallet {
         std::string _currentAppId;
         std::string _currentAppName;
 
-        beam::wallet::Wallet::Ptr _wallet;
         beam::io::AsyncEvent::Ptr _startEvent;
 
         struct Request {
