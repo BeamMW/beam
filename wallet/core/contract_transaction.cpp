@@ -392,6 +392,14 @@ namespace beam::wallet
                 m_Context.m_Height = h;
                 m_Context.m_pParent = std::make_unique<Merkle::Hash>(hv);
             }
+
+            void OnReset() override
+            {
+                ManagerStdInWallet::OnReset();
+
+                if (m_pBuilder)
+                    m_fmSpendMax = m_pBuilder->m_Data.m_SpendMax;
+            }
         };
 
         AppShaderExec::Ptr m_pAppExec;
