@@ -644,6 +644,9 @@ namespace bvm2 {
 		virtual void Comm_Send(const ECC::Point&, const Blob&) {}
 		virtual void Comm_Wait(uint32_t nTimeout_ms) { Exc::Fail(); }
 
+		uint32_t get_MaxSpend(FundsChange* pFc, uint32_t nFc, bool bCvt);
+		void set_MaxSpend(const FundsChange* pFc, uint32_t nFc, bool bCvt);
+		
 	public:
 
 		std::ostream* m_pOut;

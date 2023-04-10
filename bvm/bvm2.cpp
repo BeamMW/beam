@@ -3304,6 +3304,69 @@ namespace bvm2 {
 		}
 	}
 
+	BVM_METHOD(GetMaxSpend)
+	{
+		return get_MaxSpend(get_ArrayAddrAsW<FundsChange>(pFc, nFc), nFc, true);
+	}
+
+	BVM_METHOD_HOST(GetMaxSpend)
+	{
+		return get_MaxSpend(pFc, nFc, false);
+	}
+
+	BVM_METHOD(SetMaxSpend)
+	{
+		set_MaxSpend(get_ArrayAddrAsR<FundsChange>(pFc, nFc), nFc, true);
+	}
+
+	BVM_METHOD_HOST(SetMaxSpend)
+	{
+		set_MaxSpend(pFc, nFc, false);
+	}
+
+	uint32_t ProcessorManager::get_MaxSpend(FundsChange* pFc, uint32_t nFc, bool bCvt)
+	{
+		uint32_t i = 0;
+		for (const auto& x : m_fmSpendMax)
+		{
+			if (i == nFc)
+				break;
+
+			auto& trg = pFc[i++];
+			trg.m_Aid = x.first;
+			trg.m_Consume = (x.second > 0);
+
+			trg.m_Amount = trg.m_Consume ? x.second : (-x.second);
+
+			if (bCvt)
+			{
+				trg.m_Aid = Wasm::to_wasm(trg.m_Aid);
+				trg.m_Amount = Wasm::to_wasm(trg.m_Amount);
+			}
+		}
+		
+		return (uint32_t) m_fmSpendMax.size();
+	}
+
+	void ProcessorManager::set_MaxSpend(const FundsChange* pFc, uint32_t nFc, bool bCvt)
+	{
+		m_fmSpendMax.clear();
+
+		for (uint32_t i = 0; i < nFc; i++)
+		{
+			const auto& src = pFc[i];
+			Amount val = bCvt ? Wasm::from_wasm(src.m_Amount) : src.m_Amount;
+			AmountSigned valSigned = src.m_Consume ? val : (0 - val);
+
+			if (!valSigned)
+				continue;
+
+			Asset::ID aid = bCvt ? Wasm::from_wasm(src.m_Aid) : src.m_Aid;
+			m_fmSpendMax[aid] = valSigned;
+		}
+	}
+
+
 	BVM_METHOD(GetApiVersion)
 	{
 		return Shaders::ApiVersion::Current;
