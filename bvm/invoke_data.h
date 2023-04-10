@@ -202,7 +202,7 @@ namespace beam::bvm2 {
 				if (ContractInvokeEntry::Flags::SaveAppInvoke & x.m_Flags)
 					ar & m_AppInvoke;
 				if (ContractInvokeEntry::Flags::SaveSpendMax & x.m_Flags)
-					ar & m_AppInvoke;
+					ar &  Cast::Down< std::map<Asset::ID, AmountSigned> >(m_SpendMax);
 			}
 		}
 	};

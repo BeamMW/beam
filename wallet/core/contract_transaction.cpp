@@ -53,6 +53,7 @@ namespace beam::wallet
         bool m_HftSubscribed = false;
         bool m_RebuildFailed = false;
         bool m_AllUnconfirmed = false;
+        bool m_ExplicitMaxSpend = false;
         boost::optional<Merkle::Hash> m_pNewCtx;
 
         static void Fail(const char* sz = nullptr)
@@ -469,12 +470,12 @@ namespace beam::wallet
             }
         };
 
-        static bool IsSpendWithinLimitsUns(Amount v0, Amount v1, bool bExplicitSpendMax)
+        bool IsSpendWithinLimitsUns(Amount v0, Amount v1) const
         {
             if (v1 <= v0)
                 return true;
 
-            if (bExplicitSpendMax)
+            if (m_ExplicitMaxSpend)
                 return false;
 
             Amount dv = v1 - v0;
@@ -483,9 +484,7 @@ namespace beam::wallet
 
         bool IsSpendWithinLimits(const bvm2::FundsMap& fm) const
         {
-            bool bExplicitSpendMax = !m_Data.m_vec.empty() && (bvm2::ContractInvokeEntry::Flags::SaveSpendMax & m_Data.m_vec.front().m_Flags);
-           
-            for (FundsCmpWalker fcw(bExplicitSpendMax ? m_Data.m_SpendMax : m_HftState.m_SpendInitial, fm); fcw.MoveNext(); )
+            for (FundsCmpWalker fcw(m_ExplicitMaxSpend ? m_Data.m_SpendMax : m_HftState.m_SpendInitial, fm); fcw.MoveNext(); )
             {
                 if (fcw.m_pm1.m_Val > 0)
                 {
@@ -493,7 +492,7 @@ namespace beam::wallet
                     if (fcw.m_pm0.m_Val <= 0)
                         return false;
 
-                    if (!IsSpendWithinLimitsUns(fcw.m_pm0.m_Val, fcw.m_pm1.m_Val, bExplicitSpendMax))
+                    if (!IsSpendWithinLimitsUns(fcw.m_pm0.m_Val, fcw.m_pm1.m_Val))
                         return false;
                 }
                 else
@@ -502,7 +501,7 @@ namespace beam::wallet
                     if (fcw.m_pm0.m_Val >= 0)
                         continue;
 
-                    if (!IsSpendWithinLimitsUns(0-fcw.m_pm1.m_Val, 0-fcw.m_pm0.m_Val, bExplicitSpendMax))
+                    if (!IsSpendWithinLimitsUns(0-fcw.m_pm1.m_Val, 0-fcw.m_pm0.m_Val))
                         return false;
                 }
             }
@@ -519,6 +518,9 @@ namespace beam::wallet
         auto& builder = *m_TxBuilder;
 
         GetParameter(TxParameterID::ContractDataPacked, builder.m_Data, GetSubTxID());
+
+        if (!builder.m_Data.m_vec.empty() && (bvm2::ContractInvokeEntry::Flags::SaveSpendMax & builder.m_Data.m_vec.front().m_Flags))
+            builder.m_ExplicitMaxSpend = true;
 
         {
             ByteBuffer buf;
@@ -694,11 +696,20 @@ namespace beam::wallet
                 builder.Fail();
 
             bvm2::FundsMap fm = vData.get_FullSpend();
-            // ensure spend is within 
-            if (!builder.m_HftState.m_Variants.empty() && !builder.IsSpendWithinLimits(fm))
+
+            bool bCheckLimits = builder.m_ExplicitMaxSpend || !builder.m_HftState.m_Variants.empty();
+            if (bCheckLimits && !builder.IsSpendWithinLimits(fm))
             {
                 builder.OnRebuildFailed();
                 LOG_INFO() << "slippage too large";
+
+                if (builder.m_HftState.m_Variants.empty())
+                {
+                    // violated on the initial args
+                    OnFailed(TxFailureReason::TransactionExpired);
+                    return false;
+                }
+
                 return true;
             }
 
@@ -1321,7 +1332,7 @@ namespace beam::wallet
             m_RebuildFailed = false;
         else
         {
-            if (m_HftState.m_Variants.empty())
+            if (m_HftState.m_Variants.empty() && !m_ExplicitMaxSpend)
                 m_HftState.m_SpendInitial = m_Data.get_FullSpend();
 
             EnsureNewCtx();
