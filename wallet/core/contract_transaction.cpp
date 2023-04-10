@@ -475,7 +475,7 @@ namespace beam::wallet
                 return true;
 
             Amount dv = v1 - v0;
-            return dv <= v0 / 10; // assume threshold is 10%
+            return dv <= v0 / 100; // assume implicit threshold is 1%
         }
 
         bool IsSpendWithinLimits(const bvm2::FundsMap& fm) const
