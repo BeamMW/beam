@@ -469,10 +469,13 @@ namespace beam::wallet
             }
         };
 
-        static bool IsSpendWithinLimitsUns(Amount v0, Amount v1)
+        static bool IsSpendWithinLimitsUns(Amount v0, Amount v1, bool bExplicitSpendMax)
         {
             if (v1 <= v0)
                 return true;
+
+            if (bExplicitSpendMax)
+                return false;
 
             Amount dv = v1 - v0;
             return dv <= v0 / 100; // assume implicit threshold is 1%
@@ -480,8 +483,9 @@ namespace beam::wallet
 
         bool IsSpendWithinLimits(const bvm2::FundsMap& fm) const
         {
-            
-            for (FundsCmpWalker fcw(m_HftState.m_SpendInitial, fm); fcw.MoveNext(); )
+            bool bExplicitSpendMax = !m_Data.m_vec.empty() && (bvm2::ContractInvokeEntry::Flags::SaveSpendMax & m_Data.m_vec.front().m_Flags);
+           
+            for (FundsCmpWalker fcw(bExplicitSpendMax ? m_Data.m_SpendMax : m_HftState.m_SpendInitial, fm); fcw.MoveNext(); )
             {
                 if (fcw.m_pm1.m_Val > 0)
                 {
@@ -489,7 +493,7 @@ namespace beam::wallet
                     if (fcw.m_pm0.m_Val <= 0)
                         return false;
 
-                    if (!IsSpendWithinLimitsUns(fcw.m_pm0.m_Val, fcw.m_pm1.m_Val))
+                    if (!IsSpendWithinLimitsUns(fcw.m_pm0.m_Val, fcw.m_pm1.m_Val, bExplicitSpendMax))
                         return false;
                 }
                 else
@@ -498,7 +502,7 @@ namespace beam::wallet
                     if (fcw.m_pm0.m_Val >= 0)
                         continue;
 
-                    if (!IsSpendWithinLimitsUns(0-fcw.m_pm1.m_Val, 0-fcw.m_pm0.m_Val))
+                    if (!IsSpendWithinLimitsUns(0-fcw.m_pm1.m_Val, 0-fcw.m_pm0.m_Val, bExplicitSpendMax))
                         return false;
                 }
             }
