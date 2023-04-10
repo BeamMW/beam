@@ -654,6 +654,7 @@ namespace bvm2 {
 		Key::IKdf::Ptr m_pKdf; // gives more access to the keys. Set only when app runs in a privileged mode
 
 		ContractInvokeDataBase m_InvokeData;
+		FundsMap m_fmSpendMax;
 
 		std::map<std::string, std::string> m_Args;
 		void set_ArgBlob(const char* sz, const Blob&);

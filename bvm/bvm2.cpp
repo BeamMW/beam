@@ -3872,6 +3872,7 @@ namespace bvm2 {
 
 		m_Comms.Clear();
 		m_Context.Reset();
+		m_fmSpendMax.clear();
 
 		m_mapReadVars.Clear();
 		m_mapReadLogs.Clear();

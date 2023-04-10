@@ -160,7 +160,15 @@ namespace beam::wallet {
             res.m_AppInvoke.m_Contract = m_BodyContract;
             res.m_AppInvoke.m_Args = m_Args;
             res.m_AppInvoke.m_Privilege = m_Privilege;
+
+            if (!m_fmSpendMax.empty())
+            {
+                res.m_vec.front().m_Flags |= bvm2::ContractInvokeEntry::Flags::SaveSpendMax;
+                res.m_SpendMax = std::move(m_fmSpendMax);
+            }
         }
+
+        m_fmSpendMax.clear();
 
         return res;
     }
