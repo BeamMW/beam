@@ -24,6 +24,8 @@
 
 #define VaultAnon_user_send_anon(macro) VaultAnon_user_send_raw(macro)
 
+#define VaultAnon_user_send_anon_many(macro) macro(ContractID, cid)
+
 #define VaultAnon_user_receive_raw(macro) \
     macro(ContractID, cid) \
     macro(AssetID, aid) \
@@ -39,6 +41,7 @@
     macro(user, my_key) \
     macro(user, send_raw) \
     macro(user, send_anon) \
+    macro(user, send_anon_many) \
     macro(user, receive_raw) \
     macro(user, receive_anon)
 
@@ -99,7 +102,15 @@ struct MyAccountsPrinter
     void PrintMsg(bool bIsAnon, const uint8_t* pMsg, uint32_t nMsg) override
     {
         if (nMsg)
+        {
             Env::DocAddBlob("custom", pMsg, nMsg);
+
+            char szTxt[s_MaxMsgSize + 1];
+            Env::Memcpy(szTxt, pMsg, nMsg);
+            szTxt[nMsg] = 0;
+            Env::DocAddText("custom_txt", szTxt);
+
+        }
     }
 };
 
@@ -144,6 +155,44 @@ ON_METHOD(user, send_anon)
         return OnError("msg too long");
 
     OnUser_send_anon(cid, pkOwner, aid, amount, pMsg, nMsg);
+}
+
+ON_METHOD(user, send_anon_many)
+{
+    const uint32_t nMaxEntries = 1000;
+    auto fPk = Utils::MakeFieldIndex<nMaxEntries>("pk_");
+    auto fAmount = Utils::MakeFieldIndex<nMaxEntries>("amount_");
+    auto fAid = Utils::MakeFieldIndex<nMaxEntries>("aid_");
+    auto fMsg = Utils::MakeFieldIndex<nMaxEntries>("msg_");
+
+    for (uint32_t i = 0; i < nMaxEntries; i++)
+    {
+        PubKey pk;
+        fPk.Set(i);
+        if (!Env::DocGet(fPk.m_sz, pk))
+            break;
+
+        Amount amount;
+        fAmount.Set(i);
+        if (!Env::DocGet(fAmount.m_sz, amount))
+            break;
+
+        char szMsg[s_MaxMsgSize + 1];
+        fMsg.Set(i);
+        auto nMsg = Env::DocGetText(fMsg.m_sz, szMsg, sizeof(szMsg));
+        if (nMsg > sizeof(szMsg))
+            break;
+        if (!nMsg)
+            break;
+
+        AssetID aid;
+        fAid.Set(i);
+        if (!Env::DocGet(fAid.m_sz, aid))
+            aid = 0;
+
+        OnUser_send_anon(cid, pk, aid, amount, szMsg, nMsg - 1);
+    }
+
 }
 
 ON_METHOD(user, receive_raw)
