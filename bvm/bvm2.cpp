@@ -3369,14 +3369,15 @@ namespace bvm2 {
 
 	BVM_METHOD(GetApiVersion)
 	{
-		return Shaders::ApiVersion::Current;
+		return m_ApiVersion;
 	}
 
 	BVM_METHOD_HOST_AUTO(GetApiVersion)
 
 	BVM_METHOD(SetApiVersion)
 	{
-		Exc::Test(Shaders::ApiVersion::Current == nVer);
+		Exc::Test(nVer <= Shaders::ApiVersion::Current);
+		m_ApiVersion = nVer;
 	}
 
 	BVM_METHOD_HOST_AUTO(SetApiVersion)
@@ -3942,6 +3943,8 @@ namespace bvm2 {
 		m_mapReadAssets.Clear();
 
 		m_DbgCallstack = DebugCallstack();
+
+		m_ApiVersion = Shaders::ApiVersion::Current;
 	}
 
 	void ProcessorManager::CallMethod(uint32_t iMethod)
