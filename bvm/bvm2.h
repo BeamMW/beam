@@ -644,6 +644,11 @@ namespace bvm2 {
 		virtual void Comm_Send(const ECC::Point&, const Blob&) {}
 		virtual void Comm_Wait(uint32_t nTimeout_ms) { Exc::Fail(); }
 
+		uint32_t m_ApiVersion = Shaders::ApiVersion::Current;
+
+		uint32_t get_MaxSpend(FundsChange* pFc, uint32_t nFc, bool bCvt);
+		void set_MaxSpend(const FundsChange* pFc, uint32_t nFc, bool bCvt);
+		
 	public:
 
 		std::ostream* m_pOut;
@@ -654,6 +659,7 @@ namespace bvm2 {
 		Key::IKdf::Ptr m_pKdf; // gives more access to the keys. Set only when app runs in a privileged mode
 
 		ContractInvokeDataBase m_InvokeData;
+		FundsMap m_fmSpendMax;
 
 		std::map<std::string, std::string> m_Args;
 		void set_ArgBlob(const char* sz, const Blob&);

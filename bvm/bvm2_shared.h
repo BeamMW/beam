@@ -169,7 +169,7 @@ static const uint32_t s_NonceSlots = 256;
 
 struct ApiVersion
 {
-	static const uint32_t Current = 1;
+	static const uint32_t Current = 2;
 };
 
 struct CallFarFlags

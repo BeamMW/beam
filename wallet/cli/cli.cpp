@@ -2551,7 +2551,6 @@ namespace
                 const auto height  = wallet->get_TipHeight();
                 const auto fee     = invData.get_FullFee(height);
                 const auto comment = invData.get_FullComment();
-                const auto spend   = invData.get_FullSpend();
 
                 std::cout << "Creating new contract invocation tx on behalf of the shader" << std::endl;
                 if (man.m_Args["action"] == "create")
@@ -2571,7 +2570,13 @@ namespace
                 }
                 std::cout << "\tComment: " << comment << std::endl;
 
-                for (const auto& info: spend)
+                bvm2::FundsMap fmSpend;
+                bool bMaxSpend = !invData.m_SpendMax.empty();
+                const auto& fm = bMaxSpend ? invData.m_SpendMax : fmSpend;
+                if (!bMaxSpend)
+                    fmSpend = invData.get_FullSpend();
+
+                for (const auto& info: fm)
                 {
                     auto aid = info.first;
                     auto amount = info.second;
@@ -2580,7 +2585,12 @@ namespace
                     if (!bSpend)
                         amount = -amount;
 
-                    std::cout << '\t' << (bSpend ? "Send" : "Recv") << ' ' << PrintableAmount(static_cast<Amount>(amount), false, aid) << std::endl;
+                    std::cout << '\t' << (bSpend ? "Send" : "Recv") << ' ' << PrintableAmount(static_cast<Amount>(amount), false, aid);
+
+                    if (bMaxSpend)
+                        std::cout << ' ' << (bSpend ? "(at most)" : "(at least)");
+
+                    std::cout << std::endl;
                 }
 
                 std::cout << "\tTotal fee: " << PrintableAmount(fee, false, 0) << std::endl;

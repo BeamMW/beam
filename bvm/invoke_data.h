@@ -52,6 +52,7 @@ namespace beam::bvm2 {
 			static const uint8_t Multisigned = 8;
 			static const uint8_t HasCommitment = 0x10;
 			static const uint8_t SaveAppInvoke = 0x20;
+			static const uint8_t SaveSpendMax = 0x40;
 		};
 
 		bool IsAdvanced() const {
@@ -188,17 +189,21 @@ namespace beam::bvm2 {
 		:public ContractInvokeDataBase
 	{
 		AppInvokeData m_AppInvoke;
+		FundsMap m_SpendMax;
 
 		template <typename Archive>
 		void serialize(Archive& ar)
 		{
 			ar & Cast::Down<ContractInvokeDataBase>(*this);
 
-			if (!m_vec.empty() && (ContractInvokeEntry::Flags::SaveAppInvoke & m_vec.front().m_Flags))
-				ar & m_AppInvoke;
+			if (!m_vec.empty())
+			{
+				auto& x = m_vec.front();
+				if (ContractInvokeEntry::Flags::SaveAppInvoke & x.m_Flags)
+					ar & m_AppInvoke;
+				if (ContractInvokeEntry::Flags::SaveSpendMax & x.m_Flags)
+					ar &  Cast::Down< std::map<Asset::ID, AmountSigned> >(m_SpendMax);
+			}
 		}
-
-		void Reset();
-
 	};
 }

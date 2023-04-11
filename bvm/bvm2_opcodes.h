@@ -492,6 +492,14 @@
 #define BVMOp_Comm_WaitMsg(macro, sep) \
 	macro(uint32_t, nTimeout_ms)
 
+#define BVMOp_GetMaxSpend(macro, sep) \
+	macro(FundsChange*, pFc) sep \
+	macro(uint32_t, nFc)
+
+#define BVMOp_SetMaxSpend(macro, sep) \
+	macro(const FundsChange*, pFc) sep \
+	macro(uint32_t, nFc)
+
 #define BVMOpsAll_Common(macro) \
 	macro(0x05, void     , Write) \
 	macro(0x10, void*    , Memcpy) \
@@ -601,5 +609,7 @@
 	macro(0xB2, uint32_t , Comm_Read) \
 	macro(0xB3, void     , Comm_WaitMsg) \
 	macro(0xB4, void     , Comm_Listen) \
+	macro(0xC0, uint32_t , GetMaxSpend) \
+	macro(0xC1, void     , SetMaxSpend) \
 
 #define EXTRA_LINE_BEFORE_EOF_SO_THAT_THE_STUPID_COMPILER_WONT_COMPLAIN_ABOUT_BACKSLASH_ON_PREVIOUS_LINE
