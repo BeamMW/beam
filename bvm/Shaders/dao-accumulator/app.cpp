@@ -485,7 +485,23 @@ ON_METHOD(user_lock)
     arg.m_LpToken = amountLpToken;
     arg.m_hEnd = h + User::s_LockPeriodBlocks * lockPeriods;
 
-    Env::KeyID(&arg.m_hEnd, sizeof(arg.m_hEnd)).get_Pk(arg.m_pkUser);
+    while (true)
+    {
+        Env::KeyID(&arg.m_hEnd, sizeof(arg.m_hEnd)).get_Pk(arg.m_pkUser);
+
+        if (s.m_aidLpToken)
+            break;
+
+        Env::Key_T<User::Key> uk;
+        _POD_(uk.m_Prefix.m_Cid) = cid;
+        _POD_(uk.m_KeyInContract.m_pk) = arg.m_pkUser;
+
+        User u;
+        if (!Env::VarReader::Read_T(uk, u))
+            break;
+
+        arg.m_hEnd++;
+    }
 
     FundsChange pFc[2];
     pFc[0].m_Amount = amountLpToken;
