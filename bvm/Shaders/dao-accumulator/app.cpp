@@ -148,7 +148,11 @@ ON_METHOD(schedule_upgrade)
 
 ON_METHOD(explicit_upgrade)
 {
-    Upgradable3::Manager::MultiSigRitual::Perform_ExplicitUpgrade(cid);
+    const uint32_t nCharge =
+        Env::Cost::LoadVar_For(sizeof(State)) +
+        Env::Cost::SaveVar_For(sizeof(State));
+
+    Upgradable3::Manager::MultiSigRitual::Perform_ExplicitUpgrade(cid, nCharge);
 }
 
 ON_METHOD(replace_admin)
