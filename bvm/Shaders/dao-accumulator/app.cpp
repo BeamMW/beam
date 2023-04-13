@@ -608,6 +608,7 @@ ON_METHOD(get_yield)
 
     User u;
     _POD_(u).SetZero();
+    u.m_LpToken = amountLpToken;
     u.m_hEnd = h + User::s_LockPeriodBlocks * lockPeriods;
     u.set_Weight(lockPeriods, false);
 
