@@ -121,6 +121,8 @@ namespace beam::wallet
 
 			static void TestStatus(uint16_t res);
 
+			static uint64_t ParseVersionXYZ(const std::string&);
+
 			//static void TestSize(uint16_t n);
 
 			template <typename T>
