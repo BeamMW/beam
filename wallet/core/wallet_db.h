@@ -824,6 +824,7 @@ namespace beam::wallet
 
         void DeleteNonceAddresses();
         void storeOwnerKey();
+        void InitKeys(const IPrivateKeyKeeper2::Ptr& pKeyKeeper);
         void FromMaster();
         void FromMaster(const ECC::uintBig&);
         void FromKeyKeeper();
