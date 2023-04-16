@@ -483,6 +483,11 @@ namespace beam::wallet
             createAddress.offlinePayments = *opcnt;
         }
 
+        if (auto opcnt = getOptionalParam<bool>(params, "use_default_signature"))
+        {
+            createAddress.createNewAddress = !*opcnt;
+        }
+
         return std::make_pair(createAddress, info);
     }
 

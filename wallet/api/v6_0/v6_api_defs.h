@@ -101,6 +101,7 @@ namespace beam::wallet
     {
         TokenType type = TokenType::RegularOldStyle;
         uint32_t offlinePayments = 1;
+        bool createNewAddress = true;
 
         struct Response
         {
