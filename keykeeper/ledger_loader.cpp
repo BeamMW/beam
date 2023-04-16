@@ -862,6 +862,27 @@ void BufAddVarArg(ByteBuffer& buf, uint8_t tag, const TContainer& x)
 	buf.insert(buf.end(), x.begin(), x.end());
 }
 
+uint64_t Loader::ParseVersionXYZ(const std::string& sVer)
+{
+	// version format should be X.Y.Z
+	uint64_t ret = atoi(sVer.c_str());
+	ret <<= (sizeof(uint16_t) << 3);
+
+	size_t n = sVer.find('.');
+	if (std::string::npos != n)
+	{
+		ret |= atoi(sVer.c_str() + n + 1);
+		n = sVer.find('.', n + 1);
+	}
+
+	ret <<= (sizeof(uint16_t) << 3);
+
+	if (std::string::npos != n)
+		ret |= atoi(sVer.c_str() + n + 1);
+
+	return ret;
+}
+
 void Loader::Install(const AppData& ad)
 {
 	ByteBuffer bufInstArgs;
@@ -912,9 +933,15 @@ void Loader::Install(const AppData& ad)
 		GetVersion(sMcuVer);
 		if (sMcuVer != ad.m_sTargetVer)
 		{
-			std::cout << "Unsupported firmware version. Expected=" << ad.m_sTargetVer << ", Actual=" << sMcuVer << std::endl;
-			std::cout << "Please update device firmware first" << std::endl;
-			Exc::Fail();
+			uint64_t verExp = ParseVersionXYZ(ad.m_sTargetVer);
+			uint64_t verAct = ParseVersionXYZ(sMcuVer);
+
+			if (verAct < verExp)
+			{
+				std::cout << "Outdated firmware version. Required=" << ad.m_sTargetVer << ", Actual=" << sMcuVer << std::endl;
+				std::cout << "Please update device firmware first" << std::endl;
+				Exc::Fail();
+			}
 		}
 	}
 
