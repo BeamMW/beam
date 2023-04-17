@@ -37,6 +37,25 @@ void AppData::Create(const char* szDir)
 	Serializer ser;
 	ser & (*this);
 
+/*
+	{
+		std::ofstream ofs;
+		ofs.open(s + "beam-ledger.cpp", std::ios_base::out);
+
+		auto buf = ser.buffer();
+
+		const uint32_t nWidth = 16;
+		for (uint32_t i = 0; i < buf.second; )
+		{
+			char sz[3];
+			uintBigImpl::_Print((const uint8_t*)buf.first + i, 1, sz);
+
+			ofs << "0x" << sz << ',';
+			if (!((++i) % nWidth))
+				ofs << '\n';
+		}
+	}
+*/
 	std::ofstream fs;
 	fs.open(s + "beam-ledger.bin", std::ios_base::out);
 	if (fs.fail())
@@ -905,25 +924,9 @@ void Loader::Install(const AppData& ad)
 	for (uint32_t i = 0; i < _countof(pCp); i++)
 		pCp[i] = ByteOrder::to_be(pCp[i]);
 
+	uint8_t apiLevel = 0;
+
 	ECC::Hash::Value hv;
-	{
-		// calculate expected hash
-		ECC::Hash::Processor hp;
-		hp << uintBigFrom(ad.m_TargetID);
-		hp.Write(ad.m_sTargetVer.c_str(), (uint32_t) ad.m_sTargetVer.size());
-		hp.Write(pCp, sizeof(pCp));
-
-		for (auto it = ad.m_Zones.begin(); ad.m_Zones.end() != it; it++)
-		{
-			const auto& seg = it->second;
-			hp.Write(&seg.front(), (uint32_t)seg.size());
-		}
-
-		hp.Write(&bufInstArgs.front(), (uint32_t) bufInstArgs.size());
-		hp >> hv;
-	}
-
-	std::cout << "Expected app Hash: " << hv.str() << std::endl;
 
 	std::cout << "Connecting to the device. Please approve the manager..." << std::endl;
 	EstablishSChannel(ad.m_TargetID);
@@ -942,17 +945,44 @@ void Loader::Install(const AppData& ad)
 				std::cout << "Please update device firmware first" << std::endl;
 				Exc::Fail();
 			}
+
+			const uint64_t verWithApiLevel = (1ull << 32) | (1ull << 16);
+			if ((0x33100004 == ad.m_TargetID) && (verAct >= verWithApiLevel))
+				apiLevel = 1;
 		}
+
+		// calculate expected hash
+		ECC::Hash::Processor hp;
+		hp << uintBigFrom(ad.m_TargetID);
+		
+		if (apiLevel)
+			hp.Write(&apiLevel, sizeof(apiLevel));
+		else
+			hp.Write(sMcuVer.c_str(), (uint32_t) sMcuVer.size());
+
+		hp.Write(pCp, sizeof(pCp));
+
+		for (auto it = ad.m_Zones.begin(); ad.m_Zones.end() != it; it++)
+		{
+			const auto& seg = it->second;
+			hp.Write(&seg.front(), (uint32_t) seg.size());
+		}
+
+		hp.Write(&bufInstArgs.front(), (uint32_t)bufInstArgs.size());
+		hp >> hv;
 	}
 
 	std::cout << "Deleting previous app installation (if exists). Please approve..." << std::endl;
 	DeleteApp(ad.m_sName);
 
 
+	std::cout << "Expected app Hash: " << hv.str() << std::endl;
 	std::cout << "Loading app..." << std::endl;
 
 	m_Data = 0;
 	DataOut_be<uint8_t>(0xb); // set create app params
+	if (apiLevel)
+		DataOut_be(apiLevel);
 	DataOut(pCp, sizeof(pCp));
 
 	TestStatus(ExchangeSec(Cmd()));
