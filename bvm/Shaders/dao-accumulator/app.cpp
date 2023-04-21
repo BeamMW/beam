@@ -545,7 +545,7 @@ ON_METHOD(user_update)
 
     Env::SelectContext(1, 0);
 
-    if (withdrawLpToken && (hEnd < Env::get_Height()))
+    if (withdrawLpToken && (hEnd > Env::get_Height()))
         return OnError("too early");
 
     MyState s;
