@@ -574,7 +574,7 @@ ON_METHOD(user_update)
     pFc[1].m_Amount = withdrawLpToken ? u.m_LpToken : 0;
 
     Method::UserUpdate arg;
-    arg.m_WithdrawBeamX = !!withdrawBeamX;
+    arg.m_WithdrawBeamX = pFc[0].m_Amount;
     arg.m_WithdrawLPToken = !!withdrawLpToken;
     _POD_(arg.m_pkUser) = uk.m_KeyInContract.m_pk;
 
@@ -584,7 +584,7 @@ ON_METHOD(user_update)
         Env::Cost::SaveVar_For(sizeof(State)) +
         Env::Cost::LoadVar_For(sizeof(User)) +
         Env::Cost::SaveVar_For(sizeof(User)) +
-        Env::Cost::FundsLock * (arg.m_WithdrawBeamX + arg.m_WithdrawLPToken) +
+        Env::Cost::FundsLock * ((!!withdrawBeamX) + arg.m_WithdrawLPToken) +
         Env::Cost::AddSig +
         Env::Cost::Cycle * 2000;
 
