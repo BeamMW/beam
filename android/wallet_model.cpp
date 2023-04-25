@@ -141,11 +141,14 @@ namespace
                 
                 auto contractFee = vData.get_FullFee(h);
                 auto contractSpend = vData.get_FullSpend();
-                
+
                 setLongField(env, TxDescriptionClass, tx, "fee", contractFee);
 
-
                 auto mainAmount = txDescription.m_amount;
+               
+                auto assets = env->NewObjectArray(static_cast<jsize>(contractSpend.size()), WalletStatusClass, NULL);
+
+                int i = 0;
                 for (const auto& info: contractSpend)
                 {
                     auto amount = info.second;
@@ -160,10 +163,32 @@ namespace
                     {
                         setIntField(env, TxDescriptionClass, tx, "assetId", info.first);
                     }
-                    
                     mainAmount = mainAmount + amount;
+
+                    auto assetId = info.first;
+                    auto realAmount = info.second * (-1);
+                    auto isIncome = info.second < 0;
+
+                    jobject walletStatus = env->AllocObject(WalletStatusClass);
+                    if(isIncome) 
+                    {
+                        setLongField(env, WalletStatusClass, walletStatus, "receiving", realAmount);
+                    }
+                    else 
+                    {
+                        setLongField(env, WalletStatusClass, walletStatus, "sending", realAmount);
+                    }
+                    setIntField(env, WalletStatusClass, walletStatus, "assetId", static_cast<jint>(assetId));
+
+                    env->SetObjectArrayElement(assets, static_cast<jsize>(i), walletStatus);
+                    env->DeleteLocalRef(walletStatus);
+
+                    i += 1;
                 }
                 
+                jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/WalletStatusDTO");
+                jfieldID assetFieldId = env->GetFieldID(cls, "assets", "[Ljava/lang/Object;");
+                env->SetObjectField(tx, assetFieldId, assets);
 
                 setBooleanField(env, TxDescriptionClass, tx, "sender", mainAmount <= 0);
                 setLongField(env, TxDescriptionClass, tx, "amount", mainAmount);
