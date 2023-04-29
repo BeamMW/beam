@@ -1717,7 +1717,10 @@ namespace beam::wallet
             LOG_UNHANDLED_EXCEPTION();
         }
 
-        callback(std::move(sToken));
+        postFunctionToClientContext([sToken = std::move(sToken), cb = std::move(callback)]() mutable
+        {
+            cb(std::move(sToken));
+        });
     }
 
     void WalletClient::deleteAddress(const WalletID& addr)
