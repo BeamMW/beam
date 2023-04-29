@@ -1,0 +1,14 @@
+### assets_list
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc" : "2.0",
+    "id" : 1,
+    "method" : "assets_list",
+    "params": {
+        "refresh": true,
+        "height": 12340
+    }
+}
+
