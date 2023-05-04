@@ -186,8 +186,7 @@ namespace
                     i += 1;
                 }
                 
-                jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/WalletStatusDTO");
-                jfieldID assetFieldId = env->GetFieldID(cls, "assets", "[Ljava/lang/Object;");
+                jfieldID assetFieldId = env->GetFieldID(TxDescriptionClass, "assets", "Ljava/util/ArrayList;");
                 env->SetObjectField(tx, assetFieldId, assets);
 
                 setBooleanField(env, TxDescriptionClass, tx, "sender", mainAmount <= 0);
