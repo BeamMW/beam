@@ -282,6 +282,7 @@ ON_METHOD(view_airdrops)
 
 
     PayoutReader pr(cidVaultAnon);
+    pr.ReadAll();
     pr.ProcessAllKeys(wlk);
 }
 
@@ -305,6 +306,7 @@ ON_METHOD(claim_airdrops)
     wlk.m_Remaining = 100;
 
     PayoutReader pr(cidVaultAnon);
+    pr.ReadAll();
     pr.ProcessAllKeys(wlk);
 }
 
