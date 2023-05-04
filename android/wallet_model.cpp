@@ -186,7 +186,7 @@ namespace
                     i += 1;
                 }
                 
-                jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/WalletStatusDTO");
+                jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/TxDescriptionDTO");
                 jfieldID assetFieldId = env->GetFieldID(cls, "assets", "[Ljava/lang/Object;");
                 env->SetObjectField(tx, assetFieldId, assets);
 
