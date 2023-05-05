@@ -1353,6 +1353,7 @@ ON_METHOD(user, redeem)
         Env::DocGroup gr("prediction");
         Env::DocAddNum("tok", ctx.m_fpLogic.Tok.m_Val);
         Env::DocAddNum("col", ctx.m_fpLogic.Col.m_Val);
+        Env::DocAddNum("col_netto", ctx.m_fpLogic.Col.m_Val - fee);
         Env::DocAddNum("fee", fee);
         DocAddPerc("fee_perc", Float(fee) / Float(ctx.m_fpLogic.Col.m_Val));
     }
