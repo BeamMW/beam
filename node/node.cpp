@@ -4209,15 +4209,11 @@ bool Node::Miner::IsEnabled() const
 
 void Node::Miner::Initialize(IExternalPOW* externalPOW)
 {
-    m_LastRestart_ms = 0;
-
-    if (!IsEnabled())
-        return;
-
     const Config& cfg = get_ParentObj().m_Cfg;
     if (!cfg.m_MiningThreads && !externalPOW)
         return;
 
+    m_LastRestart_ms = 0;
     m_pEvtMined = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
 
     if (cfg.m_MiningThreads) {
