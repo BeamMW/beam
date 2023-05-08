@@ -927,6 +927,48 @@ void Node::Processor::FlushDB()
     }
 }
 
+void Node::Processor::OnInvalidBlock(const Block::SystemState::Full& s, const Block::Body& block)
+{
+    if (!get_ParentObj().m_Miner.IsEnabled())
+        return;
+
+    // format path
+    std::string sPath = get_ParentObj().m_Cfg.m_sPathLocal;
+    {
+        for (uint32_t i = (uint32_t) sPath.size(); ; )
+        {
+            if (!i--)
+            {
+                sPath.clear();
+                break;
+            }
+
+            if (('/' == sPath[i]) || ('\\' == sPath[i]))
+            {
+                sPath.resize(i + 1);
+                break;
+            }
+        }
+
+        Merkle::Hash hv;
+        s.get_Hash(hv);
+
+        std::ostringstream os;
+        os << s.m_Height << '-' << hv << ".inv_block";
+        sPath += os.str();
+    }
+
+    std::FStream fs;
+    if (fs.Open(sPath.c_str(), false))
+    {
+        Serializer ser;
+        ser & s;
+        ser & block;
+
+        fs.write(ser.buffer().first, ser.buffer().second);
+    }
+}
+
 Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 {
     Peer* pPeer = new Peer(*this);

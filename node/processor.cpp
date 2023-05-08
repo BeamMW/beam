@@ -2940,7 +2940,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			if (s.m_Kernels != ev.m_hvKernels)
 			{
 				LOG_WARNING() << LogSid(m_DB, sid) << " Kernel commitment mismatch";
-				return false;
+				bOk = false;
 			}
 		}
 
@@ -2962,6 +2962,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		{
 			bic.m_Fwd = false;
 			BEAM_VERIFY(HandleValidatedBlock(block, bic));
+
+			OnInvalidBlock(s, block);
 		}
 	}
 
@@ -6553,6 +6555,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	if (!bOk)
 	{
 		LOG_WARNING() << "couldn't apply block after cut-through!";
+		OnInvalidBlock(bc.m_Hdr, bc.m_Block);
 		return false; // ?!
 	}
 	GenerateNewHdr(bc, bic);
