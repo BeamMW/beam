@@ -2940,7 +2940,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			if (s.m_Kernels != ev.m_hvKernels)
 			{
 				LOG_WARNING() << LogSid(m_DB, sid) << " Kernel commitment mismatch";
-				return false;
+				bOk = false;
 			}
 		}
 
