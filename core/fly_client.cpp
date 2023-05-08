@@ -315,7 +315,13 @@ void FlyClient::NetworkStd::Connection::OnMsg(GetBlockFinalization&& msg)
     if (!pKdf)
         ThrowUnexpected(); // ?!
 
-    Block::Builder bb(0, *pKdf, *pKdf, msg.m_Height);
+    Key::IPKdf::Ptr pOwner = pKdf;
+
+    Key::Index iIdx = 0;
+    if (CoinID(Zero).get_ChildKdfIndex(iIdx))
+        pKdf = MasterKey::get_Child(*pKdf, iIdx);
+
+    Block::Builder bb(iIdx, *pKdf, *pOwner, msg.m_Height);
     bb.AddCoinbaseAndKrn();
     bb.AddFees(msg.m_Fees);
 

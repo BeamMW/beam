@@ -206,5 +206,12 @@ namespace Upgradable3 {
             Env::Halt_if(nPrevVersion != g_CurrentVersion - 1);
         else
             Env::Halt();
+
+        // add farming time
+        DaoAccumulator::MyState s;
+        Env::Halt_if(s.m_aidLpToken);
+
+        s.m_hPreEnd = Env::get_Height() + 500;
+        s.Save();
     }
 }

@@ -214,8 +214,8 @@ struct PoolsWalker
 
     PoolsWalker()
     {
-        uint32_t nHft = 0;
-        Env::DocGet("hft", nHft);
+        uint32_t nHft = 1;
+        Env::DocGetNum32("hft", &nHft);
 
         Env::SelectContext(!!nHft, 0);
     }
