@@ -64,6 +64,7 @@ namespace ECC {
 		SetRandom(seed);
 
 		n.m_Keys.InitSingleKey(seed);
+		n.m_Keys.m_pMiner = n.m_Keys.m_pGeneric;
 	}
 }
 
@@ -3582,6 +3583,7 @@ namespace beam
 		node.m_Cfg.m_MiningThreads = 0;
 		node.m_Cfg.m_Treasury = g_Treasury;
 		node.m_Keys.SetSingleKey(fc.m_pKdf);
+		node.m_Keys.m_pMiner = node.m_Keys.m_pGeneric;
 		node.Initialize();
 		node.m_PostStartSynced = true;
 

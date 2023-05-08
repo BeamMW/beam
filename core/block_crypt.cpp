@@ -222,6 +222,9 @@ namespace beam
 				return false; // BB2.1 workaround
 		}
 
+		if ((Scheme::V_Miner0 == iScheme) && !iSubkey)
+			return false;
+
 		idx = iSubkey;
 		return true;
 	}
@@ -251,16 +254,31 @@ namespace beam
 	void CoinID::get_Hash(ECC::Hash::Value& hv) const
 	{
 		Key::Index nScheme = get_Scheme();
-		if (nScheme > Scheme::V0)
+		switch (nScheme)
 		{
-			if (Scheme::BB21 == nScheme)
+		case Scheme::V0:
+			Cast::Down<Key::ID>(*this).get_Hash(hv); // legacy
+			break;
+
+		case Scheme::BB21:
 			{
 				// BB2.1 workaround
 				CoinID cid2 = *this;
 				cid2.set_Subkey(get_Subkey(), Scheme::V0);
 				cid2.get_Hash(hv);
 			}
-			else
+			break;
+
+		case Scheme::V_Miner0:
+			{
+				// miner0 workaround
+				CoinID cid2 = *this;
+				cid2.set_Subkey(get_Subkey(), Scheme::V3);
+				cid2.get_Hash(hv);
+			}
+			break;
+
+		default:
 			{
 				// newer scheme - account for the Value.
 				// Make it infeasible to tamper with value or asset for unknown blinding factor
@@ -282,8 +300,6 @@ namespace beam
 				hp >> hv;
 			}
 		}
-		else
-			Cast::Down<Key::ID>(*this).get_Hash(hv); // legacy
 	}
 
 	std::ostream& operator << (std::ostream& s, const CoinID& x)

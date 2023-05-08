@@ -148,7 +148,11 @@ ON_METHOD(schedule_upgrade)
 
 ON_METHOD(explicit_upgrade)
 {
-    Upgradable3::Manager::MultiSigRitual::Perform_ExplicitUpgrade(cid);
+    const uint32_t nCharge =
+        Env::Cost::LoadVar_For(sizeof(State)) +
+        Env::Cost::SaveVar_For(sizeof(State));
+
+    Upgradable3::Manager::MultiSigRitual::Perform_ExplicitUpgrade(cid, nCharge);
 }
 
 ON_METHOD(replace_admin)
@@ -485,7 +489,23 @@ ON_METHOD(user_lock)
     arg.m_LpToken = amountLpToken;
     arg.m_hEnd = h + User::s_LockPeriodBlocks * lockPeriods;
 
-    Env::KeyID(&arg.m_hEnd, sizeof(arg.m_hEnd)).get_Pk(arg.m_pkUser);
+    while (true)
+    {
+        Env::KeyID(&arg.m_hEnd, sizeof(arg.m_hEnd)).get_Pk(arg.m_pkUser);
+
+        if (s.m_aidLpToken)
+            break;
+
+        Env::Key_T<User::Key> uk;
+        _POD_(uk.m_Prefix.m_Cid) = cid;
+        _POD_(uk.m_KeyInContract.m_pk) = arg.m_pkUser;
+
+        User u;
+        if (!Env::VarReader::Read_T(uk, u))
+            break;
+
+        arg.m_hEnd++;
+    }
 
     FundsChange pFc[2];
     pFc[0].m_Amount = amountLpToken;
@@ -525,7 +545,7 @@ ON_METHOD(user_update)
 
     Env::SelectContext(1, 0);
 
-    if (withdrawLpToken && (hEnd < Env::get_Height()))
+    if (withdrawLpToken && (hEnd > Env::get_Height()))
         return OnError("too early");
 
     MyState s;
@@ -554,7 +574,7 @@ ON_METHOD(user_update)
     pFc[1].m_Amount = withdrawLpToken ? u.m_LpToken : 0;
 
     Method::UserUpdate arg;
-    arg.m_WithdrawBeamX = !!withdrawBeamX;
+    arg.m_WithdrawBeamX = pFc[0].m_Amount;
     arg.m_WithdrawLPToken = !!withdrawLpToken;
     _POD_(arg.m_pkUser) = uk.m_KeyInContract.m_pk;
 
@@ -564,7 +584,7 @@ ON_METHOD(user_update)
         Env::Cost::SaveVar_For(sizeof(State)) +
         Env::Cost::LoadVar_For(sizeof(User)) +
         Env::Cost::SaveVar_For(sizeof(User)) +
-        Env::Cost::FundsLock * (arg.m_WithdrawBeamX + arg.m_WithdrawLPToken) +
+        Env::Cost::FundsLock * ((!!withdrawBeamX) + arg.m_WithdrawLPToken) +
         Env::Cost::AddSig +
         Env::Cost::Cycle * 2000;
 
@@ -588,6 +608,7 @@ ON_METHOD(get_yield)
 
     User u;
     _POD_(u).SetZero();
+    u.m_LpToken = amountLpToken;
     u.m_hEnd = h + User::s_LockPeriodBlocks * lockPeriods;
     u.set_Weight(lockPeriods, false);
 

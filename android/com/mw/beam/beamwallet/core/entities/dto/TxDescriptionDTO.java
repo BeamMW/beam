@@ -14,6 +14,8 @@
 
 package com.mw.beam.beamwallet.core.entities.dto;
 
+import java.util.ArrayList;
+
 public class TxDescriptionDTO
 {
 	public String id;
@@ -42,4 +44,5 @@ public class TxDescriptionDTO
 	public String contractCids;
 	public int minConfirmations;
 	public String minConfirmationsProgress;	
+	public ArrayList <WalletStatusDTO> assets;
 }

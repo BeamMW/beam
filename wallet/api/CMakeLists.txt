@@ -20,6 +20,9 @@ set(SOURCES
     v7_2/v7_2_api.cpp
     v7_2/v7_2_api_handle.cpp
     v7_2/v7_2_api_parse.cpp
+    v7_3/v7_3_api.cpp
+    v7_3/v7_3_api_handle.cpp
+    v7_3/v7_3_api_parse.cpp
 )
 
 add_library(wallet_api STATIC

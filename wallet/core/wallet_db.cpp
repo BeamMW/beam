@@ -2813,13 +2813,33 @@ namespace beam::wallet
         if (comm2 == comm)
             return true;
 
-        if (!cid.IsBb21Possible())
-            return false;
+        if (cid.IsBb21Possible())
+        {
+            CoinID cid2 = cid;
+            cid2.set_WorkaroundBb21();
 
-        cid.set_WorkaroundBb21();
+            get_CommitmentSafe(comm2, cid2, pKeyKeeper.get());
+            if (comm2 == comm)
+            {
+                cid = cid2;
+                return true;
+            }
+        }
 
-        get_CommitmentSafe(comm2, cid, pKeyKeeper.get());
-        return (comm2 == comm);
+        if (cid.IsWorkaroundMiner0Possible())
+        {
+            CoinID cid2 = cid;
+            cid2.set_WorkaroundMiner0();
+
+            get_CommitmentSafe(comm2, cid2, pKeyKeeper.get());
+            if (comm2 == comm)
+            {
+                cid = cid2;
+                return true;
+            }
+        }
+
+        return false;
     }
 
 	void IWalletDB::ImportRecovery(const std::string& path, INegotiatorGateway& gateway)

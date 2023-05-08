@@ -1692,7 +1692,7 @@ namespace beam::wallet
 
         bool bAdd = 0 != (proto::Event::Flags::Add & evt.m_Flags);
         CacheCommitment(evt.m_Commitment, evt.m_Maturity, bAdd);
-        ProcessEventUtxo(evt.m_Cid, h, evt.m_Maturity, bAdd, evt.m_User);
+        ProcessEventUtxo(cid, h, evt.m_Maturity, bAdd, evt.m_User);
     }
 
     void Wallet::ProcessEventUtxo(const CoinID& cid, Height h, Height hMaturity, bool bAdd, const Output::User& user)
