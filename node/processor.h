@@ -554,6 +554,7 @@ public:
 	virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {}
 	virtual void OnFastSyncSucceeded() {}
 	virtual Height get_MaxAutoRollback();
+	virtual void OnInvalidBlock(const Block::SystemState::Full&, const Block::Body&) {}
 
 	struct MyExecutor
 		:public Executor
