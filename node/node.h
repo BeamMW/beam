@@ -238,6 +238,7 @@ private:
 		void OnDummy(const CoinID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
 		Height get_MaxAutoRollback() override;
+		void OnInvalidBlock(const Block::SystemState::Full&, const Block::Body&) override;
 		void Stop();
 
 		struct MyExecutorMT
