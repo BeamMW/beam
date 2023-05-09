@@ -1658,7 +1658,26 @@ namespace beam
 
 	void TxVectors::Eternal::NormalizeE()
 	{
-		std::sort(m_vKernels.begin(), m_vKernels.end());
+		// NOTE
+		// By convention we should not reorder non-standard kernels, we only need to move the standard ones and sort them.
+		// However std::sort is *NOT* guaranteed to keep the order of 'equal' elements. Means - it may reorder the non-standard kernels as well!
+		//
+		// It's possible to use std::stable_sort. But we prefer to manually split std/non-std, and then sort std normally.
+		//std::stable_sort(m_vKernels.begin(), m_vKernels.end());
+
+		size_t nStd = m_vKernels.size();
+		for (size_t i = nStd; i--; )
+		{
+			auto& pKrn = m_vKernels[i];
+			if (pKrn->m_Internal.m_HasNonStd)
+			{
+				nStd--;
+				if (i != nStd)
+					std::swap(pKrn, m_vKernels[nStd]);
+			}
+		}
+
+		std::sort(m_vKernels.begin(), m_vKernels.begin() + nStd);
 	}
 
 	size_t TxVectors::Full::Normalize()

@@ -4891,7 +4891,10 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 	if (!bRes)
 	{
 		if (m_Bic.m_pTxErrorInfo)
+		{
 			DumpCallstack(*m_Bic.m_pTxErrorInfo);
+			*m_Bic.m_pTxErrorInfo << " <- cid=" << cid << " method=" << iMethod;
+		}
 
 		UndoVars();
 	}
@@ -6341,6 +6344,9 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 	for (size_t i = 0; i < vDependent.size(); i++)
 	{
+		// Theoretically for dependent txs can set m_AlreadyValidated flag. But it's not good to mix validated and non-validated in the same pass (ManageKrnID would be confused).
+		// For now - ignore this optimization
+
 		const auto& x = *vDependent[i];
 		Amount txFee = x.m_Fee;
 		auto nSize = x.m_Size;
@@ -6555,6 +6561,8 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	if (!bOk)
 	{
 		LOG_WARNING() << "couldn't apply block after cut-through!";
+		ZeroObject(bc.m_Hdr);
+		bc.m_Hdr.m_Height = bic.m_Height;
 		OnInvalidBlock(bc.m_Hdr, bc.m_Block);
 		return false; // ?!
 	}
