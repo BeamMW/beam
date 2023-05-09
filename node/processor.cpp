@@ -2962,8 +2962,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		{
 			bic.m_Fwd = false;
 			BEAM_VERIFY(HandleValidatedBlock(block, bic));
-
-			OnInvalidBlock(s, block);
 		}
 	}
 
@@ -3042,6 +3040,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	else
 	{
 		m_DB.AssetEvtsDeleteFrom(sid.m_Height);
+		OnInvalidBlock(s, block);
 	}
 
 	return bOk;
