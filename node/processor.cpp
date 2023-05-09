@@ -2569,7 +2569,14 @@ struct NodeProcessor::BlockInterpretCtx
 
 	bool ValidateAssetRange(const Asset::Proof::Ptr& p) const
 	{
-		return !p || (p->m_Begin <= m_AssetHi);
+		if (!p || (p->m_Begin <= m_AssetHi))
+			return true;
+
+		if (m_pTxErrorInfo)
+			*m_pTxErrorInfo << "asset range oob " << p->m_Begin << ", limit=" << m_AssetHi;
+
+		return false;
+
 	}
 
 	void EnsureAssetsUsed(NodeDB&);
@@ -2871,6 +2878,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	bic.m_Rollback.swap((bbP.size() > bbE.size()) ? bbP : bbE); // optimization
 	bic.m_Rollback.clear();
 
+	std::ostringstream osErr;
+	bic.m_pTxErrorInfo = &osErr;
+
 	std::vector<ContractInvokeExtraInfo> vC;
 	if (m_DB.ParamIntGetDef(NodeDB::ParamID::RichContractInfo))
 		bic.m_pvC = &vC;
@@ -2880,7 +2890,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	{
 		assert(bFirstTime);
 		assert(m_Extra.m_Txos == id0);
-		LOG_WARNING() << LogSid(m_DB, sid) << " invalid in its context";
+		LOG_WARNING() << LogSid(m_DB, sid) << " invalid in its context: " << osErr.str();
 	}
 	else
 	{
@@ -2930,7 +2940,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			if (s.m_Kernels != ev.m_hvKernels)
 			{
 				LOG_WARNING() << LogSid(m_DB, sid) << " Kernel commitment mismatch";
-				return false;
+				bOk = false;
 			}
 		}
 
@@ -2952,6 +2962,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		{
 			bic.m_Fwd = false;
 			BEAM_VERIFY(HandleValidatedBlock(block, bic));
+
+			OnInvalidBlock(s, block);
 		}
 	}
 
@@ -3590,11 +3602,21 @@ bool NodeProcessor::HandleKernelType(const TxKernelStd& krn, BlockInterpretCtx& 
 
 		Height h0 = FindVisibleKernel(x.m_ID, bic);
 		if (h0 < Rules::HeightGenesis)
+		{
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "RelLock not found " << x.m_ID;
+
 			return false;
+		}
 
 		HeightAdd(h0, x.m_LockHeight);
 		if (h0 > bic.m_Height)
+		{
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "RelLock too early " << x.m_ID << ", dH=" << x.m_LockHeight;
+
 			return false;
+		}
 	}
 
 	return true;
@@ -3650,10 +3672,19 @@ bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const ContractID* 
 		if (bic.m_Fwd)
 		{
 			if (m_DB.AssetFindByOwner(pidOwner))
+			{
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << "duplicate asset owner: " << pidOwner;
 				return false;
+			}
 
 			if (bic.m_AssetsUsed >= Asset::s_MaxCount)
+			{
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << "assets overflow";
+
 				return false;
+			}
 
 			bic.m_AssetsUsed++;
 		}
@@ -3726,6 +3757,17 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInter
 
 bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, const ContractID* pCid, BlockInterpretCtx& bic, Asset::ID aid, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx)
 {
+	if (HandleAssetDestroy2(pidOwner, pCid, bic, aid, valDeposit, bDepositCheck, nSubIdx))
+		return true;
+
+	if (bic.m_pTxErrorInfo)
+		*bic.m_pTxErrorInfo << ", AssetID=" << aid;
+
+	return false;
+}
+
+bool NodeProcessor::HandleAssetDestroy2(const PeerID& pidOwner, const ContractID* pCid, BlockInterpretCtx& bic, Asset::ID aid, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx)
+{
 	if (!bic.m_AlreadyValidated)
 		bic.EnsureAssetsUsed(m_DB);
 
@@ -3734,21 +3776,42 @@ bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, const ContractID*
 		Asset::Full ai;
 		ai.m_ID = aid;
 		if (!m_DB.AssetGetSafe(ai))
+		{
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "not found";
 			return false;
+		}
 
 		if (!bic.m_AlreadyValidated)
 		{
 			if (ai.m_Owner != pidOwner)
+			{
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << "Not owned";
 				return false;
+			}
 
 			if (ai.m_Value != Zero)
+			{
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << "Value=" << ai.m_Value;
 				return false;
+			}
 
 			if (ai.m_LockHeight + Rules::get().CA.LockPeriod > bic.m_Height)
+			{
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << "LockHeight=" << ai.m_LockHeight;
+
 				return false;
+			}
 
 			if (bDepositCheck && (valDeposit != ai.m_Deposit))
+			{
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << "Deposit expected=" << ai.m_Deposit << ", actual=" << valDeposit;
 				return false;
+			}
 
 			assert(bic.m_AssetsUsed);
 			bic.m_AssetsUsed--;
@@ -3820,10 +3883,25 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpre
 
 bool NodeProcessor::HandleAssetEmit(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, AmountSigned val, uint32_t nSubIdx)
 {
+	if (HandleAssetEmit2(pidOwner, bic, aid, val, nSubIdx))
+		return true;
+
+	if (bic.m_pTxErrorInfo)
+		*bic.m_pTxErrorInfo << ", AssetID=" << aid;
+
+	return false;
+}
+
+bool NodeProcessor::HandleAssetEmit2(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, AmountSigned val, uint32_t nSubIdx)
+{
 	Asset::Full ai;
 	ai.m_ID = aid;
 	if (!m_DB.AssetGetSafe(ai))
+	{
+		if (bic.m_pTxErrorInfo)
+			*bic.m_pTxErrorInfo << "not found";
 		return false;
+	}
 
 	bool bAdd = (val >= 0);
 	Amount valUns = val; // treat as unsigned.
@@ -3835,7 +3913,11 @@ bool NodeProcessor::HandleAssetEmit(const PeerID& pidOwner, BlockInterpretCtx& b
 	if (bic.m_Fwd)
 	{
 		if (!bic.m_AlreadyValidated && (ai.m_Owner != pidOwner))
+		{
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "not owned";
 			return false; // as well
+		}
 	}
 	else
 		bAdd = !bAdd;
@@ -3846,12 +3928,22 @@ bool NodeProcessor::HandleAssetEmit(const PeerID& pidOwner, BlockInterpretCtx& b
 	{
 		ai.m_Value += valBig;
 		if (ai.m_Value < valBig)
+		{
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "too large";
+
 			return false; // overflow (?!)
+		}
 	}
 	else
 	{
 		if (ai.m_Value < valBig)
+		{
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "too low";
+
 			return false; // not enough to burn
+		}
 
 		valBig.Negate();
 		ai.m_Value += valBig;
@@ -3912,6 +4004,9 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedOutput& krn, BlockInt
 		{
 			if (bic.m_ShieldedOuts >= Rules::get().Shielded.MaxOuts)
 			{
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << "Shielded outp limit exceeded";
+
 				bic.m_LimitExceeded = true;
 				return false;
 			}
@@ -3929,7 +4024,12 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedOutput& krn, BlockInt
 		Blob blobVal(&sop, sizeof(sop));
 
 		if (!ValidateUniqueNoDup(bic, blobKey, &blobVal))
+		{
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "Shielded outp duplicate";
+
 			return false;
+		}
 
 		if (!bic.m_Temporary)
 		{
@@ -4015,12 +4115,20 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedInput& krn, BlockInte
 
 			if (bic.m_ShieldedIns >= Rules::get().Shielded.MaxIns)
 			{
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << "Shielded inp limit exceeded";
+
 				bic.m_LimitExceeded = true;
 				return false;
 			}
 
 			if (!IsShieldedInPool(krn))
+			{
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << "Shielded inp oob";
+
 				return false; // references invalid pool window
+			}
 		}
  
 		ShieldedInpPacked sip;
@@ -4029,7 +4137,11 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedInput& krn, BlockInte
 
 		Blob blobVal(&sip, sizeof(sip));
 		if (!ValidateUniqueNoDup(bic, blobKey, &blobVal))
+		{
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "Shielded inp duplicate";
 			return false;
+		}
 
 		if (!bic.m_SkipDefinition)
 		{
@@ -4250,7 +4362,11 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 		t.m_pBound[1] = kMax.V.m_pData;
 
 		if (m_Mapped.m_Utxo.Traverse(t))
+		{
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "not found Input " << v.m_Commitment;
 			return false;
+		}
 
 		p = &Cast::Up<UtxoTree::MyLeaf>(cu.get_Leaf());
 
@@ -4334,7 +4450,11 @@ bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 			// protect again overflow attacks, though it's highly unlikely (Input::Count is currently limited to 32 bits, it'd take millions of blocks)
 			Input::Count nCountInc = p->get_Count() + 1;
 			if (!nCountInc)
+			{
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << "overflow output " << v.m_Commitment;
 				return false;
+			}
 
 			m_Mapped.m_Utxo.PushID(nID, *p);
 		}
@@ -4393,7 +4513,12 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic
 	{
 		Height hPrev = FindVisibleKernel(v.m_Internal.m_ID, bic);
 		if (hPrev >= Rules::HeightGenesis)
+		{
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "Kernel ID=" << v.m_Internal.m_ID << " duplicated at " << hPrev;
+
 			return false; // duplicated
+		}
 	}
 
 	if (!bic.m_Fwd)
@@ -4401,6 +4526,9 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic
 
 	if (!HandleKernel(v, bic))
 	{
+		if (bic.m_pTxErrorInfo)
+			*bic.m_pTxErrorInfo << " <- Kernel ID=" << v.m_Internal.m_ID;
+
 		if (!bic.m_Fwd)
 			OnCorrupted();
 		return false;
@@ -4424,6 +4552,9 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 		{
 			if (!HandleKernel(*v.m_vNested[n], bic))
 			{
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << " <- Nested Kernel " << n;
+
 				bOk = false;
 				break;
 			}
@@ -4438,7 +4569,12 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 	}
 
 	if (bOk)
+	{
 		bOk = HandleKernelTypeAny(v, bic);
+
+		if (!bOk && bic.m_pTxErrorInfo)
+			*bic.m_pTxErrorInfo << " <- Kernel Type " << (uint32_t) v.get_Subtype();
+	}
 
 	if (bOk)
 	{
@@ -4755,7 +4891,10 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 	if (!bRes)
 	{
 		if (m_Bic.m_pTxErrorInfo)
+		{
 			DumpCallstack(*m_Bic.m_pTxErrorInfo);
+			*m_Bic.m_pTxErrorInfo << " <- cid=" << cid << " method=" << iMethod;
+		}
 
 		UndoVars();
 	}
@@ -6205,6 +6344,9 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 	for (size_t i = 0; i < vDependent.size(); i++)
 	{
+		// Theoretically for dependent txs can set m_AlreadyValidated flag. But it's not good to mix validated and non-validated in the same pass (ManageKrnID would be confused).
+		// For now - ignore this optimization
+
 		const auto& x = *vDependent[i];
 		Amount txFee = x.m_Fee;
 		auto nSize = x.m_Size;
@@ -6419,6 +6561,9 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	if (!bOk)
 	{
 		LOG_WARNING() << "couldn't apply block after cut-through!";
+		ZeroObject(bc.m_Hdr);
+		bc.m_Hdr.m_Height = bic.m_Height;
+		OnInvalidBlock(bc.m_Hdr, bc.m_Block);
 		return false; // ?!
 	}
 	GenerateNewHdr(bc, bic);

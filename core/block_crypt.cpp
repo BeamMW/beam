@@ -222,6 +222,9 @@ namespace beam
 				return false; // BB2.1 workaround
 		}
 
+		if ((Scheme::V_Miner0 == iScheme) && !iSubkey)
+			return false;
+
 		idx = iSubkey;
 		return true;
 	}
@@ -251,16 +254,31 @@ namespace beam
 	void CoinID::get_Hash(ECC::Hash::Value& hv) const
 	{
 		Key::Index nScheme = get_Scheme();
-		if (nScheme > Scheme::V0)
+		switch (nScheme)
 		{
-			if (Scheme::BB21 == nScheme)
+		case Scheme::V0:
+			Cast::Down<Key::ID>(*this).get_Hash(hv); // legacy
+			break;
+
+		case Scheme::BB21:
 			{
 				// BB2.1 workaround
 				CoinID cid2 = *this;
 				cid2.set_Subkey(get_Subkey(), Scheme::V0);
 				cid2.get_Hash(hv);
 			}
-			else
+			break;
+
+		case Scheme::V_Miner0:
+			{
+				// miner0 workaround
+				CoinID cid2 = *this;
+				cid2.set_Subkey(get_Subkey(), Scheme::V3);
+				cid2.get_Hash(hv);
+			}
+			break;
+
+		default:
 			{
 				// newer scheme - account for the Value.
 				// Make it infeasible to tamper with value or asset for unknown blinding factor
@@ -282,8 +300,6 @@ namespace beam
 				hp >> hv;
 			}
 		}
-		else
-			Cast::Down<Key::ID>(*this).get_Hash(hv); // legacy
 	}
 
 	std::ostream& operator << (std::ostream& s, const CoinID& x)
@@ -1642,7 +1658,26 @@ namespace beam
 
 	void TxVectors::Eternal::NormalizeE()
 	{
-		std::sort(m_vKernels.begin(), m_vKernels.end());
+		// NOTE
+		// By convention we should not reorder non-standard kernels, we only need to move the standard ones and sort them.
+		// However std::sort is *NOT* guaranteed to keep the order of 'equal' elements. Means - it may reorder the non-standard kernels as well!
+		//
+		// It's possible to use std::stable_sort. But we prefer to manually split std/non-std, and then sort std normally.
+		//std::stable_sort(m_vKernels.begin(), m_vKernels.end());
+
+		size_t nStd = m_vKernels.size();
+		for (size_t i = nStd; i--; )
+		{
+			auto& pKrn = m_vKernels[i];
+			if (pKrn->m_Internal.m_HasNonStd)
+			{
+				nStd--;
+				if (i != nStd)
+					std::swap(pKrn, m_vKernels[nStd]);
+			}
+		}
+
+		std::sort(m_vKernels.begin(), m_vKernels.begin() + nStd);
 	}
 
 	size_t TxVectors::Full::Normalize()

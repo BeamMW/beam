@@ -412,6 +412,7 @@ namespace beam
 			static const uint8_t V1 = 1;
 			static const uint8_t BB21 = 2; // worakround for BB.2.1
 			static const uint8_t V3 = 3;
+			static const uint8_t V_Miner0 = 4;
 
 			static const uint32_t s_SubKeyBits = 24;
 			static const Key::Index s_SubKeyMask = (static_cast<Key::Index>(1) << s_SubKeyBits) - 1;
@@ -459,6 +460,16 @@ namespace beam
 		void set_WorkaroundBb21()
 		{
 			set_Subkey(get_Subkey(), Scheme::BB21);
+		}
+
+		bool IsWorkaroundMiner0Possible() const
+		{
+			return (Scheme::V3 == get_Scheme()) && !get_Subkey();
+		}
+
+		void set_WorkaroundMiner0()
+		{
+			set_Subkey(0, Scheme::V_Miner0);
 		}
 
 		void get_Hash(ECC::Hash::Value&) const;
