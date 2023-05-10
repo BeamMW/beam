@@ -83,7 +83,7 @@ Here is the list of Beam related projects created by our community members but N
 
 ### Current development status
 
-#### Mainnet(January 3rd 2019)
+#### Mainnet (January 3rd 2019)
 
 - Fully functional wallet with key generator and storage supporting secure and confidential online transactions.
 - Full node with both transaction and block validation and full UTXO state management.
