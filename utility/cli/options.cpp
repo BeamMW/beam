@@ -196,6 +196,7 @@ namespace beam
         const char* KEY_MINE = "key_mine"; // deprecated
         const char* MINER_KEY = "miner_key";
         const char* MINER_JOB_LATENCY = "miner_job_latency";
+        const char* MINE_ONLINE = "mine_online";
         const char* BBS_ENABLE = "bbs_enable";
         const char* NEW_ADDRESS = "new_addr";
         const char* GET_ADDRESS = "get_address";
@@ -476,6 +477,7 @@ namespace beam
             (cli::MINER_KEY, po::value<string>(), "Standalone miner key")
             (cli::KEY_MINE, po::value<string>(), "Standalone miner key (deprecated)")
             (cli::MINER_JOB_LATENCY, po::value<uint32_t>(), "Minimal latency in milliseconds for miner job update upon transaction pool change")
+            (cli::MINE_ONLINE, po::value<bool>(), "Perfer online mining when owner wallet is conntected")
             (cli::PASS, po::value<string>(), "password for keys")
             (cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
             (cli::FAST_SYNC, po::value<bool>(), "Fast sync on/off (override horizons)")

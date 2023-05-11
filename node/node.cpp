@@ -1526,7 +1526,8 @@ bool Node::Peer::ShouldFinalizeMining()
 {
     return
         (Flags::Owner & m_Flags) &&
-        (proto::LoginFlags::MiningFinalization & m_LoginFlags);
+        (proto::LoginFlags::MiningFinalization & m_LoginFlags) &&
+        m_This.m_Cfg.m_PreferOnlineMining;
 }
 
 void Node::Peer::OnMsg(proto::Bye&& msg)
