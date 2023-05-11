@@ -42,7 +42,6 @@ namespace beam { namespace explorer {
 namespace {
 
 static const size_t PACKER_FRAGMENTS_SIZE = 4096;
-static const size_t CACHE_DEPTH = 100000;
 
 const unsigned int FAKE_SEED = 10283UL;
 const char WALLET_DB_PATH[] = "explorer-wallet.db";
@@ -85,47 +84,6 @@ const char* difficulty_to_hex(char* buf, const Difficulty& d) {
     d.Unpack(raw);
     return uint256_to_hex(buf, raw);
 }
-
-struct ResponseCache {
-    io::SharedBuffer status;
-    std::map<Height, io::SharedBuffer> blocks;
-    Height currentHeight=0;
-
-    explicit ResponseCache(size_t depth) : _depth(depth)
-    {}
-
-    void compact() {
-        if (blocks.empty() || currentHeight <= _depth) return;
-        Height horizon = currentHeight - _depth;
-        if (blocks.rbegin()->first < horizon) {
-            blocks.clear();
-            return;
-        }
-        auto b = blocks.begin();
-        auto it = b;
-        while (it != blocks.end()) {
-            if (it->first >= horizon) break;
-            ++it;
-        }
-        blocks.erase(b, it);
-    }
-
-    bool get_block(io::SerializedMsg& out, Height h) {
-        const auto& it = blocks.find(h);
-        if (it == blocks.end()) return false;
-        out.push_back(it->second);
-        return true;
-    }
-
-    void put_block(Height h, const io::SharedBuffer& body) {
-        if (currentHeight - h > _depth) return;
-        compact();
-        blocks[h] = body;
-    }
-
-private:
-    size_t _depth;
-};
 
 using nlohmann::json;
 
@@ -237,9 +195,7 @@ public:
         _packer(PACKER_FRAGMENTS_SIZE),
 		_node(node),
         _nodeBackend(node.get_Processor()),
-        _statusDirty(true),
-        _nodeIsSyncing(true),
-        _cache(CACHE_DEPTH)
+        _nodeIsSyncing(true)
     {
          init_helper_fragments();
          _hook = &node.m_Cfg.m_Observer;
@@ -305,77 +261,60 @@ private:
     void OnSyncProgress() override {
 		const Node::SyncStatus& s = _node.m_SyncStatus;
         bool isSyncing = (s.m_Done != s.m_Total);
-        if (isSyncing != _nodeIsSyncing) {
-            _statusDirty = true;
-            _nodeIsSyncing = isSyncing;
-        }
+        _nodeIsSyncing = isSyncing;
         if (_nextHook) _nextHook->OnSyncProgress();
     }
 
     void OnStateChanged() override {
-        const auto& cursor = _nodeBackend.m_Cursor;
-        _cache.currentHeight = cursor.m_Sid.m_Height;
-        _statusDirty = true;
         if (_nextHook) _nextHook->OnStateChanged();
     }
 
     void OnRolledBack(const Block::SystemState::ID& id) override {
-
-        auto& blocks = _cache.blocks;
-
-        blocks.erase(blocks.lower_bound(id.m_Height), blocks.end());
-
         if (_nextHook) _nextHook->OnRolledBack(id);
     }
 
     bool get_status(io::SerializedMsg& out) override {
-        if (_statusDirty) {
-            const auto& cursor = _nodeBackend.m_Cursor;
-            _cache.currentHeight = cursor.m_Sid.m_Height;
 
-            double possibleShieldedReadyHours = 0;
-            uint64_t shieldedPer24h = 0;
+        Height h = _nodeBackend.m_Cursor.m_Full.m_Height;
 
-            if (_cache.currentHeight)
+        double possibleShieldedReadyHours = 0;
+        uint64_t shieldedPer24h = 0;
+
+        if (h)
+        {
+            NodeDB& db = _nodeBackend.get_DB();
+            auto shieldedByLast24h = db.ShieldedOutpGet(h >= 1440 ? h - 1440 : 1);
+            auto averageWindowBacklog = Rules::get().Shielded.MaxWindowBacklog / 2;
+
+            if (shieldedByLast24h && shieldedByLast24h != _nodeBackend.m_Extra.m_ShieldedOutputs)
             {
-                NodeDB& db = _nodeBackend.get_DB();
-                auto shieldedByLast24h =
-                db.ShieldedOutpGet(_cache.currentHeight >= 1440 ? _cache.currentHeight - 1440 : 1);
-                auto averageWindowBacklog = Rules::get().Shielded.MaxWindowBacklog / 2;
-
-                if (shieldedByLast24h && shieldedByLast24h != _nodeBackend.m_Extra.m_ShieldedOutputs)
-                {
-                    shieldedPer24h = _nodeBackend.m_Extra.m_ShieldedOutputs - shieldedByLast24h;
-                    possibleShieldedReadyHours = ceil(averageWindowBacklog / (double)shieldedPer24h * 24);
-                }
+                shieldedPer24h = _nodeBackend.m_Extra.m_ShieldedOutputs - shieldedByLast24h;
+                possibleShieldedReadyHours = ceil(averageWindowBacklog / (double)shieldedPer24h * 24);
             }
-
-            char buf[80];
-
-            _sm.clear();
-            if (!serialize_json_msg(
-                _sm,
-                _packer,
-                json{
-                    { "timestamp", cursor.m_Full.m_TimeStamp },
-                    { "height", _cache.currentHeight },
-                    { "low_horizon", _nodeBackend.m_Extra.m_TxoHi },
-                    { "hash", hash_to_hex(buf, cursor.m_ID.m_Hash) },
-                    { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) },
-                    { "peers_count", _node.get_AcessiblePeerCount() },
-                    { "shielded_outputs_total", _nodeBackend.m_Extra.m_ShieldedOutputs },
-                    { "shielded_outputs_per_24h", shieldedPer24h },
-                    { "shielded_possible_ready_in_hours", shieldedPer24h ? std::to_string(possibleShieldedReadyHours) : "-" }
-                }
-            )) {
-                return false;
-            }
-
-            _cache.status = io::normalize(_sm, false);
-            _statusDirty = false;
-            _sm.clear();
         }
-        out.push_back(_cache.status);
+
+        char buf[80];
+
+        io::SerializedMsg sm;
+        if (!serialize_json_msg(
+            sm,
+            _packer,
+            json{
+                { "timestamp", _nodeBackend.m_Cursor.m_Full.m_TimeStamp },
+                { "height", h },
+                { "low_horizon", _nodeBackend.m_Extra.m_TxoHi },
+                { "hash", hash_to_hex(buf, _nodeBackend.m_Cursor.m_ID.m_Hash) },
+                { "chainwork",  uint256_to_hex(buf, _nodeBackend.m_Cursor.m_Full.m_ChainWork) },
+                { "peers_count", _node.get_AcessiblePeerCount() },
+                { "shielded_outputs_total", _nodeBackend.m_Extra.m_ShieldedOutputs },
+                { "shielded_outputs_per_24h", shieldedPer24h },
+                { "shielded_possible_ready_in_hours", shieldedPer24h ? std::to_string(possibleShieldedReadyHours) : "-" }
+            }
+        )) {
+            return false;
+        }
+
+        out.push_back(io::normalize(sm, false));
         return true;
     }
 
@@ -1662,38 +1601,27 @@ private:
     }
 
     bool get_block_impl(io::SerializedMsg& out, uint64_t height, uint64_t& row, uint64_t* prevRow) {
-        if (_cache.get_block(out, height)) {
-            if (prevRow && row > 0) {
-                extract_row(height, row, prevRow);
-            }
-            return true;
-        }
 
-        if (_statusDirty) {
-            const auto &cursor = _nodeBackend.m_Cursor;
-            _cache.currentHeight = cursor.m_Sid.m_Height;
-        }
+        Height h = _nodeBackend.m_Cursor.m_Full.m_Height;
 
         io::SharedBuffer body;
-        bool blockAvailable = (height <= _cache.currentHeight);
+        bool blockAvailable = (height <= h);
         if (blockAvailable) {
             json j;
             if (!extract_block(j, height, row, prevRow)) {
                 blockAvailable = false;
             } else {
-                _sm.clear();
-                if (serialize_json_msg(_sm, _packer, j)) {
-                    body = io::normalize(_sm, false);
-                    _cache.put_block(height, body);
+                io::SerializedMsg sm;
+                if (serialize_json_msg(sm, _packer, j)) {
+                    body = io::normalize(sm, false);
                 } else {
                     return false;
                 }
-                _sm.clear();
             }
         }
 
         if (blockAvailable) {
-            out.push_back(body);
+            out.push_back(std::move(body));
             return true;
         }
 
@@ -1703,14 +1631,13 @@ private:
     bool json2Msg(const json& obj, io::SerializedMsg& out) {
         LOG_DEBUG() << obj;
 
-        _sm.clear();
+        io::SerializedMsg sm;
         io::SharedBuffer body;
-        if (serialize_json_msg(_sm, _packer, obj)) {
-            body = io::normalize(_sm, false);
+        if (serialize_json_msg(sm, _packer, obj)) {
+            body = io::normalize(sm, false);
         } else {
             return false;
         }
-        _sm.clear();
 
         out.push_back(body);
 
@@ -1892,19 +1819,12 @@ private:
     // helper fragments
     io::SharedBuffer _leftBrace, _comma, _rightBrace, _quote;
 
-    // If true then status boby needs to be refreshed
-    bool _statusDirty;
-
     // True if node is syncing at the moment
     bool _nodeIsSyncing;
 
     // node observers chain
     Node::IObserver** _hook;
     Node::IObserver* _nextHook;
-
-    ResponseCache _cache;
-
-    io::SerializedMsg _sm;
 
     wallet::IWalletDB::Ptr _walletDB;
     wallet::Wallet::Ptr _wallet;
