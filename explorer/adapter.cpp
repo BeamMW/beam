@@ -18,7 +18,6 @@
 #include "bvm/bvm2.h"
 #include "http/http_msg_creator.h"
 #include "http/http_json_serializer.h"
-#include "nlohmann/json.hpp"
 #include "utility/helpers.h"
 #include "utility/logger.h"
 
@@ -85,7 +84,7 @@ const char* difficulty_to_hex(char* buf, const Difficulty& d) {
     return uint256_to_hex(buf, raw);
 }
 
-using nlohmann::json;
+
 
 } //namespace
 
@@ -273,7 +272,7 @@ private:
         if (_nextHook) _nextHook->OnRolledBack(id);
     }
 
-    bool get_status(io::SerializedMsg& out) override {
+    json get_status() override {
 
         Height h = _nodeBackend.m_Cursor.m_Full.m_Height;
 
@@ -295,11 +294,7 @@ private:
 
         char buf[80];
 
-        io::SerializedMsg sm;
-        if (!serialize_json_msg(
-            sm,
-            _packer,
-            json{
+        json j{
                 { "timestamp", _nodeBackend.m_Cursor.m_Full.m_TimeStamp },
                 { "height", h },
                 { "low_horizon", _nodeBackend.m_Extra.m_TxoHi },
@@ -309,13 +304,9 @@ private:
                 { "shielded_outputs_total", _nodeBackend.m_Extra.m_ShieldedOutputs },
                 { "shielded_outputs_per_24h", shieldedPer24h },
                 { "shielded_possible_ready_in_hours", shieldedPer24h ? std::to_string(possibleShieldedReadyHours) : "-" }
-            }
-        )) {
-            return false;
-        }
+        };
 
-        out.push_back(io::normalize(sm, false));
-        return true;
+        return j;
     }
 
     bool extract_row(Height height, uint64_t& row, uint64_t* prevRow) {
@@ -990,8 +981,10 @@ private:
 
     }
 
-    void get_ContractList(json& out)
+    json get_contracts() override
     {
+        json j;
+
 #pragma pack (push, 1)
         struct KeyEntry
         {
@@ -1029,7 +1022,7 @@ private:
             }
         }
 
-        out = json::array();
+        json out = json::array();
         out.push_back(json::array({
             MakeTableHdr("Cid"),
             MakeTableHdr("Kind"),
@@ -1074,6 +1067,8 @@ private:
 
             out.push_back(std::move(jItem));
         }
+
+        return MakeTable(std::move(out));
     }
 
     static void OnKrnInfoCorrupted()
@@ -1266,23 +1261,14 @@ private:
         return info;
     }
 
-    bool get_contracts(io::SerializedMsg& out) override
-    {
-        json j;
-        get_ContractList(j);
-
-        return json2Msg(j, out);
-    }
-    
-    bool get_contract_details(io::SerializedMsg& out, const Blob& id, Height hMin, Height hMax, uint32_t nMaxTxs) override
+    json get_contract_details(const Blob& id, Height hMin, Height hMax, uint32_t nMaxTxs) override
     {
         if (id.n != bvm2::ContractID::nBytes)
-            return false;
+            Exc::Fail("bad cid");
 
         json j;
         get_ContractState(j, *reinterpret_cast<const bvm2::ContractID*>(id.p), HeightRange(hMin, hMax), nMaxTxs);
-
-        return json2Msg(j, out);
+        return j;
     }
 
     struct AssetHistoryWalker
@@ -1387,10 +1373,10 @@ private:
         }
     };
 
-    bool get_asset_history(io::SerializedMsg& out, Asset::ID aid, Height hMin, Height hMax, uint32_t nMaxOps) override
+    json get_asset_history(Asset::ID aid, Height hMin, Height hMax, uint32_t nMaxOps) override
     {
         if (!aid)
-            return false;
+            Exc::Fail("no aid");
 
         AssetHistoryWalker wlk;
         wlk.Enum(_nodeBackend, aid, hMin, hMax, nMaxOps);
@@ -1483,7 +1469,7 @@ private:
         ExtraInfo::Writer wr;
         wr.m_json["Asset history"] = MakeTable(std::move(wrArr.m_json));
 
-        return json2Msg(wr.m_json, out);
+        return wr.m_json;
     }
 
     bool extract_block_from_row(json& out, uint64_t row, Height height) {
@@ -1600,117 +1586,73 @@ private:
         return ok && extract_block_from_row(out, row, height);
     }
 
-    bool get_block_impl(io::SerializedMsg& out, uint64_t height, uint64_t& row, uint64_t* prevRow) {
+    json get_block_impl(uint64_t height, uint64_t& row, uint64_t* prevRow) {
 
         Height h = _nodeBackend.m_Cursor.m_Full.m_Height;
 
-        io::SharedBuffer body;
-        bool blockAvailable = (height <= h);
-        if (blockAvailable) {
+        if (height <= h)
+        {
             json j;
-            if (!extract_block(j, height, row, prevRow)) {
-                blockAvailable = false;
-            } else {
-                io::SerializedMsg sm;
-                if (serialize_json_msg(sm, _packer, j)) {
-                    body = io::normalize(sm, false);
-                } else {
-                    return false;
-                }
-            }
+            if (extract_block(j, height, row, prevRow))
+                return j;
         }
 
-        if (blockAvailable) {
-            out.push_back(std::move(body));
-            return true;
-        }
-
-        return serialize_json_msg(out, _packer, json{ { "found", false}, {"height", height } });
+        return json{ { "found", false}, {"height", height } };
     }
 
-    bool json2Msg(const json& obj, io::SerializedMsg& out) {
-        LOG_DEBUG() << obj;
-
-        io::SerializedMsg sm;
-        io::SharedBuffer body;
-        if (serialize_json_msg(sm, _packer, obj)) {
-            body = io::normalize(sm, false);
-        } else {
-            return false;
-        }
-
-        out.push_back(body);
-
-        return true;
-    }
-
-    bool get_block(io::SerializedMsg& out, uint64_t height) override {
+    json get_block(uint64_t height) override {
         uint64_t row=0;
-        return get_block_impl(out, height, row, 0);
+        return get_block_impl(height, row, 0);
     }
 
-    bool get_block_by_kernel(io::SerializedMsg& out, const Blob& key) override {
+    json get_block_by_kernel(const Blob& key) override {
         NodeDB& db = _nodeBackend.get_DB();
 
         Height height = db.FindKernel(key);
         uint64_t row = 0;
 
-        return get_block_impl(out, height, row, 0);
+        return get_block_impl(height, row, 0);
     }
 
-    bool get_blocks(io::SerializedMsg& out, uint64_t startHeight, uint64_t n) override {
+    json get_blocks(uint64_t startHeight, uint64_t n) override {
+
+        json result = json::array();
+
         static const uint64_t maxElements = 1500;
         if (n > maxElements) n = maxElements;
         else if (n==0) n=1;
+
+
         Height endHeight = startHeight + n - 1;
         _exchangeRateProvider->preloadRates(startHeight, endHeight);
-        out.push_back(_leftBrace);
+
         uint64_t row = 0;
         uint64_t prevRow = 0;
         for (;;) {
-            bool ok = get_block_impl(out, endHeight, row, &prevRow);
-            if (!ok) return false;
+            json j = get_block_impl(endHeight, row, &prevRow);
             if (endHeight == startHeight) {
                 break;
             }
-            out.push_back(_comma);
+            result.push_back(std::move(j));
             row = prevRow;
             --endHeight;
         }
-        out.push_back(_rightBrace);
         return true;
     }
 
-    bool get_peers(io::SerializedMsg& out) override
+    json get_peers() override
     {
         auto& peers = _node.get_AcessiblePeerAddrs();
-
-        out.push_back(_leftBrace);
+        json result = json::array();
 
         for (auto& peer : peers)
-        {
-            auto addr = peer.get_ParentObj().m_Addr.m_Value.str();
+            result.push_back(peer.get_ParentObj().m_Addr.m_Value.str());
 
-            {
-                out.push_back(_quote);
-                out.push_back({ addr.data(), addr.size() });
-                out.push_back(_quote);
-            }
-
-            out.push_back(_comma);
-        }
-
-        // remove last comma
-        if (!peers.empty())
-            out.pop_back();
-
-        out.push_back(_rightBrace);
-
-        return true;
+        return result;
     }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-    bool get_swap_offers(io::SerializedMsg& out) override
+    json get_swap_offers() override
     {
         auto offers = _offersBulletinBoard->getOffersList();
 
@@ -1731,10 +1673,10 @@ private:
             });
         }
 
-        return json2Msg(result, out);
+        return result;
     }
 
-    bool get_swap_totals(io::SerializedMsg& out) override
+    json get_swap_totals() override
     {
         auto offers = _offersBulletinBoard->getOffersList();
 
@@ -1806,7 +1748,7 @@ private:
             { "wbtc_offered", SwapAmountToString(wbtcAmount, wallet::AtomicSwapCoin::WBTC)}
         };
 
-        return json2Msg(obj, out);
+        return obj;
     }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 

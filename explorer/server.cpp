@@ -124,7 +124,7 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg)
     const std::string& path = msg.msg->get_path();
     const HttpConnection::Ptr& conn = it->second;
 
-    void (Server::*pFn)(const HttpConnection::Ptr&) = 0;
+    json (Server::*pFn)(const HttpConnection::Ptr&) = 0;
 
     if (_currentUrl.parse(path, m_Dirs))
     {
@@ -154,7 +154,11 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg)
         {
             try
             {
-                (this->*pFn)(conn);
+                json j = (this->*pFn)(conn);
+
+                io::SerializedMsg sm;
+                json2Html(j, _body);
+
                 keepalive = send(conn, 200, "OK");
             }
             catch (const std::exception& e)
@@ -177,12 +181,11 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg)
     return keepalive;
 }
 
-#define OnRequest(dir) void Server::on_request_##dir(const HttpConnection::Ptr& conn)
+#define OnRequest(dir) json Server::on_request_##dir(const HttpConnection::Ptr& conn)
 
 OnRequest(status)
 {
-    if (!_backend.get_status(_body))
-        Exc::Fail("#1");
+    return _backend.get_status();
 }
 
 bool get_UrlHexArg(const HttpUrl& url, const std::string_view& name, uint8_t* p, uint32_t n)
@@ -211,16 +214,10 @@ OnRequest(block)
 
     ECC::Hash::Value hv;
     if (get_UrlHexArg(_currentUrl, "kernel", hv))
-    {
-        if (!_backend.get_block_by_kernel(_body, hv))
-            Exc::Fail("#2.1");
-    }
-    else 
-    {
-        auto height = _currentUrl.get_int_arg("height", 0);
-        if (!_backend.get_block(_body, height))
-            Exc::Fail("#2.2");
-    }
+        return _backend.get_block_by_kernel(hv);
+
+    auto height = _currentUrl.get_int_arg("height", 0);
+    return _backend.get_block(height);
 }
 
 OnRequest(blocks)
@@ -230,32 +227,27 @@ OnRequest(blocks)
     if (start <= 0 || n < 0)
         Exc::Fail("#3.1");
 
-    if (!_backend.get_blocks(_body, start, n))
-        Exc::Fail("#3.2");
+    return _backend.get_blocks(start, n);
 }
 
 OnRequest(peers)
 {
-    if (!_backend.get_peers(_body))
-        Exc::Fail("#4");
+    return _backend.get_peers();
 }
 
 OnRequest(swap_offers)
 {
-    if (!_backend.get_swap_offers(_body))
-        Exc::Fail("#5");
+    return _backend.get_swap_offers();
 }
 
 OnRequest(swap_totals)
 {
-    if (!_backend.get_swap_totals(_body))
-        Exc::Fail("#6");
+    return _backend.get_swap_totals();
 }
 
 OnRequest(contracts)
 {
-    if (!_backend.get_contracts(_body))
-        Exc::Fail("#7");
+    return _backend.get_contracts();
 }
 
 OnRequest(contract)
@@ -269,8 +261,7 @@ OnRequest(contract)
     beam::Height hMax = _currentUrl.get_int_arg("hMax", -1);
     uint32_t nMaxTxs = (uint32_t) _currentUrl.get_int_arg("nMaxTxs", static_cast<uint32_t>(-1));
 
-    if (!_backend.get_contract_details(_body, id, hMin, hMax, nMaxTxs))
-        Exc::Fail("#8");
+    return _backend.get_contract_details(id, hMin, hMax, nMaxTxs);
 }
 
 OnRequest(asset)
@@ -281,8 +272,7 @@ OnRequest(asset)
     beam::Height hMax = _currentUrl.get_int_arg("hMax", -1);
     uint32_t nMaxOps = (uint32_t) _currentUrl.get_int_arg("nMaxOps", -1);
 
-    if (!_backend.get_asset_history(_body, (uint32_t) aid, hMin, hMax, nMaxOps))
-        Exc::Fail("#9");
+    return _backend.get_asset_history((uint32_t) aid, hMin, hMax, nMaxOps);
 }
 
 bool Server::send(const HttpConnection::Ptr& conn, int code, const char* message)

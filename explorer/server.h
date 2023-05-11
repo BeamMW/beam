@@ -19,6 +19,7 @@
 #include "utility/helpers.h"
 #include <string_view>
 #include <set>
+#include "nlohmann/json.hpp"
 
 #define ExplorerNodeDirs(macro) \
     macro(status) \
@@ -62,7 +63,7 @@ private:
     bool on_request(uint64_t id, const HttpMsgReader::Message& msg);
     bool send(const HttpConnection::Ptr& conn, int code, const char* message);
 
-#define THE_MACRO(dir) void on_request_##dir(const HttpConnection::Ptr& conn);
+#define THE_MACRO(dir) nlohmann::json on_request_##dir(const HttpConnection::Ptr& conn);
     ExplorerNodeDirs(THE_MACRO)
 #undef THE_MACRO
 
