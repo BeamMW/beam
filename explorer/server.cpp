@@ -19,6 +19,7 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <fstream>
 #include "../core/ecc.h"
+#include "../core/block_crypt.h"
 
 namespace beam { namespace explorer {
 
@@ -95,6 +96,286 @@ void Server::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode er
     }
 }
 
+
+
+
+
+void json2Msg(const json& obj, io::SerializedMsg& out)
+{
+
+    io::SerializedMsg sm;
+    io::SharedBuffer body;
+    HttpMsgCreator packer(4096);
+
+    if (!serialize_json_msg(sm, packer, obj))
+        Exc::Fail("couldn't serialized");
+
+    out.push_back(io::normalize(sm, false));
+}
+
+void json2HtmlInternal(const json& obj, std::ostringstream& os, uint32_t nIndent);
+
+void json2HtmlTableData(const json& obj, std::ostringstream& os)
+{
+    for (size_t i = 0; i < obj.size(); i++)
+    {
+        auto& x = obj.at(i);
+        if (x.is_array())
+        {
+            os << "<tr>";
+
+            for (size_t j = 0; j < x.size(); j++)
+            {
+                os << "<td>";
+                json2HtmlInternal(x.at(j), os, 0);
+                os << "</td>";
+            }
+
+            os << "</tr>\n";
+        }
+        else
+            json2HtmlInternal(x, os, 0);
+
+    }
+}
+
+bool json2HtmlTable(const json& obj, std::ostringstream& os)
+{
+    if (!obj.is_array())
+        return false;
+
+    os << "\n\
+<table style=\"width:100%\">\n\
+<style>\n\
+table, th, td {\n\
+  border:1px solid black;\n\
+}\n\
+</style>\n";
+
+    json2HtmlTableData(obj, os);
+
+    os << "</table>\n";
+    return true;
+}
+
+std::string get_ShortOf(const std::string& s, uint32_t nMaxChars = 13)
+{
+    static const char s_szSufix[] = "...";
+
+    if (s.size() <= nMaxChars + _countof(s_szSufix) - 1)
+        return s;
+
+    std::string s2;
+    s2.assign(s.begin(), s.begin() + nMaxChars);
+    s2 += s_szSufix;
+    return s2;
+}
+
+bool json2HtmlSpecialObj(const json& obj, std::ostringstream& os, uint32_t nIndent = 0)
+{
+    auto itT = obj.find("type");
+    auto itV = obj.find("value");
+    if ((obj.end() == itT) || (obj.end() == itV))
+        return false;
+
+    auto& objT = *itT;
+    auto& objV = *itV;
+    if (json::value_t::string != objT.type())
+        return false;
+
+    const auto& sType = objT.get<std::string>();
+    if (sType == "aid")
+    {
+        if (!objV.is_number())
+            return false;
+
+        auto aid = objV.get<Asset::ID>();
+        if (aid)
+            os << "<a href = \"asset?htm=1&id=" << aid << "\">Asset-" << aid << "</a>";
+        else
+            os << "Beam";
+
+        return true;
+    }
+
+    if (sType == "amount")
+    {
+        uint64_t val = 0;
+        bool bMinus = false;
+
+        if (objV.is_number())
+            val = objV.get<int64_t>();
+        else
+        {
+            if (!objV.is_string())
+                return false;
+
+            const auto& s = objV.get<std::string>();
+            int64_t valSigned = std::stoll(s.c_str());
+            if (valSigned < 0)
+            {
+                bMinus = true;
+                valSigned = -valSigned;
+            }
+            val = valSigned;
+        }
+
+        os << "<p align = \"right\" style=\"color:" << (bMinus ? "blue" : "green") << "\">";
+        if (bMinus)
+            os << "-";
+
+        AmountBig::Print(os, val, false);
+        os << "</p>";
+
+        return true;
+    }
+
+    if (sType == "cid")
+    {
+        if (!objV.is_string())
+            return false;
+
+        const auto& sCid = objV.get<std::string>();
+
+        os << "<a href = \"contract?htm=1&id=" << sCid << "\">cid-" << get_ShortOf(sCid) << "</a>";
+
+        return true;
+    }
+
+    if (sType == "th")
+    {
+        if (!objV.is_string())
+            return false;
+
+        os << "<h3 align=center>" << objV.get<std::string>() << "</h3>";
+        return true;
+    }
+
+    if (sType == "group")
+    {
+        // part of the table
+        if (!objV.is_array())
+            return false;
+
+        os << "<tr></tr><tr></tr><tr></tr>";
+        json2HtmlTableData(objV, os);
+        os << "<tr></tr><tr></tr><tr></tr>";
+        return true;
+
+    }
+
+    if (sType == "table")
+    {
+        std::ostringstream osTbl;
+        if (!json2HtmlTable(objV, osTbl))
+            return false;
+
+        os << osTbl.str();
+        return true;
+    }
+
+
+    return false;
+}
+
+void json2HtmlInternal(const json& obj, std::ostringstream& os, uint32_t nIndent = 0)
+{
+    ++nIndent;
+    switch (obj.type())
+    {
+    case json::value_t::object:
+        {
+            if (json2HtmlSpecialObj(obj, os, nIndent))
+                break;
+
+            os << "<ul>";
+
+            for (auto it = obj.begin(); obj.end() != it; it++)
+            {
+
+                os << "<li>" << it.key() << ": ";
+                json2HtmlInternal(*it, os, nIndent);
+                os << "</li>";
+            }
+
+            os << "</ul>";
+        }
+        break;
+
+    case json::value_t::array:
+        {
+            os << "[";
+            size_t n = obj.size();
+            for (size_t i = 0; i < n; i++)
+            {
+                if (i)
+                    os << ", ";
+                json2HtmlInternal(obj.at(i), os, nIndent);
+            }
+            os << "]";
+        }
+        break;
+
+    case json::value_t::string:
+        os << obj.get<std::string>();
+        break;
+
+    case json::value_t::number_integer:
+        os << obj.get<int64_t>();
+        break;
+
+    case json::value_t::number_unsigned:
+        os << obj.get<uint64_t>();
+        break;
+
+    case json::value_t::number_float:
+        os << obj.get<double>();
+        break;
+
+    case json::value_t::boolean:
+        {
+            auto val = obj.get<bool>();
+            os << val ? "true" : "false";
+        }
+        break;
+
+    default:
+        //case json::value_t::null:
+        return;
+    }
+
+
+}
+
+bool json2Html(const json& obj, io::SerializedMsg& out)
+{
+    std::ostringstream os;
+    os << "\
+<!DOCTYPE html>\n\
+<html>\n\
+<head>\n\
+<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n\
+</head>\n\
+<body>\n";
+
+
+    json2HtmlInternal(obj, os);
+
+    os << "\
+</body>\n\
+</html>\n";
+
+    auto sRes = os.str();
+    os.clear();
+
+    auto& x = out.emplace_back();
+    x.assign(sRes.c_str(), sRes.size());
+
+    return true;
+}
+
+
+
 bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg)
 {
     auto it = _connections.find(id);
@@ -156,10 +437,15 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg)
             {
                 json j = (this->*pFn)(conn);
 
+                bool bIsHtml = (_currentUrl.args.end() != _currentUrl.args.find("htm"));
                 io::SerializedMsg sm;
-                json2Html(j, _body);
 
-                keepalive = send(conn, 200, "OK");
+                if (bIsHtml)
+                    json2Html(j, _body);
+                else
+                    json2Msg(j, _body);
+
+                keepalive = send(conn, 200, "OK", bIsHtml);
             }
             catch (const std::exception& e)
             {
@@ -275,7 +561,7 @@ OnRequest(asset)
     return _backend.get_asset_history((uint32_t) aid, hMin, hMax, nMaxOps);
 }
 
-bool Server::send(const HttpConnection::Ptr& conn, int code, const char* message)
+bool Server::send(const HttpConnection::Ptr& conn, int code, const char* message, bool isHtml)
 {
     assert(conn);
 
@@ -289,7 +575,7 @@ bool Server::send(const HttpConnection::Ptr& conn, int code, const char* message
         0, //headers,
         0, //sizeof(headers) / sizeof(HeaderPair),
         1,
-        "application/json",
+        isHtml ? "text/html" : "application/json",
         bodySize
     );
 

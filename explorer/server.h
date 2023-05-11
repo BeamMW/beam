@@ -61,7 +61,7 @@ private:
     void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
 
     bool on_request(uint64_t id, const HttpMsgReader::Message& msg);
-    bool send(const HttpConnection::Ptr& conn, int code, const char* message);
+    bool send(const HttpConnection::Ptr& conn, int code, const char* message, bool isHtml = false);
 
 #define THE_MACRO(dir) nlohmann::json on_request_##dir(const HttpConnection::Ptr& conn);
     ExplorerNodeDirs(THE_MACRO)
