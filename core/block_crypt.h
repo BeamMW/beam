@@ -110,8 +110,8 @@ namespace beam
 		// This one is not optimized (slow)
 		void AddTo(ECC::Point::Native& res, const Type& x, const ECC::Point::Native& hGen);
 
-		void Print(std::ostream&, const Type&);
-		void Print(std::ostream&, Amount);
+		void Print(std::ostream&, const Type&, bool bTrim = true);
+		void Print(std::ostream&, Amount, bool bTrim = true);
 	};
 
 	typedef int64_t AmountSigned;

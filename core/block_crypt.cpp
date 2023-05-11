@@ -1966,18 +1966,21 @@ namespace beam
 					PrintRec(os, get_Lo(val));
 			}
 
-			void PrintGroths(std::ostream& os, Amount val)
+			void PrintGroths(std::ostream& os, Amount val, bool bTrim)
 			{
-				if (!val)
+				if (!val && bTrim)
 					return;
 
 				char szBuf[9];
 				PrintDigs(szBuf, _countof(szBuf) - 1, val);
 
-				// trim trailing zeroes
 				uint32_t nLen = _countof(szBuf) - 1;
-				while ('0' == szBuf[nLen - 1])
-					nLen--;
+				if (bTrim)
+				{
+					// trim trailing zeroes
+					while ('0' == szBuf[nLen - 1])
+						nLen--;
+				}
 
 				szBuf[nLen] = 0;
 				os << '.' << szBuf;
@@ -1986,20 +1989,20 @@ namespace beam
 
 		} // namespace Text
 
-		void Print(std::ostream& os, const Type& x)
+		void Print(std::ostream& os, const Type& x, bool bTrim /* = true */)
 		{
 			if (get_Hi(x))
 			{
 				Type val;
 				Amount groths = Text::SplitBy(x, (uint32_t) Rules::Coin, val);
 				Text::PrintRec(os, val);
-				Text::PrintGroths(os, groths);
+				Text::PrintGroths(os, groths, bTrim);
 			}
 			else
 				Print(os, get_Lo(x));
 		}
 
-		void Print(std::ostream& os, Amount x)
+		void Print(std::ostream& os, Amount x, bool bTrim /* = true */)
 		{
 			Amount groths = x % Rules::Coin;
 			x /= Rules::Coin;
@@ -2009,7 +2012,7 @@ namespace beam
 			else
 				os << '0';
 
-			Text::PrintGroths(os, groths);
+			Text::PrintGroths(os, groths, bTrim);
 		}
 
 	} // namespace AmountBig
