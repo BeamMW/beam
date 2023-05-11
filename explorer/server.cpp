@@ -31,21 +31,6 @@ static const uint64_t ACL_REFRESH_TIMER = 2;
 static const unsigned SERVER_RESTART_INTERVAL = 1000;
 static const unsigned ACL_REFRESH_INTERVAL = 5555;
 
-enum Dirs {
-      DIR_STATUS
-    , DIR_BLOCK
-    , DIR_BLOCKS
-    , DIR_PEERS
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-    , DIR_SWAP_OFFERS
-    , DIR_SWAPS_STATUS
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-    , DIR_CONTRACTS
-    , DIR_CONTRACT_DETAILS
-    , DIR_ASSET
-    // etc
-};
-
 } //namespace
 
 Server::Server(IAdapter& adapter, io::Reactor& reactor, io::Address bindAddress, const std::string& keysFileName, const std::vector<uint32_t>& whitelist) :
@@ -110,7 +95,8 @@ void Server::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode er
     }
 }
 
-bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg) {
+bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg)
+{
     auto it = _connections.find(id);
     if (it == _connections.end()) return false;
 
@@ -120,89 +106,83 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg) {
         return false;
     }
 
-    const std::string& path = msg.msg->get_path();
-
-    static const std::map<std::string_view, int> dirs {
-          { "status", DIR_STATUS }
-        , { "block", DIR_BLOCK }
-        , { "blocks", DIR_BLOCKS }
-        , { "peers", DIR_PEERS }
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-        , { "swap_offers", DIR_SWAP_OFFERS }
-        , { "swap_totals", DIR_SWAPS_STATUS }
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-        , { "contracts", DIR_CONTRACTS }
-        , { "contract", DIR_CONTRACT_DETAILS }
-        , { "asset", DIR_ASSET }
+    enum struct DirType
+    {
+        Unused,
+#define THE_MACRO(dir) dir,
+        ExplorerNodeDirs(THE_MACRO)
+#undef THE_MACRO
     };
 
+    if (m_Dirs.empty())
+    {
+#define THE_MACRO(dir) m_Dirs[#dir] = (int) DirType::dir;
+        ExplorerNodeDirs(THE_MACRO)
+#undef THE_MACRO
+    }
+
+    const std::string& path = msg.msg->get_path();
     const HttpConnection::Ptr& conn = it->second;
 
-    bool (Server::*func)(const HttpConnection::Ptr&) = 0;
+    void (Server::*pFn)(const HttpConnection::Ptr&) = 0;
 
-    if (_currentUrl.parse(path, dirs)) {
-        switch (_currentUrl.dir) {
-            case DIR_STATUS:
-                func = &Server::send_status;
-                break;
-            case DIR_BLOCK:
-                func = &Server::send_block;
-                break;
-            case DIR_BLOCKS:
-                func = &Server::send_blocks;
-                break;
-            case DIR_PEERS:
-                func = &Server::send_peers;
-                break;
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-            case DIR_SWAP_OFFERS:
-                func = &Server::send_swap_offers;
-                break;
-            case DIR_SWAPS_STATUS:
-                func = &Server::send_swap_totals;
-                break;
-#endif
-            case DIR_CONTRACTS:
-                func = &Server::send_contracts;
-                break;
-            case DIR_CONTRACT_DETAILS:
-                func = &Server::send_contract_details;
-                break;
-            case DIR_ASSET:
-                func = &Server::send_asset;
-                break;
-            default:
-                break;
+    if (_currentUrl.parse(path, m_Dirs))
+    {
+        switch (_currentUrl.dir)
+        {
+#define THE_MACRO(dir) case DirType::dir: pFn = &Server::on_request_##dir; break;
+            ExplorerNodeDirs(THE_MACRO)
+#undef THE_MACRO
+
+        default: // suppress warning
+            break;
         }
     }
 
     bool keepalive = false;
 
-    if (func) {
+    if (pFn)
+    {
+
+        _body.clear();
+
         //bool validKey = _acl.check(_currentUrl.args["m"], _currentUrl.args["n"], _currentUrl.args["h"]);
         bool validKey = _acl.check(conn->peer_address());
-        if (!validKey) {
+        if (!validKey)
             send(conn, 403, "Forbidden");
-        } else {
-            keepalive = (this->*func)(conn);
+        else
+        {
+            try
+            {
+                (this->*pFn)(conn);
+                keepalive = send(conn, 200, "OK");
+            }
+            catch (const std::exception& e)
+            {
+                std::ostringstream os;
+                os << "Internal error: " << e.what();
+                send(conn, 500, os.str().c_str());
+            }
         }
-    } else {
-        send(conn, 404, "Not Found");
-    }
 
-    if (!keepalive) {
+    }
+    else
+        send(conn, 404, "Not Found");
+
+    if (!keepalive)
+    {
         conn->shutdown();
         _connections.erase(it);
     }
     return keepalive;
 }
 
-bool Server::send_status(const HttpConnection::Ptr& conn) {
-    _body.clear();
-    if (!_backend.get_status(_body)) {
-        return send(conn, 500, "Internal error #1");
-    }
-    return send(conn, 200, "OK");
+#define OnRequest(dir) void Server::on_request_##dir(const HttpConnection::Ptr& conn)
+
+OnRequest(status)
+{
+    if (!_backend.get_status(_body))
+        Exc::Fail("#1");
 }
 
 bool get_UrlHexArg(const HttpUrl& url, const std::string_view& name, uint8_t* p, uint32_t n)
@@ -226,83 +206,75 @@ bool get_UrlHexArg(const HttpUrl& url, const std::string_view& name, uintBig_t<n
     return get_UrlHexArg(url, name, val.m_pData, nBytes);
 }
 
-bool Server::send_block(const HttpConnection::Ptr &conn) {
+OnRequest(block)
+{
 
     ECC::Hash::Value hv;
     if (get_UrlHexArg(_currentUrl, "kernel", hv))
     {
-        if (!_backend.get_block_by_kernel(_body, hv)) {
-            return send(conn, 500, "Internal error #2");
-        }
+        if (!_backend.get_block_by_kernel(_body, hv))
+            Exc::Fail("#2.1");
     }
     else 
     {
         auto height = _currentUrl.get_int_arg("height", 0);
-        if (!_backend.get_block(_body, height)) {
-            return send(conn, 500, "Internal error #2");
-        }
+        if (!_backend.get_block(_body, height))
+            Exc::Fail("#2.2");
     }
-
-    return send(conn, 200, "OK");
 }
 
-bool Server::send_blocks(const HttpConnection::Ptr& conn) {
+OnRequest(blocks)
+{
     auto start = _currentUrl.get_int_arg("height", 0);
     auto n = _currentUrl.get_int_arg("n", 0);
-    if (start <= 0 || n < 0) {
-        return send(conn, 400, "Bad request");
-    }
-    if (!_backend.get_blocks(_body, start, n)) {
-        return send(conn, 500, "Internal error #3");
-    }
-    return send(conn, 200, "OK");
+    if (start <= 0 || n < 0)
+        Exc::Fail("#3.1");
+
+    if (!_backend.get_blocks(_body, start, n))
+        Exc::Fail("#3.2");
 }
 
-bool Server::send_peers(const HttpConnection::Ptr& conn) {
-    if (!_backend.get_peers(_body)) {
-        return send(conn, 500, "Internal error #3");
-    }
-    return send(conn, 200, "OK");
+OnRequest(peers)
+{
+    if (!_backend.get_peers(_body))
+        Exc::Fail("#4");
 }
 
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-bool Server::send_swap_offers(const HttpConnection::Ptr& conn) {
-    if (!_backend.get_swap_offers(_body)) {
-        return send(conn, 500, "Internal error #4");
-    }
-    return send(conn, 200, "OK");
+OnRequest(swap_offers)
+{
+    if (!_backend.get_swap_offers(_body))
+        Exc::Fail("#5");
 }
 
-bool Server::send_swap_totals(const HttpConnection::Ptr& conn) {
-    if (!_backend.get_swap_totals(_body)) {
-        return send(conn, 500, "Internal error #4");
-    }
-    return send(conn, 200, "OK");
-}
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
-bool Server::send_contracts(const HttpConnection::Ptr& conn) {
-    _backend.get_contracts(_body);
-    return send(conn, 200, "OK");
+OnRequest(swap_totals)
+{
+    if (!_backend.get_swap_totals(_body))
+        Exc::Fail("#6");
 }
 
-bool Server::send_contract_details(const HttpConnection::Ptr& conn) {
+OnRequest(contracts)
+{
+    if (!_backend.get_contracts(_body))
+        Exc::Fail("#7");
+}
+
+OnRequest(contract)
+{
 
     ECC::Hash::Value id;
     if (!get_UrlHexArg(_currentUrl, "id", id))
-        return send(conn, 404, "not found");
+        Exc::Fail("id missing");
 
     beam::Height hMin = _currentUrl.get_int_arg("hMin", 0);
     beam::Height hMax = _currentUrl.get_int_arg("hMax", -1);
     uint32_t nMaxTxs = (uint32_t) _currentUrl.get_int_arg("nMaxTxs", static_cast<uint32_t>(-1));
 
     if (!_backend.get_contract_details(_body, id, hMin, hMax, nMaxTxs))
-        return send(conn, 500, "Internal error #2");
-
-    return send(conn, 200, "OK");
+        Exc::Fail("#8");
 }
 
-bool Server::send_asset(const HttpConnection::Ptr& conn) {
+OnRequest(asset)
+{
 
     auto aid = _currentUrl.get_int_arg("id", 0);
     beam::Height hMin = _currentUrl.get_int_arg("hMin", 0);
@@ -310,12 +282,11 @@ bool Server::send_asset(const HttpConnection::Ptr& conn) {
     uint32_t nMaxOps = (uint32_t) _currentUrl.get_int_arg("nMaxOps", -1);
 
     if (!_backend.get_asset_history(_body, (uint32_t) aid, hMin, hMax, nMaxOps))
-        return send(conn, 500, "Internal error #2");
-
-    return send(conn, 200, "OK");
+        Exc::Fail("#9");
 }
 
-bool Server::send(const HttpConnection::Ptr& conn, int code, const char* message) {
+bool Server::send(const HttpConnection::Ptr& conn, int code, const char* message)
+{
     assert(conn);
 
     size_t bodySize = 0;
