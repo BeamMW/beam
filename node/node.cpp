@@ -3060,7 +3060,11 @@ void Node::Peer::OnLogin(proto::Login&& msg, uint32_t nFlagsPrev)
         }
     }
 
-    bool b = ShouldFinalizeMining();
+    bool b;
+    {
+        TemporarySwap ts(m_LoginFlags, nFlagsPrev);
+        b = ShouldFinalizeMining();
+    }
 
 	if (m_This.m_Cfg.m_Bbs.IsEnabled() &&
 		!(proto::LoginFlags::Bbs & nFlagsPrev) &&
