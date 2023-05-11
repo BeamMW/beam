@@ -529,6 +529,7 @@ namespace beam
             (cli::OFFLINE_COUNT, po::value<Positive<uint32_t>>(), "generate offline transaction address with given number of payments")
             (cli::PUBLIC_OFFLINE, po::bool_switch()->default_value(false), "generate an offline public address for donates (less secure, but more convenient)")
             (cli::SEND_OFFLINE, po::bool_switch()->default_value(false), "send an offline payment (offline transaction)")
+            (cli::MINE_ONLINE, po::value<bool>(), "Support online mining when connected to owned miner node")
             (cli::BLOCK_HEIGHT, po::value<Nonnegative<Height>>(), "block height")
             (cli::REQUEST_BODIES, po::value<bool>()->default_value(false), "request and parse block bodies on the wallet side");
 
