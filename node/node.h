@@ -80,6 +80,8 @@ struct Node
 		bool m_LogTxFluff = true;
 		bool m_LogTraficUsage = false;
 
+		bool m_PreferOnlineMining = true;
+
 		// Number of verification threads for CPU-hungry cryptography. Currently used for block validation only.
 		// 0: single threaded
 		// negative: number of cores minus number of mining threads.

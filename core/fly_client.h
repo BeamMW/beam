@@ -221,6 +221,7 @@ namespace proto {
 				uint32_t m_ReconnectTimeout_ms = 5000;
                 uint32_t m_CloseConnectionDelay_ms = 1000;
 				bool m_UseProxy = false;
+				bool m_PreferOnlineMining = true;
 				io::Address m_ProxyAddr;
 			} m_Cfg;
 

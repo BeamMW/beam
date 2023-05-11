@@ -214,10 +214,7 @@ struct PoolsWalker
 
     PoolsWalker()
     {
-        uint32_t nHft = 1;
-        Env::DocGetNum32("hft", &nHft);
-
-        Env::SelectContext(!!nHft, 0);
+        Env::SelectContext(1, 0); // HFTX mode
     }
 
     void Enum(const ContractID& cid)
