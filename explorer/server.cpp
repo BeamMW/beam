@@ -128,7 +128,7 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg)
 
     if (_currentUrl.parse(path, m_Dirs))
     {
-        switch (_currentUrl.dir)
+        switch ((DirType) _currentUrl.dir)
         {
 #define THE_MACRO(dir) case DirType::dir: pFn = &Server::on_request_##dir; break;
             ExplorerNodeDirs(THE_MACRO)
