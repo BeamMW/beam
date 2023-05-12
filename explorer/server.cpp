@@ -442,7 +442,7 @@ struct HtmlConverter
         case json::value_t::boolean:
         {
             auto val = obj.get<bool>();
-            m_os << val ? "true" : "false";
+            m_os << (val ? "true" : "false");
         }
         break;
 
