@@ -113,266 +113,343 @@ void json2Msg(const json& obj, io::SerializedMsg& out)
     out.push_back(io::normalize(sm, false));
 }
 
-void json2HtmlInternal(const json& obj, std::ostringstream& os, uint32_t nIndent);
-
-void json2HtmlTableData(const json& obj, std::ostringstream& os)
+struct HtmlConverter
 {
-    for (size_t i = 0; i < obj.size(); i++)
+    std::ostringstream m_os;
+    uint32_t m_Depth = 0;
+    const std::string& m_Url;
+
+    HtmlConverter(const std::string& url) :m_Url(url) {}
+
+    static std::string get_ShortOf(const std::string& s, uint32_t nMaxChars = 13)
     {
-        auto& x = obj.at(i);
-        if (x.is_array())
-        {
-            os << "<tr>";
+        static const char s_szSufix[] = "...";
 
-            for (size_t j = 0; j < x.size(); j++)
-            {
-                os << "<td>";
-                json2HtmlInternal(x.at(j), os, 0);
-                os << "</td>";
-            }
+        if (s.size() <= nMaxChars + _countof(s_szSufix) - 1)
+            return s;
 
-            os << "</tr>\n";
-        }
-        else
-            json2HtmlInternal(x, os, 0);
-
+        std::string s2;
+        s2.assign(s.begin(), s.begin() + nMaxChars);
+        s2 += s_szSufix;
+        return s2;
     }
-}
 
-bool json2HtmlTable(const json& obj, std::ostringstream& os)
-{
-    if (!obj.is_array())
-        return false;
-
-    os << "\n\
-<table style=\"width:100%\">\n\
-<style>\n\
-table, th, td {\n\
-  border:1px solid black;\n\
-}\n\
-</style>\n";
-
-    json2HtmlTableData(obj, os);
-
-    os << "</table>\n";
-    return true;
-}
-
-std::string get_ShortOf(const std::string& s, uint32_t nMaxChars = 13)
-{
-    static const char s_szSufix[] = "...";
-
-    if (s.size() <= nMaxChars + _countof(s_szSufix) - 1)
-        return s;
-
-    std::string s2;
-    s2.assign(s.begin(), s.begin() + nMaxChars);
-    s2 += s_szSufix;
-    return s2;
-}
-
-bool json2HtmlSpecialObj(const json& obj, std::ostringstream& os, uint32_t nIndent = 0)
-{
-    auto itT = obj.find("type");
-    auto itV = obj.find("value");
-    if ((obj.end() == itT) || (obj.end() == itV))
-        return false;
-
-    auto& objT = *itT;
-    auto& objV = *itV;
-    if (json::value_t::string != objT.type())
-        return false;
-
-    const auto& sType = objT.get<std::string>();
-    if (sType == "aid")
+    void OnTableData(const json& obj)
     {
-        if (!objV.is_number())
+        for (size_t i = 0; i < obj.size(); i++)
+        {
+            auto& x = obj.at(i);
+            if (x.is_array())
+            {
+                m_os << "<tr>";
+
+                for (size_t j = 0; j < x.size(); j++)
+                {
+                    m_os << "<td>";
+                    OnObjInternal(x.at(j));
+                    m_os << "</td>";
+                }
+
+                m_os << "</tr>\n";
+            }
+            else
+                OnObjInternal(x);
+
+        }
+    }
+
+    bool OnTable(const json& obj)
+    {
+        if (!obj.is_array())
             return false;
 
-        auto aid = objV.get<Asset::ID>();
-        if (aid)
-            os << "<a href = \"asset?htm=1&id=" << aid << "\">Asset-" << aid << "</a>";
-        else
-            os << "Beam";
-
+        m_os << "<table style=\"width:100%\">\n";
+        OnTableData(obj);
+        m_os << "</table>\n";
         return true;
     }
 
-    if (sType == "amount")
-    {
-        uint64_t val = 0;
-        bool bMinus = false;
 
-        if (objV.is_number())
-            val = objV.get<int64_t>();
-        else
+    bool OnObjSpecial(const json& obj)
+    {
+        auto itT = obj.find("type");
+        auto itV = obj.find("value");
+        if ((obj.end() == itT) || (obj.end() == itV))
+            return false;
+
+        auto& objT = *itT;
+        auto& objV = *itV;
+        if (json::value_t::string != objT.type())
+            return false;
+
+        const auto& sType = objT.get<std::string>();
+        if (sType == "aid")
+        {
+            if (!objV.is_number())
+                return false;
+
+            auto aid = objV.get<Asset::ID>();
+            if (aid)
+                m_os << "<a href = \"asset?htm=1&id=" << aid << "\">Asset-" << aid << "</a>";
+            else
+                m_os << "Beam";
+
+            return true;
+        }
+
+        if (sType == "amount")
+        {
+            uint64_t val = 0;
+            bool bMinus = false;
+
+            if (objV.is_number())
+                val = objV.get<int64_t>();
+            else
+            {
+                if (!objV.is_string())
+                    return false;
+
+                const auto& s = objV.get<std::string>();
+                int64_t valSigned = std::stoll(s.c_str());
+                if (valSigned < 0)
+                {
+                    bMinus = true;
+                    valSigned = -valSigned;
+                }
+                val = valSigned;
+            }
+
+            m_os << "<p2 style=\"color:" << (bMinus ? "blue" : "green") << "\">";
+            if (bMinus)
+                m_os << "-";
+
+            AmountBig::Print(m_os, val, false);
+            m_os << "</p2>";
+
+            return true;
+        }
+
+        if (sType == "cid")
         {
             if (!objV.is_string())
                 return false;
 
-            const auto& s = objV.get<std::string>();
-            int64_t valSigned = std::stoll(s.c_str());
-            if (valSigned < 0)
-            {
-                bMinus = true;
-                valSigned = -valSigned;
-            }
-            val = valSigned;
+            const auto& sCid = objV.get<std::string>();
+
+            m_os << "<a href = \"contract?htm=1&id=" << sCid << "\">cid-" << get_ShortOf(sCid) << "</a>";
+
+            return true;
         }
 
-        os << "<p align = \"right\" style=\"color:" << (bMinus ? "blue" : "green") << "\">";
-        if (bMinus)
-            os << "-";
-
-        AmountBig::Print(os, val, false);
-        os << "</p>";
-
-        return true;
-    }
-
-    if (sType == "cid")
-    {
-        if (!objV.is_string())
-            return false;
-
-        const auto& sCid = objV.get<std::string>();
-
-        os << "<a href = \"contract?htm=1&id=" << sCid << "\">cid-" << get_ShortOf(sCid) << "</a>";
-
-        return true;
-    }
-
-    if (sType == "th")
-    {
-        if (!objV.is_string())
-            return false;
-
-        os << "<h3 align=center>" << objV.get<std::string>() << "</h3>";
-        return true;
-    }
-
-    if (sType == "group")
-    {
-        // part of the table
-        if (!objV.is_array())
-            return false;
-
-        os << "<tr></tr><tr></tr><tr></tr>";
-        json2HtmlTableData(objV, os);
-        os << "<tr></tr><tr></tr><tr></tr>";
-        return true;
-
-    }
-
-    if (sType == "table")
-    {
-        std::ostringstream osTbl;
-        if (!json2HtmlTable(objV, osTbl))
-            return false;
-
-        os << osTbl.str();
-        return true;
-    }
-
-
-    return false;
-}
-
-void json2HtmlInternal(const json& obj, std::ostringstream& os, uint32_t nIndent = 0)
-{
-    ++nIndent;
-    switch (obj.type())
-    {
-    case json::value_t::object:
+        if (sType == "th")
         {
-            if (json2HtmlSpecialObj(obj, os, nIndent))
+            if (!objV.is_string())
+                return false;
+
+            m_os << "<h3 align=center>" << objV.get<std::string>() << "</h3>";
+            return true;
+        }
+
+        if (sType == "group")
+        {
+            // part of the table
+            if (!objV.is_array())
+                return false;
+
+            m_os << "<tr></tr><tr></tr><tr></tr>";
+            OnTableData(objV);
+            m_os << "<tr></tr><tr></tr><tr></tr>";
+            return true;
+
+        }
+
+        if (sType == "table")
+        {
+            HtmlConverter cvt2(m_Url);
+            cvt2.m_Depth = m_Depth;
+
+            if (!cvt2.OnTable(objV))
+                return false;
+
+            m_os << cvt2.m_os.str();
+
+            auto itMore = obj.find("more");
+            if (obj.end() != itMore)
+            {
+                auto& jMore = *itMore;
+                std::string sPath = m_Url;
+
+                for (auto itArg = jMore.begin(); jMore.end() != itArg; itArg++)
+                {
+                    auto& vArg = *itArg;
+                    std::string sArg;
+                    if (vArg.is_string())
+                        sArg = vArg.get<std::string>();
+                    else
+                    {
+                        if (vArg.is_number())
+                            sArg = std::to_string(vArg.get<uint64_t>());
+                    }
+
+                    sPath = SubstituteArg(sPath, itArg.key(), sArg);
+                }
+
+                m_os << "<a href = \"" << sPath << "\">More..." << "</a>";
+            }
+
+
+            return true;
+        }
+
+
+        return false;
+    }
+
+    static std::string SubstituteArg(const std::string& sUrl, const std::string& sKey_, const std::string& sVal)
+    {
+        std::string sKey = sKey_ + '=';
+        std::string sRes;
+        sRes.reserve(sUrl.size() + sKey.size() + sVal.size());
+
+        uint32_t iArg = 0, nArgs = 0;
+        bool bHasSepAtEnd = false;
+
+        for (size_t i = 0; i < sUrl.size(); iArg++)
+        {
+            size_t iNext = sUrl.find(iArg ? '&' : '?', i);
+            bool bEnd = (std::string::npos == iNext);
+            if (bEnd)
+                iNext = sUrl.size();
+            else
+                iNext++;
+
+            if (strncmp(sUrl.c_str() + i, sKey.c_str(), sKey.size()))
+            {
+                sRes.append(sUrl.c_str() + i, iNext - i);
+                nArgs++;
+                bHasSepAtEnd = !bEnd;
+            }
+
+            i = iNext;
+        }
+
+        if (!bHasSepAtEnd)
+            sRes += (nArgs ? '&' : '?');
+        sRes += sKey;
+        sRes += sVal;
+        return sRes;
+    }
+
+
+    void OnObjInternal(const json& obj)
+    {
+        uint32_t nDepth = m_Depth;
+        if (++nDepth > 128)
+            Exc::Fail("recursion too deep");
+
+        TemporarySwap ts(m_Depth, nDepth);
+
+        switch (obj.type())
+        {
+        case json::value_t::object:
+        {
+            if (OnObjSpecial(obj))
                 break;
 
-            os << "<ul>";
+            m_os << "<ul>";
 
             for (auto it = obj.begin(); obj.end() != it; it++)
             {
 
-                os << "<li>" << it.key() << ": ";
-                json2HtmlInternal(*it, os, nIndent);
-                os << "</li>";
+                m_os << "<li>" << it.key() << ": ";
+                OnObjInternal(*it);
+                m_os << "</li>";
             }
 
-            os << "</ul>";
+            m_os << "</ul>";
         }
         break;
 
-    case json::value_t::array:
+        case json::value_t::array:
         {
-            os << "[";
+            m_os << "[";
             size_t n = obj.size();
             for (size_t i = 0; i < n; i++)
             {
                 if (i)
-                    os << ", ";
-                json2HtmlInternal(obj.at(i), os, nIndent);
+                    m_os << ", ";
+                OnObjInternal(obj.at(i));
             }
-            os << "]";
+            m_os << "]";
         }
         break;
 
-    case json::value_t::string:
-        os << obj.get<std::string>();
-        break;
+        case json::value_t::string:
+            m_os << obj.get<std::string>();
+            break;
 
-    case json::value_t::number_integer:
-        os << obj.get<int64_t>();
-        break;
+        case json::value_t::number_integer:
+            m_os << obj.get<int64_t>();
+            break;
 
-    case json::value_t::number_unsigned:
-        os << obj.get<uint64_t>();
-        break;
+        case json::value_t::number_unsigned:
+            m_os << obj.get<uint64_t>();
+            break;
 
-    case json::value_t::number_float:
-        os << obj.get<double>();
-        break;
+        case json::value_t::number_float:
+            m_os << obj.get<double>();
+            break;
 
-    case json::value_t::boolean:
+        case json::value_t::boolean:
         {
             auto val = obj.get<bool>();
-            os << val ? "true" : "false";
+            m_os << val ? "true" : "false";
         }
         break;
 
-    default:
-        //case json::value_t::null:
-        return;
+        default:
+            //case json::value_t::null:
+            return;
+        }
     }
 
 
-}
-
-bool json2Html(const json& obj, io::SerializedMsg& out)
-{
-    std::ostringstream os;
-    os << "\
+    void Convert(const json& obj)
+    {
+        m_os << "\
 <!DOCTYPE html>\n\
 <html>\n\
 <head>\n\
 <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n\
+<style>\n\
+table, th, td {\n\
+  border: 1px solid black;\n\
+  border-collapse: collapse;\n\
+}\n\
+td {\n\
+  text-align: right;\n\
+}\n\
+</style>\n\
 </head>\n\
 <body>\n";
 
 
-    json2HtmlInternal(obj, os);
+        OnObjInternal(obj);
 
-    os << "\
+        m_os << "\
 </body>\n\
 </html>\n";
+    }
 
-    auto sRes = os.str();
-    os.clear();
+    void get_Res(io::SerializedMsg& out)
+    {
+        auto sRes = m_os.str();
+        m_os.clear();
+        auto& x = out.emplace_back();
+        x.assign(sRes.c_str(), sRes.size());
+    }
+};
 
-    auto& x = out.emplace_back();
-    x.assign(sRes.c_str(), sRes.size());
-
-    return true;
-}
 
 
 
@@ -441,7 +518,11 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg)
                 io::SerializedMsg sm;
 
                 if (bIsHtml)
-                    json2Html(j, _body);
+                {
+                    HtmlConverter cvt(path);
+                    cvt.Convert(j);
+                    cvt.get_Res(_body);
+                }
                 else
                     json2Msg(j, _body);
 

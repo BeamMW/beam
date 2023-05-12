@@ -1187,6 +1187,9 @@ private:
 
             uint32_t nCount = 0;
             HeightPos hpLast = { 0 };
+            bool bMore = false;
+
+            std::setmin(nMaxTxs, 2000u);
 
             NodeDB::KrnInfo::Walker wlk;
             for (_nodeBackend.get_DB().KrnInfoEnum(wlk, cid, hr.m_Max); wlk.MoveNext(); nCount++)
@@ -1196,7 +1199,10 @@ private:
                     if (wlk.m_Entry.m_Pos.m_Height < hr.m_Min)
                         break;
                     if (nCount >= nMaxTxs)
+                    {
+                        bMore = true;
                         break;
+                    }
 
                     hpLast.m_Height = wlk.m_Entry.m_Pos.m_Height;
                 }
@@ -1243,7 +1249,17 @@ private:
                 wrArr.OnContractInternal(*pInfo, &cid, 0, hpLast.m_Height);
             }
 
-            wr.m_json["Calls history"] = MakeTable(std::move(wrArr.m_json));
+            json jTbl = MakeTable(std::move(wrArr.m_json));
+
+            if (bMore)
+            {
+                json jMore = json::object();
+                jMore["hMax"] = hpLast.m_Height - 1;
+                jTbl["more"] = std::move(jMore);
+            }
+
+            wr.m_json["Calls history"] = std::move(jTbl);
+
         }
 
         out = std::move(wr.m_json);
@@ -1381,6 +1397,7 @@ private:
         AssetHistoryWalker wlk;
         wlk.Enum(_nodeBackend, aid, hMin, hMax, nMaxOps);
 
+        nMaxOps = std::min(nMaxOps, 2000u);
 
         ExtraInfo::Writer wrArr(json::array());
         wrArr.m_json.push_back(json::array({
@@ -1393,6 +1410,7 @@ private:
 
         Height hPrev = MaxHeight;
         uint32_t nCount = 0;
+        bool bMore = false;
         for (auto it = wlk.m_Lst.begin(); wlk.m_Lst.end() != it; nCount++)
         {
             auto& x = *it;
@@ -1401,7 +1419,10 @@ private:
             if (hPrev != x.m_Pos.first)
             {
                 if (nCount >= nMaxOps)
+                {
+                    bMore = true;
                     break;
+                }
 
                 hPrev = x.m_Pos.first;
 
@@ -1466,9 +1487,17 @@ private:
 
         }
 
-        ExtraInfo::Writer wr;
-        wr.m_json["Asset history"] = MakeTable(std::move(wrArr.m_json));
+        json jTbl = MakeTable(std::move(wrArr.m_json));
 
+        if (bMore && (hPrev != MaxHeight))
+        {
+            json jMore = json::object();
+            jMore["hMax"] = hPrev - 1;
+            jTbl["more"] = std::move(jMore);
+        }
+
+        ExtraInfo::Writer wr;
+        wr.m_json["Asset history"] = std::move(jTbl);
         return wr.m_json;
     }
 
