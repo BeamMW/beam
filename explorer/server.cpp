@@ -200,7 +200,9 @@ struct HtmlConverter
         if (sType == "amount")
         {
             uint64_t val = 0;
+            AmountBig::Type valBig;
             bool bMinus = false;
+            bool bBig = false;
 
             if (objV.is_number())
                 val = objV.get<int64_t>();
@@ -210,20 +212,27 @@ struct HtmlConverter
                     return false;
 
                 const auto& s = objV.get<std::string>();
-                int64_t valSigned = std::stoll(s.c_str());
-                if (valSigned < 0)
+                auto sz = s.c_str();
+                if (*sz == '-')
                 {
                     bMinus = true;
-                    valSigned = -valSigned;
+                    sz++;
                 }
-                val = valSigned;
+
+                // convert it. NOTE - this may be a BIG number, don't use std::stoll.
+                bBig = true;
+                ReadUIntBig(valBig, sz);
             }
 
             m_os << "<p2 style=\"color:" << (bMinus ? "blue" : "green") << "\">";
             if (bMinus)
                 m_os << "-";
 
-            AmountBig::Print(m_os, val, false);
+            if (bBig)
+                AmountBig::Print(m_os, valBig, false);
+            else
+                AmountBig::Print(m_os, val, false);
+
             m_os << "</p2>";
 
             return true;
@@ -303,6 +312,36 @@ struct HtmlConverter
 
 
         return false;
+    }
+
+    void ReadUIntBig(AmountBig::Type& res, const char* sz)
+    {
+        res = Zero;
+
+        while (true)
+        {
+            uint32_t nAdd = 0;
+            uint32_t nMul = 1;
+
+            for (uint32_t i = 0; i < 9; i++)
+            {
+                char ch = *sz++;
+                uint8_t val = ch - '0';
+                if (val > 9)
+                    break;
+
+                nAdd = nAdd * 10u + val;
+                nMul *= 10u;
+            }
+
+
+            if (nMul == 1u)
+                break;
+
+            res = res * uintBigFrom(nMul);
+            res += uintBigFrom(nAdd);
+        }
+
     }
 
     static std::string SubstituteArg(const std::string& sUrl, const std::string& sKey_, const std::string& sVal)
