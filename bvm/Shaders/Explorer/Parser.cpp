@@ -22,6 +22,7 @@ namespace Masternet {
 namespace Testnet {
 #include "../dao-core-testnet/contract.h"
 }
+#include "../minter/contract.h"
 
 template <uint32_t nMaxLen>
 void DocAddTextLen(const char* szID, const void* szValue, uint32_t nLen)
@@ -62,6 +63,46 @@ void DocAddAmount(const char* sz, Amount x)
 	Env::DocGroup gr(sz);
 	DocSetType("amount");
 	Env::DocAddNum("value", x);
+}
+
+void DocAddAmountBig(const char* sz, Amount valLo, Amount valHi)
+{
+	if (valHi)
+	{
+		MultiPrecision::UInt<4> val;
+		val.Set<2>(valHi);
+		val += MultiPrecision::UInt<2>(valLo);
+
+		MultiPrecision::UInt<1> div1(1000000000ul);
+
+		char szBuf[64]; // little extra
+		char* szPos = szBuf + _countof(szBuf) - 1;
+		szPos[0] = 0;
+
+		while (true)
+		{
+			MultiPrecision::UInt<4> quot;
+			quot.SetDivResid(val, div1);
+
+			szPos -= 9;
+			Utils::String::Decimal::PrintNoZTerm(szPos, val.get_Val<1>(), 9);
+
+			if (quot.IsZero())
+				break;
+			val = quot;
+		}
+
+		while ('0' == *szPos)
+			szPos++;
+
+		Env::DocGroup gr(sz);
+		DocSetType("amount");
+		Env::DocAddText("value", szPos);
+
+	}
+	else
+		DocAddAmount(sz, valLo);
+
 }
 
 void DocAddAid(const char* sz, AssetID aid)
@@ -140,6 +181,7 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	macro(Vault, Vault::s_SID) \
 	macro(VaultAnon, VaultAnon::s_SID) \
 	macro(Faucet, Faucet::s_SID) \
+	macro(Minter, Minter::s_SID) \
 
 #define HandleContractsVer(macro) \
 	macro(Oracle2, Oracle2::s_pSID) \
@@ -322,6 +364,7 @@ struct ParserContext
 	static void WriteOracle2Settings(const Oracle2::Settings&);
 	static bool get_Oracle2Median(MultiPrecision::Float&, const ContractID& cid);
 	static void WriteBansSettings(const NameService::Settings&);
+	static void WriteMinterSettings(const Minter::Settings&);
 	template <typename T>
 	void DocSetBansName_T(const T& x) {
 		DocSetBansNameEx(&x + 1, x.m_NameLen);
@@ -1975,6 +2018,94 @@ void ParserContext::OnState_Bans(uint32_t /* iVer */)
 
 }
 
+void ParserContext::WriteMinterSettings(const Minter::Settings& stg)
+{
+	DocAddCid("Dao-Vault", stg.m_cidDaoVault);
+	DocAddAmount("Issuance fee", stg.m_IssueFee);
+}
+
+void ParserContext::OnMethod_Minter()
+{
+	switch (m_iMethod)
+	{
+	case Minter::Method::Init::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Minter::Method::Init>();
+			if (pArg)
+			{
+				GroupArgs gr;
+				WriteMinterSettings(pArg->m_Settings);
+			}
+		}
+		break;
+
+	case Minter::Method::View::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Minter::Method::View>();
+			if (pArg)
+			{
+				OnMethod("View");
+				GroupArgs gr;
+
+				DocAddAid("aid", pArg->m_Aid);
+			}
+		}
+		break;
+		
+	case Minter::Method::CreateToken::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Minter::Method::CreateToken>();
+			if (pArg)
+			{
+				OnMethod("Create token");
+				GroupArgs gr;
+
+				DocAddAmountBig("Limit", pArg->m_Limit.m_Lo, pArg->m_Limit.m_Hi);
+
+				if (Minter::PubKeyFlag::s_Cid == pArg->m_pkOwner.m_Y)
+					DocAddCid("Owner", pArg->m_pkOwner.m_X);
+				else
+					DocAddPk("Owner", pArg->m_pkOwner);
+
+				// TODO - aid
+			}
+		}
+		break;
+
+	case Minter::Method::Withdraw::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<Minter::Method::Withdraw>();
+			if (pArg)
+			{
+				OnMethod("Withdraw");
+				GroupArgs gr;
+
+				DocAddAmount("amount", pArg->m_Value);
+				DocAddAid("aid", pArg->m_Value);
+			}
+		}
+		break;
+	}
+}
+
+void ParserContext::OnState_Minter()
+{
+	Env::Key_T<uint8_t> k;
+	_POD_(k.m_Prefix.m_Cid) = m_Cid;
+	k.m_KeyInContract = Minter::Tags::s_Settings;
+
+	Minter::Settings s;
+	if (!Env::VarReader::Read_T(k, s))
+		return;
+
+	{
+		Env::DocGroup gr2("Settings");
+		WriteMinterSettings(s);
+	}
+
+	// TODO - tokens list
+}
+
 
 void ParserContext::WriteAmmSettings(const Amm::Settings& stg)
 {
@@ -2157,6 +2288,8 @@ void ParserContext::OnMethod_DaoAccumulator(uint32_t /* iVer */)
 		{
 			GroupArgs gr;
 			WriteUpgradeSettings(pArg->m_Upgradable);
+			DocAddAid("beamX", pArg->m_aidBeamX);
+			DocAddHeight("Per-phase end", pArg->m_hPrePhaseEnd);
 		}
 	}
 	break;
@@ -2182,15 +2315,15 @@ void ParserContext::OnMethod_DaoAccumulator(uint32_t /* iVer */)
 	}
 	break;
 
-	case DaoAccumulator::Method::UserLockPrePhase::s_iMethod:
+	case DaoAccumulator::Method::UserLock::s_iMethod:
 	{
-		auto pArg = get_ArgsAs<DaoAccumulator::Method::UserLockPrePhase>();
+		auto pArg = get_ArgsAs<DaoAccumulator::Method::UserLock>();
 		if (pArg)
 		{
-			OnMethod("Lock pre-phase");
+			OnMethod("Lock");
 			GroupArgs gr;
 			DocAddPk("pk", pArg->m_pkUser);
-			Env::DocAddNum32("Lock periods", pArg->m_PrePhaseLockPeriods);
+			Env::DocAddNum32("hEnd", pArg->m_hEnd);
 		}
 	}
 	break;
@@ -2203,7 +2336,6 @@ void ParserContext::OnMethod_DaoAccumulator(uint32_t /* iVer */)
 			OnMethod("User update");
 			GroupArgs gr;
 			DocAddPk("pk", pArg->m_pkUser);
-			DocAddAmount("New LP-token", pArg->m_NewLpToken);
 		}
 	}
 	break;
@@ -2242,9 +2374,8 @@ void ParserContext::OnState_DaoAccumulator(uint32_t /* iVer */)
 
 		{
 			Env::DocArray gr4("");
-			DocAddTableHeader("LP-Tokens pre-phase");
-			DocAddTableHeader("LP-Tokens post-phase");
-			DocAddTableHeader("Lock periods");
+			DocAddTableHeader("LP-Tokens");
+			DocAddTableHeader("Locked until");
 			DocAddTableHeader("Reward");
 			DocAddTableHeader("Key");
 		}
@@ -2263,9 +2394,8 @@ void ParserContext::OnState_DaoAccumulator(uint32_t /* iVer */)
 
 			Env::DocArray gr4("");
 
-			DocAddAmount("", u.m_LpTokenPrePhase);
-			DocAddAmount("", u.m_LpTokenPostPhase);
-			Env::DocAddNum32("", u.m_PrePhaseLockPeriods);
+			DocAddAmount("", u.m_LpToken);
+			Env::DocAddNum32("", u.m_hEnd);
 
 			if (s.m_aidLpToken)
 				u.m_EarnedBeamX += s.m_Pool.Remove(u.m_PoolUser);
