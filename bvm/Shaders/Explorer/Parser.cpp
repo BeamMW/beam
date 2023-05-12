@@ -6,6 +6,7 @@
 #include "../vault/contract.h"
 #include "../vault_anon/contract.h"
 #include "../faucet/contract.h"
+#include "../faucet2/contract.h"
 #include "../dao-core/contract.h"
 #include "../gallery/contract.h"
 #include "../nephrite/contract.h"
@@ -181,6 +182,7 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	macro(Vault, Vault::s_SID) \
 	macro(VaultAnon, VaultAnon::s_SID) \
 	macro(Faucet, Faucet::s_SID) \
+	macro(Faucet2, Faucet2::s_SID) \
 	macro(Minter, Minter::s_SID) \
 
 #define HandleContractsVer(macro) \
@@ -972,6 +974,65 @@ void ParserContext::OnMethod_Faucet()
 
 void ParserContext::OnState_Faucet()
 {
+}
+
+void ParserContext::OnMethod_Faucet2()
+{
+	switch (m_iMethod)
+	{
+	case Faucet2::Method::Create::s_iMethod:
+		OnMethod("Create");
+		break;
+
+	case Faucet2::Method::Deposit::s_iMethod:
+		OnMethod("Deposit");
+		break;
+
+	case Faucet2::Method::Withdraw::s_iMethod:
+		OnMethod("Withdraw");
+		break;
+
+	case Faucet2::Method::AdminCtl::s_iMethod:
+	{
+		OnMethod("Admin-Ctl");
+
+		auto pArg = get_ArgsAs<Faucet2::Method::AdminCtl>();
+		if (pArg)
+		{
+			GroupArgs gr;
+			Env::DocAddNum32("Enable", pArg->m_Enable);
+
+		}
+	}
+	break;
+
+	case Faucet2::Method::AdminWithdraw::s_iMethod:
+		OnMethod("Admin-Withdraw");
+		break;
+	}
+}
+
+void ParserContext::OnState_Faucet2()
+{
+	Env::Key_T<uint8_t> k;
+	_POD_(k.m_Prefix.m_Cid) = m_Cid;
+	k.m_KeyInContract = Faucet2::State::s_Key;
+
+	Faucet2::State s;
+	if (!Env::VarReader::Read_T(k, s))
+		return;
+
+	Env::DocAddNum("Enabled", (uint32_t) s.m_Enabled);
+	DocAddHeight("Last withdraw", s.m_Epoch.m_Height);
+	DocAddAmount("Epoch withdraw remaining", s.m_Epoch.m_Amount);
+
+	{
+		Env::DocGroup gr("Settings");
+
+		Env::DocAddNum("Epoch duration", s.m_Params.m_Limit.m_Height);
+		DocAddAmount("Epoch Withdraw limit", s.m_Params.m_Limit.m_Amount);
+		DocAddPk("Admin", s.m_Params.m_pkAdmin);
+	}
 }
 
 void ParserContext::OnMethod_DaoCore()
