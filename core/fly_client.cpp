@@ -518,7 +518,7 @@ bool FlyClient::NetworkStd::Connection::StateArray::Find(const Block::SystemStat
         bool operator () (const Block::SystemState::Full& s, Height h) const { return s.m_Height < h; }
     };
 
-    // the array should be sorted (this is verified by chaiworkproof verification)
+    // the array should be sorted (this is verified by chainworkproof verification)
     std::vector<Block::SystemState::Full>::const_iterator it = std::lower_bound(m_vec.begin(), m_vec.end(), s.m_Height, Cmp());
     return (m_vec.end() != it) && (*it == s);
 }
@@ -572,7 +572,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(ProofChainWork&& msg)
     if (pSync->m_TipBeforeGap.m_Height && pSync->m_Confirmed.m_Height)
     {
         // Since there was a gap in the tips reported by the node (which is typical in case of reorgs) - there is a possibility that our m_Confirmed is no longer valid.
-        // If either the m_Confirmed ot the m_TipBeforeGap are mentioned in the chainworkproof - then there's no problem with reorg.
+        // If either the m_Confirmed or the m_TipBeforeGap are mentioned in the chainworkproof - then there's no problem with reorg.
         // And since chainworkproof usually contains a "tail" of consecutive headers - there should be no problem, unless the reorg is huge
         // Otherwise sync should be repeated
         if (!arr.Find(pSync->m_TipBeforeGap) &&
@@ -852,7 +852,7 @@ bool FlyClient::NetworkStd::Connection::SendRequest(RequestEnsureSync& req)
     {
         if (!m_This.HasDependentSubscriptions())
         {
-            // temporarily emulate subsciption, to get the most recent dependent state
+            // temporarily emulate subscription, to get the most recent dependent state
             {
                 uint32_t nSub = 1;
                 TemporarySwap ts(nSub, m_This.m_DependentSubscriptions);
