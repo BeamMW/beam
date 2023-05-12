@@ -2081,7 +2081,7 @@ void ParserContext::OnMethod_Minter()
 				GroupArgs gr;
 
 				DocAddAmount("amount", pArg->m_Value);
-				DocAddAid("aid", pArg->m_Value);
+				DocAddAid("aid", pArg->m_Aid);
 			}
 		}
 		break;
