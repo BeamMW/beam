@@ -348,6 +348,12 @@ private:
         AssignField(json, szName, std::move(sz));
     }
 
+    template <uint32_t nBytes>
+    static void AssignField(json& json, const char* szName, uintBig_t<nBytes>&& val)
+    {
+        AssignField(json, szName, (const uintBig_t<nBytes>&&) val);
+    }
+
     static void AssignField(json& json, const char* szName, const ECC::Point& pt)
     {
         typedef uintBig_t<ECC::nBytes + 1> MyPoint;
@@ -1560,21 +1566,44 @@ private:
                 kernels.push_back(std::move(j));
             }
 
-            json assets = json::array();
+
+            json jAssets = json::array();
+            jAssets.push_back(json::array({
+                MakeTableHdr("Aid"),
+                MakeTableHdr("Owner"),
+                MakeTableHdr("Deposit"),
+                MakeTableHdr("Supply"),
+                MakeTableHdr("Lock height"),
+                MakeTableHdr("Metadata")
+                }));
+
             Asset::Full ai;
             for (ai.m_ID = 1; ; ai.m_ID++)
             {
                 int ret = _nodeBackend.get_AssetAt(ai, height);
                 if (!ret)
                     break;
+                if (ret < 0)
+                    continue;
 
-                if (ret > 0)
-                {
-                    ExtraInfo::Writer wr;
-                    wr.AddAssetInfo(ai);
+                ExtraInfo::Writer wr(json::array());
+                wr.m_json.push_back(MakeObjAid(ai.m_ID));
 
-                    assets.push_back(std::move(wr.m_json));
-                }
+                if (ai.m_Cid != Zero)
+                    wr.m_json.push_back(MakeTypeObj("cid", ai.m_Cid));
+                else
+                    wr.AddHex(nullptr, ai.m_Owner);
+
+                wr.m_json.push_back(MakeObjAmount(ai.m_Deposit));
+                wr.m_json.push_back(MakeObjAmount(ai.m_Value));
+
+                wr.m_json.push_back(ai.m_LockHeight);
+
+                std::string s;
+                ai.m_Metadata.get_String(s);
+                wr.m_json.push_back(std::move(s));
+
+                jAssets.push_back(std::move(wr.m_json));
             }
 
             auto btcRate = _exchangeRateProvider->getBeamTo(wallet::Currency::BTC(), blockState.m_Height);
@@ -1589,13 +1618,14 @@ private:
                 {"difficulty", blockState.m_PoW.m_Difficulty.ToFloat()},
                 {"chainwork",  uint256_to_hex(buf, blockState.m_ChainWork)},
                 {"subsidy",    Rules::get_Emission(blockState.m_Height)},
-                {"assets",     assets},
                 {"inputs",     inputs},
                 {"outputs",    outputs},
                 {"kernels",    kernels},
                 {"rate_btc",   btcRate},
                 {"rate_usd",   usdRate}
             };
+
+            out["assets"] = MakeTable(std::move(jAssets));
 
             LOG_DEBUG() << out;
         }
