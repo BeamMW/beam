@@ -169,6 +169,37 @@ struct HtmlConverter
         return true;
     }
 
+    std::string Encode(std::string&& s)
+    {
+        std::string sRet;
+
+        for (size_t i = 0; i < s.size(); i++)
+        {
+            const char* szSubst = nullptr;
+            char ch = s[i];
+            switch (ch)
+            {
+            case '<': szSubst = "&#60;"; break;
+            case '>': szSubst = "&#62;"; break;
+            case '&': szSubst = "&#38;"; break;
+            }
+
+            if (szSubst)
+            {
+                if (sRet.empty())
+                    sRet.assign(s.c_str(), i);
+                sRet += szSubst;
+            }
+            else
+            {
+                if (!sRet.empty())
+                    sRet += ch;
+            }
+        }
+
+
+        return sRet.empty() ? s : sRet;
+    }
 
     bool OnObjSpecial(const json& obj)
     {
@@ -243,7 +274,7 @@ struct HtmlConverter
             if (!objV.is_string())
                 return false;
 
-            const auto& sCid = objV.get<std::string>();
+            auto sCid = Encode(objV.get<std::string>());
 
             m_os << "<a href = \"contract?htm=1&id=" << sCid << "\">cid-" << get_ShortOf(sCid) << "</a>";
 
@@ -255,7 +286,7 @@ struct HtmlConverter
             if (!objV.is_string())
                 return false;
 
-            m_os << "<h3 align=center>" << objV.get<std::string>() << "</h3>";
+            m_os << "<h3 align=center>" << Encode(objV.get<std::string>()) << "</h3>";
             return true;
         }
 
@@ -293,7 +324,7 @@ struct HtmlConverter
                     auto& vArg = *itArg;
                     std::string sArg;
                     if (vArg.is_string())
-                        sArg = vArg.get<std::string>();
+                        sArg = Encode(vArg.get<std::string>());
                     else
                     {
                         if (vArg.is_number())
@@ -424,7 +455,7 @@ struct HtmlConverter
         break;
 
         case json::value_t::string:
-            m_os << obj.get<std::string>();
+            m_os << Encode(obj.get<std::string>());
             break;
 
         case json::value_t::number_integer:
