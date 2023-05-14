@@ -147,12 +147,6 @@ endif()
 option(BEAM_WALLET_CLIENT_LIBRARY "Build only binaries required for client app" FALSE)
 option(BEAM_BVM_ONLY "Build only binaries required for BVM" FALSE)
 
-#it's enabled by default for testnet
-#if(DEBUG_MESSAGES_IN_RELEASE_MODE)
-    target_compile_definitions(beam INTERFACE -DDEBUG_MESSAGES_IN_RELEASE_MODE)
-    add_definitions(-DDEBUG_MESSAGES_IN_RELEASE_MODE)
-#endif()
-#it's enabled by default for testnet
 if(NOT EMSCRIPTEN)
     add_definitions(-DLOG_VERBOSE_ENABLED=1)
 else()
