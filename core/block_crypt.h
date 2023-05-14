@@ -295,6 +295,8 @@ namespace beam
 
 		} m_Profile;
 
+		const char* get_ProfileName() const;
+
 		struct {
 			// emission parameters
 			Amount Value0;

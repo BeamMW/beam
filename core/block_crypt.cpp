@@ -2443,19 +2443,22 @@ namespace beam
 		return (hScheme >= pForks[5].m_Height) ? CA.DepositForList5 : CA.DepositForList2;
 	}
 
-	std::string Rules::get_SignatureStr() const
+	const char* Rules::get_ProfileName() const
 	{
-		const char* szProfile = "unspecified";
 		switch (m_Profile)
 		{
-#define THE_MACRO(name) case Profile::name: szProfile = #name; break;
+#define THE_MACRO(name) case Profile::name: return #name;
 			RulesProfiles(THE_MACRO)
 #undef THE_MACRO
-
 		}
 
+		return "unspecified";
+	}
+
+	std::string Rules::get_SignatureStr() const
+	{
 		std::ostringstream os;
-		os << "profile=" << szProfile;
+		os << "profile=" << get_ProfileName();
 
 		for (size_t i = 0; i < _countof(pForks); i++)
 		{
