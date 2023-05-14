@@ -1,7 +1,7 @@
 {
-  "name": "beam-wasm-client@BEAM_TARGET_SUFFIX@",
+  "name": "beam-wasm-client",
   "version": "@BEAM_VERSION@",
-  "description": "WASM version of BEAM wallet client for '@BEAM_NETWORK_NAME@'",
+  "description": "WASM version of BEAM wallet client",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/BeamMW/beam.git"
