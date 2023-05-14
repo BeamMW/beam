@@ -32,11 +32,7 @@ struct Settings
     uint16_t m_withdrawTxMinConfirmations = 1;
     uint32_t m_lockTimeInBlocks = 12 * 60 * 4;  // 12h
     double m_blocksPerHour = 250;
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-    Amount m_minFeeRate = 15u;
-#else // MASTERNET and TESTNET
-    Amount m_minFeeRate = 1u;
-#endif
+    Amount m_minFeeRate = wallet::UseMainnetSwap() ? 15u : 1u;
     Amount m_maxFeeRate = 2'000u;
     uint64_t m_lockTxGasLimit = kLockTxGasLimit;
     uint64_t m_approveTxGasLimit = kApproveTxGasLimit;
