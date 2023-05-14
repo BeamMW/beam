@@ -403,6 +403,8 @@ namespace beam
 
         const char* ASSETS_SWAP_OFFER_ID = "offer_id";
 #endif  // BEAM_ASSET_SWAP_SUPPORT
+
+        const char* PROFILE = "profile";
     }
 
     template <typename T> struct TypeCvt {
@@ -799,10 +801,12 @@ namespace beam
         #define Fork5 pForks[5].m_Height
         #define Fork6 pForks[6].m_Height
 
-        #define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
+        #define THE_MACRO(type, name, comment) (#name, po::value<type>(), comment)
 
             po::options_description rules_options("CONFIGURATION RULES");
-            rules_options.add_options() RulesParams(THE_MACRO);
+            rules_options.add_options() 
+                (cli::PROFILE, po::value<std::string>(), "Consensus parameters profile")
+                RulesParams(THE_MACRO);
 
         #undef THE_MACRO
 
@@ -855,8 +859,34 @@ namespace beam
 
     void getRulesOptions(po::variables_map& vm)
     {
-        #define THE_MACRO(type, name, comment) TypeCvt<type>::set(Rules::get().name, vm[#name].as<type>());
-                RulesParams(THE_MACRO);
+        auto& r = Rules::get();
+
+        const auto& vProf = vm[cli::PROFILE];
+        if (!vProf.empty())
+        {
+            const std::string& sName = vProf.as<std::string>();
+
+#define THE_MACRO(name) \
+        if (sName == #name) \
+            r.m_Profile = Rules::Profile::name; \
+        else
+
+            RulesProfiles(THE_MACRO)
+#undef THE_MACRO
+
+                Exc::Fail((std::string("Invalid profile: ") + sName).c_str());
+
+            r.ApplyProfile();
+        }
+
+        #define THE_MACRO(type, name, comment) \
+        { \
+            const auto& par = vm[#name]; \
+            if (!par.empty()) \
+                TypeCvt<type>::set(r.name, par.as<type>()); \
+        }
+
+        RulesParams(THE_MACRO);
         #undef THE_MACRO
     }
 
