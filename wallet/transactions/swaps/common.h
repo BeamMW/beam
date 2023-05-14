@@ -25,6 +25,9 @@ constexpr Height kBeamLockTxLifetimeMax = 4 * 60;   // 4h
 constexpr uint32_t kSwapProtoVersion = 5;
 constexpr uint32_t kSwapSegwitSupportMinProtoVersion = 5;
 
+bool UseMainnetSwap();
+extern bool g_EnforceTestnetSwap;
+
 enum SubTxIndex : SubTxID
 {
     BEAM_LOCK_TX = 2,
