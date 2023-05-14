@@ -160,23 +160,13 @@ endif()
 
 option(SWAP_MAINNET "Use mainnet blockchain when perform atomic swaps" FALSE)
 
-# uncomment next line for testnet
-#set(BEAM_TESTNET TRUE CACHE INTERNAL "")
 # uncomment next line for mainnet
 #set(BEAM_MAINNET TRUE CACHE INTERNAL "")
-# uncomment next line for mainnet
-#set(BEAM_DAPPNET TRUE CACHE INTERNAL "")
 
 # uncomment next line for swap mainnet
 #set(SWAP_MAINNET TRUE)
 
-if(BEAM_TESTNET)
-    target_compile_definitions(beam INTERFACE -DBEAM_TESTNET)
-    add_definitions(-DBEAM_TESTNET)
-elseif(BEAM_DAPPNET)
-    target_compile_definitions(beam INTERFACE -DBEAM_DAPPNET)
-    add_definitions(-DBEAM_DAPPNET)
-elseif(BEAM_MAINNET)
+if(BEAM_MAINNET)
     target_compile_definitions(beam INTERFACE -DBEAM_MAINNET)
     add_definitions(-DBEAM_MAINNET)
 endif()

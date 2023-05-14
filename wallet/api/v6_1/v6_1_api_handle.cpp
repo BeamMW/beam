@@ -145,18 +145,7 @@ namespace beam::wallet
         resp.beamVersionRevision = VERSION_REVISION;
         resp.beamCommitHash      = GIT_COMMIT_HASH;
         resp.beamBranchName      = BRANCH_NAME;
-
-        #ifdef BEAM_BEAMX
-        resp.beamNetworkName = "beamx";
-        #elif defined(BEAM_TESTNET)
-        resp.beamNetworkName = "testnet";
-        #elif defined(BEAM_MAINNET)
-        resp.beamNetworkName = "mainnet";
-        #elif defined(BEAM_DAPPNET)
-        resp.beamNetworkName = "dappnet";
-        #else
-        resp.beamNetworkName = "masternet";
-        #endif
+        resp.beamNetworkName     = Rules::get().get_ProfileName();
 
         doResponse(id, resp);
     }

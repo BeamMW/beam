@@ -97,7 +97,7 @@ public:
         _walletDB(walletDB)
     {
         PeerID key;
-        if (wallet::BroadcastMsgValidator::stringToPublicKey(wallet::kBroadcastValidatorPublicKey, key))
+        if (wallet::BroadcastMsgValidator::stringToPublicKey(wallet::get_BroadcastValidatorPublicKey(), key))
         {
             _validator.setPublisherKeys( { key } );
         }
