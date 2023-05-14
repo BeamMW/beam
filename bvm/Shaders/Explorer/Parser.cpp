@@ -17,6 +17,7 @@
 #include "../dao-core/contract.h"
 #include "../dao-core2/contract.h"
 #include "../dao-accumulator/contract.h"
+#include "../dao-vote/contract.h"
 namespace Masternet {
 #include "../dao-core-masternet/contract.h"
 }
@@ -193,6 +194,7 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	macro(DEX, Amm::s_pSID) \
 	macro(DaoCore2, DaoCore2::s_pSID) \
 	macro(DaoAccumulator, DaoAccumulator::s_pSID) \
+	macro(DaoVote, DaoVote::s_pSID) \
 
 #define HandleContractsWrappers(macro) \
 	macro(Upgradable, Upgradable::s_SID) \
@@ -376,6 +378,8 @@ struct ParserContext
 	static void WriteAmmSettings(const Amm::Settings&);
 	static void DocSetAmmPool(const Amm::Pool::ID&);
 	static const char* get_AmmKind(const Amm::Pool::ID&);
+
+	static void WriteDaoVoteCfg(const DaoVote::Cfg&);
 
 	template <uint8_t nTag>
 	struct NephriteEpochStorage
@@ -2469,6 +2473,120 @@ void ParserContext::OnState_DaoAccumulator(uint32_t /* iVer */)
 	}
 
 }
+
+
+
+
+
+void ParserContext::OnMethod_DaoVote(uint32_t /* iVer */)
+{
+	switch (m_iMethod)
+	{
+	case DaoVote::Method::Create::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<DaoVote::Method::Create>();
+		if (pArg)
+		{
+			GroupArgs gr;
+			WriteUpgradeSettings(pArg->m_Upgradable);
+			WriteDaoVoteCfg(pArg->m_Cfg);
+		}
+	}
+	break;
+
+	case Upgradable3::Method::Control::s_iMethod:
+		OnUpgrade3Method();
+		break;
+
+	case DaoVote::Method::AddProposal::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<DaoVote::Method::AddProposal>();
+		if (pArg)
+		{
+			OnMethod("Add proposal");
+			GroupArgs gr;
+
+			DocAddPk("moderator", pArg->m_pkModerator);
+		}
+	}
+	break;
+
+	case DaoVote::Method::MoveFunds::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<DaoVote::Method::MoveFunds>();
+		if (pArg)
+			OnMethod(pArg->m_Lock ? "Funs Lock" : "Funds Unlock");
+	}
+	break;
+
+	case DaoVote::Method::Vote::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<DaoVote::Method::Vote>();
+		if (pArg)
+		{
+			OnMethod("Vote");
+		}
+	}
+	break;
+
+	case DaoVote::Method::AddDividend::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<DaoVote::Method::AddDividend>();
+		if (pArg)
+			OnMethod("Add dividend");
+	}
+	break;
+
+	case DaoVote::Method::GetResults::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<DaoVote::Method::GetResults>();
+		if (pArg)
+			OnMethod("Get results");
+	}
+	break;
+
+	case DaoVote::Method::SetModerator::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<DaoVote::Method::SetModerator>();
+		if (pArg)
+		{
+			OnMethod("Set moderator");
+			GroupArgs gr;
+
+			DocAddPk("moderator", pArg->m_pk);
+			Env::DocAddNum32("Enable", pArg->m_Enable);
+		}
+	}
+	break;
+	}
+}
+
+void ParserContext::OnState_DaoVote(uint32_t /* iVer */)
+{
+	WriteUpgrade3State();
+
+	Env::Key_T<uint8_t> k;
+	_POD_(k.m_Prefix.m_Cid) = m_Cid;
+	k.m_KeyInContract = DaoVote::Tags::s_State;
+
+	DaoVote::State s;
+	if (!Env::VarReader::Read_T(k, s))
+		return;
+
+	{
+		Env::DocGroup gr("Settings");
+		WriteDaoVoteCfg(s.m_Cfg);
+	}
+
+}
+
+void ParserContext::WriteDaoVoteCfg(const DaoVote::Cfg& cfg)
+{
+	DocAddAid("Voting asset", cfg.m_Aid);
+	Env::DocAddNum("Epoch duration", cfg.m_hEpochDuration);
+	DocAddPk("Admin", cfg.m_pkAdmin);
+}
+
 
 
 BEAM_EXPORT void Method_0(const ShaderID& sid, const ContractID& cid, uint32_t iMethod, const void* pArg, uint32_t nArg)
