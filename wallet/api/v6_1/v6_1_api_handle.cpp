@@ -145,7 +145,7 @@ namespace beam::wallet
         resp.beamVersionRevision = VERSION_REVISION;
         resp.beamCommitHash      = GIT_COMMIT_HASH;
         resp.beamBranchName      = BRANCH_NAME;
-        resp.beamNetworkName     = Rules::get().get_ProfileName();
+        resp.beamNetworkName     = Rules::get().get_NetworkName();
 
         doResponse(id, resp);
     }

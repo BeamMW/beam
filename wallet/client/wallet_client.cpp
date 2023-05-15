@@ -41,12 +41,12 @@ using namespace std;
 
 const char* beam::wallet::get_BroadcastValidatorPublicKey()
 {
-    switch (Rules::get().m_Profile)
+    switch (Rules::get().m_Network)
     {
-    case Rules::Profile::testnet: return "dc3df1d8cd489c3fe990eb8b4b8a58089a7706a5fc3b61b9c098047aac2c2812";
-    case Rules::Profile::mainnet: return "8ea783eced5d65139bbdf432814a6ed91ebefe8079395f63a13beed1dfce39da";
-    case Rules::Profile::dappnet: return "4c5b0b58caf69542490d1bef077467010a396cd20a4d1bbba269c8dff41da44e";
-    case Rules::Profile::masternet: return "db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec";
+    case Rules::Network::testnet: return "dc3df1d8cd489c3fe990eb8b4b8a58089a7706a5fc3b61b9c098047aac2c2812";
+    case Rules::Network::mainnet: return "8ea783eced5d65139bbdf432814a6ed91ebefe8079395f63a13beed1dfce39da";
+    case Rules::Network::dappnet: return "4c5b0b58caf69542490d1bef077467010a396cd20a4d1bbba269c8dff41da44e";
+    case Rules::Network::masternet: return "db617cedb17543375b602036ab223b67b06f8648de2bb04de047f485e7a9daec";
     }
     return "";
 }
@@ -2258,12 +2258,12 @@ namespace beam::wallet
     {
         const char* getAppsUrl()
         {
-            switch (Rules::get().m_Profile)
+            switch (Rules::get().m_Network)
             {
-            case Rules::Profile::testnet: return "https://apps-testnet.beam.mw/appslist.json";
-            case Rules::Profile::mainnet: return "https://apps.beam.mw/appslist.json";
-            case Rules::Profile::dappnet: return "https://apps-dappnet.beam.mw/app/appslist.json";
-            case Rules::Profile::masternet: return "http://3.19.32.148/app/appslist.json"; // none of the above
+            case Rules::Network::testnet: return "https://apps-testnet.beam.mw/appslist.json";
+            case Rules::Network::mainnet: return "https://apps.beam.mw/appslist.json";
+            case Rules::Network::dappnet: return "https://apps-dappnet.beam.mw/app/appslist.json";
+            case Rules::Network::masternet: return "http://3.19.32.148/app/appslist.json"; // none of the above
             }
             return "";
         }

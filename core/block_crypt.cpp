@@ -2042,7 +2042,7 @@ namespace beam
 
 	Rules::Rules()
 	{
-		// set common params (same for all current profiles)
+		// set common params (same for all networks)
 		ZeroObject(*this);
 
 		Prehistoric = {
@@ -2099,18 +2099,18 @@ namespace beam
 		AllowPublicUtxos = false;
 		Magic.v2 = 2;
 
-		static_assert(static_cast<int>(Profile::mainnet) == 0);
-		assert(Profile::mainnet == m_Profile);
-		ApplyProfile();
+		static_assert(static_cast<int>(Network::mainnet) == 0);
+		assert(Network::mainnet == m_Network);
+		SetNetworkParams();
 	}
 
-	void Rules::ApplyProfile()
+	void Rules::SetNetworkParams()
 	{
 		// treasury
-		switch (m_Profile)
+		switch (m_Network)
 		{
-		case Profile::masternet:
-		case Profile::dappnet:
+		case Network::masternet:
+		case Network::dappnet:
 			TreasuryChecksum = {
 				0xcf, 0x9c, 0xc2, 0xdf, 0x67, 0xa2, 0x24, 0x19,
 				0x2d, 0x2f, 0x88, 0xda, 0x20, 0x20, 0x00, 0xac,
@@ -2138,9 +2138,9 @@ namespace beam
 		ZeroObject(pForks);
 		DisableForksFrom(6); // future forks
 
-		switch (m_Profile)
+		switch (m_Network)
 		{
-		case Profile::masternet:
+		case Network::masternet:
 			pForks[1].m_Height = 30;
 			pForks[2].m_Height = 30;
 			pForks[3].m_Height = 1500;
@@ -2151,7 +2151,7 @@ namespace beam
 
 			break;
 
-		case Profile::testnet:
+		case Network::testnet:
 
 			pForks[1].m_Height = 270910;
 			pForks[2].m_Height = 690000;
@@ -2163,7 +2163,7 @@ namespace beam
 			CA.DepositForList2 = Coin * 1000;
 			break;
 
-		case Profile::dappnet:
+		case Network::dappnet:
 			pForks[1].m_Height = 30;
 			pForks[2].m_Height = 30;
 			pForks[3].m_Height = 100;
@@ -2443,12 +2443,12 @@ namespace beam
 		return (hScheme >= pForks[5].m_Height) ? CA.DepositForList5 : CA.DepositForList2;
 	}
 
-	const char* Rules::get_ProfileName() const
+	const char* Rules::get_NetworkName() const
 	{
-		switch (m_Profile)
+		switch (m_Network)
 		{
-#define THE_MACRO(name) case Profile::name: return #name;
-			RulesProfiles(THE_MACRO)
+#define THE_MACRO(name) case Network::name: return #name;
+			RulesNetworks(THE_MACRO)
 #undef THE_MACRO
 		}
 
@@ -2458,7 +2458,7 @@ namespace beam
 	std::string Rules::get_SignatureStr() const
 	{
 		std::ostringstream os;
-		os << "profile=" << get_ProfileName();
+		os << "network=" << get_NetworkName();
 
 		for (size_t i = 0; i < _countof(pForks); i++)
 		{

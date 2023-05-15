@@ -27,7 +27,7 @@ bool UseMainnetSwap()
     if (g_EnforceTestnetSwap)
         return false;
 
-    return (Rules::Profile::mainnet == Rules::get().m_Profile);
+    return (Rules::Network::mainnet == Rules::get().m_Network);
 }
 
 bool IsEthToken(AtomicSwapCoin swapCoin)

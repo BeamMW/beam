@@ -82,21 +82,21 @@ namespace beam::wallet::imp
                 {
                     if (config.bootstrap.empty())
                     {
-                        switch (Rules::get().m_Profile)
+                        switch (Rules::get().m_Network)
                         {
-                        case Rules::Profile::dappnet:
+                        case Rules::Network::dappnet:
                             config.bootstrap.emplace_back("/ip4/3.16.160.95/tcp/38041/p2p/12D3KooWEFuqCDtMx5TQkQ4zHd4q38Ad4iE9zuCw6qGffah9WjEo");
                             LOG_INFO() << "Default DAPPNET IPFS bootstrap is used";
                             break;
 
-                        case Rules::Profile::testnet:
+                        case Rules::Network::testnet:
                             config.bootstrap.emplace_back("/dns4/eu-node01.testnet.beam.mw/tcp/38041/p2p/12D3KooWFEa2QaN5t3oTGurg1Fz5BkoE3ueHV18WxjHCXY16hHYM");
                             config.bootstrap.emplace_back("/dns4/eu-node02.testnet.beam.mw/tcp/38041/p2p/12D3KooWPrfHKa3Sc7qF96biwqy1JPRVDxoVhbxFtnfnbZQXVw8e");
                             config.bootstrap.emplace_back("/dns4/eu-node03.testnet.beam.mw/tcp/38041/p2p/12D3KooWF1oX1FP3chGQgzosCdNqBwSb37BPhM2fQJYiYMtGpHXt");
                             LOG_INFO() << "Default TESTNET IPFS bootstrap is used";
                             break;
 
-                        case Rules::Profile::mainnet:
+                        case Rules::Network::mainnet:
                             config.bootstrap.emplace_back("/dns4/eu-node01.mainnet.beam.mw/tcp/38041/p2p/12D3KooWJFduasQPYWhw4SsoFPmnJ1PXfmHYaA9qYKvn4JKM2hND");
                             config.bootstrap.emplace_back("/dns4/eu-node02.mainnet.beam.mw/tcp/38041/p2p/12D3KooWCjmtegxdSkkfutWqty39dwhEhYDWCDj6KCizDtft3sqc");
                             config.bootstrap.emplace_back("/dns4/eu-node03.mainnet.beam.mw/tcp/38041/p2p/12D3KooWL5c6JHHkfYLzBjcuot27eyKVhhczvvY617v1cy7QVUHt");
@@ -104,7 +104,7 @@ namespace beam::wallet::imp
                             LOG_INFO() << "Default MAINNET IPFS bootstrap is used";
                             break;
 
-                        case Rules::Profile::masternet:
+                        case Rules::Network::masternet:
                             config.bootstrap.emplace_back("/ip4/3.19.32.148/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
                             LOG_INFO() << "Default MASTERNET IPFS bootstrap is used";
                         }
@@ -117,26 +117,26 @@ namespace beam::wallet::imp
 
                     if (config.peering.empty())
                     {
-                        switch (Rules::get().m_Profile)
+                        switch (Rules::get().m_Network)
                         {
-                        case Rules::Profile::dappnet:
+                        case Rules::Network::dappnet:
                             config.peering.emplace_back("/ip4/3.16.160.95/tcp/38041/p2p/12D3KooWEFuqCDtMx5TQkQ4zHd4q38Ad4iE9zuCw6qGffah9WjEo");
                             LOG_INFO() << "Default DAPPNET IPFS peering is used";
                             break;
-                        case Rules::Profile::testnet:
+                        case Rules::Network::testnet:
                             config.peering.emplace_back("/dns4/eu-node01.testnet.beam.mw/tcp/38041/p2p/12D3KooWFEa2QaN5t3oTGurg1Fz5BkoE3ueHV18WxjHCXY16hHYM");
                             config.peering.emplace_back("/dns4/eu-node02.testnet.beam.mw/tcp/38041/p2p/12D3KooWPrfHKa3Sc7qF96biwqy1JPRVDxoVhbxFtnfnbZQXVw8e");
                             config.peering.emplace_back("/dns4/eu-node03.testnet.beam.mw/tcp/38041/p2p/12D3KooWF1oX1FP3chGQgzosCdNqBwSb37BPhM2fQJYiYMtGpHXt");
                             LOG_INFO() << "Default TESTNET IPFS peering is used";
                             break;
-                        case Rules::Profile::mainnet:
+                        case Rules::Network::mainnet:
                             config.peering.emplace_back("/dns4/eu-node01.mainnet.beam.mw/tcp/38041/p2p/12D3KooWJFduasQPYWhw4SsoFPmnJ1PXfmHYaA9qYKvn4JKM2hND");
                             config.peering.emplace_back("/dns4/eu-node02.mainnet.beam.mw/tcp/38041/p2p/12D3KooWCjmtegxdSkkfutWqty39dwhEhYDWCDj6KCizDtft3sqc");
                             config.peering.emplace_back("/dns4/eu-node03.mainnet.beam.mw/tcp/38041/p2p/12D3KooWL5c6JHHkfYLzBjcuot27eyKVhhczvvY617v1cy7QVUHt");
                             config.peering.emplace_back("/dns4/eu-node04.mainnet.beam.mw/tcp/38041/p2p/12D3KooWHpgKQYXJMKXQZuwbuRoFK28cQLiVjCVFxhSpFX9XHNWZ");
                             LOG_INFO() << "Default MAINNET IPFS peering is used";
                             break;
-                        case Rules::Profile::masternet:
+                        case Rules::Network::masternet:
                             config.peering.emplace_back("/ip4/3.19.32.148/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
                             LOG_INFO() << "Default MASTERNET IPFS peering is used";
                             break;
@@ -149,21 +149,21 @@ namespace beam::wallet::imp
 
                     if (config.swarm_key.empty())
                     {
-                        switch (Rules::get().m_Profile)
+                        switch (Rules::get().m_Network)
                         {
-                        case Rules::Profile::dappnet:
+                        case Rules::Network::dappnet:
                             config.swarm_key = "/key/swarm/psk/1.0.0/\n/base16/\nbf2f20636d7cd1c58c7ae6234ea056f6a673ffad71ec08af37405c4f3cbf9928";
                             LOG_INFO() << "Default DAPPNET IPFS swarm key would be used";
                             break;
-                        case Rules::Profile::testnet:
+                        case Rules::Network::testnet:
                             config.swarm_key = "/key/swarm/psk/1.0.0/\n/base16/\n1191aea7c9f99f679f477411d9d44f1ea0fdf5b42d995966b14a9000432f8c4a";
                             LOG_INFO() << "Default TESTNET IPFS swarm key would be used";
                             break;
-                        case Rules::Profile::mainnet:
+                        case Rules::Network::mainnet:
                             config.swarm_key = "/key/swarm/psk/1.0.0/\n/base16/\n1fabcf9eb018710a93a85214809b91a78b8ef5c49f84a5f72da3dff587b0aed5";
                             LOG_INFO() << "Default MAINNET IPFS swarm key would be used";
                             break;
-                        case Rules::Profile::masternet:
+                        case Rules::Network::masternet:
                             config.swarm_key = "/key/swarm/psk/1.0.0/\n/base16/\n18502580a0f94a74eeb1bdd651e4235d0d9139b7baf3555716bc919619bb8ac4";
                             LOG_INFO() << "Default IPFS MASTERNET swarm key would be used";
                             break;

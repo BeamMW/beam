@@ -279,23 +279,23 @@ namespace beam
 		static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
 		static constexpr Amount Coin = 100000000; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
 
-#define RulesProfiles(macro) \
+#define RulesNetworks(macro) \
 		macro(mainnet) \
 		macro(masternet) \
 		macro(testnet) \
 		macro(dappnet)
 
-		enum struct Profile
+		enum struct Network
 		{
 #define THE_MACRO(name) name,
-			RulesProfiles(THE_MACRO)
+			RulesNetworks(THE_MACRO)
 #undef THE_MACRO
 
 			count
 
-		} m_Profile;
+		} m_Network;
 
-		const char* get_ProfileName() const;
+		const char* get_NetworkName() const;
 
 		struct {
 			// emission parameters
@@ -370,7 +370,7 @@ namespace beam
 			bool IsTestnet;
 		} Magic;
 
-		void ApplyProfile();
+		void SetNetworkParams();
 		void UpdateChecksum();
 
 		static Amount get_Emission(Height);

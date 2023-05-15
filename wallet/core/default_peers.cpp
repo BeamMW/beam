@@ -27,9 +27,9 @@ namespace beam
     {
         std::vector<std::string> result;
 
-        switch (Rules::get().m_Profile)
+        switch (Rules::get().m_Network)
         {
-        case Rules::Profile::testnet:
+        case Rules::Network::testnet:
             {
                 static const char* psz[] = {
                     "us-nodes.testnet.beam.mw:8100",
@@ -40,7 +40,7 @@ namespace beam
             }
             break;
 
-        case Rules::Profile::mainnet:
+        case Rules::Network::mainnet:
             {
                 static const char* psz[] = {
                     "ap-nodes.mainnet.beam.mw:8100",
@@ -58,7 +58,7 @@ namespace beam
             }
             break;
 
-        case Rules::Profile::dappnet:
+        case Rules::Network::dappnet:
             {
                 static const char* psz[] = {
                     "eu-node01.dappnet.beam.mw:8100",
@@ -69,7 +69,7 @@ namespace beam
             }
             break;
 
-        case Rules::Profile::masternet:
+        case Rules::Network::masternet:
             {
                 static const char* psz[] = {
                     "eu-node01.masternet.beam.mw:8100",
@@ -89,9 +89,9 @@ namespace beam
     {
         std::vector<std::string> result;
 
-        switch (Rules::get().m_Profile)
+        switch (Rules::get().m_Network)
         {
-        case Rules::Profile::testnet:
+        case Rules::Network::testnet:
             {
                 static const char* psz[] = {
                     "ap-node01.testnet.beam.mw:8100",
@@ -108,7 +108,7 @@ namespace beam
             }
             break;
 
-        case Rules::Profile::mainnet:
+        case Rules::Network::mainnet:
             {
                 static const char* psz[] = {
                     "eu-node01.mainnet.beam.mw:8100",

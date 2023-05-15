@@ -404,7 +404,7 @@ namespace beam
         const char* ASSETS_SWAP_OFFER_ID = "offer_id";
 #endif  // BEAM_ASSET_SWAP_SUPPORT
 
-        const char* PROFILE = "profile";
+        const char* NETWORK = "network";
     }
 
     template <typename T> struct TypeCvt {
@@ -805,7 +805,7 @@ namespace beam
 
             po::options_description rules_options("CONFIGURATION RULES");
             rules_options.add_options() 
-                (cli::PROFILE, po::value<std::string>(), "Consensus parameters profile")
+                (cli::NETWORK, po::value<std::string>(), "Network consensus parameters")
                 RulesParams(THE_MACRO);
 
         #undef THE_MACRO
@@ -861,22 +861,22 @@ namespace beam
     {
         auto& r = Rules::get();
 
-        const auto& vProf = vm[cli::PROFILE];
+        const auto& vProf = vm[cli::NETWORK];
         if (!vProf.empty())
         {
             const std::string& sName = vProf.as<std::string>();
 
 #define THE_MACRO(name) \
         if (sName == #name) \
-            r.m_Profile = Rules::Profile::name; \
+            r.m_Network = Rules::Network::name; \
         else
 
-            RulesProfiles(THE_MACRO)
+            RulesNetworks(THE_MACRO)
 #undef THE_MACRO
 
-                Exc::Fail((std::string("Invalid profile: ") + sName).c_str());
+                Exc::Fail((std::string("Invalid network: ") + sName).c_str());
 
-            r.ApplyProfile();
+            r.SetNetworkParams();
         }
 
         #define THE_MACRO(type, name, comment) \
