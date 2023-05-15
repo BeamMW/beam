@@ -13,37 +13,48 @@
 // limitations under the License.
 
 #include "settings.h"
-
+#include "../../common.h"
 namespace
 {
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-    const std::string kSwapContractAddress = "0x2FA243fC8f9EAF014f8d6E909157B6A48cEE0bdC";
-    const std::string kSwapHashlockContractAddress = "";
-    const std::string kErc20SwapContractAddress = "0xDd62a95626453F54E686cF0531bCbf6766150794";
-    const std::string kErc20SwapHashlockContractAddress = "";
-    const std::string kDaiContractAddress = "0x6b175474e89094c44da98b954eedeac495271d0f";
-    const std::string kUsdtContractAddress = "0xdac17f958d2ee523a2206206994597c13d831ec7";
-    const std::string kWBTCContractAddress = "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599";
+    const char* get_SwapHashlockContractAddress() {
+        return "";
+    }
 
-    const std::string kEthNodeAddress = "mainnet.infura.io:443";
-    const std::string kEthNodeHost = "mainnet.infura.io";
+    const char* get_SwapContractAddress() {
+        return beam::wallet::UseMainnetSwap() ? "0x2FA243fC8f9EAF014f8d6E909157B6A48cEE0bdC" : "0x6d9b8787758e3a965f496c0e25fd29fc82d2b87f";
+    }
+
+    const char* get_Erc20SwapHashlockContractAddress() {
+        return "";
+    }
+
+    const char* get_Erc20SwapContractAddress() {
+        return beam::wallet::UseMainnetSwap() ? "0xDd62a95626453F54E686cF0531bCbf6766150794" : "0x1f567e003c3b2d45f3e5e384180f518f150184a4";
+    }
+
+    const char* get_DaiContractAddress() {
+        return beam::wallet::UseMainnetSwap() ? "0x6b175474e89094c44da98b954eedeac495271d0f" : "0xd4a05ed1b15666c459bba178490ea53b9e5061ec";
+    }
+
+    const char* get_UsdtContractAddress() {
+        return beam::wallet::UseMainnetSwap() ? "0xdac17f958d2ee523a2206206994597c13d831ec7" : "0x0b3dec250a07d3a7f411db9bd986feab29c52fbc";
+    }
+
+    const char* get_WBTCContractAddress() {
+        return beam::wallet::UseMainnetSwap() ? "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599" : "0xe75dc3a612f855890d53a2196a087a9cbe55d058";
+    }
+
+    const char* get_EthNodeAddress() {
+        return beam::wallet::UseMainnetSwap() ? "mainnet.infura.io:443" : "ropsten.infura.io:443";
+    }
+
+    const char* get_EthNodeHost() {
+        return beam::wallet::UseMainnetSwap() ? "mainnet.infura.io" : "ropsten.infura.io";
+    }
+
+
     const bool kNeedSsl = true;
     const std::string kPahtAndQuery = "/v3/";
-#else // MASTERNET and TESTNET
-    // TODO roman.strilets need to fill in they
-    const std::string kSwapContractAddress = "0x6d9b8787758e3a965f496c0e25fd29fc82d2b87f";
-    const std::string kSwapHashlockContractAddress = "";
-    const std::string kErc20SwapContractAddress = "0x1f567e003c3b2d45f3e5e384180f518f150184a4";
-    const std::string kErc20SwapHashlockContractAddress = "";
-    const std::string kDaiContractAddress = "0xd4a05ed1b15666c459bba178490ea53b9e5061ec";
-    const std::string kUsdtContractAddress = "0x0b3dec250a07d3a7f411db9bd986feab29c52fbc";
-    const std::string kWBTCContractAddress = "0xe75dc3a612f855890d53a2196a087a9cbe55d058";
-
-    const std::string kEthNodeAddress = "ropsten.infura.io:443";
-    const std::string kEthNodeHost = "ropsten.infura.io";
-    const bool kNeedSsl = true;
-    const std::string kPahtAndQuery = "/v3/";
-#endif
 }
 
 namespace beam::ethereum
@@ -90,12 +101,12 @@ Amount Settings::GetMaxFeeRate() const
 
 std::string Settings::GetContractAddress(bool isHashLockScheme) const
 {
-    return isHashLockScheme ? kSwapHashlockContractAddress : kSwapContractAddress;
+    return isHashLockScheme ? get_SwapHashlockContractAddress() : get_SwapContractAddress();
 }
 
 std::string Settings::GetERC20SwapContractAddress(bool isHashLockScheme) const
 {
-    return isHashLockScheme ? kErc20SwapHashlockContractAddress : kErc20SwapContractAddress;
+    return isHashLockScheme ? get_Erc20SwapHashlockContractAddress() : get_Erc20SwapContractAddress();
 }
 
 std::string Settings::GetTokenContractAddress(beam::wallet::AtomicSwapCoin swapCoin) const
@@ -103,11 +114,11 @@ std::string Settings::GetTokenContractAddress(beam::wallet::AtomicSwapCoin swapC
     switch (swapCoin)
     {
     case beam::wallet::AtomicSwapCoin::Dai:
-        return kDaiContractAddress;
+        return get_DaiContractAddress();
     case beam::wallet::AtomicSwapCoin::Usdt:
-        return kUsdtContractAddress;
+        return get_UsdtContractAddress();
     case beam::wallet::AtomicSwapCoin::WBTC:
-        return kWBTCContractAddress;
+        return get_WBTCContractAddress();
     default:
         assert(false && "Unsupported token!");
         return {};
@@ -116,12 +127,12 @@ std::string Settings::GetTokenContractAddress(beam::wallet::AtomicSwapCoin swapC
 
 std::string Settings::GetEthNodeAddress() const
 {
-    return kEthNodeAddress;
+    return get_EthNodeAddress();
 }
 
 std::string Settings::GetEthNodeHost() const
 {
-    return kEthNodeHost;
+    return get_EthNodeHost();
 }
 
 bool Settings::NeedSsl() const
