@@ -59,8 +59,6 @@ namespace beam
 
 namespace beam::wallet
 {
-    const char* get_BroadcastValidatorPublicKey();
-
     constexpr char SEED_PARAM_NAME[] = "SavedSeed";
 #ifdef BEAM_ASSET_SWAP_SUPPORT
     constexpr char ASSET_SWAP_PARAMS_NAME[] = "LastAssetSwapParams";
