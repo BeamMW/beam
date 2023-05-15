@@ -379,6 +379,8 @@ struct ParserContext
 	static void DocSetAmmPool(const Amm::Pool::ID&);
 	static const char* get_AmmKind(const Amm::Pool::ID&);
 
+	void AddNephiriteTroveNumber(const Nephrite::Method::BaseTxTrove*);
+
 	static void WriteDaoVoteCfg(const DaoVote::Cfg&);
 
 	template <uint8_t nTag>
@@ -1270,6 +1272,39 @@ void ParserContext::WriteNephriteSettings(const Nephrite::Settings& stg)
 	DocAddAid("Gov Token", stg.m_AidGov);
 }
 
+void ParserContext::AddNephiriteTroveNumber(const Nephrite::Method::BaseTxTrove* pArg)
+{
+	uint32_t iTrove;
+
+	if (pArg && pArg->m_iPrev0)
+	{
+		Env::Key_T<Nephrite::Trove::Key> tk;
+		_POD_(tk.m_Prefix.m_Cid) = m_Cid;
+		tk.m_KeyInContract.m_iTrove = pArg->m_iPrev0;
+
+		Nephrite::Trove t;
+		if (!Env::VarReader::Read_T(tk, t))
+			return;
+
+		iTrove = t.m_iNext;
+	}
+	else
+	{
+		Env::Key_T<uint8_t> k;
+		_POD_(k.m_Prefix.m_Cid) = m_Cid;
+		k.m_KeyInContract = Nephrite::Tags::s_State;
+
+		Nephrite::Global g;
+		if (!Env::VarReader::Read_T(k, g))
+			return;
+
+		iTrove = pArg ? g.m_Troves.m_iHead : (g.m_Troves.m_iLastCreated + 1);
+	}
+
+	Env::DocAddNum("Number", iTrove);
+}
+
+
 void ParserContext::OnMethod_Nephrite(uint32_t /* iVer */)
 {
 	switch (m_iMethod)
@@ -1299,7 +1334,7 @@ void ParserContext::OnMethod_Nephrite(uint32_t /* iVer */)
 				OnMethod("Trove Open");
 				GroupArgs gr;
 
-				DocAddPk("User", pArg->m_pkUser);
+				AddNephiriteTroveNumber(nullptr);
 				DocAddAmount("Col", pArg->m_Amounts.Col);
 				DocAddAmount("Tok", pArg->m_Amounts.Tok);
 			}
@@ -1313,6 +1348,7 @@ void ParserContext::OnMethod_Nephrite(uint32_t /* iVer */)
 			{
 				OnMethod("Trove Close");
 				GroupArgs gr;
+				AddNephiriteTroveNumber(pArg);
 			}
 		}
 		break;
@@ -1324,7 +1360,7 @@ void ParserContext::OnMethod_Nephrite(uint32_t /* iVer */)
 			{
 				OnMethod("Trove Modify");
 				GroupArgs gr;
-
+				AddNephiriteTroveNumber(pArg);
 				DocAddAmount("Col", pArg->m_Amounts.Col);
 				DocAddAmount("Tok", pArg->m_Amounts.Tok);
 			}
