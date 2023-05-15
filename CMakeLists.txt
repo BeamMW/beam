@@ -158,24 +158,6 @@ if(SHOW_CODE_LOCATION)
     add_definitions(-DSHOW_CODE_LOCATION=1)
 endif()
 
-option(SWAP_MAINNET "Use mainnet blockchain when perform atomic swaps" FALSE)
-
-# uncomment next line for mainnet
-#set(BEAM_MAINNET TRUE CACHE INTERNAL "")
-
-# uncomment next line for swap mainnet
-#set(SWAP_MAINNET TRUE)
-
-if(BEAM_MAINNET)
-    target_compile_definitions(beam INTERFACE -DBEAM_MAINNET)
-    add_definitions(-DBEAM_MAINNET)
-endif()
-
-if(SWAP_MAINNET)
-    message("SWAP_MAINNET")
-    add_definitions(-DSWAP_MAINNET)
-endif()
-
 option(BEAM_ATOMIC_SWAP_SUPPORT "Build wallet with atomic swap support" ON)
 message("BEAM_ATOMIC_SWAP_SUPPORT is ${BEAM_ATOMIC_SWAP_SUPPORT}")
 

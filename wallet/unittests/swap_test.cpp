@@ -2119,14 +2119,13 @@ int main()
     TestSwapCancelTransaction(true, wallet::AtomicSwapTransaction::State::BuildingBeamRefundTX);
     TestSwapCancelTransaction(false, wallet::AtomicSwapTransaction::State::BuildingBeamRefundTX);
 
+    wallet::g_EnforceTestnetSwap = true;
 
-#ifndef BEAM_MAINNET
     TestElectrumSwapTransaction(true, fork1Height);
     TestElectrumSwapTransaction(false, fork1Height);
 
     TestElectrumSwapBTCRefundTransaction();
     TestElectrumSwapBeamRefundTransaction();
-#endif // BEAM_TESTNET
 
     TestIgnoringThirdPeer();
 
