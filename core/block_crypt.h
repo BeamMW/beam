@@ -291,8 +291,6 @@ namespace beam
 			RulesNetworks(THE_MACRO)
 #undef THE_MACRO
 
-			count
-
 		} m_Network;
 
 		const char* get_NetworkName() const;

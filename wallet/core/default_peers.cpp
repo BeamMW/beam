@@ -127,6 +127,9 @@ namespace beam
                 Arr2Vec(result, psz, _countof(psz));
             }
             break;
+
+        default:
+            break; // suppress the warning
         }
 
         return result;
