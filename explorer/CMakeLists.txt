@@ -11,7 +11,7 @@ set(EXPLORER_SRC
 
 add_library(explorer STATIC ${EXPLORER_SRC})
 
-target_link_libraries(explorer node http swap_offers_board wallet_client)
+target_link_libraries(explorer node http swap_offers_board wallet wallet_client)
 
 add_executable(${TARGET_NAME} explorer_node.cpp)
 if(LINUX)
