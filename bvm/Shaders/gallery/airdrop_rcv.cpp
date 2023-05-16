@@ -278,7 +278,7 @@ ON_METHOD(view_airdrops)
 
     } wlk;
 
-    Env::DocGroup gr("res");
+    Env::DocArray gr("res");
 
 
     PayoutReader pr(cidVaultAnon);
