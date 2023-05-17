@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<p id="my_content">loading...</p>
+
+<script>
+
+	function MakeRef(link, text)
+	{
+		return "<a href=\"" + link + "\">" + text + "</a>";
+	}
+
+	function UrlSelf(type, extra)
+	{
+		return window.location.pathname + "?type=" + type + extra;
+	}
+
+	function UrlSelfWithID(type, id, extra)
+	{
+		return UrlSelf(type, "&id=" + id + extra);
+	}
+
+	function MakeCellEx(text, styles)
+	{
+		return "<td" + styles + ">" + text + "</td>";
+	}
+
+	function MakeCell(text)
+	{
+		return MakeCellEx(text, "");
+	}
+
+	function MakeCellRA(text, styles)
+	{
+		return MakeCellEx(text, " align=\"right\"");
+	}
+	
+	function MakeAmountClr(amount)
+	{
+		if (!amount)
+			return "";
+
+		let clr = "green";
+		if (amount[0] == '-')
+			clr = "blue";
+		return "<p2 style=\"color:" + clr + "\">" + amount + "</p2>";
+	}
+
+	function MakeBlock(h)
+	{
+		return MakeRef(UrlSelfWithID("block", h, ""), h);
+	}
+
+	function MakeCellAmount(amount, extra)
+	{
+		return MakeCellRA(MakeAmountClr(amount), extra);
+	}
+
+	function MakeAsset(aid)
+	{
+		if (aid == 0)
+			return "Beam";
+		return MakeRef(UrlSelfWithID("aid", aid, ""), "Asset-" + aid);
+	}
+	
+	function MakeCid(cid)
+	{
+		return MakeRef(UrlSelfWithID("contract", cid, ""), cid);
+	}
+		
+	function MakeFundsTbl(jFunds)
+	{
+		if (!jFunds)
+			return "";
+
+		let text = "<table border='1' style=\"width:100%\">";
+		for (let iF = 0; iF < jFunds.length; iF++)
+		{
+			const jFR = jFunds[iF];
+			text += "<tr>";
+			text += MakeCell(MakeAsset(jFR[0]["value"]));
+			text += MakeCellAmount(jFR[1]["value"], "");
+			text += "</tr>"
+		}
+		text += "</table>";
+		return text;
+	}
+	
+	function Obj2HtmlSpecial(obj)
+	{
+		//console.log(JSON.stringify(obj))
+	
+		if (obj.type == "cid")
+			return MakeCid(obj.value);
+
+		if (obj.type == "th")
+			return "<p>" + Obj2Html(obj.value) + "</p>";
+
+		if (obj.type == "amount")
+			return MakeAmountClr(obj.value);
+
+		if (obj.type == "table")
+		{
+			const jTbl = obj.value;
+			let text = "<table border='1' style=\"width:100%\" align=\"right\">";
+			
+			for (let iRow = 0; iRow < jTbl.length; iRow++)
+			{
+				const jRow = jTbl[iRow];
+				text += "<tr>";
+				
+				for (let iCol = 0; iCol < jRow.length; iCol++)
+				{
+					text += "<td align=\"right\">";
+					text += Obj2Html(jRow[iCol]);
+					text += "</td>";
+				}
+	
+				text += "</tr>";
+			}
+			text += "</table>";
+			
+			return text;
+
+		}
+
+		return "";
+	}
+
+	function Obj2Html(obj)
+	{
+		if (!obj)
+			return "";
+			
+		if (Array.isArray(obj))
+		{
+			let txt = "<ul>";
+			for (let i = 0; i < obj.length; i++)
+			{
+				txt += "<li>";
+				txt += Obj2Html(obj[i]);
+				txt += "</li>";
+			}
+			
+			txt += "</ul>";
+			return txt;
+		
+		}
+
+		if (typeof obj == 'object')
+		{
+			let txt = Obj2HtmlSpecial(obj);
+			if (txt != "")
+				return txt;
+		
+			txt = "<ul>";
+			for (let key in obj)
+			{
+				txt += "<li>" + key + ": ";
+				txt += Obj2Html(obj[key]);
+				txt += "</li>";
+			}
+			
+			txt += "</ul>";
+			return txt;
+		}
+			
+		return obj;
+	}
+	
+	function SetContent(text)
+	{
+		document.getElementById("my_content").innerHTML = text;
+	}
+	
+	let g_CurrentID = "";
+
+
+	function DisplayContracts()
+	{
+		let text = "\
+<h2>List of all deployed contracts</h2>\n\
+<table border='1'>\n\
+	<th>Cid</th>\n\
+	<th>Kind</th>\n\
+	<th>Deploy Height</th>\n\
+	<th>Locked Funds</th>\n\
+	<th>Owned Assets</th>\n\
+";
+
+		const jData = JSON.parse(this.responseText);
+		const jTbl = jData["value"];
+		
+		// skip 1st row
+		for (let iRow = 1; iRow < jTbl.length; iRow++)
+		{
+			const jRow = jTbl[iRow];
+			text += "<tr>";
+
+			const cid = jRow[0]["value"];
+			text += MakeCell(MakeCid(cid));
+			text += MakeCell(jRow[1]);
+			text += MakeCellRA(MakeBlock(jRow[2]));
+
+			text += MakeCell(MakeFundsTbl(jRow[3]["value"]));
+
+			text += "<td>";
+			
+			const jOwned = jRow[4]["value"];
+			if (jOwned)
+			{
+				text += "<table border='1' style=\"width:100%\">";
+				for (let iF = 0; iF < jOwned.length; iF++)
+				{
+					const jFR = jOwned[iF];
+					text += "<tr>";
+					text += MakeCellEx(MakeAsset(jFR[0]["value"]), " style=\"width:10%\"");
+					text += MakeCell(jFR[1]);
+					text += MakeCellAmount(jFR[2]["value"], " style=\"width:40%\"");
+					text += "</tr>"
+				}
+				text += "</table>";
+			
+			}
+
+			text += "</td>";
+			text += "</tr>\n"
+		
+		}
+		
+	
+		text += "</table>"    
+		SetContent(text);
+	}
+
+
+	function DisplayAssetHistory()
+	{
+		let text = "\
+<h2>Asset " + g_CurrentID + " history</h2>\n\
+<table border='1'>\n\
+	<th>Height</th>\n\
+	<th>Event</th>\n\
+	<th>Amount</th>\n\
+	<th>Total Amount</th>\n\
+	<th>Extra</th>\n\
+";
+
+		const jData = JSON.parse(this.responseText);
+		const jTbl = jData["Asset history"]["value"];
+		
+		// skip 1st row
+		for (let iRow = 1; iRow < jTbl.length; iRow++)
+		{
+			const jRow = jTbl[iRow];
+			text += "<tr>";
+
+			text += MakeCell(MakeBlock(jRow[0]));
+			text += MakeCell(jRow[1]);
+			text += MakeCellAmount(jRow[2]["value"], "");
+			text += MakeCellAmount(jRow[3]["value"], "");
+			text += MakeCell(Obj2Html(jRow[4]));
+			text += "</tr>";
+		}
+		
+	
+		text += "</table>"    
+		SetContent(text);
+	}
+
+	function DisplayBlock()
+	{
+		let text = "\
+<h2>Block height " + g_CurrentID + "</h2>\n\
+<h3>Assets</h3>\n\
+<table border='1'>\n\
+	<th>Aid</th>\n\
+	<th>Owner</th>\n\
+	<th>Deposit</th>\n\
+	<th>Supply</th>\n\
+	<th>Lock-Height</th>\n\
+	<th>Metadata</th>\n\
+";
+
+		const jData = JSON.parse(this.responseText);
+		const jTbl = jData["assets"]["value"];
+		
+		// skip 1st row
+		for (let iRow = 1; iRow < jTbl.length; iRow++)
+		{
+			const jRow = jTbl[iRow];
+			text += "<tr>";
+
+			text += MakeCell(MakeAsset(jRow[0]["value"]));
+			text += MakeCell(Obj2Html(jRow[1]));
+			text += MakeCellAmount(jRow[2]["value"]);
+			text += MakeCellAmount(jRow[3]["value"]);
+			text += MakeCell(MakeBlock(jRow[4]));
+			text += MakeCell(Obj2Html(jRow[5]));
+			
+			text += "</tr>";
+		}
+		
+	
+		text += "</table>"    
+		SetContent(text);
+	}
+
+	function CallHistoryAddRow(jRow)
+	{
+		let text = "";
+	
+		if (jRow["type"] == "group")
+		{
+			text += "<tr></tr><tr></tr><tr></tr>";
+			const jInner = jRow["value"];
+			
+			for (let i = 0; i < jInner.length; i++)
+				text += CallHistoryAddRow(jInner[i]);
+				
+			text += "<tr></tr><tr></tr><tr></tr>";
+		}
+		else
+		{
+			text += "<tr>";
+			text += MakeCell(MakeBlock(jRow[0]));
+			text += MakeCell(Obj2Html(jRow[1]));
+			text += MakeCell(Obj2Html(jRow[2]));
+			text += MakeCell(Obj2Html(jRow[3]));
+			text += MakeCell(Obj2Html(jRow[4]));
+			text += MakeCell(MakeFundsTbl(jRow[5]["value"]));
+			text += MakeCell(Obj2Html(jRow[6]));
+			
+			text += "</tr>";
+		}
+		
+		return text;
+	}
+
+	function DisplayContractState()
+	{
+		let text = "\
+<h2>Contract " + g_CurrentID + "</h2>\n\
+<h3>Assets</h3>\n\
+<table border='1'>\n\
+	<th>Height</th>\n\
+	<th>Cid</th>\n\
+	<th>Kind</th>\n\
+	<th>Method</th>\n\
+	<th>Arguments</th>\n\
+	<th>Funds</th>\n\
+	<th>Keys</th>\n\
+";
+
+		const jData = JSON.parse(this.responseText);
+		const jTblObj = jData["Calls history"];
+		const jTbl = jTblObj["value"];
+		
+		// skip 1st row
+		for (let iRow = 1; iRow < jTbl.length; iRow++)
+			text += CallHistoryAddRow(jTbl[iRow]);
+	
+		text += "</table>";
+		
+		const jMore = jTblObj["more"];
+		if (jMore)
+		{
+			let urlObj = new URL(document.location);
+			let args = urlObj.searchParams;
+			
+			for (let key in jMore)
+				args.set(key, jMore[key]);
+			
+			text += "<p>" + MakeRef(urlObj.pathname + "?" + args, "More...") + "</p>";
+		}
+
+		text += "<h3>State</h3>\n";
+		text += Obj2Html(jData["State"]);
+
+		
+		
+		SetContent(text);
+	}
+
+
+
+	const args = (new URL(document.location)).searchParams;
+	const type = args.get("type");
+	g_CurrentID = args.get("id");
+	
+	let urlPrefix = "http://localhost:17328/";
+	let urlSuffix = "?exp_am=1";
+	
+	const hMax = args.get("hMax");
+	if (hMax)
+		urlSuffix += "&hMax=" + hMax;
+	
+
+	const xmlhttp = new XMLHttpRequest();
+
+	if (type == "contracts")
+	{
+		xmlhttp.onload = DisplayContracts;
+		xmlhttp.open("GET", urlPrefix +  "contracts" + urlSuffix);
+		xmlhttp.send();
+	}
+	else if (type == "aid")
+	{
+		xmlhttp.onload = DisplayAssetHistory;
+		xmlhttp.open("GET", urlPrefix +  "asset" + urlSuffix + "&id=" + g_CurrentID);
+		xmlhttp.send();
+	}
+	else if (type == "block")
+	{
+		xmlhttp.onload = DisplayBlock;
+		xmlhttp.open("GET", urlPrefix +  "block" + urlSuffix + "&height=" + g_CurrentID);
+		xmlhttp.send();
+	}
+	else if (type == "contract")
+	{
+		xmlhttp.onload = DisplayContractState;
+		xmlhttp.open("GET", urlPrefix +  "contract" + urlSuffix + "&id=" + g_CurrentID);
+		xmlhttp.send();
+	}
+	
+</script>
+
+</body>
+</html>
