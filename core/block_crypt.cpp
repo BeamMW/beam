@@ -1999,7 +1999,7 @@ namespace beam
 				Text::PrintGroths(os, groths, bTrim);
 			}
 			else
-				Print(os, get_Lo(x));
+				Print(os, get_Lo(x), bTrim);
 		}
 
 		void Print(std::ostream& os, Amount x, bool bTrim /* = true */)
