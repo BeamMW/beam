@@ -299,40 +299,10 @@ table, th, td {
 
 	function DisplayBlock()
 	{
-		let text = "\
-<h2>Block height " + g_CurrentID + "</h2>\n\
-<h3>Assets</h3>\n\
-<table>\n\
-	<th>Aid</th>\n\
-	<th>Owner</th>\n\
-	<th>Deposit</th>\n\
-	<th>Supply</th>\n\
-	<th>Lock-Height</th>\n\
-	<th>Metadata</th>\n\
-";
-
 		const jData = JSON.parse(this.responseText);
-		jTbl = jData["assets"]["value"];
-		
-		// skip 1st row
-		for (let iRow = 1; iRow < jTbl.length; iRow++)
-		{
-			const jRow = jTbl[iRow];
-			text += "<tr>";
-
-			text += MakeCell(MakeAsset(jRow[0]["value"]));
-			text += MakeCell(Obj2Html(jRow[1]));
-			text += MakeCellAmount(jRow[2]["value"]);
-			text += MakeCellAmount(jRow[3]["value"]);
-			text += MakeCell(MakeBlock(jRow[4]));
-			text += MakeCell(Obj2Html(jRow[5]));
-			
-			text += "</tr>";
-		}
-		
 	
-		text += "</table>"
-
+		let text = "";
+	
 		text += "<h2>Inputs</h2>\n";
 
 		text += "\
@@ -342,7 +312,7 @@ table, th, td {
 	<th>Extra</th>\n\
 ";
 
-		jTbl = jData["inputs"];
+		let jTbl = jData["inputs"];
 		
 		for (let i = 0; i < jTbl.length; i++)
 		{
@@ -411,6 +381,39 @@ table, th, td {
 			
 			text += "</tr>";
 		}
+		text += "</table>"
+		
+		text += "\
+<h2>Block height " + g_CurrentID + "</h2>\n\
+<h3>Assets</h3>\n\
+<table>\n\
+	<th>Aid</th>\n\
+	<th>Owner</th>\n\
+	<th>Deposit</th>\n\
+	<th>Supply</th>\n\
+	<th>Lock-Height</th>\n\
+	<th>Metadata</th>\n\
+";
+
+		jTbl = jData["assets"]["value"];
+		
+		// skip 1st row
+		for (let iRow = 1; iRow < jTbl.length; iRow++)
+		{
+			const jRow = jTbl[iRow];
+			text += "<tr>";
+
+			text += MakeCell(MakeAsset(jRow[0]["value"]));
+			text += MakeCell(Obj2Html(jRow[1]));
+			text += MakeCellAmount(jRow[2]["value"]);
+			text += MakeCellAmount(jRow[3]["value"]);
+			text += MakeCell(MakeBlock(jRow[4]));
+			text += MakeCell(Obj2Html(jRow[5]));
+			
+			text += "</tr>";
+		}
+		
+	
 		text += "</table>"
 		
 		SetContent(text);
