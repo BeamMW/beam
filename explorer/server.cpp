@@ -117,6 +117,7 @@ struct HtmlConverter
 {
     std::ostringstream m_os;
     uint32_t m_Depth = 0;
+    uint32_t m_Tbl = 0;
     const std::string& m_Url;
 
     HtmlConverter(const std::string& url) :m_Url(url) {}
@@ -145,7 +146,10 @@ struct HtmlConverter
 
                 for (size_t j = 0; j < x.size(); j++)
                 {
-                    m_os << "<td>";
+                    m_os << "<td";
+                    if ((m_Tbl > 1) && (j + 1 < x.size()))
+                        m_os << " style = \"width:" << (100 / x.size()) << "%\"";
+                    m_os << ">";
                     OnObjInternal(x.at(j));
                     m_os << "</td>";
                 }
@@ -307,6 +311,7 @@ struct HtmlConverter
         {
             HtmlConverter cvt2(m_Url);
             cvt2.m_Depth = m_Depth;
+            cvt2.m_Tbl = m_Tbl + 1;
 
             if (!cvt2.OnTable(objV))
                 return false;
@@ -345,7 +350,7 @@ struct HtmlConverter
         return false;
     }
 
-    void ReadUIntBig(AmountBig::Type& res, const char* sz)
+    static void ReadUIntBig(AmountBig::Type& res, const char* sz)
     {
         res = Zero;
 
@@ -521,6 +526,78 @@ td {\n\
 };
 
 
+void jsonExp(json& obj, uint32_t nDepth)
+{
+    if (++nDepth > 128)
+        Exc::Fail("recursion too deep");
+
+    if (obj.is_array())
+    {
+        for (size_t j = 0; j < obj.size(); j++)
+            jsonExp(obj.at(j), nDepth);
+    }
+    else
+    {
+        if (!obj.is_object())
+            return;
+
+        for (auto it = obj.begin(); obj.end() != it; it++)
+            jsonExp(*it, nDepth);
+
+        auto itT = obj.find("type");
+        auto itV = obj.find("value");
+        if ((obj.end() == itT) || (obj.end() == itV))
+            return;
+
+        auto& objT = *itT;
+        auto& objV = *itV;
+        if (json::value_t::string != objT.type())
+            return;
+
+        const auto& sType = objT.get<std::string>();
+        if (sType == "amount")
+        {
+            uint64_t val = 0;
+            AmountBig::Type valBig;
+            bool bMinus = false;
+            bool bBig = false;
+
+            if (objV.is_number())
+                val = objV.get<int64_t>();
+            else
+            {
+                if (!objV.is_string())
+                    return;
+
+                const auto& s = objV.get<std::string>();
+                auto sz = s.c_str();
+                if (*sz == '-')
+                {
+                    bMinus = true;
+                    sz++;
+                }
+
+                // convert it. NOTE - this may be a BIG number, don't use std::stoll.
+                bBig = true;
+                HtmlConverter::ReadUIntBig(valBig, sz);
+            }
+
+            std::ostringstream os;
+            if (bMinus)
+                os << '-';
+
+            if (bBig)
+                AmountBig::Print(os, valBig, false);
+            else
+                AmountBig::Print(os, val, false);
+
+            objV = os.str();
+
+        }
+
+
+    }
+}
 
 
 bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg)
@@ -594,7 +671,13 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg)
                     cvt.get_Res(_body);
                 }
                 else
+                {
+                    bool bExpAmount = (_currentUrl.args.end() != _currentUrl.args.find("exp_am"));
+                    if (bExpAmount)
+                        jsonExp(j, 0);
+
                     json2Msg(j, _body);
+                }
 
                 keepalive = send(conn, 200, "OK", bIsHtml);
             }
@@ -719,12 +802,19 @@ bool Server::send(const HttpConnection::Ptr& conn, int code, const char* message
     size_t bodySize = 0;
     for (const auto& f : _body) { bodySize += f.size; }
 
+    HeaderPair pHp[2];
+    ZeroObject(pHp);
+    pHp[0].head = "Access-Control-Allow-Origin";
+    pHp[0].content_str = "*";
+    pHp[1].head = "Access-Control-Allow-Headers";
+    pHp[1].content_str = "*";
+
     bool ok = _msgCreator.create_response(
         _headers,
         code,
         message,
-        0, //headers,
-        0, //sizeof(headers) / sizeof(HeaderPair),
+        pHp, //headers,
+        _countof(pHp), //sizeof(headers) / sizeof(HeaderPair),
         1,
         isHtml ? "text/html" : "application/json",
         bodySize

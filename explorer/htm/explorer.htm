@@ -1,5 +1,15 @@
 <!DOCTYPE html>
 <html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+table, th, td {
+  border: 1px solid black;
+  border-collapse: collapse;
+}
+</style>
+</head>
+
 <body>
 
 <p id="my_content">loading...</p>
@@ -74,7 +84,7 @@
 		if (!jFunds)
 			return "";
 
-		let text = "<table border='1' style=\"width:100%\">";
+		let text = "<table style=\"width:100%\">";
 		for (let iF = 0; iF < jFunds.length; iF++)
 		{
 			const jFR = jFunds[iF];
@@ -84,6 +94,33 @@
 			text += "</tr>"
 		}
 		text += "</table>";
+		return text;
+	}
+	
+	function Obj2Html_TableRows(jTbl)
+	{
+		let text = "";
+		for (let iRow = 0; iRow < jTbl.length; iRow++)
+		{
+			const jRow = jTbl[iRow];
+			
+			if (jRow.type == "group")
+				text += Obj2Html_TableRows(jRow.value);
+			else
+			{
+				text += "<tr>";
+				
+				for (let iCol = 0; iCol < jRow.length; iCol++)
+				{
+					text += "<td align=\"right\">";
+					text += Obj2Html(jRow[iCol]);
+					text += "</td>";
+				}
+
+				text += "</tr>";
+			}
+		}
+		
 		return text;
 	}
 	
@@ -103,27 +140,18 @@
 		if (obj.type == "table")
 		{
 			const jTbl = obj.value;
-			let text = "<table border='1' style=\"width:100%\" align=\"right\">";
+			let text = "<table style=\"width:100%\" align=\"right\">";
 			
-			for (let iRow = 0; iRow < jTbl.length; iRow++)
-			{
-				const jRow = jTbl[iRow];
-				text += "<tr>";
-				
-				for (let iCol = 0; iCol < jRow.length; iCol++)
-				{
-					text += "<td align=\"right\">";
-					text += Obj2Html(jRow[iCol]);
-					text += "</td>";
-				}
-	
-				text += "</tr>";
-			}
+			text += Obj2Html_TableRows(jTbl);
+			
 			text += "</table>";
 			
 			return text;
 
 		}
+		
+		if (obj.type == "aid")
+			return MakeAsset(obj.value);
 
 		return "";
 	}
@@ -181,7 +209,7 @@
 	{
 		let text = "\
 <h2>List of all deployed contracts</h2>\n\
-<table border='1'>\n\
+<table>\n\
 	<th>Cid</th>\n\
 	<th>Kind</th>\n\
 	<th>Deploy Height</th>\n\
@@ -210,7 +238,7 @@
 			const jOwned = jRow[4]["value"];
 			if (jOwned)
 			{
-				text += "<table border='1' style=\"width:100%\">";
+				text += "<table style=\"width:100%\">";
 				for (let iF = 0; iF < jOwned.length; iF++)
 				{
 					const jFR = jOwned[iF];
@@ -239,7 +267,7 @@
 	{
 		let text = "\
 <h2>Asset " + g_CurrentID + " history</h2>\n\
-<table border='1'>\n\
+<table>\n\
 	<th>Height</th>\n\
 	<th>Event</th>\n\
 	<th>Amount</th>\n\
@@ -274,7 +302,7 @@
 		let text = "\
 <h2>Block height " + g_CurrentID + "</h2>\n\
 <h3>Assets</h3>\n\
-<table border='1'>\n\
+<table>\n\
 	<th>Aid</th>\n\
 	<th>Owner</th>\n\
 	<th>Deposit</th>\n\
@@ -284,7 +312,7 @@
 ";
 
 		const jData = JSON.parse(this.responseText);
-		const jTbl = jData["assets"]["value"];
+		jTbl = jData["assets"]["value"];
 		
 		// skip 1st row
 		for (let iRow = 1; iRow < jTbl.length; iRow++)
@@ -303,7 +331,88 @@
 		}
 		
 	
-		text += "</table>"    
+		text += "</table>"
+
+		text += "<h2>Inputs</h2>\n";
+
+		text += "\
+<table>\n\
+	<th>Commitment</th>\n\
+	<th>Height</th>\n\
+	<th>Extra</th>\n\
+";
+
+		jTbl = jData["inputs"];
+		
+		for (let i = 0; i < jTbl.length; i++)
+		{
+			let jRow = jTbl[i];
+			text += "<tr>";
+
+			text += MakeCell(jRow["commitment"]);
+			text += MakeCell(MakeBlock(jRow["height"]));
+			
+			delete jRow.commitment;
+			delete jRow.height;
+			text += MakeCell(Obj2Html(jRow));
+			
+			text += "</tr>";
+		}
+		text += "</table>"
+
+		text += "<h2>Outputs</h2>\n";
+
+		text += "\
+<table>\n\
+	<th>Commitment</th>\n\
+	<th>Extra</th>\n\
+";
+
+		jTbl = jData["outputs"];
+		
+		for (let i = 0; i < jTbl.length; i++)
+		{
+			let jRow = jTbl[i];
+			text += "<tr>";
+
+			text += MakeCell(jRow["commitment"]);
+			
+			delete jRow.commitment;
+			text += MakeCell(Obj2Html(jRow));
+			
+			text += "</tr>";
+		}
+		text += "</table>"
+
+		text += "<h2>Kernels</h2>\n";
+
+		text += "\
+<table>\n\
+	<th>ID</th>\n\
+	<th>Fee</th>\n\
+	<th>Extra</th>\n\
+";
+
+		jTbl = jData["kernels"];
+		
+		for (let i = 0; i < jTbl.length; i++)
+		{
+			let jRow = jTbl[i];
+			text += "<tr>";
+
+			text += MakeCell(jRow["id"]);
+			text += MakeCellAmount(jRow["fee"]);
+			
+			delete jRow.id;
+			delete jRow.fee;
+			delete jRow.minHeight;
+			delete jRow.maxHeight;
+			text += MakeCell(Obj2Html(jRow));
+			
+			text += "</tr>";
+		}
+		text += "</table>"
+		
 		SetContent(text);
 	}
 
@@ -343,7 +452,7 @@
 		let text = "\
 <h2>Contract " + g_CurrentID + "</h2>\n\
 <h3>Assets</h3>\n\
-<table border='1'>\n\
+<table>\n\
 	<th>Height</th>\n\
 	<th>Cid</th>\n\
 	<th>Kind</th>\n\
