@@ -103,21 +103,21 @@ typedef uint32_t secp256k1_scalar_uint;
 
 #else // _MSC_VER
 
-	inline uint16_t bswap16(uint16_t x) { return __builtin_bswap16(x); }
-	inline uint32_t bswap32(uint32_t x) { return __builtin_bswap32(x); }
-	inline uint64_t bswap64(uint64_t x) { return __builtin_bswap64(x); }
+	uint16_t bswap16(uint16_t x) { return __builtin_bswap16(x); }
+	uint32_t bswap32(uint32_t x) { return __builtin_bswap32(x); }
+	uint64_t bswap64(uint64_t x) { return __builtin_bswap64(x); }
 
 #endif // _MSC_VER
 
 #ifdef __LITTLE_ENDIAN__
 
-	inline uint16_t bswap16_be(uint16_t x) { return bswap16(x); }
-	inline uint32_t bswap32_be(uint32_t x) { return bswap32(x); }
-	inline uint64_t bswap64_be(uint64_t x) { return bswap64(x); }
+	uint16_t bswap16_be(uint16_t x) { return bswap16(x); }
+	uint32_t bswap32_be(uint32_t x) { return bswap32(x); }
+	uint64_t bswap64_be(uint64_t x) { return bswap64(x); }
 
-	inline uint16_t bswap16_le(uint16_t x) { return x; }
-	inline uint32_t bswap32_le(uint32_t x) { return x; }
-	inline uint64_t bswap64_le(uint64_t x) { return x; }
+	uint16_t bswap16_le(uint16_t x) { return x; }
+	uint32_t bswap32_le(uint32_t x) { return x; }
+	uint64_t bswap64_le(uint64_t x) { return x; }
 
 #else // __LITTLE_ENDIAN__
 
