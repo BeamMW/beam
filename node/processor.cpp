@@ -6714,7 +6714,7 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID& sid, std::vector<ContractInvokeExtraInfo>& vC)
 {
 	ByteBuffer bbE;
-	if (!GetBlockInternal(sid, &bbE, nullptr, 0, 0, 0, false, &block))
+	if (!GetBlockInternal(sid, &bbE, nullptr, 0, 0, 0, false, &block, true))
 		return false;
 
 	Deserializer der;
@@ -6938,10 +6938,10 @@ void NodeProcessor::InitializeUtxos()
 
 bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive)
 {
-	return GetBlockInternal(sid, pEthernal, pPerishable, h0, hLo1, hHi1, bActive, nullptr);
+	return GetBlockInternal(sid, pEthernal, pPerishable, h0, hLo1, hHi1, bActive, nullptr, false);
 }
 
-bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body* pBody)
+bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body* pBody, bool allowPartialInfo)
 {
 	// h0 - current peer Height
 	// hLo1 - HorizonLo that peer needs after the sync
@@ -6960,20 +6960,23 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 	//	Otherwise - don't transfer
 
 	std::setmax(hHi1, sid.m_Height); // valid block can't spend its own output. Hence this means full block should be transferred
-
-	if (m_Extra.m_TxoHi > hHi1)
-		return false;
-
 	std::setmax(hLo1, sid.m_Height - 1);
-	if (m_Extra.m_TxoLo > hLo1)
-		return false;
 
-	if ((h0 >= Rules::HeightGenesis) && (m_Extra.m_TxoLo > sid.m_Height))
-		return false; // we don't have any info for the range [Rules::HeightGenesis, h0].
+	if (!allowPartialInfo)
+	{
+		if (m_Extra.m_TxoHi > hHi1)
+			return false;
 
-	// in case we're during sync - make sure we don't return non-full blocks as-is
-	if (IsFastSync() && (sid.m_Height > m_Cursor.m_ID.m_Height))
-		return false;
+		if (m_Extra.m_TxoLo > hLo1)
+			return false;
+
+		if ((h0 >= Rules::HeightGenesis) && (m_Extra.m_TxoLo > sid.m_Height))
+			return false; // we don't have any info for the range [Rules::HeightGenesis, h0].
+
+		// in case we're during sync - make sure we don't return non-full blocks as-is
+		if (IsFastSync() && (sid.m_Height > m_Cursor.m_ID.m_Height))
+			return false;
+	}
 
 	bool bFullBlock = (sid.m_Height >= hHi1) && (sid.m_Height > hLo1) && !pBody;
 	m_DB.GetStateBlock(sid.m_Row, bFullBlock ? pPerishable : nullptr, pEthernal, nullptr);
