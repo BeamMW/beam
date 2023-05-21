@@ -2435,7 +2435,7 @@ void ParserContext::OnMethod_DaoAccumulator(uint32_t /* iVer */)
 			OnMethod("Lock");
 			GroupArgs gr;
 			DocAddPk("pk", pArg->m_pkUser);
-			Env::DocAddNum32("hEnd", pArg->m_hEnd);
+			DocAddHeight("hEnd", pArg->m_hEnd);
 		}
 	}
 	break;
@@ -2507,7 +2507,7 @@ void ParserContext::OnState_DaoAccumulator(uint32_t /* iVer */)
 			Env::DocArray gr4("");
 
 			DocAddAmount("", u.m_LpToken);
-			Env::DocAddNum32("", u.m_hEnd);
+			DocAddHeight("", u.m_hEnd);
 
 			if (s.m_aidLpToken)
 				u.m_EarnedBeamX += s.m_Pool.Remove(u.m_PoolUser);

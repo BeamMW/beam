@@ -7,6 +7,21 @@ table, th, td {
   border: 1px solid black;
   border-collapse: collapse;
 }
+.collapsible {
+  background-color: #777;
+  color: white;
+  cursor: pointer;
+  padding: 18px;
+  width: 100%;
+  border: none;
+  text-align: left;
+  outline: none;
+  font-size: 15px;
+}
+
+.collapsible:hover {
+  background-color: #555;
+}
 </style>
 </head>
 
@@ -221,6 +236,12 @@ table, th, td {
 	function SetContent(text)
 	{
 		document.getElementById("my_content").innerHTML = text;
+		
+		var coll = document.getElementsByClassName("collapsible");
+
+		for (let i = 0; i < coll.length; i++) {
+		  coll[i].addEventListener("click", ToggleCollapsible);
+		}
 	}
 	
 	let g_CurrentID = "";
@@ -297,7 +318,8 @@ table, th, td {
 ";
 
 		const jData = JSON.parse(this.responseText);
-		const jTbl = jData["Asset history"]["value"];
+		const jTblObj = jData["Asset history"];
+		const jTbl = jTblObj["value"];
 		
 		// skip 1st row
 		for (let iRow = 1; iRow < jTbl.length; iRow++)
@@ -315,6 +337,7 @@ table, th, td {
 		
 	
 		text += "</table>"    
+		text += MakeMoreLink(jTblObj);
 		SetContent(text);
 	}
 	
@@ -398,20 +421,23 @@ table, th, td {
 		const jData = JSON.parse(this.responseText);
 	
 		let text = "";
-		text += "<h2>Block Summary</h2>\n";
+		text += MakeCollapsibleBegin("Block Summary");
+		
 		text += "<table>";
-		
 		text += Obj2Html_TableRows(jData["info"]["value"]);
-		
 		text += "</table>";
 		
-		text += "<h2>Inputs</h2>\n";
+		text += MakeCollapsibleEnd();
+
+		text += MakeCollapsibleBegin("Block contents");
+		
+		text += "<h3>Inputs</h3>\n";
 		text += MakeTableTxos(jData["inputs"], true);
 
-		text += "<h2>Outputs</h2>\n";
+		text += "<h3>Outputs</h3>\n";
 		text += MakeTableTxos(jData["outputs"], false);
 		
-		text += "<h2>Kernels</h2>\n";
+		text += "<h3>Kernels</h3>\n";
 
 		text += "\
 <table>\n\
@@ -461,9 +487,12 @@ table, th, td {
 			text += "</tr>";
 		}
 		text += "</table>"
+
+		text += MakeCollapsibleEnd();
+		
+		text += MakeCollapsibleBegin("Assets state");
 		
 		text += "\
-<h3>Assets</h3>\n\
 <table>\n\
 	<th>Aid</th>\n\
 	<th>Owner</th>\n\
@@ -493,7 +522,9 @@ table, th, td {
 		
 	
 		text += "</table>"
-		
+	
+		text += MakeCollapsibleEnd();
+
 		SetContent(text);
 	}
 
@@ -527,12 +558,49 @@ table, th, td {
 		
 		return text;
 	}
+	
+	function ToggleCollapsible()
+	{
+		//this.classList.toggle("active");
+		var content = this.nextElementSibling;
+		if (content.style.display === "none") {
+		  content.style.display = "block";
+		} else {
+		  content.style.display = "none";
+		}
+	}
+	
+	function MakeCollapsibleBegin(title)
+	{
+		return "<button type=\"button\" class=\"collapsible\">" + title + "</button><div class=\"content\">";
+	}
+	
+	function MakeCollapsibleEnd()
+	{
+		return "</div>";
+	}
+	
+	function MakeMoreLink(jTblObj)
+	{
+		const jMore = jTblObj["more"];
+		if (!jMore)
+			return "";
+			
+		let urlObj = new URL(document.location);
+		let args = urlObj.searchParams;
+		
+		for (let key in jMore)
+			args.set(key, jMore[key]);
+			
+		return "<p>" + MakeRef(urlObj.pathname + "?" + args, "More...") + "</p>";
+	}
 
 	function DisplayContractState()
 	{
 		let text = "\
-<h2>Contract " + g_CurrentID + "</h2>\n\
-<h3>Assets</h3>\n\
+<h2>Contract " + MakeMonospace(g_CurrentID) + "</h2>\n";
+
+	text += MakeCollapsibleBegin("Call history") + "\
 <table>\n\
 	<th>Height</th>\n\
 	<th>Cid</th>\n\
@@ -552,21 +620,13 @@ table, th, td {
 			text += CallHistoryAddRow(jTbl[iRow]);
 	
 		text += "</table>";
-		
-		const jMore = jTblObj["more"];
-		if (jMore)
-		{
-			let urlObj = new URL(document.location);
-			let args = urlObj.searchParams;
-			
-			for (let key in jMore)
-				args.set(key, jMore[key]);
-			
-			text += "<p>" + MakeRef(urlObj.pathname + "?" + args, "More...") + "</p>";
-		}
+		text += MakeMoreLink(jTblObj);
 
-		text += "<h3>State</h3>\n";
+		text += MakeCollapsibleEnd();
+
+		text += MakeCollapsibleBegin("State");
 		text += Obj2Html(jData["State"]);
+		text += MakeCollapsibleEnd();
 
 		
 		
@@ -613,7 +673,7 @@ table, th, td {
 		xmlhttp.open("GET", urlPrefix +  "contract" + urlSuffix + "&id=" + g_CurrentID);
 		xmlhttp.send();
 	}
-	
+
 </script>
 
 </body>
