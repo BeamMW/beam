@@ -455,7 +455,7 @@ table, th, td {
 			text += "<tr>";
 
 			text += MakeCell(MakeMonospace(jRow["id"]));
-			text += MakeCellAmount(jRow["fee"]);
+			text += MakeCellRA(Obj2Html(jRow["fee"]));
 			
 			let txtH = "";
 			let jH = jRow["minHeight"];

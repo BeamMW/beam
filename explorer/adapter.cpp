@@ -448,8 +448,11 @@ private:
             {
                 if (m_iPos >= m_vInfo.size())
                     return nullptr;
-                    
-                return &m_vInfo[m_iPos++];
+
+                auto& ret = m_vInfo[m_iPos];
+                m_iPos += (ret.m_NumNested + 1);
+
+                return &ret;
             }
         };
 
@@ -1648,7 +1651,11 @@ private:
 
                 Amount fee = 0;
                 json j = ExtraInfo::get(*v, fee, cri, height, m_Mode);
-                j["fee"] = fee;
+
+                if (Mode::Legacy == m_Mode)
+                    j["fee"] = fee;
+                else
+                    j["fee"] = MakeObjAmount(fee);
 
                 kernels.push_back(std::move(j));
             }
