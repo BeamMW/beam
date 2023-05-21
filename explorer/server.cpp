@@ -648,6 +648,15 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg)
 
     if (pFn)
     {
+        if (_currentUrl.args.end() != _currentUrl.args.find("htm"))
+            _backend.m_Mode = IAdapter::Mode::AutoHtml;
+        else
+        {
+            if (_currentUrl.args.end() != _currentUrl.args.find("exp_am"))
+                _backend.m_Mode = IAdapter::Mode::ExplicitType;
+            else
+                _backend.m_Mode = IAdapter::Mode::Legacy;
+        }
 
         _body.clear();
 
@@ -661,25 +670,27 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg)
             {
                 json j = (this->*pFn)(conn);
 
-                bool bIsHtml = (_currentUrl.args.end() != _currentUrl.args.find("htm"));
                 io::SerializedMsg sm;
 
-                if (bIsHtml)
+                switch (_backend.m_Mode)
                 {
-                    HtmlConverter cvt(path);
-                    cvt.Convert(j);
-                    cvt.get_Res(_body);
-                }
-                else
-                {
-                    bool bExpAmount = (_currentUrl.args.end() != _currentUrl.args.find("exp_am"));
-                    if (bExpAmount)
-                        jsonExp(j, 0);
+                case IAdapter::Mode::AutoHtml:
+                    {
+                        HtmlConverter cvt(path);
+                        cvt.Convert(j);
+                        cvt.get_Res(_body);
+                    }
+                    break;
 
+                case IAdapter::Mode::ExplicitType:
+                    jsonExp(j, 0);
+                    // no break;
+
+                default:
                     json2Msg(j, _body);
                 }
 
-                keepalive = send(conn, 200, "OK", bIsHtml);
+                keepalive = send(conn, 200, "OK", IAdapter::Mode::AutoHtml == _backend.m_Mode);
             }
             catch (const std::exception& e)
             {

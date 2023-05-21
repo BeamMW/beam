@@ -25,6 +25,15 @@ namespace explorer {
 
 /// node->explorer adapter interface
 struct IAdapter {
+
+    enum struct Mode {
+        Legacy,
+        ExplicitType,
+        AutoHtml,
+    };
+
+    Mode m_Mode = Mode::Legacy;
+
     using Ptr = std::unique_ptr<IAdapter>;
 
     virtual ~IAdapter() = default;
