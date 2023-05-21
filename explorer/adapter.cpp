@@ -1211,7 +1211,7 @@ private:
                 std::string sName;
 
                 json jEntry = json::array();
-                jEntry.push_back(wlk.m_Entry.m_Pos.m_Height);
+                jEntry.push_back(MakeObjHeight(wlk.m_Entry.m_Pos.m_Height));
 
                 if (sizeof(bvm2::ShaderID) == wlk.m_Entry.m_Val.n)
                 {
