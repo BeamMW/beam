@@ -406,6 +406,11 @@ private:
         return MakeTypeObj("cid", cid);
     }
 
+    static json MakeObjBool(bool val)
+    {
+        return MakeTypeObj("bool", val ? 1u : 0u);
+    }
+
     template <typename T>
     static json MakeObjBlob(const T& x)
     {
@@ -719,7 +724,7 @@ private:
 
                 Writer wr;
                 wr.m_json["text"] = std::move(s);
-                wr.AddHex("hash", md.m_Hash);
+                wr.m_json["hash"] = MakeObjBlob(md.m_Hash);
 
                 m_json["metadata"] = std::move(wr.m_json);
             }
@@ -779,13 +784,14 @@ private:
             return std::move(w.m_json);
         }
 
-        static json get(const TxKernel& krn, Amount& fee, ContractRichInfo& cri, Height h)
+        static json get(const TxKernel& krn, Amount& fee, ContractRichInfo& cri, Height h, Mode m)
         {
             struct MyWalker
             {
                 Writer m_Wr;
                 ContractRichInfo* m_pCri;
                 Height m_Height;
+                Mode m_Mode;
 
                 void OnKrn(const TxKernel& krn)
                 {
@@ -871,11 +877,17 @@ private:
                     m_Wr.m_json["Shielded.In"] = std::move(wr2.m_json);
                 }
 
+                void OnContract(const TxKernelContractControl& krn, const NodeProcessor::ContractInvokeExtraInfo& cri)
+                {
+                    m_Wr.m_json["HFTX"] = MakeObjBool(krn.m_Dependent);
+                    m_Wr.OnContract(cri);
+                }
+
                 void OnKrnEx(const TxKernelContractCreate& krn)
                 {
                     auto pInfo = m_pCri->get_Next();
                     if (pInfo)
-                        m_Wr.OnContract(*pInfo);
+                        OnContract(krn, *pInfo);
                     else
                     {
                         NodeProcessor::ContractInvokeExtraInfo info;
@@ -888,7 +900,7 @@ private:
 
                         info.SetUnk(0, krn.m_Args, &sid);
 
-                        m_Wr.OnContract(info);
+                        OnContract(krn, info);
                     }
                 }
 
@@ -896,23 +908,29 @@ private:
                 {
                     auto pInfo = m_pCri->get_Next();
                     if (pInfo)
-                        m_Wr.OnContract(*pInfo);
+                        OnContract(krn, *pInfo);
                     else
                     {
                         NodeProcessor::ContractInvokeExtraInfo info;
                         info.m_Cid = krn.m_Cid;
                         info.SetUnk(krn.m_iMethod, krn.m_Args, nullptr);
-                        m_Wr.OnContract(info);
+                        OnContract(krn, info);
                     }
                 }
 
             } wlk;
             wlk.m_pCri = &cri;
             wlk.m_Height = h;
+            wlk.m_Mode = m;
 
             wlk.m_Wr.AddHex("id", krn.m_Internal.m_ID);
-            wlk.m_Wr.m_json["minHeight"] = krn.m_Height.m_Min;
-            wlk.m_Wr.m_json["maxHeight"] = krn.m_Height.m_Max;
+
+            auto hr = krn.get_EffectiveHeightRange();
+
+            if (hr.m_Min)
+                wlk.m_Wr.m_json["minHeight"] = hr.m_Min;
+            if (hr.m_Max != MaxHeight)
+                wlk.m_Wr.m_json["maxHeight"] = hr.m_Max;
 
             fee += krn.m_Fee;
 
@@ -924,7 +942,7 @@ private:
 
                 for (uint32_t i = 0; i < krn.m_vNested.size(); i++)
                 {
-                    json j3 = get(*krn.m_vNested[i], fee, cri, h);
+                    json j3 = get(*krn.m_vNested[i], fee, cri, h, m);
                     j2.push_back(std::move(j3));
                 }
 
@@ -1542,6 +1560,40 @@ private:
         return wr.m_json;
     }
 
+    static uint32_t ExpanedNumWithCommas(char* szDst, const char* szSrc, uint32_t len)
+    {
+        const uint32_t nGroupLen = 3;
+        // szDst and szSrc may be the same
+        if (len)
+        {
+            uint32_t numCommas = (len - 1) / nGroupLen;
+            uint32_t pos = len;
+            len += numCommas;
+
+            while (numCommas)
+            {
+                pos -= nGroupLen;
+                memmove(szDst + pos + numCommas, szSrc + pos, nGroupLen);
+                szDst[pos + (--numCommas)] = ',';
+            }
+
+            memmove(szDst, szSrc, pos);
+        }
+
+        szDst[len] = 0;
+        return len;
+    }
+
+    uint32_t PrintDifficulty(char* sz, const Difficulty::Raw& d)
+    {
+        // print integer part only. Ok for mainnet.
+        Difficulty::Raw dInt;
+        dInt.SetDiv(d, uintBigFor<uint32_t>::Type(1u << Difficulty::s_MantissaBits));
+
+        uint32_t len = dInt.PrintDecimal(sz);
+        return ExpanedNumWithCommas(sz, sz, len);
+    }
+
     bool extract_block_from_row(json& out, uint64_t row, Height height) {
         NodeDB& db = _nodeBackend.get_DB();
 
@@ -1595,7 +1647,7 @@ private:
             for (const auto &v : block.m_vKernels) {
 
                 Amount fee = 0;
-                json j = ExtraInfo::get(*v, fee, cri, height);
+                json j = ExtraInfo::get(*v, fee, cri, height, m_Mode);
                 j["fee"] = fee;
 
                 kernels.push_back(std::move(j));
@@ -1641,23 +1693,51 @@ private:
             auto btcRate = _exchangeRateProvider->getBeamTo(wallet::Currency::BTC(), blockState.m_Height);
             auto usdRate = _exchangeRateProvider->getBeamTo(wallet::Currency::USD(), blockState.m_Height);
 
-            out = json{
-                {"found",      true},
-                {"timestamp",  blockState.m_TimeStamp},
-                {"height",     blockState.m_Height},
-                {"hash",       hash_to_hex(buf, id.m_Hash)},
-                {"prev",       hash_to_hex(buf, blockState.m_Prev)},
-                {"difficulty", blockState.m_PoW.m_Difficulty.ToFloat()},
-                {"chainwork",  uint256_to_hex(buf, blockState.m_ChainWork)},
-                {"subsidy",    Rules::get_Emission(blockState.m_Height)},
-                {"inputs",     inputs},
-                {"outputs",    outputs},
-                {"kernels",    kernels},
-                {"rate_btc",   btcRate},
-                {"rate_usd",   usdRate}
-            };
+            if (Mode::Legacy == m_Mode)
+            {
+                out = json{
+                    {"found",      true},
+                    {"timestamp",  blockState.m_TimeStamp},
+                    {"height",     blockState.m_Height},
+                    {"hash",       hash_to_hex(buf, id.m_Hash)},
+                    {"prev",       hash_to_hex(buf, blockState.m_Prev)},
+                    {"difficulty", blockState.m_PoW.m_Difficulty.ToFloat()},
+                    {"chainwork",  uint256_to_hex(buf, blockState.m_ChainWork)},
+                    {"subsidy",    Rules::get_Emission(blockState.m_Height)},
+                    {"inputs",     inputs},
+                    {"outputs",    outputs},
+                    {"kernels",    kernels},
+                    {"rate_btc",   btcRate},
+                    {"rate_usd",   usdRate}
+                };
+            }
+            else
+            {
+                json jInfo = json::array();
+
+                jInfo.push_back({ MakeTableHdr("Height"), MakeObjHeight(id.m_Height) });
+                jInfo.push_back({ MakeTableHdr("Timestamp"),MakeTypeObj("time", blockState.m_TimeStamp) });
+                jInfo.push_back({ MakeTableHdr("Hash"), MakeObjBlob(id.m_Hash) });
+                jInfo.push_back({ MakeTableHdr("Hash-Prev"), MakeObjBlob(blockState.m_Prev) });
+
+                Difficulty::Raw d;
+                blockState.m_PoW.m_Difficulty.Unpack(d);
+
+                char szCw[ECC::uintBig::nTxtLen10Max / 3 * 4 + 2];
+                PrintDifficulty(szCw, d);
+                jInfo.push_back({ MakeTableHdr("Difficulty"), szCw });
+
+                PrintDifficulty(szCw, blockState.m_ChainWork);
+                jInfo.push_back({ MakeTableHdr("Chainwork"), szCw });
+                jInfo.push_back({ MakeTableHdr("Subsidy"), MakeObjAmount(Rules::get_Emission(blockState.m_Height)) });
+
+                out["info"] = MakeTable(std::move(jInfo));
+            }
 
             out["assets"] = MakeTable(std::move(jAssets));
+            out["inputs"] = std::move(inputs);
+            out["outputs"] = std::move(outputs);
+            out["kernels"] = std::move(kernels);
 
             LOG_DEBUG() << out;
         }

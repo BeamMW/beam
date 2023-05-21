@@ -57,14 +57,14 @@ table, th, td {
 		return "<tt style=\"color:" + clr + "\">" + amount + "</tt>";
 	}
 
-	function MakeBlock(h)
-	{
-		return MakeRef(UrlSelfWithID("block", h, ""), h);
-	}
-
 	function MakeMonospace(txt)
 	{
 		return "<tt>" + txt + "</tt>";
+	}
+
+	function MakeBlock(h)
+	{
+		return MakeRef(UrlSelfWithID("block", h, ""), MakeMonospace(h));
 	}
 
 	function MakeCellAmount(amount, extra)
@@ -163,6 +163,16 @@ table, th, td {
 
 		if (obj.type == "blob")
 			return MakeMonospace(obj.value);
+
+		if (obj.type == "bool")
+			return (obj.value > 0) ? "yes" : "no";
+
+		if (obj.type == "time")
+		{
+			let d = new Date(obj.value * 1000);
+			let txt = d.toISOString().split('T');
+			return txt[0] + ' ' + txt[1].split('.')[0];
+		}
 
 		return "";
 	}
@@ -307,87 +317,145 @@ table, th, td {
 		text += "</table>"    
 		SetContent(text);
 	}
+	
+	function MakeTableTxos(jTbl, isInp)
+	{
+		let text = "\
+<table>\n\
+	<th>Commitment</th>\n";
+	
+	if (isInp)
+		text += "<th>Height</th>\n";
+	
+	text += "\
+	<th>Maturity</th>\n\
+	<th>Extra</th>\n\
+";
+
+		for (let i = 0; i < jTbl.length; i++)
+		{
+			let jRow = jTbl[i];
+			text += "<tr>";
+
+			text += MakeCell(MakeMonospace(jRow["commitment"]));
+			delete jRow.commitment;
+	
+			if (isInp)	
+			{
+				let j = jRow["height"];
+				if (j)
+				{
+					text += MakeCell(MakeBlock(j));
+					delete jRow.height;
+				}
+				else
+					text += MakeCell("");
+			}
+
+			j = jRow["Maturity"];
+			if (j)
+			{
+				text += MakeCell(Obj2Html(j));
+				delete jRow.Maturity;
+			}
+			else
+				text += MakeCell("");
+				
+			let txtExtra = "";
+	
+			j = jRow["Asset"];
+			if (j)
+			{
+				txtExtra += " CA [" + j["min"] + "-" + j["max"] + "]";
+				delete jRow.Asset;
+			}
+				
+			j = jRow["type"];
+			if (j)
+			{
+				txtExtra += " " + Obj2Html(j);
+				delete jRow.type;
+			}
+
+			j = jRow["Value"];
+			if (j)
+			{
+				txtExtra += " " + Obj2Html(j);
+				delete jRow.Value;
+			}
+
+			//text += MakeCell(txtExtra + Obj2Html(jRow));
+			text += MakeCell(txtExtra);
+			
+			text += "</tr>";
+		}
+		text += "</table>"
+		return text;
+	}
 
 	function DisplayBlock()
 	{
 		const jData = JSON.parse(this.responseText);
 	
 		let text = "";
-	
-		text += "<h2>Inputs</h2>\n";
-
-		text += "\
-<table>\n\
-	<th>Commitment</th>\n\
-	<th>Height</th>\n\
-	<th>Extra</th>\n\
-";
-
-		let jTbl = jData["inputs"];
+		text += "<h2>Block Summary</h2>\n";
+		text += "<table>";
 		
-		for (let i = 0; i < jTbl.length; i++)
-		{
-			let jRow = jTbl[i];
-			text += "<tr>";
-
-			text += MakeCell(jRow["commitment"]);
-			text += MakeCell(MakeBlock(jRow["height"]));
-			
-			delete jRow.commitment;
-			delete jRow.height;
-			text += MakeCell(Obj2Html(jRow));
-			
-			text += "</tr>";
-		}
-		text += "</table>"
+		text += Obj2Html_TableRows(jData["info"]["value"]);
+		
+		text += "</table>";
+		
+		text += "<h2>Inputs</h2>\n";
+		text += MakeTableTxos(jData["inputs"], true);
 
 		text += "<h2>Outputs</h2>\n";
-
-		text += "\
-<table>\n\
-	<th>Commitment</th>\n\
-	<th>Extra</th>\n\
-";
-
-		jTbl = jData["outputs"];
+		text += MakeTableTxos(jData["outputs"], false);
 		
-		for (let i = 0; i < jTbl.length; i++)
-		{
-			let jRow = jTbl[i];
-			text += "<tr>";
-
-			text += MakeCell(jRow["commitment"]);
-			
-			delete jRow.commitment;
-			text += MakeCell(Obj2Html(jRow));
-			
-			text += "</tr>";
-		}
-		text += "</table>"
-
 		text += "<h2>Kernels</h2>\n";
 
 		text += "\
 <table>\n\
 	<th>ID</th>\n\
 	<th>Fee</th>\n\
+	<th>Height</th>\n\
 	<th>Extra</th>\n\
 ";
 
-		jTbl = jData["kernels"];
+		let jTbl = jData["kernels"];
 		
 		for (let i = 0; i < jTbl.length; i++)
 		{
 			let jRow = jTbl[i];
 			text += "<tr>";
 
-			text += MakeCell(jRow["id"]);
+			text += MakeCell(MakeMonospace(jRow["id"]));
 			text += MakeCellAmount(jRow["fee"]);
+			
+			let txtH = "";
+			let jH = jRow["minHeight"];
+			if (jH)
+			{
+				txtH = MakeBlock(jH);
+				delete jRow.minHeight;
+			}
+			else
+				txtH = "*";
+				
+			txtH += "-";
+
+			jH = jRow["maxHeight"];
+			if (jH)
+			{
+				txtH += MakeBlock(jH);
+				delete jRow.maxHeight;
+			}
+			else
+				txtH += "*";
+
+			text += MakeCell(txtH);
 			
 			delete jRow.id;
 			delete jRow.fee;
-			delete jRow.minHeight;
-			delete jRow.maxHeight;
 			text += MakeCell(Obj2Html(jRow));
 			
 			text += "</tr>";
@@ -395,7 +463,6 @@ table, th, td {
 		text += "</table>"
 		
 		text += "\
-<h2>Block height " + g_CurrentID + "</h2>\n\
 <h3>Assets</h3>\n\
 <table>\n\
 	<th>Aid</th>\n\
