@@ -1140,6 +1140,13 @@ private:
         throw exc;
     }
 
+    static void MakeTblMore(json& jTbl, Height h)
+    {
+        json jMore = json::object();
+        jMore["hMax"] = h;
+        jTbl["more"] = std::move(jMore);
+    }
+
     void get_ContractState(json& out, const bvm2::ContractID& cid, const HeightRange& hr, uint32_t nMaxTxs)
     {
         bool bExists = false;
@@ -1314,11 +1321,7 @@ private:
             json jTbl = MakeTable(std::move(wrArr.m_json));
 
             if (bMore)
-            {
-                json jMore = json::object();
-                jMore["hMax"] = hpLast.m_Height - 1;
-                jTbl["more"] = std::move(jMore);
-            }
+                MakeTblMore(jTbl, hpLast.m_Height - 1);
 
             wr.m_json["Calls history"] = std::move(jTbl);
 
@@ -1552,11 +1555,7 @@ private:
         json jTbl = MakeTable(std::move(wrArr.m_json));
 
         if (bMore && (hPrev != MaxHeight))
-        {
-            json jMore = json::object();
-            jMore["hMax"] = hPrev - 1;
-            jTbl["more"] = std::move(jMore);
-        }
+            MakeTblMore(jTbl, hPrev - 1);
 
         ExtraInfo::Writer wr;
         wr.m_json["Asset history"] = std::move(jTbl);
