@@ -332,26 +332,28 @@ private:
     }
 
     template <typename T>
-    static void AssignField(json& json, const char* szName, T&& val)
+    static void AssignField(json& json, const char* szName, const T& val)
     {
         if (szName)
-            json[szName] = std::move(val);
+            json[szName] = val;
         else
-            json.push_back(std::move(val));
+            json.push_back(val);
+    }
+
+    static void AssignField(json& x, const char* szName, json&& y)
+    {
+        if (szName)
+            x[szName] = std::move(y);
+        else
+            x.push_back(std::move(y));
     }
 
     template <uint32_t nBytes>
-    static void AssignField(json& json, const char* szName, const uintBig_t<nBytes>&& val)
+    static void AssignField(json& json, const char* szName, const uintBig_t<nBytes>& val)
     {
         char sz[uintBig_t<nBytes>::nTxtLen + 1];
         val.Print(sz);
         AssignField(json, szName, std::move(sz));
-    }
-
-    template <uint32_t nBytes>
-    static void AssignField(json& json, const char* szName, uintBig_t<nBytes>&& val)
-    {
-        AssignField(json, szName, (const uintBig_t<nBytes>&&) val);
     }
 
     static void AssignField(json& json, const char* szName, const ECC::Point& pt)
@@ -360,12 +362,17 @@ private:
         AssignField<MyPoint::nBytes>(json, szName, std::move(Cast::Reinterpret<MyPoint>(pt)));
     }
 
+    static void AssignField(json& json, const char* szName, const PeerID& pid)
+    {
+        AssignField(json, szName, (const ECC::uintBig&) pid);
+    }
+
     template <typename T>
-    static json MakeTypeObj(const char* szType, T&& val)
+    static json MakeTypeObj(const char* szType, const T& val)
     {
         json j;
         j["type"] = szType;
-        AssignField(j, "value", std::move(val));
+        AssignField(j, "value", val);
         return j;
     }
 
@@ -387,6 +394,22 @@ private:
     static json MakeObjAmount(const Amount x)
     {
         return MakeTypeObj("amount", x);
+    }
+
+    static json MakeObjHeight(Height h)
+    {
+        return MakeTypeObj("height", h);
+    }
+
+    static json MakeObjCid(const ContractID& cid)
+    {
+        return MakeTypeObj("cid", cid);
+    }
+
+    template <typename T>
+    static json MakeObjBlob(const T& x)
+    {
+        return MakeTypeObj("blob", x);
     }
 
     static json MakeObjAmount(const AmountBig::Type& x)
@@ -450,7 +473,7 @@ private:
             template <uint32_t nBytes>
             void AddHex(const char* szName, const uintBig_t<nBytes>& val)
             {
-                AssignField(m_json, szName, std::move(val));
+                AssignField(m_json, szName, val);
             }
 
             void AddCommitment(const ECC::Point& pt)
@@ -565,7 +588,7 @@ private:
                 }
                 else
                 {
-                    m_json.push_back(MakeTypeObj("cid", info.m_Cid));
+                    m_json.push_back(MakeObjCid(info.m_Cid));
 
                     auto it = wrSrc.m_json.find("kind");
                     if (wrSrc.m_json.end() == it)
@@ -647,7 +670,7 @@ private:
                     for (uint32_t iSig = 0; iSig < info.m_vSigs.size(); iSig++)
                     {
                         json jEntry = json::array();
-                        AssignField(jEntry, nullptr, info.m_vSigs[iSig]);
+                        AssignField(jEntry, nullptr, MakeObjBlob(info.m_vSigs[iSig]));
                         jArr.push_back(std::move(jEntry));
                     }
 
@@ -701,15 +724,17 @@ private:
                 m_json["metadata"] = std::move(wr.m_json);
             }
 
+            static json get_AssetOwner(const Asset::CreateInfo& ai)
+            {
+                return (ai.m_Cid != Zero) ? 
+                    MakeObjCid(ai.m_Cid) :
+                    MakeObjBlob(ai.m_Owner);
+            }
+
             void AddAssetCreateInfo(const Asset::CreateInfo& ai)
             {
                 AddMetadata(ai.m_Metadata);
-
-                if (ai.m_Cid != Zero)
-                    m_json["cid"] = MakeTypeObj("cid", ai.m_Cid);
-                else
-                    AddHex("owner", ai.m_Owner);
-
+                m_json["owner"] = get_AssetOwner(ai);
                 m_json["deposit"] = MakeObjAmount(ai.m_Deposit);
             }
 
@@ -722,7 +747,7 @@ private:
             }
         };
 
-        static json get(const Output& outp, Height h, Height hMaturity)
+        static json get(const Output& outp, Height h, Height hMaturity, Mode m)
         {
             Writer w;
             w.AddCommitment(outp.m_Commitment);
@@ -731,13 +756,23 @@ private:
                 w.m_json["type"] = "Coinbase";
 
             if (outp.m_pPublic)
-                w.m_json["Value"] = outp.m_pPublic->m_Value;
+            {
+                if (Mode::Legacy == m)
+                    w.m_json["Value"] = outp.m_pPublic->m_Value;
+                else
+                    w.m_json["Value"] = MakeObjAmount(outp.m_pPublic->m_Value);
+            }
 
             if (outp.m_Incubation)
                 w.m_json["Incubation"] = outp.m_Incubation;
 
             if (hMaturity != h)
-                w.m_json["Maturity"] = hMaturity;
+            {
+                if (Mode::Legacy == m)
+                    w.m_json["Maturity"] = hMaturity;
+                else
+                    w.m_json["Maturity"] = MakeObjHeight(hMaturity);
+            }
 
             w.OnAsset(outp.m_pAsset.get());
 
@@ -983,7 +1018,7 @@ private:
         wr.ParseSafe(sExtra);
 
         if (wr.m_json.find("kind") == wr.m_json.end())
-            AssignField(wr.m_json, "kind", std::move(sid));
+            AssignField(wr.m_json, "kind", MakeObjBlob(sid));
 
     }
 
@@ -1040,7 +1075,7 @@ private:
         for (const auto& x : vIDs)
         {
             json jItem = json::array();
-            jItem.push_back(MakeTypeObj("cid", x.first.m_Cid));
+            jItem.push_back(MakeObjCid(x.first.m_Cid));
 
             {
                 ExtraInfo::Writer wr;
@@ -1546,7 +1581,7 @@ private:
 
                 Height hCreate = inp.m_Internal.m_Maturity - outp.get_MinMaturity(0);
 
-                json jItem = ExtraInfo::get(outp, hCreate, inp.m_Internal.m_Maturity);
+                json jItem = ExtraInfo::get(outp, hCreate, inp.m_Internal.m_Maturity, m_Mode);
                 jItem["height"] = hCreate;
 
                 inputs.push_back(std::move(jItem));
@@ -1554,7 +1589,7 @@ private:
 
             json outputs = json::array();
             for (const auto &v : block.m_vOutputs)
-                outputs.push_back(ExtraInfo::get(*v, height, v->get_MinMaturity(height)));
+                outputs.push_back(ExtraInfo::get(*v, height, v->get_MinMaturity(height), m_Mode));
 
             json kernels = json::array();
             for (const auto &v : block.m_vKernels) {
@@ -1589,10 +1624,7 @@ private:
                 ExtraInfo::Writer wr(json::array());
                 wr.m_json.push_back(MakeObjAid(ai.m_ID));
 
-                if (ai.m_Cid != Zero)
-                    wr.m_json.push_back(MakeTypeObj("cid", ai.m_Cid));
-                else
-                    wr.AddHex(nullptr, ai.m_Owner);
+                wr.m_json.push_back(ExtraInfo::Writer::get_AssetOwner(ai));
 
                 wr.m_json.push_back(MakeObjAmount(ai.m_Deposit));
                 wr.m_json.push_back(MakeObjAmount(ai.m_Value));

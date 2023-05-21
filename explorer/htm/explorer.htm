@@ -54,12 +54,17 @@ table, th, td {
 		let clr = "green";
 		if (amount[0] == '-')
 			clr = "blue";
-		return "<p2 style=\"color:" + clr + "\">" + amount + "</p2>";
+		return "<tt style=\"color:" + clr + "\">" + amount + "</tt>";
 	}
 
 	function MakeBlock(h)
 	{
 		return MakeRef(UrlSelfWithID("block", h, ""), h);
+	}
+
+	function MakeMonospace(txt)
+	{
+		return "<tt>" + txt + "</tt>";
 	}
 
 	function MakeCellAmount(amount, extra)
@@ -76,7 +81,7 @@ table, th, td {
 	
 	function MakeCid(cid)
 	{
-		return MakeRef(UrlSelfWithID("contract", cid, ""), cid);
+		return MakeRef(UrlSelfWithID("contract", cid, ""), MakeMonospace(cid));
 	}
 		
 	function MakeFundsTbl(jFunds)
@@ -153,6 +158,12 @@ table, th, td {
 		if (obj.type == "aid")
 			return MakeAsset(obj.value);
 
+		if (obj.type == "height")
+			return MakeBlock(obj.value);
+
+		if (obj.type == "blob")
+			return MakeMonospace(obj.value);
+
 		return "";
 	}
 
@@ -228,7 +239,7 @@ table, th, td {
 
 			const cid = jRow[0]["value"];
 			text += MakeCell(MakeCid(cid));
-			text += MakeCell(jRow[1]);
+			text += MakeCell(Obj2Html(jRow[1]));
 			text += MakeCellRA(MakeBlock(jRow[2]));
 
 			text += MakeCell(MakeFundsTbl(jRow[3]["value"]));

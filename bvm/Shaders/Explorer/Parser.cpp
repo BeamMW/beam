@@ -38,16 +38,6 @@ void DocAddTextLen(const char* szID, const void* szValue, uint32_t nLen)
 	Env::DocAddText(szID, szBuf);
 }
 
-void DocAddPk(const char* sz, const PubKey& pk)
-{
-	Env::DocAddBlob_T(sz, pk);
-}
-
-void DocAddHeight(const char* sz, Height h)
-{
-	Env::DocAddNum(sz, h);
-}
-
 void DocSetType(const char* sz)
 {
 	Env::DocAddText("type", sz);
@@ -66,6 +56,27 @@ void DocAddAmount(const char* sz, Amount x)
 	DocSetType("amount");
 	Env::DocAddNum("value", x);
 }
+
+void DocAddHeight(const char* sz, Height h)
+{
+	Env::DocGroup gr(sz);
+	DocSetType("height");
+	Env::DocAddNum("value", h);
+}
+
+template <typename T>
+void DocAddMonoblob(const char* sz, const T& x)
+{
+	Env::DocGroup gr(sz);
+	DocSetType("blob");
+	Env::DocAddBlob_T("value", x);
+}
+
+void DocAddPk(const char* sz, const PubKey& pk)
+{
+	DocAddMonoblob(sz, pk);
+}
+
 
 void DocAddAmountBig(const char* sz, Amount valLo, Amount valHi)
 {
@@ -259,7 +270,7 @@ struct ParserContext
 		Env::DocGroup gr("kind");
 		if (sz)
 			Env::DocAddText("Wrapper", sz);
-		Env::DocAddBlob_T("subtype", sid);
+		DocAddMonoblob("subtype", sid);
 	}
 
 	void OnMethod(const char* sz)
@@ -779,7 +790,7 @@ void ParserContext::WriteUpgradeSettingsInternal(const Upgradable3::Settings& st
 			Env::DocArray gr3("");
 
 			Env::DocAddNum("", i);
-			Env::DocAddBlob_T("", pk);
+			DocAddPk("", pk);
 		}
 
 	}
@@ -1200,7 +1211,7 @@ void ParserContext::OnMethod_Gallery_2()
 				GroupArgs gr;
 
 				// TODO roman
-				Env::DocAddBlob_T("key", pArg->m_Key);
+				DocAddPk("key", pArg->m_Key.m_pkUser);
 				DocAddAidAmount("Value", pArg->m_Key.m_Aid, pArg->m_Value);
 			}
 		}
