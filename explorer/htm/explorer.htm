@@ -665,7 +665,16 @@ table, th, td {
 		SetContent(text);
 	}
 
+	function DisplayHdrs()
+	{
+		const jData = JSON.parse(this.responseText);
+	
+		let text = Obj2Html(jData);
+		text += MakeMoreLink(jData);
 
+		SetContent(text);
+	}
+	
 
 	const args = (new URL(document.location)).searchParams;
 	const type = args.get("type");
@@ -703,6 +712,12 @@ table, th, td {
 	{
 		xmlhttp.onload = DisplayContractState;
 		xmlhttp.open("GET", urlPrefix +  "contract" + urlSuffix + "&id=" + g_CurrentID);
+		xmlhttp.send();
+	}
+	else if (type == "hdrs")
+	{
+		xmlhttp.onload = DisplayHdrs;
+		xmlhttp.open("GET", urlPrefix +  "hdrs" + urlSuffix);
 		xmlhttp.send();
 	}
 

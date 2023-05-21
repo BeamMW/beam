@@ -1596,6 +1596,81 @@ private:
         return ExpanedNumWithCommas(sz, sz, len);
     }
 
+    json get_hdrs(uint64_t hMax, uint64_t nMax) override
+    {
+        std::setmin(nMax, 2048u);
+        std::setmin(hMax, _nodeBackend.m_Cursor.m_Full.m_Height);
+
+        json jRet = json::array();
+        jRet.push_back(json::array({
+            MakeTableHdr("Height"),
+            MakeTableHdr("Timestamp"),
+            MakeTableHdr("Hash"),
+            MakeTableHdr("Difficulty"),
+            MakeTableHdr("Chainwork"),
+            }));
+
+        
+        Height hMore = 0;
+
+        if (hMax && nMax)
+        {
+            auto& db = _nodeBackend.get_DB();
+
+            NodeDB::StateID sid;
+            sid.m_Height = hMax;
+            sid.m_Row = db.FindActiveStateStrict(hMax);
+
+            Merkle::Hash hv;
+
+            while (true)
+            {
+                Block::SystemState::Full s;
+                db.get_State(sid.m_Row, s);
+
+                if (hMax == sid.m_Height)
+                    s.get_Hash(hv);
+
+                json jRow = json::array();
+
+                jRow.push_back(MakeObjHeight(s.m_Height));
+                jRow.push_back(MakeTypeObj("time", s.m_TimeStamp));
+                jRow.push_back(MakeObjBlob(hv));
+
+                Difficulty::Raw d;
+                s.m_PoW.m_Difficulty.Unpack(d);
+
+                char szCw[ECC::uintBig::nTxtLen10Max / 3 * 4 + 2];
+                PrintDifficulty(szCw, d);
+                jRow.push_back(szCw);
+
+                PrintDifficulty(szCw, s.m_ChainWork);
+                jRow.push_back(szCw);
+
+                jRet.push_back(std::move(jRow));
+
+                if (!--nMax)
+                {
+                    hMore = sid.m_Height - 1;
+                    break;
+                }
+
+                if (!db.get_Prev(sid))
+                    break;
+
+
+                hv = s.m_Prev;
+            }
+        }
+
+        jRet = MakeTable(std::move(jRet));
+
+        if (hMore)
+            MakeTblMore(jRet, hMore);
+
+        return jRet;
+    }
+
     bool extract_block_from_row(json& out, uint64_t row, Height height) {
         NodeDB& db = _nodeBackend.get_DB();
 

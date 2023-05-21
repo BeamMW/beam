@@ -25,6 +25,7 @@
     macro(status) \
     macro(block) \
     macro(blocks) \
+    macro(hdrs) \
     macro(peers) \
     macro(swap_offers) \
     macro(swap_totals) \

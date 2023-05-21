@@ -761,6 +761,14 @@ OnRequest(blocks)
     return _backend.get_blocks(start, n);
 }
 
+OnRequest(hdrs)
+{
+    Height hTop = _currentUrl.get_int_arg("hMax", std::numeric_limits<int64_t>::max());
+    uint32_t n = (uint32_t) _currentUrl.get_int_arg("nMax", static_cast<uint32_t>(-1));
+
+    return _backend.get_hdrs(hTop, n);
+}
+
 OnRequest(peers)
 {
     return _backend.get_peers();
