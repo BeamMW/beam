@@ -527,21 +527,34 @@ table, th, td {
 
 		SetContent(text);
 	}
+	
+	function get_CallRows(jRow)
+	{
+		if (jRow["type"] != "group")
+			return 1;
 
-	function CallHistoryAddRow(jRow, isGroupStart, numSiblings)
+		const jInner = jRow["value"];
+		let retVal = 0;
+		
+		for (let i = 0; i < jInner.length; i++)
+			retVal += get_CallRows(jInner[i]);
+
+		return retVal;
+	}
+
+	function CallHistoryAddRow(jRow, depth, numRows)
 	{
 		let text = "";
 		
-		if (isGroupStart)
-			text += "<tr><td colspan=99></td></tr>"
-	
 		if (jRow["type"] == "group")
 		{
 			const jInner = jRow["value"];
 			
 			for (let i = 0; i < jInner.length; i++)
 			{
-				text += CallHistoryAddRow(jInner[i], false, (isGroupStart && !i) ? jInner.length : 0);
+				text += CallHistoryAddRow(jInner[i], depth, numRows);
+				if (!i)
+					depth++;
 			}
 			
 		}
@@ -549,8 +562,8 @@ table, th, td {
 		{
 			text += "<tr>";
 			
-			if (numSiblings > 0)
-				text += MakeCellEx(MakeBlock(jRow[0]), " rowspan=" + numSiblings);
+			if (depth == 0)
+				text += MakeCellEx(MakeBlock(jRow[0]), " rowSpan=" + numRows);
 
 			text += MakeCell(Obj2Html(jRow[1]));
 			text += MakeCell(Obj2Html(jRow[2]));
@@ -623,7 +636,10 @@ table, th, td {
 		
 		// skip 1st row
 		for (let iRow = 1; iRow < jTbl.length; iRow++)
-			text += CallHistoryAddRow(jTbl[iRow], true, 1);
+		{
+			text += "<tr><td colspan=99></td></tr>";
+			text += CallHistoryAddRow(jTbl[iRow], 0, get_CallRows(jTbl[iRow]));
+		}
 	
 		text += "</table>";
 		text += MakeMoreLink(jTblObj);
@@ -634,7 +650,17 @@ table, th, td {
 		text += Obj2Html(jData["State"]);
 		text += MakeCollapsibleEnd();
 
+		text += MakeCollapsibleBegin("Locked Funds");
+		text += Obj2Html(jData["Locked Funds"]);
+		text += MakeCollapsibleEnd();
 		
+		text += MakeCollapsibleBegin("Owned assets");
+		text += Obj2Html(jData["Owned assets"]);
+		text += MakeCollapsibleEnd();
+
+		text += MakeCollapsibleBegin("Version history");
+		text += Obj2Html(jData["Version History"]);
+		text += MakeCollapsibleEnd();
 		
 		SetContent(text);
 	}
