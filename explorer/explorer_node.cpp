@@ -45,8 +45,6 @@ static void setup_node(Node& node, const Options& o);
 
 int main(int argc, char* argv[]) {
 
-    SetCurrentDirectoryA("C:\\Beam\\expl");
-
     Options options;
     if (!parse_cmdline(argc, argv, options)) {
         return 1;
