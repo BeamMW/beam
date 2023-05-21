@@ -528,24 +528,30 @@ table, th, td {
 		SetContent(text);
 	}
 
-	function CallHistoryAddRow(jRow)
+	function CallHistoryAddRow(jRow, isGroupStart, numSiblings)
 	{
 		let text = "";
+		
+		if (isGroupStart)
+			text += "<tr><td colspan=99></td></tr>"
 	
 		if (jRow["type"] == "group")
 		{
-			text += "<tr></tr><tr></tr><tr></tr>";
 			const jInner = jRow["value"];
 			
 			for (let i = 0; i < jInner.length; i++)
-				text += CallHistoryAddRow(jInner[i]);
-				
-			text += "<tr></tr><tr></tr><tr></tr>";
+			{
+				text += CallHistoryAddRow(jInner[i], false, (isGroupStart && !i) ? jInner.length : 0);
+			}
+			
 		}
 		else
 		{
 			text += "<tr>";
-			text += MakeCell(MakeBlock(jRow[0]));
+			
+			if (numSiblings > 0)
+				text += MakeCellEx(MakeBlock(jRow[0]), " rowspan=" + numSiblings);
+
 			text += MakeCell(Obj2Html(jRow[1]));
 			text += MakeCell(Obj2Html(jRow[2]));
 			text += MakeCell(Obj2Html(jRow[3]));
@@ -607,7 +613,7 @@ table, th, td {
 	<th>Kind</th>\n\
 	<th>Method</th>\n\
 	<th>Arguments</th>\n\
-	<th>Funds</th>\n\
+	<th colspan=2>Funds</th>\n\
 	<th>Keys</th>\n\
 ";
 
@@ -617,7 +623,7 @@ table, th, td {
 		
 		// skip 1st row
 		for (let iRow = 1; iRow < jTbl.length; iRow++)
-			text += CallHistoryAddRow(jTbl[iRow]);
+			text += CallHistoryAddRow(jTbl[iRow], true, 1);
 	
 		text += "</table>";
 		text += MakeMoreLink(jTblObj);
