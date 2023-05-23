@@ -24,11 +24,9 @@ namespace beam::wallet
 {
     namespace
     {
-        const std::string kVerCurrent = "current";
-
         uint32_t SApiVer2NApiVer(std::string sver)
         {
-            if (sver == kVerCurrent)
+            if (sver == kApiVerCurrent)
             {
                 return ApiVerCurrent;
             }
@@ -48,7 +46,16 @@ namespace beam::wallet
         try
         {
             const auto version = SApiVer2NApiVer(sver);
-            return version >= ApiVerMin && version <= ApiVerMax;
+
+            switch (version)
+            {
+#define MACRO(major, minor) case ApiVer##major##_##minor:
+                ApiVersions(MACRO)
+#undef MACRO
+                 return true;
+            default:
+                return false;
+            }
         }
         catch(std::exception& ex)
         {

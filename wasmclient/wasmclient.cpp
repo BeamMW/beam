@@ -371,18 +371,32 @@ class WasmWalletClient
 {
 public:
     WasmWalletClient(const std::string& node)
-        : WasmWalletClient("headless.db", "anything", node)
+        : WasmWalletClient(node, Rules::Network::mainnet)
+    {
+
+    }
+    WasmWalletClient(const std::string& node, Rules::Network network)
+        : WasmWalletClient("headless.db", "anything", node, network)
     {
         SetHeadless(true);
     }
 
     WasmWalletClient(const std::string& dbName, const std::string& pass, const std::string& node)
+        : WasmWalletClient(dbName, pass, node, Rules::Network::mainnet)
+    {
+
+    }
+
+    WasmWalletClient(const std::string& dbName, const std::string& pass, const std::string& node, Rules::Network network)
         : m_Logger(beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG))
         , m_Reactor(io::Reactor::create())
         , m_DbPath(dbName)
         , m_Pass(pass)
         , m_Node(node)
     {
+        auto& r = Rules::get();
+        r.m_Network = network;
+        r.SetNetworkParams();
         wallet::g_AssetsEnabled = true;
     }
 
@@ -636,8 +650,17 @@ public:
         }
     }
 
+    void CreateAppAPI(const std::string& appid, const std::string& appname, val cb)
+    {
+        CreateAppAPI2(kApiVerCurrent, kApiVerCurrent, appid, appname, cb);
+    }
 
-    void CreateAppAPI(const std::string& apiver, const std::string& minapiver, const std::string& appid, const std::string& appname, val cb)
+    void CreateAppAPI2(const std::string& apiver, const std::string& minapiver, const std::string& appid, const std::string& appname, val cb)
+    {
+        CreateAppAPI3(apiver, minapiver, appid, appname, cb, 0);
+    }
+
+    void CreateAppAPI3(const std::string& apiver, const std::string& minapiver, const std::string& appid, const std::string& appname, val cb, unsigned priviledge)
     {
         AssertMainThread();
 
@@ -660,7 +683,7 @@ public:
         }
 
         std::weak_ptr<WalletClient2> weak2 = m_Client;
-        WasmAppApi::ClientThread_Create(m_Client.get(), apiver, appid, appname, 0, false,
+        WasmAppApi::ClientThread_Create(m_Client.get(), version, appid, appname, priviledge, false,
             [cb, weak2](WasmAppApi::Ptr wapi)
             {
                 if (!wapi)
@@ -712,7 +735,7 @@ public:
                 if (auto client = weak2.lock())
                 {
                     client->RegisterApi(wapi);
-                    cb(val::undefined(), std::make_unique<WasmAppApiProxy>(client, wapi));               
+                    cb(val::undefined(), std::make_unique<WasmAppApiProxy>(client, wapi));
                 }
 
             }
@@ -996,9 +1019,16 @@ val WasmWalletClient::s_Null = val::null();
 // Binding code
 EMSCRIPTEN_BINDINGS()
 {
+    enum_<Rules::Network>("Network")
+#define THE_MACRO(name) .value(#name, Rules::Network::name)
+        RulesNetworks(THE_MACRO)
+#undef THE_MACRO
+        ;
     class_<WasmWalletClient>("WasmWalletClient")
-        .constructor<const std::string&, const std::string&, const std::string&>() // db + pass + node
+        .constructor<const std::string&, const std::string&, const std::string&>() // node + db + pass
         .constructor<const std::string&>() // node only, imply headless
+        .constructor<const std::string&, const std::string&, const std::string&, Rules::Network>() // node + db + pass + network
+        .constructor<const std::string&, Rules::Network>() // node only, imply headless
         .function("startWallet", &WasmWalletClient::StartWallet)
         .function("stopWallet", &WasmWalletClient::StopWallet)
         .function("isRunning", &WasmWalletClient::IsRunning)
@@ -1010,6 +1040,8 @@ EMSCRIPTEN_BINDINGS()
         .function("setApproveSendHandler", &WasmWalletClient::SetApproveSendHandler)
         .function("setApproveContractInfoHandler", &WasmWalletClient::SetApproveContractInfoHandler)
         .function("createAppAPI", &WasmWalletClient::CreateAppAPI)
+        .function("createAppAPI", &WasmWalletClient::CreateAppAPI2)
+        .function("createAppAPI", &WasmWalletClient::CreateAppAPI3)
         .function("importRecovery", &WasmWalletClient::ImportRecovery)
         .function("importRecoveryFromFile", &WasmWalletClient::ImportRecoveryFromFile)
         .class_function("IsAppSupported", &WasmWalletClient::IsAppSupported)
