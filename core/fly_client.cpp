@@ -199,9 +199,13 @@ void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 
 void FlyClient::NetworkStd::Connection::SetupLogin(Login& msg)
 {
-    msg.m_Flags |= LoginFlags::MiningFinalization | LoginFlags::SendPeers;
+    msg.m_Flags |= LoginFlags::SendPeers;
+
+    if (m_This.m_Cfg.m_PreferOnlineMining)
+        msg.m_Flags |= LoginFlags::MiningFinalization;
     if (m_This.HasDependentSubscriptions())
         msg.m_Flags |= LoginFlags::WantDependentState;
+
     m_This.OnLoginSetup(msg);
 }
 
@@ -315,7 +319,13 @@ void FlyClient::NetworkStd::Connection::OnMsg(GetBlockFinalization&& msg)
     if (!pKdf)
         ThrowUnexpected(); // ?!
 
-    Block::Builder bb(0, *pKdf, *pKdf, msg.m_Height);
+    Key::IPKdf::Ptr pOwner = pKdf;
+
+    Key::Index iIdx = 0;
+    if (CoinID(Zero).get_ChildKdfIndex(iIdx))
+        pKdf = MasterKey::get_Child(*pKdf, iIdx);
+
+    Block::Builder bb(iIdx, *pKdf, *pOwner, msg.m_Height);
     bb.AddCoinbaseAndKrn();
     bb.AddFees(msg.m_Fees);
 
@@ -830,8 +840,7 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel2& req)
 {
     if (req.m_Res.m_Kernel)
     {
-        ECC::Point::Native exc;
-        if (!req.m_Res.m_Kernel->IsValid(req.m_Res.m_Height, exc))
+        if (!req.m_Res.m_Kernel->IsValid(req.m_Res.m_Height))
             ThrowUnexpected();
     }
 }

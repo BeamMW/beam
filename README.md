@@ -2,25 +2,47 @@
 [![Build](https://github.com/BeamMW/beam/actions/workflows/build.yml/badge.svg)](https://github.com/BeamMW/beam/actions/workflows/build.yml)
 [![CodeQL](https://github.com/BeamMW/beam/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/BeamMW/beam/actions/workflows/codeql-analysis.yml)
 
-![alt text](https://s3.eu-central-1.amazonaws.com/website-storage.beam.mw/media/homepage/scc/scc-1.jpg "Beam Logo")
+![alt text](https://pbs.twimg.com/profile_banners/1006569151413063680/1623676593/600x200 "Beam Logo")
 
 ### Welcome to Beam
 
+BEAM is a Confidential Cryptocurrency and DeFi Platform 
 
-BEAM is a next generation scalable, confidential cryptocurrency based on an elegant and innovative [Mimblewimble protocol](https://docs.beam.mw/Mimblewimble.pdf).
+[Latest Release](https://github.com/BeamMW/beam/releases/latest) | [Downloads](http://beam.mw/downloads) | [Documentation](https://beam.mw/en/docs)
+
+#### Key Features
+
+* All transactions are [confidential by default](https://beam.mw/en/docs/ecosystem/#private-transactions)
+* Allows creation of new [Confidential Assets](https://beam.mw/en/docs/ecosystem/#tokens-aka-beam-confidential-assets) (part of the protocol, no contracts required)
+* Supports privacy preserving [Smart Contracts](https://github.com/BeamMW/shader-sdk/wiki/Beam-Smart-Contracts) via bespoke Beam Virtual Machine [spec](https://github.com/BeamMW/shader-sdk/wiki/BVM-functions-for-shaders) based on WASM technology
+* Beautiful and usable wallets for all platforms (Win, Mac, Linux, iOS, Android, Web)
+* Bridges with Ethereum blockhain (supporting USDT, DAI, WBTC and ETH)
+* Fully decentralized Atomic Swaps (with BTC, LTC and ETH) with an in-wallet marketplace
+* Rich DeFi ecosystem including DEX, Confidential Stable Coin, Anonymous Name Service, NFT Gallery and more...
+
+#### Fundamentals
+
+* Launched on Jan 3rd 2019
+* Based on [LelantusMW](https://github.com/BeamMW/beam/wiki/Lelantus-MW) protocol ( [Mimblewimble paper](https://docs.beam.mw/Mimblewimble.pdf), [Lelantus paper](https://lelantus.io/lelantus.pdf) )
+* Capped [emission](https://beam.mw/en/docs/ecosystem/overview/tokenomics) with periodic halving every 4 years 
+* Governed by [BeamX DAO](https://beam.mw/en/docs/ecosystem/overview/beamx-dao-governance-framework) via [BEAMX](https://beam.mw/en/docs/ecosystem/overview/beamx-tokenomics) governance token
+* Proof of Work consensus using bespoke [BeamHash III](https://docs.beam.mw/Beam_Hash_III_Slides.pdf) algorithm. 
+* Minable on GPUs. 
+* No premine. No ICO
 
 
-[Download latest version](http://beam.mw/downloads)
-**Eager Electron 5.1.9898
+### JOIN OUR COMMUNITIES 
 
-
-### JOIN OUR COMMUNITIES ON TELEGRAM
-
-[English](https://t.me/BeamPrivacy) | [Русский](https://t.me/Beam_RU) | [中文](https://t.me/beamchina) | [日本語](https://t.me/beamjp)
-
-### FOLLOW BEAM 
-
+Telegram: [English](https://t.me/BeamPrivacy) | [Русский](https://t.me/Beam_RU) | [中文](https://t.me/beamchina) | [日本語](https://t.me/beamjp)
 [twitter](https://twitter.com/beamprivacy) | [medium](https://medium.com/beam-mw) | [reddit](https://www.reddit.com/r/beamprivacy/) | [gitter](https://gitter.im/beamprivacy/Lobby) | [bitcointalk](https://bitcointalk.org/index.php?topic=5052151.0) | [youtube](https://www.youtube.com/channel/UCddqBnfSPWibf4f8OnEJm_w?)
+
+### Community projects
+
+Here is the list of Beam related projects created by our community members but NOT tested by Beam Team
+
+* [BeamAssets.com](https://beamassets.com) - Beam DeFi dashboard and Blockchain explorer
+* [Beam Pay](https://github.com/vsnation/BeamPay) - a payment processor that allows for easy integration with your online store
+* [Beam Wallet Java API](https://github.com/beamfan/java-beam-api) - A Java library for the Beam cryptocurrency Wallet API.
 
 ### CONTRIBUTE
 
@@ -28,12 +50,10 @@ Read the [Contribution Guide](https://github.com/BeamMW/beam/wiki/Contribution-G
 
 ### GET STARTED
 
-
 Get Beam binaries here: http://beam.mw/downloads
 
-If you build from source please use 'mainnet' branch\
 
-Peers:
+Boostrap nodes:
 
 eu-nodes.mainnet.beam.mw:8100
 
@@ -43,80 +63,11 @@ ap-nodes.mainnet.beam.mw:8100
 
 ap-hk-nodes.mainnet.beam.mw:8100
 
-Latest documentation is here: https://documentation.beam.mw
-
 ### BUILD FROM SOURCE
 
 [Building Instructions](https://github.com/BeamMW/beam/wiki/How-to-build)
 
+If you build from source please use 'mainnet' branch for Mainnet
 
-
-Things that make BEAM special include:
-
-* Users have complete control over privacy - a user decides which information will be available and to which parties, having complete control over his personal data in accordance to his will and applicable laws.
-* Confidentiality without penalty - in BEAM confidential transactions do not cause bloating of the blockchain, avoiding excessive computational overhead or penalty on performance or scalability while completely concealing the transaction value.
-* No trusted setup required
-* Blocks are mined using Equihash Proof-of-Work algorithm.
-* Limited emission using periodic halving.
-* No addresses are stored in the blockchain - no information whatsoever about either the sender or the receiver of a transaction is stored in the blockchain.
-* Superior scalability through compact blockchain size - using the “cut-through” feature of
-Mimblewimble makes the BEAM blockchain orders of magnitude smaller than any other
-blockchain implementation.
-* BEAM supports many transaction types such as escrow transactions, time locked
-transactions, atomic swaps and more.
-* No premine. No ICO. Backed by a treasury, emitted from every block during the first five
-years.
-* Implemented from scratch in C++.
-
-
-### Roadmap
-
-See Beam Roadmap for 2020 on https://beam.mw
-
-### Community projects
-
-Here is the list of Beam related projects created by our community members but NOT tested by Beam Team
-
-* [Beam Pay](https://github.com/vsnation/BeamPay) - a payment processor that allows for easy integration with your online store
-* [Beam Wallet Java API](https://github.com/beamfan/java-beam-api) - A Java library for the Beam cryptocurrency Wallet API.
-
-
-### Current development status
-
-#### Mainnet(January 3rd 2019)
-
-- Fully functional wallet with key generator and storage supporting secure and confidential online transactions.
-- Full node with both transaction and block validation and full UTXO state management.
-- Equihash miner with periodic mining difficulty adjustment.
-- Batch Bulletproofs, the efficient non-interactive zero knowledge range proofs now in batch mode
-- Graphical Wallet Application for Linux, Mac and Windows platforms
-- Offline transactions using Secure BBS system
-- ChainWork - sublinear blockchain validation, based on FlyClient idea by Loi Luu, Benedikt Bünz, Mahdi Zamani
-- Compact history using cut through
-
-#### Agile Atom (February 2019)
-
-- Payment and Exchange APIs
-- Mining Pool APIs
-- Lightning Network position paper
-
-#### Bright Boson 2.0 (March 2019)
-- Payment proof
-- Ultra fast sync
-- Android Mobile wallet
-
-#### Clear Cathode 3.0 (July 2019)
-- PoW change (BeamHash II)
-- Atomic Swaps CLI support
-- Relative Time Locks and Laser Beam support
-
-#### Double Doppler 4.0 (December 2019)
-- Atomic Swaps desktop wallet support
-- Sync mechanism improvements
-
-#### Eager Electron 5.0 (May 2020)
-- Confidential Assets
-- One side payments
-- UTXO Unlinking using Lelantus MW
 
 

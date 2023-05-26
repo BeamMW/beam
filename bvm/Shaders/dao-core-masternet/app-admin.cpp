@@ -62,8 +62,13 @@ struct MyKeyID :public Env::KeyID {
 
 ON_METHOD(manager, view)
 {
+    static const ShaderID s_SidMigrate = {
+        0x67,0x78,0xde,0x40,0xc6,0xac,0xb5,0xd8,0x05,0xf7,0x29,0x8b,0x77,0xf6,0x18,0xb3,0x32,0x6c,0x76,0x7b,0x81,0xe9,0x43,0x3a,0x81,0x81,0x27,0x5f,0x08,0x9e,0xb0,0xcc
+    };
+
     static const ShaderID s_pSid[] = {
         DaoCore::s_SID,
+        s_SidMigrate
     };
 
     ContractID pVerCid[_countof(s_pSid)];
@@ -84,7 +89,7 @@ ON_METHOD(manager, deploy_version)
     Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "Deploy DaoCore bytecode", 0);
 }
 
-static const Amount g_DepositCA = 3000 * g_Beam2Groth; // 3K beams
+static const Amount g_DepositCA = 10 * g_Beam2Groth; // 3K beams
 
 ON_METHOD(manager, deploy_contract)
 {
@@ -122,7 +127,7 @@ ON_METHOD(manager, schedule_upgrade)
 
 ON_METHOD(manager, explicit_upgrade)
 {
-    ManagerUpgadable2::MultiSigRitual::Perform_ExplicitUpgrade(cid);
+    ManagerUpgadable2::MultiSigRitual::Perform_ExplicitUpgrade(cid, 800000);
 }
 
 ON_METHOD(manager, replace_admin)
@@ -135,25 +140,6 @@ ON_METHOD(manager, set_min_approvers)
 {
     MyKeyID kid;
     ManagerUpgadable2::MultiSigRitual::Perform_SetApprovers(cid, kid, newVal);
-}
-
-Amount get_ContractLocked(AssetID aid, const ContractID& cid)
-{
-    Env::Key_T<AssetID> key;
-    _POD_(key.m_Prefix.m_Cid) = cid;
-    key.m_Prefix.m_Tag = KeyTag::LockedAmount;
-    key.m_KeyInContract = Utils::FromBE(aid);
-
-    struct AmountBig {
-        Amount m_Hi;
-        Amount m_Lo;
-    };
-
-    AmountBig val;
-    if (!Env::VarReader::Read_T(key, val))
-        return 0;
-
-    return Utils::FromBE(val.m_Lo);
 }
 
 AssetID get_TrgAid(const ContractID& cid)
@@ -180,8 +166,8 @@ ON_METHOD(manager, view_params)
 
     Env::DocGroup gr("params");
     Env::DocAddNum("aid", aid);
-    Env::DocAddNum("locked_beamX", get_ContractLocked(aid, cid));
-    Env::DocAddNum("locked_beams", get_ContractLocked(0, cid));
+    Env::DocAddNum("locked_beamX", WalkerFunds::FromContract_Lo(cid, aid));
+    Env::DocAddNum("locked_beams", WalkerFunds::FromContract_Lo(cid, 0));
 }
 
 ON_METHOD(manager, my_admin_key)

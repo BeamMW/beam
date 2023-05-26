@@ -9,7 +9,7 @@ void OnError(const char* sz)
 BEAM_EXPORT void Method_0()
 {
     ShaderID sid;
-    if (!Utils::get_ShaderID_FromArg(sid))
+    if (!Utils::Shader::get_Sid_FromArg(sid))
         return OnError("contract shader must be specified");
 
     Env::DocAddBlob_T("sid", sid);
@@ -45,7 +45,7 @@ BEAM_EXPORT void Method_0()
 
         Env::GenerateKernel(nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0, "create playground contract", 0);
 
-        Utils::get_Cid(cid, sid, nullptr, 0);
+        Utils::Shader::get_Cid(cid, sid, nullptr, 0);
     }
 
     uint32_t nRun = 0;

@@ -180,6 +180,20 @@ namespace ECC
 
 		static void ExportEx(Point&, const secp256k1_ge&);
 
+		static void Fail();
+
+		void ImportNnzStrict(const Point& v, Storage* pS = nullptr)
+		{
+			if (!ImportNnz(v, pS))
+				Fail();
+		}
+
+		void ImportStrict(const Point& v, Storage* pS = nullptr)
+		{
+			if (!Import(v, pS))
+				Fail();
+		}
+
 		bool Import(const Storage&, bool bVerify);
 		void Export(Storage&) const;
 

@@ -199,7 +199,7 @@ namespace bvm2 {
 		static uint32_t ToArrSize(uint32_t nCount)
 		{
 			uint32_t nSize = sizeof(T) * nCount;
-			Wasm::Test(nSize / sizeof(T) == nCount); // overflow test
+			Exc::Test(nSize / sizeof(T) == nCount); // overflow test
 			return nSize;
 		}
 
@@ -221,7 +221,7 @@ namespace bvm2 {
 		virtual void DischargeUnits(uint32_t size) {}
 
 		virtual void WriteStream(const Blob&, uint32_t iStream) {
-			Wasm::Fail();
+			Exc::Fail();
 		}
 
 		struct DataProcessor
@@ -434,7 +434,7 @@ namespace bvm2 {
 		void TestVarSize(uint32_t n)
 		{
 			uint32_t nMax = IsPastHF4() ? Limits::VarSize_4 : Limits::VarSize_0;
-			Wasm::Test(n <= nMax);
+			Exc::Test(n <= nMax);
 		}
 
 		void ToggleSidEntry(const ShaderID& sid, const ContractID& cid, bool bSet);
@@ -642,8 +642,13 @@ namespace bvm2 {
 
 		virtual void Comm_CreateListener(Comm::Channel::Ptr&, const ECC::Hash::Value&) {}
 		virtual void Comm_Send(const ECC::Point&, const Blob&) {}
-		virtual void Comm_Wait(uint32_t nTimeout_ms) { Wasm::Fail(); }
+		virtual void Comm_Wait(uint32_t nTimeout_ms) { Exc::Fail(); }
 
+		uint32_t m_ApiVersion = Shaders::ApiVersion::Current;
+
+		uint32_t get_MaxSpend(FundsChange* pFc, uint32_t nFc, bool bCvt);
+		void set_MaxSpend(const FundsChange* pFc, uint32_t nFc, bool bCvt);
+		
 	public:
 
 		std::ostream* m_pOut;
@@ -653,7 +658,8 @@ namespace bvm2 {
 		Key::IPKdf::Ptr m_pPKdf; // required for user-related info (account-specific pubkeys, etc.)
 		Key::IKdf::Ptr m_pKdf; // gives more access to the keys. Set only when app runs in a privileged mode
 
-		ContractInvokeData m_InvokeData;
+		ContractInvokeDataBase m_InvokeData;
+		FundsMap m_fmSpendMax;
 
 		std::map<std::string, std::string> m_Args;
 		void set_ArgBlob(const char* sz, const Blob&);

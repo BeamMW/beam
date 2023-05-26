@@ -18,12 +18,12 @@
                 console.log('owner key is: ' + keykeeper.getOwnerKey("123"));
                 console.log('wallet ID is: ' + keykeeper.getWalletID());
                 
-                console.log('identity #0 is: ' + keykeeper.getIdentity("0"));
+                console.log('identity #0 is: ' + keykeeper.getEndpoint("0"));
 
                 var id42 = "42";
 
-                var identity = keykeeper.getIdentity(id42);
-                console.log('identity #42 is: ' + keykeeper.getIdentity(id42));
+                var identity = keykeeper.getEndpoint(id42);
+                console.log('identity #42 is: ' + keykeeper.getEndpoint(id42));
                 
                 var address = keykeeper.getSbbsAddress(id42);
                 console.log('sbbs address #42 is: ' + address);

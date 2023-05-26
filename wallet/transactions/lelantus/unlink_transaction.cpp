@@ -61,6 +61,11 @@ namespace beam::wallet::lelantus
                 m_Root.GetGateway().confirm_kernel(txID, kernelID, subTxID);
             }
 
+            void confirm_kernel_ex(const Merkle::Hash& kernelID, IConfirmCallback::Ptr&& pCallback) override
+            {
+                m_Root.GetGateway().confirm_kernel_ex(kernelID, std::move(pCallback));
+            }
+
             void confirm_asset(const TxID& txID, const PeerID& ownerID, SubTxID subTxID) override
             {
                 m_Root.GetGateway().confirm_asset(txID, ownerID, subTxID);
@@ -105,10 +110,9 @@ namespace beam::wallet::lelantus
         };
     }
 
-    TxParameters CreateUnlinkFundsTransactionParameters(const WalletID& myID, const boost::optional<TxID>& txId)
+    TxParameters CreateUnlinkFundsTransactionParameters(const boost::optional<TxID>& txId)
     {
-        return CreateTransactionParameters(TxType::UnlinkFunds, txId)
-            .SetParameter(TxParameterID::MyID, myID);
+        return CreateTransactionParameters(TxType::UnlinkFunds, txId);
     }
 
     BaseTransaction::Ptr UnlinkFundsTransaction::Creator::Create(const TxContext& context)
@@ -266,7 +270,7 @@ namespace beam::wallet::lelantus
         CopyParameter<Height>(TxParameterID::MinHeight, *tx);
         CopyParameter<Height>(TxParameterID::MaxHeight, *tx);
         CopyParameter<Height>(TxParameterID::Lifetime, *tx);
-        CopyParameter<WalletID>(TxParameterID::MyID, *tx);
+        CopyParameter<WalletID>(TxParameterID::MyAddr, *tx);
 
         m_ActiveTransaction = tx;
     }

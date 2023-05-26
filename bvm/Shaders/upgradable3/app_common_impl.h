@@ -423,7 +423,7 @@ struct Manager
 			if (VerInfo::ShouldVerifyVersion())
 			{
 				ShaderID sid;
-				Utils::get_ShaderID(sid, pArgs + 1, nShaderSize);
+				Utils::Shader::get_Sid(sid, pArgs + 1, nShaderSize);
 				if (!vi.VerifyVersion(sid))
 					return false;
 			}
@@ -611,7 +611,7 @@ struct Manager
 							Env::DocAddNum("hTarget", pVal->m_hTarget);
 
 							ShaderID sid;
-							Utils::get_ShaderID(sid, pVal + 1, nVal - sizeof(NextVersion));
+							Utils::Shader::get_Sid(sid, pVal + 1, nVal - sizeof(NextVersion));
 
 							Env::Heap_Free(pVal);
 
@@ -627,7 +627,7 @@ struct Manager
 			if (ShouldVerifyVersion())
 			{
 				ShaderID sid;
-				Utils::get_ShaderID_FromArg(sid);
+				Utils::Shader::get_Sid_FromArg(sid);
 				if (!VerifyVersion(sid))
 					return false;
 			}

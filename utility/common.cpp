@@ -388,6 +388,59 @@ namespace beam
 		return &(*it);
 	}
 
+
+	///////////////////////
+	// Checkpoint
+
+	thread_local Exc::Checkpoint* Exc::Checkpoint::s_pTop = nullptr;
+
+	Exc::Checkpoint::Checkpoint()
+	{
+		m_pNext = s_pTop;
+		s_pTop = this;
+	}
+
+	Exc::Checkpoint::~Checkpoint()
+	{
+		s_pTop = m_pNext;
+	}
+
+	uint32_t Exc::Checkpoint::DumpAll(std::ostream& os)
+	{
+		uint32_t ret = 0;
+		for (Checkpoint* p = s_pTop; p; p = p->m_pNext)
+		{
+			os << " <- ";
+			p->Dump(os);
+
+			if (!ret)
+				ret = p->get_Type();
+		}
+		return ret;
+	}
+
+	void Exc::CheckpointTxt::Dump(std::ostream& os) {
+		os << m_sz;
+	}
+
+	void Exc::Fail()
+	{
+		Fail("Error");
+	}
+
+	void Exc::Fail(const char* sz)
+	{
+		std::ostringstream os;
+		os << sz << ": ";
+
+		uint32_t nType = Checkpoint::DumpAll(os);
+
+		Exc exc(os.str());
+		exc.m_Type = nType;
+
+		throw exc;
+	}
+
 } // namespace beam
 
 namespace std

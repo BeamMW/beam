@@ -14,40 +14,52 @@
 
 #include "utility/io/buffer.h"
 #include "utility/common.h"
+#include "nlohmann/json.hpp"
 
 namespace beam {
 
 struct Node;
+using nlohmann::json;
 
 namespace explorer {
 
 /// node->explorer adapter interface
 struct IAdapter {
+
+    enum struct Mode {
+        Legacy,
+        ExplicitType,
+        AutoHtml,
+    };
+
+    Mode m_Mode = Mode::Legacy;
+
     using Ptr = std::unique_ptr<IAdapter>;
 
     virtual ~IAdapter() = default;
 
     /// Returns body for /status request
-    virtual bool get_status(io::SerializedMsg& out) = 0;
+    virtual json get_status() = 0;
 
-    virtual bool get_block(io::SerializedMsg& out, uint64_t height) = 0;
+    virtual json get_block(uint64_t height) = 0;
 
-    virtual bool get_block_by_hash(io::SerializedMsg& out, const ByteBuffer& hash) = 0;
+    virtual json get_block_by_kernel(const Blob& key) = 0;
 
-    virtual bool get_block_by_kernel(io::SerializedMsg& out, const ByteBuffer& key) = 0;
+    virtual json get_blocks(uint64_t startHeight, uint64_t n) = 0;
 
-    virtual bool get_blocks(io::SerializedMsg& out, uint64_t startHeight, uint64_t n) = 0;
+    virtual json get_hdrs(uint64_t hMax, uint64_t nMax) = 0;
 
-    virtual bool get_peers(io::SerializedMsg& out) = 0;
+    virtual json get_peers() = 0;
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-    virtual bool get_swap_offers(io::SerializedMsg& out) = 0;
+    virtual json get_swap_offers() = 0;
 
-    virtual bool get_swap_totals(io::SerializedMsg& out) = 0;
+    virtual json get_swap_totals() = 0;
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
-    virtual bool get_contracts(io::SerializedMsg& out) = 0;
-    virtual bool get_contract_details(io::SerializedMsg& out, const Blob& id, Height hMin, Height hMax, uint32_t nMaxTxs) = 0;
+    virtual json get_contracts() = 0;
+    virtual json get_contract_details(const Blob& id, Height hMin, Height hMax, uint32_t nMaxTxs) = 0;
+    virtual json get_asset_history(uint32_t, Height hMin, Height hMax, uint32_t nMaxOps) = 0;
 };
 
 IAdapter::Ptr create_adapter(Node& node);

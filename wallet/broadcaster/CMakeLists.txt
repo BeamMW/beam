@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 
-set(TARGET_NAME broadcaster${BEAM_TARGET_SUFFIX})
+set(TARGET_NAME broadcaster)
 
 add_executable(${TARGET_NAME} broadcaster.cpp)
 

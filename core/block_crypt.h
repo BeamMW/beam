@@ -110,8 +110,8 @@ namespace beam
 		// This one is not optimized (slow)
 		void AddTo(ECC::Point::Native& res, const Type& x, const ECC::Point::Native& hGen);
 
-		void Print(std::ostream&, const Type&);
-		void Print(std::ostream&, Amount);
+		void Print(std::ostream&, const Type&, bool bTrim = true);
+		void Print(std::ostream&, Amount, bool bTrim = true);
 	};
 
 	typedef int64_t AmountSigned;
@@ -181,22 +181,28 @@ namespace beam
 			void get_Owner(PeerID&, const ContractID&) const;
 		};
 
-		struct Info
+		struct CreateInfo
 		{
-			AmountBig::Type m_Value = Zero;
 			PeerID m_Owner = Zero;
 			ContractID m_Cid = Zero;
-			Height m_LockHeight = 0; // last emitted/burned change height. if emitted atm - when was latest 1st emission. If burned atm - what was last burn.
 			Amount m_Deposit = 0;
 			Metadata m_Metadata;
 			static const uint32_t s_MetadataMaxSize = 1024 * 16; // 16K
 
-			void Reset();
 			void SetCid(const ContractID*);
-			bool IsEmpty() const;
-			bool IsValid() const;
 			bool Recognize(Key::IPKdf&) const;
 			bool IsDefDeposit() const;
+		};
+
+		struct Info
+			:public CreateInfo
+		{
+			AmountBig::Type m_Value = Zero;
+			Height m_LockHeight = 0; // last emitted/burned change height. if emitted atm - when was latest 1st emission. If burned atm - what was last burn.
+
+			void Reset();
+			bool IsEmpty() const;
+			bool IsValid() const;
 		};
 
 		struct Full
@@ -273,50 +279,66 @@ namespace beam
 		static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
 		static constexpr Amount Coin = 100000000; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
 
+#define RulesNetworks(macro) \
+		macro(mainnet) \
+		macro(masternet) \
+		macro(testnet) \
+		macro(dappnet)
+
+		enum struct Network
+		{
+#define THE_MACRO(name) name,
+			RulesNetworks(THE_MACRO)
+#undef THE_MACRO
+
+		} m_Network;
+
+		const char* get_NetworkName() const;
+
 		struct {
 			// emission parameters
-			Amount Value0	= Coin * 80; // Initial emission. Each drop it will be halved. In case of odd num it's rounded to the lower value.
-			Height Drop0	= 1440 * 365; // 1 year roughly. This is the height of the last block that still has the initial emission, the drop is starting from the next block
-			Height Drop1	= 1440 * 365 * 4; // 4 years roughly. Each such a cycle there's a new drop
+			Amount Value0;
+			Height Drop0;
+			Height Drop1;
 		} Emission;
 
 		struct {
-			Height Coinbase	= 240; // 4 hours
-			Height Std		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
+			Height Coinbase;
+			Height Std;
 		} Maturity;
 
 		struct {
 			// timestamp & difficulty.
-			uint32_t Target_s		= 60; // 1 minute
-			uint32_t WindowWork		= 120; // 2 hours roughly (under normal operation)
-			uint32_t MaxAhead_s		= 60 * 15; // 15 minutes. Timestamps ahead by more than 15 minutes won't be accepted
-			uint32_t WindowMedian0	= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
-			uint32_t WindowMedian1	= 7; // Num of blocks taken at both endings of WindowWork, to pick medians.
-			Difficulty Difficulty0	= Difficulty(8 << Difficulty::s_MantissaBits); // 2^8 = 256
+			uint32_t Target_s;
+			uint32_t WindowWork;
+			uint32_t MaxAhead_s;
+			uint32_t WindowMedian0;
+			uint32_t WindowMedian1;
+			Difficulty Difficulty0;
 
 			struct {
 				// damp factor. Adjustment of actual dt toward expected, effectively dampens
-				uint32_t M = 1; // Multiplier of the actual dt
-				uint32_t N = 3; // Denominator. The goal is multiplied by (N-M)
+				uint32_t M;
+				uint32_t N;
 			} Damp;
 		} DA;
 
 		struct {
-			bool Enabled = true;
-			Amount DepositForList2 = Coin * 3000; // after HF2
-			Amount DepositForList5 = Coin * 10; // after HF5
-			Height LockPeriod = 1440; // how long it's locked (can't be destroyed) after it was completely burned
-			Sigma::Cfg m_ProofCfg = { 4, 3 }; // 4^3 = 64
+			bool Enabled;
+			Amount DepositForList2;
+			Amount DepositForList5;
+			Height LockPeriod;
+			Sigma::Cfg m_ProofCfg;
 		} CA;
 
-		uint32_t MaxRollback = 1440; // 1 day roughly
+		uint32_t MaxRollback;
 
-		size_t MaxBodySize = 0x100000; // 1MB
+		size_t MaxBodySize;
 
-		bool AllowPublicUtxos = false;
-		bool FakePoW = false;
+		bool AllowPublicUtxos;
+		bool FakePoW;
 
-		Height MaxKernelValidityDH = 1440 * 30; // past Fork2
+		Height MaxKernelValidityDH; // past Fork2
 		// if kernel has higher lifetime - its max height is implicitly decreased
 
 		ECC::Hash::Value Prehistoric; // Prev hash of the 1st block
@@ -325,27 +347,28 @@ namespace beam
 		struct {
 			bool Enabled = true; // past Fork2
 
-			Sigma::Cfg m_ProofMax = { 4, 8 }; // 4^8 = 64K
-			Sigma::Cfg m_ProofMin = { 4, 5 }; // 4^5 = 1K
+			Sigma::Cfg m_ProofMax;
+			Sigma::Cfg m_ProofMin;
 
 			// Max distance of the specified window from the tip where the prover is allowed to use m_ProofMax.
 			// For proofs with bigger distance only m_ProofMin is supported
-			uint32_t MaxWindowBacklog = 0x10000; // 64K
+			uint32_t MaxWindowBacklog;
 			// Hence "big" proofs won't need more than 128K most recent elements
 
 			// max shielded ins/outs per block
-			uint32_t MaxIns = 20; // input processing is heavy
-			uint32_t MaxOuts = 30; // dust protection
+			uint32_t MaxIns; // input processing is heavy
+			uint32_t MaxOuts; // dust protection
 
 		} Shielded;
 
 		struct
 		{
-			uint32_t v0 = 15; // 15 for masternet and testnet, 14 for mainnet
-			uint32_t v2 = 2;
-			bool IsTestnet = false; // true for testnet, false for masternet and mainnet
+			uint32_t v0;
+			uint32_t v2;
+			bool IsTestnet;
 		} Magic;
 
+		void SetNetworkParams();
 		void UpdateChecksum();
 
 		static Amount get_Emission(Height);
@@ -361,6 +384,27 @@ namespace beam
 		void DisableForksFrom(uint32_t);
 		std::string get_SignatureStr() const;
 		Amount get_DepositForCA(Height hScheme) const;
+
+		static void Fail_Fork(uint32_t iFork);
+
+		void TestForkAtLeast(Height h, uint32_t iFork) const
+		{
+			assert(iFork < _countof(pForks));
+			if (h < pForks[iFork].m_Height)
+				Fail_Fork(iFork);
+		}
+
+		void TestEnabledCA() const
+		{
+			if (!CA.Enabled)
+				Exc::Fail("CA disabled");
+		}
+
+		void TestEnabledShielded() const
+		{
+			if (!Shielded.Enabled)
+				Exc::Fail("Shielded disabled");
+		}
 
 	private:
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
@@ -384,6 +428,8 @@ namespace beam
 			static const uint8_t V0 = 0;
 			static const uint8_t V1 = 1;
 			static const uint8_t BB21 = 2; // worakround for BB.2.1
+			static const uint8_t V3 = 3;
+			static const uint8_t V_Miner0 = 4;
 
 			static const uint32_t s_SubKeyBits = 24;
 			static const Key::Index s_SubKeyMask = (static_cast<Key::Index>(1) << s_SubKeyBits) - 1;
@@ -405,7 +451,7 @@ namespace beam
 			:ID(nIdx, type)
 			,m_Value(v)
 		{
-			set_Subkey(nSubIdx, Scheme::V1);
+			set_Subkey(nSubIdx, Scheme::V3);
 		}
 
 		Key::Index get_Scheme() const
@@ -418,7 +464,7 @@ namespace beam
 			return m_SubIdx & Scheme::s_SubKeyMask;
 		}
 
-		void set_Subkey(Key::Index nSubIdx, Key::Index nScheme = Scheme::V1)
+		void set_Subkey(Key::Index nSubIdx, Key::Index nScheme = Scheme::V3)
 		{
 			m_SubIdx = (nSubIdx & Scheme::s_SubKeyMask) | (nScheme << Scheme::s_SubKeyBits);
 		}
@@ -431,6 +477,16 @@ namespace beam
 		void set_WorkaroundBb21()
 		{
 			set_Subkey(get_Subkey(), Scheme::BB21);
+		}
+
+		bool IsWorkaroundMiner0Possible() const
+		{
+			return (Scheme::V3 == get_Scheme()) && !get_Subkey();
+		}
+
+		void set_WorkaroundMiner0()
+		{
+			set_Subkey(0, Scheme::V_Miner0);
 		}
 
 		void get_Hash(ECC::Hash::Value&) const;
@@ -821,6 +877,8 @@ namespace beam
 
 			void get_SkOut(ECC::Scalar::Native&, Amount fee, Key::IKdf& kdf) const;
 			void get_SkOutPreimage(ECC::Hash::Value&, Amount fee) const;
+
+			static const Key::Index s_iChildOut = static_cast<uint32_t>(-2);
 		};
 
 		struct Voucher
@@ -891,10 +949,14 @@ namespace beam
 		virtual ~TxKernel() {}
 		virtual Subtype::Enum get_Subtype() const = 0;
 		virtual void UpdateID() = 0;
-		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const = 0;
+		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const = 0;
 		virtual void AddStats(TxStats&) const; // including self and nested
 		virtual int cmp_Subtype(const TxKernel&) const;
 		virtual void Clone(Ptr&) const = 0;
+
+		bool IsValid(Height hScheme, std::string* psErr = nullptr) const;
+
+		HeightRange get_EffectiveHeightRange() const;
 
 		struct LongProof; // legacy
 
@@ -910,6 +972,16 @@ namespace beam
 
 			bool Process(const std::vector<TxKernel::Ptr>&);
 			bool Process(const TxKernel&);
+		};
+
+		struct Checkpoint :public Exc::Checkpoint {
+
+			const TxKernel& m_Krn;
+			Checkpoint(const TxKernel& krn) :m_Krn(krn) {}
+
+			void Dump(std::ostream& os) override {
+				os << "Kernel ID=" << m_Krn.m_Internal.m_ID << ", type=" << (uint32_t) m_Krn.get_Subtype();
+			}
 		};
 
 #define THE_MACRO(id, name) \
@@ -928,7 +1000,7 @@ namespace beam
 		void HashBase(ECC::Hash::Processor&) const;
 		void HashNested(ECC::Hash::Processor&) const;
 		void CopyFrom(const TxKernel&);
-		bool IsValidBase(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent, ECC::Point::Native* pComm = nullptr) const;
+		void TestValidBase(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent, ECC::Point::Native* pComm = nullptr) const;
 	private:
 		void operator = (const TxKernel&);
 	};
@@ -968,7 +1040,7 @@ namespace beam
 		virtual ~TxKernelStd() {}
 		virtual Subtype::Enum get_Subtype() const override;
 		virtual void UpdateID() override;
-		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual int cmp_Subtype(const TxKernel&) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
 
@@ -1006,7 +1078,7 @@ namespace beam
 
 	protected:
 		void CopyFrom(const TxKernelAssetControl&);
-		bool IsValidAssetCtl(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent) const;
+		void TestValidAssetCtl(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent) const;
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
 		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
 	};
@@ -1022,7 +1094,7 @@ namespace beam
 
 		virtual ~TxKernelAssetEmit() {}
 		virtual Subtype::Enum get_Subtype() const override;
-		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
 	protected:
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
@@ -1039,7 +1111,7 @@ namespace beam
 
 		virtual ~TxKernelAssetCreate() {}
 		virtual Subtype::Enum get_Subtype() const override;
-		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
 	protected:
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
@@ -1059,7 +1131,7 @@ namespace beam
 
 		virtual ~TxKernelAssetDestroy() {}
 		virtual Subtype::Enum get_Subtype() const override;
-		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
 	protected:
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
@@ -1074,7 +1146,7 @@ namespace beam
 
 		virtual ~TxKernelShieldedOutput() {}
 		virtual Subtype::Enum get_Subtype() const override;
-		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void AddStats(TxStats&) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
 	protected:
@@ -1099,7 +1171,7 @@ namespace beam
 
 		virtual ~TxKernelShieldedInput() {}
 		virtual Subtype::Enum get_Subtype() const override;
-		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void AddStats(TxStats&) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
 	protected:
@@ -1116,7 +1188,7 @@ namespace beam
 		ByteBuffer m_Args;
 		bool m_Dependent = false;
 
-		virtual bool IsValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void AddStats(TxStats&) const override;
 
 		void Prepare(ECC::Hash::Processor&, const Merkle::Hash* pParentCtx) const;
@@ -1212,6 +1284,8 @@ namespace beam
 			bool Combine(IReader&& r0, IReader&& r1, const volatile bool& bStop);
 		};
 
+		static void Fail_Order();
+		static void Fail_Signature();
 
 		ECC::Scalar m_Offset;
 	};
@@ -1276,7 +1350,8 @@ namespace beam
 	{
 		typedef std::shared_ptr<Transaction> Ptr;
 
-		bool IsValid(Context&) const; // Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
+		void TestValid(Context&) const; // Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
+		bool IsValid(Context&, std::string* psErr = nullptr) const;
 
 		typedef uintBig_t<ECC::nBytes> KeyType; // key len for map of transactions. Can actually be less than 256 bits.
 
@@ -1549,9 +1624,9 @@ namespace beam
 	class TxBase::Context
 	{
 		bool ShouldVerify(uint32_t& iV) const;
-		bool ShouldAbort() const;
-
-		bool HandleElementHeight(const HeightRange&);
+		void TestAbort() const;
+		void TestHeightNotEmpty() const;
+		void HandleElementHeightStrict(const HeightRange&);
 
 	public:
 		// Tests the validity of all the components, overall arithmetics, and the lexicographical order of the components.
@@ -1582,7 +1657,7 @@ namespace beam
 			Params(); // defaults
 		};
 
-		const Params& m_Params;
+		Params m_Params;
 
 		ECC::Point::Native m_Sigma;
 		TxStats m_Stats;
@@ -1590,20 +1665,21 @@ namespace beam
 
 		uint32_t m_iVerifier;
 
-		Context(const Params& p)
-			:m_Params(p)
+		Context()
 		{
 			Reset();
 		}
 
 		void Reset();
 
-		bool ValidateAndSummarize(const TxBase&, IReader&&);
-		bool Merge(const Context&);
+		void ValidateAndSummarizeStrict(const TxBase&, IReader&&);
+		bool ValidateAndSummarize(const TxBase&, IReader&&, std::string* psErr = nullptr);
+		void MergeStrict(const Context&);
 
 		// hi-level functions, should be used after all parts were validated and merged
-		bool IsValidTransaction();
-		bool IsValidBlock();
+		void TestValidTransaction();
+		void TestSigma();
+		void TestValidBlock();
 	};
 
 	struct Block::ChainWorkProof

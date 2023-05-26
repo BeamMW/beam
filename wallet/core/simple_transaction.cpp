@@ -33,11 +33,9 @@ namespace beam::wallet
         return CreateTransactionParameters(TxType::Simple, txId);
     }
 
-    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList, const boost::optional<TxID>& txId)
+    TxParameters CreateSplitTransactionParameters(const AmountList& amountList, const boost::optional<TxID>& txId)
     {
         return CreateSimpleTransactionParameters(txId)
-            .SetParameter(TxParameterID::MyID, myID)
-            .SetParameter(TxParameterID::PeerID, myID)
             .SetParameter(TxParameterID::AmountList, amountList)
             .SetParameter(TxParameterID::Amount, std::accumulate(amountList.begin(), amountList.end(), Amount(0)));
     }
@@ -59,7 +57,6 @@ namespace beam::wallet
 
     TxParameters SimpleTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
-        CheckSenderAddress(parameters, m_WalletDB);
         return ProcessReceiverAddress(parameters, m_WalletDB);
     }
 
@@ -102,40 +99,16 @@ namespace beam::wallet
                 .AddParameter(TxParameterID::Lifetime, m_Lifetime)
                 .AddParameter(TxParameterID::IsSender, false);
 
+
+            PeerID pid;
+            if (GetParameter(TxParameterID::MyEndpoint, pid))
+                msg.AddParameter(TxParameterID::PeerEndpoint, pid);
+            if (GetParameter(TxParameterID::PeerEndpoint, pid))
+                msg.AddParameter(TxParameterID::MyEndpoint, pid);
         }
         else
         {
             LOG_INFO() << m_Tx.GetTxID() << " Transaction accepted. Kernel: " << GetKernelIDString();
-
-            Signature sig;
-            if (!m_Tx.GetParameter(TxParameterID::PaymentConfirmation, sig, m_SubTxID))
-            {
-                // legacy peer
-                // Provide older-style payment confirmation, signed by the sbbs addr
-                PaymentConfirmation pc;
-                WalletID widPeer, widMy;
-                bool bSuccess =
-                    m_Tx.GetParameter(TxParameterID::PeerID, widPeer, m_SubTxID) &&
-                    m_Tx.GetParameter(TxParameterID::MyID, widMy, m_SubTxID);
-
-                if (bSuccess)
-                {
-                    pc.m_Sender = widPeer.m_Pk;
-                    pc.m_Value = m_Amount;
-                    pc.m_AssetID = m_AssetID;
-                    pc.m_KernelID = m_pKrn->m_Internal.m_ID;
-
-                    auto waddr = m_Tx.GetWalletDB()->getAddress(widMy);
-                    if (waddr && waddr->isOwn())
-                    {
-                        Scalar::Native sk;
-                        m_Tx.GetWalletDB()->get_SbbsPeerID(sk, widMy.m_Pk, waddr->m_OwnID);
-
-                        pc.Sign(sk);
-                        msg.AddParameter(TxParameterID::PaymentConfirmation, pc.m_Signature);
-                    }
-                }
-            }
         }
 
         m_Tx.SendTxParametersStrict(std::move(msg));
@@ -158,7 +131,8 @@ namespace beam::wallet
         case TxParameterID::Lifetime:
         case TxParameterID::PaymentConfirmation:
         case TxParameterID::PeerProtoVersion:
-        case TxParameterID::PeerWalletIdentity:
+        case TxParameterID::MyEndpoint:
+        case TxParameterID::PeerEndpoint:
         case TxParameterID::PeerMaxHeight:
         case TxParameterID::PeerPublicExcess:
         case TxParameterID::PeerPublicNonce:
@@ -171,6 +145,16 @@ namespace beam::wallet
         default:
             return false;
         }
+    }
+
+    bool SimpleTransaction::IsSelfTx() const
+    {
+        WalletID wid;
+        if (!GetParameter(TxParameterID::PeerAddr, wid))
+            return true;
+
+        const auto address = GetWalletDB()->getAddress(wid);
+        return address.is_initialized() && address->isOwn();
     }
 
     void SimpleTransaction::UpdateImpl()
@@ -187,6 +171,9 @@ namespace beam::wallet
         SimpleTxBuilder& builder = *m_TxBuilder;
         MyBuilder* pMutualBuilder = IsSelfTx() ? nullptr : &Cast::Up<MyBuilder>(builder);
 
+        if (pMutualBuilder)
+            EnsureListening();
+
         if (builder.m_Coins.IsEmpty())
         {
             if (builder.m_AssetID)
@@ -200,29 +187,40 @@ namespace beam::wallet
             }
 
             // we are at the beginning
-            uint64_t nAddrOwnID;
-            if (!GetParameter(TxParameterID::MyAddressID, nAddrOwnID))
+
+            if (pMutualBuilder)
             {
-                WalletID wid;
-                if (GetParameter(TxParameterID::MyID, wid))
+                if (pMutualBuilder->m_IsSender)
                 {
-                    auto waddr = GetWalletDB()->getAddress(wid);
-                    if (waddr)
+                    // sender may decide wether or not to use the endpoint. Both for itself and the receiver
+                    // To keep max compatibility we use our endpoint if either we have the receiver endpoint (i.e. it'd be standard ep-ep tx), or
+                    // if we use remote key keeper (then we have no choice).
+                    PeerID pidRemote;
+                    if (!m_Context.GetWalletDB()->get_MasterKdf() || GetParameter(TxParameterID::PeerEndpoint, pidRemote))
+                        GetMyEndpointAlways(pidRemote); // makes sure our endpoint is set
+                }
+                else
+                {
+                    // Receiver should comply
+                    PeerID pid;
+                    if (GetParameter(TxParameterID::MyEndpoint, pid))
                     {
-                        if (!waddr->isOwn())
+                        // ensure we can sign with in
+                        PeerID epMy;
+                        GetWalletDB()->get_Endpoint(epMy, EnsureOwnID());
+                        if (epMy != pid)
                         {
-                            assert(false);
-                            throw std::runtime_error("Not own address in MyID");
+                            OnFailed(TxFailureReason::NotEnoughDataForProof, true);
+                            return;
                         }
-                        SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
-                        SetParameter(TxParameterID::MyWalletIdentity, waddr->m_Identity);
                     }
                 }
             }
 
-            PeerID myWalletID, peerWalletID;
-            bool hasID = GetParameter<PeerID>(TxParameterID::MyWalletIdentity, myWalletID)
-                && GetParameter<PeerID>(TxParameterID::PeerWalletIdentity, peerWalletID);
+            PeerID myEndpoint, peerEndpoint;
+            bool hasEndpoints =
+                GetParameter<PeerID>(TxParameterID::MyEndpoint, myEndpoint) &&
+                GetParameter<PeerID>(TxParameterID::PeerEndpoint, peerEndpoint);
 
             UpdateTxDescription(TxStatus::InProgress);
 
@@ -289,8 +287,8 @@ namespace beam::wallet
             if (builder.m_AssetID)
                 ss << ", asset ID: " << builder.m_AssetID;
 
-            if (hasID)
-                ss << ", my ID: " << myWalletID << ", peer ID: " << peerWalletID;
+            if (hasEndpoints)
+                ss << ", my EP: " << std::to_base58(myEndpoint) << ", peer EP: " << std::to_base58(peerEndpoint);
 
             LOG_INFO() << ss.str();
             builder.SaveCoins();

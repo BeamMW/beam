@@ -18,7 +18,6 @@
 #include "bvm/bvm2.h"
 #include "http/http_msg_creator.h"
 #include "http/http_json_serializer.h"
-#include "nlohmann/json.hpp"
 #include "utility/helpers.h"
 #include "utility/logger.h"
 
@@ -42,7 +41,6 @@ namespace beam { namespace explorer {
 namespace {
 
 static const size_t PACKER_FRAGMENTS_SIZE = 4096;
-static const size_t CACHE_DEPTH = 100000;
 
 const unsigned int FAKE_SEED = 10283UL;
 const char WALLET_DB_PATH[] = "explorer-wallet.db";
@@ -86,48 +84,7 @@ const char* difficulty_to_hex(char* buf, const Difficulty& d) {
     return uint256_to_hex(buf, raw);
 }
 
-struct ResponseCache {
-    io::SharedBuffer status;
-    std::map<Height, io::SharedBuffer> blocks;
-    Height currentHeight=0;
 
-    explicit ResponseCache(size_t depth) : _depth(depth)
-    {}
-
-    void compact() {
-        if (blocks.empty() || currentHeight <= _depth) return;
-        Height horizon = currentHeight - _depth;
-        if (blocks.rbegin()->first < horizon) {
-            blocks.clear();
-            return;
-        }
-        auto b = blocks.begin();
-        auto it = b;
-        while (it != blocks.end()) {
-            if (it->first >= horizon) break;
-            ++it;
-        }
-        blocks.erase(b, it);
-    }
-
-    bool get_block(io::SerializedMsg& out, Height h) {
-        const auto& it = blocks.find(h);
-        if (it == blocks.end()) return false;
-        out.push_back(it->second);
-        return true;
-    }
-
-    void put_block(Height h, const io::SharedBuffer& body) {
-        if (currentHeight - h > _depth) return;
-        compact();
-        blocks[h] = body;
-    }
-
-private:
-    size_t _depth;
-};
-
-using nlohmann::json;
 
 } //namespace
 
@@ -140,7 +97,7 @@ public:
         _walletDB(walletDB)
     {
         PeerID key;
-        if (wallet::BroadcastMsgValidator::stringToPublicKey(wallet::kBroadcastValidatorPublicKey, key))
+        if (wallet::BroadcastMsgValidator::stringToPublicKey(wallet::get_BroadcastValidatorPublicKey(), key))
         {
             _validator.setPublisherKeys( { key } );
         }
@@ -192,7 +149,7 @@ public:
     }
 
     // IBroadcastListener implementation
-    bool onMessage(uint64_t unused, BroadcastMsg&& msg) override
+    bool onMessage(BroadcastMsg&& msg) override
     {
         Block::SystemState::Full blockState;
         _walletDB->get_History().get_Tip(blockState);
@@ -237,9 +194,7 @@ public:
         _packer(PACKER_FRAGMENTS_SIZE),
 		_node(node),
         _nodeBackend(node.get_Processor()),
-        _statusDirty(true),
-        _nodeIsSyncing(true),
-        _cache(CACHE_DEPTH)
+        _nodeIsSyncing(true)
     {
          init_helper_fragments();
          _hook = &node.m_Cfg.m_Observer;
@@ -305,78 +260,53 @@ private:
     void OnSyncProgress() override {
 		const Node::SyncStatus& s = _node.m_SyncStatus;
         bool isSyncing = (s.m_Done != s.m_Total);
-        if (isSyncing != _nodeIsSyncing) {
-            _statusDirty = true;
-            _nodeIsSyncing = isSyncing;
-        }
+        _nodeIsSyncing = isSyncing;
         if (_nextHook) _nextHook->OnSyncProgress();
     }
 
     void OnStateChanged() override {
-        const auto& cursor = _nodeBackend.m_Cursor;
-        _cache.currentHeight = cursor.m_Sid.m_Height;
-        _statusDirty = true;
         if (_nextHook) _nextHook->OnStateChanged();
     }
 
     void OnRolledBack(const Block::SystemState::ID& id) override {
-
-        auto& blocks = _cache.blocks;
-
-        blocks.erase(blocks.lower_bound(id.m_Height), blocks.end());
-
         if (_nextHook) _nextHook->OnRolledBack(id);
     }
 
-    bool get_status(io::SerializedMsg& out) override {
-        if (_statusDirty) {
-            const auto& cursor = _nodeBackend.m_Cursor;
-            _cache.currentHeight = cursor.m_Sid.m_Height;
+    json get_status() override {
 
-            double possibleShieldedReadyHours = 0;
-            uint64_t shieldedPer24h = 0;
+        Height h = _nodeBackend.m_Cursor.m_Full.m_Height;
 
-            if (_cache.currentHeight)
+        double possibleShieldedReadyHours = 0;
+        uint64_t shieldedPer24h = 0;
+
+        if (h)
+        {
+            NodeDB& db = _nodeBackend.get_DB();
+            auto shieldedByLast24h = db.ShieldedOutpGet(h >= 1440 ? h - 1440 : 1);
+            auto averageWindowBacklog = Rules::get().Shielded.MaxWindowBacklog / 2;
+
+            if (shieldedByLast24h && shieldedByLast24h != _nodeBackend.m_Extra.m_ShieldedOutputs)
             {
-                NodeDB& db = _nodeBackend.get_DB();
-                auto shieldedByLast24h =
-                db.ShieldedOutpGet(_cache.currentHeight >= 1440 ? _cache.currentHeight - 1440 : 1);
-                auto averageWindowBacklog = Rules::get().Shielded.MaxWindowBacklog / 2;
-
-                if (shieldedByLast24h && shieldedByLast24h != _nodeBackend.m_Extra.m_ShieldedOutputs)
-                {
-                    shieldedPer24h = _nodeBackend.m_Extra.m_ShieldedOutputs - shieldedByLast24h;
-                    possibleShieldedReadyHours = ceil(averageWindowBacklog / (double)shieldedPer24h * 24);
-                }
+                shieldedPer24h = _nodeBackend.m_Extra.m_ShieldedOutputs - shieldedByLast24h;
+                possibleShieldedReadyHours = ceil(averageWindowBacklog / (double)shieldedPer24h * 24);
             }
-
-            char buf[80];
-
-            _sm.clear();
-            if (!serialize_json_msg(
-                _sm,
-                _packer,
-                json{
-                    { "timestamp", cursor.m_Full.m_TimeStamp },
-                    { "height", _cache.currentHeight },
-                    { "low_horizon", _nodeBackend.m_Extra.m_TxoHi },
-                    { "hash", hash_to_hex(buf, cursor.m_ID.m_Hash) },
-                    { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) },
-                    { "peers_count", _node.get_AcessiblePeerCount() },
-                    { "shielded_outputs_total", _nodeBackend.m_Extra.m_ShieldedOutputs },
-                    { "shielded_outputs_per_24h", shieldedPer24h },
-                    { "shielded_possible_ready_in_hours", shieldedPer24h ? std::to_string(possibleShieldedReadyHours) : "-" }
-                }
-            )) {
-                return false;
-            }
-
-            _cache.status = io::normalize(_sm, false);
-            _statusDirty = false;
-            _sm.clear();
         }
-        out.push_back(_cache.status);
-        return true;
+
+        char buf[80];
+
+        json j{
+                { "timestamp", _nodeBackend.m_Cursor.m_Full.m_TimeStamp },
+                { "height", h },
+                { "low_horizon", _nodeBackend.m_Extra.m_TxoHi },
+                { "hash", hash_to_hex(buf, _nodeBackend.m_Cursor.m_ID.m_Hash) },
+                { "chainwork",  uint256_to_hex(buf, _nodeBackend.m_Cursor.m_Full.m_ChainWork) },
+                { "peers_count", _node.get_AcessiblePeerCount() },
+                { "shielded_outputs_total", _nodeBackend.m_Extra.m_ShieldedOutputs },
+                { "shielded_outputs_per_24h", shieldedPer24h },
+                { "shielded_possible_ready_in_hours", shieldedPer24h ? std::to_string(possibleShieldedReadyHours) : "-" }
+        };
+
+        return j;
     }
 
     bool extract_row(Height height, uint64_t& row, uint64_t* prevRow) {
@@ -402,16 +332,24 @@ private:
     }
 
     template <typename T>
-    static void AssignField(json& json, const char* szName, T&& val)
+    static void AssignField(json& json, const char* szName, const T& val)
     {
         if (szName)
-            json[szName] = std::move(val);
+            json[szName] = val;
         else
-            json.push_back(std::move(val));
+            json.push_back(val);
+    }
+
+    static void AssignField(json& x, const char* szName, json&& y)
+    {
+        if (szName)
+            x[szName] = std::move(y);
+        else
+            x.push_back(std::move(y));
     }
 
     template <uint32_t nBytes>
-    static void AssignField(json& json, const char* szName, const uintBig_t<nBytes>&& val)
+    static void AssignField(json& json, const char* szName, const uintBig_t<nBytes>& val)
     {
         char sz[uintBig_t<nBytes>::nTxtLen + 1];
         val.Print(sz);
@@ -424,12 +362,17 @@ private:
         AssignField<MyPoint::nBytes>(json, szName, std::move(Cast::Reinterpret<MyPoint>(pt)));
     }
 
+    static void AssignField(json& json, const char* szName, const PeerID& pid)
+    {
+        AssignField(json, szName, (const ECC::uintBig&) pid);
+    }
+
     template <typename T>
-    static json MakeTypeObj(const char* szType, T&& val)
+    static json MakeTypeObj(const char* szType, const T& val)
     {
         json j;
         j["type"] = szType;
-        AssignField(j, "value", std::move(val));
+        AssignField(j, "value", val);
         return j;
     }
 
@@ -451,6 +394,27 @@ private:
     static json MakeObjAmount(const Amount x)
     {
         return MakeTypeObj("amount", x);
+    }
+
+    static json MakeObjHeight(Height h)
+    {
+        return MakeTypeObj("height", h);
+    }
+
+    static json MakeObjCid(const ContractID& cid)
+    {
+        return MakeTypeObj("cid", cid);
+    }
+
+    static json MakeObjBool(bool val)
+    {
+        return MakeTypeObj("bool", val ? 1u : 0u);
+    }
+
+    template <typename T>
+    static json MakeObjBlob(const T& x)
+    {
+        return MakeTypeObj("blob", x);
     }
 
     static json MakeObjAmount(const AmountBig::Type& x)
@@ -484,8 +448,11 @@ private:
             {
                 if (m_iPos >= m_vInfo.size())
                     return nullptr;
-                    
-                return &m_vInfo[m_iPos++];
+
+                auto& ret = m_vInfo[m_iPos];
+                m_iPos += (ret.m_NumNested + 1);
+
+                return &ret;
             }
         };
 
@@ -514,7 +481,7 @@ private:
             template <uint32_t nBytes>
             void AddHex(const char* szName, const uintBig_t<nBytes>& val)
             {
-                AssignField(m_json, szName, std::move(val));
+                AssignField(m_json, szName, val);
             }
 
             void AddCommitment(const ECC::Point& pt)
@@ -629,7 +596,7 @@ private:
                 }
                 else
                 {
-                    m_json.push_back(MakeTypeObj("cid", info.m_Cid));
+                    m_json.push_back(MakeObjCid(info.m_Cid));
 
                     auto it = wrSrc.m_json.find("kind");
                     if (wrSrc.m_json.end() == it)
@@ -711,7 +678,7 @@ private:
                     for (uint32_t iSig = 0; iSig < info.m_vSigs.size(); iSig++)
                     {
                         json jEntry = json::array();
-                        AssignField(jEntry, nullptr, info.m_vSigs[iSig]);
+                        AssignField(jEntry, nullptr, MakeObjBlob(info.m_vSigs[iSig]));
                         jArr.push_back(std::move(jEntry));
                     }
 
@@ -760,26 +727,35 @@ private:
 
                 Writer wr;
                 wr.m_json["text"] = std::move(s);
-                wr.AddHex("hash", md.m_Hash);
+                wr.m_json["hash"] = MakeObjBlob(md.m_Hash);
 
                 m_json["metadata"] = std::move(wr.m_json);
+            }
+
+            static json get_AssetOwner(const Asset::CreateInfo& ai)
+            {
+                return (ai.m_Cid != Zero) ? 
+                    MakeObjCid(ai.m_Cid) :
+                    MakeObjBlob(ai.m_Owner);
+            }
+
+            void AddAssetCreateInfo(const Asset::CreateInfo& ai)
+            {
+                AddMetadata(ai.m_Metadata);
+                m_json["owner"] = get_AssetOwner(ai);
+                m_json["deposit"] = MakeObjAmount(ai.m_Deposit);
             }
 
             void AddAssetInfo(const Asset::Full& ai)
             {
                 AddAid(ai.m_ID);
-                AddMetadata(ai.m_Metadata);
+                AddAssetCreateInfo(ai);
                 AddValBig("value", ai.m_Value);
                 m_json["lock_height"] = ai.m_LockHeight;
-
-                if (ai.m_Cid != Zero)
-                    m_json["cid"] = MakeTypeObj("cid", ai.m_Cid);
-                else
-                    AddHex("owner", ai.m_Owner);
             }
         };
 
-        static json get(const Output& outp, Height h, Height hMaturity)
+        static json get(const Output& outp, Height h, Height hMaturity, Mode m)
         {
             Writer w;
             w.AddCommitment(outp.m_Commitment);
@@ -788,26 +764,37 @@ private:
                 w.m_json["type"] = "Coinbase";
 
             if (outp.m_pPublic)
-                w.m_json["Value"] = outp.m_pPublic->m_Value;
+            {
+                if (Mode::Legacy == m)
+                    w.m_json["Value"] = outp.m_pPublic->m_Value;
+                else
+                    w.m_json["Value"] = MakeObjAmount(outp.m_pPublic->m_Value);
+            }
 
             if (outp.m_Incubation)
                 w.m_json["Incubation"] = outp.m_Incubation;
 
             if (hMaturity != h)
-                w.m_json["Maturity"] = hMaturity;
+            {
+                if (Mode::Legacy == m)
+                    w.m_json["Maturity"] = hMaturity;
+                else
+                    w.m_json["Maturity"] = MakeObjHeight(hMaturity);
+            }
 
             w.OnAsset(outp.m_pAsset.get());
 
             return std::move(w.m_json);
         }
 
-        static json get(const TxKernel& krn, Amount& fee, ContractRichInfo& cri, Height h)
+        static json get(const TxKernel& krn, Amount& fee, ContractRichInfo& cri, Height h, Mode m)
         {
             struct MyWalker
             {
                 Writer m_Wr;
                 ContractRichInfo* m_pCri;
                 Height m_Height;
+                Mode m_Mode;
 
                 void OnKrn(const TxKernel& krn)
                 {
@@ -839,9 +826,15 @@ private:
 
                 void OnKrnEx(const TxKernelAssetCreate& krn)
                 {
+                    Asset::CreateInfo ai;
+                    ai.SetCid(nullptr);
+                    ai.m_Owner = krn.m_Owner;
+                    ai.m_Deposit = Rules::get().get_DepositForCA(m_Height);
+
+                    TemporarySwap ts(ai.m_Metadata, Cast::NotConst(krn).m_MetaData);
+
                     Writer wr;
-                    wr.AddMetadata(krn.m_MetaData);
-                    wr.m_json["Deposit"] = Rules::get().get_DepositForCA(m_Height);
+                    wr.AddAssetCreateInfo(ai);
                     m_Wr.m_json["Asset.Create"] = std::move(wr.m_json);
                 }
 
@@ -887,11 +880,17 @@ private:
                     m_Wr.m_json["Shielded.In"] = std::move(wr2.m_json);
                 }
 
+                void OnContract(const TxKernelContractControl& krn, const NodeProcessor::ContractInvokeExtraInfo& cri)
+                {
+                    m_Wr.m_json["HFTX"] = MakeObjBool(krn.m_Dependent);
+                    m_Wr.OnContract(cri);
+                }
+
                 void OnKrnEx(const TxKernelContractCreate& krn)
                 {
                     auto pInfo = m_pCri->get_Next();
                     if (pInfo)
-                        m_Wr.OnContract(*pInfo);
+                        OnContract(krn, *pInfo);
                     else
                     {
                         NodeProcessor::ContractInvokeExtraInfo info;
@@ -904,7 +903,7 @@ private:
 
                         info.SetUnk(0, krn.m_Args, &sid);
 
-                        m_Wr.OnContract(info);
+                        OnContract(krn, info);
                     }
                 }
 
@@ -912,23 +911,29 @@ private:
                 {
                     auto pInfo = m_pCri->get_Next();
                     if (pInfo)
-                        m_Wr.OnContract(*pInfo);
+                        OnContract(krn, *pInfo);
                     else
                     {
                         NodeProcessor::ContractInvokeExtraInfo info;
                         info.m_Cid = krn.m_Cid;
                         info.SetUnk(krn.m_iMethod, krn.m_Args, nullptr);
-                        m_Wr.OnContract(info);
+                        OnContract(krn, info);
                     }
                 }
 
             } wlk;
             wlk.m_pCri = &cri;
             wlk.m_Height = h;
+            wlk.m_Mode = m;
 
             wlk.m_Wr.AddHex("id", krn.m_Internal.m_ID);
-            wlk.m_Wr.m_json["minHeight"] = krn.m_Height.m_Min;
-            wlk.m_Wr.m_json["maxHeight"] = krn.m_Height.m_Max;
+
+            auto hr = krn.get_EffectiveHeightRange();
+
+            if (hr.m_Min)
+                wlk.m_Wr.m_json["minHeight"] = hr.m_Min;
+            if (hr.m_Max != MaxHeight)
+                wlk.m_Wr.m_json["maxHeight"] = hr.m_Max;
 
             fee += krn.m_Fee;
 
@@ -940,7 +945,7 @@ private:
 
                 for (uint32_t i = 0; i < krn.m_vNested.size(); i++)
                 {
-                    json j3 = get(*krn.m_vNested[i], fee, cri, h);
+                    json j3 = get(*krn.m_vNested[i], fee, cri, h, m);
                     j2.push_back(std::move(j3));
                 }
 
@@ -1034,12 +1039,14 @@ private:
         wr.ParseSafe(sExtra);
 
         if (wr.m_json.find("kind") == wr.m_json.end())
-            AssignField(wr.m_json, "kind", std::move(sid));
+            AssignField(wr.m_json, "kind", MakeObjBlob(sid));
 
     }
 
-    void get_ContractList(json& out)
+    json get_contracts() override
     {
+        json j;
+
 #pragma pack (push, 1)
         struct KeyEntry
         {
@@ -1077,7 +1084,7 @@ private:
             }
         }
 
-        out = json::array();
+        json out = json::array();
         out.push_back(json::array({
             MakeTableHdr("Cid"),
             MakeTableHdr("Kind"),
@@ -1089,7 +1096,7 @@ private:
         for (const auto& x : vIDs)
         {
             json jItem = json::array();
-            jItem.push_back(MakeTypeObj("cid", x.first.m_Cid));
+            jItem.push_back(MakeObjCid(x.first.m_Cid));
 
             {
                 ExtraInfo::Writer wr;
@@ -1122,6 +1129,8 @@ private:
 
             out.push_back(std::move(jItem));
         }
+
+        return MakeTable(std::move(out));
     }
 
     static void OnKrnInfoCorrupted()
@@ -1129,6 +1138,13 @@ private:
         CorruptionException exc;
         exc.m_sErr = "KrnInfo";
         throw exc;
+    }
+
+    static void MakeTblMore(json& jTbl, Height h)
+    {
+        json jMore = json::object();
+        jMore["hMax"] = h;
+        jTbl["more"] = std::move(jMore);
     }
 
     void get_ContractState(json& out, const bvm2::ContractID& cid, const HeightRange& hr, uint32_t nMaxTxs)
@@ -1202,7 +1218,7 @@ private:
                 std::string sName;
 
                 json jEntry = json::array();
-                jEntry.push_back(wlk.m_Entry.m_Pos.m_Height);
+                jEntry.push_back(MakeObjHeight(wlk.m_Entry.m_Pos.m_Height));
 
                 if (sizeof(bvm2::ShaderID) == wlk.m_Entry.m_Val.n)
                 {
@@ -1240,6 +1256,9 @@ private:
 
             uint32_t nCount = 0;
             HeightPos hpLast = { 0 };
+            bool bMore = false;
+
+            std::setmin(nMaxTxs, 2000u);
 
             NodeDB::KrnInfo::Walker wlk;
             for (_nodeBackend.get_DB().KrnInfoEnum(wlk, cid, hr.m_Max); wlk.MoveNext(); nCount++)
@@ -1249,7 +1268,10 @@ private:
                     if (wlk.m_Entry.m_Pos.m_Height < hr.m_Min)
                         break;
                     if (nCount >= nMaxTxs)
+                    {
+                        bMore = true;
                         break;
+                    }
 
                     hpLast.m_Height = wlk.m_Entry.m_Pos.m_Height;
                 }
@@ -1296,7 +1318,13 @@ private:
                 wrArr.OnContractInternal(*pInfo, &cid, 0, hpLast.m_Height);
             }
 
-            wr.m_json["Calls history"] = MakeTable(std::move(wrArr.m_json));
+            json jTbl = MakeTable(std::move(wrArr.m_json));
+
+            if (bMore)
+                MakeTblMore(jTbl, hpLast.m_Height - 1);
+
+            wr.m_json["Calls history"] = std::move(jTbl);
+
         }
 
         out = std::move(wr.m_json);
@@ -1314,23 +1342,333 @@ private:
         return info;
     }
 
-    bool get_contracts(io::SerializedMsg& out) override
-    {
-        json j;
-        get_ContractList(j);
-
-        return json2Msg(j, out);
-    }
-    
-    bool get_contract_details(io::SerializedMsg& out, const Blob& id, Height hMin, Height hMax, uint32_t nMaxTxs) override
+    json get_contract_details(const Blob& id, Height hMin, Height hMax, uint32_t nMaxTxs) override
     {
         if (id.n != bvm2::ContractID::nBytes)
-            return false;
+            Exc::Fail("bad cid");
 
         json j;
         get_ContractState(j, *reinterpret_cast<const bvm2::ContractID*>(id.p), HeightRange(hMin, hMax), nMaxTxs);
+        return j;
+    }
 
-        return json2Msg(j, out);
+    struct AssetHistoryWalker
+    {
+        typedef std::pair<Height, uint64_t> Pos;
+
+        struct Event
+            :public boost::intrusive::list_base_hook<>
+        {
+            Pos m_Pos;
+
+            enum struct Type {
+                Emit,
+                Create,
+                Destroy,
+            };
+
+            virtual ~Event() {}
+            virtual Type get_Type() const = 0;
+
+            typedef intrusive::list_autoclear<Event> List;
+        };
+
+        struct Event_Emit :public Event {
+            NodeProcessor::AssetDataPacked m_Adp;
+            virtual Type get_Type() const { return Type::Emit; }
+        };
+
+        struct Event_Destroy :public Event {
+            virtual Type get_Type() const { return Type::Destroy; }
+        };
+
+        struct Event_Create :public Event {
+            virtual Type get_Type() const { return Type::Create; }
+
+            Asset::CreateInfo m_Ai;
+            virtual ~Event_Create() {}
+        };
+
+        Event::List m_Lst;
+
+        void Enum(NodeProcessor& p, Asset::ID aid, Height hMin, Height hMax, uint32_t nMaxOps)
+        {
+            if (!nMaxOps)
+                return;
+
+            NodeDB& db = p.get_DB();
+
+            // in sqlite 64-bit nums are signed
+            hMax = std::min<Height>(hMax, std::numeric_limits<int64_t>::max());
+            hMin = std::min<Height>(hMin, std::numeric_limits<int64_t>::max());
+
+            NodeDB::WalkerAssetEvt wlk;
+            for (db.AssetEvtsEnumBwd(wlk, aid, hMax); wlk.MoveNext(); )
+            {
+                if ((m_Lst.size() >= nMaxOps) && (m_Lst.back().m_Pos.first != wlk.m_Height))
+                    break;
+
+                auto* pEvt = new Event_Emit;
+                m_Lst.push_back(*pEvt);
+
+                pEvt->m_Pos.first = wlk.m_Height;
+                pEvt->m_Pos.second = wlk.m_Index;
+                pEvt->m_Adp.set_Strict(wlk.m_Body);
+
+                if (wlk.m_Height < hMin)
+                    break;
+            }
+
+            auto it = m_Lst.begin();
+
+            for (db.AssetEvtsEnumBwd(wlk, aid + Asset::s_MaxCount, hMax); wlk.MoveNext(); )
+            {
+                if (wlk.m_Height < hMin)
+                    break;
+
+                if ((m_Lst.size() >= nMaxOps * 2) && (m_Lst.back().m_Pos.first != wlk.m_Height))
+                    break;
+
+                Pos pos;
+                pos.first = wlk.m_Height;
+                pos.second = wlk.m_Index;
+
+                while ((m_Lst.end() != it) && (it->m_Pos > pos))
+                    it++;
+
+                if (wlk.m_Body.n)
+                {
+                    auto* pEvt = new Event_Create;
+                    m_Lst.insert(it, *pEvt);
+                    pEvt->m_Pos = pos;
+
+                    p.get_AssetCreateInfo(pEvt->m_Ai, wlk);
+                }
+                else
+                {
+                    auto* pEvt = new Event_Destroy;
+                    m_Lst.insert(it, *pEvt);
+                    pEvt->m_Pos = pos;
+                }
+            }
+        }
+    };
+
+    json get_asset_history(Asset::ID aid, Height hMin, Height hMax, uint32_t nMaxOps) override
+    {
+        if (!aid)
+            Exc::Fail("no aid");
+
+        AssetHistoryWalker wlk;
+        wlk.Enum(_nodeBackend, aid, hMin, hMax, nMaxOps);
+
+        nMaxOps = std::min(nMaxOps, 2000u);
+
+        ExtraInfo::Writer wrArr(json::array());
+        wrArr.m_json.push_back(json::array({
+            MakeTableHdr("Height"),
+            MakeTableHdr("Event"),
+            MakeTableHdr("Amount"),
+            MakeTableHdr("Total Amount"),
+            MakeTableHdr("Extra")
+            }));
+
+        Height hPrev = MaxHeight;
+        uint32_t nCount = 0;
+        bool bMore = false;
+        for (auto it = wlk.m_Lst.begin(); wlk.m_Lst.end() != it; nCount++)
+        {
+            auto& x = *it;
+            it++;
+
+            if (hPrev != x.m_Pos.first)
+            {
+                if (nCount >= nMaxOps)
+                {
+                    bMore = true;
+                    break;
+                }
+
+                hPrev = x.m_Pos.first;
+
+                if (hPrev < hMin)
+                    break;
+            }
+
+            ExtraInfo::Writer wrItem(json::array());
+            wrItem.m_json.push_back(hPrev); // height
+
+            typedef AssetHistoryWalker::Event::Type Type;
+
+            switch (x.get_Type())
+            {
+            default:
+                assert(false);
+                // no break;
+
+            case Type::Emit:
+                {
+                    auto& evt = Cast::Up<AssetHistoryWalker::Event_Emit>(x);
+                    AmountBig::Type delta = evt.m_Adp.m_Amount;
+
+                    if ((wlk.m_Lst.end() != it) && (it->get_Type() == Type::Emit))
+                    {
+                        AmountBig::Type v0 = Cast::Up<AssetHistoryWalker::Event_Emit>(*it).m_Adp.m_Amount;
+                        v0.Negate();
+                        delta += v0;
+                    }
+
+                    wrItem.m_json.push_back(delta.get_Msb() ? "Burn" : "Mint");
+                    wrItem.m_json.push_back(MakeObjAmount(delta)); // handles negative sign
+                    wrItem.m_json.push_back(MakeObjAmount(evt.m_Adp.m_Amount));
+                    wrItem.m_json.push_back("");
+                }
+                break;
+
+            case Type::Create:
+                {
+                    auto& evt = Cast::Up<AssetHistoryWalker::Event_Create>(x);
+                    wrItem.m_json.push_back("Create");
+                    wrItem.m_json.push_back("");
+                    wrItem.m_json.push_back("");
+
+                    ExtraInfo::Writer wrExtra;
+                    wrExtra.AddAssetCreateInfo(evt.m_Ai);
+                    wrItem.m_json.push_back(std::move(wrExtra.m_json));
+                }
+                break;
+
+                case Type::Destroy:
+                {
+                    wrItem.m_json.push_back("Destroy");
+                    wrItem.m_json.push_back("");
+                    wrItem.m_json.push_back("");
+                    wrItem.m_json.push_back("");
+                }
+                break;
+            }
+
+            wrArr.m_json.push_back(std::move(wrItem.m_json));
+
+        }
+
+        json jTbl = MakeTable(std::move(wrArr.m_json));
+
+        if (bMore && (hPrev != MaxHeight))
+            MakeTblMore(jTbl, hPrev - 1);
+
+        ExtraInfo::Writer wr;
+        wr.m_json["Asset history"] = std::move(jTbl);
+        return wr.m_json;
+    }
+
+    static uint32_t ExpanedNumWithCommas(char* szDst, const char* szSrc, uint32_t len)
+    {
+        const uint32_t nGroupLen = 3;
+        // szDst and szSrc may be the same
+        if (len)
+        {
+            uint32_t numCommas = (len - 1) / nGroupLen;
+            uint32_t pos = len;
+            len += numCommas;
+
+            while (numCommas)
+            {
+                pos -= nGroupLen;
+                memmove(szDst + pos + numCommas, szSrc + pos, nGroupLen);
+                szDst[pos + (--numCommas)] = ',';
+            }
+
+            memmove(szDst, szSrc, pos);
+        }
+
+        szDst[len] = 0;
+        return len;
+    }
+
+    uint32_t PrintDifficulty(char* sz, const Difficulty::Raw& d)
+    {
+        // print integer part only. Ok for mainnet.
+        Difficulty::Raw dInt;
+        dInt.SetDiv(d, uintBigFor<uint32_t>::Type(1u << Difficulty::s_MantissaBits));
+
+        uint32_t len = dInt.PrintDecimal(sz);
+        return ExpanedNumWithCommas(sz, sz, len);
+    }
+
+    json get_hdrs(uint64_t hMax, uint64_t nMax) override
+    {
+        std::setmin(nMax, 2048u);
+        std::setmin(hMax, _nodeBackend.m_Cursor.m_Full.m_Height);
+
+        json jRet = json::array();
+        jRet.push_back(json::array({
+            MakeTableHdr("Height"),
+            MakeTableHdr("Timestamp"),
+            MakeTableHdr("Hash"),
+            MakeTableHdr("Difficulty"),
+            MakeTableHdr("Chainwork"),
+            }));
+
+        
+        Height hMore = 0;
+
+        if (hMax && nMax)
+        {
+            auto& db = _nodeBackend.get_DB();
+
+            NodeDB::StateID sid;
+            sid.m_Height = hMax;
+            sid.m_Row = db.FindActiveStateStrict(hMax);
+
+            Merkle::Hash hv;
+
+            while (true)
+            {
+                Block::SystemState::Full s;
+                db.get_State(sid.m_Row, s);
+
+                if (hMax == sid.m_Height)
+                    s.get_Hash(hv);
+
+                json jRow = json::array();
+
+                jRow.push_back(MakeObjHeight(s.m_Height));
+                jRow.push_back(MakeTypeObj("time", s.m_TimeStamp));
+                jRow.push_back(MakeObjBlob(hv));
+
+                Difficulty::Raw d;
+                s.m_PoW.m_Difficulty.Unpack(d);
+
+                char szCw[ECC::uintBig::nTxtLen10Max / 3 * 4 + 2];
+                PrintDifficulty(szCw, d);
+                jRow.push_back(szCw);
+
+                PrintDifficulty(szCw, s.m_ChainWork);
+                jRow.push_back(szCw);
+
+                jRet.push_back(std::move(jRow));
+
+                if (!--nMax)
+                {
+                    hMore = sid.m_Height - 1;
+                    break;
+                }
+
+                if (!db.get_Prev(sid))
+                    break;
+
+
+                hv = s.m_Prev;
+            }
+        }
+
+        jRet = MakeTable(std::move(jRet));
+
+        if (hMore)
+            MakeTblMore(jRet, hMore);
+
+        return jRet;
     }
 
     bool extract_block_from_row(json& out, uint64_t row, Height height) {
@@ -1372,7 +1710,7 @@ private:
 
                 Height hCreate = inp.m_Internal.m_Maturity - outp.get_MinMaturity(0);
 
-                json jItem = ExtraInfo::get(outp, hCreate, inp.m_Internal.m_Maturity);
+                json jItem = ExtraInfo::get(outp, hCreate, inp.m_Internal.m_Maturity, m_Mode);
                 jItem["height"] = hCreate;
 
                 inputs.push_back(std::move(jItem));
@@ -1380,54 +1718,107 @@ private:
 
             json outputs = json::array();
             for (const auto &v : block.m_vOutputs)
-                outputs.push_back(ExtraInfo::get(*v, height, v->get_MinMaturity(height)));
+                outputs.push_back(ExtraInfo::get(*v, height, v->get_MinMaturity(height), m_Mode));
 
             json kernels = json::array();
             for (const auto &v : block.m_vKernels) {
 
                 Amount fee = 0;
-                json j = ExtraInfo::get(*v, fee, cri, height);
-                j["fee"] = fee;
+                json j = ExtraInfo::get(*v, fee, cri, height, m_Mode);
+
+                if (Mode::Legacy == m_Mode)
+                    j["fee"] = fee;
+                else
+                    j["fee"] = MakeObjAmount(fee);
 
                 kernels.push_back(std::move(j));
             }
 
-            json assets = json::array();
+
+            json jAssets = json::array();
+            jAssets.push_back(json::array({
+                MakeTableHdr("Aid"),
+                MakeTableHdr("Owner"),
+                MakeTableHdr("Deposit"),
+                MakeTableHdr("Supply"),
+                MakeTableHdr("Lock height"),
+                MakeTableHdr("Metadata")
+                }));
+
             Asset::Full ai;
             for (ai.m_ID = 1; ; ai.m_ID++)
             {
                 int ret = _nodeBackend.get_AssetAt(ai, height);
                 if (!ret)
                     break;
+                if (ret < 0)
+                    continue;
 
-                if (ret > 0)
-                {
-                    ExtraInfo::Writer wr;
-                    wr.AddAssetInfo(ai);
+                ExtraInfo::Writer wr(json::array());
+                wr.m_json.push_back(MakeObjAid(ai.m_ID));
 
-                    assets.push_back(std::move(wr.m_json));
-                }
+                wr.m_json.push_back(ExtraInfo::Writer::get_AssetOwner(ai));
+
+                wr.m_json.push_back(MakeObjAmount(ai.m_Deposit));
+                wr.m_json.push_back(MakeObjAmount(ai.m_Value));
+
+                wr.m_json.push_back(ai.m_LockHeight);
+
+                std::string s;
+                ai.m_Metadata.get_String(s);
+                wr.m_json.push_back(std::move(s));
+
+                jAssets.push_back(std::move(wr.m_json));
             }
 
             auto btcRate = _exchangeRateProvider->getBeamTo(wallet::Currency::BTC(), blockState.m_Height);
             auto usdRate = _exchangeRateProvider->getBeamTo(wallet::Currency::USD(), blockState.m_Height);
 
-            out = json{
-                {"found",      true},
-                {"timestamp",  blockState.m_TimeStamp},
-                {"height",     blockState.m_Height},
-                {"hash",       hash_to_hex(buf, id.m_Hash)},
-                {"prev",       hash_to_hex(buf, blockState.m_Prev)},
-                {"difficulty", blockState.m_PoW.m_Difficulty.ToFloat()},
-                {"chainwork",  uint256_to_hex(buf, blockState.m_ChainWork)},
-                {"subsidy",    Rules::get_Emission(blockState.m_Height)},
-                {"assets",     assets},
-                {"inputs",     inputs},
-                {"outputs",    outputs},
-                {"kernels",    kernels},
-                {"rate_btc",   btcRate},
-                {"rate_usd",   usdRate}
-            };
+            if (Mode::Legacy == m_Mode)
+            {
+                out = json{
+                    {"found",      true},
+                    {"timestamp",  blockState.m_TimeStamp},
+                    {"height",     blockState.m_Height},
+                    {"hash",       hash_to_hex(buf, id.m_Hash)},
+                    {"prev",       hash_to_hex(buf, blockState.m_Prev)},
+                    {"difficulty", blockState.m_PoW.m_Difficulty.ToFloat()},
+                    {"chainwork",  uint256_to_hex(buf, blockState.m_ChainWork)},
+                    {"subsidy",    Rules::get_Emission(blockState.m_Height)},
+                    {"inputs",     inputs},
+                    {"outputs",    outputs},
+                    {"kernels",    kernels},
+                    {"rate_btc",   btcRate},
+                    {"rate_usd",   usdRate}
+                };
+            }
+            else
+            {
+                json jInfo = json::array();
+
+                jInfo.push_back({ MakeTableHdr("Height"), MakeObjHeight(id.m_Height) });
+                jInfo.push_back({ MakeTableHdr("Timestamp"),MakeTypeObj("time", blockState.m_TimeStamp) });
+                jInfo.push_back({ MakeTableHdr("Hash"), MakeObjBlob(id.m_Hash) });
+                jInfo.push_back({ MakeTableHdr("Hash-Prev"), MakeObjBlob(blockState.m_Prev) });
+
+                Difficulty::Raw d;
+                blockState.m_PoW.m_Difficulty.Unpack(d);
+
+                char szCw[ECC::uintBig::nTxtLen10Max / 3 * 4 + 2];
+                PrintDifficulty(szCw, d);
+                jInfo.push_back({ MakeTableHdr("Difficulty"), szCw });
+
+                PrintDifficulty(szCw, blockState.m_ChainWork);
+                jInfo.push_back({ MakeTableHdr("Chainwork"), szCw });
+                jInfo.push_back({ MakeTableHdr("Subsidy"), MakeObjAmount(Rules::get_Emission(blockState.m_Height)) });
+
+                out["info"] = MakeTable(std::move(jInfo));
+            }
+
+            out["assets"] = MakeTable(std::move(jAssets));
+            out["inputs"] = std::move(inputs);
+            out["outputs"] = std::move(outputs);
+            out["kernels"] = std::move(kernels);
 
             LOG_DEBUG() << out;
         }
@@ -1447,138 +1838,73 @@ private:
         return ok && extract_block_from_row(out, row, height);
     }
 
-    bool get_block_impl(io::SerializedMsg& out, uint64_t height, uint64_t& row, uint64_t* prevRow) {
-        if (_cache.get_block(out, height)) {
-            if (prevRow && row > 0) {
-                extract_row(height, row, prevRow);
-            }
-            return true;
-        }
+    json get_block_impl(uint64_t height, uint64_t& row, uint64_t* prevRow) {
 
-        if (_statusDirty) {
-            const auto &cursor = _nodeBackend.m_Cursor;
-            _cache.currentHeight = cursor.m_Sid.m_Height;
-        }
+        Height h = _nodeBackend.m_Cursor.m_Full.m_Height;
 
-        io::SharedBuffer body;
-        bool blockAvailable = (height <= _cache.currentHeight);
-        if (blockAvailable) {
+        if (height <= h)
+        {
             json j;
-            if (!extract_block(j, height, row, prevRow)) {
-                blockAvailable = false;
-            } else {
-                _sm.clear();
-                if (serialize_json_msg(_sm, _packer, j)) {
-                    body = io::normalize(_sm, false);
-                    _cache.put_block(height, body);
-                } else {
-                    return false;
-                }
-                _sm.clear();
-            }
+            if (extract_block(j, height, row, prevRow))
+                return j;
         }
 
-        if (blockAvailable) {
-            out.push_back(body);
-            return true;
-        }
-
-        return serialize_json_msg(out, _packer, json{ { "found", false}, {"height", height } });
+        return json{ { "found", false}, {"height", height } };
     }
 
-    bool json2Msg(const json& obj, io::SerializedMsg& out) {
-        LOG_DEBUG() << obj;
-
-        _sm.clear();
-        io::SharedBuffer body;
-        if (serialize_json_msg(_sm, _packer, obj)) {
-            body = io::normalize(_sm, false);
-        } else {
-            return false;
-        }
-        _sm.clear();
-
-        out.push_back(body);
-
-        return true;
-    }
-
-    bool get_block(io::SerializedMsg& out, uint64_t height) override {
+    json get_block(uint64_t height) override {
         uint64_t row=0;
-        return get_block_impl(out, height, row, 0);
+        return get_block_impl(height, row, 0);
     }
 
-    bool get_block_by_hash(io::SerializedMsg& out, const ByteBuffer& hash) override {
-        NodeDB& db = _nodeBackend.get_DB();
-
-        Height height = db.FindBlock(hash);
-        uint64_t row = 0;
-
-        return get_block_impl(out, height, row, 0);
-    }
-
-    bool get_block_by_kernel(io::SerializedMsg& out, const ByteBuffer& key) override {
+    json get_block_by_kernel(const Blob& key) override {
         NodeDB& db = _nodeBackend.get_DB();
 
         Height height = db.FindKernel(key);
         uint64_t row = 0;
 
-        return get_block_impl(out, height, row, 0);
+        return get_block_impl(height, row, 0);
     }
 
-    bool get_blocks(io::SerializedMsg& out, uint64_t startHeight, uint64_t n) override {
+    json get_blocks(uint64_t startHeight, uint64_t n) override {
+
+        json result = json::array();
+
         static const uint64_t maxElements = 1500;
         if (n > maxElements) n = maxElements;
         else if (n==0) n=1;
+
+
         Height endHeight = startHeight + n - 1;
         _exchangeRateProvider->preloadRates(startHeight, endHeight);
-        out.push_back(_leftBrace);
+
         uint64_t row = 0;
         uint64_t prevRow = 0;
         for (;;) {
-            bool ok = get_block_impl(out, endHeight, row, &prevRow);
-            if (!ok) return false;
+            json j = get_block_impl(endHeight, row, &prevRow);
             if (endHeight == startHeight) {
                 break;
             }
-            out.push_back(_comma);
+            result.push_back(std::move(j));
             row = prevRow;
             --endHeight;
         }
-        out.push_back(_rightBrace);
         return true;
     }
 
-    bool get_peers(io::SerializedMsg& out) override
+    json get_peers() override
     {
         auto& peers = _node.get_AcessiblePeerAddrs();
-
-        out.push_back(_leftBrace);
+        json result = json::array();
 
         for (auto& peer : peers)
-        {
-            auto addr = peer.get_ParentObj().m_Addr.m_Value.str();
+            result.push_back(peer.get_ParentObj().m_Addr.m_Value.str());
 
-            {
-                out.push_back(_quote);
-                out.push_back({ addr.data(), addr.size() });
-                out.push_back(_quote);
-            }
-
-            out.push_back(_comma);
-        }
-
-        // remove last comma
-        if (!peers.empty())
-            out.pop_back();
-
-        out.push_back(_rightBrace);
-
-        return true;
+        return result;
     }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-    bool get_swap_offers(io::SerializedMsg& out) override
+    json get_swap_offers() override
     {
         auto offers = _offersBulletinBoard->getOffersList();
 
@@ -1599,10 +1925,10 @@ private:
             });
         }
 
-        return json2Msg(result, out);
+        return result;
     }
 
-    bool get_swap_totals(io::SerializedMsg& out) override
+    json get_swap_totals() override
     {
         auto offers = _offersBulletinBoard->getOffersList();
 
@@ -1674,7 +2000,7 @@ private:
             { "wbtc_offered", SwapAmountToString(wbtcAmount, wallet::AtomicSwapCoin::WBTC)}
         };
 
-        return json2Msg(obj, out);
+        return obj;
     }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
@@ -1687,19 +2013,12 @@ private:
     // helper fragments
     io::SharedBuffer _leftBrace, _comma, _rightBrace, _quote;
 
-    // If true then status boby needs to be refreshed
-    bool _statusDirty;
-
     // True if node is syncing at the moment
     bool _nodeIsSyncing;
 
     // node observers chain
     Node::IObserver** _hook;
     Node::IObserver* _nextHook;
-
-    ResponseCache _cache;
-
-    io::SerializedMsg _sm;
 
     wallet::IWalletDB::Ptr _walletDB;
     wallet::Wallet::Ptr _wallet;

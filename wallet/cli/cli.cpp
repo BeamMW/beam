@@ -32,6 +32,8 @@
 
 #include "wallet/transactions/assets/assets_reg_creators.h"
 #include "keykeeper/local_private_key_keeper.h"
+#include "keykeeper/hid_key_keeper.h"
+#include "keykeeper/ledger_loader.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "core/treasury.h"
@@ -189,8 +191,8 @@ namespace
 
         bool hasNoPeerId = desc.m_sender && (addressType == TxAddressType::PublicOffline || addressType == TxAddressType::MaxPrivacy);
 
-        auto senderIdentity = desc.getSenderIdentity();
-        auto receiverIdentity = desc.getReceiverIdentity();
+        auto senderIdentity = desc.getSenderEndpoint();
+        auto receiverIdentity = desc.getReceiverEndpoint();
         bool showIdentity = !senderIdentity.empty() && !receiverIdentity.empty();
 
         auto sender = desc.getSender();
@@ -290,7 +292,7 @@ namespace
             throw std::runtime_error(kErrorWalletNotInitialized);
         }
 
-        auto walletDB = WalletDB::open(walletPath, pass);
+        IWalletDB::Ptr walletDB = WalletDB::open(walletPath, pass);
 
         LOG_INFO() << kWalletOpenedMessage;
         return walletDB;
@@ -684,7 +686,6 @@ namespace
         address.setExpirationStatus(expirationStatus);
         walletDB->saveAddress(address);
 
-        std::cout << "New SBBS address: " << std::to_string(address.m_walletID);
         return true;
     }
 
@@ -700,7 +701,13 @@ namespace
         return pass;
     }
 
-    int InitDataBase(const po::variables_map& vm, bool generateNewSeed)
+    enum struct InitKind {
+        GenerateSeed,
+        RecoverFromSeed,
+        RecoverFromHid,
+    };
+
+    int InitDataBase(const po::variables_map& vm, InitKind kind)
     {
         BOOST_ASSERT(vm.count(cli::WALLET_STORAGE) > 0);
         auto walletPath = vm[cli::WALLET_STORAGE].as<string>();
@@ -735,15 +742,24 @@ namespace
             return -1;
         }
 
-        NoLeak<uintBig> walletSeed;
-        walletSeed.V = Zero;
-        if (!ReadWalletSeed(walletSeed, vm, generateNewSeed))
+        IWalletDB::Ptr walletDB;
+
+        if (InitKind::RecoverFromHid == kind)
+            walletDB = WalletDB::initHww(walletPath, pass);
+        else
         {
-            LOG_ERROR() << kErrorSeedPhraseFail;
-            return -1;
+            NoLeak<uintBig> walletSeed;
+            walletSeed.V = Zero;
+            if (!ReadWalletSeed(walletSeed, vm, InitKind::GenerateSeed == kind))
+            {
+                LOG_ERROR() << kErrorSeedPhraseFail;
+                return -1;
+            }
+
+            walletDB = WalletDB::init(walletPath, pass, walletSeed);
         }
 
-        auto walletDB = WalletDB::init(walletPath, pass, walletSeed);
+
         if (walletDB)
         {
             LOG_INFO() << kWalletCreatedMessage;
@@ -754,25 +770,85 @@ namespace
         return -1;
     }
 
+    int EnumHid(const po::variables_map& vm)
+    {
+        auto vRes = wallet::HidInfo::EnumSupported();
+        if (vRes.empty())
+            std::cout << "No supported HW wallet found" << std::endl;
+        else
+        {
+            std::cout << "Found devices: " << vRes.size() << std::endl;
+
+            for (const auto& x : vRes)
+                std::cout << "\tManufacturer: " << x.m_sManufacturer << ", Name: " << x.m_sProduct << std::endl;
+        }
+
+        return 0;
+    }
+
+    int HidInstall(const po::variables_map& vm)
+    {
+        auto var = vm[cli::HID_INSTALL_FILE];
+        if (var.empty())
+            beam::wallet::LedgerFw::FindAndLoadIntegrated();
+        else
+        {
+            auto sFile = vm[cli::HID_INSTALL_FILE].as<std::string>();
+            beam::wallet::LedgerFw::FindAndLoad(sFile.c_str());
+
+        }
+        return 0;
+    }
+
     int InitWallet(const po::variables_map& vm)
     {
-        return InitDataBase(vm, true);
+        return InitDataBase(vm, InitKind::GenerateSeed);
     }
 
     int RestoreWallet(const po::variables_map& vm)
     {
-        return InitDataBase(vm, false);
+        return InitDataBase(vm, InitKind::RecoverFromSeed);
+    }
+
+    int RestoreWalletHid(const po::variables_map& vm)
+    {
+        return InitDataBase(vm, InitKind::RecoverFromHid);
     }
 
    int GetAddress(const po::variables_map& vm)
    {
         auto walletDB = OpenDataBase(vm);
 
+        WalletAddress address;
+        if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
+        {
+            auto receiver = it->second.as<string>();
+
+            WalletID walletID;
+            if (!walletID.FromHex(receiver))
+            {
+                throw std::runtime_error("Invalid existing address format");
+            }
+
+            auto existing = walletDB->getAddress(walletID);
+
+            if (!existing)
+            {
+                throw std::runtime_error("Cannot find specified existing address.");
+            }
+
+            if (existing->isExpired())
+            {
+                throw std::runtime_error("Specified existing address is already expired");
+            }
+
+            address = *existing;
+        }
+        else
+            walletDB->getDefaultAddressAlways(address);
+
         auto type = TokenType::RegularNewStyle;
         uint32_t offlineCount = 10;
-
-        WalletAddress address;
-        walletDB->createAddress(address);
 
         if (auto it2 = vm.find(cli::PUBLIC_OFFLINE); it2 != vm.end() && it2->second.as<bool>())
         {
@@ -787,44 +863,8 @@ namespace
             type = TokenType::Offline;
             offlineCount = it2->second.as<Positive<uint32_t>>().value;
         }
-        else
-        {
-            if (auto it = vm.find(cli::RECEIVER_ADDR); it != vm.end())
-            {
-                auto receiver = it->second.as<string>();
 
-                WalletID walletID;
-                if (!walletID.FromHex(receiver))
-                {
-                    throw std::runtime_error("Invalid existing address format");
-                }
-
-                auto existing = walletDB->getAddress(walletID);
-
-                if (!existing)
-                {
-                    throw std::runtime_error("Cannot find specified existing address.");
-                }
-
-                if (existing->isExpired())
-                {
-                    throw std::runtime_error("Specified existing address is already expired");
-                }
-
-                address = *existing;
-            }
-        }
-
-        try
-        {
-            address.m_Address = GenerateToken(type, address, walletDB, offlineCount);
-            walletDB->saveAddress(address);
-            std::cout << "New address: " << address.m_Address << std::endl;
-        }
-        catch (const std::exception& ex)
-        {
-            std::cerr << ex.what();
-        }
+        GenerateToken(type, address, walletDB, offlineCount); // result is emitted via log
 
         return 0;
     }
@@ -900,10 +940,9 @@ namespace
         return true;
     }
 
-    std::string GetAddressTypeString(const WalletAddress& address)
+    const char* GetAddressTypeString(wallet::TokenType tokenType)
     {
-        const auto type = GetTokenType(address.m_Address);
-        switch (type)
+        switch (tokenType)
         {
             case TokenType::Public: return "public offline";
             case TokenType::MaxPrivacy: return "max privacy";
@@ -928,14 +967,17 @@ namespace
         std::cout << endl;
         for (const auto& address : addresses)
         {
-            std::cout
-                << kAddrListType    << GetAddressTypeString(address) << std::endl
-                << kAddrListComment << address.m_label << std::endl
-                << kAddrListAddress << address.m_Address << std::endl;
+            auto addrType = GetTokenType(address.m_Token);
 
-            if (address.m_walletID.IsValid())
+
+            std::cout
+                << kAddrListType    << GetAddressTypeString(addrType) << std::endl
+                << kAddrListComment << address.m_label << std::endl
+                << kAddrListAddress << address.m_Token << std::endl;
+
+            if (address.m_BbsAddr.IsValid())
             {
-                std::cout << kAddrListWalletID << std::to_string(address.m_walletID) << std::endl;
+                std::cout << kAddrListBbsAddr << std::to_string(address.m_BbsAddr) << std::endl;
             }
 
             const auto expirationDateText = (address.m_duration == 0)
@@ -944,12 +986,57 @@ namespace
 
             const auto creationDateText = format_timestamp(kTimeStampFormat3x3, address.getCreateTime() * 1000, false);
 
+            const auto& ep = (wallet::TokenType::RegularOldStyle == addrType) ? address.m_BbsAddr.m_Pk : address.m_Endpoint;
+
             std::cout
-                << kAddrListIdentity << std::to_string(address.m_Identity) << std::endl
+                << kAddrListEndpoint << std::to_base58(ep) << std::endl
                 << kAddrListActive   << (address.isExpired() ? "false" : "true") << std::endl
                 << kAddrListExprDate << expirationDateText << std::endl
                 << kAddrListCreated  << creationDateText << std::endl
                 << std::endl;
+        }
+
+        return 0;
+    }
+
+    int VerifyAddress(const po::variables_map& vm)
+    {
+        auto walletDB = OpenDataBase(vm);
+
+        string sToken = vm[cli::WALLET_ADDR].as<string>();
+        auto pAddr = walletDB->getAddressByToken(sToken);
+        if (!pAddr)
+        {
+            std::cout << "No such an address" << std::endl;
+            return 1;
+        }
+
+        const auto& addr = *pAddr;
+
+        std::cout
+            << kAddrListAddress << addr.m_Token << std::endl
+            << kAddrListEndpoint << std::to_base58(addr.m_Endpoint) << std::endl;
+
+        if (!addr.isOwn())
+        {
+            std::cout << "Address not owned" << std::endl;
+            return 1;
+        }
+
+        auto pKk = walletDB->get_KeyKeeper();
+        if (!pKk)
+        {
+            std::cout << "Read-only mode." << std::endl;
+            return 1;
+        }
+
+        IPrivateKeyKeeper2::Method::DisplayEndpoint m;
+        m.m_iEndpoint = addr.m_OwnID;
+        auto st = pKk->InvokeSync(m);
+        if (IPrivateKeyKeeper2::Status::Success != st)
+        {
+            std::cout << "HW wallet status: " << st << std::endl;
+            return 1;
         }
 
         return 0;
@@ -1952,6 +2039,10 @@ namespace
                            % timeout_ms;
             }
         }
+
+        if (vm.count(cli::MINE_ONLINE))
+            nnet->m_Cfg.m_PreferOnlineMining = vm[cli::MINE_ONLINE].as<bool>();
+
         uint32_t responceTime_s =
             Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
         if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
@@ -2336,11 +2427,7 @@ namespace
                 auto params = CreateSimpleTransactionParameters();
                 LoadReceiverParams(vm, params);
 
-                WalletAddress senderAddress;
-                walletDB->createAddress(senderAddress);
-                walletDB->saveAddress(senderAddress);
-
-                params.SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
+                params
                     .SetParameter(TxParameterID::Amount, amount)
                     // fee for shielded inputs included automatically
                     .SetParameter(TxParameterID::Fee, fee)
@@ -2401,9 +2488,9 @@ namespace
 
                             void OnBindingMissing(const Wasm::Compiler::PerImport& x) override
                             {
-                              //  if (!m_HaveMissing)
+                                if (!m_HaveMissing)
                                 {
-                                //    m_HaveMissing = true;
+                                    m_HaveMissing = true;
                                     std::cout << "Shader uses newer API, some features may not work.\n";
                                 }
                                 std::cout << "\t Missing " << x << std::endl;
@@ -2416,7 +2503,7 @@ namespace
                     }
                 };
 
-                MyManager man(walletDB, wallet);
+                MyManager man(*wallet);
                 man.m_Debug = vm[cli::SHADER_DEBUG].as<bool>();
 
                 auto sVal = vm[cli::SHADER_BYTECODE_APP].as<string>();
@@ -2464,17 +2551,17 @@ namespace
                 if (man.m_Err || man.m_InvokeData.m_vec.empty())
                     return 1;
 
+                auto invData = man.get_InvokeData();
                 const auto height  = wallet->get_TipHeight();
-                const auto fee     = man.m_InvokeData.get_FullFee(height);
-                const auto comment = man.m_InvokeData.get_FullComment();
-                const auto spend   = man.m_InvokeData.get_FullSpend();
+                const auto fee     = invData.get_FullFee(height);
+                const auto comment = invData.get_FullComment();
 
                 std::cout << "Creating new contract invocation tx on behalf of the shader" << std::endl;
                 if (man.m_Args["action"] == "create")
                 {
                     bvm2::ShaderID sid;
                     bvm2::get_ShaderID(sid, Blob(man.m_BodyContract));
-                    for (auto& invokeEntry : man.m_InvokeData.m_vec)
+                    for (auto& invokeEntry : invData.m_vec)
                     {
                         bvm2::ContractID cid;
                         bvm2::get_CidViaSid(cid, sid, Blob(invokeEntry.m_Args));
@@ -2487,7 +2574,13 @@ namespace
                 }
                 std::cout << "\tComment: " << comment << std::endl;
 
-                for (const auto& info: spend)
+                bvm2::FundsMap fmSpend;
+                bool bMaxSpend = !invData.m_SpendMax.empty();
+                const auto& fm = bMaxSpend ? invData.m_SpendMax : fmSpend;
+                if (!bMaxSpend)
+                    fmSpend = invData.get_FullSpend();
+
+                for (const auto& info: fm)
                 {
                     auto aid = info.first;
                     auto amount = info.second;
@@ -2496,15 +2589,27 @@ namespace
                     if (!bSpend)
                         amount = -amount;
 
-                    std::cout << '\t' << (bSpend ? "Send" : "Recv") << ' ' << PrintableAmount(static_cast<Amount>(amount), false, aid) << std::endl;
+                    std::cout << '\t' << (bSpend ? "Send" : "Recv") << ' ' << PrintableAmount(static_cast<Amount>(amount), false, aid);
+
+                    if (bMaxSpend)
+                        std::cout << ' ' << (bSpend ? "(at most)" : "(at least)");
+
+                    std::cout << std::endl;
                 }
 
                 std::cout << "\tTotal fee: " << PrintableAmount(fee, false, 0) << std::endl;
+                std::cout << "Proceed? (y/n)" << std::endl;
+
+                std::string s;
+                std::cin >> s;
+
+                if (s.empty() || ('y' != std::tolower(s.front())))
+                    return 1;
 
                 ByteBuffer msg(comment.begin(), comment.end());
                 currentTxID = wallet->StartTransaction(
                     CreateTransactionParameters(TxType::Contract)
-                    .SetParameter(TxParameterID::ContractDataPacked, man.m_InvokeData)
+                    .SetParameter(TxParameterID::ContractDataPacked, invData)
                     .SetParameter(TxParameterID::Message, msg)
                 );
 
@@ -3007,7 +3112,7 @@ namespace
 
             DexOrder orderObj(
                 DexOrderID::generate(),
-                receiverAddress.m_walletID,
+                receiverAddress.m_BbsAddr,
                 receiverAddress.m_OwnID,
                 sendAssetId,
                 sendAmountGroth,
@@ -3178,7 +3283,7 @@ namespace
             auto params = beam::wallet::CreateDexTransactionParams(
                             offerId,
                             order->getSBBSID(),
-                            myAddress.m_walletID,
+                            myAddress.m_BbsAddr,
                             sendAsset,
                             order->getSendAmount(),
                             receiveAsset,
@@ -3209,6 +3314,9 @@ int main(int argc, char* argv[])
     {
         {cli::INIT,               InitWallet,                       "initialize new wallet database with a new seed phrase"},
         {cli::RESTORE,            RestoreWallet,                    "restore wallet database from a seed phrase provided by the user"},
+        {cli::RESTORE_HID,        RestoreWalletHid,                 "restore wallet database from an attached HW wallet"},
+        {cli::HID_ENUM,           EnumHid,                          "Enumerate attached HW wallets"},
+        {cli::HID_INSTALL,        HidInstall,                       "Install Beam app on the attached HW wallet"},
         {cli::SEND,               Send,                             "send BEAM"},
         {cli::SHADER_INVOKE,      ShaderInvoke,                     "Invoke a wallet-side shader"},
         {cli::LISTEN,             Listen,                           "listen to the node (the wallet won't close till halted"},
@@ -3224,7 +3332,8 @@ int main(int argc, char* argv[])
         {cli::PAYMENT_PROOF_EXPORT, ExportPaymentProof,             "export payment proof by transaction ID"},
         {cli::PAYMENT_PROOF_VERIFY, VerifyPaymentProof,             "verify payment proof"},
         {cli::GENERATE_PHRASE,      GeneratePhrase,                 "generate new seed phrase"},
-        {cli::WALLET_ADDRESS_LIST,  ShowAddressList,                "print SBBS addresses"},
+        {cli::WALLET_ADDRESS_LIST,  ShowAddressList,                "print addresses"},
+        {cli::WALLET_ADDRESS_VERIFY, VerifyAddress,                 "verify your Endpoint on the attached HW wallet"},
         {cli::WALLET_RESCAN,        Rescan,                         "rescan the blockchain for owned UTXO (works only with node configured with an owner key)"},
         {cli::EXPORT_DATA,          ExportWalletData,               "export wallet data (UTXO, transactions, addresses) to a JSON file"},
         {cli::IMPORT_DATA,          ImportWalletData,               "import wallet data from a JSON file"},

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "common.h"
+#include "../../common.h"
 
 #include "bitcoin/bitcoin.hpp"
 
@@ -20,19 +21,16 @@ namespace beam::bitcoin_cash
 {
     uint8_t getAddressVersion()
     {
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-        return libbitcoin::wallet::ec_private::mainnet_p2kh;
-#else
-        return libbitcoin::wallet::ec_private::testnet_p2kh;
-#endif
+        return wallet::UseMainnetSwap() ?
+            libbitcoin::wallet::ec_private::mainnet_p2kh :
+            libbitcoin::wallet::ec_private::testnet_p2kh;
     }
 
     std::vector<std::string> getGenesisBlockHashes()
     {
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-        return { bitcoin::kMainnetGenesisBlockHash };
-#else
+        if (wallet::UseMainnetSwap())
+            return { bitcoin::kMainnetGenesisBlockHash };
+
         return { bitcoin::kTestnetGenesisBlockHash , bitcoin::kRegtestGenesisBlockHash };
-#endif
     }
 } // namespace beam::bitcoin_cash

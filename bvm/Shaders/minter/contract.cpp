@@ -3,7 +3,7 @@
 #include "contract.h"
 #include "../dao-vault/contract.h"
 
-namespace Mintor {
+namespace Minter {
 
 
 BEAM_EXPORT void Ctor(const Method::Init& r)
@@ -99,4 +99,4 @@ BEAM_EXPORT void Method_4(Method::Withdraw& r)
     Env::FundsUnlock(tk.m_Aid, r.m_Value);
 }
 
-} // namespace Mintor
+} // namespace Minter

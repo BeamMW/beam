@@ -18,16 +18,15 @@
 #include "v7_0/v7_0_api.h"
 #include "v7_1/v7_1_api.h"
 #include "v7_2/v7_2_api.h"
+#include "v7_3/v7_3_api.h"
 
 namespace beam::wallet
 {
     namespace
     {
-        const std::string kVerCurrent = "current";
-
         uint32_t SApiVer2NApiVer(std::string sver)
         {
-            if (sver == kVerCurrent)
+            if (sver == kApiVerCurrent)
             {
                 return ApiVerCurrent;
             }
@@ -47,7 +46,16 @@ namespace beam::wallet
         try
         {
             const auto version = SApiVer2NApiVer(sver);
-            return version >= ApiVerMin && version <= ApiVerMax;
+
+            switch (version)
+            {
+#define MACRO(major, minor) case ApiVer##major##_##minor:
+                ApiVersions(MACRO)
+#undef MACRO
+                 return true;
+            default:
+                return false;
+            }
         }
         catch(std::exception& ex)
         {
@@ -68,6 +76,13 @@ namespace beam::wallet
         // MUST BE SAFE TO CALL FROM ANY THREAD
         switch (version)
         {
+            case ApiVer7_3:
+            {
+                auto api = new V73Api(handler, 7, 3, data);
+                auto ptr = IWalletApi::Ptr(api);
+                api->takeGuardPtr(ptr);
+                return ptr;
+            }
             case ApiVer7_2:
             {
                 auto api = new V72Api(handler, 7, 2, data);

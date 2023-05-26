@@ -264,7 +264,7 @@ namespace beam::wallet
             {
                 if (!item.isOwn()) continue;
 
-                ECC::uintBig id = Cast::Down<ECC::uintBig>(item.m_walletID.m_Pk);
+                ECC::uintBig id = Cast::Down<ECC::uintBig>(item.m_BbsAddr.m_Pk);
                 auto it = m_cache.find(id);
 
                 if (item.isExpired())
@@ -318,7 +318,7 @@ namespace beam::wallet
                         std::cend(m_myAddresses),
                         [&address](const WalletAddress& a) -> bool
                         {
-                            return a.m_walletID == address.m_walletID;
+                            return a.m_BbsAddr == address.m_BbsAddr;
                         });
                     if (it != std::cend(m_myAddresses))
                     {
@@ -333,7 +333,7 @@ namespace beam::wallet
                         std::cend(m_myAddresses),
                         [&address](const WalletAddress& a) -> bool
                         {
-                            return a.m_walletID == address.m_walletID;
+                            return a.m_BbsAddr == address.m_BbsAddr;
                         });
                     if (it != std::cend(m_myAddresses))
                     {
@@ -356,7 +356,7 @@ namespace beam::wallet
         {
             if (address.isExpired())
             {
-                ECC::uintBig id = Cast::Down<ECC::uintBig>(address.m_walletID.m_Pk);
+                ECC::uintBig id = Cast::Down<ECC::uintBig>(address.m_BbsAddr.m_Pk);
                 auto it = m_cache.find(id);
                 
                 // No notification for expiration of this address

@@ -68,7 +68,7 @@ namespace Shaders {
 #include "../Shaders/aphorize/contract.h"
 #include "../Shaders/nephrite/contract.h"
 #include "../Shaders/amm/contract.h"
-#include "../Shaders/mintor/contract.h"
+#include "../Shaders/minter/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
@@ -333,7 +333,7 @@ namespace Shaders {
 	template <bool bToShader> void Convert(Nephrite::Method::Liquidate& x) {
 		ConvertOrd<bToShader>(x.m_Count);
 	}
-	template <bool bToShader> void Convert(Mintor::Method::Base& x) {
+	template <bool bToShader> void Convert(Minter::Method::Base& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
 	}
 
@@ -550,7 +550,7 @@ namespace bvm2 {
 		ContractWrap m_Aphorize;
 		ContractWrap m_DaoVault;
 		ContractWrap m_Nephrite;
-		ContractWrap m_Mintor;
+		ContractWrap m_Minter;
 		ContractWrap m_Amm;
 
 		std::map<ShaderID, const Wasm::Compiler::DebugInfo*> m_mapDbgInfo;
@@ -819,7 +819,7 @@ namespace bvm2 {
 		void TestDaoVote();
 		void TestAphorize();
 		void TestNephrite();
-		void TestMintor();
+		void TestMinter();
 		void TestAmm();
 
 		void TestAll();
@@ -1070,7 +1070,7 @@ namespace bvm2 {
 		AddCode(m_Aphorize, "aphorize/contract.wasm");
 		AddCode(m_DaoVault, "dao-vault/contract.wasm");
 		AddCode(m_Nephrite, "nephrite/contract.wasm");
-		AddCode(m_Mintor, "mintor/contract.wasm");
+		AddCode(m_Minter, "minter/contract.wasm");
 		AddCode(m_Amm, "amm/contract.wasm");
 
 		m_FarCalls.m_SaveLocal = true;
@@ -1078,7 +1078,7 @@ namespace bvm2 {
 		TestVault();
 		TestAphorize();
 		TestNephrite();
-		TestMintor();
+		TestMinter();
 		TestAmm();
 		TestFaucet();
 		TestRoulette();
@@ -1410,7 +1410,7 @@ namespace bvm2 {
 
 			void AddTotals(Amount& vSell, Amount& vBuy) const
 			{
-				for (const auto x : m_Data)
+				for (const auto& x : m_Data)
 					AddTotals1(vSell, vBuy, x.second);
 			}
 
@@ -2038,9 +2038,9 @@ namespace bvm2 {
 */
 	}
 
-	void MyProcessor::TestMintor()
+	void MyProcessor::TestMinter()
 	{
-		VERIFY_ID(Shaders::Mintor::s_SID, m_Mintor.m_Sid);
+		VERIFY_ID(Shaders::Minter::s_SID, m_Minter.m_Sid);
 	}
 
 	void MyProcessor::TestAmm()

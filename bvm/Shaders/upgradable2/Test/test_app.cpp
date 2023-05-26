@@ -115,25 +115,6 @@ ON_METHOD(manager, explicit_upgrade)
     ManagerUpgadable2::MultiSigRitual::Perform_ExplicitUpgrade(cid, nChargeExtra);
 }
 
-Amount get_ContractLocked(AssetID aid, const ContractID& cid)
-{
-    Env::Key_T<AssetID> key;
-    _POD_(key.m_Prefix.m_Cid) = cid;
-    key.m_Prefix.m_Tag = KeyTag::LockedAmount;
-    key.m_KeyInContract = Utils::FromBE(aid);
-
-    struct AmountBig {
-        Amount m_Hi;
-        Amount m_Lo;
-    };
-
-    AmountBig val;
-    if (!Env::VarReader::Read_T(key, val))
-        return 0;
-
-    return Utils::FromBE(val.m_Lo);
-}
-
 ON_METHOD(manager, view_params)
 {
     Env::Key_T<uint8_t> key;

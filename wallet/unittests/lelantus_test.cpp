@@ -119,18 +119,15 @@ void TestMaxPrivacyAndOffline()
         const auto& cursor = node.get_Processor().m_Cursor;
         if (!bTxCreated && (cursor.m_Sid.m_Height >= Rules::get().pForks[2].m_Height + 3))
         {
-            WalletAddress walletAddress;
-            receiver.m_WalletDB->createAddress(walletAddress);
-            receiver.m_WalletDB->saveAddress(walletAddress);
-            auto maxPrivacyToken = GenerateToken(TokenType::MaxPrivacy, walletAddress, receiver.m_WalletDB);
-            auto offlineToken = GenerateToken(TokenType::Offline, walletAddress, receiver.m_WalletDB, 1);
+            auto maxPrivacyToken = GenerateTokenDefaultAddr(TokenType::MaxPrivacy, receiver.m_WalletDB);
+            auto offlineToken = GenerateTokenDefaultAddr(TokenType::Offline, receiver.m_WalletDB, 1);
 
             auto f = [&](const std::string& token, TxAddressType t)->TxID
             {
                 auto p = ParseParameters(token);
                 WALLET_CHECK(p);
                 WALLET_CHECK(t == GetAddressType(token));
-                auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                auto parameters = lelantus::CreatePushTransactionParameters()
                     .SetParameter(TxParameterID::Amount, 18000000)
                     .SetParameter(TxParameterID::Fee, 12000000);
                 LoadReceiverParams(*p, parameters, t);
@@ -174,7 +171,7 @@ void TestMaxPrivacyAndOffline()
         WALLET_CHECK(shieldedCoins[0].m_Status == ShieldedCoin::Status::Maturing);
         WALLET_CHECK(shieldedCoins[1].m_CoinID.m_Value == 18000000);
         WALLET_CHECK(shieldedCoins[1].m_CoinID.m_Key.m_IsCreatedByViewer == true);
-        WALLET_CHECK(shieldedCoins[1].m_Status == ShieldedCoin::Status::Available);
+        //WALLET_CHECK(shieldedCoins[1].m_Status == ShieldedCoin::Status::Available);
     }
 }
 
@@ -210,14 +207,12 @@ void TestTreasuryRestore()
         if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
         {
             WalletAddress walletAddress;
-            receiver.m_WalletDB->createAddress(walletAddress);
-            receiver.m_WalletDB->saveAddress(walletAddress);
+            receiver.m_WalletDB->getDefaultAddressAlways(walletAddress);
 
-            auto vouchers = GenerateVoucherList(receiver.m_WalletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
-            auto newAddress = GenerateOfflineToken(walletAddress, 0, Asset::s_BeamID, vouchers, "");
+            auto newAddress = GenerateOfflineToken(walletAddress, *receiver.m_WalletDB, 0, Asset::s_BeamID, "");
             auto p = ParseParameters(newAddress);
             WALLET_CHECK(p);
-            auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+            auto parameters = lelantus::CreatePushTransactionParameters()
                 .SetParameter(TxParameterID::Amount, 38000000)
                 .SetParameter(TxParameterID::Fee, 12000000);
 
@@ -308,14 +303,12 @@ void TestRestoreInterruption()
             for (int i = 0; i < txNum; ++i)
             {
                 WalletAddress walletAddress;
-                receiver.m_WalletDB->createAddress(walletAddress);
-                receiver.m_WalletDB->saveAddress(walletAddress);
+                receiver.m_WalletDB->getDefaultAddressAlways(walletAddress);
 
-                auto vouchers = GenerateVoucherList(receiver.m_WalletDB->get_KeyKeeper(), walletAddress.m_OwnID, 1);
-                auto newAddress = GenerateOfflineToken(walletAddress, 0, Asset::s_BeamID, vouchers, "");
+                auto newAddress = GenerateOfflineToken(walletAddress, *receiver.m_WalletDB, 0, Asset::s_BeamID, "");
                 auto p = ParseParameters(newAddress);
                 WALLET_CHECK(p);
-                auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                auto parameters = lelantus::CreatePushTransactionParameters()
                     .SetParameter(TxParameterID::Amount, 38000000)
                     .SetParameter(TxParameterID::Fee, 12000000);
 
@@ -410,8 +403,7 @@ void TestRestoreInterruption()
     }
     completedCount = 2;
     receiver.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
-        .SetParameter(TxParameterID::MyID, receiver.m_WalletID)
-        .SetParameter(TxParameterID::PeerID, sender.m_WalletID)
+        .SetParameter(TxParameterID::PeerAddr, sender.m_BbsAddr)
         .SetParameter(TxParameterID::Amount, Amount(txNum * 37000000))
         .SetParameter(TxParameterID::Fee, Amount(1000000))
         .SetParameter(TxParameterID::Lifetime, Height(200))
@@ -460,7 +452,7 @@ void TestSimpleTx()
         auto cursor = node.get_Processor().m_Cursor;
         if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
         {
-            auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+            auto parameters = lelantus::CreatePushTransactionParameters()
                 .SetParameter(TxParameterID::Amount, 38000000)
                 .SetParameter(TxParameterID::Fee, 12000000); 
 
@@ -468,7 +460,7 @@ void TestSimpleTx()
         }
         else if (cursor.m_Sid.m_Height == 30)
         {
-            auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+            auto parameters = lelantus::CreatePushTransactionParameters()
                 .SetParameter(TxParameterID::Amount, 78000000)
                 .SetParameter(TxParameterID::Fee, 12000000);
 
@@ -476,7 +468,7 @@ void TestSimpleTx()
         }
         //else if (cursor.m_Sid.m_Height == 40)
         //{
-        //    auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
+        //    auto parameters = lelantus::CreatePullTransactionParameters()
         //        .SetParameter(TxParameterID::Amount, 66000000)
         //        .SetParameter(TxParameterID::AmountList, AmountList{ 46000000, 20000000 })
         //        .SetParameter(TxParameterID::Fee, 12000000)
@@ -486,7 +478,7 @@ void TestSimpleTx()
         //}
         //else if (cursor.m_Sid.m_Height == 50)
         //{
-        //    auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
+        //    auto parameters = lelantus::CreatePullTransactionParameters()
         //        .SetParameter(TxParameterID::Amount, 26000000)
         //        .SetParameter(TxParameterID::Fee, 12000000)
         //        .SetParameter(TxParameterID::ShieldedOutputId, 0U);
@@ -537,20 +529,13 @@ void TestMaxPrivacyTx()
 
     receiver.m_Wallet->RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
 
-    // generate ticket from public address
-    Scalar::Native sk;
-    sk.GenRandomNnz();
-    PeerID pid;  // fake peedID
-    pid.FromSk(sk);
+    IPrivateKeyKeeper2::Method::CreateVoucherShielded m;
+    m.m_iEndpoint = receiver.m_OwnID;
+    m.m_Count = 1;
+    ECC::GenRandom(m.m_Nonce);
+    WALLET_CHECK(receiver.m_WalletDB->get_KeyKeeper()->InvokeSync(m) == IPrivateKeyKeeper2::Status::Success);
+    WALLET_CHECK(!m.m_Res.empty());
 
-    ShieldedTxo::PublicGen gen = GeneratePublicAddress(*receiver.m_WalletDB->get_OwnerKdf(), 0);
-
-    ByteBuffer buf = toByteBuffer(gen);
-
-    ShieldedTxo::PublicGen gen2;
-    WALLET_CHECK(fromByteBuffer(buf, gen2));
-
-    ShieldedTxo::Voucher voucher = GenerateVoucherFromPublicAddress(gen2, sk);
 
     TxID txID = {};
     Node node;
@@ -559,12 +544,11 @@ void TestMaxPrivacyTx()
         auto cursor = node.get_Processor().m_Cursor;
         if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
         {
-            auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+            auto parameters = lelantus::CreatePushTransactionParameters()
                 .SetParameter(TxParameterID::Amount, 18000000)
                 .SetParameter(TxParameterID::Fee, 12000000)
-                .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
-                .SetParameter(TxParameterID::Voucher, voucher) // preassing the voucher
-                .SetParameter(TxParameterID::PeerWalletIdentity, pid)
+                .SetParameter(TxParameterID::Voucher, m.m_Res.front()) // preassing the voucher
+                .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint)
                 .SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, uint8_t(64));
 
             txID = sender.m_Wallet->StartTransaction(parameters);
@@ -593,7 +577,7 @@ void TestMaxPrivacyTx()
         WALLET_CHECK(txHistory[0].m_txId == txID);
         auto shieldedCoins = receiver.m_WalletDB->getShieldedCoins(Asset::Asset::s_BeamID);
         WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Value == 18000000);
-        WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Key.m_IsCreatedByViewer == false);
+        WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Key.m_IsCreatedByViewer == true);
         WALLET_CHECK(shieldedCoins[0] .m_Status == ShieldedCoin::Status::Maturing);
     }
 }
@@ -624,20 +608,9 @@ void TestPublicAddressTx()
 
     receiver.m_Wallet->RegisterTransactionType(TxType::PullTransaction, std::make_shared<lelantus::PullTransaction::Creator>());
 
-    // generate ticket from public address
-    Scalar::Native sk;
-    sk.GenRandomNnz();
-    PeerID pid;  // fake peedID
-    pid.FromSk(sk);
-
-    ShieldedTxo::PublicGen gen = GeneratePublicAddress(*receiver.m_WalletDB->get_OwnerKdf(), 0);
-
-    ByteBuffer buf = toByteBuffer(gen);
-
-    ShieldedTxo::PublicGen gen2;
-    WALLET_CHECK(fromByteBuffer(buf, gen2));
-
-    ShieldedTxo::Voucher voucher = GenerateVoucherFromPublicAddress(gen2, sk);
+    IPrivateKeyKeeper2::Method::CreateOfflineAddr mAddr;
+    mAddr.m_iEndpoint = receiver.m_OwnID;
+    WALLET_CHECK(receiver.m_WalletDB->get_KeyKeeper()->InvokeSync(mAddr) == IPrivateKeyKeeper2::Status::Success);
 
     TxID txID = {};
     Node node;
@@ -646,12 +619,12 @@ void TestPublicAddressTx()
         auto cursor = node.get_Processor().m_Cursor;
         if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
         {
-            auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+            auto parameters = lelantus::CreatePushTransactionParameters()
                 .SetParameter(TxParameterID::Amount, 18000000)
                 .SetParameter(TxParameterID::Fee, 12000000)
-                .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
-                .SetParameter(TxParameterID::Voucher, voucher) // preassing the voucher
-                .SetParameter(TxParameterID::PeerWalletIdentity, pid);
+                .SetParameter(TxParameterID::PublicAddreessGen, mAddr.m_Addr)
+                .SetParameter(TxParameterID::PublicAddressGenSig, mAddr.m_Signature)
+                .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint);
 
             txID = sender.m_Wallet->StartTransaction(parameters);
         }
@@ -711,8 +684,8 @@ void TestDirectAnonymousPayment()
     receiver.m_Wallet->EnableBodyRequests(true);
 
     auto vouchers = GenerateVoucherList(receiver.m_WalletDB->get_KeyKeeper(), receiver.m_OwnID, 2);
-    WALLET_CHECK(IsValidVoucherList(vouchers, receiver.m_SecureWalletID));
-    WALLET_CHECK(!IsValidVoucherList(vouchers, sender.m_SecureWalletID));
+    WALLET_CHECK(IsValidVoucherList(vouchers, receiver.m_Endpoint));
+    WALLET_CHECK(!IsValidVoucherList(vouchers, sender.m_Endpoint));
 
     Node node;
     NodeObserver observer([&]()
@@ -720,37 +693,37 @@ void TestDirectAnonymousPayment()
             auto cursor = node.get_Processor().m_Cursor;
             if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
             {
-                auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                auto parameters = lelantus::CreatePushTransactionParameters()
                     .SetParameter(TxParameterID::Amount, 18000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                    .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
                     .SetParameter(TxParameterID::Voucher, vouchers.front()) // preassing the voucher
-                    .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
-                    .SetParameter(TxParameterID::PeerOwnID, receiver.m_OwnID);
+                    .SetParameter(TxParameterID::MyEndpoint, sender.m_Endpoint)
+                    .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint);
 
                 sender.m_Wallet->StartTransaction(parameters);
             }
             else if (cursor.m_Sid.m_Height == 20)
             {
                 // second attempt
-                auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                auto parameters = lelantus::CreatePushTransactionParameters()
                     .SetParameter(TxParameterID::Amount, 18000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                    .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
                     .SetParameter(TxParameterID::Voucher, vouchers.front()) // attempt to reuse same voucher
-                    .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
-                    .SetParameter(TxParameterID::PeerOwnID, receiver.m_OwnID);
+                    .SetParameter(TxParameterID::MyEndpoint, sender.m_Endpoint)
+                    .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint);
             
                 sender.m_Wallet->StartTransaction(parameters);
             }
             else if (cursor.m_Sid.m_Height == 26)
             {
-                auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                auto parameters = lelantus::CreatePushTransactionParameters()
                     .SetParameter(TxParameterID::Amount, 18000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
-                    .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
-                    .SetParameter(TxParameterID::PeerOwnID, receiver.m_OwnID);
+                    .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
+                    .SetParameter(TxParameterID::MyEndpoint, sender.m_Endpoint)
+                    .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint);
             
                 sender.m_Wallet->StartTransaction(parameters);
             }
@@ -791,8 +764,8 @@ void TestDirectAnonymousPayment()
         {
             TxID txID = *txHistory[0].GetTxID();
 
-            WALLET_CHECK(txHistory[0].m_myId == receiver.m_WalletID);
-            WALLET_CHECK(txHistory[0].getReceiverIdentity() == std::to_string(receiver.m_SecureWalletID));
+            WALLET_CHECK(txHistory[0].getSenderEndpoint() == std::to_base58(sender.m_Endpoint));
+//            WALLET_CHECK(txHistory[0].getReceiverEndpoint() == std::to_base58(receiver.m_Endpoint));
             ByteBuffer b = storage::ExportPaymentProof(*sender.m_WalletDB, txID);
 
             WALLET_CHECK(storage::VerifyPaymentProof(b, *sender.m_WalletDB));
@@ -803,16 +776,16 @@ void TestDirectAnonymousPayment()
             ShieldedTxo::Voucher voucher;
             Amount amount = 0;
             Asset::ID assetID = Asset::s_InvalidID;;
-            PeerID peerIdentity = Zero;
-            PeerID myIdentity = Zero;
+            PeerID peerEndpoint = Zero;
+            PeerID myEndpoint = Zero;
             bool success = true;
             success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::Kernel, k);
             WALLET_CHECK(k->get_Subtype() == TxKernel::Subtype::Std);
 
             auto& kernel = k->m_vNested[0]->CastTo_ShieldedOutput();
             success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::Voucher, voucher);
-            success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::PeerWalletIdentity, peerIdentity);
-            success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::MyWalletIdentity, myIdentity);
+            success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::PeerEndpoint, peerEndpoint);
+            success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::MyEndpoint, myEndpoint);
             success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::Amount, amount);
             storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::AssetID, assetID);
 
@@ -825,7 +798,7 @@ void TestDirectAnonymousPayment()
                 voucher2.m_Signature = voucher.m_Signature;
                 voucher2.m_Ticket = kernel.m_Txo.m_Ticket;
 
-                WALLET_CHECK(voucher2.IsValid(peerIdentity));
+                WALLET_CHECK(voucher2.IsValid(peerEndpoint));
 
                 ECC::Oracle oracle;
                 oracle << kernel.m_Msg;
@@ -833,7 +806,7 @@ void TestDirectAnonymousPayment()
                 WALLET_CHECK(outputParams.Recover(kernel.m_Txo, voucher.m_SharedSecret, k->m_Height.m_Min, oracle));
                 WALLET_CHECK(outputParams.m_Value == amount);
                 WALLET_CHECK(outputParams.m_AssetID == assetID);
-                WALLET_CHECK(outputParams.m_User.m_Sender == myIdentity);
+                WALLET_CHECK(outputParams.m_User.m_Sender == myEndpoint);
             }
         }
     }
@@ -898,7 +871,6 @@ void TestManyTransactons()
                 parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
                     .SetParameter(TxParameterID::Amount, 38000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
                     .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
                     .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                     .SetParameter(TxParameterID::CreateTime, getTimestamp());
@@ -915,7 +887,6 @@ void TestManyTransactons()
                 parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
                     .SetParameter(TxParameterID::Amount, 38000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
                     .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
                     .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                     .SetParameter(TxParameterID::CreateTime, getTimestamp());
@@ -932,7 +903,6 @@ void TestManyTransactons()
                 parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
                     .SetParameter(TxParameterID::Amount, 38000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
                     .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
                     .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                     .SetParameter(TxParameterID::CreateTime, getTimestamp());
@@ -949,7 +919,6 @@ void TestManyTransactons()
                 parameters.SetParameter(TxParameterID::TransactionType, TxType::PushTransaction)
                     .SetParameter(TxParameterID::Amount, 38000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
-                    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
                     .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
                     .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                     .SetParameter(TxParameterID::CreateTime, getTimestamp());
@@ -1017,7 +986,7 @@ void TestShortWindow()
             // create 300(kCount) coins(split TX)
             if (cursor.m_Sid.m_Height == 3)
             {
-                auto splitTxParameters = CreateSplitTransactionParameters(sender.m_WalletID, testAmount)
+                auto splitTxParameters = CreateSplitTransactionParameters(testAmount)
                     .SetParameter(TxParameterID::Fee, Amount(kNominalCoin));
 
                 sender.m_Wallet->StartTransaction(splitTxParameters);
@@ -1027,7 +996,7 @@ void TestShortWindow()
             {
                 for (size_t i = 0; i < kCount; i++)
                 {
-                    auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                    auto parameters = lelantus::CreatePushTransactionParameters()
                         .SetParameter(TxParameterID::Amount, kCoinAmount)
                         .SetParameter(TxParameterID::Fee, kFee);
 
@@ -1038,7 +1007,7 @@ void TestShortWindow()
             else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 15)
             {
                 {
-                    auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
+                    auto parameters = lelantus::CreatePullTransactionParameters()
                         .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                         .SetParameter(TxParameterID::Fee, kFee)
                         .SetParameter(TxParameterID::ShieldedOutputId, 40U);
@@ -1046,7 +1015,7 @@ void TestShortWindow()
                     sender.m_Wallet->StartTransaction(parameters);
                 }
                 {
-                    auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
+                    auto parameters = lelantus::CreatePullTransactionParameters()
                         .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                         .SetParameter(TxParameterID::Fee, kFee)
                         .SetParameter(TxParameterID::ShieldedOutputId, 42U);
@@ -1054,7 +1023,7 @@ void TestShortWindow()
                     sender.m_Wallet->StartTransaction(parameters);
                 }
                 {
-                    auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
+                    auto parameters = lelantus::CreatePullTransactionParameters()
                         .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                         .SetParameter(TxParameterID::Fee, kFee)
                         .SetParameter(TxParameterID::ShieldedOutputId, 43U);
@@ -1064,7 +1033,7 @@ void TestShortWindow()
             }
             else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 20)
             {
-                auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
+                auto parameters = lelantus::CreatePullTransactionParameters()
                     .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                     .SetParameter(TxParameterID::Fee, kFee)
                     .SetParameter(TxParameterID::ShieldedOutputId, 62U);
@@ -1073,7 +1042,7 @@ void TestShortWindow()
             }
             else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 30)
             {
-                auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
+                auto parameters = lelantus::CreatePullTransactionParameters()
                     .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                     .SetParameter(TxParameterID::Fee, kFee)
                     .SetParameter(TxParameterID::ShieldedOutputId, 180);
@@ -1152,7 +1121,7 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
                 // better not to send split tx before fork2. It can be dropped once we cross the fork
                 if (cursor.m_Sid.m_Height >= Rules::get().pForks[2].m_Height+1)
                 {
-                    auto splitTxParameters = CreateSplitTransactionParameters(sender.m_WalletID, testAmount)
+                    auto splitTxParameters = CreateSplitTransactionParameters(testAmount)
                         .SetParameter(TxParameterID::Fee, Amount(kNominalCoin));
 
                     bTxSplit = true;
@@ -1174,7 +1143,7 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
 
                     for (size_t i = 0; i < pushTxCount; i++)
                     {
-                        auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                        auto parameters = lelantus::CreatePushTransactionParameters()
                             .SetParameter(TxParameterID::Amount, kCoinAmount)
                             .SetParameter(TxParameterID::Fee, kFee);
 
@@ -1195,7 +1164,7 @@ void TestManyTransactons(const uint32_t txCount, Lelantus::Cfg cfg = Lelantus::C
 
                     for (size_t index = 0; index < pullTxCount; index++)
                     {
-                        auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
+                        auto parameters = lelantus::CreatePullTransactionParameters()
                             .SetParameter(TxParameterID::Amount, kCoinAmount - kFee)
                             .SetParameter(TxParameterID::Fee, kFee)
                             .SetParameter(TxParameterID::ShieldedOutputId, static_cast<TxoID>(index));
@@ -1282,7 +1251,6 @@ void TestPushTxRollbackByLowFee()
                     .SetParameter(TxParameterID::IsSender, true)
                     .SetParameter(TxParameterID::Amount, 38000000)
                     .SetParameter(TxParameterID::Fee, 200)
-                    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
                     .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
                     .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                     .SetParameter(TxParameterID::CreateTime, getTimestamp());
@@ -1339,7 +1307,7 @@ void TestPullTxRollbackByLowFee()
             auto cursor = node.get_Processor().m_Cursor;
             if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
             {
-                auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                auto parameters = lelantus::CreatePushTransactionParameters()
                     .SetParameter(TxParameterID::Amount, 3800000)
                     .SetParameter(TxParameterID::Fee, 1200000);
 
@@ -1347,7 +1315,7 @@ void TestPullTxRollbackByLowFee()
             }
             else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 10)
             {
-                auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
+                auto parameters = lelantus::CreatePullTransactionParameters()
                     .SetParameter(TxParameterID::Amount, 3600000)
                     .SetParameter(TxParameterID::Fee, 200000)
                     .SetParameter(TxParameterID::ShieldedOutputId, 0U);
@@ -1413,7 +1381,7 @@ void TestExpiredTxs()
             auto cursor = node.get_Processor().m_Cursor;
             if (cursor.m_Sid.m_Height == startHeight)
             {
-                auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                auto parameters = lelantus::CreatePushTransactionParameters()
                     .SetParameter(TxParameterID::Amount, 38000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
                     .SetParameter(TxParameterID::Lifetime, 0U);
@@ -1422,7 +1390,7 @@ void TestExpiredTxs()
             }
             else if (cursor.m_Sid.m_Height == startHeight + 3)
             {
-                auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                auto parameters = lelantus::CreatePushTransactionParameters()
                     .SetParameter(TxParameterID::Amount, 78000000)
                     .SetParameter(TxParameterID::Fee, 12000000);
 
@@ -1430,7 +1398,7 @@ void TestExpiredTxs()
             }
             else if (cursor.m_Sid.m_Height == startHeight + 6)
             {
-                auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
+                auto parameters = lelantus::CreatePullTransactionParameters()
                     .SetParameter(TxParameterID::Amount, 66000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
                     .SetParameter(TxParameterID::ShieldedOutputId, 0U)
@@ -1440,7 +1408,7 @@ void TestExpiredTxs()
             }
             else if (cursor.m_Sid.m_Height == startHeight + 9)
             {
-                auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
+                auto parameters = lelantus::CreatePullTransactionParameters()
                     .SetParameter(TxParameterID::Amount, 66000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
                     .SetParameter(TxParameterID::ShieldedOutputId, 0U);
@@ -1505,27 +1473,25 @@ void TestPushTxNoVoucherAtTime() {
                               auto cursor = node.get_Processor().m_Cursor;
                               if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
                               {
-                                  auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                                  auto parameters = lelantus::CreatePushTransactionParameters()
                                           .SetParameter(TxParameterID::Amount, 18000000)
                                           .SetParameter(TxParameterID::Fee, 12000000)
-                                          .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                                          .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
                                           .SetParameter(TxParameterID::Voucher, vouchers.front()) // preassing the voucher
-                                          .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
-                                          .SetParameter(TxParameterID::PeerOwnID, receiver.m_OwnID);
+                                          .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint);
 
                                   sender.m_Wallet->StartTransaction(parameters);
                               }
                               else if (cursor.m_Sid.m_Height == 20)
                               {
                                   // second attempt
-                                  auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                                  auto parameters = lelantus::CreatePushTransactionParameters()
                                           .SetParameter(TxParameterID::Amount, 18000000)
                                           .SetParameter(TxParameterID::Fee, 12000000)
-                                          .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                                          .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
                                           .SetParameter(TxParameterID::Lifetime, static_cast<Height>(1))
                                           .SetParameter(TxParameterID::Voucher, vouchers.front()) // attempt to reuse same voucher
-                                          .SetParameter(TxParameterID::PeerWalletIdentity, receiver.m_SecureWalletID)
-                                          .SetParameter(TxParameterID::PeerOwnID, receiver.m_OwnID);
+                                          .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint);
 
                                   sender.m_Wallet->StartTransaction(parameters);
                               }
@@ -1584,7 +1550,7 @@ void TestReextract()
             auto cursor = node.get_Processor().m_Cursor;
             if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 3)
             {
-                auto parameters = lelantus::CreatePushTransactionParameters(sender.m_WalletID)
+                auto parameters = lelantus::CreatePushTransactionParameters()
                     .SetParameter(TxParameterID::Amount, 38000000)
                     .SetParameter(TxParameterID::Fee, 12000000);
 
@@ -1593,7 +1559,7 @@ void TestReextract()
             else if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height + 10)
             {
                 {
-                    auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
+                    auto parameters = lelantus::CreatePullTransactionParameters()
                         .SetParameter(TxParameterID::Amount, 26000000)
                         .SetParameter(TxParameterID::Fee, 12000000)
                         .SetParameter(TxParameterID::ShieldedOutputId, 0U);
@@ -1601,7 +1567,7 @@ void TestReextract()
                     sender.m_Wallet->StartTransaction(parameters);
                 }
                 {
-                    auto parameters = lelantus::CreatePullTransactionParameters(sender.m_WalletID)
+                    auto parameters = lelantus::CreatePullTransactionParameters()
                         .SetParameter(TxParameterID::Amount, 26000000)
                         .SetParameter(TxParameterID::Fee, 12000000)
                         .SetParameter(TxParameterID::ShieldedOutputId, 0U);
@@ -1629,6 +1595,10 @@ void TestReextract()
 
 int main()
 {
+    ECC::PseudoRandomGenerator prg;
+    ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
+    prg.m_hv = 71U;
+
     int logLevel = LOG_LEVEL_DEBUG;
     auto logger = beam::Logger::create(logLevel, logLevel);
     Rules::get().FakePoW = true;

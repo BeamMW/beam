@@ -217,11 +217,10 @@ private:
             }
             else if (j["method"] == "getblockhash")
             {
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-                result = R"( {"result":"000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f","error":null,"id":"verify"})";
-#else
-                result = R"( {"result":"0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206","error":null,"id":"verify"})";
-#endif
+                if (wallet::UseMainnetSwap())
+                    result = R"( {"result":"000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f","error":null,"id":"verify"})";
+                else
+                    result = R"( {"result":"0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206","error":null,"id":"verify"})";
             }
         }
         else
@@ -314,11 +313,10 @@ private:
                         json request = json::parse(strResponse);
                         if (request["method"] == "server.features")
                         {
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-                            result = R"({"jsonrpc": "2.0", "result": {"genesis_hash": "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"}, "id": "verify"})";
-#else
-                            result = R"({"jsonrpc": "2.0", "result": {"genesis_hash": "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"}, "id": "verify"})";
-#endif
+                            if (wallet::UseMainnetSwap())
+                                result = R"({"jsonrpc": "2.0", "result": {"genesis_hash": "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"}, "id": "verify"})";
+                            else
+                                result = R"({"jsonrpc": "2.0", "result": {"genesis_hash": "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"}, "id": "verify"})";
                         }
                         else if (request["method"] == "blockchain.headers.subscribe")
                         {

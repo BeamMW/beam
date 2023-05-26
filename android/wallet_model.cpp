@@ -47,14 +47,14 @@ namespace
     {
         jobject addr = env->AllocObject(WalletAddressClass);
 
-        setStringField(env, WalletAddressClass, addr, "walletID", to_string(address.m_walletID));
-        setStringField(env, WalletAddressClass, addr, "identity", to_string(address.m_Identity));
+        setStringField(env, WalletAddressClass, addr, "walletID", to_string(address.m_BbsAddr));
+        setStringField(env, WalletAddressClass, addr, "identity", to_string(address.m_Endpoint));
         setStringField(env, WalletAddressClass, addr, "label", address.m_label);
         setStringField(env, WalletAddressClass, addr, "category", address.m_category);
         setLongField(env, WalletAddressClass, addr, "createTime", address.m_createTime);
         setLongField(env, WalletAddressClass, addr, "duration", address.m_duration);
         setLongField(env, WalletAddressClass, addr, "own", address.m_OwnID);
-        setStringField(env, WalletAddressClass, addr, "address", address.m_Address);
+        setStringField(env, WalletAddressClass, addr, "address", address.m_Token);
 
         return addr;
     }
@@ -70,8 +70,8 @@ namespace
         setLongField(env, TxDescriptionClass, tx, "fee", txDescription.m_fee);
         setLongField(env, TxDescriptionClass, tx, "minHeight", txDescription.m_minHeight);
 
-        setStringField(env, TxDescriptionClass, tx, "peerId", to_string(txDescription.m_peerId));
-        setStringField(env, TxDescriptionClass, tx, "myId", to_string(txDescription.m_myId));
+        setStringField(env, TxDescriptionClass, tx, "peerId", to_string(txDescription.m_peerAddr));
+        setStringField(env, TxDescriptionClass, tx, "myId", to_string(txDescription.m_myAddr));
 
         setStringField(env, TxDescriptionClass, tx, "message", comment);
         setLongField(env, TxDescriptionClass, tx, "createTime", txDescription.m_createTime);
@@ -82,10 +82,10 @@ namespace
         setStringField(env, TxDescriptionClass, tx, "kernelId", to_string(txDescription.m_kernelID));
         setIntField(env, TxDescriptionClass, tx, "failureReason", static_cast<jint>(txDescription.m_failureReason));
 
-        setStringField(env, TxDescriptionClass, tx, "identity", txDescription.getIdentity(txDescription.m_sender));
+        setStringField(env, TxDescriptionClass, tx, "identity", txDescription.getEndpoint(txDescription.m_sender));
 
-        setStringField(env, TxDescriptionClass, tx, "senderIdentity", txDescription.getSenderIdentity());
-        setStringField(env, TxDescriptionClass, tx, "receiverIdentity", txDescription.getReceiverIdentity());
+        setStringField(env, TxDescriptionClass, tx, "senderIdentity", txDescription.getSenderEndpoint());
+        setStringField(env, TxDescriptionClass, tx, "receiverIdentity", txDescription.getReceiverEndpoint());
 
         setStringField(env, TxDescriptionClass, tx, "receiverAddress", txDescription.getAddressTo());
         setStringField(env, TxDescriptionClass, tx, "senderAddress", txDescription.getAddressFrom());
@@ -141,11 +141,14 @@ namespace
                 
                 auto contractFee = vData.get_FullFee(h);
                 auto contractSpend = vData.get_FullSpend();
-                
+
                 setLongField(env, TxDescriptionClass, tx, "fee", contractFee);
 
-
                 auto mainAmount = txDescription.m_amount;
+               
+                auto assets = env->NewObjectArray(static_cast<jsize>(contractSpend.size()), WalletStatusClass, NULL);
+
+                int i = 0;
                 for (const auto& info: contractSpend)
                 {
                     auto amount = info.second;
@@ -160,10 +163,31 @@ namespace
                     {
                         setIntField(env, TxDescriptionClass, tx, "assetId", info.first);
                     }
-                    
                     mainAmount = mainAmount + amount;
+
+                    auto assetId = info.first;
+                    auto realAmount = info.second * (-1);
+                    auto isIncome = info.second < 0;
+
+                    jobject walletStatus = env->AllocObject(WalletStatusClass);
+                    if(isIncome) 
+                    {
+                        setLongField(env, WalletStatusClass, walletStatus, "receiving", realAmount);
+                    }
+                    else 
+                    {
+                        setLongField(env, WalletStatusClass, walletStatus, "sending", realAmount);
+                    }
+                    setIntField(env, WalletStatusClass, walletStatus, "assetId", static_cast<jint>(assetId));
+
+                    env->SetObjectArrayElement(assets, static_cast<jsize>(i), walletStatus);
+                    env->DeleteLocalRef(walletStatus);
+
+                    i += 1;
                 }
                 
+                jfieldID assetFieldId = env->GetFieldID(TxDescriptionClass, "assets", "Ljava/util/ArrayList;");
+                env->SetObjectField(tx, assetFieldId, assets);
 
                 setBooleanField(env, TxDescriptionClass, tx, "sender", mainAmount <= 0);
                 setLongField(env, TxDescriptionClass, tx, "amount", mainAmount);

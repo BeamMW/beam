@@ -28,9 +28,9 @@ namespace beam::wallet
             Initial,
             GeneratingCoins,
             Registration,
-            KernelConfirmation,
             OutputsConfirmation,
             Negotiating,
+            RebuildHft,
         };
 
         class Creator : public BaseTransaction::Creator
@@ -47,6 +47,16 @@ namespace beam::wallet
     private:
         bool IsInSafety() const override;
         void UpdateImpl() override;
+        bool CheckExpired() override;
+        bool CanCancel() const override;
+        void OnDependentStateChanged() override;
+        bool Rollback(Height height) override;
+
+        void Init();
+        bool BuildTxOnce();
+        int RegisterTx();
+        bool IsExpired(Height hTrg);
+        bool RetryHft();
 
     private:
         struct MyBuilder;

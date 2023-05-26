@@ -107,9 +107,9 @@ namespace beam::wallet
         LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
         if (!getWallet()->CanDetectCoins()
-           && (data.type == TokenType::MaxPrivacy
-            || data.type == TokenType::Public
-            || data.type == TokenType::Offline))
+            && (data.type == TokenType::MaxPrivacy
+                || data.type == TokenType::Public
+                || data.type == TokenType::Offline))
         {
             throw jsonrpc_exception(ApiError::NotSupported, "Wallet must be connected to own node or mobile node protocol should be turned on to generate this address type.");
         }
@@ -117,16 +117,28 @@ namespace beam::wallet
         auto walletDB = getWalletDB();
 
         WalletAddress address;
-        walletDB->createAddress(address);
+        if (data.createNewAddress)
+        {
+            walletDB->createAddress(address);
 
-        if (data.comment)    address.setLabel(*data.comment);
-        if (data.expiration) address.setExpirationStatus(*data.expiration);
-        if (isApp())         address.setCategory(getAppId());
+            if (data.comment)    address.setLabel(*data.comment);
+            if (data.expiration) address.setExpirationStatus(*data.expiration);
+            if (isApp())         address.setCategory(getAppId());
+        }
+        else
+        {
+            walletDB->getDefaultAddressAlways(address);
+        }
+       
+        std::string sToken = GenerateToken(data.type, address, walletDB, data.offlinePayments);
 
-        address.m_Address = GenerateToken(data.type, address,  walletDB, data.offlinePayments);
-        walletDB->saveAddress(address);
+        if (data.createNewAddress)
+        {
+            address.m_Token = sToken;
+            walletDB->saveAddress(address);
+        }
 
-        doResponse(id, CreateAddress::Response{address.m_Address});
+        doResponse(id, CreateAddress::Response{ sToken });
     }
 
     void V6Api::onHandleDeleteAddress(const JsonRpcId& id, DeleteAddress&& data)
@@ -200,7 +212,7 @@ namespace beam::wallet
         if (p)
         {
             auto walletDB = getWalletDB();
-            if (auto v = p->GetParameter<WalletID>(TxParameterID::PeerID); v)
+            if (auto v = p->GetParameter<WalletID>(TxParameterID::PeerAddr); v)
             {
                 isValid &= v->IsValid();
                 addr = walletDB->getAddress(*v);
@@ -247,52 +259,8 @@ namespace beam::wallet
 
         try
         {
-            WalletID from(Zero);
-
             auto walletDB = getWalletDB();
             auto wallet = getWallet();
-
-            if (data.tokenFrom)
-            {
-                auto addr = walletDB->getAddressByToken(*data.tokenFrom);
-
-                if (!addr.is_initialized())
-                {
-                    throw jsonrpc_exception(ApiError::InvalidAddress, "Unable to find sender address (from).");
-                }
-
-                if (!addr->m_walletID.IsValid())
-                {
-                    throw jsonrpc_exception(ApiError::InvalidAddress, "Invalid sender (from) address.");
-                }
-
-                if (!addr->isOwn())
-                {
-                    throw jsonrpc_exception(ApiError::InvalidAddress, "Sender address (from) is not your own address.");
-                }
-
-                if (addr->isExpired())
-                {
-                    throw jsonrpc_exception(ApiError::InvalidAddress, "Sender address (from) is expired.");
-                }
-
-                from = addr->m_walletID;
-            }
-            else
-            {
-                WalletAddress senderAddress;
-                walletDB->createAddress(senderAddress);
-
-                if (isApp())
-                {
-                    // This address is created for DApp
-                    // Make it visible to DApp
-                    senderAddress.setCategory(getAppId());
-                }
-
-                walletDB->saveAddress(senderAddress);
-                from = senderAddress.m_walletID;
-            }
 
             ByteBuffer message(data.comment.begin(), data.comment.end());
             CoinIDList coins = data.coins ? *data.coins : CoinIDList();
@@ -314,12 +282,32 @@ namespace beam::wallet
                 params.SetParameter(TxParameterID::AssetID, *data.assetId);
             }
 
-            params.SetParameter(TxParameterID::MyID, from)
+            params
                 .SetParameter(TxParameterID::Amount, data.value)
                 .SetParameter(TxParameterID::Fee, data.fee)
                 .SetParameter(TxParameterID::PreselectedCoins, coins)
                 .SetParameter(TxParameterID::Message, message)
                 .SetParameter(beam::wallet::TxParameterID::OriginalToken, data.tokenTo);
+
+
+            if (data.tokenFrom)
+            {
+                auto addr = walletDB->getAddressByToken(*data.tokenFrom);
+
+                if (!addr.is_initialized())
+                    throw jsonrpc_exception(ApiError::InvalidAddress, "Unable to find sender address (from).");
+
+                if (!addr->m_BbsAddr.IsValid())
+                    throw jsonrpc_exception(ApiError::InvalidAddress, "Invalid sender (from) address.");
+
+                if (!addr->isOwn())
+                    throw jsonrpc_exception(ApiError::InvalidAddress, "Sender address (from) is not your own address.");
+
+                if (addr->isExpired())
+                    throw jsonrpc_exception(ApiError::InvalidAddress, "Sender address (from) is expired.");
+
+                params.SetParameter(TxParameterID::MyAddr, addr->m_BbsAddr);
+            }
 
             if (isApp())
             {
@@ -510,17 +498,13 @@ namespace beam::wallet
             auto walletDB = getWalletDB();
             auto wallet = getWallet();
 
-            WalletAddress senderAddress;
-            walletDB->createAddress(senderAddress);
-            walletDB->saveAddress(senderAddress);
-
             if (data.txId && walletDB->getTx(*data.txId))
             {
                 doTxAlreadyExistsError(id);
                 return;
             }
 
-            auto params = CreateSplitTransactionParameters(senderAddress.m_walletID, data.coins, data.txId)
+            auto params = CreateSplitTransactionParameters(data.coins, data.txId)
                     .SetParameter(TxParameterID::Fee, data.fee);
 
             if (data.assetId)

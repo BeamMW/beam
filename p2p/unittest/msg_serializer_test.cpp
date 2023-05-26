@@ -74,13 +74,13 @@ struct MsgHandler : IErrorHandler {
         cout << __FUNCTION__ << "(" << fromStream << "," << errorCode << ")" << endl;
     }
 
-    bool on_ints(uint64_t fromStream, IntList&& msg) {
+    bool on_ints(uint64_t fromStream, IntList&& msg, uint32_t) {
         cout << __FUNCTION__ << "(" << fromStream << "," << msg.size() << ")" << endl;
         receivedInts = msg;
         return true;
     }
 
-    bool on_some_object(uint64_t fromStream, SomeObject&& msg) {
+    bool on_some_object(uint64_t fromStream, SomeObject&& msg, uint32_t) {
         cout << __FUNCTION__ << "(" << fromStream << "," << msg.i << ")" << endl;
         receivedObj = msg;
         return true;

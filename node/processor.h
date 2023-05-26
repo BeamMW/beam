@@ -175,7 +175,9 @@ class NodeProcessor
 
 	bool HandleAssetCreate(const PeerID&, const ContractID*, const Asset::Metadata&, BlockInterpretCtx&, Asset::ID&, Amount& valDeposit, uint32_t nSubIdx = 0);
 	bool HandleAssetEmit(const PeerID&, BlockInterpretCtx&, Asset::ID, AmountSigned, uint32_t nSubIdx = 0);
+	bool HandleAssetEmit2(const PeerID&, BlockInterpretCtx&, Asset::ID, AmountSigned, uint32_t nSubIdx);
 	bool HandleAssetDestroy(const PeerID&, const ContractID*, BlockInterpretCtx&, Asset::ID, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx = 0);
+	bool HandleAssetDestroy2(const PeerID&, const ContractID*, BlockInterpretCtx&, Asset::ID, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx);
 
 	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
 	bool HandleKernelTypeAny(const TxKernel&, BlockInterpretCtx&);
@@ -443,6 +445,8 @@ public:
 
 	int get_AssetAt(Asset::Full&, Height); // Must set ID. Returns -1 if asset is destroyed, 0 if never existed.
 
+	void get_AssetCreateInfo(Asset::CreateInfo&, const NodeDB::WalkerAssetEvt&);
+
 	struct DataStatus {
 		enum Enum {
 			Accepted,
@@ -550,6 +554,7 @@ public:
 	virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {}
 	virtual void OnFastSyncSucceeded() {}
 	virtual Height get_MaxAutoRollback();
+	virtual void OnInvalidBlock(const Block::SystemState::Full&, const Block::Body&) {}
 
 	struct MyExecutor
 		:public Executor
@@ -572,7 +577,7 @@ public:
 
 	virtual Executor& get_Executor();
 
-	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
+	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&, std::string& sErr);
 
 	struct ViewerKeys
 	{
@@ -880,7 +885,7 @@ private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
 	void GenerateNewHdr(BlockContext&, BlockInterpretCtx&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&, bool bAlreadyChecked);
-	bool GetBlockInternal(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body*);
+	bool GetBlockInternal(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body*, bool allowPartialInfo);
 };
 
 struct LogSid

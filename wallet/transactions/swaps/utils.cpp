@@ -126,14 +126,14 @@ const char* getSwapTxStatus(AtomicSwapTransaction::State state)
 
 /// Swap Parameters 
 TxParameters InitNewSwap(
-    const WalletID& myID, Height minHeight, Amount amount,
+    IWalletDB& db, Height minHeight, Amount amount,
     Amount fee, AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFee,
     bool isBeamSide/* = true*/, Height lifetime/*= kDefaultTxLifetime*/,
     Height responseTime/* = kDefaultTxResponseTime*/)
 {
     auto swapTxParameters = CreateSwapTransactionParameters();
     FillSwapTxParams(&swapTxParameters,
-                     myID,
+                     db,
                      minHeight,
                      amount,
                      fee,

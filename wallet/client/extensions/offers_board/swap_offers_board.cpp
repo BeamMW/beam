@@ -34,7 +34,7 @@ SwapOffersBoard::SwapOffersBoard(IBroadcastMsgGateway& broadcastGateway,
     fillOwnAdresses();
 }
 
-bool SwapOffersBoard::onMessage(uint64_t unused, BroadcastMsg&& msg)
+bool SwapOffersBoard::onMessage(BroadcastMsg&& msg)
 {
     auto newOffer = m_protocolHandler.parseMessage(msg);
     if (!newOffer) return false;
@@ -72,13 +72,13 @@ void SwapOffersBoard::onAddressChanged(ChangeAction action, const std::vector<Wa
         {
         case ChangeAction::Reset:
         case ChangeAction::Added:
-            m_ownAddresses.emplace(address.m_walletID, address.m_OwnID);
+            m_ownAddresses.emplace(address.m_BbsAddr, address.m_OwnID);
             break;
         case ChangeAction::Removed:
-            m_ownAddresses.erase(address.m_walletID);
+            m_ownAddresses.erase(address.m_BbsAddr);
             break;
         case ChangeAction::Updated:
-            // m_walletID or m_OwnID shouldn't change
+            // m_BbsAddr or m_OwnID shouldn't change
         default:
             break;
         }
@@ -192,7 +192,7 @@ void SwapOffersBoard::fillOwnAdresses()
 
     for (const auto& address : addresses)
     {
-        m_ownAddresses.emplace(address.m_walletID, address.m_OwnID);
+        m_ownAddresses.emplace(address.m_BbsAddr, address.m_OwnID);
     }
 }
 

@@ -61,14 +61,14 @@ struct MessageHandler : IErrorHandler {
 		Reactor::get_Current().stop();
 	}
 
-    bool on_some_object(uint64_t fromStream, SomeObject&& msg) {
+    bool on_some_object(uint64_t fromStream, SomeObject&& msg, uint32_t) {
         cout << __FUNCTION__ << "(" << fromStream << "," << msg.i << ")" << endl;
         receivedObj = msg;
 		Reactor::get_Current().stop();
 		return true;
     }
 
-    bool on_response(uint64_t fromStream, Response&& msg) {
+    bool on_response(uint64_t fromStream, Response&& msg, uint32_t) {
         cout << __FUNCTION__ << "(" << fromStream << "," << msg.z << ")" << endl;
         receivedResponse = msg;
         return true;

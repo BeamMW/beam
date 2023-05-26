@@ -28,7 +28,7 @@ namespace beam::wallet
         m_broadcastGateway.registerListener(BroadcastContentType::WalletUpdates, this);
     }
 
-    bool WalletUpdatesProvider::onMessage(uint64_t unused, BroadcastMsg&& msg)
+    bool WalletUpdatesProvider::onMessage(BroadcastMsg&& msg)
     {
         if (m_validator.isSignatureValid(msg))
         {

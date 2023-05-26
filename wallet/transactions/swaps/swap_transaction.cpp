@@ -38,7 +38,7 @@ namespace beam::wallet
     }  // namespace
 
     void FillSwapTxParams(TxParameters* params,
-                          const WalletID& myID,
+                          IWalletDB& db,
                           Height minHeight,
                           Amount amount,
                           Amount beamFee,
@@ -49,7 +49,13 @@ namespace beam::wallet
                           Height responseTime /*= kDefaultTxResponseTime*/,
                           Height lifetime /*= kDefaultTxLifetime*/)
     {
-        params->SetParameter(TxParameterID::MyID, myID);
+        auto ownID = db.AllocateKidRange(1);
+        WalletID wid;
+        db.get_SbbsWalletID(wid, ownID);
+
+        params->SetParameter(TxParameterID::MyAddressID, ownID);
+        params->SetParameter(TxParameterID::MyAddr, wid);
+
         params->SetParameter(TxParameterID::MinHeight, minHeight);
         params->SetParameter(TxParameterID::Amount, amount);
         params->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin);
@@ -109,15 +115,15 @@ namespace beam::wallet
 
         if (isOwn)
         {
-            auto myId = *original.GetParameter<WalletID>(TxParameterID::MyID);
-            res.SetParameter(TxParameterID::PeerID, myId);
-            res.DeleteParameter(TxParameterID::MyID);
+            auto myAddr = *original.GetParameter<WalletID>(TxParameterID::MyAddr);
+            res.SetParameter(TxParameterID::PeerAddr, myAddr);
+            res.DeleteParameter(TxParameterID::MyAddr);
         }
         else
         {
-            auto myId = *original.GetParameter<WalletID>(TxParameterID::PeerID);
-            res.SetParameter(TxParameterID::MyID, myId);
-            res.DeleteParameter(TxParameterID::PeerID);
+            auto myAddr = *original.GetParameter<WalletID>(TxParameterID::PeerAddr);
+            res.SetParameter(TxParameterID::MyAddr, myAddr);
+            res.DeleteParameter(TxParameterID::PeerAddr);
         }
         
 
@@ -148,7 +154,7 @@ namespace beam::wallet
         copyParameter<AtomicSwapCoin>(
             TxParameterID::AtomicSwapCoin, original, res);
 
-        copyParameter<WalletID>(TxParameterID::PeerID, original, res);
+        copyParameter<WalletID>(TxParameterID::PeerAddr, original, res);
         copyParameter<bool>(TxParameterID::IsInitiator, original, res);
         copyParameter<bool>(TxParameterID::AtomicSwapIsBeamSide, original, res);
         copyParameter<bool>(TxParameterID::IsSender, original, res);
@@ -304,9 +310,7 @@ namespace beam::wallet
 
     TxParameters AtomicSwapTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
-        CheckSenderAddress(parameters, m_walletDB);
-
-        auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
+        auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerAddr);
         if (peerID)
         {
             auto receiverAddr = m_walletDB->getAddress(*peerID);
@@ -493,6 +497,7 @@ namespace beam::wallet
         try
         {
             CheckSubTxFailures();
+            EnsureListening();
 
             const auto state = GetState<State>(kDefaultSubTxID);
             bool isBeamOwner = IsBeamSide();
@@ -566,6 +571,7 @@ namespace beam::wallet
                     auto minHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight, SubTxIndex::BEAM_LOCK_TX);
                     if (minHeight < mainMinHeight || minHeight >= mainPeerResponseHeight)
                     {
+                        LOG_WARNING() << "mainMinHeight=" << mainMinHeight << ", locktxMinHeight=" << minHeight << ", peerHeight=" << mainPeerResponseHeight;
                         OnSubTxFailed(TxFailureReason::MinHeightIsUnacceptable, SubTxIndex::BEAM_LOCK_TX, true);
                         break;
                     }

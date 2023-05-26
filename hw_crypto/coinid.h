@@ -15,23 +15,24 @@
 #pragma once
 #include "ecc_decl.h"
 
-typedef uint64_t BeamCrypto_Amount;
-typedef uint32_t BeamCrypto_AssetID;
+typedef uint64_t Amount;
+typedef uint32_t AssetID;
 
+#pragma pack (push, 1)
 typedef struct
 {
 	uint64_t m_Idx;
 	uint32_t m_Type;
 	uint32_t m_SubIdx;
 
-	BeamCrypto_Amount  m_Amount;
-	BeamCrypto_AssetID m_AssetID;
+	Amount  m_Amount;
+	AssetID m_AssetID;
 
-} BeamCrypto_CoinID;
+	// alignment is ok. We only remove the trailing padding
+	// We don't deal with arrays internally, and input arrays are considered unaligned and copied one-by-one
 
-#define BeamCrypto_CoinID_Scheme_V0 0
-#define BeamCrypto_CoinID_Scheme_V1 1
-#define BeamCrypto_CoinID_Scheme_BB21 2 // worakround for BB.2.1
+} CoinID;
+#pragma pack (pop)
 
-int BeamCrypto_CoinID_getSchemeAndSubkey(const BeamCrypto_CoinID*, uint8_t* pScheme, uint32_t* pSubkey); // returns 1 iff subkey is required
-void BeamCrypto_CoinID_getHash(const BeamCrypto_CoinID*, BeamCrypto_UintBig*);
+uint32_t CoinID_getSubkey(const CoinID*);
+void CoinID_getHash(const CoinID*, UintBig*);

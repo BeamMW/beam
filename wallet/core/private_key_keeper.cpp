@@ -70,28 +70,6 @@ namespace beam::wallet
 	KEY_KEEPER_METHODS(THE_MACRO)
 #undef THE_MACRO
 
-	////////////////////////////////
-	// misc
-	IPrivateKeyKeeper2::Status::Type IPrivateKeyKeeper2::get_Commitment(ECC::Point::Native& res, const CoinID& cid)
-	{
-		Method::get_Kdf m;
-		m.From(cid);
-
-		Status::Type ret = InvokeSync(m);
-		if (Status::Success != ret)
-			return ret;
-
-		if (!m.m_pPKdf)
-			return Status::UserAbort; // although should not happen, PKdf must always be returned
-
-		CoinID::Worker(cid).Recover(res, *m.m_pPKdf);
-		return Status::Success;
-	}
-
-	void IPrivateKeyKeeper2::Method::get_Kdf::From(const CoinID& cid)
-	{
-		m_Root = !cid.get_ChildKdfIndex(m_iChild);
-	}
 
 	const IPrivateKeyKeeper2::Slot::Type IPrivateKeyKeeper2::Slot::Invalid = static_cast<Type>(-1);
 

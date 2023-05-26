@@ -16,6 +16,7 @@
 
 #include "../bitcoin/settings.h"
 #include "common.h"
+#include "../../common.h"
 
 namespace beam::qtum
 {
@@ -44,21 +45,27 @@ namespace beam::qtum
 
             auto electrumSettings = GetElectrumConnectionOptions();
 
-            electrumSettings.m_nodeAddresses =
+            if (wallet::UseMainnetSwap())
             {
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-                "s1.qtum.info:50002",
-                "s3.qtum.info:50002",
-                "s4.qtum.info:50002",
-                "s5.qtum.info:50002",
-                "s7.qtum.info:50002",
-                "s8.qtum.info:50002",
-                "s9.qtum.info:50002",
-                "s10.qtum.info:50002"
-#else // MASTERNET and TESTNET
-                "s2.qtum.info:51002"
-#endif
-            };
+                electrumSettings.m_nodeAddresses =
+                {
+                    "s1.qtum.info:50002",
+                    "s3.qtum.info:50002",
+                    "s4.qtum.info:50002",
+                    "s5.qtum.info:50002",
+                    "s7.qtum.info:50002",
+                    "s8.qtum.info:50002",
+                    "s9.qtum.info:50002",
+                    "s10.qtum.info:50002"
+                };
+            }
+            else
+            {
+                electrumSettings.m_nodeAddresses =
+                {
+                    "s2.qtum.info:51002"
+                };
+            }
 
             SetElectrumConnectionOptions(electrumSettings);
         }

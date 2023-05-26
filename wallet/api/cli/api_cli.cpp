@@ -337,7 +337,7 @@ namespace
                 _walletData->walletDB    = _walletDB;
                 _walletData->wallet      = _wallet;
                 _walletData->acl         = _acl;
-                _walletData->contracts   = IShadersManager::CreateInstance(_wallet, _walletDB, _network, "", "", 0);
+                _walletData->contracts   = IShadersManager::CreateInstance(*_wallet, "", "", 0);
                 _walletData->nodeNetwork = _network;
 
                 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -668,6 +668,7 @@ int main(int argc, char* argv[])
             (cli::VERSION_FULL,    "print project version")
             (cli::PORT_FULL,        po::value(&options.port)->default_value(10000), "port to start server on")
             (cli::NODE_ADDR_FULL,   po::value<std::string>(&options.nodeURI), "address of node")
+            (cli::MINE_ONLINE,      po::value<bool>(), "Support online mining when connected to owned miner node")
             (cli::WALLET_STORAGE,   po::value<std::string>(&options.walletPath)->default_value("wallet.db"), "path to wallet file")
             (cli::PASS,             po::value<std::string>(), "password for the wallet")
             (cli::API_USE_HTTP,     po::value<bool>(&connectionOptions.useHttp)->default_value(false), "use JSON RPC over HTTP")
@@ -884,6 +885,9 @@ int main(int argc, char* argv[])
                           << uint32_t(responseTime_s / 3600)
                           << " hours may cause transaction problems.";
         }
+
+        if (vm.count(cli::MINE_ONLINE))
+            nnet->m_Cfg.m_PreferOnlineMining = vm[cli::MINE_ONLINE].as<bool>();
 
         nnet->m_Cfg.m_vNodes.push_back(node_addr);
         nnet->Connect();

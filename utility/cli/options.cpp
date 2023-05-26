@@ -184,6 +184,10 @@ namespace beam
         const char* CRASH = "crash";
         const char* INIT = "init";
         const char* RESTORE = "restore";
+        const char* RESTORE_HID = "restore_hid";
+        const char* HID_ENUM = "hid_enum";
+        const char* HID_INSTALL = "hid_install";
+        const char* HID_INSTALL_FILE = "hid_install_image";
         const char* EXPORT_MINER_KEY = "export_miner_key";
         const char* EXPORT_OWNER_KEY = "export_owner_key";
         const char* KEY_SUBKEY = "subkey";
@@ -192,6 +196,7 @@ namespace beam
         const char* KEY_MINE = "key_mine"; // deprecated
         const char* MINER_KEY = "miner_key";
         const char* MINER_JOB_LATENCY = "miner_job_latency";
+        const char* MINE_ONLINE = "mine_online";
         const char* BBS_ENABLE = "bbs_enable";
         const char* NEW_ADDRESS = "new_addr";
         const char* GET_ADDRESS = "get_address";
@@ -231,6 +236,7 @@ namespace beam
         const char* WALLET_ADDR = "address";
         const char* CHANGE_ADDRESS_EXPIRATION = "change_address_expiration";
         const char* WALLET_ADDRESS_LIST = "address_list";
+        const char* WALLET_ADDRESS_VERIFY = "address_verify";
         const char* WALLET_RESCAN = "rescan";
         const char* UTXO = "utxo";
         const char* EXPORT_DATA = "export_data";
@@ -397,6 +403,8 @@ namespace beam
 
         const char* ASSETS_SWAP_OFFER_ID = "offer_id";
 #endif  // BEAM_ASSET_SWAP_SUPPORT
+
+        const char* NETWORK = "network";
     }
 
     template <typename T> struct TypeCvt {
@@ -471,6 +479,7 @@ namespace beam
             (cli::MINER_KEY, po::value<string>(), "Standalone miner key")
             (cli::KEY_MINE, po::value<string>(), "Standalone miner key (deprecated)")
             (cli::MINER_JOB_LATENCY, po::value<uint32_t>(), "Minimal latency in milliseconds for miner job update upon transaction pool change")
+            (cli::MINE_ONLINE, po::value<bool>(), "Perfer online mining when owner wallet is conntected")
             (cli::PASS, po::value<string>(), "password for keys")
             (cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
             (cli::FAST_SYNC, po::value<bool>(), "Fast sync on/off (override horizons)")
@@ -506,6 +515,7 @@ namespace beam
             (cli::KEY_SUBKEY, po::value<Positive<uint32_t>>(), "miner key index (use with export_miner_key)")
             (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
             (cli::PAYMENT_PROOF_DATA, po::value<string>(), "payment proof data to verify")
+            (cli::HID_INSTALL_FILE, po::value<string>(), "App image file to install on HID device. If not specified - integrated image will be used")
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "set IDs of specific UTXO to send")
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export wallet data (should be used with import_data|export_data)")
             (cli::IGNORE_DICTIONARY, "ignore dictionary for a specific seed phrase validation")
@@ -521,6 +531,7 @@ namespace beam
             (cli::OFFLINE_COUNT, po::value<Positive<uint32_t>>(), "generate offline transaction address with given number of payments")
             (cli::PUBLIC_OFFLINE, po::bool_switch()->default_value(false), "generate an offline public address for donates (less secure, but more convenient)")
             (cli::SEND_OFFLINE, po::bool_switch()->default_value(false), "send an offline payment (offline transaction)")
+            (cli::MINE_ONLINE, po::value<bool>(), "Support online mining when connected to owned miner node")
             (cli::BLOCK_HEIGHT, po::value<Nonnegative<Height>>(), "block height")
             (cli::REQUEST_BODIES, po::value<bool>()->default_value(false), "request and parse block bodies on the wallet side");
 
@@ -759,6 +770,7 @@ namespace beam
             macro(Height, Fork3, "Height of the 3rd fork") \
             macro(Height, Fork4, "Height of the 4th fork") \
             macro(Height, Fork5, "Height of the 5th fork") \
+            macro(Height, Fork6, "Height of the 6th fork") \
             macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
             macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only") \
             macro(Height, MaxKernelValidityDH, "Max implicit kernel lifespan after HF2 (a.k.a. kernel visibility horizon)") \
@@ -787,11 +799,14 @@ namespace beam
         #define Fork3 pForks[3].m_Height
         #define Fork4 pForks[4].m_Height
         #define Fork5 pForks[5].m_Height
+        #define Fork6 pForks[6].m_Height
 
-        #define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
+        #define THE_MACRO(type, name, comment) (#name, po::value<type>(), comment)
 
             po::options_description rules_options("CONFIGURATION RULES");
-            rules_options.add_options() RulesParams(THE_MACRO);
+            rules_options.add_options() 
+                (cli::NETWORK, po::value<std::string>(), "Network consensus parameters")
+                RulesParams(THE_MACRO);
 
         #undef THE_MACRO
 
@@ -844,8 +859,34 @@ namespace beam
 
     void getRulesOptions(po::variables_map& vm)
     {
-        #define THE_MACRO(type, name, comment) TypeCvt<type>::set(Rules::get().name, vm[#name].as<type>());
-                RulesParams(THE_MACRO);
+        auto& r = Rules::get();
+
+        const auto& vProf = vm[cli::NETWORK];
+        if (!vProf.empty())
+        {
+            const std::string& sName = vProf.as<std::string>();
+
+#define THE_MACRO(name) \
+        if (sName == #name) \
+            r.m_Network = Rules::Network::name; \
+        else
+
+            RulesNetworks(THE_MACRO)
+#undef THE_MACRO
+
+                Exc::Fail((std::string("Invalid network: ") + sName).c_str());
+
+            r.SetNetworkParams();
+        }
+
+        #define THE_MACRO(type, name, comment) \
+        { \
+            const auto& par = vm[#name]; \
+            if (!par.empty()) \
+                TypeCvt<type>::set(r.name, par.as<type>()); \
+        }
+
+        RulesParams(THE_MACRO);
         #undef THE_MACRO
     }
 

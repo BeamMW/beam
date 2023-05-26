@@ -165,14 +165,14 @@ void Channel::SendPeer(Negotiator::Storage::Map&& dataOut)
     if (m_SendMyWid)
     {
         m_SendMyWid = false;
-        dataOut.Set(m_myAddr.m_walletID, Codes::MyWid);
+        dataOut.Set(m_myAddr.m_BbsAddr, Codes::MyWid);
     }
     
     Serializer ser;
     ser & (*m_ID);
     ser & Cast::Down<FieldMap>(dataOut);
 
-    LOG_INFO() << "Send From: " << std::to_string(m_myAddr.m_walletID) 
+    LOG_INFO() << "Send From: " << std::to_string(m_myAddr.m_BbsAddr)
                << " To peer: " << std::to_string(m_widTrg);
 
     proto::FlyClient::RequestBbsMsg::Ptr pReq(
@@ -296,7 +296,7 @@ const ChannelIDPtr& Channel::get_chID() const
 
 const WalletID& Channel::get_myWID() const
 {
-    return m_myAddr.m_walletID;
+    return m_myAddr.m_BbsAddr;
 }
 
 const WalletID& Channel::get_trgWID() const

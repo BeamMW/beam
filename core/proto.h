@@ -762,13 +762,15 @@ namespace proto {
         virtual void on_protocol_error(uint64_t, ProtocolError error) override;
         virtual void on_connection_error(uint64_t, io::ErrorCode errorCode) override;
 
-#define THE_MACRO(code, msg) bool OnMsgInternal(uint64_t, msg##_NoInit&& v);
+#define THE_MACRO(code, msg) bool OnMsgInternal(uint64_t, msg##_NoInit&& v, uint32_t msgSize);
         BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
 
         void HashAddNonce(ECC::Hash::Processor&, bool bRemote);
 
 		void OnLoginInternal(Login&&);
+
+        void OnTraficOut(uint8_t);
 
     public:
 
@@ -802,6 +804,8 @@ namespace proto {
 		virtual void OnMsg(Time&&) override;
 		virtual void OnMsg(Login&&) override;
         virtual void OnMsg(NewTransaction0&&) override;
+
+        virtual void OnTrafic(uint8_t nCode, uint32_t nSize, bool bOut) {}
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 

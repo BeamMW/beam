@@ -19,5 +19,6 @@
 
 namespace string_helpers
 {
-	std::vector<std::string> split(const std::string& s, char delim, bool trimSpaces = true);
+    std::vector<std::string> split(const std::string& s, char delim, bool trimSpaces = true);
+    std::string trimCommas(const std::string& s);
 }

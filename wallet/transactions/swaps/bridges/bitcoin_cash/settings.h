@@ -16,6 +16,7 @@
 
 #include "settings.h"
 #include "common.h"
+#include "../../common.h"
 
 namespace beam::bitcoin_cash
 {
@@ -40,39 +41,45 @@ namespace beam::bitcoin_cash
 
             auto electrumSettings = GetElectrumConnectionOptions();
 
-            electrumSettings.m_nodeAddresses =
+            if (wallet::UseMainnetSwap())
             {
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-                "bch.crypto.mldlabs.com:50002",
-                "bch.cyberbits.eu:50002",
-                "bch.disdev.org:50002",
-                "bch.imaginary.cash:50002",
-                "bch.loping.net:50002",
-                "bch.soul-dev.com:50002",
-                "bch0.kister.net:50002",
-                "bch2.electroncash.dk:50002",
-                "bitcoincash.network:50002",
-                "bitcoincash.quangld.com:50002",
-                "blackie.c3-soft.com:50002",
-                "ec-bcn.criptolayer.net:50212",
-                "electron.jochen-hoenicke.de:51002",
-                "electroncash.de:50002",
-                "electroncash.dk:50002",
-                "electrs.bitcoinunlimited.info:50002",
-                "electrum.imaginary.cash:50002",
-                "electrumx-bch.cryptonermal.net:50002",
-                "electrumx-cash.1209k.com:50002",
-                "fulcrum.fountainhead.cash:50002",
-                "greedyhog.mooo.com:50002"
-#else // MASTERNET and TESTNET
-                "bch0.kister.net:51002",
-                "blackie.c3-soft.com:60002",
-                "electroncash.de:50004",
-                "tbch.loping.net:60002",
-                "testnet.bitcoincash.network:60002",
-                "testnet.imaginary.cash:50002",
-#endif
-            };
+                electrumSettings.m_nodeAddresses =
+                {
+                    "bch.crypto.mldlabs.com:50002",
+                    "bch.cyberbits.eu:50002",
+                    "bch.disdev.org:50002",
+                    "bch.imaginary.cash:50002",
+                    "bch.loping.net:50002",
+                    "bch.soul-dev.com:50002",
+                    "bch0.kister.net:50002",
+                    "bch2.electroncash.dk:50002",
+                    "bitcoincash.network:50002",
+                    "bitcoincash.quangld.com:50002",
+                    "blackie.c3-soft.com:50002",
+                    "ec-bcn.criptolayer.net:50212",
+                    "electron.jochen-hoenicke.de:51002",
+                    "electroncash.de:50002",
+                    "electroncash.dk:50002",
+                    "electrs.bitcoinunlimited.info:50002",
+                    "electrum.imaginary.cash:50002",
+                    "electrumx-bch.cryptonermal.net:50002",
+                    "electrumx-cash.1209k.com:50002",
+                    "fulcrum.fountainhead.cash:50002",
+                    "greedyhog.mooo.com:50002"
+                };
+            }
+            else
+            {
+                electrumSettings.m_nodeAddresses =
+                {
+                    "bch0.kister.net:51002",
+                    "blackie.c3-soft.com:60002",
+                    "electroncash.de:50004",
+                    "tbch.loping.net:60002",
+                    "testnet.bitcoincash.network:60002",
+                    "testnet.imaginary.cash:50002",
+                };
+            }
 
             SetElectrumConnectionOptions(electrumSettings);
         }

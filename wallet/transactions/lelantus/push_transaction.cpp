@@ -21,10 +21,9 @@
 
 namespace beam::wallet::lelantus
 {
-    TxParameters CreatePushTransactionParameters(const WalletID& myID, const boost::optional<TxID>& txId)
+    TxParameters CreatePushTransactionParameters(const boost::optional<TxID>& txId)
     {
-        return CreateTransactionParameters(TxType::PushTransaction, txId)
-            .SetParameter(TxParameterID::MyID, myID);
+        return CreateTransactionParameters(TxType::PushTransaction, txId);
     }
 
     BaseTransaction::Ptr PushTransaction::Creator::Create(const TxContext& context)
@@ -35,9 +34,8 @@ namespace beam::wallet::lelantus
     TxParameters PushTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
         auto walletDB = m_dbFunc();
-        wallet::CheckSenderAddress(parameters, walletDB);
 
-        auto receiverID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
+        auto receiverID = parameters.GetParameter<WalletID>(TxParameterID::PeerAddr);
         if (receiverID)
         {
             auto vouchers = parameters.GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList);
@@ -50,29 +48,15 @@ namespace beam::wallet::lelantus
         const auto& originalToken = parameters.GetParameter<std::string>(TxParameterID::OriginalToken);
         if (originalToken)
         {
-            auto addrType = parameters.GetParameter<TxAddressType>(TxParameterID::AddressType);
-            if (addrType && addrType == TxAddressType::PublicOffline)
+            auto addr = walletDB->getAddressByToken(*originalToken);
+            if (addr && addr->isOwn())
             {
-                auto publicToken = GeneratePublicToken(*walletDB, std::string());
-                if (*originalToken == publicToken)
-                {
-                    TxParameters temp{ parameters };
-                    temp.SetParameter(TxParameterID::IsSelfTx, true);
-                    return wallet::ProcessReceiverAddress(temp, walletDB, false);
-                }
-            }
-            else
-            {
-                auto addr = walletDB->getAddressByToken(*originalToken);
-                if (addr && addr->isOwn())
-                {
-                    TxParameters temp{ parameters };
-                    temp.SetParameter(TxParameterID::IsSelfTx, addr->isOwn());
-                    return wallet::ProcessReceiverAddress(temp, walletDB, false);
-                }
+                TxParameters temp{ parameters };
+                temp.SetParameter(TxParameterID::IsSelfTx, addr->isOwn());
+                return wallet::ProcessReceiverAddress(temp, walletDB);
             }
         }
-        return wallet::ProcessReceiverAddress(parameters, walletDB, false);
+        return wallet::ProcessReceiverAddress(parameters, walletDB);
     }
 
     PushTransaction::PushTransaction(const TxContext& context)

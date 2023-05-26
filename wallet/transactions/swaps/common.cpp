@@ -19,6 +19,17 @@
 
 namespace beam::wallet
 {
+
+bool g_EnforceTestnetSwap = false;
+
+bool UseMainnetSwap()
+{
+    if (g_EnforceTestnetSwap)
+        return false;
+
+    return (Rules::Network::mainnet == Rules::get().m_Network);
+}
+
 bool IsEthToken(AtomicSwapCoin swapCoin)
 {
     return std::count(std::begin(kEthTokens), std::end(kEthTokens), swapCoin);

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 
-set(TARGET_NAME beam-wallet${BEAM_TARGET_SUFFIX})
+set(TARGET_NAME beam-wallet)
 
 
 set(CLI_SRC

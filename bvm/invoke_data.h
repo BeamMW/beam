@@ -51,6 +51,8 @@ namespace beam::bvm2 {
 			static const uint8_t Dependent = 2;
 			static const uint8_t Multisigned = 8;
 			static const uint8_t HasCommitment = 0x10;
+			static const uint8_t SaveAppInvoke = 0x20;
+			static const uint8_t SaveSpendMax = 0x40;
 		};
 
 		bool IsAdvanced() const {
@@ -131,7 +133,7 @@ namespace beam::bvm2 {
 		void get_SigPreimage(ECC::Hash::Value&, const ECC::Hash::Value& krnMsg) const;
 	};
 
-	struct ContractInvokeData
+	struct ContractInvokeDataBase
 	{
 		std::vector<ContractInvokeEntry> m_vec;
 		// for multisig
@@ -141,6 +143,7 @@ namespace beam::bvm2 {
 		bool m_IsSender = true;
 
 		bool HasMultiSig() const;
+		bool HasDependent() const;
 		std::string get_FullComment() const;
 		beam::Amount get_FullFee(Height) const;
 		bvm2::FundsMap get_FullSpend() const;
@@ -162,5 +165,45 @@ namespace beam::bvm2 {
 
 		void Reset();
 
+	};
+
+	struct AppInvokeData
+	{
+		ByteBuffer m_App;
+		ByteBuffer m_Contract;
+		std::map<std::string, std::string> m_Args;
+		uint32_t m_Privilege = 0;
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar
+				& m_App
+				& m_Contract
+				& m_Args
+				& m_Privilege;
+		}
+	};
+
+	struct ContractInvokeData
+		:public ContractInvokeDataBase
+	{
+		AppInvokeData m_AppInvoke;
+		FundsMap m_SpendMax;
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar & Cast::Down<ContractInvokeDataBase>(*this);
+
+			if (!m_vec.empty())
+			{
+				auto& x = m_vec.front();
+				if (ContractInvokeEntry::Flags::SaveAppInvoke & x.m_Flags)
+					ar & m_AppInvoke;
+				if (ContractInvokeEntry::Flags::SaveSpendMax & x.m_Flags)
+					ar &  Cast::Down< std::map<Asset::ID, AmountSigned> >(m_SpendMax);
+			}
+		}
 	};
 }

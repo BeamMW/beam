@@ -23,7 +23,7 @@ namespace beam::wallet
 const char* getSwapTxStatus(AtomicSwapTransaction::State state);
 
 TxParameters InitNewSwap(
-    const WalletID& myID, Height minHeight, Amount amount,
+    IWalletDB&, Height minHeight, Amount amount,
     Amount fee, AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFee,
     bool isBeamSide = true, Height lifetime = kDefaultTxLifetime,
     Height responseTime = kDefaultTxResponseTime);

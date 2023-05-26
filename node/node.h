@@ -78,6 +78,9 @@ struct Node
 		bool m_LogEvents = false; // may be insecure. Off by default.
 		bool m_LogTxStem = true;
 		bool m_LogTxFluff = true;
+		bool m_LogTraficUsage = false;
+
+		bool m_PreferOnlineMining = true;
 
 		// Number of verification threads for CPU-hungry cryptography. Currently used for block validation only.
 		// 0: single threaded
@@ -125,7 +128,7 @@ struct Node
 
 		struct TestMode {
 			// for testing only!
-			uint32_t m_FakePowSolveTime_ms = 15 * 1000;
+			uint32_t m_FakePowSolveTime_ms = 0;
 
 		} m_TestMode;
 
@@ -237,6 +240,7 @@ private:
 		void OnDummy(const CoinID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
 		Height get_MaxAutoRollback() override;
+		void OnInvalidBlock(const Block::SystemState::Full&, const Block::Body&) override;
 		void Stop();
 
 		struct MyExecutorMT
@@ -588,6 +592,7 @@ private:
 		virtual void OnConnectedSecure() override;
 		virtual void OnDisconnect(const DisconnectReason&) override;
 		virtual void GenerateSChannelNonce(ECC::Scalar::Native&) override; // Must be overridden to support SChannel
+		void OnTrafic(uint8_t msgCode, uint32_t msgSize, bool bOut) override;
 		// login
 		virtual void SetupLogin(proto::Login&) override;
 		virtual void OnLogin(proto::Login&&, uint32_t nFlagsPrev) override;

@@ -927,6 +927,48 @@ void Node::Processor::FlushDB()
     }
 }
 
+void Node::Processor::OnInvalidBlock(const Block::SystemState::Full& s, const Block::Body& block)
+{
+    if (!get_ParentObj().m_Miner.IsEnabled())
+        return;
+
+    // format path
+    std::string sPath = get_ParentObj().m_Cfg.m_sPathLocal;
+    {
+        for (uint32_t i = (uint32_t) sPath.size(); ; )
+        {
+            if (!i--)
+            {
+                sPath.clear();
+                break;
+            }
+
+            if (('/' == sPath[i]) || ('\\' == sPath[i]))
+            {
+                sPath.resize(i + 1);
+                break;
+            }
+        }
+
+        Merkle::Hash hv;
+        s.get_Hash(hv);
+
+        std::ostringstream os;
+        os << s.m_Height << '-' << hv << ".inv_block";
+        sPath += os.str();
+    }
+
+    std::FStream fs;
+    if (fs.Open(sPath.c_str(), false))
+    {
+        Serializer ser;
+        ser & s;
+        ser & block;
+
+        fs.write(ser.buffer().first, ser.buffer().second);
+    }
+}
+
 Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 {
     Peer* pPeer = new Peer(*this);
@@ -959,6 +1001,9 @@ void Node::Keys::SetSingleKey(const Key::IKdf::Ptr& pKdf)
     m_pMiner = pKdf;
     m_pGeneric = pKdf;
     m_pOwner = pKdf;
+
+    if (CoinID(Zero).get_ChildKdfIndex(m_nMinerSubIndex))
+        m_pMiner = MasterKey::get_Child(*pKdf, m_nMinerSubIndex);
 }
 
 void Node::Initialize(IExternalPOW* externalPOW)
@@ -1010,6 +1055,10 @@ void Node::Initialize(IExternalPOW* externalPOW)
 	m_Processor.get_DB().get_BbsTotals(m_Bbs.m_Totals);
     m_Bbs.Cleanup();
 	m_Bbs.m_HighestPosted_s = m_Processor.get_DB().get_BbsMaxTime();
+
+    if (m_Cfg.m_TestMode.m_FakePowSolveTime_ms && Rules::get().FakePoW)
+        m_PostStartSynced = true;
+
 }
 
 uint32_t Node::get_AcessiblePeerCount() const
@@ -1252,6 +1301,12 @@ void Node::Peer::GenerateSChannelNonce(ECC::Scalar::Native& nonce)
     m_This.NextNonce(nonce);
 }
 
+void Node::Peer::OnTrafic(uint8_t msgCode, uint32_t msgSize, bool bOut)
+{
+    if (m_This.m_Cfg.m_LogTraficUsage)
+        std::cout << "** " << (bOut ? "<-" : "->") << " " << m_RemoteAddr << " Size=" << msgSize << ", Msg=" << static_cast<uint32_t>(msgCode) << '\n';
+}
+
 void Node::Peer::OnConnectedSecure()
 {
     LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Connected";
@@ -1471,7 +1526,8 @@ bool Node::Peer::ShouldFinalizeMining()
 {
     return
         (Flags::Owner & m_Flags) &&
-        (proto::LoginFlags::MiningFinalization & m_LoginFlags);
+        (proto::LoginFlags::MiningFinalization & m_LoginFlags) &&
+        m_This.m_Cfg.m_PreferOnlineMining;
 }
 
 void Node::Peer::OnMsg(proto::Bye&& msg)
@@ -2240,8 +2296,7 @@ uint8_t Node::ValidateTx(TxPool::Stats& stats, const Transaction& tx, const Tran
         return it->second;
     }
 
-    Transaction::Context::Params pars;
-    Transaction::Context ctx(pars);
+    Transaction::Context ctx;
     uint32_t nBvmCharge = 0;
     Amount feeReserve = 0;
 
@@ -2270,10 +2325,22 @@ uint8_t Node::ValidateTx2(Transaction::Context& ctx, const Transaction& tx, uint
 {
     ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
 
-    if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
+    std::string sErr;
+    bool bValid = m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader(), sErr);
+    if (bValid)
+    {
+        try {
+            ctx.TestValidTransaction();
+        } catch (const std::exception& e) {
+            bValid = false;
+            sErr = e.what();
+        }
+    }
+
+    if (!bValid)
     {
         if (pExtraInfo)
-            *pExtraInfo << "Context-free validation failed";
+            *pExtraInfo << "Context-free validation failed: " << sErr;
         return proto::TxStatus::Invalid;
     }
 
@@ -2878,8 +2945,7 @@ uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash&
             pParent = &itCtx->get_ParentObj();
         }
 
-        Transaction::Context::Params pars;
-        Transaction::Context ctx(pars);
+        Transaction::Context ctx;
         uint32_t nBvmCharge = 0;
         Amount feeReserve = 0;
         Merkle::Hash hvCtxNew;
@@ -2889,7 +2955,7 @@ uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash&
             return nRes;
 
         if (m_TxDependent.m_setContexts.find(hvCtxNew, TxPool::Dependent::Element::Context::Comparator()) != m_TxDependent.m_setContexts.end())
-            return proto::TxStatus::DependentNotBest;
+            return proto::TxStatus::DependentNoNewCtx;
         
         pElem = m_TxDependent.AddValidTx(std::move(pTx), ctx, keyTx, hvCtxNew, pParent);
         pElem->m_BvmCharge = nBvmCharge;
@@ -2994,7 +3060,11 @@ void Node::Peer::OnLogin(proto::Login&& msg, uint32_t nFlagsPrev)
         }
     }
 
-    bool b = ShouldFinalizeMining();
+    bool b;
+    {
+        TemporarySwap ts(m_LoginFlags, nFlagsPrev);
+        b = ShouldFinalizeMining();
+    }
 
 	if (m_This.m_Cfg.m_Bbs.IsEnabled() &&
 		!(proto::LoginFlags::Bbs & nFlagsPrev) &&
@@ -3858,11 +3928,11 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 
         // verify that all the outputs correspond to our viewer's Kdf (in case our comm was hacked this'd prevent mining for someone else)
         // and do the overall validation
-        TxBase::Context::Params pars;
-		TxBase::Context ctx(pars);
+		TxBase::Context ctx;
 		ctx.m_Height = m_This.m_Processor.m_Cursor.m_ID.m_Height + 1;
-        if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader()))
-            ThrowUnexpected();
+        std::string sErr;
+        if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader(), sErr))
+            ThrowUnexpected(sErr.c_str());
 
         if (ctx.m_Stats.m_Coinbase != AmountBig::Type(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
             ThrowUnexpected();
@@ -4169,6 +4239,9 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 
 bool Node::Miner::IsEnabled() const 
 {
+    if (!get_ParentObj().m_Keys.m_pOwner)
+        return false;
+
     if (!m_External.m_pSolver && m_vThreads.empty())
         return false;
 
@@ -5097,7 +5170,7 @@ void Node::PrintTxos()
 
     {
         Key::ID kid(Zero);
-        kid.m_Type = ECC::Key::Type::WalletID;
+        kid.m_Type = ECC::Key::Type::EndPoint;
         kid.get_Hash(pid);
 
         ECC::Point::Native ptN;

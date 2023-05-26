@@ -75,7 +75,7 @@ public:
      *  IBroadcastListener implementation
      *  Processes broadcast messages
      */
-    bool onMessage(uint64_t, BroadcastMsg&&) override;
+    bool onMessage(BroadcastMsg&&) override;
     
     /**
      *  IWalletDbObserver implementation

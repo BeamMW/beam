@@ -16,6 +16,7 @@
 
 #include "settings.h"
 #include "common.h"
+#include "../../common.h"
 
 namespace beam::litecoin
 {
@@ -42,22 +43,29 @@ namespace beam::litecoin
 
             auto electrumSettings = GetElectrumConnectionOptions();
 
-            electrumSettings.m_nodeAddresses =
+            if (wallet::UseMainnetSwap())
             {
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-                "46.101.3.154:50002",
-                "backup.electrum-ltc.org:443",
-                "electrum-ltc.bysh.me:50002",
-                "electrum-ltc.someguy123.net:50002",
-                "electrum.ltc.xurious.com:50002",
-                "electrum.privateservers.network:50005",
-                "ltc.litepay.ch:50022",
-                "ltc.rentonisk.com:50002"
-#else // MASTERNET and TESTNET
-                "electrum.ltc.xurious.com:51002",
-                "electrum-ltc.bysh.me:51002"
-#endif
-            };
+                electrumSettings.m_nodeAddresses =
+                {
+                    "46.101.3.154:50002",
+                    "backup.electrum-ltc.org:443",
+                    "electrum-ltc.bysh.me:50002",
+                    "electrum-ltc.someguy123.net:50002",
+                    "electrum.ltc.xurious.com:50002",
+                    "electrum.privateservers.network:50005",
+                    "ltc.litepay.ch:50022",
+                    "ltc.rentonisk.com:50002"
+                };
+            }
+            else
+            {
+                electrumSettings.m_nodeAddresses =
+                {
+                    "electrum.ltc.xurious.com:51002",
+                    "electrum-ltc.bysh.me:51002"
+                };
+            }
+
 
             SetElectrumConnectionOptions(electrumSettings);
         }
