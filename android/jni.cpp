@@ -604,9 +604,9 @@ void CopyParameter(beam::wallet::TxParameterID paramID, const beam::wallet::TxPa
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, jobject thiz,
-    jstring senderAddr, jstring receiverAddr, jstring comment, jlong amount, jlong fee, jint assetId, jboolean isOffline)
+    jstring receiverAddr, jstring comment, jlong amount, jlong fee, jint assetId, jboolean isOffline)
 {
-    LOG_DEBUG() << "sendTransaction(" << JString(env, senderAddr).value() << ", " << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
+    LOG_DEBUG() << "sendTransaction(" << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
     LOG_DEBUG() << "asset id" << assetId;
     
     auto address = JString(env, receiverAddr).value();
@@ -645,20 +645,13 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
         .SetParameter(TxParameterID::AssetID, beam::Asset::ID(asset))
         .SetParameter(TxParameterID::Message, beam::ByteBuffer(messageString.begin(), messageString.end()));
 
-    WalletID widMy(Zero);
-    if (widMy.FromHex(JString(env, senderAddr).value()))
-        params.SetParameter(beam::wallet::TxParameterID::MyAddr, widMy);
 
     if (type == TxAddressType::MaxPrivacy) {
         CopyParameter(TxParameterID::Voucher, _txParameters, params);
         params.SetParameter(TxParameterID::MaxPrivacyMinAnonimitySet, m_mpLockTimeLimit);
     }
 
-    if (!beam::wallet::CheckReceiverAddress(address)) {
-        params.SetParameter(TxParameterID::OriginalToken, address);
-    }
-    params.SetParameter(TxParameterID::OriginalToken, JString(env, receiverAddr).value());
-   // params.SetParameter(TxParameterID::SavePeerAddress, false);
+    params.SetParameter(TxParameterID::OriginalToken, address);
 
     walletModel->getAsync()->startTransaction(std::move(params));
 }
