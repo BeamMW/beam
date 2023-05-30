@@ -690,13 +690,7 @@ table, th, td {
 
 	const xmlhttp = new XMLHttpRequest();
 
-	if (type == "contracts")
-	{
-		xmlhttp.onload = DisplayContracts;
-		xmlhttp.open("GET", urlPrefix +  "contracts" + urlSuffix);
-		xmlhttp.send();
-	}
-	else if (type == "aid")
+	if (type == "aid")
 	{
 		xmlhttp.onload = DisplayAssetHistory;
 		xmlhttp.open("GET", urlPrefix +  "asset" + urlSuffix + "&id=" + g_CurrentID);
@@ -718,6 +712,12 @@ table, th, td {
 	{
 		xmlhttp.onload = DisplayHdrs;
 		xmlhttp.open("GET", urlPrefix +  "hdrs" + urlSuffix);
+		xmlhttp.send();
+	}
+	else
+	{
+		xmlhttp.onload = DisplayContracts;
+		xmlhttp.open("GET", urlPrefix +  "contracts" + urlSuffix);
 		xmlhttp.send();
 	}
 
