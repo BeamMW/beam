@@ -5613,9 +5613,9 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::OnRet(Wasm::Word nRetAddr)
 	}
 }
 
-void NodeProcessor::ToInputWithMaturity(Input& inp, Output& outp, bool bNake)
+void NodeProcessor::SetInputMaturity(Input& inp)
 {
-	// awkward and relatively used, but this is not used frequently.
+	// awkward, but this is not used frequently.
 	// NodeDB::StateInput doesn't contain the maturity of the spent UTXO. Hence we reconstruct it
 	// We find the original UTXO height, and then decode the UTXO body, and check its additional maturity factors (coinbase, incubation)
 
@@ -5625,15 +5625,13 @@ void NodeProcessor::ToInputWithMaturity(Input& inp, Output& outp, bool bNake)
 	uint8_t pNaked[s_TxoNakedMax];
 	Blob val = wlk.m_Value;
 
-	if (bNake)
-		TxoToNaked(pNaked, val);
+	TxoToNaked(pNaked, val);
 
 	Deserializer der;
 	der.reset(val.p, val.n);
 
+	Output outp;
 	der & outp;
-
-	inp.m_Commitment = outp.m_Commitment;
 
 	Height hCreate = 0;
 	FindHeightByTxoID(hCreate, inp.m_Internal.m_ID); // relatively heavy operation: search for the original txo height
@@ -5660,14 +5658,15 @@ void NodeProcessor::RollbackTo(Height h)
 		BlockInterpretCtx bic(sid.m_Height, false);
 		for (size_t i = 0; i < v.size(); i++)
 		{
-			TxoID id = v[i].get_ID();
+			const auto& src = v[i];
+			TxoID id = src.get_ID();
 			if (id >= id0)
 				continue; // created and spent within this range - skip it
 
 			Input inp;
+			src.Get(inp.m_Commitment);
 			inp.m_Internal.m_ID = id;
-			Output outp;
-			ToInputWithMaturity(inp, outp, true);
+			SetInputMaturity(inp);
 
 			if (!HandleBlockElement(inp, bic))
 				OnCorrupted();
@@ -6975,11 +6974,6 @@ void NodeProcessor::InitializeUtxos()
 
 bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive)
 {
-	return GetBlockInternal(sid, pEthernal, pPerishable, h0, hLo1, hHi1, bActive, nullptr, false);
-}
-
-bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body* pBody, bool allowPartialInfo)
-{
 	// h0 - current peer Height
 	// hLo1 - HorizonLo that peer needs after the sync
 	// hHi1 - HorizonL1 that peer needs after the sync
@@ -6999,26 +6993,23 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 	std::setmax(hHi1, sid.m_Height); // valid block can't spend its own output. Hence this means full block should be transferred
 	std::setmax(hLo1, sid.m_Height - 1);
 
-	if (!allowPartialInfo)
-	{
-		if (m_Extra.m_TxoHi > hHi1)
-			return false;
+	if (m_Extra.m_TxoHi > hHi1)
+		return false;
 
-		if (m_Extra.m_TxoLo > hLo1)
-			return false;
+	if (m_Extra.m_TxoLo > hLo1)
+		return false;
 
-		if ((h0 >= Rules::HeightGenesis) && (m_Extra.m_TxoLo > sid.m_Height))
-			return false; // we don't have any info for the range [Rules::HeightGenesis, h0].
+	if ((h0 >= Rules::HeightGenesis) && (m_Extra.m_TxoLo > sid.m_Height))
+		return false; // we don't have any info for the range [Rules::HeightGenesis, h0].
 
-		// in case we're during sync - make sure we don't return non-full blocks as-is
-		if (IsFastSync() && (sid.m_Height > m_Cursor.m_ID.m_Height))
-			return false;
-	}
+	// in case we're during sync - make sure we don't return non-full blocks as-is
+	if (IsFastSync() && (sid.m_Height > m_Cursor.m_ID.m_Height))
+		return false;
 
-	bool bFullBlock = (sid.m_Height >= hHi1) && (sid.m_Height > hLo1) && !pBody;
+	bool bFullBlock = (sid.m_Height >= hHi1) && (sid.m_Height > hLo1);
 	m_DB.GetStateBlock(sid.m_Row, bFullBlock ? pPerishable : nullptr, pEthernal, nullptr);
 
-	if (!pBody && !(pPerishable && pPerishable->empty()))
+	if (!(pPerishable && pPerishable->empty()))
 		return true;
 
 	// re-create it from Txos
@@ -7046,10 +7037,7 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 		id0 = m_Extra.m_TxosTreasury;
 
 	Serializer ser;
-	if (pBody)
-		Cast::Down<TxBase>(*pBody) = std::move(txb);
-	else
-		ser & txb;
+	ser & txb;
 
 	uint32_t nCount = 0;
 
@@ -7072,20 +7060,10 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 				{
 					const NodeDB::StateInput& si = v[i];
 
-					if (pBody)
-					{
-						Input::Ptr& pInp = pBody->m_vInputs.emplace_back();
-						pInp.reset(new Input);
-						si.Get(pInp->m_Commitment);
-						pInp->m_Internal.m_ID = si.get_ID();
-					}
-					else
-					{
-						// write
-						Input inp;
-						si.Get(inp.m_Commitment);
-						ser & inp;
-					}
+					// write
+					Input inp;
+					si.Get(inp.m_Commitment);
+					ser & inp;
 				}
 				else
 					nCount++;
@@ -7095,18 +7073,12 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 		if (iCycle)
 			break;
 
-		if (pBody)
-			pBody->m_vInputs.reserve(nCount);
-		else
-			ser & uintBigFrom(nCount);
+		ser & uintBigFrom(nCount);
 	}
 
 	nCount = 0;
 
 	// outputs
-	if (pBody)
-		pBody->m_vOutputs.reserve(static_cast<size_t>(id1 - id0 - 1)); // num of original outputs
-
 	NodeDB::WalkerTxo wlk;
 	for (m_DB.EnumTxos(wlk, id0); wlk.MoveNext(); )
 	{
@@ -7125,35 +7097,16 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 		if (wlk.m_SpendHeight <= hHi1)
 			TxoToNaked(pNaked, wlk.m_Value);
 
-		if (pBody)
-		{
-			Deserializer der;
-			der.reset(wlk.m_Value.p, wlk.m_Value.n);
+		nCount++;
 
-			Output::Ptr& pOutp = pBody->m_vOutputs.emplace_back();
-			pOutp.reset(new Output);
-			der & *pOutp;
-		}
-		else
-		{
-			nCount++;
-
-			const uint8_t* p = reinterpret_cast<const uint8_t*>(wlk.m_Value.p);
-			bbBlob.insert(bbBlob.end(), p, p + wlk.m_Value.n);
-		}
+		const uint8_t* p = reinterpret_cast<const uint8_t*>(wlk.m_Value.p);
+		bbBlob.insert(bbBlob.end(), p, p + wlk.m_Value.n);
 	}
 
-	if (!pBody)
-	{
-		ser & uintBigFrom(nCount);
-		ser.swap_buf(*pPerishable);
-		pPerishable->insert(pPerishable->end(), bbBlob.begin(), bbBlob.end());
+	ser & uintBigFrom(nCount);
+	ser.swap_buf(*pPerishable);
+	pPerishable->insert(pPerishable->end(), bbBlob.begin(), bbBlob.end());
 		
-		ser.swap_buf(*pPerishable);
-
-		ser.swap_buf(*pPerishable);
-	}
-
 	return true;
 }
 

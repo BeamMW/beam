@@ -196,7 +196,7 @@ class NodeProcessor
 	static void TxoToNaked(uint8_t* pBuf, Blob&);
 	static bool TxoIsNaked(const Blob&);
 
-	void ToInputWithMaturity(Input&, Output&, bool bNake);
+	void SetInputMaturity(Input&);
 
 	TxoID get_TxosBefore(Height);
 	TxoID FindHeightByTxoID(Height& h, TxoID id0); // returns the Txos at state end
@@ -892,7 +892,6 @@ private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
 	void GenerateNewHdr(BlockContext&, BlockInterpretCtx&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&, bool bAlreadyChecked);
-	bool GetBlockInternal(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body*, bool allowPartialInfo);
 };
 
 struct LogSid
