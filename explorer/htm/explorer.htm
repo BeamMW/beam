@@ -349,6 +349,8 @@ table, th, td {
 	
 	if (isInp)
 		text += "<th>Height</th>\n";
+	else
+		text += "<th>Spent</th>\n";
 	
 	text += "\
 	<th>Maturity</th>\n\
@@ -363,17 +365,15 @@ table, th, td {
 			text += MakeCell(MakeMonospace(jRow["commitment"]));
 			delete jRow.commitment;
 	
-			if (isInp)	
+			let j = jRow[isInp ? "height" : "spent"];
+	
+			if (j)
 			{
-				let j = jRow["height"];
-				if (j)
-				{
-					text += MakeCell(MakeBlock(j));
-					delete jRow.height;
-				}
-				else
-					text += MakeCell("");
+				text += MakeCell(MakeBlock(j));
+				delete jRow.height;
 			}
+			else
+				text += MakeCell("");
 
 			j = jRow["Maturity"];
 			if (j)

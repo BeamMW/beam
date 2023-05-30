@@ -1108,20 +1108,23 @@ namespace beam
 			sid.m_Height = h;
 			sid.m_Row = np.FindActiveAtStrict(h);
 
-			Block::Body block;
-			std::vector<Output::Ptr> vOutsIn;
+			TxVectors::Eternal txe;
+			std::vector<NodeProcessor::TxoInfo> vIns, vOuts;
 			std::vector<NodeProcessor::ContractInvokeExtraInfo> vC;
-			np.ExtractBlockWithExtra(block, vOutsIn, sid, vC);
+			np.ExtractBlockWithExtra(sid, vIns, vOuts, txe, vC);
 
-			verify_test(vOutsIn.size() == block.m_vInputs.size());
-
-			// inputs must come with maturities!
-			for (size_t i = 0; i < block.m_vInputs.size(); i++)
+			for (const auto& x : vIns)
 			{
-				const Input& inp = *block.m_vInputs[i];
-				verify_test(inp.m_Commitment == vOutsIn[i]->m_Commitment);
-				verify_test(inp.m_Internal.m_ID && inp.m_Internal.m_Maturity);
+				verify_test(x.m_hCreate < h);
+				verify_test(x.m_hSpent == h);
 			}
+
+			for (const auto& x : vOuts)
+			{
+				verify_test(x.m_hCreate == h);
+				verify_test(x.m_hSpent > h);
+			}
+
 		}
 
 	}

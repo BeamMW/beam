@@ -440,7 +440,14 @@ public:
 		ContractID m_Cid;
 	};
 
-	bool ExtractBlockWithExtra(Block::Body&, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID&, std::vector<ContractInvokeExtraInfo>&);
+	struct TxoInfo
+	{
+		Output m_Outp;
+		Height m_hCreate;
+		Height m_hSpent;
+	};
+
+	void ExtractBlockWithExtra(const NodeDB::StateID&, std::vector<TxoInfo>& vIns, std::vector<TxoInfo>& vOuts, TxVectors::Eternal& txe, std::vector<ContractInvokeExtraInfo>&);
 	void get_ContractDescr(const ECC::uintBig& sid, const ECC::uintBig& cid, std::string&, bool bFullState);
 
 	int get_AssetAt(Asset::Full&, Height); // Must set ID. Returns -1 if asset is destroyed, 0 if never existed.

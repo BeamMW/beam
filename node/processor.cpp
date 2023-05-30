@@ -6711,38 +6711,75 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 	return false;
 }
 
-bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID& sid, std::vector<ContractInvokeExtraInfo>& vC)
+void NodeProcessor::ExtractBlockWithExtra(const NodeDB::StateID& sid, std::vector<TxoInfo>& vIns, std::vector<TxoInfo>& vOuts, TxVectors::Eternal& txe, std::vector<ContractInvokeExtraInfo>& vC)
 {
-	ByteBuffer bbE;
-	if (!GetBlockInternal(sid, &bbE, nullptr, 0, 0, 0, false, &block, true))
-		return false;
-
-	Deserializer der;
-	der.reset(bbE);
-	der & Cast::Down<TxVectors::Eternal>(block);
-
-	vOutsIn.reserve(block.m_vInputs.size());
-
-	for (size_t i = 0; i < block.m_vInputs.size(); i++)
 	{
-		Input& inp = *block.m_vInputs[i];
-		Output::Ptr& pOutp = vOutsIn.emplace_back();
-		pOutp = std::make_unique<Output>();
+		// kernels
+		ByteBuffer bbE;
+		m_DB.GetStateBlock(sid.m_Row, nullptr, &bbE, nullptr);
 
-		ToInputWithMaturity(inp, *pOutp, false);
+		Deserializer der;
+		der.reset(bbE);
+		der & txe;
+
+		NodeDB::KrnInfo::Walker wlk;
+		for (m_DB.KrnInfoEnum(wlk, sid.m_Height); wlk.MoveNext(); )
+		{
+			auto& info = vC.emplace_back();
+			info.m_Cid = wlk.m_Entry.m_Cid;
+
+			der.reset(wlk.m_Entry.m_Val.p, wlk.m_Entry.m_Val.n);
+			der& info;
+		}
+
 	}
 
-	NodeDB::KrnInfo::Walker wlk;
-	for (m_DB.KrnInfoEnum(wlk, sid.m_Height); wlk.MoveNext(); )
 	{
-		auto& info = vC.emplace_back();
-		info.m_Cid = wlk.m_Entry.m_Cid;
+		// inputs
+		std::vector<NodeDB::StateInput> v;
+		m_DB.get_StateInputs(sid.m_Row, v);
 
-		der.reset(wlk.m_Entry.m_Val.p, wlk.m_Entry.m_Val.n);
-		der & info;
+		vIns.resize(v.size());
+
+		for (uint32_t i = 0; i < v.size(); i++)
+		{
+			TxoID txoID = v[i].get_ID();
+			auto& dst = vIns[i];
+
+			NodeDB::WalkerTxo wlk;
+			m_DB.TxoGetValue(wlk, txoID);
+
+			Deserializer der;
+			der.reset(wlk.m_Value.p, wlk.m_Value.n);
+			der & dst.m_Outp;
+
+			dst.m_hSpent = sid.m_Height;
+			FindHeightByTxoID(dst.m_hCreate, txoID);
+		}
 	}
 
-	return true;
+	{
+		// outputs
+		TxoID id1 = get_TxosBefore(sid.m_Height + 1);
+		TxoID id0 = get_TxosBefore(sid.m_Height);
+		vOuts.reserve(id1 - id0);
+
+		NodeDB::WalkerTxo wlk;
+		for (m_DB.EnumTxos(wlk, id0); wlk.MoveNext(); )
+		{
+			if (wlk.m_ID >= id1)
+				break;
+
+			auto& dst = vOuts.emplace_back();
+
+			Deserializer der;
+			der.reset(wlk.m_Value.p, wlk.m_Value.n);
+			der& dst.m_Outp;
+
+			dst.m_hCreate = sid.m_Height;
+			dst.m_hSpent = wlk.m_SpendHeight;
+		}
+	}
 }
 
 TxoID NodeProcessor::get_TxosBefore(Height h)
