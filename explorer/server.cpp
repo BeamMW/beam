@@ -590,9 +590,9 @@ void jsonExp(json& obj, uint32_t nDepth)
             {
                 AmountBig::Print(os, valBig, false);
 
-                char szRaw[AmountBig::Type::nTxtLen + 1];
-                valBig.Print(szRaw);
-                os << " raw " << szRaw;
+                //char szRaw[AmountBig::Type::nTxtLen + 1];
+                //valBig.Print(szRaw);
+                //os << " raw " << szRaw;
             }
             else
                 AmountBig::Print(os, val, false);
