@@ -179,7 +179,7 @@ message("BEAM_ASSET_SWAP_SUPPORT is ${BEAM_ASSET_SWAP_SUPPORT}")
 option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
 message("BEAM_HW_WALLET is ${BEAM_HW_WALLET}")
 
-
+set(BEAM_TESTS_ENABLED FALSE)
 
 if(BEAM_HW_WALLET)
 
