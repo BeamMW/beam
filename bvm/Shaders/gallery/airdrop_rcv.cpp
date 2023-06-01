@@ -598,50 +598,40 @@ struct PayoutReader
         return true;
     }
 
-    static const PayoutEntry* FindPayoutKey(const PubKey& pk)
-    {
-        uint32_t n0 = 0;
-        uint32_t n1 = _countof(g_pPayouts);
-        while (n0 + 1 < n1)
-        {
-            uint32_t nMid = (n0 + n1) / 2;
-            const PayoutEntry& x = g_pPayouts[nMid];
-
-            int cmp = _POD_(x.m_pk).Cmp(pk);
-            ((cmp <= 0) ? n0 : n1) = nMid;
-        }
-
-        const PayoutEntry& x = g_pPayouts[n0];
-        return (_POD_(x.m_pk) == pk) ? &x : nullptr;
-    }
-
     bool ProcessAllKeysForCid(KeyMaterial::Owner& km, VaultAnon::WalkerAccounts& wlk)
     {
+        if (!ProcessAllKeysForCid2(km, wlk, true))
+            return false;
+
+        return ProcessAllKeysForCid2(km, wlk, false);
+    }
+
+    bool ProcessAllKeysForCid2(KeyMaterial::Owner& km, VaultAnon::WalkerAccounts& wlk, bool isArtist)
+    {
         Env::KeyID kid(&km, sizeof(km));
-
-        km.m_ID = 0;
         PubKey pk;
-        kid.get_Pk(pk);
 
-        const PayoutEntry* pE = FindPayoutKey(pk);
-        if (pE)
+        if (isArtist)
         {
-            if (!ProcessOneKey(kid, wlk))
-                return false;
+            km.m_ID = 0;
+            kid.get_Pk(pk);
         }
 
         for (uint32_t i = 0; i < _countof(g_pPayouts); i++)
         {
             const auto& x = g_pPayouts[i];
-            if (!x.m_NftId)
-                continue;
 
-            km.m_ID = Utils::FromBE(x.m_NftId);
-            kid.get_Pk(pk);
+            if (!isArtist)
+            {
+                if (!x.m_NftId)
+                    continue;
+
+                km.m_ID = Utils::FromBE(x.m_NftId);
+                kid.get_Pk(pk);
+            }
+
             if (_POD_(x.m_pk) == pk)
             {
-                Env::DocAddNum("key1", x.m_NftId);
-
                 if (!ProcessOneKey(kid, wlk))
                     return false;
             }
