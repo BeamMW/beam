@@ -350,9 +350,10 @@ struct HtmlConverter
         return false;
     }
 
-    static void ReadUIntBig(AmountBig::Type& res, const char* sz)
+    static uint32_t ReadUIntBig(AmountBig::Type& res, const char* sz)
     {
         res = Zero;
+        uint32_t ret = 0;
 
         while (true)
         {
@@ -368,6 +369,7 @@ struct HtmlConverter
 
                 nAdd = nAdd * 10u + val;
                 nMul *= 10u;
+                ret++;
             }
 
 
@@ -378,6 +380,7 @@ struct HtmlConverter
             res += uintBigFrom(nAdd);
         }
 
+        return ret;
     }
 
     static std::string SubstituteArg(const std::string& sUrl, const std::string& sKey_, const std::string& sVal)
@@ -526,7 +529,7 @@ td {\n\
 };
 
 
-void jsonExp(json& obj, uint32_t nDepth)
+void jsonExp(json& obj, uint32_t nDepth, bool bDbg)
 {
     if (++nDepth > 128)
         Exc::Fail("recursion too deep");
@@ -534,7 +537,7 @@ void jsonExp(json& obj, uint32_t nDepth)
     if (obj.is_array())
     {
         for (size_t j = 0; j < obj.size(); j++)
-            jsonExp(obj.at(j), nDepth);
+            jsonExp(obj.at(j), nDepth, bDbg);
     }
     else
     {
@@ -542,7 +545,7 @@ void jsonExp(json& obj, uint32_t nDepth)
             return;
 
         for (auto it = obj.begin(); obj.end() != it; it++)
-            jsonExp(*it, nDepth);
+            jsonExp(*it, nDepth, bDbg);
 
         auto itT = obj.find("type");
         auto itV = obj.find("value");
@@ -557,13 +560,12 @@ void jsonExp(json& obj, uint32_t nDepth)
         const auto& sType = objT.get<std::string>();
         if (sType == "amount")
         {
-            uint64_t val = 0;
-            AmountBig::Type valBig;
-            bool bMinus = false;
-            bool bBig = false;
-
+            std::ostringstream os;
             if (objV.is_number())
-                val = objV.get<int64_t>();
+            {
+                auto val = objV.get<int64_t>();
+                AmountBig::Print(os, val, false);
+            }
             else
             {
                 if (!objV.is_string())
@@ -573,35 +575,27 @@ void jsonExp(json& obj, uint32_t nDepth)
                 auto sz = s.c_str();
                 if (*sz == '-')
                 {
-                    bMinus = true;
+                    os << '-';
                     sz++;
                 }
 
                 // convert it. NOTE - this may be a BIG number, don't use std::stoll.
-                bBig = true;
-                HtmlConverter::ReadUIntBig(valBig, sz);
-            }
+                AmountBig::Type valBig;
+                auto decOrd = HtmlConverter::ReadUIntBig(valBig, sz);
 
-            std::ostringstream os;
-            if (bMinus)
-                os << '-';
-
-            if (bBig)
-            {
                 AmountBig::Print(os, valBig, false);
 
-                //char szRaw[AmountBig::Type::nTxtLen + 1];
-                //valBig.Print(szRaw);
-                //os << " raw " << szRaw;
+                if (bDbg)
+                {
+                    char szRaw[AmountBig::Type::nTxtLen + 1];
+                    valBig.Print(szRaw);
+                    os << " raw " << szRaw << " order=" << decOrd;
+                }
+
             }
-            else
-                AmountBig::Print(os, val, false);
 
             objV = os.str();
-
         }
-
-
     }
 }
 
@@ -664,6 +658,8 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg)
                 _backend.m_Mode = IAdapter::Mode::Legacy;
         }
 
+        bool bDbg = (_currentUrl.args.end() != _currentUrl.args.find("dbg"));
+
         _body.clear();
 
         //bool validKey = _acl.check(_currentUrl.args["m"], _currentUrl.args["n"], _currentUrl.args["h"]);
@@ -689,7 +685,7 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg)
                     break;
 
                 case IAdapter::Mode::ExplicitType:
-                    jsonExp(j, 0);
+                    jsonExp(j, 0, bDbg);
                     // no break;
 
                 default:
