@@ -589,7 +589,7 @@ void jsonExp(json& obj, uint32_t nDepth, bool bDbg)
                 {
                     char szRaw[AmountBig::Type::nTxtLen + 1];
                     valBig.Print(szRaw);
-                    os << " raw " << szRaw << " order=" << decOrd;
+                    os << " raw " << szRaw << " order=" << decOrd << " txt=" << sz;
                 }
 
             }
