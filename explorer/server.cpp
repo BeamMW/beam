@@ -354,15 +354,17 @@ struct HtmlConverter
     {
         res = Zero;
 
-        while (true)
+        for (bool bFirstTime = true; ; )
         {
             uint32_t nAdd = 0;
             uint32_t nMul = 1;
 
-            for (uint32_t i = 0; i < 9; i++)
+            const uint32_t maxChars = 9u;
+            uint32_t iChar = 0;
+
+            for (; iChar < maxChars; iChar++)
             {
-                char ch = *sz++;
-                uint8_t val = ch - '0';
+                uint8_t val = sz[iChar] - '0';
                 if (val > 9)
                     break;
 
@@ -371,11 +373,19 @@ struct HtmlConverter
             }
 
 
-            if (nMul == 1u)
+            if (!iChar)
                 break;
 
-            res = res * uintBigFrom(nMul);
+            if (bFirstTime)
+                bFirstTime = false;
+            else
+                res = res * uintBigFrom(nMul);
+
             res += uintBigFrom(nAdd);
+
+            if (iChar < maxChars)
+                break;
+            sz += maxChars;
         }
 
     }
