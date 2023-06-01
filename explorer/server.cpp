@@ -256,7 +256,7 @@ struct HtmlConverter
 
                 // convert it. NOTE - this may be a BIG number, don't use std::stoll.
                 bBig = true;
-                ReadUIntBig(valBig, sz);
+                ReadUIntBig(valBig, sz, nullptr);
             }
 
             m_os << "<p2 style=\"color:" << (bMinus ? "blue" : "green") << "\">";
@@ -350,13 +350,16 @@ struct HtmlConverter
         return false;
     }
 
-    static uint32_t ReadUIntBig(AmountBig::Type& res, const char* sz)
+    static uint32_t ReadUIntBig(AmountBig::Type& res, const char* sz, std::ostringstream* pOs)
     {
         res = Zero;
         uint32_t ret = 0;
 
         while (true)
         {
+            if (pOs)
+                (*pOs) << " subtxt=" << sz;
+
             uint32_t nAdd = 0;
             uint32_t nMul = 1;
 
@@ -372,9 +375,11 @@ struct HtmlConverter
                 ret++;
             }
 
-
             if (nMul == 1u)
                 break;
+
+            if (pOs)
+                (*pOs) << " port=" << nAdd << "/" << nMul;
 
             res = res * uintBigFrom(nMul);
             res += uintBigFrom(nAdd);
@@ -581,8 +586,10 @@ void jsonExp(json& obj, uint32_t nDepth, bool bDbg)
 
                 // convert it. NOTE - this may be a BIG number, don't use std::stoll.
                 AmountBig::Type valBig;
-                auto decOrd = HtmlConverter::ReadUIntBig(valBig, sz);
+                auto decOrd = HtmlConverter::ReadUIntBig(valBig, sz, bDbg ? &os : nullptr);
 
+                if (bDbg)
+                    os << ",   ";
                 AmountBig::Print(os, valBig, false);
 
                 if (bDbg)
