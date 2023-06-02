@@ -598,15 +598,15 @@ struct PayoutReader
         return true;
     }
 
-    bool ProcessAllKeysForCid(KeyMaterial::Owner& km, VaultAnon::WalkerAccounts& wlk)
+    bool ProcessAllKeysForCid(KeyMaterial::Owner& km, VaultAnon::WalkerAccounts& wlk, bool bCvt)
     {
-        if (!ProcessAllKeysForCid2(km, wlk, true))
+        if (!ProcessAllKeysForCid2(km, wlk, bCvt, true))
             return false;
 
-        return ProcessAllKeysForCid2(km, wlk, false);
+        return ProcessAllKeysForCid2(km, wlk, bCvt, false);
     }
 
-    bool ProcessAllKeysForCid2(KeyMaterial::Owner& km, VaultAnon::WalkerAccounts& wlk, bool isArtist)
+    bool ProcessAllKeysForCid2(KeyMaterial::Owner& km, VaultAnon::WalkerAccounts& wlk, bool bCvt, bool isArtist)
     {
         Env::KeyID kid(&km, sizeof(km));
         PubKey pk;
@@ -623,10 +623,11 @@ struct PayoutReader
 
             if (!isArtist)
             {
-                if (!x.m_NftId)
+                auto nftId = x.m_NftId;
+                if (!nftId)
                     continue;
 
-                km.m_ID = Utils::FromBE(x.m_NftId);
+                km.m_ID = bCvt ? Utils::FromBE(nftId) : nftId;
                 kid.get_Pk(pk);
             }
 
@@ -644,11 +645,15 @@ struct PayoutReader
     {
         KeyMaterial::Owner km;
         km.SetCid(g_CidGallery1);
-        if (!ProcessAllKeysForCid(km, wlk))
+        if (!ProcessAllKeysForCid(km, wlk, true))
+            return false;
+
+        _POD_(km.m_Cid).SetZero();
+        if (!ProcessAllKeysForCid(km, wlk, true))
             return false;
 
         km.SetCid(g_CidGallery2);
-        return ProcessAllKeysForCid(km, wlk);
+        return ProcessAllKeysForCid(km, wlk, false);
     }
 };
 
@@ -658,7 +663,7 @@ ON_METHOD(view_keys)
 
     KeyMaterial::Owner km;
 
-    km.m_ID = Utils::FromBE(nftId);
+    km.m_ID = nftId;
     km.SetCid(g_CidGallery2);
 
     Env::KeyID kid(&km, sizeof(km));
@@ -666,10 +671,14 @@ ON_METHOD(view_keys)
     kid.get_Pk(pk);
     Env::DocAddBlob_T("pk1", pk);
 
-
     km.SetCid(g_CidGallery1);
+    km.m_ID = Utils::FromBE(nftId);
     kid.get_Pk(pk);
     Env::DocAddBlob_T("pk0", pk);
+
+    _POD_(km.m_Cid).SetZero();
+    kid.get_Pk(pk);
+    Env::DocAddBlob_T("pkz", pk);
 }
 
 ON_METHOD(view_airdrops)
