@@ -152,8 +152,6 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	LogSyncData();
 
-	m_nSizeUtxoComission = 0;
-
 	if (Rules::get().TreasuryChecksum == Zero)
 		m_Extra.m_TxosTreasury = 1; // artificial gap
 	else
@@ -6313,7 +6311,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	}
 
 	// estimate the size of the fees UTXO
-	if (!m_nSizeUtxoComission)
+	if (!m_nSizeUtxoComissionUpperLimit)
 	{
 		Output outp;
 		outp.m_pConfidential.reset(new ECC::RangeProof::Confidential);
@@ -6321,11 +6319,11 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 		SerializerSizeCounter ssc2;
 		ssc2 & outp;
-		m_nSizeUtxoComission = ssc2.m_Counter.m_Value;
+		m_nSizeUtxoComissionUpperLimit = ssc2.m_Counter.m_Value;
 	}
 
 	if (bc.m_Fees)
-		ssc.m_Counter.m_Value += m_nSizeUtxoComission;
+		ssc.m_Counter.m_Value += m_nSizeUtxoComissionUpperLimit;
 
 	const size_t nSizeMax = Rules::get().MaxBodySize;
 	if (ssc.m_Counter.m_Value > nSizeMax)
@@ -6361,7 +6359,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 		size_t nSizeNext = ssc.m_Counter.m_Value + nSize;
 		if (!bc.m_Fees && feesNext)
-			nSizeNext += m_nSizeUtxoComission;
+			nSizeNext += m_nSizeUtxoComissionUpperLimit;
 
 		if (nSizeNext > nSizeMax)
 			break;
@@ -6387,14 +6385,13 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	{
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
 
-
 		Amount feesNext = bc.m_Fees + x.m_Profit.m_Stats.m_Fee;
 		if (feesNext < bc.m_Fees)
 			continue; // huge fees are unsupported
 
 		size_t nSizeNext = ssc.m_Counter.m_Value + x.m_Profit.m_Stats.m_Size;
 		if (!bc.m_Fees && feesNext)
-			nSizeNext += m_nSizeUtxoComission;
+			nSizeNext += m_nSizeUtxoComissionUpperLimit;
 
 		if (nSizeNext > nSizeMax)
 		{
@@ -6449,6 +6446,12 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 			bb.AddFees(bc.m_Fees, pOutp);
 			if (!HandleBlockElement(*pOutp, bic))
 				return 0;
+
+			// make size estimation more precise
+			size_t n0 = ssc.m_Counter.m_Value;
+			ssc.m_Counter.m_Value -= m_nSizeUtxoComissionUpperLimit;
+			ssc& (*pOutp);
+			assert(ssc.m_Counter.m_Value <= n0);
 
 			bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
 		}

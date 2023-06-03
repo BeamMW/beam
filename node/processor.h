@@ -129,7 +129,7 @@ class NodeProcessor
 
 	Mapped m_Mapped;
 
-	size_t m_nSizeUtxoComission;
+	size_t m_nSizeUtxoComissionUpperLimit = 0;
 
 	struct MultiblockContext;
 	struct MultiSigmaContext;
