@@ -105,6 +105,7 @@ namespace beam::wallet
             {
                 Sigma::CmList* m_pList;
                 uint32_t m_iIdx;
+                bool m_HideAssetAlways = false;
 
                 TxKernelShieldedInput::Ptr m_pKernel;
                 // before invocation the following must be set:
