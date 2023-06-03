@@ -6455,6 +6455,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 			ssc.m_Counter.m_Value -= m_nSizeUtxoComissionUpperLimit;
 			ssc& (*pOutp);
 			assert(ssc.m_Counter.m_Value <= n0);
+			(n0); // suppress 'unused' warning in release build
 
 			bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
 		}
