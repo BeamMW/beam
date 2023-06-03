@@ -6316,6 +6316,9 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 		Output outp;
 		outp.m_pConfidential.reset(new ECC::RangeProof::Confidential);
 		ZeroObject(*outp.m_pConfidential);
+		outp.m_pAsset = std::make_unique<Asset::Proof>();
+		outp.m_pAsset->InitArrays(Rules::get().CA.m_ProofCfg);
+		outp.m_pAsset->m_Begin = static_cast<Asset::ID>(-1);
 
 		SerializerSizeCounter ssc2;
 		ssc2 & outp;

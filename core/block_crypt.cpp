@@ -491,8 +491,10 @@ namespace beam
 			wrk.Create(sk, m_Commitment, coinKdf);
 		}
 
+		bool isPublic = (OpCode::Public == eOp) || m_Coinbase;
+
 		ECC::Scalar::Native skSign = sk;
-		if (cid.m_AssetID)
+		if (cid.m_AssetID || (!isPublic && Rules::get().IsEnabledCA(hScheme)))
 		{
 			ECC::Hash::Value hv;
 			if (!bUseCoinKdf)
@@ -509,7 +511,7 @@ namespace beam
 		cp.m_Value = cid.m_Value;
 		GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
 
-		if ((OpCode::Public == eOp) || m_Coinbase)
+		if (isPublic)
 		{
 			Key::ID::Packed kid;
 			cp.m_Blob.p = &kid;
