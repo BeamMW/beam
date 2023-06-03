@@ -1334,7 +1334,7 @@ namespace beam
 		s.m_InputsShielded++;
 	}
 
-	void TxKernelShieldedInput::Sign(Lelantus::Prover& p, Asset::ID aid, bool bHideAssetAlways /* = false */)
+	void TxKernelShieldedInput::Sign(Lelantus::Prover& p, Asset::ID aid, bool bHideAssetAlways /* = true */)
 	{
 		ECC::Oracle oracle;
 		oracle << m_Msg;

@@ -105,7 +105,7 @@ namespace beam::wallet
             {
                 Sigma::CmList* m_pList;
                 uint32_t m_iIdx;
-                bool m_HideAssetAlways = false;
+                bool m_HideAssetAlways = true;
 
                 TxKernelShieldedInput::Ptr m_pKernel;
                 // before invocation the following must be set:
@@ -186,7 +186,7 @@ namespace beam::wallet
 
                 // sent value and asset are derived from the tx balance (ins - outs)
                 ShieldedTxo::User m_User;
-                bool m_HideAssetAlways = false;
+                bool m_HideAssetAlways = true;
             };
 
             struct DisplayEndpoint
