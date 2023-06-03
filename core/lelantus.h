@@ -84,6 +84,7 @@ namespace Sigma {
 			std::vector<ECC::Scalar> m_vF;
 		} m_Part2;
 
+		void InitArrays(const Cfg&);
 		bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, const Cfg&, ECC::Scalar::Native* pKs, ECC::Scalar::Native& kBias) const;
 	};
 

@@ -384,6 +384,7 @@ namespace beam
 		void DisableForksFrom(uint32_t);
 		std::string get_SignatureStr() const;
 		Amount get_DepositForCA(Height hScheme) const;
+		bool IsEnabledCA(Height hScheme) const;
 
 		static void Fail_Fork(uint32_t iFork);
 
