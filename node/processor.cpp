@@ -6788,6 +6788,25 @@ void NodeProcessor::ExtractBlockWithExtra(const NodeDB::StateID& sid, std::vecto
 	}
 }
 
+void NodeProcessor::ExtractTreasurykWithExtra(std::vector<TxoInfo>& vOuts)
+{
+	NodeDB::WalkerTxo wlk;
+	for (m_DB.EnumTxos(wlk, 0); wlk.MoveNext(); )
+	{
+		if (wlk.m_ID >= m_Extra.m_TxosTreasury)
+			break;
+
+		auto& dst = vOuts.emplace_back();
+
+		Deserializer der;
+		der.reset(wlk.m_Value.p, wlk.m_Value.n);
+		der& dst.m_Outp;
+
+		dst.m_hCreate = 0;
+		dst.m_hSpent = wlk.m_SpendHeight;
+	}
+}
+
 TxoID NodeProcessor::get_TxosBefore(Height h)
 {
 	if (h < Rules::HeightGenesis)

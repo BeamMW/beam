@@ -1824,6 +1824,24 @@ private:
         return ok;
     }
 
+    void get_treasury(json& out)
+    {
+        std::vector<NodeProcessor::TxoInfo> vOuts;
+        _nodeBackend.ExtractTreasurykWithExtra(vOuts);
+
+        json outputs = json::array();
+        for (const auto& v : vOuts)
+        {
+            json jItem = ExtraInfo::get(v, m_Mode);
+            if (v.m_hSpent != MaxHeight)
+                jItem["spent"] = v.m_hSpent;
+            outputs.push_back(std::move(jItem));
+        }
+
+        out["outputs"] = std::move(outputs);
+    }
+
+
     bool extract_block(json& out, Height height, uint64_t& row, uint64_t* prevRow) {
         bool ok = true;
         if (row == 0) {
@@ -1852,8 +1870,16 @@ private:
     }
 
     json get_block(uint64_t height) override {
-        uint64_t row=0;
-        return get_block_impl(height, row, 0);
+
+        if (height)
+        {
+            uint64_t row = 0;
+            return get_block_impl(height, row, 0);
+        }
+
+        json out;
+        get_treasury(out);
+        return out;
     }
 
     json get_block_by_kernel(const Blob& key) override {

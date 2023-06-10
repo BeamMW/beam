@@ -448,6 +448,7 @@ public:
 	};
 
 	void ExtractBlockWithExtra(const NodeDB::StateID&, std::vector<TxoInfo>& vIns, std::vector<TxoInfo>& vOuts, TxVectors::Eternal& txe, std::vector<ContractInvokeExtraInfo>&);
+	void ExtractTreasurykWithExtra(std::vector<TxoInfo>& vOuts);
 	void get_ContractDescr(const ECC::uintBig& sid, const ECC::uintBig& cid, std::string&, bool bFullState);
 
 	int get_AssetAt(Asset::Full&, Height); // Must set ID. Returns -1 if asset is destroyed, 0 if never existed.

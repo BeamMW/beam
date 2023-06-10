@@ -418,28 +418,43 @@ table, th, td {
 
 	function DisplayBlock()
 	{
-		const jData = JSON.parse(this.responseText);
-	
 		let text = "";
-		text += MakeCollapsibleBegin("Block Summary");
+		const jData = JSON.parse(this.responseText);
+
+		let j = jData["info"];
+		if (j)
+		{
+			text += MakeCollapsibleBegin("Block Summary");
+			text += "<table>";
+			text += Obj2Html_TableRows(j["value"]);
+			text += "</table>";
 		
-		text += "<table>";
-		text += Obj2Html_TableRows(jData["info"]["value"]);
-		text += "</table>";
-		
-		text += MakeCollapsibleEnd();
+			text += MakeCollapsibleEnd();
+		}
 
 		text += MakeCollapsibleBegin("Block contents");
-		
-		text += "<h3>Inputs</h3>\n";
-		text += MakeTableTxos(jData["inputs"], true);
+	
+		j = jData["inputs"];
+		if (j)
+		{
+			text += "<h3>Inputs</h3>\n";
+			text += MakeTableTxos(j, true);
+		}
 
-		text += "<h3>Outputs</h3>\n";
-		text += MakeTableTxos(jData["outputs"], false);
-		
-		text += "<h3>Kernels</h3>\n";
+		j = jData["outputs"];
+		if (j)
+		{
+			text += "<h3>Outputs</h3>\n";
+			text += MakeTableTxos(j, false);
+		}
 
-		text += "\
+		let jTbl = jData["kernels"];
+		if (jTbl)
+		{
+		
+			text += "<h3>Kernels</h3>\n";
+
+			text += "\
 <table>\n\
 	<th>ID</th>\n\
 	<th>Fee</th>\n\
@@ -447,52 +462,56 @@ table, th, td {
 	<th>Extra</th>\n\
 ";
 
-		let jTbl = jData["kernels"];
 		
-		for (let i = 0; i < jTbl.length; i++)
-		{
-			let jRow = jTbl[i];
-			text += "<tr>";
-
-			text += MakeCell(MakeMonospace(jRow["id"]));
-			text += MakeCellRA(Obj2Html(jRow["fee"]));
-			
-			let txtH = "";
-			let jH = jRow["minHeight"];
-			if (jH)
+			for (let i = 0; i < jTbl.length; i++)
 			{
-				txtH = MakeBlock(jH);
-				delete jRow.minHeight;
-			}
-			else
-				txtH = "*";
+				let jRow = jTbl[i];
+				text += "<tr>";
+
+				text += MakeCell(MakeMonospace(jRow["id"]));
+				text += MakeCellRA(Obj2Html(jRow["fee"]));
+			
+				let txtH = "";
+				let jH = jRow["minHeight"];
+				if (jH)
+				{
+					txtH = MakeBlock(jH);
+					delete jRow.minHeight;
+				}
+				else
+					txtH = "*";
 				
-			txtH += "-";
+				txtH += "-";
 
-			jH = jRow["maxHeight"];
-			if (jH)
-			{
-				txtH += MakeBlock(jH);
-				delete jRow.maxHeight;
+				jH = jRow["maxHeight"];
+				if (jH)
+				{
+					txtH += MakeBlock(jH);
+					delete jRow.maxHeight;
+				}
+				else
+					txtH += "*";
+
+				text += MakeCell(txtH);
+			
+				delete jRow.id;
+				delete jRow.fee;
+				text += MakeCell(Obj2Html(jRow));
+			
+				text += "</tr>";
 			}
-			else
-				txtH += "*";
+			text += "</table>"
 
-			text += MakeCell(txtH);
-			
-			delete jRow.id;
-			delete jRow.fee;
-			text += MakeCell(Obj2Html(jRow));
-			
-			text += "</tr>";
 		}
-		text += "</table>"
 
 		text += MakeCollapsibleEnd();
+
+		j = jData["assets"];
+		if (j)
+		{
+			text += MakeCollapsibleBegin("Assets state");
 		
-		text += MakeCollapsibleBegin("Assets state");
-		
-		text += "\
+			text += "\
 <table>\n\
 	<th>Aid</th>\n\
 	<th>Owner</th>\n\
@@ -502,28 +521,29 @@ table, th, td {
 	<th>Metadata</th>\n\
 ";
 
-		jTbl = jData["assets"]["value"];
+			jTbl = j["value"];
 		
-		// skip 1st row
-		for (let iRow = 1; iRow < jTbl.length; iRow++)
-		{
-			const jRow = jTbl[iRow];
-			text += "<tr>";
+			// skip 1st row
+			for (let iRow = 1; iRow < jTbl.length; iRow++)
+			{
+				const jRow = jTbl[iRow];
+				text += "<tr>";
 
-			text += MakeCell(MakeAsset(jRow[0]["value"]));
-			text += MakeCell(Obj2Html(jRow[1]));
-			text += MakeCellAmount(jRow[2]["value"]);
-			text += MakeCellAmount(jRow[3]["value"]);
-			text += MakeCell(MakeBlock(jRow[4]));
-			text += MakeCell(Obj2Html(jRow[5]));
+				text += MakeCell(MakeAsset(jRow[0]["value"]));
+				text += MakeCell(Obj2Html(jRow[1]));
+				text += MakeCellAmount(jRow[2]["value"]);
+				text += MakeCellAmount(jRow[3]["value"]);
+				text += MakeCell(MakeBlock(jRow[4]));
+				text += MakeCell(Obj2Html(jRow[5]));
 			
-			text += "</tr>";
-		}
+				text += "</tr>";
+			}
 		
 	
-		text += "</table>"
+			text += "</table>"
 	
-		text += MakeCollapsibleEnd();
+			text += MakeCollapsibleEnd();
+		}
 
 		SetContent(text);
 	}
