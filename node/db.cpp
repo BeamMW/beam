@@ -65,6 +65,12 @@ namespace beam {
 #define TblEvents_Body			"Body"
 #define TblEvents_Key			"Key"
 
+#define TblAccounts				"Accounts"
+#define TblAccounts_Index		"Index"
+#define TblAccounts_OwnerID		"OwnerID"
+#define TblAccounts_Serif		"Serif"
+#define TblAccounts_TxoHi		"HeightHi"
+
 #define TblPeer					"Peers"
 #define TblPeer_Key				"Key"
 #define TblPeer_Rating			"Rating"
@@ -677,6 +683,12 @@ void NodeDB::CreateTables34()
 
 	ExecQuick("CREATE INDEX [Idx" TblEvents "] ON [" TblEvents "] ([" TblEvents_Account "],[" TblEvents_Height "],[" TblEvents_Body "]);");
 	ExecQuick("CREATE INDEX [Idx" TblEvents TblEvents_Key "] ON [" TblEvents "] ([" TblEvents_Account "],[" TblEvents_Key "]);");
+
+	ExecQuick("CREATE TABLE [" TblAccounts "] ("
+		"[" TblAccounts_Index	"] INTEGER NOT NULL PRIMARY KEY,"
+		"[" TblAccounts_OwnerID	"] BLOB NOT NULL,"
+		"[" TblAccounts_Serif	"] BLOB NOT NULL,"
+		"[" TblAccounts_TxoHi	"] INTEGER NOT NULL)");
 }
 
 void NodeDB::Vacuum()
@@ -1914,7 +1926,7 @@ void NodeDB::InsertEvent(AccountIndex iAccount, Height h, const Blob& b, const B
 
 void NodeDB::DeleteEventsFrom(Height h)
 {
-	Recordset rs(*this, Query::EventDel, "DELETE FROM " TblEvents " WHERE " TblEvents_Height ">=?");
+	Recordset rs(*this, Query::EventDelByHeight, "DELETE FROM " TblEvents " WHERE " TblEvents_Height ">=?");
 	rs.put(0, h);
 	rs.Step();
 }
@@ -1951,6 +1963,46 @@ bool NodeDB::WalkerEvent::MoveNext()
 	((const uint8_t*&) m_Body.p) += m_Index.nBytes;
 	m_Body.n -= m_Index.nBytes;
 
+	return true;
+}
+
+void NodeDB::InsertAccount(const WalkerAccount::Data& d)
+{
+	Recordset rs(*this, Query::AccountIns, "INSERT INTO " TblAccounts "(" TblAccounts_Index "," TblAccounts_OwnerID "," TblAccounts_Serif "," TblAccounts_TxoHi ") VALUES(?,?,?,?)");
+	rs.put(0, d.m_iAccount);
+	rs.put(1, d.m_OwnerID);
+	rs.put(2, d.m_Serif);
+	rs.put(3, d.m_hTxoHi);
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::DeleteAccountWithEvents(AccountIndex iAccount)
+{
+	Recordset rs(*this, Query::AccountDel, "DELETE FROM " TblAccounts " WHERE " TblAccounts_Index "=?");
+	rs.put(0, iAccount);
+	rs.Step();
+	TestChanged1Row();
+
+	rs.Reset(*this, Query::EventDelByAccount, "DELETE FROM " TblEvents " WHERE " TblEvents_Account "=?");
+	rs.put(0, iAccount);
+	rs.Step();
+}
+
+void NodeDB::EnumAccounts(WalkerAccount& wlk)
+{
+	wlk.m_Rs.Reset(*this, Query::AccountEnum, "SELECT " TblAccounts_Index "," TblAccounts_OwnerID "," TblAccounts_Serif "," TblAccounts_TxoHi " FROM " TblAccounts " ORDER BY " TblAccounts_Index);
+}
+
+bool NodeDB::WalkerAccount::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+
+	m_Rs.get(0, m_Data.m_iAccount);
+	m_Rs.get(1, m_Data.m_OwnerID);
+	m_Rs.get(2, m_Data.m_Serif);
+	m_Rs.get(3, m_Data.m_hTxoHi);
 	return true;
 }
 

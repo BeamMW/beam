@@ -127,9 +127,13 @@ public:
 			StateDelBlockPPR,
 			StateDelBlockAll,
 			EventIns,
-			EventDel,
+			EventDelByHeight,
+			EventDelByAccount,
 			EventEnum,
 			EventFind,
+			AccountDel,
+			AccountIns,
+			AccountEnum,
 			PeerAdd,
 			PeerDel,
 			PeerEnum,
@@ -430,6 +434,24 @@ public:
 
 		bool MoveNext();
 	};
+
+	struct WalkerAccount {
+		Recordset m_Rs;
+		struct Data
+		{
+			AccountIndex m_iAccount;
+			Merkle::Hash m_OwnerID;
+			Merkle::Hash m_Serif;
+			Height m_hTxoHi;
+
+		} m_Data;
+
+		bool MoveNext();
+	};
+
+	void InsertAccount(const WalkerAccount::Data&);
+	void DeleteAccountWithEvents(AccountIndex);
+	void EnumAccounts(WalkerAccount&);
 
 	void EnumEvents(WalkerEvent&, AccountIndex, Height hMin);
 	void FindEvents(WalkerEvent&, AccountIndex, const Blob& key); // in case of duplication the most recently added comes first
