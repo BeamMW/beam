@@ -2796,6 +2796,14 @@ struct NodeProcessor::MyRecognizer
 	}
 };
 
+void NodeProcessor::Account::InitFromOwner()
+{
+	m_vSh.resize(1); // Change this if/when we decide to use multiple keys
+
+	for (Key::Index nIdx = 0; nIdx < m_vSh.size(); nIdx++)
+		m_vSh[nIdx].FromOwner(*m_pOwner, nIdx);
+}
+
 std::string NodeProcessor::Account::get_Endpoint() const
 {
 	Key::ID kid(Zero);

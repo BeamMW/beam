@@ -1190,11 +1190,7 @@ void Node::RefreshAccounts()
         }
 
         pAcc->m_pOwner = m_Keys.m_pOwner;
-
-        pAcc->m_vSh.resize(1); // Change this if/when we decide to use multiple keys
-
-        for (Key::Index nIdx = 0; nIdx < pAcc->m_vSh.size(); nIdx++)
-            pAcc->m_vSh[nIdx].FromOwner(*pAcc->m_pOwner, nIdx);
+        pAcc->InitFromOwner();
     }
 
     // delete unused accounts

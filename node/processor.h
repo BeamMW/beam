@@ -592,6 +592,8 @@ public:
 	{
 		Key::IPKdf::Ptr m_pOwner;
 		std::vector<ShieldedTxo::Viewer> m_vSh;
+
+		void InitFromOwner();
 		std::string get_Endpoint() const;
 	};
 
