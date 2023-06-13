@@ -7,7 +7,7 @@ file(GLOB HEADERS "${LIBBITCOIN_INCLUDE_DIR}/math/*.hpp")
 
 add_library(${TARGET_NAME} OBJECT ${SOURCES} ${EXTERNAL_SOURCES} ${HEADERS} ${EXTERNAL_HEADERS})
 
-target_include_directories(${TARGET_NAME} PRIVATE "${PROJECT_SOURCE_DIR}/3rdparty/secp256k1-zkp/include")
+target_include_directories(${TARGET_NAME} PRIVATE "${PROJECT_SOURCE_DIR}/3rdparty/secp256k1/include")
 
 if(MSVC)
     target_compile_options(${TARGET_NAME} PUBLIC "/wd4701")

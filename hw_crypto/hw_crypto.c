@@ -42,10 +42,11 @@
 #endif // BeamCrypto_ScarceStack
 
 
-#include "secp256k1-zkp/src/group_impl.h"
-#include "secp256k1-zkp/src/scalar_impl.h"
-#include "secp256k1-zkp/src/field_impl.h"
-#include "secp256k1-zkp/src/hash_impl.h"
+#include "secp256k1/src/group_impl.h"
+#include "secp256k1/src/scalar_impl.h"
+#include "secp256k1/src/field_impl.h"
+#include "secp256k1/src/hash_impl.h"
+#include "secp256k1/src/int128_impl.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic pop
@@ -57,11 +58,13 @@
 #define SECURE_ERASE_OBJ(x) SecureEraseMem(&(x), sizeof(x))
 #define ZERO_OBJ(x) memset(&(x), 0, sizeof(x))
 
-#ifdef USE_SCALAR_4X64
+#if defined(SECP256K1_WIDEMUL_INT128)
 typedef uint64_t secp256k1_scalar_uint;
-#else // USE_SCALAR_4X64
+#elif defined(SECP256K1_WIDEMUL_INT64)
 typedef uint32_t secp256k1_scalar_uint;
-#endif // USE_SCALAR_4X64
+#else
+#	error 
+#endif
 
 #ifndef _countof
 #	define _countof(arr) sizeof(arr) / sizeof((arr)[0])
@@ -206,8 +209,8 @@ void Point_Gej_from_Ge(gej_t* p, const secp256k1_ge* pGe)
 
 void Point_Ge_from_Affine(secp256k1_ge* pGe, const AffinePoint* pAp)
 {
-	secp256k1_fe_set_b32(&pGe->x, pAp->m_X.m_pVal);
-	secp256k1_fe_set_b32(&pGe->y, pAp->m_Y.m_pVal);
+	secp256k1_fe_set_b32_mod(&pGe->x, pAp->m_X.m_pVal);
+	secp256k1_fe_set_b32_mod(&pGe->y, pAp->m_Y.m_pVal);
 	pGe->infinity = 0;
 }
 
@@ -478,6 +481,21 @@ static void wrap_scalar_inverse(secp256k1_scalar* r, const secp256k1_scalar* a)
 	Suffer(300); // very heavy: inverse + misc
 }
 
+void secp256k1_scalar_set_u64(secp256k1_scalar* r, uint64_t v)
+{
+#ifdef SECP256K1_WIDEMUL_INT128
+	static_assert(sizeof(r->d[0]) == sizeof(v), "");
+	r->d[0] = v;
+#else // SECP256K1_WIDEMUL_INT128
+	static_assert(sizeof(r->d[0]) * 2 == sizeof(v), "");
+	r->d[0] = static_cast<uint32_t>(v);
+	r->d[1] = static_cast<uint32_t>(v >> 32u);
+#endif // SECP256K1_WIDEMUL_INT128
+
+	memset(r->d + sizeof(v) / sizeof(r->d[0]), 0, sizeof(r->d) - sizeof(v));
+}
+
+
 #ifndef BeamCrypto_ExternalGej
 static void wrap_fe_mul(secp256k1_fe* r, const secp256k1_fe* a, const secp256k1_fe* b)
 {
@@ -566,7 +584,7 @@ static void MultiMac_Calculate_SecureBit(const MultiMac_Context* p, unsigned int
 
 	for (unsigned int i = 0; i < p->m_Secure.m_Count; i++)
 	{
-		unsigned int iElement = (p->m_Secure.m_pK[i].d[iWord] >> nShift) & nMsk;
+		unsigned int iElement = (unsigned int) ((p->m_Secure.m_pK[i].d[iWord] >> nShift) & nMsk);
 		const MultiMac_Secure* pGen = p->m_Secure.m_pGen + i;
 
 		MultiMac_Calculate_Secure_Read(&ge, pGen, iElement);
@@ -930,7 +948,7 @@ int Point_Ge_from_CompactNnz(secp256k1_ge* pGe, const CompactPoint* pCompact)
 	if (pCompact->m_Y > 1)
 		return 0; // not well-formed
 
-	if (!secp256k1_fe_set_b32(&pGe->x, pCompact->m_X.m_pVal))
+	if (!secp256k1_fe_set_b32_limit(&pGe->x, pCompact->m_X.m_pVal))
 		return 0; // not well-formed
 
 	if (!secp256k1_ge_set_xo_var(pGe, &pGe->x, pCompact->m_Y)) // according to code it seems ok to use ge.x as an argument

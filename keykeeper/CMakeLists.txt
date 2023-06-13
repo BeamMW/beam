@@ -34,7 +34,7 @@ if(EMSCRIPTEN AND NOT BEAM_WALLET_CLIENT_LIBRARY)
     add_executable(${TARGET_NAME} wasm_key_keeper.cpp)
     target_link_libraries(${TARGET_NAME} PRIVATE keykeeper)
 
-    add_subdirectory(${PROJECT_SOURCE_DIR}/../3rdparty/secp256k1-zkp secp256k1-zkp)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/../3rdparty/secp256k1 secp256k1)
 
     target_sources(keykeeper
         PRIVATE

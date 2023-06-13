@@ -1349,7 +1349,10 @@ namespace beam::wallet
             const char* req = "CREATE TABLE " TX_SUMMARY_NAME " (TxID BLOB NOT NULL PRIMARY KEY " ENUM_TX_SUMMARY_FIELDS(MACRO) ") WITHOUT ROWID;"
 #undef MACRO
 
-#define STR(s) #s 
+#ifndef STR
+#   define STR(s) #s 
+#endif
+
 #define MACRO(id, type) "CREATE INDEX " STR(id##Index) " ON " TX_SUMMARY_NAME "(" #id ");"
             ENUM_TX_SUMMARY_FIELDS(MACRO)
 #undef MACRO
