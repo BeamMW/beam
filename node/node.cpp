@@ -3876,7 +3876,7 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
 
         Serializer ser, serCvt;
 
-        for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
+        for (db.EnumEvents(wlk, m_iAccount, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
         {
             if ((nCount >= proto::Event::s_Max) && (wlk.m_Height != hLast))
                 break;
@@ -5233,7 +5233,7 @@ void Node::PrintTxos()
     p.m_Height = m_Processor.m_Cursor.m_Full.m_Height;
 
     NodeDB::WalkerEvent wlk;
-    for (m_Processor.get_DB().EnumEvents(wlk, Rules::HeightGenesis - 1); wlk.MoveNext(); )
+    for (m_Processor.get_DB().EnumEvents(wlk, 0, Rules::HeightGenesis - 1); wlk.MoveNext(); )
     {
         os << "\tHeight=" << wlk.m_Height << ", ";
         p.ProceedOnce(wlk.m_Body);

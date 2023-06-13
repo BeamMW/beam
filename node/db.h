@@ -416,7 +416,9 @@ public:
 	void assert_valid(); // diagnostic, for tests only
 
 	typedef uint32_t EventIndexType;
-	void InsertEvent(Height, const Blob&, const Blob& key); // body must start with the uintBigFor<EventIndexType>
+	typedef uint32_t AccountIndex;
+
+	void InsertEvent(AccountIndex, Height, const Blob&, const Blob& key); // body must start with the uintBigFor<EventIndexType>
 	void DeleteEventsFrom(Height);
 
 	struct WalkerEvent {
@@ -429,8 +431,8 @@ public:
 		bool MoveNext();
 	};
 
-	void EnumEvents(WalkerEvent&, Height hMin);
-	void FindEvents(WalkerEvent&, const Blob& key); // in case of duplication the most recently added comes first
+	void EnumEvents(WalkerEvent&, AccountIndex, Height hMin);
+	void FindEvents(WalkerEvent&, AccountIndex, const Blob& key); // in case of duplication the most recently added comes first
 
 	struct WalkerPeer
 	{
@@ -806,6 +808,7 @@ private:
 	void CreateTables28();
 	void CreateTables30();
 	void CreateTables31();
+	void CreateTables34();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);

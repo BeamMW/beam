@@ -2773,13 +2773,13 @@ struct NodeProcessor::MyRecognizer
 
 		void InsertEvent(Height h, const Blob& b, const Blob& key) override
 		{
-			m_Proc.m_DB.InsertEvent(h, b, key);
+			m_Proc.m_DB.InsertEvent(m_iAccount, h, b, key);
 		}
 
 		bool FindEvents(const Blob& key, Recognizer::IEventHandler& h) override
 		{
 			NodeDB::WalkerEvent wlk;
-			for (m_Proc.m_DB.FindEvents(wlk, key); wlk.MoveNext(); )
+			for (m_Proc.m_DB.FindEvents(wlk, m_iAccount, key); wlk.MoveNext(); )
 			{
 				if (h.OnEvent(wlk.m_Height, wlk.m_Body))
 					return true;

@@ -535,6 +535,8 @@ private:
 		uint64_t m_CursorBbs;
 		TxPool::Fluff::Element::Send* m_pCursorTx;
 
+		uint32_t m_iAccount = 0;
+
 		TaskList m_lstTasks;
 		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
 

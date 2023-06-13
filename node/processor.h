@@ -770,6 +770,8 @@ public:
 
 		struct IHandler
 		{
+			uint32_t m_iAccount = 0;
+
 			virtual void get_ViewerKeys(NodeProcessor::ViewerKeys& vk) {}
 			virtual void OnDummy(const CoinID&, Height) {}
 			virtual void OnEvent(Height, const proto::Event::Base&) {}

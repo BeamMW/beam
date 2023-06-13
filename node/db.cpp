@@ -60,6 +60,7 @@ namespace beam {
 #define TblKernels_Height		"Height"
 
 #define TblEvents				"Events"
+#define TblEvents_Account		"Account"
 #define TblEvents_Height		"Height"
 #define TblEvents_Body			"Body"
 #define TblEvents_Key			"Key"
@@ -368,7 +369,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 34;
+	const uint64_t nVersionTop = 35;
 
 
 	Transaction t(*this);
@@ -454,6 +455,15 @@ void NodeDB::Open(const char* szPath)
 			ParamIntSet(ParamID::DbVer, nVersionTop);
 			// no break;
 
+		case 34:
+
+			ExecQuick("DROP INDEX IF EXISTS [Idx" TblEvents "]");
+			ExecQuick("DROP INDEX IF EXISTS [Idx" TblEvents TblEvents_Key "]");
+			ExecQuick("DROP TABLE IF EXISTS " TblEvents );
+
+			CreateTables34();
+			// no break;
+
 		case nVersionTop:
 			break;
 
@@ -533,14 +543,6 @@ void NodeDB::Create()
 
 	ExecQuick("CREATE INDEX [Idx" TblKernels "] ON [" TblKernels "] ([" TblKernels_Key "],[" TblKernels_Height "]  DESC);");
 
-	ExecQuick("CREATE TABLE [" TblEvents "] ("
-		"[" TblEvents_Height	"] INTEGER NOT NULL,"
-		"[" TblEvents_Body		"] BLOB NOT NULL,"
-		"[" TblEvents_Key		"] BLOB NOT NULL)");
-
-	ExecQuick("CREATE INDEX [Idx" TblEvents "] ON [" TblEvents "] ([" TblEvents_Height "],[" TblEvents_Body "]);");
-	ExecQuick("CREATE INDEX [Idx" TblEvents TblEvents_Key "] ON [" TblEvents "] ([" TblEvents_Key "]);");
-
 	ExecQuick("CREATE TABLE [" TblPeer "] ("
 		"[" TblPeer_Key			"] BLOB NOT NULL,"
 		"[" TblPeer_Rating		"] INTEGER NOT NULL,"
@@ -578,6 +580,7 @@ void NodeDB::Create()
 	CreateTables28();
 	CreateTables30();
 	CreateTables31();
+	CreateTables34();
 }
 
 void NodeDB::CreateTables20()
@@ -662,6 +665,18 @@ void NodeDB::CreateTables31()
 		"[" TblAssets_Value			"] BLOB)");
 
 	ExecQuick("CREATE INDEX [Idx" TblAssets "Own] ON [" TblAssets "] ([" TblAssets_Owner "])");
+}
+
+void NodeDB::CreateTables34()
+{
+	ExecQuick("CREATE TABLE [" TblEvents "] ("
+		"[" TblEvents_Account	"] INTEGER NOT NULL,"
+		"[" TblEvents_Height	"] INTEGER NOT NULL,"
+		"[" TblEvents_Body		"] BLOB NOT NULL,"
+		"[" TblEvents_Key		"] BLOB NOT NULL)");
+
+	ExecQuick("CREATE INDEX [Idx" TblEvents "] ON [" TblEvents "] ([" TblEvents_Account "],[" TblEvents_Height "],[" TblEvents_Body "]);");
+	ExecQuick("CREATE INDEX [Idx" TblEvents TblEvents_Key "] ON [" TblEvents "] ([" TblEvents_Account "],[" TblEvents_Key "]);");
 }
 
 void NodeDB::Vacuum()
@@ -1884,14 +1899,15 @@ void NodeDB::MoveFwd(const StateID& sid)
 	put_Cursor(sid);
 }
 
-void NodeDB::InsertEvent(Height h, const Blob& b, const Blob& key)
+void NodeDB::InsertEvent(AccountIndex iAccount, Height h, const Blob& b, const Blob& key)
 {
 	assert(b.n >= sizeof(EventIndexType));
 
-	Recordset rs(*this, Query::EventIns, "INSERT INTO " TblEvents "(" TblEvents_Height "," TblEvents_Body "," TblEvents_Key ") VALUES (?,?,?)");
+	Recordset rs(*this, Query::EventIns, "INSERT INTO " TblEvents "(" TblEvents_Height "," TblEvents_Body "," TblEvents_Key "," TblEvents_Account ") VALUES (?,?,?,?)");
 	rs.put(0, h);
 	rs.put(1, b);
 	rs.put(2, key);
+	rs.put(3, iAccount);
 	rs.Step();
 	TestChanged1Row();
 }
@@ -1903,16 +1919,18 @@ void NodeDB::DeleteEventsFrom(Height h)
 	rs.Step();
 }
 
-void NodeDB::EnumEvents(WalkerEvent& x, Height hMin)
+void NodeDB::EnumEvents(WalkerEvent& x, AccountIndex iAccount, Height hMin)
 {
-	x.m_Rs.Reset(*this, Query::EventEnum, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Height ">=? ORDER BY " TblEvents_Height " ASC," TblEvents_Body " ASC");
-	x.m_Rs.put(0, hMin);
+	x.m_Rs.Reset(*this, Query::EventEnum, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Account "=? AND " TblEvents_Height ">=? ORDER BY " TblEvents_Height " ASC," TblEvents_Body " ASC");
+	x.m_Rs.put(0, iAccount);
+	x.m_Rs.put(1, hMin);
 }
 
-void NodeDB::FindEvents(WalkerEvent& x, const Blob& key)
+void NodeDB::FindEvents(WalkerEvent& x, AccountIndex iAccount, const Blob& key)
 {
-	x.m_Rs.Reset(*this, Query::EventFind, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Key "=? ORDER BY " TblEvents_Height " DESC," TblEvents_Body " DESC");
-	x.m_Rs.put(0, key);
+	x.m_Rs.Reset(*this, Query::EventFind, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Account "=? AND " TblEvents_Key "=? ORDER BY " TblEvents_Height " DESC," TblEvents_Body " DESC");
+	x.m_Rs.put(0, iAccount);
+	x.m_Rs.put(1, key);
 }
 
 bool NodeDB::WalkerEvent::MoveNext()
