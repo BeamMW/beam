@@ -467,6 +467,9 @@ void NodeDB::Open(const char* szPath)
 			ExecQuick("DROP INDEX IF EXISTS [Idx" TblEvents TblEvents_Key "]");
 			ExecQuick("DROP TABLE IF EXISTS " TblEvents );
 
+			ParamDelSafe(ParamID::Deprecated_EventsOwnerID);
+			ParamDelSafe(ParamID::Deprecated_EventsSerif);
+
 			CreateTables34();
 			// no break;
 

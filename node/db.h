@@ -49,7 +49,7 @@ public:
 			RichContractInfo,
 			RichContractParser,
 			Treasury,
-			EventsOwnerID, // hash of keys used to scan and record events
+			Deprecated_EventsOwnerID, // hash of keys used to scan and record events
 			HeightTxoLo, // Height starting from which and below Txo info is totally erased.
 			HeightTxoHi, // Height starting from which and below Txo infi is compacted, only the commitment is left
 			SyncData,
@@ -59,7 +59,7 @@ public:
 			ShieldedInputs,
 			AssetsCount, // Including unused. The last element is guaranteed to be used.
 			AssetsCountUsed, // num of 'live' assets
-			EventsSerif, // pseudo-random, reset each time the events are rescanned.
+			Deprecated_EventsSerif, // pseudo-random, reset each time the events are rescanned.
 			ForbiddenState,
 			Flags1, // used for 2-stage migration, where the 2nd stage is performed by the Processor
 			CacheState,
