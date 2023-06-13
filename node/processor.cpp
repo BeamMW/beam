@@ -17,6 +17,7 @@
 #include "../core/shielded.h"
 #include "../bvm/bvm2.h"
 #include "../core/serialization_adapters.h"
+#include "../core/base58.h"
 #include "../utility/serialize.h"
 #include "../utility/logger.h"
 #include "../utility/logger_checkpoints.h"
@@ -2795,6 +2796,20 @@ struct NodeProcessor::MyRecognizer
 	}
 };
 
+std::string NodeProcessor::Account::get_Endpoint() const
+{
+	Key::ID kid(Zero);
+	kid.m_Type = ECC::Key::Type::EndPoint;
+
+	PeerID pid;
+	kid.get_Hash(pid);
+
+	ECC::Point::Native ptN;
+	m_pOwner->DerivePKeyG(ptN, pid);
+	pid.Import(ptN);
+
+	return Base58::to_string(pid);
+}
 
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemState::Full& s, MultiblockContext& mbc)
 {

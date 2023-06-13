@@ -592,6 +592,7 @@ public:
 	{
 		Key::IPKdf::Ptr m_pOwner;
 		std::vector<ShieldedTxo::Viewer> m_vSh;
+		std::string get_Endpoint() const;
 	};
 
 	typedef std::vector<Account> AccountsVec;

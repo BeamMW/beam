@@ -1234,7 +1234,13 @@ void Node::RefreshAccounts()
 
     if (!accs.empty())
     {
-        LOG_INFO() << "Owned accounts : " << accs.size();
+        std::ostringstream os;
+        os << "Owned accounts : ";
+
+        for (const auto& acc : accs)
+            os << '\t' << acc.get_Endpoint() << std::endl;
+
+        LOG_INFO() << os.str();
     }
 }
 
@@ -5234,18 +5240,6 @@ void Node::PrintTxos()
 {
     for (const auto& acc : m_Processor.m_vAccounts)
     {
-        PeerID pid;
-
-        {
-            Key::ID kid(Zero);
-            kid.m_Type = ECC::Key::Type::EndPoint;
-            kid.get_Hash(pid);
-
-            ECC::Point::Native ptN;
-            acc.m_pOwner->DerivePKeyG(ptN, pid);
-            pid.Import(ptN);
-        }
-
         struct PerAsset {
             Amount m_Avail = 0;
             Amount m_Locked = 0;
@@ -5253,7 +5247,7 @@ void Node::PrintTxos()
         typedef std::map<Asset::ID, PerAsset> AssetMap;
 
         std::ostringstream os;
-        os << "Printing Events for Key=" << pid << std::endl;
+        os << "Printing Events for Endpoint=" << acc.get_Endpoint() << std::endl;
 
         if (m_Processor.IsFastSync())
             os << "Note: Fast-sync is in progress. Data is preliminary and not fully verified yet." << std::endl;
