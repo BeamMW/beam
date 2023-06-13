@@ -13,3 +13,6 @@
 [submodule "3rdparty/re2"]
 	path = 3rdparty/re2
 	url = https://github.com/BeamMW/re2
+[submodule "3rdparty/secp256k1"]
+	path = 3rdparty/secp256k1
+	url = https://github.com/BeamMW/secp256k1.git
