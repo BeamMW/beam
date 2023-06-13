@@ -329,16 +329,6 @@ namespace ECC {
 		return *this;
 	}
 
-	void Scalar::Native::SetSqr(const Native& v)
-	{
-		secp256k1_scalar_sqr(this, &v);
-	}
-
-	void Scalar::Native::Sqr()
-	{
-		SetSqr(*this);
-	}
-
 	void Scalar::Native::SetInv(const Native& v)
 	{
 		secp256k1_scalar_inverse(this, &v);

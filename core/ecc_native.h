@@ -98,8 +98,6 @@ namespace ECC
         Native& operator -= (const Native& v) { return *this = *this - v; }
 		Native& operator *= (const Native& v) { return *this = *this * v; }
 
-		void SetSqr(const Native&);
-		void Sqr();
 		void SetInv(const Native&); // for 0 the result is also 0
 		void Inv();
 
