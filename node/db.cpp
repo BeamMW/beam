@@ -66,7 +66,7 @@ namespace beam {
 #define TblEvents_Key			"Key"
 
 #define TblAccounts				"Accounts"
-#define TblAccounts_Index		"Index"
+#define TblAccounts_Index		"iIdx"
 #define TblAccounts_OwnerID		"OwnerID"
 #define TblAccounts_Serif		"Serif"
 #define TblAccounts_TxoHi		"HeightHi"
