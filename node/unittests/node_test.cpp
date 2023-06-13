@@ -3106,7 +3106,10 @@ namespace beam
 		{
 			uint32_t m_Recovered = 0;
 
-			TxoRecover(Key::IPKdf& key) :NodeProcessor::ITxoRecover(key) {}
+			TxoRecover(Key::IPKdf& key)
+			{
+				m_pKey = &key;
+			}
 
 			virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&, const Output::User&) override
 			{
@@ -3117,8 +3120,6 @@ namespace beam
 
 		TxoRecover wlk(*node.m_Keys.m_pOwner);
 		node2.get_Processor().EnumTxos(wlk);
-
-		node.get_Processor().RescanOwnedTxos();
 
 		verify_test(wlk.m_Recovered);
 

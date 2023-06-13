@@ -587,18 +587,17 @@ public:
 
 	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&, std::string& sErr);
 
-	struct ViewerKeys
+	struct Account
+		:public NodeDB::WalkerAccount::Data
 	{
-		Key::IPKdf* m_pMw;
-		ShieldedTxo::Viewer* m_pSh;
-		Key::Index m_nSh;
-		
-		bool IsEmpty() const;
+		Key::IPKdf::Ptr m_pOwner;
+		std::vector<ShieldedTxo::Viewer> m_vSh;
 	};
 
-	virtual void get_ViewerKeys(ViewerKeys&);
+	typedef std::vector<Account> AccountsVec;
+	AccountsVec m_vAccounts;
 
-	void RescanOwnedTxos();
+	void RescanAccounts(uint32_t nRecent);
 
 	uint64_t FindActiveAtStrict(Height);
 	Height FindVisibleKernel(const Merkle::Hash&, const BlockInterpretCtx&);
@@ -666,8 +665,7 @@ public:
 	struct ITxoRecover
 		:public ITxoWalker
 	{
-		Key::IPKdf& m_Key;
-		ITxoRecover(Key::IPKdf& key) :m_Key(key) {}
+		Key::IPKdf* m_pKey = nullptr;
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&) override;
@@ -702,8 +700,8 @@ public:
 	struct KrnWalkerRecognize
 		:public IKrnWalker
 	{
-		Recognizer& m_Proc;
-		KrnWalkerRecognize(Recognizer& p) :m_Proc(p) {}
+		Recognizer& m_Rec;
+		KrnWalkerRecognize(Recognizer& p) :m_Rec(p) {}
 
 		virtual bool OnKrn(const TxKernel& krn) override;
 	};
@@ -770,9 +768,8 @@ public:
 
 		struct IHandler
 		{
-			uint32_t m_iAccount = 0;
+			Account const* m_pAccount = nullptr;
 
-			virtual void get_ViewerKeys(NodeProcessor::ViewerKeys& vk) {}
 			virtual void OnDummy(const CoinID&, Height) {}
 			virtual void OnEvent(Height, const proto::Event::Base&) {}
 			virtual void AssetEvtsGetStrict(NodeDB::AssetEvt& event, Height h, uint32_t nKrnIdx) {}
@@ -780,6 +777,9 @@ public:
 			virtual bool FindEvents(const Blob& key, IEventHandler&) { return false; }
 		};
 		Recognizer(IHandler& h, Extra& extra);
+
+		IHandler& m_Handler;
+		Extra& m_Extra;
 
 		void Recognize(const TxVectors::Full& block, Height height, uint32_t shieldedOuts, bool validateShieldedOuts = true);
 
@@ -801,9 +801,6 @@ public:
 	private:
 		template <typename TEvt>
 		void AddEventInternal(Height, EventKey::IndexType nIdx, const TEvt&, const Blob& key);
-
-		IHandler& m_Handler;
-		Extra& m_Extra;
 	};
 
 	struct MyRecognizer;
