@@ -517,14 +517,15 @@ void Manager::LocalContext::SyncCoins()
     } parser;
     parser.m_pThis = this;
 
-    NodeDB::WalkerEvent wlk;
-    for (proc.get_DB().EnumEvents(wlk, m_hCoinsEvtNext); wlk.MoveNext(); )
+    if (!proc.m_vAccounts.empty())
     {
-        parser.m_Height = wlk.m_Height;
-        parser.ProceedOnce(wlk.m_Body);
+        NodeDB::WalkerEvent wlk;
+        for (proc.get_DB().EnumEvents(wlk, proc.m_vAccounts.front().m_iAccount, m_hCoinsEvtNext); wlk.MoveNext(); )
+        {
+            parser.m_Height = wlk.m_Height;
+            parser.ProceedOnce(wlk.m_Body);
+        }
     }
-
-
 
     m_hCoinsEvtNext = proc.m_Cursor.m_Full.m_Height + 1;
 }
