@@ -1977,14 +1977,19 @@ void NodeDB::InsertAccount(const WalkerAccount::Data& d)
 	TestChanged1Row();
 }
 
-void NodeDB::DeleteAccountWithEvents(AccountIndex iAccount)
+void NodeDB::DeleteAccountOnly(AccountIndex iAccount)
 {
 	Recordset rs(*this, Query::AccountDel, "DELETE FROM " TblAccounts " WHERE " TblAccounts_Index "=?");
 	rs.put(0, iAccount);
 	rs.Step();
 	TestChanged1Row();
+}
 
-	rs.Reset(*this, Query::EventDelByAccount, "DELETE FROM " TblEvents " WHERE " TblEvents_Account "=?");
+void NodeDB::DeleteAccountWithEvents(AccountIndex iAccount)
+{
+	DeleteAccountOnly(iAccount);
+
+	Recordset rs(*this, Query::EventDelByAccount, "DELETE FROM " TblEvents " WHERE " TblEvents_Account "=?");
 	rs.put(0, iAccount);
 	rs.Step();
 }
@@ -1992,6 +1997,14 @@ void NodeDB::DeleteAccountWithEvents(AccountIndex iAccount)
 void NodeDB::EnumAccounts(WalkerAccount& wlk)
 {
 	wlk.m_Rs.Reset(*this, Query::AccountEnum, "SELECT " TblAccounts_Index "," TblAccounts_OwnerID "," TblAccounts_Serif "," TblAccounts_TxoHi " FROM " TblAccounts " ORDER BY " TblAccounts_Index);
+}
+
+void NodeDB::GetAccount(WalkerAccount& wlk)
+{
+	wlk.m_Rs.Reset(*this, Query::AccountGet, "SELECT " TblAccounts_Index "," TblAccounts_OwnerID "," TblAccounts_Serif "," TblAccounts_TxoHi " FROM " TblAccounts " WHERE " TblAccounts_Index "=?");
+	wlk.m_Rs.put(0, wlk.m_Data.m_iAccount);
+	if (!wlk.MoveNext())
+		ThrowInconsistent();
 }
 
 bool NodeDB::WalkerAccount::MoveNext()

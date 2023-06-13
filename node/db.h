@@ -134,6 +134,7 @@ public:
 			AccountDel,
 			AccountIns,
 			AccountEnum,
+			AccountGet,
 			PeerAdd,
 			PeerDel,
 			PeerEnum,
@@ -450,8 +451,10 @@ public:
 	};
 
 	void InsertAccount(const WalkerAccount::Data&);
+	void DeleteAccountOnly(AccountIndex);
 	void DeleteAccountWithEvents(AccountIndex);
 	void EnumAccounts(WalkerAccount&);
+	void GetAccount(WalkerAccount&);
 
 	void EnumEvents(WalkerEvent&, AccountIndex, Height hMin);
 	void FindEvents(WalkerEvent&, AccountIndex, const Blob& key); // in case of duplication the most recently added comes first
