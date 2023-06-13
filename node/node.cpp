@@ -5300,7 +5300,7 @@ void Node::PrintTxos()
         p.m_Height = m_Processor.m_Cursor.m_Full.m_Height;
 
         NodeDB::WalkerEvent wlk;
-        for (m_Processor.get_DB().EnumEvents(wlk, 0, Rules::HeightGenesis - 1); wlk.MoveNext(); )
+        for (m_Processor.get_DB().EnumEvents(wlk, acc.m_iAccount, Rules::HeightGenesis - 1); wlk.MoveNext(); )
         {
             os << "\tHeight=" << wlk.m_Height << ", ";
             p.ProceedOnce(wlk.m_Body);
