@@ -438,26 +438,30 @@ int main(int argc, char* argv[])
 						auto& vRes = node.m_Keys.m_vExtraOwners; // alias
 						assert(vRes.empty());
 
+						std::vector<std::string> vPasses;
 						if (vm.count(cli::MULTI_PASSES))
-						{
-							auto vPasses = vm[cli::MULTI_PASSES].as<std::vector<std::string> >();
+							vPasses = vm[cli::MULTI_PASSES].as<std::vector<std::string> >();
 
-							if (vPasses.size() > vKeys.size())
-								vPasses.resize(vKeys.size());
-
-							for (auto& sPass : vPasses)
-								vRes.push_back(ImportPKeyStrict(vKeys[vRes.size()], Blob(sPass.c_str(), static_cast<uint32_t>(sPass.size()))));
-						}
+						vPasses.resize(vKeys.size()); // ignore redundant, add empty for missing
 
 						while (vRes.size() < vKeys.size())
 						{
-							std::ostringstream osPrompt;
-							osPrompt << "Enter password for extra key " << vRes.size() << ": ";
+							auto& sPass = vPasses[vRes.size()];
+							SecString ssPass;
+							Blob blob;
 
-							SecString pass;
-							read_password(osPrompt.str().c_str(), pass);
+							if (sPass.empty())
+							{
+								std::ostringstream osPrompt;
+								osPrompt << "Enter password for extra key " << vRes.size() << ": ";
 
-							vRes.push_back(ImportPKeyStrict(vKeys[vRes.size()], Blob(pass.data(), static_cast<uint32_t>(pass.size()))));
+								read_password(osPrompt.str().c_str(), ssPass);
+								blob = Blob(ssPass.data(), (uint32_t) ssPass.size());
+							}
+							else
+								blob = Blob(sPass.c_str(), (uint32_t) sPass.size());
+
+							vRes.push_back(ImportPKeyStrict(vKeys[vRes.size()], blob));
 						}
 					}
 
