@@ -458,7 +458,6 @@ void NodeDB::Open(const char* szPath)
 		case 33: // fix asset evt table, after previous Rebuild non-std
 
 			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
-			ParamIntSet(ParamID::DbVer, nVersionTop);
 			// no break;
 
 		case 34:
@@ -471,6 +470,8 @@ void NodeDB::Open(const char* szPath)
 			ParamDelSafe(ParamID::Deprecated_EventsSerif);
 
 			CreateTables34();
+
+			ParamIntSet(ParamID::DbVer, nVersionTop);
 			// no break;
 
 		case nVersionTop:
