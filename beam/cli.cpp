@@ -255,6 +255,17 @@ private:
 	Node* m_pNode;
 };
 
+template <typename TKey>
+std::shared_ptr<TKey> ImportKey_T(std::string& sKey, KeyString& ks)
+{
+	ks.m_sRes = std::move(sKey);
+	std::shared_ptr<TKey> pKdf = std::make_shared<TKey>();
+	if (!ks.Import(*pKdf))
+		throw std::runtime_error("key import failed");
+
+	return pKdf;
+}
+
 int main(int argc, char* argv[])
 {
 	beam::Crash::InstallHandler(NULL);
@@ -403,26 +414,12 @@ int main(int argc, char* argv[])
 
 						if (!sKeyMine.empty())
 						{
-							ks.m_sRes = move(sKeyMine);
-
-							std::shared_ptr<HKdf> pKdf = std::make_shared<HKdf>();
-							if (!ks.Import(*pKdf))
-								throw std::runtime_error("miner key import failed");
-
-							node.m_Keys.m_pMiner = pKdf;
+							node.m_Keys.m_pMiner = ImportKey_T<HKdf>(sKeyMine, ks);
 							node.m_Keys.m_nMinerSubIndex = atoi(ks.m_sMeta.c_str());
 						}
 
 						if (!sKeyOwner.empty())
-						{
-							ks.m_sRes = move(sKeyOwner);
-
-							std::shared_ptr<HKdfPub> pKdf = std::make_shared<HKdfPub>();
-							if (!ks.Import(*pKdf))
-								throw std::runtime_error("view key import failed");
-
-							node.m_Keys.m_pOwner = pKdf;
-						}
+							node.m_Keys.m_pOwner = ImportKey_T<HKdfPub>(sKeyOwner, ks);
 					}
 
 					if (vm.count(cli::MINER_JOB_LATENCY))
