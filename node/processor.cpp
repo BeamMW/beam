@@ -3497,24 +3497,23 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 		:public ITxoRecover
 	{
 		MyRecognizer& m_Rec;
-		uint32_t m_Recent;
 		uint32_t m_Total = 0;
 		uint32_t m_Unspent = 0;
 
-		TxoRecover(MyRecognizer& rec, uint32_t nRecent)
+		const Account* m_pAcc;
+		uint32_t m_nAcc;
+
+		TxoRecover(MyRecognizer& rec)
 			:m_Rec(rec)
-			,m_Recent(nRecent)
 		{
 		}
 
 		bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp) override
 		{
-			
-			for (uint32_t iAcc = m_Recent; iAcc < m_Rec.m_Handler.m_Proc.m_vAccounts.size(); iAcc++)
+			for (uint32_t iAcc = 0; iAcc < m_nAcc; iAcc++)
 			{
-				const auto& acc = m_Rec.m_Handler.m_Proc.m_vAccounts[iAcc];
-				m_Rec.m_Handler.m_pAccount = &acc;
-				m_pKey = acc.m_pOwner.get();
+				m_Rec.m_Handler.m_pAccount = m_pAcc + iAcc;
+				m_pKey = m_Rec.m_Handler.m_pAccount->m_pOwner.get();
 
 				if (!ITxoRecover::OnTxo(wlk, hCreate, outp))
 					return false;
@@ -3558,8 +3557,10 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 	{
 		LongAction la("Rescanning owned Txos...", 0);
 
-		TxoRecover wlk(rec, nRecent);
+		TxoRecover wlk(rec);
 		wlk.m_pLa = &la;
+		wlk.m_pAcc = &m_vAccounts.front() + m_vAccounts.size() - nRecent;
+		wlk.m_nAcc = nRecent;
 
 		EnumTxos(wlk);
 
