@@ -1117,6 +1117,59 @@ void Node::InitIDs()
     m_MyPublicID.FromSk(m_MyPrivateID);
 }
 
+void Node::AddAccount(const Key::IPKdf::Ptr& pOwner, Key::IPKdf* pMiner)
+{
+    ECC::Hash::Processor hp;
+    hp << uint32_t(4); // change this whenever we change the format of the saved events
+
+    ECC::Hash::Value hv0, hv1(Zero);
+
+    ECC::Scalar::Native sk;
+    pOwner->DerivePKey(sk, hv1);
+    hp << sk;
+
+    if (pMiner)
+    {
+        // rescan also when miner subkey changes, to recover possible decoys that were rejected earlier
+        pMiner->DerivePKey(sk, hv1);
+        hp
+            << m_Keys.m_nMinerSubIndex
+            << sk;
+    }
+
+    hp >> hv0;
+
+    // check if this account already exists
+    NodeDB::AccountIndex iAccount = 1;
+    NodeProcessor::Account* pAcc = nullptr;
+
+    for (auto& d : m_Processor.m_vAccounts)
+    {
+        if (d.m_OwnerID == hv0)
+        {
+            pAcc = &d;
+            break;
+        }
+
+        if (iAccount == d.m_iAccount)
+            iAccount = d.m_iAccount + 1;
+    }
+
+    bool bNew = !pAcc;
+    if (bNew)
+    {
+        pAcc = &m_Processor.m_vAccounts.emplace_back();
+
+        pAcc->m_iAccount = iAccount;
+        pAcc->m_hTxoHi = m_Processor.m_Extra.m_TxoHi;
+        pAcc->m_OwnerID = hv0;
+        pAcc->m_Serif = NextNonce();
+    }
+
+    pAcc->m_pOwner = pOwner;
+    pAcc->InitFromOwner();
+}
+
 void Node::RefreshAccounts()
 {
     auto& accs = m_Processor.m_vAccounts;
@@ -1132,67 +1185,22 @@ void Node::RefreshAccounts()
         }
     }
 
-    auto nDel = static_cast<uint32_t>(accs.size());
-    uint32_t nAdd = 0;
+    uint32_t nAdd = static_cast<uint32_t>(accs.size());
 
-    // Configured accounts
     if (m_Keys.m_pOwner)
+        AddAccount(m_Keys.m_pOwner, m_Keys.m_pMiner.get());
+
+    for (const auto& pExtra : m_Keys.m_vExtraOwners)
+        AddAccount(pExtra, nullptr);
+
+    nAdd = static_cast<uint32_t>(accs.size()) - nAdd; // how many new added
+
+    uint32_t nDel = 0;
+    for (const auto& acc : accs)
     {
-        ECC::Hash::Processor hp;
-        hp << uint32_t(4); // change this whenever we change the format of the saved events
-
-        ECC::Hash::Value hv0, hv1(Zero);
-
-        ECC::Scalar::Native sk;
-        m_Keys.m_pOwner->DerivePKey(sk, hv1);
-        hp << sk;
-
-        if (m_Keys.m_pMiner)
-        {
-            // rescan also when miner subkey changes, to recover possible decoys that were rejected earlier
-            m_Keys.m_pMiner->DerivePKey(sk, hv1);
-            hp
-                << m_Keys.m_nMinerSubIndex
-                << sk;
-        }
-
-        hp >> hv0;
-
-        // check if this account already exists
-        NodeDB::AccountIndex iAccount = 1;
-        NodeProcessor::Account* pAcc = nullptr;
-
-        for (auto& d : accs)
-        {
-            if (d.m_OwnerID == hv0)
-            {
-                if (!d.m_pOwner)
-                    nDel--;
-
-                pAcc = &d;
-                break;
-            }
-
-            if (iAccount == d.m_iAccount)
-                iAccount = d.m_iAccount + 1;
-        }
-
-        bool bNew = !pAcc;
-        if (bNew)
-        {
-            pAcc = &accs.emplace_back();
-            nAdd++;
-
-            pAcc->m_iAccount = iAccount;
-            pAcc->m_hTxoHi = m_Processor.m_Extra.m_TxoHi;
-            pAcc->m_OwnerID = hv0;
-            pAcc->m_Serif = NextNonce();
-        }
-
-        pAcc->m_pOwner = m_Keys.m_pOwner;
-        pAcc->InitFromOwner();
+        if (!acc.m_pOwner)
+            nDel++;
     }
-
     // delete unused accounts
     if (nDel)
     {
