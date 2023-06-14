@@ -135,6 +135,8 @@ namespace beam
         const char* OWNER_KEY = "owner_key";
         const char* KEY_MINE = "key_mine"; // deprecated
         const char* MINER_KEY = "miner_key";
+        const char* MULTI_OWNER_KEYS = "extra_owners";
+        const char* MULTI_PASSES = "extra_pass";
         const char* MINER_JOB_LATENCY = "miner_job_latency";
         const char* MINE_ONLINE = "mine_online";
         const char* BBS_ENABLE = "bbs_enable";
@@ -421,6 +423,8 @@ namespace beam
             (cli::MINER_JOB_LATENCY, po::value<uint32_t>(), "Minimal latency in milliseconds for miner job update upon transaction pool change")
             (cli::MINE_ONLINE, po::value<bool>(), "Perfer online mining when owner wallet is conntected")
             (cli::PASS, po::value<string>(), "password for keys")
+            (cli::MULTI_OWNER_KEYS, po::value<vector<string> >(), "Extra Owner keys")
+            (cli::MULTI_PASSES, po::value<vector<string> >(), "Extra Owner key passwords")
             (cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
             (cli::FAST_SYNC, po::value<bool>(), "Fast sync on/off (override horizons)")
             (cli::GENERATE_RECOVERY_PATH, po::value<string>(), "Recovery file to generate immediately after start")

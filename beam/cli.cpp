@@ -266,6 +266,14 @@ std::shared_ptr<TKey> ImportKey_T(std::string& sKey, KeyString& ks)
 	return pKdf;
 }
 
+
+std::shared_ptr<HKdfPub> ImportPKeyStrict(std::string& sKey, const Blob& pass)
+{
+	KeyString ks;
+	ks.SetPassword(pass);
+	return ImportKey_T<HKdfPub>(sKey, ks);
+}
+
 int main(int argc, char* argv[])
 {
 	beam::Crash::InstallHandler(NULL);
@@ -420,6 +428,37 @@ int main(int argc, char* argv[])
 
 						if (!sKeyOwner.empty())
 							node.m_Keys.m_pOwner = ImportKey_T<HKdfPub>(sKeyOwner, ks);
+					}
+
+					if (vm.count(cli::MULTI_OWNER_KEYS))
+					{
+						auto vKeys = vm[cli::MULTI_OWNER_KEYS].as<std::vector<std::string> >();
+						assert(vKeys.empty());
+
+						auto& vRes = node.m_Keys.m_vExtraOwners; // alias
+						assert(vRes.empty());
+
+						if (vm.count(cli::MULTI_PASSES))
+						{
+							auto vPasses = vm[cli::MULTI_PASSES].as<std::vector<std::string> >();
+
+							if (vPasses.size() > vKeys.size())
+								vPasses.resize(vKeys.size());
+
+							for (auto& sPass : vPasses)
+								vRes.push_back(ImportPKeyStrict(vKeys[vRes.size()], Blob(sPass.c_str(), static_cast<uint32_t>(sPass.size()))));
+						}
+
+						while (vRes.size() < vKeys.size())
+						{
+							std::ostringstream osPrompt;
+							osPrompt << "Enter password for extra key " << vRes.size() << ": ";
+
+							SecString pass;
+							read_password(osPrompt.str().c_str(), pass);
+
+							vRes.push_back(ImportPKeyStrict(vKeys[vRes.size()], Blob(pass.data(), static_cast<uint32_t>(pass.size()))));
+						}
 					}
 
 					if (vm.count(cli::MINER_JOB_LATENCY))
