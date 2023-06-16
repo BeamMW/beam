@@ -309,7 +309,7 @@ namespace beam
 			<< "-" << x.get_Scheme()
 			<< ":" << x.get_Subkey()
 			<< ":" << x.m_Idx
-			<< ", Value=" << x.m_Value;
+			<< ", Value=" << AmountBig::Printable(x.m_Value);
 
 		if (x.m_AssetID)
 			s << ", AssetID=" << x.m_AssetID;

@@ -5312,8 +5312,7 @@ void Node::PrintTxos()
             const PerAsset& pa = it->second;
             if (pa.m_Avail || pa.m_Locked)
             {
-                os << "\tAssetID=" << it->first << ", Avail=" << pa.m_Avail << ", Locked=" << pa.m_Locked << std::endl;
-
+                os << "\tAssetID=" << it->first << ", Avail=" << AmountBig::Printable(pa.m_Avail) << ", Locked=" << AmountBig::Printable(pa.m_Locked) << std::endl;
             }
         }
 
