@@ -685,13 +685,15 @@ void Node::Processor::OnNewState()
 
 void Node::Processor::OnFastSyncSucceeded()
 {
-    // update Events serif
-    ECC::Hash::Value hv;
-    Blob blob(hv);
-    if (!get_DB().ParamGet(NodeDB::ParamID::EventsSerif, nullptr, &blob))
-        return; //?!
+    if (m_vAccounts.empty())
+        return;
 
-    get_DB().ParamSet(NodeDB::ParamID::EventsSerif, &m_Extra.m_TxoHi, &blob);
+    for (auto& acc : m_vAccounts)
+    {
+        get_DB().DeleteAccountOnly(acc.m_iAccount);
+        acc.m_hTxoHi = m_Extra.m_TxoHi;
+        get_DB().InsertAccount(acc);
+    }
 
     for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
     {
@@ -854,15 +856,6 @@ void Node::Processor::Stop()
     {
         m_pFlushTimer->cancel();
     }
-}
-
-void Node::Processor::get_ViewerKeys(ViewerKeys& vk)
-{
-    vk.m_pMw = get_ParentObj().m_Keys.m_pOwner.get();
-
-    vk.m_nSh = static_cast<Key::Index>(get_ParentObj().m_Keys.m_vSh.size());
-    if (vk.m_nSh)
-        vk.m_pSh = &get_ParentObj().m_Keys.m_vSh.front();
 }
 
 Height Node::Processor::get_MaxAutoRollback()
@@ -1038,7 +1031,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
 		m_Processor.OnTreasury(Blob(m_Cfg.m_Treasury));
 	}
 
-	RefreshOwnedUtxos();
+    RefreshAccounts();
 
 	ZeroObject(m_SyncStatus);
     RefreshCongestions();
@@ -1084,11 +1077,6 @@ void Node::InitKeys()
 			throw exc;
 
 		}
-
-        m_Keys.m_vSh.resize(1); // Change this if/when we decide to use multiple keys
-
-        for (Key::Index nIdx = 0; nIdx < static_cast<Key::Index>(m_Keys.m_vSh.size()); nIdx++)
-    		m_Keys.m_vSh[nIdx].FromOwner(*m_Keys.m_pOwner, nIdx);
 	}
 	else
         m_Keys.m_pMiner = nullptr; // can't mine without owner view key, because it's used for Tagging
@@ -1129,49 +1117,134 @@ void Node::InitIDs()
     m_MyPublicID.FromSk(m_MyPrivateID);
 }
 
-void Node::RefreshOwnedUtxos()
+void Node::AddAccount(const Key::IPKdf::Ptr& pOwner, Key::IPKdf* pMiner)
 {
-	ECC::Hash::Processor hp;
+    ECC::Hash::Processor hp;
     hp << uint32_t(4); // change this whenever we change the format of the saved events
 
-	ECC::Hash::Value hv0, hv1(Zero);
+    ECC::Hash::Value hv0, hv1(Zero);
 
-	if (m_Keys.m_pOwner)
-	{
-		ECC::Scalar::Native sk;
-		m_Keys.m_pOwner->DerivePKey(sk, hv1);
-		hp << sk;
+    ECC::Scalar::Native sk;
+    pOwner->DerivePKey(sk, hv1);
+    hp << sk;
 
-		if (m_Keys.m_pMiner)
-		{
-			// rescan also when miner subkey changes, to recover possible decoys that were rejected earlier
-			m_Keys.m_pMiner->DerivePKey(sk, hv1);
-			hp
-				<< m_Keys.m_nMinerSubIndex
-				<< sk;
-		}
-	}
-
-	hp >> hv0;
-
-	Blob blob(hv1);
-	m_Processor.get_DB().ParamGet(NodeDB::ParamID::EventsOwnerID, NULL, &blob);
-
-    bool bChanged = (hv0 != hv1);
-    if (bChanged)
+    if (pMiner)
     {
-        // changed
-        m_Processor.RescanOwnedTxos();
-
-        blob = Blob(hv0);
-        m_Processor.get_DB().ParamSet(NodeDB::ParamID::EventsOwnerID, NULL, &blob);
+        // rescan also when miner subkey changes, to recover possible decoys that were rejected earlier
+        pMiner->DerivePKey(sk, hv1);
+        hp
+            << m_Keys.m_nMinerSubIndex
+            << sk;
     }
 
-    if (bChanged || !m_Processor.get_DB().ParamGet(NodeDB::ParamID::EventsSerif, nullptr, &blob))
+    hp >> hv0;
+
+    // check if this account already exists
+    NodeDB::AccountIndex iAccount = 1;
+    NodeProcessor::Account* pAcc = nullptr;
+
+    for (auto& d : m_Processor.m_vAccounts)
     {
-        hv0 = NextNonce();
-        blob = Blob(hv0);
-        m_Processor.get_DB().ParamSet(NodeDB::ParamID::EventsSerif, &m_Processor.m_Extra.m_TxoHi, &blob);
+        if (d.m_OwnerID == hv0)
+        {
+            pAcc = &d;
+            break;
+        }
+
+        if (iAccount == d.m_iAccount)
+            iAccount = d.m_iAccount + 1;
+    }
+
+    bool bNew = !pAcc;
+    if (bNew)
+    {
+        pAcc = &m_Processor.m_vAccounts.emplace_back();
+
+        pAcc->m_iAccount = iAccount;
+        pAcc->m_hTxoHi = m_Processor.m_Extra.m_TxoHi;
+        pAcc->m_OwnerID = hv0;
+        pAcc->m_Serif = NextNonce();
+    }
+
+    pAcc->m_pOwner = pOwner;
+    pAcc->InitFromOwner();
+}
+
+void Node::RefreshAccounts()
+{
+    auto& accs = m_Processor.m_vAccounts;
+    assert(accs.empty());
+
+    // Current accounts
+    {
+        NodeDB::WalkerAccount wlk;
+        for (m_Processor.get_DB().EnumAccounts(wlk); wlk.MoveNext(); )
+        {
+            auto& acc = accs.emplace_back();
+            Cast::Down<NodeDB::WalkerAccount::Data>(acc) = wlk.m_Data;
+        }
+    }
+
+    uint32_t nAdd = static_cast<uint32_t>(accs.size());
+
+    if (m_Keys.m_pOwner)
+        AddAccount(m_Keys.m_pOwner, m_Keys.m_pMiner.get());
+
+    for (const auto& pExtra : m_Keys.m_vExtraOwners)
+        AddAccount(pExtra, nullptr);
+
+    nAdd = static_cast<uint32_t>(accs.size()) - nAdd; // how many new added
+
+    uint32_t nDel = 0;
+    for (const auto& acc : accs)
+    {
+        if (!acc.m_pOwner)
+            nDel++;
+    }
+    // delete unused accounts
+    if (nDel)
+    {
+        assert(nDel <= accs.size());
+        LOG_INFO() << "Owned accounts removed: " << nDel;
+
+        size_t iDst = 0;
+        for (size_t iSrc = 0; iSrc < accs.size(); iSrc++)
+        {
+            auto& acc = accs[iSrc];
+            if (acc.m_pOwner)
+            {
+                if (iDst != iSrc)
+                    accs[iDst] = std::move(acc);
+                iDst++;
+            }
+            else
+                m_Processor.get_DB().DeleteAccountWithEvents(acc.m_iAccount);
+        }
+
+        assert(iDst + nDel == accs.size());
+        accs.resize(iDst);
+    }
+
+    if (nAdd)
+    {
+        assert(nAdd <= accs.size());
+        LOG_INFO() << "Owned accounts added: " << nAdd;
+
+        for (size_t i = accs.size() - nAdd; i < accs.size(); i++)
+            m_Processor.get_DB().InsertAccount(accs[i]);
+
+        m_Processor.RescanAccounts(nAdd);
+    }
+
+    if (!accs.empty())
+    {
+        std::ostringstream os;
+        os << "Owned accounts : ";
+
+        for (const auto& acc : accs)
+            os << '\t' << acc.get_Endpoint() << std::endl;
+
+        LOG_INFO() << os.str();
     }
 }
 
@@ -1361,11 +1434,15 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
     {
         bool b = ShouldFinalizeMining();
 
-        Key::IPKdf* pOwner = m_This.m_Keys.m_pOwner.get();
-        if (pOwner && IsKdfObscured(*pOwner, msg.m_ID))
+        for (const auto& acc : m_This.m_Processor.m_vAccounts)
         {
-            m_Flags |= Flags::Owner | Flags::Viewer;
-            ProvePKdfObscured(*pOwner, proto::IDType::Viewer);
+            if (IsKdfObscured(*acc.m_pOwner, msg.m_ID))
+            {
+                m_Flags |= Flags::Owner | Flags::Viewer;
+                m_pAccount = &acc;
+                ProvePKdfObscured(*acc.m_pOwner, proto::IDType::Viewer);
+                break;
+            }
         }
 
         if (!b && ShouldFinalizeMining())
@@ -1374,12 +1451,15 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 
 	if (proto::IDType::Viewer == msg.m_IDType)
 	{
-		Key::IPKdf* pOwner = m_This.m_Keys.m_pOwner.get();
-		if (pOwner && IsPKdfObscured(*pOwner, msg.m_ID))
-		{
-			m_Flags |= Flags::Viewer;
-			ProvePKdfObscured(*pOwner, proto::IDType::Viewer);
-		}
+        for (const auto& acc : m_This.m_Processor.m_vAccounts)
+        {
+            if (IsPKdfObscured(*acc.m_pOwner, msg.m_ID))
+            {
+                m_Flags |= Flags::Viewer;
+                m_pAccount = &acc;
+                ProvePKdfObscured(*acc.m_pOwner, proto::IDType::Viewer);
+            }
+        }
 	}
 
     MaybeSendSerif();
@@ -1527,6 +1607,7 @@ bool Node::Peer::ShouldFinalizeMining()
     return
         (Flags::Owner & m_Flags) &&
         (proto::LoginFlags::MiningFinalization & m_LoginFlags) &&
+        (m_pAccount->m_pOwner == m_This.m_Keys.m_pOwner) && // in multi-account node this is important
         m_This.m_Cfg.m_PreferOnlineMining;
 }
 
@@ -3194,11 +3275,11 @@ void Node::Peer::MaybeSendSerif()
 {
     if (!(Flags::Viewer & m_Flags) || (Flags::SerifSent & m_Flags))
         return;
+    assert(m_pAccount);
 
     proto::EventsSerif msg;
-
-    Blob blob(msg.m_Value);
-    m_This.m_Processor.get_DB().ParamGet(NodeDB::ParamID::EventsSerif, &msg.m_Height, &blob);
+    msg.m_Height = m_pAccount->m_hTxoHi;
+    msg.m_Value = m_pAccount->m_Serif;
 
     Send(msg);
     m_Flags |= Flags::SerifSent;
@@ -3867,6 +3948,7 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
 
     if (Flags::Viewer & m_Flags)
     {
+        assert(m_pAccount);
 		Processor& p = m_This.m_Processor;
 		NodeDB& db = p.get_DB();
         NodeDB::WalkerEvent wlk;
@@ -3876,7 +3958,7 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
 
         Serializer ser, serCvt;
 
-        for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
+        for (db.EnumEvents(wlk, m_pAccount->m_iAccount, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
         {
             if ((nCount >= proto::Event::s_Max) && (wlk.m_Height != hLast))
                 break;
@@ -5160,99 +5242,82 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
 void Node::PrintTxos()
 {
-    if (!m_Keys.m_pOwner)
+    for (const auto& acc : m_Processor.m_vAccounts)
     {
-        LOG_INFO() << "Owner key not specified";
-        return;
+        struct PerAsset {
+            Amount m_Avail = 0;
+            Amount m_Locked = 0;
+        };
+        typedef std::map<Asset::ID, PerAsset> AssetMap;
+
+        std::ostringstream os;
+        os << "Printing Events for Endpoint=" << acc.get_Endpoint() << std::endl;
+
+        if (m_Processor.IsFastSync())
+            os << "Note: Fast-sync is in progress. Data is preliminary and not fully verified yet." << std::endl;
+
+        if (acc.m_hTxoHi >= Rules::HeightGenesis)
+            os << "Note: Cut-through up to Height=" << acc.m_hTxoHi << ", Txos spent earlier may be missing. To recover them too please make full sync." << std::endl;
+
+        struct MyParser :public proto::Event::IParser
+        {
+            std::ostringstream& m_os;
+            AssetMap m_Map;
+            Height m_Height = 0;
+
+            MyParser(std::ostringstream& os) :m_os(os) {}
+
+            virtual void OnEventBase(proto::Event::Base& x) override
+            {
+                x.Dump(m_os);
+            }
+
+            void OnValue(Amount v, Asset::ID aid, uint8_t nFlags, bool bMature)
+            {
+                PerAsset& pa = m_Map[aid];
+
+                if (proto::Event::Flags::Add & nFlags)
+                    (bMature ? pa.m_Avail : pa.m_Locked) += v;
+                else
+                    pa.m_Avail -= v;
+            }
+
+            virtual void OnEventType(proto::Event::Utxo& x) override
+            {
+                OnEventBase(x);
+                OnValue(x.m_Cid.m_Value, x.m_Cid.m_AssetID, x.m_Flags, x.m_Maturity <= m_Height);
+            }
+
+            virtual void OnEventType(proto::Event::Shielded& x) override
+            {
+                OnEventBase(x);
+                OnValue(x.m_CoinID.m_Value, x.m_CoinID.m_AssetID, x.m_Flags, true);
+            }
+
+        } p(os);
+        p.m_Height = m_Processor.m_Cursor.m_Full.m_Height;
+
+        NodeDB::WalkerEvent wlk;
+        for (m_Processor.get_DB().EnumEvents(wlk, acc.m_iAccount, Rules::HeightGenesis - 1); wlk.MoveNext(); )
+        {
+            os << "\tHeight=" << wlk.m_Height << ", ";
+            p.ProceedOnce(wlk.m_Body);
+            os << std::endl;
+        }
+
+        os << "Totals:" << std::endl;
+
+        for (AssetMap::iterator it = p.m_Map.begin(); p.m_Map.end() != it; ++it)
+        {
+            const PerAsset& pa = it->second;
+            if (pa.m_Avail || pa.m_Locked)
+            {
+                os << "\tAssetID=" << it->first << ", Avail=" << AmountBig::Printable(pa.m_Avail) << ", Locked=" << AmountBig::Printable(pa.m_Locked) << std::endl;
+            }
+        }
+
+        LOG_INFO() << os.str();
     }
-
-    PeerID pid;
-
-    {
-        Key::ID kid(Zero);
-        kid.m_Type = ECC::Key::Type::EndPoint;
-        kid.get_Hash(pid);
-
-        ECC::Point::Native ptN;
-        m_Keys.m_pOwner->DerivePKeyG(ptN, pid);
-        pid.Import(ptN);
-    }
-
-    struct PerAsset {
-        Amount m_Avail = 0;
-        Amount m_Locked = 0;
-    };
-    typedef std::map<Asset::ID, PerAsset> AssetMap;
-
-    std::ostringstream os;
-    os << "Printing Events for Key=" << pid << std::endl;
-
-    if (m_Processor.IsFastSync())
-        os << "Note: Fast-sync is in progress. Data is preliminary and not fully verified yet." << std::endl;
-
-    Height hSerif0 = m_Processor.get_DB().ParamIntGetDef(NodeDB::ParamID::EventsSerif);
-    if (hSerif0 >= Rules::HeightGenesis)
-        os << "Note: Cut-through up to Height=" << hSerif0 << ", Txos spent earlier may be missing. To recover them too please make full sync." << std::endl;
-
-    struct MyParser :public proto::Event::IParser
-    {
-        std::ostringstream& m_os;
-        AssetMap m_Map;
-        Height m_Height = 0;
-
-        MyParser(std::ostringstream& os) :m_os(os) {}
-
-        virtual void OnEventBase(proto::Event::Base& x) override
-        {
-            x.Dump(m_os);
-        }
-
-        void OnValue(Amount v, Asset::ID aid, uint8_t nFlags, bool bMature)
-        {
-            PerAsset& pa = m_Map[aid];
-
-            if (proto::Event::Flags::Add & nFlags)
-                (bMature ? pa.m_Avail : pa.m_Locked) += v;
-            else
-                pa.m_Avail -= v;
-        }
-
-        virtual void OnEventType(proto::Event::Utxo& x) override
-        {
-            OnEventBase(x);
-            OnValue(x.m_Cid.m_Value, x.m_Cid.m_AssetID, x.m_Flags, x.m_Maturity <= m_Height);
-        }
-
-        virtual void OnEventType(proto::Event::Shielded& x) override
-        {
-            OnEventBase(x);
-            OnValue(x.m_CoinID.m_Value, x.m_CoinID.m_AssetID, x.m_Flags, true);
-        }
-
-    } p(os);
-    p.m_Height = m_Processor.m_Cursor.m_Full.m_Height;
-
-    NodeDB::WalkerEvent wlk;
-    for (m_Processor.get_DB().EnumEvents(wlk, Rules::HeightGenesis - 1); wlk.MoveNext(); )
-    {
-        os << "\tHeight=" << wlk.m_Height << ", ";
-        p.ProceedOnce(wlk.m_Body);
-        os << std::endl;
-    }
-
-    os << "Totals:" << std::endl;
-
-    for (AssetMap::iterator it = p.m_Map.begin(); p.m_Map.end() != it; ++it)
-    {
-        const PerAsset& pa = it->second;
-        if (pa.m_Avail || pa.m_Locked)
-        {
-            os << "\tAssetID=" << it->first << ", Avail=" << pa.m_Avail << ", Locked=" << pa.m_Locked << std::endl;
-
-        }
-    }
-
-    LOG_INFO() << os.str();
 }
 
 void Node::PrintRollbackStats()

@@ -751,6 +751,12 @@ void Prover::ExtractPart2(Oracle& oracle, bool bIsSinglePass)
 	}
 }
 
+void Proof::InitArrays(const Cfg& cfg)
+{
+	m_Part1.m_vG.resize(cfg.M);
+	m_Part2.m_vF.resize(static_cast<size_t>(cfg.M) * (cfg.n - 1));
+}
+
 void Prover::Generate(const uintBig& seed, Oracle& oracle, const Point::Native& ptBias, Phase ePhase /* = Phase::SinglePass */)
 {
 	// Since this is a heavy proof, do it in 'fast' mode. Use 'secure' mode only for the most sensitive part - the SpendSk
@@ -763,12 +769,11 @@ void Prover::Generate(const uintBig& seed, Oracle& oracle, const Point::Native& 
 	{
 		m_vBuf.reset(new Scalar::Native[Idx::count + m_Cfg.M * (1 + m_Cfg.n + N)]);
 
-		m_Proof.m_Part1.m_vG.resize(m_Cfg.M);
-		m_Proof.m_Part2.m_vF.resize(static_cast<size_t>(m_Cfg.M) * (m_Cfg.n - 1));
-
 		m_Tau = m_vBuf.get() + Idx::count;
 		m_a = m_Tau + m_Cfg.M;
 		m_p = m_a + m_Cfg.M * m_Cfg.n;
+
+		m_Proof.InitArrays(m_Cfg);
 
 		InitNonces(seed);
 		ExtractABCD();

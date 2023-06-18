@@ -16,21 +16,24 @@
 #include "ecc.h"
 #include <assert.h>
 
-#define USE_BASIC_CONFIG
-
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic push
 #	pragma GCC diagnostic ignored "-Wunused-function"
 #else
 #	pragma warning (push, 0) // suppress warnings from secp256k1
 #	pragma warning (disable: 4706) // assignment within conditional expression
+#	pragma warning (disable: 2440) // pointer cast
 #endif
 
-#include "secp256k1-zkp/src/basic-config.h"
-#include "secp256k1-zkp/include/secp256k1.h"
-#include "secp256k1-zkp/src/scalar.h"
-#include "secp256k1-zkp/src/group.h"
-#include "secp256k1-zkp/src/hash.h"
+extern "C" {
+#include "secp256k1/include/secp256k1.h"
+#include "secp256k1/src/scalar.h"
+#include "secp256k1/src/group.h"
+#include "secp256k1/src/hash.h"
+}
+
+typedef secp256k1_sha256 secp256k1_sha256_t;
+typedef secp256k1_hmac_sha256 secp256k1_hmac_sha256_t;
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic pop
@@ -66,11 +69,13 @@ namespace ECC
 		const secp256k1_scalar& get() const { return *this; }
 		secp256k1_scalar& get_Raw() { return *this; } // use with care
 
-#ifdef USE_SCALAR_4X64
+#if defined(SECP256K1_WIDEMUL_INT128)
 		typedef uint64_t uint;
-#else // USE_SCALAR_4X64
+#elif defined(SECP256K1_WIDEMUL_INT64)
 		typedef uint32_t uint;
-#endif // USE_SCALAR_4X64
+#else
+#	error 
+#endif
 
 		Native();
 		template <typename T> Native(const T& t) { *this = t; }
@@ -98,8 +103,6 @@ namespace ECC
         Native& operator -= (const Native& v) { return *this = *this - v; }
 		Native& operator *= (const Native& v) { return *this = *this * v; }
 
-		void SetSqr(const Native&);
-		void Sqr();
 		void SetInv(const Native&); // for 0 the result is also 0
 		void Inv();
 

@@ -49,7 +49,7 @@ public:
 			RichContractInfo,
 			RichContractParser,
 			Treasury,
-			EventsOwnerID, // hash of keys used to scan and record events
+			Deprecated_EventsOwnerID, // hash of keys used to scan and record events
 			HeightTxoLo, // Height starting from which and below Txo info is totally erased.
 			HeightTxoHi, // Height starting from which and below Txo infi is compacted, only the commitment is left
 			SyncData,
@@ -59,7 +59,7 @@ public:
 			ShieldedInputs,
 			AssetsCount, // Including unused. The last element is guaranteed to be used.
 			AssetsCountUsed, // num of 'live' assets
-			EventsSerif, // pseudo-random, reset each time the events are rescanned.
+			Deprecated_EventsSerif, // pseudo-random, reset each time the events are rescanned.
 			ForbiddenState,
 			Flags1, // used for 2-stage migration, where the 2nd stage is performed by the Processor
 			CacheState,
@@ -127,9 +127,14 @@ public:
 			StateDelBlockPPR,
 			StateDelBlockAll,
 			EventIns,
-			EventDel,
+			EventDelByHeight,
+			EventDelByAccount,
 			EventEnum,
 			EventFind,
+			AccountDel,
+			AccountIns,
+			AccountEnum,
+			AccountGet,
 			PeerAdd,
 			PeerDel,
 			PeerEnum,
@@ -416,7 +421,9 @@ public:
 	void assert_valid(); // diagnostic, for tests only
 
 	typedef uint32_t EventIndexType;
-	void InsertEvent(Height, const Blob&, const Blob& key); // body must start with the uintBigFor<EventIndexType>
+	typedef uint32_t AccountIndex;
+
+	void InsertEvent(AccountIndex, Height, const Blob&, const Blob& key); // body must start with the uintBigFor<EventIndexType>
 	void DeleteEventsFrom(Height);
 
 	struct WalkerEvent {
@@ -429,8 +436,28 @@ public:
 		bool MoveNext();
 	};
 
-	void EnumEvents(WalkerEvent&, Height hMin);
-	void FindEvents(WalkerEvent&, const Blob& key); // in case of duplication the most recently added comes first
+	struct WalkerAccount {
+		Recordset m_Rs;
+		struct Data
+		{
+			AccountIndex m_iAccount;
+			Merkle::Hash m_OwnerID;
+			Merkle::Hash m_Serif;
+			Height m_hTxoHi;
+
+		} m_Data;
+
+		bool MoveNext();
+	};
+
+	void InsertAccount(const WalkerAccount::Data&);
+	void DeleteAccountOnly(AccountIndex);
+	void DeleteAccountWithEvents(AccountIndex);
+	void EnumAccounts(WalkerAccount&);
+	void GetAccount(WalkerAccount&);
+
+	void EnumEvents(WalkerEvent&, AccountIndex, Height hMin);
+	void FindEvents(WalkerEvent&, AccountIndex, const Blob& key); // in case of duplication the most recently added comes first
 
 	struct WalkerPeer
 	{
@@ -806,6 +833,7 @@ private:
 	void CreateTables28();
 	void CreateTables30();
 	void CreateTables31();
+	void CreateTables34();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);

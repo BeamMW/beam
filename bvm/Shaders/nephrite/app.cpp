@@ -100,9 +100,25 @@ BEAM_EXPORT void Method_0()
 #define THE_FIELD(type, name) const type& name,
 #define ON_METHOD(role, name) void On_##role##_##name(Nephrite_##role##_##name(THE_FIELD) int unused = 0)
 
+enum struct ErrorCode
+{
+    NoValidPrice = 1,
+    NoEffect = 2,
+    TroveTooSmall = 3,
+    TroveTooLowCollateral = 4,
+    DisallowedInRecovery = 5,
+    NotEnoughRedeemable = 6,
+    LiquidationsPending = 7,
+};
+
 void OnError(const char* sz)
 {
     Env::DocAddText("error", sz);
+}
+
+void OnErrorCode(ErrorCode err)
+{
+    Env::DocAddNum("error_code", static_cast<uint32_t>(err));
 }
 
 const char g_szAdminSeed[] = "upgr3-nephrite";
@@ -506,6 +522,7 @@ struct AppGlobalPlus
         if (m_PriceOracle)
             return true;
 
+        OnErrorCode(ErrorCode::NoValidPrice);
         OnError("no valid price");
         return false;
     }
@@ -862,7 +879,10 @@ ON_METHOD(manager, my_admin_key)
 ON_METHOD(manager, add_stab_reward)
 {
     if (!amount)
+    {
+        OnErrorCode(ErrorCode::NoEffect);
         return OnError("amount not specified");
+    }
 
     AppGlobalPlus g(cid);
     if (!g.LoadPlus())
@@ -923,7 +943,10 @@ ON_METHOD(user, withdraw_surplus)
         return;
 
     if (!g.ReadBalanceAny())
+    {
+        OnErrorCode(ErrorCode::NoEffect);
         return OnError("no surplus");
+    }
 
     const auto& v = g.m_Balance.m_Amounts;
     assert(v.Col || v.Tok || g.m_Balance.m_Gov);
@@ -960,7 +983,10 @@ ON_METHOD(user, upd_stab)
     args.m_Flow.Tok.Add(newVal, 1);
 
     if (!args.m_Flow.Tok.m_Val && !args.m_Flow.Col.m_Val && !g.m_MyStab.m_Gov)
+    {
+        OnErrorCode(ErrorCode::NoEffect);
         return OnError("no change");
+    }
 
     args.m_NewAmount = newVal;
     args.m_GovPull = g.m_MyStab.m_Gov;
@@ -982,6 +1008,9 @@ ON_METHOD(user, upd_stab)
         if (!g.TestHaveValidPrice())
             return;
 
+        if (g.IsRecovery(g.m_Price))
+            return OnErrorCode(ErrorCode::DisallowedInRecovery);
+
         // verification that 1st trove can't be liquidated.
         // Note: we didn't load all the troves (that'd be unnecessary), hence let's load it ourselves
 
@@ -993,6 +1022,12 @@ ON_METHOD(user, upd_stab)
         Env::Halt_if(!Env::VarReader::Read_T(kt, tHead));
 
         g.m_RedistPool.Remove(tHead, g.m_EpochStorageRedist);
+
+        if (g.m_Price.ToCR(tHead.m_Amounts.get_Rcr()) < Global::Price::get_k110())
+        {
+            OnErrorCode(ErrorCode::LiquidationsPending);
+            return OnError("liquidations pending");
+        }
 
         nCharge +=
             Charge::Price() +
@@ -1096,17 +1131,35 @@ ON_METHOD(user, trove_modify)
         }
 
         if (t.m_Amounts.Tok < g.m_Settings.get_TroveMinDebt())
+        {
+            OnErrorCode(ErrorCode::TroveTooSmall);
             return OnError("min tok required");
+        }
 
         auto totals0 = g.m_Troves.m_Totals;
         auto iPrev1 = g.PushMyTrove(nCharge);
 
         bool bRecovery = g.IsRecovery(g.m_Price);
-        if (g.IsTroveUpdInvalid(t, totals0, g.m_Price, bRecovery))
+        switch (g.IsTroveUpdInvalidEx(t, totals0, g.m_Price, bRecovery))
+        {
+        case 0:
+            break; // ok
+
+        case 2:
+            OnErrorCode(ErrorCode::DisallowedInRecovery);
+            return OnError("TCR decrease in recovery");
+
+        default:
+            OnErrorCode(ErrorCode::TroveTooLowCollateral);
             return OnError("insufficient collateral");
+        }
+            
 
         if ((vals0.Col == t.m_Amounts.Col) && (vals0.Tok == t.m_Amounts.Tok))
+        {
+            OnErrorCode(ErrorCode::NoEffect);
             return OnError("no change");
+        }
 
         g.OnTroveMove(txb, 0);
 
@@ -1162,7 +1215,10 @@ ON_METHOD(user, trove_modify)
     {
         // closing
         if (!bPopped)
+        {
+            OnErrorCode(ErrorCode::NoEffect);
             return OnError("trove already closed");
+        }
 
         Method::TroveClose args;
         Cast::Down<Method::BaseTx>(args) = txb;
@@ -1259,7 +1315,10 @@ ON_METHOD(user, liquidate)
     if (!bPredictOnly)
     {
         if (!nCount)
+        {
+            OnErrorCode(ErrorCode::NoEffect);
             return OnError("no liquidations possible");
+        }
 
         if (bRedist)
         {
@@ -1296,7 +1355,10 @@ ON_METHOD(user, liquidate)
 ON_METHOD(user, redeem)
 {
     if (!val)
+    {
+        OnErrorCode(ErrorCode::NoEffect);
         return OnError("value must be nnz");
+    }
 
     AppGlobalPlus g(cid);
     if (!g.LoadPlus())
@@ -1367,7 +1429,10 @@ ON_METHOD(user, redeem)
     if (!bPredictOnly)
     {
         if (ctx.m_TokRemaining)
+        {
+            OnErrorCode(ErrorCode::NotEnoughRedeemable);
             return OnError("insufficient redeemable troves");
+        }
 
         Method::Redeem args;
         _POD_(args.m_pkUser).SetZero();

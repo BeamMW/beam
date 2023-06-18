@@ -755,8 +755,9 @@ private:
             }
         };
 
-        static json get(const Output& outp, Height h, Height hMaturity, Mode m)
+        static json get(const NodeProcessor::TxoInfo& txo, Mode m)
         {
+            const Output& outp = txo.m_Outp;
             Writer w;
             w.AddCommitment(outp.m_Commitment);
 
@@ -774,7 +775,8 @@ private:
             if (outp.m_Incubation)
                 w.m_json["Incubation"] = outp.m_Incubation;
 
-            if (hMaturity != h)
+            Height hMaturity = outp.get_MinMaturity(txo.m_hCreate);
+            if (hMaturity != txo.m_hCreate)
             {
                 if (Mode::Legacy == m)
                     w.m_json["Maturity"] = hMaturity;
@@ -1676,10 +1678,11 @@ private:
 
         Block::SystemState::Full blockState;
 		Block::SystemState::ID id;
-		Block::Body block;
 		bool ok = true;
-        std::vector<Output::Ptr> vOutsIn;
 
+
+        std::vector<NodeProcessor::TxoInfo> vIns, vOuts;
+        TxVectors::Eternal txe;
         ExtraInfo::ContractRichInfo cri;
 
         try {
@@ -1689,7 +1692,7 @@ private:
 			NodeDB::StateID sid;
 			sid.m_Row = row;
 			sid.m_Height = id.m_Height;
-			_nodeBackend.ExtractBlockWithExtra(block, vOutsIn, sid, cri.m_vInfo);
+			_nodeBackend.ExtractBlockWithExtra(sid, vIns, vOuts, txe, cri.m_vInfo);
 
 		} catch (...) {
             ok = false;
@@ -1699,29 +1702,25 @@ private:
         if (ok) {
             char buf[80];
 
-            assert(block.m_vInputs.size() == vOutsIn.size());
-
             json inputs = json::array();
-            for (size_t i = 0; i < block.m_vInputs.size(); i++)
+            for (const auto& v : vIns)
             {
-                const Input& inp = *block.m_vInputs[i];
-                const Output& outp = *vOutsIn[i];
-                assert(inp.m_Commitment == outp.m_Commitment);
-
-                Height hCreate = inp.m_Internal.m_Maturity - outp.get_MinMaturity(0);
-
-                json jItem = ExtraInfo::get(outp, hCreate, inp.m_Internal.m_Maturity, m_Mode);
-                jItem["height"] = hCreate;
-
+                json jItem = ExtraInfo::get(v, m_Mode);
+                jItem["height"] = v.m_hCreate;
                 inputs.push_back(std::move(jItem));
             }
 
             json outputs = json::array();
-            for (const auto &v : block.m_vOutputs)
-                outputs.push_back(ExtraInfo::get(*v, height, v->get_MinMaturity(height), m_Mode));
+            for (const auto& v : vOuts)
+            {
+                json jItem = ExtraInfo::get(v, m_Mode);
+                if (v.m_hSpent != MaxHeight)
+                    jItem["spent"] = v.m_hSpent;
+                outputs.push_back(std::move(jItem));
+            }
 
             json kernels = json::array();
-            for (const auto &v : block.m_vKernels) {
+            for (const auto &v : txe.m_vKernels) {
 
                 Amount fee = 0;
                 json j = ExtraInfo::get(*v, fee, cri, height, m_Mode);
@@ -1825,6 +1824,24 @@ private:
         return ok;
     }
 
+    void get_treasury(json& out)
+    {
+        std::vector<NodeProcessor::TxoInfo> vOuts;
+        _nodeBackend.ExtractTreasurykWithExtra(vOuts);
+
+        json outputs = json::array();
+        for (const auto& v : vOuts)
+        {
+            json jItem = ExtraInfo::get(v, m_Mode);
+            if (v.m_hSpent != MaxHeight)
+                jItem["spent"] = v.m_hSpent;
+            outputs.push_back(std::move(jItem));
+        }
+
+        out["outputs"] = std::move(outputs);
+    }
+
+
     bool extract_block(json& out, Height height, uint64_t& row, uint64_t* prevRow) {
         bool ok = true;
         if (row == 0) {
@@ -1853,8 +1870,16 @@ private:
     }
 
     json get_block(uint64_t height) override {
-        uint64_t row=0;
-        return get_block_impl(height, row, 0);
+
+        if (height)
+        {
+            uint64_t row = 0;
+            return get_block_impl(height, row, 0);
+        }
+
+        json out;
+        get_treasury(out);
+        return out;
     }
 
     json get_block_by_kernel(const Blob& key) override {

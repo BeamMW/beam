@@ -1236,27 +1236,13 @@ namespace beam::wallet
     struct Wallet::RecognizerHandler : NodeProcessor::Recognizer::IHandler
     {
         Wallet& m_Wallet;
-        Key::IPKdf::Ptr m_pOwner;
-        std::vector<ShieldedTxo::Viewer> m_vSh;
-        RecognizerHandler(Wallet& wallet, const Key::IPKdf::Ptr& pKdf, Key::Index nMaxShieldedIdx = 1)
+        NodeProcessor::Account m_Account;
+        RecognizerHandler(Wallet& wallet, const Key::IPKdf::Ptr& pKdf)
             : m_Wallet(wallet)
-            , m_pOwner(pKdf)
         {
-            if (pKdf)
-            {
-                m_vSh.resize(nMaxShieldedIdx);
-
-                for (Key::Index nIdx = 0; nIdx < nMaxShieldedIdx; nIdx++)
-                    m_vSh[nIdx].FromOwner(*pKdf, nIdx);
-            }
-        }
-        void get_ViewerKeys(NodeProcessor::ViewerKeys& vk) override
-        {
-            vk.m_pMw = m_pOwner.get();
-
-            vk.m_nSh = static_cast<Key::Index>(m_vSh.size());
-            if (vk.m_nSh)
-                vk.m_pSh = &m_vSh.front();
+            m_Account.m_pOwner = pKdf;
+            m_Account.InitFromOwner();
+            m_pAccount = &m_Account;
         }
 
         void OnEvent(Height h, const proto::Event::Base& evt) override
@@ -1359,7 +1345,7 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestBodyPack& r)
     {
-        RecognizerHandler h(*this, m_WalletDB->get_MasterKdf());
+        RecognizerHandler h(*this, m_WalletDB->get_OwnerKdf());
         NodeProcessor::Recognizer recognizer(h, m_Extra);
         try 
         {
@@ -1386,7 +1372,7 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestBody& r)
     {
-        RecognizerHandler h(*this, m_WalletDB->get_MasterKdf());
+        RecognizerHandler h(*this, m_WalletDB->get_OwnerKdf());
         NodeProcessor::Recognizer recognizer(h, m_Extra);
         try
         {

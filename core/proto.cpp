@@ -1076,7 +1076,7 @@ void Event::Utxo::Dump(std::ostringstream& os) const
 void Event::Shielded::Dump(std::ostringstream& os) const
 {
     char ch = (Flags::Add & m_Flags) ? '+' : '-';
-    os << ch << "Shielded Value=" << m_CoinID.m_Value << ", TxoID=" << m_TxoID << ", Sender=" << m_CoinID.m_User.m_Sender;
+    os << ch << "Shielded Value=" << AmountBig::Printable(m_CoinID.m_Value) << ", TxoID=" << m_TxoID << ", Sender=" << m_CoinID.m_User.m_Sender;
 }
 
 void Event::AssetCtl::Dump(std::ostringstream& os) const

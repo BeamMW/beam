@@ -137,7 +137,7 @@ bool ec_add(ec_uncompressed& point, const ec_secret& secret)
 bool ec_add(ec_secret& left, const ec_secret& right)
 {
     const auto context = verification.context();
-    return secp256k1_ec_privkey_tweak_add(context, left.data(),
+    return secp256k1_ec_seckey_tweak_add(context, left.data(),
         right.data()) == 1;
 }
 
@@ -156,7 +156,7 @@ bool ec_multiply(ec_uncompressed& point, const ec_secret& secret)
 bool ec_multiply(ec_secret& left, const ec_secret& right)
 {
     const auto context = verification.context();
-    return secp256k1_ec_privkey_tweak_mul(context, left.data(),
+    return secp256k1_ec_seckey_tweak_mul(context, left.data(),
         right.data()) == 1;
 }
 

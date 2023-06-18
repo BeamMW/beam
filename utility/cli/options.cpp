@@ -60,66 +60,6 @@ namespace
 
 #endif
 
-    void read_password(const char* prompt, beam::SecString& out, bool includeTerminatingZero) {
-        std::cout << prompt;
-
-        size_t maxLen = beam::SecString::MAX_SIZE - 1;
-        unsigned char ch = 0;
-
-#ifdef WIN32
-
-        static const char BACKSPACE = 8;
-        static const char RETURN = 13;
-
-
-        DWORD con_mode;
-        DWORD dwRead;
-        HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
-
-        GetConsoleMode(hIn, &con_mode);
-        SetConsoleMode(hIn, con_mode & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
-
-        while (ReadConsoleA(hIn, &ch, 1, &dwRead, NULL) && ch != RETURN && out.size() < maxLen) {
-            if (ch == BACKSPACE) {
-                if (out.size() > 0) {
-                    std::cout << "\b \b";
-                    out.pop_back();
-                }
-            }
-            else {
-                out.push_back((char)ch);
-                std::cout << '*';
-            }
-        }
-
-        GetConsoleMode(hIn, &con_mode);
-        SetConsoleMode(hIn, con_mode | (ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
-
-#else
-        static const char BACKSPACE = 127;
-        static const char RETURN = 10;
-
-        while ((ch = getch()) != RETURN && out.size() < maxLen)
-        {
-            if (ch == BACKSPACE) {
-                if (out.size() > 0) {
-                    std::cout << "\b \b";
-                    out.pop_back();
-                }
-            }
-            else {
-                out.push_back((char)ch);
-                std::cout << '*';
-            }
-        }
-
-#endif
-
-        if (includeTerminatingZero) {
-            out.push_back('\0');
-        }
-        std::cout << std::endl;
-    }
 }
 
 namespace beam
@@ -195,6 +135,8 @@ namespace beam
         const char* OWNER_KEY = "owner_key";
         const char* KEY_MINE = "key_mine"; // deprecated
         const char* MINER_KEY = "miner_key";
+        const char* MULTI_OWNER_KEYS = "extra_owners";
+        const char* MULTI_PASSES = "extra_pass";
         const char* MINER_JOB_LATENCY = "miner_job_latency";
         const char* MINE_ONLINE = "mine_online";
         const char* BBS_ENABLE = "bbs_enable";
@@ -481,6 +423,8 @@ namespace beam
             (cli::MINER_JOB_LATENCY, po::value<uint32_t>(), "Minimal latency in milliseconds for miner job update upon transaction pool change")
             (cli::MINE_ONLINE, po::value<bool>(), "Perfer online mining when owner wallet is conntected")
             (cli::PASS, po::value<string>(), "password for keys")
+            (cli::MULTI_OWNER_KEYS, po::value<vector<string> >(), "Extra Owner keys")
+            (cli::MULTI_PASSES, po::value<vector<string> >(), "Extra Owner key passwords")
             (cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
             (cli::FAST_SYNC, po::value<bool>(), "Fast sync on/off (override horizons)")
             (cli::GENERATE_RECOVERY_PATH, po::value<string>(), "Recovery file to generate immediately after start")
@@ -932,6 +876,65 @@ namespace beam
         return peers;
     }
 
+
+    void read_password(const char* prompt, beam::SecString& out) {
+        std::cout << prompt;
+
+        size_t maxLen = beam::SecString::MAX_SIZE - 1;
+        unsigned char ch = 0;
+
+#ifdef WIN32
+
+        static const char BACKSPACE = 8;
+        static const char RETURN = 13;
+
+
+        DWORD con_mode;
+        DWORD dwRead;
+        HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+
+        GetConsoleMode(hIn, &con_mode);
+        SetConsoleMode(hIn, con_mode & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
+
+        while (ReadConsoleA(hIn, &ch, 1, &dwRead, NULL) && ch != RETURN && out.size() < maxLen) {
+            if (ch == BACKSPACE) {
+                if (out.size() > 0) {
+                    std::cout << "\b \b";
+                    out.pop_back();
+                }
+            }
+            else {
+                out.push_back((char)ch);
+                std::cout << '*';
+            }
+        }
+
+        GetConsoleMode(hIn, &con_mode);
+        SetConsoleMode(hIn, con_mode | (ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
+
+#else
+        static const char BACKSPACE = 127;
+        static const char RETURN = 10;
+
+        while ((ch = getch()) != RETURN && out.size() < maxLen)
+        {
+            if (ch == BACKSPACE) {
+                if (out.size() > 0) {
+                    std::cout << "\b \b";
+                    out.pop_back();
+                }
+            }
+            else {
+                out.push_back((char)ch);
+                std::cout << '*';
+            }
+        }
+
+#endif
+
+        std::cout << std::endl;
+    }
+
     namespace
     {
         bool read_secret_impl(SecString& pass, const char* prompt, const char* optionName, const po::variables_map& vm)
@@ -943,7 +946,7 @@ namespace beam
                 pass.assign(s.data(), len);
             }
             else {
-                read_password(prompt, pass, false);
+                read_password(prompt, pass);
             }
 
             if (pass.empty()) {
@@ -961,7 +964,7 @@ namespace beam
     bool confirm_wallet_pass(const SecString& pass)
     {
         SecString passConfirm;
-        read_password("Confirm password: ", passConfirm, false);
+        read_password("Confirm password: ", passConfirm);
         return passConfirm.hash().V == pass.hash().V;
     }
 }

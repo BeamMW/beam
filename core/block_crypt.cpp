@@ -309,7 +309,7 @@ namespace beam
 			<< "-" << x.get_Scheme()
 			<< ":" << x.get_Subkey()
 			<< ":" << x.m_Idx
-			<< ", Value=" << x.m_Value;
+			<< ", Value=" << AmountBig::Printable(x.m_Value);
 
 		if (x.m_AssetID)
 			s << ", AssetID=" << x.m_AssetID;
@@ -386,8 +386,7 @@ namespace beam
 		if (!m_pAsset)
 			return IsValid2(hScheme, comm, nullptr);
 
-		const Rules& r = Rules::get();
-		if ((hScheme < r.pForks[2].m_Height) || !r.CA.Enabled)
+		if (!Rules::get().IsEnabledCA(hScheme))
 			return false;
 
 		ECC::Point::Native hGen;
@@ -492,8 +491,10 @@ namespace beam
 			wrk.Create(sk, m_Commitment, coinKdf);
 		}
 
+		bool isPublic = (OpCode::Public == eOp) || m_Coinbase;
+
 		ECC::Scalar::Native skSign = sk;
-		if (cid.m_AssetID)
+		if (cid.m_AssetID || (!isPublic && Rules::get().IsEnabledCA(hScheme)))
 		{
 			ECC::Hash::Value hv;
 			if (!bUseCoinKdf)
@@ -510,7 +511,7 @@ namespace beam
 		cp.m_Value = cid.m_Value;
 		GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
 
-		if ((OpCode::Public == eOp) || m_Coinbase)
+		if (isPublic)
 		{
 			Key::ID::Packed kid;
 			cp.m_Blob.p = &kid;
@@ -1335,7 +1336,7 @@ namespace beam
 		s.m_InputsShielded++;
 	}
 
-	void TxKernelShieldedInput::Sign(Lelantus::Prover& p, Asset::ID aid, bool bHideAssetAlways /* = false */)
+	void TxKernelShieldedInput::Sign(Lelantus::Prover& p, Asset::ID aid, bool bHideAssetAlways /* = true */)
 	{
 		ECC::Oracle oracle;
 		oracle << m_Msg;
@@ -1368,7 +1369,6 @@ namespace beam
 
 		if (aid || bHideAssetAlways)
 		{
-			// not necessary for beams, just a demonstration of assets support
 			m_pAsset = std::make_unique<Asset::Proof>();
 			w.m_R_Adj = w.m_R_Output;
 			m_pAsset->Create(hGen, w.m_R_Adj, w.m_V, aid, hGen, &hvSeed.V);
@@ -2182,6 +2182,11 @@ namespace beam
 			Magic.v0 = 14;
 			DA.Difficulty0 = Difficulty(22 << Difficulty::s_MantissaBits); // 2^22 = 4,194,304. For GPUs producing 7 sol/sec this is roughly equivalent to 10K GPUs.
 		}
+	}
+
+	bool Rules::IsEnabledCA(Height hScheme) const
+	{
+		return (hScheme >= pForks[2].m_Height) && CA.Enabled;
 	}
 
 	Amount Rules::get_EmissionEx(Height h, Height& hEnd, Amount base) const

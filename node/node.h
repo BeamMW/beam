@@ -172,10 +172,10 @@ struct Node
 
 		Key::Index m_nMinerSubIndex = 0;
 
+		std::vector<Key::IPKdf::Ptr> m_vExtraOwners;
+
 		void InitSingleKey(const ECC::uintBig& seed);
 		void SetSingleKey(const Key::IKdf::Ptr&);
-
-		std::vector<ShieldedTxo::Viewer> m_vSh; // derived from owner
 
 	} m_Keys;
 
@@ -235,7 +235,6 @@ private:
 		void OnRolledBack() override;
 		void OnModified() override;
 		void OnFastSyncSucceeded() override;
-		void get_ViewerKeys(ViewerKeys&) override;
 		void OnEvent(Height, const proto::Event::Base&) override;
 		void OnDummy(const CoinID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
@@ -317,7 +316,8 @@ private:
 
 	void InitKeys();
 	void InitIDs();
-	void RefreshOwnedUtxos();
+	void RefreshAccounts();
+	void AddAccount(const Key::IPKdf::Ptr& pOwner, Key::IPKdf* pMiner);
 	void MaybeGenerateRecovery();
 
 	struct Wanted
@@ -534,6 +534,8 @@ private:
 
 		uint64_t m_CursorBbs;
 		TxPool::Fluff::Element::Send* m_pCursorTx;
+
+		const NodeProcessor::Account* m_pAccount = nullptr;
 
 		TaskList m_lstTasks;
 		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip

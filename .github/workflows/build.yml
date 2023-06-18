@@ -308,7 +308,7 @@ jobs:
       - name: Submodule update
         shell: bash
         run: |
-          git submodule update --init --recursive --jobs 4 -- "3rdparty/re2"
+          git submodule update --init --recursive --jobs 4
 
       ###############################################################################
       # Create Build Environment
@@ -408,7 +408,7 @@ jobs:
       - name: Submodule update
         shell: bash
         run: |
-          git submodule update --init --recursive --jobs 4 -- "3rdparty/re2"
+          git submodule update --init --recursive --jobs 4
 
       ###############################################################################
       # Create Build Environment
@@ -469,7 +469,7 @@ jobs:
       - name: Submodule update
         shell: bash
         run: |
-          git submodule update --init --recursive --jobs 4 -- "3rdparty/re2"
+          git submodule update --init --recursive --jobs 4
       ###############################################################################
       # Create Build Environment
       ###############################################################################
@@ -528,7 +528,7 @@ jobs:
       - name: Submodule update
         shell: bash
         run: |
-          git submodule update --init --recursive --jobs 4 -- "3rdparty/re2"
+          git submodule update --init --recursive --jobs 4
       ###############################################################################
       # Create Build Environment
       ###############################################################################

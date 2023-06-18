@@ -14,8 +14,6 @@
 
 #pragma once
 
-#define USE_BASIC_CONFIG
-
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic push
 #	pragma GCC diagnostic ignored "-Wunused-function"
@@ -24,11 +22,13 @@
 #	pragma warning (disable: 4706) // assignment within conditional expression
 #endif
 
-#include "secp256k1-zkp/src/basic-config.h"
-#include "secp256k1-zkp/include/secp256k1.h"
-#include "secp256k1-zkp/src/scalar.h"
-#include "secp256k1-zkp/src/group.h"
-#include "secp256k1-zkp/src/hash.h"
+#include "secp256k1/include/secp256k1.h"
+#include "secp256k1/src/scalar.h"
+#include "secp256k1/src/group.h"
+#include "secp256k1/src/hash.h"
+
+typedef secp256k1_sha256 secp256k1_sha256_t;
+typedef secp256k1_hmac_sha256 secp256k1_hmac_sha256_t;
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic pop

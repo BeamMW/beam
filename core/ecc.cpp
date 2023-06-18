@@ -24,10 +24,11 @@
 #	pragma warning (disable: 4706 4701) // assignment within conditional expression
 #endif
 
-#include "secp256k1-zkp/src/group_impl.h"
-#include "secp256k1-zkp/src/scalar_impl.h"
-#include "secp256k1-zkp/src/field_impl.h"
-#include "secp256k1-zkp/src/hash_impl.h"
+#include "secp256k1/src/group_impl.h"
+#include "secp256k1/src/scalar_impl.h"
+#include "secp256k1/src/field_impl.h"
+#include "secp256k1/src/hash_impl.h"
+#include "secp256k1/src/int128_impl.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic pop
@@ -306,7 +307,16 @@ namespace ECC {
 
 	Scalar::Native& Scalar::Native::operator = (uint64_t v)
 	{
-		secp256k1_scalar_set_u64(this, v);
+#ifdef SECP256K1_WIDEMUL_INT128
+		static_assert(sizeof(d[0]) == sizeof(v), "");
+		d[0] = v;
+#else // SECP256K1_WIDEMUL_INT128
+		static_assert(sizeof(d[0]) * 2 == sizeof(v), "");
+		d[0] = static_cast<uint32_t>(v);
+		d[1] = static_cast<uint32_t>(v >> 32u);
+#endif // SECP256K1_WIDEMUL_INT128
+
+		memset0(d + sizeof(v) / sizeof(d[0]), sizeof(d) - sizeof(v));
 		return *this;
 	}
 
@@ -327,16 +337,6 @@ namespace ECC {
 	{
 		secp256k1_scalar_mul(this, &v.x, &v.y);
 		return *this;
-	}
-
-	void Scalar::Native::SetSqr(const Native& v)
-	{
-		secp256k1_scalar_sqr(this, &v);
-	}
-
-	void Scalar::Native::Sqr()
-	{
-		SetSqr(*this);
 	}
 
 	void Scalar::Native::SetInv(const Native& v)
@@ -496,7 +496,7 @@ namespace ECC {
 			return false; // should always be well-formed
 
 		NoLeak<secp256k1_fe> nx;
-		if (!secp256k1_fe_set_b32(&nx.V, v.m_X.m_pData))
+		if (!secp256k1_fe_set_b32_limit(&nx.V, v.m_X.m_pData))
 			return false;
 
 		NoLeak<secp256k1_ge> ge;
@@ -593,8 +593,8 @@ namespace ECC {
 			secp256k1_ge ge;
 			ZeroObject(ge);
 
-			secp256k1_fe_set_b32(&ge.x, v.m_X.m_pData);
-			secp256k1_fe_set_b32(&ge.y, v.m_Y.m_pData);
+			secp256k1_fe_set_b32_mod(&ge.x, v.m_X.m_pData);
+			secp256k1_fe_set_b32_mod(&ge.y, v.m_Y.m_pData);
 
 			if (bVerify && !secp256k1_ge_is_valid_var(&ge))
 			{
@@ -1225,7 +1225,7 @@ namespace ECC {
 			}
 			else
 			{
-				unsigned int n = m_p[m_iBit / nWordBits] >> (m_iBit & nMsk);
+				unsigned int n = (unsigned int) (m_p[m_iBit / nWordBits] >> (m_iBit & nMsk));
 				OnBit(res, (1 & n) != m_Carry);
 			}
 
@@ -1707,7 +1707,7 @@ namespace ECC {
 				break;
 
 			for (uint32_t i = 0; i < nBitsPerLevel; i++)
-				secp256k1_scalar_sqr(&pos.get_Raw(), &pos.get());
+				secp256k1_scalar_mul(&pos.get_Raw(), &pos.get(), &pos.get());
 		}
 	}
 
