@@ -27,6 +27,7 @@
 #endif
 
 #include "../core/keccak.h"
+#include "../utility/logger.h"
 
 namespace beam {
 namespace bvm2 {
@@ -1814,6 +1815,8 @@ namespace bvm2 {
 
 	BVM_METHOD_HOST(get_AssetInfo)
 	{
+       LOG_INFO()<< "BVM_METHOD_HOST(get_AssetInfo)";
+        
 		ZeroObject(res);
 
 		Asset::Full ai;
@@ -2671,6 +2674,8 @@ namespace bvm2 {
 
 	BVM_METHOD(Assets_Enum)
 	{
+       LOG_INFO()<< "BVM_METHOD(Assets_Enum)";
+        
 		return OnHost_Assets_Enum(aid0, h);
 	}
 	BVM_METHOD_HOST(Assets_Enum)
@@ -2691,6 +2696,8 @@ namespace bvm2 {
 
 	BVM_METHOD(Assets_MoveNext)
 	{
+       LOG_INFO()<< "BVM_METHOD(Assets_MoveNext)";
+        
 		auto& nMetadata_ = get_AddrAsW<Wasm::Word>(nMetadata);
 		auto nMetadataSize = Wasm::from_wasm(nMetadata_);
 
@@ -2701,6 +2708,8 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(Assets_MoveNext)
 	{
+       LOG_INFO()<< "BVM_METHOD_HOST(Assets_MoveNext)";
+
 		auto it = m_mapReadAssets.find(iSlot, IReadAssets::Comparator());
 		Exc::Test(m_mapReadAssets.end() != it);
 
