@@ -618,7 +618,7 @@ OnOpcode(sload)
 {
 	Word& w = m_Stack.get_At(0);
 
-	if (!SLoad(WtoU64(w), w))
+	if (!SLoad(w, w))
 		w = Zero;
 }
 
@@ -627,7 +627,7 @@ OnOpcode(sstore)
 	const Word& w1 = m_Stack.Pop();
 	const Word& w2 = m_Stack.Pop();
 
-	SStore(WtoU64(w1), w2);
+	SStore(w1, w2);
 }
 
 void EvmProcessorPlus::Jump(const Word& w)
