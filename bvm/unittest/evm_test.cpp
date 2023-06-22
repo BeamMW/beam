@@ -264,8 +264,37 @@ namespace beam
 			myArg.SetSelector("giveRightToVote(address)");
 			myArg.m_wVoter = wVoter;
 
-			evm.RunMethod_T(wOwner, myArg);
+			verify_test(evm.RunMethod_T(wOwner, myArg));
 			verify_test(!evm.m_RetVal.n);
+		}
+
+		{
+#pragma pack (push, 1)
+			struct MyMethod
+				:public EvmProcessor::Method
+			{
+				EvmProcessor::Word m_iVote;
+			} myArg;
+#pragma pack (pop)
+
+			myArg.SetSelector("vote(uint256)");
+			myArg.m_iVote = 1u;
+
+			verify_test(evm.RunMethod_T(wVoter, myArg));
+			verify_test(!evm.m_RetVal.n);
+		}
+
+		{
+#pragma pack (push, 1)
+			EvmProcessor::Method myArg;
+			myArg.SetSelector("winningProposal()");
+
+			verify_test(evm.RunMethod_T(wVoter, myArg));
+
+			verify_test(sizeof(EvmProcessor::Word) == evm.m_RetVal.n);
+			const auto& wRes = *(const EvmProcessor::Word*)evm.m_RetVal.p;
+			verify_test(EvmProcessor::Word(1u) == wRes);
+
 		}
 
 	}
