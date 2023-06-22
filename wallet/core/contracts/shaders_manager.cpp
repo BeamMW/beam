@@ -354,6 +354,8 @@ namespace beam::wallet {
 
     void ShadersManager::OnDone(const std::exception *pExc)
     {
+        LOG_INFO() << "ShadersManager::OnDone";
+
         if (_queue.empty())
         {
             LOG_WARNING() << "Queue has been cleared before request completed";
@@ -396,7 +398,8 @@ namespace beam::wallet {
         {
             LOG_VERBOSE () << "Shader result: " << std::string_view(result ? *result : std::string()).substr(0, 200);
         }
-
+        LOG_INFO () << "Shader result: " << std::string_view(result ? *result : std::string()).substr(0, 200);
+        
         if (m_InvokeData.m_vec.empty())
         {
             if (req.doneAll)
@@ -415,6 +418,8 @@ namespace beam::wallet {
 
             if (req.doneCall)
             {
+                LOG_INFO() << "ShadersManager::req.doneCall";
+
                 return req.doneCall(std::move(buffer), std::move(result), boost::none);
             }
 
@@ -426,6 +431,7 @@ namespace beam::wallet {
         catch (std::runtime_error &err)
         {
             std::string error = err.what();
+            LOG_INFO() << "ShadersManager: std::runtime_error &err " << error;
             if (req.doneAll)
             {
                 return req.doneAll(boost::none, std::move(result), std::move(error));
