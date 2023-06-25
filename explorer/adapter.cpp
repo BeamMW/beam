@@ -456,6 +456,17 @@ private:
             }
         };
 
+        static void MergeInto(FundsChangeMap& dst, const FundsChangeMap& src, bool bAdd)
+        {
+            for (auto it = src.m_Map.begin(); src.m_Map.end() != it; it++)
+            {
+                auto val = it->second;
+                if (!bAdd)
+                    val.Negate();
+                dst.Add(val, it->first);
+            }
+        }
+
         static void FundsToExclusive(NodeProcessor::ContractInvokeExtraInfo& info)
         {
             for (uint32_t iNested = 0; iNested < info.m_NumNested; )
@@ -464,13 +475,7 @@ private:
                 iNested += infoNested.m_NumNested;
 
                 FundsToExclusive(infoNested);
-
-                for (auto it = infoNested.m_FundsIO.m_Map.begin(); infoNested.m_FundsIO.m_Map.end() != it; it++)
-                {
-                    auto val = it->second;
-                    val.Negate();
-                    info.m_FundsIO.Add(val, it->first);
-                }
+                MergeInto(info.m_FundsIO, infoNested.m_FundsIO, false);
             }
         }
 
@@ -554,6 +559,7 @@ private:
                     MakeTableHdr("Method"),
                     MakeTableHdr("Arguments"),
                     MakeTableHdr("Funds"),
+                    MakeTableHdr("Emission"),
                     MakeTableHdr("Keys")
                     }));
 
@@ -648,6 +654,8 @@ private:
                 if (!info.m_iParent)
                     FundsToExclusive(Cast::NotConst(info));
 
+                MergeInto(Cast::NotConst(info.m_FundsIO), info.m_Emission, true);
+
                 if (!info.m_FundsIO.m_Map.empty())
                 {
                     json jArr = json::array();
@@ -669,6 +677,26 @@ private:
                 else
                     m_json.push_back("");
 
+                // Emission
+                if (!info.m_Emission.m_Map.empty())
+                {
+                    json jArr = json::array();
+
+                    for (auto it = info.m_Emission.m_Map.begin(); info.m_Emission.m_Map.end() != it; it++)
+                    {
+                        auto val = it->second;
+                        val.Negate();
+
+                        json jEntry = json::array();
+                        jEntry.push_back(MakeObjAid(it->first));
+                        jEntry.push_back(MakeObjAmount(val));
+                        jArr.push_back(std::move(jEntry));
+                    }
+
+                    m_json.push_back(MakeTable(std::move(jArr)));
+                }
+                else
+                    m_json.push_back("");
 
                 // Keys
                 if (!info.m_vSigs.empty())

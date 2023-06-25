@@ -375,7 +375,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 35;
+	const uint64_t nVersionTop = 36;
 
 
 	Transaction t(*this);
@@ -456,8 +456,6 @@ void NodeDB::Open(const char* szPath)
 			// no break;
 
 		case 33: // fix asset evt table, after previous Rebuild non-std
-
-			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
 			// no break;
 
 		case 34:
@@ -470,8 +468,14 @@ void NodeDB::Open(const char* szPath)
 			ParamDelSafe(ParamID::Deprecated_EventsSerif);
 
 			CreateTables34();
+			// no break;
+
+		case 35: // changed format of contract invoke info
+
+			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
 
 			ParamIntSet(ParamID::DbVer, nVersionTop);
+
 			// no break;
 
 		case nVersionTop:

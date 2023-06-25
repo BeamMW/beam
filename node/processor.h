@@ -409,6 +409,7 @@ public:
 	struct ContractInvokeExtraInfoBase
 	{
 		FundsChangeMap m_FundsIO; // including nested
+		FundsChangeMap m_Emission;
 		std::vector<ECC::Point> m_vSigs; // excluding nested
 		uint32_t m_iParent; // including sub-nested
 		uint32_t m_NumNested;
@@ -425,6 +426,7 @@ public:
 			ar
 				& m_Sid
 				& m_FundsIO.m_Map
+				& m_Emission.m_Map
 				& m_vSigs
 				& m_iParent
 				& m_NumNested
