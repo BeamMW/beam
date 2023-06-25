@@ -3934,6 +3934,15 @@ bool NodeProcessor::HandleAssetEmit(const PeerID& pidOwner, BlockInterpretCtx& b
 	return false;
 }
 
+Amount SplitAmountSigned(AmountSigned val, bool& isPositive)
+{
+	isPositive = (val >= 0);
+	if (isPositive)
+		return val;
+
+	return static_cast<Amount>(-val);
+}
+
 bool NodeProcessor::HandleAssetEmit2(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, AmountSigned val, uint32_t nSubIdx)
 {
 	Asset::Full ai;
@@ -3945,11 +3954,8 @@ bool NodeProcessor::HandleAssetEmit2(const PeerID& pidOwner, BlockInterpretCtx& 
 		return false;
 	}
 
-	bool bAdd = (val >= 0);
-	Amount valUns = val; // treat as unsigned.
-
-	if (!bAdd)
-		valUns = 0 - valUns;
+	bool bAdd;
+	Amount valUns = SplitAmountSigned(val, bAdd);
 
 	AmountBig::Type valBig = valUns;
 	if (bic.m_Fwd)
@@ -5420,6 +5426,18 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetEmit(Asset::ID aid, co
 {
 	if (!m_Proc.HandleAssetEmit(pidOwner, m_Bic, aid, val, m_AssetEvtSubIdx))
 		return false;
+
+	if (m_Bic.m_pvC)
+	{
+		auto& vec = *m_Bic.m_pvC; // alias
+
+		assert(m_iCurrentInvokeExtraInfo <= vec.size());
+		auto& x = vec[m_iCurrentInvokeExtraInfo - 1];
+
+		bool bAdd;
+		auto valUns = SplitAmountSigned(val, bAdd);
+		x.m_Emission.Add(valUns, aid, bAdd);
+	}
 
 	BlockInterpretCtx::Ser ser(m_Bic);
 	RecoveryTag::Type nTag = RecoveryTag::AssetEmit;

@@ -367,7 +367,7 @@ table, th, td {
 	
 			let j = jRow[isInp ? "height" : "spent"];
 	
-			if (j)
+			if (j != null)
 			{
 				text += MakeCell(MakeBlock(j));
 				delete jRow.height;
@@ -590,7 +590,8 @@ table, th, td {
 			text += MakeCell(Obj2Html(jRow[3]));
 			text += MakeCell(Obj2Html(jRow[4]));
 			text += MakeCell(MakeFundsTbl(jRow[5]["value"]));
-			text += MakeCell(Obj2Html(jRow[6]));
+			text += MakeCell(MakeFundsTbl(jRow[6]["value"]));
+			text += MakeCell(Obj2Html(jRow[7]));
 			
 			text += "</tr>";
 		}
@@ -647,6 +648,7 @@ table, th, td {
 	<th>Method</th>\n\
 	<th>Arguments</th>\n\
 	<th>Funds</th>\n\
+	<th>Emisison</th>\n\
 	<th>Keys</th>\n\
 ";
 
