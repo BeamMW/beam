@@ -118,7 +118,6 @@ namespace beam
 			const T& m_Val;
 			Printable(const T& x) :m_Val(x) {}
 
-			template <typename T>
 			friend std::ostream& operator << (std::ostream& os, const AmountBig::Printable<T>& x) {
 				AmountBig::Print(os, x.m_Val);
 				return os;
