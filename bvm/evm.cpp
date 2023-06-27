@@ -176,6 +176,13 @@ struct EvmProcessor::Context :public EvmProcessor::Frame
 
 	const Address& get_Caller(EvmProcessor& p);
 
+	Frame& get_Prev()
+	{
+		auto it = Frame::List::s_iterator_to(*this);
+		--it;
+		return *it;
+	}
+
 	uint8_t* get_Memory(const Word& wAddr, uint32_t nSize);
 	static uint64_t get_MemoryCost(uint32_t nSize);
 
@@ -258,13 +265,19 @@ uint64_t EvmProcessor::Context::get_MemoryCost(uint32_t nSize)
 	return (a * 3) + (a * a / 512);
 }
 
-EvmProcessor::Frame& EvmProcessor::PushFrame(const Address& addr)
+EvmProcessor::Frame& EvmProcessor::PushFrame(IStorage& s)
 {
-	auto* pF = m_lstFrames.Create_back();
-	pF->m_Address = addr;
-	ZeroObject(pF->m_Code);
+	auto* pF = new Frame(s);
+	m_lstFrames.push_back(*pF);
+
+	Blob code;
+	s.GetCode(code);
+	pF->m_Code = code;
+	pF->m_Code.m_Ip = 0;
+
 	ZeroObject(pF->m_Args);
 	pF->m_Gas = 0;
+
 	return *pF;
 }
 
@@ -541,7 +554,7 @@ OnOpcodeBinary(byte)
 
 OnOpcode(address)
 {
-	m_Stack.Push() = m_Address.ToWord();
+	m_Stack.Push() = m_Storage.get_Address().ToWord();
 }
 
 const EvmProcessor::Address& EvmProcessor::Context::get_Caller(EvmProcessor& p)
@@ -550,9 +563,7 @@ const EvmProcessor::Address& EvmProcessor::Context::get_Caller(EvmProcessor& p)
 	if (1u == p.m_lstFrames.size())
 		return p.m_Caller;
 
-	auto it = Frame::List::s_iterator_to(*this);
-	--it;
-	return it->m_Address;
+	return get_Prev().m_Storage.get_Address();
 }
 
 OnOpcode(caller)
@@ -638,7 +649,7 @@ OnOpcode(sload)
 {
 	Word& w = m_Stack.get_At(0);
 
-	if (!p.SLoad(w, w))
+	if (!m_Storage.SLoad(w, w))
 		w = Zero;
 }
 
@@ -647,7 +658,7 @@ OnOpcode(sstore)
 	const Word& w1 = m_Stack.Pop();
 	const Word& w2 = m_Stack.Pop();
 
-	p.SStore(w1, w2);
+	m_Storage.SStore(w1, w2);
 }
 
 void EvmProcessor::Context::Jump(const Word& w)
@@ -764,6 +775,15 @@ void EvmProcessor::Context::OnFrameDone(EvmProcessor& p, bool bSuccess, bool bHa
 	else
 		ZeroObject(p.m_RetVal.m_Blob);
 
+	if (m_Creation)
+	{
+		m_Storage.SetCode(p.m_RetVal.m_Blob);
+		ZeroObject(p.m_RetVal.m_Blob);
+
+		if (p.m_lstFrames.size() > 1)
+			get_Prev().m_Gas = m_Gas;
+	}
+
 	p.m_lstFrames.Delete(*this);
 }
 
@@ -774,15 +794,15 @@ OnOpcode(Return)
 
 OnOpcode(Create2)
 {
+	Blob code;
+
 	auto& wValue = m_Stack.Pop();
-	auto nOffset = WtoU32(m_Stack.Pop());
-	auto nLength = WtoU32(m_Stack.Pop());
+	auto& wOffset = m_Stack.Pop();
+	code.n = WtoU32(m_Stack.Pop());
 	auto& wSalt = m_Stack.Pop();
 
-	wValue;
-	nOffset;
-	nLength;
-	wSalt;
+	code.p = get_Memory(wOffset, code.n);
+
 
 	// new_address = hash(0xFF, sender, salt, bytecode)
 	KeccakProcessor<Word::nBits> hp;
@@ -793,6 +813,15 @@ OnOpcode(Create2)
 
 	auto& wRes = m_Stack.Push();
 	hp >> wRes;
+	Address::WPad(wRes);
+
+	auto& s = p.CreateContractData(Address::W2A(wRes));
+	s.SetCode(code);
+
+	auto& f = p.PushFrame(s);
+	f.m_Args.m_CallValue = wValue;
+	f.m_Gas = m_Gas;
+	f.m_Creation = true;
 }
 
 OnOpcode(staticcall)
