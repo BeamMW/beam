@@ -111,6 +111,8 @@ void EvmProcessor::InitVars()
 	macro(0x36, calldatasize, 2) \
 	macro(0x38, codesize, 2) \
 	macro(0x39, codecopy, 3) \
+	macro(0x3b, extcodesize, 700) \
+	macro(0x3c, extcodecopy, 700) \
 	macro(0x46, chainid, 2) \
 	macro(0x50, pop, 2) \
 	macro(0x51, mload, 3) \
@@ -612,6 +614,41 @@ OnOpcode(codecopy)
 	auto* pDst = get_Memory(w1, nSize);
 
 	memcpy(pDst, pSrc, nSize);
+}
+
+OnOpcode(extcodesize)
+{
+	auto* pS = p.GetContractData(Address::W2A(m_Stack.Pop()));
+
+	auto& wRes = m_Stack.Push();
+	if (pS)
+	{
+		Blob b;
+		pS->GetCode(b);
+		wRes = b.n;
+	}
+	else
+		wRes = Zero;
+}
+
+OnOpcode(extcodecopy)
+{
+	auto* pS = p.GetContractData(Address::W2A(m_Stack.Pop()));
+	Test(pS != nullptr);
+
+	auto& wOffsetDst = m_Stack.Pop();
+	auto nOffsetSrc = WtoU32(m_Stack.Pop());
+	auto nSize = WtoU32(m_Stack.Pop());
+
+	Blob code;
+	pS->GetCode(code);
+
+	auto nEndSrc = nOffsetSrc + nSize;
+	Test(nEndSrc >= nOffsetSrc);
+	Test(code.n >= nEndSrc);
+
+	auto* pDst = get_Memory(wOffsetDst, nSize);
+	memcpy(pDst, (const uint8_t*) code.p + nOffsetSrc, nSize);
 }
 
 OnOpcode(pop)
