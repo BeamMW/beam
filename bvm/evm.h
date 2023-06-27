@@ -14,6 +14,7 @@
 
 #pragma once
 #include "../core/block_crypt.h"
+#include "../utility/containers.h"
 
 namespace beam {
 
@@ -28,6 +29,27 @@ namespace beam {
 		static uint64_t WtoU64(const Word& w);
 
 		static void HashOf(Word&, const Blob&);
+
+		struct Address
+			:public uintBig_t<20>
+		{
+			typedef uintBig_t<20> Base;
+
+			void ToWord(Word& w) const
+			{
+				static_assert(Word::nBytes >= nBytes);
+				memset0(w.m_pData, Word::nBytes - nBytes);
+				memcpy(w.m_pData + Word::nBytes - nBytes, m_pData, nBytes);
+			}
+
+			Word ToWord() const
+			{
+				Word w;
+				ToWord(w);
+				return w;
+			}
+		};
+
 
 		struct Stack
 		{
@@ -52,12 +74,12 @@ namespace beam {
 				return ret;
 			}
 
-		} m_Stack;
+		};
 
 		struct Memory
 		{
 			std::vector<uint8_t> m_v;
-		} m_Memory;
+		};
 
 		struct Code
 		{
@@ -96,36 +118,44 @@ namespace beam {
 				m_n = x.n;
 			}
 
-		} m_Code;
-
-		EvmProcessor()
-		{
-			InitVars();
-		}
-
-		void Reset();
-
-		enum struct State {
-			Running,
-			Done,
-			Failed,
 		};
 
-		State m_State;
-		Blob m_RetVal;
+
+		void Reset();
 
 		struct Args
 		{
 			Blob m_Buf;
 			Word m_CallValue; // amonth of eth to be received by the caller?
-			Word m_Caller;
-		} m_Args;
+		};
 
-		uint64_t m_Gas;
-
-		bool ShouldRun() const
+		struct Frame
+			:public boost::intrusive::list_base_hook<>
 		{
-			return State::Running == m_State;
+			typedef intrusive::list_autoclear<Frame> List;
+
+			Address m_Address;
+			Stack m_Stack;
+			Memory m_Memory;
+			Code m_Code;
+			Args m_Args;
+			uint64_t m_Gas;
+		};
+
+		Frame::List m_lstFrames;
+		Address m_Caller;
+
+		struct RetVal
+		{
+			Memory m_Memory;
+			Blob m_Blob;
+			bool m_Success;
+
+		} m_RetVal;
+
+		EvmProcessor()
+		{
+			InitVars();
 		}
 
 #pragma pack (push, 1)
@@ -136,6 +166,8 @@ namespace beam {
 		};
 #pragma pack (pop)
 
+		Frame& PushFrame(const Address&);
+
 		void RunOnce();
 
 		virtual void SStore(const Word& key, const Word&) = 0;
@@ -144,6 +176,7 @@ namespace beam {
 
 	private:
 
+		struct Context;
 		void InitVars();
 	};
 
