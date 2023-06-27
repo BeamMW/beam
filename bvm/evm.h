@@ -35,11 +35,20 @@ namespace beam {
 		{
 			typedef uintBig_t<20> Base;
 
-			void ToWord(Word& w) const
+			static void WPad(Word& w)
+			{
+				memset0(w.m_pData, Word::nBytes - nBytes);
+			}
+			static Address& W2A(Word& w)
 			{
 				static_assert(Word::nBytes >= nBytes);
-				memset0(w.m_pData, Word::nBytes - nBytes);
-				memcpy(w.m_pData + Word::nBytes - nBytes, m_pData, nBytes);
+				return *(Address*) (w.m_pData + Word::nBytes - nBytes);
+			}
+
+			void ToWord(Word& w) const
+			{
+				WPad(w);
+				W2A(w) = *this;
 			}
 
 			Word ToWord() const
@@ -129,17 +138,32 @@ namespace beam {
 			Word m_CallValue; // amonth of eth to be received by the caller?
 		};
 
+		struct IStorage
+		{
+			virtual const Address& get_Address() = 0;
+
+			virtual void SStore(const Word& key, const Word&) = 0;
+			virtual bool SLoad(const Word& key, Word&) = 0;
+
+			virtual void SetCode(const Blob&) = 0;
+			virtual void GetCode(Blob&) = 0;
+		};
+
 		struct Frame
 			:public boost::intrusive::list_base_hook<>
 		{
 			typedef intrusive::list_autoclear<Frame> List;
 
-			Address m_Address;
+			IStorage& m_Storage;
+
+			Frame(IStorage& s) :m_Storage(s) {}
+
 			Stack m_Stack;
 			Memory m_Memory;
 			Code m_Code;
 			Args m_Args;
 			uint64_t m_Gas;
+			bool m_Creation = false;
 		};
 
 		Frame::List m_lstFrames;
@@ -166,12 +190,12 @@ namespace beam {
 		};
 #pragma pack (pop)
 
-		Frame& PushFrame(const Address&);
+		Frame& PushFrame(IStorage&);
 
 		void RunOnce();
 
-		virtual void SStore(const Word& key, const Word&) = 0;
-		virtual bool SLoad(const Word& key, Word&) = 0;
+		virtual IStorage* GetContractData(const Address&) = 0;
+		virtual IStorage& CreateContractData(const Address&) = 0;
 		virtual void get_ChainID(Word&);
 
 	private:

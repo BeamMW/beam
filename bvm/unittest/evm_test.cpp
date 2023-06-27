@@ -70,69 +70,75 @@ namespace beam
 	{
 		struct ContractData
 			:public intrusive::set_base_hook<Address>
+			,public IStorage
 		{
 			ByteBuffer m_Code;
 			std::map<Word, Word> m_Vars;
+
+			const Address& get_Address() override
+			{
+				return m_Key;
+			}
+
+			void SStore(const Word& key, const Word& w) override
+			{
+				if (w == Zero)
+				{
+					auto it = m_Vars.find(key);
+					if (m_Vars.end() != it)
+						m_Vars.erase(it);
+				}
+				else
+					m_Vars[key] = w;
+			}
+
+			bool SLoad(const Word& key, Word& w) override
+			{
+				auto it = m_Vars.find(key);
+				if (m_Vars.end() == it)
+					return false;
+
+				w = it->second;
+				return true;
+			}
+
+			void SetCode(const Blob& b) override
+			{
+				b.Export(m_Code);
+			}
+
+			void GetCode(Blob& b) override
+			{
+				b = m_Code;
+			}
+
 		};
 
 		intrusive::multiset_autoclear<ContractData> m_mapContracts;
 
-		ContractData* m_pCurrent = nullptr;
-
-		ContractData& get_Current()
+		IStorage* GetContractData(const Address& aContract) override
 		{
-			assert(!m_lstFrames.empty());
+			auto it = m_mapContracts.find(aContract, ContractData::Comparator());
+			return (m_mapContracts.end() == it) ? nullptr : &(*it);
+		}
+
+		ContractData& CreateContractDataInternal(const Address& aContract)
+		{
+			return *m_mapContracts.Create(aContract);
+		}
+
+		virtual IStorage& CreateContractData(const Address& aContract)
+		{
+			return CreateContractDataInternal(aContract);
+		}
+
+		void RunFull(const Address& aCaller)
+		{
+			assert(1u == m_lstFrames.size());
 			auto& f = m_lstFrames.back();
-			
-			if (!m_pCurrent || (m_pCurrent->m_Key != f.m_Address))
-			{
-				auto it = m_mapContracts.find(f.m_Address, ContractData::Comparator());
-				assert(m_mapContracts.end() != it);
-				m_pCurrent = &(*it);
-			}
 
-			return *m_pCurrent;
-		}
-
-		void SStore(const Word& key, const Word& w) override
-		{
-			auto& vars = get_Current().m_Vars;
-			if (w == Zero)
-			{
-				auto it = vars.find(key);
-				if (vars.end() != it)
-					vars.erase(it);
-			}
-			else
-				vars[key] = w;
-		}
-
-		bool SLoad(const Word& key, Word& w) override
-		{
-			auto& vars = get_Current().m_Vars;
-			auto it = vars.find(key);
-			if (vars.end() == it)
-				return false;
-
-			w = it->second;
-			return true;
-		}
-
-		void RunFull(const Address& aCaller, const Blob& args)
-		{
-			Reset();
-			assert(m_pCurrent);
-			assert(m_lstFrames.empty());
-
-			auto& f = PushFrame(m_pCurrent->m_Key);
-			f.m_Args.m_Buf = args;
 			f.m_Gas = 1000000000ULL;
-
-			if (!m_pCurrent->m_Code.empty())
-			{
-				f.m_Code.m_p = &m_pCurrent->m_Code.front();
-				f.m_Code.m_n = (uint32_t) m_pCurrent->m_Code.size();
-			}
+			m_Caller = aCaller;
 
 			while (!m_lstFrames.empty())
 				RunOnce();
@@ -140,25 +146,27 @@ namespace beam
 
 		bool Construct(const Address& aContract, const Address& aCaller, const char* szCode, uint32_t nLenCode, const void* pArg, uint32_t nArg)
 		{
-			m_pCurrent = m_mapContracts.Create(aContract);
-			auto& c = *m_pCurrent;
+			auto& cd = CreateContractDataInternal(aContract);
 
 			uint32_t nSizeCode = nLenCode / 2;
-			c.m_Code.resize(nSizeCode + nArg);
+			cd.m_Code.resize(nSizeCode + nArg);
 			if (nSizeCode)
 			{
-				auto ret = uintBigImpl::_Scan(&c.m_Code.front(), szCode, nLenCode);
+				auto ret = uintBigImpl::_Scan(&cd.m_Code.front(), szCode, nLenCode);
 				verify_test(ret == nLenCode);
-				memcpy(&c.m_Code.front() + nSizeCode, pArg, nArg);
+				memcpy(&cd.m_Code.front() + nSizeCode, pArg, nArg);
 			}
 
 			std::cout << "\nCtor" << std::endl;
 
-			RunFull(aCaller, Blob());
-			if (m_RetVal.m_Success)
-				m_RetVal.m_Blob.Export(c.m_Code); // save retval as the remaining code, rerun
-			else
-				m_mapContracts.Delete(c);
+			Reset();
+			auto& f = PushFrame(cd);
+			f.m_Creation = true;
+
+			RunFull(aCaller);
+
+			if (!m_RetVal.m_Success)
+				m_mapContracts.Delete(cd);
 
 			Reset();
 
@@ -169,13 +177,15 @@ namespace beam
 		{
 			std::cout << "\nCalling method " << m.m_Selector << std::endl;
 
-			auto it = m_mapContracts.find(aContract, ContractData::Comparator());
-			if (m_mapContracts.end() == it)
+			IStorage* pS = GetContractData(aContract);
+			if (!pS)
 				return false;
 
-			m_pCurrent = &(*it);
+			Reset();
+			auto& f = PushFrame(*pS);
+			f.m_Args.m_Buf = Blob(&m, nSizeMethod);
 
-			RunFull(aCaller, Blob(&m, nSizeMethod));
+			RunFull(aCaller);
 			return m_RetVal.m_Success;
 
 		}
