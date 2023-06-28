@@ -125,6 +125,7 @@ void EvmProcessor::InitVars()
 	macro(0x58, pc, 2) \
 	macro(0x5a, gas, 2) \
 	macro(0x5b, jumpdest, 1) \
+	macro(0xf1, call, 0) \
 	macro(0xf3, Return, 0) \
 	macro(0xf5, Create2, 0) \
 	macro(0xfa, staticcall, 40) \
@@ -194,6 +195,7 @@ struct EvmProcessor::Context :public EvmProcessor::Frame
 	void SwapN(uint32_t n);
 	void LogN(uint32_t n);
 	void OnFrameDone(EvmProcessor&, bool bSuccess, bool bHaveRetval);
+	void OnCall(EvmProcessor&, bool bStatic);
 
 	template <bool bPadLeft>
 	static void AssignPartial(Word&, const uint8_t* p, uint32_t n);
@@ -812,14 +814,49 @@ void EvmProcessor::Context::OnFrameDone(EvmProcessor& p, bool bSuccess, bool bHa
 	else
 		ZeroObject(p.m_RetVal.m_Blob);
 
-	if (m_Creation)
-	{
-		m_Storage.SetCode(p.m_RetVal.m_Blob);
-		ZeroObject(p.m_RetVal.m_Blob);
+	Frame* pPrev = (p.m_lstFrames.size() > 1) ? &get_Prev() : nullptr;
+	if (pPrev)
+		pPrev->m_Gas += m_Gas;
 
-		if (p.m_lstFrames.size() > 1)
-			get_Prev().m_Gas = m_Gas;
+	switch (m_Type)
+	{
+	case Type::CreateContract:
+		{
+			m_Storage.SetCode(p.m_RetVal.m_Blob);
+			ZeroObject(p.m_RetVal.m_Blob);
+
+			if (pPrev)
+			{
+				auto& wRes = pPrev->m_Stack.Push();
+				if (bSuccess)
+					m_Storage.get_Address().ToWord(wRes);
+				else
+					wRes = Zero;
+			}
+		}
+		break;
+
+	case Type::CallRetStatus:
+		if (pPrev)
+		{
+			// copy retval and status
+
+			auto& wResAddr = pPrev->m_Stack.Pop();
+			auto nResSize = WtoU32(pPrev->m_Stack.Pop());
+			auto* pRes = get_Memory(wResAddr, nResSize);
+
+			std::setmin(nResSize, p.m_RetVal.m_Blob.n);
+			memcpy(pRes, p.m_RetVal.m_Blob.p, nResSize);
+
+			pPrev->m_Stack.Push() = p.m_RetVal.m_Success ? 1u : 0u;
+
+		}
+		break;
+
+	default:
+		break; // do nothing
 	}
+
 
 	p.m_lstFrames.Delete(*this);
 }
@@ -840,46 +877,74 @@ OnOpcode(Create2)
 
 	code.p = get_Memory(wOffset, code.n);
 
-
 	// new_address = hash(0xFF, sender, salt, bytecode)
-	KeccakProcessor<Word::nBits> hp;
-	uint8_t n = 0xff;
-	hp.Write(&n, sizeof(n));
-	hp << get_Caller(p).ToWord();
-	hp << wSalt;
+	Address aNew;
+	{
+		KeccakProcessor<Word::nBits> hp;
+		uint8_t n = 0xff;
+		hp.Write(&n, sizeof(n));
+		hp << get_Caller(p).ToWord();
+		hp << wSalt;
 
-	auto& wRes = m_Stack.Push();
-	hp >> wRes;
-	Address::WPad(wRes);
+		Word wRes;
+		hp >> wRes;
+		aNew = Address::W2A(wRes);
+	}
 
-	auto& s = p.CreateContractData(Address::W2A(wRes));
+	auto& s = p.CreateContractData(aNew);
 	s.SetCode(code);
 
 	auto& f = p.PushFrame(s);
 	f.m_Args.m_CallValue = wValue;
-	f.m_Gas = m_Gas;
-	f.m_Creation = true;
+	std::swap(f.m_Gas, m_Gas);
+	f.m_Type = Type::CreateContract;
 }
 
-OnOpcode(staticcall)
+void EvmProcessor::Context::OnCall(EvmProcessor& p, bool bStatic)
 {
 	auto nGas = WtoU64(m_Stack.Pop());
 	auto& wAddr = m_Stack.Pop();
+
+	const Word* pVal = bStatic ? nullptr  : &m_Stack.Pop();
 
 	auto& wArgsAddr = m_Stack.Pop();
 	auto nArgsSize = WtoU32(m_Stack.Pop());
 	auto* pArgs = get_Memory(wArgsAddr, nArgsSize);
 
-	auto& wResAddr = m_Stack.Pop();
-	auto nResSize = WtoU32(m_Stack.Pop());
-	auto* pRes = get_Memory(wResAddr, nResSize);
+	auto* pS = p.GetContractData(Address::W2A(wAddr));
+	if (pS)
+	{
+		auto& f = p.PushFrame(*pS);
 
-	wAddr;
-	nGas;
-	pArgs;
-	pRes;
+		f.m_Args.m_Buf.p = pArgs;
+		f.m_Args.m_Buf.n = nArgsSize;
 
-	m_Stack.Push() = 1u; // success!
+		if (pVal)
+			f.m_Args.m_CallValue = *pVal;
+		else
+			f.m_Args.m_CallValue = Zero;
+
+		DrainGas(nGas);
+		f.m_Gas = nGas;
+
+		f.m_Type = Type::CallRetStatus;
+	}
+	else
+	{
+		m_Stack.Pop(); // res addr
+		m_Stack.Pop(); // res size
+		m_Stack.Push() = Zero; // failure
+	}
+}
+
+OnOpcode(call)
+{
+	OnCall(p, false);
+}
+
+OnOpcode(staticcall)
+{
+	OnCall(p, true);
 }
 
 OnOpcode(revert)

@@ -154,6 +154,12 @@ namespace beam {
 		{
 			typedef intrusive::list_autoclear<Frame> List;
 
+			enum struct Type {
+				Normal,
+				CreateContract,
+				CallRetStatus,
+			};
+
 			IStorage& m_Storage;
 
 			Frame(IStorage& s) :m_Storage(s) {}
@@ -163,7 +169,7 @@ namespace beam {
 			Code m_Code;
 			Args m_Args;
 			uint64_t m_Gas;
-			bool m_Creation = false;
+			Type m_Type = Type::Normal;
 		};
 
 		Frame::List m_lstFrames;
