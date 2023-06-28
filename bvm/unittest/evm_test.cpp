@@ -74,6 +74,7 @@ namespace beam
 		{
 			ByteBuffer m_Code;
 			std::map<Word, Word> m_Vars;
+			MyProcessor* m_pThis;
 
 			virtual ~ContractData() {} // auto
 
@@ -82,16 +83,25 @@ namespace beam
 				return m_Key;
 			}
 
-			void SStore(const Word& key, const Word& w) override
+			void SStore(const Word& key, const Word& w, Word& wPrev) override
 			{
-				if (w == Zero)
+				auto it = m_Vars.find(key);
+				if (m_Vars.end() == it)
 				{
-					auto it = m_Vars.find(key);
-					if (m_Vars.end() != it)
-						m_Vars.erase(it);
+					wPrev = Zero;
+					if (w == Zero)
+						return;
+
+					m_Vars.emplace(key, w);
 				}
 				else
-					m_Vars[key] = w;
+				{
+					wPrev = it->second;
+					if (w == Zero)
+						m_Vars.erase(it);
+					else
+						it->second = w;
+				}
 			}
 
 			bool SLoad(const Word& key, Word& w) override
@@ -114,24 +124,32 @@ namespace beam
 				b = m_Code;
 			}
 
+			void Delete() override
+			{
+				m_pThis->m_mapContracts.Delete(*this);
+			}
+
 		};
 
 		intrusive::multiset_autoclear<ContractData> m_mapContracts;
 
-		IStorage* GetContractData(const Address& aContract) override
+		IStorage* GetContractData(const Address& aContract, bool bCreate) override
 		{
 			auto it = m_mapContracts.find(aContract, ContractData::Comparator());
-			return (m_mapContracts.end() == it) ? nullptr : &(*it);
-		}
+			if (m_mapContracts.end() == it)
+			{
+				if (!bCreate)
+					return nullptr;
 
-		ContractData& CreateContractDataInternal(const Address& aContract)
-		{
-			return *m_mapContracts.Create(aContract);
-		}
+				auto* pCd = m_mapContracts.Create(aContract);
+				pCd->m_pThis = this;
+				return pCd;
+			}
 
-		virtual IStorage& CreateContractData(const Address& aContract)
-		{
-			return CreateContractDataInternal(aContract);
+			if (bCreate)
+				return nullptr;
+
+			return &(*it);
 		}
 
 		void RunFull(const Address& aCaller)
@@ -148,29 +166,27 @@ namespace beam
 
 		bool Construct(const Address& aContract, const Address& aCaller, const char* szCode, uint32_t nLenCode, const void* pArg, uint32_t nArg)
 		{
-			auto& cd = CreateContractDataInternal(aContract);
+			ByteBuffer code;
 
 			uint32_t nSizeCode = nLenCode / 2;
-			cd.m_Code.resize(nSizeCode + nArg);
+			code.resize(nSizeCode + nArg);
 			if (nSizeCode)
 			{
-				auto ret = uintBigImpl::_Scan(&cd.m_Code.front(), szCode, nLenCode);
+				auto ret = uintBigImpl::_Scan(&code.front(), szCode, nLenCode);
 				verify_test(ret == nLenCode);
-				memcpy(&cd.m_Code.front() + nSizeCode, pArg, nArg);
+				memcpy(&code.front() + nSizeCode, pArg, nArg);
 			}
 
 			std::cout << "\nCtor" << std::endl;
-
 			Reset();
-			auto& f = PushFrame(cd);
-			f.m_Type = Frame::Type::CreateContract;
+
+			auto* pF = PushFrameContractCreate(aContract, code);
+			if (!pF)
+				return false;
+
+			pF->m_Storage.SetCode(code);
 
 			RunFull(aCaller);
-
-			if (!m_RetVal.m_Success)
-				m_mapContracts.Delete(cd);
-
-			Reset();
 
 			return m_RetVal.m_Success;
 		}
@@ -179,7 +195,7 @@ namespace beam
 		{
 			std::cout << "\nCalling method " << m.m_Selector << std::endl;
 
-			IStorage* pS = GetContractData(aContract);
+			IStorage* pS = GetContractData(aContract, false);
 			if (!pS)
 				return false;
 
@@ -384,7 +400,7 @@ namespace beam
 			verify_test(evm.Construct(aContract, aOwner, sCode.c_str(), (uint32_t) sCode.size(), wBenefit.m_pData, wBenefit.nBytes));
 		}
 
-		MyProcessor::Address aTokA, aTokB;
+		MyProcessor::Address aTokA, aTokB, aPairAB;
 		ECC::GenRandom(aTokA);
 		ECC::GenRandom(aTokB);
 
@@ -406,6 +422,38 @@ namespace beam
 			verify_test(evm.RunMethod_T(aContract, aOwner, myArg));
 			verify_test(evm.m_RetVal.m_Blob.n == sizeof(EvmProcessor::Word));
 
+			verify_test(!evm.RunMethod_T(aContract, aOwner, myArg));
+
+			ECC::GenRandom(aTokA);
+			ECC::GenRandom(aTokB);
+			myArg.m_wTokA = aTokA.ToWord();
+			myArg.m_wTokB = aTokB.ToWord();
+			verify_test(evm.RunMethod_T(aContract, aOwner, myArg));
+			verify_test(evm.m_RetVal.m_Blob.n == sizeof(EvmProcessor::Word));
+			aPairAB = EvmProcessor::Address::W2A(*((EvmProcessor::Word*) evm.m_RetVal.m_Blob.p));
+		}
+
+		{
+			EvmProcessor::Method myArg;
+			myArg.SetSelector("allPairsLength()");
+			verify_test(evm.RunMethod_T(aContract, aOwner, myArg));
+		}
+
+		for (uint32_t iP = 0; 2; iP++)
+		{
+#pragma pack (push, 1)
+			struct MyMethod
+				:public EvmProcessor::Method
+			{
+				EvmProcessor::Word m_Idx;
+			} myArg;
+#pragma pack (pop)
+
+			myArg.SetSelector("allPairs(uint256)");
+			myArg.m_Idx = iP;
+
+			verify_test(evm.RunMethod_T(aContract, aOwner, myArg));
+			verify_test(evm.m_RetVal.m_Blob.n == sizeof(EvmProcessor::Word));
 		}
 
 	}

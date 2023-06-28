@@ -285,6 +285,25 @@ EvmProcessor::Frame& EvmProcessor::PushFrame(IStorage& s)
 	return *pF;
 }
 
+EvmProcessor::Frame* EvmProcessor::PushFrameContractCreate(const Address& aContract, const Blob& code)
+{
+	auto* pS = GetContractData(aContract, true);
+	if (!pS)
+		return nullptr;
+
+	pS->SetCode(code);
+
+	auto& f = PushFrame(*pS);
+	f.m_Type = Frame::Type::CreateContract;
+
+	UndoOp* pOp = f.m_lstUndo.Create_back();
+	pOp->m_pStorage = pS;
+	pOp->m_IsContract = true;
+
+	return &f;
+}
+
+
 void EvmProcessor::RunOnce()
 {
 	assert(!m_lstFrames.empty());
@@ -620,7 +639,7 @@ OnOpcode(codecopy)
 
 OnOpcode(extcodesize)
 {
-	auto* pS = p.GetContractData(Address::W2A(m_Stack.Pop()));
+	auto* pS = p.GetContractData(Address::W2A(m_Stack.Pop()), false);
 
 	auto& wRes = m_Stack.Push();
 	if (pS)
@@ -635,7 +654,7 @@ OnOpcode(extcodesize)
 
 OnOpcode(extcodecopy)
 {
-	auto* pS = p.GetContractData(Address::W2A(m_Stack.Pop()));
+	auto* pS = p.GetContractData(Address::W2A(m_Stack.Pop()), false);
 	Test(pS != nullptr);
 
 	auto& wOffsetDst = m_Stack.Pop();
@@ -697,7 +716,14 @@ OnOpcode(sstore)
 	const Word& w1 = m_Stack.Pop();
 	const Word& w2 = m_Stack.Pop();
 
-	m_Storage.SStore(w1, w2);
+	Word wPrev;
+	m_Storage.SStore(w1, w2, wPrev);
+
+	UndoOp* pOp = m_lstUndo.Create_back();
+	pOp->m_pStorage = &m_Storage;
+	pOp->m_IsContract = false;
+	pOp->m_wKey = w1;
+	pOp->m_wVal = wPrev;
 }
 
 void EvmProcessor::Context::Jump(const Word& w)
@@ -814,9 +840,35 @@ void EvmProcessor::Context::OnFrameDone(EvmProcessor& p, bool bSuccess, bool bHa
 	else
 		ZeroObject(p.m_RetVal.m_Blob);
 
-	Frame* pPrev = (p.m_lstFrames.size() > 1) ? &get_Prev() : nullptr;
+	std::unique_ptr<Frame> pGuard(this);
+	p.m_lstFrames.pop_back(); // if exc raises now - it'll be handled according to the prev frame
+
+	Frame* pPrev = p.m_lstFrames.empty() ? nullptr : &p.m_lstFrames.back();
 	if (pPrev)
 		pPrev->m_Gas += m_Gas;
+
+	if (bSuccess)
+	{
+		if (pPrev)
+			pPrev->m_lstUndo.splice(pPrev->m_lstUndo.end(), m_lstUndo);
+	}
+	else
+	{
+		while (!m_lstUndo.empty())
+		{
+			auto& op = m_lstUndo.back();
+
+			if (op.m_IsContract)
+				op.m_pStorage->Delete();
+			else
+			{
+				Word wPrev;
+				op.m_pStorage->SStore(op.m_wKey, op.m_wVal, wPrev);
+			}
+
+			m_lstUndo.Delete(op);
+		}
+	}
 
 	switch (m_Type)
 	{
@@ -831,7 +883,10 @@ void EvmProcessor::Context::OnFrameDone(EvmProcessor& p, bool bSuccess, bool bHa
 				if (bSuccess)
 					m_Storage.get_Address().ToWord(wRes);
 				else
+				{
 					wRes = Zero;
+					m_Storage.Delete();
+				}
 			}
 		}
 		break;
@@ -856,9 +911,6 @@ void EvmProcessor::Context::OnFrameDone(EvmProcessor& p, bool bSuccess, bool bHa
 	default:
 		break; // do nothing
 	}
-
-
-	p.m_lstFrames.Delete(*this);
 }
 
 OnOpcode(Return)
@@ -891,13 +943,14 @@ OnOpcode(Create2)
 		aNew = Address::W2A(wRes);
 	}
 
-	auto& s = p.CreateContractData(aNew);
-	s.SetCode(code);
-
-	auto& f = p.PushFrame(s);
-	f.m_Args.m_CallValue = wValue;
-	std::swap(f.m_Gas, m_Gas);
-	f.m_Type = Type::CreateContract;
+	auto* pF = p.PushFrameContractCreate(aNew, code);
+	if (pF)
+	{
+		pF->m_Args.m_CallValue = wValue;
+		std::swap(pF->m_Gas, m_Gas);
+	}
+	else
+		m_Stack.Push() = Zero; // failure
 }
 
 void EvmProcessor::Context::OnCall(EvmProcessor& p, bool bStatic)
@@ -911,7 +964,7 @@ void EvmProcessor::Context::OnCall(EvmProcessor& p, bool bStatic)
 	auto nArgsSize = WtoU32(m_Stack.Pop());
 	auto* pArgs = get_Memory(wArgsAddr, nArgsSize);
 
-	auto* pS = p.GetContractData(Address::W2A(wAddr));
+	auto* pS = p.GetContractData(Address::W2A(wAddr), false);
 	if (pS)
 	{
 		auto& f = p.PushFrame(*pS);
