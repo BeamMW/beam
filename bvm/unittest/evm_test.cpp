@@ -161,7 +161,7 @@ namespace beam
 
 			Reset();
 			auto& f = PushFrame(cd);
-			f.m_Creation = true;
+			f.m_Type = Frame::Type::CreateContract;
 
 			RunFull(aCaller);
 
@@ -402,7 +402,7 @@ namespace beam
 			myArg.m_wTokB = aTokB.ToWord();
 
 			verify_test(evm.RunMethod_T(aContract, aOwner, myArg));
-			verify_test(!evm.m_RetVal.m_Blob.n);
+			verify_test(evm.m_RetVal.m_Blob.n == sizeof(EvmProcessor::Word));
 
 		}
 
@@ -421,7 +421,7 @@ int main()
 
 		beam::EvmTest1();
 		beam::EvmTest2();
-		//beam::EvmTest3();
+		beam::EvmTest3();
 
 	}
 	catch (const std::exception & ex)
