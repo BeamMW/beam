@@ -75,6 +75,8 @@ namespace beam
 			ByteBuffer m_Code;
 			std::map<Word, Word> m_Vars;
 
+			virtual ~ContractData() {} // auto
+
 			const Address& get_Address() override
 			{
 				return m_Key;
