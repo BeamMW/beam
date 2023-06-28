@@ -142,11 +142,24 @@ namespace beam {
 		{
 			virtual const Address& get_Address() = 0;
 
-			virtual void SStore(const Word& key, const Word&) = 0;
+			virtual void SStore(const Word& key, const Word&, Word& wPrev) = 0;
 			virtual bool SLoad(const Word& key, Word&) = 0;
 
 			virtual void SetCode(const Blob&) = 0;
 			virtual void GetCode(Blob&) = 0;
+
+			virtual void Delete() = 0; // will be last function called
+		};
+
+		struct UndoOp
+			:public boost::intrusive::list_base_hook<>
+		{
+			typedef intrusive::list_autoclear<UndoOp> List;
+
+			Word m_wKey;
+			Word m_wVal;
+			IStorage* m_pStorage;
+			bool m_IsContract;
 		};
 
 		struct Frame
@@ -170,6 +183,8 @@ namespace beam {
 			Args m_Args;
 			uint64_t m_Gas;
 			Type m_Type = Type::Normal;
+
+			UndoOp::List m_lstUndo;
 		};
 
 		Frame::List m_lstFrames;
@@ -197,11 +212,11 @@ namespace beam {
 #pragma pack (pop)
 
 		Frame& PushFrame(IStorage&);
+		Frame* PushFrameContractCreate(const Address&, const Blob& code);
 
 		void RunOnce();
 
-		virtual IStorage* GetContractData(const Address&) = 0;
-		virtual IStorage& CreateContractData(const Address&) = 0;
+		virtual IStorage* GetContractData(const Address&, bool bCreate) = 0;
 		virtual void get_ChainID(Word&);
 
 	private:
