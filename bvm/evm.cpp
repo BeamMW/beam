@@ -75,6 +75,7 @@ void EvmProcessor::Reset()
 void EvmProcessor::InitVars()
 {
 	Cast::Down<Address::Base>(m_Caller) = Zero;
+	m_Gas = 0;
 }
 
 #define EvmOpcodes_Binary(macro) \
@@ -196,6 +197,7 @@ struct EvmProcessor::Context :public EvmProcessor::Frame
 	void LogN(uint32_t n);
 	void OnFrameDone(EvmProcessor&, bool bSuccess, bool bHaveRetval);
 	void OnCall(EvmProcessor&, bool bStatic);
+	void UndoChanges();
 
 	template <bool bPadLeft>
 	static void AssignPartial(Word&, const uint8_t* p, uint32_t n);
@@ -222,6 +224,11 @@ struct EvmProcessor::Context :public EvmProcessor::Frame
 		uint8_t val = !!b;
 		w = val;
 	}
+
+	struct NoGasException
+		:public std::exception
+	{
+	};
 };
 
 void EvmProcessor::Context::LogOpCode(const char* sz)
@@ -236,7 +243,12 @@ void EvmProcessor::Context::LogOpCode(const char* sz, uint32_t n)
 
 void EvmProcessor::Context::DrainGas(uint64_t n)
 {
-	Test(m_Gas >= n);
+	if (m_Gas < n)
+	{
+		m_Gas = 0;
+		throw NoGasException();
+	}
+
 	m_Gas -= n;
 }
 
@@ -306,10 +318,36 @@ EvmProcessor::Frame* EvmProcessor::PushFrameContractCreate(const Address& aContr
 
 void EvmProcessor::RunOnce()
 {
-	assert(!m_lstFrames.empty());
-
 	static_assert(sizeof(Context) == sizeof(Frame), "");
-	Cast::Up<Context>(m_lstFrames.back()).RunOnce(*this);
+
+	try
+	{
+		try
+		{
+			assert(!m_lstFrames.empty());
+			auto& f = Cast::Up<Context>(m_lstFrames.back());
+			f.RunOnce(*this);
+		}
+		catch (const Context::NoGasException&)
+		{
+			assert(!m_lstFrames.empty());
+			auto& f = Cast::Up<Context>(m_lstFrames.back());
+			f.OnFrameDone(*this, false, false); // assume during revert no gas is drained
+		}
+	}
+	catch (const std::exception&)
+	{
+		while (!m_lstFrames.empty())
+		{
+			auto& f = Cast::Up<Context>(m_lstFrames.back());
+			f.UndoChanges();
+			m_lstFrames.Delete(f);
+		}
+
+		m_RetVal.m_Success = false;
+		ZeroObject(m_RetVal.m_Blob);
+	}
+
 }
 
 void EvmProcessor::Context::RunOnce(EvmProcessor& p)
@@ -823,6 +861,24 @@ void EvmProcessor::Context::LogN(uint32_t n)
 
 }
 
+void EvmProcessor::Context::UndoChanges()
+{
+	while (!m_lstUndo.empty())
+	{
+		auto& op = m_lstUndo.back();
+
+		if (op.m_IsContract)
+			op.m_pStorage->Delete();
+		else
+		{
+			Word wPrev;
+			op.m_pStorage->SStore(op.m_wKey, op.m_wVal, wPrev);
+		}
+
+		m_lstUndo.Delete(op);
+	}
+}
+
 void EvmProcessor::Context::OnFrameDone(EvmProcessor& p, bool bSuccess, bool bHaveRetval)
 {
 	p.m_RetVal.m_Success = bSuccess;
@@ -844,8 +900,7 @@ void EvmProcessor::Context::OnFrameDone(EvmProcessor& p, bool bSuccess, bool bHa
 	p.m_lstFrames.pop_back(); // if exc raises now - it'll be handled according to the prev frame
 
 	Frame* pPrev = p.m_lstFrames.empty() ? nullptr : &p.m_lstFrames.back();
-	if (pPrev)
-		pPrev->m_Gas += m_Gas;
+	(pPrev ? pPrev->m_Gas : p.m_Gas) += m_Gas;
 
 	if (bSuccess)
 	{
@@ -853,41 +908,26 @@ void EvmProcessor::Context::OnFrameDone(EvmProcessor& p, bool bSuccess, bool bHa
 			pPrev->m_lstUndo.splice(pPrev->m_lstUndo.end(), m_lstUndo);
 	}
 	else
-	{
-		while (!m_lstUndo.empty())
-		{
-			auto& op = m_lstUndo.back();
+		UndoChanges();
 
-			if (op.m_IsContract)
-				op.m_pStorage->Delete();
-			else
-			{
-				Word wPrev;
-				op.m_pStorage->SStore(op.m_wKey, op.m_wVal, wPrev);
-			}
-
-			m_lstUndo.Delete(op);
-		}
-	}
 
 	switch (m_Type)
 	{
 	case Type::CreateContract:
+
+		if (bSuccess)
 		{
 			m_Storage.SetCode(p.m_RetVal.m_Blob);
 			ZeroObject(p.m_RetVal.m_Blob);
+		}
 
-			if (pPrev)
-			{
-				auto& wRes = pPrev->m_Stack.Push();
-				if (bSuccess)
-					m_Storage.get_Address().ToWord(wRes);
-				else
-				{
-					wRes = Zero;
-					m_Storage.Delete();
-				}
-			}
+		if (pPrev)
+		{
+			auto& wRes = pPrev->m_Stack.Push();
+			if (bSuccess)
+				m_Storage.get_Address().ToWord(wRes);
+			else
+				wRes = Zero;
 		}
 		break;
 
