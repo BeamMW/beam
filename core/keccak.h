@@ -3,6 +3,11 @@
 #include "../utility/byteorder.h"
 #include "ethash/include/ethash/keccak.h"
 
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#	pragma GCC diagnostic push
+#	pragma GCC diagnostic ignored "-Werror=array-bounds" // incorrectly triggers here
+#endif
+
 namespace beam
 {
 	// Wrapper for keccak hash algorithm. In contrast to original implementation it allows partial write in several calls
@@ -127,3 +132,7 @@ namespace beam
 	};
 
 } // namespace beam
+
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#	pragma GCC diagnostic pop
+#endif
