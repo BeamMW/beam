@@ -17,8 +17,10 @@ namespace beam
 		static const uint32_t nWordsBlock = nSizeBlock / nSizeWord;
 
 		KeccakProcessor()
+			:m_LastWordBytes(0) // workaround, otherwise compiler with optimizations produces an out-of-bounds error/warning
 		{
 			ZeroObject(*this);
+			
 		}
 
 		void Write(const uint8_t* pSrc, uint32_t nSrc)
