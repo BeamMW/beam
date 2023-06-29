@@ -5,7 +5,7 @@
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic push
-#	pragma GCC diagnostic ignored "-Werror=array-bounds" // incorrectly triggers here
+#	pragma GCC diagnostic ignored "-Warray-bounds" // incorrectly triggers here
 #endif
 
 namespace beam
