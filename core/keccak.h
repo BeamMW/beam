@@ -26,7 +26,7 @@ namespace beam
 		{
 			if (m_LastWordBytes)
 			{
-				auto* pDst = get_LastWordBytes() + m_LastWordBytes;
+				auto* pDst = m_pLastWordAsBytes + m_LastWordBytes;
 
 				if (m_LastWordBytes + nSrc < nSizeWord)
 				{
@@ -49,12 +49,12 @@ namespace beam
 			{
 				if (nSrc < nSizeWord)
 				{
-					memcpy(&m_LastWord, pSrc, nSrc);
+					memcpy(m_pLastWordAsBytes, pSrc, nSrc);
 					m_LastWordBytes = nSrc;
 					return;
 				}
 
-				memcpy(&m_LastWord, pSrc, nSizeWord);
+				memcpy(m_pLastWordAsBytes, pSrc, nSizeWord);
 				pSrc += nSizeWord;
 				nSrc -= nSizeWord;
 
@@ -73,9 +73,8 @@ namespace beam
 		void Read(uint8_t* pRes)
 		{
 			// pad and transform
-			auto* pDst = get_LastWordBytes();
-			pDst[m_LastWordBytes++] = 0x01;
-			memset0(pDst + m_LastWordBytes, nSizeWord - m_LastWordBytes);
+			m_pLastWordAsBytes[m_LastWordBytes++] = 0x01;
+			memset0(m_pLastWordAsBytes + m_LastWordBytes, nSizeWord - m_LastWordBytes);
 
 			AddLastWordRaw();
 
@@ -99,12 +98,15 @@ namespace beam
 	private:
 
 		uint64_t m_pState[25];
-		uint64_t m_LastWord;
+
+		union {
+			uint64_t m_LastWord;
+			uint8_t m_pLastWordAsBytes[nSizeWord];
+		};
 
 		uint32_t m_iWord;
 		uint32_t m_LastWordBytes;
 
-		uint8_t* get_LastWordBytes() { return reinterpret_cast<uint8_t*>(&m_LastWord); }
 
 		void AddLastWordRaw()
 		{
