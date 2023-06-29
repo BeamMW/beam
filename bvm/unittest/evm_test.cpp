@@ -439,7 +439,7 @@ namespace beam
 			verify_test(evm.RunMethod_T(aContract, aOwner, myArg));
 		}
 
-		for (uint32_t iP = 0; 2; iP++)
+		for (uint32_t iP = 0; iP < 2; iP++)
 		{
 #pragma pack (push, 1)
 			struct MyMethod

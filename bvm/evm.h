@@ -189,6 +189,7 @@ namespace beam {
 
 		Frame::List m_lstFrames;
 		Address m_Caller;
+		uint64_t m_Gas;
 
 		struct RetVal
 		{
