@@ -973,12 +973,16 @@ OnOpcode(Create2)
 	Address aNew;
 	{
 		KeccakProcessor<Word::nBits> hp;
+
 		uint8_t n = 0xff;
 		hp.Write(&n, sizeof(n));
-		hp << get_Caller(p).ToWord();
-		hp << wSalt;
 
 		Word wRes;
+		get_Caller(p).ToWord(wRes);
+
+		hp << wRes;
+		hp << wSalt;
+
 		hp >> wRes;
 		aNew = Address::W2A(wRes);
 	}
