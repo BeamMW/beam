@@ -6,6 +6,7 @@
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic push
 #	pragma GCC diagnostic ignored "-Warray-bounds" // incorrectly triggers here
+#	pragma GCC diagnostic ignored "-Wstringop-overflow"
 #endif
 
 namespace beam
