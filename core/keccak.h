@@ -6,8 +6,10 @@
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic push
 #	pragma GCC diagnostic ignored "-Warray-bounds" // incorrectly triggers here
-#		if !defined(__has_warning) || __has_warning("-Wstringop-overflow")
-#		pragma GCC diagnostic ignored "-Wstringop-overflow"
+#	if defined (__has_warning)
+#		if __has_warning("-Wstringop-overflow")
+#			pragma GCC diagnostic ignored "-Wstringop-overflow"
+#		endif
 #	endif
 #endif
 
