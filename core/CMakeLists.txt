@@ -34,6 +34,7 @@ target_link_libraries(core
         Boost::boost
         p2p
         utility
+        keccak
     PRIVATE
         pow
         pbkdf

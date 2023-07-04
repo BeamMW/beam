@@ -13,7 +13,6 @@ add_library(bvm STATIC ${BVM_SRC})
 target_link_libraries(bvm 
     PUBLIC
         core
-        keccak
         ethash
     PRIVATE
         re2
