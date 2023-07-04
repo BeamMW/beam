@@ -114,6 +114,8 @@ void EvmProcessor::InitVars()
 	macro(0x39, codecopy, 3) \
 	macro(0x3b, extcodesize, 700) \
 	macro(0x3c, extcodecopy, 700) \
+	macro(0x3d, returndatasize, 2) \
+	macro(0x3e, returndatacopy, 3) \
 	macro(0x46, chainid, 2) \
 	macro(0x50, pop, 2) \
 	macro(0x51, mload, 3) \
@@ -129,7 +131,7 @@ void EvmProcessor::InitVars()
 	macro(0xf1, call, 0) \
 	macro(0xf3, Return, 0) \
 	macro(0xf5, Create2, 0) \
-	macro(0xfa, staticcall, 40) \
+	macro(0xfa, staticcall, 0) \
 	macro(0xfd, revert, 0) \
 
 #define EvmOpcodes_All(macro) \
@@ -710,6 +712,25 @@ OnOpcode(extcodecopy)
 	memcpy(pDst, (const uint8_t*) code.p + nOffsetSrc, nSize);
 }
 
+OnOpcode(returndatasize)
+{
+	m_Stack.Push() = p.m_RetVal.m_Blob.n;
+}
+
+OnOpcode(returndatacopy)
+{
+	auto& wOffsetDst = m_Stack.Pop();
+	auto nOffsetSrc = WtoU32(m_Stack.Pop());
+	auto nSize = WtoU32(m_Stack.Pop());
+
+	auto nEndSrc = nOffsetSrc + nSize;
+	Test(nEndSrc >= nOffsetSrc);
+	Test(p.m_RetVal.m_Blob.n >= nEndSrc);
+
+	auto* pDst = get_Memory(wOffsetDst, nSize);
+	memcpy(pDst, (const uint8_t*) p.m_RetVal.m_Blob.p + nOffsetSrc, nSize);
+}
+
 OnOpcode(pop)
 {
 	m_Stack.Pop();
@@ -1011,6 +1032,8 @@ void EvmProcessor::Context::OnCall(EvmProcessor& p, bool bStatic)
 	auto* pS = p.GetContractData(Address::W2A(wAddr), false);
 	if (pS)
 	{
+		DrainGas(nGas);
+
 		auto& f = p.PushFrame(*pS);
 
 		f.m_Args.m_Buf.p = pArgs;
@@ -1021,10 +1044,10 @@ void EvmProcessor::Context::OnCall(EvmProcessor& p, bool bStatic)
 		else
 			f.m_Args.m_CallValue = Zero;
 
-		DrainGas(nGas);
 		f.m_Gas = nGas;
-
 		f.m_Type = Type::CallRetStatus;
+
+		Cast::Up<Context>(f).DrainGas(40);
 	}
 	else
 	{
@@ -1046,7 +1069,7 @@ OnOpcode(staticcall)
 
 OnOpcode(revert)
 {
-	OnFrameDone(p, false, false);
+	OnFrameDone(p, false, true);
 }
 
 } // namespace beam
