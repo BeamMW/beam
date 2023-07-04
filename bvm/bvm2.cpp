@@ -1921,7 +1921,8 @@ namespace bvm2 {
 
 			virtual void Read(uintBig_t<nBits/8>& hv) override
 			{
-				m_State.Read(hv.m_pData);
+				auto s = m_State; // copy
+				s.Read(hv.m_pData);
 			}
 			virtual void Clone(std::unique_ptr<Base>& pOut) const override
 			{
