@@ -16,6 +16,7 @@ set(CORE_SRC
     navigator.cpp
     radixtree.cpp
     merkle.cpp
+    keccak.cpp
     negotiator.cpp
     lightning.cpp
     lelantus.cpp
