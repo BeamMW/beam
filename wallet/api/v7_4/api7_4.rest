@@ -1,0 +1,44 @@
+### send_message
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "send_message",
+    "params": {
+        "receiver": "50614dccd139f398504882567e5246ecd2cbe031085be97806cea7f07510443c69",
+        "message": {
+            "random_field1": 257,
+            "random_field2": "text24"
+        }
+    }
+}
+
+### read_messages
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "read_messages",
+    "params": {}
+}
+
+### read_messages
+
+POST http://127.0.0.1:10000/api/wallet HTTP/1.1
+content-type: application/json-rpc
+
+{
+    "jsonrpc": "2.0",
+    "id": 1236,
+    "method": "read_messages",
+    "params": {
+        "all" : true
+    }
+}
+
+

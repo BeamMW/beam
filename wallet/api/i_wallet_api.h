@@ -42,14 +42,14 @@ namespace beam::wallet
         macro(7, 0) \
         macro(7, 1) \
         macro(7, 2) \
-        macro(7, 3) 
-
+        macro(7, 3) \
+        macro(7, 4)
 #define THE_MACRO(major, minor) const uint32_t ApiVer##major##_##minor = major##minor;
     ApiVersions(THE_MACRO)
 #undef THE_MACRO
 
-    const uint32_t ApiVerCurrent = ApiVer7_3;
-    const uint32_t ApiVerMax     = ApiVer7_3;
+    const uint32_t ApiVerCurrent = ApiVer7_4;
+    const uint32_t ApiVerMax     = ApiVer7_4;
     const uint32_t ApiVerMin     = ApiVer6_0;
 
     class IWalletApiHandler

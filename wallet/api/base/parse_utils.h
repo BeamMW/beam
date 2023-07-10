@@ -262,6 +262,29 @@ namespace beam::wallet
         return ValidHexBuffer(beam::from_hex(type_get<std::string>(j)));
     }
 
+    BOOST_STRONG_TYPEDEF(json, JsonObject)
+        inline void to_json(json& j, const JsonObject& p) {
+        j = p.t;
+    }
+
+    template<>
+    inline const char* type_name<JsonObject>()
+    {
+        return "json object";
+    }
+
+    template<>
+    inline bool type_check<JsonObject>(const json& j)
+    {
+        return j.is_object();
+    }
+
+    template<>
+    inline JsonObject type_get<JsonObject>(const json& j)
+    {
+        return JsonObject(j);
+    }
+
     BOOST_STRONG_TYPEDEF(json, JsonArray)
     inline void to_json(json& j, const JsonArray& p) {
         j = p.t;
