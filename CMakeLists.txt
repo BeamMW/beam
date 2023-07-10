@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 cmake_policy(SET CMP0074 NEW)
 
 set(VERSION_MAJOR 7)
-set(VERSION_MINOR 3 )
+set(VERSION_MINOR 4 )
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
