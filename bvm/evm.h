@@ -59,6 +59,15 @@ namespace beam {
 			}
 		};
 
+		struct BlockHeader
+		{
+			Word m_Hash;
+			Word m_Difficulty;
+			Word m_GasLimit;
+			Address m_Coinbase;
+			uint32_t m_Timestamp;
+		};
+
 
 		struct Stack
 		{
@@ -219,6 +228,9 @@ namespace beam {
 
 		virtual IStorage* GetContractData(const Address&, bool bCreate) = 0;
 		virtual void get_ChainID(Word&);
+
+		virtual Height get_Height() = 0;
+		virtual bool get_BlockHeader(BlockHeader&, Height) = 0;
 
 	private:
 
