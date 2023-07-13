@@ -920,7 +920,7 @@ void EvmProcessor::Context::OnFrameDone(EvmProcessor& p, bool bSuccess, bool bHa
 	std::unique_ptr<Frame> pGuard(this);
 	p.m_lstFrames.pop_back(); // if exc raises now - it'll be handled according to the prev frame
 
-	Frame* pPrev = p.m_lstFrames.empty() ? nullptr : &p.m_lstFrames.back();
+	Context* pPrev = p.m_lstFrames.empty() ? nullptr : &Cast::Up<Context>(p.m_lstFrames.back());
 	(pPrev ? pPrev->m_Gas : p.m_Gas) += m_Gas;
 
 	if (bSuccess)
@@ -959,7 +959,7 @@ void EvmProcessor::Context::OnFrameDone(EvmProcessor& p, bool bSuccess, bool bHa
 
 			auto& wResAddr = pPrev->m_Stack.Pop();
 			auto nResSize = WtoU32(pPrev->m_Stack.Pop());
-			auto* pRes = get_Memory(wResAddr, nResSize);
+			auto* pRes = pPrev->get_Memory(wResAddr, nResSize);
 
 			std::setmin(nResSize, p.m_RetVal.m_Blob.n);
 			memcpy(pRes, p.m_RetVal.m_Blob.p, nResSize);
