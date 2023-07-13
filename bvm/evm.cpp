@@ -84,6 +84,8 @@ void EvmProcessor::InitVars()
 	macro(0x03, sub, 3) \
 	macro(0x04, div, 5) \
 	macro(0x05, sdiv, 5) \
+	macro(0x06, mod, 5) \
+	macro(0x07, smod, 5) \
 	macro(0x0a, exp, 10) \
 	macro(0x10, lt, 3) \
 	macro(0x11, gt, 3) \
@@ -485,8 +487,6 @@ OnOpcodeBinary(div)
 		return;
 
 	auto x = b;
-	Test(x != Zero);
-
 	b.SetDiv(a, x);
 }
 
@@ -496,13 +496,11 @@ OnOpcodeBinary(sdiv)
 	if (b == Zero)
 		return;
 
-	auto x = b;
-	Test(x != Zero);
-
 	bool bNeg = IsNeg(a);
 	if (bNeg)
 		a.Negate();
 
+	auto x = b;
 	if (IsNeg(x))
 	{
 		bNeg = !bNeg;
@@ -512,6 +510,49 @@ OnOpcodeBinary(sdiv)
 	b.SetDiv(a, x);
 	if (bNeg)
 		b.Negate();
+}
+
+OnOpcodeBinary(mod)
+{
+	// b = a % b;
+	if (b == Zero)
+		return;
+
+	Word mul, div;
+	div.SetDiv(a, b, mul);
+
+	b = a;
+
+	mul.Negate();
+	b += mul;
+}
+
+OnOpcodeBinary(smod)
+{
+	if (b == Zero)
+		return;
+
+	bool bNeg = IsNeg(a);
+	if (bNeg)
+		a.Negate();
+
+	if (IsNeg(b))
+	{
+		b.Negate();
+		bNeg = !bNeg;
+	}
+
+	Word mul, div;
+	div.SetDiv(a, b, mul);
+
+	b = a;
+
+	if (bNeg)
+		b.Negate();
+	else
+		mul.Negate();
+
+	b += mul;
 }
 
 OnOpcodeBinary(exp)
