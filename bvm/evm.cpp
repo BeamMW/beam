@@ -151,7 +151,10 @@ struct EvmProcessor::Context :public EvmProcessor::Frame
 	{ \
 		auto& w1 = m_Stack.Pop(); \
 		auto& w2 = m_Stack.get_At(0); \
+		LogOperand(w1); \
+		LogOperand(w2); \
 		OnBinary_##name(w1, w2); \
+		LogOperand(w2); \
 	}
 
 	EvmOpcodes_Binary(THE_MACRO)
@@ -162,7 +165,9 @@ struct EvmProcessor::Context :public EvmProcessor::Frame
 	void On_##name(EvmProcessor&) \
 	{ \
 		auto& w = m_Stack.get_At(0); \
+		LogOperand(w); \
 		OnUnary_##name(w); \
+		LogOperand(w); \
 	}
 
 	EvmOpcodes_Unary(THE_MACRO)
@@ -178,6 +183,7 @@ struct EvmProcessor::Context :public EvmProcessor::Frame
 
 	void LogOpCode(const char* sz);
 	void LogOpCode(const char* sz, uint32_t n);
+	void LogOperand(const Word&);
 	void DrainGas(uint64_t);
 
 	const Address& get_Caller(EvmProcessor& p);
@@ -241,6 +247,13 @@ void EvmProcessor::Context::LogOpCode(const char* sz)
 void EvmProcessor::Context::LogOpCode(const char* sz, uint32_t n)
 {
 	printf("\t%08x, %s%u\n", m_Code.m_Ip - 1, sz, n);
+}
+
+void EvmProcessor::Context::LogOperand(const Word& x)
+{
+	char sz[Word::nTxtLen + 1];
+	x.Print(sz);
+	printf("\t\t%s\n", sz);
 }
 
 void EvmProcessor::Context::DrainGas(uint64_t n)
