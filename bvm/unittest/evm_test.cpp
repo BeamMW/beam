@@ -129,9 +129,34 @@ namespace beam
 				m_pThis->m_mapContracts.Delete(*this);
 			}
 
+			void Print(std::ostream& os) const
+			{
+				for (const auto& kv : m_Vars)
+				{
+					char sz1[Word::nTxtLen + 1];
+					char sz2[Word::nTxtLen + 1];
+					kv.first.Print(sz1);
+					kv.second.Print(sz2);
+
+					os << "\t" << sz1 << ": " << sz2 << std::endl;
+				}
+			}
+
 		};
 
 		intrusive::multiset_autoclear<ContractData> m_mapContracts;
+
+		void PrintVars(std::ostream& os) const
+		{
+			for (const auto& cd : m_mapContracts)
+			{
+				char sz1[Word::nTxtLen + 1];
+				cd.m_Key.Print(sz1);
+
+				os << "Contract = " << sz1 << std::endl;
+				cd.Print(os);
+			}
+		}
 
 		IStorage* GetContractData(const Address& aContract, bool bCreate) override
 		{
@@ -151,6 +176,18 @@ namespace beam
 
 			return &(*it);
 		}
+
+		Height get_Height() override
+		{
+			return 4355;
+		}
+
+		bool get_BlockHeader(BlockHeader& bh, Height) override
+		{
+			ZeroObject(bh);
+			return true;
+		}
+
 
 		void RunFull(const Address& aCaller)
 		{

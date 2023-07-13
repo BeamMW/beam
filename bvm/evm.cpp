@@ -116,6 +116,12 @@ void EvmProcessor::InitVars()
 	macro(0x3c, extcodecopy, 700) \
 	macro(0x3d, returndatasize, 2) \
 	macro(0x3e, returndatacopy, 3) \
+	macro(0x40, blockhash, 20) \
+	macro(0x41, coinbase, 2) \
+	macro(0x42, timestamp, 2) \
+	macro(0x43, number, 2) \
+	macro(0x44, difficulty, 2) \
+	macro(0x45, gaslimit, 2) \
 	macro(0x46, chainid, 2) \
 	macro(0x50, pop, 2) \
 	macro(0x51, mload, 3) \
@@ -128,6 +134,7 @@ void EvmProcessor::InitVars()
 	macro(0x58, pc, 2) \
 	macro(0x5a, gas, 2) \
 	macro(0x5b, jumpdest, 1) \
+	macro(0x5f, push0, 3) \
 	macro(0xf1, call, 0) \
 	macro(0xf3, Return, 0) \
 	macro(0xf5, Create2, 0) \
@@ -237,6 +244,20 @@ struct EvmProcessor::Context :public EvmProcessor::Frame
 		:public std::exception
 	{
 	};
+
+	Height get_BlockArg(EvmProcessor& p, BlockHeader& bh)
+	{
+		Height h = WtoU64(m_Stack.Pop());
+		Test(p.get_BlockHeader(bh, h));
+		return h;
+	}
+
+	Height get_BlockLast(EvmProcessor& p, BlockHeader& bh)
+	{
+		Height h = p.get_Height();
+		Test(p.get_BlockHeader(bh, h));
+		return h;
+	}
 };
 
 void EvmProcessor::Context::LogOpCode(const char* sz)
@@ -744,6 +765,46 @@ OnOpcode(returndatacopy)
 	memcpy(pDst, (const uint8_t*) p.m_RetVal.m_Blob.p + nOffsetSrc, nSize);
 }
 
+OnOpcode(blockhash)
+{
+	BlockHeader bh;
+	get_BlockArg(p, bh);
+	m_Stack.Push() = bh.m_Hash;
+}
+
+OnOpcode(coinbase)
+{
+	BlockHeader bh;
+	get_BlockLast(p, bh);
+	bh.m_Coinbase.ToWord(m_Stack.Push());
+}
+
+OnOpcode(timestamp)
+{
+	BlockHeader bh;
+	get_BlockLast(p, bh);
+	m_Stack.Push() = bh.m_Timestamp;
+}
+
+OnOpcode(number)
+{
+	m_Stack.Push() = p.get_Height();
+}
+
+OnOpcode(difficulty)
+{
+	BlockHeader bh;
+	get_BlockLast(p, bh);
+	m_Stack.Push() = bh.m_Difficulty;
+}
+
+OnOpcode(gaslimit)
+{
+	BlockHeader bh;
+	get_BlockLast(p, bh);
+	m_Stack.Push() = bh.m_GasLimit;
+}
+
 OnOpcode(pop)
 {
 	m_Stack.Pop();
@@ -778,9 +839,12 @@ OnOpcode(mstore8)
 OnOpcode(sload)
 {
 	Word& w = m_Stack.get_At(0);
+	LogOperand(w);
 
 	if (!m_Storage.SLoad(w, w))
 		w = Zero;
+
+	LogOperand(w);
 }
 
 OnOpcode(sstore)
@@ -796,6 +860,9 @@ OnOpcode(sstore)
 	pOp->m_IsContract = false;
 	pOp->m_wKey = w1;
 	pOp->m_wVal = wPrev;
+
+	LogOperand(w1);
+	LogOperand(w2);
 }
 
 void EvmProcessor::Context::Jump(const Word& w)
@@ -835,6 +902,11 @@ OnOpcode(gas)
 OnOpcode(jumpdest)
 {
 	// do nothing
+}
+
+OnOpcode(push0)
+{
+	m_Stack.Push() = Zero;
 }
 
 OnOpcode(chainid)
