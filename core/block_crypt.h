@@ -1129,17 +1129,22 @@ namespace beam
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
 	};
 
-	struct TxKernelAssetDestroy
+	struct TxKernelAssetControlWithDeposit
 		:public TxKernelAssetControl
 	{
-		typedef std::unique_ptr<TxKernelAssetDestroy> Ptr;
-
-		Asset::ID m_AssetID;
+		Asset::ID m_AssetID = 0;
 		Amount m_Deposit = 0;
-        TxKernelAssetDestroy(): m_AssetID(Asset::s_InvalidID) {}
 
 		bool IsCustomDeposit() const;
 		Amount get_Deposit() const;
+	protected:
+		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+	};
+
+	struct TxKernelAssetDestroy
+		:public TxKernelAssetControlWithDeposit
+	{
+		typedef std::unique_ptr<TxKernelAssetDestroy> Ptr;
 
 		virtual ~TxKernelAssetDestroy() {}
 		virtual Subtype::Enum get_Subtype() const override;

@@ -1190,8 +1190,8 @@ namespace beam
 	}
 
 	/////////////
-	// TxKernelAssetDestroy
-	void TxKernelAssetDestroy::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	// TxKernelAssetControlWithDeposit
+	void TxKernelAssetControlWithDeposit::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
 		TxKernelAssetControl::HashSelfForMsg(hp);
 		hp << m_AssetID;
@@ -1200,16 +1200,18 @@ namespace beam
 			hp << m_Deposit;
 	}
 
-	bool TxKernelAssetDestroy::IsCustomDeposit() const
+	bool TxKernelAssetControlWithDeposit::IsCustomDeposit() const
 	{
 		return (m_Height.m_Min >= Rules::get().pForks[5].m_Height);
 	}
 
-	Amount TxKernelAssetDestroy::get_Deposit() const
+	Amount TxKernelAssetControlWithDeposit::get_Deposit() const
 	{
 		return IsCustomDeposit() ? m_Deposit : Rules::get().CA.DepositForList2;
 	}
 
+	/////////////
+	// TxKernelAssetDestroy
 	void TxKernelAssetDestroy::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
 		TestValidAssetCtl(hScheme, exc, pParent);
