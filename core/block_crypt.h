@@ -915,6 +915,7 @@ namespace beam
 	macro(6, AssetDestroy) \
 	macro(7, ContractCreate) \
 	macro(8, ContractInvoke) \
+	macro(9, AssetDelegate) \
 
 #define THE_MACRO(id, name) struct TxKernel##name;
 	BeamKernelsAll(THE_MACRO)
@@ -1147,6 +1148,20 @@ namespace beam
 		typedef std::unique_ptr<TxKernelAssetDestroy> Ptr;
 
 		virtual ~TxKernelAssetDestroy() {}
+		virtual Subtype::Enum get_Subtype() const override;
+		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		virtual void Clone(TxKernel::Ptr&) const override;
+	};
+
+	struct TxKernelAssetDelegate
+		:public TxKernelAssetControlWithDeposit
+	{
+		typedef std::unique_ptr<TxKernelAssetDelegate> Ptr;
+
+		PeerID m_pidNewOwner;
+		bool m_IsContract;
+
+		virtual ~TxKernelAssetDelegate() {}
 		virtual Subtype::Enum get_Subtype() const override;
 		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;

@@ -1545,6 +1545,30 @@ namespace detail
 				ar & val.m_Deposit;
 		}
 
+		/// beam::TxKernelAssetDelegate serialization
+		template<typename Archive>
+		Archive& save(Archive& ar, const beam::TxKernelAssetDelegate& val)
+		{
+			saveBase(ar, val);
+			ar
+				& val.m_AssetID
+				& val.m_Deposit
+				& val.m_pidNewOwner
+				& val.m_IsContract;
+			return ar;
+		}
+
+		template<typename Archive>
+		void load0(Archive& ar, beam::TxKernelAssetDelegate& val, uint32_t nRecursion)
+		{
+			load0Base(ar, val, nRecursion);
+			ar
+				& val.m_AssetID
+				& val.m_Deposit
+				& val.m_pidNewOwner
+				& val.m_IsContract;
+		}
+
         /// beam::TxKernelShieldedOutput serialization
 		template<typename Archive>
         Archive& save(Archive& ar, const beam::TxKernelShieldedOutput& val)

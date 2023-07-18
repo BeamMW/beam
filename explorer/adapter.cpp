@@ -876,6 +876,16 @@ private:
                     m_Wr.m_json["Asset.Destroy"] = std::move(wr.m_json);
                 }
 
+                void OnKrnEx(const TxKernelAssetDelegate& krn)
+                {
+                    Writer wr;
+                    wr.AddAid(krn.m_AssetID);
+                    wr.m_json["Deposit"] = krn.get_Deposit();
+                    wr.m_json["NewOwner"] = krn.m_IsContract ? MakeObjCid(krn.m_pidNewOwner) : MakeObjBlob(krn.m_pidNewOwner);
+
+                    m_Wr.m_json["Asset.Delegate"] = std::move(wr.m_json);
+                }
+
                 void OnKrnEx(const TxKernelAssetEmit& krn)
                 {
                     Writer wr;

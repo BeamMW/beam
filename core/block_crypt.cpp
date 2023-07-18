@@ -1233,6 +1233,51 @@ namespace beam
 	}
 
 	/////////////
+	// TxKernelAssetDelegate
+	void TxKernelAssetDelegate::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		TxKernelAssetControlWithDeposit::HashSelfForMsg(hp);
+		hp
+			<< m_pidNewOwner
+			<< m_IsContract;
+	}
+
+	void TxKernelAssetDelegate::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		TestValidAssetCtl(hScheme, exc, pParent);
+		Rules::get().TestForkAtLeast(hScheme, 6);
+
+		Amount valDeposit0 = get_Deposit();
+		Amount valDeposit1 = Rules::get().get_DepositForCA(hScheme);
+
+		if (valDeposit0 != valDeposit1)
+		{
+			ECC::Point::Native pt;
+			if (valDeposit1 > valDeposit0)
+				pt = ECC::Context::get().H * (valDeposit1 - valDeposit0);
+			else
+			{
+				pt = ECC::Context::get().H * (valDeposit0 - valDeposit1);
+				pt = -pt;
+			}
+
+			exc += pt;
+		}
+	}
+
+	void TxKernelAssetDelegate::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelAssetDelegate);
+		TxKernelAssetDelegate& v = Cast::Up<TxKernelAssetDelegate>(*p);
+
+		v.CopyFrom(*this);
+		v.m_AssetID = m_AssetID;
+		v.m_Deposit = m_Deposit;
+		v.m_pidNewOwner = m_pidNewOwner;
+		v.m_IsContract = m_IsContract;
+	}
+
+	/////////////
 	// TxKernelShieldedOutput
 	void TxKernelShieldedOutput::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
