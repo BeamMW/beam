@@ -3382,6 +3382,9 @@ namespace beam
 
 	bool Asset::CreateInfo::Recognize(Key::IPKdf& pkdf) const
 	{
+		if (m_Cid != Zero)
+			return false;
+
 		PeerID pid;
 		m_Metadata.get_Owner(pid, pkdf);
 		return pid == m_Owner;
