@@ -2762,11 +2762,9 @@ struct NodeProcessor::MyRecognizer
 			m_Proc.OnEvent(h, evt);
 		}
 
-		void AssetEvtsGetStrict(NodeDB::AssetEvt& event, Height h, uint32_t nKrnIdx) override
+		void AssetEvtsGetStrict(NodeDB::WalkerAssetEvt& wlk, Height h, uint32_t nKrnIdx) override
 		{
-			NodeDB::WalkerAssetEvt wlk;
 			m_Proc.m_DB.AssetEvtsGetStrict(wlk, h, BlockInterpretCtx::get_AssetEvtIdx(nKrnIdx, 0));
-			event = Cast::Down<NodeDB::AssetEvt>(wlk);
 		}
 
 		void InsertEvent(Height h, const Blob& b, const Blob& key) override
@@ -3329,7 +3327,7 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelAssetCreate& v, Height h
 	evt.m_Flags = proto::Event::Flags::Add;
 	evt.m_EmissionChange = 0; // no change upon creation
 
-	NodeDB::AssetEvt wlk;
+	NodeDB::WalkerAssetEvt wlk;
 	m_Handler.AssetEvtsGetStrict(wlk, h, nKrnIdx);
 	assert(wlk.m_ID > Asset::s_MaxCount);
 
@@ -3360,7 +3358,7 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelAssetEmit& v, Height h, 
 	evt.m_Flags = 0;
 	evt.m_EmissionChange = v.m_Value;
 
-	NodeDB::AssetEvt wlk;
+	NodeDB::WalkerAssetEvt wlk;
 	m_Handler.AssetEvtsGetStrict(wlk, h, nKrnIdx);
 	assert(wlk.m_ID == evt.m_Info.m_ID);
 

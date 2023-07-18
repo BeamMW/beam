@@ -1264,7 +1264,7 @@ namespace beam::wallet
             }
         }
 
-        void AssetEvtsGetStrict(NodeDB::AssetEvt& event, Height h, uint32_t nKrnIdx) override
+        void AssetEvtsGetStrict(NodeDB::WalkerAssetEvt& event, Height h, uint32_t nKrnIdx) override
         {
         }
 

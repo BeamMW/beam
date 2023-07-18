@@ -455,7 +455,7 @@ public:
 
 	int get_AssetAt(Asset::Full&, Height); // Must set ID. Returns -1 if asset is destroyed, 0 if never existed.
 
-	bool get_AssetCreateInfo(Asset::Info&, const NodeDB::WalkerAssetEvt&); // returns true if that was update rather than create
+	static bool get_AssetCreateInfo(Asset::Info&, const NodeDB::WalkerAssetEvt&); // returns true if that was update rather than create
 
 	struct DataStatus {
 		enum Enum {
@@ -788,7 +788,7 @@ public:
 
 			virtual void OnDummy(const CoinID&, Height) {}
 			virtual void OnEvent(Height, const proto::Event::Base&) {}
-			virtual void AssetEvtsGetStrict(NodeDB::AssetEvt& event, Height h, uint32_t nKrnIdx) {}
+			virtual void AssetEvtsGetStrict(NodeDB::WalkerAssetEvt&, Height h, uint32_t nKrnIdx) {}
 			virtual void InsertEvent(Height h, const Blob& b, const Blob& key) {}
 			virtual bool FindEvents(const Blob& key, IEventHandler&) { return false; }
 		};
