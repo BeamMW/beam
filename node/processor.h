@@ -178,6 +178,8 @@ class NodeProcessor
 	bool HandleAssetEmit2(const PeerID&, BlockInterpretCtx&, Asset::ID, AmountSigned, uint32_t nSubIdx);
 	bool HandleAssetDestroy(const PeerID&, const ContractID*, BlockInterpretCtx&, Asset::ID, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx = 0);
 	bool HandleAssetDestroy2(const PeerID&, const ContractID*, BlockInterpretCtx&, Asset::ID, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx);
+	bool HandleAssetDelegate(const PeerID&, const ContractID*, BlockInterpretCtx&, Asset::ID, Amount& valDeposit, const PeerID& pidNew, bool isContract, bool bDepositCheck, uint32_t nSubIdx = 0);
+	bool HandleAssetDelegate2(const PeerID&, const ContractID*, BlockInterpretCtx&, Asset::ID, Amount& valDeposit, const PeerID& pidNew, bool isContract, bool bDepositCheck, uint32_t nSubIdx);
 
 	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
 	bool HandleKernelTypeAny(const TxKernel&, BlockInterpretCtx&);

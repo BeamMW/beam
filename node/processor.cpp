@@ -3387,6 +3387,39 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelAssetDestroy& v, Height 
 	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
 }
 
+void NodeProcessor::Recognizer::Recognize(const TxKernelAssetDelegate& v, Height h, uint32_t nKrnIdx)
+{
+	NodeDB::WalkerAssetEvt wlk;
+	m_Handler.AssetEvtsGetStrict(wlk, h, nKrnIdx);
+
+	wlk.m_ID = v.m_AssetID;
+	wlk.m_Height = h;
+	wlk.m_Index = nKrnIdx;
+
+	proto::Event::AssetCtl evt;
+	get_AssetCreateInfo(evt.m_Info, wlk);
+
+	PeerID pid;
+	evt.m_Info.m_Metadata.get_Owner(pid, *m_Handler.m_pAccount->m_pOwner);
+
+	bool bOwnOld = (pid == v.m_Owner);
+	bool bOwnNew = (pid == evt.m_Info.m_Owner);
+
+	if (bOwnOld || bOwnNew)
+	{
+		evt.m_Info.m_ID = v.m_AssetID;
+		evt.m_EmissionChange = 0;
+		evt.m_Flags = 0;
+
+		if (bOwnOld)
+			evt.m_Flags |= proto::Event::Flags::Delete;
+		if (bOwnNew)
+			evt.m_Flags |= proto::Event::Flags::Add;
+
+		AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
+	}
+}
+
 bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInterpretCtx& bic)
 {
 	if (bic.m_Fwd)
@@ -3899,6 +3932,102 @@ bool NodeProcessor::HandleAssetDestroy2(const PeerID& pidOwner, const ContractID
 			bic.m_AssetsUsed++;
 			assert(bic.m_AssetsUsed <= Asset::s_MaxCount);
 		}
+	}
+
+	return true;
+}
+
+bool NodeProcessor::HandleKernelType(const TxKernelAssetDelegate& krn, BlockInterpretCtx& bic)
+{
+	Amount valDeposit = krn.get_Deposit();
+	if (!HandleAssetDelegate(krn.m_Owner, nullptr, bic, krn.m_AssetID, valDeposit, krn.m_pidNewOwner, krn.m_IsContract, true))
+		return false;
+
+	return true;
+}
+
+bool NodeProcessor::HandleAssetDelegate(const PeerID& pidOwner, const ContractID* pCid, BlockInterpretCtx& bic, Asset::ID aid, Amount& valDeposit, const PeerID& pidNew, bool isContract, bool bDepositCheck, uint32_t nSubIdx)
+{
+	if (HandleAssetDelegate2(pidOwner, pCid, bic, aid, valDeposit, pidNew, isContract, bDepositCheck, nSubIdx))
+		return true;
+
+	if (bic.m_pTxErrorInfo)
+		*bic.m_pTxErrorInfo << ", AssetID=" << aid;
+
+	return false;
+}
+
+bool NodeProcessor::HandleAssetDelegate2(const PeerID& pidOwner, const ContractID* pCid, BlockInterpretCtx& bic, Asset::ID aid, Amount& valDeposit, const PeerID& pidNew, bool isContract, bool bDepositCheck, uint32_t nSubIdx)
+{
+	Asset::Full ai;
+	ai.m_ID = aid;
+	if (!m_DB.AssetGetSafe(ai))
+	{
+		if (bic.m_pTxErrorInfo)
+			*bic.m_pTxErrorInfo << "not found";
+		return false;
+	}
+
+	if (bic.m_Fwd)
+	{
+		if (!bic.m_AlreadyValidated)
+		{
+			if (ai.m_Owner != pidOwner)
+			{
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << "Not owned";
+				return false;
+			}
+
+			if (bDepositCheck && (valDeposit != ai.m_Deposit))
+			{
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << "Deposit expected=" << ai.m_Deposit << ", actual=" << valDeposit;
+				return false;
+			}
+		}
+
+		// looks good
+		BlockInterpretCtx::Ser ser(bic);
+		ser & ai.m_Deposit;
+
+		valDeposit = ai.m_Deposit;
+		ai.m_Deposit = Rules::get().get_DepositForCA(bic.m_Height);
+
+		if (isContract)
+		{
+			ai.m_Cid = Cast::Down<ContractID>(pidNew);
+			ai.m_Metadata.get_Owner(ai.m_Owner, ai.m_Cid);
+		}
+		else
+		{
+			ai.m_Owner = pidNew;
+			ai.m_Cid = Zero;
+		}
+
+		if (!bic.m_Temporary)
+			bic.AssetEvtInsert(m_DB, ai, true, nSubIdx);
+	}
+	else
+	{
+		BlockInterpretCtx::Der der(bic);
+		der & ai.m_Deposit;
+
+		if (pCid)
+			ai.m_Metadata.get_Owner(ai.m_Owner, *pCid);
+		else
+			ai.m_Owner = pidOwner;
+	}
+
+	m_DB.AssetDeleteRaw(aid);
+	m_DB.AssetInsertRaw(aid, &ai);
+
+	if (!bic.m_SkipDefinition)
+	{
+		Merkle::Hash hv;
+		ai.get_Hash(hv);
+
+		m_Mmr.m_Assets.Replace(aid - 1, hv);
 	}
 
 	return true;

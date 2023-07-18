@@ -692,6 +692,8 @@ public:
 	void AssetAdd(Asset::Full&); // sets ID=0 to auto assign, otherwise - specified ID must be used
 	Asset::ID AssetFindByOwner(const PeerID&);
 	Asset::ID AssetDelete(Asset::ID); // returns remaining assets count (including the unused)
+	void AssetInsertRaw(Asset::ID, const Asset::Full*);
+	void AssetDeleteRaw(Asset::ID);
 	bool AssetGetSafe(Asset::Full&); // must set ID before invocation
 	void AssetSetValue(Asset::ID, const AmountBig::Type&, Height hLockHeight);
 	bool AssetGetNext(Asset::Full&); // for enum
@@ -875,8 +877,6 @@ private:
 	void OpenBlob(BlobGuard&, const char* szTable, const char* szColumn, uint64_t rowid, bool bRW);
 
 	static const Asset::ID s_AssetEmpty0;
-	void AssetInsertRaw(Asset::ID, const Asset::Full*);
-	void AssetDeleteRaw(Asset::ID);
 	Asset::ID AssetFindMinFree(Asset::ID nMin);
 
 	void set_CacheState(CacheState&); // auto cleans the cache if necessary
