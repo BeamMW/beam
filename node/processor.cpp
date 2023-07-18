@@ -2587,6 +2587,7 @@ struct NodeProcessor::BlockInterpretCtx
 	}
 
 	void AssetEvtInsert(NodeDB&, NodeDB::AssetEvt&, uint32_t nSubIdx);
+	void AssetEvtInsert(NodeDB&, const Asset::Full&, bool isUpdate, uint32_t nSubIdx);
 
 	struct ChangesFlushGlobal
 	{
@@ -3757,21 +3758,8 @@ bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const ContractID* 
 
 		if (!bic.m_Temporary)
 		{
-			NodeDB::AssetEvt evt;
-			evt.m_ID = ai.m_ID + Asset::s_MaxCount;
-
-			ByteBuffer bufBlob;
-			bufBlob.resize(sizeof(AssetCreateInfoPacked) + md.m_Value.size());
-			auto* pAcip = reinterpret_cast<AssetCreateInfoPacked*>(&bufBlob.front());
-
-			pAcip->m_OwnedByContract = !!pCid;
-			Cast::Down<ECC::uintBig>(pAcip->m_Owner) = pAcip->m_OwnedByContract ? (*pCid) : Cast::Down<ECC::uintBig>(pidOwner);
-			if (!md.m_Value.empty())
-				memcpy(pAcip + 1, &md.m_Value.front(), md.m_Value.size());
-
-			evt.m_Body = bufBlob;
-
-			bic.AssetEvtInsert(m_DB, evt, nSubIdx);
+			TemporarySwap ts(ai.m_Metadata.m_Value, Cast::NotConst(md.m_Value));
+			bic.AssetEvtInsert(m_DB, ai, false, nSubIdx);
 		}
 
 		aid = ai.m_ID;
@@ -4767,6 +4755,47 @@ void NodeProcessor::BlockInterpretCtx::AssetEvtInsert(NodeDB& db, NodeDB::AssetE
 	evt.m_Height = m_Height;
 	evt.m_Index = get_AssetEvtIdx(m_nKrnIdx, nSubIdx);
 	db.AssetEvtsInsert(evt);
+}
+
+void NodeProcessor::BlockInterpretCtx::AssetEvtInsert(NodeDB& db, const Asset::Full& ai, bool isUpdate, uint32_t nSubIdx)
+{
+	uint32_t nBlobSize = sizeof(AssetCreateInfoPacked) + (uint32_t) ai.m_Metadata.m_Value.size();
+	if (isUpdate)
+		nBlobSize += sizeof(AssetCreateInfoPacked::State);
+
+	ByteBuffer bufBlob;
+	bufBlob.resize(nBlobSize);
+	auto* pAcip = reinterpret_cast<AssetCreateInfoPacked*>(&bufBlob.front());
+
+	pAcip->m_Flags = 0;
+	const ECC::uintBig* phv;
+	if (ai.m_Cid == Zero)
+		phv = &ai.m_Owner;
+	else
+	{
+		phv = &ai.m_Cid;
+		pAcip->m_Flags |= AssetCreateInfoPacked::Flags::s_OwnedByContract;
+	}
+
+	Cast::Down<ECC::uintBig>(pAcip->m_Owner) = *phv;
+
+	if (!ai.m_Metadata.m_Value.empty())
+		memcpy(pAcip + 1, &ai.m_Metadata.m_Value.front(), ai.m_Metadata.m_Value.size());
+
+	if (isUpdate)
+	{
+		pAcip->m_Flags |= AssetCreateInfoPacked::Flags::s_Update;
+
+		auto& s = *reinterpret_cast<AssetCreateInfoPacked::State*>(reinterpret_cast<uint8_t*>(pAcip + 1) + ai.m_Metadata.m_Value.size());
+		s.m_LockHeight = ai.m_LockHeight;
+		s.m_Value = ai.m_Value;
+	}
+
+	NodeDB::AssetEvt evt;
+	evt.m_ID = ai.m_ID + Asset::s_MaxCount;
+	evt.m_Body = bufBlob;
+
+	AssetEvtInsert(db, evt, nSubIdx);
 }
 
 NodeProcessor::BlockInterpretCtx::Ser::Ser(BlockInterpretCtx& bic)
@@ -7378,29 +7407,32 @@ int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)
 		adp.m_LockHeight.Export(ai.m_LockHeight);
 
 	}
-	else
-	{
-		// wasn't ever emitted
-		ai.m_LockHeight = wlk.m_Height;
-		ai.m_Value = Zero;
-	}
 
 	return 1;
 }
 
-void NodeProcessor::get_AssetCreateInfo(Asset::CreateInfo& ai, const NodeDB::WalkerAssetEvt& wlk)
+bool NodeProcessor::get_AssetCreateInfo(Asset::Info& ai, const NodeDB::WalkerAssetEvt& wlk)
 {
 	if (wlk.m_Body.n < sizeof(AssetCreateInfoPacked))
 		OnCorrupted();
 
 	auto* pAcip = reinterpret_cast<const AssetCreateInfoPacked*>(wlk.m_Body.p);
+	uint32_t nSizeMetadata = wlk.m_Body.n - sizeof(AssetCreateInfoPacked);
 
-	ai.m_Metadata.m_Value.resize(wlk.m_Body.n - sizeof(AssetCreateInfoPacked));
-	if (!ai.m_Metadata.m_Value.empty())
-		memcpy(&ai.m_Metadata.m_Value.front(), pAcip + 1, ai.m_Metadata.m_Value.size());
+	bool isUpdate = (AssetCreateInfoPacked::Flags::s_Update & pAcip->m_Flags);
+	if (isUpdate)
+	{
+		if (nSizeMetadata < sizeof(AssetCreateInfoPacked::State))
+			OnCorrupted();
+		nSizeMetadata -= sizeof(AssetCreateInfoPacked::State);
+	}
+
+	ai.m_Metadata.m_Value.resize(nSizeMetadata);
+	if (nSizeMetadata)
+		memcpy(&ai.m_Metadata.m_Value.front(), pAcip + 1, nSizeMetadata);
 	ai.m_Metadata.UpdateHash();
 
-	if (pAcip->m_OwnedByContract)
+	if (AssetCreateInfoPacked::Flags::s_OwnedByContract & pAcip->m_Flags)
 	{
 		ai.SetCid(&pAcip->m_Owner);
 		ai.m_Metadata.get_Owner(ai.m_Owner, ai.m_Cid);
@@ -7412,7 +7444,21 @@ void NodeProcessor::get_AssetCreateInfo(Asset::CreateInfo& ai, const NodeDB::Wal
 
 	}
 
+	if (isUpdate)
+	{
+		const auto& s = *reinterpret_cast<const AssetCreateInfoPacked::State*>(reinterpret_cast<const uint8_t*>(wlk.m_Body.p) + wlk.m_Body.n - sizeof(AssetCreateInfoPacked::State));
+		s.m_LockHeight.Export(ai.m_LockHeight);
+		ai.m_Value = s.m_Value;
+	}
+	else
+	{
+		ai.m_LockHeight = wlk.m_Height;
+		ai.m_Value = Zero;
+	}
+
 	ai.m_Deposit = Rules::get().get_DepositForCA(wlk.m_Height);
+
+	return isUpdate;
 }
 
 void NodeProcessor::ValidatedCache::ShrinkTo(uint32_t n)

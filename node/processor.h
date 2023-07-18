@@ -455,7 +455,7 @@ public:
 
 	int get_AssetAt(Asset::Full&, Height); // Must set ID. Returns -1 if asset is destroyed, 0 if never existed.
 
-	void get_AssetCreateInfo(Asset::CreateInfo&, const NodeDB::WalkerAssetEvt&);
+	bool get_AssetCreateInfo(Asset::Info&, const NodeDB::WalkerAssetEvt&); // returns true if that was update rather than create
 
 	struct DataStatus {
 		enum Enum {
@@ -756,8 +756,19 @@ public:
 	};
 
 	struct AssetCreateInfoPacked {
+
+		struct Flags {
+			static const uint8_t s_OwnedByContract = 1;
+			static const uint8_t s_Update = 2;
+		};
+
+		struct State {
+			AmountBig::Type m_Value;
+			uintBigFor<Height>::Type m_LockHeight;
+		};
+
 		PeerID m_Owner;
-		uint8_t m_OwnedByContract;
+		uint8_t m_Flags;
 		// followed by metadata
 	};
 

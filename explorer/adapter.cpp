@@ -1416,6 +1416,7 @@ private:
             virtual Type get_Type() const { return Type::Create; }
 
             Asset::CreateInfo m_Ai;
+            bool m_IsUpdate;
             virtual ~Event_Create() {}
         };
 
@@ -1472,7 +1473,9 @@ private:
                     m_Lst.insert(it, *pEvt);
                     pEvt->m_Pos = pos;
 
-                    p.get_AssetCreateInfo(pEvt->m_Ai, wlk);
+                    Asset::Info ai;
+                    pEvt->m_IsUpdate = p.get_AssetCreateInfo(ai, wlk);
+                    pEvt->m_Ai = std::move(ai);
                 }
                 else
                 {
@@ -1558,7 +1561,7 @@ private:
             case Type::Create:
                 {
                     auto& evt = Cast::Up<AssetHistoryWalker::Event_Create>(x);
-                    wrItem.m_json.push_back("Create");
+                    wrItem.m_json.push_back(evt.m_IsUpdate ? "Create" : "Update");
                     wrItem.m_json.push_back("");
                     wrItem.m_json.push_back("");
 
