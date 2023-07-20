@@ -167,6 +167,8 @@ namespace bvm2 {
 		void HeapFreeEx(uint32_t);
 		void HeapReserveStrict(uint32_t);
 
+	public:
+
 		struct VarKey
 		{
 			typedef Shaders::KeyTag Tag;
@@ -180,6 +182,7 @@ namespace bvm2 {
 			Blob ToBlob() const { return Blob(m_p, m_Size); }
 		};
 
+	protected:
 
 		virtual void InvokeExt(uint32_t) override;
 

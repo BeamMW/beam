@@ -2512,6 +2512,7 @@ struct NodeProcessor::BlockInterpretCtx
 		};
 
 		BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& db);
+		BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& db, bool bNoRecovery);
 
 		virtual void LoadVar(const Blob& key, Blob& res) override;
 		virtual void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) override;
@@ -2534,6 +2535,7 @@ struct NodeProcessor::BlockInterpretCtx
 
 		void UndoVars();
 
+		uint32_t SaveVarEx(const Blob& key, const Blob&, bool bPutRecovery);
 		void ContractDataInsert(const Blob& key, const Blob&);
 		void ContractDataUpdate(const Blob& key, const Blob& val, const Blob& valOld);
 		void ContractDataDel(const Blob& key, const Blob& valOld);
@@ -3968,6 +3970,7 @@ bool NodeProcessor::HandleAssetDelegate2(const PeerID& pidOwner, const ContractI
 		return false;
 	}
 
+
 	if (bic.m_Fwd)
 	{
 		if (!bic.m_AlreadyValidated)
@@ -4017,6 +4020,22 @@ bool NodeProcessor::HandleAssetDelegate2(const PeerID& pidOwner, const ContractI
 			ai.m_Metadata.get_Owner(ai.m_Owner, *pCid);
 		else
 			ai.m_Owner = pidOwner;
+	}
+
+	if (isContract)
+	{
+		const ContractID& cidTrg = pidNew;
+		if (!pCid || (*pCid != cidTrg))
+		{
+			// add/remove the other contract ownership var
+			BlockInterpretCtx::BvmProcessor proc(bic, *this, true); // no-recovery mode
+
+			bvm2::ProcessorContract::VarKey vk;
+			vk.Set(cidTrg);
+			vk.Append(bvm2::ProcessorContract::VarKey::Tag::OwnedAsset, uintBigFrom(aid));
+
+			proc.SaveVarEx(vk.ToBlob(), bic.m_Fwd ? ai.m_Owner : Blob(), false);
+		}
 	}
 
 	m_DB.AssetDeleteRaw(aid);
@@ -5019,6 +5038,13 @@ NodeProcessor::BlockInterpretCtx::BvmProcessor::BvmProcessor(BlockInterpretCtx& 
 	}
 }
 
+NodeProcessor::BlockInterpretCtx::BvmProcessor::BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& proc, bool bNoRecovery)
+	:m_Bic(bic)
+	,m_Proc(proc)
+{
+	assert(bNoRecovery);
+}
+
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::ContractID& cid, uint32_t iMethod, const TxKernelContractControl& krn)
 {
 	bool bRes = false;
@@ -5388,6 +5414,11 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVarEx(Blob& key, Blob& 
 
 uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, const Blob& data)
 {
+	return SaveVarEx(key, data, true);
+}
+
+uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVarEx(const Blob& key, const Blob& data, bool bPutRecovery)
+{
 	auto& e = m_Bic.get_ContractVar(key, m_Proc.m_DB);
 	auto nOldSize = static_cast<uint32_t>(e.m_Data.size());
 
@@ -5414,12 +5445,15 @@ uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key
 			ContractDataDel(key, e.m_Data);
 		}
 
-		BlockInterpretCtx::Ser ser(m_Bic);
-		ser & nTag;
-		ser & key.n;
-		ser.WriteRaw(key.p, key.n);
-		if (nOldSize)
-			ser & e.m_Data;
+		if (bPutRecovery)
+		{
+			BlockInterpretCtx::Ser ser(m_Bic);
+			ser & nTag;
+			ser & key.n;
+			ser.WriteRaw(key.p, key.n);
+			if (nOldSize)
+				ser & e.m_Data;
+		}
 
 		data.Export(e.m_Data);
 	}
