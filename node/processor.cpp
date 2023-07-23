@@ -4025,17 +4025,14 @@ bool NodeProcessor::HandleAssetDelegate2(const PeerID& pidOwner, const ContractI
 	if (isContract)
 	{
 		const ContractID& cidTrg = pidNew;
-		if (!pCid || (*pCid != cidTrg))
-		{
-			// add/remove the other contract ownership var
-			BlockInterpretCtx::BvmProcessor proc(bic, *this, true); // no-recovery mode
+		// add/remove the other contract ownership var
+		BlockInterpretCtx::BvmProcessor proc(bic, *this, true); // no-recovery mode
 
-			bvm2::ProcessorContract::VarKey vk;
-			vk.Set(cidTrg);
-			vk.Append(bvm2::ProcessorContract::VarKey::Tag::OwnedAsset, uintBigFrom(aid));
+		bvm2::ProcessorContract::VarKey vk;
+		vk.Set(cidTrg);
+		vk.Append(bvm2::ProcessorContract::VarKey::Tag::OwnedAsset, uintBigFrom(aid));
 
-			proc.SaveVarEx(vk.ToBlob(), bic.m_Fwd ? ai.m_Owner : Blob(), false);
-		}
+		proc.SaveVarEx(vk.ToBlob(), bic.m_Fwd ? ai.m_Owner : Blob(), false);
 	}
 
 	m_DB.AssetDeleteRaw(aid);
