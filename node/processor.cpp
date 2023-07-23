@@ -2509,6 +2509,7 @@ struct NodeProcessor::BlockInterpretCtx
 			static const Type AssetDestroy = 6;
 			static const Type Log = 7;
 			static const Type Recharge = 8;
+			static const Type AssetDelegate = 9;
 		};
 
 		BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& db);
@@ -2526,6 +2527,7 @@ struct NodeProcessor::BlockInterpretCtx
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&, Amount& valDeposit) override;
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) override;
 		virtual bool AssetDestroy(Asset::ID, const PeerID&, Amount& valDeposit) override;
+		virtual void AssetDelegate(Asset::ID, const PeerID&, Amount& valDeposit, const PeerID& pidNew, bool isContract) override;
 
 		BlobMap::Entry* FindVarEx(const Blob& key, bool bExact, bool bBigger);
 		bool EnsureNoVars(const bvm2::ContractID&);
@@ -5653,6 +5655,24 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDestroy(Asset::ID aid,
 	return true;
 }
 
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDelegate(Asset::ID aid, const PeerID& pidOwner, Amount& valDeposit, const PeerID& pidNew, bool isContract)
+{
+	const ContractID& cid = m_FarCalls.m_Stack.back().m_Cid;
+
+	if (!m_Proc.HandleAssetDelegate(pidOwner, &cid, m_Bic, aid, valDeposit, pidNew, isContract, false, m_AssetEvtSubIdx))
+		OnCorrupted(); // must succeed
+
+	BlockInterpretCtx::Ser ser(m_Bic);
+	RecoveryTag::Type nTag = RecoveryTag::AssetDelegate;
+	ser & nTag;
+	ser & aid;
+	ser & cid;
+	ser & pidNew;
+	ser & isContract;
+
+	m_AssetEvtSubIdx++;
+}
+
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 {
 	ByteBuffer key;
@@ -5698,6 +5718,25 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 		break;
 
 		case RecoveryTag::AssetDestroy:
+		{
+			bool bFwd = false, isContract;
+			TemporarySwap swp(bFwd, m_Bic.m_Fwd);
+
+			Asset::ID aid = 0;
+			PeerID pidOwner, pidNew;
+			ContractID cid;
+			der & aid;
+			der & cid;
+			der & pidNew;
+			der & isContract;
+
+			Amount valDeposit;
+			if (!m_Proc.HandleAssetDelegate(pidOwner, &cid, m_Bic, aid, valDeposit, pidNew, isContract, false))
+				return OnCorrupted();
+		}
+		break;
+
+		case RecoveryTag::AssetDelegate:
 		{
 			bool bFwd = false;
 			TemporarySwap swp(bFwd, m_Bic.m_Fwd);

@@ -258,6 +258,11 @@
 #define BVMOp_AssetDestroy(macro, sep) \
 	macro(AssetID, aid)
 
+#define BVMOp_AssetDelegate(macro, sep) \
+	macro(AssetID, aid) sep \
+	macro(const ContractID&, cid) sep \
+	macro(uint8_t, isContract)
+
 #define BVMOp_get_Height(macro, sep)
 
 #define BVMOp_get_HdrInfo(macro, sep) \
@@ -566,6 +571,7 @@
 	macro(0x38, AssetID  , AssetCreate) \
 	macro(0x39, uint8_t  , AssetEmit) \
 	macro(0x3A, uint8_t  , AssetDestroy) \
+	macro(0x3B, void     , AssetDelegate) \
 
 #define BVMOpsAll_Manager(macro) \
 	macro(0x50, void     , SelectContext) \

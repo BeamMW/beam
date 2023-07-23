@@ -1725,6 +1725,32 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST_AUTO(AssetDestroy)
 
+	BVM_METHOD(AssetDelegate)
+	{
+		DischargeUnits(Limits::Cost::AssetManage);
+		OnHost_AssetDelegate(aid, get_AddrAsR<ContractID>(cid), isContract);
+	}
+	BVM_METHOD_HOST(AssetDelegate)
+	{
+		AssetVar av;
+		get_AssetStrict(av, aid);
+
+		SaveVarInternal(av.m_vk.ToBlob(), Blob(nullptr, 0));
+
+		Amount valDeposit0;
+		AssetDelegate(aid, av.m_Owner, valDeposit0, Cast::Reinterpret<PeerID>(cid), !!isContract);
+
+		Amount valDeposit1 = Rules::get().get_DepositForCA(get_Height() + 1);
+
+		if (valDeposit0 != valDeposit1)
+		{
+			if (valDeposit1 > valDeposit0)
+				HandleAmountOuter(valDeposit1 - valDeposit0, Zero, true);
+			else
+				HandleAmountOuter(valDeposit0 - valDeposit1, Zero, false);
+		}
+	}
+
 	BVM_METHOD(get_Height)
 	{
 		return get_Height();
