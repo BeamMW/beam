@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         # os: [macos-11]
-        os: [macos-11, ubuntu-20.04, windows-2019]
+        os: [macos-11, ubuntu-18.04, ubuntu-20.04, windows-2019]
 
     steps:
       - uses: actions/checkout@v2
@@ -48,11 +48,11 @@ jobs:
         shell: bash
         if: matrix.os == 'ubuntu-18.04'
         run: |
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-          sudo apt-get update
-          sudo apt-get install g++-7
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 60 --slave /usr/bin/g++ g++ /usr/bin/g++-7
-          sudo update-alternatives --set gcc "/usr/bin/gcc-7"
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt-get update -y
+          sudo apt-get install g++-7 -y
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 60 --slave /usr/bin/g++ g++ /usr/bin/g++-7 
+          sudo update-alternatives --set gcc "/usr/bin/gcc-7" 
 
       - name: Create Build Environment [windows]
         shell: bash
