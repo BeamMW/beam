@@ -4034,7 +4034,11 @@ bool NodeProcessor::HandleAssetDelegate2(const PeerID& pidOwner, const ContractI
 		vk.Set(cidTrg);
 		vk.Append(bvm2::ProcessorContract::VarKey::Tag::OwnedAsset, uintBigFrom(aid));
 
-		proc.SaveVarEx(vk.ToBlob(), bic.m_Fwd ? ai.m_Owner : Blob(), false);
+		Blob val;
+		if (bic.m_Fwd)
+			val = ai.m_Owner;
+
+		proc.SaveVarEx(vk.ToBlob(), val, false);
 	}
 
 	m_DB.AssetDeleteRaw(aid);
