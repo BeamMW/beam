@@ -237,6 +237,11 @@ jobs:
         shell: bash
         if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
         run: echo "PLATFORM_NAME=linux" >> $GITHUB_ENV
+        
+      - name: OS name [ununtu-18.04]
+        shell: bash
+        if: matrix.os == 'ubuntu-18.04'
+        run: echo "PLATFORM_NAME=ubuntu-18" >> $GITHUB_ENV
 
       - name: OS name [windows]
         shell: bash
