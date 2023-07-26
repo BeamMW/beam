@@ -372,3 +372,8 @@ BEAM_EXPORT void Method_15(Dummy::TestFarCallFlags& r)
             Env::SaveVar_T((uint8_t) 1, (uint8_t) 2);
     }
 }
+
+BEAM_EXPORT void Method_16(Dummy::TestAssetDelegate& r)
+{
+    Env::AssetDelegate(r.m_Aid, r.m_cidTrg, r.m_IsContract);
+}

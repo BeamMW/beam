@@ -129,6 +129,14 @@ namespace Dummy
         uint8_t m_TryWrite;
     };
 
+    struct TestAssetDelegate
+    {
+        static const uint32_t s_iMethod = 16;
+        AssetID m_Aid;
+        ContractID m_cidTrg;
+        uint8_t m_IsContract;
+    };
+
 #pragma pack (pop)
 
 }
