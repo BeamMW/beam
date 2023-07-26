@@ -5746,13 +5746,16 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
 			TemporarySwap swp(bFwd, m_Bic.m_Fwd);
 
 			Asset::ID aid = 0;
-			PeerID pidOwner;
+			PeerID pidOwner, pidNew;
 			ContractID cid;
+			bool isContract;
 			der & aid;
 			der & cid;
+			der & pidNew;
+			der & isContract;
 
 			Amount valDeposit;
-			if (!m_Proc.HandleAssetDestroy(pidOwner, &cid, m_Bic, aid, valDeposit, false))
+			if (!m_Proc.HandleAssetDelegate(pidOwner, &cid, m_Bic, aid, valDeposit, pidNew, isContract, false))
 				return OnCorrupted();
 		}
 		break;
