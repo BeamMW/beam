@@ -1770,10 +1770,15 @@ namespace beam
 			uint32_t m_nRecoveryPending = 0;
 			std::list<std::pair<Height, Merkle::Hash> > m_queProofLogsExpected;
 
+			ContractID m_cidDummy;
+
 			struct
 			{
 				Height m_hCreated = 0;
 				bool m_Emitted = false;
+				bool m_DelegatedTo = false;
+				bool m_DelegatedFrom = false;
+				bool m_DummyDeployed = false;
 				Asset::Metadata m_Metadata;
 				PeerID m_Owner;
 				Asset::ID m_ID = 0; // set after successful creation + proof
@@ -1781,6 +1786,8 @@ namespace beam
 				bool m_ListReceived = false;
 				bool m_EvtCreated = false;
 				bool m_EvtEmitted = false;
+				bool m_EvtDelegatedTo = false;
+				bool m_EvtDelegatedFrom = false;
 
 			} m_Assets;
 
@@ -2169,6 +2176,8 @@ namespace beam
 				t.Test(m_Assets.m_Recognized, "CA output not recognized");
 				t.Test(m_Assets.m_EvtCreated, "CA creation not recognized by node");
 				t.Test(m_Assets.m_EvtEmitted, "CA emission not recognized by node");
+				t.Test(m_Assets.m_EvtDelegatedTo, "CA emission not delegated to contract");
+				//t.Test(m_Assets.m_EvtDelegatedFrom, "CA emission not delegated from contract");
 				t.Test(m_Assets.m_ListReceived, "CA list not received");
 				t.Test(m_Shielded.m_SpendConfirmed, "Shielded spend not confirmed");
 				t.Test(m_Shielded.m_EvtAdd, "Shielded Add event didn't arrive");
@@ -2309,8 +2318,11 @@ namespace beam
 						m_Wallet2.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 0, val);
 					else
 					{
+						MaybeDeployDummy(msgTx, val);
 						MaybeCreateAsset(msgTx, val);
 						MaybeEmitAsset(msgTx, val);
+						MaybeDelegateAssetTo(msgTx, val);
+						MaybeDelegateAssetFrom(msgTx, val);
 						MaybeInvokeContract(msgTx, val);
 						m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
 					}
@@ -2415,6 +2427,134 @@ namespace beam
 
 				m_Assets.m_Emitted = true;
 				printf("Emitting asset...\n");
+
+				return true;
+			}
+
+			bool MaybeDeployDummy(proto::NewTransaction& msg, Amount& val)
+			{
+				if (m_Assets.m_DummyDeployed)
+					return false;
+
+				if (m_Contract.m_Done < 2)
+					return false; // dummy needs vault
+
+				const Amount nFee = 1000000;
+				if (val < nFee)
+					return false;
+
+				const Block::SystemState::Full& s = m_vStates.back();
+				if (s.m_Height + 1 < Rules::get().pForks[3].m_Height)
+					return false;
+
+				val -= nFee;
+				TxKernelContractCreate::Ptr pKrn(new TxKernelContractCreate);
+				pKrn->m_Height.m_Min = s.m_Height + 1;
+				pKrn->m_Fee = nFee;
+
+				bvm2::Compile(pKrn->m_Data, "dummy/contract.wasm", bvm2::Processor::Kind::Contract);
+
+				bvm2::get_Cid(m_cidDummy, pKrn->m_Data, pKrn->m_Args);
+
+				ECC::Scalar::Native sk;
+				ECC::SetRandom(sk);
+
+				ECC::Point::Native ptZ(Zero);
+				pKrn->Sign(&sk, 1, ptZ, nullptr);
+				
+				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
+
+				m_Assets.m_DummyDeployed = true;
+				printf("Deploying dummy...\n");
+
+				return true;
+			}
+
+			bool MaybeDelegateAssetTo(proto::NewTransaction& msg, Amount& val)
+			{
+				if (m_Assets.m_DelegatedTo || !m_Assets.m_EvtEmitted || !m_Assets.m_DummyDeployed)
+					return false;
+
+				const Amount nFee = 1000;
+				if (val < nFee)
+					return false;
+
+				const Block::SystemState::Full& s = m_vStates.back();
+				if (s.m_Height + 1 < Rules::get().pForks[6].m_Height)
+					return false;
+
+				val -= nFee;
+				TxKernelAssetDelegate::Ptr pKrn(new TxKernelAssetDelegate);
+				pKrn->m_Height.m_Min = s.m_Height + 1;
+				pKrn->m_Fee = nFee;
+
+				pKrn->m_AssetID = m_Assets.m_ID;
+				pKrn->m_Deposit = Rules::get().get_DepositForCA(m_Assets.m_hCreated + 1);
+				pKrn->m_pidNewOwner = m_cidDummy;
+				pKrn->m_IsContract = true;
+
+				val +=
+					pKrn->m_Deposit -
+					Rules::get().get_DepositForCA(s.m_Height + 1);
+
+				ECC::Scalar::Native sk;
+				ECC::SetRandom(sk);
+				pKrn->Sign(sk, *m_Wallet.m_pKdf, m_Assets.m_Metadata);
+
+				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
+
+				m_Assets.m_DelegatedTo = true;
+				printf("Delegating asset to contract...\n");
+
+				return true;
+			}
+
+			bool MaybeDelegateAssetFrom(proto::NewTransaction& msg, Amount& val)
+			{
+				if (m_Assets.m_DelegatedFrom || !m_Assets.m_EvtDelegatedTo)
+					return false;
+
+				const Amount nFee = 1000000;
+				if (val < nFee)
+					return false;
+
+				const Block::SystemState::Full& s = m_vStates.back();
+				if (s.m_Height + 1 < Rules::get().pForks[6].m_Height)
+					return false;
+
+				val -= nFee;
+				TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
+				pKrn->m_Height.m_Min = s.m_Height + 1;
+				pKrn->m_Fee = nFee;
+				pKrn->m_Cid = m_cidDummy;
+				pKrn->m_iMethod = 16;
+#pragma pack (push, 1)
+				struct TestAssetDelegate
+				{
+					Asset::ID m_Aid;
+					ContractID m_cidTrg;
+					uint8_t m_IsContract;
+				};
+#pragma pack (pop)
+				pKrn->m_Args.resize(sizeof(TestAssetDelegate));
+				auto* pArg = reinterpret_cast<TestAssetDelegate*>(&pKrn->m_Args.front());
+				pArg->m_Aid = ByteOrder::to_le(m_Assets.m_ID);
+				pArg->m_cidTrg = Cast::Down<ContractID>(m_Assets.m_Owner);
+				pArg->m_IsContract = 0;
+
+				ECC::Scalar::Native sk;
+				ECC::SetRandom(sk);
+
+				ECC::Point::Native ptZ(Zero);
+				pKrn->Sign(&sk, 1, ptZ, nullptr);
+
+				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
+
+				m_Assets.m_DelegatedFrom = true;
+				printf("Delegating asset to user...\n");
 
 				return true;
 			}
@@ -2969,17 +3109,37 @@ namespace beam
 							// creation event may come before the client got proof for its asset
 							verify_test(evt.m_Info.m_ID == m_This.m_Assets.m_ID);
 						}
+
 						verify_test(evt.m_Info.m_Metadata.m_Value == m_This.m_Assets.m_Metadata.m_Value);
-						verify_test(evt.m_Info.m_Owner == m_This.m_Assets.m_Owner);
 
-						if (proto::Event::Flags::Add & evt.m_Flags)
+						if (proto::Event::Flags::Delete & evt.m_Flags)
 						{
-							verify_test(!m_This.m_Assets.m_EvtCreated);
-							m_This.m_Assets.m_EvtCreated = true;
+							verify_test(evt.m_Info.m_Cid != Zero);
+							m_This.m_Assets.m_EvtDelegatedTo = true;
 						}
+						else
+						{
+							verify_test(evt.m_Info.m_Cid == Zero);
+							verify_test(evt.m_Info.m_Owner == m_This.m_Assets.m_Owner);
 
-						if (evt.m_EmissionChange)
-							m_This.m_Assets.m_EvtEmitted = true;
+							if (proto::Event::Flags::Add & evt.m_Flags)
+							{
+								if (m_This.m_Assets.m_EvtDelegatedTo)
+								{
+									verify_test(!m_This.m_Assets.m_EvtDelegatedFrom);
+									m_This.m_Assets.m_EvtDelegatedFrom = true;
+								}
+								else
+								{
+									verify_test(!m_This.m_Assets.m_EvtCreated);
+									m_This.m_Assets.m_EvtCreated = true;
+								}
+							}
+
+							if (evt.m_EmissionChange)
+								m_This.m_Assets.m_EvtEmitted = true;
+
+						}
 					}
 
 				} p(*this);
@@ -3844,23 +4004,24 @@ void TestAll()
 	ECC::PseudoRandomGenerator prg;
 	ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
 
-	bool bClientProtoOnly = false;
+	bool bClientProtoOnly = true;
 
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
 	if (!bClientProtoOnly)
 		beam::PrintEmissionSchedule();
 
-	beam::Rules::get().AllowPublicUtxos = true;
-	beam::Rules::get().FakePoW = true;
-	beam::Rules::get().MaxRollback = 10;
-	beam::Rules::get().DA.WindowWork = 35;
-	beam::Rules::get().Maturity.Coinbase = 35; // lowered to see more txs
-	beam::Rules::get().Emission.Drop0 = 5;
-	beam::Rules::get().Emission.Drop1 = 8;
-	beam::Rules::get().CA.Enabled = true;
-	beam::Rules::get().Maturity.Coinbase = 10;
-	beam::Rules::get().pForks[1].m_Height = 16;
-	beam::Rules::get().UpdateChecksum();
+	beam::Rules& r = beam::Rules::get();
+	r.AllowPublicUtxos = true;
+	r.FakePoW = true;
+	r.MaxRollback = 10;
+	r.DA.WindowWork = 35;
+	r.Maturity.Coinbase = 35; // lowered to see more txs
+	r.Emission.Drop0 = 5;
+	r.Emission.Drop1 = 8;
+	r.CA.Enabled = true;
+	r.Maturity.Coinbase = 10;
+	r.pForks[1].m_Height = 16;
+	r.UpdateChecksum();
 
 	beam::PrepareTreasury();
 
@@ -3918,15 +4079,19 @@ void TestAll()
 		beam::DeleteFile(beam::g_sz2);
 	}
 
-	beam::Rules::get().MaxRollback = 100;
-	beam::Rules::get().pForks[2].m_Height = 17;
-	beam::Rules::get().pForks[3].m_Height = 17;
-	beam::Rules::get().pForks[4].m_Height = 17;
-	beam::Rules::get().CA.DepositForList2 = beam::Rules::Coin * 16;
-	beam::Rules::get().CA.LockPeriod = 2;
-	beam::Rules::get().Shielded.m_ProofMax = { 4, 6 }; // 4K
-	beam::Rules::get().Shielded.m_ProofMin = { 4, 5 }; // 1K
-	beam::Rules::get().UpdateChecksum();
+	r.MaxRollback = 100;
+
+	for (uint32_t iF = 2; iF < 6; iF++)
+		r.pForks[iF].m_Height = 17;
+	for (uint32_t iF = 6; iF < _countof(r.pForks); iF++)
+		r.pForks[iF].m_Height = 18;
+
+	r.CA.DepositForList2 = beam::Rules::Coin * 16;
+	r.CA.LockPeriod = 2;
+	r.Shielded.m_ProofMax = { 4, 6 }; // 4K
+	r.Shielded.m_ProofMin = { 4, 5 }; // 1K
+	r.CA.DepositForList5 = r.CA.DepositForList2 / 2;
+	r.UpdateChecksum();
 
 	printf("Node <---> Client test (with proofs)...\n");
 	fflush(stdout);
