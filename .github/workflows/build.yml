@@ -68,6 +68,7 @@ jobs:
         if: matrix.os != 'windows-2019'
         shell: bash
         run: |
+          rm -rf ${{runner.workspace}}/boost_prebuild
           git clone --depth=1 https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git ${{runner.workspace}}/boost_prebuild
           echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include" >> $GITHUB_ENV
           echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/" >> $GITHUB_ENV
@@ -237,6 +238,11 @@ jobs:
         shell: bash
         if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
         run: echo "PLATFORM_NAME=linux" >> $GITHUB_ENV
+        
+      - name: OS name [ununtu-18.04]
+        shell: bash
+        if: matrix.os == 'ubuntu-18.04'
+        run: echo "PLATFORM_NAME=ubuntu-18" >> $GITHUB_ENV
 
       - name: OS name [windows]
         shell: bash
