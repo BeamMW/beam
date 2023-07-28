@@ -17,6 +17,7 @@ namespace beam::wallet
 {
     void V73Api::onHandleAssetsList(const JsonRpcId& id, AssetsList&& req)
     {
+        LOG_DEBUG() << __FUNCTION__ << TRACE(req.refresh) << TRACE(req.height);
         if (!req.refresh)
         {
             AssetsList::Response resp;
@@ -30,6 +31,7 @@ namespace beam::wallet
         }
         getWallet()->RequestAssetsListAt(req.height, [this, id, h = req.height, wguard = _weakSelf](auto&& assets)
         {
+            LOG_DEBUG() << "Asset request completed";
             auto guard = wguard.lock();
             if (!guard)
             {

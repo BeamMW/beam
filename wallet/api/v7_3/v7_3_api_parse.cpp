@@ -18,6 +18,7 @@ namespace beam::wallet
 {
 std::pair<AssetsList, IWalletApi::MethodInfo> V73Api::onParseAssetsList(const JsonRpcId& id, const nlohmann::json& params)
 {
+    LOG_DEBUG() << __FUNCTION__;
     AssetsList message;
     if (auto refresh = getOptionalParam<bool>(params, "refresh"))
     {
@@ -40,6 +41,8 @@ void V73Api::getResponse(const JsonRpcId& id, const AssetsList::Response& res, j
 
     msg["assets"] = json::array();
     auto& jsonAssets = msg["assets"];
+
+    LOG_DEBUG() << __FUNCTION__ << " assets: " << jsonAssets.size();
 
     for (auto& asset: res.assets)
     {
