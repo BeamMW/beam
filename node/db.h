@@ -188,8 +188,8 @@ public:
 			AssetsDelAll,
 
 			AssetEvtsInsert,
+			AssetEvtsEnumFwd,
 			AssetEvtsEnumBwd,
-			AssetEvtsGet,
 			AssetEvtsDeleteFrom,
 
 			ContractDataFind,
@@ -716,8 +716,8 @@ public:
 	};
 
 	void AssetEvtsInsert(const AssetEvt&);
+	void AssetEvtsEnumFwd(WalkerAssetEvt&, Height);
 	void AssetEvtsEnumBwd(WalkerAssetEvt&, Asset::ID, Height);
-	void AssetEvtsGetStrict(WalkerAssetEvt&, Height, uint64_t);
 	void AssetEvtsDeleteFrom(Height);
 
 	bool ContractDataFind(const Blob& key, Blob&, Recordset&);

@@ -3086,6 +3086,12 @@ void NodeDB::AssetEvtsInsert(const AssetEvt& x)
 	rs.Step();
 }
 
+void NodeDB::AssetEvtsEnumFwd(WalkerAssetEvt& wlk, Height h)
+{
+	wlk.m_Rs.Reset(*this, Query::AssetEvtsEnumFwd, "SELECT * FROM " TblAssetEvts " WHERE " TblAssetEvts_Height "=? ORDER BY " TblAssetEvts_Index " ASC");
+	wlk.m_Rs.put(0, h);
+}
+
 void NodeDB::AssetEvtsEnumBwd(WalkerAssetEvt& wlk, Asset::ID id, Height h)
 {
 	wlk.m_Rs.Reset(*this, Query::AssetEvtsEnumBwd, "SELECT * FROM " TblAssetEvts " WHERE " TblAssetEvts_ID "=? AND " TblAssetEvts_Height "<=? ORDER BY " TblAssetEvts_Height " DESC," TblAssetEvts_Index " DESC");
@@ -3093,14 +3099,6 @@ void NodeDB::AssetEvtsEnumBwd(WalkerAssetEvt& wlk, Asset::ID id, Height h)
 	wlk.m_Rs.put(1, h);
 }
 
-void NodeDB::AssetEvtsGetStrict(WalkerAssetEvt& wlk, Height h, uint64_t nIdx)
-{
-	wlk.m_Rs.Reset(*this, Query::AssetEvtsGet, "SELECT * FROM " TblAssetEvts " WHERE " TblAssetEvts_Height "=? AND " TblAssetEvts_Index "=?");
-	wlk.m_Rs.put(0, h);
-	wlk.m_Rs.put(1, nIdx);
-	if (!wlk.MoveNext())
-		ThrowInconsistent();
-}
 
 void NodeDB::AssetEvtsDeleteFrom(Height h)
 {

@@ -1264,10 +1264,6 @@ namespace beam::wallet
             }
         }
 
-        void AssetEvtsGetStrict(NodeDB::WalkerAssetEvt& event, Height h, uint32_t nKrnIdx) override
-        {
-        }
-
         void InsertEvent(Height h, const Blob& b, const Blob& k) override
         {
             m_Wallet.m_WalletDB->insertEvent(h, b, k);

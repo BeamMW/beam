@@ -2766,11 +2766,6 @@ struct NodeProcessor::MyRecognizer
 			m_Proc.OnEvent(h, evt);
 		}
 
-		void AssetEvtsGetStrict(NodeDB::WalkerAssetEvt& wlk, Height h, uint32_t nKrnIdx) override
-		{
-			m_Proc.m_DB.AssetEvtsGetStrict(wlk, h, BlockInterpretCtx::get_AssetEvtIdx(nKrnIdx, 0));
-		}
-
 		void InsertEvent(Height h, const Blob& b, const Blob& key) override
 		{
 			m_Proc.m_DB.InsertEvent(m_pAccount->m_iAccount, h, b, key);
@@ -3038,6 +3033,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		{
 			rec.m_Handler.m_pAccount = &acc;
 			rec.m_Recognizer.Recognize(block, sid.m_Height, bic.m_ShieldedOuts);
+			rec.m_Recognizer.RecognizeAssets(m_DB, sid.m_Height);
 		}
 
 		Serializer ser;
@@ -3174,6 +3170,75 @@ void NodeProcessor::Recognizer::Recognize(const TxVectors::Full& block, Height h
 			assert(m_Extra.m_ShieldedOutputs == nOuts);
 			nOuts; // supporess unused var warning in release
 		}
+	}
+}
+
+void NodeProcessor::Recognizer::RecognizeAssets(NodeDB& db, Height h)
+{
+	// recognize asset evts
+	uint32_t iAssetEvt = 0;
+	NodeDB::WalkerAssetEvt wlk;
+	for (db.AssetEvtsEnumFwd(wlk, h); wlk.MoveNext(); )
+	{
+		bool isCtl = (wlk.m_ID > Asset::s_MaxCount);
+		if (isCtl)
+			wlk.m_ID -= Asset::s_MaxCount;
+
+		auto key = uintBigFrom(wlk.m_ID);
+
+		proto::Event::AssetCtl evt;
+		bool bOwned = FindEvent(key, evt);
+		if (bOwned)
+		{
+			assert(evt.m_Info.m_ID == wlk.m_ID);
+			assert(!evt.m_EmissionChange); // emit/burn events are saved without key
+			assert(evt.m_Flags); // should be either Add or Delete
+
+			if (proto::Event::Flags::Delete == evt.m_Flags)
+				bOwned = false;
+		}
+
+
+		if (isCtl)
+		{
+			evt.m_EmissionChange = 0;
+
+			if (bOwned)
+			{
+				evt.m_Flags = proto::Event::Flags::Delete;
+				AddEvent(h, EventKey::s_IdxAsset + iAssetEvt++, evt, key);
+			}
+
+			if (wlk.m_Body.n)
+			{
+				// create/update
+				get_AssetCreateInfo(evt.m_Info, wlk);
+
+				if (evt.m_Info.Recognize(*m_Handler.m_pAccount->m_pOwner))
+				{
+					evt.m_Info.m_ID = wlk.m_ID;
+					evt.m_Flags = proto::Event::Flags::Add;
+					AddEvent(h, EventKey::s_IdxAsset + iAssetEvt++, evt, key);
+				}
+			}
+		}
+		else
+		{
+			// emit/burn
+			if (bOwned)
+			{
+				AssetDataPacked adp;
+				adp.set_Strict(wlk.m_Body);
+
+				evt.m_Flags = 0;
+				evt.m_Info.m_Value = adp.m_Amount;
+				adp.m_LockHeight.Export(evt.m_Info.m_LockHeight);
+				adp.m_Delta.Export(Cast::Reinterpret<Amount>(evt.m_EmissionChange));
+
+				AddEvent(h, EventKey::s_IdxAsset + iAssetEvt++, evt);
+			}
+		}
+
 	}
 }
 
@@ -3317,33 +3382,6 @@ void NodeProcessor::Recognizer::Recognize(const Output& x, Height h, Key::IPKdf&
 
 void NodeProcessor::Recognizer::Recognize(const TxKernelAssetCreate& v, Height h, uint32_t nKrnIdx)
 {
-	assert(m_Handler.m_pAccount);
-	const auto& acc = *m_Handler.m_pAccount;
-
-	EventKey::AssetCtl key;
-	v.m_MetaData.get_Owner(key, *acc.m_pOwner);
-	if (key != v.m_Owner)
-		return;
-
-	// recognized!
-	proto::Event::AssetCtl evt;
-
-	evt.m_Flags = proto::Event::Flags::Add;
-	evt.m_EmissionChange = 0; // no change upon creation
-
-	NodeDB::WalkerAssetEvt wlk;
-	m_Handler.AssetEvtsGetStrict(wlk, h, nKrnIdx);
-	assert(wlk.m_ID > Asset::s_MaxCount);
-
-	evt.m_Info.m_ID = wlk.m_ID - Asset::s_MaxCount;
-	evt.m_Info.m_LockHeight = h;
-	TemporarySwap<ByteBuffer> ts(Cast::NotConst(v).m_MetaData.m_Value, evt.m_Info.m_Metadata.m_Value);
-	evt.m_Info.m_Owner = v.m_Owner;
-	evt.m_Info.m_Value = Zero;
-	evt.m_Info.m_Deposit = Rules::get().get_DepositForCA(h);
-	evt.m_Info.SetCid(nullptr);
-
-	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt, key);
 }
 
 void NodeProcessor::AssetDataPacked::set_Strict(const Blob& blob)
@@ -3355,73 +3393,14 @@ void NodeProcessor::AssetDataPacked::set_Strict(const Blob& blob)
 
 void NodeProcessor::Recognizer::Recognize(const TxKernelAssetEmit& v, Height h, uint32_t nKrnIdx)
 {
-	proto::Event::AssetCtl evt;
-	if (!FindEvent(v.m_Owner, evt))
-		return;
-
-	evt.m_Flags = 0;
-	evt.m_EmissionChange = v.m_Value;
-
-	NodeDB::WalkerAssetEvt wlk;
-	m_Handler.AssetEvtsGetStrict(wlk, h, nKrnIdx);
-	assert(wlk.m_ID == evt.m_Info.m_ID);
-
-	AssetDataPacked adp;
-	adp.set_Strict(wlk.m_Body);
-
-	evt.m_Info.m_Value = adp.m_Amount;
-	adp.m_LockHeight.Export(evt.m_Info.m_LockHeight);
-	evt.m_Info.m_Deposit = Rules::get().CA.DepositForList2; // not used anyway
-
-	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
 }
 
 void NodeProcessor::Recognizer::Recognize(const TxKernelAssetDestroy& v, Height h, uint32_t nKrnIdx)
 {
-	proto::Event::AssetCtl evt;
-	if (!FindEvent(v.m_Owner, evt))
-		return;
-
-	evt.m_Flags = proto::Event::Flags::Delete;
-	evt.m_EmissionChange = 0;
-
-	evt.m_Info.m_Value = Zero;
-	evt.m_Info.m_Deposit = v.get_Deposit();
-
-	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
 }
 
 void NodeProcessor::Recognizer::Recognize(const TxKernelAssetDelegate& v, Height h, uint32_t nKrnIdx)
 {
-	NodeDB::WalkerAssetEvt wlk;
-	m_Handler.AssetEvtsGetStrict(wlk, h, nKrnIdx);
-
-	wlk.m_ID = v.m_AssetID;
-	wlk.m_Height = h;
-	wlk.m_Index = nKrnIdx;
-
-	proto::Event::AssetCtl evt;
-	get_AssetCreateInfo(evt.m_Info, wlk);
-
-	PeerID pid;
-	evt.m_Info.m_Metadata.get_Owner(pid, *m_Handler.m_pAccount->m_pOwner);
-
-	bool bOwnOld = (pid == v.m_Owner);
-	bool bOwnNew = (pid == evt.m_Info.m_Owner);
-
-	if (bOwnOld || bOwnNew)
-	{
-		evt.m_Info.m_ID = v.m_AssetID;
-		evt.m_EmissionChange = 0;
-		evt.m_Flags = 0;
-
-		if (bOwnOld)
-			evt.m_Flags |= proto::Event::Flags::Delete;
-		if (bOwnNew)
-			evt.m_Flags |= proto::Event::Flags::Add;
-
-		AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
-	}
 }
 
 bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInterpretCtx& bic)
@@ -3603,7 +3582,7 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 		LOG_INFO() << "Recovered " << wlk.m_Unspent << "/" << wlk.m_Total << " unspent/total Txos";
 	}
 
-	// shielded items
+	// shielded items and owned assets
 	Height h0 = Rules::get().pForks[2].m_Height;
 	if (m_Cursor.m_Sid.m_Height >= h0)
 	{
@@ -3619,6 +3598,7 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 
 			const Account* m_pAcc;
 			uint32_t m_nAcc;
+			NodeDB* m_pDB;
 
 			bool ProcessHeight(uint64_t rowID, const std::vector<TxKernel::Ptr>& v) override
 			{
@@ -3628,6 +3608,8 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 
 					if (!KrnWalkerRecognize::ProcessHeight(rowID, v))
 						return false;
+
+					m_Rec.RecognizeAssets(*m_pDB, m_Height);
 				}
 
 				return true;
@@ -3636,8 +3618,10 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 		};
 
 		MyKrnWalker wlkKrn(rec.m_Recognizer);
+		wlkKrn.m_pDB = &m_DB;
 		wlkKrn.m_pAcc = &m_vAccounts.front() + m_vAccounts.size() - nRecent;
 		wlkKrn.m_nAcc = nRecent;
+
 
 		wlkKrn.m_pLa = &la;
 		EnumKernels(wlkKrn, HeightRange(h0, m_Cursor.m_Sid.m_Height));

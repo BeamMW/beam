@@ -720,8 +720,6 @@ public:
 		typedef ECC::Point Utxo;
 		typedef ECC::Point Shielded;
 
-		typedef PeerID AssetCtl;
-
 		// Utxo and Shielded use the same key type, hence the following flag (OR-ed with Y coordinate) makes the difference
 		static const uint8_t s_FlagShielded = 2;
 
@@ -730,6 +728,7 @@ public:
 		static const IndexType s_IdxInput = 0;
 		static const IndexType s_IdxOutput = 1;
 		static const IndexType s_IdxKernel = 2;
+		static const IndexType s_IdxAsset = 3;
 	};
 
 	struct ShieldedBase
@@ -791,7 +790,6 @@ public:
 
 			virtual void OnDummy(const CoinID&, Height) {}
 			virtual void OnEvent(Height, const proto::Event::Base&) {}
-			virtual void AssetEvtsGetStrict(NodeDB::WalkerAssetEvt&, Height h, uint32_t nKrnIdx) {}
 			virtual void InsertEvent(Height h, const Blob& b, const Blob& key) {}
 			virtual bool FindEvents(const Blob& key, IEventHandler&) { return false; }
 		};
@@ -801,6 +799,7 @@ public:
 		Extra& m_Extra;
 
 		void Recognize(const TxVectors::Full& block, Height height, uint32_t shieldedOuts, bool validateShieldedOuts = true);
+		void RecognizeAssets(NodeDB&, Height);
 
 		void Recognize(const Input&, Height);
 		void Recognize(const Output&, Height, Key::IPKdf&);

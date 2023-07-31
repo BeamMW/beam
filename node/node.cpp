@@ -1120,7 +1120,7 @@ void Node::InitIDs()
 void Node::AddAccount(const Key::IPKdf::Ptr& pOwner, Key::IPKdf* pMiner)
 {
     ECC::Hash::Processor hp;
-    hp << uint32_t(4); // change this whenever we change the format of the saved events
+    hp << uint32_t(5); // change this whenever we change the format of the saved events
 
     ECC::Hash::Value hv0, hv1(Zero);
 
