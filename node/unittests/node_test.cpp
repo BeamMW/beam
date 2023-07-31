@@ -2177,7 +2177,7 @@ namespace beam
 				t.Test(m_Assets.m_EvtCreated, "CA creation not recognized by node");
 				t.Test(m_Assets.m_EvtEmitted, "CA emission not recognized by node");
 				t.Test(m_Assets.m_EvtDelegatedTo, "CA emission not delegated to contract");
-				//t.Test(m_Assets.m_EvtDelegatedFrom, "CA emission not delegated from contract");
+				t.Test(m_Assets.m_EvtDelegatedFrom, "CA emission not delegated from contract");
 				t.Test(m_Assets.m_ListReceived, "CA list not received");
 				t.Test(m_Shielded.m_SpendConfirmed, "Shielded spend not confirmed");
 				t.Test(m_Shielded.m_EvtAdd, "Shielded Add event didn't arrive");
@@ -3111,10 +3111,11 @@ namespace beam
 						}
 
 						verify_test(evt.m_Info.m_Metadata.m_Value == m_This.m_Assets.m_Metadata.m_Value);
+						verify_test(evt.m_Info.m_Cid == Zero);
 
 						if (proto::Event::Flags::Delete & evt.m_Flags)
 						{
-							verify_test(evt.m_Info.m_Cid != Zero);
+							verify_test(!m_This.m_Assets.m_EvtDelegatedTo);
 							m_This.m_Assets.m_EvtDelegatedTo = true;
 						}
 						else
@@ -4004,7 +4005,7 @@ void TestAll()
 	ECC::PseudoRandomGenerator prg;
 	ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
 
-	bool bClientProtoOnly = true;
+	bool bClientProtoOnly = false;
 
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
 	if (!bClientProtoOnly)
