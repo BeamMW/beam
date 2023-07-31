@@ -438,6 +438,21 @@ private:
         return MakeTypeObj("amount", sz);
     }
 
+    static json MakeObjAmount(const AmountSigned x)
+    {
+        if (x >= 0)
+            return MakeObjAmount((Amount)x);
+
+        typedef uintBigFor<Amount>::Type MyType;
+        MyType x2((Amount) (0 - x));
+
+        char sz[MyType::nTxtLen10Max + 2];
+        sz[0] = '-';
+        x2.PrintDecimal(sz + 1);
+
+        return MakeTypeObj("amount", sz);
+    }
+
     struct ExtraInfo
     {
         struct ContractRichInfo {
@@ -1552,16 +1567,11 @@ private:
             case Type::Emit:
                 {
                     auto& evt = Cast::Up<AssetHistoryWalker::Event_Emit>(x);
-                    AmountBig::Type delta = evt.m_Adp.m_Amount;
 
-                    if ((wlk.m_Lst.end() != it) && (it->get_Type() == Type::Emit))
-                    {
-                        AmountBig::Type v0 = Cast::Up<AssetHistoryWalker::Event_Emit>(*it).m_Adp.m_Amount;
-                        v0.Negate();
-                        delta += v0;
-                    }
+                    AmountSigned delta;
+                    evt.m_Adp.m_Delta.Export(Cast::Reinterpret<Amount>(delta));
 
-                    wrItem.m_json.push_back(delta.get_Msb() ? "Burn" : "Mint");
+                    wrItem.m_json.push_back((delta < 0) ? "Burn" : "Mint");
                     wrItem.m_json.push_back(MakeObjAmount(delta)); // handles negative sign
                     wrItem.m_json.push_back(MakeObjAmount(evt.m_Adp.m_Amount));
                     wrItem.m_json.push_back("");

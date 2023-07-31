@@ -752,6 +752,7 @@ public:
 
 	struct AssetDataPacked {
 		AmountBig::Type m_Amount;
+		uintBigFor<Amount>::Type m_Delta;
 		uintBigFor<Height>::Type m_LockHeight;
 
 		void set_Strict(const Blob&);

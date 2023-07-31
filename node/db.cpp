@@ -375,7 +375,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 36;
+	const uint64_t nVersionTop = 37;
 
 
 	Transaction t(*this);
@@ -471,6 +471,7 @@ void NodeDB::Open(const char* szPath)
 			// no break;
 
 		case 35: // changed format of contract invoke info
+		case 36: // changed format asset events
 
 			ParamIntSet(ParamID::Flags1, ParamIntGetDef(ParamID::Flags1) | Flags1::PendingRebuildNonStd);
 

@@ -4165,6 +4165,7 @@ bool NodeProcessor::HandleAssetEmit2(const PeerID& pidOwner, BlockInterpretCtx& 
 	{
 		AssetDataPacked adp;
 		adp.m_Amount = ai.m_Value;
+		adp.m_Delta = Cast::Reinterpret<Amount>(val);
 		adp.m_LockHeight = ai.m_LockHeight;
 
 		NodeDB::AssetEvt evt;
@@ -7609,7 +7610,6 @@ int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)
 
 		ai.m_Value = adp.m_Amount;
 		adp.m_LockHeight.Export(ai.m_LockHeight);
-
 	}
 
 	return 1;
