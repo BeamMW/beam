@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "common.h"
+#include "../../common.h"
 
 #include "bitcoin/bitcoin.hpp"
 
@@ -30,19 +31,16 @@ namespace beam::dash
 
     uint8_t getAddressVersion()
     {
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-        return kDashMainnetP2KH;
-#else
-        return kDashRegtestP2KH;
-#endif
+        return wallet::UseMainnetSwap() ?
+            kDashMainnetP2KH :
+            kDashRegtestP2KH;
     }
 
     std::vector<std::string> getGenesisBlockHashes()
     {
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-        return { kMainnetGenesisBlockHash };
-#else
+        if (wallet::UseMainnetSwap())
+            return { kMainnetGenesisBlockHash };
+
         return { kTestnetGenesisBlockHash , kRegtestGenesisBlockHash };
-#endif
     }
 } // namespace beam::dash

@@ -1019,8 +1019,7 @@ namespace beam::wallet
             proof.m_Commitment = comm;
             proof.m_SpendPk = pars.m_Ticket.m_SpendPk;
 
-            bool bHideAssetAlways = false; // TODO - parameter
-            if (bHideAssetAlways || m.m_AssetID)
+            if (m_M.m_HideAssetAlways || m.m_AssetID)
             {
                 ECC::Hash::Processor()
                     << "asset-blind.sh"

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 
-set(TARGET_NAME explorer-node${BEAM_TARGET_SUFFIX})
+set(TARGET_NAME explorer-node)
 
 #find_package(Boost 1.67 REQUIRED)
 

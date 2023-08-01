@@ -110,8 +110,19 @@ namespace beam
 		// This one is not optimized (slow)
 		void AddTo(ECC::Point::Native& res, const Type& x, const ECC::Point::Native& hGen);
 
-		void Print(std::ostream&, const Type&);
-		void Print(std::ostream&, Amount);
+		void Print(std::ostream&, const Type&, bool bTrim = true);
+		void Print(std::ostream&, Amount, bool bTrim = true);
+
+		template <typename T>
+		struct Printable {
+			const T& m_Val;
+			Printable(const T& x) :m_Val(x) {}
+
+			friend std::ostream& operator << (std::ostream& os, const AmountBig::Printable<T>& x) {
+				AmountBig::Print(os, x.m_Val);
+				return os;
+			}
+		};
 	};
 
 	typedef int64_t AmountSigned;
@@ -279,50 +290,66 @@ namespace beam
 		static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
 		static constexpr Amount Coin = 100000000; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
 
+#define RulesNetworks(macro) \
+		macro(mainnet) \
+		macro(masternet) \
+		macro(testnet) \
+		macro(dappnet)
+
+		enum struct Network
+		{
+#define THE_MACRO(name) name,
+			RulesNetworks(THE_MACRO)
+#undef THE_MACRO
+
+		} m_Network;
+
+		const char* get_NetworkName() const;
+
 		struct {
 			// emission parameters
-			Amount Value0	= Coin * 80; // Initial emission. Each drop it will be halved. In case of odd num it's rounded to the lower value.
-			Height Drop0	= 1440 * 365; // 1 year roughly. This is the height of the last block that still has the initial emission, the drop is starting from the next block
-			Height Drop1	= 1440 * 365 * 4; // 4 years roughly. Each such a cycle there's a new drop
+			Amount Value0;
+			Height Drop0;
+			Height Drop1;
 		} Emission;
 
 		struct {
-			Height Coinbase	= 240; // 4 hours
-			Height Std		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
+			Height Coinbase;
+			Height Std;
 		} Maturity;
 
 		struct {
 			// timestamp & difficulty.
-			uint32_t Target_s		= 60; // 1 minute
-			uint32_t WindowWork		= 120; // 2 hours roughly (under normal operation)
-			uint32_t MaxAhead_s		= 60 * 15; // 15 minutes. Timestamps ahead by more than 15 minutes won't be accepted
-			uint32_t WindowMedian0	= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
-			uint32_t WindowMedian1	= 7; // Num of blocks taken at both endings of WindowWork, to pick medians.
-			Difficulty Difficulty0	= Difficulty(8 << Difficulty::s_MantissaBits); // 2^8 = 256
+			uint32_t Target_s;
+			uint32_t WindowWork;
+			uint32_t MaxAhead_s;
+			uint32_t WindowMedian0;
+			uint32_t WindowMedian1;
+			Difficulty Difficulty0;
 
 			struct {
 				// damp factor. Adjustment of actual dt toward expected, effectively dampens
-				uint32_t M = 1; // Multiplier of the actual dt
-				uint32_t N = 3; // Denominator. The goal is multiplied by (N-M)
+				uint32_t M;
+				uint32_t N;
 			} Damp;
 		} DA;
 
 		struct {
-			bool Enabled = true;
-			Amount DepositForList2 = Coin * 3000; // after HF2
-			Amount DepositForList5 = Coin * 10; // after HF5
-			Height LockPeriod = 1440; // how long it's locked (can't be destroyed) after it was completely burned
-			Sigma::Cfg m_ProofCfg = { 4, 3 }; // 4^3 = 64
+			bool Enabled;
+			Amount DepositForList2;
+			Amount DepositForList5;
+			Height LockPeriod;
+			Sigma::Cfg m_ProofCfg;
 		} CA;
 
-		uint32_t MaxRollback = 1440; // 1 day roughly
+		uint32_t MaxRollback;
 
-		size_t MaxBodySize = 0x100000; // 1MB
+		size_t MaxBodySize;
 
-		bool AllowPublicUtxos = false;
-		bool FakePoW = false;
+		bool AllowPublicUtxos;
+		bool FakePoW;
 
-		Height MaxKernelValidityDH = 1440 * 30; // past Fork2
+		Height MaxKernelValidityDH; // past Fork2
 		// if kernel has higher lifetime - its max height is implicitly decreased
 
 		ECC::Hash::Value Prehistoric; // Prev hash of the 1st block
@@ -331,27 +358,28 @@ namespace beam
 		struct {
 			bool Enabled = true; // past Fork2
 
-			Sigma::Cfg m_ProofMax = { 4, 8 }; // 4^8 = 64K
-			Sigma::Cfg m_ProofMin = { 4, 5 }; // 4^5 = 1K
+			Sigma::Cfg m_ProofMax;
+			Sigma::Cfg m_ProofMin;
 
 			// Max distance of the specified window from the tip where the prover is allowed to use m_ProofMax.
 			// For proofs with bigger distance only m_ProofMin is supported
-			uint32_t MaxWindowBacklog = 0x10000; // 64K
+			uint32_t MaxWindowBacklog;
 			// Hence "big" proofs won't need more than 128K most recent elements
 
 			// max shielded ins/outs per block
-			uint32_t MaxIns = 20; // input processing is heavy
-			uint32_t MaxOuts = 30; // dust protection
+			uint32_t MaxIns; // input processing is heavy
+			uint32_t MaxOuts; // dust protection
 
 		} Shielded;
 
 		struct
 		{
-			uint32_t v0 = 15; // 15 for masternet and testnet, 14 for mainnet
-			uint32_t v2 = 2;
-			bool IsTestnet = false; // true for testnet, false for masternet and mainnet
+			uint32_t v0;
+			uint32_t v2;
+			bool IsTestnet;
 		} Magic;
 
+		void SetNetworkParams();
 		void UpdateChecksum();
 
 		static Amount get_Emission(Height);
@@ -367,6 +395,7 @@ namespace beam
 		void DisableForksFrom(uint32_t);
 		std::string get_SignatureStr() const;
 		Amount get_DepositForCA(Height hScheme) const;
+		bool IsEnabledCA(Height hScheme) const;
 
 		static void Fail_Fork(uint32_t iFork);
 
@@ -1150,7 +1179,7 @@ namespace beam
 			ECC::Hash::Value m_hvShieldedState;
 		} m_NotSerialized;
 
-		void Sign(Lelantus::Prover&, Asset::ID aid, bool bHideAssetAlways = false);
+		void Sign(Lelantus::Prover&, Asset::ID aid, bool bHideAssetAlways = true);
 
 		virtual ~TxKernelShieldedInput() {}
 		virtual Subtype::Enum get_Subtype() const override;

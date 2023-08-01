@@ -607,7 +607,13 @@ namespace Utils {
 
             static void Print(char* sz, uint64_t val, uint32_t nDigs)
             {
-                for (sz[nDigs] = 0; ; val /= nRadix)
+                sz[nDigs] = 0;
+                PrintNoZTerm(sz, val, nDigs);
+            }
+
+            static void PrintNoZTerm(char* sz, uint64_t val, uint32_t nDigs)
+            {
+                for ( ; ; val /= nRadix)
                 {
                     sz[--nDigs] = ToChar(val);
                     if (!nDigs)

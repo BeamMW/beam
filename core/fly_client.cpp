@@ -199,9 +199,13 @@ void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 
 void FlyClient::NetworkStd::Connection::SetupLogin(Login& msg)
 {
-    msg.m_Flags |= LoginFlags::MiningFinalization | LoginFlags::SendPeers;
+    msg.m_Flags |= LoginFlags::SendPeers;
+
+    if (m_This.m_Cfg.m_PreferOnlineMining)
+        msg.m_Flags |= LoginFlags::MiningFinalization;
     if (m_This.HasDependentSubscriptions())
         msg.m_Flags |= LoginFlags::WantDependentState;
+
     m_This.OnLoginSetup(msg);
 }
 

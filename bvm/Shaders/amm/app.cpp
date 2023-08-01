@@ -262,11 +262,16 @@ struct PoolsWalker
         PrintAmounts(x);
     }
 
+    void SetPoolKeyMaterial(UserKeyMaterial& ukm) const
+    {
+        _POD_(ukm.m_Cid) = m_Key.m_Prefix.m_Cid;
+        _POD_(ukm.m_Pid) = m_Key.m_KeyInContract.m_ID;
+    }
+
     bool IsCreator() const
     {
         UserKeyMaterial ukm;
-        _POD_(ukm.m_Cid) = m_Key.m_Prefix.m_Cid;
-        _POD_(ukm.m_Pid) = m_Key.m_KeyInContract.m_ID;
+        SetPoolKeyMaterial(ukm);
         return IsCreator(ukm);
 
     }
@@ -377,8 +382,7 @@ ON_METHOD(pool_create)
         return OnError("pool already exists");
 
     UserKeyMaterial ukm;
-    _POD_(ukm.m_Cid) = cid;
-    _POD_(ukm.m_Pid) = arg.m_Pid;
+    pw.SetPoolKeyMaterial(ukm);
     Env::DerivePk(arg.m_pkCreator, &ukm, sizeof(ukm));
 
     FundsChange fc;
@@ -408,6 +412,7 @@ ON_METHOD(pool_destroy)
         return;
 
     UserKeyMaterial ukm;
+    pw.SetPoolKeyMaterial(ukm);
 
     if (!pw.IsCreator(ukm))
         return OnError("not creator");

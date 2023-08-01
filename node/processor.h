@@ -129,7 +129,7 @@ class NodeProcessor
 
 	Mapped m_Mapped;
 
-	size_t m_nSizeUtxoComission;
+	size_t m_nSizeUtxoComissionUpperLimit = 0;
 
 	struct MultiblockContext;
 	struct MultiSigmaContext;
@@ -196,7 +196,7 @@ class NodeProcessor
 	static void TxoToNaked(uint8_t* pBuf, Blob&);
 	static bool TxoIsNaked(const Blob&);
 
-	void ToInputWithMaturity(Input&, Output&, bool bNake);
+	void SetInputMaturity(Input&);
 
 	TxoID get_TxosBefore(Height);
 	TxoID FindHeightByTxoID(Height& h, TxoID id0); // returns the Txos at state end
@@ -409,6 +409,7 @@ public:
 	struct ContractInvokeExtraInfoBase
 	{
 		FundsChangeMap m_FundsIO; // including nested
+		FundsChangeMap m_Emission;
 		std::vector<ECC::Point> m_vSigs; // excluding nested
 		uint32_t m_iParent; // including sub-nested
 		uint32_t m_NumNested;
@@ -425,6 +426,7 @@ public:
 			ar
 				& m_Sid
 				& m_FundsIO.m_Map
+				& m_Emission.m_Map
 				& m_vSigs
 				& m_iParent
 				& m_NumNested
@@ -440,7 +442,15 @@ public:
 		ContractID m_Cid;
 	};
 
-	bool ExtractBlockWithExtra(Block::Body&, std::vector<Output::Ptr>& vOutsIn, const NodeDB::StateID&, std::vector<ContractInvokeExtraInfo>&);
+	struct TxoInfo
+	{
+		Output m_Outp;
+		Height m_hCreate;
+		Height m_hSpent;
+	};
+
+	void ExtractBlockWithExtra(const NodeDB::StateID&, std::vector<TxoInfo>& vIns, std::vector<TxoInfo>& vOuts, TxVectors::Eternal& txe, std::vector<ContractInvokeExtraInfo>&);
+	void ExtractTreasurykWithExtra(std::vector<TxoInfo>& vOuts);
 	void get_ContractDescr(const ECC::uintBig& sid, const ECC::uintBig& cid, std::string&, bool bFullState);
 
 	int get_AssetAt(Asset::Full&, Height); // Must set ID. Returns -1 if asset is destroyed, 0 if never existed.
@@ -579,18 +589,20 @@ public:
 
 	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&, std::string& sErr);
 
-	struct ViewerKeys
+	struct Account
+		:public NodeDB::WalkerAccount::Data
 	{
-		Key::IPKdf* m_pMw;
-		ShieldedTxo::Viewer* m_pSh;
-		Key::Index m_nSh;
-		
-		bool IsEmpty() const;
+		Key::IPKdf::Ptr m_pOwner;
+		std::vector<ShieldedTxo::Viewer> m_vSh;
+
+		void InitFromOwner();
+		std::string get_Endpoint() const;
 	};
 
-	virtual void get_ViewerKeys(ViewerKeys&);
+	typedef std::vector<Account> AccountsVec;
+	AccountsVec m_vAccounts;
 
-	void RescanOwnedTxos();
+	void RescanAccounts(uint32_t nRecent);
 
 	uint64_t FindActiveAtStrict(Height);
 	Height FindVisibleKernel(const Merkle::Hash&, const BlockInterpretCtx&);
@@ -658,8 +670,7 @@ public:
 	struct ITxoRecover
 		:public ITxoWalker
 	{
-		Key::IPKdf& m_Key;
-		ITxoRecover(Key::IPKdf& key) :m_Key(key) {}
+		Key::IPKdf* m_pKey = nullptr;
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&) override;
@@ -694,8 +705,8 @@ public:
 	struct KrnWalkerRecognize
 		:public IKrnWalker
 	{
-		Recognizer& m_Proc;
-		KrnWalkerRecognize(Recognizer& p) :m_Proc(p) {}
+		Recognizer& m_Rec;
+		KrnWalkerRecognize(Recognizer& p) :m_Rec(p) {}
 
 		virtual bool OnKrn(const TxKernel& krn) override;
 	};
@@ -762,7 +773,8 @@ public:
 
 		struct IHandler
 		{
-			virtual void get_ViewerKeys(NodeProcessor::ViewerKeys& vk) {}
+			Account const* m_pAccount = nullptr;
+
 			virtual void OnDummy(const CoinID&, Height) {}
 			virtual void OnEvent(Height, const proto::Event::Base&) {}
 			virtual void AssetEvtsGetStrict(NodeDB::AssetEvt& event, Height h, uint32_t nKrnIdx) {}
@@ -770,6 +782,9 @@ public:
 			virtual bool FindEvents(const Blob& key, IEventHandler&) { return false; }
 		};
 		Recognizer(IHandler& h, Extra& extra);
+
+		IHandler& m_Handler;
+		Extra& m_Extra;
 
 		void Recognize(const TxVectors::Full& block, Height height, uint32_t shieldedOuts, bool validateShieldedOuts = true);
 
@@ -791,9 +806,6 @@ public:
 	private:
 		template <typename TEvt>
 		void AddEventInternal(Height, EventKey::IndexType nIdx, const TEvt&, const Blob& key);
-
-		IHandler& m_Handler;
-		Extra& m_Extra;
 	};
 
 	struct MyRecognizer;
@@ -885,7 +897,6 @@ private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
 	void GenerateNewHdr(BlockContext&, BlockInterpretCtx&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&, bool bAlreadyChecked);
-	bool GetBlockInternal(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body*);
 };
 
 struct LogSid

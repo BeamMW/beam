@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "common.h"
+#include "../../common.h"
 
 #include "bitcoin/bitcoin.hpp"
 
@@ -29,31 +30,25 @@ namespace beam::bitcoin
 
     uint8_t getAddressVersion()
     {
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-        return libbitcoin::wallet::ec_private::mainnet_p2kh;
-#else
-        return libbitcoin::wallet::ec_private::testnet_p2kh;
-#endif
+        return wallet::UseMainnetSwap() ? 
+            libbitcoin::wallet::ec_private::mainnet_p2kh :
+            libbitcoin::wallet::ec_private::testnet_p2kh;
     }
 
     std::vector<std::string> getGenesisBlockHashes()
     {
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-        return { kMainnetGenesisBlockHash };
-#else
+        if (wallet::UseMainnetSwap())
+            return { kMainnetGenesisBlockHash };
+
         return { kTestnetGenesisBlockHash , kRegtestGenesisBlockHash };
-#endif
     }
 
     std::pair<libbitcoin::wallet::hd_private, libbitcoin::wallet::hd_private> generateElectrumMasterPrivateKeys(const std::vector<std::string>& words)
     {
         auto hd_seed = libbitcoin::wallet::electrum::decode_mnemonic(words);
         libbitcoin::data_chunk seed_chunk(libbitcoin::to_chunk(hd_seed));
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-        libbitcoin::wallet::hd_private masterPrivateKey(seed_chunk, libbitcoin::wallet::hd_public::mainnet);
-#else
-        libbitcoin::wallet::hd_private masterPrivateKey(seed_chunk, libbitcoin::wallet::hd_public::testnet);
-#endif
+
+        libbitcoin::wallet::hd_private masterPrivateKey(seed_chunk, wallet::UseMainnetSwap() ? libbitcoin::wallet::hd_public::mainnet : libbitcoin::wallet::hd_public::testnet);
 
         return std::make_pair(masterPrivateKey.derive_private(0), masterPrivateKey.derive_private(1));
     }

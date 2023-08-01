@@ -835,6 +835,9 @@ namespace beam::wallet
     uint32_t GetShieldedInputsNum(const std::vector<TxKernel::Ptr>&);
     TxAddressType GetAddressType(const TxDescription& tx);
     TxAddressType GetAddressType(const std::string& address);
+
+    const char* get_BroadcastValidatorPublicKey();
+
 }    // beam::wallet
 
 namespace beam

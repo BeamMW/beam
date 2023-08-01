@@ -745,7 +745,7 @@ namespace beam::wallet
                 auto broadcastValidator = make_shared<BroadcastMsgValidator>();
                 {
                     PeerID key;
-                    if (BroadcastMsgValidator::stringToPublicKey(kBroadcastValidatorPublicKey, key))
+                    if (BroadcastMsgValidator::stringToPublicKey(get_BroadcastValidatorPublicKey(), key))
                     {
                         broadcastValidator->setPublisherKeys( { key } );
                     }
@@ -2244,19 +2244,16 @@ namespace beam::wallet
 
     namespace
     {
-        constexpr auto getAppsUrl()
+        const char* getAppsUrl()
         {
-#ifdef BEAM_BEAMX
+            switch (Rules::get().m_Network)
+            {
+            case Rules::Network::testnet: return "https://apps-testnet.beam.mw/appslist.json";
+            case Rules::Network::mainnet: return "https://apps.beam.mw/appslist.json";
+            case Rules::Network::dappnet: return "https://apps-dappnet.beam.mw/app/appslist.json";
+            case Rules::Network::masternet: return "http://3.19.32.148/app/appslist.json"; // none of the above
+            }
             return "";
-#elif defined(BEAM_TESTNET)
-            return "https://apps-testnet.beam.mw/appslist.json";
-#elif defined(BEAM_MAINNET)
-            return "https://apps.beam.mw/appslist.json";
-#elif defined(BEAM_DAPPNET)
-            return "https://apps-dappnet.beam.mw/app/appslist.json";
-#else
-            return "http://3.19.32.148/app/appslist.json";
-#endif
         }
     }
 
@@ -2264,7 +2261,7 @@ namespace beam::wallet
     {
         io::Address address;
 
-        constexpr auto url = getAppsUrl();
+        auto url = getAppsUrl();
 
         static std::regex exrp("^(?:(http[s]?)://)?([^/]+)((/?.*/?)/(.*))$");
         std::smatch groups;

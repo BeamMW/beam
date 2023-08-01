@@ -1108,20 +1108,23 @@ namespace beam
 			sid.m_Height = h;
 			sid.m_Row = np.FindActiveAtStrict(h);
 
-			Block::Body block;
-			std::vector<Output::Ptr> vOutsIn;
+			TxVectors::Eternal txe;
+			std::vector<NodeProcessor::TxoInfo> vIns, vOuts;
 			std::vector<NodeProcessor::ContractInvokeExtraInfo> vC;
-			np.ExtractBlockWithExtra(block, vOutsIn, sid, vC);
+			np.ExtractBlockWithExtra(sid, vIns, vOuts, txe, vC);
 
-			verify_test(vOutsIn.size() == block.m_vInputs.size());
-
-			// inputs must come with maturities!
-			for (size_t i = 0; i < block.m_vInputs.size(); i++)
+			for (const auto& x : vIns)
 			{
-				const Input& inp = *block.m_vInputs[i];
-				verify_test(inp.m_Commitment == vOutsIn[i]->m_Commitment);
-				verify_test(inp.m_Internal.m_ID && inp.m_Internal.m_Maturity);
+				verify_test(x.m_hCreate < h);
+				verify_test(x.m_hSpent == h);
 			}
+
+			for (const auto& x : vOuts)
+			{
+				verify_test(x.m_hCreate == h);
+				verify_test(x.m_hSpent > h);
+			}
+
 		}
 
 	}
@@ -1753,6 +1756,7 @@ namespace beam
 			const Height m_HeightTrg = 75;
 
 			MiniWallet m_Wallet;
+			MiniWallet m_Wallet2;
 			NodeProcessor* m_pProc = nullptr;
 
 			std::vector<Block::SystemState::Full> m_vStates;
@@ -1797,6 +1801,8 @@ namespace beam
 				m_Wallet.m_pKdf = pKdf;
 				m_Wallet.m_AutoAddTxOutputs = false;
 				m_pTimer = io::Timer::create(io::Reactor::get_Current());
+
+				ECC::SetRandom(m_Wallet2.m_pKdf);
 			}
 
 			virtual void OnConnectedSecure() override
@@ -2299,11 +2305,15 @@ namespace beam
 
 					assert(msgTx.m_Transaction);
 
-					MaybeCreateAsset(msgTx, val);
-					MaybeEmitAsset(msgTx, val);
-					MaybeInvokeContract(msgTx, val);
-
-					m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
+					if ((0xf & msg.m_Description.m_Height) == 0xf)
+						m_Wallet2.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 0, val);
+					else
+					{
+						MaybeCreateAsset(msgTx, val);
+						MaybeEmitAsset(msgTx, val);
+						MaybeInvokeContract(msgTx, val);
+						m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
+					}
 
 					Transaction::Context ctx;
 					ctx.m_Height.m_Min = msg.m_Description.m_Height + 1;
@@ -3011,6 +3021,8 @@ namespace beam
 
 		node.m_Cfg.m_Treasury = g_Treasury;
 
+		node.m_Keys.m_vExtraOwners.push_back(cl.m_Wallet2.m_pKdf);
+
 		ByteBuffer bufParser;
 		bvm2::Compile(bufParser, "Explorer/Parser.wasm", bvm2::Processor::Kind::Manager);
 
@@ -3103,8 +3115,6 @@ namespace beam
 		{
 			uint32_t m_Recovered = 0;
 
-			TxoRecover(Key::IPKdf& key) :NodeProcessor::ITxoRecover(key) {}
-
 			virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&, const Output::User&) override
 			{
 				m_Recovered++;
@@ -3112,11 +3122,14 @@ namespace beam
 			}
 		};
 
-		TxoRecover wlk(*node.m_Keys.m_pOwner);
+		TxoRecover wlk;
+		wlk.m_pKey = node.m_Keys.m_pOwner.get();
 		node2.get_Processor().EnumTxos(wlk);
+		verify_test(wlk.m_Recovered);
 
-		node.get_Processor().RescanOwnedTxos();
-
+		wlk.m_Recovered = 0;
+		wlk.m_pKey = node.m_Keys.m_vExtraOwners.front().get();
+		node2.get_Processor().EnumTxos(wlk);
 		verify_test(wlk.m_Recovered);
 
 		// Test recovery info. Check if shielded in/outs and assets can re recognized

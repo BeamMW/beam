@@ -19,6 +19,19 @@
 #include "utility/helpers.h"
 #include <string_view>
 #include <set>
+#include "nlohmann/json.hpp"
+
+#define ExplorerNodeDirs(macro) \
+    macro(status) \
+    macro(block) \
+    macro(blocks) \
+    macro(hdrs) \
+    macro(peers) \
+    macro(swap_offers) \
+    macro(swap_totals) \
+    macro(contracts) \
+    macro(contract) \
+    macro(asset)
 
 namespace beam { namespace explorer {
 
@@ -49,18 +62,11 @@ private:
     void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
 
     bool on_request(uint64_t id, const HttpMsgReader::Message& msg);
-    bool send_status(const HttpConnection::Ptr& conn);
-    bool send_block(const HttpConnection::Ptr& conn);
-    bool send_blocks(const HttpConnection::Ptr& conn);
-    bool send_peers(const HttpConnection::Ptr& conn);
-    bool send_contracts(const HttpConnection::Ptr& conn);
-    bool send_contract_details(const HttpConnection::Ptr& conn);
-    bool send_asset(const HttpConnection::Ptr& conn);
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-    bool send_swap_offers(const HttpConnection::Ptr& conn);
-    bool send_swap_totals(const HttpConnection::Ptr& conn);
-#endif  // BEAM_ATOMIC_SWAP_SUPPORT
-    bool send(const HttpConnection::Ptr& conn, int code, const char* message);
+    bool send(const HttpConnection::Ptr& conn, int code, const char* message, bool isHtml = false);
+
+#define THE_MACRO(dir) nlohmann::json on_request_##dir(const HttpConnection::Ptr& conn);
+    ExplorerNodeDirs(THE_MACRO)
+#undef THE_MACRO
 
     HttpMsgCreator _msgCreator;
     IAdapter& _backend;
@@ -75,6 +81,7 @@ private:
     //AccessControl _acl;
     IPAccessControl _acl;
     std::vector<uint32_t> _whitelist;
+    std::map<std::string_view, int> m_Dirs;
 };
 
 }} //namespaces

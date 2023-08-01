@@ -2,14 +2,9 @@ cmake_minimum_required(VERSION 3.13)
 cmake_policy(SET CMP0074 NEW)
 
 set(VERSION_MAJOR 7)
-set(VERSION_MINOR 3 )
+set(VERSION_MINOR 4 )
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
-
-set(BEAM_SUFFIX_LOWER_CASE "masternet" CACHE INTERNAL "")
-set(BEAM_SUFFIX_UPPER_CASE "Masternet" CACHE INTERNAL "")
-set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}" CACHE INTERNAL "")
-set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}" CACHE INTERNAL "")
 
 if(IOS)
     add_compile_definitions(_LIBCPP_ENABLE_CXX17_REMOVED_AUTO_PTR)
@@ -152,12 +147,6 @@ endif()
 option(BEAM_WALLET_CLIENT_LIBRARY "Build only binaries required for client app" FALSE)
 option(BEAM_BVM_ONLY "Build only binaries required for BVM" FALSE)
 
-#it's enabled by default for testnet
-#if(DEBUG_MESSAGES_IN_RELEASE_MODE)
-    target_compile_definitions(beam INTERFACE -DDEBUG_MESSAGES_IN_RELEASE_MODE)
-    add_definitions(-DDEBUG_MESSAGES_IN_RELEASE_MODE)
-#endif()
-#it's enabled by default for testnet
 if(NOT EMSCRIPTEN)
     add_definitions(-DLOG_VERBOSE_ENABLED=1)
 else()
@@ -167,46 +156,6 @@ endif()
 if(SHOW_CODE_LOCATION)
     target_compile_definitions(beam INTERFACE -DSHOW_CODE_LOCATION=1)
     add_definitions(-DSHOW_CODE_LOCATION=1)
-endif()
-
-option(SWAP_MAINNET "Use mainnet blockchain when perform atomic swaps" FALSE)
-
-# uncomment next line for testnet
-#set(BEAM_TESTNET TRUE CACHE INTERNAL "")
-# uncomment next line for mainnet
-#set(BEAM_MAINNET TRUE CACHE INTERNAL "")
-# uncomment next line for mainnet
-#set(BEAM_DAPPNET TRUE CACHE INTERNAL "")
-
-# uncomment next line for swap mainnet
-#set(SWAP_MAINNET TRUE)
-
-if(BEAM_TESTNET)
-    target_compile_definitions(beam INTERFACE -DBEAM_TESTNET)
-    add_definitions(-DBEAM_TESTNET)
-    set(BEAM_SUFFIX_LOWER_CASE "testnet" CACHE INTERNAL "")
-    set(BEAM_SUFFIX_UPPER_CASE "Testnet" CACHE INTERNAL "")
-    set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}" CACHE INTERNAL "")
-    set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}" CACHE INTERNAL "")
-elseif(BEAM_DAPPNET)
-    target_compile_definitions(beam INTERFACE -DBEAM_DAPPNET)
-    add_definitions(-DBEAM_DAPPNET)
-    set(BEAM_SUFFIX_LOWER_CASE "dappnet" CACHE INTERNAL "")
-    set(BEAM_SUFFIX_UPPER_CASE "Dappnet" CACHE INTERNAL "")
-    set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}" CACHE INTERNAL "")
-    set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}" CACHE INTERNAL "")
-elseif(BEAM_MAINNET)
-    target_compile_definitions(beam INTERFACE -DBEAM_MAINNET)
-    add_definitions(-DBEAM_MAINNET)
-    set(BEAM_SUFFIX_LOWER_CASE "" CACHE INTERNAL "")
-    set(BEAM_SUFFIX_UPPER_CASE "" CACHE INTERNAL "")
-    set(BEAM_TARGET_SUFFIX "" CACHE INTERNAL "")
-    set(BEAM_DISPLAY_SUFFIX "" CACHE INTERNAL "")
-endif()
-
-if(SWAP_MAINNET)
-    message("SWAP_MAINNET")
-    add_definitions(-DSWAP_MAINNET)
 endif()
 
 option(BEAM_ATOMIC_SWAP_SUPPORT "Build wallet with atomic swap support" ON)
@@ -331,6 +280,12 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function") # mostly in 3rd-party libs
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-value") # proto.h
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nonnull") # yas
+    if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "AppleClang|Clang")
+        if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 14 OR CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 14)
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unqualified-std-cast-call") # osx 13.3 clang 14 3rdparty/libbitcoin
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-but-set-variable") # osx 13.3 clang 14 core/merkle.cpp
+        endif()
+    endif()
 endif()
 
 if(BEAM_HW_WALLET)

@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+table, th, td {
+  border: 1px solid black;
+  border-collapse: collapse;
+}
+.collapsible {
+  background-color: #777;
+  color: white;
+  cursor: pointer;
+  padding: 18px;
+  width: 100%;
+  border: none;
+  text-align: left;
+  outline: none;
+  font-size: 15px;
+}
+
+.collapsible:hover {
+  background-color: #555;
+}
+</style>
+</head>
+
+<body>
+
+<p id="my_content">loading...</p>
+
+<script>
+
+	function MakeRef(link, text)
+	{
+		return "<a href=\"" + link + "\">" + text + "</a>";
+	}
+
+	function UrlSelf(type, extra)
+	{
+		return window.location.pathname + "?type=" + type + extra;
+	}
+
+	function UrlSelfWithID(type, id, extra)
+	{
+		return UrlSelf(type, "&id=" + id + extra);
+	}
+
+	function MakeCellEx(text, styles)
+	{
+		return "<td" + styles + ">" + text + "</td>";
+	}
+
+	function MakeCell(text)
+	{
+		return MakeCellEx(text, "");
+	}
+
+	function MakeCellRA(text, styles)
+	{
+		return MakeCellEx(text, " align=\"right\"");
+	}
+	
+	function MakeAmountClr(amount)
+	{
+		if (!amount)
+			return "";
+
+		let clr = "green";
+		if (amount[0] == '-')
+			clr = "blue";
+		return "<tt style=\"color:" + clr + "\">" + amount + "</tt>";
+	}
+
+	function MakeMonospace(txt)
+	{
+		return "<tt>" + txt + "</tt>";
+	}
+
+	function MakeBlock(h)
+	{
+		return MakeRef(UrlSelfWithID("block", h, ""), MakeMonospace(h));
+	}
+
+	function MakeCellAmount(amount, extra)
+	{
+		return MakeCellRA(MakeAmountClr(amount), extra);
+	}
+
+	function MakeAsset(aid)
+	{
+		if (aid == 0)
+			return "Beam";
+		return MakeRef(UrlSelfWithID("aid", aid, ""), "Asset-" + aid);
+	}
+	
+	function MakeCid(cid)
+	{
+		return MakeRef(UrlSelfWithID("contract", cid, ""), MakeMonospace(cid));
+	}
+		
+	function MakeFundsTbl(jFunds)
+	{
+		if (!jFunds)
+			return "";
+
+		let text = "<table style=\"width:100%\">";
+		for (let iF = 0; iF < jFunds.length; iF++)
+		{
+			const jFR = jFunds[iF];
+			text += "<tr>";
+			text += MakeCell(MakeAsset(jFR[0]["value"]));
+			text += MakeCellAmount(jFR[1]["value"], "");
+			text += "</tr>"
+		}
+		text += "</table>";
+		return text;
+	}
+	
+	function Obj2Html_TableRows(jTbl)
+	{
+		let text = "";
+		for (let iRow = 0; iRow < jTbl.length; iRow++)
+		{
+			const jRow = jTbl[iRow];
+			
+			if (jRow.type == "group")
+				text += Obj2Html_TableRows(jRow.value);
+			else
+			{
+				text += "<tr>";
+				
+				for (let iCol = 0; iCol < jRow.length; iCol++)
+				{
+					text += "<td align=\"right\">";
+					text += Obj2Html(jRow[iCol]);
+					text += "</td>";
+				}
+
+				text += "</tr>";
+			}
+		}
+		
+		return text;
+	}
+	
+	function Obj2HtmlSpecial(obj)
+	{
+		//console.log(JSON.stringify(obj))
+	
+		if (obj.type == "cid")
+			return MakeCid(obj.value);
+
+		if (obj.type == "th")
+			return "<p>" + Obj2Html(obj.value) + "</p>";
+
+		if (obj.type == "amount")
+			return MakeAmountClr(obj.value);
+
+		if (obj.type == "table")
+		{
+			const jTbl = obj.value;
+			let text = "<table style=\"width:100%\" align=\"right\">";
+			
+			text += Obj2Html_TableRows(jTbl);
+			
+			text += "</table>";
+			
+			return text;
+
+		}
+		
+		if (obj.type == "aid")
+			return MakeAsset(obj.value);
+
+		if (obj.type == "height")
+			return MakeBlock(obj.value);
+
+		if (obj.type == "blob")
+			return MakeMonospace(obj.value);
+
+		if (obj.type == "bool")
+			return (obj.value > 0) ? "yes" : "no";
+
+		if (obj.type == "time")
+		{
+			let d = new Date(obj.value * 1000);
+			let txt = d.toISOString().split('T');
+			return txt[0] + ' ' + txt[1].split('.')[0];
+		}
+
+		return "";
+	}
+
+	function Obj2Html(obj)
+	{
+		if (!obj)
+			return "";
+			
+		if (Array.isArray(obj))
+		{
+			let txt = "<ul>";
+			for (let i = 0; i < obj.length; i++)
+			{
+				txt += "<li>";
+				txt += Obj2Html(obj[i]);
+				txt += "</li>";
+			}
+			
+			txt += "</ul>";
+			return txt;
+		
+		}
+
+		if (typeof obj == 'object')
+		{
+			let txt = Obj2HtmlSpecial(obj);
+			if (txt != "")
+				return txt;
+		
+			txt = "<ul>";
+			for (let key in obj)
+			{
+				txt += "<li>" + key + ": ";
+				txt += Obj2Html(obj[key]);
+				txt += "</li>";
+			}
+			
+			txt += "</ul>";
+			return txt;
+		}
+			
+		return obj;
+	}
+	
+	function SetContent(text)
+	{
+		document.getElementById("my_content").innerHTML = text;
+		
+		var coll = document.getElementsByClassName("collapsible");
+
+		for (let i = 0; i < coll.length; i++) {
+		  coll[i].addEventListener("click", ToggleCollapsible);
+		}
+	}
+	
+	let g_CurrentID = "";
+
+
+	function DisplayContracts()
+	{
+		let text = "\
+<h2>List of all deployed contracts</h2>\n\
+<table>\n\
+	<th>Cid</th>\n\
+	<th>Kind</th>\n\
+	<th>Deploy Height</th>\n\
+	<th>Locked Funds</th>\n\
+	<th>Owned Assets</th>\n\
+";
+
+		const jData = JSON.parse(this.responseText);
+		const jTbl = jData["value"];
+		
+		// skip 1st row
+		for (let iRow = 1; iRow < jTbl.length; iRow++)
+		{
+			const jRow = jTbl[iRow];
+			text += "<tr>";
+
+			const cid = jRow[0]["value"];
+			text += MakeCell(MakeCid(cid));
+			text += MakeCell(Obj2Html(jRow[1]));
+			text += MakeCellRA(MakeBlock(jRow[2]));
+
+			text += MakeCell(MakeFundsTbl(jRow[3]["value"]));
+
+			text += "<td>";
+			
+			const jOwned = jRow[4]["value"];
+			if (jOwned)
+			{
+				text += "<table style=\"width:100%\">";
+				for (let iF = 0; iF < jOwned.length; iF++)
+				{
+					const jFR = jOwned[iF];
+					text += "<tr>";
+					text += MakeCellEx(MakeAsset(jFR[0]["value"]), " style=\"width:10%\"");
+					text += MakeCell(jFR[1]);
+					text += MakeCellAmount(jFR[2]["value"], " style=\"width:40%\"");
+					text += "</tr>"
+				}
+				text += "</table>";
+			
+			}
+
+			text += "</td>";
+			text += "</tr>\n"
+		
+		}
+		
+	
+		text += "</table>"    
+		SetContent(text);
+	}
+
+
+	function DisplayAssetHistory()
+	{
+		let text = "\
+<h2>Asset " + g_CurrentID + " history</h2>\n\
+<table>\n\
+	<th>Height</th>\n\
+	<th>Event</th>\n\
+	<th>Amount</th>\n\
+	<th>Total Amount</th>\n\
+	<th>Extra</th>\n\
+";
+
+		const jData = JSON.parse(this.responseText);
+		const jTblObj = jData["Asset history"];
+		const jTbl = jTblObj["value"];
+		
+		// skip 1st row
+		for (let iRow = 1; iRow < jTbl.length; iRow++)
+		{
+			const jRow = jTbl[iRow];
+			text += "<tr>";
+
+			text += MakeCell(MakeBlock(jRow[0]));
+			text += MakeCell(jRow[1]);
+			text += MakeCellAmount(jRow[2]["value"], "");
+			text += MakeCellAmount(jRow[3]["value"], "");
+			text += MakeCell(Obj2Html(jRow[4]));
+			text += "</tr>";
+		}
+		
+	
+		text += "</table>"    
+		text += MakeMoreLink(jTblObj);
+		SetContent(text);
+	}
+	
+	function MakeTableTxos(jTbl, isInp)
+	{
+		let text = "\
+<table>\n\
+	<th>Commitment</th>\n";
+	
+	if (isInp)
+		text += "<th>Height</th>\n";
+	else
+		text += "<th>Spent</th>\n";
+	
+	text += "\
+	<th>Maturity</th>\n\
+	<th>Extra</th>\n\
+";
+
+		for (let i = 0; i < jTbl.length; i++)
+		{
+			let jRow = jTbl[i];
+			text += "<tr>";
+
+			text += MakeCell(MakeMonospace(jRow["commitment"]));
+			delete jRow.commitment;
+	
+			let j = jRow[isInp ? "height" : "spent"];
+	
+			if (j != null)
+			{
+				text += MakeCell(MakeBlock(j));
+				delete jRow.height;
+			}
+			else
+				text += MakeCell("");
+
+			j = jRow["Maturity"];
+			if (j)
+			{
+				text += MakeCell(Obj2Html(j));
+				delete jRow.Maturity;
+			}
+			else
+				text += MakeCell("");
+				
+			let txtExtra = "";
+	
+			j = jRow["Asset"];
+			if (j)
+			{
+				txtExtra += " CA [" + j["min"] + "-" + j["max"] + "]";
+				delete jRow.Asset;
+			}
+				
+			j = jRow["type"];
+			if (j)
+			{
+				txtExtra += " " + Obj2Html(j);
+				delete jRow.type;
+			}
+
+			j = jRow["Value"];
+			if (j)
+			{
+				txtExtra += " " + Obj2Html(j);
+				delete jRow.Value;
+			}
+
+			//text += MakeCell(txtExtra + Obj2Html(jRow));
+			text += MakeCell(txtExtra);
+			
+			text += "</tr>";
+		}
+		text += "</table>"
+		return text;
+	}
+
+	function DisplayBlock()
+	{
+		let text = "";
+		const jData = JSON.parse(this.responseText);
+
+		let j = jData["info"];
+		if (j)
+		{
+			text += MakeCollapsibleBegin("Block Summary");
+			text += "<table>";
+			text += Obj2Html_TableRows(j["value"]);
+			text += "</table>";
+		
+			text += MakeCollapsibleEnd();
+		}
+
+		text += MakeCollapsibleBegin("Block contents");
+	
+		j = jData["inputs"];
+		if (j)
+		{
+			text += "<h3>Inputs</h3>\n";
+			text += MakeTableTxos(j, true);
+		}
+
+		j = jData["outputs"];
+		if (j)
+		{
+			text += "<h3>Outputs</h3>\n";
+			text += MakeTableTxos(j, false);
+		}
+
+		let jTbl = jData["kernels"];
+		if (jTbl)
+		{
+		
+			text += "<h3>Kernels</h3>\n";
+
+			text += "\
+<table>\n\
+	<th>ID</th>\n\
+	<th>Fee</th>\n\
+	<th>Height</th>\n\
+	<th>Extra</th>\n\
+";
+
+		
+			for (let i = 0; i < jTbl.length; i++)
+			{
+				let jRow = jTbl[i];
+				text += "<tr>";
+
+				text += MakeCell(MakeMonospace(jRow["id"]));
+				text += MakeCellRA(Obj2Html(jRow["fee"]));
+			
+				let txtH = "";
+				let jH = jRow["minHeight"];
+				if (jH)
+				{
+					txtH = MakeBlock(jH);
+					delete jRow.minHeight;
+				}
+				else
+					txtH = "*";
+				
+				txtH += "-";
+
+				jH = jRow["maxHeight"];
+				if (jH)
+				{
+					txtH += MakeBlock(jH);
+					delete jRow.maxHeight;
+				}
+				else
+					txtH += "*";
+
+				text += MakeCell(txtH);
+			
+				delete jRow.id;
+				delete jRow.fee;
+				text += MakeCell(Obj2Html(jRow));
+			
+				text += "</tr>";
+			}
+			text += "</table>"
+
+		}
+
+		text += MakeCollapsibleEnd();
+
+		j = jData["assets"];
+		if (j)
+		{
+			text += MakeCollapsibleBegin("Assets state");
+		
+			text += "\
+<table>\n\
+	<th>Aid</th>\n\
+	<th>Owner</th>\n\
+	<th>Deposit</th>\n\
+	<th>Supply</th>\n\
+	<th>Lock-Height</th>\n\
+	<th>Metadata</th>\n\
+";
+
+			jTbl = j["value"];
+		
+			// skip 1st row
+			for (let iRow = 1; iRow < jTbl.length; iRow++)
+			{
+				const jRow = jTbl[iRow];
+				text += "<tr>";
+
+				text += MakeCell(MakeAsset(jRow[0]["value"]));
+				text += MakeCell(Obj2Html(jRow[1]));
+				text += MakeCellAmount(jRow[2]["value"]);
+				text += MakeCellAmount(jRow[3]["value"]);
+				text += MakeCell(MakeBlock(jRow[4]));
+				text += MakeCell(Obj2Html(jRow[5]));
+			
+				text += "</tr>";
+			}
+		
+	
+			text += "</table>"
+	
+			text += MakeCollapsibleEnd();
+		}
+
+		SetContent(text);
+	}
+	
+	function get_CallRows(jRow)
+	{
+		if (jRow["type"] != "group")
+			return 1;
+
+		const jInner = jRow["value"];
+		let retVal = 0;
+		
+		for (let i = 0; i < jInner.length; i++)
+			retVal += get_CallRows(jInner[i]);
+
+		return retVal;
+	}
+
+	function CallHistoryAddRow(jRow, depth, numRows)
+	{
+		let text = "";
+		
+		if (jRow["type"] == "group")
+		{
+			const jInner = jRow["value"];
+			
+			for (let i = 0; i < jInner.length; i++)
+			{
+				text += CallHistoryAddRow(jInner[i], depth, numRows);
+				if (!i)
+					depth++;
+			}
+			
+		}
+		else
+		{
+			text += "<tr>";
+			
+			if (depth == 0)
+				text += MakeCellEx(MakeBlock(jRow[0]), " rowSpan=" + numRows);
+
+			text += MakeCell(Obj2Html(jRow[1]));
+			text += MakeCell(Obj2Html(jRow[2]));
+			text += MakeCell(Obj2Html(jRow[3]));
+			text += MakeCell(Obj2Html(jRow[4]));
+			text += MakeCell(MakeFundsTbl(jRow[5]["value"]));
+			text += MakeCell(MakeFundsTbl(jRow[6]["value"]));
+			text += MakeCell(Obj2Html(jRow[7]));
+			
+			text += "</tr>";
+		}
+		
+		return text;
+	}
+	
+	function ToggleCollapsible()
+	{
+		//this.classList.toggle("active");
+		var content = this.nextElementSibling;
+		if (content.style.display === "none") {
+		  content.style.display = "block";
+		} else {
+		  content.style.display = "none";
+		}
+	}
+	
+	function MakeCollapsibleBegin(title)
+	{
+		return "<button type=\"button\" class=\"collapsible\">" + title + "</button><div class=\"content\">";
+	}
+	
+	function MakeCollapsibleEnd()
+	{
+		return "</div>";
+	}
+	
+	function MakeMoreLink(jTblObj)
+	{
+		const jMore = jTblObj["more"];
+		if (!jMore)
+			return "";
+			
+		let urlObj = new URL(document.location);
+		let args = urlObj.searchParams;
+		
+		for (let key in jMore)
+			args.set(key, jMore[key]);
+			
+		return "<p>" + MakeRef(urlObj.pathname + "?" + args, "More...") + "</p>";
+	}
+
+	function DisplayContractState()
+	{
+		let text = "\
+<h2>Contract " + MakeMonospace(g_CurrentID) + "</h2>\n";
+
+	text += MakeCollapsibleBegin("Call history") + "\
+<table>\n\
+	<th>Height</th>\n\
+	<th>Cid</th>\n\
+	<th>Kind</th>\n\
+	<th>Method</th>\n\
+	<th>Arguments</th>\n\
+	<th>Funds</th>\n\
+	<th>Emisison</th>\n\
+	<th>Keys</th>\n\
+";
+
+		const jData = JSON.parse(this.responseText);
+		const jTblObj = jData["Calls history"];
+		const jTbl = jTblObj["value"];
+		
+		// skip 1st row
+		for (let iRow = 1; iRow < jTbl.length; iRow++)
+		{
+			text += "<tr><td colspan=99></td></tr>";
+			text += CallHistoryAddRow(jTbl[iRow], 0, get_CallRows(jTbl[iRow]));
+		}
+	
+		text += "</table>";
+		text += MakeMoreLink(jTblObj);
+
+		text += MakeCollapsibleEnd();
+
+		text += MakeCollapsibleBegin("State");
+		text += Obj2Html(jData["State"]);
+		text += MakeCollapsibleEnd();
+
+		text += MakeCollapsibleBegin("Locked Funds");
+		text += Obj2Html(jData["Locked Funds"]);
+		text += MakeCollapsibleEnd();
+		
+		text += MakeCollapsibleBegin("Owned assets");
+		text += Obj2Html(jData["Owned assets"]);
+		text += MakeCollapsibleEnd();
+
+		text += MakeCollapsibleBegin("Version history");
+		text += Obj2Html(jData["Version History"]);
+		text += MakeCollapsibleEnd();
+		
+		SetContent(text);
+	}
+
+	function DisplayHdrs()
+	{
+		const jData = JSON.parse(this.responseText);
+	
+		let text = Obj2Html(jData);
+		text += MakeMoreLink(jData);
+
+		SetContent(text);
+	}
+	
+
+	const args = (new URL(document.location)).searchParams;
+	const type = args.get("type");
+	g_CurrentID = args.get("id");
+	
+	let urlPrefix = "http://localhost:17328/";
+	let urlSuffix = "?exp_am=1";
+	
+	const hMax = args.get("hMax");
+	if (hMax)
+		urlSuffix += "&hMax=" + hMax;
+	
+
+	const xmlhttp = new XMLHttpRequest();
+
+	if (type == "aid")
+	{
+		xmlhttp.onload = DisplayAssetHistory;
+		xmlhttp.open("GET", urlPrefix +  "asset" + urlSuffix + "&id=" + g_CurrentID);
+		xmlhttp.send();
+	}
+	else if (type == "block")
+	{
+		xmlhttp.onload = DisplayBlock;
+		xmlhttp.open("GET", urlPrefix +  "block" + urlSuffix + "&height=" + g_CurrentID);
+		xmlhttp.send();
+	}
+	else if (type == "contract")
+	{
+		xmlhttp.onload = DisplayContractState;
+		xmlhttp.open("GET", urlPrefix +  "contract" + urlSuffix + "&id=" + g_CurrentID);
+		xmlhttp.send();
+	}
+	else if (type == "hdrs")
+	{
+		xmlhttp.onload = DisplayHdrs;
+		xmlhttp.open("GET", urlPrefix +  "hdrs" + urlSuffix);
+		xmlhttp.send();
+	}
+	else
+	{
+		xmlhttp.onload = DisplayContracts;
+		xmlhttp.open("GET", urlPrefix +  "contracts" + urlSuffix);
+		xmlhttp.send();
+	}
+
+</script>
+
+</body>
+</html>

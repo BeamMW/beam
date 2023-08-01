@@ -23,6 +23,9 @@ set(SOURCES
     v7_3/v7_3_api.cpp
     v7_3/v7_3_api_handle.cpp
     v7_3/v7_3_api_parse.cpp
+    v7_4/v7_4_api.cpp
+    v7_4/v7_4_api_handle.cpp
+    v7_4/v7_4_api_parse.cpp
 )
 
 add_library(wallet_api STATIC
@@ -75,7 +78,7 @@ if(BEAM_ASSET_SWAP_SUPPORT)
 endif()
 
 if (NOT BEAM_WALLET_CLIENT_LIBRARY)
-    set(WALLET_API_NAME wallet-api${BEAM_TARGET_SUFFIX})
+    set(WALLET_API_NAME wallet-api)
 
     add_executable(${WALLET_API_NAME} cli/api_cli.cpp)
     

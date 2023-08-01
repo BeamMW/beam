@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "common.h"
+#include "../../common.h"
 
 #include "bitcoin/bitcoin.hpp"
 
@@ -29,20 +30,16 @@ namespace beam::litecoin
 
     uint8_t getAddressVersion()
     {
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-        return kLitecoinMainnetP2KH;
-#else
-
-        return libbitcoin::wallet::ec_private::testnet_p2kh;
-#endif
+        return wallet::UseMainnetSwap() ?
+            kLitecoinMainnetP2KH :
+            libbitcoin::wallet::ec_private::testnet_p2kh;
     }
 
     std::vector<std::string> getGenesisBlockHashes()
     {
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-        return { kMainnetGenesisBlockHash };
-#else
+        if (wallet::UseMainnetSwap())
+            return { kMainnetGenesisBlockHash };
+
         return { kTestnetGenesisBlockHash , kRegtestGenesisBlockHash };
-#endif
     }
 } // namespace beam::litecoin

@@ -40,13 +40,13 @@
 
 #include <ethash/keccak.hpp>
 
-#include "secp256k1-zkp/include/secp256k1_rangeproof.h" // For benchmark comparison with secp256k1
-#include "secp256k1-zkp/src/group_impl.h"
-#include "secp256k1-zkp/src/scalar_impl.h"
-#include "secp256k1-zkp/src/field_impl.h"
-#include "secp256k1-zkp/src/hash_impl.h"
-#include "secp256k1-zkp/src/ecmult.h"
-#include "secp256k1-zkp/src/ecmult_gen_impl.h"
+#include "secp256k1/src/group_impl.h"
+#include "secp256k1/src/scalar_impl.h"
+#include "secp256k1/src/field_impl.h"
+#include "secp256k1/src/hash_impl.h"
+#include "secp256k1/src/ecmult.h"
+#include "secp256k1/src/ecmult_gen_impl.h"
+#include "secp256k1/src/int128_impl.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic pop
@@ -57,7 +57,6 @@
 
 // Needed for test
 struct secp256k1_context_struct {
-    secp256k1_ecmult_context ecmult_ctx;
     secp256k1_ecmult_gen_context ecmult_gen_ctx;
     secp256k1_callback illegal_callback;
     secp256k1_callback error_callback;
@@ -2772,19 +2771,6 @@ void RunBenchmark()
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
 				GenRandom(pBuf, sizeof(pBuf));
-
-		} while (bm.ShouldContinue());
-	}
-
-
-	{
-		secp256k1_pedersen_commitment comm2;
-
-		BenchmarkMeter bm("secp256k1.Commit");
-		do
-		{
-			for (uint32_t i = 0; i < bm.N; i++)
-				(void) secp256k1_pedersen_commit(g_psecp256k1, &comm2, k_.m_Value.m_pData, 78945, secp256k1_generator_h);
 
 		} while (bm.ShouldContinue());
 	}

@@ -89,57 +89,62 @@ void testAddress()
     io::Reactor::Scope scope(*mainReactor);
     bitcoin::Electrum electrum(*mainReactor, *provider);
 
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-    std::set<std::string> addresses
+    std::set<std::string> addresses;
+
+    if (wallet::UseMainnetSwap())
     {
-        "16AW2aVqy2gva1hxdtF4xhoSrTQTbGSNvM",
-        "1HC9pxNaEHSFWgsiHUDUM3QRETNqBmSQQ9",
-        "13V8K8wnLnLfiYaD3JHxTHg2SVTzdJyhgs",
-        "1gJnvfcWt9W7sboLWW15yDUzd3idFUUvp",
-        "1NGH4WK29VnNdPBJVyS6hx1t9z8Dtx1mUW",
-        "1BuUxbUAn84q4bM3uf2k2zDZZ7bzwRP3Hh",
-        "1KHdjosUP69aExUMqqq6CLH77bdR5oRoHS",
-        "1DFnVotGE4pMv1LiPfw6XQptEqWeYqgzPy",
-        "19LLcmPxnFiH7SrsgVXG5M7qWASEQ6cKNh",
-        "1MUJs4zcrDpo1UuTMLGTViHDLbhcd66oNK",
-        "1Q9RKPvseVrYebiehuXBfsZsrsdMRu6b9y",
-        "1HeTXHuqiugtF4gPwLEKQFeT2VQVqa7FsW",
-        "12H7k6V9wH4unyFqfUZ6s7pyaNXQQAH7fD",
-        "18wjL1B6KNkBaHj8F8w2nnyKTuHrWPoNpC",
-        "1KJH4e8Dwvq9CqKB2zFoUsH7tnkB8D7Wos",
-        "1N38b6D4mC9R4R9SZztyvbV97uKPfiPpvp",
-        "13oWcAxFsHW1n81gj7BVAM1x7qiqhvnjhp",
-        "1H4u6j8yZ49FS1Ft2nvXRpRKhWzaJTcCHD",
-        "1Lw1ec2Q2KsT2VcV8sXdsr3bjwkaokPE6U",
-        "1Ei6D8SRSZ7w4MgDpZsGSvpqcejjqw2ewU",
-        "1LjTVPhMx51QUPjUY9aVL2WgNhRzZERHZw",
-};
-#else
-    std::set<std::string> addresses
+        addresses =
+        {
+            "16AW2aVqy2gva1hxdtF4xhoSrTQTbGSNvM",
+            "1HC9pxNaEHSFWgsiHUDUM3QRETNqBmSQQ9",
+            "13V8K8wnLnLfiYaD3JHxTHg2SVTzdJyhgs",
+            "1gJnvfcWt9W7sboLWW15yDUzd3idFUUvp",
+            "1NGH4WK29VnNdPBJVyS6hx1t9z8Dtx1mUW",
+            "1BuUxbUAn84q4bM3uf2k2zDZZ7bzwRP3Hh",
+            "1KHdjosUP69aExUMqqq6CLH77bdR5oRoHS",
+            "1DFnVotGE4pMv1LiPfw6XQptEqWeYqgzPy",
+            "19LLcmPxnFiH7SrsgVXG5M7qWASEQ6cKNh",
+            "1MUJs4zcrDpo1UuTMLGTViHDLbhcd66oNK",
+            "1Q9RKPvseVrYebiehuXBfsZsrsdMRu6b9y",
+            "1HeTXHuqiugtF4gPwLEKQFeT2VQVqa7FsW",
+            "12H7k6V9wH4unyFqfUZ6s7pyaNXQQAH7fD",
+            "18wjL1B6KNkBaHj8F8w2nnyKTuHrWPoNpC",
+            "1KJH4e8Dwvq9CqKB2zFoUsH7tnkB8D7Wos",
+            "1N38b6D4mC9R4R9SZztyvbV97uKPfiPpvp",
+            "13oWcAxFsHW1n81gj7BVAM1x7qiqhvnjhp",
+            "1H4u6j8yZ49FS1Ft2nvXRpRKhWzaJTcCHD",
+            "1Lw1ec2Q2KsT2VcV8sXdsr3bjwkaokPE6U",
+            "1Ei6D8SRSZ7w4MgDpZsGSvpqcejjqw2ewU",
+            "1LjTVPhMx51QUPjUY9aVL2WgNhRzZERHZw",
+        };
+    }
+    else
     {
-        "mkgTKdapn48BM8BaMTDSnd1miT1AZSjV7P",
-        "mwi781TZ3JsWHoML13BrAxck6SyY2vxW55",
-        "mi15cC2m9omvVf3pksGLHCtMJV4hWNi4B8",
-        "mgCG5ykbKuaktz5R45UNutRorceRdr4hqi",
-        "n2nEMZPzxXDdQVevDYQUXsED1yivmK7bqw",
-        "mrRSFeZ9b9W5qhpfdE17ruRtR7ChtfzfvH",
-        "myob2rxTC7aq24wyZQoU2FVRybE84CMABE",
-        "msmjnryF36Fch7pL7EuUML3D6q7MUKRu68",
-        "morHupUwbH9XtZLVQ4VduGLANA2wK1sX2M",
-        "n1zGA85bfFG3nbP54uEqKdVYCbJKXwufM2",
-        "n4fNcT1rTXHoRiCGRUVZVnnCisE4Ncgeqf",
-        "mxAQpLzpXw892BA1euChEArmtV1ChKr8CC",
-        "mgo539a8kJWAa5jTP3XUh33JSN87DyMJEV",
-        "moTgd4G58QBSMQCjxhuQciBeKttZQ9WyLh",
-        "mypEMhDCkxGPywnnkZEBJnVSknLt2DymJT",
-        "n2Z5t9J3aDafqXd4HZsMkWhTytv6gqdYpF",
-        "miKTuE3EgJwGZEVJSg9rzGEGyqKYafoxHo",
-        "mwarPnDxN5aWD7jVkMtuFjdeZWbHDDoZi4",
-        "n1Sxwf7NqMJhoc66rSW1hmFvbwMHkzCPhe",
-        "muE3WBXQFaZBqU9qY8qeGr3AUeLSoYwJyx",
-        "n1FQnSnLm6SfFWD6FiYs9wj1Eh2hYNYNRJ"
-    };
-#endif
+        addresses =
+        {
+            "mkgTKdapn48BM8BaMTDSnd1miT1AZSjV7P",
+            "mwi781TZ3JsWHoML13BrAxck6SyY2vxW55",
+            "mi15cC2m9omvVf3pksGLHCtMJV4hWNi4B8",
+            "mgCG5ykbKuaktz5R45UNutRorceRdr4hqi",
+            "n2nEMZPzxXDdQVevDYQUXsED1yivmK7bqw",
+            "mrRSFeZ9b9W5qhpfdE17ruRtR7ChtfzfvH",
+            "myob2rxTC7aq24wyZQoU2FVRybE84CMABE",
+            "msmjnryF36Fch7pL7EuUML3D6q7MUKRu68",
+            "morHupUwbH9XtZLVQ4VduGLANA2wK1sX2M",
+            "n1zGA85bfFG3nbP54uEqKdVYCbJKXwufM2",
+            "n4fNcT1rTXHoRiCGRUVZVnnCisE4Ncgeqf",
+            "mxAQpLzpXw892BA1euChEArmtV1ChKr8CC",
+            "mgo539a8kJWAa5jTP3XUh33JSN87DyMJEV",
+            "moTgd4G58QBSMQCjxhuQciBeKttZQ9WyLh",
+            "mypEMhDCkxGPywnnkZEBJnVSknLt2DymJT",
+            "n2Z5t9J3aDafqXd4HZsMkWhTytv6gqdYpF",
+            "miKTuE3EgJwGZEVJSg9rzGEGyqKYafoxHo",
+            "mwarPnDxN5aWD7jVkMtuFjdeZWbHDDoZi4",
+            "n1Sxwf7NqMJhoc66rSW1hmFvbwMHkzCPhe",
+            "muE3WBXQFaZBqU9qY8qeGr3AUeLSoYwJyx",
+            "n1FQnSnLm6SfFWD6FiYs9wj1Eh2hYNYNRJ"
+        };
+    }
 
     for (int i = 0; i < 30; i++)
     {

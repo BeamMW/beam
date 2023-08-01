@@ -1410,7 +1410,7 @@ namespace bvm2 {
 
 			void AddTotals(Amount& vSell, Amount& vBuy) const
 			{
-				for (const auto x : m_Data)
+				for (const auto& x : m_Data)
 					AddTotals1(vSell, vBuy, x.second);
 			}
 

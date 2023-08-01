@@ -8,7 +8,7 @@ add_library(pbkdf STATIC
    crypto/keccak256.c
 )
 
-add_subdirectory(secp256k1-zkp)
+add_subdirectory(secp256k1)
 add_subdirectory(ethash)
 if (BEAM_ATOMIC_SWAP_SUPPORT)
     add_subdirectory(libbitcoin)

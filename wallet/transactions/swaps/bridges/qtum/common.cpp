@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "common.h"
+#include "../../common.h"
 #include <bitcoin/bitcoin.hpp>
 
 namespace
@@ -37,38 +38,33 @@ namespace beam::qtum
 
     uint8_t getAddressVersion()
     {
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-        return kQtumMainnetP2KH;
-#else
-        return kQtumTestnetP2KH;
-#endif
+        return wallet::UseMainnetSwap() ?
+            kQtumMainnetP2KH :
+            kQtumTestnetP2KH;
     }
 
     std::vector<std::string> getGenesisBlockHashes()
     {
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-        return { kMainnetGenesisBlockHash };
-#else
+        if (wallet::UseMainnetSwap())
+            return { kMainnetGenesisBlockHash };
+
         return { kTestnetGenesisBlockHash , kRegtestGenesisBlockHash };
-#endif
     }
 
     std::pair<libbitcoin::wallet::hd_private, libbitcoin::wallet::hd_private> generateElectrumMasterPrivateKeys(const std::vector<std::string>& words)
     {
         auto seed = libbitcoin::wallet::decode_mnemonic(words);
         libbitcoin::data_chunk seed_chunk(libbitcoin::to_chunk(seed));
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-        libbitcoin::wallet::hd_private privateKey(seed_chunk, libbitcoin::wallet::hd_public::mainnet);
-#else
-        libbitcoin::wallet::hd_private privateKey(seed_chunk, libbitcoin::wallet::hd_public::testnet);
-#endif
+
+        libbitcoin::wallet::hd_private privateKey(seed_chunk, wallet::UseMainnetSwap() ?libbitcoin::wallet::hd_public::mainnet : libbitcoin::wallet::hd_public::testnet);
 
         privateKey = ProcessHDPrivate(privateKey, 44);
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-        privateKey = ProcessHDPrivate(privateKey, 88);
-#else
-        privateKey = ProcessHDPrivate(privateKey, 1);
-#endif
+
+        if (wallet::UseMainnetSwap())
+            privateKey = ProcessHDPrivate(privateKey, 88);
+        else
+            privateKey = ProcessHDPrivate(privateKey, 1);
+
         privateKey = ProcessHDPrivate(privateKey, 0);
         
         return std::make_pair(privateKey.derive_private(0), privateKey.derive_private(1));

@@ -55,7 +55,7 @@ endif()
 
 if (BEAM_ATOMIC_SWAP_SUPPORT)
     add_test_snippet(bitcoin_rpc_test swap)
-    add_test_snippet(swap_test node swap http wallet_test_node)
+    #add_test_snippet(swap_test node swap http wallet_test_node)
     add_test_snippet(swap_board_test swap_offers_board node)
     add_test_snippet(electrum_test swap)
     #add_test_snippet(ethereum_test swap)

@@ -98,8 +98,11 @@ namespace beam
         extern const char* KEY_OWNER;  // deprecated
         extern const char* OWNER_KEY;
         extern const char* KEY_MINE;  // deprecated
+        extern const char* MULTI_OWNER_KEYS;
+        extern const char* MULTI_PASSES;
         extern const char* MINER_KEY;
         extern const char* MINER_JOB_LATENCY;
+        extern const char* MINE_ONLINE;
         extern const char* BBS_ENABLE;
         extern const char* NEW_ADDRESS;
         extern const char* GET_ADDRESS;
@@ -477,4 +480,6 @@ namespace beam
 
     bool read_wallet_pass(SecString& pass, const po::variables_map& vm);
     bool confirm_wallet_pass(const SecString& pass);
+
+    void read_password(const char* prompt, beam::SecString& out);
 }

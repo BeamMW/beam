@@ -255,6 +255,25 @@ private:
 	Node* m_pNode;
 };
 
+template <typename TKey>
+std::shared_ptr<TKey> ImportKey_T(std::string& sKey, KeyString& ks)
+{
+	ks.m_sRes = std::move(sKey);
+	std::shared_ptr<TKey> pKdf = std::make_shared<TKey>();
+	if (!ks.Import(*pKdf))
+		throw std::runtime_error("key import failed");
+
+	return pKdf;
+}
+
+
+std::shared_ptr<HKdfPub> ImportPKeyStrict(std::string& sKey, const Blob& pass)
+{
+	KeyString ks;
+	ks.SetPassword(pass);
+	return ImportKey_T<HKdfPub>(sKey, ks);
+}
+
 int main(int argc, char* argv[])
 {
 	beam::Crash::InstallHandler(NULL);
@@ -403,30 +422,54 @@ int main(int argc, char* argv[])
 
 						if (!sKeyMine.empty())
 						{
-							ks.m_sRes = move(sKeyMine);
-
-							std::shared_ptr<HKdf> pKdf = std::make_shared<HKdf>();
-							if (!ks.Import(*pKdf))
-								throw std::runtime_error("miner key import failed");
-
-							node.m_Keys.m_pMiner = pKdf;
+							node.m_Keys.m_pMiner = ImportKey_T<HKdf>(sKeyMine, ks);
 							node.m_Keys.m_nMinerSubIndex = atoi(ks.m_sMeta.c_str());
 						}
 
 						if (!sKeyOwner.empty())
+							node.m_Keys.m_pOwner = ImportKey_T<HKdfPub>(sKeyOwner, ks);
+					}
+
+					if (vm.count(cli::MULTI_OWNER_KEYS))
+					{
+						auto vKeys = vm[cli::MULTI_OWNER_KEYS].as<std::vector<std::string> >();
+						assert(vKeys.empty());
+
+						auto& vRes = node.m_Keys.m_vExtraOwners; // alias
+						assert(vRes.empty());
+
+						std::vector<std::string> vPasses;
+						if (vm.count(cli::MULTI_PASSES))
+							vPasses = vm[cli::MULTI_PASSES].as<std::vector<std::string> >();
+
+						vPasses.resize(vKeys.size()); // ignore redundant, add empty for missing
+
+						while (vRes.size() < vKeys.size())
 						{
-							ks.m_sRes = move(sKeyOwner);
+							auto& sPass = vPasses[vRes.size()];
+							SecString ssPass;
+							Blob blob;
 
-							std::shared_ptr<HKdfPub> pKdf = std::make_shared<HKdfPub>();
-							if (!ks.Import(*pKdf))
-								throw std::runtime_error("view key import failed");
+							if (sPass.empty())
+							{
+								std::ostringstream osPrompt;
+								osPrompt << "Enter password for extra key " << vRes.size() << ": ";
 
-							node.m_Keys.m_pOwner = pKdf;
+								read_password(osPrompt.str().c_str(), ssPass);
+								blob = Blob(ssPass.data(), (uint32_t) ssPass.size());
+							}
+							else
+								blob = Blob(sPass.c_str(), (uint32_t) sPass.size());
+
+							vRes.push_back(ImportPKeyStrict(vKeys[vRes.size()], blob));
 						}
 					}
 
 					if (vm.count(cli::MINER_JOB_LATENCY))
 						node.m_Cfg.m_Timeout.m_MiningSoftRestart_ms = vm[cli::MINER_JOB_LATENCY].as<uint32_t>();
+
+					if (vm.count(cli::MINE_ONLINE))
+						node.m_Cfg.m_PreferOnlineMining = vm[cli::MINE_ONLINE].as<bool>();
 
 					std::vector<std::string> vPeers = getCfgPeers(vm);
 

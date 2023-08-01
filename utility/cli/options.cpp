@@ -60,66 +60,6 @@ namespace
 
 #endif
 
-    void read_password(const char* prompt, beam::SecString& out, bool includeTerminatingZero) {
-        std::cout << prompt;
-
-        size_t maxLen = beam::SecString::MAX_SIZE - 1;
-        unsigned char ch = 0;
-
-#ifdef WIN32
-
-        static const char BACKSPACE = 8;
-        static const char RETURN = 13;
-
-
-        DWORD con_mode;
-        DWORD dwRead;
-        HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
-
-        GetConsoleMode(hIn, &con_mode);
-        SetConsoleMode(hIn, con_mode & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
-
-        while (ReadConsoleA(hIn, &ch, 1, &dwRead, NULL) && ch != RETURN && out.size() < maxLen) {
-            if (ch == BACKSPACE) {
-                if (out.size() > 0) {
-                    std::cout << "\b \b";
-                    out.pop_back();
-                }
-            }
-            else {
-                out.push_back((char)ch);
-                std::cout << '*';
-            }
-        }
-
-        GetConsoleMode(hIn, &con_mode);
-        SetConsoleMode(hIn, con_mode | (ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
-
-#else
-        static const char BACKSPACE = 127;
-        static const char RETURN = 10;
-
-        while ((ch = getch()) != RETURN && out.size() < maxLen)
-        {
-            if (ch == BACKSPACE) {
-                if (out.size() > 0) {
-                    std::cout << "\b \b";
-                    out.pop_back();
-                }
-            }
-            else {
-                out.push_back((char)ch);
-                std::cout << '*';
-            }
-        }
-
-#endif
-
-        if (includeTerminatingZero) {
-            out.push_back('\0');
-        }
-        std::cout << std::endl;
-    }
 }
 
 namespace beam
@@ -195,7 +135,10 @@ namespace beam
         const char* OWNER_KEY = "owner_key";
         const char* KEY_MINE = "key_mine"; // deprecated
         const char* MINER_KEY = "miner_key";
+        const char* MULTI_OWNER_KEYS = "extra_owners";
+        const char* MULTI_PASSES = "extra_pass";
         const char* MINER_JOB_LATENCY = "miner_job_latency";
+        const char* MINE_ONLINE = "mine_online";
         const char* BBS_ENABLE = "bbs_enable";
         const char* NEW_ADDRESS = "new_addr";
         const char* GET_ADDRESS = "get_address";
@@ -402,6 +345,8 @@ namespace beam
 
         const char* ASSETS_SWAP_OFFER_ID = "offer_id";
 #endif  // BEAM_ASSET_SWAP_SUPPORT
+
+        const char* NETWORK = "network";
     }
 
     template <typename T> struct TypeCvt {
@@ -476,7 +421,10 @@ namespace beam
             (cli::MINER_KEY, po::value<string>(), "Standalone miner key")
             (cli::KEY_MINE, po::value<string>(), "Standalone miner key (deprecated)")
             (cli::MINER_JOB_LATENCY, po::value<uint32_t>(), "Minimal latency in milliseconds for miner job update upon transaction pool change")
+            (cli::MINE_ONLINE, po::value<bool>(), "Perfer online mining when owner wallet is conntected")
             (cli::PASS, po::value<string>(), "password for keys")
+            (cli::MULTI_OWNER_KEYS, po::value<vector<string> >(), "Extra Owner keys")
+            (cli::MULTI_PASSES, po::value<vector<string> >(), "Extra Owner key passwords")
             (cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
             (cli::FAST_SYNC, po::value<bool>(), "Fast sync on/off (override horizons)")
             (cli::GENERATE_RECOVERY_PATH, po::value<string>(), "Recovery file to generate immediately after start")
@@ -527,6 +475,7 @@ namespace beam
             (cli::OFFLINE_COUNT, po::value<Positive<uint32_t>>(), "generate offline transaction address with given number of payments")
             (cli::PUBLIC_OFFLINE, po::bool_switch()->default_value(false), "generate an offline public address for donates (less secure, but more convenient)")
             (cli::SEND_OFFLINE, po::bool_switch()->default_value(false), "send an offline payment (offline transaction)")
+            (cli::MINE_ONLINE, po::value<bool>(), "Support online mining when connected to owned miner node")
             (cli::BLOCK_HEIGHT, po::value<Nonnegative<Height>>(), "block height")
             (cli::REQUEST_BODIES, po::value<bool>()->default_value(false), "request and parse block bodies on the wallet side");
 
@@ -796,10 +745,12 @@ namespace beam
         #define Fork5 pForks[5].m_Height
         #define Fork6 pForks[6].m_Height
 
-        #define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
+        #define THE_MACRO(type, name, comment) (#name, po::value<type>(), comment)
 
             po::options_description rules_options("CONFIGURATION RULES");
-            rules_options.add_options() RulesParams(THE_MACRO);
+            rules_options.add_options() 
+                (cli::NETWORK, po::value<std::string>(), "Network consensus parameters")
+                RulesParams(THE_MACRO);
 
         #undef THE_MACRO
 
@@ -852,8 +803,34 @@ namespace beam
 
     void getRulesOptions(po::variables_map& vm)
     {
-        #define THE_MACRO(type, name, comment) TypeCvt<type>::set(Rules::get().name, vm[#name].as<type>());
-                RulesParams(THE_MACRO);
+        auto& r = Rules::get();
+
+        const auto& vProf = vm[cli::NETWORK];
+        if (!vProf.empty())
+        {
+            const std::string& sName = vProf.as<std::string>();
+
+#define THE_MACRO(name) \
+        if (sName == #name) \
+            r.m_Network = Rules::Network::name; \
+        else
+
+            RulesNetworks(THE_MACRO)
+#undef THE_MACRO
+
+                Exc::Fail((std::string("Invalid network: ") + sName).c_str());
+
+            r.SetNetworkParams();
+        }
+
+        #define THE_MACRO(type, name, comment) \
+        { \
+            const auto& par = vm[#name]; \
+            if (!par.empty()) \
+                TypeCvt<type>::set(r.name, par.as<type>()); \
+        }
+
+        RulesParams(THE_MACRO);
         #undef THE_MACRO
     }
 
@@ -899,6 +876,65 @@ namespace beam
         return peers;
     }
 
+
+    void read_password(const char* prompt, beam::SecString& out) {
+        std::cout << prompt;
+
+        size_t maxLen = beam::SecString::MAX_SIZE - 1;
+        unsigned char ch = 0;
+
+#ifdef WIN32
+
+        static const char BACKSPACE = 8;
+        static const char RETURN = 13;
+
+
+        DWORD con_mode;
+        DWORD dwRead;
+        HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+
+        GetConsoleMode(hIn, &con_mode);
+        SetConsoleMode(hIn, con_mode & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
+
+        while (ReadConsoleA(hIn, &ch, 1, &dwRead, NULL) && ch != RETURN && out.size() < maxLen) {
+            if (ch == BACKSPACE) {
+                if (out.size() > 0) {
+                    std::cout << "\b \b";
+                    out.pop_back();
+                }
+            }
+            else {
+                out.push_back((char)ch);
+                std::cout << '*';
+            }
+        }
+
+        GetConsoleMode(hIn, &con_mode);
+        SetConsoleMode(hIn, con_mode | (ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
+
+#else
+        static const char BACKSPACE = 127;
+        static const char RETURN = 10;
+
+        while ((ch = getch()) != RETURN && out.size() < maxLen)
+        {
+            if (ch == BACKSPACE) {
+                if (out.size() > 0) {
+                    std::cout << "\b \b";
+                    out.pop_back();
+                }
+            }
+            else {
+                out.push_back((char)ch);
+                std::cout << '*';
+            }
+        }
+
+#endif
+
+        std::cout << std::endl;
+    }
+
     namespace
     {
         bool read_secret_impl(SecString& pass, const char* prompt, const char* optionName, const po::variables_map& vm)
@@ -910,7 +946,7 @@ namespace beam
                 pass.assign(s.data(), len);
             }
             else {
-                read_password(prompt, pass, false);
+                read_password(prompt, pass);
             }
 
             if (pass.empty()) {
@@ -928,7 +964,7 @@ namespace beam
     bool confirm_wallet_pass(const SecString& pass)
     {
         SecString passConfirm;
-        read_password("Confirm password: ", passConfirm, false);
+        read_password("Confirm password: ", passConfirm);
         return passConfirm.hash().V == pass.hash().V;
     }
 }

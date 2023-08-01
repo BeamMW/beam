@@ -5,7 +5,6 @@ on: [push]
 env:
   BUILD_TYPE: Release
   BUILD_CONFIG: RelWithDebInfo
-  BEAM_TARGET_SUFFIX: -masternet
 
 jobs:
   ###############################################################################
@@ -16,7 +15,7 @@ jobs:
     strategy:
       matrix:
         # os: [macos-11]
-        os: [macos-11, ubuntu-20.04, windows-2019]
+        os: [macos-11, ubuntu-18.04, ubuntu-20.04, windows-2019]
 
     steps:
       - uses: actions/checkout@v2
@@ -49,11 +48,11 @@ jobs:
         shell: bash
         if: matrix.os == 'ubuntu-18.04'
         run: |
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-          sudo apt-get update
-          sudo apt-get install g++-7
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 60 --slave /usr/bin/g++ g++ /usr/bin/g++-7
-          sudo update-alternatives --set gcc "/usr/bin/gcc-7"
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt-get update -y
+          sudo apt-get install g++-7 -y
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 60 --slave /usr/bin/g++ g++ /usr/bin/g++-7 
+          sudo update-alternatives --set gcc "/usr/bin/gcc-7" 
 
       - name: Create Build Environment [windows]
         shell: bash
@@ -68,6 +67,7 @@ jobs:
         if: matrix.os != 'windows-2019'
         shell: bash
         run: |
+          rm -rf ${{runner.workspace}}/boost_prebuild
           git clone --depth=1 https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git ${{runner.workspace}}/boost_prebuild
           echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include" >> $GITHUB_ENV
           echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/" >> $GITHUB_ENV
@@ -79,13 +79,13 @@ jobs:
         if: matrix.os == 'macos-11'
         run: |
           # git apply 3rdparty/protobuf-patch.diff
-          cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
+          cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
 
       - name: Configure CMake [ununtu all]
         if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
         run: |
           # git apply 3rdparty/protobuf-patch.diff
-          cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=ON -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
+          cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=ON -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
 
       - name: Configure CMake [windows]
         shell: bash
@@ -150,31 +150,31 @@ jobs:
       - name: Sign the mac binaries [macos-11]
         if: matrix.os == 'macos-11'
         run: |
-          codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp beam/beam-node${{env.BEAM_TARGET_SUFFIX}}
-          codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/cli/beam-wallet${{env.BEAM_TARGET_SUFFIX}}
-          codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/api/wallet-api${{env.BEAM_TARGET_SUFFIX}}
-          codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp explorer/explorer-node${{env.BEAM_TARGET_SUFFIX}}
-          codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}}
+          codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp beam/beam-node
+          codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/cli/beam-wallet
+          codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/api/wallet-api
+          codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp explorer/explorer-node
+          codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/broadcaster/broadcaster
           codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp bvm/ethash_service/ethash-service
 
       - name: Checksum [ubuntu]
         if: matrix.os == 'ubuntu-16.04' || matrix.os =='ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
         run: |
-          sha256sum beam/beam-node${{env.BEAM_TARGET_SUFFIX}} > beam/beam-node${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
-          sha256sum wallet/cli/beam-wallet${{env.BEAM_TARGET_SUFFIX}} > wallet/cli/beam-wallet${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
-          sha256sum wallet/api/wallet-api${{env.BEAM_TARGET_SUFFIX}} > wallet/api/wallet-api${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
-          sha256sum explorer/explorer-node${{env.BEAM_TARGET_SUFFIX}} > explorer/explorer-node${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
-          sha256sum wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}} > wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
+          sha256sum beam/beam-node > beam/beam-node-checksum.txt
+          sha256sum wallet/cli/beam-wallet > wallet/cli/beam-wallet-checksum.txt
+          sha256sum wallet/api/wallet-api > wallet/api/wallet-api-checksum.txt
+          sha256sum explorer/explorer-node > explorer/explorer-node-checksum.txt
+          sha256sum wallet/broadcaster/broadcaster > wallet/broadcaster/broadcaster-checksum.txt
           sha256sum bvm/ethash_service/ethash-service > bvm/ethash_service/ethash-service-checksum.txt
 
       - name: Checksum [macos-11]
         if: matrix.os == 'macos-11'
         run: |
-          shasum -a 256 beam/beam-node${{env.BEAM_TARGET_SUFFIX}} > beam/beam-node${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
-          shasum -a 256 wallet/cli/beam-wallet${{env.BEAM_TARGET_SUFFIX}} > wallet/cli/beam-wallet${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
-          shasum -a 256 wallet/api/wallet-api${{env.BEAM_TARGET_SUFFIX}} > wallet/api/wallet-api${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
-          shasum -a 256 explorer/explorer-node${{env.BEAM_TARGET_SUFFIX}} > explorer/explorer-node${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
-          shasum -a 256 wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}} > wallet/broadcaster/broadcaster${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
+          shasum -a 256 beam/beam-node > beam/beam-node-checksum.txt
+          shasum -a 256 wallet/cli/beam-wallet > wallet/cli/beam-wallet-checksum.txt
+          shasum -a 256 wallet/api/wallet-api > wallet/api/wallet-api-checksum.txt
+          shasum -a 256 explorer/explorer-node > explorer/explorer-node-checksum.txt
+          shasum -a 256 wallet/broadcaster/broadcaster > wallet/broadcaster/broadcaster-checksum.txt
           shasum -a 256 bvm/ethash_service/ethash-service > bvm/ethash_service/ethash-service-checksum.txt
 
       - name: Collect [macos-11 && ununtu all]
@@ -182,11 +182,11 @@ jobs:
         if: matrix.os != 'windows-2019'
         run: |
           mkdir artifacts
-          tar -cvf artifacts/beam-node${{env.BEAM_TARGET_SUFFIX}}.tar -C beam beam-node${{env.BEAM_TARGET_SUFFIX}} beam-node${{env.BEAM_TARGET_SUFFIX}}-checksum.txt beam-node.cfg
-          tar -cvf artifacts/beam-wallet${{env.BEAM_TARGET_SUFFIX}}.tar -C wallet/cli beam-wallet${{env.BEAM_TARGET_SUFFIX}} beam-wallet${{env.BEAM_TARGET_SUFFIX}}-checksum.txt beam-wallet.cfg
-          tar -cvf artifacts/wallet-api${{env.BEAM_TARGET_SUFFIX}}.tar -C wallet/api wallet-api${{env.BEAM_TARGET_SUFFIX}} wallet-api${{env.BEAM_TARGET_SUFFIX}}-checksum.txt wallet-api.cfg
-          tar -cvf artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}}.tar -C explorer explorer-node${{env.BEAM_TARGET_SUFFIX}} explorer-node${{env.BEAM_TARGET_SUFFIX}}-checksum.txt explorer-node.cfg
-          tar -cvf artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}.tar -C wallet/broadcaster broadcaster${{env.BEAM_TARGET_SUFFIX}} broadcaster${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
+          tar -cvf artifacts/beam-node.tar -C beam beam-node beam-node-checksum.txt beam-node.cfg
+          tar -cvf artifacts/beam-wallet.tar -C wallet/cli beam-wallet beam-wallet-checksum.txt beam-wallet.cfg
+          tar -cvf artifacts/wallet-api.tar -C wallet/api wallet-api wallet-api-checksum.txt wallet-api.cfg
+          tar -cvf artifacts/explorer-node.tar -C explorer explorer-node explorer-node-checksum.txt explorer-node.cfg
+          tar -cvf artifacts/broadcaster.tar -C wallet/broadcaster broadcaster broadcaster-checksum.txt
           tar -cvf artifacts/ethash-service.tar -C bvm/ethash_service ethash-service ethash-service-checksum.txt
 
       - name: Collect [windows]
@@ -194,15 +194,15 @@ jobs:
         if: matrix.os == 'windows-2019'
         run: |
           mkdir artifacts
-          cp beam/${{env.BUILD_CONFIG}}/beam-node${{env.BEAM_TARGET_SUFFIX}}.exe artifacts/beam-node${{env.BEAM_TARGET_SUFFIX}}.exe
+          cp beam/${{env.BUILD_CONFIG}}/beam-node.exe artifacts/beam-node.exe
           cp beam/beam-node.cfg artifacts/beam-node.cfg
-          cp wallet/cli/${{env.BUILD_CONFIG}}/beam-wallet${{env.BEAM_TARGET_SUFFIX}}.exe artifacts/beam-wallet${{env.BEAM_TARGET_SUFFIX}}.exe
+          cp wallet/cli/${{env.BUILD_CONFIG}}/beam-wallet.exe artifacts/beam-wallet.exe
           cp wallet/cli/beam-wallet.cfg artifacts/beam-wallet.cfg
-          cp wallet/api/${{env.BUILD_CONFIG}}/wallet-api${{env.BEAM_TARGET_SUFFIX}}.exe artifacts/wallet-api${{env.BEAM_TARGET_SUFFIX}}.exe
+          cp wallet/api/${{env.BUILD_CONFIG}}/wallet-api.exe artifacts/wallet-api.exe
           cp wallet/api/wallet-api.cfg artifacts/wallet-api.cfg
-          cp explorer/${{env.BUILD_CONFIG}}/explorer-node${{env.BEAM_TARGET_SUFFIX}}.exe artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}}.exe
+          cp explorer/${{env.BUILD_CONFIG}}/explorer-node.exe artifacts/explorer-node.exe
           cp explorer/explorer-node.cfg artifacts/explorer-node.cfg
-          cp wallet/broadcaster/${{env.BUILD_CONFIG}}/broadcaster${{env.BEAM_TARGET_SUFFIX}}.exe artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}.exe
+          cp wallet/broadcaster/${{env.BUILD_CONFIG}}/broadcaster.exe artifacts/broadcaster.exe
           cp bvm/ethash_service/${{env.BUILD_CONFIG}}/ethash-service.exe artifacts/ethash-service.exe
           cp 3rdparty/asio-ipfs/ipfs_bindings/ipfs-bindings.dll artifacts/ipfs-bindings.dll
 
@@ -211,21 +211,21 @@ jobs:
         if: matrix.os == 'windows-2019'
         run: |
           mkdir pdb
-          cp beam/${{env.BUILD_CONFIG}}/beam-node${{env.BEAM_TARGET_SUFFIX}}.pdb pdb/beam-node${{env.BEAM_TARGET_SUFFIX}}.pdb
-          cp wallet/cli/${{env.BUILD_CONFIG}}/beam-wallet${{env.BEAM_TARGET_SUFFIX}}.pdb pdb/beam-wallet${{env.BEAM_TARGET_SUFFIX}}.pdb
-          cp wallet/api/${{env.BUILD_CONFIG}}/wallet-api${{env.BEAM_TARGET_SUFFIX}}.pdb pdb/wallet-api${{env.BEAM_TARGET_SUFFIX}}.pdb
-          cp explorer/${{env.BUILD_CONFIG}}/explorer-node${{env.BEAM_TARGET_SUFFIX}}.pdb pdb/explorer-node${{env.BEAM_TARGET_SUFFIX}}.pdb
-          cp wallet/broadcaster/${{env.BUILD_CONFIG}}/broadcaster${{env.BEAM_TARGET_SUFFIX}}.pdb pdb/broadcaster${{env.BEAM_TARGET_SUFFIX}}.pdb
+          cp beam/${{env.BUILD_CONFIG}}/beam-node.pdb pdb/beam-node.pdb
+          cp wallet/cli/${{env.BUILD_CONFIG}}/beam-wallet.pdb pdb/beam-wallet.pdb
+          cp wallet/api/${{env.BUILD_CONFIG}}/wallet-api.pdb pdb/wallet-api.pdb
+          cp explorer/${{env.BUILD_CONFIG}}/explorer-node.pdb pdb/explorer-node.pdb
+          cp wallet/broadcaster/${{env.BUILD_CONFIG}}/broadcaster.pdb pdb/broadcaster.pdb
           cp bvm/ethash_service/${{env.BUILD_CONFIG}}/ethash-service.pdb pdb/ethash-service.pdb
 
       - name: Checksum [windows]
         if: matrix.os == 'windows-2019'
         run: |
-          certUtil -hashfile artifacts/beam-node${{env.BEAM_TARGET_SUFFIX}}.exe SHA256 > artifacts/beam-node${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
-          certUtil -hashfile artifacts/beam-wallet${{env.BEAM_TARGET_SUFFIX}}.exe SHA256 > artifacts/beam-wallet${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
-          certUtil -hashfile artifacts/wallet-api${{env.BEAM_TARGET_SUFFIX}}.exe SHA256 > artifacts/wallet-api${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
-          certUtil -hashfile artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}}.exe SHA256 > artifacts/explorer-node${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
-          certUtil -hashfile artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}.exe SHA256 > artifacts/broadcaster${{env.BEAM_TARGET_SUFFIX}}-checksum.txt
+          certUtil -hashfile artifacts/beam-node.exe SHA256 > artifacts/beam-node-checksum.txt
+          certUtil -hashfile artifacts/beam-wallet.exe SHA256 > artifacts/beam-wallet-checksum.txt
+          certUtil -hashfile artifacts/wallet-api.exe SHA256 > artifacts/wallet-api-checksum.txt
+          certUtil -hashfile artifacts/explorer-node.exe SHA256 > artifacts/explorer-node-checksum.txt
+          certUtil -hashfile artifacts/broadcaster.exe SHA256 > artifacts/broadcaster-checksum.txt
           certUtil -hashfile artifacts/ethash-service.exe SHA256 > artifacts/ethash-service-checksum.txt
           certUtil -hashfile artifacts/ipfs-bindings.dll SHA256 > artifacts/ipfs-bindings-checksum.txt
 
@@ -237,6 +237,11 @@ jobs:
         shell: bash
         if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
         run: echo "PLATFORM_NAME=linux" >> $GITHUB_ENV
+        
+      - name: OS name [ununtu-18.04]
+        shell: bash
+        if: matrix.os == 'ubuntu-18.04'
+        run: echo "PLATFORM_NAME=ubuntu-18" >> $GITHUB_ENV
 
       - name: OS name [windows]
         shell: bash
@@ -248,19 +253,19 @@ jobs:
       ###############################################################################
       - uses: actions/upload-artifact@v2
         with:
-          name: ${{env.PLATFORM_NAME}}-beam-node${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+          name: ${{env.PLATFORM_NAME}}-beam-node-${{env.BEAM_VERSION}}
           path: artifacts/beam-node*
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v2
         with:
-          name: ${{env.PLATFORM_NAME}}-beam-wallet-cli${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+          name: ${{env.PLATFORM_NAME}}-beam-wallet-cli-${{env.BEAM_VERSION}}
           path: artifacts/beam-wallet*
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v2
         with:
-          name: ${{env.PLATFORM_NAME}}-wallet-api${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+          name: ${{env.PLATFORM_NAME}}-wallet-api-${{env.BEAM_VERSION}}
           path: |
             artifacts/wallet-api*
             artifacts/ipfs-bindings*
@@ -268,19 +273,19 @@ jobs:
 
       - uses: actions/upload-artifact@v2
         with:
-          name: ${{env.PLATFORM_NAME}}-explorer-node${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+          name: ${{env.PLATFORM_NAME}}-explorer-node-${{env.BEAM_VERSION}}
           path: artifacts/explorer-node*
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v2
         with:
-          name: ${{env.PLATFORM_NAME}}-broadcaster${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+          name: ${{env.PLATFORM_NAME}}-broadcaster-${{env.BEAM_VERSION}}
           path: artifacts/broadcaster*
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v2
         with:
-          name: ${{env.PLATFORM_NAME}}-ethash-service${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+          name: ${{env.PLATFORM_NAME}}-ethash-service-${{env.BEAM_VERSION}}
           path: artifacts/ethash-service*
           if-no-files-found: error
 
@@ -290,7 +295,7 @@ jobs:
       - uses: actions/upload-artifact@v2
         if: matrix.os == 'windows-2019'
         with:
-          name: pdb${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+          name: pdb-${{env.BEAM_VERSION}}
           path: pdb
           if-no-files-found: error
 
@@ -309,7 +314,7 @@ jobs:
       - name: Submodule update
         shell: bash
         run: |
-          git submodule update --init --recursive --jobs 4 -- "3rdparty/re2"
+          git submodule update --init --recursive --jobs 4
 
       ###############################################################################
       # Create Build Environment
@@ -372,19 +377,19 @@ jobs:
       ###############################################################################
       - uses: actions/upload-artifact@v2
         with:
-          name: beam-ios${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+          name: beam-ios-${{env.BEAM_VERSION}}
           path: ${{runner.workspace}}/results/beam-ios
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v2
         with:
-          name: beam-ios-simulator${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+          name: beam-ios-simulator-${{env.BEAM_VERSION}}
           path: ${{runner.workspace}}/results/beam-ios-simulator
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v2
         with:
-          name: beam-ios-combined${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+          name: beam-ios-combined-${{env.BEAM_VERSION}}
           path: ${{runner.workspace}}/results/beam-ios-combined
           if-no-files-found: error
 
@@ -409,7 +414,7 @@ jobs:
       - name: Submodule update
         shell: bash
         run: |
-          git submodule update --init --recursive --jobs 4 -- "3rdparty/re2"
+          git submodule update --init --recursive --jobs 4
 
       ###############################################################################
       # Create Build Environment
@@ -449,7 +454,7 @@ jobs:
       ###############################################################################
       - uses: actions/upload-artifact@v2
         with:
-          name: libwallet-jni${{env.BEAM_TARGET_SUFFIX}}-${{env.ANDROID_ABI}}-${{env.BEAM_VERSION}}
+          name: libwallet-jni-${{env.ANDROID_ABI}}-${{env.BEAM_VERSION}}
           path: |
             android/libwallet-jni.so
             android/com
@@ -470,7 +475,7 @@ jobs:
       - name: Submodule update
         shell: bash
         run: |
-          git submodule update --init --recursive --jobs 4 -- "3rdparty/re2"
+          git submodule update --init --recursive --jobs 4
       ###############################################################################
       # Create Build Environment
       ###############################################################################
@@ -529,7 +534,7 @@ jobs:
       - name: Submodule update
         shell: bash
         run: |
-          git submodule update --init --recursive --jobs 4 -- "3rdparty/re2"
+          git submodule update --init --recursive --jobs 4
       ###############################################################################
       # Create Build Environment
       ###############################################################################
@@ -573,7 +578,7 @@ jobs:
       ###############################################################################
       - uses: actions/upload-artifact@v2
         with:
-          name: beam-wasm${{env.BEAM_TARGET_SUFFIX}}-${{env.BEAM_VERSION}}
+          name: beam-wasm-${{env.BEAM_VERSION}}
           path: |
             ${{runner.workspace}}/build_wasm/wasmclient/wasm-client.*
           if-no-files-found: error

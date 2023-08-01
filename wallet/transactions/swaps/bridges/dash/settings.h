@@ -16,6 +16,7 @@
 
 #include "../bitcoin/settings.h"
 #include "common.h"
+#include "../../common.h"
 
 namespace beam::dash
 {
@@ -42,17 +43,23 @@ namespace beam::dash
 
             auto electrumSettings = GetElectrumConnectionOptions();
 
-            electrumSettings.m_nodeAddresses =
+            if (wallet::UseMainnetSwap())
             {
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-                "165.232.38.144:50002",
-                "178.62.234.69:50002",
-                "drk.p2pay.com:50002",
-                "electrumx-mainnet.dash.org:50002"
-#else // MASTERNET and TESTNET
-                "dword.ga:51002"
-#endif
-            };
+                electrumSettings.m_nodeAddresses =
+                {
+                    "165.232.38.144:50002",
+                    "178.62.234.69:50002",
+                    "drk.p2pay.com:50002",
+                    "electrumx-mainnet.dash.org:50002"
+                };
+            }
+            else
+            {
+                electrumSettings.m_nodeAddresses =
+                {
+                    "dword.ga:51002"
+                };
+            }
 
             SetElectrumConnectionOptions(electrumSettings);
         }

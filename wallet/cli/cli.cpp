@@ -2039,6 +2039,10 @@ namespace
                            % timeout_ms;
             }
         }
+
+        if (vm.count(cli::MINE_ONLINE))
+            nnet->m_Cfg.m_PreferOnlineMining = vm[cli::MINE_ONLINE].as<bool>();
+
         uint32_t responceTime_s =
             Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
         if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)

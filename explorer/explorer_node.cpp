@@ -44,6 +44,7 @@ static bool parse_cmdline(int argc, char* argv[], Options& o);
 static void setup_node(Node& node, const Options& o);
 
 int main(int argc, char* argv[]) {
+
     Options options;
     if (!parse_cmdline(argc, argv, options)) {
         return 1;

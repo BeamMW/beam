@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 
-set(TARGET_NAME beam-node${BEAM_TARGET_SUFFIX})
+set(TARGET_NAME beam-node)
 
 add_executable(${TARGET_NAME} cli.cpp)
 

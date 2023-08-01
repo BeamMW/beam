@@ -339,18 +339,23 @@ namespace Nephrite
             return price.IsRecovery(m_Troves.m_Totals);
         }
 
-        bool IsTroveUpdInvalid(const Trove& t, const Pair& totals0, const Price& price, bool bRecovery) const
+        uint32_t IsTroveUpdInvalidEx(const Trove& t, const Pair& totals0, const Price& price, bool bRecovery) const
         {
             if (bRecovery)
             {
                 if (m_Troves.m_Totals.CmpRcr(totals0) < 0)
-                    return true; // Ban txs that decrease the tcr.
+                    return 2; // Ban txs that decrease the tcr.
 
                 if (!totals0.Tok)
-                    return true; // The very 1st trove drives us into recovery
+                    return 2; // The very 1st trove drives us into recovery
             }
 
-            return price.IsBelow(t.m_Amounts, Price::get_k110());
+            return price.IsBelow(t.m_Amounts, Price::get_k110()) ? 1 : 0;
+        }
+
+        bool IsTroveUpdInvalid(const Trove& t, const Pair& totals0, const Price& price, bool bRecovery) const
+        {
+            return !!IsTroveUpdInvalidEx(t, totals0, price, bRecovery);
         }
 
         Amount get_BorrowFee(Amount tok, Amount tok0, bool bRecovery)
