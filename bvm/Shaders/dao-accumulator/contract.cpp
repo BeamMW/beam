@@ -17,7 +17,7 @@ namespace DaoAccumulator {
 
         void Save()
         {
-            Env::SaveVar_T((uint8_t)Tags::s_State, *this);
+            Env::SaveVar_T((uint8_t) Tags::s_State, *this);
         }
 
     };
@@ -97,21 +97,9 @@ BEAM_EXPORT void Method_3(const Method::FarmStart& r)
     s.Save();
 }
 
-BEAM_EXPORT void Method_4(const Method::UserLock& r)
+void OnUserLock(const Method::UserLock& r, Pool& p, Height h, bool bPrePhase, uint8_t nTag)
 {
-    MyState s;
-    Height h = Env::get_Height();
-
-    if (r.m_bPrePhase)
-    {
-        Env::Halt_if(h >= s.m_hPreEnd);
-        h = s.m_hPreEnd;
-    }
-    else
-    {
-        Env::Halt_if(!s.m_aidLpToken);
-        s.m_Pool.Update(h);
-    }
+    p.Update(h);
 
     Env::Halt_if(!r.m_LpToken || (r.m_hEnd <= h));
 
@@ -124,17 +112,39 @@ BEAM_EXPORT void Method_4(const Method::UserLock& r)
     u.m_LpToken = r.m_LpToken;
     u.m_hEnd = r.m_hEnd;
 
-    u.set_Weight(nPeriods, !!r.m_bPrePhase);
-    s.m_Pool.Add(u.m_PoolUser);
+    u.set_Weight(nPeriods, !!bPrePhase);
+    p.Add(u.m_PoolUser);
 
-    User::Key uk;
+    User::Key uk(nTag);
     _POD_(uk.m_pk) = r.m_pkUser;
     Env::Halt_if(Env::SaveVar_T(uk, u)); // fail if already exists
 
-    s.Save();
+}
 
-    if (r.m_bPrePhase)
+BEAM_EXPORT void Method_4(const Method::UserLock& r)
+{
+    Height h = Env::get_Height();
+    MyState s;
+
+    switch (r.m_PoolType)
     {
+    case Method::UserLock::Type::BeamX:
+    {
+        OnUserLock(r, s.m_Pool, h, false, Tags::s_User);
+
+        Env::Halt_if(!s.m_aidLpToken);
+        Env::FundsLock(s.m_aidLpToken, r.m_LpToken);
+    }
+    break;
+
+    case Method::UserLock::Type::BeamX_PrePhase:
+    {
+        // deprecated, but nevermind
+        Env::Halt_if(h >= s.m_hPreEnd);
+        h = s.m_hPreEnd;
+
+        OnUserLock(r, s.m_Pool, h, true, Tags::s_User);
+
         Env::FundsLock(0, r.m_LpToken);
 
         Amount valBeamX = r.m_LpToken / State::s_InitialRatio;
@@ -142,31 +152,33 @@ BEAM_EXPORT void Method_4(const Method::UserLock& r)
 
         Env::FundsLock(s.m_aidBeamX, valBeamX);
     }
-    else
-        Env::FundsLock(s.m_aidLpToken, r.m_LpToken);
+    break;
+
+    default:
+        Env::Halt();
+    }
+
+    s.Save();
 }
 
-BEAM_EXPORT void Method_5(const Method::UserUpdate& r)
+void OnUserWithdraw(const Method::UserWithdraw_Base& r, Pool& p, uint8_t nTag, AssetID aidLpToken, AssetID aidBeamX)
 {
     Height h = Env::get_Height();
-
-    MyState s;
-    Env::Halt_if(!s.m_aidLpToken); // post-phase didn't start
-    s.m_Pool.Update(h);
+    p.Update(h);
 
     Env::AddSig(r.m_pkUser);
 
-    User::Key uk;
+    User::Key uk(nTag);
     _POD_(uk.m_pk) = r.m_pkUser;
     User u;
     Env::Halt_if(!Env::LoadVar_T(uk, u)); // must exist
 
-    u.m_EarnedBeamX += s.m_Pool.Remove(u.m_PoolUser); // should not overflow
+    u.m_EarnedBeamX += p.Remove(u.m_PoolUser); // should not overflow
 
     if (r.m_WithdrawLPToken)
     {
         Env::Halt_if(h < u.m_hEnd);
-        Env::FundsUnlock(s.m_aidLpToken, u.m_LpToken);
+        Env::FundsUnlock(aidLpToken, u.m_LpToken);
 
         u.m_LpToken = 0;
         u.m_PoolUser.m_Weight = 0;
@@ -175,16 +187,24 @@ BEAM_EXPORT void Method_5(const Method::UserUpdate& r)
     if (r.m_WithdrawBeamX)
     {
         Strict::Sub(u.m_EarnedBeamX, r.m_WithdrawBeamX);
-        Env::FundsUnlock(s.m_aidBeamX, r.m_WithdrawBeamX);
+        Env::FundsUnlock(aidBeamX, r.m_WithdrawBeamX);
     }
 
     if (u.m_LpToken || u.m_EarnedBeamX)
     {
-        s.m_Pool.Add(u.m_PoolUser);
+        p.Add(u.m_PoolUser);
         Env::SaveVar_T(uk, u);
     }
     else
         Env::DelVar_T(uk);
+}
+
+BEAM_EXPORT void Method_5(const Method::UserWithdraw_FromBeamBeamX& r)
+{
+    MyState s;
+    Env::Halt_if(!s.m_aidLpToken); // post-phase didn't start
+
+    OnUserWithdraw(r, s.m_Pool, Tags::s_User, s.m_aidLpToken, s.m_aidBeamX);
 
     s.Save();
 }

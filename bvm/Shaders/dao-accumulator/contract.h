@@ -17,7 +17,7 @@ namespace DaoAccumulator
     struct Tags
     {
         static const uint8_t s_State = 0;
-        static const uint8_t s_User = 0;
+        static const uint8_t s_User = 0; // better to use different value, but not a problem really
     };
 
     struct Pool
@@ -123,7 +123,8 @@ namespace DaoAccumulator
     struct User
     {
         struct Key {
-            uint8_t m_Tag = Tags::s_User;
+            uint8_t m_Tag;
+            Key(uint8_t tag) :m_Tag(tag) {}
             PubKey m_pk;
         };
 
@@ -172,21 +173,27 @@ namespace DaoAccumulator
         {
             static const uint32_t s_iMethod = 4;
 
+            struct Type {
+                static const uint8_t BeamX = 0;
+                static const uint8_t BeamX_PrePhase = 1;
+            };
+
             PubKey m_pkUser;
             Amount m_LpToken;
             Height m_hEnd;
-            uint8_t m_bPrePhase;
+            uint8_t m_PoolType;
         };
 
-        struct UserUpdate
+        struct UserWithdraw_Base
         {
-            static const uint32_t s_iMethod = 5;
-
             PubKey m_pkUser;
             uint8_t m_WithdrawLPToken;
             Amount m_WithdrawBeamX;
         };
 
+        struct UserWithdraw_FromBeamBeamX :public UserWithdraw_Base {
+            static const uint32_t s_iMethod = 5;
+        };
     }
 
 #pragma pack (pop)
