@@ -184,7 +184,9 @@ table, th, td {
 
 		if (obj.type == "time")
 		{
-			let d = new Date(obj.value * 1000);
+			let d = new Date();
+			let diff = d.getTimezoneOffset();
+			d = new Date((obj.value - diff * 60) * 1000);
 			let txt = d.toISOString().split('T');
 			return txt[0] + ' ' + txt[1].split('.')[0];
 		}
