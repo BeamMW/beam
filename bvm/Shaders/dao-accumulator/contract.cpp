@@ -140,6 +140,30 @@ struct NphAddonParams
 {
     static const AssetID s_aidBeamX = 7;
     static const AssetID s_aidLpTokenBeamNph = 60;
+
+    static const Amount s_RewardTotal = g_Beam2Groth * 2'000'000;
+
+    static void Upgrade()
+    {
+        // Create NPH reward pool, transfer some beamX from beam-beamX reward pool.
+
+        MyState s;
+        Env::Halt_if(s_aidBeamX != s.m_aidBeamX); // make sure we're on the right network
+
+        s.m_Pool.Update(Env::get_Height());
+        Strict::Sub(s.m_Pool.m_AmountRemaining, s_RewardTotal);
+
+        s.Save();
+
+
+        MyPoolNph p;
+        _POD_(p).SetZero();
+        p.m_hLast = s.m_Pool.m_hLast;
+        p.m_AmountRemaining = s_RewardTotal;
+        p.m_hRemaining = s.m_Pool.m_hRemaining; // assume both rewards end at the same time
+
+        p.Save();
+    }
 };
 
 BEAM_EXPORT void Method_4(const Method::UserLock& r)
@@ -266,16 +290,10 @@ namespace Upgradable3 {
 
     void OnUpgraded(uint32_t nPrevVersion)
     {
-        if constexpr (g_CurrentVersion > 0)
-            Env::Halt_if(nPrevVersion != g_CurrentVersion - 1);
-        else
-            Env::Halt();
+        Env::Halt_if(nPrevVersion != g_CurrentVersion - 1);
 
-        // add farming time
-        DaoAccumulator::MyState s;
-        Env::Halt_if(s.m_aidLpToken);
+        static_assert(g_CurrentVersion == 3);
 
-        s.m_hPreEnd = Env::get_Height() + 500;
-        s.Save();
+        DaoAccumulator::NphAddonParams::Upgrade();
     }
 }
