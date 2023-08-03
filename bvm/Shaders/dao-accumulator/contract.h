@@ -18,6 +18,9 @@ namespace DaoAccumulator
     {
         static const uint8_t s_State = 0;
         static const uint8_t s_User = 0; // better to use different value, but not a problem really
+
+        static const uint8_t s_PoolBeamNph = 1;
+        static const uint8_t s_UserBeamNph = 2;
     };
 
     struct Pool
@@ -176,6 +179,7 @@ namespace DaoAccumulator
             struct Type {
                 static const uint8_t BeamX = 0;
                 static const uint8_t BeamX_PrePhase = 1;
+                static const uint8_t Nph = 2;
             };
 
             PubKey m_pkUser;
@@ -194,6 +198,10 @@ namespace DaoAccumulator
         struct UserWithdraw_FromBeamBeamX :public UserWithdraw_Base {
             static const uint32_t s_iMethod = 5;
         };
+        struct UserWithdraw_FromBeamNph :public UserWithdraw_Base {
+            static const uint32_t s_iMethod = 6;
+        };
+
     }
 
 #pragma pack (pop)

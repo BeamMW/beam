@@ -26,6 +26,21 @@ namespace DaoAccumulator {
     {
         MyState() { Load(); }
     };
+
+    struct MyPoolNph :public Pool
+    {
+        void Load()
+        {
+            Env::LoadVar_T((uint8_t) Tags::s_PoolBeamNph, *this);
+        }
+
+        void Save()
+        {
+            Env::SaveVar_T((uint8_t) Tags::s_PoolBeamNph, *this);
+        }
+
+    };
+
 #pragma pack (pop)
 
 BEAM_EXPORT void Ctor(const Method::Create& r)
@@ -121,44 +136,63 @@ void OnUserLock(const Method::UserLock& r, Pool& p, Height h, bool bPrePhase, ui
 
 }
 
+struct NphAddonParams
+{
+    static const AssetID s_aidBeamX = 7;
+    static const AssetID s_aidLpTokenBeamNph = 60;
+};
+
 BEAM_EXPORT void Method_4(const Method::UserLock& r)
 {
     Height h = Env::get_Height();
-    MyState s;
 
-    switch (r.m_PoolType)
+    if (Method::UserLock::Type::Nph == r.m_PoolType)
     {
-    case Method::UserLock::Type::BeamX:
+        MyPoolNph p;
+        p.Load();
+        OnUserLock(r, p, h, false, Tags::s_UserBeamNph);
+        p.Save();
+
+        Env::FundsLock(NphAddonParams::s_aidLpTokenBeamNph, r.m_LpToken);
+    }
+    else
     {
-        OnUserLock(r, s.m_Pool, h, false, Tags::s_User);
+        MyState s;
 
-        Env::Halt_if(!s.m_aidLpToken);
-        Env::FundsLock(s.m_aidLpToken, r.m_LpToken);
+        switch (r.m_PoolType)
+        {
+        case Method::UserLock::Type::BeamX:
+        {
+            OnUserLock(r, s.m_Pool, h, false, Tags::s_User);
+
+            Env::Halt_if(!s.m_aidLpToken);
+            Env::FundsLock(s.m_aidLpToken, r.m_LpToken);
+        }
+        break;
+
+        case Method::UserLock::Type::BeamX_PrePhase:
+        {
+            // deprecated, but nevermind
+            Env::Halt_if(h >= s.m_hPreEnd);
+            h = s.m_hPreEnd;
+
+            OnUserLock(r, s.m_Pool, h, true, Tags::s_User);
+
+            Env::FundsLock(0, r.m_LpToken);
+
+            Amount valBeamX = r.m_LpToken / State::s_InitialRatio;
+            Env::Halt_if(valBeamX * State::s_InitialRatio != r.m_LpToken); // must be exact multiple
+
+            Env::FundsLock(s.m_aidBeamX, valBeamX);
+        }
+        break;
+
+        default:
+            Env::Halt();
+        }
+
+        s.Save();
     }
-    break;
-
-    case Method::UserLock::Type::BeamX_PrePhase:
-    {
-        // deprecated, but nevermind
-        Env::Halt_if(h >= s.m_hPreEnd);
-        h = s.m_hPreEnd;
-
-        OnUserLock(r, s.m_Pool, h, true, Tags::s_User);
-
-        Env::FundsLock(0, r.m_LpToken);
-
-        Amount valBeamX = r.m_LpToken / State::s_InitialRatio;
-        Env::Halt_if(valBeamX * State::s_InitialRatio != r.m_LpToken); // must be exact multiple
-
-        Env::FundsLock(s.m_aidBeamX, valBeamX);
-    }
-    break;
-
-    default:
-        Env::Halt();
-    }
-
-    s.Save();
 }
 
 void OnUserWithdraw(const Method::UserWithdraw_Base& r, Pool& p, uint8_t nTag, AssetID aidLpToken, AssetID aidBeamX)
@@ -207,6 +241,16 @@ BEAM_EXPORT void Method_5(const Method::UserWithdraw_FromBeamBeamX& r)
     OnUserWithdraw(r, s.m_Pool, Tags::s_User, s.m_aidLpToken, s.m_aidBeamX);
 
     s.Save();
+}
+
+BEAM_EXPORT void Method_6(const Method::UserWithdraw_FromBeamNph& r)
+{
+    MyPoolNph p;
+    p.Load();
+
+    OnUserWithdraw(r, p, Tags::s_UserBeamNph, NphAddonParams::s_aidLpTokenBeamNph, NphAddonParams::s_aidBeamX);
+
+    p.Save();
 }
 
 } // namespace DaoAccumulator
