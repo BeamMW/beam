@@ -29,18 +29,21 @@
 #define DaoAcc_user_lock(macro) \
     macro(ContractID, cid) \
     macro(Amount, amountLpToken) \
-    macro(uint32_t, lockPeriods)
+    macro(uint32_t, lockPeriods) \
+    macro(uint32_t, isNph)
 
 #define DaoAcc_user_update(macro) \
     macro(ContractID, cid) \
     macro(Height, hEnd) \
     macro(uint32_t, withdrawBeamX) \
     macro(uint32_t, withdrawLpToken) \
+    macro(uint32_t, isNph)
 
 #define DaoAcc_get_yield(macro) \
     macro(ContractID, cid) \
     macro(Amount, amountLpToken) \
-    macro(uint32_t, lockPeriods)
+    macro(uint32_t, lockPeriods) \
+    macro(uint32_t, isNph)
 
 #define DaoAccActions_All(macro) \
     macro(view_deployed) \
@@ -184,6 +187,19 @@ struct MyState
     }
 };
 
+struct MyPoolNph
+    :public Pool
+{
+    bool Read(const ContractID& cid)
+    {
+        Env::Key_T<uint8_t> key;
+        _POD_(key.m_Prefix.m_Cid) = cid;
+        key.m_KeyInContract = Tags::s_PoolBeamNph;
+
+        return Env::VarReader::Read_T(key, *this);
+    }
+};
+
 ON_METHOD(view_params)
 {
     MyState s;
@@ -209,12 +225,24 @@ ON_METHOD(view_params)
             Env::DocAddNum("farm-remaining-beamX", s.m_Pool.m_AmountRemaining);
         }
 
-        Env::DocAddNum("farm-beamX-claimable", totalBeamX - s.m_Pool.m_AmountRemaining);
+        //Env::DocAddNum("farm-beamX-claimable", totalBeamX - s.m_Pool.m_AmountRemaining);
     }
     else
     {
         Env::DocAddNum("locked-Beam", WalkerFunds::FromContract_Lo(cid, 0));
         Env::DocAddNum("locked-BeamX", totalBeamX);
+    }
+
+    MyPoolNph p_Nph;
+    if (p_Nph.Read(cid))
+    {
+        p_Nph.Update(Env::get_Height());
+
+        if (p_Nph.m_hRemaining)
+        {
+            Env::DocAddNum("farm-nph-remaining-height", p_Nph.m_hRemaining);
+            Env::DocAddNum("farm-nph-remaining-beamX", p_Nph.m_AmountRemaining);
+        }
     }
 }
 
@@ -357,22 +385,9 @@ ON_METHOD(start_farming)
 struct MyUser
     :public User
 {
-    bool Load(const ContractID& cid)
+    void AddEarned(Pool& p)
     {
-        Env::Key_T<User::Key> uk;
-        _POD_(uk.m_Prefix.m_Cid) = cid;
-        Env::KeyID(cid).get_Pk(uk.m_KeyInContract.m_pk);
-
-        if (Env::VarReader::Read_T(uk, *this))
-            return true;
-
-        _POD_(*this).SetZero();
-        return false;
-    }
-
-    void AddEarned(State& s)
-    {
-        m_EarnedBeamX += s.m_Pool.Remove(m_PoolUser);
+        m_EarnedBeamX += p.Remove(m_PoolUser);
     }
 
     void Print()
@@ -384,22 +399,10 @@ struct MyUser
     }
 };
 
-void EnumUsers(const ContractID& cid, bool bOwned)
+void EnumUsersInternal(Pool& p, bool bOwned, Env::Key_T<User::KeyBase>& k0, Env::Key_T<User::KeyBase>& k1)
 {
-    MyState s;
-    if (!s.Read(cid))
-        return;
-
-    if (s.m_aidLpToken)
-        s.m_Pool.Update(Env::get_Height());
-
-    Env::Key_T<User::Key> k0, k1;
-    _POD_(k0.m_Prefix.m_Cid) = cid;
-    _POD_(k1.m_Prefix.m_Cid) = cid;
     _POD_(k0.m_KeyInContract.m_pk).SetZero();
     _POD_(k1.m_KeyInContract.m_pk).SetObject(0xff);
-
-    Env::DocArray gr0("res");
 
     MyUser u;
     for (Env::VarReader r(k0, k1); r.MoveNext_T(k0, u); )
@@ -412,13 +415,45 @@ void EnumUsers(const ContractID& cid, bool bOwned)
                 continue;
         }
 
-        u.AddEarned(s);
+        u.AddEarned(p);
 
         Env::DocGroup gr1("");
         u.Print();
 
         if (!bOwned)
             Env::DocAddBlob_T("pk", k0.m_KeyInContract.m_pk);
+    }
+}
+
+void EnumUsers(const ContractID& cid, bool bOwned)
+{
+    MyState s;
+    if (!s.Read(cid))
+        return;
+
+    if (s.m_aidLpToken)
+        s.m_Pool.Update(Env::get_Height());
+
+    Env::Key_T<User::KeyBase> k0, k1;
+    _POD_(k0.m_Prefix.m_Cid) = cid;
+    _POD_(k1.m_Prefix.m_Cid) = cid;
+
+    {
+        k0.m_KeyInContract.m_Tag = Tags::s_User;
+        k1.m_KeyInContract.m_Tag = Tags::s_User;
+
+        Env::DocArray gr0("res");
+        EnumUsersInternal(s.m_Pool, bOwned, k0, k1);
+    }
+
+    MyPoolNph p_Nph;
+    if (p_Nph.Read(cid))
+    {
+        k0.m_KeyInContract.m_Tag = Tags::s_UserBeamNph;
+        k1.m_KeyInContract.m_Tag = Tags::s_UserBeamNph;
+
+        Env::DocArray gr0("res-nph");
+        EnumUsersInternal(p_Nph, bOwned, k0, k1);
     }
 }
 
@@ -432,7 +467,7 @@ ON_METHOD(users_view_all)
     EnumUsers(cid, false);
 }
 
-bool CheckLockParams(Amount amountLpToken, uint32_t lockPeriods)
+bool CheckLockParams(Amount amountLpToken, uint32_t lockPeriods, uint32_t isNph)
 {
     if (!amountLpToken)
     {
@@ -440,7 +475,7 @@ bool CheckLockParams(Amount amountLpToken, uint32_t lockPeriods)
         return false;
     }
 
-    if (amountLpToken % State::s_InitialRatio)
+    if (!isNph && (amountLpToken % State::s_InitialRatio))
     {
         OnError("amount should be even");
         return false;
@@ -463,7 +498,7 @@ bool CheckLockParams(Amount amountLpToken, uint32_t lockPeriods)
 
 ON_METHOD(user_lock)
 {
-    if (!CheckLockParams(amountLpToken, lockPeriods))
+    if (!CheckLockParams(amountLpToken, lockPeriods, isNph))
         return;
 
     Env::SelectContext(1, 0);
@@ -472,40 +507,8 @@ ON_METHOD(user_lock)
     if (!s.Read(cid))
         return;
 
+    MyPoolNph p_Nph;
     Height h = Env::get_Height();
-
-    Method::UserLock arg;
-    if (s.m_aidLpToken)
-        arg.m_bPrePhase = 0;
-    else
-    {
-        if (h >= s.m_hPreEnd)
-            return OnError("wait for farm start");
-
-        arg.m_bPrePhase = 1;
-        h = s.m_hPreEnd;
-    }
-
-    arg.m_LpToken = amountLpToken;
-    arg.m_hEnd = h + User::s_LockPeriodBlocks * lockPeriods;
-
-    while (true)
-    {
-        Env::KeyID(&arg.m_hEnd, sizeof(arg.m_hEnd)).get_Pk(arg.m_pkUser);
-
-        if (s.m_aidLpToken)
-            break;
-
-        Env::Key_T<User::Key> uk;
-        _POD_(uk.m_Prefix.m_Cid) = cid;
-        _POD_(uk.m_KeyInContract.m_pk) = arg.m_pkUser;
-
-        User u;
-        if (!Env::VarReader::Read_T(uk, u))
-            break;
-
-        arg.m_hEnd++;
-    }
 
     FundsChange pFc[2];
     pFc[0].m_Amount = amountLpToken;
@@ -521,18 +524,60 @@ ON_METHOD(user_lock)
         Env::Cost::FundsLock +
         Env::Cost::Cycle * 200;
 
-    if (arg.m_bPrePhase)
-    {
-        pFc[0].m_Aid = 0;
-        pFc[1].m_Aid = s.m_aidBeamX;
-        pFc[1].m_Consume = 1;
-        pFc[1].m_Amount = amountLpToken / State::s_InitialRatio;
-        nFcs = 2;
 
-        nCharge += Env::Cost::FundsLock;
+    Method::UserLock arg;
+    if (isNph)
+    {
+        if (!p_Nph.Read(cid))
+            return OnError("Nph reward pool isn't created yet");
+
+        arg.m_PoolType = Method::UserLock::Type::Nph;
+        pFc[0].m_Aid = NphAddonParams::s_aidLpTokenBeamNph;
     }
     else
-        pFc[0].m_Aid = s.m_aidLpToken;
+    {
+        if (s.m_aidLpToken)
+        {
+            arg.m_PoolType = Method::UserLock::Type::BeamX;
+            pFc[0].m_Aid = s.m_aidLpToken;
+        }
+        else
+        {
+            if (h >= s.m_hPreEnd)
+                return OnError("wait for farm start");
+
+            arg.m_PoolType = Method::UserLock::Type::BeamX_PrePhase;
+            h = s.m_hPreEnd;
+
+            pFc[0].m_Aid = 0;
+            pFc[1].m_Aid = s.m_aidBeamX;
+            pFc[1].m_Consume = 1;
+            pFc[1].m_Amount = amountLpToken / State::s_InitialRatio;
+            nFcs = 2;
+
+            nCharge += Env::Cost::FundsLock;
+
+        }
+    }
+
+    arg.m_LpToken = amountLpToken;
+    arg.m_hEnd = h + User::s_LockPeriodBlocks * lockPeriods;
+
+    while (true)
+    {
+        Env::KeyID(&arg.m_hEnd, sizeof(arg.m_hEnd)).get_Pk(arg.m_pkUser);
+
+        Env::Key_T<User::KeyBase> uk;
+        _POD_(uk.m_Prefix.m_Cid) = cid;
+        uk.m_KeyInContract.m_Tag = isNph ? Tags::s_UserBeamNph : Tags::s_User;
+        _POD_(uk.m_KeyInContract.m_pk) = arg.m_pkUser;
+
+        User u;
+        if (!Env::VarReader::Read_T(uk, u))
+            break;
+
+        arg.m_hEnd++;
+    }
 
 
     Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, nFcs, nullptr, 0, "Dao-Accumulator Lock", nCharge);
@@ -549,12 +594,38 @@ ON_METHOD(user_update)
         return OnError("too early");
 
     MyState s;
-    if (!s.Read(cid))
-        return;
+    MyPoolNph p_Nph;
+
+    Pool* pPool;
+    uint8_t nTag;
+    Env::Key_T<User::KeyBase> uk;
+    FundsChange pFc[2];
+    uint32_t iMethod;
+
+    if (isNph)
+    {
+        if (!p_Nph.Read(cid))
+            return OnError("not found");
+
+        pPool = &p_Nph;
+        uk.m_KeyInContract.m_Tag = Tags::s_UserBeamNph;
+        pFc[0].m_Aid = NphAddonParams::s_aidBeamX;
+        pFc[1].m_Aid = NphAddonParams::s_aidLpTokenBeamNph;
+        iMethod = Method::UserWithdraw_FromBeamNph::s_iMethod;
+    }
+    else
+    {
+        if (!s.Read(cid))
+            return;
+        pPool = &s.m_Pool;
+        uk.m_KeyInContract.m_Tag = Tags::s_User;
+        pFc[0].m_Aid = s.m_aidBeamX;
+        pFc[1].m_Aid = s.m_aidLpToken;
+        iMethod = Method::UserWithdraw_FromBeamBeamX::s_iMethod;
+    }
 
     Env::KeyID kid(&hEnd, sizeof(hEnd));
 
-    Env::Key_T<User::Key> uk;
     _POD_(uk.m_Prefix.m_Cid) = cid;
     kid.get_Pk(uk.m_KeyInContract.m_pk);
 
@@ -562,18 +633,15 @@ ON_METHOD(user_update)
     if (!Env::VarReader::Read_T(uk, u))
         return OnError("not found");
 
-    s.m_Pool.Update(Env::get_Height());
-    u.AddEarned(s);
+    pPool->Update(Env::get_Height());
+    u.AddEarned(*pPool);
 
-    FundsChange pFc[2];
-    pFc[0].m_Aid = s.m_aidBeamX;
     pFc[0].m_Consume = 0;
     pFc[0].m_Amount = withdrawBeamX ? u.m_EarnedBeamX : 0;
-    pFc[1].m_Aid = s.m_aidLpToken;
     pFc[1].m_Consume = 0;
     pFc[1].m_Amount = withdrawLpToken ? u.m_LpToken : 0;
 
-    Method::UserUpdate arg;
+    Method::UserWithdraw_Base arg;
     arg.m_WithdrawBeamX = pFc[0].m_Amount;
     arg.m_WithdrawLPToken = !!withdrawLpToken;
     _POD_(arg.m_pkUser) = uk.m_KeyInContract.m_pk;
@@ -588,23 +656,38 @@ ON_METHOD(user_update)
         Env::Cost::AddSig +
         Env::Cost::Cycle * 2000;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), pFc, _countof(pFc), &kid, 1, "Dao-Accumulator Withdraw", nCharge);
+    Env::GenerateKernel(&cid, iMethod, &arg, sizeof(arg), pFc, _countof(pFc), &kid, 1, "Dao-Accumulator Withdraw", nCharge);
 }
 
 ON_METHOD(get_yield)
 {
-    if (!CheckLockParams(amountLpToken, lockPeriods))
+    if (!CheckLockParams(amountLpToken, lockPeriods, isNph))
         return;
 
     MyState s;
-    if (!s.Read(cid))
-        return;
+    MyPoolNph p_Nph;
 
-    if (!s.m_aidLpToken)
-        return OnError("farming not started yet");
+    Pool* pPool;
+
+    if (isNph)
+    {
+        if (!p_Nph.Read(cid))
+            return OnError("not found");
+
+        pPool = &p_Nph;
+    }
+    else
+    {
+        if (!s.Read(cid))
+            return;
+        if (!s.m_aidLpToken)
+            return OnError("farming not started yet");
+
+        pPool = &s.m_Pool;
+    }
 
     Height h = Env::get_Height();
-    s.m_Pool.Update(h);
+    pPool->Update(h);
 
     User u;
     _POD_(u).SetZero();
@@ -612,11 +695,11 @@ ON_METHOD(get_yield)
     u.m_hEnd = h + User::s_LockPeriodBlocks * lockPeriods;
     u.set_Weight(lockPeriods, false);
 
-    s.m_Pool.Add(u.m_PoolUser);
+    pPool->Add(u.m_PoolUser);
 
-    s.m_Pool.Update(u.m_hEnd);
+    pPool->Update(u.m_hEnd);
 
-    Amount res = s.m_Pool.Remove(u.m_PoolUser);
+    Amount res = pPool->Remove(u.m_PoolUser);
 
     Env::DocGroup gr("res");
     Env::DocAddNum("reward", res);
