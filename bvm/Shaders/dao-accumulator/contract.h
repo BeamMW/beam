@@ -126,10 +126,13 @@ namespace DaoAccumulator
 
     struct User
     {
-        struct Key {
+        struct KeyBase {
             uint8_t m_Tag;
-            Key(uint8_t tag) :m_Tag(tag) {}
             PubKey m_pk;
+        };
+
+        struct Key :public KeyBase {
+            Key(uint8_t tag) { m_Tag = tag; }
         };
 
         Pool::User m_PoolUser;
@@ -149,6 +152,16 @@ namespace DaoAccumulator
 
             m_PoolUser.m_Weight = val;
         }
+    };
+
+    struct NphAddonParams
+    {
+        static const AssetID s_aidBeamX = 7;
+        static const AssetID s_aidLpTokenBeamNph = 60;
+
+        static const Amount s_RewardTotal = g_Beam2Groth * 2'000'000;
+
+        static void Upgrade();
     };
 
     namespace Method

@@ -136,35 +136,27 @@ void OnUserLock(const Method::UserLock& r, Pool& p, Height h, bool bPrePhase, ui
 
 }
 
-struct NphAddonParams
+void NphAddonParams::Upgrade()
 {
-    static const AssetID s_aidBeamX = 7;
-    static const AssetID s_aidLpTokenBeamNph = 60;
+    // Create NPH reward pool, transfer some beamX from beam-beamX reward pool.
 
-    static const Amount s_RewardTotal = g_Beam2Groth * 2'000'000;
+    MyState s;
+    Env::Halt_if(s_aidBeamX != s.m_aidBeamX); // make sure we're on the right network
 
-    static void Upgrade()
-    {
-        // Create NPH reward pool, transfer some beamX from beam-beamX reward pool.
+    s.m_Pool.Update(Env::get_Height());
+    Strict::Sub(s.m_Pool.m_AmountRemaining, s_RewardTotal);
 
-        MyState s;
-        Env::Halt_if(s_aidBeamX != s.m_aidBeamX); // make sure we're on the right network
-
-        s.m_Pool.Update(Env::get_Height());
-        Strict::Sub(s.m_Pool.m_AmountRemaining, s_RewardTotal);
-
-        s.Save();
+    s.Save();
 
 
-        MyPoolNph p;
-        _POD_(p).SetZero();
-        p.m_hLast = s.m_Pool.m_hLast;
-        p.m_AmountRemaining = s_RewardTotal;
-        p.m_hRemaining = s.m_Pool.m_hRemaining; // assume both rewards end at the same time
+    MyPoolNph p;
+    _POD_(p).SetZero();
+    p.m_hLast = s.m_Pool.m_hLast;
+    p.m_AmountRemaining = s_RewardTotal;
+    p.m_hRemaining = s.m_Pool.m_hRemaining; // assume both rewards end at the same time
 
-        p.Save();
-    }
-};
+    p.Save();
+}
 
 BEAM_EXPORT void Method_4(const Method::UserLock& r)
 {
