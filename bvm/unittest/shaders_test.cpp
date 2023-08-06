@@ -65,6 +65,7 @@ namespace Shaders {
 #include "../Shaders/dao-core/contract.h"
 #include "../Shaders/dao-vote/contract.h"
 #include "../Shaders/dao-vault/contract.h"
+#include "../Shaders/dao-accumulator/contract.h"
 #include "../Shaders/aphorize/contract.h"
 #include "../Shaders/nephrite/contract.h"
 #include "../Shaders/amm/contract.h"
@@ -301,6 +302,33 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Aid);
 	}
 
+	template <bool bToShader> void Convert(Upgradable3::Method::Control::ScheduleUpgrade& x) {
+		ConvertOrd<bToShader>(x.m_ApproveMask);
+		ConvertOrd<bToShader>(x.m_SizeShader);
+		ConvertOrd<bToShader>(x.m_Next.m_hTarget);
+	}
+	template <bool bToShader> void Convert(Upgradable3::Method::Control::ExplicitUpgrade& x) {
+	}
+
+	template <bool bToShader> void Convert(DaoAccumulator::Method::Create& x) {
+		ConvertOrd<bToShader>(x.m_aidBeamX);
+		ConvertOrd<bToShader>(x.m_hPrePhaseEnd);
+		ConvertOrd<bToShader>(x.m_Upgradable.m_hMinUpgradeDelay);
+		ConvertOrd<bToShader>(x.m_Upgradable.m_MinApprovers);
+	}
+	template <bool bToShader> void Convert(DaoAccumulator::Method::FarmStart& x) {
+		ConvertOrd<bToShader>(x.m_ApproveMask);
+		ConvertOrd<bToShader>(x.m_aidLpToken);
+		ConvertOrd<bToShader>(x.m_FarmBeamX);
+		ConvertOrd<bToShader>(x.m_hFarmDuration);
+	}
+	template <bool bToShader> void Convert(DaoAccumulator::Method::UserLock& x) {
+		ConvertOrd<bToShader>(x.m_LpToken);
+		ConvertOrd<bToShader>(x.m_hEnd);
+		ConvertOrd<bToShader>(x.m_PoolType);
+	}
+
+
 	template <bool bToShader> void Convert(Aphorize::Create& x) {
 		ConvertOrd<bToShader>(x.m_Cfg.m_hPeriod);
 		ConvertOrd<bToShader>(x.m_Cfg.m_PriceSubmit);
@@ -525,12 +553,17 @@ namespace bvm2 {
 	struct MyProcessor
 		:public ContractTestProcessor
 	{
-		struct ContractWrap
+		struct ShaderWrap
 		{
 			ByteBuffer m_Code;
 			ShaderID m_Sid;
-			ContractID m_Cid;
 			Wasm::Compiler::DebugInfo m_DbgInfo;
+		};
+
+		struct ContractWrap
+			:public ShaderWrap
+		{
+			ContractID m_Cid;
 		};
 
 		ContractWrap m_Vault;
@@ -547,6 +580,8 @@ namespace bvm2 {
 		ContractWrap m_Voting;
 		ContractWrap m_DaoCore;
 		ContractWrap m_DaoVote;
+		ContractWrap m_DaoAccumulator;
+		ShaderWrap m_DaoAccumulator_v2;
 		ContractWrap m_Aphorize;
 		ContractWrap m_DaoVault;
 		ContractWrap m_Nephrite;
@@ -555,7 +590,7 @@ namespace bvm2 {
 
 		std::map<ShaderID, const Wasm::Compiler::DebugInfo*> m_mapDbgInfo;
 
-		void AddCode(ContractWrap& cw, const char* sz)
+		void AddCode(ShaderWrap& cw, const char* sz)
 		{
 			AddCodeEx(cw.m_Code, sz, Kind::Contract, &cw.m_DbgInfo);
 			get_ShaderID(cw.m_Sid, cw.m_Code);
@@ -817,6 +852,7 @@ namespace bvm2 {
 		void TestVoting();
 		void TestDaoCore();
 		void TestDaoVote();
+		void TestDaoAccumulator();
 		void TestAphorize();
 		void TestNephrite();
 		void TestMinter();
@@ -1067,6 +1103,8 @@ namespace bvm2 {
 		AddCode(m_Voting, "voting/contract.wasm");
 		AddCode(m_DaoCore, "dao-core/contract.wasm");
 		AddCode(m_DaoVote, "dao-vote/contract.wasm");
+		AddCode(m_DaoAccumulator, "dao-accumulator/contract.wasm");
+		AddCode(m_DaoAccumulator_v2, "dao-accumulator/contract_v2.wasm");
 		AddCode(m_Aphorize, "aphorize/contract.wasm");
 		AddCode(m_DaoVault, "dao-vault/contract.wasm");
 		AddCode(m_Nephrite, "nephrite/contract.wasm");
@@ -1085,6 +1123,7 @@ namespace bvm2 {
 		TestVoting();
 		TestDaoCore();
 		TestDaoVote();
+		TestDaoAccumulator();
 		TestDummy();
 		TestSidechain();
 		TestOracle();
@@ -3590,6 +3629,79 @@ namespace bvm2 {
 			}
 
 		}
+	}
+
+	void MyProcessor::TestDaoAccumulator()
+	{
+		VERIFY_ID(Shaders::DaoAccumulator::s_pSID[_countof(Shaders::DaoAccumulator::s_pSID) - 1], m_DaoAccumulator.m_Sid);
+		VERIFY_ID(Shaders::DaoAccumulator::s_pSID[2], m_DaoAccumulator_v2.m_Sid);
+
+		{
+			Shaders::DaoAccumulator::Method::Create args;
+			ZeroObject(args);
+			args.m_Upgradable.m_MinApprovers = 1;
+			args.m_aidBeamX = Shaders::DaoAccumulator::NphAddonParams::s_aidBeamX;
+			args.m_hPrePhaseEnd = m_Height;
+
+			verify_test(ContractCreate_T(m_DaoAccumulator.m_Cid, m_DaoAccumulator_v2.m_Code, args)); // deploy v2 version
+		}
+
+		m_Height += 20;
+
+		{
+			Shaders::DaoAccumulator::Method::FarmStart args;
+			ZeroObject(args);
+			args.m_ApproveMask = 1u;
+			args.m_FarmBeamX = Rules::Coin * 6'000'000;
+			args.m_aidLpToken = 50;
+			args.m_hFarmDuration = 1440 * 365 * 2;
+
+			verify_test(RunGuarded_T(m_DaoAccumulator.m_Cid, args.s_iMethod, args));
+		}
+
+		m_Height += 100;
+
+		for (uint32_t i = 0; i < 5; i++)
+		{
+			Shaders::DaoAccumulator::Method::UserLock args;
+			ZeroObject(args);
+			args.m_pkUser.m_X = i + 400;
+			args.m_LpToken = Rules::Coin * (55 + i);
+			args.m_hEnd = m_Height + Shaders::DaoAccumulator::User::s_LockPeriodBlocks * (i + 1);
+			args.m_PoolType = Shaders::DaoAccumulator::Method::UserLock::Type::BeamX;
+
+			verify_test(RunGuarded_T(m_DaoAccumulator.m_Cid, args.s_iMethod, args));
+
+			m_Height += 10;
+		}
+
+		{
+			ByteBuffer buf;
+			buf.resize(sizeof(Shaders::Upgradable3::Method::Control::ScheduleUpgrade) + m_DaoAccumulator.m_Code.size());
+			auto& args = *reinterpret_cast<Shaders::Upgradable3::Method::Control::ScheduleUpgrade*>(&buf.front());
+
+			ZeroObject(args);
+			args.m_Type = args.s_Type;
+			args.m_ApproveMask = 1u;
+			args.m_SizeShader = (uint32_t) m_DaoAccumulator.m_Code.size();
+			args.m_Next.m_hTarget = m_Height + 20;
+
+			memcpy(&args + 1, &m_DaoAccumulator.m_Code.front(), m_DaoAccumulator.m_Code.size());
+
+			Converter<Shaders::Upgradable3::Method::Control::ScheduleUpgrade> cvt(args);
+			cvt.n += (uint32_t) m_DaoAccumulator.m_Code.size();
+
+			verify_test(RunGuarded(m_DaoAccumulator.m_Cid, Shaders::Upgradable3::Method::Control::s_iMethod, cvt, nullptr));
+		}
+
+		{
+			Shaders::Upgradable3::Method::Control::ExplicitUpgrade args;
+			verify_test(!RunGuarded_T(m_DaoAccumulator.m_Cid, Shaders::Upgradable3::Method::Control::s_iMethod, args)); // too early
+
+			m_Height += 20;
+			verify_test(RunGuarded_T(m_DaoAccumulator.m_Cid, Shaders::Upgradable3::Method::Control::s_iMethod, args)); // too early
+		}
+
 	}
 
 } // namespace bvm2

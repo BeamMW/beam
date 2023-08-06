@@ -18,6 +18,8 @@ configure_file("../Shaders/voting/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/voting/
 configure_file("../Shaders/dao-core/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/dao-core/contract.wasm" COPYONLY)
 configure_file("../Shaders/dao-vote/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/dao-vote/contract.wasm" COPYONLY)
 configure_file("../Shaders/dao-vault/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/dao-vault/contract.wasm" COPYONLY)
+configure_file("../Shaders/dao-accumulator/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/dao-accumulator/contract.wasm" COPYONLY)
+configure_file("../Shaders/dao-accumulator/contract_v2.wasm" "${CMAKE_CURRENT_BINARY_DIR}/dao-accumulator/contract_v2.wasm" COPYONLY)
 configure_file("../Shaders/aphorize/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/aphorize/contract.wasm" COPYONLY)
 configure_file("../Shaders/nephrite/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/nephrite/contract.wasm" COPYONLY)
 configure_file("../Shaders/nephrite/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/nephrite/app.wasm" COPYONLY)
