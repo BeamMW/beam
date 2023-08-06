@@ -12,6 +12,7 @@ jobs:
   ###############################################################################
   build_desktop:
     runs-on: ${{ matrix.os }}
+    if: ${{false}}
     strategy:
       matrix:
         # os: [macos-11]
@@ -298,13 +299,149 @@ jobs:
           name: pdb-${{env.BEAM_VERSION}}
           path: pdb
           if-no-files-found: error
+  ###############################################################################
+  # Build ARM 64
+  ###############################################################################
+  build_desktop_arm64:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Submodule update
+        shell: bash
+        run: |
+          git submodule update --init --recursive --jobs 4
+
+      ###############################################################################
+      # Create Build Environment
+      ###############################################################################
+
+      - name: Create Build Environment 
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install libssl-dev curl libxi-dev libcups2-dev -y
+          sudo apt install gcc make g++-aarch64-linux-gnu binutils-aarch64-linux-gnu
+
+      - name: Download boost & openssl
+        shell: bash
+        run: |
+          rm -rf ${{runner.workspace}}/boost_prebuild
+          git clone --depth=1 https://github.com/BeamMW/boost_prebuild_linux_arm64.git ${{runner.workspace}}/boost_prebuild
+          git clone --depth=1 https://github.com/BeamMW/openssl-arm64-linux.git ${{runner.workspace}}/openssl-arm64-linux
+
+
+      ###############################################################################
+      # Configure CMake
+      ###############################################################################
+      - name: Configure CMake
+        run: |
+          cmake $GITHUB_WORKSPACE -DCMAKE_TOOLCHAIN_FILE=./cmake/ARM64ToolChain.cmake -DBEAM_TESTS_ENABLED=OFF -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off -DBEAM_IPFS_SUPPORT=OFF -DBOOST_ROOT=${{runner.workspace}}/boost_prebuild -DCMAKE_FIND_ROOT_PATH:FILEPATH=\"${{runner.workspace}}/boost_prebuild;${{runner.workspace}}/openssl-arm64-linux\" -DOPENSSL_ROOT_DIR=${{runner.workspace}}/openssl-arm64-linux .
+
+      - name: Save version info
+        shell: bash
+        run: |
+          echo "BEAM_VERSION=$(cat beam_version.gen)" >> $GITHUB_ENV
+          rm beam_version.gen
+
+      ###############################################################################
+      # Build
+      ###############################################################################
+
+      - name: Build [ununtu all]
+        shell: bash
+        run: make -j$(nproc)
+
+
+      ###############################################################################
+      # Test
+      ###############################################################################
+
+      #- name: Test [ununtu all]
+      #  continue-on-error: false
+      #  shell: bash
+      #  run: ctest --verbose
+
+      ###############################################################################
+      # Collect artifacts
+      ###############################################################################
+      - name: Checksum
+        run: |
+          sha256sum beam/beam-node > beam/beam-node-checksum.txt
+          sha256sum wallet/cli/beam-wallet > wallet/cli/beam-wallet-checksum.txt
+          sha256sum wallet/api/wallet-api > wallet/api/wallet-api-checksum.txt
+          sha256sum explorer/explorer-node > explorer/explorer-node-checksum.txt
+          sha256sum wallet/broadcaster/broadcaster > wallet/broadcaster/broadcaster-checksum.txt
+          sha256sum bvm/ethash_service/ethash-service > bvm/ethash_service/ethash-service-checksum.txt
+
+
+      - name: Collect
+        shell: bash
+        run: |
+          mkdir artifacts
+          tar -cvf artifacts/beam-node.tar -C beam beam-node beam-node-checksum.txt beam-node.cfg
+          tar -cvf artifacts/beam-wallet.tar -C wallet/cli beam-wallet beam-wallet-checksum.txt beam-wallet.cfg
+          tar -cvf artifacts/wallet-api.tar -C wallet/api wallet-api wallet-api-checksum.txt wallet-api.cfg
+          tar -cvf artifacts/explorer-node.tar -C explorer explorer-node explorer-node-checksum.txt explorer-node.cfg
+          tar -cvf artifacts/broadcaster.tar -C wallet/broadcaster broadcaster broadcaster-checksum.txt
+          tar -cvf artifacts/ethash-service.tar -C bvm/ethash_service ethash-service ethash-service-checksum.txt
+
+
+      - name: OS name [ununtu all]
+        shell: bash
+        run: echo "PLATFORM_NAME=linux-arm64" >> $GITHUB_ENV
+
+
+      ###############################################################################
+      # Upload
+      ###############################################################################
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{env.PLATFORM_NAME}}-beam-node-${{env.BEAM_VERSION}}
+          path: artifacts/beam-node*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{env.PLATFORM_NAME}}-beam-wallet-cli-${{env.BEAM_VERSION}}
+          path: artifacts/beam-wallet*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{env.PLATFORM_NAME}}-wallet-api-${{env.BEAM_VERSION}}
+          path: |
+            artifacts/wallet-api*
+            #artifacts/ipfs-bindings*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{env.PLATFORM_NAME}}-explorer-node-${{env.BEAM_VERSION}}
+          path: artifacts/explorer-node*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{env.PLATFORM_NAME}}-broadcaster-${{env.BEAM_VERSION}}
+          path: artifacts/broadcaster*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{env.PLATFORM_NAME}}-ethash-service-${{env.BEAM_VERSION}}
+          path: artifacts/ethash-service*
+          if-no-files-found: error
 
   ###############################################################################
   # Build IOS
   ###############################################################################
   build_ios:
     runs-on: macos-11
-    #if: ${{false}}
+    if: ${{false}}
 
     steps:
       - uses: actions/checkout@v2
@@ -398,7 +535,7 @@ jobs:
   ###############################################################################
   build_android:
     runs-on: ubuntu-20.04
-    #if: ${{false}}
+    if: ${{false}}
     strategy:
       matrix:
         abi: [x86, x86_64, armeabi-v7a, arm64-v8a]
@@ -524,7 +661,7 @@ jobs:
   ###############################################################################
   build_wasm:
     runs-on: ubuntu-20.04
-    #if: ${{false}}
+    if: ${{false}}
 
     steps:
       - uses: actions/checkout@v2
