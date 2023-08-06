@@ -331,7 +331,6 @@ jobs:
         run: |
           rm -rf ${{runner.workspace}}/boost_prebuild
           git clone --depth=1 https://github.com/BeamMW/boost_prebuild_linux_arm64.git ${{runner.workspace}}/boost_prebuild
-          git clone --depth=1 https://github.com/BeamMW/openssl-arm64-linux.git ${{runner.workspace}}/openssl-arm64-linux
 
       - name: Download openssl
         shell: bash
