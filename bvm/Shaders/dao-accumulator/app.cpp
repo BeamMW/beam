@@ -153,7 +153,9 @@ ON_METHOD(explicit_upgrade)
 {
     const uint32_t nCharge =
         Env::Cost::LoadVar_For(sizeof(State)) +
-        Env::Cost::SaveVar_For(sizeof(State));
+        Env::Cost::SaveVar_For(sizeof(State)) +
+        Env::Cost::SaveVar_For(sizeof(Pool)) +
+        Env::Cost::Cycle * 300;
 
     Upgradable3::Manager::MultiSigRitual::Perform_ExplicitUpgrade(cid, nCharge);
 }
@@ -449,6 +451,7 @@ void EnumUsers(const ContractID& cid, bool bOwned)
     MyPoolNph p_Nph;
     if (p_Nph.Read(cid))
     {
+        p_Nph.Update(Env::get_Height());
         k0.m_KeyInContract.m_Tag = Tags::s_UserBeamNph;
         k1.m_KeyInContract.m_Tag = Tags::s_UserBeamNph;
 
