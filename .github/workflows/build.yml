@@ -336,7 +336,7 @@ jobs:
         shell: bash
         run: |
           rm -rf ${{runner.workspace}}/openssl_arm64_linux
-          git clone --depth=1 https://github.com/BeamMW/openssl-arm64-linux.git ${{runner.workspace}}/openssl_arm64_linux
+          git clone --depth=1 https://github.com/BeamMW/openssl-ios.git ${{runner.workspace}}/openssl_arm64_linux
 
 
       ###############################################################################
