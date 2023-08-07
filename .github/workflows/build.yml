@@ -323,9 +323,9 @@ jobs:
         shell: bash
         run: |
           git clone --depth=1 https://github.com/BeamMW/openssl-arm64-linux.git ${{runner.workspace}}/openssl_arm64_linux
-          sudo apt-get update
+          sudo apt-get update -y
           sudo apt-get install curl libxi-dev libcups2-dev -y
-          sudo apt install gcc make g++-aarch64-linux-gnu binutils-aarch64-linux-gnu
+          sudo apt install gcc make g++-aarch64-linux-gnu binutils-aarch64-linux-gnu -y 
 
       - name: Download boost
         shell: bash
