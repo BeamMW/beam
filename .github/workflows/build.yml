@@ -332,11 +332,7 @@ jobs:
           rm -rf ${{runner.workspace}}/boost_prebuild
           git clone --depth=1 https://github.com/BeamMW/boost_prebuild_linux_arm64.git ${{runner.workspace}}/boost_prebuild
 
-      - name: Download Openssl
-        shell: bash
-        run: |
-          rm -rf ${{runner.workspace}}/openssl_arm64_linux
-          git clone --depth=1 https://github.com/BeamMW/openssl-ios.git ${{runner.workspace}}/openssl_arm64_linux
+        
 
 
       ###############################################################################
@@ -344,6 +340,7 @@ jobs:
       ###############################################################################
       - name: Configure CMake
         run: |
+          git clone --depth=1 https://github.com/BeamMW/openssl-arm64-linux.git ${{runner.workspace}}/openssl_arm64_linux
           cmake -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/beam/cmake/ARM64ToolChain.cmake -DBEAM_TESTS_ENABLED=OFF -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off -DBEAM_IPFS_SUPPORT=OFF -DBOOST_ROOT=${{runner.workspace}}/boost_prebuild -DOPENSSL_ROOT_DIR=${{runner.workspace}}/openssl_arm64_linux -DCMAKE_FIND_ROOT_PATH:FILEPATH=\"${{runner.workspace}}/boost_prebuild;${{runner.workspace}}/openssl_arm64_linux\" -B${{runner.workspace}}/build_arm64 .
 
       - name: Save version info
