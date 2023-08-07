@@ -42,7 +42,7 @@ jobs:
         shell: bash
         if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
         run: |
-          sudo apt-get update
+          sudo apt-get update -y
           sudo apt-get install libssl-dev curl libxi-dev libcups2-dev -y
 
       - name: Create Build Environment [ubuntu-18.04]
