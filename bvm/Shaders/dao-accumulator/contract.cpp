@@ -153,7 +153,7 @@ void NphAddonParams::Upgrade()
     _POD_(p).SetZero();
     p.m_hLast = s.m_Pool.m_hLast;
     p.m_AmountRemaining = s_RewardTotal;
-    p.m_hRemaining = s.m_Pool.m_hRemaining; // assume both rewards end at the same time
+    p.m_hRemaining = s_DurationTotal;
 
     p.Save();
 }
