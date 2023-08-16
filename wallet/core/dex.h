@@ -15,6 +15,7 @@
 
 #include <string>
 #include <array>
+#include <cstdint>
 
 namespace beam::wallet
 {

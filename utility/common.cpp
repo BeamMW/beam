@@ -841,7 +841,10 @@ void beam::Crash::Induce(Type type)
 		break;
 
 	default:
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
 		// default crash
 		*reinterpret_cast<int*>(0x48) = 15;
+#pragma GCC diagnostic pop
 	}
 }
