@@ -841,10 +841,14 @@ void beam::Crash::Induce(Type type)
 		break;
 
 	default:
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
 		// default crash
 		*reinterpret_cast<int*>(0x48) = 15;
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #pragma GCC diagnostic pop
+#endif
 	}
 }
