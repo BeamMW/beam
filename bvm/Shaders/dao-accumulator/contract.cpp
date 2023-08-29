@@ -17,7 +17,7 @@ namespace DaoAccumulator {
 
         void Save()
         {
-            Env::SaveVar_T((uint8_t)Tags::s_State, *this);
+            Env::SaveVar_T((uint8_t) Tags::s_State, *this);
         }
 
     };
@@ -26,6 +26,21 @@ namespace DaoAccumulator {
     {
         MyState() { Load(); }
     };
+
+    struct MyPoolNph :public Pool
+    {
+        void Load()
+        {
+            Env::LoadVar_T((uint8_t) Tags::s_PoolBeamNph, *this);
+        }
+
+        void Save()
+        {
+            Env::SaveVar_T((uint8_t) Tags::s_PoolBeamNph, *this);
+        }
+
+    };
+
 #pragma pack (pop)
 
 BEAM_EXPORT void Ctor(const Method::Create& r)
@@ -97,21 +112,9 @@ BEAM_EXPORT void Method_3(const Method::FarmStart& r)
     s.Save();
 }
 
-BEAM_EXPORT void Method_4(const Method::UserLock& r)
+void OnUserLock(const Method::UserLock& r, Pool& p, Height h, bool bPrePhase, uint8_t nTag)
 {
-    MyState s;
-    Height h = Env::get_Height();
-
-    if (r.m_bPrePhase)
-    {
-        Env::Halt_if(h >= s.m_hPreEnd);
-        h = s.m_hPreEnd;
-    }
-    else
-    {
-        Env::Halt_if(!s.m_aidLpToken);
-        s.m_Pool.Update(h);
-    }
+    p.Update(h);
 
     Env::Halt_if(!r.m_LpToken || (r.m_hEnd <= h));
 
@@ -124,49 +127,108 @@ BEAM_EXPORT void Method_4(const Method::UserLock& r)
     u.m_LpToken = r.m_LpToken;
     u.m_hEnd = r.m_hEnd;
 
-    u.set_Weight(nPeriods, !!r.m_bPrePhase);
-    s.m_Pool.Add(u.m_PoolUser);
+    u.set_Weight(nPeriods, !!bPrePhase);
+    p.Add(u.m_PoolUser);
 
-    User::Key uk;
+    User::Key uk(nTag);
     _POD_(uk.m_pk) = r.m_pkUser;
     Env::Halt_if(Env::SaveVar_T(uk, u)); // fail if already exists
 
-    s.Save();
-
-    if (r.m_bPrePhase)
-    {
-        Env::FundsLock(0, r.m_LpToken);
-
-        Amount valBeamX = r.m_LpToken / State::s_InitialRatio;
-        Env::Halt_if(valBeamX * State::s_InitialRatio != r.m_LpToken); // must be exact multiple
-
-        Env::FundsLock(s.m_aidBeamX, valBeamX);
-    }
-    else
-        Env::FundsLock(s.m_aidLpToken, r.m_LpToken);
 }
 
-BEAM_EXPORT void Method_5(const Method::UserUpdate& r)
+void NphAddonParams::Upgrade()
+{
+    // Create NPH reward pool, transfer some beamX from beam-beamX reward pool.
+
+    MyState s;
+    Env::Halt_if(s_aidBeamX != s.m_aidBeamX); // make sure we're on the right network
+
+    s.m_Pool.Update(Env::get_Height());
+    Strict::Sub(s.m_Pool.m_AmountRemaining, s_RewardTotal);
+
+    s.Save();
+
+
+    MyPoolNph p;
+    _POD_(p).SetZero();
+    p.m_hLast = s.m_Pool.m_hLast;
+    p.m_AmountRemaining = s_RewardTotal;
+    p.m_hRemaining = s_DurationTotal;
+
+    p.Save();
+}
+
+BEAM_EXPORT void Method_4(const Method::UserLock& r)
 {
     Height h = Env::get_Height();
 
-    MyState s;
-    Env::Halt_if(!s.m_aidLpToken); // post-phase didn't start
-    s.m_Pool.Update(h);
+    if (Method::UserLock::Type::Nph == r.m_PoolType)
+    {
+        MyPoolNph p;
+        p.Load();
+        OnUserLock(r, p, h, false, Tags::s_UserBeamNph);
+        p.Save();
+
+        Env::FundsLock(NphAddonParams::s_aidLpTokenBeamNph, r.m_LpToken);
+    }
+    else
+    {
+        MyState s;
+
+        switch (r.m_PoolType)
+        {
+        case Method::UserLock::Type::BeamX:
+        {
+            OnUserLock(r, s.m_Pool, h, false, Tags::s_User);
+
+            Env::Halt_if(!s.m_aidLpToken);
+            Env::FundsLock(s.m_aidLpToken, r.m_LpToken);
+        }
+        break;
+
+        case Method::UserLock::Type::BeamX_PrePhase:
+        {
+            // deprecated, but nevermind
+            Env::Halt_if(h >= s.m_hPreEnd);
+            h = s.m_hPreEnd;
+
+            OnUserLock(r, s.m_Pool, h, true, Tags::s_User);
+
+            Env::FundsLock(0, r.m_LpToken);
+
+            Amount valBeamX = r.m_LpToken / State::s_InitialRatio;
+            Env::Halt_if(valBeamX * State::s_InitialRatio != r.m_LpToken); // must be exact multiple
+
+            Env::FundsLock(s.m_aidBeamX, valBeamX);
+        }
+        break;
+
+        default:
+            Env::Halt();
+        }
+
+        s.Save();
+    }
+}
+
+void OnUserWithdraw(const Method::UserWithdraw_Base& r, Pool& p, uint8_t nTag, AssetID aidLpToken, AssetID aidBeamX)
+{
+    Height h = Env::get_Height();
+    p.Update(h);
 
     Env::AddSig(r.m_pkUser);
 
-    User::Key uk;
+    User::Key uk(nTag);
     _POD_(uk.m_pk) = r.m_pkUser;
     User u;
     Env::Halt_if(!Env::LoadVar_T(uk, u)); // must exist
 
-    u.m_EarnedBeamX += s.m_Pool.Remove(u.m_PoolUser); // should not overflow
+    u.m_EarnedBeamX += p.Remove(u.m_PoolUser); // should not overflow
 
     if (r.m_WithdrawLPToken)
     {
         Env::Halt_if(h < u.m_hEnd);
-        Env::FundsUnlock(s.m_aidLpToken, u.m_LpToken);
+        Env::FundsUnlock(aidLpToken, u.m_LpToken);
 
         u.m_LpToken = 0;
         u.m_PoolUser.m_Weight = 0;
@@ -175,18 +237,36 @@ BEAM_EXPORT void Method_5(const Method::UserUpdate& r)
     if (r.m_WithdrawBeamX)
     {
         Strict::Sub(u.m_EarnedBeamX, r.m_WithdrawBeamX);
-        Env::FundsUnlock(s.m_aidBeamX, r.m_WithdrawBeamX);
+        Env::FundsUnlock(aidBeamX, r.m_WithdrawBeamX);
     }
 
     if (u.m_LpToken || u.m_EarnedBeamX)
     {
-        s.m_Pool.Add(u.m_PoolUser);
+        p.Add(u.m_PoolUser);
         Env::SaveVar_T(uk, u);
     }
     else
         Env::DelVar_T(uk);
+}
+
+BEAM_EXPORT void Method_5(const Method::UserWithdraw_FromBeamBeamX& r)
+{
+    MyState s;
+    Env::Halt_if(!s.m_aidLpToken); // post-phase didn't start
+
+    OnUserWithdraw(r, s.m_Pool, Tags::s_User, s.m_aidLpToken, s.m_aidBeamX);
 
     s.Save();
+}
+
+BEAM_EXPORT void Method_6(const Method::UserWithdraw_FromBeamNph& r)
+{
+    MyPoolNph p;
+    p.Load();
+
+    OnUserWithdraw(r, p, Tags::s_UserBeamNph, NphAddonParams::s_aidLpTokenBeamNph, NphAddonParams::s_aidBeamX);
+
+    p.Save();
 }
 
 } // namespace DaoAccumulator
@@ -202,16 +282,10 @@ namespace Upgradable3 {
 
     void OnUpgraded(uint32_t nPrevVersion)
     {
-        if constexpr (g_CurrentVersion > 0)
-            Env::Halt_if(nPrevVersion != g_CurrentVersion - 1);
-        else
-            Env::Halt();
+        Env::Halt_if(nPrevVersion != g_CurrentVersion - 1);
 
-        // add farming time
-        DaoAccumulator::MyState s;
-        Env::Halt_if(s.m_aidLpToken);
+        static_assert(g_CurrentVersion == 3);
 
-        s.m_hPreEnd = Env::get_Height() + 500;
-        s.Save();
+        DaoAccumulator::NphAddonParams::Upgrade();
     }
 }

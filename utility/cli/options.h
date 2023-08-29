@@ -308,6 +308,7 @@ namespace beam
 
         extern const char* ASSETS_SWAP_OFFER_ID;
 #endif  // BEAM_ASSET_SWAP_SUPPORT
+        extern const char* NETWORK;
     }
 
     enum OptionsFlag : int

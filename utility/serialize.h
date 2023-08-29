@@ -118,7 +118,7 @@ struct SerializerSizeCounter
 {
 	struct Counter
 	{
-		size_t m_Value; // should not overflow, since it's used only for objects of limited size (tx elements, etc.)
+		size_t m_Value = 0; // should not overflow, since it's used only for objects of limited size (tx elements, etc.)
 
 		size_t write(const void * /*ptr*/, const size_t size)
 		{
@@ -134,7 +134,7 @@ struct SerializerSizeCounter
 
 	SerializerSizeCounter() : _oa(m_Counter)
 	{
-		m_Counter.m_Value = 0;
+
 	}
 
 	template <typename T> SerializerSizeCounter& operator & (const T& object)
@@ -149,6 +149,7 @@ struct SerializerIntoStaticBuf
     struct Cursor
     {
         uint8_t* m_pPos;
+        explicit Cursor(uint8_t* pPos) : m_pPos(pPos) {}
 
         size_t write(const void* ptr, const size_t size)
         {
@@ -162,9 +163,10 @@ struct SerializerIntoStaticBuf
     yas::binary_oarchive<Cursor, SERIALIZE_OPTIONS> _oa;
 
 
-    SerializerIntoStaticBuf(void* pDst) : _oa(m_Cursor)
+    SerializerIntoStaticBuf(void* pDst) 
+        : m_Cursor(reinterpret_cast<uint8_t*>(pDst))
+        , _oa(m_Cursor)
     {
-        m_Cursor.m_pPos = reinterpret_cast<uint8_t*>(pDst);
     }
 
     template <typename T> SerializerIntoStaticBuf& operator & (const T& object)

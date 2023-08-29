@@ -19,6 +19,7 @@
 #include "v7_1/v7_1_api.h"
 #include "v7_2/v7_2_api.h"
 #include "v7_3/v7_3_api.h"
+#include "v7_4/v7_4_api.h"
 
 namespace beam::wallet
 {
@@ -76,6 +77,13 @@ namespace beam::wallet
         // MUST BE SAFE TO CALL FROM ANY THREAD
         switch (version)
         {
+            case ApiVer7_4:
+            {
+                auto api = new V74Api(handler, 7, 4, data);
+                auto ptr = IWalletApi::Ptr(api);
+                api->takeGuardPtr(ptr);
+                return ptr;
+            }
             case ApiVer7_3:
             {
                 auto api = new V73Api(handler, 7, 3, data);

@@ -8,6 +8,7 @@ namespace DaoAccumulator
         { 0x8b,0xce,0x8c,0x1f,0x0a,0xd8,0xd9,0xd1,0x95,0x63,0x19,0x66,0x6a,0xf7,0x89,0xd7,0xfd,0x68,0xab,0x7e,0xc9,0xd4,0x62,0x15,0x6f,0xcb,0x03,0xc9,0xbd,0x79,0xcc,0x96 },
         { 0xcc,0xed,0x12,0x15,0xca,0x99,0x34,0x62,0x0b,0x02,0x0f,0xea,0x17,0xb3,0xf5,0x9e,0xff,0x58,0xca,0x6b,0x38,0xb3,0x97,0x62,0xbc,0x42,0xf0,0x95,0xc0,0xe5,0x23,0x3a },
         { 0x75,0xe5,0x01,0x73,0xfd,0xb5,0xcf,0xce,0x65,0x9a,0x70,0xf0,0x62,0x3d,0x69,0x23,0xce,0xb1,0x08,0x0a,0x96,0x05,0x18,0xe4,0x7d,0x5a,0x80,0x50,0xa8,0xc9,0xd0,0xe8 },
+        { 0xa9,0x44,0x0e,0xdd,0x41,0xd0,0xec,0xb1,0xd4,0xe8,0xb5,0x1a,0x15,0xda,0xee,0xae,0x5d,0x1a,0xeb,0x85,0x45,0x42,0x1d,0xba,0x8e,0x11,0xbd,0x71,0x3d,0x02,0x30,0xd5 },
     };
 
 #pragma pack (push, 1)
@@ -17,7 +18,10 @@ namespace DaoAccumulator
     struct Tags
     {
         static const uint8_t s_State = 0;
-        static const uint8_t s_User = 0;
+        static const uint8_t s_User = 0; // better to use different value, but not a problem really
+
+        static const uint8_t s_PoolBeamNph = 1;
+        static const uint8_t s_UserBeamNph = 2;
     };
 
     struct Pool
@@ -122,9 +126,13 @@ namespace DaoAccumulator
 
     struct User
     {
-        struct Key {
-            uint8_t m_Tag = Tags::s_User;
+        struct KeyBase {
+            uint8_t m_Tag;
             PubKey m_pk;
+        };
+
+        struct Key :public KeyBase {
+            Key(uint8_t tag) { m_Tag = tag; }
         };
 
         Pool::User m_PoolUser;
@@ -144,6 +152,17 @@ namespace DaoAccumulator
 
             m_PoolUser.m_Weight = val;
         }
+    };
+
+    struct NphAddonParams
+    {
+        static const AssetID s_aidBeamX = 7;
+        static const AssetID s_aidLpTokenBeamNph = 60;
+
+        static const Amount s_RewardTotal = g_Beam2Groth * 2'000'000;
+        static const Height s_DurationTotal = 1440 * 365 * 2; // 2 years
+
+        static void Upgrade();
     };
 
     namespace Method
@@ -172,19 +191,30 @@ namespace DaoAccumulator
         {
             static const uint32_t s_iMethod = 4;
 
+            struct Type {
+                static const uint8_t BeamX = 0;
+                static const uint8_t BeamX_PrePhase = 1;
+                static const uint8_t Nph = 2;
+            };
+
             PubKey m_pkUser;
             Amount m_LpToken;
             Height m_hEnd;
-            uint8_t m_bPrePhase;
+            uint8_t m_PoolType;
         };
 
-        struct UserUpdate
+        struct UserWithdraw_Base
         {
-            static const uint32_t s_iMethod = 5;
-
             PubKey m_pkUser;
             uint8_t m_WithdrawLPToken;
             Amount m_WithdrawBeamX;
+        };
+
+        struct UserWithdraw_FromBeamBeamX :public UserWithdraw_Base {
+            static const uint32_t s_iMethod = 5;
+        };
+        struct UserWithdraw_FromBeamNph :public UserWithdraw_Base {
+            static const uint32_t s_iMethod = 6;
         };
 
     }

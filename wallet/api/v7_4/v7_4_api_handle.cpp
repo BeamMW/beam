@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+// Copyright 2023 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,28 +11,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#pragma once
-
-#include <string>
-#include <array>
-#include <cstdint>
+#include "v7_4_api.h"
 
 namespace beam::wallet
 {
-    struct DexOrderID: std::array<uint8_t, 16>
+    void V74Api::onHandleSendSbbsMessage(const JsonRpcId& id, SendSbbsMessage&& req)
     {
-        [[nodiscard]] std::string to_string() const;
-        static DexOrderID generate();
+        auto timestamp = getTimestamp();
+        getWallet()->sendInstantSbbsMessage(timestamp, req.receiver, req.sender, std::move(req.message));
+        doResponse(id, SendSbbsMessage::Response{ req.sender, req.receiver, req.message.size() });
+    }
 
-        DexOrderID() = default;
-        bool FromHex(const std::string& hex);
-
-        template <typename Archive>
-        void serialize(Archive& ar)
-        {
-            auto& arr = *static_cast<std::array<uint8_t, 16>*>(this);
-            ar & arr;
-        }
-    };
+    void V74Api::onHandleReadSbbsMessages(const JsonRpcId& id, ReadSbbsMessages&& req)
+    {
+        doResponse(id, ReadSbbsMessages::Response{ getWalletDB()->readIMs(req.all)});
+    }
 }
-

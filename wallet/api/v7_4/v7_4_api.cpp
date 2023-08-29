@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+// Copyright 2023 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,28 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#pragma once
-
-#include <string>
-#include <array>
-#include <cstdint>
+#include "v7_4_api.h"
 
 namespace beam::wallet
 {
-    struct DexOrderID: std::array<uint8_t, 16>
-    {
-        [[nodiscard]] std::string to_string() const;
-        static DexOrderID generate();
-
-        DexOrderID() = default;
-        bool FromHex(const std::string& hex);
-
-        template <typename Archive>
-        void serialize(Archive& ar)
-        {
-            auto& arr = *static_cast<std::array<uint8_t, 16>*>(this);
-            ar & arr;
-        }
-    };
+V74Api::V74Api(IWalletApiHandler& handler, unsigned long avMajor, unsigned long avMinor, const ApiInitData &init)
+    : V73Api(handler, avMajor, avMinor, init)
+{
+    // MUST BE SAFE TO CALL FROM ANY THREAD
+    V7_4_API_METHODS(BEAM_API_REG_METHOD)
 }
-
+}
