@@ -2564,7 +2564,7 @@ void ParserContext::OnState_DaoAccumulator(uint32_t /* iVer */)
 	k.m_KeyInContract = DaoAccumulator::Tags::s_PoolBeamNph;
 
 	if (Env::VarReader::Read_T(k, p_Nph))
-		OnState_DaoAccumulator_Pool(s.m_Pool, "Pool Beam/Nph");
+		OnState_DaoAccumulator_Pool(p_Nph, "Pool Beam/Nph");
 	else
 		_POD_(p_Nph).SetZero();
 
