@@ -418,6 +418,11 @@ struct ParserContext
 		}
 	};
 
+
+	void OnDaoAccumulator_UserWithdraw(uint8_t nType);
+	void OnState_DaoAccumulator_Pool(DaoAccumulator::Pool&, const char* szName);
+	void OnState_DaoAccumulator_Users(DaoAccumulator::Pool&, uint8_t type, const char* szName);
+
 };
 
 bool ParserContext::Parse()
@@ -2388,6 +2393,38 @@ void ParserContext::OnState_DEX(uint32_t /* iVer */)
 
 }
 
+void OnDaoAccumulator_PoolType(uint8_t nType)
+{
+	static const char s_szName[] = "Pool";
+	switch (nType)
+	{
+	case DaoAccumulator::Method::UserLock::Type::BeamX_PrePhase:
+		Env::DocAddText(s_szName, "Beam-BeamX pre-phase");
+		break;
+
+	case DaoAccumulator::Method::UserLock::Type::BeamX:
+		Env::DocAddText(s_szName, "Beam-BeamX");
+		break;
+
+	case DaoAccumulator::Method::UserLock::Type::Nph:
+		Env::DocAddText(s_szName, "Beam-Nph");
+		break;
+	}
+}
+
+void ParserContext::OnDaoAccumulator_UserWithdraw(uint8_t nType)
+{
+	auto pArg = get_ArgsAs<DaoAccumulator::Method::UserWithdraw_Base>();
+	if (pArg)
+	{
+		OnMethod("Withdraw");
+		GroupArgs gr;
+
+		OnDaoAccumulator_PoolType(nType);
+
+		DocAddPk("pk", pArg->m_pkUser);
+	}
+}
 
 void ParserContext::OnMethod_DaoAccumulator(uint32_t /* iVer */)
 {
@@ -2434,23 +2471,70 @@ void ParserContext::OnMethod_DaoAccumulator(uint32_t /* iVer */)
 		{
 			OnMethod("Lock");
 			GroupArgs gr;
+			OnDaoAccumulator_PoolType(pArg->m_PoolType);
 			DocAddPk("pk", pArg->m_pkUser);
 			DocAddHeight("hEnd", pArg->m_hEnd);
 		}
 	}
 	break;
 
-	case DaoAccumulator::Method::UserUpdate::s_iMethod:
-	{
-		auto pArg = get_ArgsAs<DaoAccumulator::Method::UserUpdate>();
-		if (pArg)
-		{
-			OnMethod("User update");
-			GroupArgs gr;
-			DocAddPk("pk", pArg->m_pkUser);
-		}
+	case DaoAccumulator::Method::UserWithdraw_FromBeamNph::s_iMethod:
+		OnDaoAccumulator_UserWithdraw(DaoAccumulator::Method::UserLock::Type::Nph);
+		break;
+
+	case DaoAccumulator::Method::UserWithdraw_FromBeamBeamX::s_iMethod:
+		OnDaoAccumulator_UserWithdraw(DaoAccumulator::Method::UserLock::Type::BeamX);
+		break;
 	}
-	break;
+}
+
+void ParserContext::OnState_DaoAccumulator_Pool(DaoAccumulator::Pool& p, const char* szName)
+{
+	Env::DocGroup gr(szName);
+
+	p.Update(Env::get_Height());
+
+	DocAddAmount("Reward remaining", p.m_AmountRemaining);
+	Env::DocAddNum("Farming duration remaining", p.m_hRemaining);
+}
+
+void ParserContext::OnState_DaoAccumulator_Users(DaoAccumulator::Pool& p, uint8_t type, const char* szName)
+{
+	Env::DocGroup gr2(szName);
+	DocSetType("table");
+	Env::DocArray gr3("value");
+
+	{
+		Env::DocArray gr4("");
+		DocAddTableHeader("LP-Tokens");
+		DocAddTableHeader("Locked until");
+		DocAddTableHeader("Reward");
+		DocAddTableHeader("Key");
+	}
+
+	Env::Key_T<DaoAccumulator::User::KeyBase> k0, k1;
+	k0.m_KeyInContract.m_Tag = type;
+	k1.m_KeyInContract.m_Tag = type;
+	_POD_(k0.m_Prefix.m_Cid) = m_Cid;
+	_POD_(k1.m_Prefix.m_Cid) = m_Cid;
+	_POD_(k0.m_KeyInContract.m_pk).SetZero();
+	_POD_(k1.m_KeyInContract.m_pk).SetObject(0xff);
+
+	for (Env::VarReader r(k0, k1); ; )
+	{
+		DaoAccumulator::User u;
+		if (!r.MoveNext_T(k0, u))
+			break;
+
+		Env::DocArray gr4("");
+
+		DocAddAmount("", u.m_LpToken);
+		DocAddHeight("", u.m_hEnd);
+
+		u.m_EarnedBeamX += p.Remove(u.m_PoolUser);
+		DocAddAmount("", u.m_EarnedBeamX);
+
+		DocAddPk("", k0.m_KeyInContract.m_pk);
 	}
 }
 
@@ -2473,52 +2557,19 @@ void ParserContext::OnState_DaoAccumulator(uint32_t /* iVer */)
 	{
 		DocAddAid("LP-token", s.m_aidLpToken);
 
-		s.m_Pool.Update(Env::get_Height());
-
-		DocAddAmount("Reward remaining", s.m_Pool.m_AmountRemaining);
-		Env::DocAddNum("Farming duration remaining", s.m_Pool.m_hRemaining);
+		OnState_DaoAccumulator_Pool(s.m_Pool, "Pool Beam/BeamX");
 	}
 
-	{
-		Env::DocGroup gr2("Users");
-		DocSetType("table");
-		Env::DocArray gr3("value");
+	DaoAccumulator::Pool p_Nph;
+	k.m_KeyInContract = DaoAccumulator::Tags::s_PoolBeamNph;
 
-		{
-			Env::DocArray gr4("");
-			DocAddTableHeader("LP-Tokens");
-			DocAddTableHeader("Locked until");
-			DocAddTableHeader("Reward");
-			DocAddTableHeader("Key");
-		}
+	if (Env::VarReader::Read_T(k, p_Nph))
+		OnState_DaoAccumulator_Pool(s.m_Pool, "Pool Beam/Nph");
+	else
+		_POD_(p_Nph).SetZero();
 
-		Env::Key_T<DaoAccumulator::User::Key> k0, k1;
-		_POD_(k0.m_Prefix.m_Cid) = m_Cid;
-		_POD_(k1.m_Prefix.m_Cid) = m_Cid;
-		_POD_(k0.m_KeyInContract.m_pk).SetZero();
-		_POD_(k1.m_KeyInContract.m_pk).SetObject(0xff);
-
-		for (Env::VarReader r(k0, k1); ; )
-		{
-			DaoAccumulator::User u;
-			if (!r.MoveNext_T(k0, u))
-				break;
-
-			Env::DocArray gr4("");
-
-			DocAddAmount("", u.m_LpToken);
-			DocAddHeight("", u.m_hEnd);
-
-			if (s.m_aidLpToken)
-				u.m_EarnedBeamX += s.m_Pool.Remove(u.m_PoolUser);
-
-			DocAddAmount("", u.m_EarnedBeamX);
-
-			DocAddPk("", k0.m_KeyInContract.m_pk);
-		}
-
-	}
-
+	OnState_DaoAccumulator_Users(s.m_Pool, DaoAccumulator::Tags::s_User, "Beam/BeamX users");
+	OnState_DaoAccumulator_Users(p_Nph, DaoAccumulator::Tags::s_UserBeamNph, "Beam/Nph users");
 }
 
 
