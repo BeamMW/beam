@@ -1413,6 +1413,10 @@ private:
                     }
                 }
 
+                void OnKrnEx(const TxKernelEvmInvoke&)
+                {
+                }
+
             } wlk;
             wlk.m_pCri = &cri;
             wlk.m_Height = h;
