@@ -3248,6 +3248,10 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelContractInvoke&, uint32_
 {
 }
 
+void NodeProcessor::Recognizer::Recognize(const TxKernelEvmInvoke& v, Height h, uint32_t nKrnIdx)
+{
+}
+
 bool NodeProcessor::KrnWalkerShielded::OnKrn(const TxKernel& krn)
 {
 	switch (krn.get_Subtype())
@@ -3501,6 +3505,12 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 
 	return true;
 }
+
+bool NodeProcessor::HandleKernelType(const TxKernelEvmInvoke& krn, BlockInterpretCtx& bic)
+{
+	return false; // not impl
+}
+
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::EnsureNoVars(const bvm2::ContractID& cid)
 {
