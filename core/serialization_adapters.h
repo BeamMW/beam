@@ -1705,6 +1705,30 @@ namespace detail
 				& val.m_iMethod;
 		}
 
+		/// beam::TxKernelEvmInvoke serialization
+		template<typename Archive>
+		Archive& save(Archive& ar, const beam::TxKernelEvmInvoke& val)
+		{
+			saveBase(ar, val);
+			ar
+				& val.m_From
+				& val.m_To
+				& val.m_Nonce
+				& val.m_Amount;
+			return ar;
+		}
+
+		template<typename Archive>
+		void load0(Archive& ar, beam::TxKernelEvmInvoke& val, uint32_t nRecursion)
+		{
+			load0Base(ar, val, nRecursion);
+			ar
+				& val.m_From
+				& val.m_To
+				& val.m_Nonce
+				& val.m_Amount;
+		}
+
         /// beam::Transaction serialization
         template<typename Archive>
         Archive& save(Archive& ar, const beam::TxBase& txb)

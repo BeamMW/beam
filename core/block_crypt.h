@@ -915,6 +915,7 @@ namespace beam
 	macro(6, AssetDestroy) \
 	macro(7, ContractCreate) \
 	macro(8, ContractInvoke) \
+	macro(9, EvmInvoke) \
 
 #define THE_MACRO(id, name) struct TxKernel##name;
 	BeamKernelsAll(THE_MACRO)
@@ -1238,6 +1239,24 @@ namespace beam
 		virtual ~TxKernelContractInvoke() {}
 		virtual Subtype::Enum get_Subtype() const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
+	protected:
+		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+	};
+
+	struct TxKernelEvmInvoke
+		:public TxKernelContractControl
+	{
+		ECC::uintBig m_From;
+		ECC::uintBig m_To;
+		uint64_t m_Nonce; // not necessary
+		Amount m_Amount;
+
+		typedef std::unique_ptr<TxKernelEvmInvoke> Ptr;
+
+		virtual ~TxKernelEvmInvoke() {}
+		virtual Subtype::Enum get_Subtype() const override;
+		virtual void Clone(TxKernel::Ptr&) const override;
+		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 	protected:
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
 	};

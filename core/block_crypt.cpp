@@ -1515,6 +1515,38 @@ namespace beam
 	}
 
 	/////////////
+	// TxKernelEvmInvoke
+	void TxKernelEvmInvoke::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelEvmInvoke);
+		TxKernelEvmInvoke& v = Cast::Up<TxKernelEvmInvoke>(*p);
+
+		v.CopyFrom(*this);
+		v.m_From = m_From;
+		v.m_To = m_To;
+		v.m_Nonce = m_Nonce;
+		v.m_Amount = m_Amount;
+	}
+
+	void TxKernelEvmInvoke::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		TxKernelContractControl::HashSelfForMsg(hp);
+		hp
+			<< m_From
+			<< m_To
+			<< m_Nonce
+			<< m_Amount;
+	}
+
+	void TxKernelEvmInvoke::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		TxKernelContractControl::TestValid(hScheme, exc, pParent);
+
+		const Rules& r = Rules::get(); // alias
+		r.TestForkAtLeast(hScheme, 6);
+	}
+
+	/////////////
 	// FeeSettings
 
 	struct FeeSettingsGlobal
