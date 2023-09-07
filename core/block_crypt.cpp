@@ -1540,10 +1540,46 @@ namespace beam
 
 	void TxKernelEvmInvoke::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
-		TxKernelContractControl::TestValid(hScheme, exc, pParent);
+		TestValidBase(hScheme, exc, pParent);
 
 		const Rules& r = Rules::get(); // alias
 		r.TestForkAtLeast(hScheme, 6);
+
+		ECC::Point::Native pComm[2];
+		pComm[0].ImportNnzStrict(m_Commitment);
+		exc += pComm[0];
+
+		bool bFromBlock = (m_From == Zero);
+		bool bToBlock = (m_To == Zero);
+
+		if (m_Amount && (bFromBlock != bToBlock))
+		{
+			ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+			pComm[1] = ECC::Context::get().H * m_Amount;
+			if (bFromBlock)
+				pComm[1] = -pComm[1];
+
+			pComm[0] += pComm[1];
+		}
+
+
+		if (bFromBlock)
+		{
+			if (!m_Signature.IsValid(m_Internal.m_ID, pComm[0]))
+				TxBase::Fail_Signature();
+		}
+		else
+		{
+			auto& s = Cast::Down<ECC::SignatureBase>(m_Signature);
+
+			ECC::Point pt;
+			pt.m_X = m_From;
+			pt.m_Y = 0;
+			pComm[1].ImportNnzStrict(pt);
+
+			s.IsValid(ECC::Context::get().m_Sig.m_CfgG2, m_Internal.m_ID, &m_Signature.m_k, pComm);
+		}
 	}
 
 	/////////////
