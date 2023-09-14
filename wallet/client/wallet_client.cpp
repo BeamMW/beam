@@ -229,10 +229,10 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async((MethodType)&IWalletModelAsync::generateNewAddress, std::move(callback));
     }
 
-    void generateToken(wallet::TokenType type, Amount amount, Asset::ID aid, std::string sVer, AsyncCallback<std::string&&>&& callback) override
+    void generateToken(wallet::TokenType type, Amount amount, Asset::ID aid, std::string sVer, bool newAddress, AsyncCallback<std::string&&>&& callback) override
     {
-        typedef void(IWalletModelAsync::* MethodType)(wallet::TokenType, Amount, Asset::ID, std::string, AsyncCallback<std::string&&>&&);
-        call_async((MethodType)&IWalletModelAsync::generateToken, type, amount, aid, std::move(sVer), std::move(callback));
+        typedef void(IWalletModelAsync::* MethodType)(wallet::TokenType, Amount, Asset::ID, std::string, bool, AsyncCallback<std::string&&>&&);
+        call_async((MethodType)&IWalletModelAsync::generateToken, type, amount, aid, std::move(sVer), newAddress, std::move(callback));
     }
 
     void deleteAddress(const WalletID& addr) override
@@ -1687,13 +1687,21 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::generateToken(TokenType type, Amount amount, Asset::ID aid, std::string sVer, AsyncCallback<std::string&&>&& callback)
+    void WalletClient::generateToken(TokenType type, Amount amount, Asset::ID aid, std::string sVer, bool newAddress, AsyncCallback<std::string&&>&& callback)
     {
         std::string sToken;
         try
         {
             WalletAddress wa;
-            m_walletDB->getDefaultAddressAlways(wa);
+            if (newAddress)
+            {
+                m_walletDB->createAddress(wa);
+                wa.setExpirationStatus(WalletAddress::ExpirationStatus::Auto);
+            }
+            else
+            {
+                m_walletDB->getDefaultAddressAlways(wa);
+            }
 
             switch (type)
             {
@@ -1707,6 +1715,12 @@ namespace beam::wallet
 
             default:
                 sToken = GenerateToken(type, wa, m_walletDB);
+            }
+
+            if (newAddress)
+            {
+                wa.m_Token = sToken;
+                m_walletDB->saveAddress(wa);
             }
         }
         catch (const std::exception& e)

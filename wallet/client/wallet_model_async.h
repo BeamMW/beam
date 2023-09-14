@@ -52,7 +52,7 @@ namespace beam::wallet
         virtual void saveAddress(const WalletAddress& address) = 0;
         virtual void generateNewAddress() = 0;
         virtual void generateNewAddress(AsyncCallback<const WalletAddress&>&& callback) = 0;
-        virtual void generateToken(TokenType, Amount, Asset::ID, std::string sVer, AsyncCallback<std::string&&>&& callback) = 0;
+        virtual void generateToken(TokenType, Amount, Asset::ID, std::string sVer, bool newAddress, AsyncCallback<std::string&&>&& callback) = 0;
 
         #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         virtual void loadSwapParams() = 0;
