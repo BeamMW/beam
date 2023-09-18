@@ -3944,15 +3944,6 @@ bool NodeProcessor::HandleAssetEmit(const PeerID& pidOwner, BlockInterpretCtx& b
 	return false;
 }
 
-Amount SplitAmountSigned(AmountSigned val, bool& isPositive)
-{
-	isPositive = (val >= 0);
-	if (isPositive)
-		return val;
-
-	return static_cast<Amount>(-val);
-}
-
 bool NodeProcessor::HandleAssetEmit2(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, AmountSigned val, uint32_t nSubIdx)
 {
 	Asset::Full ai;

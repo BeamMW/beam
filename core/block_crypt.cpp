@@ -672,6 +672,15 @@ namespace beam
 		return h;
 	}
 
+	Amount SplitAmountSigned(AmountSigned val, bool& isPositive)
+	{
+		isPositive = (val >= 0);
+		if (isPositive)
+			return val;
+
+		return static_cast<Amount>(-val);
+	}
+
 	/////////////
 	// TxKernel
 	const ECC::Hash::Value& TxKernelStd::HashLock::get_Image(ECC::Hash::Value& hv) const

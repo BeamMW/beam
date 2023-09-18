@@ -128,6 +128,8 @@ namespace beam
 	typedef int64_t AmountSigned;
 	static_assert(sizeof(Amount) == sizeof(AmountSigned), "");
 
+	Amount SplitAmountSigned(AmountSigned val, bool& isPositive);
+
 	struct HeightHash
 	{
 		Merkle::Hash	m_Hash;
