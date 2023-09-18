@@ -1535,6 +1535,7 @@ namespace beam
 		v.m_To = m_To;
 		v.m_Nonce = m_Nonce;
 		v.m_Amount = m_Amount;
+		v.m_Subsidy = m_Subsidy;
 	}
 
 	void TxKernelEvmInvoke::HashSelfForMsg(ECC::Hash::Processor& hp) const
@@ -1544,7 +1545,8 @@ namespace beam
 			<< m_From
 			<< m_To
 			<< m_Nonce
-			<< m_Amount;
+			<< m_Amount
+			<< static_cast<Amount>(m_Subsidy);
 	}
 
 	void TxKernelEvmInvoke::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
@@ -1558,27 +1560,20 @@ namespace beam
 		pComm[0].ImportNnzStrict(m_Commitment);
 		exc += pComm[0];
 
-		bool bFromBlock = (m_From == Zero);
-		bool bToBlock = (m_To == Zero);
-
-		if (m_Amount && (bFromBlock != bToBlock))
+		if (m_Subsidy)
 		{
+			bool isPositive;
+			Amount val = SplitAmountSigned(m_Subsidy, isPositive);
+
 			ECC::Mode::Scope scope(ECC::Mode::Fast);
 
-			pComm[1] = ECC::Context::get().H * m_Amount;
-			if (bFromBlock)
+			pComm[1] = ECC::Context::get().H * val;
+			if (isPositive)
 				pComm[1] = -pComm[1];
 
 			pComm[0] += pComm[1];
 		}
 
-
-		if (bFromBlock)
-		{
-			if (!m_Signature.IsValid(m_Internal.m_ID, pComm[0]))
-				TxBase::Fail_Signature();
-		}
-		else
 		{
 			auto& s = Cast::Down<ECC::SignatureBase>(m_Signature);
 

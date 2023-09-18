@@ -1714,7 +1714,8 @@ namespace detail
 				& val.m_From
 				& val.m_To
 				& val.m_Nonce
-				& val.m_Amount;
+				& val.m_Amount
+				& val.m_Subsidy;
 			return ar;
 		}
 
@@ -1726,7 +1727,8 @@ namespace detail
 				& val.m_From
 				& val.m_To
 				& val.m_Nonce
-				& val.m_Amount;
+				& val.m_Amount
+				& val.m_Subsidy;
 		}
 
         /// beam::Transaction serialization

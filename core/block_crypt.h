@@ -1249,9 +1249,10 @@ namespace beam
 		:public TxKernelContractControl
 	{
 		ECC::uintBig m_From;
-		ECC::uintBig m_To;
+		uintBig_t<20> m_To;
 		uint64_t m_Nonce; // not necessary
 		Amount m_Amount;
+		AmountSigned m_Subsidy;
 
 		typedef std::unique_ptr<TxKernelEvmInvoke> Ptr;
 
