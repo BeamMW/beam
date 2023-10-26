@@ -16,7 +16,7 @@ BEAM is a Confidential Cryptocurrency and DeFi Platform
 * Allows creation of new [Confidential Assets](https://beam.mw/en/docs/ecosystem/#tokens-aka-beam-confidential-assets) (part of the protocol, no contracts required)
 * Supports privacy preserving [Smart Contracts](https://github.com/BeamMW/shader-sdk/wiki/Beam-Smart-Contracts) via bespoke Beam Virtual Machine [spec](https://github.com/BeamMW/shader-sdk/wiki/BVM-functions-for-shaders) based on WASM technology
 * Beautiful and usable wallets for all platforms (Win, Mac, Linux, iOS, Android, Web)
-* Bridges with Ethereum blockhain (supporting USDT, DAI, WBTC and ETH)
+* Bridges with Ethereum blockchain (supporting USDT, DAI, WBTC and ETH)
 * Fully decentralized Atomic Swaps (with BTC, LTC and ETH) with an in-wallet marketplace
 * Rich DeFi ecosystem including DEX, Confidential Stable Coin, Anonymous Name Service, NFT Gallery and more...
 
