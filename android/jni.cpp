@@ -297,7 +297,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     uint64_t bAmount = amount;
     uint32_t bAsset = assetId;
 
-    walletModel->getAsync()->generateToken(TokenType::Offline, bAmount, beam::Asset::ID(bAsset), std::string(BEAM_LIB_VERSION), [&] (std::string token)
+    walletModel->getAsync()->generateToken(TokenType::Offline, bAmount, beam::Asset::ID(bAsset), std::string(BEAM_LIB_VERSION), false, [&] (std::string token)
     {
         JNIEnv* env = Android_JNI_getEnv();
         jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onOfflineAddress", "(Ljava/lang/String;)V");
@@ -313,7 +313,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     uint64_t bAmount = amount;
     uint32_t bAsset = assetId;
 
-    walletModel->getAsync()->generateToken(TokenType::RegularNewStyle, bAmount, beam::Asset::ID(bAsset), std::string(BEAM_LIB_VERSION), [&] (std::string token)
+    walletModel->getAsync()->generateToken(TokenType::RegularNewStyle, bAmount, beam::Asset::ID(bAsset), std::string(BEAM_LIB_VERSION), false, [&] (std::string token)
     {
         JNIEnv* env = Android_JNI_getEnv();
         jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onRegularAddress", "(Ljava/lang/String;)V");
@@ -330,7 +330,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
     uint64_t bAmount = amount;
     uint32_t bAsset = assetId;
 
-    walletModel->getAsync()->generateToken(TokenType::MaxPrivacy, bAmount, beam::Asset::ID(bAsset), std::string(BEAM_LIB_VERSION), [&] (std::string token)
+    walletModel->getAsync()->generateToken(TokenType::MaxPrivacy, bAmount, beam::Asset::ID(bAsset), std::string(BEAM_LIB_VERSION), false, [&] (std::string token)
     {
         JNIEnv* env = Android_JNI_getEnv();
         jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onMaxPrivacyAddress", "(Ljava/lang/String;)V");

@@ -43,16 +43,8 @@ namespace beam
         case Rules::Network::mainnet:
             {
                 static const char* psz[] = {
-                    "ap-nodes.mainnet.beam.mw:8100",
                     "eu-nodes.mainnet.beam.mw:8100",
                     "us-nodes.mainnet.beam.mw:8100",
-                    "ap-hk-nodes.mainnet.beam.mw:8100",
-                    "45.63.100.240:10127",
-                    "usa.raskul.com:10174",
-                    "canada.raskul.com:10174",
-                    "japan.raskul.com:10127",
-                    "india.raskul.com:10127",
-                    "oz.raskul.com:10127",
                 };
                 Arr2Vec(result, psz, _countof(psz));
             }

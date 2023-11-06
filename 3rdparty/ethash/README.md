@@ -38,7 +38,7 @@ See [ethash.hpp] for list of exported function and documentation.
 
 ## Optimizations
 
-This section decscribes the optimizations, modification and tweaks applied
+This section describes the optimizations, modifications and tweaks applied
 in this library in relation to [Ethash reference implementation].
 
 The library contains a set of micro-benchmarks. Build and run `bench` tool.
