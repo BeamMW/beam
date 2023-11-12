@@ -455,6 +455,11 @@ namespace beam
 			bool IsTestnet;
 		} Magic;
 
+		struct
+		{
+			uint64_t Beam2Wei; // set to 0 to disable EVM
+		} Evm;
+
 		void SetNetworkParams();
 		void UpdateChecksum();
 
@@ -1347,7 +1352,7 @@ namespace beam
 		ECC::uintBig m_From;
 		uintBig_t<20> m_To;
 		uint64_t m_Nonce; // not necessary
-		Amount m_Amount;
+		ECC::uintBig m_Amount; // in wei
 		AmountSigned m_Subsidy;
 
 		typedef std::unique_ptr<TxKernelEvmInvoke> Ptr;
