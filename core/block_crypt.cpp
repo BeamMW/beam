@@ -2171,6 +2171,10 @@ namespace beam
 		AllowPublicUtxos = false;
 		Magic.v2 = 2;
 
+		// 1 eth == 10^18 wei
+		// 1 beam == 10^10 groth
+		Evm.Beam2Wei = 10000;
+
 		static_assert(static_cast<int>(Network::mainnet) == 0);
 		assert(Network::mainnet == m_Network);
 		SetNetworkParams();
@@ -2455,7 +2459,7 @@ namespace beam
 		oracle
 			<< "fork6"
 			<< pForks[6].m_Height
-			// no more flexible parameters so far
+			<< Evm.Beam2Wei
 			>> pForks[6].m_Hash;
 	}
 

@@ -16,6 +16,7 @@
 #include "../core/treasury.h"
 #include "../core/shielded.h"
 #include "../bvm/bvm2.h"
+#include "../bvm/evm.h"
 #include "../core/serialization_adapters.h"
 #include "../core/base58.h"
 #include "../utility/serialize.h"
@@ -3476,6 +3477,47 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 
 bool NodeProcessor::HandleKernelType(const TxKernelEvmInvoke& krn, BlockInterpretCtx& bic)
 {
+	if (bic.m_Fwd)
+	{
+		bool bAdd;
+		Amount valUns = SplitAmountSigned(krn.m_Subsidy, bAdd);
+
+		const auto& r = Rules::get();
+		if (!r.Evm.Beam2Wei)
+			return false;
+
+		EvmProcessor::Word wSubsidy;
+		wSubsidy = uintBigFrom(valUns) * uintBigFrom(r.Evm.Beam2Wei); // won't overflow
+
+		// load account. If doesn't exist - consider it a new, with nonce=0 and balance=0. If exists - verify nonce
+		EvmProcessor::Address addr;
+		if (!addr.FromPubKey(krn.m_From))
+			return false;
+
+		if (krn.m_Subsidy > 0)
+		{
+			// transfer to balance
+		}
+
+		if (krn.m_To != Zero)
+		{
+			// invoke evm
+		}
+
+		if (krn.m_Subsidy < 0)
+		{
+			// withdraw from the balance
+		}
+
+		// if no balance on account, and it's a user account - delete it
+		// otherwise increment nonce and save
+	}
+	else
+	{
+		// undo changes
+	}
+
+
 	return false; // not impl
 }
 

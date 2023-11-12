@@ -57,6 +57,10 @@ namespace beam {
 				ToWord(w);
 				return w;
 			}
+
+			void FromPubKey(const ECC::Point::Storage&);
+			bool FromPubKey(const ECC::Point&);
+			bool FromPubKey(const PeerID&);
 		};
 
 		struct BlockHeader

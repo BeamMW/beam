@@ -50,6 +50,44 @@ uint64_t EvmProcessor::WtoU64(const Word& w)
 	return ret;
 }
 
+
+void EvmProcessor::Address::FromPubKey(const ECC::Point::Storage& pk)
+{
+	KeccakProcessor<Word::nBits> hp;
+
+	static const uint8_t s_pPrefix[] = {
+		0x30,0x59,0x30,0x13,0x06,0x07,0x2A,0x86,0x48,0xCE,0x3D,0x02,0x01,0x06,0x08,0x2A,0x86,0x48,0xCE,0x3D,0x03,0x01,0x07,0x03,0x42,0x00,0x04
+	};
+
+	hp.Write(s_pPrefix, sizeof(s_pPrefix));
+	hp.Write(pk.m_X);
+	hp.Write(pk.m_Y);
+
+	Word w;
+	hp.Read(w.m_pData);
+
+	Cast::Down<uintBig_t<20> >(*this) = w; // takes the last portion
+}
+
+bool EvmProcessor::Address::FromPubKey(const ECC::Point& pk)
+{
+	ECC::Point::Native pt_n;
+	ECC::Point::Storage pt_s;
+	if (!pt_n.ImportNnz(pk, &pt_s))
+		return false;
+
+	FromPubKey(pt_s);
+	return true;
+}
+
+bool EvmProcessor::Address::FromPubKey(const PeerID& pid)
+{
+	ECC::Point pt;
+	pt.m_X = Cast::Down<ECC::uintBig>(pid);
+	pt.m_Y = 0;
+	return FromPubKey(pt);
+}
+
 void EvmProcessor::Method::SetSelector(const Blob& b)
 {
 	Word w;
