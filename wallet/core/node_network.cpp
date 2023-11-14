@@ -44,7 +44,8 @@ namespace beam::wallet
 
         m_timer->start(RECONNECTION_TIMEOUT, false, [this]() {
             io::Address nodeAddr;
-            if (nodeAddr.resolve(m_nodeAddress.c_str()))
+            assert(!m_nodeAddress.empty());
+            if (!m_nodeAddress.empty() && nodeAddr.resolve(m_nodeAddress.c_str()))
             {
                 m_Cfg.m_vNodes.push_back(nodeAddr);
                 Connect();
@@ -99,7 +100,7 @@ namespace beam::wallet
     {
         io::Address address;
 
-        if (address.resolve(nodeAddr.c_str()))
+        if (!nodeAddr.empty() && address.resolve(nodeAddr.c_str()))
         {
             Disconnect();
 
