@@ -800,15 +800,15 @@ namespace beam::wallet
                         _wc->postFunctionToClientContext(std::move(action));
                     }
 
-                    void AnyThread_onStatus(const std::string& error, uint32_t peercnt) override {
-                        _wc->getAsync()->makeIWTCall([this, error, peercnt]() -> boost::any {
+                    void AnyThread_onStatus(const std::string& error, uint32_t percent) override {
+                        _wc->getAsync()->makeIWTCall([this, error, percent]() -> boost::any {
                             if (error.empty()) {
-                                LOG_INFO() << "IPFS Status: peercnt " << peercnt;
+                                LOG_INFO() << "IPFS Status: percent " << percent;
                             } else {
-                                LOG_INFO() << "IPFS Status: peercnt " << peercnt << ", error: " << error;
+                                LOG_INFO() << "IPFS Status: percent " << percent << ", error: " << error;
                             }
                             _wc->m_ipfsError = error;
-                            _wc->m_ipfsPeerCnt = static_cast<unsigned int>(peercnt);
+                            _wc->m_ipfsPeerCnt = static_cast<unsigned int>(percent);
                             _wc->getIPFSStatus();
                             return boost::none;
                         }, [](const boost::any&) {

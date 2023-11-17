@@ -36,7 +36,7 @@ namespace beam::wallet
             proto::NodeConnection::DisconnectReason reason;
             reason.m_Type = proto::NodeConnection::DisconnectReason::Io;
             reason.m_IoError = io::EC_HOST_RESOLVED_ERROR;
-            for (const auto observer : m_observers)
+            for (const auto& observer : m_observers)
             {
                 observer->onNodeConnectionFailed(reason);
             }
@@ -98,12 +98,10 @@ namespace beam::wallet
 
     bool NodeNetwork::setNodeAddress(const std::string& nodeAddr)
     {
+        Disconnect();
         io::Address address;
-
         if (!nodeAddr.empty() && address.resolve(nodeAddr.c_str()))
         {
-            Disconnect();
-
             m_Cfg.m_vNodes.clear();
             m_Cfg.m_vNodes.push_back(address);
 
