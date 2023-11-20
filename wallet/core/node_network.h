@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <string>
+#include <vector>
 #include "core/fly_client.h"
 #include "wallet/core/node_connection_observer.h"
 
@@ -38,7 +40,7 @@ namespace beam::wallet
         void Unsubscribe(INodeConnectionObserver* observer);
 
         std::string getNodeAddress() const;
-        bool setNodeAddress(const std::string&);
+        void setNodeAddress(const std::string&);
         const std::string& getLastError() const;
         size_t getConnections() const;
 

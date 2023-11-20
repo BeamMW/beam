@@ -1939,11 +1939,7 @@ namespace beam::wallet
     {
         if (auto s = m_nodeNetwork.lock())
         {
-            if (!(s->setNodeAddress(addr)))
-            {
-                LOG_ERROR() << "Unable to resolve node address: " << addr;
-                onWalletError(ErrorType::HostResolvedError);
-            }
+            s->setNodeAddress(addr);
         }
         else
         {
