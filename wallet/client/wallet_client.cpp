@@ -2685,7 +2685,7 @@ namespace beam::wallet
             --m_trustedConnectionCount;
         }
 
-        postFunctionToClientContext([this, isTrusted = m_trustedConnectionCount > 0 && m_trustedConnectionCount == m_connectedNodesCount]()
+        postFunctionToClientContext([this, isTrusted = m_trustedConnectionCount > 0/* && m_trustedConnectionCount == m_connectedNodesCount*/]()
         {
             m_isConnectionTrusted = isTrusted;
         });

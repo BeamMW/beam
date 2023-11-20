@@ -322,7 +322,7 @@ namespace beam
                     }
 
                     // make sure no overflow during conversion from SyncStatus to int,int.
-                    const auto threshold = static_cast<unsigned int>(std::numeric_limits<int>::max());
+                    constexpr auto threshold = static_cast<unsigned int>(std::numeric_limits<int>::max());
                     while (s.m_Total > threshold)
                     {
                         s.m_Total >>= 1;

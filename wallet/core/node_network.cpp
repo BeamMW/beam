@@ -48,7 +48,6 @@ namespace beam::wallet
             for (const auto& addr : nodeAddresses)
             {
                 io::Address nodeAddr;
-                assert(!addr.empty());
                 if (!addr.empty() && nodeAddr.resolve(addr.c_str()))
                 {
                     m_Cfg.m_vNodes.push_back(nodeAddr);

@@ -270,7 +270,7 @@ namespace beam::wallet
         SetTreasuryHandled(false);
         if (!m_OwnedNodesOnline)
         {
-            storage::setNeedToRequestBodies(*m_WalletDB, true); // temporarilly enable bodies requests
+            storage::setNeedToRequestBodies(*m_WalletDB, true); // temporarily enable bodies requests
         }
         RequestBodies();
         RequestEvents();
@@ -1226,9 +1226,10 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestAssetsListAt& r)
     {
+        Height tipHeight = get_TipHeight();
         for (const auto& ai : r.m_Res)
         {
-            ProcessAssetInfo(ai, 0, "");
+            ProcessAssetInfo(ai, tipHeight, "");
         }
         r.m_callback(std::move(r.m_Res));
     }
