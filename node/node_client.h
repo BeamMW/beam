@@ -51,7 +51,7 @@ namespace beam
     public:
         NodeClient(const Rules& rules, INodeClientObserver* observer);
         ~NodeClient();
-
+        void setBeforeStartAction(std::function<void()> action);
         void setKdf(beam::Key::IKdf::Ptr);
         void setOwnerKey(beam::Key::IPKdf::Ptr);
         void startNode();
@@ -78,5 +78,6 @@ namespace beam
         Key::IKdf::Ptr m_pKdf;
         Key::IPKdf::Ptr m_ownerKey;
         io::Timer::Ptr m_timer;
+        std::function<void()> m_beforeStartAction;
     };
 }

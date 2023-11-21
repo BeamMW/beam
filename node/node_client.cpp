@@ -120,6 +120,11 @@ namespace beam
         }
     }
 
+    void NodeClient::setBeforeStartAction(std::function<void()> action)
+    {
+        m_beforeStartAction = std::move(action);
+    }
+
     void NodeClient::setKdf(beam::Key::IKdf::Ptr kdf)
     {
         m_pKdf = kdf;
@@ -157,6 +162,10 @@ namespace beam
         {
             try
             {
+                if (m_beforeStartAction)
+                {
+                    m_beforeStartAction();
+                }
                 removeNodeDataIfNeeded(m_observer->getLocalNodeStorage());
                 Rules::Scope scopeRules(m_rules);
                 auto reactor = io::Reactor::create();
