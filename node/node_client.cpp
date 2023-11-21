@@ -39,7 +39,8 @@ namespace
             auto nodePath = pathFromStdString(nodePathStr);
             auto appDataPath = nodePath.parent_path();
 
-            if (!boost::filesystem::exists(appDataPath))
+            if (!boost::filesystem::exists(appDataPath) || 
+                !boost::filesystem::exists(nodePath))
             {
                 return;
             }
