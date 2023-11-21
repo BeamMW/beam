@@ -33,6 +33,7 @@ namespace beam::wallet
         }
         else if (m_attemptToConnect == MAX_ATTEMPT_TO_CONNECT)
         {
+            m_attemptToConnect = 0;
             proto::NodeConnection::DisconnectReason reason;
             reason.m_Type = proto::NodeConnection::DisconnectReason::Io;
             reason.m_IoError = io::EC_HOST_RESOLVED_ERROR;
@@ -116,6 +117,7 @@ namespace beam::wallet
 
     void NodeNetwork::setNodeAddress(const std::string& nodeAddr)
     {
+        m_attemptToConnect = 0;
         Disconnect();
         m_nodeAddress = nodeAddr;
         tryToConnect();
