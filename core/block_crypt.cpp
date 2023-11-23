@@ -3182,9 +3182,18 @@ namespace beam
 		m_Total = nTotal;
 		m_Last_ms = GetTime_ms();
 		LOG_INFO() << sz;
+		if (m_pExternal)
+			m_pExternal->Reset(sz, nTotal);
 	}
 
-	void LongAction::OnProgress(uint64_t pos)
+	void LongAction::SetTotal(uint64_t nTotal)
+	{
+		m_Total = nTotal;
+		if (m_pExternal)
+			m_pExternal->SetTotal(nTotal);
+	}
+
+	bool LongAction::OnProgress(uint64_t pos)
 	{
 		uint32_t dt_ms = GetTime_ms() - m_Last_ms;
 
@@ -3206,6 +3215,10 @@ namespace beam
 
 			LOG_INFO() << "\t" << nDone << "%...";
 		}
+		if (m_pExternal)
+			return m_pExternal->OnProgress(pos);
+
+		return true;
 	}
 
 	/////////////

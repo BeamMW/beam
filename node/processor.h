@@ -285,7 +285,7 @@ public:
 	void Initialize(const char* szPath);
 	void Initialize(const char* szPath, const StartParams&);
 
-    static bool ExtractTreasury(const Blob&, Treasury::Data&);
+	static bool ExtractTreasury(const Blob&, Treasury::Data&);
 	static void get_MappingPath(std::string&, const char*);
 
 	NodeProcessor();
@@ -602,7 +602,7 @@ public:
 	typedef std::vector<Account> AccountsVec;
 	AccountsVec m_vAccounts;
 
-	void RescanAccounts(uint32_t nRecent);
+	void RescanAccounts(uint32_t nRecent, ILongAction *pExternalHandler = nullptr);
 
 	uint64_t FindActiveAtStrict(Height);
 	Height FindVisibleKernel(const Merkle::Hash&, const BlockInterpretCtx&);

@@ -38,14 +38,15 @@ struct Node
 		virtual void OnStateChanged() {}
 		virtual void OnRolledBack(const Block::SystemState::ID& id) {};
 		virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {};
+		virtual ILongAction* GetLongActionHandler() { return nullptr; }
 
-        enum Error
-        {
+		enum Error
+		{
 			Unknown,
 			TimeDiffToLarge
-        };
+		};
 
-        virtual void OnSyncError(Error error = Unknown) {}
+		virtual void OnSyncError(Error error = Unknown) {}
 	};
 
 	struct Config
@@ -200,7 +201,7 @@ struct Node
 	} m_SyncStatus;
 
 	uint32_t get_AcessiblePeerCount() const; // all the peers with known addresses. Including temporarily banned
-    const PeerManager::AddrSet& get_AcessiblePeerAddrs() const;
+	const PeerManager::AddrSet& get_AcessiblePeerAddrs() const;
 
 	bool m_UpdatedFromPeers = false;
 	bool m_PostStartSynced = false;
@@ -216,7 +217,7 @@ struct Node
 
 	uint8_t OnTransaction(Transaction::Ptr&&, std::unique_ptr<Merkle::Hash>&&, const PeerID*, bool bFluff, std::ostream* pExtraInfo);
 
-        // for step-by-step tests
+		// for step-by-step tests
 	void GenerateFakeBlocks(uint32_t n);
 
 	TxPool::Fluff m_TxPool;

@@ -1232,8 +1232,17 @@ void Node::RefreshAccounts()
 
         for (size_t i = accs.size() - nAdd; i < accs.size(); i++)
             m_Processor.get_DB().InsertAccount(accs[i]);
+        try
+        {
+            m_Processor.RescanAccounts(nAdd, m_Cfg.m_Observer ? m_Cfg.m_Observer->GetLongActionHandler() : nullptr);
+        }
+        catch (const std::runtime_error&)
+        {
+            for (size_t i = accs.size() - nAdd; i < accs.size(); i++)
+                m_Processor.get_DB().DeleteAccountWithEvents(accs[i].m_iAccount);
 
-        m_Processor.RescanAccounts(nAdd);
+            return;
+        }
     }
 
     if (!accs.empty())

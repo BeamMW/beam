@@ -3485,7 +3485,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::IsOwnedVar(const bvm2::Cont
 		!memcmp(cid.m_pData, key.p, cid.nBytes);
 }
 
-void NodeProcessor::RescanAccounts(uint32_t nRecent)
+void NodeProcessor::RescanAccounts(uint32_t nRecent, ILongAction* pExternalHandler)
 {
 	if (!nRecent)
 		return;
@@ -3555,7 +3555,7 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 	};
 
 	{
-		LongAction la("Rescanning owned Txos...", 0);
+		LongAction la("Rescanning owned Txos...", 0, pExternalHandler);
 
 		TxoRecover wlk(rec);
 		wlk.m_pLa = &la;
@@ -3574,7 +3574,7 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 		TxoID nOuts = m_Extra.m_ShieldedOutputs;
 		m_Extra.m_ShieldedOutputs = 0;
 
-		LongAction la("Rescanning shielded Txos...", 0);
+		LongAction la("Rescanning shielded Txos...", 0, pExternalHandler);
 
 		struct MyKrnWalker
 			:public KrnWalkerRecognize
@@ -3607,7 +3607,7 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 		EnumKernels(wlkKrn, HeightRange(h0, m_Cursor.m_Sid.m_Height));
 
 		assert(m_Extra.m_ShieldedOutputs == nOuts);
-		nOuts; // supporess unused var warning in release
+		nOuts; // suppress unused var warning in release
 	}
 }
 
@@ -6912,7 +6912,7 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 	assert(hr.m_Max <= m_Cursor.m_ID.m_Height);
 
 	if (wlkTxo.m_pLa)
-		wlkTxo.m_pLa->m_Total = hr.m_Max - hr.m_Min + 1;
+		wlkTxo.m_pLa->SetTotal(hr.m_Max - hr.m_Min + 1);
 
 	TxoID id1 = get_TxosBefore(hr.m_Min);
 	Height h = hr.m_Min - 1; // don't care about overflow
@@ -6934,8 +6934,9 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 				assert(wlk.m_ID < id1);
 			}
 
-			if (wlkTxo.m_pLa)
-				wlkTxo.m_pLa->OnProgress(h - hr.m_Min);
+			if (wlkTxo.m_pLa &&
+				!wlkTxo.m_pLa->OnProgress(h - hr.m_Min))
+				throw std::runtime_error("EnumTxos interrupted");
 		}
 
 		if (!wlkTxo.OnTxo(wlk, h))
@@ -6952,7 +6953,7 @@ bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
 	assert(hr.m_Max <= m_Cursor.m_ID.m_Height);
 
 	if (wlkKrn.m_pLa)
-		wlkKrn.m_pLa->m_Total = hr.m_Max - hr.m_Min + 1;
+		wlkKrn.m_pLa->SetTotal(hr.m_Max - hr.m_Min + 1);
 
 	TxVectors::Eternal txve;
 
@@ -6967,8 +6968,9 @@ bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
 		if (!wlkKrn.ProcessHeight(rowID, txve.m_vKernels))
 			return false;
 
-		if (wlkKrn.m_pLa)
-			wlkKrn.m_pLa->OnProgress(wlkKrn.m_Height - hr.m_Min + 1);
+		if (wlkKrn.m_pLa &&
+			!wlkKrn.m_pLa->OnProgress(wlkKrn.m_Height - hr.m_Min + 1))
+			throw std::runtime_error("EnumKernels interrupted");
 	}
 
 	return true;
