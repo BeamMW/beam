@@ -1123,6 +1123,8 @@ struct Node::AccountRefreshCtx
     Node& m_This;
     std::map<Merkle::Hash, uint32_t> m_Map;
 
+    BlobEncoder m_Coder;
+
     void AddAccount(const Key::IPKdf::Ptr&, Key::IPKdf*);
     void InsertAccount(const NodeProcessor::Account&);
 };
@@ -1203,7 +1205,11 @@ void Node::AccountRefreshCtx::InsertAccount(const NodeProcessor::Account& acc)
     buf.resize(acc.m_pOwner->ExportP(nullptr));
 
     if (!buf.empty())
+    {
         acc.m_pOwner->ExportP(&buf.front());
+        m_Coder.Encrypt(buf);
+    }
+
 
     NodeDB::WalkerAccount::DataPlus d;
     Cast::Down<NodeDB::WalkerAccount::Data>(d) = acc;
@@ -1218,6 +1224,7 @@ void Node::RefreshAccounts()
     assert(accs.empty());
 
     AccountRefreshCtx arc(*this);
+    Cast::Reinterpret<ECC::Scalar>(arc.m_Coder.m_hvSecret.V) = m_MyPrivateID;
 
     // Current accounts
     {
@@ -1227,26 +1234,27 @@ void Node::RefreshAccounts()
             auto& acc = accs.emplace_back();
             Cast::Down<NodeDB::WalkerAccount::Data>(acc) = wlk.m_Data;
 
-            static_assert(sizeof(Merkle::Hash) != sizeof(ECC::HKdfPub::Packed), "");
+            static_assert(sizeof(Merkle::Hash) < sizeof(ECC::HKdfPub::Packed), "");
 
-            switch (wlk.m_Data.m_Owner.n)
+            auto& key = wlk.m_Data.m_Owner; // alias
+
+            if (sizeof(Merkle::Hash) == key.n)
             {
-            case sizeof(Merkle::Hash):
+                // older-format account. Would be upgraded on 1st run
+                arc.m_Map[*reinterpret_cast<const Merkle::Hash*>(key.p)] = acc.m_iAccount;
+            }
+            else
+            {
+                if (arc.m_Coder.Decrypt(key) && (sizeof(ECC::HKdfPub::Packed) == key.n))
                 {
-                    const auto& key = *reinterpret_cast<const Merkle::Hash*>(wlk.m_Data.m_Owner.p);
-                    arc.m_Map[key] = acc.m_iAccount;
-                }
-                break;
-
-            case sizeof(ECC::HKdfPub::Packed):
-                {
-                    const auto& p = *reinterpret_cast<const ECC::HKdfPub::Packed*>(wlk.m_Data.m_Owner.p);
+                    const auto& p = *reinterpret_cast<const ECC::HKdfPub::Packed*>(key.p);
 
                     auto pPKdf = std::make_shared<ECC::HKdfPub>();
                     if (pPKdf->Import(p))
                         acc.m_pOwner = std::move(pPKdf); // loaded ok
+
+                    ECC::SecureErase(Cast::NotConst(key.p), key.n);
                 }
-                break;
             }
         }
     }
