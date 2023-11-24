@@ -433,9 +433,9 @@ int main(int argc, char* argv[])
 					if (vm.count(cli::MULTI_OWNER_KEYS))
 					{
 						auto vKeys = vm[cli::MULTI_OWNER_KEYS].as<std::vector<std::string> >();
-						assert(vKeys.empty());
+						assert(!vKeys.empty());
 
-						auto& vRes = node.m_Keys.m_vExtraOwners; // alias
+						auto& vRes = node.m_Keys.m_Accounts.m_vAdd; // alias
 						assert(vRes.empty());
 
 						std::vector<std::string> vPasses;

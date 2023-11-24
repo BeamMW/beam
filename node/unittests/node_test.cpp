@@ -3021,7 +3021,7 @@ namespace beam
 
 		node.m_Cfg.m_Treasury = g_Treasury;
 
-		node.m_Keys.m_vExtraOwners.push_back(cl.m_Wallet2.m_pKdf);
+		node.m_Keys.m_Accounts.m_vAdd.push_back(cl.m_Wallet2.m_pKdf);
 
 		ByteBuffer bufParser;
 		bvm2::Compile(bufParser, "Explorer/Parser.wasm", bvm2::Processor::Kind::Manager);
@@ -3128,7 +3128,7 @@ namespace beam
 		verify_test(wlk.m_Recovered);
 
 		wlk.m_Recovered = 0;
-		wlk.m_pKey = node.m_Keys.m_vExtraOwners.front().get();
+		wlk.m_pKey = node.get_Processor().m_vAccounts[1].m_pOwner.get();
 		node2.get_Processor().EnumTxos(wlk);
 		verify_test(wlk.m_Recovered);
 
