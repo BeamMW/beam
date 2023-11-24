@@ -3586,8 +3586,12 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 
 			bool ProcessHeight(uint64_t rowID, const std::vector<TxKernel::Ptr>& v) override
 			{
+				TxoID nOuts = m_Rec.m_Extra.m_ShieldedOutputs;
+
 				for (uint32_t iAcc = 0; iAcc < m_nAcc; iAcc++)
 				{
+					m_Rec.m_Extra.m_ShieldedOutputs = nOuts;
+
 					m_Rec.m_Handler.m_pAccount = m_pAcc + iAcc;
 
 					if (!KrnWalkerRecognize::ProcessHeight(rowID, v))
