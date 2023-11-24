@@ -1127,7 +1127,33 @@ struct Node::AccountRefreshCtx
 
     void AddAccount(const Key::IPKdf::Ptr&, Key::IPKdf*);
     void InsertAccount(const NodeProcessor::Account&);
+
+    void get_AccountOwnerID(Merkle::Hash&, const Key::IPKdf::Ptr& pOwner, Key::IPKdf* pMiner);
 };
+
+void Node::AccountRefreshCtx::get_AccountOwnerID(Merkle::Hash& hv, const Key::IPKdf::Ptr& pOwner, Key::IPKdf* pMiner)
+{
+    ECC::Hash::Processor hp;
+    hp << uint32_t(4); // change this whenever we change the format of the saved events
+
+    ECC::Hash::Value hv1(Zero);
+
+    ECC::Scalar::Native sk;
+    pOwner->DerivePKey(sk, hv1);
+    hp << sk;
+
+    if (pMiner)
+    {
+        // rescan also when miner subkey changes, to recover possible decoys that were rejected earlier
+        pMiner->DerivePKey(sk, hv1);
+        hp
+            << m_This.m_Keys.m_nMinerSubIndex
+            << sk;
+    }
+
+    hp >> hv;
+}
+
 
 void Node::AccountRefreshCtx::AddAccount(const Key::IPKdf::Ptr& pOwner, Key::IPKdf* pMiner)
 {
@@ -1136,27 +1162,10 @@ void Node::AccountRefreshCtx::AddAccount(const Key::IPKdf::Ptr& pOwner, Key::IPK
     // check if this account already exists
     if (!m_Map.empty())
     {
-        ECC::Hash::Processor hp;
-        hp << uint32_t(4); // change this whenever we change the format of the saved events
+        Merkle::Hash hv;
+        get_AccountOwnerID(hv, pOwner, pMiner);
 
-        ECC::Hash::Value hv0, hv1(Zero);
-
-        ECC::Scalar::Native sk;
-        pOwner->DerivePKey(sk, hv1);
-        hp << sk;
-
-        if (pMiner)
-        {
-            // rescan also when miner subkey changes, to recover possible decoys that were rejected earlier
-            pMiner->DerivePKey(sk, hv1);
-            hp
-                << m_This.m_Keys.m_nMinerSubIndex
-                << sk;
-        }
-
-        hp >> hv0;
-
-        auto it = m_Map.find(hv0);
+        auto it = m_Map.find(hv);
         if (m_Map.end() != it)
         {
             // found!
@@ -1329,16 +1338,13 @@ void Node::RefreshAccounts()
         m_Processor.RescanAccounts(nAdd);
     }
 
-    if (!accs.empty())
-    {
-        std::ostringstream os;
-        os << "Owned accounts : ";
+    std::ostringstream os;
+    os << "Owned accounts :" << std::endl;
 
-        for (const auto& acc : accs)
-            os << '\t' << acc.get_Endpoint() << std::endl;
+    for (const auto& acc : accs)
+        os << '\t' << acc.get_Endpoint() << std::endl;
 
-        LOG_INFO() << os.str();
-    }
+    LOG_INFO() << os.str();
 }
 
 bool Node::Bbs::IsInLimits() const
