@@ -176,6 +176,12 @@ struct Node
 		{
 			std::vector<Key::IPKdf::Ptr> m_vAdd; // new accounts to add
 
+			struct Del
+			{
+				std::set<std::string> m_Eps; // endpoints to delete
+				bool m_All = false; // delete all saved accounts
+			} m_Del;
+
 		} m_Accounts;
 
 		void InitSingleKey(const ECC::uintBig& seed);

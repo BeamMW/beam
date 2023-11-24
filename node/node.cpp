@@ -1264,6 +1264,24 @@ void Node::RefreshAccounts()
     uint32_t nDel = 0;
     for (auto& acc : accs)
     {
+        // filter-out those to be deleted.
+        // Never delete the current owner account
+        if (acc.m_pOwner && acc.m_pOwner.get() != m_Keys.m_pOwner.get())
+        {
+            bool bDelete = m_Keys.m_Accounts.m_Del.m_All;
+            if (!bDelete && !m_Keys.m_Accounts.m_Del.m_Eps.empty())
+            {
+                auto it = m_Keys.m_Accounts.m_Del.m_Eps.find(acc.get_Endpoint());
+                if (m_Keys.m_Accounts.m_Del.m_Eps.end() != it)
+                {
+                    m_Keys.m_Accounts.m_Del.m_Eps.erase(it);
+                    bDelete = true;
+                }
+            }
+
+            if (bDelete)
+                acc.m_pOwner.reset();
+        }
 
         if (acc.m_pOwner)
             acc.InitFromOwner();

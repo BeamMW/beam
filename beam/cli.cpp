@@ -465,6 +465,17 @@ int main(int argc, char* argv[])
 						}
 					}
 
+					if (vm.count(cli::OWNER_KEY_REMOVE_EP))
+					{
+						auto vEps = vm[cli::MULTI_OWNER_KEYS].as<std::vector<std::string> >();
+						assert(!vEps.empty());
+
+						for (auto& ep : vEps)
+							node.m_Keys.m_Accounts.m_Del.m_Eps.insert(std::move(ep));
+					}
+
+					node.m_Keys.m_Accounts.m_Del.m_All = vm[cli::OWNER_KEY_REMOVE_ALL].as<bool>();
+
 					if (vm.count(cli::MINER_JOB_LATENCY))
 						node.m_Cfg.m_Timeout.m_MiningSoftRestart_ms = vm[cli::MINER_JOB_LATENCY].as<uint32_t>();
 
