@@ -543,6 +543,7 @@ public:
 	bool get_ProofContractLog(Merkle::Proof&, const HeightPos&);
 
 	void CommitDB();
+	void RollbackDB();
 
 	void EnumCongestions();
 	const uint64_t* get_CachedRows(const NodeDB::StateID&, Height nCountExtra); // retval valid till next call to this func, or to EnumCongestions()

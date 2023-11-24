@@ -472,6 +472,14 @@ void NodeProcessor::CommitDB()
 	}
 }
 
+void NodeProcessor::RollbackDB()
+{
+	if (m_DbTx.IsInProgress())
+	{
+		m_DbTx.Rollback();
+	}
+}
+
 void NodeProcessor::InitCursor(bool bMovingUp)
 {
 	if (m_Cursor.m_Sid.m_Height >= Rules::HeightGenesis)

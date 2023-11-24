@@ -1188,7 +1188,7 @@ void Node::AccountRefreshCtx::AddAccount(const Key::IPKdf::Ptr& pOwner, Key::IPK
     {
         if (d.m_pOwner && d.m_pOwner->IsSame(*pOwner))
         {
-            d.m_pOwner = pOwner; // perfer this instance
+            d.m_pOwner = pOwner; // prefer this instance
             return;
         }
 
@@ -1341,7 +1341,8 @@ void Node::RefreshAccounts()
         }
         catch (const std::runtime_error&)
         {
-            return;
+            m_Processor.RollbackDB();
+            throw;
         }
     }
 
