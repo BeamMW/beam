@@ -1121,7 +1121,7 @@ struct Node::AccountRefreshCtx
     AccountRefreshCtx(Node& n) :m_This(n) {}
 
     Node& m_This;
-    std::map<Merkle::Hash, uint32_t> m_Map;
+    std::map<Merkle::Hash, size_t> m_Map;
 
     BlobEncoder m_Coder;
 
@@ -1241,7 +1241,8 @@ void Node::RefreshAccounts()
             if (sizeof(Merkle::Hash) == key.n)
             {
                 // older-format account. Would be upgraded on 1st run
-                arc.m_Map[*reinterpret_cast<const Merkle::Hash*>(key.p)] = acc.m_iAccount;
+                const auto& hv = *reinterpret_cast<const Merkle::Hash*>(key.p);
+                arc.m_Map[hv] = accs.size() - 1;
             }
             else
             {
