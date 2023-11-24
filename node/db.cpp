@@ -2007,12 +2007,14 @@ void NodeDB::EnumAccounts(WalkerAccount& wlk)
 	wlk.m_Rs.Reset(*this, Query::AccountEnum, "SELECT " TblAccounts_Index "," TblAccounts_OwnerID "," TblAccounts_Serif "," TblAccounts_TxoHi " FROM " TblAccounts " ORDER BY " TblAccounts_Index);
 }
 
-void NodeDB::GetAccount(WalkerAccount& wlk)
+void NodeDB::SetAccountTxoHi(WalkerAccount::Data& d)
 {
-	wlk.m_Rs.Reset(*this, Query::AccountGet, "SELECT " TblAccounts_Index "," TblAccounts_OwnerID "," TblAccounts_Serif "," TblAccounts_TxoHi " FROM " TblAccounts " WHERE " TblAccounts_Index "=?");
-	wlk.m_Rs.put(0, wlk.m_Data.m_iAccount);
-	if (!wlk.MoveNext())
-		ThrowInconsistent();
+	Recordset rs(*this, Query::AccountUpdTxoHi, "UPDATE " TblAccounts " SET " TblAccounts_TxoHi "=? WHERE" TblAccounts_Index "=?");
+	rs.put(0, d.m_hTxoHi);
+	rs.put(1, d.m_iAccount);
+
+	rs.Step();
+	TestChanged1Row();
 }
 
 bool NodeDB::WalkerAccount::MoveNext()

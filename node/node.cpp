@@ -690,9 +690,8 @@ void Node::Processor::OnFastSyncSucceeded()
 
     for (auto& acc : m_vAccounts)
     {
-        get_DB().DeleteAccountOnly(acc.m_iAccount);
         acc.m_hTxoHi = m_Extra.m_TxoHi;
-        get_DB().InsertAccount(acc);
+        get_DB().SetAccountTxoHi(acc);
     }
 
     for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
