@@ -690,9 +690,8 @@ void Node::Processor::OnFastSyncSucceeded()
 
     for (auto& acc : m_vAccounts)
     {
-        get_DB().DeleteAccountOnly(acc.m_iAccount);
         acc.m_hTxoHi = m_Extra.m_TxoHi;
-        get_DB().InsertAccount(acc);
+        get_DB().SetAccountTxoHi(acc);
     }
 
     for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
@@ -1117,12 +1116,27 @@ void Node::InitIDs()
     m_MyPublicID.FromSk(m_MyPrivateID);
 }
 
-void Node::AddAccount(const Key::IPKdf::Ptr& pOwner, Key::IPKdf* pMiner)
+struct Node::AccountRefreshCtx
+{
+    AccountRefreshCtx(Node& n) :m_This(n) {}
+
+    Node& m_This;
+    std::map<Merkle::Hash, size_t> m_Map;
+
+    BlobEncoder m_Coder;
+
+    void AddAccount(const Key::IPKdf::Ptr&, Key::IPKdf*);
+    void InsertAccount(const NodeProcessor::Account&);
+
+    void get_AccountOwnerID(Merkle::Hash&, const Key::IPKdf::Ptr& pOwner, Key::IPKdf* pMiner);
+};
+
+void Node::AccountRefreshCtx::get_AccountOwnerID(Merkle::Hash& hv, const Key::IPKdf::Ptr& pOwner, Key::IPKdf* pMiner)
 {
     ECC::Hash::Processor hp;
     hp << uint32_t(4); // change this whenever we change the format of the saved events
 
-    ECC::Hash::Value hv0, hv1(Zero);
+    ECC::Hash::Value hv1(Zero);
 
     ECC::Scalar::Native sk;
     pOwner->DerivePKey(sk, hv1);
@@ -1133,47 +1147,93 @@ void Node::AddAccount(const Key::IPKdf::Ptr& pOwner, Key::IPKdf* pMiner)
         // rescan also when miner subkey changes, to recover possible decoys that were rejected earlier
         pMiner->DerivePKey(sk, hv1);
         hp
-            << m_Keys.m_nMinerSubIndex
+            << m_This.m_Keys.m_nMinerSubIndex
             << sk;
     }
 
-    hp >> hv0;
+    hp >> hv;
+}
+
+
+void Node::AccountRefreshCtx::AddAccount(const Key::IPKdf::Ptr& pOwner, Key::IPKdf* pMiner)
+{
+    auto& accs = m_This.m_Processor.m_vAccounts; // alias
 
     // check if this account already exists
-    NodeDB::AccountIndex iAccount = 1;
-    NodeProcessor::Account* pAcc = nullptr;
-
-    for (auto& d : m_Processor.m_vAccounts)
+    if (!m_Map.empty())
     {
-        if (d.m_OwnerID == hv0)
+        Merkle::Hash hv;
+        get_AccountOwnerID(hv, pOwner, pMiner);
+
+        auto it = m_Map.find(hv);
+        if (m_Map.end() != it)
         {
-            pAcc = &d;
-            break;
+            // found!
+            auto& acc = accs[it->second];
+            m_Map.erase(it);
+
+            acc.m_pOwner = pOwner;
+
+            // save the owner key in DB
+            m_This.m_Processor.get_DB().DeleteAccountOnly(acc.m_iAccount);
+            InsertAccount(acc);
+
+            return;
+        }
+    }
+
+    NodeDB::AccountIndex iAccount = 1;
+
+    for (auto& d : accs)
+    {
+        if (d.m_pOwner && d.m_pOwner->IsSame(*pOwner))
+        {
+            d.m_pOwner = pOwner; // perfer this instance
+            return;
         }
 
         if (iAccount == d.m_iAccount)
             iAccount = d.m_iAccount + 1;
     }
 
-    bool bNew = !pAcc;
-    if (bNew)
-    {
-        pAcc = &m_Processor.m_vAccounts.emplace_back();
+    // new account
+    auto& acc = accs.emplace_back();
 
-        pAcc->m_iAccount = iAccount;
-        pAcc->m_hTxoHi = m_Processor.m_Extra.m_TxoHi;
-        pAcc->m_OwnerID = hv0;
-        pAcc->m_Serif = NextNonce();
+    acc.m_iAccount = iAccount;
+    acc.m_hTxoHi = m_This.m_Processor.m_Extra.m_TxoHi;
+    acc.m_Serif = m_This.NextNonce();
+
+    acc.m_pOwner = pOwner;
+    InsertAccount(acc);
+}
+
+void Node::AccountRefreshCtx::InsertAccount(const NodeProcessor::Account& acc)
+{
+    assert(acc.m_pOwner);
+    ByteBuffer buf;
+    buf.resize(acc.m_pOwner->ExportP(nullptr));
+
+    if (!buf.empty())
+    {
+        acc.m_pOwner->ExportP(&buf.front());
+        m_Coder.Encrypt(buf);
     }
 
-    pAcc->m_pOwner = pOwner;
-    pAcc->InitFromOwner();
+
+    NodeDB::WalkerAccount::DataPlus d;
+    Cast::Down<NodeDB::WalkerAccount::Data>(d) = acc;
+    d.m_Owner = buf;
+
+    m_This.m_Processor.get_DB().InsertAccount(d);
 }
 
 void Node::RefreshAccounts()
 {
     auto& accs = m_Processor.m_vAccounts;
     assert(accs.empty());
+
+    AccountRefreshCtx arc(*this);
+    Cast::Reinterpret<ECC::Scalar>(arc.m_Coder.m_hvSecret.V) = m_MyPrivateID;
 
     // Current accounts
     {
@@ -1182,23 +1242,68 @@ void Node::RefreshAccounts()
         {
             auto& acc = accs.emplace_back();
             Cast::Down<NodeDB::WalkerAccount::Data>(acc) = wlk.m_Data;
+
+            static_assert(sizeof(Merkle::Hash) < sizeof(ECC::HKdfPub::Packed), "");
+
+            auto& key = wlk.m_Data.m_Owner; // alias
+
+            if (sizeof(Merkle::Hash) == key.n)
+            {
+                // older-format account. Would be upgraded on 1st run
+                const auto& hv = *reinterpret_cast<const Merkle::Hash*>(key.p);
+                arc.m_Map[hv] = accs.size() - 1;
+            }
+            else
+            {
+                if (arc.m_Coder.Decrypt(key) && (sizeof(ECC::HKdfPub::Packed) == key.n))
+                {
+                    const auto& p = *reinterpret_cast<const ECC::HKdfPub::Packed*>(key.p);
+
+                    auto pPKdf = std::make_shared<ECC::HKdfPub>();
+                    if (pPKdf->Import(p))
+                        acc.m_pOwner = std::move(pPKdf); // loaded ok
+
+                    ECC::SecureErase(Cast::NotConst(key.p), key.n);
+                }
+            }
         }
     }
 
     uint32_t nAdd = static_cast<uint32_t>(accs.size());
 
     if (m_Keys.m_pOwner)
-        AddAccount(m_Keys.m_pOwner, m_Keys.m_pMiner.get());
+        arc.AddAccount(m_Keys.m_pOwner, m_Keys.m_pMiner.get());
 
-    for (const auto& pExtra : m_Keys.m_vExtraOwners)
-        AddAccount(pExtra, nullptr);
+    for (const auto& pExtra : m_Keys.m_Accounts.m_vAdd)
+        arc.AddAccount(pExtra, nullptr);
 
     nAdd = static_cast<uint32_t>(accs.size()) - nAdd; // how many new added
 
     uint32_t nDel = 0;
-    for (const auto& acc : accs)
+    for (auto& acc : accs)
     {
-        if (!acc.m_pOwner)
+        // filter-out those to be deleted.
+        // Never delete the current owner account
+        if (acc.m_pOwner && acc.m_pOwner.get() != m_Keys.m_pOwner.get())
+        {
+            bool bDelete = m_Keys.m_Accounts.m_Del.m_All;
+            if (!bDelete && !m_Keys.m_Accounts.m_Del.m_Eps.empty())
+            {
+                auto it = m_Keys.m_Accounts.m_Del.m_Eps.find(acc.get_Endpoint());
+                if (m_Keys.m_Accounts.m_Del.m_Eps.end() != it)
+                {
+                    m_Keys.m_Accounts.m_Del.m_Eps.erase(it);
+                    bDelete = true;
+                }
+            }
+
+            if (bDelete)
+                acc.m_pOwner.reset();
+        }
+
+        if (acc.m_pOwner)
+            acc.InitFromOwner();
+        else
             nDel++;
     }
     // delete unused accounts
@@ -1230,31 +1335,23 @@ void Node::RefreshAccounts()
         assert(nAdd <= accs.size());
         LOG_INFO() << "Owned accounts added: " << nAdd;
 
-        for (size_t i = accs.size() - nAdd; i < accs.size(); i++)
-            m_Processor.get_DB().InsertAccount(accs[i]);
         try
         {
             m_Processor.RescanAccounts(nAdd, m_Cfg.m_Observer ? m_Cfg.m_Observer->GetLongActionHandler() : nullptr);
         }
         catch (const std::runtime_error&)
         {
-            for (size_t i = accs.size() - nAdd; i < accs.size(); i++)
-                m_Processor.get_DB().DeleteAccountWithEvents(accs[i].m_iAccount);
-
             return;
         }
     }
 
-    if (!accs.empty())
-    {
-        std::ostringstream os;
-        os << "Owned accounts : ";
+    std::ostringstream os;
+    os << "Owned accounts :" << std::endl;
 
-        for (const auto& acc : accs)
-            os << '\t' << acc.get_Endpoint() << std::endl;
+    for (const auto& acc : accs)
+        os << '\t' << acc.get_Endpoint() << std::endl;
 
-        LOG_INFO() << os.str();
-    }
+    LOG_INFO() << os.str();
 }
 
 bool Node::Bbs::IsInLimits() const

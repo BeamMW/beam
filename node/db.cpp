@@ -1974,11 +1974,11 @@ bool NodeDB::WalkerEvent::MoveNext()
 	return true;
 }
 
-void NodeDB::InsertAccount(const WalkerAccount::Data& d)
+void NodeDB::InsertAccount(const WalkerAccount::DataPlus& d)
 {
 	Recordset rs(*this, Query::AccountIns, "INSERT INTO " TblAccounts "(" TblAccounts_Index "," TblAccounts_OwnerID "," TblAccounts_Serif "," TblAccounts_TxoHi ") VALUES(?,?,?,?)");
 	rs.put(0, d.m_iAccount);
-	rs.put(1, d.m_OwnerID);
+	rs.put(1, d.m_Owner);
 	rs.put(2, d.m_Serif);
 	rs.put(3, d.m_hTxoHi);
 	rs.Step();
@@ -2007,12 +2007,14 @@ void NodeDB::EnumAccounts(WalkerAccount& wlk)
 	wlk.m_Rs.Reset(*this, Query::AccountEnum, "SELECT " TblAccounts_Index "," TblAccounts_OwnerID "," TblAccounts_Serif "," TblAccounts_TxoHi " FROM " TblAccounts " ORDER BY " TblAccounts_Index);
 }
 
-void NodeDB::GetAccount(WalkerAccount& wlk)
+void NodeDB::SetAccountTxoHi(WalkerAccount::Data& d)
 {
-	wlk.m_Rs.Reset(*this, Query::AccountGet, "SELECT " TblAccounts_Index "," TblAccounts_OwnerID "," TblAccounts_Serif "," TblAccounts_TxoHi " FROM " TblAccounts " WHERE " TblAccounts_Index "=?");
-	wlk.m_Rs.put(0, wlk.m_Data.m_iAccount);
-	if (!wlk.MoveNext())
-		ThrowInconsistent();
+	Recordset rs(*this, Query::AccountUpdTxoHi, "UPDATE " TblAccounts " SET " TblAccounts_TxoHi "=? WHERE" TblAccounts_Index "=?");
+	rs.put(0, d.m_hTxoHi);
+	rs.put(1, d.m_iAccount);
+
+	rs.Step();
+	TestChanged1Row();
 }
 
 bool NodeDB::WalkerAccount::MoveNext()
@@ -2021,7 +2023,7 @@ bool NodeDB::WalkerAccount::MoveNext()
 		return false;
 
 	m_Rs.get(0, m_Data.m_iAccount);
-	m_Rs.get(1, m_Data.m_OwnerID);
+	m_Rs.get(1, m_Data.m_Owner);
 	m_Rs.get(2, m_Data.m_Serif);
 	m_Rs.get(3, m_Data.m_hTxoHi);
 	return true;

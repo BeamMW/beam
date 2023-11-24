@@ -134,7 +134,7 @@ public:
 			AccountDel,
 			AccountIns,
 			AccountEnum,
-			AccountGet,
+			AccountUpdTxoHi,
 			PeerAdd,
 			PeerDel,
 			PeerEnum,
@@ -438,23 +438,28 @@ public:
 
 	struct WalkerAccount {
 		Recordset m_Rs;
+
 		struct Data
 		{
 			AccountIndex m_iAccount;
-			Merkle::Hash m_OwnerID;
 			Merkle::Hash m_Serif;
 			Height m_hTxoHi;
+		};
 
+		struct DataPlus
+			:public Data
+		{
+			Blob m_Owner; // either OwnerID (older format) or OwnerKey
 		} m_Data;
 
 		bool MoveNext();
 	};
 
-	void InsertAccount(const WalkerAccount::Data&);
+	void InsertAccount(const WalkerAccount::DataPlus&);
 	void DeleteAccountOnly(AccountIndex);
 	void DeleteAccountWithEvents(AccountIndex);
 	void EnumAccounts(WalkerAccount&);
-	void GetAccount(WalkerAccount&);
+	void SetAccountTxoHi(WalkerAccount::Data&);
 
 	void EnumEvents(WalkerEvent&, AccountIndex, Height hMin);
 	void FindEvents(WalkerEvent&, AccountIndex, const Blob& key); // in case of duplication the most recently added comes first

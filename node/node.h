@@ -173,7 +173,17 @@ struct Node
 
 		Key::Index m_nMinerSubIndex = 0;
 
-		std::vector<Key::IPKdf::Ptr> m_vExtraOwners;
+		struct Accounts
+		{
+			std::vector<Key::IPKdf::Ptr> m_vAdd; // new accounts to add
+
+			struct Del
+			{
+				std::set<std::string> m_Eps; // endpoints to delete
+				bool m_All = false; // delete all saved accounts
+			} m_Del;
+
+		} m_Accounts;
 
 		void InitSingleKey(const ECC::uintBig& seed);
 		void SetSingleKey(const Key::IKdf::Ptr&);
@@ -318,7 +328,7 @@ private:
 	void InitKeys();
 	void InitIDs();
 	void RefreshAccounts();
-	void AddAccount(const Key::IPKdf::Ptr& pOwner, Key::IPKdf* pMiner);
+	struct AccountRefreshCtx;
 	void MaybeGenerateRecovery();
 
 	struct Wanted
