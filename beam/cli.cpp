@@ -467,7 +467,7 @@ int main(int argc, char* argv[])
 
 					if (vm.count(cli::OWNER_KEY_REMOVE_EP))
 					{
-						auto vEps = vm[cli::MULTI_OWNER_KEYS].as<std::vector<std::string> >();
+						auto vEps = vm[cli::OWNER_KEY_REMOVE_EP].as<std::vector<std::string> >();
 						assert(!vEps.empty());
 
 						for (auto& ep : vEps)
