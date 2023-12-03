@@ -2009,7 +2009,7 @@ void NodeDB::EnumAccounts(WalkerAccount& wlk)
 
 void NodeDB::SetAccountTxoHi(WalkerAccount::Data& d)
 {
-	Recordset rs(*this, Query::AccountUpdTxoHi, "UPDATE " TblAccounts " SET " TblAccounts_TxoHi "=? WHERE" TblAccounts_Index "=?");
+	Recordset rs(*this, Query::AccountUpdTxoHi, "UPDATE " TblAccounts " SET " TblAccounts_TxoHi "=? WHERE " TblAccounts_Index "=?");
 	rs.put(0, d.m_hTxoHi);
 	rs.put(1, d.m_iAccount);
 
