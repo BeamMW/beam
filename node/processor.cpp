@@ -87,11 +87,11 @@ void NodeProcessor::Initialize(const char* szPath)
 	Initialize(szPath, sp);
 }
 
-void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
+void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongAction* pExternalHandler)
 {
 	m_DB.Open(szPath);
 	m_DbTx.Start(m_DB);
-
+	m_pExternalHandler = pExternalHandler;
 	if (sp.m_CheckIntegrity)
 	{
 		LOG_INFO() << "DB integrity check...";
@@ -1962,7 +1962,7 @@ struct LongActionPlus
 	LongAction m_La;
 	bool m_Logging;
 
-	LongActionPlus(const char* sz, Height h, Height hTrg)
+	LongActionPlus(const char* sz, Height h, Height hTrg, ILongAction* pExternalHandler)
 	{
 		assert(hTrg > h);
 		auto dh = hTrg - h;
@@ -1971,7 +1971,7 @@ struct LongActionPlus
 			m_Logging = false;
 			return;
 		}
-
+		m_La.m_pExternal = pExternalHandler;
 		m_Logging = true;
 		m_La.Reset(sz, dh);
 	}
@@ -1988,7 +1988,7 @@ Height NodeProcessor::RaiseFossil(Height hTrg)
 	if (hTrg <= m_Extra.m_Fossil)
 		return 0;
 
-	LongActionPlus la("Raising Fossil...", m_Extra.m_Fossil, hTrg);
+	LongActionPlus la("Raising Fossil...", m_Extra.m_Fossil, hTrg, m_pExternalHandler);
 
 	Height hRet = 0;
 
@@ -2022,7 +2022,7 @@ Height NodeProcessor::RaiseTxoLo(Height hTrg)
 	if (hTrg <= m_Extra.m_TxoLo)
 		return 0;
 
-	LongActionPlus la("Raising TxoLo...", m_Extra.m_TxoLo, hTrg);
+	LongActionPlus la("Raising TxoLo...", m_Extra.m_TxoLo, hTrg, m_pExternalHandler);
 
 	Height hRet = 0;
 	std::vector<NodeDB::StateInput> v;
@@ -2066,7 +2066,7 @@ Height NodeProcessor::RaiseTxoHi(Height hTrg)
 	if (hTrg <= m_Extra.m_TxoHi)
 		return 0;
 
-	LongActionPlus la("Raising TxoHi...", m_Extra.m_TxoHi, hTrg);
+	LongActionPlus la("Raising TxoHi...", m_Extra.m_TxoHi, hTrg, m_pExternalHandler);
 
 
 	Height hRet = 0;
@@ -3493,7 +3493,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::IsOwnedVar(const bvm2::Cont
 		!memcmp(cid.m_pData, key.p, cid.nBytes);
 }
 
-void NodeProcessor::RescanAccounts(uint32_t nRecent, ILongAction* pExternalHandler)
+void NodeProcessor::RescanAccounts(uint32_t nRecent)
 {
 	if (!nRecent)
 		return;
@@ -3563,7 +3563,7 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent, ILongAction* pExternalHandl
 	};
 
 	{
-		LongAction la("Rescanning owned Txos...", 0, pExternalHandler);
+		LongAction la("Rescanning owned Txos...", 0, m_pExternalHandler);
 
 		TxoRecover wlk(rec);
 		wlk.m_pLa = &la;
@@ -3582,7 +3582,7 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent, ILongAction* pExternalHandl
 		TxoID nOuts = m_Extra.m_ShieldedOutputs;
 		m_Extra.m_ShieldedOutputs = 0;
 
-		LongAction la("Rescanning shielded Txos...", 0, pExternalHandler);
+		LongAction la("Rescanning shielded Txos...", 0, m_pExternalHandler);
 
 		struct MyKrnWalker
 			:public KrnWalkerRecognize
@@ -7068,7 +7068,7 @@ void NodeProcessor::InitializeUtxos()
 		}
 	};
 
-	LongAction la("Rebuilding mapped image...", 0);
+	LongAction la("Rebuilding mapped image...", 0, m_pExternalHandler);
 
 	Walker wlk(*this);
 	wlk.m_pLa = &la;
@@ -7276,7 +7276,7 @@ void NodeProcessor::RecentStates::Push(uint64_t rowID, const Block::SystemState:
 
 void NodeProcessor::RebuildNonStd()
 {
-	LongAction la("Rebuilding non-std data...", m_Cursor.m_Full.m_Height);
+	LongAction la("Rebuilding non-std data...", m_Cursor.m_Full.m_Height, m_pExternalHandler);
 
 	// Delete all asset info, contracts, shielded, and replay everything
 	m_Mapped.m_Contract.Clear();

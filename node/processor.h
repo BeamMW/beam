@@ -262,6 +262,7 @@ class NodeProcessor
 
 	void AdjustManualRollbackHeight(Height&);
 	void ManualRollbackInternal(Height);
+	ILongAction* m_pExternalHandler = nullptr;
 
 public:
 
@@ -283,7 +284,7 @@ public:
 	};
 
 	void Initialize(const char* szPath);
-	void Initialize(const char* szPath, const StartParams&);
+	void Initialize(const char* szPath, const StartParams&, ILongAction* pExternalHandler = nullptr);
 
 	static bool ExtractTreasury(const Blob&, Treasury::Data&);
 	static void get_MappingPath(std::string&, const char*);
@@ -603,7 +604,7 @@ public:
 	typedef std::vector<Account> AccountsVec;
 	AccountsVec m_vAccounts;
 
-	void RescanAccounts(uint32_t nRecent, ILongAction *pExternalHandler = nullptr);
+	void RescanAccounts(uint32_t nRecent);
 
 	uint64_t FindActiveAtStrict(Height);
 	Height FindVisibleKernel(const Merkle::Hash&, const BlockInterpretCtx&);

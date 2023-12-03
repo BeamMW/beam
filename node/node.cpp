@@ -1007,7 +1007,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
     m_Processor.m_ExecutorMT.set_Threads(std::max<uint32_t>(m_Cfg.m_VerificationThreads, 1U));
 
     m_Processor.m_Horizon = m_Cfg.m_Horizon;
-    m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_ProcessorParams);
+    m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_ProcessorParams, m_Cfg.m_Observer ? m_Cfg.m_Observer->GetLongActionHandler() : nullptr);
 
 	if (m_Cfg.m_ProcessorParams.m_EraseSelfID)
 	{
@@ -1337,7 +1337,7 @@ void Node::RefreshAccounts()
 
         try
         {
-            m_Processor.RescanAccounts(nAdd, m_Cfg.m_Observer ? m_Cfg.m_Observer->GetLongActionHandler() : nullptr);
+            m_Processor.RescanAccounts(nAdd);
         }
         catch (const std::runtime_error&)
         {
