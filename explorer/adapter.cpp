@@ -272,41 +272,152 @@ private:
         if (_nextHook) _nextHook->OnRolledBack(id);
     }
 
-    json get_status() override {
+    struct TresEntry
+        :public intrusive::set_base_hook<Height>
+    {
+        Amount m_Total;
+        uint32_t m_iIdx;
+    };
 
-        Height h = _nodeBackend.m_Cursor.m_Full.m_Height;
+    intrusive::multiset_autoclear<TresEntry> m_mapTreasury;
 
-        double possibleShieldedReadyHours = 0;
-        uint64_t shieldedPer24h = 0;
+    void PrepareTreasureSchedule()
+    {
+        if (!m_mapTreasury.empty())
+            return;
 
-        if (h)
+        if (Rules::get().TreasuryChecksum == Zero)
+            return;
+
+        ByteBuffer buf;
+        _nodeBackend.get_DB().ParamGet(NodeDB::ParamID::Treasury, nullptr, nullptr, &buf);
+        if (buf.empty())
+            return;
+
+        Treasury::Data td;
+        if (!NodeProcessor::ExtractTreasury(buf, td))
+            return;
+
+        auto tb = td.get_Bursts();
+        for (const auto& burst : tb)
         {
-            NodeDB& db = _nodeBackend.get_DB();
-            auto shieldedByLast24h = db.ShieldedOutpGet(h >= 1440 ? h - 1440 : 1);
-            auto averageWindowBacklog = Rules::get().Shielded.MaxWindowBacklog / 2;
-
-            if (shieldedByLast24h && shieldedByLast24h != _nodeBackend.m_Extra.m_ShieldedOutputs)
-            {
-                shieldedPer24h = _nodeBackend.m_Extra.m_ShieldedOutputs - shieldedByLast24h;
-                possibleShieldedReadyHours = ceil(averageWindowBacklog / (double)shieldedPer24h * 24);
-            }
+            auto* pE = m_mapTreasury.Create(burst.m_Height);
+            pE->m_Total = burst.m_Value;
         }
 
-        char buf[80];
+        if (m_mapTreasury.empty())
+            return;
 
-        json j{
-                { "timestamp", _nodeBackend.m_Cursor.m_Full.m_TimeStamp },
-                { "height", h },
-                { "low_horizon", _nodeBackend.m_Extra.m_TxoHi },
-                { "hash", hash_to_hex(buf, _nodeBackend.m_Cursor.m_ID.m_Hash) },
-                { "chainwork",  uint256_to_hex(buf, _nodeBackend.m_Cursor.m_Full.m_ChainWork) },
-                { "peers_count", _node.get_AcessiblePeerCount() },
-                { "shielded_outputs_total", _nodeBackend.m_Extra.m_ShieldedOutputs },
-                { "shielded_outputs_per_24h", shieldedPer24h },
-                { "shielded_possible_ready_in_hours", shieldedPer24h ? std::to_string(possibleShieldedReadyHours) : "-" }
-        };
+        // to cumulative
+        const TresEntry* pPrev = nullptr;
+        for (auto& te : m_mapTreasury)
+        {
+            if (pPrev)
+            {
+                te.m_Total += pPrev->m_Total;
+                te.m_iIdx = pPrev->m_iIdx + 1;
+            }
+            else
+                te.m_iIdx = 0;
 
-        return j;
+            pPrev = &te;
+        }
+    }
+
+    json get_status() override {
+
+        const auto& c = _nodeBackend.m_Cursor;
+
+        char szCw[ECC::uintBig::nTxtLen10Max / 3 * 4 + 2];
+        PrintDifficulty(szCw, c.m_Full.m_ChainWork);
+
+        if (Mode::Legacy == m_Mode)
+        {
+            double possibleShieldedReadyHours = 0;
+            uint64_t shieldedPer24h = 0;
+
+            if (c.m_Full.m_Height)
+            {
+                NodeDB& db = _nodeBackend.get_DB();
+                auto shieldedByLast24h = db.ShieldedOutpGet(c.m_Full.m_Height >= 1440 ? c.m_Full.m_Height - 1440 : 1);
+                auto averageWindowBacklog = Rules::get().Shielded.MaxWindowBacklog / 2;
+
+                if (shieldedByLast24h && shieldedByLast24h != _nodeBackend.m_Extra.m_ShieldedOutputs)
+                {
+                    shieldedPer24h = _nodeBackend.m_Extra.m_ShieldedOutputs - shieldedByLast24h;
+                    possibleShieldedReadyHours = ceil(averageWindowBacklog / (double)shieldedPer24h * 24);
+                }
+            }
+
+            char buf[80];
+            json j{
+                    { "timestamp", c.m_Full.m_TimeStamp },
+                    { "height", c.m_Full.m_Height },
+                    { "low_horizon", _nodeBackend.m_Extra.m_TxoHi },
+                    { "hash", hash_to_hex(buf, c.m_ID.m_Hash) },
+                    { "chainwork",  szCw },
+                    { "peers_count", _node.get_AcessiblePeerCount() },
+                    { "shielded_outputs_total", _nodeBackend.m_Extra.m_ShieldedOutputs },
+                    { "shielded_outputs_per_24h", shieldedPer24h },
+                    { "shielded_possible_ready_in_hours", shieldedPer24h ? std::to_string(possibleShieldedReadyHours) : "-" }
+            };
+            return j;
+        }
+
+        json jInfo = json::array();
+
+        jInfo.push_back({ MakeTableHdr("Height"), MakeObjHeight(c.m_Full.m_Height) });
+        jInfo.push_back({ MakeTableHdr("Total Work"), szCw });
+        jInfo.push_back({ MakeTableHdr("Last block Timestamp"),MakeTypeObj("time", c.m_Full.m_TimeStamp) });
+        jInfo.push_back({ MakeTableHdr("Last block Subsidy"), MakeObjAmount(Rules::get_Emission(c.m_Full.m_Height)) });
+
+        char szBuf[uintBigFor<uint64_t>::Type::nTxtLen10Max / 3 * 4 + 2];
+        auto len = uintBigFrom(_nodeBackend.m_Extra.m_ShieldedOutputs).PrintDecimal(szBuf);
+        ExpanedNumWithCommas(szBuf, szBuf, len);
+
+        jInfo.push_back({ MakeTableHdr("Total shielded outputs"), szBuf });
+
+        len = uintBigFrom(_nodeBackend.m_Extra.m_Txos - _nodeBackend.m_Extra.m_TxosTreasury - c.m_Full.m_Height - Rules::HeightGenesis + 1).PrintDecimal(szBuf);
+        ExpanedNumWithCommas(szBuf, szBuf, len);
+        jInfo.push_back({ MakeTableHdr("Total TXOs"), szBuf });
+        
+
+        AmountBig::Type valAmount;
+        Rules::get_Emission(valAmount, HeightRange(Rules::HeightGenesis, c.m_Full.m_Height));
+        jInfo.push_back({ MakeTableHdr("Current Emission"), MakeObjAmount(valAmount) });
+
+        Rules::get_Emission(valAmount, HeightRange(Rules::HeightGenesis, MaxHeight));
+        jInfo.push_back({ MakeTableHdr("Total Emission"), MakeObjAmount(valAmount) });
+
+        PrepareTreasureSchedule();
+        if (!m_mapTreasury.empty())
+        {
+            Amount valTotal = m_mapTreasury.rbegin()->m_Total;
+
+            auto it = m_mapTreasury.upper_bound(c.m_Full.m_Height, TresEntry::Comparator());
+            const TresEntry* pNext = (m_mapTreasury.end() == it) ? nullptr : &(*it);
+
+            const TresEntry* pPrev = nullptr;
+            if (m_mapTreasury.begin() != it)
+            {
+                --it;
+                pPrev = &(*it);
+            }
+
+            jInfo.push_back({ MakeTableHdr("Treasury total"), MakeObjAmount(valTotal) });
+            jInfo.push_back({ MakeTableHdr("Treasury released"), MakeObjAmount(pPrev ? pPrev->m_Total : 0) });
+
+            if (pPrev)
+                jInfo.push_back({ MakeTableHdr("Treasury Prev release"), MakeObjHeight(pPrev->m_Key) });
+            if (pNext)
+                jInfo.push_back({ MakeTableHdr("Treasury Next release"), MakeObjHeight(pNext->m_Key) });
+        }
+
+        auto jRet = MakeTable(std::move(jInfo));
+
+        if (Mode::ExplicitType == m_Mode)
+            jRet["h"] = c.m_Full.m_Height;
+        return jRet;
     }
 
     bool extract_row(Height height, uint64_t& row, uint64_t* prevRow) {
@@ -1630,7 +1741,7 @@ private:
             jAssets.push_back(std::move(wr.m_json));
         }
 
-        return jAssets;
+        return MakeTable(std::move(jAssets));
     }
 
     static uint32_t ExpanedNumWithCommas(char* szDst, const char* szSrc, uint32_t len)

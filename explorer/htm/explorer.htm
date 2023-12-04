@@ -418,6 +418,46 @@ table, th, td {
 		return text;
 	}
 
+	function MakeTblAssets(j)
+	{
+		let text = "\
+<table>\n\
+	<th>Aid</th>\n\
+	<th>Owner</th>\n\
+	<th>Deposit</th>\n\
+	<th>Supply</th>\n\
+	<th>Lock-Height</th>\n\
+	<th>Metadata</th>\n\
+";
+
+		let jTbl = j["value"];
+		
+		// skip 1st row
+		for (let iRow = 1; iRow < jTbl.length; iRow++)
+		{
+			const jRow = jTbl[iRow];
+			text += "<tr>";
+
+			text += MakeCell(MakeAsset(jRow[0]["value"]));
+			text += MakeCell(Obj2Html(jRow[1]));
+			text += MakeCellAmount(jRow[2]["value"]);
+			text += MakeCellAmount(jRow[3]["value"]);
+			text += MakeCell(MakeBlock(jRow[4]));
+			text += MakeCell(Obj2Html(jRow[5]));
+			
+			text += "</tr>";
+		}
+		
+	
+		text += "</table>"
+		return text;
+	}
+
+	function MakeCAs(h)
+	{
+		return "<h3>" + MakeRef(UrlSelfWithID("assets", h, ""), "Confidential Assets") + "</h3>";
+	}
+
 	function DisplayBlock()
 	{
 		let text = "";
@@ -512,40 +552,11 @@ table, th, td {
 		if (j)
 		{
 			text += MakeCollapsibleBegin("Assets state");
-		
-			text += "\
-<table>\n\
-	<th>Aid</th>\n\
-	<th>Owner</th>\n\
-	<th>Deposit</th>\n\
-	<th>Supply</th>\n\
-	<th>Lock-Height</th>\n\
-	<th>Metadata</th>\n\
-";
-
-			jTbl = j["value"];
-		
-			// skip 1st row
-			for (let iRow = 1; iRow < jTbl.length; iRow++)
-			{
-				const jRow = jTbl[iRow];
-				text += "<tr>";
-
-				text += MakeCell(MakeAsset(jRow[0]["value"]));
-				text += MakeCell(Obj2Html(jRow[1]));
-				text += MakeCellAmount(jRow[2]["value"]);
-				text += MakeCellAmount(jRow[3]["value"]);
-				text += MakeCell(MakeBlock(jRow[4]));
-				text += MakeCell(Obj2Html(jRow[5]));
-			
-				text += "</tr>";
-			}
-		
-	
-			text += "</table>"
-	
+			text += MakeTblAssets(j);
 			text += MakeCollapsibleEnd();
 		}
+		else
+			text += MakeCAs(g_CurrentID);
 
 		SetContent(text);
 	}
@@ -699,6 +710,31 @@ table, th, td {
 		SetContent(text);
 	}
 	
+	function DisplayStatus()
+	{
+		const jData = JSON.parse(this.responseText);
+	
+		let text = MakeCollapsibleBegin("Blockchain status");
+		text += Obj2Html(jData);
+		text += MakeCollapsibleEnd();
+
+		text += "<h3>" + MakeRef(UrlSelf("contracts", ""), "Contracts") + "</h3>";
+		text += MakeCAs(jData["h"]);
+		text += "<h3>" + MakeRef(UrlSelf("hdrs", ""), "Recent block headers") + "</h3>";
+
+		SetContent(text);
+	}
+
+	function DisplayAssets()
+	{
+		const jData = JSON.parse(this.responseText);
+	
+		let text = "<h2>Assets state for height " + MakeBlock(g_CurrentID) + "</h2>\n";
+		text += MakeTblAssets(jData);
+
+		SetContent(text);
+	}
+
 
 	const args = (new URL(document.location)).searchParams;
 	const type = args.get("type");
@@ -735,13 +771,25 @@ table, th, td {
 	else if (type == "hdrs")
 	{
 		xmlhttp.onload = DisplayHdrs;
-		xmlhttp.open("GET", urlPrefix +  "hdrs" + urlSuffix);
+		xmlhttp.open("GET", urlPrefix +  "hdrs" + urlSuffix + "&nMax=100");
+		xmlhttp.send();
+	}
+	else if (type == "contracts")
+	{
+		xmlhttp.onload = DisplayContracts;
+		xmlhttp.open("GET", urlPrefix +  "contracts" + urlSuffix);
+		xmlhttp.send();
+	}
+	else if (type == "assets")
+	{
+		xmlhttp.onload = DisplayAssets;
+		xmlhttp.open("GET", urlPrefix +  "assets" + urlSuffix + "&height=" + g_CurrentID);
 		xmlhttp.send();
 	}
 	else
 	{
-		xmlhttp.onload = DisplayContracts;
-		xmlhttp.open("GET", urlPrefix +  "contracts" + urlSuffix);
+		xmlhttp.onload = DisplayStatus;
+		xmlhttp.open("GET", urlPrefix +  "status" + urlSuffix);
 		xmlhttp.send();
 	}
 
