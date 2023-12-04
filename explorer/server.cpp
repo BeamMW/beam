@@ -824,6 +824,12 @@ OnRequest(asset)
     return _backend.get_asset_history((uint32_t) aid, hMin, hMax, nMaxOps);
 }
 
+OnRequest(assets)
+{
+    auto height = _currentUrl.get_int_arg("height", 0);
+    return _backend.get_assets_at(height);
+}
+
 bool Server::send(const HttpConnection::Ptr& conn, int code, const char* message, bool isHtml)
 {
     assert(conn);

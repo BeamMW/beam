@@ -40,26 +40,20 @@ struct IAdapter {
 
     /// Returns body for /status request
     virtual json get_status() = 0;
-
     virtual json get_block(uint64_t height) = 0;
-
     virtual json get_block_by_kernel(const Blob& key) = 0;
-
     virtual json get_blocks(uint64_t startHeight, uint64_t n) = 0;
-
     virtual json get_hdrs(uint64_t hMax, uint64_t nMax) = 0;
-
     virtual json get_peers() = 0;
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     virtual json get_swap_offers() = 0;
-
     virtual json get_swap_totals() = 0;
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
-
     virtual json get_contracts() = 0;
     virtual json get_contract_details(const Blob& id, Height hMin, Height hMax, uint32_t nMaxTxs) = 0;
     virtual json get_asset_history(uint32_t, Height hMin, Height hMax, uint32_t nMaxOps) = 0;
+    virtual json get_assets_at(Height) = 0;
 };
 
 IAdapter::Ptr create_adapter(Node& node);

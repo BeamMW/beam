@@ -1592,6 +1592,47 @@ private:
         return wr.m_json;
     }
 
+    json get_assets_at(Height h) override
+    {
+        json jAssets = json::array();
+        jAssets.push_back(json::array({
+            MakeTableHdr("Aid"),
+            MakeTableHdr("Owner"),
+            MakeTableHdr("Deposit"),
+            MakeTableHdr("Supply"),
+            MakeTableHdr("Lock height"),
+            MakeTableHdr("Metadata")
+            }));
+
+        Asset::Full ai;
+        for (ai.m_ID = 1; ; ai.m_ID++)
+        {
+            int ret = _nodeBackend.get_AssetAt(ai, h);
+            if (!ret)
+                break;
+            if (ret < 0)
+                continue;
+
+            ExtraInfo::Writer wr(json::array());
+            wr.m_json.push_back(MakeObjAid(ai.m_ID));
+
+            wr.m_json.push_back(ExtraInfo::Writer::get_AssetOwner(ai));
+
+            wr.m_json.push_back(MakeObjAmount(ai.m_Deposit));
+            wr.m_json.push_back(MakeObjAmount(ai.m_Value));
+
+            wr.m_json.push_back(ai.m_LockHeight);
+
+            std::string s;
+            ai.m_Metadata.get_String(s);
+            wr.m_json.push_back(std::move(s));
+
+            jAssets.push_back(std::move(wr.m_json));
+        }
+
+        return jAssets;
+    }
+
     static uint32_t ExpanedNumWithCommas(char* szDst, const char* szSrc, uint32_t len)
     {
         const uint32_t nGroupLen = 3;
@@ -1761,48 +1802,11 @@ private:
                 kernels.push_back(std::move(j));
             }
 
-
-            json jAssets = json::array();
-            jAssets.push_back(json::array({
-                MakeTableHdr("Aid"),
-                MakeTableHdr("Owner"),
-                MakeTableHdr("Deposit"),
-                MakeTableHdr("Supply"),
-                MakeTableHdr("Lock height"),
-                MakeTableHdr("Metadata")
-                }));
-
-            Asset::Full ai;
-            for (ai.m_ID = 1; ; ai.m_ID++)
-            {
-                int ret = _nodeBackend.get_AssetAt(ai, height);
-                if (!ret)
-                    break;
-                if (ret < 0)
-                    continue;
-
-                ExtraInfo::Writer wr(json::array());
-                wr.m_json.push_back(MakeObjAid(ai.m_ID));
-
-                wr.m_json.push_back(ExtraInfo::Writer::get_AssetOwner(ai));
-
-                wr.m_json.push_back(MakeObjAmount(ai.m_Deposit));
-                wr.m_json.push_back(MakeObjAmount(ai.m_Value));
-
-                wr.m_json.push_back(ai.m_LockHeight);
-
-                std::string s;
-                ai.m_Metadata.get_String(s);
-                wr.m_json.push_back(std::move(s));
-
-                jAssets.push_back(std::move(wr.m_json));
-            }
-
-            auto btcRate = _exchangeRateProvider->getBeamTo(wallet::Currency::BTC(), blockState.m_Height);
-            auto usdRate = _exchangeRateProvider->getBeamTo(wallet::Currency::USD(), blockState.m_Height);
-
             if (Mode::Legacy == m_Mode)
             {
+                auto btcRate = _exchangeRateProvider->getBeamTo(wallet::Currency::BTC(), blockState.m_Height);
+                auto usdRate = _exchangeRateProvider->getBeamTo(wallet::Currency::USD(), blockState.m_Height);
+
                 out = json{
                     {"found",      true},
                     {"timestamp",  blockState.m_TimeStamp},
@@ -1842,12 +1846,9 @@ private:
                 out["info"] = MakeTable(std::move(jInfo));
             }
 
-            out["assets"] = MakeTable(std::move(jAssets));
             out["inputs"] = std::move(inputs);
             out["outputs"] = std::move(outputs);
             out["kernels"] = std::move(kernels);
-
-            LOG_DEBUG() << out;
         }
         return ok;
     }
