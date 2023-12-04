@@ -1942,7 +1942,7 @@ private:
             row = prevRow;
             --endHeight;
         }
-        return true;
+        return result;
     }
 
     json get_peers() override
