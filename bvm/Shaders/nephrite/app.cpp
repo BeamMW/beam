@@ -766,6 +766,7 @@ struct AppGlobalPlus
         pFc[2].m_Amount = tx.m_GovPull;
         pFc[2].m_Aid = m_Settings.m_AidGov;
         pFc[2].m_Consume = 0;
+        AdjustChargeFunds(pFc[2], nCharge);
 
         if (m_Balance.m_Gov && !bUseBank)
         {
@@ -995,7 +996,7 @@ ON_METHOD(user, upd_stab)
         Charge::StdCall() +
         Env::Cost::LoadVar_For(sizeof(StabPoolEntry)) +
         Env::Cost::SaveVar_For(sizeof(StabPoolEntry)) +
-        Charge::StabPoolOp0 * 2 + // account for reward calculation
+        Charge::StabPoolOp0 * 3 + // calculate reward, calculate stab, re-enter stab
         g.m_EpochStorageStab.m_Charge +
         Env::Cost::Cycle * 100;
 

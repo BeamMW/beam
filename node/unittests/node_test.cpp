@@ -796,6 +796,31 @@ namespace beam
 			db.get_CacheState(cs);
 			verify_test(cs.m_SizeCurrent == 0);
 		}
+
+		{
+			// accounts
+			NodeDB::WalkerAccount::DataPlus acc;
+			Merkle::Hash hv3 = 5u;
+			acc.m_Owner = hv3;
+			acc.m_hTxoHi = 10;
+			acc.m_iAccount = 1;
+			acc.m_Serif = 6u;
+			db.InsertAccount(acc);
+
+			acc.m_hTxoHi = 99;
+			db.SetAccountTxoHi(acc);
+
+			NodeDB::WalkerAccount wlk;
+			db.EnumAccounts(wlk);
+			verify_test(wlk.MoveNext());
+
+			verify_test(wlk.m_Data.m_iAccount == acc.m_iAccount);
+			verify_test(wlk.m_Data.m_hTxoHi == acc.m_hTxoHi);
+			verify_test(wlk.m_Data.m_Serif == acc.m_Serif);
+			verify_test(!wlk.m_Data.m_Owner.cmp(acc.m_Owner));
+
+			verify_test(!wlk.MoveNext());
+		}
 	}
 
 #ifdef WIN32
