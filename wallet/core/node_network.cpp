@@ -13,14 +13,14 @@
 // limitations under the License.
 
 #include "node_network.h"
+#include "utility/logger.h"
+#include "wallet/core/default_peers.h"
 
 namespace beam::wallet
 {
     void NodeNetwork::tryToConnect()
     {
-        // if user changed address to correct (using of setNodeAddress)
-        if (m_Cfg.m_vNodes.size() > 0)
-            return;
+        m_Cfg.m_vNodes.clear();
 
         if (!m_timer)
         {
@@ -33,6 +33,7 @@ namespace beam::wallet
         }
         else if (m_attemptToConnect == MAX_ATTEMPT_TO_CONNECT)
         {
+            m_attemptToConnect = 0;
             proto::NodeConnection::DisconnectReason reason;
             reason.m_Type = proto::NodeConnection::DisconnectReason::Io;
             reason.m_IoError = io::EC_HOST_RESOLVED_ERROR;
@@ -43,21 +44,39 @@ namespace beam::wallet
         }
 
         m_timer->start(RECONNECTION_TIMEOUT, false, [this]() {
-            io::Address nodeAddr;
-            assert(!m_nodeAddress.empty());
-            if (!m_nodeAddress.empty() && nodeAddr.resolve(m_nodeAddress.c_str()))
+            auto nodeAddresses = getDefaultPeers();
+            nodeAddresses.push_back(m_nodeAddress);
+            for (const auto& addr : nodeAddresses)
             {
-                m_Cfg.m_vNodes.push_back(nodeAddr);
-                Connect();
+                io::Address nodeAddr;
+                if (!addr.empty() && nodeAddr.resolve(addr.c_str()))
+                {
+                    m_Cfg.m_vNodes.push_back(nodeAddr);
+                }
+                else
+                {
+                    LOG_WARNING() << "Unable to resolve node address: " << addr;
+                }
             }
-            else if (!m_fallbackAddresses.empty())
+            if (!m_Cfg.m_vNodes.empty())
             {
+                std::sort(m_Cfg.m_vNodes.begin(), m_Cfg.m_vNodes.end());
+                m_Cfg.m_vNodes.erase(std::unique(m_Cfg.m_vNodes.begin(), m_Cfg.m_vNodes.end()), m_Cfg.m_vNodes.end());
+                Connect();
+                return;
+            }
+
+            LOG_WARNING() << "User-specified nodes cannot be resolved.";
+            if (!m_fallbackAddresses.empty())
+            {
+                LOG_WARNING() << "Attempting to connect to fallback nodes";
                 // try to solve DNS problem with known ip addresses
                 std::copy(m_fallbackAddresses.begin(), m_fallbackAddresses.end(), std::back_inserter(m_Cfg.m_vNodes));
                 Connect();
             }
             else 
             {
+                LOG_WARNING() << "There are no fallback nodes. Trying to re-connect in " << RECONNECTION_TIMEOUT << " ms";
                 tryToConnect();
             }
         });
@@ -96,21 +115,12 @@ namespace beam::wallet
         return m_nodeAddress;
     }
 
-    bool NodeNetwork::setNodeAddress(const std::string& nodeAddr)
+    void NodeNetwork::setNodeAddress(const std::string& nodeAddr)
     {
+        m_attemptToConnect = 0;
         Disconnect();
-        io::Address address;
-        if (!nodeAddr.empty() && address.resolve(nodeAddr.c_str()))
-        {
-            m_Cfg.m_vNodes.clear();
-            m_Cfg.m_vNodes.push_back(address);
-
-            Connect();
-
-            m_nodeAddress = nodeAddr;
-            return true;
-        }
-        return false;
+        m_nodeAddress = nodeAddr;
+        tryToConnect();
     }
 
     const std::string& NodeNetwork::getLastError() const

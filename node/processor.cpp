@@ -87,11 +87,11 @@ void NodeProcessor::Initialize(const char* szPath)
 	Initialize(szPath, sp);
 }
 
-void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
+void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongAction* pExternalHandler)
 {
 	m_DB.Open(szPath);
 	m_DbTx.Start(m_DB);
-
+	m_pExternalHandler = pExternalHandler;
 	if (sp.m_CheckIntegrity)
 	{
 		LOG_INFO() << "DB integrity check...";
@@ -469,6 +469,14 @@ void NodeProcessor::CommitDB()
 	{
 		CommitMappingAndDB();
 		m_DbTx.Start(m_DB);
+	}
+}
+
+void NodeProcessor::RollbackDB()
+{
+	if (m_DbTx.IsInProgress())
+	{
+		m_DbTx.Rollback();
 	}
 }
 
@@ -1954,7 +1962,7 @@ struct LongActionPlus
 	LongAction m_La;
 	bool m_Logging;
 
-	LongActionPlus(const char* sz, Height h, Height hTrg)
+	LongActionPlus(const char* sz, Height h, Height hTrg, ILongAction* pExternalHandler)
 	{
 		assert(hTrg > h);
 		auto dh = hTrg - h;
@@ -1963,7 +1971,7 @@ struct LongActionPlus
 			m_Logging = false;
 			return;
 		}
-
+		m_La.m_pExternal = pExternalHandler;
 		m_Logging = true;
 		m_La.Reset(sz, dh);
 	}
@@ -1980,7 +1988,7 @@ Height NodeProcessor::RaiseFossil(Height hTrg)
 	if (hTrg <= m_Extra.m_Fossil)
 		return 0;
 
-	LongActionPlus la("Raising Fossil...", m_Extra.m_Fossil, hTrg);
+	LongActionPlus la("Raising Fossil...", m_Extra.m_Fossil, hTrg, m_pExternalHandler);
 
 	Height hRet = 0;
 
@@ -2014,7 +2022,7 @@ Height NodeProcessor::RaiseTxoLo(Height hTrg)
 	if (hTrg <= m_Extra.m_TxoLo)
 		return 0;
 
-	LongActionPlus la("Raising TxoLo...", m_Extra.m_TxoLo, hTrg);
+	LongActionPlus la("Raising TxoLo...", m_Extra.m_TxoLo, hTrg, m_pExternalHandler);
 
 	Height hRet = 0;
 	std::vector<NodeDB::StateInput> v;
@@ -2058,7 +2066,7 @@ Height NodeProcessor::RaiseTxoHi(Height hTrg)
 	if (hTrg <= m_Extra.m_TxoHi)
 		return 0;
 
-	LongActionPlus la("Raising TxoHi...", m_Extra.m_TxoHi, hTrg);
+	LongActionPlus la("Raising TxoHi...", m_Extra.m_TxoHi, hTrg, m_pExternalHandler);
 
 
 	Height hRet = 0;
@@ -3555,7 +3563,7 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 	};
 
 	{
-		LongAction la("Rescanning owned Txos...", 0);
+		LongAction la("Rescanning owned Txos...", 0, m_pExternalHandler);
 
 		TxoRecover wlk(rec);
 		wlk.m_pLa = &la;
@@ -3574,7 +3582,7 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 		TxoID nOuts = m_Extra.m_ShieldedOutputs;
 		m_Extra.m_ShieldedOutputs = 0;
 
-		LongAction la("Rescanning shielded Txos...", 0);
+		LongAction la("Rescanning shielded Txos...", 0, m_pExternalHandler);
 
 		struct MyKrnWalker
 			:public KrnWalkerRecognize
@@ -3611,7 +3619,7 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 		EnumKernels(wlkKrn, HeightRange(h0, m_Cursor.m_Sid.m_Height));
 
 		assert(m_Extra.m_ShieldedOutputs == nOuts);
-		nOuts; // supporess unused var warning in release
+		nOuts; // suppress unused var warning in release
 	}
 }
 
@@ -6916,7 +6924,7 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 	assert(hr.m_Max <= m_Cursor.m_ID.m_Height);
 
 	if (wlkTxo.m_pLa)
-		wlkTxo.m_pLa->m_Total = hr.m_Max - hr.m_Min + 1;
+		wlkTxo.m_pLa->SetTotal(hr.m_Max - hr.m_Min + 1);
 
 	TxoID id1 = get_TxosBefore(hr.m_Min);
 	Height h = hr.m_Min - 1; // don't care about overflow
@@ -6938,8 +6946,9 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 				assert(wlk.m_ID < id1);
 			}
 
-			if (wlkTxo.m_pLa)
-				wlkTxo.m_pLa->OnProgress(h - hr.m_Min);
+			if (wlkTxo.m_pLa &&
+				!wlkTxo.m_pLa->OnProgress(h - hr.m_Min))
+				throw std::runtime_error("EnumTxos interrupted");
 		}
 
 		if (!wlkTxo.OnTxo(wlk, h))
@@ -6956,7 +6965,7 @@ bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
 	assert(hr.m_Max <= m_Cursor.m_ID.m_Height);
 
 	if (wlkKrn.m_pLa)
-		wlkKrn.m_pLa->m_Total = hr.m_Max - hr.m_Min + 1;
+		wlkKrn.m_pLa->SetTotal(hr.m_Max - hr.m_Min + 1);
 
 	TxVectors::Eternal txve;
 
@@ -6971,8 +6980,9 @@ bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
 		if (!wlkKrn.ProcessHeight(rowID, txve.m_vKernels))
 			return false;
 
-		if (wlkKrn.m_pLa)
-			wlkKrn.m_pLa->OnProgress(wlkKrn.m_Height - hr.m_Min + 1);
+		if (wlkKrn.m_pLa &&
+			!wlkKrn.m_pLa->OnProgress(wlkKrn.m_Height - hr.m_Min + 1))
+			throw std::runtime_error("EnumKernels interrupted");
 	}
 
 	return true;
@@ -7058,7 +7068,7 @@ void NodeProcessor::InitializeUtxos()
 		}
 	};
 
-	LongAction la("Rebuilding mapped image...", 0);
+	LongAction la("Rebuilding mapped image...", 0, m_pExternalHandler);
 
 	Walker wlk(*this);
 	wlk.m_pLa = &la;
@@ -7266,7 +7276,7 @@ void NodeProcessor::RecentStates::Push(uint64_t rowID, const Block::SystemState:
 
 void NodeProcessor::RebuildNonStd()
 {
-	LongAction la("Rebuilding non-std data...", m_Cursor.m_Full.m_Height);
+	LongAction la("Rebuilding non-std data...", m_Cursor.m_Full.m_Height, m_pExternalHandler);
 
 	// Delete all asset info, contracts, shielded, and replay everything
 	m_Mapped.m_Contract.Clear();

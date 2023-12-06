@@ -55,18 +55,28 @@ namespace beam
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
 
-	struct LongAction
+	struct ILongAction
 	{
-		uint32_t m_Last_ms;
-		uint64_t m_Total;
+		virtual void Reset(const char*, uint64_t nTotal) = 0;
+		virtual void SetTotal(uint64_t nTotal) = 0;
+		virtual bool OnProgress(uint64_t pos) = 0;
+	};
+	struct LongAction : ILongAction
+	{
+		uint32_t m_Last_ms = 0;
+		uint64_t m_Total = 0;
+		ILongAction *m_pExternal = nullptr;
 
-		LongAction(const char* sz, uint64_t nTotal) {
+		LongAction(const char* sz, uint64_t nTotal, ILongAction *pExternal = nullptr)
+			: m_pExternal(pExternal)
+		{
 			Reset(sz, nTotal);
 		}
-		LongAction() {}
+		LongAction() = default;
 
-		void Reset(const char*, uint64_t nTotal);
-		void OnProgress(uint64_t pos);
+		void Reset(const char*, uint64_t nTotal) final;
+		void SetTotal(uint64_t nTotal) final;
+		bool OnProgress(uint64_t pos) final;
 	};
 
 	void HeightAdd(Height& trg, Height val); // saturates if overflow
