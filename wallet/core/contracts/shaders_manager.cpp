@@ -300,9 +300,10 @@ namespace beam::wallet {
                 StartRun(method);
             });
 
-        m_Wallet.DoInSyncedWallet([this]()
+        m_Wallet.DoInSyncedWallet([wp = std::weak_ptr(_startEvent)]()
             {
-                _startEvent->post();
+                if (auto sp = wp.lock())
+                    sp->post();
             });
     }
 
