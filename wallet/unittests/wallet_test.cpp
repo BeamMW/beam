@@ -2779,6 +2779,120 @@ namespace
         }
     }
 
+    void TestAppShader6()
+    {
+        printf("Testing vault_anon by code ...\n");
+
+        io::Reactor::Ptr mainReactor(io::Reactor::create());
+        io::Reactor::Scope scope(*mainReactor);
+
+        string nodePath = "node.db";
+        if (boost::filesystem::exists(nodePath))
+            boost::filesystem::remove(nodePath);
+
+        int completedCount = 0;
+
+        //auto timer = io::Timer::create(io::Reactor::get_Current());
+        auto f = [&completedCount, mainReactor](auto txID)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+              //  timer->cancel();
+                mainReactor->stop();
+            }
+        };
+
+        auto dbSender = createSqliteWalletDB(SenderWalletDB, false, true);
+        auto treasury = createTreasury(dbSender, AmountList{Rules::Coin * 300000});
+
+        auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
+        {
+            InitNodeToTest(node, treasury, nullptr, port, 3000, path, peers, miningNode);
+            io::Address address;
+            address.resolve("127.0.0.1");
+            address.port(port);
+            return address;
+        };
+
+
+        Node node;
+        auto nodeAddress = nodeCreator(node, treasury, 32125, "node.db");
+
+        TestWalletRig sender(dbSender, f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
+        MyManager manSender(*sender.m_Wallet);
+
+        manSender.set_Privilege(2);
+        MyManager::Compile(manSender.m_BodyManager, "vault_anon/app.wasm", MyManager::Kind::Manager);
+        MyManager::Compile(manSender.m_BodyContract, "vault_anon/contract.wasm", MyManager::Kind::Contract);
+
+        printf("Deploying vault_anon...\n");
+
+        manSender.m_Args["role"] = "manager";
+        manSender.m_Args["action"] = "deploy";
+        manSender.RunSync(1);
+        WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+
+        WALLET_CHECK(manSender.DoTx(completedCount));
+
+        printf("reading vault cid...\n");
+
+        manSender.m_Args["action"] = "view";
+        manSender.RunSync(1);
+        WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+
+        std::string sCid;
+        WALLET_CHECK(manSender.get_OutpStr("\"cid\": \"", sCid, bvm2::ContractID::nTxtLen));
+
+
+        printf("depositing...\n");
+
+        manSender.m_Args["code"] = "123456789";
+        manSender.m_Args["cid"] = sCid;
+        manSender.m_Args["role"] = "code";
+        manSender.m_Args["action"] = "send";
+
+        {
+            manSender.m_Args["amount"] = "100000000";
+            manSender.m_Args["msg"] = "Hello1";
+
+            auto vData = std::move(manSender.m_InvokeData);
+            manSender.RunSync(1);
+            WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+
+            manSender.m_InvokeData.m_vec.insert(manSender.m_InvokeData.m_vec.end(), vData.m_vec.begin(), vData.m_vec.end());
+        }
+
+        {
+            manSender.m_Args["amount"] = "4400000000";
+            manSender.m_Args["msg"] = "Hello222";
+
+            auto vData = std::move(manSender.m_InvokeData);
+            manSender.RunSync(1);
+            WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+
+            manSender.m_InvokeData.m_vec.insert(manSender.m_InvokeData.m_vec.end(), vData.m_vec.begin(), vData.m_vec.end());
+        }
+
+
+        WALLET_CHECK(manSender.DoTx(completedCount));
+
+        printf("Withdrawing ...\n");
+
+        manSender.m_Args["action"] = "receive";
+        manSender.RunSync(1);
+        WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+
+
+
+        TxID txR;
+        WALLET_CHECK(manSender.StartTx(completedCount, txR));
+
+        io::Reactor::get_Current().run();
+        WALLET_CHECK(!completedCount);
+
+        WALLET_CHECK(dbSender->getTx(txR)->m_status == wallet::TxStatus::Completed);
+    }
 
     struct MyZeroInit {
         static void Do(std::string&) {}
@@ -4944,6 +5058,7 @@ int main()
     TestAppShader3();
     TestAppShader4();
     TestAppShader5();
+    TestAppShader6();
     Rules::get().pForks[1].m_Height = 20;
     Rules::get().pForks[2].m_Height = 20;
     Rules::get().pForks[3].m_Height = 20;
