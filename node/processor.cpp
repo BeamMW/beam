@@ -7453,7 +7453,8 @@ void NodeProcessor::ValidatedCache::OnShLo(const Entry::ShLo::Type& nShLo)
 
 void NodeProcessor::ValidatedCache::RemoveRaw(ValidatedCache::Entry& x)
 {
-	//m_Keys.erase(KeySet::s_iterator_to(x.m_Key));
+	KeySet::iterator it = KeySet::s_iterator_to(x.m_Key);
+	m_Keys.erase(it);
 	m_ShLo.erase(ShLoSet::s_iterator_to(x.m_ShLo));
 	m_Mru.erase(MruList::s_iterator_to(x.m_Mru));
 }
