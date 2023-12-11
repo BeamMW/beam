@@ -386,7 +386,7 @@ void CompactMmr::get_PredictedHash(Hash& hv, const Hash& hvAppend) const
 	uint64_t n = m_Count;
 	size_t iPos = m_vNodes.size();
 
-	for (uint8_t nHeight = 0; n; nHeight++, n >>= 1)
+	for (; n; n >>= 1)
 		if (1 & n)
 		{
 			assert(n > 0);
@@ -400,7 +400,7 @@ void CompactMmr::Append(const Hash& hv)
 	Hash hv1 = hv;
 	uint64_t n = m_Count;
 
-	for (uint8_t nHeight = 0; ; nHeight++, n >>= 1)
+	for (;; n >>= 1)
 	{
 		if (!(1 & n))
 			break;
