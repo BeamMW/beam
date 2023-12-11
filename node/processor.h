@@ -843,8 +843,7 @@ public:
 				Type m_Value;
 				bool operator < (const Key& x) const { return m_Value < x.m_Value; }
 				IMPLEMENT_GET_PARENT_OBJ(Entry, m_Key)
-			};
-			Key m_Key;
+			} m_Key;
 
 			struct Mru
 				:public boost::intrusive::list_base_hook<>
