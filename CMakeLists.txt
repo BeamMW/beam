@@ -349,19 +349,21 @@ elseif(ANDROID)
     set(BEAM_LASER_SUPPORT OFF)
     add_compile_definitions(BOOST_ERROR_CODE_HEADER_ONLY)
 
-    set(ANDROID_SUFFIX "")
+    find_package(Boost)
 
-    if(ANDROID_ABI STREQUAL "armeabi-v7a")
-        set(ANDROID_SUFFIX "-clang-mt-a32-1_68.a")
-    elseif(ANDROID_ABI STREQUAL "x86")
-        set(ANDROID_SUFFIX "-clang-mt-x32-1_68.a")
-    elseif(ANDROID_ABI STREQUAL "x86_64")
-        set(ANDROID_SUFFIX "-clang-mt-x64-1_68.a")
-    elseif(ANDROID_ABI STREQUAL "arm64-v8a")
-        set(ANDROID_SUFFIX "-clang-mt-a64-1_68.a")
-    endif()
-
-    CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_ANDROID}" "libs/${ANDROID_ABI}/libboost_" "${ANDROID_SUFFIX}")   
+    #set(ANDROID_SUFFIX "")
+    #
+    #if(ANDROID_ABI STREQUAL "armeabi-v7a")
+    #    set(ANDROID_SUFFIX "-clang-mt-a32-1_68.a")
+    #elseif(ANDROID_ABI STREQUAL "x86")
+    #    set(ANDROID_SUFFIX "-clang-mt-x32-1_68.a")
+    #elseif(ANDROID_ABI STREQUAL "x86_64")
+    #    set(ANDROID_SUFFIX "-clang-mt-x64-1_68.a")
+    #elseif(ANDROID_ABI STREQUAL "arm64-v8a")
+    #    set(ANDROID_SUFFIX "-clang-mt-a64-1_68.a")
+    #endif()
+    #
+    #CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_ANDROID}" "libs/${ANDROID_ABI}/libboost_" "${ANDROID_SUFFIX}")   
 else()
 
     if(LINUX)

@@ -35,15 +35,15 @@ if(IOS)
             $ENV{BOOST_ROOT_IOS}/lib/libboost_thread.a
             $ENV{BOOST_ROOT_IOS}/lib/libboost_regex.a
             $ENV{BOOST_ROOT_IOS}/lib/libboost_log.a)
-elseif(ANDROID)
-    target_link_libraries(${TARGET_NAME} 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options${ANDROID_SUFFIX} 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem${ANDROID_SUFFIX}
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system${ANDROID_SUFFIX}
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread${ANDROID_SUFFIX}
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex${ANDROID_SUFFIX}
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log${ANDROID_SUFFIX}
-)
+#elseif(ANDROID)
+#    target_link_libraries(${TARGET_NAME} 
+#            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options${ANDROID_SUFFIX} 
+#            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem${ANDROID_SUFFIX}
+#            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system${ANDROID_SUFFIX}
+#            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread${ANDROID_SUFFIX}
+#            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex${ANDROID_SUFFIX}
+#            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log${ANDROID_SUFFIX}
+#)
 endif()
 
 target_link_libraries(${TARGET_NAME}
