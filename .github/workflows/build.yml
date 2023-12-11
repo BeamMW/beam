@@ -426,7 +426,7 @@ jobs:
           echo "ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> $GITHUB_ENV
           ls /usr/local/lib/android/sdk
           
-          echo "BOOST_ROOT=${{runner.workspace}}/boost_prebuilt/include" >> $GITHUB_ENV
+          echo "BOOST_ROOT=${{runner.workspace}}/boost_prebuilt" >> $GITHUB_ENV
           echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuilt/include" >> $GITHUB_ENV
           echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuilt/libs/${{matrix.abi}}" >> $GITHUB_ENV
           echo "OPENSSL_ROOT_DIR_ANDROID=${{runner.workspace}}/dependencies/Prebuilt-OpenSSL-Android" >> $GITHUB_ENV
