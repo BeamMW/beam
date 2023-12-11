@@ -7485,7 +7485,7 @@ bool NodeProcessor::ValidatedCache::Find(const Entry::Key::Type& val)
 
 void NodeProcessor::ValidatedCache::Insert(const Entry::Key::Type& val, const Entry::ShLo::Type& nShLo)
 {
-	Entry* pEntry(new Entry);
+	auto* pEntry(new ValidatedCache::Entry);
 	pEntry->m_Key.m_Value = val;
 	pEntry->m_ShLo.m_End = nShLo;
 
