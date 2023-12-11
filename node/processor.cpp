@@ -7494,7 +7494,7 @@ void NodeProcessor::ValidatedCache::Insert(const ValidatedCache::Entry::Key::Typ
 
 void NodeProcessor::ValidatedCache::InsertRaw(ValidatedCache::Entry& x)
 {
-	m_Keys.insert(x.m_Key);
+	//m_Keys.insert(x.m_Key);
 	m_ShLo.insert(x.m_ShLo);
 	m_Mru.push_front(x.m_Mru);
 }
