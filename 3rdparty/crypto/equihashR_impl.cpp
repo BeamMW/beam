@@ -443,7 +443,7 @@ bool EquihashR<N,K,R>::OptimisedSolve(const eh_HashState& base_state,
 
     const eh_index soln_size { 1 << K };
     std::vector<std::shared_ptr<eh_trunc>> partialSolns;
-    int invalidCount = 0;
+    //int invalidCount = 0;
     {
 
         // 1) Generate first list
@@ -636,7 +636,7 @@ bool EquihashR<N,K,R>::OptimisedSolve(const eh_HashState& base_state,
         continue;
 
 invalidsolution:
-        invalidCount++;
+        //invalidCount++;
     }
 
     return false;
