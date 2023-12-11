@@ -836,7 +836,7 @@ public:
 	{
 		struct Entry
 		{
-			struct Key
+			struct Key2
 				:public boost::intrusive::set_base_hook<>
 			{
 				typedef ECC::Hash::Value Type;
@@ -861,7 +861,7 @@ public:
 			} m_ShLo;
 		};
 
-		typedef boost::intrusive::multiset<Entry::Key> KeySet;
+		typedef boost::intrusive::multiset<Entry::Key2> KeySet;
 		typedef boost::intrusive::multiset<Entry::ShLo> ShLoSet;
 		typedef boost::intrusive::list<Entry::Mru> MruList;
 
