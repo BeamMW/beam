@@ -69,8 +69,8 @@ jobs:
         run: |
           rm -rf ${{runner.workspace}}/boost_prebuild
           git clone --depth=1 https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git ${{runner.workspace}}/boost_prebuild
-          echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include" >> $GITHUB_ENV
-          echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/" >> $GITHUB_ENV
+          #echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include" >> $GITHUB_ENV
+          #echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/" >> $GITHUB_ENV
 
       ###############################################################################
       # Configure CMake
@@ -425,8 +425,8 @@ jobs:
           git clone --depth=1 https://github.com/BeamMW/openssl-android.git ${{runner.workspace}}/dependencies/Prebuilt-OpenSSL-Android
           echo "ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> $GITHUB_ENV
           ls /usr/local/lib/android/sdk
-          echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuilt/include" >> $GITHUB_ENV
-          echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuilt/libs/${{matrix.abi}}" >> $GITHUB_ENV
+          echo "Boost_INCLUDE_DIRS=${{runner.workspace}}/boost_prebuilt/include" >> $GITHUB_ENV
+          echo "Boost_LIBRARY_DIRS=${{runner.workspace}}/boost_prebuilt/libs/${{matrix.abi}}" >> $GITHUB_ENV
           echo "OPENSSL_ROOT_DIR_ANDROID=${{runner.workspace}}/dependencies/Prebuilt-OpenSSL-Android" >> $GITHUB_ENV
 
       ###############################################################################
