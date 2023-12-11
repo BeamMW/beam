@@ -841,7 +841,7 @@ public:
 			{
 				typedef ECC::Hash::Value Type;
 				Type m_Value;
-				bool operator < (const Entry::Key& x) const { return m_Value < x.m_Value; }
+				bool operator < (const Key& x) const { return m_Value < x.m_Value; }
 				IMPLEMENT_GET_PARENT_OBJ(Entry, m_Key)
 			};
 			Key m_Key;

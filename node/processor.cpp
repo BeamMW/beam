@@ -7451,7 +7451,7 @@ void NodeProcessor::ValidatedCache::OnShLo(const Entry::ShLo::Type& nShLo)
 	}
 }
 
-void NodeProcessor::ValidatedCache::RemoveRaw(ValidatedCache::Entry& x)
+void NodeProcessor::ValidatedCache::RemoveRaw(Entry& x)
 {
 	m_Keys.erase(KeySet::s_iterator_to(x.m_Key));
 	m_ShLo.erase(ShLoSet::s_iterator_to(x.m_ShLo));
@@ -7485,7 +7485,7 @@ bool NodeProcessor::ValidatedCache::Find(const Entry::Key::Type& val)
 
 void NodeProcessor::ValidatedCache::Insert(const Entry::Key::Type& val, const Entry::ShLo::Type& nShLo)
 {
-	ValidatedCache::Entry* pEntry(new ValidatedCache::Entry);
+	Entry* pEntry(new Entry);
 	pEntry->m_Key.m_Value = val;
 	pEntry->m_ShLo.m_End = nShLo;
 	
