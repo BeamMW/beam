@@ -1670,7 +1670,7 @@ void NodeDB::get_ChainWork(uint64_t rowid, Difficulty::Raw& wrk)
 
 void NodeDB::assert_valid()
 {
-	uint32_t nTips = 0, nTipsReachable = 0;
+	[[maybe_unused]] uint32_t nTips = 0, nTipsReachable = 0;
 
 	Recordset rs(*this, Query::Dbg0, "SELECT "
 		TblStates ".rowid,"
