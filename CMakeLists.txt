@@ -179,8 +179,6 @@ message("BEAM_ASSET_SWAP_SUPPORT is ${BEAM_ASSET_SWAP_SUPPORT}")
 option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
 message("BEAM_HW_WALLET is ${BEAM_HW_WALLET}")
 
-
-
 if(BEAM_HW_WALLET)
 
     if(BEAM_USE_STATIC)
@@ -205,9 +203,9 @@ endif()
 
 if(MSVC)
     if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
-		string(REGEX REPLACE "/W[0-4]" "/W4 /WX" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+        string(REGEX REPLACE "/W[0-4]" "/W4 /WX" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     else()
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /WX")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /WX")
     endif()
 
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4100") # unreferenced formal parameter
@@ -331,6 +329,8 @@ function(CreateBoostComponentTargets listOfComponents root libPrefix libSuffix)
     endforeach()
 endfunction()
 
+add_compile_definitions(BOOST_NO_CXX98_FUNCTION_BASE)
+
 if(IOS)
     set(BEAM_WALLET_CLIENT_LIBRARY TRUE)
     set(BEAM_TESTS_ENABLED FALSE)
@@ -338,7 +338,7 @@ if(IOS)
     set(BEAM_ASSET_SWAP_SUPPORT OFF)
     set(BEAM_LASER_SUPPORT OFF)
     add_compile_definitions(BOOST_NO_AUTO_PTR)
-    add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
+    add_compile_definitions(BOOST_ERROR_CODE_HEADER_ONLY)
     CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_IOS}" "lib/libboost_" ".a")
 elseif(ANDROID)
     message("ANDROID_ABI: ${ANDROID_ABI}")
@@ -348,7 +348,6 @@ elseif(ANDROID)
     set(BEAM_ASSET_SWAP_SUPPORT OFF)
     set(BEAM_LASER_SUPPORT OFF)
     add_compile_definitions(BOOST_ERROR_CODE_HEADER_ONLY)
-    add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
 
     set(ANDROID_SUFFIX "")
 
