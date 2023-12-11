@@ -7470,9 +7470,9 @@ void NodeProcessor::ValidatedCache::MoveToFront(Entry& x)
 	m_Mru.push_front(x.m_Mru);
 }
 
-bool NodeProcessor::ValidatedCache::Find(const ValidatedCache::Entry::Key2::Type& val)
+bool NodeProcessor::ValidatedCache::Find(const Entry::Key::Type& val)
 {
-	Entry::Key2 key;
+	Entry::Key key;
 	key.m_Value = val;
 
 	KeySet::iterator it = m_Keys.find(key);
@@ -7483,18 +7483,18 @@ bool NodeProcessor::ValidatedCache::Find(const ValidatedCache::Entry::Key2::Type
 	return true;
 }
 
-void NodeProcessor::ValidatedCache::Insert(const Entry::Key2::Type& val, const Entry::ShLo::Type& nShLo)
+void NodeProcessor::ValidatedCache::Insert(const Entry::Key::Type& val, const Entry::ShLo::Type& nShLo)
 {
-	//auto* pEntry(new ValidatedCache::Entry);
-	//pEntry->m_Key.m_Value = val;
-	//pEntry->m_ShLo.m_End = nShLo;
-	//
-	//InsertRaw(*pEntry);
+	auto* pEntry(new ValidatedCache::Entry);
+	pEntry->m_Key.m_Value = val;
+	pEntry->m_ShLo.m_End = nShLo;
+	
+	InsertRaw(*pEntry);
 }
 
 void NodeProcessor::ValidatedCache::InsertRaw(Entry& x)
 {
-	//m_Keys.insert(x.m_Key);
+	m_Keys.insert(x.m_Key);
 	m_ShLo.insert(x.m_ShLo);
 	m_Mru.push_front(x.m_Mru);
 }

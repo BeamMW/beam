@@ -836,12 +836,12 @@ public:
 	{
 		struct Entry
 		{
-			struct Key2
+			struct Key
 				:public boost::intrusive::set_base_hook<>
 			{
 				typedef ECC::Hash::Value Type;
 				Type m_Value;
-				bool operator < (const Key2& x) const { return m_Value < x.m_Value; }
+				bool operator < (const Entry::Key& x) const { return m_Value < x.m_Value; }
 				IMPLEMENT_GET_PARENT_OBJ(Entry, m_Key)
 			} m_Key;
 
@@ -861,7 +861,7 @@ public:
 			} m_ShLo;
 		};
 
-		typedef boost::intrusive::multiset<Entry::Key2> KeySet;
+		typedef boost::intrusive::multiset<Entry::Key> KeySet;
 		typedef boost::intrusive::multiset<Entry::ShLo> ShLoSet;
 		typedef boost::intrusive::list<Entry::Mru> MruList;
 
@@ -879,8 +879,8 @@ public:
 		void ShrinkTo(uint32_t);
 		void OnShLo(const Entry::ShLo::Type& nShLo);
 
-		bool Find(const Entry::Key2::Type&); // modifies MRU if found
-		void Insert(const Entry::Key2::Type&, const Entry::ShLo::Type& nShLo);
+		bool Find(const Entry::Key::Type&); // modifies MRU if found
+		void Insert(const Entry::Key::Type&, const Entry::ShLo::Type& nShLo);
 
 		void MoveInto(ValidatedCache& dst);
 
