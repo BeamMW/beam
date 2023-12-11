@@ -602,7 +602,7 @@ bool EquihashR<N,K,R>::OptimisedSolve(const eh_HashState& base_state,
 
                         // 2d) Check if this has become an invalid solution
                         if (ic->size() == 0)
-                            goto invalidsolution;
+                            return false;//goto invalidsolution;
 
                         X[r] = boost::none;
                         hashLen -= CollisionByteLength;
@@ -635,8 +635,8 @@ bool EquihashR<N,K,R>::OptimisedSolve(const eh_HashState& base_state,
         if (cancelled(PartialEnd)) throw solver_cancelled;
         continue;
 
-invalidsolution:
-        //invalidCount++;
+//invalidsolution:
+//        invalidCount++;
     }
 
     return false;
