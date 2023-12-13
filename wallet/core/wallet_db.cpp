@@ -6789,6 +6789,13 @@ namespace beam::wallet
                     }
                     else
                     {
+                        if (wid != Zero && !wid.IsValid())
+                        {
+                            LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid myID parameter";
+                            ++errorsCount;
+                            continue;
+                        }
+
                         auto waddr = db.getAddress(wid);
                         if (waddr && (!waddr->isOwn() || !db.ValidateSbbsWalletID(wid, waddr->m_OwnID)))
                         {
