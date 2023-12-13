@@ -6765,8 +6765,8 @@ namespace beam::wallet
                         continue;
                     }
 
-                    WalletID wid;
-                    if (auto idIt = paramsMap.find(TxParameterID::MyAddr); idIt == paramsMap.end() || !wid.FromBuf(idIt->second.m_value))
+                    WalletID wid(Zero);
+                    if (auto idIt = paramsMap.find(TxParameterID::MyAddr); idIt != paramsMap.end() && !wid.FromBuf(idIt->second.m_value))
                     {
                         LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid myID parameter";
                         ++errorsCount;
@@ -6777,24 +6777,18 @@ namespace beam::wallet
                        txtype == TxType::AssetIssue ||
                        txtype == TxType::AssetReg ||
                        txtype == TxType::AssetUnreg ||
-                       txtype == TxType::AssetInfo)
+                       txtype == TxType::AssetInfo )
                     {
                         // Should be Zero for assets issue & consume
                         if (wid != Zero)
                         {
-                            LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Nonzero MyID for asset issue/consume";
+                            LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Nonzero MyID for asset issue/consume/lelanutus";
                             ++errorsCount;
                             continue;
                         }
-                    } else
+                    }
+                    else
                     {
-                        if (!wid.IsValid())
-                        {
-                            LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid myID parameter";
-                            ++errorsCount;
-                            continue;
-                        }
-
                         auto waddr = db.getAddress(wid);
                         if (waddr && (!waddr->isOwn() || !db.ValidateSbbsWalletID(wid, waddr->m_OwnID)))
                         {
