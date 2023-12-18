@@ -1221,7 +1221,7 @@ struct NodeProcessor::MultiAssetContext
 
 		std::vector<ECC::Scalar::Native> m_vKs;
 
-		virtual bool IsValid(ECC::Point::Native& hGen, const Asset::Proof&) override;
+		virtual bool IsValid(Height, ECC::Point::Native& hGen, const Asset::Proof&) override;
 	};
 
 private:
@@ -1242,7 +1242,7 @@ private:
 	}
 };
 
-bool NodeProcessor::MultiAssetContext::BatchCtx::IsValid(ECC::Point::Native& hGen, const Asset::Proof& p)
+bool NodeProcessor::MultiAssetContext::BatchCtx::IsValid(Height hScheme, ECC::Point::Native& hGen, const Asset::Proof& p)
 {
 	assert(ECC::InnerProduct::BatchContext::s_pInstance);
 	ECC::InnerProduct::BatchContext& bc = *ECC::InnerProduct::BatchContext::s_pInstance;

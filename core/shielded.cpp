@@ -53,7 +53,7 @@ namespace beam
 			return false;
 
 		ECC::Point::Native hGen;
-		if (m_pAsset && !m_pAsset->IsValid(hGen))
+		if (m_pAsset && !m_pAsset->IsValid(hScheme, hGen))
 			return false;
 
 		Prepare(oracle, hScheme);
@@ -410,7 +410,7 @@ namespace beam
 			get_skGen(skGen, hvShared);
 
 			txo.m_pAsset = std::make_unique<Asset::Proof>();
-			txo.m_pAsset->Create(g.m_hGen, skGen, m_AssetID, g.m_hGen);
+			txo.m_pAsset->Create(hScheme, g.m_hGen, skGen, m_AssetID, g.m_hGen);
 
 			Asset::Proof::ModifySk(skSign, skGen, m_Value);
 		}

@@ -1029,7 +1029,7 @@ namespace beam::wallet
                 m_GetKey.m_pPKdf->DerivePKey(m_Prover.m_Witness.m_R_Adj, m_hvSigmaSeed);
 
                 krn.m_pAsset = std::make_unique<Asset::Proof>();
-                krn.m_pAsset->Create(plus.m_hGen, m_Prover.m_Witness.m_R_Adj, m.m_AssetID, plus.m_hGen);
+                krn.m_pAsset->Create(krn.m_Height.m_Min, plus.m_hGen, m_Prover.m_Witness.m_R_Adj, m.m_AssetID, plus.m_hGen);
             }
 
             {

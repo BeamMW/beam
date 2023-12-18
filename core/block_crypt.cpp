@@ -391,7 +391,7 @@ namespace beam
 
 		ECC::Point::Native hGen;
 		return
-			m_pAsset->IsValid(hGen) &&
+			m_pAsset->IsValid(hScheme, hGen) &&
 			IsValid2(hScheme, comm, &hGen);
 	}
 
@@ -501,7 +501,7 @@ namespace beam
 				cid.get_Hash(hv);
 
 			m_pAsset = std::make_unique<Asset::Proof>();
-			m_pAsset->Create(wrk.m_hGen, skSign, cid.m_Value, cid.m_AssetID, wrk.m_hGen, bUseCoinKdf ? nullptr : &hv);
+			m_pAsset->Create(hScheme, wrk.m_hGen, skSign, cid.m_Value, cid.m_AssetID, wrk.m_hGen, bUseCoinKdf ? nullptr : &hv);
 		}
 
 		ECC::Oracle oracle;
@@ -1295,7 +1295,7 @@ namespace beam
 		{
 			r.TestEnabledCA();
 
-			if (!m_pAsset->IsValid(comm))
+			if (!m_pAsset->IsValid(hScheme, comm))
 				TxBase::Fail_Signature();
 		}
 
@@ -1371,7 +1371,7 @@ namespace beam
 		{
 			m_pAsset = std::make_unique<Asset::Proof>();
 			w.m_R_Adj = w.m_R_Output;
-			m_pAsset->Create(hGen, w.m_R_Adj, w.m_V, aid, hGen, &hvSeed.V);
+			m_pAsset->Create(m_Height.m_Min, hGen, w.m_R_Adj, w.m_V, aid, hGen, &hvSeed.V);
 		}
 
 		Asset::Proof::Expose(oracle, m_Height.m_Min, m_pAsset);
@@ -3418,16 +3418,16 @@ namespace beam
 		return true;
 	}
 
-	void Asset::Proof::Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID aid, const ECC::Hash::Value* phvSeed)
+	void Asset::Proof::Create(Height hScheme, ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID aid, const ECC::Hash::Value* phvSeed)
 	{
 		ECC::Point::Native gen;
 		if (aid)
 			Base(aid).get_Generator(gen);
 
-		Create(genBlinded, skInOut, val, aid, gen, phvSeed);
+		Create(hScheme, genBlinded, skInOut, val, aid, gen, phvSeed);
 	}
 
-	void Asset::Proof::Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID aid, const ECC::Point::Native& gen, const ECC::Hash::Value* phvSeed)
+	void Asset::Proof::Create(Height hScheme, ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID aid, const ECC::Point::Native& gen, const ECC::Hash::Value* phvSeed)
 	{
 		ECC::NonceGenerator nonceGen("out-sk-asset");
 		ECC::NoLeak<ECC::Scalar> k;
@@ -3450,10 +3450,10 @@ namespace beam
 
 		ModifySk(skInOut, skAsset, val);
 
-		Create(genBlinded, skAsset, aid, gen);
+		Create(hScheme, genBlinded, skAsset, aid, gen);
 	}
 
-	void Asset::Proof::Create(ECC::Point::Native& genBlinded, const ECC::Scalar::Native& skGen, Asset::ID aid, const ECC::Point::Native& gen)
+	void Asset::Proof::Create(Height hScheme, ECC::Point::Native& genBlinded, const ECC::Scalar::Native& skGen, Asset::ID aid, const ECC::Point::Native& gen)
 	{
 		if (aid)
 			genBlinded = gen;
@@ -3494,7 +3494,8 @@ namespace beam
 	uint32_t Asset::Proof::SetBegin(Asset::ID aid, const ECC::Scalar::Native& skGen)
 	{
 		// Randomize m_Begin
-		uint32_t N = Rules::get().CA.m_ProofCfg.get_N();
+		const Rules& r = Rules::get();
+		uint32_t N = r.CA.m_ProofCfg.get_N();
 		assert(N);
 
 		if (aid > N / 2)
@@ -3518,7 +3519,7 @@ namespace beam
 		return aid;
 	}
 
-	bool Asset::Proof::IsValid(ECC::Point::Native& hGen, ECC::InnerProduct::BatchContext& bc, ECC::Scalar::Native* pKs) const
+	bool Asset::Proof::IsValidPrepare(ECC::Point::Native& hGen, ECC::InnerProduct::BatchContext& bc, ECC::Scalar::Native* pKs) const
 	{
 		ECC::Oracle oracle;
 		oracle << m_hGen;
@@ -3534,10 +3535,10 @@ namespace beam
 		return true;
 	}
 
-	bool Asset::Proof::IsValid(ECC::Point::Native& hGen) const
+	bool Asset::Proof::IsValid(Height hScheme, ECC::Point::Native& hGen) const
 	{
 		if (BatchContext::s_pInstance)
-			return BatchContext::s_pInstance->IsValid(hGen, *this);
+			return BatchContext::s_pInstance->IsValid(hScheme, hGen, *this);
 
 		ECC::Mode::Scope scope(ECC::Mode::Fast);
 
@@ -3549,7 +3550,7 @@ namespace beam
 		assert(N);
 		vKs.resize(N);
 
-		if (!IsValid(hGen, bc, &vKs.front()))
+		if (!IsValidPrepare(hGen, bc, &vKs.front()))
 			return false;
 
 		CmList lst;

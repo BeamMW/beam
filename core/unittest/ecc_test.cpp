@@ -2199,14 +2199,14 @@ void TestAssetProof()
 	Point::Native genBlinded;
 
 	beam::Asset::Proof proof;
-	proof.Create(genBlinded, sk, val, 100500);
-	verify_test(proof.IsValid(genBlinded));
+	proof.Create(g_hFork, genBlinded, sk, val, 100500);
+	verify_test(proof.IsValid(g_hFork, genBlinded));
 
-	proof.Create(genBlinded, sk, val, 1);
-	verify_test(proof.IsValid(genBlinded));
+	proof.Create(g_hFork, genBlinded, sk, val, 1);
+	verify_test(proof.IsValid(g_hFork, genBlinded));
 
-	proof.Create(genBlinded, sk, val, 0);
-	verify_test(proof.IsValid(genBlinded));
+	proof.Create(g_hFork, genBlinded, sk, val, 0);
+	verify_test(proof.IsValid(g_hFork, genBlinded));
 }
 
 void TestAssetEmission()
