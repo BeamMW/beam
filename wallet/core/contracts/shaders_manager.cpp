@@ -272,6 +272,8 @@ namespace beam::wallet {
             }
             catch(std::exception& ex)
             {
+                LOG_ERROR() << "Failed to compile shader: " << ex.what();
+                LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "]" << ": _queue.pop()";
                 BOOST_SCOPE_EXIT_ALL(&, this) {
                     _queue.pop();
                 };
@@ -281,6 +283,7 @@ namespace beam::wallet {
 
         if (m_BodyManager.empty())
         {
+            LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "]" << ": _queue.pop()";
             BOOST_SCOPE_EXIT_ALL(&, this) {
                 _queue.pop();
             };
@@ -360,7 +363,7 @@ namespace beam::wallet {
             LOG_WARNING() << "Queue has been cleared before request completed";
             return;
         }
-
+        LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "]" << ": _queue.pop()";
         BOOST_SCOPE_EXIT_ALL(&, this) {
             _queue.pop();
             this->nextRequest();
