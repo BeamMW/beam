@@ -239,6 +239,7 @@ namespace beam::wallet {
 
     void ShadersManager::CallShader(std::vector<uint8_t>&& shader, std::string&& args, unsigned method, uint32_t priority, uint32_t unique, DoneCallHandler doneHandler)
     {
+        LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
         Request req;
         req.shader   = std::move(shader);
         req.args     = std::move(args);
@@ -247,17 +248,19 @@ namespace beam::wallet {
         req.priority = priority;
         req.unique   = unique;
         pushRequest(std::move(req));
-
+        LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
         if (_done)
         {
+            LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
             return nextRequest();
         }
-
+        LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
         LOG_VERBOSE () << "shader call is still in progress, request " << args << " queued";
     }
 
     void ShadersManager::nextRequest()
     {
+        LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
         if (_queue.empty())
         {
             return;
@@ -274,7 +277,7 @@ namespace beam::wallet {
             catch(std::exception& ex)
             {
                 LOG_ERROR() << "Failed to compile shader: " << ex.what();
-                LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "]" << ": _queue.pop()";
+                LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]" << ": _queue.pop()";
                 BOOST_SCOPE_EXIT_ALL(&, this) {
                     _queue.pop();
                 };
@@ -284,7 +287,7 @@ namespace beam::wallet {
 
         if (m_BodyManager.empty())
         {
-            LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "]" << ": _queue.pop()";
+            LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]" << ": _queue.pop()";
             BOOST_SCOPE_EXIT_ALL(&, this) {
                 _queue.pop();
             };
@@ -302,14 +305,14 @@ namespace beam::wallet {
         _startEvent = io::AsyncEvent::create(io::Reactor::get_Current(),
             [this, method = req.method]()
             {
-                LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "] starting..." ;
+                LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "] starting..." ;
                 StartRun(method);
                 LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "] completed";
             });
 
         m_Wallet.DoInSyncedWallet([wp = std::weak_ptr(_startEvent)]()
             {
-                LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "] ";
+                LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "] ";
                 if (auto sp = wp.lock())
                 {
                     LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "] posting event";
@@ -320,6 +323,7 @@ namespace beam::wallet {
 
     void ShadersManager::ProcessTxData(const ByteBuffer& buffer, DoneTxHandler doneHandler)
     {
+        LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
         try
         {
             bvm2::ContractInvokeData invokeData;
@@ -366,6 +370,11 @@ namespace beam::wallet {
 
     void ShadersManager::OnDone(const std::exception *pExc)
     {
+        LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
+        if (pExc && pExc->what() && pExc->what()[0] != 0)
+        {
+            LOG_ERROR() << __FUNCTION__ << "[" << __LINE__ << "] " << std::string(pExc->what());
+        }
         if (_queue.empty())
         {
             LOG_WARNING() << "Queue has been cleared before request completed";
