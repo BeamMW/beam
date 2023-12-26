@@ -269,6 +269,7 @@ namespace beam::wallet {
             try
             {
                 compileAppShader(req.shader);
+                LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "] shader compiled";
             }
             catch(std::exception& ex)
             {
@@ -291,6 +292,7 @@ namespace beam::wallet {
         }
 
         m_Args.clear();
+        LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "] args: " << req.args;
         if (!req.args.empty())
         {
             AddArgs(req.args);
@@ -300,13 +302,19 @@ namespace beam::wallet {
         _startEvent = io::AsyncEvent::create(io::Reactor::get_Current(),
             [this, method = req.method]()
             {
+                LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "] starting..." ;
                 StartRun(method);
+                LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "] completed";
             });
 
         m_Wallet.DoInSyncedWallet([wp = std::weak_ptr(_startEvent)]()
             {
+                LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "] ";
                 if (auto sp = wp.lock())
+                {
+                    LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "] posting event";
                     sp->post();
+                }
             });
     }
 
