@@ -649,14 +649,23 @@ private:
                 m_json = std::move(x);
             }
 
-            void OnAsset(const Asset::Proof* pProof)
+            void OnAsset(const Asset::Proof* pProof, Height h)
             {
                 if (pProof)
                 {
-                    auto t0 = pProof->m_Begin;
+                    const Rules& r = Rules::get();
+                    auto a0 = pProof->m_Begin;
+                    uint32_t aLast = a0 + r.CA.m_ProofCfg.get_N() - 1;
 
                     Writer wr;
-                    wr.AddMinMax(t0, t0 + Rules::get().CA.m_ProofCfg.get_N() - 1);
+
+                    if (h >= r.pForks[6].m_Height)
+                    {
+                        a0++;
+                        wr.m_json["x"] = 0u;
+                    }
+
+                    wr.AddMinMax(a0, aLast);
                     m_json["Asset"] = std::move(wr.m_json);
                 }
             }
@@ -923,7 +932,7 @@ private:
                     w.m_json["Maturity"] = MakeObjHeight(hMaturity);
             }
 
-            w.OnAsset(outp.m_pAsset.get());
+            w.OnAsset(outp.m_pAsset.get(), txo.m_hCreate);
 
             return std::move(w.m_json);
         }
@@ -998,7 +1007,7 @@ private:
                 void OnKrnEx(const TxKernelShieldedOutput& krn)
                 {
                     Writer wr2;
-                    wr2.OnAsset(krn.m_Txo.m_pAsset.get());
+                    wr2.OnAsset(krn.m_Txo.m_pAsset.get(), krn.m_Height.m_Min);
 
                     m_Wr.m_json["Shielded.Out"] = std::move(wr2.m_json);
                 }
@@ -1006,7 +1015,7 @@ private:
                 void OnKrnEx(const TxKernelShieldedInput& krn)
                 {
                     Writer wr2;
-                    wr2.OnAsset(krn.m_pAsset.get());
+                    wr2.OnAsset(krn.m_pAsset.get(), krn.m_Height.m_Min);
 
                     uint32_t n = krn.m_SpendProof.m_Cfg.get_N();
 
