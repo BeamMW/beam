@@ -1226,7 +1226,17 @@ struct NodeProcessor::MultiAssetContext
 
 private:
 
-	Asset::Proof::CmList m_Lst;
+	struct List
+		:public Sigma::CmList
+	{
+		Asset::ID m_Begin;
+		bool get_At(ECC::Point::Storage& pt_s, uint32_t iIdx) override
+		{
+			Asset::Base(m_Begin + iIdx).get_GeneratorSafe(pt_s);
+			return true;
+		}
+
+	} m_Lst;
 
 	virtual Sigma::CmList& get_List() override
 	{
@@ -1247,17 +1257,26 @@ bool NodeProcessor::MultiAssetContext::BatchCtx::IsValid(Height hScheme, ECC::Po
 	assert(ECC::InnerProduct::BatchContext::s_pInstance);
 	ECC::InnerProduct::BatchContext& bc = *ECC::InnerProduct::BatchContext::s_pInstance;
 
-	const Sigma::Cfg& cfg = Rules::get().CA.m_ProofCfg;
+	const Rules& r = Rules::get();
+	const Sigma::Cfg& cfg = r.CA.m_ProofCfg;
 	uint32_t N = cfg.get_N();
-	assert(N);
+	if (!N)
+		return false; // ?!
 
 	m_vKs.resize(N); // will allocate if empty
 	memset0(&m_vKs.front(), sizeof(ECC::Scalar::Native) * N);
 
-	if (!p.IsValid(hGen, bc, &m_vKs.front()))
+	if (!p.IsValidPrepare(hGen, bc, &m_vKs.front()))
 		return false;
 
-	m_Ctx.Add(p.m_Begin, N, &m_vKs.front());
+	if (hScheme >= r.pForks[6].m_Height)
+	{
+		m_Ctx.Add(0, 1, &m_vKs.front());
+		m_Ctx.Add(p.m_Begin + 1u, N - 1, &m_vKs.front());
+	}
+	else
+		m_Ctx.Add(p.m_Begin, N, &m_vKs.front());
+
 	return true;
 }
 

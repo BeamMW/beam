@@ -3395,25 +3395,45 @@ namespace beam
 		return pid == m_Owner;
 	}
 
-	const ECC::Point::Compact& Asset::Proof::get_H()
+	const ECC::Point::Compact& Asset::Base::get_H()
 	{
 		return ECC::Context::get().m_Ipp.H_.m_Fast.m_pPt[0];
 	}
 
-	bool Asset::Proof::CmList::get_At(ECC::Point::Storage& pt_s, uint32_t iIdx)
+	void Asset::Base::get_GeneratorSafe(ECC::Point::Storage& pt_s) const
 	{
-		Asset::ID id = m_Begin + iIdx;
-		if (id)
-			Base(id).get_Generator(pt_s);
+		if (m_ID)
+			get_Generator(pt_s);
 		else
 		{
 			secp256k1_ge ge;
 			get_H().Assign(ge);
 			pt_s.FromNnz(ge);
 		}
-
-		return true;
 	}
+
+	struct Asset::Proof::CmList
+		:public Sigma::CmList
+	{
+		Asset::ID m_Aid0;
+		bool m_IsPastHF6;
+
+		CmList(const Rules& r, Height hScheme)
+		{
+			m_IsPastHF6 = (hScheme >= r.pForks[6].m_Height);
+		}
+
+		bool get_At(ECC::Point::Storage& pt_s, uint32_t iIdx) override
+		{
+			Asset::ID aid = (m_IsPastHF6 && !iIdx) ? 0 : (m_Aid0 + iIdx);
+			Base(aid).get_GeneratorSafe(pt_s);
+			return true;
+		}
+
+		void SelectWindow(Asset::ID, Asset::ID aidMax, const Rules&, const ECC::Scalar::Native& skGen);
+
+		static Asset::ID SelectWindowInternal(Asset::ID aid, Asset::ID aidMax, uint32_t N, uint32_t rnd);
+	};
 
 	void Asset::Proof::Create(Height hScheme, ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID aid, const ECC::Hash::Value* phvSeed)
 	{
@@ -3455,18 +3475,19 @@ namespace beam
 		if (aid)
 			genBlinded = gen;
 		else
-			get_H().Assign(genBlinded, true); // not always specified explicitly for aid==0
+			Base::get_H().Assign(genBlinded, true); // not always specified explicitly for aid==0
 
 		genBlinded += ECC::Context::get().G * skGen;
 		m_hGen = genBlinded;
 
-		uint32_t nPos = SetBegin(aid, skGen);
+		const Rules& r = Rules::get();
+		CmList lst(r, hScheme);
 
-		CmList lst;
-		lst.m_Begin = m_Begin;
+		lst.SelectWindow(aid, 0, r, skGen);
+		m_Begin = lst.m_Aid0;
 
-		Sigma::Prover prover(lst, Rules::get().CA.m_ProofCfg, *this);
-		prover.m_Witness.m_L = nPos;
+		Sigma::Prover prover(lst, r.CA.m_ProofCfg, *this);
+		prover.m_Witness.m_L = aid ? (aid - lst.m_Aid0) : 0; // should be correct, with both schemes
 		prover.m_Witness.m_R = -skGen;
 
 		ECC::Hash::Value hvSeed;
@@ -3488,32 +3509,68 @@ namespace beam
 		skInOut += k;
 	}
 
-	uint32_t Asset::Proof::SetBegin(Asset::ID aid, const ECC::Scalar::Native& skGen)
+	void Asset::Proof::CmList::SelectWindow(Asset::ID aid, Asset::ID aidMax, const Rules& r, const ECC::Scalar::Native& skGen)
 	{
-		// Randomize m_Begin
-		const Rules& r = Rules::get();
+		// Randomize m_Aid0
+		m_Aid0 = 0;
+
 		uint32_t N = r.CA.m_ProofCfg.get_N();
-		assert(N);
+		if (N <= 1)
+			return; // should not happen
 
-		if (aid > N / 2)
+		if (aidMax < aid)
+			aidMax = aid + N / 2; // guess
+
+		if (aidMax < N)
+			return;
+
+		ECC::Hash::Value hv;
+		ECC::Hash::Processor() << skGen >> hv; // pseudo-random
+
+		uint32_t nPos;
+		hv.ExportWord<0>(nPos);
+
+		if (m_IsPastHF6)
 		{
-			ECC::Hash::Value hv;
-			ECC::Hash::Processor() << skGen >> hv;
-
-			uint32_t nPos;
-			hv.ExportWord<0>(nPos);
-			nPos %= N; // the position of this element in the list
-
-			if (aid > nPos)
+			if (!aid)
 			{
-				// TODO: don't exceed the max current asset count, for this we must query it
-				m_Begin = aid - nPos;
-				return nPos;
+				// choose a pseudo-random aid within [1, aidMax]
+				hv.ExportWord<1>(aid);
+				aid = 1u + (aid % aidMax);
 			}
-		}
 
-		m_Begin = 0;
-		return aid;
+			nPos = 1u + (nPos % (N - 1)); // our element position within [1, N)
+
+		}
+		else
+			nPos %= N; // our element position within [0, N)
+
+
+		if (aid + (N - 1) - nPos > aidMax)
+			m_Aid0 = aidMax - (N - 1); // last element of window shouldn't exceed aidMax
+		else
+		{
+			if (aid > nPos)
+				m_Aid0 = aid - nPos;
+		}
+	}
+
+	Asset::ID Asset::Proof::CmList::SelectWindowInternal(Asset::ID aid, Asset::ID aidMax, uint32_t N, uint32_t rnd)
+	{
+		assert(aid <= aidMax);
+		assert(N);
+		assert(aidMax > (N - 1));
+
+		rnd %= N; // index of our element within the window
+
+		if (aid < rnd)
+			return 0;
+
+		Asset::ID ret = aid - rnd;
+		if (ret + (N - 1) <= aidMax)
+			return ret;
+
+		return aidMax - (N - 1);
 	}
 
 	bool Asset::Proof::IsValidPrepare(ECC::Point::Native& hGen, ECC::InnerProduct::BatchContext& bc, ECC::Scalar::Native* pKs) const
@@ -3542,7 +3599,8 @@ namespace beam
 		ECC::InnerProduct::BatchContextEx<1> bc;
 		std::vector<ECC::Scalar::Native> vKs;
 
-		const Sigma::Cfg& cfg = Rules::get().CA.m_ProofCfg;
+		const Rules& r = Rules::get();
+		const Sigma::Cfg& cfg = r.CA.m_ProofCfg;
 		uint32_t N = cfg.get_N();
 		assert(N);
 		vKs.resize(N);
@@ -3550,8 +3608,8 @@ namespace beam
 		if (!IsValidPrepare(hGen, bc, &vKs.front()))
 			return false;
 
-		CmList lst;
-		lst.m_Begin = m_Begin;
+		CmList lst(r, hScheme);
+		lst.m_Aid0 = m_Begin;
 
 		lst.Calculate(bc.m_Sum, 0, N, &vKs.front());
 

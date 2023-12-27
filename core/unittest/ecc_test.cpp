@@ -2189,7 +2189,7 @@ void TestLelantusKeys()
 	}
 }
 
-void TestAssetProof()
+void TestAssetProof2()
 {
 	Scalar::Native sk;
 	SetRandom(sk);
@@ -2197,7 +2197,6 @@ void TestAssetProof()
 	Amount val = 400;
 
 	Point::Native genBlinded;
-
 	beam::Asset::Proof proof;
 	proof.Create(g_hFork, genBlinded, sk, val, 100500);
 	verify_test(proof.IsValid(g_hFork, genBlinded));
@@ -2207,6 +2206,17 @@ void TestAssetProof()
 
 	proof.Create(g_hFork, genBlinded, sk, val, 0);
 	verify_test(proof.IsValid(g_hFork, genBlinded));
+}
+
+void TestAssetProof()
+{
+	// before HF6
+	beam::Rules::get().pForks[6].m_Height = beam::MaxHeight;
+	TestAssetProof2();
+
+	// after HF6
+	beam::Rules::get().pForks[6].m_Height = g_hFork;
+	TestAssetProof2();
 }
 
 void TestAssetEmission()
@@ -3115,9 +3125,8 @@ int main()
 	ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
 
 	beam::Rules::get().CA.Enabled = true;
-	beam::Rules::get().pForks[1].m_Height = g_hFork;
-	beam::Rules::get().pForks[2].m_Height = g_hFork;
-	beam::Rules::get().pForks[3].m_Height = g_hFork;
+	for (uint32_t i = 0; i < _countof(beam::Rules::get().pForks); i++)
+		beam::Rules::get().pForks[i].m_Height = g_hFork;
 	ECC::TestAll();
 	ECC::RunBenchmark();
 

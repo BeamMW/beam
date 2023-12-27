@@ -186,6 +186,9 @@ namespace beam
 			void get_Generator(ECC::Point::Native&) const;
 			void get_Generator(ECC::Point::Storage&) const;
 			void get_Generator(ECC::Point::Native&, ECC::Point::Storage&) const;
+
+			void get_GeneratorSafe(ECC::Point::Storage&) const; // works for aid=0
+			static const ECC::Point::Compact& get_H();
 		};
 
 		struct Metadata
@@ -251,13 +254,6 @@ namespace beam
 
 			static void Expose(ECC::Oracle&, Height hScheme, const Ptr&);
 
-			struct CmList
-				:public Sigma::CmList
-			{
-				Asset::ID m_Begin;
-				virtual bool get_At(ECC::Point::Storage&, uint32_t iIdx) override;
-			};
-
 			void Clone(Ptr&) const;
 
 			struct BatchContext
@@ -281,8 +277,7 @@ namespace beam
 			};
 
 		private:
-			uint32_t SetBegin(Asset::ID, const ECC::Scalar::Native& skGen);
-			static const ECC::Point::Compact& get_H();
+			struct CmList;
 		};
 	};
 
