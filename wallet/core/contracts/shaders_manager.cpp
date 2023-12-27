@@ -265,14 +265,14 @@ namespace beam::wallet {
         {
             return;
         }
-
+        LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
         const auto& req = _queue.top();
         if (!req.shader.empty())
         {
             try
             {
                 compileAppShader(req.shader);
-                LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "] shader compiled";
+                LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "] shader compiled";
             }
             catch(std::exception& ex)
             {
@@ -295,7 +295,7 @@ namespace beam::wallet {
         }
 
         m_Args.clear();
-        LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "] args: " << req.args;
+        LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "] args: " << req.args;
         if (!req.args.empty())
         {
             AddArgs(req.args);
@@ -307,7 +307,7 @@ namespace beam::wallet {
             {
                 LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "] starting..." ;
                 StartRun(method);
-                LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "] completed";
+                LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "] completed";
             });
 
         m_Wallet.DoInSyncedWallet([wp = std::weak_ptr(_startEvent)]()
@@ -315,7 +315,7 @@ namespace beam::wallet {
                 LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "] ";
                 if (auto sp = wp.lock())
                 {
-                    LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "] posting event";
+                    LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "] posting event";
                     sp->post();
                 }
             });
@@ -380,7 +380,7 @@ namespace beam::wallet {
             LOG_WARNING() << "Queue has been cleared before request completed";
             return;
         }
-        LOG_DEBUG() << __FUNCTION__ << "[" << __LINE__ << "]" << ": _queue.pop()";
+        LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]" << ": _queue.pop()";
         BOOST_SCOPE_EXIT_ALL(&, this) {
             _queue.pop();
             this->nextRequest();
@@ -415,7 +415,7 @@ namespace beam::wallet {
         boost::optional<std::string> result = m_Out.str();
         if (_logResult)
         {
-            LOG_VERBOSE () << "Shader result: " << std::string_view(result ? *result : std::string()).substr(0, 200);
+            LOG_INFO () << "Shader result: " << std::string_view(result ? *result : std::string()).substr(0, 200);
         }
 
         if (m_InvokeData.m_vec.empty())

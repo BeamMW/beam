@@ -14,6 +14,7 @@
 
 #include "ManagerStd.h"
 #include "../core/serialization_adapters.h"
+#include "utility/logger.h"
 
 namespace beam {
 namespace bvm2 {
@@ -520,11 +521,14 @@ namespace bvm2 {
 
 			if (m_EnforceDependent)
 				EnsureContext();
-
+			LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
 			CallMethod(iMethod);
+			LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
 			RunSync();
+			LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
 		}
 		catch (const std::exception& exc) {
+			LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]" ;
 			OnDone(&exc);
 		}
 	}
@@ -582,11 +586,14 @@ namespace bvm2 {
 	{
 		while (!IsDone())
 		{
+			LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
 			if (IsSuspended())
 				return;
-
+			LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
 			RunOnce();
+			LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
 		}
+		LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
 		OnDone(nullptr);
 	}
 
