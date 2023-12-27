@@ -425,9 +425,6 @@ namespace beam
 				return false;
 		}
 
-		if (!(Rules::get().AllowPublicUtxos || m_Coinbase))
-			return false;
-
 		return m_pPublic->IsValid(comm, oracle, pGen);
 	}
 
