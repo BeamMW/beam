@@ -1272,7 +1272,7 @@ bool NodeProcessor::MultiAssetContext::BatchCtx::IsValid(Height hScheme, ECC::Po
 	if (hScheme >= r.pForks[6].m_Height)
 	{
 		m_Ctx.Add(0, 1, &m_vKs.front());
-		m_Ctx.Add(p.m_Begin + 1u, N - 1, &m_vKs.front());
+		m_Ctx.Add(p.m_Begin + 1u, N - 1, &m_vKs.front() + 1);
 	}
 	else
 		m_Ctx.Add(p.m_Begin, N, &m_vKs.front());
