@@ -14,6 +14,7 @@
 #include <boost/scope_exit.hpp>
 #include "shaders_manager.h"
 #include "utility/logger.h"
+#include <stacktrace>
 
 namespace beam::wallet {
 
@@ -263,6 +264,7 @@ namespace beam::wallet {
         LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
         if (_queue.empty())
         {
+            LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "] no requests";
             return;
         }
         LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
@@ -370,6 +372,7 @@ namespace beam::wallet {
 
     void ShadersManager::OnDone(const std::exception *pExc)
     {
+        LOG_INFO() << "Stacktrace: " << std::to_string(std::stacktrace::current());
         LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
         if (pExc && pExc->what() && pExc->what()[0] != 0)
         {

@@ -586,12 +586,9 @@ namespace bvm2 {
 	{
 		while (!IsDone())
 		{
-			LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
 			if (IsSuspended())
 				return;
-			LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
 			RunOnce();
-			LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
 		}
 		LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
 		OnDone(nullptr);
