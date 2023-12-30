@@ -14,7 +14,9 @@
 #include <boost/scope_exit.hpp>
 #include "shaders_manager.h"
 #include "utility/logger.h"
-#include <stacktrace>
+//#include <stacktrace>
+#define BOOST_STACKTRACE_USE_ADDR2LINE
+#include <boost/stacktrace.hpp>
 
 namespace beam::wallet {
 
@@ -372,7 +374,7 @@ namespace beam::wallet {
 
     void ShadersManager::OnDone(const std::exception *pExc)
     {
-        LOG_INFO() << "Stacktrace: " << std::to_string(std::stacktrace::current());
+        LOG_INFO() << "Stacktrace: " << boost::stacktrace::stacktrace(); //std::to_string(std::stacktrace::current());
         LOG_INFO() << __FUNCTION__ << "[" << __LINE__ << "]";
         if (pExc && pExc->what() && pExc->what()[0] != 0)
         {
