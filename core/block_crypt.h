@@ -257,23 +257,21 @@ namespace beam
 					return aid || get_AidMax(hScheme);
 				}
 
-				struct Override;
-			};
-
-			struct Params::Override
-			{
-				Asset::ID m_Prev;
-
-				Override(Asset::ID aid)
+				struct Override
 				{
-					m_Prev = s_AidMax_Override;
-					s_AidMax_Override = aid + 1;
+					Asset::ID m_Prev;
 
-				}
-				~Override()
-				{
-					s_AidMax_Override = m_Prev;
-				}
+					Override(Asset::ID aid)
+					{
+						m_Prev = s_AidMax_Override;
+						s_AidMax_Override = aid + 1;
+
+					}
+					~Override()
+					{
+						s_AidMax_Override = m_Prev;
+					}
+				};
 			};
 
 			Asset::ID m_Begin; // 1st element
