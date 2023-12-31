@@ -241,6 +241,41 @@ namespace beam
 		{
 			typedef std::unique_ptr<Proof> Ptr;
 
+			struct Params
+			{
+				static Asset::ID s_AidMax_Global;
+				static thread_local Asset::ID s_AidMax_Override;
+
+				static Asset::ID Make(Asset::ID aid, bool bHideAlways) {
+					return aid ? aid : bHideAlways ? 1 : 0;
+				}
+
+				static Asset::ID get_AidMax(Height hScheme); // returns 0 if no need to hide
+				static Asset::ID get_AidMax();
+
+				static bool IsNeeded(Asset::ID aid, Height hScheme) {
+					return aid || get_AidMax(hScheme);
+				}
+
+				struct Override;
+			};
+
+			struct Params::Override
+			{
+				Asset::ID m_Prev;
+
+				Override(Asset::ID aid)
+				{
+					m_Prev = s_AidMax_Override;
+					s_AidMax_Override = aid + 1;
+
+				}
+				~Override()
+				{
+					s_AidMax_Override = m_Prev;
+				}
+			};
+
 			Asset::ID m_Begin; // 1st element
 			ECC::Point m_hGen;
 
@@ -1184,7 +1219,7 @@ namespace beam
 			ECC::Hash::Value m_hvShieldedState;
 		} m_NotSerialized;
 
-		void Sign(Lelantus::Prover&, Asset::ID aid, bool bHideAssetAlways = true);
+		void Sign(Lelantus::Prover&, Asset::ID aids);
 
 		virtual ~TxKernelShieldedInput() {}
 		virtual Subtype::Enum get_Subtype() const override;

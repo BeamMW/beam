@@ -1983,7 +1983,7 @@ namespace beam
 					sdp.m_Output.m_User.m_Sender = 165U;
 					sdp.m_Output.m_User.m_pMessage[0] = 243U;
 					sdp.m_Output.m_User.m_pMessage[1] = 2435U;
-					sdp.GenerateOutp(pKrn->m_Txo, h + 1, oracle, true); // generate asset proof, though it's not CA
+					sdp.GenerateOutp(pKrn->m_Txo, h + 1, oracle);
 
 					pKrn->MsgToID();
 
@@ -2063,7 +2063,7 @@ namespace beam
 				ECC::SetRandom(p.m_Witness.m_R_Output);
 
 				pKrn->m_NotSerialized.m_hvShieldedState = msg.m_State1;
-				pKrn->Sign(p, 0, true); // hide asset, although it's beam
+				pKrn->Sign(p, 0);
 
 				verify_test(m_Shielded.m_Params.m_Ticket.m_SpendPk == pKrn->m_SpendProof.m_SpendPk);
 

@@ -7093,7 +7093,13 @@ namespace beam::wallet
             outputParams.m_User.m_pMessage[0] = m_pMessage[0];
             outputParams.m_User.m_pMessage[1] = m_pMessage[1];
             outputParams.Restore_kG(m_VoucherSharedSecret);
-            outputParams.Generate(nestedKernel->m_Txo, m_VoucherSharedSecret, m_Height.m_Min, oracle, m_HideAssetAlways);
+
+            {
+                Asset::Proof::Params::Override po(Asset::Proof::Params::Make(0, m_HideAssetAlways)); // KernelID should not depend on specific Asset::Proof structure, in particular the selected window.
+                // We should only know if it's present
+                
+                outputParams.Generate(nestedKernel->m_Txo, m_VoucherSharedSecret, m_Height.m_Min, oracle);
+            }
 
             nestedKernel->MsgToID();
             kernel.m_vNested.push_back(std::move(nestedKernel));

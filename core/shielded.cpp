@@ -377,7 +377,7 @@ namespace beam
 		set_kG(hvShared, kTmp);
 	}
 
-	void ShieldedTxo::Data::OutputParams::Generate(ShieldedTxo& txo, const ECC::Hash::Value& hvShared, Height hScheme, ECC::Oracle& oracle, bool bHideAssetAlways /* = false */)
+	void ShieldedTxo::Data::OutputParams::Generate(ShieldedTxo& txo, const ECC::Hash::Value& hvShared, Height hScheme, ECC::Oracle& oracle)
 	{
 		ECC::Scalar::Native pExtra[2];
 
@@ -404,7 +404,7 @@ namespace beam
 		cp.m_Blob.n = sizeof(p);
 
 		ECC::Scalar::Native skSign = m_k;
-		if (m_AssetID || bHideAssetAlways)
+		if (Asset::Proof::Params::IsNeeded(m_AssetID, hScheme))
 		{
 			ECC::Scalar::Native skGen;
 			get_skGen(skGen, hvShared);
@@ -491,9 +491,9 @@ namespace beam
 
 	/////////////
 	// Params (both)
-	void ShieldedTxo::Data::Params::GenerateOutp(ShieldedTxo& txo, Height hScheme, ECC::Oracle& oracle, bool bHideAssetAlways /* = false */)
+	void ShieldedTxo::Data::Params::GenerateOutp(ShieldedTxo& txo, Height hScheme, ECC::Oracle& oracle)
 	{
-		m_Output.Generate(txo, m_Ticket.m_SharedSecret, hScheme, oracle, bHideAssetAlways);
+		m_Output.Generate(txo, m_Ticket.m_SharedSecret, hScheme, oracle);
 	}
 	bool ShieldedTxo::Data::Params::Recover(const ShieldedTxo& txo, Height hScheme, ECC::Oracle& oracle, const Viewer& v)
 	{

@@ -491,7 +491,7 @@ namespace beam
 		bool isPublic = (OpCode::Public == eOp) || m_Coinbase;
 
 		ECC::Scalar::Native skSign = sk;
-		if (cid.m_AssetID || (!isPublic && Rules::get().IsEnabledCA(hScheme)))
+		if (cid.m_AssetID || (!isPublic && Asset::Proof::Params::get_AidMax(hScheme)))
 		{
 			ECC::Hash::Value hv;
 			if (!bUseCoinKdf)
@@ -1333,7 +1333,7 @@ namespace beam
 		s.m_InputsShielded++;
 	}
 
-	void TxKernelShieldedInput::Sign(Lelantus::Prover& p, Asset::ID aid, bool bHideAssetAlways /* = true */)
+	void TxKernelShieldedInput::Sign(Lelantus::Prover& p, Asset::ID aid)
 	{
 		ECC::Oracle oracle;
 		oracle << m_Msg;
@@ -1364,7 +1364,7 @@ namespace beam
 		if (aid)
 			Asset::Base(aid).get_Generator(hGen);
 
-		if (aid || bHideAssetAlways)
+		if (Asset::Proof::Params::IsNeeded(aid, m_Height.m_Min))
 		{
 			m_pAsset = std::make_unique<Asset::Proof>();
 			w.m_R_Adj = w.m_R_Output;
@@ -3412,6 +3412,25 @@ namespace beam
 		}
 	}
 
+	Asset::ID Asset::Proof::Params::s_AidMax_Global = 1u; // by default demand AssetProof
+
+	thread_local Asset::ID Asset::Proof::Params::s_AidMax_Override = 0;
+
+	Asset::ID Asset::Proof::Params::get_AidMax(Height hScheme)
+	{
+		if (!Rules::get().IsEnabledCA(hScheme))
+			return 0;
+
+		return get_AidMax();
+	}
+
+	Asset::ID Asset::Proof::Params::get_AidMax()
+	{
+		auto ret = s_AidMax_Override;
+		return ret ? (ret - 1) : s_AidMax_Global;
+	}
+
+
 	struct Asset::Proof::CmList
 		:public Sigma::CmList
 	{
@@ -3430,9 +3449,7 @@ namespace beam
 			return true;
 		}
 
-		void SelectWindow(Asset::ID, Asset::ID aidMax, const Rules&, const ECC::Scalar::Native& skGen);
-
-		static Asset::ID SelectWindowInternal(Asset::ID aid, Asset::ID aidMax, uint32_t N, uint32_t rnd);
+		void SelectWindow(Asset::ID, const Rules&, const ECC::Scalar::Native& skGen);
 	};
 
 	void Asset::Proof::Create(Height hScheme, ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID aid, const ECC::Hash::Value* phvSeed)
@@ -3483,7 +3500,7 @@ namespace beam
 		const Rules& r = Rules::get();
 		CmList lst(r, hScheme);
 
-		lst.SelectWindow(aid, 0, r, skGen);
+		lst.SelectWindow(aid, r, skGen);
 		m_Begin = lst.m_Aid0;
 
 		Sigma::Prover prover(lst, r.CA.m_ProofCfg, *this);
@@ -3509,7 +3526,7 @@ namespace beam
 		skInOut += k;
 	}
 
-	void Asset::Proof::CmList::SelectWindow(Asset::ID aid, Asset::ID aidMax, const Rules& r, const ECC::Scalar::Native& skGen)
+	void Asset::Proof::CmList::SelectWindow(Asset::ID aid, const Rules& r, const ECC::Scalar::Native& skGen)
 	{
 		// Randomize m_Aid0
 		m_Aid0 = 0;
@@ -3517,6 +3534,8 @@ namespace beam
 		uint32_t N = r.CA.m_ProofCfg.get_N();
 		if (N <= 1)
 			return; // should not happen
+
+		Asset::ID aidMax = Params::get_AidMax();
 
 		if (aidMax < aid)
 			aidMax = aid + N / 2; // guess
@@ -3553,24 +3572,6 @@ namespace beam
 			if (aid > nPos)
 				m_Aid0 = aid - nPos;
 		}
-	}
-
-	Asset::ID Asset::Proof::CmList::SelectWindowInternal(Asset::ID aid, Asset::ID aidMax, uint32_t N, uint32_t rnd)
-	{
-		assert(aid <= aidMax);
-		assert(N);
-		assert(aidMax > (N - 1));
-
-		rnd %= N; // index of our element within the window
-
-		if (aid < rnd)
-			return 0;
-
-		Asset::ID ret = aid - rnd;
-		if (ret + (N - 1) <= aidMax)
-			return ret;
-
-		return aidMax - (N - 1);
 	}
 
 	bool Asset::Proof::IsValidPrepare(ECC::Point::Native& hGen, ECC::InnerProduct::BatchContext& bc, ECC::Scalar::Native* pKs) const

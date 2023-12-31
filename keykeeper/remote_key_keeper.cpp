@@ -796,6 +796,8 @@ namespace beam::wallet
         {
             ECC::Scalar::Native skDummy;
             ECC::HKdf kdfDummy;
+
+            Asset::Proof::Params::Override po(m_M.m_AidMax);
             m_pOutput->Create(m_M.m_hScheme, skDummy, kdfDummy, m_M.m_Cid, *m_GetKey.m_pPKdf, e, &m_M.m_User); // Phase 3
         }
 
@@ -1019,7 +1021,9 @@ namespace beam::wallet
             proof.m_Commitment = comm;
             proof.m_SpendPk = pars.m_Ticket.m_SpendPk;
 
-            if (m_M.m_HideAssetAlways || m.m_AssetID)
+            Asset::Proof::Params::Override po(m_M.m_AidMax);
+
+            if (Asset::Proof::Params::IsNeeded(m.m_AssetID, krn.m_Height.m_Min))
             {
                 ECC::Hash::Processor()
                     << "asset-blind.sh"
@@ -1471,7 +1475,6 @@ namespace beam::wallet
 
                 msg.m_Mut.m_Peer = Ecc2BC(m_M.m_Peer);
                 msg.m_Mut.m_AddrID = m_M.m_iEndpoint;
-                msg.m_HideAssetAlways = m_M.m_HideAssetAlways;
                 Import(msg.m_User, m_M.m_User);
                 Import(msg.m_Tx.m_Krn, m_M);
 
@@ -1538,6 +1541,8 @@ namespace beam::wallet
                 op.m_User = m_M.m_User;
                 op.Restore_kG(voucher.m_SharedSecret);
 
+                Asset::Proof::Params::Override po(m_M.m_AidMax);
+
                 m_pOutp = std::make_unique<TxKernelShieldedOutput>();
                 TxKernelShieldedOutput& krn1 = *m_pOutp;
 
@@ -1548,8 +1553,10 @@ namespace beam::wallet
                 ECC::Oracle oracle;
                 oracle << krn1.m_Msg;
 
-                op.Generate(krn1.m_Txo, voucher.m_SharedSecret, m_M.m_pKernel->m_Height.m_Min, oracle, m_M.m_HideAssetAlways);
+                op.Generate(krn1.m_Txo, voucher.m_SharedSecret, m_M.m_pKernel->m_Height.m_Min, oracle);
                 krn1.MsgToID();
+
+                msg.m_HideAssetAlways = !!krn1.m_Txo.m_pAsset;
 
                 if (krn1.m_Txo.m_pAsset)
                     msg.m_ptAssetGen = Ecc2BC(krn1.m_Txo.m_pAsset->m_hGen);

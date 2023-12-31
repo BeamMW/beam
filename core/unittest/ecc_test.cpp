@@ -3127,6 +3127,9 @@ int main()
 	beam::Rules::get().CA.Enabled = true;
 	for (uint32_t i = 0; i < _countof(beam::Rules::get().pForks); i++)
 		beam::Rules::get().pForks[i].m_Height = g_hFork;
+
+	beam::Asset::Proof::Params::s_AidMax_Global = 160;
+
 	ECC::TestAll();
 	ECC::RunBenchmark();
 

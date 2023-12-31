@@ -730,7 +730,7 @@ struct Context
         ECC::GenRandom(nonce);
         sdp.m_Ticket.Generate(pKrn->m_Txo.m_Ticket, v, nonce);
 
-        sdp.GenerateOutp(pKrn->m_Txo, hr.m_Min, oracle, true);
+        sdp.GenerateOutp(pKrn->m_Txo, hr.m_Min, oracle);
         pKrn->MsgToID();
 
         //ECC::Point::Native pt;
@@ -886,7 +886,7 @@ struct Context
 
         {
             beam::Executor::Scope scope(m_Exec);
-            pKrn->Sign(p, txo.m_AssetID, true);
+            pKrn->Sign(p, txo.m_AssetID);
         };
 
         pTx->m_vKernels.push_back(std::move(pKrn));

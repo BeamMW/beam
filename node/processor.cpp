@@ -6540,7 +6540,10 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	{
 		if (bc.m_Fees)
 		{
-			bb.AddFees(bc.m_Fees, pOutp);
+			{
+				Asset::Proof::Params::Override po(get_AidMax());
+				bb.AddFees(bc.m_Fees, pOutp);
+			}
 			if (!HandleBlockElement(*pOutp, bic))
 				return 0;
 

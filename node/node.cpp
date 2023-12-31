@@ -2996,6 +2996,8 @@ void Node::AddDummyOutputs(Transaction& tx, TxPool::Stats& stats)
 
         bModified = true;
 
+        Asset::Proof::Params::Override po(m_Processor.get_AidMax());
+
         auto pOutput = std::make_unique<Output>();
         ECC::Scalar::Native sk;
         pOutput->Create(m_Processor.m_Cursor.m_ID.m_Height + 1, sk, *m_Keys.m_pMiner, cid, *m_Keys.m_pOwner);

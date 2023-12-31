@@ -299,6 +299,8 @@ namespace beam::wallet
 
         x.m_pResult.reset(new Output);
 
+        Asset::Proof::Params::Override po(x.m_AidMax);
+
         Scalar::Native sk;
         x.m_pResult->Create(x.m_hScheme, sk, *x.m_Cid.get_ChildKdf(m_pKdf), x.m_Cid, *m_pKdf, Output::OpCode::Standard, &x.m_User);
 
@@ -308,6 +310,8 @@ namespace beam::wallet
     IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::CreateInputShielded& x)
     {
         assert(x.m_pKernel && x.m_pList);
+
+        Asset::Proof::Params::Override po(x.m_AidMax);
 
         Lelantus::Prover prover(*x.m_pList, x.m_pKernel->m_SpendProof);
 
@@ -328,7 +332,7 @@ namespace beam::wallet
 
         ExecutorMT_R exec;
         Executor::Scope scope(exec);
-        x.m_pKernel->Sign(prover, x.m_AssetID, x.m_HideAssetAlways);
+        x.m_pKernel->Sign(prover, x.m_AssetID);
 
         return Status::Success;
     }
@@ -634,6 +638,8 @@ namespace beam::wallet
         if (!aggr.Aggregate(x))
             return Status::Unspecified;
 
+        Asset::Proof::Params::Override po(x.m_AidMax);
+
         assert(x.m_pKernel);
         TxKernelStd& krn = *x.m_pKernel;
 
@@ -707,7 +713,7 @@ namespace beam::wallet
         ECC::Oracle oracle;
         oracle << krn1.m_Msg;
 
-        pars.m_Output.Generate(krn1.m_Txo, pVoucher->m_SharedSecret, krn.m_Height.m_Min, oracle, x.m_HideAssetAlways);
+        pars.m_Output.Generate(krn1.m_Txo, pVoucher->m_SharedSecret, krn.m_Height.m_Min, oracle);
         krn1.MsgToID();
 
         assert(krn.m_vNested.empty());
