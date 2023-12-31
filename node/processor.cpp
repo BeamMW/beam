@@ -2590,7 +2590,7 @@ struct NodeProcessor::BlockInterpretCtx
 
 	void SetAssetHi(const NodeProcessor& np)
 	{
-		m_AssetHi = static_cast<Asset::ID>(np.m_Mmr.m_Assets.m_Count);
+		m_AssetHi = np.get_AidMax();
 	}
 
 	bool ValidateAssetRange(const Asset::Proof::Ptr& p) const

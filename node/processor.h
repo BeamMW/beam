@@ -828,6 +828,10 @@ public:
 
 	} m_Mmr;
 
+	Asset::ID get_AidMax() const {
+		return (Asset::ID) m_Mmr.m_Assets.m_Count;
+	}
+
 	TxoID get_ShieldedInputs() const {
 		return m_Mmr.m_Shielded.m_Count - m_Extra.m_ShieldedOutputs;
 	}
