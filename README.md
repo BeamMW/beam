@@ -59,10 +59,6 @@ eu-nodes.mainnet.beam.mw:8100
 
 us-nodes.mainnet.beam.mw:8100
 
-ap-nodes.mainnet.beam.mw:8100
-
-ap-hk-nodes.mainnet.beam.mw:8100
-
 ### BUILD FROM SOURCE
 
 [Building Instructions](https://github.com/BeamMW/beam/wiki/How-to-build)
