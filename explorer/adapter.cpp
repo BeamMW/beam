@@ -256,6 +256,11 @@ private:
         _quote.data += 3;
     }
 
+    void Initialize() override
+    {
+        EnsureHaveCumulativeStats();
+    }
+
     /// Returns body for /status request
     void OnSyncProgress() override {
 		const Node::SyncStatus& s = _node.m_SyncStatus;
@@ -264,8 +269,148 @@ private:
         if (_nextHook) _nextHook->OnSyncProgress();
     }
 
-    void OnStateChanged() override {
-        if (_nextHook) _nextHook->OnStateChanged();
+#pragma pack (push, 1)
+    struct Totals
+    {
+        AmountBig::Type m_Fee;
+
+        uint64_t m_Kernels; // top-level, excluding nested
+        uint64_t m_InputsMW; // outputs are known 
+
+        struct Shielded {
+            uint64_t m_Inputs;
+            uint64_t m_Outputs;
+        } m_Shielded;
+
+        struct Contract {
+            uint64_t m_Created;
+            uint64_t m_Destroyed;
+            uint64_t m_Invoked;
+        } m_Contract;
+    };
+
+    struct StateData
+    {
+        NodeProcessor::StateExtra::Full m_Extra0;
+        Totals m_Totals;
+    };
+
+#pragma pack (pop)
+
+    void EnsureHaveCumulativeStats()
+    {
+        auto& proc = _node.get_Processor();
+        auto& db = proc.get_DB();
+
+        if (proc.m_Cursor.m_Full.m_Height < Rules::HeightGenesis)
+            return;
+
+        typedef std::pair<uint64_t, NodeProcessor::StateExtra::Full> RowPlusExtra;
+        std::list<RowPlusExtra> lst;
+
+        LongAction la("Calculating totals...", proc.m_Cursor.m_Full.m_Height);
+
+        StateData sd;
+
+        for (uint64_t row = proc.m_Cursor.m_Sid.m_Row; ; )
+        {
+            uint32_t nSize = db.get_StateExtra(row, &sd, sizeof(sd)); // zero-initializes what wasn't read
+            if (nSize >= sizeof(sd))
+                break;
+
+            assert(nSize >= sizeof(NodeProcessor::StateExtra::Base));
+
+            lst.emplace_back();
+            lst.back().first = row;
+            lst.back().second = sd.m_Extra0;
+
+            if (!db.get_Prev(row))
+                break;
+
+            la.OnProgress(lst.size());
+        }
+
+        std::vector<NodeDB::StateInput> vIns;
+        TxVectors::Eternal txe;
+        ByteBuffer bbE;
+
+        la.SetTotal(lst.size());
+
+        for (; !lst.empty(); lst.pop_back())
+        {
+            la.OnProgress(la.m_Total - lst.size());
+
+            auto& x = lst.back();
+            db.get_StateInputs(x.first, vIns);
+            db.GetStateBlock(x.first, nullptr, &bbE, nullptr);
+
+            try {
+		        Deserializer der;
+		        der.reset(bbE);
+		        der & txe;
+	        }
+	        catch (const std::exception& exc0) {
+                CorruptionException exc;
+                exc.m_sErr = exc0.what();
+                throw exc;
+	        }
+
+            // update totals
+            sd.m_Totals.m_InputsMW += vIns.size();
+            sd.m_Totals.m_Kernels += txe.m_vKernels.size();
+
+            struct MyWalker
+                :public TxKernel::IWalker
+            {
+                Totals& m_Totals;
+                MyWalker(Totals& t) :m_Totals(t) {}
+
+                bool OnKrn(const TxKernel& krn) override
+                {
+                    m_Totals.m_Fee += AmountBig::Type(krn.m_Fee);
+
+                    switch (krn.get_Subtype())
+                    {
+                    case TxKernel::Subtype::ShieldedInput:
+                        m_Totals.m_Shielded.m_Inputs++;
+                        break;
+                    case TxKernel::Subtype::ShieldedOutput:
+                        m_Totals.m_Shielded.m_Outputs++;
+                        break;
+
+                    case TxKernel::Subtype::ContractCreate:
+                        m_Totals.m_Contract.m_Created++;
+                        break;
+
+                    case TxKernel::Subtype::ContractInvoke:
+                        {
+                            const auto& krnEx = krn.CastTo_ContractInvoke();
+                            ((krnEx.m_iMethod > 1u) ? m_Totals.m_Contract.m_Invoked : m_Totals.m_Contract.m_Destroyed)++;
+                        }
+                        break;
+                    }
+
+                    return true;
+                }
+
+            } wlk(sd.m_Totals);
+
+            wlk.Process(txe.m_vKernels);
+
+            sd.m_Extra0 = x.second;
+            Blob blobSd(&sd, sizeof(sd));
+
+            db.set_StateExtra(x.first, &blobSd);
+        }
+
+    }
+
+    void OnStateChanged() override
+    {
+        if (_nextHook)
+            _nextHook->OnStateChanged();
+
+        EnsureHaveCumulativeStats();
     }
 
     void OnRolledBack(const Block::SystemState::ID& id) override {

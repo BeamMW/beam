@@ -38,6 +38,8 @@ struct IAdapter {
 
     virtual ~IAdapter() = default;
 
+    virtual void Initialize() = 0; // call after node init
+
     /// Returns body for /status request
     virtual json get_status() = 0;
     virtual json get_block(uint64_t height) = 0;

@@ -107,6 +107,7 @@ public:
 			StateSetInputs,
 			StateGetInputs,
 			StateSetTxosAndExtra,
+			StateSetExtra,
 			StateSetRB,
 			StateGetTxos,
 			StateFindByTxos,
@@ -356,6 +357,7 @@ public:
 
 	void set_StateTxosAndExtra(uint64_t rowid, const TxoID*, const Blob* pExtra, const Blob* pRB);
 	void set_StateRB(uint64_t rowid, const Blob& rb);
+	void set_StateExtra(uint64_t rowid, const Blob* pExtra);
 
 	void SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE, const PeerID&);
 	void GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE, ByteBuffer* pRB);
