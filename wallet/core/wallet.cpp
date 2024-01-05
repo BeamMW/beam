@@ -1213,6 +1213,7 @@ namespace beam::wallet
     {
         // TODO: save full response?
         m_WalletDB->set_ShieldedOuts(r.m_Res.m_ShieldedOuts);
+        m_WalletDB->set_AidMax(r.m_Res.m_AssetsMax);
         if (!IsMobileNodeEnabled())
         {
             m_Extra.m_ShieldedOutputs = r.m_Res.m_ShieldedOuts;

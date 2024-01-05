@@ -1012,6 +1012,7 @@ namespace beam::wallet
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const char* kStateSummaryShieldedOutsDBPath = "StateSummaryShieldedOuts";
+        const char* kStateSummaryAssetsMaxDBPath = "StateSummaryAidMax";
         const char* kMaxPrivacyLockTimeLimitHours = "MaxPrivacyLockTimeLimitHours";
         constexpr char kIsTreasuryHandled[] = "IsTreasuryHandled";
         constexpr char kNeedToRequestBodies[] = "NeedToRequestBodies";
@@ -3064,6 +3065,19 @@ namespace beam::wallet
     {
         storage::setVar(*this, kStateSummaryShieldedOutsDBPath, val);
     }
+
+    Asset::ID IWalletDB::get_AidMax() const
+    {
+        Asset::ID ret = 0;
+        storage::getVar(*this, kStateSummaryAssetsMaxDBPath, ret);
+        return ret;
+    }
+
+    void IWalletDB::set_AidMax(Asset::ID val)
+    {
+        storage::setVar(*this, kStateSummaryAssetsMaxDBPath, val);
+    }
+
 
     uint8_t IWalletDB::get_MaxPrivacyLockTimeLimitHours() const
     {
