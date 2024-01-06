@@ -391,6 +391,9 @@ private:
                             ((krnEx.m_iMethod > 1u) ? m_Totals.m_Contract.m_Invoked : m_Totals.m_Contract.m_Destroyed)++;
                         }
                         break;
+
+                    default:
+                        break; // suppress warning
                     }
 
                     return true;
