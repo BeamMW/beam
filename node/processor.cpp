@@ -2664,34 +2664,37 @@ bool NodeProcessor::ExtractTreasury(const Blob& blob, Treasury::Data& td)
 		return false;
 	}
 
-	if (!td.IsValid())
-	{
-		LOG_WARNING() << "Treasury validation failed";
-		return false;
-	}
-
-	std::vector<Treasury::Data::Burst> vBursts = td.get_Bursts();
-
-	std::ostringstream os;
-	os << "Treasury check. Total bursts=" << vBursts.size();
-
-	for (size_t i = 0; i < vBursts.size(); i++)
-	{
-		const Treasury::Data::Burst& b = vBursts[i];
-		os << "\n\t" << "Height=" << b.m_Height << ", Value=" << b.m_Value;
-	}
-
-	LOG_INFO() << os.str();
-
 	return true;
 }
 
 bool NodeProcessor::HandleTreasury(const Blob& blob)
 {
 	assert(!IsTreasuryHandled());
+
 	Treasury::Data td;
 	if (!ExtractTreasury(blob, td))
 		return false;
+
+	if (!td.IsValid())
+	{
+		LOG_WARNING() << "Treasury validation failed";
+		return false;
+	}
+
+	{
+		std::vector<Treasury::Data::Burst> vBursts = td.get_Bursts();
+
+		std::ostringstream os;
+		os << "Treasury check. Total bursts=" << vBursts.size();
+
+		for (size_t i = 0; i < vBursts.size(); i++)
+		{
+			const Treasury::Data::Burst& b = vBursts[i];
+			os << "\n\t" << "Height=" << b.m_Height << ", Value=" << b.m_Value;
+		}
+
+		LOG_INFO() << os.str();
+	}
 
 	BlockInterpretCtx bic(0, true);
 	BlockInterpretCtx::ChangesFlush cf(*this);
